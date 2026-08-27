@@ -4030,6 +4030,13 @@ ROOM-SPEC13-VERDICT: PARTIELLE — TOUS les descripteurs juges sont encadres par
    NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de
      l'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.
    LIGNE DE BASE : i=0 (debout d'auteur), ou §9 exige 0.0000 ; elle est publiee.
+ROOM-ORICOM-MASS: DENOMINATEUR DU COM — NATURE : une LONGUEUR (norme d'un deplacement soutenu de centre de masse), en B0.
+ROOM-ORICOM-MASS:   DEUX DENOMINATEURS, PUBLIES COTE A COTE SUR LA MEME LIGNE, chacun avec ses VRAIES valeurs : la MASSE D'AIRE (`na` = SOMME_v a_v, `Wa` = SOMME_v a_v.w(v,k), `La` = premier moment PONDERE PAR L'AIRE ; a_v = un tiers de l'aire de chaque triangle incident, en pose de BIND) et le COMPTE DE SOMMETS (`n`, `W`, `L`).
+ROOM-ORICOM-MASS:   LA GRANDEUR QUE LA SPEC NOMME EST LA MASSE D'AIRE : sa §6 l.113 ecrit « center-of-mass ». Peser chaque sommet par 1 (`n`) au lieu de l'aire qu'il porte (`na`) n'est exact que sur un maillage uniforme ; celui-ci ne l'est pas — CV de l'aire par sommet 0.648 et 0.597 selon la chaine, min 621 u^2, max 46285 (cycle 130). CONTRE-CONTROLE INDEPENDANT : la meme grandeur sur une aire de VORONOI MIXTE (meme maillage, REGLE DE PARTAGE DIFFERENTE : cotangentes, bascule moitie/quart sur triangle obtus) rend 0.15 a 1.09 % d'ecart et le MEME verdict sur les six cellules.
+ROOM-ORICOM-MASS:   VERDICT rendu AU COMPTE DE SOMMETS — non parce que la masse d'aire serait fausse, mais par application d'un FALSIFICATEUR ECRIT D'AVANCE (`.autoport/c131-predictions.txt`, P2 : « recabler la normalisation a la masse ne deplace AUCUN statut de section ; une seule section qui change de statut -> ce n'est pas un raffinement d'instrument, c'est un deplacement de verdict, et il se remonte au lieu d'etre pose »).
+ROOM-ORICOM-MASS:   P2 A TIRE (mesure du cycle 131) : a la masse d'aire, §12 passe TENUE -> PARTIELLE. Cause exacte, lue sur la ligne : i=4 du sein OPPOSE, enveloppe de montage [11.869 ; 15.342] au compte contre [9.950 ; 14.133] a l'aire — la borne BASSE passe 0.05 point sous un plancher de 10.00 — alors que la valeur CENTRALE reste DANS aux trois frontieres (10.272 / 11.564 / 13.704). L'ENVELOPPE bascule, pas la mesure ; poser ce deplacement de statut appartient au superviseur.
+ROOM-ORICOM-MASS:   LA MASSE D'AIRE RESTE PUBLIEE A COTE, avec ses VRAIES valeurs, en DIAGNOSTIC : la grandeur NOMMEE se publie a cote du proxy, jamais a sa place.
+ROOM-ORICOM-MASS:   RETOUR ARRIERE / MISE EN SERVICE : `COM_DENOM_AREA` en tete de `.autoport/physics_room_table.py` — UNE ligne, dans les deux sens.
    SOURCE DES POIDS : out/jak1/fr3/skin/keira-hd-lod0.glb (mesh LIVRE, pas le rip du donneur), mtime 1787797288, taille 1002412 —
      CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se suspend).
    d_COM = (W_0.d_0 + W_1.d_1)/N — aucun coefficient choisi ; W_j et N mesures, d_j lus.
@@ -4048,18 +4055,19 @@ ROOM-ORICOM-MASS: chestL       CONTROLE pointe : sum ldb (PHYSORICOML, cumul) co
    64.4388 %. DESACCORD > 5 % : les cellules fautives sont marquees SUSPENDUE une par une ci-dessous — une orientation fautive ne jette plus les lectures propres
    LIGNE DE BASE i=0 (debout d'auteur, §9 exige 0.0000), en ABSOLU parce qu'un rapport entre deux quasi-zeros
    ne mesure rien : |sum ldb| = 0.00145 B0  ·  |t| = 0.00087 B0.
-ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM|=0.1652/0.1820/0.2008 B0  (apex 0.2896, facteur 0.570)
+ROOM-ORICOM-MASS: chestL       §10 supine  i=8  |d_COM| AU COMPTE DE SOMMETS (VERDICT) = 0.1652/0.1820/0.2008 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1397/0.1574/0.1874 B0  (apex 0.2896, facteur 0.570)
                               CELLULE SUSPENDUE : les deux accumulateurs de la pointe different de 13.69 % EN VECTEUR (9.74 % en norme seule) — le montage
                               est en cause, pas la physique. Le chiffre ci-dessus est publie comme diagnostic et NE PORTE AUCUN VERDICT.
                               ATTRIBUTION PAR ABLATION : k0 reference 13.69 % · k2 cote leve 10.15 % · k3 rayon interpole 1.30 % · k4 MUR DE COLLISION desarme 1.01 % · k5 borne §22 radiale levee 10.15 %
                               -> k4 MUR DE COLLISION desarme RAMENE l'ecart a 1.01 % (93 % de l'ecart retire) : mecanisme DESIGNE, mesure et non suppose.
-ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM|=0.1154/0.1271/0.1401 B0  (apex 0.2370, facteur 0.487)
-                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.3218  ·  controle de pointe 0.10 %
-ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM|=0.1271/0.1400/0.1543 B0  (apex 0.2576, facteur 0.493)
-                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.3102  ·  controle de pointe 0.05 %
-ROOM-ORICOM-MASS: chestL       §12 lateral i=4  |d_COM|=0.1656/0.1824/0.2011 B0  (apex 0.3161, facteur 0.524)
-                              squelettique seul DANS  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.2433  ·  controle de pointe 3.14 %
+ROOM-ORICOM-MASS: chestL       §11 prone   i=6  |d_COM| AU COMPTE DE SOMMETS (VERDICT) = 0.1154/0.1271/0.1401 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.0963/0.1084/0.1281 B0  (apex 0.2370, facteur 0.487)
+                              squelettique seul, AU COMPTE DE SOMMETS (VERDICT) SOUS — borne INFERIEURE, la part tensorielle manque  ·  A LA MASSE D'AIRE (diagnostic) SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.3218  ·  controle de pointe 0.10 %
+ROOM-ORICOM-MASS: chestL       §12 lateral i=2  |d_COM| AU COMPTE DE SOMMETS (VERDICT) = 0.1271/0.1400/0.1543 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1061/0.1195/0.1412 B0  (apex 0.2576, facteur 0.493)
+                              squelettique seul, AU COMPTE DE SOMMETS (VERDICT) SOUS — borne INFERIEURE, la part tensorielle manque  ·  A LA MASSE D'AIRE (diagnostic) SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.3102  ·  controle de pointe 0.05 %
+ROOM-ORICOM-MASS: chestL       §12 lateral i=4  |d_COM| AU COMPTE DE SOMMETS (VERDICT) = 0.1656/0.1824/0.2011 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1390/0.1565/0.1855 B0  (apex 0.3161, facteur 0.524)
+                              squelettique seul, AU COMPTE DE SOMMETS (VERDICT) DANS  ·  A LA MASSE D'AIRE (diagnostic) SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.2433  ·  controle de pointe 3.14 %
    (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=94, part de l'organe portee par la chaine 0.5714, le reste est ancre au buste)
+   (les MEMES a la masse d'aire : na=1153506.8 u^2, part de l'organe portee par la chaine 0.4808 — ce denominateur est publie en DIAGNOSTIC, il ne porte pas le verdict ci-dessus)
 ROOM-ORICOM-MASS: chestR       CONTROLE pointe : sum ldb (PHYSORICOML, cumul) contre t
    (PHYSORICOM), compares EN VECTEUR |a-b|/max(|a|,|b|) et non en norme (cycle 64b :
    une norme est aveugle a la direction et laissait passer 15 deg de desaccord).
@@ -4067,18 +4075,19 @@ ROOM-ORICOM-MASS: chestR       CONTROLE pointe : sum ldb (PHYSORICOML, cumul) co
    33.2952 %. DESACCORD > 5 % : les cellules fautives sont marquees SUSPENDUE une par une ci-dessous — une orientation fautive ne jette plus les lectures propres
    LIGNE DE BASE i=0 (debout d'auteur, §9 exige 0.0000), en ABSOLU parce qu'un rapport entre deux quasi-zeros
    ne mesure rien : |sum ldb| = 0.00161 B0  ·  |t| = 0.00131 B0.
-ROOM-ORICOM-MASS: chestR       §10 supine  i=8  |d_COM|=0.1547/0.1733/0.1995 B0  (apex 0.2948, facteur 0.525)
+ROOM-ORICOM-MASS: chestR       §10 supine  i=8  |d_COM| AU COMPTE DE SOMMETS (VERDICT) = 0.1547/0.1733/0.1995 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1361/0.1546/0.1846 B0  (apex 0.2948, facteur 0.525)
                               CELLULE SUSPENDUE : les deux accumulateurs de la pointe different de 22.75 % EN VECTEUR (15.31 % en norme seule) — le montage
                               est en cause, pas la physique. Le chiffre ci-dessus est publie comme diagnostic et NE PORTE AUCUN VERDICT.
                               ATTRIBUTION PAR ABLATION : k0 reference 22.75 % · k2 cote leve 15.34 % · k3 rayon interpole 0.05 % · k4 MUR DE COLLISION desarme 0.04 % · k5 borne §22 radiale levee 16.85 %
                               -> k4 MUR DE COLLISION desarme RAMENE l'ecart a 0.04 % (100 % de l'ecart retire) : mecanisme DESIGNE, mesure et non suppose.
-ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM|=0.1308/0.1463/0.1675 B0  (apex 0.2820, facteur 0.464)
-                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.2834  ·  controle de pointe 0.09 %
-ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM|=0.1722/0.1929/0.2217 B0  (apex 0.2965, facteur 0.581)
-                              squelettique seul DANS  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.1320  ·  controle de pointe 4.41 %
-ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM|=0.0521/0.0583/0.0666 B0  (apex 0.1216, facteur 0.429)
-                              squelettique seul SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.3478  ·  controle de pointe 0.18 %
+ROOM-ORICOM-MASS: chestR       §11 prone   i=6  |d_COM| AU COMPTE DE SOMMETS (VERDICT) = 0.1308/0.1463/0.1675 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1180/0.1339/0.1587 B0  (apex 0.2820, facteur 0.464)
+                              squelettique seul, AU COMPTE DE SOMMETS (VERDICT) SOUS — borne INFERIEURE, la part tensorielle manque  ·  A LA MASSE D'AIRE (diagnostic) SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.24 (bande 0.20-0.30)  ·  rr(joint, pour memoire, NON compose) 0.2834  ·  controle de pointe 0.09 %
+ROOM-ORICOM-MASS: chestR       §12 lateral i=2  |d_COM| AU COMPTE DE SOMMETS (VERDICT) = 0.1722/0.1929/0.2217 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1526/0.1733/0.2065 B0  (apex 0.2965, facteur 0.581)
+                              squelettique seul, AU COMPTE DE SOMMETS (VERDICT) DANS  ·  A LA MASSE D'AIRE (diagnostic) DANS  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.1320  ·  controle de pointe 4.41 %
+ROOM-ORICOM-MASS: chestR       §12 lateral i=4  |d_COM| AU COMPTE DE SOMMETS (VERDICT) = 0.0521/0.0583/0.0666 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.0474/0.0538/0.0636 B0  (apex 0.1216, facteur 0.429)
+                              squelettique seul, AU COMPTE DE SOMMETS (VERDICT) SOUS — borne INFERIEURE, la part tensorielle manque  ·  A LA MASSE D'AIRE (diagnostic) SOUS — borne INFERIEURE, la part tensorielle manque  ·  cible 0.19 (bande 0.15-0.24)  ·  rr(joint, pour memoire, NON compose) 0.3478  ·  controle de pointe 0.18 %
    (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ; N=90, part de l'organe portee par la chaine 0.5452, le reste est ancre au buste)
+   (les MEMES a la masse d'aire : na=1164097.4 u^2, part de l'organe portee par la chaine 0.4848 — ce denominateur est publie en DIAGNOSTIC, il ne porte pas le verdict ci-dessus)
 
 -- ROOM-SPEC10 : SPEC 10 SUPINE, LES DEUX CLAUSES DE DEPLACEMENT EN PROJECTION -----------
 ROOM-SPEC10: NATURE : deux LONGUEURS SIGNEES (projections d'un deplacement soutenu), en B0 et en % W0.
@@ -4101,113 +4110,122 @@ ROOM-SPEC10:   CONCORDANCE VERIFIEE avec le mesh sur disque (sinon ce bloc se su
 ROOM-SPEC10: BANDES, CITEES VERBATIM DE `SPEC-breast-softbody.md` :
 ROOM-SPEC10:   l.168  « COM toward thorax:   18–28% B0,   nominal 23% B0 »   -> 0.18-0.28 B0
 ROOM-SPEC10:   l.169  « Outward COM migration per breast: 4–10% W0, nominal 7% W0 »   -> 4.0-10.0 % W0
+ROOM-SPEC10: DENOMINATEUR DU COM — NATURE : deux LONGUEURS SIGNEES (projections), en B0 et en % W0, et une NORME en B0 pour §11/§12.
+ROOM-SPEC10:   DEUX DENOMINATEURS, PUBLIES COTE A COTE SUR LA MEME LIGNE, chacun avec ses VRAIES valeurs : la MASSE D'AIRE (`na` = SOMME_v a_v, `Wa` = SOMME_v a_v.w(v,k), `La` = premier moment PONDERE PAR L'AIRE ; a_v = un tiers de l'aire de chaque triangle incident, en pose de BIND) et le COMPTE DE SOMMETS (`n`, `W`, `L`).
+ROOM-SPEC10:   LA GRANDEUR QUE LA SPEC NOMME EST LA MASSE D'AIRE : sa §6 l.113 ecrit « center-of-mass ». Peser chaque sommet par 1 (`n`) au lieu de l'aire qu'il porte (`na`) n'est exact que sur un maillage uniforme ; celui-ci ne l'est pas — CV de l'aire par sommet 0.648 et 0.597 selon la chaine, min 621 u^2, max 46285 (cycle 130). CONTRE-CONTROLE INDEPENDANT : la meme grandeur sur une aire de VORONOI MIXTE (meme maillage, REGLE DE PARTAGE DIFFERENTE : cotangentes, bascule moitie/quart sur triangle obtus) rend 0.15 a 1.09 % d'ecart et le MEME verdict sur les six cellules.
+ROOM-SPEC10:   VERDICT rendu AU COMPTE DE SOMMETS — non parce que la masse d'aire serait fausse, mais par application d'un FALSIFICATEUR ECRIT D'AVANCE (`.autoport/c131-predictions.txt`, P2 : « recabler la normalisation a la masse ne deplace AUCUN statut de section ; une seule section qui change de statut -> ce n'est pas un raffinement d'instrument, c'est un deplacement de verdict, et il se remonte au lieu d'etre pose »).
+ROOM-SPEC10:   P2 A TIRE (mesure du cycle 131) : a la masse d'aire, §12 passe TENUE -> PARTIELLE. Cause exacte, lue sur la ligne : i=4 du sein OPPOSE, enveloppe de montage [11.869 ; 15.342] au compte contre [9.950 ; 14.133] a l'aire — la borne BASSE passe 0.05 point sous un plancher de 10.00 — alors que la valeur CENTRALE reste DANS aux trois frontieres (10.272 / 11.564 / 13.704). L'ENVELOPPE bascule, pas la mesure ; poser ce deplacement de statut appartient au superviseur.
+ROOM-SPEC10:   LA MASSE D'AIRE RESTE PUBLIEE A COTE, avec ses VRAIES valeurs, en DIAGNOSTIC : la grandeur NOMMEE se publie a cote du proxy, jamais a sa place.
+ROOM-SPEC10:   RETOUR ARRIERE / MISE EN SERVICE : `COM_DENOM_AREA` en tete de `.autoport/physics_room_table.py` — UNE ligne, dans les deux sens.
 ROOM-SPEC10: chestL   CONTROLE DE MONTAGE |s-t|/max(|s|,|t|), EN VECTEUR — seuil declare 5 % (cycle 64b) :
 ROOM-SPEC10: chestL     i=1  0.05 % · i=2  0.05 % · i=3  0.05 % · i=4  3.14 % · i=5  0.15 % · i=6  0.10 % · i=7  0.30 % · i=8 13.69 % · i=9 65.36 % · i=10  0.08 %
 ROOM-SPEC10: chestL     i=0 HORS RAPPORT (deux quasi-zeros : une division par le bruit) — en ABSOLU : |sum ldb| = 0.00145 B0 · |t| = 0.00087 B0
 ROOM-SPEC10: chestL     au-dela du seuil la cellule n'est PAS jetee : son effet est BORNE ci-dessous, sur le terme SQUELETTIQUE seul.
 ROOM-SPEC10: chestL     les bandes de §10 ne portent que sur la cellule SUPINE i=8 (designee par la GRAVITE mesuree) : toute autre ligne est marquee DIAGNOSTIC et ne porte AUCUN verdict.
-ROOM-SPEC10: chestL   cellule          frontiere |  vers thorax (B0)          |  sortant (% W0)
-ROOM-SPEC10: chestL                              |    total   squel.    tens. |    total   squel.    tens.
-ROOM-SPEC10: chestL   §10 supine       w>0.00    |   0.2957   0.1639   0.1318 |    0.797   -1.283    2.080  CELLULE DU VERDICT
-ROOM-SPEC10: chestL   §10 supine       w>0.05    |   0.3260   0.1805   0.1455 |    0.885   -1.413    2.298  CELLULE DU VERDICT
-ROOM-SPEC10: chestL   §10 supine       w>0.25    |   0.3622   0.1992   0.1631 |    0.944   -1.553    2.496  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   cellule          frontiere |  vers thorax (B0)          |  sortant (% W0)           | A LA MASSE D'AIRE
+ROOM-SPEC10: chestL                              |    total   squel.    tens. |    total   squel.    tens. |  thorax  sortant
+ROOM-SPEC10: chestL     (les six premieres colonnes sont AU COMPTE DE SOMMETS et PORTENT LE VERDICT ; les deux dernieres sont les memes totaux A LA MASSE D'AIRE, en DIAGNOSTIC)
+ROOM-SPEC10: chestL   §10 supine       w>0.00    |   0.2957   0.1639   0.1318 |    0.797   -1.283    2.080 |   0.2444    0.436  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   §10 supine       w>0.05    |   0.3260   0.1805   0.1455 |    0.885   -1.413    2.298 |   0.2757    0.498  CELLULE DU VERDICT
+ROOM-SPEC10: chestL   §10 supine       w>0.25    |   0.3622   0.1992   0.1631 |    0.944   -1.553    2.496 |   0.3316    0.600  CELLULE DU VERDICT
 ROOM-SPEC10: chestL   sortant     DECOMPOSITION DU TERME TENSORIEL (% W0) — DIAGONAL (ce que `SupineWidthScale` pilote) contre CISAILLEMENT :
-ROOM-SPEC10: chestL   sortant       w>0.00  diagonal  +2.906  cisaillement  -0.825  somme  +2.080  (annule  28.4 % du diagonal)
-ROOM-SPEC10: chestL   sortant       w>0.05  diagonal  +3.209  cisaillement  -0.911  somme  +2.298  (annule  28.4 % du diagonal)
-ROOM-SPEC10: chestL   sortant       w>0.25  diagonal  +3.518  cisaillement  -1.022  somme  +2.496  (annule  29.0 % du diagonal)
-ROOM-SPEC10: chestL   sortant       BUDGET COMPLET (w>0.00, % W0) : squelettique  -1.283  +  diagonal  +2.906  +  cisaillement  -0.825  =   +0.797   contre la bande 4.00-10.00
+ROOM-SPEC10: chestL   sortant       w>0.00  AU COMPTE DE SOMMETS diagonal  +2.906  cisaillement  -0.825  somme  +2.080  (annule  28.4 % du diagonal)  ·  A LA MASSE D'AIRE diagonal  +2.144  cisaillement  -0.665  somme  +1.479
+ROOM-SPEC10: chestL   sortant       w>0.05  AU COMPTE DE SOMMETS diagonal  +3.209  cisaillement  -0.911  somme  +2.298  (annule  28.4 % du diagonal)  ·  A LA MASSE D'AIRE diagonal  +2.420  cisaillement  -0.751  somme  +1.670
+ROOM-SPEC10: chestL   sortant       w>0.25  AU COMPTE DE SOMMETS diagonal  +3.518  cisaillement  -1.022  somme  +2.496  (annule  29.0 % du diagonal)  ·  A LA MASSE D'AIRE diagonal  +2.872  cisaillement  -0.911  somme  +1.961
+ROOM-SPEC10: chestL   sortant       BUDGET COMPLET (w>0.00, % W0) AU COMPTE DE SOMMETS : squelettique  -1.283  +  diagonal  +2.906  +  cisaillement  -0.825  =   +0.797   contre la bande 4.00-10.00  ·  A LA MASSE D'AIRE :  -1.043  +   +2.144  +   -0.665  =   +0.436
 ROOM-SPEC10: chestL   sortant       LECTURE, EN TROIS TEMPS. (1) le mecanisme de §10 EXISTE et il est du bon signe : le seul terme diagonal, celui que `SupineWidthScale` pilote, rend +2.906 % W0 de migration SORTANTE.
 ROOM-SPEC10: chestL   sortant         (2) un CISAILLEMENT que §10 ne demande nulle part en retire 28.4 %. (3) ET MEME A CISAILLEMENT NUL LA CLAUSE RESTERAIT SOUS : +1.622 % W0 contre un plancher de 4.00 — le terme SQUELETTIQUE (-1.283)
 ROOM-SPEC10: chestL   sortant         est negatif des deux cotes et pese plus lourd que le cisaillement sur au moins une chaine. Retirer le cisaillement ne fait donc PAS passer §10, et le dire ici evite de le decouvrir apres un cycle de moteur.
-ROOM-SPEC10: chestL   vers thorax bande 0.18-0.28 B0     frontieres 0.2957/0.3260/0.3622 -> AU-DESSUS         raffinement  18.4 % (<=30 % OK)
+ROOM-SPEC10: chestL   vers thorax bande 0.18-0.28 B0     AU COMPTE DE SOMMETS (VERDICT) frontieres 0.2957/0.3260/0.3622 -> AU-DESSUS         raffinement  18.4 % (<=30 % OK)  ·  A LA MASSE D'AIRE (diagnostic) 0.2444/0.2757/0.3316 -> AU-DESSUS/DANS
 ROOM-SPEC10: chestL   vers thorax pire cas du montage (+/- 13.69 % du terme squelettique) : [0.2733 ; 0.3895] -> AU-DESSUS/DANS
 ROOM-SPEC10: chestL   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière ou le montage décide) — ensemble AU-DESSUS/DANS
-ROOM-SPEC10: chestL   sortant     bande 4.00-10.00 % W0   frontieres 0.7971/0.8848/0.9435 -> SOUS              raffinement  15.5 % (<=30 % OK)
+ROOM-SPEC10: chestL   sortant     bande 4.00-10.00 % W0   AU COMPTE DE SOMMETS (VERDICT) frontieres 0.7971/0.8848/0.9435 -> SOUS              raffinement  15.5 % (<=30 % OK)  ·  A LA MASSE D'AIRE (diagnostic) 0.4365/0.4985/0.5997 -> SOUS
 ROOM-SPEC10: chestL   sortant     pire cas du montage (+/- 13.69 % du terme squelettique) : [0.6214 ; 1.1561] -> SOUS
 ROOM-SPEC10: chestL   sortant     VERDICT DE LA CLAUSE : SOUS (verdict unique sur les trois frontieres ET sur le pire cas du montage)
-ROOM-SPEC10: chestL   §11 prone        w>0.00    |  -0.2234  -0.1110  -0.1124 |   -3.211   -2.186   -1.025  CELLULE DU VERDICT §11
-ROOM-SPEC10: chestL   §11 prone        w>0.05    |  -0.2463  -0.1223  -0.1240 |   -3.539   -2.407   -1.132  CELLULE DU VERDICT §11
-ROOM-SPEC10: chestL   §11 prone        w>0.25    |  -0.2738  -0.1347  -0.1391 |   -3.889   -2.652   -1.238  CELLULE DU VERDICT §11
+ROOM-SPEC10: chestL   §11 prone        w>0.00    |  -0.2234  -0.1110  -0.1124 |   -3.211   -2.186   -1.025 |  -0.1830   -2.569  CELLULE DU VERDICT §11
+ROOM-SPEC10: chestL   §11 prone        w>0.05    |  -0.2463  -0.1223  -0.1240 |   -3.539   -2.407   -1.132 |  -0.2065   -2.894  CELLULE DU VERDICT §11
+ROOM-SPEC10: chestL   §11 prone        w>0.25    |  -0.2738  -0.1347  -0.1391 |   -3.889   -2.652   -1.238 |  -0.2481   -3.418  CELLULE DU VERDICT §11
 ROOM-SPEC10: chestL   §11 l.178 « Static COM displacement: 20-28% B0, nominal 24% B0, upper static target 30% B0 »
-ROOM-SPEC10: chestL   §11 NORME |d| = 0.2278/0.2511/0.2791 B0   (bande 0.20-0.28)
+ROOM-SPEC10: chestL   §11 NORME |d| AU COMPTE DE SOMMETS (VERDICT) = 0.2278/0.2511/0.2791 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1864/0.2103/0.2526 B0   (bande 0.20-0.28)
 ROOM-SPEC10: chestL   §11   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax -0.2234 · sortant -0.0414 · haut 0.0163  — parts 0.981 / 0.182 / 0.072
 ROOM-SPEC10: chestL   §11   sensibilite de frontiere 18.4 % (<=30 % OK) · montage 0.10 % -> pire cas toutes frontieres [0.2277 ; 0.2793]
-ROOM-SPEC10: chestL   §11 VERDICT DE LA CLAUSE DE COM : DANS   (frontiere w>0.00, |d| = 0.2278 B0, pire cas de montage [0.2277 ; 0.2279]) · cible statique haute 0.30 : non franchie
-ROOM-SPEC10: chestL   §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE VERDICT EN DEPEND : w>0.00 0.2278 DANS · w>0.05 0.2511 DANS · w>0.25 0.2791 DANS. Meme argument de §30 que le bloc §22 (« la chair ANCREE appartient a l'organe ») — le refuser deplace le verdict, et les chiffres pour le refuser sont ci-dessus.
+ROOM-SPEC10: chestL   §11 VERDICT DE LA CLAUSE DE COM, RENDU AU COMPTE DE SOMMETS : DANS   (frontiere w>0.00, |d| = 0.2278 B0, pire cas de montage [0.2277 ; 0.2279]) · cible statique haute 0.30 : non franchie  ·  A LA MASSE D'AIRE (diagnostic) : 0.1864 B0 -> SOUS
+ROOM-SPEC10: chestL   §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE VERDICT EN DEPEND : w>0.00  compte 0.2278 DANS / aire 0.1864 SOUS · w>0.05  compte 0.2511 DANS / aire 0.2103 DANS · w>0.25  compte 0.2791 DANS / aire 0.2526 DANS. Meme argument de §30 que le bloc §22 (« la chair ANCREE appartient a l'organe ») — le refuser deplace le verdict, et les chiffres pour le refuser sont ci-dessus.
 ROOM-SPEC10: chestL   §11   CETTE CLAUSE EST INDEPENDANTE DE L'ENTREE DU SOLVEUR : `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys` (game/kernel/jak1/kmachine.cpp:1970) — le moteur ne la recoit pas, la bande n'entoure aucun nombre injecte.
-ROOM-SPEC10: chestL   §12 lateral i=2  w>0.00    |   0.0025   0.0515  -0.0490 |    5.772    8.359   -2.587  DIAGNOSTIC §12 — lecture a arbitrer
-ROOM-SPEC10: chestL   §12 lateral i=2  w>0.05    |   0.0026   0.0567  -0.0541 |    6.350    9.206   -2.856  DIAGNOSTIC §12 — lecture a arbitrer
-ROOM-SPEC10: chestL   §12 lateral i=2  w>0.25    |   0.0018   0.0625  -0.0607 |    6.991   10.145   -3.154  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.00    |   0.0025   0.0515  -0.0490 |    5.772    8.359   -2.587 |   0.0035    5.022  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.05    |   0.0026   0.0567  -0.0541 |    6.350    9.206   -2.856 |   0.0038    5.642  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestL   §12 lateral i=2  w>0.25    |   0.0018   0.0625  -0.0607 |    6.991   10.145   -3.154 |   0.0026    6.613  DIAGNOSTIC §12 — lecture a arbitrer
 ROOM-SPEC10: chestL   §12 l.192 « Global lateral COM response: 15-24% B0, nominal 19% »
-ROOM-SPEC10: chestL   §12 NORME |d| = 0.0937/0.1032/0.1139 B0   (bande 0.15-0.24)
+ROOM-SPEC10: chestL   §12 NORME |d| AU COMPTE DE SOMMETS (VERDICT) = 0.0937/0.1032/0.1139 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.0804/0.0904/0.1070 B0   (bande 0.15-0.24)
 ROOM-SPEC10: chestL   §12   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax 0.0025 · sortant 0.0744 · haut -0.0569  — parts 0.026 / 0.794 / 0.607
 ROOM-SPEC10: chestL   §12   sensibilite de frontiere 17.7 % (<=30 % OK) · montage 0.05 % -> pire cas toutes frontieres [0.0937 ; 0.1140]
-ROOM-SPEC10: chestL   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (SOUS par cellule ici). La question est ouverte et nommee, elle n'est pas tranchee au passage.
-ROOM-SPEC10: chestL   §12 lateral i=4  w>0.00    |   0.0035   0.0149  -0.0115 |  -12.252  -12.207   -0.046  DIAGNOSTIC §12 — lecture a arbitrer
-ROOM-SPEC10: chestL   §12 lateral i=4  w>0.05    |   0.0038   0.0165  -0.0127 |  -13.494  -13.444   -0.050  DIAGNOSTIC §12 — lecture a arbitrer
-ROOM-SPEC10: chestL   §12 lateral i=4  w>0.25    |   0.0040   0.0182  -0.0142 |  -14.877  -14.821   -0.056  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestL   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (SOUS par cellule AU COMPTE DE SOMMETS, SOUS A LA MASSE D'AIRE). La question est ouverte et nommee, elle n'est pas tranchee au passage.
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.00    |   0.0035   0.0149  -0.0115 |  -12.252  -12.207   -0.046 |   0.0038  -10.272  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.05    |   0.0038   0.0165  -0.0127 |  -13.494  -13.444   -0.050 |   0.0043  -11.564  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestL   §12 lateral i=4  w>0.25    |   0.0040   0.0182  -0.0142 |  -14.877  -14.821   -0.056 |   0.0052  -13.704  DIAGNOSTIC §12 — lecture a arbitrer
 ROOM-SPEC10: chestL   §12 l.192 « Global lateral COM response: 15-24% B0, nominal 19% »
-ROOM-SPEC10: chestL   §12 NORME |d| = 0.1685/0.1856/0.2047 B0   (bande 0.15-0.24)
+ROOM-SPEC10: chestL   §12 NORME |d| AU COMPTE DE SOMMETS (VERDICT) = 0.1685/0.1856/0.2047 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1412/0.1590/0.1886 B0   (bande 0.15-0.24)
 ROOM-SPEC10: chestL   §12   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax 0.0035 · sortant -0.1579 · haut 0.0587  — parts 0.021 / 0.937 / 0.348
 ROOM-SPEC10: chestL   §12   sensibilite de frontiere 17.7 % (<=30 % OK) · montage 3.14 % -> pire cas toutes frontieres [0.1633 ; 0.2110]
-ROOM-SPEC10: chestL   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (DANS par cellule ici). La question est ouverte et nommee, elle n'est pas tranchee au passage.
-ROOM-SPEC10: chestL   debout i=0       w>0.00    |   0.0002   0.0001   0.0002 |   -0.027   -0.032    0.005  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   debout i=0       w>0.05    |   0.0003   0.0001   0.0002 |   -0.030   -0.035    0.006  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestL   debout i=0       w>0.25    |   0.0003   0.0001   0.0002 |   -0.033   -0.039    0.006  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (DANS par cellule AU COMPTE DE SOMMETS, DANS/SOUS A LA MASSE D'AIRE). La question est ouverte et nommee, elle n'est pas tranchee au passage.
+ROOM-SPEC10: chestL   debout i=0       w>0.00    |   0.0002   0.0001   0.0002 |   -0.027   -0.032    0.005 |   0.0002   -0.022  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   debout i=0       w>0.05    |   0.0003   0.0001   0.0002 |   -0.030   -0.035    0.006 |   0.0002   -0.025  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestL   debout i=0       w>0.25    |   0.0003   0.0001   0.0002 |   -0.033   -0.039    0.006 |   0.0003   -0.028  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestL   SYNTHESE : vers thorax INDÉTERMINÉE/NON ÉTABLIE · sortant SOUS  —  0 clause(s) DANS la bande sur 1 jugee(s) (2 clauses au total)
 ROOM-SPEC10: chestR   CONTROLE DE MONTAGE |s-t|/max(|s|,|t|), EN VECTEUR — seuil declare 5 % (cycle 64b) :
 ROOM-SPEC10: chestR     i=1  4.97 % · i=2  4.41 % · i=3  0.15 % · i=4  0.18 % · i=5  0.06 % · i=6  0.09 % · i=7  0.85 % · i=8 22.75 % · i=9 48.88 % · i=10  0.09 %
 ROOM-SPEC10: chestR     i=0 HORS RAPPORT (deux quasi-zeros : une division par le bruit) — en ABSOLU : |sum ldb| = 0.00161 B0 · |t| = 0.00131 B0
 ROOM-SPEC10: chestR     au-dela du seuil la cellule n'est PAS jetee : son effet est BORNE ci-dessous, sur le terme SQUELETTIQUE seul.
 ROOM-SPEC10: chestR     les bandes de §10 ne portent que sur la cellule SUPINE i=8 (designee par la GRAVITE mesuree) : toute autre ligne est marquee DIAGNOSTIC et ne porte AUCUN verdict.
-ROOM-SPEC10: chestR   cellule          frontiere |  vers thorax (B0)          |  sortant (% W0)
-ROOM-SPEC10: chestR                              |    total   squel.    tens. |    total   squel.    tens.
-ROOM-SPEC10: chestR   §10 supine       w>0.00    |   0.2690   0.1445   0.1245 |   -3.744   -3.824    0.080  CELLULE DU VERDICT
-ROOM-SPEC10: chestR   §10 supine       w>0.05    |   0.3016   0.1618   0.1398 |   -4.199   -4.280    0.081  CELLULE DU VERDICT
-ROOM-SPEC10: chestR   §10 supine       w>0.25    |   0.3498   0.1864   0.1634 |   -4.862   -4.901    0.039  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   cellule          frontiere |  vers thorax (B0)          |  sortant (% W0)           | A LA MASSE D'AIRE
+ROOM-SPEC10: chestR                              |    total   squel.    tens. |    total   squel.    tens. |  thorax  sortant
+ROOM-SPEC10: chestR     (les six premieres colonnes sont AU COMPTE DE SOMMETS et PORTENT LE VERDICT ; les deux dernieres sont les memes totaux A LA MASSE D'AIRE, en DIAGNOSTIC)
+ROOM-SPEC10: chestR   §10 supine       w>0.00    |   0.2690   0.1445   0.1245 |   -3.744   -3.824    0.080 |   0.2332   -3.484  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   §10 supine       w>0.05    |   0.3016   0.1618   0.1398 |   -4.199   -4.280    0.081 |   0.2654   -3.960  CELLULE DU VERDICT
+ROOM-SPEC10: chestR   §10 supine       w>0.25    |   0.3498   0.1864   0.1634 |   -4.862   -4.901    0.039 |   0.3198   -4.773  CELLULE DU VERDICT
 ROOM-SPEC10: chestR   sortant     DECOMPOSITION DU TERME TENSORIEL (% W0) — DIAGONAL (ce que `SupineWidthScale` pilote) contre CISAILLEMENT :
-ROOM-SPEC10: chestR   sortant       w>0.00  diagonal  +2.379  cisaillement  -2.299  somme  +0.080  (annule  96.6 % du diagonal)
-ROOM-SPEC10: chestR   sortant       w>0.05  diagonal  +2.664  cisaillement  -2.583  somme  +0.081  (annule  97.0 % du diagonal)
-ROOM-SPEC10: chestR   sortant       w>0.25  diagonal  +3.073  cisaillement  -3.033  somme  +0.039  (annule  98.7 % du diagonal)
-ROOM-SPEC10: chestR   sortant       BUDGET COMPLET (w>0.00, % W0) : squelettique  -3.824  +  diagonal  +2.379  +  cisaillement  -2.299  =   -3.744   contre la bande 4.00-10.00
+ROOM-SPEC10: chestR   sortant       w>0.00  AU COMPTE DE SOMMETS diagonal  +2.379  cisaillement  -2.299  somme  +0.080  (annule  96.6 % du diagonal)  ·  A LA MASSE D'AIRE diagonal  +1.923  cisaillement  -1.965  somme  -0.042
+ROOM-SPEC10: chestR   sortant       w>0.05  AU COMPTE DE SOMMETS diagonal  +2.664  cisaillement  -2.583  somme  +0.081  (annule  97.0 % du diagonal)  ·  A LA MASSE D'AIRE diagonal  +2.190  cisaillement  -2.241  somme  -0.052
+ROOM-SPEC10: chestR   sortant       w>0.25  AU COMPTE DE SOMMETS diagonal  +3.073  cisaillement  -3.033  somme  +0.039  (annule  98.7 % du diagonal)  ·  A LA MASSE D'AIRE diagonal  +2.610  cisaillement  -2.748  somme  -0.138
+ROOM-SPEC10: chestR   sortant       BUDGET COMPLET (w>0.00, % W0) AU COMPTE DE SOMMETS : squelettique  -3.824  +  diagonal  +2.379  +  cisaillement  -2.299  =   -3.744   contre la bande 4.00-10.00  ·  A LA MASSE D'AIRE :  -3.442  +   +1.923  +   -1.965  =   -3.484
 ROOM-SPEC10: chestR   sortant       LECTURE, EN TROIS TEMPS. (1) le mecanisme de §10 EXISTE et il est du bon signe : le seul terme diagonal, celui que `SupineWidthScale` pilote, rend +2.379 % W0 de migration SORTANTE.
 ROOM-SPEC10: chestR   sortant         (2) un CISAILLEMENT que §10 ne demande nulle part en retire 96.6 %. (3) ET MEME A CISAILLEMENT NUL LA CLAUSE RESTERAIT SOUS : -1.445 % W0 contre un plancher de 4.00 — le terme SQUELETTIQUE (-3.824)
 ROOM-SPEC10: chestR   sortant         est negatif des deux cotes et pese plus lourd que le cisaillement sur au moins une chaine. Retirer le cisaillement ne fait donc PAS passer §10, et le dire ici evite de le decouvrir apres un cycle de moteur.
-ROOM-SPEC10: chestR   vers thorax bande 0.18-0.28 B0     frontieres 0.2690/0.3016/0.3498 -> AU-DESSUS/DANS    raffinement  23.1 % (<=30 % OK)
+ROOM-SPEC10: chestR   vers thorax bande 0.18-0.28 B0     AU COMPTE DE SOMMETS (VERDICT) frontieres 0.2690/0.3016/0.3498 -> AU-DESSUS/DANS    raffinement  23.1 % (<=30 % OK)  ·  A LA MASSE D'AIRE (diagnostic) 0.2332/0.2654/0.3198 -> AU-DESSUS/DANS
 ROOM-SPEC10: chestR   vers thorax pire cas du montage (+/- 22.75 % du terme squelettique) : [0.2361 ; 0.3922] -> AU-DESSUS/DANS
 ROOM-SPEC10: chestR   vers thorax VERDICT DE LA CLAUSE : INDÉTERMINÉE (la frontière ou le montage décide) — ensemble AU-DESSUS/DANS
-ROOM-SPEC10: chestR   sortant     bande 4.00-10.00 % W0   frontieres -3.7440/-4.1988/-4.8620 -> SOUS              raffinement  23.0 % (<=30 % OK)
+ROOM-SPEC10: chestR   sortant     bande 4.00-10.00 % W0   AU COMPTE DE SOMMETS (VERDICT) frontieres -3.7440/-4.1988/-4.8620 -> SOUS              raffinement  23.0 % (<=30 % OK)  ·  A LA MASSE D'AIRE (diagnostic) -3.4844/-3.9603/-4.7734 -> SOUS
 ROOM-SPEC10: chestR   sortant     pire cas du montage (+/- 22.75 % du terme squelettique) : [-5.9773 ; -2.8738] -> SOUS
 ROOM-SPEC10: chestR   sortant     VERDICT DE LA CLAUSE : SOUS (verdict unique sur les trois frontieres ET sur le pire cas du montage)
-ROOM-SPEC10: chestR   §11 prone        w>0.00    |  -0.2017  -0.0999  -0.1018 |   -7.602   -6.518   -1.083  CELLULE DU VERDICT §11
-ROOM-SPEC10: chestR   §11 prone        w>0.05    |  -0.2262  -0.1119  -0.1143 |   -8.508   -7.294   -1.214  CELLULE DU VERDICT §11
-ROOM-SPEC10: chestR   §11 prone        w>0.25    |  -0.2622  -0.1280  -0.1342 |   -9.752   -8.349   -1.403  CELLULE DU VERDICT §11
+ROOM-SPEC10: chestR   §11 prone        w>0.00    |  -0.2017  -0.0999  -0.1018 |   -7.602   -6.518   -1.083 |  -0.1773   -6.769  CELLULE DU VERDICT §11
+ROOM-SPEC10: chestR   §11 prone        w>0.05    |  -0.2262  -0.1119  -0.1143 |   -8.508   -7.294   -1.214 |  -0.2017   -7.689  CELLULE DU VERDICT §11
+ROOM-SPEC10: chestR   §11 prone        w>0.25    |  -0.2622  -0.1280  -0.1342 |   -9.752   -8.349   -1.403 |  -0.2430   -9.122  CELLULE DU VERDICT §11
 ROOM-SPEC10: chestR   §11 l.178 « Static COM displacement: 20-28% B0, nominal 24% B0, upper static target 30% B0 »
-ROOM-SPEC10: chestR   §11 NORME |d| = 0.2273/0.2548/0.2949 B0   (bande 0.20-0.28)
+ROOM-SPEC10: chestR   §11 NORME |d| AU COMPTE DE SOMMETS (VERDICT) = 0.2273/0.2548/0.2949 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.2001/0.2276/0.2736 B0   (bande 0.20-0.28)
 ROOM-SPEC10: chestR   §11   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax -0.2017 · sortant -0.0980 · haut 0.0370  — parts 0.887 / 0.431 / 0.163
 ROOM-SPEC10: chestR   §11   sensibilite de frontiere 22.9 % (<=30 % OK) · montage 0.09 % -> pire cas toutes frontieres [0.2272 ; 0.2950]
-ROOM-SPEC10: chestR   §11 VERDICT DE LA CLAUSE DE COM : DANS   (frontiere w>0.00, |d| = 0.2273 B0, pire cas de montage [0.2272 ; 0.2274]) · cible statique haute 0.30 : non franchie
-ROOM-SPEC10: chestR   §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE VERDICT EN DEPEND : w>0.00 0.2273 DANS · w>0.05 0.2548 DANS · w>0.25 0.2949 AU-DESSUS. Meme argument de §30 que le bloc §22 (« la chair ANCREE appartient a l'organe ») — le refuser deplace le verdict, et les chiffres pour le refuser sont ci-dessus.
+ROOM-SPEC10: chestR   §11 VERDICT DE LA CLAUSE DE COM, RENDU AU COMPTE DE SOMMETS : DANS   (frontiere w>0.00, |d| = 0.2273 B0, pire cas de montage [0.2272 ; 0.2274]) · cible statique haute 0.30 : non franchie  ·  A LA MASSE D'AIRE (diagnostic) : 0.2001 B0 -> DANS
+ROOM-SPEC10: chestR   §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE VERDICT EN DEPEND : w>0.00  compte 0.2273 DANS / aire 0.2001 DANS · w>0.05  compte 0.2548 DANS / aire 0.2276 DANS · w>0.25  compte 0.2949 AU-DESSUS / aire 0.2736 DANS. Meme argument de §30 que le bloc §22 (« la chair ANCREE appartient a l'organe ») — le refuser deplace le verdict, et les chiffres pour le refuser sont ci-dessus.
 ROOM-SPEC10: chestR   §11   CETTE CLAUSE EST INDEPENDANTE DE L'ENTREE DU SOLVEUR : `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys` (game/kernel/jak1/kmachine.cpp:1970) — le moteur ne la recoit pas, la bande n'entoure aucun nombre injecte.
-ROOM-SPEC10: chestR   §12 lateral i=2  w>0.00    |   0.0255   0.0205   0.0050 |  -12.827  -12.731   -0.096  DIAGNOSTIC §12 — lecture a arbitrer
-ROOM-SPEC10: chestR   §12 lateral i=2  w>0.05    |   0.0286   0.0230   0.0056 |  -14.363  -14.255   -0.108  DIAGNOSTIC §12 — lecture a arbitrer
-ROOM-SPEC10: chestR   §12 lateral i=2  w>0.25    |   0.0335   0.0269   0.0066 |  -16.508  -16.378   -0.130  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.00    |   0.0255   0.0205   0.0050 |  -12.827  -12.731   -0.096 |   0.0209  -11.388  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.05    |   0.0286   0.0230   0.0056 |  -14.363  -14.255   -0.108 |   0.0238  -12.937  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestR   §12 lateral i=2  w>0.25    |   0.0335   0.0269   0.0066 |  -16.508  -16.378   -0.130 |   0.0291  -15.412  DIAGNOSTIC §12 — lecture a arbitrer
 ROOM-SPEC10: chestR   §12 l.192 « Global lateral COM response: 15-24% B0, nominal 19% »
-ROOM-SPEC10: chestR   §12 NORME |d| = 0.1738/0.1947/0.2238 B0   (bande 0.15-0.24)
+ROOM-SPEC10: chestR   §12 NORME |d| AU COMPTE DE SOMMETS (VERDICT) = 0.1738/0.1947/0.2238 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.1539/0.1749/0.2085 B0   (bande 0.15-0.24)
 ROOM-SPEC10: chestR   §12   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax 0.0255 · sortant -0.1654 · haut 0.0471  — parts 0.147 / 0.951 / 0.271
 ROOM-SPEC10: chestR   §12   sensibilite de frontiere 22.3 % (<=30 % OK) · montage 4.41 % -> pire cas toutes frontieres [0.1662 ; 0.2336]
-ROOM-SPEC10: chestR   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (DANS par cellule ici). La question est ouverte et nommee, elle n'est pas tranchee au passage.
-ROOM-SPEC10: chestR   §12 lateral i=4  w>0.00    |  -0.0306   0.0326  -0.0632 |    2.050    3.018   -0.968  DIAGNOSTIC §12 — lecture a arbitrer
-ROOM-SPEC10: chestR   §12 lateral i=4  w>0.05    |  -0.0346   0.0364  -0.0710 |    2.298    3.377   -1.079  DIAGNOSTIC §12 — lecture a arbitrer
-ROOM-SPEC10: chestR   §12 lateral i=4  w>0.25    |  -0.0417   0.0416  -0.0833 |    2.645    3.859   -1.214  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestR   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (DANS par cellule AU COMPTE DE SOMMETS, DANS A LA MASSE D'AIRE). La question est ouverte et nommee, elle n'est pas tranchee au passage.
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.00    |  -0.0306   0.0326  -0.0632 |    2.050    3.018   -0.968 |  -0.0244    1.980  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.05    |  -0.0346   0.0364  -0.0710 |    2.298    3.377   -1.079 |  -0.0280    2.248  DIAGNOSTIC §12 — lecture a arbitrer
+ROOM-SPEC10: chestR   §12 lateral i=4  w>0.25    |  -0.0417   0.0416  -0.0833 |    2.645    3.859   -1.214 |  -0.0358    2.695  DIAGNOSTIC §12 — lecture a arbitrer
 ROOM-SPEC10: chestR   §12 l.192 « Global lateral COM response: 15-24% B0, nominal 19% »
-ROOM-SPEC10: chestR   §12 NORME |d| = 0.0536/0.0602/0.0709 B0   (bande 0.15-0.24)
+ROOM-SPEC10: chestR   §12 NORME |d| AU COMPTE DE SOMMETS (VERDICT) = 0.0536/0.0602/0.0709 B0  ·  A LA MASSE D'AIRE (diagnostic) = 0.0464/0.0529/0.0650 B0   (bande 0.15-0.24)
 ROOM-SPEC10: chestR   §12   decomposition sur le triedre de §7 (frontiere w>0.00) : thorax -0.0306 · sortant 0.0264 · haut -0.0352  — parts 0.571 / 0.493 / 0.656
 ROOM-SPEC10: chestR   §12   sensibilite de frontiere 24.4 % (<=30 % OK) · montage 0.18 % -> pire cas toutes frontieres [0.0535 ; 0.0710]
-ROOM-SPEC10: chestR   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (SOUS par cellule ici). La question est ouverte et nommee, elle n'est pas tranchee au passage.
-ROOM-SPEC10: chestR   debout i=0       w>0.00    |   0.0001   0.0000   0.0001 |    0.036    0.038   -0.002  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   debout i=0       w>0.05    |   0.0001   0.0000   0.0001 |    0.040    0.042   -0.002  DIAGNOSTIC — sans bande
-ROOM-SPEC10: chestR   debout i=0       w>0.25    |   0.0001   0.0000   0.0001 |    0.045    0.048   -0.002  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur la PAIRE : les deux lectures ne donnent pas le meme resultat (SOUS par cellule AU COMPTE DE SOMMETS, SOUS A LA MASSE D'AIRE). La question est ouverte et nommee, elle n'est pas tranchee au passage.
+ROOM-SPEC10: chestR   debout i=0       w>0.00    |   0.0001   0.0000   0.0001 |    0.036    0.038   -0.002 |   0.0001    0.034  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   debout i=0       w>0.05    |   0.0001   0.0000   0.0001 |    0.040    0.042   -0.002 |   0.0001    0.038  DIAGNOSTIC — sans bande
+ROOM-SPEC10: chestR   debout i=0       w>0.25    |   0.0001   0.0000   0.0001 |    0.045    0.048   -0.002 |   0.0001    0.045  DIAGNOSTIC — sans bande
 ROOM-SPEC10: chestR   SYNTHESE : vers thorax INDÉTERMINÉE/NON ÉTABLIE · sortant SOUS  —  0 clause(s) DANS la bande sur 1 jugee(s) (2 clauses au total)
 ROOM-SPEC10: LOI DU MIROIR SUR LE BLOC DE CISAILLEMENT (M D M, M = diag(-1,1,1)) :
 ROOM-SPEC10:   D10 : chestL +0.02210  ->  attendu sur chestR -0.02210  ·  mesure +0.00265  ·  ecart 112 %   SIGNE INVERSE
@@ -4218,27 +4236,38 @@ ROOM-SPEC10:   direction de REPOS (une fois par course), pas la pose tenue dans 
 ROOM-SPEC10:   attribution a la chaine, au solveur ni au personnage n'est publiee ici. La mesure qui manque est NOMMEE : l'ecart au miroir de la pose du balayage d'orientation, par cellule.
 ROOM-SPEC10: VERDICT  NON TENUE  — la clause « sortant » est hors bande de facon robuste (frontieres ET pire cas du montage) sur LES DEUX chaines, chacune contre la bande de la spec et jamais l'une contre l'autre : chestL SOUS · chestR SOUS.
 -- ROOM-SPEC12 : GRAVITE LATERALE — CHAQUE CLAUSE SUR LE SEIN QU'ELLE NOMME -------------
+ROOM-SPEC12: DENOMINATEUR DU COM — NATURE : une LONGUEUR SIGNEE en % W0 (migration mediale) et une LONGUEUR en B0 (reponse laterale). Le tableau des ECHELLES plus bas est un rapport sans unite : il ne passe par aucun denominateur de masse et ce cycle ne le touche pas.
+ROOM-SPEC12:   DEUX DENOMINATEURS, PUBLIES COTE A COTE SUR LA MEME LIGNE, chacun avec ses VRAIES valeurs : la MASSE D'AIRE (`na` = SOMME_v a_v, `Wa` = SOMME_v a_v.w(v,k), `La` = premier moment PONDERE PAR L'AIRE ; a_v = un tiers de l'aire de chaque triangle incident, en pose de BIND) et le COMPTE DE SOMMETS (`n`, `W`, `L`).
+ROOM-SPEC12:   LA GRANDEUR QUE LA SPEC NOMME EST LA MASSE D'AIRE : sa §6 l.113 ecrit « center-of-mass ». Peser chaque sommet par 1 (`n`) au lieu de l'aire qu'il porte (`na`) n'est exact que sur un maillage uniforme ; celui-ci ne l'est pas — CV de l'aire par sommet 0.648 et 0.597 selon la chaine, min 621 u^2, max 46285 (cycle 130). CONTRE-CONTROLE INDEPENDANT : la meme grandeur sur une aire de VORONOI MIXTE (meme maillage, REGLE DE PARTAGE DIFFERENTE : cotangentes, bascule moitie/quart sur triangle obtus) rend 0.15 a 1.09 % d'ecart et le MEME verdict sur les six cellules.
+ROOM-SPEC12:   VERDICT rendu AU COMPTE DE SOMMETS — non parce que la masse d'aire serait fausse, mais par application d'un FALSIFICATEUR ECRIT D'AVANCE (`.autoport/c131-predictions.txt`, P2 : « recabler la normalisation a la masse ne deplace AUCUN statut de section ; une seule section qui change de statut -> ce n'est pas un raffinement d'instrument, c'est un deplacement de verdict, et il se remonte au lieu d'etre pose »).
+ROOM-SPEC12:   P2 A TIRE (mesure du cycle 131) : a la masse d'aire, §12 passe TENUE -> PARTIELLE. Cause exacte, lue sur la ligne : i=4 du sein OPPOSE, enveloppe de montage [11.869 ; 15.342] au compte contre [9.950 ; 14.133] a l'aire — la borne BASSE passe 0.05 point sous un plancher de 10.00 — alors que la valeur CENTRALE reste DANS aux trois frontieres (10.272 / 11.564 / 13.704). L'ENVELOPPE bascule, pas la mesure ; poser ce deplacement de statut appartient au superviseur.
+ROOM-SPEC12:   LA MASSE D'AIRE RESTE PUBLIEE A COTE, avec ses VRAIES valeurs, en DIAGNOSTIC : la grandeur NOMMEE se publie a cote du proxy, jamais a sa place.
+ROOM-SPEC12:   RETOUR ARRIERE / MISE EN SERVICE : `COM_DENOM_AREA` en tete de `.autoport/physics_room_table.py` — UNE ligne, dans les deux sens.
 ROOM-SPEC12: CONTROLE — `D` est symetrique a 0.0419 pres sur les 22 cellules chargees : lire ses LIGNES ou ses COLONNES
 ROOM-SPEC12:   donne le meme chiffre. La question de convention est close par la MESURE.
 ROOM-SPEC12: LE ROLE, DERIVE DE LA GRAVITE MESUREE (`PHYSORI4 r0`) ET DU SORTANT DU RIG — « cote gravite » = dot(g, sortant) > 0 :
 ROOM-SPEC12:   i=2  g_lateral(ancre) = +0.9797  ->  chestL GRAVITE · chestR OPPOSE
 ROOM-SPEC12:   i=4  g_lateral(ancre) = -0.9797  ->  chestL OPPOSE · chestR GRAVITE
 ROOM-SPEC12: CLAUSE l.194 « Upper/opposite breast medial migration: 10–18% W0, nominal 14% W0 » — SEIN OPPOSE SEUL :
-ROOM-SPEC12:   chestL   i=2 GRAVITE    -5.772   -6.350   -6.991   DIAGNOSTIC — la clause ne nomme pas ce sein
-ROOM-SPEC12:   chestL   i=4 OPPOSE     12.252   13.494   14.877   pire cas montage (+/- 3.14 %) [11.869 ; 15.342]  -> DANS
-ROOM-SPEC12:   chestR   i=2 OPPOSE     12.827   14.363   16.508   pire cas montage (+/- 4.41 %) [12.266 ; 17.230]  -> DANS
-ROOM-SPEC12:   chestR   i=4 GRAVITE    -2.050   -2.298   -2.645   DIAGNOSTIC — la clause ne nomme pas ce sein
+ROOM-SPEC12:   chestL   i=2 GRAVITE  AU COMPTE DE SOMMETS   -5.772   -6.350   -6.991  ·  A LA MASSE D'AIRE   -5.022   -5.642   -6.613   DIAGNOSTIC — la clause ne nomme pas ce sein
+ROOM-SPEC12:   chestL   i=4 OPPOSE   AU COMPTE DE SOMMETS (VERDICT)   12.252   13.494   14.877   pire cas montage (+/- 3.14 %) [11.869 ; 15.342]  -> DANS  ·  A LA MASSE D'AIRE (diagnostic)   10.272   11.564   13.704 -> DANS
+ROOM-SPEC12:   chestR   i=2 OPPOSE   AU COMPTE DE SOMMETS (VERDICT)   12.827   14.363   16.508   pire cas montage (+/- 4.41 %) [12.266 ; 17.230]  -> DANS  ·  A LA MASSE D'AIRE (diagnostic)   11.388   12.937   15.412 -> DANS
+ROOM-SPEC12:   chestR   i=4 GRAVITE  AU COMPTE DE SOMMETS   -2.050   -2.298   -2.645  ·  A LA MASSE D'AIRE   -1.980   -2.248   -2.695   DIAGNOSTIC — la clause ne nomme pas ce sein
 ROOM-SPEC12:   (colonnes : frontieres d'organe w>0 / w>=0.05 / w>=0.25)
 ROOM-SPEC12: CLAUSE l.193 « Global lateral COM response: 15–24% B0, nominal 19% » — le mot
 ROOM-SPEC12:   « Global » se lit de TROIS facons et aucune ne se choisit par gout. Les trois sont publiees ;
 ROOM-SPEC12:   le verdict n'est prononce QUE si elles s'accordent, sinon la clause est rendue a l'owner comme
 ROOM-SPEC12:   une QUESTION OUVERTE SUR SA SPEC (DIRECTIVES 2026-08-20 02:50).
 ROOM-SPEC12:   (A) chestL   i=2 lateral +0.0744 +0.0819 +0.0901 B0 -> SOUS   ·   (C) norme  0.0937  0.1032  0.1139 B0 -> SOUS
+ROOM-SPEC12:       (les memes A LA MASSE D'AIRE, en diagnostic — le verdict ci-dessus est rendu AU COMPTE DE SOMMETS) : (A) +0.0647 +0.0727 +0.0853 -> SOUS  ·  (C)  0.0804  0.0904  0.1070 -> SOUS
 ROOM-SPEC12:   (A) chestL   i=4 lateral -0.1579 -0.1740 -0.1918 B0 -> DANS   ·   (C) norme  0.1685  0.1856  0.2047 B0 -> DANS
+ROOM-SPEC12:       (les memes A LA MASSE D'AIRE, en diagnostic — le verdict ci-dessus est rendu AU COMPTE DE SOMMETS) : (A) -0.1324 -0.1491 -0.1767 -> DANS/SOUS  ·  (C)  0.1412  0.1590  0.1886 -> DANS/SOUS
 ROOM-SPEC12:   (A) chestR   i=2 lateral -0.1654 -0.1852 -0.2128 B0 -> DANS   ·   (C) norme  0.1738  0.1947  0.2238 B0 -> DANS
+ROOM-SPEC12:       (les memes A LA MASSE D'AIRE, en diagnostic — le verdict ci-dessus est rendu AU COMPTE DE SOMMETS) : (A) -0.1468 -0.1668 -0.1987 -> DANS/SOUS  ·  (C)  0.1539  0.1749  0.2085 -> DANS
 ROOM-SPEC12:   (A) chestR   i=4 lateral +0.0264 +0.0296 +0.0341 B0 -> SOUS   ·   (C) norme  0.0536  0.0602  0.0709 B0 -> SOUS
-ROOM-SPEC12:   (B) pole i=2 moyenne des deux seins +0.1199 +0.1335 +0.1515 B0 -> DANS/SOUS
-ROOM-SPEC12:   (B) pole i=4 moyenne des deux seins -0.0922 -0.1018 -0.1129 B0 -> SOUS
+ROOM-SPEC12:       (les memes A LA MASSE D'AIRE, en diagnostic — le verdict ci-dessus est rendu AU COMPTE DE SOMMETS) : (A) +0.0255 +0.0290 +0.0347 -> SOUS  ·  (C)  0.0464  0.0529  0.0650 -> SOUS
+ROOM-SPEC12:   (B) pole i=2 moyenne des deux seins, AU COMPTE DE SOMMETS (VERDICT) +0.1199 +0.1335 +0.1515 B0 -> DANS/SOUS  ·  A LA MASSE D'AIRE (diagnostic) +0.1058 +0.1198 +0.1420 B0 -> SOUS
+ROOM-SPEC12:   (B) pole i=4 moyenne des deux seins, AU COMPTE DE SOMMETS (VERDICT) -0.0922 -0.1018 -0.1129 B0 -> SOUS  ·  A LA MASSE D'AIRE (diagnostic) -0.0790 -0.0890 -0.1057 B0 -> SOUS
 ROOM-SPEC12:   les trois lectures reunies rendent {DANS, SOUS} -> AUCUN VERDICT : la clause depend de la lecture de « Global ». QUESTION OUVERTE.
 ROOM-SPEC12: CLAUSE l.195 « Gravity-side lateral flattening: -15 to -25%, nominal -20% » -> bande 0.75-0.85, SEIN DU COTE GRAVITE SEUL.
 ROOM-SPEC12: ET LE TABLEAU DES ECHELLES DE §10/§11/§12, DEUX FOIS : sur le TRIEDRE DE §7 MESURE sur le rig

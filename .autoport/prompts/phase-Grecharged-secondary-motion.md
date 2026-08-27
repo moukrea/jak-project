@@ -38,3 +38,35 @@ est vide. Le jeu compile et tourne sans physique : c'est l'état de départ, il 
 
 Substrat : **x86** pour découvrir (itération en secondes), device `eae4df44` pour confirmer.
 Livraison en **paire cohérente** APK + pack du même commit.
+
+## MANDAT DE L'OWNER — 2026-08-27 : CHANTIER STRUCTUREL AUTORISE
+
+Verbatim : « **Laisse courir le chantier, on fait la spec à 100%** ».
+
+Contexte de la decision. Je lui ai presente l'etat mesure : la couverture est figee a **4 TENUE
+sur 38** depuis le cycle 115, et **onze des treize sections NON TENUE demandent la meme chose** —
+un deplacement du centre de masse ou de l'apex exprime en pourcentage de `B0` (§11, §14, §16,
+§18, §19, §20, §22 et les autres), auxquelles s'ajoutent §8 (conservation du volume), §23 (« a
+single spring attached to the nipple/apex is insufficient ») et §33/§34 (collision entre les deux
+seins). **Ce ne sont pas treize problemes, c'est un seul** : le modele actuel est une chaine de
+maillons, la spec decrit un volume deformable.
+
+Je lui ai propose trois voies : (1) laisser courir le chantier structurel, (2) geler Keira pour le
+pas de temps fixe, (3) reduire l'objectif aux 16 sections partielles. **Il a choisi (1)**, et il
+avait deja refuse (3) par avance : « la spec a 100%, pas de raccourcis ».
+
+### Ce que ce mandat autorise
+
+- **Un changement de MODELE, pas un reglage.** Le cycle 129 a nomme la bonne cible : le canal de
+  deplacement du centre de masse doit vivre dans le **tenseur de deformation**. Le cycle 130b a
+  chiffre le travail a **quatre unites** — c'est une serie, pas une tentative. C'est accepte.
+- Ne plus chercher un parametre qui ferait passer une section isolee : onze sections partagent la
+  meme cause, et les traiter une par une a echoue pendant huit cycles.
+- Prendre le temps qu'il faut. L'owner ne demande pas de date, il demande la spec entiere.
+
+### Ce que ce mandat n'autorise PAS
+
+- Aucun raccourci sur la couverture : pas de section declaree TENUE sans mesure nommee, pas de
+  redefinition d'une exigence pour la rendre atteignable. Le registre reste la seule mesure.
+- Ne pas casser ce qui est deja acquis et **valide par lui** : memoire du jeu 744 Mo, un niveau
+  40,6 Mo, textures au demarrage 571 ms, zero plantage sur ses deux appareils.

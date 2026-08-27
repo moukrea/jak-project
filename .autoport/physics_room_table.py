@@ -2337,6 +2337,123 @@ def _oricom_block(A, txt, names, ori):
 _COM_MASS_JSON = 'reports/Grecharged-secondary-motion/breast-com-mass.json'
 
 
+# ---- CYCLE 131 : LE DENOMINATEUR DU COM EST UNE MASSE, PAS UN COMPTE DE SOMMETS ---------------
+# LES TROIS BLOCS QUI LISENT `breast-com-mass.json` (`_oricom_mass_block`, `_spec10_block`,
+# `_spec12_block`) calculaient `d_COM = SOMME_k W_k.d_k / n` avec `n` = un COMPTE DE SOMMETS. Le
+# NUMERATEUR est juste ; le DENOMINATEUR ne l'est que si CHAQUE SOMMET PORTE LA MEME MASSE. Le
+# cycle 130 a mesure que c'est faux sur ce maillage : CV de l'aire par sommet 0,648 et 0,597 selon
+# la chaine, min 621 u^2, max 46285. Sa spec ecrit « center-of-**mass** » (§6 l.113).
+#
+# LES DEUX GRANDEURS SONT CALCULEES ET PUBLIEES COTE A COTE, TOUJOURS, AVEC LEURS VRAIES VALEURS.
+# Le drapeau ci-dessous ne choisit pas ce qu'on PUBLIE : il choisit laquelle des deux porte le
+# VERDICT. La grandeur nommee par la spec se publie A COTE du proxy, jamais a sa place.
+#
+# ET LE VERDICT RESTE AU COMPTE, PAR APPLICATION D'UN FALSIFICATEUR ECRIT D'AVANCE.
+# `.autoport/c131-predictions.txt`, P2 : « recabler la normalisation a la masse ne deplace AUCUN
+# statut de section. FALSIFICATEUR : une seule section qui change de statut -> ce n'est pas un
+# raffinement d'instrument, c'est un deplacement de verdict, et il se remonte au lieu d'etre
+# pose. » **P2 A TIRE** : a `COM_DENOM_AREA = True`, `ROOM-SPEC12` passe TENUE -> PARTIELLE, et
+# §12 est l'une des quatre sections TENUE du registre. La cause est LUE sur la ligne : i=4 du sein
+# OPPOSE, enveloppe de montage [11.869 ; 15.342] au compte contre [9.950 ; 14.133] a la masse
+# d'aire — la borne BASSE passe 0.05 point sous un plancher de 10.00 — alors que la VALEUR
+# CENTRALE reste DANS aux trois frontieres (10.272 / 11.564 / 13.704). C'est l'ENVELOPPE DE
+# MONTAGE qui bascule, pas la mesure. Le cycle 130 avait ecarte ce risque en ne regardant que les
+# valeurs CENTRALES ; l'enveloppe est un resultat de ce cycle-ci.
+# Ce n'est donc pas que la correction soit fausse : c'est que la POSER deplace le statut d'une
+# section, et ce choix appartient au superviseur.
+#
+# LE RETOUR ARRIERE COUTE UNE LIGNE, DANS LES DEUX SENS : `COM_DENOM_AREA = True` rend le verdict
+# a la masse d'aire (et deplace le statut de §12) ; `False` le laisse au compte de sommets.
+COM_DENOM_AREA = False
+
+_COM_DENOM_LBL = {'aire': "A LA MASSE D'AIRE", 'compte': 'AU COMPTE DE SOMMETS'}
+
+_COM_DENOM_RAISON = (
+    'sa §6 l.113 ecrit « center-of-mass ». Peser chaque sommet par 1 (`n`) au lieu de l\'aire'
+    ' qu\'il porte (`na`) n\'est exact que sur un maillage uniforme ; celui-ci ne l\'est pas —'
+    ' CV de l\'aire par sommet 0.648 et 0.597 selon la chaine, min 621 u^2, max 46285 (cycle 130).'
+    ' CONTRE-CONTROLE INDEPENDANT : la meme grandeur sur une aire de VORONOI MIXTE (meme maillage,'
+    ' REGLE DE PARTAGE DIFFERENTE : cotangentes, bascule moitie/quart sur triangle obtus) rend'
+    ' 0.15 a 1.09 % d\'ecart et le MEME verdict sur les six cellules.')
+
+
+def _com_area_ok(defs):
+    """L'instantane porte-t-il `na`/`Wa`/`La` sur TOUTES les frontieres ? SANS regarder le
+    drapeau : c'est une question de DISPONIBILITE de la donnee, pas de choix de verdict."""
+    defs = list(defs or [])
+    if not defs:
+        return False
+    for d in defs:
+        if not all(k in d for k in ('na', 'Wa', 'La')):
+            return False
+        try:
+            if not float(d['na']) > 0.0:
+                return False
+            if len(d['Wa']) != len(d['W']) or len(d['La']) != 3:
+                return False
+        except (TypeError, ValueError):
+            return False
+    return True
+
+
+def _com_denom_mode(defs):
+    """Le denominateur qui porte le VERDICT."""
+    return 'aire' if (COM_DENOM_AREA and _com_area_ok(defs)) else 'compte'
+
+
+def _com_denom_alt(mode, defs):
+    """Le denominateur publie EN DIAGNOSTIC : l'AUTRE, quand il est disponible. S'il ne l'est
+    pas, il rend le meme mode et l'en-tete le DECLARE — les deux colonnes sont alors egales, ce
+    qui est un manque de donnee annonce, jamais une valeur fabriquee."""
+    if mode == 'aire':
+        return 'compte'
+    return 'aire' if _com_area_ok(defs) else 'compte'
+
+
+def _com_denom(d, mode):
+    """(W, n, L) au denominateur demande. `compte` rend EXACTEMENT l'ancien triplet, au bit pres."""
+    if mode == 'aire':
+        return d['Wa'], float(d['na']), d['La']
+    return d['W'], float(d['n']), d['L']
+
+
+def _com_denom_header(A, tag, nature, mode, alt):
+    """L'EN-TETE QUE L'ARBITRAGE DU 2026-08-19 23:50 EXIGE, mot pour mot : « la ligne publie LES
+    DEUX grandeurs, jamais une seule », « le nom de la ligne dit ce qu'elle mesure », et le
+    verdict est NOMME sur la ligne."""
+    A('%s: DENOMINATEUR DU COM — NATURE : %s' % (tag, nature))
+    A('%s:   DEUX DENOMINATEURS, PUBLIES COTE A COTE SUR LA MEME LIGNE, chacun avec ses VRAIES'
+      ' valeurs : la MASSE D\'AIRE (`na` = SOMME_v a_v, `Wa` = SOMME_v a_v.w(v,k), `La` = premier'
+      ' moment PONDERE PAR L\'AIRE ; a_v = un tiers de l\'aire de chaque triangle incident, en'
+      ' pose de BIND) et le COMPTE DE SOMMETS (`n`, `W`, `L`).' % tag)
+    A('%s:   LA GRANDEUR QUE LA SPEC NOMME EST LA MASSE D\'AIRE : %s' % (tag, _COM_DENOM_RAISON))
+    if mode == 'aire':
+        A('%s:   VERDICT rendu A LA MASSE D\'AIRE ; le COMPTE DE SOMMETS est publie a cote, en'
+          ' DIAGNOSTIC.' % tag)
+    else:
+        A('%s:   VERDICT rendu AU COMPTE DE SOMMETS — non parce que la masse d\'aire serait'
+          ' fausse, mais par application d\'un FALSIFICATEUR ECRIT D\'AVANCE'
+          ' (`.autoport/c131-predictions.txt`, P2 : « recabler la normalisation a la masse ne'
+          ' deplace AUCUN statut de section ; une seule section qui change de statut -> ce n\'est'
+          ' pas un raffinement d\'instrument, c\'est un deplacement de verdict, et il se remonte'
+          ' au lieu d\'etre pose »).' % tag)
+        A('%s:   P2 A TIRE (mesure du cycle 131) : a la masse d\'aire, §12 passe TENUE ->'
+          ' PARTIELLE. Cause exacte, lue sur la ligne : i=4 du sein OPPOSE, enveloppe de montage'
+          ' [11.869 ; 15.342] au compte contre [9.950 ; 14.133] a l\'aire — la borne BASSE passe'
+          ' 0.05 point sous un plancher de 10.00 — alors que la valeur CENTRALE reste DANS aux'
+          ' trois frontieres (10.272 / 11.564 / 13.704). L\'ENVELOPPE bascule, pas la mesure ;'
+          ' poser ce deplacement de statut appartient au superviseur.' % tag)
+        A('%s:   LA MASSE D\'AIRE RESTE PUBLIEE A COTE, avec ses VRAIES valeurs, en DIAGNOSTIC :'
+          ' la grandeur NOMMEE se publie a cote du proxy, jamais a sa place.' % tag)
+    A('%s:   RETOUR ARRIERE / MISE EN SERVICE : `COM_DENOM_AREA` en tete de'
+      ' `.autoport/physics_room_table.py` — UNE ligne, dans les deux sens.' % tag)
+    if alt == mode:
+        A('%s:   COLONNE DE DIAGNOSTIC INDISPONIBLE — l\'instantane de masse ne porte pas'
+          ' `na`/`Wa`/`La` sur toutes les frontieres (produit par une version anterieure de'
+          ' `probe_breast_com_mass.py` : le relancer). Les deux colonnes republient donc le meme'
+          ' denominateur : c\'est DECLARE ici, ce n\'est pas devine.' % tag)
+
+
 _ABL_LBL = {0: 'k0 reference', 1: 'k1 longueur levee', 2: 'k2 cote leve',
             3: 'k3 rayon interpole', 4: 'k4 MUR DE COLLISION desarme',
             5: 'k5 borne §22 radiale levee'}
@@ -2477,6 +2594,15 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
     A('   NATURE : un DEPLACEMENT SOUTENU du centre de masse, en B0. REPERE : le triedre de')
     A('     l\'ANCRE — la NORME, seule grandeur qui traverse les deux triedres orthonormes.')
     A('   LIGNE DE BASE : i=0 (debout d\'auteur), ou §9 exige 0.0000 ; elle est publiee.')
+    _defs_all = [_d for _rc in (mass.get('chains') or {}).values()
+                 for _d in (_rc.get('defs') or [])]
+    _mode = _com_denom_mode(_defs_all)
+    _alt = _com_denom_alt(_mode, _defs_all)
+    _LV = _COM_DENOM_LBL[_mode] + ' (VERDICT)'
+    _LD = _COM_DENOM_LBL[_alt] + ' (diagnostic)'
+    _com_denom_header(A, 'ROOM-ORICOM-MASS',
+                      'une LONGUEUR (norme d\'un deplacement soutenu de centre de masse), en B0.',
+                      _mode, _alt)
     # REFUS D'UN INSTANTANE PERIME. Ce bloc lit un JSON produit hors course ; le chemin du mesh
     # qu'il imprime a toujours ete juste, mais rien ne comparait son INSTANT a celui du mesh. Le
     # 2026-08-18 le JSON datait de 13:15, le mesh de 14:05, et les huit valeurs de §10/§11/§12 de
@@ -2615,18 +2741,21 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
             if i is None or (c, i, 0) not in comL:
                 A('ROOM-ORICOM-MASS: %-12s %s  i introuvable — NON MESURE' % (nm, lab))
                 continue
-            cols = []
+            cols, colsn = [], []
             for d in rec['defs']:
-                W, N = d['W'], float(d['n'])
-                acc = [0.0, 0.0, 0.0]
-                for l in range(min(nl, len(W))):
-                    dj = dcum(c, i, l)          # CUMUL, pas l'increment `ldb[l]` (voir docstring)
-                    if dj is None:
-                        continue
-                    for k in range(3):
-                        acc[k] += W[l] * dj[k]
-                dn = math.sqrt(sum((x / N) ** 2 for x in acc)) / bb
-                cols.append((d['cut'], dn))
+                _both = []
+                for _md in (_mode, _alt):
+                    W, N, _L = _com_denom(d, _md)
+                    acc = [0.0, 0.0, 0.0]
+                    for l in range(min(nl, len(W))):
+                        dj = dcum(c, i, l)      # CUMUL, pas l'increment `ldb[l]` (voir docstring)
+                        if dj is None:
+                            continue
+                        for k in range(3):
+                            acc[k] += W[l] * dj[k]
+                    _both.append(math.sqrt(sum((x / N) ** 2 for x in acc)) / bb)
+                cols.append((d['cut'], _both[0]))       # VERDICT
+                colsn.append((d['cut'], _both[1]))      # DIAGNOSTIC (l'AUTRE denominateur)
             # l'apex du meme i, pour que le facteur de conversion soit lisible sans calcul
             t = com.get((c, i))
             napex = math.sqrt(sum(x * x for x in t)) / bb if t else float('nan')
@@ -2635,8 +2764,11 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
             # contre moyenne d'organe). Le composer etait un double comptage ; il est retire.
             rr = com2.get((c, i), (0.0, 0.0, 0.0))[0]
             base = cols[0][1] if cols else float('nan')
-            A('ROOM-ORICOM-MASS: %-12s %s i=%d  |d_COM|=%s B0  (apex %.4f, facteur %s)'
-              % (nm, lab, i, '/'.join('%.4f' % v for (_c, v) in cols), napex,
+            basen = colsn[0][1] if colsn else float('nan')
+            A('ROOM-ORICOM-MASS: %-12s %s i=%d  |d_COM| %s = %s B0  ·  %s = %s B0'
+              '  (apex %.4f, facteur %s)'
+              % (nm, lab, i, _LV, '/'.join('%.4f' % v for (_c, v) in cols),
+                 _LD, '/'.join('%.4f' % v for (_c, v) in colsn), napex,
                  ('%.3f' % (base / napex)) if napex == napex and napex > 1e-9 else 'n/a'))
             _cr = cellrel.get(i)
             if _cr is not None and _cr[0] > 0.05:
@@ -2670,16 +2802,23 @@ def _oricom_mass_block(A, txt, names, com, com2, role, axis, b0):
                           ' et n\'en retire que %.0f %% : mecanisme DOMINANT, pas unique.'
                           % (_best[0], _best[1], _rm * 100.0))
                 continue
-            A('                              squelettique seul %s  ·  cible %.2f (bande %.2f-%.2f)'
+            _vlab = lambda _v: ('DANS' if band[0] <= _v <= band[1] else
+                                ('SOUS — borne INFERIEURE, la part tensorielle manque'
+                                 if _v < band[0] else 'AU-DESSUS'))
+            A('                              squelettique seul, %s %s  ·  %s %s'
+              '  ·  cible %.2f (bande %.2f-%.2f)'
               '  ·  rr(joint, pour memoire, NON compose) %.4f  ·  controle de pointe %.2f %%'
-              % ('DANS' if band[0] <= base <= band[1] else
-                 ('SOUS — borne INFERIEURE, la part tensorielle manque' if base < band[0]
-                  else 'AU-DESSUS'), nom, band[0], band[1], rr,
+              % (_LV, _vlab(base), _LD, _vlab(basen), nom, band[0], band[1], rr,
                  (_cr[0] * 100.0) if _cr is not None else float('nan')))
         d0 = rec['defs'][0]
         A('   (frontieres w>0 / w>=0.05 / w>=0.25 — les trois colonnes de |d_COM| ci-dessus ;'
           ' N=%d, part de l\'organe portee par la chaine %.4f, le reste est ancre au buste)'
           % (d0['n'], sum(d0['W']) / float(d0['n'])))
+        if 'na' in d0 and 'Wa' in d0:
+            A('   (les MEMES a la masse d\'aire : na=%.1f u^2, part de l\'organe portee par la'
+              ' chaine %.4f — ce denominateur %s le verdict ci-dessus)'
+              % (float(d0['na']), sum(d0['Wa']) / float(d0['na']),
+                 'PORTE' if _mode == 'aire' else 'est publie en DIAGNOSTIC, il ne porte pas'))
     A('')
 
 
@@ -2875,6 +3014,15 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
       '   -> 0.18-0.28 B0')
     A('ROOM-SPEC10:   l.169  « Outward COM migration per breast: 4–10% W0, nominal 7% W0 »'
       '   -> 4.0-10.0 % W0')
+    _defs_all = [_d for _rc in (mass.get('chains') or {}).values()
+                 for _d in (_rc.get('defs') or [])]
+    _mode = _com_denom_mode(_defs_all)
+    _alt = _com_denom_alt(_mode, _defs_all)
+    _LV = _COM_DENOM_LBL[_mode] + ' (VERDICT)'
+    _LD = _COM_DENOM_LBL[_alt] + ' (diagnostic)'
+    _com_denom_header(A, 'ROOM-SPEC10',
+                      'deux LONGUEURS SIGNEES (projections), en B0 et en % W0, et une NORME en'
+                      ' B0 pour §11/§12.', _mode, _alt)
 
     _BANDS = (('vers thorax', 'th', 0.18, 0.28, 'B0   '),
               ('sortant    ', 'ou', 4.0, 10.0, '% W0'))
@@ -2958,9 +3106,14 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
             cells.append(('debout i=0', 0))
 
         A('ROOM-SPEC10: %-8s %-16s %-9s |  vers thorax (B0)          |  sortant (%% W0)'
-          % (nm, 'cellule', 'frontiere'))
+          '           | %s'
+          % (nm, 'cellule', 'frontiere', _COM_DENOM_LBL[_alt]))
         A('ROOM-SPEC10: %-8s %-16s %-9s |    total   squel.    tens. |    total   squel.    tens.'
+          ' |  thorax  sortant'
           % (nm, '', ''))
+        A('ROOM-SPEC10: %-8s   (les six premieres colonnes sont %s et PORTENT LE VERDICT ; les'
+          ' deux dernieres sont les memes totaux %s, en DIAGNOSTIC)'
+          % (nm, _COM_DENOM_LBL[_mode], _COM_DENOM_LBL[_alt]))
         for lab, i in cells:
             if (c, i, 0) not in ldb or (c, i, 1) not in ldb or (c, i) not in dfma:
                 A('ROOM-SPEC10: %-8s %-16s ABSENTE de la trace (`PHYSORICOML` ou `PHYSDFMA`)'
@@ -2969,9 +3122,11 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
             D = dfma[(c, i)]
             d0 = _cum(c, i, 0)
             d1 = _cum(c, i, 1)          # CUMUL telescopique, jamais l'increment seul
-            row = []
-            for d in rec['defs']:
-                W, n, L, w0 = d['W'], float(d['n']), d['L'], float(d['W0'])
+            def _terms(d, md):
+                """Les memes six colonnes, au denominateur `md` (`aire` ou `compte`). Le
+                NUMERATEUR est identique dans les deux cas : seul le poids de sommet change."""
+                W, n, L = _com_denom(d, md)
+                w0 = float(d['W0'])     # une ETENDUE : elle ne depend pas du poids des sommets
                 sk = [(W[0] * d0[k] + W[1] * d1[k]) / n for k in range(3)]
                 # LA CONVENTION EST CELLE DU MOTEUR, ET ELLE SE LIT DANS LE MOTEUR.
                 # `jak-hd-physics.gc:3922` applique l'offset en VECTEUR-LIGNE :
@@ -2982,24 +3137,30 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                 # les deux conventions vaut ~0.5 % ici et ne deplace aucun verdict ; on prend
                 # quand meme celle du moteur, parce que deux blocs du MEME tableau qui emploient
                 # des conventions OPPOSEES est exactement ce qui se paie plus tard.
-                tn = [sum((D[i][j] - (1.0 if i == j else 0.0)) * L[i] for i in range(3)) / n
+                tn = [sum((D[_x][j] - (1.0 if _x == j else 0.0)) * L[_x] for _x in range(3)) / n
                       for j in range(3)]
                 v = [sk[k] + tn[k] for k in range(3)]
                 dot = lambda a, b: sum(a[k] * b[k] for k in range(3))
-                row.append(dict(cut=d['cut'],
-                                th=(dot(v, thx) / bb, dot(sk, thx) / bb, dot(tn, thx) / bb),
-                                ou=(dot(v, outv) / w0 * 100.0, dot(sk, outv) / w0 * 100.0,
-                                    dot(tn, outv) / w0 * 100.0),
-                                # la NORME et sa decomposition sur le triedre de §7, pour les
-                                # clauses que la spec n'attache a AUCUNE direction.
-                                nrm=math.sqrt(sum(x * x for x in v)) / bb,
-                                nsk=math.sqrt(sum(x * x for x in sk)) / bb,
-                                thb=dot(v, thx) / bb, oub=dot(v, outv) / bb,
-                                upb=dot(v, upv) / bb))
-            for r_ in row:
-                A('ROOM-SPEC10: %-8s %-16s %-9s | %8.4f %8.4f %8.4f | %8.3f %8.3f %8.3f  %s'
+                return dict(cut=d['cut'],
+                            th=(dot(v, thx) / bb, dot(sk, thx) / bb, dot(tn, thx) / bb),
+                            ou=(dot(v, outv) / w0 * 100.0, dot(sk, outv) / w0 * 100.0,
+                                dot(tn, outv) / w0 * 100.0),
+                            # la NORME et sa decomposition sur le triedre de §7, pour les
+                            # clauses que la spec n'attache a AUCUNE direction.
+                            nrm=math.sqrt(sum(x * x for x in v)) / bb,
+                            nsk=math.sqrt(sum(x * x for x in sk)) / bb,
+                            thb=dot(v, thx) / bb, oub=dot(v, outv) / bb,
+                            upb=dot(v, upv) / bb)
+
+            # `row` PORTE LE VERDICT ; `rowc` est l'AUTRE denominateur, publie en DIAGNOSTIC
+            # sur la MEME ligne — jamais l'un sans l'autre.
+            row = [_terms(d, _mode) for d in rec['defs']]
+            rowc = [_terms(d, _alt) for d in rec['defs']]
+            for r_, rc_ in zip(row, rowc):
+                A('ROOM-SPEC10: %-8s %-16s %-9s | %8.4f %8.4f %8.4f | %8.3f %8.3f %8.3f'
+                  ' | %8.4f %8.3f  %s'
                   % (nm, lab, 'w>%.2f' % r_['cut'], r_['th'][0], r_['th'][1], r_['th'][2],
-                     r_['ou'][0], r_['ou'][1], r_['ou'][2],
+                     r_['ou'][0], r_['ou'][1], r_['ou'][2], rc_['th'][0], rc_['ou'][0],
                      'CELLULE DU VERDICT' if i == isup else
                      ('CELLULE DU VERDICT §11' if i == ipro else
                       ('DIAGNOSTIC §12 — lecture a arbitrer' if i in (2, 4) else
@@ -3017,8 +3178,11 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                 _vdn = sorted({_vd_norm(x, _lo, _hi) for x in _v + [_lb, _hb]})
                 _r0 = row[0]
                 A('ROOM-SPEC10: %-8s %s %s' % (nm, _sec, _cite))
-                A('ROOM-SPEC10: %-8s %s NORME |d| = %s B0   (bande %.2f-%.2f)'
-                  % (nm, _sec, '/'.join('%.4f' % x for x in _v), _lo, _hi))
+                _vc = [rc_['nrm'] for rc_ in rowc]
+                A('ROOM-SPEC10: %-8s %s NORME |d| %s = %s B0  ·  %s = %s B0'
+                  '   (bande %.2f-%.2f)'
+                  % (nm, _sec, _LV, '/'.join('%.4f' % x for x in _v),
+                     _LD, '/'.join('%.4f' % x for x in _vc), _lo, _hi))
                 A('ROOM-SPEC10: %-8s %s   decomposition sur le triedre de §7 (frontiere w>%.2f) :'
                   ' thorax %.4f · sortant %.4f · haut %.4f  — parts %.3f / %.3f / %.3f'
                   % (nm, _sec, _r0['cut'], _r0['thb'], _r0['oub'], _r0['upb'],
@@ -3037,8 +3201,11 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                     A('ROOM-SPEC10: %-8s §12   DIAGNOSTIC, PAS UN VERDICT — le mot « Global » de'
                       ' la clause ne dit pas si elle porte sur UNE chaine dans UNE cellule ou sur'
                       ' la PAIRE : les deux lectures ne donnent pas le meme resultat (%s par'
-                      ' cellule ici). La question est ouverte et nommee, elle n\'est pas tranchee'
-                      ' au passage.' % (nm, '/'.join(_vdn)))
+                      ' cellule %s, %s %s). La question est ouverte et nommee, elle n\'est pas'
+                      ' tranchee au passage.'
+                      % (nm, '/'.join(_vdn), _COM_DENOM_LBL[_mode],
+                         '/'.join(sorted({_vd_norm(x, _lo, _hi) for x in _vc})),
+                         _COM_DENOM_LBL[_alt]))
                 else:
                     # ---- QUELLE FRONTIERE PORTE LE VERDICT — CORRIGE AU CYCLE 124 -------------
                     # LA MEME GRANDEUR ETAIT JUGEE A DEUX FRONTIERES DIFFERENTES DANS CE MEME
@@ -3069,19 +3236,24 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                            if _sp > 30.0
                            else (_vdv[0] if len(_vdv) == 1
                                  else 'INDETERMINEE — ' + '/'.join(_vdv)))
-                    A('ROOM-SPEC10: %-8s §11 VERDICT DE LA CLAUSE DE COM : %s   (frontiere'
-                      ' w>0.00, |d| = %.4f B0, pire cas de montage [%.4f ; %.4f])%s'
-                      % (nm, _cn, _rv['nrm'], _lb0, _hb0,
+                    _rvc = next((rc_ for rc_ in rowc if rc_['cut'] == 0.0), rowc[0])
+                    A('ROOM-SPEC10: %-8s §11 VERDICT DE LA CLAUSE DE COM, RENDU %s : %s'
+                      '   (frontiere w>0.00, |d| = %.4f B0, pire cas de montage [%.4f ; %.4f])%s'
+                      '  ·  %s : %.4f B0 -> %s'
+                      % (nm, _COM_DENOM_LBL[_mode], _cn, _rv['nrm'], _lb0, _hb0,
                          ('' if _up is None else
                           ' · cible statique haute %.2f : %s'
-                          % (_up, 'FRANCHIE' if _rv['nrm'] > _up else 'non franchie'))))
+                          % (_up, 'FRANCHIE' if _rv['nrm'] > _up else 'non franchie')),
+                         _LD, _rvc['nrm'], _vd_norm(_rvc['nrm'], _lo, _hi)))
                     A('ROOM-SPEC10: %-8s §11   SENSIBILITE DE FRONTIERE, PUBLIEE PARCE QUE LE'
                       ' VERDICT EN DEPEND : %s. Meme argument de §30 que le bloc §22 (« la chair'
                       ' ANCREE appartient a l\'organe ») — le refuser deplace le verdict, et les'
                       ' chiffres pour le refuser sont ci-dessus.'
-                      % (nm, ' · '.join('w>%.2f %.4f %s'
-                                        % (r_['cut'], r_['nrm'],
-                                           _vd_norm(r_['nrm'], _lo, _hi)) for r_ in row)))
+                      % (nm, ' · '.join('w>%.2f  %s %.4f %s / %s %.4f %s'
+                                        % (r_['cut'], _mode, r_['nrm'],
+                                           _vd_norm(r_['nrm'], _lo, _hi), _alt, rc_['nrm'],
+                                           _vd_norm(rc_['nrm'], _lo, _hi))
+                                        for r_, rc_ in zip(row, rowc))))
                     A('ROOM-SPEC10: %-8s §11   CETTE CLAUSE EST INDEPENDANTE DE L\'ENTREE DU'
                       ' SOLVEUR : `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys`'
                       ' (game/kernel/jak1/kmachine.cpp:1970) — le moteur ne la recoit pas, la'
@@ -3107,25 +3279,35 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
               ' DIAGONAL (ce que `SupineWidthScale` pilote) contre CISAILLEMENT :' % nm)
             _dg = _sh = None
             for d in rec['defs']:
-                _L, _n, _w0 = d['L'], float(d['n']), float(d['W0'])
-                _diag = (_Dm[0][0] - 1.0) * _L[0] / _n * _sg / _w0 * 100.0
-                _shr = (_Dm[1][0] * _L[1] + _Dm[2][0] * _L[2]) / _n * _sg / _w0 * 100.0
+                _w0 = float(d['W0'])
+                _pair = []
+                for _md in (_mode, _alt):
+                    _Wq, _n, _L = _com_denom(d, _md)
+                    _pair.append(((_Dm[0][0] - 1.0) * _L[0] / _n * _sg / _w0 * 100.0,
+                                  (_Dm[1][0] * _L[1] + _Dm[2][0] * _L[2]) / _n * _sg / _w0
+                                  * 100.0))
+                (_diag, _shr), (_diagn, _shrn) = _pair
                 if _dg is None:
                     _dg, _sh = _diag, _shr
-                A('ROOM-SPEC10: %-8s sortant       w>%.2f  diagonal %+7.3f  cisaillement %+7.3f'
-                  '  somme %+7.3f  (annule %5.1f %% du diagonal)'
-                  % (nm, d['cut'], _diag, _shr, _diag + _shr,
-                     100.0 * abs(_shr) / abs(_diag) if abs(_diag) > 1e-12 else 0.0))
+                    _dgn, _shn = _diagn, _shrn
+                A('ROOM-SPEC10: %-8s sortant       w>%.2f  %s diagonal %+7.3f'
+                  '  cisaillement %+7.3f  somme %+7.3f  (annule %5.1f %% du diagonal)'
+                  '  ·  %s diagonal %+7.3f  cisaillement %+7.3f  somme %+7.3f'
+                  % (nm, d['cut'], _COM_DENOM_LBL[_mode], _diag, _shr, _diag + _shr,
+                     100.0 * abs(_shr) / abs(_diag) if abs(_diag) > 1e-12 else 0.0,
+                     _COM_DENOM_LBL[_alt], _diagn, _shrn, _diagn + _shrn))
             # LE BUDGET SE FERME, SINON LA DECOMPOSITION MENT PAR OMISSION. Le terme
             # SQUELETTIQUE (deplacement des joints, pondere par la masse) n'est PAS dans le
             # tenseur et il est NEGATIF des deux cotes : publier « le cisaillement mange la
             # migration » sans lui laisserait conclure « on retire le cisaillement et §10 passe ».
             # C'est faux, et les trois lignes ci-dessous le montrent au lieu de le promettre.
             _sk0 = row[0]['ou'][1]
-            A('ROOM-SPEC10: %-8s sortant       BUDGET COMPLET (w>%.2f, %% W0) : squelettique'
-              ' %+7.3f  +  diagonal %+7.3f  +  cisaillement %+7.3f  =  %+7.3f   contre la bande'
-              ' 4.00-10.00'
-              % (nm, row[0]['cut'], _sk0, _dg, _sh, _sk0 + _dg + _sh))
+            _sk0n = rowc[0]['ou'][1]
+            A('ROOM-SPEC10: %-8s sortant       BUDGET COMPLET (w>%.2f, %% W0) %s'
+              ' : squelettique %+7.3f  +  diagonal %+7.3f  +  cisaillement %+7.3f  =  %+7.3f'
+              '   contre la bande 4.00-10.00  ·  %s : %+7.3f  +  %+7.3f  +  %+7.3f  =  %+7.3f'
+              % (nm, row[0]['cut'], _COM_DENOM_LBL[_mode], _sk0, _dg, _sh, _sk0 + _dg + _sh,
+                 _COM_DENOM_LBL[_alt], _sk0n, _dgn, _shn, _sk0n + _dgn + _shn))
             A('ROOM-SPEC10: %-8s sortant       LECTURE, EN TROIS TEMPS. (1) le mecanisme de §10'
               ' EXISTE et il est du bon signe : le seul terme diagonal, celui que'
               ' `SupineWidthScale` pilote, rend %+.3f %% W0 de migration SORTANTE.' % (nm, _dg))
@@ -3142,19 +3324,22 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
 
             for bnm, key, lo, hi, un in _BANDS:
                 vals = [r_[key][0] for r_ in row]
+                valsc = [rc_[key][0] for rc_ in rowc]
                 den = max(abs(min(vals)), abs(max(vals)))
                 spread = (max(vals) - min(vals)) / den * 100.0 if den > 1e-12 else 0.0
                 vd = sorted({_vd(v, lo, hi) for v in vals})
+                vdc = sorted({_vd(v, lo, hi) for v in valsc})
                 # L'ECART DE MONTAGE PORTE SUR LE TERME SQUELETTIQUE SEUL : son effet est BORNE,
                 # la cellule n'est pas jetee.
                 lo_b = min(r_[key][0] - e * abs(r_[key][1]) for r_ in row)
                 hi_b = max(r_[key][0] + e * abs(r_[key][1]) for r_ in row)
                 vdb = sorted({_vd(v, lo, hi) for v in (lo_b, hi_b)})
                 allv = sorted(set(vd) | set(vdb))
-                A('ROOM-SPEC10: %-8s %-11s bande %.2f-%.2f %-5s  frontieres %s -> %-16s'
-                  '  raffinement %5.1f %% %s'
-                  % (nm, bnm, lo, hi, un, '/'.join('%.4f' % v for v in vals), '/'.join(vd),
-                     spread, '(<=30 % OK)' if spread <= 30.0 else '(>30 % REJETE)'))
+                A('ROOM-SPEC10: %-8s %-11s bande %.2f-%.2f %-5s  %s frontieres %s -> %-16s'
+                  '  raffinement %5.1f %% %s  ·  %s %s -> %s'
+                  % (nm, bnm, lo, hi, un, _LV, '/'.join('%.4f' % v for v in vals), '/'.join(vd),
+                     spread, '(<=30 % OK)' if spread <= 30.0 else '(>30 % REJETE)',
+                     _LD, '/'.join('%.4f' % v for v in valsc), '/'.join(vdc)))
                 A('ROOM-SPEC10: %-8s %-11s pire cas du montage (+/- %.2f %% du terme'
                   ' squelettique) : [%.4f ; %.4f] -> %s'
                   % (nm, bnm, ctrl.get(i, 0.0), lo_b, hi_b, '/'.join(vdb)))
@@ -3417,6 +3602,18 @@ def _spec12_block(A, txt, names, com, b0):
             A('')
             return
 
+    _defs_all = [_d for _rc in (mass.get('chains') or {}).values()
+                 for _d in (_rc.get('defs') or [])]
+    _mode = _com_denom_mode(_defs_all)
+    _alt = _com_denom_alt(_mode, _defs_all)
+    _LV = _COM_DENOM_LBL[_mode] + ' (VERDICT)'
+    _LD = _COM_DENOM_LBL[_alt] + ' (diagnostic)'
+    _com_denom_header(A, 'ROOM-SPEC12',
+                      'une LONGUEUR SIGNEE en % W0 (migration mediale) et une LONGUEUR en B0'
+                      ' (reponse laterale). Le tableau des ECHELLES plus bas est un rapport sans'
+                      ' unite : il ne passe par aucun denominateur de masse et ce cycle ne le'
+                      ' touche pas.', _mode, _alt)
+
     def _dot(a, b):
         return sum(a[k] * b[k] for k in range(3))
 
@@ -3425,9 +3622,12 @@ def _spec12_block(A, txt, names, com, b0):
         # (controle publie ci-dessous), donc lignes et colonnes donnent le meme chiffre.
         return math.sqrt(sum(sum(u[i] * D[i][j] for i in range(3)) ** 2 for j in range(3)))
 
-    def _vecCOM(c, i, cut):
+    def _vecCOM(c, i, cut, md=None):
+        """Le vecteur de COM au denominateur `md` (`aire` = verdict, `compte` = diagnostic).
+        Le NUMERATEUR est le meme dans les deux cas : seul le poids de sommet change."""
         gc = next(d for d in DEF[c] if d['cut'] == cut)
-        W, N, L, D = gc['W'], float(gc['n']), gc['L'], dfma[(c, i)]
+        W, N, L = _com_denom(gc, md or _mode)
+        D = dfma[(c, i)]
         d0 = ldb[(c, i, 0)]
         d1 = tuple(d0[k] + ldb[(c, i, 1)][k] for k in range(3))
         sk = [(W[0] * d0[k] + W[1] * d1[k]) / N for k in range(3)]
@@ -3468,14 +3668,19 @@ def _spec12_block(A, txt, names, com, b0):
     for c in chains:
         nm = names[c] if c < len(names) else 'c%d' % c
         for i in POLES:
-            vals, sks = [], []
+            vals, sks, valsc = [], [], []
             for cut in sorted(W0[c]):
                 v, sk = _vecCOM(c, i, cut)
                 vals.append(-_dot(v, AX[c]['out']) / W0[c][cut] * 100.0)
                 sks.append(-_dot(sk, AX[c]['out']) / W0[c][cut] * 100.0)
+                vc, _skc = _vecCOM(c, i, cut, _alt)
+                valsc.append(-_dot(vc, AX[c]['out']) / W0[c][cut] * 100.0)
             if role[(c, i)] != 'OPPOSE':
-                A('ROOM-SPEC12:   %-8s i=%d %-8s %s   DIAGNOSTIC — la clause ne nomme pas ce sein'
-                  % (nm, i, role[(c, i)], ' '.join('%8.3f' % v for v in vals)))
+                A('ROOM-SPEC12:   %-8s i=%d %-8s %s %s  ·  %s %s   DIAGNOSTIC — la clause'
+                  ' ne nomme pas ce sein'
+                  % (nm, i, role[(c, i)], _COM_DENOM_LBL[_mode],
+                     ' '.join('%8.3f' % v for v in vals), _COM_DENOM_LBL[_alt],
+                     ' '.join('%8.3f' % v for v in valsc)))
                 continue
             # borne du montage : elle ne porte que sur le terme SQUELETTIQUE (meme regle que §10)
             e = _tipctl_pct(ldb, com, c, i) / 100.0
@@ -3483,11 +3688,14 @@ def _spec12_block(A, txt, names, com, b0):
             hi_b = max(v + e * abs(s) for v, s in zip(vals, sks))
             vd = sorted({_band(v, 10.0, 18.0) for v in vals}
                         | {_band(lo_b, 10.0, 18.0), _band(hi_b, 10.0, 18.0)})
+            vdc = sorted({_band(v, 10.0, 18.0) for v in valsc})
             med[c] = vd[0] if len(vd) == 1 else None
-            A('ROOM-SPEC12:   %-8s i=%d %-8s %s   pire cas montage (+/- %.2f %%) [%.3f ; %.3f]'
-              '  -> %s' % (nm, i, role[(c, i)], ' '.join('%8.3f' % v for v in vals),
-                           e * 100.0, lo_b, hi_b,
-                           vd[0] if len(vd) == 1 else 'INDETERMINEE (%s)' % '/'.join(vd)))
+            A('ROOM-SPEC12:   %-8s i=%d %-8s %s %s   pire cas montage (+/- %.2f %%)'
+              ' [%.3f ; %.3f]  -> %s  ·  %s %s -> %s'
+              % (nm, i, role[(c, i)], _LV, ' '.join('%8.3f' % v for v in vals),
+                 e * 100.0, lo_b, hi_b,
+                 vd[0] if len(vd) == 1 else 'INDETERMINEE (%s)' % '/'.join(vd),
+                 _LD, ' '.join('%8.3f' % v for v in valsc), '/'.join(vdc)))
     A('ROOM-SPEC12:   (colonnes : frontieres d\'organe w>0 / w>=0.05 / w>=0.25)')
 
     # ---- CLAUSE « Global lateral COM response: 15-24% B0 » — TROIS LECTURES --------------------
@@ -3501,11 +3709,14 @@ def _spec12_block(A, txt, names, com, b0):
     for c in chains:
         nm = names[c] if c < len(names) else 'c%d' % c
         for i in POLES:
-            va, vn = [], []
+            va, vn, vac, vnc = [], [], [], []
             for cut in sorted(W0[c]):
                 v, _s = _vecCOM(c, i, cut)
                 va.append(_dot(v, AX[c]['out']) / b0.get(c, 602.0))
                 vn.append(math.sqrt(sum(x * x for x in v)) / b0.get(c, 602.0))
+                vc, _sc = _vecCOM(c, i, cut, _alt)
+                vac.append(_dot(vc, AX[c]['out']) / b0.get(c, 602.0))
+                vnc.append(math.sqrt(sum(x * x for x in vc)) / b0.get(c, 602.0))
             glob |= {_band(abs(x), 0.15, 0.24) for x in va}
             glob |= {_band(x, 0.15, 0.24) for x in vn}
             A('ROOM-SPEC12:   (A) %-8s i=%d lateral %s B0 -> %s   ·   (C) norme %s B0 -> %s'
@@ -3513,19 +3724,33 @@ def _spec12_block(A, txt, names, com, b0):
                  '/'.join(sorted({_band(abs(x), 0.15, 0.24) for x in va})),
                  ' '.join('%7.4f' % x for x in vn),
                  '/'.join(sorted({_band(x, 0.15, 0.24) for x in vn}))))
+            A('ROOM-SPEC12:       (les memes %s, en diagnostic — le verdict ci-dessus est rendu'
+              ' %s) : (A) %s -> %s  ·  (C) %s -> %s'
+              % (_COM_DENOM_LBL[_alt], _COM_DENOM_LBL[_mode],
+                 ' '.join('%+7.4f' % x for x in vac),
+                 '/'.join(sorted({_band(abs(x), 0.15, 0.24) for x in vac})),
+                 ' '.join('%7.4f' % x for x in vnc),
+                 '/'.join(sorted({_band(x, 0.15, 0.24) for x in vnc}))))
     if len(chains) >= 2:
         for i in POLES:
-            vb = []
+            vb, vbc = [], []
             for cut in sorted(W0[chains[0]]):
                 v0, _ = _vecCOM(chains[0], i, cut)
                 v1, _ = _vecCOM(chains[1], i, cut)
                 # les deux sortants sont opposes : on les ramene sur le MEME axe avant de moyenner
                 vb.append((_dot(v0, AX[chains[0]]['out']) - _dot(v1, AX[chains[1]]['out']))
                           / 2.0 / b0.get(chains[0], 602.0))
+                v0c, _ = _vecCOM(chains[0], i, cut, _alt)
+                v1c, _ = _vecCOM(chains[1], i, cut, _alt)
+                vbc.append((_dot(v0c, AX[chains[0]]['out']) - _dot(v1c, AX[chains[1]]['out']))
+                           / 2.0 / b0.get(chains[0], 602.0))
             glob |= {_band(abs(x), 0.15, 0.24) for x in vb}
-            A('ROOM-SPEC12:   (B) pole i=%d moyenne des deux seins %s B0 -> %s'
-              % (i, ' '.join('%+7.4f' % x for x in vb),
-                 '/'.join(sorted({_band(abs(x), 0.15, 0.24) for x in vb}))))
+            A('ROOM-SPEC12:   (B) pole i=%d moyenne des deux seins, %s %s B0 -> %s  ·  %s'
+              ' %s B0 -> %s'
+              % (i, _LV, ' '.join('%+7.4f' % x for x in vb),
+                 '/'.join(sorted({_band(abs(x), 0.15, 0.24) for x in vb})), _LD,
+                 ' '.join('%+7.4f' % x for x in vbc),
+                 '/'.join(sorted({_band(abs(x), 0.15, 0.24) for x in vbc}))))
     A('ROOM-SPEC12:   les trois lectures reunies rendent {%s} -> %s'
       % (', '.join(sorted(glob)),
          'VERDICT %s' % sorted(glob)[0] if len(glob) == 1 else

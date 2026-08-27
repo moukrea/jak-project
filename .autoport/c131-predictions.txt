@@ -1,0 +1,126 @@
+CYCLE 131 — PREDICTIONS ECRITES AVANT TOUTE MESURE
+DIRECTIVES vd9e8b66782 · phase Grecharged-secondary-motion · branche physics-keira-clean
+Ecrit le 2026-08-27. Chaque prediction porte SON falsificateur. Une prediction refutee se
+publie comme refutee ; elle ne se reecrit pas apres coup.
+
+CONTEXTE. Le cycle 130b a pre-specifie le chantier c131 : (a) recabler le lot c128 (retrait du
+double compte de longueur de §11) + (b) un terme de COM dans le TENSEUR a x1,61-x1,68. Ce cycle
+commence par verifier les DEUX instruments sur lesquels cette taille a ete calculee, parce que
+les deux ont ete remis en cause par les cycles 126 et 130 sans jamais etre recables.
+
+--------------------------------------------------------------------------------------------
+P1  LA LIGNE DE VERDICT DE §10/§11 PUBLIE UN PROXY QUE LE CYCLE 126 A REFUTE.
+    `ROOM-SPEC1011-LIVREE` est designee par le tableau lui-meme comme la ligne qui rend le
+    verdict des clauses de forme de §10/§11 (« le verdict de cette clause est rendu par
+    ROOM-SPEC1011-LIVREE, sur la peau LIVREE (cycle 125) »). Je predis que sa colonne
+    principale `LIVREE` est l'ECART-TYPE PONDERE, que le cycle 128 declare « REFUTE comme
+    proxy », et NON la distance racine->apex entre centroides de decile qu'il declare etre
+    « l'instrument du verdict, celui que le cycle 126 a arbitre ».
+    ANCRAGE (deja releve sur les deux tableaux archives, donc ceci n'est pas la prediction
+    mais sa piece a conviction) : LIVREE publie 1.4455/1.4514/1.4370/1.4588, qui est
+    exactement la 3e ligne du tableau a trois lectures du rapport c128 ; (max-min) publie
+    1.3939/1.4275/1.3384/1.4234, qui en est exactement la 2e. La 1re — 1.3363/1.2734/
+    1.3183/1.3116 — n'est publiee nulle part dans le tableau.
+    FALSIFICATEUR : si le code de `_spec1011_livree_block` calcule autre chose qu'un
+    ecart-type pondere, P1 est REFUTEE et je le publie ; le rebranchement n'a pas lieu.
+
+P2  RECABLER LA NORMALISATION A LA MASSE (c130) NE DEPLACE AUCUN STATUT DE SECTION.
+    La correction du cycle 130 (peser l'aire au lieu de compter les sommets) deplace 5
+    cellules de clause. Je predis que le nombre de SECTIONS dont le statut change dans
+    `SPEC-COVERAGE.md` est EXACTEMENT ZERO, parce que §10 reste tenue par « Outward COM
+    migration » (SOUS aux trois frontieres sous les deux ponderations) et §11 par sa clause
+    de longueur (AU-DESSUS sous les trois lectures).
+    FALSIFICATEUR : une seule section qui change de statut -> ce n'est pas un raffinement
+    d'instrument, c'est un deplacement de verdict, et il se remonte au lieu d'etre pose.
+
+P3  LA LONGUEUR RACINE->APEX EST INVARIANTE AU POINT D'ANCRAGE DE LA DEFORMATION.
+    Si la deformation `D` est appliquee autour d'un point A au lieu du joint (v' = A +
+    (v-A).D), alors apex' - racine' = (apex - racine).D : le terme en A s'annule par
+    algebre. Le premier moment, lui, devient L_A = L + (somme w).(p_joint - A), donc la
+    migration de COM DEPEND de A.
+    PREDICTION CHIFFREE : un deplacement d'ancrage de 0.10 B0 le long de l'axe racine->apex
+    change la longueur racine->apex LIVREE de moins de 0.5 %, et change le deplacement de
+    COM de §11 d'au moins 5 %.
+    FALSIFICATEUR : longueur changee de >= 0.5 % -> l'ancrage n'est PAS un degre de liberte
+    independant, la voie est fermee comme les deux autres et je l'ecris.
+    RESERVE DECLAREE D'AVANCE : l'algebre est exacte pour une peau pilotee par UNE seule
+    matrice. La chaine en porte DEUX (lBoob/lBooc) melangees par les poids ; l'invariance
+    n'est donc qu'approchee et la mesure doit dire de combien.
+
+P4  LA TAILLE DU DEPLACEMENT D'ANCRAGE QUI FERME §11, EN FORME CLOSE, AVANT DE LA MESURER.
+    Au point de fonctionnement le PLUS FAVORABLE admissible — longueur livree exactement au
+    plafond de 1.26 — je predis, par interpolation lineaire des deux points de commande
+    archives (moteur livre et lot c128) sur les instruments ARBITRES des DEUX clauses :
+        chestL  COM 0.1656 B0 contre un plancher de 0.20  -> deficit 0.0344 B0 (17.2 %)
+        chestR  COM 0.1825 B0 contre un plancher de 0.20  -> deficit 0.0175 B0 ( 8.8 %)
+    et un deplacement d'ancrage PROXIMAL de 0.2486 B0 (chestL) / 0.1225 B0 (chestR) le ferme.
+    FALSIFICATEUR : la mesure directe s'ecarte de plus de 20 % de ces deux deficits -> mon
+    interpolation a deux points ne vaut rien et la taille reste NON ETABLIE.
+
+P5  LE TENSEUR NE PEUT PAS PORTER UN CANAL DE COM, PAR CONSTRUCTION.
+    Les trois facteurs `dfa`/`dfb`/`dfc` posent leur 4e rangee a l'identite et l'ecriture
+    squelette ecrase `bm vector 3` par la position du solveur : le tenseur n'ecrit AUCUNE
+    translation. Sa seule voie vers le COM est donc l'ECHELLE, c'est-a-dire exactement les
+    cles MIROIR de §11.
+    FALSIFICATEUR : une 4e rangee non identite, ou une translation issue du tenseur qui
+    survit a l'ecriture -> l'adresse du cycle 129 (« le canal de COM doit vivre dans le
+    tenseur ») redevient ouverte telle qu'elle est ecrite.
+
+--------------------------------------------------------------------------------------------
+CE QUE JE N'EXECUTE PAS, ET POURQUOI — DECLARE AVANT, PAS APRES
+
+R1  LE (b) DU CHANTIER PRE-SPECIFIE EST UN CANAL POUR UNE CLE-REPONSE.
+    `HangingCOMDisplacement = 0.24 B0` est LIVREE dans le fichier (physics_chains.txt:131 et
+    :234, SPEC l.480) et n'a AUCUN canal. La ligne de prose de §11 qui la porte — « Static
+    COM displacement: 20-28% B0, nominal 24% B0 » — ne NOMME aucun reglage, contrairement a
+    « HangingLengthScale = 1.23 » nomme sur la sienne. C'est donc une REPONSE au sens du
+    test du cycle 119, et la DIRECTIVE du 2026-08-23 16:00 l'interdit en toutes lettres :
+    « plus aucun canal cree pour une cle-REPONSE. Une reponse se MESURE, elle ne se pose
+    pas. » Le tableau le dit deja de son cote : « CETTE CLAUSE EST INDEPENDANTE DE L'ENTREE
+    DU SOLVEUR ». Cabler un gain ajuste pour la ramener dans sa bande detruirait la SEULE
+    clause de §10/§11 qui soit aujourd'hui sans miroir.
+
+R2  LA PRIORITE 2 DU CONTRAT EST REFUTEE PAR UNE MESURE DU MEME JOUR, ECRITE APRES LUI.
+    La DIRECTIVE du 2026-08-23 16:00 nomme `HangingTransientLengthMax` « seul vrai trou de
+    cablage ». Le contrat a ete ecrit a 16:18 (mtime de `.autoport/DIRECTIVES.md`) et la piece
+    qui le refute a 16:35 (mtime de `.autoport/c120_spec11_law.py`) : 17 minutes plus tard, donc
+    le superviseur ne pouvait pas l'avoir vue. La NOTE-508 (cycle 120) etablit que le document
+    la DERIVE de deux autres de ses cles : HTLM = 1 + (HangingLengthScale-1)x(1+
+    FirstBounceRatio), soit 1.3013 contre 1.30 sur Keira (+0.10 %) et 1.4389 contre 1.45 sur
+    Maia (-0.76 %, dans la plage que sa propre prose ecrit). Le pic est deja produit comme
+    grandeur EMERGENTE par `phys-sdyn`, et la note declare pourquoi la cle n'est pas donnee
+    au solveur : « sinon la mesure serait un miroir ». La cabler convertirait une prediction
+    a deux personnages en miroir. Je ne la cable pas et je remonte le conflit.
+
+R3  LE PLAFOND CLEAN NE LAISSE PAS LE CHANTIER PASSER, ET JE NE TOUCHE PAS LA GATE.
+    Moteur a 4796 lignes pour un plafond gele a 4800 (validateur:53). La convention de
+    migration des commentaires vers NOTES.md est EPUISEE : 455 des 507 lignes de commentaire
+    portent deja leur pointeur, et il ne reste qu'UN bloc multi-lignes non migre (2 lignes,
+    :2407-2408), soit 1 ligne recuperable. Regle 5 de l'owner : la gate ne se touche pas,
+    elle se signale. Recabler le lot c128 seul coute 0 ligne nette (substitution sur place
+    a :3589) ; le chantier (b) n'a pas de budget.
+
+--------------------------------------------------------------------------------------------
+AJOUT, ECRIT AVANT DE LIRE LA MESURE — JE METS MA PROPRE P3 EN DOUTE, ET JE DIS POURQUOI
+
+En verifiant l'implementabilite dans le moteur (`jak-hd-physics.gc:4048` montre que le SEUL site
+qui ecrit une translation sur un os de chaine est le plafond de §21, et qu'il ne fait que
+RETRANCHER), j'ai vu que re-ancrer la deformation en `a` revient exactement a un OFFSET RIGIDE
+`a.(I - D)` de tous les sommets pilotes par ce joint. Or l'invariance de longueur de P3 n'est
+exacte que si LA RACINE ET L'APEX SONT PILOTES PAR LE MEME JOINT. Ils ne le sont pas : sa §30
+mesure que **45,9 % / 46,1 % de la chair est ANCREE**, c'est-a-dire pesee sur `chest`, qui ne
+recoit aucun offset. La racine ne bougerait donc que partiellement, et la longueur augmenterait
+d'autant.
+
+BORNE PESSIMISTE, calculee avant la mesure (racine parfaitement immobile, part de chaine lue dans
+`comw=` du fichier livre) :
+
+    chestL  ancrage 0,4349 B0 -> offset 0,0602 B0 de longueur, pour une marge de 0,0088  DEPASSE
+    chestR  ancrage 0,2248 B0 -> offset 0,0321 B0 de longueur, pour une marge de 0,0250  DEPASSE
+
+**Donc P3 et P4 sont en tension avec ma propre borne, et la verite est entre les deux** — la
+decile proximale est un MELANGE de chair ancree et de chair de chaine, donc la racine bouge en
+partie. Je ne retire ni P3 ni P4 : elles ont ete ecrites avant, elles seront jugees telles
+quelles. J'ecris seulement que je n'attends plus leur succes, et que **si elles sont refutees, la
+conclusion du cycle est que la TROISIEME route est fermee elle aussi**, ce qui est un resultat et
+non un echec : trois routes nommees et fermees valent mieux qu'une route ouverte par optimisme.

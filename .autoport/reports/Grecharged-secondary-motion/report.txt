@@ -1,1214 +1,399 @@
-# CYCLE 130b — L'INCOMPATIBILITE DU CYCLE 128 SURVIT A LA CORRECTION D'INSTRUMENT, ET LE CHANTIER
-# DE §11 RECOIT ENFIN SA TAILLE : IL MANQUE 0,0385 / 0,0300 B0 DE COM, DANS LE TENSEUR.
+# CYCLE 131 — LES DEUX LIGNES QUI RENDENT LE VERDICT DE §10/§11 LISAIENT LA MAUVAISE GRANDEUR,
+# ET LES DEUX CORRECTIONS ETAIENT DEJA CONSTRUITES DEPUIS DES CYCLES SANS AVOIR ETE RECABLEES.
 
 DIRECTIVES vd9e8b66782
 
-**PALIER DE BUILD : AUCUN.** Zero build, zero course. Deux traces ARCHIVEES.
-
-## 0. POURQUOI CE BLOC EXISTE
-
-Le cycle 128 conclut que les deux clauses de §11 sont INCOMPATIBLES sous un seul bouton, et **cette
-conclusion bloque le chantier depuis trois cycles**. Elle a ete tiree d'un instrument dont le
-cycle 130 vient d'etablir qu'il est BIAISE (normalisation par un COMPTE DE SOMMETS, sur-estimation
-de 12,2 % / 6,9 % au prone). **Une conclusion batie sur un instrument biaise se re-teste sur
-l'instrument corrige avant d'etre gardee.** La trace du lot c128 est archivee : ca ne coute rien.
-
-Et la reponse n'etait PAS connue d'avance : P13 a refute que la correction soit un scalaire — sur
-chestR le maillon DISTAL voit son poids MONTER (x1,0316) pendant que le proximal baisse. Or le lot
-c128 change precisement le melange des maillons.
-
-## 1. P15 — L'INCOMPATIBILITE SURVIT. TIRE.
-
-    chestL   LIVREE 0,2011 DANS   ->   lot c128  0,1615 SOUS
-    chestR   LIVREE 0,2117 DANS   ->   lot c128  0,1700 SOUS      (bande 0,20-0,28)
-
-Mettre la LONGUEUR dans sa bande sort le COM par le BAS, sur les deux chaines, **sur l'instrument
-corrige comme sur l'ancien**. Ce n'etait pas un artefact de normalisation. La conclusion du
-cycle 128 tient, et « le canal de COM manquant vit dans le TENSEUR » (c129) en sort renforce.
-
-## 2. P16 — L'ADRESSE DU CYCLE 129 TIENT AUSSI. TIRE.
-
-Part SQUELETTIQUE au prone, sur l'estimateur ARBITRE : **0,1047 (chestL) / 0,1236 (chestR) B0**
-contre un plancher de bande a 0,20, falsificateur ecrit d'avance a 0,13. Le cycle 129 l'avait lue
-0,1110 / 0,0999 sur l'instrument biaise : **le chiffre bouge, la conclusion non.** La chaine seule
-ne produit pas les deux tiers du plancher.
-
-## 3. CE QUI EST NEUF, ET C'EST LA TAILLE DU CHANTIER
-
-Le cycle 129 a donne l'ADRESSE (« dans le tenseur ») et **jamais la TAILLE**. Elle se lit en
-vecteurs, sans une course de plus, sur l'etat A LONGUEUR TENUE (le lot c128) :
-
-    chestL   LIVREE   0,2011 = squel. 0,1047 + tenseur 0,0965     cos(squel,tenseur) +0,998
-             lot c128 0,1615 = squel. 0,1047 + tenseur 0,0570
-             IL MANQUE 0,0385 B0 (19,3 % du plancher) -> tenseur 0,0570 -> 0,0955  (x1,676)
-
-    chestR   LIVREE   0,2117 = squel. 0,1236 + tenseur 0,0932     cos(squel,tenseur) +0,905
-             lot c128 0,1700 = squel. 0,1238 + tenseur 0,0494
-             IL MANQUE 0,0300 B0 (15,0 % du plancher) -> tenseur 0,0494 -> 0,0794  (x1,607)
-
-**Trois choses rendent ce chiffre utilisable, et aucune n'etait etablie avant ce bloc :**
-
-  1. **LES DEUX ETAGES SONT SEPARABLES EN PRATIQUE, pas seulement en principe.** Le lot c128 laisse
-     le terme SQUELETTIQUE invariant a **6,5e-06 / 2,7e-04 B0** — il n'agit que sur le tenseur. Le
-     cycle 129 le supposait sans l'avoir montre.
-  2. **LES DEUX ETAGES SONT QUASI COLINEAIRES** (cos +0,998 / +0,905), donc le budget en NORMES est
-     legitime et non une majoration : c'est pour ca qu'un « il manque X » a un sens ici.
-  3. **LES DEUX CHAINES DEMANDENT PRESQUE LE MEME FACTEUR** (x1,676 et x1,607, 4 % d'ecart) — donc
-     un bouton COMMUN est plausible, ce qui n'etait ni acquis ni meme regarde.
-
-Et la cible atteinte vaut 0,20 B0, **tres en dessous du plafond de COM de §22** (normal <= 0,35 B0) :
-le chantier ne se heurte pas a §22, contrairement a la voie par excursion de joints que le
-cycle 129 avait fermee.
-
-## 4. LE CHANTIER DU CYCLE 131, PRE-SPECIFIE
-
-Un lot qui combine (a) le retrait du double compte de longueur du cycle 128 — deja ecrit, deja
-mesure, il met la LONGUEUR `DANS` sur 4 cellules sur 4 — et (b) un terme de COM dans le tenseur
-valant x1,61 a x1,68 de l'actuel, met **les deux clauses de §11 dans leur bande simultanement**.
-
-**LE FALSIFICATEUR A BATTRE EST NOMME D'AVANCE, ET C'EST LE MEME QUI A TUE LES LOTS c122 ET c128 :**
-la gate `DISCRIMINANT` sur **chestR** (23,0 % rendu contre 25 % exige au cycle 128 — la reponse
-s'APLATIT). Tout lot de §11 se juge sur elle AVANT le reste.
-
-## 4 bis. LE BUDGET D'EXECUTION DE CE CHANTIER EST DE QUATRE LIGNES — VERIFIE, PAS ESTIME
-
-    goal_src/jak1/pc/jak-hd-physics.gc                4796 lignes
-    plafond de la gate CLEAN (validateur:53)          4800 lignes
-    marge                                                4 lignes
-
-Le cycle 127 avait remonte ce point a 4794 lignes ; **il s'est resserre a 4 lignes depuis**. Les
-gates sont GELEES (regle 5 de l'owner) : je ne touche pas ce plafond et je ne decide pas seul de
-l'assouplir. **C'est donc une decision de superviseur, et elle conditionne l'execution du chantier
-pre-specifie ci-dessus** — un terme de COM dans le tenseur ne tient pas en quatre lignes s'il faut
-lui cuire une donnee et un accesseur.
-
-Ce que je peux dire sans arbitrage, parce que c'est mesure : le facteur demande est **le meme a 4 %
-pres sur les deux chaines** (x1,676 / x1,607). Un bouton COMMUN — donc une constante unique et non
-une table par chaine — est la forme la moins couteuse en lignes, et c'est la premiere a essayer.
-
-## 5. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
-
-    P14  montage sur la trace c128 (couverture + hors defaut)   TIRE (4,3e-08 · 0,0009 B0)
-    P15  l'incompatibilite du c128 survit a la correction       TIRE (SOUS sur les deux chaines)
-    P16  la part squelettique reste <= 0,13 B0                  TIRE (0,1047 / 0,1236)
-
-## A TESTER PAR L'OWNER
-
-**RIEN.** Aucun build.
-
-## FICHIERS
-
-    .autoport/c130b-predictions.txt       P14/P15/P16, ecrites avant tout calcul
-    .autoport/c130b_c128_retest.py        le re-test et la pre-specification
-    .autoport/reports/Grecharged-secondary-motion/c130b-c128-retest.txt   sa sortie
-
-
-# CYCLE 130 — LA DIVERGENCE DU CYCLE 129 EST RECONCILIEE SANS RESIDU. ET LE CORRECTIF QU'ELLE
-# REVELE DEPLACE CINQ VERDICTS, DONC JE NE LE CABLE PAS.
-
-DIRECTIVES vd9e8b66782
-
-**PALIER DE BUILD : AUCUN.** Zero build, zero course neuve. Tout se lit sur la trace ARCHIVEE de la
-course livree et sur le mesh livre. C'est le palier le moins cher qui prouve le changement, et il
-suffit ici parce que la question du cycle est un ECART D'INSTRUMENT sur des donnees deja emises —
-pas un comportement de solveur.
-
-**PALIER DE PREUVE :** aucun nouvel instrument de campagne. Un script de 340 lignes hors moteur,
-onze predictions ecrites avant tout calcul, quatre controles (couverture de poids, hors defaut,
-montage, non-vacuite). Cout : quelques secondes de Python.
-
----
-
-## 0. L'ETAT, EN PREMIER — AUCUN STATUT NE BOUGE, CINQUIEME CYCLE DE SUITE
-
-    4 TENUE (§12, §24, §25, §26) · 5 TENUE PAR CONSTRUCTION · 16 PARTIELLE · 13 NON TENUE
-    0 NON ETABLI · 38 sections
-
-**Recompte ligne a ligne sur `SPEC-COVERAGE.md` ce cycle, pas recopie** (§36 porte son statut sous
-la forme « **NON TENUE** · 1 clause TAUTOLOGIQUE », qu'un compteur naif rate). Cycles 126, 127, 128,
-129 et 130 : aucun changement de statut. La remontee qu'exige la directive du 2026-08-21 18:25 est
-en section 8.
-
-**Le validateur imprime `[PASS]` sur ses 13 gates de mesure et sort 1 sur `OPEN-DEFECTS /
-breast-spec-incomplete`** — la porte de l'owner, qui n'a pas de mode « reussi » par construction.
-Ce n'est pas un indicateur d'avancement (arbitrage 2026-08-23 01:20) et je ne le presente pas comme
-tel. Sortie de 18 lignes, la longueur attendue : le plafond `CLEAN` ne mord pas.
-
----
-
-## 1. LA QUESTION QUE CE CYCLE FERME
-
-Le cycle 129 a publie DEUX nombres pour la MEME clause de §11 (« Static COM displacement: 20-28% B0,
-nominal 24% B0 », l.178) et ils rendaient des verdicts OPPOSES :
-
-    nuage de peau COMPLET (c129)         0,3192 / 0,3295 B0   ->  AU-DESSUS
-    modele a DEUX POINTS (ROOM-SPEC10)   0,2278 / 0,2273 B0   ->  DANS
-    bande de la clause                   0,20 - 0,28   (cible statique haute 0,30)
-
-Ecart 40,1 % / 45,0 %. La directive du 2026-08-21 18:40 interdit de traiter une grandeur dont deux
-chemins divergent avant reconciliation, et le cycle 129 avait donc laisse §11 sans verdict sur cette
-clause. **Reconcilier ne veut pas dire choisir : ca veut dire rendre compte de l'ecart terme a terme,
-puis dire lequel est la grandeur que la spec NOMME.**
-
----
-
-## 2. LE PONT EST FERME SANS RESIDU, ET CHAQUE PAS EST NOMME
-
-La condition d'un pont est qu'**UN SEUL code reproduise LES DEUX BOUTS**. Il le fait :
-
-    P1b  le modele a DEUX POINTS est EXACTEMENT `(W0.d0 + W1.d1 + L.(D-I))/n`   ecart 0,01 % / 0,00 %
-    P2   le nuage du cycle 129 est le centroide PONDERE par l'appartenance `w`  ecart 0,01 % / 0,01 %
-
-Et les deux ne different que par la PONDERATION du meme deplacement par sommet :
-
-                DEUX PTS     exact        ARBITRE      pondere w
-    chestL       0,2278      0,2459       0,2011       0,3192
-                |--AGREGATION x1,0794--|--TESSELLATION x0,8178--|   |--PONDERATION x1,2984--|
-    chestR       0,2273      0,2413       0,2117       0,3295
-                |--AGREGATION x1,0618--|--TESSELLATION x0,8771--|   |--PONDERATION x1,3652--|
-
-**Le pas de PONDERATION se PREDIT depuis la seule POSE DE BIND**, sans une matrice ni une course :
-`k = n.Somme(w^2)/(Somme w)^2` rend **1,2663 / 1,3331** contre **1,2984 / 1,3652** mesures, soit
-**2,5 % / 2,4 %** pour un falsificateur ecrit d'avance a 5 %, avec `k > 1,15` sur les deux chaines
-(controle de non-vacuite). **Aucune troisieme cause n'est requise** : ni le repere, ni la frontiere
-d'organe, ni le tenseur n'ont besoin d'etre invoques.
-
-Les trois termes, en clair :
-
-  - **AGREGATION** — le modele a deux points applique UN SEUL tenseur `D` en UN SEUL premier moment
-    `L`, au lieu des matrices par sommet. C'est le cout de la forme a deux points, et il **MONTE**
-    le chiffre de 6 a 8 %.
-  - **TESSELLATION** — il normalise par un **COMPTE DE SOMMETS** (`n` = 94 / 90) la ou la spec ecrit
-    « center-of-mass » (§6 l.113). L'aire portee par sommet a un CV de **0,648 / 0,597** sur ce
-    nuage (min 621 u^2, max 46 285) : **compter les sommets n'est pas peser la masse.**
-  - **PONDERATION** — ponderer par l'appartenance `w` repond a une AUTRE question.
-
----
-
-## 3. L'ARBITRATION EST TRANCHEE PAR SON TEXTE, PAS PAR MON GOUT
-
-§30, l.375, mot pour mot : « Approximately **28-35% of the rear breast volume** should behave as
-strongly attached tissue ».
-
-**La chair ancree EST du volume de sein.** Elle entre donc au centre de masse a masse PLEINE, et sa
-quasi-immobilite tire la grandeur vers le bas. Ponderer par `w` lui retire de la masse a proportion
-de son ancrage : cela mesure **le centroide de la PART MOBILE**, qui n'est pas le centre de masse de
-l'organe. Le nuage du cycle 129 n'est donc pas faux — **il est hors clause**, et c'est une reponse a
-une question que la spec ne pose pas ici.
-
-**Estimateur ARBITRE** : masse de sommet proportionnelle a l'**AIRE** qu'il porte (un tiers de
-l'aire de chaque triangle incident, en pose de BIND — la masse est une propriete materielle, fixee
-dans la configuration de reference), sur la meme selection, a masse PLEINE.
-
----
-
-## 4. LE VERDICT DE LA CLAUSE, SUR L'ESTIMATEUR ARBITRE
-
-    chestL   w>0,00  0,2011 DANS  ·  w>0,05  0,2270 DANS  ·  w>0,25  0,2742 DANS
-    chestR   w>0,00  0,2117 DANS  ·  w>0,05  0,2410 DANS  ·  w>0,25  0,2911 AU-DESSUS
-
-Cible statique haute de **0,30 B0 franchie sur AUCUNE chaine, AUCUNE frontiere**.
-
-**C'est la MEME FORME de verdict qu'au cycle 123** (chestL DANS sur les trois, chestR INDETERMINEE
-par sa frontiere la plus serree). **La clause de COM survit a la reconciliation, et elle n'est PAS
-ce qui tient §11 : la clause de LONGUEUR l'est** — 1,4370 a 1,4588 contre un plafond de 1,26
-(cycle 125). §11 reste `NON TENUE`, pour la raison qu'elle avait deja.
-
-**RESERVE DECLAREE, ET ELLE PORTE SUR LA CELLULE LA PLUS LARGE.** La forme PUBLIABLE — le modele a
-deux points recuit a l'aire, la seule calculable depuis la trace sans le mesh — rend sur chestL
-**0,1864 `SOUS`** la ou l'exact rend 0,2011 `DANS`. **C'est l'erreur d'AGREGATION, un defaut connu
-de cette forme, qui maintient cette cellule dans la bande.** Je le dis au lieu de publier le nombre
-qui arrange.
-
----
-
-## 5. CE QUE JE TROUVE ET NE CABLE PAS — LA REMONTEE PRINCIPALE
-
-La reconciliation ne sert a rien si la LIGNE DE VERDICT continue de lire l'ancien nombre (arbitrage
-2026-08-19 23:50). La correction a donc ete construite jusqu'au bout : `Wa / na / La` recuits a
-l'aire dans l'instantane de masse, forme a deux points inchangee. **P10 tire** — le facteur
-d'agregation est TRANSPORTABLE (x1,0785 / x1,0579 a l'aire contre x1,0794 / x1,0618 au compte,
-0,08 et 0,35 point d'ecart), donc la forme a deux points reste utilisable une fois recuite.
-
-**Mais ma prediction P11, ecrite avant le calcul — « au plus 2 cellules de verdict changent
-d'etiquette, et aucune sur la clause porteuse de §12 » — est REFUTEE a 5.** Les cinq, exhaustives :
-
-    §10 thorax   chestL w>0,00   +0,2957 AU-DESSUS  ->  +0,2444 DANS
-    §10 thorax   chestL w>0,05   +0,3260 AU-DESSUS  ->  +0,2757 DANS
-    §10 thorax   chestR w>0,05   +0,3016 AU-DESSUS  ->  +0,2654 DANS
-    §11 norme    chestR w>0,25   +0,2949 AU-DESSUS  ->  +0,2736 DANS
-    §11 norme    chestL w>0,00   +0,2278 DANS       ->  +0,1864 SOUS
-
-**Quatre des cinq feraient PASSER une cellule qui echoue.** Un correctif d'instrument qui deplace
-cinq verdicts, et dont quatre dans le sens qui m'arrange, n'est pas un raffinement : c'est un
-deplacement de verdict. **Mon propre falsificateur l'a attrape avant que je le cable, et je ne le
-cable pas.** Il est remonte au superviseur avec ses deux valeurs par cellule, sa cause mesuree et
-son code.
-
-Ce que ca laisse en l'etat : **sur les cellules MESUREES de §10, §11 et §12, la ligne de verdict
-sur-estime le COM de 7 a 12 %** (chaque cellule est chiffree ci-dessus, aucune n'est extrapolee). Le
-chantier de §11 nomme au cycle 129 — un canal de COM dans le TENSEUR — viserait donc une cible
-biaisee de cette quantite.
-
-### 5 bis. LA PORTEE EST PLUS LARGE QUE LE TABLEAU : LA CLE EST CUITE DANS LE FICHIER LIVRE
-
-Un balayage exhaustif PAR VALEUR (et non par une liste de noms ecrite a la main) etablit que la
-normalisation par compte de sommets **ne vit pas seulement dans le tableau** :
-
-    kmachine.cpp:1126        « comw[l] = W_l / N »
-    physics_chains.txt:102   comw=0.3266,0.2449   =  30,6958/94  et  23,0200/94   <- LE MEME n=94
-    jak-hd-physics.gc:106    `*phys-comw*` — le MOTEUR la lit dans le fichier livre
-
-Verifie a la main, chiffre par chiffre. Elle alimente donc AUSSI `ROOM-COM` (§22), `ROOM-REGIME`
-(§14/§16/§17/§18/§20) et `ROOM-REGB-COM`, tous formes du meme slot de diagnostic. **Les deux seuls
-usages de `*phys-comw*` (`jak-hd-physics.gc:3940` et `:3978`) sont des accumulateurs de DIAGNOSTIC —
-aucune force ne la lit** : la corriger ne changerait aucun comportement de solveur, et se ferait en
-DONNEE, sans build.
-
-**MAIS LE FACTEUR NE SE TRANSPORTE PAS, ET C'EST P13 QUI L'ETABLIT — CONTRE MOI.** `d_COM` est
-LINEAIRE en `comw`, donc si le rapport aire/compte etait le meme sur les deux maillons, la correction
-serait un SCALAIRE exact valable a toute pose, et l'effet sur des dizaines de cellules de §14 a §22
-se chiffrerait sans une course de plus. **Il ne l'est pas :**
-
-    chestL   compte 0,3266 · 0,2449   ->  aire 0,2881 · 0,1928   rapports x0,8822 / x0,7871   ecart 12,1 %
-    chestR   compte 0,3581 · 0,1871   ->  aire 0,2917 · 0,1930   rapports x0,8146 / x1,0316   ecart 21,0 %
-
-Sur chestR le maillon DISTAL voit meme son poids **MONTER** (x1,0316) pendant que le proximal baisse :
-la correction n'est pas une reduction uniforme, c'est une REDISTRIBUTION vers le distal, et son effet
-depend du melange des maillons — donc de la pose et du regime. **L'effet sur §14 a §22 reste donc
-NON ETABLI, et je l'ecris tel quel au lieu de l'extrapoler depuis le prone.** Ce que le balayage
-donne quand meme, et qui suffit a mesurer l'enjeu : parmi les cellules alimentees par `comw`,
-**seize sont a moins de 15 % d'un bord de bande, dont quatre a moins de 3 %** (`ROOM-REGB-COM`
-chestL r=1 a 0,04 %, r=8 a 0,41 %, r=4 a 1,96 %, `ROOM-COM` §22 pic chestL a 3,00 %). Une correction
-de l'ordre de 10 % en deplacerait plusieurs — dans un sens qui n'est pas connu d'avance.
-
----
-
-## 6. CONTROLE DE FAUX VERT SUR §12 — FAIT, ET IL PASSE
-
-§12 est `TENUE`, et sa clause porteuse (« Upper/opposite breast medial migration: 10-18% W0 »,
-l.194) est calculee avec la MEME normalisation par compte de sommets. Recalculee sous la ponderation
-arbitree, **sur le sein que la spec NOMME et aux deux poles** :
-
-    chestL i=4   14,036  ->  11,710 % W0   DANS avant, DANS apres
-    chestR i=2   15,031  ->  13,199 % W0   DANS avant, DANS apres
-
-La correction rapproche meme les deux cellules du nominal de 14 %. **Le `TENUE` de §12 n'est pas un
-artefact de ponderation.** La reserve du cycle 91 sur sa troisieme clause (« Global », trois
-lectures qui ne s'accordent pas) tient telle quelle.
-
----
-
-## 7. PORTEE DERIVEE — §10, DECLAREE D'AVANCE ET MESUREE
-
-Sur l'estimateur ARBITRE, la clause « COM toward thorax: 18-28% B0 » (l.168) rend :
-
-    chestL   0,2544 DANS  ·  0,2870 AU-DESSUS  ·  0,3461 AU-DESSUS
-    chestR   0,2386 DANS  ·  0,2715 DANS       ·  0,3279 AU-DESSUS
-
-Moins severe que le publie, mais toujours pas uniformement DANS. **Et ce n'est pas la clause
-PORTEUSE de §10** : c'est la migration SORTANTE (+0,797 / -3,744 % W0 contre une bande 4-10,
-cycle 123b), qui reste `SOUS` sous toute ponderation — l'ecart de ponderation vaut 7 a 12 % la ou il
-manque 80 % et 194 %. §10 reste `NON TENUE`.
-
----
-
-## 8. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
-
-    P1   l'exact a masse uniforme reproduit le publie a 5 %   **REFUTEE** (7,93 % / 6,18 %)
-    P1b  (post-hoc, declare) la formule publiee reimplantee    TIRE (0,01 % / 0,00 %) -> le residu
-                                                               de P1 EST l'agregation, et il est
-                                                               chiffre
-    P2   le nuage c129 est le centroide pondere par w          TIRE (0,01 %)
-    P3   l'ecart se predit depuis la pose de bind seule        TIRE (2,5 % / 2,4 %)
-    P4   non-vacuite de P3 (k > 1,15)                          TIRE (1,2663 / 1,3331)
-    P5   le maillage n'est pas uniforme (CV > 0,25)            TIRE (0,648 / 0,597)
-    P6   l'arbitre tombe pres du modele a deux points          TIRE (11,7 % / 6,9 % contre 15 %)
-    P7   hors defaut i=9 sous 0,02 B0                          TIRE (0,0006)
-    P8   couverture de poids a 1e-3 (la garde manquante de c129) TIRE (4,3e-08)
-    P9   §12 ne retombe pas                                    TIRE
-    P10  l'agregation est un facteur transportable             TIRE (0,08 / 0,35 point)
-    P11  au plus 2 bascules de verdict                         **REFUTEE** (5) -> LE CORRECTIF
-                                                               N'EST PAS CABLE
-    P12  contre-controle INDEPENDANT de la masse de sommet     TIRE (0,15 a 1,09 %, meme verdict
-         (aire de VORONOI MIXTE contre BARYCENTRIQUE)           sur les 6 cellules)
-    P13  (post-hoc) la correction est un scalaire              **REFUTEE** (12,1 % / 21,0 %) ->
-                                                               l'effet sur §14-§22 reste NON ETABLI
-
-**Trois refutations, et les trois ont produit le resultat du cycle.** P1 a force P1b, qui a etabli
-l'agregation ; P11 a arrete un cablage qui aurait fait verdir quatre cellules sans arbitrage ; P13 a
-interdit d'etendre au reste du registre un facteur mesure au seul prone.
-
-**LE CONTRE-CONTROLE QUE LA DIRECTIVE DU 2026-08-21 18:40 EXIGE EST FOURNI, ET IL TIRE.** L'estimateur
-arbitre repose sur une masse de sommet ; une seule derivation ne suffit pas pour une grandeur qui
-deplace des verdicts. La seconde derivation est l'aire de VORONOI MIXTE — meme maillage, **regle de
-partage differente** (cotangentes, avec bascule moitie/quart sur triangle obtus). Ecart aux six
-cellules : **0,15 % a 1,09 %**, et **le meme verdict partout**. La masse de sommet est donc
-DETERMINEE par le maillage : ce n'est pas un proxy au choix de qui l'ecrit.
-
----
-
-## 9. REMONTEE AU SUPERVISEUR
-
-**(a) CINQUIEME CYCLE SANS CHANGEMENT DE STATUT.** La raison est nommee et elle n'est pas
-l'inaction : les deux sections que ce cycle touche sont tenues par une AUTRE clause que celle qu'il
-a debloquee. §11 est tenue par sa longueur, §10 par sa migration sortante. **Un solde de statut nul
-peut recouvrir la fermeture d'une divergence d'instrument et l'arret volontaire d'un correctif ; la
-ligne d'etat ne sait montrer ni l'une ni l'autre.** La question posee au cycle 129 tient : **le
-registre doit-il compter des CLAUSES ?**
-
-**(b) DECISION DEMANDEE — LA NORMALISATION DE LA LIGNE DE VERDICT.** L'instrument publie normalise
-par un COMPTE DE SOMMETS la ou la spec ecrit « center-of-mass ». La correction est construite,
-transportable (P10) et testee ; elle deplace CINQ verdicts, dont quatre vers le vert. Trois voies,
-et je ne prends aucune seul :
-  1. cabler la correction et acter les cinq bascules comme un raffinement de mesure ;
-  2. ne rien cabler et publier les DEUX lectures cote a cote, la corrigee en DIAGNOSTIC ;
-  3. cabler mais suspendre le verdict des cinq cellules basculees jusqu'a une seconde derivation
-     independante de la masse de sommet (par volume plutot que par aire).
-Ma preference, declaree comme preference et non comme fait : **(3)** — parce que la masse a l'aire
-est elle-meme un proxy d'une masse VOLUMIQUE, et parce que quatre bascules vers le vert produites
-par un instrument que j'ai ecrit sont exactement la forme d'un faux vert.
-
-**(b bis) LA DECISION EST PLUS LOURDE QUE JE NE LE CROYAIS EN L'OUVRANT, ET JE LE DIS.** La cle
-`comw` est CUITE dans le fichier livre et lue par le moteur : la corriger touche aussi §22, §14, §16,
-§17, §18 et §20, ou **seize cellules sont a moins de 15 % d'un bord de bande et quatre a moins de
-3 %**. Et P13 interdit d'en predire le sens : le facteur n'est pas un scalaire (x0,8822/x0,7871 sur
-chestL, x0,8146/**x1,0316** sur chestR — le maillon distal MONTE). **Le prealable a toute decision
-est donc de mesurer le facteur CELLULE PAR CELLULE**, ce que ce cycle n'a fait que pour §10/§11/§12.
-Cela ne coute aucune course — les matrices sont dans la trace archivee — mais c'est un cycle de
-travail, et je ne l'ouvre pas sans arbitrage puisqu'il finit par deplacer des verdicts.
-
-**(c) UN COUT DEJA VISIBLE, A NE PAS OUBLIER.** Tant que (b) n'est pas tranchee, tout lot visant une
-clause de COM de §10, §11 ou §12 optimise contre une cible sur-estimee de 7 a 12 % (mesure). Pour
-§14 a §22, le biais existe par construction mais son AMPLEUR est **NON ETABLIE** — ne pas la citer
-comme si elle l'etait.
-
----
-
-## DECLARATION OBLIGATOIRE — PENETRATION RESIDUELLE DE LA POITRINE
-
-BREAST-PENETRATION: 0.0724 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
-13:20 : c'est un DEPLACEMENT, pas une profondeur, et un seuil en metres de profondeur n'a pas de
-sens dessus). **Inchange par ce cycle : aucune ligne de moteur n'a ete touchee, aucune course
-lancee.** Sous le plafond epingle n'est pas « regle » : tant que ce n'est pas zero, ca se declare
-avec son chiffre, a chaque cycle.
-
----
-
-## A TESTER PAR L'OWNER
-
-**RIEN.** Aucun build ce cycle. La regle du 2026-08-20 23:30 tient : on ne sollicite pas son oeil
-tant que le bloc §9-13 / §14-20 / §24-27 n'est pas tenu ensemble, et il est a 4 sections sur 16.
-
----
-
-## FICHIERS DE CE CYCLE
-
-    .autoport/c130-predictions.txt        P1..P11, ecrites avant tout calcul (P1b declaree post-hoc)
-    .autoport/c130_com_reconcile.py       le pont, ses quatre controles, et les bascules de P11
-    .autoport/reports/Grecharged-secondary-motion/c130-com-reconcile.txt   sa sortie complete
-    .autoport/SPEC-COVERAGE.md            lignes §10, §11, §12 et ligne d'etat
-
-
-# CYCLE 129 — LE CHANTIER QUE LE CYCLE 128 A NOMME RECOIT SON ADRESSE, ET LA REPONSE ETAIT DEJA DANS LA TRACE
-
-DIRECTIVES vd9e8b66782
-
-Perimetre : phase `Grecharged-secondary-motion`, branche `physics-keira-clean`, poitrine de Keira
-seule. Section nommee AVANT de commencer, dans `.autoport/c129-predictions.txt` : **§11, clause
-« Static COM displacement: 20-28% B0, nominal 24% B0 » (l.178)** — celle qui tient §11 depuis que le
-cycle 128 a montre que la longueur, elle, se convertit.
-
-**ZERO build, ZERO course.** Lecture sur trois traces archivees.
-
-## L'AVANCEMENT, EN PREMIER
-
-`SPEC-COVERAGE.md` : **4 TENUE · 5 TENUE PAR CONSTRUCTION · 16 PARTIELLE · 13 NON TENUE · 0 NON
-ETABLI**. **AUCUN STATUT NE BOUGE — quatrieme cycle consecutif.**
-
-Le validateur : `[PASS]` sur ses 13 gates de mesure ; seul echec `OPEN-DEFECTS /
-breast-spec-incomplete`, **une gate qui n'a pas de mode « reussi » par construction** — son propre
-texte le dit (« la liste se vide UNIQUEMENT sur la parole de l'owner : c'est son oeil qui ferme un
-defaut, jamais un chiffre vert »). Aucune action de ma part ne peut la faire sortir 0 sans fabriquer
-le verdict de l'owner, ce qu'interdisent la gate elle-meme, les DIRECTIVES et la regle des faux
-verts. Je ne le fais pas ; je convertis, c'est la seule voie qui la retire.
-
-## 1. LA QUESTION QUE CE CYCLE FERME
-
-Le cycle 128 a nomme le chantier — « un canal qui produise la migration de COM independamment de
-l'echelle de longueur » — **sans dire ou il doit vivre**. Deux adresses possibles, deux travaux
-opposes :
-
-  (a) dans le **TENSEUR** de forme -> travail de solveur ;
-  (b) dans les **POSITIONS DE JOINT** -> une excursion, qui se heurterait au plafond de §22.
-
-## 2. LA REPONSE ETAIT DEJA PUBLIEE, ET JE NE L'AVAIS PAS LUE
-
-`ROOM-SPEC10` emet depuis longtemps **six colonnes** — `total / squel. / tens.` sur deux axes — et
-elle repond ligne par ligne. J'ai ecrit un script pour re-deriver ce que le tableau publiait deja.
-**C'est la faute `grep-the-trace-before-asking-for-a-run`, deuxieme occurrence dans ce dossier**, et
-je la declare avant le resultat plutot qu'apres.
-
-Course LIVREE, cellule prone, frontiere du verdict (`w>0.00`) :
-
-    chestL   total -0,2234 B0  =  squel. -0,1110 (49,7 %)  +  tens. -0,1124 (50,3 %)
-    chestR   total -0,2017 B0  =  squel. -0,0999 (49,5 %)  +  tens. -0,1018 (50,5 %)
-
-## 3. DEUX DERIVATIONS QUI NE PARTAGENT RIEN CONVERGENT A 0,3 POINT
-
-La part squelettique **predite avant lecture** par extrapolation lineaire des DEUX POINTS du cycle
-128 (commande 1,2195 -> 1,1290 pour COM 0,2278 -> 0,1811, donc k = 0,516) valait **49,7 %**. La
-mesure publiee rend **49,7 % et 49,5 %**. La bande predite [40 % ; 60 %] etait ecrite avant tout
-calcul.
-
-**Ca valide retroactivement l'extrapolation a deux points sur laquelle repose tout l'argument
-d'incompatibilite du cycle 128** — argument que j'avais publie en le declarant comme une
-extrapolation, sans savoir qu'un chemin independant le confirmerait.
-
-## 4. L'ADRESSE DU CHANTIER (P4, falsificateur ecrit d'avance a 0,13 B0)
-
-    la CHAINE SEULE (terme squelettique)  0,1110 (chestL) / 0,0999 (chestR) B0
-    plancher de la bande                  0,20 B0
-
-**La chaine seule ne produit pas les deux tiers du plancher.** Il faudrait **DOUBLER** le terme
-squelettique pour atteindre le seul plancher, alors que §22 plafonne deja l'excursion a 0,50 B0.
-
-**Le canal de COM manquant doit donc vivre dans le TENSEUR. La voie (b) est fermee sans qu'on ait eu
-a l'essayer** — un cycle de solveur economise, et c'est le genre d'economie que ce dossier paie
-cher quand elle n'est pas faite.
-
-## 5. UNE DIVERGENCE D'INSTRUMENT QUI TRAVERSE LE VERDICT — NOMMEE, CHIFFREE, NON TRANCHEE
-
-Ma prediction P1 (« mon calcul reproduit la grandeur du verdict a 5 % pres ») est **REFUTEE a
-40,1 % / 45,0 %**. Le diagnostic est exact, pas suppose :
-
-**`ROOM-SPEC10` ne mesure PAS le centroide du nuage skinne.** Il construit un **MODELE A DEUX
-POINTS** — les deplacements de joint cumules, ponderes par les parts de masse `comw` PAR MAILLON,
-plus `L . (D - I)` ou `L` est le centroide de chair CUIT du maillon et `D` le tenseur `PHYSDFMA`
-(`physics_room_table.py:2975-2986`).
-
-    nuage de peau COMPLET      0,3192 (chestL) / 0,3295 (chestR) B0    ->  AU-DESSUS
-    modele a DEUX POINTS       0,2278          / 0,2273          B0    ->  DANS
-    bande de la clause         0,20 - 0,28
-
-**Les deux lectures ne rendent pas le meme verdict.** Conformement a la directive du 2026-08-21
-18:40 (« si les deux chemins divergent, aucune ne se traite avant reconciliation »), **§11 n'est
-re-jugee sur AUCUNE des deux**, le statut ne bouge pas, et la reconciliation devient un chantier
-nomme — **a mener AVANT tout lot qui viserait cette clause**, sinon on optimiserait contre un
-chiffre dont on ne sait pas s'il decrit l'organe.
-
-**Mon instrument n'est pas casse, il mesure autre chose**, et ses deux controles le montrent :
-lecture HORS DEFAUT a la 2e cellule DEBOUT **0,0008 B0** (seuil declare 0,02), controle de MONTAGE
-sur la 2e cellule PRONE **0,04-0,09 point** (seuil 5).
-
-## 6. §10 — RIEN DE NEUF, ET C'EST VERIFIE AVANT DE PUBLIER
-
-J'allais publier comme neuf que le terme squelettique de la migration sortante de §10 est NEGATIF
-des deux cotes. **Le registre le porte deja depuis le cycle 123b**, avec un budget ferme au
-millieme (chestL -1,283 squel. + 2,906 diagonal - 0,825 cisaillement = +0,797 % W0 ; chestR -3,824
-+ 2,379 - 2,299 = -3,744). Verifie avant d'ecrire, donc non re-publie. Ce qui se dit, et qui est
-neuf, c'est la CONVERGENCE : sur §10 le terme squelettique est negatif, sur §11 il est insuffisant
-de moitie — **meme diagnostic, meme canal manquant, une seule cible pour les deux sections.**
-
-## 7. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
-
-    P1  mon calcul est-il la grandeur du verdict ?   **REFUTEE** (40,1 % / 45,0 %) — et c'est le
-                                                     resultat le plus utile du cycle apres P4
-    P2  lecture hors defaut (i=9)                    TIRE (0,0008 B0 contre 0,02)
-    P3  part squelettique dans [40 % ; 60 %]         TENUE (49,7 % / 49,5 %), et convergente a
-                                                     0,3 point avec une derivation independante
-    P4  la chaine seule <= 0,13 B0                   TENUE (0,1110 / 0,0999) -> l'adresse du chantier
-    P5  §10 (declaree, non exigee)                   deja au registre, non re-publiee
-    P6  controle de montage (2e cellule prone)       TENUE (0,04 / 0,09 point contre 5)
-
-## 8. REMONTEE AU SUPERVISEUR
-
-**(a) QUATRIEME CYCLE SANS CHANGEMENT DE STATUT.** La raison n'a pas change depuis le cycle 128 et
-elle est structurelle : §11 porte cinq clauses, deux d'entre elles sont incompatibles sous le canal
-actuel, et la clause qui la tient est desormais mesuree par deux instruments qui ne rendent pas le
-meme verdict. **Un solde de statut nul peut recouvrir une impossibilite demontree et une divergence
-d'instrument ; la ligne d'etat ne sait montrer ni l'une ni l'autre.** La question reste : le
-registre doit-il compter des CLAUSES ?
-
-**(b) DEUX CHANTIERS SONT MAINTENANT NOMMES ET ORDONNES :**
-  1. **reconcilier les deux lectures du COM** (nuage complet contre modele a deux points, 40-45 %
-     d'ecart, verdicts opposes) — elle passe DEVANT, parce que tout lot vise a la clause optimise
-     sinon contre un chiffre non arbitre ;
-  2. **un canal de COM dans le TENSEUR**, decouple de l'echelle de longueur, servant §10 et §11.
-     Il devra etre juge sur `DISCRIMINANT` avant tout le reste : c'est la gate qui a arrete les
-     lots de §11 aux cycles 122 et 128, les deux fois sur chestR.
-
-## A TESTER PAR L'OWNER
-
-**RIEN.** Aucun build ce cycle ; la regle du 2026-08-20 23:30 tient.
-
-## FICHIERS DE CE CYCLE
-
-    .autoport/c129-predictions.txt   P1..P6, ecrites avant tout calcul
-    .autoport/c129_com_split.py      la decomposition, ses controles, et la divergence
-    .autoport/reports/Grecharged-secondary-motion/c129-com-split.txt   sa sortie
-    .autoport/SPEC-COVERAGE.md       ligne §11 et ligne d'etat
-
-
-# CYCLE 128 — J'AI CORRIGE LE DOUBLE COMPTE DE §11 DANS LE MOTEUR, ET MON PROPRE FALSIFICATEUR L'A RETIRE. CE QUI SURVIT VAUT PLUS QUE CE QUI EST RETIRE.
-
-DIRECTIVES vd9e8b66782
-
-Perimetre : phase `Grecharged-secondary-motion`, branche `physics-keira-clean`, poitrine de Keira
-seule (`chestL`/`chestR`). Section nommee AVANT de commencer, dans
-`.autoport/c128-predictions.txt` : **§11 « Root-to-apex length: +18 to +26%,
-`HangingLengthScale = 1.23` » (l.179), et elle seule.**
-
-## L'AVANCEMENT, EN PREMIER — LE VALIDATEUR N'EN FAIT PAS PARTIE
-
-`SPEC-COVERAGE.md` : **4 TENUE · 5 TENUE PAR CONSTRUCTION · 16 PARTIELLE · 13 NON TENUE · 0 NON
-ETABLI**, sur 38. **AUCUN STATUT NE BOUGE — troisieme cycle consecutif (126, 127, 128).** La
-remontee au superviseur est en derniere section.
-
-**Le lot de ce cycle a ete cable, mesure sur une course complete, et RETIRE par le falsificateur que
-j'avais ecrit avant de le lancer.** Le moteur livre commande de nouveau la cible totale de §11.
-Ce qui reste : une MESURE neuve dans le moteur, et un fait sur §11 qui ne depend plus du lot.
-
-## 1. LE FAIT DU CYCLE, EN UNE PHRASE
-
-**Les deux clauses de §11 sont INCOMPATIBLES sous un seul bouton, et c'est maintenant mesure sur
-deux points de la meme droite.** Corriger le double compte de longueur met la clause de longueur
-DANS sa bande sur les quatre cellules — et fait tomber la clause de COM de `DANS` a `SOUS` sur les
-deux chaines. **La clause de COM etait tenue PAR le defaut.**
-
-    commande  1,2195 / 1,2125  ->  1,1290 / 1,1129        (-7,4 %)
-    longueur  1,3363 1,2734 1,3183 1,3116  ->  1,2512 1,1986 1,2350 1,2246   (-6,4 %)  bande 1,18-1,26
-    COM       0,2278 / 0,2273  ->  0,1811 / 0,1809 B0      (-20,5 %)          bande 0,20-0,28
-
-Ramener le COM a son plancher de 0,20 demande de remonter la commande a **~1,166** ; a cette
-commande la longueur rend **~1,286**, au-dessus du plafond de 1,26. **Aucune valeur de
-`HangingLengthScale` ne met les deux clauses dans leur bande.** §11 ne demande donc pas un reglage,
-elle demande un **SECOND DEGRE DE LIBERTE** : la migration de centre de masse doit se decoupler de
-l'echelle de longueur.
-
-**Et c'est le MEME deficit que §10 nomme depuis le cycle 123b** — « Outward COM migration per
-breast: 4-10 % W0 », mesuree a +0,797 / -3,744 % W0, soit 80 % et 194 % sous le plancher. Les deux
-sections butent desormais sur la MEME grandeur sous-produite ; le chantier a une cible unique la ou
-il en avait deux. Les deux lignes du registre le portent.
-
-## 2. CE QUI A ETE CABLE, ET IL A ETE VALIDE AVANT DE L'ETRE
-
-Le cycle 127 avait construit et valide un estimateur d'etage rigide et l'avait laisse non cable :
-le moteur etait a 4794 lignes pour un plafond de gate `CLEAN` GELE a 4800.
-
-**Les lignes ont ete trouvees sans toucher la gate ni une ligne de code**, par la convention
-etablie du fichier — migration de 39 blocs de COMMENTAIRE vers `jak-hd-physics-NOTES.md`, verbatim,
-avec un pointeur d'une ligne, deja appliquee 457 fois. Preuve publiee : `git diff` du `.gc` rend
-**0** ligne de code supprimee et **0** ligne de code ajoutee par la migration, et les 39 blocs se
-retrouvent caractere pour caractere dans NOTES.md. Gain : 40 lignes.
-
-Le lot :
-
-    recharged_assets/physics_mesh.txt   2 enregistrements `rg` — 12 constantes de mesh par chaine
-    .autoport/c128_bake_rigid.py        les cuit ET les VALIDE avant d'ecrire (il refuse d'ecrire sinon)
-    game/kernel/jak1/kmachine.cpp       parseur `rg` + accesseur `pc-physics-chain-rigid-mi`
-    goal_src/jak1/pc/jak-hd-physics.gc  le calcul a l'etape (b) + UNE SEULE LIGNE DE COMMANDE
-    goal_src/jak1/pc/phys-room.gc       `PHYSRIGID c= i= rs= dauth=`
-
-**Validation AVANT cablage**, contre le nuage `RIGID` mesure sommet par sommet : ecart **0,000 /
-0,063 / 0,228 / 0,001** pt sur chestL et **0,000 / 0,403 / 0,442 / 0,001** pt sur chestR.
-
-## 3. TROIS ESTIMATEURS MOINS CHERS ONT ETE TESTES ET TUES PAR LEUR PROPRE FALSIFICATEUR
-
-Regle de selection fixee d'avance : **le moins couteux en LIGNES DE MOTEUR qui passe (a) 5 points
-au prone et (b) 1 % a la cellule DEBOUT i=9.** Les quatre sont publies.
-
-    C0  rigide = 1 (CONTROLE NEGATIF)          14,15 pts   ECHOUE — le double compte est reel
-    C1  1 + k (1 - cos theta), k ANALYTIQUE    REFUSE PAR SA GARDE DE VACUITE, avant tout jugement d'ecart
-    C2  agregat a 2 os {ancre, distal}          6,96 pts   ECHOUE — le maillon PROXIMAL compte
-    C3  agregat a 3 os {ancre, prox, distal}    0,40 pts   PASSE   -> retenu par la regle
-
-**C1 donne le fait le plus utile du cycle sur la NATURE de l'etage rigide.** L'angle de deflexion du
-maillon distal ne vaut que **6,9 a 8,3 degres** au prone pour un allongement de +13 % : **l'etage
-rigide est un LEVIER, pas une rotation**, facteur ~x18, donc une erreur de 1 degre sur l'angle
-deplacerait l'estimation de 30 %. Tout estimateur qui passe par un angle SCALAIRE est hypersensible
-par construction — et la garde de vacuite l'a attrape **avant** que son ecart soit meme regarde.
-
-## 4. UNE ERREUR DE MA PART, TROUVEE PAR MON PROPRE CONTROLE, CORRIGEE AVANT LA COURSE
-
-Le premier jet cuisait le denominateur a la pose de BIND : **706,4 / 717,4 unites**, la ou la
-cellule DEBOUT en mesure **597,6 / 645,3**. **La pose debout d'auteur n'est PAS la pose de bind** —
-11,2 a 18,2 % d'ecart, et le rapport devenait faux d'autant alors que la FORME de l'estimateur etait
-juste a 0,06 / 0,40 point. Le controle du script a refuse d'ecrire. Correctif : l'estimateur est
-rendu **AUTO-NORMALISANT** (le moteur calcule la longueur AVEC et SANS deflexion au meme instant),
-donc aucune constante de reference n'est cuite.
-
-## 5. LA PREUVE QUE LE CANAL AGIT, ET LA GARDE DE SON HYPOTHESE
-
-`PHYSRIGID`, 11 cellules d'orientation x 2 chaines :
-
-    PRONE i=6      rs = 1,1308 (chestL) / 1,1454 (chestR)
-                   predit hors ligne 1,1308 / 1,1456 · mesure sur le nuage RIGID 1,1302 / 1,1415
-    DEBOUT i=0/i=9 rs = 1,0000 / 0,9995  et  0,9995 / 0,9999   -> ecart max a 1,000 : 0,050 %
-
-**LA GARDE, ET C'ETAIT LE VRAI RISQUE.** L'estimateur ne vaut que si l'animation ne pilote pas les
-joints de poitrine (§5) — sinon son denominateur bouge avec l'orientation. **Ce n'est PAS verifiable
-hors ligne** : la trace archivee ne porte que les matrices LIVREES. Le moteur emet donc `dauth`, le
-denominateur lui-meme, a cote du rapport : **etendue 0,007 %** sur les 11 cellules, contre un
-falsificateur declare a 2 %. L'hypothese est verifiee a la course au lieu d'etre supposee.
-
-**CONTROLE NEGATIF DE PORTEE** : aux cellules DEBOUT, ou l'etage rigide vaut 1, la commande est
-identique a **0,000 %**. La correction a un domaine, et il est mesure.
-
-## 6. DEUX DERIVATIONS QUI NE PARTAGENT RIEN CONVERGENT
-
-La commande passe a **1,1290 / 1,1129**. L'intervalle admissible derive au cycle 126 par un
-balayage de VALEUR SINGULIERE — qui ne partage ni l'operateur, ni la table de poids, ni le chemin de
-calcul — est **1,1060-1,1384**. Les deux chiffres y sont.
-
-## 7. LA CLAUSE DE LONGUEUR, TROIS LECTURES, AUCUNE CHOISIE APRES COUP
-
-Instrument du verdict : celui que le cycle 126 a arbitre — la distance racine->apex entre centroides
-de decile. L'ecart-type ponderé du cycle 125 reste REFUTE comme proxy (il SUR-ESTIME §11 de
-10,9-17,8 points et SOUS-ESTIME §10 de 7,0-17,2 : le signe oppose le refute sans autre travail).
-
-    lecture                                  AVANT                        APRES                DANS 1,18-1,26
-    distance racine->apex (deciles)  1,3363 1,2734 1,3183 1,3116  1,2512 1,1986 1,2350 1,2246      4 / 4
-    etendue max-min                  1,3939 1,4275 1,3384 1,4234  1,2998 1,3148 1,2483 1,2967      1 / 4
-    ecart-type pondere (REFUTE)      1,4455 1,4514 1,4370 1,4588  1,3293 1,3279 1,3097 1,3169      0 / 4
-
-Les trois baissent de 6,4 a 9,7 % et vont dans le meme sens.
-
-## 8. CE QUI RETIRE LE LOT : `DISCRIMINANT` TOMBE SUR chestR
-
-    chestL   46,1 %  ->  48,6 %                                          (seuil 25 %)  PASSE
-    chestR   33,4 %  ->  23,0 %   accel 0,2047 -> 0,1767 (-13,7 %)        (seuil 25 %)  ECHOUE
-                                  tilt  0,1467 -> 0,1493 (inchange)
-
-**La reponse s'APLATIT.** `tipvar` reste a 0,1767 pour un plancher de gate a 0,05 : ce n'est donc
-PAS du muselage, c'est de l'aplatissement — le defaut que l'owner appelle « pudding », et que
-`tipvar` seul est aveugle a voir. **Meme gate, meme chaine et presque le meme chiffre qu'au cycle
-122** (23,5 % alors), ou un lot avait deja ete retire pour ca.
-
-**LES DEUX COURSES PARTENT DU MEME ETAT** — `PHYSROOM-START target-before` identique, `target-title`,
-meme pile, meme tas. Ce n'est donc pas l'artefact de conditions initiales que le cycle 125 a
-documente (79 % de la trace diverge quand les etats de depart different). L'ecart est reel.
-
-**P15 avait ete ecrite AVANT la course** : « une gate verte passe au rouge -> le lot est RETIRE, pas
-adouci ». Elle est appliquee. La division est retiree (une ligne), le moteur est recompile, et la
-salle est rejouee pour que la trace, le tableau et le registre decrivent CE QUI EST LIVRE et non
-l'experience.
-
-**Ce que je n'ai pas fait, et je le dis** : je n'ai pas cherche une variante de la division qui
-passerait la gate. Un dosage choisi pour franchir un seuil est un ajustement a l'instrument, et
-c'est interdit.
-
-**LE RETRAIT EST VERIFIE, PAS SUPPOSE.** La course du moteur LIVRE (apres retrait) rend
-`tipvar` **0,1829 / 0,2047** et `meshpen` **0,0627 / 0,0724** — les chiffres de la course d'AVANT le
-lot, a la decimale pres — et la commande de §11 revient a **1,2195 / 1,2125**. Le validateur rend de
-nouveau `[PASS]` sur ses 13 gates de mesure, `DISCRIMINANT` compris, avec une sortie de 18 lignes.
-
-**ET UN CONTROLE D'INDEPENDANCE QUE JE N'AVAIS PAS PREVU MAIS QUI TOMBE TOUT SEUL.** L'estimateur
-reste cable et publie : sur la course SANS la division, il rend **rs = 1,1308 / 1,1453** au prone,
-contre **1,1308 / 1,1454** sur la course AVEC. **L'etage rigide ne depend pas de la commande qu'il
-divisait** — 0,0001 d'ecart — ce qui etait la propriete supposee de sa construction (le nuage
-`RIGID` est defini S = I) et qui est desormais mesuree des deux cotes.
-
-## 9. UNE CORRECTION QUE JE DOIS A CE RAPPORT
-
-**Ma premiere lecture du validateur etait fausse et je l'ai crue.** J'ai lu « 13 gates vertes »
-apres la course du lot ; le validateur lisait en realite le TABLEAU de la course PRECEDENTE, encore
-en place. Le tell etait dans sa propre sortie et je ne l'ai pas vu : il imprimait
-`meshpen 0.0724`, la valeur de la trace d'avant, alors que la nouvelle rendait `0.0963`. C'est la
-faute `snapshot-provenance-path-not-time` : j'ai pris la fraicheur d'un fichier pour acquise parce
-que la commande venait de tourner. **Regle que j'applique desormais : le validateur se relance
-APRES regeneration du tableau, et on compare une grandeur qui a bouge pour prouver qu'il a bien lu
-la course du jour.**
-
-## 9 bis. INCIDENT DE LIVRAISON — LE CONSTRUCTEUR AUTOMATIQUE A COMMITE MON LOT PENDANT QUE JE LE RETIRAIS
-
-A **13:02:35**, le demon `.autoport/auto_build_apk.sh` (pid 1580620, vivant depuis le debut du
-cycle) a pose de lui-meme le commit `9d2d00fd6f` « checkpoint automatique du constructeur : l'arbre
-compile, etat coherent livrable ». Il a capture l'arbre **AVEC la division active** — c'est-a-dire
-le lot que la gate `DISCRIMINANT` venait de refuter et que je retirais a ce moment-la. « L'arbre
-compile » n'est pas « l'arbre est juste » : le constructeur ne consulte pas le validateur.
-
-C'est exactement le piege `autobuilder-ships-your-wip`, et un sous-agent me l'avait signale
-au debut du cycle sans que j'en tire la consequence. **Le commit de ce cycle corrige la pointe de
-la branche** : l'etat livre est celui d'apres retrait, et il est valide (18 lignes de sortie,
-`[PASS]` sur les 13 gates de mesure). Si un APK a ete publie depuis `9d2d00fd6f`, il porte un
-moteur qui aplatit la reponse de `chestR` ; le suivant ne le portera plus.
-
-**Ce que j'en retiens, et c'est une regle et pas une note** : quand un cycle touche au MOTEUR, le
-demon de construction doit etre arrete au debut du cycle et relance a la fin, ou son commit doit
-etre conditionne au validateur. « Ca compile » est un test de syntaxe, pas un test de conformite —
-et le publier au fil de l'eau sans cette distinction, c'est livrer a l'owner un defaut qu'un
-falsificateur venait d'attraper.
-
-## 10. MES PREDICTIONS, JUGEES PAR LEURS PROPRES FALSIFICATEURS
-
-    P1   forme angulaire a un parametre           REFUTEE (et VACUEUSE : theta = 6,9-8,3 deg)
-    P2   controle hors defaut de l'instrument     TIRE (0,060 %)
-    P3   garde de vacuite de l'angle              VACUEUSE — c'est elle qui tue C1
-    P4   non-vacuite du parametre k               REFUTEE (rapport 4,58 entre chaines)
-    P5   couverture supine (declaree)             publiee : C3 0,44 pt
-    P10  le canal agit, non vacueux               TENUE (1,1308 / 1,1454 ; hors defaut 0,050 %)
-    P11  le denominateur est constant             TENUE, et largement (0,007 % contre 2 %)
-    P12  la commande baisse                       REFUTEE COMME ECRITE : 1,1290 / 1,1129 contre
-                                                  [1,05 ; 1,12]. J'avais neglige que `cvn` REGONFLE
-                                                  les trois echelles quand le determinant retombe.
-                                                  Le chiffre rendu tombe dans l'intervalle
-                                                  INDEPENDANT du cycle 126 — ce que P12 ne savait
-                                                  pas predire.
-    P13  la longueur livree                       REFUTEE sur l'instrument d'ecart-type, TENUE sur
-                                                  l'instrument du verdict. **La faute est a moi :
-                                                  j'ai ancre la prediction sur les chiffres d'un
-                                                  instrument et je l'ai verifiee sur un autre.**
-                                                  Les trois lectures sont en §7 ; celle du verdict
-                                                  avait ete arbitree au cycle 126, pas par moi
-                                                  aujourd'hui.
-    P14  largeur/epaisseur montent                TENUE (+2,0 a +2,6 %, sens predit par `cvn`)
-    P15  aucune gate verte ne regresse            **REFUTEE — et c'est elle qui decide du cycle.**
-    P16  controle negatif de portee               TENUE (0,000 % aux cellules DEBOUT)
-
-Six predictions sur douze sont refutees. C'est le rendement normal d'un cycle qui ecrit ses
-falsificateurs avant de mesurer, et c'est ce qui a empeche de livrer un aplatissement.
-
-## 11. CE QUI RESTE CABLE APRES LE RETRAIT
-
-**La MESURE, pas la commande.** `PHYSRIGID rs= dauth=` reste, avec ses 12 constantes cuites, son
-parseur et son calcul. Raisons : (a) c'est la grandeur que le prochain lot devra commander ; (b)
-elle est validee contre une derivation independante ; (c) son denominateur est verifie a la course.
-**Cout declare, et je le signale plutot que de le taire** : ~30 lignes de moteur pour une grandeur
-qui ne pilote plus rien ce cycle, dans un fichier a **4796 / 4800**. Si le superviseur juge qu'un
-instrument n'a pas sa place dans le solveur tant qu'il ne commande rien, le retrait est mecanique
-et je l'executerai.
-
-## 12. REMONTEE AU SUPERVISEUR
-
-**(a) TROISIEME CYCLE SANS CHANGEMENT DE STATUT (126, 127, 128).** La raison est nommee et elle
-n'est pas « on tourne en rond » : §11 porte CINQ clauses, et ce cycle etablit que **deux d'entre
-elles ne peuvent pas etre vraies en meme temps avec le canal actuel**. Un solde de statut nul peut
-recouvrir une impossibilite demontree ; la ligne d'etat ne sait pas le montrer. **La question a
-arbitrer : le registre doit-il compter des CLAUSES et pas seulement des SECTIONS ?**
-
-**(b) LE PLAFOND `CLEAN` A ETE FRANCHI SANS ETRE TOUCHE, ET LA MINE EST PRESQUE EPUISEE.** Les 40
-lignes viennent de commentaires migres. L'inventaire complet du fichier n'en contient plus que
-**26** de la meme nature (fusion de pointeurs consecutifs), apres quoi il n'y a plus de ligne a
-prendre sans toucher du code — ce que le registre interdit (`never-spend-the-bit-identity-control-
-on-line-count`). Le moteur est a **4796 / 4800**. Je ne demande pas de relever le plafond ; je
-signale que la question arrive, et que la composition — ce que la gate demande de regarder — reste
-de la CONTRAINTE et de la MESURE, jamais des suppresseurs.
-
-**(c) LE CHANTIER SUIVANT EST NOMME PAR LA MESURE, PAS PAR MOI :** un canal qui produise la
-MIGRATION DE COM independamment de l'echelle de longueur. Il sert §10 ET §11, dont les deux clauses
-de COM sont sous leur plancher pour la meme raison. Et il devra etre juge sur `DISCRIMINANT` avant
-tout : c'est la deuxieme fois que cette gate arrete un lot de §11 sur chestR.
-
-## A TESTER PAR L'OWNER
-
-**RIEN.** La regle du 2026-08-20 23:30 tient : on ne sollicite pas de test pour un changement d'une
-seule section tant que le bloc §9-§13 / §14-§20 / §24-§27 n'est pas tenu ensemble. La livraison
-continue n'est pas suspendue — le constructeur automatique publie ce commit comme les autres.
-
-## FICHIERS DE CE CYCLE
-
-    .autoport/c128-predictions.txt      P1..P5 puis P10..P16, ecrites avant leurs calculs respectifs
-    .autoport/c128_angular_proxy.py     les 4 candidats, la regle de selection, les falsificateurs
-    .autoport/c128_bake_rigid.py        cuisson + validation des 12 constantes (refuse d'ecrire sinon)
-    .autoport/c128_verify.py            confrontation P10..P16 sur les deux traces
-    recharged_assets/physics_mesh.txt   les 2 enregistrements `rg`
-    game/kernel/jak1/kmachine.cpp       parseur + accesseur
-    goal_src/jak1/pc/jak-hd-physics.gc  l'estimateur (garde) ; la division (retiree, cf. NOTE-576)
-    goal_src/jak1/pc/phys-room.gc       `PHYSRIGID`
-    goal_src/jak1/pc/jak-hd-physics-NOTES.md  NOTE-540..573 (migration) · 574/575 (l'estimateur)
-                                              · 576 (la division cablee, mesuree et retiree)
-    .autoport/SPEC-COVERAGE.md          lignes §10, §11 et ligne d'etat
-
-    traces conservees :
-      keira-room-x86.c127.log            md5 abb090c9bd72d5dfd0268034a384f932  (avant le lot)
-      keira-room-x86.c128-experiment.log md5 10aea9db79c1a039eb4bcca8ba408377  (le lot, RETIRE)
-      keira-room-x86.log                 la course du moteur LIVRE, apres retrait
-
-
-================================================================================================
-CYCLE 126 — CONTRE-CONTROLE : JE RETIRE LA CIBLE QUE J'AI NOMMEE AU CYCLE 125.
-             LES DEUX SECTIONS ETAIENT LUES AVEC UNE GRANDEUR QUI N'EST NI L'UNE NI L'AUTRE,
-             ET LA ROUTE « TOURNER LE BOUTON » EST REFUTEE PAR LA SECONDE SECTION.
-================================================================================================
-
-DIRECTIVES vd9e8b66782
-
-Phase : Grecharged-secondary-motion · branche `physics-keira-clean` · perimetre : la POITRINE DE
-KEIRA SEULE, a 100 % de `SPEC-breast-softbody.md`.
-
-SECTION DONT CE CYCLE DEBLOQUE LE VERDICT, NOMMEE AVANT DE COMMENCER (exigence DIRECTIVES
-2026-08-21 18:25, et ecrite dans `.autoport/c126-predictions.txt` AVANT tout calcul) :
-**§11, clause « Root-to-apex length: +18 to +26% » (l.179)**, et par le meme instrument
-**§10, clause « Forward projection: -25 to -35% » (l.165)**.
-
-POURQUOI CE CYCLE EXISTE. Le cycle 125 a publie un RENDEMENT de 1,185 a 1,203 entre l'echelle
-COMMANDEE et la forme LIVREE, et l'a nomme comme la cible chiffree du cycle suivant. La regle du
-2026-08-21 18:40 exige un contre-controle INDEPENDANT de la grandeur AVANT d'engager une
-conversion ; celle du 20:50 montre ce que coute de ne pas le faire (une priorite entiere batie sur
-un extremum pris pour une tendance). Ce cycle est ce contre-controle. **Il refute ma cible.**
-
-COUT : ZERO build, ZERO course neuve. Tout se lit sur la trace LIVREE du cycle 125
-(`keira-room-x86.log`, md5 abb090c9bd72d5dfd0268034a384f932, 7 294 931 octets, verifie ce cycle)
-et sur le mesh livre `out/jak1/fr3/skin/keira-hd-lod0.glb`. Palier de build : AUCUN.
-
-BREAST-PENETRATION: 0.0724 m — `meshpen`, DIAGNOSTIC, jamais un verdict (arbitrage 2026-08-20
-13:20 : c'est un DEPLACEMENT, pas une profondeur). Sous le plafond epingle n'est pas « regle » :
-tant que ce n'est pas zero, ca se declare, avec le chiffre, a chaque cycle.
-  chestL meshpen max 0.0627 m   (cycle 125 : 0.0627 — INCHANGE)
-  chestR meshpen max 0.0724 m   (cycle 125 : 0.0724 — INCHANGE)
-  RECALCULE ce cycle sur les lignes `row ` du tableau, jamais recopie du rapport precedent. Ce
-  cycle ne touche AUCUNE ligne du solveur : l'egalite au chiffre pres EST le controle que rien
-  n'a bouge. Reserve d'extraction conservee : la valeur de chestL s'ecrit `2.44141e-08` sur
-  certaines lignes ; un `grep` naif sur `meshpen=[0-9.]*` tronque l'exposant et rend **2.44141**,
-  soit 39 fois le maximum reel. Le releve ci-dessus lit le flottant EN ENTIER, exposant compris.
-
-
-================================================================================================
-0. L'AVANCEMENT SE LIT DANS LE REGISTRE, PAS DANS LE VALIDATEUR
-================================================================================================
-
-Arbitrage du 2026-08-23 01:20 : « le validateur ne sert plus JAMAIS d'indicateur d'avancement ».
-Etat recompte LIGNE A LIGNE sur `.autoport/SPEC-COVERAGE.md`, jamais recopie :
-
-    4 TENUE (§12, §24, §25, §26) · 5 TENUE PAR CONSTRUCTION · 16 PARTIELLE · 13 NON TENUE
-    0 NON ETABLI, sur 38 sections.
-
-**AUCUN STATUT NE BOUGE. C'EST LE DEUXIEME CYCLE CONSECUTIF (125, 126), DONC IL REMONTE AU
-SUPERVISEUR AVEC SA RAISON**, conformement a la regle du 2026-08-21 18:25.
-
-LA RAISON, ET ELLE N'EST PAS UN PIETINEMENT : ce cycle etait, par construction, un CONTRE-CONTROLE.
-Son travail etait de decider si la cible du cycle 125 meritait qu'on depense un chantier dessus.
-Elle ne le meritait pas. Un cycle qui EMPECHE un chantier fonde sur une grandeur fausse ne change
-aucun statut et vaut le cycle qu'il economise — c'est exactement ce que la directive du 18:40
-demandait quand elle a impose ce verrou, et le 20:50 est le precedent ou il a deja paye.
-
-
-================================================================================================
-1. LES DEUX SECTIONS ETAIENT LUES AVEC UNE GRANDEUR QUI N'EST NI L'UNE NI L'AUTRE
-================================================================================================
-
-Ce que les deux clauses NOMMENT, mot pour mot :
-
-    §11 l.179   « Root-to-apex LENGTH: +18 to +26% »     -> une LONGUEUR. Invariante par rotation.
-    §10 l.165   « Forward PROJECTION: -25 to -35% »      -> une SAILLIE signee sur un axe FIXE.
-
-Ce que le cycle 125 mesurait pour LES DEUX : l'ECART-TYPE pondere du nuage de peau le long de
-`fwd`. C'est un TROISIEME objet. Il n'est pas invariant par rotation (donc il ne peut pas etre la
-longueur de §11) et il est un ECART, pas une saillie (donc il ne peut pas etre la projection de
-§10). §22 ecrit par ailleurs, en toutes lettres, « Translation, rotation and redistribution shall
-account for most of the excursion » : la spec ATTEND que la rotation porte l'essentiel, et une
-grandeur sensible a la rotation la compte comme un defaut.
-
-Lues chacune avec l'instrument de sa propre nature (`.autoport/c126c_named_quantities.py`, meme
-nuage, memes poids, memes matrices d'os livrees) :
-
-  §11 — LONGUEUR racine->apex, cellule PRONE i=6, bande 1,18-1,26
-       (lecture de reference, decile 10 % ; voir section 5 : la frontiere `w>=0.25` n'est PAS
-        robuste au choix du decile, celle a `w>0.00` l'est)
-    chaine   frontiere  | NOMMEE   verdict    | proxy du cycle 125   ecart
-    chestL   w>0.00     | 1.3363   AU-DESSUS  | 1.4455               -10,9 points
-    chestL   w>=0.25    | 1.2734   AU-DESSUS  | 1.4514               -17,8 points
-    chestR   w>0.00     | 1.3183   AU-DESSUS  | 1.4370               -11,9 points
-    chestR   w>=0.25    | 1.3116   AU-DESSUS  | 1.4588               -14,7 points
-
-  §10 — SAILLIE avant, cellule SUPINE i=8, bande 0,65-0,75
-    chestL   w>0.00     | 0.4619   SOUS       | 0.5617               +10,0 points (PIRE)
-    chestL   w>=0.25    | 0.4635   SOUS       | 0.5849               +12,1 points (PIRE)
-    chestR   w>0.00     | 0.5367   SOUS       | 0.6067               + 7,0 points (PIRE)
-    chestR   w>=0.25    | 0.4757   SOUS       | 0.6477               +17,2 points (PIRE)
-
-**LE MEME PROXY SUR-ESTIME UN DEFAUT ET SOUS-ESTIME L'AUTRE.** C'est la demonstration qu'il n'est
-pas neutre, et c'est precisement ce qu'un contre-controle doit produire : pas un avis sur
-l'instrument, une mesure de son biais, avec son signe.
-
-CONSEQUENCE DIRECTE, ET ELLE EST A MA CHARGE : le rendement de 18,5-20,3 % que j'ai publie au
-cycle 125 comme cible du cycle suivant vaut en realite **+4,6 a +9,8 %**. **La cible est
-RETIREE.** Le defaut de §11 est REEL — les quatre cellules restent AU-DESSUS de leur bande — il est
-simplement DEUX FOIS PLUS PETIT que je ne l'ai ecrit. Et §10, elle, est BIEN PIRE que je ne l'ai
-ecrit : sa saillie est coupee de 46 a 54 % la ou sa spec en demande 25 a 35 %.
-
-
-================================================================================================
-2. LA COMMANDE N'EST EN CAUSE SUR AUCUNE DES DEUX. C'EST LA PEAU.
-================================================================================================
-
-Les trois etages, mesures separement sur la meme cellule :
-
-  §10 supine i=8              chestL     chestR     bande 0,65-0,75
-    COMMANDE   `PHYSORI2`     0.7462     0.7584     DANS   <- ce que le fichier livre injecte
-    APPLIQUE   `PHYSDFMA`     0.7352     0.7386     DANS   <- le tenseur, projete sur l'axe `fwd`
-    LIVREE     peau           0.4619     0.5367     SOUS   <- ce que l'owner voit
-                              0.4635     0.4757     SOUS
-
-  §11 prone i=6               chestL     chestR     bande 1,18-1,26
-    COMMANDE   `PHYSORI2`     1.2195     1.2125     DANS
-    APPLIQUE   `PHYSDFMA`     1.2171     1.2100     DANS
-    LIVREE     peau           1.3363     1.3183     AU-DESSUS
-                              1.2734     1.3116     AU-DESSUS
-
-L'APPLIQUE se lit par PROJECTION SUR L'AXE (`|u . D|`, la formule exacte de
-physics_room_table.py:3423, pour que deux instruments d'une meme mesure ne divergent pas), jamais
-par rang de valeur singuliere. Apparier « la plus grande valeur singuliere » a `fwd` suppose que le
-tenseur est aligne sur le triedre : vrai au PRONE (0,2 % d'ecart), FAUX au SUPINE ou le tenseur
-porte 1,4 a 3,2 deg de rotation (section 4). J'ai commis ce raccourci en cours de cycle et la
-mesure de la section 4 l'a attrape avant publication ; l'ecart qu'il produisait sur §10 etait de
-4 a 8 %.
-
-**RENDEMENT DE L'ETAGE PEAU, MESURE :**
-    §11  chestL  +9,8 % / +4,6 %      §11  chestR  +9,0 % / +8,4 %      (elongation AMPLIFIEE)
-    §10  chestL  -37,2 % / -37,0 %    §10  chestR  -27,3 % / -35,6 %    (aplatissement AMPLIFIE)
-
-Dans les DEUX sections et dans les DEUX directions, **la peau rend une deformation PLUS EXTREME
-que celle que le tenseur applique**. C'est contre-intuitif et c'est le fait central du cycle : un
-melange lineaire avec l'ancre `chest`, qui n'est PAS deformee, devrait ATTENUER vers 1,0. Il fait
-l'inverse.
-
-
-================================================================================================
-3. LA ROUTE « COMPENSER PAR LA COMMANDE » EST REFUTEE — PAR LA SECONDE SECTION, PAS PAR UN AVIS
-================================================================================================
-
-Pris isolement, §11 offre une sortie seduisante. Balayage de la SEULE plus grande valeur
-singuliere de la S ecrite, `det(S)` inchange au bit pres (§8 exige 0,98-1,01, et baisser cette
-valeur seule le ferait tomber a 0,91) :
-
-    chestL w>0.00   lam admissible 1.0524 - 1.1384
-    chestL w>=0.25  lam admissible 1.1060 - 1.2034
-    chestR w>0.00   lam admissible 1.0465 - 1.1429
-    chestR w>=0.25  lam admissible 1.0603 - 1.1537
-    -> INTERSECTION 1.1060 - 1.1384, NON VIDE : une commande unique mettrait les QUATRE cellules
-       de §11 dans sa bande.
-
-**AVANT DE LA RECOMMANDER, JE L'AI TESTEE SUR §10 AVEC LE MEME INSTRUMENT.** Resultat :
-
-    section  chaine  frontiere  rendement peau   pour LIVRER le nominal il faut COMMANDER   bande
-    §11      chestL  w>0.00     1.0979           1.1203                                1.18-1.26
-    §11      chestL  w>=0.25    1.0462           1.1756                                1.18-1.26
-    §11      chestR  w>0.00     1.0895           1.1289                                1.18-1.26
-    §11      chestR  w>=0.25    1.0840           1.1347                                1.18-1.26
-    §10      chestL  w>0.00     0.6282           1.1142   (x1,49 le plafond)           0.65-0.75
-    §10      chestL  w>=0.25    0.6304           1.1103   (x1,48 le plafond)           0.65-0.75
-    §10      chestR  w>0.00     0.7266           0.9634   (x1,28 le plafond)           0.65-0.75
-    §10      chestR  w>=0.25    0.6441           1.0868   (x1,45 le plafond)           0.65-0.75
-
-**SUR LES 8 CELLULES (2 sections x 2 chaines x 2 frontieres), 7 EXIGENT UNE COMMANDE HORS DE LA
-BANDE DE LEUR PROPRE SECTION.** Et sur §10, 3 cellules sur 4 exigent une commande SUPERIEURE A
-1,0 : il faudrait commander une EXPANSION pour livrer un APLATISSEMENT. C'est un absurde, et il est
-MESURE, pas argumente.
-
-**DONC LE DEFAUT N'EST PAS UN REGLAGE DE BOUTON.** Il est dans l'etage PEAU que les deux sections
-partagent. Une compensation par section serait un pansement qui marcherait sur §11 et serait
-impossible sur §10 — et elle fabriquerait exactement le miroir que la directive du 2026-08-23 16:00
-met en priorite 1, puisqu'elle reglerait l'entree pour que la sortie tombe dans la bande.
-
-**CHANTIER DU CYCLE SUIVANT, NOMME ET CHIFFRE** : ramener le rendement de l'etage peau a 1,00 sur
-LES DEUX sections a la fois. Il vaut aujourd'hui 1,046-1,098 sur §11 et 0,628-0,727 sur §10.
-
-
-================================================================================================
-4. ET LE MECANISME QUE LE CYCLE 125 CHERCHAIT EST TROUVE : `PHYSORI2` NE PUBLIE QUE LA MOITIE
-   DU TENSEUR APPLIQUE
-================================================================================================
-
-`jak-hd-physics.gc:3795-3797` construit le tenseur applique comme `A = dfa . dfb`, avec son propre
-commentaire : « forme d'equilibre PUIS etirement dynamique ». `dfa` est bati sur `*phys-dfs*` —
-EXACTEMENT ce que `PHYSORI2` publie — et `PHYSDFMA` lit `*phys-dfa*`, c'est-a-dire le PRODUIT.
-Donc **l'ecart entre les deux lignes EST `dfb`**, et il vaut l'identite quand la chaine est etablie.
-
-Balaye sur les 22 cellules et les deux chaines (`.autoport/c126b_dfb_gap.py`) :
-
-    ecart <= 3,4e-03 sur 19 cellules · MEDIANE 8,9e-04 · min 6,3e-05
-    ecart 4,63e-02 (chestL) et 7,73e-02 (chestR) sur les DEUX cellules SUPINE i=8
-                                                   -> x52 et x87 la mediane
-    rotation antisymetrique <= 0,014 deg sur 20 cellules
-                            1,364 deg / 3,159 deg sur les deux cellules SUPINE i=8
-                                                   -> x100 a x226
-
-i=8 est la SEULE cellule ou le terme dynamique n'est pas l'identite. **Et c'est precisement la
-cellule dont le cycle 125 avait montre qu'elle ne se reproduit pas d'une course a l'autre**
-(14,647 % au pire, contre 0,045 % pour la cellule PRONE : rapport x324), sans pouvoir dire
-pourquoi. Une cellule a l'equilibre oublie sa trajectoire ; une cellule ou `dfb` != I ne l'oublie
-pas. Les deux faits vivent dans la meme cellule.
-
-**L'EXPLICATION PAR L'ETABLISSEMENT EST REFUTEE, ET PAR UN CANAL INDEPENDANT.** `PHYSORITR` publie
-le pic radial sur les 60 frames d'etablissement et ne partage NI la matrice de deformation NI son
-accesseur. Correlation avec l'ecart : **-0,11 sur 22 cellules** — nulle, et du MAUVAIS SIGNE. La
-cellule au plus gros ecart (c=1 i=8, 7,73e-02) a l'un des plus BAS pics d'etablissement (0,21349) ;
-celle au plus haut pic (c=1 i=4, 0,35237) a l'un des plus petits ecarts (1,29e-04). J'allais
-publier « la cellule supine n'est pas etablie » ; le canal independant l'interdit.
-
-**RESERVES, PUBLIEES AVEC LE RESULTAT ET NON EN NOTE :**
-  - le SUPINE plein n'apparait qu'UNE fois dans le balayage (i=8) : **n=1 pour la condition**. Je
-    ne peux donc PAS separer « orientation supine » de « cellule 8 » ni de « ce qui precede la
-    cellule 8 ». Ce qui rend le contraste suggestif et non prouve, c'est que le PRONE plein — meme
-    |gz| — apparait DEUX fois (i=6 et i=10) et y est la plus propre des 22 (6,3e-05 / 1,7e-04) ;
-  - une cellule DEBOUT (c=0 i=4) rend 1,39e-02, soit x15 la mediane : **l'ecart n'est donc pas
-    exclusivement supine**, meme si les deux cellules supine sont 3,3 et 5,5 fois au-dessus d'elle ;
-  - la course qui trancherait est NOMMEE : une SECONDE cellule supine pleine, ou la meme tenue plus
-    longtemps. C'est une modification de la SALLE, pas du solveur.
-
-**CRITERE DE SORTIE MESURE POUR §10, ET C'EST LE PREMIER QUE CETTE SECTION AIT EU** : l'ecart
-`|sv(PHYSDFMA) - sv(PHYSORI2)|` doit tomber a la mediane 8,9e-04 des 20 autres cellules AVANT
-qu'un verdict de §10 soit recevable sur cette cellule.
-
-
-================================================================================================
-5. MES PREDICTIONS, JUGEES CONTRE CE QUI ETAIT ECRIT AVANT LE CALCUL
-================================================================================================
-
-`.autoport/c126-predictions.txt`, ecrit et horodate avant tout calcul.
-
-P1  « La rotation porte l'ESSENTIEL du depassement de §11 » (seuil : RIGID >= 1,30 sur la sigma
-    `fwd` ; falsificateur : < 1,15).
-    **NI CONFIRMEE NI FALSIFIEE — ET LA FAUTE EST DANS MA FORMULATION.** Mesure : 1,1536 a 1,1670.
-    **Ma bande de prediction avait un TROU entre 1,15 et 1,30, et la mesure est tombee dedans.**
-    Une prediction dont la revendication et le falsificateur ne se touchent pas peut sortir
-    indecidable : c'est une faute de construction, et elle se publie comme telle.
-    CE QUE LA MESURE DIT QUAND MEME, par ablation (nuage re-skinne avec la seule rotation R de la
-    decomposition polaire `A = S . R`) : la longueur RIGID rend 1,1302 / 1,0977 / 1,1415 / 1,1303,
-    donc **la rotation porte 36 a 45 % de l'elongation livree**. « L'essentiel » est donc FAUX :
-    c'est moins de la moitie.
-
-P2  « La longueur racine->apex est plus basse que le 1,4370-1,4588 publie, d'au moins 8 points. »
-    **CONFIRMEE sur les 4 cellules** : -10,9 / -17,8 / -11,9 / -14,7 points.
-
-P3  « La longueur entre dans la bande 1,18-1,26 sur au moins une des deux chaines. »
-    **REFUTEE.** Les 4 cellules restent AU-DESSUS (la plus basse, chestL w>=0.25, rend 1,2734, soit
-    1,06 % au-dessus du plafond). Je l'avais annoncee comme la plus exposee du lot ; elle l'etait.
-
-P4  « Le produit des trois rapports de sigma n'est pas conserve entre FULL et RIGID (>= 1 %). »
-    **CONFIRMEE** : +10,10 % / +10,84 % / +12,03 % / +12,34 % sur les cellules de §11 ;
-    -7,32 % / -6,28 % / +2,15 % / +3,51 % sur celles de §10. Toutes au-dela du 1 %.
-
-P5  « Les TROIS nuages rendent le meme rapport a i=0. »
-    **REFUTEE PAR CONSTRUCTION POUR STRETCH, ET C'EST MA FORMULATION QUI EST FAUSSE** : abandonner
-    R abandonne AUSSI la rotation bind->monde, donc le nuage STRETCH est dans une autre ORIENTATION
-    a i=0. Cela ne dit rien de l'instrument. **LA MOITIE QUI EST UN CONTROLE TIENT** : RIGID contre
-    FULL a i=0, ecart max **3,35e-04**, ce qui etablit que S vaut l'identite a la pose d'auteur
-    (valeurs singulieres mesurees 1,000633 / 0,999724 / 0,999641 et mieux sur les 4 joints).
-P5b « Lecture HORS DEFAUT a la 2e cellule DEBOUT i=9, que rien ne relie a i=0. »
-    **TENUE** : 1,0000 / 1,0005 sur §11 et 1,0001 / 1,0006 sur §10, seuil declare 1 %.
-
-P6  « Une injection x1,50 le long de `fwd` fait monter la longueur de +40 a +60 %. »
-    **PARTIELLEMENT REFUTEE, 4 cellules sur 8** : TENUES a +43,1 / +43,9 / +42,7 / +42,5 % ;
-    hors bande a +29,9 / +29,9 / +36,5 / +39,1 %.
-P6bis « Une injection x1,50 ISOTROPE multiplie TOUTE longueur par exactement 1,5000 (+-0,5 %). »
-    **REFUTEE** : 1,4262 a 1,4930. **ET L'ECART EST EXPLIQUE ET CHIFFRE PAR L'INSTRUMENT LUI-MEME**
-    — le decile PROXIMAL ne pese que **0,052 a 0,439** sur la chaine (§30 : « the breast root shall
-    remain broadly attached »), donc il ne suit pas une injection posee sur les seuls joints de
-    chaine. Mon seuil de 0,5 % supposait un nuage entierement pilote par la chaine ; il ne l'est
-    pas, et je ne l'avais pas chiffre avant d'ecrire le seuil.
-    **SOUS LA REGLE EN VIGUEUR** (2026-08-20 13:20 : « injecter X doit faire monter la mesure de X,
-    tolerance 25 % »), **LE CONTROLE TIRE** : 0,4262 a 0,4930 rendus pour 0,50 injectes, soit 1,4 a
-    14,8 % d'ecart. L'instrument repond a ce qu'on lui injecte.
-
-TEST DE RAFFINEMENT (registre : `instrument-refinement-test`) — LE DECILE EST UN CHOIX, DONC IL
-EST REFAIT A 5 %, 10 % ET 20 % SUR LA GRANDEUR NOMMEE DE CHAQUE SECTION. **Et il ne donne PAS le
-meme resultat sur les deux, ce qui oblige a nuancer §11 :**
-
-    §10  chestL w>0.00   0.4932 · 0.4619 · 0.5189   SOUS / SOUS / SOUS
-    §10  chestL w>=0.25  0.4782 · 0.4635 · 0.5478   SOUS / SOUS / SOUS
-    §10  chestR w>0.00   0.5411 · 0.5367 · 0.5724   SOUS / SOUS / SOUS
-    §10  chestR w>=0.25  0.4896 · 0.4757 · 0.5522   SOUS / SOUS / SOUS
-    §11  chestL w>0.00   1.2951 · 1.3363 · 1.2755   AU-DESSUS / AU-DESSUS / AU-DESSUS
-    §11  chestL w>=0.25  1.2527 · 1.2734 · 1.1685   DANS / AU-DESSUS / SOUS      <- FLIP, 9,0 %
-    §11  chestR w>0.00   1.2916 · 1.3183 · 1.3199   AU-DESSUS / AU-DESSUS / AU-DESSUS
-    §11  chestR w>=0.25  1.2982 · 1.3116 · 1.1901   AU-DESSUS / AU-DESSUS / DANS <- FLIP, 10,2 %
-
-**§10 EST ROBUSTE** : les 4 cellules rendent `SOUS` aux trois quantiles, et la plus haute lecture
-(0,5724) reste a 12 % sous le plancher de 0,65. Son defaut ne depend d'aucun choix de population.
-
-**§11 NE L'EST PAS SUR LA FRONTIERE `w>=0.25`** : deux cellules traversent la bande quand le decile
-passe de 10 a 20 %, avec une etendue de 9,0 % et 10,2 %. C'est sous les 30 % qui videraient la
-mesure, mais assez pour franchir un bord de bande. **DONC LE VERDICT RECEVABLE DE §11 EST : AU-DESSUS
-DE FACON ROBUSTE SUR `w>0.00` (deux chaines, trois quantiles), INDETERMINE SUR `w>=0.25`.** Je
-l'ecris parce que je venais d'ecrire l'inverse — « AU-DESSUS sur les 4 cellules » — et que c'est le
-test que j'avais moi-meme prevu qui l'a attrape. Cela va dans le meme sens que tout ce cycle : le
-defaut de §11 est plus petit que ce que j'ai publie, cette fois d'un cran de plus.
-
-
-================================================================================================
-7. SUITE DU CYCLE — J'AI TESTE LE CORRECTIF EVIDENT ET IL EST REFUTE PAR SON PROPRE FALSIFICATEUR
-================================================================================================
-
-La section 3 nomme l'etage PEAU comme chantier sans dire OU, dedans, l'amplification nait.
-Hypothese la plus naturelle, et elle donnait un correctif gratuit : la chaine fait DEUX choses a
-la fois — elle se RECONFIGURE (les joints tournent et se deplacent) et elle porte un TENSEUR
-d'etirement. La spec ne demande qu'UN chiffre (« Root-to-apex length +18 to +26 % » est la longueur
-TOTALE livree). Si les deux etages se composent, on livre (rigide) x (tenseur) la ou la spec ne
-demande que le total : **un DOUBLE COMPTE**, dont le correctif serait de ne commander au tenseur
-que le RESIDU `cible / rigide`.
-
-PREDICTION ECRITE DANS LE FICHIER AVANT DE LE LANCER : `livree / (rigide x applique) = 1,00`,
-FALSIFICATEUR `ecart a 1 > 10 % sur l'une des 8 cellules`.
-
-    sec  chaine   frontiere | RIGIDE   APPLIQUE  produit  | LIVREE   | livree/produit
-    §11  chestL   w>0.00    | 1.1302   1.2171    1.3755   | 1.3363   | 0.9714
-    §11  chestL   w>=0.25   | 1.0977   1.2171    1.3360   | 1.2734   | 0.9531
-    §11  chestR   w>0.00    | 1.1415   1.2100    1.3812   | 1.3183   | 0.9545
-    §11  chestR   w>=0.25   | 1.1303   1.2100    1.3676   | 1.3116   | 0.9591
-    §10  chestL   w>0.00    | 0.7102   0.7352    0.5222   | 0.4619   | 0.8846   <<< > 10 %
-    §10  chestL   w>=0.25   | 0.7584   0.7352    0.5576   | 0.4635   | 0.8313   <<< > 10 %
-    §10  chestR   w>0.00    | 0.7473   0.7386    0.5520   | 0.5367   | 0.9723
-    §10  chestR   w>=0.25   | 0.7615   0.7386    0.5625   | 0.4757   | 0.8458   <<< > 10 %
-
-    ecart a 1 : min 2,77 % · median 4,69 % · **max 16,87 %** -> **HYPOTHESE REFUTEE**
-
-**ET LE CONTROLE INTERDIT DE LIRE CETTE REFUTATION COMME UN DEFAUT D'INSTRUMENT** : a la cellule
-DEBOUT i=9, que rien ne relie a i=0 dans le balayage, les trois etages rendent 0,9994-1,0008 et
-leur rapport **0,9999 a 1,0004** sur les quatre lignes. L'instrument compose correctement quand il
-n'y a rien a composer. La refutation porte donc sur la physique, pas sur le calcul.
-
-**CE QUE LE RESULTAT NEGATIF ETABLIT, ET IL VAUT LE CYCLE QU'IL ECONOMISE :**
-  1. **le correctif « ne commander que le residu » est mort avant d'avoir coute un build** ;
-  2. **la composition est PROPRE au prone (§11, ecart 2,9 a 4,7 %) et SALE au supine (§10, jusqu'a
-     16,9 %)** — exactement la meme scission de cellule que le `dfb != I` de la section 4. **DEUX
-     instruments independants designent maintenant la meme cellule**, et c'est la premiere fois de
-     ce dossier que deux chemins separes convergent sur ce point ;
-  3. **§10 est desormais close par DEUX derivations independantes** : la compensation par la
-     commande exige 0,9634-1,1142 (section 3), le residu du double compte exige 0,9192-0,9856
-     (ici) — les deux au-dessus ou au bord de 1,0 contre une bande de 0,65-0,75. Deux chemins,
-     meme absurde.
-
-Ce qui reste donc au chantier de la section 3 : l'etage peau amplifie, ce n'est PAS une composition
-multiplicative des deux etages, et la cellule supine se comporte autrement que la cellule prone.
-Le prochain cycle cherche DANS l'etage peau, sur la cellule PRONE d'abord — c'est celle dont les
-deux instruments disent qu'elle est propre, donc la seule ou un changement sera lisible.
-
-
-================================================================================================
-6bis. CE QUE CE CYCLE N'A PAS FAIT, ET CE QUI RESTE OUVERT
-================================================================================================
-
-NON FAIT, ET DECLARE COMME TEL :
-  - **aucune ligne du solveur, de la salle ou d'une gate n'est touchee.** Le cycle l'avait ecrit
-    dans ses predictions avant de commencer, et il s'y tient ;
-  - **le rendement de l'etage peau n'est pas CORRIGE, il est MESURE.** Le chantier est nomme et
-    chiffre (section 3), il n'est pas fait ;
-  - **`HangingTransientLengthMax` reste le seul bouton non cable** (directive 2026-08-23 16:00,
-    priorite 2). Ce cycle ne l'a pas touche ;
-  - **la n=1 sur la condition supine n'est pas levee** (section 4). Elle demande une course, donc
-    un cycle qui modifie la salle.
-
-A TESTER PAR L'OWNER : **RIEN.** Regle du 2026-08-20 23:30 — a 4 sections tenues sur 38, aucun
-changement d'une seule section ne produit un ecart qu'un oeil peut trancher, et ce cycle ne change
-meme pas le binaire. Lui demander de regarder couterait son temps sans rien fermer. La rubrique
-reste VIDE, et elle le restera jusqu'a ce que le bloc §9-13 / §14-20 / §24-27 tienne ensemble.
-
-VALIDATEUR : les gates de MESURE passent — **12 lignes de gate sur 7 familles** (`SCOPE`,
-`TUNING`, `COLLIDE`, `ROOM`, `IDLE`, `ANIM`, `DISCRIMINANT`), COMPTEES sur la sortie de ce cycle et
-non recopiees du rapport precedent, qui annoncait 13 (registre : `prior-report-fiction`). Le seul
-echec est
-`OPEN-DEFECTS / breast-spec-incomplete`, qui n'a pas de mode « reussi » par construction — seul
-l'owner retire cette ligne. Conformement a l'arbitrage du 2026-08-23 01:20, ce fait est ecrit ICI,
-en fin de rapport, et non en tete : un validateur vert dit « ce que j'ai mesure est honnete »,
-jamais « sa poitrine est conforme ».
-
-ARTEFACTS DE CE CYCLE :
-  .autoport/c126-predictions.txt                  predictions, ecrites avant tout calcul
-  .autoport/c126_rotation_vs_stretch.py           decomposition polaire, ablation, balayage
-  .autoport/c126b_dfb_gap.py                      l'ecart commande/applique sur les 22 cellules
-  .autoport/c126c_named_quantities.py             chaque clause avec l'instrument de sa nature
-  .autoport/c126d_double_count.py                 l'hypothese du double compte, et sa refutation
-  .../c126-rotation-vs-stretch.txt · c126b-dfb-gap.txt · c126c-named-quantities.txt
+**PALIER DE BUILD : AUCUN.** Zero build, zero course. Tout se lit sur la trace archivee
+(`keira-room-x86.log`, md5 `c06f04470787aa3ebec8af052f6d66cc`), le tableau du lot c128 archive
+(`keira-room-table.c128-experiment.txt`) et le mesh livre. Palier choisi parce que les deux
+defauts corriges vivent dans le POST-TRAITEMENT, pas dans le moteur : aucun bit du solveur ne
+bouge, donc aucune course n'est necessaire pour les etablir.
+
+BREAST-PENETRATION: 0.0724 m de residu sur la poitrine (plafond epingle 0.0005). Inchange par ce
+cycle — aucun bit du solveur n'a bouge. Declare a chaque cycle tant que ce n'est pas zero.
+
+## 0. CE QUE CE CYCLE DEVAIT FAIRE, ET POURQUOI IL NE L'A PAS FAIT
+
+Le cycle 130b a pre-specifie le chantier c131 : **(a)** recabler le lot c128 (retrait du double
+compte de longueur de §11) **+ (b)** un terme de COM dans le tenseur a **x1,61-x1,68**.
+
+**J'ai commence par verifier les deux instruments sur lesquels cette taille a ete calculee, et
+les deux sont faux.** Ce n'etait pas une precaution de principe : la taille du chantier se lit sur
+eux. Ce que la verification a rendu :
+
+  1. la ligne qui rend le verdict de la clause PORTEUSE de §11 publie un proxy que le cycle 126 a
+     REFUTE — le registre l'ecrit REFUTE et le fait porter le verdict **sur la meme ligne** ;
+  2. la ligne qui rend le verdict de COM divise par un COMPTE DE SOMMETS la ou la spec ecrit
+     « center-of-**mass** », sur un maillage dont l'aire par sommet varie d'un facteur 75 ;
+  3. le **(b)** du chantier pre-specifie est **interdit par le contrat courant** — c'est un canal
+     pour une cle-REPONSE ;
+  4. le tenseur **ne peut pas** porter un canal de COM : il n'ecrit AUCUNE translation, verifie
+     dans le source.
+
+Les points 3 et 4 ferment la voie telle qu'elle etait ecrite. Le point 4 en ouvre une autre, exacte
+et geometrique, qui n'avait jamais ete nommee. C'est le contenu de ce cycle.
+
+## 0 bis. LE MANDAT DE L'OWNER DU 2026-08-27, ARRIVE PENDANT CE CYCLE — ET CE QU'IL CHANGE
+
+Verbatim : « **Laisse courir le chantier, on fait la spec à 100%** ». Il autorise **un changement
+de MODELE, pas un reglage**, il accepte une serie de **quatre unites**, il ne demande pas de date,
+et il interdit tout raccourci sur la couverture. Ce mandat est POSTERIEUR au contrat
+(`DIRECTIVES.md` s'arrete au 2026-08-23 16:00) et il est de la main de l'owner : il prime.
+
+**CE CYCLE EST CONFORME AU MANDAT, ET SUR UN POINT IL LE PRECISE.**
+
+  * « **Ne plus chercher un parametre qui ferait passer une section isolee** » — ce cycle n'en a
+    cherche aucun. Il a FERME deux routes (le tenseur par l'echelle, l'excursion de joints), en a
+    ouvert une troisieme, et a etabli qu'un point admissible commun EXISTE pour §11.
+  * « **le canal de deplacement du centre de masse doit vivre dans le TENSEUR de deformation** »
+    (le mandat reprend l'adresse du cycle 129) — **c'est juste, et ce cycle dit ENFIN quelle PARTIE
+    du tenseur.** Pas son ECHELLE : les trois facteurs d'echelle sont exactement les cles MIROIR
+    de §11, dont la spec fixe la valeur, et y toucher casse la clause de longueur. **Sa
+    TRANSLATION** — que le moteur calcule puis **jette par construction** (`bm vector 3` mis a zero
+    a `:3912` puis ecrase par la position du solveur a `:3926` ; la NOTE-339 le dit deja). Le canal
+    manquant n'est pas une grandeur qu'il faut inventer : c'est **une grandeur que le tenseur
+    produit deja et que l'ecriture squelette efface**.
+  * « **c'est une serie, pas une tentative** » — acte. Ce cycle est l'unite 1 : il etablit l'adresse
+    exacte et le point de fonctionnement. L'unite 2 est pre-specifiee en §7, avec son falsificateur.
+
+**ET LE MANDAT REND MA REMONTEE SUR LE PLAFOND DE LIGNES PLUS URGENTE, PAS MOINS.** L'owner
+autorise un changement de modele ; le moteur est a **4796/4800** et la convention de migration est
+epuisee (1 ligne). **Un chantier structurel autorise par l'owner ne peut pas tenir dans 4 lignes.**
+Ce n'est plus « puis-je avoir des lignes pour une piste » : c'est « la gate interdit ce que l'owner
+vient d'autoriser ». Regle 5 : je ne la touche pas, je la signale — avec sa composition (§5.3).
+## 1. DEFAUT 1 — LA CLAUSE PORTEUSE DE §11 EST JUGEE PAR UN PROXY QUE LE CYCLE 126 A REFUTE
+
+`ROOM-SPEC1011-LIVREE` est la ligne que le tableau **designe lui-meme** comme celle qui rend le
+verdict des six clauses de forme de §10/§11 — c'est la sortie de la priorite 1 du contrat
+(« les 6 miroirs »), posee au cycle 125 : les echelles injectees sont marquees `MIROIR`, exclues
+des totaux, et le verdict est delegue a une mesure sur la peau LIVREE, independante de l'entree.
+
+**La delegation etait juste. La grandeur deleguee ne l'est pas.** Le cycle 126 a REFUTE
+l'ecart-type pondere le long de `fwd` comme lecture de « Root-to-apex **length** » — §11 nomme une
+LONGUEUR (invariante par rotation), §10 une SAILLIE (signee, axe fixe), et un ecart-type le long
+d'un axe n'est ni l'un ni l'autre. La refutation est prouvee par un **signe oppose** sur la section
+soeur : le meme proxy SUR-ESTIME §11 de 10,9-17,8 points et SOUS-ESTIME §10 de 7,0-17,2.
+
+**La refutation a ete ecrite et jamais recablee.** Cinq cycles plus tard la colonne `LIVREE`
+publie toujours 1,4455 / 1,4514 / 1,4370 / 1,4588 — exactement le proxy refute. Et
+`SPEC-COVERAGE.md:93` porte les deux phrases **dans la meme cellule** :
+
+    « l'ecart-type pondere PORTE LE VERDICT »               (bloc cycle 124/125)
+    « l'ecart-type pondere du cycle 125 reste REFUTE »      (bloc cycle 128)
+
+**POURQUOI CA COMPTE, ET CE N'EST PAS UN POINT DE FORME.** Sur le moteur LIVRE les trois lectures
+s'accordent (AU-DESSUS, 0/4 DANS) : le defaut est INVISIBLE tant qu'on ne teste pas un correctif.
+Il n'apparait qu'au moment ou il coute le plus cher — **sur le lot c128, l'instrument decide** :
+
+    lecture                                          moteur livre        lot c128
+    ecart-type pondere (REFUTE, porte le verdict)    0/4 DANS            0/4 DANS
+    etendue max-min (publiee a cote)                 0/4 DANS            1/4 DANS
+    distance entre centroides de DECILE (ARBITREE)   0/4 DANS            **4/4 DANS**
+
+Reproductible en une commande : `.autoport/c131_length_readings.py`.
+
+Le registre porte ce chantier comme « aucune valeur de `HangingLengthScale` ne met les deux clauses
+dans leur bande ». **La moitie « longueur » de cette phrase etait lue sur le proxy refute.**
+
+## 2. DEFAUT 2 — LE COM EST NORMALISE PAR UN COMPTE DE SOMMETS LA OU LA SPEC ECRIT « MASSE »
+
+Sa §6 l.113, unique occurrence dans tout le document : « `P0` neutral breast **center-of-mass**
+position ». Les trois blocs qui jugent un deplacement de COM calculaient
+
+    d_COM = SOMME_k W_k . d_k / n        avec n = un COMPTE DE SOMMETS
+
+Le NUMERATEUR est juste. Le DENOMINATEUR n'est exact que si chaque sommet porte la meme masse — et
+le cycle 130 a mesure que non : **aire par sommet CV 0,648 / 0,597, de 621 a 46 285 u^2, un facteur
+75**. Le denominateur correct est `na = SOMME_v a_v`, avec `Wa_k = SOMME_v a_v . w_vk`.
+
+La correction etait **construite, testee et contre-controlee** depuis le cycle 130 (seconde
+derivation par aire de Voronoi mixte : ecart 0,15 a 1,09 %, MEME verdict sur les six cellules), et
+remontee au superviseur **sans etre posee**, parce qu'elle deplace cinq verdicts de clause.
+
+**J'AI VOULU LA POSER. UN FALSIFICATEUR QUE J'AVAIS ECRIT D'AVANCE M'EN A EMPECHE, ET IL AVAIT
+RAISON.** `.autoport/c131-predictions.txt` porte P2 : « recabler la normalisation a la masse ne
+deplace AUCUN statut de section. **FALSIFICATEUR : une seule section qui change de statut -> ce
+n'est pas un raffinement d'instrument, c'est un deplacement de verdict, et il se remonte au lieu
+d'etre pose.** »
+
+Je l'ai cable, regenere le tableau dans les DEUX etats, et compare les LIGNES DE VERDICT :
+
+    ROOM-SPEC12: VERDICT  TENUE      (au compte de sommets)
+    ROOM-SPEC12: VERDICT  PARTIELLE  (a la masse d'aire) — medial : chestL INDET., chestR DANS
+
+**§12 est l'une des QUATRE sections `TENUE` du registre, et elle tombe.** La cause exacte, clause
+l.194, sein OPPOSE, cellule i=4 :
+
+    au compte      12,252 / 13,494 / 14,877   pire cas de montage [11,869 ; 15,342]  DANS
+    a la masse      10,272 / 11,564 / 13,704   pire cas de montage [ 9,950 ; 14,133]  INDETERMINEE
+
+**Les TROIS valeurs centrales restent DANS la bande 10-18.** C'est la BORNE BASSE DE L'ENVELOPPE DE
+MONTAGE qui passe **0,05 point** sous le plancher de 10,00 — et le verdict se rend sur l'enveloppe.
+
+**ET CA CORRIGE LE CYCLE 130 SUR UN POINT PRECIS.** Il avait explicitement ecarte ce risque :
+« FAUX VERT ECARTE : le TENUE de §12 ne repose pas sur la ponderation (14,036 -> 11,710 et
+15,031 -> 13,199 % W0) ». **Sa verification portait sur les VALEURS CENTRALES ; elle ne pouvait pas
+voir l'enveloppe.** Ce n'est pas un reproche — c'est le resultat qu'on obtient en regenerant
+l'artefact entier au lieu de comparer des nombres.
+
+**DONC : P2 EST REFUTEE ET JE L'APPLIQUE.** Le verdict reste au COMPTE DE SOMMETS, **aucun statut ne
+bouge**, et la decision est remontee au superviseur — exactement comme le cycle 128 a retire son
+propre lot quand son falsificateur a tire.
+
+**MAIS LA GRANDEUR QUE LA SPEC NOMME EST PUBLIEE A COTE, AVEC SES VRAIES VALEURS**, sur chaque
+ligne concernee, en diagnostic. La regle du registre est « publier la grandeur nommee A COTE du
+proxy, jamais a sa place » ; la taire serait reproduire le defaut que ce cycle vient de trouver
+sur §11. Le retour arriere, **dans un sens comme dans l'autre, coute une ligne** :
+`COM_DENOM_AREA` en tete de `.autoport/physics_room_table.py`.
+
+**CE QUE LE SUPERVISEUR DOIT TRANCHER, EN UNE PHRASE :** la ligne de verdict mesure une grandeur
+que la spec ne nomme pas, et la corriger fait tomber §12 de `TENUE` a `PARTIELLE` sur 0,05 point
+d'enveloppe. Les deux chiffres sont publies ; le choix ne m'appartient pas.
+
+**PORTEE STRICTEMENT BORNEE, ET LA BORNE EST UNE MESURE.** La correction n'est PAS propagee a
+`comw` (le fichier livre) ni a §22 / §14-§20 : la prediction P13 du cycle 130 a REFUTE que la
+correction soit un scalaire (ecart entre maillons 12,08 % et 21,04 %, falsificateur 5 %), donc
+l'effet hors du prone reste **NON ETABLI** et ne s'extrapole pas. `recharged_assets/` et
+`goal_src/` sont **inchanges** par ce cycle — verifie par `git status`.
+
+**AUCUNE GATE NE LIT CES LIGNES** — verifie par grep des quatre noms d'enregistrement
+(`ROOM-SPEC1011-LIVREE`, `ROOM-SPEC10`, `ROOM-SPEC12`, `ROOM-ORICOM-MASS`) dans
+`.autoport/validators/` et `.autoport/lib/` : zero occurrence. Ni le cablage ni son retrait ne
+peuvent faire passer une gate au vert par accident. C'est l'argument de surete que le superviseur
+avait lui-meme invoque pour le rebranchement de §22 le 2026-08-19.
+## 3. LE TENSEUR NE PEUT PAS PORTER LE CANAL DE COM — VERIFIE DANS LE SOURCE, PAS SUPPOSE
+
+Le cycle 129 a donne l'adresse du chantier : « le canal de COM manquant doit vivre dans le
+TENSEUR ». **Il ne peut pas y vivre**, et c'est une propriete de construction :
+
+    dfa  (set! (-> dfa vector i data 3) 0.0)  puis  (set-vector! (-> dfa vector 3) 0 0 0 1)  :3811, :3821
+    dfb  (set-vector! (-> dfb vector 3) 0.0 0.0 0.0 1.0)                                     :3755
+    dfc  (set-vector! (-> dfc vector 3) 0.0 0.0 0.0 1.0)                                     :3801
+    ecriture squelette : `bm vector 3` mis a ZERO avant le produit (:3912), puis ECRASE par
+      la position du solveur `(-> *phys-px/py/pz* scl)` (:3926). NOTE-339 le dit deja :
+      « `tmp` HERITE LA TRANSLATION DE L'ANCRE VIA LE TENSEUR : on la met a zero AVANT de lire ».
+
+**Le tenseur n'ecrit AUCUNE translation.** Sa seule voie vers le centre de masse est donc
+l'ECHELLE — c'est-a-dire exactement `HangingLengthScale` / `HangingWidthScale` /
+`HangingThicknessScale`, les cles MIROIR de §11, dont la spec fixe la valeur. Le seul site qui
+ecrit une translation sur un os de chaine est le plafond de §21 (`:4048`), et il ne peut que
+RETRANCHER.
+
+Avec §22 qui ferme deja la voie par excursion de joints (c129), **les deux routes nommees jusqu'ici
+sont closes**. Ce n'est pas un echec : c'est ce qui a force a en chercher une troisieme.
+
+## 4. LE SECOND BOUTON EXISTE — IL EST GEOMETRIQUE, ET MA PROPRE PREDICTION SUR LUI EST REFUTEE
+
+Ancrer la deformation en `a` au lieu du joint ajoute a chaque sommet pilote l'offset CONSTANT
+`a.(I - D)`. J'avais predit (P3) que la longueur racine->apex y serait INVARIANTE.
+
+**P3 EST REFUTEE.** A `a = 0,10 B0` la longueur decile bouge de **+4,65 / -3,52 / -1,52 / +1,49 %**
+pour un falsificateur de 0,5 %. J'avais d'ailleurs publie ma propre mise en doute AVANT de lire la
+mesure (`c131-predictions.txt`, bloc « AJOUT ») — mais en nommant la MAUVAISE cause.
+
+**LE CONTROLE POSITIF DE L'ALGEBRE ETAIT OBLIGATOIRE, ET IL TIRE A 2,8e-11 %.** Sur un nuage
+pilote a 100 % par UN SEUL joint, la longueur est invariante **au bit pres**. Sans ce controle,
+« P3 est refutee » etait indistinguable de « mon offset est faux » — c'est ce controle qui rend la
+refutation utilisable.
+
+**LA CAUSE DOMINANTE, MESUREE ET NON RAISONNEE.** Ma reserve ecrite d'avance disait « la chaine
+porte DEUX matrices ». C'est vrai mais mineur : `chestR` n'a que **17,6 % d'aire mixte** et casse
+quand meme l'invariance. La vraie cause est algebrique : `a_j = disp . RB_j` et `D_j` differe d'un
+joint a l'autre, donc **l'offset differe PAR JOINT** et ne se soustrait qu'entre centroides pilotes
+par LE MEME joint. Or le decile PROXIMAL pese **0,052 a 0,108** sur la chaine : il est sur `chest`,
+que §30 declare « strongly attached ». Inclure `chest` ne restaure rien non plus (jusqu'a 33,1 %).
+
+### 4 bis. MAIS L'ANCRAGE RESTE UN SECOND BOUTON, ET C'EST CA QUI DEBLOQUE §11
+
+P3 refutee dit que les deux clauses ne se **decouplent** pas. Elle ne dit RIEN sur l'existence d'un
+point ou les DEUX tiennent. Le registre exige de chercher un point admissible commun AVANT de
+lancer (`bound-undone-by-downstream-constraint-loop`) : c'est fait.
+
+**La direction de l'ancrage dans le plan (longueur, COM) est OPPOSEE a celle de la commande** — la
+commande rend une pente dCOM/dlongueur de **+0,465**, l'ancrage PROXIMAL rend longueur **-3,52 %**
+pour COM **+15,72 %** (chestL, a=0,10). Deux directions non colineaires : le plan est atteignable.
+
+    chestL  277 points admissibles sur 6156 (4,5 %)  · meilleur lam=1,1680 + PROXIMAL 0,16
+            -> longueur 1,2212  ·  COM 0,2392   (marge 48,5 % de demi-bande)
+    chestR  657 points admissibles sur 6156 (10,7 %) · meilleur lam=1,1320 + DISTAL 0,20
+            -> longueur 1,2190  ·  COM 0,2411   (marge 48,6 % de demi-bande)
+
+**L'incompatibilite du cycle 128 est donc vraie SOUS UN BOUTON et fausse sous DEUX. Le blocage
+pose depuis quatre cycles tombe.**
+
+**RESERVES PUBLIEES AVEC LE RESULTAT, PAS EN NOTE DE BAS DE PAGE :** (a) a ces points le COM sort
+de sa bande a la frontiere `w>0,25` (0,3248 / 0,3296) ; (b) le balayage utilise un **PROXY** de
+commande (substitution de valeur singuliere, fidelite TESTEE AVANT USAGE a 2,02 % sur les deux
+commandes archivees), pas le bouton du moteur ; (c) **l'ancrage n'existe pas dans le moteur
+aujourd'hui**. Rien de ce bloc n'est un lot : c'est une carte.
+
+**P4 TIRE.** Deficit de COM au plafond de longueur : predit 0,0344 / 0,0175 B0, mesure par un
+SECOND CHEMIN 0,0330 / 0,0152 — ecarts **4,0 %** et **12,9 %** pour un falsificateur de 20 %. En
+revanche la TAILLE d'ancrage que j'avais predite est fausse d'un facteur ~2 (mesure 0,1022 chestL
+PROXIMAL / 0,0771 chestR DISTAL contre 0,2486 / 0,1225 predits) : l'interpolation predit bien le
+DEFICIT, pas le REGLAGE qui le ferme.
+## 5. CE QUE JE N'EXECUTE PAS, ET POURQUOI — TROIS REFUS, TOUS MESURES
+
+### 5.1 Le **(b)** du chantier pre-specifie est un CANAL POUR UNE CLE-REPONSE. Interdit par le contrat.
+
+`HangingCOMDisplacement = 0.24 B0` est **livree dans le fichier** (`physics_chains.txt:131` et
+`:234`, SPEC l.480) et n'a **aucun canal**. La ligne de prose de §11 qui la porte — « Static COM
+displacement: 20-28% B0, nominal 24% B0 » — **ne nomme aucun reglage**, contrairement a
+« Root-to-apex length: +18 to +26%, **HangingLengthScale = 1.23** » nommee sur la sienne. C'est le
+test que le cycle 119 a pose et que le registre porte sous `spec-document-classes-its-own-keys` :
+**la cle NOMMEE sur sa ligne de prose est une entree ; les autres sont des reponses.**
+
+La DIRECTIVE du 2026-08-23 16:00 tranche en toutes lettres : « **plus aucun canal cree pour une
+cle-REPONSE. Une reponse se MESURE, elle ne se pose pas.** » Et le tableau le dit deja de son
+cote, sur la ligne meme du verdict :
+
+    ROOM-SPEC10: chestL §11 CETTE CLAUSE EST INDEPENDANTE DE L'ENTREE DU SOLVEUR :
+      `HangingCOMDisplacement` est ABSENTE de `kPhysPresetKeys` — le moteur ne la recoit pas,
+      la bande n'entoure aucun nombre injecte.
+
+**Cabler un gain ajuste pour ramener cette clause dans sa bande detruirait la SEULE clause de
+§10/§11 qui soit aujourd'hui sans miroir.** C'est exactement le faux vert que la priorite 1 du
+contrat demande d'eliminer. Je ne le cable pas.
+
+### 5.2 La priorite 2 du contrat est refutee par une piece ecrite 17 minutes apres lui.
+
+La DIRECTIVE du 2026-08-23 16:00 nomme `HangingTransientLengthMax` « seul vrai trou de cablage ».
+Le contrat a ete ecrit a **16:18** (mtime de `.autoport/DIRECTIVES.md`) et la piece qui le refute a
+**16:35** (mtime de `.autoport/c120_spec11_law.py`) : le superviseur ne pouvait pas l'avoir vue.
+
+La NOTE-508 etablit que **le document la DERIVE de deux autres de ses propres cles** :
+
+    HangingTransientLengthMax = 1 + (HangingLengthScale - 1) x (1 + FirstBounceRatio)
+    KEIRA  1 + 0,23 x 1,31 = 1,3013  contre 1,30 ecrit (l.481)   -> +0,10 %
+    MAIA   1 + 0,33 x 1,33 = 1,4389  contre 1,45 ecrit (l.953)   -> -0,76 %
+
+Le pic est deja produit comme grandeur **EMERGENTE** par `phys-sdyn`, et la note declare pourquoi
+la cle n'est pas donnee au solveur : « sinon la mesure serait un miroir ». **La cabler
+convertirait une prediction verifiee sur DEUX personnages en miroir.** Je ne la cable pas, et je
+remonte le conflit au lieu de choisir en silence.
+
+### 5.3 Le plafond CLEAN ne laisse pas passer le chantier, et je ne touche pas la gate.
+
+Moteur a **4796 lignes** pour un plafond gele a **4800** (validateur:53). La convention de
+migration des commentaires vers `NOTES.md` — celle qui a rendu 40 lignes au cycle 128 — est
+**EPUISEE** : recompte a la main — 448 des 507 lignes de commentaire portent deja leur pointeur, les 59
+autres sont des suites d'UNE SEULE ligne (migrer une ligne en un pointeur d'une ligne rend zero), et il
+ne reste qu'**UN
+SEUL** bloc multi-lignes non migre (2 lignes, `:2407-2408`), soit **1 ligne recuperable**.
+
+Regle 5 de l'owner : une gate ne se touche pas, elle se signale. Je signale, avec la composition
+que le plafond demande de regarder — et elle reste celle d'un moteur de MESURE, pas de
+suppresseurs. **Recabler le lot c128 seul coute 0 ligne nette** (substitution sur place a `:3589`,
+`*phys-rsv*` est deja calcule chaque frame a `:3565`) ; il est bloque par sa gate, pas par le
+plafond. C'est le chantier de l'ancrage qui n'a pas de budget.
+
+**GISEMENT NOMME, NON PRIS, PARCE QUE CE N'EST PAS LA CONVENTION** : 19 suites d'au moins deux
+pointeurs `NOTES.md` ADJACENTS (41 lignes) pourraient fusionner en un pointeur chacune et rendre
+**22 lignes** sans toucher une seule ligne de code. Ce n'est pas la migration ; c'est une decision
+de superviseur, pas de worker.
+## 6. AUCUN STATUT DE SECTION NE BOUGE — SEPTIEME CYCLE. REMONTE, AVEC LA RAISON ET LA DECISION.
+
+**Etat du registre (recompte ligne a ligne, pas recopie) : 4 TENUE · 5 TENUE PAR CONSTRUCTION ·
+16 PARTIELLE · 13 NON TENUE.** Inchange.
+
+C'est le septieme cycle consecutif sans mouvement de statut, et la regle de la borne des deux
+cycles demande de le remonter **avec sa raison**. La voici, et elle n'est pas « le chantier est
+dur » :
+
+**LE CHANTIER PRE-SPECIFIE ETAIT INEXECUTABLE POUR TROIS RAISONS INDEPENDANTES, ET AUCUNE
+N'ETAIT CONNUE AVANT CE CYCLE :**
+  1. son **(b)** est un canal pour une cle-REPONSE, interdit par le contrat (§5.1) ;
+  2. le tenseur, ou le cycle 129 l'avait adresse, **n'ecrit aucune translation** — sa seule voie
+     vers le COM est l'ECHELLE, c'est-a-dire exactement les cles MIROIR de §11 (§3) ;
+  3. son **(a)** etait chiffre sur un instrument que le cycle 126 avait refute, et sa taille
+     changeait du simple au double selon la lecture (§1).
+
+**CE QUE CE CYCLE LAISSE AU SUIVANT, ET QUI N'EXISTAIT PAS EN ENTRANT :** une route EXACTE,
+geometrique, qui ne lit aucune cle-reponse, avec sa taille chiffree et son falsificateur.
+
+**DECISION QUI M'EST NECESSAIRE ET QUE JE N'AI PAS LE DROIT DE PRENDRE — le budget de lignes.**
+Le moteur est a 4796/4800 et la convention de migration est epuisee (1 ligne recuperable).
+Le chantier de l'ancrage a besoin d'un terme de translation dans le tenseur. Regle 5 : je ne
+touche pas la gate. Trois options, dans l'ordre ou je les recommanderais :
+
+  **(a) fusionner les 19 suites de pointeurs `NOTES.md` ADJACENTS** — 41 lignes en 19, soit
+      **+22 lignes**, sans toucher une seule ligne de code. Ce n'est pas la convention de
+      migration, donc ce n'est pas a moi de le decider ; c'est le geste le moins couteux et le
+      moins risque des trois ;
+  **(b) relever le plafond apres avoir regarde la COMPOSITION**, comme sa propre regle l'exige
+      (« c'est la composition qui decide, jamais le nombre »). Elle est publiee :
+      `.autoport/c131-engine-composition.txt`. Resume honnete : hysteresis **1** contre 9 dans
+      l'ancien moteur de 6000 lignes ; le total brut fmin+fmax+clamp vaut 82 contre 84, **mais ce
+      rapprochement est faux** — 60 des 62 `fmax` sont des gardes de division ou des parties
+      positives (les six poids de melange d'orientation en consomment six). La grandeur
+      comparable est de l'ordre de **20**. Je publie la decomposition et pas un chiffre unique,
+      parce que « combien de clamps » depend d'une definition que le contrat n'ecrit pas ;
+  **(c) refuser, et le chantier de l'ancrage s'arrete la.** C'est une issue legitime ; elle doit
+      alors etre ecrite, parce qu'elle ferme §10 et §11 pour de bon.
+
+**CE QUE JE NE DEMANDE PAS.** Je ne demande pas d'assouplir `DISCRIMINANT`. Le lot c128 y echoue
+sur chestR a 22,98 % pour un seuil de 25 %, et il manque exactement **+2,69 % sur le pilotage
+maximum** ou **-2,62 % sur le minimum**. C'est une gate qui a raison : la reponse s'APLATIT
+(`tipvar` reste a 0,1767 pour un plancher de 0,05 — ce n'est pas du muselage, c'est
+l'aplatissement, le defaut que l'owner appelle « pudding »). Elle a arrete ce lot deux fois
+(c122, c128) et elle doit continuer.
+## 7. CHANTIER c132, PRE-SPECIFIE, AVEC SON FALSIFICATEUR NOMME D'AVANCE
+
+**(a) RECABLER LE VERDICT DE LONGUEUR DE §11 SUR LA GRANDEUR NOMMEE.** `ROOM-SPEC1011-LIVREE`
+doit rendre son verdict `§11 fwd` sur la distance entre centroides de DECILE, et publier les trois
+lectures cote a cote. Le code existe et il est VALIDE : `.autoport/c131_anchor_dof.py` en porte le
+calcul (porte verbatim de `c126_rotation_vs_stretch.py:286-289` et `:341-347`) et sa section 1
+reproduit `1,3363 / 1,2734 / 1,3183 / 1,3116` a **0,003 %**. Cout mesure sur le code reel :
+**~25-28 lignes de python** reparties sur `c124_delivered_shape.py` (le calcul, l'expo du nuage
+MONDE — attention, `cloud()` rend le nuage en base d'ancre et `E` n'est PAS orthogonalise) et
+`_spec1011_livree_block`. **Aucun verdict ne bouge aujourd'hui** (les trois lectures s'accordent
+sur le moteur livre), donc le falsificateur P2 ne s'applique pas. **TROUS DECLARES, NON COMBLES :**
+§10 `fwd` a une grandeur nommee DIFFERENTE (saillie signee `Lpp . cos(ang)`) qui n'est calculee
+nulle part dans la chaine du tableau ; §10/§11 `out` et `up` n'ont aucune lecture nommee (le c126
+leur oppose le triplet invariant, ~19 lignes de plus).
+
+**(b) LE LOT DE §11, MAINTENANT QU'IL A UN POINT ADMISSIBLE.** Deux boutons : la commande (le lot
+c128, deja ecrit, substitution sur place a `jak-hd-physics.gc:3589`, **0 ligne nette**) et
+l'ancrage (a construire). Cibles mesurees : chestL lam=1,1680 + PROXIMAL 0,16 ; chestR lam=1,1320
++ DISTAL 0,20.
+
+**FALSIFICATEUR NOMME D'AVANCE, ET C'EST LE MEME QUI A TUE LES LOTS c122 ET c128 :** la gate
+`DISCRIMINANT` sur **chestR**. Chiffres exacts, lus sur les deux tableaux archives :
+
+    moteur livre  spread 33,37 %  hi=accel     0,2047  lo=updown 0,1364
+    lot c128      spread 22,98 %  hi=leftright 0,1771  lo=updown 0,1364   (seuil 25 %)
+
+Il manque **exactement +2,69 % sur le pilotage MAXIMUM** (0,1771 -> 0,1819) ou **-2,62 % sur le
+MINIMUM** (0,1364 -> 0,1328). **Je ne demande pas d'assouplir cette gate** : elle a raison, la
+reponse s'APLATIT (`tipvar` reste a 0,1767 pour un plancher de 0,05 — ce n'est pas du muselage,
+c'est l'aplatissement, le defaut que l'owner appelle « pudding »).
+
+**PREDICTION ECRITE MAINTENANT, POUR QUE LE CYCLE 132 NE PUISSE PAS LA REECRIRE APRES COUP :**
+l'ancrage devrait RESTAURER cette marge, parce que son offset `a.(I-D)` ne varie qu'avec `D`,
+donc **seulement sur les pilotages ou l'orientation change** — `accel`, `jerk`, `leftright`, qui
+sont precisement les pilotages HAUTS — et pas sur `updown` (translation verticale a orientation
+constante), qui est le pilotage BAS. **FALSIFICATEUR : si `updown` monte d'autant que les autres,
+ou si le maximum ne gagne pas ses 2,69 %, le lot est RETIRE, pas adouci.**
+
+**(c) INERTIE AU REPOS, VERIFIEE D'AVANCE.** A la pose debout d'auteur le melange convexe rend
+exactement (1,1,1) — `wdn` porte tout le poids — donc `D = I` et l'offset d'ancrage est
+**identiquement nul par algebre**, comme le plafond de §21 l'est deja. Mesure a l'appui : la
+cellule debout `i=0` rend 0,0002-0,0003 B0 de deplacement total. §2 (« Additional Procedural Sag
+= 0 % ») et §9 (« restored exactly ») ne peuvent donc pas etre violees par ce lot.
+
+## 8. ARTEFACTS DE CE CYCLE, TOUS REJOUABLES SANS BUILD NI COURSE
+
+    .autoport/c131-predictions.txt                 les predictions ET ma propre mise en doute, ecrites avant
+    .autoport/c131_length_readings.py              les trois lectures de la clause porteuse de §11, cote a cote
+    .autoport/c131_anchor_dof.py                   la mesure du degre de liberte d'ancrage (259 lignes de sortie)
+    .autoport/c131_anchor_size_closed_form.py      la forme close, qui sert de prediction a la mesure
+    .autoport/c131_engine_composition.sh           la composition que le plafond CLEAN demande de regarder
+    .autoport/c131_prepend_coverage.py             l'insertion dans le registre, pour que ce ne soit pas fait a la main
+    reports/.../c131-{length-readings,anchor-dof,anchor-closed-form,engine-composition}.txt
+
+## 9. A TESTER PAR L'OWNER
+
+**RIEN.** Aucun build, aucune course, aucun bit du solveur n'a bouge. `recharged_assets/` et
+`goal_src/` sont inchanges — verifie par `git status`. Ce cycle ne produit pas d'APK et n'a rien
+a faire regarder ; la regle du 2026-08-20 23:30 (« je ne sollicite plus de test pour un changement
+d'une seule section ») s'applique a plus forte raison a un cycle qui n'en change aucune.

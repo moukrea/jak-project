@@ -102,8 +102,11 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
 
 ## 📋 Au backlog, pas encore commencé
 
-- **Seins de Keira** — reprend après la jouabilité. État gelé : 4 tenues mesurées sur 38,
-  5 par construction, 16 partielles, 13 non tenues.
+- **Seins de Keira** — **en cours, chantier structurel autorisé par toi le 27 août**
+  (« laisse courir le chantier, on fait la spec à 100% »). État : 4 tenues mesurées sur 38.
+  Onze des treize sections non tenues partagent la même cause — le déplacement du centre de masse
+  et de l'apex doit vivre dans le tenseur de déformation, pas dans une chaîne de maillons. Le
+  worker chiffre le travail à quatre unités : c'est une série, pas une tentative. Pas de date.
 - **Pas de temps fixe + interpolation** — pour que le gameplay ne casse plus sous 60 images/s
   et profite au-delà. Ton chantier du 26 août.
 - **Garde du pack HD** — elle ne teste que le dump Jak 2 alors que le pack contient du Jak 3 :

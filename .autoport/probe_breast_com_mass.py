@@ -68,6 +68,23 @@ def main():
     names = list(g['names'])
     V, J, W, P = g['V'], g['J'], g['W'], g['P']
     print('PROBE-COM-MASS: source=%s  verts=%d  joints=%d' % (g['src'], len(V), len(names)))
+    # ---- CYCLE 131 : LA MASSE DE SOMMET A L'AIRE, LE DENOMINATEUR QUE « center-of-mass » VEUT ---
+    # `n`, `W` et `L` ci-dessous normalisent par un COMPTE DE SOMMETS. Cette identite n'est exacte
+    # que si CHAQUE SOMMET PORTE LA MEME MASSE, et le cycle 130 a mesure que c'est faux sur ce
+    # maillage : CV de l'aire par sommet 0,648 et 0,597 selon la chaine, min 621 u^2, max 46285.
+    # On AJOUTE donc les memes grandeurs a une masse de sommet PROPORTIONNELLE A L'AIRE (un tiers
+    # de l'aire de chaque triangle incident, en pose de BIND — la masse est une propriete
+    # materielle, fixee dans la configuration de reference). Rien n'est retire ni renomme : `n`,
+    # `W` et `L` gardent EXACTEMENT leurs valeurs, et le consommateur choisit.
+    # Code identique a `.autoport/c130_com_reconcile.py:50-56`.
+    AREA = np.zeros(len(V))
+    Ftri = np.asarray(g['F'], dtype=np.int64).reshape(-1, 3)
+    _a = V[Ftri[:, 0]]
+    _ar = 0.5 * np.linalg.norm(np.cross(V[Ftri[:, 1]] - _a, V[Ftri[:, 2]] - _a), axis=1)
+    for _k in range(3):
+        np.add.at(AREA, Ftri[:, _k], _ar / 3.0)
+    print('PROBE-COM-MASS: masse de sommet a l\'aire : %d triangles, aire totale %.1f u^2'
+          % (len(Ftri), _ar.sum()))
     out = {'source': g['src'], 'chains': {}}
     ai = names.index(ANCHOR) if ANCHOR in names else None
     # LA BASE DE L'ANCRE, celle ou vivent `PHYSORICOML` et `PHYSDFMA` : les colonnes de
@@ -122,10 +139,26 @@ def main():
                      '  '.join('W[%s]=%8.3f' % (joints[k], Wj[k]) for k in range(len(idx))),
                      n, sum(Wj) / n,
                      ' '.join('%s=%.1f' % (joints[k], arms[k]) for k in range(len(idx))), arm_c))
+            # LES MEMES TROIS GRANDEURS A LA MASSE D'AIRE (cycle 131) : `na` = SOMME_v a_v,
+            # `Wa` = SOMME_v a_v.w(v,k), `La` = premier moment PONDERE PAR L'AIRE, meme base
+            # d'ancre (`anch`) et meme selection de sommets que `n` / `W` / `L`.
+            Av = AREA[sel]
+            na = float(Av.sum())
+            Wa = [float((Av * wj[sel, k]).sum()) for k in range(len(idx))]
+            Lma = np.zeros(3)
+            for k, ji in enumerate(idx):
+                Lma += ((Av * wj[sel, k])[:, None] * (V[sel] - P[ji])).sum(axis=0)
+            Lma = anch(Lma)
             rec['defs'].append(dict(cut=cut, n=n, W=Wj, arms=arms, arm_centroid=arm_c,
-                                    L=[float(x) for x in Lm], W0=w0))
+                                    L=[float(x) for x in Lm], W0=w0,
+                                    na=na, Wa=Wa, La=[float(x) for x in Lma]))
             print('PROBE-COM-MASS: %-8s w>=%.2f  L(ancre)=[%+9.1f %+9.1f %+9.1f] u   W0=%.1f u'
                   % (cname, cut, Lm[0], Lm[1], Lm[2], w0))
+            print('PROBE-COM-MASS: %-8s w>=%.2f  A LA MASSE D\'AIRE  na=%.1f u^2  %s'
+                  '  La(ancre)=[%+11.1f %+11.1f %+11.1f] u.u^2'
+                  % (cname, cut, na,
+                     '  '.join('Wa[%s]=%10.1f' % (joints[k], Wa[k]) for k in range(len(idx))),
+                     Lma[0], Lma[1], Lma[2]))
         # LE TRIEDRE DE SA §7, en base d'ancre — CHAQUE AXE D'UNE PHRASE DE §7, MESURE SUR LE RIG.
         #
         # CORRIGE AU CYCLE 91, ET C'ETAIT UN AXE FAUX. Jusqu'ici `+Z` etait la SAILLIE (le
