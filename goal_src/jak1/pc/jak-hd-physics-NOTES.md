@@ -10833,3 +10833,93 @@ seul de ses facteurs. Ligne de base quand le canal est ABSENT : `mw=0.0000 d=0.0
 zero du parseur (cle mal ecrite, `kPhysNumChainParams` pas incremente) rendrait la course entiere
 bit-identique a la precedente, ce qui se relit exactement comme « le modele est faux »
 (`channel-measured-by-effect-is-not-channel-proven-read`, et [NOTE-236] pour le mode d'echec).
+
+## [NOTE-581]
+### SPEC 8 / SPEC 31 — LE GRADIENT RACINE->APEX, ET IL RETIRE LA TRANSFORMATION AFFINE UNIQUE QUE SPEC 8 INTERDIT EN GRAS
+
+**LES DEUX LIGNES QUI L'EXIGENT, TOUTES DEUX EN GRAS DANS SON TEXTE.**
+
+    SPEC 8  l.143  « ...**but the whole breast shall not be represented by one affine scale
+                     transformation.** Instead: root tissue moves little; intermediate tissue
+                     redistributes; distal tissue deforms most... »
+    SPEC 10 l.173  « **The entire breast shall not simply scale uniformly from its center.** »
+    SPEC 31 l.390  « With r = 0 at chest attachment and r = 1 at distal/apex region, a useful
+                     deformation weighting is w(r) = r^1.6...2.0 — little deformation at the root;
+                     progressively increasing mobility; largest displacement in distal tissue. »
+
+Jusqu'au cycle 138 le moteur appliquait **UNE matrice par CHAINE** (`*phys-dfm* sc`), la meme aux
+deux maillons : litteralement la transformation affine unique que sa 8 interdit, et c'etait le seul
+motif de son `NON TENUE`.
+
+**LA FORME, ET ELLE EST CHOISIE POUR QUE `CANAL ABSENT` = `COMPORTEMENT D'AVANT` PAR ALGEBRE.**
+
+    A_l  =  B_l . ( I + w_l (D - I) )      B_l = la rotation d'os du maillon, D = le tenseur
+
+ecrit au site d'ecriture comme le melange lineaire des deux matrices qui l'encadrent :
+
+    tmp  <-  w_l . (bm . D)  +  (1 - w_l) . bm
+
+`w_l = 1` rend donc `bm . D` **AU BIT**, et le moteur retombe exactement sur le tenseur uniforme.
+C'est ce qui arrive quand `spr=` est absent (`r = 0` -> poids 1 partout) et quand les deux cles de
+preset manquent (exposant 0 -> `r^0 = 1` partout). Un canal absent ne fabrique rien.
+
+**LA NORMALISATION, ET C'EST ELLE QUI PROTEGE LES SECTIONS DEJA TENUES.**
+
+    w_l  =  g_l . ( SOMME_k comw_k ) / ( SOMME_k comw_k . g_k )      avec  g_l = spr_l ^ p
+
+La moyenne du poids, ponderee par la MASSE DE PEAU de chaque maillon, vaut donc 1 par construction :
+le gradient REDISTRIBUE la deformation le long de la chaine sans en changer le total. Sans cette
+normalisation, tout `w < 1` aurait rabote l'amplitude d'ensemble et paye la 8 avec la 11 et la 12,
+qui sont dans leur bande — la faute `compensation-route-refuted-by-sibling-section` du registre.
+
+**L'EXPOSANT VIENT DU FICHIER LIVRE, PAS DU MOTEUR.** `RootDeformationExponentLo` (1.6) et
+`RootDeformationExponentHi` (2.0) sont dans le preset depuis toujours et n'avaient AUCUN canal ;
+elles sont ajoutees a `kPhysPresetKeys` aux indices 27/28 et le moteur en prend le MILIEU. GOAL n'a
+pas de puissance flottante : `x^p` est calcule par developpement DYADIQUE (partie entiere par
+multiplications, partie fractionnaire par 5 `sqrtf` successifs), donc l'exposant **APPLIQUE** vaut
+1.78125 pour un `p` demande de 1.8. L'ecart est publie a cote, et il est sans consequence mesurable
+ici : sur la trace archivee, faire varier `p` de 1.6 a 2.0 deplace la clause de sa 10 de 0,03 point
+de %W0.
+
+**CE QUE J'AI MESURE AVANT D'ECRIRE, ET CA JOUE CONTRE LE LOT.** `.autoport/c138_graded_tensor.py`
+predit l'effet exactement, par identite algebrique sur les matrices LIVREES (`PHYSORIM` x
+`PHYSDFMA`), avec deux gardes : `D` est falsifie par l'orthonormalite de `B = A . D^-1` (8.7e-06) et
+le controle hors defaut `w = 1` reproduit `c133_delivered_com.py` a 2.3e-13 u. Verdict :
+
+    §10 sortant chestL   +3.062  ->  +2.968 %W0      §10 sortant chestR   -2.536  ->  -2.662 %W0
+
+**Le gradient bouge la clause de 0,09 a 0,13 point, et dans le mauvais sens.** La raison est dans le
+RIG et elle se mesure sans course :
+
+    joint lBoob  r = -0.3103        joint lBooc  r = -0.3039      ecart 0,64 % de l'organe
+    joint rBoob  r = -0.1744        joint rBooc  r = -0.1767      ecart -0,23 %
+
+**Les deux actionneurs de la chaine sont au MEME `r`.** Un gradient qui est une fonction de `r` n'a
+donc aucun levier : il ne peut pas produire « little deformation at the root; largest displacement
+in distal tissue » quand la racine et le distal sont au meme `r`. Pire, la chair qu'ils pilotent est
+INVERSEE par rapport a leurs noms — `lBoob` (« racine ») pilote une chair a r = 0.8407, `lBooc`
+(« distal ») a r = 0.7323. Le gradient est donc applique a la CHAIR, ce que la section decrit, et
+non aux noms ; c'est pour cela que le poids du maillon dit « racine » sort **plus grand** que celui
+du maillon dit « distal ».
+
+**CE QUE CA NOMME POUR LA SUITE, ET CE N'EST PAS UN DE-SCOPE.** Le blocage de sa 8, de sa 10 et de sa
+31 n'est pas dans le solveur : c'est que la chaine ne s'etend pas le long de l'axe racine->apex. Elle
+s'etend LATERALEMENT (joints a 325,7 et 376,9 u du bord medial ; chair a 439,2 et 568,7 u). Le
+correctif est un REPESAGE, deja autorise par l'owner le 2026-08-17 23:50 (« meme si ca implique de
+modifier le rig ») et le 2026-08-19 20:00 (« c'est la geometrie qui bouge »), et c'est exactement la
+regle du 2026-08-18 08:55 : une injection d'os n'existe que si le repesage l'accompagne, et la
+preuve est la REPARTITION.
+
+**CE QUE LE GRADIENT NE TOUCHE PAS, ET C'EST UNE DETTE, PAS UN OUBLI.** Il est applique a `tmp` au
+site d'ecriture, donc a la matrice que `PHYSORIM` publie et que la peau recoit. Il n'est PAS applique
+a `*phys-rgm*` (:3914), qui compose `*phys-dfmq*` — le tenseur QUASI-STATIQUE que lisent les volumes
+de collision. **Les volumes ne suivent donc pas le gradient**, exactement la meme couture que le mur
+median de [NOTE-580] et que le tenseur lui-meme depuis toujours. Elle se nomme.
+La TRANSLATION, elle, est intacte : le melange ne porte que sur les neuf coefficients 3x3, et le mur
+median lit `bm vector 3` et la matrice d'ancre, jamais la 3x3 — donc la moitie TRANSLATION du COM est
+invariante par ce lot, ce que la prediction du cycle utilise et que la course doit confirmer.
+
+**PREUVE DE LECTURE, PAS PREUVE PAR LES EFFETS.** `PHYSGRAD31 c= i= r0= r1= w0= w1=` et
+`PHYSGRAD31P c= i= p=` sont emises PAR CHAINE et DANS le balayage d'orientation. Elles publient ce
+que le PARSEUR a depose (`r`) ET l'operateur APPLIQUE (`w`), jamais un seul de ses facteurs. Ligne
+de base d'un canal ABSENT : `r0=0 r1=0 w0=1 w1=1 p=0`.

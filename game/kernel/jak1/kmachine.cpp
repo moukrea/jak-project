@@ -1168,6 +1168,12 @@ struct PhysChain {
   // 0/absent = UNDECLARED, and the engine then publishes no COM at all rather than a wrong one,
   // so adding this key moves no chain that does not carry it.
   std::vector<float> link_comw;
+  // spr= : SPEC 31 « r = 0 at chest attachment and r = 1 at distal/apex region ». UNE
+  // valeur par maillon, root -> tip : l'abscisse `r` de la CHAIR que ce maillon pilote,
+  // moyenne ponderee par le poids de peau, mesuree sur le mesh LIVRE
+  // (.autoport/c138_graded_tensor.py). Donnee derivee, jamais un reglage. Vide = pas de
+  // gradient : GOAL applique alors le tenseur UNIFORME d'avant, identite par algebre.
+  std::vector<float> link_spr;
   // (C132) SPEC 31 — le point « r = 0 at chest attachment » que la section NOMME, en espace os
   // local de CE maillon, en unites, pose de bind. Le tenseur de deformation est aujourd'hui
   // applique autour de l'ORIGINE DU JOINT, qui tombe a r = -0.04 a -0.07 sur l'axe de SPEC 31 : ce
@@ -1678,6 +1684,21 @@ static int pc_physics_parse_file() {
             }
             p = comma + 1;
           }
+        } else if (k == "spr") {
+          // Meme forme que comw= : liste separee par des virgules, UNE PAR MAILLON, root -> tip.
+          ch.link_spr.clear();
+          size_t p = 0;
+          while (p <= v.size()) {
+            size_t comma = v.find(',', p);
+            std::string one = (comma == std::string::npos) ? v.substr(p) : v.substr(p, comma - p);
+            if (!one.empty()) {
+              ch.link_spr.push_back(phys_to_float(one));
+            }
+            if (comma == std::string::npos) {
+              break;
+            }
+            p = comma + 1;
+          }
         } else if (k == "anp") {
           // (C132) SPEC 31 — meme forme que comw= : liste separee par des virgules, root -> tip,
           // mais TROIS flottants par maillon (x,y,z) en espace os LOCAL de ce maillon, en unites,
@@ -2149,6 +2170,22 @@ s64 pc_physics_chain_link_comw_mi(u32 ag_name, s64 chain, s64 link) {
   return phys_mi(comw[link]);
 }
 
+// SPEC 31 — `r` de la CHAIR pilotee par ce maillon, en milli. Rend 0 quand la chaine ne declare
+// pas `spr=`, et 0 est ici la bonne lecture : `r=0` donne un poids de gradient nul avant
+// normalisation, donc GOAL retombe sur le tenseur UNIFORME. Un canal absent ne fabrique rien.
+s64 pc_physics_chain_link_spr_mi(u32 ag_name, s64 chain, s64 link) {
+  pc_physics_ensure_loaded();
+  const auto* model = pc_physics_find_model(ag_name);
+  if (!model || chain < 0 || chain >= (s64)model->chains.size()) {
+    return 0;
+  }
+  const auto& spr = model->chains[chain].link_spr;
+  if (link < 0 || link >= (s64)spr.size()) {
+    return 0;
+  }
+  return phys_mi(spr[link]);
+}
+
 // ---- the character PRESET, read as a CHANNEL (2026-08-22) -------------------------------------
 // These are the preset keys the engine actually CONSUMES, in the order GOAL indexes them. The
 // table lives here and not in GOAL so that "wired" is a property of one list: a key absent from
@@ -2207,6 +2244,14 @@ static const char* kPhysPresetKeys[] = {
                                      //    `jak-hd-physics.gc` rendait 1.0 pour tout indice >= 22,
                                      //    ce qui aurait donne un gain de 1/0.35 = 2.857, soit 6.7x
                                      //    trop grand — elle est bornee a < 26 dans le meme lot.
+    // (C138) SPEC 31 l.390 — « a useful deformation weighting is `w(r) = r^1.6...2.0` ». Les deux
+    // bornes sont DANS le preset livre (`RootDeformationExponentLo/Hi`, SPEC:525) et n'avaient
+    // AUCUN canal : le moteur appliquait UNE matrice par chaine, litteralement la transformation
+    // affine unique que SPEC 8 l.143 interdit en gras. Le moteur en prend le MILIEU. Absentes,
+    // la regle d'element neutre rend 0.0 pour ces deux indices, donc un exposant nul, donc un
+    // poids de gradient 1 partout : le tenseur UNIFORME d'avant, identite par algebre.
+    "RootDeformationExponentLo",     // 27 section 31
+    "RootDeformationExponentHi",     // 28 section 31
 };
 static const int kPhysNumPresetKeys = (int)(sizeof(kPhysPresetKeys) / sizeof(kPhysPresetKeys[0]));
 
@@ -4568,6 +4613,8 @@ void InitMachine_PCPort() {
                               (void*)pc_physics_chain_link_radius_mi);
   make_function_symbol_from_c("pc-physics-chain-link-comw-mi",
                               (void*)pc_physics_chain_link_comw_mi);
+  make_function_symbol_from_c("pc-physics-chain-link-spr-mi",
+                              (void*)pc_physics_chain_link_spr_mi);
   make_function_symbol_from_c("pc-physics-chain-link-apex-mi",
                               (void*)pc_physics_chain_link_apex_mi);
   make_function_symbol_from_c("pc-physics-chain-link-anp-mi",

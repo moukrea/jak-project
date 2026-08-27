@@ -1627,3 +1627,30 @@ chain chestR lyield=0.7579
 # ---------------------------------------------------------------------------------------------
 chain chestL medw=325.66
 chain chestR medw=325.67
+
+# =============================================================================================
+# CYCLE 138 — `spr=`, L'ABSCISSE `r` DE SA SPEC 31, PAR MAILLON.
+# =============================================================================================
+# SPEC 31 l.390 : « With r = 0 at chest attachment and r = 1 at distal/apex region, a useful
+# deformation weighting is w(r) = r^1.6...2.0 — little deformation at the root; progressively
+# increasing mobility; largest displacement in distal tissue. »
+# SPEC 8 l.143  : « **but the whole breast shall not be represented by one affine scale
+#                 transformation.** » — et le moteur en appliquait UNE PAR CHAINE.
+#
+# CE N'EST PAS UN REGLAGE, C'EST UNE MESURE SUR LE MESH LIVRE (out/jak1/fr3/skin/keira-hd-lod0.glb),
+# reproductible par `python3 .autoport/c138_graded_tensor.py` :
+#   axe    = joint racine -> centroide pondere de l'organe (l'axe que la section DEFINIT ; l'axe
+#            d'OS de la chaine est a 78 deg de celui-la, faute payee au cycle 57)
+#   r      = (s - s05) / (s95 - s05), origine au PLAN D'ATTACHE et non au joint, qui est a
+#            l'INTERIEUR de la chair (chestL s05 = 173,5 u pour une etendue de 559,2 u)
+#   spr[l] = moyenne de `r` sur la chair pilotee par le maillon `l`, ponderee par le poids de peau
+#
+#   chestL  lBoob r=0.8407  lBooc r=0.7323      chestR  rBoob r=0.8570  rBooc r=0.7041
+#
+# ET JE PUBLIE CE QUI ME CONTREDIT : les deux valeurs sont INVERSEES par rapport aux NOMS des os.
+# Le maillon dit « racine » pilote une chair PLUS DISTALE que celui dit « distal », et les deux
+# JOINTS sont a r = -0.3103 / -0.3039 (chestL), soit 0,64 % de l'organe l'un de l'autre : la chaine
+# ne s'etend PAS le long de l'axe racine->apex. Le gradient de sa 31 est donc applique a la CHAIR
+# (ce que la section decrit), pas aux noms, et son levier est petit par construction du rig.
+chain chestL spr=0.8407,0.7323
+chain chestR spr=0.8570,0.7041

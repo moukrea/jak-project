@@ -1,0 +1,43 @@
+CYCLE 138 — PREDICTIONS ECRITES AVANT LA COMPILATION ET AVANT LA COURSE
+=======================================================================
+DIRECTIVES vd9e8b66782
+Lot : SPEC 8 / SPEC 31 — le GRADIENT RACINE->APEX dans le tenseur de deformation.
+Sources : `spr=` (mesure sur out/jak1/fr3/skin/keira-hd-lod0.glb), `RootDeformationExponentLo/Hi`
+          (preset livre, SPEC:525), engine dyadique -> exposant APPLIQUE 1.78125 pour 1.8 demande.
+Modele de prediction : `.autoport/c138_graded_tensor.py`, identite algebrique sur les matrices
+          LIVREES (PHYSORIM x PHYSDFMA), controle hors defaut w=1 reproduisant c133 a 2.3e-13 u,
+          falsification de `D` par orthonormalite de `B = A.D^-1` a 8.7e-06.
+
+ id  grandeur                                        avant        predite      bande      verdict
+ --  ----------------------------------------------  -----------  -----------  ---------  -------
+ P1  PHYSGRAD31 c=0 r0/r1  (ce que le PARSEUR depose) 0/0 (absent) 0.8407/0.7323           lu
+ P2  PHYSGRAD31 c=1 r0/r1                             0/0 (absent) 0.8570/0.7041           lu
+ P3  PHYSGRAD31 c=0 w0/w1  (operateur APPLIQUE)       1/1          1.1030/0.8626           applique
+ P4  PHYSGRAD31 c=1 w0/w1                             1/1          1.1128/0.7841           applique
+ P5  PHYSGRAD31 p          (exposant DEMANDE)         0            1.8                     lu
+ P6  §10 sortant chestL   (% W0, organe LIVRE)        +3.062       +2.968       [4;10]     SOUS
+ P7  §10 sortant chestR   (% W0, organe LIVRE)        -2.536       -2.662       [4;10]     SOUS
+ P8  §11 COM chestL       (B0, organe LIVRE)          0.2005       0.2010       [.20;.28]  DANS
+ P9  §11 COM chestR       (B0, organe LIVRE)          0.2032       0.2038       [.20;.28]  DANS
+ P10 §11 longueurs livrees (deciles)                  1.257815 / 1.253325 -> inchangees au 4e chiffre
+ P11 [RETIREE PENDANT LE CYCLE, ET JE LE DIS AU LIEU DE LA REECRIRE] — je predisais que
+     `PHYSAXR a=2` reproduirait `PHYSTRI a=0`, l'axe lateral du solveur. FAUX : `phys-axis-world`
+     lit `*phys-axw*` (triedre de l'instrument d'ANISOTROPIE), `phys-tri-world` lit `*phys-fx*`
+     (celui du solveur). Ce sont deux objets. Constate SUR LA COURSE, pas suppose.
+ P12 CE QUI RESTE ACQUIS DE CETTE PISTE : `PHYSTRI c=0/1 a=0` montre que l'axe lateral du SOLVEUR
+     est deja exactement anti-symetrique (+0.98297/+0.18374 contre -0.98297/-0.18374). L'hypothese
+     « le signe lateral de chestR est faux » est donc REFUTEE, par une donnee deja dans la trace.
+ P13 ROOM-IDLE maxdev                                 0.0001       inchange     <0.05      tient
+ P14 PHYSORI2 (echelles COMMANDEES) — le gradient agit APRES le tenseur, donc les 22 lignes
+     doivent etre IDENTIQUES AU CHIFFRE. Une seule qui bouge = le lot a touche l'entree.
+
+CE QUE JE PREDIS CONTRE MOI, ET C'EST LE POINT DU CYCLE
+-------------------------------------------------------
+Le gradient de sa 31 fait BOUGER §10 DE 0,09 A 0,13 POINT, ET DANS LE MAUVAIS SENS. Il ne fait
+passer AUCUNE section. La raison est mesuree AVANT le lot et elle est dans le rig, pas dans le
+solveur : les DEUX JOINTS de la chaine sont a r = -0.3103 et -0.3039 (chestL), soit 0,64 % de
+l'organe l'un de l'autre, et a -0.1744 / -0.1767 (chestR), soit -0,23 % — la chaine NE S'ETEND PAS
+le long de l'axe que sa 31 parametre. La chair qu'ils pilotent est INVERSEE (racine r=0.84,
+« distal » r=0.73). Un gradient en `r` n'a donc aucun levier ici.
+CE QUE LE LOT ETABLIT MALGRE CA : la deformation n'est plus UNE transformation affine par chaine —
+c'est ce que SPEC 8 l.143 interdit EN GRAS et c'etait le seul motif de son `NON TENUE`.
