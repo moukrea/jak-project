@@ -1,0 +1,79 @@
+c135 — PREDICTIONS ECRITES AVANT LE LOT ET AVANT LA COURSE
+DIRECTIVES vd9e8b66782 · perimetre : poitrine de Keira, SPEC-breast-softbody.md §11
+
+CE QUE CE CYCLE REFUTE (mesure faite AVANT d'ecrire une ligne, sur DEUX TRACES ARCHIVEES) :
+  [NOTE-576] conclut « Aucune valeur de HangingLengthScale ne met les deux clauses dans leur
+  bande » et ferme la route. Cette conclusion repose sur la clause de COM telle que la publiait
+  l'instrument SUBSTITUT — celui que le cycle 133 a refute pour une erreur de MODELE (il
+  substituait (D-I).L/N, sur des moments en base de BIND autour de l'ANCRE, a un tenseur que le
+  moteur applique bm.D, APRES la rotation de l'os et AUTOUR DU JOINT).
+  Recalcul avec l'instrument du c133 (`c133_delivered_com.py`), MEME code, MEMES traces, controle
+  de portage 0.0000 % sur les 8 cellules de decile, lecture hors defaut i=9 a 0.0004-0.0009 B0 :
+
+                        t=0 (livre)      t=1 (lot c128)     bande
+    longueur chestL      1.336258          1.251187         <= 1.26
+    longueur chestR      1.318303          1.235022         <= 1.26
+    COM      chestL      0.2459            0.1966           >= 0.20
+    COM      chestR      0.2413            0.1924           >= 0.20
+    DISCRIM  chestL       46.1 %            48.6 %          >= 25 %
+    DISCRIM  chestR       33.4 %            23.0 %          >= 25 %
+
+  Le substitut publiait 0.1811 / 0.1809 a t=1 (soit -9.5 % / -9.6 % sous le plancher). La valeur
+  LIVREE est 0.1966 / 0.1924, soit -1.7 % / -3.8 %. C'est CE facteur ~5 sur l'ampleur du defaut
+  qui avait ferme la route.
+
+FENETRE ADMISSIBLE, par chaine, du modele a DEUX POINTS (interpolation lineaire en t) :
+    chestL : longueur exige t >= 0.8964 · COM exige t <= 0.9310 · DISCRIMINANT ne contraint pas
+             (il MONTE, 46.1 -> 48.6 %)                       -> t in [0.8964, 0.9310]
+    chestR : longueur exige t >= 0.7001 · COM exige t <= 0.8446 · DISCRIMINANT exige t <= 0.8157
+             (`accel` reste le max jusqu'a t=0.98 ; `updown` 0.1364 est le min AUX DEUX BOUTS)
+                                                              -> t in [0.7001, 0.8157]
+  LES DEUX SONT NON VIDES. Elles ne se recouvrent PAS entre chaines, donc le gain est PAR CHAINE —
+  ce qui est la granularite naturelle : `phl` est deja par chaine (`pb = sc * PHYS-PSET-N`) et
+  `rigide` est mesure par chaine (`*phys-rsv*`).
+
+POINT RETENU = MILIEU de chaque fenetre (max-marge, PAS un ajustement a l'instrument : les deux
+bornes viennent de DEUX clauses INDEPENDANTES de sa spec, plus une gate generique) :
+    chestL  lyield = 0.9137        chestR  lyield = 0.7579
+
+PREDICTIONS CHIFFREES — les six se verifient sur la course, et CHACUNE peut me refuter :
+    P1  longueur chestL  1.2585   (bande <= 1.26 ; marge predite 0.12 %)
+    P2  longueur chestR  1.2552   (bande <= 1.26 ; marge predite 0.38 %)
+    P3  COM      chestL  0.2009   (bande >= 0.20 ; marge predite 0.43 %)
+    P4  COM      chestR  0.2042   (bande >= 0.20 ; marge predite 2.10 %)
+    P5  DISCRIM  chestL  ~48 %    (gate >= 25 % ; large)
+    P6  DISCRIM  chestR  ~25.7 %  (gate >= 25 % ; marge predite 0.67 pt — LA PLUS MINCE)
+
+FALSIFICATEUR, DECLARE AVANT LA COURSE ET SANS ECHAPPATOIRE :
+  - si UNE des six tombe hors de sa bande, le modele a DEUX POINTS est FAUX sur cette grandeur et
+    je le publie comme tel — pas de re-ajustement de `lyield` presente comme un resultat ;
+  - la marge de P6 est de 0.67 pt sur une gate a 25 %. Je declare AVANT la course que c'est la
+    grandeur la plus susceptible de me refuter, et que `lyield` est de la DONNEE precisement pour
+    que la reprise ne coute pas un build ;
+  - CONTROLE NEGATIF PAR ALGEBRE : a `lyield=0` le diviseur vaut 1 + 0*(rsv-1) = 1 exactement,
+    donc le moteur est bit-identique a celui d'aujourd'hui. Ce n'est pas une mesure, c'est une
+    identite — et c'est le defaut par defaut de la cle.
+
+RESERVE PUBLIEE PLUTOT QUE TUE : l'interpolation en t est LINEAIRE et rien ne l'impose. Les deux
+points sont mesures ; tout ce qui est entre eux est un modele. C'est exactement ce que la course
+teste.
+
+NOTE DE QUANTIFICATION (ajoutee AVANT la course, apres relecture du transport C++). Le magasin
+rend des MILLI-unites : `phys_mi` fait `llround(v*1000)`, puis `phys-mi->f` divise par 1000. Les
+valeurs ECRITES 0.9137 / 0.7579 arrivent donc au moteur comme **0.914 / 0.758**. Les deux restent
+DANS leur fenetre ([0.8964, 0.9310] et [0.7001, 0.8157]) et les six predictions ci-dessus sont
+inchangees a la 4e decimale (longueur 1.2585 / 1.2552 · COM 0.2008 / 0.2042 · DISCRIM chestR
+25.66 %). C'est verifie, pas suppose : la resolution du canal est 0.001 en t, soit 1/35 de la
+fenetre la plus etroite.
+
+CONTROLE NEGATIF DE PORTEE, MESURE SUR LA TRACE ARCHIVEE AVANT LA COURSE (`PHYSRIGID`, 22 lignes
+= 2 chaines x 11 cellules du balayage) :
+    i=0  (DEBOUT, pose d'auteur)   rs = 1.0001 / 0.9998
+    i=9  (2e cellule DEBOUT)       rs = 0.9995 / 0.9996
+    i=6  (PRONE — la cellule qui PORTE le verdict de §11)   rs = 1.1308 / 1.1453
+  Donc a la pose DEBOUT le diviseur vaut 1 + lyield*(rs-1) = 1.000 a 1e-4 pres : la correction est
+  INERTE AU REPOS, et §2/§9 (« the final settled geometry shall reproduce the authored standing
+  model », `ROOM-IDLE` ~ 0) sont proteges PAR ALGEBRE, pas par reglage. La correction a un DOMAINE,
+  et ce domaine est exactement celui ou §11 se juge.
+  Etendue mesuree de rs sur toutes les cellules : [0.8459, 1.1453] — donc le diviseur reste dans
+  [0.846, 1.145] pour lyield in [0,1] et la branche de garde (1e-4) est INATTEIGNABLE.

@@ -47,6 +47,7 @@
 ;; [NOTE-108] SPEC 6 — `B0`, LA LONGUEUR CARACTERISTIQUE RACINE->APEX DE LA CHAIR, EN UNIT -> jak-hd-physics-NOTES.md
 (defconstant PHYS-P-B0     29)
 (defconstant PHYS-P-ANCH   25)  ;; gain de `anp=` ; 0 = tenseur ancre au JOINT, identite par algebre
+(defconstant PHYS-P-LYIELD 30)  ;; [NOTE-578] gain de la correction de DOUBLE COMPTE de SPEC 11 ; 0 = identite par algebre
 ;; [NOTE-185] L'ANGLE QUE LA PEAU PEUT ENCAISSER, EN DEGRES — CHEVEUX SEULEMENT, 0 = pas de limite. -> jak-hd-physics-NOTES.md
 (defconstant PHYS-P-MAXANG  3)
 
@@ -116,7 +117,7 @@
 (define *phys-anx* (new 'global 'array 'float PHYS-SCL)) (define *phys-any* (new 'global 'array 'float PHYS-SCL)) (define *phys-anz* (new 'global 'array 'float PHYS-SCL)) (define *phys-anch* (new 'global 'array 'float PHYS-SC))  ;; `anp`/`anch` : SPEC 31 r=0, espace os local, et son gain (0 = ancre au joint)
 ;; [NOTE-574] SPEC 11 — L'ETAGE RIGIDE : 12 constantes de mesh par chaine (`rg` de physics_mesh.txt), le rapport MESURE chaque frame, et son DENOMINATEUR publie a cote. -> jak-hd-physics-NOTES.md
 (define *phys-rsa* (new 'global 'array 'float (* PHYS-SC 12))) (define *phys-rsok* (new 'global 'array 'int32 PHYS-SC))
-(define *phys-rsv* (new 'global 'array 'float PHYS-SC)) (define *phys-rsd* (new 'global 'array 'float PHYS-SC))
+(define *phys-rsv* (new 'global 'array 'float PHYS-SC)) (define *phys-rsd* (new 'global 'array 'float PHYS-SC)) (define *phys-lyd* (new 'global 'array 'float PHYS-SC))
 (define *phys-c2* (new 'global 'array 'float 3))          ;; sortie de `phys-pt-exc!`, jamais lue ailleurs
 
 (defun phys-pt-exc! ((bm matrix) (pre matrix) (ox float) (oy float) (oz float))
@@ -687,6 +688,7 @@
                       (set! (-> *phys-rootgr* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-GRADIENT)))
                       (set! (-> *phys-b0* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-B0)))
                       (set! (-> *phys-anch* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-ANCH)))
+                      (set! (-> *phys-lyd* sc) (phys-mi->f (pc-physics-chain-param-mi agname c PHYS-P-LYIELD)))
                       ;; [NOTE-236] PREUVE D'EXECUTION (regle 0) : un zero silencieux au parseur C++ ou a la -> jak-hd-physics-NOTES.md
                       (when (> (-> *phys-b0* sc) 0.0)
                         (format 0 "[HD-PHYS] b0 c=~D flesh=~f anc=~D~%" c (-> *phys-b0* sc) (-> *phys-anchor* sc)))
@@ -3589,7 +3591,7 @@
                                  ;; [NOTE-52] SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES (`wbk`/`wfw`, signe de `gzc`). -> jak-hd-physics-NOTES.md
                                  (pb  (* sc PHYS-PSET-N))
                                  (psp (-> *phys-pset* (+ pb 0))) (psw (-> *phys-pset* (+ pb 1))) (psh (-> *phys-pset* (+ pb 2)))
-                                 (phl (-> *phys-pset* (+ pb 3))) (phw (-> *phys-pset* (+ pb 4))) (pht (-> *phys-pset* (+ pb 5)))  ;; [NOTE-576] LA DIVISION RESIDUELLE DE §11 A ETE CABLEE ICI AU CYCLE 128 PUIS RETIREE PAR SON PROPRE FALSIFICATEUR. -> jak-hd-physics-NOTES.md
+                                 (phl (/ (-> *phys-pset* (+ pb 3)) (fmax 0.0001 (+ 1.0 (* (-> *phys-lyd* sc) (- (-> *phys-rsv* sc) 1.0)))))) (phw (-> *phys-pset* (+ pb 4))) (pht (-> *phys-pset* (+ pb 5)))  ;; [NOTE-576] LA DIVISION RESIDUELLE DE §11 A ETE CABLEE ICI AU CYCLE 128 PUIS RETIREE PAR SON PROPRE FALSIFICATEUR. -> jak-hd-physics-NOTES.md
                                  (plc (- 1.0 (-> *phys-pset* (+ pb 6))))
                                  (sx0 (/ (+ (* wdn 1.000) (+ (* wup phw)
                                             (+ (* wbk phw) (+ (* wfw psw) (+ (* wlt plc) (* wne 1.000)))))) wsm))

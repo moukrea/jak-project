@@ -1056,7 +1056,20 @@ enum PhysClassBits { kPhysClassPrimary = 1, kPhysClassSecondary = 2, kPhysClassA
 //      owes is CONCENTRICITY, and this id is how the engine is told which links are sleeves and how
 //      wide. 0 = this link is not a sleeve, and 0 is the default of every chain that shipped before
 //      this cycle, so adding the key moves nothing that does not declare it.)
-static constexpr int kPhysNumChainParams = 30;
+//   30 lyield(C135 — GAIN on SPEC 11's DOUBLE-COUNT correction. The chain's own rigid stage
+//      already delivers part of the root-to-apex elongation SPEC 11 asks for; until now the
+//      deformation tensor was handed the TOTAL target anyway, so the delivered length overshot
+//      (1.336 / 1.318 against a band of 1.18-1.26). The engine already MEASURES that rigid stage
+//      each frame (`*phys-rsv*`, NOTE-574/575) and publishes it as PHYSRIGID. This gain says how
+//      much of it to divide out of `HangingLengthScale` before the orientation mix:
+//          phl_effective = phl / (1 + lyield * (rigide - 1))
+//      0 = the tensor keeps receiving the TOTAL target — the divisor is 1 BY ALGEBRA, so 0 is
+//      bit-identical to every build before this cycle and is therefore the default. 1 = the full
+//      correction, which is exactly the c128 experiment. It is a GAIN and not a switch because
+//      SPEC 11's two clauses (length band AND COM band) bound it from OPPOSITE sides: the
+//      admissible window measured on two archived traces is [0.896, 0.931] for chestL and
+//      [0.700, 0.816] for chestR. It is DATA, not a constant, so re-deriving it costs no build.)
+static constexpr int kPhysNumChainParams = 31;
 // level param ids (pc_physics_level_param_mi):
 //   0 substeps 1 iters 2 collide 3 classmask 4 fixedhz  -- ALSO returned in milli.
 static constexpr int kPhysNumLevelParams = 5;
@@ -1703,6 +1716,10 @@ static int pc_physics_parse_file() {
           // l'id 25 `compress` (cycle 5). Ce `compress` n'a JAMAIS ete parse ni lu par le moteur
           // — l'id 25 etait un slot documente et vide. Il porte `anch` a partir de ce cycle.
           ch.params[25] = phys_to_float(v);
+        } else if (k == "lyield") {
+          // (C135) gain de la correction de DOUBLE COMPTE de sa SPEC 11 — voir l'id 30 ci-dessus.
+          // 0 = identite PAR ALGEBRE (diviseur exactement 1), donc defaut sur toute chaine muette.
+          ch.params[30] = phys_to_float(v);
         } else if (k == "b0") {
           // SPEC 6's characteristic root-to-apex length of the FLESH, in units, measured on the
           // mesh — the yardstick SPEC 22 expresses its apex ceiling in. See the default above.

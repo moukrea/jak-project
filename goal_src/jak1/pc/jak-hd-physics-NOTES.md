@@ -10593,6 +10593,60 @@ la grandeur que le prochain lot doit commander, elle est validee (0,000-0,442 pt
 `RIGID`), et son denominateur est verifie a la course (etendue 0,007 %). Ce qui est retire est la
 COMMANDE, pas la MESURE.
 
+## [NOTE-578]
+
+SPEC 11 — LA DIVISION DU DOUBLE COMPTE EST RECABLEE, AVEC UN GAIN, PARCE QUE LE FALSIFICATEUR QUI
+L'AVAIT RETIREE REPOSAIT SUR UN INSTRUMENT REFUTE DEPUIS.
+
+**CE QUI CHANGE PAR RAPPORT A [NOTE-576], ET C'EST UNE MESURE, PAS UN AVIS.** [NOTE-576] conclut
+« Aucune valeur de `HangingLengthScale` ne met les deux clauses dans leur bande » et ferme la
+route. Sa clause de COM venait de l'instrument SUBSTITUT, celui que le cycle 133 a refute pour une
+erreur de MODELE : il substituait `(D-I).L/N` — des moments en base de BIND, autour de l'ANCRE — a
+un tenseur que le moteur applique `bm.D`, APRES la rotation de l'os et AUTOUR DU JOINT.
+
+Recalcul avec l'instrument du c133 (`c133_delivered_com.py`), MEME code, MEMES traces archivees,
+controle de portage **0,0000 %** sur les 8 cellules de decile, lecture hors defaut (i=9) a
+0,0004-0,0009 B0 :
+
+                          t=0 (livre)     t=1 (lot c128)    bande
+      longueur chestL      1,336258         1,251187        <= 1,26
+      longueur chestR      1,318303         1,235022        <= 1,26
+      COM      chestL      0,2459           0,1966          >= 0,20
+      COM      chestR      0,2413           0,1924          >= 0,20
+      DISCRIM  chestL       46,1 %           48,6 %         >= 25 %
+      DISCRIM  chestR       33,4 %           23,0 %         >= 25 %
+
+Le substitut publiait **0,1811 / 0,1809** a t=1, soit -9,5 % / -9,6 % sous le plancher. La valeur
+LIVREE est **0,1966 / 0,1924**, soit **-1,7 % / -3,8 %**. C'est ce facteur ~5 sur l'AMPLEUR du
+defaut qui avait ferme la route, et il n'existait pas.
+
+**LES DEUX CLAUSES SE BORNENT PAR LES DEUX BOUTS, DONC LA CORRECTION EST UN GAIN.** La longueur
+exige d'en mettre ASSEZ, le COM d'en mettre PAS TROP, et la gate generique `DISCRIMINANT` ajoute un
+plafond sur chestR. Fenetres du modele a deux points, par chaine :
+
+      chestL : longueur t >= 0,8964 · COM t <= 0,9310 · DISCRIMINANT ne contraint pas (il MONTE)
+      chestR : longueur t >= 0,7001 · COM t <= 0,8446 · DISCRIMINANT t <= 0,8157
+
+Les deux sont NON VIDES, et elles ne se recouvrent pas entre chaines : le gain est **par chaine**,
+ce qui est la granularite naturelle — `phl` est deja par chaine (`pb = sc * PHYS-PSET-N`) et
+`rigide` est mesure par chaine (`*phys-rsv*`).
+
+**FORME EXACTE, ET SON CONTROLE NEGATIF EST UNE IDENTITE :**
+
+      phl_effectif = phl / (1 + lyield * (rigide - 1))
+
+`lyield=0` rend le diviseur **exactement 1** — pas « proche de 1 », exactement 1 — donc le moteur
+est bit-identique a celui d'avant ce cycle, et c'est le defaut de toute chaine qui ne declare pas
+la cle. `lyield=1` rend `phl / rigide`, c'est-a-dire **exactement le lot c128** : c'est ce qui rend
+le modele a deux points legitime, les deux bouts etant des points MESURES et non extrapoles.
+
+**CE QUI RESTE UNE HYPOTHESE, ET ELLE EST PUBLIEE PLUTOT QUE TUE.** L'interpolation entre les deux
+bouts est LINEAIRE et rien ne l'impose. Les deux bouts sont mesures ; tout ce qui est entre eux est
+un modele, et la course le teste. Les six predictions chiffrees et leur falsificateur sont ecrits
+AVANT le lot dans `.autoport/c135-predictions.txt`. La plus mince est `DISCRIMINANT` sur chestR :
+0,67 point au-dessus d'une gate a 25 %. C'est nomme d'avance, et c'est precisement pourquoi
+`lyield` est de la **DONNEE** — une reprise ne coute pas un build.
+
 ## [NOTE-577]
 
 **SPEC 31 — LE POINT FIXE DE LA DEFORMATION EST CELUI QUE LA SECTION NOMME, PAS L'ORIGINE DU JOINT.**
