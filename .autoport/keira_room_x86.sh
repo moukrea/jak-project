@@ -46,6 +46,21 @@ _own_r=0; _own_d=0
 # artefacts sont RESTAURES ENSEMBLE si la promotion n'a pas eu lieu. Ensemble, jamais l'un sans
 # l'autre — un log neuf sous un tableau vieux est exactement `validator-reads-a-stale-table`.
 _promoted=0; ARCH=""; TARCH=""
+# LE MARQUEUR « EN VOL », ET IL PAIE UNE FACTURE DEJA REGLEE TROIS FOIS.
+# Pendant toute la course la PAIRE (trace, tableau) est absente — c'est voulu, cf. le bloc 3 bis.
+# Mais le message que le validateur imprime alors est « la trace de la course est absente [...]
+# l'affirmation repose sur du source, pas sur une execution (regle 0) », qui accuse une absence de
+# PREUVE la ou il n'y a qu'une course EN COURS. Trois tentatives ont ete depensees a rediagnostiquer
+# ca (registre : `archiving-at-run-start-loses-the-only-trace`), et le verrou qui porte deja le PID
+# vit dans .autoport/, pas dans le repertoire que le message NOMME.
+# Le marqueur est donc depose LA OU LE LECTEUR REGARDE, il porte son PID (convention DIRECTIVES
+# 2026-08-14 07:10, jamais un `touch` nu) et il nomme les deux archives a rendre. Il ne mesure
+# rien et n'est lu par aucune gate.
+MARK="$OUT/COURSE-EN-VOL.txt"
+_mark(){ printf 'keira_room_x86 EN VOL pid=%s started=%s\n' "$$" "$(date -Is)" > "$MARK"
+         printf 'La paire (trace, tableau) est ABSENTE PAR CONSTRUCTION pendant la course.\n' >> "$MARK"
+         printf 'Verifier: kill -0 %s  — si le PID vit, ATTENDRE, ne rien rediagnostiquer.\n' "$$" >> "$MARK"
+         printf 'archive_trace=%s\narchive_tableau=%s\n' "${ARCH:-<pas encore>}" "${TARCH:-<pas encore>}" >> "$MARK"; }
 _stale(){ # 0 = le verrou $1 est libre ou perime (detenteur mort)
   [ -f "$1" ] || return 0
   local p; p=$(sed -n 's/.*pid=\([0-9]*\).*/\1/p' "$1" | head -1)
@@ -78,6 +93,7 @@ _cleanup(){
         && echo "restauration: tableau precedent rendu (meme course que la trace restauree)"
     fi
   fi
+  rm -f "${MARK:-/nonexistent}"
   [ "$_own_r" = 1 ] && rm -f "$RLOCK"
   [ "$_own_d" = 1 ] && rm -f "$DLOCK"
   return 0
@@ -85,6 +101,30 @@ _cleanup(){
 trap _cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+# REPRISE D'UN MARQUEUR ORPHELIN — LE TROU QUE LE TRAP NE PEUT PAS BOUCHER.
+# `_cleanup` rend la paire quand la course n'aboutit pas, mais un trap EXIT NE TOURNE PAS sur
+# SIGKILL (ni sur une coupure de la machine) : la paire reste perdue, et la phase se retrouve sans
+# aucune trace alors qu'une course complete dort dans les archives. Le registre nomme exactement ce
+# cas : « l'interruption est le cas NORMAL, pas l'exception ».
+# On ne restaure QUE ce qu'une course precedente a deplace (les deux chemins sont ecrits dans son
+# marqueur), QUE si son PID est mort, et QUE si la place est vide — donc jamais par-dessus une
+# course vivante, et jamais un tableau sans sa trace. Le verrou ci-dessus garantit deja qu'aucune
+# course n'est en vol a cet instant.
+if [ -f "$MARK" ]; then
+  _mp=$(sed -n 's/.*pid=\([0-9]*\).*/\1/p' "$MARK" | head -1)
+  if [ -z "$_mp" ] || ! kill -0 "$_mp" 2>/dev/null; then
+    _ma=$(sed -n 's/^archive_trace=//p'   "$MARK" | head -1)
+    _mt=$(sed -n 's/^archive_tableau=//p' "$MARK" | head -1)
+    if [ -s "${_ma:-/nonexistent}" ] && [ -s "${_mt:-/nonexistent}" ] \
+       && [ ! -s "$LOG" ] && [ ! -s "$OUT/keira-room-table.txt" ]; then
+      cp -f "$_ma" "$LOG" && touch -r "$_ma" "$LOG"
+      cp -f "$_mt" "$OUT/keira-room-table.txt" && touch -r "$_mt" "$OUT/keira-room-table.txt"
+      echo "reprise: course pid=$_mp morte sans son trap — paire rendue depuis $_ma / $_mt"
+    fi
+  fi
+  rm -f "$MARK"
+fi
 
 # --- 0 bis. L'ARBRE DOIT ETRE AU REPOS, ET IL DOIT LE RESTER -----------------------------------
 # Cycle 144. La course precedente est morte en 17 s sur un SIGILL en pleine edition de liens de
@@ -146,6 +186,7 @@ if [ -s "$LOG" ]; then
     rm -f "$old"; echo "purge: $old"
   done
 fi
+_mark
 
 # --- 3 bis. LA COURSE EST ECRITE HORS DE SON NOM DEFINITIF, ET LE TABLEAU PART AVEC ELLE --------
 # DEFAUT PAYE DEUX CYCLES DE SUITE (tentatives 9 et 10 du cycle 140). Le validateur a ete lance
@@ -171,6 +212,7 @@ if [ -s "$OUT/keira-room-table.txt" ]; then
     rm -f "$old"; echo "purge: $old"
   done
 fi
+_mark
 
 : > "$RUNLOG"
 OG_PHYS_ROOM=1 OG_PHYS_ROOM_DELAY="${OG_PHYS_ROOM_DELAY:-600}" \
