@@ -974,27 +974,40 @@ void a35_pc_get_size(u32 w_ptr, u32 h_ptr) {
   }
 }
 
-// === Gcine-camfov: force the authored 4:3 cutscene framing on the device ======
-// The new-game intro (and every) cutscene is authored for the original 4:3
-// composition. On a panel wider than 4:3 the stock PC-port widescreen path runs
-// the math-camera at the FULL panel aspect (Redmi = 2400x1080 = 2.222), which
-// extends the FOV sideways and pulls the authored close-ups back into wide shots
-// (Gcine-audit D1: math-camera c0.x 0.23225 / c1.y -0.32267 at the misty M1 beat
-// vs the 4:3 x86 oracle 0.29031 / -0.24200 — a clean 5/3 aspect scaling, NOT an
-// arm64 codegen bug; the GOAL math is backend-identical at the same aspect).
+// === Gandroid-window-size: report the TRUE panel size, ALWAYS =================
+// Owner 2026-08-28, signalled TWICE: « Pourquoi avoir gardé les barres a gauche et
+// à droite ?? Ça fait bizarre on dirait qu'on passe en 4:3 forcé », then « pour les
+// cinématiques, toujours les barres noires à gauche et à droite hein ! ». His aspect
+// setting is AUTO and correct; the 4:3 was ours, and it was literally forced here.
 //
-// The proper fix lives in GOAL (pckernel-common update-from-os derives the aspect
-// from the window, and the math-camera real-movie? branch + the framebuffer
-// scissor pillarbox already exist), but those files are boot CGOs (ENGINE/GAME)
-// and the device runs frozen f1c CGOs — a standalone CGO rebuild SIGILLs. So we
-// reproduce the GOAL fix from libgk.so: during a real movie, report a 4:3 window
-// width to pc-get-window-size ONLY. The stock frozen GOAL machinery then sees
-// win-aspect = 4:3 -> set-aspect-ratio! 4:3 -> the math-camera real-movie? (<= 16:9)
-// branch -> the authored 4:3 projection, AND a 4:3 framebuffer-scissor ->
-// pc-set-letterbox -> the renderer's centered pillarbox (undistorted, black bars
-// at the sides). It self-restores: update-from-os re-reads the real panel size
-// every frame, so gameplay returns to full-width widescreen the instant the
-// movie ends. pc-get-active-display-size stays truthful (a35_pc_get_size).
+// WHAT USED TO BE HERE, named so it cannot quietly come back: phase Gcine-camfov
+// clamped the width reported to pc-get-window-size to 4:3 while the GOAL `movie`
+// bit was set. That was a HOST-side reproduction of a GOAL fix, taken when the
+// device ran frozen f1c CGOs. It made the stock GOAL machinery believe the panel
+// was 4:3 — which pillarboxes the frame. It did not "keep" bars: it PRODUCED them.
+//
+// It is now BOTH redundant AND wrong:
+//   * redundant — the device ships freshly built CGOs (files/.cgo_pack_stamp_jak1),
+//     and phase Gcutscene-reframe (2026-08-28) put the real operator in GOAL: the
+//     real-movie? branch of update-math-camera keeps the authored VERTICAL field of
+//     view (v = tan(fov/2)/(16:9), identical on seven aspects) and derives the
+//     horizontal from the screen aspect, so the cutscene frame already HAS the
+//     screen's aspect and there is nothing left to mask;
+//   * wrong — the clamp only reaches the size GOAL is TOLD, never the size the
+//     renderer uses. android_gfx.cpp:506 passes the TRUE surface as window_fb_w while
+//     GOAL hands back a 4:3 framebuffer-scissor through pc-set-letterbox (lbox_w), so
+//     android_opengl_renderer.cpp:1166 centers a 1440-wide draw region inside a
+//     2400-wide window: draw_offset_x = (2400-1440)/2 = 480 px of black on EACH side.
+//     (The ANDROID renderer, not OpenGLRenderer.cpp — that file is not compiled into
+//     libgk.so; same arithmetic there at :1368, but it is not what runs here.)
+//     THOSE are the owner's bars, and no GOAL-side change could ever have removed
+//     them — which is exactly why Gcutscene-reframe, which removed the GOAL `letterbox`
+//     DMA sprites and proved it on x86 only, did not move them one pixel.
+//
+// So: always report the real surface. The movie bit is still read, but ONLY to
+// LABEL the trace: a "zero bars" measured outside a movie is vacuous (the clamp
+// could not have fired there), so the capture has to carry movie=1 next to it.
+// pc-get-active-display-size stays truthful too (a35_pc_get_size).
 // Gjak2-pcmenus: symbol offsets must come from the RUNNING game's symbol table.
 // jak1::intern_from_c under jak2 walks jak1's (uninitialized) table and returns
 // a garbage offset — the root of the jak2 "UNKNOWN ID 999187" display-mode
@@ -1007,11 +1020,11 @@ static u32 a35_intern_offset(const char* name) {
 }
 
 static bool gcine_in_movie() {
-  // Gjak2-pcmenus: the movie-4:3 window clamp is a jak1-only bridge for the
-  // frozen f1c CGOs (see block comment above). jak2 runs current CGOs whose
-  // GOAL aspect machinery handles movies itself — and the jak1 intern +
-  // process-mask bit (jak1 movie=bit 11; jak2 movie=bit 13) are wrong under
-  // jak2 anyway. Never clamp for jak2.
+  // DIAGNOSTIC ONLY since Gandroid-window-size — nothing branches on this any more,
+  // it only labels the GAWIN-HOST trace line so a "0 bars" reading can be shown to
+  // have been taken with the movie bit actually set. The jak1 intern + process-mask
+  // bit (jak1 movie = bit 11; jak2 movie = bit 13) are wrong under jak2, so jak2
+  // reports 0 rather than a lie.
   if (g_game_version != GameVersion::Jak1) {
     return false;
   }
@@ -1043,20 +1056,35 @@ static bool gcine_in_movie() {
 void a35_pc_get_window_size(u32 w_ptr, u32 h_ptr) {
   int w = 0, h = 0;
   if (!android_gfx::get_window_size(&w, &h)) {
-    return;  // display not measured yet — desktop "no display" behavior
+    // Surface not measured yet. Desktop does the same (early return when there is
+    // no Display), and GOAL's update-from-os then skips its whole aspect derivation
+    // behind `unless (zero? ...)`. That silence is precisely the failure mode this
+    // phase exists to kill, so say it here ONCE instead of returning mute.
+    static std::atomic<int> s_said_zero{0};
+    if (s_said_zero.exchange(1) == 0) {
+      __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                          "GAWIN-HOST window NOT MEASURED YET -> wrote nothing; GOAL "
+                          "keeps its previous framebuffer-width/height");
+    }
+    return;
   }
-  // Cutscene 4:3 framing (see note above): only while actually in a movie AND the
-  // panel is wider than 4:3 (w*3 > h*4). 2400x1080 -> 1440x1080 (exactly 4:3).
+  // NO CLAMP. The size handed to GOAL is the size the renderer draws into; any gap
+  // between the two IS a black bar (see block comment). Trace on CHANGE only —
+  // panel size or movie transition — never a per-frame flood. Each atomic is
+  // exchanged unconditionally first: folding them into a short-circuited || would
+  // leave the later ones un-updated and re-fire the line forever.
   const bool mov = gcine_in_movie();
-  if (h > 0 && w * 3 > h * 4 && mov) {
-    w = (h * 4) / 3;
-  }
-  // Light transition log (movie on/off) for verification; not a per-frame flood.
-  static std::atomic<int> s_last_mov{-1};
   const int mv = mov ? 1 : 0;
-  if (s_last_mov.exchange(mv) != mv) {
+  static std::atomic<int> s_last_mov{-1};
+  static std::atomic<int> s_last_w{-1};
+  static std::atomic<int> s_last_h{-1};
+  const int pm = s_last_mov.exchange(mv);
+  const int pw = s_last_w.exchange(w);
+  const int ph = s_last_h.exchange(h);
+  if (pm != mv || pw != w || ph != h) {
     __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
-                        "GD1-PCWIN movie=%d -> reporting window %dx%d", mv, w, h);
+                        "GAWIN-HOST movie=%d window=%dx%d (true panel, no clamp)", mv, w,
+                        h);
   }
   if (w_ptr) {
     *Ptr<s64>(w_ptr).c() = w;

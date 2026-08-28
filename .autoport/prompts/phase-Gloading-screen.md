@@ -1,5 +1,14 @@
 # Gloading-screen — un ecran de chargement au lieu d'un ecran noir
 
+## APPAREILS — CONTRAINTE ABSOLUE (owner 2026-08-28, 23h)
+
+**LA SHIELD EST INTERDITE.** C'est la television de l'owner, dans son salon. Le 2026-08-28 un de
+mes criteres de validation a envoye le framework y lancer le jeu sans son accord ; il l'a tolere
+« car je suis seul ce soir » en precisant qu'il aurait prefere que non.
+
+**Un seul appareil autorise : le Redmi `eae4df44`.** Toute mention de la Shield dans ce document
+est un CONTRE-EXEMPLE historique, jamais une instruction.
+
 ## La demande (owner 2026-08-28), maquette fournie
 
 Maquette : `.autoport/design/loading-screen-owner-mockup.png` (16:9).

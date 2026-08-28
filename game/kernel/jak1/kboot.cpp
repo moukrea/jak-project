@@ -86,14 +86,24 @@ s32 goal_main(int argc, const char* const* argv) {
   }
 
 #ifdef __ANDROID__
-  // Gaspect-unstub DATA marker. On Android sceScfGetAspect() is forced to
-  // SCE_ASPECT_169 (game/sce/libscf.cpp) because the PC window-size aspect
-  // derivation (update-from-os/pc-get-window-size) is stubbed, which would
-  // otherwise leave the game at the 4:3 boot default and lay out the 2D menu/HUD
-  // for 4:3 on the widescreen device. masterConfig.aspect feeds DecodeAspect ->
-  // (scf-get-aspect), which settings.gc maps (2 => 'aspect16x9). Emit the resolved
-  // enum once so the phase validator can DATA-confirm widescreen from logcat
-  // (stderr is piped to logcat on Android).
+  // Aspect DATA marker. masterConfig.aspect feeds DecodeAspect -> (scf-get-aspect),
+  // which settings.gc maps to the aspect ENUM. Emitted once at boot so the resolved
+  // enum is readable from logcat (stderr is piped to logcat on Android).
+  //
+  // Gandroid-window-size CORRECTION (2026-08-28): the note that used to sit here said
+  // "on Android sceScfGetAspect() is forced to SCE_ASPECT_169 ... because the PC
+  // window-size aspect derivation is stubbed". BOTH halves are now false, and leaving
+  // the claim here would send the next reader hunting a workaround that no longer
+  // exists:
+  //   * game/sce/libscf.cpp returns SCE_ASPECT_43 on EVERY platform since
+  //     Gmenu-ui-placement — the 16:9 ENUM squeezes *video-parms* relative-x-scale to
+  //     0.75 and bunched the progress menu on an ultrawide panel;
+  //   * the window-size derivation is NOT stubbed on Android: pc-get-window-size is
+  //     bound to a35_pc_get_window_size (android/gk_android_main.cpp), which writes the
+  //     real surface, and update-from-os now publishes it as a `GAWIN win=...` line.
+  // What actually drives widescreen on the device is the FLOAT (-> *pc-settings*
+  // aspect-ratio), not this enum. Read the GAWIN line, not this marker, to know the
+  // aspect the frame was composed at.
   fprintf(stderr, "GASPECT-DIAG aspect=%s raw=%d\n",
           masterConfig.aspect == SCE_ASPECT_169    ? "16x9"
           : masterConfig.aspect == SCE_ASPECT_FULL ? "full"

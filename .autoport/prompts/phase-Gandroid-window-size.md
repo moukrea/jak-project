@@ -65,11 +65,25 @@ l'ecart apparait en noir sur les cotes. **Le defaut depend de l'APPAREIL, pas du
    distance, ce qui a deja coute plusieurs allers-retours a l'owner — dont deux ou je lui ai
    redemande de verifier une configuration qui etait correcte.
 
+## APPAREILS — CONTRAINTE ABSOLUE (owner 2026-08-28, 23h)
+
+**LA SHIELD EST INTERDITE DANS CETTE PHASE.** C'est la television de l'owner, dans son salon.
+Mon propre critere « mesurer sur deux appareils de ratios differents » a envoye le framework la
+lancer chez lui sans son accord. L'erreur est dans le critere, pas dans le worker.
+
+**Un seul appareil autorise : le Redmi `eae4df44`.**
+
+La variete de ratios se prend sur x86, pas sur un second appareil : le build de bureau se lance
+a la taille de fenetre qu'on veut, donc autant de ratios qu'on veut, sans toucher a un appareil.
+
 ## Exige pour fermer
 
-1. La trace publie une taille de fenetre NON NULLE sur appareil, et un `aspect-ratio` egal au
-   ratio physique de l'ecran.
-2. Mesure de barres noires sur DEUX appareils de ratios differents, par comptage de colonnes et
-   de lignes quasi noires en bord d'image — pas a l'oeil. Attendu : 0 partout.
+1. **Sur le Redmi UNIQUEMENT** : la trace publie une taille de fenetre NON NULLE et un
+   `aspect-ratio` egal au ratio physique de l'ecran (2400x1080, soit 2,222). C'est la preuve que
+   la valeur arrive enfin au moteur.
+2. **Sur x86, au moins cinq ratios differents** couvrant le 4:3, le 16:9 et au moins deux ratios
+   non standards au-dela de 2,0 : comptage de colonnes et de lignes quasi noires en bord d'image.
+   Attendu : 0 partout. C'est la preuve que le correctif ne depend pas du ratio.
 3. La garde de vacuite `unless (zero? ...)` ne peut plus desactiver silencieusement la branche
    auto : si la taille est nulle, le dire dans la trace au lieu de sauter sans bruit.
+4. Le contournement 16:9 en dur de `kboot.cpp` est retire, ou son maintien est justifie.
