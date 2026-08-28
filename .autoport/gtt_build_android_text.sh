@@ -68,17 +68,29 @@ echo "[gtt] === 2/4 rebuild text banks WITH android override ==="
 make_banks
 
 echo "[gtt] verify override present in freshly-built banks"
-grep -ai "tap screen"  out/jak1/iso/0COMMON.TXT >/dev/null || fail "EN 'TAP SCREEN' not found in 0COMMON.TXT after android build"
-grep -ai "touchez l"   out/jak1/iso/1COMMON.TXT >/dev/null || fail "FR 'TOUCHEZ L' not found in 1COMMON.TXT after android build"
-# ID-SPECIFIC proof the override landed on #x16e itself (JSON keys parse as HEX,
-# text_ser.cpp:250 — a decimal key would put the string at the WRONG id while the
-# greps above still pass): the stock FR press-start string must be GONE, replaced.
-if grep -ai "appuyer sur la touche start" out/jak1/iso/1COMMON.TXT >/dev/null; then
-  fail "FR stock press-start string still present — override did NOT land on id #x16e (check JSON hex keys)"
-fi
-echo "[gtt]   EN 0COMMON.TXT has 'TAP SCREEN'  OK"
-echo "[gtt]   FR 1COMMON.TXT has 'TOUCHEZ L'   OK"
-echo "[gtt]   FR stock press-start string replaced at id #x16e  OK"
+# --- Gtext-tone 2026-08-28 : ce controle etait des LITTERAUX, il est devenu EXACT PAR ID ---
+# L'ancienne version faisait `grep -ai "touchez l"` et, comme controle negatif, exigeait
+# l'ABSENCE de la chaine "appuyer sur la touche start". Deux defauts, tous deux realises
+# aujourd'hui :
+#   1. les litteraux PERIMENT. La phase Gtext-tone passe la variante FR au tutoiement
+#      ("touche l'ecran"), et `grep "touchez l"` se met a echouer sur une banque JUSTE ;
+#   2. le controle negatif devient VIDE des que la chaine de bureau est un PREFIXE de la
+#      variante android. C'est exactement le cas maintenant : bureau "Appuie sur start",
+#      android "Appuie sur start ou touche l'ecran". Un `grep` d'absence ne peut plus
+#      distinguer les deux, donc il aurait passe QUOI QU'IL ARRIVE — un faux vert.
+# Le remplacant lit l'id #x16e DANS la banque construite (.autoport/gtt_bank_probe.py) et le
+# compare a la source. Il ne peut ni perimer ni devenir vide, et il garde la propriete que
+# l'ancien controle negatif visait : une cle JSON DECIMALE (text_ser.cpp:250 parse en HEX)
+# poserait la chaine a un AUTRE id, et l'egalite echouerait.
+bank_id(){ python3 .autoport/gtt_bank_probe.py "$1" --ids 16e | sed -n 's/^  #x16e *w= *[0-9.]* *//p'; }
+json_id(){ python3 -c "import json,sys;print(json.load(open(sys.argv[1],encoding='utf-8'))['16e'])" "$1"; }
+for b in "${BANKS[@]}"; do
+  case "$b" in 0) L=en-US ;; 1) L=fr-FR ;; *) fail "bank $b has no android override json" ;; esac
+  WANT=$(json_id "game/assets/jak1/text/game_custom_text_android_${L}.json")
+  GOT=$(bank_id "out/jak1/iso/${b}COMMON.TXT")
+  [ "$GOT" = "$WANT" ] || fail "android bank ${b}COMMON.TXT #x16e = '$GOT', attendu '$WANT' (l'override n'a PAS atterri sur #x16e — cles JSON en hex ?)"
+  echo "[gtt]   ${b}COMMON.TXT (${L}) #x16e = '$GOT'  == la surcharge android  OK"
+done
 
 echo "[gtt] === 3/4 copy android banks -> $ANDROID_TEXT_DIR ==="
 mkdir -p "$ANDROID_TEXT_DIR"
@@ -97,11 +109,17 @@ touch "$GP"
 make_banks
 
 echo "[gtt] verify desktop banks are pristine again"
-if grep -ai "tap screen" out/jak1/iso/0COMMON.TXT >/dev/null; then
-  fail "RESTORE FAILED: desktop 0COMMON.TXT STILL contains 'TAP SCREEN'"
-fi
-grep -ai "press start" out/jak1/iso/0COMMON.TXT >/dev/null || fail "RESTORE FAILED: desktop 0COMMON.TXT missing 'PRESS START'"
-echo "[gtt]   desktop 0COMMON.TXT has 'PRESS START' and NOT 'TAP SCREEN'  OK"
+# Meme instrument, sens inverse : apres restauration, #x16e des banques de BUREAU doit avoir
+# repris la valeur de la chaine JSON normale (case -> custom), et surtout NE PLUS etre la
+# variante android. Compare des CHAINES ENTIERES par id : un prefixe ne peut pas passer.
+for b in "${BANKS[@]}"; do
+  case "$b" in 0) L=en-US ;; 1) L=fr-FR ;; esac
+  ANDROID=$(json_id "game/assets/jak1/text/game_custom_text_android_${L}.json")
+  DESKTOP=$(bank_id "out/jak1/iso/${b}COMMON.TXT")
+  [ "$DESKTOP" != "$ANDROID" ] || fail "RESTORE FAILED: la banque de bureau ${b}COMMON.TXT porte ENCORE la variante android '$ANDROID'"
+  [ -n "$DESKTOP" ] || fail "RESTORE FAILED: #x16e illisible dans la banque de bureau ${b}COMMON.TXT"
+  echo "[gtt]   bureau ${b}COMMON.TXT (${L}) #x16e = '$DESKTOP'  != variante android  OK"
+done
 
 # sanity: $GP is clean again
 git diff --quiet -- "$GP" || fail "$GP is still dirty after restore"

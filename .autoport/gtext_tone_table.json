@@ -1,0 +1,49 @@
+{
+  "_comment": [
+    "Phase Gtext-tone (owner 2026-08-28) : « \"Appuyer sur la touche start\" c'est hyper formel et",
+    "l'infinitif est bizarre... Ca colle pas a l'esprit teenager du jeu. »",
+    "",
+    "TABLE DECLARATIVE DU TON. Une entree = un id de texte dont la formulation passe a l'IMPERATIF",
+    "2e personne du SINGULIER (tutoiement). Appliquee par .autoport/gtt_apply_tone.py.",
+    "",
+    "CRITERE D'INCLUSION, objectif et verifiable (pas un gout) : la chaine est CHANGEE seulement si",
+    "elle est une INSTRUCTION ADRESSEE AU JOUEUR *et* qu'elle est l'EXCEPTION — c'est-a-dire que le",
+    "MEME id dans les autres langues latines, ou ses propres chaines soeurs dans la meme langue, sont",
+    "deja a l'imperatif 2e personne. Un LIBELLE DE MENU (Quitter, Charger une partie, Continuer) reste",
+    "a l'infinitif : c'est la convention francaise des commandes de menu, et les 6 langues l'emploient.",
+    "",
+    "VEHICULE : game_custom_text_<lang>.json, jamais game_case_text_<lang>.json.",
+    "recharged_assets/font/gen_mixed_case.py REGENERE INTEGRALEMENT les fichiers game_case_text_*",
+    "(ligne 312-317) depuis le banc decompile : une correction de ton ecrite la serait DETRUITE au",
+    "prochain passage de la phase Gfont-urbanist. Les fichiers game_custom_text_* sont, eux, convertis",
+    "SUR PLACE (ligne 309-340) : la casse leur est appliquee, les cles et la formulation survivent.",
+    "game_text.gp charge custom APRES case, donc custom gagne (text_ser.cpp : bank->set_line)."
+  ],
+  "fr-FR": {
+    "113":  ["Utiliser touches directionnelles", "Utilise touches directionnelles"],
+    "134":  ["Insérer une Memory_Card_(PS2) avec un espace libre suffisant ou vous ne pourrez pas sauvegarder les données du jeu", "Insère une Memory_Card_(PS2) avec un espace libre suffisant ou tu ne pourras pas sauvegarder les données du jeu"],
+    "135":  ["Si vous ne la formatez pas, vous ne pourrez pas sauvegarder les données du jeu", "Si tu ne la formates pas, tu ne pourras pas sauvegarder les données du jeu"],
+    "138":  ["Veuillez ne pas retirer ou insérer de périphériques, éteindre votre système ou arrêter le jeu", "Ne retire et n'insère aucun périphérique, n'éteins pas ton système et ne quitte pas le jeu"],
+    "140":  ["Choisir fichier de sauvegarde", "Choisis ta sauvegarde"],
+    "141":  ["Choisir une sauvegarde à charger", "Choisis la sauvegarde à charger"],
+    "143":  ["Insérer une Memory_Card_(PS2) contenant des données de Jak and Daxter dans la fente pour Memory_Card_nº_~D", "Insère une Memory_Card_(PS2) contenant des données de Jak and Daxter dans la fente pour Memory_Card_nº_~D"],
+    "158":  ["Utiliser l'option de sauvegarde pour sauvegarder manuellement et réactiver la sauvegarde automatique", "Utilise l'option de sauvegarde pour sauvegarder manuellement et réactiver la sauvegarde automatique"],
+    "15b":  ["Vérifier la Memory_Card_(PS2) dans la fente pour Memory_Card_nº_~D", "Vérifie la Memory_Card_(PS2) dans la fente pour Memory_Card_nº_~D"],
+    "161":  ["Ne pas retirer ou insérer de périphériques, éteindre votre système ou arrêter le jeu lorsque ce symbole s'affiche", "Tant que ce symbole s'affiche, ne touche à aucun périphérique, n'éteins pas ton système et ne quitte pas le jeu"],
+    "163":  ["Vérifier la Memory_Card_(PS2) dans la fente pour Memory_Card_nº_~D et réessayer", "Vérifie la Memory_Card_(PS2) dans la fente pour Memory_Card_nº_~D et réessaie"],
+    "16b":  ["Insérer le disque de Jak and Daxter pour continuer à jouer", "Insère le disque de Jak and Daxter pour continuer à jouer"],
+    "16d":  ["Vérifier le disque de Jak and Daxter et réessayer", "Vérifie le disque de Jak and Daxter et réessaie"],
+    "16e":  ["Appuyer sur la touche start", "Appuie sur start"],
+    "100d": ["Voulez-vous vraiment désactiver la sauvegarde automatique ?", "Veux-tu vraiment désactiver la sauvegarde automatique ?"],
+    "103f": ["Appuyer sur <PAD_SQUARE> pour activer les sous-titres", "Appuie sur <PAD_SQUARE> pour activer les sous-titres"]
+  },
+  "de-DE": {
+    "113":  ["RICHTUNGSTASTEN DRÜCKEN", "DRÜCKE RICHTUNGSTASTEN"],
+    "169":  ["UM LEVEL ZU WÄHLEN, RICHTUNGSTASTEN DRÜCKEN.", "WÄHLE DAS LEVEL MIT DEN RICHTUNGSTASTEN."],
+    "16e":  ["START-TASTE DRÜCKEN", "DRÜCKE START"]
+  },
+  "android": {
+    "en-US": { "16e": ["Press Start or Tap Screen", "Press Start or Tap Screen"] },
+    "fr-FR": { "16e": ["Appuyez sur start ou touchez l'écran", "Appuie sur start ou touche l'écran"] }
+  }
+}
