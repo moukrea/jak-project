@@ -116,6 +116,44 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
 
 ## 📋 Au backlog, pas encore commencé
 
+- **Police du jeu : fini le tout-en-majuscules, passage à Urbanist** — demandé par toi le
+  28 août. Ce que j'ai mesuré avant de le chiffrer :
+
+  **Le tout-majuscules n'est pas seulement la police, c'est aussi les données.** Les textes du
+  jeu sont écrits en majuscules à la source : 399 entrées dans le texte anglais, ~270 par langue
+  dans les textes de base, et **zéro** contient une minuscule. Changer la police ne suffira donc
+  pas — il faudra réécrire les textes.
+
+  **La table de glyphes est plus riche qu'on croit** : 250 glyphes en corps 12, 289 en corps 24.
+  Bien plus que majuscules + chiffres + ponctuation, donc elle porte déjà les accents de toutes
+  les langues. Une note dans le code affirme que les octets minuscules ne tombent pas sur des
+  glyphes minuscules et rendent du charabia.
+
+  **Sur la texture de police que tu as en tête** : il y en a bien deux, `ascii.12lo` et
+  `ascii.12hi`. Attention, je pense que `lo`/`hi` désigne les bits de poids faible et fort d'une
+  texture 4 bits rangée dans le tampon de profondeur, **pas** minuscules/majuscules. Je ne l'ai
+  pas encore prouvé — c'est le premier point à vérifier, parce que c'est peut-être une fausse
+  piste qui coûterait une journée.
+
+  **Ça n'a pas d'importance si on va jusqu'au bout de ton idée** : si on génère l'atlas depuis
+  Urbanist, on l'écrit nous-mêmes et les minuscules viennent gratuitement. Faire la police
+  moderne rend la question des minuscules d'origine sans objet.
+
+  Le travail, en trois morceaux indépendants :
+  1. **Atlas** — générer les glyphes depuis Urbanist. Point à vérifier d'abord : la police
+     d'origine est en 4 bits (16 niveaux) rangée dans le tampon de profondeur. Si ce chemin est
+     encore actif sur PC/Android, une police moderne y sera bridée sur l'antialiasing et il
+     faudra la sortir de là.
+  2. **Table UV + correspondance des caractères** — regénérer les 250/289 entrées et étendre la
+     correspondance pour que les octets minuscules tombent sur les bons glyphes.
+  3. **Réécriture des textes** — c'est le vrai coût, et il est humain, pas technique. Passer en
+     casse normale ~670 entrées par langue, sur une vingtaine de langues. Une minuscule
+     automatique donnerait « Eco » là où il faut « eco », des noms propres cassés, des acronymes
+     détruits. Anglais et français relisibles ; les autres langues demandent de la prudence.
+
+  Ordre : le point 1 en premier, parce que si le rendu 4 bits bride la police, tout le reste
+  change de forme.
+
 - **Seins de Keira** — **en cours, chantier structurel autorisé par toi le 27 août**
   (« laisse courir le chantier, on fait la spec à 100% »). État : **5 tenues mesurées sur 38**
   (§7 est passée le 28 août). Onze des treize sections non tenues partagent la même cause — la

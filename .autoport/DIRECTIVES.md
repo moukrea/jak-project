@@ -2090,7 +2090,7 @@ si la seconde est nulle, la physique ne s'applique jamais.
 
 ---
 
-# DIRECTIVE OWNER 2026-08-28 11:45 — LA CIBLE N'EST PAS LA POITRINE, C'EST LE MOTEUR
+# DIRECTIVE OWNER 2026-08-28 11:20 — LA CIBLE N'EST PAS LA POITRINE, C'EST LE MOTEUR
 
 Mot pour mot :
 
@@ -2149,7 +2149,7 @@ Donc : l'architecture est la bonne, l'instanciation ne prouve rien au-delà du c
   oreilles de la même façon. `hair-hysteresis` est déjà PRIORITÉ 1 GELÉE dans owner-defects.txt —
   la dégeler.
 
-## EXTENSION OWNER 2026-08-28 12:15 — LE MONDE AUSSI, ET UNE VRAIE BRISE
+## EXTENSION OWNER 2026-08-28 11:32 — LE MONDE AUSSI, ET UNE VRAIE BRISE
 
 > « on pourrait même l'appliquer à certains objets du monde tels que les lanternes suspendues,
 > avec la collision dessus quand on les touche par exemple, les shrubs, les feuilles de palmier...
@@ -2207,3 +2207,81 @@ Le vent est un signal LENT — un rafraichissement toutes les 6 frames est large
 3. Branchement du champ sur le balancement shader existant (shrubs, palmiers) : coherence d'abord.
 4. Branchement du champ sur le solveur de chaines : le vent devient une force parmi masse+gravite.
 5. Lanternes en acteurs simules + collision joueur : chantier separe.
+
+## MANDAT MOTEUR 2026-08-28 11:43 — MATIERES, PAS CONSTANTES DE RESSORT
+
+> « Faut un moteur physique propre, où chaque objet (bones/zone/whatever) a des caractéristiques
+> telles que élasticité, poids, dureté, etc... Des trucs qui auraient du sens dans un moteur
+> physique et que ça puisse donc être finement tuné. [...] idem pour les seins qui ont des presets
+> très précis mais qui seraient de façon cohérente transposables en fonction des bones, zones
+> d'influence, etc pour masse, élasticité, dureté. Faut un truc qui tienne et qu'on pourrait
+> vraiment trouver dans un jeu moderne qui fait bien les choses côté physique ! »
+
+Autonomie donnee (« tu te démerde »). Ce mandat a AUTORITE sur les cycles en cours.
+
+### CE QUI EST DEJA JUSTE — ne pas le casser
+
+Mesure du code, pas une opinion :
+- `stiffness` n'est PAS une constante de ressort brute : elle est consommee en
+  `w = 2*pi*stiffness / sqrt(mass)` (jak-hd-physics.gc:2656, :3581) — c'est une FREQUENCE PROPRE.
+- `damping` est consommee en `zeta = damping / (2*w*dt)` (:3582) — c'est un RAPPORT
+  D'AMORTISSEMENT CRITIQUE, sans dimension.
+
+Ces deux-la sont deja des grandeurs de MATIERE : elles ne dependent pas de la taille de l'objet,
+donc elles transposent. C'est la moitie du travail, elle est faite.
+
+### LE DEFAUT QUI EMPECHE TOUTE TRANSPOSITION
+
+`mass` est ECRITE A LA MAIN dans `physics_chains.txt` (`mass=1.45`, `mass=1.4800`).
+C'est la SEULE grandeur extensive du modele, et elle est autorisee au lieu d'etre derivee.
+
+Consequence directe et exacte de ce que l'owner demande : un preset ne peut pas passer d'un sein a
+une meche de cheveux, parce que la seule quantite qui porte la taille de l'objet est un nombre
+saisi pour ce sein-la. Tant que `mass` est autorisee, « transposable » est impossible par
+construction, quel que soit le reglage des autres cles.
+
+**Correctif de fond** : la matiere porte une DENSITE ; la masse est DERIVEE de la geometrie
+(volume peau du maillon x densite), a partir des poids de skinning et des zones d'influence deja
+presentes dans le rig. `mass=` disparait de la configuration, `density=` la remplace.
+
+### DEUXIEME DEFAUT MESURE — le pas de temps declare est ignore
+
+`[levels] level 2 ... fixedhz=240` est parse par `kmachine.cpp:1560` et **jamais lu par le
+solveur** : `dt` est code en dur a `0.0166667` (jak-hd-physics.gc:2513).
+Le niveau de qualite le plus eleve declare donc un pas fixe qu'il n'applique pas. A corriger
+avant tout reglage fin : regler une matiere sur un pas de temps faux, c'est regler l'instrument.
+Recoupe la phase backlog « pas de temps fixe + interpolation ».
+
+### LA COUCHE MATIERE A ECRIRE
+
+Une matiere est un jeu NOMME de proprietes sans dimension ou intensives, reutilisable :
+
+| propriete        | nature                        | etat |
+|------------------|-------------------------------|------|
+| densite          | intensive (masse / volume)    | A ECRIRE — remplace `mass` |
+| elasticite       | frequence propre de reference | EXISTE (`stiffness`) |
+| amortissement    | rapport a l'amortissement critique | EXISTE (`damping`) |
+| durete           | raideur de contact + seuil de penetration | PARTIEL (`LYIELD`) |
+| limite d'etirement | sans dimension (fraction)   | EXISTE (`AbsoluteStretchClamp`) |
+| anisotropie      | rapport par axe               | EXISTE (SPEC §24) |
+| couplage         | sans dimension                | EXISTE (`couple`) |
+
+Materiaux a definir, un par famille : chair molle, meche fine, meche epaisse, cheveu de nuque,
+cuir/laniere, tissu, pendant rigide (lunettes), oreille.
+Les presets de la poitrine deviennent une INSTANCE de « chair molle » + la geometrie de son organe,
+pas un jeu de nombres a part.
+
+### CE QUE L'OWNER ACCEPTE EXPLICITEMENT
+
+« il faut ajouter des os, ajuster les zones d'influence et compagnie » — l'ajout d'os et la
+retouche des zones d'influence sont AUTORISES. Rappel de contrainte technique : sur le rig HD les
+joints sont en ajout seul, un nouveau joint ne peut pas devenir le parent d'un joint existant.
+
+### ORDRE
+
+1. Pas de temps honnete (`fixedhz` lu, dt derive) — sinon tout reglage est faux.
+2. `density` remplace `mass`, masse derivee du volume de peau du maillon.
+3. Couche matiere nommee + une matiere par famille.
+4. Instancier une SECONDE famille (meche ou oreille) et prouver que le meme solveur la porte
+   sans branche speciale. C'est le test qui separe un moteur d'un correctif.
+5. Durete : raideur de contact reelle, et collision chaine-contre-chaine.

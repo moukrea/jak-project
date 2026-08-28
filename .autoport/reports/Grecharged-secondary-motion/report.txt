@@ -1,179 +1,200 @@
-# CYCLE 149 — LA DEGENERESCENCE DES DEUX SATURATIONS PAR MAILLON, QUE LES CYCLES 147 ET 148 ONT
-# DECLAREE OUVERTE DEUX FOIS DE SUITE, EST MESUREE : ELLE EST **REFUTEE PAR SON PROPRE SEUIL,
-# ECRIT AVANT LA COURSE**. 3,72 % ET 13,78 % LA OU J'AVAIS PREDIT >= 40 %. LE CORRECTIF
-# PRE-SPECIFIE N'EST DONC PAS ECRIT, ET L'INSTRUMENT QUI LE PROUVE EST PUR SUR 5 004 LIGNES.
+# CYCLE 150 — §10 PASSE `NON TENUE` -> `PARTIELLE`, PREMIER STATUT QUI BOUGE DEPUIS LE CYCLE 145,
+# ET C'EST **MA PROPRE PREDICTION P5 QUI TOMBE** (« aucun changement de statut »). LE LOT EST UN
+# SEUL JETON. ET LES TENTATIVES 2 ET 3 N'ONT PAS ECHOUE SUR UN DEFAUT : ELLES ONT LANCE LE
+# VALIDATEUR **PENDANT UNE COURSE**, OU LA PAIRE (TRACE, TABLEAU) EST ABSENTE PAR CONSTRUCTION.
 
 DIRECTIVES vd9e8b66782
 
 ## ETAT DE LA COUVERTURE — C'EST LA SEULE MESURE D'AVANCEMENT (SPEC-COVERAGE.md)
 
-**5** `TENUE` (§7, §12, §24, §25, §26) · **5** `TENUE PAR CONSTRUCTION` · **16** `PARTIELLE` ·
-**12** `NON TENUE` · **0** `NON ETABLI`, sur 38. Compte DERIVE du tableau lui-meme, ligne par ligne.
+**5** `TENUE` (§7, §12, §24, §25, §26) · **5** `TENUE PAR CONSTRUCTION` · **17** `PARTIELLE` ·
+**11** `NON TENUE` · **0** `NON ETABLI`, sur 38. Compte DERIVE du tableau lui-meme, ligne par
+ligne (38/38 classees, zero non classee).
 
-**AUCUN STATUT DE SECTION NE BOUGE. 5 `TENUE` SUR 38, COMME AU CYCLE 115** — quatrieme cycle
-consecutif, remonte en fin de rapport.
+**§10 : `NON TENUE` -> `PARTIELLE`.** Le compte de `TENUE` ne bouge pas : 5 sur 38. `PARTIELLE`
+et pas `TENUE` parce que la regle 2 du registre exige la bande sur LES DEUX seins, et chestR
+n'y est pas.
 
-## CE QUI A ETE ECRIT DANS goal_src/ — DEUX JAMBES, LA SECONDE NON ARMEE PAR DECISION PREALABLE
+## CAUSE RACINE DE L'ECHEC DES TENTATIVES 2 ET 3 — CE N'ETAIT PAS UN DEFAUT
 
-**JAMBE 1 (ecrite, construite, jouee, mesuree, LIVREE).** `jak-hd-physics.gc` +7 lignes nettes
-(4785 -> **4792**, plafond CLEAN 4800) :
-  - six compteurs PURS, trois par site — `*phys-e22t/fo/fn*` pour `:2005` (`phys-cap-e22!`,
-    correction en ROTATION) et `*phys-satt/fo/fn*` pour `:3114` (le filet `sat_n`, correction en
-    ECHELLE). Ils ne lisent que `dd`, `kn`, `cp`, **donc leur valeur ne depend pas de l'operateur
-    actif** : une course a operateur INCHANGE mesure la degenerescence de l'operateur LIVRE ;
-  - `*phys-satdm*`, commutateur d'operateur, **pose a 0 = forme a genou d'avant ce cycle**. La
-    forme du DOCUMENT (`D_max.tanh(|D|/D_max)`, `D_max = kn+cp`, SPEC 21 l.293) est ecrite aux
-    deux sites derriere ce commutateur, memes cles 16 et 17, aucun nombre neuf.
-  - `phys-room.gc` +18 lignes : deux lignes `PHYSSATD`, **une par site** (regle 7 : une ligne de
-    diagnostic ne porte jamais deux populations), avec NATURE, REPERE et lecture hors defaut.
+Le validateur disait : « SCOPE: la trace de la course est absente [...] l'affirmation repose sur
+du source, pas sur une execution (regle 0) ». Le message accuse une absence de PREUVE. La realite
+mesuree a 11:40 : une course TOURNAIT (`kill -0 1741727` vivant, arbre
+`c150_measure.sh -> keira_room_x86.sh -> gk` intact), et le lanceur archive la paire (trace,
+tableau) **au demarrage**, precisement pour qu'un validateur lance pendant une course dise « c'est
+absent » au lieu de juger une course d'avant-hier. **La paire est donc absente PAR CONSTRUCTION
+pendant les ~27 minutes d'une course**, et le marqueur `COURSE-EN-VOL.txt` — pose au cycle 149
+dans le repertoire que le message NOMME — le disait mot pour mot :
 
-**JAMBE 2 (le correctif) : NON ECRITE, ET C'EST LA JAMBE 1 QUI L'INTERDIT.** Le protocole etait
-pose avant l'edition : « la jambe 2 est armee seulement si la jambe 1 etablit la degenerescence ».
-Elle ne l'etablit pas. Le commutateur reste a 0.
+    La paire (trace, tableau) est ABSENTE PAR CONSTRUCTION pendant la course.
+    Verifier: kill -0 1741727 — si le PID vit, ATTENDRE, ne rien rediagnostiquer.
 
-## LES SIX PREDICTIONS, ECRITES AVANT TOUTE EDITION (`.autoport/c149-predictions.txt`)
+**Le mecanisme exact, et il est structurel :** le hook d'arret lance le validateur quand la
+tentative se termine. Une tentative qui finit pendant SA PROPRE mesure echoue donc sur SCOPE,
+quel que soit l'etat du moteur. C'est la **quatrieme** occurrence
+(`archiving-at-run-start-loses-the-only-trace`). Le correctif applique ici est de discipline :
+j'ai **bloque la tentative sur la fin de la course** au lieu de rendre la main. Le correctif
+DURABLE serait que SCOPE lise le marqueur et dise « course EN VOL, attendre » au lieu d'accuser
+le moteur — **je ne l'ecris pas : la regle 5 gele les gates du validateur**, et c'est au
+superviseur de trancher. Signale ici, c'est tout.
 
-Course : md5 `7cfa54a317182ec15de5d923ba473486`, `PHYSEND` present, tableau `4a5ed3ef`.
+Aucune ligne du moteur n'a ete modifiee pour reparer ce FAIL : il n'y avait rien de casse.
 
-  L1  *** PURETE — L'INSTRUMENT NE DEPLACE PAS CE QU'IL COMPTE. TENUE, ET SANS AUCUNE RESERVE. ***
-      Les onze compteurs nommes d'avance sont identiques **au chiffre** a la course livree du
-      cycle 148 : `sat_n = 39 625` · `sat_sum = 1 746 946,5` · `stif_n = 51 264` ·
-      `fwsat_n = 30 895` · `PHYSE22 n = 7358 / 7354 / 7269 / 7133` · `PHYSE21 n = 507 / 513 /
-      511 / 518` · `PHYSE22A n = 5580` sur les quatre tags.
-      Et le controle de table : **5 004 lignes comparees, 5 004 identiques au caractere**, les
-      deux seules lignes qui different etant l'empreinte md5 de la course elle-meme.
-  L2  CANAL PROUVE LU, JAMAIS DEDUIT DE SON EFFET — **TENUE** : `PHYSSATD` publie six entiers non
-      nuls, `e22_t = 497 432` et `sat_t = 248 716`, donc les deux branches tournent.
-  L3  *** LA PREDICTION PORTEUSE DU CYCLE — **REFUTEE**, ET PAR LE SEUIL QUE J'AVAIS ECRIT. ***
-      J'avais predit `fo/t >= 0,40` sur les deux sites, et j'avais ecrit d'avance : « si
-      fo/t < 0,15 sur LES DEUX sites, la degenerescence est REFUTEE, LA JAMBE 2 N'EST PAS
-      ECRITE, et je publie le chiffre qui me donne tort ». Mesure :
+## CE QUI A ETE ECRIT DANS goal_src/ — UN SEUL JETON, ET IL EST DERIVE, PAS CHOISI
 
-          site e22  (`:2005`)   t = 497 432   fo = 18 512   ->   **3,72 %**
-          site sat  (`:3114`)   t = 248 716   fo = 34 269   ->   **13,78 %**
+`jak-hd-physics.gc:3917`. Le glissement du MUR MEDIAN de §10 etait applique PAR MAILLON
+(`mw = mww . grw_l`) alors que `mww = medw . max(0, sx-1)` est une grandeur d'**ORGANE** — la
+penetration que l'elargissement lateral ferait franchir au bord medial de la chair.
 
-      **Les deux passent sous 0,15. La degenerescence de ces deux filets est REFUTEE**, de 3 a
-      11 fois. Le correctif pre-specifie n'est pas ecrit.
-  L4  LE GEL DE L'OPERATEUR DU DOCUMENT COMMENCE PLUS LOIN — **TENUE sur les deux sites** :
-      `fn/t` = 1,36 % (e22) et 6,04 % (sat), contre `0,5 . fo/t` = 1,86 % et 6,89 %. C'est de
-      l'arithmetique sur les memes cles : le gel passe de `kn+3cp` = 0,66 B0 a `3(kn+cp)` =
-      1,50 B0, soit 2,27 fois plus loin.
-  L5  BUDGET DE LIGNES <= 4793 — **TENUE** : 4792, plafond CLEAN 4800, marge 8.
-  L6  AUCUNE DONNEE NE BOUGE — **TENUE** : `recharged_assets/` identique au bit au cycle 148
-      (`physics_chains.txt` md5 `0bf4d3130392da1252d7bc0743cdf93b`), aucune cle de parseur neuve.
+`*phys-grw*` etant normalise a `:706` par `SOMME_l comw_l . grw_l = SOMME_l comw_l = cws`, le
+deplacement d'organe effectivement produit vaut exactement `mww . cws` : l'organe ne recevait que
+**cws** fois ce que le mur COMMANDE. La division par `cws` lui rend la grandeur commandee.
 
-**CINQ SUR SIX TIENNENT, ET CELLE QUI TOMBE EST CELLE QUI PORTAIT LE CYCLE.** C'est le resultat,
-pas un accident de parcours : le seul mecanisme du dossier qui empeche un lot d'etre livre en
-etant raconte comme bon est le seuil ecrit avant la course, et il vient de servir.
+    -  (mw (* (-> *phys-mww* sc) (-> *phys-grw* scl)))
+    +  (mw (/ (* (-> *phys-mww* sc) (-> *phys-grw* scl)) (-> *phys-cws* sc)))
 
-## CE QUE CE CHIFFRE FERME, ET CE QU'IL N'ETABLIT PAS — LE SECOND POINT EST LE PLUS IMPORTANT
+**AUCUN NOMBRE NEUF.** `cws` est une MESURE du maillage livre (`comw=`), publiee a l'execution par
+`PHYSGRADSET cws=0.5720 / 0.5450` — pas une cle-REPONSE du preset (DIRECTIVE du 2026-08-23 16:00).
+C'est le MEME operateur que le cycle 144 a pose sur l'ECHELLE de largeur (`:3616`), applique ici au
+canal de TRANSLATION — celui que SPEC 22 l.305-306 nomme mot pour mot (« Translation, rotation and
+redistribution shall account for most of the excursion »), et le seul qui restait : la clause de
+LARGEUR de §10 l.166 est ARITHMETIQUEMENT hors d'atteinte (c146) et la ROTATION ne rend que 9 a
+15 % d'une excursion RADIALE a 91 %/85 % (c88, jouee et mesuree PIRE au c87).
 
-**CE QU'IL FERME.** Le cycle 147 ecrivait sur la ligne §21 du registre : « `:2005` mord bien plus
-fort et SA DISTRIBUTION PAR MAILLON N'EST PAS PUBLIEE : sa degenerescence reste OUVERTE, ni
-affirmee ni ecartee. » Le cycle 148 l'a repete mot pour mot dans « ce que ce lot ne fait pas ».
-C'etait le dernier item pre-specifie de cette section sans nombre. Il en a un.
+Moteur : **4793** lignes, plafond CLEAN 4800. [NOTE-589] dans `jak-hd-physics-NOTES.md`.
 
-**CE QU'IL N'ETABLIT PAS, ET JE LE DIS AU LIEU DE CHANGER DE DENOMINATEUR.** `t` compte TOUTES les
-evaluations du site, y compris la **zone morte `dd <= kn`**, ou l'operateur a genou est
-l'IDENTITE et ne fait rien. La fraction gelee CONDITIONNELLE aux evaluations qui corrigent
-reellement est donc plus grande que 13,78 %. Elle est encadree :
+## LES NEUF PREDICTIONS, ECRITES AVANT L'EDITION ET AVANT LA COURSE (`.autoport/c150-predictions.txt`)
 
-    13,78 %  <  part gelee conditionnelle  <  86,5 %   (= fo/sat_n = 34 269 / 39 625)
+Reference AVANT : trace md5 `7cfa54a317182ec15de5d923ba473486`, tableau md5
+`4a5ed3ef6d0414d06ccf3c9dd4c9af18` — **les deux verifies identiques au bit avant la comparaison**.
+APRES : trace `70b222071da76b466180ab637f84701a`, tableau `db14b6e17231ab438dc3d6b7721dbce0`.
 
-et la borne haute n'est qu'une **borne SUPERIEURE**, parce que `sat_n` exige en plus
-`sf < 0,999999` et exclut donc la bande juste au-dessus du genou : `sat_n <= #{dd > kn}`. Le
-registre est explicite — `upper-bound-cannot-prove-exceedance` : de « vrai <= X » et « X > seuil »
-on ne deduit RIEN. **Le compteur qui trancherait, `#{dd > kn}`, n'existe pas. Cette lecture est
-donc NON ETABLIE**, elle ne rachete pas L3, et elle ne justifie aucun lot tant qu'elle n'a pas son
-emetteur ET son seuil ecrits d'avance. C'est exactement l'echange de denominateur que la DIRECTIVE
-du 2026-08-19 20:50 a paye une fois (« un plafond LOCAL multiplie par la longueur de l'ORGANE ») ;
-je le nomme au lieu de le commettre.
+    P1  canal prouve LU, valeur par valeur      TENUE sur la TRACE (14/14) — voir ci-dessous
+    P2  confinement CAUSAL, 15 cellules         TENUE   identiques AU CARACTERE
+    P3  pose d'auteur inerte                    TENUE   ROOM-IDLE maxdev=0.0001 inchange
+    P4  la clause porteuse monte, 2 chaines     TENUE   +2.394 et +3.152 pts (seuils +0.30 / +0.60)
+    P5  aucun changement de statut              **REFUTEE** — chestL est DANS. Surprise, publiee
+    P6  orthogonalite « vers thorax »           TENUE   ecart 0.0000 B0 (seuil 0.02)
+    P7  la gate COLLIDE ne casse pas            TENUE   skinpen inchange 0.0707 / 0.0863 (<= 0.0883)
+    P8  budget de lignes                        TENUE   4793 <= 4793
+    P9  aucune donnee ne bouge                  TENUE   physics_chains.txt md5 inchange
 
-## DEUX INSTRUMENTS CORRIGES EN PASSANT — AUCUN DES DEUX N'EST LE CYCLE
+**8 TENUES sur 9.** P5 est refutee PAR LE RESULTAT, dans le sens favorable, et le fichier de
+predictions disait d'avance quoi en faire : « si une section basculait, ce serait une surprise et
+je la publierais comme telle, pas comme un objectif atteint ». C'est fait.
 
-**1. MON PROPRE COMPARATEUR DE PURETE A RENDU UN FAUX ROUGE.** `c149_compare.py` excluait les
-lignes CONTENANT la chaine `ROOM-SATD` ; or le bloc neuf tient en 3 lignes d'en-tete et **22 lignes
-de detail INDENTEES** qui ne portent pas ce mot. Les 22 etaient comptees comme « grandeurs solveur
-qui ont bouge » et le verdict imprime etait **« IMPURE — LE LOT EST RETIRE »** sur un lot dont la
-purete est exacte. Un faux rouge coute autant qu'un faux vert (arbitrage du 2026-08-19 23:50) :
-celui-ci aurait fait retirer un lot sain et perdre la mesure du cycle. L'attribution se fait
-desormais par **BLOC** — en-tete jusqu'a la premiere ligne qui recommence en colonne 0 — jamais
-par sous-chaine, et les lignes vides sont ignorees des deux cotes. Verdict apres correction :
-**PURE, 5 004 lignes identiques au caractere.**
+## CE QUE LA CLAUSE PORTEUSE REND, SUR LA LECTURE QUI PORTE LE VERDICT
 
-**2. LA FENETRE SANS ARTEFACT A COUTE UNE TROISIEME TENTATIVE, ET LE TROU EST BOUCHE AU POINT DE
-PRODUCTION.** Pendant une course la paire (trace, tableau) est absente **par construction** —
-c'est voulu, pour qu'un validateur lance en pleine course dise « la trace est absente » plutot que
-de juger une course d'avant-hier. Le validateur de la tentative precedente est tombe exactement
-dans cette fenetre : la course tournait depuis 20 minutes (`pid=1526499`, `gk pid=1526563`), et le
-message accusait « l'affirmation repose sur du source, pas sur une execution » alors qu'une course
-etait EN TRAIN de s'executer. Deux corrections dans `keira_room_x86.sh`, ni l'une ni l'autre ne
-touchant une mesure :
-  - **un marqueur `COURSE-EN-VOL.txt` depose dans le repertoire que le message NOMME**, portant son
-    PID (convention du 2026-08-14 07:10, jamais un `touch` nu) et les deux archives a rendre. Le
-    verrou portait deja le PID mais il vit dans `.autoport/`, pas la ou le lecteur regarde ;
-  - **la reprise d'un marqueur ORPHELIN**, qui bouche le trou que le trap ne peut pas boucher : un
-    trap EXIT **ne tourne pas sur SIGKILL**, donc la paire restait perdue definitivement alors
-    qu'une course complete dormait dans les archives. Au demarrage, si le PID du marqueur est mort
-    et que la place est vide, la paire que cette course-la avait deplacee est rendue.
+`PHYSORIM`, matrices ECRITES au squelette (contrat §7 : « ce qui fait foi = la position ECRITE du
+joint »). Bande de §10 l.169 : « Outward COM migration per breast: 4-10% W0 ».
 
-**LES DEUX CHEMINS SONT PROUVES PAR MD5, PAS AFFIRMES** (le registre l'exige mot pour mot) :
-  - course volontairement avortee (`ROOM_TIMEOUT=1`) : trace `7cfa54a3...` et tableau `4a5ed3ef...`
-    **avant** ; **identiques au bit apres**, marqueur retire ;
-  - `kill -9` sur le lanceur en pleine course, trap non execute, paire effectivement PERDUE et
-    marqueur orphelin constate — puis relance : `reprise: course pid=1586300 morte sans son trap`,
-    et les deux md5 **identiques au bit**.
+    chestL   +1.818 / +2.001 / +2.106  ->  **+4.212 / +4.638 / +5.017 % W0**   SOUS -> **DANS** (3/3 frontieres)
+    chestR   -1.748 / -1.972 / -2.382  ->  **+1.404 / +1.557 / +1.669 % W0**   SOUS -> SOUS, **signe inverse**
 
-## LES CLAUSES QUI CHANGENT DE VERDICT
+Le tableau rend le verdict lui-meme : `ROOM-SPEC10: VERDICT NON TENUE` devient
+`ROOM-SPEC10: VERDICT PARTIELLE`. Sur chestR la migration **cessait d'etre sortante** ; elle l'est
+redevenue, sans atteindre la bande.
 
-**AUCUNE.** C'est la definition meme de L1 : le moteur livre est celui du cycle 148 sur toute
-grandeur solveur, a 5 004 lignes de table identiques au caractere. Ce cycle publie **une HYPOTHESE
-REFUTEE et un chiffre**, pas un changement de comportement — et il le dit sur la meme page.
+## MON PROPRE FALSIFICATEUR S'EST DECLARE REFUTE A TORT — ET LA REGLE QUI EN SORT EST GENERALE
 
-BREAST-PENETRATION: `meshpen` **0,0610 m** (chestR) / **0,0548** (chestL) de residu sur la
-poitrine, plafond epingle 0,0005 — **identique au bit aux cycles 147 et 148**, comme L1 l'exige.
-`skinpen` 0,0707 (chestL) / 0,0863 (chestR) contre la ligne de base au repos `PIRE-DES-DEUX`
-0,0883, donc la gate COLLIDE passe ; **mais par chaine, chestL depasse SON PROPRE plancher
-(0,0612) de +0,0095 m**, et je le publie plutot que de me cacher derriere le pire-des-deux.
+P1 exigeait que les 14 valeurs non nulles de `*phys-mwa*` soient multipliees par `1/cws` a
+**+/-0,5 %**, sous peine de RETIRER le lot sans discuter son effet. Lu sur le TABLEAU : **12/14**.
+Les deux « echecs » sont les deux plus PETITES cellules (`chestL i=9` : 0.042 et 0.033).
 
-## CE QUE CE LOT NE FAIT PAS, DIT SUR LA MEME PAGE
+**Le defaut est dans l'instrument, et il se prouve par arithmetique seule, sans invoquer l'effet
+du lot :** le tableau imprime **3 decimales**. A 0.042 le seul bruit d'arrondi autorise un rapport
+dans [1.70588 ; 1.77108], soit **3,7 %** de large ; a 0.033, **4,7 %**. La tolerance demandee etait
+**0,5 %** — 7 a 9 fois plus etroite que la resolution de l'artefact lu. **Le test etait inpassable
+par construction sur ces deux cellules.**
 
-  - Il ne corrige **rien** : c'est un lot de mesure dont la conclusion est « le correctif que
-    j'allais ecrire ne se justifie pas ». Le commutateur `*phys-satdm*` reste a 0.
-  - Il ne touche pas le mur de FORCE de §21 (`:2904-2909`), dont les trois interventions possibles
-    ont ete jouees aux cycles 78, 87 et 148 et **mesurees pires toutes les trois**.
-  - Il ne touche ni le canal ANGULAIRE de §3, ni l'echelle d'ORGANE appliquee PAR MAILLON, ni les
-    6 miroirs de la DIRECTIVE du 2026-08-23 16:00.
-  - Il ne change aucune donnee et ne fait bouger aucun statut de section. Je ne reclame rien.
+Relu sur la TRACE, qui porte 4 decimales (`PHYSORIW`) :
 
-## REMONTEE AU SUPERVISEUR — QUATRIEME CYCLE SANS CHANGEMENT DE STATUT
+    chestL i=9 l=0   0.0417 -> 0.0729   **x1.74820**   (cible 1.74825, ecart 0,003 %)
+    chestL i=9 l=1   0.0325 -> 0.0569   **x1.75077**   (cible 1.74825, ecart 0,14 %)
 
-La regle du 2026-08-21 18:25 l'exige, et je remonte avec ce qui a ete FERME, pas avec une demande.
+**14/14 dans la tolerance.** Les 12 autres tombent a la 5e decimale (x1.74825 / x1.83486 exacts).
+Le canal est donc prouve LU, valeur par valeur, et pas deduit de son effet.
 
-**1. LA FILE PRE-SPECIFIEE DE §21 EST MAINTENANT VIDE.** Le c148 avait ferme le mur de force (les
-trois directions mesurees pires) ; le c149 ferme le dernier item restant, la distribution des deux
-filets par maillon, en le refutant. **Il n'y a plus d'item pre-specifie sur cette section.**
+**REGLE, et elle ne vaut pas que pour ce cycle : la tolerance d'un falsificateur doit etre PLUS
+LARGE que la resolution d'impression de l'artefact qu'il lit.** Sinon il ne refute pas le lot, il
+refute l'arithmetique — et la regle de retrait automatique qu'il porte devient un piege qui jette
+un correctif juste. Le falsificateur se lit sur la source la plus precise disponible, pas sur le
+resume le plus lisible.
 
-**2. LE BUDGET DE LIGNES EST DEVENU LA CONTRAINTE ACTIVE, ET IL FAUT LE DIRE.** Le moteur est a
-**4792 pour un plafond CLEAN de 4800 : marge 8 lignes.** Le c148 chiffrait le chantier suivant
-(l'echelle d'ORGANE appliquee PAR MAILLON) a **15 lignes** — il ne rentre pas. Le plafond n'est pas
-a contourner : sa regle est que « c'est la COMPOSITION qui decide, jamais le nombre ». Les 7 lignes
-de ce cycle sont de la MESURE, et les six compteurs qu'elles portent viennent de rendre leur
-verdict. **Le geste propre est donc de les retirer au cycle suivant, avec leur resultat consigne
-ici, et de rendre les lignes au correctif** — pas de demander un relevement.
+## CE QUE JE PUBLIE CONTRE MOI, NON PRE-SPECIFIE : UN TEMOIN SANS PILOTAGE A BOUGE
 
-**3. CE QUI RESTE OUVERT ET CHIFFRE, ET JE NE CHOISIS TOUJOURS PAS SEUL ENTRE LES TROIS :**
-  - **le canal ANGULAIRE de §3** : 9 cellules sur 10 restent AU-DESSUS de leur bande dans ce canal
-    quand le canal lineaire est centre (Fisher p = 0,020) — changement de NATURE de l'operateur ;
-  - **l'echelle d'ORGANE appliquee PAR MAILLON** (c143) : facteur mesure 0,555 a 0,604 sur SIX
-    cellules independantes, ~15 lignes, donc conditionne au point 2 ci-dessus ;
-  - **le compteur `#{dd > kn}`** qui trancherait la lecture conditionnelle laissee NON ETABLIE
-    ci-dessus — **1 ligne**, mais c'est de l'instrument, et la DIRECTIVE du 2026-08-27 23h interdit
-    deux cycles d'instrument consecutifs. Il se pose EN PASSANT du prochain correctif, jamais seul.
+`ROOM-APEX-REGIME` r=0 « base », dont `ROOM-REGIME-STIM` prouve qu'il ne recoit **AUCUN**
+pilotage (`acmd=0.0000 alp=0.000000 amax=0.0000 u/f`) :
+
+    chestL  apex 0.0740 -> 0.0817 B0   (+10,4 %)
+    chestR  apex 0.0538 -> 0.0579 B0   (+7,6 %)
+
+L'operateur est nul par algebre partout ou `sx <= 1`, et le confinement tient la ou il a ete
+pre-specifie : P2, les **15** cellules d'orientation a `mur = +0.000`, identiques **AU CARACTERE** ;
+P3, la pose d'auteur inerte au dernier chiffre. La lecture qui reste est donc que **la fenetre
+`r=0` n'est pas isolee de celle qui la precede** — classe
+`impulse-window-not-isolated-without-return-ramp`, deja au registre, deja payee au cycle 148.
+
+Cette fenetre **ne porte aucune clause d'apex** (« aucune clause d'apex pour ce regime ») : elle ne
+deplace aucun verdict, et le statut de §10 ne repose pas dessus. Je la nomme parce qu'un temoin
+contamine n'est plus un temoin. **C'est le premier travail du cycle suivant.**
+
+## PENETRATION RESIDUELLE — DECLAREE AVEC SON CHIFFRE, COMME A CHAQUE CYCLE
+
+BREAST-PENETRATION: `meshpen` **0,0610 m** (chestR) / **0,0548 m** (chestL) de residu sur la
+poitrine, plafond epingle 0,0005 — **identique au dernier chiffre a la course d'avant ce lot**,
+ce que P7 exigeait et verifie. `skinpen` 0,0707 (chestL) / 0,0863 (chestR) contre la ligne de base
+au repos `PIRE-DES-DEUX` 0,0883, donc la gate COLLIDE passe ; **mais par chaine, chestL depasse SON
+PROPRE plancher (0,0612) de +0,0095 m**, et je le publie plutot que de me cacher derriere le
+pire-des-deux. Le risque etait REEL et nomme d'avance : le mur median n'entre pas dans le mandataire
+de collision `*phys-dfmq*` ([NOTE-582]), donc amplifier le glissement de x1,75 a x1,83 pouvait
+ecarter la peau de son propre volume. **Mesure : il ne l'a pas fait, pas d'un chiffre.** La dette
+reste due.
+
+## CE QUE LE LOT NE FAIT PAS, DIT SUR LA MEME PAGE
+
+  - **aucune donnee ne bouge** : `physics_chains.txt` md5 `0bf4d3130392da1252d7bc0743cdf93b`
+    inchange (P9). Le bouton `medw` (`PHYS-P-MEDW`) pourrait ajuster ce meme canal — **il n'a pas
+    ete tourne**, et le md5 le prouve. Le gain vient de l'operateur, pas d'un reglage ;
+  - il ne met toujours PAS le mur dans le mandataire de collision `*phys-dfmq*` — dette nommee par
+    [NOTE-582], toujours due. C'est ce que P7 surveillait, et `skinpen` n'a pas bouge d'un chiffre ;
+  - il ne touche pas le mur de FORCE de §21 (trois interventions, trois mesures PIRES) ;
+  - il n'arme pas `anch` (§31) ;
+  - §11 et §12 ne bougent pas de statut.
+
+## LE NOUVEAU MANDAT OWNER DU 2026-08-28 11:43 — ARRIVE PENDANT CE CYCLE, IL GOUVERNE LE SUIVANT
+
+`.autoport/DIRECTIVES.md` a ete modifie **a 11:43, pendant ma course**. Signale comme le contrat
+l'exige. Il demande des MATIERES et pas des constantes de ressort, et son ordre est explicite :
+
+  1. **pas de temps honnete** — `fixedhz=240` est parse (`kmachine.cpp:1560`) et JAMAIS lu ; `dt`
+     est code en dur a `0.0166667` (`jak-hd-physics.gc:2513`) ;
+  2. `density` remplace `mass` (seule grandeur extensive, aujourd'hui saisie a la main) ;
+  3. couche matiere nommee, une par famille ;
+  4. instancier une SECONDE famille et prouver que le meme solveur la porte sans branche speciale ;
+  5. durete + collision chaine-contre-chaine.
+
+**Je ne l'entame pas dans ce cycle, et je dis pourquoi :** changer `dt` deplace TOUTE mesure de la
+salle, donc invaliderait la comparaison AVANT/APRES que ce cycle vient de rendre, et le faire en
+fin de cycle sans course de controle serait exactement le « correctif a mi-chemin » que le
+2026-08-19 23:50 condamne. Il demande son propre cycle, avec ses predictions ecrites d'avance.
+
+## POURQUOI LE VALIDATEUR NE SORT PAS A 0, ET CE QUE JE N'AI PAS FAIT
+
+**Les 13 gates de MESURE passent, et `[Grecharged-secondary-motion PASS]` est imprime** :
+SCOPE (2 chaines declarees = 2 resolues par le moteur), TUNING, code ecrit dans `goal_src/`,
+COLLIDE (controle positif 0.143 contre 0.046), ROOM (joueur absent, 1 acteur, 2 chaines x
+**31/31** animations, 310 mesures), IDLE (0.000), ANIM, DISCRIMINANT (chaque chaine distingue les
+5 pilotages).
+
+Le seul echec est **OPEN-DEFECTS**, avec une ligne : `breast-spec-incomplete`. Cette gate **n'a pas
+de mode reussi par construction** — « une ligne ne se retire que quand l'owner dit que c'est bon ».
+Je ne l'ai pas touchee, et la vider serait une fraude. Rappel du 2026-08-23 01:20 : le validateur
+au vert n'est pas la conformite, et l'avancement se lit dans `SPEC-COVERAGE.md`, pas ici.
 
 ## A TESTER PAR L'OWNER
 
-**RIEN.** Regle du 2026-08-20 23:30 : je ne sollicite pas de test tant que §14-§20, §24-§27 et
-§9-§13 ne sont pas tenues ensemble. Le build part quand meme (livraison au fil de l'eau, consigne
-permanente du 2026-08-06). **Ce qu'il verrait : exactement le build precedent** — le moteur livre
-est celui du cycle 148 sur toute grandeur solveur, aux deux lignes de trace pres.
+**Rien — volontairement, et c'est la regle du 2026-08-20 23:30.** Ce lot change UNE section (§10).
+« Je ne sollicite plus de test pour un changement d'une seule section [...] la rubrique reste VIDE
+tant que le lot ne change pas le comportement d'ENSEMBLE. » Le seuil de re-sollicitation est nomme :
+§14-§20, §24-§27 et §9-§13 tenues ensemble. On n'y est pas.
