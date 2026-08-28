@@ -1,45 +1,85 @@
-# Gfont-urbanist — police moderne Urbanist et fin du tout-majuscules
+# Gfont-urbanist — un rendu de texte MODERNE A COTE, pas une torsion de l'ancien
 
-## La demande, mot pour mot (owner 2026-08-28)
+## DECISION D'ARCHITECTURE DE L'OWNER, 2026-08-28 — elle remplace le brief precedent
 
-> « la font dans le jeu est en all caps, ça me saoule [...] pour moderniser, faudrait remplacer
-> les caractères par une font plus moderne, Urbanist. Ça rendra tout l'UI, text prompts, menus,
-> sous-titres et compagnie up to modern standards. [...] fini le all caps, let's go font
-> moderne. »
+> « Plutôt que bidouiller le système de fonts existant et de le tordre dans tous les sens...
+> Pourquoi pas plutôt en faire un tout nouveau à côté bien propre ? Avec des textures haute
+> résolution pour les glyphs, un alignement qui se base sur ce que la font fait vraiment, un
+> kerning idem... Ça nous permettrait de pouvoir le toggle on/off en settings recharged pour
+> basculer entre l'affichage de texte original (menus, hints, subtitles) et le nouveau plus
+> moderne basé sur Urbanist ! Beaucoup plus clean je pense »
 
-## DEJA LIVRE — ne pas le refaire
+**L'approche « adapter la table existante » est ABANDONNEE.** Ce qui suit dit pourquoi, avec les
+mesures qui l'ont montre — toutes faites le 2026-08-28.
 
-`recharged_assets/font/` contient l'atlas genere et ses tables :
+## Pourquoi l'ancien systeme ne peut pas porter le besoin
 
-- `charset_latin.txt` — **181 caracteres**, DERIVES des 31 banques de texte du jeu, jamais
-  listes a la main.
-- `urbanist-{12,24,48}.png` + `-4bit.png` (quantifie 16 niveaux, ce que le pipeline d'origine
-  sait porter) et `urbanist-{12,24,48}.json` : point de code, rect UV, taille, avance, chasse.
-- `gen_atlas.py` — tout est reproductible.
+1. **La grande police est PHYSIQUEMENT incapable d'ecrire en minuscules.** Ses 26 cellules a-z
+   contiennent des KANJI (撃 賢 湖 口 行...). Il n'y a rien a « brancher » : il faut de toute
+   facon un nouvel atlas.
+2. **Elle n'a pas d'avance par glyphe.** `*font24-table*` donne l'avance CONSTANTE 24,0 pour tous
+   les caracteres. Aucun kerning n'existe nulle part.
+3. **Elle est en 4 bits, rangee dans le tampon de profondeur** via une relocation PS2
+   (`setup-font-texture!`, format `mt4hl`, textures `ascii.12lo/12hi/24lo/24hi` — `lo`/`hi` sont
+   des MOITIES DE BITS, pas la casse). Plafond : 16 niveaux d'antialiasing.
+4. **Les trois defauts vus par l'owner viennent tous de ces hypotheses** : alignement par groupe
+   de lettres, espacement constant, et une conversion de casse qui ne peut pas s'afficher.
 
-## Faits mesures — s'appuyer dessus, ne pas les re-decouvrir
+## Ce qui est deja livre et REUTILISABLE tel quel
 
-- Les banques portent **475 caracteres distincts, 410 hors ASCII**, et **seulement 11
-  minuscules** : le tout-majuscules est dans les DONNEES, pas seulement dans la police.
-- Le japonais (`game_custom_text_ja-JP.json`) porte **359 caracteres CJK**. Urbanist ne les a
-  pas : **le japonais garde sa police d'origine**, la bascule ne concerne que les 30 langues
-  latines.
-- **FAUSSE PISTE DEJA ELIMINEE** : les textures `ascii.12lo` / `ascii.12hi` / `ascii.24lo` /
-  `ascii.24hi` ne sont PAS minuscules/majuscules. `lo`/`hi` sont les moities de bits d'une
-  texture 4 bits rangee dans le tampon de profondeur. Ne pas y retourner.
-- Urbanist tel que servi manque `Đ đ Ł ł` ; le sous-ensemble latin-etendu les fournit et le
-  generateur bascule par glyphe.
+`recharged_assets/font/` :
+- `charset_latin.txt` — 181 caracteres DERIVES des 31 banques de texte du jeu.
+- `urbanist-{12,24,48}.png` (8 bits) + `.json` : par glyphe, point de code, rect UV, largeur,
+  hauteur, **avance** et **haut de boite**. 73 avances distinctes, 16 hauteurs de boite.
+- `Urbanist-700.ttf` (graisse validee par l'owner) + `gen_atlas.py`, tout reproductible.
+- `.autoport/design/font-metrics-proof.png` : la meme phrase rendue avec et sans les metriques.
+  **Le nouveau rendu doit egaler la ligne du BAS.**
 
-## Ce qui reste
+Cout memoire d'un atlas 8 bits 2048x1024 : **2,0 Mo**. A comparer aux 744 Mo du jeu — non
+significatif. Ne pas sacrifier la qualite pour ca.
 
-1. Brancher la table UV a la place de `*font12-table*` / `*font24-table*`
-   (`goal_src/jak1/engine/gfx/font.gc:40` et `:296`) et etendre la correspondance
-   caractere -> glyphe pour que les octets minuscules tombent sur les minuscules.
-2. **Verifier d'abord si le chemin 4 bits est encore actif sur PC/Android.** Si oui, livrer les
-   atlas `-4bit` ; si non, l'atlas 8 bits donne un bien meilleur antialiasing.
-3. Convertir les textes en casse normale, ~670 entrees par langue. **C'est le vrai cout, et il
-   est humain** : une conversion automatique casse acronymes et noms propres (« PS2 », « 1ST »).
-   Anglais et francais relisibles ; les autres langues demandent de la prudence. Publier la
-   regle appliquee et la liste des exceptions.
+## Ce qu'il faut construire
 
-Licence : Urbanist est sous SIL Open Font License 1.1.
+Un chemin de rendu de texte SEPARE, qui ne touche pas l'ancien :
+
+1. **Atlas haute resolution en 8 bits**, hors du tampon de profondeur, avec un vrai alpha.
+2. **Positionnement a la ligne de base**, depuis le `by` de chaque glyphe — pas le haut de
+   cellule.
+3. **Avance par glyphe**, depuis `adv` — pas un pas constant.
+4. **Kerning** : ajouter les paires au generateur (`gen_atlas.py` lit deja le TTF, FreeType
+   expose les paires). Publier le nombre de paires retenues.
+5. **Bascule dans les reglages « recharged »**, comme le `master-toggle` existant : texte
+   d'origine ou texte moderne. **Par defaut : moderne** (c'est la demande de l'owner), l'original
+   reste disponible.
+
+## PORTEE MESUREE — le vrai risque
+
+**135 appels a `draw-string`** dans jak1, repartis ainsi :
+
+    23  pc/subtitle.gc          22  engine/debug/anim-tester.gc
+    12  engine/debug/menu.gc    11  engine/ui/hud-classes.gc
+     8  pc/progress-pc.gc        7  pc/util/pc-pad-utils.gc
+     6  engine/game/main.gc      4  pc/debug/anim-tester-x.gc
+
+**Une bascule qui ne couvre pas tous les sites est pire que pas de bascule** : l'utilisateur
+verrait deux polices en meme temps. Les sites de DEBUG (anim-tester, menu) peuvent rester sur
+l'ancien chemin — le dire explicitement plutot que de l'oublier.
+
+**Second risque, a mesurer avant de livrer** : des metriques differentes REFLOWENT le texte. Les
+boites de dialogue, les lignes de sous-titres et les colonnes de menu sont dimensionnees pour
+l'ancienne avance constante. Publier, pour les ecrans les plus denses, la largeur rendue avant et
+apres, et signaler tout depassement de boite.
+
+## Exige pour fermer
+
+1. Le rendu moderne egale `font-metrics-proof.png` ligne du bas — aligne, espace correctement.
+2. La bascule fonctionne dans les deux sens sans redemarrage, et **la liste des sites couverts et
+   non couverts est publiee**.
+3. Le nombre de paires de kerning est publie.
+4. Aucun depassement de boite sur les ecrans denses ; les largeurs avant/apres sont publiees.
+5. **La sortie ANDROID du texte est regeneree** (`out/jak1-android-text/`) : c'est un chemin de
+   sortie distinct de `out/jak1/iso/`, il etait perime du 11 aout et c'est ce qui a fait voir du
+   tout-majuscules a l'owner sur le Redmi alors que son portable etait correct. Prouver par la
+   DATE ET LE CONTENU du fichier embarque dans l'APK.
+6. Publier la liste des langues encore en majuscules : seules 7 ont un `game_case_text_*.json`
+   (de-DE, en-GB, en-US, es-ES, fr-FR, it-IT, ja-JP).

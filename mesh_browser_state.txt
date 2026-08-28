@@ -1,8 +1,8 @@
 MBSTATE 2 mode=CLOSED level= filter=ALL
 n_filtered=0 n_total=0 scroll=0 sel=0 row=0
 cam_az=0.0000 cam_el=0.0000 cam_dist=0.0000 spin=0.0000
-player=-134.2950,34.2343,202.2910 player_moved=0.0000
+player=-134.5543,34.2343,204.6161 player_moved=0.0000
 frozen=0 home_level=village1 browse_level=#f lvl_status=none
-checker=0 disp=PARALLAX relief=1.5000 tod=12.0000
+checker=0 disp=OFF relief=1.5000 tod=CYCLE
 touch_events=0 taps=0 drags=0 pinches=0 flings=0 marks=1100 marks_file=/home/emeric/code/jak-project/mesh_marks.jsonl
 

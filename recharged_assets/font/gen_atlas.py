@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Genere un atlas de glyphes Urbanist + sa table UV pour la police de jak1.
 
-Sources : Urbanist-600.ttf (latin) + urbanist-latin-ext-600-normal.woff2 (latin etendu).
+Sources : Urbanist-700.ttf (latin, graisse Bold demandee) + urbanist-latin-ext-600-normal.woff2 (latin etendu).
 Le jeu de caracteres est DERIVE des banques de texte du jeu, jamais liste a la main.
 """
 import json, math, sys
 from PIL import Image, ImageDraw, ImageFont
 
 CHARSET = open('charset_latin.txt', encoding='utf-8').read()
-BASE, EXT = 'Urbanist-600.ttf', 'urbanist-latin-ext-600-normal.woff2'
+BASE, EXT = 'Urbanist-700.ttf', 'urbanist-latin-ext-600-normal.woff2'
 PAD = 2
 
 def load(px):

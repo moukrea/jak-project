@@ -598,6 +598,19 @@
                                                (-> disp frames (-> disp on-screen) frame debug-buf)
                                                (-> disp frames (-> disp on-screen) frame global-buf)))
                                        (bucket-id debug))
+            ;; PREUVE D'EXECUTION — phase Gfont-urbanist. UN SEUL TIR, et uniquement quand
+            ;; le segment de debug est charge : un build de livraison ne dessine jamais ca.
+            ;; On dessine les glyphes h p a . dans LES DEUX polices par le chemin de rendu
+            ;; normal, puis on publie les nombres que ce chemin a reellement employes a
+            ;; cote de ceux de la table. Sans ce tir, l'ecran-titre ne dessine ni « h » ni
+            ;; « . » et la preuve ne porterait que sur « a ».
+            (#when PC_PORT
+              (when (and *debug-segment* (zero? *font-trace-done*))
+                (set! *font-trace-done* 1)
+                (draw-string-xy "hpa." s3-1 8 8 (font-color default) (font-flags shadow kerning large))
+                (font-trace-dump "GRANDE POLICE font24-table" #t)
+                (draw-string-xy "hpa." s3-1 8 24 (font-color default) (font-flags shadow kerning))
+                (font-trace-dump "PETITE POLICE font12-table" #f)))
             (if (and (= *master-mode* 'pause) (!= *cheat-mode* 'camera))
               (draw-string-xy (lookup-text! *common-text* (text-id pause) #f)
                               s3-1

@@ -69,9 +69,17 @@ FONTDIR = os.path.join(ROOT, "recharged_assets", "font")
 FR3 = os.path.join(ROOT, "out", "jak1", "fr3", "GAME.fr3")
 OUTDIR = os.path.join(ROOT, "custom_assets", "jak1", "recharged_textures", "gamefontnew")
 
-URBANIST = os.path.join(FONTDIR, "Urbanist-600.ttf")
+# GRAISSE : Urbanist Bold (700). La regle a ete posee par le superviseur sur une mesure
+# ("Hamburgefonstiv 123" a 48 px : 500 -> 4567 px d'encre, 600 -> 5532, 700 -> 6337,
+# soit +14,6 %) mais le fichier n'etait pas dans l'arbre et ce generateur pointait encore
+# sur le 600 : la regle etait ECRITE, pas CABLEE. Le TTF est desormais livre ici.
+URBANIST = os.path.join(FONTDIR, "Urbanist-700.ttf")
 NOTOJP = os.path.join(ROOT, "game", "assets", "fonts", "NotoSansJP-Medium.ttf")
 
+ST1_X = 0.08985     # size-st1.x (font-h.gc:297) : part VISIBLE de la cellule en u
+ST2_Y = 0.06153846  # size-st2.y (font-h.gc:299) : part VISIBLE de la cellule en v
+VMARGIN = 0.5       # marge verticale totale laissee dans la cellule, en texels
+HMARGIN = 0.25      # idem horizontalement
 SCALE = 2  # facteur de suréchantillonnage de l'atlas (UV inchangés, ils sont normalisés)
 
 # ---------------------------------------------------------------------------------------
@@ -175,9 +183,9 @@ def plan_large():
 
 
 ATLASES = [
-    # nom, largeur, hauteur, cellule w, cellule h, plan
-    ("ascii.12lo", 128, 256, 12, 16, plan_small),
-    ("ascii.24lo", 256, 512, 24, 32, plan_large),
+    # nom, largeur, hauteur, cellule w, cellule h, hauteur du quad ECRAN, plan
+    ("ascii.12lo", 128, 256, 12, 16, 8, plan_small),
+    ("ascii.24lo", 256, 512, 24, 32, 16, plan_large),
 ]
 
 
@@ -270,7 +278,7 @@ class Renderer:
         return img.resize((nw, nh), Image.LANCZOS), (bb[0] - 2) * kx, (bb[1] - 2) * ky
 
 
-def build(stock, name, W, H, cw, ch, plan_fn, report):
+def build(stock, name, W, H, cw, ch, ch_screen, plan_fn, report):
     plan = plan_fn()
     src = stock[name]
     S = SCALE
@@ -280,80 +288,164 @@ def build(stock, name, W, H, cw, ch, plan_fn, report):
     hb = ink_box(src, cw, ch, ord("H"))
     cap_top, cap_bot = hb[1], hb[3]          # sommet et base des capitales, en texels
     cap_h = cap_bot - cap_top
-    # largeur moyenne d'encre des capitales livrees : sert de temoin, pas de cible
     stock_caps = [ink_box(src, cw, ch, 0x41 + i) for i in range(26)]
     stock_capw = sum((b[2] - b[0]) for b in stock_caps if b) / 26.0
     stock_adv = sum(ADV[name][0x41 + i] for i in range(26)) / 26.0
 
-    # Urbanist est cale sur DEUX mesures de l'atlas livre, jamais sur une hypothese :
-    #   - hauteur de capitale identique  -> meme taille de texte a l'ecran ;
-    #   - largeur d'encre MOYENNE des capitales identique -> meme encombrement, donc
-    #     aucune mise en page ne bouge, et le rapport sx/sy qui en sort MESURE
-    #     l'ecrasement du rendu au lieu de le postuler.
+    # LARGEUR VISIBLE de la cellule : le quad ne montre PAS toute la cellule. Elle se
+    # DERIVE de la constante du moteur (`size-st1.x` de font-h.gc:297), jamais d'un
+    # nombre choisi : 0.08985 * 128 = 11.50 texels (petit), * 256 = 23.00 (grand).
+    vu = ST1_X * W
+    vh = ST2_Y * H   # 15.75 texels (petit), 31.50 (grand) : le dernier demi-texel de la
+                     # cellule n'est JAMAIS affiche, un jambage pose dessus serait coupe.
+
     r = Renderer(URBANIST, NOTOJP, 64)
-    _, hbox = r.metrics("H")
-    urb_cap = hbox[3] - hbox[1]              # hauteur de capitale a em = 64
-    sy = cap_h / urb_cap * 64.0              # echelle verticale, en "em px"
+    base_em = r.metrics("H")[1][3]           # ligne de base, depuis l'ascendante, a em=64
+    urb_cap = base_em - r.metrics("H")[1][1]
     urb_capw = sum((r.metrics(chr(ord("A") + i))[1][2] - r.metrics(chr(ord("A") + i))[1][0])
-                   for i in range(26)) / 26.0     # largeur d'encre moyenne a em = 64
-    sx = stock_capw / urb_capw * 64.0        # echelle horizontale, en "em px"
+                   for i in range(26)) / 26.0
+
+    # ------------------------------------------------------------------------------------
+    # CALIBRATION — elle sort de DEUX contraintes de place mesurees, pas d'un postulat.
+    #
+    # Le cycle precedent calait la hauteur de capitale sur celle du jeu (27 texels en
+    # grande police). Ca ne peut pas tenir des qu'on ecrit en casse mixte : la police
+    # d'origine est TOUT-MAJUSCULES et sa descendante ne fait que 3 texels ; celle
+    # d'Urbanist en demande 9,7 a cette taille. Capitale + jambage = 39,1 texels dans une
+    # cellule de 32 : les jambages de p y q j g sortaient donc par le bas de la cellule.
+    # La cellule est la LIGNE : un quad de 24 x 16 px ecran pour une cellule 24 x 32
+    # texels. Donc, sur une ligne de hauteur fixe, des vraies descendantes se paient en
+    # hauteur de capitale. C'est une propriete de la police, pas un reglage.
+    #
+    #   VERTICAL   : ascendante la plus haute -> jambage le plus bas doit tenir dans la
+    #                cellule. Fixe sy ET la ligne de base.
+    #   HORIZONTAL : la LETTRE la plus large ('M') doit tenir dans la largeur VISIBLE.
+    #                Fixe le plafond de sx ; on garde le calage sur la chasse du jeu
+    #                quand il est plus serre (c'est le cas en petite police).
+    #
+    # Les marques combinantes 0x10-0x16 sont exclues du calcul : elles sont posees par
+    # les decalages ~NNH/~NNV de la table d'accents, qui les mesure APRES coup.
+    # ------------------------------------------------------------------------------------
+    free_marks = {0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16}
+    drawn_chars = [(c, v) for c, v in sorted(plan.items())
+                   if v is not None and v.strip() and c not in free_marks]
+    letters = [v for c, v in drawn_chars if len(v) == 1 and v.isalnum() and ord(v) < 128]
+    bbs = {v: r.metrics(v)[1] for _, v in drawn_chars}
+    asc_em = base_em - min(b[1] for b in bbs.values())
+    desc_em = max(b[3] for b in bbs.values()) - base_em
+    right_letters = max(bbs[v][2] for v in letters)
+
+    sy = (vh - VMARGIN) / (asc_em + desc_em) * 64.0
+    baseline = VMARGIN * 0.5 + asc_em * sy / 64.0     # ligne de base, en texels de cellule
+    sx_stock = stock_capw / urb_capw * 64.0           # calage sur la chasse du jeu
+    sx_fit = (vu - HMARGIN) / right_letters * 64.0    # plafond impose par la cellule
+    sx = min(sx_stock, sx_fit)
 
     advances = {}
-    drawn, kept, clipped = 0, 0, []
+    drawn, kept, condensed, clamped = 0, 0, [], []
+    # transformation appliquee aux cellules CONSERVEES (art des boutons, kana, kanji) :
+    # meme changement d'echelle et meme ligne de base que le latin, sinon les icones de
+    # manette de `<PAD_X>` resteraient a l'ancienne ligne et pendraient sous le texte.
+    fy = (urb_cap * sy / 64.0) / cap_h
+    fx = (urb_capw * sx / 64.0) / stock_capw
     for code in range(0x10, 0x80):
         want = plan.get(code, None)
-        if want is None:
-            kept += 1
-            advances[code] = ADV[name][code]
-            continue
         idx = code - 16
         cx, cy = (idx % 10) * cw * S, (idx // 10) * ch * S
+        if want is None:
+            kept += 1
+            advances[code] = ADV[name][code] * fx
+            cell = src.crop(((idx % 10) * cw, (idx // 10) * ch,
+                             (idx % 10) * cw + cw, (idx // 10) * ch + ch))
+            moved = cell.transform((cw * S, ch * S), Image.AFFINE,
+                                   (1.0 / (S * fx), 0.0, 0.0,
+                                    0.0, 1.0 / (S * fy), cap_bot - baseline / fy),
+                                   Image.BICUBIC)
+            # l'interpolation bicubique DEPASSE (mesure : alpha 147 et 153 sur les pieces
+            # de bouton, contre 128 = opaque dans la convention PS2 de l'atlas livre). On
+            # rabat, sinon ces cellules seraient plus lumineuses que le texte a cote.
+            r_, g_, b_, a_ = moved.split()
+            moved = Image.merge("RGBA", (r_.point(lambda v: 255), g_.point(lambda v: 255),
+                                         b_.point(lambda v: 255),
+                                         a_.point(lambda v: min(v, 128))))
+            out.paste((0, 0, 0, 0), (cx, cy, cx + cw * S, cy + ch * S))
+            out.paste(moved, (cx, cy))
+            continue
         # efface la cellule
         out.paste((0, 0, 0, 0), (cx, cy, cx + cw * S, cy + ch * S))
-        adv_em, _ = r.metrics(want)
-        adv = adv_em * sx / 64.0             # avance en texels de l'atlas (echelle 1x)
-        advances[code] = adv
+        gsx = sx
+        adv_em, gbb = r.metrics(want)
+        if want.strip():
+            # un glyphe encore trop large pour sa cellule est CONDENSE lui-meme, plutot
+            # que de retrecir toute la police pour quatre symboles ; son avance suit le
+            # meme facteur, sinon il laisserait un trou derriere lui.
+            gr = gbb[2] * sx / 64.0
+            if gr > vu:
+                k = vu / gr
+                gsx = sx * k
+                condensed.append((code, want, k))
+        advances[code] = adv_em * gsx / 64.0
         drawn += 1
-        if want == " ":
+        if not want.strip():
             continue
-        glyph, dx, dy = r.render(want, sx, sy)
+        # DEFAUT CORRIGE : le glyphe se rasterise DANS le repere de l'atlas
+        # sur-echantillonne, donc a l'echelle gsx*S / sy*S. La version precedente le
+        # rasterisait a l'echelle 1x et ne multipliait par S que sa POSITION : chaque
+        # glyphe sortait a la MOITIE de sa taille, et son decalage a la ligne de base
+        # etait double par rapport a son propre corps -- d'ou les trois niveaux
+        # d'alignement vus par l'owner (capitales / x-height / hampes) et l'espacement
+        # enorme (l'avance, elle, restait celle d'un glyphe pleine taille).
+        # Tout est desormais en PIXELS D'ATLAS : dx, dy, base_px et baseline * S.
+        glyph, dx, dy = r.render(want, gsx * S, sy * S)
         if glyph is None:
             continue
-        # dy est mesure depuis l'ascendante ; on repositionne sur la LIGNE DE BASE
-        # du jeu : la base des capitales livrees.
-        _, capbox = r.metrics("H")
-        cap_bot_em = capbox[3] * sy / 64.0   # base des capitales depuis l'ascendante
-        px = cx + int(round(dx * S))
-        py = cy + int(round((cap_bot - cap_bot_em + dy) * S))
+        base_px = base_em * (sy * S) / 64.0   # ligne de base depuis l'ascendante, px atlas
+        px = cx + int(round(dx))
+        py = cy + int(round(baseline * S - base_px + dy))
+        if code in free_marks and py < cy:
+            clamped.append((code, want, cy - py))
+            py = cy
         if px < cx:
-            clipped.append((code, want, "gauche %d" % (px - cx)))
             px = cx
-        if px + glyph.width > cx + cw * S:
-            clipped.append((code, want, "droite %d" % (px + glyph.width - cx - cw * S)))
-        col = Image.new("RGBA", glyph.size, (255, 255, 255, 0))
-        col.putalpha(glyph.point(lambda v: v * 128 // 255))  # alpha PS2 : 128 = opaque
-        out.alpha_composite(col, (px, py))
+        out.alpha_composite(
+            Image.merge("RGBA", (glyph.point(lambda v: 255),) * 3
+                        + (glyph.point(lambda v: v * 128 // 255),)), (px, py))
 
-    report.append("[%s] %dx%d -> %dx%d (x%d)  cellule %dx%d" %
-                  (name, W, H, W * S, H * S, S, cw, ch))
-    report.append("  ligne de base MESUREE sur 'H' livre : sommet %d, base %d, "
-                  "hauteur de capitale %d texels" % (cap_top, cap_bot, cap_h))
-    report.append("  echelle Urbanist : verticale %.3f em px, horizontale %.3f em px, "
-                  "rapport sy/sx MESURE = %.3f (le quad fait %d x %d ecran pour une "
-                  "cellule de %d x %d texels, soit un ecrasement geometrique de %.3f)"
-                  % (sy, sx, sy / sx, cw, ch // 2, cw, ch, (ch / (ch // 2)) ))
-    report.append("  cellules redessinees %d, conservees %d" % (drawn, kept))
-    report.append("  largeur d'encre moyenne des capitales : livree %.2f texels, "
-                  "Urbanist cale dessus par construction" % stock_capw)
+    report.append("[%s] %dx%d -> %dx%d (x%d)  cellule %dx%d, largeur VISIBLE %.2f texels"
+                  % (name, W, H, W * S, H * S, S, cw, ch, vu))
+    report.append("  ligne de base : jeu %.2f -> Urbanist %.2f texels (%+.2f texel, soit "
+                  "%+.2f px ecran) ; il FAUT la remonter, la police du jeu est "
+                  "tout-majuscules et n'a que %.0f texels sous sa base"
+                  % (cap_bot, baseline, baseline - cap_bot,
+                     (baseline - cap_bot) * (ch_screen / ch), ch - cap_bot))
+    report.append("  contrainte VERTICALE : ascendante %.2f + jambage %.2f = %.2f em px "
+                  "doivent tenir dans les %.2f texels VISIBLES de la cellule -> sy = %.3f"
+                  % (asc_em, desc_em, asc_em + desc_em, vh, sy))
+    report.append("  contrainte HORIZONTALE : lettre la plus large %.2f em px dans %.2f "
+                  "texels visibles -> sx <= %.3f ; calage sur la chasse du jeu -> %.3f ; "
+                  "retenu %.3f" % (right_letters, vu, sx_fit, sx_stock, sx))
+    report.append("  hauteur de capitale : jeu %.2f -> Urbanist %.2f texels (x%.3f), soit "
+                  "%.2f -> %.2f px ecran. C'est le PRIX des vraies descendantes sur une "
+                  "ligne de hauteur fixe." % (cap_h, urb_cap * sy / 64.0,
+                                              urb_cap * sy / 64.0 / cap_h,
+                                              cap_h * ch_screen / ch,
+                                              urb_cap * sy / 64.0 * ch_screen / ch))
+    report.append("  cellules redessinees %d, conservees %d (conservees remises a la "
+                  "meme echelle x%.3f/x%.3f et a la MEME ligne de base : les pieces de "
+                  "<PAD_X> restent solidaires du texte)" % (drawn, kept, fx, fy))
     new_adv = sum(advances[0x41 + i] for i in range(26)) / 26.0
     report.append("  avance moyenne A-Z : livree %.3f, Urbanist %.3f (x%.3f)" %
                   (stock_adv, new_adv, new_adv / stock_adv))
-    if clipped:
-        report.append("  DEBORDEMENTS DE CELLULE : %d" % len(clipped))
-        for c in clipped:
-            report.append("    0x%02x %r %s" % c)
+    if condensed:
+        report.append("  GLYPHES CONDENSES pour tenir dans la cellule : %d" % len(condensed))
+        for c, g, k in condensed:
+            report.append("    0x%02x %r x%.3f" % (c, g, k))
     else:
-        report.append("  aucun debordement de cellule")
+        report.append("  aucun glyphe condense")
+    if clamped:
+        report.append("  MARQUES COMBINANTES recalees en haut de cellule : %d" % len(clamped))
+        for c, g, d in clamped:
+            report.append("    0x%02x %r remontee de %d px atlas" % (c, g, d))
     return out, advances
 
 
@@ -417,8 +509,8 @@ def main():
     os.makedirs(OUTDIR, exist_ok=True)
     report = []
     tables = {}
-    for name, W, H, cw, ch, plan_fn in ATLASES:
-        img, adv = build(stock, name, W, H, cw, ch, plan_fn, report)
+    for name, W, H, cw, ch, ch_screen, plan_fn in ATLASES:
+        img, adv = build(stock, name, W, H, cw, ch, ch_screen, plan_fn, report)
         img.save(os.path.join(OUTDIR, name + ".png"))
         # reconversion en colonne w de la table GOAL
         k = 0.5 if name.startswith("ascii.12") else 1.0

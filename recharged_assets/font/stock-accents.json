@@ -1,0 +1,592 @@
+[
+ {
+  "raw": "A~Y~-21H~-5Vº~Z",
+  "res": "Å",
+  "base": "A",
+  "mark": "º",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "O~Y~-16H~-1V/~Z",
+  "res": "Ø",
+  "base": "O",
+  "mark": "/",
+  "H": -16,
+  "V": -1,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "A~Y~-6H~+3V,~Z",
+  "res": "Ą",
+  "base": "A",
+  "mark": ",",
+  "H": -6,
+  "V": 3,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "E~Y~-6H~+2V,~Z",
+  "res": "Ę",
+  "base": "E",
+  "mark": ",",
+  "H": -6,
+  "V": 2,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "L~Y~-16H~+0V/~Z",
+  "res": "Ł",
+  "base": "L",
+  "mark": "/",
+  "H": -16,
+  "V": 0,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "Z~Y~-21H~-5Vº~Z",
+  "res": "Ż",
+  "base": "Z",
+  "mark": "º",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "E~Y~-20H~-5Vº~Z",
+  "res": "Ė",
+  "base": "E",
+  "mark": "º",
+  "H": -20,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "C~Y~-20H~-4Vˇ~Z",
+  "res": "Č",
+  "base": "C",
+  "mark": "ˇ",
+  "H": -20,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "D~Y~-20H~-4Vˇ~Z",
+  "res": "Ď",
+  "base": "D",
+  "mark": "ˇ",
+  "H": -20,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "S~Y~-22H~-4Vˇ~Z",
+  "res": "Š",
+  "base": "S",
+  "mark": "ˇ",
+  "H": -22,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "Z~Y~-22H~-4Vˇ~Z",
+  "res": "Ž",
+  "base": "Z",
+  "mark": "ˇ",
+  "H": -22,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "U~Y~-13H~+2V,~Z",
+  "res": "Ų",
+  "base": "U",
+  "mark": ",",
+  "H": -13,
+  "V": 2,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "U~Y~-18H~-10V-~Z",
+  "res": "Ū",
+  "base": "U",
+  "mark": "-",
+  "H": -18,
+  "V": -10,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "D~Y~-25H~-1V-~Z",
+  "res": "Đ",
+  "base": "D",
+  "mark": "-",
+  "H": -25,
+  "V": -1,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "I~Y~-8H~+1V,~Z",
+  "res": "Į",
+  "base": "I",
+  "mark": ",",
+  "H": -8,
+  "V": 1,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "U~Y~-23H~-5Vº~Z",
+  "res": "Ů",
+  "base": "U",
+  "mark": "º",
+  "H": -23,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "N~Y~-22H~-4V<TIL>~Z",
+  "res": "Ñ",
+  "base": "N",
+  "mark": "<TIL>",
+  "H": -22,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "A~Y~-21H~-5V<TIL>~Z",
+  "res": "Ã",
+  "base": "A",
+  "mark": "<TIL>",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "O~Y~-22H~-4V<TIL>~Z",
+  "res": "Õ",
+  "base": "O",
+  "mark": "<TIL>",
+  "H": -22,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "A~Y~-21H~-5V'~Z",
+  "res": "Á",
+  "base": "A",
+  "mark": "'",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "E~Y~-22H~-5V'~Z",
+  "res": "É",
+  "base": "E",
+  "mark": "'",
+  "H": -22,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "I~Y~-19H~-5V'~Z",
+  "res": "Í",
+  "base": "I",
+  "mark": "'",
+  "H": -19,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "O~Y~-22H~-4V'~Z",
+  "res": "Ó",
+  "base": "O",
+  "mark": "'",
+  "H": -22,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "U~Y~-24H~-3V'~Z",
+  "res": "Ú",
+  "base": "U",
+  "mark": "'",
+  "H": -24,
+  "V": -3,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "C~Y~-21H~-5V'~Z",
+  "res": "Ć",
+  "base": "C",
+  "mark": "'",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "N~Y~-21H~-5V'~Z",
+  "res": "Ń",
+  "base": "N",
+  "mark": "'",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "S~Y~-21H~-5V'~Z",
+  "res": "Ś",
+  "base": "S",
+  "mark": "'",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "Z~Y~-21H~-5V'~Z",
+  "res": "Ź",
+  "base": "Z",
+  "mark": "'",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "Y~Y~-25H~-4V'~Z",
+  "res": "Ý",
+  "base": "Y",
+  "mark": "'",
+  "H": -25,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "O~Y~-28H~-4V'~-9H'~Z",
+  "res": "Ő",
+  "base": "O",
+  "mark": "'",
+  "H": -28,
+  "V": -4,
+  "H2": -9,
+  "mark2": "'"
+ },
+ {
+  "raw": "U~Y~-27H~-4V'~-12H'~Z",
+  "res": "Ű",
+  "base": "U",
+  "mark": "'",
+  "H": -27,
+  "V": -4,
+  "H2": -12,
+  "mark2": "'"
+ },
+ {
+  "raw": "A~Y~-20H~-4V^~Z",
+  "res": "Â",
+  "base": "A",
+  "mark": "^",
+  "H": -20,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "E~Y~-20H~-5V^~Z",
+  "res": "Ê",
+  "base": "E",
+  "mark": "^",
+  "H": -20,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "I~Y~-19H~-5V^~Z",
+  "res": "Î",
+  "base": "I",
+  "mark": "^",
+  "H": -19,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "O~Y~-20H~-4V^~Z",
+  "res": "Ô",
+  "base": "O",
+  "mark": "^",
+  "H": -20,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "U~Y~-24H~-3V^~Z",
+  "res": "Û",
+  "base": "U",
+  "mark": "^",
+  "H": -24,
+  "V": -3,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "A~Y~-21H~-5V`~Z",
+  "res": "À",
+  "base": "A",
+  "mark": "`",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "E~Y~-22H~-5V`~Z",
+  "res": "È",
+  "base": "E",
+  "mark": "`",
+  "H": -22,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "I~Y~-19H~-5V`~Z",
+  "res": "Ì",
+  "base": "I",
+  "mark": "`",
+  "H": -19,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "O~Y~-22H~-4V`~Z",
+  "res": "Ò",
+  "base": "O",
+  "mark": "`",
+  "H": -22,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "U~Y~-24H~-3V`~Z",
+  "res": "Ù",
+  "base": "U",
+  "mark": "`",
+  "H": -24,
+  "V": -3,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "A~Y~-21H~-5V¨~Z",
+  "res": "Ä",
+  "base": "A",
+  "mark": "¨",
+  "H": -21,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "E~Y~-20H~-5V¨~Z",
+  "res": "Ë",
+  "base": "E",
+  "mark": "¨",
+  "H": -20,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "I~Y~-19H~-5V¨~Z",
+  "res": "Ï",
+  "base": "I",
+  "mark": "¨",
+  "H": -19,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "O~Y~-22H~-4V¨~Z",
+  "res": "Ö",
+  "base": "O",
+  "mark": "¨",
+  "H": -22,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "U~Y~-22H~-3V¨~Z",
+  "res": "Ü",
+  "base": "U",
+  "mark": "¨",
+  "H": -22,
+  "V": -3,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "A~Y~-20H~-4Vˇ~Z",
+  "res": "Ǎ",
+  "base": "A",
+  "mark": "ˇ",
+  "H": -20,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "E~Y~-20H~-5Vˇ~Z",
+  "res": "Ě",
+  "base": "E",
+  "mark": "ˇ",
+  "H": -20,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "G~Y~-20H~-5Vˇ~Z",
+  "res": "Ǧ",
+  "base": "G",
+  "mark": "ˇ",
+  "H": -20,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "I~Y~-19H~-5Vˇ~Z",
+  "res": "Ǐ",
+  "base": "I",
+  "mark": "ˇ",
+  "H": -19,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "O~Y~-20H~-4Vˇ~Z",
+  "res": "Ǒ",
+  "base": "O",
+  "mark": "ˇ",
+  "H": -20,
+  "V": -4,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "U~Y~-24H~-3Vˇ~Z",
+  "res": "Ǔ",
+  "base": "U",
+  "mark": "ˇ",
+  "H": -24,
+  "V": -3,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "Y~Y~-24H~-3Vˇ~Z",
+  "res": "Y̌",
+  "base": "Y",
+  "mark": "ˇ",
+  "H": -24,
+  "V": -3,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "C~Y~-25H~-9Vˇ~Z",
+  "res": "Č",
+  "base": "C",
+  "mark": "ˇ",
+  "H": -25,
+  "V": -9,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "N~Y~-23H~-5Vˇ~Z",
+  "res": "Ň",
+  "base": "N",
+  "mark": "ˇ",
+  "H": -23,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "R~Y~-24H~-5Vˇ~Z",
+  "res": "Ř",
+  "base": "R",
+  "mark": "ˇ",
+  "H": -24,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "S~Y~-24H~-5Vˇ~Z",
+  "res": "Š",
+  "base": "S",
+  "mark": "ˇ",
+  "H": -24,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "T~Y~-23H~-5Vˇ~Z",
+  "res": "Ť",
+  "base": "T",
+  "mark": "ˇ",
+  "H": -23,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ },
+ {
+  "raw": "Z~Y~-23H~-5Vˇ~Z",
+  "res": "Ž",
+  "base": "Z",
+  "mark": "ˇ",
+  "H": -23,
+  "V": -5,
+  "H2": null,
+  "mark2": null
+ }
+]

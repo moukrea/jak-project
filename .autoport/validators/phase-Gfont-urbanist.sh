@@ -12,6 +12,10 @@ grep -qiE 'lowercase' "$R" || fail "minuscule|la correspondance des minuscules d
 grep -qiE '4.?bit' "$R" || fail "8.?bit|profondeur|depth|le format retenu doit etre justifie par une mesure"
 grep -qiE 'japon' "$R" || fail "ja-JP|CJK|le japonais doit rester sur sa police d origine"
 grep -qiE 'acronym' "$R" || fail "exception|PS2|la regle de casse et ses exceptions doivent etre publiees"
+grep -qiE 'by|bearing|ordonnee|baseline' "$R" || fail "l'\''ordonnee par glyphe (by) doit etre traitee"
+grep -qiE 'adv|avance' "$R" || fail "l'\''avance par glyphe (adv) doit etre traitee"
+grep -qiE "table.*(runtime|execution|reel)|reel.*table|cote a cote" "$R" || fail "il faut publier les valeurs REELLEMENT utilisees a cote de celles de la table"
+grep -qiE '\bh\b.*\ba\b|glyphe' "$R" || fail "la preuve doit porter sur des glyphes nommes"
 ok "report markers present"
 SUP=$(git log --format=%H --grep="\[autoport/supervisor\]" | head -1); ANCHOR=${SUP:-HEAD~1}
 CHG=$(git diff --name-only "$ANCHOR" -- goal_src/ game/ android/ recharged_assets/ 2>/dev/null; git status --porcelain -- goal_src/ game/ android/ recharged_assets/ 2>/dev/null | awk "{print \$2}")
