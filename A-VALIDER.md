@@ -44,10 +44,24 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
   non, je sais où reprendre du temps : pendant les ~15,7 s du logo Naughty Dog le chargement
   tourne au ralenti (budget de 4,5 ms par image), il y a de la marge là.
 
-  **Ce que je n'ai PAS pu mesurer :** le retour de Geyser Rock. C'est le même mécanisme, sur
-  le même chemin de code, et la barrière s'y arme bien sur la plage — mais pour le mesurer il
-  faut jouer jusqu'à Geyser Rock et en revenir, et je ne peux pas. Si tu y passes, c'est la
-  séquence à regarder.
+  **TESTÉ PAR TOI le 2026-08-28 sur le Honor — VERDICT : à moitié.** Tu as chargé une
+  sauvegarde à la fin de Geyser Rock. L'écran noir a bien tenu jusqu'à Sandover Village et la
+  cinématique s'est lancée chargée : cette moitié-là marche. Mais quand la caméra part sur les
+  collecteurs d'Eco vert pendant que Samos en parle, **la plage n'est toujours pas là** — tu
+  vois des morceaux de l'endroit, pas les collecteurs. Non corrigé.
+
+  J'ai vérifié statiquement : la scène concernée (`sage-intro-sequence-e`) **est** dans les 18
+  scènes que la barrière retient, et elle s'arme bien sur la plage. Le mécanisme n'est donc pas
+  contourné, il cède à l'exécution. Deux causes possibles, détail dans
+  `.autoport/reports/OWNER-DEFECT-barriere-ne-couvre-pas-les-acteurs-de-beach.md` :
+  soit le plafond de 20 s est trop court pour la plage, soit — et ça colle mieux à ce que tu
+  décris — la barrière attend que le **décor** de la plage soit prêt alors que la scène a
+  besoin de ses **acteurs** (les collecteurs et les évents sont des acteurs, pas du décor).
+
+  **Une seule ligne de ton journal Honor tranche entre les deux** — celle qui commence par
+  `LOADGATE open scene=sage-intro-sequence-e`. Ou ta sauvegarde, et je la mesure moi-même. Je
+  ne relève pas le plafond au hasard : si c'est la deuxième cause, ça rallonge ton écran noir
+  sans rien réparer.
 
 ---
 
