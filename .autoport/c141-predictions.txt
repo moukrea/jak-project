@@ -1,0 +1,111 @@
+# CYCLE 141 — PREDICTIONS ECRITES AVANT LA COURSE
+# DIRECTIVES vd9e8b66782
+# Perimetre : Grecharged-secondary-motion, poitrine de Keira seule.
+#
+# Course de reference (AVANT le lot) : .autoport/reports/Grecharged-secondary-motion/keira-room-x86.log
+#   md5 de reference releve ci-dessous au moment ou ce fichier est ecrit.
+#
+# ==============================================================================================
+# LOT A — §7 l.130 : LE `+Z` DU TRIEDRE EST REMIS DANS LE SENS QUE LA SECTION ECRIT
+#         (passe APPARIEE : signe de `fz` + echange des colonnes `wbk`/`wfw`)
+# ==============================================================================================
+#
+# A1. IDENTITE AU BIT, ET C'EST LA PREDICTION QUI PORTE TOUT LE LOT.
+#     La trace neuve est identique a la trace de reference sur TOUT type d'enregistrement,
+#     A LA SEULE EXCEPTION de `PHYSTRI ... a=2`.
+#     Falsifiee par : n'importe quel autre enregistrement qui differe. Ce serait la preuve que
+#     l'audit des CINQ consommateurs de `*phys-fz*` ([NOTE-583]) est incomplet.
+#
+# A2. `PHYSTRI c=~D a=2 x= y= z=` : les trois composantes sont EXACTEMENT negues sur les DEUX
+#     chaines (x_neuf = -x_ancien au bit, idem y et z).
+#     Falsifiee par : une composante qui n'est pas l'exact oppose, ou une seule chaine touchee.
+#
+# A3. `PHYSTRI c=~D a=0` (l'axe lateral sortant `fx`) est IDENTIQUE AU BIT sur les deux chaines.
+#     C'est le test du remiroitement de [NOTE-324] : `fx` est negue par le produit vectoriel PUIS
+#     remis par un critere qui ne depend pas de `fz`.
+#     Falsifiee par : `fx` negue, ou modifie d'un ulp.
+#
+# A4. `ROOM-SPEC7-MIROIR` : angle inchange (0.251 deg attendu), verdict `MIROIR TENU` inchange.
+# A5. `ROOM-SPEC7-SENS` : les DEUX determinants changent de signe (det_L passe de -0.99998 a
+#     +0.99998 et det_R de +0.99998 a -0.99998), et le verdict reste `SENS OPPOSES` — la ligne
+#     teste `det_L * det_R < 0`, invariant par negation globale.
+#     Falsifiee par : un verdict `MEME SENS`, ou des determinants inchanges (= `fz` pas negue).
+#
+# A6. AUCUN STATUT DE SECTION NE BOUGE DU FAIT DE CE LOT SEUL. Il ferme une contradiction
+#     MESUREE entre notre convention et la lettre de §7 ; il n'ameliore aucun comportement.
+#     Si une grandeur physique bouge, c'est A1 qui est refutee, pas un succes.
+#
+# A7. COUT NUL SUR LES DEUX MARGES QUI SONT SERREES EN ENTREE DE CYCLE, ET C'EST UNE CONSEQUENCE
+#     DE A1, PAS UN ESPOIR :
+#       * `ROOM-SKINPEN` chestR 0.0871 (marge de la gate COLLIDE : 0.0012 m) -> INCHANGE AU BIT
+#       * `meshpen` (BREAST-PENETRATION) 0.0893 -> INCHANGE AU BIT
+#       * `ROOM-APEX` chestL max 0.9426 / chestR max 1.0242 -> INCHANGES AU BIT
+#     Falsifiee par : le moindre mouvement sur l'une des trois.
+#
+# A8. PLAFOND `CLEAN` : `jak-hd-physics.gc` reste a 4799 lignes (plafond 4800). VERIFIE AVANT LA
+#     COURSE : le lot A est un remplacement ligne pour ligne, +6/-6.
+# md5 reference : 3cff243767496398f2b25acbba00a18b
+
+# ==============================================================================================
+# LOT B — §7 3e CLAUSE : L'ECHELON DE LACET STATIQUE (PH-YAW, phase 42)
+#         « all dynamic calculations shall occur relative to the torso/root transform rather than
+#           directly in world space » (SPEC-breast-softbody.md l.126-134)
+#         Le test est celui que la ligne de §7 de SPEC-COVERAGE.md NOMME depuis le cycle 63 et
+#         declare INEXISTANT dans la salle.
+# ==============================================================================================
+#
+# B1. `PHYSROOM-PHASEGUARD maxwork=42 report=43 done=44 ok=1`.
+#     Falsifiee par : `ok=0` (une phase de travail >= REPORT) ou `maxwork` != 42.
+#
+# B2. `PHYSROOM-PHASEVISITED maxvisited=42` (il valait 41). Une phase declaree mais jamais visitee
+#     est le piege `declared-but-never-selected` : cette ligne est ce qui l'interdit.
+#
+# B3. CINQ lignes `PHYSYAWC`, i=0..4, `ax=1 1 1 1 0`, `deg=0 90 180 -90 90`.
+#
+# B4. GARDE ANTI-MIROIR, ET ELLE PASSE AVANT TOUTE LECTURE D'INVARIANCE :
+#     `PHYSYAWR nrb=0.0000 nrot=0.0000 nfr>0` sur LES DIX lignes (5 cellules x 2 chaines).
+#     Le rebase de §37 est arme a 20 deg/frame et il ferait tourner l'etat des particules dans le
+#     nouveau repere, rendant l'invariance VRAIE PAR CONSTRUCTION. La rampe est dimensionnee pour
+#     rester sous le seuil (11,8 deg/frame au pire), mais c'est CETTE LIGNE qui le prouve.
+#     **Si `nrot > 0` sur une seule cellule, AUCUN verdict de §7 n'est rendu ce cycle.**
+#
+# B5. LA MESURE. `PHYSMEAN tag=yaw90|yaw180|yawm90 c=~D x y z` (repere ANCRE) est INVARIANT par
+#     rapport a `tag=yaw0`, sur les deux chaines.
+#     CRITERE, ECRIT AVANT LA COURSE ET NON RENEGOCIABLE APRES : l'ecart max des trois cellules de
+#     lacet a `yaw0` doit valoir <= 10 % de l'ecart de la cellule de CONTROLE (`yawtiltctl`) a
+#     `yaw0`. Un rapport, pas un seuil absolu : il n'y a pas de plancher de bruit publie pour
+#     `PHYSMEAN` et en inventer un serait `never-fit-a-parameter-to-the-instrument`.
+#       <= 10 %  -> la 3e clause de §7 est TENUE, et §7 peut passer `PARTIELLE` -> `TENUE`
+#                   (sous reserve que le lot A ait ferme sa reserve de sens de +Z, ce qu'il fait)
+#       >  10 %  -> la clause est NON TENUE et §7 reste `PARTIELLE`, avec le chiffre publie.
+#
+# B6. CONTROLE DE DISCRIMINATION (repere MONDE, meme pose, meme frame, meme tag) :
+#     `PHYSPOSETAG tag=yaw90` differe de `tag=yaw0` d'une rotation d'environ 90 deg sur les
+#     directions d'os, et `yaw180` d'environ 180 deg.
+#     Falsifiee par : `PHYSPOSETAG` inchange -> le lacet n'a pas eu lieu, et B5 ne mesure rien.
+#     C'est la ligne qui empeche « rien n'a bouge » de se lire comme une preuve.
+#
+# B7. CONTROLE POSITIF (echelle a variable unique : SEUL l'axe de rotation change) :
+#     `PHYSMEAN tag=yawtiltctl` differe de `tag=yaw0` de facon franche sur les deux chaines.
+#     Falsifiee par : un controle qui ne tire pas -> l'instrument est mort et B5 est sans valeur.
+#
+# B8. CONFINEMENT CAUSAL. PH-YAW est APPENDUE entre PH-REGC et PH-REPORT, donc tout ce qui est
+#     emis avant elle est identique au bit. LES EXCEPTIONS SONT ENUMEREES A L'AVANCE, et toute
+#     autre difference refute la prediction :
+#       (a) `PHYSTRI ... a=2` (lot A) ;
+#       (b) `PHYSROOM-PHASEGUARD report=/done=` (emise au demarrage, renumerotation) ;
+#       (c) `PHYSROOM-PHASEVISITED maxvisited=` ;
+#       (d) `PHYSNOPLAY viol= actors=` — compteurs accumules a CHAQUE frame, et PH-YAW en ajoute
+#           1020. Prediction : ils restent a `viol=0` (aucun target ne renait).
+#     NON VERIFIE, ET JE LE DIS AU LIEU DE L'AFFIRMER : les latches de course `PHYSPC
+#     armed/disarmed/armx/disx`. Je predis qu'ils ne bougent pas (PH-YAW n'injecte aucune poussee
+#     et ne touche aucun interrupteur d'ablation), mais je n'ai pas trace tous leurs sites
+#     d'ecriture.
+#
+# B9. LA GATE `COLLIDE` NE PEUT PAS BOUGER, ET C'EST STRUCTUREL, PAS UN ESPOIR : `ROOM-SKINPEN` et
+#     `meshpen` sont derives d'enregistrements que PH-YAW N'EMET PAS. La marge de chestR
+#     (0,0012 m) est donc intacte par construction. Falsifiee par : la moindre variation de l'un
+#     des deux.
+#
+# B10. COUT EN TEMPS : 5 x 204 = 1020 frames simulees. `PHYSEND` etait a 1179 s pour un plafond de
+#      1500 s. Prediction : `PHYSEND` sous 1300 s.

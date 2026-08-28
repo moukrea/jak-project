@@ -662,8 +662,77 @@
                                     ;; premiere fenetre d'une phase neuve recoit sinon le retour
                                     ;; de la phase precedente comme un stimulus (x74 au cycle 52).
 (defconstant PHYSROOM-REGCN 8)      ;; 4 cellules (sens x regime) x 2 jambes d'ablation
-(defconstant PHYSROOM-PH-REPORT 42)
-(defconstant PHYSROOM-PH-DONE 43)
+
+;; ------------------------------------------------------------------------------------------------
+;; 9 decies. L'ECHELON DE LACET STATIQUE — LA 3e CLAUSE DE SPEC 7, ET ELLE N'A JAMAIS ETE JOUEE.
+;;
+;; POURQUOI CETTE PHASE EXISTE, ET CE N'EST PAS MOI QUI L'INVENTE. `SPEC-breast-softbody.md`
+;; l.126-134 ecrit « all dynamic calculations shall occur **relative to the torso/root transform**
+;; rather than directly in world space ». `.autoport/SPEC-COVERAGE.md`, ligne de §7, dit depuis le
+;; cycle 63 pourquoi la section reste `PARTIELLE` et NOMME le test qui la trancherait : « un
+;; ECHELON DE LACET STATIQUE (rotation autour de l'axe de gravite, qui laisse `g_local` invariant),
+;; dont la reponse etablie doit etre INCHANGEE si le calcul est dans le repere du torse. Il n'existe
+;; pas dans la salle. » Il existe a partir d'ici.
+;;
+;; LA PREMISSE EST DE L'ALGEBRE, PAS UNE ESPERANCE. La gravite du moteur est portee par le SEUL axe
+;; monde Y (`jak-hd-physics.gc:2579` et `:2664`, `gy = -11.16`). Une rotation d'angle t autour de
+;; monde Y laisse donc `g_local = R_ancre^T . g` invariant : `R_y(t)^T . (0,gy,0) = (0,gy,0)`. Et
+;; `g_ref` est latche a la premiere frame de la chaine, donc `g_local - g_ref` l'est aussi. Le
+;; stimulus de §3 est identiquement nul d'une cellule a l'autre : ce qui reste ne peut venir que du
+;; LIEU du calcul.
+;;
+;; CE QUI SEPARE CE TEST D'UN MIROIR, ET C'EST LA PARTIE QUI M'A COUTE LE PLUS DE VERIFICATION.
+;; Le rebase de rotation de §37 est ARME depuis le cycle 140 (`rbrot=20.0` degres, livre sur les
+;; DEUX chaines dans `recharged_assets/physics_chains.txt`). Il fait TOURNER l'etat des particules
+;; dans le nouveau repere des qu'une frame depasse 20 degres de rotation d'ancre. Un echelon de
+;; lacet JOUE EN UNE FRAME rendrait donc la lecture repere-ancre invariante PAR CONSTRUCTION —
+;; c'est-a-dire exactement le faux vert que la directive du 2026-08-23 16:00 appelle un miroir.
+;; DEUX PARADES, ET LES DEUX SONT POSEES :
+;;   1. la rampe est un demi-cosinus sur PHYSROOM-YAWRAMP frames, donc au pire
+;;      180 * (pi/2) / 24 = 11,8 deg/frame sur la cellule la plus raide — SOUS le seuil de 20 ;
+;;   2. on ne le suppose pas : `PHYSYAWR` publie, PAR CELLULE ET PAR CHAINE, le compte de rebases
+;;      tires (`phys-diag` 29), le maximum de rotation d'ancre vu (100), le compte de frames qui
+;;      ont franchi le seuil (101) et SON DENOMINATEUR (102). Un verdict d'invariance lu avec
+;;      `nrot > 0` ne vaut rien et la ligne le dit d'elle-meme.
+;;
+;; LA CELLULE 4 EST LE CONTROLE POSITIF, ET C'EST UNE ECHELLE A VARIABLE UNIQUE. Meme rampe, meme
+;; duree, meme etablissement, meme emetteur, meme fenetre : SEUL L'AXE DE ROTATION CHANGE (monde X
+;; au lieu de monde Y). Une rotation autour de X fait basculer `g_local`, donc la reponse etablie
+;; DOIT bouger. Si elle ne bouge pas, l'instrument est mort et aucune des quatre cellules de lacet
+;; ne porte de verdict — c'est la garde qui empeche « rien n'a bouge » de se lire comme une preuve.
+;;
+;; LES DEUX LECTURES SONT PRISES SUR LA MEME POSE, LA MEME FRAME, SOUS LE MEME TAG, par le seul
+;; appel `physroom-emit-mean` :
+;;   `PHYSMEAN`     NATURE : position MOYENNE de la pointe sur la fenetre (pas une variance, pas un
+;;                  max) — une clause sur le LIEU du calcul se lit sur un DEPLACEMENT SOUTENU.
+;;                  REPERE : la base de l'ANCRE (`*phys-ox/oy/oz*`, ecrits apres `w2l`,
+;;                  jak-hd-physics.gc:3236-3240). ATTENDU : INVARIANT sur les cellules 0 a 3.
+;;   `PHYSPOSETAG`  REPERE : le MONDE (differences normalisees de deux `bones transform vector 3`).
+;;                  ATTENDU : tourne de l'angle commande. C'EST LE CONTROLE DE DISCRIMINATION —
+;;                  sans lui, « la lecture d'ancre n'a pas bouge » et « le lacet n'a pas eu lieu »
+;;                  sont le meme zero.
+;; LIGNE DE BASE : la cellule 0 est un lacet de 0 degre, c'est-a-dire la pose debout d'auteur. Elle
+;;   est JOUEE, avec la meme rampe et la meme duree que les autres, et pas empruntee a une phase
+;;   d'avant : dans une simulation continue une reference prise 40 phases plus tot n'en est pas une.
+;;
+;; APPENDUE ENTRE PH-REGC ET PH-REPORT : tout ce qui precede reste identique au bit (le cycle 140 a
+;; etabli que la salle joue ses fenetres en UNE simulation continue, donc l'amont d'une insertion
+;; est intact et l'aval ne l'est pas — ici il n'y a pas d'aval).
+(defconstant PHYSROOM-PH-YAW 42)
+(defconstant PHYSROOM-YAWN 5)       ;; 4 cellules de lacet + 1 controle positif
+(defconstant PHYSROOM-YAWRAMP 24)   ;; frames de rampe (comparaisons entieres)
+(defconstant PHYSROOM-YAWRAMPF 24.0);; la MEME duree en flottant. Deux constantes et pas un `the` :
+                                    ;; `(the float <litteral entier>)` se replie en REINTERPRETATION
+                                    ;; de bits (le piege deja paye par PHYSROOM-IMPFF).
+(defconstant PHYSROOM-YAWM 144)     ;; 24 + 120 : ouverture de la fenetre de moyenne. Les 120 frames
+                                    ;; d'etablissement sont dimensionnees sur sa §27 (« essentially
+                                    ;; stationary ~1.3-1.7 s » = 78 a 102 frames), avec de la marge.
+(defconstant PHYSROOM-YAWE 204)     ;; 144 + 60 : fin de cellule. 5 x 204 = 1020 frames.
+(define *physroom-yaw-ax* (new 'static 'array int32 5   1 1 1 1 0))    ;; 1 = monde Y (gravite), 0 = monde X
+(define *physroom-yaw-dg* (new 'static 'array float 5   0.0 90.0 180.0 -90.0 90.0))
+
+(defconstant PHYSROOM-PH-REPORT 43)
+(defconstant PHYSROOM-PH-DONE 44)
 
 (deftype phys-subject (process-drawable)
   ((phase   int32)
@@ -711,6 +780,7 @@
    (tus     float)     ;; PH-REGB : le SIGNE qui oriente la verticale de l'ancre vers le HAUT,
    (tfs     float)     ;;   et celui qui oriente sa ligne 2 vers l'AVANT. Les deux sont MESURES et
                        ;;   latches a l'entree de la phase, jamais ecrits en dur.
+   (yawi    int32)     ;; PH-YAW : index de cellule 0..PHYSROOM-YAWN-1 de l'echelon de lacet
    (sgi     int32)     ;; index de fenetre du balayage PAR SENS (SPEC 21/33/34, cycle 52)
    (symi    int32)     ;; index de cellule du balayage A DEUX POSES (SPEC 12/18, cycle 56)
    (cex     float)     ;; offset MESURE de l'ancre a la racine de l'acteur, releve a l'execution :
@@ -1072,6 +1142,23 @@
   ;; les quatre pilotages de translation laissent le sujet DROIT : sans ca l'inclinaison de la
   ;; fenetre precedente resterait en place et contaminerait la suivante.
   (when (< mode 4) (quaternion-identity! (-> self root quat)))
+  (none))
+
+;; L'ECHELON DE LACET DE PH-YAW : une pose TENUE, atteinte par une rampe, sujet a `home`.
+;; `trans` est recopie de `home` A CHAQUE FRAME et `vel` est nulle : l'ancre ne TRANSLATE pas, donc
+;; `a_torso` de sa §3 est identiquement nul et le seul stimulus de la cellule est son orientation.
+;; C'est ce qui distingue cette phase des fenetres r=9/r=10 de PH-REG*, ou le meme lacet est joue
+;; mais avec une translation d'ancre sur un arc — donc avec une acceleration de repere par-dessus.
+;; La rampe est le MEME demi-cosinus que `physroom-drive` mode 4 et `physroom-unlean` : a `f = 0`
+;; elle rend la pose droite, a `f >= PHYSROOM-YAWRAMP` exactement `deg`.
+(defbehavior physroom-yawpose phys-subject ((ax int) (deg float) (f int))
+  (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
+  (vector-copy! (-> self root trans) (-> self home))
+  (let* ((u (if (< f PHYSROOM-YAWRAMP) (/ (the float f) PHYSROOM-YAWRAMPF) 1.0))
+         (a (* deg (* 0.5 (- 1.0 (cos (* 32768.0 u)))))))
+    (if (zero? ax)
+      (quaternion-axis-angle! (-> self root quat) 1.0 0.0 0.0 (degrees a))
+      (quaternion-axis-angle! (-> self root quat) 0.0 1.0 0.0 (degrees a))))
   (none))
 
 (defbehavior physroom-hold phys-subject ()
@@ -6739,7 +6826,49 @@
               (phys-diag-reset!)
               (set! (-> self regc) -1)
               (set! (-> self pframe) 0)
-              (set! (-> self phase) PHYSROOM-PH-REPORT)))))))
+              (set! (-> self yawi) 0)
+              (set! (-> self phase) PHYSROOM-PH-YAW)))))))
+
+    ;; ---- 9 decies. ECHELON DE LACET STATIQUE : SPEC 7, 3e CLAUSE (voir le pave des constantes) --
+    ((= (-> self phase) PHYSROOM-PH-YAW)
+     (cond
+       ((>= (-> self yawi) PHYSROOM-YAWN)
+        (physroom-hold)
+        (set! (-> self pframe) 0)
+        (set! (-> self phase) PHYSROOM-PH-REPORT))
+       (else
+        (let ((ci (-> self yawi)))
+          (physroom-yawpose (-> *physroom-yaw-ax* ci) (-> *physroom-yaw-dg* ci) (-> self pframe))
+          ;; LA FENETRE DE MOYENNE S'OUVRE APRES L'ETABLISSEMENT, ET PAS AVANT : `phys-tip-mean`
+          ;; moyenne depuis le dernier `phys-stats-reset!`, donc y inclure la rampe melangerait le
+          ;; transitoire du geste a l'equilibre qu'on veut lire.
+          (when (= (-> self pframe) PHYSROOM-YAWM)
+            (phys-stats-reset!)
+            (phys-comexw-reset!))
+          (when (>= (-> self pframe) PHYSROOM-YAWE)
+            (format 0 "PHYSYAWC i=~D ax=~D deg=~f~%"
+                    ci (-> *physroom-yaw-ax* ci) (-> *physroom-yaw-dg* ci))
+            ;; LE REBASE DE §37, PAR CELLULE ET PAR CHAINE. Sans ces quatre nombres, une invariance
+            ;; lue ici serait indistinguable de celle que le rebase fabrique (voir le pave).
+            ;; `nrb` = rebases tires · `omc` = max de 1-cos(rotation d'ancre d'UNE frame), sans
+            ;; dimension · `nrot` = frames ayant franchi le seuil · `nfr` = son DENOMINATEUR.
+            ;; LECTURE ATTENDUE HORS DEFAUT : nrb=0 nrot=0 avec nfr>0.
+            (dotimes (c (-> self nchain))
+              (when (> (phys-chain-links (-> self slot) c) 0)
+                (format 0 "PHYSYAWR i=~D c=~D nrb=~f omc=~f nrot=~f nfr=~f~%"
+                        ci c
+                        (phys-diag (-> self slot) c 29)
+                        (phys-diag (-> self slot) c 100)
+                        (phys-diag (-> self slot) c 101)
+                        (phys-diag (-> self slot) c 102))))
+            ;; UN TAG PAR CELLULE, et pas un index a rapprocher : `PHYSMEAN` et `PHYSPOSETAG`
+            ;; portent alors eux-memes la cellule dont ils parlent.
+            (physroom-emit-mean
+              (cond ((zero? ci) "yaw0") ((= ci 1) "yaw90") ((= ci 2) "yaw180")
+                    ((= ci 3) "yawm90") (else "yawtiltctl")))
+            (set! (-> self pframe) 0)
+            (+! (-> self yawi) 1)
+            (phys-stats-reset!))))))
 
     ;; ---- 10. RAPPORT --------------------------------------------------------------------------
     ((= (-> self phase) PHYSROOM-PH-REPORT)
@@ -6971,9 +7100,10 @@
   ;; phase ajoutee demain SANS etre ajoutee ici sera visible par `PHYSROOM-PHASEVISITED`, qui la
   ;; MESURE. Deux garde-fous, l'un derive et l'autre mesure, et aucun qui repose sur ma memoire.
   (format 0 "PHYSROOM-PHASEGUARD maxwork=~D report=~D done=~D ok=~D~%"
-          (max PHYSROOM-PH-REGC
-               (max PHYSROOM-PH-AXC
-                    (max PHYSROOM-PH-REGB (max PHYSROOM-PH-REGA (max PHYSROOM-PH-REGT PHYSROOM-PH-REGS)))))
+          (max PHYSROOM-PH-YAW
+               (max PHYSROOM-PH-REGC
+                    (max PHYSROOM-PH-AXC
+                         (max PHYSROOM-PH-REGB (max PHYSROOM-PH-REGA (max PHYSROOM-PH-REGT PHYSROOM-PH-REGS))))))
           PHYSROOM-PH-REPORT PHYSROOM-PH-DONE
           (if (and (< PHYSROOM-PH-PROXON PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REG PHYSROOM-PH-REPORT)
@@ -6987,6 +7117,7 @@
                    (< PHYSROOM-PH-REGA PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-AXC PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REGC PHYSROOM-PH-REPORT)
+                   (< PHYSROOM-PH-YAW PHYSROOM-PH-REPORT)
                    (< PHYSROOM-PH-REPORT PHYSROOM-PH-DONE))
               1 0))
   (format 0 "PHYSROOM-START target-before=~A~%" *target*)

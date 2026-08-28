@@ -11093,3 +11093,58 @@ pilotages n'ajoutant que +2,0 %% / +13,4 %% par-dessus).
 d'evenement (« implausibly large ») et ne donne aucun nombre. Le choix se justifie par la
 distribution mesuree, jamais l'inverse — c'est la regle du 2026-08-20 02:50 sur les durees de
 geste, appliquee a un angle.
+
+## [NOTE-584] LE `+Z` DE §7 EST REMIS DANS LE SENS QUE LA SECTION ECRIT — PASSE APPARIEE, COMPORTEMENT INCHANGE AU BIT
+
+**CE QUE [NOTE-408] AVAIT MESURE ET LAISSE OUVERT (cycle 69).** `SPEC-breast-softbody.md` l.130
+ecrit « `+Z = forward from chest` ». Le triedre posait `fz = +ligne[axa]`, et trois routes
+independantes ont mesure que `+ligne[axa]` pointe vers l'**ARRIERE** (os de racine des deux seins a
+-0.14776 / -0.14794 sur cette ligne ; frange -0.3135, lunettes -0.2189, nuque +0.0618/+0.0990 en
+espace `chest` sur le glb livre ; et la gravite de la cellule prone du balayage). Le calcul aval
+etait juste **parce qu'une SECONDE inversion le compensait** : `wbk = max(0,-gzc)` recevait le
+triplet PRONE et `wfw = max(0,+gzc)` le triplet SUPINE. Deux fautes de sens qui s'annulent, donc
+invisibles a toute mesure de sortie et lisibles seulement en lisant les deux ensemble.
+
+**POURQUOI LE CYCLE 69 NE L'A PAS CORRIGE, ET IL AVAIT RAISON :** « y toucher sans passe appariee
+casserait §10 et §11 ensemble ». Corriger la convention SEULE echangerait supine et prone.
+
+**CE QUE CE LOT FAIT, EN UN SEUL GESTE.**
+  1. `fz := -ligne[axa]` orthogonalisee (le pass-through `(zx zx0) ...` que [NOTE-68] avait laisse
+     la exactement pour porter ce signe) ;
+  2. `wbk` recoit le triplet SUPINE (`psw`/`psh`/`psp`) et `wfw` le triplet PRONE
+     (`phw`/`pht`/`phl`).
+Apres quoi les deux NOMS disent ce que leur colonne porte : gravite vers l'arriere du buste = elle
+est sur le dos = §10 supine ; gravite vers l'avant = les seins pendent = §11 prone.
+
+**LA PREUVE EXIGEE EST UNE IDENTITE AU BIT, ET ELLE EST DEMONTRABLE AVANT LA COURSE.** `fz` n'a que
+CINQ consommateurs dans tout le moteur, et l'audit est clos :
+
+    :3527  `fx = fy x fz`            -> `fx` est EXACTEMENT negue, PUIS [NOTE-324] le remiroite sur
+                                        `dot(fx, sepv) >= 0`, critere INDEPENDANT de `fz`.
+                                        `fx` est donc identique au bit. (`dot` mesure +-742.09,
+                                        jamais 0 : la branche ne peut pas basculer.)
+    :3575  `gzc = g.fz`              -> EXACTEMENT negue (l'addition IEEE754 est symetrique par
+                                        signe : (-a)+(-b) = -(a+b) au bit).
+    :3809  `dfs[2] * fz_i * fz_j`    -> QUADRATIQUE en `fz` : invariant par changement de signe.
+    :3820  `dfsq[2] * fz_i * fz_j`   -> idem.
+    :4676  `phys-tri-world`          -> ACCESSEUR PUR, lu par le seul emetteur `PHYSTRI`.
+
+Et `wbk`/`wfw` n'ont que quatre lecteurs (`wsm` et les trois `s*0`). Comme `gzc` est exactement
+negue, `wbk_neuf = wfw_ancien` et `wfw_neuf = wbk_ancien` AU BIT ; et comme `max(0,-g)` et
+`max(0,+g)` ne peuvent pas etre non nuls ensemble, **l'un des deux termes de chaque somme est
+exactement 0.0**, donc l'echange des deux colonnes ne change pas l'ordre effectif de sommation.
+`x + (0 + r)` et `0 + (x + r)` rendent tous deux `fl(x + r)`.
+
+**PREDICTION, ECRITE AVANT LA COURSE ET FALSIFIABLE PAR N'IMPORTE QUEL AUTRE RESULTAT :** la trace
+neuve est identique a la precedente **sur tout enregistrement sauf `PHYSTRI ... a=2`**, dont les
+trois composantes sont exactement negues. Un seul autre enregistrement qui bouge signifie que
+l'audit des cinq consommateurs est incomplet — c'est le seul test qui puisse le dire.
+
+**CE QUE CA NE FAIT PAS.** Ca ne fait bouger aucune grandeur physique, donc aucun statut de section
+a lui seul : c'est une contradiction MESUREE entre notre convention et la lettre de §7 qui se
+ferme, pas une amelioration de comportement. `ROOM-SPEC7-MIROIR` lit `a=0` (invariant) et
+`ROOM-SPEC7-SENS` teste `det_L * det_R < 0` (invariant par negation globale) : les deux verdicts
+publies de §7 sont inchanges par construction.
+
+**[NOTE-67] et [NOTE-68] restent PERIMEES** ([NOTE-408]) et sont maintenant aussi CONTREDITES par
+le code : ne pas les relire comme des references.

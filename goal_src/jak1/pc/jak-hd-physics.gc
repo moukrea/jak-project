@@ -3519,8 +3519,8 @@
                                      (zx0 (- e0 (* d (-> *phys-fy* sc x))))
                                      (zy0 (- e1 (* d (-> *phys-fy* sc y))))
                                      (zz0 (- e2 (* d (-> *phys-fy* sc z))))
-                                     ;; [NOTE-68] LE SIGNE : `+ligne[axa]`, ET IL EST MESURE, PAS SUPPOSE. -> jak-hd-physics-NOTES.md
-                                     (zx zx0) (zy zy0) (zz zz0)
+                                     ;; [NOTE-584] LE SIGNE : `-ligne[axa]`, PARCE QUE §7 l.130 ECRIT « +Z = forward from chest » ET QUE `+ligne[axa]` POINTE VERS L'ARRIERE (mesure du cycle 69, [NOTE-408]). Passe APPARIEE : l'affectation `wbk`/`wfw` de :3592-3596 est echangee dans le meme lot, donc le comportement livre est INCHANGE AU BIT — voir [NOTE-584]. -> jak-hd-physics-NOTES.md
+                                     (zx (- 0.0 zx0)) (zy (- 0.0 zy0)) (zz (- 0.0 zz0))
                                      (zl (sqrtf (+ (* zx zx) (+ (* zy zy) (* zz zz))))))
                                 (when (> zl 0.05)
                                   (set-vector! (-> *phys-fz* sc) (/ zx zl) (/ zy zl) (/ zz zl) 0.0)
@@ -3583,17 +3583,17 @@
                                  (wlt (fmax 0.0 gxc))
                                  (wne (fmax 0.0 (- 0.0 gxc)))
                                  (wsm (fmax 0.0001 (+ wdn (+ wup (+ wbk (+ wfw (+ wlt wne)))))))
-                                 ;; [NOTE-52] SPEC 10 ET SPEC 11 ETAIENT INTERVERTIES (`wbk`/`wfw`, signe de `gzc`). -> jak-hd-physics-NOTES.md
+                                 ;; [NOTE-584] `wbk` = gravite vers l'ARRIERE du buste = SUPINE (§10) ; `wfw` = gravite vers l'AVANT = PRONE (§11). Les deux noms disent enfin ce que leur colonne porte : c'est l'autre moitie de la passe appariee du signe de `+Z`. -> jak-hd-physics-NOTES.md
                                  (pb  (* sc PHYS-PSET-N))
                                  (psp (-> *phys-pset* (+ pb 0))) (psw (-> *phys-pset* (+ pb 1))) (psh (-> *phys-pset* (+ pb 2)))
                                  (phl (/ (-> *phys-pset* (+ pb 3)) (fmax 0.0001 (+ 1.0 (* (-> *phys-lyd* sc) (- (-> *phys-rsv* sc) 1.0)))))) (phw (-> *phys-pset* (+ pb 4))) (pht (-> *phys-pset* (+ pb 5)))  ;; [NOTE-576] LA DIVISION RESIDUELLE DE §11 A ETE CABLEE ICI AU CYCLE 128 PUIS RETIREE PAR SON PROPRE FALSIFICATEUR. -> jak-hd-physics-NOTES.md
                                  (plc (- 1.0 (-> *phys-pset* (+ pb 6))))
                                  (sx0 (/ (+ (* wdn 1.000) (+ (* wup phw)
-                                            (+ (* wbk phw) (+ (* wfw psw) (+ (* wlt plc) (* wne 1.000)))))) wsm))
+                                            (+ (* wbk psw) (+ (* wfw phw) (+ (* wlt plc) (* wne 1.000)))))) wsm))
                                  (sy0 (/ (+ (* wdn 1.000) (+ (* wup phl)
-                                            (+ (* wbk pht) (+ (* wfw psh) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
+                                            (+ (* wbk psh) (+ (* wfw pht) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
                                  (sz0 (/ (+ (* wdn 1.000) (+ (* wup pht)
-                                            (+ (* wbk phl) (+ (* wfw psp) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
+                                            (+ (* wbk psp) (+ (* wfw phl) (+ (* wlt 1.118) (* wne 1.000)))))) wsm))
                                  ;; [NOTE-508] SPEC 11 — LE SECOND ORDRE DU CANAL DE FORME, entre la cible de gravite et `cvn`. -> jak-hd-physics-NOTES.md
                                  (whs (* dt (/ (* 6.2831853 (-> *phys-stiff* sc)) (sqrtf (fmax 0.01 (-> *phys-mass* sc))))))
                                  (zsh (/ (-> *phys-damp* sc) (* 2.0 (fmax 0.000001 whs)))) (k2u (phys-osc-k2 zsh whs)) (kdu (phys-decay (* 2.0 (* zsh whs))))

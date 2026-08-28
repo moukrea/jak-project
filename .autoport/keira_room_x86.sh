@@ -96,12 +96,38 @@ if [ -s "$LOG" ]; then
     rm -f "$old"; echo "purge: $old"
   done
 fi
-: > "$LOG"
+
+# --- 3 bis. LA COURSE EST ECRITE HORS DE SON NOM DEFINITIF, ET LE TABLEAU PART AVEC ELLE --------
+# DEFAUT PAYE DEUX CYCLES DE SUITE (tentatives 9 et 10 du cycle 140). Le validateur a ete lance
+# pendant qu'une course etait ENCORE VIVANTE : il a lu un `keira-room-x86.log` legitime mais a
+# moitie ecrit, n'y a pas trouve `PHYSCOUNTS` (emis seulement a `PHYSEND`, phys-room.gc:2694) et a
+# conclu « le moteur n'a pas publie son compte de chaines ». Le message accusait le MOTEUR ; rien
+# n'etait casse, et la preuve est arrivee 12 minutes plus tard sans qu'une ligne soit modifiee.
+# « Quand une perte se repete, on la rend IMPOSSIBLE au point de production, pas detectable au
+# point de controle » (DIRECTIVES 2026-08-11) — donc ici, dans le seul script qui fait naitre une
+# course, et pas dans une gate de plus.
+# LES DEUX ARTEFACTS PARTENT ENSEMBLE, ET C'EST LE POINT QUI AVAIT RETENU LE CYCLE 140 : deplacer
+# le seul log laisserait le TABLEAU en place et PERIME pendant toute la course, c'est-a-dire
+# `validator-reads-a-stale-table`, un piege deja tombe une fois dans ce dossier. Les gates ROOM /
+# COLLIDE / IDLE / ANIM / DISCRIMINANT lisent le tableau ; SCOPE lit le log. Pendant une course les
+# DEUX sont absents, donc le validateur dit « la trace est absente » et « le tableau est absent »,
+# qui sont VRAIS, au lieu d'accuser le moteur ou de juger une course d'avant-hier.
+RUNLOG="$OUT/.keira-room-x86.inflight.log"
+rm -f "$RUNLOG"
+if [ -s "$OUT/keira-room-table.txt" ]; then
+  TARCH="$OUT/keira-room-table.$(date -r "$OUT/keira-room-table.txt" +%Y%m%d-%H%M%S).txt"
+  mv -f "$OUT/keira-room-table.txt" "$TARCH" && echo "archive: tableau precedent -> $TARCH"
+  ls -1t "$OUT"/keira-room-table.2*.txt 2>/dev/null | tail -n +7 | while read -r old; do
+    rm -f "$old"; echo "purge: $old"
+  done
+fi
+
+: > "$RUNLOG"
 OG_PHYS_ROOM=1 OG_PHYS_ROOM_DELAY="${OG_PHYS_ROOM_DELAY:-600}" \
   stdbuf -oL -eL "$GK" --game jak1 --portable -fakeiso --verbose --disable-ansi \
-  -iso-data "$ISO" -- -boot -debug-mem > "$LOG" 2>&1 &
+  -iso-data "$ISO" -- -boot -debug-mem > "$RUNLOG" 2>&1 &
 GKPID=$!
-echo "gk pid=$GKPID  log=$LOG"
+echo "gk pid=$GKPID  log(en vol)=$RUNLOG  -> $LOG a PHYSEND"
 
 # 2026-08-19 (cycle 31, section 7 bis) : le plafond etait a 420 s alors que la course atteint
 # `PHYSEND` a 758 s. Deux courses d'ablation ont ete TRONQUEES sans que rien ne le dise, et
@@ -112,7 +138,7 @@ for i in $(seq 1 "$DEADLINE"); do
   if ! kill -0 "$GKPID" 2>/dev/null; then
     echo "gk s'est arrete tout seul apres ${i}s"; break
   fi
-  if grep -aq '^PHYSEND' "$LOG" 2>/dev/null; then ok=1; echo "PHYSEND vu apres ${i}s"; break; fi
+  if grep -aq '^PHYSEND' "$RUNLOG" 2>/dev/null; then ok=1; echo "PHYSEND vu apres ${i}s"; break; fi
   sleep 1
 done
 
@@ -121,13 +147,21 @@ kill "$GKPID" 2>/dev/null
 for i in $(seq 1 10); do kill -0 "$GKPID" 2>/dev/null || break; sleep 1; done
 kill -9 "$GKPID" 2>/dev/null
 
+# LA PROMOTION EST LE SEUL GESTE QUI DONNE SON NOM DEFINITIF A UNE TRACE, ET ELLE N'A LIEU QU'APRES
+# `PHYSEND`. Une course tuee, tronquee ou plantee reste sous un nom qui ne trompe personne.
+CUR="$RUNLOG"
+if [ "$ok" = 1 ]; then
+  mv -f "$RUNLOG" "$LOG" && CUR="$LOG" && echo "promotion: $RUNLOG -> $LOG (PHYSEND present)"
+fi
+
 echo "---- marqueurs ----"
 for m in PHYSROOM-START PHYSFAIL PHYSSUBJECT PHYSANIM PHYSCHAIN PHYSROW PHYSIDLE PHYSAUTH PHYSNOPLAY PHYSCOUNTS PHYSPC PHYSEND 'PHYS-ROOM' 'HD-PHYS' 'HD-COMP' 'hd-phys'; do
-  printf '%-16s %s\n' "$m" "$(grep -ac "$m" "$LOG" 2>/dev/null || echo 0)"
+  printf '%-16s %s\n' "$m" "$(grep -ac "$m" "$CUR" 2>/dev/null || echo 0)"
 done
 echo "---- premieres lignes utiles ----"
-grep -aE '^PHYS|PHYS-ROOM|\[HD-PHYS\]|\[HD-COMP\]|hd-phys' "$LOG" | head -40
-[ "$ok" = 1 ] || { echo "FAIL: PHYSEND jamais atteint"; exit 1; }
+grep -aE '^PHYS|PHYS-ROOM|\[HD-PHYS\]|\[HD-COMP\]|hd-phys' "$CUR" | head -40
+[ "$ok" = 1 ] || { echo "FAIL: PHYSEND jamais atteint. La trace partielle reste sous $RUNLOG :"
+                   echo "      elle n'a PAS le nom que le validateur lit, et c'est voulu."; exit 1; }
 
 # --- 4. LE TABLEAU EST DERIVE ICI, PAR LE PRODUCTEUR, ET PAS AILLEURS -------------------------
 # DEFAUT MESURE AU CYCLE 56, ET IL AVAIT DEUX CYCLES. `keira-room-table.txt` portait l'empreinte
