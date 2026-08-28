@@ -34,6 +34,18 @@ mkdir -p "$OUT"
 RLOCK=.autoport/.keira-room-x86.lock
 DLOCK=.autoport/.deploy-in-progress
 _own_r=0; _own_d=0
+# --- CE QU'UNE COURSE INTERROMPUE NE DOIT PLUS COUTER ------------------------------------------
+# Tentative 15 du cycle 143 : la course a ete tuee a l'animation 26 (trace partielle de 3,2 Mo,
+# `PHYSEND` absent). Le log ET le tableau de la course PRECEDENTE avaient deja ete deplaces sous
+# leur nom d'archive au demarrage — c'est voulu, pour qu'un validateur lance PENDANT une course
+# dise « la trace est absente » plutot que de juger une course d'avant-hier. Mais rien ne les
+# RAMENAIT quand la course n'aboutissait pas : la phase s'est retrouvee SANS AUCUNE trace, et le
+# validateur a echoue sur SCOPE en accusant l'absence de preuve d'execution alors qu'une course
+# complete existait, archivee, a deux fichiers de la.
+# « Quand une perte se repete, on la rend IMPOSSIBLE au point de production. » Donc ici : les deux
+# artefacts sont RESTAURES ENSEMBLE si la promotion n'a pas eu lieu. Ensemble, jamais l'un sans
+# l'autre — un log neuf sous un tableau vieux est exactement `validator-reads-a-stale-table`.
+_promoted=0; ARCH=""; TARCH=""
 _stale(){ # 0 = le verrou $1 est libre ou perime (detenteur mort)
   [ -f "$1" ] || return 0
   local p; p=$(sed -n 's/.*pid=\([0-9]*\).*/\1/p' "$1" | head -1)
@@ -56,6 +68,16 @@ fi
 # les FAIL ci-dessus. INT/TERM passent par `exit`, donc par le meme trap EXIT.
 _cleanup(){
   [ "${GKPID:-}" ] && kill "$GKPID" 2>/dev/null   # PID exact, jamais de motif (DIRECTIVES 8)
+  # La paire (trace, tableau) de la course precedente revient a sa place si CELLE-CI n'a pas abouti.
+  # Le couple est indissociable : on ne restaure le tableau que si on restaure la trace.
+  if [ "$_promoted" != 1 ] && [ -n "${ARCH:-}" ] && [ -s "$ARCH" ] && [ ! -s "$LOG" ]; then
+    cp -f "$ARCH" "$LOG" && touch -r "$ARCH" "$LOG" \
+      && echo "restauration: course precedente rendue a $LOG (celle-ci n'a pas atteint PHYSEND)"
+    if [ -n "${TARCH:-}" ] && [ -s "$TARCH" ] && [ ! -s "$OUT/keira-room-table.txt" ]; then
+      cp -f "$TARCH" "$OUT/keira-room-table.txt" && touch -r "$TARCH" "$OUT/keira-room-table.txt" \
+        && echo "restauration: tableau precedent rendu (meme course que la trace restauree)"
+    fi
+  fi
   [ "$_own_r" = 1 ] && rm -f "$RLOCK"
   [ "$_own_d" = 1 ] && rm -f "$DLOCK"
   return 0
@@ -63,6 +85,34 @@ _cleanup(){
 trap _cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+# --- 0 bis. L'ARBRE DOIT ETRE AU REPOS, ET IL DOIT LE RESTER -----------------------------------
+# Cycle 144. La course precedente est morte en 17 s sur un SIGILL en pleine edition de liens de
+# `KERNEL.CGO` : l'auto-constructeur a reecrit tout `out/jak1/iso/` (KERNEL.CGO a 05:06:16,
+# GAME.CGO a 05:06:24) pendant que `gk` demarrait. Le message n'accusait rien de vrai — le moteur
+# n'etait pas casse, il lisait un fichier a moitie ecrit.
+# LE VERROU `.deploy-in-progress` NE SUFFIT PAS ET C'EST STRUCTUREL : le constructeur ne le
+# consulte qu'au SOMMET de son cycle (auto_build_apk.sh:290). Un cycle deja commence va jusqu'au
+# bout, et poser le verrou une seconde apres son depart n'arrete rien.
+# Deux gestes, parce qu'un seul ne couvre pas les deux moities du probleme :
+#   (a) ON ATTEND que l'arbre soit calme AVANT de lancer — verrou deja pose, donc le cycle SUIVANT
+#       du constructeur passera son tour ;
+#   (b) ON VERIFIE APRES COUP que l'ISO n'a pas bouge. Si elle a bouge, la course est CONTAMINEE
+#       et elle n'est pas promue : mieux vaut pas de trace qu'une trace inattribuable.
+_iso_stamp(){ md5sum "$ISO/GAME.CGO" "$ISO/KERNEL.CGO" 2>/dev/null | cut -d' ' -f1 | tr '\n' ' '; }
+QUIET=0
+for _i in $(seq 1 240); do                     # 240 x 5 s = 20 min de patience
+  _s1=$(_iso_stamp)
+  sleep 5
+  if [ -n "$_s1" ] && [ "$_s1" = "$(_iso_stamp)" ] && ! pgrep -x goalc >/dev/null 2>&1; then
+    QUIET=1; [ "$_i" -gt 1 ] && echo "arbre calme apres $(( _i * 5 ))s d'attente"; break
+  fi
+done
+if [ "$QUIET" != 1 ]; then
+  echo "FAIL: l'ISO de out/jak1 change encore apres 20 min d'attente (un constructeur tourne)."
+  echo "      Lancer gk maintenant, c'est mesurer un fichier a moitie ecrit."; exit 1
+fi
+ISO_BEFORE=$(_iso_stamp)
 
 export DISPLAY="${DISPLAY:-:0}" XAUTHORITY="${XAUTHORITY:-/run/user/1000/.mutter-Xwaylandauth.RKSTQ3}"
 
@@ -150,8 +200,16 @@ kill -9 "$GKPID" 2>/dev/null
 # LA PROMOTION EST LE SEUL GESTE QUI DONNE SON NOM DEFINITIF A UNE TRACE, ET ELLE N'A LIEU QU'APRES
 # `PHYSEND`. Une course tuee, tronquee ou plantee reste sous un nom qui ne trompe personne.
 CUR="$RUNLOG"
+# (b) L'ISO A-T-ELLE BOUGE SOUS LA COURSE ? Un `PHYSEND` atteint sur un arbre reecrit en cours de
+# route ne dit pas quel code a produit les chiffres — c'est inattribuable, donc ce n'est pas une
+# mesure. On refuse la promotion au lieu de publier une trace qu'on ne peut pas rattacher.
+if [ "$ok" = 1 ] && [ "$(_iso_stamp)" != "$ISO_BEFORE" ]; then
+  ok=0
+  echo "FAIL: out/jak1/iso a ete REECRIT pendant la course (empreinte $ISO_BEFORE -> $(_iso_stamp))."
+  echo "      La trace est inattribuable : elle n'est pas promue."
+fi
 if [ "$ok" = 1 ]; then
-  mv -f "$RUNLOG" "$LOG" && CUR="$LOG" && echo "promotion: $RUNLOG -> $LOG (PHYSEND present)"
+  mv -f "$RUNLOG" "$LOG" && CUR="$LOG" && _promoted=1 && echo "promotion: $RUNLOG -> $LOG (PHYSEND present)"
 fi
 
 echo "---- marqueurs ----"
