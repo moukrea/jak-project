@@ -103,9 +103,33 @@ declare -A LID_TEX=(
 # 4096x too small to see. hd_merc_swap now bakes at --bake-weight, default 4096.)
 declare -A BAKE_TARGET=(
 )
+# Gkeira-hd-detached-parts (owner 2026-08-28): "le modele de Keira HD il a une visiere attachee, a
+# genre quelques metres du main modele [...] dans Jak 1 ca sert a rien, faut que tu vires cette
+# partie" -> "la visiere faut la supprimer, rien a foutre la".
+# The jak2/jak3 Keira donors carry a WELDING MASK prop she does not wear: two joints, `mask` and
+# `maskstrap`, parented to `prejoint` (the ROOT, not the head) and posed at the model ORIGIN, at and
+# below the soles of her feet. Measured on out/jak1/fr3/skin/keira-hd-lod0.glb (bind space, model
+# 3.1364 units tall, feet at y=0):
+#     maskstrap  100 verts, y -0.0313 .. 0.0410   textures keira-brownstraps-new + keira-maskbolt
+#     mask        73 verts, y -0.4095 .. 0.0578   texture  keira-mask
+# and they are the WHOLE of their merc effects — no other joint owns a vertex in them, so dropping
+# the effects removes exactly the prop and nothing else. `mask` alone sets the model's bbox floor:
+# without it the drawn mesh starts at her soles instead of 0.41 units under the ground.
+# NOT touched: the goggles she really wears (gogglesBase/Mid/Left/Right, textures keira-glasses /
+# keira-gogglestrap / keira-lens-large, at y 1.98..2.20, i.e. on her head) and the welding TORCH,
+# which retargets onto jak1's own `torch` joint and is used in village1.
+# The two donors number their effects differently — indices verified per model by
+# `hd_merc_swap audit`, never assumed:
+#     keira-hd  effect[0] = maskstrap (88+96 tris)   effect[5] = mask (96 tris)
+#     keira3-hd effect[1] = maskstrap (88+96 tris)   effect[5] = mask (96 tris)
+# keira3-hd is the SUPERVISOR's extension of the owner's order: same character, same LOOK menu,
+# same parasite, same one-line fix. Delete its line to keep the mask on the JAK 3 Keira look.
+#
 # Per-model EXTRA arguments spliced into the `hd_merc_swap add` invocation (word-split on purpose).
 declare -A EXTRA_ADD_ARGS=(
   [jakm-hd]="--drop-effect 0 --strip-target 15 --strip-target 22 --strip-target 23"
+  [keira-hd]="--drop-effect 0 --drop-effect 5"
+  [keira3-hd]="--drop-effect 1 --drop-effect 5"
 )
 # CYCLE 5 item 3 (exhaustive inventory): one further cutscene-only Jak look the earlier sweeps
 # missed — jakp-hd = the owner-named "Jak II PRISON" look (Jak 2 prison/experiments cutscenes,
