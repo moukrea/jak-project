@@ -131,30 +131,18 @@
   (none))
 
 ;; [NOTE-208] L'ECART A LA POSE D'AUTEUR, DANS LE REPERE DE L'ANCRE. Ce fut l'etat INTEGRE du solveu -> jak-hd-physics-NOTES.md
-(define *phys-ox*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-oy*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-oz*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-ox*  (new 'global 'array 'float PHYS-SCL)) (define *phys-oy*  (new 'global 'array 'float PHYS-SCL)) (define *phys-oz*  (new 'global 'array 'float PHYS-SCL))
 ;; [NOTE-171] `*phys-o1x/o1y/o1z*` sont retires : declares, remis a zero dans la branche d'ancre, et R -> jak-hd-physics-NOTES.md
-(define *phys-px*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-py*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-pz*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-qx*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-qy*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-qz*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-px*  (new 'global 'array 'float PHYS-SCL)) (define *phys-py*  (new 'global 'array 'float PHYS-SCL)) (define *phys-pz*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-qx*  (new 'global 'array 'float PHYS-SCL)) (define *phys-qy*  (new 'global 'array 'float PHYS-SCL)) (define *phys-qz*  (new 'global 'array 'float PHYS-SCL))
 ;; [NOTE-170] LA DIRECTION DE REPOS DU MATERIAU, dans le repere de l'ancre, relevee UNE FOIS et consta -> jak-hd-physics-NOTES.md
-(define *phys-ux*   (new 'global 'array 'float PHYS-SCL))
-(define *phys-uy*   (new 'global 'array 'float PHYS-SCL))
-(define *phys-uz*   (new 'global 'array 'float PHYS-SCL))
+(define *phys-ux*   (new 'global 'array 'float PHYS-SCL)) (define *phys-uy*   (new 'global 'array 'float PHYS-SCL)) (define *phys-uz*   (new 'global 'array 'float PHYS-SCL))
 (define *phys-ucap* (new 'global 'array 'int32 PHYS-SCL))   ;; 1 = direction de repos relevee
 ;; [NOTE-460] `g_ref` DE SA SPEC 3 — la gravite de la pose debout d'auteur, vue de l'ancre, relevee une fois p -> jak-hd-physics-NOTES.md
 (define *phys-gref* (new 'global 'array 'float (* 3 PHYS-SC)))
 ;; [NOTE-461] historique MONDE de la pose d'auteur, par lien : sa difference seconde est l'acceleration du -> jak-hd-physics-NOTES.md
-(define *phys-t1x* (new 'global 'array 'float PHYS-SCL))
-(define *phys-t1y* (new 'global 'array 'float PHYS-SCL))
-(define *phys-t1z* (new 'global 'array 'float PHYS-SCL))
-(define *phys-t2x* (new 'global 'array 'float PHYS-SCL))
-(define *phys-t2y* (new 'global 'array 'float PHYS-SCL))
-(define *phys-t2z* (new 'global 'array 'float PHYS-SCL))
+(define *phys-t1x* (new 'global 'array 'float PHYS-SCL)) (define *phys-t1y* (new 'global 'array 'float PHYS-SCL)) (define *phys-t1z* (new 'global 'array 'float PHYS-SCL))
+(define *phys-t2x* (new 'global 'array 'float PHYS-SCL)) (define *phys-t2y* (new 'global 'array 'float PHYS-SCL)) (define *phys-t2z* (new 'global 'array 'float PHYS-SCL))
 (define *phys-warm* (new 'global 'array 'int32 PHYS-SC))     ;; 0 = pas encore amorce
 
 ;; colliders resolus (index de joint, -1 = absent)
@@ -163,28 +151,18 @@
 (define *phys-cr*  (new 'global 'array 'float PHYS-SCO))
 (define *phys-cr2* (new 'global 'array 'float PHYS-SCO))
 ;; centre de la sphere dans l'espace bind de son joint (0,0,0 = sur le joint)
-(define *phys-cox* (new 'global 'array 'float PHYS-SCO))
-(define *phys-coy* (new 'global 'array 'float PHYS-SCO))
-(define *phys-coz* (new 'global 'array 'float PHYS-SCO))
+(define *phys-cox* (new 'global 'array 'float PHYS-SCO)) (define *phys-coy* (new 'global 'array 'float PHYS-SCO)) (define *phys-coz* (new 'global 'array 'float PHYS-SCO))
 
 ;; [NOTE-03] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
-(define *phys-crax* (new 'global 'array 'float PHYS-SCO))   ;; extremite A, monde, pose d'auteur
-(define *phys-cray* (new 'global 'array 'float PHYS-SCO))
-(define *phys-craz* (new 'global 'array 'float PHYS-SCO))
-(define *phys-crbx* (new 'global 'array 'float PHYS-SCO))   ;; extremite B (capsule), idem
-(define *phys-crby* (new 'global 'array 'float PHYS-SCO))
-(define *phys-crbz* (new 'global 'array 'float PHYS-SCO))
+(define *phys-crax* (new 'global 'array 'float PHYS-SCO)) (define *phys-cray* (new 'global 'array 'float PHYS-SCO)) (define *phys-craz* (new 'global 'array 'float PHYS-SCO))   ;; extremite A, monde, pose d'auteur
+(define *phys-crbx* (new 'global 'array 'float PHYS-SCO)) (define *phys-crby* (new 'global 'array 'float PHYS-SCO)) (define *phys-crbz* (new 'global 'array 'float PHYS-SCO))   ;; extremite B (capsule), idem
 (define *phys-crok* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = instantane pris cette frame
 
 ;; [NOTE-04] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-csim* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = volume porte par un joint SIMULE
 (define *phys-cdep* (new 'global 'array 'int32 PHYS-SCO))   ;; profondeur rig, pour la priorite
-(define *phys-csax* (new 'global 'array 'float PHYS-SCO))   ;; extremite A, fin de frame precedente
-(define *phys-csay* (new 'global 'array 'float PHYS-SCO))
-(define *phys-csaz* (new 'global 'array 'float PHYS-SCO))
-(define *phys-csbx* (new 'global 'array 'float PHYS-SCO))   ;; extremite B, idem
-(define *phys-csby* (new 'global 'array 'float PHYS-SCO))
-(define *phys-csbz* (new 'global 'array 'float PHYS-SCO))
+(define *phys-csax* (new 'global 'array 'float PHYS-SCO)) (define *phys-csay* (new 'global 'array 'float PHYS-SCO)) (define *phys-csaz* (new 'global 'array 'float PHYS-SCO))   ;; extremite A, fin de frame precedente
+(define *phys-csbx* (new 'global 'array 'float PHYS-SCO)) (define *phys-csby* (new 'global 'array 'float PHYS-SCO)) (define *phys-csbz* (new 'global 'array 'float PHYS-SCO))   ;; extremite B, idem
 (define *phys-csok* (new 'global 'array 'int32 PHYS-SCO))   ;; 1 = un instantane existe
 ;; [NOTE-05] COUPLAGE DE JACOBI — ARME depuis le 2026-08-18, apres DEUX refus mesures. -> jak-hd-physics-NOTES.md
 (define *phys-jacobi-off* 0)
@@ -236,9 +214,7 @@
 (defconstant PHYS-PRS-K   0.45)
 (defconstant PHYS-PRS-MAX 0.25)    ;; §12 : -25 % au pire, borne haute de sa bande
 ;; [NOTE-183] LE TRIEDRE DE SA SPEC 7 (+X lateral sortant, +Y haut du torse, +Z vers l'avant du buste) -> jak-hd-physics-NOTES.md
-(define *phys-fx*  (new 'global 'inline-array 'vector PHYS-SC))
-(define *phys-fy*  (new 'global 'inline-array 'vector PHYS-SC))
-(define *phys-fz*  (new 'global 'inline-array 'vector PHYS-SC))
+(define *phys-fx*  (new 'global 'inline-array 'vector PHYS-SC)) (define *phys-fy*  (new 'global 'inline-array 'vector PHYS-SC)) (define *phys-fz*  (new 'global 'inline-array 'vector PHYS-SC))
 (define *phys-fok* (new 'global 'array 'int32 PHYS-SC))    ;; 1 = triedre SPEC 7 releve
 ;; [NOTE-409] L'ECHELLE EFFECTIVEMENT APPLIQUEE, dans CE triedre : (lateral, vertical, projection). C'est la -> jak-hd-physics-NOTES.md
 (define *phys-dfs*  (new 'global 'array 'float (* PHYS-SC 3)))
@@ -260,12 +236,8 @@
 (define *phys-dynm* (new 'global 'array 'float PHYS-SC))   ;; son maximum sur la fenetre
 ;; [NOTE-57] SPEC 23 — LE TROISIEME DEGRE DE LIBERTE QUE LA CONTRAINTE DE LONGUEUR CONFISQUAIT. -> jak-hd-physics-NOTES.md
 ;; [NOTE-80] PAR MAILLON DEPUIS LE CYCLE 32 : avant, le point libre de §23 n'existait que sur `rlk`. -> jak-hd-physics-NOTES.md
-(define *phys-cpx*  (new 'global 'array 'float PHYS-SCL))  ;; §23 le point LIBRE, monde, PAR MAILLON
-(define *phys-cpy*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-cpz*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-cqx*  (new 'global 'array 'float PHYS-SCL))  ;; le meme, frame -1 (verlet)
-(define *phys-cqy*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-cqz*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-cpx*  (new 'global 'array 'float PHYS-SCL)) (define *phys-cpy*  (new 'global 'array 'float PHYS-SCL)) (define *phys-cpz*  (new 'global 'array 'float PHYS-SCL))   ;; §23 le point LIBRE, monde, PAR MAILLON
+(define *phys-cqx*  (new 'global 'array 'float PHYS-SCL)) (define *phys-cqy*  (new 'global 'array 'float PHYS-SCL)) (define *phys-cqz*  (new 'global 'array 'float PHYS-SCL))   ;; le meme, frame -1 (verlet)
 (define *phys-rok*  (new 'global 'array 'int32 PHYS-SCL))  ;; 1 = le point libre est amorce
 (define *phys-rr*   (new 'global 'array 'float PHYS-SC))   ;; §23 elongation radiale, unites de jeu
 ;; [NOTE-462] L'ELONGATION RADIALE PAR MAILLON. Depuis le cycle 32 ce n'est plus un miroir de mesure : -> jak-hd-physics-NOTES.md
@@ -337,15 +309,11 @@
 ;; [NOTE-58] LA MEME DEVIATION, NON NORMALISEE — ET C'EST LA CORRECTION D'UN AVEUGLEMENT DE `*phys-ld -> jak-hd-physics-NOTES.md
 (define *phys-ldb* (new 'global 'array 'float (* PHYS-SCL 3)))
 
-(define *phys-tx*  (new 'global 'array 'float PHYS-SC))   ;; ecart de pointe, frame precedente
-(define *phys-ty*  (new 'global 'array 'float PHYS-SC))
-(define *phys-tz*  (new 'global 'array 'float PHYS-SC))
+(define *phys-tx*  (new 'global 'array 'float PHYS-SC)) (define *phys-ty*  (new 'global 'array 'float PHYS-SC)) (define *phys-tz*  (new 'global 'array 'float PHYS-SC))   ;; ecart de pointe, frame precedente
 (define *phys-thas* (new 'global 'array 'int32 PHYS-SC))
 
 ;; [NOTE-107] SPEC 5 — L'ANIMATION D'AUTEUR. Detection PAR CHAINE, dans le repere de l'anc -> jak-hd-physics-NOTES.md
-(define *phys-rtx*  (new 'global 'array 'float PHYS-SC))
-(define *phys-rty*  (new 'global 'array 'float PHYS-SC))
-(define *phys-rtz*  (new 'global 'array 'float PHYS-SC))
+(define *phys-rtx*  (new 'global 'array 'float PHYS-SC)) (define *phys-rty*  (new 'global 'array 'float PHYS-SC)) (define *phys-rtz*  (new 'global 'array 'float PHYS-SC))
 (define *phys-rhas* (new 'global 'array 'int32 PHYS-SC))
 (define *phys-ahit* (new 'global 'array 'float PHYS-SC))
 (define *phys-aok*  (new 'global 'array 'float PHYS-SC))
@@ -509,9 +477,7 @@
 (define *phys-pcr* (new 'global 'array 'float PHYS-SC))       ;; la meilleure reponse w - b
 (define *phys-pcra* (new 'global 'array 'float PHYS-SC))      ;; `w` a cet argmax
 (define *phys-pcrb* (new 'global 'array 'float PHYS-SC))      ;; `b` a cet argmax
-(define *phys-sx*  (new 'global 'array 'float PHYS-SCL))      ;; sauvegarde de la position
-(define *phys-sy*  (new 'global 'array 'float PHYS-SCL))
-(define *phys-sz*  (new 'global 'array 'float PHYS-SCL))
+(define *phys-sx*  (new 'global 'array 'float PHYS-SCL)) (define *phys-sy*  (new 'global 'array 'float PHYS-SCL)) (define *phys-sz*  (new 'global 'array 'float PHYS-SCL))   ;; sauvegarde de la position
 ;; [NOTE-485] combien d'echantillons ont ete VRAIMENT testes : un zero avec un compteur de tests a zer -> jak-hd-physics-NOTES.md
 (define *phys-skintest* 0)
 ;; [NOTE-239] ARMEE PAR LA SALLE SEULE (0 par defaut). 55 ensembles x 12 echantillons par lien et par  -> jak-hd-physics-NOTES.md
@@ -1523,7 +1489,7 @@
                           (+! nviol 1)
                           ;; [NOTE-245] ATTRIBUTION PAR VOLUME. On incremente d'abord tout violeur, et si le -> jak-hd-physics-NOTES.md
                           (set! lastci ci)
-                          ;; [NOTE-267] `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :922) : le -> jak-hd-physics-NOTES.md
+                          ;; [NOTE-267] `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :888) : le -> jak-hd-physics-NOTES.md
                           (let ((h (+ (* sc PHYS-COLS) ci)))
                             (set! (-> *phys-cfh* h) (+ 1 (-> *phys-cfh* h))))
                           ;; [NOTE-110] [DECISION 1, critere revise 2026-08-18] Le decideur est LE PLUS PROFOND -> jak-hd-physics-NOTES.md
@@ -3519,7 +3485,7 @@
                                      (zx0 (- e0 (* d (-> *phys-fy* sc x))))
                                      (zy0 (- e1 (* d (-> *phys-fy* sc y))))
                                      (zz0 (- e2 (* d (-> *phys-fy* sc z))))
-                                     ;; [NOTE-584] LE SIGNE : `-ligne[axa]`, PARCE QUE §7 l.130 ECRIT « +Z = forward from chest » ET QUE `+ligne[axa]` POINTE VERS L'ARRIERE (mesure du cycle 69, [NOTE-408]). Passe APPARIEE : l'affectation `wbk`/`wfw` de :3592-3596 est echangee dans le meme lot, donc le comportement livre est INCHANGE AU BIT — voir [NOTE-584]. -> jak-hd-physics-NOTES.md
+                                     ;; [NOTE-584] LE SIGNE : `-ligne[axa]`, PARCE QUE §7 l.130 ECRIT « +Z = forward from chest » ET QUE `+ligne[axa]` POINTE VERS L'ARRIERE (mesure du cycle 69, [NOTE-408]). Passe APPARIEE : l'affectation `wbk`/`wfw` de :3558-3596 est echangee dans le meme lot, donc le comportement livre est INCHANGE AU BIT — voir [NOTE-584]. -> jak-hd-physics-NOTES.md
                                      (zx (- 0.0 zx0)) (zy (- 0.0 zy0)) (zz (- 0.0 zz0))
                                      (zl (sqrtf (+ (* zx zx) (+ (* zy zy) (* zz zz))))))
                                 (when (> zl 0.05)
@@ -4044,7 +4010,7 @@
                              (sd (sqrtf (+ (* sx sx) (+ (* sy sy) (* sz sz)))))
                              (b0a (if (> (-> *phys-b0* sc) 0.0) (-> *phys-b0* sc) (-> *phys-blen* (* sc PHYS-LINKS))))
                              (kn (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 16)) b0a)) (cp (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 17)) b0a))
-                             ;; MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LES DEUX AUTRES FILETS (`:2039`, `:3160`) : `tanh` est la fonction que la section ECRIT, et le duplicat est assume pour la meme raison qu'a `phys-cap-e22!` — factoriser ferait bouger les courses desarmees et detruirait leur controle.
+                             ;; MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LES DEUX AUTRES FILETS (`:2005`, `:3126`) : `tanh` est la fonction que la section ECRIT, et le duplicat est assume pour la meme raison qu'a `phys-cap-e22!` — factoriser ferait bouger les courses desarmees et detruirait leur controle.
                              (xr (if (and (> sd kn) (> cp 0.0001)) (/ (- sd kn) cp) 0.0))
                              (th (if (>= xr 3.0) 1.0 (/ (* xr (+ 27.0 (* xr xr))) (+ 27.0 (* 9.0 (* xr xr))))))
                              (g  (if (and (> sd 0.0001) (> xr 0.0)) (/ (+ kn (* cp th)) sd) 1.0)))
@@ -4190,7 +4156,7 @@
   (set! *phys-rstout* 0.0)
   (set! *phys-rstsum* 0.0)
   (none))
-(defun phys-ang-reset! () (dotimes (i PHYS-SCL) (set! (-> *phys-la* i) 0.0) (set! (-> *phys-la0* i) 0.0) (set! (-> *phys-la1* i) 0.0)) (none))  ;; RESET ETROIT — LES TROIS ETAGES DE L'ANGLE, ET RIEN D'AUTRE. `*phys-la0*`/`*phys-la1*` y sont entres le 2026-08-14 : sans remise a zero par frame ce sont des maximums de COURSE, donc inutilisables pour attribuer a un etage ce qu'une frame retire. Leur seul autre lecteur est `PHYSGRADS`, emis par `physroom-emit-window` (phys-room.gc:583) appelee UNIQUEMENT depuis PHYSROOM-PH-MEAS (phys-room.gc:992), phase 1 — soit AVANT la fenetre de repos (phase 3) qui appelle ce reset : aucune fenetre PHYSGRADS ne le subit. *phys-la* SEUL auparavant. Ce n'est ni un clamp, ni une hysteresis, ni un gel : il ne retire pas un micron de mouvement, il remet a zero un COMPTEUR DE MESURE (le maximum courant de la deviation angulaire propre, accumule en :4046). Il ne touche NI `stat 0` NI `*phys-thas*`, et c'est tout l'interet : la garde de `phys-link-ang` (:4497) reste passante. `phys-stats-reset!` appele a chaque frame la maintiendrait au contraire baissee en permanence — `stat 0` (:4116) n'est ecrit que sous `(nonzero? *phys-thas*)` (:4111) et `thas` ne passe a 1 qu'ensuite (:4156), or le solveur ne passe qu'une fois par frame (jak-hd.gc:564) — et rendrait un mur de ang=0.0. Sur le plafond de lignes : il vise l'empilement de SUPPRESSEURS (ancien moteur : 6000 lignes, 84 clamps, 42 % des mesures a zero) et c'est la COMPOSITION qui decide, jamais le nombre ; la mesure par frame est nommement exigee par le contrat (DIRECTIVES lignes 29-31, `ROOM-RINGDOWN`).
+(defun phys-ang-reset! () (dotimes (i PHYS-SCL) (set! (-> *phys-la* i) 0.0) (set! (-> *phys-la0* i) 0.0) (set! (-> *phys-la1* i) 0.0)) (none))  ;; RESET ETROIT — LES TROIS ETAGES DE L'ANGLE, ET RIEN D'AUTRE. `*phys-la0*`/`*phys-la1*` y sont entres le 2026-08-14 : sans remise a zero par frame ce sont des maximums de COURSE, donc inutilisables pour attribuer a un etage ce qu'une frame retire. Leur seul autre lecteur est `PHYSGRADS`, emis par `physroom-emit-window` (phys-room.gc:583) appelee UNIQUEMENT depuis PHYSROOM-PH-MEAS (phys-room.gc:992), phase 1 — soit AVANT la fenetre de repos (phase 3) qui appelle ce reset : aucune fenetre PHYSGRADS ne le subit. *phys-la* SEUL auparavant. Ce n'est ni un clamp, ni une hysteresis, ni un gel : il ne retire pas un micron de mouvement, il remet a zero un COMPTEUR DE MESURE (le maximum courant de la deviation angulaire propre, accumule en :4012). Il ne touche NI `stat 0` NI `*phys-thas*`, et c'est tout l'interet : la garde de `phys-link-ang` (:4463) reste passante. `phys-stats-reset!` appele a chaque frame la maintiendrait au contraire baissee en permanence — `stat 0` (:4082) n'est ecrit que sous `(nonzero? *phys-thas*)` (:4077) et `thas` ne passe a 1 qu'ensuite (:4122), or le solveur ne passe qu'une fois par frame (jak-hd.gc:564) — et rendrait un mur de ang=0.0. Sur le plafond de lignes : il vise l'empilement de SUPPRESSEURS (ancien moteur : 6000 lignes, 84 clamps, 42 % des mesures a zero) et c'est la COMPOSITION qui decide, jamais le nombre ; la mesure par frame est nommement exigee par le contrat (DIRECTIVES lignes 29-31, `ROOM-RINGDOWN`).
 
 (defun phys-stat ((slot int) (chain int) (which int))
   (if (and (>= slot 0) (< slot PHYS-SLOTS) (>= chain 0) (< chain PHYS-CHAINS)
