@@ -1,0 +1,118 @@
+# c146 — PREDICTIONS ECRITES AVANT L'EDITION DU MOTEUR ET AVANT LA COURSE
+# DIRECTIVES vd9e8b66782 · perimetre : poitrine de Keira seule (chestL/chestR)
+#
+# ============================================================================================
+# LE DEFAUT, ET IL EST DEJA DANS LA TRACE DU CYCLE 145 — AUCUNE COURSE NE L'A DECOUVERT
+# ============================================================================================
+# `ROOM-SPEC21` (keira-room-table.txt:907-921 chestL, :955 chestR) publie les quatre grandeurs
+# COTE A COTE depuis le cycle 118 :
+#
+#     |e|  apex     mediane 0.6759  p90 0.8000  max 0.8881 B0      <- ce que §22 l.301 BORNE
+#     |s|  §21      mediane 0.4215  p90 0.4548  max 0.4994 B0      <- ce que le moteur borne
+#     |dp| tenseur  mediane 0.3023  p90 0.4163  max 0.5927 B0      <- HORS DE TOUTE BORNE
+#     et l'identite qui les relie, ecrite par la table :  s = D_linear + D_angular = e - dp
+#
+# La borne de :4022 (NOTE-518, cycle 118) porte sur `s = aw - dw` et elle FONCTIONNE :
+# 0/186 fenetres au-dessus de 0.50 B0. Mais §22 l.301 (« Distal/apex displacement: normal
+# <=42% B0, exceptional <=50% B0 ») borne le DEPLACEMENT D'APEX, c'est-a-dire `e = s + dp`.
+# Le terme de tenseur `dp` — dont le MAXIMUM SEUL (0.5927 B0) depasse le plafond ENTIER —
+# n'est borne par rien. D'ou 0.8881 / 0.9666 B0 livres, x1.78 / x1.93.
+#
+# CLASSE : `published-line-is-half-the-applied-operator`, version PLAFOND. C'est EXACTEMENT
+# ce que le cycle 145 a trouve un etage plus bas (la cle 13 bornait `dfb` et pas `dfa`).
+# Le meme defaut, sur l'autre plafond de la meme section, un cycle plus tard.
+#
+# CE QUE J'ECRIS : la meme saturation DOUCE, la meme forme de §21 l.293 (`D_max.tanh(.)`,
+# tanh de Pade, identique aux trois autres filets), les MEMES CLES DEJA LIVREES
+# (`akn=0.4199`, `acp=0.0799` -> genou 0.42 B0, asymptote 0.50 B0 : les deux nombres que
+# §22 l.301 ECRIT), appliquee a `aw` = l'excursion d'apex LIVREE, en TRANSLATION RIGIDE
+# des maillons, exactement comme la borne de §21 juste au-dessus. AUCUNE CLE NEUVE, AUCUN
+# NOMBRE CHOISI PAR MOI.
+#
+# ============================================================================================
+# LES PREDICTIONS. Chacune porte son FALSIFICATEUR. Une seule tirera = la these tombe.
+# ============================================================================================
+#
+# P0  [CANAL PROUVE LU, PAS DEDUIT DE SON EFFET]  `PHYSE22A n=` > 0 et `cut_b0=` > 0 sur la
+#     course. FALSIFICATEUR : n = 0 -> le code n'a jamais tourne, et TOUTE lecture d'effet
+#     ci-dessous est ininterpretable (registre : `channel-measured-by-effect-is-not-channel-
+#     proven-read`). Dans ce cas AUCUNE autre prediction n'est lue.
+#
+# P1  `ROOM-APEX max` <= 0.50 B0 sur LES DEUX chaines (aujourd'hui 0.8881 / 0.9666).
+#     C'est une GARANTIE PAR ALGEBRE si le canal tire (l'image de la saturation est OUVERTE
+#     en kn+cp = 0.50) : son contenu reel est donc « le canal a tire », pas « la borne marche ».
+#     FALSIFICATEUR : un max > 0.51 sur une chaine -> la borne ne voit pas la grandeur publiee,
+#     c'est-a-dire que `aw` et l'apex de la salle ne sont pas la meme chose. Le controle
+#     d'identite de la table (|e|-apex = 0.000124 / 0.000126 B0) dit qu'ils le sont ; ce
+#     falsificateur teste CETTE affirmation.
+#
+# P2  `part des FENETRES > 0.50` tombe a 0.0 % sur les deux chaines (aujourd'hui 94.1 % / 96.8 %).
+#     FALSIFICATEUR : > 2 %.
+#
+# P3  `pic typique` atterrit dans [0.44 ; 0.50] B0. Source : la table simule elle-meme cette
+#     intervention (« (B) LE CHANTIER : saturer le POINT DE CHAIR livre »), D_max=0.50 ->
+#     moy 0.4754 max 0.4883. FALSIFICATEUR : hors de [0.42 ; 0.52].
+#
+# P4  [JE PREDIS CE QUE MON CORRECTIF NE FERA PAS]  La clause « normal <=42% B0 » de §22 RESTE
+#     HORS : le pic typique reste > 0.42. §22 passe donc de DEUX clauses d'apex hors bande a
+#     UNE. FALSIFICATEUR : pic typique <= 0.42 -> la simulation de la table sous-predisait, et
+#     je dois le dire au lieu de m'en attribuer le credit.
+#
+# P5  [INERTIE PAR ALGEBRE — LE TEST LE PLUS DUR]  §16 (« Strong landing apex 30-42% B0 »,
+#     deja SOUS de x0.69 a x0.79) ne bouge PAS : ses quatre cellules `ROOM-REGB-APEX` valent
+#     0.2162 / 0.2368 / 0.3316 / 0.2883 B0, toutes SOUS le genou 0.42, ou la saturation est
+#     l'IDENTITE STRICTE (`xr = 0` -> `g = 1`). FALSIFICATEUR : une cellule de §16 bouge de
+#     plus de 0.02 B0 -> la borne mord ou elle ne doit pas, et elle AGGRAVE une section deja
+#     sous sa bande. C'est le falsificateur qui compte le plus : une borne qui prend du
+#     mouvement la ou la spec en demande plus est retiree, pas adoucie.
+#
+# P6  `ROOM-IDLE` reste a 0.000 (§2/§9, « Additional Procedural Sag = 0% »). Inerte a la pose
+#     d'auteur PAR ALGEBRE : l'excursion d'apex y vaut 0, tres loin du genou.
+#     FALSIFICATEUR : toute valeur non nulle.
+#
+# P7  §19 (« 30-40% B0 apex displacement ») : ses 8 cellules `ROOM-REGA-BANDE`, aujourd'hui
+#     de 0.5865 a 0.9096 B0 (x1.47 a x2.27 leur plafond de 0.40), tombent toutes <= 0.50 B0,
+#     soit au plus x1.25. Elle NE DEVIENT PAS TENUE — je le predis pour ne pas le reclamer.
+#     FALSIFICATEUR : une cellule de §19 reste > 0.55 B0.
+#
+# P8  [LE COUT, ET IL SE CHIFFRE AVANT D'ETRE CONSTATE]  Un suppresseur retire du mouvement :
+#     la directive exige qu'on dise COMBIEN. Je predis que le pic typique d'apex baisse de
+#     0.6685 -> ~0.475 (chestL), soit **-29 %**, et 0.6891 -> ~0.475 (chestR), soit **-31 %**.
+#     Et je predis que la gate `DISCRIMINANT` du validateur PASSE ENCORE, tout en voyant
+#     l'ecart entre pilotages SE RESSERRER. FALSIFICATEUR : la gate DISCRIMINANT echoue ->
+#     le cout est une gate cassee, il se PUBLIE comme tel et le lot se retire.
+#
+# P9  §11 et §10 ne regressent pas sur leurs clauses de forme : la borne est une TRANSLATION
+#     RIGIDE des maillons, elle ne touche aucune echelle. `ROOM-SPEC1011-LIVREE` `out` et `up`
+#     bougent de moins de 0.01. FALSIFICATEUR : plus de 0.02 sur une cellule -> la translation
+#     deplace la peau au point de changer une largeur d'organe, ce que je n'attends pas.
+#
+# ============================================================================================
+# CE QUE CE LOT NE PRETEND PAS
+# ============================================================================================
+# - Il ne rend AUCUNE section TENUE. §22 garde sa clause « normal <=42% » et sa clause de COM
+#   dur hors bande ; §14, §18, §19, §20 s'ameliorent sans rentrer.
+# - Il ne touche pas la degenerescence de §21 deja au registre (le multiplicateur de FORCE de
+#   :2904-2909, constant au-dela de son genou, 55.3 % des cellules gelees). Ce defaut-la reste
+#   ouvert et il est d'une autre nature : la mienne borne un DEPLACEMENT, la sienne sature une
+#   FORCE. Les confondre serait declarer §21 reglee par un correctif qui ne la vise pas.
+
+# --------------------------------------------------------------------------------------------
+# P10 — AJOUTEE EN COURS DE COURSE, ET LA CONDITION D'HONNETETE EST VERIFIEE ET ECRITE ICI :
+# a l'instant ou j'ecris cette ligne, la trace en vol contient **0
+0** ligne(s) `PHYSE22A` et le
+# tableau de cette course N'EXISTE PAS ENCORE. Aucun resultat n'a donc ete lu. La prediction est
+# une CONSEQUENCE DU CODE que je viens d'ecrire, pas une lecture deguisee :
+#
+#     la correction met a jour `cwx/cwy/cwz` de `cd . aw` avec `cd = cws.(1-g)/aws` — le COM
+#     suit la translation des maillons, comme l'exige [NOTE-565]. Donc la clause de COM de §22
+#     l.300 (« hard transient <=40% B0 »), aujourd'hui HORS a 0.4430 / 0.4436 B0 (x1.11), doit
+#     BAISSER elle aussi.
+#
+# P10 : `ROOM-COM max` baisse sur les deux chaines. Je ne predis PAS qu'elle rentre : la baisse
+#       du COM est celle de l'apex ponderee par `cws` (0.5720 / 0.5450), donc de l'ordre de
+#       -16 % et non de -29 %, ce qui donnerait ~0.372 / ~0.373 — DANS la bande, mais avec une
+#       marge de 7 % seulement, sous une chaine de causalite a deux etages.
+#       FALSIFICATEUR : `ROOM-COM max` MONTE sur une chaine -> la mise a jour du COM ne suit pas
+#       la translation qu'elle est censee accompagner, et c'est un defaut de mon lot, pas un
+#       resultat.

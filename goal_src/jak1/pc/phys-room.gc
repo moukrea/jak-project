@@ -2688,6 +2688,21 @@
   ;;   LECTURE QUAND LA BORNE NE MORD PAS : les deux a zero. Desarmee (`*phys-e21-off*` = 1) elle
   ;;   rend exactement 0 PAR CONSTRUCTION, et c'est son controle negatif.
   (format 0 "PHYSE21 tag=~S n=~f cut_b0=~f~%" tag (phys-skc 6) (phys-skc 7))
+  ;; [NOTE-587] LE PLAFOND D'APEX DE SPEC 22 l.301 SUR LA VALEUR LIVREE — publie EXACTEMENT comme
+  ;; les deux lignes du dessus, et pour la meme raison : une borne qui enleve du mouvement se
+  ;; CHIFFRE, sinon elle se juge par son effet et « le modele est faux » devient indistinguable de
+  ;; « le canal a rendu zero » (registre : `channel-measured-by-effect-is-not-channel-proven-read`).
+  ;;   NATURE : un COMPTE de corrections et une LONGUEUR CUMULEE rapportee a `B0` (SPEC 6, la
+  ;;            CHAIR, 602,0 u), jamais des unites de jeu.
+  ;;   REPERE : le monde, contre la pose d'AUTEUR de la MEME frame — le meme repere que `apex`.
+  ;;   CE QU'ELLE BORNE, ET C'EST LA DIFFERENCE AVEC `PHYSE21` : `PHYSE21` sature
+  ;;            `s = D_linear + D_angular`, la grandeur que §21 l.293 nomme ; CELLE-CI sature
+  ;;            `e = s + dp`, le DEPLACEMENT D'APEX que §22 l.301 borne, `dp` etant le terme de
+  ;;            TENSEUR dont le maximum seul (0.5927 B0) depassait le plafond entier.
+  ;;   AGREGAT DE JAMBE, GLOBAL A LA COURSE : jamais une colonne par chaine (regle 7).
+  ;;   LECTURE QUAND LA BORNE NE MORD PAS : les deux a zero. Desarmee (`*phys-e22a-off*` = 1)
+  ;;   elle rend exactement 0 PAR CONSTRUCTION, et c'est son controle negatif.
+  (format 0 "PHYSE22A tag=~S n=~f cut_b0=~f~%" tag (phys-skc 8) (phys-skc 9))
   ;; [NOTE-482] LE LEVIER DE LA CONTRAINTE DE PEAU, AU POINT QUI DECIDE. Le cycle 105 a laisse une
   ;; question nommee : la correction de `phys-skin-chain` est une ROTATION autour de l'attache, donc
   ;; son autorite dans la direction NORMALE vaut au plus `0,4472 * ln * pp` par iteration. Ces

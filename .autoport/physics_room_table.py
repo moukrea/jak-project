@@ -8012,6 +8012,32 @@ def main():
             A('      repris sur la course. La FORME que la section prescrit est donc en place sur')
             A('      la valeur LIVREE. Ce que ca vaut pour §22 se lit sur ROOM-APEX, pas ici.')
 
+        # [NOTE-587] LE PLAFOND D'APEX DE §22 l.301, SUR LA VALEUR LIVREE — CANAL PROUVE LU.
+        # Il est DISTINCT de `PHYSE21` et il faut que la table le dise, sinon les deux bornes se
+        # lisent comme une seule : `PHYSE21` sature `s = D_linear + D_angular` (la grandeur de
+        # §21 l.293), `PHYSE22A` sature `e = s + dp` (le DEPLACEMENT D'APEX que §22 l.301 borne).
+        # Le terme `dp` — le tenseur — n'etait borne par rien avant le cycle 146, et son MAXIMUM
+        # SEUL depassait le plafond entier de la section.
+        _e22a = [(float(_a), float(_b)) for _a, _b in
+                 re.findall(r'^PHYSE22A tag=\S+ n=([-\d.e+]+) cut_b0=([-\d.e+]+)', txt, re.M)]
+        _e22an = sum(_x[0] for _x in _e22a)
+        if not _e22a:
+            A('   VERDICT §22 l.301 (PLAFOND D\'APEX) : AUCUNE ligne `PHYSE22A` dans cette trace —')
+            A('      le moteur qui a produit cette course ne porte AUCUNE borne sur le deplacement')
+            A('      d\'apex. Les chiffres de ROOM-APEX sont alors la sortie NON BORNEE.')
+        elif _e22an <= 0.0:
+            A('   VERDICT §22 l.301 (PLAFOND D\'APEX) : la borne existe et n\'a JAMAIS mordu'
+              ' (`PHYSE22A n`=0 sur %d tags).' % len(_e22a))
+            A('      Jambe DESARMEE (controle negatif) ou domaine vide — et un domaine vide ne')
+            A('      rend aucun `TENUE`.')
+        else:
+            A('   VERDICT §22 l.301 (PLAFOND D\'APEX) : la borne EXISTE et a mordu —'
+              ' `PHYSE22A` n=%.0f corrections, %.2f B0 cumules.' % (_e22an, sum(_x[1] for _x in _e22a)))
+            A('      CE QU\'ELLE RETIRE SE LIT SUR ROOM-APEX ci-dessus, et le prix est PUBLIE :')
+            A('      une borne qui enleve du mouvement se chiffre, elle ne se constate pas.')
+            A('      INERTE SOUS SON GENOU (0.42 B0) PAR ALGEBRE : les cellules de §16, deja SOUS')
+            A('      leur bande, ne peuvent pas etre aggravees par elle.')
+
 
     if _comex.get('run'):
         A('-- `comex` : LE MAXIMUM SUR LES DEUX CENTROIDES DE MAILLON — CE N\'EST PAS LE COM ------')

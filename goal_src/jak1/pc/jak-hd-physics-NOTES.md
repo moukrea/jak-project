@@ -11299,3 +11299,68 @@ MEME defaut, un etage plus bas. Le plafond effectif sur la commande vaut donc `a
 grandeur RECUE la zone morte retombe exactement sur `0.84 x asc = 0.21`, c'est-a-dire mot pour mot
 la frontiere « large 15-21 % » / « exceptional 21-25 % » de §22 l.302. `gmx` est publie par
 `PHYSGRADSET` a cote de `cws` : le canal est PROUVE LU, pas deduit de son effet.
+
+## [NOTE-587] LE PLAFOND D'APEX DE §22 NE BORNAIT QU'UNE MOITIE DE L'EXCURSION — LA TRACE LE DIT DEPUIS LE CYCLE 118
+
+Cycle 146. `ROOM-SPEC21` publie, **cote a cote et sur la meme ligne de bloc**, les trois grandeurs
+et l'identite qui les relie (`keira-room-table.txt`, bloc « SPEC 21 »). Sur la course du cycle 145 :
+
+    |e|  apex     mediane 0.6759  p90 0.8000  max 0.8881 B0      <- ce que §22 l.301 BORNE
+    |s|  §21      mediane 0.4215  p90 0.4548  max 0.4994 B0      <- ce que le moteur bornait
+    |dp| tenseur  mediane 0.3023  p90 0.4163  max 0.5927 B0      <- HORS DE TOUTE BORNE
+    identite ecrite par la table :  s = D_linear + D_angular = e - dp
+
+La borne de [NOTE-518] (cycle 118) porte sur `s = aw - dw` — **la grandeur que §21 l.293 NOMME**
+(« `D_combined = D_max . tanh( |D_linear + D_angular| / D_max )` ») — et elle TIENT : **0 fenetre
+sur 186 au-dessus de 0.50 B0**, sur les deux chaines. Ce n'est pas elle qui est en cause.
+
+**MAIS §22 l.301 EST UNE AUTRE SECTION ET UNE AUTRE GRANDEUR** : « Distal/apex displacement:
+normal <=42% B0, exceptional <=50% B0 » borne le **DEPLACEMENT D'APEX**, c'est-a-dire `e = s + dp`.
+Le terme de TENSEUR `dp` — **dont le maximum SEUL (0.5927 B0) depasse le plafond ENTIER de la
+section** — n'etait borne par rien. D'ou les valeurs livrees : **0.8881 / 0.9666 B0 contre 0.50,
+soit x1.78 / x1.93**, avec **94.1 % / 96.8 % des fenetres au-dessus du plafond exceptionnel** et
+97.3 % / 98.9 % au-dessus du plafond normal.
+
+**CLASSE : `published-line-is-half-the-applied-operator`, version PLAFOND.** C'est mot pour mot le
+defaut que le cycle 145 vient de fermer un etage plus bas ([NOTE-586] : la cle 13 bornait `dfb` et
+laissait `dfa` commander +48 %). Le meme motif, sur l'autre plafond de la meme section, un cycle
+plus tard. **Et la ligne qui le prouve etait publiee depuis le cycle 118** : il n'a fallu aucune
+course pour le trouver, seulement lire le bloc `ROOM-SPEC21` en entier au lieu de sa premiere ligne
+(registre : `grep-the-trace-before-asking-for-a-run`).
+
+**CE QUI EST ECRIT, ET POURQUOI AUCUN NOMBRE N'EST CHOISI PAR MOI.** La meme saturation DOUCE que
+§37 prescrit (« soft displacement clamps should be preferred to hard ones »), la meme tanh de Pade
+que les trois autres filets du moteur, et **les cles deja livrees** : `akn = 0.4199` et
+`acp = 0.0799` (`PHYSPSETD`, identiques sur les deux chaines), soit un genou a **0.42 B0** et une
+asymptote a **0.50 B0** — les deux nombres que §22 l.301 ECRIT. Aucune cle neuve, aucun reglage.
+
+La correction est une **TRANSLATION RIGIDE** des maillons porteurs d'apex, repartie par `dl` comme
+celle de §21 juste au-dessus : elle ne touche **aucune echelle**, donc aucune clause de forme de
+§10 / §11 / §29. Les accumulateurs `aw`, `tw` et `cw` la suivent exactement, comme en [NOTE-564] et
+[NOTE-565], sinon la ligne de COM publierait un point que le squelette ne porte plus.
+
+**INERTIE PAR ALGEBRE, ET C'EST CE QUI LA REND ACCEPTABLE MALGRE LE REGISTRE.** Sous le genou,
+`xr = 0` donc `g = 1` **exactement** : la borne est l'identite au bit. Deux consequences qui ne se
+mesurent pas, elles se demontrent :
+  - a la pose d'auteur l'excursion d'apex vaut 0 : §2 et §9 (« Additional Procedural Sag = 0% »)
+    sont intouchables ;
+  - **les quatre cellules de §16** (« Strong landing apex 30-42% B0 »), qui sont **deja SOUS leur
+    bande** a 0.2162 / 0.2368 / 0.3316 / 0.2883 B0, sont toutes sous 0.42 : la borne ne peut pas
+    aggraver la seule section qui demande PLUS d'apex. C'est la condition sans laquelle ce lot
+    serait un suppresseur au sens que les DIRECTIVES interdisent.
+
+**LE COUT SE CHIFFRE, IL NE SE CONSTATE PAS APRES COUP.** La table simule cette intervention exacte
+sur sa propre trace (« (B) LE CHANTIER : saturer le POINT DE CHAIR livre ») : a D_max = 0.50, pic
+typique **0.6685 -> ~0.475**, soit **-29 %** de mouvement d'apex. C'est le prix, il est publie
+d'avance dans `.autoport/c146-predictions.txt` (P8) avec son falsificateur : si la gate
+`DISCRIMINANT` tombe, le lot se retire au lieu de se defendre.
+
+**CE QUE CE LOT NE FAIT PAS, ET IL FAUT LE DIRE SUR LA MEME PAGE.** Il ne touche pas la
+degenerescence de §21 deja au registre — le multiplicateur de FORCE de `:2904-2909`, constant
+au-dela de son genou, 55.3 % des cellules gelees. Celle-la sature une **FORCE** la ou le texte
+sature un **DEPLACEMENT** ; la borne ecrite ici sature bien un deplacement, mais elle ne repare pas
+l'autre. Les confondre reviendrait a declarer §21 reglee par un correctif qui ne la vise pas.
+
+**LECTURE HORS DEFAUT.** `*phys-e22a-off*` = 1 rend l'etat d'avant ce cycle, bit-identique par
+algebre. Le canal est **prouve LU** par `PHYSE22A n= cut_b0=` (`phys-room.gc`), jamais deduit de son
+effet.
