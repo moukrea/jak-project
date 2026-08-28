@@ -18,11 +18,19 @@ import sys
 sys.path.insert(0, '.autoport')
 from c132_trace_compare import body, initial_conditions  # noqa: E402
 
-NEW_TAGS = ('PHYSANROT ', 'PHYSANROTK ')
+NEW_TAGS = ('PHYSANROT ', 'PHYSANROTK ', 'PHYSANROTF ')
 
 
 def strip_new(lines):
     return [ln for ln in lines if not ln.startswith(NEW_TAGS)]
+
+
+def audit_new(lines_before):
+    """Compte chaque tag retire DANS LA TRACE ANTERIEURE. La promesse du docstring (« rien
+    d'autre n'est filtre, surtout pas une ligne qui EXISTAIT avant ») etait ecrite, pas verifiee :
+    il suffisait d'ajouter un tag deja present pour effacer en silence une ligne qui a change.
+    Elle est desormais MESUREE — un tag non nul ici n'est pas neuf, et le filtre le cacherait."""
+    return [(t, sum(1 for ln in lines_before if ln.startswith(t))) for t in NEW_TAGS]
 
 
 def main():
@@ -38,8 +46,19 @@ def main():
         print('REFUS: conditions initiales DIFFERENTES (cycle 125). La paire ne prouve rien.')
         return 1
     ra, rb = body(a), body(b)
+    # LE FILTRE SE JUSTIFIE AVANT DE S'APPLIQUER : chaque tag retire doit etre ABSENT de la trace
+    # anterieure (A). Un tag present des deux cotes ne serait pas « neuf » et le retirer
+    # masquerait une ligne qui a change — exactement ce que ce script est cense ne pas faire.
+    presents = [(t, n) for t, n in audit_new(ra) if n]
+    print('AUDIT DU FILTRE (occurrences dans A, la trace ANTERIEURE) : %s'
+          % ', '.join('%s=%d' % (t.strip(), n) for t, n in audit_new(ra)))
+    if presents:
+        print('REFUS: %s existe(nt) DEJA dans A — ce ne sont pas des tags neufs, et les retirer'
+              % ', '.join(t.strip() for t, _ in presents))
+        print('       masquerait une difference reelle.')
+        return 1
     ba, bb = strip_new(ra), strip_new(rb)
-    print('TAGS NEUFS RETIRES  A=%d  B=%d  (PHYSANROT / PHYSANROTK, cycle 140)'
+    print('TAGS NEUFS RETIRES  A=%d  B=%d  (PHYSANROT / PHYSANROTK / PHYSANROTF, cycle 140)'
           % (len(ra) - len(ba), len(rb) - len(bb)))
     print('ENREGISTREMENTS COMPARES  A=%d  B=%d' % (len(ba), len(bb)))
     n = min(len(ba), len(bb))
