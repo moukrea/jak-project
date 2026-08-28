@@ -1628,6 +1628,15 @@ phases:
   device: true
   device_serial: eae4df44
   owner_verify: true
+- id: Gtext-tone
+  name: 'TON DES TEXTES (owner 2026-08-28) : « "Appuyer sur la touche start" c''est hyper formel et l''infinitif est bizarre, ça colle pas à l''esprit teenager du jeu ». MESURE : les indices en jeu sont DEJA au bon ton (« Appuie sur <PAD_CIRCLE> pour parler »), seules 8 chaines sur 626 sont a l''infinitif et elles sont toutes de niveau menu/systeme. Plus une variante tactile a creer pour mobile. SEPARE de Gfont-urbanist par ordre explicite de l''owner.'
+  prompt: prompts/phase-Gtext-tone.md
+  validator: validators/phase-Gtext-tone.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gloading-screen
   name: 'ECRAN DE CHARGEMENT AU LIEU D''UN ECRAN NOIR (owner 2026-08-28, maquette fournie) : silhouette de Jak et Daxter courant, « Loading... » localisé en Urbanist, glyphes précurseurs à la largeur exacte du texte. Répond aux 6,7 s d''écran noir mesurées sur la Shield. PIEGE : l''écran noir sert aussi aux coupes de caméra, il faut un seuil sinon le texte clignote en permanence.'
   prompt: prompts/phase-Gloading-screen.md
