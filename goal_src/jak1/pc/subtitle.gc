@@ -408,10 +408,20 @@
   "setup the subtitle font."
   ;; set font settings.
   (set! (-> self font origin x) (* (- 1.0 (-> *SUBTITLE-bank* width)) 256))
+  ;; Gcutscene-reframe (owner 2026-08-28): the subtitle used to be RAISED (bank `height`,
+  ;; 0.75 * 224 = 168.0) during a cutscene below 16:9, purely to clear the bottom black bar.
+  ;; Native mode no longer draws any bar at any aspect ratio (see `letterbox` in
+  ;; engine/game/main.gc), so the subtitle goes back to its usual place -- bank `hint-height`,
+  ;; 0.80 * 224 = 179.2, the same y it has outside cutscenes. "idem pour les sous-titres".
+  ;; The raise survives ONLY under use-vis?, the opt-in PS2 renderer that still draws the bars;
+  ;; there `aspect-ratio` is the game setting itself (ASPECT_4X3 or ASPECT_16X9, see
+  ;; update-from-os), so this is bit-identical to the old condition in that mode.
   (set! (-> self font origin y)
-        (* (if (or (>= (-> *pc-settings* aspect-ratio) ASPECT_16X9) (not (movie?)))
-             (-> *SUBTITLE-bank* hint-height)
-             (-> *SUBTITLE-bank* height))
+        (* (if (and (-> *pc-settings* use-vis?)
+                    (movie?)
+                    (< (-> *pc-settings* aspect-ratio) ASPECT_16X9))
+             (-> *SUBTITLE-bank* height)
+             (-> *SUBTITLE-bank* hint-height))
            224))
   (set-width! (-> self font) (the int (* (-> *SUBTITLE-bank* width) 512)))
   (set-height! (-> self font) (the int (* (-> *SUBTITLE-bank* lines) 11)))

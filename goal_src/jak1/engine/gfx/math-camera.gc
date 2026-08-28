@@ -66,12 +66,21 @@
        ;(set! (-> math-cam y-ratio) (* (1/ (-> *pc-settings* aspect-ratio)) (-> math-cam x-ratio)))
        )
       ((real-movie?)
-       ;; force the original 16x9 cropping during cutscenes.
-       (if (<= (-> *pc-settings* aspect-ratio) ASPECT_16X9)
-         (set! (-> math-cam y-ratio) (* (1/ (-> *pc-settings* aspect-ratio)) (-> math-cam x-ratio)))
-         (begin
-           (set! (-> math-cam y-ratio) (* (1/ ASPECT_16X9) (-> math-cam x-ratio)))
-           (*! (-> math-cam x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9)))))
+       ;; Gcutscene-reframe (owner 2026-08-28): RECADRER, ne plus masquer.
+       ;; The authored cutscene frame is the 16x9 band: horizontal slope tan(fov/2), vertical
+       ;; slope tan(fov/2)/(16:9). Before, that band was obtained by rendering a frame of the
+       ;; SCREEN aspect and painting black bars over whatever fell outside it -- top/bottom below
+       ;; 16:9, LEFT/RIGHT above it. Now the band's VERTICAL field of view is kept exactly and
+       ;; the horizontal is derived from the real screen aspect, so the rendered frame IS the
+       ;; screen at every format and there is nothing left to mask.
+       ;;   y-ratio = tan(fov/2)/(16:9)              <- authored vertical, aspect-INDEPENDENT
+       ;;   x-ratio = tan(fov/2) * aspect/(16:9)     <- = y-ratio * aspect
+       ;; At aspect = 16:9 this is bit-for-bit the old branch (x unchanged, y = x/(16:9)).
+       ;; Above 16:9 it is bit-for-bit the old wide branch -- only the bars go away.
+       ;; Below 16:9 the band is now magnified to fill the height instead of being framed by
+       ;; bars, which is exactly "grossir la partie visible pour qu'elle prenne toute la hauteur".
+       (set! (-> math-cam y-ratio) (* (1/ ASPECT_16X9) (-> math-cam x-ratio)))
+       (*! (-> math-cam x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9)))
       (else
        ;; not using game vis, allow *extended* aspect ratios
        ;; there is no vertical cropping, and you can see more of the sides

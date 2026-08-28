@@ -22,32 +22,121 @@
   (none))
 
 (defun letterbox ()
-  "Draw the letterbox black rectangles"
-  (with-dma-buffer-add-bucket ((dma-buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf)) ;; debug-no-zbuf is one of the last buckets
-    ;; draw the two sprites
-    (#cond
-      ((not PC_PORT)
+  "Draw the letterbox black rectangles.
+
+   Gcutscene-reframe (owner 2026-08-28) -- in NATIVE mode this now draws NOTHING, at any
+   aspect ratio. The bars are not replaced by smaller bars: the cutscene frame is RECOMPOSED
+   by update-math-camera (gfx/math-camera.gc, real-movie? branch), which keeps the authored
+   16x9 VERTICAL field of view and derives the horizontal from the real screen aspect. The
+   rendered frame then already has the screen's aspect, so no region is left over to mask.
+
+   This also fixes the covered FPS counter/HUD by construction, not by moving anything: the
+   bars used to be appended to bucket `debug-no-zbuf` -- one of the LAST buckets -- from
+   post-sync-draw, i.e. AFTER draw-pc-fps-counter had appended the counter to the very same
+   bucket from (update *pc-settings*) at the tail of the previous display-loop iteration.
+   Same bucket, later in the DMA chain, so the bars painted over it. Zero bars, nothing to
+   paint over.
+
+   The `use-vis?` path is the opt-in PS2-accurate renderer: it keeps the original bars,
+   because there the view cannot be extended (the game's own visibility data bounds it)."
+  (#cond
+    ((not PC_PORT)
+     (with-dma-buffer-add-bucket ((dma-buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf)) ;; debug-no-zbuf is one of the last buckets
        (draw-sprite2d-xy dma-buf 0 0 512 25 (new 'static 'rgba :a #x80))
-       (draw-sprite2d-xy dma-buf 0 199 512 26 (new 'static 'rgba :a #x80)))
-      (#t
-       (if (-> *pc-settings* use-vis?)
-         ;; original game mode. dont do anything.
-         (begin
-           (draw-sprite2d-xy dma-buf 0 0 512 25 (new 'static 'rgba :a #x80))
-           (draw-sprite2d-xy dma-buf 0 199 512 26 (new 'static 'rgba :a #x80)))
-         ;; native mode. force 16x9 letterboxing always.
-         (begin
-           (cond
-             ((< (-> *pc-settings* aspect-ratio) ASPECT_16X9)
-              ;; too tall. needs vertical letterboxing.
-              (let ((lbx-h (the int (* 112.0 (- 1.0 (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9))))))
-                (draw-sprite2d-xy dma-buf 0 0 512 lbx-h (new 'static 'rgba :a #x80))
-                (draw-sprite2d-xy dma-buf 0 (- 224 lbx-h) 512 lbx-h (new 'static 'rgba :a #x80))))
-             ((> (-> *pc-settings* aspect-ratio) ASPECT_16X9)
-              ;; too wide. needs horizontal letterboxing.
-              (let ((lbx-w (the int (* 256.0 (- 1.0 (/ ASPECT_16X9 (-> *pc-settings* aspect-ratio)))))))
-                (draw-sprite2d-xy dma-buf 0 0 lbx-w 224 (new 'static 'rgba :a #x80))
-                (draw-sprite2d-xy dma-buf (- 512 lbx-w) 0 lbx-w 224 (new 'static 'rgba :a #x80))))))))))
+       (draw-sprite2d-xy dma-buf 0 199 512 26 (new 'static 'rgba :a #x80))))
+    (#t
+     ;; original game mode keeps the PS2 bars. native mode emits no DMA at all.
+     (when (-> *pc-settings* use-vis?)
+       (with-dma-buffer-add-bucket ((dma-buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf))
+         (draw-sprite2d-xy dma-buf 0 0 512 25 (new 'static 'rgba :a #x80))
+         (draw-sprite2d-xy dma-buf 0 199 512 26 (new 'static 'rgba :a #x80))))))
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcutscene-reframe -- boot measurement of the cutscene framing operator
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; A comment is not a proof. This drives the PRODUCTION predicates to the exact state a real
+;; cutscene puts them in -- the `movie` bit of (-> *kernel-context* prevent-from-run), which is
+;; what real-movie? reads -- and publishes what update-math-camera and letterbox ACTUALLY produce:
+;;
+;;   CUTREFRAME-FOV   the camera fov the probe ran at (a zero fov would make the whole table
+;;                    vacuous, so it is published next to it and not assumed)
+;;   CUTREFRAME       one line per screen aspect, cut=1 (cutscene) and cut=0 (gameplay CONTROL).
+;;                    `v` must be identical on every cut=1 line -- that IS "vertical field of view
+;;                    preserved" -- and `frame-asp` must equal `asp`, which is what makes every
+;;                    black bar unnecessary. cut=0 discriminates: it must NOT match cut=1.
+;;   CUTREFRAME-BARS  bytes of DMA that `letterbox` appends. vis=0 is native mode and must be 0;
+;;                    vis=1 is the POSITIVE CONTROL and must be non-zero -- a zero without a
+;;                    control that fired proves nothing.
+;;
+;; Everything touched is saved and restored inside the same function with no suspend in between,
+;; so nothing else can observe the probe state. Runs once per boot, costs nothing afterwards.
+;; Accepted, declared side effect: the vis=1 positive control really does emit the two PS2 bars,
+;; so exactly ONE boot frame carries them.
+(define *cutscene-reframe-measured* #f)
+
+(defun cutscene-reframe-probe ((asp float))
+  "Publish the cutscene frustum and its gameplay control for one screen aspect ratio."
+  (let ((vmode (-> *setting-control* current video-mode))
+        (asym (-> *setting-control* current aspect-ratio)))
+    (set! (-> *pc-settings* aspect-ratio) asp)
+    ;; cutscene: the movie bit is what real-movie? reads.
+    (logior! (-> *kernel-context* prevent-from-run) (process-mask movie))
+    (update-math-camera *math-camera* vmode asym)
+    (format 0
+            "CUTREFRAME cut=1 asp=~f h=~f v=~f frame-asp=~f~%"
+            asp
+            (-> *math-camera* x-ratio)
+            (-> *math-camera* y-ratio)
+            (/ (-> *math-camera* x-ratio) (-> *math-camera* y-ratio)))
+    ;; control: same aspect, no movie. must differ, or the probe is measuring nothing.
+    (logclear! (-> *kernel-context* prevent-from-run) (process-mask movie))
+    (update-math-camera *math-camera* vmode asym)
+    (format 0
+            "CUTREFRAME cut=0 asp=~f h=~f v=~f frame-asp=~f~%"
+            asp
+            (-> *math-camera* x-ratio)
+            (-> *math-camera* y-ratio)
+            (/ (-> *math-camera* x-ratio) (-> *math-camera* y-ratio))))
+  (none))
+
+(defun cutscene-reframe-measure ()
+  "One-shot boot measurement of the cutscene reframe and of the letterbox bars."
+  (let ((vis (-> *pc-settings* use-vis?))
+        (asp (-> *pc-settings* aspect-ratio))
+        (mask (-> *kernel-context* prevent-from-run))
+        (vmode (-> *setting-control* current video-mode))
+        (asym (-> *setting-control* current aspect-ratio)))
+    (set! (-> *pc-settings* use-vis?) #f)
+    (format 0 "CUTREFRAME-FOV fov=~f tan-half=~f~%" (-> *math-camera* fov) (tan (* 0.5 (-> *math-camera* fov))))
+    (cutscene-reframe-probe ASPECT_4X3)   ;; 1.3333 -- used to draw 28px top+bottom bars
+    (cutscene-reframe-probe 1.6)          ;; 16:10  -- used to draw 11px top+bottom bars
+    (cutscene-reframe-probe ASPECT_16X9)  ;; 1.7778 -- reference, no bars, reframe is identity
+    (cutscene-reframe-probe 2.1666667)    ;; 19.5:9 -- phone, used to draw 45px side bars
+    (cutscene-reframe-probe 2.2222222)    ;; 20:9   -- phone, used to draw 51px side bars
+    (cutscene-reframe-probe 2.3333333)    ;; 21:9   -- used to draw 60px side bars
+    (cutscene-reframe-probe 3.5555556)    ;; 32:9   -- used to draw 128px side bars
+    ;; bars. 4:3 is the aspect that used to draw the tallest ones.
+    (set! (-> *pc-settings* aspect-ratio) ASPECT_4X3)
+    (logior! (-> *kernel-context* prevent-from-run) (process-mask movie))
+    (let ((p0 (the-as int (-> (current-frame) global-buf base))))
+      (letterbox)
+      (format 0
+              "CUTREFRAME-BARS vis=0 asp=~f bytes=~D~%"
+              ASPECT_4X3
+              (- (the-as int (-> (current-frame) global-buf base)) p0)))
+    (set! (-> *pc-settings* use-vis?) #t) ;; POSITIVE CONTROL
+    (let ((p0 (the-as int (-> (current-frame) global-buf base))))
+      (letterbox)
+      (format 0
+              "CUTREFRAME-BARS vis=1 asp=~f bytes=~D~%"
+              ASPECT_4X3
+              (- (the-as int (-> (current-frame) global-buf base)) p0)))
+    ;; restore every value touched, then recompute the camera for real.
+    (set! (-> *pc-settings* use-vis?) vis)
+    (set! (-> *pc-settings* aspect-ratio) asp)
+    (set! (-> *kernel-context* prevent-from-run) mask)
+    (update-math-camera *math-camera* vmode asym))
   (none))
 
 (defun set-blackout-frames ((arg0 time-frame))
@@ -443,6 +532,13 @@
       (if (not *progress-process*) (depth-cue disp))
       ;; screen filter
       (with-profiler "post-sync-draw"
+        ;; Gcutscene-reframe: one-shot boot measurement, published to the console. Placed here
+        ;; because this is exactly where `letterbox` itself is called, so the frame buffer and
+        ;; *math-camera* are both known-good at this point in the iteration.
+        (#when PC_PORT
+          (when (not *cutscene-reframe-measured*)
+            (set! *cutscene-reframe-measured* #t)
+            (cutscene-reframe-measure)))
         ;; add letterbox effect
         (when (or (movie?) (< (current-time) (-> *game-info* letterbox-time)))
           (if (< (-> *game-info* letterbox-time) (current-time)) (set! (-> *game-info* letterbox-time) (current-time)))
