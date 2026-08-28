@@ -1489,6 +1489,60 @@ def _reglim_block(A, txt, names, RGT, LIM):
              if _sn == 0 else
              'LE FILET N\'EST PAS EFFONDRE (sat_n=%.0f) : par sa propre phrase, « LE RESSORT EST'
              ' MAL POSE ».' % _sn))
+    # ---------------------------------------------------------------------------------------
+    # ROOM-SATD -- CYCLE 149. LA DISTRIBUTION DES DEUX FILETS PAR MAILLON, QUE LE CYCLE 147
+    # DECLARAIT MANQUANTE : << `:2005` mord bien plus fort ET SA DISTRIBUTION PAR MAILLON N'EST
+    # PAS PUBLIEE : sa degenerescence reste OUVERTE, ni affirmee ni ecartee. >>
+    # NATURE : trois COMPTES par site, sans dimension, portee COURSE. REPERE : aucun -- `dd`,
+    # `kn` et `cp` sont trois longueurs du MEME repere, deja mises a l'echelle par `b0f` et `rl`.
+    # CE QU'ILS COMPTENT : `t` = evaluations du site ; `fo` = celles ou dd >= kn+3.cp, ou
+    # l'operateur A GENOU livre (`kn + cp.tanh((dd-kn)/cp)`) rend une CONSTANTE ; `fn` = celles ou
+    # dd >= 3.(kn+cp), ou l'operateur que SPEC 21 l.293 ECRIT rendrait la sienne.
+    # LES TROIS NE LISENT QUE `dd`, `kn`, `cp` : leur valeur ne depend PAS de l'operateur actif.
+    # LECTURE QUAND LE DEFAUT EST ABSENT : `fo = 0` avec `t > 0` REFUTE la degenerescence de
+    # l'operateur livre. `t = 0` : la branche ne tourne pas, et rien ne se conclut des deux autres.
+    _satd = {}
+    for _mm in re.finditer(r'^PHYSSATD tag=(\S+) site=(\S+) t=([-\d.e+]+) fo=([-\d.e+]+)'
+                           r' fn=([-\d.e+]+) dm=([-\d.e+]+)', txt, re.M):
+        _satd[_mm.group(2)] = tuple(float(_x) for _x in _mm.groups()[2:])
+    if not _satd:
+        A('ROOM-SATD: `PHYSSATD` ABSENTE de la trace -- la distribution des deux filets par')
+        A('   maillon n\'est pas mesuree. Elle n\'est donc NI degeneree NI saine : INCONNUE, et')
+        A('   aucun correctif ne se pose sur ce site tant que cette ligne manque.')
+    else:
+        _dmarm = max(_v[3] for _v in _satd.values())
+        A('ROOM-SATD: OPERATEUR ACTIF = %s'
+          % ('forme a GENOU d\'avant le cycle 149 (`kn + cp.tanh((dd-kn)/cp)`)' if _dmarm < 0.5
+             else 'forme du DOCUMENT, SPEC 21 l.293 (`D_max.tanh(|D|/D_max)`, D_max = kn+cp)'))
+        for _sname, _lbl in (('e22', 'jak-hd-physics.gc:2005  (phys-cap-e22!, correction en ROTATION)'),
+                             ('sat', 'jak-hd-physics.gc:3111  (filet `sat_n`, correction en ECHELLE)')):
+            if _sname not in _satd:
+                A('ROOM-SATD: site=%s ABSENT de la trace.' % _sname)
+                continue
+            _t, _fo, _fn2, _dmv = _satd[_sname]
+            if _t <= 0.0:
+                A('ROOM-SATD: site=%s t=0 -- LA BRANCHE NE TOURNE PAS. Aucune conclusion ne se tire'
+                  % _sname)
+                A('   de `fo` ni de `fn` : le canal n\'est pas PROUVE LU, donc il n\'est pas mesure.')
+                continue
+            A('ROOM-SATD: site=%s  %s' % (_sname, _lbl))
+            A('   t=%.0f evaluations · fo=%.0f (%.1f %%) dans le GEL de l\'operateur A GENOU'
+              ' (dd >= kn+3.cp)' % (_t, _fo, 100.0 * _fo / _t))
+            A('   fn=%.0f (%.1f %%) dans le gel de l\'operateur DU DOCUMENT (dd >= 3.(kn+cp)),'
+              % (_fn2, 100.0 * _fn2 / _t))
+            A('   soit un gel qui commence 2,27 fois plus loin -- c\'est de l\'arithmetique sur les')
+            A('   MEMES cles 16 et 17, pas un reglage : (kn+3cp)/(3kn+3cp) = 0,66/1,50 B0.')
+            A('   VERDICT DE DEGENERESCENCE (seuil ECRIT AVANT la course, `.autoport/c149-predictions.txt`')
+            A('   L3 : >= 40 %% = degenere · < 15 %% = REFUTE · entre les deux = etabli mais plus')
+            A('   faible que je ne l\'avais dit) -> %s'
+              % ('DEGENERE' if _fo / _t >= 0.40 else
+                 ('REFUTE' if _fo / _t < 0.15 else 'ETABLI MAIS PLUS FAIBLE QUE PREDIT')))
+            if _fo > 0.0:
+                A('   CE QUE CA VEUT DIRE, SANS EMBELLIR : sur ces %.0f evaluations la sortie du'
+                  % _fo)
+                A('   filet est EXACTEMENT kn+cp, la MEME valeur quelle que soit l\'entree. Une')
+                A('   sortie constante sous une entree qui varie est ce que la regle 7 du contrat')
+                A('   rejette, et mot pour mot ce que l\'owner appelle << ca suit aucune logique >>.')
     A('')
 
 

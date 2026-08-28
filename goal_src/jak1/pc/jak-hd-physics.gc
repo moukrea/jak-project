@@ -388,6 +388,7 @@
 ;; [NOTE-101b] ---------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
 (define *phys-sat-n* 0)
 (define *phys-sat-sum* 0.0)
+(define *phys-satdm* 0) (define *phys-e22t* 0) (define *phys-e22fo* 0) (define *phys-e22fn* 0) (define *phys-satt* 0) (define *phys-satfo* 0) (define *phys-satfn* 0)  ;; [NOTE-589] CYCLE 149 — LA DISTRIBUTION DES DEUX FILETS PAR MAILLON, QUE LE CYCLE 147 DECLARAIT MANQUANTE. `t` = evaluations du site · `fo` = celles ou dd >= kn+3.cp, la ou l'operateur A GENOU rend une CONSTANTE · `fn` = celles ou dd >= 3.(kn+cp), la ou l'operateur DU DOCUMENT (SPEC 21 l.293) rendrait une constante. Les trois ne lisent que `dd`, `kn`, `cp` : leur valeur ne depend PAS de l'operateur actif, donc une course a operateur INCHANGE mesure la degenerescence de l'operateur LIVRE. NATURE : des COMPTES, sans dimension, portee COURSE (remise a zero avec les autres dans `phys-limiter-reset!`). REPERE : aucun — `dd` est une longueur deja normalisee par `b0f` via `kn`/`cp`. LECTURE HORS DEFAUT : `t` = 0 signifie que la branche ne tourne pas, et alors AUCUNE conclusion ne se tire des deux autres. `*phys-satdm*` : 0 = forme a GENOU d'avant le cycle 149 (controle negatif, bit-identique), 1 = `D_max . tanh(|D|/D_max)` que SPEC 21 l.293 ECRIT, `D_max = kn+cp` — memes cles 16/17, aucun nombre neuf.
 ;; [NOTE-144] SPEC 21 SOUS SA FORME DE FORCE — COMBIEN DE SOUS-PAS -> jak-hd-physics-NOTES.md
 (define *phys-stif-n* 0)
 (define *phys-fwsat-n* 0)
@@ -1999,12 +2000,14 @@
                    (ez  (- (-> *phys-pz* scl) tz))
                    (dd  (sqrtf (+ (* ex ex) (+ (* ey ey) (* ez ez))))))
               ;; [NOTE-542] MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LE FILET AMONT. Le duplicat -> jak-hd-physics-NOTES.md
-              (when (and (> dd kn) (> cp 0.0001))
-                (let* ((xr (/ (- dd kn) cp))
+              (when (> cp 0.0001) (set! *phys-e22t* (+ *phys-e22t* 1)) (when (>= dd (+ kn (* 3.0 cp))) (set! *phys-e22fo* (+ *phys-e22fo* 1))) (when (>= dd (* 3.0 (+ kn cp))) (set! *phys-e22fn* (+ *phys-e22fn* 1))))  ;; [NOTE-589] INSTRUMENT PUR : aucune de ces trois cases n'est lue par le solveur.
+              (when (and (if (zero? *phys-satdm*) (> dd kn) (> dd 0.0001)) (> cp 0.0001))
+                (let* ((dm (+ kn cp))
+                       (xr (if (zero? *phys-satdm*) (/ (- dd kn) cp) (/ dd dm)))
                        (th (if (>= xr 3.0)
                              1.0
                              (/ (* xr (+ 27.0 (* xr xr))) (+ 27.0 (* 9.0 (* xr xr))))))
-                       (ds (+ kn (* cp th)))
+                       (ds (if (zero? *phys-satdm*) (+ kn (* cp th)) (* dm th)))
                        (ux (- (-> *phys-px* scl) bx))
                        (uy (- (-> *phys-py* scl) by))
                        (uz (- (-> *phys-pz* scl) bz))
@@ -3108,13 +3111,15 @@
                                      (rl  (if (> rlb 0.01) (fmin 1.0 (/ (-> *phys-blen* scl) rlb)) 1.0))
                                      (kn (* (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 16)) b0f) rl))
                                      (cp (* (* (-> *phys-pset* (+ (* sc PHYS-PSET-N) 17)) b0f) rl)))
-                                (when (and (> dd kn) (> cp 0.0001))
-                                  (let* ((xr (/ (- dd kn) cp))
+                                (when (> cp 0.0001) (set! *phys-satt* (+ *phys-satt* 1)) (when (>= dd (+ kn (* 3.0 cp))) (set! *phys-satfo* (+ *phys-satfo* 1))) (when (>= dd (* 3.0 (+ kn cp))) (set! *phys-satfn* (+ *phys-satfn* 1))))  ;; [NOTE-589] INSTRUMENT PUR : aucune de ces trois cases n'est lue par le solveur.
+                                (when (and (if (zero? *phys-satdm*) (> dd kn) (> dd 0.0001)) (> cp 0.0001))
+                                  (let* ((dm (+ kn cp))
+                                         (xr (if (zero? *phys-satdm*) (/ (- dd kn) cp) (/ dd dm)))
                                          (th (if (>= xr 3.0)
                                                1.0
                                                (/ (* xr (+ 27.0 (* xr xr)))
                                                   (+ 27.0 (* 9.0 (* xr xr))))))
-                                         (ds (+ kn (* cp th)))
+                                         (ds (if (zero? *phys-satdm*) (+ kn (* cp th)) (* dm th)))
                                          (sf (/ ds dd)))
                                     (when (< sf 0.999999)
                                       (set! *phys-sat-n* (+ *phys-sat-n* 1))
@@ -4546,7 +4551,9 @@
         ((= which 2) *phys-skc-w*)
         ((= which 3) *phys-skc-r*)
         ((= which 4) (the float *phys-e22-n*)) ((= which 5) *phys-e22-d*)
-        ((= which 6) (the float *phys-e21-n*)) ((= which 7) *phys-e21-d*) ((= which 8) (the float *phys-e22a-n*)) (else *phys-e22a-d*)))
+        ((= which 6) (the float *phys-e21-n*)) ((= which 7) *phys-e21-d*) ((= which 8) (the float *phys-e22a-n*)) ((= which 9) *phys-e22a-d*)
+        ((= which 10) (the float *phys-e22t*)) ((= which 11) (the float *phys-e22fo*)) ((= which 12) (the float *phys-e22fn*))
+        ((= which 13) (the float *phys-satt*)) ((= which 14) (the float *phys-satfo*)) ((= which 15) (the float *phys-satfn*)) ((= which 16) (the float *phys-satdm*)) (else 0.0)))
 
 (defun phys-skl ((slot int) (chain int) (w int)) "LE LEVIER DE LA CONTRAINTE DE PEAU AU POINT QUI DECIDE — instrument PUR (aucune case n'est lue par le solveur), 20 cases par chaine, meme fenetre que `phys-skc`. Table des cases : [NOTE-482] de jak-hd-physics-NOTES.md." (if (or (< slot 0) (>= slot PHYS-SLOTS) (< chain 0) (>= chain PHYS-CHAINS) (< w 0) (>= w 20)) 0.0 (-> *phys-skl* (+ (* 20 (+ (* slot PHYS-CHAINS) chain)) w))))
 
@@ -4680,7 +4687,7 @@
   (set! *phys-sat-n* 0)
   (set! *phys-sat-sum* 0.0)
   (set! *phys-stif-n* 0)
-  (set! *phys-fwsat-n* 0)
+  (set! *phys-fwsat-n* 0) (set! *phys-e22t* 0) (set! *phys-e22fo* 0) (set! *phys-e22fn* 0) (set! *phys-satt* 0) (set! *phys-satfo* 0) (set! *phys-satfn* 0)
   (set! *phys-cwn* 0)
   (set! *phys-cwsum* 0.0)
   (dotimes (i (* PHYS-SCL PHYS-COLS)) (set! (-> *phys-cvh* i) 0) (set! (-> *phys-cvm* i) 0.0))

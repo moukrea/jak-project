@@ -1,0 +1,137 @@
+# CYCLE 149 — PREDICTIONS ECRITES AVANT TOUTE EDITION DU MOTEUR
+# DIRECTIVES vd9e8b66782 · perimetre : Grecharged-secondary-motion, poitrine de Keira
+#
+# ---------------------------------------------------------------------------------------------
+# THESE, ET ELLE EST PRE-SPECIFIEE PAR DEUX RAPPORTS DE SUITE
+# ---------------------------------------------------------------------------------------------
+# Le cycle 147 a ecrit, sur la ligne de SPEC 21 du registre : « `:2005` mord bien plus fort et
+# SA DISTRIBUTION PAR MAILLON N'EST PAS PUBLIEE : sa degenerescence reste OUVERTE, ni affirmee
+# ni ecartee. » Le cycle 148 a repete dans « ce que ce lot ne fait pas » : « Il ne touche ni
+# `:2005` ni `:3114`, les deux saturations PAR MAILLON, dont la distribution n'est toujours pas
+# publiee. » C'est le seul item pre-specifie qui reste ouvert apres la fermeture du mur de force.
+#
+# LES DEUX SITES, LUS DANS LE CODE (pas dans un commentaire) :
+#   `jak-hd-physics.gc:2002-2007`  (`phys-cap-e22!`, correction en ROTATION sur la sphere)
+#   `jak-hd-physics.gc:3111-3118`  (le filet `sat_n`/`sat_sum`, correction en ECHELLE)
+# Les deux portent EXACTEMENT le meme operateur :
+#       xr = (dd - kn)/cp ;  th = 1.0 SI xr >= 3 SINON Pade(tanh) ;  ds = kn + cp.th
+# avec kn = pset[16].b0f.rl = 0.42 B0.rl et cp = pset[17].b0f.rl = 0.08 B0.rl.
+# DONC `ds` est EXACTEMENT CONSTANT = kn+cp = 0.50 B0.rl des que dd >= kn+3cp = 0.66 B0.rl.
+#
+# C'est mot pour mot la forme que le cycle 147 a REFUTEE puis REMPLACEE un etage plus haut, a
+# `:4052` : echelle de compression = la MARGE RESTANTE (0.08 B0) au lieu du `D_max` que
+# SPEC 21 l.293 ECRIT (0.50 B0), 6,3 fois plus large. Registre : `saturation-scale-is-not-its-
+# asymptote`. Au c146 cette forme rendait son asymptote sur 97 % des fenetres.
+#
+# ---------------------------------------------------------------------------------------------
+# CE QUE JE REFUSE DE FAIRE, ET POURQUOI JE COUPE LE CYCLE EN DEUX JAMBES
+# ---------------------------------------------------------------------------------------------
+# La degenerescence de ces deux sites est ECRITE COMME OUVERTE par le c147. Poser le correctif
+# sans l'avoir mesuree serait exactement ce que le c148 vient de payer : un lot ecrit sur une
+# hypothese non testee, sept predictions sur neuf refutees. Donc :
+#
+#   JAMBE 1 = INSTRUMENT PUR. Trois compteurs par site, AUCUNE ligne du solveur touchee,
+#             operateur inchange (`*phys-satdm*` = 0 = forme genou d'avant ce cycle).
+#             Elle DOIT etre bit-identique au c148 sur toute grandeur solveur.
+#   JAMBE 2 = le correctif, arme seulement si la JAMBE 1 etablit la degenerescence.
+#
+# LES TROIS COMPTEURS, PAR SITE (ils ne lisent que `dd`, `kn`, `cp` — donc leur valeur ne depend
+# PAS de l'operateur actif, et la jambe 1 mesure la degenerescence de l'operateur LIVRE) :
+#   `t`  = evaluations du site (cp > 0.0001)
+#   `fo` = evaluations avec dd >= kn + 3.cp   -> l'operateur ACTUEL y rend une CONSTANTE
+#   `fn` = evaluations avec dd >= 3.(kn + cp) -> l'operateur DU DOCUMENT y rendrait une constante
+#
+# =============================================================================================
+# JAMBE 1 — PREDICTIONS
+# =============================================================================================
+
+L1  *** LA PREDICTION DE PURETE, ET ELLE EST LA PLUS IMPORTANTE. ***
+    L'instrument ne deplace pas la grandeur qu'il compte. Doivent etre IDENTIQUES AU CHIFFRE
+    a la course livree du cycle 148 :
+        sat_n = 39625 · sat_sum = 1746946.5 · stif_n = 51264 · fwsat_n = 30895
+        PHYSE22 n = 7358 / 7354 / 7269 / 7133  (prox-disarmed / prox-armed / skin-armed / skin-disarmed)
+        PHYSE21 n = 507 / 513 / 511 / 518
+        PHYSE22A n = 5580 sur les quatre tags
+        ROOM-IDLE maxdev = 0.0001 · meshpen 0.0548 / 0.0610 · skinpen 0.0707 / 0.0863
+        ROOM-APEX : 372 valeurs, min 0.2585 · p50 0.4495 · max 0.4899
+        ROOM-JELLY-WORST 0.9016
+    FALSIFICATEUR : UN SEUL de ces chiffres qui bouge => l'instrument n'est pas pur, le lot est
+    RETIRE et non defendu. C'est le controle C5 du cycle 148, applique a moi-meme.
+
+L2  CANAL PROUVE LU, JAMAIS DEDUIT DE SON EFFET. `PHYSSATD` publie six entiers non nuls :
+    e22_t > 0, sat_t > 0. Un zero sur `t` = la branche ne tourne pas, et la jambe 2 n'a pas lieu.
+
+L3  *** LA PREDICTION PORTEUSE DU CYCLE : LA DEGENERESCENCE, CHIFFREE. ***
+    Je predis que l'operateur LIVRE rend sa CONSTANTE sur une large part de sa population :
+        fo/t >= 0.40 sur le site `sat` (`:3111`)
+        fo/t >= 0.40 sur le site `e22` (`:2005`)
+    BASE : `spec22_wall_is_saturated` du registre mesure une entree p50 = 0.81 B0 et max 5.06 B0
+    contre un gel a 0.66 B0, et 56-58 % de fenetres saturees.
+    *** SEUIL DE REFUTATION, ECRIT D'AVANCE : si fo/t < 0.15 sur LES DEUX sites, la
+    degenerescence est REFUTEE, LA JAMBE 2 N'EST PAS ECRITE, et je publie le chiffre qui me
+    donne tort. *** Entre 0.15 et 0.40 : le fait est etabli mais plus faible que je ne le dis,
+    je le publie tel quel et j'ecris la jambe 2 en disant que ma borne basse etait fausse.
+
+L4  L'OPERATEUR DU DOCUMENT DEGENERE MOINS, ET C'EST DE L'ARITHMETIQUE, PAS UN ESPOIR.
+    Son gel commence a 3.(kn+cp) = 1.4994 B0.rl contre kn+3cp = 0.66 B0.rl, soit 2,27 fois plus
+    loin. PREVU : fn/t <= 0.5 . fo/t sur les deux sites.
+    (Ce n'est PAS une prediction sur la qualite du correctif — seulement sur ou son gel commence.)
+
+L5  BUDGET DE LIGNES. jak-hd-physics.gc <= 4793 lignes (4785 + 8 au plus), plafond CLEAN 4800.
+    Aucune gate touchee (regle 5 du contrat).
+
+L6  AUCUNE DONNEE NE BOUGE. `recharged_assets/physics_chains.txt` et le preset identiques au bit
+    (md5 releve avant/apres). Aucune cle de parseur neuve. Aucun nombre choisi par moi :
+    `kn`, `cp` et `kn+cp` sont deja les cles 16 et 17 du fichier livre.
+
+# =============================================================================================
+# JAMBE 2 — PREDICTIONS (ecrites MAINTENANT, avant de connaitre le resultat de la jambe 1)
+# =============================================================================================
+# Le correctif : aux deux sites, `xr = dd/dm` et `ds = dm.th` avec `dm = kn + cp`, c'est-a-dire
+# `D_combined = D_max . tanh(|D| / D_max)` de SPEC 21 l.293, MEME tanh de Pade, MEMES CLES,
+# et la garde du genou disparait parce que le document n'en ecrit pas — la fonction est
+# CONTINUE en 0 (th ~ xr donc ds ~ dd) et n'introduit donc aucun saut, ce que SPEC 37 exige.
+# C'est le transport EXACT, ligne pour ligne, de ce que le cycle 147 a fait a `:4052`.
+
+M1  LE CANAL TIRE : `sat_n` MONTE FORT (l'operateur n'a plus de zone morte sous le genou).
+    PREVU sat_n > 3 . 39625. FALSIFICATEUR : sat_n inchange => le commutateur n'est pas lu.
+
+M2  LE GEL S'EFFONDRE : la part des corrections rendant l'asymptote passe de fo/t a fn/t,
+    donc au moins DIVISEE PAR DEUX (L4).
+
+M3  *** LE PRIX, ET JE LE NOMME AVANT LA COURSE PARCE QUE C'EST UN OPERATEUR MONOTONE. ***
+    Le registre (`apex-deficit-and-excess-live-in-different-drive-channels`) etablit qu'un
+    operateur monotone de l'amplitude deplace TOUTES les cellules dans le meme sens. Donc :
+      - les cellules AU-DESSUS baissent : §19 (4 cellules a x1.06-x1.21) et §20 (4 a x1.11-x1.46)
+        sont les seules qui peuvent gagner. PREVU : au moins 2 des 8 passent DANS.
+      - les cellules SOUS empirent : §16 (4 cellules a x0.40-x0.99) et §18 chestR (x0.53-x0.81)
+        S'ELOIGNENT. Je ne le decouvrirai pas, je l'ecris ici. Ces deux sections sont DEJA
+        `NON TENUE` : aucune section ne peut REGRESSER de statut par ce chemin.
+    FALSIFICATEUR DU LOT : si une section aujourd'hui `TENUE` (§7, §12, §24, §25, §26) ou
+    `PARTIELLE` perd son statut, le lot est RETIRE, pas defendu.
+
+M4  §24 / §25 / §26 RESTENT `TENUE`. Justification quantitative ECRITE D'AVANCE, la meme que
+    P7 du cycle 147 : `ROOM-RINGDOWN` releve un pic de 16,04 u = 0,027 B0 ; a 0,027 B0 le gain
+    de l'operateur vaut dm.tanh(0.054)/0.027 = 0.9988, soit -0,12 %. Il ne peut pas deplacer un
+    zeta de plus de 0,2 %. FALSIFICATEUR : un zeta hors [0,32-0,42] ou un rebond hors bande.
+
+M5  §2 / §9 INTACTES. A `dd -> 0` l'operateur est l'IDENTITE au premier ordre (th -> xr donc
+    ds -> dd). PREVU `ROOM-IDLE maxdev` <= 0.0002 (il vaut 0.0001).
+    FALSIFICATEUR : maxdev > 0.001 => le lot est RETIRE. C'est la degradation x740 que la
+    jambe A du cycle 148 a produite ; je la teste explicitement cette fois.
+
+M6  LA PENETRATION NE DOIT PAS MONTER. L'operateur RETRANCHE du deplacement partout, il n'en
+    ajoute nulle part : `meshpen` et `skinpen` ne doivent pas augmenter.
+    PREVU meshpen <= 0.0560 / 0.0625. FALSIFICATEUR : +20 % ou plus => lot RETIRE.
+    (Le c148 a mesure que ces compteurs ne sont PAS aveugles : la jambe A les a fait bouger de
+    +82 % / +46 %. Ils sont donc un vrai falsificateur ici.)
+
+M7  `perr` NE REPOND QU'A LA FRAME SUIVANTE, et je l'ecris pour ne pas m'etonner ensuite :
+    `perr` est calcule a `:2821`, 290 lignes EN AMONT du filet de `:3111` et en amont de la
+    boucle de sous-pas. Il lit donc `*phys-px*` tel que la frame PRECEDENTE l'a laisse. Une
+    baisse de `perr` a la meme frame serait un signe que je lis autre chose que ce que je crois.
+
+M8  CE QUE JE NE PREDIS PAS, ET JE LE DIS : je ne predis AUCUN passage de section a `TENUE`.
+    §19 et §20 ont chacune 4 cellules ; il en faut 4 sur 4 DANS pour un `TENUE`, et
+    l'operateur ne peut pas remonter une cellule SOUS. Le gain attendu de ce cycle est
+    l'elimination d'une SORTIE CONSTANTE, pas un statut.

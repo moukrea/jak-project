@@ -2678,6 +2678,24 @@
   ;;   LECTURE QUAND LA BORNE NE MORD PAS : les deux a zero — et desarmee (`*phys-e22-off*` = 1)
   ;;   elle DOIT rendre exactement 0, c'est son controle negatif.
   (format 0 "PHYSE22 tag=~S n=~f cut_b0=~f~%" tag (phys-skc 4) (phys-skc 5))
+  ;; [NOTE-589] CYCLE 149 — LA DISTRIBUTION DES DEUX FILETS PAR MAILLON, ET C'EST LA MESURE QUE
+  ;; LE CYCLE 147 A DECLAREE MANQUANTE (« sa distribution par maillon n'est pas publiee : sa
+  ;; degenerescence reste OUVERTE, ni affirmee ni ecartee »).
+  ;;   NATURE : SIX COMPTES, sans dimension. `t` = evaluations du site ; `fo` = celles ou
+  ;;            l'operateur A GENOU livre (`kn + cp.tanh((dd-kn)/cp)`) rend sa CONSTANTE,
+  ;;            c'est-a-dire dd >= kn + 3.cp ; `fn` = celles ou l'operateur que SPEC 21 l.293
+  ;;            ECRIT (`D_max.tanh(|D|/D_max)`, D_max = kn+cp) rendrait la sienne, dd >= 3.(kn+cp).
+  ;;   REPERE : aucun — `dd`, `kn` et `cp` sont trois longueurs du MEME repere, deja mises a
+  ;;            l'echelle de `b0f` et du maillon par `rl`. Le rapport est donc sans repere.
+  ;;   INSTRUMENT PUR : les six cases sont ECRITES par le moteur et LUES par personne d'autre
+  ;;            que cette ligne. Une course a `*phys-satdm*` = 0 doit etre bit-identique a la
+  ;;            course d'avant le cycle 149 sur toute grandeur solveur — c'est son controle.
+  ;;   LECTURE HORS DEFAUT : `t` = 0 => la branche ne tourne pas, et AUCUNE conclusion ne se
+  ;;            tire de `fo` ni de `fn`. `fo` = 0 avec `t` > 0 REFUTE la degenerescence.
+  ;;   AGREGAT DE COURSE (regle 7 : jamais une colonne par chaine sur une ligne de diagnostic).
+  ;;   UNE LIGNE PAR SITE (regle 7 : une ligne de diagnostic ne porte jamais deux populations).
+  (format 0 "PHYSSATD tag=~S site=e22 t=~f fo=~f fn=~f dm=~f~%" tag (phys-skc 10) (phys-skc 11) (phys-skc 12) (phys-skc 16))
+  (format 0 "PHYSSATD tag=~S site=sat t=~f fo=~f fn=~f dm=~f~%" tag (phys-skc 13) (phys-skc 14) (phys-skc 15) (phys-skc 16))
   ;; [NOTE-518] LA BORNE DE SPEC 21 SUR LA COMBINAISON LIVREE — meme forme de publication que la
   ;; ligne du dessus, et pour la meme raison : une borne qui enleve du mouvement se CHIFFRE.
   ;;   NATURE : un COMPTE de corrections et une LONGUEUR CUMULEE rapportee a `B0` (SPEC 6, la
