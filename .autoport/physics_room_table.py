@@ -731,10 +731,26 @@ def _ori_role_block(A, txt, names, ori, com, role_tri, b0):
       % ('l\'AVANT' if zs > 0 else 'l\'ARRIERE'))
     A('   une convention : aucune constante n\'entre dans ce test, et il DISCRIMINE (une saillie')
     A('   nulle le ferait refuser, et il refuse aussi si les chaines se contredisent).')
-    A('   RESERVE DECLAREE : sa §7 l.130 ecrit « +Z = forward from chest ». Le +Z construit par le')
-    A('   moteur pointe vers l\'ARRIERE. Le CALCUL aval est juste — `wbk = max(0,-gzc)` recoit bien')
-    A('   le triplet prone — mais la CONVENTION s\'ecarte de la spec, et deux erreurs de sens qui')
-    A('   se compensent restent deux erreurs. Voir [NOTE-408].')
+    # CYCLE 142 — CETTE RESERVE EST LEVEE, ET LE TEXTE QU'ELLE PORTAIT EST DEVENU FAUX AU CYCLE 141.
+    # Elle disait « le +Z construit par le moteur pointe vers l'ARRIERE ». Le lot A du cycle 141 l'a
+    # remis dans le sens que §7 l.130 ecrit, par une passe APPARIEE (signe de `fz` + echange des
+    # colonnes `wbk`/`wfw`), verifiee IDENTIQUE AU BIT sur 248 des 258 types d'enregistrement.
+    # UN SEUL PRODUCTEUR pour ce sens dans tout le dossier : celui de `c124_delivered_shape`, qui
+    # est aussi celui que la ligne de verdict de §11 consomme. Deux implementations divergeraient.
+    import c124_delivered_shape as _c124fz
+    _zf, _zi, _zp, _zw = _c124fz._fz_sense(txt)
+    A('ROOM-ORIROLE-SENS: SENS DU `+Z` DU TRIEDRE DE §7, MESURE SUR CETTE COURSE (et plus lu dans')
+    A('   une constante) : %s'
+      % ('gz > 0 designe PRONE — c\'est « +Z = forward from chest », §7 l.130. RESERVE LEVEE au'
+         ' cycle 141.' if _zf and _zf > 0 else
+         ('gz > 0 designe SUPINE — convention d\'AVANT le cycle 141, +Z vers l\'ARRIERE, en ecart'
+          ' avec §7 l.130 ([NOTE-408]).' if _zf else 'NON RESOLU — %s' % _zw)))
+    A('   La regle etait ECRITE EN DUR dans `c124_delivered_shape._roles()` et le lot A du cycle 141')
+    A('   l\'a rendue fausse en une passe : SUPINE et PRONE se sont echangees, et le verdict de la')
+    A('   clause de COM de §11 est passe de DANS a AU-DESSUS sans qu\'UN SEUL BIT du moteur bouge sur')
+    A('   cette grandeur. Le cycle 69 avait ecrit que ca arriverait. Elle est desormais DERIVEE en')
+    A('   base d\'ANCRE — une base que le cycle 141 a MESUREE distincte du triedre de §7 (PHYSORI4 et')
+    A('   PHYSURST identiques au bit quand PHYSORI gz bascule) — puis relue sur la cellule nommee.')
     A('')
 
     # ---- LE ROLE, PAR CELLULE, ET SA MARGE ------------------------------------------------------

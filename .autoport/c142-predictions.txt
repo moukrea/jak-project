@@ -1,0 +1,77 @@
+# CYCLE 142 — LOT C : PREDICTIONS ECRITES AVANT LE CORRECTIF, ET AVANT SA COURSE DE TABLEAU
+# DIRECTIVES vd9e8b66782
+# Perimetre : Grecharged-secondary-motion, poitrine de Keira seule.
+#
+# CE QUE LE LOT CORRIGE, ET COMMENT LE DEFAUT A ETE TROUVE.
+# Le lot A du cycle 141 a remis `+Z` dans le sens que §7 l.130 ecrit (« +Z = forward from chest »).
+# L'audit livre avec le lot couvrait les CINQ consommateurs de `*phys-fz*` DANS LE MOTEUR, et il
+# etait juste : la trace neuve est identique au bit sur 248 types d'enregistrement sur 258, et les
+# quatre qui bougent sont soit des AJOUTS de PH-YAW (0 ligne appariee differente), soit la negation
+# EXACTE de `g.fz` (`PHYSORI`, `PHYSSYM5` : seule la composante `gz` change de signe, `gx` et `gy`
+# sont identiques au bit).
+# L'audit ne couvrait PAS les consommateurs de ces enregistrements DANS L'INSTRUMENT. Il y en a un
+# qui porte un verdict : `c124_delivered_shape.py:_roles()` designe la cellule SUPINE et la cellule
+# PRONE par le SIGNE de `gz`, avec la regle ECRITE EN DUR « `gz > 0` = SUPINE (NOTE-408) », qui est
+# la convention D'AVANT le lot A. Les deux cellules se sont donc echangees, et avec elles le verdict
+# de la clause de COM de §11 : DANS (0.2010 / 0.2039 B0) -> AU-DESSUS (0.3434 / 0.3046 B0).
+# C'est mot pour mot ce que le cycle 69 avait ecrit qu'il arriverait : « un consommateur neuf qui lit
+# `gz` comme "avant" inverserait §10 et §11 ». Il l'a fait, et le consommateur neuf etait a nous.
+#
+# CE QUI DESIGNE LA BONNE REPONSE, ET CE N'EST PAS MOI : DEUX INSTRUMENTS INDEPENDANTS, TOUS DEUX
+# INCHANGES AU BIT PAR LE LOT A parce qu'ils vivent dans la base de l'ANCRE et non dans le triedre
+# de §7 :
+#   1. `ROOM-ORIROLE` (gravite `PHYSORI4` + sens mesure sur l'anatomie `PHYSURST`) nomme
+#      i=6 PRONE (ecart 6.6 deg, marge 43.3) et i=8 SUPINE (ecart 6.6 deg, marge 33.9) ;
+#   2. le CONTROLE DE MONTAGE que le tableau publie deja : la 2e cellule PRONE (i=10, produite par
+#      un AUTRE operateur) s'accorde avec i=6 a +0.10 % et s'ecarte de i=8 de +131.87 %, pour un
+#      seuil DECLARE de 3 %. Ce controle a donc TIRE tout seul, avant que je regarde.
+#
+# LE CORRECTIF EST POSE AU PRODUCTEUR, PAS AU SITE (regle du 2026-08-21 01:20) : `_roles()` cesse de
+# porter une constante de convention. Il MESURE le sens du `+Z` du triedre de §7 en nommant d'abord
+# les cellules dans la base de l'ANCRE (ou le sens est deja mesure sur l'anatomie), puis en lisant le
+# signe que `gz` prend sur la cellule ainsi nommee. Aucune constante de sens ne subsiste dans le
+# fichier, et la fonction se corrige d'elle-meme si le triedre rebascule un jour.
+#
+# ==============================================================================================
+#
+# C1. Sur la trace NEUVE, `_roles()` corrige rend SUPINE = i=8 et PRONE = i=6.
+#     Falsifiee par : n'importe quel autre couple.
+#
+# C2. LA CONSTANTE DEVIENT UNE MESURE, ET LA PREUVE EST QU'ELLE REND DEUX REPONSES OPPOSEES SUR LES
+#     DEUX TRACES. Le sens derive `zf` (`+1` = `gz > 0` designe PRONE, convention §7 l.130) vaut
+#     `zf = +1` sur la trace NEUVE et `zf = -1` sur la trace de REFERENCE (pre-lot A), avec la MEME
+#     fonction et le meme code. Et `_roles()` rend SUPINE=8 / PRONE=6 sur LES DEUX.
+#     Falsifiee par : un `zf` identique sur les deux traces (la fonction ne lit pas la convention,
+#     elle en porte encore une), ou un couple de cellules qui differe d'une trace a l'autre.
+#
+# C3. LE TABLEAU RE-DERIVE DE LA MEME TRACE NEUVE RETROUVE, AU CHIFFRE PUBLIE, LES VALEURS DE §10 ET
+#     §11 D'AVANT LE LOT A — parce que le moteur est identique au bit sur ces grandeurs et que seule
+#     l'ETIQUETTE etait fausse :
+#       ROOM-SPEC1011-LIVREE: SUPINE i=8 · PRONE i=6
+#       §11 COM chestL : DANS, |d| = 0.2010 B0   (au lieu de AU-DESSUS 0.3434)
+#       §11 COM chestR : DANS, |d| = 0.2039 B0   (au lieu de AU-DESSUS 0.3046)
+#       §10 chestL : +2.969/+3.269/+3.504 % W0   ·   §10 chestR : -2.656/-2.991/-3.566 % W0
+#       CONTROLE DE MONTAGE chestL : +0.10 % / +0.11 %  (seuil declare 3 %)
+#     Falsifiee par : le moindre ecart residuel sur l'une de ces lignes.
+#
+# C4. CONFINEMENT. Compare au tableau d'AVANT le lot A, le tableau corrige ne differe QUE sur les
+#     lignes qui RECOPIENT le triedre ou `gz`, et sur rien d'autre :
+#       (a) `ROOM-ORI:` — la colonne `gz` (affichage, aucun verdict) ;
+#       (b) `ROOM-SPEC7-TRIEDRE` — la ligne `a2` ;
+#       (c) `ROOM-SPEC7-SENS` — les deux determinants (le VERDICT, lui, est invariant) ;
+#       (d) la reserve de `ROOM-ORIROLE-SENS`, dont le texte devient faux avec le lot A et que je
+#           reecris dans ce lot ;
+#       (e) `empreinte` (md5 de la trace).
+#     Falsifiee par : toute autre ligne differente.
+#
+# C5. `ROOM-SPEC7-MIROIR` = 0.251 deg, verdict `MIROIR TENU` ; `ROOM-SPEC7-SENS` verdict
+#     `SENS OPPOSES`. Inchanges.
+#
+# C6. COUT NUL SUR LA GATE `COLLIDE`, ET C'EST STRUCTUREL : le correctif est une ETIQUETTE de
+#     cellule d'orientation, `ROOM-SKINPEN` et `meshpen` n'en dependent pas.
+#       ROOM-SKINPEN chestR 0.0871 · chestL 0.0712 · REST 0.0883 · meshpen max 0.0893 · rows 310
+#     Falsifiee par : la moindre variation de l'un des cinq.
+#
+# C7. AUCUN STATUT DE SECTION NE BOUGE DU FAIT DU LOT C. Il ANNULE une regression d'instrument que
+#     le lot A venait de creer ; il ne gagne rien. Presenter le retour de §11 a `DANS` comme un gain
+#     serait compter deux fois une valeur acquise au cycle 136.

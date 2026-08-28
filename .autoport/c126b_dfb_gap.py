@@ -52,6 +52,14 @@ for m in re.finditer(r'^PHYSORI c=(\d+) i=(\d+) gx=([-\d.e+]+) gy=([-\d.e+]+) gz
                      txt, re.M):
     grav[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
                                                 float(m.group(5)))
+# CYCLE 142 — LE SENS DU `+Z` DE §7, MESURE SUR CETTE TRACE-CI (voir `c124_delivered_shape.
+# _fz_sense`). Un seul producteur pour tout le dossier : la regle « `gz > 0` = SUPINE » etait
+# ecrite en dur a DEUX endroits et le cycle 141 les a rendus faux tous les deux d'un coup.
+import c124_delivered_shape as _c124                                            # noqa: E402
+_ZF = _c124._fz_sense(txt)[0]
+print('C126B: sens du +Z de §7 MESURE sur cette trace : zf=%s (%s)'
+      % (_ZF, 'gz>0 = PRONE, convention §7 l.130' if _ZF and _ZF > 0
+         else ('gz>0 = SUPINE, convention d\'avant le cycle 141' if _ZF else 'NON RESOLU')))
 # canal INDEPENDANT d'etablissement : le pic radial sur les 60 frames d'etablissement de la
 # cellule (phys-room.gc:4233). Il ne partage NI la matrice de deformation NI son accesseur.
 tr = {}
@@ -83,7 +91,11 @@ for c in sorted({c for (c, _i) in dfm}):
         A = (M - M.T) / 2
         rot = math.degrees(np.linalg.norm([A[2, 1], A[0, 2], A[1, 0]]) * 2)
         gz = grav.get((c, i), (0, 0, 0))[2]
-        pose = ('DEBOUT' if abs(gz) < 0.2 else ('SUPINE' if gz > 0 else 'PRONE'))
+        # CYCLE 142 — le sens de `gz` n'est plus ECRIT ICI, il est MESURE par `_fz_sense` : le
+        # cycle 141 a remis `+Z` dans le sens de §7 l.130 et une etiquette en dur aurait echange
+        # SUPINE et PRONE en silence, comme elle l'a fait sur la ligne de verdict de §11.
+        pose = ('DEBOUT' if abs(gz) < 0.2
+                else ('PRONE' if gz * _ZF > 0 else 'SUPINE') if _ZF else 'SENS NON RESOLU')
         pop.append((c, i, gap, rot, pose))
         print('C126B: %-4d %-3d | %-26s | %-26s | %-8.2e | %-7.3f | %-8.5f | %+.4f %s'
               % (c, i, ' '.join('%.4f' % x for x in cv), ' '.join('%.4f' % x for x in sv),

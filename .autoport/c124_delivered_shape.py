@@ -150,30 +150,145 @@ def _ori2(txt):
     return d
 
 
+def _fz_sense(txt):
+    """LE SENS DU `+Z` DU TRIEDRE DE §7, **DERIVE D'UNE MESURE** ET PLUS PORTE PAR UNE CONSTANTE.
+
+    Rend `(zf, isup, ipro, why)`. `zf = +1` si `gz > 0` designe la cellule PRONE (la convention que
+    §7 l.130 ecrit, « +Z = forward from chest », posee dans le moteur au cycle 141) ; `zf = -1` si
+    `gz > 0` designe SUPINE (la convention d'AVANT, celle de [NOTE-408]). `None` si la mesure ne
+    tranche pas — et alors aucune cellule n'est nommee, plutot qu'une nommee au hasard.
+
+    POURQUOI CETTE FONCTION EXISTE, ET CE QUE SON ABSENCE A COUTE (cycle 142).
+    `_roles()` portait la regle « `gz > 0` = SUPINE » ECRITE EN DUR. Le cycle 141 a remis `fz` dans
+    le sens de §7 : `gz` a change de signe (`PHYSORI`/`PHYSSYM5`, seule la composante `gz`, `gx` et
+    `gy` identiques au bit), les deux cellules se sont echangees, et le verdict de la clause de COM
+    de §11 est passe de DANS (0.2010/0.2039 B0) a AU-DESSUS (0.3434/0.3046 B0) SANS QU'UN SEUL BIT
+    DU MOTEUR AIT BOUGE sur ces grandeurs. Le cycle 69 avait ecrit que ca arriverait : « un
+    consommateur neuf qui lit `gz` comme "avant" inverserait §10 et §11 ». Le consommateur neuf
+    etait a nous. Une constante de convention dans un instrument est une bombe a retardement ; on
+    ne la deplace pas, on la remplace par une mesure.
+
+    CE QUI DISCRIMINE, ET C'EST INDEPENDANT DU TRIEDRE QU'ON CHERCHE A DATER. La designation passe
+    d'abord par la base de l'ANCRE, qui est une AUTRE base que le triedre de §7 — le cycle 141 l'a
+    etabli par mesure et pas par lecture : `PHYSORI4` (gravite en base d'ancre) et `PHYSURST` (l'os
+    de racine dans la meme base) sont IDENTIQUES AU BIT entre les deux courses, la ou `PHYSORI gz`
+    a bascule. Dans cette base-la le sens de la ligne 2 se mesure sur l'ANATOMIE : un sein FAIT
+    SAILLIE, donc l'os racine y a une composante non nulle et son signe dit ou pointe la ligne.
+    On nomme donc PRONE = la cellule ou la gravite pointe le plus vers l'AVANT en base d'ancre,
+    SUPINE = celle ou elle pointe le plus vers l'ARRIERE, puis on LIT le signe que `gz` prend sur la
+    cellule PRONE : ce signe EST le sens du `+Z` de §7, mesure sur cette course-la.
+
+    REFUS (aucun nommage plutot qu'un nommage devine) : saillie trop faible (< 0.03) ; les deux
+    chaines en desaccord de signe (le rig ne serait pas symetrique) ; `PHYSORI4` absent ; les deux
+    chaines en desaccord sur le signe de `gz` a la cellule prone ; ou une marge insuffisante entre
+    la cellule retenue et la suivante (seuil declare `_FZ_MARGE`).
+
+    NATURE : un SIGNE, sans dimension. LIGNE DE BASE : sur une trace d'AVANT le cycle 141 la
+    fonction doit rendre `-1`, sur une trace d'APRES `+1` — c'est ce test a deux traces qui prouve
+    qu'elle MESURE au lieu de porter une convention."""
+    # --- le sens de la ligne 2 de la base de l'ANCRE, sur l'anatomie du rig livre ---------------
+    roots = {}
+    for m in re.finditer(r'^PHYSURST c=(\d+) l=0 ux=([-\d.e+]+) uy=([-\d.e+]+)'
+                         r' uz=([-\d.e+]+)', txt, re.M):
+        roots[int(m.group(1))] = float(m.group(4))
+    if not roots:
+        return None, None, None, 'aucune ligne PHYSURST : le sens de la base d\'ancre est indecidable'
+    if min(abs(x) for x in roots.values()) < 0.03:
+        return None, None, None, ('la saillie du sein sur la ligne 2 de l\'ancre est trop faible'
+                                  ' (%.5f) pour designer un sens' % min(abs(x) for x in roots.values()))
+    if len({(1 if x > 0 else -1) for x in roots.values()}) != 1:
+        return None, None, None, 'les chaines ne s\'accordent pas sur le signe : rig non symetrique'
+    zs = 1.0 if next(iter(roots.values())) > 0 else -1.0
+
+    # --- les cellules, nommees dans la base de l'ANCRE ------------------------------------------
+    g4 = {}
+    for m in re.finditer(r'^PHYSORI4 c=(\d+) i=(\d+) r0=([-\d.e+]+) r1=([-\d.e+]+)'
+                         r' r2=([-\d.e+]+)', txt, re.M):
+        g4[(int(m.group(1)), int(m.group(2)))] = float(m.group(5))
+    if not g4:
+        return None, None, None, 'aucune ligne PHYSORI4 : les cellules ne peuvent pas etre nommees'
+    fwd = {}
+    for i in sorted({i for (_c, i) in g4}):
+        if i == 0 or i > 8:          # i=0 est la pose debout ; au-dela on sort du balayage a 9 cellules
+            continue
+        v = [g4[(c, i)] * zs for c in (0, 1) if (c, i) in g4]
+        if v:
+            fwd[i] = float(np.mean(v))
+    if len(fwd) < 2:
+        return None, None, None, 'moins de deux cellules d\'orientation exploitables'
+    ordre = sorted(fwd, key=lambda i: fwd[i])
+    ipro, isup = ordre[-1], ordre[0]          # gravite la plus AVANT / la plus ARRIERE
+    if fwd[ipro] <= 0.0 or fwd[isup] >= 0.0:
+        return None, None, None, ('aucune cellule ne porte une gravite franchement avant ou'
+                                  ' arriere (avant %.4f, arriere %.4f)' % (fwd[ipro], fwd[isup]))
+    m_pro = fwd[ipro] - fwd[ordre[-2]]
+    m_sup = fwd[ordre[1]] - fwd[isup]
+    if min(m_pro, m_sup) < _FZ_MARGE:
+        return None, None, None, ('marge insuffisante entre la cellule retenue et la suivante'
+                                  ' (prone %.4f, supine %.4f, seuil %.2f)'
+                                  % (m_pro, m_sup, _FZ_MARGE))
+
+    # --- LE SENS DE `+Z` DE §7, LU SUR LA CELLULE AINSI NOMMEE ---------------------------------
+    gz = {}
+    for m in re.finditer(r'^PHYSORI c=(\d+) i=(\d+) gx=([-\d.e+]+) gy=([-\d.e+]+)'
+                         r' gz=([-\d.e+]+)', txt, re.M):
+        gz[(int(m.group(1)), int(m.group(2)))] = float(m.group(5))
+    v = [gz[(c, ipro)] for c in (0, 1) if (c, ipro) in gz]
+    if not v:
+        return None, None, None, 'aucune ligne PHYSORI a la cellule prone : `gz` n\'est pas lisible'
+    if len({(1 if x > 0 else -1) for x in v}) != 1:
+        return None, None, None, ('les deux chaines donnent a `gz` des signes opposes a la cellule'
+                                  ' prone : le triedre n\'est pas commun, rien n\'est nomme')
+    if min(abs(x) for x in v) < 0.5:
+        return None, None, None, ('`gz` est trop petit a la cellule prone (%.4f) pour porter un'
+                                  ' signe' % min(abs(x) for x in v))
+    return (1.0 if v[0] > 0 else -1.0), isup, ipro, ''
+
+
+# marge minimale, en composante avant/arriere de gravite unitaire, entre la cellule retenue et la
+# suivante. DECLAREE, et volontairement lache : le balayage a neuf cellules place prone/supine a
+# +-0.99 et leurs voisines a +-0.77 (penche 45), soit une marge naturelle de ~0.22. Le seuil refuse
+# un balayage qui n'aurait pas de cellule franchement couchee, pas un balayage bruite.
+_FZ_MARGE = 0.10
+
+
 def _roles(txt):
     """La cellule SUPINE et la cellule PRONE, designees par la GRAVITE MESUREE et non par le
     triplet d'echelles — le triplet est un argmin contre les nombres qu'on injecte, donc
     tautologique (meme regle qu'au bloc `_spec10_block`, cycle 123).
 
-    `PHYSORI gx/gy/gz` est la direction de la gravite dans le triedre de §7. SUPINE = couchee sur
-    le DOS, donc la gravite pointe vers l'ARRIERE du thorax : `gz > 0` (NOTE-408). PRONE = a plat
-    ventre, seins pendants : `gz < 0`. On prend l'argmax de |gz| dans chaque signe."""
+    CYCLE 142 — LA CONVENTION DE SIGNE N'EST PLUS ECRITE ICI, ELLE EST MESUREE PAR `_fz_sense()`.
+    Voir la docstring de cette fonction pour ce que l'ancienne constante a coute. `gz * zf > 0`
+    designe PRONE et `< 0` SUPINE, ou `zf` est le sens du `+Z` de §7 MESURE sur cette course. On
+    garde l'argmax de |gz| dans chaque signe, comme avant, pour que le reste du fichier soit
+    inchange ; et les cellules ainsi obtenues doivent coincider avec celles que `_fz_sense` a
+    nommees en base d'ancre — si elles divergent, les deux bases se contredisent et on ne nomme
+    rien."""
     g = {}
     for m in re.finditer(r'^PHYSORI c=(\d+) i=(\d+) gx=([-\d.e+]+) gy=([-\d.e+]+)'
                          r' gz=([-\d.e+]+)', txt, re.M):
         g[(int(m.group(1)), int(m.group(2)))] = (float(m.group(3)), float(m.group(4)),
                                                  float(m.group(5)))
+    zf, isup_a, ipro_a, _why = _fz_sense(txt)
+    if zf is None:
+        return None, None, g
     cells = sorted({i for (_c, i) in g})
     sup = pro = None
     for i in cells:
         if i == 0:
             continue
-        gz = np.mean([g[(c, i)][2] for c in (0, 1) if (c, i) in g])
-        if gz > 0 and (sup is None or gz > sup[1]):
+        gz = np.mean([g[(c, i)][2] for c in (0, 1) if (c, i) in g]) * zf
+        if gz < 0 and (sup is None or gz < sup[1]):
             sup = (i, gz)
-        if gz < 0 and (pro is None or gz < pro[1]):
+        if gz > 0 and (pro is None or gz > pro[1]):
             pro = (i, gz)
-    return (sup[0] if sup else None), (pro[0] if pro else None), g
+    isup = sup[0] if sup else None
+    ipro = pro[0] if pro else None
+    # LES DEUX BASES DOIVENT S'ACCORDER. C'est le controle qui aurait attrape le cycle 141 tout
+    # seul : la base d'ancre et le triedre de §7 nomment ici la MEME paire, ou personne n'est nomme.
+    if (isup, ipro) != (isup_a, ipro_a):
+        return None, None, g
+    return isup, ipro, g
 
 
 def main(txt=None):
