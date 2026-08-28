@@ -1,288 +1,331 @@
-# CYCLE 144 — LA TENTATIVE 15 N'AVAIT PAS UN DEFAUT DE MOTEUR : ELLE AVAIT MESURE UN FICHIER A
-# MOITIE ECRIT, PUIS PERDU SA SEULE TRACE. LE CORRECTIF ECRIT AU CYCLE 143 EST ENFIN MESURE, ET
-# DEUX DE SES FALSIFICATEURS ONT TIRE.
+# CYCLE 145 — LE PLAFOND D'ELONGATION DE §22 NE BORNAIT QU'UNE MOITIE DE L'OPERATEUR. L'AUTRE
+# COMMANDAIT +48 %, LA CHAIR EN RECEVAIT +53 %, ET LA GRANDEUR DORMAIT DANS LA TRACE DEPUIS LE
+# CYCLE 119b. LE PLAFOND EST POSE, ET §10 RETROUVE UN VERDICT.
 
 DIRECTIVES vd9e8b66782
 
-**COUVERTURE D'ABORD** (regle 6 du registre : le validateur n'est PAS un indicateur d'avancement).
-`.autoport/SPEC-COVERAGE.md` : **5** `TENUE` · 5 `TENUE PAR CONSTRUCTION` · **16** `PARTIELLE` ·
-**11** `NON TENUE` · **1** `NON ETABLI`, sur 38.
+## ETAT DE LA COUVERTURE — C'EST LA SEULE MESURE D'AVANCEMENT (SPEC-COVERAGE.md)
 
-**UN STATUT BOUGE ET IL BOUGE DANS LE MAUVAIS SENS : §10 passe `NON TENUE` -> `NON ETABLI`.**
-C'est une PERTE DE FALSIFIABILITE et je l'ecris avant tout le reste. Le detail est en section 4.
+**5** `TENUE` (§7, §12, §24, §25, §26) · **5** `TENUE PAR CONSTRUCTION` · **16** `PARTIELLE` ·
+**12** `NON TENUE` · **0** `NON ETABLI`, sur 38.
+
+Un seul statut bouge : **§10 `NON ETABLI` -> `NON TENUE`**. Ce n'est pas une victoire, c'est la
+REPARATION de la regression que le cycle 144 avait lui-meme enregistree : sa clause porteuse
+(« Outward COM migration per breast: 4-10% W0 », l.169) etait devenue non falsifiable — rien hors
+bande des deux cotes, rien dans la bande sur une chaine entiere. Elle est de nouveau hors bande de
+facon robuste **sur les deux chaines**, et le tableau emet une ligne que la course du c144 n'avait
+pas : `ROOM-SPEC10: VERDICT NON TENUE`.
+**LE COMPTE DE `TENUE` NE BOUGE PAS : 5 SUR 38.**
 
 BREAST-PENETRATION: `meshpen` **0,0610 m** de residu sur la poitrine (plafond epingle 0,0005),
-contre 0,0893 au cycle 143 — **-31,7 %**. Declare a chaque cycle tant que ce n'est pas zero.
-
-**PALIER DE BUILD : `(mi)` seul** (551 cibles, 23,9 s). Zero build C++, zero NDK, zero gradle.
-**UNE course de salle x86 complete** : 31/31 animations, 310 mesures, `PHYSEND` atteint, tableau
-derive et signe par le md5 de la trace (`a91ea459b6710dd8f7eecf2559442871`).
+identique au c144 au dernier chiffre. `skinpen` 0,0863 (chestR) / 0,0707 (chestL) contre une ligne
+de base au repos de 0,0883 : sous le repos sur les deux chaines, donc la gate COLLIDE passe, et le
+residu se declare tant qu'il n'est pas zero.
 
 
-## 1. LE DEFAUT QUI A FAIT ECHOUER LA TENTATIVE 15 — ET CE N'EST PAS CELUI QUE LE MESSAGE DISAIT
+## 1. LE DEFAUT, ET IL EST DE LA MEME CLASSE QU'UN PIEGE DEJA AU REGISTRE
 
-Le validateur echouait sur `SCOPE` : « la trace de la course est absente ». Vrai, et le message
-accusait a juste titre l'ABSENCE DE PREUVE. Mais la cause est en amont, et elle a DEUX etages.
+La peau recoit `A = dfa . dfb` (`matrix*! tmp dfa dfb`, jak-hd-physics.gc). Les deux facteurs sont
+des deformations LOCALES. La cle 13 du preset — §22 l.303 « Absolute stretch clamp:  25% », livree
+sous le nom `AbsoluteStretchClamp` au bloc de preset (l.509), publiee `asc=0.2500` par `PHYSPSETC`
+sur les deux chaines — n'en bornait qu'UN :
 
-**ETAGE 1 — LA COURSE DE LA TENTATIVE 15 EST MORTE EN 17 SECONDES, SUR UN FICHIER A MOITIE ECRIT.**
-La trace partielle (`.keira-room-x86.inflight.log`, 89 866 octets) se termine sur
-`SIGILL (core dumped)` en pleine edition de liens de `KERNEL.CGO`. Ce n'est pas le moteur :
-l'auto-constructeur a reecrit tout `out/jak1/iso/` PENDANT que `gk` demarrait —
-`KERNEL.CGO` a 05:06:16, `GAME.CGO` a 05:06:24, `gk` lance a 05:06:0x. Le tell qui l'etablit sans
-ambiguite : `GAME.CGO` mesurait **9 472 816** octets a 04:52:57 (l'horodatage sur lequel la garde
-de fraicheur du lanceur s'appuyait) contre **12 958 848** apres une construction complete. La
-course de la tentative 15, lancee a 04:56, mesurait donc deja une ISO en cours de reecriture.
+  - `dfb`, l'etage DYNAMIQUE : `sdy = fmin(asc, dl)`, en place depuis le cycle 46 ;
+  - `dfa`, l'etage d'EQUILIBRE de §10-§13 : **aucun plafond**.
 
-**ET LE VERROU EXISTAIT DEJA — IL NE POUVAIT PAS SUFFIRE, ET C'EST STRUCTUREL.** Le lanceur pose
-`.autoport/.deploy-in-progress` avec son PID (convention du 2026-08-14 07:10) ; mais
-`auto_build_apk.sh:290` ne consulte ce verrou **qu'au SOMMET de son cycle**. Un cycle deja parti va
-jusqu'au bout, et poser le verrou une seconde apres son depart n'arrete rien.
+Or `dfa = SOMME s_i.(f_i (x) f_i)` sur le triedre orthonorme de §7 : ses trois valeurs propres SONT
+`sx1`/`sy1`/`sz1` **exactement**. Ce n'est pas une borne superieure, donc le piege
+`upper-bound-cannot-prove-exceedance` ne s'applique pas ici.
 
-**ETAGE 2 — UNE COURSE INTERROMPUE COUTAIT A LA PHASE SA SEULE TRACE.** Le lanceur ARCHIVE le log
-et le tableau precedents AU DEMARRAGE (c'est voulu : pendant une course, le validateur doit dire
-« la trace est absente » plutot que juger une course d'avant-hier). Mais **rien ne les RAMENAIT**
-quand la course n'aboutissait pas. La phase s'est donc retrouvee sans aucune trace alors qu'une
-course complete existait, archivee, a deux fichiers de la.
+**ET LE CHIFFRE ETAIT DEJA DANS LA TRACE, PUBLIE DEPUIS LE CYCLE 119b, JAMAIS LU CONTRE §22.**
+`PHYSORI5` publie le maximum de fenetre des trois echelles commandees. Sur la trace du c144
+(md5 a91ea459b671..., archivee, aucune course neuve necessaire pour l'etablir) :
 
-**LES DEUX CORRECTIFS SONT POSES AU POINT DE PRODUCTION, PAS DANS UNE GATE DE PLUS**
-(« quand une perte se repete, on la rend IMPOSSIBLE au point de production ») :
+    c=0  sxm 1.4806  (i=8)   +48.06 %   contre un plafond de 25 %   ->  x1.92
+    c=1  sxm 1.4717  (i=8)   +47.17 %                               ->  x1.89
 
-  `.autoport/keira_room_x86.sh`
-    (a) ATTENTE D'UN ARBRE CALME avant de lancer : l'empreinte md5 de `GAME.CGO`+`KERNEL.CGO` doit
-        etre stable et aucun `goalc` ne doit tourner. Le verrou etant deja pose, le cycle SUIVANT
-        du constructeur passe son tour ; l'attente couvre celui qui est deja parti.
-    (b) VERIFICATION APRES COUP : si l'empreinte de l'ISO a change pendant la course, la trace est
-        INATTRIBUABLE et **elle n'est pas promue**. Mieux vaut pas de trace qu'une trace dont on ne
-        sait pas quel code l'a produite.
-    (c) RESTAURATION DE LA PAIRE : si la promotion n'a pas eu lieu, le log ET le tableau precedents
-        reviennent a leur place. **Ensemble, jamais l'un sans l'autre** — un log neuf sous un
-        tableau vieux est exactement `validator-reads-a-stale-table`.
-  `.autoport/c144_measure.sh` (neuf)
-    La fenetre CONSTRUCTION + MESURE devient UNE SEULE section critique tenue par un detenteur
-    VIVANT. C'est ce qui manquait : mon propre `(mi)` de 05:05 s'est fait ecraser par le
-    constructeur avant que la course puisse demarrer.
+C'est exactement le cout que le cycle 144 avait DECLARE sans le mesurer (« je ne peux pas dire
+qu'elle est sous le plafond ; je dis qu'elle ne l'est probablement pas », P4b). Il l'est, et son
+estimation « ~1,44 » etait basse. Par l'identite monotone `sxw = 1 + (sx1-1).cws`, la valeur
+AVANT le correctif du cycle 143 valait 1.2749 / 1.2571 : deja au-dessus, et le facteur `1/cws` l'a
+portee a 1.48.
+Classe : `published-line-is-half-the-applied-operator`, en version **PLAFOND** — ce n'est pas la
+ligne publiee qui etait une moitie de l'operateur, c'est la BORNE. Et la lecon
+`grep-the-trace-before-asking-for-a-run` remord : 26 cycles de trace portaient le discriminant.
 
-**LES CORRECTIFS SONT PROUVES PAR UNE EXECUTION, PAS PAR LEUR TEXTE (regle 0).** Une course a ete
-volontairement avortee (`ROOM_TIMEOUT=1`, `PHYSEND` jamais atteint) sur la paire qui venait d'etre
-produite :
+**ET LA CHAIR EN RECOIT ENCORE PLUS QUE CA.** Le poids de §31 est applique a l'ECART, par un
+melange LINEAIRE dans le chemin d'ecriture : `A_l = B_l.(I + w_l.(D - I))` (NOTE-581). Le maillon
+le plus charge recoit donc `1 + gmx.(s - 1)` avec `gmx = max_l grw_l` = **1.1035 / 1.1128** :
 
-    archive: course precedente -> keira-room-x86.20260828-053004.log
-    archive: tableau precedent -> keira-room-table.20260828-053641.txt
-    FAIL: PHYSEND jamais atteint. La trace partielle reste sous .keira-room-x86.inflight.log
-    restauration: course precedente rendue a keira-room-x86.log (celle-ci n'a pas atteint PHYSEND)
-    restauration: tableau precedent rendu (meme course que la trace restauree)
-    -> md5 AVANT  a91ea459... / 19dfceab...   md5 APRES  a91ea459... / 19dfceab...  IDENTIQUE AU BIT
-
-**CE QUI N'EST PAS PROUVE ET JE LE DIS** : le refus de promotion sur ISO reecrite (b) n'a PAS ete
-exerce — il faudrait provoquer une reecriture concurrente, ce qui est precisement ce qu'on vient de
-rendre difficile. Il est ecrit, pas teste. L'attente d'arbre calme (a), elle, a tourne sur les deux
-courses de ce cycle (« arbre calme apres 5s »).
-
-**CE QUE CA A COUTE, MESURE** : la tentative 15 avait ecrit son code moteur, l'avait compile, et
-sa course est morte a l'animation 26 sur 31. Deux tentatives (14 et 15) et deux checkpoints WIP
-pour un defaut qui n'etait dans aucune ligne de moteur.
+    maillon 0, chestL :  1 + 1.1035 x 0.4806 = 1.5304   ->  +53.0 %,  x2.12 le plafond
+    maillon 0, chestR :  1 + 1.1128 x 0.4717 = 1.5249   ->  +52.5 %,  x2.10
 
 
-## 2. CE QUE CE CYCLE MESURE — LE CANAL DU TENSEUR, ECRIT AU CYCLE 143, PROUVE **LU**
+## 2. CE QUI EST ECRIT (goal_src/, 3 lignes de code, 2 lignes de canal)
 
-Le correctif est celui que la DIRECTIVE nomme et que le cycle 143 avait chiffre puis differe : les
-cles `SupineWidthScale`/`HangingWidthScale` sont des echelles d'**ORGANE** (§10 l.166 et §11 l.181
-decrivent le SEIN), et le moteur les appliquait **PAR MAILLON** alors que seule la fraction
-`SOMME comw` de la chair suit le tenseur. Operateur : `s_maillon = 1 + (S_organe - 1) / cws`, sur
-le SEUL axe lateral, APRES la normalisation `cvn`.
+`phys-scl22` applique le plafond aux TROIS echelles principales de `dfa` et au mandataire de
+collision `dfsq`, sur l'elongation **RECUE** :
 
-**P6 — LE CANAL EST PROUVE LU, PAS DEDUIT DE SON EFFET.** C'est la condition que
-`feedback_channel_measured_by_effect_is_not_channel_proven_read` impose : quand l'effet est absent,
-« le modele est faux » et « le parseur a rendu zero » sont indistinguables. La trace publie, une
-fois par chaine au chargement :
+    (defun phys-scl22 ((s float) (cap float))
+      (if (<= s 1.0) s (+ 1.0 (phys-softmin (- s 1.0) cap))))
+    ...
+    (asc (/ (-> *phys-pset* (+ (* sc PHYS-PSET-N) 13)) (fmax 1.0 (-> *phys-gmx* sc))))
 
-    [HD-PHYS] PHYSGRADSET c=0 p=1.7999 w0=1.1035 w1=0.8618 cws=0.5720
-    [HD-PHYS] PHYSGRADSET c=1 p=1.7999 w0=1.1128 w1=0.7839 cws=0.5450
+**UN SEUL COTE, LA HAUSSE.** La section dit « *elongation* » et « *stretch* » — deux mots
+d'extension. §10 l.165 PRESCRIT une contraction de -30 % (`SupineProjectionScale = 0.70`) et §12
+l.194 une de -20 % : un plafond symetrique interdirait les deux, et un operateur a moi qui interdit
+ce que la spec commande perd (arbitrage du 2026-08-20 13:20). **BALAYAGE DE CONTROLE, §8-§22 et
+§29-§31 : aucune clause LOCALE de la spec ne demande plus de +25 %** — le maximum est
+« exceptional transient ~+25% » (§16 l.245), et l.247 ecrit lui-meme « "25%" is a deformation
+ceiling, not a normal target ».
 
-contre 0,5715 / 0,5452 attendus de `comw=` dans `physics_chains.txt`. **`cws` n'est pas une cle de
-preset** — c'est une mesure du mesh — donc aucun canal n'est fabrique pour une cle-REPONSE
-(DIRECTIVE du 2026-08-23 16:00). Lecture hors defaut : `cws = 1,0000` rend l'operateur IDENTIQUE AU
-BIT, donc « canal absent = comportement d'avant ».
+**LA SATURATION EST CELLE QUI EXISTE DEJA, ET SA ZONE MORTE TOMBE SUR UNE LIGNE DE LA SPEC.**
+`phys-softmin` est l'identite jusqu'a `0.84 x cap` puis asymptote vers `cap`. En grandeur RECUE la
+zone morte vaut donc `0.84 x 0.25 = 0.21` : mot pour mot la frontiere « large 15-21 % » /
+« exceptional 21-25 % » de §22 l.302. Aucun reglage — la constante 0.84 est celle du cycle 46.
+§37 exige par ailleurs une saturation DOUCE, jamais un ecretage.
 
-
-## 3. LES SEPT PREDICTIONS, ECRITES AVANT LA COURSE. DEUX ONT TIRE.
-
-Fichier `.autoport/c144-predictions.txt`, ecrit par la tentative 15 AVANT toute mesure.
-
-**P1 — LES HUIT CELLULES DE LARGEUR. TENUE, MAIS DE JUSTESSE (6/8, falsificateur a 6/8).**
-
-    chaine  front.   §    AVANT      VERDICT     APRES     VERDICT        PREDIT
-    chestL  w>0.00   §10  1.1252  SOUS          1.2103  DANS           1.2191 DANS
-    chestL  w>=0.25  §10  1.1283  SOUS          1.2172  DANS           1.2245 DANS
-    chestR  w>0.00   §10  1.1242  SOUS          1.2126  DANS           1.2278 DANS
-    chestR  w>=0.25  §10  1.1321  SOUS          1.2237  DANS           1.2423 DANS
-    chestR  w>0.00   §11  0.9381  AU-DESSUS     0.9126  DANS           0.8865 DANS
-    chestR  w>=0.25  §11  0.9433  AU-DESSUS     0.9169  DANS           0.8960 DANS
-    chestL  w>0.00   §11  0.9557  AU-DESSUS     0.9286  SANS VERDICT   0.9225 DANS
-    chestL  w>=0.25  §11  0.9574  AU-DESSUS     0.9291  SANS VERDICT   0.9255 DANS
-
-Six DANS, deux SANS VERDICT (les deux estimateurs se contredisent : le decile dit DANS, max-min dit
-AU-DESSUS). Le falsificateur ecrit d'avance etait « moins de 6 sur 8 -> le modele est faux comme
-OPERATEUR » : on est **exactement au seuil**, et je l'ecris comme tel plutot que comme une reussite.
-
-**P2 — CONFINEMENT A UN SEUL AXE : REFUTE. LE FALSIFICATEUR A TIRE.**
-Ecart entre les deux courses, par axe, sur les 24 cellules (plancher de bruit MESURE de
-l'estimateur : fwd 0,056 % · out 0,042 % · up 0,032 %) :
-
-    up   max 0,720 %   -> conforme au « < 1 % » predit
-    fwd  max 4,638 %   -> LE FALSIFICATEUR ETAIT A 2,0 %. IL A TIRE. (83x le plancher de bruit)
-
-Les deux cellules fautives sont §10 `fwd` a la frontiere `w>0.00` (-4,638 % et -4,364 %) ; a la
-frontiere `w>=0.25` les memes cellules ne bougent que de -1,674 % et -0,366 %, et les quatre
-cellules §10 `fwd` sont **-0,365 % / +0,158 % / +0,048 % / -0,296 %**.
-
-**CE QUE JE FAIS DE CETTE REFUTATION, ET JE LE DECLARE COMME UNE DECISION, PAS COMME UN FAIT.**
-Le falsificateur disait « le correctif est retire, pas explique ». **Je ne le retire pas, et voici
-pourquoi — c'est un arbitrage, il doit etre audite.**
-  1. Les echelles de commande `sy1`/`sz1` sont **inchangees au bit** : `cvn` est calcule avant le
-     correctif. Il n'y a donc aucune fuite de l'OPERATEUR vers un autre axe.
-  2. Ce qui bouge est l'ESTIMATEUR : les centroides de decile tries sur `fwd` changent de
-     population quand l'organe s'elargit reellement. L'asymetrie entre frontieres le confirme —
-     c'est la frontiere `w>0.00`, celle qui inclut les sommets de faible poids ancres au torse,
-     qui bouge, pas `w>=0.25`.
-  3. Et donc la borne est **inatteignable par construction** : §10 l.166 EXIGE un organe +18 a
-     +28 % plus large, et un organe plus large deplace necessairement les centroides de decile de
-     `fwd`. P2, telle qu'ecrite, interdit ce que la spec demande. C'est la meme classe que
-     l'arbitrage du 2026-08-20 13:20 (« une gate a moi qui exige l'inverse de sa spec perd »).
-  4. **Les temoins que P2 nommait, eux, tiennent tous** : longueur racine-apex +0,16/-0,37 %
-     (chestL) et +0,05/-0,30 % (chestR) · COM livre 0,2027 / 0,2057 contre 0,2005 / 0,2032,
-     toujours `DANS` 0,20-0,28 · §24 les trois axes `DANS` sur les deux chaines, verticale la plus
-     lente OUI · `ROOM-IDLE maxdev` 0,0002 -> 0,0001.
-Cet arbitrage est **le point le plus contestable de ce cycle** et c'est pour ca qu'il est ici, en
-clair, et pas en note de bas de page.
-
-**P3 — LE MUR MEDIAN PORTE LA MIGRATION : CONFIRME EN SENS, SUR UNE CHAINE.**
-Sur l'ORGANE LIVRE (`PHYSORIM`, la lecture qui porte le verdict) :
-
-    chestL  sortant  +2,969 % W0  SOUS       ->  +8,963 % W0  INDETERMINEE (AU-DESSUS/DANS)
-    chestR  sortant  -2,656 % W0  SOUS       ->  +1,585 % W0  SOUS
-
-Le falsificateur etait « si elle reste SOUS des deux cotes alors que la largeur passe DANS, le mur
-median ne porte pas la migration ». Elle ne reste pas SOUS des deux cotes : P3 tient. La clause
-`vers thorax`, qui devait ne pas bouger, bouge de **+0,17 %** (0,2957 -> 0,2962) pour une tolerance
-declaree de 5 %.
-
-**P4 — LE COUT, PUBLIE AVANT D'ETRE MESURE.**
-  (a) Le determinant du tenseur COMMANDE cesse d'etre force a 1. Ce n'est pas une regression : la
-      clause etait un MIROIR exclu des comptes. Voir P5.
-  (b) DEFORMATION LOCALE DE LA CHAIR PILOTEE : declaree, **non mesuree**, et je le redis. L'echelle
-      laterale par maillon passe de ~1,25 a ~1,44 au supine, contre un « absolute stretch clamp:
-      25 % » en §22. Aucun instrument de ce dossier ne lit cette grandeur. **Je ne peux pas dire
-      qu'elle est sous le plafond ; je dis qu'elle ne l'est probablement pas.** Et ce n'est pas un
-      defaut du correctif, c'est le prix du rig : §30 pose `StrongRootFraction = 0.30` (70 % de
-      chair pilotee), on en a 57,20 / 54,50 %.
-  (c) PENETRATION DE PEAU : **la prediction tient, et mieux que predit.**
-        chestR  skinpen 0,0871 -> 0,0863 m   (repos 0,0883 — la gate exige <= repos)
-        chestL  skinpen 0,0712 -> 0,0707 m
-        chestR  meshpen 0,0893 -> 0,0610 m   (-31,7 %)
-      Le mur median, indexe sur la MEME grandeur que le correctif, repousse le bord medial autant
-      que l'elargissement l'avance. La gate COLLIDE passe.
-
-**P5 — §8 REBRANCHEE SUR L'ORGANE LIVRE : FAIT, ET LA CLAUSE CESSE D'ETRE UN MIROIR.**
-C'est la PRIORITE 1 de la DIRECTIVE du 2026-08-23 16:00 (« les 6 miroirs ... c'est du faux vert
-actif, ca passe avant tout »), traitee EN PASSANT pendant qu'on ecrit le correctif qu'elle mesure,
-comme l'ordre de l'owner du 2026-08-27 l'autorise explicitement.
-`ROOM-SPEC8-LIVREE` lit le PRODUIT DES TROIS AXES de la lecture DECILES sur le nuage MONDE :
-
-    chestL w>0.00  §11   1,2649 x 0,9286 x 0,9915 = 1,1646   AU-DESSUS
-    chestL w>=0.25 §11   1,2026 x 0,9291 x 0,9645 = 1,0778   AU-DESSUS
-    chestR w>0.00  §11   1,2612 x 0,9126 x 1,0177 = 1,1714   AU-DESSUS
-    chestR w>=0.25 §11   1,2464 x 0,9169 x 0,9616 = 1,0990   AU-DESSUS
-    -> 4/4 HORS BANDE (0,98-1,01), et hors de la bande transitoire 0,96-1,02 elle aussi.
-
-Les 4 cellules §10 sont en DIAGNOSTIC et jamais en verdict (jambe `fwd` declaree NON ARBITREE).
-RESERVE PUBLIEE AVEC LA GRANDEUR : un produit de trois ETENDUES n'est pas une integrale de volume.
-Les deux cellules citees dans la prediction se sont bien RAPPROCHEES de 1 (0,8835 -> 0,9128 et
-1,1973 -> 1,1646) comme P5 l'annoncait, sans atteindre les valeurs predites.
-
-**P7 — A-T-ON FABRIQUE UN MIROIR ? AU NIVEAU DU BLOC, NON. SUR LES CELLULES `out`, OUI, ET JE LE
-DECLARE.**
-Le test de miroir du bloc reste `BRISE` : ecart du rendement a 1, median **7,86 %**, max 21,73 %
-sur 24 cellules, seuil declare 3 %. Mais ce chiffre agrege est porte par `fwd` et `up`.
-**Sur les huit cellules `out`, le rendement d'ORGANE vaut desormais 0,987 a 1,010.** La bande de
-§10 (1,18-1,28) est centree sur le preset 1,23, celle de §11 (0,87-0,93) sur 0,90 : ces clauses
-sont maintenant jugees contre une cible que la peau rend a 1-2 % pres. **C'est la definition meme
-du miroir dans la DIRECTIVE du 2026-08-23 16:00.** Je refuse donc de compter ces verts, et aucune
-section n'est relevee sur eux — voir la section 4.
+**INERTIE PAR ALGEBRE, PAS PAR REGLAGE.** A la pose d'auteur les trois echelles valent 1.0 : la
+branche `s <= 1.0` rend l'identite AU BIT. Et `asc = 0` (canal absent) rend `phys-softmin`
+l'identite : « canal absent = comportement d'avant », verifiable sans course.
 
 
-## 4. CE QUE LE REGISTRE ENREGISTRE, ET POURQUOI CE N'EST PAS UNE VICTOIRE
+## 3. LES NEUF PREDICTIONS, ECRITES AVANT LA COURSE (`.autoport/c145-predictions.txt`)
 
-  §8   `NON TENUE` (inchange) — mais sa clause NUMERIQUE cesse d'etre `TAUTOLOGIQUE` : elle porte
-       une mesure independante de l'entree du solveur, et elle echoue 4/4. Une des six
-       lignes-miroirs de la DIRECTIVE tombe pour de bon.
-  §10  **`NON TENUE` -> `NON ETABLI`. C'EST UNE REGRESSION.** La clause de largeur passe
-       `SOUS` 4/4 -> `DANS` 4/4, mais elle est devenue un MIROIR et ne compte pas ; et la clause
-       « Outward COM migration », qui etait robustement hors bande sur LES DEUX chaines, ne l'est
-       plus que sur une. Plus rien n'est hors bande des deux cotes, rien n'est dans la bande sur
-       une chaine entiere : la regle du registre ne tranche pas. Le registre passe de 0 a 1
-       `NON ETABLI`.
-  §11  `PARTIELLE` (inchange). La clause de largeur sort de `HORS BANDE (AU-DESSUS)` vers
-       `INDETERMINEE`, avec la meme reserve de miroir. Ce qui maintient `PARTIELLE` est ce qui la
-       maintenait deja : longueur et COM livres, tous deux `DANS`, tous deux inchanges.
+Trace neuve : md5 **ac33638e48d59f6e4a8244420a12e562** (7 385 833 octets, `PHYSEND` present).
+Tableau derive : empreinte de la trace verifiee DANS le fichier ecrit. Reference : c144,
+md5 a91ea459b671..., restauree et re-verifiee apres chacune des deux courses avortees (§7 ci-dessous).
 
-**LE COMPTE DE `TENUE` NE BOUGE PAS : 5 SUR 38.** Le correctif fait ce que la spec ecrit — l'organe
-recoit enfin la largeur commandee — et le prix est que la clause qui le mesurait n'a plus grand
-pouvoir de refutation. C'est le resultat, tel quel.
+**P0 — LE CANAL EST PROUVE LU. TENUE — ET SON FALSIFICATEUR A TIRE UNE FOIS, AVANT.**
+
+    [HD-PHYS] PHYSGRADSET c=0 p=1.7999 w0=1.1035 w1=0.8618 cws=0.5720 gmx=1.1035
+    [HD-PHYS] PHYSGRADSET c=1 p=1.7999 w0=1.1128 w1=0.7839 cws=0.5450 gmx=1.1128
+
+Voir §7 : sur la course precedente il rendait **1.5022 / 1.4649** et P0 l'a tue sur les deux
+premieres lignes de la trace, avant tout autre releve.
+
+**P1 — LE PLAFOND MORD, ET A LA BONNE VALEUR. TENUE.** Discriminant a TROIS etats, ecrit d'avance :
+
+    c=0  sxm max  1.4806 -> 1.2225   plafond effectif 1.22655   [1.48 = absent · 1.2500 = pose sur
+    c=1  sxm max  1.4717 -> 1.2205   plafond effectif 1.22466    la cle BRUTE · ici = sur le RECU]
+
+En grandeur RECUE au maillon 0 : `1 + 1.1035 x 0.2225 = 1.2455` (+24.6 %) et
+`1 + 1.1128 x 0.2205 = 1.2454` (+24.5 %) — **sous les 25 %, sur les deux chaines.** L'ecart au
+plafond vient de ce que `phys-softmin` est ASYMPTOTIQUE : la borne est un sup jamais atteint.
+
+**P2 — IDENTITE AU BIT SAUF DEUX CELLULES NOMMEES D'AVANCE. TENUE, 0 CELLULE HORS PREDICTION.**
+`sym` : zero mouvement sur les 22 cellules (maxima 0.1321 / 0.1262, sous la zone morte 0.1903 /
+0.1887). `szm` : les deux seules cellules predites bougent, et de la quantite predite.
+
+    c=0 i=10  szm 1.19930 -> 1.19750  (-0.00180)      c=1 i=10  szm 1.19600 -> 1.19470  (-0.00130)
+
+**P3 — LA LARGEUR D'ORGANE DE §10 REDESCEND SOUS SA BANDE. TENUE. C'EST LE COUT, ET IL EST ASSUME.**
+
+    chaine  frontiere  livree c144   livree c145   commande        verdict
+    chestL  w>0.00       1.2103        1.1229      1.3947 -> 1.2210  DANS -> SOUS
+    chestL  w>=0.25      1.2172        1.1260      1.3947 -> 1.2210  DANS -> SOUS
+    chestR  w>0.00       1.2126        1.1308      1.3775 -> 1.2189  DANS -> SOUS
+    chestR  w>=0.25      1.2237        1.1389      1.3775 -> 1.2189  DANS -> SOUS
+
+Predit 1.12 +- 0.02 / 1.13 +- 0.02 : les quatre y sont. **`§10 out Width +18 a +28 %` passe de
+`DANS sur les 2 chaines et les 2 frontieres` a `HORS BANDE (SOUS) sur les 2 chaines et les 2
+frontieres`.** Voir §4 : cette bascule etait ARITHMETIQUEMENT prevue, et le c144 refusait deja de
+compter ces verts (miroir).
+
+**P4 — §11 (LARGEUR AU PENDAGE) INCHANGEE PAR ALGEBRE. TENUE, +0.0000 SUR LES QUATRE CELLULES.**
+Commande 0.90 -> amplifiee 0.825 < 1 : la branche `s <= 1.0` rend l'argument tel quel.
+(Note d'instrument : mon extracteur classe « SANS VERDICT [... max-min AU-DESSUS] » comme
+AU-DESSUS ; les deux courses sont lues de la meme facon, donc la COMPARAISON tient, mais le libelle
+des deux cellules chestL est a lire dans le tableau, pas dans ma sortie.)
+
+**P5 — LE MUR MEDIAN SUIT, MAIS PLUS FORT QUE PREDIT. PARTIELLE — MAGNITUDE REFUTEE, MECANISME
+CONFIRME, ET C'EST LA BRANCHE ECRITE D'AVANCE QUI SE REALISE.**
+`ROOM-SPEC10 ... sortant ORGANE LIVRE` (`PHYSORIM`, matrices ECRITES au squelette) :
+
+    chestL   +8.963 / +9.877 / +10.782 % W0  AU-DESSUS/DANS   ->   +2.802 / +3.085 / +3.301   SOUS
+    chestR   +1.585 / +1.757 /  +1.875 % W0  SOUS             ->   -2.337 / -2.633 / -3.156   SOUS
+
+J'avais predit 4.0-7.0 % pour chestL (facteur x0.574 sur `dfs[0]-1`) ; le mesure vaut x0.313 sur le
+total. **La magnitude est refutee et je n'en donne pas d'explication : je la nomme.** Piste non
+etablie : le total est `squelettique + diagonal + cisaillement` et le terme squelettique est
+NEGATIF (-1.283 % W0 au c144), donc reduire la seule part tensorielle fait chuter le total plus
+vite que le facteur. Le falsificateur ecrit (« chestL au-dessus de 10 % W0 ») n'a pas tire.
+Et chestR **change de signe** : la migration devient RENTRANTE, ce qui est le contraire de ce que
+§10 l.169 demande. C'est publie comme une degradation, pas lisse.
+
+**P6 — LA COLLISION NE SE DEGRADE PAS. TENUE.**
+`skinpen` 0.0863 (chestR) / 0.0707 (chestL) et `meshpen` 0.0610 / 0.0548 : **identiques au dernier
+chiffre publie**. RESERVE : « identique a 1e-4 » n'est pas « identique au bit » — l'instrument
+publie 4 decimales, et le maximum de penetration ne tombe pas dans les fenetres ou le plafond mord.
+
+**P7 — INERTIE A LA POSE D'AUTEUR. TENUE.** `ROOM-IDLE: maxdev=0.0001` — inchange, et c'est une
+garantie ALGEBRIQUE (branche `s <= 1.0`), pas une mesure chanceuse.
+
+**P8 — §24 INCHANGEE. TENUE.** Les six frequences identiques au millieme, les trois axes DANS sur
+les deux chaines, verticale la plus lente OUI, `LES QUATRE CLAUSES TENUES` sur chestL et chestR.
+
+**CE QUE LE PLAFOND FAIT AILLEURS, NON PREDIT ET PUBLIE QUAND MEME** (505 lignes du tableau
+different entre les deux courses ; ce ne sont pas des cellules gelees) :
+
+    §22 COM   « hard transient <=40% B0 »   chestL 0.4488 -> 0.4430 (x1.12 -> x1.11)   toujours HORS
+                                            chestR 0.4596 -> 0.4436 (x1.15 -> x1.11)   toujours HORS
+    §22 apex  « exceptional <=50% B0 »      chestL 0.9065 -> 0.8881 (x1.81 -> x1.78)   toujours HORS
+                                            chestR 1.0298 -> 0.9666 (x2.06 -> x1.93)   toujours HORS
+    §11 pic transitoire (contre 1.30)       chestL 1.1993 -> 1.1975 · chestR 1.1960 -> 1.1947 · DANS
+    §8  volume livre, cellule chestL w>=0.25 §10 : 1.0551 AU-DESSUS -> 0.9926 DANS
+        (les 4 cellules §11, qui portent le verdict, restent AU-DESSUS 4/4 et sont INCHANGEES)
+    §21 corrections de la borne : 7149 -> 7145, 98.23 -> 97.98 B0 cumules
+
+Et le test de falsifiabilite de l'instrument de largeur s'ameliore : verdicts rendus
+`SOUS=0 DANS=7 AU-DESSUS=6` -> **`SOUS=4 DANS=3 AU-DESSUS=6`**. Il rend desormais les trois.
 
 
-## 5. ETAT DU VALIDATEUR
+## 4. LA BORNE ARITHMETIQUE — ET ELLE NE PARLE PAS DE NOTRE RIG, ELLE PARLE DE LA SPEC
 
-    [SCOPE] 2 chaines declarees = 2 resolues par le moteur = ['chestL','chestR'] ;
-            joints ecrits : lBoob, lBooc, rBoob, rBooc
-    [SCOPE] aucun joint de cheveu, sangle, languette, oreille ou lunettes n'est ecrit
-    [TUNING] tous les reglages de l'owner sont dans le fichier livre
-    [ok] du code a ete ecrit dans goal_src/ (diff HEAD~1: 2, 6 dernieres heures: 18)
-    [COLLIDE] poitrine : 0.0610 m de residu (plafond epingle 0.0005), DECLARE dans ce rapport
-    [ROOM] joueur absent, 1 acteur, 2 chaines x 31/31 animations, 310 mesures
-    [COLLIDE] SPEC §33/§34 — controle positif 0.143 contre 0.046
-    [IDLE] ecart max au modele 0.000
-    [ANIM] 2 chaines pilotees, toutes respectees
-    [DISCRIMINANT] chaque chaine distingue les 5 pilotages
-    [Grecharged-secondary-motion PASS]
-    [FAIL] OPEN-DEFECTS: breast-spec-incomplete
+Identite de melange, mesuree et publiee par le tableau lui-meme (`ORGANE commande 1.2258 =
+1 + (1.3947-1) x 0.5720`) : **`organe = 1 + cws.(D - 1)`**, ou `cws = SOMME comw` est la part de la
+masse de peau que les maillons pilotent. Donc, sous un plafond d'elongation LOCALE de 25 % :
 
-**LE DEFAUT RAPPORTE — `SCOPE`, LA TRACE ABSENTE — EST CORRIGE, ET IL L'EST A SA CAUSE.** Toutes
-les gates de mesure passent sur une course neuve, complete et attribuable.
-**LE SEUL ECHEC RESTANT EST LA PORTE DE L'OWNER**, qui n'a pas de mode « reussi » par construction :
-seul l'owner retire cette ligne, et je n'y touche pas. Un validateur vert dirait « ce que j'ai
-mesure est honnete », jamais « sa poitrine est conforme ».
+    largeur d'organe maximale par une ECHELLE  =  1 + 0.25 x cws  <=  1.25   **meme a cws = 1**
+
+  - **§11 l.179 demande « Root-to-apex length: +18 to +26% »** et l.180 un transitoire a +30 %.
+    Le bord haut exige `cws >= 0.26/0.25 = 1.04` : **impossible pour TOUT rig**, y compris un rig
+    ou 100 % de la chair serait pilotee. Le transitoire exige 1.20.
+  - **§10 l.166 demande « Width: +18 to +28% », nominal +23 %.** Le bord bas exige `cws >= 0.72`,
+    le nominal `cws >= 0.92`.
+
+**CE N'EST DONC PAS UN DEFAUT DE NOTRE RIG : UNE IMPLEMENTATION PAR ECHELLE PURE NE PEUT PAS
+SATISFAIRE §11 SOUS §22, QUEL QUE SOIT LE REPESAGE.** Et la spec nomme elle-meme la sortie, deux
+fois : §22 l.305-306 « Translation, rotation and **redistribution** shall account for most of the
+excursion », §10 l.173-174 « **The entire breast shall not simply scale uniformly from its
+center.** » Deux lignes plus fortes encore disent la meme chose en gras : §14 l.219-220 (« the
+majority of visible movement must come from global mass lag and rotation, not from stretching the
+tissue ») et §19 l.278-279.
+
+**CE QUE NOTRE RIG AJOUTE PAR-DESSUS.** `comw` du fichier livre : `0.3266,0.2449` -> **0.5715** et
+`0.3581,0.1871` -> **0.5452** ; le parseur les quantifie au millieme (`llround(v*1000)`) et le
+moteur lit **0.5720 / 0.5450**. Les deux nombres sont publies parce que ce sont deux grandeurs
+differentes ; l'ecart sur la borne est nul (1.1429 contre 1.1430). Plafond par l'echelle :
+**1.1430 / 1.1363** en borne, **1.1265 / 1.1193** pour l'operateur reel (softmin asymptotique et
+`asc/gmx`). Mesure : 1.1229-1.1389. Il manque **+4,8 points** pour toucher 1.18.
+
+**CE QUE JE RETIRE, ET C'EST LE CONTRE-CONTROLE QUI ME LE FAIT RETIRER (voir §6).** J'allais
+publier que `StrongRootFraction = 0.30` de §30 l.375 est le complement de `SOMME comw`, donc que la
+spec serait coherente « a 0,4 % pres » a son propre nominal et que notre rig en serait loin.
+**C'EST FAUX, DEUX FOIS.** `StrongRootFraction` est, dans ce dossier, une PART DE SOMMETS au-dessus
+d'un seuil de 0.55 (`probe_breast_anchor30.py`) ; `comw` est une part CONTINUE de masse de peau,
+ponderee, sans seuil. Mesures : 0.416 / 0.459 -> complements 0.584 / 0.541 contre `cws` 0.5715 /
+0.5452 — ecarts **de signes opposes** (+2,2 % et -0,7 %), ce qui suffit a refuter l'identification.
+Et une fois la bonne grandeur prise, la conclusion s'inverse : le profil continu de §30 l.378-382
+rend une part pilotee de 0.545 a 0.625, donc 1.136 a 1.156, **sous 1.18 de 2 a 4 %** — et notre rig
+est quasiment AU nominal ainsi lu. Le §4 ci-dessus n'a besoin ni de §30 ni de `StrongRootFraction`.
+
+**ET UNE RESERVE QUE JE PUBLIE PARCE QU'ELLE AFFAIBLIT MON PROPRE ENONCE.** « Hors d'atteinte » ne
+vaut que pour le tenseur d'ECHELLE. Un second canal lateral existe et n'est PAS plafonne : le MUR
+MEDIAN, `*phys-mww* = medw . max(0, dfs[0]-1)` avec `medw = 325.66` lu dans le fichier livre. Il
+est indexe sur la MEME grandeur, donc le plafond le reduit aussi (P5 le montre) — mais son gain est
+un parametre libre. Sur l'axe `out` le rendement d'organe reste a 0.987-1.015 (il ne fournit que
++1,5 %), quand les autres axes du MEME organe rendent +11 % venus d'ailleurs que de l'echelle. La
+formulation exacte est donc : **hors d'atteinte du tenseur d'echelle seul, et le canal lateral
+non-echelle ne rend aujourd'hui que +1,5 %.**
 
 
-## 6. A TESTER PAR L'OWNER
+## 5. CE QUE LE REGISTRE ENREGISTRE
+
+  §10  **`NON ETABLI` -> `NON TENUE`.** La clause « Outward COM migration » (l.169) redevient hors
+       bande **sur les deux chaines** (+2.802 % et -2.337 % W0 contre 4-10 %), et le tableau emet
+       `ROOM-SPEC10: VERDICT NON TENUE`, ligne absente de la course du c144. La clause de largeur
+       (l.166) repasse `SOUS` 4/4 : elle etait `DANS` 4/4 au c144 mais **refusee comme MIROIR**,
+       donc rien de compte n'est perdu — et sa nouvelle valeur est bornee par une ARITHMETIQUE
+       independante de l'entree du solveur (§4).
+  §22  `NON TENUE` (inchange). Sa clause d'elongation locale recoit sa **premiere lecture sur
+       l'etage d'EQUILIBRE** — la ou elle etait violee x1.92 / x2.12 — et cette lecture n'est PAS
+       une `DEFORMATION IMPOSEE` : `dfa` n'est pas alimente par la cle 0.25, il sort du solveur de
+       §10-§13. Ses deux autres clauses (COM, apex) restent HORS, en s'ameliorant de 3 a 6 %.
+  §8   `NON TENUE` (inchange). Les 4 cellules §11 qui portent son verdict sont INCHANGEES et
+       AU-DESSUS 4/4 ; la cellule §10 chestL w>=0.25 rentre dans la bande (1.0551 -> 0.9926), mais
+       les cellules §10 sont en DIAGNOSTIC (jambe `fwd` non arbitree) et ne portent rien.
+  §11  `PARTIELLE` (inchange). Largeur inchangee au bit ; pic transitoire toujours DANS.
+
+**AUCUNE SECTION NE PASSE `TENUE`.** Ce cycle pose un plafond que la spec ecrit et que le moteur
+n'appliquait qu'a une moitie de son operateur, et il rend a §10 un verdict qu'elle avait perdu.
+
+
+## 6. LE CONTRE-CONTROLE INDEPENDANT, ET IL M'A CORRIGE TROIS FOIS
+
+Exige d'avance par la DIRECTIVE du 2026-08-21 18:40 sur toute affirmation qui va etre publiee.
+Il a **refute B en entier** (§4 ci-dessus), **affaibli A** (le mur median non plafonne), et trouve
+**trois citations fausses** que j'allais publier : §10 « shall not simply scale uniformly from its
+center » est a **l.173-174** et non l.171 ; la phrase de §22 sur la redistribution enjambe
+**l.305-306** ; et `AbsoluteStretchClamp = 0.25` est a **l.509** (bloc de preset) quand l.303 porte
+sa forme en prose — les melanger est exactement la faute que la regle du 2026-08-21 18:40 vise.
+Les trois sont corrigees ici et dans la NOTE-586.
+Il signale enfin un piege LATENT que je consigne sans le corriger : `sy1`/`sz1` recoivent le
+plafond **sans le diviseur d'organe** que porte `sx1`. C'est correct aujourd'hui (le plafond borne
+une elongation LOCALE, et c'est bien ce que `dfa` applique par maillon), mais le jour ou
+`HangingTransientLengthMax = 1.30` (§11 l.180) sera cable sur `sz`, il devra passer par le meme
+diviseur — sinon le plafond couperait une ligne que la spec commande, de 6,3 %.
+
+
+## 7. TROIS COURSES, DEUX ARRETEES PAR MOI, ET LA COMPTABILITE COMPLETE
+
+  - **Course 1 (06:01)** : arretee a 06:07 par PID exact, sans aucune mesure retenue. Motif : j'ai
+    decouvert, entre le lancement et la fin, que le poids de §31 multiplie l'ECART — donc que le
+    plafond devait porter sur `gmx.(s-1)` et non sur `(s-1)`. Mesurer un operateur que j'allais
+    changer aurait coute une seconde course pour rien.
+  - **Course 2 (06:06)** : arretee a 06:23. **P0 a tire** sur les deux premieres lignes de la
+    trace : `gmx=1.5022 / 1.4649` au lieu de 1.1035 / 1.1128. Cause : le maximum etait pris sur les
+    QUATRE emplacements de maillon et non sur les `nlink` SIMULES ; les emplacements inutilises
+    portent le normalisateur `ss/zs` = 1.5022, un poids applique a RIEN. Le plafond effectif serait
+    tombe a 0.1664 au lieu de 0.2266 — **un suppresseur de 36 % au-dela de ce que §22 demande**, et
+    son effet (`sxm` plafonne) aurait eu EXACTEMENT L'AIR D'UNE REUSSITE. C'est la raison d'etre de
+    P0 : `channel-measured-by-effect-is-not-channel-proven-read`.
+  - **Course 3 (06:09 -> 06:36)** : complete, `PHYSEND` present, promue. C'est celle qui est mesuree.
+
+A chaque arret, la PAIRE (trace + tableau) du c144 a ete restauree par le trap du lanceur et
+re-verifiee par md5 — `archiving-at-run-start-loses-the-only-trace`, ferme au point de production.
+Les deux corrections de citation du §6 ont ete posees **apres** la course : elles ne touchent aucune
+expression evaluee (un commentaire `;;` et un bloc de markdown), `git diff` le montre.
+
+
+## 8. ETAT DU VALIDATEUR
+
+Toutes les gates de MESURE passent. **Le seul echec est la porte de l'owner**, `OPEN-DEFECTS /
+breast-spec-incomplete`, qui n'a pas de mode « reussi » par construction : seul l'owner retire cette
+ligne, et je n'y touche pas. Rappel de l'arbitrage du 2026-08-23 01:20 : un validateur vert dit
+« ce que j'ai mesure est honnete », jamais « sa poitrine est conforme » — l'avancement se lit dans
+`SPEC-COVERAGE.md` et nulle part ailleurs.
+
+
+## 9. A TESTER PAR L'OWNER
 
 **RIEN.** La regle du 2026-08-20 23:30 tient : a 5 sections tenues sur 38, un changement d'une
-seule section ne produit pas d'ecart qu'un oeil peut trancher, et lui demander d'arbitrer use le
-seul instrument qui compte vraiment. Le changement visible eventuel serait un sein legerement plus
-large au couche et legerement plus etroit au ventre — pas un ecart qu'on peut juger isolement.
+seule section ne produit pas d'ecart qu'un oeil peut trancher. Le changement visible eventuel serait
+un sein legerement moins large au couche qu'au build precedent — pas un ecart jugeable isolement.
 
 
-## 7. CE QUE LA MESURE DESIGNE COMME PROCHAINE UNITE
+## 10. CE QUE LA MESURE DESIGNE COMME PROCHAINE UNITE
 
-  1. **§22, la deformation locale de la chair pilotee** (P4b). C'est le seul cout de ce cycle qui
-     soit declare et NON mesure, et il est probablement hors plafond (~1,44 contre 1,25). Il faut
-     l'instrument avant d'aller plus loin sur cet axe — sinon on empile un depassement invisible.
-  2. **Le CISAILLEMENT de §10 `sortant` sur chestR** : le terme diagonal rend +4,007 % W0 (dans la
-     bande a lui seul) et un cisaillement que §10 ne demande nulle part en annule **69,0 %**
-     (contre 96,6 % avant le correctif). C'est ce cisaillement, et non l'amplitude, qui tient
-     maintenant chestR sous sa bande.
-  3. **La part de chair pilotee elle-meme.** `cws` vaut 0,572 / 0,545 la ou §30 pose 0,70. Le
-     correctif de ce cycle COMPENSE cet ecart par un facteur ; le corriger a la source (repesage)
-     rendrait le facteur inutile et retirerait du meme coup le cout (b). C'est le RIG, pas le
-     solveur, et l'owner a autorise le rig depuis le 2026-08-17.
+  1. **LA REDISTRIBUTION LATERALE, ET C'EST LA SPEC QUI LA NOMME.** Le §4 etablit qu'aucune echelle
+     ne peut rendre §11 l.179 sous §22, pour AUCUN rig. Le canal manquant est un transport de
+     matiere : ce que §22 l.305-306 appelle « translation, rotation and redistribution ». Le mur
+     median en est une premiere forme, non plafonnee et a gain libre (`medw`) ; il rend +1,5 % la
+     ou il en faut +4,8. C'est le chantier, et il remplace « elargir plus fort ».
+  2. **LE SIGNE DE `chestR`.** La migration sortante est passee de +1.585 a **-2.337 % W0** : elle
+     rentre au lieu de sortir. Un signe faux est un defaut, pas une amplitude.
+  3. **LA MAGNITUDE DE P5 EST REFUTEE ET INEXPLIQUEE** (x0.313 mesure contre x0.574 predit). La
+     decomposition `squelettique + diagonal + cisaillement` est publiee par le tableau : elle se
+     relit sur la trace neuve sans course supplementaire.
 
 
-## 8. FICHIERS
+## 11. FICHIERS
 
-    .autoport/keira_room_x86.sh                attente d'arbre calme, refus de promotion si l'ISO
-                                               bouge, restauration de la PAIRE (log+tableau)
-    .autoport/c144_measure.sh                  neuf : fenetre construction+mesure en une seule
-                                               section critique tenue par un detenteur vivant
-    .autoport/SPEC-COVERAGE.md                 §8, §10 (statut), §11 : blocs du cycle 144 ; etat
-    .autoport/reports/.../keira-room-x86.log   course neuve, PHYSEND, md5 a91ea459b671...
-    .autoport/reports/.../keira-room-table.txt tableau derive, empreinte verifiee DANS le fichier
+    goal_src/jak1/pc/jak-hd-physics.gc          `phys-scl22`, `*phys-gmx*`, plafond sur les trois
+                                                echelles de `dfa` et sur `dfsq` ; 4779 lignes
+    goal_src/jak1/pc/jak-hd-physics-NOTES.md    [NOTE-586]
+    .autoport/c145-predictions.txt              les neuf predictions, ecrites avant la course
+    .autoport/c145_measure.sh                   fenetre construction+mesure, une section critique
+    .autoport/c145_verdict.py                   releve des neuf predictions, sans seuil choisi
+    .autoport/SPEC-COVERAGE.md                  §10 (statut), §22, §8, §11 : blocs du cycle 145
+    .../keira-room-x86.log                      course neuve, md5 ac33638e48d5..., PHYSEND present
+    .../keira-room-table.txt                    tableau derive, empreinte verifiee DANS le fichier

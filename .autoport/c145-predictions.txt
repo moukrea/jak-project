@@ -1,0 +1,95 @@
+# CYCLE 145 — PREDICTIONS ECRITES AVANT LA COURSE (reecrites 06:14, avant toute mesure : la
+# premiere redaction ignorait que le poids de §31 est applique a l'ECART `(D - I)` dans le chemin
+# d'ecriture. Aucune course n'avait ete relevee entre les deux ; celle qui avait demarre a 06:01 a
+# ete arretee par PID exact a 06:07, sans mesure, et la PAIRE (trace + tableau) du c144 a ete
+# restauree par le trap — verifie : log md5 a91ea459b671..., 05:30:04 ; tableau 05:36:41.)
+#
+# CORRECTIF MESURE : `phys-scl22`. Le plafond `AbsoluteStretchClamp` (cle 13 du preset LIVRE,
+# publiee `asc=0.2500` par `PHYSPSETC` sur les deux chaines) est applique aux TROIS echelles
+# principales du tenseur d'EQUILIBRE `dfa`, et plus seulement au facteur dynamique `dfb`.
+# Il porte sur l'elongation RECUE par le maillon le plus charge, `gmx.(s-1)`, et non sur `(s-1)` :
+# le chemin d'ecriture melange lineairement `A_l = B_l.(I + w_l.(D - I))`, donc le maillon 0
+# recoit `1 + gmx.(s-1)`. Plafond effectif sur la commande : `asc / gmx`.
+#     chestL  gmx 1.1035  ->  asc_eff 0.226551   genou 0.84*asc_eff = 0.190303
+#     chestR  gmx 1.1128  ->  asc_eff 0.224658   genou               0.188713
+# Reference : trace du cycle 144, md5 a91ea459b6710dd8f7eecf2559442871 (7 387 950 octets).
+
+P0  LE CANAL EST PROUVE LU, PAS DEDUIT DE SON EFFET.
+    `PHYSGRADSET` publie `gmx=1.1035` (c=0) et `gmx=1.1128` (c=1), a cote de `cws=`.
+    FALSIFICATEUR : `gmx=1.0000`. Alors le maximum n'est pas calcule, le plafond retombe sur la
+    cle brute, et P1 ci-dessous devient indistinguable de la version non corrigee.
+
+P1  LE PLAFOND MORD, SUR LA LIGNE QUI PORTE DEJA LE VERDICT, ET A LA BONNE VALEUR.
+    `PHYSORI5 sxm` : le maximum sur les 11 orientations passe de 1.4806 (c=0) / 1.4717 (c=1) a
+    <= 1.2266 (c=0) / <= 1.2247 (c=1).
+    C'EST UN DISCRIMINANT A TROIS ETATS, ecrit ainsi expres : 1.48 = plafond absent ;
+    1.2500 = plafond pose sur la cle BRUTE (correction `gmx` inoperante) ; 1.2266/1.2247 =
+    plafond pose sur l'elongation RECUE. Une seule des trois valeurs est celle qu'on vise.
+    FALSIFICATEUR : un seul `sxm > asc_eff + 1.0005`.
+
+P2  LES DEUX AUTRES AXES SONT INCHANGES AU BIT SAUF UNE CELLULE, ET LA LISTE EST ECRITE D'AVANCE.
+    Zone morte 0.190303 / 0.188713. Maxima mesures au c144 : `sym` 0.1321 / 0.1262 — SOUS le
+    genou sur les 22 cellules, donc IDENTITE AU BIT. `szm` : une seule cellule par chaine
+    depasse le genou, i=10 (0.1993 et 0.1960) ; les 20 autres sont sous.
+        c=0 i=10  szm 1.1993 -> 1.19751   (-0.00179)
+        c=1 i=10  szm 1.1960 -> 1.19477   (-0.00123)
+    FALSIFICATEUR : une cellule `sym` qui bouge de plus de 0.0002, ou une cellule `szm` AUTRE que
+    i=10 qui bouge de plus de 0.0002. Alors `phys-scl22` n'est pas l'identite dans sa zone morte
+    et le raisonnement algebrique de la NOTE-586 est faux.
+
+P3  LA LARGEUR D'ORGANE DE §10 REDESCEND SOUS SA BANDE. C'EST LE COUT, ET IL EST ASSUME.
+    `ROOM-SPEC1011-LIVREE`, colonne DECILES, les quatre cellules `§10 out` :
+        chestL  w>0.00   1.2103 -> 1.12 +- 0.02        chestL  w>=0.25  1.2172 -> 1.12 +- 0.02
+        chestR  w>0.00   1.2126 -> 1.13 +- 0.02        chestR  w>=0.25  1.2237 -> 1.13 +- 0.02
+    et les quatre repassent `SOUS` la bande 1.18-1.28.
+    FALSIFICATEUR : une cellule qui reste >= 1.18. Alors l'identite de melange de la NOTE-585
+    (`organe = 1 + SOMME comw.(D-1)`) est fausse, et le modele du cycle 143 tombe avec elle.
+
+P4  §11 (LARGEUR AU PENDAGE) EST INCHANGEE, PAR ALGEBRE.
+    Commande 0.90 -> amplifiee 1 + (0.90-1)/0.572 = 0.825 < 1 : `phys-scl22` rend son argument
+    TEL QUEL sur la branche `s <= 1.0`. Les quatre cellules restent a 0.9286 / 0.9291 / 0.9126 /
+    0.9169 a 0.002 pres.
+    FALSIFICATEUR : un ecart > 0.002 -> le plafond mord du cote de la CONTRACTION, donc la forme
+    a UN SEUL COTE n'est pas celle qui a ete ecrite — et §10 l.159 (-30 %) serait interdite.
+
+P5  LE MUR MEDIAN SUIT, PARCE QU'IL EST INDEXE SUR LA MEME GRANDEUR.
+    `*phys-mww* = medw * max(0, dfs[0] - 1)` : au supine le facteur passe de 0.3947 a 0.2266,
+    soit x0.574. §10 « Outward COM migration per breast: 4-10% W0 » sur l'ORGANE LIVRE :
+    chestL +8.963 % W0 -> 4.0-7.0 % ; chestR +1.585 % -> 0.7-1.2 % (reste SOUS).
+    LES DEUX ISSUES SONT INFORMATIVES, et elles sont ecrites AVANT : si chestL reste DANS, §10
+    demeure `NON ETABLI` (rien hors bande des deux cotes) ; si chestL retombe SOUS 4 %, la clause
+    redevient falsifiable des deux cotes et §10 repasse `NON TENUE` avec sa cause nommee.
+    FALSIFICATEUR : chestL au-dessus de 10 % W0 -> le mur median ne suit pas `dfs[0]`.
+
+P6  LA COLLISION NE SE DEGRADE PAS.
+    `skinpen` chestR <= 0.0871 et chestL <= 0.0712 (valeurs du c144), tous deux <= leur ligne de
+    base au repos. `meshpen` chestR <= 0.0610.
+    FALSIFICATEUR : `skinpen` au-dessus du repos sur une chaine -> la gate COLLIDE echoue et le
+    plafond n'est pas gratuit.
+
+P7  L'INERTIE A LA POSE D'AUTEUR EST ALGEBRIQUE, PAS MESUREE.
+    Debout les trois echelles valent 1.0, donc la branche `s <= 1.0` rend l'identite AU BIT.
+    `ROOM-IDLE maxdev` <= 0.0002 (c144 : 0.0001).
+    FALSIFICATEUR : toute hausse -> l'operateur est mal place dans le `let*`.
+
+P8  §24 EST INCHANGEE : les trois frequences DANS sur les deux chaines, verticale la plus lente.
+    Le plafond agit sur la FORME, pas sur l'oscillateur.
+    FALSIFICATEUR : un axe hors bande -> le plafond a fuit dans la dynamique.
+
+# ------------------------------------------------------------------------------------------
+# 06:22 — P0 A TIRE, SUR LES DEUX PREMIERES LIGNES DE LA COURSE, AVANT TOUT AUTRE RELEVE.
+#
+#     [HD-PHYS] PHYSGRADSET c=0 ... cws=0.5720 gmx=1.5022
+#     [HD-PHYS] PHYSGRADSET c=1 ... cws=0.5450 gmx=1.4649
+#
+# attendu 1.1035 / 1.1128. CAUSE TROUVEE : le maximum etait pris sur les QUATRE emplacements de
+# maillon (`PHYS-LINKS`) et non sur les `nlink` maillons SIMULES. Les emplacements inutilises
+# portent `gg = 1.0`, donc apres normalisation `ss/zs` = 1.5022 — un poids qui n'est applique a
+# RIEN (le chemin d'ecriture ne lit `*phys-grw*` que pour un maillon simule) mais qui devenait le
+# maximum. Le plafond effectif serait tombe a 0.25/1.5022 = 0.1664 au lieu de 0.2266 : un
+# SUPPRESSEUR de 36 % au-dela de ce que sa §22 demande, et l'effet (`sxm` plafonne) aurait eu
+# EXACTEMENT L'AIR D'UNE REUSSITE. C'est la raison d'etre de P0 : un canal se prouve LU, jamais
+# par son effet (`channel-measured-by-effect-is-not-channel-proven-read`).
+# Correctif : `(and (< l (-> *phys-nlink* sc)) ...)`. La course est relancee avec les MEMES
+# predictions P0-P8, inchangees. Deux courses arretees par PID exact, aucune mesure retenue,
+# paire (trace + tableau) du c144 restauree et verifiee md5 a91ea459b671... a chaque fois.

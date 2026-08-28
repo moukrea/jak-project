@@ -11236,3 +11236,66 @@ du deplacement RADIAL du COM (`k . rrm`, gain 0.428571), pas du tenseur. **Et ce
 defaut du correctif, c'est le prix du rig** : sa §30 pose `StrongRootFraction = 0.30`, donc 70 %
 de chair pilotee ; on en a 57.2 / 54.5 %. A 70 % la commande par maillon vaudrait 1.3296 au lieu
 de 1.3946. L'exces est exactement l'ancrage de trop.
+
+## [NOTE-586] `AbsoluteStretchClamp` NE BORNAIT QU'UNE MOITIE DE L'OPERATEUR — L'AUTRE COMMANDAIT +48 %
+
+Cycle 145. La peau recoit `A = dfa . dfb` (`matrix*! tmp dfa dfb`, jak-hd-physics.gc). Les deux
+facteurs sont des deformations locales, et la cle 13 du preset — §22 l.303 (« Absolute stretch clamp:  25% »), livree
+sous la cle `AbsoluteStretchClamp` du bloc de preset (l.509) et publiee `asc=0.2500` par `PHYSPSETC` sur les deux chaines — n'en bornait qu'UN :
+
+  - `dfb`, l'etage DYNAMIQUE : `sdy = fmin(asc, dl)`, en place depuis le cycle 46 ;
+  - `dfa`, l'etage d'EQUILIBRE de §10-§13 : **aucun plafond**.
+
+Or `dfa = SOMME s_i.(f_i (x) f_i)` sur le triedre orthonorme de §7 : ses trois valeurs propres
+SONT `sx1`/`sy1`/`sz1` exactement, pas une borne superieure. La grandeur etait deja dans la trace,
+publiee par `PHYSORI5` depuis le cycle 119b et jamais lue contre §22 :
+
+    c=0  sxm 1.4806   (i=8)      +48.06 %   contre un plafond de 25 %   ->  x1.92
+    c=1  sxm 1.4717   (i=8)      +47.17 %                               ->  x1.89
+
+C'est le cout que le cycle 144 avait DECLARE et n'avait pas mesure (P4b : « je ne peux pas dire
+qu'elle est sous le plafond ; je dis qu'elle ne l'est probablement pas »). Il l'est : il valait
+1.2749 / 1.2571 AVANT le correctif du cycle 143 (par l'identite `sxw = 1 + (sx1-1).cws`, monotone
+donc exacte sur les extremes), et le facteur `1/cws` l'a porte a 1.4806 / 1.4717.
+Classe `published-line-is-half-the-applied-operator`, en version PLAFOND : ce n'est pas la ligne
+publiee qui etait une moitie de l'operateur, c'est la BORNE.
+
+**LA FORME : UN SEUL COTE, LA HAUSSE.** La section dit « Local tissue *elongation* » et
+« Absolute *stretch* clamp » — deux mots d'extension. Et §10 l.165 PRESCRIT une contraction de
+-30 % (`SupineProjectionScale = 0.70`), §12 l.194 une de -20 % : un plafond symetrique les
+interdirait toutes les deux. Un operateur a moi qui interdit ce que sa spec commande perd
+(arbitrage du 2026-08-20 13:20). `phys-scl22` rend donc son argument TEL QUEL des que `s <= 1.0`.
+
+**LA SATURATION EST CELLE QUI EXISTE DEJA, ET SA ZONE MORTE TOMBE SUR UNE LIGNE DE LA SPEC.**
+`phys-softmin(v, cap)` est l'identite jusqu'a `0.84*cap` puis asymptote vers `cap`. A `cap = 0.25`
+la zone morte finit a **0.21**, c'est-a-dire exactement la frontiere « large 15-21 % » /
+« exceptional 21-25 % » de §22 l.302. Aucun reglage : la constante est celle du cycle 46 et la
+coincidence se lit dans le texte. §37 exige par ailleurs une saturation DOUCE, jamais un ecretage.
+
+**INERTIE, PAR ALGEBRE ET NON PAR REGLAGE.** A la pose d'auteur les trois echelles valent 1.0,
+donc la branche `s <= 1.0` rend l'identite AU BIT. Et `asc = 0` (canal absent) rend `phys-softmin`
+l'identite elle aussi : « canal absent = comportement d'avant », verifiable sans course.
+
+**CE QUE CA COUTE, ET C'EST PUBLIE AVEC.** L'organe ne recoit que `SOMME comw` de ce qu'on
+commande (NOTE-585) : `cws = 0.5720 / 0.5450`. Sous le plafond de 25 % la largeur d'organe
+maximale deliverable par une ECHELLE vaut donc `1 + 0.25*cws` = **1.1430 / 1.1363**, contre la
+bande `+18 a +28 %` de §10 l.166. **La clause de largeur de §10 est arithmetiquement hors
+d'atteinte d'un tenseur d'echelle, et la borne est une grandeur du RIG, pas du solveur.**
+Il faudrait `cws >= 0.18/0.25 = 0.72` pour en toucher le bord bas, et `cws >= 0.92` pour son
+nominal de +23 % — quand §30 l.375 pose 28-35 % de chair fortement ancree, soit 0.65-0.72 pilotee.
+Autrement dit **la spec elle-meme, a son propre nominal, ne rend +18 % de largeur d'organe que
+sur le fil** (0.70 -> 1.175 contre une bande qui commence a 1.18), et elle nomme la sortie deux
+fois : §22 l.305-306 « Translation, rotation
+and **redistribution** shall account for most of the excursion », §10 l.173-174 « The entire
+breast shall not simply scale uniformly from its center ».
+La largeur ne se gagne pas en etirant la chair pilotee ; elle se gagne en pilotant plus de chair.
+
+**ET LE PLAFOND PORTE SUR CE QUE LA CHAIR RECOIT, PAS SUR CE QU'ON COMMANDE.** Le poids de §31
+est applique a l'ECART, par un melange LINEAIRE dans le chemin d'ecriture : `A_l = B_l.(I + w_l.(D
+- I))` (NOTE-581). Le maillon le plus charge recoit donc `1 + gmx.(s - 1)` et non `s`, avec
+`gmx = max_l grw_l` = **1.1035 (chestL) / 1.1128 (chestR)**. Poser le plafond sur `(s - 1)` aurait
+laisse ce maillon a `1 + 1.1035 x 0.25 = 1.2759`, soit **+27.6 % pour un plafond de 25 %** — le
+MEME defaut, un etage plus bas. Le plafond effectif sur la commande vaut donc `asc / gmx`, et en
+grandeur RECUE la zone morte retombe exactement sur `0.84 x asc = 0.21`, c'est-a-dire mot pour mot
+la frontiere « large 15-21 % » / « exceptional 21-25 % » de §22 l.302. `gmx` est publie par
+`PHYSGRADSET` a cote de `cws` : le canal est PROUVE LU, pas deduit de son effet.
