@@ -1,0 +1,198 @@
+# CYCLE 147 — PREDICTIONS ECRITES AVANT L'EDITION DU MOTEUR
+# DIRECTIVES vd9e8b66782 · perimetre : Grecharged-secondary-motion, poitrine de Keira
+#
+# THESE. Le plafond d'apex ecrit au cycle 146 borne la BONNE grandeur (`e = s + dp`, SPEC 22
+# l.301) avec le MAUVAIS operateur. Son echelle de compression est `acp` = 0.0799 B0 —
+# l'espace qui reste entre le genou (0.42) et l'asymptote (0.50) — alors que SPEC 21 l.293
+# ECRIT l'operateur avec `D_max` pour echelle :
+#
+#     D_combined = D_max . tanh( |D_linear + D_angular| / D_max )
+#
+# soit une echelle 6,3 fois plus large. Sous la population MESUREE (mediane 0.6759 B0 =
+# genou + 3,2 echelles), la forme du c146 rend son asymptote sur 97 % des fenetres :
+# p50 = p95 = max = 0.5000 B0 exactement. LA SORTIE NE DEPEND PLUS DE SON ENTREE.
+# C'est le `spec22_wall_is_saturated` du registre, reproduit sur l'apex, et c'est mot pour
+# mot ce que l'owner appelle « ca suit aucune logique » (cycle 45 : une sortie CONSTANTE
+# sous six pilotages qui varient de x38,9). La regle 7 du contrat rejette une grandeur qui
+# ne varie pas avec son stimulus.
+#
+# LE LOT. On remplace l'operateur par celui que le document ECRIT, avec D_max = akn + acp
+# = 0.4998 B0, c'est-a-dire le « exceptional <=50% B0 » que SPEC 22 l.301 ECRIT, deja livre
+# au preset (`PHYSPSETD akn=0.4199 acp=0.0799`, identiques sur les deux chaines).
+# AUCUN NOMBRE CHOISI PAR MOI. La tanh de Pade est celle des trois autres filets, au bit pres.
+#
+# POURQUOI D_max EST LE PLAFOND EXCEPTIONNEL (0.50) ET NON LE PLAFOND NORMAL (0.42).
+# Poser D_max = 0.42 rendrait « normal <=42% B0 » DANS sur 186 fenetres sur 186 — par
+# construction, puisque la sortie de l'operateur est bornee par D_max. Ce serait un MIROIR au
+# sens de la DIRECTIVE du 2026-08-23 16:00 : la bande de verdict centree sur l'entree du
+# solveur, infaillible. Avec D_max = 0.50, la clause « normal <=42% » reste FALSIFIABLE —
+# et elle continue d'echouer (P4). C'est le seul reglage qui laisse la section pouvoir dire non.
+#
+# CE QUE LA PREVISION VAUT. `.autoport/c147_predict.py` applique l'operateur, au bit pres,
+# aux valeurs LIVREES par la course SANS plafond (c145, keira-room-table.20260828-063645.txt).
+# L'operateur etant STRICTEMENT CROISSANT, max(f(x)) = f(max(x)) sur une meme fenetre : la
+# transformation d'un maximum est donc exacte. CE QUI RESTE UNE APPROXIMATION, ET C'EST
+# DECLARE : la borne deplace les volumes de collision via `phys-snapshot-sim!`, donc la
+# trajectoire de la frame suivante. Ces chiffres sont une PREVISION, pas l'algebre de la course.
+
+P0  CANAL PROUVE LU, JAMAIS DEDUIT DE SON EFFET.
+    `PHYSE22A tag=run n=` non nul. Il doit etre TRES SUPERIEUR au c146 (16 924) parce que le
+    nouvel operateur mord a TOUTE amplitude au lieu de dormir sous 0.42 B0.  PREVU : n > 40 000.
+
+P1  LA BORNE TIENT. `ROOM-APEX max` <= 0.50 B0 sur les deux chaines.  PREVU 0.4833 / 0.4898.
+
+P2  part des fenetres au-dessus de 0.50 B0 = 0.0 % sur les deux chaines.
+
+P3  *** LA PREDICTION PORTEUSE DU CYCLE : L'ETALEMENT DE LA REPONSE REVIENT. ***
+    `distribution des maxima de fenetre` doit cesser d'etre plate.
+    PREVU chestL p50 0.4484 -> max 0.4833 (etalement 7,8 %) · chestR 0.4515 -> 0.4898 (8,5 %).
+    Au c146 : p50 = p95 = max = 0.5000, etalement 0,00 %.
+    SEUIL DE REFUTATION : un etalement mesure < 3 % refute le lot. Je ne le garde pas.
+
+P4  « normal <=42% B0 » RESTE HORS BANDE, et je ne la reclame pas.
+    PREVU x1,06 (chestL) / x1,08 (chestR), contre x1,19 / x1,19 au c146.
+
+P5  DEUX CELLULES DANS DEVIENNENT SOUS, ET JE LES NOMME AVANT LA COURSE — c'est le prix.
+    chestR r= 3 jumpA-land  0.3342 -> 0.2957  bande [0.30-0.42]  x0,99  (manque 1,4 %)
+    chestR r= 8 runA-brake  0.2663 -> 0.2458  bande [0.25-0.35]  x0,98  (manque 1,7 %)
+
+P6  DEUX CELLULES HORS BANDE DEVIENNENT DANS.
+    chestR r= 4 jumpB-push  0.4430 -> 0.3613  bande [0.30-0.38]  (etait x1,16)
+    chestL r= 8 runA-brake  0.3995 -> 0.3372  bande [0.25-0.35]  (etait x1,14)
+
+P7  §24 / §25 / §26 RESTENT TENUE. Justification quantitative ECRITE AVANT la course :
+    les impulsions d'AXFIT vivent dans la bande LINEAIRE (demi-cosinus, pic 18 u/frame^2) et
+    `ROOM-RINGDOWN` releve peak = 16,04 u = 0,027 B0. A 0,027 B0 le gain de l'operateur vaut
+    0,9991 : il ne peut pas deplacer un zeta de plus de 0,1 %.
+    FALSIFICATEUR : un zeta hors [0,32-0,42] sur une ligne etoilee lisible, ou un rebond qui
+    quitte sa bande, REFUTE cette prediction — et le lot est RETIRE, pas defendu.
+
+P8  §12 RESTE TENUE. Ses cellules porteuses ont un apex de 0,1216 a 0,3196 B0, donc un gain
+    de 0,987 a 0,893 ; le COM n'en recoit que la part `cws` (0,5715 / 0,5452), soit -0,7 % a
+    -6 %. L'enveloppe BASSE de la cellule porteuse (11,869 % W0) reste au-dessus du plancher
+    de 10,00.  FALSIFICATEUR : enveloppe basse < 10,00 => §12 regresse => lot RETIRE.
+
+P9  §16 S'ELOIGNE DE SA BANDE. Ses quatre cellules baissent de 3 a 15 %
+    (0.1647->0.1596 · 0.3342->0.2957 · 0.1731->0.1672 · 0.3898->0.3314).
+    C'est le cout de l'operateur du document, qui n'a pas de zone morte. Predit, pas decouvert.
+
+P10 `ROOM-IDLE` INCHANGE. A 0,0001 B0 le gain vaut 1 - 4e-9. §2 et §9 intactes.
+
+P11 LE CUMUL RETRANCHE AUGMENTE. `PHYSE22A cut_b0` > 1131,32 B0 (valeur du c146).
+    Une borne plus DOUCE mais active PARTOUT retire PLUS de mouvement au total que la borne
+    dure qui dormait sous son genou. Une borne qui enleve du mouvement se chiffre.
+
+P12 LECTURE HORS DEFAUT INCHANGEE : `*phys-e22a-off*` = 1 rend toujours l'etat d'avant le
+    cycle 146 (le nouvel operateur vit sous le MEME interrupteur).
+
+# --- LE BALAYAGE QUE LE CYCLE 146 AVAIT PRESCRIT, FAIT SUR LA TRACE, SANS COURSE ---------
+# « quand un plafond est trouve mal branche quelque part, balayer TOUS les plafonds de la
+# meme section. » Les trois filets partagent les cles pset[16]/pset[17] :
+#   (1) `phys-cap-e22!` (:1973), par MAILLON, genou et span mis a l'echelle par `rl` ;
+#   (2) la borne de SPEC 21 (:4022), sur `s = D_linear + D_angular` ;
+#   (3) le plafond d'apex (:4049), sur `e = s + dp` — celui que ce cycle repare.
+# MESURE, sur la trace du c146 : le regime GELE d'un filet a genou commence a `kn + 3.cp`
+# = 0.4199 + 3 x 0.0799 = 0.6596 B0. `ROOM-SPEC21` donne |s| max = 0.4579 (chestL) et
+# 0.4276 (chestR) : la borne (2) n'atteint JAMAIS son asymptote, elle n'est pas degeneree.
+# Seul (3) l'etait — parce que son entree `e` est la SOMME des deux etages. (1) n'est pas
+# lisible sur cette trace (pas de distribution par maillon publiee) et reste ouvert.
+
+# ============================================================================================
+# AMENDEMENT ECRIT PENDANT LA COURSE, AVANT TOUT RESULTAT (08:12, course lancee a 08:06)
+# ============================================================================================
+# JE CORRIGE MA PROPRE JUSTIFICATION DE P7, ET JE LA CORRIGE DANS LE MAUVAIS SENS POUR MOI.
+#
+# J'ai ecrit : « `ROOM-RINGDOWN` releve peak = 16,04 u = 0,027 B0, donc le gain vaut 0,9991 ».
+# C'EST FAUX. La ligne dit `a0(pointe) = 16.04 deg` — c'est un ANGLE, pas une longueur. Le
+# bloc le declare deux lignes plus haut : « REPERE : LOCAL, la deviation angulaire de chaque
+# maillon PAR RAPPORT A SON PARENT (degres) ». J'ai lu une unite pour une autre, exactement la
+# faute que le registre appelle `metric-nature-and-frame`.
+#
+# CE QUE LA BONNE LECTURE DONNE. Une deviation de 16 deg sur le bras d'apex (651,18 u, la valeur
+# deja au dossier) deplace la pointe de 2 . 651,18 . sin(8 deg) = 181 u = **0,30 B0**. A 0,30 B0
+# le gain de l'operateur vaut 0,905, pas 0,999 : **l'operateur PEUT deplacer un zeta.**
+#
+# ORDRE DE GRANDEUR DU DEPLACEMENT, calcule avant de le mesurer : le premier pic est comprime a
+# 0,905 et le rebond (31 % de celui-ci, soit ~0,093 B0) a 0,989. Le rapport de rebond MESURE
+# monterait donc de 0,310 a ~0,339, ce qui se relit comme zeta 0,350 -> **~0,326**, pour une
+# bande de [0,32-0,42]. **A UN CENTIEME DU PLANCHER.**
+#
+# LA PREDICTION P7 NE CHANGE PAS — je maintiens que §24/§25/§26 restent TENUE — MAIS ELLE EST
+# BEAUCOUP MOINS SURE QUE JE NE L'AI ECRITE, et son falsificateur devient le point le plus
+# important de ce cycle. Il reste litteralement celui de P7 :
+#     un zeta hors [0,32-0,42] sur une ligne etoilee LISIBLE d'AXFIT, ou un rebond hors bande,
+#     REFUTE P7 — et alors LE LOT EST RETIRE, pas defendu.
+# Perdre §25 et §26 ferait tomber la couverture de 5 `TENUE` a 3 : aucun etalement de reponse ne
+# paie ce prix.
+#
+# ET LA SUITE EST DEJA SPECIFIEE, POUR QUE LE RESULTAT SOIT UTILE DANS LES DEUX SENS.
+# Si P7 est refutee, la cause sera NOMMEE et non devinee : l'operateur du document n'a PAS de
+# zone morte, il comprime a TOUTE amplitude, donc il comprime aussi la sonnerie libre sur
+# laquelle §25/§26 se lisent. La variante a essayer alors est la seule qui garde le plafond ET
+# laisse la sonnerie intacte : genou `akn` conserve (identite stricte en dessous de 0,42 B0),
+# echelle de compression portee de `acp` a `D_max` au-dessus. Elle a un COUT connu d'avance et
+# je l'ecris ici pour ne pas le decouvrir plus tard : sa derivee saute d'un facteur 6,3 au
+# genou, donc c'est une MARCHE au sens de la regle de l'owner du 2026-08-11 16:00, et il faudra
+# la chiffrer au lieu de la taire.
+
+# ============================================================================================
+# SECOND AMENDEMENT, ECRIT PENDANT LA COURSE, AVANT TOUT RESULTAT (08:20)
+# LES CELLULES DE LA POSE DONT LE MIROIR EST VALIDE — c'est la seule ou une clause GAUCHE/DROITE
+# peut vivre (`ROOM-REGA` : ecart au miroir REVALIDE a 0,50 deg, contre 45,3 deg pour PH-REG).
+# ============================================================================================
+# P13 AUCUNE cellule de `ROOM-REGA-BANDE` ne change d'etiquette : les 20 restent AU-DESSUS ou
+#     SOUS comme au c146. Ce lot n'en gagne aucune ici, et je l'ecris avant de le voir.
+#     Ce qui change, c'est la DISTANCE : §19 x1,25 -> x1,06 a x1,21 · §20 x1,31-x1,67 -> x1,11
+#     a x1,45 · §18 chestL x1,58/x1,65 -> x1,28/x1,36, chestR inchange a x0,53/x0,81.
+#
+# P14 ET VOICI LE FALSIFICATEUR QUI M'INTERESSE VRAIMENT, PARCE QU'IL PEUT ANNULER UN « GAIN »
+#     QUE LE CYCLE 146 S'ETAIT ATTRIBUE. Le c146 annonçait que « §19 / §20 : un facteur uniforme
+#     devient ATTEIGNABLE, la ou l'intersection etait VIDE ». Mais les quatre cellules de §19 y
+#     etaient TOUTES EGALES a 0.4998 — collees au plafond — donc leurs intervalles `k admissible`
+#     etaient identiques PAR CONSTRUCTION et leur intersection ne pouvait pas etre vide. En
+#     rendant l'etalement, ce lot re-separe ces cellules et remet l'intersection en jeu.
+#     CALCUL FAIT AVANT LA COURSE, sur les valeurs du c145 transformees :
+#         §19 (bande 0.30-0.40) : intersection [1,213 ; 1,408]  -> NON VIDE
+#         §20 (bande 0.20-0.30) : intersection [1,455 ; 1,669]  -> NON VIDE
+#         §18 (bande 0.20-0.30) : intersection VIDE (elle l'etait deja)
+#     PREDICTION : §19 et §20 gardent une intersection NON VIDE, donc le « gain » du c146 sur ces
+#     deux sections SURVIT a la restitution de l'etalement — mais il ne lui devait rien.
+#     SI L'INTERSECTION DEVIENT VIDE, c'est que le gain du c146 etait bien un artefact de
+#     platitude, et il faudra le retirer de la ligne de ces deux sections dans le registre.
+
+# ============================================================================================
+# TROISIEME AMENDEMENT, ECRIT PENDANT LA COURSE, AVANT TOUT RESULTAT (08:40)
+# LA PREVISION DE DISTRIBUTION COMPLETE, ET UNE CORRECTION DE CONSTANTE QUE LA TRACE M'IMPOSE.
+# ============================================================================================
+# CORRECTION : j'ai ecrit `D_max = akn + acp = 0,4998 B0` en additionnant les DECIMALES IMPRIMEES
+# par `PHYSPSETD` (0.4199 + 0.0799). La trace tranche a 6 decimales : l'asymptote effective du
+# c146 vaut **0.500000** sur 220 des 372 valeurs de `PHYSAPEX`. Les cles valent donc 0.42 et 0.08
+# exactement, et `D_max = 0.50` — les deux nombres que §22 l.301 ECRIT, au chiffre pres. Toutes
+# les previsions ci-dessus sont a multiplier par 1,0004 ; aucune ne change de verdict.
+#
+# ET LA DEGENERESCENCE DU c146 EST DESORMAIS MESUREE, PAS DEDUITE DU CODE :
+#     course           n     min      p50      p95      MAX     valeurs EGALES au max (1e-5)
+#     c145 sans borne  372  0.2827   0.6803   0.8380   0.9666    1   sur 372
+#     c146 avec borne  372  0.2827   0.5000   0.5000   0.5000    220 sur 372  =  59,1 %
+#
+# P15 LA DISTRIBUTION COMPLETE, PREVUE EN APPLIQUANT L'OPERATEUR AUX 372 VALEURS `PHYSAPEX` DE LA
+#     COURSE c145 (l'entree, sans plafond). C'est la prediction la plus contraignante du lot :
+#
+#     chestL  p50 0.4485  p95 0.4756  max 0.4835  moyenne 0.4411  >0.42 83,9 %  >0.50 0,0 %
+#             etalement p50->max  7,80 %      valeurs egales au max : 1 sur 186
+#     chestR  p50 0.4525  p95 0.4797  max 0.4900  moyenne 0.4473  >0.42 90,9 %  >0.50 0,0 %
+#             etalement p50->max  8,28 %      valeurs egales au max : 1 sur 186
+#
+#     `pic_typique` est la MOYENNE des maxima de fenetre (`physics_room_table.py:7788`), donc la
+#     clause « normal <=42% » doit lire **x1,05 (chestL) et x1,065 (chestR)**, contre x1,18 au c146.
+#     SEUIL DE REFUTATION, deja pose en P3 : etalement mesure < 3 % => lot retire.
+#     SECOND SEUIL, pose ici : si plus de 10 valeurs sur 186 sont egales au max a 1e-5 pres, la
+#     borne re-degenere et le lot est retire aussi — 59,1 % au c146, 0,5 % prevu ici.
+#
+# P16 LES DEUX CLAUSES DE COM DE §22 RESTENT DANS. Raison ecrite avant la course : au maximum de
+#     course l'operateur du c147 retranche PLUS que celui du c146 (g = 0,5444 contre 0,5630 a
+#     sd = 0,8881 B0), et il retranche aussi sous le genou ou le c146 dormait. Le COM, qui suit la
+#     translation par `cws`, ne peut donc que BAISSER par rapport au c146 (0,2775 / 0,3251 B0).
+#     PREVU : <= ces valeurs, donc DANS « normal <=35% » ET « hard transient <=40% » sur les deux
+#     chaines. FALSIFICATEUR : un COM au-dessus de 0,3251 (chestR) refuterait le raisonnement
+#     ci-dessus, qui suppose que la correction de COM suit la correction d'apex sans autre terme.

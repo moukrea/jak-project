@@ -11364,3 +11364,70 @@ l'autre. Les confondre reviendrait a declarer §21 reglee par un correctif qui n
 **LECTURE HORS DEFAUT.** `*phys-e22a-off*` = 1 rend l'etat d'avant ce cycle, bit-identique par
 algebre. Le canal est **prouve LU** par `PHYSE22A n= cut_b0=` (`phys-room.gc`), jamais deduit de son
 effet.
+
+## [NOTE-588] L'OPERATEUR DU PLAFOND D'APEX ETAIT LE MAUVAIS : SA SORTIE NE DEPENDAIT PLUS DE SON ENTREE
+
+**LE FAIT, MESURE AVANT TOUTE THEORIE.** Sur les 372 valeurs `PHYSAPEX` de la course (186 fenetres
+x 2 chaines) :
+
+    course              n     min      p50      p95      MAX     valeurs EGALES au max (1e-5)
+    c145 sans borne    372  0.2827   0.6803   0.8380   0.9666     1 sur 372   (0,3 %)
+    c146 avec la borne 372  0.2827   0.5000   0.5000   0.5000   220 sur 372   (59,1 %)
+    c147 apres ce lot  372  0.2585   0.4495   0.4778   0.4899     1 sur 372   (0,3 %)
+
+**59 % des valeurs d'apex d'une course etaient identiques ENTRE ELLES.** Le `min` etait le meme
+qu'avant la borne, parce qu'elle dort sous son genou : ce que le c146 detruisait n'etait pas
+l'amplitude, c'etait la DEPENDANCE au geste dans toute la moitie haute du domaine. C'est
+`spec22_wall_is_saturated` du registre, reproduit sur l'apex, et c'est litteralement la sortie
+CONSTANTE que l'owner appelle « ca suit aucune logique » (cycle 45 : un maillon rendant 16,647 deg
+sur six pilotages qui varient de x38,9).
+
+**LA CAUSE : L'ECHELLE DE COMPRESSION, ET ELLE EST ECRITE DANS LA SPEC.** L'operateur du c146 est
+`kn + cp . tanh((sd - kn)/cp)` avec `cp` = 0,08 B0 — c'est-a-dire que son echelle est le seul espace
+qui reste entre le genou (0,42) et l'asymptote (0,50). Or §21 l.290-293 ECRIT l'operateur avec
+`D_max` POUR ECHELLE :
+
+    D_combined = D_max . tanh( |D_linear + D_angular| / D_max )
+
+soit 0,50 B0 : **6,3 fois plus large**. Sous une population de mediane 0,6803 B0 — genou + 3,25
+echelles — la tanh de Pade rend exactement 1,0 (elle est clampee des que son argument atteint 3),
+donc la sortie vaut l'asymptote partout.
+
+**CE QUI EST ECRIT.** L'operateur du document, verbatim, `D_max = akn + acp`. Les deux cles sont
+DEJA livrees au preset et leur somme vaut **0,500000** — mesure a six decimales sur la trace, pas
+lue sur les decimales imprimees par `PHYSPSETD` (0.4199 / 0.0799, qui sommaient a 0,4998 et m'ont
+fait ecrire une constante fausse dans le fichier de predictions ; corrige avant la course). Cette
+somme EST le « exceptional <=50% B0 » que §22 l.301 ecrit. Meme tanh de Pade, meme interrupteur
+`*phys-e22a-off*`, meme corps de correction, meme nombre de lignes : **seule l'echelle change**.
+
+**POURQUOI `D_max` EST 0,50 ET NON 0,42, ET C'EST LA DECISION DU LOT.** Avec `D_max = 0,42` les
+quatre cellules de §19 passent DANS (0,3759 / 0,3598 / 0,3726 / 0,3739) et §19 basculerait `TENUE` —
+le premier changement de statut depuis le cycle 115. Refuse pour deux raisons mesurees :
+  1. la clause « normal <=42% B0 » de §22 deviendrait vraie PAR CONSTRUCTION (l'image de
+     l'operateur serait `[0 ; 0,42)`), c'est-a-dire un MIROIR au sens de la DIRECTIVE du
+     2026-08-23 16:00 ;
+  2. **la bande « Very hard / exceptional: 42-50% B0 » de §16 l.241 deviendrait inatteignable par
+     construction** — on gagnerait une section en rendant une autre impossible.
+
+**ET LA MEME LOGIQUE SE RETOURNE CONTRE LE CYCLE 146 :** sa clause « exceptional <=50% B0 »,
+publiee comme un gain, **ne peut pas echouer** — meme argument d'image bornee, `ROOM-APEX` lisant
+l'apex APRES la correction. Elle passe `TENUE PAR CONSTRUCTION` au registre. C'est le meme defaut
+que le « hard ceiling ~7 % » de §36, deja au dossier.
+
+**CE QUE LE LOT COUTE, PUBLIE AVEC CE QU'IL RAPPORTE.** Le cumul retranche passe de 1 131 a
+**3 471 B0** : une borne plus douce mais active a TOUTE amplitude retire trois fois plus de
+mouvement au total qu'une borne dure qui dormait sous son genou. Les quatre cellules de §16, deja
+SOUS leur bande, s'en eloignent de 3 a 15 % (predit et chiffre avant la course), et deux cellules
+DANS tombent SOUS a moins de 2 % de leur plancher contre deux gagnees.
+
+**ET LE RESULTAT QUE CE LOT N'ALLAIT PAS CHERCHER.** 1 266 lignes du tableau changent, et
+`ROOM-AXFIT`, `ROOM-RINGFIT`, `ROOM-RINGDOWN`, `ROOM-SETTLE`, `ROOM-ORICOM-MASS` et `ROOM-IDLE`
+sont **IDENTIQUES AU BIT**. Leur serie sort de `*phys-lda*`/`*phys-ldb*` (`:3383`), en AMONT du
+chemin d'ecriture (`:3908`) et des DEUX bornes sur la valeur livree (`:4029`, `:4050`). **Trois des
+cinq sections `TENUE` du dossier — §24, §25, §26 — decrivent donc la sonnerie du SOLVEUR, pas celle
+de ce qui est dessine.** Quatrieme occurrence de `com-verdict-is-computed-before-the-skeleton-write`,
+la premiere qui touche le compte de `TENUE`. Aucune retrogradation : une reserve nommee, et le test
+qui la leve (rejouer les trois impulsions d'AXFIT sur une serie lue APRES `:4050`).
+
+**LECTURE HORS DEFAUT.** `*phys-e22a-off*` = 1 rend toujours l'etat d'avant le cycle 146. NON
+REMESUREE dans la course de ce cycle : la jambe desarmee n'a pas ete rejouee.

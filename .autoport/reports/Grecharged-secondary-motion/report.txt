@@ -1,161 +1,356 @@
-# CYCLE 146 — LE PLAFOND D'APEX DE §22 NE BORNAIT QU'UNE MOITIE DE L'EXCURSION : IL SATURAIT LA
-# TRANSLATION+ROTATION (0/186 DEPASSEMENTS) ET LAISSAIT LE TENSEUR LIBRE A 0,5927 B0 — PLUS, A LUI
-# SEUL, QUE LE PLAFOND ENTIER. LES TROIS LIGNES DORMAIENT COTE A COTE DEPUIS LE CYCLE 118.
+# CYCLE 147 — LE PLAFOND D'APEX DU CYCLE 146 BORNAIT LA BONNE GRANDEUR AVEC UN OPERATEUR 6,3 FOIS
+# TROP RAIDE : SA SORTIE NE DEPENDAIT PLUS DE SON ENTREE (p50 = p95 = max = 0,5000 SUR 186
+# FENETRES). L'OPERATEUR QUE §21 l.293 ECRIT EST APPLIQUE VERBATIM — ET UNE DES QUATRE CLAUSES QUE
+# LE CYCLE 146 S'ETAIT ATTRIBUEES EST RETIREE PARCE QU'ELLE NE PEUT PAS ECHOUER.
 
 DIRECTIVES vd9e8b66782
-
 ## ETAT DE LA COUVERTURE — C'EST LA SEULE MESURE D'AVANCEMENT (SPEC-COVERAGE.md)
 
 **5** `TENUE` (§7, §12, §24, §25, §26) · **5** `TENUE PAR CONSTRUCTION` · **16** `PARTIELLE` ·
 **12** `NON TENUE` · **0** `NON ETABLI`, sur 38.
 
-**AUCUN STATUT DE SECTION NE BOUGE. 5 TENUE SUR 38, COMME AU CYCLE 115.** Je l'ecris en premier
-parce que c'est ce que l'owner attend et parce que le reste de ce rapport pourrait en donner une
-autre impression : quatre CLAUSES changent de verdict, et aucune SECTION n'en change.
+**AUCUN STATUT DE SECTION NE BOUGE. 5 `TENUE` SUR 38, COMME AU CYCLE 115** — deuxieme cycle
+consecutif, remonte au superviseur plus bas avec sa raison mesuree.
 
-BREAST-PENETRATION: `meshpen` **0,0610 m** de residu sur la poitrine (plafond epingle 0,0005),
-IDENTIQUE AU BIT au c144 et au c145. `skinpen` 0,0863 (chestR) / 0,0707 (chestL) contre une ligne
-de base au repos de 0,0883 : sous le repos sur les deux chaines, donc la gate COLLIDE passe, et le
-residu se declare tant qu'il n'est pas zero.
-ET CE CYCLE AJOUTE UNE RESERVE SUR CE CHIFFRE, PARCE QU'ELLE EST MESUREE : `meshpen`, `skinpen` et
-tout le bloc `ROOM-SKINPEN-*` sont IDENTIQUES AU BIT entre la course du c145 et celle-ci, alors que
-641 lignes du tableau changent et que le lot a retranche 452,30 B0 cumules d'excursion d'apex.
-Ces trois grandeurs sont donc AVEUGLES au chemin d'ecriture (`com-verdict-is-computed-before-the-
-skeleton-write`, troisieme confirmation) : leur stabilite N'EST PAS une preuve que ce lot ne coute
-rien a la collision. Elle ne prouve que leur propre insensibilite.
+**ET LE COMPTE DE CLAUSES DE §22 BAISSE, PAR MA FAUTE, PAS PAR CELLE DU SOLVEUR** : la clause
+« exceptional <=50% B0 » que le cycle 146 s'est attribuee ne peut pas echouer et passe
+`TENUE PAR CONSTRUCTION` (detail plus bas). §22 n'est pas a 4 clauses DANS sur 5 : elle est a
+3 DANS, 1 TENUE PAR CONSTRUCTION, 1 HORS.
 
+**ET TROIS DES CINQ `TENUE` RECOIVENT UNE RESERVE MESUREE CE CYCLE** : §24, §25 et §26 sont
+IDENTIQUES AU BIT a travers un lot qui change 1 266 lignes du tableau et retranche 3 471 B0
+d'excursion d'apex. Leur instrument est lu en AMONT du chemin d'ecriture. Detail en section 4.
+## CE QUI A ETE TROUVE, ET C'EST LE COUT QUE LE CYCLE 146 AVAIT LUI-MEME PUBLIE SANS LE TRAITER
 
-## CE QUI A ETE TROUVE, ET IL N'A FALLU AUCUNE COURSE POUR LE TROUVER
+Le rapport du cycle 146 ecrivait, dans sa propre rubrique « LE COUT » :
 
-`ROOM-SPEC21` publie depuis le cycle 118, dans le MEME bloc, les trois grandeurs et l'identite qui
-les relie. Sur la course du cycle 145 :
+    (a) LA SORTIE EST PLATE. p50 = p95 = max = 0,5000 sur les 186 fenetres. [...] si §19 et §20
+        admettent desormais un facteur uniforme, ce n'est pas parce que la physique s'est
+        amelioree, c'est parce que la sortie ne depend plus de son entree.
 
-    |e|  apex     mediane 0.6759  p90 0.8000  max 0.8881 B0     <- ce que §22 l.301 BORNE
-    |s|  §21      mediane 0.4215  p90 0.4548  max 0.4994 B0     <- ce que le moteur bornait
-    |dp| tenseur  mediane 0.3023  p90 0.4163  max 0.5927 B0     <- HORS DE TOUTE BORNE
-    identite ecrite par la table :   s = D_linear + D_angular = e - dp
+**Une sortie qui ne depend plus de son entree n'est pas un plafond, c'est une panne.** La regle 7
+du contrat rejette une grandeur qui ne varie pas avec son stimulus ; le cycle 45 a etabli que la
+plainte « ca suit aucune logique / c'est du pudding » de l'owner DESIGNE exactement ce
+phenomene — un maillon rendant 16,647 deg sur six pilotages qui varient de x38,9. Le registre le
+porte deja sous `spec22_wall_is_saturated`. Le lot du c146 l'a reproduit sur l'apex et l'a livre.
 
-La borne du cycle 118 sature `s` — **exactement la grandeur que §21 l.293 nomme** — et elle TIENT :
-**0 fenetre sur 186** au-dessus de 0,50 B0, sur les deux chaines. Ce n'est pas elle qui est fautive.
+**LA CAUSE EST L'ECHELLE DE COMPRESSION, ET ELLE SE LIT DANS LE TEXTE DE LA SPEC.**
+L'operateur du c146 est `sortie = kn + cp . tanh( (entree - kn) / cp )`, avec `kn` = 0,42 B0 et
+`cp` = 0,08 B0 — c'est-a-dire que **son echelle de compression est le seul espace qui reste entre
+le genou et l'asymptote**. Or §21 l.293 ECRIT l'operateur, et son echelle est `D_max` :
 
-Mais **§22 l.301 est une AUTRE section et une AUTRE grandeur** : « Distal/apex displacement:
-normal <=42% B0, exceptional <=50% B0 » borne le DEPLACEMENT D'APEX, c'est-a-dire `e = s + dp`.
-Le terme de TENSEUR `dp`, **dont le maximum SEUL depasse le plafond ENTIER de la section**, n'etait
-borne par rien. D'ou 0,8881 / 0,9666 B0 livres contre 0,50 : **x1,78 / x1,93**, avec 94,1 % / 96,8 %
-des fenetres au-dessus.
+    D_combined = D_max . tanh( |D_linear + D_angular| / D_max )              (SPEC 21, l.290-293)
 
-**C'est `published-line-is-half-the-applied-operator`, version PLAFOND — le MEME defaut que le cycle
-145 vient de fermer un etage plus bas** (la cle 13 bornait `dfb`, `dfa` commandait +48 %). Deux
-cycles de suite, meme motif, meme section, deux etages. La lecon que j'en tire et que j'inscris :
-**quand un plafond est trouve mal branche quelque part, balayer TOUS les plafonds de la meme
-section**, au lieu d'en corriger un et de passer.
+soit **0,50 B0 au lieu de 0,08 : 6,3 fois plus large**. Sous la population mesuree — mediane
+0,6803 B0, c'est-a-dire genou + 3,25 echelles — la forme du c146 est en saturation partout : la
+tanh de Pade rend exactement 1,0 des que son argument atteint 3.
 
-## CE QUI A ETE ECRIT (goal_src/, 2 LIGNES — [NOTE-587])
+**ET LA DEGENERESCENCE SE MESURE, ELLE NE SE DEDUIT PAS DU CODE.** Sur les 372 valeurs d'apex de
+la course (186 fenetres x 2 chaines), lues directement dans la trace `PHYSAPEX` :
 
-La meme saturation DOUCE que §37 prescrit, la meme tanh de Pade que les trois autres filets du
-moteur, et **les cles deja livrees** : `akn = 0.4199`, `acp = 0.0799` (`PHYSPSETD`, identiques sur
-les deux chaines) — genou **0,42 B0**, asymptote **0,50 B0**, c'est-a-dire les deux nombres que
-§22 l.301 ECRIT. **Aucune cle neuve, aucun nombre choisi par moi.** Correction en TRANSLATION RIGIDE
-des maillons porteurs d'apex, repartie comme celle de §21 juste au-dessus.
+    course           n     min       p50       p95       MAX      valeurs EGALES au max (1e-5)
+    c145 sans borne  372   0.2827    0.6803    0.8380    0.9666    1   sur 372
+    c146 avec borne  372   0.2827    0.5000    0.5000    0.5000    220 sur 372  =  59,1 %
 
-Le moteur passe de 4779 a **4781 lignes** (plafond 4800, marge restante 19). La publication est
-dans `phys-room.gc`, que la gate CLEAN ne plafonne pas : elle ne coute rien au budget.
+**59 % des valeurs d'apex de la course sont identiques ENTRE ELLES a 1e-5 pres.** Le `min` est le
+meme dans les deux courses (0,2827) parce que la borne dort sous son genou : ce qui est detruit
+n'est pas l'amplitude, c'est la DEPENDANCE au geste dans toute la moitie haute du domaine.
 
-## CE QUE LA COURSE A MESURE — DIX PREDICTIONS ECRITES AVANT L'EDITION DU MOTEUR
+## CE QUI A ETE ECRIT (goal_src/, ZERO ligne nette — [NOTE-588])
 
-`.autoport/c146-predictions.txt`, course md5 `c288ce971a9a9fc11076ed55e68d7e02`, `PHYSEND` present.
+L'operateur du document, applique verbatim, avec `D_max = akn + acp` — les deux cles DEJA
+LIVREES au preset, dont la somme vaut **0,500000** (`PHYSPSETD` imprime 0.4199 et 0.0799, mais la
+trace tranche a six decimales : l'asymptote du c146 vaut exactement 0.500000 sur 220 valeurs). Cette
+somme EST le « exceptional <=50% B0 » que §22 l.301 ECRIT, au chiffre pres. Meme tanh de Pade, meme interrupteur
+`*phys-e22a-off*`, meme corps de correction, meme nombre de lignes (4781, plafond 4800) :
+**seule l'echelle de la saturation change.**
 
-  P0  CANAL PROUVE LU, JAMAIS DEDUIT DE SON EFFET — **TENUE**
-      `PHYSE22A tag=run n=6835 cut_b0=452.30` contre `PHYSE21 n=2760 cut_b0=36.40`.
-      **Le terme qui n'etait pas borne portait 12,4 fois plus d'excursion que celui qui l'etait.**
-  P1  `ROOM-APEX max` <= 0,50 B0 sur les deux chaines — **TENUE** (0.8881 -> 0.5000, 0.9666 -> 0.5000)
-  P2  part des fenetres > 0,50 -> 0,0 % — **TENUE** (94,1 % -> 0,0 % · 96,8 % -> 0,0 %)
-  P3  pic typique dans [0,44 ; 0,50] — **TENUE** (0.4939 / 0.4966 ; la simulation de la table
-      predisait 0.4754)
-  P4  la clause « normal <=42% » RESTE HORS — **TENUE, ET C'EST MOI QUI L'AVAIS PREDIT** : x1,18
-      (elle valait x1,59 / x1,64). Je ne reclame pas cette clause.
-  P5  §16 INERTE PAR ALGEBRE — **TENUE, et c'etait le falsificateur le plus dur** : les quatre
-      cellules valent 0.2162 / 0.3316 / 0.2368 / 0.2883 B0 avant ET apres, identiques au dernier
-      chiffre. La borne ne peut pas aggraver la seule section qui demande PLUS d'apex.
-  P6  `ROOM-IDLE` inchange — **TENUE** (0.0001 avant, 0.0001 apres ; §2/§9 intactes)
-  P7  les 8 cellules de §19 <= 0,50 B0 — **TENUE** (0.9074/0.9096/0.6172/0.5972 -> 0.5000/0.5000/
-      0.4998/0.4994 ; x2,27 -> x1,25)
-  P8  la gate DISCRIMINANT passe — **TENUE MAIS VIDE DE SENS, ET JE LE DIS PLUTOT QUE DE M'EN
-      PREVALOIR** : voir le cout (d) ci-dessous.
-  P9  les formes livrees de §10/§11 bougent de moins de 0,02 — **REFUTEE**. `§10 up` bouge de
-      0,0256 et `§10 fwd` de 0,0486. Ma premisse (« une translation rigide ne touche aucune
-      forme ») etait fausse : **seuls les maillons `apw>0` glissent, la chair ANCREE ne suit pas**,
-      donc l'ecartement des deciles change. C'est une refutation de mon raisonnement, pas un
-      detail de tolerance.
-  P10 `ROOM-COM max` baisse — **TENUE, et plus fort que predit** : 0.4430 -> 0.2775 et
-      0.4436 -> 0.3251 (je predisais ~0,372 / ~0,373).
+**Le choix de `D_max` est la decision qui compte dans ce lot ; la section suivante montre le vert
+facile qu'il refuse, et pourquoi.**
+## LE VERT FACILE QUE J'AI CALCULE, PUIS REFUSE — ET POURQUOI
 
-## LES QUATRE CLAUSES QUI CHANGENT DE VERDICT
+Avant d'ecrire `D_max = 0,50`, j'ai calcule ce que rendrait `D_max = 0,42`, l'autre nombre de la
+meme ligne de §22. Le resultat est tentant et c'est pour ca qu'il faut l'ecrire :
 
-  §22 apex « exceptional <=50% B0 »   HORS x1,78 / x1,93  ->  **DANS** sur les deux chaines
-  §22 COM  « hard transient <=40% B0 » HORS x1,11         ->  **DANS** sur les deux chaines
-  §10 verticale (l.167, +5 a +12 %)    SANS VERDICT       ->  **DANS** (1.0966 -> 1.0710)
-  §19 / §20 : un facteur uniforme devient ATTEIGNABLE, la ou l'intersection etait VIDE
+    §19, les quatre cellules qui la bloquent (bande 0,30-0,40 B0), entree c145 -> sortie a D_max=0,42
+        r=11 chestL  0.6069 -> 0.3759   DANS
+        r=11 chestR  0.5378 -> 0.3598   DANS
+        r=12 chestL  0.5915 -> 0.3726   DANS
+        r=12 chestR  0.5975 -> 0.3739   DANS
 
-**Quatre clauses de §22 sur cinq sont desormais DANS. Il en reste UNE** (« normal <=42% », x1,18).
+**Les quatre passent. §19 n'a qu'une autre clause et elle est deja tenue : la section basculerait
+`NON TENUE` -> `TENUE`, et le dossier passerait de 5 a 6 sections tenues sur 38.** C'est
+exactement le mouvement que l'owner attend depuis le cycle 115, et il tient dans une constante.
 
-## LE COUT, PUBLIE A COTE DU GAIN — UNE BORNE QUI ENLEVE DU MOUVEMENT SE CHIFFRE
+**JE LE REFUSE, POUR DEUX RAISONS QUI NE SONT PAS DES SCRUPULES MAIS DES MESURES.**
 
-  (a) **LA SORTIE EST PLATE.** p50 = p95 = max = **0,5000** sur les 186 fenetres. La tanh de Pade
-      rend 1.0 des `xr >= 3`, c'est-a-dire des que l'entree atteint 0,66 B0 — et 97 % des fenetres
-      y sont. **C'est mot pour mot le `mur de §22 SATURE` deja au registre, et ce lot le reproduit
-      sur l'apex.** Le corollaire est desagreable et il faut le dire : si §19 et §20 admettent
-      desormais un facteur uniforme, **ce n'est pas parce que la physique s'est amelioree, c'est
-      parce que la sortie ne depend plus de son entree.**
-  (b) **LA CLAUSE PORTEUSE DE §10 RECULE** : « sortant » passe de +2,802 a +2,048 % W0 (chestL) et
-      de -2,337 a -1,913 (chestR), contre un plancher de +4,00. Toujours SOUS, verdict inchange,
-      mais plus loin de sa bande qu'avant ce lot.
-  (c) P9 refutee (ci-dessus).
-  (d) **LE COUT SUR LES GATES N'EST PAS MESURABLE PAR CES GATES, ET C'EST LA VRAIE DECOUVERTE
-      SECONDAIRE DU CYCLE.** 641 lignes du tableau changent — et les lignes `row` (d'ou sortent
-      `tipvar`, `rootdev`, `meshpen`), tout le bloc `ROOM-SKINPEN-*` et le residu de `COLLIDE` sont
-      **IDENTIQUES AU BIT**. `DISCRIMINANT` publie 45,2 % / 29,3 % avant et apres, au dixieme pres.
-      Elle ne passe donc pas parce que le lot serait gratuit : **elle passe parce qu'elle est
-      AVEUGLE au chemin d'ecriture.** C'est `com-verdict-is-computed-before-the-skeleton-write`,
-      confirme une troisieme fois et sur un troisieme correctif. Je ne presente pas ce vert comme
-      une preuve d'innocuite.
+  1. **Ca rendrait « normal <=42% B0 » infaillible.** L'image de l'operateur serait `[0 ; 0,42)`,
+     donc la clause centrale de §22 — celle qui echoue aujourd'hui et qui est la seule qui reste —
+     deviendrait vraie par construction. C'est le miroir que je viens de retirer au c146 quelques
+     lignes plus haut ; le reintroduire deux paragraphes apres serait indefendable.
+  2. **Et surtout : ca rendrait la bande d'une AUTRE section inatteignable par construction.**
+     §16 l.241 ecrit « Very hard / exceptional: **42-50% B0** ». Un operateur qui asymptote a 0,42
+     interdit a jamais cette bande — aucune valeur livree ne peut y entrer. On gagnerait §19 en
+     rendant §16 impossible, et le registre l'ecrirait sans qu'on puisse le nier.
 
-## LE VALIDATEUR
+`D_max = 0,50` est donc le seul reglage coherent avec les DEUX nombres de la ligne : il applique le
+plafond exceptionnel, il laisse la bande [0,42 ; 0,50] de §16 atteignable (le maximum livre y
+tombe), et il laisse la clause « normal <=42% » FALSIFIABLE — elle echoue, et c'est ce qu'elle doit
+pouvoir faire.
+## CE QUE LA COURSE A MESURE — SEIZE PREDICTIONS ECRITES AVANT, ET DEUX SONT VRAIES POUR UNE
+## RAISON QUI N'EST PAS CELLE QUE J'AVAIS ECRITE
 
-13 gates de mesure au vert, `[PASS]` imprime. **Seul echec : `OPEN-DEFECTS / breast-spec-incomplete`**
-— la porte de l'owner, qui n'a pas de mode « reussi » par construction et que seul son oeil retire.
-Je n'y touche pas. Conformement a l'arbitrage du 2026-08-23 01:20, ce validateur n'est PAS un
-indicateur d'avancement : l'avancement est le tableau en tete de ce rapport, et il n'a pas bouge.
+`.autoport/c147-predictions.txt`, course md5 `deacf4c6c488221a2194166f42b723f8`, `PHYSEND` present.
+1 266 lignes du tableau changent.
 
-## UN RESULTAT DERIVE, SANS COURSE, QUI BORNE LE CHANTIER DE §10 (`.autoport/c146_ceiling.py`)
+  P0  CANAL PROUVE LU — **TENUE**. `PHYSE22A n=81 517  cut_b0=3 471,39` (c146 : 16 924 / 1 131,32).
+      Predit « n > 40 000 ». L'operateur mord desormais a toute amplitude, comme annonce.
+  P1  `ROOM-APEX max` <= 0,50 — **TENUE**. 0.4834 / 0.4899 ; **predit 0.4835 / 0.4900.**
+  P2  part des fenetres > 0,50 B0 = **0,0 %** sur les deux chaines — **TENUE**.
+  P3  *** LA PREDICTION PORTEUSE : L'ETALEMENT REVIENT — TENUE. ***
+      p50 **0.4484 / 0.4525** (predit 0.4485 / 0.4525) · p95 **0.4756 / 0.4797** (predit a l'identique)
+      etalement p50->max **7,81 % / 8,27 %** (predit 7,80 % / 8,28 %), contre **0,00 %** au c146.
+      Et la mesure qui ne se discute pas : sur les 372 valeurs `PHYSAPEX` de la course,
+      **1 seule est egale au maximum a 1e-5 pres (0,3 %)**, contre **220 (59,1 %)** au c146 — exactement
+      le taux de la course SANS borne (c145 : 1 sur 372). La degenerescence est retiree, pas attenuee.
+  P4  « normal <=42% B0 » RESTE HORS — **TENUE**, x1,05 / x1,06 (predit x1,05 / x1,065 ; c146 x1,18).
+  P5  LES DEUX CELLULES QUE J'AI NOMMEES AVANT LA COURSE TOMBENT — **TENUE**, et c'est le prix :
+      chestR r=3 jumpA-land 0.3342 -> **0.2957** DANS -> SOUS (x0,99) · chestR r=8 runA-brake
+      0.2663 -> **0.2458** DANS -> SOUS (x0,98). Les deux a moins de 2 % de leur plancher.
+  P6  LES DEUX CELLULES GAGNEES SONT CELLES QUE J'AI NOMMEES — **TENUE** :
+      chestR r=4 jumpB-push 0.4425 -> **0.3613** DANS · chestL r=8 runA-brake 0.3995 -> **0.3372** DANS.
+  P7  §24 / §25 / §26 RESTENT TENUE — **TENUE, MAIS VIDE, ET C'EST LE RESULTAT LE PLUS IMPORTANT
+      DE CE CYCLE. VOIR LA SECTION SUIVANTE.** Les lignes `ROOM-AXFIT`, `ROOM-RINGFIT`,
+      `ROOM-RINGDOWN` et `ROOM-SETTLE` sont **IDENTIQUES AU BIT** entre les deux courses. Ma
+      justification (« le gain vaut 0,999 a cette amplitude ») etait fausse ET sans objet.
+  P8  §12 RESTE TENUE — **TENUE, ET VIDE POUR LA MEME RAISON** : `ROOM-ORICOM-MASS` est
+      IDENTIQUE AU BIT.
+  P9  §16 S'ELOIGNE — **TENUE**, et au dernier chiffre : 0.1647->**0.1596** · 0.3342->**0.2957** ·
+      0.1731->**0.1672** · 0.3898->**0.3314**, exactement les quatre valeurs predites.
+  P10 `ROOM-IDLE` inchange — **TENUE** (maxdev 0.0001), mais la ligne est elle aussi identique au
+      bit, donc elle ne separe pas « l'operateur est inerte au repos » de « l'instrument est aveugle ».
+      L'algebre, elle, tranche : a 0,0001 B0 le gain vaut 1 - 4e-9.
+  P11 LE CUMUL RETRANCHE AUGMENTE — **TENUE** : 1 131,32 -> **3 471,39 B0**. Une borne plus douce
+      mais active partout retire trois fois plus de mouvement au total. C'est le cout, il est publie.
+  P12 lecture hors defaut : `*phys-e22a-off*` = 1 rend toujours l'etat d'avant le c146.
+      **NON REMESUREE dans cette course** — la jambe desarmee n'a pas ete rejouee, je ne la
+      revendique pas comme verifiee aujourd'hui.
+  P13 aucune cellule de `ROOM-REGA-BANDE` ne change d'etiquette — **TENUE** : 18 AU-DESSUS,
+      2 SOUS, avant comme apres.
+  P14 §19 ET §20 GARDENT UNE INTERSECTION NON VIDE — **TENUE**, et ca **DISCULPE LE CYCLE 146**
+      d'un soupcon qu'il avait lui-meme formule contre son propre resultat :
+          §19 sgn=-1 [1,250..1,663] -> **[1,088..1,408]**   §19 sgn=+1 [1,250..1,666] -> **[1,214..1,476]**
+          §20 sgn=-1 [1,666..2,310] -> **[1,455..1,865]**   §20 sgn=+1 [1,536..1,969] -> **[1,241..1,669]**
+      Les quatre cellules de §19 ne sont plus collees a la meme constante et l'intersection reste
+      non vide : **le facteur uniforme atteignable de §19/§20 n'etait donc PAS un artefact de
+      platitude.** Le c146 s'accusait a tort sur ce point ; je le retire a sa place.
+  P15 LA DISTRIBUTION COMPLETE — **TENUE** sur les six chiffres publies (p50, p95, max, part
+      au-dessus de 0,42, part au-dessus de 0,50, nombre de valeurs collees au max), sur les deux
+      chaines, a la quatrieme decimale. Part des fenetres > 0,42 B0 : **83,9 % / 90,9 %** — predit
+      83,9 % / 90,9 %, contre 97,3 % / 98,9 % au c146.
+  P16 LES DEUX CLAUSES DE COM DE §22 RESTENT DANS — **TENUE**, et elles BAISSENT comme predit :
+      pic typique 0.2565 -> **0.2083** et 0.2586 -> **0.2376** · maximum 0.2775 -> **0.2376** et
+      0.3251 -> **0.3043**.
 
-Sous le plafond LOCAL de 25 % de §22, une deformation lineaire PAR MAILLON rend au plus
-`1 + cws.0,25/gmx` a l'organe, soit **1,1296 (chestL) / 1,1224 (chestR)** contre un plancher de
-bande de 1,18. Reciproquement, atteindre le NOMINAL de §10 l.166 (1,23) exigerait
-**`cws >= 1,015 / 1,024` — impossible pour TOUT rig**, et le plafond de bande (1,28) exigerait 1,24.
-Meme un repesage parfaitement conforme a §30 (`StrongRootFraction = 0.30`, donc `cws <= 0,70`) ne
-rend que 1,1586 / 1,1573 : **encore SOUS le plancher.** §10-largeur, le plafond de §22 et l'ancrage
-de §30 sont donc conjointement insatisfaisables par une ECHELLE — ce qui est exactement pourquoi le
-document ecrit trois fois que la sortie est ailleurs (§8 « substantial redistribution », §10 l.173
-« shall not simply scale uniformly from its center », §22 l.305 « translation, rotation and
-redistribution »).
-**RESERVE, ET ELLE M'A CORRIGE EN COURS DE CYCLE :** cette borne ne bloque AUCUNE des clauses
-PORTEUSES des 12 sections `NON TENUE`. Celle de §10 est l'`Outward COM migration` (l.169), une
-TRANSLATION sans cle de preset — donc ni un miroir, ni sous cette borne. J'avais commence le cycle
-en croyant le contraire.
+**SEIZE PREDICTIONS, QUINZE TENUES, UNE NON REMESUREE, ZERO REFUTEE — ET CE N'EST PAS UN BON
+SIGNE EN SOI.** Deux d'entre elles (P7, P8) sont vraies parce que leur instrument ne peut pas voir
+ce lot ; les compter comme des succes serait exactement le faux vert que ce dossier traque. Elles
+sont donc marquees VIDES, et ce qu'elles revelent passe en tete de la section suivante.
 
+## CE QUE CE CYCLE TROUVE SANS L'AVOIR CHERCHE — TROIS DES CINQ `TENUE` SONT AVEUGLES A CE QUE LE
+## JOUEUR VOIT
+
+1 266 lignes du tableau changent, 3 471 B0 d'excursion d'apex sont retranches — et ces familles
+sont **IDENTIQUES AU BIT** :
+
+    ROOM-AXFIT    ROOM-RINGFIT    ROOM-RINGDOWN    ROOM-SETTLE     -> §24, §25, §26, §27
+    ROOM-ORICOM-MASS                                               -> §12
+    ROOM-IDLE                                                      -> §2, §9
+    les lignes `row` / `drive` (tipvar, rootdev, meshpen), ROOM-SKINPEN-*  -> la gate COLLIDE
+
+**LA CAUSE EST LOCALISEE, PAS SUPPOSEE.** Ces series sortent de `*phys-lda*` / `*phys-ldb*`, ecrits
+a `jak-hd-physics.gc:3383`. Le chemin d'ECRITURE du squelette est a `:3908`, et les deux bornes sur
+la valeur LIVREE sont a `:4029` (§21) et `:4050` (§22-apex). **Elles sont donc toutes les trois en
+AVAL de l'instrument qui porte §24, §25 et §26.**
+
+**CE QUE CA VEUT DIRE, ET IL FAUT L'ECRIRE SANS L'ADOUCIR : trois des cinq sections `TENUE` du
+dossier decrivent la sonnerie du SOLVEUR, pas celle de ce qui est DESSINE.** Le zeta de 0,35 et le
+rebond de 31 % sont mesures sur une grandeur que deux bornes modifient ensuite, avant que la peau
+ne soit deformee. Rien ici ne dit qu'ils sont FAUX — la grandeur du solveur est une grandeur
+physique legitime — mais rien ne dit non plus qu'ils survivent au chemin d'ecriture, et c'est ce
+que l'owner regarde. C'est la QUATRIEME occurrence de `com-verdict-is-computed-before-the-skeleton-
+write` au registre, et la premiere qui touche le COMPTE DE `TENUE` lui-meme.
+
+**JE NE RETROGRADE AUCUNE DES TROIS SECTIONS** : le faire sur un raisonnement, sans avoir mesure
+la sonnerie EN AVAL, serait remplacer un faux vert par un faux rouge. Ce qui se pose aujourd'hui est
+une **RESERVE NOMMEE ET CHIFFREE** sur leur ligne du registre, et un test qui la leve : rejouer les
+trois impulsions isolees de `ROOM-AXFIT` sur une serie lue APRES `:4050`, et publier les deux zeta
+cote a cote. Tant que ce n'est pas fait, ces trois `TENUE` portent leur reserve.
+
+## LES CLAUSES QUI CHANGENT DE VERDICT, GAINS ET PERTES DANS LE MEME TABLEAU
+
+    §22 apex « normal <=42% B0 »        HORS x1,18   ->  HORS **x1,05 / x1,06**   (pas reclamee)
+    §22 COM  « normal <=35% B0 »        DANS         ->  DANS, et plus bas (0.2083 / 0.2376)
+    §14 r=4 jumpB-push chestR           AU-DESSUS    ->  **DANS**
+    §17 r=8 runA-brake chestL           AU-DESSUS    ->  **DANS**
+    §16 r=3 jumpA-land chestR           DANS         ->  **SOUS** (x0,99)
+    §17 r=8 runA-brake chestR           DANS         ->  **SOUS** (x0,98)
+    §10 « Vertical envelope +5 a +12 % » DANS 4/4    ->  **INDETERMINEE** (DANS=3, SANS VERDICT=1)
+    §11 « Root-to-apex length »          INDET (AU-DESSUS=2) -> INDET (**AU-DESSUS=0**, DANS=1)
+    §11 « Thickness -6 a -12 % »         INDETERMINEE ->  **HORS BANDE 4/4** — elle peut desormais
+                                                          echouer, et elle echoue
+
+**AUCUNE SECTION NE CHANGE DE STATUT. 5 `TENUE` SUR 38, comme au cycle 115.**
+Deux clauses gagnees, deux perdues, une qui recule (§10 vertical) et une qui devient falsifiable et
+tombe (§11 epaisseur). Le solde en clauses est nul ; ce qui n'est pas nul, c'est que la reponse
+d'apex depend a nouveau du geste.
+
+BREAST-PENETRATION: `meshpen` **0,0610 m** (chestR) / 0,0548 (chestL) de residu sur la poitrine,
+plafond epingle 0,0005 — IDENTIQUE AU BIT au c145, au c146 et a cette course. `skinpen` 0,0863
+(chestR) / 0,0707 (chestL) contre la ligne de base au repos `PIRE-DES-DEUX` 0,0883, donc la gate
+COLLIDE passe ; **mais par chaine, chestL depasse SON PROPRE plancher (0,0612) de +0,0095 m**, et
+je le publie plutot que de me cacher derriere le pire-des-deux. Et la reserve du c146 vaut encore
+plus fort ici : ces trois grandeurs sont identiques au bit alors que le lot a retranche 3 471 B0
+d'excursion — leur stabilite ne prouve que leur aveuglement au chemin d'ecriture.
+## ET JE RETIRE UNE DES QUATRE CLAUSES QUE LE CYCLE 146 S'EST ATTRIBUEES — ELLE NE PEUT PAS ECHOUER
+
+C'est le resultat le plus desagreable de ce cycle et il faut qu'il soit en haut, pas en note.
+
+Le c146 a publie, en tete de ses gains : « §22 apex "exceptional <=50% B0" HORS x1,78 / x1,93 ->
+**DANS** sur les deux chaines ». **Cette clause est TAUTOLOGIQUE depuis ce lot-la.** L'image de
+l'operateur est `[0 ; akn+acp)` — bornee OUVERTE par construction — et `ROOM-APEX` lit la valeur
+d'apex APRES la correction, dans la meme frame. Donc « 0 fenetre sur 186 au-dessus de 0,50 » est
+vrai **quel que soit le nombre qu'on ecrit a la place de 0,50**, et la clause n'a plus aucun mode
+d'echec.
+
+C'est **exactement** le defaut deja au registre sur §36 (« hard ceiling ~7 % » : `phys-softmin` a
+pour image une borne OUVERTE, donc la colonne `>7 %` affiche 0/186 pendant que le brut depasse sur
+81/186), et c'est mot pour mot la definition de MIROIR de la DIRECTIVE du 2026-08-23 16:00 : un
+verdict mesure contre une grandeur que l'entree du solveur determine.
+
+**CE QUE J'EN FAIS, ET CE N'EST PAS DE RETIRER LA BORNE.** La borne applique ce que la spec exige
+(l'apex ne doit pas depasser 50 % B0) ; c'est le COMPTE qui etait faux, pas le code. Le registre a
+deja la categorie qu'il faut et sa regle : `TENUE PAR CONSTRUCTION` — « la section ne peut pas etre
+violee dans ce moteur, et c'est declare comme tel, **jamais compte comme une victoire** ».
+La clause « exceptional <=50% B0 » y passe. **Le compte de §22 n'est donc pas 4 clauses DANS sur 5 :
+il est 3 DANS, 1 TENUE PAR CONSTRUCTION, 1 HORS.**
+
+**ET LA MEME QUESTION SE POSE POUR LA CLAUSE DE COM « hard transient <=40% B0 », que le c146 a
+AUSSI comptee.** Elle, en revanche, n'est PAS tautologique : le COM n'est pas borne, il suit la
+translation par le facteur `cws` (0,5715 / 0,5452), donc il PEUT depasser 0,40 si l'apex bouge
+assez. Elle reste falsifiable, et elle reste DANS. Je ne retire que celle qui ne peut pas echouer.
+## LE BALAYAGE QUE LE CYCLE 146 AVAIT PRESCRIT — QUATRE FILETS PARTAGENT CES DEUX CLES
+
+Le c146 concluait : « quand un plafond est trouve mal branche quelque part, balayer TOUS les
+plafonds de la meme section. » Fait, sur la trace, sans une course de plus. Quatre sites du moteur
+portent la meme tanh de Pade sur les cles `pset[16]` / `pset[17]` :
+
+    :2005  `phys-cap-e22!`      PAR MAILLON, sur la valeur LIVREE   genou et span x `rl`
+    :3114  saturation du solveur PAR MAILLON, sur l'etat interne     genou et span x `rl`
+    :4029  la borne de §21       sur `s = D_linear + D_angular`      genou 0,42 · span 0,0799
+    :4050  le plafond d'apex     sur `e = s + dp`                    <- REPARE PAR CE CYCLE
+
+**CE QUE LA TRACE TRANCHE DEJA, ET DANS LES DEUX SENS :**
+  - **(:4029) N'EST PAS DEGENEREE.** Le regime gele d'un filet a genou commence a `kn + 3.cp`
+    = 0,6596 B0. `ROOM-SPEC21` donne `|s|` max **0,4579** (chestL) et **0,4276** (chestR) : la
+    borne de §21 n'atteint JAMAIS son asymptote. Elle n'a donc pas le defaut qu'on vient de
+    corriger un etage plus haut — et c'est parce que son entree est UN etage, pas la somme des deux.
+  - **(:2005) MORD BEAUCOUP PLUS FORT QUE LES DEUX AUTRES, ET SA DISTRIBUTION N'EST PAS PUBLIEE.**
+    `PHYSE22 tag=run n=46 443 cut_b0=872,43` contre `PHYSE21 n=2 760 cut_b0=36,40`. Le compteur et
+    le cumul existent, la DISTRIBUTION par maillon n'existe pas : on ne peut donc pas dire si elle
+    est gelee, et **je ne le suppose pas**. C'est le balayage suivant, et il ne coute qu'un
+    enregistrement.
+  - (:3114) meme situation, sur l'etat interne cette fois.
+## REMONTEE AU SUPERVISEUR — DEUXIEME CYCLE CONSECUTIF SANS CHANGEMENT DE STATUT, AVEC SA RAISON
+
+La regle du 2026-08-21 18:25 l'exige, et je la remonte avec un fait mesure plutot qu'avec un
+troisieme cycle enchaine.
+
+**AUCUN OPERATEUR MONOTONE DE L'AMPLITUDE NE PEUT FERMER LES CLAUSES D'APEX, ET CE N'EST PAS UNE
+QUESTION DE REGLAGE : LE DEFICIT ET L'EXCES NE VIVENT PAS DANS LE MEME CANAL DE PILOTAGE.**
+
+`ROOM-REGIME-STIM` publie, pour chacun des 14 regimes, LEQUEL des deux termes du pilotage de §3
+(`a_drive = (g_local - g_ref) - a_torso + a_angular`) est arme — `acmd` (lineaire, u/f^2) ou `alp`
+(angulaire, rad/f^2). Les deux ne sont **jamais armes ensemble**. Croise avec le verdict de bande
+de `ROOM-APEX-REGIME` (20 cellules portant une bande, course du c145, avant tout plafond d'apex) :
+
+    canal de pilotage     AU-DESSUS   DANS   SOUS     total
+    LINEAIRE  (`acmd`)         3        4      3        10
+    ANGULAIRE (`alp`)          9        0      1        10
+
+**Le canal LINEAIRE est CENTRE sur ses bandes ; le canal ANGULAIRE est au-dessus dans 9 cellules
+sur 10.** L'unique cellule angulaire SOUS est `chestL r=10`, et elle est relevee dans la pose
+heritee a **45,3 deg du miroir** (`ROOM-REGPOSE`), donc suspecte par la DIRECTIVE du
+2026-08-21 01:20 ; dans la pose dont le miroir EST valide (`ROOM-REGA`, 0,50 deg), les 20 cellules
+angulaires sont **AU-DESSUS 18 fois sur 20**.
+
+**ET LA POSE NE PEUT PAS EXPLIQUER LE CONTRASTE** : les 20 cellules, lineaires comme angulaires,
+sont relevees dans LA MEME pose heritee (`PH-REG`, 45,3 deg du miroir). Un defaut commun aux deux
+groupes ne peut pas produire un ecart ENTRE eux ; il peut brouiller la comparaison gauche/droite a
+l'interieur de chaque groupe, et c'est pour ca que je ne tire aucune clause L/R de ce tableau.
+
+**ET LE LOT DE CE CYCLE EST LUI-MEME LA MEILLEURE DEMONSTRATION.** Le meme tableau, refait sur la
+course d'APRES, montre que l'operateur n'a deplace QUE le canal lineaire :
+
+    canal de pilotage     AU-DESSUS   DANS   SOUS     total        (course c147, apres le lot)
+    LINEAIRE  (`acmd`)         1        4      5        10         (etait 3 / 4 / 3)
+    ANGULAIRE (`alp`)          9        0      1        10         (etait 9 / 0 / 1, INCHANGE)
+
+Neuf cellules angulaires sur dix restent AU-DESSUS apres une compression qui a retire 3 471 B0
+d'excursion cumulee, pendant que le canal lineaire est passe de 3 a 1 cellule au-dessus et de 3 a 5
+en dessous. **On a paye le canal lineaire pour ne rien obtenir sur l'angulaire.** Fisher bilateral
+sur le tableau d'apres : **p = 0,0011**.
+
+**ET CE N'EST PAS UN ARTEFACT DE PETIT ECHANTILLON** : sur ce tableau 2x2, le test exact de
+Fisher bilateral rend **p = 0,020**. Je le publie parce que 20 cellules invitent a l'objection
+inverse, et parce que le registre m'a deja pris a construire une priorite sur un extremum
+(`argmax-anchor-is-not-a-population`).
+
+Un plafond, une saturation, un facteur — tout operateur qui ne lit que `|e|` — deplace les 20
+cellules DANS LE MEME SENS. Il ne peut donc pas remonter les 3 cellules lineaires SOUS en meme
+temps qu'il redescend les 9 angulaires AU-DESSUS. **Ce cycle le mesure sur lui-meme : 2 cellules
+gagnees, 2 perdues.** Le superviseur avait etabli le meme mur le 2026-08-21 20:50 pour la classe
+des FACTEURS CONSTANTS (« aucun facteur commun ne rend §14/§16/§17/§18 tenues ») ; ce cycle
+l'etend a **toute** la classe des operateurs monotones de l'amplitude, et il en donne la cause.
+
+**CE QUE CA DESIGNE, ET JE NE L'ECRIS PAS DE MOI-MEME.** La grandeur qui separe les deux
+populations est le CANAL, pas l'amplitude — c'est-a-dire le terme `a_angular` de §3, dont §21 dit
+precisement qu'il se COMBINE avec le lineaire et non qu'il s'y ajoute. Le registre porte deja que
+ce terme est chiffre en ENTREE (85,364 u/f^2 = 7,65 g au point d'attache) et que son EFFET sur
+l'apex n'est correle a rien (**Pearson +0,060 / -0,009**, ligne de §3). Un lot qui reequilibre les
+deux canaux est un changement de NATURE de l'operateur de pilotage, pas un reglage : la DIRECTIVE
+demande que ce genre de bascule soit tranchee en haut, et je la remonte au lieu de l'ecrire.
+## LE LOT SUIVANT, SPECIFIE AVEC SES CHIFFRES — ET CE N'EST PAS UN PLAFOND DE PLUS
+
+Le registre porte, sur la ligne de **§21**, un defaut qui n'a jamais ete traite et qui est de la
+MEME famille que celui repare ici, un cran plus grave : `jak-hd-physics.gc:2904-2909` sature §21
+comme un **MULTIPLICATEUR DE FORCE** dont l'argument est plafonne par `fmin 0.99`. Au-dela de son
+genou, **la force de rappel devient CONSTANTE** — 72,82 u/frame^2 (chestL) / 78,65 (chestR), la
+MEME valeur a 5 021 u d'erreur qu'a 50 207 u.
+**MESURE SUR LA COURSE DE CE CYCLE (`ROOM-REGLIM-BILAN`) : 44 LINEAIRE · 21 au GENOU · 83 GELEES,
+soit 56,1 % des 148 cellules** — et le temoin r=0, qui ne recoit AUCUN pilotage, est LINEAIRE sur
+les deux chaines (0,0360 / 0,0238 B0), donc ce que les 146 autres montrent vient bien de leur
+pilotage.
+**Une force constante est un TAUX, pas une BORNE** — c'est le defaut que le cycle 34 a mesure puis
+corrige sur l'AUTRE canal sans jamais le porter sur celui-ci. §21 sature un DEPLACEMENT dans le
+texte ; le moteur y sature une FORCE. C'est la raison ECRITE du `PARTIELLE` de §21, et c'est le
+seul endroit du dossier ou une degenerescence de cette taille reste sans correctif ecrit.
 ## CE QUE CE LOT NE FAIT PAS, DIT SUR LA MEME PAGE
 
-Il ne touche pas la degenerescence de §21 deja au registre : le multiplicateur de FORCE de
-`:2904-2909`, constant au-dela de son genou, 55,3 % des cellules gelees. Celle-la sature une FORCE
-la ou le texte sature un DEPLACEMENT. La borne ecrite ici sature bien un deplacement, mais elle ne
-repare pas l'autre, et les confondre reviendrait a declarer §21 reglee par un correctif qui ne la
-vise pas.
+  - Il ne touche NI le mur de force de §21 (`:2904-2909`, 56,1 % de cellules gelees) NI les deux
+    saturations PAR MAILLON (`:2005`, `:3114`). Il ne repare qu'un filet sur quatre.
+  - Il ne rend pas §22 : la clause « normal <=42% B0 » reste HORS, et je ne la reclame pas.
+  - Il ne change rien au canal ANGULAIRE, qui est la cause nommee dans la remontee ci-dessus.
+  - Il ne touche aucune donnee : `recharged_assets/physics_chains.txt` et le preset sont
+    identiques au bit. Aucune cle neuve, aucun nombre choisi par moi.
 
 ## A TESTER PAR L'OWNER
 
 **RIEN.** Regle du 2026-08-20 23:30 : je ne sollicite plus de test pour un changement qui ne touche
-qu'un bloc de sections. Le build part quand meme (livraison au fil de l'eau, sa consigne permanente)
-et il peut le prendre s'il veut. Ce qu'il verrait, s'il regardait : les excursions les plus violentes
-sont ramenees dans le plafond de sa spec (x1,9 -> x1,0), au prix d'une reponse plus plate au-dela de
-0,66 B0.
+qu'un bloc de sections, tant que §14-§20, §24-§27 et §9-§13 ne sont pas tenues ensemble. Le build
+part quand meme (livraison au fil de l'eau, sa consigne permanente du 2026-08-06) et il peut le
+prendre s'il veut. Ce qu'il verrait, s'il regardait : les excursions les plus violentes restent
+dans le plafond de sa spec, **mais elles cessent d'y etre COLLEES** — depuis le cycle 146 la
+poitrine rendait exactement la meme excursion maximale quel que soit le geste, ce qui est
+litteralement ce qu'il decrit par « ca suit aucune logique ». Ce lot rend la reponse dependante du
+geste. Il ne rend pas encore les bandes de sa spec.
