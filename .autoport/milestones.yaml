@@ -1637,6 +1637,15 @@ phases:
   device: true
   device_serial: eae4df44
   owner_verify: true
+- id: Gandroid-window-size
+  name: 'TAILLE DE FENETRE ANDROID (owner 2026-08-28, signale DEUX FOIS) : « toujours les barres noires à gauche et à droite ». CAUSE RACINE MESUREE : pc_get_window_size sort sans rien ecrire sur Android, donc la garde `unless (zero? ...)` saute toute la derivation du format et la branche AUTO n''est JAMAIS ATTEINTE. Le reglage auto de l''owner est correct et inerte. Invisible sur un ecran proche du 16:9 (Redmi : 0 barre mesuree), visible sur un ratio non standard. Bloque le rendu correct des cinematiques.'
+  prompt: prompts/phase-Gandroid-window-size.md
+  validator: validators/phase-Gandroid-window-size.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gloading-screen
   name: 'ECRAN DE CHARGEMENT AU LIEU D''UN ECRAN NOIR (owner 2026-08-28, maquette fournie) : silhouette de Jak et Daxter courant, « Loading... » localisé en Urbanist, glyphes précurseurs à la largeur exacte du texte. Répond aux 6,7 s d''écran noir mesurées sur la Shield. PIEGE : l''écran noir sert aussi aux coupes de caméra, il faut un seuil sinon le texte clignote en permanence.'
   prompt: prompts/phase-Gloading-screen.md

@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 240,
+  "current_phase_idx": 241,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -235,7 +235,8 @@
     "Gfirstperson-hd-hide": 1,
     "Gkeira-hd-detached-parts": 1,
     "Gcutscene-reframe": 1,
-    "Gfont-urbanist": 3
+    "Gfont-urbanist": 3,
+    "Gtext-tone": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1092,7 +1093,7 @@
     "Gprecompute-deterministic-bake": 1787793399.3471632,
     "Gplayability-input-and-loadgate": 1787811833.8953981
   },
-  "last_update": "2026-08-28T19:47:31.780604+00:00",
+  "last_update": "2026-08-28T20:42:35.008870+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1204,7 +1205,8 @@
     "Gfirstperson-hd-hide",
     "Gkeira-hd-detached-parts",
     "Gcutscene-reframe",
-    "Gfont-urbanist"
+    "Gfont-urbanist",
+    "Gtext-tone"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

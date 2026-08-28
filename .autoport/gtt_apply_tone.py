@@ -15,12 +15,12 @@ POURQUOI CE FICHIER-LA ET PAS `game_case_text_<lang>.json`
 ----------------------------------------------------------
 `recharged_assets/font/gen_mixed_case.py` (phase Gfont-urbanist, ACTIVE) **regenere
 integralement** les `game_case_text_*` depuis `decompiler_out/jak1/assets/game_text.txt`
-(ses lignes 308-318 : `json.dump(over[lang])`, le dict entier). Une correction de ton ecrite
+(ses lignes 309-318 : `json.dump(dict(sorted(d.items())))`, le dict entier). Une correction de ton ecrite
 la serait **effacee** au prochain passage de cette phase — c'est le mode d'echec que les
 DIRECTIVES nomment (« quand une perte se repete, on la rend impossible au point de
 production, pas detectable au point de controle »), deja paye deux fois sur
 `physics_chains.txt`.
-Les `game_custom_text_*` sont, eux, convertis **SUR PLACE** (lignes 309-340 : le script lit
+Les `game_custom_text_*` sont, eux, convertis **SUR PLACE** (lignes 320-340 : le script lit
 le dict, n'en change que la CASSE, et le reecrit) : les cles et la formulation survivent.
 `game/assets/jak1/game_text.gp` charge `custom` APRES `case`, et `text_ser.cpp` fait
 `bank->set_line(id, ...)` : le dernier fichier gagne. Le ton est donc effectif ET durable.

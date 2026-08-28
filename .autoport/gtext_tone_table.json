@@ -14,9 +14,9 @@
     "",
     "VEHICULE : game_custom_text_<lang>.json, jamais game_case_text_<lang>.json.",
     "recharged_assets/font/gen_mixed_case.py REGENERE INTEGRALEMENT les fichiers game_case_text_*",
-    "(ligne 312-317) depuis le banc decompile : une correction de ton ecrite la serait DETRUITE au",
+    "(lignes 309-318) depuis le banc decompile : une correction de ton ecrite la serait DETRUITE au",
     "prochain passage de la phase Gfont-urbanist. Les fichiers game_custom_text_* sont, eux, convertis",
-    "SUR PLACE (ligne 309-340) : la casse leur est appliquee, les cles et la formulation survivent.",
+    "SUR PLACE (lignes 320-340) : la casse leur est appliquee, les cles et la formulation survivent.",
     "game_text.gp charge custom APRES case, donc custom gagne (text_ser.cpp : bank->set_line)."
   ],
   "fr-FR": {

@@ -191,6 +191,40 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
 
 ## 📋 Au backlog, pas encore commencé
 
+- **Taille des sous-titres réglable dans les options** — demandé par toi le 28 août : « avec la
+  nouvelle font c'est cool sur grand écran mais sur un petit écran c'est un peu dur à lire avec la
+  taille par défaut ».
+
+  Le besoin est réel et c'est la conséquence directe du nouveau rendu : une police vectorielle
+  rendue à une taille fixe en pixels devient plus petite en proportion quand l'écran est petit.
+  L'ancienne police ne posait pas le problème parce qu'elle était grossière.
+
+  À faire : un réglage dans les options de jeu, appliqué au rendu des sous-titres. Deux points à
+  traiter en même temps, sinon le réglage cassera l'affichage :
+  1. **Le retour à la ligne** doit suivre la taille choisie, sinon les lignes longues déborderont
+     de l'écran aux grandes tailles.
+  2. **La boîte de sous-titres** doit se redimensionner, pas seulement le texte.
+
+  Note : ça vaudrait aussi pour les indices d'interaction, mais l'owner n'a demandé que les
+  sous-titres — ne pas élargir sans son accord.
+
+- **Canal langue → chargeur de texture** — au backlog le 28 août. **Portée corrigée le même
+  jour : c'est BEAUCOUP plus étroit que ce que j'avais écrit.**
+
+  **Ce que j'avais écrit à tort** : que la ligne précurseur de l'écran de chargement en aurait
+  besoin. **Faux, et l'owner l'a relevé** : l'atlas précurseur associe un glyphe à chaque lettre,
+  donc afficher `CHARGEMENT` prend simplement les glyphes C, H, A, R, G, E, M, E, N, T. Vérifié :
+  **un seul atlas de 26 glyphes** couvre LOADING, CHARGEMENT, CARGANDO, LADEN et CARICAMENTO,
+  tous les glyphes requis étant présents. Ma propre preuve les avait déjà rendus depuis le même
+  fichier. Aucun canal n'est nécessaire pour ça.
+
+  **Ce dont il s'agit réellement** : le **japonais** doit garder sa police d'origine (359
+  caractères CJK qu'Urbanist n'a pas) pendant que les langues latines passent sur Urbanist. Ce
+  partage-là demande que la langue courante descende jusqu'à la couche qui choisit l'atlas, et ce
+  chemin n'existe pas. Même besoin pour tout futur asset réellement dépendant de la langue.
+
+  **Ce n'est donc PAS un prérequis de l'écran de chargement.** Il ne bloque que le japonais.
+
 - **Cinématiques : recadrer au lieu de masquer, à tous les formats d'écran** — demandé par toi
   le 28 août. J'ai lu le code, et ton diagnostic est exact jusqu'au détail du compteur de FPS.
 
