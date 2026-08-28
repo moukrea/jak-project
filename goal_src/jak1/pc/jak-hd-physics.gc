@@ -390,6 +390,7 @@
 (define *phys-sat-sum* 0.0)
 ;; [NOTE-144] SPEC 21 SOUS SA FORME DE FORCE — COMBIEN DE SOUS-PAS -> jak-hd-physics-NOTES.md
 (define *phys-stif-n* 0)
+(define *phys-fwsat-n* 0)
 (define *phys-cwn* 0)        ;; §21/§22 fois ou le MUR du point libre a mordu
 (define *phys-cwsum* 0.0)    ;; §7 ce qu'il a retire, unites de jeu (un suppresseur se chiffre)
 ;; [NOTE-18] ---------------------------------------------------------------------------------------- -> jak-hd-physics-NOTES.md
@@ -2926,9 +2927,11 @@
                                                 ;; [NOTE-42] SPEC 21 SOUS LA SEULE FORME QUI NE RETIRE RIEN : -> jak-hd-physics-NOTES.md
                                                 (mu (if (and (nonzero? *phys-fwall*) (nonzero? sat)
                                                              (> dd kn) (> cpp 0.0001) (> dd 0.0001))
-                                                      (let ((xr (fmin 0.99 (/ (- dd kn) cpp))))
-                                                        (fmin (/ (+ kn (* cpp (/ xr (- 1.0 xr)))) dd)
-                                                              (/ 1.0 (fmax 0.000001 k2s))))
+                                                      (let ((xr (/ (- dd kn) cpp))
+                                                            (ms (/ 1.0 (fmax 0.000001 k2s))))
+                                                        (if (>= xr 1.0)
+                                                          (begin (set! *phys-fwsat-n* (+ *phys-fwsat-n* 1)) ms)
+                                                          (fmin (/ (+ kn (* cpp (/ xr (- 1.0 xr)))) dd) ms)))
                                                       1.0)))
                                            (when (> mu 1.000001)
                                              (set! *phys-stif-n* (+ *phys-stif-n* 1)))
@@ -4468,6 +4471,7 @@
     ((3) *phys-raddrop-sum*)
     ;; [NOTE-571] SPEC 21/22 : 6 = sous-pas integres avec le RESSORT QUI RAIDIT actif (pas un su -> jak-hd-physics-NOTES.md
     ((6) (the float *phys-stif-n*))
+    ((7) (the float *phys-fwsat-n*))
     ((9) (the float *phys-sat-n*))
     ((10) *phys-sat-sum*)
     ;; 11/12 = LE MUR DU POINT LIBRE de §21/§22 : fois ou il a mordu, et ce qu'il a retire.
@@ -4677,6 +4681,7 @@
   (set! *phys-sat-n* 0)
   (set! *phys-sat-sum* 0.0)
   (set! *phys-stif-n* 0)
+  (set! *phys-fwsat-n* 0)
   (set! *phys-cwn* 0)
   (set! *phys-cwsum* 0.0)
   (dotimes (i (* PHYS-SCL PHYS-COLS)) (set! (-> *phys-cvh* i) 0) (set! (-> *phys-cvm* i) 0.0))

@@ -1464,6 +1464,40 @@ vaut ~275 la ou le mur en demande 17 : il ne mord
 pas, et c'est LUI qui exigeait les sous-pas.
 ```
 
+### CYCLE 148 — LE PARAGRAPHE CI-DESSUS EST REFUTE PAR LA MESURE, ET LE PLAFOND `0.99` EST RETIRE
+
+Il affirmait deux choses. La premiere est vraie (`ms = 1/k2s ~ 275`). **La seconde est fausse, et
+c'est elle qui portait le defaut** : « le mur en demande 17 » n'est pas une propriete du mur, c'est
+la valeur que le plafond `xr <= 0.99` lui IMPOSE. Le mur continu demande une force qui DIVERGE en
+`x -> 1` ; en la plafonnant a `x = 0.99` on gele `g(dd) = kn + 99.cpp`, donc la force
+`k2s.mu.dd = k2s.g` devient une **CONSTANTE** des que `dd >= kn + 0.99 cpp = 0.4990 B0`.
+
+MESURE (`ROOM-REGLIM`, course du cycle 147, 148 cellules de regime) :
+**83 cellules sur 148 — 56,1 % — sont dans ce regime.** Le pire `perr` vaut **0,6392 B0**, soit
+28 % AU-DELA de l'asymptote que cette note declare « infranchissable ». Elle ne l'est pas : un mur
+a force constante a une energie potentielle FINIE, donc il se franchit.
+
+Et la consequence se lit sur les verdicts, pas seulement sur le mecanisme. Croisement avec
+`ROOM-APEX-REGIME` sur les 20 cellules portant une bande d'apex :
+
+    GELE     : 10 AU-DESSUS · 2 DANS · 2 SOUS      (14)
+    NON GELE :  0 AU-DESSUS · 2 DANS · 4 SOUS      ( 6)      Fisher exact bilateral p = 0.0108
+
+**Les dix cellules au-dessus de leur bande sont TOUTES dans le regime a force constante ; aucune
+cellule hors de ce regime n'est au-dessus.**
+
+CE QUI EST ECRIT A LA PLACE, ET POURQUOI CE N'EST PAS UN REGLAGE. Le plafond `0.99` est RETIRE.
+Pour `xr >= 1` — la ou le mur continu demande l'infini — le facteur vaut la borne de stabilite
+`ms = 1/k2s` **deja ecrite sur la meme expression**, et dont cette note dit elle-meme qu'elle est
+la vraie borne. C'est la seule extension CONTINUE possible (`g/dd` croit sans borne vers `x = 1`,
+donc le `fmin` avec `ms` prend le relais avant, a `x* = 0.99941`) : aucun nombre n'est choisi, un
+nombre arbitraire est retire. Au-dela de l'asymptote la force redevient PROPORTIONNELLE a
+l'erreur (`k2s.mu.dd = dd`), c'est-a-dire le `K.x` que SPEC 23 ecrit — une force constante n'est
+pas un terme de raideur.
+
+`fwsat_n` (`PHYSLIM4`, selecteur `phys-limiter 7`) compte les sous-pas de ce regime : c'est la
+preuve que la branche est LUE, distincte de la preuve qu'elle a un EFFET.
+
 ## NOTE-43  (moteur, aux alentours de la ligne 3624)
 
 ```

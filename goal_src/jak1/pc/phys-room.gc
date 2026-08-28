@@ -5117,8 +5117,8 @@
        ;; integres au-dela du genou 0.42 B0, sans `sum` parce qu'un ressort ne retire rien. Les deux
        ;; se lisent ENSEMBLE : `stif_n` grand avec `sat_n` effondre = la force fait le travail et le
        ;; filet ne sert plus. `sat_n` qui reste haut = le ressort est mal pose.
-       (format 0 "PHYSLIM4 sat_n=~f sat_sum=~f stif_n=~f~%"
-               (phys-limiter 9) (phys-limiter 10) (phys-limiter 6))
+       (format 0 "PHYSLIM4 sat_n=~f sat_sum=~f stif_n=~f fwsat_n=~f~%"
+               (phys-limiter 9) (phys-limiter 10) (phys-limiter 6) (phys-limiter 7))
        ;; LE MUR DU POINT LIBRE de §21/§22 (cycle 34 etape 2). MEME NATURE que `sat_n`/`sat_sum` :
        ;; un COMPTE d'evenements et une LONGUEUR cumulee en unites de jeu, sur toute la course.
        ;; REPERE : une magnitude de deplacement, invariante par rotation. LECTURE QUAND LE DEFAUT

@@ -1,0 +1,88 @@
+CYCLE 148 — PREDICTIONS ECRITES AVANT L'EDITION ET AVANT LA COURSE
+DIRECTIVES vd9e8b66782
+=================================================================================================
+
+CE QUE LE LOT FAIT, EN UNE PHRASE
+---------------------------------
+`jak-hd-physics.gc:2929` borne `xr = (dd-kn)/cpp` a 0.99 AVANT de former le facteur de raideur
+`mu`. Au-dela, `g(dd) = kn + cpp.xr/(1-xr)` est GELE a `kn + 99.cpp` et la force de rappel
+`k2s.mu.dd = k2s.g` devient une CONSTANTE : elle ne depend plus de l'erreur. NOTE-42 declare
+elle-meme que ce 0.99 est une BORNE DE STABILITE et non un reglage, et qu'il existe DEJA une
+seconde borne de stabilite sur la meme expression (`k2s.mu <= 1`, soit `mu <= ms = 1/k2s ~ 275`).
+Le lot retire le 0.99 et laisse la borne de stabilite deja ecrite faire son travail :
+pour `xr >= 1` (la ou le mur continu demande une force INFINIE) `mu = ms`. C'est la seule
+extension continue possible ; aucun nombre n'est choisi, un nombre arbitraire est RETIRE.
+
+CE QUE LA TRACE ARCHIVEE ETABLIT DEJA, SANS COURSE (c147, keira-room-table.txt)
+------------------------------------------------------------------------------
+`ROOM-REGLIM-BILAN` : 148 cellules — 44 LINEAIRE, 21 GENOU, **83 GELEES (56,1 %)**.
+La classe GELE commence exactement a `kn + 0.99 cpp` (x1.19 kn) : elle EST le domaine ou
+le 0.99 mord.
+Croisement `ROOM-APEX-REGIME` x `ROOM-REGLIM` sur les 20 cellules portant une bande d'apex :
+
+                 AU-DESSUS   DANS   SOUS    total
+    GELE             10        2      2       14
+    NON GELE          0        2      4        6
+
+    Fisher exact bilateral : p = 0.0108
+    Les DIX cellules AU-DESSUS sont GELEES. AUCUNE cellule non gelee n'est au-dessus.
+    Et la seule cellule ANGULAIRE non gelee (chestL r=10 yawB, x0.35 kn) est SOUS.
+
+PREDICTIONS (chacune falsifiable, chiffree, avant la course)
+------------------------------------------------------------
+P0  CANAL PROUVE LU. `PHYSLIM4` porte un compteur neuf `fwsat_n` = sous-pas ou `xr >= 1`.
+    PREDIT : fwsat_n > 0, dans [5 000 ; 60 000]. (`stif_n` valait 51 264 au c147.)
+    PREDIT AUSSI : `stif_n` BAISSE sous 51 264 (le mur rend les sous-pas sous le genou).
+
+P1  CONFINEMENT CAUSAL — les cellules ANTERIEURES au premier declenchement de leur chaine sont
+    IDENTIQUES AU BIT. Premier GELE : chestL r=5, chestR r=1 (phase PH-REG).
+    PREDIT IDENTIQUES A LA 4e DECIMALE :
+      ROOM-REGLIM-TEMOIN chestL r=0 perr=0.0360   chestR r=0 perr=0.0238
+      ROOM-APEX-REGIME   chestL r=0 apex=0.0740   chestR r=0 apex=0.0538
+      ROOM-APEX-REGIME   chestL r=1 apex=0.2701 (DANS)   r=2 0.3070   r=3 0.1596 (SOUS)
+                         chestL r=4 apex=0.3221 (DANS)
+    Un operateur qui bougerait ces six-la ne serait pas confine, quelle que soit sa sortie.
+
+P2  LA CLASSE GELEE S'EFFONDRE. `ROOM-REGLIM-BILAN` 44/21/83 ->
+    PREDIT : GELE <= 20 sur 148, et LINEAIRE+GENOU >= 128.
+
+P3  LE PIRE `perr` TOMBE. Aujourd'hui 0.6392 B0 (chestR r=7 runA-accel, x1.52 kn).
+    PREDIT : <= 0.55 B0 sur les 148 cellules.
+
+P4  LES DIX CELLULES AU-DESSUS BAISSENT, LES SIX NON GELEES NE BOUGENT PAS.
+    PREDIT baisse de 5 a 35 % sur les dix :
+      r=1 chestR 0.3897 (x1.30) · r=10 chestR 0.3623 (x1.21) · r=11 chestL 0.4292 (x1.07)
+      r=11 chestR 0.4047 (x1.01) · r=12 chestL 0.4242 (x1.06) · r=12 chestR 0.4262 (x1.07)
+      r=13 chestL 0.3307 (x1.10) · r=13 chestR 0.4024 (x1.34) · r=14 chestL 0.3362 (x1.12)
+      r=14 chestR 0.4085 (x1.36)
+    PREDIT : au moins 6 des 10 deviennent DANS.
+    PREDIT : les six non gelees gardent leur VERDICT (r1L DANS, r3L SOUS, r3R SOUS,
+      r4L DANS, r6L SOUS, r10L SOUS).
+
+P5  §19 EST LA SEULE SECTION QUI PEUT BASCULER, ET JE LA NOMME AVANT.
+    Ses quatre cellules bloquantes sont r=11 et r=12 sur les deux chaines, bande [0.30-0.40],
+    a x1.01 / x1.06 / x1.07 / x1.07 — toutes GELEES. Son autre clause est deja tenue (c147).
+    PREDIT : §19 NON TENUE -> TENUE, et le dossier passe de 5 a 6 TENUE sur 38.
+    PREDIT §20 RESTE NON TENUE : sa cellule chestL r=10 est SOUS (x0.86) et n'est PAS gelee,
+    donc ce lot ne peut pas la remonter. Je ne la reclamerai pas.
+
+P6  LA RESERVE DU CYCLE 147 DEVIENT UNE MESURE, PAS UNE DEDUCTION.
+    Le lot du c147 etait EN AVAL de `*phys-lda*` (:3383) et §24/§25/§26 etaient IDENTIQUES AU BIT.
+    Celui-ci est EN AMONT (l'integration elle-meme).
+    PREDIT : `ROOM-AXFIT`, `ROOM-RINGFIT`, `ROOM-RINGDOWN`, `ROOM-SETTLE` ne sont PAS identiques
+    au bit. Si elles le sont, la reserve s'aggrave au lieu de se lever, et je le publierai ainsi.
+
+P7  LA PENETRATION NE MONTE PAS. Un mur plus ferme tient la chaine plus pres de la pose d'auteur.
+    PREDIT : `skinpen` <= 0.0863 (chestR) et <= 0.0707 (chestL) ; `meshpen` <= 0.0610 / 0.0548.
+
+P8  BUDGET DE LIGNES. 4781 aujourd'hui, plafond CLEAN 4800.
+    PREDIT : <= 4790 apres le lot.
+
+P9  AUCUNE DONNEE NE BOUGE. `recharged_assets/physics_chains.txt` et le preset restent
+    IDENTIQUES AU BIT (md5 inchange). Aucune cle neuve.
+
+CE QUE CE LOT NE FAIT PAS
+-------------------------
+Il ne touche ni `:2005` ni `:3114` (les deux saturations PAR MAILLON, dont la distribution n'est
+toujours pas publiee), ni le canal angulaire de §3, ni les 6 miroirs de la DIRECTIVE du
+2026-08-23 16:00.
