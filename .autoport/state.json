@@ -237,7 +237,7 @@
     "Gcutscene-reframe": 1,
     "Gfont-urbanist": 3,
     "Gtext-tone": 1,
-    "Gandroid-window-size": 1
+    "Gandroid-window-size": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -646,6 +646,9 @@
     "Gfont-urbanist": [
       "c2d31134c1f5",
       "da1016e207b0"
+    ],
+    "Gandroid-window-size": [
+      "56e7f3ae3547"
     ]
   },
   "stuck_reasons": {
@@ -1094,7 +1097,7 @@
     "Gprecompute-deterministic-bake": 1787793399.3471632,
     "Gplayability-input-and-loadgate": 1787811833.8953981
   },
-  "last_update": "2026-08-28T21:22:22.006975+00:00",
+  "last_update": "2026-08-28T22:02:12.635453+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

@@ -191,6 +191,28 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
 
 ## 📋 Au backlog, pas encore commencé
 
+- **Modèle HD de Jak : deux défauts de rig sur la sangle du dos** — signalés par toi le 28 août.
+
+  1. **Un point de sa veste bleue est pondéré sur la sangle** qui bouge avec le vent. Les
+     polygones de la veste traversent donc la sangle quand elle s'anime. C'est un défaut de
+     POIDS DE PEAU : un sommet de vêtement affecté à un os de sangle.
+  2. **La boucle métallique de la sangle est attachée aux épaules** au lieu de l'être à la
+     sangle. Elle bouge donc indépendamment de ce qu'elle est censée tenir — d'où l'aspect
+     glitchy. C'est un défaut de PARENTAGE : le bon os existe, la boucle est accrochée au
+     mauvais.
+
+  **Les deux sont dans le rig, pas dans la physique.** Aucun réglage de solveur ne les corrigera :
+  tant que la boucle pend des épaules, elle suivra les épaules.
+
+  **Méthode imposée, tirée de mon erreur du même jour sur Keira** : publier les positions de repos
+  et les poids AVANT et APRÈS, calculés avec une **vraie inverse de matrice 4×4** — la formule
+  simplifiée `-Rᵀt` n'est valable que sans mise à l'échelle et m'a fait annoncer un défaut à 62
+  fois la taille du modèle qui n'existait pas.
+
+  **Et la leçon du même jour sur la livraison** : prouver la correction sur le fichier
+  RÉELLEMENT LIVRÉ dans `jak1_hd_assets.zip`, pas sur la source. Les corrections de géométrie et
+  de poids de peau ne voyagent que par ce zip.
+
 - **Taille des sous-titres réglable dans les options** — demandé par toi le 28 août : « avec la
   nouvelle font c'est cool sur grand écran mais sur un petit écran c'est un peu dur à lire avec la
   taille par défaut ».
