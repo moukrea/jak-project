@@ -75,6 +75,75 @@ fi
 mapfile -t TEXT_FILES < <([ -d "$ANDROID_TEXT" ] && find "$ANDROID_TEXT" -maxdepth 1 -type f -name '*COMMON.TXT' -printf '%f\n' | sort || true)
 N_TEXT=${#TEXT_FILES[@]}
 
+# --- OVERLAY FRESHNESS GATE (autoport Gfont-urbanist 2026-08-28) ------------------
+# MEASURED FAILURE, not a precaution. An override here REPLACES the freshly built
+# desktop bank, so an overlay that stops being regenerated FREEZES that language's
+# text at the day it was last made — and nothing downstream can tell. Only build.sh
+# regenerated it (.autoport/gtt_build_android_text.sh); the delivery chain actually
+# in use (auto_build_apk.sh -> build_arm64_full_consistent.sh -> gradle -> here)
+# never calls build.sh. Result: out/jak1-android-text/{0,1}COMMON.TXT sat at
+# 2026-08-11 02:05 for 17 days. The owner read mixed case on his laptop
+# (out/jak1/iso) and ALL CAPS on the Redmi (this overlay). Same class as the
+# #x1728 "UNKNOWN ID 5928" bug the comments above already record — the third time.
+#
+# The check is by CONTENT (md5 of the desktop bank the override was derived from,
+# recorded in $ANDROID_TEXT/PROVENANCE), never by mtime: a bank rewritten
+# identically keeps its content and gets a fresh mtime, so mtime answers the wrong
+# question in both directions.
+#
+# On mismatch we REGENERATE (the text build costs ~0.3 s). If regeneration is not
+# possible we DROP the override and ship the fresh desktop bank, loudly: losing the
+# android-only wording of ONE string id is a bounded, visible cost; freezing an
+# entire language is unbounded and invisible. We never hard-fail here — the owner's
+# standing order is that a build always reaches him.
+android_text_stale(){
+  local p b want got
+  for p in "$ANDROID_TEXT"/*COMMON.TXT; do
+    [ -e "$p" ] || continue
+    b=$(basename "$p")
+    want=$(awk -v k="$b" '$1==k{print $2}' "$ANDROID_TEXT/PROVENANCE" 2>/dev/null | head -1)
+    got=$(md5sum "$ISO_BUILD/$b" 2>/dev/null | cut -d' ' -f1)
+    if [ -z "$want" ] || [ "$want" != "$got" ]; then echo "$b"; fi
+  done
+}
+TEXT_DROPPED=""
+if [ "$N_TEXT" -gt 0 ]; then
+  STALE_TXT=$(android_text_stale)
+  if [ -n "$STALE_TXT" ]; then
+    echo "[cgo-pack] android text overlay STALE (md5 != desktop bank): $(echo $STALE_TXT | tr '\n' ' ')"
+    if [ "$GAME" = "jak1" ] && [ -x .autoport/gtt_build_android_text.sh ] && [ -x build/goalc/goalc ] \
+       && git diff --quiet -- game/assets/jak1/game_text.gp 2>/dev/null; then
+      echo "[cgo-pack]   regenerating the overlay from the CURRENT text sources…"
+      mkdir -p .autoport/logs
+      if bash .autoport/gtt_build_android_text.sh > .autoport/logs/cgo-pack-android-text.log 2>&1; then
+        echo "[cgo-pack]   overlay regenerated"
+      else
+        echo "[cgo-pack]   overlay regeneration FAILED — see .autoport/logs/cgo-pack-android-text.log" >&2
+        tail -12 .autoport/logs/cgo-pack-android-text.log >&2 || true
+      fi
+      STALE_TXT=$(android_text_stale)
+    else
+      echo "[cgo-pack]   cannot regenerate here (needs jak1 + build/goalc/goalc + clean game_text.gp)" >&2
+    fi
+  fi
+  if [ -n "$STALE_TXT" ]; then
+    # Still stale: drop the frozen overrides from the pack. The FRESH desktop banks
+    # ship in their place — current text, minus the android-only wording.
+    for b in $STALE_TXT; do
+      echo "[cgo-pack]   DROPPING frozen override $b — the fresh $ISO_BUILD/$b ships instead (android-only wording for that bank is lost this build; text is NEVER frozen)" >&2
+    done
+    mapfile -t TEXT_FILES < <(
+      for b in "${TEXT_FILES[@]}"; do
+        printf '%s\n' "$STALE_TXT" | grep -qxF "$b" || printf '%s\n' "$b"
+      done
+    )
+    TEXT_DROPPED="$(echo $STALE_TXT | tr '\n' ' ')"
+    N_TEXT=${#TEXT_FILES[@]}
+  else
+    echo "[cgo-pack] android text overlay FRESH: $N_TEXT bank(s) derived from the current desktop banks (md5-checked)"
+  fi
+fi
+
 WANT_FC=$((N_CODE + N_DTXT))
 
 # Content-derived VERSION (md5 of all pack member contents), like
@@ -85,8 +154,12 @@ if [ -z "$VERSION" ]; then
   # android override (same name) wins over the desktop copy.
   VERSION="c$( {
       for f in "${CODE_FILES[@]}"; do printf '%s\0' "$ARM64_CODE/$f"; done
+      # KEEP IN SYNC with the staging loops below: hash the OVERRIDE only when it is
+      # an EFFECTIVE member (i.e. it survived the freshness gate). Testing the file's
+      # existence on disk instead would hash a frozen bank that the pack no longer
+      # ships, and the version would then describe something we do not deliver.
       for f in "${DESKTOP_TXT[@]}"; do
-        if [ -f "$ANDROID_TEXT/$f" ]; then printf '%s\0' "$ANDROID_TEXT/$f"; else printf '%s\0' "$ISO_BUILD/$f"; fi
+        if printf '%s\n' "${TEXT_FILES[@]:-}" | grep -qxF "$f"; then printf '%s\0' "$ANDROID_TEXT/$f"; else printf '%s\0' "$ISO_BUILD/$f"; fi
       done
     } | sort -z | xargs -0 md5sum | md5sum | cut -c1-12 )"
 fi
@@ -172,6 +245,8 @@ file_count=${FILE_COUNT}
 raw_bytes=${RAW_BYTES}
 zip_bytes=${ZIP_BYTES}
 flags=${FLAG_MARKER}
+android_overrides=${N_TEXT}
+android_overrides_dropped=${TEXT_DROPPED:-none}
 EOF
 
 rm -rf "$STAGE"   # the symlink farm is transient; the zip + manifest are the artifacts

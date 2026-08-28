@@ -68,12 +68,12 @@ echo "[gtt] === 2/4 rebuild text banks WITH android override ==="
 make_banks
 
 echo "[gtt] verify override present in freshly-built banks"
-grep -a "TAP SCREEN"  out/jak1/iso/0COMMON.TXT >/dev/null || fail "EN 'TAP SCREEN' not found in 0COMMON.TXT after android build"
-grep -a "TOUCHEZ L"   out/jak1/iso/1COMMON.TXT >/dev/null || fail "FR 'TOUCHEZ L' not found in 1COMMON.TXT after android build"
+grep -ai "tap screen"  out/jak1/iso/0COMMON.TXT >/dev/null || fail "EN 'TAP SCREEN' not found in 0COMMON.TXT after android build"
+grep -ai "touchez l"   out/jak1/iso/1COMMON.TXT >/dev/null || fail "FR 'TOUCHEZ L' not found in 1COMMON.TXT after android build"
 # ID-SPECIFIC proof the override landed on #x16e itself (JSON keys parse as HEX,
 # text_ser.cpp:250 — a decimal key would put the string at the WRONG id while the
 # greps above still pass): the stock FR press-start string must be GONE, replaced.
-if grep -a "APPUYER SUR LA TOUCHE START" out/jak1/iso/1COMMON.TXT >/dev/null; then
+if grep -ai "appuyer sur la touche start" out/jak1/iso/1COMMON.TXT >/dev/null; then
   fail "FR stock press-start string still present — override did NOT land on id #x16e (check JSON hex keys)"
 fi
 echo "[gtt]   EN 0COMMON.TXT has 'TAP SCREEN'  OK"
@@ -97,14 +97,30 @@ touch "$GP"
 make_banks
 
 echo "[gtt] verify desktop banks are pristine again"
-if grep -a "TAP SCREEN" out/jak1/iso/0COMMON.TXT >/dev/null; then
+if grep -ai "tap screen" out/jak1/iso/0COMMON.TXT >/dev/null; then
   fail "RESTORE FAILED: desktop 0COMMON.TXT STILL contains 'TAP SCREEN'"
 fi
-grep -a "PRESS START" out/jak1/iso/0COMMON.TXT >/dev/null || fail "RESTORE FAILED: desktop 0COMMON.TXT missing 'PRESS START'"
+grep -ai "press start" out/jak1/iso/0COMMON.TXT >/dev/null || fail "RESTORE FAILED: desktop 0COMMON.TXT missing 'PRESS START'"
 echo "[gtt]   desktop 0COMMON.TXT has 'PRESS START' and NOT 'TAP SCREEN'  OK"
 
 # sanity: $GP is clean again
 git diff --quiet -- "$GP" || fail "$GP is still dirty after restore"
+
+# --- PROVENANCE (autoport Gfont-urbanist 2026-08-28) ------------------------------
+# Record the md5 of the PRISTINE desktop bank each override was derived from, at the
+# moment it was derived. android/build_cgo_pack.sh prefers any bank found here over
+# the freshly built desktop bank, so an overlay that stops being regenerated FREEZES
+# that language's text — measured: out/jak1-android-text/{0,1}COMMON.TXT sat at
+# 2026-08-11 02:05 for 17 days while the desktop banks were rebuilt daily, which is
+# why the owner read mixed case on his laptop and ALL CAPS on the Redmi. The packer
+# compares these md5 against the current desktop banks and refuses to ship a frozen
+# overlay. Signed by CONTENT, never by mtime.
+PROV="$ANDROID_TEXT_DIR/PROVENANCE"
+: > "$PROV"
+for b in "${BANKS[@]}"; do
+  printf '%s %s\n' "${b}COMMON.TXT" "$(md5sum "out/jak1/iso/${b}COMMON.TXT" | cut -d' ' -f1)" >> "$PROV"
+done
+echo "[gtt] provenance written ($PROV):"; sed 's/^/[gtt]   /' "$PROV"
 
 echo "[gtt] === produced android-text overlay banks ==="
 ls -la "$ANDROID_TEXT_DIR"/*COMMON.TXT
