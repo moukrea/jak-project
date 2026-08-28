@@ -11521,3 +11521,56 @@ cycle 150 porte sur ces 14 valeurs, une par une, a 0,5 % pres — pas sur un eff
 (`*phys-dfmq*`, dette deja nommee par [NOTE-582]). Amplifier le glissement ECARTE donc la peau de
 son propre volume, et c'est exactement ce que la prediction P7 du cycle 150 surveille, avec le
 seuil `skinpen <= 0.0883` et le retrait du lot en cas de depassement.
+
+## [NOTE-590]
+
+SPEC 37 — LE BLOC `[levels]` DU FICHIER LIVRE ETAIT PARSE ET INTEGRALEMENT MORT. CINQ CLES,
+TROIS NIVEAUX, ZERO APPELANT. CE CYCLE EN CABLE UNE, ET SON EFFET EST NUL PAR ALGEBRE — DONC
+ELLE SE PROUVE PAR LA VALEUR DEPOSEE, JAMAIS PAR SON EFFET.
+
+**CE QUI A ETE MESURE AU SOURCE, ET C'EST PLUS LARGE QUE CE QUE LE MANDAT ANNONCAIT.** La
+DIRECTIVE du 2026-08-28 11:43 ecrit que « `fixedhz=240` est parse par `kmachine.cpp:1560` et
+**jamais lu par le solveur** ». C'est vrai, et c'est INCOMPLET : l'accesseur
+`pc_physics_level_param_mi` (`kmachine.cpp:2496`, lie au symbole a `:4673`) est le SEUL lecteur de
+`s_phys_levels` dans tout le depot, et il n'avait **aucun appelant dans `goal_src/`**. Les CINQ
+cles du bloc sont donc mortes ensemble, pas seulement `fixedhz` :
+
+    level 1 substeps=2  iters=6  collide=2  classmask=7  fixedhz=0     <- ce que le fichier DECLARE
+    moteur        ns=4  iters=2  sweeps=3   (pas de masque)  240 Hz    <- ce que le moteur FAIT
+
+Aucune des cinq ne correspond. Et le chemin du menu s'arrete au meme endroit : `physics-quality`
+(3 valeurs, `progress-pc.gc:7654`) descend jusqu'a `s_physics_level` (`kmachine.cpp:966`), mais
+GOAL ne lit `pc-physics-enabled` qu'en BOOLEEN (`:2504`, `nonzero?`) — le `+1` qui encode le
+niveau n'est jamais decode. **Les trois niveaux LIGHT / FULL / MAXIMUM sont donc indiscernables
+dans le solveur**, et la course de la salle tourne au niveau 1 (defaut de `pckernel-impl.gc:332` ;
+`phys-room.gc:7161-7163` ne fait que le RELAYER).
+
+**CE QUE LE CABLAGE FAIT.** `fixedhz` devient un PLANCHER sur le taux effectif, ce que §37 nomme
+mot pour mot (« Recommended effective soft-body update frequency >=120 Hz ») :
+
+    nsf = min(4, max(1, ceil(fixedhz / 60)))        ns = max(nsf, ns_preset)
+
+`ns_preset` vaut 4 en permanence (`axo != 0` rend le premier membre du `or` de `:2868` toujours
+vrai — etabli au cycle 52), et `fixedhz` vaut 0 / 0 / 240 aux trois niveaux livres, donc
+`nsf` = 1 / 1 / 4 et `max(nsf, 4) = 4` dans les trois cas. **L'operateur est nul par algebre aux
+trois niveaux.** C'est voulu : ce cycle ouvre le canal, il ne deplace pas la mesure.
+
+**POURQUOI LE PLAFOND A 4 EST UN AVEU ET PAS UN REGLAGE.** `kds` (`:2874`) s'ecrit
+`(if (= ns 2) (sqrtf kd) (sqrtf (sqrtf kd)))` : il code EN DUR `ns` dans {2,4}. A `ns=3` il
+rendrait `kd^(1/4)` au lieu de `kd^(1/3)`, et a `ns=8` il serait faux d'un facteur 2 sur
+l'exposant. La retenue par sous-pas serait donc fausse des que le plancher sortirait de {2,4}.
+Le plafond borne le canal a ce que l'aval sait porter, et il se retire le jour ou `kds` devient un
+vrai `kd^(1/ns)` — ce qui est aussi ce qui donnera son PREMIER SITE a `HardImpactSubstepsLo = 3`
+(§37 « 3-4 adaptive substeps »), cle du preset sans lecteur depuis le cycle 114.
+
+**POURQUOI UNE LIGNE D'EMISSION POUR UN OPERATEUR QUI NE FAIT RIEN.** Parce que l'effet est nul :
+« le modele est faux » et « le parseur a rendu zero » seraient indistinguables sur la trace
+(`channel-measured-by-effect-is-not-channel-proven-read`). `PHYSFHZ lv=.. fhzmi=.. nsf=..` publie
+donc le NIVEAU LU, la VALEUR DEPOSEE PAR LE PARSEUR (en milli) et le PLANCHER APPLIQUE, une fois
+et a chaque changement. Sans elle, ce cablage ne serait qu'une affirmation de source — ce que la
+regle 0 du contrat interdit.
+
+**CE QUI RESTE MORT, ET C'EST DIT PLUTOT QU'ARRONDI.** `substeps`, `iters`, `collide` et
+`classmask` n'ont toujours aucun lecteur ; `sweeps` reste passe en dur a 3 (`:3142/:3153/:3157`),
+`iters` en dur a 2 (`:3162`). Le niveau de qualite ne discrimine donc toujours RIEN, et le menu
+de l'owner reste sans effet sur la physique. Une seule des cinq cles a ete cablee.

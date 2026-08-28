@@ -467,7 +467,7 @@
 
 ;; pre = frames de repos AVANT (0 = la fenetre enchaine sans rupture sur la precedente)
 ;; drv = frames de pilotage · post = frames de tenue, MESUREES elles aussi (le pic peut tomber apres)
-(define *physroom-reg-pre*  (new 'static 'array int32 15  90 90  0  0 90  0  0 90  0 90 90 90  0 90  0))
+(define *physroom-reg-pre*  (new 'static 'array int32 15 210 210  0  0 210  0  0 210  0 210 210 210  0 210  0))
 (define *physroom-reg-drv*  (new 'static 'array int32 15   0 18 27 14 15 36  9 36 18 24 21 24 24 21 21))
 (define *physroom-reg-post* (new 'static 'array int32 15  60  0  0 45  0  0 45  0 45 45 45 12 45 12 45))
 
@@ -3109,8 +3109,21 @@
    artificielle de plusieurs milliers d'unites — precisement ce que sa §37 interdit de generer —
    et elle sonnerait dans la fenetre suivante sous le nom du regime suivant. Le retour se fait
    donc en demi-cosinus sur PHYSROOM-RETF frames (vitesse nulle aux deux bouts), et il reste
-   ensuite `pre - RETF` frames de tenue pure : 30 frames au minimum, soit 2.5 constantes de temps
-   du mode principal, PLUS les 60 du retour lui-meme."
+   ensuite `pre - RETF` frames de tenue pure : 150 frames (2.500 s), PLUS les 60 du retour.
+   CYCLE 151 — CETTE TENUE VALAIT 30 FRAMES (0.500 s), DIMENSIONNEE SUR UNE ENVELOPPE SUPPOSEE
+   (« 2.5 constantes de temps », tau = 1/(zeta.w) = 0.1977 s derive de §24/§25) QUE LA MESURE DE
+   LA SALLE REFUTE : `ROOM-AXC-SETTLE` releve la PREMIERE des quatre etapes de §27 (« reponse
+   visible dominante », residu 21.93 %) a 0.700-0.933 s sur le maillon EXTERIEUR, soit 1.4 a 1.9
+   fois plus tard. La fenetre ouvrait donc AVANT la premiere etape, en heritant de plus de 21.9 %
+   de l'excitation du regime precedent — et le temoin r=0, qui publie pourtant acmd=alp=amax=0,
+   bougeait de +10.4 % / +7.6 % d'une course a l'autre (cycle 150). L'instrument ne POUVAIT pas
+   le voir : le saut d'entree de PH-REG tombe a `pframe`=1, le reset de fenetre a `pframe`=pre.
+   2.500 s est la fenetre que `ROOM-AXC-SETTLE` mesure lui-meme ; 5 series sur 12 n'y atteignent
+   toujours pas « essentially stationary », et c'est dit plutot que masque. MEME DEFAUT NON
+   TRAITE ICI (il confondrait l'attribution) : les cellules d'ORIENTATION ne laissent qu'ORIS=60
+   frames apres un saut de quaternion NON RAMPE de 45 a 135 deg (`physroom-orient`), et ce sont
+   elles qui portent §10 a §13 ; `PHYSANROT` n'y est pas emis, donc ces 66 sauts par course ne
+   sont mesures par rien."
   (set-vector! (-> self vel) 0.0 0.0 0.0 1.0)
   (vector-copy! (-> self root trans) (-> self home))
   (quaternion-identity! (-> self root quat))

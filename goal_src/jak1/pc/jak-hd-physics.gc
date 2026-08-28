@@ -16,6 +16,7 @@
 (define-extern pc-physics-chain-link-apex-mi (function string int int int int))
 (define-extern pc-physics-chain-link-anp-mi (function string int int int int))
 (define-extern pc-physics-chain-rigid-mi (function string int int int))
+(define-extern pc-physics-level-param-mi       (function int int int))  ;; [NOTE-590] SPEC 37 — le bloc `[levels]` du fichier livre etait PARSE ET MORT : 5 cles x 3 niveaux, ZERO appelant GOAL, donc les trois niveaux du menu (LIGHT/FULL/MAXIMUM) sont indiscernables dans le solveur. Ce cycle en cable UNE, `fixedhz` (id 4), en PLANCHER sur le taux effectif. -> jak-hd-physics-NOTES.md
 ;; [NOTE-501] LE PRESET COMME ENTREE : `pk <Cle> <valeur>` dans le fichier livre. -> jak-hd-physics-NOTES.md
 (define-extern pc-physics-chain-preset-mi     (function string int int int))
 (define-extern pc-physics-chain-preset-count  (function string int int))
@@ -277,6 +278,7 @@
 ;; 1 = les SPHERES PROXIMALES cessent d'etre des obstacles. 0 EN LIVRAISON.
 (define *phys-prox-off* 0)
 (define *phys-swc* 0)                                           ;; ordinal d'appel de phys-collide-chain
+(define *phys-nsf* -1)                                          ;; [NOTE-590] dernier plancher de sous-pas PUBLIE (jamais lu par le calcul) : l'emission n'a lieu qu'au changement
 (define *phys-vp*   (new 'global 'inline-array 'vector PHYS-SC))  ;; vitesse de pointe, frame -1
 (define *phys-tw*   (new 'global 'array 'float PHYS-SC))   ;; §29 torsion : angle du TISSU (rad)
 (define *phys-twv*  (new 'global 'array 'float PHYS-SC))
@@ -2511,8 +2513,10 @@
              (nch    (-> *phys-slot-nch* slot))
              (nco    (-> *phys-slot-nco* slot))
              (dt     0.0166667)
+             (nsf    (min 4 (max 1 (/ (+ (pc-physics-level-param-mi (- (pc-physics-enabled) 1) 4) 59999) 60000))))  ;; [NOTE-590] SPEC 37 « effective soft-body update frequency >=120 Hz » — LE PLANCHER DE SOUS-PAS QUE LE NIVEAU DE QUALITE DECLARE. `pc-physics-enabled` rend `niveau+1` (kmachine.cpp:2705), d'ou le `-1`. Valeur en MILLI, d'ou le /60000 ; `+59999` = plafond entier (ceil). BORNE A 4 ET C'EST UN AVEU, PAS UN REGLAGE : `kds` (:2874) code en dur `ns` dans {2,4} et rendrait la retenue par sous-pas FAUSSE au-dela. -> jak-hd-physics-NOTES.md
              ;; [NOTE-259] 9.81 m/s^2 dans les unites de l'integrateur : 9.81 * 4096 u/m / 3600 frames^2/s^2 -> jak-hd-physics-NOTES.md
              (gy     -11.16))
+        (when (!= nsf *phys-nsf*) (set! *phys-nsf* nsf) (format 0 "PHYSFHZ lv=~D fhzmi=~D nsf=~D~%" (- (pc-physics-enabled) 1) (pc-physics-level-param-mi (- (pc-physics-enabled) 1) 4) nsf))  ;; [NOTE-590] un canal dont l'effet est NUL ne se prouve pas par son effet : on publie la valeur DEPOSEE
         (dotimes (k njoint) (set! (-> *phys-dhas* k) 0))
         ;; [NOTE-258] LA POSE D'AUTEUR DES VOLUMES, AVANT QUE LA PREMIERE CHAINE N'ECRIVE. Les chaines sont -> jak-hd-physics-NOTES.md
         (phys-snapshot-colliders! skel slot nco nbone)
@@ -2861,11 +2865,11 @@
                                         ;; [NOTE-172] L'ARMEMENT, pas la classification : une chaine classee -> jak-hd-physics-NOTES.md
                                         (axo (-> *phys-axan* sc))
                                         ;; [NOTE-41] SPEC 37 — LE PAS DE TEMPS SUIT LE MODE LE PLUS RAPIDE, -> jak-hd-physics-NOTES.md
-                                        (ns  (if (or (nonzero? axo)
+                                        (ns  (max nsf (if (or (nonzero? axo)
                                                      (and (nonzero? sat) (nonzero? hasf)
                                                           (> (+ (* ex0 ex0) (+ (* ey0 ey0) (* ez0 ez0)))
                                                              (* kn kn))))
-                                               (the int (-> *phys-pset* (+ (* sc PHYS-PSET-N) 24))) (the int (-> *phys-pset* (+ (* sc PHYS-PSET-N) 25)))))
+                                               (the int (-> *phys-pset* (+ (* sc PHYS-PSET-N) 24))) (the int (-> *phys-pset* (+ (* sc PHYS-PSET-N) 25))))))
                                         (fns (the float ns))
                                         (k2s (/ k2l (* fns fns)))
                                         (ggx (/ (* gsc (-> gdw x)) (* fns fns)))

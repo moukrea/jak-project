@@ -1,0 +1,168 @@
+CYCLE 151 — PREDICTIONS ECRITES AVANT L'EDITION ET AVANT LA COURSE
+DIRECTIVES vd9e8b66782
+=================================================================================================
+Course de reference (etat AVANT) : trace md5 70b222071da76b466180ab637f84701a,
+tableau md5 db14b6e17231ab438dc3d6b7721dbce0, moteur 4793 lignes, salle 7185 lignes,
+physics_chains.txt md5 0bf4d3130392da1252d7bc0743cdf93b.
+
+CE QUE LE CYCLE FAIT, EN DEUX LOTS SEPARES ET ATTRIBUABLES
+-----------------------------------------------------------
+
+LOT A — `phys-room.gc:470`. La fenetre de repos d'un regime est dimensionnee sur la
+  stabilisation MESUREE et non sur une enveloppe SUPPOSEE. `*physroom-reg-pre*` passe de 90 a 210
+  sur les HUIT regimes qui declarent un repos (r = 0,1,4,7,9,10,11,13). Les SEPT regimes CHAINES
+  (`pre` = 0 : r = 2,3,5,6,8,12,14) ne sont PAS touches — leur enchainement est voulu (§15,
+  phys-room.gc:5527-5530). Tenue pure apres la rampe de retour : 30 frames (0,500 s) -> 150
+  frames (2,500 s).
+
+LOT B — `jak-hd-physics.gc`. `fixedhz` du bloc `[levels]` devient un PLANCHER sur le taux
+  effectif : `ns = max(nsf, ns_preset)` avec `nsf = ceil(fixedhz/60)`, borne a 4.
+
+POURQUOI LOT A — LA JUSTIFICATION EST DANS LE TABLEAU DE LA SALLE, PAS DANS MON JUGEMENT
+-----------------------------------------------------------------------------------------
+La docstring de `physroom-reg-drive` (phys-room.gc:3112-3113) dimensionne la tenue a « 30 frames
+au minimum, soit 2.5 constantes de temps du mode principal ». Cette constante de temps est
+DERIVEE de §24 et §25 (`tau = 1/(zeta.w) = 0,1977 s`, tableau ligne 3216) — c'est une enveloppe
+SUPPOSEE. La salle MESURE la stabilisation reelle et la publie (`ROOM-AXC-SETTLE`, lignes
+3391-3402), avec les quatre etapes que §27 nomme, sur le maillon EXTERIEUR (l=1) :
+
+    chaine  axe    reponse visible   mouvement sec.   mostly settled   essentially stat.
+    chestL  v      0,733 s           1,133 s          1,217 s          >2,50 s
+    chestL  ap     0,933 s           1,200 s          1,767 s          2,483 s
+    chestL  lat    0,883 s           1,167 s          1,750 s          >2,50 s
+    chestR  v      0,700 s           1,050 s          >2,50 s          >2,50 s
+    chestR  ap     0,900 s           1,150 s          1,717 s          2,433 s
+    chestR  lat    0,867 s           1,100 s          >2,50 s          >2,50 s
+
+La tenue actuelle vaut **0,500 s** : elle se termine AVANT la PREMIERE etape de §27 sur les six
+series du maillon exterieur (0,700 a 0,933 s). Le residu y est donc **au-dessus de 21,93 %** du
+niveau d'entree (bande de la premiere etape, tableau ligne 3218). L'enveloppe supposee est
+refutee par la mesure d'un facteur 1,4 a 1,9. 2,500 s est la fenetre que la salle mesure
+elle-meme ; 5 series sur 12 n'y atteignent toujours pas « essentially stationary » et je le dis
+plutot que de pretendre que 2,500 s suffit.
+
+LES PREDICTIONS (chacune falsifiable, chiffree, ecrite avant toute edition)
+---------------------------------------------------------------------------
+
+P1  *** CANAL DE LOT B PROUVE LU — UNE VALEUR DEPOSEE, PAS UN EFFET. ***
+    L'effet de LOT B est NUL par algebre (P2). Un canal dont l'effet est nul ne peut pas se
+    prouver par son effet : « le modele est faux » et « le parseur a rendu zero » seraient
+    indistinguables (`channel-measured-by-effect-is-not-channel-proven-read`). Le moteur publie
+    donc la valeur DEPOSEE par le parseur ET l'operateur applique, sur une ligne neuve.
+    PREDIT, EXACTEMENT :   `PHYSFHZ lv=1 fhzmi=0 nsf=1`
+      - `lv=1` : `physics-quality` vaut 1 par defaut (`pckernel-impl.gc:332`) et la salle ne fait
+        que le RELAYER (`phys-room.gc:7161-7163`) ; `pc-physics-enabled` rend `niveau+1`
+        (`kmachine.cpp:2705-2711`), donc `lv = 2 - 1 = 1` ;
+      - `fhzmi=0` : `level 1 ... fixedhz=0` (`physics_chains.txt:79`), milli, donc 0 ;
+      - `nsf=1` : `min(4, max(1, (0+59999)/60000)) = 1`.
+    FALSIFICATEUR : ligne absente, ou l'une des trois valeurs differente -> ma lecture du
+    cablage est fausse, LE LOT B EST RETIRE sans discuter son effet.
+
+P2  *** LOT B EST INERTE AU BIT, ET C'EST LE CONTROLE DE CONFINEMENT DE TOUT LE CYCLE. ***
+    `ns_preset` vaut 4 en permanence (`axo` != 0 sur les deux chaines rend le premier membre du
+    `or` toujours vrai, :2864 — etabli au cycle 52). `ns = max(1, 4) = 4` : INCHANGE.
+    Aux trois niveaux livres l'operateur est nul par algebre : `fixedhz` = 0 / 0 / 240 donne
+    `nsf` = 1 / 1 / 4, et `max(nsf, 4) = 4` dans les trois cas.
+    CONSEQUENCE, ET C'EST LA PREDICTION FORTE DU CYCLE : **toutes les lignes produites par les
+    phases qui s'executent AVANT PH-REG doivent etre IDENTIQUES AU CARACTERE**. L'ordre des
+    phases est PH-SETTLE -> MEAS -> RESP -> IDLE -> TILT -> BACK -> AXV/AXB/AXL/AXZ* -> **ORI**
+    -> SHAKE* -> PC* -> SELF* -> SIDE* -> CONE* -> PROX* -> RESTA -> RESTB -> **REG**.
+    Sont donc PREDITES IDENTIQUES AU CARACTERE, entre autres : `row `, `ROOM-RAD-*`,
+    `ROOM-SPEC21`, `ROOM-SPEC10`, `ROOM-ORICOM-*`, `ROOM-SPEC8-*`, `ROOM-SPEC37-KICK`,
+    `ROOM-SPEC37-ANROT`, `ROOM-IDLE`, `ROOM-SKINPEN-*`.
+    **§10, §11, §12 et §13 sont lues dans PH-ORI, donc EN AMONT : ce cycle ne peut pas les
+    deplacer, et le gain de §10 du cycle 150 ne peut pas etre defait.**
+    FALSIFICATEUR : une seule de ces familles qui bouge -> le confinement annonce est faux, et
+    l'attribution de P3/P4 tombe avec ; je republie tout comme non attribue.
+
+P3  *** LE TEMOIN r=0 — LA CIBLE PRE-SPECIFIEE PAR LE CYCLE 150. ***
+    AVANT : `ROOM-APEX-REGIME r=0 base` apex = **0,0817 B0** (chestL) / **0,0579 B0** (chestR).
+    Ce temoin publie `acmd = alp = amax = 0` et bouge quand meme entre deux courses (+10,4 % /
+    +7,6 % au cycle 150). Cause etablie AU SOURCE ce cycle : sa fenetre de mesure ouvre apres
+    0,500 s de tenue, alors que la stabilisation mesuree du maillon exterieur demande 0,700 a
+    2,483 s ; l'instrument ne PEUT PAS voir ce qu'il herite, parce que le saut d'entree de PH-REG
+    se produit a `pframe=1` et que le reset de fenetre tombe a `pframe=pre`.
+    PREDIT : l'apex du temoin BAISSE d'au moins **15 %** sur LES DEUX chaines, soit
+    **<= 0,0694 B0 (chestL) et <= 0,0492 B0 (chestR)**.
+    FALSIFICATEUR : une baisse **< 5 %** sur l'une des deux -> la contamination n'est PAS la
+    cause dominante du temoin, l'excursion de r=0 est un decalage statique reel, et je publie le
+    chiffre qui me donne tort au lieu de garder le lot pour d'autres raisons.
+
+P4  *** §19 ET §20 — JE NOMME LES SECTIONS QUE CE TRAVAIL D'INSTRUMENT PEUT DEBLOQUER, AVANT. ***
+    (DIRECTIVE du 2026-08-21 18:25 : « un cycle qui touche a l'instrument NOMME la section dont
+    il debloque le verdict, avant de commencer ».)
+    §19 l.311 « 30-40% B0 apex displacement », quatre cellules, TOUTES AU-DESSUS :
+        r=11 chestL 0,4315 (x1,08)   chestR 0,4031 (x1,01)
+        r=12 chestL 0,4280 (x1,07)   chestR 0,4257 (x1,06)
+    §20 « apex 20-30% B0 », quatre cellules, TOUTES AU-DESSUS (x1,09 a x1,36).
+    r=11 et r=13 recoivent le repos allonge ; r=12 et r=14 sont CHAINEES et en heritent.
+    PREDIT : les quatre cellules de §19 BAISSENT d'au moins **2 %**. Le sens est predit, la
+    magnitude ne l'est pas.
+    ET J'ECRIS MAINTENANT CE QUE JE NE FERAI PAS : **si §19 passe DANS sa bande, ce n'est PAS un
+    gain du solveur et je ne le publierai pas comme tel.** C'est une correction d'INSTRUMENT ;
+    la cellule du registre le dira dans ces mots, et le statut portera la mention.
+    FALSIFICATEUR : aucune baisse (ou une hausse) sur les quatre -> la contamination inter-regimes
+    n'existe pas pour §19, et P3 devient la seule justification du lot.
+
+P5  *** §16 NE DOIT PAS EMPIRER — C'EST LA SEULE SECTION QUI DEMANDE **PLUS** D'APEX. ***
+    AVANT : r=3 chestL 0,1642 (x0,55) / chestR 0,2907 (x0,97) · r=6 chestL 0,1707 (x0,41) /
+    chestR 0,3376 (x0,80). Les deux regimes sont CHAINES (`pre`=0) donc non touches directement,
+    mais ils heritent de r=1 et r=4 dont le repos s'allonge.
+    PREDIT : |variation| <= 10 % sur les quatre cellules.
+    FALSIFICATEUR : une BAISSE > 15 % sur une cellule de §16 -> le lot coute une section pour en
+    gagner une autre, et c'est un echec que je publie comme tel.
+
+P6  *** LES CINQ TENUE NE BOUGENT PAS. ***
+    §24/§25/§26 sont lues dans PH-AXC, qui s'execute APRES PH-REG : elles PEUVENT donc bouger, et
+    je le dis au lieu de l'ignorer. Mais leur grandeur est une frequence propre, fixee par
+    `stiffness`/`mass`, pas par l'etat entrant.
+    PREDIT : `ROOM-SPEC24-VERDICT` rend les six frequences a **+/- 0,5 %** de
+    (2,320 / 2,460 / 2,560) et (2,415 / 2,535 / 2,655), et les quatre clauses restent tenues sur
+    les deux chaines. §7 et §12 sont lues en amont (P2) : identiques au caractere.
+    FALSIFICATEUR : une frequence hors de +/- 0,5 %, ou une clause de §24 qui tombe -> le lot
+    touche a une section TENUE et il est RETIRE.
+
+P7  *** LES GATES DU VALIDATEUR. ***
+    - `DISCRIMINANT` : les lignes `row ` viennent de PH-MEAS, EN AMONT (P2). PREDIT identiques
+      au caractere, donc ecarts inchanges : chestL 45,2 % · **chestR 29,3 %** (seuil 25 %).
+      La marge de chestR n'est que de 4,3 points : c'est la gate la plus exposee du dossier, et
+      elle est protegee ici par le confinement, pas par la chance.
+    - `COLLIDE` : PREDIT `skinpen` <= 0,0883 sur les deux chaines (AVANT 0,0707 / 0,0863).
+    - `CLEAN` : PREDIT moteur **4797** lignes <= 4800.
+    - `ROOM` : PREDIT 2 chaines x 31/31 animations, 1 acteur, joueur absent — inchange.
+    - `OPEN-DEFECTS` : ECHOUERA, comme a chaque cycle. Elle n'a pas de mode reussi par
+      construction et seul l'owner retire `breast-spec-incomplete`. Je n'y touche pas.
+
+P8  *** BUDGET DE LIGNES ET DE DONNEES. ***
+    PREDIT : `jak-hd-physics.gc` 4793 -> **4797** (+4 : 1 define-extern, 1 global, 1 liaison
+    `nsf`, 1 ligne d'emission) ; `phys-room.gc` 7185 -> **7185** (edition EN PLACE).
+    PREDIT : `recharged_assets/` identique au bit, `physics_chains.txt` md5
+    `0bf4d3130392da1252d7bc0743cdf93b` INCHANGE, aucune cle de preset touchee, aucun reglage de
+    l'owner touche, aucune gate du validateur touchee.
+
+P9  *** LA COURSE S'ALLONGE, ET DE COMBIEN — DIT AVANT. ***
+    +120 frames sur 8 regimes, dans DEUX phases qui lisent la meme table (PH-REG et PH-REGS) :
+    2 x 8 x 120 = **1920 frames = 32,0 s** de temps de jeu.
+    PREDIT : la course reste sous `ROOM_TIMEOUT=2400 s` et sa duree croit de moins de 3 min.
+
+CE QUE LE LOT NE FAIT PAS — DIT AVANT, PAS APRES
+-------------------------------------------------
+  - il ne touche PAS la fenetre de repos des cellules d'ORIENTATION (PH-ORI), qui souffre du
+    MEME defaut : `physroom-orient` (:1231-1237) ecrit le quaternion SANS rampe — sauts d'ancre
+    de 45 a 135 deg en une frame, 66 frontieres par course — et la cellule ne laisse que
+    ORIS=60 frames (1,00 s) de repos avant ORIM=30 frames de mesure, la ou la stabilisation
+    mesuree demande 1,7 a 2,5 s. Ce sont les cellules qui portent §10/§11/§12/§13.
+    **Non traite ici volontairement** : le faire dans le meme cycle confondrait l'attribution de
+    P3/P4 avec un deplacement de §10-§13. C'est le travail PRE-SPECIFIE du cycle suivant.
+    Reserve supplementaire : `PHYSANROT` n'est PAS emis dans PH-ORI, donc ces 66 sauts ne sont
+    mesures par RIEN aujourd'hui — l'emetteur manquant est nomme ici.
+  - il ne rend PAS le niveau de qualite reellement discriminant. `substeps`, `iters`, `collide`
+    et `classmask` restent MORTS (aucun appelant), et les trois niveaux du menu restent
+    indiscernables dans le solveur. Seul `fixedhz` recoit un lecteur.
+  - il ne generalise PAS `kds` : `(if (= ns 2) sqrt(kd) (sqrt (sqrt kd)))` code en dur `ns` dans
+    {2,4}. C'est pour cela que `nsf` est BORNE A 4 : au-dela, la retenue par sous-pas serait
+    fausse. Le plafond est donc un aveu, pas un reglage, et il est ecrit ici.
+  - il ne donne PAS de site a `HardImpactSubstepsLo = 3` (§37) et ne rend pas l'adaptativite
+    reelle : `ns` vaut 4 en permanence.
+  - il ne met pas le mur median dans le mandataire de collision ([NOTE-582], dette toujours due).
+  - il ne touche pas au mur de FORCE de §21, n'arme pas `anch` (§31), ne touche pas `medw`.
