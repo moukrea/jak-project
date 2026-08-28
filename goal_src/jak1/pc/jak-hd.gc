@@ -601,17 +601,40 @@
          ;; DEFECT 6 (owner 2026-08-04, cutscene ghost): mirror the driver's VISIBILITY every frame.
          ;; Cutscenes (and the damage-invulnerability blink) hide the driver via (draw-status hidden);
          ;; without mirroring, the companion keeps submitting its last pose — a frozen HD character
-         ;; visible in movies. Copy ONLY the hidden bit (sidekick copies the whole status wholesale —
-         ;; we must not inherit skip-bones/no-skeleton-update, which stay ours). While hidden the
-         ;; companion stops submitting -> Merc2's per-pid suppression TTL drains in ~2 frames
-         ;; (TTL 32, 16 Merc2 render calls per frame) -> stock behavior for whatever the scene
-         ;; actually draws.
-         (let ((th (if (logtest? (-> drv draw status) (draw-status hidden)) 1 0))
+         ;; visible in movies. While blocked the companion stops submitting -> Merc2's per-pid
+         ;; suppression TTL drains in ~2 frames (TTL 32, 16 Merc2 render calls per frame) -> stock
+         ;; behavior for whatever the scene actually draws.
+         ;;
+         ;; Gfirstperson-hd-hide (owner 2026-08-28: « en caméra première personne on se retrouve,
+         ;; quand on utilise les modèles HD, à l'intérieur de la tête de Jak, et on voit aussi le
+         ;; modèle HD de Daxter... les masquer comme avec les modèles originaux »). The bug was that
+         ;; this mirror READ only `hidden`, while the stock first-person masking does not use
+         ;; `hidden` at all:
+         ;;   target2.gc:390  (target-look-around :code) and :466 (target-billy-game :code) call
+         ;;                   (ja-channel-set! 0), which nulls root-channel 0 frame-group
+         ;;                   (process-drawable.gc:502) and zeroes active-channels (:499);
+         ;;   process-drawable.gc:642 (evaluate-joint-control, reached from ja-post :654) then raises
+         ;;                   (draw-status no-anim) on the target;
+         ;;   drawable.gc:448 (dma-add-process-drawable) rejects on the MASK
+         ;;                   (hidden no-anim no-skeleton-update) — so stock Jak is never submitted;
+         ;;   sidekick.gc:100 copies the target's whole draw status, so stock Daxter follows.
+         ;; Reading a single bit of a three-bit gate let both HD companions keep submitting while
+         ;; their stock drivers were already gone. Read the two "do not draw me" bits the target
+         ;; actually carries, and keep ACTING on `hidden` alone — `no-skeleton-update` stays out of
+         ;; it on purpose, it is the companion's OWN engine bit (cleared below every frame because
+         ;; this :post bypasses ja-post), and inheriting it would re-latch the M1 invisibility.
+         ;; One site covers all four models: dax-hd's driver IS the sidekick, already no-anim.
+         (let ((th (if (logtest? (-> drv draw status) (draw-status hidden no-anim)) 1 0))
                (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
-           ;; device-readable proof of the mirror (defect 6): log each transition, capped.
+           ;; device-readable proof of the mirror (defect 6 + Gfirstperson-hd-hide): log each
+           ;; transition and WHICH driver bit caused it, capped.
            (when (and (!= th wh) (< (-> self dbg-mirror-logs) 40))
              (+! (-> self dbg-mirror-logs) 1)
-             (format 0 "[JAK-HD] mirror hidden=~D~%" th))
+             (format 0 "[JAK-HD] mirror entry=~D blocked=~D hid=~D noanim=~D~%"
+                     (-> self entry)
+                     th
+                     (if (logtest? (-> drv draw status) (draw-status hidden)) 1 0)
+                     (if (logtest? (-> drv draw status) (draw-status no-anim)) 1 0)))
            (if (nonzero? th)
              (logior! (-> self draw status) (draw-status hidden))
              (logclear! (-> self draw status) (draw-status hidden))))
