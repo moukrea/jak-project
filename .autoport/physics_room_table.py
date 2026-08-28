@@ -4345,6 +4345,35 @@ def _spec1011_livree_block(A, txt):
            or 'LECTURE HORS DEFAUT' in l or 'CONTROLE DE MONTAGE' in l:
             A('ROOM-SPEC1011-LIVREE: ' + l.replace('C124-SHAPE: ', ''))
     _spec1011_estim_header(A)
+    # ---- LE DIVISEUR DE §10/§11 `out`, LU DANS LA TRACE ET PAS SUPPOSE (cycle 144) ----------
+    # `feedback_channel_measured_by_effect_is_not_channel_proven_read` : quand l'effet est absent,
+    # « le modele est faux » et « le parseur a rendu zero » sont INDISTINGUABLES. Le moteur publie
+    # donc, une fois par chaine au chargement, la part de chair qu'il a REELLEMENT lue dans
+    # `comw=` (`PHYSGRADSET ... cws=`), et c'est ce nombre — pas une valeur recopiee ici — qui
+    # sert a reconstruire la commande d'ORGANE a cote de la commande PAR MAILLON.
+    # NATURE : fraction de masse de peau, sans dimension. LECTURE HORS DEFAUT : 1.0000 = canal
+    # absent, l'operateur du moteur est alors l'IDENTITE AU BIT.
+    _cwsi = dict((int(m.group(1)), float(m.group(2)))
+                 for m in re.finditer(r'PHYSGRADSET c=(\d+).*?cws=([-\d.]+)', txt))
+    _cws = dict((n, _cwsi[i]) for i, n in enumerate(_shape.CHAINS) if i in _cwsi)
+    if _cws:
+        A('ROOM-SPEC1011-LIVREE: DIVISEUR D\'ORGANE LU DANS LA TRACE (`PHYSGRADSET cws=`, depose'
+          ' par le parseur depuis `comw=`) : %s'
+          % ' · '.join('%s %.4f' % (n, v) for n, v in sorted(_cws.items())))
+        A('ROOM-SPEC1011-LIVREE:   Les cles `SupineWidthScale`/`HangingWidthScale` sont des'
+          ' echelles d\'ORGANE ; le tenseur les applique PAR MAILLON et seule cette fraction de'
+          ' la chair le suit. La colonne COMMANDEE porte la commande PAR MAILLON (ce que le'
+          ' moteur ecrit dans `*phys-dfs*`) ; `ORGANE` porte `1 + (COMMANDEE-1).cws`, la grandeur'
+          ' que §10 l.166 et §11 l.181 NOMMENT. Les deux sont publiees : une seule serait un'
+          ' FACTEUR de l\'operateur presente comme l\'operateur.')
+        if all(abs(v - 1.0) < 1e-6 for v in _cws.values()):
+            A('ROOM-SPEC1011-LIVREE:   cws=1.0000 PARTOUT — le parseur n\'a PAS rendu `comw=` et'
+              ' l\'operateur d\'organe est l\'identite. Aucun verdict `out` de ce bloc ne dit quoi'
+              ' que ce soit du correctif du cycle 144.')
+    else:
+        A('ROOM-SPEC1011-LIVREE: DIVISEUR D\'ORGANE ABSENT DE LA TRACE (aucune ligne'
+          ' `PHYSGRADSET ... cws=`) — la colonne ORGANE n\'est pas publiee, et l\'operateur du'
+          ' moteur n\'est PAS prouve lu par cette course.')
     _b3 = (lambda v, lo, hi: 'SOUS' if v < lo else ('DANS' if v <= hi else 'AU-DESSUS'))
     A('ROOM-SPEC1011-LIVREE: %-8s %-8s §%-3s %-4s | DECILES  MAX-MIN  ECART-TYPE |'
       ' COMMANDEE rendement |  bande        marge   VERDICT SUR  verdict'
@@ -4403,6 +4432,14 @@ def _spec1011_livree_block(A, txt):
                     ' SIGNEE — le facteur cos(ang) n\'est pas calcule ici]')
         elif ax in ('out', 'up') and not _arb:
             why += '  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]'
+        # L'OPERATEUR APPLIQUE A DEUX BOUTS, ET LES DEUX SE PUBLIENT (cycle 144). `cmd` est ce que
+        # le moteur ecrit dans `*phys-dfs*`, donc la commande PAR MAILLON ; la grandeur que la
+        # section nomme est celle de l'ORGANE. Publier la premiere seule serait publier un FACTEUR
+        # de l'operateur a la place de l'operateur (`feedback_published_line_is_half_the_applied_operator`).
+        if ax == 'out' and cmd and cn in _cws:
+            _org = 1.0 + (cmd - 1.0) * _cws[cn]
+            why += ('  [ORGANE commande %.4f = 1 + (%.4f-1)x%.4f — la grandeur que la section'
+                    ' NOMME ; rendement d\'organe %.4f]' % (_org, cmd, _cws[cn], val / _org))
         clause.setdefault((sec, ax), []).append(vfin)
         if cmd:
             ys.append(abs(val / cmd - 1.0))
@@ -4424,6 +4461,61 @@ def _spec1011_livree_block(A, txt):
       % (' '.join('%s=%d' % (t, _v.count(t))
                   for t in ('SOUS', 'DANS', 'AU-DESSUS', 'SANS VERDICT')),
          'TENUE' if any(t in ('SOUS', 'AU-DESSUS') for t in _v) else 'REFUTEE'))
+    # ---- §8, REBRANCHEE SUR L'ORGANE LIVRE (cycle 144) -------------------------------------
+    # LA CLAUSE NUMERIQUE DE §8 ETAIT UN MIROIR, ET LE TABLEAU LE DISAIT LUI-MEME. `ROOM-SPEC8`
+    # lit le determinant du tenseur COMMANDE (`PHYSDFMA`) ; ce determinant etait force a 1 par la
+    # racine cubique de `cvn` (jak-hd-physics.gc), donc 390 lectures dans [0.999900 ; 1.000000] —
+    # l'instrument republiait sa cible, et la clause etait exclue des comptes depuis le
+    # 2026-08-22 22:50. La DIRECTIVE du 2026-08-23 16:00 en fait la PRIORITE 1 : « leur verdict
+    # doit se mesurer contre une grandeur INDEPENDANTE de l'entree du solveur ».
+    # LA GRANDEUR INDEPENDANTE EST DEJA LA : le produit des trois axes de la lecture DECILES, qui
+    # se lit sur le nuage MONDE de la peau LIVREE et pas sur ce qu'on injecte. Aucune construction
+    # nouvelle — la meme, deja arbitree, qui rend les verdicts de §10/§11.
+    # NATURE : rapport de volumes, sans dimension (1.0 = pose d'auteur). REPERE : nuage MONDE,
+    # invariant par rotation et par translation. LECTURE HORS DEFAUT : le produit des trois
+    # rapports i=9/i=0, publie ci-dessous comme plancher de bruit.
+    # RESERVE PUBLIEE AVEC LA GRANDEUR, PAS EN NOTE : un produit de trois ETENDUES n'est pas une
+    # integrale de volume ; il ne vaut que si la deformation est diagonale dans ce triedre. Et la
+    # jambe `fwd` de §10 porte un estimateur declare NON ARBITRE (il manque le cos(ang) de la
+    # saillie signee), donc les cellules §10 heritent de ce trou : elles sont publiees en
+    # DIAGNOSTIC, jamais en verdict.
+    A('ROOM-SPEC8-LIVREE: --- SPEC 8, LA CLAUSE DE VOLUME, LUE SUR L\'ORGANE LIVRE ---')
+    A('ROOM-SPEC8-LIVREE: « Normal movement: 98-101 %% of neutral volume » (l.136-146). Bande'
+      ' 0.98-1.01 ; transitoire 0.96-1.02.')
+    A('ROOM-SPEC8-LIVREE: GRANDEUR : produit des trois axes de la lecture DECILES (fwd x out x'
+      ' up), sur le nuage MONDE de la peau livree — INDEPENDANTE de l\'entree du solveur, a la'
+      ' difference du determinant de `ROOM-SPEC8` qui est force a 1 par construction.')
+    A('ROOM-SPEC8-LIVREE: RESERVE : un produit de trois etendues n\'est pas une integrale de'
+      ' volume ; il suppose la deformation diagonale dans ce triedre. Les cellules §10 heritent'
+      ' du trou declare de leur jambe `fwd` (cos(ang) non calcule) -> DIAGNOSTIC, pas verdict.')
+    _v8 = []
+    for _cn in sorted(_shape.CHAINS):
+        for _lbl in ('w>0.00', 'w>=0.25'):
+            for _sec in ('10', '11'):
+                _d3 = [rows.get((_cn, _lbl, _sec, _a), (None,) * 5)[4]
+                       for _a in ('fwd', 'out', 'up')]
+                if any(x is None for x in _d3):
+                    continue
+                _pv = _d3[0] * _d3[1] * _d3[2]
+                _vd8 = _b3(_pv, 0.98, 1.01)
+                _tr8 = _b3(_pv, 0.96, 1.02)
+                _st = 'DIAGNOSTIC (jambe fwd non arbitree)' if _sec == '10' else _vd8
+                if _sec == '11':
+                    _v8.append(_vd8)
+                A('ROOM-SPEC8-LIVREE: %-8s %-8s §%-3s fwd %.4f x out %.4f x up %.4f = %.4f  |'
+                  ' normale %-9s transitoire %-9s -> %s'
+                  % (_cn, _lbl, _sec, _d3[0], _d3[1], _d3[2], _pv, _vd8, _tr8, _st))
+    if _v8:
+        A('ROOM-SPEC8-LIVREE: VERDICT DE LA CLAUSE NUMERIQUE, sur les %d cellules §11 (les seules'
+          ' dont les trois jambes portent un estimateur arbitre) : %s -> %s'
+          % (len(_v8), ' '.join('%s=%d' % (t, _v8.count(t))
+                                for t in ('SOUS', 'DANS', 'AU-DESSUS')),
+             'DANS' if set(_v8) == {'DANS'} else 'HORS BANDE'))
+        A('ROOM-SPEC8-LIVREE: CE QUE CA CHANGE POUR LE REGISTRE : la clause numerique de §8 cesse'
+          ' d\'etre TAUTOLOGIQUE. Elle etait exclue des comptes parce qu\'elle republiait une'
+          ' constante ; elle porte desormais une mesure, dans un sens ou dans l\'autre.')
+    else:
+        A('ROOM-SPEC8-LIVREE: SANS VERDICT — aucune cellule ne porte ses trois axes.')
     A('ROOM-SPEC1011-LIVREE: --- CE QUE CHAQUE CLAUSE RECOIT COMME VERDICT DE REGISTRE ---')
     for sec, ax, nom in (('10', 'fwd', 'Forward projection -25 a -35 %'),
                          ('10', 'out', 'Width +18 a +28 %'),

@@ -224,6 +224,8 @@
 (define *phys-gr*   (new 'global 'array 'float (* PHYS-SC 3)))
 (define *phys-dfon* (new 'global 'array 'int32 PHYS-SC))   ;; 1 = canal de deformation arme
 (define *phys-dfdet* (new 'global 'array 'float PHYS-SC))  ;; §8 : det de l'echelle appliquee
+;; [NOTE-585] SPEC 10 l.166 / SPEC 11 l.181 — LA PART DE CHAIR QUE LA CHAINE PILOTE, `SOMME comw`, ET POURQUOI ELLE DIVISE UNE ECHELLE DE LARGEUR. Les cles `SupineWidthScale`/`HangingWidthScale` sont des echelles d'ORGANE : les deux sections decrivent le SEIN, pas un maillon. Le tenseur les applique PAR MAILLON, et la chair ancree au torse ne recoit RIEN de lui. Identite du melange, avec `moyenne_comw(grw) = 1` par la normalisation de :699 : organe = (1 - SOMME comw).1 + SOMME comw.(1 + grw.(D-1)) = 1 + SOMME comw.(D-1). L'organe ne recoit donc que `f = SOMME comw` de ce qu'on commande — mesure au cycle 143 sur six cellules independantes de l'axe lateral (f = 0.5547/0.5685/0.5783/0.5561 sur chestL, accord a 1.3 % avec `comw=` ; 0.6038/0.6422 sur chestR §10 ; les deux cellules chestR §11 REFUSENT le modele a 0.9350/0.8565 et sont publiees comme telles). NATURE : une fraction de masse de peau, sans dimension. SOURCE : `comw=` du fichier livre, une MESURE du mesh — pas une cle de preset, donc aucun canal fabrique pour une cle-REPONSE. LECTURE HORS DEFAUT : 1.0 (:586), qui rend l'operateur IDENTIQUE AU BIT — canal absent = comportement d'avant. -> jak-hd-physics-NOTES.md
+(define *phys-cws* (new 'global 'array 'float PHYS-SC))
 ;; [NOTE-505] LE MAXIMUM DE FENETRE DES TROIS ECHELLES COMMANDEES. `*phys-dfs*` est un INSTANTANE : `phys-shape` (which 0/1/2) le rend tel quel, donc `PHYSORI2` ne publie que l'echantillon de la frame d'emission et le PIC D'ETABLISSEMENT de la forme n'etait mesure nulle part — inventaire du cycle 119b sur les 200+ types d'enregistrement de la trace. Sans lui, on ne peut pas dire si `HangingTransientLengthMax` (1.30, §11 l.180) mordrait une fois cablee, et un canal dont on ne peut pas montrer qu'il agit est ce que la directive du 2026-08-22 23:00 cherche a eviter. NATURE : maximum de FENETRE, sans dimension (1.0 = pose d'auteur). REPERE : le triedre de §7. FENETRE : la meme que `*phys-rrml*` — remise a zero par le MEME `phys-stats-reset!`, donc les deux sont comparables sans hypothese. LECTURE HORS DEFAUT : 1/1/1. RESERVE QUI SE PUBLIE AVEC LA GRANDEUR : un MAXIMUM est la statistique juste pour une borne SUPERIEURE (la longueur au pendage) ; pour une echelle qui DIMINUE (projection supine 0.70, largeur prone 0.90) l'extreme pertinent est le MINIMUM et ce cliquet ne le porte pas.
 (define *phys-dfsm* (new 'global 'array 'float (* PHYS-SC 3)))
 ;; [NOTE-508] SPEC 11 — LE SECOND ORDRE DU CANAL DE FORME. `sds` = les trois echelles APRES memoire (etat), `sdv` leur vitesse. Sans lui les echelles sautent a leur cible et le « transient settling peak ~+30% » de §11 (l.180) est structurellement impossible. NATURE : sans dimension (1.0 = pose d'auteur). REPERE : le triedre de §7. LECTURE HORS DEFAUT : 1/1/1, POINT FIXE — inerte au repos par algebre, pas par reglage. -> jak-hd-physics-NOTES.md
@@ -583,7 +585,7 @@
                       (set! (-> *phys-axsep* (+ (* sc 3) ii)) 0.0))
                     (set-vector! (-> *phys-sepv* sc) 0.0 0.0 0.0 0.0)
                     ;; [NOTE-278] SPEC 37 — « rebase on teleportation / level transition ». Un slot reutilise -> jak-hd-physics-NOTES.md
-                    (set! (-> *phys-fok* sc) 0) (set! (-> *phys-dfon* sc) 0) (set! (-> *phys-dfdet* sc) 1.0)
+                    (set! (-> *phys-fok* sc) 0) (set! (-> *phys-dfon* sc) 0) (set! (-> *phys-dfdet* sc) 1.0) (set! (-> *phys-cws* sc) 1.0)  ;; [NOTE-585] `cws=1` = canal absent = operateur IDENTITE au bit
                     (set! (-> *phys-twok* sc) 0) (set! (-> *phys-tw* sc) 0.0) (set! (-> *phys-twv* sc) 0.0)
                     (set! (-> *phys-twa* sc) 0.0) (set! (-> *phys-twm* sc) 0.0) (set! (-> *phys-sec* sc) 0.0)
                     (set! (-> *phys-secv* sc) 0.0) (set! (-> *phys-secm* sc) 0.0) (set! (-> *phys-secr* sc) 0.0)
@@ -697,7 +699,8 @@
                       (let* ((gb (* sc PHYS-PSET-N)) (pw (* 0.5 (+ (-> *phys-pset* (+ gb 27)) (-> *phys-pset* (+ gb 28))))) (zs 0.0) (ss 0.0))
                         (dotimes (l PHYS-LINKS) (let* ((li (+ (* sc PHYS-LINKS) l)) (r0 (-> *phys-spr* li)) (rr (fmax 0.000001 r0)) (gg 1.0) (ff pw) (sq rr) (th 1.0)) (dotimes (ii 4) (when (>= ff 1.0) (set! gg (* gg rr)) (set! ff (- ff 1.0)))) (dotimes (bi 5) (set! sq (sqrtf sq)) (set! th (* 0.5 th)) (when (>= ff th) (set! gg (* gg sq)) (set! ff (- ff th)))) (when (<= r0 0.0) (set! gg 1.0)) (set! (-> *phys-grw* li) gg) (set! ss (+ ss (-> *phys-comw* li))) (set! zs (+ zs (* (-> *phys-comw* li) gg)))))
                         (dotimes (l PHYS-LINKS) (let ((li (+ (* sc PHYS-LINKS) l))) (set! (-> *phys-grw* li) (if (> zs 0.0) (* (-> *phys-grw* li) (/ ss zs)) 1.0))))
-                        (format 0 "[HD-PHYS] PHYSGRADSET c=~D p=~f w0=~f w1=~f~%" c pw (-> *phys-grw* (* sc PHYS-LINKS)) (-> *phys-grw* (+ (* sc PHYS-LINKS) 1))))
+                        (set! (-> *phys-cws* sc) (if (> ss 0.05) ss 1.0))  ;; [NOTE-585] la part de chair PILOTEE, telle que le parseur l'a rendue — publiee ci-dessous pour que « le modele est faux » et « le parseur a rendu zero » ne soient pas confondus
+                        (format 0 "[HD-PHYS] PHYSGRADSET c=~D p=~f w0=~f w1=~f cws=~f~%" c pw (-> *phys-grw* (* sc PHYS-LINKS)) (-> *phys-grw* (+ (* sc PHYS-LINKS) 1)) (-> *phys-cws* sc)))
                       (when (> (-> *phys-nlink* sc) 0)
                         (+! armed 1)
                         (+! links (-> *phys-nlink* sc)))))
@@ -3592,7 +3595,9 @@
                                         (- 0.0 (phys-softmin (- 0.0 sm0) (-> *phys-pset* (+ pb 9))))))
                                  ;; [NOTE-433] SPEC 36 s'applique a l'EPAISSEUR locale et conserve le volume : -> jak-hd-physics-NOTES.md
                                  (sqz (sqrtf (fmax 0.0001 (+ 1.0 smc))))
-                                 (sx1 (* cvn (/ sxd sqz)))
+                                 ;; [NOTE-585] SPEC 10 l.166 / SPEC 11 l.181 — LA LARGEUR EST UNE ECHELLE D'ORGANE ; ELLE EST COMMANDEE PAR MAILLON, DONC ELLE SE DIVISE PAR LA PART DE CHAIR PILOTEE. APRES `cvn` ET PAS AVANT : applique avant, la racine cubique de conservation de volume redistribuerait l'amplification sur les DEUX autres axes, ce qui deplacerait `fwd` (ou vivent `lyield` et la seule clause DANS de §11) et `up` ; applique ici, `sy1` et `sz1` sont INCHANGES AU BIT. UN SEUL AXE : sur `fwd` le rendement mesure vaut 1.11-1.19 (l'etage RIGIDE y contribue, `lyield` le corrige deja) et sur `up` il n'existe AUCUNE loi (f de -0.304 a +1.687, le signe s'inverse). INERTE A LA POSE D'AUTEUR PAR ALGEBRE : debout les trois echelles valent 1.0 et `1 + (1-1)/f = 1`. -> jak-hd-physics-NOTES.md
+                                 (sxw (* cvn (/ sxd sqz)))
+                                 (sx1 (+ 1.0 (/ (- sxw 1.0) (-> *phys-cws* sc))))
                                  (sy1 (* cvn (/ syd sqz)))
                                  (sz1 (* cvn (* szd (+ 1.0 smc)))))
                             (set! (-> *phys-secv* sc) sv2)
@@ -3613,7 +3618,7 @@
                             (set! (-> *phys-dfs* (+ gb 2)) sz1)
                             ;; [NOTE-535] LES MEMES ECHELLES, MAIS SANS MEMOIRE : cible de gravite directe au lieu de l'etat du second ordre de §11, meme cube-root de conservation de volume, meme `sqz`/`smc`. Le VOLUME DE COLLISION les suit ; le rendu suit les autres. -> jak-hd-physics-NOTES.md
                             (let* ((dq (* sx0 (* sy0 sz0))) (p1 (- 1.0 (/ (- 1.0 dq) 3.0))) (p2 (- p1 (/ (- (* p1 (* p1 p1)) dq) (fmax 0.0001 (* 3.0 (* p1 p1)))))) (cq (/ 1.0 (fmax 0.0001 p2))))
-                              (set! (-> *phys-dfsq* gb) (* cq (/ sx0 sqz))) (set! (-> *phys-dfsq* (+ gb 1)) (* cq (/ sy0 sqz))) (set! (-> *phys-dfsq* (+ gb 2)) (* cq (* sz0 (+ 1.0 smc)))))
+                              (set! (-> *phys-dfsq* gb) (+ 1.0 (/ (- (* cq (/ sx0 sqz)) 1.0) (-> *phys-cws* sc)))) (set! (-> *phys-dfsq* (+ gb 1)) (* cq (/ sy0 sqz))) (set! (-> *phys-dfsq* (+ gb 2)) (* cq (* sz0 (+ 1.0 smc)))))  ;; [NOTE-585] LE VOLUME DE COLLISION SUIT LA MEME LARGEUR D'ORGANE QUE LA PEAU : les laisser diverger ferait deborder la chair hors de son propre mandataire de collision
                             (when (> sx1 (-> *phys-dfsm* gb)) (set! (-> *phys-dfsm* gb) sx1))
                             (when (> sy1 (-> *phys-dfsm* (+ gb 1))) (set! (-> *phys-dfsm* (+ gb 1)) sy1))
                             (when (> sz1 (-> *phys-dfsm* (+ gb 2))) (set! (-> *phys-dfsm* (+ gb 2)) sz1))

@@ -11148,3 +11148,91 @@ publies de §7 sont inchanges par construction.
 
 **[NOTE-67] et [NOTE-68] restent PERIMEES** ([NOTE-408]) et sont maintenant aussi CONTREDITES par
 le code : ne pas les relire comme des references.
+
+---
+
+## [NOTE-585] LA LARGEUR DE §10 ET §11 EST UNE ECHELLE D'ORGANE, COMMANDEE PAR MAILLON — LE DIVISEUR ETAIT DEJA DANS LA DONNEE LIVREE
+
+**LE FAIT, MESURE AU CYCLE 143 ET PAS SUPPOSE ICI.** `SupineWidthScale` (§10 l.166) et
+`HangingWidthScale` (§11 l.181) decrivent **le sein**, pas un maillon : les deux sections parlent
+de la largeur de l'ORGANE. Le moteur depose ces cles dans `*phys-dfs*` et le tenseur les applique
+**par maillon**. Or la chair ancree au torse ne recoit RIEN du tenseur — elle est pesee sur
+`chest`, qui est hors de la chaine.
+
+Identite du melange, avec `moyenne_comw(grw) = 1` par la normalisation de `jak-hd-physics.gc:699`
+(`grw <- grw . ss/zs`, donc `SOMME comw.grw = SOMME comw`) :
+
+    organe = (1 - SOMME comw) . 1  +  SOMME comw . (1 + grw.(D - 1))
+           = 1 + SOMME comw . (D - 1)
+
+**L'organe ne recoit donc que `f = SOMME comw` de ce qu'on commande.** Le fichier livre le donne
+sans qu'aucune cle de parseur soit ajoutee :
+
+    recharged_assets/physics_chains.txt:102   chestL  comw=0.3266,0.2449  ->  0.5715
+    recharged_assets/physics_chains.txt:205   chestR  comw=0.3581,0.1871  ->  0.5452
+
+Et le cycle 143 l'a MESURE sur la peau livree, `f = (livree - 1)/(commandee - 1)`, sur six
+cellules independantes de l'axe lateral :
+
+    chestL  §10 0.5547 / 0.5685   §11 0.5783 / 0.5561    accord a 1.3 % avec `comw=`
+    chestR  §10 0.6038 / 0.6422                          accord a 11-18 %
+    chestR  §11 0.9350 / 0.8565                          REFUSENT le modele — publiees comme telles
+
+**LE CORRECTIF.** `s_maillon = 1 + (S_organe - 1) / f`. Zero cle ajoutee : `comw=` est une MESURE
+du mesh, pas une cle du preset — la DIRECTIVE du 2026-08-23 16:00 interdit de fabriquer un canal
+pour une cle-REPONSE, et celle-ci n'en est pas une.
+
+**POURQUOI UN SEUL AXE, ET POURQUOI APRES `cvn`.**
+
+  - **`fwd` en est exclu** : le rendement mesure y vaut 1.11 a 1.19, PAS `f`. L'etage RIGIDE de la
+    chaine y contribue — les maillons s'ecartent de la racine et allongent l'organe en plus du
+    tenseur — et c'est `lyield` (cycle 136) qui corrige ce double compte. Diviser `fwd` par 0.57
+    ferait exploser §11 longueur, aujourd'hui DANS a 1.2578/1.2533.
+  - **`up` en est exclu** : il n'y existe AUCUNE loi. `f` va de **-0.304 a +1.687** et le signe
+    s'inverse d'une cellule a l'autre. Une correction posee la serait un ajustement, pas une
+    identite.
+  - **APRES `cvn` et pas avant** : `cvn` est la racine cubique qui force `sx1.sy1.sz1 = 1`.
+    Applique AVANT, le correctif verrait son amplification redistribuee sur les deux autres axes
+    (division par la racine cubique), ce qui deplacerait `fwd` — ou vivent `lyield` et la seule
+    clause DANS de §11 — et `up`. Applique APRES, **`sy1` et `sz1` sont inchanges au bit**.
+
+**INERTE A LA POSE D'AUTEUR PAR ALGEBRE, PAS PAR REGLAGE.** Debout, `wdn` domine et les trois
+echelles valent exactement 1.0 ; `1 + (1-1)/f = 1`. C'est la meme forme que le plafond de
+deplacement du cycle 61, et c'est ce qui garantit que §2/§9 (« the final settled geometry shall
+reproduce the original authored standing model », `AdditionalStandingSag = 0`) ne sont pas
+touchees.
+
+**CE QUE LE CORRECTIF EMPORTE AVEC LUI, ET QUI N'EST PAS UN EFFET DE BORD MAIS UN CANAL DEJA
+INDEXE SUR LA MEME GRANDEUR.** Le MUR MEDIAN de §10 ([NOTE-580]) est `mw = medw . max(0, sx - 1)
+. grw` : il lit **la meme case** `*phys-dfs*[sc*3]`. Amplifier la largeur amplifie donc le
+glissement SORTANT dans le meme rapport, sans qu'une ligne de ce canal soit touchee. C'est voulu :
+le mur median existe precisement pour rendre en glissement la penetration que l'elargissement
+lateral ferait franchir au bord medial de la chair.
+
+**LE VOLUME DE COLLISION SUIT.** `*phys-dfsq*` ([NOTE-535]) est le meme tenseur sans le second
+ordre, et c'est lui que le volume de collision porte. Sa composante laterale recoit la meme
+division : laisser la peau et son mandataire de collision diverger en largeur ferait deborder la
+chair hors du volume cense la representer.
+
+**LA PREUVE D'EXECUTION EST PUBLIEE AUX DEUX BOUTS.** `feedback_channel_measured_by_effect_is_not_channel_proven_read` :
+quand l'effet est absent, « le modele est faux » et « le parseur a rendu zero » sont
+indistinguables. Donc le moteur publie, une fois par chaine au chargement, le diviseur qu'il a
+REELLEMENT lu — `PHYSGRADSET c=~D p=~f w0=~f w1=~f cws=~f` — et le tableau publie sur la ligne du
+verdict la commande PAR MAILLON **et** la commande d'ORGANE reconstruite `1 + (cmd-1).cws`.
+Publier la premiere seule serait publier un FACTEUR de l'operateur a la place de l'operateur
+(`feedback_published_line_is_half_the_applied_operator`).
+
+**LECTURE HORS DEFAUT / CANAL ABSENT.** `*phys-cws*` vaut 1.0 a la reinitialisation de slot
+(`:586`) et le chargement ne l'ecrase que si `SOMME comw > 0.05`. Un fichier sans `comw=` rend
+donc `cws=1.0000`, l'operateur est l'IDENTITE AU BIT, et le comportement est celui d'avant ce
+cycle. Le tableau le crie au lieu de le taire : `cws=1.0000 PARTOUT` y est ecrit comme
+« aucun verdict `out` de ce bloc ne dit quoi que ce soit du correctif ».
+
+**LE COUT, DECLARE ET NON MESURE, PARCE QU'AUCUN INSTRUMENT DE CE DOSSIER NE LE LIT.** L'echelle
+par maillon vaut `1 + grw.(D' - 1)`. Au supine, chestL passe de 1.2490/1.1945 a **1.4358/1.3403**
+selon le maillon : la deformation LOCALE de la chair pilotee passe de ~25 % a ~44 %, alors que
+§22 ecrit « absolute stretch clamp: 25% ». `ROOM-RAD elong` ne peut pas le voir — il est derive
+du deplacement RADIAL du COM (`k . rrm`, gain 0.428571), pas du tenseur. **Et ce n'est pas un
+defaut du correctif, c'est le prix du rig** : sa §30 pose `StrongRootFraction = 0.30`, donc 70 %
+de chair pilotee ; on en a 57.2 / 54.5 %. A 70 % la commande par maillon vaudrait 1.3296 au lieu
+de 1.3946. L'exces est exactement l'ancrage de trop.

@@ -1,0 +1,177 @@
+# CYCLE 144 — PREDICTIONS ECRITES AVANT LA MESURE
+# DIRECTIVES vd9e8b66782 · perimetre : poitrine de Keira (chestL, chestR)
+#
+# CE QUI EST ECRIT CE CYCLE : DU CODE MOTEUR. C'est le correctif que le cycle 143 a CHIFFRE et
+# EXPLICITEMENT DIFFERE, et que la DIRECTIVE nomme comme le canal manquant du tenseur.
+#
+# ============================================================================================
+# LE FAIT, DEJA MESURE AU CYCLE 143 — RIEN ICI N'EST UNE HYPOTHESE NOUVELLE
+# ============================================================================================
+# Les echelles de forme du preset (`SupineWidthScale`, `HangingWidthScale`) sont des echelles
+# d'ORGANE : §10 l.166 « Width » et §11 l.181 « Width » decrivent le SEIN, pas un maillon. Le
+# moteur les depose dans `*phys-dfs*` et le tenseur les applique PAR MAILLON. Or la chair ancree
+# au torse ne recoit RIEN du tenseur : seule la fraction `SOMME comw` la suit.
+#
+#   fichier livre recharged_assets/physics_chains.txt:102  chestL comw=0.3266,0.2449  -> 0.5715
+#   fichier livre recharged_assets/physics_chains.txt:205  chestR comw=0.3581,0.1871  -> 0.5452
+#
+# Identite du melange : la chair vue par l'organe vaut
+#     (1 - SOMME comw) . 1  +  SOMME comw . (1 + w_l (D - 1))   avec  moyenne_comw(w_l) = 1
+#   =  1 + SOMME comw . (D - 1).
+# Donc l'organe ne recoit que `f = SOMME comw` de ce qu'on commande. Le cycle 143 l'a mesure sur
+# l'axe LATERAL, `f = (livree - 1) / (commandee - 1)`, sur six cellules independantes :
+#   chestL 0.5547 / 0.5685 / 0.5783 / 0.5561  (accord a 1.3 % avec SOMME comw = 0.5715)
+#   chestR 0.6038 / 0.6422                    (§10 ; accord a 11-18 %)
+#   chestR §11 0.9350 / 0.8565                REFUSENT le modele — publiees comme telles.
+#
+# ============================================================================================
+# LE CORRECTIF, ET POURQUOI IL EST CONFINE A UN SEUL AXE
+# ============================================================================================
+# `s_maillon = 1 + (S_organe - 1) / f`, avec `f = SOMME comw`, deja dans la donnee de chaine.
+# ZERO cle de parseur ajoutee — la DIRECTIVE du 2026-08-23 16:00 interdit de fabriquer un canal
+# pour une cle-REPONSE, et `comw=` n'est pas une cle du preset : c'est une mesure du mesh.
+#
+# APPLIQUE SUR L'AXE LATERAL SEUL (`*phys-dfs*` index 0), APRES la normalisation `cvn` :
+#   - sur `fwd` le rendement mesure vaut 1.11 a 1.19, PAS `f` : l'etage RIGIDE de la chaine y
+#     contribue, et c'est `lyield` (c136) qui le corrige deja. Diviser par 0.57 y ferait exploser
+#     §11 longueur, aujourd'hui DANS a 1.2578/1.2533 ;
+#   - sur `up` il n'existe AUCUNE loi : `f` va de -0.304 a +1.687, le signe s'inverse ;
+#   - APRES `cvn` et non avant : applique avant, la racine cubique de conservation de volume
+#     redistribue l'amplification sur les DEUX autres axes, ce qui deplace `fwd` (ou vivent
+#     `lyield` et la seule clause DANS de §11) et `up`. Applique apres, `sy1` et `sz1` sont
+#     INCHANGES AU BIT.
+# INERTE A LA POSE D'AUTEUR PAR ALGEBRE, PAS PAR REGLAGE : debout, `wdn` domine et les trois
+# echelles valent exactement 1.0 ; `1 + (1-1)/f = 1`. C'est la meme forme que le plafond de
+# deplacement du cycle 61.
+#
+# ============================================================================================
+# P1 — LES HUIT CELLULES DE LARGEUR. LA PREDICTION PRINCIPALE, CHIFFRE PAR CHIFFRE.
+# ============================================================================================
+# Commande d'organe (colonne COMMANDEE d'aujourd'hui) -> commande par maillon apres correctif :
+#   chestL §10 supine  1.2257 -> 1.39493      chestL §11 prone  0.9234 -> 0.86597
+#   chestR §10 supine  1.2057 -> 1.37729      chestR §11 prone  0.9338 -> 0.87858
+# Livree predite = 1 + f_mesure_de_la_cellule x (commande_maillon - 1) :
+#
+#   chaine  front.   §    axe   AUJOURD'HUI  VERDICT      PREDITE   BANDE        VERDICT PREDIT
+#   chestL  w>0.00   §10  out      1.1252    SOUS          1.2191   1.18-1.28    DANS
+#   chestL  w>=0.25  §10  out      1.1283    SOUS          1.2245   1.18-1.28    DANS
+#   chestL  w>0.00   §11  out      0.9557    AU-DESSUS     0.9225   0.87-0.93    DANS
+#   chestL  w>=0.25  §11  out      0.9574    AU-DESSUS     0.9255   0.87-0.93    DANS
+#   chestR  w>0.00   §10  out      1.1242    SOUS          1.2278   1.18-1.28    DANS
+#   chestR  w>=0.25  §10  out      1.1321    SOUS          1.2423   1.18-1.28    DANS
+#   chestR  w>0.00   §11  out      0.9381    AU-DESSUS     0.8865   0.87-0.93    DANS
+#   chestR  w>=0.25  §11  out      0.9433    AU-DESSUS     0.8960   0.87-0.93    DANS
+#
+# FALSIFICATEUR P1 : moins de 6 cellules sur 8 DANS -> le modele de dilution est faux comme
+# OPERATEUR (il ne l'etait que comme DESCRIPTION) et je le publie comme refute, pas comme un
+# reglage a affiner. Les deux cellules chestR §11 sont les plus exposees : leur `f` mesure
+# (0.9350 / 0.8565) refuse deja le modele ; si elles atterrissent SOUS 0.87, c'est ce refus qui
+# parle et il faut le lire, pas le corriger.
+#
+# ============================================================================================
+# P2 — CONFINEMENT. LES DEUX AUTRES AXES NE DOIVENT PAS BOUGER.
+# ============================================================================================
+# `sy1` et `sz1` sont INCHANGES AU BIT (`cvn` est calcule avant le correctif). Les lectures
+# LIVREES sur `fwd` et `up` passent quand meme par le nuage MONDE, donc un residu du 2e ordre
+# est possible : les centroides de decile tries sur `fwd` portent une composante `out` qui ne
+# s'annule pas exactement.
+# PREDIT : |ecart| < 1.0 % sur les 8 cellules `fwd` et les 8 cellules `up`.
+# FALSIFICATEUR P2 : > 2.0 % sur une seule -> le correctif n'est pas confine a son axe et il est
+# retire, pas explique.
+# TEMOINS QUI NE DOIVENT PAS BOUGER : §11 longueur 1.2578/1.2533 · §11 COM 0.2005/0.2032 ·
+# §24 quatre clauses · §25 · §26 · compliance §29 · ROOM-IDLE 0.0002 (inerte par algebre).
+#
+# ============================================================================================
+# P3 — LE MUR MEDIAN DE §10 EST AMPLIFIE PAR LE MEME FACTEUR, ET C'EST VOULU
+# ============================================================================================
+# jak-hd-physics.gc:3893 : `mw = medw . max(0, sx - 1) . grw`. Le mur median est deja INDEXE sur
+# la MEME grandeur que le correctif. Amplifier `sx` amplifie donc le glissement SORTANT dans le
+# meme rapport, sans qu'une ligne de ce canal soit touchee.
+#   chestL supine i=8 l=0 : mur +81.142 u -> ~141.9 u (x1.750)
+#   chestR supine i=8 l=0 : mur +74.578 u -> ~136.4 u (x1.829)
+# CE QUE CA PREDIT SUR LA CLAUSE `sortant` DE §10 (bande 4.00-10.00 % W0, l.169) : le terme
+# DIAGONAL est celui que `SupineWidthScale` pilote et il vaut +2.906 % W0 (chestL) ; multiplie
+# par 1.750 il rend ~+5.09, et l'ORGANE LIVRE (`PHYSORIM`, la lecture qui porte le verdict)
+# passe de +2.969/+3.269/+3.504 a ~+5.2/+5.7/+6.1 % W0 -> DANS.
+# PREDIT : la clause `sortant` de §10 passe SOUS -> DANS sur AU MOINS une chaine.
+# FALSIFICATEUR P3 : si elle reste SOUS des deux cotes alors que les cellules de largeur passent
+# DANS, le mur median ne porte pas la migration qu'on lui attribue et NOTE-580 est a relire.
+# CE QUI NE DOIT PAS BOUGER : la clause `vers thorax` (0.18-0.28 B0), orthogonale au lateral —
+# elle est AU-DESSUS aujourd'hui (0.2957/0.3260/0.3622) et doit le rester a moins de 5 %.
+#
+# ============================================================================================
+# P4 — LE COUT, ET IL EST PUBLIE AVANT D'ETRE MESURE
+# ============================================================================================
+# (a) DETERMINANT DU TENSEUR COMMANDE. Il etait force a 1 par `cvn` — c'est la clause NUMERIQUE
+#     TAUTOLOGIQUE de §8 (390 lectures dans [0.999900 ; 1.000000]). Le correctif la BRISE :
+#       chestL supine 1.13806 · chestR supine 1.14231 · chestL prone 0.93781 · chestR prone 0.94086
+#       debout i=0 : 1.000000 EXACTEMENT (les trois echelles valent 1).
+#     Ce n'est pas une regression : c'est un MIROIR qui tombe. La clause numerique de §8 etait
+#     exclue des comptes depuis le 2026-08-22 22:50 precisement parce qu'elle republiait sa cible.
+#     Elle doit desormais se lire sur l'ORGANE LIVRE (voir P5).
+# (b) DEFORMATION LOCALE DE LA CHAIR PILOTEE. L'echelle par maillon vaut `1 + w_l (D' - 1)` :
+#       chestL supine  l=0 (grw 1.1035) 1.2490 -> 1.4358   l=1 (grw 0.8618) 1.1945 -> 1.3403
+#     Soit une deformation locale laterale de 25 % -> 44 % au supine. §22 l.~300 ecrit
+#     « absolute stretch clamp: 25% ». AUCUN instrument de ce dossier ne lit cette grandeur —
+#     `ROOM-RAD elong` est derive du deplacement RADIAL du COM (`k . rrm`, gain 0.428571) et pas
+#     du tenseur. LE COUT EST DONC DECLARE, PAS MESURE, et c'est la forme honnete : je ne peux
+#     pas dire qu'il est sous le plafond, je dis qu'il ne l'est probablement pas.
+#     ET CE N'EST PAS UN DEFAUT DU CORRECTIF, C'EST LE PRIX DU RIG : sa §30 pose
+#     `StrongRootFraction = 0.30`, donc 70 % de chair pilotee ; on en a 57.15 / 54.52 %. A 70 %
+#     la commande par maillon vaudrait 1.3296 au lieu de 1.3949. L'exces est exactement l'ancrage
+#     de trop.
+# (c) PENETRATION DE PEAU. `skinpen` chestR vaut 0.0871 m contre une ligne de base au repos de
+#     0.0883 : 0.0012 m de marge, 1.4 %. La gate COLLIDE echoue si `skinpen > 0.0883`.
+#     DEUX EFFETS OPPOSES : elargir pousse le bord medial vers le sternum (+), le mur median le
+#     repousse vers l'exterieur dans le MEME rapport (-). Le chemin de mesure de `skinpen`
+#     (jak-hd-physics.gc:2326) transforme les echantillons par `skel bones transform`, qui PORTE
+#     le tenseur (ecrit a :3877) : la grandeur est donc bien exposee au correctif.
+#     PREDIT : `skinpen` reste sous 0.0883 sur les deux chaines, parce que le mur median est
+#     indexe sur la meme grandeur.
+#     FALSIFICATEUR P4c : si la gate COLLIDE echoue, le correctif N'EST PAS livre en l'etat et le
+#     rapport publie le chiffre : « la livraison de la largeur d'organe de §10/§11 coute la marge
+#     de §34 ; les deux ne tiennent pas ensemble a 43 % de chair soudee, et le blocage est le RIG ».
+#     C'est un resultat, pas un echec — et il se publie tel quel.
+#
+# ============================================================================================
+# P5 — §8 EST REBRANCHEE SUR L'ORGANE LIVRE, DANS LE MEME LOT (« en passant »)
+# ============================================================================================
+# Le cycle 143 a ecrit que §8 doit etre rebranchee AVANT le correctif. La DIRECTIVE de l'owner du
+# 2026-08-27 23h interdit un cycle d'instrument isole ; elle autorise explicitement de corriger
+# un instrument EN PASSANT, pendant qu'on ecrit le correctif qu'il mesure. C'est ce qui est fait.
+# LA GRANDEUR : le produit des trois axes de la lecture DECILES — la meme construction, deja
+# arbitree, qui rend les verdicts de §10/§11. Elle est INDEPENDANTE de l'entree du solveur : elle
+# se lit sur le nuage MONDE de la peau livree.
+#   chestL supine w>0.00 : 0.7159 x 1.1252 x 1.0968 = 0.8835   -> aujourd'hui, HORS 0.98-1.01
+#   chestL prone  w>0.00 : 1.2629 x 0.9557 x 0.9920 = 1.1973   -> aujourd'hui, HORS 0.98-1.01
+# PREDIT APRES CORRECTIF : 0.9572 et 1.1557 — les DEUX se rapprochent de 1, parce que c'est la
+# dilution qui les en ecartait.
+# FALSIFICATEUR P5 : si le volume livre S'ELOIGNE de 1 dans plus de 2 cellules sur 8, la lecture
+# de volume par produit d'axes est fausse et elle est retiree, pas defendue.
+# RESERVE PUBLIEE AVEC LA GRANDEUR : un produit de trois etendues n'est pas une integrale de
+# volume ; il ne vaut que si la deformation est diagonale dans ce triedre. Et la jambe `fwd` de
+# §10 porte un estimateur declare NON ARBITRE (il manque le cos(ang) de la saillie signee).
+#
+# ============================================================================================
+# P6 — PREUVE D'EXECUTION DU CANAL, PAS SON EFFET
+# ============================================================================================
+# `feedback_channel_measured_by_effect_is_not_channel_proven_read` : quand l'effet est absent,
+# « le modele est faux » et « le parseur a rendu zero » sont indistinguables. Donc :
+#   - le moteur publie le DIVISEUR qu'il a reellement lu, une fois par chaine au chargement :
+#     `PHYSGRADSET ... cws=<SOMME comw>`. Attendu : cws=0.5715 (c=0) et cws=0.5452 (c=1).
+#   - le tableau publie, SUR LA LIGNE DU VERDICT, la commande d'ORGANE et la commande PAR MAILLON
+#     cote a cote. La premiere se reconstruit exactement : `1 + (dfs_x - 1) . cws`.
+#   - LIGNE DE BASE D'UN CANAL ABSENT : `*phys-cws*` vaut 1.0 quand la chaine n'est pas chargee
+#     (:586), donc l'operateur est l'IDENTITE AU BIT et « canal absent = comportement d'avant ».
+# FALSIFICATEUR P6 : `cws=1.0000` dans la trace -> le parseur n'a pas rendu `comw=`, l'operateur
+# est l'identite, et AUCUN chiffre de P1 a P5 ne vaut quoi que ce soit.
+#
+# ============================================================================================
+# P7 — CE QUE LE LOT NE PEUT PAS FAIRE
+# ============================================================================================
+# Il ne peut pas fabriquer de vert : il remplace une commande d'organe SOUS-RENDUE par la commande
+# qui rend ce que la spec ecrit, et la lecture qui juge est la peau LIVREE, pas l'entree. Les
+# huit cellules peuvent atterrir SOUS aussi bien que DANS. Le test de MIROIR du bloc
+# (`ecart du rendement a 1 > 3 %`) doit rester BRISE : si le rendement tombe a 1.000 partout,
+# c'est que la peau republie l'injection et le bloc entier est suspect.
+# FALSIFICATEUR P7 : rendement median < 3 % apres correctif -> on a fabrique un miroir.
