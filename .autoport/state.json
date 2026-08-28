@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 239,
+  "current_phase_idx": 240,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -234,7 +234,8 @@
     "Gplayability-input-and-loadgate": 1,
     "Gfirstperson-hd-hide": 1,
     "Gkeira-hd-detached-parts": 1,
-    "Gcutscene-reframe": 1
+    "Gcutscene-reframe": 1,
+    "Gfont-urbanist": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1087,7 +1088,7 @@
     "Gprecompute-deterministic-bake": 1787793399.3471632,
     "Gplayability-input-and-loadgate": 1787811833.8953981
   },
-  "last_update": "2026-08-28T15:00:21.869128+00:00",
+  "last_update": "2026-08-28T16:25:34.907807+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
