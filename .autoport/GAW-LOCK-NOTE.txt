@@ -1,0 +1,22 @@
+.autoport/.deploy-in-progress — pourquoi il est encore tenu, et quand il tombe
+
+Le verrou est detenu par une boucle de veille posee par le worker de Gandroid-window-size
+(pid=2894145, `while [ ! -f .autoport/.gaw-release ]; do sleep 20; touch "$LOCK"; done`).
+Il n'a JAMAIS ete efface a la main — registre : `never-clear-a-lock-to-unblock-yourself`,
+ou un `rm -f` avait relache l'auto-constructeur en pleine course et vide out/jak1/obj.
+
+POURQUOI IL EST RESTE TENU APRES LA MESURE. La gate de cloture relance `deploy_verify`,
+qui exige build == APK == appareil. Si l'auto-constructeur repart entre la mesure et la
+cloture, il relie un nouveau libgk.so : l'empreinte locale bouge, l'appareil garde
+l'ancienne, et la gate echoue sur une course de rebatissage — exactement la panne qui a
+coute deux tentatives. Le verrou couvre donc la fenetre mesure -> cloture, pas plus.
+
+POURQUOI IL NE RESTE PAS TENU INDEFINIMENT. Un verrou sans fin est une panne silencieuse
+de la chaine de livraison (DIRECTIVES 2026-08-14 07:10 : 108 minutes sans APK pour
+l'owner). Le jeton `.autoport/.gaw-release` est donc depose automatiquement 45 min apres
+la fin de la sequence ; la boucle de veille sort, le trap retire le verrou, et
+l'auto-constructeur reprend son cycle normal.
+
+A NOTER : la PUBLICATION n'a jamais ete bloquee. `auto_push_builds.sh` ne lit pas ce
+verrou et a publie l'APK corrige a 00:12:49 (md5 e4bbd3cc = celui bati a 00:07:50).
+L'owner a donc deja le build.
