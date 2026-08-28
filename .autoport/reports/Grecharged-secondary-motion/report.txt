@@ -13,6 +13,18 @@ DIRECTIVES vd9e8b66782
 parce que c'est ce que l'owner attend et parce que le reste de ce rapport pourrait en donner une
 autre impression : quatre CLAUSES changent de verdict, et aucune SECTION n'en change.
 
+BREAST-PENETRATION: `meshpen` **0,0610 m** de residu sur la poitrine (plafond epingle 0,0005),
+IDENTIQUE AU BIT au c144 et au c145. `skinpen` 0,0863 (chestR) / 0,0707 (chestL) contre une ligne
+de base au repos de 0,0883 : sous le repos sur les deux chaines, donc la gate COLLIDE passe, et le
+residu se declare tant qu'il n'est pas zero.
+ET CE CYCLE AJOUTE UNE RESERVE SUR CE CHIFFRE, PARCE QU'ELLE EST MESUREE : `meshpen`, `skinpen` et
+tout le bloc `ROOM-SKINPEN-*` sont IDENTIQUES AU BIT entre la course du c145 et celle-ci, alors que
+641 lignes du tableau changent et que le lot a retranche 452,30 B0 cumules d'excursion d'apex.
+Ces trois grandeurs sont donc AVEUGLES au chemin d'ecriture (`com-verdict-is-computed-before-the-
+skeleton-write`, troisieme confirmation) : leur stabilite N'EST PAS une preuve que ce lot ne coute
+rien a la collision. Elle ne prouve que leur propre insensibilite.
+
+
 ## CE QUI A ETE TROUVE, ET IL N'A FALLU AUCUNE COURSE POUR LE TROUVER
 
 `ROOM-SPEC21` publie depuis le cycle 118, dans le MEME bloc, les trois grandeurs et l'identite qui
