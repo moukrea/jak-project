@@ -170,13 +170,17 @@
     (set! *gawin-last-sw* (the int (-> obj framebuffer-scissor-width)))
     (set! *gawin-last-sh* (the int (-> obj framebuffer-scissor-height)))
     ;; ONE logical record, TWO calls: GOAL caps a call at 8 parameters (dest + string + 6).
-    ;; MEASURED on device 2026-08-28 23:18:30.361, and NOT what I first assumed: on Android the
-    ;; GK_STDOUT router flushes once per `format`, so the record arrives as TWO ADJACENT logcat
-    ;; lines under the same tag and the same millisecond --
-    ;;     I/opengoal-gk: GAWIN win=2400x1080 win-asp=2.2222 aspect-ratio=1.3333 scissor=1440x1080
-    ;;     I/opengoal-gk: bars=480/0 auto=#f vis=#f lbox=#t
-    ;; -- while on desktop stdout the two halves concatenate into one line (the first has no ~%).
-    ;; So grep `GAWIN ` for the geometry and ` bars=` for the second half; they pair by timestamp.
+    ;;
+    ;; AND THE SECOND HALF CARRIES NO `GAWIN` TOKEN -- which cost attempt 1 its evidence.
+    ;; The capture script filtered logcat on `GAWIN|GAWIN-HOST|...`, so the geometry line was
+    ;; kept and the `bars=` line was dropped by the filter, silently. The comment that used to
+    ;; sit here quoted a `bars=480/0 auto=#f vis=#f lbox=#t` device line as MEASURED; that line
+    ;; is in no capture file, it was reconstructed. It is withdrawn. What was actually captured
+    ;; on the Redmi (eae4df44, 2400x1080) is exactly these two lines, one per leg:
+    ;;     GAWIN win=2400x1080 win-asp=2.2222 aspect-ratio=1.3333 scissor=1440x1080   (auto OFF)
+    ;;     GAWIN win=2400x1080 win-asp=2.2222 aspect-ratio=2.2222 scissor=2400x1080   (auto ON)
+    ;; and the bar counts that go with them were read off the SCREEN (480/480 and 0/0), not off
+    ;; this line. So: grep BOTH `GAWIN ` and `bars=`; they pair by pid and timestamp.
     (format 0
             "GAWIN win=~Dx~D win-asp=~,,4f aspect-ratio=~,,4f scissor=~Dx~D "
             (-> obj framebuffer-width)

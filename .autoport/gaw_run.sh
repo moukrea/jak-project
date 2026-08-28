@@ -110,7 +110,7 @@ start_logcat(){
   A logcat -G 32M >/dev/null 2>&1 || true
   A logcat -c >/dev/null 2>&1
   ( A logcat -v time '*:V' 2>/dev/null \
-      | grep --line-buffered -aE 'GAWIN|GAWIN-HOST|GAWIN-ZERO|GD1-PCWIN|Fatal signal|F1D-LOADSYNC|A36-STR-DIAG' \
+      | grep --line-buffered -aE 'GAWIN|GAWIN-ZERO|GD1-PCWIN|bars=|Fatal signal|F1D-LOADSYNC|A36-STR-DIAG' \
       >> "$LOG" ) &
   LC_PID=$!
 }
@@ -147,33 +147,32 @@ press x 4
 press down; press down; press down; press down
 press x 5
 
-say "attente de movie=1 (max ${WATCH:-600}s)"
-# Accepte l'ancienne etiquette GD1-PCWIN : la course AVANT tourne sur le build livre,
-# qui publie encore ce nom-la. Sans ca la jambe AVANT ne capturerait jamais.
+say "CINEMATIQUE : capture cadencee (max ${WATCH:-600}s)"
+# POURQUOI LA CADENCE PLUTOT QUE LE BIT. La tentative 1 ne declenchait une capture que
+# quand la trace d'hote lisait deja `movie=1`. Ce bit n'a JAMAIS ete lu a 1 de toute la
+# course, donc zero image utile -- et les 12 fichiers `movie-*.png` qu'elle a laisses
+# sont tous entierement noirs (eclaire=0.000), c'est-a-dire VIDES par construction.
+# Depuis que le clamp d'hote est retire, ce bit ne pilote plus RIEN : il ne reste qu'une
+# ETIQUETTE. On capture donc a intervalle fixe et on ECRIT le bit a cote de chaque image ;
+# c'est l'image qui porte le verdict, l'etiquette qui dit dans quel etat elle a ete prise.
 mov_now(){ grep -aoE '(GAWIN-HOST|GD1-PCWIN) movie=[01]' "$LOG" 2>/dev/null | tail -1 | grep -oE '[01]$'; }
-# Une cinematique COMMENCE par un fondu au noir et un chargement : les premieres
-# secondes de movie=1 rendent une image entierement noire, sur laquelle le comptage de
-# bandes est VIDE par construction (mesure du 2026-08-28 : 12 captures d'affilee a
-# eclaire=0.000). On capture donc TANT QUE movie=1, et on ne s'arrete que quand on a
-# assez d'images REELLEMENT eclairees pour que le compte veuille dire quelque chose.
 NSHOT=0; NLIT=0
+: > "$OUT/$LABEL-movieframes.txt"
 DEADLINE=$(( $(date +%s) + ${WATCH:-600} ))
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
   M=$(mov_now); M=${M:-0}
-  if [ "$M" = "1" ]; then
-    NSHOT=$((NSHOT+1))
-    shot "movie-$NSHOT"
-    if python3 .autoport/gaw_bars.py "$SHOTS/movie-$NSHOT.png" 2>/dev/null | grep -q "verdict=0-BANDE\|verdict=BANDES"; then
-      NLIT=$((NLIT+1)); say "  image eclairee $NLIT/${NEEDLIT:-6}"
-    fi
-    [ "$NLIT" -ge "${NEEDLIT:-6}" ] && break
-    [ "$NSHOT" -ge "${MAXSHOT:-70}" ] && break
-    sleep 2
-  else
-    sleep 2
-  fi
+  NSHOT=$((NSHOT+1))
+  shot "cine-$NSHOT" >/dev/null
+  LINE=$(python3 .autoport/gaw_bars.py "$SHOTS/cine-$NSHOT.png" 2>/dev/null)
+  echo "movie=$M $LINE" >> "$OUT/$LABEL-movieframes.txt"
+  case "$LINE" in
+    *verdict=0-BANDE*|*verdict=BANDES*) NLIT=$((NLIT+1)); say "  image eclairee $NLIT/${NEEDLIT:-8} (movie=$M) ${LINE#*gauche}" ;;
+  esac
+  [ "$NLIT" -ge "${NEEDLIT:-8}" ] && break
+  [ "$NSHOT" -ge "${MAXSHOT:-90}" ] && break
+  sleep 3
 done
-say "captures pendant movie=1 : $NSHOT (dont eclairees : $NLIT)"
+say "captures cinematique : $NSHOT (dont eclairees : $NLIT)"
 
 say "--- lignes GAWIN de la course ---"
 grep -aE 'GAWIN' "$LOG" | tail -40
