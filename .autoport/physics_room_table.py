@@ -1434,12 +1434,20 @@ def _reglim_block(A, txt, names, RGT, LIM):
     # ---- CE QUE LES DEUX LIMITEURS ONT RETIRE SUR LA COURSE, ET LE CRITERE EST DE LA SALLE --
     _m4 = re.search(r'^PHYSLIM4 sat_n=([-\d.e+]+) sat_sum=([-\d.e+]+) stif_n=([-\d.e+]+)',
                     txt, re.M)
-    # CYCLE 148 — LE REGIME AU-DELA DE L'ASYMPTOTE DU MUR DE FORCE, COMPTE A LA SOURCE.
+    # CYCLE 148 — LE REGIME GELE DU MUR DE FORCE, COMPTE A LA SOURCE ET NON PLUS DEDUIT.
+    # `fwsat_n` compte les SOUS-PAS ou le plafond `fmin 0.99` MORD, c'est-a-dire ou le numerateur
+    # de la barriere vaut `kn + 99*cpp` et ou la force de rappel est donc CONSTANTE. Jusqu'ici la
+    # seule mesure de ce regime etait `perr`, un MAXIMUM DE FENETRE : le cycle 93 a retire un
+    # classement bati dessus parce qu'une fenetre dont UNE frame passe le gel y etait comptee
+    # gelee en entier. `fwsat_n` est la grandeur que le cycle 93 declarait manquante — la
+    # FRACTION DE SOUS-PAS dans le regime, et non la fraction de fenetres qui le touchent.
     # NATURE : un COMPTE de sous-pas, pas une longueur. REPERE : aucun (c'est un compteur).
-    # LECTURE QUAND LE DEFAUT EST ABSENT : `fwsat_n = 0` -- aucun sous-pas n'a demande au mur
-    # une force que le continu rend INFINIE, donc la borne de stabilite n'a jamais eu a servir.
-    # C'est la preuve que le CANAL est LU, distincte de la preuve qu'il a un EFFET : sans elle,
-    # « le modele est faux » et « la branche n'a jamais tire » seraient indistinguables.
+    # LECTURE QUAND LE DEFAUT EST ABSENT : `fwsat_n = 0` -- aucun sous-pas n'a atteint le plafond,
+    # donc la force n'a jamais ete constante. C'est la preuve que le CANAL est LU, distincte de la
+    # preuve qu'il a un EFFET : sans elle, « le modele est faux » et « la branche n'a jamais tire »
+    # seraient indistinguables.
+    # SE LIT AVEC `stif_n`, ET LE RAPPORT EST LA GRANDEUR UTILE : `stif_n` compte TOUS les sous-pas
+    # au-dessus du genou, `fwsat_n` le sous-ensemble ou la reponse ne depend plus de son entree.
     _mfw = re.search(r'^PHYSLIM4 .* fwsat_n=([-\d.e+]+)', txt, re.M)
     if not _m4:
         A('ROOM-LIM-RESSORT: `PHYSLIM4` absente de la trace — le critere ecrit par la salle')
@@ -1458,13 +1466,17 @@ def _reglim_block(A, txt, names, RGT, LIM):
             A('   du mur de force n\'est pas mesure, il n\'est donc NI arme NI desarme : inconnu.')
         else:
             _fw = float(_mfw.group(1))
-            A('ROOM-LIM-FWSAT: fwsat_n=%.0f sous-pas ou l\'erreur a atteint l\'asymptote du mur'
+            A('ROOM-LIM-FWSAT: fwsat_n=%.0f sous-pas AU PLAFOND `xr <= 0.99` — la force de rappel'
               % _fw)
-            A('   (%.1f %% des %.0f sous-pas au-dessus du genou). Le mur continu y demande une force'
+            A('   y vaut k2s*(kn + 99*cpp), une CONSTANTE : elle ne depend plus de l\'erreur.')
+            A('   %.1f %% des %.0f sous-pas au-dessus du genou (`stif_n`) sont dans ce regime.'
               % (100.0 * _fw / _fn if _fn > 0 else 0.0, _fn))
-            A('   INFINIE ; le moteur y applique la borne de STABILITE `k2s.mu <= 1` deja ecrite')
-            A('   sur la meme expression, donc une force PROPORTIONNELLE a l\'erreur — et non plus')
-            A('   la CONSTANTE que le plafond `xr <= 0.99` rendait avant le cycle 148.')
+            A('   C\'EST LA GRANDEUR QUE LE CYCLE 93 DECLARAIT MANQUANTE : une fraction de SOUS-PAS,')
+            A('   la ou `perr` n\'offrait qu\'un maximum de fenetre. Le cycle 148 a MESURE ce que')
+            A('   rend le retrait de ce plafond (`mu = ms` au-dela) et le publie comme REFUTE :')
+            A('   apex p50 0.4495 -> 0.4681, pire `perr` 0.6655 -> 0.8879 B0, `meshpen` +82 %/+46 %,')
+            A('   et la fenetre TEMOIN SANS PILOTAGE (chestL r=0) x5,07 (0.0740 -> 0.3751 B0).')
+            A('   Le plafond est donc CONSERVE, et ce compteur reste pour le mesurer.')
         if _sn > 0:
             A('   LES DEUX COMPTES NE SE DIVISENT PAS L\'UN PAR L\'AUTRE — `stif_n` compte des')
             A('   SOUS-PAS et `sat_n` des MORSURES : deux portees differentes ne se rapportent pas')

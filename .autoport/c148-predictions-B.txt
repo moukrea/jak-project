@@ -1,0 +1,44 @@
+CYCLE 148 — JAMBE B : PREDICTIONS ECRITES AVANT LA COURSE DE CONFIRMATION
+DIRECTIVES vd9e8b66782
+=================================================================================================
+
+POURQUOI UNE SECONDE JAMBE. La jambe A (retrait du plafond `fmin 0.99` sur `xr`, specifiee par le
+cycle 147 comme « le lot suivant ») a ete construite, jouee et MESUREE : elle est REFUTEE sur
+sept de ses neuf predictions, et elle degrade §2/§9 (`ROOM-IDLE maxdev` 0,0001 -> 0,0740 B0) et la
+penetration (`meshpen` +82 % / +46 %). Elle est RETIREE. Le moteur revient a la forme du cycle 147,
+avec UNE addition : `fwsat_n` compte desormais les SOUS-PAS ou le plafond `xr <= 0.99` MORD,
+c'est-a-dire ou la force de rappel est CONSTANTE. C'est la grandeur que le cycle 93 a nommee
+manquante (« la FRACTION DE FRAMES au-dela du genou, que ni `perr` ni `pesum` ne portent »).
+
+CE QUE CETTE COURSE DOIT PROUVER : que l'instrument neuf est INERTE sur ce qu'il mesure. Un
+compteur qui deplace la grandeur qu'il compte n'est pas un compteur.
+
+PREDICTIONS
+-----------
+C1  IDENTITE DES TROIS COMPTEURS EXISTANTS, AU CHIFFRE PRES (course c147) :
+    `stif_n` = 51 264 · `sat_n` = 39 625 · `sat_sum` = 1 746 946,5
+    Toute valeur differente veut dire que le `when` ajoute a change le calcul, et le lot tombe.
+
+C2  LE COMPTEUR NEUF TIRE. `fwsat_n` > 0, et je borne : **fwsat_n dans [10 000 ; 45 000]**,
+    soit 20 a 88 % de `stif_n`. Un zero voudrait dire que le plafond ne mord jamais — ce qui
+    contredirait les 83/148 cellules classees GELE sur leur maximum de fenetre.
+
+C3  LA COURSE EST LA MEME. `PHYSAPEX` sur les 372 valeurs : p50 = 0.4495, max = 0.4899,
+    min = 0.2585 (chiffres exacts de la course c147).
+
+C4  LES GATES REVIENNENT A LEUR VALEUR DU CYCLE 147 :
+    `meshpen` chestL 0.0548 · chestR 0.0610 ; `ROOM-IDLE maxdev` 0.0001 ;
+    pire `perr` de `ROOM-REGLIM` 0.6655 B0 ; REGLIM 44 LINEAIRE / 21 GENOU / 83 GELE.
+
+C5  LE TABLEAU EST IDENTIQUE A CELUI DU CYCLE 147, aux seules lignes que le lot touche :
+    l'empreinte md5 de la trace, `ROOM-LIM-RESSORT` et le bloc `ROOM-LIM-FWSAT` (neuf).
+    **PREDIT : au plus 15 lignes differentes sur les ~5 231 du tableau.**
+    C'est le controle d'inertie ; s'il echoue, le compteur n'est pas un compteur.
+
+C6  BUDGET DE LIGNES. 4785 lignes, plafond CLEAN 4800.
+
+CE QUE CETTE JAMBE NE FAIT PAS
+------------------------------
+Elle ne corrige PAS §21 : le mur reste une saturation de FORCE la ou le texte sature un
+DEPLACEMENT, et il reste GELE au-dela de 0,4992 B0. Ce que le cycle 148 apporte sur §21 est une
+MESURE (le compteur) et une ROUTE FERMEE (le retrait du plafond est refute par sa propre course).

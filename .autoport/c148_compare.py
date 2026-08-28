@@ -11,7 +11,7 @@ from collections import Counter
 def load(p):
     return open(p, encoding='utf-8', errors='replace').read().splitlines()
 
-RE_REGLIM = re.compile(r'^ROOM-REGLIM: +(\S+) +(\S+) +(\d+) +(\S+) +([\d.]+) +([\d.]+) +(LINEAIRE|GENOU|GELE)')
+RE_REGLIM = re.compile(r'^ROOM-REGLIM: +(\S+) +(\S+) +(\d+) +(\S+) +([\d.]+) +([\d.]+) +(LINEAIRE|GENOU|GELE|MUR)')
 RE_APEX   = re.compile(r'^ROOM-APEX-REGIME: (\S+) +r= ?(\d+) (\S+) +apex=([\d.]+) B0(.*)$')
 
 def reglim(lines):
@@ -62,8 +62,11 @@ print('=' * 92)
 for tag, L in (('AVANT', A), ('APRES', B)):
     c = Counter(cls for v in reglim(L).values() for _, cls in v)
     tot = sum(c.values())
-    print('P2 %s  REGLIM %3d cellules : %3d LINEAIRE · %3d GENOU · %3d GELE  (%.1f %% gelees)'
-          % (tag, tot, c['LINEAIRE'], c['GENOU'], c['GELE'], 100.0 * c['GELE'] / max(1, tot)))
+    # zone 3 : `GELE` dans le tableau d'AVANT, `MUR` dans celui d'APRES — MEME zone (perr au-dela
+    # de l'asymptote), seul le mecanisme a change, et c'est precisement ce que le lot mesure.
+    z3 = c['GELE'] + c['MUR']
+    print('P2 %s  REGLIM %3d cellules : %3d LINEAIRE · %3d GENOU · %3d zone-3  (%.1f %%)'
+          % (tag, tot, c['LINEAIRE'], c['GENOU'], z3, 100.0 * z3 / max(1, tot)))
 
 # --- P3 : le pire perr --------------------------------------------------------------------
 for tag, L in (('AVANT', A), ('APRES', B)):
@@ -105,7 +108,8 @@ for tag, ap in (('AVANT', aa), ('APRES', ab)):
         if v[1] == 'SANS-BANDE':
             continue
         cls = cls_before.get(k, '?')
-        t[('GELE' if cls == 'GELE' else 'NON-GELE', v[1])] = t.get(('GELE' if cls == 'GELE' else 'NON-GELE', v[1]), 0) + 1
+        z = 'GELE' if cls in ('GELE', 'MUR') else 'NON-GELE'
+        t[(z, v[1])] = t.get((z, v[1]), 0) + 1
     g_up = t.get(('GELE', 'AU-DESSUS'), 0); g_no = t.get(('GELE', 'DANS'), 0) + t.get(('GELE', 'SOUS'), 0)
     n_up = t.get(('NON-GELE', 'AU-DESSUS'), 0); n_no = t.get(('NON-GELE', 'DANS'), 0) + t.get(('NON-GELE', 'SOUS'), 0)
     p = fisher2x2(g_up, g_no, n_up, n_no) if (g_up + g_no) and (n_up + n_no) else float('nan')
@@ -123,7 +127,8 @@ def rega(lines):
             tail = m.group(7)
             v = ('AU-DESSUS' if 'AU-DESSUS' in tail else 'SOUS' if 'SOUS' in tail else
                  'DANS' if 'DANS' in tail else 'SANS-BANDE')
-            cls = ('GELE' if '| GELE' in tail else 'GENOU' if '| GENOU' in tail else
+            cls = ('GELE' if ('| GELE' in tail or '| MUR' in tail) else
+                   'GENOU' if '| GENOU' in tail else
                    'LINEAIRE' if '| LINEAIRE' in tail else '?')
             out[(m.group(1), int(m.group(2)), m.group(3))] = (float(m.group(5)), v, m.group(4), cls, m.group(6))
     return out

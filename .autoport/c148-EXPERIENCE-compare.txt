@@ -1,0 +1,110 @@
+============================================================================================
+CYCLE 148 — AVANT/APRES DU MUR DE FORCE DE §21
+  avant : .autoport/c148-table-AVANT.txt
+  apres : .autoport/c148-EXPERIENCE-table.txt
+============================================================================================
+P2 AVANT  REGLIM 148 cellules :  44 LINEAIRE ·  21 GENOU ·  83 zone-3  (56.1 %)
+P2 APRES  REGLIM 148 cellules :  11 LINEAIRE ·  59 GENOU ·  78 zone-3  (52.7 %)
+P3 AVANT  pire perr = 0.6655 B0  sur ('PH-REG', 'chestR', 11)
+P3 APRES  pire perr = 0.8879 B0  sur ('PH-REGS', 'chestL', 7)
+
+P1/P4  LES CELLULES DE PH-REG, PAR REGIME (classe = celle d'AVANT)
+  chaine    r regime         classe       apexA    apexB     delta   verdict A -> B
+  chestL    0 base           LINEAIRE    0.0740   0.3751  +406.89%   SANS-BANDE -> SANS-BANDE
+  chestR    0 base           LINEAIRE    0.0538   0.0540    +0.37%   SANS-BANDE -> SANS-BANDE
+  chestL    1 jumpA-push     LINEAIRE    0.2701   0.3751   +38.87%   DANS      -> AU-DESSUS
+  chestR    1 jumpA-push     GELE        0.3897   0.3893    -0.10%   AU-DESSUS -> AU-DESSUS
+  chestL    2 jumpA-fly      LINEAIRE    0.3070   0.4054   +32.05%   SANS-BANDE -> SANS-BANDE
+  chestR    2 jumpA-fly      LINEAIRE    0.2495   0.4611   +84.81%   SANS-BANDE -> SANS-BANDE
+  chestL    3 jumpA-land     LINEAIRE    0.1596   0.4438  +178.07%   SOUS      -> AU-DESSUS
+  chestR    3 jumpA-land     GENOU       0.2957   0.3042    +2.87%   SOUS      -> DANS     
+  chestL    4 jumpB-push     LINEAIRE    0.3221   0.3270    +1.52%   DANS      -> DANS     
+  chestR    4 jumpB-push     GELE        0.3613   0.3611    -0.06%   DANS      -> DANS     
+  chestL    5 jumpB-fly      GELE        0.3146   0.4416   +40.37%   SANS-BANDE -> SANS-BANDE
+  chestR    5 jumpB-fly      GENOU       0.2860   0.4592   +60.56%   SANS-BANDE -> SANS-BANDE
+  chestL    6 jumpB-land     LINEAIRE    0.1672   0.1604    -4.07%   SOUS      -> SOUS     
+  chestR    6 jumpB-land     GELE        0.3314   0.4543   +37.09%   SOUS      -> DANS     
+  chestL    7 runA-accel     GELE        0.4177   0.4434    +6.15%   SANS-BANDE -> SANS-BANDE
+  chestR    7 runA-accel     GELE        0.4017   0.4547   +13.19%   SANS-BANDE -> SANS-BANDE
+  chestL    8 runA-brake     GELE        0.3372   0.4800   +42.35%   DANS      -> AU-DESSUS
+  chestR    8 runA-brake     GELE        0.2458   0.4646   +89.02%   SOUS      -> AU-DESSUS
+  chestL    9 yawA           LINEAIRE    0.0815   0.3945  +384.05%   SANS-BANDE -> SANS-BANDE
+  chestR    9 yawA           GENOU       0.3692   0.4534   +22.81%   SANS-BANDE -> SANS-BANDE
+  chestL   10 yawB           LINEAIRE    0.1728   0.4307  +149.25%   SOUS      -> AU-DESSUS
+  chestR   10 yawB           GELE        0.3623   0.4544   +25.42%   AU-DESSUS -> AU-DESSUS
+  chestL   11 pitchA-bend    GELE        0.4292   0.4578    +6.66%   AU-DESSUS -> AU-DESSUS
+  chestR   11 pitchA-bend    GELE        0.4047   0.4416    +9.12%   AU-DESSUS -> AU-DESSUS
+  chestL   12 pitchA-return  GELE        0.4242   0.4515    +6.44%   AU-DESSUS -> AU-DESSUS
+  chestR   12 pitchA-return  GELE        0.4262   0.4551    +6.78%   AU-DESSUS -> AU-DESSUS
+  chestL   13 rollA          GELE        0.3307   0.3822   +15.57%   AU-DESSUS -> AU-DESSUS
+  chestR   13 rollA          GELE        0.4024   0.4544   +12.92%   AU-DESSUS -> AU-DESSUS
+  chestL   14 rollB          GELE        0.3362   0.4185   +24.48%   AU-DESSUS -> AU-DESSUS
+  chestR   14 rollB          GELE        0.4085   0.4783   +17.09%   AU-DESSUS -> AU-DESSUS
+  -> 0 cellule(s) identique(s) a 5e-5, 30 changee(s)
+
+  CROISEMENT AVANT (classe du mur mesuree AVANT le lot) :
+    GELE     : 10 AU-DESSUS ·  4 autre
+    NON GELE :  0 AU-DESSUS ·  6 autre     Fisher exact bilateral p = 0.0108
+
+  CROISEMENT APRES (classe du mur mesuree AVANT le lot) :
+    GELE     : 12 AU-DESSUS ·  2 autre
+    NON GELE :  3 AU-DESSUS ·  3 autre     Fisher exact bilateral p = 0.1313
+
+REGA  LA POSE DONT LE MIROIR EST VALIDE — LES CELLULES QUI PORTENT §18/§19/§20
+  chaine    r sgn   sec  bande       classe A     apexA    apexB     delta   verdict A -> B
+  chestL   10 +1    §18  0.20-0.30   GELE        0.3827   0.4500   +17.59%   AU-DESSUS -> AU-DESSUS
+  chestL   10 -1    §18  0.20-0.30   GELE        0.4086   0.4343    +6.29%   AU-DESSUS -> AU-DESSUS
+  chestR   10 +1    §18  0.20-0.30   LINEAIRE    0.1068   0.4654  +335.77%   SOUS      -> AU-DESSUS
+  chestR   10 -1    §18  0.20-0.30   LINEAIRE    0.1629   0.1621    -0.49%   SOUS      -> SOUS     
+  chestL   11 +1    §19  0.30-0.40   GELE        0.4853   0.4024   -17.08%   AU-DESSUS -> AU-DESSUS
+  chestL   11 -1    §19  0.30-0.40   GELE        0.4324   0.4303    -0.49%   AU-DESSUS -> AU-DESSUS
+  chestR   11 +1    §19  0.30-0.40   GELE        0.4855   0.4774    -1.67%   AU-DESSUS -> AU-DESSUS
+  chestR   11 -1    §19  0.30-0.40   GELE        0.4261   0.4476    +5.05%   AU-DESSUS -> AU-DESSUS
+  chestL   12 +1    §19  0.30-0.40   GELE        0.4427   0.4039    -8.76%   AU-DESSUS -> AU-DESSUS
+  chestL   12 -1    §19  0.30-0.40   GELE        0.4351   0.4510    +3.65%   AU-DESSUS -> AU-DESSUS
+  chestR   12 +1    §19  0.30-0.40   GELE        0.4581   0.4838    +5.61%   AU-DESSUS -> AU-DESSUS
+  chestR   12 -1    §19  0.30-0.40   GELE        0.4225   0.4685   +10.89%   AU-DESSUS -> AU-DESSUS
+  chestL   13 +1    §20  0.20-0.30   GELE        0.3338   0.4384   +31.34%   AU-DESSUS -> AU-DESSUS
+  chestL   13 -1    §20  0.20-0.30   GELE        0.4164   0.4165    +0.02%   AU-DESSUS -> AU-DESSUS
+  chestR   13 +1    §20  0.20-0.30   GENOU       0.3675   0.4724   +28.54%   AU-DESSUS -> AU-DESSUS
+  chestR   13 -1    §20  0.20-0.30   GENOU       0.3730   0.4607   +23.51%   AU-DESSUS -> AU-DESSUS
+  chestL   14 +1    §20  0.20-0.30   GELE        0.3720   0.3943    +5.99%   AU-DESSUS -> AU-DESSUS
+  chestL   14 -1    §20  0.20-0.30   GELE        0.4365   0.3924   -10.10%   AU-DESSUS -> AU-DESSUS
+  chestR   14 +1    §20  0.20-0.30   GELE        0.3722   0.4478   +20.31%   AU-DESSUS -> AU-DESSUS
+  chestR   14 -1    §20  0.20-0.30   GELE        0.4266   0.4643    +8.84%   AU-DESSUS -> AU-DESSUS
+  REGA AVANT : au-dessus du genou 18 AU-DESSUS /  0 autre · sous le genou  0 /  2   Fisher p = 0.0053
+  REGA APRES : au-dessus du genou 18 AU-DESSUS /  0 autre · sous le genou  1 /  1   Fisher p = 0.1000
+  §18 AVANT : 4 cellule(s) — 0 DANS · 2 AU-DESSUS · 2 SOUS
+  §19 AVANT : 8 cellule(s) — 0 DANS · 8 AU-DESSUS · 0 SOUS
+  §20 AVANT : 8 cellule(s) — 0 DANS · 8 AU-DESSUS · 0 SOUS
+  §18 APRES : 4 cellule(s) — 0 DANS · 3 AU-DESSUS · 1 SOUS
+  §19 APRES : 8 cellule(s) — 0 DANS · 8 AU-DESSUS · 0 SOUS
+  §20 APRES : 8 cellule(s) — 0 DANS · 8 AU-DESSUS · 0 SOUS
+  APRES  ROOM-REGA-FACTEUR: §18 sgn=-1  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.448 et k <= 0.810
+  APRES  ROOM-REGA-FACTEUR: §18 sgn=+1  2 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.551 .. 2.250]
+  APRES  ROOM-REGA-FACTEUR: §19 sgn=-1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.171 .. 1.434]
+  APRES  ROOM-REGA-FACTEUR: §19 sgn=+1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.210 .. 1.341]
+  APRES  ROOM-REGA-FACTEUR: §20 sgn=-1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.548 .. 1.962]
+  APRES  ROOM-REGA-FACTEUR: §20 sgn=+1  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.575 .. 1.971]
+  APRES  ROOM-REGA-FACTEUR: §18 geste=gC  2 cellule(s)  ->  AUCUN facteur uniforme : il faudrait k >= 1.448 et k <= 0.810
+  APRES  ROOM-REGA-FACTEUR: §18 geste=gD  2 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.551 .. 2.250]
+  APRES  ROOM-REGA-FACTEUR: §19 g?12+1  2 cellule(s)  ->  GESTE NON IDENTIFIE : deplacement net nul,
+  APRES  ROOM-REGA-FACTEUR: §19 g?12-1  2 cellule(s)  ->  GESTE NON IDENTIFIE : deplacement net nul,
+  APRES  ROOM-REGA-FACTEUR: §19 geste=gE  2 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.119 .. 1.434]
+  APRES  ROOM-REGA-FACTEUR: §19 geste=gF  2 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.194 .. 1.341]
+  APRES  ROOM-REGA-FACTEUR: §20 geste=gG  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.536 .. 1.971]
+  APRES  ROOM-REGA-FACTEUR: §20 geste=gH  4 cellule(s)  ->  k uniforme ATTEIGNABLE dans [1.575 .. 1.962]
+
+P6  LES FAMILLES QUE LE CYCLE 147 A TROUVEES IDENTIQUES AU BIT
+  ROOM-AXFIT          30 lignes A /  30 lignes B  ->  26 ligne(s) differente(s)
+  ROOM-RINGFIT        14 lignes A /  13 lignes B  ->  14 ligne(s) differente(s)
+  ROOM-RINGDOWN        2 lignes A /   2 lignes B  ->  2 ligne(s) differente(s)
+  ROOM-SETTLE          2 lignes A /   2 lignes B  ->  2 ligne(s) differente(s)
+  ROOM-ORICOM-MASS    17 lignes A /  17 lignes B  ->  8 ligne(s) differente(s)
+  ROOM-IDLE            1 lignes A /   1 lignes B  ->  1 ligne(s) differente(s)
+  ROOM-SKINPEN        24 lignes A /  20 lignes B  ->  22 ligne(s) differente(s)
+
+P0  COMPTEURS
+  AVANT  ROOM-LIM-RESSORT: stif_n=51264 sous-pas integres au-dela du genou · sat_n=39625 morsures
+  APRES  ROOM-LIM-RESSORT: stif_n=240239 sous-pas integres au-dela du genou · sat_n=81982 morsures
+  APRES  ROOM-LIM-FWSAT: fwsat_n=191810 sous-pas ou l'erreur a atteint l'asymptote du mur
