@@ -98,8 +98,14 @@ def measure(txt):
     gardent leur rang et leur sens exacts : `c125_repro.py` et `c128_verify.py` lisent `[0]`,
     `[2]` et `[3]` et continuent de lire la meme chose. `livree_deciles` est la distance
     racine->apex entre centroides de DECILE, rapportee a la cellule i=0 — l'instrument que le
-    cycle 126 a ARBITRE pour la clause « Root-to-apex LENGTH » de §11 — et elle vaut None sur
-    les axes `out` et `up`, ou une distance n'a pas de composante.
+    cycle 126 a ARBITRE pour la clause « Root-to-apex LENGTH » de §11.
+
+    CYCLE 143 — ELLE EXISTE DESORMAIS SUR LES TROIS AXES. Le motif « une distance n'a pas de
+    composante » valait pour une PROJECTION ; la grandeur construite ici est la DISTANCE entre
+    les centroides de deux populations de decile, et trier la population sur l'axe `out` (resp.
+    `up`) rend la LARGEUR (resp. l'EPAISSEUR / l'ENVELOPPE VERTICALE) de l'organe — les
+    grandeurs que §10 et §11 NOMMENT sur ces deux axes. Le chemin de l'axe `fwd` est inchange :
+    memes quantiles, memes poids, meme nuage, controle de portage D1 a l'identite.
 
     `verdict_sigma` reste le verdict lu sur l'ECART-TYPE PONDERE : c'est ce que la ligne de
     verdict publiait avant ce cycle, et le garder ici permet le retour arriere a une ligne
@@ -311,6 +317,12 @@ def main(txt=None):
     _P('C124-SHAPE: table nom -> slot lue dans la trace : %s'
           % ' '.join('%s=%d' % (v, k) for k, v in sorted(jn.items())))
 
+    # CYCLE 143 : le PLANCHER DE BRUIT de l'estimateur de decile, par axe, MESURE sur la lecture
+    # hors defaut (i=9 / i=0, deux cellules DEBOUT que rien ne relie dans le balayage). Il est
+    # publie et consomme par `physics_room_table.py` : un plancher mesure sur l'ECART-TYPE ne dit
+    # rien du bruit d'un autre estimateur, et en choisir un serait ajuster l'instrument.
+    bruit = {}
+
     g = c6.load_geometry('keira-hd', glb=SHIPPED)
     if g is None:
         _P('C124-SHAPE: SUSPENDU — mesh livre absent (%s).' % SHIPPED)
@@ -470,9 +482,16 @@ def main(txt=None):
             # servent a toutes les cellules — un argmax recalcule par cellule repondrait DANS la
             # cellule et ne serait pas une population (registre : `argmax-anchor-is-not-a-
             # population`).
-            xb = (V[sel] - P[ai]) @ R @ AX['fwd']
-            qlo, qhi = np.quantile(xb, 0.10), np.quantile(xb, 0.90)
-            prox, dist = xb <= qlo, xb >= qhi
+            # CYCLE 143 : LA MEME CONSTRUCTION, PORTEE AUX DEUX AUTRES AXES. Le tri se fait sur
+            # la coordonnee de BIND de l'AXE CONSIDERE ; tout le reste est inchange, et l'axe
+            # `fwd` passe par le meme code qu'avant (meme `np.quantile`, meme ordre) — le
+            # controle de portage D1 exige l'identite au dernier chiffre publie.
+            POP = {}
+            for _a in ('fwd', 'out', 'up'):
+                _xb = (V[sel] - P[ai]) @ R @ AX[_a]
+                _qlo, _qhi = np.quantile(_xb, 0.10), np.quantile(_xb, 0.90)
+                POP[_a] = (_xb <= _qlo, _xb >= _qhi)
+            prox, dist = POP['fwd']
             ext, dec = {}, {}
             for i in cells:
                 aw = world_cloud(i, sel)
@@ -496,9 +515,12 @@ def main(txt=None):
                 # LA GRANDEUR QUE §11 NOMME : une DISTANCE entre deux centroides ponderes, lue
                 # sur le nuage MONDE (invariante par rotation ET par translation), jamais dans
                 # la base d'ancre qui n'est pas orthogonale.
-                cp = (wv[prox, None] * aw[prox]).sum(0) / wv[prox].sum()
-                cd = (wv[dist, None] * aw[dist]).sum(0) / wv[dist].sum()
-                dec[i] = float(np.linalg.norm(cd - cp))
+                dec[i] = {}
+                for _a in ('fwd', 'out', 'up'):
+                    _p, _d = POP[_a]
+                    cp = (wv[_p, None] * aw[_p]).sum(0) / wv[_p].sum()
+                    cd = (wv[_d, None] * aw[_d]).sum(0) / wv[_d].sum()
+                    dec[i][_a] = float(np.linalg.norm(cd - cp))
             if 0 not in ext:
                 _P('C124-SHAPE: %-8s %s SUSPENDU — pas de cellule i=0 (ligne de base).'
                       % (cname, lbl))
@@ -513,18 +535,21 @@ def main(txt=None):
                     lo, hi = b[a]
                     r_s = ext[cell][a][0] / ext[0][a][0]
                     r_m = ext[cell][a][1] / ext[0][a][1]
-                    # LA TROISIEME LECTURE. Elle n'existe QUE sur l'axe `fwd` : une distance
-                    # racine->apex est UN scalaire, elle n'a pas de version « out » ni « up ».
-                    # Les deux autres axes recoivent None, et le bloc de verdict du tableau le
-                    # DECLARE au lieu de fabriquer une valeur.
-                    r_d = (dec[cell] / dec[0]) if (a == 'fwd' and 0 in dec
-                                                   and cell in dec) else None
+                    # LA TROISIEME LECTURE, SUR LES TROIS AXES DEPUIS LE CYCLE 143. Elle etait
+                    # limitee a `fwd` au motif qu'« une distance n'a pas de composante » — vrai
+                    # pour une PROJECTION, faux pour ce qui est construit ici : c'est la DISTANCE
+                    # entre deux centroides de decile, et changer l'axe qui TRIE la population
+                    # rend la LARGEUR (`out`) et l'EPAISSEUR / ENVELOPPE VERTICALE (`up`), qui
+                    # sont exactement les grandeurs que §10 l.166-167 et §11 l.181-182 NOMMENT.
+                    # Aucune convention nouvelle : meme quantile, memes poids, meme nuage MONDE.
+                    r_d = (dec[cell][a] / dec[0][a]) if (0 in dec and cell in dec) else None
                     vd = 'SOUS' if r_s < lo else ('DANS' if r_s <= hi else 'AU-DESSUS')
                     y = (r_s / cmd[kk]) if cmd else float('nan')
-                    _P('C124-SHAPE: %-8s %s §%s  %-3s  LIVREE %.4f (max-min %.4f)  bande'
-                          ' %.2f-%.2f  %-9s | COMMANDEE %.4f  rendement %.4f'
-                          % (cname, lbl, sec, a, r_s, r_m, lo, hi, vd,
-                             (cmd[kk] if cmd else float('nan')), y))
+                    _P('C124-SHAPE: %-8s %s §%s  %-3s  LIVREE %.4f (max-min %.4f, deciles'
+                          ' %s)  bande %.2f-%.2f  %-9s | COMMANDEE %.4f  rendement %.4f'
+                          % (cname, lbl, sec, a, r_s, r_m,
+                             ('%.4f' % r_d) if r_d is not None else 'n/a',
+                             lo, hi, vd, (cmd[kk] if cmd else float('nan')), y))
                     out.setdefault((cname, lbl, sec, a),
                                    (r_s, r_m, cmd[kk] if cmd else None, vd, r_d))
             # ---- LES DEUX CONTROLES QUI NE SONT PAS TRIVIAUX -------------------------------
@@ -538,6 +563,16 @@ def main(txt=None):
                       ' %s   (seuil declare 1 %%)'
                       % (cname, lbl, ' · '.join('%s %.4f' % (a, ext[9][a][0] / ext[0][a][0])
                                                 for a in ('fwd', 'out', 'up'))))
+                # CYCLE 143 : LE MEME HORS-DEFAUT SUR L'ESTIMATEUR QUI PORTE LE VERDICT. Un
+                # plancher de bruit mesure sur l'ECART-TYPE ne dit rien du bruit de la distance
+                # de decile ; le publier ici le rend MESURE par axe, jamais choisi.
+                if 9 in dec and 0 in dec:
+                    _P('C124-SHAPE: %-8s %s LECTURE HORS DEFAUT (DECILES) — i=9 / i=0 : %s'
+                          % (cname, lbl,
+                             ' · '.join('%s %.6f' % (a, dec[9][a] / dec[0][a])
+                                        for a in ('fwd', 'out', 'up'))))
+                    for a in ('fwd', 'out', 'up'):
+                        bruit[a] = max(bruit.get(a, 0.0), abs(dec[9][a] / dec[0][a] - 1.0))
             # P7 — CONTROLE DE MONTAGE. i=10 est une seconde cellule PRONE, atteinte par un autre
             # chemin du balayage. Deux cellules que rien ne relie doivent rendre la meme forme.
             if 10 in ext and ipro in ext:
@@ -562,7 +597,13 @@ def main(txt=None):
     _P('C124-SHAPE:   Un instrument qui ne peut pas echouer ne vaut rien. Seuil declare AVANT'
           ' la course : au moins une cellule HORS bande.  -> %s'
           % ('TENUE' if any(v != 'DANS' for v in vds) else 'REFUTEE'))
+    if bruit:
+        _P('C124-SHAPE: PLANCHER DE BRUIT DE L\'ESTIMATEUR DE DECILE, MESURE (pire cas sur les'
+              ' 2 chaines et les 2 frontieres) : %s'
+              % ' · '.join('%s %.4f %%' % (a, bruit.get(a, 0.0) * 100.0)
+                           for a in ('fwd', 'out', 'up')))
     RESULT['rows'] = out
+    RESULT['bruit_dec'] = dict(bruit)
     return 0
 
 

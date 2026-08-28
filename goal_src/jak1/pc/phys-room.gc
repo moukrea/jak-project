@@ -414,7 +414,7 @@
 ;;   k=0 reference · k=1 longueur levee · k=2 cote levee · k=3 rayon interpole
 ;;   k=4 MUR DE COLLISION desarme · k=5 borne SPEC 22 du canal radial levee
 ;; Deux suspects sont deja morts A LA LECTURE DU CODE, avant cette course : `rcap`
-;; (jak-hd-physics.gc:2912-2950) applique `phys-softmin` a la valeur ABSOLUE et restitue le signe,
+;; (jak-hd-physics.gc:2912-2916) applique `phys-softmin` a la valeur ABSOLUE et restitue le signe,
 ;; et `phys-length-chain` (:1162) est une projection d'EGALITE sur la sphere. Les deux mordent dans
 ;; les deux sens. Le mur de collision est le seul terme UNILATERAL PAR NATURE — une poussee de
 ;; contact ne tire jamais — et c'est lui que la prediction P4 mise.
@@ -706,7 +706,7 @@
 ;;   `PHYSMEAN`     NATURE : position MOYENNE de la pointe sur la fenetre (pas une variance, pas un
 ;;                  max) — une clause sur le LIEU du calcul se lit sur un DEPLACEMENT SOUTENU.
 ;;                  REPERE : la base de l'ANCRE (`*phys-ox/oy/oz*`, ecrits apres `w2l`,
-;;                  jak-hd-physics.gc:3202-3240). ATTENDU : INVARIANT sur les cellules 0 a 3.
+;;                  jak-hd-physics.gc:3202-3206). ATTENDU : INVARIANT sur les cellules 0 a 3.
 ;;   `PHYSPOSETAG`  REPERE : le MONDE (differences normalisees de deux `bones transform vector 3`).
 ;;                  ATTENDU : tourne de l'angle commande. C'EST LE CONTROLE DE DISCRIMINATION —
 ;;                  sans lui, « la lecture d'ancre n'a pas bouge » et « le lacet n'a pas eu lieu »
@@ -1817,7 +1817,7 @@
     ;; deux points de la meme frame (la pose simulee et la pose d'AUTEUR du meme joint), donc le
     ;; meme repere que `apex`/`ax`/`ay`/`az` juste au-dessus.
     ;;   `tp` = la part que le maillon a TRANSLATEE — le SEUL terme qu'une borne du moteur borne
-    ;;          aujourd'hui (`jak-hd-physics.gc:3086-3141`, asymptote 0.50 B0).
+    ;;          aujourd'hui (`jak-hd-physics.gc:3086-3107`, asymptote 0.50 B0).
     ;;   `dp` = la part apportee par le TENSEUR de deformation applique au bras de chair.
     ;;   `rp` = ce qui reste, la ROTATION de visee : il ne s'emet PAS, il se DERIVE par
     ;;          `rp = (ax,ay,az) - tp - dp`. L'emettre serait publier une quatrieme mesure
@@ -1919,7 +1919,7 @@
     ;; ecart apex/cible > 5 B0 et la pose ECRITE sautait de 0.29-0.31 B0 en une frame.
     ;;
     ;; CORRECTION DE CE COMMENTAIRE, CYCLE 140 — IL AFFIRMAIT UNE MOITIE QUI N'EXISTAIT PAS.
-    ;; Il disait « la moitie ROTATION existe depuis longtemps (jak-hd-physics.gc:3667-3707, roulis
+    ;; Il disait « la moitie ROTATION existe depuis longtemps (jak-hd-physics.gc:3667-3673, roulis
     ;; de l'ancre, seuil de 0.5 rad) ». C'est FAUX, et c'est un commentaire tenant lieu de preuve
     ;; (regle 0 du contrat). Ce site-la ne rebase RIEN : sa garde `(when (< (fabs dphi) 0.5))` ne
     ;; fait que SAUTER le cumul de torsion de la SPEC 29. Le seul etat d'ancre memorise pour le
@@ -2003,9 +2003,9 @@
     ;; signalait absents et que leur absence a failli me faire lire cette ligne de travers.
     ;;   amp  NATURE : une ETENDUE, pas une valeur instantanee — la DIAGONALE DE LA BOITE
     ;;        ENGLOBANTE de l'ecart a la pose d'auteur, ACCUMULEE sur toute la fenetre
-    ;;        (`phys-link-amp`, jak-hd-physics.gc:4109-4155, sur `*phys-ox/oy/oz*` :3219-3224).
+    ;;        (`phys-link-amp`, jak-hd-physics.gc:4109-4121, sur `*phys-ox/oy/oz*` :3219-3224).
     ;;        REPERE : LOCAL A L'ANCRE (`chest`), pas le monde — `*phys-o**` est tourne par `w2l`
-    ;;        a jak-hd-physics.gc:3136-3177. UNITES : unites de jeu (4096 = 1 m).
+    ;;        a jak-hd-physics.gc:3136-3143. UNITES : unites de jeu (4096 = 1 m).
     ;;   ang  NATURE : un MAXIMUM de fenetre (`phys-link-ang` :4163-4168 sur `*phys-la*` :3345-3346),
     ;;        en degres. REPERE : RELATIF A L'ATTACHE — le parent SIMULE si `l > 0`, l'ancre sinon
     ;;        (:3296-3304) — donc une deviation propre, NON ADDITIVE le long de la chaine.
@@ -2030,7 +2030,7 @@
       ;; COM ». Un centre de masse est la moyenne des positions PONDEREE PAR LA MASSE sur toute la
       ;; population de chair. `comex` (PHYSCOMW ci-dessus) publie autre chose : le MAXIMUM sur les
       ;; deux maillons de l'excursion de leurs deux centroides de geometrie possedee
-      ;; (jak-hd-physics.gc:3929-3964, emplacement 23 indexe par CHAINE — les deux maillons
+      ;; (jak-hd-physics.gc:3929-3930, emplacement 23 indexe par CHAINE — les deux maillons
       ;; ecrasent le meme emplacement). Un maximum sur deux echantillons ne repond pas a une
       ;; question de POPULATION : le maillon 0 ne possede que 18.9 % / 22.0 % de la masse du nuage
       ;; et 45.6 % / 45.3 % de cette masse est portee par `chest`, qui N'EST PAS SIMULE — donc dont
@@ -2212,7 +2212,7 @@
     ;;          sans lui, `slast = 0` ne se distingue pas d'un groupe qui n'a pas tourne.
     ;;   p1     NATURE une LONGUEUR (u) : le module de la PREMIERE poussee de la frame. Elle dit ce
     ;;          qu'UNE projection accomplit, a comparer a la penetration RESIDUELLE apres les 45.
-    ;; REPERE : le MONDE (la poussee est ecrite en monde, jak-hd-physics.gc:1776-1812).
+    ;; REPERE : le MONDE (la poussee est ecrite en monde, jak-hd-physics.gc:1776-1778).
     ;; RELEVEES A L'ARGMAX DE `cl`, comme les quatre precedentes — pas en maxima independants.
     ;; LECTURE HORS DEFAUT : les trois a zero quand rien ne touche.
     (format 0 "PHYSSHAPE9 c=~D a=~D d=~D slast=~f nlast=~f p1=~f~%"
@@ -3191,7 +3191,7 @@
 ;;
 ;; POURQUOI CETTE LIGNE EXISTE. §14, §16, §17, §18, §19 et §20 bornent TOUTES un « apex
 ;; displacement » en % B0, et cet apex est produit par le ressort principal. Ce ressort porte une
-;; saturation de sa §21 ecrite comme MULTIPLICATEUR DE FORCE (jak-hd-physics.gc:2904-2943) :
+;; saturation de sa §21 ecrite comme MULTIPLICATEUR DE FORCE (jak-hd-physics.gc:2904-2909) :
 ;;
 ;;     kn  = 0.42 * B0   cpp = 0.08 * B0
 ;;     xr  = fmin(0.99, (dd - kn)/cpp)          <- L'ARGUMENT EST PLAFONNE
@@ -3203,13 +3203,13 @@
 ;; (le point libre de sa §23) et qui n'a jamais ete porte sur celui-ci.
 ;;
 ;; L'ARGUMENT DE CE MUR EST DEJA CALCULE PAR LE MOTEUR : c'est `*phys-dg*` 26, le maximum de
-;; fenetre de |position simulee - cible de repos| / B0 (jak-hd-physics.gc:2791-2832). Il etait
+;; fenetre de |position simulee - cible de repos| / B0 (jak-hd-physics.gc:2791-2798). Il etait
 ;; publie SEULEMENT par `physroom-emit-window` (PH-MEAS, par animation x pilotage) et JAMAIS par
 ;; une fenetre de REGIME. Six sections publiaient donc une bande d'apex sans que rien ne dise si
 ;; leur propre fenetre avait ete lue dans la zone gelee. Un flux muet de plus, le quatrieme.
 ;;
 ;; NATURE : DEUX LONGUEURS RAPPORTEES A B0, sans dimension, MAXIMUM SUR LA FENETRE (le moteur les
-;;   accumule par `>`, jak-hd-physics.gc:2795-2832). Ce ne sont PAS des moyennes et PAS des series.
+;;   accumule par `>`, jak-hd-physics.gc:2795-2798). Ce ne sont PAS des moyennes et PAS des series.
 ;; REPERE : le monde, meme frame, meme attache, meme longueur d'os que la cible — c'est une
 ;;   difference de deux points exprimes dans le meme repere, donc invariante par rotation.
 ;; LIGNE DE BASE : `rgap` = 0 exactement si la cible de repos EST la pose d'auteur ; `perr` = 0
@@ -3301,7 +3301,7 @@
       ;;            sur le levier de chair PROPRE a chaque maillon). Aucun rapport, aucun angle.
       ;;   REPERE : le MONDE, contre la pose d'AUTEUR de la MEME frame — celui de `PHYSREG4`.
       ;;   ARGMAX : les emplacements 59-64 et 86 sont ecrits DANS LA MEME GARDE que 53-56
-      ;;            (`jak-hd-physics.gc:4008-4053`, `when (> ap dg53)`), donc a la MEME frame que
+      ;;            (`jak-hd-physics.gc:4008-4019`, `when (> ap dg53)`), donc a la MEME frame que
       ;;            `apex`. `tp + rp + dp = e` est donc verifiable, et `rp` se DERIVE par
       ;;            `rp = (ax,ay,az) - tp - dp` : trois maxima pris sur trois frames differentes
       ;;            ne se soustraient pas (`argmax-anchor-is-not-a-population`).
@@ -3355,7 +3355,7 @@
       ;;            controle « etage 6 <= `jt0`, un maximum a l'argmax d'une autre grandeur ne
       ;;            pouvant pas depasser le maximum de la fenetre ». **`jt0` N'EST PAS LE MAXIMUM
       ;;            DE `jt` SUR LA FENETRE** : il est ecrit sous le latch de `ee`
-      ;;            (`jak-hd-physics.gc:3937-3975`), donc c'est `jt` A L'ARGMAX DE `ee`. L'etage 6
+      ;;            (`jak-hd-physics.gc:3937-3941`), donc c'est `jt` A L'ARGMAX DE `ee`. L'etage 6
       ;;            est `jt` a l'argmax de l'etage 0 (`:1077-1078`). Deux argmax de deux grandeurs
       ;;            differentes : AUCUNE inegalite ne les relie, et la mesure le confirme (8 a 10
       ;;            cellules sur 15 seulement la respectent). Ce qui reste verifiable est
@@ -3376,7 +3376,7 @@
       ;; 47.3 deg du miroir. Un angle de bind ne peut donc pas etre juste des DEUX cotes, et
       ;; l'ecart chestL/chestR restait NON ETABLI faute de cette ligne, pas faute de mesure.
       ;;   NATURE : trois COSINUS DIRECTEURS, sans unite, d'un vecteur deja normalise par
-      ;;            `phys-chain-bone` (jak-hd-physics.gc:4350-4388, `comp` 0/1/2).
+      ;;            `phys-chain-bone` (jak-hd-physics.gc:4350-4354, `comp` 0/1/2).
       ;;   REPERE : le MONDE — les memes axes que `PHYSAXW` et que le pilotage lui-meme
       ;;            (`physroom-tr-set` ecrit `yy` sur Y et `zz` sur Z en mode monde), donc
       ;;            l'angle os/pilotage se compose sans rien supposer.

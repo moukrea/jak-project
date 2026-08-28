@@ -3485,7 +3485,7 @@
                                      (zx0 (- e0 (* d (-> *phys-fy* sc x))))
                                      (zy0 (- e1 (* d (-> *phys-fy* sc y))))
                                      (zz0 (- e2 (* d (-> *phys-fy* sc z))))
-                                     ;; [NOTE-584] LE SIGNE : `-ligne[axa]`, PARCE QUE §7 l.130 ECRIT « +Z = forward from chest » ET QUE `+ligne[axa]` POINTE VERS L'ARRIERE (mesure du cycle 69, [NOTE-408]). Passe APPARIEE : l'affectation `wbk`/`wfw` de :3558-3596 est echangee dans le meme lot, donc le comportement livre est INCHANGE AU BIT — voir [NOTE-584]. -> jak-hd-physics-NOTES.md
+                                     ;; [NOTE-584] LE SIGNE : `-ligne[axa]`, PARCE QUE §7 l.130 ECRIT « +Z = forward from chest » ET QUE `+ligne[axa]` POINTE VERS L'ARRIERE (mesure du cycle 69, [NOTE-408]). Passe APPARIEE : l'affectation `wbk`/`wfw` de :3558-3562 est echangee dans le meme lot, donc le comportement livre est INCHANGE AU BIT — voir [NOTE-584]. -> jak-hd-physics-NOTES.md
                                      (zx (- 0.0 zx0)) (zy (- 0.0 zy0)) (zz (- 0.0 zz0))
                                      (zl (sqrtf (+ (* zx zx) (+ (* zy zy) (* zz zz))))))
                                 (when (> zl 0.05)

@@ -67,7 +67,7 @@ OUT = os.path.join(REPDIR, 'keira-room-table.txt')
 # bande « s'explique par l'ancrage seul ». Un plafond perime qui arbitre des verdicts est la meme
 # faute que l'axe faux du 2026-08-20 07:20 : on ne la laisse pas dans le producteur.
 # SOURCE : `recharged_assets/physics_mesh.txt`, enregistrements `ax <chaine> <maillon> <w> x y z`.
-# C'est le FICHIER QUE LE MOTEUR CHARGE (jak-hd-physics.gc:803, via pc-physics-chain-link-apex-mi),
+# C'est le FICHIER QUE LE MOTEUR CHARGE (jak-hd-physics.gc:769, via pc-physics-chain-link-apex-mi),
 # pas une valeur de confort — le tableau lit deja `comw=` du fichier livre de la meme facon.
 # NATURE : une fraction sans dimension, la somme des poids `ax` d'une chaine. REPERE : sans objet.
 # LECTURE QUAND LE DEFAUT EST ABSENT : 1.0000 — toute la masse distale est portee par des maillons
@@ -130,7 +130,7 @@ def fnum(v):
 #      fines, jamais un nombre choisi.
 #
 # RESERVE — ELLE S'ECRIT, ELLE NE SE TAIT PAS. `ang` vaut `atan(|cross|, dot)`
-# (jak-hd-physics.gc:4032-4047) : c'est un MODULE, toujours positif. Le signal est donc REDRESSE —
+# (jak-hd-physics.gc:3998-4013) : c'est un MODULE, toujours positif. Le signal est donc REDRESSE —
 # pendant une decroissance libre le maillon TRAVERSE sa position de repos, et `ang` retombe a zero
 # puis remonte. D'ou, noir sur blanc :
 #   * la frequence apparente de `ang` est le DOUBLE de la frequence reelle d'oscillation ;
@@ -903,7 +903,7 @@ def _ori_role_verrou(A, roles, role_tri, names):
              'ACCORD' if (ok1 and ok2) else 'DESACCORD'))
     A('   DEUX ROUTES INDEPENDANTES, ET C\'EST LA PREMIERE FOIS QU\'ELLES SONT CONFRONTEES. Le')
     A('   triplet ne peut PAS echouer tout seul : le moteur ecrit en dur les constantes de §10 et')
-    A('   §11 (`jak-hd-physics.gc:3576-3581`) et le tableau les y compare — c\'est une tautologie,')
+    A('   §11 (`jak-hd-physics.gc:3542-3547`) et le tableau les y compare — c\'est une tautologie,')
     A('   et le registre la porte comme telle depuis le cycle 64. La GRAVITE, elle, ne passe ni par')
     A('   les morphs ni par ces constantes. Leur accord est donc une information ; leur desaccord')
     A('   en serait une plus grande encore.')
@@ -1146,7 +1146,7 @@ def _spec13_block(A, txt, names, ori, com, acc, roles, zs, b0, perm=None):
 # ------------------------------------------------------------------------------------------------
 # LE MUR DE SPEC 21, LU DANS LE SOURCE ET CHIFFRE ICI (cycle 71).
 #
-# `jak-hd-physics.gc:2859-2860` pose `kn = 0.42 * b0e` et `cpp = 0.08 * b0e` ; `:2941` plafonne
+# `jak-hd-physics.gc:2825-2826` pose `kn = 0.42 * b0e` et `cpp = 0.08 * b0e` ; `:2941` plafonne
 # l'argument de la barriere par `fmin 0.99`. Donc :
 #   - sous `kn`                       : le multiplicateur vaut 1.0, identite STRICTE ;
 #   - entre `kn` et `kn + 0.99*cpp`   : la barriere raidit en x/(1-x), la reponse cesse d'etre
@@ -1304,7 +1304,7 @@ def _reglim_block(A, txt, names, RGT, LIM):
     A('   dans la trace — `stif_n` n\'a qu\'un seul incrementeur — elle ne se declare pas. Desarme,')
     A('   les mots GENOU / GELE / (SATURE) ne sont pas ecrits : ils nommeraient un mecanisme qui')
     A('   n\'a pas tourne, et une etiquette qui survit a son mecanisme est le defaut du cycle 28.')
-    A('   LE MUR EST LU DANS LE SOURCE, PAS SUPPOSE (jak-hd-physics.gc:2859-2860 et :2938-2943) :')
+    A('   LE MUR EST LU DANS LE SOURCE, PAS SUPPOSE (jak-hd-physics.gc:2825-2826 et :2938-2943) :')
     A('       kn  = 0.42 * B0            genou — identite STRICTE en dessous, mu = 1.0 exactement')
     A('       cpp = 0.08 * B0')
     A('       xr  = fmin(0.99, (dd-kn)/cpp)   <- L\'ARGUMENT EST PLAFONNE')
@@ -1341,7 +1341,7 @@ def _reglim_block(A, txt, names, RGT, LIM):
         A('   comparaison force/erreur n\'est pas publiee plutot que devinee.')
     else:
         A('   CE QUE VAUT LA FORCE UNE FOIS GELEE, depuis les constantes LIVREES et rien d\'autre')
-        A('   (dt = 0.0166667 s, jak-hd-physics.gc:2486 ; ns = 4 sous-pas, :2867-2872) :')
+        A('   (dt = 0.0166667 s, jak-hd-physics.gc:2452 ; ns = 4 sous-pas, :2867-2872) :')
         A('   %-8s %9s %7s %10s %11s %12s %14s'
           % ('chaine', 'stiffness', 'mass', 'w (rad/s)', 'k2', 'k2s=k2/16', '|f| gele'))
         for _n in sorted(_pr):
@@ -2940,7 +2940,7 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
           ' POURQUOI ILS SONT ICI.')
         A('ROOM-SPEC10:   Les colonnes `squel.` et `tens.` de ce bloc sont baties sur'
           ' `PHYSORICOML` (issu de `*phys-ldb*`,')
-        A('ROOM-SPEC10:   jak-hd-physics.gc:3411) et sur `PHYSDFMA` (la 3x3 de `*phys-dfa*`,'
+        A('ROOM-SPEC10:   jak-hd-physics.gc:3377) et sur `PHYSDFMA` (la 3x3 de `*phys-dfa*`,'
           ' batie a :3803-3814). LES DEUX')
         A('ROOM-SPEC10:   PRECEDENT LE CHEMIN D\'ECRITURE (:3908). Le MUR MEDIAN de §10 (c137) et'
           ' le POINT FIXE de §31')
@@ -2962,7 +2962,7 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
     A('ROOM-SPEC10: CE QUI RESTE DEHORS, NOMME : `PHYSDFMA` porte dfa x dfb x dfc mais PAS la'
       ' rotation de torsion')
     A('ROOM-SPEC10:   de sa §29, appliquee apres et seulement dans `*phys-dfm*`'
-      ' (jak-hd-physics.gc:3815-3824).')
+      ' (jak-hd-physics.gc:3781-3790).')
     A('ROOM-SPEC10:   `PHYSSHAPE2 twm` la mesure a 0.0008 : le terme manquant est de cet ordre,'
       ' il est DECLARE')
     A('ROOM-SPEC10:   et non suppose nul.')
@@ -3055,7 +3055,7 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
     # DEUX ROUTES EXISTENT ET ELLES NE SE VALENT PAS.
     #   (a) le TRIPLET d'echelles (`role[...]['sup']`, :1776-1798) : un argmin-L1 contre
     #       1.230/1.090/0.700, c'est-a-dire contre les constantes que le moteur ecrit EN DUR
-    #       (`jak-hd-physics.gc:3597-3602`). Elle ne peut pas echouer — c'est une TAUTOLOGIE, et
+    #       (`jak-hd-physics.gc:3563-3568`). Elle ne peut pas echouer — c'est une TAUTOLOGIE, et
     #       le registre la porte comme telle depuis le cycle 64.
     #   (b) la GRAVITE MESUREE (`_ori_role_block`, `PHYSORI4`) : aucune constante de la spec n'y
     #       entre, et elle publie son ecart a la direction canonique et sa marge sur la deuxieme.
@@ -3230,7 +3230,7 @@ def _spec10_block(A, txt, names, com, role, b0, roles=None):
                 w0 = float(d['W0'])     # une ETENDUE : elle ne depend pas du poids des sommets
                 sk = [(W[0] * d0[k] + W[1] * d1[k]) / n for k in range(3)]
                 # LA CONVENTION EST CELLE DU MOTEUR, ET ELLE SE LIT DANS LE MOTEUR.
-                # `jak-hd-physics.gc:3922` applique l'offset en VECTEUR-LIGNE :
+                # `jak-hd-physics.gc:3888` applique l'offset en VECTEUR-LIGNE :
                 # `r_j = SOMME_i o_i . bm[i][j]`, et le tenseur multiplie A DROITE
                 # (`matrix*! tmp bm dfm`). La contribution tensorielle est donc `L . (D - I)`,
                 # composante j = SOMME_i L_i (D[i][j] - delta_ij) — pas `(D - I) . L`.
@@ -4108,6 +4108,10 @@ def _spec12_block(A, txt, names, com, b0):
 # w>=0.25 §10 `up` et chestR w>=0.25 §11 `up`) sont deja exclues par ce plancher-la, sans qu'on ait
 # a les nommer. Un plancher qui n'attraperait pas ses propres bascules ne vaudrait rien.
 _LIVREE_BRUIT = {'10': 0.14647, '11': 0.00045}
+# CYCLE 143 : le plancher de bruit de l'estimateur de DECILE, par axe, rempli a l'execution
+# depuis `c124_delivered_shape.RESULT['bruit_dec']` (lecture hors defaut i=9 / i=0). Vide tant
+# que le bloc n'a pas tourne : une valeur en dur ici serait un plancher CHOISI.
+_BRUIT_DEC = {}
 
 
 # ---- CYCLE 131b : LA LIGNE QUI JUGE §11 LISAIT UNE ETENDUE, PAS UNE LONGUEUR -------------------
@@ -4146,7 +4150,7 @@ LEN_VERDICT_DECILES = True
 
 # ---- CYCLE 133 : LA CLAUSE DE COM DE §11 EST JUGEE SUR L'ORGANE LIVRE, PLUS SUR UN SUBSTITUT ---
 # CE QUE LE CYCLE 132 A ETABLI : les `d_j` de `PHYSORICOML` et le `D` de `PHYSDFMA` sont pris sur
-# `*phys-ldb*`, ecrit a `jak-hd-physics.gc:3415` — donc AVANT l'ecriture squelette (:3932), avant
+# `*phys-ldb*`, ecrit a `jak-hd-physics.gc:3381` — donc AVANT l'ecriture squelette (:3932), avant
 # l'ancrage de §31 (:3922) et avant le plafond de §21 (:4046). C'est un ANGLE MORT.
 #
 # CE QUE LE CYCLE 133 MESURE, ET IL NE DEMANDE AUCUNE COURSE NEUVE POUR CA : `PHYSORIM` publie
@@ -4174,10 +4178,16 @@ LEN_VERDICT_DECILES = True
 # la poser plus tard sous la pression d'un resultat ». Ce qui bouge est PUBLIE et ne porte pas le
 # verdict : sur la frontiere de SENSIBILITE w>=0.25, chestL passe DANS -> AU-DESSUS.
 #
-# CE QUI N'EST PAS REBRANCHE, ET C'EST DELIBERE : les clauses DIRECTIONNELLES normalisees par `W0`
-# — « Outward COM migration » de §10 et « medial migration » de §12. §12 est l'une des quatre
-# sections `TENUE` et elle l'est PAR CETTE CLAUSE-LA. Leurs valeurs livrees sont publiees en
-# DIAGNOSTIC par `c133_delivered_com.py` ; poser ce rebranchement appartient au superviseur.
+# CE QUI N'EST PAS REBRANCHE, ET C'EST DELIBERE : la clause DIRECTIONNELLE normalisee par `W0` de
+# §12, « medial migration ». §12 est l'une des sections `TENUE` et elle l'est PAR CETTE CLAUSE-LA.
+# Sa valeur livree est publiee en DIAGNOSTIC par `c133_delivered_com.py` ; poser ce rebranchement
+# appartient au superviseur.
+#   CORRECTION DU CYCLE 143 : ce paragraphe nommait AUSSI « Outward COM migration » de §10 comme
+#   non rebranchee. C'ETAIT PERIME : le cycle 139 l'a rebranchee sur l'organe LIVRE (voir plus haut
+#   dans ce fichier, « CYCLE 139 : LA CLAUSE PORTEUSE DE §10 EST RENDUE SUR L'ORGANE LIVRE », et
+#   la ligne `sortant ... LA LECTURE QUI PORTE LE VERDICT` du tableau). Une note qui dit
+#   « non fait » au-dessus d'un code qui le fait est le meme defaut que
+#   `refutation-must-be-rebranched-not-just-written`, pris par l'autre bout.
 #
 # RETOUR ARRIERE : UNE LIGNE, DANS LES DEUX SENS. `False` rend le verdict au substitut
 # `(W.d)/N + ((D-I).L)/N` et le tableau retombe sur ses valeurs d'avant ce cycle.
@@ -4211,10 +4221,16 @@ def _spec1011_estim_header(A):
     A("%s:               le meme proxy SUR-ESTIME §11 de 10,9 a 17,8 points et SOUS-ESTIME §10"
       " de 7,0 a 17,2." % T)
     if LEN_VERDICT_DECILES:
-        A("%s:   VERDICT rendu sur DECILES pour §11 `fwd` UNIQUEMENT. Les 20 autres cellules"
-          " restent sur" % T)
-        A("%s:   l'ECART-TYPE, dont l'estimateur N'EST PAS ARBITRE (voir TROUS DECLARES en fin"
-          " de bloc)." % T)
+        A("%s:   VERDICT rendu sur DECILES pour §11 `fwd` ET pour les axes `out` et `up` des"
+          " DEUX sections" % T)
+        A("%s:   (cycle 143 : la meme construction de decile, l'axe de TRI en plus — elle rend la"
+          " LARGEUR sur" % T)
+        A("%s:   `out` et l'EPAISSEUR / ENVELOPPE VERTICALE sur `up`, qui sont les grandeurs que"
+          " §10 l.166-167 et" % T)
+        A("%s:   §11 l.181-182 NOMMENT). Seules les 4 cellules de §10 `fwd` restent sur"
+          " l'ECART-TYPE, faute du" % T)
+        A("%s:   facteur cos(ang) de leur saillie signee (voir TROUS DECLARES en fin de bloc)."
+          % T)
     else:
         A("%s:   VERDICT rendu sur l'ECART-TYPE PONDERE SUR LES 24 CELLULES, par RETOUR ARRIERE"
           " EXPLICITE" % T)
@@ -4265,23 +4281,37 @@ def _spec1011_trous(A, lpp10):
     A("%s:              Ces 4 cellules restent sur l'ECART-TYPE et sont deja SANS VERDICT :"
       " AUCUN verdict n'est" % T)
     A("%s:              deplace par ce trou. Il est DECLARE, il n'est pas comble." % T)
-    A("%s:   §10/§11 `out` et `up`  AUCUNE lecture nommee n'est portee dans cette chaine. Le"
-      " cycle 126 leur oppose" % T)
-    A("%s:              le TRIPLET INVARIANT (valeurs propres de la covariance PONDEREE,"
-      " `c126_rotation_vs_stretch.py:315-340`)," % T)
-    A("%s:              qui n'est pas calcule ici. Ces 16 cellules restent sur l'ECART-TYPE et"
-      " LEUR ESTIMATEUR N'EST" % T)
-    A("%s:              PAS ARBITRE : leur verdict se lit avec cette reserve, quel qu'il soit."
-      % T)
-    A("%s:   PLANCHER DE BRUIT  `_LIVREE_BRUIT` a ete MESURE sur la lecture ECART-TYPE (cycle"
-      " 125, `c125_repro.py`)," % T)
-    A("%s:              jamais sur la lecture DECILES ; il est applique tel quel a la colonne qui"
-      " decide. Sur §11" % T)
-    A("%s:              `fwd` les marges en deciles (1,05 a 5,71 %%) valent 23 a 127 fois le"
-      " plancher de §11" % T)
-    A("%s:              (0,045 %%), donc le verdict ne depend pas de ce report — mais le report"
-      " EST un trou et il" % T)
-    A("%s:              se declare." % T)
+    A("%s:   §10/§11 `out` et `up`  TROU FERME AU CYCLE 143, et voici par quoi. Ces 16 cellules"
+      " etaient jugees sur" % T)
+    A("%s:              l'ECART-TYPE, un proxy que le cycle 126 a REFUTE par un signe OPPOSE"
+      " entre sections. Elles" % T)
+    A("%s:              portent desormais la DISTANCE ENTRE CENTROIDES DE DECILE, populations"
+      " fixees a la pose de" % T)
+    A("%s:              BIND sur la coordonnee de LEUR axe : c'est la LARGEUR de l'organe sur"
+      " `out` et son" % T)
+    A("%s:              EPAISSEUR / ENVELOPPE VERTICALE sur `up` — les mots memes de §10 et §11."
+      " Ce n'est pas une" % T)
+    A("%s:              grandeur neuve : c'est la construction DEJA ARBITREE pour la longueur,"
+      " avec un autre axe de" % T)
+    A("%s:              tri, et le portage est controle — les 4 valeurs de `fwd` sont IDENTIQUES"
+      " au dernier chiffre" % T)
+    A("%s:              publie avant le cycle 143 (1,2629 / 1,2070 / 1,2606 / 1,2501)." % T)
+    A("%s:              CE QUI RESTE DEHORS, NOMME : le TRIPLET INVARIANT du cycle 126 (valeurs"
+      " propres de la" % T)
+    A("%s:              covariance ponderee) n'est toujours pas calcule ici ; il reste le"
+      " contradicteur possible." % T)
+    A("%s:   PLANCHER DE BRUIT  TROU FERME AU CYCLE 143. `_LIVREE_BRUIT` avait ete mesure sur"
+      " l'ECART-TYPE et" % T)
+    A("%s:              reporte tel quel sur la colonne DECILES — un plancher qui ne decrit pas"
+      " l'estimateur qu'il" % T)
+    A("%s:              garde. La lecture hors defaut (i=9 / i=0, deux cellules DEBOUT que rien"
+      " ne relie dans le" % T)
+    A("%s:              balayage) est desormais lue SUR L'ESTIMATEUR DE DECILE et publiee par"
+      " axe : %s." % (T, ' · '.join('%s %.4f %%' % (a, _BRUIT_DEC.get(a, float('nan')) * 100.0)
+                                    for a in ('fwd', 'out', 'up')) if _BRUIT_DEC
+                      else 'indisponible sur cette trace'))
+    A("%s:              C'est ce plancher-la qui garde les cellules arbitrees. MESURE, jamais"
+      " choisi." % T)
 
 
 def _spec1011_livree_block(A, txt):
@@ -4296,6 +4326,8 @@ def _spec1011_livree_block(A, txt):
         return
     try:
         lines, rows, rc = _shape.measure(txt)
+        global _BRUIT_DEC
+        _BRUIT_DEC = dict(_shape.RESULT.get('bruit_dec', {}))
     except Exception as e:                                       # pragma: no cover
         A('ROOM-SPEC1011-LIVREE: SANS VERDICT — le calcul de forme a echoue (%r). Rien n\'est'
           ' publie : une forme plausible et fausse coute plus qu\'une absence declaree.' % e)
@@ -4328,7 +4360,14 @@ def _spec1011_livree_block(A, txt):
         # La distance de DECILES n'existe que sur l'axe `fwd` (une distance n'a pas de
         # composante) et n'est la grandeur NOMMEE que pour §11 (§10 `fwd` nomme une saillie
         # SIGNEE, dont le second facteur n'est pas calcule ici — voir TROUS DECLARES).
-        _arb = (LEN_VERDICT_DECILES and sec == '11' and ax == 'fwd' and dec is not None)
+        # CYCLE 143 : `out` et `up` REJOIGNENT L'ARBITRAGE. Ils n'y etaient pas parce que la
+        # colonne DECILES n'existait que sur `fwd` ; elle existe desormais sur les trois axes
+        # (`c124_delivered_shape.py`, meme construction, seul l'axe qui TRIE la population
+        # change). §10 `fwd` reste NON ARBITRE : sa grandeur nommee est une saillie SIGNEE dont
+        # le facteur cos(ang) n'est pas calcule ici — publier `Lpp` seul serait publier UN
+        # FACTEUR a la place de l'operateur.
+        _arb = (LEN_VERDICT_DECILES and dec is not None
+                and ((sec == '11' and ax == 'fwd') or ax in ('out', 'up')))
         val = dec if _arb else sig
         src = 'DECILES' if _arb else 'ECART-TYPE'
         vd = _b3(val, lo, hi)
@@ -4345,7 +4384,13 @@ def _spec1011_livree_block(A, txt):
         # ne peut pas opposer son veto a la grandeur que la section nomme.
         vmm = _b3(mm, lo, hi)
         why = ''
-        _brt = _LIVREE_BRUIT.get(sec, 0.0)
+        # LE PLANCHER SUIT L'ESTIMATEUR QUI DECIDE. `_LIVREE_BRUIT` a ete mesure sur
+        # l'ECART-TYPE ; l'appliquer a la colonne DECILES etait un report declare comme un trou
+        # au cycle 131b. Le trou se ferme ici : `c124` publie le plancher de la lecture hors
+        # defaut (i=9 / i=0) SUR L'ESTIMATEUR DE DECILE, par axe, et c'est lui qui sert quand
+        # cet estimateur arbitre. MESURE, jamais choisi.
+        _brt = _BRUIT_DEC.get(ax, _LIVREE_BRUIT.get(sec, 0.0)) if _arb \
+            else _LIVREE_BRUIT.get(sec, 0.0)
         if mrg <= _brt:
             vfin, why = 'SANS VERDICT', '  [marge %.3f %% <= bruit §%s %.3f %%]' % (
                 mrg * 100.0, sec, _brt * 100.0)
@@ -4356,7 +4401,7 @@ def _spec1011_livree_block(A, txt):
         if sec == '10' and ax == 'fwd':
             why += ('  [ESTIMATEUR NON ARBITRE : §10 `fwd` nomme `Lpp . cos(ang)`, saillie'
                     ' SIGNEE — le facteur cos(ang) n\'est pas calcule ici]')
-        elif ax in ('out', 'up'):
+        elif ax in ('out', 'up') and not _arb:
             why += '  [ESTIMATEUR NON ARBITRE : aucune lecture nommee pour cet axe]'
         clause.setdefault((sec, ax), []).append(vfin)
         if cmd:
@@ -6881,7 +6926,7 @@ def main():
     #   parcouru. Aucune grandeur prise a UNE extremite du chemin ne peut la voir : ni une
     #   amplitude (ROOM-RESPONSE), ni une forme (ROOM-GRADIENT), ni une duree de ballottement
     #   (ROOM-RINGDOWN). Il faut deux poses ETABLIES au meme point et comparer.
-    # REPERE : celui de l'ANCRE, herite de `phys-tip-mean` (jak-hd-physics.gc:4455).
+    # REPERE : celui de l'ANCRE, herite de `phys-tip-mean` (jak-hd-physics.gc:4421).
     # LECTURE QUAND LE DEFAUT EST ABSENT : ZERO. Un systeme dissipatif sans terme a memoire revient
     #   au meme equilibre des lors que l'inclinaison qui le definit est revenue a la meme valeur et
     #   qu'on lui a laisse le meme temps pour s'etablir — et `back` lui donne EXACTEMENT le meme
@@ -7693,7 +7738,7 @@ def main():
     #     D_combined = D_max . tanh( |D_linear + D_angular| / D_max ) »
     # La grandeur de §21 est donc  s = D_linear + D_angular  =  e - dp,  ou `e` est l'excursion du
     # point de chair (ROOM-APEX ci-dessus) et `dp` la part apportee par le TENSEUR. Ce n'est PAS
-    # la force du ressort : le mur `mu` de jak-hd-physics.gc:2984-2990 multiplie une FORCE et ne
+    # la force du ressort : le mur `mu` de jak-hd-physics.gc:2950-2956 multiplie une FORCE et ne
     # touche ni la rotation ni la combinaison. Quinze cycles l'ont traite comme s'il etait §21.
     # NATURE : un VECTEUR et sa norme, en unites de B0 (602 u), sans dimension.
     # REPERE : le MONDE — difference de deux points de la MEME frame (pose simulee vs pose
@@ -7749,7 +7794,7 @@ def main():
         A('   NATURE : vecteur et norme, en B0 (602 u), sans dimension. REPERE : monde, contre la')
         A('   pose d\'AUTEUR de la MEME frame. A LA POSE D\'AUTEUR : 0.0000. Les quatre termes sont')
         A('   latches au MEME argmax que `apex`, donc sur la MEME frame.')
-        A('   s = D_linear + D_angular = e - dp. Le mur de force `mu` (jak-hd-physics.gc:2984-2990)')
+        A('   s = D_linear + D_angular = e - dp. Le mur de force `mu` (jak-hd-physics.gc:2950-2956)')
         A('   n\'est PAS cette grandeur : il multiplie une FORCE et ne voit ni la rotation ni la')
         A('   combinaison.')
         if _e21n > 0.0:
@@ -7847,7 +7892,7 @@ def main():
             A('      LA RETIRE. Elle disait que ces simulations valaient « parce que la borne')
             A('      s\'applique a la valeur LIVREE et n\'ecrit pas l\'etat du solveur, donc sans')
             A('      retro-action de frame a frame ». FAUX : `phys-snapshot-sim!`')
-            A('      (jak-hd-physics.gc:1376, [NOTE-214]) releve en FIN DE FRAME, sur le squelette')
+            A('      (jak-hd-physics.gc:1342, [NOTE-214]) releve en FIN DE FRAME, sur le squelette')
             A('      ECRIT, la position de tout volume porte par un joint simule — et c\'est ce que')
             A('      la frame SUIVANTE lit comme obstacle. Une borne posee sur la valeur livree')
             A('      deplace donc les volumes de collision, donc la trajectoire. MESURE (cycle 118,')
@@ -8492,7 +8537,7 @@ def main():
             A('      LE PLAFOND QUE LE MESH IMPOSE, ET IL EST LU DANS LE FICHIER LIVRE — plus')
             A('      jamais ecrit en dur. La part de la masse distale portee par des maillons')
             A('      SIMULES est la somme des poids `ax` de recharged_assets/physics_mesh.txt,')
-            A('      le fichier meme que le moteur charge (jak-hd-physics.gc:803). Le reste est')
+            A('      le fichier meme que le moteur charge (jak-hd-physics.gc:769). Le reste est')
             A('      porte par des os NON SIMULES, dont la matrice ecrite EST la matrice')
             A('      d\'auteur et dont l\'excursion est nulle au bit pres.')
             if _shL is None or _shR is None:
@@ -8693,7 +8738,7 @@ def main():
                                    '   (%d cellules sans PHYSREG3 : hors comparaison)' % _g7nx)))
                     A('   CE CONTROLE IDENTIFIE LE MAILLON, IL NE BORNE RIEN. `jt0` est `jt` a'
                       ' l\'argmax de `ee`')
-                    A('   (jak-hd-physics.gc:3971-3975), `s6` est `jt` a l\'argmax de l\'etage 0'
+                    A('   (jak-hd-physics.gc:3937-3941), `s6` est `jt` a l\'argmax de l\'etage 0'
                       ' (:1077-1078) : deux')
                     A('   argmax de deux grandeurs differentes sur la meme fenetre. Aucune'
                       ' inegalite ne les relie, et')
@@ -9476,7 +9521,7 @@ def main():
                 # ---- LA GARDE DU CYCLE 108, ET C'EST LA RAISON D'ETRE DE LA COLONNE CI-DESSUS.
                 # `k` est le facteur par lequel il faudrait DIVISER l'excursion. Cette arithmetique
                 # suppose que la sortie SUIT son entree. Dans la zone GELE du mur de §21 elle ne la
-                # suit pas : `jak-hd-physics.gc:2982-2987` plafonne l'argument par `fmin 0.99`, donc
+                # suit pas : `jak-hd-physics.gc:2948-2953` plafonne l'argument par `fmin 0.99`, donc
                 # au-dela de kn + 0.99*cpp la force de rappel est CONSTANTE — la meme a 5 021 u
                 # d'erreur qu'a 50 207 u (chiffres du bloc ROOM-REGLIM, calcules sur les constantes
                 # livrees). Diviser l'entree d'un limiteur gele ne divise pas sa sortie. Une borne
@@ -10005,7 +10050,7 @@ def main():
             # ======================================================================================
             # [NOTE-479] CYCLE 105 — CETTE LIGNE EST VALIDE QUAND ELLE ECHOUE ET **VIDE** QUAND
             # ELLE PASSE. `course` et `plancher-propre` sont DEUX MAXIMA COURANTS INDEPENDANTS
-            # (jak-hd-physics.gc:2404-2405 et :2412-2413) : meme fenetre, meme domaine, mais
+            # (jak-hd-physics.gc:2370-2371 et :2412-2413) : meme fenetre, meme domaine, mais
             # latches separement, donc possiblement sur deux frames, deux maillons et deux
             # echantillons `ms` differents — et le tag `run` leur laisse ~16 700 frames pour
             # diverger. Il en resulte une asymetrie logique qui n'avait jamais ete posee :
@@ -10545,7 +10590,7 @@ def main():
             # Il comparait `skinadd` entre les fenetres `pcon` et `pcoff`, en l'attribuant a
             # l'injection de 400 u de `*phys-inject*`. Cette injection NE PEUT PAS toucher
             # `skinadd`, par trois faits de code et non par opinion :
-            #   1. `phys-inject-probe!` (jak-hd-physics.gc:2276) tourne APRES `phys-pen-chain`
+            #   1. `phys-inject-probe!` (jak-hd-physics.gc:2242) tourne APRES `phys-pen-chain`
             #      (:3328 puis :3336), qui est le SEUL ecrivain de `*phys-saf*`/`*phys-skinadd*` ;
             #   2. elle n'appelle jamais `phys-surf-sd` — elle ne mesure que `phys-link-pen`,
             #      contre les VOLUMES : c'est le controle de `meshpen` ([NOTE-155]), pas celui
@@ -10808,11 +10853,11 @@ def main():
     A('             coherent », de la meme facon qu\'une variance ne pouvait pas decrire un')
     A('             affaissement sous gravite.')
     A('   REPERE  : celui de l\'ANCRE, applique a l\'ecart `o` = position ecrite moins pose d\'auteur du')
-    A('             MEME joint (jak-hd-physics.gc:1950-1958, vector-rotate*! par w2l, donc rotation')
+    A('             MEME joint (jak-hd-physics.gc:1916-1924, vector-rotate*! par w2l, donc rotation')
     A('             seule). Ni le repere monde, ni un ecart brut : les deux a la fois. Numerateur =')
-    A('             norme euclidienne de l\'increment d\'UNE frame (jak-hd-physics.gc:2201) ;')
+    A('             norme euclidienne de l\'increment d\'UNE frame (jak-hd-physics.gc:2167) ;')
     A('             denominateur = diagonale de la boite englobante du MEME vecteur, du MEME maillon,')
-    A('             sur la MEME fenetre (jak-hd-physics.gc:2458-2463). Meme grandeur, meme repere,')
+    A('             sur la MEME fenetre (jak-hd-physics.gc:2424-2429). Meme grandeur, meme repere,')
     A('             meme fenetre — c\'est pour ca que le rapport se calcule PAR FENETRE puis se prend')
     A('             au maximum, et jamais comme max(jump)/max(tipvar), qui melangerait deux fenetres')
     A('             differentes (sur chestL/jerk ce melange lit 0.4300 la ou la pire fenetre reelle')
@@ -12833,7 +12878,7 @@ def main():
         # le cycle 93 vient de retirer sur `perr` : un maximum lu comme une population.
         # NATURE : `secm` est une FRACTION d'epaisseur locale (sans dimension), MAXIMUM de la
         #   FENETRE, remise a zero par `phys-stats-reset!` a chaque frontiere de fenetre
-        #   (jak-hd-physics.gc:4114) — donc une valeur par fenetre, pas un cumul de course.
+        #   (jak-hd-physics.gc:4080) — donc une valeur par fenetre, pas un cumul de course.
         # REPERE : aucun (scalaire d'epaisseur). LIGNE DE BASE : 0.0 quand le canal est au repos.
         # `secr` est la MEME grandeur AVANT le plafond de 7 % : leur ecart chiffre ce que la borne
         #   retire, comme le contrat l'exige d'un suppresseur.
@@ -12961,7 +13006,7 @@ def main():
         _RAD_KSRC = 'lu dans la trace : ndyn=%.4f / ckn=%.4f' % (float(_ndyn.group(1)),
                                                                  float(_ckn.group(1)))
     # LE PLAFOND DE CONSTRUCTION, ET IL DOIT ETRE PUBLIE A COTE DE LA BANDE, SINON LA BANDE MENT.
-    # `rrm` est lui-meme ecrete par `rcap <= HardMaxCOMDisplacement * B0` (jak-hd-physics.gc:3085),
+    # `rrm` est lui-meme ecrete par `rcap <= HardMaxCOMDisplacement * B0` (jak-hd-physics.gc:3051),
     # donc `elong = k * rrm < k * chard` PAR CONSTRUCTION, quel que soit le stimulus. Avec les
     # valeurs livrees ca vaut 0.4286 * 0.40 = 0.171 : les bandes « large 15-21 % » et
     # « exceptional 21-25 % » de SPEC 22 sont INATTEIGNABLES par cette grandeur, et un « jamais
@@ -13123,7 +13168,7 @@ def main():
         #            (A) l'OS       (B) la CHAIR
         #           pas encore     au-dela de la
         #           projete        pointe de l'os
-        # (A) peut etre non nul parce que `phys-length-chain` (jak-hd-physics.gc:3075) tourne APRES
+        # (A) peut etre non nul parce que `phys-length-chain` (jak-hd-physics.gc:3041) tourne APRES
         # la boucle des maillons ou `dr0` est calcule (:2977) : la contrainte de longueur de la
         # frame courante n'a pas encore agi quand la mesure est prise. Si (A) domine, le tenseur de
         # deformation recoit une elongation que le solveur ANNULE trois lignes plus loin.
@@ -13340,7 +13385,7 @@ def main():
         #   ecart de la pointe d'UNE frame a la suivante, en unites de jeu, sur la POSE ECRITE.
         # CORRECTION DE NOM, CYCLE 71 : cette ligne a porte « |apex - cible de repos| » depuis sa
         #   creation. C'EST FAUX. Le moteur n'ecrit les emplacements 24/26 que sous `(= l rlk)`
-        #   (jak-hd-physics.gc:2824) et `rlk` vaut 0 sur chestL/chestR (`rootlk` omis du fichier
+        #   (jak-hd-physics.gc:2790) et `rlk` vaut 0 sur chestL/chestR (`rootlk` omis du fichier
         #   livre, :2524-2526) : c'est la demande du maillon RACINE — l'os de 1040 u — jamais
         #   l'apex de chair. Le chiffre n'a pas bouge ; ce qui etait faux est ce qu'il nommait.
         # REPERE  le monde, meme frame, meme attache. LIGNE DE BASE  une chaine qui suit exactement
@@ -13380,7 +13425,7 @@ def main():
             # Le cycle 85 a classe 186 fenetres par chaine sur le regime du mur de force et publie
             # « GELE 178/186 (95.7 %) et 182/186 (97.8 %) », plus un temoin sans pilotage « GELE
             # 31/31, mediane 1.8269 / 1.7997 B0 ». Ce classement est fait sur `perr`, qui est un
-            # MAXIMUM DE FENETRE (jak-hd-physics.gc:2882, emplacement 26 = max courant). Une
+            # MAXIMUM DE FENETRE (jak-hd-physics.gc:2848, emplacement 26 = max courant). Une
             # fenetre dont UNE frame passe le gel est alors comptee « GELEE » en entier.
             # `PHYSRESTS` porte depuis sa creation la SOMME (`pesum`) et le COMPTE (`rgn`) des
             # memes lectures — donc la MOYENNE PAR FRAME — et RIEN NE LES LISAIT : troisieme flux

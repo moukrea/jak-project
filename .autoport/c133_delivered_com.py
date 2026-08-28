@@ -5,7 +5,7 @@ LA LIGNE DE VERDICT PUBLIE.
 POURQUOI CE FICHIER EXISTE. Le cycle 132 a mesure un ANGLE MORT TOTAL : les lignes qui rendent le
 verdict de la clause de COM de §10, §11 et §12 (`physics_room_table.py:2573`, `:3631`, `:1680`)
 lisent `PHYSORICOML` et `PHYSDFMA`, tous deux pris sur `*phys-ldb*`, ecrit a
-`jak-hd-physics.gc:3415`. Or l'ecriture squelette a lieu a `:3932` et le plafond de §21 a `:4046`.
+`jak-hd-physics.gc:3381`. Or l'ecriture squelette a lieu a `:3932` et le plafond de §21 a `:4046`.
 Deux courses qui ne differaient que par le bouton d'ancrage de §31 ont fait bouger 20 632
 enregistrements et l'organe LIVRE (COM vivant -3,48 % / -2,31 %) pendant que `PHYSORICOML`,
 `PHYSDFMA` et `PHYSROW` restaient IDENTIQUES AU BIT.
@@ -285,7 +285,7 @@ def main(txt=None):
             # ou `Q_k = SOMME_v w(v,k) q_k(v)` est le PREMIER MOMENT de la chair sur l'os `k`,
             # en coordonnees BIND-LOCALES de CE joint — un vecteur FIXE, independant de la
             # cellule. Le premier terme porte la ROTATION ET LE TENSEUR (le moteur ecrit
-            # `bm . D` a `jak-hd-physics.gc:3918`, donc `A_k` les contient tous les deux), le
+            # `bm . D` a `jak-hd-physics.gc:3884`, donc `A_k` les contient tous les deux), le
             # second porte la TRANSLATION. Aucun terme n'est neglige : c'est une identite, et
             # elle est VERIFIEE ci-dessous contre le nuage, pas affirmee.
             # LA SOMME PORTE SUR TOUS LES JOINTS QUE LE SKINNING MELANGE, PAS SEULEMENT SUR LES
@@ -421,7 +421,7 @@ def main(txt=None):
                         # ---- CYCLE 139 : L'ATTRIBUTION PAR JOINT DES DEUX MOITIES -----------
                         # POURQUOI. La ligne ci-dessus dit QUELLE MOITIE tire vers l'interieur ;
                         # elle ne dit pas QUEL OS. Or les deux mecanismes ecrits pour cette
-                        # clause (le MUR MEDIAN du cycle 137, `jak-hd-physics.gc:3927-3931`, et
+                        # clause (le MUR MEDIAN du cycle 137, `jak-hd-physics.gc:3893-3897`, et
                         # le POINT FIXE du cycle 132, `:3921-3922`) sont appliques PAR MAILLON
                         # dans le chemin d'ECRITURE : sans attribution par os, « le mur ne rend
                         # rien » et « le mur rend, et un autre os l'annule » sont

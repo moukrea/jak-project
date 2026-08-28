@@ -1,0 +1,65 @@
+# CYCLE 143 — PREDICTIONS ECRITES AVANT LA MESURE
+# DIRECTIVES vd9e8b66782 · perimetre : poitrine de Keira (chestL, chestR)
+#
+# ============================================================================================
+# LOT A — LE PLAFOND `CLEAN` EST LIBERE DE L'INTERIEUR, SANS TOUCHER A LA GATE
+# ============================================================================================
+# 17 triplets de DECLARATION (`(define *phys-Nx/y/z* (new 'global 'array ...))`) fusionnes en une
+# ligne chacun — la convention deja en vigueur dans le fichier (L118-123, L215, L254 la portent
+# depuis des cycles). Aucun commentaire supprime, aucune ligne de logique deplacee.
+#
+# A1  `wc -l goal_src/jak1/pc/jak-hd-physics.gc` : 4799 -> 4765 (plafond 4800).
+#     FALSIFICATEUR : toute valeur != 4765.
+# A2  IDENTITE DE CODE, pas identite de comportement mesuree : le source DEPOUILLE de ses
+#     commentaires et de ses espaces doit etre IDENTIQUE AU CARACTERE entre HEAD et l'arbre.
+#     C'est plus fort qu'une course : le compilateur voit exactement la meme suite de formes.
+#     FALSIFICATEUR : un seul caractere de difference -> le lot est retire, pas explique.
+# A3  Les citations `:NNNN` qui designent ce fichier sont remappees dans le moteur, dans
+#     jak-hd-physics-NOTES.md, dans phys-room.gc, dans physics_room_table.py, dans
+#     c133_delivered_com.py et dans SPEC-COVERAGE.md. CHAQUE remappage est verifie par
+#     CONTENU : old[N] doit etre le MEME TEXTE que new[N'].
+#     FALSIFICATEUR : une seule citation dont le texte cible differe -> elle n'est pas remappee
+#     et le compte des refus est publie.
+# A4  `(mi)` compile 551 cibles sans erreur.
+#
+# ============================================================================================
+# LOT D — LES CLAUSES `out` ET `up` DE §10/§11 RECOIVENT UNE LECTURE NOMMEE, POUR LA 1re FOIS
+# ============================================================================================
+# CE QUE LE TABLEAU PUBLIE AUJOURD'HUI, SUR SA PROPRE LIGNE DE TROUS DECLARES :
+#   « §10/§11 `out` et `up` : AUCUNE lecture nommee n'est portee dans cette chaine. »
+# Les 4 clauses concernees sont donc jugees soit sur l'ECART-TYPE — un proxy que le cycle 126 a
+# REFUTE par un signe OPPOSE entre sections — soit pas du tout.
+#
+# CE QUI EST ECRIT : la construction de DECILE deja arbitree pour « Root-to-apex LENGTH » est
+# PORTEE VERBATIM aux deux autres axes. Populations fixees UNE FOIS a la pose de BIND sur la
+# coordonnee de l'axe, centroides ponderes, distance lue sur le nuage MONDE. C'est un PORTAGE,
+# pas une invention : la seule chose qui change est l'axe de tri.
+#
+# D1  CONTROLE DE PORTAGE (le plus important). Les valeurs de decile de l'axe `fwd` doivent
+#     rester IDENTIQUES AU DERNIER CHIFFRE PUBLIE :
+#         chestL w>0.00  1.2629   chestR w>0.00  1.2606
+#         chestL w>=0.25 1.2070   chestR w>=0.25 1.2501
+#     FALSIFICATEUR : un seul chiffre qui bouge -> le port a perturbe le chemin existant, rien
+#     n'est publie sur les nouveaux axes.
+# D2  24 nouvelles valeurs (2 chaines x 2 frontieres x 2 sections x 2 axes = 16, plus les
+#     lectures hors defaut) existent et sont finies.
+# D3  DIRECTION, ET ELLE EST PREDITE PAR UN MECANISME DEJA MESURE, PAS PAR UN AJUSTEMENT.
+#     `c133_delivered_com.py` publie que la chair ANCREE au torse pese W=39.81 sur N=94.00, soit
+#     42,4 % : elle ne recoit AUCUNE part du tenseur. Une echelle d'ORGANE S commandee comme une
+#     echelle PAR MAILLON ne rend donc que 1 + f.(S-1) avec f ~ 0,58.
+#     Pour §11 `out` (commande 0,9234 / 0,9338, bande 0,87-0,93) cela predit ~0,955 / ~0,962,
+#     donc AU-DESSUS de la bande sur AU MOINS 3 des 4 cellules.
+#     FALSIFICATEUR : si 3 cellules ou plus tombent DANS, le modele de dilution est faux et §11
+#     gagne deux clauses — je le publierai comme tel, pas comme une surprise heureuse.
+# D4  PLANCHER DE BRUIT, MESURE ET NON CHOISI. Le rapport hors defaut i=9/i=0 (deux cellules
+#     DEBOUT que rien ne relie dans le balayage) est lu SUR LE MEME ESTIMATEUR de decile et sert
+#     de plancher par axe. Predit : < 1 % sur les trois axes, comme sur l'ecart-type.
+#     FALSIFICATEUR : > 1 % -> le plancher publie EST cette valeur, et les marges plus petites
+#     rendent SANS VERDICT.
+# D5  AUCUNE AUTRE SECTION NE BOUGE. §12 est `TENUE` et ses deux cellules d'aplatissement sont
+#     calculees hors de ce bloc ; elles doivent etre IDENTIQUES AU CHIFFRE dans le tableau
+#     re-derive. Idem §24/§25/§26 et la gate COLLIDE.
+#     FALSIFICATEUR : un seul de ces chiffres qui bouge -> le lot touche plus que sa cible.
+# D6  LE LOT NE PEUT PAS FABRIQUER DE VERT : il remplace un estimateur REFUTE par la grandeur
+#     que la section NOMME. Si les 4 clauses passent DANS, c'est un resultat ; si elles passent
+#     HORS BANDE, §10/§11 perdent une clause chacune et je l'ecris.

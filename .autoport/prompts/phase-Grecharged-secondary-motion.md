@@ -60,6 +60,20 @@ avait deja refuse (3) par avance : « la spec a 100%, pas de raccourcis ».
 - **Un changement de MODELE, pas un reglage.** Le cycle 129 a nomme la bonne cible : le canal de
   deplacement du centre de masse doit vivre dans le **tenseur de deformation**. Le cycle 130b a
   chiffre le travail a **quatre unites** — c'est une serie, pas une tentative. C'est accepte.
+
+  > **CORRECTION DU CYCLE 143 (2026-08-28), SOURCEE — « quatre unites » N'EXISTE PAS.** Le cycle
+  > 130b n'a pas chiffre quatre UNITES DE TRAVAIL : il a chiffre quatre **LIGNES** de budget.
+  > Commit `8403698d81`, dont le titre est « le budget d'execution du chantier pre-specifie est de
+  > QUATRE lignes », section « 4 bis » du rapport :
+  > `jak-hd-physics.gc 4796 lignes · plafond de la gate CLEAN 4800 · marge 4 lignes`.
+  > Le chantier reellement pre-specifie au c130b a **DEUX** volets, pas quatre : (a) le retrait du
+  > double compte de longueur du c128 — **FAIT au cycle 136** (`lyield=`, +3 lignes, §11 passee
+  > `NON TENUE` -> `PARTIELLE`) ; (b) « un terme de COM dans le tenseur valant x1,61 a x1,68 » —
+  > **REFUTE deux fois par ecrit** : `HangingCOMDisplacement` est une cle-REPONSE (interdite par la
+  > DIRECTIVE du 2026-08-23 16:00), et `c133_delivered_com.py` mesure que l'organe LIVRE rend deja
+  > **0,2459 / 0,2413 B0**, DANS la bande — le tenseur livre deja ce qu'on voulait lui ajouter.
+  > **Il n'y a donc pas de « premiere des quatre unites » a ecrire.** Le budget de lignes, lui, est
+  > reel : il valait UNE ligne au cycle 142. Le cycle 143 l'a porte a **35** sans toucher la gate.
 - Ne plus chercher un parametre qui ferait passer une section isolee : onze sections partagent la
   meme cause, et les traiter une par une a echoue pendant huit cycles.
 - Prendre le temps qu'il faut. L'owner ne demande pas de date, il demande la spec entiere.
@@ -95,8 +109,19 @@ pendant qu'on ecrit le correctif qu'il mesure — pas comme un cycle a lui seul.
 
 La cible est nommee depuis le cycle 129 et l'owner l'a validee : **le canal de deplacement du
 centre de masse doit vivre dans le tenseur de deformation**. Onze des treize sections NON TENUE en
-dependent. Ecrire ce canal EST le travail. Commencer par la premiere des quatre unites chiffrees
-au cycle 130b.
+dependent. Ecrire ce canal EST le travail. ~~Commencer par la premiere des quatre unites chiffrees
+au cycle 130b.~~
+
+> **CORRECTION DU CYCLE 143 (2026-08-28)** — voir le bloc source plus haut : « quatre unites » est
+> une mauvaise lecture de « quatre LIGNES » (commit `8403698d81`), et les deux volets reellement
+> pre-specifies sont l'un FAIT (c136) et l'autre REFUTE (cle-REPONSE + organe livre deja DANS).
+> **CE QUI RESTE OUVERT SUR LE MEME FRONT, MESURE AU CYCLE 143 ET CHIFFRE :** les echelles de
+> forme que le preset donne (`SupineWidthScale`, `HangingWidthScale`, ...) sont des echelles
+> d'**ORGANE** et le moteur les applique **PAR MAILLON** ; or seule la fraction `SOMME comw`
+> = **0,5715 / 0,5452** de la chair est pilotee par les maillons. L'organe ne recoit donc que
+> ~57 % de ce qui est commande — facteur mesure `f = 0,555 a 0,604` sur SIX cellules
+> independantes (§10 et §11 x deux frontieres x deux chaines). C'est CA, le canal manquant dans le
+> tenseur, et il a maintenant sa place en lignes.
 
 ### Ce que cet ordre ne leve PAS
 

@@ -879,7 +879,7 @@ Mesure du 2026-08-11 (ROOM-GRADIENT) : lbang link1 = 178.57 deg, rbang 176.20, b
 pas les aretes pour ca, se croise.
 
 TROIS PROPRIETES, et chacune repond a un mot de sa phrase :
-  * « attenuation », pas clamp : min DOUX a genou (phys-softmin, :1277) — identite stricte sous
+  * « attenuation », pas clamp : min DOUX a genou (phys-softmin, :1243) — identite stricte sous
     0.84 * maxangle et pente continue au raccord, donc aucun a-coup au passage du seuil, et rien
     de retire tant que l'angle reste dans la zone que la donnee declare representable ;
   * « les angles EXTREMES » : la zone morte est ce qui rend la phrase vraie. La forme d'avant
@@ -989,13 +989,13 @@ construction a `rr + rl` : `phys-collide-depth` rend
 411 + 225 = 636 u = 0.1553 m — et la colonne publiait 0.7697 m, soit
 4.96 fois le maximum atteignable. 16 chaines sur 19 depassent ainsi
 leur propre borne : ce n'est pas une profondeur. C'est l'AUTRE terme
-de `phys-link-pen` (:2628-2630), la DISTANCE A L'AXE DU MAUVAIS COTE
+de `phys-link-pen` (:2594-2596), la DISTANCE A L'AXE DU MAUVAIS COTE
 que `phys-axis-dir` ecrit dans `w`.
 
 CORROBORATION EXACTE, PAS UNE CORRELATION : les 19 chaines a
 `meshpen > 0` sont exactement les 19 de `ROOM-SIDE`, et les 3
 absentes (earL, earR, toestrapL) exactement les 3 a residu nul.
-C'est le meme predicat, dans le meme `when` (:2624).
+C'est le meme predicat, dans le meme `when` (:2590).
 
 C'EST L'INVARIANT QUE `phys-retreat-chain` TENAIT SANS LE DIRE : il
 visait la pose du modele, qui est du BON cote de CHAQUE axe par
@@ -1058,7 +1058,7 @@ teleporte. C'est la forme mesuree (`botstrapL` 0.1155 -> 0.5372 m,
 resolution pire que le clip est pire que rien ».
 
 CE QUI CHANGE : `(> dep 0.0)`. `dep` est deja calcule au-dessus
-(:2298) — c'est la profondeur du CENTRE DU VOLUME SIMULE dans cet
+(:2264) — c'est la profondeur du CENTRE DU VOLUME SIMULE dans cet
 obstacle-ci, avant la poussee. Le veto d'azimut ne s'applique donc
 plus qu'aux maillons qui sont REELLEMENT dans le volume, la ou « de
 quel cote » decide si la poussee de profondeur les sort du bon cote.
@@ -1196,7 +1196,7 @@ sa bind-pose porte l'orientation du DONNEUR, ~11,9 deg a cote (gn = 2 sin(t/2)).
 Relevee a la premiere frame (`warm = 0`), sur `R_ancre^-1 . g` lui-meme et a la
 MEME frame que `*phys-ux*` : terme moteur nul au bit pres, cible elastique sur la
 pose d'auteur, donc l'equilibre EST la pose d'auteur. `*phys-warm*` repart a 0 a
-l'init du slot (:1041) — le « rebase on teleport » de sa SPEC 7, pas un etat qui
+l'init du slot (:1007) — le « rebase on teleport » de sa SPEC 7, pas un etat qui
 vieillit. INCHANGE : buste incline -> `R_ancre` bouge, `g_ref` non, l'ecart
 apparait et la poitrine tombe ; rotation autour de l'axe de g -> invariante.
 ---------------------------------------------------------------------------
@@ -1511,12 +1511,12 @@ bornee aux chaines qui portent `maxangle`, c'est-a-dire les cheveux
 (« c'est juste sur les meches, pas le reste, encore moins les seins », 22:35).
 CORRECTION 2026-08-14 — CE COMMENTAIRE AFFIRMAIT LE CONTRAIRE DU CODE, ET LA
 PHRASE RETIREE ETAIT : « Ce n'est pas un rappel vers le dessin : elle borne un
-PLI entre deux maillons voisins ». Releve dans `phys-bend-chain` (:1690-1695) :
+PLI entre deux maillons voisins ». Releve dans `phys-bend-chain` (:1656-1661) :
 `mx/my/mz` est pris entre les os ANIMES `kk` et `kp` (`skel bones ... transform`),
 donc l'angle mesure est l'ECART DE CE MAILLON A SA POSE D'AUTEUR, pas le pli
 entre deux maillons simules. C'EST DONC BIEN UN RAPPEL VERS LE DESSIN, adouci.
 ELLE A DONC UNE ZONE MORTE DEPUIS LE 2026-08-14, ET C'EST TOUT LE CORRECTIF.
-`phys-softmin` (:1277) etait un min doux de norme p SANS zone morte — f(e) < e
+`phys-softmin` (:1243) etait un min doux de norme p SANS zone morte — f(e) < e
 pour TOUT e > 0 — donc il rognait des l'ecart non nul : seuil de morsure
 effectif 14.09 deg pour un `maxangle` de 60.99 (backhair), 15.07 / 66.39
 (lmidhair), 15.15 / 66.79 (rmidhair), 26.87 / 136.79 (rbang), 26.95 / 137.29
@@ -2063,7 +2063,7 @@ chaines de famille A dont le triedre est arme : les organes geles par l'owner ne
 COMMENT IL EST INTEGRE, ET POURQUOI PAS AUTREMENT. Premiere ecriture de ce cycle : un
 oscillateur SCALAIRE sur la coordonnee radiale relative. RETIREE AVANT TOUTE MESURE, parce
 qu'elle etait morte par construction et que le code le dit : pour une chaine de famille A,
-`gdw` ne porte QUE la reorientation de la gravite (`gl - g_ref`, :2513-2523) ; la TRANSLATION du
+`gdw` ne porte QUE la reorientation de la gravite (`gl - g_ref`, :2479-2489) ; la TRANSLATION du
 torse n'y entre pas — elle atteint la particule par l'ANCRE qui deplace la cible du ressort
 (« c'est par elle, et par elle seule, que le mouvement du crane atteint la particule — par la
 contrainte, pas par un ressort »). Une coordonnee RELATIVE n'a pas d'ancre qui bouge : elle
@@ -2201,7 +2201,7 @@ lettres — « the majority of visible movement must come from global mass
 lag and rotation, NOT from stretching the tissue by the complete
 displacement magnitude » — et sa §38 donne le couple exact :
 `NormalMaxCOMDisplacement 0.35 B0`  <->  `NormalDynamicStretch 0.15`
-soit 0.15 / 0.35 = 0.4286, qui EST `PHYS-DYN-K` (:356, deja derive de
+soit 0.15 / 0.35 = 0.4286, qui EST `PHYS-DYN-K` (:324, deja derive de
 ces deux memes lignes pour le terme tangentiel). Quatre autres sections
 donnent le meme ordre par une voie independante : §14 (COM 15-25 % ->
 +7 a +13 %), §16 (25-35 % -> +16 a +21 %), §17 (10-18 % -> +5 a +10 %),
@@ -2472,8 +2472,8 @@ etait ecrit DANS L'ETAT juste en dessous : la salle mesurait
 l'ajustement de zeta devait EXCLURE — d'ou son « DESACCORD —
 prudence » sur les deux chaines. Un etat reecrit par une
 borne n'est plus l'oscillateur dont sa 36 donne zeta.
-`phys-softmin` (:1051) est deja la borne douce du moteur, et
-sert deja l'apex (:3059) et la torsion (:3890) : IDENTITE
+`phys-softmin` (:1017) est deja la borne douce du moteur, et
+sert deja l'apex (:3025) et la torsion (:3856) : IDENTITE
 STRICTE sous kn = 0.84*cap, seul l'EXCES sature, asymptote
 exacte a cap.
 ET LE GENOU TOMBE OU LA SPEC LE VEUT, ce qui est la parade
@@ -2587,7 +2587,7 @@ pourquoi le degre de liberte manquant est ajoute la ou il manque, dans le solveu
 CORRECTION DU 2026-08-17 : ce paragraphe portait aussi l'argument « `sat` n'est armee qu'a UN
 maillon (garde `(= n 1)`), donc injecter un os DESARMERAIT deux sections TENUES ». C'etait vrai
 du code d'alors, et ce n'etait pas une raison de ne pas injecter : les deux gardes ont ete
-RETIREES (`sat` ~:2644, mur d'apex ~:3108), la famille A suffisant a selectionner chestL/chestR.
+RETIREES (`sat` ~:2610, mur d'apex ~:3074), la famille A suffisant a selectionner chestL/chestR.
 
 AUCUN DE CES TROIS ETATS N'EST UN SUPPRESSEUR : chacun vaut ZERO au repos debout (echelle
 identite, torsion nulle, mode secondaire nul), donc SPEC 9 — le retour EXACT a la pose
@@ -2725,10 +2725,10 @@ cycles.
 
 ## NOTE-79 — LE CANAL RADIAL DE SA §23 ETAIT CALCULE PAR MAILLON ET RANGE PAR CHAINE
 
-> **CORRIGEE : SA PHRASE SUR `*phys-rr*` EST PERIMEE DEPUIS LE CYCLE 32.** Elle ecrit que `*phys-rr*` « reste le seul que le solveur lise ». C'est faux depuis que le tenseur de deformation lit `*phys-rrl*` a `:3749` sur l'index de POINTE (`tl`). `*phys-rr*` ne garde plus que la valeur du maillon RACINE, et **NOTE-80** fait foi sur ce point.
+> **CORRIGEE : SA PHRASE SUR `*phys-rr*` EST PERIMEE DEPUIS LE CYCLE 32.** Elle ecrit que `*phys-rr*` « reste le seul que le solveur lise ». C'est faux depuis que le tenseur de deformation lit `*phys-rrl*` a `:3715` sur l'index de POINTE (`tl`). `*phys-rr*` ne garde plus que la valeur du maillon RACINE, et **NOTE-80** fait foi sur ce point.
 
 **Le defaut, et il est d'indexation, pas de physique.** Le calcul d'elongation radiale tourne DANS
-la boucle par maillon du solveur — `(dotimes (l n)` ouvre a `:2550` et lie `scl` a `:2551`, et le
+la boucle par maillon du solveur — `(dotimes (l n)` ouvre a `:2516` et lie `scl` a `:2517`, et le
 bloc l'utilise (`(set! (-> *phys-qx* scl) ...)`) — mais il ecrivait son resultat dans `*phys-rr*`,
 un tableau dimensionne `PHYS-SC`, **c'est-a-dire par CHAINE**. Chaque tour de boucle ecrasait donc
 le precedent : le tableau ne gardait que le DERNIER maillon execute.
@@ -2749,7 +2749,7 @@ donc aucune resolution par maillon** — et le maillon distal pilote 43.5 % / 37
 
 **Le correctif, et ce qu'il ne touche PAS.** On ajoute `*phys-rrl*` (`PHYS-SCL`), ecrit avec le meme
 `drr` a cote de `*phys-rr*`, et un accesseur `phys-chain-radial-link`. `*phys-rr*` **garde
-exactement la meme valeur et reste le seul que le solveur lise** (`:3728`, le terme `rdr` de la
+exactement la meme valeur et reste le seul que le solveur lise** (`:3694`, le terme `rdr` de la
 deformation dynamique) : le comportement livre est inchange au bit pres, et c'est verifiable —
 aucune donnee livree n'a bouge, et les grandeurs de la course doivent se reproduire.
 C'est un ajout d'INSTRUMENT. Un instrument ne peut pas deplacer un joint, et celui-ci ne le peut
@@ -2897,7 +2897,7 @@ modele :
           sa sphere        pointe de l'os
 
 **(A) peut etre non nul, et ce n'est pas une supposition :** `phys-length-chain` est appelee a
-`:3075` et `:3095`, c'est-a-dire APRES la fermeture de la boucle des maillons ou `dr0` est calcule.
+`:3041` et `:3061`, c'est-a-dire APRES la fermeture de la boucle des maillons ou `dr0` est calcule.
 Au moment de la mesure, la contrainte de longueur de la frame COURANTE n'a pas encore tourne. `ml`
 peut donc differer de `bl`, et cette difference entre dans `dr0`, dans la borne de §22 qui le suit,
 **et dans `*phys-rrl*` — l'etat que le tenseur de deformation LIT**. Si (A) domine, le tissu recoit
@@ -2918,7 +2918,7 @@ physical breast impulses. »*
 
 **LA MOITIE ROTATION EXISTAIT DEPUIS LONGTEMPS, LA MOITIE TRANSLATION ETAIT ABSENTE.** Le moteur
 protege le roulis accumule de l'ancre (`*phys-twa*`, la torsion de §29) contre une ROTATION brusque
-(`:3701-3707`, « au-dela d'un demi-radian en une frame ce n'est plus une rotation du buste, c'est un
+(`:3667-3673`, « au-dela d'un demi-radian en une frame ce n'est plus une rotation du buste, c'est un
 teleport ou une coupe »). Rien ne protegeait l'etat de POSITION — `*phys-px/py/pz*`,
 `*phys-qx/qy/qz*` — ni celui du point libre de §23 contre une TRANSLATION brusque.
 
@@ -2974,7 +2974,7 @@ plus grand deplacement legitime et **1.55x** au-dessous du plus petit deplacemen
 une course. Il se re-derive de la meme facon si la salle change de pilotages. Ce qui est GENERAL et
 qui ne depend pas de la course, c'est la METHODE : mesurer la distribution des deux populations,
 verifier qu'un intervalle vide les separe, et poser le seuil dedans avec ses deux marges publiees.
-Un seuil pose sans cette distribution — comme celui de `0.5 rad` du rebase de ROTATION a `:3701`,
+Un seuil pose sans cette distribution — comme celui de `0.5 rad` du rebase de ROTATION a `:3667`,
 qui n'a jamais ete confronte a une mesure — est un nombre choisi, et il peut mordre sans qu'on le
 sache.
 
@@ -3046,8 +3046,8 @@ S'il casse, l'instrument est faux et aucune conclusion ne se publie.
 Sa §22 borne DEUX grandeurs et les nomme : « Breast COM: normal
 <= 35 % B0, hard transient <= 40 % B0 » et « Distal/apex
 displacement: normal <= 42 %, exceptional <= 50 % ». Le moteur
-borne aujourd'hui le JOINT (borne d'apex, :3115) et le CANAL
-RADIAL (borne de COM, :2960) — deux grandeurs dont AUCUNE n'est
+borne aujourd'hui le JOINT (borne d'apex, :3081) et le CANAL
+RADIAL (borne de COM, :2926) — deux grandeurs dont AUCUNE n'est
 le centre de masse de la chair. Il n'existait donc, jusqu'ici,
 aucune mesure de la grandeur que la borne de COM designe.
 CE QUI EST PRIS ICI : le centre du volume que le generateur a
@@ -3577,7 +3577,7 @@ masse.
 
 Ce que l'emplacement 23 contient : pour chaque maillon `l`, le moteur calcule l'excursion du
 point `joint_l + lc_l` ou `lc_l` est le centre du VOLUME DE COLLISION porte par ce joint
-(`jak-hd-physics.gc:936-939`, lu dans `physics_chains.txt`), puis garde le PLUS GRAND des deux
+(`jak-hd-physics.gc:902-905`, lu dans `physics_chains.txt`), puis garde le PLUS GRAND des deux
 (l'emplacement est indexe par CHAINE, pas par maillon). Trois ecarts avec la grandeur nommee :
 
   1. **UN MAXIMUM N'EST PAS UNE MOYENNE.** Il repond « quel est le point le plus loin » et jamais
@@ -3724,7 +3724,7 @@ zero produit par un bloc qui ne s'execute plus n'est pas un zero gagne.
 `phys-bend-chain` est la borne de repli A LONGUEUR CONSTANTE : elle fait TOURNER le maillon autour
 de son attache, `dl` inchange, avec `phys-softmin` (identite stricte sous 0.84*cap, asymptote
 exacte a `cap`). Elle etait pilotee UNIQUEMENT par la cle de donnee `maxangle=`, et le generateur
-`physics_keira_gen2.py` interdit activement cette cle hors des meches (auto-controle 6b, :2218) :
+`physics_keira_gen2.py` interdit activement cette cle hors des meches (auto-controle 6b, :2184) :
 la poitrine ne pouvait donc pas l'armer par la donnee, quoi qu'on ecrive dans le fichier.
 
 Quand la donnee ne pose rien (`maxangle <= 0`) et que la chaine est de famille A, l'angle est
@@ -3741,18 +3741,18 @@ regnait deja. Le genou de `phys-softmin` vaut 0.84*cap, c'est-a-dire EXACTEMENT 
 **POURQUOI ICI ET PAS DANS LA BORNE POSITIONNELLE (NOTE-114).** Les trois etages du meme maillon,
 mesures apres NOTE-113/114 (chestL l=1, `PHYSGRADS`/`PHYSGRAD`) :
 
-    apres integration seule (cap-ang etage 0, :3032)             134.31 deg
-    apres la borne positionnelle de SPEC 22 (:3040)              <= 16.63 deg par construction
-    apres les 8 balayages longueur+collision (etage 1, :3091)  ** 164.13 deg **
+    apres integration seule (cap-ang etage 0, :2998)             134.31 deg
+    apres la borne positionnelle de SPEC 22 (:3006)              <= 16.63 deg par construction
+    apres les 8 balayages longueur+collision (etage 1, :3057)  ** 164.13 deg **
     final                                                        116.09 deg
 
 Le repli n'est pas produit par l'integration : il est produit par les BALAYAGES DE CONTRAINTE, qui
 emmenent le maillon de 16.6 a 164 deg — plus haut que ce que l'integration seule donnait. Une
-borne POSITIONNELLE placee avant eux ne peut donc rien tenir. `phys-bend-chain` est appelee :3087,
+borne POSITIONNELLE placee avant eux ne peut donc rien tenir. `phys-bend-chain` est appelee :3053,
 APRES ces 8 balayages, et c'est la seule position ou une borne de repli puisse mordre.
 
-**CE QUE CELA NE TIENT PAS ENCORE.** Sept balayages tournent APRES `phys-bend-chain` (:3093 trois
-longueur+collision, :3096 quatre collision seule). Ce qu'ils rendent au repli se lit dans l'ecart
+**CE QUE CELA NE TIENT PAS ENCORE.** Sept balayages tournent APRES `phys-bend-chain` (:3059 trois
+longueur+collision, :3062 quatre collision seule). Ce qu'ils rendent au repli se lit dans l'ecart
 entre `PHYSGRADS a1` et `PHYSGRAD ang` finaux, et il est publie a chaque cycle.
 
 **PORTEE.** Le comportement des chaines qui posent `maxangle=` dans la donnee (les meches, gelees
@@ -3825,7 +3825,7 @@ rayon.
 
 ## [NOTE-119] `hard?` — UNE BORNE QUI VIT DANS UNE BOUCLE DOIT ETRE IDEMPOTENTE
 
-`phys-softmin` (:963) porte dans SON PROPRE DOCSTRING : « NON IDEMPOTENT AU-DESSUS DU GENOU
+`phys-softmin` (:929) porte dans SON PROPRE DOCSTRING : « NON IDEMPOTENT AU-DESSUS DU GENOU
 [...] NE JAMAIS L'APPELER DANS UNE BOUCLE DE CONTRAINTES ». Le registre porte la meme lecon,
 payee le 2026-08-12 : un min DOUX dans la boucle avait coute ~50 % du mouvement de pointe sur
 onze chaines. **[NOTE-117] a fait exactement cela**, en portant `phys-softmin` de 1 a 8
@@ -3845,9 +3845,9 @@ confirme : le pilotage BASE (13.85 / 13.43) est SOUS le genou, donc identite, do
 intouche** — et c'est exactement le seul qui n'a pas bouge.
 
 LE CORRECTIF. Un parametre `hard?` :
-  * appel HORS boucle (:3091) : `#f` -> `phys-softmin`. La FORME douce de l'approche est
+  * appel HORS boucle (:3057) : `#f` -> `phys-softmin`. La FORME douce de l'approche est
     conservee, UNE fois par frame, exactement comme avant [NOTE-117].
-  * appels DANS les deux blocs de queue (:3101, :3105) : `#t` -> `(fmin adeg amax)`. Idempotent
+  * appels DANS les deux blocs de queue (:3067, :3071) : `#t` -> `(fmin adeg amax)`. Idempotent
     (`min(min(x,c),c) = min(x,c)`), donc appelable 7 fois sans rien eroder : il ne fait que
     REFUSER DE DEPASSER `amax`, il ne tire jamais en dessous.
 Aucune constante neuve ; `amax` est le meme, derive des memes deux nombres.
@@ -5455,13 +5455,13 @@ CORRECTION — J'AI PUBLIE UNE AFFIRMATION FAUSSE ET JE LA RETIRE. J'avais ecrit
 est bete : j'ai cherche la chaine `msurf` alors que les accesseurs s'appellent `msample`.
 
 CE QUI EST VRAI, VERIFIE : le C++ EXPOSE deja `pc-physics-chain-msample-count` et
-`pc-physics-chain-msample-mi` (`kmachine.cpp:1966-1993`, enregistres a `:4200-4202`), et il PARSE
-les enregistrements `ms` (`:1725-1749`) dans `PhysChain::mesh_samples`. Le trou est UNIQUEMENT du
+`pc-physics-chain-msample-mi` (`kmachine.cpp:1966-1993`, enregistres a `:4166-4168`), et il PARSE
+les enregistrements `ms` (`:1691-1715`) dans `PhysChain::mesh_samples`. Le trou est UNIQUEMENT du
 cote GOAL : `grep msample goal_src/` ne rend RIEN. La donnee est produite, parsee, exposee — et
 aucun appelant ne la lit.
 
 CE QUE CA CHANGE POUR LE CHANTIER, ET C'EST BEAUCOUP : il ne demande AUCUNE reconstruction de `gk`.
-C'est un changement GOAL seul — charger les `msample` comme les `bs` le sont deja (:759-804), puis
+C'est un changement GOAL seul — charger les `msample` comme les `bs` le sont deja (:725-770), puis
 porter `skinpen` sur CES points au lieu du JOINT. Le joint est interieur par
 construction et ne peut pas repondre a une question de SURFACE ; ces points-la sont la surface.
 La ligne de base au repos se calcule alors de la meme facon, sur la pose d'auteur, et la
@@ -5639,7 +5639,7 @@ produire.
 
 CE QUE J'AI PUBLIE ET QUI ETAIT FAUX, RETIRE EN [NOTE-160] : « aucun accesseur `ms`, ni C++ ni
 GOAL ». La moitie C++ est fausse — les accesseurs s'appellent `msample`, pas `msurf`, et ils
-existent (`kmachine.cpp:1966-1993`, enregistres a `:4200-4202`). Le trou etait cote GOAL SEUL.
+existent (`kmachine.cpp:1966-1993`, enregistres a `:4166-4168`). Le trou etait cote GOAL SEUL.
 
 CE QUE CETTE NOTE FAIT : le GOAL charge enfin les `msample` (les sommets EXTREMAUX de peau de
 chaque maillon, espace bind local, deja parses par le C++ depuis le cycle 14) et `skinpen` porte
@@ -6485,7 +6485,7 @@ mouvement se chiffre.
 
 ```
         ;; les deux azimuts du veto de cote : celui de la pose d'auteur et celui du lien simule.
-        ;; Memes noms et meme role que dans `phys-link-pen` (:2513-2514), pour que le predicat de
+        ;; Memes noms et meme role que dans `phys-link-pen` (:2479-2480), pour que le predicat de
         ;; DECISION se lise exactement comme le predicat de MESURE.
 ```
 
@@ -6499,12 +6499,12 @@ mouvement se chiffre.
             ;; apres, donc rien n'est ecarte. Voir *phys-prio-meas*.
 ```
 
-## [NOTE-267] `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :922) : le
+## [NOTE-267] `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :888) : le
 
 (bloc deplace du moteur le 2026-08-20, cycle 61 — plafond de lignes)
 
 ```
-                          ;; `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :922) : le
+                          ;; `sc` PORTE DEJA LE SLOT (`sc = slot*PHYS-CHAINS + c`, cf. :888) : le
                           ;; remultiplier ecrirait HORS du tableau des le slot 1. Meme indexation
                           ;; que l'accesseur `phys-chain-conf`. `*phys-cvh*` est, LUI, PAR MAILLON.
 ```
@@ -7302,7 +7302,7 @@ se pose sur le point qui porte la penetration.
 ## [NOTE-408] LE `+Z` DU TRIEDRE DE §7 POINTE VERS L'ARRIERE — MESURE, CYCLE 69
 
 `SPEC-breast-softbody.md` l.130 ecrit « `+Z = forward from chest` ». Le trièdre construit a
-`jak-hd-physics.gc:3532-3547` pose `fz = +e[ia]` orthogonalise contre `fy`, **avec le signe `+`
+`jak-hd-physics.gc:3498-3513` pose `fz = +e[ia]` orthogonalise contre `fy`, **avec le signe `+`
 ecrit en dur et aucune mesure**. Sur le rig livre, `ia = 2` (`PHYSAXIS rap=2`), et `+e2` pointe
 vers l'ARRIERE. Trois routes independantes, toutes sur des donnees publiees :
 
@@ -7318,8 +7318,8 @@ vers l'ARRIERE. Trois routes independantes, toutes sur des donnees publiees :
    c'est-a-dire **§11 prone** (largeur -10 %, epaisseur -9 %, longueur +23 %). Une gravite
    `r2 < 0` correspond donc au sein PENDANT, donc a une gravite vers l'AVANT.
 
-**LE CALCUL AVAL EST JUSTE, C'EST LA CONVENTION QUI S'ECARTE DE LA SPEC.** `:3569-3570` pose
-`wbk = max(0, -gzc)` et `wfw = max(0, gzc)`, et `:3576-3581` donne a `wbk` le triplet prone
+**LE CALCUL AVAL EST JUSTE, C'EST LA CONVENTION QUI S'ECARTE DE LA SPEC.** `:3535-3536` pose
+`wbk = max(0, -gzc)` et `wfw = max(0, gzc)`, et `:3542-3547` donne a `wbk` le triplet prone
 `0.900/0.910/1.230` et a `wfw` le triplet supine `1.230/1.090/0.700`. Les deux erreurs de sens
 — convention inversee et affectation inversee — se compensent exactement, ce qui rend le defaut
 INVISIBLE a toute mesure de sortie et visible seulement en lisant les deux ensemble.
@@ -7337,7 +7337,7 @@ dans une etiquette. Une etiquette ne se verifie pas ; une gravite mesuree si.
 
 ## NOTE-330 — LE MUR DE FORCE DE §21 DEVIENT DESARMABLE, PARCE QU'UN MECANISME NON DESARMABLE EST INFALSIFIABLE
 
-`*phys-fwall*` (moteur, ligne ~562) — 1 = le multiplicateur `mu` du bloc `:2939-2944` est ARME,
+`*phys-fwall*` (moteur, ligne ~562) — 1 = le multiplicateur `mu` du bloc `:2905-2910` est ARME,
 c'est-a-dire l'etat de toutes les courses jusqu'au cycle 71 inclus ; 0 = il vaut 1.0 partout et le
 materiau redevient un ressort LINEAIRE.
 
@@ -7356,7 +7356,7 @@ d'erreur et a 5 B0 d'erreur. Une force constante est un TAUX, pas une BORNE — 
 le cycle 34 a mesure et corrige sur l'AUTRE canal ([NOTE-87]) et qui n'a jamais ete porte sur
 celui-ci.
 
-**ET LA §21 EST DEJA IMPLEMENTEE, CORRECTEMENT, VINGT LIGNES PLUS BAS.** Le bloc `:3120-3141`
+**ET LA §21 EST DEJA IMPLEMENTEE, CORRECTEMENT, VINGT LIGNES PLUS BAS.** Le bloc `:3086-3107`
 (`*phys-sat-n*`) sature le **DEPLACEMENT** : genou a `0.42 B0`, tanh de Pade, asymptote exacte a
 `0.50 B0` — les deux nombres de sa §22, dans la forme que sa §21 ecrit
 (`D = D_max * tanh(|D|/D_max)`). Le moteur porte donc DEUX implementations de la meme section sur
@@ -7369,7 +7369,7 @@ etre vraies ensemble. Une saturation de DEPLACEMENT, elle, laisse la raideur int
 precisement pourquoi la spec la met la.
 
 **PORTEE DECLAREE.** L'interrupteur ne touche QUE le maillon principal. Le point libre de §23
-(`cmu`, `:2988-2992`) porte la meme faute de forme et n'est PAS touche : son `cdd` est deja borne a
+(`cmu`, `:2954-2958`) porte la meme faute de forme et n'est PAS touche : son `cdd` est deja borne a
 ~0.40 B0 par le filet de [NOTE-87], donc sa degenerescence est marginale, et un probleme a la fois.
 
 **COMMENT ON L'ARME.** Constante de compilation, un build GOAL (26 s) par jambe. Pas de `-set!` :
@@ -7445,7 +7445,7 @@ protrusion racine->apex orthogonalisee, +X leur produit vectoriel.
 
 `SPEC-breast-softbody.md:301` : « Distal/apex displacement: normal <=42% B0, exceptional <=50% B0 ».
 Le cycle 58 a cartographie les cinq sites du moteur qui portent `0.42|0.50 x B0` : **aucun ne lit le
-point d'apex**, et le seul qui borne quoi que ce soit (`:3120-3141`) borne `*phys-px*`, la
+point d'apex**, et le seul qui borne quoi que ce soit (`:3086-3107`) borne `*phys-px*`, la
 TRANSLATION du joint. Le cycle 58 a essaye de lui faire lire l'apex et l'a **refute par la mesure** :
 la borne mordait deux fois moins, parce qu'au point ou elle s'applique le tenseur de deformation
 n'existe pas encore. Sa conclusion, verbatim : « §22 n'est pas bornable depuis la boucle de
@@ -7485,7 +7485,7 @@ etre identiques UNE A UNE a celles de la course precedente.
 
 ## NOTE-339 — LE TENSEUR PORTE UNE TRANSLATION D'ANCRE, ET LA MESURE L'AURAIT ABSORBEE
 
-`*phys-dfm*` est construit `:3783-3785` comme `w2l . A . am`. `A` (`dfa`/`dfb`) a bien sa ligne 3
+`*phys-dfm*` est construit `:3749-3751` comme `w2l . A . am`. `A` (`dfa`/`dfb`) a bien sa ligne 3
 mise a `(0,0,0,1)` explicitement — mais **`w2l` et `am` sont des transformations d'ancre et portent
 une TRANSLATION**. Donc `dfm vector 3` n'est pas nul, et `tmp = bm . dfm` en herite une.
 
@@ -8065,7 +8065,7 @@ de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 ---
 ## NOTE-447 — `phys-cap-e22!` : LA BORNE DE SPEC 22 SUR LA VALEUR **LIVREE** (cycle 76)
 
-**LE DEFAUT QU'ELLE FERME, ET IL EST MESURE, PAS SUPPOSE.** Le filet de SPEC 22 (`:3120-3141`)
+**LE DEFAUT QU'ELLE FERME, ET IL EST MESURE, PAS SUPPOSE.** Le filet de SPEC 22 (`:3086-3107`)
 tient parfaitement A SON INSTANT — mesure sur la course livree du cycle 75, `PHYSSTG`, 372
 fenetres, etage 1 : maximum **0,5000 / 0,4998**, **zero** fenetre au-dessus du plafond dur. Il est
 ensuite EFFACE en aval : etage 6 (la valeur qui part au rendu), **184/186 et 156/186 fenetres
@@ -8584,14 +8584,14 @@ Aucune valeur n'a ete ajustee sur une mesure de sortie (`never-fit-a-parameter-t
 **l'expression exacte d'avant le cycle 91**, donc la jambe desarmee est bit-pour-bit l'ancienne.
 
 CE QUE LE CORRECTIF NE PEUT PAS CHANGER, ET C'EST LE CONTROLE : `*phys-dfm*` n'entre QUE dans la
-partie 3x3 de la matrice d'os ecrite (`:3898-3906`), la translation etant reposee juste apres
+partie 3x3 de la matrice d'os ecrite (`:3864-3872`), la translation etant reposee juste apres
 depuis `*phys-px/py/pz*`. Aucune position simulee, aucune vitesse, aucune contrainte ne le lit.
 Toute grandeur de POSITION du tableau doit donc rester identique au bit ; seules les grandeurs de
 FORME et les compteurs `dyn*` ont le droit de bouger.
 
 ## [NOTE-433] §24 — LA RAIDEUR PAR AXE EST POSEE *APRES* LE PROJECTEUR DE LONGUEUR (cycle 99)
 
-`jak-hd-physics.gc:205-206` (constantes) et `:2673-2674` (site d'armement).
+`jak-hd-physics.gc:183-184` (constantes) et `:2639-2640` (site d'armement).
 
 **LE DEFAUT, ETABLI AUX CYCLES 94/96/97.** La raideur par axe est definie en 3-D
 (`K = diag(s_v, s_ap, s_lat)` dans le triedre de l'ancre), PUIS la contrainte de longueur
@@ -8620,19 +8620,19 @@ l'AFFECTATION DES MODES : la racine `s_ap > s_lat` place le mode LENT a 85,8 deg
 
 **LES DEUX CHAINES DONNENT LA MEME REPONSE, ET C'EST POURQUOI DEUX CONSTANTES SUFFISENT.**
 En base d'ANCRE (et non en base monde — `*phys-ux/uy/uz*` sont deja tournes par `w2l`,
-cf. `:2846-2853`), l'axe d'os vaut `(v -0,919254, ap -0,147761, lat +0,364882)` sur chestL et
+cf. `:2812-2819`), l'axe d'os vaut `(v -0,919254, ap -0,147761, lat +0,364882)` sur chestL et
 `(v -0,920567, ap -0,147941, lat -0,361483)` sur chestR : de vrais miroirs, et seule la
 composante laterale change de signe — or seuls les CARRES entrent dans `T` et `D`. Solutions :
 1,186970 / 1,376174 et 1,186953 / 1,375137, soit **0,075 % d'ecart**. Les constantes posees sont
 leur moyenne. Sensibilite : 1 deg de rotation d'os deplace `s_ap` de 0,12 % et `s_lat` de 0,38 %.
 
-**LE CANAL RADIAL DE §23 LIT LE MEME `K`** (`:3038-3040`, `d_i = s_i q_i` sur le point libre, qui
+**LE CANAL RADIAL DE §23 LIT LE MEME `K`** (`:3004-3006`, `d_i = s_i q_i` sur le point libre, qui
 n'est PAS projete) : `f_v` monte donc aussi, de +1,1 %. C'est declare, pas ignore — et c'est la
 raison pour laquelle les rapports `ap/v` et `lat/v` atteignent 1,059 et 1,122 au lieu des 1,087 et
 1,152 de §24, quand `lat/ap` tombe a 1,0600 exactement. Les six lectures restent DANS leurs bandes.
 
 **`zeta` EST INVARIANT PAR CONSTRUCTION**, et c'est ce qui protege §25 et §26 : le taux par axe
-vaut `rate * sqrt(s_i)` (`:2954-2956`) quand la pulsation vaut `omega * sqrt(s_i)`, donc
+vaut `rate * sqrt(s_i)` (`:2920-2922`) quand la pulsation vaut `omega * sqrt(s_i)`, donc
 `zeta_i = rate_i / (2 omega_i)` ne depend pas de `s_i`.
 
 **CE QUE CA COUTE, ET JE NE LE LISSE PAS : §29 ET §24 SONT INCOMPATIBLES.** Les compliances
@@ -8659,7 +8659,7 @@ bien les nouvelles valeurs (le cycle 98 portait `1.1111 / 1.2195`).
 **CE QUI EST REFUTE — « `f_v` monte de +1,1 % ».** J'avais ecrit que le canal radial de §23 lisant le
 meme `K`, la verticale monterait. `ROOM-AXFIT-RAD` mesure **chestL 2.320 -> 2.320** (identique au
 millieme) et **chestR 2.415 -> 2.410** (-0,2 %). La verticale N'A PAS BOUGE. Le raisonnement
-(`:3038-3040` applique bien `s_i` au point libre) reste vrai au code ; ce qui est faux est d'en
+(`:3004-3006` applique bien `s_i` au point libre) reste vrai au code ; ce qui est faux est d'en
 conclure que la FREQUENCE lue sur ce canal suit `sqrt(m^T K m^)`. La consequence pratique est
 FAVORABLE — les rapports `ap/v` et `lat/v` gagnent tout le delta tangentiel au lieu d'en perdre une
 part au denominateur — mais elle est favorable par accident, pas par prevision, et c'est dit ici.
@@ -8711,7 +8711,7 @@ tire pas est inchangee AU BIT — c'est le controle de ce cycle, pose avant la c
 
 **L'ETAT EST REUTILISE, PAS DUPLIQUE.** `*phys-a0m*` porte deja l'orientation de l'ancre a la
 frame -1 ; il est maintenu par le bloc de torsion de §29, qui s'execute PLUS LOIN dans la meme
-iteration de `(dotimes (c nch))` (site du rebase :2718, mise a jour de `a0m` :3691/:3717 — meme
+iteration de `(dotimes (c nch))` (site du rebase :2684, mise a jour de `a0m` :3657/:3717 — meme
 fonction `jak-hd-physics-step`, profondeur de parentheses verifiee). A l'instant du rebase, `a0m`
 est donc la frame -1. Le garde `*phys-twok*` couvre le seul cas ou il ne le serait pas — la toute
 premiere passe, ou `a0m` vaut encore ZERO : sans garde, `R` serait la matrice nulle et TOUT l'etat
@@ -8720,7 +8720,7 @@ la copie `tmp` de `am`), pas seulement la premiere : mettre `rot = I` seul laiss
 c'est-a-dire l'orientation ABSOLUE de l'ancre appliquee a l'etat — pire que le defaut. Avec les
 deux, `R = I` exactement et `t = anc - anp` : le rebase retombe sur sa moitie translation, au bit.
 Ce chemin ne devrait jamais s'executer (`twok` passe a 1 des la 1re passe, le rebase exige
-`warm > 1`, soit la 3e, et les deux sont remis a zero au meme endroit :603/:618) — il est ecrit
+`warm > 1`, soit la 3e, et les deux sont remis a zero au meme endroit :569/:618) — il est ecrit
 parce que « ne devrait jamais » n'est pas une mesure.
 
 **RESERVE DECLAREE, ET ELLE EST A NOUS.** La mise a jour de `a0m` est gardee par
@@ -8786,10 +8786,10 @@ echantillons de surface sur la fenetre), et le cout est declare, pas tu.
 ## NOTE-479 — cycle 105 : LE VERDICT DE §33/§34 EST VALIDE QUAND IL ECHOUE ET **VIDE** QUAND IL PASSE
 
 `ROOM-SKINPEN-VERDICT` publie `skinpen - skinrest`. Les deux termes sont des **maxima courants
-INDEPENDANTS** (`jak-hd-physics.gc:2404-2405` et `:2412-2413`), remis a zero ensemble par
-`phys-skinpen-reset!` (`:2087`) mais latches separement : rien ne les oblige a tomber sur la meme
+INDEPENDANTS** (`jak-hd-physics.gc:2370-2371` et `:2378-2379`), remis a zero ensemble par
+`phys-skinpen-reset!` (`:2053`) mais latches separement : rien ne les oblige a tomber sur la meme
 frame, le meme maillon, ni le meme echantillon `ms`. Le tag `run` couvre TOUTE la course (un seul
-`physroom-emit-diag "run"`, `phys-room.gc:3588`, depuis le reset de `:3391`), soit 31 animations
+`physroom-emit-diag "run"`, `phys-room.gc:3588`, depuis le reset de `:3357`), soit 31 animations
 x 5 pilotages : les deux argmax ont ~16 700 frames pour diverger.
 
 **L'ASYMETRIE LOGIQUE, ET C'EST TOUTE LA NOTE.**
@@ -8818,7 +8818,7 @@ chestR l'ordre des maxima lui est compatible — ce qui, par l'asymetrie ci-dess
 Ce n'est pas une construction, c'est une esperance, et elle est fausse sur une chaine sur deux.
 
 **LA GRANDEUR APPARIEE EXISTE, ELLE EST CALCULEE DANS LA MEME PASSE, ET LE VERDICT NE LA LIT PAS.**
-`skinadd` (`*phys-saf*`, `:2411`) est prise sur le MEME echantillon, a la MEME frame, contre la
+`skinadd` (`*phys-saf*`, `:2377`) est prise sur le MEME echantillon, a la MEME frame, contre la
 MEME surface. Elle rend **617.7986 u = 0.1508 m** (chestL) et **602.1514 u = 0.1470 m** (chestR) :
 **21x** ce que la difference de maxima publie sur chestL, et un nombre POSITIF la ou celle-ci est
 negative. L'inegalite `max(A) - max(B) <= max(A - B)` rend l'ecart inevitable et unilateral : la
@@ -8827,19 +8827,19 @@ ligne de verdict est assise sur la borne INFERIEURE de la grandeur qu'elle prete
 **POURQUOI LA GRANDEUR APPARIEE NE PORTAIT PAS LE VERDICT : SON CONTROLE N'EN EST PAS UN.**
 `ROOM-SKINADD-CONTROL` declarait `skinadd` NON PROBANT sur la foi d'une injection de 400 u
 (`*phys-inject*`). Cette injection ne peut pas la toucher, et c'est structurel :
-  1. `phys-inject-probe!` (`:2276`) tourne **APRES** `phys-pen-chain` (`:3328` puis `:3336`), seul
+  1. `phys-inject-probe!` (`:2242`) tourne **APRES** `phys-pen-chain` (`:3294` puis `:3302`), seul
      ecrivain de `*phys-saf*` / `*phys-skinadd*` ;
   2. elle n'appelle **jamais** `phys-surf-sd` — elle ne mesure que `phys-link-pen`, contre les
      VOLUMES : c'est le controle de `meshpen` ([NOTE-155]), pas celui de la peau ;
-  3. elle **restaure** `*phys-px/py/pz*` avant de rendre la main (`:2350-2355`).
+  3. elle **restaure** `*phys-px/py/pz*` avant de rendre la main (`:2316-2321`).
 Les deux jambes comparees (`pcon` / `pcoff`) sont donc deux FENETRES differentes et rien d'autre —
 d'ou un « arme 0.1219 < desarme 0.1368 » qui n'est pas un controle qui echoue mais un controle
 absent. C'est [[feedback_injection_must_displace_the_measured_point]] : deplacer un point que la
 mesure ne sonde pas, apres qu'elle a deja latche.
 
 **CE QUE LE CYCLE 105 CHANGE.**
-  * `:2411` publie desormais `(- (fmin 0.0 sa) sd)` — **exactement** l'expression que la contrainte
-    minimise (`:1971`). Deux formules pour une meme question etaient en vigueur : la mesure ajoutait
+  * `:2377` publie desormais `(- (fmin 0.0 sa) sd)` — **exactement** l'expression que la contrainte
+    minimise (`:1937`). Deux formules pour une meme question etaient en vigueur : la mesure ajoutait
     la distance de SORTIE du point d'auteur sur les lectures ou il est DEHORS (`skinout` = 105 441,
     ~9,8 % des lectures). L'ecretage ne peut que faire BAISSER `skinadd`, jamais monter. **0 ligne**
     (4800 -> 4800).
@@ -9376,7 +9376,7 @@ Texte d'origine, mot pour mot :
 
 **CE QUE LE MOTEUR FAISAIT AVANT CE CYCLE.** Les trois termes de l'excursion d'apex — `tp`
 (translation du joint), `rp` (rotation de visee), `dp` (tenseur de deformation) — etaient ADDITIONNES
-sans qu'aucune saturation ne porte sur leur somme. Le mur de force `mu` (`:2984-2990`) multiplie une
+sans qu'aucune saturation ne porte sur leur somme. Le mur de force `mu` (`:2950-2956`) multiplie une
 FORCE et ne voit ni la rotation ni la combinaison ; `phys-cap-e22!` borne `|p - cible|` du JOINT,
 c'est-a-dire `tp` seul (son maximum vaut 0.5008 B0 pour un plafond de 0.5000, cycle 58). La grandeur
 que la section NOMME — `s = D_linear + D_angular = e - dp` — n'etait bornee par rien, et
@@ -9410,7 +9410,7 @@ et c'est ce qui la rend attribuable.
 
 **ET CE QUE J'AI CRU GARANTIR ET QUI EST FAUX, MESURE DANS LE MEME CYCLE.** J'ai ecrit ici que la
 borne, n'ecrivant pas `*phys-px*`, n'avait « aucune retro-action de frame a frame ». **C'est faux.**
-`phys-snapshot-sim!` (`:1376`, [NOTE-214]) releve en FIN DE FRAME, **sur le squelette ECRIT**, la
+`phys-snapshot-sim!` (`:1342`, [NOTE-214]) releve en FIN DE FRAME, **sur le squelette ECRIT**, la
 position de tout volume porte par un joint simule, et c'est ce que la frame SUIVANTE lit comme
 obstacle. Deplacer la valeur livree deplace donc les volumes de collision, donc la trajectoire.
 Mesure : `PHYSRESTW` — qui ne lit que `*phys-px*` — differe sur **346 cellules sur 372** entre la
@@ -9908,7 +9908,7 @@ fonction qui n'etait pas la coupable.
 frame — l'animation la recalcule a chaque frame et la physique n'ecrit qu'a la fin. Donc ni
 `phys-surf-sd` (qui construit la surface avec `skel bones`), ni les points d'echantillon de
 `phys-skin-chain`, ni ceux de `phys-pen-chain` ne voient le tenseur de forme. Le tenseur n'entre
-que dans la matrice ECRITE (`:3879`), et **la seule chose qui relit cette matrice est
+que dans la matrice ECRITE (`:3845`), et **la seule chose qui relit cette matrice est
 `phys-snapshot-sim!`**, qui place les VOLUMES DE COLLISION que la frame suivante lira
 ([[feedback_delivered_value_bound_feeds_back_via_snapshot]]). Audit fait PAR VALEUR sur les sept
 appels a `phys-surf-sd` et sur les deux instantanes, pas sur une liste ecrite a la main.
@@ -10027,7 +10027,7 @@ le premier falsificateur du cycle 123**, et il se teste sans course neuve : comp
 ---
 ## [NOTE-540] — le rayon du noyau EST la distance au dernier voisin retenu : il s'adapte a la
 
-Migre VERBATIM depuis `jak-hd-physics.gc:1870-1871` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:1836-1837` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10038,7 +10038,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:1870-1871` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-541] — les m voisins sont a la MEME distance : le noyau s'annule partout et la moyenn
 
-Migre VERBATIM depuis `jak-hd-physics.gc:1886-1887` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:1852-1853` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10049,7 +10049,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:1886-1887` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-542] — MEME GENOU, MEME ASYMPTOTE, MEME TANH DE PADE QUE LE FILET AMONT. Le duplicat
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2018-2019` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:1984-1985` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10060,7 +10060,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2018-2019` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-543] — la mesure mediale partage la fenetre de la peau : un seul reset, donc jamais d
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2063-2064` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2029-2030` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10071,7 +10071,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2063-2064` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-544] — DECISION 1, cote SOLVEUR uniquement : la profondeur du volume ecarte ne partic
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2187-2188` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2153-2154` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10082,7 +10082,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2187-2188` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-545] — DOMAINE : les DEUX termes reellement EN CONTACT. Le tableau rabote a zero un r
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2312-2313` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2278-2279` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10093,7 +10093,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2312-2313` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-546] — direction de l'os du porteur : de SON parent vers lui. A defaut (porteur racin
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2476-2477` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2442-2443` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10104,7 +10104,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2476-2477` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-547] — LA PREUVE QUE LA PLACE A CHANGE, et de combien : la distance au porteur que le
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2499-2500` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2465-2466` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10115,7 +10115,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2499-2500` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-548] — les deux lignes restantes, sans branche cachee : iv=0 -> (1,2) iv=1 -> (0,2) i
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2617-2618` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2583-2584` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10126,7 +10126,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2617-2618` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-549] — CE QUE LA DECISION A COMPARE, publie tel quel : sans ces deux nombres, « le la
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2626-2627` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2592-2593` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10137,7 +10137,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2626-2627` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-550] — --- MESURE SEULEMENT. Acceleration MONDE de la pose d'auteur de ce lien : elle
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2735-2736` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2701-2702` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10148,7 +10148,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2735-2736` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-551] — LE STIMULUS REELLEMENT RECU PAR LA POINTE, quelle qu'en soit la source (pilota
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2745-2746` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2711-2712` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10159,7 +10159,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2745-2746` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-552] — ---- LA CHAIR : direction de repos du MATERIAU, relevee UNE fois ---- et const
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2815-2816` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2781-2782` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10170,7 +10170,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2815-2816` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-553] — le facteur de raideur de chaque LIGNE (1.0 partout tant que la chaine n'est pa
 
-Migre VERBATIM depuis `jak-hd-physics.gc:2921-2922` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:2887-2888` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10181,7 +10181,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:2921-2922` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-554] — SPEC 22 : plafond NORMAL (genou) et marge jusqu'au plafond DUR, en unites de `
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3129-3130` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3095-3096` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10192,7 +10192,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3129-3130` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-555] — SPEC 33/34 — la poussee de contact de CETTE frame, remise a zero avant les bal
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3153-3154` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3119-3120` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10204,7 +10204,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3153-3154` (cycle 128) pour tenir le pl
 ## [NOTE-97] — bloc rattache a la note existante (cycle 128) — les quatre grandeurs de l'instrument vivent EXACTEMENT le meme cycle de vie qu
 
 Bloc RATTACHE a [NOTE-97], qu'il portait deja dans le source. Migre VERBATIM depuis
-`jak-hd-physics.gc:3159-3160` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+`jak-hd-physics.gc:3125-3126` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
 CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10215,7 +10215,7 @@ CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee n
 ---
 ## [NOTE-556] — t2 porte la pose d'auteur de la frame PRECEDENTE : le bloc d'integration vient
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3257-3258` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3223-3224` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10226,7 +10226,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3257-3258` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-557] — frame ou au moins une paire (lien, volume) etait en contact : c'est la seule s
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3301-3302` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3267-3268` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10237,7 +10237,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3301-3302` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-558] — 360 / 65536 : `atan` rend des unites de rotation, on publie des degres.
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3388-3389` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3354-3355` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10248,7 +10248,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3388-3389` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-559] — MEME LIGNE, MEME NORMALISATION DE LIGNE, MEME INSTANT : seule la grandeur proj
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3422-3423` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3388-3389` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10259,7 +10259,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3422-3423` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-560] — --- la pointe : amplitude de l'ecart (physique seule) et intention --- d'auteu
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3434-3435` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3400-3401` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10270,7 +10270,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3434-3435` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-561] — pointe d'AUTEUR dans le repere de l'ancre (transformation de POINT : w = 1, la
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3442-3443` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3408-3409` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10281,7 +10281,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3442-3443` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-562] — la normale est celle de la poussee, exprimee en MONDE ; le tenseur de deformat
 
-Migre VERBATIM depuis `jak-hd-physics.gc:3764-3765` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3730-3731` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10292,7 +10292,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:3764-3765` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-563] — la correction est une TRANSLATION RIGIDE de l'organe : `dl` la repartit sur le
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4025-4026` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:3991-3992` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10303,7 +10303,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4025-4026` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-564] — les accumulateurs suivent EXACTEMENT la correction : une translation entre dan
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4035-4036` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4001-4002` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10314,7 +10314,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4035-4036` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-565] — ET LE COM SUIT : les maillons deplaces portent `cws` de la masse de COM, donc
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4039-4041` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4005-4007` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10327,7 +10327,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4039-4041` (cycle 128) pour tenir le pl
 ## [NOTE-127] — bloc rattache a la note existante (cycle 128) — TOUS les maillons ont contribue, ou AUCUN chiffre n'est publie : un poids manq
 
 Bloc RATTACHE a [NOTE-127], qu'il portait deja dans le source. Migre VERBATIM depuis
-`jak-hd-physics.gc:4044-4045` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+`jak-hd-physics.gc:4010-4011` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
 CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10338,7 +10338,7 @@ CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee n
 ---
 ## [NOTE-566] — la boite englobante part vide : un min a 0 la forcerait a contenir l'origine e
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4116-4117` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4082-4083` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10349,7 +10349,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4116-4117` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-567] — la deviation angulaire propre de CHAQUE maillon part de zero : c'est un maximu
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4130-4131` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4096-4097` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10361,7 +10361,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4130-4131` (cycle 128) pour tenir le pl
 ## [NOTE-81] — bloc rattache a la note existante (cycle 128) — les trois miroirs par maillon sont des maximums et un compte DE FENETRE, comme
 
 Bloc RATTACHE a [NOTE-81], qu'il portait deja dans le source. Migre VERBATIM depuis
-`jak-hd-physics.gc:4135-4136` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+`jak-hd-physics.gc:4101-4102` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
 CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10372,7 +10372,7 @@ CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee n
 ---
 ## [NOTE-568] — la colonne du tableau : le residu signe de la fenetre, ou 0 si aucune frame de
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4180-4181` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4146-4147` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10383,7 +10383,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4180-4181` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-569] — AMPLITUDE de mouvement de la pointe due a la PHYSIQUE seule, sur la fenetre :
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4186-4187` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4152-4153` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10395,7 +10395,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4186-4187` (cycle 128) pour tenir le pl
 ## [NOTE-155] — bloc rattache a la note existante (cycle 128) — les deux maxima apparies partent de la sentinelle « aucun contact », comme l'e
 
 Bloc RATTACHE a [NOTE-155], qu'il portait deja dans le source. Migre VERBATIM depuis
-`jak-hd-physics.gc:4455-4456` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+`jak-hd-physics.gc:4421-4422` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
 CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10406,7 +10406,7 @@ CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee n
 ---
 ## [NOTE-570] — CONTROLE POSITIF DU CANAL D'AUTEUR : 1 = l'animation est retardee d'une frame
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4465-4466` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4431-4432` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10417,7 +10417,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4465-4466` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-571] — SPEC 21/22 : 6 = sous-pas integres avec le RESSORT QUI RAIDIT actif (pas un su
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4476-4477` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4442-4443` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10428,7 +10428,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4476-4477` (cycle 128) pour tenir le pl
 ---
 ## [NOTE-572] — l'etat de contrainte de la frame precedente est oublie aussi : sinon la premie
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4520-4521` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4486-4487` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10440,7 +10440,7 @@ Migre VERBATIM depuis `jak-hd-physics.gc:4520-4521` (cycle 128) pour tenir le pl
 ## [NOTE-109] — bloc rattache a la note existante (cycle 128) — le cumul par branche vit le meme cycle que le reste du diagnostic : c'est ce q
 
 Bloc RATTACHE a [NOTE-109], qu'il portait deja dans le source. Migre VERBATIM depuis
-`jak-hd-physics.gc:4523-4524` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
+`jak-hd-physics.gc:4489-4490` (cycle 128) pour tenir le plafond de 4800 lignes de la gate
 CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10451,7 +10451,7 @@ CLEAN. Aucun numero neuf n'est consomme. Aucune ligne de code n'a ete deplacee n
 ---
 ## [NOTE-573] — COMBIEN DE FOIS LE VOLUME `ci` A CONTRAINT LE MAILLON `link` DE `chain` — le c
 
-Migre VERBATIM depuis `jak-hd-physics.gc:4639-4640` (cycle 128) pour tenir le plafond de
+Migre VERBATIM depuis `jak-hd-physics.gc:4605-4606` (cycle 128) pour tenir le plafond de
 4800 lignes de la gate CLEAN. Aucune ligne de code n'a ete deplacee ni reecrite.
 
 ```
@@ -10612,7 +10612,7 @@ l'identite par algebre. Une ligne `PHYSRIGID … ly=0.0000 div=1.0000` dit donc,
 « le canal n'a rien fait ».
 
   - **38** = la valeur que le PARSEUR a reellement deposee dans le tableau que lit la ligne du
-    tenseur (`jak-hd-physics.gc:3594`) — pas la valeur ecrite dans `physics_chains.txt`, pas celle
+    tenseur (`jak-hd-physics.gc:3560`) — pas la valeur ecrite dans `physics_chains.txt`, pas celle
     du source : celle qui est dans le tableau, a la frame ou on la lit ;
   - **39** = le DIVISEUR effectivement applique, ecrit avec l'expression EXACTE de cette ligne,
     `fmax 0.0001` compris, sur les MEMES deux tableaux. Le publier avec sa garde permet de voir la
@@ -10762,7 +10762,7 @@ en ses deux moities (elle se referme a 1,2e-10 u) :
 solveur » contre « le tenseur » : c'est que **rien** dans le moteur ne pousse vers l'exterieur. Le
 balayage par valeur des 13 ecritures de `*phys-px/py/pz*` le confirme : gravite, ressort, §21, §22
 et la contrainte de longueur sont soit commun-mode, soit purement radiaux ou rotationnels ; les
-seuls termes a signe PAR CHAINE sont la collision (:1744) et la contrainte de peau (:1985), et
+seuls termes a signe PAR CHAINE sont la collision (:1710) et la contrainte de peau (:1951), et
 aucun des deux n'est actif dans la cellule supine.
 
 **LE MECANISME QUE LA SECTION NOMME, ET IL EST DEJA A MOITIE LA.** Le tenseur elargit deja l'organe
@@ -10912,7 +10912,7 @@ preuve est la REPARTITION.
 
 **CE QUE LE GRADIENT NE TOUCHE PAS, ET C'EST UNE DETTE, PAS UN OUBLI.** Il est applique a `tmp` au
 site d'ecriture, donc a la matrice que `PHYSORIM` publie et que la peau recoit. Il n'est PAS applique
-a `*phys-rgm*` (:3914), qui compose `*phys-dfmq*` — le tenseur QUASI-STATIQUE que lisent les volumes
+a `*phys-rgm*` (:3880), qui compose `*phys-dfmq*` — le tenseur QUASI-STATIQUE que lisent les volumes
 de collision. **Les volumes ne suivent donc pas le gradient**, exactement la meme couture que le mur
 median de [NOTE-580] et que le tenseur lui-meme depuis toujours. Elle se nomme.
 La TRANSLATION, elle, est intacte : le melange ne porte que sur les neuf coefficients 3x3, et le mur
@@ -10932,10 +10932,10 @@ RETENUS PAR MAILLON.
 **CE QUE LA MESURE DU CYCLE 139 A ETABLI AVANT D'ECRIRE UNE LIGNE.** Les colonnes `squel.` et
 `tens.` de `ROOM-SPEC10`, qui rendent le verdict de la clause PORTEUSE de §10 (l.169, « Outward
 COM migration per breast: 4-10% W0 »), sont baties sur `PHYSORICOML` (issu de `*phys-ldb*`, ecrit
-a `jak-hd-physics.gc:3411`) et sur `PHYSDFMA` (la 3x3 de `*phys-dfa*`, batie a :3803-3814). Les
-deux PRECEDENT le chemin d'ecriture squelette (:3908). **Donc les deux mecanismes ecrits POUR
-cette clause — le MUR MEDIAN du cycle 137 (:3927-3936) et le POINT FIXE de §31 du cycle 132
-(:3913-3917) — y sont invisibles AU BIT.** Ce n'est pas une question d'amplitude : c'est
+a `jak-hd-physics.gc:3377`) et sur `PHYSDFMA` (la 3x3 de `*phys-dfa*`, batie a :3769-3780). Les
+deux PRECEDENT le chemin d'ecriture squelette (:3874). **Donc les deux mecanismes ecrits POUR
+cette clause — le MUR MEDIAN du cycle 137 (:3893-3902) et le POINT FIXE de §31 du cycle 132
+(:3879-3883) — y sont invisibles AU BIT.** Ce n'est pas une question d'amplitude : c'est
 structurel, et c'est MESURE, pas deduit — au cycle 132, deux courses ne differant que par `anch`
 (0 -> 1) changent 20 632 des 93 378 enregistrements et laissent `PHYSDFMA`, `PHYSORICOML`,
 `PHYSORICOM`, `PHYSORICOM2`, `PHYSORICOM2L` et `PHYSROW` **identiques au bit**.
@@ -11026,10 +11026,10 @@ un rebase « on teleportation, instant cutscene placement, animation root discon
 transition, or implausibly large one-frame transform changes », et conclut en gras : « **Artificial
 transforms must not generate physical breast impulses.** » L'ACTION du rebase porte bien ses deux
 moities depuis le cycle 33 — elle transporte `p`, `q`, `cp`, `cq` par la transformation RIGIDE
-`a0m^T . am` plus l'offset d'ancre, et remet a zero la compensation de Kahan (`:2686-2694`). Son
+`a0m^T . am` plus l'offset d'ancre, et remet a zero la compensation de Kahan (`:2652-2660`). Son
 DECLENCHEUR, lui, n'en a jamais eu qu'une :
 
-    rbd = |anc - *phys-anp*|                 <- *phys-anp* est un `vector` (:310)
+    rbd = |anc - *phys-anp*|                 <- *phys-anp* est un `vector` (:282)
     (when (> rbd (* 7.00 (fmax 1.0 b0))) ...)
 
 Une ancre qui tourne **sans deplacer son origine** rend `rbd = 0`. Elle ne franchit donc jamais ce
@@ -11119,15 +11119,15 @@ est sur le dos = §10 supine ; gravite vers l'avant = les seins pendent = §11 p
 **LA PREUVE EXIGEE EST UNE IDENTITE AU BIT, ET ELLE EST DEMONTRABLE AVANT LA COURSE.** `fz` n'a que
 CINQ consommateurs dans tout le moteur, et l'audit est clos :
 
-    :3527  `fx = fy x fz`            -> `fx` est EXACTEMENT negue, PUIS [NOTE-324] le remiroite sur
+    :3493  `fx = fy x fz`            -> `fx` est EXACTEMENT negue, PUIS [NOTE-324] le remiroite sur
                                         `dot(fx, sepv) >= 0`, critere INDEPENDANT de `fz`.
                                         `fx` est donc identique au bit. (`dot` mesure +-742.09,
                                         jamais 0 : la branche ne peut pas basculer.)
-    :3575  `gzc = g.fz`              -> EXACTEMENT negue (l'addition IEEE754 est symetrique par
+    :3541  `gzc = g.fz`              -> EXACTEMENT negue (l'addition IEEE754 est symetrique par
                                         signe : (-a)+(-b) = -(a+b) au bit).
-    :3809  `dfs[2] * fz_i * fz_j`    -> QUADRATIQUE en `fz` : invariant par changement de signe.
-    :3820  `dfsq[2] * fz_i * fz_j`   -> idem.
-    :4676  `phys-tri-world`          -> ACCESSEUR PUR, lu par le seul emetteur `PHYSTRI`.
+    :3775  `dfs[2] * fz_i * fz_j`    -> QUADRATIQUE en `fz` : invariant par changement de signe.
+    :3786  `dfsq[2] * fz_i * fz_j`   -> idem.
+    :4642  `phys-tri-world`          -> ACCESSEUR PUR, lu par le seul emetteur `PHYSTRI`.
 
 Et `wbk`/`wfw` n'ont que quatre lecteurs (`wsm` et les trois `s*0`). Comme `gzc` est exactement
 negue, `wbk_neuf = wfw_ancien` et `wfw_neuf = wbk_ancien` AU BIT ; et comme `max(0,-g)` et

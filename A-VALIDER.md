@@ -103,10 +103,19 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
 ## 📋 Au backlog, pas encore commencé
 
 - **Seins de Keira** — **en cours, chantier structurel autorisé par toi le 27 août**
-  (« laisse courir le chantier, on fait la spec à 100% »). État : 4 tenues mesurées sur 38.
-  Onze des treize sections non tenues partagent la même cause — le déplacement du centre de masse
-  et de l'apex doit vivre dans le tenseur de déformation, pas dans une chaîne de maillons. Le
-  worker chiffre le travail à quatre unités : c'est une série, pas une tentative. Pas de date.
+  (« laisse courir le chantier, on fait la spec à 100% »). État : **5 tenues mesurées sur 38**
+  (§7 est passée le 28 août). Onze des treize sections non tenues partagent la même cause — la
+  déformation doit vivre dans le tenseur, pas dans une chaîne de maillons.
+  **Correction du 28 août :** j'ai écrit ici « le worker chiffre le travail à quatre unités ».
+  C'était faux, et c'était ma faute de lecture : le cycle 130b chiffrait quatre **lignes** de
+  budget de code, pas quatre unités de travail. Ce qui est réellement mesuré aujourd'hui : les
+  échelles de forme de ta spec sont des échelles d'**organe**, le moteur les applique **par
+  maillon**, et seuls ~57 % de la chair sont pilotés par les maillons — donc l'organe ne reçoit
+  qu'un peu plus de la moitié de ce que ta spec demande. Chiffré sur six des huit mesures de
+  l'axe latéral — les deux qui refusent le modèle sont publiées telles quelles, et sur l'axe
+  vertical il n'y a aucune loi. Conséquence directe et mesurée aujourd'hui : la largeur que ta
+  §10 demande au coucher (+18 à +28 %) est rendue à +12,4 %, et le rétrécissement que ta §11
+  demande au ventre (−7 à −13 %) est rendu à −4,4 %. Pas de date.
 - **Pas de temps fixe + interpolation** — pour que le gameplay ne casse plus sous 60 images/s
   et profite au-delà. Ton chantier du 26 août.
 - **Garde du pack HD** — elle ne teste que le dump Jak 2 alors que le pack contient du Jak 3 :
