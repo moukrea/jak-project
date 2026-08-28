@@ -18,6 +18,51 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
 
 ## ⏳ En attente de ton test
 
+- **Vue première personne : Jak HD et Daxter HD ne s'affichent plus — et le défaut venait
+  d'un bit, pas d'une approximation.**
+  Ta remarque : « en caméra première personne on se retrouve (quand on utilise les modèles HD)
+  à l'intérieur de la tête de Jak, et on voit aussi le modèle HD de Daxter... faire comme avec
+  les modèles originaux ». Tu avais raison sur toute la ligne, et plus précisément que tu ne le
+  pensais : les modèles d'origine **sont** masqués par un mécanisme explicite, ce n'est pas un
+  hasard de géométrie. En première personne le jeu coupe l'animation de Jak, ce qui lève chez lui
+  un drapeau « ne me dessine pas » ; Daxter recopie l'état de Jak chaque image, donc il suit.
+  Le compagnon HD, lui, ne regardait **qu'un seul** des trois drapeaux de cette porte — et pas
+  celui-là. Il continuait donc à s'afficher alors que le modèle d'origine avait déjà disparu.
+
+  Corrigé en un seul endroit, celui où l'état de dessin passe du modèle d'origine au modèle HD.
+  Rien n'a été ajouté au moteur d'origine : le HD est simplement rebranché sur le masquage qui
+  existait déjà. Un seul correctif couvre les quatre modèles (Jak et Daxter, origine et HD).
+
+  Mesuré sur une course x86, en lisant le drapeau que **le moteur lui-même** pose quand il a
+  réellement dessiné un objet — pas un chiffre que j'aurais construit :
+
+  | | 3e personne | 1re personne | retour 3e personne |
+  |---|---|---|---|
+  | Jak d'origine | dessiné | **non dessiné** | dessiné |
+  | Daxter d'origine | dessiné | **non dessiné** | dessiné |
+  | Jak HD | dessiné | **non dessiné** | dessiné |
+  | Daxter HD | dessiné | **non dessiné** | dessiné |
+
+  Rien ne reste bloqué en sortant : la 3e personne revient exactement à son état d'avant.
+
+  **Ce que je te demande de regarder :** passe en vue première personne (triangle) avec les
+  MODÈLES AMÉLIORÉS actifs. Ni Jak ni Daxter ne doivent apparaître, et rien d'autre ne doit
+  changer en vue normale.
+
+  **Ce que je n'ai pas prouvé, et je préfère te le dire :** pas de test sur l'appareil. Le
+  changement est du code GOAL pur, identique bit pour bit sur PC et sur Android, et le canal
+  qu'il actionne est déjà éprouvé sur appareil depuis le correctif des fantômes de cinématique.
+
+  **Effet de bord que je n'avais pas demandé :** pendant le chargement d'un niveau, l'animation
+  de Jak est également coupée — les modèles HD s'éteignent donc maintenant avec lui. Avant, ils
+  restaient affichés. Tu ne l'avais pas signalé ; regarde si ça te paraît mieux ou non.
+
+  **Ce que ça ne fait pas :** la vraie vue première personne moderne que tu veux (caméra avancée
+  pour voir mains et pieds, corps qui tourne avec la caméra) n'est pas commencée. Ce correctif ne
+  la gêne pas — mais note qu'elle devra d'abord **rétablir l'animation de Jak** en première
+  personne, que le jeu d'origine coupe, et masquer alors par morceau de maillage plutôt qu'en
+  bloc.
+
 - **La barrière de chargement — faite, mesurée, et elle a un coût que je te dis franchement.**
   Ta demande : « un mécanisme de chargement qui s'assure que tout le nécessaire soit bien
   chargé avant de lancer l'écran titre ». C'est fait, et la scène attend maintenant que le
@@ -67,54 +112,122 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
 
 ## 🔧 En cours de correction
 
-- **Le bouton de saut à la manette — JE ME SUIS TROMPÉ SUR LA CAUSE, ET JE N'AI PLUS QU'UNE
-  QUESTION POUR TOI (une date).**
-  Ce que j'avais écrit ici (« la base de correspondance SDL est absente de l'appareil, SDL ne
-  rapporte jamais l'index 0 ») est **faux**. Je l'avais déduit d'un bout de trace tronqué.
-  Sur le journal complet de ta session de ce matin sur la Shield, ton bouton A arrive
-  **228 fois** jusqu'au moteur, et le moteur le traduit correctement en X/CROIX :
+- **Le bouton de saut — RÉSOLU le 28 août, confirmé par toi en jeu sur la Shield.**
+  Cause : la propriété de débogage `debug.opengoal.cpad_inject` valait `x` sur la Shield (vide
+  sur le Redmi). Le jeu lit cette propriété en continu et `x` = croix : le bouton de saut était
+  **tenu enfoncé en permanence**. Un bouton tenu n'émet aucun front, et le saut ne se déclenche
+  que sur le front. D'où un jeu qui ne réagit pas alors que toute la chaîne d'entrée mesurait
+  saine — les 228 événements arrivaient bien.
+  C'est **notre propre outillage de test** qui l'avait laissée. Mes trois hypothèses précédentes
+  cherchaient toutes une entrée **absente**, alors qu'elle était **coincée à 1**.
 
-      onPadButton: sdl_button=0 pressed=1 (real gamepad)
-      kernel: pad: south pressed
-
-  Et il fait bien sauter : sur tes appuis au sol, l'altitude de Jak monte de ~0,7 m dans la
-  seconde qui suit. La chaîne manette → Android → SDL → moteur → saut est intacte, mesurée
-  bout en bout. Je n'ai donc **rien décalé** — corriger des index à l'aveugle aurait cassé
-  les autres manettes.
-
-  **Tu m'as déjà dit « la manette est en mode Xinput, arrête tes suppositions ».** J'ai
-  arrêté. Et j'ai aussi écarté l'autre piste qui traînait dans mes notes (« le fichier
-  `sdl_controller_db.txt` manque sur l'appareil ») : ce fichier n'est **jamais** chargé sur
-  Android, même à l'époque où ça marchait — le code qui le lit n'existe pas sur ce chemin.
-  Son absence ne peut donc pas être une régression. Et la table de correspondance
-  réellement utilisée est la bonne : SDL ouvre ta manette sous le nom
-  `Xbox One S Controller`, l'entrée qui contient `a:b0`.
-
-  **Donc je te crois sur toute la ligne : ça marchait, ça ne marche plus, et c'est le jeu.**
-  Ce que ma mesure ajoute, c'est *où ce n'est pas* : ce n'est pas dans la chaîne d'entrée.
-  Le bouton traverse Android, SDL, le JNI et arrive dans le pad du jeu comme CROIX. Le
-  défaut est **en aval**, dans ce qui consomme cette croix.
-
-  **Je ne te demande rien, je te dis juste où j'en suis.** L'APK de la Shield a été mis à
-  jour ce matin à **08:03:45**, et la session que j'ai mesurée (08:07 → 08:31) tourne sur ce
-  binaire. C'est bien quelqu'un qui tenait la manette : 614 appuis, navigation de menu,
-  déplacement, sauts. Et le même bouton arrivait déjà correctement dans une trace du **26
-  août**. Donc sur les deux builds que je peux mesurer, la chaîne d'entrée est saine.
-
-  **Je n'arrive donc pas à reproduire ton défaut, et je ne le referme pas pour autant.** Il
-  reste ouvert ici, avec ce que j'ai établi (ce n'est pas l'entrée) et ce qui manque (dans
-  quelle situation précise ça t'arrive : au titre ? en jeu ? après une cinématique ?). Si un
-  jour ça te retombe dessus, la seule chose qui m'aiderait est ce contexte-là — pas une
-  manip, juste la phrase. En attendant je cherche en aval, du côté de ce qui consomme la
-  croix, sans te solliciter.
-
-- **Rien n'attend que les niveaux soient chargés.** Ta demande : une barrière qui ne lance la
-  scène que lorsque ce dont elle a besoin est prêt. Concerne le logo qui arrive après son son, et
-  le survol de la plage au retour de Geyser Rock avec des éléments manquants.
-
----
+  **La mine derrière, et elle est traitée :** 94 de nos 101 scripts posent cette propriété sans
+  jamais la vider. Ajouté le 28 août — `.autoport/device_teardown.sh` (vide toutes nos
+  propriétés et le fichier d'injection), et un contrôle automatique avant chaque tentative du
+  framework qui compte les scripts fautifs et **bloque** si l'un d'eux est utilisé par la phase
+  en cours.
 
 ## 📋 Au backlog, pas encore commencé
+
+- **Cinématiques : recadrer au lieu de masquer, à tous les formats d'écran** — demandé par toi
+  le 28 août. J'ai lu le code, et ton diagnostic est exact jusqu'au détail du compteur de FPS.
+
+  **Ce que fait le jeu aujourd'hui** (`goal_src/jak1/engine/game/main.gc:24`, fonction
+  `letterbox`) : en mode natif il **force du 16:9 en toutes circonstances**.
+  - Écran plus étroit que 16:9 → deux bandes noires en haut et en bas.
+  - Écran plus large que 16:9 → **deux bandes noires à gauche et à droite**. C'est le cas
+    ultra-large que tu décris.
+
+  **Et le compteur de FPS sous les bandes est expliqué** : les bandes sont dessinées dans le
+  bucket `debug-no-zbuf`, qui est un des **derniers** — elles passent donc par-dessus tout, HUD
+  compris. Ce n'est pas un problème de position du compteur, c'est un problème d'ordre de
+  dessin.
+
+  **La correction, telle que tu la décris** : ne rien masquer, recadrer. On garde le champ de
+  vision VERTICAL de la bande prévue, et on déduit l'horizontal du format de l'écran. La
+  composition verticale voulue par les auteurs est préservée au pixel près, l'horizontal
+  s'étend, et il n'y a plus aucune bande à dessiner — ni en haut, ni sur les côtés, à n'importe
+  quel format.
+
+  **Le risque à mesurer avant de livrer, et il est réel** : élargir l'horizontal en cinématique
+  montre ce que les auteurs avaient laissé HORS CADRE — décor non construit, acteurs qui
+  apparaissent, bords de plateau. C'est le piège classique de l'élargissement de champ dans un
+  jeu ancien. À vérifier scène par scène ; certaines demanderont peut-être une limite.
+
+  **Le HUD** : compteur de FPS et sous-titres doivent rester exactement où ils sont d'habitude,
+  donc être dessinés en espace ÉCRAN et après le recadrage. Le placement des sous-titres est
+  aujourd'hui calé sur la bande 16:9 — il devra suivre le nouveau cadre.
+
+  Ordre : le recadrage de la caméra, puis la suppression des bandes, puis l'ordre de dessin du
+  HUD, puis la passe scène par scène sur ce que l'élargissement révèle.
+
+- **PBR : des matières par texture, pas deux curseurs pour tout le jeu** — demandé par toi le
+  28 août. Tu as raison sur les deux points, et j'ai vérifié le second.
+
+  **C'est bien global.** Il n'y a que deux réglages de matière dans tout le moteur :
+  `recharged_pbr_texture_relief = 1.5` et `recharged_pbr_spec_intensity = 0.15`
+  (`game/graphics/gfx.h:427-428`). Un commentaire du code le dit lui-même : la loi de parallaxe
+  est « une matière à une position de curseur ». Donc le sable, le tissu et la pierre taillée
+  reçoivent exactement le même relief et le même spéculaire. Et tu as raison aussi sur « c'est
+  un peu light » : deux paramètres ne décrivent pas une matière.
+
+  **Le point d'accroche existe déjà.** Les textures sont identifiées par leur nom de fichier nu
+  (« sand-01 »), et le moteur tient déjà une table de diagnostic par texture, indexée sur ce même
+  nom (`CustomTextureReplacements.cpp`). Une table de presets indexée pareil se branche dessus
+  sans rien inventer.
+
+  **Ce qu'une matière devrait porter**, au-delà des deux actuels : rugosité, métallicité,
+  amplitude et échelle du relief, anisotropie (le tissu et le bois brossé en ont, la pierre non),
+  réflectance de base, et le signe/l'espace de la normale — ce dernier point rejoint ton premier
+  défaut.
+
+  **Ton premier défaut — relief présent d'un côté, absent ou inversé de l'autre.** Ce n'est pas
+  consigné pour l'instant, aucun rapport ne le couvre. La description (marche / absent / inversé
+  selon les faces) est la signature classique d'un problème de **repère tangent** : orientation
+  des UV, signe de la bitangente, ou normales dans le mauvais espace. À instrumenter par face
+  avant de toucher aux matières — sinon on réglera des presets par-dessus un repère faux.
+
+  **Ton idée d'utiliser Haiku en vision** est la bonne façon de peupler la table : les textures
+  couleur sont nommées et peu nombreuses (51 images locales, davantage dans le dépôt d'assets).
+  Une passe de description sur la version COULEUR uniquement donne la famille de matière, puis on
+  en déduit le preset. Fait une fois, versionné dans le dépôt d'assets, pas recalculé au runtime.
+
+  Ordre : le repère tangent d'abord (sinon tout le reste est bâti sur du faux), la table de
+  matières ensuite, la passe vision pour la peupler, et enfin le portage des presets dans
+  `moukrea/recharged-assets` comme tu le demandes.
+
+- **Écran de chargement à la place de l'écran noir** — demandé par toi le 28 août, maquette
+  fournie et conservée dans `.autoport/design/loading-screen-owner-mockup.png` (16:9).
+  Ça répond directement aux 6,7 s d'écran noir que je t'avais signalées le matin même : au lieu de
+  te demander si le jeu a planté, on te dit qu'il charge.
+
+  **Où ça se branche** : `blackout()` (`goal_src/jak1/engine/game/main.gc:61`) dessine aujourd'hui
+  un simple rectangle noir plein écran. C'est là que le contenu vient.
+
+  **Piège à éviter, et il est réel** : l'écran noir sert AUSSI aux coupes de caméra (0,035 s) et
+  aux boutons (0,05 s). Afficher « Loading... » à chaque fois ferait clignoter le texte en
+  permanence. Il faut le lier à la barrière de chargement précisément, et n'afficher qu'au-delà
+  d'un seuil (~0,5 s d'attente). Sans ça, le remède est pire que le mal.
+
+  Quatre morceaux :
+  1. **Silhouette** — Jak courant latéralement vers la droite, Daxter sur l'épaule, ~40 % de la
+     hauteur d'écran, centrée verticalement à gauche. À capturer depuis la VRAIE animation de
+     course, en vue de côté, puis convertie en blanc sur noir. Je propose une image fixe d'abord ;
+     une boucle animée est une extension naturelle, mais elle multiplie le coût de capture.
+  2. **Texte « Loading... » localisé** — nouvel identifiant de texte à ajouter dans ~20 langues.
+  3. **Ligne de glyphes précurseurs** sous le texte, **à la largeur exacte du texte localisé**.
+     Point d'implémentation : « Chargement... » est nettement plus large que « Loading... », donc
+     la ligne de glyphes doit être **mise à l'échelle par langue** sur la largeur mesurée du texte
+     rendu, pas dessinée à taille fixe. Le système de police sait mesurer une largeur.
+     Aucun alphabet précurseur n'existe dans le jeu : les textures « precursor » sont des murs de
+     la citadelle. Les glyphes sont donc un asset à créer (8 sur ta maquette).
+  4. **Police Urbanist** pour le texte — **dépend de l'entrée « police » ci-dessus**. Tel quel, le
+     texte sortirait en capitales dans la police d'origine. Deux options : livrer d'abord en
+     police actuelle et repasser après, ou attendre Urbanist. Je te recommande d'attendre : un
+     « LOADING... » en capitales dans la vieille police irait à l'encontre de tout l'objectif.
+
+  Ordre : le branchement et le seuil d'abord (c'est ce qui supprime l'angoisse), la silhouette
+  ensuite, les glyphes et Urbanist en finition.
 
 - **Police du jeu : fini le tout-en-majuscules, passage à Urbanist** — demandé par toi le
   28 août. Ce que j'ai mesuré avant de le chiffrer :
