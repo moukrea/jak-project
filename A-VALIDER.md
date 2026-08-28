@@ -1,11 +1,26 @@
 # À VALIDER PAR L'OWNER
 
 Liste tenue à jour par Claude. Rien ici n'est fermé sans ta parole.
-Dernière mise à jour : 2026-08-27.
+Dernière mise à jour : 2026-08-28.
 
 ---
 
 ## ✅ Déjà validé par toi (2026-08-27)
+
+### Validé le 2026-08-28
+
+- **Vue première personne avec les modèles HD** — on ne se retrouve plus dans la tête de Jak, et
+  Daxter HD ne s'affiche plus. Cause : le miroir de visibilité des modèles HD lisait **un seul
+  bit d'une porte qui en compte trois**, donc les modèles d'origine disparaissaient et les HD
+  restaient dessinés.
+- **La visière flottante de Keira** — c'était le **masque de soudure de Jak 2** (`mask` +
+  `maskstrap`, 173 sommets posés au sol sous ses semelles), accroché à la racine du squelette.
+  Supprimé, comme tu l'as demandé. Tes bretelles et tes lunettes n'y ont pas touché : elles
+  étaient à leur place, mes chiffres du contraire étaient faux (erreur d'inversion de matrice de
+  ma part, rectifiée dans `.autoport/reports/OWNER-DEFECT-keira-hd-maskstrap.md`).
+- **Le bouton de saut sur la Shield** — une propriété de débogage laissée par notre outillage
+  tenait la croix enfoncée en permanence. Vidée, et une garde automatique empêche désormais de
+  la reposer.
 
 - **Plafond mémoire** — mémoire du jeu 1370 → 744 Mo, un niveau 122,1 → 40,6 Mo.
   Sur la Shield : 4 min stables, pic 817 Mo, 0 tueur mémoire, 0 plantage (elle mourait vers 75 s).
@@ -17,6 +32,53 @@ Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
 ---
 
 ## ⏳ En attente de ton test
+
+- **Les cinématiques n'ont plus de barres noires — l'image est recadrée, pas masquée.**
+  Ta remarque : « au lieu d'avoir des barres noires on devrait grossir la partie visible pour
+  qu'elle prenne toute la hauteur, et ne rien masquer horizontalement, QUELQUE SOIT L'ASPECT
+  RATIO », et « sur les aspect ratio très larges le compteur de FPS se retrouve sous les barres
+  noires ».
+
+  Ce que faisait le jeu : il forçait du 16:9 **en toutes circonstances** pendant une cinématique.
+  Écran plus étroit que 16:9 → deux barres en haut et en bas. Écran plus **large** → deux barres
+  **verticales**, à gauche et à droite. C'est ce second cas que tu vois sur ton téléphone.
+
+  Ce qu'il fait maintenant : il garde **exactement** le champ de vision vertical que les auteurs
+  avaient cadré, et il en déduit l'horizontal depuis le format réel de ton écran. Le cadre rendu
+  a donc déjà la forme de l'écran — il ne reste plus rien à masquer, à aucun format. Mesuré sur
+  sept formats du 4:3 au 32:9 : le vertical rend la **même** valeur partout (0,3514), et la forme
+  du cadre égale la forme de l'écran sur chaque ligne. À 16:9 le changement est **nul**.
+
+  **Le compteur de FPS n'était pas mal placé.** Les barres et lui étaient écrits dans le *même*
+  paquet de dessin, les barres arrivant plus tard dans la file : elles le repeignaient dessus.
+  Zéro barre, donc plus rien pour le recouvrir — et il n'a pas bougé d'un pixel.
+
+  **Les sous-titres**, eux, n'ont jamais été recouverts (ils sont dessinés après les barres).
+  Leur défaut était autre : ils étaient **remontés de 11 pixels** pendant une cinématique pour
+  dégager la barre du bas. Cette barre n'existe plus, donc ils reviennent à leur hauteur
+  habituelle, la même qu'en jeu normal.
+
+  **Ce que je te demande de regarder :** lance n'importe quelle cinématique sur ton téléphone.
+  Plus de bandes noires sur les côtés, image pleine largeur, compteur de FPS visible si tu l'as
+  activé, sous-titres à leur hauteur normale.
+
+  **Et la seule chose que je ne peux pas mesurer, donc que je te demande vraiment :** en
+  élargissant sur les côtés, est-ce qu'une scène laisse voir quelque chose que les auteurs
+  avaient laissé hors cadre — décor non construit, acteur qui apparaît, bord de plateau ? Ça se
+  juge à l'œil, pas au chiffre. Le nom de la scène me suffit : j'ai déjà la manière de brider
+  l'ouverture latérale **sans** remettre de barre, je ne l'ai pas livrée pour ne pas poser un
+  réglage qui ne sert à rien tant qu'aucune scène ne le demande. Ce que je peux te dire de sûr :
+  verticalement **rien** de neuf n'apparaît, sous 16:9 **rien** non plus, et au-dessus de 16:9 la
+  cinématique reste **plus étroite d'un quart** que ce que le jeu te montre déjà en jeu normal.
+
+  **Ce que je n'ai pas prouvé :** pas de course sur l'appareil dans ce cycle. Le changement est du
+  code GOAL pur, identique sur PC et sur Android.
+
+  **Ce que je n'ai pas touché :** le mode « rendu d'origine » (celui qui utilise la visibilité
+  PS2) garde ses barres — là le champ ne peut pas être élargi. Et Jak 2 / Jak 3 gardent l'ancien
+  comportement : ils ne sont pas dans le périmètre de ce lot. À noter, ils divergent maintenant de
+  Jak 1 ; si tu veux les trois pareils, c'est Jak 2 qu'il faut aligner sur Jak 1, pas l'inverse.
+
 
 - **Vue première personne : Jak HD et Daxter HD ne s'affichent plus — et le défaut venait
   d'un bit, pas d'une approximation.**
