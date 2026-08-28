@@ -309,6 +309,49 @@ def check_guards_still_installed():
                    "renomme par une refonte -- le piege correspondant n'est plus couvert."
                    % (gid, marker[:40], path))
 
+
+# --------------------------------------------------------------------------
+# TRAP — une propriete de debogage laissee armee sur un appareil de l'owner.
+# Cout REEL, 2026-08-28 : `debug.opengoal.cpad_inject` est restee a `x` sur la
+# Shield. Le jeu lit cette propriete en continu et `x` = bit 14 = CROIX, donc le
+# bouton de SAUT etait TENU en permanence. Un bouton tenu n'emet aucun FRONT, et
+# `(cpad-pressed? 0 x)` ne tire que sur le front : jeu injouable pendant des
+# semaines, pendant que chaque controle de la chaine d'entree disait « saine »
+# (les 228 evenements SDL arrivaient bien). Trois hypotheses ont ete refutees
+# avant de trouver, toutes cherchaient une entree ABSENTE alors qu'elle etait
+# COINCEE A 1.
+_PROP = "debug.opengoal.cpad_inject"
+
+
+def check_device_prop_leak():
+    live = _active_set()
+    setters, leakers = [], []
+    for p in sorted((ROOT / ".autoport").glob("*.sh")):
+        rel = p.as_posix().replace(str(ROOT) + "/", "")
+        txt = p.read_text(errors="ignore")
+        if ("setprop %s" % _PROP) not in txt:
+            continue
+        setters.append(p.name)
+        # un nettoyage = la propriete remise a vide, ou le teardown appele
+        cleared = re.search(r"setprop\s+%s\s+(''|\"\"|\s*$)" % re.escape(_PROP),
+                            txt, re.M) or "device_teardown.sh" in txt
+        if not cleared:
+            leakers.append((p.name, rel in live))
+    if not leakers:
+        return
+    live_leakers = [n for n, is_live in leakers if is_live]
+    sev = "BLOCKER" if live_leakers else "WARN"
+    head = (", ".join(sorted(live_leakers)[:3]) + ("..." if len(live_leakers) > 3 else "")
+            if live_leakers else ", ".join(n for n, _ in leakers[:3]) + "...")
+    yield (sev, "DEVICE-PROP-LEAK",
+           "%d des %d scripts qui posent `%s` ne la vident JAMAIS (%s). Une valeur "
+           "laissee la TIENT un bouton enfonce sur l'appareil de l'owner : plus aucun "
+           "front, donc le jeu ne reagit plus a ce bouton, jusqu'au redemarrage. "
+           "Ajouter `trap '.autoport/device_teardown.sh' EXIT` en tete de tout script "
+           "qui touche un appareil, y compris quand il echoue."
+           % (len(leakers), len(setters), _PROP, head))
+
+
 CHECKS = [
     check_goal_objects_linked,
     check_self_matching_kills,
@@ -318,6 +361,7 @@ CHECKS = [
     check_report_not_stale,
     check_metric_frame_declared,
     check_guards_still_installed,
+    check_device_prop_leak,
 ]
 
 

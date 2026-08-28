@@ -49,5 +49,5 @@ echo "empreinte ISO apres build : $(_iso_stamp)"
 
 # 3. la course, dans la MEME fenetre — le lanceur voit le verrou vivant, le laisse en place
 echo "== salle de test =="
-ROOM_TIMEOUT=2400 bash .autoport/keira_room_x86.sh
+ROOM_TIMEOUT="${ROOM_TIMEOUT:-2400}" bash .autoport/keira_room_x86.sh
 echo "room rc=$?"
