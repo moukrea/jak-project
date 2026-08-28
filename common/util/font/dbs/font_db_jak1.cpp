@@ -217,9 +217,81 @@ std::vector<EncodeInfo> encode_info_jak1 = {
     {"水", "\x1\xaf"},  // mizu
     {"船", "\x1\xb0"},  // fune
     {"™", "\x1\xb1"},   // trademark
+    // ==== Gfont-urbanist : LATIN aux octets que la version japonaise employait ====
+    // Mesure des atlas livres par une ISO occidentale : 0x1a porte ©, 0x1c porte æ,
+    // 0x1e porte ç et 0x5e porte œ — PAS les kanji 海 界 学 空 que les entrees
+    // ci-dessus declarent (ceux-la sont dans l'atlas de la version japonaise).
+    // 0x19 n'etait produit par aucune entree : reaffecte au « i sans point », base
+    // obligatoire de i-accentue (sinon le point du i et l'accent se superposent).
+    {"ı", "\x19"},  // i sans point
+    {"©", "\x1a"},
+    {"æ", "\x1c"},
+    {"ç", "\x1e"},
+    {"œ", "\x5e"},
+
 };
 
 std::vector<ReplaceInfo> replace_info_jak1 = {
+    // ==== GENERE par recharged_assets/font/gen_accent_table.py — NE PAS EDITER A LA MAIN ====
+    // Composition des MINUSCULES accentuees. Les decalages sont en pixels
+    // ecran de la GRANDE police (unite mesuree sur les 50 entrees livrees,
+    // k = 1.000), et calcules sur l'atlas Urbanist genere.
+    {"o~Y~-16H~+0V'~-9H'~Z", "ő"},
+    {"u~Y~-15H~+0V'~-12H'~Z", "ű"},
+    {"a~Y~-16H~-2Vº~Z", "å"},
+    {"o~Y~-15H~+2V/~Z", "ø"},
+    {"a~Y~-15H~+3V,~Z", "ą"},
+    {"e~Y~-14H~+2V,~Z", "ę"},
+    {"l~Y~-8H~-1V/~Z", "ł"},
+    {"z~Y~-14H~-1Vº~Z", "ż"},
+    {"e~Y~-16H~-2Vº~Z", "ė"},
+    {"c~Y~-14H~+0Vˇ~Z", "č"},
+    {"d~Y~-16H~-5Vˇ~Z", "ď"},
+    {"s~Y~-11H~+0Vˇ~Z", "š"},
+    {"z~Y~-13H~+0Vˇ~Z", "ž"},
+    {"u~Y~-13H~+2V,~Z", "ų"},
+    {"u~Y~-15H~-6V-~Z", "ū"},
+    {"d~Y~-17H~-2V-~Z", "đ"},
+    {"ı~Y~-7H~+1V,~Z", "į"},
+    {"u~Y~-15H~-1Vº~Z", "ů"},
+    {"n~Y~-17H~+0V<TIL>~Z", "ñ"},
+    {"a~Y~-18H~-2V<TIL>~Z", "ã"},
+    {"o~Y~-17H~+0V<TIL>~Z", "õ"},
+    {"a~Y~-17H~-2V'~Z", "á"},
+    {"e~Y~-16H~-2V'~Z", "é"},
+    {"ı~Y~-9H~-1V'~Z", "í"},
+    {"o~Y~-16H~+0V'~Z", "ó"},
+    {"u~Y~-15H~+1V'~Z", "ú"},
+    {"c~Y~-15H~-1V'~Z", "ć"},
+    {"n~Y~-16H~-2V'~Z", "ń"},
+    {"s~Y~-13H~-1V'~Z", "ś"},
+    {"z~Y~-15H~-1V'~Z", "ź"},
+    {"y~Y~-16H~+0V'~Z", "ý"},
+    {"a~Y~-16H~+0V^~Z", "â"},
+    {"e~Y~-15H~-2V^~Z", "ê"},
+    {"ı~Y~-7H~-1V^~Z", "î"},
+    {"o~Y~-15H~+0V^~Z", "ô"},
+    {"u~Y~-14H~+1V^~Z", "û"},
+    {"a~Y~-16H~-2V`~Z", "à"},
+    {"e~Y~-16H~-2V`~Z", "è"},
+    {"ı~Y~-8H~-1V`~Z", "ì"},
+    {"o~Y~-16H~+0V`~Z", "ò"},
+    {"u~Y~-15H~+1V`~Z", "ù"},
+    {"a~Y~-18H~-2V¨~Z", "ä"},
+    {"e~Y~-18H~-2V¨~Z", "ë"},
+    {"ı~Y~-10H~-1V¨~Z", "ï"},
+    {"o~Y~-18H~+0V¨~Z", "ö"},
+    {"u~Y~-17H~+1V¨~Z", "ü"},
+    {"a~Y~-15H~+0Vˇ~Z", "ǎ"},
+    {"e~Y~-15H~-2Vˇ~Z", "ě"},
+    {"g~Y~-16H~-1Vˇ~Z", "ǧ"},
+    {"ı~Y~-7H~-1Vˇ~Z", "ǐ"},
+    {"o~Y~-15H~+0Vˇ~Z", "ǒ"},
+    {"u~Y~-14H~+1Vˇ~Z", "ǔ"},
+    {"n~Y~-14H~-2Vˇ~Z", "ň"},
+    {"r~Y~-10H~-2Vˇ~Z", "ř"},
+    {"t~Y~-10H~-4Vˇ~Z", "ť"},
+    // ==== FIN GENERE ====
     // other
     {"A~Y~-21H~-5Vº~Z", "Å"},
     {"N~Y~-6Hº~Z~+10H", "Nº"},
@@ -584,6 +656,18 @@ std::vector<EncodeInfo> encode_info_jak1_v2 = {
     {"水", "\x1\xaf"},  // mizu
     {"船", "\x1\xb0"},  // fune
     {"™", "\x1\xb1"},   // trademark
+    // ==== Gfont-urbanist : LATIN aux octets que la version japonaise employait ====
+    // Mesure des atlas livres par une ISO occidentale : 0x1a porte ©, 0x1c porte æ,
+    // 0x1e porte ç et 0x5e porte œ — PAS les kanji 海 界 学 空 que les entrees
+    // ci-dessus declarent (ceux-la sont dans l'atlas de la version japonaise).
+    // 0x19 n'etait produit par aucune entree : reaffecte au « i sans point », base
+    // obligatoire de i-accentue (sinon le point du i et l'accent se superposent).
+    {"ı", "\x19"},  // i sans point
+    {"©", "\x1a"},
+    {"æ", "\x1c"},
+    {"ç", "\x1e"},
+    {"œ", "\x5e"},
+
 };
 
 GameTextFontBank g_font_bank_jak1_v1(GameTextVersion::JAK1_V1,

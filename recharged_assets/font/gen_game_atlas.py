@@ -1,0 +1,439 @@
+#!/usr/bin/env python3
+"""Genere les atlas de police du JEU (jak1) en Urbanist, sur la grille EXACTE du moteur.
+
+Pourquoi ce fichier remplace `gen_atlas.py` (qui reste, il sert de previsualisation)
+------------------------------------------------------------------------------------
+`gen_atlas.py` produisait un atlas a cellules VARIABLES avec des rects UV serres sur
+l'encre. Le moteur de jak1 ne sait pas lire ca : `draw-string` ne lit qu'un COIN (u,v)
+par glyphe dans `*font12-table*` / `*font24-table*` et ajoute une taille CONSTANTE
+(`size-st1/2/3` de `font-work`). La grille est donc imposee, et un atlas hors grille
+n'est pas branchable.
+
+Grille MESUREE dans le moteur (goal_src/jak1/engine/gfx/font.gc + font-h.gc)
+---------------------------------------------------------------------------
+  index de glyphe = octet - 16                (font.gc:1091 `.sll t5-17 t4-21 4`
+                                               puis `(.lvf vf5 (+ t5-18 -256))`)
+  colonne = index % 10, ligne = index // 10   (verifie sur les 250/289 entrees)
+  pas horizontal  = 12/128 = 0.09375          (u de la table)
+  pas vertical    = 16/256 = 0.0625           (v de la table)
+  premier coin    = (0.5/128, 0.5/256)
+  etendue du quad = size-st1.x 0.08985 = 11.5/128 ; size-st2.y 0.06153846 ~ 15.75/256
+
+  octet >= 128 -> gabarit "hi" (`(logand t4-21 128)` font.gc:1146) : les deux atlas
+  `ascii.12hi` / `ascii.24hi` portent les KANA et ne sont PAS touches ici.
+
+  avance = w * size1-small.w (0.5) pour le petit, * size1-large.w (1.0) pour le grand.
+
+Ecrasement 2:1 du rendu — ce qui impose la forme des glyphes
+------------------------------------------------------------
+Le quad fait 12 x 8 unites ecran pour une cellule de 12 x 16 texels (jak2 fait
+12 x 14.857 pour la meme cellule : jak1 est bien ecrase d'un facteur 2 en vertical).
+Un glyphe dessine « droit » dans l'atlas sortirait donc ECRASE a l'ecran. On dessine
+Urbanist avec une echelle VERTICALE double de son echelle horizontale, ce qui est
+exactement la convention du jeu — c'est pourquoi ses capitales font 8 texels de large
+pour 13 de haut.
+
+Ce qui est ECRASE et ce qui est CONSERVE
+----------------------------------------
+On ne remplace QUE les cellules dont on sait, par mesure, qu'elles portent du latin.
+Toute cellule qui porte un kana, un kanji ou une piece de BOUTON MANETTE garde ses
+pixels d'origine — sauf les 26 cellules 0x61-0x7a du GRAND atlas, qui portent des
+kanji et que l'on REAFFECTE aux minuscules a-z : c'est le seul moyen d'avoir des
+minuscules en grande police, il n'existe aucune cellule libre atteignable.
+
+Consequence : les pixels d'origine (kana, kanji, boutons) sont recopies depuis
+`out/jak1/fr3/GAME.fr3`, donc l'atlas produit contient des pixels Naughty Dog. Il est
+GENERE LOCALEMENT et n'est jamais commite (cf. .gitignore), exactement comme les
+modeles HD.
+
+Sortie
+------
+  custom_assets/jak1/recharged_textures/gamefontnew/ascii.12lo.png   (256x512)
+  custom_assets/jak1/recharged_textures/gamefontnew/ascii.24lo.png   (512x1024)
+  recharged_assets/font/urbanist-tables.json                          (avances + audit)
+
+Licence : Urbanist est sous SIL Open Font License 1.1 ; NotoSansJP-Medium (utilisee
+uniquement si un glyphe manque a Urbanist) l'est aussi.
+"""
+
+import json
+import os
+import re
+import struct
+import sys
+
+from PIL import Image, ImageDraw, ImageFont
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+FONTDIR = os.path.join(ROOT, "recharged_assets", "font")
+FR3 = os.path.join(ROOT, "out", "jak1", "fr3", "GAME.fr3")
+OUTDIR = os.path.join(ROOT, "custom_assets", "jak1", "recharged_textures", "gamefontnew")
+
+URBANIST = os.path.join(FONTDIR, "Urbanist-600.ttf")
+NOTOJP = os.path.join(ROOT, "game", "assets", "fonts", "NotoSansJP-Medium.ttf")
+
+SCALE = 2  # facteur de suréchantillonnage de l'atlas (UV inchangés, ils sont normalisés)
+
+# ---------------------------------------------------------------------------------------
+# Plan des cellules. None = on GARDE les pixels d'origine.
+# Etabli par MESURE des atlas livres (voir le rapport de phase), pas par supposition.
+# ---------------------------------------------------------------------------------------
+MARKS = {
+    0x10: "ˇ",  # caron
+    0x11: "`",       # accent grave
+    0x12: "´",  # accent aigu (sert aussi d'apostrophe : "'" est encode en 0x12)
+    0x13: "ˆ",  # circonflexe
+    0x14: "˜",  # tilde
+    0x15: "¨",  # trema
+    0x16: "°",  # rond en chef / degre
+    0x17: "¡",
+    0x18: "¿",
+}
+
+
+def base_plan():
+    """Cellules communes aux deux atlas."""
+    p = dict(MARKS)
+    # 0x19 n'est produit par AUCUNE entree d'encodage ni de remplacement, et le corpus
+    # ne contient aucun echappement \cXX : la cellule est donc inatteignable par le
+    # texte. On la REAFFECTE au « i sans point », base obligatoire des minuscules
+    # accentuees (sinon i + accent aigu dessine un point ET un accent).
+    p[0x19] = "ı"
+    p[0x1B] = "Æ"
+    p[0x1D] = "Ç"
+    p[0x1F] = "ß"
+    p[0x20] = " "
+    p[0x21] = "!"
+    p[0x22] = '"'
+    p[0x25] = "%"
+    p[0x28] = "("
+    p[0x29] = ")"
+    p[0x2B] = "+"
+    p[0x2C] = ","
+    p[0x2D] = "-"
+    p[0x2E] = "."
+    p[0x2F] = "/"
+    for i in range(10):
+        p[0x30 + i] = chr(ord("0") + i)
+    p[0x3A] = ":"
+    p[0x3D] = "="
+    p[0x3F] = "?"
+    for i in range(26):
+        p[0x41 + i] = chr(ord("A") + i)
+    p[0x7C] = "Œ"  # Œ
+    # kana presents dans l'atlas latin : gardes tels quels
+    for c in (0x24, 0x26, 0x27, 0x60, 0x7B, 0x7D):
+        p[c] = None
+    return p
+
+
+def plan_small():
+    p = base_plan()
+    # Dans le PETIT atlas ces cellules portent de la vraie ponctuation (mesure), pas
+    # des pieces de bouton : on peut les remplacer.
+    p[0x1A] = "©"  # ©
+    p[0x1C] = "æ"  # æ
+    p[0x1E] = "ç"  # ç
+    p[0x23] = "#"
+    p[0x2A] = "*"
+    p[0x3B] = ";"
+    p[0x3C] = "<"
+    p[0x3E] = ">"
+    p[0x40] = None      # glyphe rond : bouton CERCLE en petite police aussi -> garde
+    p[0x5B] = "["
+    p[0x5C] = "\\"
+    p[0x5D] = "]"
+    p[0x5E] = "œ"  # œ
+    p[0x5F] = "_"
+    for i in range(26):
+        p[0x61 + i] = chr(ord("a") + i)
+    p[0x7E] = "~"
+    p[0x7F] = "™"  # ™
+    return p
+
+
+def plan_large():
+    p = base_plan()
+    # Dans le GRAND atlas ces cellules portent l'art des BOUTONS MANETTE (mesure :
+    # 0x23 carre, 0x2a croix, 0x3b triangle, 0x3c corps du bouton, 0x3e reflet,
+    # 0x40 cercle, 0x5b reflet) et des KANJI (0x1a 0x1c 0x1e 0x5c-0x5f 0x7e 0x7f).
+    for c in (0x23, 0x2A, 0x3B, 0x3C, 0x3E, 0x40,
+              0x5B, 0x5C, 0x5D, 0x5F, 0x7E, 0x7F):
+        p[c] = None
+    # REAFFECTES depuis des kanji, parce que les langues latines en ont besoin et que
+    # le PETIT atlas les porte deja aux memes octets : sans ca les deux polices n'ont
+    # pas la meme page de codes et « ca » s'ecrit « 学a » en grande police.
+    p[0x1A] = "©"  # portait 海
+    p[0x1C] = "æ"  # portait 界
+    p[0x1E] = "ç"  # portait 学
+    p[0x5E] = "œ"  # portait 空 — le francais en a besoin.
+    # REAFFECTATION ASSUMEE : 26 kanji -> minuscules latines. Sans elle la grande
+    # police ne peut PAS ecrire en casse mixte, ce qui est la demande de l'owner.
+    for i in range(26):
+        p[0x61 + i] = chr(ord("a") + i)
+    return p
+
+
+ATLASES = [
+    # nom, largeur, hauteur, cellule w, cellule h, plan
+    ("ascii.12lo", 128, 256, 12, 16, plan_small),
+    ("ascii.24lo", 256, 512, 24, 32, plan_large),
+]
+
+
+# ---------------------------------------------------------------------------------------
+# Lecture des atlas livres dans GAME.fr3 (zstd + serialisation tfrag3)
+# ---------------------------------------------------------------------------------------
+def read_stock_atlases():
+    import subprocess
+
+    raw = open(FR3, "rb").read()
+    dec = subprocess.run(["zstd", "-d", "-c"], input=raw[8:], stdout=subprocess.PIPE,
+                         stderr=subprocess.DEVNULL, check=True).stdout
+    out = {}
+    for m in re.finditer(rb"ascii\.\d\d(?:hi|lo)", dec):
+        name = m.group(0).decode()
+        p = m.start()
+        if struct.unpack_from("<Q", dec, p - 8)[0] != len(name):
+            continue
+        dend = p - 8
+        for nwords in (128 * 256, 256 * 512):
+            ds = dend - nwords * 4 - 8
+            if ds > 0 and struct.unpack_from("<Q", dec, ds)[0] == nwords:
+                h = struct.unpack_from("<H", dec, ds - 6)[0]
+                w = struct.unpack_from("<H", dec, ds - 8)[0]
+                out[name] = Image.frombytes(
+                    "RGBA", (w, h), dec[ds + 8: ds + 8 + nwords * 4])
+                break
+    return out
+
+
+def ink_box(img, cw, ch, code, thr=8):
+    """Boite d'encre (alpha) de la cellule d'un octet, en texels de la cellule."""
+    idx = code - 16
+    x0, y0 = (idx % 10) * cw, (idx // 10) * ch
+    a = img.split()[3].crop((x0, y0, x0 + cw, y0 + ch))
+    bbox = a.point(lambda v: 255 if v > thr else 0).getbbox()
+    return bbox  # (l, t, r, b) exclusif a droite/en bas, ou None
+
+
+# ---------------------------------------------------------------------------------------
+# Rendu Urbanist
+# ---------------------------------------------------------------------------------------
+class Renderer:
+    """Rend un glyphe avec une echelle verticale DOUBLE de l'horizontale.
+
+    PIL ne sait pas etirer un rendu de texte ; on rend donc a grande taille dans une
+    image temporaire puis on redimensionne, ce qui donne un controle exact des deux
+    echelles independamment et un anticrenelage propre.
+    """
+
+    OVERSAMPLE = 8
+
+    def __init__(self, path_main, path_fallback, em_px):
+        self.em = em_px
+        self.f_main = ImageFont.truetype(path_main, em_px * self.OVERSAMPLE)
+        self.f_fb = ImageFont.truetype(path_fallback, em_px * self.OVERSAMPLE)
+
+    def font_for(self, ch):
+        try:
+            if self.f_main.getmask(ch).getbbox() is None and ch.strip():
+                return self.f_fb
+        except Exception:
+            return self.f_fb
+        return self.f_main
+
+    def metrics(self, ch):
+        """(advance, bbox) en unites em_px, mesures a l'oversample puis divises."""
+        f = self.font_for(ch)
+        o = self.OVERSAMPLE
+        adv = f.getlength(ch) / o
+        bb = f.getbbox(ch)
+        return adv, tuple(v / o for v in bb)
+
+    def render(self, ch, sx, sy):
+        """Rend `ch` en une image L, echelles sx (horizontale) et sy (verticale)
+        appliquees a l'em. Rend aussi (dx, dy) = position de l'encre par rapport a
+        l'origine du texte (gauche, ascendante), dans les memes unites."""
+        f = self.font_for(ch)
+        o = self.OVERSAMPLE
+        bb = f.getbbox(ch)
+        if bb is None or bb[2] <= bb[0] or bb[3] <= bb[1]:
+            return None, 0.0, 0.0
+        w, h = bb[2] - bb[0], bb[3] - bb[1]
+        img = Image.new("L", (w + 4, h + 4), 0)
+        ImageDraw.Draw(img).text((2 - bb[0], 2 - bb[1]), ch, font=f, fill=255)
+        # sx / sy sont exprimes en "px d'em" ; l'image est rendue a em*OVERSAMPLE.
+        kx, ky = sx / (self.em * o), sy / (self.em * o)
+        nw = max(1, int(round(img.width * kx)))
+        nh = max(1, int(round(img.height * ky)))
+        return img.resize((nw, nh), Image.LANCZOS), (bb[0] - 2) * kx, (bb[1] - 2) * ky
+
+
+def build(stock, name, W, H, cw, ch, plan_fn, report):
+    plan = plan_fn()
+    src = stock[name]
+    S = SCALE
+    out = src.resize((W * S, H * S), Image.LANCZOS)
+
+    # --- metriques de reference, MESUREES sur l'atlas livre -----------------------------
+    hb = ink_box(src, cw, ch, ord("H"))
+    cap_top, cap_bot = hb[1], hb[3]          # sommet et base des capitales, en texels
+    cap_h = cap_bot - cap_top
+    # largeur moyenne d'encre des capitales livrees : sert de temoin, pas de cible
+    stock_caps = [ink_box(src, cw, ch, 0x41 + i) for i in range(26)]
+    stock_capw = sum((b[2] - b[0]) for b in stock_caps if b) / 26.0
+    stock_adv = sum(ADV[name][0x41 + i] for i in range(26)) / 26.0
+
+    # Urbanist est cale sur DEUX mesures de l'atlas livre, jamais sur une hypothese :
+    #   - hauteur de capitale identique  -> meme taille de texte a l'ecran ;
+    #   - largeur d'encre MOYENNE des capitales identique -> meme encombrement, donc
+    #     aucune mise en page ne bouge, et le rapport sx/sy qui en sort MESURE
+    #     l'ecrasement du rendu au lieu de le postuler.
+    r = Renderer(URBANIST, NOTOJP, 64)
+    _, hbox = r.metrics("H")
+    urb_cap = hbox[3] - hbox[1]              # hauteur de capitale a em = 64
+    sy = cap_h / urb_cap * 64.0              # echelle verticale, en "em px"
+    urb_capw = sum((r.metrics(chr(ord("A") + i))[1][2] - r.metrics(chr(ord("A") + i))[1][0])
+                   for i in range(26)) / 26.0     # largeur d'encre moyenne a em = 64
+    sx = stock_capw / urb_capw * 64.0        # echelle horizontale, en "em px"
+
+    advances = {}
+    drawn, kept, clipped = 0, 0, []
+    for code in range(0x10, 0x80):
+        want = plan.get(code, None)
+        if want is None:
+            kept += 1
+            advances[code] = ADV[name][code]
+            continue
+        idx = code - 16
+        cx, cy = (idx % 10) * cw * S, (idx // 10) * ch * S
+        # efface la cellule
+        out.paste((0, 0, 0, 0), (cx, cy, cx + cw * S, cy + ch * S))
+        adv_em, _ = r.metrics(want)
+        adv = adv_em * sx / 64.0             # avance en texels de l'atlas (echelle 1x)
+        advances[code] = adv
+        drawn += 1
+        if want == " ":
+            continue
+        glyph, dx, dy = r.render(want, sx, sy)
+        if glyph is None:
+            continue
+        # dy est mesure depuis l'ascendante ; on repositionne sur la LIGNE DE BASE
+        # du jeu : la base des capitales livrees.
+        _, capbox = r.metrics("H")
+        cap_bot_em = capbox[3] * sy / 64.0   # base des capitales depuis l'ascendante
+        px = cx + int(round(dx * S))
+        py = cy + int(round((cap_bot - cap_bot_em + dy) * S))
+        if px < cx:
+            clipped.append((code, want, "gauche %d" % (px - cx)))
+            px = cx
+        if px + glyph.width > cx + cw * S:
+            clipped.append((code, want, "droite %d" % (px + glyph.width - cx - cw * S)))
+        col = Image.new("RGBA", glyph.size, (255, 255, 255, 0))
+        col.putalpha(glyph.point(lambda v: v * 128 // 255))  # alpha PS2 : 128 = opaque
+        out.alpha_composite(col, (px, py))
+
+    report.append("[%s] %dx%d -> %dx%d (x%d)  cellule %dx%d" %
+                  (name, W, H, W * S, H * S, S, cw, ch))
+    report.append("  ligne de base MESUREE sur 'H' livre : sommet %d, base %d, "
+                  "hauteur de capitale %d texels" % (cap_top, cap_bot, cap_h))
+    report.append("  echelle Urbanist : verticale %.3f em px, horizontale %.3f em px, "
+                  "rapport sy/sx MESURE = %.3f (le quad fait %d x %d ecran pour une "
+                  "cellule de %d x %d texels, soit un ecrasement geometrique de %.3f)"
+                  % (sy, sx, sy / sx, cw, ch // 2, cw, ch, (ch / (ch // 2)) ))
+    report.append("  cellules redessinees %d, conservees %d" % (drawn, kept))
+    report.append("  largeur d'encre moyenne des capitales : livree %.2f texels, "
+                  "Urbanist cale dessus par construction" % stock_capw)
+    new_adv = sum(advances[0x41 + i] for i in range(26)) / 26.0
+    report.append("  avance moyenne A-Z : livree %.3f, Urbanist %.3f (x%.3f)" %
+                  (stock_adv, new_adv, new_adv / stock_adv))
+    if clipped:
+        report.append("  DEBORDEMENTS DE CELLULE : %d" % len(clipped))
+        for c in clipped:
+            report.append("    0x%02x %r %s" % c)
+    else:
+        report.append("  aucun debordement de cellule")
+    return out, advances
+
+
+# ---------------------------------------------------------------------------------------
+# Table d'avances livree, lue dans font.gc (colonne w)
+# ---------------------------------------------------------------------------------------
+def read_shipped_tables():
+    src = open(os.path.join(ROOT, "goal_src", "jak1", "engine", "gfx", "font.gc"),
+               encoding="utf-8").read()
+
+    def grab(n):
+        i = src.index("(define *%s*" % n)
+        d = 0
+        for j in range(i, len(src)):
+            if src[j] == "(":
+                d += 1
+            elif src[j] == ")":
+                d -= 1
+                if d == 0:
+                    return src[i:j + 1]
+        raise RuntimeError(n)
+
+    def rows(n):
+        out = []
+        for e in re.findall(r"\(new 'static 'vector([^)]*)\)", grab(n)):
+            d = {k: float(v) for k, v in re.findall(r":(\w+) ([-0-9.]+)", e)}
+            out.append((d.get("x", 0.0), d.get("y", 0.0), d.get("z", 0.0), d.get("w", 0.0)))
+        return out
+
+    return rows("font12-table"), rows("font24-table")
+
+
+def main():
+    # PIEGE DEJA PAYE : ce script LIT font.gc pour la table livree, et il ECRIT (via le
+    # patcheur) dans font.gc. Une seconde course lisait donc ses propres valeurs comme
+    # « reference livree ». La reference est donc figee une fois pour toutes dans
+    # stock-tables.json, cree depuis un font.gc INTACT, et relue ensuite.
+    stock_path = os.path.join(FONTDIR, "stock-tables.json")
+    if os.path.exists(stock_path):
+        d = json.load(open(stock_path))
+        t12 = [tuple(v) for v in d["font12"]]
+        t24 = [tuple(v) for v in d["font24"]]
+    else:
+        t12, t24 = read_shipped_tables()
+        json.dump({"font12": [list(v) for v in t12], "font24": [list(v) for v in t24]},
+                  open(stock_path, "w"))
+    # avance en TEXELS de la cellule : w * (0.5 pour le petit, 1.0 pour le grand) donne
+    # des pixels ecran ; la cellule fait 12 (resp. 24) texels pour 12 (resp. 24) px ecran,
+    # donc texels == px ecran horizontalement dans les deux cas.
+    global ADV
+    ADV = {
+        "ascii.12lo": {c: t12[c - 16][3] * 0.5 for c in range(0x10, 0x80)},
+        "ascii.24lo": {c: t24[c - 16][3] * 1.0 for c in range(0x10, 0x80)},
+    }
+
+    stock = read_stock_atlases()
+    missing = [n for n, *_ in ATLASES if n not in stock]
+    if missing:
+        sys.exit("atlas livre introuvable dans %s : %s" % (FR3, missing))
+
+    os.makedirs(OUTDIR, exist_ok=True)
+    report = []
+    tables = {}
+    for name, W, H, cw, ch, plan_fn in ATLASES:
+        img, adv = build(stock, name, W, H, cw, ch, plan_fn, report)
+        img.save(os.path.join(OUTDIR, name + ".png"))
+        # reconversion en colonne w de la table GOAL
+        k = 0.5 if name.startswith("ascii.12") else 1.0
+        tables[name] = {"%d" % c: round(adv[c] / k, 4) for c in sorted(adv)}
+        report.append("  ecrit %s" % os.path.join(OUTDIR, name + ".png"))
+
+    with open(os.path.join(FONTDIR, "urbanist-tables.json"), "w") as f:
+        json.dump({"scale": SCALE, "w_font12": tables["ascii.12lo"],
+                   "w_font24": tables["ascii.24lo"]}, f, indent=1)
+    print("\n".join(report))
+    rp = os.path.join(ROOT, ".autoport", "reports", "Gfont-urbanist")
+    os.makedirs(rp, exist_ok=True)
+    with open(os.path.join(rp, "atlas-cells.txt"), "w") as f:
+        f.write("\n".join(report) + "\n")
+
+
+if __name__ == "__main__":
+    main()

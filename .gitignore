@@ -183,3 +183,9 @@ recharged_assets/hd_anim/
 # Gshield-load-and-crash : textures cuites en ASTC/KTX2 par tools/bake_recharged_textures.py.
 # 72 Mo de binaire DERIVE des PNG du depot : reproductible a la demande, jamais versionne.
 custom_assets/*/recharged_textures_baked/
+
+# Gfont-urbanist : atlas de police GENERE localement. Il COMPOSITE les cellules
+# non latines (kana, kanji, art des boutons manette) depuis le GAME.fr3 de l'owner,
+# donc il contient des pixels Naughty Dog : il se regenere, il ne se commite pas.
+# Regenerer : python3 recharged_assets/font/gen_game_atlas.py
+custom_assets/jak1/recharged_textures/gamefontnew/

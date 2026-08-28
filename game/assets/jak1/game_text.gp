@@ -10,14 +10,21 @@
   ;; NOTE : we compile using the fixed v2 encoding because it's what we use.
   (file "$DECOMP/assets/game_text.txt") ;; this is the decompiler-generated file!
   ;; add custom files down here
-  (file-json 0 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_en-US.json"))
-  (file-json 1 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_fr-FR.json"))
-  (file-json 2 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_de-DE.json"))
-  (file-json 3 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_es-ES.json"))
-  (file-json 4 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_it-IT.json"
+  (file-json 0 jak1-v2 "common" '("game/assets/jak1/text/game_case_text_en-US.json"
+                                  "game/assets/jak1/text/game_custom_text_en-US.json"))
+  (file-json 1 jak1-v2 "common" '("game/assets/jak1/text/game_case_text_fr-FR.json"
+                                  "game/assets/jak1/text/game_custom_text_fr-FR.json"))
+  (file-json 2 jak1-v2 "common" '("game/assets/jak1/text/game_case_text_de-DE.json"
+                                  "game/assets/jak1/text/game_custom_text_de-DE.json"))
+  (file-json 3 jak1-v2 "common" '("game/assets/jak1/text/game_case_text_es-ES.json"
+                                  "game/assets/jak1/text/game_custom_text_es-ES.json"))
+  (file-json 4 jak1-v2 "common" '("game/assets/jak1/text/game_case_text_it-IT.json"
+                                  "game/assets/jak1/text/game_custom_text_it-IT.json"
                                   "game/assets/jak1/text/game_base_text_it-IT.json"))
-  (file-json 5 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_ja-JP.json"))
-  (file-json 6 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_en-GB.json"))
+  (file-json 5 jak1-v2 "common" '("game/assets/jak1/text/game_case_text_ja-JP.json"
+                                  "game/assets/jak1/text/game_custom_text_ja-JP.json"))
+  (file-json 6 jak1-v2 "common" '("game/assets/jak1/text/game_case_text_en-GB.json"
+                                  "game/assets/jak1/text/game_custom_text_en-GB.json"))
   (file-json 7 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_pt-PT.json"))
   (file-json 8 jak1-v2 "common" '("game/assets/jak1/text/game_custom_text_fi-FI.json"
                                   "game/assets/jak1/text/game_base_text_fi-FI.json"))
