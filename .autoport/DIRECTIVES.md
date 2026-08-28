@@ -2087,3 +2087,123 @@ animation, la part de frames où l'oreille est pilotée par l'anim et la part o�
 si la seconde est nulle, la physique ne s'applique jamais.
 
 **5. ACQUIS CONFIRMÉ** : poitrine sur mouvements subtils « toujours OK ». À protéger.
+
+---
+
+# DIRECTIVE OWNER 2026-08-28 11:45 — LA CIBLE N'EST PAS LA POITRINE, C'EST LE MOTEUR
+
+Mot pour mot :
+
+> « faut couvrir la spec à 100%, trouver les bons algos de physique, masse, gravité et compagnie
+> qui puissent tenir la route sur les presets de Keira et Maia, parce que si on arrive à faire ce
+> "moteur" de physique bien propre, on pourra le porter petit à petit aux mèches de Keira (les
+> fines devant, puis les plus grosses), aux cheveux de sa nuque, à ses lunettes, aux languettes à
+> ses genoux et bottines, à ses bretelles, au bas de son pantacourt, à ses oreilles, à ses autres
+> modèles (looks alternatifs), aux cheveux de Jak, à son col, à ses lanières, ses oreilles, le bas
+> de son haut qui recouvre son pantacourt, ses modèles alternatifs, les oreilles de Jak, tous les
+> modèles humanoïdes et leurs accessoires ! [...] Les seins c'était un gros point d'attention
+> parce que je veux que ce soit sympa mais pas non plus je hentai like, faut que ce soit cohérent
+> et réaliste, et je voyais ça comme un bon point d'entrée pour tout le reste. Mais je veux un
+> putain de vrai moteur de physique, pas du fake. »
+
+## Ce que ça tranche
+
+1. **La spec à 100 % est CONFIRMÉE.** J'avais proposé de la remplacer par ses deux défauts
+   visibles (hystérésis, allongement) comme critère d'acceptation. **REFUSÉ.** Les deux défauts
+   restent à corriger, mais ils ne remplacent pas la couverture.
+2. **La poitrine est un CAS DE TEST, pas la livraison.** C'est le cas le plus dur, choisi comme
+   porte d'entrée. Tout correctif écrit pour elle qui ne vaudrait QUE pour elle est hors sujet.
+3. **Quatre familles doivent tenir sur le même moteur** : corps mous (seins, ventres, fesses),
+   cheveux, vêtements, corps rigides pendants (lunettes, pendentifs), et les longues oreilles.
+4. **Les collisions doivent empêcher le clipping, Y COMPRIS entre deux objets simulés.**
+5. **Deux presets** : Keira ET Maia doivent tenir avec les mêmes algorithmes.
+
+## Où on en est réellement (mesuré le 2026-08-28)
+
+Le solveur est DÉJÀ générique, ce n'est pas du faux :
+- `goal_src/jak1/pc/jak-hd-physics.gc` : 4 792 lignes, 140 fonctions, **zéro** codage en dur de
+  la poitrine (`chestL`/`chestR` : 3 occurrences chacune, toutes en diagnostic).
+- Configuration en DONNÉES : `recharged_assets/physics_chains.txt`, chaînes dérivées du rig par
+  motif de nom + hiérarchie, jamais listées à la main.
+- Paramètres par maillon déjà présents : masse, gravité, raideur, amortissement, rayon, couplage,
+  famille, ancrage, angle max.
+- Trois niveaux de qualité (sous-pas, itérations, collision, pas fixe) et 56 volumes de collision.
+- SPEC §1 nomme déjà la portée : oreilles, cheveux, mèches, seins, lunettes, ce qui pend.
+
+**MAIS** : un seul modèle déclaré (`keira-hd`), **deux chaînes** (chestL, chestR), toutes deux
+`class=primary`. La classe `accessory` existe et n'est instanciée nulle part. Aucune chaîne de
+cheveux, d'oreille, de lunettes ou de vêtement n'a jamais tourné.
+
+Donc : l'architecture est la bonne, l'instanciation ne prouve rien au-delà du cas le plus dur.
+
+## Ce que ça change dans le travail
+
+- **Tout correctif doit être justifié au niveau du MOTEUR**, pas de la chaîne. Un correctif qui ne
+  peut pas s'énoncer pour une mèche de cheveux ou une lunette est suspect.
+- **Sortir de la mono-chaîne dès qu'une famille est stable** : instancier une deuxième famille
+  (cheveux ou oreille) et vérifier que le même solveur tient, sans branche spéciale.
+- **La collision entre deux objets SIMULÉS est un trou connu** : les 56 volumes sont des colliders
+  de corps, pas des chaînes contre chaînes. À traiter comme une section à part entière.
+- Les défauts vus à l'œil par l'owner le 2026-08-28 (hystérésis ; allongement énorme sur mouvement
+  brusque) sont des défauts de MOTEUR, pas de poitrine : une hystérésis frappera les cheveux et les
+  oreilles de la même façon. `hair-hysteresis` est déjà PRIORITÉ 1 GELÉE dans owner-defects.txt —
+  la dégeler.
+
+## EXTENSION OWNER 2026-08-28 12:15 — LE MONDE AUSSI, ET UNE VRAIE BRISE
+
+> « on pourrait même l'appliquer à certains objets du monde tels que les lanternes suspendues,
+> avec la collision dessus quand on les touche par exemple, les shrubs, les feuilles de palmier...
+> Et simuler une légère brise qui impacte ces éléments de physique dans tous les extérieurs (donc
+> pas dans les huttes du village par exemple, pas dans le truc de Gol et Maia, pas dans les niveaux
+> fermés) qui prendrait la place de la brise simulée sur Jak et certains arbres qui est juste de
+> l'animation fake. »
+
+### Etat mesure le 2026-08-28 — il a raison sur le diagnostic
+
+- Une brise EXISTE deja : `Gfx::g_global_settings.recharged_foliage_wind`, armee depuis GOAL par
+  `pc-set-foliage-wind!` (`pckernel-impl.gc:208`, appelee depuis `hud-classes-pc.gc:1803`).
+  Elle pilote le balancement des shrubs (`Shrub.cpp`, LUT d'ancrage par plante) et le cisaillement
+  des palmiers TIE (`Tie3.h:136`).
+- **C'est bien du faux** : deplacement de sommets dans le shader, aucune masse, aucune inertie,
+  aucune collision. Exactement ce qu'il decrit.
+- **C'est un interrupteur GLOBAL** : un `int` 0/1, pas un champ, pas de direction, pas de rafale,
+  et surtout **aucune notion d'interieur / exterieur nulle part dans le moteur**.
+
+### Le point dur, et il n'est pas ou on croit
+
+Les 26 niveaux de jak1 ne contiennent **aucun niveau d'interieur de hutte**. Les huttes du village
+sont DANS `village1`. Une liste de niveaux ne peut donc PAS satisfaire « pas dans les huttes ».
+Gol et Maia (`citadel`, `finalboss`) sont bien des niveaux separes : ceux-la sont triviaux.
+
+### Proposition d'architecture : le critere est la VISIBILITE DU CIEL
+
+Le vent souffle ou l'on voit le ciel. C'est le critere physique, et il ne demande aucun etiquetage
+manuel : il traite les huttes, les grottes, la citadelle et les auvents de palmiers avec la meme
+regle, sans liste a maintenir.
+
+La source existe deja : `FollowProbe` (`FollowProbe.h`) tient un cubemap basse resolution centre
+sur la camera, re-rendu depuis le monde vivant, rafraichi une face par frame. La part de ciel vue
+par son hemisphere superieur est une grandeur deja capturee. En derive un scalaire `outdoorness`
+dans [0,1] qui MULTIPLIE la force du vent. Repli quand la sonde est sur OFF : liste de niveaux.
+
+Le vent est un signal LENT — un rafraichissement toutes les 6 frames est largement suffisant.
+
+### Ce qui est realiste et ce qui ne l'est pas
+
+- **Chaines (peu, cheres)** : lanternes, lanieres, meches, oreilles. Le solveur convient.
+- **Shrubs et palmiers (des milliers d'instances)** : faire tourner le solveur par instance n'est
+  pas realiste. Ils gardent un balancement de shader PAS CHER — mais **alimente par le MEME champ
+  de vent** que les chaines. C'est la coherence du champ qui rend l'ensemble credible, pas un
+  solveur par buisson. Le champ de vent partage est donc le vrai livrable, pas le solveur.
+- **Lanternes touchables** : AUCUN acteur `lantern` n'existe dans jak1 — ce sont des elements de
+  decor. Les rendre touchables demande d'en faire des ACTEURS avec collision, ce qui est un travail
+  d'une autre nature que d'ajouter une chaine. A chiffrer separement, ne pas le promettre avec le
+  reste.
+
+### Ordre impose par les dependances
+
+1. Champ de vent (direction, force, rafales, temps) — remplace l'interrupteur 0/1.
+2. `outdoorness` derive de la sonde — c'est lui qui debloque « pas dans les huttes ».
+3. Branchement du champ sur le balancement shader existant (shrubs, palmiers) : coherence d'abord.
+4. Branchement du champ sur le solveur de chaines : le vent devient une force parmi masse+gravite.
+5. Lanternes en acteurs simules + collision joueur : chantier separe.

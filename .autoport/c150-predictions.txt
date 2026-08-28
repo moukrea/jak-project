@@ -1,0 +1,131 @@
+CYCLE 150 — PREDICTIONS ECRITES AVANT L'EDITION ET AVANT LA COURSE
+DIRECTIVES vd9e8b66782
+=================================================================================================
+Course de reference (etat AVANT) : trace md5 7cfa54a317182ec15de5d923ba473486,
+tableau md5 4a5ed3ef6d0414d06ccf3c9dd4c9af18, moteur 4792 lignes.
+
+CE QUE LE LOT FAIT, EN UNE PHRASE
+---------------------------------
+`jak-hd-physics.gc:3916` applique le glissement du MUR MEDIAN de §10 PAR MAILLON
+(`mw = mww . grw_l`) alors que `mww = medw . max(0, sx-1)` est une grandeur d'ORGANE : la
+penetration que l'elargissement lateral ferait franchir au bord medial de la CHAIR. Le lot le
+divise par la part de chair PILOTEE, `*phys-cws*` — exactement l'operateur que le cycle 144 a
+pose sur l'ECHELLE de largeur a :3616, applique ici au canal de TRANSLATION.
+
+POURQUOI C'EST CE CANAL-LA, ET PAS UN AUTRE (les trois autres routes sont FERMEES PAR LA MESURE)
+------------------------------------------------------------------------------------------------
+  - la clause de LARGEUR de §10 (l.166) est ARITHMETIQUEMENT hors d'atteinte : sous le plafond
+    LOCAL de 25 % de §22, l'organe recoit au plus `1 + cws.0,25/gmx` = 1,1296 / 1,1224 contre un
+    plancher de bande a 1,18 — et le nominal 1,23 exigerait `cws >= 1,015`, impossible pour tout
+    rig (c146, `.autoport/c146_ceiling.py`) ;
+  - la ROTATION ne peut pas rendre l'excursion : la part RADIALE vaut 91 % / 85 % et une rotation
+    autour du joint n'atteint que 9 a 15 % (cycle 88) ; le cycle 87 l'a jouee et mesuree PIRE ;
+  - le canal ANGULAIRE de §3 n'a pas de site : `-a_torso` et `+a_angular` ne sont PAS ecrits, par
+    construction et volontairement ([NOTE-36] : les ecrire en plus les compterait DEUX FOIS).
+  Il reste la TRANSLATION — ce que §22 l.305-306 nomme mot pour mot : « Translation, rotation and
+  redistribution shall account for most of the excursion. »
+
+IDENTITE, EXACTE, DEJA NORMALISEE DANS LE MOTEUR (ce n'est pas un coefficient choisi)
+-------------------------------------------------------------------------------------
+`*phys-grw*` est normalise a :706 de sorte que `SOMME_l comw_l . grw_l = SOMME_l comw_l = cws`.
+Le deplacement d'ORGANE produit par le mur vaut donc exactement
+
+    organe = SOMME_l comw_l . (mww . grw_l) = mww . cws
+
+soit `cws` fois ce que le mur COMMANDE. Diviser `mw` par `cws` rend au COM la grandeur commandee.
+Aucun nombre neuf : `cws` est une MESURE du maillage livre (`comw=`), pas une cle de preset —
+donc aucun canal fabrique pour une cle-REPONSE (DIRECTIVE du 2026-08-23 16:00).
+Valeurs livrees : cws = 0,5720 (chestL) / 0,5450 (chestR) — `PHYSGRADSET`, trace :3140 et :3150.
+Facteurs : 1/cws = 1,74825 (chestL) / 1,83486 (chestR).
+
+LES PREDICTIONS (chacune falsifiable, chiffree, ecrite avant toute edition)
+---------------------------------------------------------------------------
+
+P1  *** CANAL PROUVE LU, ET LE TEST EST EXACT — PAS UN EFFET, UNE VALEUR. ***
+    `*phys-mwa*` publie deja l'operateur TEL QU'APPLIQUE, par maillon, projete signe sur le
+    lateral sortant MONDE (`ROOM-SPEC10 ... OPERATEURS ... mur=`). Chaque valeur NON NULLE doit
+    etre multipliee par 1/cws, a 0,5 % pres (le facteur est un flottant deja arrondi a
+    l'impression). PREDIT, valeur par valeur :
+
+        chestL i=7   l=0   71.114 ->  124.32      l=1   55.535 ->   97.09
+        chestL i=8   l=0   79.453 ->  138.89      l=1   62.048 ->  108.47
+        chestL i=9   l=0    0.042 ->    0.073     l=1    0.033 ->    0.058
+        chestR i=1   l=0    3.980 ->    7.30      l=1    2.804 ->    5.14
+        chestR i=2   l=0    6.263 ->   11.49      l=1    4.412 ->    8.10
+        chestR i=7   l=0   70.836 ->  129.97      l=1   49.902 ->   91.56
+        chestR i=8   l=0   79.335 ->  145.55      l=1   55.889 ->  102.54
+
+    FALSIFICATEUR : une seule de ces 14 valeurs hors de +/- 0,5 % de sa cible et le canal n'est
+    pas celui que je decris — LE LOT EST RETIRE, sans discuter son effet.
+
+P2  *** CONFINEMENT CAUSAL (et non « local ») — LES CELLULES QUI NE RECOIVENT RIEN SONT
+    IDENTIQUES AU BIT. *** L'operateur est nul par algebre partout ou `sx <= 1` (alors
+    `mww = medw . max(0, sx-1) = 0`, donc `mw = 0` et `0/cws = 0`).
+    PREDIT IDENTIQUES AU BIT (mur = +0.000 avant ET apres) :
+        chestL i=0,1,2,3,4,5,6,10   ·   chestR i=0,3,4,5,6,9,10
+    Soit 15 cellules d'orientation sur 22. Un operateur qui bougerait l'une d'elles ne serait pas
+    confine, quelle que soit sa sortie.
+
+P3  *** POSE D'AUTEUR : INERTE PAR ALGEBRE, PAS PAR MESURE. *** Debout, les trois echelles valent
+    1,0 donc `sx - 1 = 0` donc `mww = 0`. PREDIT : `ROOM-IDLE maxdev = 0.0001` INCHANGE au dernier
+    chiffre, `hanging=0 measured=2`. §2 et §9 ne peuvent pas bouger par ce lot.
+    FALSIFICATEUR : tout mouvement de `ROOM-IDLE` refute l'inertie annoncee -> LOT RETIRE.
+
+P4  *** LA CLAUSE PORTEUSE DE §10 MONTE SUR LES DEUX CHAINES — C'EST LA PREDICTION DU CYCLE. ***
+    Lecture qui porte le verdict : `ROOM-SPEC10 ... sortant ... ORGANE LIVRE` (`PHYSORIM`),
+    frontiere w>0.00, cellule i=8 (supine).
+        AVANT   chestL  +1.818 % W0        chestR  -1.748 % W0
+    Le substitut pre-ecriture (aveugle AU BIT au mur) vaut +0.733 / -3.655 : l'ecart
+    delivre-substitut, +1.085 / +1.907, borne ce que le chemin d'ecriture apporte aujourd'hui.
+    PREDIT (attribution du mur, hypothese haute = tout l'ecart est le mur) :
+        chestL  +2.63 % W0        chestR  -0.16 % W0
+    PREDIT (borne basse assumee, moitie de l'ecart attribuable au mur) :
+        chestL  +2.22 % W0        chestR  -0.95 % W0
+    SEUIL, ECRIT MAINTENANT : la hausse doit valoir AU MOINS +0.30 (chestL) et +0.60 (chestR)
+    points de % W0. **Si elle est inferieure sur l'une des deux chaines, le modele d'organe ne
+    vaut pas pour le canal de TRANSLATION, et je publie le chiffre qui me donne tort : LE LOT EST
+    RETIRE.**
+
+P5  *** JE NE RECLAME AUCUN CHANGEMENT DE STATUT, ET JE L'ECRIS AVANT. ***
+    Le plancher de la bande est 4.00 % W0. Meme a l'hypothese haute, chestL rend +2.63 et chestR
+    -0.16 : les DEUX restent SOUS. PREDIT : §10 reste `NON TENUE`, et AUCUNE section ne change de
+    statut. Si une section basculait, ce serait une surprise et je la publierais comme telle,
+    pas comme un objectif atteint.
+
+P6  *** ORTHOGONALITE — LE MUR EST LATERAL, LA CLAUSE « VERS THORAX » NE L'EST PAS. ***
+    `vers thorax` est une projection SIGNEE sur la direction du thorax ; le mur pousse sur le
+    lateral SORTANT. PREDIT : |variation| < 0.02 B0 sur les six frontieres.
+        AVANT   chestL 0.2957 / 0.3260 / 0.3622      chestR 0.2691 / 0.3017 / 0.3499
+    FALSIFICATEUR : au-dela de 0.02 B0, les deux directions ne sont pas orthogonales dans ce
+    repere et l'attribution de P4 tombe avec.
+
+P7  *** LA GATE COLLIDE NE DOIT PAS CASSER, ET LE RISQUE EST REEL ET NOMME. ***
+    Le mur n'entre PAS dans le mandataire de collision (`*phys-dfmq*`, dette nommee par
+    [NOTE-582]) : amplifier le glissement de 1,75 a 1,83 ECARTE la peau de son propre volume.
+    PREDIT : `skinpen` <= 0.0883 (ligne de base au repos PIRE-DES-DEUX) sur les DEUX chaines.
+        AVANT   chestL 0.0707      chestR 0.0863   <- marge chestR : 2,3 % seulement
+    **Si skinpen depasse 0.0883 sur une chaine, LE LOT EST RETIRE** — une resolution pire que le
+    clip est pire que rien (regle owner n°6), et je ne toucherai pas la gate pour le faire passer.
+    PREDIT AUSSI, en diagnostic et sans seuil : `meshpen` (0.0610 chestR / 0.0548 chestL) est un
+    DEPLACEMENT, pas une profondeur ; il PEUT monter et cela ne refuterait rien a soi seul.
+
+P8  *** BUDGET DE LIGNES. *** 4792 aujourd'hui, plafond CLEAN 4800.
+    PREDIT : <= 4793 apres le lot (1 ligne de NOTE, l'operateur est une edition EN PLACE).
+
+P9  *** AUCUNE DONNEE NE BOUGE. *** PREDIT : `recharged_assets/` identique au bit,
+    `physics_chains.txt` md5 0bf4d3130392da1252d7bc0743cdf93b inchange, aucune cle de parseur
+    neuve, aucun reglage de l'owner touche.
+
+CE QUE LE LOT NE FAIT PAS — DIT AVANT, PAS APRES
+-------------------------------------------------
+  - il ne retire PAS l'echafaudage de mesure du cycle 149 (7 lignes). Le cycle 149 l'avait
+    pre-specifie parce que « le chantier suivant, l'echelle d'ORGANE appliquee PAR MAILLON, est
+    chiffre a 15 lignes et ne rentre pas ». **Ce chantier-la est deja ECRIT depuis le cycle 144**
+    (`:3616` et `:3637`) : les listes « ce qui reste ouvert » des cycles 148 et 149 le
+    republiaient a tort — classe `refutation-ecrite-mais-pas-recablee`. La raison du retrait a
+    donc disparu, et melanger un retrait a un correctif casserait l'attribution de P1/P2.
+  - il ne touche pas le mur de FORCE de §21 (trois interventions, trois mesures PIRES) ;
+  - il n'arme pas `anch` (§31), mesure au cycle 132 : aucun verdict ne bouge, deux cellules
+    empirent ;
+  - il ne met pas le mur dans le volume de collision : dette nommee par [NOTE-582], toujours due,
+    et c'est elle que P7 surveille.

@@ -11465,3 +11465,59 @@ qui la leve (rejouer les trois impulsions d'AXFIT sur une serie lue APRES `:4050
 
 **LECTURE HORS DEFAUT.** `*phys-e22a-off*` = 1 rend toujours l'etat d'avant le cycle 146. NON
 REMESUREE dans la course de ce cycle : la jambe desarmee n'a pas ete rejouee.
+
+## [NOTE-589]
+
+SPEC 10 l.169 / SPEC 22 l.305-306 — LE GLISSEMENT DU MUR MEDIAN EST UNE GRANDEUR D'ORGANE ET IL
+EST COMMANDE PAR MAILLON.
+
+**L'IDENTITE, EXACTE, ET DEJA NORMALISEE DANS LE MOTEUR.** `*phys-grw*` est normalise a :706 de
+sorte que `SOMME_l comw_l . grw_l = SOMME_l comw_l = cws` (c'est cette normalisation qui fait que
+la REDISTRIBUTION de §31 ne deplace pas le centre de masse, prediction P6/P7 du cycle 139). Le
+deplacement d'ORGANE produit par le mur median vaut donc exactement
+
+    organe = SOMME_l comw_l . (mww . grw_l) = mww . cws
+
+c'est-a-dire `cws` fois ce que `mww = medw . max(0, sx - 1)` COMMANDE. Or `mww` est une grandeur
+d'ORGANE — [NOTE-580] : « la penetration que l'elargissement lateral ferait franchir au bord
+medial de la chair ». La chair ANCREE au torse ne glisse pas, et le facteur etait deja ecrit dans
+`comw=` : cws = 0.5720 (chestL) / 0.5450 (chestR). Diviser `mw` par `cws` rend au COM la grandeur
+commandee. **AUCUN NOMBRE NEUF** : `cws` est une MESURE du maillage livre, pas une cle-REPONSE du
+preset (DIRECTIVE du 2026-08-23 16:00 : « une reponse se MESURE, elle ne se pose pas »).
+
+**C'EST LE MEME OPERATEUR QUE LE CYCLE 144, SUR L'AUTRE CANAL.** Le c144 a pose
+`1 + (s-1)/cws` sur l'ECHELLE de largeur (:3616) et sur le volume de collision (:3637). Le canal
+de TRANSLATION n'avait jamais recu la correction, alors que l'identite y est plus simple encore
+(une translation ne passe pas par `cvn` ni par le plafond `phys-scl22`).
+
+**POURQUOI CE CANAL EST LE SEUL QUI RESTE POUR LA CLAUSE PORTEUSE DE §10 (l.169, « Outward COM
+migration per breast: 4-10% W0 »), ET LES TROIS AUTRES ROUTES SONT FERMEES PAR LA MESURE :**
+  - la clause de LARGEUR (l.166) est ARITHMETIQUEMENT hors d'atteinte : sous le plafond LOCAL de
+    25 % de §22, l'organe recoit au plus `1 + cws.0,25/gmx` = 1.1296 / 1.1224 contre un plancher
+    de bande a 1.18 ; le nominal 1.23 exigerait `cws >= 1.015`, impossible pour tout rig, et meme
+    un repesage parfaitement conforme a §30 (`cws <= 0.70`) rend 1.1586 / 1.1573 (c146) ;
+  - la ROTATION ne peut pas rendre l'excursion : sa part RADIALE vaut 91 % / 85 % et une rotation
+    autour du joint n'atteint que 9 a 15 % (c88) ; le c87 l'a jouee et l'a mesuree PIRE (apex
+    moyen 0.6778 -> 0.8382, fenetres > 0.50 B0 : 177/180 -> 183/183), lot RETIRE ;
+  - le canal ANGULAIRE de §3 n'a pas de site ou l'ecrire : `- a_torso` et `+ a_angular` ne sont
+    PAS ecrits, volontairement et par construction ([NOTE-36] : l'integration se fait en position
+    MONDE avec une attache qui bouge, donc les ecrire en plus les compterait DEUX FOIS).
+  Reste la TRANSLATION, que SPEC 22 l.305-306 nomme mot pour mot : « Translation, rotation and
+  redistribution shall account for most of the excursion. »
+
+**INERTE A LA POSE D'AUTEUR PAR ALGEBRE, PAS PAR MESURE.** Debout, les trois echelles valent 1.0,
+donc `sx - 1 = 0`, donc `mww = 0` et `0 / cws = 0`. §2 et §9 ne peuvent pas bouger par ce lot, et
+le confinement se lit CAUSALEMENT : les 15 cellules d'orientation sur 22 dont `mur = +0.000`
+doivent rester identiques AU BIT (prediction P2 du cycle 150).
+
+**LECTURE HORS DEFAUT** : `cws = 1.0` (:592, canal absent) rend l'operateur IDENTIQUE AU BIT.
+
+**CANAL PROUVE LU, JAMAIS DEDUIT DE SON EFFET** : `*phys-mwa*` retient l'operateur TEL QU'APPLIQUE
+par maillon, projete signe sur le lateral sortant MONDE, et `PHYSORIW` le publie dans la cellule
+d'orientation ou le verdict se forme (`ROOM-SPEC10 ... OPERATEURS ... mur=`). La prediction P1 du
+cycle 150 porte sur ces 14 valeurs, une par une, a 0,5 % pres — pas sur un effet.
+
+**DETTE NOMMEE, NON PAYEE ICI** : le mur n'entre toujours pas dans le mandataire de collision
+(`*phys-dfmq*`, dette deja nommee par [NOTE-582]). Amplifier le glissement ECARTE donc la peau de
+son propre volume, et c'est exactement ce que la prediction P7 du cycle 150 surveille, avec le
+seuil `skinpen <= 0.0883` et le retrait du lot en cas de depassement.
