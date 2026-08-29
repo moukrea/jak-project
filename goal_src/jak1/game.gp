@@ -2116,6 +2116,9 @@
 (goal-src "pc/subtitle.gc" "text" "pckernel" "hint-control" "loader-h" "gsound" "ambient")
 (goal-src "pc/progress-pc.gc" "progress" "pckernel")
 (goal-src "pc/hud-classes-pc.gc" "pckernel" "hud" "battlecontroller" "generic-obs")
+;; Gloading-screen: the loading screen painted while a load barrier holds a scene back.
+;; It reuses the recharged-hud textured-quad helpers, hence the hud-classes-pc dependency.
+(goal-src "pc/loading-screen-pc.gc" "pckernel" "hud-classes-pc" "text")
 ;; Grecharged-mesh-browser: the debug mesh browser overlay (warp/frame/observe any level's meshes).
 (goal-src "pc/mesh-browser-pc.gc" "pckernel" "progress-pc" "camera" "cam-states-dbg" "time-of-day" "game-info" "sky-h")
 ;; Grecharged-hd-models3: HD character ANIMATION-RETARGET companion (gated on FLAG_HD_MODELS).

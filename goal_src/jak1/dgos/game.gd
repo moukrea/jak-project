@@ -350,4 +350,6 @@
   "ropebridge.o"
   "ticky.o"
   "hud-classes-pc.o" ;; added
+  "loading-screen-pc.o" ;; added -- Gloading-screen (must be resident at boot: it paints the
+                        ;; screen while the logo-intro load barrier holds, before any level)
  ))

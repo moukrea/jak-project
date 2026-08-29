@@ -153,6 +153,186 @@
     (draw-sprite2d-xy dma-buf 0 0 512 224 (new 'static 'rgba :a #x80)))
   (none))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gloading-screen -- UN ECRAN DE CHARGEMENT AU LIEU D'UN ECRAN NOIR (owner 2026-08-28)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; « ca empecherait l'utilisateur de se poser des questions quand c'est en chargement (le jeu a
+;;   crash ? pourquoi cet ecran noir ?) »
+;;
+;; LE PIEGE, ET POURQUOI UN SEUIL NE SUFFIT PAS. L'ecran noir ne sert pas qu'au chargement : il
+;; sert aussi aux COUPES DE CAMERA (pov-camera.gc:103, 0,035 s) et aux BOUTONS (basebutton.gc:348,
+;; 0,05 s), et a la mort (target-death.gc). Accrocher l'ecran de chargement a `blackout-time`
+;; ferait clignoter « Loading... » a chaque coupe.
+;; La reponse n'est donc PAS un seuil sur `blackout-time` : c'est une HORLOGE SEPAREE. Seule la
+;; barriere de chargement (`scene-load-gate!`, engine/load/loader.gc) appelle
+;; `loading-screen-hold!`. Une coupe de camera, un bouton et une mort poussent `blackout-time` et
+;; n'appellent JAMAIS ceci : ils sont exclus PAR CONSTRUCTION, pas par un reglage qu'on pourrait
+;; rater. Le seuil qui suit ne sert pas a les ecarter -- il sert a ne pas faire clignoter le
+;; CONTENU quand la barriere s'ouvre presque tout de suite.
+;;
+;; NATURE de la grandeur : un ETAT DE BARRIERE (fermee / ouverte), pas une duree de noir.
+;; REPERE : l'horloge de la barriere elle-meme, `(current-time)` aux tours ou elle tient.
+;; CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : sur une machine ou tout est deja resident,
+;; `__pc-scene-ready?` rend 1 au premier tour, la boucle d'attente ne s'execute pas,
+;; `loading-screen-hold!` n'est jamais appele, et RIEN de tout ceci ne s'allume -- le rendu est
+;; alors inchange au bit. C'est aussi la ligne de base du controle publie par
+;; `loading-screen-probe`.
+
+;; Sursis accorde par UN appel a `loading-screen-hold!`. La boucle de la barriere rappelle a CHAQUE
+;; tour : ceci doit donc seulement couvrir quelques frames pour ne pas battre, et rester court pour
+;; que l'ecran s'efface des que la barriere s'ouvre. Volontairement la meme valeur que le
+;; `set-blackout-frames` de cette meme boucle.
+(defconstant LOADING_SCREEN_HOLD (seconds 0.05))
+
+;; SEUIL D'AFFICHAGE DU CONTENU. En dessous, la barriere a tenu si peu qu'afficher un texte serait
+;; un clignotement. Au-dessus, l'attente est perceptible -- c'est exactement le cas que l'owner
+;; decrit (mesure appareil : `LOADGATE open scene=logo-intro waited=6763ms reason=resident`).
+(defconstant LOADING_SCREEN_DELAY (seconds 0.5))
+
+;; Fin du sursis courant. `(current-time)` au-dela = plus aucune barriere ne tient.
+(define *loading-screen-hold-until* (the-as time-frame 0))
+;; Instant du FRONT MONTANT de la barriere courante : c'est contre lui que le seuil se mesure.
+(define *loading-screen-since* (the-as time-frame 0))
+;; Diagnostics de course, publies par la salle et par les traces.
+(define *loading-screen-arms* 0)
+(define *loading-screen-frames* 0)
+
+;; Le dessin vit dans pc/loading-screen-pc.gc (il a besoin des quads textures `rhud-*` et des
+;; textures du pool PC). Meme patron que `entity-inspect-draw` plus bas dans ce fichier.
+(define-extern loading-screen-draw (function none))
+
+(defun loading-screen-hold! ()
+  "Arme l'ecran de chargement pour LOADING_SCREEN_HOLD. Appele par `scene-load-gate!` a chaque
+   tour ou la barriere retient la scene, et par personne d'autre -- c'est cette exclusivite qui
+   ecarte les coupes de camera et les boutons."
+  (when (>= (current-time) *loading-screen-hold-until*)
+    ;; front montant : aucune barriere ne tenait a la frame precedente.
+    (set! *loading-screen-since* (current-time))
+    (set! *loading-screen-frames* 0)
+    (+! *loading-screen-arms* 1))
+  (set! *loading-screen-hold-until* (+ (current-time) LOADING_SCREEN_HOLD))
+  (none))
+
+(defun loading-screen-held? ()
+  "Une barriere de chargement retient-elle l'image en ce moment ?"
+  (< (current-time) *loading-screen-hold-until*))
+
+(defun loading-screen-shown? ()
+  "La barriere tient-elle depuis assez longtemps pour montrer le CONTENU (silhouette, texte,
+   glyphes) ? Le fond noir, lui, est peint des que `loading-screen-held?` est vrai."
+  (and (< (current-time) *loading-screen-hold-until*)
+       (>= (- (current-time) *loading-screen-since*) LOADING_SCREEN_DELAY)))
+
+(defun loading-screen-force! ((dur time-frame))
+  "INSTRUMENT DE MESURE. N'est appele par AUCUN code de jeu -- uniquement depuis la console de
+   developpement. Force l'ecran de chargement pendant `dur`, exactement comme si une barriere le
+   tenait, et place son front montant assez loin dans le passe pour que le SEUIL soit deja franchi.
+
+   RAISON D'ETRE : sur une machine ou tout est deja resident, `__pc-scene-ready?` rend 1 au premier
+   tour, la barriere ne se ferme JAMAIS, et le chemin de DESSIN n'y est donc jamais execute. Un
+   zero sans controle positif qui a tire ne prouve rien -- ceci est ce controle."
+  (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
+  (set! *loading-screen-hold-until* (+ (current-time) dur))
+  (+! *loading-screen-arms* 1)
+  (set! *loading-screen-frames* 0)
+  (format 0 "LOADSCREEN-FORCE dur=~D arm=~D~%" dur *loading-screen-arms*)
+  (none))
+
+(define *loading-screen-probed* #f)
+(define *loading-screen-draw-probed* #f)
+
+(defun loading-screen-draw-probe ()
+  "CONTROLE POSITIF DU CHEMIN DE DESSIN. Un seul tir par demarrage, et uniquement quand le segment
+   de debug est charge : un build de livraison ne dessine jamais ceci.
+
+   RAISON D'ETRE. La sonde ci-dessus prouve la PORTE (qui arme, qui n'arme pas) ; elle ne touche
+   pas un pixel. Or sur une machine ou tout est deja resident la barriere ne se ferme jamais --
+   mesure : ZERO ligne `LOADGATE` sur une course x86 complete -- donc le chemin de DESSIN n'y
+   serait jamais execute et son silence ne prouverait rien. Ici on met le systeme dans l'etat
+   EXACT ou la barriere le met, on appelle le dessin UNE fois, et on publie ce qu'il a fait.
+   Cout accepte et declare, exactement comme la sonde de reframe plus haut : UNE frame de
+   demarrage porte l'ecran de chargement, dans un build de debug seulement.
+
+   ON ATTEND QUE `*common-text*` SOIT CHARGEE. Sans elle le dessin sauterait le texte et les
+   glyphes (garde volontaire, text-h.gc:1034 l'initialise a #f) et le controle ne couvrirait que
+   le fond noir -- il aurait l'air de passer en ne testant qu'un tiers du chemin."
+  (let ((hold *loading-screen-hold-until*)
+        (since *loading-screen-since*)
+        (fr *loading-screen-frames*))
+    (set! *loading-screen-hold-until* (+ (current-time) LOADING_SCREEN_HOLD))
+    (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
+    (set! *loading-screen-frames* 0)
+    (loading-screen-draw)
+    (format 0
+            "LOADSCREEN-DRAWPROBE shown=~A frames-dessinees=~D~%"
+            (loading-screen-shown?)
+            *loading-screen-frames*)
+    (set! *loading-screen-hold-until* hold)
+    (set! *loading-screen-since* since)
+    (set! *loading-screen-frames* fr))
+  (none))
+
+(defun loading-screen-probe ()
+  "Mesure d'amorcage de la porte de l'ecran de chargement, un seul tir par demarrage.
+
+   Un commentaire n'est pas une preuve : cette sonde DRIVE les predicats de production avec
+   exactement les appels que font les sites reels, et publie ce qu'ils rendent.
+     - CONTROLE NEGATIF : `(set-blackout-frames (seconds 0.035))` est litteralement la ligne de
+       pov-camera.gc:103, et `(seconds 0.05)` celle de basebutton.gc:348. `noir=` publie les frames
+       de noir REELLEMENT armees : il est non nul, donc le controle A TIRE. Si `held=` restait
+       vrai la, l'ecran clignoterait a chaque coupe.
+     - CONTROLE POSITIF : `loading-screen-hold!` est l'appel que fait la barriere. `held=` doit
+       passer vrai, et `shown=` rester faux tant que le SEUIL n'est pas franchi.
+   Tout ce qui est touche est sauve et restaure dans la meme fonction, sans suspend entre les deux."
+  (let ((hold *loading-screen-hold-until*)
+        (since *loading-screen-since*)
+        (arms *loading-screen-arms*)
+        (bo (-> *game-info* blackout-time)))
+    (format 0 "LOADSCREEN-SEUIL delay=~D hold=~D repere=frames-de-base~%" LOADING_SCREEN_DELAY LOADING_SCREEN_HOLD)
+    ;; ligne de base : rien n'arme, rien ne s'allume.
+    (set! *loading-screen-hold-until* (the-as time-frame 0))
+    (set! *loading-screen-since* (the-as time-frame 0))
+    (set-blackout-frames 0)
+    (format 0
+            "LOADSCREEN-CTRL src=rien noir=~D held=~A shown=~A~%"
+            (- (-> *game-info* blackout-time) (current-time))
+            (loading-screen-held?)
+            (loading-screen-shown?))
+    ;; CONTROLE NEGATIF 1 -- la coupe de camera.
+    (set-blackout-frames (seconds 0.035))
+    (format 0
+            "LOADSCREEN-CTRL src=pov-camera noir=~D held=~A shown=~A~%"
+            (- (-> *game-info* blackout-time) (current-time))
+            (loading-screen-held?)
+            (loading-screen-shown?))
+    ;; CONTROLE NEGATIF 2 -- le bouton.
+    (set-blackout-frames 0)
+    (set-blackout-frames (seconds 0.05))
+    (format 0
+            "LOADSCREEN-CTRL src=basebutton noir=~D held=~A shown=~A~%"
+            (- (-> *game-info* blackout-time) (current-time))
+            (loading-screen-held?)
+            (loading-screen-shown?))
+    ;; CONTROLE POSITIF -- la barriere de chargement, avant le seuil.
+    (loading-screen-hold!)
+    (format 0
+            "LOADSCREEN-CTRL src=load-gate attente=0 held=~A shown=~A~%"
+            (loading-screen-held?)
+            (loading-screen-shown?))
+    ;; CONTROLE POSITIF -- la meme barriere, une fois le seuil franchi.
+    (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
+    (format 0
+            "LOADSCREEN-CTRL src=load-gate attente=~D held=~A shown=~A~%"
+            LOADING_SCREEN_DELAY
+            (loading-screen-held?)
+            (loading-screen-shown?))
+    ;; restauration
+    (set! *loading-screen-hold-until* hold)
+    (set! *loading-screen-since* since)
+    (set! *loading-screen-arms* arms)
+    (set! (-> *game-info* blackout-time) bo))
+  (none))
+
 ;;;;;;;;;;;;;;;;;;;;;
 ;; Pause/Master Mode
 ;;;;;;;;;;;;;;;;;;;;;
@@ -546,10 +726,33 @@
                 (= (-> *setting-control* current aspect-ratio) 'aspect4x3)
                 (or (= (-> *setting-control* current aspect-ratio) 'aspect4x3) (not (-> *pc-settings* use-vis?))))
             (letterbox)))
+        ;; Gloading-screen : mesure d'amorcage de la porte de l'ecran de chargement. Placee ici
+        ;; pour la meme raison que celle du reframe juste au-dessus : `*game-info*` et le tampon
+        ;; de frame sont tous deux dans un etat connu a ce point de l'iteration.
+        (#when PC_PORT
+          (when (not *loading-screen-probed*)
+            (set! *loading-screen-probed* #t)
+            (loading-screen-probe)))
         ;; add blackout effect
-        (if (< (current-time) (-> *game-info* blackout-time))
-          (set! (-> *setting-control* default bg-a-force) 1.0)
-          (set! (-> *setting-control* default bg-a-force) 0.0))
+        ;; Gloading-screen : quand une BARRIERE DE CHARGEMENT tient l'image, c'est l'ecran de
+        ;; chargement qui possede le noir et il le peint LUI-MEME. Raison MESUREE, pas supposee :
+        ;; le noir du moteur n'est pas un sprite, c'est un quad plein ecran dessine par l'etage
+        ;; PCRTC APRES tous les buckets -- OpenGLRenderer.cpp:1937 sur bureau et
+        ;; android_opengl_renderer.cpp:1602 sur telephone, la meme ligne des deux cotes. Rien de
+        ;; ce que GOAL emet dans un bucket ne peut donc apparaitre par-dessus. On eteint
+        ;; `bg-a-force` PENDANT la barriere, et `loading-screen-draw` peint son propre fond noir.
+        ;; HORS barriere, ces deux lignes sont exactement celles d'avant.
+        (let ((ls-held (loading-screen-held?)))
+          (if (and (< (current-time) (-> *game-info* blackout-time)) (not ls-held))
+            (set! (-> *setting-control* default bg-a-force) 1.0)
+            (set! (-> *setting-control* default bg-a-force) 0.0))
+          (#when PC_PORT
+            (when ls-held (loading-screen-draw))
+            ;; controle positif du chemin de dessin -- debug uniquement, un seul tir, et seulement
+            ;; une fois la banque de texte chargee (sinon il ne couvrirait que le fond noir).
+            (when (and *debug-segment* (not *loading-screen-draw-probed*) *common-text* (not ls-held))
+              (set! *loading-screen-draw-probed* #t)
+              (loading-screen-draw-probe))))
         (read! (-> *perf-stats* data (perf-stat-bucket all-code)))
         ;; grab a buffer for drawing debug stuff.
         ;; we might draw even outside of debug mode if cheat-mode is disabled.

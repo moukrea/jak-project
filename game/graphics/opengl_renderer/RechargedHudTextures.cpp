@@ -8,11 +8,6 @@
 #include "game/graphics/pipelines/opengl.h"
 #include "third-party/stb_image/stb_image.h"
 
-// Uniform downscale divisor applied to every recharged sprite (same pixel
-// count per side within each shared canvas family, so overlay alignment
-// between the gauge sprites and their _end tips is preserved exactly).
-static constexpr int kRhudDownscale = 4;
-
 // Box-downscale by an integer factor with alpha-weighted color averaging
 // (plain averaging drags in the RGB of fully-transparent texels and fringes
 // the sprite edges). Returns a malloc'd buffer the caller must free.
@@ -67,8 +62,24 @@ static const char* kRechargedHudNames[] = {
     "jak_heart_100",         "jak_heart_66",        "jak_heart_33",
     "jak_heart_0",           "jak_gauge_empty",     "jak_gauge_blue_full",
     "jak_gauge_red_full",    "jak_gauge_yellow_full", "jak_gauge_blue_end",
-    "jak_gauge_red_end",     "jak_gauge_yellow_end",
+    "jak_gauge_red_end",     "jak_gauge_yellow_end", "loading_jak",
+    "loading_precursor",
 };
+
+// Per-entry downscale divisor, one for one with kRechargedHudNames.
+//   4 : the HUD sprites keep the uniform divisor they have always used (same
+//       pixel count per side within each shared canvas family, so overlay
+//       alignment between the gauge sprites and their _end tips is preserved
+//       exactly).
+//   1 : the loading-screen assets are authored at their final size and are
+//       uploaded untouched -- dividing the glyph atlas by 4 would destroy it.
+static const int kRechargedHudDownscale[] = {
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
+};
+
+static_assert(sizeof(kRechargedHudDownscale) / sizeof(int) ==
+                  sizeof(kRechargedHudNames) / sizeof(char*),
+              "kRechargedHudDownscale must have exactly one entry per kRechargedHudNames entry");
 
 void load_recharged_hud_textures(TexturePool& pool, GameVersion version) {
   if (version != GameVersion::Jak1) {
@@ -94,10 +105,16 @@ void load_recharged_hud_textures(TexturePool& pool, GameVersion version) {
       continue;
     }
 
-    int dw, dh;
-    u8* small = downscale_rgba(data, w, h, kRhudDownscale, &dw, &dh);
-    stbi_image_free(data);
-    u64 tex_id = upload_rhud_texture(small, dw, dh);
+    // factor 1 = upload the stbi buffer as-is, no intermediate allocation.
+    const int factor = kRechargedHudDownscale[i];
+    int dw = w, dh = h;
+    u8* small = nullptr;
+    const u8* upload = data;
+    if (factor > 1) {
+      small = downscale_rgba(data, w, h, factor, &dw, &dh);
+      upload = small;
+    }
+    u64 tex_id = upload_rhud_texture(upload, dw, dh);
 
     TextureInput in;
     in.gpu_texture = tex_id;
@@ -108,7 +125,12 @@ void load_recharged_hud_textures(TexturePool& pool, GameVersion version) {
     in.id = pool.allocate_pc_port_texture(GameVersion::Jak1);
     pool.give_texture_and_load_to_vram(in, slot);
 
-    free(small);
+    // `upload` aliases one of the two buffers below; both are released here,
+    // each with the allocator that produced it.
+    if (small) {
+      free(small);
+    }
+    stbi_image_free(data);
 
     lg::info("recharged-hud: loaded {} ({}x{} -> {}x{}) -> vram slot {}", name, w, h, dw, dh, slot);
   }

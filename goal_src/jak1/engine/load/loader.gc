@@ -732,6 +732,11 @@
         ;; sans push, l'art control peut lacher le spool qu'on s'apprete a jouer.
         (spool-push *art-control* (-> arg0 name) 0 self -20.0)
         (set-blackout-frames (seconds 0.05))
+        ;; Gloading-screen : armer l'ecran de chargement. C'EST LE SEUL SITE QUI L'ARME, et c'est
+        ;; ce qui l'exclut PAR CONSTRUCTION des coupes de camera (pov-camera.gc:103), des boutons
+        ;; (basebutton.gc:348) et de la mort (target-death.gc) -- tous ceux-la poussent
+        ;; `blackout-time` juste au-dessus et ne touchent jamais a l'horloge de la barriere.
+        (loading-screen-hold!)
         (suspend))))
   0)
 

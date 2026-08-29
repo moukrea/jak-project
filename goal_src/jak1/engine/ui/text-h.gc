@@ -995,6 +995,14 @@
   (pc-text-hint-displaymode #x17aa)
   (pc-text-hint-monitor #x17ab)
   (pc-text-hint-framerate #x17ac)
+  ;; --- Gloading-screen : le mot affiche sur l'ecran de chargement ---
+  ;; #x17b0 etait demande mais il est RESERVE (progress-pc.gc, tags carousel #x17b0..#x17bc) :
+  ;; #x17ad est le premier id libre au-dessus du dernier alloue (#x17ac), hors du pool reserve.
+  (pc-text-loading #x17ad)
+  ;; meme mot translitere en glyphes precurseurs (A-Z seulement, translitteration HORS LIGNE :
+  ;; les minuscules ne sont pas de l'ASCII dans l'encodage jak1, cf. font_db_jak1.cpp).
+  ;; #x17b1 etait demande mais il est RESERVE (progress-pc.gc, tags carousel #x17b0..#x17bc).
+  (pc-text-loading-precursor #x17ae)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

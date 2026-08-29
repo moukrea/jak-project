@@ -397,5 +397,7 @@
   "17a9": "Warp to a completed checkpoint.",
   "17aa": "Windowed, fullscreen or borderless.",
   "17ab": "Which monitor to display on.",
-  "17ac": "Display refresh-rate cap (experimental)."
+  "17ac": "Display refresh-rate cap (experimental).",
+  "17ad": "Loading...",
+  "17ae": "LOADING"
 }
