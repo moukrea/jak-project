@@ -239,7 +239,7 @@
     "Gtext-tone": 1,
     "Gandroid-window-size": 3,
     "Gkeira-visor-deliver": 1,
-    "Gloading-screen": 2
+    "Gloading-screen": 3
   },
   "fingerprints": {
     "00-harness": [
@@ -654,6 +654,7 @@
       "5effbf31ad3e"
     ],
     "Gloading-screen": [
+      "85210b846c09",
       "85210b846c09"
     ]
   },
@@ -1103,7 +1104,7 @@
     "Gprecompute-deterministic-bake": 1787793399.3471632,
     "Gplayability-input-and-loadgate": 1787811833.8953981
   },
-  "last_update": "2026-08-29T02:28:27.222944+00:00",
+  "last_update": "2026-08-29T03:26:46.293668+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
