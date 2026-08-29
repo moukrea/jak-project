@@ -457,9 +457,12 @@
       (when (or (= *loading-screen-frames* 1) (zero? (mod *loading-screen-frames* 60)))
         (format 0 "LOADSCREEN-SHOW arm=~D frames=~D~%" *loading-screen-arms* *loading-screen-frames*)
         ;; CE QUE LES DEUX HORLOGES ONT AVANCE DEPUIS LE DEBUT DE L'EPISODE, COTE A COTE.
-        ;; NATURE : deux durees. REPERE : `integ` en 1/60 s, `base` en 1/300 s -- 30 unites de
-        ;; l'une valent 150 de l'autre pour la meme demi-seconde, la ligne publie donc les deux
-        ;; ramenees en millisecondes pour qu'elles soient comparables sans calcul.
+        ;; NATURE : deux durees. REPERE : les DEUX en 1/300 s -- l'horloge de l'ecran de
+        ;; chargement recoit le meme `scaled-seconds` que `base-frame-counter`, elle ne s'en
+        ;; distingue QUE par le garde `paused?`. La ligne les publie ramenees en millisecondes.
+        ;; C'EST CE MEME CONTROLE QUI A REFUTE MON PREMIER CHOIX D'HORLOGE : avec
+        ;; `real-integral-frame-counter` il rendait `integ-ms=2466,7` contre `base-ms=4933,3`,
+        ;; facteur EXACTEMENT 2 a 30 images/s, parce que ce compteur compte des frames CIBLES.
         ;; CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : les deux colonnes montent ensemble.
         ;; QUAND IL EST PRESENT (menu ouvert, donc chargement de partie) : `base-ms` reste a 0
         ;; pendant que `integ-ms` monte. C'est le controle de la correction d'horloge, sur la
