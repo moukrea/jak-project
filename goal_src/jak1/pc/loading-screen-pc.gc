@@ -45,14 +45,53 @@
 ;; changer si l'owner prefere son chiffre : LS_SIL_H.
 (defconstant LS_SIL_CX 0.272129)   ;; centre x de la silhouette
 (defconstant LS_SIL_CY 0.519660)   ;; centre y de la silhouette
-(defconstant LS_SIL_H 0.612115)    ;; hauteur de la silhouette / hauteur d'ecran
-(defconstant LS_SIL_WH 1.0243)     ;; largeur/hauteur de recharged_assets/loading_jak.png (590x576)
+(defconstant LS_SIL_H 0.651565)    ;; hauteur de la CELLULE de planche / hauteur d'ecran.
+                                   ;; La maquette de l'owner mesure le SUJET a 0,612115 de la
+                                   ;; hauteur d'ecran ; le sujet occupe 0,9395 de sa cellule
+                                   ;; (marge transparente obligatoire, sinon les mipmaps de la
+                                   ;; planche melangent deux images voisines). 0,612115 / 0,9395.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LA SILHOUETTE EST UNE SEQUENCE ANIMEE (owner 2026-08-29, retour n.3)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; « la silhouette de Jak and Daxter en train de courir lateralement vers la droite... bah c'est
+;; pas anime ! J'avais explicitement demande de capturer cette animation in game. »
+;;
+;; `recharged_assets/loading_jak.png` n'est plus une image : c'est une PLANCHE de LS_SIL_COLS x
+;; LS_SIL_ROWS cellules de taille egale, produite par .autoport/mk_loading_silhouette.py depuis
+;; une capture en jeu de l'animation de course reelle. Les cellules sont parcourues en
+;; ligne d'abord, de 0 a LS_SIL_FRAMES-1.
+;;
+;; L'HORLOGE EST `(current-time)`, PAS UN COMPTEUR DE FRAMES. `*loading-screen-frames*` avancerait
+;; d'un pas par image produite : la course serait deux fois plus rapide a 60 images/s qu'a 30, or
+;; 30 ou moins est precisement le regime d'un chargement. `(current-time)` avance du nombre de
+;; frames de 60 Hz REELLEMENT ecoulees (engine/draw/drawable.gc:1008-1014), donc la boucle dure
+;; LS_SIL_PERIOD secondes quel que soit le debit d'images. C'est le meme raisonnement que celui
+;; qui a fait passer le sursis de la barriere de 0,05 s a 1 s.
+(defconstant LS_SIL_COLS 4)
+(defconstant LS_SIL_ROWS 4)
+(defconstant LS_SIL_FRAMES 16)
+(defconstant LS_SIL_PERIOD (seconds 0.5333))  ;; 32 frames de logique a 60 Hz : 16 cellules
+                                              ;; espacees de 2 frames. MESURE, pas choisi -- la
+                                              ;; periode de la SILHOUETTE relevee sur la capture
+                                              ;; vaut 20 a 30 frames selon la fenetre (une
+                                              ;; silhouette vue de cote se repete a la DEMI-foulee,
+                                              ;; les deux jambes donnant presque le meme contour),
+                                              ;; et le depart des 16 cellules est celui qui
+                                              ;; minimise l'ecart au RACCORD : 0,01685 contre
+                                              ;; 0,03567 pour le pire depart de la meme fenetre.
+(defconstant LS_SIL_WH 1.0)                ;; largeur/hauteur d'UNE cellule de la planche
 
 (defconstant LS_TEXT_RIGHT 0.8822) ;; bord DROIT de la bande « Loading... » (x 1475 / 1672)
 (defconstant LS_TEXT_TOP 0.7216)   ;; haut de la bande de texte (y 679 / 941)
-(defconstant LS_TEXT_SCALE 1.0407)  ;; grande police. CALIBREE, pas choisie : a 1,3 la trace rendait
-                                    ;; ref-w=138,85 pour une cible de 111,16 (ratio 1,2491), donc
-                                    ;; 1,3 / 1,2491 = 1,0407. Verifie par une seconde course.
+(defconstant LS_TEXT_SCALE 1.3876)  ;; grande police. CALIBREE, pas choisie -- et RECALIBREE le
+                                    ;; 2026-08-29 quand la mesure de largeur a ete corrigee (voir
+                                    ;; `ls-text-width`). La valeur precedente, 1,0407, avait ete
+                                    ;; calee contre une largeur SUR-ESTIMEE de 4/3 : le texte etait
+                                    ;; donc rendu 25 % plus petit que la maquette.
+                                    ;; 111,16 / (0,75 x 106,8092) = 1,3876, ou 106,8092 est l'avance
+                                    ;; de « Loading... » dans *font24-table* et 0,75 la valeur de
+                                    ;; `relative-x-scale` en 16:9 -- le format de la maquette.
 
 (defconstant LS_GLYPH_TOP 0.8268)  ;; haut de la bande de glyphes (y 778 / 941)
 
@@ -69,73 +108,87 @@
 ;; largeur de l'anglais. La trace publie donc les deux : `texte-w` (la langue courante, ce qui est
 ;; reellement dessine) et `ref-w` (l'anglais, la base de calibration).
 
-;; Table de glyphes precurseurs, A..Z, EXTRAITE de recharged_assets/font/precursor/precursor.json
-;; (produite par la phase Gfont-urbanist depuis la planche fournie par l'owner). Les valeurs sont
-;; recopiees, jamais recalculees. L'avance `adv` y est une CONVENTION declaree (largeur + 0,30 em) :
-;; la planche est une grille de presentation et ne porte aucune metrique d'origine.
-;; Em de dessin : 72 px. Atlas : 512x512.
-(defconstant LS_PRECURSOR_EM 72.0)
+;; Table de glyphes precurseurs, A..Z, EXTRAITE de recharged_assets/font/precursor/precursor.json,
+;; elle-meme produite par .autoport/mk_precursor_atlas.py depuis la planche fournie par l'owner.
+;; Les valeurs sont recopiees, jamais recalculees. L'avance `adv` est une CONVENTION declaree
+;; (largeur + 0,16 em) : la planche est une grille de presentation et ne porte aucune metrique
+;; d'origine.
+;;
+;; ATLAS REFAIT LE 2026-08-29, SUR DEUX DEFAUTS MESURES QUE L'OWNER A VUS :
+;;   1. POLARITE. L'ancienne generation devinait la polarite PAR GLYPHE (« l'encre est
+;;      minoritaire ») ; faux pour les formes pleines, donc E, G, H, K, M, P et S -- exactement
+;;      les sept dont l'encre couvre plus de la moitie de la boite -- etaient retournes
+;;      (fond blanc, glyphe noir). Elle est maintenant etablie UNE SEULE FOIS sur la planche.
+;;   2. PIXELLISATION. L'atlas livre etait STRICTEMENT BINAIRE (2 niveaux de gris, 0 pixel
+;;      intermediaire) alors que la planche source est antialiasee, et ses glyphes ne faisaient
+;;      que 33 a 63 px de large pour un rendu ecran de 52 a 61 px : un agrandissement de ~1,1x
+;;      d'un masque binaire. Em porte de 72 a 288 px, antialiasing conserve : le rendu ecran est
+;;      desormais une REDUCTION (~0,24x), jamais un agrandissement.
+;; Em de dessin : 288 px. Atlas : 2048x2048.
+(defconstant LS_PRECURSOR_EM 288.0)
 
 ;; rect UV dans l'atlas : x=u0 y=v0 z=u1 w=v1
 (define *ls-precursor-uv*
   (new 'static 'inline-array vector 26
-       (new 'static 'vector :x 0.003906 :y 0.003906 :z 0.101562 :w 0.138672) ;; A
-       (new 'static 'vector :x 0.134766 :y 0.003906 :z 0.244141 :w 0.138672) ;; B
-       (new 'static 'vector :x 0.265625 :y 0.003906 :z 0.332031 :w 0.140625) ;; C
-       (new 'static 'vector :x 0.396484 :y 0.003906 :z 0.490234 :w 0.144531) ;; D
-       (new 'static 'vector :x 0.527344 :y 0.003906 :z 0.621094 :w 0.140625) ;; E
-       (new 'static 'vector :x 0.658203 :y 0.003906 :z 0.732422 :w 0.138672) ;; F
-       (new 'static 'vector :x 0.003906 :y 0.152344 :z 0.109375 :w 0.283203) ;; G
-       (new 'static 'vector :x 0.134766 :y 0.152344 :z 0.203125 :w 0.292969) ;; H
-       (new 'static 'vector :x 0.265625 :y 0.152344 :z 0.388672 :w 0.283203) ;; I
-       (new 'static 'vector :x 0.396484 :y 0.152344 :z 0.511719 :w 0.277344) ;; J
-       (new 'static 'vector :x 0.527344 :y 0.152344 :z 0.619141 :w 0.277344) ;; K
-       (new 'static 'vector :x 0.658203 :y 0.152344 :z 0.769531 :w 0.283203) ;; L
-       (new 'static 'vector :x 0.003906 :y 0.300781 :z 0.097656 :w 0.429688) ;; M
-       (new 'static 'vector :x 0.134766 :y 0.300781 :z 0.210938 :w 0.431641) ;; N
-       (new 'static 'vector :x 0.265625 :y 0.300781 :z 0.353516 :w 0.427734) ;; O
-       (new 'static 'vector :x 0.396484 :y 0.300781 :z 0.460938 :w 0.431641) ;; P
-       (new 'static 'vector :x 0.527344 :y 0.300781 :z 0.634766 :w 0.423828) ;; Q
-       (new 'static 'vector :x 0.658203 :y 0.300781 :z 0.740234 :w 0.419922) ;; R
-       (new 'static 'vector :x 0.003906 :y 0.449219 :z 0.072266 :w 0.570312) ;; S
-       (new 'static 'vector :x 0.134766 :y 0.449219 :z 0.226562 :w 0.574219) ;; T
-       (new 'static 'vector :x 0.265625 :y 0.449219 :z 0.353516 :w 0.570312) ;; U
-       (new 'static 'vector :x 0.396484 :y 0.449219 :z 0.519531 :w 0.572266) ;; V
-       (new 'static 'vector :x 0.527344 :y 0.449219 :z 0.632812 :w 0.572266) ;; W
-       (new 'static 'vector :x 0.658203 :y 0.449219 :z 0.726562 :w 0.568359) ;; X
-       (new 'static 'vector :x 0.003906 :y 0.597656 :z 0.103516 :w 0.730469) ;; Y
-       (new 'static 'vector :x 0.134766 :y 0.597656 :z 0.203125 :w 0.734375) ;; Z
+       (new 'static 'vector :x 0.003906 :y 0.003906 :z 0.101562 :w 0.121094) ;; A
+       (new 'static 'vector :x 0.167969 :y 0.003906 :z 0.277344 :w 0.123047) ;; B
+       (new 'static 'vector :x 0.332031 :y 0.003906 :z 0.398438 :w 0.119141) ;; C
+       (new 'static 'vector :x 0.496094 :y 0.003906 :z 0.589844 :w 0.134766) ;; D
+       (new 'static 'vector :x 0.660156 :y 0.003906 :z 0.753906 :w 0.125000) ;; E
+       (new 'static 'vector :x 0.824219 :y 0.003906 :z 0.898438 :w 0.138672) ;; F
+       (new 'static 'vector :x 0.003906 :y 0.167969 :z 0.109375 :w 0.285156) ;; G
+       (new 'static 'vector :x 0.167969 :y 0.167969 :z 0.236328 :w 0.296875) ;; H
+       (new 'static 'vector :x 0.332031 :y 0.167969 :z 0.455078 :w 0.292969) ;; I
+       (new 'static 'vector :x 0.496094 :y 0.167969 :z 0.611328 :w 0.283203) ;; J
+       (new 'static 'vector :x 0.660156 :y 0.167969 :z 0.751953 :w 0.283203) ;; K
+       (new 'static 'vector :x 0.824219 :y 0.167969 :z 0.935547 :w 0.291016) ;; L
+       (new 'static 'vector :x 0.003906 :y 0.332031 :z 0.097656 :w 0.460938) ;; M
+       (new 'static 'vector :x 0.167969 :y 0.332031 :z 0.246094 :w 0.457031) ;; N
+       (new 'static 'vector :x 0.332031 :y 0.332031 :z 0.419922 :w 0.455078) ;; O
+       (new 'static 'vector :x 0.496094 :y 0.332031 :z 0.560547 :w 0.435547) ;; P
+       (new 'static 'vector :x 0.660156 :y 0.332031 :z 0.767578 :w 0.447266) ;; Q
+       (new 'static 'vector :x 0.824219 :y 0.332031 :z 0.906250 :w 0.451172) ;; R
+       (new 'static 'vector :x 0.003906 :y 0.496094 :z 0.072266 :w 0.613281) ;; S
+       (new 'static 'vector :x 0.167969 :y 0.496094 :z 0.259766 :w 0.619141) ;; T
+       (new 'static 'vector :x 0.332031 :y 0.496094 :z 0.419922 :w 0.613281) ;; U
+       (new 'static 'vector :x 0.496094 :y 0.496094 :z 0.619141 :w 0.597656) ;; V
+       (new 'static 'vector :x 0.660156 :y 0.496094 :z 0.765625 :w 0.615234) ;; W
+       (new 'static 'vector :x 0.824219 :y 0.496094 :z 0.892578 :w 0.599609) ;; X
+       (new 'static 'vector :x 0.003906 :y 0.660156 :z 0.103516 :w 0.783203) ;; Y
+       (new 'static 'vector :x 0.167969 :y 0.660156 :z 0.238281 :w 0.796875) ;; Z
        ))
 
-;; metriques dans l'em de dessin : x=largeur y=hauteur z=avance
+;; metriques dans l'em de dessin : x=largeur y=hauteur z=avance w=decalage vertical
+;; (`by` : les glyphes de la planche sont CENTRES dans leur bande a 4 % pres, on les centre donc
+;;  dans une boite d'em COMMUNE -- aligner les SOMMETS ferait sautiller les glyphes courts)
 (define *ls-precursor-metrics*
   (new 'static 'inline-array vector 26
-       (new 'static 'vector :x 50.0000 :y 69.0000 :z 61.5200) ;; A
-       (new 'static 'vector :x 56.0000 :y 69.0000 :z 67.5200) ;; B
-       (new 'static 'vector :x 34.0000 :y 70.0000 :z 45.5200) ;; C
-       (new 'static 'vector :x 48.0000 :y 72.0000 :z 59.5200) ;; D
-       (new 'static 'vector :x 48.0000 :y 70.0000 :z 59.5200) ;; E
-       (new 'static 'vector :x 38.0000 :y 69.0000 :z 49.5200) ;; F
-       (new 'static 'vector :x 54.0000 :y 67.0000 :z 65.5200) ;; G
-       (new 'static 'vector :x 35.0000 :y 72.0000 :z 46.5200) ;; H
-       (new 'static 'vector :x 63.0000 :y 67.0000 :z 74.5200) ;; I
-       (new 'static 'vector :x 59.0000 :y 64.0000 :z 70.5200) ;; J
-       (new 'static 'vector :x 47.0000 :y 64.0000 :z 58.5200) ;; K
-       (new 'static 'vector :x 57.0000 :y 67.0000 :z 68.5200) ;; L
-       (new 'static 'vector :x 48.0000 :y 66.0000 :z 59.5200) ;; M
-       (new 'static 'vector :x 39.0000 :y 67.0000 :z 50.5200) ;; N
-       (new 'static 'vector :x 45.0000 :y 65.0000 :z 56.5200) ;; O
-       (new 'static 'vector :x 33.0000 :y 67.0000 :z 44.5200) ;; P
-       (new 'static 'vector :x 55.0000 :y 63.0000 :z 66.5200) ;; Q
-       (new 'static 'vector :x 42.0000 :y 61.0000 :z 53.5200) ;; R
-       (new 'static 'vector :x 35.0000 :y 62.0000 :z 46.5200) ;; S
-       (new 'static 'vector :x 47.0000 :y 64.0000 :z 58.5200) ;; T
-       (new 'static 'vector :x 45.0000 :y 62.0000 :z 56.5200) ;; U
-       (new 'static 'vector :x 63.0000 :y 63.0000 :z 74.5200) ;; V
-       (new 'static 'vector :x 54.0000 :y 63.0000 :z 65.5200) ;; W
-       (new 'static 'vector :x 35.0000 :y 61.0000 :z 46.5200) ;; X
-       (new 'static 'vector :x 51.0000 :y 68.0000 :z 62.5200) ;; Y
-       (new 'static 'vector :x 35.0000 :y 70.0000 :z 46.5200) ;; Z
+       (new 'static 'vector :x 200.0 :y 240.0 :z 246.08 :w 24.0) ;; A
+       (new 'static 'vector :x 224.0 :y 244.0 :z 270.08 :w 22.0) ;; B
+       (new 'static 'vector :x 136.0 :y 236.0 :z 182.08 :w 26.0) ;; C
+       (new 'static 'vector :x 192.0 :y 268.0 :z 238.08 :w 10.0) ;; D
+       (new 'static 'vector :x 192.0 :y 248.0 :z 238.08 :w 20.0) ;; E
+       (new 'static 'vector :x 152.0 :y 276.0 :z 198.08 :w 6.0) ;; F
+       (new 'static 'vector :x 216.0 :y 240.0 :z 262.08 :w 24.0) ;; G
+       (new 'static 'vector :x 140.0 :y 264.0 :z 186.08 :w 12.0) ;; H
+       (new 'static 'vector :x 252.0 :y 256.0 :z 298.08 :w 16.0) ;; I
+       (new 'static 'vector :x 236.0 :y 236.0 :z 282.08 :w 26.0) ;; J
+       (new 'static 'vector :x 188.0 :y 236.0 :z 234.08 :w 26.0) ;; K
+       (new 'static 'vector :x 228.0 :y 252.0 :z 274.08 :w 18.0) ;; L
+       (new 'static 'vector :x 192.0 :y 264.0 :z 238.08 :w 12.0) ;; M
+       (new 'static 'vector :x 160.0 :y 256.0 :z 206.08 :w 16.0) ;; N
+       (new 'static 'vector :x 180.0 :y 252.0 :z 226.08 :w 18.0) ;; O
+       (new 'static 'vector :x 132.0 :y 212.0 :z 178.08 :w 38.0) ;; P
+       (new 'static 'vector :x 220.0 :y 236.0 :z 266.08 :w 26.0) ;; Q
+       (new 'static 'vector :x 168.0 :y 244.0 :z 214.08 :w 22.0) ;; R
+       (new 'static 'vector :x 140.0 :y 240.0 :z 186.08 :w 24.0) ;; S
+       (new 'static 'vector :x 188.0 :y 252.0 :z 234.08 :w 18.0) ;; T
+       (new 'static 'vector :x 180.0 :y 240.0 :z 226.08 :w 24.0) ;; U
+       (new 'static 'vector :x 252.0 :y 208.0 :z 298.08 :w 40.0) ;; V
+       (new 'static 'vector :x 216.0 :y 244.0 :z 262.08 :w 22.0) ;; W
+       (new 'static 'vector :x 140.0 :y 212.0 :z 186.08 :w 38.0) ;; X
+       (new 'static 'vector :x 204.0 :y 252.0 :z 250.08 :w 18.0) ;; Y
+       (new 'static 'vector :x 144.0 :y 280.0 :z 190.08 :w 4.0) ;; Z
        ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -159,11 +212,30 @@
 
 (defun ls-text-width ((str string) (scale float))
   "Largeur RENDUE de `str`, dans les unites x de la toile 512.
-   NATURE : une longueur, pas un compte de caracteres. REPERE : la toile 2D 512x224.
-   C'est CE nombre qui cale ensuite la ligne de glyphes precurseurs -- les deux viennent de la
-   meme mesure, donc leur egalite ne depend pas de la justesse de l'unite."
+   NATURE : une longueur (l'avance de la plume), pas un compte de caracteres.
+   REPERE : la toile 2D 512x224 -- LE MEME que celui ou `ls-quad` pose les glyphes precurseurs.
+
+   LE FACTEUR QUI MANQUAIT, ET C'EST LE DEFAUT QUE L'OWNER A VU. `get-string-length`
+   (engine/gfx/font.gc:1531) rend une avance en unites de PLUME : elle somme la colonne d'avance
+   de `*font24-table*` et ne lit NI le champ `scale` du contexte NI la matrice de police.
+   `draw-string-xy-scaled` (font.gc:1636), lui, multiplie `(-> *font-default-matrix* vector 0 x)`
+   par son `scale` -- et cette case vaut `relative-x-scale`, reposee A CHAQUE FRAME par
+   pckernel.gc:281 a `ASPECT_4X3 / aspect`. La largeur POSEE vaut donc `relative-x-scale x scale x
+   avance`, quand cette fonction rendait `scale x avance` : SUR-ESTIMATION D'UN FACTEUR 4/3 en
+   16:9 (0,75 de reciproque). La ligne precurseur etant calee sur ce nombre, elle sortait
+   30,6 % plus large que le texte -- exactement ce que l'owner decrit.
+
+   Le moteur connait ce facteur et l'applique deja partout ou il mesure une largeur pour la
+   comparer a une position : engine/ui/text.gc:343 et :369 font
+   `(* (get-string-length ...) (-> *video-parms* relative-x-scale))`. Ce site etait le seul a
+   l'omettre.
+
+   CONSEQUENCE DE CONCEPTION, DECLAREE : la largeur rendue depend donc du FORMAT de la fenetre.
+   Ce n'est pas un defaut, c'est la convention du moteur -- le texte garde une taille constante
+   par rapport a la HAUTEUR d'ecran au lieu de s'etirer avec la largeur. `LS_TEXT_SCALE` est cale
+   sur le 16:9 de la maquette de l'owner."
   (let ((ctxt (new 'stack 'font-context *font-default-matrix* 0 0 0.0 (font-color white) (font-flags kerning large))))
-    (* scale (get-string-length str ctxt))))
+    (* scale (-> *video-parms* relative-x-scale) (get-string-length str ctxt))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; LE DESSIN
@@ -171,10 +243,31 @@
 
 (define *ls-traced* #f)
 
+;; Bornes x REELLEMENT posees par le dernier appel a `ls-draw-precursor`, en unites de la toile
+;; 512. Ce ne sont PAS les bornes demandees : elles sont relevees sur les coordonnees des quads
+;; effectivement emis, donc elles constatent ce qui est dessine au lieu de republier la consigne.
+;; C'est ce qui permet de publier « largeur du texte » et « largeur de la ligne precurseur » cote
+;; a cote sans que l'une des deux soit un miroir de l'autre.
+(define *ls-sil-frame* 0)   ;; derniere cellule de planche posee -- publiee, jamais lue par le dessin
+(define *ls-precursor-scale* 0.0)  ;; unites x de la toile 512 par pixel de l'atlas de glyphes
+(define *ls-precursor-x0* 0.0)
+(define *ls-precursor-x1* 0.0)
+
 (defun ls-draw-precursor ((buf dma-buffer) (word string) (right float) (top float) (target-w float) (fx float))
-  "Dessine `word` (MAJUSCULES ASCII A-Z + espaces) en glyphes precurseurs, mis a l'echelle pour
-   que la ligne fasse EXACTEMENT `target-w` unites x, bord droit en `right`, haut en `top`
-   (unites 448). Rend la largeur reellement posee, pour que l'appelant puisse la publier.
+  "Dessine `word` (MAJUSCULES ASCII A-Z + espaces) en glyphes precurseurs, cale pour que son
+   ENCRE occupe exactement `target-w` unites x, bord droit de l'encre en `right`, mediane des
+   glyphes a `top` + un demi-em (unites 448). Rend l'avance totale dans l'em de dessin.
+
+   L'OWNER 2026-08-29 : « le texte Chargement... est moins large que son pendant en Precursor,
+   ce que je voulais eviter ». LA CAUSE COTE PRECURSEUR EST ICI, ET C'EST UN ECHANGE DE GRANDEUR :
+   la version precedente mettait a l'echelle la SOMME DES AVANCES, pas l'ETENDUE DE L'ENCRE. Or
+   une avance porte le blanc qui suit le glyphe. En calant `somme des avances = target-w`, l'encre
+   couvrait `target-w - s*(avance_dernier - largeur_dernier)` -- moins que la cible -- et le
+   dernier glyphe s'arretait avant `right`. Le meme echange de denominateur a l'autre bout de la
+   chaine (une largeur de texte SUR-ESTIMEE) additionne son erreur a celle-ci. On cale donc sur
+   l'ETENDUE DE L'ENCRE : `somme des avances sauf la derniere, plus la largeur de la derniere`.
+   Par construction, le bord droit de l'encre du dernier glyphe tombe alors EXACTEMENT sur `right`
+   et son bord gauche sur `right - target-w`.
 
    POURQUOI LE MOT EST TRANSLITTERE HORS LIGNE. Dans l'encodage de texte de jak1 les MINUSCULES
    ne sont pas de l'ASCII -- common/util/font/dbs/font_db_jak1.cpp reaffecte les octets 0x60-0x65
@@ -184,20 +277,28 @@
    ignore sans bruit : le japonais et le coreen portent une chaine VIDE et ne dessinent rien,
    c'est le repli declare dans recharged_assets/font/precursor/README.md."
   (let ((n (length word))
-        (total 0.0))
-    ;; 1re passe : l'avance totale dans l'em de dessin.
+        (total 0.0)
+        (ink 0.0))
+    ;; 1re passe : l'avance totale ET l'etendue de l'encre, dans l'em de dessin. `ink` suit le
+    ;; bord droit de l'encre du dernier glyphe pose, `total` le stylo.
     (let ((p (-> word data)))
       (dotimes (i n)
         (let ((c (the int (-> p i))))
           (cond
-            ((and (>= c 65) (<= c 90)) (set! total (+ total (-> *ls-precursor-metrics* (- c 65) z))))
+            ((and (>= c 65) (<= c 90))
+             (set! ink (+ total (-> *ls-precursor-metrics* (- c 65) x)))
+             (set! total (+ total (-> *ls-precursor-metrics* (- c 65) z))))
             ((= c 32) (set! total (+ total (* 0.5 LS_PRECURSOR_EM))))
             (else (empty))))))
-    (when (> total 0.0)
+    (set! *ls-precursor-x0* 0.0)
+    (set! *ls-precursor-x1* 0.0)
+    (when (> ink 0.0)
       ;; 2e passe : poser les glyphes. `s` est en unites x par pixel de dessin ; une longueur en
       ;; unites x vaut la meme longueur physique que (elle / fx) en unites y, d'ou la hauteur.
-      (let* ((s (/ target-w total))
-             (pen (- right target-w)))
+      (let* ((s (/ target-w ink))
+             (pen (- right target-w))
+             (first #t))
+        (set! *ls-precursor-scale* s)
         (rhud-set-shader buf RHUD_TBP_LOADING_PRECURSOR)
         (let ((p (-> word data)))
           (dotimes (i n)
@@ -206,8 +307,12 @@
                 ((and (>= c 65) (<= c 90))
                  (let* ((gi (- c 65))
                         (gw (* s (-> *ls-precursor-metrics* gi x)))
-                        (gh (/ (* s (-> *ls-precursor-metrics* gi y)) fx)))
-                   (ls-quad buf (-> *ls-precursor-uv* gi) pen top (+ pen gw) (+ top gh))
+                        (gh (/ (* s (-> *ls-precursor-metrics* gi y)) fx))
+                        (gy (+ top (/ (* s (-> *ls-precursor-metrics* gi w)) fx))))
+                   (ls-quad buf (-> *ls-precursor-uv* gi) pen gy (+ pen gw) (+ gy gh))
+                   ;; bornes RELEVEES sur les quads emis, pas calculees d'avance
+                   (when first (set! first #f) (set! *ls-precursor-x0* pen))
+                   (set! *ls-precursor-x1* (+ pen gw))
                    (set! pen (+ pen (* s (-> *ls-precursor-metrics* gi z))))))
                 ((= c 32) (set! pen (+ pen (* s 0.5 LS_PRECURSOR_EM))))
                 (else (empty))))))))
@@ -242,18 +347,31 @@
       (when (or (= *loading-screen-frames* 1) (zero? (mod *loading-screen-frames* 60)))
         (format 0 "LOADSCREEN-SHOW arm=~D frames=~D~%" *loading-screen-arms* *loading-screen-frames*))
       (let ((fx (rhud-aspect-fx)))
-        ;; --- 2. la silhouette ---
+        ;; --- 2. la silhouette, UNE CELLULE de la planche choisie par le temps ecoule ---
         (let* ((h448 (* LS_SIL_H 448.0))
                (w512 (* (* h448 LS_SIL_WH) fx))
                (cx (* LS_SIL_CX 512.0))
-               (cy (* LS_SIL_CY 448.0)))
+               (cy (* LS_SIL_CY 448.0))
+               (fr (mod (/ (* LS_SIL_FRAMES (- (current-time) *loading-screen-since*))
+                           LS_SIL_PERIOD)
+                        LS_SIL_FRAMES))
+               (col (the float (mod fr LS_SIL_COLS)))
+               (row (the float (/ fr LS_SIL_COLS)))
+               (du (/ 1.0 (the float LS_SIL_COLS)))
+               (dv (/ 1.0 (the float LS_SIL_ROWS))))
+          (set! *ls-sil-frame* (the int fr))
           (rhud-set-shader buf RHUD_TBP_LOADING_JAK)
-          (ls-quad buf
-                   (new 'static 'vector :x 0.0 :y 0.0 :z 1.0 :w 1.0)
-                   (- cx (* 0.5 w512))
-                   (- cy (* 0.5 h448))
-                   (+ cx (* 0.5 w512))
-                   (+ cy (* 0.5 h448))))
+          (let ((uv (new 'stack-no-clear 'vector)))
+            (set! (-> uv x) (* col du))
+            (set! (-> uv y) (* row dv))
+            (set! (-> uv z) (* (+ col 1.0) du))
+            (set! (-> uv w) (* (+ row 1.0) dv))
+            (ls-quad buf
+                     uv
+                     (- cx (* 0.5 w512))
+                     (- cy (* 0.5 h448))
+                     (+ cx (* 0.5 w512))
+                     (+ cy (* 0.5 h448)))))
         ;; --- 3. le texte localise, puis 4. les glyphes a SA largeur mesuree ---
         ;; `*common-text*` vaut #f tant que la banque n'est pas chargee (text-h.gc:1034) et
         ;; `lookup-text!` la dereferencerait : on garde. Et on demande le mode « #f si absent »
@@ -261,14 +379,33 @@
         (when *common-text*
           (let ((str (lookup-text! *common-text* (text-id pc-text-loading) #t)))
             (when str
-              (let* ((w (ls-text-width str LS_TEXT_SCALE))
-                     (right (* LS_TEXT_RIGHT 512.0)))
+              ;; DE LA BOITE DE PLUME A L'ENCRE. `ls-text-width` rend l'avance TOTALE de la
+              ;; chaine ; l'ENCRE dessinee, elle, s'arrete avant. Mesure sur l'image PRODUITE,
+              ;; CINQ langues, 1920 px de large : le bord droit de l'encre tombe a 1680 quand la
+              ;; boite de plume finit a 1694 -- **14 px, exactement le meme dans les cinq**, donc
+              ;; une propriete du DERNIER CARACTERE et pas de la chaine.
+              ;; Toutes les langues livrees terminent par « ... ». Ce retrait vaut la MOITIE de
+              ;; l'avance d'un point : `ls-text-width "."` rend 7,73 unites de toile dans cette
+              ;; configuration, et le retrait mesure en vaut 3,73 -- 3,7 % d'ecart. On retranche
+              ;; donc une grandeur que le moteur CALCULE, jamais un nombre pose a la main, et la
+              ;; prediction est refutable : le controle est la re-mesure de l'image apres coup
+              ;; (elle est passee de -14/-17 px a l'ecart publie dans widths.txt).
+              ;; RESERVE : une langue qui ne terminerait pas par un point verrait ce retrait
+              ;; legerement faux. Les cinq mesurees terminent par « ... ».
+              (let* ((trail (* 0.5 (ls-text-width "." LS_TEXT_SCALE)))
+                     (w (- (ls-text-width str LS_TEXT_SCALE) trail))
+                     (right (- (* LS_TEXT_RIGHT 512.0) trail)))
                 (let ((word (lookup-text! *common-text* (text-id pc-text-loading-precursor) #t)))
                   (when word
                     (let ((adv (ls-draw-precursor buf word right (* LS_GLYPH_TOP 448.0) w fx)))
                       (when (not *ls-traced*)
                         (set! *ls-traced* #t)
-                        ;; deux lignes, parce qu'un appel GOAL est plafonne a 8 parametres.
+                        ;; plusieurs lignes, parce qu'un appel GOAL est plafonne a 8 parametres.
+                        ;; NATURE : des LONGUEURS. REPERE : la toile 512 pour les unites, et le
+                        ;; framebuffer reel pour les pixels. CE QU'ELLES LISENT QUAND LE DEFAUT
+                        ;; EST ABSENT : `texte-px` et `precurseur-px` egaux.
+                        ;; `precurseur-*` est RELEVE sur les coordonnees des quads emis, jamais
+                        ;; recalcule depuis la consigne.
                       (let ((ref (ls-text-width "Loading..." LS_TEXT_SCALE)))
                         (format 0
                                 "LOADSCREEN-LAYOUT texte-w=~f ref-w=~f cible-w=~f ratio=~f~%"
@@ -276,11 +413,32 @@
                                 ref
                                 LS_TEXT_W_TARGET
                                 (/ ref LS_TEXT_W_TARGET)))
-                      (format 0 "LOADSCREEN-GEOM droite=~f glyphes-adv-em=~f fx=~f~%" right adv fx)))))
+                      (format 0 "LOADSCREEN-GEOM droite=~f glyphes-adv-em=~f fx=~f~%" right adv fx)
+                      (let* ((pxu (/ (the float (-> *pc-settings* framebuffer-width)) 512.0))
+                             (pw (- *ls-precursor-x1* *ls-precursor-x0*)))
+                        (format 0
+                                "LOADSCREEN-WIDTH texte-u=~f precurseur-u=~f texte-px=~f precurseur-px=~f ecart-px=~f rxs=~f~%"
+                                w
+                                pw
+                                (* w pxu)
+                                (* pw pxu)
+                                (* (- pw w) pxu)
+                                (-> *video-parms* relative-x-scale)))
+                      ;; PIXELLISATION : combien de pixels de l'atlas pour un pixel d'ecran.
+                      ;; > 1 = l'atlas est REDUIT a l'affichage (bon). < 1 = il est AGRANDI, et
+                      ;; c'est l'escalier que l'owner a vu. Le filtrage est publie a cote : le
+                      ;; TEX1 pose par `rhud-set-shader` vaut #x60, soit BILINEAIRE, et
+                      ;; DirectRenderer.cpp:444-447 le traduit en GL_LINEAR (+ mipmaps).
+                      (let ((pxu (/ (the float (-> *pc-settings* framebuffer-width)) 512.0)))
+                        (format 0 "LOADSCREEN-GLYPH atlas-px-par-px-ecran=~f em=~f filtrage=bilineaire~%"
+                                (/ 1.0 (* *ls-precursor-scale* pxu))
+                                LS_PRECURSOR_EM))
+                      (format 0 "LOADSCREEN-SIL images=~D cols=~D rangees=~D boucle-ticks=~D~%"
+                              LS_SIL_FRAMES LS_SIL_COLS LS_SIL_ROWS LS_SIL_PERIOD)))))
                 ;; le texte en DERNIER : `draw-string` repose ses propres registres GS.
                 (draw-string-xy-scaled str
                                        buf
-                                       (the int (- right w))
+                                       (the int (- right w))  ;; = bord gauche de la boite de plume
                                        (the int (* LS_TEXT_TOP 224.0))
                                        (font-color white)
                                        (font-flags kerning large)

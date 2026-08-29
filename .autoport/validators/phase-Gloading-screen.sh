@@ -16,6 +16,11 @@ grep -qiE 'reason=(resident|timeout)' "$R" || fail "la ligne LOADGATE qui tranch
 grep -qiE 'harvester|acteur' "$R" || fail "le sort des ACTEURS (harvester-*) doit etre publie, pas seulement la geometrie"
 grep -qiE 'avant.*titre|pre.?titre|before.*title' "$R" || fail "le chargement du niveau du titre AVANT la sequence d'\''intro doit etre traite"
 grep -qiE 'temps total|total.*titre' "$R" || fail "le temps total jusqu'\''au titre doit etre publie avant/apres (il ne doit pas augmenter)"
+grep -qiE 'anim|sequence' "$R" && grep -qE '[0-9]+ +images|images=[0-9]+|frames=[0-9]+' "$R" || fail "la silhouette ANIMEE doit publier son nombre d'\''images"
+grep -qiE 'boucle|loop' "$R" || fail "la duree de la boucle d'\''animation doit etre publiee"
+grep -qiE 'polarite|inverse|E, ?G, ?H' "$R" || fail "l'\''atlas precurseur CORRIGE (7 glyphes inverses) doit etre repris et le dire"
+grep -qiE 'pixellis|filtrage|nearest|lineaire|bilineaire' "$R" || fail "la pixellisation des glyphes doit etre traitee : taille de rendu et filtrage publies"
+grep -qE 'largeur.*[0-9]+ *(px|pixels)' "$R" || fail "les largeurs texte et ligne precurseur doivent etre publiees en pixels, egales a moins de 2 px"
 ok "report markers present"
 SUP=$(git log --format=%H --grep="\[autoport/supervisor\]" | head -1); ANCHOR=${SUP:-HEAD~1}
 CHG=$(git diff --name-only "$ANCHOR" -- goal_src/ game/ android/ recharged_assets/ 2>/dev/null; git status --porcelain -- goal_src/ game/ android/ recharged_assets/ 2>/dev/null | awk "{print \$2}")
