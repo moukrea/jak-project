@@ -150,3 +150,57 @@ c'est les acteurs.
 
 **NE PAS relever le plafond « au cas ou »** : si la cause est les acteurs, ca allonge l'ecran noir
 sans rien reparer, et le prix est paye deux fois.
+
+---
+
+# RETOUR OWNER 2026-08-29 (3) — TROIS DEFAUTS SUR L'ECRAN LIVRE
+
+## 1. Glyphes precurseurs inverses — CORRIGE cote asset, a reprendre
+
+> « les glyphs precursor sont pixellisés et certains sont inversés (fond blanc glyph noir)
+> pendant que d'autres sont bons »
+
+Cause trouvee et corrigee dans `recharged_assets/font/precursor/` : la generation devinait la
+polarite PAR GLYPHE avec la regle « l'encre est minoritaire », fausse pour les formes pleines.
+**E, G, H, K, M, P, S** — exactement les sept dont l'encre couvre plus de 50 % de la boite —
+etaient retournes. Atlas et fichiers individuels regeneres, polarite determinee une seule fois
+depuis la planche source.
+
+**A faire ici** : reprendre l'atlas corrige. Et traiter la PIXELLISATION : les glyphes source
+font ~70 px de haut ; publier la taille a laquelle ils sont rendus a l'ecran et le filtrage
+applique. Un agrandissement au plus proche voisin sur 70 px donne exactement ce que l'owner
+decrit.
+
+## 2. La ligne precurseur est PLUS LARGE que le texte — l'inverse de la demande
+
+> « le texte "Chargement..." est moins large que son pendant en Precursor, ce que je voulais
+> éviter, t'as pas réussi »
+
+La demande d'origine est sans ambiguite : **la ligne precurseur fait la largeur EXACTE du texte
+localise**. La preuve `.autoport/design/precursor-proof.png` l'obtient en mesurant la largeur
+rendue du texte puis en mettant la ligne a l'echelle : 210 px / 310 px / 255 px pour anglais,
+francais, espagnol, avec des facteurs 0,483 / 0,554 / 0,562.
+
+**Le rendu du jeu ne fait pas cette mise a l'echelle.** Exiger : publier, pour au moins trois
+langues, la largeur rendue du texte ET la largeur rendue de la ligne precurseur. **Elles doivent
+etre egales a moins de 2 px.**
+
+## 3. La silhouette doit etre ANIMEE — j'avais sous-specifie, c'est ma faute
+
+> « la silhouette de Jak and Daxter en train de courir latéralement vers la droite... bah c'est
+> pas animé ! J'avais explicitement demandé de capturer cette animation in game (mets un fond vert
+> ou whatever) en haute résolution pour ensuite en faire une séquence d'images animées en haute
+> définition où toute l'image extraite du fond vert est transformée en blanc plein (silhouette). »
+
+Le brief initial disait « je propose une image fixe d'abord, une boucle animee est une extension
+naturelle ». **C'etait une reduction de perimetre que l'owner n'avait pas demandee.** Sa demande
+du 2026-08-28 disait deja « vraie animation, capturee d'une certaine facon in-game ».
+
+**Le livrable est une SEQUENCE ANIMEE**, produite ainsi :
+1. Capturer l'animation de course reelle en jeu, vue de cote, **sur fond uni contraste** (vert ou
+   equivalent), en haute resolution.
+2. Extraire le sujet du fond et le convertir en **blanc plein** — silhouette, pas un detourage
+   avec des degrades de couleur.
+3. En faire une sequence d'images, jouee en boucle.
+
+Publier : nombre d'images, resolution, et la duree de la boucle.

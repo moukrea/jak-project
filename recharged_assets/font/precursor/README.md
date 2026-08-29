@@ -49,3 +49,22 @@ exactement ce que l'owner demandait.
   dont le mot porte un accent (par ex. l'espagnol « CARGANDO » n'en a pas, mais d'autres si) devra
   se rabattre sur la lettre non accentuee. A trancher langue par langue.
 - Les langues non latines (japonais) n'ont pas de translitteration evidente : prevoir un repli.
+
+---
+
+## CORRECTION 2026-08-29 — sept glyphes etaient inverses
+
+L'owner : « certains sont inversés (fond blanc glyph noir) pendant que d'autres sont bons ».
+
+**Cause** : la generation devinait la polarite PAR GLYPHE avec la regle « l'encre est
+minoritaire ». Elle est fausse pour les formes PLEINES : **E, G, H, K, M, P, S** couvrent plus de
+la moitie de leur boite englobante. Ces sept-la, et exactement ces sept-la, etaient retournes.
+
+**Correctif** : la polarite est desormais determinee **UNE SEULE FOIS** depuis la planche source
+(l'encre y est sombre sur fond clair) et appliquee uniformement. Plus aucune heuristique par
+glyphe. Verification : `.autoport/design/precursor-alphabet.png`, les 26 glyphes rendus a la
+suite, tous blancs sur fond noir.
+
+**Lecon** : une heuristique qui suppose une propriete statistique de la donnee ("l'encre est
+minoritaire") echoue precisement sur les cas ou cette propriete ne tient pas — et elle echoue
+SILENCIEUSEMENT, en produisant un resultat plausible.
