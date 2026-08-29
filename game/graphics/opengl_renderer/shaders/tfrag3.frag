@@ -712,7 +712,27 @@ void main() {
       vec3 Tn, Bn;
       if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
         Tn = normalize(v_tangent.xyz - Nsurf * dot(Nsurf, v_tangent.xyz));
-        Bn = cross(Nsurf, Tn) * (v_tangent.w < 0.0 ? -1.0 : 1.0);
+        // Gpbr-per-texture-materials — the handedness comes from THE FACE, not from the vertex.
+        // Same defect, same reasoning and the same A/B bit as pbr_fused.glsl (see the long comment
+        // there): .w is ONE sign per vertex, handedness is a property of the FACE, and on village1
+        // 45.9% of triangles carry a mirrored UV chart. dp1/dp2 are already the world-position
+        // derivatives computed above in this same scope; invert the full 2x2 screen->UV Jacobian to
+        // recover the true geometric dP/dv, whose sign is what the bitangent must follow.
+        vec2 fdUx = dFdx(tex_coord.xy), fdUy = dFdy(tex_coord.xy);
+        float fdetJ = fdUx.x * fdUy.y - fdUx.y * fdUy.x;
+        vec3 fdPdv = (fdUx.x * dp2 - fdUy.x * dp1) / (abs(fdetJ) > 1e-9 ? fdetJ : 1.0);
+        vec3 fdPdu = (fdUy.y * dp1 - fdUx.y * dp2) / (abs(fdetJ) > 1e-9 ? fdetJ : 1.0);
+        // Gpbr-per-texture-materials, BANK-2 BIT 2 — per-FACE tangent DIRECTION, same defect class
+        // and same remedy as the handedness above (see pbr_fused.glsl for the measured population).
+        // Flips only an ALREADY-reversed tangent, and runs before the handedness sign, which is then
+        // derived from the corrected T.
+        if ((u_pbr_bisect2 & 2) == 0 && abs(fdetJ) > 1e-9 && dot(Tn, fdPdu) < 0.0) {
+          Tn = -Tn;
+        }
+        float fhs = dot(cross(Nsurf, Tn), fdPdv);
+        Bn = cross(Nsurf, Tn) * (((u_pbr_bisect2 & 1) == 0 && abs(fdetJ) > 1e-9 && abs(fhs) > 1e-9)
+                                     ? (fhs < 0.0 ? -1.0 : 1.0)
+                                     : (v_tangent.w < 0.0 ? -1.0 : 1.0));
       } else {
         // REOPEN#9: same continuous normal-derived basis as the fused path — NEVER the screen-space
         // derivative frame (per-triangle-constant = the facet source). Standalone rt-OFF+pbr-ON path.
@@ -813,6 +833,10 @@ void main() {
       vec3 N = Nsurf;
       if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7) {
         vec3 nm = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
+        nm.y *= u_pbr_mat.w;  // Gpbr-per-texture-materials: espace de la normal map, +1 OpenGL /
+                              // -1 DirectX. Etait suppose OpenGL pour TOUTES les textures
+                              // indistinctement. Avant la reconstruction de Z du bit 128, comme
+                              // dans le chemin fusionne.
         // Grecharged-managed-assets: two-channel (X/Y) normal from a compressed pack — rebuild Z
         // before the gradient decode, exactly as the fused path does.
         if ((u_pbr_mode & 128) != 0) {
@@ -847,8 +871,10 @@ void main() {
       vec3 albedo = pow(T0p.rgb, vec3(2.2));
       // REOPEN #6: missing _roughness => ROUGH (matte), never smooth — a smooth default is the
       // exact cause of the plastic sheen the owner reported on the PBR-ONLY preset.
-      float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.9;
-      float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
+      // Gpbr-per-texture-materials: memes deux boutons que le chemin fusionne (repli sans map,
+      // facteur sur la map liee). Defauts (0.9, x1.0) = les constantes ecrites ici auparavant.
+      float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r * u_pbr_mat2.x : u_pbr_mat.x;
+      float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r * u_pbr_mat2.y : u_pbr_mat.y;
       float ao    = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
       float NdV = max(dot(N, V), 1e-4);
       // GLASS-PANE fix (owner preset report 2026-07-23): the PBR ONLY preset showed the
@@ -860,7 +886,7 @@ void main() {
       rough = clamp(rough, 0.045, 1.0);
       float a = max(rough * rough, 0.002);
       float a2 = a * a;
-      vec3 F0 = mix(vec3(0.04), albedo, metal);
+      vec3 F0 = mix(vec3(u_pbr_mat.z), albedo, metal);  // Gpbr-per-texture-materials: reflectance
       vec3 Fceil = max(vec3(1.0 - rough), F0);
       // REOPEN #6 MATTE-DIELECTRIC DEFAULT (owner sees the same glass on the PBR-ONLY preset):
       // rough dielectrics reflect ~nothing — drive the direct GGX + env reflection toward ~0 by

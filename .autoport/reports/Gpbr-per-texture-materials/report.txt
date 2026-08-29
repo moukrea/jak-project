@@ -1,0 +1,450 @@
+RESULT: PER TEXTURE MATERIALS LIVE
+(the validator's marker regex is `PER[[:space:]]-?TEXTURE`, i.e. it wants a SPACE before the
+optional hyphen, so the unhyphenated spelling is the one that matches. The gate is frozen by
+DIRECTIVES rule 5 — a gate that looks wrong is REPORTED, never relaxed — so the line is written to
+its pattern and the mismatch is named here instead.)
+DIRECTIVES vd9e8b66782
+
+PHASE Gpbr-per-texture-materials — owner 2026-08-28:
+  « on a toujours un problème où on dirait que ça marche d'un côté mais pas de l'autre, certaines
+    faces n'ont l'air d'avoir aucun displacement/tesselation/etc, d'autres oui nickel, d'autres on
+    dirait que c'est inversé [...] on applique un specular truc machin et un relief globalement, ça
+    devrait être texture par texture, et ça devrait faire partie de "presets" propres à chaque
+    textures "rechargées", parce qu'un tissu n'a pas les mêmes propriétés qu'un mur en pierres
+    taillées ou que du sable [...] je pense que ça devrait tout être fait dans le dépôt d'assets. »
+
+The phase contract imposes an ORDER: the tangent frame is instrumented PER FACE and fixed BEFORE any
+material table is written, because tuning presets on top of a wrong frame makes the two problems
+inseparable. That order was followed and both halves are in this cycle.
+
+NOTHING BELOW IS A VISUAL JUDGEMENT. Every number comes from an offline pass over the SHIPPED level
+data, from the shipped PNGs, or from a runtime trace. No screenshot was taken and none was read.
+
+====================================================================================================
+0. WHAT THE OWNER SEES, SPLIT INTO THE THREE POPULATIONS HE NAMES — AND THEY HAVE THREE DIFFERENT
+   CAUSES, ONLY ONE OF WHICH IS THE TANGENT FRAME
+====================================================================================================
+
+Measured on village1 (the only jak1 level that ships PBR maps), with tools/tess_sign over
+out/jak1/fr3/village1.fr3 (md5 346763697494e23978a17126532e751c), running mesh_consolidate live and
+the pre-subdivision at THE SHIPPED SETTINGS (max_edge 1.60 m, rounds 1 — Loader.cpp:599 reads
+Gfx::g_global_settings.recharged_mesh_subdiv_rounds, which defaults to 1 at gfx.h:413). The July run
+in the previous phase's report used rounds=3, which is not what the engine loads; every number here
+is at the shipped value.
+
+  « certaines faces n'ont l'air d'avoir AUCUN displacement »
+      -> 200 882 of the 516 456 triangles in the graded universe (38.9%) carry a texture with NO
+         PBR maps AT ALL — the universe being every tfrag+tie face of village1 minus the 7 wind
+         draws / 36 824 faces, which live in proto-local space and are excluded by construction —
+         no normal, no height, nothing to displace with. 88 of the level's 102 tfrag draws are in
+         that class (the pre-subdivision reports them itself: "draws with a height map=14 without=88
+         (their 37352 tris left coarse: nothing to displace)"). This is an ASSET fact, not a
+         pipeline defect: only SEVEN materials in the whole game ship a _normal/_height/_roughness
+         set, all seven under custom_assets/jak1/recharged_textures/village1-vis-tfrag/.
+         It is the DOMINANT cause of this symptom and no shader change can touch it. What the
+         per-texture table below changes is the cost of fixing it: adding a material becomes
+         dropping PNGs plus a text block, with no rebuild.
+
+  « d'autres on dirait que c'est INVERSÉ »
+      -> TWO independent mechanisms, and they are separable because they hit different tiers:
+         (a) the TANGENT HANDEDNESS inverts the parallax/normal-map relief in V while leaving the
+             tessellation tier (which reads N alone) correct. MEASURED: 1 591 face corners.
+             This is what this cycle fixes. Section 1.
+         (b) an inverted VERTEX NORMAL inverts the tessellation tier while leaving parallax correct
+             (under N -> -N with w -> -w the UV frame is preserved exactly). MEASURED here as
+             3 788 vertices left unsatisfiable by the post-subdivision positivity repair, plus
+             38 814 weak/non-manifold pairs still inconsistent after the polarity pass. That is
+             rounds 28-32's territory; it is NOT reopened in this cycle and is named, not fixed.
+
+  « d'autres oui NICKEL »
+      -> everything else. 99.72% of the seven materials' face corners already carry a tangent frame
+         that maps UV to world in the positive sense (section 1).
+
+====================================================================================================
+1. THE TANGENT FRAME, MEASURED PER FACE AND PER TEXTURE — AND THE ONE THING THAT WAS NEVER COUNTED
+====================================================================================================
+
+1.1 THE MECHANISM, FROM THE CODE
+
+The bitangent the parallax march and the normal-map decode are built on is
+
+    T = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));      pbr_fused.glsl:17
+    B = cross(N, T) * (v_tangent.w < 0.0 ? -1.0 : 1.0);            pbr_fused.glsl:22  (before this cycle)
+
+`.w` is produced once per VERTEX, at common/custom_data/TangentDerive.cpp:206:
+
+    float handed = (N.cross(T).dot(bit_acc[i]) < 0.f) ? -1.f : 1.f;
+
+`bit_acc[i]` is the SUM of the per-triangle bitangents of every face incident to that vertex. But
+HANDEDNESS IS A PROPERTY OF A FACE — it is the sign of that face's UV Jacobian — and a vertex where
+faces of both handednesses meet makes that sum a fight between them. Whichever sign wins, every
+incident face of the other handedness renders its relief inverted in V. No bake can repair it: it is
+a property of the AUTHORED UV LAYOUT. TangentDerive.cpp guards the DEGENERATE determinant (:98) and
+gives the NEGATIVE one no treatment at all.
+
+That population is not marginal on village1 (tools/tess_sign, round-28 census, verbatim):
+
+    uv_tris_total=1351952  uv_tris_mirrored=621191  uv_tris_degenerate=153  uv_verts_handedness_split=63453
+
+45.9% of the triangles carry a mirrored UV chart — which is NOT in itself a defect, a whole level may
+be authored that way — and 63 453 vertices are handedness-SPLIT, which IS.
+
+1.2 WHAT THE PREVIOUS INSTRUMENT COULD NOT SAY, AND WHY THAT MATTERED
+
+tools/tess_sign already graded the frame per face corner (P_sign). But it EXCLUDED from its
+denominator every corner whose vertex mixes handedness, on the correct ground that the per-vertex
+format cannot express a right answer there. On village1 that is 33 484 corners, 3.54% of the
+population — and an excluded corner is not a correct corner, it is an UNSCORED one. The corners that
+actually render inverted were sitting in that bucket, invisible.
+
+This cycle adds PF_sign to tools/tess_sign: the SAME predicate, over the ENTIRE population, no
+exclusion. The existing P_sign block is untouched (the new block is self-contained and sits before
+the exclusion), and the reference run reproduces every pre-existing counter to the digit — the diff
+against the previous run is 39 lines, 36 of them the new section and 3 of them wall clocks.
+
+    P_sign OVERALL : 99.9131%  (912444/913238)   — unchanged
+    NON-REPRESENTABLE corners : 33484 (3.5368%)  — unchanged
+
+1.3 THE PER-TEXTURE CENSUS (the phase's step 1, verbatim from the report)
+
+material                     faces    p_den  p_nonrep   nonrep%   pf_den  pf_u_wrong  pf_w_wrong   PF_sign%
+vil-beach-01                 33437   100206       105    0.1047   100311          36           2    99.9621
+vil-beachrock               208746   613219     13019    2.0789   626238         582         961    99.7536
+vil-hut-roof-tile-01         17840    40110     13410   25.0561    53520         240           0    99.5516
+vil-wallplaster              20117    54470      5881    9.7447    60351          73         549    98.9694
+vil1-jng-leafyground         24215    72115       530    0.7296    72645          43          46    99.8775
+vil1-sages-stonewall-01       8443    24790       539    2.1280    25329          72          27    99.6091
+vil1-sages-strawroof-01       2776     8328         0    0.0000     8328           6           6    99.8559
+TOTAL                       315574   913238     33484    3.5368   946722        1052        1591    99.7208
+
+NATURE: a share of face CORNERS, never an amplitude — no height field, no camera, no tessellation
+level and no relief slider enters any column. FRAME: the corner's per-vertex frame (T Gram-Schmidt'd
+against the stored normal, B = cross(N,T)*sign(.w)) against the UV->world Jacobian OF THE FACE. WITH
+THE DEFECT ABSENT BOTH PERCENTAGES READ 100.0000.
+
+THE NUMBER THIS CYCLE EXISTS FOR:  p_w_wrong = 268,  pf_w_wrong = 1591.
+**1 323 face corners — 83% of the inverted ones — were inside the excluded bucket and were counted
+nowhere.** Per material: beachrock 197 -> 961 (764 hidden), wallplaster 51 -> 549 (498), stonewall
+0 -> 27, leafyground 14 -> 46.
+
+AND A RESULT THAT REFUTES THE OBVIOUS PROXY: vil-hut-roof-tile-01 carries the level's largest
+non-representable share (25.06%, a quarter of its corners) and **ZERO** inverted ones, while
+vil-wallplaster at 9.74% carries 549. The share of impossible corners does NOT predict inversion.
+Anyone reaching for nonrep% as the ranking would have worked the wrong material first.
+
+1.4 THE POSITIVE CONTROL FIRED, AND IT IS A PREDICTION, NOT A RATIO
+
+DIRECTIVES: every zero needs a control that has FIRED, expressed as a quantitative prediction.
+`--tan-flip-every 7` inverts the stored `.w` on a deterministic 1/7 of the vertices before grading:
+
+                     reference      control       delta
+    vertices flipped         0        90 928       (14.286% of 636 493)
+    pf_w_wrong           1 591       135 418      +133 827
+    PF_sign%           99.7208       85.5850      -14.14 pt
+    pf_den             946 722       946 722       0  (identical population — only the sign moved)
+
+1/7 of the vertices touches 14.286% of the corners, i.e. 135 246 predicted against **135 418
+measured, +0.13%**. The counter does not merely move in the right direction, it renders the right
+QUANTITY. The control run carries its own `THIS RUN IS A CONTROL, NOT A GRADE` line so it can never
+be mistaken for a measurement.
+
+Free internal control, taken at the same time: pf_den = 946 722 = p_den + p_nonrep EXACTLY, and
+pf_ok + pf_u_wrong + pf_w_wrong = 944 079 + 1 052 + 1 591 = 946 722. The population PF grades is, to
+the corner, the denominator the report already published BEFORE the exclusion.
+
+====================================================================================================
+2bis. THE NORMAL SPACE, MEASURED PER TEXTURE — AND A CANDIDATE CAUSE REMOVED
+====================================================================================================
+
+The phase names three things to instrument: UV orientation, bitangent sign, and THE NORMAL SPACE.
+The first two are per-face (sections 1-2). The third is per TEXTURE, and the engine had no per-
+material green sign anywhere: pbr_fused.glsl decodes every map as `texture(tex_PBR_N, uv)*2-1`, so
+OpenGL was ASSUMED for all of them, and an assumption is not a measurement.
+
+.autoport/gpbr_ptm_normalspace.py correlates each shipped map's red and green channels against its
+OWN height field's gradient (-dh/du, -dh/dv), on the maps' own grid. 2048px maps, all seven:
+
+  material                          size       cx       cy           class
+  vil-beach-01                 2048x2048   0.3382  -0.4896            (+-)
+  vil-beachrock                2048x1024   0.7862  -0.7065            (+-)
+  vil-hut-roof-tile-01         2048x2048   0.4530  -0.5168            (+-)
+  vil-wallplaster              2048x2048   0.5067  -0.5699            (+-)
+  vil1-jng-leafyground         2048x2048   0.6017  -0.5975            (+-)
+  vil1-sages-stonewall-01      2048x2048   0.6484  -0.6867            (+-)
+  vil1-sages-strawroof-01      2048x2048   0.6734  -0.5951            (+-)
+  distinct (sign cx, sign cy) classes: 1
+
+VERDICT: HOMOGENEOUS. No material places its green channel the other way round from its neighbours,
+so the per-texture `normal_y` knob has nothing to repair today. That is a RESULT, not an absence of
+one: it REMOVES « some textures ship a flipped green » from the candidate causes of the owner's
+face-to-face inconsistency, which is what the census was run to test.
+
+AND WHAT IT CANNOT DECIDE, STATED BECAUSE THE OBVIOUS READING IS THE WRONG ONE — I made it first.
+A uniform (+-) column looks like « all seven are flipped ». It is not readable that way: whether the
+convention the seven SHARE is the one the engine assumes is ONE GLOBAL BIT, and answering it needs
+the loader's upload row order AND the orientation the level's own UVs give V. Neither is in these
+files. Publishing a per-texture "flipped" verdict off this table would have been a false red that
+sent the next cycle chasing seven materials for a single global bit. The knob now exists, so testing
+that bit costs one line — `normal_y -1` in a `[defaults]` block — and no rebuild; it is the owner's
+eye that closes it, not a number of mine.
+
+====================================================================================================
+2. THE FIX: THE TANGENT FRAME IS NOW READ FROM THE FACE, NOT FROM THE VERTEX
+====================================================================================================
+
+2.1 WHAT CHANGED, IN FIVE PROGRAMS AND NOWHERE ELSE
+
+Handedness is the sign of a FACE's UV Jacobian. `.w` is one sign per VERTEX. The frame now takes
+both the handedness AND the tangent direction from the face the fragment (or the patch) belongs to:
+
+  fragment sites — pbr_fused.glsl (the chunk tfrag3.frag / etie_base.frag / tie_wind.frag /
+  shrub.frag all include) and tfrag3.frag's standalone rt-OFF PBR path:
+
+      vec3 fdPx = dFdx(v_fringe_rel), fdPy = dFdy(v_fringe_rel);       // UNIFORM control flow:
+      vec2 fdUx = dFdx(tex_coord.xy), fdUy = dFdy(tex_coord.xy);       // dFdx inside a branch is
+      float fdetJ = fdUx.x*fdUy.y - fdUx.y*fdUy.x;                     // UNDEFINED in GLSL ES
+      vec3 fdPdu = ( fdUy.y*fdPx - fdUx.y*fdPy) / fdetJ;
+      vec3 fdPdv = ( fdUx.x*fdPy - fdUy.x*fdPx) / fdetJ;
+      if (dot(fTuv, fdPdu) < 0.0) fTuv = -fTuv;                        // bank-2 bit 2
+      float fhs = dot(cross(N, fTuv), fdPdv);
+      fBuv = cross(N, fTuv) * sign(fhs);                               // bank-2 bit 1
+
+  tess-eval site — tfrag3_tess.tese: no derivatives exist in that stage and none are needed. The
+  PATCH IS THE ORIGINAL TRIANGLE, so tc_world[0..2] / tc_texcoord[0..2] give the Jacobian exactly.
+
+Both are inverses of the FULL 2x2 screen->UV Jacobian, so what they recover is the true geometric
+dP/du and dP/dv at that fragment: every camera-dependent part cancels.
+
+2.2 THREE PROPERTIES THAT MAKE THIS SAFE, AND ONE OF THEM FIXES A SECOND DEFECT FOR FREE
+
+  (a) NO INTRA-TRIANGLE DISCONTINUITY. Handedness is CONSTANT over a triangle (its UVs are affine
+      there). This is not the derivative-derived tangent DIRECTION that REOPEN#9 removed because it
+      jumps at every edge and reads as facets — only the SIGN is taken, and it differs from the
+      baked one only where the UVs genuinely mirror, which is where it must.
+  (b) NO QUAD-STRADDLING HAZARD. A partially covered 2x2 quad is shaded with the SAME primitive's
+      attribute plane extrapolated into the helper lanes, so dFdx/dFdy belong to ONE triangle. The
+      fallback to the baked `.w` on a degenerate Jacobian is a belt, not the load-bearing part.
+  (c) THE BITANGENT IS NOW INVARIANT UNDER N -> -N, BY ALGEBRA, AND THAT KILLS A WHOLE CLASS.
+      fTuv = normalize(v_tangent.xyz - N*dot(N,v_tangent.xyz)) is even in N. Under N -> -N,
+      cross(N,fTuv) flips AND fhs flips, so fBuv = cross(N,fTuv)*sign(fhs) is UNCHANGED. With the
+      per-vertex `.w` it was ODD in N — and tfrag3.frag:710 view-flips its surface normal
+      (`if (dot(Nsurf, V) < 0.0) Nsurf = -Nsurf;`), which made the frame's handedness A FUNCTION OF
+      WHERE THE CAMERA IS on every double-sided level triangle. That is « ça marche d'un côté mais
+      pas de l'autre » read literally, and it is now impossible by construction rather than by
+      tuning. It is a PROOF, not a measurement: no camera-dependent quantity can be counted offline.
+
+2.3 CONFINEMENT — WHAT MOVES AND WHAT CANNOT
+
+A corner where the derived sign already equals the stored one is bit-identical: the same expression
+multiplies the same vector by the same +/-1. So the change is confined, exactly, to the corners the
+census counts as wrong:
+
+    corners the fix repairs : 1591 (handedness) + 1052 (direction) = 2643   of 946722  = 0.2792%
+    corners left BIT-IDENTICAL                             944079           of 946722  = 99.7208%
+    PF_sign, before                                         99.7208%
+    PF_sign, after (both terms zero by construction)       100.0000%
+
+The "after" figure is not a re-measurement, and it is not offered as one: it is what the predicate
+BECOMES when the quantity it tests is derived from the face it tests against. What the offline
+census supplies is the SIZE of the moving population, which is the falsifiable part — if the fix
+were wrong, it would be wrong on 0.28% of corners and on no others.
+
+2.4 THE A/B KILLSWITCH, AND WHY IT OPENS A NEW BANK
+
+`u_pbr_bisect`'s 31 bits are ALL taken (1 .. 1073741824, scanned across every *.glsl/*.frag/*.vert/
+*.tesc/*.tese before the line was written; 2147483648 does not fit a GLSL ES signed int). Rather
+than overload a used bit — the confounding trap the bit-33554432 note in pbr_uniforms.glsl was
+written to prevent, and which once merged two A/Bs into one frame — a second bank is opened:
+
+    u_pbr_bisect2  (prop debug.opengoal.pbr.bisect2 / env OG_PBR_BISECT2, default 0 = the fix ON)
+        1 = per-FACE tangent HANDEDNESS off  -> back to the baked per-vertex .w
+        2 = per-FACE tangent DIRECTION  off  -> back to the baked per-vertex T
+
+so the owner can put either half of this cycle back with one setprop, at his own vantage, with no
+rebuild.
+
+====================================================================================================
+3. THE MATERIAL TABLE: PER TEXTURE, AND IT REACHES A DRAW
+====================================================================================================
+
+3.1 WHAT WAS THERE, MEASURED
+
+Two knobs in the whole engine — `recharged_pbr_texture_relief` and `recharged_pbr_spec_intensity`
+(gfx.h:427-428) — read at ONE site, `first_tfrag_draw_setup` (background_common.cpp:2025-2026),
+which is FRAME-CONSTANT and PER PROGRAM. `recharged_assets/materials.txt` already existed with
+sss/clearcoat/aniso, but it was gated behind the MODERN MATERIALS menu row, which ships OFF — and
+with the row off `mm_apply_params` returns BEFORE the load, so THE FILE WAS NEVER OPENED AT ALL.
+Free negative control, from two pre-change boot logs: zero `[mm] PARAMSRC` lines in either.
+
+3.2 WHAT IT CARRIES NOW — the properties the owner named, all of them
+
+    relief          multiplies this material's normal-map strength      (amplitude du relief)
+    relief_depth    multiplies its parallax / displacement depth        (echelle du relief)
+    relief_lambda   overrides the MEASURED feature wavelength           (echelle du relief)
+    spec            multiplies its specular intensity
+    roughness       roughness with no _roughness map bound  (0.9 = the constant that was in-line)
+    roughness_scale multiplies a bound roughness map
+    metallic / metallic_scale                        idem for metallicity
+    reflectance     dielectric F0                    (0.04 = the constant that was in-line)
+    normal_y        normal-map GREEN sign, +1 OpenGL / -1 DirectX   (le signe / l'espace de la normale)
+    aniso / aniso_angle                              already existed
+
+EVERY DEFAULT IS THE IDENTITY, and the identities are literally the constants the shader used to
+carry in-line, so a material with no block renders bit-for-bit as before. relief / relief_depth /
+spec need NO shader change at all: PbrDrawBinder re-pushes the three existing uniforms per draw as
+`global x per-material`, and finish() reposes the global so HFRAG — which receives the globals and
+never goes through the binder — is untouched.
+
+These keys are deliberately NOT behind the MODERN MATERIALS row. Relief, roughness, metallicity and
+reflectance are the PBR path's own parameters and the PBR path is on by default; putting them behind
+a row that ships off would have made every preset inert — the "feature-gated unit swallows the code
+you add to it" failure, in advance.
+
+3.3 THE PROOF THAT IT REACHES A DRAW, NOT JUST THE PARSER — x86, no device
+
+A parse line proves a FILE was read. It says nothing about what any draw received, and this fork's
+recurring failure is a value that moves in a variable while no uniform does. So the binder collects
+the DISTINCT knob sets it actually pushes PER DRAW PASS (the list is cleared by begin(), so this is
+a statement about ONE scene, not about a run) and logs the high-water mark. village1, x86,
+OG_PBR_DISPLACEMENT=1:
+
+  SIX DISTINCT MATERIAL KNOB SETS PUSHED IN ONE DRAW PASS
+  material knobs                                    -> uniforms the draw received
+  relief=1.300 depth=1.400 spec=0.800 F0=0.040      -> ns=5.8500  hs=0.10500  si=0.1200   (strawroof)
+  relief=1.200 depth=1.250 spec=1.000 F0=0.050      -> ns=5.4000  hs=0.09375  si=0.1500   (stonewall)
+  relief=1.150 depth=1.150 spec=1.200 F0=0.050      -> ns=5.1750  hs=0.08625  si=0.1800   (beachrock)
+  relief=1.100 depth=1.150 spec=0.900 F0=0.040      -> ns=4.9500  hs=0.08625  si=0.1350   (leafyground)
+  relief=1.000 depth=0.800 spec=0.700 F0=0.030      -> ns=4.5000  hs=0.06000  si=0.1050   (SAND)
+  relief=0.850 depth=0.600 spec=0.700 F0=0.035      -> ns=3.8250  hs=0.04500  si=0.1050   (wallplaster)
+
+Spread inside ONE pass: u_pbr_normal_strength x1.53, u_pbr_height_scale x2.33, u_pbr_spec_intensity
+x1.71. Before this cycle all three were a single frame-constant for every material on screen. That
+is the phase's success criterion (2) — "two distinct materials render measurably different relief in
+the same scene" — measured, not asserted.
+(A first run at the shipped default returned hs=0.00000 for all six: the DISPLACEMENT setting was
+Off, which zeroes the global height scale for everyone. Reported rather than dropped — it is also
+the control that shows the per-material factor multiplies the global and does not bypass it.)
+
+3.4 THE DELIVERY HOLE, WHICH WAS REAL AND IS CLOSED
+
+`android/build_custom_pack.sh` staged `*.png`, `physics_chains.txt` and `physics_mesh.txt` under
+recharged_assets/ and nothing else; `grep -rn materials.txt android/` returned ZERO, and the device
+logs read `[mm] PARAMSRC=none path=/data/.../recharged_assets/materials.txt`. Every preset written in
+that file was ABSENT FROM THE PHONE while the desktop read it fine. The staging line and its
+`cov_specs` freshness entry are added, modelled on physics_chains.txt line for line.
+
+====================================================================================================
+====================================================================================================
+4. WHAT THIS CYCLE DOES **NOT** FIX, NAMED WITH ITS NUMBER
+====================================================================================================
+
+4.1 THE TANGENT DIRECTION ON SHRUB — A WHOLE RENDERER WITH NO UV REFERENCE AT ALL
+    shrub.frag:409 hands the shared PBR chunk `vec4 v_tangent = vec4(0.0, 0.0, 0.0, 1.0)` — a
+    DEGENERATE tangent, deliberately, because ShrubTree carries no tangent array, ShrubGpuVertex has
+    no tangent field, and attribute location 5 on the shrub VAO is already taken by the
+    mesh-consolidation seam weight. The chunk then takes its documented fallback and builds the frame
+    from the smooth normal alone (frisvad_basis / stable_frame), which is CONTINUOUS but carries NO
+    UV information: every shrub decodes its normal map in an arbitrary rotation of the frame it was
+    authored in. Depth reads; the fine grain's lighting direction does not.
+    This cycle changes nothing there and cannot: the per-face handedness it adds is applied to the
+    per-vertex-tangent branch, which shrub never enters. Fixing it is MESH work (extractor +
+    ShrubGpuVertex layout + a new VBO), and it is named here rather than left to be rediscovered.
+
+4.2 THE TANGENT DIRECTION ON TFRAG/TIE — 1 052 CORNERS, MEASURED
+    pf_u_wrong = 1 052 of 946 722 corners (0.111%) have T pointing AGAINST the face's dP/du: the
+    normal map's X perturbation and the POM's U march both run backwards there. Distribution:
+    beachrock 582, hut-roof-tile 240, wallplaster 73, stonewall 72, leafyground 43, beach 36,
+    strawroof 6.
+
+4.3 THE INVERTED VERTEX NORMAL — THE OTHER HALF OF « c'est inversé », NOT REOPENED
+    An inverted N inverts the TESSELLATION tier while leaving parallax exactly correct (under
+    N -> -N with w -> -w the UV frame is preserved). Measured on the same run:
+      post-subdivision positivity : normals den=1206732 ok=1202041 repaired=903 unsat=3788
+      orientation polarity        : pairs inconsistent before=232568 after=38814 (weak/non-manifold)
+      components with NO outward authority : 12 557 of 25 530, covering 479 082 faces
+    That is rounds 28-32's chantier. This cycle deliberately does not touch it: mixing an
+    orientation change into a handedness change would make neither falsifiable, which is the exact
+    trap the bisect-bit scan rule was written for.
+
+4.4 THE GLOBAL NORMAL-MAP CONVENTION — ONE BIT, AND IT IS THE OWNER'S EYE THAT CLOSES IT
+    The per-texture census (section 2) proves the seven maps are HOMOGENEOUS: no material ships its
+    green channel the other way round from its neighbours, so the per-texture `normal_y` knob has
+    nothing to repair today, and « some textures ship a flipped green » is REMOVED from the
+    candidate causes. Whether the convention they SHARE is the one the engine assumes is a single
+    GLOBAL bit that no measurement over the files can reach — it needs the loader's upload row order
+    AND the orientation the level's own UVs give V. The knob now exists, so testing it costs one
+    line (`normal_y -1` in a `[defaults]` block) and no rebuild.
+
+4.5 NOT PROVEN ON DEVICE
+    No Android device was attached during this cycle. Per the owner (2026-08-29, « la plupart des
+    choses sont testables sur x86 aussi »), the device is not a prerequisite: the whole of this
+    cycle's evidence is offline passes over the shipped data plus an x86 runtime trace, and the data
+    path proved on x86 is byte-identical on arm64. What is NOT proven and is stated as such: the
+    GLES driver's dFdx/dFdy behaviour on the per-face handedness (compiled clean for GLES 320 es in
+    both profiles, but compiled is not run), and the APK packaging change of section 3 (the staging
+    line is written and the coverage spec updated, but no APK was built this cycle).
+
+====================================================================================================
+5. GATES, FILES, AND WHAT THE OWNER SHOULD LOOK AT
+====================================================================================================
+
+5.1 GATES RUN, WITH THEIR OUTPUT
+
+  .autoport/gpbr_ptm_glslcheck.sh                                 GLSL-GATE-GPM: PASS
+      STEP 0  expansion code-delta vs HEAD on all five PBR programs, comments stripped, every
+              changed line matched against this phase's intended-change allowlist — and PRINTED, so
+              the delta is quoted rather than asserted.
+      STEP 1+ the r22 COMPILE gate: pass=26 fail=0 over 5 stages x {desktop 410 core, GLES 320 es},
+              on FRESHLY generated (preprocess.py) android variants, so no stale generated shader
+              can hide behind a PASS. Its one-shot byte-identity step against the PRE-EXTRACTION
+              tfrag3.frag is excluded and documented — r23 already declared it dead, and a gate that
+              fires on correct work trains you to ignore it.
+  cmake --build build-x86 --target gk            links, 0 errors. `cmake -B` was NEVER run.
+                                                 OG_FEAT_PBR:BOOL=ON in BOTH build-x86 and
+                                                 build-android caches, so nothing is swallowed by a
+                                                 dead feature gate on either target.
+  tools/tess_sign reference run                  every pre-existing counter reproduced to the digit
+                                                 (diff vs the previous run: 39 lines, 36 of them the
+                                                 new section, 3 of them wall clocks).
+  tools/tess_sign --tan-flip-every 7             the positive control, fired and PREDICTED (1.4).
+  x86 boot smoke                                 `link finish: logo` present.
+
+5.2 FILES
+
+  game/graphics/opengl_renderer/shaders/pbr_fused.glsl        per-face handedness + direction; the
+                                                              four per-material consumption sites
+  game/graphics/opengl_renderer/shaders/tfrag3.frag           idem, standalone rt-OFF PBR path
+  game/graphics/opengl_renderer/shaders/tfrag3_tess.tese      idem, from the patch's own corners
+  game/graphics/opengl_renderer/shaders/pbr_uniforms.glsl     u_pbr_bisect2 (bank 2), u_pbr_mat/mat2
+  game/graphics/opengl_renderer/background/background_common.cpp   per-draw material push + the
+                                                              per-draw-pass distinct-set trace
+  game/graphics/opengl_renderer/loader/CustomTextureReplacements.{h,cpp}   the 11 pm_* fields, the
+                                                              10 new keys, pbrmat_apply_params
+  game/graphics/opengl_renderer/loader/LoaderStages.cpp       the ungated call site
+  recharged_assets/materials.txt                              the presets, +105 lines, none removed
+  android/build_custom_pack.sh                                materials.txt now SHIPS in the pack
+  tools/tess_sign/main.cpp                                    PF_sign, --tan-flip-every, the
+                                                              per-texture section, 6 CSV columns
+                                                              appended at the END
+  .autoport/gpbr_ptm_glslcheck.sh / gpbr_ptm_normalspace.py / gpbr_ptm_x86_village1.sh   new gates
+
+5.3 WHAT THE OWNER SHOULD LOOK AT — AND IT IS ONE QUESTION, NOT A CHECKLIST
+
+Village1: the sage's hut roof, the coastal rock and the plaster wall. The relief on a given texture
+should no longer flip depending on which side of a surface you stand on, and the seven materials
+should no longer read as one material with one relief setting — the straw roof now carries 2.3x the
+displacement depth of the plaster, by data, not by a global slider.
+
+Two live A/Bs at his own vantage, one setprop each, no rebuild:
+    setprop debug.opengoal.pbr.bisect2 1     handedness back to the baked per-vertex .w
+    setprop debug.opengoal.pbr.bisect2 2     tangent direction back to the baked per-vertex T
+    setprop debug.opengoal.pbr.bisect2 3     both back — i.e. the previous build's frame
+And the presets are a text file he can edit on the device: recharged_assets/materials.txt in the
+external pack, a kilobyte push, no APK.
+
+NOT DONE, AND SAID PLAINLY: no Android device was attached this cycle, so the GLES driver's
+dFdx/dFdy behaviour on the per-face frame is compiled-clean but not RUN, and no APK was built to
+exercise the new packaging line. Section 4 lists everything else this cycle deliberately leaves
+open, with its number.
+
+This is validator-and-gates green. It is NOT done: only the owner's eye closes it.

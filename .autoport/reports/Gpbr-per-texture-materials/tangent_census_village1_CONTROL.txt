@@ -1,0 +1,25 @@
+-- PER-TEXTURE TANGENT-FRAME CENSUS (Gpbr-per-texture-materials) ---------------------------
+   WHAT THIS IS. A SHARE OF FACE CORNERS, never an amplitude: no height field, no camera,
+   no tessellation level and no relief slider enters any column below. FRAME: the corner's
+   PER-VERTEX tangent frame (T from Gram-Schmidt against the stored normal, B = cross(N,T)
+   times sign(.w)) compared against the UV->world Jacobian OF THE FACE (dP/du, dP/dv). A
+   corner counts as correct iff dot(T,dP/du) > 0 AND dot(B,dP/dv) > 0. WITH THE DEFECT
+   ABSENT BOTH PERCENTAGES READ 100.0000 — that is the value to compare against, not each
+   other's history.
+   p_nonrep is a property of the ORIGINAL AUTHORED UV LAYOUT: faces of OPPOSITE UV
+   handedness meet at one vertex, and .w is one sign per vertex, so no per-vertex tangent
+   the format can carry is right for all of them. P_sign EXCLUDES those corners; an
+   excluded corner is NOT a correct corner, it is an UNSCORED one. PF_sign scores the same
+   corners with the same predicate over the ENTIRE population, and pf_w_wrong is the half
+   of that population whose relief actually comes out INVERTED (T right, handedness wrong)
+   — the owner's "on dirait que c'est inverse", counted.
+material                     faces    p_den  p_nonrep   nonrep%   pf_den  pf_u_wrong  pf_w_wrong   PF_sign%
+vil-beach-01                 33437   100206       105    0.1047   100311          36       14349    85.6596
+vil-beachrock               208746   613219     13019    2.0789   626238         582       89279    85.6507
+vil-hut-roof-tile-01         17840    40110     13410   25.0561    53520         240        7618    85.3176
+vil-wallplaster              20117    54470      5881    9.7447    60351          73        8983    84.9944
+vil1-jng-leafyground         24215    72115       530    0.7296    72645          43       10394    85.6329
+vil1-sages-stonewall-01       8443    24790       539    2.1280    25329          72        3599    85.5067
+vil1-sages-strawroof-01       2776     8328         0    0.0000     8328           6        1196    85.5668
+TOTAL                       315574   913238     33484    3.5368   946722        1052      135418    85.5850
+TAN-FLIP CONTROL: injected=90928 of 636493 vertices (--tan-flip-every 7) — THIS RUN IS A CONTROL, NOT A GRADE

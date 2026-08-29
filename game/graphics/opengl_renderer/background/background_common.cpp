@@ -3,6 +3,7 @@
 #include "background_common.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
@@ -790,6 +791,103 @@ static void pbr_cover_publish_gates(float height_scale, int bisect, int debug, i
   g_cover_displacement.store(displacement, std::memory_order_relaxed);
 }
 
+namespace {
+// Gpbr-per-texture-materials : les valeurs GLOBALES que first_tfrag_draw_setup vient de pousser.
+// PbrDrawBinder les remultiplie par le facteur DU MATERIAU et finish() les repose telles quelles,
+// pour que tout draw qui ne passe pas par le binder (HFRAG en particulier) soit inchange.
+// Ecrites et lues sur le SEUL thread GL (setup de programme puis draws du meme thread), d'ou des
+// float nus et non des atomiques : ce sont les valeurs POST-clamp, celles que le programme a
+// vraiment recues (en particulier height_scale = 0 quand u_pbr_displacement == 0).
+// Les initialiseurs sont les valeurs de depart de first_tfrag_draw_setup (3.0 / 0.05 AVANT le
+// facteur TEXTURE RELIEF, 0.15 = gfx.h recharged_pbr_spec_intensity), pour qu'un binder qui
+// tournerait avant tout setup n'invente pas une valeur. En pratique le setup passe toujours en
+// premier et les ecrase ; c'est un filet, pas la source.
+float g_pbr_glob_normal_strength = 3.f, g_pbr_glob_height_scale = 0.05f, g_pbr_glob_spec = 0.15f;
+
+// Gpbr-per-texture-materials : emplacements des cinq uniformes de matiere, resolus paresseusement
+// comme les m_*_loc du binder (meme glGetUniformLocation, meme regle "-1 = absent du programme"),
+// mais tenus PAR PROGRAMME dans un seul endroit plutot qu'en cinq membres de plus que begin()
+// devrait remettre en phase. Thread GL uniquement.
+struct PbrMatUniformLocs {
+  GLint normal_strength = -1;
+  GLint height_scale = -1;
+  GLint spec_intensity = -1;
+  GLint mat = -1;
+  GLint mat2 = -1;
+};
+
+static const PbrMatUniformLocs& pbr_mat_uniform_locs(GLuint program) {
+  static GLuint cached_program = 0;
+  static PbrMatUniformLocs locs;
+  if (program != cached_program) {
+    cached_program = program;
+    locs.normal_strength = glGetUniformLocation(program, "u_pbr_normal_strength");
+    locs.height_scale = glGetUniformLocation(program, "u_pbr_height_scale");
+    locs.spec_intensity = glGetUniformLocation(program, "u_pbr_spec_intensity");
+    locs.mat = glGetUniformLocation(program, "u_pbr_mat");
+    locs.mat2 = glGetUniformLocation(program, "u_pbr_mat2");
+  }
+  return locs;
+}
+
+// Pousse les cinq uniformes de matiere. `maps == nullptr` => l'IDENTITE : les valeurs globales
+// telles que first_tfrag_draw_setup les a poussees, et les constantes que le shader portait en dur.
+// C'est le meme jeu de valeurs que finish() repose, donc un draw sans materiau resolu ne peut pas
+// heriter des reglages du precedent.
+// Gpbr-per-texture-materials — THE RUNTIME PROOF THAT THE KNOBS REACH A DRAW, not just the parser.
+// The phase's success criterion (2) is "two distinct materials render measurably different relief in
+// the same scene". A [pbrmat] parse line proves a FILE was read; it says nothing about what any draw
+// received, and the whole class of defect this fork keeps hitting is a value that moves in a variable
+// while no uniform does. So the distinct (relief, depth, spec, rough, F0) sets actually PUSHED are
+// collected PER DRAW PASS — the vector is cleared by PbrDrawBinder::begin() — and the high-water
+// mark is logged. Two or more entries in one pass IS the measurement; one entry would mean every
+// material is receiving the same numbers whatever materials.txt says.
+std::vector<std::array<float, 5>> g_pbrmat_pass_sets;
+size_t g_pbrmat_logged_hwm = 0;
+
+static void pbr_push_material_uniforms(GLuint program, const custom_tex::PbrMaterialMaps* maps) {
+  const auto& l = pbr_mat_uniform_locs(program);
+  const float relief = maps ? maps->pm_relief : 1.f;
+  const float depth = maps ? maps->pm_relief_depth : 1.f;
+  const float spec = maps ? maps->pm_spec : 1.f;
+  if (l.normal_strength >= 0) {
+    glUniform1f(l.normal_strength, g_pbr_glob_normal_strength * relief);
+  }
+  if (l.height_scale >= 0) {
+    glUniform1f(l.height_scale, g_pbr_glob_height_scale * depth);
+  }
+  if (l.spec_intensity >= 0) {
+    glUniform1f(l.spec_intensity, g_pbr_glob_spec * spec);
+  }
+  if (l.mat >= 0) {
+    glUniform4f(l.mat, maps ? maps->pm_rough_nomap : 0.9f, maps ? maps->pm_metal_nomap : 0.f,
+                maps ? maps->pm_reflectance : 0.04f, maps ? maps->pm_normal_y : 1.f);
+  }
+  if (l.mat2 >= 0) {
+    glUniform2f(l.mat2, maps ? maps->pm_rough_scale : 1.f, maps ? maps->pm_metal_scale : 1.f);
+  }
+  if (!maps) {
+    return;  // the finish()/setup identity reset is not a material and must not be counted as one
+  }
+  const std::array<float, 5> k{relief, depth, spec, maps->pm_rough_nomap, maps->pm_reflectance};
+  if (std::find(g_pbrmat_pass_sets.begin(), g_pbrmat_pass_sets.end(), k) ==
+      g_pbrmat_pass_sets.end()) {
+    g_pbrmat_pass_sets.push_back(k);
+    if (g_pbrmat_pass_sets.size() > g_pbrmat_logged_hwm) {
+      g_pbrmat_logged_hwm = g_pbrmat_pass_sets.size();
+      lg::info(
+          "[pbrmat-draw] {} DISTINCT material knob sets pushed in ONE draw pass; newest "
+          "relief={:.3f} depth={:.3f} spec={:.3f} rough={:.3f} F0={:.3f} -> "
+          "u_pbr_normal_strength={:.4f} u_pbr_height_scale={:.5f} u_pbr_spec_intensity={:.4f}",
+          g_pbrmat_pass_sets.size(), k[0], k[1], k[2], k[3], k[4],
+          g_pbr_glob_normal_strength * relief, g_pbr_glob_height_scale * depth,
+          g_pbr_glob_spec * spec);
+    }
+  }
+}
+
+}  // namespace
+
 // Grecharged-pbr-materials round-4: shared per-draw PBR material bind (was a lambda
 // local to TFragment's loop; Tie3 now uses the same code so replaced TIE textures get
 // the BRDF, not just the albedo). Byte-identical behavior to the original lambda.
@@ -801,6 +899,9 @@ void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
   // path's existing once-per-renderer GL-thread entry point, so it costs an atomic load per call
   // and nothing else.
   custom_tex::mm_service_reload();
+  // Gpbr-per-texture-materials: the distinct-knob-set census is PER DRAW PASS, so that
+  // "two materials differ" is a statement about one scene and not about a whole run.
+  g_pbrmat_pass_sets.clear();
   m_program = program;
   m_draws = draws;
   m_mode_loc = -2;
@@ -917,6 +1018,11 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
         }
         m_cur_lambda = clam;
       }
+      // Gpbr-per-texture-materials: the debug checker is a SYNTHETIC material that materials.txt
+      // does not name, so it takes the identity knobs — same rule as the zeroed DC / identity height
+      // stats just above. Without this the checker would inherit the relief and roughness of
+      // whatever real material the previous draw bound, and the browser's A/B would read a mixture.
+      pbr_push_material_uniforms(m_program, nullptr);
       // V2.2 per-frame proof: the FULL checker set (normal+rough+height, albedo on unit 0 by the
       // caller) was bound on a targeted draw this frame.
       Gfx::g_global_settings.mb_cur_checker_full++;
@@ -1055,7 +1161,12 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   // each, so scaling the depth by the tile would build metre-tall hills; scaling it by the feature
   // wavelength keeps the relief at feature scale. Identity 0.25 when the draw has no height map, so
   // a map-free draw can never inherit the previous material's wavelength (same rule as the hstat).
-  const float lam = (want & 16) ? maps->height_lambda_tiles : 0.25f;
+  // Gpbr-per-texture-materials: an AUTHORED wavelength (materials.txt `relief_lambda`, > 0) replaces
+  // the MEASURED one. The measured field is left untouched so the re-stamp on the next reload does
+  // not destroy it — the override lives only in what is pushed.
+  const float lam = (want & 16) ? ((maps->pm_relief_lambda > 0.f) ? maps->pm_relief_lambda
+                                                                  : maps->height_lambda_tiles)
+                                : 0.25f;
   if (lam != m_cur_lambda) {
     if (m_lambda_loc == -2) {
       m_lambda_loc = glGetUniformLocation(m_program, "u_pbr_height_lambda");
@@ -1065,6 +1176,15 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     }
     m_cur_lambda = lam;
   }
+  // ===== Gpbr-per-texture-materials: THE PER-TEXTURE MATERIAL KNOBS ==============================
+  // Owner 2026-08-28: « on applique un specular truc machin et un relief globalement, ça devrait
+  // être texture par texture ». Until now relief/spec were frame-constant and per-PROGRAM (pushed
+  // once by first_tfrag_draw_setup) and roughness/metallic/F0 were literals inside the shader, so a
+  // sand and a cut-stone wall could not differ. Here they become per-DRAW, multiplied onto the
+  // globals the setup pushed.
+  // `want == 0 || !maps` => the IDENTITY (globals x 1 and the shader's own constants), so a draw
+  // with no resolved material renders exactly as before and cannot inherit the previous one.
+  pbr_push_material_uniforms(m_program, (want != 0) ? maps : nullptr);
   // ===== Grecharged-materials-modern-parity: the MODERN MATERIAL STACK block =====================
   // mm_flags already carries the master AND the per-material opt-in: mm_apply_params() cleared it
   // to 0 at load time if either was absent, and re-stamps every registered material when the menu
@@ -1176,6 +1296,11 @@ void PbrDrawBinder::finish() {
     }
     m_cur_lambda = 0.25f;
   }
+  // Gpbr-per-texture-materials: repose the GLOBAL relief/spec exactly as first_tfrag_draw_setup
+  // pushed them, and the shader's own constants for the material vector. The TFRAG3 program is
+  // shared with renderers that never call set() (HFRAG in particular), and those must see the
+  // frame-constant globals, never the last material's multipliers.
+  pbr_push_material_uniforms(m_program, nullptr);
   // Park units 11-15 on the neutral 1x1 defaults so no material map leaks into later
   // draws this frame; restores active unit 0.
   if (m_bound_any) {
@@ -2059,6 +2184,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // Both / Normal-map-only / Parallax-only / Neither at his vantage with no adb. The debug
   // prop/env below still OVERRIDE it for headless supervisor A/B on the full term set.
   int pbr_bisect = gs.recharged_pbr_isolate;
+  // Gpbr-per-texture-materials: bisect BANK 2 (bank 1's 31 bits are all taken). Debug-only:
+  // no menu row, no GOAL setter — 0 is the shipped/fixed behaviour.
+  int pbr_bisect2 = 0;
   // Grecharged-materials-modern-parity. Deliberately NOT new u_pbr_bisect bits: that mask is FULL
   // (every bit from 1 to 2^30 is allocated, and bit 2 is already double-booked between the green-sun
   // specular and a normal-convention flip, which silently confounds any A/B run on it). The modern
@@ -2150,6 +2278,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (__system_property_get("debug.opengoal.pbr.bisect", v) > 0) {
       pbr_bisect = atoi(v);
     }
+    if (__system_property_get("debug.opengoal.pbr.bisect2", v) > 0) {
+      pbr_bisect2 = atoi(v);
+    }
     if (__system_property_get("debug.opengoal.mm.exposure", v) > 0) {
       mm_exposure = atof(v);
     }
@@ -2216,6 +2347,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (const char* e = getenv("OG_PBR_BISECT")) {
     pbr_bisect = atoi(e);
   }
+  if (const char* e = getenv("OG_PBR_BISECT2")) {
+    pbr_bisect2 = atoi(e);
+  }
   if (const char* e = getenv("OG_MM_EXPOSURE")) {
     mm_exposure = atof(e);
   }
@@ -2245,6 +2379,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   pbr_tess_max = std::clamp(pbr_tess_max, 1.0f, (float)gl_max_tess_gen_level());
   glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
   glUniform1i(glGetUniformLocation(id, "u_pbr_bisect"), pbr_bisect);
+  glUniform1i(glGetUniformLocation(id, "u_pbr_bisect2"), pbr_bisect2);
   pbr_displacement = std::max(0, std::min(pbr_displacement, 2));
   // Driver-defensive fallback (GL thread): tessellation (mode 2) instant-crashes drivers where
   // the tess entry points/program are unusable. Demote the EFFECTIVE mode to Parallax (1) so the
@@ -2909,11 +3044,25 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                 gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
   }
   glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"), exposure);
+  // Gpbr-per-texture-materials: memorise the three GLOBAL material values at the exact point they
+  // are handed to the program — AFTER the relief multiply and AFTER the `displacement == 0` zeroing
+  // of height_scale, so what PbrDrawBinder multiplies by a material factor is the value the shader
+  // really got, never a pre-clamp one. finish() reposes these same three numbers.
+  g_pbr_glob_normal_strength = normal_strength;
+  g_pbr_glob_height_scale = height_scale;
+  g_pbr_glob_spec = spec_intensity;
   glUniform1f(glGetUniformLocation(id, "u_pbr_normal_strength"), normal_strength);
   glUniform1f(glGetUniformLocation(id, "u_pbr_height_scale"), height_scale);
   glUniform1f(glGetUniformLocation(id, "u_pbr_uv_tile"), uv_tile);
   glUniform1f(glGetUniformLocation(id, "u_pbr_emissive_str"), emissive_str);
   glUniform1f(glGetUniformLocation(id, "u_pbr_spec_intensity"), spec_intensity);
+  // Gpbr-per-texture-materials: the per-material vector, at its IDENTITY — (0.9, 0, 0.04, 1) and
+  // (1, 1) ARE the constants the shader used to carry in-line. Pushed here so every program that
+  // never sees a PbrDrawBinder (HFRAG, shrub, tie_wind, etie_base) still has a DEFINED value
+  // instead of the GL default zero — a zero .w would mirror every normal map's green channel and a
+  // zero reflectance would kill dielectric Fresnel.
+  glUniform4f(glGetUniformLocation(id, "u_pbr_mat"), 0.9f, 0.f, 0.04f, 1.f);
+  glUniform2f(glGetUniformLocation(id, "u_pbr_mat2"), 1.f, 1.f);
   // Grecharged-materials-modern-parity: frame-constant half of the modern stack. Both are the
   // identity by default (exposure 1.0, viz off), so a program that never sees a non-zero u_mm_flags
   // is untouched by them.

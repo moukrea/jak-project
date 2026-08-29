@@ -1,0 +1,51 @@
+===== [pbrmat] PARSE (materials.txt was read, and from where) =====
+[02:25:565] [info] [pbrmat] PARAMSRC=package path=/home/emeric/code/jak-project/recharged_assets/materials.txt blocks=7 defaults=0
+
+===== [pbrmat] PARSED VALUES, one line per authored material =====
+[02:25:565] [info] [pbrmat] vil-beach-01 relief=1.000 depth=0.800 lambda=0.000 spec=0.700 rough=0.950x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[02:25:565] [info] [pbrmat] vil-beachrock relief=1.150 depth=1.150 lambda=0.000 spec=1.200 rough=0.800x1.000 metal=0.000x1.000 F0=0.050 ny=+1
+[02:25:565] [info] [pbrmat] vil-hut-roof-tile-01 relief=1.200 depth=1.250 lambda=0.000 spec=0.800 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[02:25:565] [info] [pbrmat] vil-wallplaster relief=0.850 depth=0.600 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[02:25:566] [info] [pbrmat] vil1-jng-leafyground relief=1.100 depth=1.150 lambda=0.000 spec=0.900 rough=0.900x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[02:25:566] [info] [pbrmat] vil1-sages-stonewall-01 relief=1.200 depth=1.250 lambda=0.000 spec=1.000 rough=0.750x1.000 metal=0.000x1.000 F0=0.050 ny=+1
+[02:25:566] [info] [pbrmat] vil1-sages-strawroof-01 relief=1.300 depth=1.400 lambda=0.000 spec=0.800 rough=0.850x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+
+===== [pbrmat-draw] VALUES A DRAW ACTUALLY RECEIVED =====
+[02:38:542] [info] [pbrmat-draw] 1 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.150 depth=1.150 spec=1.200 rough=0.800 F0=0.050 -> u_pbr_normal_strength=5.1750 u_pbr_height_scale=0.00000 u_pbr_spec_intensity=0.1800
+[02:38:542] [info] [pbrmat-draw] 2 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.100 depth=1.150 spec=0.900 rough=0.900 F0=0.040 -> u_pbr_normal_strength=4.9500 u_pbr_height_scale=0.00000 u_pbr_spec_intensity=0.1350
+[02:38:543] [info] [pbrmat-draw] 3 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.200 depth=1.250 spec=1.000 rough=0.750 F0=0.050 -> u_pbr_normal_strength=5.4000 u_pbr_height_scale=0.00000 u_pbr_spec_intensity=0.1500
+[02:38:543] [info] [pbrmat-draw] 4 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.000 depth=0.800 spec=0.700 rough=0.950 F0=0.030 -> u_pbr_normal_strength=4.5000 u_pbr_height_scale=0.00000 u_pbr_spec_intensity=0.1050
+[02:38:543] [info] [pbrmat-draw] 5 DISTINCT material knob sets pushed in ONE draw pass; newest relief=0.850 depth=0.600 spec=0.700 rough=0.920 F0=0.035 -> u_pbr_normal_strength=3.8250 u_pbr_height_scale=0.00000 u_pbr_spec_intensity=0.1050
+[02:38:543] [info] [pbrmat-draw] 6 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.300 depth=1.400 spec=0.800 rough=0.850 F0=0.040 -> u_pbr_normal_strength=5.8500 u_pbr_height_scale=0.00000 u_pbr_spec_intensity=0.1200
+
+===== level markers =====
+[02:13:820] [debug] link finish: village1-vis
+[02:25:566] [info] custom pbr material registered: village1-vis-tfrag/vil-beachrock (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[02:28:074] [info] custom pbr material registered: village1-vis-tfrag/vil1-jng-leafyground (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[02:29:421] [info] custom pbr material registered: village1-vis-tfrag/vil1-sages-stonewall-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[02:30:127] [info] custom pbr material registered: village1-vis-tfrag/vil-hut-roof-tile-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[02:30:577] [info] custom pbr material registered: village1-vis-tfrag/vil-beach-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[02:31:847] [info] custom pbr material registered: village1-vis-tfrag/vil-wallplaster (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[02:33:075] [info] custom pbr material registered: village1-vis-tfrag/vil1-sages-strawroof-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[02:33:865] [info] custom pbr material registered: village1-vis-alpha/vil-beach-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[02:34:221] [debug] link finish: logo-intro
+[02:34:485] [debug] link finish: logo-intro
+[02:36:736] [debug] link finish: logo-intro
+[02:38:985] [debug] link finish: logo-intro-2
+[02:42:852] [debug] link finish: logo-intro-2
+[02:47:220] [debug] link finish: logo-intro-2
+[02:51:105] [debug] link finish: logo-intro-2
+[02:54:988] [debug] link finish: logo-intro-2
+[02:59:071] [debug] link finish: logo-intro-2
+[03:03:237] [debug] link finish: logo-intro-2
+[03:07:904] [debug] link finish: logo-intro-2
+[03:15:371] [debug] link finish: logo-intro-2
+[03:23:138] [debug] link finish: logo-intro-2
+[03:29:321] [debug] link finish: logo-intro-2
+[03:33:888] [debug] link finish: logo-intro-2
+[03:37:772] [debug] link finish: logo-intro-2
+[03:41:672] [debug] link finish: logo-intro-2
+[03:45:555] [debug] link finish: logo-intro-2
+[03:49:438] [debug] link finish: logo-loop
+[03:55:323] [debug] link finish: logo-loop
+[03:59:222] [debug] link finish: logo-loop

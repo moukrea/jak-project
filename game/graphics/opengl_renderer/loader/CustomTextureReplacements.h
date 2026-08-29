@@ -154,6 +154,27 @@ struct PbrMaterialMaps {
   float coat_rough = 0.10f;
   float aniso = 0.f;        // [-0.95, 0.95]
   float aniso_angle = 0.f;  // radians
+
+  // ===== Gpbr-per-texture-materials — LES BOUTONS DE MATIERE DU CHEMIN PBR LUI-MEME ==============
+  // Contrairement au bloc mm_* ci-dessus, ceux-ci ne sont PAS derriere la ligne de menu MODERN
+  // MATERIALS : relief, rugosite, metallicite, reflectance et le signe du canal vert de la normal
+  // map sont les parametres du chemin PBR, qui est actif par defaut. Les mettre derriere une ligne
+  // eteinte par defaut rendrait tout preset INERTE — le defaut « unite feature-gatee ».
+  // CHAQUE DEFAUT CI-DESSOUS EST L'IDENTITE : un materiau sans bloc dans materials.txt rend
+  // exactement ce qu'il rendait avant cette phase (les multiplicateurs valent 1, et les valeurs
+  // absolues reproduisent au bit pres les constantes que le shader portait en dur).
+  float pm_relief = 1.f;          // multiplie la force de la normal map (globale x celui-ci)
+  float pm_relief_depth = 1.f;    // multiplie la profondeur parallaxe/displacement
+  float pm_relief_lambda = 0.f;   // > 0 remplace la longueur d'onde MESUREE height_lambda_tiles
+  float pm_spec = 1.f;            // multiplie l'intensite speculaire
+  float pm_rough_nomap = 0.9f;    // rugosite quand AUCUNE _roughness n'est liee (constante shader)
+  float pm_rough_scale = 1.f;     // multiplie la _roughness liee
+  float pm_metal_nomap = 0.f;     // metallicite quand AUCUNE _metallic n'est liee
+  float pm_metal_scale = 1.f;     // multiplie la _metallic liee
+  float pm_reflectance = 0.04f;   // F0 dielectrique (la constante 0.04 du shader)
+  float pm_normal_y = 1.f;        // +1 = normal maps vert-en-haut (OpenGL), -1 = vert-en-bas (DX)
+  bool pm_authored = false;       // un bloc de materials.txt a nomme ce materiau
+
   // Grecharged-managed-assets: the normal map came from a GPU-compressed pack and stores only
   // X/Y (BC5 / EAC RG11 / ASTC two-channel). Sets u_pbr_mode bit 128 so the shader rebuilds Z.
   // PNG-sourced maps are 3-channel and leave this false.
@@ -197,6 +218,12 @@ void mm_params_reload();
 // by the loader right before register_pbr_material(). No-op when the modern master is off, which is
 // what keeps an un-toggled build bit-identical.
 void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
+// Gpbr-per-texture-materials. Stamp the PBR-path material knobs (pm_* above) from the SAME
+// materials.txt blocks. Called from the same two sites as mm_apply_params — but with NO gate: the
+// PBR path is on by default, so gating these on the MODERN MATERIALS menu row would make every
+// preset inert. Parses the file on first use if nobody has yet. A material the file does not name
+// keeps the pm_* defaults, which ARE the pre-phase behaviour.
+void pbrmat_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
 // PATH-ACTIVE COUNTER. Called by PbrDrawBinder every time it pushes a non-zero u_mm_flags, i.e.
 // every time a draw really enters the modern chunk. This is the cheap, non-visual proof the phase
 // owes: "the feature is ACTIVE on device" is a number in a log line, not a screenshot somebody has

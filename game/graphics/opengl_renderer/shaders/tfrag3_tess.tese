@@ -92,6 +92,10 @@ uniform sampler2D tex_PBR_H;       // height map, unit 15 (.r = height, 0.5 = ne
 // declaring it here costs nothing. 65536 = legacy per-chunk UV height lookup (the one that tears),
 // 131072 = ignore the per-vertex seam weights. Both exist purely for live A/B.
 uniform int u_pbr_bisect;
+// Gpbr-per-texture-materials: bisect BANK 2 (bank 1's 31 bits are all taken — see the long
+// entry at u_pbr_bisect2 in pbr_uniforms.glsl). Bit 1 = per-FACE tangent handedness OFF,
+// bit 2 = per-FACE tangent DIRECTION off.
+uniform int u_pbr_bisect2;
 // PBR POLISH #17 — the same two uniforms tfrag3.frag uses, for the same reasons.
 // u_pbr_height_stat = (this material's height-map MEAN, 0.5 / its robust half-range), measured at
 // load. The shipped maps are neither mean-centred nor normalised, so the old raw (h - 0.5) pushed
@@ -270,7 +274,34 @@ void main() {
       vec3 Tp = Tw - N * dot(N, Tw);
       if (dot(Tp, Tp) > 1e-6) {
         hax_u = normalize(Tp);
-        hax_v = cross(N, hax_u) * (tc_tangent[0].w < 0.0 ? -1.0 : 1.0);
+        // Gpbr-per-texture-materials — THE HANDEDNESS COMES FROM THE FACE. There are no
+        // derivatives in a tessellation-evaluation stage, but none are needed: the PATCH IS the
+        // original triangle, so its own three corners give the UV->world Jacobian exactly.
+        // Leaving this site on tc_tangent[0].w while the fragment stages read the face would put
+        // the two displacement tiers back into disagreement on the SAME texture — the class of
+        // defect rounds 27-32 were spent on. Same A/B bit as the fragment sites.
+        vec3 pe1 = tc_world[1] - tc_world[0];
+        vec3 pe2 = tc_world[2] - tc_world[0];
+        vec2 pd1 = tc_texcoord[1].xy - tc_texcoord[0].xy;
+        vec2 pd2 = tc_texcoord[2].xy - tc_texcoord[0].xy;
+        float pdet = pd1.x * pd2.y - pd2.x * pd1.y;
+        vec3 pdPdv = (pe2 * pd1.x - pe1 * pd2.x) / (abs(pdet) > 1e-9 ? pdet : 1.0);
+        // Gpbr-per-texture-materials, BANK-2 BIT 2 — the tangent DIRECTION is per-vertex for the
+        // same reason the handedness was, and it fails the same way. MEASURED (tools/tess_sign
+        // PF_sign, shipped village1 fr3): 1052 face corners of the seven PBR materials, 0.111%,
+        // carry a T that points AGAINST their own face's dP/du, so the normal map's X perturbation
+        // and the POM's U march both run backwards there. Same defect class, same remedy: read the
+        // FACE. This only ever flips a tangent that is ALREADY reversed for this face, so every
+        // corner the census scores correct is left bit-identical — and it runs BEFORE the handedness
+        // sign below, which is then derived from the corrected T.
+        vec3 pdPdu = (pe1 * pd2.y - pe2 * pd1.y) / (abs(pdet) > 1e-9 ? pdet : 1.0);
+        if ((u_pbr_bisect2 & 2) == 0 && abs(pdet) > 1e-9 && dot(hax_u, pdPdu) < 0.0) {
+          hax_u = -hax_u;
+        }
+        float phs = dot(cross(N, hax_u), pdPdv);
+        hax_v = cross(N, hax_u) * (((u_pbr_bisect2 & 1) == 0 && abs(pdet) > 1e-9 && abs(phs) > 1e-9)
+                                       ? (phs < 0.0 ? -1.0 : 1.0)
+                                       : (tc_tangent[0].w < 0.0 ? -1.0 : 1.0));
       } else {
         vec3 an = abs(N);
         if (an.y >= an.x && an.y >= an.z) {

@@ -1,0 +1,42 @@
+===== [pbrmat] PARSE (materials.txt was read, and from where) =====
+[04:41:696] [info] [pbrmat] PARAMSRC=package path=/home/emeric/code/jak-project/recharged_assets/materials.txt blocks=7 defaults=0
+
+===== [pbrmat] PARSED VALUES, one line per authored material =====
+[04:41:696] [info] [pbrmat] vil-beach-01 relief=1.000 depth=0.800 lambda=0.000 spec=0.700 rough=0.950x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[04:41:696] [info] [pbrmat] vil-beachrock relief=1.150 depth=1.150 lambda=0.000 spec=1.200 rough=0.800x1.000 metal=0.000x1.000 F0=0.050 ny=+1
+[04:41:696] [info] [pbrmat] vil-hut-roof-tile-01 relief=1.200 depth=1.250 lambda=0.000 spec=0.800 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[04:41:696] [info] [pbrmat] vil-wallplaster relief=0.850 depth=0.600 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[04:41:696] [info] [pbrmat] vil1-jng-leafyground relief=1.100 depth=1.150 lambda=0.000 spec=0.900 rough=0.900x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[04:41:696] [info] [pbrmat] vil1-sages-stonewall-01 relief=1.200 depth=1.250 lambda=0.000 spec=1.000 rough=0.750x1.000 metal=0.000x1.000 F0=0.050 ny=+1
+[04:41:696] [info] [pbrmat] vil1-sages-strawroof-01 relief=1.300 depth=1.400 lambda=0.000 spec=0.800 rough=0.850x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+
+===== [pbrmat-draw] VALUES A DRAW ACTUALLY RECEIVED =====
+[04:50:974] [info] [pbrmat-draw] 1 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.150 depth=1.150 spec=1.200 rough=0.800 F0=0.050 -> u_pbr_normal_strength=5.1750 u_pbr_height_scale=0.08625 u_pbr_spec_intensity=0.1800
+[04:50:974] [info] [pbrmat-draw] 2 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.100 depth=1.150 spec=0.900 rough=0.900 F0=0.040 -> u_pbr_normal_strength=4.9500 u_pbr_height_scale=0.08625 u_pbr_spec_intensity=0.1350
+[04:50:974] [info] [pbrmat-draw] 3 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.200 depth=1.250 spec=1.000 rough=0.750 F0=0.050 -> u_pbr_normal_strength=5.4000 u_pbr_height_scale=0.09375 u_pbr_spec_intensity=0.1500
+[04:50:974] [info] [pbrmat-draw] 4 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.000 depth=0.800 spec=0.700 rough=0.950 F0=0.030 -> u_pbr_normal_strength=4.5000 u_pbr_height_scale=0.06000 u_pbr_spec_intensity=0.1050
+[04:50:974] [info] [pbrmat-draw] 5 DISTINCT material knob sets pushed in ONE draw pass; newest relief=0.850 depth=0.600 spec=0.700 rough=0.920 F0=0.035 -> u_pbr_normal_strength=3.8250 u_pbr_height_scale=0.04500 u_pbr_spec_intensity=0.1050
+[04:50:974] [info] [pbrmat-draw] 6 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.300 depth=1.400 spec=0.800 rough=0.850 F0=0.040 -> u_pbr_normal_strength=5.8500 u_pbr_height_scale=0.10500 u_pbr_spec_intensity=0.1200
+
+===== level markers =====
+[04:35:173] [debug] link finish: logo
+[04:35:173] [debug] link finish: logo-black
+[04:35:174] [debug] link finish: logo-cam
+[04:35:174] [debug] link finish: logo-volumes
+[04:36:039] [debug] link finish: village1-part
+[04:36:123] [debug] link finish: village1-part2
+[04:36:871] [debug] link finish: village1cam
+[04:37:005] [debug] link finish: village1-vis
+[04:41:696] [info] custom pbr material registered: village1-vis-tfrag/vil-beachrock (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[04:42:389] [info] custom pbr material registered: village1-vis-tfrag/vil1-jng-leafyground (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[04:43:011] [info] custom pbr material registered: village1-vis-tfrag/vil1-sages-stonewall-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[04:43:430] [info] custom pbr material registered: village1-vis-tfrag/vil-hut-roof-tile-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[04:43:718] [info] custom pbr material registered: village1-vis-tfrag/vil-beach-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[04:44:231] [info] custom pbr material registered: village1-vis-tfrag/vil-wallplaster (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[04:44:720] [info] custom pbr material registered: village1-vis-tfrag/vil1-sages-strawroof-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[04:45:113] [info] custom pbr material registered: village1-vis-alpha/vil-beach-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[04:50:906] [debug] link finish: logo-intro
+[04:51:089] [debug] link finish: logo-intro
+[04:53:355] [debug] link finish: logo-intro
+[04:55:556] [debug] link finish: logo-intro-2
+[04:59:790] [debug] link finish: logo-intro-2

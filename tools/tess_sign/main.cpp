@@ -61,7 +61,8 @@ static void usage() {
       "                 [--tess-seg M] [--relief R] [--geom N] [--geom-tie N] [--subdiv M]\n"
       "                 [--subdiv-rounds N] [--force-live] [--use-sidecar] [--geom-orient]\n"
       "                 [--named-case NAME x0 x1 y0 y1 z0 z1] [--out PATH] [--csv PATH]\n"
-      "                 [--max-verts-per-mesh N] [--rayf-k N] [--summary-only]\n"
+      "                 [--max-verts-per-mesh N] [--rayf-k N] [--tan-flip-every N]\n"
+      "                 [--summary-only]\n"
       "  --fr3 PATH        level fr3 (default <repo>/out/jak1/fr3/village1.fr3)\n"
       "  --tex-root PATH   root scanned for <name>_height.png (default\n"
       "                    <repo>/custom_assets/jak1/recharged_textures)\n"
@@ -79,6 +80,11 @@ static void usage() {
       "  --geom-orient     OR 512 (kMeshBitGeomOrient) into the mesh_consolidate config bits: the\n"
       "                    deep, offline-only PER-FACE geometric orientation authority\n"
       "  --rayf-k N        rays per hemisphere in the per-face RAYF tier (default 13)\n"
+      "  --tan-flip-every N  POSITIVE CONTROL, off by default (0). Inverts the stored tangent\n"
+      "                    HANDEDNESS (.w) on every Nth vertex of the triangle universe before\n"
+      "                    any grading, so PF_sign must fall and pf_w_wrong must rise by a\n"
+      "                    comparable amount. A counter that does not move under injection is\n"
+      "                    measuring nothing. NEVER quote a run under this flag as a grade.\n"
       "  --named-case NAME x0 x1 y0 y1 z0 z1\n"
       "                    label meshes whose CENTROID falls in this METRE box. Repeatable.\n"
       "  --out PATH        report path (default <repo>/.autoport/reports/\n"
@@ -591,6 +597,11 @@ struct MeshRow {
   // tangent's state is the symptom. Not gradeable, never scored as correct.
   u64 p_nonrep = 0;
   u64 p_degen = 0;         // FACES whose UV mapping is degenerate (|det| <= 1e-12): no sign at all
+  // Gpbr-per-texture-materials — LE MEME predicat que P_sign, sur la population ENTIERE : les
+  // coins que P_sign exclut (v_nontan) ne sont pas corrects, ils sont NON NOTES, et c'est
+  // exactement la population ou le relief s'inverse d'une face a l'autre. PF_sign les note.
+  u64 pf_den = 0, pf_ok = 0, pf_u_wrong = 0, pf_w_wrong = 0;
+  u64 pf_no_normal = 0, pf_tan_fallback = 0, pf_tan_degen = 0;
   u64 disp_nz = 0;
   u64 live = 0;             // generated verts with amp > 0            -> B_live%
   u64 patches_live = 0;     // patches with >= 1 vertex at amp > 0     -> B_patch%
@@ -741,6 +752,8 @@ int main(int argc, char** argv) {
   // evaluated, every counter still accumulated; the flag gates PRINTING only.
   bool summary_only = false;
   int rayf_k = kRayfKDefault;
+  // Gpbr-per-texture-materials: the POSITIVE CONTROL of the PF_sign census. 0 = not run.
+  int tan_flip_every = 0;
   u64 max_verts_per_mesh = 200000;
   std::vector<NamedBox> named;
 
@@ -787,6 +800,8 @@ int main(int argc, char** argv) {
       summary_only = true;
     } else if (a == "--rayf-k") {
       rayf_k = std::stoi(need_val("--rayf-k"));
+    } else if (a == "--tan-flip-every") {
+      tan_flip_every = std::stoi(need_val("--tan-flip-every"));
     } else if (a == "--max-verts-per-mesh") {
       max_verts_per_mesh = (u64)std::stoll(need_val("--max-verts-per-mesh"));
     } else if (a == "--named-case") {
@@ -844,6 +859,10 @@ int main(int argc, char** argv) {
   }
   if (rayf_k < 1 || rayf_k > 256) {
     fmt::print("error: --rayf-k must be in [1,256] (got {})\n", rayf_k);
+    return 2;
+  }
+  if (tan_flip_every < 0) {
+    fmt::print("error: --tan-flip-every must be >= 0 (got {})\n", tan_flip_every);
     return 2;
   }
 
@@ -1231,6 +1250,22 @@ int main(int argc, char** argv) {
   if (faces.empty()) {
     fmt::print("error: no faces gathered — nothing to grade.\n");
     return 1;
+  }
+
+  u64 tan_flip_injected = 0;
+  if (tan_flip_every > 0) {
+    // CONTROLE POSITIF (regle des DIRECTIVES : tout zero exige un controle qui a TIRE). On
+    // injecte le defaut — une handedness inversee — sur un sous-ensemble DETERMINISTE, et
+    // PF_sign doit MONTER en pf_w_wrong d'un montant du meme ordre. Un compteur qui ne bouge
+    // pas sous injection ne mesure rien.
+    for (size_t i = 0; i < gv.size(); i++) {
+      if ((i % (size_t)tan_flip_every) == 0) {
+        gv[i].tw = -gv[i].tw;
+        tan_flip_injected++;
+      }
+    }
+    fmt::print("[tess_sign] TAN-FLIP CONTROL: inverted .w on {} of {} vertices (every {})\n",
+               tan_flip_injected, gv.size(), tan_flip_every);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -1786,6 +1821,8 @@ int main(int argc, char** argv) {
   auto grade_parallax_row = [&](MeshRow& m) {
     m.p_den = m.p_ok = m.p_u_wrong = m.p_w_wrong = 0;
     m.p_tan_fallback = m.p_tan_degen = m.p_no_normal = m.p_degen = m.p_nonrep = 0;
+    m.pf_den = m.pf_ok = m.pf_u_wrong = m.pf_w_wrong = 0;
+    m.pf_no_normal = m.pf_tan_fallback = m.pf_tan_degen = 0;
     for (u32 f : m.faces) {  // ascending face order => deterministic
       const u32 corner[3] = {faces[f].v[0], faces[f].v[1], faces[f].v[2]};
       // ---- the face's UV->world Jacobian (Lengyel, the same algebra TFrag3Data.cpp:2028-2043
@@ -1808,6 +1845,35 @@ int main(int argc, char** argv) {
       const V3 dPdv = (e1 * (-du2) + e2 * du1) * r;
       for (int e = 0; e < 3; e++) {
         const GVert& v = gv[corner[e]];
+        // ---- Gpbr-per-texture-materials : PF_sign, le meme test sur la population ENTIERE ----
+        // Deliberement AUTONOME et place avant l'exclusion v_nontan : le bloc P_sign ci-dessous
+        // n'est pas touche, donc aucune colonne deja publiee ne peut bouger.
+        {
+          const GVert& vf = gv[corner[e]];
+          const V3 Nf = vf.nor;
+          const V3 tf_raw{(double)vf.tx, (double)vf.ty, (double)vf.tz};
+          if (len(Nf) < 1e-6) {
+            m.pf_no_normal++;
+          } else if (!(dot(tf_raw, tf_raw) > 0.04)) {
+            m.pf_tan_fallback++;
+          } else {
+            const V3 tf_gs = tf_raw - Nf * dot(Nf, tf_raw);
+            if (len(tf_gs) < 1e-6) {
+              m.pf_tan_degen++;
+            } else {
+              const V3 Tf = normalized(tf_gs);
+              const V3 Bf = cross(Nf, Tf) * (vf.tw < 0.f ? -1.0 : 1.0);
+              m.pf_den++;
+              if (!(dot(Tf, dPdu) > 0.0)) {
+                m.pf_u_wrong++;
+              } else if (!(dot(Bf, dPdv) > 0.0)) {
+                m.pf_w_wrong++;
+              } else {
+                m.pf_ok++;
+              }
+            }
+          }
+        }
         // §3b: the corner's vertex has incident faces of BOTH UV handednesses, so no per-vertex
         // (T, w) the format can carry is right for all of them. Tested FIRST, before anything that
         // reads the stored tangent or normal: this is the CAUSE — a property of the authored UV
@@ -3901,6 +3967,76 @@ int main(int argc, char** argv) {
                      p_na_rows));
     line("");
   }
+  // ---- PER-TEXTURE TANGENT-FRAME CENSUS (Gpbr-per-texture-materials) -----------------------------
+  // The owner's report is "relief present on some faces, absent on others, INVERTED on others", and
+  // the population where it inverts is exactly the one P_sign REMOVES from its denominator. So the
+  // same predicate is run a second time over the WHOLE corner population (pf_*, graded in
+  // grade_parallax_row alongside the p_* block and never through it) and both are shown here per
+  // MATERIAL, because the fix is going to be per texture.
+  {
+    struct MatCensus {
+      u64 faces = 0, p_den = 0, p_nonrep = 0, pf_den = 0, pf_ok = 0, pf_u = 0, pf_w = 0;
+    };
+    std::map<std::string, MatCensus> per_mat;  // std::map => rows sorted by material name
+    for (const auto& m : meshes) {
+      MatCensus& c = per_mat[m.mat];
+      c.faces += (u64)m.faces.size();
+      c.p_den += m.p_den;
+      c.p_nonrep += m.p_nonrep;
+      c.pf_den += m.pf_den;
+      c.pf_ok += m.pf_ok;
+      c.pf_u += m.pf_u_wrong;
+      c.pf_w += m.pf_w_wrong;
+    }
+    line("-- PER-TEXTURE TANGENT-FRAME CENSUS (Gpbr-per-texture-materials) ---------------------------");
+    line("   WHAT THIS IS. A SHARE OF FACE CORNERS, never an amplitude: no height field, no camera,");
+    line("   no tessellation level and no relief slider enters any column below. FRAME: the corner's");
+    line("   PER-VERTEX tangent frame (T from Gram-Schmidt against the stored normal, B = cross(N,T)");
+    line("   times sign(.w)) compared against the UV->world Jacobian OF THE FACE (dP/du, dP/dv). A");
+    line("   corner counts as correct iff dot(T,dP/du) > 0 AND dot(B,dP/dv) > 0. WITH THE DEFECT");
+    line("   ABSENT BOTH PERCENTAGES READ 100.0000 — that is the value to compare against, not each");
+    line("   other's history.");
+    line("   p_nonrep is a property of the ORIGINAL AUTHORED UV LAYOUT: faces of OPPOSITE UV");
+    line("   handedness meet at one vertex, and .w is one sign per vertex, so no per-vertex tangent");
+    line("   the format can carry is right for all of them. P_sign EXCLUDES those corners; an");
+    line("   excluded corner is NOT a correct corner, it is an UNSCORED one. PF_sign scores the same");
+    line("   corners with the same predicate over the ENTIRE population, and pf_w_wrong is the half");
+    line("   of that population whose relief actually comes out INVERTED (T right, handedness wrong)");
+    line("   — the owner's \"on dirait que c'est inverse\", counted.");
+    line(fmt::format("{:<28}{:>6}{:>9}{:>10}{:>10}{:>9}{:>12}{:>12}{:>11}", "material", "faces",
+                     "p_den", "p_nonrep", "nonrep%", "pf_den", "pf_u_wrong", "pf_w_wrong",
+                     "PF_sign%"));
+    MatCensus tot;
+    for (const auto& kv : per_mat) {
+      const MatCensus& c = kv.second;
+      const u64 pre = c.p_den + c.p_nonrep;
+      line(fmt::format("{:<28}{:>6}{:>9}{:>10}{:>10.4f}{:>9}{:>12}{:>12}{:>11.4f}", kv.first,
+                       c.faces, c.p_den, c.p_nonrep,
+                       pre ? 100.0 * (double)c.p_nonrep / (double)pre : 0.0, c.pf_den, c.pf_u,
+                       c.pf_w, c.pf_den ? 100.0 * (double)c.pf_ok / (double)c.pf_den : 0.0));
+      tot.faces += c.faces;
+      tot.p_den += c.p_den;
+      tot.p_nonrep += c.p_nonrep;
+      tot.pf_den += c.pf_den;
+      tot.pf_ok += c.pf_ok;
+      tot.pf_u += c.pf_u;
+      tot.pf_w += c.pf_w;
+    }
+    const u64 pre_tot = tot.p_den + tot.p_nonrep;
+    line(fmt::format("{:<28}{:>6}{:>9}{:>10}{:>10.4f}{:>9}{:>12}{:>12}{:>11.4f}", "TOTAL", tot.faces,
+                     tot.p_den, tot.p_nonrep,
+                     pre_tot ? 100.0 * (double)tot.p_nonrep / (double)pre_tot : 0.0, tot.pf_den,
+                     tot.pf_u, tot.pf_w,
+                     tot.pf_den ? 100.0 * (double)tot.pf_ok / (double)tot.pf_den : 0.0));
+    // The POSITIVE CONTROL, on its own physical line so a run without it says so in as many words.
+    line(tan_flip_injected
+             ? fmt::format("TAN-FLIP CONTROL: injected={} of {} vertices (--tan-flip-every {}) — "
+                           "THIS RUN IS A CONTROL, NOT A GRADE",
+                           tan_flip_injected, gv.size(), tan_flip_every)
+             : fmt::format("TAN-FLIP CONTROL: injected=0 (control not run) of {} vertices",
+                           gv.size()));
+    line("");
+  }
   // ---- §3b WHAT THE PER-VERTEX FORMAT CANNOT EXPRESS: the two ORIGINAL-DATA limits, level-wide ----
   // Each figure below is computed from POSITIONS, TEXCOORDS, INDICES and TEXTURE IDS ALONE — no stored
   // normal, no stored tangent, no stored seam weight, no measured amplitude enters any of them. They
@@ -4314,7 +4450,11 @@ int main(int argc, char** argv) {
          // pre-existing column keeps its index. sign_den is now POST-exclusion, so A_sign's
          // pre-exclusion denominator — which is also A_lit_pct's denominator — is
          // sign_den + sign_excl_nonorient.
-         "sign_excl_nonorient\n";
+         "sign_excl_nonorient,"
+         // Gpbr-per-texture-materials: the PF_sign census — the SAME predicate as P_sign over the
+         // ENTIRE corner population (the v_nontan corners P_sign excludes are unscored, not
+         // correct). Appended as the LAST group so every pre-existing column keeps its index.
+         "PF_sign_pct,pf_ok,pf_den,pf_u_wrong,pf_w_wrong,pf_tan_fallback\n";
     u32 row = 0;
     for (u32 mi : order) {
       const auto& m = meshes[mi];
@@ -4364,11 +4504,17 @@ int main(int argc, char** argv) {
                        m.a_cons_ok, m.a_cons_den, m.exempt_dead);
       // §3b/§4c: B_perm (empty cell = n/a, same convention) and the two ORIGINAL-DATA exclusions,
       // then round 33's A_sign exclusion as the trailing column.
-      s += fmt::format("{},{},{},{},{},{}\n",
+      s += fmt::format("{},{},{},{},{},{},",
                        m.b_perm_pct() < 0 ? std::string("")
                                           : fmt::format("{:.6f}", m.b_perm_pct()),
                        m.perm_live, m.perm_den, m.cons_excl_nonorient, m.p_nonrep,
                        m.sign_excl_nonorient);
+      // Gpbr-per-texture-materials: PF_sign, the trailing group. An empty PF_sign_pct cell is the
+      // n/a case (no gradeable corner at all), the same convention A_sign_pct and P_sign_pct use.
+      s += fmt::format("{},{},{},{},{},{}\n",
+                       m.pf_den ? fmt::format("{:.6f}", 100.0 * (double)m.pf_ok / (double)m.pf_den)
+                                : std::string(""),
+                       m.pf_ok, m.pf_den, m.pf_u_wrong, m.pf_w_wrong, m.pf_tan_fallback);
       c << s;
     }
     c.flush();

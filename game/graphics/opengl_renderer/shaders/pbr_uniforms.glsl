@@ -86,6 +86,15 @@ uniform sampler2D tex_PBR_S;
 uniform sampler2D tex_PBR_E;
 uniform float u_pbr_emissive_str;  // emissive intensity (prop debug.opengoal.pbr.emissive)
 uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, default 1)
+// Gpbr-per-texture-materials (owner 2026-08-28: "un tissu n'a pas les mêmes propriétés qu'un mur en
+// pierres taillées ou que du sable"). THIS material's own surface constants, pushed per DRAW by
+// PbrDrawBinder from its materials.txt block. The identity values below — (0.9, 0.0, 0.04, +1) and
+// (1, 1) — are LITERALLY the constants this shader used to carry in-line at the roughness, metallic
+// and F0 sites, so a material the file does not name is unchanged bit for bit.
+uniform vec4 u_pbr_mat;   // x = roughness quand aucune _roughness n'est liee (0.9), y = metallic
+                          // sans map (0.0), z = F0 dielectrique (0.04), w = signe du canal VERT
+                          // de la normal map (+1 OpenGL / -1 DirectX)
+uniform vec2 u_pbr_mat2;  // x = facteur sur la _roughness liee, y = facteur sur la _metallic liee
 // This material's MEAN tangent-space surface gradient (n.xy/n.z, clamped +-4), measured over
 // every texel of <tex>_normal.png when the map is loaded (LoaderStages.cpp) and pushed per
 // draw by PbrDrawBinder. Subtracting it makes the normal-map perturbation ZERO-MEAN — see the
@@ -167,6 +176,25 @@ uniform vec2 u_pbr_height_stat;
 //            the displacement/POM frame it feeds can no longer depend on which side the CAMERA is
 //            on. Read in shrub.frag (the u_rt_light_on branch).
 uniform int u_pbr_bisect;
+// Gpbr-per-texture-materials — BISECT BANK 2. Bank 1 above is FULL: bits 1 .. 1073741824 are all
+// taken (scanned over every *.glsl/*.frag/*.vert/*.tesc/*.tese before this line was written, per
+// the scan rule at bit 33554432), and 2147483648 does not fit a GLSL ES signed int. So the next
+// A/B killswitch opens a second bank rather than overloading a used bit — the exact trap the
+// 33554432 note describes, which once confounded two A/Bs in the same frame.
+// Same convention as bank 1: 0 == the NEW (fixed) behaviour, set the bit to get the old one back.
+// Prop debug.opengoal.pbr.bisect2 / env OG_PBR_BISECT2, default 0.
+//    1 = per-FACE tangent HANDEDNESS off, i.e. back to the baked per-VERTEX v_tangent.w.
+//        Handedness is a property of a FACE (the sign of the UV Jacobian) and .w is one sign per
+//        VERTEX; on village1, 45.9% of triangles carry a mirrored UV chart and 33484 face corners
+//        of the seven PBR materials sit on a vertex whose incident faces MIX handedness, so
+//        whichever sign ships, the other side renders its relief inverted in V. Read in
+//        pbr_fused.glsl, tfrag3.frag and tfrag3_tess.tese.
+//    2 = per-FACE tangent DIRECTION off, i.e. back to the baked per-VERTEX tangent even where it
+//        points AGAINST its own face's dP/du. Same defect class as bit 1 and measured the same way:
+//        1052 face corners of the seven PBR materials (0.111%) run their normal-map X perturbation
+//        and their POM U march backwards. The fix only ever flips an ALREADY-reversed tangent, so a
+//        corner the census scores correct is left bit-identical. Read at the same three sites.
+uniform int u_pbr_bisect2;
 // REOPEN #3 DISPLACEMENT carousel: 0 = Off (height_scale forced 0 C++-side), 1 = Parallax
 // (steep POM below, the default = pre-carousel behaviour), 2 = Tessellation (displacement
 // happens in the tess evaluation stage; the frag POM must then stand down).

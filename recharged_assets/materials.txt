@@ -68,12 +68,66 @@
 # A channel is active only when its own parameter says so, so an all-zero block is exactly
 # the same as no block at all.
 #
+# ---- KEYS THAT ACT AS SOON AS PBR IS ON (phase Gpbr-per-texture-materials) ------------
+# READ THIS DIFFERENCE, it is the whole point: every key ABOVE only does something while the
+# MODERN MATERIALS menu row is on (that row ships OFF). Every key BELOW drives the PBR path
+# ITSELF, which is on by default — so these apply the moment the file is read, with no menu row
+# to find. They are the answer to "on applique un specular truc machin et un relief globalement,
+# ça devrait être texture par texture": before this phase there were exactly TWO material knobs
+# in the whole engine (TEXTURE RELIEF and SPECULAR INTENSITY, both frame-constant and global),
+# so sand and cut stone could not differ by construction.
+# Every default below IS the identity: a material this file does not name renders exactly as it
+# did before the phase, bit for bit.
+#   relief        1.0     Multiplies the NORMAL-MAP strength for this material only (the global
+#                         TEXTURE RELIEF slider stays in charge of the overall level). >1 = deeper
+#                         apparent grain, <1 = flatter.
+#   relief_depth  1.0     Multiplies the DISPLACEMENT depth — the parallax march offset, and the
+#                         real vertex displacement when Tessellation is selected. Separate from
+#                         `relief` on purpose: plaster has visible grain (normals) and almost no
+#                         depth, straw has both.
+#   relief_lambda 0.0     0 = keep the feature WAVELENGTH measured from the height map's own mip
+#                         spectrum (almost always right). >0 overrides it, in TILES (1 = one whole
+#                         texture tile). Only touch this if the measured value is visibly wrong.
+#   spec          1.0     Multiplies the specular intensity for this material only.
+#   roughness     0.9     Roughness used when the material ships NO <tex>_roughness.png. 0.9 = the
+#                         constant the shader used to carry: missing map means ROUGH, never a
+#                         smooth plastic sheen.
+#   roughness_scale 1.0   Multiplies the roughness READ FROM the map, when there is one.
+#   metallic      0.0     Metallicity when the material ships no <tex>_metallic.png. Stone, straw,
+#                         sand and cloth are dielectrics: leave it at 0.
+#   metallic_scale  1.0   Multiplies the metallic read from the map, when there is one.
+#   reflectance   0.04    Dielectric F0 — how much light the surface reflects head-on. 0.04 is the
+#                         textbook value for most dielectrics; ~0.03 for sand/dry organics, ~0.05
+#                         for wet or polished stone. Ignored where `metallic` says metal (a metal's
+#                         F0 is its own albedo).
+#   normal_y      1       Handedness of the normal map's GREEN channel: +1 = green-up (OpenGL, what
+#                         Blender/Substance-GL/most PNG packs export), -1 = green-down (DirectX).
+#                         Get this wrong and the material's relief is lit from the wrong side —
+#                         bumps read as dents. Only 1 and -1 are accepted; anything else warns and
+#                         falls back to 1.
+#
 # ------------------------------- ORM PACKING ------------------------------------------
 # Not configured here — it is a FILE, not a parameter. Drop <tex>_orm.png next to the base
 # texture with occlusion in R, roughness in G, metallic in B (the glTF layout every
 # authoring tool exports) and the loader unpacks it into three GL_R8 planes: one file
 # instead of three, 3 bytes per texel instead of 12. A dedicated _roughness.png (etc.)
 # always wins over the packed channel, so you can migrate a set one file at a time.
+# =====================================================================================
+
+# ---- Gpbr-per-texture-materials, 2026-08-28 ------------------------------------------
+# The `relief` / `relief_depth` / `spec` / `roughness` / `reflectance` lines added to the seven
+# blocks below are AUTHORED — a choice about what each surface IS, made once and written down.
+# They are NOT measured from anything, and nothing in the pipeline can derive them: the height
+# map's statistics say how the relief varies, never how DEEP a sand ripple should read compared
+# to a mortar joint. Treat them as a starting point to be judged by eye and re-tuned in this
+# file (a kilobyte push, no rebuild), not as results.
+# ONE THING TO KNOW BEFORE READING THEM: all seven materials ship a <tex>_roughness.png, so the
+# `roughness` value on each block is the FALLBACK USED WHEN NO MAP IS BOUND and changes nothing
+# today. It is written down anyway because it is the material's identity — the day one of these
+# sets loses its roughness map, or a new material is added without one, the surface must still
+# read as sand or as stone and not as the generic 0.9. `roughness_scale`, `metallic_scale` and
+# `normal_y` are deliberately absent: their identity is the default, and posing a value that
+# happens to equal the default would hide which surfaces we actually made a decision about.
 # =====================================================================================
 
 # ---- village1: the seven materials that ship PBR maps today --------------------------
@@ -96,6 +150,13 @@ material vil1-sages-strawroof-01
   sss_ambient   0.30
   aniso         0.40
   aniso_angle   0.0
+  # AUTHORED (Gpbr-per-texture-materials): STRAW. Loose dry stalks — the deepest relief of the
+  # set and the most three-dimensional silhouette, matte, barely reflective.
+  relief        1.30
+  relief_depth  1.40
+  spec          0.80
+  roughness     0.85
+  reflectance   0.040
 
 # FOLIAGE GROUND. Leaf litter: green transmission, thicker than straw so a tighter falloff
 # and a smaller ambient share. Deliberately restrained — this is a ground plane the owner
@@ -108,6 +169,13 @@ material vil1-jng-leafyground
   sss_distort   0.20
   sss_wrap      0.30
   sss_ambient   0.25
+  # AUTHORED (Gpbr-per-texture-materials): LEAF LITTER. Overlapping leaves — real depth between
+  # them, a slightly damp sheen, and no metal anywhere.
+  relief        1.10
+  relief_depth  1.15
+  spec          0.90
+  roughness     0.90
+  reflectance   0.040
 
 # THATCHED HUT ROOF. Same physics as the sage's roof, weaker: thicker bundles, less light
 # through.
@@ -119,6 +187,13 @@ material vil-hut-roof-tile-01
   sss_distort   0.25
   sss_wrap      0.25
   sss_ambient   0.20
+  # AUTHORED (Gpbr-per-texture-materials): THATCH. Bundled reeds, coarser and more packed than
+  # the sage's loose straw, so a shade less depth.
+  relief        1.20
+  relief_depth  1.25
+  spec          0.80
+  roughness     0.88
+  reflectance   0.040
 
 # COASTAL STONE. No subsurface — stone is opaque. A thin clearcoat instead: village1 sits on
 # the shore and its stonework is damp, and a damp surface is exactly a smooth film over a
@@ -127,17 +202,47 @@ material vil-hut-roof-tile-01
 material vil1-sages-stonewall-01
   clearcoat       0.10
   clearcoat_rough 0.25
+  # AUTHORED (Gpbr-per-texture-materials): CUT STONE. Deep mortar joints between flat dressed
+  # faces — the highest displacement of the non-organic surfaces, and the smoothest base.
+  relief        1.20
+  relief_depth  1.25
+  spec          1.00
+  roughness     0.75
+  reflectance   0.050
 
 material vil-beachrock
   clearcoat       0.15
   clearcoat_rough 0.20
+  # AUTHORED (Gpbr-per-texture-materials): WET ROCK. Sea-splashed, so it reads brighter and
+  # glossier than the dry stonework, on top of the clearcoat above.
+  relief        1.15
+  relief_depth  1.15
+  spec          1.20
+  roughness     0.80
+  reflectance   0.050
 
 # PLASTER and SAND: no scattering, no coat. They still opt in, because energy compensation
 # and specular/horizon occlusion default ON in any block and both are strict corrections to
 # the existing specular — nothing added, only what was wrong made right.
 material vil-wallplaster
+  # AUTHORED (Gpbr-per-texture-materials): PLASTER. Grainy but essentially FLAT — visible
+  # texture, almost no depth. This is the material the `relief` / `relief_depth` split exists
+  # for: shallow displacement (0.60) under a gentle normal grain (0.85).
+  relief        0.85
+  relief_depth  0.60
+  spec          0.70
+  roughness     0.92
+  reflectance   0.035
 
 material vil-beach-01
+  # AUTHORED (Gpbr-per-texture-materials): SAND. Fine grains — the normal map does the work,
+  # the displacement stays shallow (ripples are millimetres, not centimetres). Dry organic
+  # mineral: the least reflective surface of the set.
+  relief        1.00
+  relief_depth  0.80
+  spec          0.70
+  roughness     0.95
+  reflectance   0.030
 
 # ---- [defaults] ----------------------------------------------------------------------
 # Uncomment to apply a block to EVERY PBR material that has no block of its own. Useful to

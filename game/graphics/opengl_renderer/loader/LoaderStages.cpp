@@ -708,6 +708,12 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       // [defaults] block), and it clears mm_flags to 0 in every other case — so a material nobody
       // authored reaches the renderer exactly as the accepted PBR path built it.
       custom_tex::mm_apply_params(tex.debug_name, &maps);
+      // Gpbr-per-texture-materials: and the PBR-path half of the same block — relief, roughness,
+      // metallicity, reflectance, normal-map handedness. Deliberately NOT gated on the MODERN
+      // MATERIALS row (see pbrmat_apply_params): the PBR path is on by default, so a gate there
+      // would make every preset inert. Un-named material => the pm_* defaults, which are the
+      // identity.
+      custom_tex::pbrmat_apply_params(tex.debug_name, &maps);
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
       // Key on "<tpage>/<name>" (branch fix): two textures can share a bare name across
       // tpages, and a bare-name registry let the second registration delete the first

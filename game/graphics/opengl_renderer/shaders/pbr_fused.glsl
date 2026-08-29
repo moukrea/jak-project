@@ -12,6 +12,18 @@
         vec3 fTuv, fBuv;
         // REOPEN#9 (owner playtest #9) tangent-fallback coverage flag (for the u_pbr_debug==20 viz + the
         // pbr_tan_diag.txt CPU proof): 1.0 = this fragment took the degenerate-tangent fallback.
+        // ---- Gpbr-per-texture-materials: THE FACE'S OWN UV->WORLD JACOBIAN --------------------
+        // Computed HERE, in UNIFORM control flow, because dFdx/dFdy inside a branch are UNDEFINED
+        // in GLSL ES and the Adreno path would be free to return anything. Only the SIGN derived
+        // from it is used, twenty lines down.
+        // dP/dv is recovered by inverting the FULL 2x2 screen->UV Jacobian, so it is the true
+        // geometric dP/dv at this fragment: every camera-dependent part cancels, which is what
+        // separates it from the round-5 "camera-signed handedness" defect.
+        vec3 fdPx = dFdx(v_fringe_rel), fdPy = dFdy(v_fringe_rel);
+        vec2 fdUx = dFdx(tex_coord.xy), fdUy = dFdy(tex_coord.xy);
+        float fdetJ = fdUx.x * fdUy.y - fdUx.y * fdUy.x;
+        vec3 fdPdv = (fdUx.x * fdPy - fdUy.x * fdPx) / (abs(fdetJ) > 1e-9 ? fdetJ : 1.0);
+        vec3 fdPdu = (fdUy.y * fdPx - fdUx.y * fdPy) / (abs(fdetJ) > 1e-9 ? fdetJ : 1.0);
         float f_tan_fb = (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) ? 0.0 : 1.0;
         if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
           fTuv = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));
@@ -19,7 +31,42 @@
           // The interpolated .w can pass through 0 across a strip whose vertices carry opposite
           // handedness, which would SHRINK the bitangent mid-triangle (a per-triangle discontinuity
           // that reads as a facet). sign() keeps a full-length, continuous bitangent.
-          fBuv = cross(N, fTuv) * (v_tangent.w < 0.0 ? -1.0 : 1.0);
+          // ---- Gpbr-per-texture-materials: THE HANDEDNESS IS A PER-FACE PROPERTY AND .w IS PER
+          // VERTEX. That mismatch is the owner's 2026-08-28 defect verbatim ("on dirait que ca
+          // marche d'un cote mais pas de l'autre ... d'autres on dirait que c'est inverse"), and it
+          // is MEASURED, not supposed. tools/tess_sign over the SHIPPED village1 fr3, at the
+          // shipped subdivision (1.6 m, 1 round): 621191 of 1351952 triangles carry a MIRRORED UV
+          // chart (45.9%), 63453 vertices are handedness-SPLIT, and 33484 face corners of the seven
+          // PBR materials sit on a vertex whose incident faces MIX handedness -- 25.06% of every
+          // corner of vil-hut-roof-tile-01, 9.74% of vil-wallplaster, and 0.00% of
+          // vil1-sages-strawroof-01. ONE sign per vertex cannot serve both sides: whichever .w
+          // ships, every incident face of the other handedness renders its relief inverted in V
+          // (the tessellation tier, which reads N alone, stays correct -- exactly the asymmetry the
+          // owner describes). No bake can fix it: it is a property of the AUTHORED UV LAYOUT, which
+          // is why tess_sign EXCLUDES those corners from P_sign instead of scoring them.
+          // So take the sign from THE FACE. Handedness is CONSTANT over a triangle (the UVs are
+          // affine there), so -- unlike a derivative-derived tangent DIRECTION, which is what
+          // REOPEN#9 removed because it jumps at every edge and reads as facets -- a
+          // derivative-derived SIGN adds no intra-triangle discontinuity. It differs from the baked
+          // .w only where the UVs genuinely mirror, which is exactly where it must.
+          // Fall back to the baked per-vertex sign where the face states no UV direction (a
+          // degenerate Jacobian, or a 2x2 quad straddling an edge): there is nothing to read there.
+          // Gpbr-per-texture-materials, BANK-2 BIT 2 — the tangent DIRECTION is per-vertex for
+          // the same reason the handedness was, and it fails the same way. MEASURED (tools/tess_sign
+          // PF_sign over the shipped village1 fr3): 1052 face corners of the seven PBR materials,
+          // 0.111%, carry a T pointing AGAINST their own face's dP/du -- there the normal map's X
+          // perturbation and the POM's U march BOTH run backwards. This only ever flips a tangent
+          // that is ALREADY reversed for this face, so every corner the census scores correct is
+          // left bit-identical; and it runs BEFORE the handedness sign below, which is then derived
+          // from the corrected T.
+          if ((u_pbr_bisect2 & 2) == 0 && abs(fdetJ) > 1e-9 && dot(fTuv, fdPdu) < 0.0) {
+            fTuv = -fTuv;
+          }
+          float fhs = dot(cross(N, fTuv), fdPdv);
+          float fhw = ((u_pbr_bisect2 & 1) == 0 && abs(fdetJ) > 1e-9 && abs(fhs) > 1e-9)
+                          ? (fhs < 0.0 ? -1.0 : 1.0)
+                          : (v_tangent.w < 0.0 ? -1.0 : 1.0);
+          fBuv = cross(N, fTuv) * fhw;
         } else {
           // REOPEN#9 (owner playtest #9): v_tangent is degenerate/unbound here. The OLD code rebuilt the
           // TBN from screen-space derivatives (dFdx/dFdy) — a per-triangle-CONSTANT frame that JUMPS at
@@ -336,6 +383,10 @@
         vec2 fg = vec2(0.0);
         if ((u_pbr_mode & 1) != 0 && u_pbr_debug != 7 && (u_pbr_bisect & 64) == 0) {
           vec3 nraw = texture(tex_PBR_N, uv).xyz * 2.0 - 1.0;
+          nraw.y *= u_pbr_mat.w;  // Gpbr-per-texture-materials: espace de la normal map, +1 OpenGL
+                                  // / -1 DirectX. Etait suppose OpenGL pour TOUTES les textures
+                                  // indistinctement. Applique AVANT la reconstruction de Z du bit
+                                  // 128 : le signe de Y doit etre juste avant que Z en soit deduit.
           // Grecharged-managed-assets: two-channel normal (bit 128). GPU-compressed pack formats
           // (BC5, EAC RG11, ASTC X/Y) carry no Z, so rebuild the unit vector from X/Y. Done before
           // everything else so the Toksvig length, the gradient and the DC removal below all see a
@@ -401,11 +452,14 @@
         // the specular-AA minimum (no mirror-edge fireflies).
         // REOPEN #2 MISSING-ROUGHNESS=ROUGH (industry rule): an absent _roughness map now
         // reads 0.9 — internet-pack bases without maps must NEVER get a smooth plastic sheen.
-        float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r : 0.9;
+        // Gpbr-per-texture-materials: la valeur de repli SANS map et le facteur sur la map liee
+        // viennent du bloc materials.txt de CE materiau. Defauts (0.9, x1.0) = les constantes
+        // ecrites en dur ici auparavant.
+        float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r * u_pbr_mat2.x : u_pbr_mat.x;
         // REOPEN dielectric rule: most owner sets are height/normal/roughness only — a
         // MISSING _metallic map means metal = 0.0 (stone/straw/dirt are dielectrics,
         // constant F0 = 0.04; never assume metalness).
-        float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r : 0.0;
+        float metal = (u_pbr_mode & 4) != 0 ? texture(tex_PBR_M, uv).r * u_pbr_mat2.y : u_pbr_mat.y;
         float ao = (u_pbr_mode & 8) != 0 ? texture(tex_PBR_AO, uv).r : 1.0;
         // REOPEN #3 BISECT VERDICT (mask 16): _specular read as RAW F0 (the test map's
         // linear mean is 0.217, p95 0.426 — 5-10x the 0.04 dielectric norm) inflated
@@ -418,7 +472,7 @@
           vec3 spec_raw = pow(texture(tex_PBR_S, uv).rgb, vec3(2.2));
           F0 = mix(min(spec_raw, vec3(0.08)), spec_raw, metal);
         } else {
-          F0 = mix(vec3(0.04), albedo, metal);
+          F0 = mix(vec3(u_pbr_mat.z), albedo, metal);  // Gpbr-per-texture-materials: reflectance
         }
         float NdV = max(dot(Nm, Vv), 1e-4);
         // REOPEN geometric SPECULAR AA: widen the GGX alpha by the normal-map's screen-

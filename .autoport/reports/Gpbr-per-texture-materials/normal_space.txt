@@ -1,0 +1,40 @@
+== PER-TEXTURE NORMAL-MAP SPACE CENSUS (phase Gpbr-per-texture-materials) ==
+
+NATURE  two dimensionless correlations in [-1,1] -- NOT an amplitude.
+FRAME   the material's own image grid; dU = +x (columns), dV = +y (rows). Both maps are
+        sampled on the same grid, so no resampling and no world units enter.
+ABSENT  every material shows the SAME (sign cx, sign cy) pair. What this instrument can
+        find is a MIX -- one material placing its green channel the other way round from
+        its neighbour -- because a comparison of materials AGAINST EACH OTHER cancels
+        every convention they share. A material whose pair differs from the majority is
+        the finding; a unanimous table means a per-texture normal_y has nothing to
+        correct today.
+CANNOT  decide whether the SHARED convention is the one the engine assumes. That is one
+        GLOBAL bit, and answering it needs the loader's upload row order and the
+        orientation the level's own UVs give V -- neither is in these files. Reading a
+        per-texture 'flipped' verdict off this table would be a false red.
+        |cx| and |cy| both below 0.15 => the two maps are not derived from one another
+        and the row says INDETERMINATE rather than inventing a verdict.
+
+material                          size       cx       cy           class
+vil-beach-01                 2048x2048   0.3382  -0.4896            (+-)
+vil-beachrock                2048x1024   0.7862  -0.7065            (+-)
+vil-hut-roof-tile-01         2048x2048   0.4530  -0.5168            (+-)
+vil-wallplaster              2048x2048   0.5067  -0.5699            (+-)
+vil1-jng-leafyground         2048x2048   0.6017  -0.5975            (+-)
+vil1-sages-stonewall-01      2048x2048   0.6484  -0.6867            (+-)
+vil1-sages-strawroof-01      2048x2048   0.6734  -0.5951            (+-)
+
+materials measured: 7   distinct (sign cx, sign cy) classes: 1
+   class (+-): 7  vil-beach-01, vil-beachrock, vil-hut-roof-tile-01, vil-wallplaster, vil1-jng-leafyground, vil1-sages-stonewall-01, vil1-sages-strawroof-01
+
+VERDICT: HOMOGENEOUS. Every material places its green channel the same way relative
+to its own height field, so there is NO per-texture mix and a per-texture normal_y
+has nothing to repair today. That is a real result and not an absence of one: it
+REMOVES 'some textures ship a flipped green' from the candidate causes of the owner's
+face-to-face inconsistency, which is what the census was run to test.
+WHAT STAYS OPEN, NAMED: whether the shared convention is the one the engine assumes
+is ONE GLOBAL BIT this instrument cannot reach (see CANNOT above). The knob now
+exists, so testing it costs one line -- `normal_y -1` in the [defaults] block of
+recharged_assets/materials.txt -- and no rebuild. It is the OWNER's eye that closes
+it, not a number of mine.

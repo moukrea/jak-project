@@ -818,6 +818,30 @@ MmParamSet g_mm_defaults;
 bool g_mm_has_defaults = false;
 bool g_mm_loaded = false;
 
+// Gpbr-per-texture-materials — the SECOND parameter set the same blocks fill. Kept separate from
+// MmParamSet on purpose: MmParamSet feeds u_mm_flags, which is gated on the MODERN MATERIALS menu
+// row and is therefore CLEARED whenever the row is off. These knobs drive the PBR path itself
+// (relief, roughness, metallicity, reflectance, normal-map handedness), which is on by default —
+// sharing the struct would drag them behind that gate and make every preset inert.
+// EVERY DEFAULT HERE IS THE IDENTITY: an un-named material comes out of the parser exactly as the
+// accepted PBR path built it.
+struct PbrMatParams {
+  float relief = 1.f;
+  float relief_depth = 1.f;
+  float relief_lambda = 0.f;
+  float spec = 1.f;
+  float rough_nomap = 0.9f;
+  float rough_scale = 1.f;
+  float metal_nomap = 0.f;
+  float metal_scale = 1.f;
+  float reflectance = 0.04f;
+  float normal_y = 1.f;
+};
+
+std::unordered_map<std::string, PbrMatParams> g_pbrmat_params;
+PbrMatParams g_pbrmat_defaults;
+bool g_pbrmat_has_defaults = false;
+
 // Texture-derived capability bits. The loader owns these (a map is either bound or it is not); the
 // file owns everything else. Keeping them in one named constant is what makes the re-stamp on reload
 // safe: authored bits are recomputed, these are carried over.
@@ -926,6 +950,11 @@ void mm_params_reload() {
   g_mm_defaults = MmParamSet();
   g_mm_has_defaults = false;
   g_mm_loaded = true;
+  // Gpbr-per-texture-materials: the PBR-path knobs come out of the SAME blocks, so they are cleared
+  // and refilled by the SAME pass. One file, one parser, two destinations.
+  g_pbrmat_params.clear();
+  g_pbrmat_defaults = PbrMatParams();
+  g_pbrmat_has_defaults = false;
 
   // Same source precedence as physics_chains.txt: an external-pack copy beats the packaged one, so
   // the owner tunes a text file on the device instead of re-downloading the APK.
@@ -955,6 +984,8 @@ void mm_params_reload() {
   }
 
   MmParamSet cur;
+  // Gpbr-per-texture-materials: the second half of the block being parsed.
+  PbrMatParams pcur;
   std::string cur_name;
   bool cur_is_defaults = false;
   bool have_block = false;
@@ -973,8 +1004,12 @@ void mm_params_reload() {
     if (cur_is_defaults) {
       g_mm_defaults = cur;
       g_mm_has_defaults = true;
+      // Gpbr-per-texture-materials: the same block also carries the PBR-path knobs.
+      g_pbrmat_defaults = pcur;
+      g_pbrmat_has_defaults = true;
     } else {
       g_mm_params[cur_name] = cur;
+      g_pbrmat_params[cur_name] = pcur;
       n_mat++;
     }
   };
@@ -1000,6 +1035,7 @@ void mm_params_reload() {
     if (tok[0] == "material" || tok[0] == "[defaults]") {
       flush();
       cur = MmParamSet();
+      pcur = PbrMatParams();
       energy_on = true;
       specocc_on = true;
       filmic_on = false;
@@ -1049,6 +1085,37 @@ void mm_params_reload() {
       specocc_on = v(0, 1.f) != 0.f;
     } else if (k == "filmic") {
       filmic_on = v(0, 0.f) != 0.f;
+      // ---- Gpbr-per-texture-materials: the PBR-PATH knobs. Same blocks, same parser, but these
+      // land in pcur and are NOT behind the MODERN MATERIALS row (see PbrMatParams).
+    } else if (k == "relief") {
+      pcur.relief = v(0, 1.f);
+    } else if (k == "relief_depth") {
+      pcur.relief_depth = v(0, 1.f);
+    } else if (k == "relief_lambda") {
+      pcur.relief_lambda = v(0, 0.f);
+    } else if (k == "spec") {
+      pcur.spec = v(0, 1.f);
+    } else if (k == "roughness") {
+      pcur.rough_nomap = v(0, 0.9f);
+    } else if (k == "roughness_scale") {
+      pcur.rough_scale = v(0, 1.f);
+    } else if (k == "metallic") {
+      pcur.metal_nomap = v(0, 0.f);
+    } else if (k == "metallic_scale") {
+      pcur.metal_scale = v(0, 1.f);
+    } else if (k == "reflectance") {
+      pcur.reflectance = v(0, 0.04f);
+    } else if (k == "normal_y") {
+      // Only the two handedness conventions exist (+1 = OpenGL green-up, -1 = DirectX green-down).
+      // Anything else would be a silent partial flip, so it is refused and reported, not clamped.
+      const float ny = v(0, 1.f);
+      if (ny == 1.f || ny == -1.f) {
+        pcur.normal_y = ny;
+      } else {
+        lg::warn("[mm] materials.txt:{}: normal_y `{}` is neither 1 nor -1 — using 1", line_no,
+                 tok.size() > 1 ? tok[1] : std::string());
+        pcur.normal_y = 1.f;
+      }
     } else {
       n_unknown++;
       lg::warn("[mm] materials.txt:{}: unknown key `{}` — skipped", line_no, k);
@@ -1058,11 +1125,36 @@ void mm_params_reload() {
   lg::info("[mm] materials.txt parsed: {} material blocks, defaults={}, {} unknown keys", n_mat,
            g_mm_has_defaults ? 1 : 0, n_unknown);
 
+  // Gpbr-per-texture-materials — EXECUTION TRACE, not a comment. This block is the only proof that
+  // the file was actually FOUND, READ and turned into numbers on this machine: the values below are
+  // read back out of the parsed map, so a preset that never reached the parser cannot print here.
+  // Sorted through a std::map so two runs of the same file emit byte-identical lines (the storage is
+  // an unordered_map, whose iteration order is not a promise).
+  lg::info("[pbrmat] PARAMSRC={} path={} blocks={} defaults={}", src_kind, path.string(),
+           (int)g_pbrmat_params.size(), g_pbrmat_has_defaults ? 1 : 0);
+  {
+    std::map<std::string, const PbrMatParams*> sorted;
+    for (const auto& kv : g_pbrmat_params) {
+      sorted[kv.first] = &kv.second;
+    }
+    for (const auto& kv : sorted) {
+      const PbrMatParams& p = *kv.second;
+      lg::info(
+          "[pbrmat] {} relief={:.3f} depth={:.3f} lambda={:.3f} spec={:.3f} rough={:.3f}x{:.3f} "
+          "metal={:.3f}x{:.3f} F0={:.3f} ny={:+.0f}",
+          kv.first, p.relief, p.relief_depth, p.relief_lambda, p.spec, p.rough_nomap, p.rough_scale,
+          p.metal_nomap, p.metal_scale, p.reflectance, p.normal_y);
+    }
+  }
+
   // Re-stamp everything already registered so a menu toggle applies without a level reload. Texture-
   // derived bits survive; authored ones are recomputed from the freshly parsed file (or cleared, if
   // the master went off).
   for (auto& kv : g_pbr_materials) {
     mm_apply_params(kv.first, &kv.second);
+    // Gpbr-per-texture-materials: the PBR-path knobs are re-stamped on the SAME walk, so an edit to
+    // materials.txt reaches them through the same menu toggle that reloads the modern half.
+    pbrmat_apply_params(kv.first, &kv.second);
   }
 }
 
@@ -1134,6 +1226,52 @@ void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps) {
   if ((maps->mm_flags & kMmFunctionalBits) == 0) {
     maps->mm_flags = 0;
   }
+}
+
+void pbrmat_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps) {
+  if (!maps) {
+    return;
+  }
+  // NO GATE, and that is the point. mm_apply_params() returns here when the MODERN MATERIALS menu
+  // row is off, because everything it stamps only reaches the shader through u_mm_flags. These
+  // knobs drive the PBR path itself, which is on by default — gating them on a row that ships OFF
+  // would make every preset in materials.txt inert while still LOOKING wired.
+  if (!g_mm_loaded) {
+    mm_params_reload();
+  }
+  const PbrMatParams* p = nullptr;
+  auto it = g_pbrmat_params.find(tex_debug_name);
+  // Same two-step key resolution as mm_apply_params: the registry is keyed "<tpage>/<name>" while
+  // materials.txt names materials by their BARE debug name, and the re-stamp walk hands us the
+  // composite key. Without the fallback every block would stop matching on the FIRST reload.
+  if (it == g_pbrmat_params.end()) {
+    const auto slash = tex_debug_name.rfind('/');
+    if (slash != std::string::npos) {
+      it = g_pbrmat_params.find(tex_debug_name.substr(slash + 1));
+    }
+  }
+  if (it != g_pbrmat_params.end()) {
+    p = &it->second;
+  } else if (g_pbrmat_has_defaults) {
+    p = &g_pbrmat_defaults;
+  }
+  if (!p) {
+    // Nobody named this material and there is no [defaults] block: leave every pm_* field at its
+    // default, which IS the pre-phase behaviour, and say so.
+    maps->pm_authored = false;
+    return;
+  }
+  maps->pm_relief = p->relief;
+  maps->pm_relief_depth = p->relief_depth;
+  maps->pm_relief_lambda = p->relief_lambda;
+  maps->pm_spec = p->spec;
+  maps->pm_rough_nomap = p->rough_nomap;
+  maps->pm_rough_scale = p->rough_scale;
+  maps->pm_metal_nomap = p->metal_nomap;
+  maps->pm_metal_scale = p->metal_scale;
+  maps->pm_reflectance = p->reflectance;
+  maps->pm_normal_y = p->normal_y;
+  maps->pm_authored = true;
 }
 
 namespace {
