@@ -655,6 +655,19 @@
 ;; ecoule, et rend 1 immediatement sur un runtime qui ne publie aucune residence.
 ;; La boucle ne peut donc pas retenir une scene indefiniment — une barriere qui
 ;; peut bloquer le jeu serait pire que le defaut qu'elle corrige.
+;; Gloading-screen : plafond UNIQUE de la barriere de scene, volet GPU et volet GOAL confondus.
+;; C'est un plafond, pas une cible : quand tout est deja pret la boucle ne tourne pas.
+(defconstant SCENE_GATE_CEILING (seconds 20))
+
+(defun scene-level-goal-ready? ((nm symbol))
+  "Le niveau est-il assez avance COTE GOAL pour que `display-level` puisse l'activer dans la frame,
+   et donc pour que `alive` trouve ses acteurs juste apres ?
+   L'echelle des statuts est inactive -> loading -> loading-bt -> loading-done -> login -> loaded
+   -> alive -> active (engine/level/level.gc:248-258) ; `update! *load-state*` (level.gc:1144-1147)
+   n'active QUE ce qui est deja 'loaded ou 'active."
+  (let ((st (level-status *level* nm)))
+    (or (= st 'loaded) (= st 'alive) (= st 'active))))
+
 (defbehavior scene-load-gate! process-drawable ((arg0 spool-anim))
   "Hold this scene until every level it will DISPLAY is drawable. No-op otherwise."
   (let ((pre0 (the-as symbol #f))
@@ -719,30 +732,71 @@
       (set! show1 (the-as symbol #f)))
     (if pre0 (want-levels *load-state* pre0 pre1))
     (when show0
-      (until (nonzero? (__pc-scene-ready?
-                        (-> arg0 name)
-                        (symbol->string show0)
-                        (if show1 (symbol->string show1) "none")
-                        ;; Plafond 20 s. Le loader passe sur son chemin BLOQUANT tant
-                        ;; que la barriere est fermee (cout mesure d'un niveau : ~5 s,
-                        ;; village1 4,6 s), donc c'est un plafond, pas une cible.
-                        20000))
-        ;; Garder la partie streamee vivante pendant l'attente. Toutes les autres
-        ;; boucles d'attente de ce fichier repoussent a chaque tour pour cette raison :
-        ;; sans push, l'art control peut lacher le spool qu'on s'apprete a jouer.
-        (spool-push *art-control* (-> arg0 name) 0 self -20.0)
-        (set-blackout-frames (seconds 0.05))
-        ;; Gloading-screen : armer l'ecran de chargement. C'EST LE SEUL SITE QUI L'ARME, et c'est
-        ;; ce qui l'exclut PAR CONSTRUCTION des coupes de camera (pov-camera.gc:103), des boutons
-        ;; (basebutton.gc:348) et de la mort (target-death.gc) -- tous ceux-la poussent
-        ;; `blackout-time` juste au-dessus et ne touchent jamais a l'horloge de la barriere.
-        (loading-screen-hold!)
-        (suspend))
+      ;; Gloading-screen (owner 2026-08-29) -- LA RESIDENCE GPU NE SUFFIT PAS, ET C'EST LA CAUSE
+      ;; DU POP-IN DES COLLECTEURS D'ECO VERT QUE L'OWNER SIGNALE DEUX FOIS.
+      ;;
+      ;; `__pc-scene-ready?` lit `load_gate::level_is_resident`, publie par
+      ;; `Loader.cpp:1462` — l'instant ou la GEOMETRIE tfrag3 et les textures sont televersees.
+      ;; C'est un pipeline INDEPENDANT du chargement DGO cote GOAL. Or la command-list de
+      ;; `sage-intro-sequence-e` fait `display-level beach movie` a la frame 937 puis
+      ;; `alive "harvester-87..91"` a la frame 938, et `alive` passe par `entity-by-name`
+      ;; (engine/entity/entity.gc:92-113) qui ne parcourt QUE les niveaux au statut 'active.
+      ;; Une barriere qui n'attend que le GPU peut donc laisser partir la scene alors que le DGO
+      ;; de beach est encore en 'login : `display-level` est alors sans effet immediat
+      ;; (engine/level/level.gc:1144-1147 n'active que ce qui est deja 'loaded), la commande
+      ;; `alive` ne trouve rien, et elle est consommee SANS ETRE REJOUEE
+      ;; (engine/level/load-boundary.gc:1185). Les collecteurs n'apparaissent jamais a l'heure.
+      ;;
+      ;; On attend donc les DEUX : residence GPU (le niveau est dessinable) ET statut GOAL
+      ;; 'loaded ou mieux (le niveau est activable dans la frame). Un seul plafond couvre les
+      ;; deux, pour que la somme ne puisse pas depasser ce qu'un humain accepte de regarder.
+      ;;
+      ;; CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : `attendu=0` et `statut=active` des le premier
+      ;; tour, la boucle ne s'execute pas, et le rendu est inchange au bit.
+      (let ((gpu #f)
+            (t0 (current-time)))
+        (until (or (and gpu
+                        (scene-level-goal-ready? show0)
+                        (or (not show1) (scene-level-goal-ready? show1)))
+                   (>= (- (current-time) t0) SCENE_GATE_CEILING))
+          ;; Le volet GPU se LATCHE : `scene_ready` efface son armement quand il rend 1, donc le
+          ;; rappeler republierait une paire arm/open a chaque frame et remettrait son propre
+          ;; plafond a zero. Une fois vrai, il le reste.
+          (when (not gpu)
+            (set! gpu (nonzero? (__pc-scene-ready?
+                                 (-> arg0 name)
+                                 (symbol->string show0)
+                                 (if show1 (symbol->string show1) "none")
+                                 ;; Plafond 20 s. Le loader passe sur son chemin BLOQUANT tant
+                                 ;; que la barriere est fermee (cout mesure d'un niveau : ~5 s,
+                                 ;; village1 4,6 s), donc c'est un plafond, pas une cible.
+                                 20000))))
+          ;; Garder la partie streamee vivante pendant l'attente. Toutes les autres
+          ;; boucles d'attente de ce fichier repoussent a chaque tour pour cette raison :
+          ;; sans push, l'art control peut lacher le spool qu'on s'apprete a jouer.
+          (spool-push *art-control* (-> arg0 name) 0 self -20.0)
+          (set-blackout-frames (seconds 0.05))
+          ;; Gloading-screen : armer l'ecran de chargement AU NOM de la barriere de scene. Les
+          ;; coupes de camera (pov-camera.gc:103), les boutons (basebutton.gc:348) et la mort
+          ;; poussent `blackout-time` juste au-dessus et ne posent JAMAIS ce bit : ils sont exclus
+          ;; par construction, pas par un reglage qu'on pourrait rater.
+          (loading-screen-hold-by! LS_HOLD_SCENE)
+          (suspend))
+        ;; LA LIGNE QUI TRANCHE, et elle manquait : elle publie le statut GOAL du niveau que la
+        ;; scene va AFFICHER, a l'instant ou la barriere s'ouvre. C'est ce statut, et non la
+        ;; residence GPU, qui decide si `alive` trouvera les acteurs.
+        (format 0
+                "LOADGATE-GOAL scene=~S niveau=~A statut=~A gpu=~A attendu=~D~%"
+                (-> arg0 name)
+                show0
+                (level-status *level* show0)
+                gpu
+                (- (current-time) t0)))
       ;; Gloading-screen : la barriere vient de s'ouvrir -- relacher l'ecran TOUT DE SUITE. La
       ;; fermeture normale d'un episode est donc un APPEL, pas l'expiration d'un delai, et le
       ;; sursis de `LOADING_SCREEN_HOLD` n'est plus qu'un chien de garde pour le cas ou ce
       ;; processus serait tue en pleine attente.
-      (loading-screen-release!)))
+      (loading-screen-release-by! LS_HOLD_SCENE)))
   0)
 
 ;; Gloading-screen — RETOUR OWNER 2026-08-29 : « L'ecran de chargement est bien la, mais pas quand
@@ -801,7 +855,7 @@
                         ;; qu'on le montre.
                         20000))
         (+! tours 1)
-        (loading-screen-hold!)
+        (loading-screen-hold-by! LS_HOLD_CONTINUE)
         (suspend))
       ;; rendre la consigne : sans ca, la deadline armee sous ce nom resterait, et la reprise
       ;; SUIVANTE au meme point trouverait une barriere deja expiree.
@@ -810,7 +864,9 @@
       ;; place) : la barriere n'a rien retenu et l'ecran ne s'est pas allume. C'est la ligne de
       ;; base de cette mesure, et elle se distingue d'un cablage absent, qui n'imprimerait RIEN.
       (format 0 "LOADSCREEN-CONT open continue=~S tours-retenus=~D~%" (-> cp name) tours)
-      (loading-screen-release!)))
+      ;; Gloading-screen : ne relacher QUE ce bit. `target-continue` tient le sien en parallele et
+      ;; attend, lui, le statut GOAL 'active -- eteindre l'episode ici ferait repartir son seuil.
+      (loading-screen-release-by! LS_HOLD_CONTINUE)))
   0)
 
 (defbehavior ja-play-spooled-anim process-drawable ((arg0 spool-anim) (arg1 art-joint-anim) (arg2 art-joint-anim) (arg3 (function process-drawable symbol)))

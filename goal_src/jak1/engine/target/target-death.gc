@@ -42,6 +42,10 @@
       (when (not (logtest? (-> *game-info* current-continue flags) (continue-flags intro sage-intro title)))
         (set! (-> *level* border?) (-> *level* play?))
         (set! (-> *setting-control* default border-mode) (-> *level* play?)))
+      ;; Gloading-screen : filet. Si l'etat est quitte sans passer par le relachement normal
+      ;; (changement d'etat, mort du process), le bit ne doit pas rester pose -- le chien de garde
+      ;; le rattraperait, mais une seconde d'ecran de chargement de trop se verrait.
+      (loading-screen-release-by! LS_HOLD_TARGET)
       (remove-setting! 'allow-pause)
       (remove-setting! 'allow-progress)
       (remove-setting! 'bg-a)
@@ -90,6 +94,17 @@
                      (= (-> *setting-control* current music) (-> v1-52 music-bank))
                      (not (logtest? (-> arg0 flags) (continue-flags sage-intro title))))
               (remove-setting! 'music-volume)))
+          ;; Gloading-screen (owner 2026-08-29, retour n.2) -- C'EST L'ATTENTE QUE L'OWNER VOIT.
+          ;; « ca n'apparait pas non plus sur le chargement de partie alors que l'ECRAN NOIR y
+          ;; apparait un moment ». Ce noir est `bg-a` = 1,0, pose 30 lignes plus haut (:56-57), et
+          ;; cette boucle est ce qui le fait durer : elle attend que le niveau du point de reprise
+          ;; passe en 'active cote GOAL. Aucune barriere ne la couvrait -- `scene-load-gate!` n'est
+          ;; armee que par une SCENE, et `continue-load-gate!` n'attend que la residence GPU, qui
+          ;; est un evenement DIFFERENT et souvent plus precoce.
+          ;; ELLE S'ETEINT D'ELLE-MEME : quand le niveau est deja 'active (mort et renaissance sur
+          ;; place, point de reprise dans le niveau courant), la condition du `while` est fausse au
+          ;; premier tour, le corps ne s'execute jamais et rien ne s'allume.
+          (loading-screen-hold-by! LS_HOLD_TARGET)
           (suspend)))
       (backup-load-state-and-set-cmds *load-state* '())
       (execute-command *load-state* '(teleport))
@@ -139,7 +154,13 @@
         ;; vis info check added for PC, don't bother waiting for vis if the level doesn't have it.
         (when (and s5-2 (-> s5-2 vis-info 0))
           (while (and (= (-> s5-2 all-visible?) 'loading) (-> *level* vis?))
+            ;; Gloading-screen : meme episode que la boucle precedente -- le bit est deja pose, cet
+            ;; appel ne fait que repousser le chien de garde. Le seuil ne repart PAS de zero.
+            (loading-screen-hold-by! LS_HOLD_TARGET)
             (suspend))))
+      ;; Gloading-screen : l'attente est finie, le monde est dessinable -- rendre l'ecran a la
+      ;; frame meme, sans attendre l'expiration d'un delai.
+      (loading-screen-release-by! LS_HOLD_TARGET)
       (set! *spawn-actors* #t)
       (set! *teleport* #t)
       (set! (-> *ACTOR-bank* birth-max) 1000)

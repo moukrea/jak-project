@@ -168,9 +168,20 @@
       (if (nonzero? (-> self next-anim)) (spool-push *art-control* (-> self next-anim name) 0 self -1.0)))
   :code
     (behavior ()
+      ;; Gloading-screen (owner 2026-08-29) : jalon de la CHRONOLOGIE DU DEMARRAGE. Ces lignes ne
+      ;; changent rien au jeu ; elles donnent au log un instant nommable, pour que « le temps total
+      ;; jusqu'au titre » soit une mesure et pas une impression.
+      (format 0 "BOOTLINE etape=logo-intro-attend-spool~%")
       (while (!= (file-status *art-control* (-> self next-anim name) 0) 'active)
         (set-blackout-frames (seconds 0.05))
+        ;; Gloading-screen : meme raison que dans `ndi` -- attente de fichier, ecran noir, aucune
+        ;; couverture jusqu'ici. La barriere de scene qui suit (`scene-load-gate!` pour
+        ;; `logo-intro`) prend le relais SANS que le seuil reparte de zero : ce sont deux bits
+        ;; differents du meme episode.
+        (loading-screen-hold-by! LS_HOLD_TITLE)
         (suspend))
+      (loading-screen-release-by! LS_HOLD_TITLE)
+      (format 0 "BOOTLINE etape=logo-intro-spool-pret~%")
       (set! (-> *setting-control* current bg-a) 1.0)
       (set-setting! 'bg-a 'abs 0.0 0)
       (set! (-> self camera-anim) (ppointer->handle (process-spawn logo-slave (-> self entity) *logo-cam-sg* :to self)))
@@ -222,6 +233,9 @@
                             (the-as art-joint-anim #f)
                             (the-as art-joint-anim #f)
                             (the-as (function process-drawable symbol) false-func))
+      ;; Gloading-screen : le survol `logo-intro` vient de se terminer -- c'est l'instant ou le
+      ;; logo du titre est a l'ecran. C'est LE point d'arrivee du « temps total jusqu'au titre ».
+      (format 0 "BOOTLINE etape=titre-affiche~%")
       (set! *spawn-actors* #f)
       (add-setting! 'process-mask 'set 0.0 (process-mask progress))
       (apply-settings *setting-control*)
@@ -455,9 +469,13 @@
       (set! (-> *level* level1 info sun-fade) 0.0))
   :code
     (behavior ()
+      (format 0 "BOOTLINE etape=ndi-attend-spool~%")
       (while (!= (file-status *art-control* (-> self next-anim name) 0) 'active)
         (set-blackout-frames (seconds 0.05))
+        (loading-screen-hold-by! LS_HOLD_TITLE)
         (suspend))
+      (loading-screen-release-by! LS_HOLD_TITLE)
+      (format 0 "BOOTLINE etape=ndi-spool-pret~%")
       (set! (-> *setting-control* current bg-a) 1.0)
       (set! (-> self camera-anim) (ppointer->handle (process-spawn logo-slave (-> self entity) *ndi-cam-sg* :to self)))
       (set! (-> self camera)
@@ -651,6 +669,25 @@
       (if *sound-player-enable* (sound-group-pause (sound-group music))))
   :code
     (behavior ()
+      ;; Gloading-screen (owner 2026-08-29) — « j'imagine charger le niveau de l'ecran titre AVANT
+      ;; MEME de montrer Jak et Daxter et le logo Naughty Dog pour eviter un chargement entre cette
+      ;; sequence et l'ecran titre ».
+      ;;
+      ;; C'EST ICI LE POINT LE PLUS EN AMONT OU C'EST POSSIBLE. Avant ce point la boucle
+      ;; d'affichage n'existe pas (engine/level/level.gc:1016 `(on #t)`). Aujourd'hui `village1` —
+      ;; le niveau que le survol du titre affiche — n'est demande QUE par la command-list de
+      ;; `ndi-intro` a sa frame 0 (`(0 want-levels title village1)`, plus bas dans ce fichier),
+      ;; c'est-a-dire une fois le fichier de spool du logo Naughty Dog deja stream et pret. Le
+      ;; demander ici avance ce depart de toute la duree des attentes qui suivent (spool ndi,
+      ;; carte memoire), sans AJOUTER la moindre attente : `want-levels` charge, il n'affiche pas
+      ;; et il ne bloque personne.
+      ;;
+      ;; RISQUE D'AFFICHAGE : nul. Le `ndi` :trans plus bas ne met `village1` dans la liste
+      ;; d'affichage que sous `(-> self done?)` — le commentaire Gndlogo qui l'accompagne traite
+      ;; explicitement le cas « village1 est DEJA 'loaded a l'entree de ndi », qui est le regime
+      ;; du chargeur lent d'Android. C'est exactement l'etat que cette ligne rend habituel.
+      (format 0 "BOOTLINE etape=pretitre-want-levels~%")
+      (load-state-want-levels 'title 'village1)
       (let ((gp-0 (the-as handle #f)))
         ;; og:preserve-this PAL patch here
         (cond
@@ -687,10 +724,17 @@
                                                         #f
                                                         self))))
           (else
+           (format 0 "BOOTLINE etape=titre-attend-ndi-spool~%")
            (while (!= (file-status *art-control* "ndi-intro" 0) 'active)
              (set-blackout-frames (seconds 0.05))
+             ;; Gloading-screen : cette attente est un CHARGEMENT (le fichier de spool du logo
+             ;; Naughty Dog arrive du disque) et elle peint du noir. Elle n'etait couverte par
+             ;; rien : c'est une partie de « ca n'apparait pas avant l'ecran titre ».
+             (loading-screen-hold-by! LS_HOLD_TITLE)
              (suspend))
-           (suspend-for (seconds 0.25) (set-blackout-frames (seconds 0.05)))))
+           (suspend-for (seconds 0.25)
+                        (set-blackout-frames (seconds 0.05))
+                        (loading-screen-hold-by! LS_HOLD_TITLE))))
         (label cfg-8)
         (let ((s5-2 (new 'stack-no-clear 'mc-slot-info)))
           (mc-get-slot-info 0 s5-2)
@@ -719,6 +763,10 @@
             (suspend-for (seconds 0.01))
             (goto cfg-41))))
       (label cfg-41)
+      ;; Gloading-screen : les attentes du demarrage sont finies, le logo va etre joue. Rendre
+      ;; l'ecran a la frame meme -- il ne doit rien recouvrir de la sequence Naughty Dog.
+      (loading-screen-release-by! LS_HOLD_TITLE)
+      (format 0 "BOOTLINE etape=titre-spawn-logo~%")
       (let ((gp-3 (entity-by-name "logo-1")))
         (let ((v1-53 (process-spawn logo gp-3 (-> gp-3 extra trans) 'ndi :to self)))
           (set! (-> self manipy) (the-as (pointer manipy) v1-53))

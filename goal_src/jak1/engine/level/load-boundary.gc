@@ -1108,7 +1108,111 @@
 
 (define *backup-load-state* (new 'global 'load-state))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gloading-screen -- UNE COMMANDE `alive` NE DOIT PLUS DISPARAITRE EN SILENCE (owner 2026-08-29)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; L'owner signale POUR LA DEUXIEME FOIS le pop-in des collecteurs d'Eco vert quand on revient a
+;; la hutte du Sage apres Geyser Rock, et il nomme la cause : « ils sont pas dans le nouveau
+;; Sandover Village mais a Sandover beach ».
+;;
+;; LE MECANISME EXACT, LU DANS LE CODE. `sage-intro-sequence-e` (levels/village1/sage.gc:109) fait
+;; `display-level beach movie` a la frame d'artiste 937 puis `alive "harvester-87..91"` a la 938.
+;; `display-level` ne fait que poser un VOEU ; c'est `update! *load-state*` (engine/level/level.gc)
+;; qui le convertit, et il ne tourne qu'une fois par frame de JEU, plus tard dans la frame que
+;; `execute-commands-up-to`. Or l'animation d'une scene est asservie a son AUDIO : a 30 images par
+;; seconde la frame d'artiste avance de DEUX par frame de jeu, donc 937 et 938 tombent dans le
+;; MEME appel et `update!` n'a jamais l'occasion de passer beach en 'active entre les deux.
+;; `entity-by-name` (engine/entity/entity.gc:92-113) ne parcourt que les niveaux 'active : la
+;; commande ne trouve rien, ne journalise rien, et `execute-commands-up-to` la consomme
+;; DEFINITIVEMENT. Les collecteurs n'apparaissent jamais a l'heure. A 60 images par seconde il y a
+;; exactement une frame d'ecart et ca passe : c'est pourquoi le defaut se voit sur l'appareil et
+;; pas sur le bureau.
+;;
+;; CE QU'ON FAIT, ET CE QU'ON NE FAIT PAS. On ne bloque pas la liste de commandes -- retarder la
+;; suite (frame 940 : `joint "camera"`) deplacerait une coupe de camera. On met le nom de cote et
+;; on le REESSAYE a chaque frame pendant une fenetre bornee. Propriete structurelle : quand le
+;; rattrapage echoue, le comportement est identique a celui d'aujourd'hui, au bit -- ce code ne
+;; peut donc pas etre pire que l'absence de code.
+;;
+;; NATURE : un VERDICT par acteur (ne naquit-il, rattrape, abandonne), pas une duree.
+;; REPERE : la table d'entites des niveaux 'active, exactement ce que la commande lit.
+;; CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : aucune ligne `alive-rattrape`, aucune
+;; `alive-abandonne`, et `trouve=#t` sur les dix acteurs des le premier passage.
+(defconstant ALIVE_RETRY_MAX 16)
+(defconstant ALIVE_RETRY_WINDOW (seconds 3))
+(define *alive-retry* (new 'global 'boxed-array string ALIVE_RETRY_MAX))
+(define *alive-retry-n* 0)
+(define *alive-retry-until* (the-as time-frame 0))
+
+;; CONTROLE POSITIF DU RATTRAPAGE. Faux en production, et AUCUN code de jeu ne le pose : il ne se
+;; met a vrai que depuis la console de developpement.
+;;
+;; RAISON D'ETRE, ET ELLE EST OBLIGATOIRE ICI. Le defaut qu'on corrige est une COURSE : sur trois
+;; courses x86 identiques, une seule a vu les dix acteurs manquer. Les deux autres avaient `beach`
+;; deja 'active a la bonne frame, donc le rattrapage n'a jamais tire -- et un chemin de code jamais
+;; execute n'est pas un chemin de code prouve. Ce drapeau force la premiere tentative a echouer,
+;; exactement comme la course le fait, sans toucher au rattrapage lui-meme : on voit alors
+;; `trouve=#f` puis `alive-rattrape`, et les acteurs naissent.
+(define *alive-force-miss* #f)
+
+(defun alive-entity! ((ls load-state) (nm string))
+  "Faire naitre l'entity nommee, exactement comme la commande `alive` de la command-list.
+   Rend #t si elle existait (donc si son niveau etait 'active), #f sinon."
+  (let ((e (entity-by-name nm)))
+    (cond
+      ((not e) #f)
+      (else
+       (let ((slot -1))
+         (dotimes (i 256)
+           (when (and (< slot 0) (not (-> ls object-name i)))
+             (set! (-> ls object-name i) (the-as symbol nm))
+             (set! (-> ls object-status i) (the-as basic (-> e extra perm status)))
+             (set! slot i)))
+         (when (>= slot 0)
+           (entity-birth-no-kill e)
+           (let ((proc (-> e extra process)))
+             (when proc
+               (logclear! (-> proc mask) (process-mask actor-pause))
+               (logclear! (-> proc mask) (-> *kernel-context* prevent-from-run))))))
+       #t))))
+
+(defun alive-retry-push! ((nm string))
+  "Mettre de cote un `alive` dont l'entity n'existait pas encore."
+  (when (< *alive-retry-n* ALIVE_RETRY_MAX)
+    (set! (-> *alive-retry* *alive-retry-n*) nm)
+    (+! *alive-retry-n* 1)
+    (set! *alive-retry-until* (+ (current-time) ALIVE_RETRY_WINDOW)))
+  (none))
+
+(defun alive-retry-flush! ((ls load-state))
+  "Reessayer les `alive` mis de cote. Appelee une fois par frame, avant les commandes du jour."
+  (when (nonzero? *alive-retry-n*)
+    (let ((expire (>= (current-time) *alive-retry-until*))
+          (reste 0))
+      (dotimes (i *alive-retry-n*)
+        (let ((nm (-> *alive-retry* i)))
+          (cond
+            ((alive-entity! ls nm) (format 0 "SCENECMD alive-rattrape nom=~S~%" nm))
+            (expire
+             (format 0
+                     "SCENECMD alive-abandonne nom=~S lev0=~A/~A lev1=~A/~A~%"
+                     nm
+                     (-> *level* level0 name)
+                     (-> *level* level0 status)
+                     (-> *level* level1 name)
+                     (-> *level* level1 status)))
+            (else
+             ;; compactage en place : `reste` <= `i` a chaque tour, donc on n'ecrase jamais une
+             ;; case pas encore lue.
+             (set! (-> *alive-retry* reste) nm)
+             (+! reste 1)))))
+      (set! *alive-retry-n* reste)))
+  (none))
+
 (defmethod backup-load-state-and-set-cmds ((this load-state) (arg0 pair))
+  ;; Gloading-screen : une nouvelle scene ne doit pas heriter des `alive` en attente de la
+  ;; precedente -- ils feraient naitre un acteur au mauvais moment.
+  (set! *alive-retry-n* 0)
   (dotimes (s4-0 256)
     (when (-> this object-name s4-0)
       (format 0 "WARNING: load state somehow aquired object command ~A~%" (-> this object-name s4-0))
@@ -1169,6 +1273,8 @@
     (the-as process arg0)))
 
 (defmethod execute-commands-up-to ((this load-state) (arg0 float))
+  ;; Gloading-screen : rattraper d'abord les `alive` que la frame precedente n'a pas pu honorer.
+  (alive-retry-flush! this)
   (while (not (null? (-> this command-list)))
     (let ((f0-0 (command-get-float (car (car (-> this command-list))) 0.0))
           (s4-0 (cdr (car (-> this command-list)))))
@@ -1219,6 +1325,28 @@
             (let ((s4-5 (command-get-param (car gp-0) #f)))
               (when s4-5
                 (let ((gp-1 (entity-by-name (the-as string s4-5))))
+                  ;; Gloading-screen (owner 2026-08-29) -- PUBLIER LE SORT DE L'ACTEUR.
+                  ;; `entity-by-name` (engine/entity/entity.gc:92) ne parcourt QUE les niveaux dont
+                  ;; le statut est 'active. Quand il rend #f, le `when` ci-dessous ne fait RIEN, la
+                  ;; commande est consommee par `execute-commands-up-to` (:1185) et n'est JAMAIS
+                  ;; rejouee : l'acteur n'apparait pas, et aucune trace ne le dit. C'est le mode
+                  ;; d'echec exact du pop-in des collecteurs d'Eco vert que l'owner signale deux
+                  ;; fois -- `sage-intro-sequence-e` fait `display-level beach movie` a la frame 937
+                  ;; et `alive "harvester-87..91"` a la frame 938.
+                  ;; NATURE : un VERDICT booleen par acteur, pas une duree. REPERE : la table
+                  ;; d'entites des niveaux 'active, c'est-a-dire exactement ce que la commande lit.
+                  ;; CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : `trouve=#t` sur les dix acteurs.
+                  (format 0
+                          "SCENECMD alive nom=~S trouve=~A lev0=~A/~A lev1=~A/~A~%"
+                          s4-5
+                          (if gp-1 #t #f)
+                          (-> *level* level0 name)
+                          (-> *level* level0 status)
+                          (-> *level* level1 name)
+                          (-> *level* level1 status))
+                  ;; controle positif : traiter l'entity comme absente, sans rien changer d'autre.
+                  (if *alive-force-miss* (set! gp-1 (the-as entity-actor #f)))
+                  (when (not gp-1) (alive-retry-push! (the-as string s4-5)))
                   (when gp-1
                     (dotimes (v1-25 256)
                       (when (not (-> this object-name v1-25))

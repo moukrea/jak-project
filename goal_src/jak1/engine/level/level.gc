@@ -1014,6 +1014,11 @@
     (level-status-set! (level-get *level* startup-level) 'active))
   (load-dbg "Load complete. Level: ~A. Now starting display!~%" (-> *level* level0))
   (on #t)
+  ;; Gloading-screen (owner 2026-08-29) : PREMIERE frame possible. Tout ce qui precede se joue
+  ;; sans boucle d'affichage -- aucun ecran de chargement n'y est representable, et c'est la
+  ;; fenetre ou l'ecran systeme d'Android est encore visible. C'est aussi l'origine des temps de
+  ;; la chronologie `BOOTLINE`.
+  (format 0 "BOOTLINE etape=affichage-demarre niveau=~A~%" (-> *level* level0 name))
   (load-dbg "Display started: ~A~%" *dproc*)
   (when init-game
     (initialize! *game-info* 'game (the-as game-save #f) (the-as string #f)))

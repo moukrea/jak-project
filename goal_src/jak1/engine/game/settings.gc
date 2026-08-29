@@ -224,6 +224,22 @@
     (let ((v1-60 (-> *display* frames (-> *display* on-screen) display))
           (f0-39 (-> gp-0 bg-a)))
       (if (!= (-> gp-0 bg-a-force) 0.0) (set! f0-39 (-> gp-0 bg-a-force)))
+      ;; Gloading-screen (owner 2026-08-29, retour n.2) -- « ca n'apparait pas non plus sur le
+      ;; chargement de partie ALORS QUE L'ECRAN NOIR Y APPARAIT UN MOMENT ».
+      ;; VOICI POURQUOI, ET C'EST ICI. Sur ce chemin le noir n'est PAS `blackout-time` : c'est
+      ;; `bg-a`, pose a 1,0 par `target-continue` (engine/target/target-death.gc:56-57) pendant
+      ;; qu'il attend que le niveau passe en 'active. La ligne juste au-dessus est la SEULE ou
+      ;; l'alpha final est resolu -- `bg-a-force` n'y ecrase `bg-a` que s'il est non nul, donc
+      ;; l'astuce de `main.gc` (mettre `bg-a-force` a 0 pendant la barriere) ne pouvait rien
+      ;; contre un `bg-a` a 1,0 : `f0-39` restait 1,0 et le quad noir du PCRTC, dessine APRES
+      ;; tous les buckets, recouvrait entierement l'ecran de chargement.
+      ;; Pendant qu'une barriere tient l'image, c'est l'ecran de chargement qui POSSEDE le noir
+      ;; et il le peint lui-meme (pc/loading-screen-pc.gc). On rend donc le quad du moteur
+      ;; transparent -- sur cette frame seulement, et uniquement pendant la barriere.
+      ;; HORS barriere, cette ligne ne fait rien : `loading-screen-held?` est faux, et l'alpha
+      ;; est exactement celui d'avant, au bit.
+      (#when PC_PORT
+        (if (loading-screen-held?) (set! f0-39 0.0)))
       (set! (-> v1-60 bgcolor r) (the int (* 255.0 (-> gp-0 bg-r))))
       (set! (-> v1-60 bgcolor g) (the int (* 255.0 (-> gp-0 bg-g))))
       (set! (-> v1-60 bgcolor b) (the int (* 255.0 (-> gp-0 bg-b))))

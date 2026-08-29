@@ -238,6 +238,22 @@
 
 (defun-extern loading-screen-release! none)
 
+;; Gloading-screen (owner 2026-08-29, retour n.2) : L'EPISODE A PLUSIEURS PROPRIETAIRES.
+;; Un bit par site d'attente. L'episode vit tant qu'un bit est pose, donc le point zero du seuil
+;; de 0,5 s ne bouge pas quand deux attentes se relaient (residence GPU puis niveau 'active).
+;; Ces constantes vivent ICI et pas dans main.gc : `engine/load/loader.gc` (game.gp:1924),
+;; `engine/game/settings.gc` (:1928) et `engine/target/target-death.gc` (:1987) sont compiles
+;; AVANT `engine/game/main.gc` (:1998) et doivent pouvoir les nommer.
+(defconstant LS_HOLD_SCENE 1)    ;; scene-load-gate!      (cinematique streamee)
+(defconstant LS_HOLD_CONTINUE 2) ;; continue-load-gate!   (residence GPU du point de reprise)
+(defconstant LS_HOLD_TARGET 4)   ;; target-continue       (niveau 'active + visibilite)
+(defconstant LS_HOLD_TITLE 8)    ;; attentes du demarrage (spools ndi/logo-intro, carte memoire)
+(defconstant LS_HOLD_PROBE 16)   ;; sondes de mesure uniquement
+
+(defun-extern loading-screen-hold-by! int none)
+
+(defun-extern loading-screen-release-by! int none)
+
 (defun-extern loading-screen-held? symbol)
 
 (defun-extern loading-screen-shown? symbol)

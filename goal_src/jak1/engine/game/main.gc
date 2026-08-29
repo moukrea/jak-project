@@ -139,12 +139,36 @@
     (update-math-camera *math-camera* vmode asym))
   (none))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gloading-screen -- ETIQUETTE DE L'APPELANT DU NOIR (owner 2026-08-29)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; « ca n'apparait pas non plus sur le chargement de partie ALORS QUE L'ECRAN NOIR Y APPARAIT UN
+;;   MOMENT ». Le tell est decisif : le noir EST la, le contenu non. Ce n'est donc pas « un chemin
+;; non cable », c'est une condition d'affichage qui ne se declenche pas la -- et pour le savoir il
+;; faut d'abord savoir QUI noircit.
+;;
+;; L'appelant se lit sans toucher aux 14 sites d'appel : `(-> *kernel-context* current-process)` est
+;; le process en cours d'execution (kernel/gkernel-h.gc:143), et son champ `name`
+;; (kernel/gkernel-h.gc:219) porte le nom que le noyau lui a donne (« pov-camera-5 », « logo-2 »...).
+;; C'est une lecture, pas une convention : aucun site ne peut oublier de se declarer.
+;;
+;; NATURE : une IDENTITE (qui a arme), pas une duree. REPERE : le noyau de processus.
+;; CE QUE CA LIT QUAND PERSONNE N'ARME : `#f`, la valeur d'initialisation -- distincte de
+;; `hors-process`, qui veut dire « arme depuis du code qui ne tourne dans aucun process ».
+(define *blackout-src* (the-as basic #f))
+(define *blackout-dur* 0)
+
 (defun set-blackout-frames ((arg0 time-frame))
   "Set the blackout frame counter. If arg0 is 0, disables blackout immediately.
    Otherwise, this can only be used to increase the blackout period."
   (cond
     ((zero? arg0) (set! (-> *game-info* blackout-time) (current-time)))
-    (else (set! (-> *game-info* blackout-time) (max (-> *game-info* blackout-time) (+ (current-time) arg0)))))
+    (else
+      ;; Gloading-screen : etiqueter l'appelant. Lecture pure, aucun effet sur le noir lui-meme.
+      (let ((p (-> *kernel-context* current-process)))
+        (set! *blackout-src* (if p (-> p name) 'hors-process)))
+      (set! *blackout-dur* (the-as int arg0))
+      (set! (-> *game-info* blackout-time) (max (-> *game-info* blackout-time) (+ (current-time) arg0)))))
   (none))
 
 (defun blackout ()
@@ -211,7 +235,17 @@
 ;; glyphes) n'etait JAMAIS dessine : il ne restait que le fond noir, c'est-a-dire le defaut meme
 ;; que cette phase corrige. Sur bureau les frames font 5 unites d'horloge contre un sursis de 15,
 ;; le defaut ne pouvait pas se produire ; en chargement sur telephone il etait systematique.
-(define *loading-screen-armed* #f)
+;; Gloading-screen (owner 2026-08-29, retour n.2) -- L'EPISODE A PLUSIEURS PROPRIETAIRES.
+;; Mesure du cycle : sur un chargement de partie, DEUX attentes distinctes se relaient. La
+;; barriere de residence GPU (`continue-load-gate!`) s'ouvre des que le renderer a televerse le
+;; niveau ; l'attente de `target-continue` (engine/target/target-death.gc:86-93 et :141-142)
+;; continue, elle, jusqu'a ce que GOAL passe le niveau en 'active puis resolve la visibilite --
+;; et c'est ELLE qui tient l'ecran noir que l'owner voit. Avec un simple booleen, le
+;; relachement de la premiere ETEIGNAIT l'episode, la seconde le ROUVRAIT a la frame suivante,
+;; et le seuil de 0,5 s repartait de zero : le contenu disparaissait puis revenait.
+;; Un bit par site regle ca par CONSTRUCTION : l'episode vit tant qu'un proprietaire tient, et
+;; le point zero du seuil ne bouge pas quand les proprietaires se relaient.
+(define *loading-screen-mask* 0)
 ;; Fin du sursis du chien de garde. `(current-time)` au-dela = l'episode est repute mort meme sans
 ;; relachement (processus tue).
 (define *loading-screen-hold-until* (the-as time-frame 0))
@@ -242,26 +276,48 @@
   ;; dure plus que le chien de garde, soit sous ~1 fps, contre 30 fps pour la valeur de la
   ;; tentative 1 -- et il ne coute alors qu'UN redemarrage du seuil, pas son blocage definitif.
   ;; Le controle `LOADSCREEN-LAG` publie ce point de bascule au lieu de le taire.
-  (when (or (not *loading-screen-armed*) (>= (current-time) *loading-screen-hold-until*))
-    (set! *loading-screen-armed* #t)
+  (loading-screen-hold-by! LS_HOLD_PROBE)
+  (none))
+
+(defun loading-screen-hold-by! ((who int))
+  "Armer l'ecran de chargement AU NOM d'un site d'attente. A appeler a chaque tour de la boucle
+   d'attente : un appel qui trouve l'episode deja ouvert ne fait qu'ajouter son bit et repousser
+   le chien de garde -- il ne redemarre PAS le seuil.
+
+   LE FRONT MONTANT EST LU SUR LE MASQUE, JAMAIS SUR UN ECART DE TEMPS. Le second terme rattrape
+   le seul cas ou un bit resterait colle : un processus TUE en pleine attente, qui n'appellerait
+   jamais son relachement. Il se franchit quand UNE frame dure plus que le chien de garde (~1 fps)
+   et ne coute alors qu'UN redemarrage du seuil. `LOADSCREEN-LAG` publie ce point de bascule."
+  (when (or (zero? *loading-screen-mask*) (>= (current-time) *loading-screen-hold-until*))
+    (set! *loading-screen-mask* 0)
     (set! *loading-screen-since* (current-time))
     (set! *loading-screen-frames* 0)
     (+! *loading-screen-arms* 1))
+  (set! *loading-screen-mask* (logior *loading-screen-mask* who))
   (set! *loading-screen-hold-until* (+ (current-time) LOADING_SCREEN_HOLD))
+  (none))
+
+(defun loading-screen-release-by! ((who int))
+  "Rendre la main AU NOM d'un site. L'episode ne se ferme que lorsque le DERNIER proprietaire
+   l'a rendue -- c'est ce qui empeche une barriere rapide d'eteindre l'ecran alors qu'une autre
+   attente, plus lente, noircit encore l'image."
+  (set! *loading-screen-mask* (logand *loading-screen-mask* (lognot who)))
+  (when (zero? *loading-screen-mask*)
+    (set! *loading-screen-hold-until* (the-as time-frame 0)))
   (none))
 
 (defun loading-screen-release! ()
   "Ferme l'episode courant. Appele par `scene-load-gate!` des que sa boucle d'attente sort, donc
    l'ecran s'efface a la frame ou le chargement finit -- sans attendre l'expiration d'un delai.
    Sans effet si rien n'etait arme (barriere ouverte au premier tour : le cas normal sur bureau)."
-  (set! *loading-screen-armed* #f)
+  (set! *loading-screen-mask* 0)
   (set! *loading-screen-hold-until* (the-as time-frame 0))
   (none))
 
 (defun loading-screen-held? ()
   "Une barriere de chargement retient-elle l'image en ce moment ? Le drapeau porte l'etat ; le
    sursis n'est la que pour qu'un processus tue sans relachement n'immobilise pas l'ecran."
-  (and *loading-screen-armed* (< (current-time) *loading-screen-hold-until*)))
+  (and (nonzero? *loading-screen-mask*) (< (current-time) *loading-screen-hold-until*)))
 
 (defun loading-screen-shown? ()
   "La barriere tient-elle depuis assez longtemps pour montrer le CONTENU (silhouette, texte,
@@ -277,7 +333,7 @@
    RAISON D'ETRE : sur une machine ou tout est deja resident, `__pc-scene-ready?` rend 1 au premier
    tour, la barriere ne se ferme JAMAIS, et le chemin de DESSIN n'y est donc jamais execute. Un
    zero sans controle positif qui a tire ne prouve rien -- ceci est ce controle."
-  (set! *loading-screen-armed* #t)
+  (set! *loading-screen-mask* LS_HOLD_PROBE)
   (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
   (set! *loading-screen-hold-until* (+ (current-time) dur))
   (+! *loading-screen-arms* 1)
@@ -304,10 +360,10 @@
    glyphes (garde volontaire, text-h.gc:1034 l'initialise a #f) et le controle ne couvrirait que
    le fond noir -- il aurait l'air de passer en ne testant qu'un tiers du chemin."
   (let ((hold *loading-screen-hold-until*)
-        (armed *loading-screen-armed*)
+        (armed *loading-screen-mask*)
         (since *loading-screen-since*)
         (fr *loading-screen-frames*))
-    (set! *loading-screen-armed* #t)
+    (set! *loading-screen-mask* LS_HOLD_PROBE)
     (set! *loading-screen-hold-until* (+ (current-time) LOADING_SCREEN_HOLD))
     (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
     (set! *loading-screen-frames* 0)
@@ -317,7 +373,7 @@
             (loading-screen-shown?)
             *loading-screen-frames*)
     (set! *loading-screen-hold-until* hold)
-    (set! *loading-screen-armed* armed)
+    (set! *loading-screen-mask* armed)
     (set! *loading-screen-since* since)
     (set! *loading-screen-frames* fr))
   (none))
@@ -335,13 +391,13 @@
        passer vrai, et `shown=` rester faux tant que le SEUIL n'est pas franchi.
    Tout ce qui est touche est sauve et restaure dans la meme fonction, sans suspend entre les deux."
   (let ((hold *loading-screen-hold-until*)
-        (armed *loading-screen-armed*)
+        (armed *loading-screen-mask*)
         (since *loading-screen-since*)
         (arms *loading-screen-arms*)
         (bo (-> *game-info* blackout-time)))
     (format 0 "LOADSCREEN-SEUIL delay=~D hold=~D repere=frames-de-base~%" LOADING_SCREEN_DELAY LOADING_SCREEN_HOLD)
     ;; ligne de base : rien n'arme, rien ne s'allume.
-    (set! *loading-screen-armed* #f)
+    (set! *loading-screen-mask* 0)
     (set! *loading-screen-hold-until* (the-as time-frame 0))
     (set! *loading-screen-since* (the-as time-frame 0))
     (set-blackout-frames 0)
@@ -404,7 +460,7 @@
       (let ((lag (cond ((zero? i) LOADING_SCREEN_HOLD_AVANT)
                        ((= i 1) (the-as int (seconds 0.6)))
                        (else (the-as int (seconds 1.5))))))
-        (set! *loading-screen-armed* #f)
+        (set! *loading-screen-mask* 0)
         (set! *loading-screen-hold-until* (the-as time-frame 0))
         (set! *loading-screen-since* (the-as time-frame 0))
         (loading-screen-hold!)
@@ -427,10 +483,122 @@
             (loading-screen-shown?))
     ;; restauration
     (set! *loading-screen-hold-until* hold)
-    (set! *loading-screen-armed* armed)
+    (set! *loading-screen-mask* armed)
     (set! *loading-screen-since* since)
     (set! *loading-screen-arms* arms)
     (set! (-> *game-info* blackout-time) bo))
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gloading-screen -- RECENSEMENT DES FRAMES NOIRES (owner 2026-08-29, retour n.2)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; L'owner : « ca n'apparait pas non plus sur le chargement de partie alors que l'ECRAN NOIR y
+;; apparait un moment ». La directive qui en decoule est litterale : « instrumenter `blackout` pour
+;; publier, a chaque declenchement, le chemin appelant et l'etat du seuil. Publier la liste des
+;; declenchements observes pendant un demarrage complet plus un chargement de partie. »
+;;
+;; C'EST CETTE FONCTION, ET ELLE NE JUGE RIEN. Elle compte, par EPISODE de noir :
+;;   - `src=`      le process qui a arme le noir (etiquette posee par `set-blackout-frames`) ;
+;;   - `frames=`   la longueur de l'episode, en frames d'affichage REELLEMENT produites ;
+;;   - `tenue=`    combien de ces frames une barriere de chargement retenait l'image
+;;                 (`loading-screen-held?`) -- c'est le fond noir de l'ecran de chargement ;
+;;   - `contenu=`  combien de ces frames le SEUIL etait franchi (`loading-screen-shown?`) -- c'est
+;;                 la silhouette, le texte et les glyphes.
+;; `tenue=0` sur un episode long EST le defaut que l'owner decrit : du noir que rien ne couvre.
+;; `tenue=N contenu=0` serait l'autre defaut : couvert, mais le seuil n'a jamais ete franchi.
+;; Les deux se distinguent sur la MEME ligne, ce qui evite de deviner lequel des deux on a.
+;;
+;; NATURE : un COMPTE DE FRAMES par episode, pas une duree ni une moyenne. REPERE : la boucle
+;; d'affichage elle-meme -- une frame comptee est une frame qui a ete produite, donc que l'owner a
+;; pu voir. C'est le seul repere ou « il y avait un ecran noir » a un sens.
+;; CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : sur un chargement couvert, `frames=N tenue=N`, les
+;; deux egaux ; et rien du tout quand aucune frame n'est noire.
+;;
+;; POURQUOI UN PLANCHER DE 6 FRAMES. Une coupe de camera (0,035 s) et un bouton (0,05 s) font 2 a 3
+;; frames et se produisent en boucle pendant le jeu : les publier ligne par ligne noierait la
+;; mesure. Ils ne sont pas pour autant caches -- ils sont comptes dans `courts=` et
+;; `courts-tenus=`, republies sur CHAQUE ligne longue. Un episode court qui se mettrait a etre
+;; couvert (donc un clignotement de l'ecran de chargement sur une coupe) ferait monter
+;; `courts-tenus=`, qui doit rester a 0 : c'est le controle negatif, gratuit et permanent.
+(defconstant BLACKCENSUS_MIN 6)
+
+(define *blk-open* #f)
+(define *blk-frames* 0)
+(define *blk-held* 0)
+(define *blk-shown* 0)
+(define *blk-src* (the-as basic #f))
+(define *blk-dur* 0)
+(define *blk-courts* 0)
+(define *blk-courts-tenus* 0)
+(define *blk-total* 0)
+(define *blk-total-nues* 0)
+
+(define *blk-via* 'aucun)
+
+(defun blackout-census! ((noir symbol) (held symbol))
+  "Compter la frame courante et publier l'episode de noir quand il se ferme.
+
+   DEUX MECANISMES NOIRCISSENT, PAS UN. `blackout-time` (le compteur de `set-blackout-frames`) et
+   `bg-a` / `bg-a-force` (l'alpha du quad PCRTC, resolu a engine/game/settings.gc:224-230). Le
+   second est celui que `target-continue` pose a 1,0 pendant qu'il attend le niveau
+   (engine/target/target-death.gc:56-57) -- c'est LE noir du chargement d'une partie, et un
+   recensement qui ne regarderait que `blackout-time` ne le verrait pas du tout. `via=` dit lequel
+   a ouvert l'episode : c'est ce qui permet de nommer le chemin sans le deviner."
+  (let ((bga (-> *setting-control* current bg-a))
+        (bgf (-> *setting-control* current bg-a-force)))
+    (if (or (>= bga 0.99) (>= bgf 0.99)) (set! noir #t))
+    (cond
+      ((or noir held)
+       (when (not *blk-open*)
+         (set! *blk-open* #t)
+         (set! *blk-frames* 0)
+         (set! *blk-held* 0)
+         (set! *blk-shown* 0)
+         (set! *blk-src* *blackout-src*)
+         (set! *blk-dur* *blackout-dur*)
+         (set! *blk-via*
+               (cond
+                 ((< (current-time) (-> *game-info* blackout-time)) 'blackout-time)
+                 ((>= bgf 0.99) 'bg-a-force)
+                 ((>= bga 0.99) 'bg-a)
+                 (else 'barriere-seule))))
+       (+! *blk-frames* 1)
+       (+! *blk-total* 1)
+       (cond
+         (held (+! *blk-held* 1) (if (loading-screen-shown?) (+! *blk-shown* 1)))
+         (else (+! *blk-total-nues* 1))))
+      (else
+       (when *blk-open*
+         (set! *blk-open* #f)
+         (cond
+           ((>= *blk-frames* BLACKCENSUS_MIN)
+          ;; Une seule LIGNE, en trois appels : le compilateur GOAL plafonne un appel a 8
+          ;; parametres. `~%` n'apparait que sur le dernier, donc la ligne reste entiere.
+            (begin
+              (format 0
+                      "BLACKCENSUS via=~A src=~A dur=~D frames=~D tenue=~D contenu=~D "
+                      *blk-via*
+                      *blk-src*
+                      *blk-dur*
+                      *blk-frames*
+                      *blk-held*
+                      *blk-shown*)
+              (format 0
+                      "mm=~A lev0=~A/~A lev1=~A/~A "
+                      *master-mode*
+                      (-> *level* level0 name)
+                      (-> *level* level0 status)
+                      (-> *level* level1 name)
+                      (-> *level* level1 status))
+              (format 0
+                      "courts=~D courts-tenus=~D total=~D nues=~D~%"
+                      *blk-courts*
+                      *blk-courts-tenus*
+                      *blk-total*
+                      *blk-total-nues*)))
+           (else
+            (+! *blk-courts* 1)
+            (if (nonzero? *blk-held*) (+! *blk-courts-tenus* 1))))))))
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;
@@ -846,6 +1014,11 @@
           (if (and (< (current-time) (-> *game-info* blackout-time)) (not ls-held))
             (set! (-> *setting-control* default bg-a-force) 1.0)
             (set! (-> *setting-control* default bg-a-force) 0.0))
+          ;; Gloading-screen (owner 2026-08-29, retour n.2) : recenser CETTE frame. Placee ici et
+          ;; pas ailleurs parce que c'est le seul point ou l'on sait a la fois que la frame va etre
+          ;; produite, si le moteur la noircit, et si une barriere la retient.
+          (#when PC_PORT
+            (blackout-census! (< (current-time) (-> *game-info* blackout-time)) ls-held))
           (#when PC_PORT
             (when ls-held (loading-screen-draw))
             ;; controle positif du chemin de dessin -- debug uniquement, un seul tir, et seulement
