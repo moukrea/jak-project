@@ -178,18 +178,42 @@
 ;; alors inchange au bit. C'est aussi la ligne de base du controle publie par
 ;; `loading-screen-probe`.
 
-;; Sursis accorde par UN appel a `loading-screen-hold!`. La boucle de la barriere rappelle a CHAQUE
-;; tour : ceci doit donc seulement couvrir quelques frames pour ne pas battre, et rester court pour
-;; que l'ecran s'efface des que la barriere s'ouvre. Volontairement la meme valeur que le
-;; `set-blackout-frames` de cette meme boucle.
-(defconstant LOADING_SCREEN_HOLD (seconds 0.05))
+;; CHIEN DE GARDE, ET RIEN D'AUTRE. Un episode se ferme normalement par `loading-screen-release!`,
+;; que la barriere appelle des que sa boucle sort. Ce sursis ne couvre que le cas ou le processus
+;; de la barriere serait TUE en pleine attente : personne n'appellerait alors le relachement.
+;;
+;; IL EST PASSE DE 0,05 s A 1 s, ET C'EST UNE MESURE D'HORLOGE QUI L'IMPOSE, PAS UN GOUT.
+;; `(current-time)` n'avance PAS d'un pas fixe par frame : engine/draw/drawable.gc:1008-1014 lui
+;; ajoute `scaled-seconds = (int time-ratio) * time-factor`, ou `time-ratio` est le nombre de
+;; frames de 60 Hz REELLEMENT ecoulees. Une frame de 33 ms donne donc deja `time-ratio` = 3 et
+;; avance l'horloge de 15 -- exactement l'ancien sursis. Sous 30 fps, l'ancien sursis expirait
+;; entre deux tours de la boucle ; or 30 fps ou moins est precisement le regime d'un chargement.
+(defconstant LOADING_SCREEN_HOLD (seconds 1))
+
+;; Le sursis de la TENTATIVE 1. Il ne pilote plus rien : il n'existe que pour que le controle
+;; positif `LOADSCREEN-LAG` evalue le predicat d'AVANT sur l'etat reel, au lieu de l'affirmer.
+(defconstant LOADING_SCREEN_HOLD_AVANT (seconds 0.05))
 
 ;; SEUIL D'AFFICHAGE DU CONTENU. En dessous, la barriere a tenu si peu qu'afficher un texte serait
 ;; un clignotement. Au-dessus, l'attente est perceptible -- c'est exactement le cas que l'owner
 ;; decrit (mesure appareil : `LOADGATE open scene=logo-intro waited=6763ms reason=resident`).
 (defconstant LOADING_SCREEN_DELAY (seconds 0.5))
 
-;; Fin du sursis courant. `(current-time)` au-dela = plus aucune barriere ne tient.
+;; L'EPISODE EST UN ETAT EXPLICITE, PAS UNE DUREE. Vrai entre le premier tour de la boucle de la
+;; barriere et son relachement. C'est ce drapeau -- et AUCUN nombre a regler -- qui decide si un
+;; appel a `loading-screen-hold!` ouvre un NOUVEL episode, donc aucune frame lente ne peut le
+;; rouvrir.
+;;
+;; DEFAUT QU'IL CORRIGE, ET IL ETAIT INVISIBLE SUR BUREAU. L'ouverture d'episode etait testee par
+;; `(>= (current-time) *loading-screen-hold-until*)` : vraie des que la frame precedente avait dure
+;; plus que le sursis. Le front montant -- donc le point zero du SEUIL -- se replacait alors a
+;; CHAQUE frame lente, le seuil de 0,5 s n'etait jamais atteint, et le CONTENU (silhouette, texte,
+;; glyphes) n'etait JAMAIS dessine : il ne restait que le fond noir, c'est-a-dire le defaut meme
+;; que cette phase corrige. Sur bureau les frames font 5 unites d'horloge contre un sursis de 15,
+;; le defaut ne pouvait pas se produire ; en chargement sur telephone il etait systematique.
+(define *loading-screen-armed* #f)
+;; Fin du sursis du chien de garde. `(current-time)` au-dela = l'episode est repute mort meme sans
+;; relachement (processus tue).
 (define *loading-screen-hold-until* (the-as time-frame 0))
 ;; Instant du FRONT MONTANT de la barriere courante : c'est contre lui que le seuil se mesure.
 (define *loading-screen-since* (the-as time-frame 0))
@@ -202,25 +226,47 @@
 (define-extern loading-screen-draw (function none))
 
 (defun loading-screen-hold! ()
-  "Arme l'ecran de chargement pour LOADING_SCREEN_HOLD. Appele par `scene-load-gate!` a chaque
-   tour ou la barriere retient la scene, et par personne d'autre -- c'est cette exclusivite qui
-   ecarte les coupes de camera et les boutons."
-  (when (>= (current-time) *loading-screen-hold-until*)
-    ;; front montant : aucune barriere ne tenait a la frame precedente.
+  "Arme l'ecran de chargement. Appele par `scene-load-gate!` a chaque tour ou la barriere retient
+   la scene, et par personne d'autre -- c'est cette exclusivite qui ecarte les coupes de camera et
+   les boutons.
+
+   LE FRONT MONTANT EST LU SUR UN DRAPEAU, JAMAIS SUR UN ECART DE TEMPS. Un appel qui trouve
+   l'episode deja arme ne fait que repousser le chien de garde : il ne redemarre pas le seuil.
+   C'est ce qui rend le seuil insensible a la duree des frames -- et une frame de chargement dure
+   ce qu'elle veut."
+  ;; Le second terme rattrape le seul cas ou le drapeau pourrait rester colle : un processus de
+  ;; barriere TUE en pleine attente, qui n'appellerait jamais `loading-screen-release!`. Sans lui,
+  ;; `since` resterait vieux pour toujours et le chargement SUIVANT afficherait le contenu tout de
+  ;; suite -- c'est-a-dire le clignotement que le seuil existe pour empecher.
+  ;; OUI, C'EST A NOUVEAU UN NOMBRE, ET JE DIS CE QU'IL COUTE : il se franchit quand UNE frame
+  ;; dure plus que le chien de garde, soit sous ~1 fps, contre 30 fps pour la valeur de la
+  ;; tentative 1 -- et il ne coute alors qu'UN redemarrage du seuil, pas son blocage definitif.
+  ;; Le controle `LOADSCREEN-LAG` publie ce point de bascule au lieu de le taire.
+  (when (or (not *loading-screen-armed*) (>= (current-time) *loading-screen-hold-until*))
+    (set! *loading-screen-armed* #t)
     (set! *loading-screen-since* (current-time))
     (set! *loading-screen-frames* 0)
     (+! *loading-screen-arms* 1))
   (set! *loading-screen-hold-until* (+ (current-time) LOADING_SCREEN_HOLD))
   (none))
 
+(defun loading-screen-release! ()
+  "Ferme l'episode courant. Appele par `scene-load-gate!` des que sa boucle d'attente sort, donc
+   l'ecran s'efface a la frame ou le chargement finit -- sans attendre l'expiration d'un delai.
+   Sans effet si rien n'etait arme (barriere ouverte au premier tour : le cas normal sur bureau)."
+  (set! *loading-screen-armed* #f)
+  (set! *loading-screen-hold-until* (the-as time-frame 0))
+  (none))
+
 (defun loading-screen-held? ()
-  "Une barriere de chargement retient-elle l'image en ce moment ?"
-  (< (current-time) *loading-screen-hold-until*))
+  "Une barriere de chargement retient-elle l'image en ce moment ? Le drapeau porte l'etat ; le
+   sursis n'est la que pour qu'un processus tue sans relachement n'immobilise pas l'ecran."
+  (and *loading-screen-armed* (< (current-time) *loading-screen-hold-until*)))
 
 (defun loading-screen-shown? ()
   "La barriere tient-elle depuis assez longtemps pour montrer le CONTENU (silhouette, texte,
    glyphes) ? Le fond noir, lui, est peint des que `loading-screen-held?` est vrai."
-  (and (< (current-time) *loading-screen-hold-until*)
+  (and (loading-screen-held?)
        (>= (- (current-time) *loading-screen-since*) LOADING_SCREEN_DELAY)))
 
 (defun loading-screen-force! ((dur time-frame))
@@ -231,6 +277,7 @@
    RAISON D'ETRE : sur une machine ou tout est deja resident, `__pc-scene-ready?` rend 1 au premier
    tour, la barriere ne se ferme JAMAIS, et le chemin de DESSIN n'y est donc jamais execute. Un
    zero sans controle positif qui a tire ne prouve rien -- ceci est ce controle."
+  (set! *loading-screen-armed* #t)
   (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
   (set! *loading-screen-hold-until* (+ (current-time) dur))
   (+! *loading-screen-arms* 1)
@@ -257,8 +304,10 @@
    glyphes (garde volontaire, text-h.gc:1034 l'initialise a #f) et le controle ne couvrirait que
    le fond noir -- il aurait l'air de passer en ne testant qu'un tiers du chemin."
   (let ((hold *loading-screen-hold-until*)
+        (armed *loading-screen-armed*)
         (since *loading-screen-since*)
         (fr *loading-screen-frames*))
+    (set! *loading-screen-armed* #t)
     (set! *loading-screen-hold-until* (+ (current-time) LOADING_SCREEN_HOLD))
     (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
     (set! *loading-screen-frames* 0)
@@ -268,6 +317,7 @@
             (loading-screen-shown?)
             *loading-screen-frames*)
     (set! *loading-screen-hold-until* hold)
+    (set! *loading-screen-armed* armed)
     (set! *loading-screen-since* since)
     (set! *loading-screen-frames* fr))
   (none))
@@ -285,11 +335,13 @@
        passer vrai, et `shown=` rester faux tant que le SEUIL n'est pas franchi.
    Tout ce qui est touche est sauve et restaure dans la meme fonction, sans suspend entre les deux."
   (let ((hold *loading-screen-hold-until*)
+        (armed *loading-screen-armed*)
         (since *loading-screen-since*)
         (arms *loading-screen-arms*)
         (bo (-> *game-info* blackout-time)))
     (format 0 "LOADSCREEN-SEUIL delay=~D hold=~D repere=frames-de-base~%" LOADING_SCREEN_DELAY LOADING_SCREEN_HOLD)
     ;; ligne de base : rien n'arme, rien ne s'allume.
+    (set! *loading-screen-armed* #f)
     (set! *loading-screen-hold-until* (the-as time-frame 0))
     (set! *loading-screen-since* (the-as time-frame 0))
     (set-blackout-frames 0)
@@ -326,8 +378,56 @@
             LOADING_SCREEN_DELAY
             (loading-screen-held?)
             (loading-screen-shown?))
+    ;; CONTROLE POSITIF DU CORRECTIF DE LA TENTATIVE 3 -- UNE FRAME LENTE NE ROUVRE PAS L'EPISODE.
+    ;;
+    ;; NATURE : une CONTINUITE D'EPISODE (le front montant a-t-il bouge ?), pas une duree.
+    ;; REPERE : l'horloge de la barriere. Une frame lente s'emule EXACTEMENT en reculant les deux
+    ;;   variables de l'episode de sa duree : les predicats ne font que comparer `(current-time)`
+    ;;   a ces variables, donc reculer les variables de d equivaut a avancer le temps de d.
+    ;; CE QUE LA LIGNE LIT QUAND LE DEFAUT EST PRESENT : `ancienne-regle-rearme=#t` ET
+    ;;   `episode-conserve=#f` ET `shown=#f` -- le seuil serait reparti de zero.
+    ;; LE CONTROLE TIRE-T-IL ? `ancienne-regle-rearme` EST le predicat d'avant, evalue sur l'etat
+    ;;   reel : il doit valoir #t, sinon la frame emulee n'etait pas assez lente et la ligne ne
+    ;;   prouverait rien -- c'est le `noir=` des controles negatifs ci-dessus, transpose.
+    ;; Deux frames lentes, jouees chacune depuis un episode NEUF :
+    ;;   lag=15  -> 30 fps. `time-ratio` vaut 3, la frame avance l'horloge de 15, soit EXACTEMENT
+    ;;              l'ancien sursis : c'est le seuil ou le defaut commence.
+    ;;   lag=180 -> une frame de 600 ms, regime courant d'un chargement sur telephone.
+    ;;   lag=450 -> 1,5 s, AU-DELA du chien de garde : la, l'episode se rouvre bel et bien, et la
+    ;;              ligne le publie (`episode-conserve=#f`). C'est la borne du correctif, dite au
+    ;;              lieu d'etre tue -- et c'est aussi ce que la ligne lit quand le defaut EST la.
+    ;; `ancienne-regle-rearme` est le predicat d'AVANT ecrit tel quel -- l'appel precedent avait
+    ;; pose `hold-until` a (t_precedent + LOADING_SCREEN_HOLD_AVANT), et t_precedent vaut
+    ;; ((current-time) - lag). Il doit valoir #t : c'est LUI qui prouve que la frame emulee est
+    ;; assez lente pour declencher le defaut, donc que le controle A TIRE.
+    (dotimes (i 3)
+      (let ((lag (cond ((zero? i) LOADING_SCREEN_HOLD_AVANT)
+                       ((= i 1) (the-as int (seconds 0.6)))
+                       (else (the-as int (seconds 1.5))))))
+        (set! *loading-screen-armed* #f)
+        (set! *loading-screen-hold-until* (the-as time-frame 0))
+        (set! *loading-screen-since* (the-as time-frame 0))
+        (loading-screen-hold!)
+        (let ((arms-avant *loading-screen-arms*))
+          (set! *loading-screen-hold-until* (- *loading-screen-hold-until* lag))
+          (set! *loading-screen-since* (- *loading-screen-since* lag))
+          (loading-screen-hold!)
+          (format 0
+                  "LOADSCREEN-LAG lag=~D ancienne-regle-rearme=~A episode-conserve=~A held=~A shown=~A~%"
+                  lag
+                  (>= (current-time) (+ (- (current-time) lag) LOADING_SCREEN_HOLD_AVANT))
+                  (= *loading-screen-arms* arms-avant)
+                  (loading-screen-held?)
+                  (loading-screen-shown?)))))
+    ;; ET LE RELACHEMENT : la barriere s'ouvre, l'ecran s'efface a cette frame-ci.
+    (loading-screen-release!)
+    (format 0
+            "LOADSCREEN-CTRL src=release held=~A shown=~A~%"
+            (loading-screen-held?)
+            (loading-screen-shown?))
     ;; restauration
     (set! *loading-screen-hold-until* hold)
+    (set! *loading-screen-armed* armed)
     (set! *loading-screen-since* since)
     (set! *loading-screen-arms* arms)
     (set! (-> *game-info* blackout-time) bo))

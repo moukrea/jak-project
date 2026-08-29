@@ -737,7 +737,12 @@
         ;; (basebutton.gc:348) et de la mort (target-death.gc) -- tous ceux-la poussent
         ;; `blackout-time` juste au-dessus et ne touchent jamais a l'horloge de la barriere.
         (loading-screen-hold!)
-        (suspend))))
+        (suspend))
+      ;; Gloading-screen : la barriere vient de s'ouvrir -- relacher l'ecran TOUT DE SUITE. La
+      ;; fermeture normale d'un episode est donc un APPEL, pas l'expiration d'un delai, et le
+      ;; sursis de `LOADING_SCREEN_HOLD` n'est plus qu'un chien de garde pour le cas ou ce
+      ;; processus serait tue en pleine attente.
+      (loading-screen-release!)))
   0)
 
 (defbehavior ja-play-spooled-anim process-drawable ((arg0 spool-anim) (arg1 art-joint-anim) (arg2 art-joint-anim) (arg3 (function process-drawable symbol)))

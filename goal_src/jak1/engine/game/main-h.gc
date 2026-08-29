@@ -236,6 +236,8 @@
 ;; `loading-screen-shown?` est lu par le dessin (pc/loading-screen-pc.gc), compile plus tard encore.
 (defun-extern loading-screen-hold! none)
 
+(defun-extern loading-screen-release! none)
+
 (defun-extern loading-screen-held? symbol)
 
 (defun-extern loading-screen-shown? symbol)
