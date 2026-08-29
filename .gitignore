@@ -189,3 +189,7 @@ custom_assets/*/recharged_textures_baked/
 # donc il contient des pixels Naughty Dog : il se regenere, il ne se commite pas.
 # Regenerer : python3 recharged_assets/font/gen_game_atlas.py
 custom_assets/jak1/recharged_textures/gamefontnew/
+
+# Gtexture-seamless: raw textures unpacked from the ISO (game assets, like
+# iso_data and decompiler_out) plus the seamlessness report generated from them.
+/extracted_textures/

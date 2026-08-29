@@ -79,8 +79,25 @@
        ;; Above 16:9 it is bit-for-bit the old wide branch -- only the bars go away.
        ;; Below 16:9 the band is now magnified to fill the height instead of being framed by
        ;; bars, which is exactly "grossir la partie visible pour qu'elle prenne toute la hauteur".
-       (set! (-> math-cam y-ratio) (* (1/ ASPECT_16X9) (-> math-cam x-ratio)))
-       (*! (-> math-cam x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9)))
+         ;; CORRECTION owner 2026-08-29 (3e reprise). Sa consigne, mot pour mot :
+         ;;   « la partie visible verticalement (comprise entre les barres du haut et du bas) doit
+         ;;     prendre toute la hauteur de l'ecran. On ne crop pas le cadre vertical, on agrandit
+         ;;     verticalement (sans deformer). Pour les barres a gauche et a droite, on enleve les
+         ;;     barres en revelant ce qu'il y a en dessous — mais on n'agrandit PAS le champ
+         ;;     initial horizontalement, c'est deja ce qu'on fait pour le vertical. »
+         ;;
+         ;; Ce que faisait le code precedent, et qui etait FAUX : il derivait l'HORIZONTAL du
+         ;; format d'ecran (`x *= aspect/16:9`) en gardant le vertical fixe. Il zoomait donc une
+         ;; SECONDE fois lateralement, ce qui sacrifiait le cadre vertical d'auteur.
+         ;;
+         ;;   x-ratio INCHANGE = tan(fov/2), l'horizontal d'AUTEUR : c'est ce que masquaient les
+         ;;                      barres laterales. On le REVELE, on ne l'agrandit pas.
+         ;;   y-ratio = x-ratio / aspect : le cadre rendu prend EXACTEMENT la forme de l'ecran,
+         ;;                      donc plus aucune barre a peindre a aucun format, et la bande
+         ;;                      visible remplit toute la hauteur sans deformation.
+         ;; A 16:9 : y = x/(16:9), soit exactement la bande d'auteur -> aucun changement.
+         (set! (-> math-cam y-ratio)
+               (/ (-> math-cam x-ratio) (-> *pc-settings* aspect-ratio))))
       (else
        ;; not using game vis, allow *extended* aspect ratios
        ;; there is no vertical cropping, and you can see more of the sides
