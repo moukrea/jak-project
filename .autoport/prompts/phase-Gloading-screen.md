@@ -204,3 +204,45 @@ du 2026-08-28 disait deja « vraie animation, capturee d'une certaine facon in-g
 3. En faire une sequence d'images, jouee en boucle.
 
 Publier : nombre d'images, resolution, et la duree de la boucle.
+
+---
+
+# RETOUR OWNER 2026-08-29 (4) — LA SILHOUETTE LIVREE A CINQ DEFAUTS
+
+> « Déjà c'est pas l'animation où Jak court vu de côté du tout, c'est plus de la marche... Et en
+> plus la silhouette animée a l'air d'aller vers la gauche au lieu de la droite (et prise avec un
+> angle bizarre) en plus de mal boucler et freeze par moment (quand ça charge des gros trucs je
+> suppose) ça devrait être fluide ! »
+
+Cinq defauts, tous a corriger. Le dernier est le plus grave.
+
+## 1. Ce n'est pas la bonne animation
+C'est de la MARCHE, pas de la COURSE. Il faut l'animation de course. **Publier le nom de
+l'animation capturee** — pas « une animation de deplacement », son nom.
+
+## 2. Le sens est inverse
+Elle va vers la GAUCHE, la maquette de l'owner montre une course vers la DROITE.
+
+## 3. L'angle de prise de vue est faux
+« un angle bizarre ». La demande dit **vu de COTE**. Publier l'angle de camera utilise et
+pourquoi il est de cote.
+
+## 4. La boucle saute
+Le cycle precedent avait publie un raccord a 0,0169 contre 0,0357 pour le pire depart — donc la
+mesure existait et le raccord saute quand meme. **Cette metrique ne capture pas ce que l'oeil
+voit.** Trouver ce qu'elle rate : un cycle de course n'est pas periodique sur une seule foulee
+(gauche/droite), il l'est sur DEUX. Une boucle prise sur une demi-periode saute forcement.
+
+## 5. ELLE SE FIGE PENDANT LES GROS CHARGEMENTS — le defaut de fond
+« freeze par moment (quand ça charge des gros trucs je suppose) ça devrait être fluide »
+
+**Une animation qui se fige pendant un chargement ne remplit plus sa fonction**, qui est
+justement de montrer que le jeu n'est pas plante. C'est le defaut qui annule l'ecran entier.
+
+Cause a chercher : l'avancement de l'animation est probablement pilote par l'horloge de LOGIQUE
+du jeu, qui est ce qui se bloque pendant un chargement lourd. Il lui faut une horloge
+INDEPENDANTE de la boucle de logique — la meme lecon que le seuil corrige au cycle precedent, ou
+le front montant se replacait a chaque frame lente.
+
+**Exige** : publier le nombre d'images affichees par seconde MESURE pendant un chargement lourd,
+pas au repos. Une valeur mesuree au repos ne prouve rien sur le defaut signale.
