@@ -52,3 +52,48 @@ bande 16:9 et devra suivre le nouveau cadre.
 2. Suppression des bandes.
 3. Ordre de dessin du HUD.
 4. Passe scene par scene sur ce que l'elargissement revele.
+
+---
+
+# RETOUR OWNER 2026-08-29 — LE RECADRAGE FAIT L'INVERSE DE CE QUI EST DEMANDE
+
+> « latéralement, au lieu de laisser voir plus de champ de vue, tu as fait en sorte que là où
+> l'image s'arrêtait avec les barres à gauche et à droite aille aux bords de l'écran... Ce qui
+> fait que ça sacrifie le cadre vertical que j'avais demandé de préserver (en zoomant pour n'avoir
+> que la hauteur visible entre les barres en haut et en bas). Les barres latérales, elles, c'est
+> le CHAMP DE VISION qui doit s'agrandir pour qu'on ne les voie pas. »
+
+## Ce que la demande dit, en une phrase
+
+Le cadre VERTICAL de la bande d'origine est intouchable. Les barres LATERALES se suppriment en
+**elargissant le champ de vision horizontal**, jamais en etirant ni en recadrant l'image.
+
+## Etat du code, ligne par ligne (`math-camera.gc:68-83`)
+
+    (set! (-> math-cam y-ratio) (* (1/ ASPECT_16X9) (-> math-cam x-ratio)))
+    (*! (-> math-cam x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9))
+
+L'INTENTION est juste : `y` fixe la bande 16:9 d'auteur, `x` croit avec le format d'ecran.
+Mais l'owner OBSERVE l'inverse. Les deux ne peuvent pas etre vrais en meme temps, donc **la
+valeur qui arrive dans `(-> *pc-settings* aspect-ratio)` n'est pas le format de son ecran.**
+
+C'est le meme suspect que la phase `Gandroid-window-size` : ce consommateur-la n'a peut-etre pas
+ete couvert par le correctif du clamp d'hote.
+
+## A FAIRE, dans cet ordre
+
+1. **Publier la valeur reellement lue** par cette ligne, a cote du format physique de l'ecran,
+   au moment ou une cinematique tourne. Une seule ligne de trace. Sans elle on continuera de
+   deviner : c'est deja ce qui a coute plusieurs allers-retours a l'owner.
+2. **Comparer le champ de vision horizontal cinematique au champ de vision GAMEPLAY** au meme
+   format d'ecran. Le gameplay fait `x *= aspect/(4:3)` et l'owner le trouve bon. Publier les
+   deux valeurs cote a cote : si la cinematique montre MOINS sur les cotes que le gameplay, la
+   plainte est mecaniquement expliquee.
+3. Corriger de sorte que, a format d'ecran croissant : `y` reste CONSTANT et `x` CROIT.
+   Publier le tableau `aspect / x / y` sur cinq formats pour le prouver.
+
+## Piege a ne pas repeter
+
+L'ancienne version de ce document affirmait « mesure sur sept formats : le vertical rend la meme
+valeur partout (0,3514) ». Cette mesure portait sur la fonction, pas sur ce que l'owner voit.
+**Une grandeur constante dans un banc d'essai peut varier en production si son ENTREE varie.**

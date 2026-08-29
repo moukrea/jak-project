@@ -1656,21 +1656,21 @@ phases:
   device_serial: eae4df44
   owner_verify: true
 - id: Gloading-screen
-  name: 'ECRAN DE CHARGEMENT AU LIEU D''UN ECRAN NOIR (owner 2026-08-28, maquette fournie) : silhouette de Jak et Daxter courant, « Loading... » localisé en Urbanist, glyphes précurseurs à la largeur exacte du texte. Répond aux 6,7 s d''écran noir mesurées sur la Shield. PIEGE : l''écran noir sert aussi aux coupes de caméra, il faut un seuil sinon le texte clignote en permanence.'
+  name: 'ECRAN DE CHARGEMENT AU LIEU D''UN ECRAN NOIR (owner 2026-08-28, maquette fournie) : silhouette de Jak et Daxter courant, « Loading... » localisé en Urbanist, glyphes précurseurs à la largeur exacte du texte. Répond aux 6,7 s d''écran noir mesurées sur la Shield. PIEGE : l''écran noir sert aussi aux coupes de caméra, il faut un seuil sinon le texte clignote en permanence. [PREUVE x86 : l''owner 2026-08-29 — « la plupart des choses sont testables sur x86 aussi, y compris les divers aspect ratios ». La garde de presence d''appareil ne doit PAS bloquer un travail dont la preuve se fait au clavier. Verification sur appareil quand un appareil revient, jamais comme prerequis.]'
   prompt: prompts/phase-Gloading-screen.md
   validator: validators/phase-Gloading-screen.sh
   max_turns: 3000
   max_retries: 60
-  device: true
+  device: false
   device_serial: eae4df44
   owner_verify: true
 - id: Gpbr-per-texture-materials
-  name: 'PBR PAR MATIERE, PAS DEUX CURSEURS GLOBAUX (owner 2026-08-28) : « un tissu n''a pas les mêmes propriétés qu''un mur en pierres taillées ou que du sable ». MESURE : il n''existe que deux réglages de matière dans tout le moteur. D''ABORD le repère tangent (relief présent/absent/inversé selon les faces), ENSUITE la table de matières par texture, versionnée dans le dépôt d''assets.'
+  name: 'PBR PAR MATIERE, PAS DEUX CURSEURS GLOBAUX (owner 2026-08-28) : « un tissu n''a pas les mêmes propriétés qu''un mur en pierres taillées ou que du sable ». MESURE : il n''existe que deux réglages de matière dans tout le moteur. D''ABORD le repère tangent (relief présent/absent/inversé selon les faces), ENSUITE la table de matières par texture, versionnée dans le dépôt d''assets. [PREUVE x86 : l''owner 2026-08-29 — « la plupart des choses sont testables sur x86 aussi, y compris les divers aspect ratios ». La garde de presence d''appareil ne doit PAS bloquer un travail dont la preuve se fait au clavier. Verification sur appareil quand un appareil revient, jamais comme prerequis.]'
   prompt: prompts/phase-Gpbr-per-texture-materials.md
   validator: validators/phase-Gpbr-per-texture-materials.sh
   max_turns: 3000
   max_retries: 60
-  device: true
+  device: false
   device_serial: eae4df44
   owner_verify: true
 - id: Gfixed-tick-interpolation
