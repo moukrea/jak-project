@@ -1646,6 +1646,15 @@ phases:
   device: true
   device_serial: eae4df44
   owner_verify: true
+- id: Gkeira-visor-deliver
+  name: 'LIVRER REELLEMENT LA SUPPRESSION DU MASQUE DE KEIRA (owner 2026-08-29) : « Keira HD a toujours la visière attachée ». MESURE : le modele livre dans jak1_hd_assets.zip est keira-hd-ag.go DATE DU 18 AOUT et contient encore `mask` et `maskstrap` ; keira-hd-lod0.glb porte toujours le joint, 214 noeuds inchanges. La phase Gkeira-hd-detached-parts a ete declaree passee le 28/08 a 15h53 sans que le modele change. Les correctifs de GEOMETRIE ne voyagent QUE par ce zip, jamais par l''APK.'
+  prompt: prompts/phase-Gkeira-visor-deliver.md
+  validator: validators/phase-Gkeira-hd-detached-parts.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gloading-screen
   name: 'ECRAN DE CHARGEMENT AU LIEU D''UN ECRAN NOIR (owner 2026-08-28, maquette fournie) : silhouette de Jak et Daxter courant, « Loading... » localisé en Urbanist, glyphes précurseurs à la largeur exacte du texte. Répond aux 6,7 s d''écran noir mesurées sur la Shield. PIEGE : l''écran noir sert aussi aux coupes de caméra, il faut un seuil sinon le texte clignote en permanence.'
   prompt: prompts/phase-Gloading-screen.md
