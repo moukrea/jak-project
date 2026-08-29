@@ -17,13 +17,29 @@
 #                                (opengl.cpp:527-541) -- donc du vrai suréchantillonnage, pas un
 #                                agrandissement.
 #
-# LA CAMERA EST `cam-orbit` (cam-states-dbg.gc:323), et ce choix EST le correctif d'un piege :
-# elle se replace CHAQUE FRAME a `position de Jak + rayon.(sin rot, 0, cos rot)` et vise Jak.
-# Avec le stick droit au repos, `rot` et `radius` ne bougent plus (:345-368 sont les seuls
-# ecrivains). Jak reste donc EXACTEMENT au centre, A DISTANCE CONSTANTE, et comme il court vers
-# la DROITE-CAMERA sa vitesse est perpendiculaire a l'axe de vue : la vue est laterale par
-# CONSTRUCTION, sans avoir a viser un angle. Une camera fixe l'aurait laisse sortir du champ en
-# une seconde et aurait fait varier sa taille de 7 % par perspective.
+# LA CAMERA EST `cam-orbit` (cam-states-dbg.gc:323) : elle se replace CHAQUE FRAME a
+# `position de Jak + rayon.(sin rot, 0, cos rot)` et vise Jak. Jak reste donc au centre, a
+# distance constante, et la vue est laterale PAR CONSTRUCTION -- l'axe de vue est `row2` de la
+# matrice de camera, le deplacement vaut `-row0` (chaine de signes verifiee de pad.gc:363 a
+# math-camera.gc:168), et les deux sont orthogonaux quel que soit `rot`.
+#
+# TROIS CHOSES QUE LA COURSE PRECEDENTE N'AVAIT PAS FAITES, ET L'OWNER LES A VUES :
+#   1. ELLE NE PUBLIAIT RIEN. `grep -c ANIM capture-full.log` rend ZERO : la planche a ete montee
+#      sans qu'on sache une seule fois ce que Jak faisait. `*ls-capture-trace*` (allume plus bas)
+#      publie desormais par frame l'animation, le MELANGE marche/course, la vitesse, l'abscisse
+#      ecran d'un point place 1 m DEVANT lui, l'elevation de la camera et la focale.
+#   2. LA FOCALE N'ETAIT PAS POSEE. `cam-orbit` n'ecrit jamais `fov` : elle heritait des 64 degres
+#      par defaut, ce qui a 6 m deforme un corps de ~14 % entre son avant et son arriere. On pose
+#      donc une focale etroite ET un rayon augmente d'autant : meme taille a l'ecran, profil
+#      presque orthographique -- ce que la maquette de l'owner dessine.
+#   3. L'AXE OPTIQUE VISAIT LES HANCHES. Mesure sur la planche precedente (silhouette.txt,
+#      BOITE_COMMUNE sur 1080 lignes) : l'axe passait a 65 % de la hauteur du sujet en partant du
+#      haut. On monte donc LES DEUX decalages ensemble -- monter un seul introduirait une vraie
+#      plongee, alors que la vue est aujourd'hui rigoureusement horizontale (les deux `y`
+#      s'annulent dans cam-states-dbg.gc:371-380).
+#
+# ET LE MIROIR DU MONTAGE EST RETIRE : le stick pousse a droite envoie Jak vers la DROITE de
+# l'ecran, invariant en `rot`. C'est le miroir qui produisait le « ca va vers la gauche ».
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 export DISPLAY="${DISPLAY:-:0}"
@@ -34,9 +50,9 @@ DEMO="$SCR/run-right.padrp"
 
 MODE="${1:-probe}"          # probe | full
 if [ "$MODE" = "probe" ]; then
-  EVERY=15; W=640; H=360; MSAA=1; START=0; STOP=99999999; WALL=90
+  EVERY=15; W=640; H=360; MSAA=1; START=0; STOP=99999999; WALL="${4:-140}"
 else
-  EVERY=1;  W=1920; H=1080; MSAA=2; START="${2:-5300}"; STOP="${3:-7000}"; WALL="${4:-330}"
+  EVERY=1;  W="${W:-1600}"; H="${H:-900}"; MSAA=2; START="${2:-5300}"; STOP="${3:-7000}"; WALL="${4:-330}"
 fi
 # Couleur de fond, en composantes GOAL (0x80 = 1.0, cf. `rhud-rgba 128 ...`).
 # MAGENTA par defaut : l'incrustation doit separer le fond du SUJET, et le sujet porte du vert
@@ -110,6 +126,21 @@ done
 grep -qa "F1-SPAWN" "$LOG" || { echo "FAIL: pas de F1-SPAWN"; tail -30 "$LOG"; exit 1; }
 grep -a "F1-SPAWN\|pad_replay: ANCHOR" "$LOG" | head -3
 sleep 2
+# ------------------------------------------------------------------------------------------------
+# ON CHANGE DE NIVEAU, ET C'EST UNE MESURE QUI L'IMPOSE.
+# Le point de reprise du warp F1 est `game-start` = Geyser Rock, une petite ile. Sonde du
+# 2026-08-30, trace `CAPRUN` : Jak n'y tient la vitesse de course pleine que **17 frames
+# consecutives**, puis sa vitesse s'effondre a ~2 400 et y RESTE pendant 2 300 frames — il est
+# plaque contre le decor et joue la marche SUR PLACE. Or le fondu marche/course monte a 2,0/s
+# (target.gc:559) : il faut ~30 frames de vitesse pleine rien que pour atteindre la course pure,
+# plus une periode de cycle. Le melange n'a donc jamais depasse **0,8459** sur toute la sonde.
+# C'EST EXACTEMENT CE QUE L'OWNER A VU : « c'est plus de la marche ». Ce n'etait pas un mauvais
+# choix d'animation, c'etait un personnage coince, et rien ne le publiait.
+# `beach-start` (Sandover Beach) est une grande plage ouverte : la course peut y tenir.
+echo "(start (quote play) (get-continue-by-name *game-info* \"${WARPTO:-beach-start}\"))" >&3
+sleep "${WARPWAIT:-18}"
+echo "(format 0 \"CAPWARP lev0=~A/~A lev1=~A/~A~%\" (-> *level* level0 name) (-> *level* level0 status) (-> *level* level1 name) (-> *level* level1 status))" >&3
+sleep 2
 # FOND UNI : quand le bit `sky` est eteint, drawable.gc:806-818 dessine lui-meme un degrade plein
 # ecran dans le bucket `sky-draw` (3), tres en amont des buckets merc (49/52/55) -- donc SOUS le
 # personnage. Sa couleur est `(-> *display* bg-clear-color)`, une variable GOAL. `glClearColor`
@@ -129,9 +160,10 @@ echo '(set! *vu1-enable-user-menu* (vu1-renderer-mask generic merc))' >&3
 echo '(set! *camera-read-analog* #f)' >&3
 echo '(set! *camera-orbit-target* (the-as (pointer process-drawable) (process->ppointer *target*)))' >&3
 echo '(set! (-> *camera-orbit-info* rot) 0.0)' >&3
-echo "(set! (-> *camera-orbit-info* radius) ${CAMRAD:-24576.0})" >&3
-echo "(set! (-> *camera-orbit-info* orbit-off y) ${CAMOFF:-4096.0})" >&3
-echo "(set! (-> *camera-orbit-info* target-off y) ${CAMOFF:-4096.0})" >&3
+echo "(set! (-> *camera-orbit-info* radius) ${CAMRAD:-57344.0})" >&3
+# LES DEUX DECALAGES ENSEMBLE : l'elevation reste nulle, seule la hauteur visee monte.
+echo "(set! (-> *camera-orbit-info* orbit-off y) ${CAMOFF:-5400.0})" >&3
+echo "(set! (-> *camera-orbit-info* target-off y) ${CAMOFF:-5400.0})" >&3
 echo '(send-event *camera* (quote change-state) cam-orbit 0)' >&3
 sleep 2
 # L'ANGLE SE POSE APRES LE CHANGEMENT D'ETAT, PAS AVANT : le `:enter` de `cam-orbit`
@@ -140,6 +172,14 @@ sleep 2
 # reste dessine (merc/generic restent allumes, il le faut pour Jak et Daxter) et qui touche la
 # silhouette : 65536 = 360 degres.
 echo "(+! (-> *camera-orbit-info* rot) ${CAMROTD:-0.0})" >&3
+# FOCALE ETROITE + RAYON AUGMENTE D'AUTANT. 30 degres a 14 m couvrent la meme hauteur d'ecran que
+# 64 degres a 6 m (tan 32 / tan 15 = 2,33), et l'ecart d'echelle avant/arriere d'un corps tombe de
+# ~14 % a ~2 %. `set-fov` propage a tous les esclaves (cam-master.gc:611-614) ; la trace publie
+# `fov=` a chaque frame, donc si quelque chose la repose on le VOIT au lieu de le supposer.
+echo "(send-event *camera* (quote set-fov) (degrees ${CAMFOV:-30.0}))" >&3
+sleep 1
+# L'INSTRUMENT. Sans lui, aucune des quatre grandeurs que l'owner conteste n'est mesuree.
+echo '(set! *ls-capture-trace* #t)' >&3
 echo '(format 0 "CAPSETUP rot=~f rad=~f cible=~A~%" (-> *camera-orbit-info* rot) (-> *camera-orbit-info* radius) *camera-orbit-target*)' >&3
 sleep 6
 echo '(format 0 "CAPSETUP2 rot=~f rad=~f mask=~D~%" (-> *camera-orbit-info* rot) (-> *camera-orbit-info* radius) *vu1-enable-user*)' >&3
@@ -155,3 +195,8 @@ echo "== $N images dans $SHOTDIR =="
 ls "$SHOTDIR"/autoport_f*.png 2>/dev/null | head -2
 ls "$SHOTDIR"/autoport_f*.png 2>/dev/null | tail -2
 grep -a "CAPSETUP\|CAPBG\|pad_replay" "$LOG" | head -6
+echo "== CE QUE LE SUJET FAISAIT (extraits de la trace) =="
+grep -a "CAPRUN" "$LOG" | tail -3
+grep -a "CAPVUE" "$LOG" | tail -3
+echo "  frames a MELANGE plein (course pure, melange >= 0.99) : $(grep -ac 'melange=1\.0' "$LOG")"
+echo "  frames tracees au total                               : $(grep -ac 'CAPRUN' "$LOG")"

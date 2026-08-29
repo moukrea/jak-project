@@ -26,6 +26,7 @@ construction. Le nombre de pixels ecartes est publie.
 import argparse
 import glob
 import os
+import re
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -155,85 +156,224 @@ def isolate(alpha):
     return out, int((core & ~keep).sum())
 
 
-def period(alphas, lo, hi):
-    """Periode du cycle, MESUREE : le decalage qui minimise l'ecart moyen |a(f) - a(f+P)|.
-    On ne postule pas les 60 frames de `*TARGET-bank* run-cycle-length` -- on les verifie."""
+def period_images(alphas, lo, hi):
+    """Periode du cycle MESUREE SUR LES IMAGES : le decalage qui minimise l'ecart moyen
+    |a(f) - a(f+P)|. Second instrument, INDEPENDANT de la trace du moteur -- les deux doivent
+    tomber d'accord, sinon on ne livre rien.
+
+    LA FENETRE DE RECHERCHE NE DOIT PAS BORNER LA REPONSE. Le cycle precedent cherchait dans
+    [20, 80] et a rendu 20 avec une erreur STRICTEMENT CROISSANTE sur les cinq meilleurs : le
+    minimum etait hors fenetre, en dessous. On cherche donc a partir de 6, et on REFUSE un
+    resultat qui tombe sur une borne."""
     n = len(alphas)
+    hi = min(hi, n - 8)
     tbl = []
-    for p in range(lo, min(hi, n - 8) + 1):
-        d = float(np.mean([np.abs(alphas[f] - alphas[f + p]).mean() for f in range(0, n - p, 2)]))
-        tbl.append((p, d))
+    for q in range(lo, hi + 1):
+        d = float(np.mean([np.abs(alphas[f] - alphas[f + q]).mean() for f in range(0, n - q, 2)]))
+        tbl.append((q, d))
     tbl.sort(key=lambda t: t[1])
-    emit("PERIODE_MESUREE=%d  ecart=%.5f   (5 meilleurs : %s)"
-         % (tbl[0][0], tbl[0][1], " ".join("%d:%.5f" % t for t in tbl[:5])))
+    emit("PERIODE_IMAGES=%d  ecart=%.5f  fenetre=[%d,%d]  (5 meilleurs : %s)"
+         % (tbl[0][0], tbl[0][1], lo, hi, " ".join("%d:%.5f" % t for t in tbl[:5])))
+    if tbl[0][0] in (lo, hi):
+        raise SystemExit("ERREUR: la periode mesuree tombe sur une BORNE de la fenetre (%d) — "
+                         "le minimum est dehors, le resultat ne veut rien dire." % tbl[0][0])
     return tbl[0][0]
+
+
+NUMBER = r"[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?"
+
+
+def parse_trace(path):
+    """Apparier chaque CAPTURE a l'ETAT DU MOTEUR de la frame ou elle a ete prise.
+
+    Le cycle precedent a monte une planche sans jamais savoir ce que Jak faisait : `grep -c ANIM`
+    sur son log rend ZERO. Ici, `ls-capture-trace` publie trois lignes par frame (CAPFRAME /
+    CAPRUN / CAPVUE) et le crochet de capture publie `AUTOPORT-SHOT f=`, sur le MEME flux. On
+    associe donc a chaque PNG l'etat de la derniere frame tracee avant elle.
+
+    RESERVE DECLAREE : le renderer dessine la frame que GOAL vient de finir, donc l'appariement
+    peut etre decale d'UNE frame. Toutes les grandeurs qu'on en tire (melange, sens, periode)
+    varient lentement ou pas du tout sur une frame ; aucune decision ici ne depend de ce bit."""
+    # `cur` est la frame EN COURS d'assemblage, `last` la derniere COMPLETE. Une capture
+    # s'apparie a `last`, jamais a `cur` : les trois lignes de la trace sont ecrites par le thread
+    # GOAL et la ligne de capture par le thread de rendu, donc une capture peut tomber AU MILIEU
+    # d'un triplet. S'y appuyer perdrait des captures et fragmenterait la plage de course
+    # continue, qui est precisement ce qu'on cherche.
+    rec, cur, last, out = {}, {}, None, {}
+    with open(path, "r", errors="replace") as fh:
+        for line in fh:
+            m = re.search(r"CAPFRAME afc=(\d+) marche=(\S+) f=(%s) len=(\d+)" % NUMBER, line)
+            if m:
+                cur = {"afc": int(m.group(1)), "walk": m.group(2),
+                       "fwalk": float(m.group(3)), "lenwalk": int(m.group(4))}
+                continue
+            m = re.search(r"CAPRUN course=(\S+) f=(%s) len=(\d+) melange=(%s) v=(%s)"
+                          % (NUMBER, NUMBER, NUMBER), line)
+            if m and cur:
+                cur.update(run=m.group(1), frun=float(m.group(2)), lenrun=int(m.group(3)),
+                           blend=float(m.group(4)), v=float(m.group(5)))
+                continue
+            m = re.search(r"CAPVUE sx=(%s) dx=(%s) camy-jaky=(%s) fov=(%s)"
+                          % (NUMBER, NUMBER, NUMBER, NUMBER), line)
+            if m and cur:
+                cur.update(sx=float(m.group(1)), dx=float(m.group(2)),
+                           camy=float(m.group(3)), fov=float(m.group(4)))
+                rec[cur["afc"]] = dict(cur)
+                last = dict(cur)
+                continue
+            m = re.search(r"AUTOPORT-SHOT f=(\d+)", line)
+            if m and last is not None:
+                out[int(m.group(1))] = dict(last)
+    return out
+
+
+def period_from_anim(states):
+    """Periode du cycle de course LUE SUR L'ANIMATION, en frames de logique.
+
+    `frun` est le numero de frame du canal 3 (`eichar-run-ja`), qui boucle sur `lenrun-1`
+    (num-func-loop!, process-drawable-h.gc:46-55). On mesure donc la periode par la PENTE de ce
+    numero : nombre de frames de logique pour consommer `lenrun-1` frames d'animation. C'est la
+    grandeur que le moteur lui-meme utilise, et elle ne depend d'aucun pixel."""
+    ks = sorted(states)
+    d, n = 0.0, 0
+    for a, b in zip(ks, ks[1:]):
+        if b - a != 1:
+            continue
+        step = states[b]["frun"] - states[a]["frun"]
+        if step > 0:                      # on saute l'enroulement
+            d += step
+            n += 1
+    if n == 0:
+        raise SystemExit("ERREUR: la trace ne contient aucune paire de frames consecutives")
+    per_frame = d / n
+    length = states[ks[0]]["lenrun"]
+    P = (length - 1) / per_frame
+    emit("PERIODE_ANIMATION=%.2f frames de logique  (anim=%s longueur=%d frames, avance=%.4f "
+         "frame d'anim par frame de logique, sur %d paires)"
+         % (P, states[ks[0]]["run"], length, per_frame, n))
+    return P
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--shots", required=True)
-    ap.add_argument("--skip", type=int, default=20, help="images ignorees en tete (mise en place)")
-    ap.add_argument("--count", type=int, default=200)
+    ap.add_argument("--trace", required=True,
+                    help="log de la course de capture : c'est lui qui dit ce que Jak faisait")
     ap.add_argument("--cols", type=int, default=4)
     ap.add_argument("--rows", type=int, default=4)
     ap.add_argument("--cell", type=int, default=512)
-    ap.add_argument("--step", type=int, default=2, help="frames de logique entre deux cellules")
+    ap.add_argument("--blend-min", type=float, default=0.99,
+                    help="melange marche/course minimal. 1,0 = course PURE. jak1 n'a qu'un etat "
+                         "de locomotion au sol et empile marche (canal 0) et course (canal 3) ; "
+                         "le canal 6 porte le melange (target.gc:578). En dessous de ce seuil, "
+                         "ce n'est PAS l'animation de course que l'owner demande.")
     ap.add_argument("--out", default="recharged_assets/loading_jak.png")
     ap.add_argument("--report", default=".autoport/reports/Gloading-screen/silhouette.txt")
-    ap.add_argument("--mirror", action="store_true",
-                    help="miroir horizontal : l'owner demande une course vers la DROITE, et "
-                         "l'angle de camera qui ecarte le decor du niveau donne une course vers "
-                         "la gauche. Un miroir d'une silhouette est exact — aucune information "
-                         "n'est inventee, seul le cote de l'epaule de Daxter change.")
     a = ap.parse_args()
     frames = a.cols * a.rows
 
-    fs = sorted(glob.glob(os.path.join(a.shots, "autoport_f*.png")))[a.skip:a.skip + a.count]
-    if len(fs) < frames * 2:
-        raise SystemExit("ERREUR: %d captures, il en faut au moins %d" % (len(fs), frames * 2))
+    states = parse_trace(a.trace)
+    emit("TRACE=%s  captures appariees a un etat du moteur=%d" % (a.trace, len(states)))
+    if not states:
+        raise SystemExit("ERREUR: aucune ligne CAPFRAME/AUTOPORT-SHOT appariee — l'instrument "
+                         "*ls-capture-trace* n'a pas ete allume, ou la capture n'a rien ecrit.")
+
+    # --- LA FENETRE : la plus longue suite de captures CONSECUTIVES en course PURE ---
+    # Le defaut du cycle precedent n'etait pas le montage, c'est qu'on a monte des images ou Jak
+    # ne courait pas. On ne choisit donc plus « les 200 dernieres » : on choisit la plus longue
+    # plage ou le MELANGE est plein, et on publie sa taille.
+    ks = sorted(states)
+    best, cur = [], []
+    for i, k in enumerate(ks):
+        ok = states[k]["blend"] >= a.blend_min
+        cont = ok and (not cur or k - cur[-1] == 1)
+        cur = (cur + [k]) if cont else ([k] if ok else [])
+        if len(cur) > len(best):
+            best = list(cur)
+    emit("MELANGE_MIN_EXIGE=%.2f  plage de course PURE la plus longue=%d captures consecutives "
+         "(sur %d)" % (a.blend_min, len(best), len(states)))
+    if len(best) < frames * 3:
+        raise SystemExit("ERREUR: seulement %d captures consecutives en course pure, il en faut "
+                         "au moins %d. Jak n'a pas couru assez longtemps." % (len(best), frames * 3))
+    vv = [states[k]["v"] for k in best]
+    dxs = [states[k]["dx"] for k in best]
+    emit("VITESSE sur la plage : min=%.0f med=%.0f max=%.0f  (course pure au-dessus de 36864, "
+         "marche pure sous 16384 — target.gc:556-559)" % (min(vv), float(np.median(vv)), max(vv)))
+    emit("SENS_ECRAN dx min=%.1f max=%.1f  (dx>0 = il court vers la DROITE de l'ecran ; grandeur "
+         "projetee par la matrice de camera du moteur, pas deduite d'un signe)"
+         % (min(dxs), max(dxs)))
+    emit("FOCALE=%.1f degres GOAL  ELEVATION_CAMERA=%.0f unites au-dessus de la racine de Jak"
+         % (states[best[0]]["fov"] / 182.044, states[best[0]]["camy"]))
+    mirror = float(np.median(dxs)) < 0.0
+    emit("MIROIR=%s  (DECIDE PAR LA MESURE `dx`, plus par un drapeau pose a la main — c'est un "
+         "miroir injustifie qui produisait le « ca va vers la gauche » du cycle precedent)"
+         % ("oui" if mirror else "non"))
+
+    fs = []
+    for k in best:
+        f = os.path.join(a.shots, "autoport_f%06d.png" % k)
+        if os.path.exists(f):
+            fs.append((k, f))
     emit("CAPTURES=%d  premiere=%s derniere=%s"
-         % (len(fs), os.path.basename(fs[0]), os.path.basename(fs[-1])))
-    im0 = Image.open(fs[0])
+         % (len(fs), os.path.basename(fs[0][1]), os.path.basename(fs[-1][1])))
+    im0 = Image.open(fs[0][1])
     emit("RESOLUTION_CAPTURE=%dx%d" % im0.size)
 
-    alphas, dropped, ecartees = [], 0, 0
-    for f in fs:
+    alphas, keys, dropped, ecartees = [], [], 0, 0
+    for k, f in fs:
         raw = alpha_of(f)
         if raw is None:
             ecartees += 1
             continue
-        if a.mirror:
+        if mirror:
             raw = raw[:, ::-1].copy()
         al, d = isolate(raw)
         dropped += d
         alphas.append(al)
-    emit("IMAGES_SANS_FOND_UNI_ECARTEES=%d  (prises avant que la mise en scene soit posee)" % ecartees)
-    emit("MIROIR=%s" % ("oui" if a.mirror else "non"))
-    if len(alphas) < frames * 2:
-        raise SystemExit("ERREUR: %d images exploitables, il en faut %d" % (len(alphas), frames * 2))
+        keys.append(k)
+    emit("IMAGES_SANS_FOND_UNI_ECARTEES=%d" % ecartees)
+    if len(alphas) < frames * 3:
+        raise SystemExit("ERREUR: %d images exploitables, il en faut %d" % (len(alphas), frames * 3))
     emit("PIXELS_ECARTES_HORS_COMPOSANTE=%d sur %d (%.4f %%) — autres acteurs du niveau"
-         % (dropped, len(fs) * alphas[0].size, 100.0 * dropped / (len(fs) * alphas[0].size)))
+         % (dropped, len(alphas) * alphas[0].size, 100.0 * dropped / (len(alphas) * alphas[0].size)))
     cov = [float((x >= 0.5).sum()) for x in alphas]
-    emit("SURFACE_SUJET min=%d max=%d median=%d px" % (min(cov), max(cov), int(np.median(cov))))
+    emit("SURFACE_SUJET min=%d max=%d median=%d px  (variation %.1f %% — une variation forte "
+         "signale un sujet coupe par le bord ou une composante parasite)"
+         % (min(cov), max(cov), int(np.median(cov)), 100.0 * (max(cov) - min(cov)) / np.median(cov)))
 
-    # PAS ENTIER ENTRE CELLULES. Avec 16 cellules sur une periode de 30 frames l'ecart tombe a
-    # 1,875 frame : arrondi, il donne des cellules a 2 et d'autres a 1 frame d'intervalle, donc une
-    # boucle qui accelere et ralentit. On impose donc `step` frames ENTIERES entre cellules ; la
-    # periode livree vaut `step x cellules`.
-    p_mes = period(alphas, 20, 80)
-    p = a.step * frames
-    seams = []
-    for s0 in range(0, len(alphas) - p - 1):
-        seams.append((float(np.abs(alphas[s0] - alphas[s0 + p]).mean()), s0))
-    seams.sort()
+    # --- DEUX INSTRUMENTS POUR LA PERIODE, ET ILS DOIVENT S'ACCORDER ---
+    p_anim = period_from_anim({k: states[k] for k in keys})
+    p_img = period_images(alphas, 6, min(120, len(alphas) - 9))
+    ecart = abs(p_img - p_anim) / p_anim
+    # Une silhouette vue de cote se repete PRESQUE a la demi-foulee (les deux jambes donnent un
+    # contour voisin) : l'instrument d'IMAGES peut donc legitimement trouver P/2. On l'accepte
+    # explicitement, on ne le confond pas avec un accord.
+    demi = abs(p_img - p_anim / 2.0) / (p_anim / 2.0)
+    emit("ACCORD_PERIODES ecart_a_P=%.1f %%  ecart_a_P/2=%.1f %%" % (100 * ecart, 100 * demi))
+    if min(ecart, demi) > 0.15:
+        raise SystemExit("ERREUR: les deux instruments de periode ne s'accordent ni sur P ni sur "
+                         "P/2 (%.2f contre %.2f) — on ne livre pas une boucle non etablie."
+                         % (p_img, p_anim))
+    emit("PERIODE_RETENUE=%.2f frames de logique — celle de l'ANIMATION. Une silhouette laterale "
+         "se repete presque a la demi-foulee, donc boucler sur P/2 ferait sauter la jambe la plus "
+         "proche : la boucle DOIT porter la foulee ENTIERE." % p_anim)
+
+    # --- LES CELLULES COUVRENT EXACTEMENT UNE PERIODE ---
+    # Le cycle precedent imposait un pas ENTIER (16 cellules x 2 = 32 frames) et livrait donc une
+    # boucle de 32 frames pour une periode de ~37 : le raccord sautait par construction. On place
+    # la cellule k a round(k.P/N) : les pas valent alors 2 ou 3 frames, l'ecart de cadence est de
+    # moins d'une demi-frame (8 ms) et la boucle se referme EXACTEMENT.
+    P = p_anim
+    span = int(round(P))
+    starts = range(0, len(alphas) - span - 1)
+    seams = sorted((float(np.abs(alphas[s] - alphas[s + span]).mean()), s) for s in starts)
     s0 = seams[0][1]
-    emit("PERIODE_LIVREE=%d frames (%d cellules x %d)  RACCORD_ecart=%.5f  depart=%d  "
-         "(pire raccord possible sur la meme fenetre : %.5f)"
-         % (p, frames, a.step, seams[0][0], s0, seams[-1][0]))
-    picks = [s0 + k * a.step for k in range(frames)]
-    emit("IMAGES_CHOISIES=%s" % picks)
+    picks = [s0 + int(round(k * P / frames)) for k in range(frames)]
+    emit("PERIODE_LIVREE=%.2f frames (%d cellules, pas moyen %.2f)  RACCORD_ecart=%.5f  depart=%d"
+         "  (pire raccord possible sur la meme fenetre : %.5f)"
+         % (P, frames, P / frames, seams[0][0], s0, seams[-1][0]))
+    emit("IMAGES_CHOISIES=%s" % [keys[i] for i in picks])
     chosen = [alphas[i] for i in picks]
-
     # BOITE COMMUNE : la silhouette ne doit pas changer de taille d'une image a l'autre. La camera
     # orbite garde Jak centre sur sa RACINE, donc le ballant du corps est CONSERVE -- il ne faut
     # surtout pas normaliser image par image, ce serait supprimer le mouvement qu'on capture.
@@ -251,6 +391,13 @@ def main():
     y1 = min(H, y1 + pad); x1 = min(W, x1 + pad)
     bw, bh = x1 - x0, y1 - y0
     emit("BOITE_COMMUNE=(%d,%d,%d,%d) %dx%d rapport_l/h=%.4f" % (x0, y0, x1, y1, bw, bh, bw / float(bh)))
+    # OU PASSE L'AXE OPTIQUE DANS LE SUJET. La camera vise la racine de Jak + `target-off y`, et
+    # ce point tombe exactement au centre de l'image. Publier sa position DANS la boite du sujet
+    # dit si le corps est vu de face ou en contre-plongee/plongee locale : a 50 % la deformation
+    # de perspective est symetrique haut/bas, c'est le cadrage d'un profil. Le cycle precedent
+    # etait a 65 % (l'axe visait les hanches) et l'owner a parle d'« angle bizarre ».
+    axe = 100.0 * (H / 2.0 - y0) / float(bh)
+    emit("AXE_OPTIQUE_DANS_LE_SUJET=%.1f %% depuis le haut (50 %% = profil centre)" % axe)
 
     # Cellule CARREE, sujet inscrit avec une marge transparente. La marge n'est pas cosmetique :
     # sans elle le filtrage bilineaire et les mipmaps de la planche melangeraient deux images
@@ -278,8 +425,11 @@ def main():
          % (a.out, sheet.size[0], sheet.size[1], frames, a.cols, a.rows, a.cell))
     emit("BOUCLE_FRAMES_LOGIQUE=%d  BOUCLE_SECONDES=%.4f  (pas de temps FORCE a 1/60 s par le "
          "rejeu de manette, pad_replay.cpp:313-318 — la duree ne depend donc pas du debit "
-         "d'images de la capture ; periode MESUREE independamment : %d frames)"
-         % (p, p / 60.0, p_mes))
+         "d'images de la capture)" % (span, span / 60.0))
+    emit("LS_SIL_PERIOD_A_POSER=%d  (en FRAMES DE LOGIQUE a 60 Hz. `LS_SIL_PERIOD` s'exprime "
+         "dans l'unite de `loading-screen-clock`, le 1/300 s : la conversion x5 est faite par "
+         ".autoport/gls_apply_silhouette_constants.py et NULLE PART AILLEURS, pour qu'il n'y ait "
+         "qu'un seul endroit ou la perdre. Valeur posee : %d)" % (span, span * 5))
     emit("LS_SIL_H_A_POSER=%.6f  (pour que le SUJET fasse 0,612115 de la hauteur d'ecran comme la "
          "maquette, la CELLULE doit en faire 0,612115 / %.4f)" % (0.612115 * a.cell / float(th), th / float(a.cell)))
 

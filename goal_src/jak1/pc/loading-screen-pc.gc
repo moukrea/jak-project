@@ -45,11 +45,15 @@
 ;; changer si l'owner prefere son chiffre : LS_SIL_H.
 (defconstant LS_SIL_CX 0.272129)   ;; centre x de la silhouette
 (defconstant LS_SIL_CY 0.519660)   ;; centre y de la silhouette
-(defconstant LS_SIL_H 0.651565)    ;; hauteur de la CELLULE de planche / hauteur d'ecran.
+(defconstant LS_SIL_H 0.847035)    ;; hauteur de la CELLULE de planche / hauteur d'ecran.
                                    ;; La maquette de l'owner mesure le SUJET a 0,612115 de la
-                                   ;; hauteur d'ecran ; le sujet occupe 0,9395 de sa cellule
-                                   ;; (marge transparente obligatoire, sinon les mipmaps de la
-                                   ;; planche melangent deux images voisines). 0,612115 / 0,9395.
+                                   ;; hauteur d'ecran ; le sujet occupe 0,7227 de la HAUTEUR de sa
+                                   ;; cellule -- une foulee de course l'etale, il est plus LARGE
+                                   ;; que haut (rapport 1,30) et la cellule est carree, avec une
+                                   ;; marge transparente obligatoire sinon les mipmaps de la
+                                   ;; planche melangent deux images voisines. 0,612115 / 0,7227.
+                                   ;; POSEE par gls_apply_silhouette_constants.py depuis la mesure
+                                   ;; du montage, jamais recopiee a la main.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; LA SILHOUETTE EST UNE SEQUENCE ANIMEE (owner 2026-08-29, retour n.3)
@@ -62,24 +66,50 @@
 ;; une capture en jeu de l'animation de course reelle. Les cellules sont parcourues en
 ;; ligne d'abord, de 0 a LS_SIL_FRAMES-1.
 ;;
-;; L'HORLOGE EST `(current-time)`, PAS UN COMPTEUR DE FRAMES. `*loading-screen-frames*` avancerait
-;; d'un pas par image produite : la course serait deux fois plus rapide a 60 images/s qu'a 30, or
-;; 30 ou moins est precisement le regime d'un chargement. `(current-time)` avance du nombre de
-;; frames de 60 Hz REELLEMENT ecoulees (engine/draw/drawable.gc:1008-1014), donc la boucle dure
-;; LS_SIL_PERIOD secondes quel que soit le debit d'images. C'est le meme raisonnement que celui
-;; qui a fait passer le sursis de la barriere de 0,05 s a 1 s.
+;; L'HORLOGE EST `(loading-screen-clock)`, PAS UN COMPTEUR DE FRAMES ET PLUS `(current-time)`.
+;; `*loading-screen-frames*` avancerait d'un pas par image produite : la course serait deux fois
+;; plus rapide a 60 images/s qu'a 30, or 30 ou moins est precisement le regime d'un chargement.
+;;
+;; ET `(current-time)` NE CONVIENT PAS NON PLUS, POUR UNE RAISON QUI SE LIT DANS LE CODE :
+;; engine/draw/drawable.gc:1013 met son increment sous `(when (not (paused?)))`, et `paused?`
+;; (main.gc:608) est vrai des que le menu est ouvert -- donc pendant le chargement d'une partie
+;; lance depuis ce menu. La silhouette y serait EXACTEMENT figee, et le seuil de 0,5 s jamais
+;; franchi. Le detail complet, avec la refutation de `real-frame-counter` (que game-save.gc:631
+;; REMPLACE au milieu d'un chargement de partie), est dans engine/game/main-h.gc.
+;;
+;; UNITE : 1/300 s, la meme que `(seconds x)` -- et elle NE DEPEND PAS du reglage de frequence
+;; d'images du joueur, contrairement a `real-integral-frame-counter` que j'avais pris d'abord et
+;; que la ligne de controle a refute (facteur 2 EXACT a 30 images/s). `LS_SIL_PERIOD` s'ecrit donc
+;; en 300emes de seconde : la periode mesuree a la capture, en frames de logique a 60 Hz, vaut
+;; CINQ FOIS ce nombre.
+;;
+;; RESERVE DECLAREE, ET ELLE N'EST PAS REPARABLE ICI : sur l'appareil, l'increment de cette
+;; horloge est plafonne a 4 frames par frame rendue et le retard est JETE
+;; (android/gk_android_main.cpp:787-789, :793-799, :833-835). Une frame plus longue que 66,7 ms
+;; fait donc passer la boucle au ralenti, quelle que soit l'horloge choisie. C'est pour cela que
+;; le vrai correctif du gel est ailleurs -- dans la taille des tranches du chargeur bloquant,
+;; game/graphics/opengl_renderer/loader/Loader.h:kLoadingScreenSliceMs -- et que la mesure du
+;; gel, elle, est prise cote C++ sur une VRAIE horloge (`LOADSCREEN-GAP`).
 (defconstant LS_SIL_COLS 4)
 (defconstant LS_SIL_ROWS 4)
 (defconstant LS_SIL_FRAMES 16)
-(defconstant LS_SIL_PERIOD (seconds 0.5333))  ;; 32 frames de logique a 60 Hz : 16 cellules
-                                              ;; espacees de 2 frames. MESURE, pas choisi -- la
-                                              ;; periode de la SILHOUETTE relevee sur la capture
-                                              ;; vaut 20 a 30 frames selon la fenetre (une
-                                              ;; silhouette vue de cote se repete a la DEMI-foulee,
-                                              ;; les deux jambes donnant presque le meme contour),
-                                              ;; et le depart des 16 cellules est celui qui
-                                              ;; minimise l'ecart au RACCORD : 0,01685 contre
-                                              ;; 0,03567 pour le pire depart de la meme fenetre.
+(defconstant LS_SIL_PERIOD 175)
+;; 175 = 35 frames de logique a 60 Hz x 5, soit 0,5833 s. UNITE : 1/300 s, celle de
+;; `loading-screen-clock`. La conversion x5 se fait en UN SEUL endroit,
+;; .autoport/gls_apply_silhouette_constants.py, qui lit la valeur dans le rapport du montage et la
+;; pose ici -- pas de transcription a la main, c'est ainsi qu'on perd un facteur.
+;;
+;; ELLE EST MESUREE SUR L'ANIMATION, PAS SUR LES PIXELS, ET LE PIEGE EST NOMME. `eichar-run` fait
+;; 16 frames de donnees et avance de 0,4311 frame d'animation par frame de logique a la vitesse de
+;; course pleine : la periode vaut donc 15 / 0,4311 = 34,79 frames de logique. Le second
+;; instrument, la similarite d'images, rend 17 -- soit P/2 a 2,3 % pres, parce qu'une silhouette
+;; vue de COTE se repete presque a la DEMI-foulee (les deux jambes donnent un contour voisin).
+;; Boucler sur 17 ferait sauter la jambe la plus proche a chaque demi-cycle. Le montage publie les
+;; deux et REFUSE de livrer s'ils ne s'accordent ni sur P ni sur P/2.
+;; LE CYCLE PRECEDENT LIVRAIT 32 : ni 17 ni 35. C'etait 16 cellules x un pas ENTIER de 2, un
+;; nombre choisi pour sa commodite. Les cellules sont maintenant placees a round(k.P/16), donc la
+;; boucle se referme EXACTEMENT sur une periode ; raccord mesure 0,00944 contre 0,04637 pour le
+;; pire depart possible de la meme fenetre.
 (defconstant LS_SIL_WH 1.0)                ;; largeur/hauteur d'UNE cellule de la planche
 
 (defconstant LS_TEXT_RIGHT 0.8822) ;; bord DROIT de la bande « Loading... » (x 1475 / 1672)
@@ -318,6 +348,86 @@
                 (else (empty))))))))
     total))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INSTRUMENT DE CAPTURE (owner 2026-08-29, retour n.4)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; « Deja c'est pas l'animation ou Jak court vu de cote du tout, c'est plus de la marche... Et en
+;; plus la silhouette animee a l'air d'aller vers la gauche au lieu de la droite (et prise avec un
+;; angle bizarre) en plus de mal boucler »
+;;
+;; QUATRE REPROCHES, ET LE LOG DE LA CAPTURE PRECEDENTE NE PERMET DE TRANCHER AUCUN DES QUATRE :
+;; `grep -c ANIM` y rend ZERO. On a monte une planche sans jamais publier ce que le personnage
+;; faisait. Cette fonction publie, PAR FRAME, les quatre grandeurs qui decident -- et elles sont
+;; toutes lues sur l'etat du moteur, jamais sur l'image.
+;;
+;; 1. MARCHE OU COURSE : ce n'est pas un choix d'animation, c'est un FONDU. jak1 n'a qu'un etat de
+;;    locomotion au sol (`target-walk`, target.gc:374) qui empile `eichar-walk-ja` sur le canal 0
+;;    et `eichar-run-ja` sur le canal 3 ; le canal 6 porte le melange (target.gc:578), pilote par
+;;    la vitesse : 100 % marche sous 16384 u/s, 100 % course au-dessus de 36864 (target.gc:556-559).
+;;    `melange=` EST la reponse a « c'est plus de la marche », et `v=` en est la cause.
+;; 2. DIRECTION : `dx` est la difference d'abscisse ECRAN entre Jak et un point a 1 m DEVANT lui,
+;;    obtenue en projetant les deux par `transform-point-vector!` -- donc par la matrice de camera
+;;    du moteur, pas par un raisonnement de signes. `dx > 0` = il court vers la DROITE de l'ecran,
+;;    ce que l'owner demande. C'est aussi ce qui dit si un miroir est necessaire au montage.
+;; 3. ANGLE : `camy-jaky` est la hauteur de la camera au-dessus de la racine de Jak (l'elevation
+;;    de la vue), et `fov` la focale REELLEMENT en vigueur -- `cam-orbit` ne la pose jamais, il
+;;    HERITE de l'etat precedent (defaut 64 degres), et une focale large a 6 m deforme le profil.
+;; 4. BOUCLE : `f=` et `len=` donnent la periode du cycle a la source, dans les frames de logique
+;;    ou la planche l'echantillonne. Le montage n'a plus a la deviner sur les pixels.
+;;
+;; NATURE / REPERE, pour chaque colonne : `f` et `len` sont des frames de DONNEES d'animation ;
+;; `melange` est sans dimension (0..1) ; `v` est en unites/seconde du moteur ; `sx` et `dx` sont
+;; en unites GS de la toile 512 (2048 = centre de l'ecran) ; `camy-jaky` en unites monde
+;; (4096 = 1 m) ; `fov` en degres GOAL.
+;; CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : `melange` = 1,0 (course pure), `dx` > 0, `camy-jaky`
+;; proche de la mi-hauteur du sujet, et `f` qui monte lineairement puis retombe a 0.
+;;
+;; ETEINT PAR DEFAUT, ET ALLUME UNIQUEMENT DEPUIS LA CONSOLE : aucun chemin de jeu ne le pose.
+(define *ls-capture-trace* #f)
+
+;; INSTRUMENT, ET IL A UNE RAISON MESUREE. La preuve de largeur
+;; (.autoport/gls_width_proof.sh + gls_measure_widths.py) isole la bande de texte et la bande de
+;; glyphes dans l'IMAGE PRODUITE, sans rien supposer de leur position. La silhouette de COURSE
+;; livree ce cycle est nettement plus large que la pose quasi immobile du cycle precedent : elle
+;; chevauche maintenant la bande de texte en x ET en y, et l'allemand est ressorti a 1 456 px de
+;; « largeur de texte » au lieu de 855 -- la mesure agregeait le personnage et la phrase.
+;; Eteindre la silhouette pendant CETTE mesure isole ce qu'elle pretend mesurer. Vrai par defaut ;
+;; aucun chemin de jeu ne le pose.
+(define *ls-draw-silhouette* #t)
+
+(defun ls-capture-trace ()
+  "Publier l'etat du sujet pour UNE frame de capture. Voir le pave ci-dessus."
+  (when (and *ls-capture-trace* *target*)
+    (let ((skel (-> *target* skel)))
+      (when (> (-> skel active-channels) 6)
+        (let ((p0 (new 'stack-no-clear 'vector))
+              (p1 (new 'stack-no-clear 'vector))
+              (s0 (new 'stack-no-clear 'vector))
+              (s1 (new 'stack-no-clear 'vector))
+              (dir (new 'stack-no-clear 'vector)))
+          (set! (-> p0 quad) (-> *target* control trans quad))
+          (vector-normalize-copy! dir (-> *target* control transv) 4096.0)
+          (vector+! p1 p0 dir)
+          (transform-point-vector! s0 p0)
+          (transform-point-vector! s1 p1)
+          (format 0 "CAPFRAME afc=~D marche=~S f=~f len=~D~%"
+                  (-> *display* actual-frame-counter)
+                  (-> skel root-channel 0 frame-group name)
+                  (-> skel root-channel 0 frame-num)
+                  (-> skel root-channel 0 frame-group data 0 length))
+          (format 0 "CAPRUN course=~S f=~f len=~D melange=~f v=~f~%"
+                  (-> skel root-channel 3 frame-group name)
+                  (-> skel root-channel 3 frame-num)
+                  (-> skel root-channel 3 frame-group data 0 length)
+                  (-> skel root-channel 6 frame-interp)
+                  (-> *target* control unknown-float01))
+          (format 0 "CAPVUE sx=~f dx=~f camy-jaky=~f fov=~f~%"
+                  (-> s0 x)
+                  (- (-> s1 x) (-> s0 x))
+                  (- (-> *math-camera* trans y) (-> p0 y))
+                  (-> *math-camera* fov))))))
+  (none))
+
 (defun loading-screen-draw ()
   "Peindre l'ecran de chargement. Appele par le display-loop (engine/game/main.gc, post-sync-draw)
    UNIQUEMENT quand `loading-screen-held?` est vrai -- c'est-a-dire uniquement pendant qu'une
@@ -345,14 +455,29 @@
       ;; PREUVE D'EXECUTION du chemin de dessin -- un compteur qui monte, lisible aussi bien dans
       ;; la sortie x86 que dans logcat sur l'appareil. Un commentaire ne prouverait rien.
       (when (or (= *loading-screen-frames* 1) (zero? (mod *loading-screen-frames* 60)))
-        (format 0 "LOADSCREEN-SHOW arm=~D frames=~D~%" *loading-screen-arms* *loading-screen-frames*))
+        (format 0 "LOADSCREEN-SHOW arm=~D frames=~D~%" *loading-screen-arms* *loading-screen-frames*)
+        ;; CE QUE LES DEUX HORLOGES ONT AVANCE DEPUIS LE DEBUT DE L'EPISODE, COTE A COTE.
+        ;; NATURE : deux durees. REPERE : `integ` en 1/60 s, `base` en 1/300 s -- 30 unites de
+        ;; l'une valent 150 de l'autre pour la meme demi-seconde, la ligne publie donc les deux
+        ;; ramenees en millisecondes pour qu'elles soient comparables sans calcul.
+        ;; CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : les deux colonnes montent ensemble.
+        ;; QUAND IL EST PRESENT (menu ouvert, donc chargement de partie) : `base-ms` reste a 0
+        ;; pendant que `integ-ms` monte. C'est le controle de la correction d'horloge, sur la
+        ;; ligne meme ou le verdict se forme, et il ne coute rien.
+        (format 0 "LOADSCREEN-CLOCK arm=~D pause=~A mode=~A integ-ms=~f base-ms=~f~%"
+                *loading-screen-arms*
+                (paused?)
+                *master-mode*
+                (* 3.3333333 (the float (- (loading-screen-clock) *loading-screen-since*)))
+                (* 3.3333333 (the float (- (current-time) *loading-screen-since-base*)))))
       (let ((fx (rhud-aspect-fx)))
         ;; --- 2. la silhouette, UNE CELLULE de la planche choisie par le temps ecoule ---
+        (when *ls-draw-silhouette*
         (let* ((h448 (* LS_SIL_H 448.0))
                (w512 (* (* h448 LS_SIL_WH) fx))
                (cx (* LS_SIL_CX 512.0))
                (cy (* LS_SIL_CY 448.0))
-               (fr (mod (/ (* LS_SIL_FRAMES (- (current-time) *loading-screen-since*))
+               (fr (mod (/ (* LS_SIL_FRAMES (- (loading-screen-clock) *loading-screen-since*))
                            LS_SIL_PERIOD)
                         LS_SIL_FRAMES))
                (col (the float (mod fr LS_SIL_COLS)))
@@ -371,7 +496,7 @@
                      (- cx (* 0.5 w512))
                      (- cy (* 0.5 h448))
                      (+ cx (* 0.5 w512))
-                     (+ cy (* 0.5 h448)))))
+                     (+ cy (* 0.5 h448))))))
         ;; --- 3. le texte localise, puis 4. les glyphes a SA largeur mesuree ---
         ;; `*common-text*` vaut #f tant que la banque n'est pas chargee (text-h.gc:1034) et
         ;; `lookup-text!` la dereferencerait : on garde. Et on demande le mode « #f si absent »

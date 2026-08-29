@@ -53,6 +53,11 @@ for L in english french spanish german italian; do
   sleep 3
   # `*ls-traced*` remis a #f : la trace de mise en page est bornee a une ligne par episode, il
   # faut la rearmer pour obtenir la ligne de CETTE langue.
+  # LA SILHOUETTE EST ETEINTE PENDANT LA MESURE. Elle chevauche la bande de texte en x et en
+  # y depuis qu'elle porte une foulee de course : mesuree avec, l'allemand rend 1 456 px de
+  # « largeur de texte » au lieu de 855, parce que l'instrument agrege le personnage et la
+  # phrase. On isole donc ce qu'on pretend mesurer.
+  echo '(set! *ls-draw-silhouette* #f)' >&3
   echo '(set! *ls-traced* #f)' >&3
   echo '(loading-screen-force! (seconds 8))' >&3
   sleep 2

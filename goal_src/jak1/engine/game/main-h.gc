@@ -234,6 +234,56 @@
 ;; par ici. Meme raison d'etre ici que `set-blackout-frames` juste au-dessus : ce fichier est
 ;; compile avant `engine/load/loader.gc`, donc le site d'appel de la barriere voit la declaration.
 ;; `loading-screen-shown?` est lu par le dessin (pc/loading-screen-pc.gc), compile plus tard encore.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gloading-screen (owner 2026-08-29, retour n.4) -- L'HORLOGE DE L'ECRAN DE CHARGEMENT
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; « la silhouette animee ... freeze par moment (quand ca charge des gros trucs je suppose) ca
+;; devrait etre fluide ! »
+;;
+;; TOUT L'ECRAN DE CHARGEMENT -- le seuil, le chien de garde ET la cellule de silhouette -- lisait
+;; `(current-time)`, c'est-a-dire `(-> *display* base-frame-counter)`. CE COMPTEUR EST ARRETE
+;; QUAND LE JEU EST EN PAUSE : engine/draw/drawable.gc:1013 met son increment sous
+;; `(when (not (paused?)))`. Et `paused?` (main.gc:608) est vrai des que `*progress-process*`
+;; n'est pas cache -- c'est-a-dire PENDANT LE MENU, donc pendant le chargement d'une partie
+;; lance depuis ce menu. Consequences, toutes deux visibles a l'ecran :
+;;   - la silhouette est EXACTEMENT figee (son horloge ne bouge plus d'un tick) ;
+;;   - `(- (current-time) *loading-screen-since*)` reste a ZERO, donc le SEUIL de 0,5 s n'est
+;;     jamais franchi et le CONTENU n'apparait pas du tout -- c'est le retour n.2 de l'owner,
+;;     « ca n'apparait pas sur le chargement de partie alors que l'ECRAN NOIR y apparait ».
+;;
+;; LE SECOND CANDIDAT EST REFUTE, ET IL FAUT LE DIRE : `real-frame-counter` avance bien pendant la
+;; pause, mais engine/game/game-save.gc:631 le REMPLACE par la valeur stockee dans la sauvegarde
+;; -- au milieu du chargement de partie, exactement le cas qu'on repare. Il saute.
+;;
+;; ET LE TROISIEME CANDIDAT EST REFUTE AUSSI -- PAR LA MESURE, PAS PAR LA LECTURE.
+;; `real-integral-frame-counter` remplit les deux premieres conditions : il est incremente HORS du
+;; garde `paused?` (drawable.gc:1025) et il est ABSENT de la table de restauration de game-save.gc
+;; (:615-640 ne connait que base-time, game-time, real-time et integral-time). Je l'ai donc pris.
+;; La ligne de controle `LOADSCREEN-CLOCK`, qui publie les DEUX horloges cote a cote ramenees en
+;; millisecondes, a rendu `integ-ms=2466,7` contre `base-ms=4933,3` -- un facteur EXACTEMENT 2 sur
+;; une course a 30 images/s forcees. Cause : il compte des FRAMES CIBLES, pas des soixantiemes.
+;; `time-factor` vaut `300 / target-fps` (display.gc:48-60), donc l'unite de ce compteur SUIT le
+;; reglage de frequence du joueur ; a 30 fps une « frame » y vaut 1/30 s. Le seuil de 0,5 s et la
+;; periode de la boucle auraient donc double chez un joueur en 30 fps, en silence.
+;;
+;; ON PREND DONC L'INCREMENT LUI-MEME. `scaled-seconds` est deja la conversion du moteur vers les
+;; 1/300 s, et il est calcule une fois par frame dans le meme `let` que les quatre compteurs. Un
+;; seul `+!` de plus, place hors du garde `paused?`, donne une horloge qui a les trois proprietes
+;; a la fois : unite FIXE (1/300 s, celle de `(seconds x)`), avance en pause, jamais restauree.
+;; C'est le controle a deux colonnes qui a trouve la faute -- publier une seule des deux valeurs
+;; l'aurait laissee passer.
+(define *loading-screen-ticks* (the-as time-frame 0))
+
+(defmacro loading-screen-clock ()
+  "Horloge de l'ecran de chargement. UNITE : 1/300 s, LA MEME que `(seconds x)` et que
+   `(current-time)`. Avance en pause ET pendant une frame lente, et aucune sauvegarde ne la
+   deplace. Alimentee par un unique `+!` dans engine/draw/drawable.gc, place HORS du garde
+   `paused?` mais dans le meme `let` que les compteurs du moteur : elle recoit donc exactement le
+   meme increment `scaled-seconds` qu'eux."
+  ;; NOTE : quote simple et pas quasiquote — GOOS refuse un quasiquote pose sur un symbole nu
+  ;; (« malformed quasiquote »), et il ne le dit qu'a la compilation du PREMIER appelant.
+  '*loading-screen-ticks*)
+
 (defun-extern loading-screen-hold! none)
 
 (defun-extern loading-screen-release! none)

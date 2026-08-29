@@ -685,6 +685,13 @@ void GLDisplay::render() {
           g_screen_shot_settings->height = getenv("AUTOPORT_SHOT_H") ? atoi(getenv("AUTOPORT_SHOT_H")) : 720;
           g_screen_shot_settings->msaa = getenv("AUTOPORT_SHOT_MSAA") ? atoi(getenv("AUTOPORT_SHOT_MSAA")) : 1;
           snprintf(g_screen_shot_settings->name, 244, "autoport_f%06llu", (unsigned long long)f);
+          // Gloading-screen : APPARIEMENT CAPTURE <-> ETAT DU JEU. Sans cette ligne, rien ne
+          // relie une PNG a l'animation que Jak jouait quand elle a ete prise, et le cycle
+          // precedent a livre une planche montee sur des images ou il ne courait pas. La trace
+          // GOAL (`CAPFRAME`) et cette ligne partent sur le MEME flux : la ligne CAPFRAME qui
+          // precede immediatement celle-ci decrit la frame capturee, a une frame pres (le
+          // renderer dessine la frame que GOAL vient de finir).
+          fmt::print("AUTOPORT-SHOT f={}\n", (unsigned long long)f);
           g_want_screenshot = true;
         }
       }

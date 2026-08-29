@@ -1,5 +1,7 @@
 #include "Loader.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1217,10 +1219,94 @@ void report_merc_detail(const std::string& name, const tfrag3::Level& lev, const
 }
 }  // namespace
 
-void Loader::update_blocking(TexturePool& tex_pool, bool announce) {
+// Gloading-screen (owner 2026-08-29, retour n.4) — POURQUOI CETTE FONCTION REND LA MAIN.
+//
+// « la silhouette animee ... freeze par moment (quand ca charge des gros trucs je suppose) ca
+// devrait etre fluide ! »
+//
+// LA BARRIERE QUI AFFICHE L'ECRAN DE CHARGEMENT EST CELLE QUI EMPECHE DE LE REDESSINER. Chaine
+// complete, verifiee ligne a ligne :
+//   1. une barriere armee rend `load_gate::wants_blocking_loads()` vrai (load_gate.cpp:77-94) ;
+//   2. le renderer bascule alors sur CE chemin (OpenGLRenderer.cpp:1085-1088 sur bureau,
+//      android/android_opengl_renderer.cpp:940-942 sur l'appareil) ;
+//   3. la version d'avant attendait le fr3 sur une condition_variable PUIS rejouait `update()`
+//      en boucle SANS AUCUN BUDGET, jusqu'a ce que le niveau entier soit televerse ;
+//   4. pendant tout ce temps le thread GOAL est PARQUE (android_gfx.cpp:1145-1147 /
+//      opengl.cpp:848-858), donc `display-frame-start` n'est pas appele, l'horloge n'avance pas,
+//      `loading-screen-draw` n'est pas appele : LA DERNIERE IMAGE RESTE A L'ECRAN.
+// Cout d'un seul appel, mesure dans .autoport/reports/Gloading-screen/boot-apres2.log :
+// « stage texture took 853.71 ms », contre un budget nominal de 4,5 ms (LoaderStages.cpp:22).
+// C'est ca, le gel : ce n'est ni un choix d'horloge ni un defaut de la planche d'images.
+//
+// CE CHEMIN N'ETAIT PAS UN DEFAUT QUAND IL A ETE ECRIT — c'est le correctif d'hote devenu le
+// defaut suivant. Son commentaire d'origine le dit : « a closed scene barrier is the same
+// situation as a blackout — the picture is being held back on purpose », mesure a l'appui
+// (village1 : 13,4 s budgete contre 4,6 s bloquant). La premisse « l'image est retenue expres »
+// etait vraie tant que l'ecran etait NOIR. Elle est fausse depuis qu'il porte une animation.
+//
+// CE QU'ON GARDE ET CE QU'ON PAIE. Le travail total est INCHANGE : la barriere rappelle cette
+// fonction a chaque frame, on decoupe simplement en tranches de `budget_ms`. On paie le rendu
+// d'une frame par tranche — un fond noir et quelques quads. `budget_ms = 0` conserve exactement
+// le comportement d'avant, et c'est ce que recoit la transition de blackout (`announce`), ou
+// aucune animation n'est visible et ou rien ne doit changer.
+//
+// POURQUOI LE BUDGET N'EST PAS UN GOUT. Sur l'appareil, `__read-ee-timer` est une horloge
+// VIRTUELLE dont l'increment est plafonne a k=4 frames par frame rendue et dont le retard est
+// JETE (android/gk_android_main.cpp:787-789, :793-799, :833-835). Au-dela de 4 x 16,67 = 66,7 ms
+// de frame, le temps ecoule cesse d'etre compte et TOUTE animation pilotee par une horloge de
+// jeu passe au ralenti. Le budget doit donc laisser la frame ENTIERE sous ce plafond, rendu
+// compris. C'est la valeur choisie dans OpenGLRenderer.cpp / android_opengl_renderer.cpp.
+float loading_screen_slice_ms() {
+  static float v = []() {
+    const char* e = getenv("OG_LOADSCREEN_SLICE_MS");
+    return e ? (float)atof(e) : kLoadingScreenSliceMs;
+  }();
+  return v;
+}
+
+void Loader::update_blocking(TexturePool& tex_pool, bool announce, float budget_ms) {
   if (announce) {
     fmt::print("NOTE: coming out of blackout on next frame, doing all loads now...\n");
   }
+
+  // MESURE DU GEL, SUR UNE VRAIE HORLOGE. `m_ls_gap_timer` mesure l'ecart entre deux appels,
+  // c'est-a-dire entre deux frames reellement presentees pendant que l'ecran est affiche.
+  // NATURE : une duree. REPERE : steady_clock, hote ET appareil. CE QU'ELLE LIT QUAND LE DEFAUT
+  // EST ABSENT : la periode d'une frame ordinaire. Quand il est present : la duree du chargement
+  // entier sur UN ecart. Publiee une fois par seconde, jamais par frame.
+  // Arme sur le CHEMIN DE LA BARRIERE (announce == false), quel que soit le budget : sans ca
+  // l'ablation `OG_LOADSCREEN_SLICE_MS=0` ne produirait aucune mesure et il n'y aurait rien a
+  // comparer -- un avant/apres dont la moitie « avant » est muette ne prouve rien.
+  if (!announce) {
+    if (m_ls_gap_armed) {
+      const double gap = m_ls_gap_timer.getMs();
+      m_ls_gap_max_ms = std::max(m_ls_gap_max_ms, gap);
+      m_ls_gap_sum_ms += gap;
+      m_ls_gap_n++;
+    } else {
+      m_ls_gap_armed = true;
+      m_ls_gap_max_ms = 0.0;
+      m_ls_gap_sum_ms = 0.0;
+      m_ls_gap_n = 0;
+      m_ls_gap_report.start();
+    }
+    m_ls_gap_timer.start();
+    if (m_ls_gap_report.getMs() >= 1000.0 && m_ls_gap_n > 0) {
+      fmt::print("LOADSCREEN-GAP images={} ecart_moy_ms={:.1f} ecart_max_ms={:.1f} fps={:.1f} budget_ms={:.1f}\n",
+                 m_ls_gap_n, m_ls_gap_sum_ms / m_ls_gap_n, m_ls_gap_max_ms,
+                 1000.0 * m_ls_gap_n / std::max(1.0, m_ls_gap_sum_ms), budget_ms);
+      m_ls_gap_report.start();
+      m_ls_gap_sum_ms = 0.0;
+      m_ls_gap_n = 0;
+    }
+  } else {
+    m_ls_gap_armed = false;
+  }
+
+  Timer budget_timer;
+  const auto out_of_budget = [&]() {
+    return budget_ms > 0.f && budget_timer.getMs() >= (double)budget_ms;
+  };
 
   bool missing_levels = true;
   while (missing_levels) {
@@ -1231,7 +1317,23 @@ void Loader::update_blocking(TexturePool& tex_pool, bool announce) {
       {
         std::unique_lock<std::mutex> lk(m_loader_mutex);
         if (!m_level_to_load.empty()) {
-          m_file_load_done_cv.wait(lk, [&]() { return m_level_to_load.empty(); });
+          if (budget_ms > 0.f) {
+            // Attente BORNEE : la lecture disque + zstd + deserialisation du fr3 se fait sur le
+            // fil de chargement et peut durer des centaines de ms. L'attendre entierement ici,
+            // c'est le gel. On attend ce qui reste du budget, puis on rend la main : la frame
+            // suivante reprendra l'attente exactement au meme point.
+            const double left = (double)budget_ms - budget_timer.getMs();
+            if (left <= 0.0) {
+              return;
+            }
+            m_file_load_done_cv.wait_for(lk, std::chrono::microseconds((long long)(left * 1000.0)),
+                                         [&]() { return m_level_to_load.empty(); });
+            if (!m_level_to_load.empty()) {
+              return;
+            }
+          } else {
+            m_file_load_done_cv.wait(lk, [&]() { return m_level_to_load.empty(); });
+          }
         }
       }
     }
@@ -1249,6 +1351,9 @@ void Loader::update_blocking(TexturePool& tex_pool, bool announce) {
 
       if (needs_run) {
         update(tex_pool);
+        if (out_of_budget()) {
+          return;
+        }
       }
     }
 
@@ -1267,6 +1372,9 @@ void Loader::update_blocking(TexturePool& tex_pool, bool announce) {
 
     if (missing_levels) {
       set_want_levels(m_desired_levels);
+      if (out_of_budget()) {
+        return;
+      }
     }
   }
 

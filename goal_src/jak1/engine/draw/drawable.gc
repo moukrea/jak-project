@@ -1020,7 +1020,16 @@
         ;; game counter will count seconds that we're not in a movie
         (if (not (movie?)) (+! (-> disp game-frame-counter) scaled-seconds)))
       ;; real counts like base, but increments when paused
-      (+! (-> disp real-frame-counter) scaled-seconds))
+      (+! (-> disp real-frame-counter) scaled-seconds)
+      ;; Gloading-screen (owner 2026-08-29, retour n.4) : l'horloge de l'ecran de chargement.
+      ;; MEME increment que les compteurs ci-dessus, donc MEME unite (1/300 s) et meme suivi du
+      ;; temps reel -- mais HORS du garde `paused?`, et absente de la table de restauration de
+      ;; `game-save.gc`. Les trois autres candidats echouent chacun sur un point : `base` s'arrete
+      ;; en pause (donc pendant le chargement d'une partie lance depuis le menu, ou la silhouette
+      ;; se figeait et le seuil n'etait jamais franchi), `real` est REMPLACE par la valeur de la
+      ;; sauvegarde (game-save.gc:631), et `real-integral` compte des frames CIBLES dont l'unite
+      ;; suit `target-fps`. Voir engine/game/main-h.gc pour la mesure qui a elimine le dernier.
+      (+! *loading-screen-ticks* scaled-seconds))
     ;; actual frames, lag counts as 2x
     (+! (-> disp real-integral-frame-counter) (the int time-ratio)))
   ;; actual real frames (for real)

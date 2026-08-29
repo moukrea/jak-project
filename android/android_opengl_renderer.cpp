@@ -938,8 +938,14 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     // then finished in 4.6 s once the blocking path took over.
     const bool leaving_blackout = m_last_pmode_alp == 0 && settings.pmode_alp_register != 0;
     const bool gate_closed = load_gate::wants_blocking_loads();
+    // Gloading-screen (owner 2026-08-29, retour n.4) : une barriere fermee ne veut plus dire
+    // « l'image est retenue expres ». Elle porte maintenant une silhouette animee, et un
+    // `update_blocking` sans budget la FIGE (mesure : 853 ms sur un seul appel). On garde donc
+    // le chemin rapide, decoupe en tranches, pour qu'une frame soit produite entre deux.
+    // La transition de blackout (`announce`), elle, garde le comportement d'avant : budget 0.
     if (leaving_blackout || gate_closed) {
-      m_render_state.loader->update_blocking(*m_render_state.texture_pool, leaving_blackout);
+      m_render_state.loader->update_blocking(*m_render_state.texture_pool, leaving_blackout,
+                                             leaving_blackout ? 0.f : loading_screen_slice_ms());
     } else {
       m_render_state.loader->update(*m_render_state.texture_pool);
     }

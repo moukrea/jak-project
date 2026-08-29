@@ -207,11 +207,10 @@
 ;; de la barriere serait TUE en pleine attente : personne n'appellerait alors le relachement.
 ;;
 ;; IL EST PASSE DE 0,05 s A 1 s, ET C'EST UNE MESURE D'HORLOGE QUI L'IMPOSE, PAS UN GOUT.
-;; `(current-time)` n'avance PAS d'un pas fixe par frame : engine/draw/drawable.gc:1008-1014 lui
-;; ajoute `scaled-seconds = (int time-ratio) * time-factor`, ou `time-ratio` est le nombre de
-;; frames de 60 Hz REELLEMENT ecoulees. Une frame de 33 ms donne donc deja `time-ratio` = 3 et
-;; avance l'horloge de 15 -- exactement l'ancien sursis. Sous 30 fps, l'ancien sursis expirait
-;; entre deux tours de la boucle ; or 30 fps ou moins est precisement le regime d'un chargement.
+;; L'horloge n'avance PAS d'un pas fixe par frame : elle recoit `scaled-seconds`, soit le nombre
+;; de frames REELLEMENT ecoulees fois `time-factor`. Une frame de 33 ms l'avance donc deja de 15 --
+;; exactement l'ancien sursis. Sous 30 fps, l'ancien sursis expirait entre deux tours de la boucle ;
+;; or c'est precisement le regime d'un chargement sur telephone.
 (defconstant LOADING_SCREEN_HOLD (seconds 1))
 
 ;; Le sursis de la TENTATIVE 1. Il ne pilote plus rien : il n'existe que pour que le controle
@@ -251,6 +250,12 @@
 (define *loading-screen-hold-until* (the-as time-frame 0))
 ;; Instant du FRONT MONTANT de la barriere courante : c'est contre lui que le seuil se mesure.
 (define *loading-screen-since* (the-as time-frame 0))
+;; La MEME instant, lu sur l'ANCIENNE horloge (`base-frame-counter`, unite 1/300 s). Il n'est lu
+;; par aucune decision : il n'existe que pour que la ligne `LOADSCREEN-CLOCK` publie, cote a cote,
+;; ce que les DEUX horloges ont avance pendant l'episode. Quand le jeu est en pause -- donc
+;; pendant un chargement de partie lance depuis le menu -- l'ancienne reste a ZERO pendant que la
+;; nouvelle avance : c'est le controle qui montre le defaut au lieu de l'affirmer.
+(define *loading-screen-since-base* (the-as time-frame 0))
 ;; Diagnostics de course, publies par la salle et par les traces.
 (define *loading-screen-arms* 0)
 (define *loading-screen-frames* 0)
@@ -258,6 +263,7 @@
 ;; Le dessin vit dans pc/loading-screen-pc.gc (il a besoin des quads textures `rhud-*` et des
 ;; textures du pool PC). Meme patron que `entity-inspect-draw` plus bas dans ce fichier.
 (define-extern loading-screen-draw (function none))
+(define-extern ls-capture-trace (function none))
 
 (defun loading-screen-hold! ()
   "Arme l'ecran de chargement. Appele par `scene-load-gate!` a chaque tour ou la barriere retient
@@ -288,13 +294,14 @@
    le seul cas ou un bit resterait colle : un processus TUE en pleine attente, qui n'appellerait
    jamais son relachement. Il se franchit quand UNE frame dure plus que le chien de garde (~1 fps)
    et ne coute alors qu'UN redemarrage du seuil. `LOADSCREEN-LAG` publie ce point de bascule."
-  (when (or (zero? *loading-screen-mask*) (>= (current-time) *loading-screen-hold-until*))
+  (when (or (zero? *loading-screen-mask*) (>= (loading-screen-clock) *loading-screen-hold-until*))
     (set! *loading-screen-mask* 0)
-    (set! *loading-screen-since* (current-time))
+    (set! *loading-screen-since* (loading-screen-clock))
+    (set! *loading-screen-since-base* (current-time))
     (set! *loading-screen-frames* 0)
     (+! *loading-screen-arms* 1))
   (set! *loading-screen-mask* (logior *loading-screen-mask* who))
-  (set! *loading-screen-hold-until* (+ (current-time) LOADING_SCREEN_HOLD))
+  (set! *loading-screen-hold-until* (+ (loading-screen-clock) LOADING_SCREEN_HOLD))
   (none))
 
 (defun loading-screen-release-by! ((who int))
@@ -317,13 +324,13 @@
 (defun loading-screen-held? ()
   "Une barriere de chargement retient-elle l'image en ce moment ? Le drapeau porte l'etat ; le
    sursis n'est la que pour qu'un processus tue sans relachement n'immobilise pas l'ecran."
-  (and (nonzero? *loading-screen-mask*) (< (current-time) *loading-screen-hold-until*)))
+  (and (nonzero? *loading-screen-mask*) (< (loading-screen-clock) *loading-screen-hold-until*)))
 
 (defun loading-screen-shown? ()
   "La barriere tient-elle depuis assez longtemps pour montrer le CONTENU (silhouette, texte,
    glyphes) ? Le fond noir, lui, est peint des que `loading-screen-held?` est vrai."
   (and (loading-screen-held?)
-       (>= (- (current-time) *loading-screen-since*) LOADING_SCREEN_DELAY)))
+       (>= (- (loading-screen-clock) *loading-screen-since*) LOADING_SCREEN_DELAY)))
 
 (defun loading-screen-force! ((dur time-frame))
   "INSTRUMENT DE MESURE. N'est appele par AUCUN code de jeu -- uniquement depuis la console de
@@ -334,8 +341,9 @@
    tour, la barriere ne se ferme JAMAIS, et le chemin de DESSIN n'y est donc jamais execute. Un
    zero sans controle positif qui a tire ne prouve rien -- ceci est ce controle."
   (set! *loading-screen-mask* LS_HOLD_PROBE)
-  (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
-  (set! *loading-screen-hold-until* (+ (current-time) dur))
+  (set! *loading-screen-since* (- (loading-screen-clock) LOADING_SCREEN_DELAY))
+  (set! *loading-screen-since-base* (current-time))
+  (set! *loading-screen-hold-until* (+ (loading-screen-clock) dur))
   (+! *loading-screen-arms* 1)
   (set! *loading-screen-frames* 0)
   (format 0 "LOADSCREEN-FORCE dur=~D arm=~D~%" dur *loading-screen-arms*)
@@ -364,8 +372,9 @@
         (since *loading-screen-since*)
         (fr *loading-screen-frames*))
     (set! *loading-screen-mask* LS_HOLD_PROBE)
-    (set! *loading-screen-hold-until* (+ (current-time) LOADING_SCREEN_HOLD))
-    (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
+    (set! *loading-screen-hold-until* (+ (loading-screen-clock) LOADING_SCREEN_HOLD))
+    (set! *loading-screen-since* (- (loading-screen-clock) LOADING_SCREEN_DELAY))
+    (set! *loading-screen-since-base* (current-time))
     (set! *loading-screen-frames* 0)
     (loading-screen-draw)
     (format 0
@@ -395,7 +404,8 @@
         (since *loading-screen-since*)
         (arms *loading-screen-arms*)
         (bo (-> *game-info* blackout-time)))
-    (format 0 "LOADSCREEN-SEUIL delay=~D hold=~D repere=frames-de-base~%" LOADING_SCREEN_DELAY LOADING_SCREEN_HOLD)
+    (format 0 "LOADSCREEN-SEUIL delay=~D hold=~D repere=300emes-de-seconde pause-ignoree=#t~%"
+            LOADING_SCREEN_DELAY LOADING_SCREEN_HOLD)
     ;; ligne de base : rien n'arme, rien ne s'allume.
     (set! *loading-screen-mask* 0)
     (set! *loading-screen-hold-until* (the-as time-frame 0))
@@ -428,7 +438,7 @@
             (loading-screen-held?)
             (loading-screen-shown?))
     ;; CONTROLE POSITIF -- la meme barriere, une fois le seuil franchi.
-    (set! *loading-screen-since* (- (current-time) LOADING_SCREEN_DELAY))
+    (set! *loading-screen-since* (- (loading-screen-clock) LOADING_SCREEN_DELAY))
     (format 0
             "LOADSCREEN-CTRL src=load-gate attente=~D held=~A shown=~A~%"
             LOADING_SCREEN_DELAY
@@ -471,7 +481,7 @@
           (format 0
                   "LOADSCREEN-LAG lag=~D ancienne-regle-rearme=~A episode-conserve=~A held=~A shown=~A~%"
                   lag
-                  (>= (current-time) (+ (- (current-time) lag) LOADING_SCREEN_HOLD_AVANT))
+                  (>= (loading-screen-clock) (+ (- (loading-screen-clock) lag) LOADING_SCREEN_HOLD_AVANT))
                   (= *loading-screen-arms* arms-avant)
                   (loading-screen-held?)
                   (loading-screen-shown?)))))
@@ -1020,6 +1030,11 @@
           (#when PC_PORT
             (blackout-census! (< (current-time) (-> *game-info* blackout-time)) ls-held))
           (#when PC_PORT
+            ;; Gloading-screen : instrument de capture de la silhouette. Eteint par defaut
+            ;; (`*ls-capture-trace*` = #f), allume uniquement depuis la console pendant une
+            ;; course de capture. Place ici parce que `*math-camera*` porte a ce point la matrice
+            ;; de la frame qui va etre ecrite -- c'est celle-la qui decide de l'abscisse ecran.
+            (ls-capture-trace)
             (when ls-held (loading-screen-draw))
             ;; controle positif du chemin de dessin -- debug uniquement, un seul tir, et seulement
             ;; une fois la banque de texte chargee (sinon il ne couvrirait que le fond noir).
