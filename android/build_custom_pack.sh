@@ -23,7 +23,8 @@
 #   fr3/<name>.grassbake          (ALWAYS — validated feature)
 #   recharged_assets/<name>.png   (ALWAYS — DELIVERY is no longer flag-gated)
 #   recharged_assets/physics_chains.txt (ALWAYS if present — secondary-motion chain defs)
-#   recharged_assets/materials.txt (ALWAYS if present — per-texture PBR material presets)
+#   (per-texture PBR material properties are NOT here any more — see the note at the
+#    materials staging site below: they now ride the ASSET RELEASE, not the app.)
 #   recharged_textures/<tpage>/<tex>/<tex>[ _height|_normal|_roughness].png  (ALWAYS — first-party set)
 #   recharged_textures_baked/astc/<tpage>/<tex>/<tex>*.ktx2 + <tex>.stats.json
 #                                 (IF PRESENT — GPU-compressed bake of the set above,
@@ -198,7 +199,6 @@ data_freshness_guard(){
     "${RHUD_SRC}"$'\t''*.png'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''physics_chains.txt'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''physics_mesh.txt'$'\t''recharged_assets/'
-    "${RHUD_SRC}"$'\t''materials.txt'$'\t''recharged_assets/'
   )
   local n_cov=0 spec cdir cglob cpfx cbase want
   for spec in "${cov_specs[@]}"; do
@@ -335,19 +335,16 @@ if [ -f "$ROOT/$RHUD_SRC/physics_mesh.txt" ]; then
   MEMBERS+=("recharged_assets/physics_mesh.txt")
   echo "[custom-pack] physics mesh samples: 1 (delivery ungated; runtime feature flag physics=$F_PHYSICS)"
 fi
-# (Gpbr-per-texture-materials) PER-TEXTURE MATERIAL PRESETS — same delivery rule again: the file
-#    is ours, the base pack is iso-only, and the *.png loop above only globs *.png so a .txt needs
-#    its own staging line. MEASURED HOLE, not a hypothetical: `grep -rn materials.txt android/`
-#    returned ZERO before this line, and the device logs read
-#    `[mm] PARAMSRC=none path=/data/.../recharged_assets/materials.txt` — every preset written in
-#    that file was absent from the phone while the desktop read it fine. Guard (4) covers it from
-#    the disk side via cov_specs.
-if [ -f "$ROOT/$RHUD_SRC/materials.txt" ]; then
-  mkdir -p "$STAGE/recharged_assets"
-  ln -s "$ROOT/$RHUD_SRC/materials.txt" "$STAGE/recharged_assets/materials.txt"
-  MEMBERS+=("recharged_assets/materials.txt")
-  echo "[custom-pack] per-texture material presets: 1 (delivery ungated; read by the PBR path)"
-fi
+# (Gpbr-material-props) PER-TEXTURE MATERIAL PROPERTIES ARE DELIBERATELY NOT STAGED HERE.
+#    The previous phase shipped recharged_assets/materials.txt inside this pack. The owner
+#    (2026-08-29) ruled that out: « ces props doivent faire partie du repo Recharged assets, pas
+#    dans l'APK ». They are now authored per material in moukrea/recharged-assets, published as a
+#    release EXTRA (manifest `extras`, kind "surfaces") and installed by the asset manager into
+#    managed_assets/<game>/surfaces.json — the same tier as the texture packs they describe.
+#    Putting a copy back in this pack would defeat that AND create a second source of truth that
+#    silently wins or loses depending on which tier the loader checks first, so there is no
+#    staging line here on purpose. The owner's kilobyte-push route survives untouched: a
+#    surfaces.json dropped in the EXTERNAL asset dir still beats the installed one.
 
 # 1bis. MESH BROWSER INDEX — ALWAYS. DERIVED data (produced by tools/mesh_index from a
 #    tools/tess_sign sweep), so by the owner's structural rule it ships INSIDE the APK.

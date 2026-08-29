@@ -1,0 +1,323 @@
+===== SOURCE: the surface table came from the ASSETS REPO pack, not from jak-project =====
+[36:19:451] [info] [surfaces] schema_version=1 game=jak1 families=40 materials=172 defaults=0
+[36:19:451] [info] [surfaces] bare-name index: 168 unique aliases, 2 ambiguous (mis-boatwall, vil3-lava-floor)
+[36:19:452] [info] [surfaces] apply village1-vis-tfrag/vil-beachrock -> village1-vis-tfrag/vil-beachrock family=rock_wet
+[36:20:154] [info] [surfaces] apply village1-vis-tfrag/vil1-jng-leafyground -> NO RECORD, stays at the identity
+[36:20:178] [info] [surfaces] apply village1-vis-tfrag/vil1-sages-stonewall-01 -> village1-vis-tfrag/vil1-sages-stonewall-01 family=stone_cut
+[36:20:632] [info] [surfaces] apply village1-vis-tfrag/vil-hut-roof-tile-01 -> NO RECORD, stays at the identity
+[36:20:636] [info] [surfaces] apply village1-vis-tfrag/vil-rug-01 -> village1-vis-tfrag/vil-rug-01 family=cloth
+[36:20:637] [info] [surfaces] apply village1-vis-tfrag/vil-haybale -> village1-vis-tfrag/vil-haybale family=straw
+[36:20:705] [info] [surfaces] apply village1-vis-tfrag/vil-beach-01 -> village1-vis-tfrag/vil-beach-01 family=sand
+[36:21:216] [info] [surfaces] apply village1-vis-tfrag/vil-wallplaster -> NO RECORD, stays at the identity
+[36:21:219] [info] [surfaces] apply village1-vis-tfrag/vil1-sages-strawroof-01 -> village1-vis-tfrag/vil1-sages-strawroof-01 family=straw
+[36:21:404] [info] [surfaces] apply village1-vis-alpha/vil-beach-01 -> village1-vis-tfrag/vil-beach-01 (via bare-name index) family=sand
+[36:45:254] [info] [surfaces] apply beach-vis-tfrag/bch-egg -> beach-vis-tfrag/bch-egg family=shell
+[36:45:255] [info] [surfaces] apply beach-vis-tfrag/bch-hvstr-baloon -> beach-vis-tfrag/bch-hvstr-baloon family=leather
+[36:45:255] [info] [surfaces] apply beach-vis-tfrag/bch-hvstr-cap -> beach-vis-tfrag/bch-hvstr-cap family=metal_rusty
+[36:45:271] [info] [surfaces] apply beach-vis-tfrag/bch-ecovalve-grate -> beach-vis-tfrag/bch-ecovalve-grate family=metal_painted
+[36:45:272] [info] [surfaces] apply beach-vis-tfrag/bch-statue-rock-round -> beach-vis-tfrag/bch-statue-rock-round family=stone_carved
+[36:45:300] [info] [surfaces] apply beach-vis-tfrag/mis-metalrivets -> beach-vis-tfrag/mis-metalrivets family=metal_bare
+[36:45:301] [info] [surfaces] apply beach-vis-tfrag/bch-sages-strawroof-01 -> beach-vis-tfrag/bch-sages-strawroof-01 family=straw
+[36:45:316] [info] [surfaces] apply beach-vis-tfrag/mis-woodpoletop -> beach-vis-tfrag/mis-woodpoletop family=wood
+[36:45:333] [info] [surfaces] apply beach-vis-tfrag/bch-idol-broken -> beach-vis-tfrag/bch-idol-broken family=gravel
+[36:45:334] [info] [surfaces] apply beach-vis-tfrag/bch-grottopole-end-01 -> beach-vis-tfrag/bch-grottopole-end-01 family=rock
+[36:45:335] [info] [surfaces] apply beach-vis-tfrag/bch-windmill-wood-01 -> beach-vis-tfrag/bch-windmill-wood-01 family=wood
+[36:45:350] [info] [surfaces] apply beach-vis-tfrag/bch-huttoprim-hitweak -> beach-vis-tfrag/bch-huttoprim-hitweak family=wood
+[36:45:386] [info] [surfaces] apply beach-vis-tfrag/bch-outpostwall -> beach-vis-tfrag/bch-outpostwall family=stone_cut
+[36:45:414] [info] [surfaces] apply beach-vis-tfrag/bch-hut-wood-01endcap -> beach-vis-shrub/bch-hut-wood-01endcap (via bare-name index) family=wood
+[36:45:416] [info] [surfaces] apply beach-vis-tfrag/bch-path-01 -> beach-vis-tfrag/bch-path-01 family=dirt
+[36:45:431] [info] [surfaces] apply beach-vis-shrub/bch-hut-wood-01endcap -> beach-vis-shrub/bch-hut-wood-01endcap family=wood
+[36:45:464] [info] [surfaces] apply beach-vis-pris/worm-body -> beach-vis-pris/worm-body family=flesh
+[36:45:498] [info] [surfaces] apply beach-vis-pris/crab-shell-01 -> beach-vis-pris/crab-shell-01 family=shell
+[36:45:498] [info] [surfaces] apply beach-vis-pris/crab-shell-02 -> beach-vis-pris/crab-shell-02 family=shell
+[36:45:548] [info] [surfaces] apply beach-vis-pris/mayor-pants -> beach-vis-pris/mayor-pants family=cloth
+[36:19:450] [info] [mm] PARAMSRC=managed path=/home/emeric/code/jak-project/managed_assets/jak1/surfaces.json
+[36:19:451] [info] [mm] surfaces.json parsed: 172 material records, defaults=0, 0 unknown keys
+[36:19:451] [info] [pbrmat] PARAMSRC=managed path=/home/emeric/code/jak-project/managed_assets/jak1/surfaces.json blocks=172 defaults=0
+
+===== managed pack actually scanned (the shards the props describe) =====
+[36:08:953] [info] managed assets: recorded GPU profile 'pc-bc' for the next launch
+[36:09:517] [info] managed_assets: 14 shards, 688 entries (+680 cles nom-nu) from /home/emeric/code/jak-project/managed_assets/jak1/state.json
+[36:21:404] [info] managed_assets: repli nom-nu vil-beach-01 (tpage village1-vis-alpha absente de l'index)
+[36:21:404] [info] managed_assets: repli nom-nu vil-beach-01 (tpage village1-vis-alpha absente de l'index)
+[36:21:404] [info] managed_assets: repli nom-nu vil-beach-01 (tpage village1-vis-alpha absente de l'index)
+[36:21:404] [info] managed_assets: repli nom-nu vil-beach-01 (tpage village1-vis-alpha absente de l'index)
+[36:45:414] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:414] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:414] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:414] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:715] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:715] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:715] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:715] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:731] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:731] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:731] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:731] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:748] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+[36:45:748] [info] managed_assets: repli nom-nu bch-hut-wood-01endcap (tpage beach-vis-tfrag absente de l'index)
+
+===== [pbrmat] PARSED VALUES, one line per authored material =====
+[36:19:451] [info] [pbrmat] beach-vis-pris/crab-shell-01 family=shell relief=0.900 depth=0.650 lambda=0.000 spec=1.300 rough=0.420x0.700 metal=0.000x1.000 F0=0.052 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-pris/crab-shell-02 family=shell relief=0.900 depth=0.650 lambda=0.000 spec=1.300 rough=0.420x0.700 metal=0.000x1.000 F0=0.052 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-pris/mayor-pants family=cloth relief=1.100 depth=0.550 lambda=0.000 spec=0.550 rough=0.950x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-pris/worm-body family=flesh relief=0.950 depth=0.700 lambda=0.000 spec=0.850 rough=0.780x1.000 metal=0.000x1.000 F0=0.028 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-shrub/bch-hut-wood-01endcap family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-ecovalve-grate family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-egg family=shell relief=0.900 depth=0.650 lambda=0.000 spec=1.300 rough=0.420x0.700 metal=0.000x1.000 F0=0.052 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-grottopole-end-01 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-huttoprim-hitweak family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-hvstr-baloon family=leather relief=1.050 depth=0.700 lambda=0.000 spec=1.000 rough=0.750x1.000 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-hvstr-cap family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-idol-broken family=gravel relief=1.250 depth=1.500 lambda=0.000 spec=0.850 rough=0.900x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-outpostwall family=stone_cut relief=1.200 depth=1.250 lambda=0.000 spec=1.000 rough=0.750x1.000 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-path-01 family=dirt relief=1.050 depth=0.950 lambda=0.000 spec=0.650 rough=0.950x1.000 metal=0.000x1.000 F0=0.031 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-sages-strawroof-01 family=straw relief=1.300 depth=1.400 lambda=0.000 spec=0.800 rough=0.850x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-statue-rock-round family=stone_carved relief=1.100 depth=1.100 lambda=0.000 spec=1.000 rough=0.780x1.000 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/bch-windmill-wood-01 family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/mis-metalrivets family=metal_bare relief=0.950 depth=0.750 lambda=0.000 spec=1.350 rough=0.450x0.750 metal=0.850x1.000 F0=0.040 ny=+1
+[36:19:451] [info] [pbrmat] beach-vis-tfrag/mis-woodpoletop family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:451] [info] [pbrmat] citadel-vis-pris/citbun-body family=fur relief=1.100 depth=0.850 lambda=0.000 spec=0.600 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:451] [info] [pbrmat] citadel-vis-pris/citbun-head family=fur relief=1.100 depth=0.850 lambda=0.000 spec=0.600 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:451] [info] [pbrmat] citadel-vis-pris/redsage-dial family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:451] [info] [pbrmat] citadel-vis-pris/roboss-cit-metalplates-01 family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:451] [info] [pbrmat] citadel-vis-tfrag/cit-blueroom-metal-01 family=metal_bare relief=0.950 depth=0.750 lambda=0.000 spec=1.350 rough=0.450x0.750 metal=0.850x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/cit-hose family=cloth relief=1.100 depth=0.550 lambda=0.000 spec=0.550 rough=0.950x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/cit-pre-lip family=metal_bare relief=0.950 depth=0.750 lambda=0.000 spec=1.350 rough=0.450x0.750 metal=0.850x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/cit-precursor-circuitpattern-andwall-01-hitweak family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/cit-precursor-largewall family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/cit-temp-precursor-plain family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/cit-wires-lotweak family=rubber relief=0.950 depth=0.750 lambda=0.000 spec=0.850 rough=0.650x0.900 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/citb-metal-brown family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/citb-metal-green family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/citb-metal-panes-hitweak family=metal_bare relief=0.950 depth=0.750 lambda=0.000 spec=1.350 rough=0.450x0.750 metal=0.850x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/citb-metal-plates-lotweak family=metal_bare relief=0.950 depth=0.750 lambda=0.000 spec=1.350 rough=0.450x0.750 metal=0.850x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] citadel-vis-tfrag/citb-metal-wallplating-hitweak family=metal_bare relief=0.950 depth=0.750 lambda=0.000 spec=1.350 rough=0.450x0.750 metal=0.850x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-pris/spideregg-01 family=eggsac relief=0.950 depth=0.750 lambda=0.000 spec=1.100 rough=0.550x0.800 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-shrub/cv-villagepole-new-wood family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-cavefloor-01-2x2 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-floorfringe-01-2x2 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-prestatue-deco-06 family=stone_carved relief=1.100 depth=1.100 lambda=0.000 spec=1.000 rough=0.780x1.000 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-prestatue-stone-01-crack family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-prestatue-stone-01dk family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-prestatue-stone-01lt family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-spatula-rim-02 family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-trapdoor-top-01 family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wall-02-2x2 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wall-02-2x2-bumps family=rock_moss relief=1.150 depth=1.150 lambda=0.000 spec=0.750 rough=0.920x1.020 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wall-02-2x2-high family=rock_moss relief=1.150 depth=1.150 lambda=0.000 spec=0.750 rough=0.920x1.020 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wall-bumps-01 family=rock_moss relief=1.150 depth=1.150 lambda=0.000 spec=0.750 rough=0.920x1.020 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wall-bumps-merge-01 family=rock_moss relief=1.150 depth=1.150 lambda=0.000 spec=0.750 rough=0.920x1.020 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wall-stal-stripe-01 family=flowstone relief=0.950 depth=0.900 lambda=0.000 spec=1.300 rough=0.600x0.800 metal=0.000x1.000 F0=0.052 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wall-stal-stripe-02 family=flowstone relief=0.950 depth=0.900 lambda=0.000 spec=1.300 rough=0.600x0.800 metal=0.000x1.000 F0=0.052 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wall-wave-01 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wallbumps-all family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wallbumps-all-02 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wallbumps-all-high family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-wallbumps-all-high02 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] darkcave-vis-tfrag/cv-woodpoles family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:452] [info] [pbrmat] finalboss-vis-pris/roboss-metalplates-01 family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] finalboss-vis-tfrag/cmn-precursor-plainstripe family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] finalboss-vis-tfrag/fin-largerock family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] finalboss-vis-tfrag/fin-leafyground family=foliage relief=1.100 depth=1.150 lambda=0.000 spec=0.900 rough=0.900x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] finalboss-vis-tfrag/fin-leafygroundBACK family=foliage relief=1.100 depth=1.150 lambda=0.000 spec=0.900 rough=0.900x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] finalboss-vis-tfrag/fin-leafygroundBACKdirt family=foliage relief=1.100 depth=1.150 lambda=0.000 spec=0.900 rough=0.900x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] firecanyon-vis-shrub/fcn-crackedfloor family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] firecanyon-vis-tfrag/fcn-bridge family=basalt relief=1.200 depth=1.150 lambda=0.000 spec=0.750 rough=0.900x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:452] [info] [pbrmat] firecanyon-vis-tfrag/fcn-coal family=lava relief=0.800 depth=0.550 lambda=0.000 spec=0.550 rough=0.650x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] firecanyon-vis-tfrag/fcn-ecovalve-grate family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] firecanyon-vis-tfrag/fcn-rockblockin family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] firecanyon-vis-tfrag/fcn-rockblockin-bottom family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] firecanyon-vis-tfrag/fcn-spikerock family=lava relief=0.800 depth=0.550 lambda=0.000 spec=0.550 rough=0.650x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] firecanyon-vis-tfrag/fcn-tree family=bark relief=1.300 depth=1.450 lambda=0.000 spec=0.700 rough=0.930x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] intro-vis-shrub/mis-tree family=bark relief=1.300 depth=1.450 lambda=0.000 spec=0.700 rough=0.930x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] intro-vis-tfrag/mis-ground family=gravel relief=1.250 depth=1.500 lambda=0.000 spec=0.850 rough=0.900x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:452] [info] [pbrmat] intro-vis-tfrag/mis-rockwall-trim family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] jungle-vis-pris/jng-ropebridge-anchor-01 family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] jungle-vis-tfrag/jng-leafyground family=foliage relief=1.100 depth=1.150 lambda=0.000 spec=0.900 rough=0.900x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] jungle-vis-tfrag/jng-lrkr-metal-03 family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] jungle-vis-tfrag/jng-lrkr-metal-07 family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] jungle-vis-tfrag/jng-path1-4x4 family=dirt relief=1.050 depth=0.950 lambda=0.000 spec=0.650 rough=0.950x1.000 metal=0.000x1.000 F0=0.031 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-shrub/lava-ground family=basalt relief=1.200 depth=1.150 lambda=0.000 spec=0.750 rough=0.900x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-shrub/lava-ground-floor-blend family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-bottom-structure-blend family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-coping family=basalt relief=1.200 depth=1.150 lambda=0.000 spec=0.750 rough=0.900x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-floor family=lava relief=0.800 depth=0.550 lambda=0.000 spec=0.550 rough=0.650x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-flow-01 family=lava relief=0.800 depth=0.550 lambda=0.000 spec=0.550 rough=0.650x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-ground-hi family=basalt relief=1.200 depth=1.150 lambda=0.000 spec=0.750 rough=0.900x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-ground-hot family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-ground-hot-blend family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-ground-hot-corner family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-lrkr-metal-06 family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-metal-plate-01 family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-metalplates-03 family=metal_bare relief=0.950 depth=0.750 lambda=0.000 spec=1.350 rough=0.450x0.750 metal=0.850x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/lava-thicklava family=lava relief=0.800 depth=0.550 lambda=0.000 spec=0.550 rough=0.650x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] lavatube-vis-tfrag/vil3-lava-floor family=lava relief=0.800 depth=0.550 lambda=0.000 spec=0.550 rough=0.650x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] maincave-vis-tfrag/cv-rusty-hardware family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] maincave-vis-tfrag/cv-webbase family=web relief=0.900 depth=0.400 lambda=0.000 spec=1.100 rough=0.550x0.850 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] misty-vis-shrub/mis-boatwall family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] misty-vis-tfrag/cmn-precursor-metal-edge-01 family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] misty-vis-tfrag/mis-boatwall family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] misty-vis-tfrag/mis-bone-break family=bone relief=1.000 depth=0.850 lambda=0.000 spec=1.000 rough=0.700x1.000 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] misty-vis-tfrag/mis-bone-generic family=bone relief=1.000 depth=0.850 lambda=0.000 spec=1.000 rough=0.700x1.000 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] misty-vis-tfrag/mis-metalplating family=metal_bare relief=0.950 depth=0.750 lambda=0.000 spec=1.350 rough=0.450x0.750 metal=0.850x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] misty-vis-tfrag/mis-metalshingle family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] misty-vis-tfrag/mis-wooddeck family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:452] [info] [pbrmat] ogre-vis-pris/ogr-rockwall-small family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] ogre-vis-pris/ogre-boulderfire family=lava relief=0.800 depth=0.550 lambda=0.000 spec=0.550 rough=0.650x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] ogre-vis-tfrag/ogr-barrel-side family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] ogre-vis-tfrag/ogr-cavefloor family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] ogre-vis-tfrag/ogr-cavefloor-01 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] ogre-vis-tfrag/ogr-crackedfloor family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] ogre-vis-tfrag/ogr-rockwall-small-trim family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] ogre-vis-tfrag/org-pinetree-big-bark family=bark relief=1.300 depth=1.450 lambda=0.000 spec=0.700 rough=0.930x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] robocave-vis-tfrag/cv-stal-01 family=flowstone relief=0.950 depth=0.900 lambda=0.000 spec=1.300 rough=0.600x0.800 metal=0.000x1.000 F0=0.052 ny=+1
+[36:19:452] [info] [pbrmat] robocave-vis-tfrag/cv-stal-01-merge family=flowstone relief=0.950 depth=0.900 lambda=0.000 spec=1.300 rough=0.600x0.800 metal=0.000x1.000 F0=0.052 ny=+1
+[36:19:452] [info] [pbrmat] robocave-vis-tfrag/cv-wall-roof-01 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] robocave-vis-tfrag/cv-wall-roof-02 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] robocave-vis-tfrag/cv-wall-tube-02 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] rolling-vis-tfrag/rol-dirt family=gravel relief=1.250 depth=1.500 lambda=0.000 spec=0.850 rough=0.900x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:452] [info] [pbrmat] snow-vis-pris/rammer-metal family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] snow-vis-shrub/snow-icewall-01 family=ice relief=0.550 depth=0.300 lambda=0.000 spec=1.600 rough=0.180x0.450 metal=0.000x1.000 F0=0.018 ny=+1
+[36:19:452] [info] [pbrmat] snow-vis-tfrag/snow-fortwallbase family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] snow-vis-tfrag/snow-icewall-trans-02 family=ice relief=0.550 depth=0.300 lambda=0.000 spec=1.600 rough=0.180x0.450 metal=0.000x1.000 F0=0.018 ny=+1
+[36:19:452] [info] [pbrmat] snow-vis-tfrag/snow-path-sides family=snow relief=0.850 depth=0.600 lambda=0.000 spec=0.800 rough=0.850x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] snow-vis-tfrag/snow-rock-trim family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] snow-vis-tfrag/snow-woodpanels family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:452] [info] [pbrmat] snow-vis-tfrag/snw-precursor-metal-plain-02 family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-alpha/sun-glass family=glass relief=0.300 depth=0.050 lambda=0.000 spec=1.700 rough=0.100x0.300 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-alpha/sun-glass-frame-01 family=glass relief=0.300 depth=0.050 lambda=0.000 spec=1.700 rough=0.100x0.300 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-shrub/sun-coral-sponge-01 family=coral relief=1.200 depth=1.250 lambda=0.000 spec=0.850 rough=0.850x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-tfrag/sun-hot-pipe-02 family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-tfrag/sun-precursor-circuitpattern-01 family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-tfrag/sun-precursor-tube-ring-02 family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-tfrag/sun-precursor-tube-ring-03 family=precursor_alloy relief=1.050 depth=1.050 lambda=0.000 spec=1.100 rough=0.600x0.880 metal=0.550x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-tfrag/sun-rockwall family=rock_moss relief=1.150 depth=1.150 lambda=0.000 spec=0.750 rough=0.920x1.020 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-tfrag/sun-walls-outside-01 family=rock_moss relief=1.150 depth=1.150 lambda=0.000 spec=0.750 rough=0.920x1.020 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] sunken-vis-tfrag/sun-walls-outside-edge-01 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] sunkenb-vis-pris/sun-helix-but-01 family=metal_precious relief=0.900 depth=0.800 lambda=0.000 spec=1.450 rough=0.350x0.700 metal=1.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] sunkenb-vis-pris/sun-helix-but-02 family=metal_precious relief=0.900 depth=0.800 lambda=0.000 spec=1.450 rough=0.350x0.700 metal=1.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] swamp-vis-shrub/swp-bark family=bark relief=1.300 depth=1.450 lambda=0.000 spec=0.700 rough=0.930x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] swamp-vis-shrub/swp-bark-roots family=bark relief=1.300 depth=1.450 lambda=0.000 spec=0.700 rough=0.930x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] swamp-vis-tfrag/swp-breakaway-rock-crack family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] swamp-vis-tfrag/swp-ecovalve-grate family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] swamp-vis-tfrag/swp-mud-top family=mud relief=1.000 depth=0.900 lambda=0.000 spec=1.150 rough=0.720x0.880 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] swamp-vis-tfrag/swp-mud-trans family=mud relief=1.000 depth=0.900 lambda=0.000 spec=1.150 rough=0.720x0.880 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] swamp-vis-tfrag/swp-stand-rock family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] swamp-vis-tfrag/swp-stonewall family=rock_moss relief=1.150 depth=1.150 lambda=0.000 spec=0.750 rough=0.920x1.020 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] training-vis-pris/scarecrow-paintedburlap family=cloth relief=1.100 depth=0.550 lambda=0.000 spec=0.550 rough=0.950x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] training-vis-tfrag/pbot-stonehengetop family=stone_carved relief=1.100 depth=1.100 lambda=0.000 spec=1.000 rough=0.780x1.000 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] training-vis-tfrag/tra-grass family=grass relief=1.150 depth=0.550 lambda=0.000 spec=0.950 rough=0.880x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:452] [info] [pbrmat] training-vis-tfrag/trn-geyser family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] training-vis-tfrag/v2-coral-rockbase family=coral relief=1.200 depth=1.250 lambda=0.000 spec=0.850 rough=0.850x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] village1-vis-tfrag/vil-beach-01 family=sand relief=1.000 depth=0.800 lambda=0.000 spec=0.700 rough=0.950x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] village1-vis-tfrag/vil-beachrock family=rock_wet relief=1.150 depth=1.150 lambda=0.000 spec=1.200 rough=0.800x1.000 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] village1-vis-tfrag/vil-haybale family=straw relief=1.300 depth=1.400 lambda=0.000 spec=0.800 rough=0.850x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] village1-vis-tfrag/vil-rug-01 family=cloth relief=1.100 depth=0.550 lambda=0.000 spec=0.550 rough=0.950x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] village1-vis-tfrag/vil1-sages-stonewall-01 family=stone_cut relief=1.200 depth=1.250 lambda=0.000 spec=1.000 rough=0.750x1.000 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] village1-vis-tfrag/vil1-sages-strawroof-01 family=straw relief=1.300 depth=1.400 lambda=0.000 spec=0.800 rough=0.850x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] village2-vis-pris/swp-lrkr-balloon-patches family=leather relief=1.050 depth=0.700 lambda=0.000 spec=1.000 rough=0.750x1.000 metal=0.000x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] village2-vis-tfrag/swp-breakaway-rock family=rock_moss relief=1.150 depth=1.150 lambda=0.000 spec=0.750 rough=0.920x1.020 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] village2-vis-tfrag/vil2-metalplating family=metal_rusty relief=1.150 depth=1.000 lambda=0.000 spec=0.900 rough=0.800x0.950 metal=0.300x1.000 F0=0.045 ny=+1
+[36:19:452] [info] [pbrmat] village2-vis-tfrag/vil2-stoneblock family=stone_dressed relief=0.900 depth=0.700 lambda=0.000 spec=1.050 rough=0.720x0.950 metal=0.000x1.000 F0=0.048 ny=+1
+[36:19:452] [info] [pbrmat] village2-vis-tfrag/vil2-stonefloor-hitweak family=stone_dressed relief=0.900 depth=0.700 lambda=0.000 spec=1.050 rough=0.720x0.950 metal=0.000x1.000 F0=0.048 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-shrub/vil3-cavewall-02 family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-tfrag/vil3-cave-ground family=gravel relief=1.250 depth=1.500 lambda=0.000 spec=0.850 rough=0.900x1.000 metal=0.000x1.000 F0=0.038 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-tfrag/vil3-cave-groundcrystal family=crystal relief=0.700 depth=0.450 lambda=0.000 spec=1.600 rough=0.150x0.400 metal=0.000x1.000 F0=0.080 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-tfrag/vil3-crackedfloor family=lava_rock relief=1.250 depth=1.300 lambda=0.000 spec=0.700 rough=0.920x1.000 metal=0.000x1.000 F0=0.035 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-tfrag/vil3-hut-tank family=metal_painted relief=0.900 depth=0.700 lambda=0.000 spec=1.150 rough=0.550x0.850 metal=0.000x1.000 F0=0.050 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-tfrag/vil3-hutroof family=wood relief=1.050 depth=0.950 lambda=0.000 spec=0.950 rough=0.820x1.000 metal=0.000x1.000 F0=0.042 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-tfrag/vil3-hutwall family=ceramic relief=0.800 depth=0.650 lambda=0.000 spec=1.350 rough=0.300x0.600 metal=0.000x1.000 F0=0.055 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-tfrag/vil3-lava-floor family=lava relief=0.800 depth=0.550 lambda=0.000 spec=0.550 rough=0.650x1.000 metal=0.000x1.000 F0=0.030 ny=+1
+[36:19:452] [info] [pbrmat] village3-vis-tfrag/vil3-rockwall-upper-merge family=rock relief=1.150 depth=1.200 lambda=0.000 spec=0.900 rough=0.880x1.000 metal=0.000x1.000 F0=0.040 ny=+1
+
+===== [pbrmat-draw] VALUES A DRAW ACTUALLY RECEIVED =====
+[36:28:904] [info] [pbrmat-draw] 1 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.150 depth=1.150 spec=1.200 rough=0.800 F0=0.050 -> u_pbr_normal_strength=5.1750 u_pbr_height_scale=0.08625 u_pbr_spec_intensity=0.1800
+[36:28:904] [info] [pbrmat-draw] 2 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.000 depth=1.000 spec=1.000 rough=0.900 F0=0.040 -> u_pbr_normal_strength=4.5000 u_pbr_height_scale=0.07500 u_pbr_spec_intensity=0.1500
+[36:28:905] [info] [pbrmat-draw] 3 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.200 depth=1.250 spec=1.000 rough=0.750 F0=0.050 -> u_pbr_normal_strength=5.4000 u_pbr_height_scale=0.09375 u_pbr_spec_intensity=0.1500
+[36:28:905] [info] [pbrmat-draw] 4 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.000 depth=0.800 spec=0.700 rough=0.950 F0=0.030 -> u_pbr_normal_strength=4.5000 u_pbr_height_scale=0.06000 u_pbr_spec_intensity=0.1050
+[36:28:905] [info] [pbrmat-draw] 5 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.300 depth=1.400 spec=0.800 rough=0.850 F0=0.040 -> u_pbr_normal_strength=5.8500 u_pbr_height_scale=0.10500 u_pbr_spec_intensity=0.1200
+
+===== distinct knob sets per pass (high-water mark) =====
+[36:28:905] [info] [pbrmat-draw] 5 DISTINCT material knob sets pushed in ONE draw pass; newest relief=1.300 depth=1.400 spec=0.800 rough=0.850 F0=0.040 -> u_pbr_normal_strength=5.8500 u_pbr_height_scale=0.10500 u_pbr_spec_intensity=0.1200
+
+===== EVERY distinct knob set that reached a draw in this run =====
+[36:28:904] [info] [pbrmat-run] distinct knob set #1 reached a draw: relief=1.150 depth=1.150 spec=1.200 rough=0.800 F0=0.050 -> u_pbr_normal_strength=5.1750 u_pbr_height_scale=0.08625 u_pbr_spec_intensity=0.1800
+[36:28:904] [info] [pbrmat-run] distinct knob set #2 reached a draw: relief=1.000 depth=1.000 spec=1.000 rough=0.900 F0=0.040 -> u_pbr_normal_strength=4.5000 u_pbr_height_scale=0.07500 u_pbr_spec_intensity=0.1500
+[36:28:905] [info] [pbrmat-run] distinct knob set #3 reached a draw: relief=1.200 depth=1.250 spec=1.000 rough=0.750 F0=0.050 -> u_pbr_normal_strength=5.4000 u_pbr_height_scale=0.09375 u_pbr_spec_intensity=0.1500
+[36:28:905] [info] [pbrmat-run] distinct knob set #4 reached a draw: relief=1.000 depth=0.800 spec=0.700 rough=0.950 F0=0.030 -> u_pbr_normal_strength=4.5000 u_pbr_height_scale=0.06000 u_pbr_spec_intensity=0.1050
+[36:28:905] [info] [pbrmat-run] distinct knob set #5 reached a draw: relief=1.300 depth=1.400 spec=0.800 rough=0.850 F0=0.040 -> u_pbr_normal_strength=5.8500 u_pbr_height_scale=0.10500 u_pbr_spec_intensity=0.1200
+[36:28:905] [info] [pbrmat-run] distinct knob set #6 reached a draw: relief=1.100 depth=0.550 spec=0.550 rough=0.950 F0=0.035 -> u_pbr_normal_strength=4.9500 u_pbr_height_scale=0.04125 u_pbr_spec_intensity=0.0825
+[38:19:443] [info] [pbrmat-run] distinct knob set #7 reached a draw: relief=1.250 depth=1.500 spec=0.850 rough=0.900 F0=0.038 -> u_pbr_normal_strength=5.6250 u_pbr_height_scale=0.11250 u_pbr_spec_intensity=0.1275
+[38:19:443] [info] [pbrmat-run] distinct knob set #8 reached a draw: relief=1.050 depth=0.950 spec=0.950 rough=0.820 F0=0.042 -> u_pbr_normal_strength=4.7250 u_pbr_height_scale=0.07125 u_pbr_spec_intensity=0.1425
+[38:19:443] [info] [pbrmat-run] distinct knob set #9 reached a draw: relief=1.050 depth=0.950 spec=0.650 rough=0.950 F0=0.031 -> u_pbr_normal_strength=4.7250 u_pbr_height_scale=0.07125 u_pbr_spec_intensity=0.0975
+[38:19:448] [info] [pbrmat-run] distinct knob set #10 reached a draw: relief=0.900 depth=0.700 spec=1.150 rough=0.550 F0=0.050 -> u_pbr_normal_strength=4.0500 u_pbr_height_scale=0.05250 u_pbr_spec_intensity=0.1725
+[38:28:437] [info] [pbrmat-run] distinct knob set #11 reached a draw: relief=1.100 depth=1.100 spec=1.000 rough=0.780 F0=0.045 -> u_pbr_normal_strength=4.9500 u_pbr_height_scale=0.08250 u_pbr_spec_intensity=0.1500
+
+===== WHICH materials of this level received a record (and which did not) =====
+apply beach-vis-pris/crab-shell-01 -> beach-vis-pris/crab-shell-01 family=shell
+apply beach-vis-pris/crab-shell-02 -> beach-vis-pris/crab-shell-02 family=shell
+apply beach-vis-pris/mayor-pants -> beach-vis-pris/mayor-pants family=cloth
+apply beach-vis-pris/worm-body -> beach-vis-pris/worm-body family=flesh
+apply beach-vis-shrub/bch-hut-wood-01endcap -> beach-vis-shrub/bch-hut-wood-01endcap family=wood
+apply beach-vis-tfrag/bch-ecovalve-grate -> beach-vis-tfrag/bch-ecovalve-grate family=metal_painted
+apply beach-vis-tfrag/bch-egg -> beach-vis-tfrag/bch-egg family=shell
+apply beach-vis-tfrag/bch-grottopole-end-01 -> beach-vis-tfrag/bch-grottopole-end-01 family=rock
+apply beach-vis-tfrag/bch-huttoprim-hitweak -> beach-vis-tfrag/bch-huttoprim-hitweak family=wood
+apply beach-vis-tfrag/bch-hut-wood-01endcap -> beach-vis-shrub/bch-hut-wood-01endcap (via bare-name index) family=wood
+apply beach-vis-tfrag/bch-hvstr-baloon -> beach-vis-tfrag/bch-hvstr-baloon family=leather
+apply beach-vis-tfrag/bch-hvstr-cap -> beach-vis-tfrag/bch-hvstr-cap family=metal_rusty
+apply beach-vis-tfrag/bch-idol-broken -> beach-vis-tfrag/bch-idol-broken family=gravel
+apply beach-vis-tfrag/bch-outpostwall -> beach-vis-tfrag/bch-outpostwall family=stone_cut
+apply beach-vis-tfrag/bch-path-01 -> beach-vis-tfrag/bch-path-01 family=dirt
+apply beach-vis-tfrag/bch-sages-strawroof-01 -> beach-vis-tfrag/bch-sages-strawroof-01 family=straw
+apply beach-vis-tfrag/bch-statue-rock-round -> beach-vis-tfrag/bch-statue-rock-round family=stone_carved
+apply beach-vis-tfrag/bch-windmill-wood-01 -> beach-vis-tfrag/bch-windmill-wood-01 family=wood
+apply beach-vis-tfrag/mis-metalrivets -> beach-vis-tfrag/mis-metalrivets family=metal_bare
+apply beach-vis-tfrag/mis-woodpoletop -> beach-vis-tfrag/mis-woodpoletop family=wood
+apply village1-vis-alpha/vil-beach-01 -> village1-vis-tfrag/vil-beach-01 (via bare-name index) family=sand
+apply village1-vis-tfrag/vil1-jng-leafyground -> NO RECORD, stays at the identity
+apply village1-vis-tfrag/vil1-sages-stonewall-01 -> village1-vis-tfrag/vil1-sages-stonewall-01 family=stone_cut
+apply village1-vis-tfrag/vil1-sages-strawroof-01 -> village1-vis-tfrag/vil1-sages-strawroof-01 family=straw
+apply village1-vis-tfrag/vil-beach-01 -> village1-vis-tfrag/vil-beach-01 family=sand
+apply village1-vis-tfrag/vil-beachrock -> village1-vis-tfrag/vil-beachrock family=rock_wet
+apply village1-vis-tfrag/vil-haybale -> village1-vis-tfrag/vil-haybale family=straw
+apply village1-vis-tfrag/vil-hut-roof-tile-01 -> NO RECORD, stays at the identity
+apply village1-vis-tfrag/vil-rug-01 -> village1-vis-tfrag/vil-rug-01 family=cloth
+apply village1-vis-tfrag/vil-wallplaster -> NO RECORD, stays at the identity
+  --- counts ---
+  materiaux resolus       : 27
+  via l'index de noms nus : 2
+  SANS enregistrement     : 3
+
+===== level markers =====
+[36:45:698] [info] custom pbr material registered: beach-vis-tfrag/bch-egg (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:698] [info] custom pbr material registered: beach-vis-tfrag/bch-grottopole-end-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:715] [info] custom pbr material registered: beach-vis-tfrag/bch-grottopole-end-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:715] [info] custom pbr material registered: beach-vis-tfrag/bch-hut-wood-01endcap (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:730] [info] custom pbr material registered: beach-vis-tfrag/bch-hvstr-cap (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:731] [info] custom pbr material registered: beach-vis-tfrag/bch-hvstr-baloon (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:731] [info] custom pbr material registered: beach-vis-tfrag/bch-hut-wood-01endcap (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:732] [info] custom pbr material registered: beach-vis-tfrag/bch-hvstr-cap (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:747] [info] custom pbr material registered: beach-vis-tfrag/bch-hvstr-baloon (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:748] [info] custom pbr material registered: beach-vis-tfrag/bch-hut-wood-01endcap (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:748] [info] custom pbr material registered: beach-vis-tfrag/bch-hvstr-cap (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:750] [info] custom pbr material registered: beach-vis-tfrag/bch-hvstr-baloon (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:781] [info] custom pbr material registered: beach-vis-pris/crab-shell-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:781] [info] custom pbr material registered: beach-vis-pris/crab-shell-02 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:782] [info] custom pbr material registered: beach-vis-pris/crab-shell-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:782] [info] custom pbr material registered: beach-vis-pris/crab-shell-02 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:797] [info] custom pbr material registered: beach-vis-pris/crab-shell-02 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:798] [info] custom pbr material registered: beach-vis-pris/crab-shell-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:831] [info] custom pbr material registered: beach-vis-pris/worm-body (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:832] [info] custom pbr material registered: beach-vis-pris/worm-body (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:848] [info] custom pbr material registered: beach-vis-pris/mayor-pants (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:864] [info] custom pbr material registered: beach-vis-tfrag/mis-metalrivets (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:864] [info] custom pbr material registered: beach-vis-tfrag/mis-woodpoletop (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:865] [info] custom pbr material registered: beach-vis-tfrag/mis-metalrivets (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:865] [info] custom pbr material registered: beach-vis-tfrag/mis-woodpoletop (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:948] [info] custom pbr material registered: beach-vis-tfrag/bch-hut-wood-01endcap (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:948] [info] custom pbr material registered: beach-vis-tfrag/bch-windmill-wood-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:964] [info] custom pbr material registered: beach-vis-tfrag/bch-windmill-wood-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:964] [info] custom pbr material registered: beach-vis-tfrag/bch-hut-wood-01endcap (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)
+[36:45:981] [info] custom pbr material registered: beach-vis-tfrag/bch-windmill-wood-01 (N=1 R=1 M=0 AO=0 H=1 S=0 E=0)

@@ -31,6 +31,21 @@ struct Shard {
   std::vector<std::string> requires_features;  // e.g. {"pbr"} on material shards
 };
 
+// Gpbr-material-props: a small NON-SHARD file published with the release and installed beside the
+// packs in managed_assets/<game>/. The surface-property table is authored per material in the
+// assets repository and must reach the engine WITHOUT being baked into the app, which is what this
+// exists for. `name` is the INSTALLED file name; `url` may point at an earlier immutable release.
+struct Extra {
+  std::string name;
+  std::string game;
+  std::string kind;   // "surfaces" — a client installs only the kinds it knows
+  std::string sha256;
+  u64 size = 0;
+  std::string url;
+  std::string release_tag;
+  std::vector<std::string> requires_features;
+};
+
 struct EngineCompat {
   std::string min_recharged_version;
   std::string max_recharged_version;  // empty = open-ended
@@ -46,6 +61,7 @@ struct Manifest {
   std::vector<std::string> profiles;
   std::vector<std::string> presets;
   std::vector<Shard> shards;
+  std::vector<Extra> extras;
 };
 
 // Parse + validate. Returns nullopt with a reason in err on anything this

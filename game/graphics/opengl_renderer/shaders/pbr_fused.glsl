@@ -453,7 +453,7 @@
         // REOPEN #2 MISSING-ROUGHNESS=ROUGH (industry rule): an absent _roughness map now
         // reads 0.9 — internet-pack bases without maps must NEVER get a smooth plastic sheen.
         // Gpbr-per-texture-materials: la valeur de repli SANS map et le facteur sur la map liee
-        // viennent du bloc materials.txt de CE materiau. Defauts (0.9, x1.0) = les constantes
+        // viennent de l'enregistrement surfaces.json de CE materiau. Defauts (0.9, x1.0) = les constantes
         // ecrites en dur ici auparavant.
         float rough = (u_pbr_mode & 2) != 0 ? texture(tex_PBR_R, uv).r * u_pbr_mat2.x : u_pbr_mat.x;
         // REOPEN dielectric rule: most owner sets are height/normal/roughness only — a

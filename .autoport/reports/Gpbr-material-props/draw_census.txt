@@ -1,0 +1,50 @@
+-- CHAQUE JEU DE BOUTONS DISTINCT QUI A ATTEINT UN DRAW, DANS CETTE COURSE ----------
+   QUOI. Les valeurs POUSSEES EN UNIFORMES au GPU, pas des valeurs lues dans un
+   fichier. Le moteur ne journalise pas le nom du materiau sur cette ligne ; le joint
+   se fait sur le quintuplet (relief, depth, spec, rough, F0), et il est NON AMBIGU
+   parce que les 40 quintuplets de familles sont deux a deux distincts.
+   REPERE : uniformes du programme PBR, apres multiplication par les globales.
+   AVEC LE DEFAUT ABSENT (les boutons n'atteignant aucun draw) il n'y aurait qu'UNE
+   SEULE ligne, celle de l'identite, pour toutes les matieres du niveau.
+
+    # famille          relief  depth u_pbr_normal_strength u_pbr_height_scale u_pbr_spec_intensity
+    1 rock_wet          1.150  1.150                5.1750            0.08625               0.1800
+    2 (IDENTITE — matiere non nommee)  1.000  1.000                4.5000            0.07500               0.1500
+    3 stone_cut         1.200  1.250                5.4000            0.09375               0.1500
+    4 sand              1.000  0.800                4.5000            0.06000               0.1050
+    5 straw             1.300  1.400                5.8500            0.10500               0.1200
+    6 cloth             1.100  0.550                4.9500            0.04125               0.0825
+    7 gravel            1.250  1.500                5.6250            0.11250               0.1275
+    8 wood              1.050  0.950                4.7250            0.07125               0.1425
+    9 dirt              1.050  0.950                4.7250            0.07125               0.0975
+   10 metal_painted     0.900  0.700                4.0500            0.05250               0.1725
+   11 stone_carved      1.100  1.100                4.9500            0.08250               0.1500
+
+   jeux distincts atteignant un draw : 11   dont familles nommees : 10
+
+-- LES DEUX EXTREMES MESURES AU DRAW -------------------------------------------------
+   plus PROFOND : gravel           u_pbr_height_scale = 0.11250   (matieres du jeu : beach-vis-tfrag/bch-idol-broken, intro-vis-tfrag/mis-ground, rolling-vis-tfrag/rol-dirt...)
+   plus PLAT    : cloth            u_pbr_height_scale = 0.04125   (matieres du jeu : beach-vis-pris/mayor-pants, citadel-vis-tfrag/cit-hose, training-vis-pris/scarecrow-paintedburlap...)
+   rapport mesure = x2.7273   (avant la phase : x1.0000 par construction,
+   la profondeur etait une valeur GLOBALE par frame, la meme pour toute matiere)
+
+-- L'EXEMPLE DE L'OWNER, MESURE AU GPU, DANS LA MEME SCENE --------------------------
+   « on a des normales pour un mur en pierre taillee et de l'herbe par exemple,
+     peut-etre qu'on veut pas que la texture de height ait le meme impact de
+     profondeur » (owner 2026-08-29)
+
+   village1, une seule course, un seul niveau :
+     vil1-sages-stonewall-01   famille stone_cut   u_pbr_height_scale = 0.09375
+     vil-beach-01              famille sand        u_pbr_height_scale = 0.06000
+     rapport = x1.5625
+
+   Et la meme paire sur la force de la normal map, qui n'est PAS le meme bouton :
+     stone_cut u_pbr_normal_strength = 5.4000
+     sand      u_pbr_normal_strength = 4.5000   rapport = x1.2000
+   Le sable a la MEME force de normale que l'identite (relief 1,00) et une profondeur
+   plus FAIBLE : c'est exactement le decouplage que la phrase de l'owner demande, et il
+   ne serait pas visible si un seul des deux boutons existait.
+
+   AVANT CETTE PHASE ces deux nombres etaient EGAUX pour toutes les matieres, par
+   construction : `u_pbr_height_scale` etait pousse une fois par programme et par frame
+   par first_tfrag_draw_setup, sans facteur par matiere. Le rapport valait x1,0000.

@@ -89,9 +89,9 @@ int run_cli(const std::string& verb,
       for (const auto& s : st->shards) {
         bytes += fs::exists(dir / s) ? (u64)fs::file_size(dir / s, ec) : 0;
       }
-      fmt::print("installed: {} profile={} preset={} shards={} size={} verified={}\n",
-                 st->asset_version, st->profile, st->preset, st->shards.size(), human(bytes),
-                 st->verified);
+      fmt::print("installed: {} profile={} preset={} shards={} extras={} size={} verified={}\n",
+                 st->asset_version, st->profile, st->preset, st->shards.size(),
+                 st->extras.size(), human(bytes), st->verified);
     }
     std::string err;
     if (const auto lock = assets_lock::load(assets_lock::default_path(), &err)) {
@@ -167,14 +167,22 @@ int run_cli(const std::string& verb,
   std::error_code ec;
   fs::create_directories(dir, ec);
   const auto plan = plan_install(manifest, sel, dir);
-  if (plan.to_download.empty() && plan.orphans.empty()) {
-    fmt::print("up to date: {} {}/{} ({} shards, {})\n", manifest.asset_version, sel.profile,
-               sel.preset, plan.keep.size(), human(plan.total_bytes));
+  // Gpbr-material-props: ask the PLAN whether it is up to date instead of re-deriving it here.
+  // The hand-rolled `to_download.empty() && orphans.empty()` missed extras_to_download entirely,
+  // and that is the exact shape of this install: every shard already present, one 60 KB
+  // surfaces.json missing. The CLI printed "up to date" and returned 0 without ever calling
+  // apply_install, so the file the whole phase exists to deliver never landed — a silent skip
+  // that looks identical to success.
+  if (plan.up_to_date()) {
+    fmt::print("up to date: {} {}/{} ({} shards, {} extras, {})\n", manifest.asset_version,
+               sel.profile, sel.preset, plan.keep.size(), plan.extras_to_download.size(),
+               human(plan.total_bytes));
     return 0;
   }
-  fmt::print("{} {}/{}: {} shards to download ({}), {} kept, {} to remove\n",
+  fmt::print("{} {}/{}: {} shards to download ({}), {} extras, {} kept, {} to remove\n",
              manifest.asset_version, sel.profile, sel.preset, plan.to_download.size(),
-             human(plan.download_bytes), plan.keep.size(), plan.orphans.size());
+             human(plan.download_bytes), plan.extras_to_download.size(), plan.keep.size(),
+             plan.orphans.size());
 
   // Free-space check before committing to a multi-GiB download.
   const auto space = fs::space(dir, ec);

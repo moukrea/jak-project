@@ -51,6 +51,9 @@ struct InstalledState {
   std::string preset;
   bool verified = false;
   std::vector<std::string> shards;
+  // Gpbr-material-props: installed non-shard files (surfaces.json ...). Kept OUT of `shards`
+  // because the loader opens every name in there as an RPACK.
+  std::vector<std::string> extras;
 };
 
 std::optional<InstalledState> read_state(const fs::path& dir, std::string* err = nullptr);
@@ -60,11 +63,14 @@ std::optional<InstalledState> read_state(const fs::path& dir, std::string* err =
 struct InstallPlan {
   std::string asset_version;
   std::vector<Shard> to_download;  // missing or size-mismatched
+  std::vector<Extra> extras_to_download;  // same, for the small non-shard files
   std::vector<std::string> keep;   // already present, content-addressed
   std::vector<std::string> orphans;  // installed but not in the new set
   u64 download_bytes = 0;
   u64 total_bytes = 0;
-  bool up_to_date() const { return to_download.empty() && orphans.empty(); }
+  bool up_to_date() const {
+    return to_download.empty() && extras_to_download.empty() && orphans.empty();
+  }
 };
 
 struct Selection {

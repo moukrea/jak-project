@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
- "asset_version": "assets-v0.2.1",
- "manifest_url": "https://github.com/moukrea/recharged-assets/releases/download/assets-v0.2.1/manifest.json",
- "manifest_sha256": "e9035528a6f9166d484141adb96a53d7556015f30ab7b1f29c9f755a68e038fa",
+ "asset_version": "assets-v0.3.0",
+ "manifest_url": "https://github.com/moukrea/recharged-assets/releases/download/assets-v0.3.0/manifest.json",
+ "manifest_sha256": "3006f16ce073f715cc6366c3169ba923b8ebb62b71850b9e6c57b75fd7c46049",
  "required": false
 }

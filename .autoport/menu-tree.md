@@ -157,11 +157,11 @@ lignes dans les deux gardes de longueur statique (`fw-idx` et le garde de collap
 - **MODERN MATERIALS** (`modern-materials?`, symbole, **défaut OFF**) : master de la pile de
   matériaux moderne (subsurface scattering, clearcoat, anisotropie, compensation d'énergie,
   packing ORM) posée par-dessus le chemin PBR accepté. OFF ⇒ le loader ignore les cartes
-  `_orm`/`_thickness` et `materials.txt`, chaque draw pousse `u_mm_flags = 0`, l'ombrage est
+  `_orm`/`_thickness` et `surfaces.json`, chaque draw pousse `u_mm_flags = 0`, l'ombrage est
   **bit-identique au chemin PBR accepté**. Grisée si master OFF **ou** PBR MATERIALS OFF.
 - Plomberie : `pc-set-modern-materials!` (kmachine.cpp) →
   `Gfx::g_global_settings.recharged_modern_materials`, poussé chaque frame par `update-to-os`
-  (juste après `pc-set-pbr!`) ; un **changement d'état relit `recharged_assets/materials.txt`**
+  (juste après `pc-set-pbr!`) ; un **changement d'état relit la table de surfaces `surfaces.json`**
   (`custom_tex::mm_params_reload()`, idiome `pc_set_physics`) : l'owner édite le fichier sur le
   device et bascule la ligne pour appliquer, sans rebuild ni relance. Persisté dans
   `settings.ini` dans le même groupe que les clés `pbr-*`.

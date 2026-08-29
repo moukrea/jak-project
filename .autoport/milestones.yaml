@@ -1673,6 +1673,15 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gpbr-material-props
+  name: 'PROPRIETES PBR PAR MATIERE, DANS LE DEPOT D''ASSETS (owner 2026-08-29) : « je veux des config de matériaux par matériaux, pas seulement les normales/roughness/height en image, mais des PROPRIÉTÉS » et « ces props doivent faire partie du repo Recharged assets, pas dans l''APK ». MESURE : 172 matieres, chacune avec 4 cartes et un fichier de metadonnees deja en place qui ne porte AUCUNE propriete ; le moteur applique deja 10 reglages par matiere. La phase precedente en avait livre 7, dans jak-project. PIEGE : un git clone normal du depot d''assets deballe le LFS et TUE LE SHELL (2 fois, 1 reboot). INTERDIT : deduire la matiere du nom de fichier, il faut REGARDER l''albedo.'
+  prompt: prompts/phase-Gpbr-material-props.md
+  validator: validators/phase-Gpbr-material-props.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gfixed-tick-interpolation
   name: 'PAS DE TEMPS FIXE + INTERPOLATION DE RENDU (owner 2026-08-26, backlog) : « quand le jeu va en dessous de ce qu''il est sensé tourner sur PS2, les sauts, les mouvements de caméra ça chie un peu dans la colle et ça casse le gameplay [...] On devrait en fait faire de l''interpolation VERSUS l''original ». Aujourd''hui la logique avance a PAS VARIABLE (seconds-per-frame multiplie chaque delta, des centaines de sites GOAL), ce qui ne conserve ni les trajectoires balistiques ni les seuils d''etat — d''ou sauts trop courts, skips, judder de camera (deja documente, kmachine.cpp:4507). Cible : simulation a 1/60 s fixe, rendu interpole, jouable a 25 fps comme a 120, sans chemin special par palier. Sortie a 60 fps INCHANGEE : c''est la reference.'
   prompt: prompts/phase-Gfixed-tick-interpolation.md

@@ -2884,7 +2884,7 @@ void pc_set_modern_materials(u32 sym) {
   Gfx::g_global_settings.recharged_modern_materials = on;
   if (changed) {
     // Same idiom as pc_set_physics: flipping the row RE-READS the tuning file, so the owner can
-    // edit recharged_assets/materials.txt on the device and toggle the row to apply it with no
+    // drop a surfaces.json in the external asset dir on the device and toggle the row to apply it with no
     // rebuild and no relaunch.
     custom_tex::mm_request_params_reload();
   }

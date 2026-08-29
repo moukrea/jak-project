@@ -161,7 +161,7 @@
 (#when FLAG_PBR
 (define-extern pc-set-pbr! (function int none))
 ;; Grecharged-materials-modern-parity: MODERN MATERIALS master (0/1, int-FFI like pc-set-pbr!).
-;; Flipping it C++-side also re-reads recharged_assets/materials.txt (pc_set_physics idiom).
+;; Flipping it C++-side also re-reads the surface table surfaces.json (pc_set_physics idiom).
 (define-extern pc-set-modern-materials! (function int none))
 (define-extern pc-set-pbr-sun! (function vector vector vector none))
 ;; Round-4 multi-light: push light-group 0 (soleil + lune verte + fill) to the renderer.

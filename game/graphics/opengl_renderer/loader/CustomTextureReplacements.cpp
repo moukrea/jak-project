@@ -24,6 +24,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/GpuCaps.h"
+#include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/runtime.h"
 
 #include "third-party/json.hpp"
@@ -780,21 +781,29 @@ const PbrMaterialMaps* find_pbr_material(const std::string& tex_key) {
 }
 
 // ===================================================================================================
-// Grecharged-materials-modern-parity — materials.txt, the AUTHORED half of a material.
+// Gpbr-material-props — surfaces.json, the AUTHORED half of a material.
 //
 // Every per-material number this pipeline had before today is MEASURED from the PNGs at load
 // (normal DC, height mean/range, feature wavelength, UV density). That works because each of them is
 // a statistic of an image. A scattering colour is not: whether a straw roof glows amber or a leaf
 // glows green when the sun is behind it is an artistic decision about the SURFACE, and no amount of
-// staring at its albedo will produce it. So the modern stack needs the one thing the pipeline never
-// had — a place to author per-material parameters — and it must be a place the owner can edit
-// without a rebuild.
+// staring at its albedo will produce it. Neither is relief depth: a cut-stone wall and a patch of
+// grass carry the same KIND of height map and must not be pushed to the same depth. So the modern
+// stack needs a place to author per-material parameters — and the owner decided WHERE that place
+// is (2026-08-29): "ces props doivent faire partie du repo Recharged assets, pas dans l'APK".
 //
-// That place is recharged_assets/materials.txt in the EXTERNAL asset pack, with the same precedence
-// rule physics_chains.txt established: an external copy beats the packaged one, so tuning costs a
-// kilobyte push instead of a 581 MB APK. Parsing is deliberately the same shape as the physics file
-// (# comments, whitespace tokens, unknown keys skipped and reported) so there is one file format to
-// learn in this fork, not two.
+// So the table is authored in the ASSET repository, one record per material, collapsed by its
+// publishing step into a single surfaces.json shipped as a release EXTRA beside the RPACK shards,
+// and installed by the asset manager into managed_assets/<game>/. Nothing is read from the GAME
+// repo any more: the APK carries no authored material at all, which is the whole point of the rule.
+//
+// Two locations, FIRST HIT WINS:
+//   1. <external recharged assets dir>/surfaces.json — the owner's kilobyte-push override, so
+//      re-tuning a material costs an adb push instead of a release round-trip (same precedence
+//      rule physics_chains.txt established);
+//   2. managed_assets/<game>/surfaces.json           — what the asset manager installed.
+// Neither present: every field stays at its struct default, and every struct default IS the
+// identity, so the engine behaves exactly as it did before this phase.
 // ===================================================================================================
 namespace {
 
@@ -841,6 +850,24 @@ struct PbrMatParams {
 std::unordered_map<std::string, PbrMatParams> g_pbrmat_params;
 PbrMatParams g_pbrmat_defaults;
 bool g_pbrmat_has_defaults = false;
+// Gpbr-material-props: the authored FAMILY name ("sand", "cut-stone", ...) per material.
+// The engine derives nothing from it — it exists so the load trace says WHICH material class
+// produced the numbers on the same line as the numbers, which is what makes "stone and grass
+// get different relief depths" checkable from a log instead of from an opinion.
+std::unordered_map<std::string, std::string> g_pbrmat_family;
+// Gpbr-material-props — BARE-NAME ALIASES, and this is not a convenience.
+// The table is keyed "<tpage>/<name>" by the ASSET repository, whose tpage is the one the material
+// was authored under. The ENGINE registers the same texture under the tpage it is actually LOADED
+// from, and the two differ for real: measured on one village1 run, 5 of 30 registered materials
+// missed the exact key, and 2 of those 5 are the SAME material under another tpage
+// (village1-vis-alpha/vil-beach-01 against village1-vis-tfrag/vil-beach-01 — the owner's own sand).
+// Without this index they take the identity in SILENCE, which reads exactly like "the file was
+// never loaded".
+// The alias is only created when the bare name is UNIQUE across the whole table: 170 of the 172
+// names are, and the two that are not (vil3-lava-floor, mis-boatwall live under two tpages each)
+// must keep requiring the exact key, or one level's material would bleed into another's. Same rule
+// managed_assets uses for its own bare-name fallback, on purpose — one rule, not two.
+std::unordered_map<std::string, std::string> g_surf_bare;
 
 // Texture-derived capability bits. The loader owns these (a map is either bound or it is not); the
 // file owns everything else. Keeping them in one named constant is what makes the re-stamp on reload
@@ -877,29 +904,52 @@ bool mm_master_active() {
 
 namespace {
 
-std::vector<std::string> mm_tokens(const std::string& line) {
-  std::vector<std::string> out;
-  size_t i = 0;
-  while (i < line.size()) {
-    while (i < line.size() && std::isspace((unsigned char)line[i])) {
-      i++;
-    }
-    size_t start = i;
-    while (i < line.size() && !std::isspace((unsigned char)line[i])) {
-      i++;
-    }
-    if (i > start) {
-      out.push_back(line.substr(start, i - start));
-    }
+// Gpbr-material-props — KEY RESOLUTION, in ONE place, because the two callers do not agree on what
+// they pass and that disagreement was silent.
+//   LoaderStages.cpp:710/716 (LEVEL LOAD) passes `tex.debug_name`         -> a BARE name
+//   mm_params_reload's re-stamp walk passes the registry key              -> "<tpage>/<name>"
+// surfaces.json keys its records "<tpage>/<name>" (the asset repo's tpage). So the level-load path
+// matched NOTHING at all, and the only materials that ever got their properties were the ones that
+// happened to be registered BEFORE a reload — measured: 1 material out of 25 with maps bound in a
+// village1 run. The old text file keyed its blocks by bare name, which is why the same call site
+// used to work; changing the key shape moved the bug into a path with no error.
+// Four steps, in this order:
+//   1. the name as given (a composite key from the re-stamp walk, or a hand-written bare record)
+//   2. its bare part, through the UNIQUE-bare-name index -> the full key the asset repo authored
+//   3. that bare part as a literal key (an external override authored by hand)
+// An ambiguous bare name has no alias, so it can only ever be reached by its exact key.
+std::string surf_resolve_key(const std::string& tex_debug_name, bool* via_alias) {
+  *via_alias = false;
+  if (g_pbrmat_params.find(tex_debug_name) != g_pbrmat_params.end()) {
+    return tex_debug_name;
   }
-  return out;
+  const auto slash = tex_debug_name.rfind('/');
+  const std::string bare =
+      (slash == std::string::npos) ? tex_debug_name : tex_debug_name.substr(slash + 1);
+  const auto alias = g_surf_bare.find(bare);
+  if (alias != g_surf_bare.end()) {
+    *via_alias = (alias->second != tex_debug_name);
+    return alias->second;
+  }
+  return bare;
 }
 
-float mm_to_float(const std::string& s, float def) {
-  try {
-    return std::stof(s);
-  } catch (...) {
-    return def;
+// Logged ONCE per texture name, and it logs the MISSES too — that is the whole point. A material
+// that receives no record renders the identity, which is byte-for-byte what a correctly-working
+// engine renders for a material nobody authored. The two are indistinguishable in the image and in
+// every counter, so the only way to tell "no properties were written for this surface" from "the
+// properties never reached it" is to say so at the moment of resolution.
+void surf_note_apply(const std::string& from, const std::string& key, bool found, bool via_alias) {
+  static std::set<std::string> reported;
+  if (!reported.insert(from).second) {
+    return;
+  }
+  if (found) {
+    const auto fam = g_pbrmat_family.find(key);
+    lg::info("[surfaces] apply {} -> {}{} family={}", from, key, via_alias ? " (via bare-name index)" : "",
+             fam == g_pbrmat_family.end() ? "-" : fam->second);
+  } else {
+    lg::info("[surfaces] apply {} -> NO RECORD, stays at the identity", from);
   }
 }
 
@@ -955,175 +1005,273 @@ void mm_params_reload() {
   g_pbrmat_params.clear();
   g_pbrmat_defaults = PbrMatParams();
   g_pbrmat_has_defaults = false;
+  // Cleared HERE and not only in the catch: a reload that succeeds but no longer names a material
+  // would otherwise keep the family it had last time and print it beside the NEW numbers. A
+  // diagnostic that pairs a stale label with a fresh value is worse than no label, because it is
+  // the line this phase is read from.
+  g_pbrmat_family.clear();
+  g_surf_bare.clear();
 
-  // Same source precedence as physics_chains.txt: an external-pack copy beats the packaged one, so
-  // the owner tunes a text file on the device instead of re-downloading the APK.
-  const char* src_kind = "package";
-  auto path = file_util::get_recharged_assets_dir() / "materials.txt";
-  auto ext_dir = file_util::get_external_recharged_assets_dir();
-  if (ext_dir) {
-    auto ext_path = *ext_dir / "materials.txt";
+  // Gpbr-material-props: the table comes from the ASSET side, never from the game repo. Two
+  // locations, FIRST HIT WINS — see the block comment above for why the override exists.
+  const char* src_kind = "managed";
+  fs::path path;
+  const fs::path managed_path = managed_assets::install_dir() / "surfaces.json";
+  std::string ext_str = "(no external dir)";
+  bool found = false;
+  if (auto ext_dir = file_util::get_external_recharged_assets_dir()) {
+    const fs::path ext_path = *ext_dir / "surfaces.json";
+    ext_str = ext_path.string();
     if (file_util::file_exists(ext_path.string())) {
       path = ext_path;
       src_kind = "external-override";
+      found = true;
     }
   }
-  if (!file_util::file_exists(path.string())) {
-    lg::info("[mm] PARAMSRC=none path={} (modern material stack has no authored materials)",
-             path.string());
+  if (!found && file_util::file_exists(managed_path.string())) {
+    path = managed_path;
+    src_kind = "managed";
+    found = true;
+  }
+  if (!found) {
+    // BOTH paths are printed. "Not found" is only actionable when it says WHERE it looked, and the
+    // two tiers are absent for different reasons (no override pushed vs. no asset pack installed) —
+    // a single path in this line would send the reader to fix the wrong tier.
+    lg::info("[mm] PARAMSRC=none tried={} and {} (modern material stack has no authored materials)",
+             ext_str, managed_path.string());
     return;
   }
   lg::info("[mm] PARAMSRC={} path={}", src_kind, path.string());
 
-  std::string txt;
+  int n_mat = 0, n_unknown = 0;
   try {
-    txt = file_util::read_text_file(path.string());
-  } catch (...) {
-    lg::warn("[mm] materials.txt unreadable at {} — modern stack stays inert", path.string());
-    return;
-  }
-
-  MmParamSet cur;
-  // Gpbr-per-texture-materials: the second half of the block being parsed.
-  PbrMatParams pcur;
-  std::string cur_name;
-  bool cur_is_defaults = false;
-  bool have_block = false;
-  // energy/spec-occlusion default ON inside any block: they are strict quality wins with no artistic
-  // choice attached (they only make the existing specular obey energy conservation and stop it
-  // leaking through the surface), so a minimal three-line block still gets them. `energy 0` /
-  // `specocc 0` turn them back off for an A/B.
-  bool energy_on = true, specocc_on = true, filmic_on = false;
-  int line_no = 0, n_mat = 0, n_unknown = 0;
-
-  auto flush = [&]() {
-    if (!have_block) {
+    const nlohmann::json root = nlohmann::json::parse(file_util::read_text_file(path.string()));
+    if (!root.is_object()) {
+      lg::warn("[mm] surfaces.json at {} is not a JSON object — nothing loaded", path.string());
       return;
     }
-    mm_recompute_flags(&cur, energy_on, specocc_on, filmic_on);
-    if (cur_is_defaults) {
+
+    // A version we do not know is refused outright rather than read key-by-key: a future schema is
+    // free to give an existing key a new meaning, and silently applying it under the old meaning
+    // would be a wrong material rather than a missing one.
+    const int schema_version =
+        (root.contains("schema_version") && root["schema_version"].is_number_integer())
+            ? root["schema_version"].get<int>()
+            : 0;
+    if (schema_version != 1) {
+      lg::warn("[mm] surfaces.json at {}: schema_version={} is not 1 — nothing loaded",
+               path.string(), schema_version);
+      return;
+    }
+
+    // Header echo, emitted straight after the parse and BEFORE any record is installed. The counts
+    // on this line are what the FILE DECLARES; the "[mm] surfaces.json parsed" line below prints
+    // what was actually installed. Side by side they are the free control on a truncated or
+    // half-published table — one number against the other, no extra tooling.
+    const std::string game_name =
+        (root.contains("game") && root["game"].is_string()) ? root["game"].get<std::string>()
+                                                            : std::string("?");
+    const int decl_families =
+        (root.contains("family_count") && root["family_count"].is_number_integer())
+            ? root["family_count"].get<int>()
+            : -1;
+    const int decl_materials =
+        (root.contains("material_count") && root["material_count"].is_number_integer())
+            ? root["material_count"].get<int>()
+            : -1;
+    const bool has_defaults_block = root.contains("defaults") && root["defaults"].is_object();
+    lg::info("[surfaces] schema_version={} game={} families={} materials={} defaults={}",
+             schema_version, game_name, decl_families, decl_materials, has_defaults_block ? 1 : 0);
+
+    // Numbers only. A key holding the wrong JSON type leaves the field at the value it already
+    // holds, which (records start from a fresh struct) is the documented default for that key.
+    auto num = [](const nlohmann::json& v, float def) {
+      return v.is_number() ? v.get<float>() : def;
+    };
+
+    // ONE record -> one MmParamSet + one PbrMatParams + its family name. EVERY key is optional,
+    // and every field is seeded from a default-constructed struct, so a record carrying NONE of
+    // the keys below leaves both structs untouched: the identity. `who` only names the offender
+    // in the warnings.
+    auto read_record = [&](const std::string& who, const nlohmann::json& rec, MmParamSet* out_mm,
+                           PbrMatParams* out_pm, std::string* out_family) {
+      // energy / spec-occlusion default ON inside ANY record: they are strict quality wins with no
+      // artistic choice attached (they only make the existing specular obey energy conservation and
+      // stop it leaking through the surface), so a three-key record still gets them. "energy": 0
+      // and "specocc": 0 turn them off for an A/B. This is the rule the text parser had, unchanged.
+      bool energy_on = true, specocc_on = true, filmic_on = false;
+      for (auto it = rec.begin(); it != rec.end(); ++it) {
+        const std::string& k = it.key();
+        const nlohmann::json& v = it.value();
+        if (k == "family") {
+          // Authoring/tooling metadata. The engine derives NOTHING from it; it is carried only so
+          // the per-material trace can print it (see g_pbrmat_family).
+          if (v.is_string()) {
+            *out_family = v.get<std::string>();
+          }
+        } else if (k == "sss") {
+          if (v.is_array() && v.size() >= 3) {
+            for (int i = 0; i < 3; i++) {
+              out_mm->sss_color[i] = num(v[i], out_mm->sss_color[i]);
+            }
+          }
+        } else if (k == "sss_strength") {
+          out_mm->sss_strength = num(v, out_mm->sss_strength);
+        } else if (k == "sss_thickness") {
+          out_mm->sss_thickness = num(v, out_mm->sss_thickness);
+        } else if (k == "sss_power") {
+          out_mm->sss_power = num(v, out_mm->sss_power);
+        } else if (k == "sss_distort") {
+          out_mm->sss_distort = num(v, out_mm->sss_distort);
+        } else if (k == "sss_wrap") {
+          out_mm->sss_wrap = num(v, out_mm->sss_wrap);
+        } else if (k == "sss_ambient") {
+          out_mm->sss_ambient = num(v, out_mm->sss_ambient);
+        } else if (k == "clearcoat") {
+          out_mm->coat_weight = num(v, out_mm->coat_weight);
+        } else if (k == "clearcoat_rough") {
+          out_mm->coat_rough = num(v, out_mm->coat_rough);
+        } else if (k == "aniso") {
+          out_mm->aniso = num(v, out_mm->aniso);
+        } else if (k == "aniso_angle") {
+          out_mm->aniso_angle = num(v, out_mm->aniso_angle);
+        } else if (k == "energy") {
+          energy_on = num(v, 1.f) != 0.f;
+        } else if (k == "specocc") {
+          specocc_on = num(v, 1.f) != 0.f;
+        } else if (k == "filmic") {
+          filmic_on = num(v, 0.f) != 0.f;
+          // ---- the PBR-PATH knobs. Same record, but these land in out_pm and are NOT behind the
+          // MODERN MATERIALS menu row (see PbrMatParams).
+        } else if (k == "relief") {
+          out_pm->relief = num(v, out_pm->relief);
+        } else if (k == "relief_depth") {
+          out_pm->relief_depth = num(v, out_pm->relief_depth);
+        } else if (k == "relief_lambda") {
+          out_pm->relief_lambda = num(v, out_pm->relief_lambda);
+        } else if (k == "spec") {
+          out_pm->spec = num(v, out_pm->spec);
+        } else if (k == "roughness") {
+          out_pm->rough_nomap = num(v, out_pm->rough_nomap);
+        } else if (k == "roughness_scale") {
+          out_pm->rough_scale = num(v, out_pm->rough_scale);
+        } else if (k == "metallic") {
+          out_pm->metal_nomap = num(v, out_pm->metal_nomap);
+        } else if (k == "metallic_scale") {
+          out_pm->metal_scale = num(v, out_pm->metal_scale);
+        } else if (k == "reflectance") {
+          out_pm->reflectance = num(v, out_pm->reflectance);
+        } else if (k == "normal_y") {
+          // Only the two handedness conventions exist (+1 = OpenGL green-up, -1 = DirectX
+          // green-down). Anything else would be a silent partial flip, so it is refused and
+          // reported, not clamped.
+          const float ny = num(v, 1.f);
+          if (ny == 1.f || ny == -1.f) {
+            out_pm->normal_y = ny;
+          } else {
+            lg::warn("[mm] surfaces.json: {}: normal_y `{}` is neither 1 nor -1 — using 1", who,
+                     v.dump());
+            out_pm->normal_y = 1.f;
+          }
+        } else {
+          n_unknown++;
+          lg::warn("[mm] surfaces.json: {}: unknown key `{}` — skipped", who, k);
+        }
+      }
+      mm_recompute_flags(out_mm, energy_on, specocc_on, filmic_on);
+    };
+
+    // Optional top-level "defaults", same shape as a material record: what a texture nobody named
+    // falls back to (mm_apply_params / pbrmat_apply_params). Absent => un-named stays the identity.
+    if (has_defaults_block) {
+      MmParamSet cur;
+      PbrMatParams pcur;
+      std::string fam;
+      read_record("defaults", root["defaults"], &cur, &pcur, &fam);
       g_mm_defaults = cur;
       g_mm_has_defaults = true;
-      // Gpbr-per-texture-materials: the same block also carries the PBR-path knobs.
       g_pbrmat_defaults = pcur;
       g_pbrmat_has_defaults = true;
-    } else {
-      g_mm_params[cur_name] = cur;
-      g_pbrmat_params[cur_name] = pcur;
-      n_mat++;
-    }
-  };
-
-  size_t pos = 0;
-  while (pos <= txt.size()) {
-    size_t nl = txt.find('\n', pos);
-    std::string line = txt.substr(pos, (nl == std::string::npos) ? std::string::npos : nl - pos);
-    pos = (nl == std::string::npos) ? txt.size() + 1 : nl + 1;
-    line_no++;
-    if (!line.empty() && line.back() == '\r') {
-      line.pop_back();
-    }
-    auto hash = line.find('#');
-    if (hash != std::string::npos) {
-      line = line.substr(0, hash);
-    }
-    auto tok = mm_tokens(line);
-    if (tok.empty()) {
-      continue;
     }
 
-    if (tok[0] == "material" || tok[0] == "[defaults]") {
-      flush();
-      cur = MmParamSet();
-      pcur = PbrMatParams();
-      energy_on = true;
-      specocc_on = true;
-      filmic_on = false;
-      cur_is_defaults = (tok[0] == "[defaults]");
-      cur_name = cur_is_defaults ? std::string() : (tok.size() > 1 ? tok[1] : std::string());
-      have_block = cur_is_defaults || !cur_name.empty();
-      if (!have_block) {
-        lg::warn("[mm] materials.txt:{}: `material` with no name — block ignored", line_no);
+    if (root.contains("materials") && root["materials"].is_object()) {
+      const nlohmann::json& mats = root["materials"];
+      for (auto it = mats.begin(); it != mats.end(); ++it) {
+        if (!it.value().is_object()) {
+          lg::warn("[mm] surfaces.json: material `{}` is not an object — skipped", it.key());
+          continue;
+        }
+        MmParamSet cur;
+        PbrMatParams pcur;
+        std::string fam;
+        read_record(it.key(), it.value(), &cur, &pcur, &fam);
+        // The JSON key IS the engine replacement key "<tpage>/<name>", so it is stored VERBATIM.
+        // The bare-name fallback already lives downstream in mm_apply_params/pbrmat_apply_params;
+        // normalising here as well would give one material two ways to be found and hide which one
+        // matched.
+        g_mm_params[it.key()] = cur;
+        g_pbrmat_params[it.key()] = pcur;
+        if (!fam.empty()) {
+          g_pbrmat_family[it.key()] = fam;
+        }
+        n_mat++;
       }
-      continue;
     }
-    if (!have_block) {
-      lg::warn("[mm] materials.txt:{}: `{}` outside any material block — ignored", line_no, tok[0]);
-      continue;
-    }
-
-    const std::string& k = tok[0];
-    const size_t nv = tok.size() - 1;
-    auto v = [&](size_t i, float def) { return (nv > i) ? mm_to_float(tok[i + 1], def) : def; };
-    if (k == "sss" && nv >= 3) {
-      cur.sss_color[0] = v(0, 1.f);
-      cur.sss_color[1] = v(1, 1.f);
-      cur.sss_color[2] = v(2, 1.f);
-    } else if (k == "sss_strength") {
-      cur.sss_strength = v(0, 0.f);
-    } else if (k == "sss_thickness") {
-      cur.sss_thickness = v(0, 0.5f);
-    } else if (k == "sss_power") {
-      cur.sss_power = v(0, 6.f);
-    } else if (k == "sss_distort") {
-      cur.sss_distort = v(0, 0.2f);
-    } else if (k == "sss_wrap") {
-      cur.sss_wrap = v(0, 0.f);
-    } else if (k == "sss_ambient") {
-      cur.sss_ambient = v(0, 0.25f);
-    } else if (k == "clearcoat") {
-      cur.coat_weight = v(0, 0.f);
-    } else if (k == "clearcoat_rough") {
-      cur.coat_rough = v(0, 0.10f);
-    } else if (k == "aniso") {
-      cur.aniso = v(0, 0.f);
-    } else if (k == "aniso_angle") {
-      cur.aniso_angle = v(0, 0.f);
-    } else if (k == "energy") {
-      energy_on = v(0, 1.f) != 0.f;
-    } else if (k == "specocc") {
-      specocc_on = v(0, 1.f) != 0.f;
-    } else if (k == "filmic") {
-      filmic_on = v(0, 0.f) != 0.f;
-      // ---- Gpbr-per-texture-materials: the PBR-PATH knobs. Same blocks, same parser, but these
-      // land in pcur and are NOT behind the MODERN MATERIALS row (see PbrMatParams).
-    } else if (k == "relief") {
-      pcur.relief = v(0, 1.f);
-    } else if (k == "relief_depth") {
-      pcur.relief_depth = v(0, 1.f);
-    } else if (k == "relief_lambda") {
-      pcur.relief_lambda = v(0, 0.f);
-    } else if (k == "spec") {
-      pcur.spec = v(0, 1.f);
-    } else if (k == "roughness") {
-      pcur.rough_nomap = v(0, 0.9f);
-    } else if (k == "roughness_scale") {
-      pcur.rough_scale = v(0, 1.f);
-    } else if (k == "metallic") {
-      pcur.metal_nomap = v(0, 0.f);
-    } else if (k == "metallic_scale") {
-      pcur.metal_scale = v(0, 1.f);
-    } else if (k == "reflectance") {
-      pcur.reflectance = v(0, 0.04f);
-    } else if (k == "normal_y") {
-      // Only the two handedness conventions exist (+1 = OpenGL green-up, -1 = DirectX green-down).
-      // Anything else would be a silent partial flip, so it is refused and reported, not clamped.
-      const float ny = v(0, 1.f);
-      if (ny == 1.f || ny == -1.f) {
-        pcur.normal_y = ny;
-      } else {
-        lg::warn("[mm] materials.txt:{}: normal_y `{}` is neither 1 nor -1 — using 1", line_no,
-                 tok.size() > 1 ? tok[1] : std::string());
-        pcur.normal_y = 1.f;
-      }
-    } else {
-      n_unknown++;
-      lg::warn("[mm] materials.txt:{}: unknown key `{}` — skipped", line_no, k);
-    }
+  } catch (const std::exception& e) {
+    // A throw anywhere above would leave a HALF-LOADED table, which is worse than an empty one: the
+    // materials past the bad record would silently keep whatever the previous reload installed. So
+    // everything this function fills is wiped, and the engine goes back to the identity.
+    g_mm_params.clear();
+    g_mm_defaults = MmParamSet();
+    g_mm_has_defaults = false;
+    g_pbrmat_params.clear();
+    g_pbrmat_defaults = PbrMatParams();
+    g_pbrmat_has_defaults = false;
+    g_pbrmat_family.clear();
+    g_surf_bare.clear();
+    lg::warn("[mm] surfaces.json at {} could not be read ({}) — nothing loaded, modern stack inert",
+             path.string(), e.what());
+    return;
   }
-  flush();
-  lg::info("[mm] materials.txt parsed: {} material blocks, defaults={}, {} unknown keys", n_mat,
+  lg::info("[mm] surfaces.json parsed: {} material records, defaults={}, {} unknown keys", n_mat,
            g_mm_has_defaults ? 1 : 0, n_unknown);
+
+  // Build the bare-name index. Two passes because a name is only an alias if it is UNIQUE: count
+  // first, then keep the singletons. The ambiguous ones are NAMED in the log rather than dropped
+  // silently — they are the materials that will need an exact tpage match, and a reader chasing a
+  // material that "does not apply" has to be able to see that from here.
+  {
+    std::map<std::string, int> seen;
+    for (const auto& kv : g_pbrmat_params) {
+      const auto slash = kv.first.rfind('/');
+      if (slash != std::string::npos) {
+        seen[kv.first.substr(slash + 1)]++;
+      }
+    }
+    std::vector<std::string> ambiguous;
+    for (const auto& kv : g_pbrmat_params) {
+      const auto slash = kv.first.rfind('/');
+      if (slash == std::string::npos) {
+        continue;
+      }
+      const auto bare = kv.first.substr(slash + 1);
+      if (seen[bare] == 1) {
+        g_surf_bare[bare] = kv.first;
+      }
+    }
+    for (const auto& kv : seen) {
+      if (kv.second > 1) {
+        ambiguous.push_back(kv.first);
+      }
+    }
+    std::string amb_list;
+    for (const auto& a : ambiguous) {
+      amb_list += (amb_list.empty() ? "" : ", ") + a;
+    }
+    lg::info("[surfaces] bare-name index: {} unique aliases, {} ambiguous ({})",
+             (int)g_surf_bare.size(), (int)ambiguous.size(),
+             amb_list.empty() ? std::string("-") : amb_list);
+  }
 
   // Gpbr-per-texture-materials — EXECUTION TRACE, not a comment. This block is the only proof that
   // the file was actually FOUND, READ and turned into numbers on this machine: the values below are
@@ -1139,11 +1287,15 @@ void mm_params_reload() {
     }
     for (const auto& kv : sorted) {
       const PbrMatParams& p = *kv.second;
+      // The family sits next to the numbers on purpose: "sand and cut stone do not get the same
+      // relief depth" is then one grep on this line, not a cross-reference to the asset repo.
+      const auto fam = g_pbrmat_family.find(kv.first);
       lg::info(
-          "[pbrmat] {} relief={:.3f} depth={:.3f} lambda={:.3f} spec={:.3f} rough={:.3f}x{:.3f} "
-          "metal={:.3f}x{:.3f} F0={:.3f} ny={:+.0f}",
-          kv.first, p.relief, p.relief_depth, p.relief_lambda, p.spec, p.rough_nomap, p.rough_scale,
-          p.metal_nomap, p.metal_scale, p.reflectance, p.normal_y);
+          "[pbrmat] {} family={} relief={:.3f} depth={:.3f} lambda={:.3f} spec={:.3f} "
+          "rough={:.3f}x{:.3f} metal={:.3f}x{:.3f} F0={:.3f} ny={:+.0f}",
+          kv.first, fam == g_pbrmat_family.end() ? "-" : fam->second.c_str(), p.relief,
+          p.relief_depth, p.relief_lambda, p.spec, p.rough_nomap, p.rough_scale, p.metal_nomap,
+          p.metal_scale, p.reflectance, p.normal_y);
     }
   }
 
@@ -1152,8 +1304,9 @@ void mm_params_reload() {
   // the master went off).
   for (auto& kv : g_pbr_materials) {
     mm_apply_params(kv.first, &kv.second);
-    // Gpbr-per-texture-materials: the PBR-path knobs are re-stamped on the SAME walk, so an edit to
-    // materials.txt reaches them through the same menu toggle that reloads the modern half.
+    // Gpbr-material-props: the PBR-path knobs are re-stamped on the SAME walk, so a freshly
+    // installed (or pushed) surfaces.json reaches them through the same menu toggle that
+    // reloads the modern half.
     pbrmat_apply_params(kv.first, &kv.second);
   }
 }
@@ -1173,27 +1326,21 @@ void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps) {
     mm_params_reload();
   }
   const MmParamSet* p = nullptr;
-  auto it = g_mm_params.find(tex_debug_name);
-  // MERGE 2026-08-26. The PBR registry is now keyed "<tpage>/<name>" (branch fix: a bare
-  // name let one tpage's registration delete another's maps). materials.txt, however, names
-  // materials by their BARE debug name — and mm_params_reload() re-stamps by walking the
-  // registry, so it hands us the composite key. Without this fallback every authored block
-  // would stop matching on the FIRST reload (menu toggle), silently emptying the modern
-  // stack while the first stamp from the loader still worked: the worst kind of regression,
-  // one that only appears after an interaction.
-  if (it == g_mm_params.end()) {
-    const auto slash = tex_debug_name.rfind('/');
-    if (slash != std::string::npos) {
-      it = g_mm_params.find(tex_debug_name.substr(slash + 1));
-    }
-  }
+  // Same resolution as the PBR half — see surf_resolve_key. The two callers hand us two different
+  // shapes of name (bare at level load, "<tpage>/<name>" on the re-stamp walk) and both must land
+  // on the same record, or the modern layer would apply to a material whose PBR knobs did not.
+  bool via_alias = false;
+  const std::string key = surf_resolve_key(tex_debug_name, &via_alias);
+  (void)via_alias;  // reported once from the PBR half; both halves resolve identically
+  auto it = g_mm_params.find(key);
   if (it != g_mm_params.end()) {
     p = &it->second;
   } else if (g_mm_has_defaults) {
     p = &g_mm_defaults;
   }
   if (!p) {
-    // Not named, no [defaults] block: this material stays exactly as the accepted PBR path built it.
+    // Not named, and no "defaults" record: this material stays exactly as the accepted PBR path
+    // built it.
     // Per-material opt-in means the un-named case has to be the identity, and it is.
     maps->mm_flags = 0;
     return;
@@ -1235,28 +1382,25 @@ void pbrmat_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* map
   // NO GATE, and that is the point. mm_apply_params() returns here when the MODERN MATERIALS menu
   // row is off, because everything it stamps only reaches the shader through u_mm_flags. These
   // knobs drive the PBR path itself, which is on by default — gating them on a row that ships OFF
-  // would make every preset in materials.txt inert while still LOOKING wired.
+  // would make every record of surfaces.json inert while still LOOKING wired.
   if (!g_mm_loaded) {
     mm_params_reload();
   }
   const PbrMatParams* p = nullptr;
-  auto it = g_pbrmat_params.find(tex_debug_name);
-  // Same two-step key resolution as mm_apply_params: the registry is keyed "<tpage>/<name>" while
-  // materials.txt names materials by their BARE debug name, and the re-stamp walk hands us the
-  // composite key. Without the fallback every block would stop matching on the FIRST reload.
-  if (it == g_pbrmat_params.end()) {
-    const auto slash = tex_debug_name.rfind('/');
-    if (slash != std::string::npos) {
-      it = g_pbrmat_params.find(tex_debug_name.substr(slash + 1));
-    }
-  }
+  bool via_alias = false;
+  const std::string key = surf_resolve_key(tex_debug_name, &via_alias);
+  auto it = g_pbrmat_params.find(key);
+  surf_note_apply(tex_debug_name, key, it != g_pbrmat_params.end(), via_alias);
+  // Same two-step key resolution as mm_apply_params: surfaces.json keys its records the way the
+  // registry does ("<tpage>/<name>"), and this fallback catches a record authored with a bare
+  // debug name, which the re-stamp walk (composite key) could never match otherwise.
   if (it != g_pbrmat_params.end()) {
     p = &it->second;
   } else if (g_pbrmat_has_defaults) {
     p = &g_pbrmat_defaults;
   }
   if (!p) {
-    // Nobody named this material and there is no [defaults] block: leave every pm_* field at its
+    // Nobody named this material and there is no "defaults" record: leave every pm_* field at its
     // default, which IS the pre-phase behaviour, and say so.
     maps->pm_authored = false;
     return;

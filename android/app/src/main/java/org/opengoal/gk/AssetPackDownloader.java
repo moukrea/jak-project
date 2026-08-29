@@ -43,6 +43,12 @@ import java.util.List;
  */
 public final class AssetPackDownloader {
     private static final String TAG = "opengoal-gk";
+    /**
+     * Gpbr-material-props: extras this build knows how to install. Anything else is skipped rather
+     * than treated as an error, so a newer release stays installable by an older APK.
+     */
+    private static final java.util.Set<String> KNOWN_EXTRA_KINDS =
+            Collections.singleton("surfaces");
     private static final int CONNECT_TIMEOUT_MS = 20_000;
     private static final int READ_TIMEOUT_MS = 60_000;
     private static final int BUF = 1 << 16;
@@ -155,9 +161,53 @@ public final class AssetPackDownloader {
                 wanted.add(s);
                 totalBytes += s.getLong("size");
             }
-            if (wanted.isEmpty()) {
+            // NOTE (Gpbr-material-props): the "no shards" early return used to sit HERE, before
+            // the extras were even looked at. It is moved below the extras resolution on purpose:
+            // an extra is per-game, never per profile/preset, so a selection that matches no shard
+            // can still owe the surface table. Returning early would have made the properties
+            // silently absent on exactly the configurations that need them most (a device whose
+            // profile/preset combination has no pack). Same fix as AssetCli's plan.up_to_date().
+
+            // ---- resolve the wanted extras -----------------------------------
+            // Small non-shard files installed beside the packs (the per-material surface table).
+            // `extras` is optional: every manifest published so far predates it, so its absence
+            // must change nothing at all. An extra is per-game and per-feature, never per profile
+            // or preset — material properties do not depend on texture size or GPU format.
+            JSONArray allExtras = manifest.optJSONArray("extras");
+            List<JSONObject> wantedExtras = new ArrayList<>();
+            for (int i = 0; allExtras != null && i < allExtras.length(); i++) {
+                JSONObject e = allExtras.optJSONObject(i);
+                if (e == null || !game.equals(e.optString("game"))) {
+                    continue;
+                }
+                JSONArray extraNeeds = e.optJSONArray("requires_features");
+                if (extraNeeds != null && extraNeeds.length() > 0 && !withPbr) {
+                    continue;
+                }
+                if (!KNOWN_EXTRA_KINDS.contains(e.optString("kind"))) {
+                    Log.i(TAG, "managed assets: ignoring extra of unknown kind "
+                            + e.optString("kind"));
+                    continue;
+                }
+                String extraName = e.optString("name");
+                if (extraName.isEmpty() || e.optString("url").isEmpty()
+                        || e.optString("sha256").length() != 64 || e.optLong("size") <= 0) {
+                    Log.w(TAG, "managed assets: skipping extra with missing/bad fields: "
+                            + extraName);
+                    continue;
+                }
+                // Same guard as the shards: this name becomes a path inside the install directory.
+                if (extraName.contains("/") || extraName.contains("\\")
+                        || extraName.contains("..")) {
+                    Log.w(TAG, "managed assets: skipping extra with unsafe name: " + extraName);
+                    continue;
+                }
+                wantedExtras.add(e);
+            }
+
+            if (wanted.isEmpty() && wantedExtras.isEmpty()) {
                 r.skipped = true;
-                r.message = "no shards for " + profile + "/" + preset;
+                r.message = "no shards or extras for " + profile + "/" + preset;
                 return r;
             }
 
@@ -177,6 +227,12 @@ public final class AssetPackDownloader {
                 File f = new File(dir, s.getString("name"));
                 if (!(f.isFile() && f.length() == s.getLong("size"))) {
                     toDownload += s.getLong("size");
+                }
+            }
+            for (JSONObject e : wantedExtras) {
+                File f = new File(dir, e.getString("name"));
+                if (!(f.isFile() && f.length() == e.getLong("size"))) {
+                    toDownload += e.getLong("size");
                 }
             }
             if (toDownload > 0) {
@@ -227,8 +283,55 @@ public final class AssetPackDownloader {
                 r.downloaded++;
             }
 
+            // ---- the extras, under the exact same contract as a shard ---------
+            List<String> installedExtras = new ArrayList<>();
+            for (int i = 0; i < wantedExtras.size(); i++) {
+                JSONObject e = wantedExtras.get(i);
+                String name = e.getString("name");
+                long size = e.getLong("size");
+                File finalFile = new File(dir, name);
+                // Presence by CONTENT, not by size — an extra keeps ONE name across releases
+                // (surfaces.json), unlike a shard whose name carries its content hash. A retuned
+                // table that happens to serialise to the same byte count would otherwise be
+                // judged already-installed and never fetched. 60 KB of SHA-256 is free; a
+                // silently-not-updated material table is not.
+                if (finalFile.isFile() && finalFile.length() == size
+                        && sha256Hex(finalFile).equals(e.getString("sha256"))) {
+                    installedExtras.add(name);
+                    r.kept++;
+                    continue;
+                }
+                if (cancelled != null && cancelled.get()) {
+                    r.message = "cancelled";
+                    return r;  // previous install untouched, staging kept for resume
+                }
+                if (listener != null) {
+                    listener.onProgress(name, i, wantedExtras.size(), done, toDownload);
+                }
+                File part = new File(staging, name);
+                downloadResumable(e.getString("url"), part, size);
+                if (part.length() != size) {
+                    part.delete();
+                    r.message = "size mismatch for " + name;
+                    return r;
+                }
+                if (!sha256Hex(part).equals(e.getString("sha256"))) {
+                    part.delete();
+                    r.message = "sha256 mismatch for " + name;
+                    return r;
+                }
+                if (!part.renameTo(finalFile)) {
+                    r.message = "cannot install " + name;
+                    return r;
+                }
+                done += size;
+                installedExtras.add(name);
+                r.downloaded++;
+            }
+
             // ---- atomic switch, then GC --------------------------------------
             List<String> previous = readInstalledShards(dir);
+            List<String> previousExtras = readStateNames(dir, "extras");
             Collections.sort(installed);
             JSONObject state = new JSONObject();
             state.put("schema_version", 1);
@@ -237,6 +340,10 @@ public final class AssetPackDownloader {
             state.put("preset", preset);
             state.put("verified", true);
             state.put("shards", new JSONArray(installed));
+            // Its own key: the loader opens every name under "shards" as an RPACK, and a JSON file
+            // in there would warn on every scan.
+            Collections.sort(installedExtras);
+            state.put("extras", new JSONArray(installedExtras));
             File tmpState = new File(dir, "state.json.new");
             try (FileOutputStream out = new FileOutputStream(tmpState)) {
                 out.write(state.toString(1).getBytes("UTF-8"));
@@ -248,6 +355,11 @@ public final class AssetPackDownloader {
                 return r;  // the old install is still the current one
             }
             for (String old : previous) {
+                // An extra is not content-addressed: it keeps the same installed name across asset
+                // versions, so a stale entry must never delete the file just installed.
+                if (installedExtras.contains(old) || previousExtras.contains(old)) {
+                    continue;
+                }
                 if (!installed.contains(old) && new File(dir, old).delete()) {
                     r.removed++;
                 }
@@ -348,6 +460,10 @@ public final class AssetPackDownloader {
     }
 
     private static List<String> readInstalledShards(File dir) {
+        return readStateNames(dir, "shards");  // shards only: extras live under their own key
+    }
+
+    private static List<String> readStateNames(File dir, String key) {
         List<String> out = new ArrayList<>();
         File f = new File(dir, "state.json");
         if (!f.isFile()) {
@@ -361,7 +477,7 @@ public final class AssetPackDownloader {
                 bos.write(buf, 0, n);
             }
             JSONArray a = new JSONObject(new String(bos.toByteArray(), "UTF-8"))
-                    .optJSONArray("shards");
+                    .optJSONArray(key);
             for (int i = 0; a != null && i < a.length(); i++) {
                 out.add(a.getString(i));
             }

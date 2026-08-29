@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "common/common_types.h"
+#include "common/util/FileUtil.h"
 #include "common/util/Ktx2Subset.h"
 #include "common/util/RPack.h"
 
@@ -28,6 +29,13 @@ struct CompressedTex {
   std::string channels;    // "rgb"/"rg"/"r" — "rg" normals reconstruct Z in-shader
   rpack::EntryStats stats; // precomputed offline (normal DC, height mean/norm/lambda)
 };
+
+// Gpbr-material-props: where the asset manager installs this game's managed
+// content — RPACK shards AND the small non-shard EXTRAS published beside them
+// (the surface-property table). Exported because the surface reader lives in
+// CustomTextureReplacements.cpp and must not re-derive this path: two copies of
+// a directory rule is how a loader silently reads the wrong tier.
+fs::path install_dir();
 
 // Scan/refresh the installed state. Cheap when nothing changed; call once
 // per level-load batch (add_texture callers are on the GL thread).

@@ -1,0 +1,88 @@
+-- CLASSIFICATION DES 172 MATIERES, LUE SUR L'ALBEDO -------------------------------
+   QUOI. La famille de chaque matiere, decidee en REGARDANT son albedo.png (planches
+   de contact 4x4 a 224 px, puis recadrages centraux 1024 px a 420 px pour les cas
+   ambigus). Le NOM DU FICHIER n'entre dans aucune decision — quatre noms mentent, ils
+   sont listes plus bas. REPERE : aucun ; ce n'est pas une mesure, c'est un classement,
+   et ce qui l'atteste est la phrase `seen_in_albedo` posee a cote de chaque matiere
+   dans le depot d'assets. AVEC LE DEFAUT ABSENT une famille se relit sur l'image ;
+   c'est ce qui permet a quelqu'un d'autre d'etre en desaccord sans tout refaire.
+
+   matieres classees : 172    familles utilisees : 39    familles definies : 40
+
+-- CENSUS PAR FAMILLE ---------------------------------------------------------------
+famille              n  relief depth  spec  rough  metal    F0   sss coat aniso
+rock                28   1.15  1.20  0.90  0.88  0.00  0.040   .    .   0.00
+metal_painted       12   0.90  0.70  1.15  0.55  0.00  0.050   .    y   0.00
+metal_rusty         12   1.15  1.00  0.90  0.80  0.30  0.045   .    .   0.00
+lava_rock           11   1.25  1.30  0.70  0.92  0.00  0.035   .    .   0.00
+wood                10   1.05  0.95  0.95  0.82  0.00  0.042   .    .   0.25
+precursor_alloy      9   1.05  1.05  1.10  0.60  0.55  0.050   .    .   0.00
+lava                 8   0.80  0.55  0.55  0.65  0.00  0.030   .    .   0.00
+metal_bare           8   0.95  0.75  1.35  0.45  0.85  0.040   .    .   0.00
+rock_moss            8   1.15  1.15  0.75  0.92  0.00  0.035   y    .   0.00
+bark                 5   1.30  1.45  0.70  0.93  0.00  0.035   .    .   0.30
+basalt               4   1.20  1.15  0.75  0.90  0.00  0.038   .    .   0.00
+cloth                4   1.10  0.55  0.55  0.95  0.00  0.035   y    .   0.00
+flowstone            4   0.95  0.90  1.30  0.60  0.00  0.052   .    y   0.00
+foliage              4   1.10  1.15  0.90  0.90  0.00  0.040   y    .   0.00
+gravel               4   1.25  1.50  0.85  0.90  0.00  0.038   .    .   0.00
+shell                3   0.90  0.65  1.30  0.42  0.00  0.052   .    y   0.00
+stone_carved         3   1.10  1.10  1.00  0.78  0.00  0.045   .    .   0.00
+straw                3   1.30  1.40  0.80  0.85  0.00  0.040   y    .   0.40
+bone                 2   1.00  0.85  1.00  0.70  0.00  0.045   y    .   0.00
+coral                2   1.20  1.25  0.85  0.85  0.00  0.040   y    .   0.00
+dirt                 2   1.05  0.95  0.65  0.95  0.00  0.031   .    .   0.00
+fur                  2   1.10  0.85  0.60  0.92  0.00  0.035   y    .   0.20
+glass                2   0.30  0.05  1.70  0.10  0.00  0.045   y    y   0.00
+ice                  2   0.55  0.30  1.60  0.18  0.00  0.018   y    y   0.00
+leather              2   1.05  0.70  1.00  0.75  0.00  0.045   .    .   0.00
+metal_precious       2   0.90  0.80  1.45  0.35  1.00  0.040   .    .   0.00
+mud                  2   1.00  0.90  1.15  0.72  0.00  0.045   .    .   0.00
+stone_cut            2   1.20  1.25  1.00  0.75  0.00  0.050   .    y   0.00
+stone_dressed        2   0.90  0.70  1.05  0.72  0.00  0.048   .    .   0.00
+ceramic              1   0.80  0.65  1.35  0.30  0.00  0.055   .    y   0.00
+crystal              1   0.70  0.45  1.60  0.15  0.00  0.080   y    y   0.00
+eggsac               1   0.95  0.75  1.10  0.55  0.00  0.045   y    y   0.00
+flesh                1   0.95  0.70  0.85  0.78  0.00  0.028   y    .   0.00
+grass                1   1.15  0.55  0.95  0.88  0.00  0.038   y    .   0.30
+rock_wet             1   1.15  1.15  1.20  0.80  0.00  0.050   .    y   0.00
+rubber               1   0.95  0.75  0.85  0.65  0.00  0.045   .    .   0.00
+sand                 1   1.00  0.80  0.70  0.95  0.00  0.030   .    .   0.00
+snow                 1   0.85  0.60  0.80  0.85  0.00  0.030   y    .   0.00
+web                  1   0.90  0.40  1.10  0.55  0.00  0.040   y    .   0.35
+
+   famille definie et NON UTILISEE par les 172 : ['plaster']
+   (elle sert la matiere `vil-wallplaster`, presente dans le dossier de depot local du
+    jeu mais PAS parmi les 172 du depot d'assets — dit en clair dans le rapport)
+
+-- LES DECISIONS, MATIERE PAR MATIERE, AVEC CE QUI A ETE VU -------------------------
+ 1. beach-vis-pris/mayor-pants                   -> cloth            purple woven fabric, the weave visible as a regular diagonal
+ 2. beach-vis-pris/worm-body                     -> flesh            blue-and-tan segmented body with soft tissue folds
+ 3. beach-vis-tfrag/bch-outpostwall              -> stone_cut        grey blocks with mortar joints and moss in the recessed lines — masonry, not a natural face
+ 4. beach-vis-tfrag/bch-sages-strawroof-01       -> straw            loose golden stalks lying across each other, no mineral structure at all
+ 5. beach-vis-tfrag/mis-metalrivets              -> metal_bare       flat dark grey plates with domed rivets and clean machined edges
+ 6. citadel-vis-pris/citbun-body                 -> fur              dense blue hair lying in one direction with no surface underneath
+ 7. citadel-vis-tfrag/cit-temp-precursor-plain   -> metal_rusty      uniform rust-orange field with green oxide patches and pitting (zoom): corroded metal
+ 8. citadel-vis-tfrag/cit-wires-lotweak          -> rubber           round coloured tubes with regular ribbing and a plastic sheen — cable sheathing
+ 9. darkcave-vis-pris/spideregg-01               -> eggsac           golden sacs with light visibly coming from inside, no reflected highlight
+10. maincave-vis-tfrag/cv-webbase                -> web              white strands crossing over a ground plane, the strands themselves are the surface
+11. misty-vis-tfrag/mis-bone-break               -> bone             cream porous body with small round pits and hairline cracks
+12. robocave-vis-tfrag/cv-wall-tube-02           -> rock             cracked olive-brown rock face with mineral fissures (zoom), no woody grain
+13. snow-vis-shrub/snow-icewall-01               -> ice              blue banded striations with a glassy, near-mirror surface
+14. sunken-vis-alpha/sun-glass                   -> glass            flat translucent cyan panel, no relief of any kind
+15. sunken-vis-shrub/sun-coral-sponge-01         -> coral            pink porous colony with yellow polyps standing proud of it
+16. sunkenb-vis-pris/sun-helix-but-01            -> metal_precious   polished yellow-gold spiral with a mirror highlight and dark inlay
+17. training-vis-tfrag/tra-grass                 -> grass            individual green blades pointing in one direction, not a continuous surface
+18. village1-vis-tfrag/vil-beach-01              -> sand             even fine-grained tan field, ripples only, no discrete stones
+19. village3-vis-tfrag/vil3-cave-groundcrystal   -> crystal          faceted cyan prisms with flat mirror faces standing off a pebble bed
+20. village3-vis-tfrag/vil3-hutwall              -> ceramic          pale teal swirled relief with gold beading under a glassy fired glaze (zoom)
+
+-- LES QUATRE NOMS QUI MENTENT (pourquoi la deduction par le nom est interdite) ------
+   cit-temp-precursor-plain         nom suggere -> classe metal_rusty
+       vu : uniform rust-orange field with green oxide patches and pitting (zoom): corroded metal
+   mis-metalshingle                 nom suggere -> classe metal_rusty
+       vu : (n/a)
+   cv-wall-tube-02                  nom suggere -> classe rock
+       vu : cracked olive-brown rock face with mineral fissures (zoom), no woody grain
+   vil3-hutwall                     nom suggere -> classe ceramic
+       vu : pale teal swirled relief with gold beading under a glassy fired glaze (zoom)

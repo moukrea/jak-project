@@ -127,10 +127,11 @@ struct PbrMaterialMaps {
   // stays true per material and not just globally.
   //
   // The eight fields above are all MEASURED from the PNGs at load. These are AUTHORED: they are
-  // read from `recharged_assets/materials.txt` (see mm_params_reload), because a scattering colour
-  // or a coat weight is an artistic decision about the surface, not a statistic of its texture. The
-  // file lives in the EXTERNAL asset pack, so tuning it costs the owner a kilobyte, never a 581 MB
-  // APK — the same rule physics_chains.txt follows.
+  // read from `surfaces.json` (see mm_params_reload), because a scattering colour or a coat weight
+  // is an artistic decision about the surface, not a statistic of its texture. That file is
+  // authored in the ASSET repository and installed under managed_assets/<game>/, never shipped in
+  // the APK (owner, 2026-08-29), with an external-dir copy taking precedence so re-tuning costs a
+  // kilobyte push instead of a 581 MB APK.
   u32 thickness_tex = 0;  // <tex>_thickness.png — 1 = thin/translucent, 0 = optically thick
   // TRUE when this material's occlusion/roughness/metallic were unpacked from one _orm.png. Kept as
   // its own field rather than as a bit inside mm_flags because mm_flags is REBUILT from scratch on
@@ -141,7 +142,7 @@ struct PbrMaterialMaps {
   u32 mm_flags = 0;  // capability bits, see pbr_modern_uniforms.glsl (1 sss, 2 coat, 4 aniso,
                      // 8 energy, 16 spec-occlusion, 32 thickness map, 64 filmic, 128 ORM).
                      // Derived, never authored directly: mm_apply_params() rebuilds it from the
-                     // materials.txt block ORed with the texture-derived bits it recomputes from
+                     // surfaces.json record ORed with the texture-derived bits it recomputes from
                      // thickness_tex / orm_packed.
   float sss_color[3] = {1.f, 1.f, 1.f};  // scattering colour, LINEAR
   float sss_strength = 0.f;
@@ -160,9 +161,9 @@ struct PbrMaterialMaps {
   // MATERIALS : relief, rugosite, metallicite, reflectance et le signe du canal vert de la normal
   // map sont les parametres du chemin PBR, qui est actif par defaut. Les mettre derriere une ligne
   // eteinte par defaut rendrait tout preset INERTE — le defaut « unite feature-gatee ».
-  // CHAQUE DEFAUT CI-DESSOUS EST L'IDENTITE : un materiau sans bloc dans materials.txt rend
-  // exactement ce qu'il rendait avant cette phase (les multiplicateurs valent 1, et les valeurs
-  // absolues reproduisent au bit pres les constantes que le shader portait en dur).
+  // CHAQUE DEFAUT CI-DESSOUS EST L'IDENTITE : un materiau sans enregistrement dans surfaces.json
+  // rend exactement ce qu'il rendait avant cette phase (les multiplicateurs valent 1, et les
+  // valeurs absolues reproduisent au bit pres les constantes que le shader portait en dur).
   float pm_relief = 1.f;          // multiplie la force de la normal map (globale x celui-ci)
   float pm_relief_depth = 1.f;    // multiplie la profondeur parallaxe/displacement
   float pm_relief_lambda = 0.f;   // > 0 remplace la longueur d'onde MESUREE height_lambda_tiles
@@ -173,7 +174,7 @@ struct PbrMaterialMaps {
   float pm_metal_scale = 1.f;     // multiplie la _metallic liee
   float pm_reflectance = 0.04f;   // F0 dielectrique (la constante 0.04 du shader)
   float pm_normal_y = 1.f;        // +1 = normal maps vert-en-haut (OpenGL), -1 = vert-en-bas (DX)
-  bool pm_authored = false;       // un bloc de materials.txt a nomme ce materiau
+  bool pm_authored = false;       // un enregistrement de surfaces.json a nomme ce materiau
 
   // Grecharged-managed-assets: the normal map came from a GPU-compressed pack and stores only
   // X/Y (BC5 / EAC RG11 / ASTC two-channel). Sets u_pbr_mode bit 128 so the shader rebuilds Z.
@@ -181,19 +182,23 @@ struct PbrMaterialMaps {
   bool normal_is_rg = false;
 };
 
-// ===== Grecharged-materials-modern-parity — materials.txt ==========================================
-// Per-material AUTHORED parameters, parsed from `recharged_assets/materials.txt` with the same
-// source precedence physics_chains.txt uses (external pack overrides the packaged copy, so a tuning
-// edit is a file push and never a rebuild). Format, one block per material:
+// ===== Gpbr-material-props — surfaces.json =========================================================
+// Per-material AUTHORED parameters. The table is authored in the ASSET repository and published as
+// a release extra, so the GAME repo (and therefore the APK) carries none of it. Two sources, first
+// hit wins: <external recharged assets dir>/surfaces.json (the owner's kilobyte-push override) then
+// managed_assets/<game>/surfaces.json (what the asset manager installed). Shape:
 //
-//     material vil1-sages-strawroof-01
-//       sss 0.92 0.78 0.42        # scattering colour, linear rgb
-//       sss_strength 1.0
-//       clearcoat 0.15
+//     { "schema_version": 1, "game": "jak1",
+//       "families": { ... },            // authoring/tooling only, the engine ignores it
+//       "defaults": { ... },            // optional, same shape as a material record
+//       "materials": {
+//         "village1-vis-tfrag/vil-beach-01": {
+//            "family": "sand", "relief_depth": 0.8, "roughness": 0.95, ... } } }
 //
-// `[defaults]` instead of a material name declares a block applied to EVERY material that carries
-// PBR maps and has no explicit block of its own — the one-line way to see the whole stack at once.
-// Unknown keys are reported and skipped, never fatal.
+// Keys are the engine replacement key "<tpage>/<name>". EVERY property key is optional and an
+// absent one leaves the field at its struct default, which is the identity — so an empty record and
+// no record at all behave the same. `defaults` applies to every material that carries PBR maps and
+// is not named. A schema_version other than 1 loads NOTHING; unknown keys are reported and skipped.
 //
 // mm_params_reload() re-reads the file and bumps the generation counter; it is called at first use
 // and whenever the MODERN MATERIALS menu row is toggled (kmachine's pc_set_modern_materials).
@@ -212,14 +217,14 @@ void mm_request_params_reload();
 // GL THREAD ONLY. Performs a pending re-read, if one was requested. Called once per frame from
 // PbrDrawBinder::begin(), which is already the GL-thread entry point for everything PBR.
 void mm_service_reload();
-// GL THREAD ONLY. Re-read materials.txt and re-stamp every registered material now.
+// GL THREAD ONLY. Re-read surfaces.json and re-stamp every registered material now.
 void mm_params_reload();
-// Stamp the authored parameters (and the [defaults] fallback) onto a freshly-built material. Called
+// Stamp the authored parameters (and the "defaults" fallback) onto a freshly-built material. Called
 // by the loader right before register_pbr_material(). No-op when the modern master is off, which is
 // what keeps an un-toggled build bit-identical.
 void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
 // Gpbr-per-texture-materials. Stamp the PBR-path material knobs (pm_* above) from the SAME
-// materials.txt blocks. Called from the same two sites as mm_apply_params — but with NO gate: the
+// surfaces.json records. Called from the same two sites as mm_apply_params — but with NO gate: the
 // PBR path is on by default, so gating these on the MODERN MATERIALS menu row would make every
 // preset inert. Parses the file on first use if nobody has yet. A material the file does not name
 // keeps the pm_* defaults, which ARE the pre-phase behaviour.

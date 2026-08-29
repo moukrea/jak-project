@@ -15,6 +15,11 @@
 
 namespace managed_assets {
 
+fs::path install_dir() {
+  return file_util::get_jak_project_dir() / "managed_assets" /
+         game_version_names[g_game_version];
+}
+
 namespace {
 
 // GL internal formats for the KTX2 subset (values are core GL/GLES enums;
@@ -69,8 +74,7 @@ struct State {
 } g_state;
 
 fs::path state_dir() {
-  return file_util::get_jak_project_dir() / "managed_assets" /
-         game_version_names[g_game_version];
+  return install_dir();
 }
 
 bool gate_on() {

@@ -353,8 +353,19 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     load_map("specular", &maps.specular_tex);
     load_map("emissive", &maps.emissive_tex);
     if (any) {
-      auto prev = custom_tex::register_pbr_material(
-          custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name), maps);
+      // Gpbr-material-props: stamp the AUTHORED half HERE too. This is the MANAGED-pack path, and
+      // until this line it was the only registration site that never called them — so every one of
+      // the 172 materials the asset pack ships arrived with its maps and WITHOUT its properties.
+      // It did not look broken: the re-stamp walk at the end of mm_params_reload() covers whatever
+      // is already in the registry, so the handful of materials registered BEFORE the first reload
+      // got their record and every one after it silently took the identity. Measured on a village1
+      // run before this line existed: 25 materials bound maps, ONE reached a draw with authored
+      // knobs. An un-authored material renders exactly like a correctly-authored default, which is
+      // why nothing anywhere reported a problem.
+      const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
+      custom_tex::mm_apply_params(mat_key, &maps);
+      custom_tex::pbrmat_apply_params(mat_key, &maps);
+      auto prev = custom_tex::register_pbr_material(mat_key, maps);
       // thickness_tex is OURS (post-dating this branch's base) and is a real GL id: the
       // managed path never loads a _thickness map, but a previous PNG-path registration
       // under the same key may have left one, so it belongs in the free list.
@@ -704,23 +715,27 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       }
       // Grecharged-materials-modern-parity: stamp the AUTHORED half of the material on last, after
       // every measured statistic and after the test pattern has had its say. It is a no-op unless
-      // the MODERN MATERIALS master is up AND materials.txt names this texture (or ships a
+      // the MODERN MATERIALS master is up AND surfaces.json names this texture (or ships a
       // [defaults] block), and it clears mm_flags to 0 in every other case — so a material nobody
       // authored reaches the renderer exactly as the accepted PBR path built it.
-      custom_tex::mm_apply_params(tex.debug_name, &maps);
+      // Gpbr-material-props: the COMPOSITE key, like the managed path above and like the registry.
+      // This site used to pass the bare name, which worked only because the old text file keyed its
+      // blocks that way. One key shape at every call site, and surf_resolve_key still recovers a
+      // bare-name record for a hand-written external override.
+      const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
+      custom_tex::mm_apply_params(mat_key, &maps);
       // Gpbr-per-texture-materials: and the PBR-path half of the same block — relief, roughness,
       // metallicity, reflectance, normal-map handedness. Deliberately NOT gated on the MODERN
       // MATERIALS row (see pbrmat_apply_params): the PBR path is on by default, so a gate there
       // would make every preset inert. Un-named material => the pm_* defaults, which are the
       // identity.
-      custom_tex::pbrmat_apply_params(tex.debug_name, &maps);
+      custom_tex::pbrmat_apply_params(mat_key, &maps);
       // Overwrite registry; free any stale GL ids from a prior level load of the same name.
       // Key on "<tpage>/<name>" (branch fix): two textures can share a bare name across
       // tpages, and a bare-name registry let the second registration delete the first
       // material's GL ids out from under it. thickness_tex is OURS and stays in the free
       // list — it is a real GL id and dropping it here would leak one texture per reload.
-      auto prev = custom_tex::register_pbr_material(
-          custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name), maps);
+      auto prev = custom_tex::register_pbr_material(mat_key, maps);
       GLuint old_ids[8] = {prev.normal_tex,   prev.rough_tex,    prev.metal_tex,
                            prev.ao_tex,       prev.height_tex,   prev.specular_tex,
                            prev.emissive_tex, prev.thickness_tex};

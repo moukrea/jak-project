@@ -5,8 +5,11 @@
 # instrument that already exists. So this reuses .autoport/pbr_device_capture.sh's `run` stage
 # verbatim for the warp+record and adds only the four checks this phase actually owes:
 #   1. FRESHNESS  — the APK on the device is the one just built (flag marker + the new FFI symbol).
-#   2. EXTERNAL   — materials.txt is read from the EXTERNAL pack, not the packaged copy, because a
-#                   tuning edit has to cost a kilobyte and not a 581 MB APK.
+#   2. EXTERNAL   — surfaces.json is read from the EXTERNAL dir, not from the installed asset
+#                   pack, because a tuning edit has to cost a kilobyte and not a 581 MB APK.
+#                   (Gpbr-material-props: the file used to be recharged_assets/materials.txt
+#                   shipped INSIDE the APK. The owner ruled that out — the properties now ride
+#                   the asset release. So this leg also asserts the APK ships ZERO copy.)
 #   3. ACTIVE     — the modern chunk really executed on device: per-channel draw counters, not a
 #                   screenshot somebody has to squint at. No visual measurement (permanently banned).
 #   4. OFF==STOCK — the same boot with the master off registers ZERO opted-in materials and ZERO
@@ -43,7 +46,7 @@ stage_deploy() {
   # FEATURE-STALE GUARD, at the artifact and not at the run: a marker can be identical across two
   # builds of the same flag set, so also require the SYMBOLS this phase adds. If either is missing
   # the APK predates this work no matter what the marker says.
-  for sym in pc-set-modern-materials! u_mm_flags tex_PBR_TH materials.txt; do
+  for sym in pc-set-modern-materials! u_mm_flags tex_PBR_TH surfaces.json; do
     n=$(strings /tmp/mm_apk_libgk.so | grep -cF "$sym" || true)
     [ "${n:-0}" -ge 1 ] || die "APK libgk lacks '$sym' — stale build"
     say "  APK libgk carries '$sym' (x$n)"
@@ -60,8 +63,11 @@ stage_deploy() {
   if [ -s /tmp/mm_custom.zip ]; then
     n=$(unzip -l /tmp/mm_custom.zip | grep -c '_orm\.png' || true)
     say "  APK custom pack ships $n _orm.png file(s)"
-    n=$(unzip -l /tmp/mm_custom.zip | grep -c 'recharged_assets/materials.txt' || true)
-    say "  APK custom pack ships materials.txt: $n"
+    # INVERTED on purpose (Gpbr-material-props): the properties must NOT be in the app. A copy
+    # here would be a second source of truth that wins or loses by loader tier order.
+    n=$(unzip -l /tmp/mm_custom.zip | grep -cE 'recharged_assets/(materials\.txt|surfaces\.json)' || true)
+    say "  APK custom pack ships a material-property file: $n (MUST be 0)"
+    [ "${n:-0}" -eq 0 ] || die "the APK still carries a material-property file — owner 2026-08-29: they belong to the asset repo, not the APK"
   fi
   rm -f /tmp/mm_custom.zip
 
@@ -75,12 +81,21 @@ stage_deploy() {
   adbs install -r -d "$APK" >/dev/null 2>&1 || die "adb install failed"
   say "install ok"
 
-  # EXTERNAL-PACK PROOF. Push materials.txt to the external dir with a MARKER COMMENT that exists
-  # in no packaged copy, so the log line naming the source cannot be satisfied by the APK's own file.
+  # EXTERNAL-OVERRIDE PROOF. JSON has no comments, so the marker is a VALUE nobody else could
+  # produce: one material's relief is set to 7.777 and the device must PRINT 7.777 back on its
+  # own [pbrmat] line. That is strictly stronger than the comment marker this used to push — a
+  # comment proves a file was opened, a changed number proves it was parsed AND applied.
   adbs shell mkdir -p "$EXT" </dev/null
-  sed '1i # EXTERNAL-OVERRIDE-MARKER mm-device-proof' recharged_assets/materials.txt > /tmp/mm_materials.txt
-  adbs push /tmp/mm_materials.txt "$EXT/materials.txt" >/dev/null || die "push materials.txt failed"
-  say "pushed materials.txt -> $EXT (external override, with marker)"
+  SRC=$(adbs shell "run-as $PKG cat files/managed_assets/jak1/surfaces.json" </dev/null 2>/dev/null)
+  [ -n "$SRC" ] || die "no installed surfaces.json on device — run the asset download first"
+  printf '%s' "$SRC" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+k='village1-vis-tfrag/vil-beach-01'
+d['materials'][k]['relief']=7.777
+json.dump(d,sys.stdout,separators=(',',':'),sort_keys=True)" > /tmp/mm_surfaces.json || die "cannot mark surfaces.json"
+  adbs push /tmp/mm_surfaces.json "$EXT/surfaces.json" >/dev/null || die "push surfaces.json failed"
+  say "pushed surfaces.json -> $EXT (external override, vil-beach-01 relief=7.777)"
 }
 
 leg() {  # $1 = on|off
@@ -106,8 +121,10 @@ stage_harvest() {
     [ -f "$L" ] && {
       grep -a '\[mm\] PARAMSRC' "$L" | tail -2 | sed 's/^/  /' | tee -a "$PROOF" >/dev/null
       grep -a '\[mm\] PARAMSRC' "$L" | tail -2 | sed 's/^/  /'
-      grep -a '\[mm\] materials.txt parsed' "$L" | tail -1 | sed 's/^/  /' | tee -a "$PROOF" >/dev/null
-      grep -a '\[mm\] materials.txt parsed' "$L" | tail -1 | sed 's/^/  /'
+      grep -a '\[mm\] surfaces.json parsed' "$L" | tail -1 | sed 's/^/  /' | tee -a "$PROOF" >/dev/null
+      grep -a '\[mm\] surfaces.json parsed' "$L" | tail -1 | sed 's/^/  /'
+      say "  external-override marker (vil-beach-01 relief=7.777): $(grep -ca 'vil-beach-01 family=sand relief=7.777' "$L" || true)"
+      grep -a '\[surfaces\]' "$L" | tail -1 | sed 's/^/  /'
       say "  ORM unpack lines: $(grep -ca 'pbr ORM unpack' "$L" || true)"
       grep -a 'pbr ORM unpack' "$L" | tail -1 | sed 's/^/  /'
       say "  pbr binding lines with mm_flags!=0: $(grep -a 'pbr binding' "$L" | grep -cav 'mm_flags=0x0 ' || true)"

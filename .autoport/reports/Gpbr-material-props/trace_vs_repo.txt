@@ -1,0 +1,56 @@
+-- LA TRACE D'EXECUTION CONTRE LA TABLE DU DEPOT, MATIERE PAR MATIERE ---------------
+   QUOI. Une comparaison de VALEURS entre ce que le depot d'assets publie et ce que le
+   moteur a REELLEMENT range en memoire, relu depuis la carte parsee (les lignes
+   `[pbrmat] <cle> family=... relief=...` sont imprimees en relisant g_pbrmat_params,
+   donc une valeur qui n'a pas atteint le parseur ne peut pas s'y imprimer).
+   REPERE : aucun ; c'est une egalite de nombres. AVEC LE DEFAUT ABSENT les 172 x 10
+   comparaisons sont EGALES et les deux comptes valent 172. Un fichier a moitie lu se
+   verrait par un compte plus petit ; un fichier lu et mal range, par un ecart.
+
+   enregistrements publies par le depot : 172
+   enregistrements imprimes par le moteur : 172
+   comparaisons faites : 1720
+   ECARTS : 0
+
+-- CENSUS PAR FAMILLE : DEPOT vs TRACE ----------------------------------------------
+   famille             depot  trace
+   rock                   28     28
+   metal_painted          12     12
+   metal_rusty            12     12
+   lava_rock              11     11
+   wood                   10     10
+   precursor_alloy         9      9
+   lava                    8      8
+   metal_bare              8      8
+   rock_moss               8      8
+   bark                    5      5
+   basalt                  4      4
+   cloth                   4      4
+   flowstone               4      4
+   foliage                 4      4
+   gravel                  4      4
+   shell                   3      3
+   stone_carved            3      3
+   straw                   3      3
+   bone                    2      2
+   coral                   2      2
+   dirt                    2      2
+   fur                     2      2
+   glass                   2      2
+   ice                     2      2
+   leather                 2      2
+   metal_precious          2      2
+   mud                     2      2
+   stone_cut               2      2
+   stone_dressed           2      2
+   ceramic                 1      1
+   crystal                 1      1
+   eggsac                  1      1
+   flesh                   1      1
+   grass                   1      1
+   rock_wet                1      1
+   rubber                  1      1
+   sand                    1      1
+   snow                    1      1
+   web                     1      1
+   TOTAL                 172    172

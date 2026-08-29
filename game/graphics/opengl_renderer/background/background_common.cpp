@@ -841,9 +841,17 @@ static const PbrMatUniformLocs& pbr_mat_uniform_locs(GLuint program) {
 // while no uniform does. So the distinct (relief, depth, spec, rough, F0) sets actually PUSHED are
 // collected PER DRAW PASS — the vector is cleared by PbrDrawBinder::begin() — and the high-water
 // mark is logged. Two or more entries in one pass IS the measurement; one entry would mean every
-// material is receiving the same numbers whatever materials.txt says.
+// material is receiving the same numbers whatever the surface table says.
 std::vector<std::array<float, 5>> g_pbrmat_pass_sets;
 size_t g_pbrmat_logged_hwm = 0;
+// Gpbr-material-props — the RUN-WIDE census, beside the per-pass one, and it exists because the
+// per-pass mark cannot answer this phase's question. A pass only ever sees what the camera happened
+// to FRAME, so its high-water mark under-counts by construction: with 25 materials binding maps in
+// this level it read 2, and that 2 is a property of where the camera stood, not of the material
+// table. This set is never cleared, so every distinct knob set that ever reached a draw is logged
+// ONCE with the uniform values it produced. Still one level and one run — a material drawn here is
+// in the scene — but no longer hostage to a viewpoint.
+std::vector<std::array<float, 5>> g_pbrmat_run_sets;
 
 static void pbr_push_material_uniforms(GLuint program, const custom_tex::PbrMaterialMaps* maps) {
   const auto& l = pbr_mat_uniform_locs(program);
@@ -884,6 +892,17 @@ static void pbr_push_material_uniforms(GLuint program, const custom_tex::PbrMate
           g_pbr_glob_spec * spec);
     }
   }
+  if (std::find(g_pbrmat_run_sets.begin(), g_pbrmat_run_sets.end(), k) ==
+      g_pbrmat_run_sets.end()) {
+    g_pbrmat_run_sets.push_back(k);
+    lg::info(
+        "[pbrmat-run] distinct knob set #{} reached a draw: relief={:.3f} depth={:.3f} "
+        "spec={:.3f} rough={:.3f} F0={:.3f} -> u_pbr_normal_strength={:.4f} "
+        "u_pbr_height_scale={:.5f} u_pbr_spec_intensity={:.4f}",
+        g_pbrmat_run_sets.size(), k[0], k[1], k[2], k[3], k[4],
+        g_pbr_glob_normal_strength * relief, g_pbr_glob_height_scale * depth,
+        g_pbr_glob_spec * spec);
+  }
 }
 
 }  // namespace
@@ -892,7 +911,7 @@ static void pbr_push_material_uniforms(GLuint program, const custom_tex::PbrMate
 // local to TFragment's loop; Tie3 now uses the same code so replaced TIE textures get
 // the BRDF, not just the albedo). Byte-identical behavior to the original lambda.
 void PbrDrawBinder::begin(GLuint program, const PbrDrawList* draws) {
-  // Grecharged-materials-modern-parity: service a pending materials.txt re-read HERE, on the GL
+  // Grecharged-materials-modern-parity: service a pending surfaces.json re-read HERE, on the GL
   // thread. The request comes from the GOAL kernel thread (the MODERN MATERIALS menu row), and the
   // re-read walks the same material registry a level load writes into — parsing it where the
   // request arrives would be a two-thread mutation of one std::unordered_map. This is the PBR
@@ -1018,7 +1037,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
         }
         m_cur_lambda = clam;
       }
-      // Gpbr-per-texture-materials: the debug checker is a SYNTHETIC material that materials.txt
+      // Gpbr-per-texture-materials: the debug checker is a SYNTHETIC material that surfaces.json
       // does not name, so it takes the identity knobs — same rule as the zeroed DC / identity height
       // stats just above. Without this the checker would inherit the relief and roughness of
       // whatever real material the previous draw bound, and the browser's A/B would read a mixture.
@@ -1161,7 +1180,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   // each, so scaling the depth by the tile would build metre-tall hills; scaling it by the feature
   // wavelength keeps the relief at feature scale. Identity 0.25 when the draw has no height map, so
   // a map-free draw can never inherit the previous material's wavelength (same rule as the hstat).
-  // Gpbr-per-texture-materials: an AUTHORED wavelength (materials.txt `relief_lambda`, > 0) replaces
+  // Gpbr-per-texture-materials: an AUTHORED wavelength (surfaces.json `relief_lambda`, > 0) replaces
   // the MEASURED one. The measured field is left untouched so the re-stamp on the next reload does
   // not destroy it — the override lives only in what is pushed.
   const float lam = (want & 16) ? ((maps->pm_relief_lambda > 0.f) ? maps->pm_relief_lambda

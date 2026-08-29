@@ -1,0 +1,46 @@
+-- AVANT / APRES : COMBIEN DE MATIERES SONT REELLEMENT DECRITES --------------------
+   QUOI. Un COMPTE d'enregistrements de matiere, pas une amplitude. AVANT = les blocs
+   `material <nom>` du fichier livre par la phase precedente (git show HEAD:...).
+   APRES = les cles de `materials` dans la table livree par le depot d'assets.
+   AVEC LE DEFAUT ABSENT (aucune propriete authoree) le compte AVANT vaudrait 0 ; il
+   valait 7, ce qui est le point : la phase precedente avait construit le chemin et
+   n'avait decrit que 4 % du jeu de matieres.
+
+   AVANT (recharged_assets/materials.txt, DANS jak-project) : 7 blocs
+       material vil1-sages-strawroof-01
+       material vil1-jng-leafyground
+       material vil-hut-roof-tile-01
+       material vil1-sages-stonewall-01
+       material vil-beachrock
+       material vil-wallplaster
+       material vil-beach-01
+
+   APRES (surfaces.json, depot d'assets -> managed_assets/jak1/) : 172 enregistrements
+   rapport = x24.57
+
+   RECOUVREMENT. 4 des 7 anciennes matieres font partie des 172 (vil1-sages-stonewall-01,
+   vil1-sages-strawroof-01, vil-beach-01, vil-beachrock) et gardent leurs valeurs AU
+   CHIFFRE PRES : les familles stone_cut / straw / sand / rock_wet ont ete calees sur
+   elles, pour que rien de ce que l'owner a deja regarde ne bouge.
+   LES 3 AUTRES (vil1-jng-leafyground, vil-hut-roof-tile-01, vil-wallplaster) ne sont PAS
+   dans le jeu de 172 du depot d'assets — ni comme matiere, ni comme placement (verifie
+   dans metadata/jak1/placements.json, 294 placements). Ce sont des PNG de prototype
+   poses a la main dans custom_assets/jak1/recharged_textures/ du depot du jeu. Elles
+   perdent donc leurs proprietes et repassent a l'IDENTITE. Dit ici, pas passe sous silence.
+
+-- LE MEME COMPTE, VU DEPUIS LE PACK INSTALLE ---------------------------------------
+   172 cles de matiere dans les 14 shards, 172 enregistrements dans la table, 0 orphelin
+   des deux cotes (voir pack_coverage.txt).
+-- REPORT DES 7 ANCIENNES MATIERES, VERIFIE CLE PAR CLE -----------------------------
+   QUOI. Une comparaison de VALEURS, cle par cle, entre le fichier livre par la phase
+   precedente (git show HEAD:recharged_assets/materials.txt) et la table livree par le
+   depot d'assets. AVEC LE DEFAUT ABSENT toute cle presente des deux cotes est EGALE :
+   les familles ont ete calees sur les valeurs deja regardees par l'owner, exprès.
+
+   vil-beach-01               famille=sand         IDENTIQUE sur les 5 cles authorees
+   vil-beachrock              famille=rock_wet     IDENTIQUE sur les 7 cles authorees
+   vil-hut-roof-tile-01       ABSENTE des 172 -> repasse a l'IDENTITE (dit dans le rapport)
+   vil-wallplaster            ABSENTE des 172 -> repasse a l'IDENTITE (dit dans le rapport)
+   vil1-jng-leafyground       ABSENTE des 172 -> repasse a l'IDENTITE (dit dans le rapport)
+   vil1-sages-stonewall-01    famille=stone_cut    IDENTIQUE sur les 7 cles authorees
+   vil1-sages-strawroof-01    famille=straw        IDENTIQUE sur les 14 cles authorees

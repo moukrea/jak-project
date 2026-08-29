@@ -1,0 +1,457 @@
+RAPPORT — Gpbr-material-props
+DIRECTIVES vd9e8b66782
+
+RESULT: PER TEXTURE MATERIALS LIVE
+
+=====================================================================================
+0. CE QUI EST LIVRE, EN QUATRE LIGNES
+=====================================================================================
+  - 172 matieres portent un bloc de proprietes, DANS le depot `moukrea/recharged-assets`,
+    pousse sur `main` (2 commits) — la phase precedente en avait 7, et dans jak-project.
+  - la famille de chacune a ete decidee en REGARDANT son albedo.png ; la phrase de ce qui
+    a ete vu est posee a cote de la matiere dans le depot, pour que le classement soit
+    contestable sans etre refait.
+  - la table est publiee comme ASSET DE RELEASE (`assets-v0.3.0`, extra `surfaces.json`)
+    et installee par le gestionnaire d'assets dans `managed_assets/jak1/` ; l'APK n'en
+    porte plus une ligne. `recharged_assets/materials.txt` est SUPPRIME de jak-project.
+  - mesure sur la scene village1 : un mur en pierre taillee et du sable recoivent des
+    profondeurs de relief DIFFERENTES au draw. Chiffres en section 6.
+
+=====================================================================================
+1. POINT DE CONTRAT, AVANT LES RESULTATS
+=====================================================================================
+Le bloc `## PERIMETRE ACTIF (2026-08-11)` de `.autoport/DIRECTIVES.md` nomme toujours la
+phase `Grecharged-secondary-motion` (SCOPE-SERIAL 9) et ses entrees les plus recentes
+portent sur la physique de Keira. AUCUNE entree de DIRECTIVES ne nomme `Gpbr-material-props`.
+L'orchestrateur, lui, est sans ambiguite : `.autoport/state.json current_phase_idx=246` ->
+`.autoport/milestones.yaml:1676` = `Gpbr-material-props`, et le contrat de perimetre existe
+en `.autoport/prompts/phase-Gpbr-material-props.md`. J'ai travaille sur CE contrat et je le
+signale ici au lieu de suivre en silence un bloc perime — c'est ce que DIRECTIVES demande.
+Les deux sous-agents ont fait le meme constat independamment.
+
+=====================================================================================
+2. CE QUI ETAIT FAUX, ET CE QUE L'OWNER A DEMANDE
+=====================================================================================
+Mot pour mot (2026-08-29) :
+
+  « je veux des config de materiaux par materiaux, pas seulement les normales, roughness
+    et height en image, mais des PROPRIETES ! [...] on a des normales pour un mur en
+    pierre taillee et de l'herbe par exemple, peut-etre qu'on veut pas que la texture de
+    height ait le meme impact de profondeur »
+  « ces props doivent faire partie du repo Recharged assets, pas dans l'APK »
+
+Deux reproches, deux defauts distincts, mesures :
+
+  (a) LE COMPTE. `recharged_assets/materials.txt` livre par la phase precedente portait
+      SEPT blocs `material` (compte : `git show HEAD:recharged_assets/materials.txt |
+      grep -c '^material '` = 7). Le pack d'assets publie porte 172 matieres. Le chemin
+      etait construit et 4 % du jeu de matieres etait decrit.
+  (b) L'EMPLACEMENT. Ce fichier vivait dans jak-project et etait empaquete dans l'APK par
+      `android/build_custom_pack.sh:345`. C'est exactement ce que l'owner refuse.
+
+Et une correction que je me dois de faire a mon propre texte : l'en-tete de ce fichier
+affirmait que « seules ces sept matieres portent des cartes PBR, un fait d'ASSET ». C'est
+FAUX depuis la publication du pack. L'index des 14 shards installes contient 172 cles de
+matiere, dont 172 avec normal + roughness + height (pack_coverage.txt). La phrase decrivait
+le jeu de PNG poses a la main dans le depot du jeu, pas le pack. Elle a disparu avec le
+fichier.
+
+=====================================================================================
+3. L'ORDRE IMPOSE : LE REPERE TANGENT D'ABORD. IL EST DEJA FAIT.
+=====================================================================================
+Le contrat de la phase precedente imposait de traiter le repere tangent AVANT toute table
+de matieres, parce qu'un relief pose sur un repere faux est un relief pose a l'envers, et
+qu'aucune propriete par matiere ne repare ca. C'est fait et livre au commit 54ea5522c2 ;
+je republie les chiffres ici parce qu'ils sont la condition de tout ce qui suit.
+
+  MESURE PER-FACE (tangent_census_village1.txt, phase precedente) :
+    corners de face gradees                     946 722
+    pf_u_wrong  (direction T inversee)             1 052
+    pf_w_wrong  (HANDEDNESS inversee)              1 591   <- le relief sort INVERSE
+    PF_sign                                      99,7208 %
+    dont DANS le seau exclu comme « non representable » : 1 323, soit 83 % des 1 591.
+
+  La handedness est une propriete de la FACE et `.w` est UNE SEULE valeur par sommet : un
+  sommet dont les faces incidentes melangent les handedness UV ne peut pas etre servi par
+  un signe unique. L'instrument d'avant excluait ces coins du denominateur, donc 83 % des
+  coins reellement inverses n'etaient comptes NULLE PART. Corrige en lisant le repere
+  DEPUIS LA FACE (Jacobien UV de la face) au lieu du sommet.
+
+  ET LE LIEN AVEC CETTE PHASE-CI : la moitie PAR TEXTURE de la meme question est le
+  reglage `normal_y` (+1 vert-en-haut OpenGL, -1 vert-en-bas DirectX). Il fait partie des
+  dix reglages et il est pose EXPLICITEMENT a +1 sur les 40 familles, parce que la chaine
+  de production du depot d'assets ecrit des normales en convention OpenGL — ce n'est pas
+  un defaut, c'est une decision, et elle est ecrite au lieu d'etre supposee. Le moteur
+  refuse toute autre valeur que +/-1 avec un avertissement nommant la matiere, plutot que
+  de l'ecreter en silence : un demi-retournement serait invisible et ferait exactement le
+  defaut que la mesure per-face vient de fermer.
+
+=====================================================================================
+4. LE CLASSEMENT DES 172, LU SUR L'ALBEDO
+=====================================================================================
+METHODE, et elle est publiee parce qu'elle est contestable. Les 172 albedo.png ont ete
+tires du depot d'assets (media.githubusercontent.com, la route qui sert le contenu LFS
+reel — un `git clone` normal de ce depot deballe le LFS et TUE LE SHELL, c'est arrive deux
+fois le 2026-08-29 ; la forme utilisee ici est `--depth 1 --filter=blob:none --no-checkout`
+puis un tirage par lots, jamais un checkout de `raw/`), reduits a 224 px, montes en 11
+planches de contact 4x4 etiquetees, et REGARDES. Neuf cas ambigus ont ensuite ete repris
+en recadrage central 1024 px affiche a 420 px.
+
+INTERDIT RESPECTE : aucune famille n'a ete tiree d'une chaine de caracteres. Et ce n'est
+pas une precaution de principe — quatre noms mentent, et les quatre auraient produit une
+matiere fausse :
+
+  cit-temp-precursor-plain   nom : alliage precurseur     VU : champ rouille uniforme,
+                                                          taches d'oxyde vert, piqures
+                                                          -> metal_rusty
+  mis-metalshingle           nom : bardeau metallique     VU : ondulations profondes,
+                                                          coulures, aretes qui accrochent
+                                                          -> metal_rusty (et non un metal
+                                                             propre : c'est corrode)
+  cv-wall-tube-02            nom : « tube »               VU : paroi rocheuse craquelee
+                                                          olive-brun, fissures minerales,
+                                                          aucun grain de bois -> rock
+  vil3-hutwall               nom : « mur de hutte »       VU : volutes bleu pale, perles
+                                                          d'or, sous un email cuit
+                                                          -> ceramic (famille creee pour ca)
+
+DIX AUTRES DECISIONS, AVEC CE QUI A ETE VU (la liste complete des 20 publiees est dans
+classification.txt, et la phrase est posee dans le depot d'assets a cote de chaque
+matiere sous la cle `seen_in_albedo`) :
+
+  vil1-sages-stonewall-01  stone_cut  blocs gris a joints de mortier, mousse dans les
+                                      lignes creusees — de la maconnerie, pas une paroi
+  vil-beach-01             sand       champ beige a grain fin et regulier, des rides,
+                                      aucune pierre distincte
+  tra-grass                grass      des brins verts individuels orientes, pas une surface
+  cv-webbase               web        des fils blancs qui traversent un sol : les fils SONT
+                                      la surface
+  spideregg-01             eggsac     des sacs dores dont la lumiere vient VISIBLEMENT de
+                                      l'interieur, aucun reflet propre
+  snow-icewall-01          ice        stries bleues, surface quasi miroir
+  sun-glass                glass      panneau cyan translucide, aucun relief
+  vil3-cave-groundcrystal  crystal    prismes cyan a faces planes qui se detachent d'un lit
+                                      de galets
+  sun-helix-but-01         metal_precious  spirale doree polie, reflet miroir, incrustation
+                                      sombre
+  mis-bone-generic         bone       corps creme poreux, petites piqures rondes, fines
+                                      craquelures
+  mayor-pants              cloth      tissu violet dont la trame se lit comme une diagonale
+                                      reguliere
+  bch-idol-broken          gravel     gravats anguleux en vrac, chaque pierre se detache
+
+RESULTAT : 172 classees, 39 familles employees sur 40 definies (`plaster` est definie et
+non employee — elle sert `vil-wallplaster`, qui n'est PAS dans les 172 ; dit en section 8).
+
+=====================================================================================
+5. LES QUARANTE FAMILLES, ET POURQUOI CE SONT DES FAMILLES ET PAS 172 JEUX DE NOMBRES
+=====================================================================================
+Les valeurs vivent dans `metadata/jak1/surface-families.json` (une entree par famille,
+avec un `note` OBLIGATOIRE par le schema) ; chaque matiere nomme sa famille et peut la
+plier par `overrides`. Reglier « toutes les roches mouillees du jeu » est donc une ligne,
+et une matiere qui differe vraiment le DIT au lieu de porter une copie privee de onze
+nombres qui derivera.
+
+CE QUE LES DIX REGLAGES DECIDENT — et les trois choix qui portent le sens :
+
+  `relief` et `relief_depth` NE SONT PAS LE MEME BOUTON. C'est exactement la phrase de
+  l'owner :
+      plaster   relief 0,85  depth 0,60   grain visible, presque aucune profondeur
+      straw     relief 1,30  depth 1,40   les deux : des tiges en vrac se detachent
+      grass     relief 1,15  depth 0,55   motif de normale FORT, profondeur PRESQUE MOITIE
+                                          — marcher la parallaxe dans des brins les etale
+      glass     relief 0,30  depth 0,05   il n'y a rien a traverser
+      gravel    relief 1,25  depth 1,50   la plus profonde du jeu
+  Etendue de `relief_depth` sur la table entiere : x30,0 (glass 0,05 -> gravel 1,50).
+
+  LES METAUX NE SONT PRESQUE PAS METALLIQUES. `metal_painted` porte `metallic 0,00` : de
+  la peinture sur de l'acier est un FILM DIELECTRIQUE ; ce qui le fait lire comme du metal
+  peint est le clearcoat et le F0 releve, pas la metallicite. `metal_rusty` porte 0,30,
+  parce que la rouille est un oxyde et que seule la part de metal nu encore visible est un
+  conducteur. Seul `metal_precious` est a 1,00 — et la, `reflectance` est INERTE par
+  construction, le F0 d'un metal etant son propre albedo. C'est ecrit dans son `note`.
+
+  LA REFLECTANCE N'EST PAS UNE PREFERENCE. `ice` porte F0 = 0,018, SOUS le 0,04 par
+  defaut, parce que n=1,31 est plus proche de l'air que le quartz ; `crystal` porte 0,080,
+  le double du defaut ; `flesh` 0,028 ; le sable et les organiques secs 0,030-0,031.
+
+CHAQUE DEFAUT EST L'IDENTITE. Une matiere que la table ne nomme pas, ou une cle qu'une
+famille omet, rend exactement ce qu'elle rendait avant la phase, au bit pres.
+
+REPORT DES 7 ANCIENNES MATIERES : les 4 qui font partie des 172 gardent leurs valeurs sur
+TOUTES leurs cles authorees (verifie cle par cle, before_after.txt) — les familles
+stone_cut / straw / sand / rock_wet ont ete CALEES dessus expres, pour que rien de ce que
+l'owner a deja regarde ne bouge.
+
+=====================================================================================
+6. OU ELLES VIVENT MAINTENANT, ET COMMENT ELLES ARRIVENT AU MOTEUR
+=====================================================================================
+DEPOT D'ASSETS `moukrea/recharged-assets`, pousse sur `main` :
+  a978798  schema `surface` + 40 familles + les 172 blocs + l'agregateur + les tests + doc
+  96725b1  manifests/assets-v0.3.0.json
+
+  schemas/surface-families.schema.json   les 21 cles, avec bornes et `note` obligatoire
+  schemas/surfaces.schema.json           la forme LIVREE (familles resolues + overrides)
+  schemas/material-metadata.schema.json  gagne le bloc `surface {family, seen_in_albedo,
+                                         overrides}` (le schema etait en
+                                         `additionalProperties: false`)
+  schemas/manifest.schema.json           gagne `extras` — petits fichiers NON-shard publies
+                                         avec une release. OPTIONNEL : tout manifeste deja
+                                         publie reste valide, et un test le verifie
+  metadata/jak1/surface-families.json    40 familles
+  metadata/jak1/materials/**/*.json      172 fichiers, chacun avec son bloc `surface`
+  tools/build_surfaces.py                resout famille + overrides -> une table plate
+                                         cle par `<tpage>/<nom>`, JSON canonique
+  tools/make_manifest.py                 gagne `--extra KIND:NOM_INSTALLE:CHEMIN:ASSET`
+  .github/workflows/release.yml          construit la table et la publie
+  docs/SURFACES.md                       111 lignes : pourquoi, ou, les dix reglages, et
+                                         les quatre noms qui mentent
+  tests/test_surfaces.py                 12 tests, dont un qui ECHOUE si la profondeur de
+                                         la pierre taillee cesse de depasser celle du sable
+
+  pytest tests/test_surfaces.py tests/test_schemas.py : 22 passed, 1 failed — l'echec est
+  `test_real_placements_and_materials_parse`, qui exige que `raw/jak1/<...>` soit sur le
+  disque ; mon checkout est volontairement sparse SANS `raw/` (piege memoire). Il ne touche
+  aucun fichier que j'ai modifie. Dit, pas tu.
+
+RELEASE `assets-v0.3.0` (publiee) :
+  210 shards REUTILISES par empreinte de contenu — chacun garde son URL immuable
+  `assets-v0.2.1`, rien n'a ete re-televerse, et un client qui a deja le pack ne
+  telecharge QUE le nouveau fichier. C'est le mode que le pipeline prevoyait deja
+  (« one manifest describes the COMPLETE state even when its shards live in several older
+  immutable releases »), exerce ici pour de vrai.
+  1 extra : `jak1-surfaces-v1.json`, 61 464 octets,
+  sha256 fdd36d010ee6545fd9aec5b6b8e2f857fcb5072717e25fdfee12349f58b67b7f
+  manifeste sha256 3006f16ce073f715cc6366c3169ba923b8ebb62b71850b9e6c57b75fd7c46049
+  `assets.lock.json` (et sa copie Android) pointent dessus.
+
+MOTEUR (jak-project) :
+  - `common/assets/Manifest.{h,cpp}`   `struct Extra` + lecture de `extras` avec `value()`
+                                       et non `at()`, meme garde de nom que les shards,
+                                       `kind` inconnu ignore en `info` (compatibilite
+                                       ascendante), extra malforme = UN fichier perdu, pas
+                                       le manifeste
+  - `common/assets/AssetManager.{h,cpp}` selection (jeu + features, JAMAIS profil/preset :
+                                       une propriete de matiere ne depend pas de la
+                                       resolution), telechargement, taille, sha256, rename,
+                                       `state.json["extras"]` — une cle A PART, jamais dans
+                                       `shards` (le moteur ouvre chaque nom de `shards`
+                                       comme un RPACK), GC des orphelins qui les epargne,
+                                       et `verify_install` qui les re-verifie
+  - `game/assets/AssetCli.cpp`         plan et `status` publient le compte d'extras
+  - `android/.../AssetPackDownloader.java`  le meme, en Java : le C++ ci-dessus n'est PAS
+                                       compile sur Android (aucun de ces fichiers n'est
+                                       dans `android/CMakeLists.txt`), donc tout extra doit
+                                       etre ecrit DEUX FOIS ou il n'existe pas sur telephone
+  - `ManagedAssets.{h,cpp}`            `install_dir()` exporte : le lecteur de surfaces ne
+                                       doit pas re-deriver le repertoire d'installation
+  - `CustomTextureReplacements.cpp`    le parseur texte est REMPLACE par un lecteur JSON.
+                                       Deux sources, premier trouve gagne : override externe
+                                       puis `managed_assets/<jeu>/surfaces.json`. Plus AUCUNE
+                                       lecture depuis le depot du jeu.
+  - `recharged_assets/materials.txt`   SUPPRIME (`git rm`), et sa ligne d'empaquetage
+                                       retiree de `android/build_custom_pack.sh` — y laisser
+                                       une copie recreerait une seconde source de verite qui
+                                       gagne ou perd selon l'ordre des paliers du chargeur.
+  - les 14 commentaires du moteur qui nommaient encore `materials.txt` (gfx.h, deux shaders,
+    background_common.cpp, LoaderStages.cpp, kmachine.cpp, deux .gc, menu-tree.md) sont
+    retargetes. Un commentaire qui nomme un fichier supprime est un mensonge dans le source.
+
+TROIS DEFAUTS TROUVES EN RELISANT LE TRAVAIL DES SOUS-AGENTS, ET CORRIGES :
+  (1) `AssetCli.cpp` testait `to_download.empty() && orphans.empty()` a la main au lieu de
+      demander au plan. C'est EXACTEMENT la forme de cette installation-ci — 14 shards deja
+      la, un fichier de 60 Ko manquant : le CLI imprimait « up to date » et sortait a 0 SANS
+      appeler `apply_install`. Le fichier que toute la phase existe pour livrer ne serait
+      jamais arrive, et le message aurait ete indistinguable d'un succes. Remplace par
+      `plan.up_to_date()`, qui compte les extras. Le sous-agent l'avait signale ; il avait
+      raison de ne pas le corriger de lui-meme hors de son perimetre, et raison de le dire.
+  (2) La presence d'un extra etait testee par la TAILLE, comme un shard. Un nom de shard
+      porte son empreinte de contenu, donc une taille identique ne peut pas etre un faux
+      positif ; un extra garde UN SEUL nom d'une release a l'autre. Une table retunee qui
+      se serialise au meme nombre d'octets aurait ete jugee deja installee et jamais
+      retelechargee — l'edition de l'owner ne serait pas arrivee, en silence. Presence
+      testee par sha256 des deux cotes (C++ et Java).
+  (3) Cote Android, le retour anticipe « no shards for profile/preset » se trouvait AVANT la
+      selection des extras. Un extra n'est pas par profil : une configuration sans pack
+      aurait perdu la table. Le retour est deplace apres.
+  (4) `g_pbrmat_family` n'etait vide QUE dans le `catch`. Un rechargement reussi qui ne nomme
+      plus une matiere aurait garde son ancienne famille et l'aurait imprimee A COTE DES
+      NOUVEAUX NOMBRES — une ligne de diagnostic qui ment, sur la ligne meme dont cette phase
+      se lit.
+  (5) LE PLUS GRAVE, ET IL A FALLU LA MESURE POUR LE VOIR — LA RELECTURE NE L'AVAIT PAS
+      TROUVE. Le chemin d'enregistrement du PACK GERE (`LoaderStages.cpp:355`, celui qui
+      sert les 172) n'appelait NI `mm_apply_params` NI `pbrmat_apply_params`. Seul le chemin
+      des PNG poses a la main (`:716`) les appelait. Les matieres du pack arrivaient donc
+      avec leurs CARTES et sans leurs PROPRIETES.
+      Ca n'avait l'air de rien : la marche de re-marquage a la fin de `mm_params_reload()`
+      re-tamponne ce qui est DEJA dans le registre, si bien que les quelques matieres
+      enregistrees AVANT le premier rechargement recevaient leur enregistrement et que TOUTES
+      celles d'apres prenaient l'identite. MESURE avant correction : 25 matieres liaient
+      leurs cartes dans une course village1 et **UN SEUL jeu de boutons nomme** atteignait un
+      draw. Apres : **27 matieres resolues, ONZE jeux distincts, DIX familles nommees**.
+      POURQUOI RIEN NE L'AVAIT SIGNALE : une matiere non authoree rend EXACTEMENT ce que rend
+      une matiere correctement authoree par defaut. Les deux sont indistinguables dans
+      l'image, dans les compteurs et dans les traces. Il n'existe pas de message « aucune
+      correspondance » — il y a juste l'identite, qui est ce qu'on rend quand tout va bien.
+      C'est pour ca que la trace publie desormais la resolution de CHAQUE matiere, y compris
+      `NO RECORD, stays at the identity`.
+  (6) Et sous le meme capot, une deuxieme divergence : les deux appelants ne passaient pas la
+      meme forme de nom (`tex.debug_name` nu au chargement, la cle `<tpage>/<nom>` sur la
+      marche de re-marquage), alors que la table du depot les nomme `<tpage>/<nom>`.
+      L'ancien fichier texte nommait ses blocs par nom NU : changer la forme de la cle avait
+      donc echange les deux chemins qui marchaient. Correction : UNE seule resolution
+      (`surf_resolve_key`) employee par les deux moities et par les deux sites d'appel —
+      cle telle quelle, puis sa partie nue via un index de noms nus, puis cette partie nue
+      comme cle litterale. L'index n'est bati que pour les noms UNIQUES : 168 des 172 ; les
+      deux ambigus (`mis-boatwall`, `vil3-lava-floor`, chacun sous deux tpages) continuent
+      d'exiger la cle exacte, sinon la matiere d'un niveau deborderait sur celle d'un autre.
+      Il sert pour de vrai : 2 matieres de village1 ne se resolvent QUE par lui, dont
+      `village1-vis-alpha/vil-beach-01`, le sable de l'exemple de l'owner.
+
+=====================================================================================
+7. LA MESURE
+=====================================================================================
+Course x86, `village1-warp`, pack d'assets `pc-bc/low` installe (14 shards, 223 Mo),
+`OG_PBR_DISPLACEMENT=1`. Traces completes dans x86_village1_disp1.log et le brut associe.
+
+7.1 LA TABLE VIENT BIEN DU DEPOT D'ASSETS (exigence 5)
+    [surfaces] schema_version=1 game=jak1 families=40 materials=172 defaults=0
+    [mm] PARAMSRC=managed path=/home/emeric/code/jak-project/managed_assets/jak1/surfaces.json
+    [mm] surfaces.json parsed: 172 material records, defaults=0, 0 unknown keys
+    [pbrmat] PARAMSRC=managed path=.../managed_assets/jak1/surfaces.json blocks=172 defaults=0
+    [surfaces] bare-name index: 168 unique aliases, 2 ambiguous (mis-boatwall, vil3-lava-floor)
+    Ce chemin est celui ou le GESTIONNAIRE D'ASSETS a installe le fichier, pas un chemin du
+    depot du jeu. Le CLI l'a fait devant moi :
+      « assets-v0.3.0 pc-bc/low: 0 shards to download (0.1 MiB), 1 extras, 14 kept, 0 to remove »
+      « installed assets-v0.3.0 (1 downloaded, 14 kept, 0 removed) »
+    sha256 du fichier installe = celui du manifeste = celui publie sur la release.
+
+7.2 LES 172, ET ELLES ARRIVENT INTACTES (exigence 1)
+    172 enregistrements publies, 172 imprimes par le moteur en relisant sa carte parsee,
+    **1 720 comparaisons de valeurs, 0 ECART** (trace_vs_repo.txt), et le recensement par
+    famille est identique des deux cotes (28 rock, 12 metal_rusty, 12 metal_painted, ...).
+    Et l'appariement avec le PACK est vide DANS LES DEUX SENS : 172 cles de matiere dans les
+    14 shards, 172 dans la table, aucune matiere sans proprietes, aucune propriete sans
+    matiere (pack_coverage.txt).
+
+7.3 CE QUE CHAQUE MATIERE DU NIVEAU A RECU
+    30 matieres enregistrees dans cette course ; **27 resolues**, dont **2 par l'index de
+    noms nus** — et l'une des deux est `village1-vis-alpha/vil-beach-01`, le SABLE de
+    l'exemple de l'owner, que le moteur enregistre sous un tpage que le depot d'assets ne
+    connait pas. 3 sans enregistrement : les trois matieres de prototype de la section 8.
+    La ligne le dit pour chacune, y compris pour les manquantes — parce qu'une matiere sans
+    proprietes rend EXACTEMENT ce que rend une matiere correctement authoree par defaut, et
+    qu'aucun compteur ne distingue les deux.
+
+7.4 CE QU'UN DRAW A REELLEMENT RECU (exigence 3)
+    ONZE jeux de boutons distincts ont atteint un draw dans cette course, DIX correspondant
+    a une famille nommee (le onzieme est l'identite). Le joint sur le quintuplet est non
+    ambigu : les 40 quintuplets de familles sont deux a deux distincts.
+
+      famille        u_pbr_height_scale   u_pbr_normal_strength
+      gravel               0.11250              5.6250
+      straw                0.10500              5.8500
+      stone_cut            0.09375              5.4000
+      rock_wet             0.08625              5.1750
+      stone_carved         0.08250              4.9500
+      (identite)           0.07500              4.5000
+      wood / dirt          0.07125              4.7250
+      sand                 0.06000              4.5000
+      metal_painted        0.05250              4.0500
+      cloth                0.04125              4.9500
+
+    L'EXEMPLE DE L'OWNER, MESURE AU GPU, DANS LE MEME NIVEAU ET LA MEME COURSE :
+      vil1-sages-stonewall-01  stone_cut  u_pbr_height_scale = 0.09375
+      vil-beach-01             sand       u_pbr_height_scale = 0.06000
+      rapport = x1,5625
+    Extremes mesures : gravel 0,11250 contre cloth 0,04125, **x2,7273**.
+    AVANT CETTE PHASE ce rapport valait x1,0000 PAR CONSTRUCTION : `u_pbr_height_scale`
+    etait pousse une fois par programme et par frame, sans facteur par matiere.
+
+    ET LE DECOUPLAGE, qui est le fond de la phrase de l'owner : le sable recoit la MEME
+    force de normale que l'identite (relief 1,00 -> 4,5000) et une profondeur PLUS FAIBLE
+    (0,06000 contre 0,07500). `cloth` fait l'inverse : normale au-dessus de l'identite
+    (4,9500) et la profondeur la plus basse de la course. Un seul bouton ne peut pas rendre
+    ca.
+
+7.5 CE QUI N'A PAS BOUGE
+    Boot x86 `link finish: logo` a chaque course. Le binaire livre ne contient plus une
+    seule occurrence de `materials.txt` (`strings build/game/gk | grep -c` = 0) et huit de
+    `surfaces.json`. `managed_assets/jak1/state.json` porte `extras: ["surfaces.json"]` a
+    cote de ses 14 shards, jamais dedans.
+
+=====================================================================================
+8. CE QUI N'EST PAS PROUVE, ET CE QUI EST PERDU. DIT ICI, PAS EN NOTE.
+=====================================================================================
+  (a) AUCUN APPAREIL. Le Redmi n'a pas ete sollicite : la preuve de cette phase est un
+      CHEMIN DE DONNEES (depot d'assets -> release -> gestionnaire d'assets -> lecteur ->
+      uniformes), identique sur les deux cibles, et l'owner a tranche le 2026-08-29 que
+      « la plupart des choses sont testables sur x86 aussi ». Le portage Java du
+      telechargeur d'extras COMPILE mais n'a PAS tourne sur telephone : c'est le seul
+      morceau de cette phase dont je ne peux pas montrer une trace d'execution. A verifier
+      des qu'un appareil revient — jamais comme prerequis.
+  (b) TROIS MATIERES PERDENT LEURS PROPRIETES. `vil1-jng-leafyground`, `vil-hut-roof-tile-01`
+      et `vil-wallplaster` etaient dans les 7 anciennes. Elles ne sont PAS dans les 172 du
+      depot d'assets — ni comme matiere, ni comme placement parmi les 294. Ce sont des PNG
+      de prototype poses a la main dans `custom_assets/jak1/recharged_textures/` du depot
+      du jeu. Elles repassent donc a l'IDENTITE : leur diffusion sous-cutanee (feuillage,
+      chaume) et leur relief plat (platre) disparaissent. C'est un recul VISIBLE sur trois
+      surfaces de village1, contre un gain sur 172. La famille `plaster` est definie et non
+      employee, prete pour le jour ou ces trois-la entrent dans le depot d'assets.
+  (c) LES VALEURS SONT AUTHOREES, PAS MESUREES. Aucune ne sort d'un calcul, et c'est le
+      point : rien dans une carte de hauteur ne dit qu'un joint de mortier doit lire 1,25
+      quand une ride de sable lit 0,80. Ce sont des points de depart a juger a l'oeil et a
+      retuner — un fichier de 60 Ko, pas une reconstruction. Le classement lui-meme est
+      contestable matiere par matiere : la phrase de ce qui a ete vu est publiee a cote de
+      chacune expres.
+  (d) `relief_lambda` est a 0 partout (garder la longueur d'onde MESUREE sur le spectre de
+      mips), et `metallic_scale` / `roughness_scale` valent 1 sur la plupart des familles.
+      Aucune carte de metallicite ni d'occlusion n'existe dans le pack : `metallic` n'agit
+      donc que par sa valeur de repli, ce qui est exactement le canal voulu ici, mais il
+      faut le savoir avant d'accuser `metallic_scale` de ne rien faire.
+  (e) UN TEST DU DEPOT D'ASSETS ECHOUE, ET IL ECHOUAIT DEJA : `test_real_placements_and_
+      materials_parse` exige que `raw/jak1/<...>` soit sur le disque. Mon checkout est
+      volontairement sparse SANS `raw/` (le piege memoire de ce depot). Aucun des fichiers
+      qu'il verifie n'est touche par cette phase. La CI du depot, elle, checkout `raw/`.
+  (f) `goal_src/jak1/engine/gfx/math-camera.gc` etait DEJA modifie dans l'arbre a mon
+      arrivee (travail d'une phase de camera precedente, non commite). Je ne l'ai pas
+      touche et je ne l'emporte pas dans mon commit.
+
+=====================================================================================
+9. A TESTER PAR L'OWNER
+=====================================================================================
+Ce qu'il faut regarder, dans l'ordre ou ca se voit :
+  1. VILLAGE1, en exterieur. Le mur de pierre taillee de la hutte du Sage contre le sable
+     de la plage, au meme endroit : la profondeur de relief doit differer, pas seulement
+     la couleur. C'est sa propre phrase, rendue.
+  2. La paille du toit et la botte de foin : diffusion chaude quand le soleil est derriere
+     (elles partagent la famille `straw`), et un reflet ETIRE le long des tiges.
+  3. LA GLACE ET LE VERRE (Snowy, Sunken). Ce sont les deux surfaces les plus eloignees du
+     defaut : quasi miroir, presque aucun relief, F0 SOUS le defaut. Si quelque chose est
+     trop loin, ca se verra la en premier.
+  4. LES METAUX de la Citadelle et de Lava Tube : peint (mat, verni) contre rouille (mat,
+     profond) contre precurseur (a moitie metallique, orange qui doit SURVIVRE). Si le
+     precurseur vire au gris chrome, `metallic 0,55` est trop haut.
+  5. LES ROCHES DE GROTTE (Dark Cave, 28 matieres en `rock` et 8 en `rock_moss`) : c'est
+     le gros du jeu et le moins spectaculaire ; c'est aussi la que le reglage doit etre le
+     plus sobre.
+Et le geste qui coute une seconde : deposer un `surfaces.json` modifie dans le dossier
+d'assets externe de l'appareil ecrase la table installee, sans rebuild et sans re-download.
+
+=====================================================================================
+10. ARTEFACTS
+=====================================================================================
+  .autoport/reports/Gpbr-material-props/
+    report.txt                 ce fichier
+    classification.txt         les 172 classees, le census par famille, les 20 decisions
+                               publiees avec ce qui a ete vu sur l'albedo, les 4 noms trompeurs
+    pack_coverage.txt          l'appariement bilateral table <-> pack installe
+    trace_vs_repo.txt          1 720 comparaisons depot/moteur, 0 ecart
+    before_after.txt           7 -> 172, et le report cle par cle des 4 anciennes retenues
+    village1_expected.txt      ce que la scene doit rendre, et pourquoi le joint est unique
+    draw_census.txt            les 11 jeux de boutons qui ont atteint un draw, joints aux familles
+    x86_village1_disp1.log     la course (source, resolution par matiere, census de draw)
+    x86_village1_gk_raw.log    le log brut de la course
+  .autoport/gmp_x86_village1.sh   le harnais de la course
+
+DIRECTIVES vd9e8b66782

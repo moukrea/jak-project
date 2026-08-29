@@ -88,7 +88,7 @@ uniform float u_pbr_emissive_str;  // emissive intensity (prop debug.opengoal.pb
 uniform float u_pbr_spec_intensity;  // menu SPECULAR INTENSITY slider (0..2, default 1)
 // Gpbr-per-texture-materials (owner 2026-08-28: "un tissu n'a pas les mêmes propriétés qu'un mur en
 // pierres taillées ou que du sable"). THIS material's own surface constants, pushed per DRAW by
-// PbrDrawBinder from its materials.txt block. The identity values below — (0.9, 0.0, 0.04, +1) and
+// PbrDrawBinder from its surfaces.json record. The identity values below — (0.9, 0.0, 0.04, +1) and
 // (1, 1) — are LITERALLY the constants this shader used to carry in-line at the roughness, metallic
 // and F0 sites, so a material the file does not name is unchanged bit for bit.
 uniform vec4 u_pbr_mat;   // x = roughness quand aucune _roughness n'est liee (0.9), y = metallic

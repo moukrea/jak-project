@@ -1,0 +1,43 @@
+-- COUVERTURE : LA TABLE DE SURFACES CONTRE LE PACK REELLEMENT INSTALLE ------------
+   QUOI. Un appariement d'ENSEMBLES DE CLES, pas une amplitude. A gauche les cles de
+   remplacement <tpage>/<nom> lues dans l'index des 14 shards RPACK installes sous
+   managed_assets/jak1/ ; a droite les cles nommees par la table de surfaces livree.
+   AVEC LE DEFAUT ABSENT les deux differences sont VIDES dans LES DEUX SENS : une
+   matiere du pack sans proprietes reste a l'identite (invisible), et une propriete
+   qui ne nomme aucune matiere du pack n'est jamais appliquee (invisible aussi). Les
+   deux se taisent, donc seul l'appariement bilateral les attrape.
+   pack : assets-v0.2.1, profil pc-bc, preset low, 14 shards, 223 Mo, installes par
+   `gk --assets install` et verifies sha256 par le gestionnaire lui-meme.
+
+distinct material keys in installed pack: 172
+entries by (group,map): {('albedo', 'albedo'): 172, ('material', 'height'): 172, ('material', 'normal'): 172, ('material', 'roughness'): 172}
+surface table names           : 172
+named AND present in pack     : 172
+named but NOT in pack         : []
+in pack but NOT named         : []
+keys with normal+roughness+height: 172
+
+-- ETAT INSTALLE ---------------------------------------------------------------------
+{
+ "asset_version": "assets-v0.2.1",
+ "preset": "low",
+ "profile": "pc-bc",
+ "schema_version": 1,
+ "shards": [
+  "jak1-pc-bc-low-albedo-shard-c1-village1-beach-d5c52fc3550d.rpack",
+  "jak1-pc-bc-low-albedo-shard-c2-jungle-misty-e546ab145a40.rpack",
+  "jak1-pc-bc-low-albedo-shard-c3-village2-swamp-78905dfe7182.rpack",
+  "jak1-pc-bc-low-albedo-shard-c4-snow-canyon-38d7d5cd1683.rpack",
+  "jak1-pc-bc-low-albedo-shard-c5-village3-caves-35f4ab14a0b8.rpack",
+  "jak1-pc-bc-low-albedo-shard-c6-citadel-finale-6cedd54ae7ad.rpack",
+  "jak1-pc-bc-low-albedo-shard-c7-darkcave-f98a5178615e.rpack",
+  "jak1-pc-bc-low-material-shard-c1-village1-beach-c23997cbbe50.rpack",
+  "jak1-pc-bc-low-material-shard-c2-jungle-misty-366744c4eaf0.rpack",
+  "jak1-pc-bc-low-material-shard-c3-village2-swamp-b68302facf14.rpack",
+  "jak1-pc-bc-low-material-shard-c4-snow-canyon-352c2bf57500.rpack",
+  "jak1-pc-bc-low-material-shard-c5-village3-caves-f36d4be3cc62.rpack",
+  "jak1-pc-bc-low-material-shard-c6-citadel-finale-e88c5f1e73d4.rpack",
+  "jak1-pc-bc-low-material-shard-c7-darkcave-4d028739b5a6.rpack"
+ ],
+ "verified": true
+}
