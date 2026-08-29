@@ -246,6 +246,15 @@
              (set! arg2 (get-or-create-continue! *game-info*)))
            (suspend)
            (start arg0 arg2)
+           ;; Gloading-screen — RETOUR OWNER 2026-08-29 : « L'ecran de chargement est bien la, mais
+           ;; pas quand on charge une partie. » C'EST ICI QUE PASSE CE CHEMIN, et il ne touchait
+           ;; aucune barriere. `scene-load-gate!` n'est armee que par la lecture d'une SCENE
+           ;; (`ja-play-spooled-anim`) ; charger une sauvegarde n'en joue aucune. Ce meme point de
+           ;; passage porte AUSSI la nouvelle partie, le voyage vers un point de reprise et la
+           ;; renaissance apres une mort — donc les quatre chemins sont couverts par un seul appel.
+           ;; La barriere s'eteint d'elle-meme quand le niveau est deja resident (renaissance sur
+           ;; place) : voir `continue-load-gate!`, engine/load/loader.gc.
+           (continue-load-gate! arg2)
            (none))
          (-> this mode)
          cause

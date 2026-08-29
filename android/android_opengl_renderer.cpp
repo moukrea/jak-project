@@ -18,6 +18,7 @@
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
+#include "game/graphics/opengl_renderer/LoadingScreenTextures.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
 #ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
@@ -424,6 +425,10 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
 #ifdef OG_FEAT_RECHARGED_HUD
   load_recharged_hud_textures(*m_render_state.texture_pool, GameVersion::Jak1);
 #endif
+  // Gloading-screen: NOT under the HUD flag on purpose -- the shipped android build is
+  // hud=0, and gating these two textures on it left slots 8311/8312 empty (checkerboard
+  // placeholder instead of the silhouette). See LoadingScreenTextures.h.
+  load_loading_screen_textures(*m_render_state.texture_pool, GameVersion::Jak1);
   lg::info("A35-RENDER jak1 bucket table ready: {} buckets, direct=3 tex=11 eye=1 skip={}",
            m_bucket_renderers.size(), sizeof(unported) / sizeof(unported[0]));
 }

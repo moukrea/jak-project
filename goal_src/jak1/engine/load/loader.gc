@@ -745,6 +745,74 @@
       (loading-screen-release!)))
   0)
 
+;; Gloading-screen — RETOUR OWNER 2026-08-29 : « L'ecran de chargement est bien la, mais pas quand
+;; on charge une partie. »
+;;
+;; IL A RAISON, ET LA CAUSE EST STRUCTURELLE, PAS UN OUBLI DE REGLAGE. `scene-load-gate!`
+;; ci-dessus est armee depuis `ja-play-spooled-anim` : elle ne couvre QUE la lecture d'une SCENE
+;; (cinematique streamee). Charger une sauvegarde ne joue aucune scene — il passe par
+;; `initialize! *game-info* 'play` (engine/game/game-info.gc), qui tue la cible, applique la
+;; sauvegarde puis `(start ...)` a un POINT DE REPRISE. Ce chemin ne touchait aucune barriere,
+;; donc l'ecran ne pouvait pas s'allumer. C'est le chemin que le joueur emprunte le plus souvent.
+;;
+;; MEME MECANISME, PAS UNE COPIE. On reutilise exactement les memes primitives que la barriere de
+;; scene : `__pc-scene-ready?` pour la residence GPU, `__pc-scene-release` pour rendre la
+;; consigne, `loading-screen-hold!` / `loading-screen-release!` pour l'ecran. Un seul changement :
+;; le niveau a attendre ne se lit plus dans une command-list de scene mais dans le POINT DE
+;; REPRISE.
+;;
+;; ON ATTEND `(-> cp level)`, PAS `lev0`/`disp0`, ET C'EST MESURE. `disp0`/`disp1` decrivent bien
+;; l'affichage, mais un balayage du depot le dit : AUCUN code de jak1 ne LIT ces deux champs
+;; (`grep -rn disp0 goal_src/jak1 --include=*.gc` ne rend que leur declaration et leurs ecritures).
+;; Ce sont des donnees mortes ici, donc rien ne garantit que quelqu'un chargera ce qu'elles
+;; nomment — et attendre un niveau que PERSONNE ne charge est exactement le piege que la barriere
+;; de scene ci-dessus documente et desamorce. `(-> cp level)` est au contraire lu par huit sites
+;; vivants (engine/level/level.gc:909 et :1218, engine/target/target-death.gc:42, ...) : c'est le
+;; niveau ou la reprise POSE Jak, donc le systeme de frontieres de chargement le reclame des que
+;; la cible existe. C'est le seul des trois champs dont le chargement est garanti.
+;;
+;; NATURE de la grandeur : un ETAT DE RESIDENCE GPU, pas une temporisation. REPERE : le renderer,
+;; via load_gate (game/system/load_gate.h) — jamais `level-status`, qui a declare `beach` charge
+;; 38,5 s avant qu'il soit dessinable.
+;; CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : sur une reprise DANS le niveau courant (mort et
+;; renaissance, avertissement de checkpoint), les niveaux sont deja residents, `__pc-scene-ready?`
+;; rend 1 au PREMIER tour, le corps de la boucle ne s'execute jamais, et rien ne s'allume. C'est la
+;; meme propriete d'auto-extinction que la barriere de scene, et c'est ce qui empeche l'ecran
+;; d'apparaitre a chaque mort.
+;;
+;; SORTIE GARANTIE, comme au-dessus : `__pc-scene-ready?` est fail-open et porte son propre
+;; plafond. Une barriere qui peut bloquer le jeu serait pire que le defaut qu'elle corrige.
+(defun continue-load-gate! ((cp continue-point))
+  "Retenir l'ecran de chargement jusqu'a ce que le niveau ou `cp` pose Jak soit dessinable.
+   Sans effet s'il l'est deja."
+  (when (and cp (-> cp level))
+    (let ((lev (symbol->string (-> cp level)))
+          ;; compteur LOCAL : `*loading-screen-frames*` vit dans engine/game/main.gc, compile
+          ;; APRES ce fichier (game.gp:1998 contre :1924), donc invisible ici.
+          (tours 0))
+      (format 0 "LOADSCREEN-CONT arm continue=~S niveau=~S~%" (-> cp name) lev)
+      (until (nonzero? (__pc-scene-ready?
+                        (-> cp name)
+                        lev
+                        "none"
+                        ;; Meme plafond que la barriere de scene. C'est un PLAFOND, pas une
+                        ;; cible : le renderer passe sur son chemin de chargement BLOQUANT tant
+                        ;; qu'une barriere est fermee, donc le chargement va PLUS VITE pendant
+                        ;; qu'on le montre.
+                        20000))
+        (+! tours 1)
+        (loading-screen-hold!)
+        (suspend))
+      ;; rendre la consigne : sans ca, la deadline armee sous ce nom resterait, et la reprise
+      ;; SUIVANTE au meme point trouverait une barriere deja expiree.
+      (__pc-scene-release (-> cp name))
+      ;; `tours=0` est le cas NORMAL quand le niveau est deja resident (mort et renaissance sur
+      ;; place) : la barriere n'a rien retenu et l'ecran ne s'est pas allume. C'est la ligne de
+      ;; base de cette mesure, et elle se distingue d'un cablage absent, qui n'imprimerait RIEN.
+      (format 0 "LOADSCREEN-CONT open continue=~S tours-retenus=~D~%" (-> cp name) tours)
+      (loading-screen-release!)))
+  0)
+
 (defbehavior ja-play-spooled-anim process-drawable ((arg0 spool-anim) (arg1 art-joint-anim) (arg2 art-joint-anim) (arg3 (function process-drawable symbol)))
   (local-vars (v0-39 int))
   (let ((spool-part 0))

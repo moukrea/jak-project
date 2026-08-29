@@ -802,6 +802,14 @@ add_library(gk SHARED
     # list, so the implementation must be compiled in here or the symbols are
     # undefined at link time.
     "${JAK_ROOT}/third-party/stb_image/stb_image.cpp"
+    # Gloading-screen: the loading-screen textures (vram 8311/8312). UNCONDITIONAL --
+    # they used to ride inside RechargedHudTextures.cpp, which joins libgk only under
+    # OG_FEAT_RECHARGED_HUD, and the SHIPPED android build is hud=0 (marker
+    # ogflags:435df2141670:android-arm64). Measured on the published 2026-08-29 05:41
+    # libgk.so: zero occurrences of "loading_jak" -- the slots were never filled and
+    # DirectRenderer.cpp:425 bound the 16x16 grey checkerboard placeholder instead of
+    # the silhouette and of every precursor glyph.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/LoadingScreenTextures.cpp"
 )
 
 # Grecharged-buildsys-flags: feature-gated TUs join libgk.so only when their

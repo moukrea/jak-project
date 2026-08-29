@@ -413,6 +413,13 @@ else()
                 PROPERTIES COMPILE_OPTIONS "/fp:precise")
 endif()
 
+# Gloading-screen: the loading-screen textures are NOT feature-gated. They used to
+# ride inside RechargedHudTextures.cpp, which only joins the build under
+# OG_FEAT_RECHARGED_HUD -- and the SHIPPED android build is hud=0, so slots
+# 8311/8312 were never filled and DirectRenderer bound the grey checkerboard
+# placeholder in place of the silhouette. The loading screen is not the HUD.
+list(APPEND RUNTIME_SOURCE graphics/opengl_renderer/LoadingScreenTextures.cpp)
+
 # Grecharged-buildsys-flags: feature-gated TUs are appended to RUNTIME_SOURCE
 # only when their flag is ON (default OFF => symbol absent from gk). The
 # runtime code that calls into them is #ifdef'd on the same OG_FEAT_* macro.

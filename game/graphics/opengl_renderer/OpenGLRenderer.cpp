@@ -11,6 +11,7 @@
 #include "game/graphics/opengl_renderer/DepthCue.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
+#include "game/graphics/opengl_renderer/LoadingScreenTextures.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
 #ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
@@ -898,6 +899,8 @@ void OpenGLRenderer::init_bucket_renderers_jak1() {
 #ifdef OG_FEAT_RECHARGED_HUD
   load_recharged_hud_textures(*m_render_state.texture_pool, GameVersion::Jak1);
 #endif
+  // Gloading-screen: NOT under the HUD flag on purpose -- see LoadingScreenTextures.h.
+  load_loading_screen_textures(*m_render_state.texture_pool, GameVersion::Jak1);
 }
 
 namespace {
