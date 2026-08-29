@@ -258,6 +258,26 @@ for lvl in "${APPEND_LEVELS[@]}"; do
       log "inject: $char donor carries the physics joints of $INJ_SPEC"
       glb="$INJECTED"
     fi
+    # ---- PROP JOINT REMOVAL (Gkeira-visor-deliver, owner 2026-08-29) ------------------------
+    # « Keira HD a toujours la visiere attachee. » The welding-mask prop's DRAWN GEOMETRY is
+    # removed below by EXTRA_ADD_ARGS/--drop-effect, and has been since 2026-08-28 — but its two
+    # JOINTS stayed in the rig, so the art-group the game loads still declared the prop. The
+    # removal runs HERE, on the same stable donor path build_hd_actor_artgroup.sh prunes, so the
+    # art-group, the k2e table and this baked mesh cannot disagree on the joint list (exact same
+    # reason the injection above lives at this point). No spec for a character => untouched donor.
+    # It does NOT touch primitives: `hd_merc_swap stamp` (below) asserts prim-count == donor-draw-
+    # count and per-prim tri counts, and --drop-effect mirrors onto a fresh donor-fr3 load.
+    DROP_SPEC="recharged_assets/$char-drop-joints.txt"
+    if [ -f "$DROP_SPEC" ]; then
+      DROPPED="$FR3_DIR/skin/$char-donor-pruned.glb"
+      case "$glb" in "$FR3_DIR/skin/"*) DROPPED="$glb";; esac
+      mkdir -p "$(dirname "$DROPPED")"
+      python3 scripts/shell/hd_drop_joints.py --in "$glb" --out "$DROPPED" \
+          --spec "$DROP_SPEC" --report "$HD_TMP/$char-drop.txt" \
+        || { log "FATAL: joint drop of $char from '$DROP_SPEC' failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
+      sed 's/^/    /' "$HD_TMP/$char-drop.txt" | while read -r l; do log "$l"; done
+      glb="$DROPPED"
+    fi
 
     STAMPED="$HD_TMP/$char-stamped.glb"
     "$SWAP_BIN" stamp "$donor_fr3" "$donor_model" "$glb" "$STAMPED" \

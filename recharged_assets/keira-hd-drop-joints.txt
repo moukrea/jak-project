@@ -1,0 +1,30 @@
+# keira-hd-drop-joints.txt — joints REMOVED from the Keira HD donor rig at the point of
+# production (scripts/shell/hd_drop_joints.py, called by BOTH build_hd_actor_artgroup.sh and
+# build_enhanced_models.sh so the art-group, the k2e table and the baked mesh cannot disagree).
+#
+# OWNER 2026-08-28, then again 2026-08-29 because nothing had shipped:
+#   « le modele de Keira HD il a une visiere attachee, a genre quelques metres du main modele
+#     [...] dans Jak 1 ca sert a rien, faut que tu vires cette partie »  /  « la visiere faut la
+#     supprimer, rien a foutre la »  /  « Keira HD a toujours la visiere attachee. »
+#
+# WHAT THESE TWO JOINTS ARE, MEASURED on out/jak1/fr3/skin/keira-hd-lod0.glb (bind space, model
+# 3.1364 units tall, feet at y=0) — a WELDING MASK prop she does not wear, parented to `prejoint`
+# (the ROOT, not the head) and posed at the model ORIGIN:
+#     maskstrap  100 verts, y -0.0313 .. 0.0410   textures keira-brownstraps-new + keira-maskbolt
+#     mask        73 verts, y -0.4095 .. 0.0578   texture  keira-mask
+# 173 vertices in total, and they are the WHOLE of their three glTF primitives (measured: prims
+# 0/1/27, 48+52+73 verts, 88+96+96 tris; NO other primitive references a single one of them, and
+# no other joint owns a vertex in them). `mask` alone sets the drawn bbox floor: without it the
+# mesh starts at her soles instead of 0.41 units UNDER the ground.
+#
+# NOT LISTED, ON PURPOSE — the goggles she really wears (gogglesBase/Mid/Left/Right, textures
+# keira-glasses / keira-gogglestrap / keira-lens-large, at y 1.98..2.20, i.e. ON HER HEAD) and the
+# welding TORCH, which retargets onto jak1's own `torch` joint and is used in village1. The straps
+# are not listed either: measured 2026-08-28 they sit 0.21 and 0.52 from the torso, i.e. where they
+# belong (the contrary figures published that day came from an inverse-bind matrix transposed
+# instead of inverted).
+#
+# A named joint takes its whole subtree with it: `mask` is the only child of `maskstrap`, so
+# either name alone would suffice — both are listed so the file reads as the inventory it is.
+maskstrap
+mask

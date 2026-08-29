@@ -79,10 +79,19 @@ def main():
         col = col[used]
     n_verts = len(pos)
 
-    # sanity: no weight on align(0)/prejoint(1) — dropping align must be lossless
-    for jid in (0, 1):
-        m = (J == jid) & (W > 0)
-        assert not m.any(), f'model has vertices weighted to skin joint {jid} ({names[jid]}) — cannot drop align'
+    # sanity: NO weight on align(0) — that joint is dropped here, so any weight on it would be
+    # lost. This is the check that makes dropping align lossless, and it stays hard.
+    #
+    # prejoint(1) USED to be bundled into the same assert. It is not about dropping align: prejoint
+    # SURVIVES (it becomes gltf joint 0, which build_actor maps to game joint 1), so weight on it
+    # is representable and loses nothing. The bundling made it impossible for hd_drop_joints.py to
+    # re-bind a removed ROOT-PARENTED prop's vertices onto the rig root — the only surviving
+    # ancestor a joint parented to prejoint has. Kept as a COUNTED, PRINTED observation instead of
+    # a silent tolerance: a stock ND rig binds nothing there, so a non-zero count means somebody
+    # upstream moved weights, and the number says how many.
+    m0 = (J == 0) & (W > 0)
+    assert not m0.any(), f'model has vertices weighted to skin joint 0 ({names[0]}) — cannot drop align'
+    n_prejoint = int(np.unique(np.nonzero((J == 1) & (W > 0))[0]).size)
 
     # 2) drop align (skin index 0), decrement joint indices. zero-weight slots -> 0.
     out_j = np.zeros((n_verts, 4), np.uint8)
@@ -91,7 +100,7 @@ def main():
         pos_w = W[:, s] > 0
         out_j[pos_w, s] = (J[pos_w, s] - 1).astype(np.uint8)
         out_w[~pos_w, s] = 0.0
-    assert int(J[W > 0].min()) >= 2, 'a positive-weight slot referenced align/prejoint'
+    assert int(J[W > 0].min()) >= 1, 'a positive-weight slot referenced align (joint 0)'
 
     # 3) rebuild the skin without align: new joint i = old joint i+1; parents decremented.
     new_names = names[1:]
@@ -146,7 +155,9 @@ def main():
              f'  verts={n_verts} (compacted from the level pool) prims={len(prims)}',
              f'  skin joints: {len(names)} (with align) -> {len(new_names)} (align dropped; build_actor re-adds it)',
              f'  JOINTS_0 u32->u8, decremented; fabricated game joints: [align, {new_names[0]}, {new_names[1]}, ...]',
-             f'  positive-weight joint idx range (post-drop): {int(out_j[out_w>0].min())}..{int(out_j[out_w>0].max())}']
+             f'  positive-weight joint idx range (post-drop): {int(out_j[out_w>0].min())}..{int(out_j[out_w>0].max())}',
+             f'  vertices bound to prejoint (game joint 1): {n_prejoint} — stock ND rigs bind none; '
+             f'non-zero = weights re-bound upstream (hd_drop_joints.py)']
     rep = '\n'.join(lines)
     print(rep)
     if args.report:

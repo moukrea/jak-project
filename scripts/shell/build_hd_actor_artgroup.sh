@@ -107,6 +107,25 @@ if [ -f "$INJ_SPEC" ]; then
   HD="$INJ_OUT"
 fi
 
+# a-ter. PROP JOINT REMOVAL (Gkeira-visor-deliver, owner 2026-08-29: « Keira HD a toujours la
+# visiere attachee »). Same placement, same reason as the injection above: the joint list is
+# shared by the art-group fabricated below, the k2e retarget table emitted after it, and the merc
+# mesh baked by build_enhanced_models.sh — which prunes the SAME stable donor file with the SAME
+# committed spec, so the three cannot disagree. A prop joint left in the rig is a prop the game
+# still declares even after its geometry is dropped from the fr3.
+# No spec for a character => untouched donor, byte-identical passthrough.
+DROP_SPEC="recharged_assets/$CHAR-drop-joints.txt"
+if [ -f "$DROP_SPEC" ]; then
+  DROP_OUT="out/jak1/fr3/skin/$CHAR-donor-pruned.glb"
+  case "$HD" in out/jak1/fr3/skin/*) DROP_OUT="$HD";; esac
+  mkdir -p "$(dirname "$DROP_OUT")"
+  log "0-bis/3 drop prop joints from $DROP_SPEC -> $DROP_OUT"
+  python3 scripts/shell/hd_drop_joints.py --in "$HD" --out "$DROP_OUT" \
+      --spec "$DROP_SPEC" --report "$TMP/$CHAR-drop.txt" \
+    || { log "FATAL: prop joint drop for $CHAR failed"; exit 1; }
+  HD="$DROP_OUT"
+fi
+
 log "1/3 prep rip GLB -> build_actor-ready (keep HD skeleton, drop align, u32->u8, compact)"
 python3 "$PREP" --in "$HD" --out "$TMP/$CHAR.glb" --report "$TMP/$CHAR-prep.txt"
 

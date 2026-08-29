@@ -26,8 +26,19 @@ import argparse
 import re
 import sys
 
-ARRAYS = ['*keira-hd->driver-joint*', '*keira-hd-mode*',
-          '*keira-hd-hd-parent*', '*keira-hd-drv-parent*']
+# LES QUATRE NOMS SONT DERIVES DU SNIPPET, PAS ECRITS EN DUR (Gkeira-visor-deliver 2026-08-29).
+# Ils l'etaient pour keira-hd seule, donc l'outil ne pouvait pas episser keira3-hd — le MEME
+# personnage sur l'autre entree du carrousel LOOK — et le cinquieme endroit serait reparti a la
+# main, ce que ce fichier existe precisement pour interdire.
+def snippet_array_names(text):
+    names = re.findall(r"\(define\s+(\*[^\s*]+\*)\s+\(new\s+'static\s+'array\s+uint8\s+\d+",
+                       text)
+    seen, out = set(), []
+    for n in names:
+        if n not in seen:
+            seen.add(n)
+            out.append(n)
+    return out
 # LES TABLES QUI PORTENT DES INDICES. Pour elles, « append-only » veut dire ce que le docstring
 # dit : une valeur qui change A UN INDICE EXISTANT invalide silencieusement des references.
 # `*keira-hd-mode*` ne porte PAS d'indice — ses valeurs sont des MODES DE RETARGET (0..3) — donc
@@ -43,11 +54,15 @@ ARRAYS = ['*keira-hd->driver-joint*', '*keira-hd-mode*',
 # arriver en silence — ce que le tombeau de `jak-hd.gc` reproche precisement au cycle du 08-13
 # (« quatre tables d'accord et la cinquieme en desaccord silencieux ») — et aucun drapeau
 # d'autorisation generale n'existe.
-INDEX_ARRAYS = ['*keira-hd->driver-joint*', '*keira-hd-hd-parent*', '*keira-hd-drv-parent*']
-MODE_ARRAY = '*keira-hd-mode*'
+def classify(names):
+    """-> (mode_array, hd_parent_array). The other two carry DRIVER indices, untouched by an
+    HD-side renumbering."""
+    mode = next((n for n in names if n.endswith('-mode*')), None)
+    hdpar = next((n for n in names if n.endswith('-hd-parent*')), None)
+    return mode, hdpar
 
 
-def parse_arrays(text):
+def parse_arrays(text, ARRAYS):
     """-> {name: (declared_count, [values])}. Tolerates any line wrapping."""
     out = {}
     for name in ARRAYS:
@@ -68,6 +83,12 @@ def main():
     ap.add_argument('--entry', type=int, required=True,
                     help='index into *hd-joint-counts* for this character')
     ap.add_argument('--apply', action='store_true')
+    ap.add_argument('--drop-joints', default='',
+                    help="indices HD SUPPRIMES de l'ancien tableau, `k[,k...]`. Bascule la garde "
+                         "append-only vers une garde de SUPPRESSION EXACTE, qui est plus stricte : "
+                         "elle exige que le nouveau tableau soit l'ancien PRIVE de ces indices, "
+                         "avec les references de parent HD renumerotees en consequence, valeur par "
+                         "valeur. Une seule autre difference et elle refuse.")
     ap.add_argument('--expect-mode-change', default='',
                     help="changements de mode ATTENDUS, declares un par un : "
                          "`k:ancien->nouveau[,k:ancien->nouveau...]`. Un mode ne deplace aucun "
@@ -87,8 +108,17 @@ def main():
 
     gc_text = open(a.gc, encoding='utf-8').read()
     sn_text = open(a.snippet, encoding='utf-8').read()
-    old = parse_arrays(gc_text)
-    new = parse_arrays(sn_text)
+    ARRAYS = snippet_array_names(sn_text)
+    if len(ARRAYS) != 4:
+        print("!! le snippet declare %d tableaux uint8, il en faut 4 : %s" % (len(ARRAYS), ARRAYS))
+        return 1
+    MODE_ARRAY, HD_PARENT_ARRAY = classify(ARRAYS)
+    if not MODE_ARRAY or not HD_PARENT_ARRAY:
+        print("!! impossible d'identifier *-mode* / *-hd-parent* parmi %s" % ARRAYS)
+        return 1
+    drops = sorted({int(x) for x in a.drop_joints.split(',') if x.strip()})
+    old = parse_arrays(gc_text, ARRAYS)
+    new = parse_arrays(sn_text, ARRAYS)
 
     bad = []
     for name in ARRAYS:
@@ -101,7 +131,64 @@ def main():
         return 1
 
     counts = set()
-    for name in ARRAYS:
+    if drops:
+        # ---- GARDE DE SUPPRESSION EXACTE (Gkeira-visor-deliver 2026-08-29) -------------------
+        # L'invariant append-only du docstring dit vrai pour une INJECTION : un indice qui bouge
+        # tout seul invalide en silence les references de parent. Il ne peut pas exprimer une
+        # SUPPRESSION, ou tous les indices posterieurs bougent EXPRES et ou les quatre tableaux,
+        # l'art-group, la table k2e et le mesh sont regeneres dans la meme passe depuis le meme rig.
+        # Ce n'est donc pas un assouplissement : au lieu de « le nouveau commence par l'ancien »,
+        # on exige VALEUR PAR VALEUR que le nouveau soit exactement l'ancien prive de `drops`, les
+        # references de parent HD renumerotees. Une seule difference de plus et on refuse.
+        for name in ARRAYS:
+            oc, ov, _ = old[name]
+            nc, nv, _ = new[name]
+            if oc != len(ov):
+                bad.append("%s: ancien compte declare %d mais %d valeurs" % (name, oc, len(ov)))
+                continue
+            if nc != len(nv):
+                bad.append("%s: nouveau compte declare %d mais %d valeurs" % (name, nc, len(nv)))
+                continue
+            for d in drops:
+                if not (0 <= d < oc):
+                    bad.append("%s: indice supprime %d hors de l'ancien tableau (%d entrees)"
+                               % (name, d, oc))
+            if bad:
+                continue
+            keep = [i for i in range(oc) if i not in set(drops)]
+            if nc != len(keep):
+                bad.append("%s: %d entrees apres suppression de %d indices sur %d, attendu %d"
+                           % (name, nc, len(drops), oc, len(keep)))
+                continue
+            def _remap(v):
+                if v == 255:
+                    return 255
+                return v - sum(1 for d in drops if d < v)
+            exp = [(_remap(ov[i]) if name == HD_PARENT_ARRAY else ov[i]) for i in keep]
+            diffs = [j for j in range(nc) if exp[j] != nv[j]]
+            if diffs and name == MODE_ARRAY:
+                undeclared = [j for j in diffs
+                              if (j, str(exp[j]), str(nv[j])) not in expect_mode]
+                for j in diffs:
+                    print("%-26s   mode a l'indice %-3d : %s -> %s   %s"
+                          % (name, j, exp[j], nv[j],
+                             "DECLARE" if j not in undeclared else "NON DECLARE"))
+                if undeclared:
+                    bad.append("%s: %d changement(s) de mode NON DECLARE(S) aux indices %s "
+                               "(indices du NOUVEAU tableau) : --expect-mode-change %s"
+                               % (name, len(undeclared), undeclared,
+                                  ",".join("%d:%s->%s" % (j, exp[j], nv[j]) for j in undeclared)))
+                diffs = undeclared
+            elif diffs:
+                j = diffs[0]
+                bad.append("%s: SUPPRESSION NON PURE — au nouvel indice %d on attendait %s "
+                           "(ancien indice %d) et on lit %s, +%d autre(s) ecart(s). La regeneration "
+                           "a change autre chose que la suppression demandee."
+                           % (name, j, exp[j], keep[j], nv[j], len(diffs) - 1))
+            print("%-26s %3d -> %3d   suppression exacte de %s : %s"
+                  % (name, oc, nc, drops, "OK" if not diffs else "NON"))
+            counts.add(nc)
+    for name in (() if drops else ARRAYS):
         oc, ov, _ = old[name]
         nc, nv, _ = new[name]
         if oc != len(ov):

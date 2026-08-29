@@ -1848,3 +1848,35 @@
 
 [mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
 
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1787798061
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1787799486
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1787798061
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1787799486
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1787798061
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1787799486
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1787798061
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1787799486
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+

@@ -1,0 +1,10 @@
+# keira3-hd-drop-joints.txt — the SAME prop on the JAK 3 Keira donor (decompiler_out/jak3/levels/
+# lkeira/keira-highres-lod0.glb), same removal, same reason. See keira-hd-drop-joints.txt for the
+# owner quote and the full measurement; only the indices differ:
+#     jak2 donor (keira-hd)   maskstrap @ skin 64, mask @ skin 65   of 95 joints
+#     jak3 donor (keira3-hd)  maskstrap @ skin 91, mask @ skin 92   of 94 joints
+# keira3-hd is the same character on the same LOOK carousel: leaving the mask on it would ship the
+# defect the owner reported on one of the two entries he can select. Delete this file to keep the
+# mask on the Jak 3 Keira look.
+maskstrap
+mask
