@@ -734,7 +734,13 @@
              (suspend))
            (suspend-for (seconds 0.25)
                         (set-blackout-frames (seconds 0.05))
-                        (loading-screen-hold-by! LS_HOLD_TITLE))))
+                        (loading-screen-hold-by! LS_HOLD_TITLE))
+           ;; Gloading-screen : relacher AVANT le bloc carte memoire. Ce bloc peut activer l'ecran
+           ;; de selection de sauvegarde, qui est INTERACTIF -- si le chien de garde d'une seconde
+           ;; laissait l'ecran de chargement arme, il le recouvrirait. Le cout est que l'attente de
+           ;; la carte memoire redevient un noir non couvert ; elle est courte et reste sous le
+           ;; seuil de 0,5 s, donc aucun contenu n'y aurait ete dessine de toute facon.
+           (loading-screen-release-by! LS_HOLD_TITLE)))
         (label cfg-8)
         (let ((s5-2 (new 'stack-no-clear 'mc-slot-info)))
           (mc-get-slot-info 0 s5-2)
