@@ -95,6 +95,16 @@ struct HdEyeScaleParams {
   float blerc_gain = 1.00f;
   float blerc_grow_cap = 0.2629f;
   float blerc_close_cap = 0.198f;
+  // ROUND 3 (owner 2026-08-14, "ses eye sockets c'est comme avant... ses yeux flottent dans le
+  // vide"): the socket around the eyeball is moved by the SAME blerc targets from a DIFFERENT
+  // MercEffect, so round 2 damped the globe and left the socket at 1 and broke a pair that was
+  // coherent before. blerc_orbit is how much of the globe's factor the socket inherits — 1 keeps
+  // them coupled, 0 reproduces round 2 exactly and is the positive control. The two radii are the
+  // CONTINUOUS falloff of that inheritance in units of the eyeball's own bind radius: a hard
+  // boundary would leave a damped polygon next to an undamped one, which is a step in the field.
+  float blerc_orbit = 1.00f;
+  float blerc_orbit_r0 = 1.00f;
+  float blerc_orbit_r1 = 2.00f;
 };
 // Per slot (= per eye_id). rest < 0 means "unknown": such a slot is MEASURED but never rewritten,
 // because compressing towards a rest we do not know is how you shift a character's base look.
@@ -104,6 +114,9 @@ struct HdEyeScaleSlot {
   float blerc_gain = -1.f;       // < 0 = inherit the global
   float blerc_grow_cap = -1.f;   // < 0 = inherit the global
   float blerc_close_cap = -1.f;  // < 0 = inherit the global
+  float blerc_orbit = -1.f;      // < 0 = inherit the global
+  float blerc_orbit_r0 = -1.f;   // < 0 = inherit the global
+  float blerc_orbit_r1 = -1.f;   // < 0 = inherit the global
 };
 // eye_id -> {iris rest, pupil rest} for the four jak1 drivers every HD look retargets onto
 // (hd_merc_swap --eye-from: jak 0/1, daxter 2/3, samos 4/5, keira 6/7). Compiled defaults, so a
@@ -265,6 +278,14 @@ void hd_eye_scale_load_once() {
       } else if (k == "blerc_close_cap") {
         (line_slot < 0 ? s_eye_scale.blerc_close_cap
                        : s_eye_scale_slot[line_slot].blerc_close_cap) = f;
+      } else if (k == "blerc_orbit") {
+        (line_slot < 0 ? s_eye_scale.blerc_orbit : s_eye_scale_slot[line_slot].blerc_orbit) = f;
+      } else if (k == "blerc_orbit_r0") {
+        (line_slot < 0 ? s_eye_scale.blerc_orbit_r0
+                       : s_eye_scale_slot[line_slot].blerc_orbit_r0) = f;
+      } else if (k == "blerc_orbit_r1") {
+        (line_slot < 0 ? s_eye_scale.blerc_orbit_r1
+                       : s_eye_scale_slot[line_slot].blerc_orbit_r1) = f;
       } else if (k == "neutral" || k == "neutral_iris" || k == "neutral_pupil" || k == "gaindown") {
         // Deliberately IGNORED, not silently honoured: an owner still holding the first attempt's
         // external pack would otherwise re-apply `neutral=1.0` — nobody's authored rest — on top of
@@ -278,15 +299,18 @@ void hd_eye_scale_load_once() {
   }
   lg::info(
       "[eyescale] PARAMSRC={} on={} gainup={:.3f} blerc_gain={:.3f} blerc_grow_cap={:.4f} "
-      "blerc_close_cap={:.4f} slot_lines={} path={}",
+      "blerc_close_cap={:.4f} blerc_orbit={:.3f} blerc_orbit_r0={:.3f} blerc_orbit_r1={:.3f} "
+      "slot_lines={} path={}",
       src, (int)s_eye_scale.on, s_eye_scale.gain_up, s_eye_scale.blerc_gain,
-      s_eye_scale.blerc_grow_cap, s_eye_scale.blerc_close_cap, n_slot_lines, path.string());
+      s_eye_scale.blerc_grow_cap, s_eye_scale.blerc_close_cap, s_eye_scale.blerc_orbit,
+      s_eye_scale.blerc_orbit_r0, s_eye_scale.blerc_orbit_r1, n_slot_lines, path.string());
   for (int s = 0; s < 8; s++) {
     const auto c = hd_eye_blerc_caps((u8)s);
     lg::info("[eyescale] anchor slot={} rest_iris={:.5f} rest_pupil={:.5f} gainup={:.3f} "
-             "blerc_gain={:.3f} blerc_grow_cap={:.4f} blerc_close_cap={:.4f}",
+             "blerc_gain={:.3f} blerc_grow_cap={:.4f} blerc_close_cap={:.4f} orbit={:.3f} "
+             "orbit_r0={:.3f} orbit_r1={:.3f}",
              s, s_eye_scale_slot[s].rest[kIris], s_eye_scale_slot[s].rest[kPupil],
-             eye_gain_up_of((u8)s), c.gain, c.grow, c.close);
+             eye_gain_up_of((u8)s), c.gain, c.grow, c.close, c.orbit, c.orbit_r0, c.orbit_r1);
   }
 }
 
@@ -388,7 +412,10 @@ void hd_eye_scale_heartbeat() {
 // `on=0` disables the whole thing: gain 1 with both ceilings effectively infinite = jak1 exactly.
 HdEyeBlercCaps hd_eye_blerc_caps(unsigned char eye_id) {
   hd_eye_scale_load_once();
-  HdEyeBlercCaps c{1.f, 1e9f, 1e9f};
+  // orbit 0 in the disabled struct is not a second switch: with gain 1 and both ceilings infinite
+  // the eyeball factor k is already 1, so the socket inherits nothing either way. It is written
+  // out so the disabled path reads as jak1 exactly, on both surfaces.
+  HdEyeBlercCaps c{1.f, 1e9f, 1e9f, 0.f, 1.f, 2.f};
   if (!s_eye_scale.on) {
     return c;
   }
@@ -396,6 +423,9 @@ HdEyeBlercCaps hd_eye_blerc_caps(unsigned char eye_id) {
   c.gain = sl.blerc_gain >= 0.f ? sl.blerc_gain : s_eye_scale.blerc_gain;
   c.grow = sl.blerc_grow_cap >= 0.f ? sl.blerc_grow_cap : s_eye_scale.blerc_grow_cap;
   c.close = sl.blerc_close_cap >= 0.f ? sl.blerc_close_cap : s_eye_scale.blerc_close_cap;
+  c.orbit = sl.blerc_orbit >= 0.f ? sl.blerc_orbit : s_eye_scale.blerc_orbit;
+  c.orbit_r0 = sl.blerc_orbit_r0 >= 0.f ? sl.blerc_orbit_r0 : s_eye_scale.blerc_orbit_r0;
+  c.orbit_r1 = sl.blerc_orbit_r1 >= 0.f ? sl.blerc_orbit_r1 : s_eye_scale.blerc_orbit_r1;
   if (c.gain < 0.f || c.gain > 1.f) {
     c.gain = 1.f;
   }
@@ -404,6 +434,15 @@ HdEyeBlercCaps hd_eye_blerc_caps(unsigned char eye_id) {
   }
   if (c.close < 0.f || c.close > 1.f) {
     c.close = 1.f;
+  }
+  if (c.orbit < 0.f || c.orbit > 1.f) {
+    c.orbit = 1.f;
+  }
+  // r1 <= r0 would be a hard boundary — the very step the continuous weight exists to avoid — so
+  // an inverted or degenerate pair falls back to the compiled defaults rather than being honoured.
+  if (c.orbit_r0 < 0.f || c.orbit_r1 <= c.orbit_r0) {
+    c.orbit_r0 = 1.f;
+    c.orbit_r1 = 2.f;
   }
   return c;
 }

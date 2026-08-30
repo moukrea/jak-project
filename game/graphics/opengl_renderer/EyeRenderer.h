@@ -16,6 +16,15 @@ struct HdEyeBlercCaps {
   float gain;   // blunt multiplier on the whole eyeball blerc displacement. 1.0 = no blanket cut.
   float grow;   // ceiling on the eye's fractional radius change
   float close;  // ceiling on the fraction of the bind inter-eye distance that may be closed
+  // ROUND 3 (owner 2026-08-14: "ses eye sockets eux c'est comme avant, ce qui fait que ses yeux
+  // flottent dans le vide quand ils grossissent"). The eyeball and the socket that holds it are
+  // driven by the SAME blerc targets but live in two different MercEffects, so round 2 scaled one
+  // and left the other. `orbit` is the fraction of the eyeball's own factor the socket inherits
+  // (1 = fully coupled, 0 = round 2 exactly, i.e. the defect); the two radii are the CONTINUOUS
+  // falloff of that inheritance, in units of the eyeball's own bind radius.
+  float orbit;
+  float orbit_r0;
+  float orbit_r1;
 };
 HdEyeBlercCaps hd_eye_blerc_caps(unsigned char eye_id);
 #endif

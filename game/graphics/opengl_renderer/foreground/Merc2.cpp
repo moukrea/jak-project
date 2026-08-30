@@ -454,6 +454,7 @@ struct EyeGeom {
   std::vector<u32> inner[2];      // the kEyeGapInner verts closest to the other eye
   float centroid[2][3] = {};      // centroid of flex[e] at bind
   float inertia[2] = {0.f, 0.f};  // sum |p - centroid|^2 over flex[e] — the dilation denominator
+  float radius[2] = {0.f, 0.f};   // bind bounding-sphere radius of eye e — the socket falloff unit
   float span = 0.f;               // largest bind bbox span over the two eye clouds
   float bind_gap = 0.f;           // min vertex-to-vertex distance between the clouds at bind
 };
@@ -498,7 +499,89 @@ float cloud_gap(const std::vector<u32>& a,
   return best >= 1e30f ? 0.f : std::sqrt(best);
 }
 
-// Built once per effect. `gidx` is the level's shared merc index array; a mod draw's indices
+// Same minimum-distance search over two explicit xyz point lists. The socket lives in ANOTHER
+// MercEffect, whose own blerc pass overwrites the shared temp buffer, so the eyeball it is
+// measured against has to be carried as points, not as indices into a buffer that is already gone.
+float pts_gap(const std::vector<float>& a, const std::vector<float>& b) {
+  float best = 1e30f;
+  for (size_t i = 0; i + 2 < a.size(); i += 3) {
+    for (size_t j = 0; j + 2 < b.size(); j += 3) {
+      const float dx = a[i] - b[j], dy = a[i + 1] - b[j + 1], dz = a[i + 2] - b[j + 2];
+      const float d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < best) {
+        best = d2;
+      }
+    }
+  }
+  return best >= 1e30f ? 0.f : std::sqrt(best);
+}
+
+// ================================================================================================
+// ROUND 3 — THE SOCKET. Owner 2026-08-14 09:20, verbatim: « Certes ses yeux ne grossissent plus
+// autant quand ils grossissent, mais ses eye sockets eux c'est comme avant, ce qui fait que ses
+// yeux flottent dans le vide quand ils grossissent car les sockets grossissent toujours autant ! »
+//
+// He is right, and the cause is MEASURED, not supposed (hd_merc_swap blerc-stats on the shipped
+// GAME.fr3): the eyeball and the face that holds it are driven by THE SAME blerc targets but live
+// in two different MercEffects. Daxter HD effect 5 `programmer_eye_right` carries eye_id — the
+// GLOBE; effect 4 `daxter-orange` carries none — the SOCKET; and target 25, the dilating one,
+// moves 251 globe vertices and 836 socket vertices. Same partition on jak1's own model (effect 2
+// globe / effect 0 face), so the coupling is a property of BOTH. Round 2's damping only ever
+// reaches an effect that has an eye_id draw (eye_geom_for) and apply_k only walks the globe's flex
+// set, so the globe was scaled by k and the socket stayed at 1. Before round 2 both were at 1 and
+// moved TOGETHER: the pair was coherent even when it was too big. Round 2 broke the coupling, and
+// the gap it opens is exactly (1 - k) x the socket's own displacement — largest on the frames
+// where the correction bites hardest, which is what "floating in the void when they grow" means.
+//
+// THE COUPLING IS A FIELD, NOT A SET. A binary "socket = the vertices within R of the eye" would
+// leave a damped polygon next to an undamped one, i.e. a STEP in the displacement field — the same
+// class of defect the owner already rejected on Keira's hair ("des polygones qui bougent et des
+// polygones voisins parfaitement statiques"). So the weight falls CONTINUOUSLY (smoothstep, zero
+// slope at both ends) from 1 on the eyeball to 0 away from it, over a length derived from the
+// eyeball's OWN bind radius, and every socket vertex gets k_v = 1 - w_v (1 - k). On the eyeball
+// w = 1 so k_v = k; far away w = 0 so k_v = 1 and jak1's face is bit-identical. blerc_orbit = 0
+// reproduces round 2 exactly and is the positive control.
+//
+// THE ORDER TRAP, named before it could bite. model_mod_blerc_draws walked the effects by
+// increasing index and uploaded each one to the GPU right after its own blerc pass, so the socket
+// (effect 4) left for the GPU before the globe (effect 5) had produced k. Reusing k in that order
+// would apply the PREVIOUS frame's factor: bit-exact at rest and wrong the instant the face
+// animates — undetectable by any still measurement. The loop below therefore resolves the
+// eye-bearing effect FIRST.
+// ================================================================================================
+struct EyeSolve {
+  bool armed = false;
+  const tfrag3::MercEffect* eye_effect = nullptr;
+  float centroid[2][3] = {};
+  float radius[2] = {0.f, 0.f};
+  float k = 1.f;                          // the factor the eyeball was actually scaled by
+  float orbit = 0.f, r0 = 1.f, r1 = 2.f;  // how much of it the socket inherits, and over what
+  float s_globe[2] = {0.f, 0.f};          // per-eye RAW dilation, for the coupling ratio
+  std::vector<float> bind[2];             // the eyeball's inner cloud at bind
+  std::vector<float> raw[2];              // ... as raw blerc left it
+  std::vector<float> out[2];              // ... as the GPU is about to get it
+};
+EyeSolve s_eye_solve;
+
+// ---------------------------------------------------------------------------------------------
+// The socket side of the pair. Everything here is per NON-eye effect of the SAME model, on the
+// same frame, after that effect's own blerc pass and before its upload.
+// ---------------------------------------------------------------------------------------------
+struct OrbitGeom {
+  bool ok = false;                                 // has at least one vertex to couple
+  bool meas = false;                               // has enough rim vertices to measure the seam
+  size_t pool_size = 0, blerc_ints = 0;
+  const tfrag3::MercEffect* eye_effect = nullptr;  // whose centroids these weights were built from
+  float r0 = 0.f, r1 = 0.f;                        // and with which falloff
+  std::vector<u32> vtx;                            // blerc-movable verts of this effect, w > 0
+  std::vector<float> w;                            // parallel to vtx, in (0, 1]
+  std::vector<u32> rim[2];                         // the socket verts nearest eye e — the seam probe
+  float inertia[2] = {0.f, 0.f};                   // sum |p - c_e|^2 over rim[e]
+  float bind_seam[2] = {0.f, 0.f};                 // eyeball-to-socket distance with NO blerc at all
+};
+std::unordered_map<const tfrag3::MercEffect*, OrbitGeom> s_orbit_geom;
+
+// Built once per effect.  `gidx` is the level's shared merc index array; a mod draw's indices
 // address the effect's OWN mod vertex pool (same convention as hd_merc_swap skin-stats).
 const EyeGeom& eye_geom_for(const std::string& name,
                             const tfrag3::MercEffect& effect,
@@ -513,6 +596,7 @@ const EyeGeom& eye_geom_for(const std::string& name,
   }
   if (s_eye_geom.size() > 512) {
     s_eye_geom.clear();  // bounded: entries are only rebuilt on demand
+    s_orbit_geom.clear();  // the socket weights are keyed on an eye effect that just went away
   }
   EyeGeom g;
   g.hd = name.find("-hd") != std::string::npos;
@@ -591,12 +675,20 @@ const EyeGeom& eye_geom_for(const std::string& name,
     // span is PER EYE (the eyeball's own size), never the pair's combined bbox — the latter
     // would just re-measure the inter-eye distance.
     float mn[3] = {1e30f, 1e30f, 1e30f}, mx[3] = {-1e30f, -1e30f, -1e30f};
+    float rad2 = 0.f;
     for (u32 vi : all[e]) {
+      float d2 = 0.f;
       for (int a = 0; a < 3; a++) {
         mn[a] = std::min(mn[a], pool[vi].pos[a]);
         mx[a] = std::max(mx[a], pool[vi].pos[a]);
+        const float r = pool[vi].pos[a] - g.centroid[e][a];
+        d2 += r * r;
       }
+      rad2 = std::max(rad2, d2);
     }
+    // the eyeball's OWN bind radius about its OWN centroid: the length the socket falloff is
+    // expressed in, so nothing about the coupling is a number picked in absolute model units.
+    g.radius[e] = std::sqrt(rad2);
     g.span = std::max({g.span, mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]});
   }
   // bind gap over the FULL clouds (exact, once), and the inner subsets used per frame
@@ -620,9 +712,11 @@ const EyeGeom& eye_geom_for(const std::string& name,
     }
   }
   g.ok = !g.flex[0].empty() && !g.flex[1].empty() && g.inertia[0] > 0.f && g.inertia[1] > 0.f;
-  lg::info("[eyegap] geom model={} hd={} eyes={}/{} flex={}/{} span={:.2f} bind_gap={:.2f} ok={}",
-           name, (int)g.hd, g.eye_id[0], g.eye_id[1], g.flex[0].size(), g.flex[1].size(), g.span,
-           g.bind_gap, (int)g.ok);
+  lg::info(
+      "[eyegap] geom model={} hd={} eyes={}/{} flex={}/{} span={:.2f} rad={:.2f}/{:.2f} "
+      "bind_gap={:.2f} ok={}",
+      name, (int)g.hd, g.eye_id[0], g.eye_id[1], g.flex[0].size(), g.flex[1].size(), g.span,
+      g.radius[0], g.radius[1], g.bind_gap, (int)g.ok);
   return s_eye_geom.emplace(&effect, g).first->second;
 }
 
@@ -640,7 +734,10 @@ void eye_blerc_measure_and_damp(const std::string& name,
     s_eye_gap_trace = getenv("OG_EYEGAP_TRACE") ? 1 : 0;
   }
   const auto& pool = effect.mod.vertices;
-  HdEyeBlercCaps cap{1.f, 1e9f, 1e9f};  // a non-HD model is measured, never touched
+  // A non-HD model is MEASURED, never touched: orbit 0 means its socket inherits nothing, while
+  // valid falloff radii keep its socket instrumented — that is what makes it a reference and not
+  // a second treatment. (Leaving the radii at 0 would silently drop the stock socket reading.)
+  HdEyeBlercCaps cap{1.f, 1e9f, 1e9f, 0.f, 1.f, 2.f};
   if (g.hd) {
     cap = hd_eye_blerc_caps(g.eye_id[0]);
   }
@@ -662,6 +759,23 @@ void eye_blerc_measure_and_damp(const std::string& name,
     s_eye[e] = (float)(num / (double)g.inertia[e]);
   }
   const float raw_grow = std::max(s_eye[0], s_eye[1]);
+
+  // Carry the eyeball's inner cloud out of this effect. The socket is a DIFFERENT MercEffect and
+  // its own blerc pass reuses the same temp buffer, so by the time the seam can be measured these
+  // vertices no longer exist anywhere else. bind = the defect-absent reading, raw = what jak1 plus
+  // the donor produce, out = what the GPU is handed.
+  for (int e = 0; e < 2; e++) {
+    s_eye_solve.bind[e].clear();
+    s_eye_solve.raw[e].clear();
+    for (u32 vi : g.inner[e]) {
+      for (int a = 0; a < 3; a++) {
+        s_eye_solve.bind[e].push_back(pool[vi].pos[a]);
+      }
+      for (int a = 0; a < 3; a++) {
+        s_eye_solve.raw[e].push_back(out[vi].pos[a]);
+      }
+    }
+  }
 
   // (2) the loosest k <= 1 that puts BOTH symptoms inside jak1's own ceiling.
   const float floor_gap = g.bind_gap * (1.f - cap.close);
@@ -739,6 +853,28 @@ void eye_blerc_measure_and_damp(const std::string& name,
   }
   const float out_grow = k * raw_grow;
 
+  // Hand the solved factor to the socket pass. `armed` is cleared per model, so a socket can only
+  // ever inherit the k of the eyeball of ITS OWN model, on THIS frame.
+  s_eye_solve.armed = true;
+  s_eye_solve.eye_effect = &effect;
+  s_eye_solve.k = k;
+  s_eye_solve.orbit = g.hd ? cap.orbit : 0.f;
+  s_eye_solve.r0 = cap.orbit_r0;
+  s_eye_solve.r1 = cap.orbit_r1;
+  for (int e = 0; e < 2; e++) {
+    s_eye_solve.radius[e] = g.radius[e];
+    s_eye_solve.s_globe[e] = s_eye[e];
+    for (int a = 0; a < 3; a++) {
+      s_eye_solve.centroid[e][a] = g.centroid[e][a];
+    }
+    s_eye_solve.out[e].clear();
+    for (u32 vi : g.inner[e]) {
+      for (int a = 0; a < 3; a++) {
+        s_eye_solve.out[e].push_back(out[vi].pos[a]);
+      }
+    }
+  }
+
   // (3) the gap the GPU will actually get
   const float out_gap = damped ? cloud_gap(g.inner[0], g.inner[1], out) : raw_gap;
 
@@ -764,6 +900,237 @@ void eye_blerc_measure_and_damp(const std::string& name,
   }
 }
 
+
+struct OrbitStat {
+  u64 frames = 0, coupled = 0;
+  float k_min = 1.f;
+  float bind_seam = 0.f;
+  // the coupling itself: s_socket / s_globe must not be changed by the damping — that IS what
+  // "coupled" means, and publishing only one of the two is what let round 2 read as green.
+  double ratio_raw_sum = 0.0, ratio_out_sum = 0.0;
+  u64 ratio_n = 0;
+  float s_globe_raw_max = 0.f, s_globe_out_max = 0.f;
+  float s_orbit_raw_max = 0.f, s_orbit_out_max = 0.f;
+  // seam error against the PREDICTION seam_bind + k (seam_raw - seam_bind): scaling a coupled pair
+  // by k must move its seam by k too. `half` is the socket left undamped = round 2 = the defect.
+  float err_half_max = 0.f, err_out_max = 0.f;
+  float seam_half_max = 0.f, seam_out_max = 0.f;
+};
+std::map<std::string, OrbitStat> s_orbit_stat;
+
+// Weights are a function of the eyeball's bind geometry only, so they are built once per effect
+// and reused. The key carries the eye effect and the two radii: a level swap that reuses the
+// address, or a data retune of the falloff, must not silently keep an old field.
+const OrbitGeom& orbit_geom_for(const tfrag3::MercEffect& effect) {
+  auto it = s_orbit_geom.find(&effect);
+  if (it != s_orbit_geom.end()) {
+    const OrbitGeom& c = it->second;
+    if (c.pool_size == effect.mod.vertices.size() &&
+        c.blerc_ints == effect.mod.blerc.int_data.size() &&
+        c.eye_effect == s_eye_solve.eye_effect && c.r0 == s_eye_solve.r0 &&
+        c.r1 == s_eye_solve.r1) {
+      return c;
+    }
+    s_orbit_geom.erase(it);
+  }
+  if (s_orbit_geom.size() > 512) {
+    s_orbit_geom.clear();
+  }
+  OrbitGeom o;
+  o.pool_size = effect.mod.vertices.size();
+  o.blerc_ints = effect.mod.blerc.int_data.size();
+  o.eye_effect = s_eye_solve.eye_effect;
+  o.r0 = s_eye_solve.r0;
+  o.r1 = s_eye_solve.r1;
+  const auto& pool = effect.mod.vertices;
+  std::vector<std::pair<float, u32>> rank[2];
+  // Only vertices blerc can actually MOVE are candidates: a static face vertex has nothing to
+  // damp, and re-fitting it would drag geometry the cartoon effect never touched.
+  const auto& idat = effect.mod.blerc.int_data;
+  size_t i = 0;
+  while (i < idat.size()) {
+    while (i < idat.size() && idat[i] != tfrag3::Blerc::kTargetIdxTerminator) {
+      i++;
+    }
+    i++;
+    if (i >= idat.size()) {
+      break;
+    }
+    const u32 dest = idat[i++];
+    if (dest >= pool.size()) {
+      continue;
+    }
+    int best_e = 0;
+    float best_d = 1e30f;
+    for (int e = 0; e < 2; e++) {
+      if (s_eye_solve.radius[e] <= 1e-6f) {
+        continue;
+      }
+      float d2 = 0.f;
+      for (int a = 0; a < 3; a++) {
+        const float r = pool[dest].pos[a] - s_eye_solve.centroid[e][a];
+        d2 += r * r;
+      }
+      const float d = std::sqrt(d2) / s_eye_solve.radius[e];
+      if (d < best_d) {
+        best_d = d;
+        best_e = e;
+      }
+    }
+    if (best_d >= o.r1) {
+      continue;  // jak1's face out here is bit-identical, by construction
+    }
+    float wgt = 1.f;
+    if (best_d > o.r0) {
+      const float u = (o.r1 - best_d) / (o.r1 - o.r0);
+      wgt = u * u * (3.f - 2.f * u);  // smoothstep: value AND slope are 0 at r1, 1 at r0
+    }
+    if (wgt <= 1e-4f) {
+      continue;
+    }
+    o.vtx.push_back(dest);
+    o.w.push_back(wgt);
+    if (wgt > 0.5f) {
+      rank[best_e].push_back({best_d, dest});
+    }
+  }
+  for (int e = 0; e < 2; e++) {
+    std::sort(rank[e].begin(), rank[e].end());
+    for (size_t r = 0; r < rank[e].size() && r < (size_t)kEyeGapInner; r++) {
+      o.rim[e].push_back(rank[e][r].second);
+    }
+    double in = 0;
+    std::vector<float> pts;
+    for (u32 vi : o.rim[e]) {
+      double d2 = 0;
+      for (int a = 0; a < 3; a++) {
+        const double r = pool[vi].pos[a] - s_eye_solve.centroid[e][a];
+        d2 += r * r;
+        pts.push_back(pool[vi].pos[a]);
+      }
+      in += d2;
+    }
+    o.inertia[e] = (float)in;
+    o.bind_seam[e] = pts_gap(s_eye_solve.bind[e], pts);
+  }
+  o.ok = !o.vtx.empty();
+  o.meas = o.rim[0].size() >= 4 && o.rim[1].size() >= 4 && o.inertia[0] > 0.f && o.inertia[1] > 0.f;
+  lg::info(
+      "[eyeorb] geom verts={} rim={}/{} r0={:.2f} r1={:.2f} bind_seam={:.3f}/{:.3f} ok={} meas={}",
+      o.vtx.size(), o.rim[0].size(), o.rim[1].size(), o.r0, o.r1, o.bind_seam[0], o.bind_seam[1],
+      (int)o.ok, (int)o.meas);
+  return s_orbit_geom.emplace(&effect, o).first->second;
+}
+
+void orbit_blerc_couple(const std::string& name,
+                        const tfrag3::MercEffect& effect,
+                        tfrag3::MercVertex* out) {
+  if (!s_eye_solve.armed || &effect == s_eye_solve.eye_effect ||
+      effect.mod.blerc.int_data.empty()) {
+    return;
+  }
+  const OrbitGeom& o = orbit_geom_for(effect);
+  if (!o.ok) {
+    return;
+  }
+  const auto& pool = effect.mod.vertices;
+  const float k = s_eye_solve.k;
+  const float orb = s_eye_solve.orbit;
+
+  // (1) the socket as round 2 leaves it: moved by the full donor field while the globe next to it
+  // has already been pulled back to k. This is the owner's defect, read on the same frame.
+  float s_orb_raw[2] = {0.f, 0.f}, seam_raw[2] = {0.f, 0.f}, seam_half[2] = {0.f, 0.f};
+  std::vector<float> pts;
+  for (int e = 0; e < 2 && o.meas; e++) {
+    double num = 0;
+    pts.clear();
+    for (u32 vi : o.rim[e]) {
+      const float* p = pool[vi].pos;
+      const float* c = out[vi].pos;
+      for (int a = 0; a < 3; a++) {
+        num += (double)(c[a] - p[a]) * (double)(p[a] - s_eye_solve.centroid[e][a]);
+        pts.push_back(c[a]);
+      }
+    }
+    s_orb_raw[e] = (float)(num / (double)o.inertia[e]);
+    seam_raw[e] = pts_gap(s_eye_solve.raw[e], pts);
+    seam_half[e] = pts_gap(s_eye_solve.out[e], pts);
+  }
+
+  // (2) the coupling. k_v = 1 - w_v (1 - k) x orbit — an identity wherever w is 0, so jak1's face
+  // away from the eyes is bit-for-bit untouched, and an identity everywhere when k is already 1.
+  const bool couple = k < 0.9999f && orb > 0.f;
+  if (couple) {
+    for (size_t j = 0; j < o.vtx.size(); j++) {
+      const u32 vi = o.vtx[j];
+      const float kv = 1.f - o.w[j] * (1.f - k) * orb;
+      const float* p = pool[vi].pos;
+      float* c = out[vi].pos;
+      for (int a = 0; a < 3; a++) {
+        c[a] = p[a] + kv * (c[a] - p[a]);
+      }
+    }
+  }
+
+  // (3) the socket the GPU actually gets
+  float s_orb_out[2] = {0.f, 0.f}, seam_out[2] = {0.f, 0.f};
+  for (int e = 0; e < 2 && o.meas; e++) {
+    if (!couple) {
+      s_orb_out[e] = s_orb_raw[e];
+      seam_out[e] = seam_half[e];
+      continue;
+    }
+    double num = 0;
+    pts.clear();
+    for (u32 vi : o.rim[e]) {
+      const float* p = pool[vi].pos;
+      const float* c = out[vi].pos;
+      for (int a = 0; a < 3; a++) {
+        num += (double)(c[a] - p[a]) * (double)(p[a] - s_eye_solve.centroid[e][a]);
+        pts.push_back(c[a]);
+      }
+    }
+    s_orb_out[e] = (float)(num / (double)o.inertia[e]);
+    seam_out[e] = pts_gap(s_eye_solve.out[e], pts);
+  }
+
+  if (!o.meas) {
+    return;
+  }
+  auto& st = s_orbit_stat[name];
+  st.frames++;
+  st.coupled += couple ? 1 : 0;
+  st.k_min = std::min(st.k_min, k);
+  st.bind_seam = 0.5f * (o.bind_seam[0] + o.bind_seam[1]);
+  for (int e = 0; e < 2; e++) {
+    const float sg_raw = s_eye_solve.s_globe[e], sg_out = k * s_eye_solve.s_globe[e];
+    st.s_globe_raw_max = std::max(st.s_globe_raw_max, sg_raw);
+    st.s_globe_out_max = std::max(st.s_globe_out_max, sg_out);
+    st.s_orbit_raw_max = std::max(st.s_orbit_raw_max, s_orb_raw[e]);
+    st.s_orbit_out_max = std::max(st.s_orbit_out_max, s_orb_out[e]);
+    if (std::abs(sg_raw) > 1e-3f && std::abs(sg_out) > 1e-6f) {
+      st.ratio_raw_sum += s_orb_raw[e] / sg_raw;
+      st.ratio_out_sum += s_orb_out[e] / sg_out;
+      st.ratio_n++;
+    }
+    // scaling a COUPLED pair by k moves its seam by k: this is a prediction, not a ratio to a
+    // baseline that drifts, and both candidates are judged against the same number.
+    const float pred = o.bind_seam[e] + k * (seam_raw[e] - o.bind_seam[e]);
+    st.err_half_max = std::max(st.err_half_max, std::abs(seam_half[e] - pred));
+    st.err_out_max = std::max(st.err_out_max, std::abs(seam_out[e] - pred));
+    st.seam_half_max = std::max(st.seam_half_max, seam_half[e]);
+    st.seam_out_max = std::max(st.seam_out_max, seam_out[e]);
+  }
+  if (s_eye_gap_trace) {
+    lg::info(
+        "[eyeorb-f] n={} model={} k={:.4f} orbit={:.3f} sg_raw={:.4f} sg_out={:.4f} "
+        "so_raw={:.4f} so_out={:.4f} seam_bind={:.3f} seam_raw={:.3f} seam_half={:.3f} "
+        "seam_out={:.3f}",
+        s_eye_gap_calls, name, k, orb, s_eye_solve.s_globe[0], k * s_eye_solve.s_globe[0],
+        s_orb_raw[0], s_orb_out[0], o.bind_seam[0], seam_raw[0], seam_half[0], seam_out[0]);
+  }
+}
+
 void eye_blerc_heartbeat() {
   if (++s_eye_gap_calls % 600) {
     return;
@@ -781,6 +1148,21 @@ void eye_blerc_heartbeat() {
         st.bind_gap > 0.f ? 1.f - st.raw_gap_min / st.bind_gap : 0.f,
         st.bind_gap > 0.f ? 1.f - st.gap_min / st.bind_gap : 0.f);
   }
+  for (const auto& [nm, st] : s_orbit_stat) {
+    if (!st.frames) {
+      continue;
+    }
+    lg::info(
+        "[eyeorb] model={} frames={} coupled={} k_min={:.4f} seam_bind={:.3f} "
+        "s_globe_raw_max={:.4f} s_globe_out_max={:.4f} s_orbit_raw_max={:.4f} "
+        "s_orbit_out_max={:.4f} ratio_raw={:.4f} ratio_out={:.4f} seam_half_max={:.3f} "
+        "seam_out_max={:.3f} err_half_max={:.3f} err_out_max={:.3f}",
+        nm, st.frames, st.coupled, st.k_min, st.bind_seam, st.s_globe_raw_max,
+        st.s_globe_out_max, st.s_orbit_raw_max, st.s_orbit_out_max,
+        st.ratio_n ? st.ratio_raw_sum / (double)st.ratio_n : 0.0,
+        st.ratio_n ? st.ratio_out_sum / (double)st.ratio_n : 0.0, st.seam_half_max,
+        st.seam_out_max, st.err_half_max, st.err_out_max);
+  }
 }
 }  // namespace
 #endif
@@ -791,8 +1173,39 @@ void Merc2::model_mod_blerc_draws(int num_effects,
                                   ModBuffers* mod_opengl_buffers,
                                   const float* blerc_weights,
                                   MercDebugStats* stats) {
-  // loop over effects.
+  int eye_first = -1;
+#ifdef OG_FEAT_HD_MODELS
+  // A model's eyeball and the socket around it are DIFFERENT effects driven by the SAME blerc
+  // targets, and each effect is uploaded to the GPU right after its own blerc pass. In source
+  // order the socket would therefore leave before the eyeball's factor k exists, and reusing k
+  // would silently apply the PREVIOUS frame's value — exact at rest, wrong as soon as the face
+  // animates. So the eye-bearing effect is resolved FIRST and every other effect follows.
+  s_eye_solve.armed = false;  // a socket may only ever inherit the k of its OWN model, this frame
+  for (int ei = 0; ei < num_effects && eye_first < 0; ei++) {
+    const auto& e = model->effects[ei];
+    if (e.mod.mod_draw.empty()) {
+      continue;
+    }
+    for (const auto* dl : {&e.mod.mod_draw, &e.mod.fix_draw}) {
+      for (const auto& d : *dl) {
+        if (d.eye_id != 0xff) {
+          eye_first = ei;
+          break;
+        }
+      }
+      if (eye_first >= 0) {
+        break;
+      }
+    }
+  }
+#endif
+  // loop over effects. Pass 0 is the eye-bearing effect alone (none when eye_first < 0), pass 1 is
+  // everything else, in source order — so the ordinary path is byte-for-byte the old one.
+  for (int pass = 0; pass < 2; pass++) {
   for (int ei = 0; ei < num_effects; ei++) {
+    if ((pass == 0) != (ei == eye_first)) {
+      continue;
+    }
     const auto& effect = model->effects[ei];
     // some effects might have no mod draw info, and no modifiable vertices
     if (effect.mod.mod_draw.empty()) {
@@ -823,8 +1236,14 @@ void Merc2::model_mod_blerc_draws(int num_effects,
 #ifdef OG_FEAT_HD_MODELS
     // Grecharged-hd-eye-scale round 2: measure the two eyes' edge-to-edge distance on the
     // vertices that are about to be uploaded, and damp the DILATION mode on HD eyes only.
-    eye_blerc_measure_and_damp(model->name, effect, lev->level->merc_data.indices,
-                               m_mod_vtx_temp.data());
+    // Round 3: and hand that same factor, continuously faded, to the SOCKET in the sibling
+    // effects — round 2 damped one half of a coupled pair and the owner saw the eye come loose.
+    if (ei == eye_first) {
+      eye_blerc_measure_and_damp(model->name, effect, lev->level->merc_data.indices,
+                                 m_mod_vtx_temp.data());
+    } else {
+      orbit_blerc_couple(model->name, effect, m_mod_vtx_temp.data());
+    }
 #endif
 
     // and upload to GPU
@@ -835,6 +1254,7 @@ void Merc2::model_mod_blerc_draws(int num_effects,
       glBufferData(GL_ARRAY_BUFFER, effect.mod.vertices.size() * sizeof(tfrag3::MercVertex),
                    m_mod_vtx_temp.data(), GL_DYNAMIC_DRAW);
     }
+  }
   }
 #ifdef OG_FEAT_HD_MODELS
   eye_blerc_heartbeat();

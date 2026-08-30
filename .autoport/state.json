@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 253,
+  "current_phase_idx": 254,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -226,7 +226,7 @@
     "Grecharged-hd-models5": 1,
     "Grecharged-foliage-wind2": 0,
     "Grecharged-secondary-motion": 4,
-    "Grecharged-hd-eye-scale": 2,
+    "Grecharged-hd-eye-scale": 3,
     "Grecharged-title-logo-fullres": 1,
     "Grecharged-managed-assets-merge": 5,
     "Gmemory-ceiling-and-crash": 1,
@@ -1125,7 +1125,7 @@
     "Gloading-screen-window": 1788089738.5346968,
     "Gloadgate-crash-regression": 1788103921.8125257
   },
-  "last_update": "2026-08-30T18:08:32.824300+00:00",
+  "last_update": "2026-08-30T18:25:40.127343+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1264,6 +1264,7 @@
     "Gpbr-material-props": "2026-08-30 : validateur ET gates PASSES, build installe et verifie sur la Shield (14 fichiers du pack HD apparies par empreinte, 0 ecart, demarrage propre jusqu'au titre, 0 entree ISO dans l'APK). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/<phase> quand il valide.",
     "Gcine-vertical-frame": "2026-08-30 13:09 : validateur ET gates PASSES. Perte de champ vertical en cinematique 25,000 % -> 0,000 % sur 5 formats, confirmee par une course d'ablation sur le meme binaire. N'ATTEND QUE LA PAROLE DE L'OWNER.",
     "Gloading-screen-window": "2026-08-30 16:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gloading-screen-window quand il valide.",
-    "Gloadgate-crash-regression": "2026-08-30 19:11 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gloadgate-crash-regression quand il valide."
+    "Gloadgate-crash-regression": "2026-08-30 19:11 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gloadgate-crash-regression quand il valide.",
+    "Gfixed-tick-interpolation": "2026-08-30 20:08 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gfixed-tick-interpolation quand il valide."
   }
 }
