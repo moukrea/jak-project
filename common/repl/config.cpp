@@ -79,6 +79,11 @@ std::string KeyBind::string() const {
     case KeyBind::Modifier::META:
       return fmt::format("META-{}", key);
   }
+  // Ggrass-crash : deuxieme instance de la MEME classe de defaut, trouvee par le
+  // `-Werror=return-type` pose dans ce lot. Un `switch` sur une enumeration n'est pas exhaustif
+  // POUR LE COMPILATEUR : une valeur hors domaine (JSON corrompu -> `get_to` d'un entier
+  // arbitraire) tombait hors de la fonction, comportement indefini. On rend la touche nue.
+  return key;
 }
 
 void to_json(json& j, const KeyBind& obj) {

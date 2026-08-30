@@ -1459,7 +1459,27 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     // by default -> zero grass code runs and the device render is byte-identical.
     if (bucket_id == 31 - 1 && Gfx::recharged_active(Gfx::g_global_settings.recharged_grass)) {
       auto p = prof.make_scoped_child("grass-draw");
-      m_grass_renderer.render(&m_render_state, p);
+      // Ggrass-crash : GARDE EXTERIEURE. MESURE, Redmi, 12 courses sur 12 : une `std::bad_alloc`
+      // partie du champ d'herbe remontait jusqu'ici sans personne pour l'attraper, `libc++abi`
+      // appelait `std::terminate` et le processus mourait — la pile du tombstone traverse
+      // precisement le destructeur de CE `ScopedProfilerNode`. Le garde interne de `rebuild()`
+      // couvre l'etape SOURCE ; celui-ci couvre TOUT le reste du chemin d'herbe, y compris le
+      // dessin. Un rendu DECORATIF n'a en aucun cas le droit d'abattre le jeu.
+      // On desarme pour le reste de la session apres l'avoir NOMME une fois : sans ca, un defaut
+      // qui se reproduit a chaque image noierait le journal et couterait une exception par image.
+      static bool s_grass_dead = false;
+      if (!s_grass_dead) {
+        try {
+          m_grass_renderer.render(&m_render_state, p);
+        } catch (const std::exception& e) {
+          s_grass_dead = true;
+          lg::error(
+              "[recharged-grass] GRASS-DEAD exception={} — l'herbe est DESARMEE pour le reste de la "
+              "session au lieu d'abattre le jeu. Ce n'est PAS une reussite : cette ligne nomme un "
+              "defaut a traiter.",
+              e.what());
+        }
+      }
     }
   }
 }

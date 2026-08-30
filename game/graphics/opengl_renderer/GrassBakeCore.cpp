@@ -2293,7 +2293,10 @@ bool get(const std::vector<u8>& buf, size_t& off, T& v) {
   return true;
 }
 bool get_bytes(const std::vector<u8>& buf, size_t& off, void* data, size_t n) {
-  if (off + n > buf.size()) return false;
+  // Ggrass-crash : `off + n` DEBORDE quand `n` vient d'un compte aberrant lu dans le fichier
+  // (`ncand * sizeof(u16)` avec ncand ~ 8e18 repasse sous buf.size() par enroulement) — la garde
+  // passait alors et le `memcpy` suivait. On soustrait au lieu d'additionner : jamais d'enroulement.
+  if (off > buf.size() || n > buf.size() - off) return false;
   std::memcpy(data, buf.data() + off, n);
   off += n;
   return true;
@@ -2391,6 +2394,24 @@ bool save_bake(const BakeData& d, const std::string& path) {
   return (bool)f;
 }
 
+// Ggrass-crash : UN COMPTE LU DANS UN FICHIER N'EST PAS UNE TAILLE D'ALLOCATION.
+// `load_bake` faisait `resize(n)` AVANT de verifier que `n` elements tiennent encore dans le
+// tampon. Un compte aberrant — fichier tronque, ecrit par une autre version, ou desynchronisation
+// de format — devenait donc directement `operator new(n * taille)`. MESURE, Redmi, 12 courses sur
+// 12 : `malloc(8027506242768285312) failed` puis `std::bad_alloc` non rattrapee puis SIGABRT ;
+// `8027506242768285312` = `0x6f676e65706f2e80`, octets `80 2e 6f 70 65 6e 67 6f` = « \x80.opengo »,
+// c'est-a-dire du TEXTE lu comme un compte. `keep` etant un `vector<u8>`, la taille demandee EST le
+// compte, au bit pres.
+// Ce predicat borne le compte par ce qui RESTE reellement a lire, sans jamais multiplier deux
+// grandeurs non bornees (la division ne peut pas deborder).
+static bool count_fits(const std::vector<u8>& buf, size_t off, u64 count, size_t elem_bytes) {
+  if (off > buf.size()) {
+    return false;
+  }
+  const u64 restant = (u64)(buf.size() - off);
+  return elem_bytes == 0 || count <= restant / (u64)elem_bytes;
+}
+
 bool load_bake(BakeData& d, const std::string& path) {
   std::ifstream f(path, std::ios::binary | std::ios::ate);
   if (!f) {
@@ -2453,6 +2474,13 @@ bool load_bake(BakeData& d, const std::string& path) {
   tmp.stats.giant_tris = (int)gt;
   tmp.stats.occ_objpt_buckets = (int)ob;
 
+  // 216 octets par triangle SUR DISQUE (p0/e1/e2 36 + seed 4 + aire 4 + rgb 12 + normale 12
+  // + palette 96 + cand_count 4 + cand_base 8 + flags 4 + 3 normales lissees 36).
+  if (!count_fits(buf, off, ntris, 216)) {
+    lg::warn("[recharged-grass] load_bake: compte de tris aberrant ({}) dans '{}' — refuse", ntris,
+             path);
+    return false;
+  }
   tmp.tris.resize(ntris);
   for (u32 i = 0; i < ntris; ++i) {
     BakeTri& t = tmp.tris[i];
@@ -2467,6 +2495,12 @@ bool load_bake(BakeData& d, const std::string& path) {
       lg::warn("[recharged-grass] load_bake: truncated tris in '{}'", path);
       return false;
     }
+  }
+  if (!count_fits(buf, off, ncand, sizeof(u8)) ||
+      !count_fits(buf, off + (size_t)ncand, ncand, sizeof(u16))) {
+    lg::warn("[recharged-grass] load_bake: compte de candidats aberrant ({}) dans '{}' — refuse",
+             ncand, path);
+    return false;
   }
   tmp.keep.resize(ncand);
   if (ncand && !get_bytes(buf, off, tmp.keep.data(), ncand * sizeof(u8))) {
@@ -2483,6 +2517,11 @@ bool load_bake(BakeData& d, const std::string& path) {
   u32 ndroop = 0;
   if (!get(buf, off, ndroop)) {
     lg::warn("[recharged-grass] load_bake: truncated droop count in '{}'", path);
+    return false;
+  }
+  if (!count_fits(buf, off, ndroop, 12)) {  // tri 4 + ox 4 + oz 4
+    lg::warn("[recharged-grass] load_bake: compte de droop aberrant ({}) dans '{}' — refuse",
+             ndroop, path);
     return false;
   }
   tmp.droop.resize(ndroop);
@@ -2504,6 +2543,11 @@ bool load_bake(BakeData& d, const std::string& path) {
     lg::warn("[recharged-grass] load_bake: truncated droop-rim count in '{}'", path);
     return false;
   }
+  if (!count_fits(buf, off, nrims, 24)) {  // 6 floats
+    lg::warn("[recharged-grass] load_bake: compte de droop-rims aberrant ({}) dans '{}' — refuse",
+             nrims, path);
+    return false;
+  }
   tmp.droop_rims.resize(nrims);
   for (u32 i = 0; i < nrims; ++i) {
     DroopRimSeg& s = tmp.droop_rims[i];
@@ -2518,6 +2562,11 @@ bool load_bake(BakeData& d, const std::string& path) {
   u32 nrd = 0;
   if (!get(buf, off, nrd)) {
     lg::warn("[recharged-grass] load_bake: truncated rim-drape count in '{}'", path);
+    return false;
+  }
+  if (!count_fits(buf, off, nrd, 48)) {  // 11 floats + 1 u32
+    lg::warn("[recharged-grass] load_bake: compte de rim-drape aberrant ({}) dans '{}' — refuse",
+             nrd, path);
     return false;
   }
   tmp.rimdrape.resize(nrd);

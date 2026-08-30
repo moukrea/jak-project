@@ -200,6 +200,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         -Wno-missing-field-initializers \
         -Wno-sign-compare \
         -Wno-ignored-qualifiers \
+        -Werror=return-type \
         -O3 \
         -D_CRT_SECURE_NO_WARNINGS")
 

@@ -553,6 +553,10 @@ target_compile_options(android_kernel PRIVATE
     -Wno-unused-function
     -Wno-unused-variable
     -Wno-unused-but-set-variable
+    # Ggrass-crash : un `bool` qui tombe hors de sa fonction est un plantage GARANTI sur
+    # arm64/clang (`bl _Unwind_Resume` avec un pointeur bidon). Le compilateur l'avait signale,
+    # personne ne l'a lu -> c'est desormais une ERREUR, plus un avertissement.
+    -Werror=return-type
 )
 target_link_libraries(android_kernel PUBLIC fmt::fmt libco sqlite3)
 
@@ -846,6 +850,9 @@ target_compile_options(gk PRIVATE
     -fdiagnostics-color=always
     -Wall
     -Wno-unused-parameter
+    # Ggrass-crash : voir android_kernel ci-dessus. C'est CETTE cible qui a livre
+    # `GrassRenderer::rebuild` sans valeur de retour, et le warning etait dans notre journal.
+    -Werror=return-type
 )
 
 # Default visibility so JNI / dlsym / nm see the runtime markers — the

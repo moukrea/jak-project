@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <future>
 #include <mutex>
@@ -625,6 +626,40 @@ static bool grass_async_expand_enabled() {
   return v;
 }
 
+// Ggrass-crash : LE GARDE DE FAMINE. Voir GrassRenderer.h pour la mesure qui le justifie.
+// Il DEGRADE (pas d'herbe) au lieu de LAISSER MOURIR, et il commet les cles de cache : sans ca
+// `render()` rappellerait `rebuild()` a chaque image et rejouerait le scan qui vient d'echouer —
+// une boucle de famine a la place d'une degradation.
+bool GrassRenderer::oom_disarm(const void* lev,
+                               u64 load_id,
+                               const std::string& level_name,
+                               float floor_gap_m,
+                               const char* where,
+                               const char* what) {
+  lg::warn(
+      "[recharged-grass] OOM-DISARM niveau={} etape={} exception={} — le champ d'herbe est ABANDONNE "
+      "pour ce chargement (aucun brin dessine) au lieu d'abattre le processus. Ce n'est PAS une "
+      "reussite : cette ligne NOMME l'etape qui a manque de memoire, et elle doit etre traitee.",
+      level_name, where, what);
+  std::vector<grass_bake::GrassInstance>().swap(m_instances);
+  std::vector<u32>().swap(m_inst_tri);
+  std::vector<u8>().swap(m_light);
+  m_chunks.clear();
+  m_bake = grass_bake::BakeData{};
+  m_pending.bake = grass_bake::BakeData{};
+  m_instance_count = 0;
+  m_droop_start = 0;
+  m_light_valid = false;
+  m_expand_pending = false;
+  m_expand_waits = 0;
+  m_cached_level = lev;
+  m_cached_load_id = load_id;
+  m_cached_precomputed = Gfx::g_global_settings.recharged_grass_precomputed;
+  m_cached_density = Gfx::g_global_settings.recharged_grass_density;
+  m_cached_floor_gap = floor_gap_m;
+  return true;
+}
+
 bool GrassRenderer::rebuild(SharedRenderState* rs,
                             const LevelData* ld,
                             const std::string& level_name) {
@@ -679,8 +714,27 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     bool from_bake = false;
     std::string resolved_bake_path;
     // Resolve fr3 size (used both to validate a bake and as scan input).
-    const std::string fr3_path =
-        (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".fr3")).string();
+    //
+    // Ggrass-crash : LE .fr3 QU'ON MESURAIT N'ETAIT PAS CELUI QUE LE JEU CHARGE, ET C'EST LA CAUSE
+    // RACINE DU REPLI EN DIRECT SUR L'APPAREIL.
+    // Le `.grassbake` est resolu quinze lignes plus bas par `resolve_fr3_asset`, qui consulte le
+    // pack CUSTOM d'abord et le pack de BASE ensuite, le custom l'emportant (`FileUtil.cpp:417-419`).
+    // Cette ligne-ci, elle, construisait son chemin en dur avec `get_fr3_dir()` — donc la copie de
+    // BASE, toujours. Les deux ne designent pas le meme fichier des qu'un pack custom est installe.
+    // MESURE, sur le Redmi, `files/asset_route.txt` du jeu lui-meme :
+    //   training.fr3       -> .../files/custom/jak1/fr3/training.fr3 (custom-pack) custom=yes
+    //                        9419374B  base=yes 7629858B
+    //   training.grassbake -> .../files/custom/jak1/fr3/training.grassbake (custom-pack) 2024808B
+    // Le bake ARRIVE bien sur l'appareil et il est cuit contre la copie CUSTOM (9 419 374 o) ; la
+    // validation le comparait a la copie de BASE (7 629 858 o). Ecart 1 789 516 o -> « fr3 size
+    // mismatch » -> repli EN DIRECT, a CHAQUE chargement, par construction. L'intuition de l'owner
+    // (« c'est ptetre le build from scratch, ca pre-compute plus le placement de l'herbe ») etait
+    // juste : c'est ce chantier-la qui a fait diverger les deux copies.
+    // On resout donc le .fr3 avec LE MEME resolveur que son bake. Sur bureau il n'existe pas de
+    // pack custom : `resolve_fr3_asset` rend exactement `get_fr3_dir()/<niveau>.fr3` et le
+    // comportement x86 est INCHANGE (verifie : mode=precomputed avant comme apres).
+    const auto fr3_route = file_util::resolve_fr3_asset(GameVersion::Jak1, level_name + ".fr3");
+    const std::string fr3_path = fr3_route.path.string();
     u64 fr3_size = 0;
     {
       std::error_code ec;
@@ -690,6 +744,14 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       }
     }
 
+    // Ggrass-crash : LA LECTURE DU BAKE EST SOUS GARDE, ELLE AUSSI. Mesure sur le Redmi, APRES la
+    // correction du resolveur : 12 courses sur 12, `malloc(8027506242768285312)` refuse 24 ms apres
+    // la resolution du `.grassbake`, donc DANS `load_bake` ou dans la mise en place de `m_pending`.
+    // La taille est parlante — `0x6f676e65706f2e80`, soit les octets `80 2e 6f 70 65 6e 67 6f`
+    // = « \x80.opengo » : du TEXTE DE CHEMIN lu comme une taille. C'est un compte lu au mauvais
+    // endroit, pas une allocation « trop grande ». Le garde ne repare pas ca — il empeche que ca
+    // tue le jeu, et il NOMME l'etape, ce que le plantage ne faisait pas.
+    try {
     if (want_pre && !floor_gap_overridden) {
       // Round 30 (delivery): same one resolver as the fr3 sidecar — package copy wins, decision
       // journalled. The resolved path is echoed in the PLACE-TIME log below.
@@ -712,7 +774,11 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
           have_fr3 = false;
         }
         if (!have_fr3 || loaded.fr3_size != cur_fr3) {
-          reason = "fr3 size mismatch";
+          // Ggrass-crash : la raison PORTE DESORMAIS SES DEUX NOMBRES ET LE CHEMIN RESOLU. « fr3
+          // size mismatch » tout court ne disait pas CONTRE QUOI la comparaison avait ete faite —
+          // et c'etait precisement la ou etait le defaut : on comparait au mauvais fichier.
+          reason = fmt::format("fr3 size mismatch: bake={} vs {}={} (source={})", loaded.fr3_size,
+                               fr3_path, cur_fr3, fr3_route.source);
         } else if (loaded.floor_gap_m != floor_gap_m) {
           reason = "floor-gap mismatch";
         } else if (Gfx::g_global_settings.recharged_grass_density > loaded.bake_density_pct + 0.01f) {
@@ -763,6 +829,12 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     }
     tExpandJoin = clk::now();
     res = grass_bake::expand(m_bake, m_pending.density);
+    } catch (const std::exception& e) {
+      // La garde couvre TOUTE l'etape SOURCE : lecture du bake, scan en direct, mise en place de
+      // `m_pending`, lancement du thread d'expansion, et l'expansion synchrone.
+      return oom_disarm((const void*)lev, ld->load_id, level_name, floor_gap_m, "etape SOURCE",
+                        e.what());
+    }
   } else {
     // ============================== ATTENTE (chemin asynchrone) ==============================
     // L'etape SOURCE n'est PAS rejouee tant que l'expansion est en vol.
@@ -771,7 +843,15 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       return false;
     }
     tExpandJoin = clk::now();
-    res = m_expand_future.get();
+    // `std::async` CAPTURE l'exception du thread d'expansion et la RELANCE ici, sur le thread de
+    // rendu. C'est le chemin exact observe sur le Redmi : l'allocation echoue dans `expand`, et
+    // c'est SDLThread qui meurt d'un `std::bad_alloc` non attrape. Il l'est desormais.
+    try {
+      res = m_expand_future.get();
+    } catch (const std::exception& e) {
+      return oom_disarm(m_pending.lev, m_pending.load_id, m_pending.level_name,
+                        m_pending.floor_gap_m, "expand (thread d'expansion)", e.what());
+    }
     m_expand_pending = false;
     m_bake = std::move(m_pending.bake);
   }
@@ -983,6 +1063,45 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       from_bake ? "precomputed" : "live", resolved_bake_path.empty() ? "<none>" : resolved_bake_path,
       ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd), ms(tExpandEnd, tC), m_instance_count,
       grass_async_expand_enabled() ? 1 : 0, m_expand_waits, ms(tExpandJoin, tExpandDone));
+
+  // Ggrass-crash (owner 2026-08-30, bissection : « avec l'herbe ca crash, sans ca fonctionne ») —
+  // LA VALEUR DE RETOUR MANQUANTE, ET C'EST ELLE QUI TUAIT LE JEU SUR L'APPAREIL.
+  //
+  // `rebuild()` est passee de `void` a `bool` au commit 25ae957df7 (Gloading-screen-window, le lot
+  // qui separe le build qui chargeait de celui qui mourait). Les trois `return` poses ce jour-la
+  // couvrent les sorties PRECOCES (pas de niveau ; expansion lancee ; expansion pas prete) et
+  // AUCUNE ne couvre l'etape de CONSOMMATION — celle qui s'execute a CHAQUE construction reussie
+  // du champ. Elle tombait donc hors de la fonction sans valeur : comportement indefini.
+  //
+  // CE N'EST PAS UNE DEDUCTION, C'EST DANS L'ARTEFACT LIVRE. `libgk.so` arm64 extrait de l'APK que
+  // l'owner a (`app-jak1-debug.apk`, commit 7c11edaa03), symbole `GrassRenderer::rebuild` a
+  // 0x3dc034, taille 0x1924 :
+  //   - UN SEUL `ret`, a 0x3dc310, et ZERO branchement vers lui depuis le reste de la fonction ;
+  //   - la fonction FINIT par `mov x0, x19 ; bl _Unwind_Resume` (0x3dd94c-0x3dd950), ou `x19` vient
+  //     d'un `mov x19, x0` pris sur la valeur de retour d'un destructeur de `std::string`
+  //     (0x3dd68c) — un pointeur d'exception BIDON ;
+  //   - le chemin y arrive directement apres le `lg::info` de `PLACE-TIME` (0x3dd678).
+  // Autrement dit : sur l'appareil, la derniere chose que fait le moteur apres avoir ecrit la ligne
+  // « champ d'herbe pret » est de derouler une exception qui n'existe pas. Mort garantie, a CHAQUE
+  // chargement d'un niveau a herbe (`training` = Geyser Rock, `beach`) — et a aucun autre, ce qui
+  // est exactement la population que l'owner decrit.
+  //
+  // POURQUOI NOS 38 CHARGEMENTS x86 N'ONT RIEN VU : meme source, meme defaut, autre compilateur.
+  // GCC -O3 (bureau) fait tomber le meme UB, par hasard, sur le `movb $0x1` du `return true` de la
+  // ligne 656 puis dans l'epilogue — le bureau rend `true` par accident. clang/NDK (appareil) saute
+  // dans le derouleur. C'est la « dependance a l'appareil » constatee, et elle a une cause, pas un
+  // mystere.
+  //
+  // ET LE COMPILATEUR NOUS L'AVAIT DIT, dans notre propre journal de build, pour les DEUX builds
+  // concernes : `.autoport/logs/auto_build_apk.txt:162919` et `:163282` —
+  //   GrassRenderer.cpp:986:1: warning: non-void function does not return a value in all control
+  //   paths [-Wreturn-type]
+  // Personne ne l'a lu. C'est pourquoi ce warning est desormais une ERREUR de compilation
+  // (`-Werror=return-type`, CMakeLists.txt) : ce defaut-la ne peut plus etre livre.
+  //
+  // La valeur est `true` : arrive ici, le champ est bati, televerse dans le VBO et sa lumiere est
+  // posee — il est dessinable, ce que le contrat de la fonction (GrassRenderer.h) appelle `true`.
+  return true;
 }
 
 

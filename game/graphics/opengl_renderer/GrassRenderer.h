@@ -54,6 +54,14 @@ class GrassRenderer {
   // makes the grass track the ground's baked lighting BOTH by location (per-triangle) and by
   // TIME (it re-samples the live itimes every frame instead of freezing the value at level load).
   void update_light(SharedRenderState* render_state);
+  // Ggrass-crash (owner 2026-08-30) : UNE ALLOCATION REFUSEE DANS UN RENDU DECORATIF NE DOIT PAS
+  // TUER LE JEU. Sur le Redmi, le chemin EN DIRECT demandait `malloc(14595786520879357974)`, la
+  // `std::bad_alloc` remontait sans personne pour l'attraper et `libc++abi` abattait le processus
+  // (`Fatal signal 6 (SIGABRT)` sur SDLThread) — 6 chargements sur 6. On desarme le champ pour CE
+  // chargement, on NOMME l'etape qui a manque de memoire, et le jeu continue sans herbe.
+  // Rend toujours `true` : il n'y a plus d'expansion en vol.
+  bool oom_disarm(const void* lev, u64 load_id, const std::string& level_name, float floor_gap_m,
+                  const char* where, const char* what);
 
   bool m_gl_ready = false;
   GLuint m_vao = 0;
