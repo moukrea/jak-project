@@ -442,8 +442,12 @@ void DirectRenderer::update_gl_texture(SharedRenderState* render_state, int unit
   }
 
   if (state.enable_tex_filt) {
+    // Gloading-screen : deux sources INDEPENDANTES peuvent demander les mipmaps — le drapeau
+    // global de debug (`set_mipmap`, utilise par l'ocean) et le registre TEX1 de la primitive.
+    // Le OU garde le comportement d'avant a l'identique pour tout ce qui pose MXL=0.
+    const bool mip = (!m_debug_state.disable_mipmap) || state.enable_mipmap;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    m_debug_state.disable_mipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
+                    mip ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   } else {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -959,6 +963,15 @@ void DirectRenderer::handle_tex1_1(u64 val) {
   if (want_tex_filt != m_tex_state_from_reg.enable_tex_filt) {
     m_tex_state_from_reg.enable_tex_filt = want_tex_filt;
     // we changed the state_from_reg, we no longer know if it points to a texture state.
+    m_current_tex_state_idx = -1;
+  }
+
+  // MXL > 0 et MMIN >= 2 = le registre demande explicitement une chaine de mipmaps
+  // (2..5 sont les quatre modes *_MIPMAP_* du GS). MXL == 0 = pas de mipmap : c'est ce que pose
+  // tout le contenu d'origine, qui garde donc EXACTEMENT le comportement d'avant.
+  bool want_mipmap = reg.mxl() > 0 && reg.mmin() >= 2;
+  if (want_mipmap != m_tex_state_from_reg.enable_mipmap) {
+    m_tex_state_from_reg.enable_mipmap = want_mipmap;
     m_current_tex_state_idx = -1;
   }
 

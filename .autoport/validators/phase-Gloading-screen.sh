@@ -21,6 +21,12 @@ grep -qiE 'boucle|loop' "$R" || fail "la duree de la boucle d'\''animation doit 
 grep -qiE 'polarite|inverse|E, ?G, ?H' "$R" || fail "l'\''atlas precurseur CORRIGE (7 glyphes inverses) doit etre repris et le dire"
 grep -qiE 'pixellis|filtrage|nearest|lineaire|bilineaire' "$R" || fail "la pixellisation des glyphes doit etre traitee : taille de rendu et filtrage publies"
 grep -qE 'largeur.*[0-9]+ *(px|pixels)' "$R" || fail "les largeurs texte et ligne precurseur doivent etre publiees en pixels, egales a moins de 2 px"
+grep -qiE 'interpolation' "$R" && ! grep -qiE 'PAS d.interpolation|sans interpolation|aucune interpolation' "$R" && fail "INTERDIT : l'\''owner refuse l'\''interpolation, il faut capturer 60 images/s reelles"
+grep -qE '3[0-9] images|35 images|[0-9]+ images distinctes' "$R" || fail "le nombre d'\''images distinctes doit etre publie (60/s reels, pas 27)"
+grep -qiE 'froid|chaud' "$R" || fail "le gel doit etre mesure sur les DEUX chemins (froid ET chaud), l'\''owner a isole le discriminant"
+grep -qiE 'vectoris|potrace|autotrace|inkscape' "$R" || fail "les glyphes precurseurs doivent etre VECTORISES"
+grep -qiE 'dentel|jagged|escalier' "$R" || fail "une mesure de dentelure doit etre publiee, pas une appreciation"
+grep -qiE 'hauteur.*ecran|fraction.*hauteur' "$R" || fail "les tailles avant/apres du texte et de la silhouette doivent etre publiees en fraction de hauteur d'\''ecran"
 ok "report markers present"
 SUP=$(git log --format=%H --grep="\[autoport/supervisor\]" | head -1); ANCHOR=${SUP:-HEAD~1}
 CHG=$(git diff --name-only "$ANCHOR" -- goal_src/ game/ android/ recharged_assets/ 2>/dev/null; git status --porcelain -- goal_src/ game/ android/ recharged_assets/ 2>/dev/null | awk "{print \$2}")

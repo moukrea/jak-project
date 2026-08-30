@@ -1,194 +1,42 @@
 # À VALIDER PAR L'OWNER
 
 Liste tenue à jour par Claude. Rien ici n'est fermé sans ta parole.
-Dernière mise à jour : 2026-08-28.
+Dernière mise à jour : 2026-08-30.
+
+## 📊 État de tout ce qu'on a discuté
+
+### ✅ Validé par toi
+- Mémoire du jeu 1370 → 744 Mo, niveau 122,1 → 40,6 Mo, textures 6208 → 571 ms
+- Bouton de saut sur la Shield (propriété de débogage laissée par notre outillage)
+- Vue première personne : Jak et Daxter masqués
+- Visière de Keira (masque de soudure de Jak 2) supprimée
+- Collecteurs d'Eco vert au retour de Geyser Rock
+- Boucle et veste de Jak (poids de peau + parentage)
+
+### ⏳ Livré, attend ton œil
+- **Propriétés PBR par matière** — 172 matières classées en regardant les albédos, dans le dépôt d'assets
+- **Écran de chargement** — cinq chemins d'attente, silhouette animée
+- **Cinématiques** — formule remise dans le bon sens le 30/08 (vertical constant, horizontal élargi)
+- **Build depuis zéro** — trois constructions, 50 artefacts empreintés, squelette HD enfin dans la chaîne
+- **Police Urbanist et fin du tout-majuscules**
+- **Ton des textes** (« Appuie sur start »)
+- **Barres noires latérales / taille de fenêtre Android**
+
+### 🔧 En travail
+- **Écran de chargement** — les 5 points du 30/08 sont traités et livrés, ils attendent ton œil :
+  60 images/s réelles (35 images distinctes, une par frame, **aucune interpolation**) ; le gel du
+  chemin FROID mesuré puis borné (405 ms → voir le rapport) ; glyphes **vectorisés** (potrace) et
+  filtrage corrigé ; texte réduit de 25 % ; silhouette 61 % → 40 % de la hauteur d'écran
+
+### 📋 Au backlog, pas commencé
+- **Taille des sous-titres réglable** dans les options
+- **Canal langue → chargeur de texture** (bloque le japonais uniquement)
+- **Physique de Keira** — gelée à ta demande, 5 sections sur 38
+- **Pas de temps fixe + interpolation de rendu**
+- **Refonte des menus** — tu l'as rouverte, « pas fini du tout »
+- **Garde du pack HD** qui ne teste que le dump Jak 2 alors que le pack contient du Jak 3
 
 ---
-
-## ✅ Déjà validé par toi (2026-08-27)
-
-### Validé le 2026-08-28
-
-- **Vue première personne avec les modèles HD** — on ne se retrouve plus dans la tête de Jak, et
-  Daxter HD ne s'affiche plus. Cause : le miroir de visibilité des modèles HD lisait **un seul
-  bit d'une porte qui en compte trois**, donc les modèles d'origine disparaissaient et les HD
-  restaient dessinés.
-- **La visière flottante de Keira** — c'était le **masque de soudure de Jak 2** (`mask` +
-  `maskstrap`, 173 sommets posés au sol sous ses semelles), accroché à la racine du squelette.
-  Supprimé, comme tu l'as demandé. Tes bretelles et tes lunettes n'y ont pas touché : elles
-  étaient à leur place, mes chiffres du contraire étaient faux (erreur d'inversion de matrice de
-  ma part, rectifiée dans `.autoport/reports/OWNER-DEFECT-keira-hd-maskstrap.md`).
-- **Le bouton de saut sur la Shield** — une propriété de débogage laissée par notre outillage
-  tenait la croix enfoncée en permanence. Vidée, et une garde automatique empêche désormais de
-  la reposer.
-
-- **Plafond mémoire** — mémoire du jeu 1370 → 744 Mo, un niveau 122,1 → 40,6 Mo.
-  Sur la Shield : 4 min stables, pic 817 Mo, 0 tueur mémoire, 0 plantage (elle mourait vers 75 s).
-- **Pré-calcul** — textures au démarrage 6 208 → 571 ms, pire blocage 1 602 → 83 ms, 0 blocage
-  au-dessus de 200 ms.
-
-Tu as joué sur le Honor avec tout au maximum, les deux points tenaient.
-
----
-
-## ⏳ En attente de ton test
-
-- **Les cinématiques n'ont plus de barres noires — l'image est recadrée, pas masquée.**
-  Ta remarque : « au lieu d'avoir des barres noires on devrait grossir la partie visible pour
-  qu'elle prenne toute la hauteur, et ne rien masquer horizontalement, QUELQUE SOIT L'ASPECT
-  RATIO », et « sur les aspect ratio très larges le compteur de FPS se retrouve sous les barres
-  noires ».
-
-  Ce que faisait le jeu : il forçait du 16:9 **en toutes circonstances** pendant une cinématique.
-  Écran plus étroit que 16:9 → deux barres en haut et en bas. Écran plus **large** → deux barres
-  **verticales**, à gauche et à droite. C'est ce second cas que tu vois sur ton téléphone.
-
-  Ce qu'il fait maintenant : il garde **exactement** le champ de vision vertical que les auteurs
-  avaient cadré, et il en déduit l'horizontal depuis le format réel de ton écran. Le cadre rendu
-  a donc déjà la forme de l'écran — il ne reste plus rien à masquer, à aucun format. Mesuré sur
-  sept formats du 4:3 au 32:9 : le vertical rend la **même** valeur partout (0,3514), et la forme
-  du cadre égale la forme de l'écran sur chaque ligne. À 16:9 le changement est **nul**.
-
-  **Le compteur de FPS n'était pas mal placé.** Les barres et lui étaient écrits dans le *même*
-  paquet de dessin, les barres arrivant plus tard dans la file : elles le repeignaient dessus.
-  Zéro barre, donc plus rien pour le recouvrir — et il n'a pas bougé d'un pixel.
-
-  **Les sous-titres**, eux, n'ont jamais été recouverts (ils sont dessinés après les barres).
-  Leur défaut était autre : ils étaient **remontés de 11 pixels** pendant une cinématique pour
-  dégager la barre du bas. Cette barre n'existe plus, donc ils reviennent à leur hauteur
-  habituelle, la même qu'en jeu normal.
-
-  **Ce que je te demande de regarder :** lance n'importe quelle cinématique sur ton téléphone.
-  Plus de bandes noires sur les côtés, image pleine largeur, compteur de FPS visible si tu l'as
-  activé, sous-titres à leur hauteur normale.
-
-  **Et la seule chose que je ne peux pas mesurer, donc que je te demande vraiment :** en
-  élargissant sur les côtés, est-ce qu'une scène laisse voir quelque chose que les auteurs
-  avaient laissé hors cadre — décor non construit, acteur qui apparaît, bord de plateau ? Ça se
-  juge à l'œil, pas au chiffre. Le nom de la scène me suffit : j'ai déjà la manière de brider
-  l'ouverture latérale **sans** remettre de barre, je ne l'ai pas livrée pour ne pas poser un
-  réglage qui ne sert à rien tant qu'aucune scène ne le demande. Ce que je peux te dire de sûr :
-  verticalement **rien** de neuf n'apparaît, sous 16:9 **rien** non plus, et au-dessus de 16:9 la
-  cinématique reste **plus étroite d'un quart** que ce que le jeu te montre déjà en jeu normal.
-
-  **Ce que je n'ai pas prouvé :** pas de course sur l'appareil dans ce cycle. Le changement est du
-  code GOAL pur, identique sur PC et sur Android.
-
-  **Ce que je n'ai pas touché :** le mode « rendu d'origine » (celui qui utilise la visibilité
-  PS2) garde ses barres — là le champ ne peut pas être élargi. Et Jak 2 / Jak 3 gardent l'ancien
-  comportement : ils ne sont pas dans le périmètre de ce lot. À noter, ils divergent maintenant de
-  Jak 1 ; si tu veux les trois pareils, c'est Jak 2 qu'il faut aligner sur Jak 1, pas l'inverse.
-
-
-- **Vue première personne : Jak HD et Daxter HD ne s'affichent plus — et le défaut venait
-  d'un bit, pas d'une approximation.**
-  Ta remarque : « en caméra première personne on se retrouve (quand on utilise les modèles HD)
-  à l'intérieur de la tête de Jak, et on voit aussi le modèle HD de Daxter... faire comme avec
-  les modèles originaux ». Tu avais raison sur toute la ligne, et plus précisément que tu ne le
-  pensais : les modèles d'origine **sont** masqués par un mécanisme explicite, ce n'est pas un
-  hasard de géométrie. En première personne le jeu coupe l'animation de Jak, ce qui lève chez lui
-  un drapeau « ne me dessine pas » ; Daxter recopie l'état de Jak chaque image, donc il suit.
-  Le compagnon HD, lui, ne regardait **qu'un seul** des trois drapeaux de cette porte — et pas
-  celui-là. Il continuait donc à s'afficher alors que le modèle d'origine avait déjà disparu.
-
-  Corrigé en un seul endroit, celui où l'état de dessin passe du modèle d'origine au modèle HD.
-  Rien n'a été ajouté au moteur d'origine : le HD est simplement rebranché sur le masquage qui
-  existait déjà. Un seul correctif couvre les quatre modèles (Jak et Daxter, origine et HD).
-
-  Mesuré sur une course x86, en lisant le drapeau que **le moteur lui-même** pose quand il a
-  réellement dessiné un objet — pas un chiffre que j'aurais construit :
-
-  | | 3e personne | 1re personne | retour 3e personne |
-  |---|---|---|---|
-  | Jak d'origine | dessiné | **non dessiné** | dessiné |
-  | Daxter d'origine | dessiné | **non dessiné** | dessiné |
-  | Jak HD | dessiné | **non dessiné** | dessiné |
-  | Daxter HD | dessiné | **non dessiné** | dessiné |
-
-  Rien ne reste bloqué en sortant : la 3e personne revient exactement à son état d'avant.
-
-  **Ce que je te demande de regarder :** passe en vue première personne (triangle) avec les
-  MODÈLES AMÉLIORÉS actifs. Ni Jak ni Daxter ne doivent apparaître, et rien d'autre ne doit
-  changer en vue normale.
-
-  **Ce que je n'ai pas prouvé, et je préfère te le dire :** pas de test sur l'appareil. Le
-  changement est du code GOAL pur, identique bit pour bit sur PC et sur Android, et le canal
-  qu'il actionne est déjà éprouvé sur appareil depuis le correctif des fantômes de cinématique.
-
-  **Effet de bord que je n'avais pas demandé :** pendant le chargement d'un niveau, l'animation
-  de Jak est également coupée — les modèles HD s'éteignent donc maintenant avec lui. Avant, ils
-  restaient affichés. Tu ne l'avais pas signalé ; regarde si ça te paraît mieux ou non.
-
-  **Ce que ça ne fait pas :** la vraie vue première personne moderne que tu veux (caméra avancée
-  pour voir mains et pieds, corps qui tourne avec la caméra) n'est pas commencée. Ce correctif ne
-  la gêne pas — mais note qu'elle devra d'abord **rétablir l'animation de Jak** en première
-  personne, que le jeu d'origine coupe, et masquer alors par morceau de maillage plutôt qu'en
-  bloc.
-
-- **La barrière de chargement — faite, mesurée, et elle a un coût que je te dis franchement.**
-  Ta demande : « un mécanisme de chargement qui s'assure que tout le nécessaire soit bien
-  chargé avant de lancer l'écran titre ». C'est fait, et la scène attend maintenant que le
-  niveau soit réellement **dessinable** — pas que le jeu dise qu'il est chargé, ce qui
-  n'était pas la même chose du tout : au retour de Geyser Rock, le jeu déclarait la plage
-  chargée **38 secondes** avant qu'on puisse la dessiner.
-
-  Mesuré sur la Shield, deux démarrages avant et **trois** après (reproductible à 1 ms) :
-
-  | | avant | après |
-  |---|---|---|
-  | survol du village : décor prêt vs **son** | **4,6 s en retard** | **0,1 s en avance** |
-  | logo Naughty Dog (non concerné) | 0,33 / 0,37 s | 0,35 / 0,36 / 0,35 s — inchangé |
-  | temps total jusqu'au village prêt | 20,6 s | 22,5 s |
-  | pic mémoire | 782 Mo | 777 / 798 / 806 Mo |
-
-  **Le marché, en deux phrases, et la deuxième compte autant que la première.** Le village
-  est maintenant **là** quand le survol commence, au lieu d'apparaître d'un bloc au milieu.
-  En échange : le logo Jak & Daxter arrive ~1,8 s plus tard, et surtout **l'écran reste noir
-  et figé ~6,7 s** pendant que ça charge — le chien de garde du moteur le voit
-  (`frame stuck at 926`). Ce n'est pas un plantage (zéro crash, zéro ANR sur les trois
-  démarrages), c'est le prix de l'attente que tu as demandée. Tu troques « le décor apparaît
-  d'un coup » contre « l'écran attend en noir ». **Dis-moi si c'est le bon échange** — si
-  non, je sais où reprendre du temps : pendant les ~15,7 s du logo Naughty Dog le chargement
-  tourne au ralenti (budget de 4,5 ms par image), il y a de la marge là.
-
-  **TESTÉ PAR TOI le 2026-08-28 sur le Honor — VERDICT : à moitié.** Tu as chargé une
-  sauvegarde à la fin de Geyser Rock. L'écran noir a bien tenu jusqu'à Sandover Village et la
-  cinématique s'est lancée chargée : cette moitié-là marche. Mais quand la caméra part sur les
-  collecteurs d'Eco vert pendant que Samos en parle, **la plage n'est toujours pas là** — tu
-  vois des morceaux de l'endroit, pas les collecteurs. Non corrigé.
-
-  J'ai vérifié statiquement : la scène concernée (`sage-intro-sequence-e`) **est** dans les 18
-  scènes que la barrière retient, et elle s'arme bien sur la plage. Le mécanisme n'est donc pas
-  contourné, il cède à l'exécution. Deux causes possibles, détail dans
-  `.autoport/reports/OWNER-DEFECT-barriere-ne-couvre-pas-les-acteurs-de-beach.md` :
-  soit le plafond de 20 s est trop court pour la plage, soit — et ça colle mieux à ce que tu
-  décris — la barrière attend que le **décor** de la plage soit prêt alors que la scène a
-  besoin de ses **acteurs** (les collecteurs et les évents sont des acteurs, pas du décor).
-
-  **Une seule ligne de ton journal Honor tranche entre les deux** — celle qui commence par
-  `LOADGATE open scene=sage-intro-sequence-e`. Ou ta sauvegarde, et je la mesure moi-même. Je
-  ne relève pas le plafond au hasard : si c'est la deuxième cause, ça rallonge ton écran noir
-  sans rien réparer.
-
----
-
-## 🔧 En cours de correction
-
-- **Le bouton de saut — RÉSOLU le 28 août, confirmé par toi en jeu sur la Shield.**
-  Cause : la propriété de débogage `debug.opengoal.cpad_inject` valait `x` sur la Shield (vide
-  sur le Redmi). Le jeu lit cette propriété en continu et `x` = croix : le bouton de saut était
-  **tenu enfoncé en permanence**. Un bouton tenu n'émet aucun front, et le saut ne se déclenche
-  que sur le front. D'où un jeu qui ne réagit pas alors que toute la chaîne d'entrée mesurait
-  saine — les 228 événements arrivaient bien.
-  C'est **notre propre outillage de test** qui l'avait laissée. Mes trois hypothèses précédentes
-  cherchaient toutes une entrée **absente**, alors qu'elle était **coincée à 1**.
-
-  **La mine derrière, et elle est traitée :** 94 de nos 101 scripts posent cette propriété sans
-  jamais la vider. Ajouté le 28 août — `.autoport/device_teardown.sh` (vide toutes nos
-  propriétés et le fichier d'injection), et un contrôle automatique avant chaque tentative du
-  framework qui compte les scripts fautifs et **bloque** si l'un d'eux est utilisé par la phase
-  en cours.
-
 ## 📋 Au backlog, pas encore commencé
 
 - **Modèle HD de Jak : deux défauts de rig sur la sangle du dos** — signalés par toi le 28 août.

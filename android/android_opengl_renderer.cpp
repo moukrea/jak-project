@@ -945,7 +945,14 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     // La transition de blackout (`announce`), elle, garde le comportement d'avant : budget 0.
     if (leaving_blackout || gate_closed) {
       m_render_state.loader->update_blocking(*m_render_state.texture_pool, leaving_blackout,
-                                             leaving_blackout ? 0.f : loading_screen_slice_ms());
+                                             // -1 = TRANCHE ADAPTATIVE : le chargeur prend ce
+                                             // qui reste de la frame de 60 Hz une fois le rendu
+                                             // paye, au lieu d'imposer sa propre periode. Une
+                                             // tranche FIXE de 40 ms produisait 22 a 24 images par
+                                             // seconde, mesurees — c'est-a-dire qu'elle DECIDAIT
+                                             // de la cadence. `OG_LOADSCREEN_SLICE_MS` reprend la
+                                             // main pour les ablations.
+                                             leaving_blackout ? 0.f : -1.f);
     } else {
       m_render_state.loader->update(*m_render_state.texture_pool);
     }

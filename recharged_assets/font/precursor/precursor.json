@@ -6,7 +6,8 @@
  ],
  "count": 26,
  "upscale": 4,
- "note": "Encre=255, fond=0. Polarite determinee UNE FOIS depuis la planche (encre sombre sur fond clair), jamais par glyphe. Reechantillonnage par champ de distance signe sous-pixel, antialiasing conserve. Avance = largeur + 0.16 x em, CONVENTION reglable. `by` = decalage vertical depuis le haut de la boite d'em, glyphe CENTRE.",
+ "tracer": "potrace(potracer) alphamax=1.000 opttolerance=0.20 sub=8",
+ "note": "Encre=255, fond=0. Polarite determinee UNE FOIS depuis la planche (encre sombre sur fond clair), jamais par glyphe. Contours VECTORISES par potrace sur l'isoligne sous-pixel de la couverture antialiasee, puis rasterises (couverture exacte en x, 8 sous-lignes en y). Avance = largeur + 0.16 x em, CONVENTION reglable. `by` = decalage vertical depuis le haut de la boite d'em, glyphe CENTRE.",
  "glyphs": [
   {
    "char": "A",
@@ -24,7 +25,8 @@
     199,
     172,
     259
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "B",
@@ -42,7 +44,8 @@
     198,
     371,
     259
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "C",
@@ -60,43 +63,46 @@
     201,
     547,
     260
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "D",
    "cp": 68,
    "u0": 0.49609375,
    "v0": 0.00390625,
-   "u1": 0.58984375,
+   "u1": 0.58935546875,
    "v1": 0.134765625,
-   "w": 192,
+   "w": 191,
    "h": 268,
    "by": 10.0,
-   "adv": 238.07999999999998,
+   "adv": 237.07999999999998,
    "src_box": [
     692,
     195,
     740,
     262
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "E",
    "cp": 69,
    "u0": 0.66015625,
    "v0": 0.00390625,
-   "u1": 0.75390625,
+   "u1": 0.75341796875,
    "v1": 0.125,
-   "w": 192,
+   "w": 191,
    "h": 248,
    "by": 20.0,
-   "adv": 238.07999999999998,
+   "adv": 237.07999999999998,
    "src_box": [
     881,
     198,
     929,
     260
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "F",
@@ -114,7 +120,8 @@
     190,
     1114,
     259
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "G",
@@ -132,7 +139,8 @@
     197,
     1314,
     257
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "H",
@@ -150,25 +158,27 @@
     196,
     1483,
     262
-   ]
+   ],
+   "contours": 1
   },
   {
    "char": "I",
    "cp": 73,
    "u0": 0.33203125,
    "v0": 0.16796875,
-   "u1": 0.455078125,
+   "u1": 0.45458984375,
    "v1": 0.29296875,
-   "w": 252,
+   "w": 251,
    "h": 256,
    "by": 16.0,
-   "adv": 298.08,
+   "adv": 297.08,
    "src_box": [
     116,
     427,
     179,
     491
-   ]
+   ],
+   "contours": 4
   },
   {
    "char": "J",
@@ -186,7 +196,8 @@
     429,
     374,
     488
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "K",
@@ -194,17 +205,18 @@
    "u0": 0.66015625,
    "v0": 0.16796875,
    "u1": 0.751953125,
-   "v1": 0.283203125,
+   "v1": 0.28271484375,
    "w": 188,
-   "h": 236,
-   "by": 26.0,
+   "h": 235,
+   "by": 26.5,
    "adv": 234.07999999999998,
    "src_box": [
     506,
     429,
     553,
     488
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "L",
@@ -222,7 +234,8 @@
     428,
     745,
     491
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "M",
@@ -240,25 +253,27 @@
     424,
     929,
     490
-   ]
+   ],
+   "contours": 1
   },
   {
    "char": "N",
    "cp": 78,
    "u0": 0.16796875,
    "v0": 0.33203125,
-   "u1": 0.24609375,
+   "u1": 0.24560546875,
    "v1": 0.45703125,
-   "w": 160,
+   "w": 159,
    "h": 256,
    "by": 16.0,
-   "adv": 206.07999999999998,
+   "adv": 205.07999999999998,
    "src_box": [
     1075,
     427,
     1115,
     491
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "O",
@@ -276,7 +291,8 @@
     426,
     1311,
     489
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "P",
@@ -294,7 +310,8 @@
     438,
     1482,
     491
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "Q",
@@ -312,7 +329,8 @@
     661,
     178,
     720
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "R",
@@ -330,7 +348,8 @@
     657,
     364,
     718
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "S",
@@ -348,25 +367,27 @@
     659,
     548,
     719
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "T",
    "cp": 84,
    "u0": 0.16796875,
    "v0": 0.49609375,
-   "u1": 0.259765625,
+   "u1": 0.25927734375,
    "v1": 0.619140625,
-   "w": 188,
+   "w": 187,
    "h": 252,
    "by": 18.0,
-   "adv": 234.07999999999998,
+   "adv": 233.07999999999998,
    "src_box": [
     694,
     658,
     741,
     721
-   ]
+   ],
+   "contours": 4
   },
   {
    "char": "U",
@@ -384,7 +405,8 @@
     659,
     928,
     719
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "V",
@@ -402,25 +424,27 @@
     668,
     1126,
     720
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "W",
    "cp": 87,
    "u0": 0.66015625,
    "v0": 0.49609375,
-   "u1": 0.765625,
-   "v1": 0.615234375,
-   "w": 216,
-   "h": 244,
-   "by": 22.0,
-   "adv": 262.08,
+   "u1": 0.76513671875,
+   "v1": 0.61474609375,
+   "w": 215,
+   "h": 243,
+   "by": 22.5,
+   "adv": 261.08,
    "src_box": [
     1259,
     659,
     1313,
     720
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "X",
@@ -438,7 +462,8 @@
     665,
     1482,
     718
-   ]
+   ],
+   "contours": 2
   },
   {
    "char": "Y",
@@ -456,25 +481,27 @@
     885,
     744,
     948
-   ]
+   ],
+   "contours": 3
   },
   {
    "char": "Z",
    "cp": 90,
    "u0": 0.16796875,
    "v0": 0.66015625,
-   "u1": 0.23828125,
+   "u1": 0.23779296875,
    "v1": 0.796875,
-   "w": 144,
+   "w": 143,
    "h": 280,
    "by": 4.0,
-   "adv": 190.07999999999998,
+   "adv": 189.07999999999998,
    "src_box": [
     887,
     880,
     923,
     950
-   ]
+   ],
+   "contours": 2
   }
  ]
 }

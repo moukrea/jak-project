@@ -721,6 +721,28 @@ void pc_scene_release(u32 scene) {
   load_gate::scene_release(scene ? Ptr<String>(scene).c()->data() : nullptr);
 }
 
+// Gloading-screen (owner 2026-08-30) — la cadence REELLE de l'ecran de chargement et le decoupage
+// du travail GOAL qui la detruit. Voir game/system/load_gate.h : `LOADSCREEN-GAP` se tait des que
+// la barriere de residence s'ouvre, c'est-a-dire exactement au moment que l'owner decrit
+// (« l'animation freeze sur la FIN »). Ces quatre ponts donnent a GOAL une VRAIE horloge : la
+// sienne est plafonnee a 4 frames d'increment sur l'appareil et sous-estime un gel par
+// construction.
+void pc_loading_screen_tick(s32 hold_mask) {
+  load_gate::loading_screen_tick(hold_mask);
+}
+
+void pc_loading_screen_end() {
+  load_gate::loading_screen_end();
+}
+
+void pc_goal_slice_begin(s32 slot) {
+  load_gate::goal_slice_begin(slot);
+}
+
+s32 pc_goal_slice_expired(s32 slot) {
+  return load_gate::goal_slice_expired(slot);
+}
+
 // Grecharged-grass-poc: push the "recharged grass" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass?) down to the renderer. 0 = off (stock).
 void pc_set_recharged_grass(u32 on) {
@@ -4541,6 +4563,11 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-set-levels", (void*)pc_set_levels);
   make_function_symbol_from_c("__pc-scene-ready?", (void*)pc_scene_ready);
   make_function_symbol_from_c("__pc-scene-release", (void*)pc_scene_release);
+  // Gloading-screen : instrument de cadence + tranches de travail GOAL
+  make_function_symbol_from_c("__pc-loading-screen-tick", (void*)pc_loading_screen_tick);
+  make_function_symbol_from_c("__pc-loading-screen-end", (void*)pc_loading_screen_end);
+  make_function_symbol_from_c("__pc-slice-begin!", (void*)pc_goal_slice_begin);
+  make_function_symbol_from_c("__pc-slice-expired?", (void*)pc_goal_slice_expired);
 
   // Grecharged-grass-poc bridges (jak1 only)
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);

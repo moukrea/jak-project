@@ -262,6 +262,17 @@ def main():
     ap.add_argument("--cols", type=int, default=4)
     ap.add_argument("--rows", type=int, default=4)
     ap.add_argument("--cell", type=int, default=512)
+    ap.add_argument("--frames", type=int, default=0,
+                    help="nombre d'images DISTINCTES de la boucle. 0 = cols x rows. "
+                         "OWNER 2026-08-30 : « pas d'interpolation ! faut que tu te demerdes pour "
+                         "que ca capture 60 FPS reel ». Une periode de P frames de logique a 60 Hz "
+                         "demande round(P) images pour qu'une cellule NOUVELLE soit posee a CHAQUE "
+                         "frame de logique. 16 cellules pour P=34,79 tenaient chaque image 2,17 "
+                         "frames, soit ~27 images/s : c'est ce que l'owner a vu.")
+    ap.add_argument("--subject-frac", type=float, default=0.612115,
+                    help="hauteur du SUJET voulue, en fraction de la hauteur d'ecran. C'est de "
+                         "cette valeur que se deduit LS_SIL_H (la hauteur de la CELLULE), et elle "
+                         "seule est un choix de mise en page.")
     ap.add_argument("--blend-min", type=float, default=0.99,
                     help="melange marche/course minimal. 1,0 = course PURE. jak1 n'a qu'un etat "
                          "de locomotion au sol et empile marche (canal 0) et course (canal 3) ; "
@@ -270,7 +281,10 @@ def main():
     ap.add_argument("--out", default="recharged_assets/loading_jak.png")
     ap.add_argument("--report", default=".autoport/reports/Gloading-screen/silhouette.txt")
     a = ap.parse_args()
-    frames = a.cols * a.rows
+    frames = a.frames if a.frames > 0 else a.cols * a.rows
+    if frames > a.cols * a.rows:
+        raise SystemExit("ERREUR: %d images demandees pour %d cellules (%d x %d)"
+                         % (frames, a.cols * a.rows, a.cols, a.rows))
 
     states = parse_trace(a.trace)
     emit("TRACE=%s  captures appariees a un etat du moteur=%d" % (a.trace, len(states)))
@@ -421,8 +435,19 @@ def main():
                                     Image.new("L", (tw, th), 255), crop))
         sheet.paste(cell, ((k % a.cols) * a.cell + ox, (k // a.cols) * a.cell + oy))
     sheet.save(a.out)
-    emit("PLANCHE=%s %dx%d  images=%d (%d x %d cellules de %d px)"
-         % (a.out, sheet.size[0], sheet.size[1], frames, a.cols, a.rows, a.cell))
+    emit("PLANCHE=%s %dx%d  images=%d distinctes (%d x %d cellules de %d px, %d cellule(s) vide(s))"
+         % (a.out, sheet.size[0], sheet.size[1], frames, a.cols, a.rows, a.cell,
+            a.cols * a.rows - frames))
+    emit("COUT_PLANCHE octets_png=%d  texels=%d  VRAM_R8=%.2f Mo  VRAM_RGBA8=%.2f Mo  "
+         "(le runtime ne televerse QUE le canal alpha, en R8 + swizzle (1,1,1,R) : les deux images "
+         "sont du blanc pur, verifie au chargement — voir LOADSCREEN-TEX)"
+         % (os.path.getsize(a.out), sheet.size[0] * sheet.size[1],
+            sheet.size[0] * sheet.size[1] / (1024.0 * 1024.0),
+            4.0 * sheet.size[0] * sheet.size[1] / (1024.0 * 1024.0)))
+    emit("CADENCE_LIVREE=%.2f images distinctes par seconde  (%d images pour une boucle de %.4f s ; "
+         "une cellule est tenue %.3f frame de logique a 60 Hz — 1,000 = 60 images/s REELLES, sans "
+         "aucune interpolation)"
+         % (frames / (span / 60.0), frames, span / 60.0, span / float(frames)))
     emit("BOUCLE_FRAMES_LOGIQUE=%d  BOUCLE_SECONDES=%.4f  (pas de temps FORCE a 1/60 s par le "
          "rejeu de manette, pad_replay.cpp:313-318 — la duree ne depend donc pas du debit "
          "d'images de la capture)" % (span, span / 60.0))
@@ -430,8 +455,34 @@ def main():
          "dans l'unite de `loading-screen-clock`, le 1/300 s : la conversion x5 est faite par "
          ".autoport/gls_apply_silhouette_constants.py et NULLE PART AILLEURS, pour qu'il n'y ait "
          "qu'un seul endroit ou la perdre. Valeur posee : %d)" % (span, span * 5))
-    emit("LS_SIL_H_A_POSER=%.6f  (pour que le SUJET fasse 0,612115 de la hauteur d'ecran comme la "
-         "maquette, la CELLULE doit en faire 0,612115 / %.4f)" % (0.612115 * a.cell / float(th), th / float(a.cell)))
+    # HAUTEUR PERCUE : CE QUE L'OWNER VOIT, C'EST UNE IMAGE, PAS L'UNION DES 35.
+    # La boite COMMUNE est l'union de toutes les poses de la foulee (bras leves sur l'une, jambes
+    # tendues sur une autre) ; AUCUNE image ne la remplit. Caler « 40 % de la hauteur d'ecran » sur
+    # elle donnerait un personnage a 26-32 % a l'ecran — bien plus petit que le nombre annonce, et
+    # personne ne s'en apercevrait puisque le calcul, lui, serait juste. On mesure donc la hauteur
+    # d'encre de CHAQUE cellule et on cale sur la PLUS HAUTE : « la silhouette occupe 40 % de la
+    # hauteur » veut dire que la plus haute image en occupe 40 %, jamais plus.
+    inks = []
+    for m in chosen:
+        crop = np.asarray(Image.fromarray(np.round(m[y0:y1, x0:x1] * 255).astype(np.uint8),
+                                          mode="L").resize((tw, th), Image.LANCZOS)) > 40
+        rows_ = np.where(crop.any(axis=1))[0]
+        inks.append(int(rows_[-1] - rows_[0] + 1) if len(rows_) else 0)
+    inks = np.array(inks)
+    hmax = int(inks.max())
+    ls_h = a.subject_frac * a.cell / float(hmax)
+    emit("HAUTEUR_D_ENCRE_PAR_IMAGE min=%d med=%d max=%d px de cellule (sur %d) — la boite COMMUNE "
+         "en fait %d : aucune image ne la remplit, c'est l'UNION de la foulee"
+         % (inks.min(), int(np.median(inks)), hmax, a.cell, th))
+    emit("LS_SIL_H_A_POSER=%.6f  (pour que la PLUS HAUTE image occupe %.6f de la hauteur d'ecran : "
+         "%.6f x %d / %d)" % (ls_h, a.subject_frac, a.subject_frac, a.cell, hmax))
+    emit("SUJET_FRACTION_ECRAN par image  min=%.4f med=%.4f max=%.4f   (boite commune %.4f)"
+         % (inks.min() / float(a.cell) * ls_h, float(np.median(inks)) / float(a.cell) * ls_h,
+            hmax / float(a.cell) * ls_h, th / float(a.cell) * ls_h))
+    emit("CIBLE=%.6f  (la maquette de l'owner mesurait le sujet a 0,612115 sur une pose FIXE ; le "
+         "contrat de phase ecrit « ~40 %% de la hauteur d'ecran » et l'owner 2026-08-30 : "
+         "« l'animation de Jak qui court devrait aussi occuper moins de hauteur, la c'est un peu "
+         "Bim dans ta face »)" % a.subject_frac)
 
     os.makedirs(os.path.dirname(a.report), exist_ok=True)
     open(a.report, "w").write("\n".join(lines) + "\n")

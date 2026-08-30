@@ -143,7 +143,16 @@ def task4_uv_table():
 def main():
     os.makedirs(REPORT_DIR, exist_ok=True)
     emit("# Gloading-screen — assets produits par .autoport/mk_loading_assets.py")
-    task1_silhouette()
+    # `task1_silhouette` N'EST PLUS APPELEE, et ce n'est pas un oubli.
+    # Elle decoupait une image FIXE dans la maquette de l'owner et l'ecrivait dans
+    # `recharged_assets/loading_jak.png`. Depuis le 2026-08-29 ce fichier est une PLANCHE ANIMEE
+    # produite par .autoport/mk_loading_silhouette.py. Deux producteurs pour un meme fichier, et
+    # celui-ci ecrase l'autre EN SILENCE : relancer ce script pour regenerer l'atlas precurseur
+    # aurait remis la silhouette FIXE que l'owner a explicitement refusee. UN SEUL ECRIVAIN PAR
+    # FICHIER. La fonction est conservee (elle publie les mesures de la maquette) mais elle ne
+    # peut plus ecrire.
+    emit("SILHOUETTE_SKIP=1  (loading_jak.png appartient a .autoport/mk_loading_silhouette.py — "
+         "planche ANIMEE ; ce script ne l'ecrit plus, il l'ecrasait avec une image FIXE)")
     emit("")
     task2_precursor()
     emit("")

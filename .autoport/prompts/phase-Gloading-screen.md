@@ -287,3 +287,67 @@ l'affichage.
 
 **Exige** : publier la cadence mesuree PENDANT la derniere seconde d'un chargement de sauvegarde,
 pas sur la moyenne du chargement. Une moyenne sur dix secondes noie un gel d'une seconde.
+
+---
+
+# RETOUR OWNER 2026-08-30 (2) — PRECISIONS QUI TRANCHENT
+
+## 1. PAS D'INTERPOLATION — capturer 60 images par seconde REELLES
+
+> « non non, pas d'interpolation ! faut que tu te démerdes pour que ça capture 60 FPS réel que ce
+> soit silky smooth »
+
+Le cycle precedent tenait 16 images sur une periode de 34,79 frames, soit ~27 images/s.
+**La reponse n'est pas d'interpoler, c'est de CAPTURER PLUS D'IMAGES.**
+
+Une periode de 34,79 frames de logique a 60 Hz = 0,58 s de boucle. Pour du 60 reel il faut
+**35 images distinctes** (une par frame de logique), pas 16. Le cout est une planche plus grande :
+35 cellules au lieu de 16. **Le dire et le chiffrer** (memoire de la planche), ne pas le contourner.
+
+## 2. LE GEL A UN DISCRIMINANT — l'owner l'a isole
+
+> « le freeze n'apparaît QUE sur le chargement d'une sauvegarde qui se passe dans un AUTRE niveau
+> que Sandover Village (Geyser Rock) ; pour une téléportation entre Geyser Rock vers Sandover
+> Village j'ai pas constaté le problème. »
+
+**C'est un discriminant, pas une plainte.** Les deux cas different par UNE chose : le chargement
+d'une sauvegarde dans un autre niveau part A FROID (rien de resident), la teleportation part d'un
+etat ou le niveau voisin est deja partiellement charge.
+
+Donc : **le gel est sur le chemin FROID**, et le correctif d'horloge du cycle precedent ne le
+couvre pas. Chercher ce qui, sur un chargement a froid uniquement, reprend la main sur
+l'affichage — probablement la phase de lien/instanciation qui n'existe pas sur un chemin chaud.
+
+**Exige** : mesurer la cadence sur les DEUX chemins et publier les deux. Un seul chiffre ne
+prouve rien puisque l'owner a deja constate que l'un des deux va bien.
+
+## 3. Glyphes precurseurs encore pixellises — les VECTORISER
+
+> « je pense que tu pourrais les vectoriser via imagick/inkscape programmatiquement en s'assurant
+> que ça soit pas jagged, en extraire des bitmaps en haute résolution »
+
+Source : `recharged_assets/font/precursor/glyphs/*.png`, decoupes de la planche
+`source-precurian-latin.png`. Les glyphes source font ~70 px, d'ou la pixellisation a l'echelle
+d'affichage.
+
+Chemin propose par l'owner : tracer en contours vectoriels (potrace / autotrace via ImageMagick,
+ou Inkscape en ligne de commande), **verifier que les contours ne sont pas dentelés**, puis
+re-rasteriser en haute resolution. Regenerer l'atlas depuis ces bitmaps.
+
+**Exige** : publier la resolution avant/apres et une mesure de dentelure (par ex. le nombre de
+marches d'escalier sur un bord oblique), pas une appreciation.
+
+## 4. Le texte et les glyphes sont TROP GROS
+
+> « le texte "Loading.../Chargement.../etc." avec ses glyphs Precursor en dessous est un poil trop
+> gros pour faire moderne, ça devrait être plus petit »
+
+Reduire. Publier la taille avant/apres en fraction de la hauteur d'ecran.
+
+## 5. La silhouette occupe TROP DE HAUTEUR
+
+> « l'animation de Jak qui court devrait aussi occuper moins de hauteur, là c'est un peu "Bim dans
+> ta face !" »
+
+La maquette d'origine disait ~40 % de la hauteur d'ecran. Reduire, et publier la fraction
+avant/apres.

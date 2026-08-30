@@ -310,7 +310,9 @@
    attente, plus lente, noircit encore l'image."
   (set! *loading-screen-mask* (logand *loading-screen-mask* (lognot who)))
   (when (zero? *loading-screen-mask*)
-    (set! *loading-screen-hold-until* (the-as time-frame 0)))
+    (set! *loading-screen-hold-until* (the-as time-frame 0))
+    ;; l'episode de mesure se ferme AVEC le dernier proprietaire, pas avec le premier
+    (__pc-loading-screen-end))
   (none))
 
 (defun loading-screen-release! ()
@@ -319,6 +321,7 @@
    Sans effet si rien n'etait arme (barriere ouverte au premier tour : le cas normal sur bureau)."
   (set! *loading-screen-mask* 0)
   (set! *loading-screen-hold-until* (the-as time-frame 0))
+  (__pc-loading-screen-end)
   (none))
 
 (defun loading-screen-held? ()
@@ -1035,7 +1038,16 @@
             ;; course de capture. Place ici parce que `*math-camera*` porte a ce point la matrice
             ;; de la frame qui va etre ecrite -- c'est celle-la qui decide de l'abscisse ecran.
             (ls-capture-trace)
-            (when ls-held (loading-screen-draw))
+            (when ls-held
+              ;; Gloading-screen (owner 2026-08-30) : la CADENCE REELLE, sur une horloge murale
+              ;; C++. NATURE : une duree entre deux images REELLEMENT peintes. REPERE : le temps
+              ;; mural du processus, JAMAIS l'horloge de jeu -- sur l'appareil celle-ci est
+              ;; plafonnee a 4 frames d'increment et JETTE le retard
+              ;; (android/gk_android_main.cpp:787-799), donc elle sous-estime un gel par
+              ;; construction. Place ICI et pas dans `loading-screen-draw` pour que le controle
+              ;; positif (`loading-screen-draw-probe`) n'ouvre pas un faux episode.
+              (__pc-loading-screen-tick *loading-screen-mask*)
+              (loading-screen-draw))
             ;; controle positif du chemin de dessin -- debug uniquement, un seul tir, et seulement
             ;; une fois la banque de texte chargee (sinon il ne couvrirait que le fond noir).
             (when (and *debug-segment* (not *loading-screen-draw-probed*) *common-text* (not ls-held))

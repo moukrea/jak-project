@@ -450,6 +450,12 @@
 ;; See game/system/load_gate.h.
 (define-extern __pc-scene-ready? (function string string string int int))
 (define-extern __pc-scene-release (function string none))
+;; Gloading-screen : cadence REELLE de l'ecran de chargement (horloge murale cote C++) et
+;; decoupage du travail que le thread GOAL fait pendant un chargement A FROID.
+(define-extern __pc-loading-screen-tick (function int none))
+(define-extern __pc-loading-screen-end (function none))
+(define-extern __pc-slice-begin! (function int none))
+(define-extern __pc-slice-expired? (function int int))
 
 ;; Gplayability-input-and-loadgate: NO forward declaration for
 ;; `set-blackout-frames` is needed here, and one cannot live here anyway.

@@ -173,6 +173,11 @@ class DirectRenderer : public BucketRenderer {
     bool tcc = false;
     bool decal = false;
     bool enable_tex_filt = true;
+    // Gloading-screen : mipmaps DEMANDES PAR LE REGISTRE, pas par un drapeau global.
+    // `m_debug_state.disable_mipmap` vaut `true` par defaut : le chemin direct minifiait donc en
+    // bilineaire pur, ce qui crenele des qu'une texture est reduite (l'atlas des glyphes
+    // precurseurs l'est d'un facteur ~4). Le contenu d'origine pose MXL=0 et n'est pas touche.
+    bool enable_mipmap = false;
 
     struct ClampState {
       void from_register(u64 value) { current_register = value; }
@@ -186,7 +191,7 @@ class DirectRenderer : public BucketRenderer {
     bool compatible_with(const TextureState& other) {
       return current_register == other.current_register &&
              m_clamp_state.current_register == other.m_clamp_state.current_register &&
-             enable_tex_filt == other.enable_tex_filt;
+             enable_tex_filt == other.enable_tex_filt && enable_mipmap == other.enable_mipmap;
     }
   };
 

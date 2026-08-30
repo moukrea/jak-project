@@ -70,6 +70,10 @@ class Loader {
   double m_ls_gap_max_ms = 0.0;
   double m_ls_gap_sum_ms = 0.0;
   int m_ls_gap_n = 0;
+  // Gloading-screen (owner 2026-08-30, « silky smooth ») : combien de temps le dernier appel a
+  // passe DANS le chargeur. Ce qui reste de la frame de 60 Hz une fois le rendu et la logique
+  // payes, c'est la tranche qu'on peut donner au chargeur sans faire tomber la cadence.
+  double m_ls_last_work_ms = 0.0;
 
   const std::string* get_most_unloadable_level();
 

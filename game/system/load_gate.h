@@ -77,4 +77,53 @@ void scene_release(const char* scene);
 // Test seam: forget everything. Not used by the game.
 void reset_for_test();
 
+
+
+// ================================================================================================
+// Gloading-screen (owner 2026-08-30) — LA CADENCE REELLE DE L'ECRAN DE CHARGEMENT, ET LE DECOUPAGE
+// DU TRAVAIL GOAL QUI LA DETRUIT.
+// ================================================================================================
+//
+// LE TROU QUE CECI BOUCHE. `LOADSCREEN-GAP` (Loader.cpp) ne mesure l'ecart entre deux images que
+// tant qu'une barriere de scene est ARMEE, parce qu'il vit dans `update_blocking`, lui-meme appele
+// seulement quand `wants_blocking_loads()` est vrai. Or `continue-load-gate!` relache la barriere
+// des que le decor est resident cote GPU (loader.gc:1128), et l'ecran, lui, reste tenu par
+// `LS_HOLD_TARGET` (target-death.gc:107, :159) pendant que le thread GOAL fait encore le login du
+// niveau, la table d'entites et la liaison. Mesure sur trace x86 : dernier `LOADSCREEN-GAP` a
+// t=62,345 s, ouverture de la barriere a t=62,688 s, puis PLUS RIEN. « La fin du chargement »,
+// c'est-a-dire exactement le moment ou l'owner voit le gel, n'etait mesuree par aucun instrument.
+//
+// NATURE de la grandeur : une DUREE entre deux images REELLEMENT peintes, sur `steady_clock`.
+// Ce n'est pas une horloge de jeu : sur l'appareil l'increment de l'horloge de jeu est plafonne a
+// 4 frames et le retard est JETE (android/gk_android_main.cpp:787-799), donc une horloge de jeu
+// SOUS-ESTIME un gel par construction. REPERE : le temps mural du processus.
+// CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : des ecarts a ~16,7 ms et un maximum du meme ordre.
+//
+// Publie par SECONDE et pas seulement en moyenne : l'owner l'a demande mot pour mot (« publier la
+// cadence mesuree PENDANT la derniere seconde d'un chargement de sauvegarde, pas sur la moyenne
+// du chargement. Une moyenne sur dix secondes noie un gel d'une seconde. »)
+void loading_screen_tick(int hold_mask);
+void loading_screen_end();
+
+// ---- decoupage du travail fait par le thread GOAL --------------------------
+// Plusieurs etages du chargement d'un niveau tournent SANS AUCUN BUDGET DE TEMPS cote GOAL, et
+// tiennent donc une frame entiere — c'est-a-dire qu'ils FIGENT l'ecran de chargement, quel que
+// soit ce que fait le renderer. Ils sont tous COLD-ONLY, ce qui explique le discriminant de
+// l'owner (le gel n'apparait pas sur une teleportation vers un niveau deja resident).
+// GOAL n'a pas d'horloge sous-frame sur PC : ces deux fonctions la lui donnent.
+//   `goal_slice_begin(slot)`  : marque le debut de la tranche `slot`.
+//   `goal_slice_expired(slot)`: 1 des que le budget est consomme. Rend TOUJOURS 0 quand le budget
+//                               vaut 0 — c'est l'ABLATION, sur le meme binaire, par
+//                               OG_GOAL_SLICE_MS=0 (emplacement 0) ou OG_GOAL_LOOP_SLICE_MS
+//                               (emplacement 1, DESARME PAR DEFAUT : voir load_gate.cpp, la
+//                               mesure qui l'a refute).
+//
+// IL Y A PLUSIEURS EMPLACEMENTS, ET C'EST UNE NECESSITE, PAS UN CONFORT : la boucle bloquante de
+// `update! load-state` (level.gc) appelle `load-continue`, qui appelle `level-update-after-load`,
+// qui veut SA propre tranche. Avec un seul chronometre l'appel imbrique remettrait le depart a
+// zero et la tranche exterieure n'expirerait JAMAIS — un budget qui ne se declenche pas est pire
+// que pas de budget, parce qu'il a l'air pose.
+void goal_slice_begin(int slot);
+int goal_slice_expired(int slot);
+
 }  // namespace load_gate

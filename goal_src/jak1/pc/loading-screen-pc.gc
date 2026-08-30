@@ -39,19 +39,34 @@
 ;; .autoport/design/loading-screen-owner-mockup.png (1672x941, rapport 1,7768 -- 16:9 a 0,06 %).
 ;; Elles sont en FRACTIONS d'ecran, donc independantes de la resolution.
 ;;
-;; RESERVE DECLAREE : le contrat de phase ecrit « ~40 % de la hauteur d'ecran » pour la
-;; silhouette ; la maquette de l'owner en mesure 61,2 %. On reproduit LA MAQUETTE, parce que
-;; c'est l'artefact qu'il a depose lui-meme, et la prose la resume de memoire. Une seule ligne a
-;; changer si l'owner prefere son chiffre : LS_SIL_H.
+;; HAUTEUR DE LA SILHOUETTE — REDUITE A 40 % (owner 2026-08-30)
+;; « l'animation de Jak qui court devrait aussi occuper moins de hauteur, là c'est un peu "Bim
+;;   dans ta face !" »
+;; Le cycle precedent reproduisait la MAQUETTE, ou le sujet mesure 61,2 % de la hauteur d'ecran, en
+;; ecartant le « ~40 % » ecrit dans le contrat de phase au motif que la maquette est l'artefact et
+;; la prose un resume. L'owner tranche dans l'autre sens : c'est son chiffre ecrit qui vaut.
+;;      SUJET, fraction de la hauteur d'ecran :   0,612115  ->  0,400000
+;; `LS_SIL_H` n'est PAS cette fraction : c'est celle de la CELLULE de planche, qui contient le
+;; sujet plus une marge transparente. Le rapport sujet/cellule est MESURE au montage (0,7266) et
+;; la division est faite par .autoport/gls_apply_silhouette_constants.py, jamais a la main.
 (defconstant LS_SIL_CX 0.272129)   ;; centre x de la silhouette
 (defconstant LS_SIL_CY 0.519660)   ;; centre y de la silhouette
-(defconstant LS_SIL_H 0.847035)    ;; hauteur de la CELLULE de planche / hauteur d'ecran.
-                                   ;; La maquette de l'owner mesure le SUJET a 0,612115 de la
-                                   ;; hauteur d'ecran ; le sujet occupe 0,7227 de la HAUTEUR de sa
-                                   ;; cellule -- une foulee de course l'etale, il est plus LARGE
-                                   ;; que haut (rapport 1,30) et la cellule est carree, avec une
-                                   ;; marge transparente obligatoire sinon les mipmaps de la
-                                   ;; planche melangent deux images voisines. 0,612115 / 0,7227.
+(defconstant LS_SIL_H 0.680399)    ;; hauteur de la CELLULE de planche / hauteur d'ecran.
+                                   ;; LA PLUS HAUTE des 35 images doit faire 0,400000 de la
+                                   ;; hauteur d'ecran. Cale sur la PLUS HAUTE, et pas sur la boite
+                                   ;; commune : cette derniere est l'UNION de la foulee (bras leves
+                                   ;; sur une image, jambes tendues sur une autre) et AUCUNE image
+                                   ;; ne la remplit -- caler « 40 % » dessus mettrait le personnage
+                                   ;; a 26-32 % a l'ecran, bien plus petit que le nombre annonce,
+                                   ;; et le calcul serait pourtant juste. Mesure des 35 cellules :
+                                   ;; encre min 242 / mediane 278 / max 301 px sur 512, boite
+                                   ;; commune 372. D'ou 0,400000 x 512 / 301.
+                                   ;; CE QUE CA DONNE A L'ECRAN, par image : 0,3216 / 0,3694 /
+                                   ;; 0,4000 (min / mediane / max), contre 0,3956 / 0,4595 / 0,4980
+                                   ;; avant. La cellule, elle, est plus grande que le personnage :
+                                   ;; une foulee l'etale (rapport l/h 1,29) et la marge
+                                   ;; transparente est obligatoire, sinon les mipmaps de la planche
+                                   ;; melangeraient deux images voisines.
                                    ;; POSEE par gls_apply_silhouette_constants.py depuis la mesure
                                    ;; du montage, jamais recopiee a la main.
 
@@ -90,10 +105,10 @@
 ;; le vrai correctif du gel est ailleurs -- dans la taille des tranches du chargeur bloquant,
 ;; game/graphics/opengl_renderer/loader/Loader.h:kLoadingScreenSliceMs -- et que la mesure du
 ;; gel, elle, est prise cote C++ sur une VRAIE horloge (`LOADSCREEN-GAP`).
-(defconstant LS_SIL_COLS 4)
-(defconstant LS_SIL_ROWS 4)
-(defconstant LS_SIL_FRAMES 16)
-(defconstant LS_SIL_PERIOD 175)
+(defconstant LS_SIL_COLS 6)
+(defconstant LS_SIL_ROWS 6)
+(defconstant LS_SIL_FRAMES 35)
+(defconstant LS_SIL_PERIOD 175)  ;; = 35 frames de logique x 5 (unite de `loading-screen-clock` : 1/300 s), soit 0.5833 s. MESUREE sur l'animation elle-meme, pas choisie.
 ;; 175 = 35 frames de logique a 60 Hz x 5, soit 0,5833 s. UNITE : 1/300 s, celle de
 ;; `loading-screen-clock`. La conversion x5 se fait en UN SEUL endroit,
 ;; .autoport/gls_apply_silhouette_constants.py, qui lit la valeur dans le rapport du montage et la
@@ -113,24 +128,53 @@
 (defconstant LS_SIL_WH 1.0)                ;; largeur/hauteur d'UNE cellule de la planche
 
 (defconstant LS_TEXT_RIGHT 0.8822) ;; bord DROIT de la bande « Loading... » (x 1475 / 1672)
-(defconstant LS_TEXT_TOP 0.7216)   ;; haut de la bande de texte (y 679 / 941)
-(defconstant LS_TEXT_SCALE 1.3876)  ;; grande police. CALIBREE, pas choisie -- et RECALIBREE le
+
+;; ------------------------------------------------------------------------------------------------
+;; TAILLE DU BLOC DE TEXTE — REDUITE DE 25 % (owner 2026-08-30)
+;; « le texte "Loading.../Chargement.../etc." avec ses glyphs Precursor en dessous est un poil trop
+;;   gros pour faire moderne, ça devrait être plus petit »
+;;
+;; L'owner donne une DIRECTION, pas un nombre. Facteur retenu : LS_TEXT_K = 0,75, et il n'y a
+;; qu'UN endroit a changer si sa lecture differe. Ce que ca donne, en fraction de la HAUTEUR
+;; d'ecran (mesure sur le rendu 1920x1080, .autoport/reports/Gloading-screen/widths.txt) :
+;;      bande de texte      104 / 1080 = 9,63 %   ->   78 / 1080 = 7,22 %
+;;      bande de glyphes     64 / 1080 = 5,93 %   ->   48 / 1080 = 4,44 %
+;;
+;; LE BLOC EST MIS A L'ECHELLE AUTOUR DE SON BAS, PAS DE SON HAUT. Les deux constantes ci-dessous
+;; sont des bords SUPERIEURS : les reduire sans deplacer laisserait le bloc accroche en haut et
+;; ouvrirait un trou au-dessus de la ligne de glyphes. On les recalcule donc autour d'une ancre
+;; basse commune LS_TEXT_ANCHOR = 0,90 (juste sous la ligne de glyphes livree) :
+;;      top' = ancre - k * (ancre - top)
+;; ce qui garde le bloc pose au meme endroit et ne change que sa taille. Le bord DROIT, lui, est
+;; l'ancre horizontale et ne bouge pas.
+;;
+;; ATTENTION A UNE COINCIDENCE, ET JE LA NOMME POUR QU'ELLE NE SOIT PAS LUE COMME UN RETOUR EN
+;; ARRIERE : 1,3876 x 0,75 = 1,0407, qui est la valeur que portait cette constante AVANT le
+;; 2026-08-29. Ce n'est pas le meme reglage. A l'epoque la LARGEUR mesuree etait fausse d'un
+;; facteur 4/3 et la ligne precurseur sortait 30,6 % trop large ; aujourd'hui la mesure est juste
+;; (ecart <= 3 px sur cinq langues) et c'est la CIBLE de mise en page qui est volontairement
+;; reduite. Meme nombre, mise en page differente.
+;; ------------------------------------------------------------------------------------------------
+(defconstant LS_TEXT_TOP 0.7662)   ;; = 0,90 - 0,75 x (0,90 - 0,7216)
+(defconstant LS_TEXT_SCALE 1.0407)  ;; grande police. CALIBREE, pas choisie -- et RECALIBREE le
                                     ;; 2026-08-29 quand la mesure de largeur a ete corrigee (voir
                                     ;; `ls-text-width`). La valeur precedente, 1,0407, avait ete
                                     ;; calee contre une largeur SUR-ESTIMEE de 4/3 : le texte etait
                                     ;; donc rendu 25 % plus petit que la maquette.
-                                    ;; 111,16 / (0,75 x 106,8092) = 1,3876, ou 106,8092 est l'avance
+                                    ;; 83,37 / (0,75 x 106,8092) = 1,0407, ou 106,8092 est l'avance
                                     ;; de « Loading... » dans *font24-table* et 0,75 la valeur de
                                     ;; `relative-x-scale` en 16:9 -- le format de la maquette.
+                                    ;; 83,37 = 111,16 (la maquette) x 0,75 (la reduction demandee).
 
-(defconstant LS_GLYPH_TOP 0.8268)  ;; haut de la bande de glyphes (y 778 / 941)
+(defconstant LS_GLYPH_TOP 0.8451)  ;; = 0,90 - 0,75 x (0,90 - 0,8268). Maquette : 778 / 941.
 
-;; Largeur CIBLE de la bande « Loading... », mesuree sur la maquette : x 1113..1475 sur 1672, soit
-;; 0,21711 de la largeur d'ecran, donc 111,16 unites de la toile 512.
+;; Largeur CIBLE de la bande « Loading... ». La maquette la mesure a x 1113..1475 sur 1672, soit
+;; 0,21711 de la largeur d'ecran, donc 111,16 unites de la toile 512 ; on en livre 75 % sur la
+;; demande de l'owner du 2026-08-30, soit 83,37 unites (0,16283 de la largeur d'ecran).
 ;; C'EST CE NOMBRE QUI CALIBRE `LS_TEXT_SCALE`, et il se lit dans une TRACE, pas a l'oeil :
 ;; `LOADSCREEN-LAYOUT ... ratio=` publie largeur-rendue / cible. Le reglage est bon quand ce
 ;; ratio vaut 1. Les captures d'ecran ne servent pas de verdict ici.
-(defconstant LS_TEXT_W_TARGET 111.16)
+(defconstant LS_TEXT_W_TARGET 83.37)
 ;; `ratio=` de la trace se calcule sur la chaine ANGLAISE LITTERALE, jamais sur la chaine
 ;; localisee : la maquette a ete dessinee avec « Loading... », et la TAILLE de police doit rester
 ;; la meme dans toutes les langues -- c'est la LARGEUR qui varie d'une langue a l'autre, et c'est
@@ -163,29 +207,29 @@
        (new 'static 'vector :x 0.003906 :y 0.003906 :z 0.101562 :w 0.121094) ;; A
        (new 'static 'vector :x 0.167969 :y 0.003906 :z 0.277344 :w 0.123047) ;; B
        (new 'static 'vector :x 0.332031 :y 0.003906 :z 0.398438 :w 0.119141) ;; C
-       (new 'static 'vector :x 0.496094 :y 0.003906 :z 0.589844 :w 0.134766) ;; D
-       (new 'static 'vector :x 0.660156 :y 0.003906 :z 0.753906 :w 0.125000) ;; E
+       (new 'static 'vector :x 0.496094 :y 0.003906 :z 0.589355 :w 0.134766) ;; D
+       (new 'static 'vector :x 0.660156 :y 0.003906 :z 0.753418 :w 0.125000) ;; E
        (new 'static 'vector :x 0.824219 :y 0.003906 :z 0.898438 :w 0.138672) ;; F
        (new 'static 'vector :x 0.003906 :y 0.167969 :z 0.109375 :w 0.285156) ;; G
        (new 'static 'vector :x 0.167969 :y 0.167969 :z 0.236328 :w 0.296875) ;; H
-       (new 'static 'vector :x 0.332031 :y 0.167969 :z 0.455078 :w 0.292969) ;; I
+       (new 'static 'vector :x 0.332031 :y 0.167969 :z 0.454590 :w 0.292969) ;; I
        (new 'static 'vector :x 0.496094 :y 0.167969 :z 0.611328 :w 0.283203) ;; J
-       (new 'static 'vector :x 0.660156 :y 0.167969 :z 0.751953 :w 0.283203) ;; K
+       (new 'static 'vector :x 0.660156 :y 0.167969 :z 0.751953 :w 0.282715) ;; K
        (new 'static 'vector :x 0.824219 :y 0.167969 :z 0.935547 :w 0.291016) ;; L
        (new 'static 'vector :x 0.003906 :y 0.332031 :z 0.097656 :w 0.460938) ;; M
-       (new 'static 'vector :x 0.167969 :y 0.332031 :z 0.246094 :w 0.457031) ;; N
+       (new 'static 'vector :x 0.167969 :y 0.332031 :z 0.245605 :w 0.457031) ;; N
        (new 'static 'vector :x 0.332031 :y 0.332031 :z 0.419922 :w 0.455078) ;; O
        (new 'static 'vector :x 0.496094 :y 0.332031 :z 0.560547 :w 0.435547) ;; P
        (new 'static 'vector :x 0.660156 :y 0.332031 :z 0.767578 :w 0.447266) ;; Q
        (new 'static 'vector :x 0.824219 :y 0.332031 :z 0.906250 :w 0.451172) ;; R
        (new 'static 'vector :x 0.003906 :y 0.496094 :z 0.072266 :w 0.613281) ;; S
-       (new 'static 'vector :x 0.167969 :y 0.496094 :z 0.259766 :w 0.619141) ;; T
+       (new 'static 'vector :x 0.167969 :y 0.496094 :z 0.259277 :w 0.619141) ;; T
        (new 'static 'vector :x 0.332031 :y 0.496094 :z 0.419922 :w 0.613281) ;; U
        (new 'static 'vector :x 0.496094 :y 0.496094 :z 0.619141 :w 0.597656) ;; V
-       (new 'static 'vector :x 0.660156 :y 0.496094 :z 0.765625 :w 0.615234) ;; W
+       (new 'static 'vector :x 0.660156 :y 0.496094 :z 0.765137 :w 0.614746) ;; W
        (new 'static 'vector :x 0.824219 :y 0.496094 :z 0.892578 :w 0.599609) ;; X
        (new 'static 'vector :x 0.003906 :y 0.660156 :z 0.103516 :w 0.783203) ;; Y
-       (new 'static 'vector :x 0.167969 :y 0.660156 :z 0.238281 :w 0.796875) ;; Z
+       (new 'static 'vector :x 0.167969 :y 0.660156 :z 0.237793 :w 0.796875) ;; Z
        ))
 
 ;; metriques dans l'em de dessin : x=largeur y=hauteur z=avance w=decalage vertical
@@ -196,34 +240,69 @@
        (new 'static 'vector :x 200.0 :y 240.0 :z 246.08 :w 24.0) ;; A
        (new 'static 'vector :x 224.0 :y 244.0 :z 270.08 :w 22.0) ;; B
        (new 'static 'vector :x 136.0 :y 236.0 :z 182.08 :w 26.0) ;; C
-       (new 'static 'vector :x 192.0 :y 268.0 :z 238.08 :w 10.0) ;; D
-       (new 'static 'vector :x 192.0 :y 248.0 :z 238.08 :w 20.0) ;; E
+       (new 'static 'vector :x 191.0 :y 268.0 :z 237.08 :w 10.0) ;; D
+       (new 'static 'vector :x 191.0 :y 248.0 :z 237.08 :w 20.0) ;; E
        (new 'static 'vector :x 152.0 :y 276.0 :z 198.08 :w 6.0) ;; F
        (new 'static 'vector :x 216.0 :y 240.0 :z 262.08 :w 24.0) ;; G
        (new 'static 'vector :x 140.0 :y 264.0 :z 186.08 :w 12.0) ;; H
-       (new 'static 'vector :x 252.0 :y 256.0 :z 298.08 :w 16.0) ;; I
+       (new 'static 'vector :x 251.0 :y 256.0 :z 297.08 :w 16.0) ;; I
        (new 'static 'vector :x 236.0 :y 236.0 :z 282.08 :w 26.0) ;; J
-       (new 'static 'vector :x 188.0 :y 236.0 :z 234.08 :w 26.0) ;; K
+       (new 'static 'vector :x 188.0 :y 235.0 :z 234.08 :w 26.5) ;; K
        (new 'static 'vector :x 228.0 :y 252.0 :z 274.08 :w 18.0) ;; L
        (new 'static 'vector :x 192.0 :y 264.0 :z 238.08 :w 12.0) ;; M
-       (new 'static 'vector :x 160.0 :y 256.0 :z 206.08 :w 16.0) ;; N
+       (new 'static 'vector :x 159.0 :y 256.0 :z 205.08 :w 16.0) ;; N
        (new 'static 'vector :x 180.0 :y 252.0 :z 226.08 :w 18.0) ;; O
        (new 'static 'vector :x 132.0 :y 212.0 :z 178.08 :w 38.0) ;; P
        (new 'static 'vector :x 220.0 :y 236.0 :z 266.08 :w 26.0) ;; Q
        (new 'static 'vector :x 168.0 :y 244.0 :z 214.08 :w 22.0) ;; R
        (new 'static 'vector :x 140.0 :y 240.0 :z 186.08 :w 24.0) ;; S
-       (new 'static 'vector :x 188.0 :y 252.0 :z 234.08 :w 18.0) ;; T
+       (new 'static 'vector :x 187.0 :y 252.0 :z 233.08 :w 18.0) ;; T
        (new 'static 'vector :x 180.0 :y 240.0 :z 226.08 :w 24.0) ;; U
        (new 'static 'vector :x 252.0 :y 208.0 :z 298.08 :w 40.0) ;; V
-       (new 'static 'vector :x 216.0 :y 244.0 :z 262.08 :w 22.0) ;; W
+       (new 'static 'vector :x 215.0 :y 243.0 :z 261.08 :w 22.5) ;; W
        (new 'static 'vector :x 140.0 :y 212.0 :z 186.08 :w 38.0) ;; X
        (new 'static 'vector :x 204.0 :y 252.0 :z 250.08 :w 18.0) ;; Y
-       (new 'static 'vector :x 144.0 :y 280.0 :z 190.08 :w 4.0) ;; Z
+       (new 'static 'vector :x 143.0 :y 280.0 :z 189.08 :w 4.0) ;; Z
        ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; PRIMITIVES
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ls-set-shader ((buf dma-buffer) (tbp int))
+  "Registres GS pour les deux images de l'ecran de chargement. C'est `rhud-set-shader`
+   (hud-classes-pc.gc:1101) A UN REGISTRE PRES, et ce registre est le correctif de « les glyphs
+   precursor sont pixellisés ».
+
+   LE DEFAUT, MESURE DANS LE CODE. `rhud-set-shader` pose `TEX1 = #x60`, soit MMAG=1 et MMIN=1 :
+   bilineaire, MXL=0, donc AUCUN mipmap. Cote PC, `DirectRenderer::update_gl_texture`
+   (game/graphics/opengl_renderer/DirectRenderer.cpp:443-451) lie alors `GL_LINEAR` parce que
+   `m_debug_state.disable_mipmap` vaut **true par defaut** (DirectRenderer.h:305). Or l'atlas des
+   glyphes est MINIFIE d'un facteur ~4 a l'affichage : une minification x4 en bilineaire pur ne
+   lit que 4 texels sur les 16 du footprint, et ce qui manque revient en CRENELAGE. Les mipmaps
+   existaient pourtant deja — `LoadingScreenTextures.cpp` appelle `glGenerateMipmap` sur les deux
+   textures — ils n'etaient simplement jamais selectionnes.
+   Le commentaire qui vivait ici affirmait « GL_LINEAR (+ mipmaps) ». Il etait faux. Un commentaire
+   n'est pas une preuve : la ligne `LOADSCREEN-GLYPH` publie desormais le filtre DEMANDE, et le
+   registre qui le demande.
+
+   TEX1 = #x178 : MMAG=1 (bit 5), MMIN=5 (bits 6-8 = LINEAR_MIPMAP_LINEAR), MXL=6 (bits 2-4).
+   MXL>0 est la SIGNATURE que le renderer lit pour armer les mipmaps ; tout le contenu d'origine du
+   jeu pose MXL=0 et n'est donc pas touche — la portee de ce changement est ces deux images."
+  (with-cnt-vif-block (buf)
+    (dma-buffer-add-gif-tag buf
+                            (new 'static 'gif-tag64 :nloop 4 :eop 1 :nreg 1)
+                            (new 'static 'gif-tag-regs :regs0 (gif-reg-id a+d)))
+    (dma-buffer-add-uint64 buf
+                           #x44 ;; (Cs-Cd)*As+Cd melange alpha standard
+                           (gs-reg64 alpha-1)
+                           #x5 ;; clamp s+t
+                           (gs-reg64 clamp-1)
+                           #x178 ;; bilineaire + LINEAR_MIPMAP_LINEAR + MXL=6
+                           (gs-reg64 tex1-1)
+                           (logior (the-as uint tbp) RHUD_TEX0_BITS)
+                           (gs-reg64 tex0-1)))
+  (none))
 
 (defun ls-quad ((buf dma-buffer) (uv vector) (x0 float) (y0 float) (x1 float) (y1 float))
   "Quad texture aligne sur les axes : le rect UV `uv` (x=u0 y=v0 z=u1 w=v1) pose sur le rect
@@ -329,7 +408,7 @@
              (pen (- right target-w))
              (first #t))
         (set! *ls-precursor-scale* s)
-        (rhud-set-shader buf RHUD_TBP_LOADING_PRECURSOR)
+        (ls-set-shader buf RHUD_TBP_LOADING_PRECURSOR)
         (let ((p (-> word data)))
           (dotimes (i n)
             (let ((c (the int (-> p i))))
@@ -488,7 +567,7 @@
                (du (/ 1.0 (the float LS_SIL_COLS)))
                (dv (/ 1.0 (the float LS_SIL_ROWS))))
           (set! *ls-sil-frame* (the int fr))
-          (rhud-set-shader buf RHUD_TBP_LOADING_JAK)
+          (ls-set-shader buf RHUD_TBP_LOADING_JAK)
           (let ((uv (new 'stack-no-clear 'vector)))
             (set! (-> uv x) (* col du))
             (set! (-> uv y) (* row dv))
@@ -553,14 +632,18 @@
                                 (* (- pw w) pxu)
                                 (-> *video-parms* relative-x-scale)))
                       ;; PIXELLISATION : combien de pixels de l'atlas pour un pixel d'ecran.
-                      ;; > 1 = l'atlas est REDUIT a l'affichage (bon). < 1 = il est AGRANDI, et
-                      ;; c'est l'escalier que l'owner a vu. Le filtrage est publie a cote : le
-                      ;; TEX1 pose par `rhud-set-shader` vaut #x60, soit BILINEAIRE, et
-                      ;; DirectRenderer.cpp:444-447 le traduit en GL_LINEAR (+ mipmaps).
+                      ;; > 1 = l'atlas est REDUIT a l'affichage. C'est le cas ici (~4), et c'est
+                      ;; PRECISEMENT pourquoi le filtre importe : une minification x4 en
+                      ;; bilineaire SANS mipmap ne lit que 4 texels sur 16 et rend du crenelage.
+                      ;; La ligne publie donc le registre POSE et le filtre qu'il demande, au lieu
+                      ;; d'affirmer un filtrage dans un commentaire -- l'ancien commentaire disait
+                      ;; « GL_LINEAR (+ mipmaps) » et c'etait FAUX : `disable_mipmap` vaut true par
+                      ;; defaut (DirectRenderer.h:305), donc il n'y avait pas de mipmap du tout.
                       (let ((pxu (/ (the float (-> *pc-settings* framebuffer-width)) 512.0)))
-                        (format 0 "LOADSCREEN-GLYPH atlas-px-par-px-ecran=~f em=~f filtrage=bilineaire~%"
+                        (format 0 "LOADSCREEN-GLYPH atlas-px-par-px-ecran=~f em=~f tex1=~D filtrage=bilineaire+mipmap-trilineaire~%"
                                 (/ 1.0 (* *ls-precursor-scale* pxu))
-                                LS_PRECURSOR_EM))
+                                LS_PRECURSOR_EM
+                                376))
                       (format 0 "LOADSCREEN-SIL images=~D cols=~D rangees=~D boucle-ticks=~D~%"
                               LS_SIL_FRAMES LS_SIL_COLS LS_SIL_ROWS LS_SIL_PERIOD)))))
                 ;; le texte en DERNIER : `draw-string` repose ses propres registres GS.

@@ -1264,6 +1264,42 @@ float loading_screen_slice_ms() {
   return v;
 }
 
+// Gloading-screen (owner 2026-08-30) — LA TRANCHE EST CE QUI RESTE DE LA FRAME, PAS UN NOMBRE.
+//
+// « faut que tu te démerdes pour que ça capture 60 FPS réel que ce soit silky smooth »
+//
+// La tranche fixe de 40 ms tenait sa promesse (plus de gel de plusieurs secondes) mais imposait sa
+// propre cadence : MESURE sur le chargement de `training`, chemin FROID, 22 a 24 images par
+// seconde pendant 4 secondes, avec un ecart moyen de 42 ms — c'est-a-dire exactement la tranche.
+// Un nombre fixe ne peut pas faire autrement : il decide de la periode de la frame.
+//
+// On inverse la contrainte. La CIBLE est la periode d'une frame a 60 Hz ; le chargeur recoit ce
+// qui en reste une fois payes le rendu et la logique. `outside` est mesure, pas suppose : c'est
+// l'ecart entre deux appels MOINS le temps passe dans le chargeur au tour precedent.
+//   - si le rendu tient en 8 ms, le chargeur recoit ~8 ms et la cadence est de 60 ;
+//   - si le rendu coute deja plus qu'une frame (telephone bas de gamme), le chargeur retombe sur
+//     le PLANCHER et la frame est bornee par le rendu, pas par nous — on ne peut pas faire mieux,
+//     mais on ne fait pas PIRE.
+// Le PLANCHER n'est pas cosmetique : sans lui, une frame lente affamerait le chargeur et le
+// chargement n'avancerait plus du tout.
+static constexpr float kLoadingScreenTargetFrameMs = 16.67f;
+static constexpr float kLoadingScreenMinSliceMs = 4.f;
+
+float adaptive_slice_ms(double gap_ms, double last_work_ms) {
+  // Reglage EXPLICITE = on obeit, sans adaptation. C'est ce qui rend l'ablation lisible :
+  // OG_LOADSCREEN_SLICE_MS=0 rend le chemin non borne (le gel), =40 rend la tranche fixe du cycle
+  // precedent, non pose rend la tranche adaptative livree.
+  if (getenv("OG_LOADSCREEN_SLICE_MS")) {
+    return loading_screen_slice_ms();
+  }
+  if (gap_ms <= 0.0) {
+    return kLoadingScreenTargetFrameMs - kLoadingScreenMinSliceMs;
+  }
+  const double outside = std::max(0.0, gap_ms - last_work_ms);
+  return (float)std::max((double)kLoadingScreenMinSliceMs,
+                         (double)kLoadingScreenTargetFrameMs - outside);
+}
+
 void Loader::update_blocking(TexturePool& tex_pool, bool announce, float budget_ms) {
   if (announce) {
     fmt::print("NOTE: coming out of blackout on next frame, doing all loads now...\n");
@@ -1277,9 +1313,11 @@ void Loader::update_blocking(TexturePool& tex_pool, bool announce, float budget_
   // Arme sur le CHEMIN DE LA BARRIERE (announce == false), quel que soit le budget : sans ca
   // l'ablation `OG_LOADSCREEN_SLICE_MS=0` ne produirait aucune mesure et il n'y aurait rien a
   // comparer -- un avant/apres dont la moitie « avant » est muette ne prouve rien.
+  double gap_for_slice = 0.0;
   if (!announce) {
     if (m_ls_gap_armed) {
       const double gap = m_ls_gap_timer.getMs();
+      gap_for_slice = gap;
       m_ls_gap_max_ms = std::max(m_ls_gap_max_ms, gap);
       m_ls_gap_sum_ms += gap;
       m_ls_gap_n++;
@@ -1303,10 +1341,25 @@ void Loader::update_blocking(TexturePool& tex_pool, bool announce, float budget_
     m_ls_gap_armed = false;
   }
 
+  // BUDGET ADAPTATIF. `budget_ms < 0` = « decide pour moi » : c'est ce que passent les deux
+  // renderers sur le chemin de la barriere. Une valeur >= 0 est un ordre (0 = non borne, le
+  // chemin d'avant ; > 0 = tranche fixe), et sert aux ablations.
+  if (!announce && budget_ms < 0.f) {
+    budget_ms = adaptive_slice_ms(gap_for_slice, m_ls_last_work_ms);
+  } else if (budget_ms < 0.f) {
+    budget_ms = 0.f;
+  }
+
   Timer budget_timer;
   const auto out_of_budget = [&]() {
     return budget_ms > 0.f && budget_timer.getMs() >= (double)budget_ms;
   };
+  // Le temps REELLEMENT passe ici, quel que soit le chemin de sortie (il y a plusieurs `return`).
+  struct WorkScope {
+    Timer& t;
+    double& out;
+    ~WorkScope() { out = t.getMs(); }
+  } work_scope{budget_timer, m_ls_last_work_ms};
 
   bool missing_levels = true;
   while (missing_levels) {

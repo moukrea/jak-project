@@ -441,18 +441,28 @@
   ;; there is some logic for not doing the whole login all at once...
   ;; for now, we will somewhat ignore that.
   (let ((level-drawable-trees (-> loaded-level bsp drawable-trees)))
-    ;;(.mfc0 initial-timer Count)
+    ;; Gloading-screen (owner 2026-08-30) — LE BUDGET DE TEMPS EST REMIS EN SERVICE.
+    ;; Il etait ECRIT ET COMMENTE (`#| ... |#` ci-dessous dans l'historique), avec l'aveu
+    ;; « for now, we will somewhat ignore that » deux lignes plus haut. Sans lui, TOUT le login
+    ;; d'un niveau — chaque drawable-tree, chaque tfrag par paquets de 200, chaque prototype TIE
+    ;; par paquets de 10, et `login` + `link-art!` pour CHACUN des art-groups (11 pour training,
+    ;; 37 pour village1) — tient dans UNE frame GOAL. Or l'ecran de chargement est peint PAR le
+    ;; thread GOAL (main.gc) : une frame GOAL longue le fige, quoi que fasse le renderer. C'est le
+    ;; gel que l'owner decrit, et il est COLD-ONLY par construction : `level-update-after-load`
+    ;; n'est appelee que sur le statut 'login, atteint seulement par un niveau qui vient d'etre
+    ;; charge. Une teleportation vers un niveau deja resident n'y passe jamais — exactement le
+    ;; discriminant qu'il a isole.
+    ;; L'HORLOGE N'EST PAS CELLE DU JEU. `.mfc0 Count` est une instruction MIPS ; sur PC il n'y a
+    ;; aucune horloge sous-frame accessible depuis GOAL. `__pc-slice-*` en donne une, sur
+    ;; `steady_clock`. Emplacement 0 : la boucle bloquante de `update!` utilise l'emplacement 1,
+    ;; et elle nous APPELLE — un chronometre unique serait remis a zero par cet appel imbrique et
+    ;; n'expirerait jamais.
+    ;; DESARMABLE SUR LE MEME BINAIRE : OG_GOAL_SLICE_MS=0 rend le comportement d'avant.
+    (__pc-slice-begin! 0)
     (label cfg-1)
-    ;;(.mfc0 current-timer Count)
-    ;; this would quit the login function after some amount of time elapsed.
-    #|
-    (let ((elapsed-timer (- current-timer initial-timer)))
-      (when (< #x186a0 elapsed-timer)
-        (set! loaded-level loaded-level)
-        (goto cfg-78)
-        )
-      )
-    |#
+    (when (nonzero? (__pc-slice-expired? 0))
+      (set! loaded-level loaded-level)
+      (goto cfg-78))
     (let ((current-login-pos (the-as int (-> level-login-state pos))))
       ;; Login state -1.
       ;; in this state, we log in drawables/art-groups that are in referenced in the bsp directly
@@ -1128,8 +1138,31 @@
               (format 0 "Adding level ~A~%" (-> this want s4-1 name))
               (let ((s3-0 (level-get-for-use *level* (the-as symbol (-> this want s4-1 name)) 'loaded)))
                 (when (and s5-1 (-> this want s4-1 display?))
+                  ;; Gloading-screen (owner 2026-08-30) — CETTE BOUCLE N'A JAMAIS EU DE BUDGET.
+                  ;; Elle ne s'arme que lorsque LES DEUX emplacements de niveau sont 'inactive,
+                  ;; c'est-a-dire sur un chargement de sauvegarde vers un niveau qui ne partage
+                  ;; RIEN avec le niveau courant : elle enchaine alors lecture DGO, liaison et
+                  ;; login du niveau entier dans UNE SEULE frame GOAL, sans `suspend`. L'ecran de
+                  ;; chargement etant peint par ce meme thread, il reste FIGE pendant tout ce
+                  ;; temps. Une teleportation vers un niveau deja resident ne l'arme pas : c'est
+                  ;; le discriminant que l'owner a isole.
+                  ;; LA BORNE EST ECRITE ET **DESARMEE PAR DEFAUT** : LA MESURE L'A REFUTEE.
+                  ;; Course x86 du 2026-08-30, transition `village1+beach -> snow+village3` (aucun
+                  ;; niveau commun : le seul cas qui arme cette boucle) : avec l'emplacement 1
+                  ;; arme, `gk` MEURT en silence ~150 ms apres `Adding level village3`, DEUX FOIS
+                  ;; SUR DEUX (coldwarm-apres.log et coldwarm-adapt.log s'arretent net) ; desarme,
+                  ;; la meme transition passe (`Displaying level snow [display]`) et publie son
+                  ;; episode. « Une resolution pire que le clip est pire que rien. »
+                  ;; ET ELLE EST INUTILE, ce que la meme course etablit : sur cette transition, le
+                  ;; pire ecart entre deux images tombe de 1 278,9 ms a 49,4 ms par le SEUL effet
+                  ;; du budget de login (emplacement 0) et de la tranche adaptative du renderer.
+                  ;; Le code reste, comme LEVIER D'ABLATION : `OG_GOAL_LOOP_SLICE_MS` le rearme
+                  ;; sans changer de binaire. Budget par defaut : 0, donc `__pc-slice-expired?`
+                  ;; rend toujours 0 et la boucle est EXACTEMENT celle d'avant.
                   (format 0 "Waiting for level to load~%")
-                  (while (or (= (-> s3-0 status) 'loading) (= (-> s3-0 status) 'loading-bt) (= (-> s3-0 status) 'login))
+                  (__pc-slice-begin! 1)
+                  (while (and (zero? (__pc-slice-expired? 1))
+                              (or (= (-> s3-0 status) 'loading) (= (-> s3-0 status) 'loading-bt) (= (-> s3-0 status) 'login)))
                     (load-continue s3-0))))))))))
   (dotimes (s5-2 2)
     (when (-> this want s5-2 name)

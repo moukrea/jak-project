@@ -18,7 +18,7 @@ SRC = "goal_src/jak1/pc/loading-screen-pc.gc"
 
 rep = open(REP, encoding="utf-8").read()
 
-m = re.search(r"PLANCHE=\S+ (\d+)x(\d+)\s+images=(\d+) \((\d+) x (\d+) cellules", rep)
+m = re.search(r"PLANCHE=\S+ (\d+)x(\d+)\s+images=(\d+)[^(]*\((\d+) x (\d+) cellules", rep)
 if not m:
     sys.exit("ERREUR: ligne PLANCHE introuvable dans " + REP)
 frames, cols, rows = int(m.group(3)), int(m.group(4)), int(m.group(5))
