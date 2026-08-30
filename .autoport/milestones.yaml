@@ -1673,6 +1673,15 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gjak-hd-rig-strap
+  name: 'RIG DE JAK HD / SANGLE DU DOS (owner 2026-08-29) : « un point de sa veste bleue lié à la lanière, du coup les polygones passent au travers » et « la boucle en métal semble attachée aux mouvements des épaules, donc elle bouge séparément de la sangle ». DEUX defauts, aucun n''est de la physique : un POIDS DE PEAU faux et un PARENTAGE faux. Positions a calculer avec une VRAIE inverse 4x4. Les correctifs de geometrie ne voyagent QUE par jak1_hd_assets.zip.'
+  prompt: prompts/phase-Gjak-hd-rig-strap.md
+  validator: validators/phase-Gjak-hd-rig-strap.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gpbr-per-texture-materials
   name: 'PBR PAR MATIERE, PAS DEUX CURSEURS GLOBAUX (owner 2026-08-28) : « un tissu n''a pas les mêmes propriétés qu''un mur en pierres taillées ou que du sable ». MESURE : il n''existe que deux réglages de matière dans tout le moteur. D''ABORD le repère tangent (relief présent/absent/inversé selon les faces), ENSUITE la table de matières par texture, versionnée dans le dépôt d''assets. [PREUVE x86 : l''owner 2026-08-29 — « la plupart des choses sont testables sur x86 aussi, y compris les divers aspect ratios ». La garde de presence d''appareil ne doit PAS bloquer un travail dont la preuve se fait au clavier. Verification sur appareil quand un appareil revient, jamais comme prerequis.]'
   prompt: prompts/phase-Gpbr-per-texture-materials.md
