@@ -126,4 +126,57 @@ void loading_screen_end();
 void goal_slice_begin(int slot);
 int goal_slice_expired(int slot);
 
+// ================================================================================================
+// Gloading-screen-window (owner 2026-08-30, retour n.4) — L'ECRAN DOIT *ENCADRER* LA TRANSITION
+// ================================================================================================
+//
+// LE DEFAUT QUE CECI MESURE, DANS LES MOTS DE L'OWNER :
+//   D4/D7 « on voit l'interieur de la hutte du Sage Vert AVANT que l'ecran de chargement
+//           apparaisse » — l'ecran se pose TROP TARD ;
+//   D3    « il disparait avant que tous les elements de la scene soient affiches [...] on a du
+//           pop-in, ce que le chargement est sense cacher » — il se leve TROP TOT.
+//
+// AUCUN INSTRUMENT NE VOYAIT CA. `LOADSCREEN-FRAME` mesure la CADENCE pendant que l'ecran est
+// tenu ; il ne dit rien de ce qui se dessine AVANT qu'il se pose ni APRES qu'il se leve. Un
+// encadrement est une relation d'ORDRE entre quatre instants, et il faut donc les quatre sur la
+// MEME horloge.
+//
+// NATURE de la grandeur : quatre INSTANTS, publies en millisecondes depuis l'ouverture de la
+//   fenetre. Ce ne sont pas des durees de jeu.
+// REPERE : `steady_clock`, le temps mural du processus — JAMAIS l'horloge de jeu, dont
+//   l'increment est plafonne a 4 frames sur l'appareil et qui JETTE le retard
+//   (android/gk_android_main.cpp:787-799) : elle sous-estimerait un gel par construction.
+// CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : `t_up <= t_first_draw_in` et `t_down >= t_last_active`.
+//   Quand il est present, l'un des deux ecarts est NEGATIF, et son signe EST le verdict.
+//
+// « ENTRANT » N'EST PAS UN NOM DE NIVEAU, C'EST UNE DIFFERENCE. A l'ouverture de la fenetre on
+// retient l'ensemble des niveaux DESSINABLES (statut 'active ET `display?`). Tout niveau qui
+// devient dessinable ensuite et n'etait pas dans cet ensemble est ENTRANT. Aucune liste a tenir a
+// jour, donc aucune transition ne peut etre oubliee parce qu'on aurait omis de la nommer.
+//   `t_first_draw_in` = PREMIER entrant devenu dessinable  (c'est ce que l'ecran doit couvrir)
+//   `t_last_active`   = DERNIER entrant devenu dessinable  (c'est ce qu'il doit attendre)
+//
+// UN INSTANT JAMAIS MARQUE EST PUBLIE `absent`, JAMAIS -1 NI 0. Un nombre manquant qui se lit
+// comme un nombre passerait la comparaison d'ordre par accident : c'est exactement la forme d'un
+// faux vert. `absent` casse la lecture au lieu de la truquer.
+void loading_window_open(const char* transition);
+// Une image REELLEMENT peinte, fenetre ouverte. `held` = l'ecran de chargement couvre-t-il cette
+// image. Sert aussi de mesure d'ecart entre images sur TOUTE la fenetre — et pas seulement
+// pendant que l'ecran est tenu, sinon elargir la fenetre changerait le domaine de mesure et les
+// deux jambes d'une comparaison avant/apres ne porteraient plus sur la meme chose.
+void loading_window_frame(int held, int black);
+// L'etat de la naissance des acteurs pour cette image. `sweep_complete` vient de la VALEUR DE
+// RETOUR de `actors-update` (engine/entity/entity.gc), qui sort en #f des qu'elle atteint son
+// plafond et rend 0 quand elle a parcouru toutes les entites de tous les niveaux actifs.
+void loading_window_actors(int spawn_on, int sweep_complete);
+// L'etat d'UN emplacement de niveau pour cette image. Appele une fois par emplacement et par
+// image tant que la fenetre est ouverte.
+void loading_window_level(const char* level_name, int drawable);
+// Diagnostic libre horodate dans la fenetre (naissance d'entites, ouverture de barriere...).
+void loading_window_note(const char* what, int value);
+void loading_window_close(const char* why);
+// Une fenetre est-elle ouverte ? Sert a BORNER les instruments couteux (arbre de profilage du
+// renderer) a la seule periode qui nous interesse, au lieu de les laisser tourner en jeu normal.
+bool loading_window_is_open();
+
 }  // namespace load_gate

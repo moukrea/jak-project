@@ -456,6 +456,17 @@
 (define-extern __pc-loading-screen-end (function none))
 (define-extern __pc-slice-begin! (function int none))
 (define-extern __pc-slice-expired? (function int int))
+;; Gloading-screen-window : la FENETRE de l'ecran de chargement doit ENCADRER la transition.
+;; Quatre instants sur une horloge murale C++ (`steady_clock`) : pose de l'ecran, premier dessin
+;; de la scene entrante, dernier entrant devenu dessinable, levee de l'ecran. Voir
+;; game/system/load_gate.h -- « entrant » y est une DIFFERENCE avec l'etat d'ouverture, pas une
+;; liste de noms a tenir a jour.
+(define-extern __pc-lswin-open (function string none))
+(define-extern __pc-lswin-level (function string int none))
+(define-extern __pc-lswin-frame (function int int none))
+(define-extern __pc-lswin-actors (function int int none))
+(define-extern __pc-lswin-note (function string int none))
+(define-extern __pc-lswin-close (function string none))
 
 ;; Gplayability-input-and-loadgate: NO forward declaration for
 ;; `set-blackout-frames` is needed here, and one cannot live here anyway.

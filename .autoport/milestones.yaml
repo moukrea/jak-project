@@ -2405,7 +2405,7 @@ phases:
   max_turns: 3000
   max_retries: 400
   device: true
-  device_serial: 192.168.1.32:5555
+  device_serial: eae4df44
   owner_verify: true
 - id: Grecharged-secondary-motion
   name: 'PHYSIQUE SECONDAIRE / JIGGLE (owner 2026-08-04, backlog assumé): maintenant que les personnages HD existent, ajouter

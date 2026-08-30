@@ -352,6 +352,20 @@ def check_device_prop_leak():
            % (len(leakers), len(setters), _PROP, head))
 
 
+def check_shield_untouched():
+    """INTERDICTION OWNER 2026-08-30 : « Interdit de toucher a la SHIELD a nouveau.
+    Assures toi que vraiment rien n'y touche. » BLOQUANT : ni connexion adb vivante,
+    ni script/config vivant qui cible l'adresse INTERDITE de la Shield."""
+    import subprocess, pathlib
+    guard = pathlib.Path(__file__).resolve().parents[1] / "shield_guard.sh"
+    if not guard.exists():
+        return ("BLOCKER", "shield_guard.sh absent — l'interdiction Shield n'est plus verifiee")
+    r = subprocess.run(["bash", str(guard)], capture_output=True, text=True)
+    if r.returncode != 0:
+        return ("BLOCKER", "Shield touchee ou ciblee :\n" + (r.stderr or r.stdout).strip()[:800])
+    return ("ok", (r.stdout or "").strip())
+
+
 CHECKS = [
     check_goal_objects_linked,
     check_self_matching_kills,
@@ -362,6 +376,7 @@ CHECKS = [
     check_metric_frame_declared,
     check_guards_still_installed,
     check_device_prop_leak,
+    check_shield_untouched,
 ]
 
 

@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <future>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -587,104 +588,187 @@ void GrassRenderer::ensure_gl() {
   m_gl_ready = true;
 }
 
-void GrassRenderer::rebuild(SharedRenderState* rs,
+// Gloading-screen-window : les deux passes de diagnostic de `rebuild` (RIMCAND, grille de chunks)
+// balayent 726 851 instances et n'ont AUCUN effet sur l'image. Lues une seule fois, pour que
+// l'ablation porte sur toute la course et pas sur une partie.
+static bool grass_diag_enabled() {
+  static bool v = []() {
+    const char* e = getenv("OG_GRASS_DIAG");
+    return e && atoi(e) != 0;
+  }();
+  return v;
+}
+
+// Gloading-screen-window : INTERRUPTEUR D'ABLATION DE L'EXPANSION HORS THREAD DE RENDU, SUR LE MEME
+// BINAIRE. Non posee ou non nulle -> chemin ASYNCHRONE (ce qu'on livre) ; `OG_GRASS_ASYNC=0` ->
+// chemin SYNCHRONE, le comportement d'aujourd'hui, qui est la jambe « avant » de la mesure. Lue une
+// seule fois, comme `grass_diag_enabled()` ci-dessus, pour que l'ablation porte sur TOUTE la course
+// et pas sur une partie.
+static bool grass_async_expand_enabled() {
+  static bool v = []() {
+    const char* e = getenv("OG_GRASS_ASYNC");
+    return (!e || !e[0]) ? true : (atoi(e) != 0);
+  }();
+  return v;
+}
+
+bool GrassRenderer::rebuild(SharedRenderState* rs,
                             const LevelData* ld,
                             const std::string& level_name) {
   using clk = std::chrono::steady_clock;
-  m_instances.clear();
-  m_instance_count = 0;
-  m_droop_start = 0;  // Grecharged-grass-overhang
-  m_chunks.clear();
-  m_cached_level = nullptr;
-  m_cached_load_id = UINT64_MAX;
-  m_inst_tri.clear();       // POLISH#9: per-instance source-tri map (rebuilt below)
-  m_bake = grass_bake::BakeData{};   // Grecharged-grass-precompute-mode: per-tri baked-light source
-  m_light.clear();
-  m_light_valid = false;
+  grass_bake::ExpandResult res;
 
-  // Grecharged-grass-overhang7: the level is resolved by render()'s allowlist lookup and passed in.
-  if (!ld || !ld->level) {
-    return;
-  }
-  const tfrag3::Level* lev = ld->level.get();
+  if (!m_expand_pending) {
+    // ==================================== ETAPE SOURCE ====================================
+    // Resolution du chemin de bake, `load_bake` ou scan du niveau -> `m_bake`. INCHANGEE (le seul
+    // ecart est l'indentation : elle vit maintenant dans la branche « pas d'expansion en vol »).
+    m_instances.clear();
+    m_instance_count = 0;
+    m_droop_start = 0;  // Grecharged-grass-overhang
+    m_chunks.clear();
+    m_cached_level = nullptr;
+    m_cached_load_id = UINT64_MAX;
+    m_inst_tri.clear();       // POLISH#9: per-instance source-tri map (rebuilt below)
+    m_bake = grass_bake::BakeData{};   // Grecharged-grass-precompute-mode: per-tri baked-light source
+    m_light.clear();
+    m_light_valid = false;
 
-  // Grecharged-grass-precompute-mode: floor-gap threshold prop read (moved OUT of scan; passed in).
-  float floor_gap_m = grass_bake::FLOOR_GAP_M;
-  bool floor_gap_overridden = false;
-#ifdef __ANDROID__
-  {
-    char gbuf[16] = {0};
-    if (__system_property_get("debug.opengoal.grass_floorgap", gbuf) > 0 && gbuf[0]) {
-      float gv = (float)atof(gbuf);
-      if (gv > 0.01f && gv < 2.5f) {
-        floor_gap_m = gv;
-        floor_gap_overridden = true;
+    // Grecharged-grass-overhang7: the level is resolved by render()'s allowlist lookup and passed in.
+    if (!ld || !ld->level) {
+      return true;  // rien a construire (pas de niveau) — ce n'est PAS une expansion en cours
+    }
+    const tfrag3::Level* lev = ld->level.get();
+
+    // Grecharged-grass-precompute-mode: floor-gap threshold prop read (moved OUT of scan; passed in).
+    float floor_gap_m = grass_bake::FLOOR_GAP_M;
+    bool floor_gap_overridden = false;
+  #ifdef __ANDROID__
+    {
+      char gbuf[16] = {0};
+      if (__system_property_get("debug.opengoal.grass_floorgap", gbuf) > 0 && gbuf[0]) {
+        float gv = (float)atof(gbuf);
+        if (gv > 0.01f && gv < 2.5f) {
+          floor_gap_m = gv;
+          floor_gap_overridden = true;
+        }
       }
     }
-  }
-#endif
+  #endif
 
-  const bool want_pre = Gfx::g_global_settings.recharged_grass_precomputed;
-  const auto tA = clk::now();
+    const bool want_pre = Gfx::g_global_settings.recharged_grass_precomputed;
+    const auto tA = clk::now();
 
-  bool from_bake = false;
-  std::string resolved_bake_path;
-  // Resolve fr3 size (used both to validate a bake and as scan input).
-  const std::string fr3_path =
-      (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".fr3")).string();
-  u64 fr3_size = 0;
-  {
-    std::error_code ec;
-    auto fs = std::filesystem::file_size(fr3_path, ec);
-    if (!ec) {
-      fr3_size = (u64)fs;
-    }
-  }
-
-  if (want_pre && !floor_gap_overridden) {
-    // Round 30 (delivery): same one resolver as the fr3 sidecar — package copy wins, decision
-    // journalled. The resolved path is echoed in the PLACE-TIME log below.
-    const std::string bake_path =
-        file_util::resolve_fr3_asset(GameVersion::Jak1, level_name + ".grassbake").path.string();
-    resolved_bake_path = bake_path;
-    grass_bake::BakeData loaded;
-    std::string reason;
-    if (!grass_bake::load_bake(loaded, bake_path)) {
-      reason = "load failed";
-    } else if (loaded.level_name != level_name) {
-      reason = "level mismatch";
-    } else {
-      u64 cur_fr3 = 0;
-      bool have_fr3 = false;
-      try {
-        cur_fr3 = (u64)std::filesystem::file_size(fr3_path);
-        have_fr3 = true;
-      } catch (...) {
-        have_fr3 = false;
+    bool from_bake = false;
+    std::string resolved_bake_path;
+    // Resolve fr3 size (used both to validate a bake and as scan input).
+    const std::string fr3_path =
+        (file_util::get_fr3_dir(GameVersion::Jak1) / (level_name + ".fr3")).string();
+    u64 fr3_size = 0;
+    {
+      std::error_code ec;
+      auto fs = std::filesystem::file_size(fr3_path, ec);
+      if (!ec) {
+        fr3_size = (u64)fs;
       }
-      if (!have_fr3 || loaded.fr3_size != cur_fr3) {
-        reason = "fr3 size mismatch";
-      } else if (loaded.floor_gap_m != floor_gap_m) {
-        reason = "floor-gap mismatch";
-      } else if (Gfx::g_global_settings.recharged_grass_density > loaded.bake_density_pct + 0.01f) {
-        reason = "density slider above bake density";
+    }
+
+    if (want_pre && !floor_gap_overridden) {
+      // Round 30 (delivery): same one resolver as the fr3 sidecar — package copy wins, decision
+      // journalled. The resolved path is echoed in the PLACE-TIME log below.
+      const std::string bake_path =
+          file_util::resolve_fr3_asset(GameVersion::Jak1, level_name + ".grassbake").path.string();
+      resolved_bake_path = bake_path;
+      grass_bake::BakeData loaded;
+      std::string reason;
+      if (!grass_bake::load_bake(loaded, bake_path)) {
+        reason = "load failed";
+      } else if (loaded.level_name != level_name) {
+        reason = "level mismatch";
       } else {
-        from_bake = true;
-        m_bake = std::move(loaded);
+        u64 cur_fr3 = 0;
+        bool have_fr3 = false;
+        try {
+          cur_fr3 = (u64)std::filesystem::file_size(fr3_path);
+          have_fr3 = true;
+        } catch (...) {
+          have_fr3 = false;
+        }
+        if (!have_fr3 || loaded.fr3_size != cur_fr3) {
+          reason = "fr3 size mismatch";
+        } else if (loaded.floor_gap_m != floor_gap_m) {
+          reason = "floor-gap mismatch";
+        } else if (Gfx::g_global_settings.recharged_grass_density > loaded.bake_density_pct + 0.01f) {
+          reason = "density slider above bake density";
+        } else {
+          from_bake = true;
+          m_bake = std::move(loaded);
+        }
+      }
+      if (!from_bake) {
+        lg::info("[recharged-grass] PRECOMPUTED unavailable ({}) -> LIVE fallback", reason);
       }
     }
+
     if (!from_bake) {
-      lg::info("[recharged-grass] PRECOMPUTED unavailable ({}) -> LIVE fallback", reason);
+      m_bake = grass_bake::scan_level(*lev, level_name, fr3_size,
+                                      {Gfx::g_global_settings.recharged_grass_density, floor_gap_m});
     }
-  }
 
-  if (!from_bake) {
-    m_bake = grass_bake::scan_level(*lev, level_name, fr3_size,
-                                    {Gfx::g_global_settings.recharged_grass_density, floor_gap_m});
-  }
+    const auto tB = clk::now();
 
-  const auto tB = clk::now();
-  auto res = grass_bake::expand(m_bake, Gfx::g_global_settings.recharged_grass_density);
+    // Contexte de CETTE reconstruction. L'etape de CONSOMMATION peut tourner plusieurs images plus
+    // tard : elle doit decrire l'expansion LANCEE, pas l'image qui la ramasse. `lev` n'est garde
+    // que comme VALEUR de comparaison de cache — jamais dereferencee, le LevelData peut avoir ete
+    // detruit entre-temps.
+    m_pending.lev = (const void*)lev;
+    m_pending.load_id = ld->load_id;
+    m_pending.level_name = level_name;
+    m_pending.resolved_bake_path = resolved_bake_path;
+    m_pending.from_bake = from_bake;
+    m_pending.want_pre = want_pre;
+    m_pending.floor_gap_m = floor_gap_m;
+    m_pending.density = Gfx::g_global_settings.recharged_grass_density;
+    m_pending.tA = tA;
+    m_pending.tB = tB;
+    m_expand_waits = 0;
+
+    if (grass_async_expand_enabled()) {
+      // `expand` est PURE : sa seule entree est le BakeData qu'on lui passe. On le DEPLACE dans
+      // `m_pending.bake`, auquel plus rien ne touche tant que `m_expand_pending` est vrai, pour
+      // qu'aucune reecriture de `m_bake` par l'etape SOURCE ne puisse courir contre la lecture du
+      // thread. Il revient dans `m_bake` a la consommation (la consommation ET le dessin le lisent).
+      m_pending.bake = std::move(m_bake);
+      m_expand_pending = true;
+      m_expand_future = std::async(std::launch::async, &grass_bake::expand,
+                                   std::cref(m_pending.bake), m_pending.density);
+      return false;  // champ pas encore construit : rien a dessiner, on repassera a l'image suivante
+    }
+    res = grass_bake::expand(m_bake, m_pending.density);
+  } else {
+    // ============================== ATTENTE (chemin asynchrone) ==============================
+    // L'etape SOURCE n'est PAS rejouee tant que l'expansion est en vol.
+    if (m_expand_future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+      m_expand_waits++;
+      return false;
+    }
+    res = m_expand_future.get();
+    m_expand_pending = false;
+    m_bake = std::move(m_pending.bake);
+  }
+  const auto tExpandDone = clk::now();
+
+  // ================================= ETAPE CONSOMMATION =================================
+  // INCHANGEE. Ses locales de contexte viennent de l'etape SOURCE, portees par `m_pending` : sur le
+  // chemin synchrone elles sont posees quelques microsecondes plus haut, donc a l'identique.
+  const bool from_bake = m_pending.from_bake;
+  const bool want_pre = m_pending.want_pre;
+  const float floor_gap_m = m_pending.floor_gap_m;
+  const float slider_density = m_pending.density;
+  const std::string& resolved_bake_path = m_pending.resolved_bake_path;
+  const std::string& lvl_name = m_pending.level_name;
+  const clk::time_point tA = m_pending.tA;
+  const clk::time_point tB = m_pending.tB;
+
   m_instances = std::move(res.instances);
   m_inst_tri = std::move(res.inst_tri);
   m_instance_count = (int)m_instances.size();
@@ -716,8 +800,37 @@ void GrassRenderer::rebuild(SharedRenderState* rs,
 
   m_cached_density = Gfx::g_global_settings.recharged_grass_density;
 
+  // ================================================================================================
+  // Gloading-screen-window (owner 2026-08-30, D1/D5) — CES DEUX PASSES SONT DES INSTRUMENTS, ET
+  // ELLES COUTAIENT UN GEL A CHAQUE CHARGEMENT DE NIVEAU.
+  // ================================================================================================
+  // « l'animation a des petits stutters pendant le chargement, des moments ou ca freeze »
+  //
+  // MESURE, PAS SOUPCON. Course x86 du 2026-08-30, transition `save-geyser` : la derniere image
+  // tenue par l'ecran de chargement dure 244,8 ms quand les 60 precedentes tiennent a 17,3 ms de
+  // maximum. L'arbre de profilage du renderer (`LSWIN-RENDU`) l'attribue sans ambiguite :
+  //     242,18 ms root -> 231,90 ms buckets -> 214,76 ms [30] l1-shrub-generic -> 214,75 grass-draw
+  // et la ligne PLACE-TIME du chargeur d'herbe la decompose :
+  //     total=172ms (source=8ms  expand+logs=147ms  upload+light=17ms)  instances=726851
+  // Le premier suspect designe par sa POSITION (le bloc « niveau pret » du chargeur) avait ete
+  // chronometre AVANT et rendait 0,0 ms sur ses quatre etages : il etait ECARTE.
+  //
+  // CE QUE PAIENT CES DEUX PASSES. Toutes deux balayent les 726 851 instances en inserant dans une
+  // `unordered_map`, et toutes deux sont PUREMENT DIAGNOSTIQUES :
+  //   - RIMCAND est etiquete « CAPTURE AID » et produit QUATORZE lignes de journal ;
+  //   - la grille de chunks est etiquetee « culling instrumentation only » et `m_chunks` n'est lu
+  //     QUE par un journal etrangle a une ligne toutes les 30 images (:1317). Le dessin ne la lit
+  //     jamais -- verifie par balayage des 8 occurrences du champ.
+  // La sortie graphique est donc IDENTIQUE sans elles : `m_instances`, `m_inst_tri` et le
+  // televersement GL ne sont pas touches.
+  //
+  // ON NE LES SUPPRIME PAS, ON LES REND EXPLICITES. `OG_GRASS_DIAG=1` les rejoue sur LE MEME
+  // BINAIRE -- c'est la jambe « avant » de la mesure, et c'est ce qui permet de publier le gain
+  // au lieu de l'affirmer.
+  const bool diag = grass_diag_enabled();
+  const auto tDiagA = clk::now();
   // ROUND#14 CAPTURE AID: RIMCAND dump (uses m_instances + gspare + m_bake.tris flags&1 for TIE).
-  {
+  if (diag) {
     const float U = grass_bake::U;
     struct Cand { float mx, my, mz; bool tie; };
     std::unordered_map<s64, Cand> best;  // one highest candidate per 6 m cell
@@ -746,8 +859,9 @@ void GrassRenderer::rebuild(SharedRenderState* rs,
     }
   }
 
+  const auto tDiagB = clk::now();
   // Build the chunk grid (culling instrumentation only — proves completeness).
-  {
+  if (diag) {
     const float U = grass_bake::U;
     std::unordered_map<s64, ChunkInfo> grid;
     grid.reserve(4096);
@@ -770,6 +884,16 @@ void GrassRenderer::rebuild(SharedRenderState* rs,
     }
   }
   const auto tExpandEnd = clk::now();  // expand + summary/RIMCAND/chunk logs done
+  {
+    auto ms2 = [](const clk::time_point& a, const clk::time_point& b) {
+      return std::chrono::duration<double, std::milli>(b - a).count();
+    };
+    lg::info(
+        "[recharged-grass] DIAG-COUT diag={} rimcand_ms={:.1f} chunks_ms={:.1f} "
+        "expansion_seule_ms={:.1f} instances={}",
+        diag ? 1 : 0, ms2(tDiagA, tDiagB), ms2(tDiagB, tExpandEnd), ms2(tB, tDiagA),
+        m_instance_count);
+  }
 
   // The big "training STATIC place" summary (identical format). occ_culled/total come from expand();
   // scan stats (draws/tris/area/objpt buckets) come from m_bake.stats (identical on live + bake paths).

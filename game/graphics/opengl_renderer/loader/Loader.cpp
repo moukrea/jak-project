@@ -1599,19 +1599,47 @@ void Loader::update(TexturePool& texture_pool) {
         // Repli : une etape n'a pas ete atteinte. La mesure ne se rejoue QUE si RIEN n'est
         // encore parti : relancee apres une liberation partielle, elle reecrirait le cache du
         // systeme deja libere avec zero echantillon, ce qui est pire que de ne rien ecrire.
+        // Gloading-screen-window : CHRONOMETRER CE BLOC. Il s'execute sur le thread de rendu, SANS
+        // BUDGET, exactement a l'image ou le niveau devient resident -- c'est-a-dire a l'image ou
+        // la barriere de chargement s'ouvre et ou l'ecran de chargement va se lever. Mesure x86
+        // du 2026-08-30 sur `save-geyser` : la derniere image de l'ecran de chargement dure
+        // 257,8 ms alors que les 60 precedentes tiennent a 17,3 ms de maximum. Le suspect etait
+        // designe par sa POSITION ; ces quatre chiffres disent lequel des quatre etages paie, au
+        // lieu de le supposer.
+        // NATURE : des durees, en ms. REPERE : `steady_clock` du thread de rendu.
+        // CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : quatre valeurs de l'ordre de la ms.
+        Timer t_pret;
+        double ms_uv = 0.0, ms_rel = 0.0, ms_merc = 0.0, ms_rap = 0.0;
         if (!lev->cpu_geo_released[0] && !lev->cpu_geo_released[1]) {
+          Timer t0;
           precompute_uv_density(*lev->level);
+          ms_uv = t0.getMs();
         }
-        for (int sys = 0; sys < 2; sys++) {
-          if (!lev->cpu_geo_released[sys]) {
-            release_uploaded_vertices(*lev->level, sys);
-            lev->cpu_geo_released[sys] = true;
+        {
+          Timer t0;
+          for (int sys = 0; sys < 2; sys++) {
+            if (!lev->cpu_geo_released[sys]) {
+              release_uploaded_vertices(*lev->level, sys);
+              lev->cpu_geo_released[sys] = true;
+            }
           }
+          ms_rel = t0.getMs();
         }
-        release_uploaded_merc_vertices(*lev->level);
-        report_level_ram(name, *lev->level, "apres-liberations");
-        report_merc_detail(name, *lev->level, "apres-liberations");
+        {
+          Timer t0;
+          release_uploaded_merc_vertices(*lev->level);
+          ms_merc = t0.getMs();
+        }
+        {
+          Timer t0;
+          report_level_ram(name, *lev->level, "apres-liberations");
+          report_merc_detail(name, *lev->level, "apres-liberations");
+          ms_rap = t0.getMs();
+        }
         heap_purge("niveau-pret");
+        fmt::print("LSWIN-COUT niveau={} uv_ms={:.1f} liberation_ms={:.1f} merc_ms={:.1f} "
+                   "rapport_ms={:.1f} total_ms={:.1f}\n",
+                   name, ms_uv, ms_rel, ms_merc, ms_rap, t_pret.getMs());
         // ... et une seconde, une fois le rendu relance (cf. Loader.h::m_frames_until_purge).
         m_frames_until_purge = 120;
         lk.lock();

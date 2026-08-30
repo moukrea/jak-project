@@ -1901,17 +1901,12 @@ def main(argv: list[str] | None = None) -> int:
                 f"[yellow]Phase {pid} still awaiting owner play-test "
                 f"(touch {AUTOPORT_DIR / 'owner-ok' / pid}).[/yellow]"
             )
-            # Meme regle qu'a la fin de phase : on ne s'arrete pas sur le verdict de
-            # l'owner, on parque et on avance. La phase reste ouverte tant qu'il n'a
-            # pas depose son token.
-            state.setdefault("parked", {})[pid] = (
-                f"{datetime.now():%Y-%m-%d %H:%M} : deja validee, toujours en attente "
-                f"de la parole de l'owner."
+            notify(
+                f"⏸ phase {pid} still awaiting your play-test. "
+                f"Confirm with: touch {AUTOPORT_DIR / 'owner-ok' / pid}",
+                level="alert",
             )
-            state["current_phase_idx"] += 1
-            save_state(state)
-            console.print(f"[cyan]  phase {pid} toujours en attente owner — parquee, on continue[/cyan]")
-            continue
+            return 0
 
         if not wait_for_quota():
             return 0
@@ -1995,20 +1990,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"(owner's eye = final gate). If good: touch {token_path}",
                 level="alert",
             )
-            # Le verdict de l'owner NE DOIT PAS arreter la file. Historiquement ce
-            # `return 0` immobilisait tout le pipeline : le 2026-08-30 six phases
-            # terminees dormaient derriere une seule porte, puis Gcine-vertical-frame
-            # a bloque une deuxieme fois le meme jour. On parque la phase (elle reste
-            # OUVERTE — seul l'owner la ferme, via le token) et on passe a la suivante.
-            state.setdefault("parked", {})[pid] = (
-                f"{datetime.now():%Y-%m-%d %H:%M} : validateur ET gates PASSES. "
-                f"N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : "
-                f"deposer {token_path} quand il valide."
-            )
-            state["current_phase_idx"] += 1
-            save_state(state)
-            console.print(f"[cyan]  phase {pid} parquee (attente owner) — on continue[/cyan]")
-            continue
+            return 0
 
         elif result == "stuck":
             # EXEMPTION (2026-08-12) : une phase dont la gate echoue par CONSTRUCTION ne doit pas

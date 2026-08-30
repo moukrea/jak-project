@@ -4,13 +4,8 @@
 # toute seule au serveur adb et l'owner a exige l'arret total :
 #   « TU TOUCHES PLUS A LA SHIELD TANT QUE JE TE LE DIT PAS »
 # On la sort du serveur adb a chaque tour, sans rien changer au reste.
-SHIELD_ADDR="192.168.1.32:5555"   # Shield INTERDITE — adresse gardee UNIQUEMENT pour la deconnecter
-shield_keep_out() {
-  # INTERDICTION OWNER 2026-08-30 : « Interdit de toucher a la SHIELD a nouveau. »
-  # Appelee a CHAQUE tour de boucle, plus seulement au demarrage : une reconnexion
-  # faite par un tiers ne doit jamais laisser la Shield visible d'un tour a l'autre.
-  "${ADB:-adb}" disconnect "$SHIELD_ADDR" >/dev/null 2>&1 || true
-}
+SHIELD_ADDR="192.168.1.32:5555"
+shield_keep_out() { "${ADB:-adb}" disconnect "$SHIELD_ADDR" >/dev/null 2>&1 || true; }
 shield_keep_out
 
 
@@ -237,7 +232,6 @@ reconcilier_telephone(){
 }
 
 while true; do
-  shield_keep_out   # owner 2026-08-30 : la Shield ne doit jamais etre visible d'un tour a l'autre
   sleep 240
 
   # RECONCILIATION D'ABORD, a chaque tour, qu'on ait bati ou non : c'est ce qui rend

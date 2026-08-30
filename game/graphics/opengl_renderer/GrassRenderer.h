@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+#include <future>
 #include <string>
 #include <vector>
 
@@ -43,7 +45,10 @@ class GrassRenderer {
   // Grecharged-grass-overhang7: rebuild takes the resolved grass level (allowlist lookup in
   // render()) instead of hardcoding "training" — the owner plays/judges at Sentinel Beach, which
   // carries the same bch-* grass/hang textures and was getting NOTHING from any toggle.
-  void rebuild(SharedRenderState* render_state, const LevelData* ld, const std::string& level_name);
+  // Gloading-screen-window (owner 2026-08-30, D1/D5) : rend `true` quand le champ d'herbe est PRET
+  // (televerse, dessinable), `false` tant que `grass_bake::expand` tourne encore sur son propre
+  // thread — il n'y a alors rien a dessiner et `render()` sort immediatement.
+  bool rebuild(SharedRenderState* render_state, const LevelData* ld, const std::string& level_name);
   // POLISH#9: recompute the per-instance GROUND baked-light for the CURRENT time of day and
   // re-upload it (throttled to only when the time-of-day weights actually change). This is what
   // makes the grass track the ground's baked lighting BOTH by location (per-triangle) and by
@@ -104,4 +109,46 @@ class GrassRenderer {
   // instrumentation state (throttled per-frame culling log)
   u64 m_frame = 0;
   float m_last_log_cam[3] = {1e30f, 1e30f, 1e30f};
+
+  // ------------------------------------------------------------------------------------------
+  // Gloading-screen-window (owner 2026-08-30, D1/D5) — `grass_bake::expand` HORS DU THREAD DE RENDU
+  // ------------------------------------------------------------------------------------------
+  // MESURE, PAS SOUPCON. Course x86 du 2026-08-30, chargement d'une sauvegarde a Geyser Rock :
+  // l'image ou le niveau entrant devient dessinable tient 244,9 ms quand les 60 precedentes tiennent
+  // a 17,3 ms au pire. L'arbre de profilage du renderer l'attribue a `grass-draw` (214,75 ms sur
+  // 242,18 ms d'image) et la ligne `DIAG-COUT` isole `grass_bake::expand` elle-meme a 141,4 ms pour
+  // 726 851 instances. C'est paye sur le thread de RENDU, exactement pendant que l'ecran de
+  // chargement doit animer sa silhouette : c'est le gel que l'owner voit (D1/D5).
+  //
+  // `grass_bake::expand(const BakeData&, float)` est PURE — elle ne lit ni `Gfx::g_global_settings`,
+  // ni `getenv`, ni de propriete systeme, et n'ecrit aucun etat global (son seul effet de bord est
+  // un `lg::info` final, et spdlog est sur de multiples threads). Elle se calcule donc sur son
+  // propre thread pendant que l'ecran de chargement anime, et `rebuild()` la ramasse une image plus
+  // tard. `OG_GRASS_ASYNC=0` rejoue le chemin SYNCHRONE d'aujourd'hui sur LE MEME BINAIRE.
+  //
+  // Le contexte de la reconstruction en cours : l'etape de CONSOMMATION peut s'executer plusieurs
+  // images apres l'etape SOURCE, elle doit donc decrire l'expansion LANCEE et pas l'image qui la
+  // ramasse. `bake` est l'ENTREE que le thread lit par reference : rien d'autre n'y touche tant que
+  // `m_expand_pending` est vrai (c'est pour ca qu'elle ne reste pas dans `m_bake`, que l'etape
+  // SOURCE reecrit).
+  struct PendingExpand {
+    grass_bake::BakeData bake;
+    const void* lev = nullptr;  // VALEUR de comparaison de cache uniquement — jamais dereferencee,
+    u64 load_id = UINT64_MAX;   // le LevelData peut avoir ete detruit pendant l'expansion.
+    std::string level_name;
+    std::string resolved_bake_path;
+    bool from_bake = false;
+    bool want_pre = false;
+    float floor_gap_m = 0.f;
+    float density = 0.f;  // valeur du curseur AU LANCEMENT (celle avec laquelle le champ est bati)
+    std::chrono::steady_clock::time_point tA{};
+    std::chrono::steady_clock::time_point tB{};
+  };
+  PendingExpand m_pending;
+  // DECLARE APRES `m_pending` : les membres sont detruits dans l'ordre INVERSE de leur declaration,
+  // donc ce futur (issu de `std::async`) joint son thread AVANT que `m_pending.bake`, qu'il lit par
+  // reference, ne soit detruit.
+  std::future<grass_bake::ExpandResult> m_expand_future;
+  bool m_expand_pending = false;
+  int m_expand_waits = 0;  // images ou rebuild() a rendu `false` EN ATTENDANT le thread
 };

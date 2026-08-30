@@ -917,7 +917,15 @@
   (add-ee-profile-frame 'draw :r #x40 :b #x40 :a #x80)
   ;; spawn actors, compact heaps, etc.
   (with-profiler "actors-update"
-    (actors-update *level*))
+    ;; Gloading-screen-window : LIRE LA VALEUR DE RETOUR, qui n'etait lue par personne.
+    ;; `actors-update` sort en `#f` des qu'elle atteint `birth-max` (il reste des entites a faire
+    ;; naitre) et rend `0` quand elle a parcouru TOUTES les entites de TOUS les niveaux actifs.
+    ;; « Balayage complet » veut donc dire, litteralement, « plus rien n'attend de naitre » -- et
+    ;; c'est ce qui manquait pour savoir quand la scene entrante est reellement complete.
+    ;; La garde sur `*spawn-actors*` n'est pas un detail : quand il est faux, la methode saute tout
+    ;; le bloc et rend `0`, ce qui ressemblerait a un balayage complet alors que RIEN n'a ete
+    ;; tente. C'est exactement l'etat pendant un chargement de partie (game-info.gc:233).
+    (set! *actors-sweep-complete* (if (and *spawn-actors* (actors-update *level*)) #t #f)))
   (add-ee-profile-frame 'draw :r #x80 :a #x80)
   (when (not (paused?))
     (if *stats-collide* (print-collide-stats)))

@@ -55,6 +55,30 @@
       (remove-setting! 'music))
   :code
     (behavior ((arg0 continue-point))
+      ;; Gloading-screen-window : OUVRIR LA FENETRE DE MESURE ICI, a la toute premiere ligne de
+      ;; l'etat. C'est l'instant ou la transition est DECIDEE et ou le monde sortant est encore
+      ;; entierement dessine -- donc l'ensemble des niveaux dessinables releve a cette image est la
+      ;; bonne LIGNE DE REFERENCE pour distinguer un niveau ENTRANT. Ouvrir plus tard prendrait
+      ;; pour reference un etat deja contamine par la transition, et l'entrant deviendrait
+      ;; invisible a l'instrument.
+      ;; Aucune porte, aucun affichage : voir engine/game/main.gc, `loading-window-frame!`.
+      (loading-window-open! (-> arg0 name))
+      ;; Gloading-screen-window — D4/D7 : « on voit l'interieur de la hutte du Sage Vert AVANT que
+      ;; l'ecran de chargement apparaisse ». LA CAUSE EST ICI, ET C'EST UNE ABSENCE, PAS UN
+      ;; REGLAGE. L'ecran n'etait tenu que par les deux boucles d'attente plus bas (:107, :159),
+      ;; qui NE S'EXECUTENT PAS quand le niveau de destination est deja 'active -- et c'est le cas
+      ;; exact de la teleportation depuis Geyser Rock, ou `village1` est deja charge comme lev1 de
+      ;; tous les points de reprise de `training`. Aucun bit n'etait donc jamais pose, la camera se
+      ;; posait dans la hutte, l'image se dessinait, et l'ecran n'arrivait qu'ensuite avec la
+      ;; barriere de la cinematique.
+      ;; On tient donc l'ecran sur TOUTE la transition, des sa premiere ligne. Le reste de l'etat
+      ;; est inchange.
+      ;; CA NE FAIT PAS CLIGNOTER UNE MORT SUR PLACE, ET PAS PAR CHANCE : le CONTENU (silhouette,
+      ;; texte, glyphes) n'apparait qu'au-dela de `LOADING_SCREEN_DELAY` (0,5 s), et une
+      ;; renaissance sur place traverse cet etat en une poignee d'images. Ce qui est peint jusque-la
+      ;; est un noir plein ecran -- exactement ce que `bg-a` = 1,0, pose vingt lignes plus bas,
+      ;; peint deja aujourd'hui au meme endroit.
+      (when *ls-window-fix* (loading-screen-hold-by! LS_HOLD_TARGET))
       (set-time! (-> self state-time))
       (if (-> *art-control* reserve-buffer) (reserve-free *art-control* (-> *art-control* reserve-buffer heap)))
       (add-setting! 'bg-a 'abs 1.0 0)
@@ -158,12 +182,50 @@
             ;; appel ne fait que repousser le chien de garde. Le seuil ne repart PAS de zero.
             (loading-screen-hold-by! LS_HOLD_TARGET)
             (suspend))))
-      ;; Gloading-screen : l'attente est finie, le monde est dessinable -- rendre l'ecran a la
-      ;; frame meme, sans attendre l'expiration d'un delai.
-      (loading-screen-release-by! LS_HOLD_TARGET)
-      (set! *spawn-actors* #t)
-      (set! *teleport* #t)
-      (set! (-> *ACTOR-bank* birth-max) 1000)
+      ;; Gloading-screen-window — D3 : « il disparait avant que tous les elements de la scene
+      ;; soient affiches [...] on a du pop-in, ce que le chargement est sense cacher ».
+      ;; LA CAUSE EST UN ORDRE D'INSTRUCTIONS. Jusqu'ici l'ecran etait rendu A LA LIGNE QUI PRECEDE
+      ;; `(set! *spawn-actors* #t)` : les acteurs du niveau entrant ne pouvaient donc pas naitre
+      ;; avant que l'ecran soit leve, et le joueur les voyait apparaitre un a un. Ce n'est pas un
+      ;; defaut de vitesse, c'est le fait que le seul instant ou ils PEUVENT naitre est situe
+      ;; apres la levee.
+      ;; On inverse : on ouvre la naissance, on attend qu'elle soit FINIE, puis on rend l'ecran.
+      ;; « FINIE » N'EST PAS UNE DUREE : `actors-update` (engine/entity/entity.gc:1016) sort en #f
+      ;; des qu'elle atteint `birth-max` et rend `0` quand elle a parcouru toutes les entites de
+      ;; tous les niveaux actifs. Un balayage COMPLET veut donc dire, litteralement, « plus rien
+      ;; n'attend de naitre ». Ce signal existait dans la valeur de retour et n'etait lu par
+      ;; personne ; `engine/draw/drawable.gc` le publie maintenant dans `*actors-sweep-complete*`.
+      ;; ON EXIGE UN TOUR MINIMUM parce que le drapeau porte l'etat de l'image PRECEDENTE : le lire
+      ;; sans avoir laisse passer une image, c'est lire le balayage d'avant l'ouverture.
+      ;; ET ON ETALE LA NAISSANCE. Le jeu d'origine pose `birth-max` a 1000 juste avant de rendre
+      ;; la main, donc tout le niveau nait dans UNE image -- un gel, c'est-a-dire le defaut D1/D5.
+      ;; Tant que l'ecran couvre, rien n'oblige a tout faire d'un coup : c'est la seule raison
+      ;; d'etre d'un ecran de chargement. La valeur d'origine est reposee apres la levee, donc le
+      ;; comportement HORS fenetre est inchange.
+      (cond
+        (*ls-window-fix*
+         (set! *spawn-actors* #t)
+         (set! *teleport* #t)
+         (set! (-> *ACTOR-bank* birth-max) LS_BIRTH_PER_FRAME)
+         (loading-window-note! "naissance-ouverte" LS_BIRTH_PER_FRAME)
+         (set! *ls-birth-tours* 0)
+         ;; compteur GLOBAL et pas une locale : cette behavior SUSPEND, donc ses locales vivent sur
+         ;; la pile du process (piege deja paye : « Stack: 592/512 » sur `sage`).
+         (until (or (and *actors-sweep-complete* (> *ls-birth-tours* 0))
+                    (>= *ls-birth-tours* LS_BIRTH_TOURS_MAX))
+           (+! *ls-birth-tours* 1)
+           (loading-screen-hold-by! LS_HOLD_TARGET)
+           (suspend))
+         (loading-window-note! "naissance-terminee" *ls-birth-tours*)
+         (set! (-> *ACTOR-bank* birth-max) 1000)
+         ;; l'ecran ne se leve qu'ICI : apres que le dernier acteur du niveau entrant est ne.
+         (loading-screen-release-by! LS_HOLD_TARGET))
+        (else
+         ;; comportement d'AVANT, au bit pres -- c'est la jambe d'ablation.
+         (loading-screen-release-by! LS_HOLD_TARGET)
+         (set! *spawn-actors* #t)
+         (set! *teleport* #t)
+         (set! (-> *ACTOR-bank* birth-max) 1000)))
       (set-blackout-frames (seconds 0.1))
       (cond
         ((logtest? (-> arg0 flags) (continue-flags title)) (go target-title))

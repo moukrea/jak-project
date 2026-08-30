@@ -10,7 +10,7 @@
 #   ECART = IMAGE - SON, en ms. Positif = le son est en avance sur l'image (le defaut).
 # Ce que la mesure lit quand le defaut est ABSENT : un ecart <= 0.
 set -uo pipefail
-DEV="${1:-192.168.1.32:5555}"
+DEV="${1:-eae4df44}"   # owner 2026-08-30 : Shield INTERDITE, defaut = Redmi
 OUT="${2:-/tmp/loadgate_after.log}"
 adb connect "$DEV" >/dev/null 2>&1
 adb -s "$DEV" logcat -c >/dev/null 2>&1

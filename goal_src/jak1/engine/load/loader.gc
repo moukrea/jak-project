@@ -1157,6 +1157,15 @@
             (format #t "WARNING: ---------------------> loader stall on lock~%")
             (if (arg3 self) (goto cfg-88))
             (spool-push *art-control* (-> arg0 name) spool-part self -9.0)
+            ;; Gloading-screen-window — LE RACCORD. Cette attente-ci et celle de l'art juste en
+            ;; dessous precedent `scene-load-gate!` et n'etaient couvertes par AUCUN bit : mesure
+            ;; x86 du 2026-08-30, transition teleporteur -> Hutte du Sage Vert, `LS_HOLD_TARGET`
+            ;; relache a t=91,40 s et `LOADGATE arm scene=sage-intro-sequence-e` a t=91,59 s, soit
+            ;; ~190 ms -- une douzaine d'images -- entre deux barrieres. Une fenetre qui s'ouvre
+            ;; deux fois avec un trou au milieu n'encadre rien : c'est le trou que l'owner decrit.
+            ;; Ce sont litteralement des attentes de CHARGEMENT avant qu'une scene puisse
+            ;; commencer, c'est-a-dire la meme famille que la barriere qui suit.
+            (when *ls-window-fix* (loading-screen-hold-by! LS_HOLD_SCENE))
             (suspend)
             (if arg1 (ja :num! (loop!)))))
         (set! (-> *art-control* spool-lock) (process->handle self))
@@ -1173,6 +1182,12 @@
               (if (arg3 self) (goto cfg-88))
               (spool-push *art-control* (-> arg0 name) spool-part self -20.0)
               (format #t "WARNING: ---------------------> loader stall on art ~S ~D~%" (-> arg0 name) spool-part)
+              ;; UNIQUEMENT SUR LA PARTIE 0, et ce n'est pas une precaution : les parties
+              ;; suivantes sont attendues PENDANT que la cinematique joue deja. Y poser l'ecran de
+              ;; chargement le ferait apparaitre AU MILIEU d'une scene -- on remplacerait un defaut
+              ;; par un pire.
+              (when (and *ls-window-fix* (zero? spool-part))
+                (loading-screen-hold-by! LS_HOLD_SCENE))
               (suspend)
               (if arg1 (ja :num! (loop!)))))
           (spool-push *art-control* (-> arg0 name) spool-part self -20.0)
@@ -1185,6 +1200,13 @@
                  ;; Gplayability-input-and-loadgate: the barrier goes HERE, on the
                  ;; last line before the audio clock starts. See scene-load-gate!.
                  (scene-load-gate! arg0)
+                 ;; Le raccord se termine ICI, a la ligne meme ou la scene demarre : tout ce qui
+                 ;; precede etait de l'attente de chargement, tout ce qui suit est la scene.
+                 ;; `scene-load-gate!` relache deja ce bit quand elle a arme sa barriere ; cet
+                 ;; appel couvre le cas ou elle n'a rien a garder (aucun niveau a afficher), ou
+                 ;; l'attente d'art ci-dessus aurait sinon laisse le bit pose jusqu'au chien de
+                 ;; garde.
+                 (loading-screen-release-by! LS_HOLD_SCENE)
                  (str-play-async (-> arg0 name) spool-sound)
                  (set! (-> *art-control* active-stream) (-> arg0 name)))
                (let* ((f30-0 (* 0.05859375 (-> s2-4 speed)))
@@ -1262,6 +1284,10 @@
   ;; scene that ends cleanly should not leave the loader on its blocking path
   ;; for even one extra frame.
   (__pc-scene-release (-> arg0 name))
+  ;; Gloading-screen-window : et rendre l'ecran. C'est le seul point de sortie commun de
+  ;; `ja-play-spooled-anim` (label cfg-88), donc une scene avortee ne peut pas laisser le bit pose
+  ;; -- le chien de garde le rattraperait, mais une seconde d'ecran de chargement de trop se voit.
+  (loading-screen-release-by! LS_HOLD_SCENE)
   (restore-load-state-and-cleanup *load-state*)
   (str-play-stop (-> arg0 name))
   (set! (-> *art-control* active-stream) #f)

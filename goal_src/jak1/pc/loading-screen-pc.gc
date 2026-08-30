@@ -127,7 +127,33 @@
 ;; pire depart possible de la meme fenetre.
 (defconstant LS_SIL_WH 1.0)                ;; largeur/hauteur d'UNE cellule de la planche
 
-(defconstant LS_TEXT_RIGHT 0.8822) ;; bord DROIT de la bande « Loading... » (x 1475 / 1672)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; MISE EN PAGE DU BLOC DE TEXTE — REGLAGES DE COURSE, PAS DES CONSTANTES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; POURQUOI CE SONT DES GLOBALES ET PLUS DES `defconstant`. Le verdict de l'owner sur la taille
+;; (« genre moitie moins gros ») se prouve en comparant DEUX IMAGES PRODUITES, l'ancienne et la
+;; nouvelle. Avec des constantes de compilation il faudrait DEUX BINAIRES, et une comparaison
+;; entre deux binaires ne prouve rien sur celui qu'on livre : c'est le meme piege que les
+;; planchers cales sur une course precedente. Ici `(ls-layout-avant!)` et `(ls-layout-apres!)`
+;; rejouent les deux mises en page SUR LE MEME BINAIRE, a la meme frame, avec le meme instrument
+;; de mesure d'image. Aucun chemin de jeu ne les appelle : elles n'existent que pour la mesure.
+;;
+;; RETOUR OWNER 2026-08-30 (n.4), D2 : « Le texte Chargement... et les glyphs Precursor en dessous
+;; est toujours beaucoup trop gros, ca devrait etre plus bas a droite et surtout bien plus petit,
+;; genre moitie moins gros. »
+;; TROIS DEMANDES, TROIS GRANDEURS, ET ELLES SONT INDEPENDANTES :
+;;   TAILLE    facteur 0,5 sur la mise en page LIVREE au cycle precedent (qui valait deja 0,75 de
+;;             la maquette) -- soit 0,375 de la maquette.
+;;   PLUS BAS  l'ancre basse du bloc descend de 0,90 a 0,93 de la hauteur d'ecran.
+;;   PLUS A DROITE  le bord droit passe de 0,8822 a 0,9400 de la largeur d'ecran.
+;; Reduire seul aurait DEJA fait descendre le haut du bloc (il est mis a l'echelle autour de son
+;; bas) : ce n'est pas ce qu'il demande, et publier ce deplacement-la comme « plus bas » serait
+;; une consequence de la taille deguisee en reponse a la position. L'ancre bouge donc EN PLUS.
+(defconstant LS_TEXT_ANCHOR 0.93)   ;; bas commun du bloc (fraction de la hauteur d'ecran)
+(defconstant LS_TEXT_K 0.375)       ;; facteur applique a la MAQUETTE (0,75 x 0,5)
+
+;; bord DROIT de la bande « Loading... ». Maquette : x 1475 / 1672 = 0,8822.
+(define *ls-text-right* 0.9400)
 
 ;; ------------------------------------------------------------------------------------------------
 ;; TAILLE DU BLOC DE TEXTE — REDUITE DE 25 % (owner 2026-08-30)
@@ -155,8 +181,8 @@
 ;; (ecart <= 3 px sur cinq langues) et c'est la CIBLE de mise en page qui est volontairement
 ;; reduite. Meme nombre, mise en page differente.
 ;; ------------------------------------------------------------------------------------------------
-(defconstant LS_TEXT_TOP 0.7662)   ;; = 0,90 - 0,75 x (0,90 - 0,7216)
-(defconstant LS_TEXT_SCALE 1.0407)  ;; grande police. CALIBREE, pas choisie -- et RECALIBREE le
+(define *ls-text-top* 0.85185)   ;; = 0,93 - 0,375 x (0,93 - 0,7216) ; maquette : 679 / 941
+(define *ls-text-scale* 0.52035)  ;; grande police. CALIBREE, pas choisie -- et RECALIBREE le
                                     ;; 2026-08-29 quand la mesure de largeur a ete corrigee (voir
                                     ;; `ls-text-width`). La valeur precedente, 1,0407, avait ete
                                     ;; calee contre une largeur SUR-ESTIMEE de 4/3 : le texte etait
@@ -166,15 +192,49 @@
                                     ;; `relative-x-scale` en 16:9 -- le format de la maquette.
                                     ;; 83,37 = 111,16 (la maquette) x 0,75 (la reduction demandee).
 
-(defconstant LS_GLYPH_TOP 0.8451)  ;; = 0,90 - 0,75 x (0,90 - 0,8268). Maquette : 778 / 941.
+(define *ls-glyph-top* 0.89130)  ;; = 0,93 - 0,375 x (0,93 - 0,8268). Maquette : 778 / 941.
 
 ;; Largeur CIBLE de la bande « Loading... ». La maquette la mesure a x 1113..1475 sur 1672, soit
 ;; 0,21711 de la largeur d'ecran, donc 111,16 unites de la toile 512 ; on en livre 75 % sur la
 ;; demande de l'owner du 2026-08-30, soit 83,37 unites (0,16283 de la largeur d'ecran).
-;; C'EST CE NOMBRE QUI CALIBRE `LS_TEXT_SCALE`, et il se lit dans une TRACE, pas a l'oeil :
+;; C'EST CE NOMBRE QUI CALIBRE `*ls-text-scale*`, et il se lit dans une TRACE, pas a l'oeil :
 ;; `LOADSCREEN-LAYOUT ... ratio=` publie largeur-rendue / cible. Le reglage est bon quand ce
 ;; ratio vaut 1. Les captures d'ecran ne servent pas de verdict ici.
-(defconstant LS_TEXT_W_TARGET 83.37)
+(define *ls-text-w-target* 41.685)
+
+;; Trace de mise en page bornee a UNE ligne par episode ; les deux fonctions ci-dessous la
+;; rearment pour que la jambe qu'on vient de poser publie la sienne.
+(define *ls-traced* #f)
+
+;; LES DEUX MISES EN PAGE, SUR LE MEME BINAIRE. `avant` = ce qui a ete livre a l'owner et qu'il
+;; juge deux fois trop gros ; `apres` = ce qu'on livre. Elles ne sont appelees par AUCUN chemin de
+;; jeu : uniquement par le harnais de mesure d'image (.autoport/glsw_text_proof.sh).
+(defun ls-layout-avant! ()
+  "Reposer la mise en page LIVREE le 2026-08-30 au matin (facteur 0,75 de la maquette, ancre
+   0,90, bord droit 0,8822). Sert de jambe « avant » a la mesure d'image."
+  (set! *ls-text-right* 0.8822)
+  (set! *ls-text-top* 0.7662)
+  (set! *ls-text-scale* 1.0407)
+  (set! *ls-glyph-top* 0.8451)
+  (set! *ls-text-w-target* 83.37)
+  (set! *ls-traced* #f)
+  (format 0 "LOADSCREEN-COSM jambe=avant droite=~f haut=~f echelle=~f glyphes=~f cible-w=~f~%"
+          *ls-text-right* *ls-text-top* *ls-text-scale* *ls-glyph-top* *ls-text-w-target*)
+  (none))
+
+(defun ls-layout-apres! ()
+  "Reposer la mise en page LIVREE par ce cycle (facteur 0,375 de la maquette, ancre 0,93, bord
+   droit 0,9400). C'est l'etat par defaut du binaire ; cette fonction sert a revenir dessus apres
+   la jambe « avant »."
+  (set! *ls-text-right* 0.9400)
+  (set! *ls-text-top* 0.85185)
+  (set! *ls-text-scale* 0.52035)
+  (set! *ls-glyph-top* 0.89130)
+  (set! *ls-text-w-target* 41.685)
+  (set! *ls-traced* #f)
+  (format 0 "LOADSCREEN-COSM jambe=apres droite=~f haut=~f echelle=~f glyphes=~f cible-w=~f~%"
+          *ls-text-right* *ls-text-top* *ls-text-scale* *ls-glyph-top* *ls-text-w-target*)
+  (none))
 ;; `ratio=` de la trace se calcule sur la chaine ANGLAISE LITTERALE, jamais sur la chaine
 ;; localisee : la maquette a ete dessinee avec « Loading... », et la TAILLE de police doit rester
 ;; la meme dans toutes les langues -- c'est la LARGEUR qui varie d'une langue a l'autre, et c'est
@@ -266,6 +326,60 @@
        ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; BLANC PLEIN — D6 (owner 2026-08-30, retour n.4)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; « Le texte "Loading..."/"Chargement..."/etc. est en degrade gris, vu l'esthetique de l'ecran de
+;; chargement, ca devrait etre en plein white ! »
+;;
+;; IL A RAISON, ET LE DEGRADE EST ECRIT DANS LA DONNEE. `(font-color white)` est l'INDICE 1 de
+;; `(-> *font-work* color-table)` (engine/gfx/font-h.gc:386-397), et une entree de cette table
+;; porte QUATRE couleurs de sommet, pas une :
+;;      #x80 #x80 #x80    #x80 #x80 #x80      <- les deux sommets du HAUT
+;;      #x60 #x60 #x60    #x60 #x60 #x60      <- les deux sommets du BAS
+;; soit un degrade vertical blanc -> gris a 75 %. Ce n'est pas un effet de rendu ni un artefact de
+;; compression : c'est la table. Le chemin d'emission la lit sommet par sommet (font.gc:1322-1332).
+;;
+;; ON NE TOUCHE PAS A L'ENTREE `white`. Elle sert au debug, aux reglages de camera, aux reperes
+;; d'acteurs et aux sous-titres : la mettre a plat changerait tout le jeu pour un ecran. La table
+;; a 64 entrees et l'enum s'arrete a 34 ; les entrees 35 a 63 sont livrees a ZERO
+;; (font-h.gc, apres « ;; 34 - red-obverse ») et ne sont lues par personne -- une chaine dessinee
+;; avec l'une d'elles serait invisible (alpha 0), ce qui est la preuve qu'aucun site ne s'en sert.
+;; On en peuple UNE, a l'execution, depuis ce fichier : UN SEUL ECRIVAIN.
+(defconstant LS_FONT_SLOT 35)
+;; #x80 en composante GS = 1,0 de modulation, donc FF a l'ecran. Les quatre sommets portent la
+;; MEME valeur : c'est ca, « plein white ».
+(defconstant LS_FONT_WHITE #x80808080)
+
+(defun ls-font-white! ()
+  "Poser le blanc PLAT dans l'emplacement de police de l'ecran de chargement, et publier ce qui a
+   ete DEPOSE -- pas ce qui est ecrit ici.
+
+   NATURE : quatre couleurs de sommet, en octets GS (#x80 = 1,0 de modulation = FF a l'ecran).
+   REPERE : `(-> *font-work* color-table)`, c'est-a-dire LA MEMOIRE QUE LE CHEMIN D'EMISSION LIT
+   (font.gc:1322-1332) -- pas une constante du source. La ligne relit les quatre entrees APRES
+   l'ecriture, et publie a cote celles de `white`, qui est l'entree que l'owner voit aujourd'hui :
+   la comparaison des deux lignes est le controle, et il est gratuit."
+  (dotimes (i 4)
+    (set! (-> *font-work* color-table LS_FONT_SLOT color i) (the-as rgba LS_FONT_WHITE)))
+  (none))
+
+(defun ls-color-trace ()
+  "Publier la couleur RELUE dans la table, pour l'emplacement de l'ecran de chargement ET pour
+   `white`. `degrade=1` des que les quatre sommets ne sont pas identiques."
+  (let ((c0 (the-as uint (-> *font-work* color-table LS_FONT_SLOT color 0)))
+        (c1 (the-as uint (-> *font-work* color-table LS_FONT_SLOT color 1)))
+        (c2 (the-as uint (-> *font-work* color-table LS_FONT_SLOT color 2)))
+        (c3 (the-as uint (-> *font-work* color-table LS_FONT_SLOT color 3)))
+        (w0 (the-as uint (-> *font-work* color-table 1 color 0)))
+        (w2 (the-as uint (-> *font-work* color-table 1 color 2))))
+    (format 0 "LSCOLOR-BRUT emplacement=~D s0=~X s1=~X s2=~X s3=~X degrade=~D~%"
+            LS_FONT_SLOT c0 c1 c2 c3
+            (if (and (= c0 c1) (= c1 c2) (= c2 c3)) 0 1))
+    (format 0 "LSCOLOR-BRUT emplacement=1(white,temoin) s0=~X s2=~X degrade=~D~%"
+            w0 w2 (if (= w0 w2) 0 1)))
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; PRIMITIVES
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -341,7 +455,7 @@
 
    CONSEQUENCE DE CONCEPTION, DECLAREE : la largeur rendue depend donc du FORMAT de la fenetre.
    Ce n'est pas un defaut, c'est la convention du moteur -- le texte garde une taille constante
-   par rapport a la HAUTEUR d'ecran au lieu de s'etirer avec la largeur. `LS_TEXT_SCALE` est cale
+   par rapport a la HAUTEUR d'ecran au lieu de s'etirer avec la largeur. `*ls-text-scale*` est cale
    sur le 16:9 de la maquette de l'owner."
   (let ((ctxt (new 'stack 'font-context *font-default-matrix* 0 0 0.0 (font-color white) (font-flags kerning large))))
     (* scale (-> *video-parms* relative-x-scale) (get-string-length str ctxt))))
@@ -350,7 +464,6 @@
 ;; LE DESSIN
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define *ls-traced* #f)
 
 ;; Bornes x REELLEMENT posees par le dernier appel a `ls-draw-precursor`, en unites de la toile
 ;; 512. Ce ne sont PAS les bornes demandees : elles sont relevees sur les coordonnees des quads
@@ -599,12 +712,12 @@
               ;; (elle est passee de -14/-17 px a l'ecart publie dans widths.txt).
               ;; RESERVE : une langue qui ne terminerait pas par un point verrait ce retrait
               ;; legerement faux. Les cinq mesurees terminent par « ... ».
-              (let* ((trail (* 0.5 (ls-text-width "." LS_TEXT_SCALE)))
-                     (w (- (ls-text-width str LS_TEXT_SCALE) trail))
-                     (right (- (* LS_TEXT_RIGHT 512.0) trail)))
+              (let* ((trail (* 0.5 (ls-text-width "." *ls-text-scale*)))
+                     (w (- (ls-text-width str *ls-text-scale*) trail))
+                     (right (- (* *ls-text-right* 512.0) trail)))
                 (let ((word (lookup-text! *common-text* (text-id pc-text-loading-precursor) #t)))
                   (when word
-                    (let ((adv (ls-draw-precursor buf word right (* LS_GLYPH_TOP 448.0) w fx)))
+                    (let ((adv (ls-draw-precursor buf word right (* *ls-glyph-top* 448.0) w fx)))
                       (when (not *ls-traced*)
                         (set! *ls-traced* #t)
                         ;; plusieurs lignes, parce qu'un appel GOAL est plafonne a 8 parametres.
@@ -613,13 +726,13 @@
                         ;; EST ABSENT : `texte-px` et `precurseur-px` egaux.
                         ;; `precurseur-*` est RELEVE sur les coordonnees des quads emis, jamais
                         ;; recalcule depuis la consigne.
-                      (let ((ref (ls-text-width "Loading..." LS_TEXT_SCALE)))
+                      (let ((ref (ls-text-width "Loading..." *ls-text-scale*)))
                         (format 0
                                 "LOADSCREEN-LAYOUT texte-w=~f ref-w=~f cible-w=~f ratio=~f~%"
                                 w
                                 ref
-                                LS_TEXT_W_TARGET
-                                (/ ref LS_TEXT_W_TARGET)))
+                                *ls-text-w-target*
+                                (/ ref *ls-text-w-target*)))
                       (format 0 "LOADSCREEN-GEOM droite=~f glyphes-adv-em=~f fx=~f~%" right adv fx)
                       (let* ((pxu (/ (the float (-> *pc-settings* framebuffer-width)) 512.0))
                              (pw (- *ls-precursor-x1* *ls-precursor-x0*)))
@@ -645,13 +758,21 @@
                                 LS_PRECURSOR_EM
                                 376))
                       (format 0 "LOADSCREEN-SIL images=~D cols=~D rangees=~D boucle-ticks=~D~%"
-                              LS_SIL_FRAMES LS_SIL_COLS LS_SIL_ROWS LS_SIL_PERIOD)))))
+                              LS_SIL_FRAMES LS_SIL_COLS LS_SIL_ROWS LS_SIL_PERIOD)
+                      (format 0 "LOADSCREEN-COSM jambe=live droite=~f haut=~f echelle=~f glyphes=~f cible-w=~f~%"
+                              *ls-text-right* *ls-text-top* *ls-text-scale* *ls-glyph-top* *ls-text-w-target*)
+                      (ls-font-white!)
+                      (ls-color-trace)))))
+                ;; D6 : blanc PLAT. L'ecriture se fait ICI, dans la meme image et juste avant
+                ;; l'emission, pour que ce qui est publie soit la memoire que le chemin d'emission
+                ;; va lire -- et pas une constante du source.
+                (ls-font-white!)
                 ;; le texte en DERNIER : `draw-string` repose ses propres registres GS.
                 (draw-string-xy-scaled str
                                        buf
                                        (the int (- right w))  ;; = bord gauche de la boite de plume
-                                       (the int (* LS_TEXT_TOP 224.0))
-                                       (font-color white)
+                                       (the int (* *ls-text-top* 224.0))
+                                       (the-as font-color LS_FONT_SLOT)
                                        (font-flags kerning large)
-                                       LS_TEXT_SCALE))))))))
+                                       *ls-text-scale*))))))))
   (none))

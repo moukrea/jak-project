@@ -722,6 +722,95 @@
   (and (loading-screen-held?)
        (>= (- (loading-screen-clock) *loading-screen-since*) LOADING_SCREEN_DELAY)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gloading-screen-window (owner 2026-08-30, retour n.4) — LA FENETRE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; CECI EST UN INSTRUMENT, PAS UNE PORTE. Il ne retient rien, il n'affiche rien : il horodate.
+;; Le verdict de l'owner porte sur une relation d'ORDRE entre quatre instants
+;;   pose de l'ecran <= premier dessin de la scene entrante
+;;   levee de l'ecran >= dernier entrant devenu dessinable
+;; et aucune de ces quatre grandeurs n'etait mesuree. `LOADSCREEN-FRAME` mesure la CADENCE
+;; PENDANT que l'ecran est tenu ; par construction il ne peut rien dire de ce qui se dessine
+;; AVANT qu'il se pose ni APRES qu'il se leve — c'est-a-dire exactement les deux defauts D3/D4.
+;;
+;; NATURE / REPERE : voir game/system/load_gate.h. Les quatre instants sont pris sur
+;; `steady_clock` cote C++, jamais sur une horloge de jeu (celle de l'appareil plafonne son
+;; increment a 4 frames et JETTE le retard : elle sous-estimerait un gel par construction).
+(define *ls-window-open* #f)
+;; Etiquette de la jambe de mesure. #f = on prend le nom du site qui ouvre (le point de reprise).
+;; Le harnais la pose pour nommer la transition dans les mots de l'owner (`save-geyser`,
+;; `teleport-sagehut`) ; elle ne change AUCUN chiffre, elle nomme la ligne.
+(define *ls-window-label* (the-as string #f))
+
+(defun loading-window-open! ((label string))
+  "Ouvrir la fenetre de mesure d'une transition. Une fenetre deja ouverte est fermee et publiee."
+  (set! *ls-window-open* #t)
+  (__pc-lswin-open (if *ls-window-label* *ls-window-label* label))
+  (none))
+
+(defun loading-window-close! ((why string))
+  "Fermer la fenetre et publier ses quatre instants. Sans effet si aucune n'est ouverte."
+  (when *ls-window-open*
+    (set! *ls-window-open* #f)
+    (__pc-lswin-close why))
+  (none))
+
+(defun loading-window-note! ((what string) (v int))
+  "Horodater un evenement de diagnostic DANS la fenetre (naissance d'entites, ouverture de
+   barriere). Ne participe a aucun verdict."
+  (when *ls-window-open* (__pc-lswin-note what v))
+  (none))
+
+(defun loading-window-frame! ((held symbol) (noir-time symbol))
+  "Rapporter UNE image a la fenetre : l'etat de chaque emplacement de niveau, puis l'image
+   elle-meme et si l'ecran de chargement la couvrait.
+
+   « DESSINABLE » EST DEFINI ICI, ET IL EST COPIE SUR LE MOTEUR, PAS SUR UNE INTUITION : statut
+   'active ET `display?` HORS de {'special, 'special-vis, #f}. Ce n'est NI la residence GPU
+   (`load_gate::level_is_resident`, un evenement du renderer, plus precoce) NI 'loaded — la phase
+   Gbeach-actors-gate a deja paye cette confusion : la barriere s'ouvrait sur `statut=loaded` et
+   les dix acteurs sortaient `trouve=#f`.
+
+   Le C++ n'a PAS de liste de niveaux entrants a tenir a jour : il retient l'ensemble dessinable
+   de la premiere image de la fenetre et appelle ENTRANT tout ce qui s'y ajoute ensuite. Une
+   transition ne peut donc pas etre oubliee parce qu'on aurait omis de la nommer."
+  (when *ls-window-open*
+    (dotimes (i (-> *level* length))
+      (let ((lv (-> *level* level i)))
+        (when (-> lv name)
+          (__pc-lswin-level (symbol->string (-> lv name))
+                            ;; MIROIR EXACT DE `drawable-tree-array::draw`
+                            ;; (engine/draw/drawable-tree.gc:17-20) : un niveau dont `display?`
+                            ;; vaut 'special, 'special-vis ou #f n'emet AUCUNE geometrie, meme
+                            ;; 'active. La distinction n'est pas cosmetique ici : quand Jak est a
+                            ;; Geyser Rock, `village1` est deja 'active avec `display? = 'special`
+                            ;; (level-info.gc:53-56, :82-85, :111-114 -- `:disp1 'special`). Un
+                            ;; predicat qui se contente de « 'active et display? non nul » le
+                            ;; compterait donc comme DEJA dessine a l'ouverture de la fenetre ; il
+                            ;; ne pourrait plus jamais etre ENTRANT, `t_first_draw_in` sortirait
+                            ;; `absent`, et la transition que l'owner nomme (teleporteur vers la
+                            ;; hutte) publierait un faux vert. C'est ce chemin-la, precisement,
+                            ;; qui porte le defaut D4.
+                            (case (-> lv display?)
+                              (('special 'special-vis #f) 0)
+                              (else (if (= (-> lv status) 'active) 1 0)))))))
+    ;; L'ETAT DE LA NAISSANCE DES ACTEURS. Les acteurs sont des ELEMENTS ENTRANTS eux aussi, et
+    ;; ce sont EUX que l'owner voit apparaitre apres coup (D3). Un niveau passe 'active bien avant
+    ;; que ses acteurs existent : s'arreter au niveau rendrait le pop-in invisible a l'instrument.
+    (__pc-lswin-actors (if *spawn-actors* 1 0) (if *actors-sweep-complete* 1 0))
+    ;; DEUX MECANISMES NOIRCISSENT, PAS UN -- meme lecture que `blackout-census!` ci-dessus :
+    ;; `blackout-time` et l'alpha `bg-a`/`bg-a-force`. Le compte d'images DECOUVERTES doit
+    ;; distinguer « le joueur voit le monde a moitie construit » de « le joueur voit du noir » :
+    ;; l'owner se plaint du PREMIER (« pas d'ecran noir, on voit directement l'interieur de la
+    ;; hutte »), et confondre les deux ferait passer un defaut pour une couverture.
+    (__pc-lswin-frame (if held 1 0)
+                      (if (or noir-time
+                              (>= (-> *setting-control* current bg-a) 0.99)
+                              (>= (-> *setting-control* current bg-a-force) 0.99))
+                        1
+                        0)))
+  (none))
+
 (defun loading-screen-force! ((dur time-frame))
   "INSTRUMENT DE MESURE. N'est appele par AUCUN code de jeu -- uniquement depuis la console de
    developpement. Force l'ecran de chargement pendant `dur`, exactement comme si une barriere le
@@ -1440,6 +1529,12 @@
               ;; positif (`loading-screen-draw-probe`) n'ouvre pas un faux episode.
               (__pc-loading-screen-tick *loading-screen-mask*)
               (loading-screen-draw))
+            ;; Gloading-screen-window : rapporter CETTE image a la fenetre de mesure. Place ici,
+            ;; et pas dans le `when ls-held` ci-dessus, PARCE QUE la fenetre doit couvrir aussi
+            ;; les images NON couvertes -- ce sont exactement celles ou l'owner voit la hutte.
+            ;; Une mesure qui ne s'allume que pendant l'ecran ne pourrait jamais constater qu'il
+            ;; manque.
+            (loading-window-frame! ls-held (< (current-time) (-> *game-info* blackout-time)))
             ;; controle positif du chemin de dessin -- debug uniquement, un seul tir, et seulement
             ;; une fois la banque de texte chargee (sinon il ne couvrirait que le fond noir).
             (when (and *debug-segment* (not *loading-screen-draw-probed*) *common-text* (not ls-held))

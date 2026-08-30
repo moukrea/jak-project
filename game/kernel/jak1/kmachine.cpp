@@ -735,6 +735,31 @@ void pc_loading_screen_end() {
   load_gate::loading_screen_end();
 }
 
+// Gloading-screen-window : l'ENCADREMENT. Voir game/system/load_gate.h.
+void pc_lswin_open(u32 label) {
+  load_gate::loading_window_open(label ? Ptr<String>(label).c()->data() : nullptr);
+}
+
+void pc_lswin_level(u32 name, s32 drawable) {
+  load_gate::loading_window_level(name ? Ptr<String>(name).c()->data() : nullptr, drawable);
+}
+
+void pc_lswin_frame(s32 held, s32 black) {
+  load_gate::loading_window_frame(held, black);
+}
+
+void pc_lswin_actors(s32 spawn_on, s32 sweep_complete) {
+  load_gate::loading_window_actors(spawn_on, sweep_complete);
+}
+
+void pc_lswin_note(u32 what, s32 value) {
+  load_gate::loading_window_note(what ? Ptr<String>(what).c()->data() : nullptr, value);
+}
+
+void pc_lswin_close(u32 why) {
+  load_gate::loading_window_close(why ? Ptr<String>(why).c()->data() : nullptr);
+}
+
 void pc_goal_slice_begin(s32 slot) {
   load_gate::goal_slice_begin(slot);
 }
@@ -4568,6 +4593,13 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-loading-screen-end", (void*)pc_loading_screen_end);
   make_function_symbol_from_c("__pc-slice-begin!", (void*)pc_goal_slice_begin);
   make_function_symbol_from_c("__pc-slice-expired?", (void*)pc_goal_slice_expired);
+  // Gloading-screen-window : les quatre instants de la fenetre, sur horloge murale C++
+  make_function_symbol_from_c("__pc-lswin-open", (void*)pc_lswin_open);
+  make_function_symbol_from_c("__pc-lswin-level", (void*)pc_lswin_level);
+  make_function_symbol_from_c("__pc-lswin-frame", (void*)pc_lswin_frame);
+  make_function_symbol_from_c("__pc-lswin-actors", (void*)pc_lswin_actors);
+  make_function_symbol_from_c("__pc-lswin-note", (void*)pc_lswin_note);
+  make_function_symbol_from_c("__pc-lswin-close", (void*)pc_lswin_close);
 
   // Grecharged-grass-poc bridges (jak1 only)
   make_function_symbol_from_c("pc-set-recharged-grass!", (void*)pc_set_recharged_grass);

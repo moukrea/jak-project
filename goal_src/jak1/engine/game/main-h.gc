@@ -308,6 +308,50 @@
 
 (defun-extern loading-screen-shown? symbol)
 
+;; Gloading-screen-window (owner 2026-08-30, retour n.4) — LA FENETRE DOIT ENCADRER LA TRANSITION.
+;; Ces trois-la sont declarees ICI pour la meme raison que les constantes ci-dessus :
+;; `engine/load/loader.gc` et `engine/target/target-death.gc` sont compiles AVANT
+;; `engine/game/main.gc` et doivent pouvoir ouvrir/fermer la fenetre depuis leurs sites d'attente.
+;; La fenetre est un CONTENANT DE MESURE : elle ne pilote rien, elle horodate. Voir
+;; game/system/load_gate.h pour la nature et le repere des quatre instants.
+(defun-extern loading-window-open! string none)
+
+(defun-extern loading-window-close! string none)
+
+(defun-extern loading-window-note! string int none)
+
+;; INTERRUPTEUR D'ABLATION, SUR LE MEME BINAIRE. #f = le comportement d'AVANT le 2026-08-30, au
+;; bit pres : l'ecran n'est tenu que par les boucles d'attente qui s'executent reellement, et il
+;; est rendu avant la naissance des acteurs. #t = la fenetre ENCADRE la transition.
+;; Il existe parce que les deux jambes d'une comparaison avant/apres doivent tourner sur le MEME
+;; binaire et le MEME etat de depart : un « avant » pris sur un autre build ne prouve rien sur
+;; celui qu'on livre. Il est POSE A #t : ce que le joueur recoit est la fenetre encadrante.
+(define *ls-window-fix* #t)
+
+;; Combien d'acteurs au plus peuvent naitre dans UNE image pendant que l'ecran de chargement
+;; couvre l'image. Le jeu d'origine pose 1000 juste avant de rendre la main, ce qui fait naitre
+;; tout le niveau dans UNE seule image -- un gel, et c'est exactement le defaut D1/D5 de l'owner.
+;; Tant que l'ecran couvre, RIEN n'oblige a tout faire d'un coup : c'est meme la seule raison
+;; d'etre d'un ecran de chargement. Apres la levee, la valeur d'origine (1000) est reposee, donc
+;; le comportement hors fenetre est inchange.
+(defconstant LS_BIRTH_PER_FRAME 50)
+
+;; Plafond de tours de l'attente de naissance. C'est un PLAFOND DE SECURITE, pas une cible : une
+;; barriere qui peut immobiliser le jeu serait pire que le pop-in qu'elle corrige. A 60 images/s
+;; il vaut 2 secondes.
+(defconstant LS_BIRTH_TOURS_MAX 120)
+
+;; Le balayage de naissance des acteurs (`actors-update`, engine/entity/entity.gc) a-t-il pu aller
+;; JUSQU'AU BOUT a la derniere image ? La methode sort en `#f` des qu'elle atteint `birth-max` et
+;; rend `0` quand elle a parcouru toutes les entites de tous les niveaux actifs -- donc « balayage
+;; complet » veut dire, litteralement, « plus rien n'attend de naitre ». Le signal existait dans la
+;; valeur de retour et n'etait lu par personne.
+;; NATURE : un ETAT (le balayage est-il alle au bout), pas une duree. REPERE : l'image courante.
+;; CE QU'IL LIT QUAND LE DEFAUT EST ABSENT : #t des la premiere image ou `*spawn-actors*` est vrai
+;; sur un niveau deja peuple (renaissance sur place) -- l'attente ne retient alors rien.
+(define *actors-sweep-complete* #f)
+(define *ls-birth-tours* 0)
+
 (defun-extern on symbol process)
 
 (defun-extern off int)

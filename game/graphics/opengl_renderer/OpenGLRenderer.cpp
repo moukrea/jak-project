@@ -1193,10 +1193,20 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   }
 
   m_profiler.finish();
-  //  if (m_profiler.root_time() > 0.018) {
-  //    fmt::print("Slow frame: {:.2f} ms\n", m_profiler.root_time() * 1000);
-  //    fmt::print("{}\n", m_profiler.to_string());
-  //  }
+  // Gloading-screen-window : ATTRIBUER LE GEL, AU LIEU DE LE SUPPOSER.
+  // Mesure x86 du 2026-08-30, transition `save-geyser` : la derniere image de l'ecran de
+  // chargement dure 253 ms quand les 60 precedentes tiennent a 17,3 ms de maximum. Le premier
+  // suspect designe par sa POSITION -- le bloc « niveau pret » du chargeur -- a ete CHRONOMETRE et
+  // rend 0,0 ms sur ses quatre etages (`LSWIN-COUT`) : il est ECARTE. L'arbre de profilage du
+  // renderer existait, ecrit et COMMENTE, juste ici ; il repond a la question « le temps est-il
+  // seulement DANS le rendu ? », et un temps de racine COURT sur une image longue est une
+  // reponse aussi utile qu'un temps long.
+  // BORNE : uniquement pendant qu'une fenetre de chargement est ouverte, et uniquement au-dessus
+  // de 60 ms. En jeu normal, cette ligne n'existe pas.
+  if (m_profiler.root_time() > 0.060 && load_gate::loading_window_is_open()) {
+    fmt::print("LSWIN-RENDU total_ms={:.1f}\n{}\n", m_profiler.root_time() * 1000.0,
+               m_profiler.to_string());
+  }
 
   if (settings.draw_profiler_window) {
     g_current_renderer = "profiler-window";
