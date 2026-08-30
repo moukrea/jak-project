@@ -176,6 +176,10 @@ struct Config {
   std::vector<std::string> levels_to_extract;
   bool levels_extract;
   bool save_texture_pngs = false;
+  // write <level>-draw-modes.csv next to each .fr3: one row per draw, giving the
+  // texture it binds and the GS wrap settings it binds it with.  clamp = 0 on an
+  // axis IS the game declaring that it repeats that texture on that axis.
+  bool dump_draw_modes = false;
   bool rip_streamed_audio = false;
 
   DecompileHacks hacks;

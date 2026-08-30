@@ -97,7 +97,7 @@ def summarise(results):
         print(f"{k:<12}{c:>7}{c / max(len(ok), 1) * 100:>7.1f}%")
 
     lowc = sum(1 for r in ok if r["confidence"] == "low")
-    print(f"\nlow confidence (fewer than 8 pixels on an axis): {lowc}"
+    print(f"\nlow confidence (tiny axis, or verdict decided in the ambiguous border band): {lowc}"
           f" ({lowc / max(len(ok), 1) * 100:.1f}%)")
     for flag in ("constant", "fully-transparent", "transparent-border-h", "transparent-border-v"):
         c = sum(1 for r in ok if flag in r["flags"])

@@ -1,21 +1,102 @@
 # Texture seamlessness
 
 Unpacks every texture from the game ISO keeping the tpage hierarchy, then
-decides per texture whether it tiles without a visible seam **horizontally**,
-**vertically**, **both** or **neither**.
+answers, per texture: **is it meant to repeat** — horizontally, vertically,
+both, or neither — **how many times**, **what object is it painted on**, and
+**what does it depict**.
 
 ```sh
-tools/texture_seamless/extract_textures.sh jak1        # -> extracted_textures/jak1/<tpage>/<name>.png
+tools/texture_seamless/extract_textures.sh   jak1   # PNGs      -> extracted_textures/jak1/<tpage>/<name>.png
+tools/texture_seamless/extract_draw_modes.sh jak1   # engine    -> extracted_textures/jak1-draw-modes/
+
 python3 tools/texture_seamless/analyze.py extracted_textures/jak1 \
-    -o extracted_textures/jak1-seamless.csv --json extracted_textures/jak1-seamless.json
-python3 tools/texture_seamless/calibrate.py extracted_textures/jak1   # re-fit / re-check thresholds
+    -o extracted_textures/jak1-seamless.csv          # image estimate
+
+python3 tools/texture_seamless/engine_truth.py \
+    extracted_textures/jak1-draw-modes extracted_textures/jak1-seamless.csv \
+    -o extracted_textures/jak1-tiling.csv            # engine truth, merged
+
+python3 tools/texture_seamless/describe.py extracted_textures/jak1 \
+    --tiling extracted_textures/jak1-tiling.csv \
+    --draw-modes extracted_textures/jak1-draw-modes \
+    -o extracted_textures/jak1-textures.csv --vision # + what it depicts
 ```
 
-The dump layout is `<tpage>/<texture>.png` — the same layout
-`custom_assets/<game>/texture_replacements/` expects, so the `path` column of
-the report drops straight into a replacement folder.
+`calibrate.py` re-fits and re-checks the image thresholds.
 
-## How the verdict is reached
+## Where the answer comes from
+
+**The engine knows.** The GS sets `clamp_s` / `clamp_t` per draw, and `clamp = 0`
+*is* the game declaring that it wraps that texture on that axis. That covers
+3517 of the 4002 textures — everything drawn through the level pipeline. The
+remaining 485 (HUD, fonts, sprite banks) never reach it and fall back to the
+image estimate; the `source` column says which you are looking at.
+
+The REPEAT bit alone is not enough: a draw can be in REPEAT mode with UVs that
+never leave `[0, 1]`, in which case no wrap boundary is ever sampled. So the
+dump also carries the **UV range of each draw**, and the verdict asks whether
+that range actually crosses an integer boundary in its interior. The difference
+is not small — 2113 textures have the REPEAT bit set on both axes, but only 927
+ever put both seams on screen:
+
+| verdict | REPEAT bit set | seam actually drawn | image estimate |
+| --- | --- | --- | --- |
+| both | 2113 (60.1 %) | **927 (26.4 %)** | 1118 (31.8 %) |
+| horizontal | 522 (14.8 %) | **651 (18.5 %)** | 819 (23.3 %) |
+| vertical | 196 (5.6 %) | **361 (10.3 %)** | 480 (13.6 %) |
+| none | 686 (19.5 %) | **1578 (44.9 %)** | 1100 (31.3 %) |
+
+A draw running exactly `0..1` deliberately does not count — it shows the
+texture once. Without that epsilon every character eye in the game comes back
+tiling.
+
+`max_tiles_h/v` gives the largest UV span any single draw asks for (up to 15×15
+for `pal-environment-front`), and `draws_tiled_h/v` how many draws out of
+`n_draws` actually cross. That separates `vil-wallplaster` (6 of 6 draws cross,
+up to 12×6) from `bab-eye` (1 of 3, span 1.00) — a genuine tiling wall from a
+marginal UV offset on an eye.
+
+### What it cost in the decompiler
+
+Four files, all additive and off by default:
+
+* `config.h` / `config.cpp` — a `dump_draw_modes` flag.
+* `extract_level.cpp` — one function walking the finished `tfrag3::Level`,
+  emitting a row per draw (tfrag, tie, tie-wind, shrub, merc, hfrag) with the
+  bound texture, the wrap bits, the UV range, and the owning object's name.
+  Shrub UVs are divided by 4096 here because `shrub.vert:137` does the same —
+  raw, they read as spans of 4097.
+* `extract_tie.cpp` — a `TIE_PROTO_NAMES` env var. jak1 normally carries
+  neither `proto_names` nor `tie_proto_idx` (the name "exists here and nowhere
+  downstream", as the file's own `TIE_CENSUS` comment puts it), which left every
+  tie-only texture with no idea what it is painted on. Setting it records both
+  *without* enabling `has_per_proto_visibility_toggle`, so the renderer path is
+  untouched; owner coverage goes from 73.8 % to **91.0 %**.
+
+`extract_draw_modes.sh` runs all of this against a **shadow project directory** —
+a tree of symlinks to the repo with its own `out/`, found by dropping a `data`
+directory next to a *copy* of the binary (`file_util::try_get_data_dir`; a
+symlink would not do, because `/proc/self/exe` resolves it back to the real build
+tree). The real `out/<game>/fr3` is never opened, so this is safe to run while a
+`gk` is playing.
+
+## The image estimate, and how far off it is
+
+Where the engine has no answer the image estimate stands, so it is still worth
+having — but measured against the engine on the 3517 textures where both exist,
+it agrees on the full class **48.7 %** of the time (65 % per axis). That is the
+honest size of the gap between "this image could tile" and "the game tiles it".
+
+"Does this image show a seam when tiled" and "is this texture meant to repeat"
+are not the same question, and the difference is not academic: 674 of 4002
+textures answer yes to the first and no to the second. An eye sprite sitting on
+a flat surround has no discontinuity at its wrap — because nothing reaches the
+wrap. So the image verdict needs both halves:
+
+1. **the wrap must not show a step** — the seam test below;
+2. **content must actually reach the wrap** — the border test below.
+
+## How the image verdict is reached
 
 A seam is visible when the wrap boundary introduces a discontinuity **unlike
 the ones already present everywhere else in the image**. So the test is never
@@ -56,6 +137,29 @@ whole image instead of hugging its border.
 Channels are premultiplied RGB plus alpha, so RGB garbage under transparent
 pixels cannot fabricate a seam. PS2 alpha is 0..128 and is normalised as such.
 
+### The border test
+
+Per line (column for horizontal, row for vertical) we measure how much that
+line varies *along itself*, and compare the two border lines against a typical
+one:
+
+```
+border_activity = mean(activity of first line, activity of last line) / median(activity)
+```
+
+A texture meant to repeat has structure running through its border, so this
+sits near 1.0. A sprite matted into a flat or transparent surround has dead
+border lines, so it sits near 0. The verdict requires `border_activity >= 0.35`
+on top of a clean seam.
+
+**This statistic does not separate cleanly, and the report says so.** Its
+distribution over jak1 is bimodal — a spike of 485 verdicts below 0.05 and a
+mode peaking at 1.0 — but roughly 14 % land in the valley between, where
+`vil-hut-roof-tile-01` (0.27) is indistinguishable from `bab-eye` (0.28). Any
+verdict decided inside `[0.05, 0.55]` is flagged `border-marginal-{h,v}` and
+downgraded to `confidence = low` rather than presented as clean. This is the
+band where the clamp bits would settle it and image statistics cannot.
+
 Box-downsampling before measuring (scales 2, 4, 8) was tried, on the theory
 that pixel noise can hide a low-frequency mismatch across the wrap. The
 measurement refutes it: on a periodic image tilted by a non-periodic ramp of 16
@@ -91,8 +195,13 @@ At the shipped thresholds, over 788 labelled axis decisions:
 | recall at crop lag c=1 / c=8 / c=32 | 0.70 / 0.97 / 0.93 |
 
 The shipped values are the argmax of the sweep. `calibrate.py` also runs a
-regression suite (checkerboard, mortar grid, the eight sky textures) that must
-pass at any threshold shipped; it exits non-zero if one breaks.
+15-case regression suite that must pass at any threshold shipped — checkerboard
+and mortar grid (hard-edged and exactly tiling, the reason the rank test
+exists), the eight sky textures (the reason the rank test trims a border
+margin), a random-phase positive, and that same positive matted into 2 px and
+6 px flat and transparent surrounds (the reason the border test exists; the
+seam test alone scores them rank 1.00 and calls them seamless). It exits
+non-zero if one breaks.
 
 ## Checking the output
 
@@ -106,12 +215,47 @@ pass at any threshold shipped; it exits non-zero if one breaks.
   converse is not a defect and is not tested: rolling a *seamed* texture moves
   its discontinuity into the interior and genuinely leaves a clean wrap.
 
+## What each texture depicts
+
+`describe.py` answers "what is this a picture of" from two sources.
+
+**The code**, free and exact: the asset name, the tpage (level + category —
+tfrag is level background, pris is characters and animated props, shrub is
+foliage, alpha is transparent effects), the merc model / tie prototype / shrub
+prototype it is painted on, the levels it appears in, whether it is opaque, an
+alpha cutout or blended, and its tiling. That already yields lines like
+
+```
+yeti-peltbellyfur; 64x64; characters and animated props; level 'snow';
+    painted on yeti-lod0; drawn as merc; tiles horizontally only
+vil-hut-wood-01; 128x128; level background geometry; level 'village1';
+    painted on vil1-roofsupport.mb, thick.mb, vil1-hut-door.mb; drawn as tie
+```
+
+**Vision**, for what the name cannot say — material, colour, motif. Textures go
+out in labelled contact sheets of 16 rather than one request per texture,
+because the per-request overhead dwarfs a 128×128 image, and the sheet is drawn
+on a grey checkerboard with PS2 alpha (0..128) stretched to 0..255, so
+transparency reads as transparency instead of as black. The code context for
+each cell rides along in the prompt, with instructions to trust the image where
+they disagree. Each sheet's answer is cached as JSON next to it, so a rerun
+resumes instead of repeating.
+
 ## Report columns
 
-`path, tpage, name, width, height, class, seamless_h, seamless_v, confidence,
-flags, {h,v}_step, {h,v}_typical_step, {h,v}_ratio, {h,v}_rank, {h,v}_reason`
+`jak1-textures.csv` (the merged end product): `path, tpage, name, width, height,
+verdict, source, max_tiles_h, max_tiles_v, draw_kinds, owners, levels,
+description, code_context`.
 
-`confidence` is `low` below 8 pixels on an axis (7 interior boundaries is not a
-distribution) and `medium` below 16. `flags` carries `constant`,
-`fully-transparent` and `transparent-border-{h,v}` — a texture whose border is
-entirely transparent tiles trivially, which is true but rarely what you meant.
+`jak1-tiling.csv` adds the raw engine and image columns side by side:
+`repeats_{h,v}, draws_tiled_{h,v}, n_draws, engine_repeat_{h,v},
+engine_tiled_{h,v}, image_class, image_seamless_{h,v}, image_confidence,
+image_flags`.
+
+`jak1-seamless.csv` is the image analysis alone: `class, seamless_h, seamless_v,
+confidence, flags, {h,v}_step, {h,v}_typical_step, {h,v}_ratio, {h,v}_rank,
+{h,v}_reason`. `confidence` is `low` below 8 pixels on an axis (7 interior
+boundaries is not a distribution) and `medium` below 16. `flags` carries
+`constant`, `fully-transparent` and `transparent-border-{h,v}` — a texture whose
+border is entirely transparent tiles trivially, which is true but rarely what
+you meant.

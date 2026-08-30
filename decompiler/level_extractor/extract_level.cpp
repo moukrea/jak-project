@@ -357,6 +357,165 @@ void extract_common(const ObjectFileDB& db,
   }
 }
 
+/*!
+ * Write one row per draw: the texture it binds, and the GS wrap settings it is
+ * bound with.  CLAMP = 0 on an axis is the game itself declaring that it repeats
+ * that texture on that axis, which is the ground truth an image-based
+ * seamlessness test can only approximate.  Texture identity is
+ * <debug_tpage_name>/<debug_name>, the same identity the tpage PNG dump uses.
+ */
+void dump_draw_modes(tfrag3::Level& lev, const fs::path& out_folder) {
+  std::string result =
+      "level,kind,tpage,texture,repeat_s,repeat_t,filter,tcc,alpha_test,alpha_blend,verts,"
+      "s_min,s_max,t_min,t_max,owner\n";
+  size_t rows = 0, unresolved = 0;
+
+  struct UvRange {
+    float smin = 1e30f, smax = -1e30f, tmin = 1e30f, tmax = -1e30f;
+    u32 n = 0;
+    void add(float s, float t) {
+      smin = std::min(smin, s);
+      smax = std::max(smax, s);
+      tmin = std::min(tmin, t);
+      tmax = std::max(tmax, t);
+      n++;
+    }
+  };
+
+  // What the draw belongs to, by name: the merc model, the tie prototype, the
+  // shrub prototype.  These are the game's own words for the object a texture
+  // is painted on, which no amount of looking at the image can recover.
+  auto join_owners = [](const std::vector<std::string>& names) {
+    std::string out;
+    for (size_t i = 0; i < names.size() && i < 3; i++) {
+      if (i) {
+        out += "|";
+      }
+      out += names[i];
+    }
+    return out;
+  };
+
+  auto emit = [&](const char* kind, const DrawMode& m, s32 tex_id, const UvRange& uv,
+                  const std::string& owner) {
+    if (tex_id < 0 || (size_t)tex_id >= lev.textures.size()) {
+      unresolved++;  // negative ids are animated-texture slots, not entries in this table
+      return;
+    }
+    const auto& t = lev.textures[tex_id];
+    result += fmt::format("{},{},{},{},{},{},{},{},{},{},{},{:.4f},{:.4f},{:.4f},{:.4f},{}\n",
+                          lev.level_name, kind, t.debug_tpage_name, t.debug_name,
+                          m.get_clamp_s_enable() ? 0 : 1, m.get_clamp_t_enable() ? 0 : 1,
+                          m.get_filt_enable() ? 1 : 0, m.get_tcc_enable() ? 1 : 0,
+                          m.get_at_enable() ? 1 : 0, m.get_ab_enable() ? 1 : 0, uv.n,
+                          uv.n ? uv.smin : 0.f, uv.n ? uv.smax : 0.f, uv.n ? uv.tmin : 0.f,
+                          uv.n ? uv.tmax : 0.f, owner);
+    rows++;
+  };
+
+  // tfrag and tie: runs + plain indices point straight at the tree's own vertices
+  auto strip_uv = [](const tfrag3::StripDraw& d,
+                     const std::vector<tfrag3::PreloadedVertex>& verts) {
+    UvRange uv;
+    auto take = [&](u32 i) {
+      if (i < verts.size()) {
+        uv.add(verts[i].s, verts[i].t);
+      }
+    };
+    for (const auto& run : d.runs) {
+      for (u32 ri = 0; ri < run.length; ri++) {
+        take(run.vertex0 + ri);
+      }
+    }
+    for (u32 i : d.plain_indices) {
+      take(i);
+    }
+    return uv;
+  };
+
+  for (auto& geo : lev.tfrag_trees) {
+    for (auto& tree : geo) {
+      if (tree.unpacked.vertices.empty()) {
+        tree.unpack();
+      }
+      for (const auto& d : tree.draws) {
+        emit("tfrag", d.mode, d.tree_tex_id, strip_uv(d, tree.unpacked.vertices), "");
+      }
+    }
+  }
+  for (auto& geo : lev.tie_trees) {
+    for (auto& tree : geo) {
+      if (tree.unpacked.vertices.empty()) {
+        tree.unpack();
+      }
+      for (const auto& d : tree.static_draws) {
+        std::vector<std::string> owners;
+        for (const auto& vg : d.vis_groups) {
+          if (vg.tie_proto_idx < tree.proto_names.size()) {
+            const auto& nm = tree.proto_names[vg.tie_proto_idx];
+            if (std::find(owners.begin(), owners.end(), nm) == owners.end()) {
+              owners.push_back(nm);
+            }
+          }
+        }
+        emit("tie", d.mode, d.tree_tex_id, strip_uv(d, tree.unpacked.vertices),
+             join_owners(owners));
+      }
+      for (const auto& d : tree.instanced_wind_draws) {
+        UvRange uv;
+        for (const auto& run : d.vertex_index_stream) {
+          if (run < tree.unpacked.vertices.size()) {
+            uv.add(tree.unpacked.vertices[run].s, tree.unpacked.vertices[run].t);
+          }
+        }
+        emit("tie-wind", d.mode, d.tree_tex_id, uv, "");
+      }
+    }
+  }
+  for (auto& tree : lev.shrub_trees) {
+    if (tree.unpacked.vertices.empty()) {
+      tree.unpack();
+    }
+    for (const auto& d : tree.static_draws) {
+      UvRange uv;
+      for (u32 k = 0; k < d.num_indices; k++) {
+        u32 ii = d.first_index_index + k;
+        if (ii < tree.indices.size() && tree.indices[ii] < tree.unpacked.vertices.size()) {
+          // shrub.vert divides its incoming tex_coord by 4096, so the packed
+          // value is not a UV until it is scaled the same way here
+          const auto& v = tree.unpacked.vertices[tree.indices[ii]];
+          uv.add(v.s / 4096.f, v.t / 4096.f);
+        }
+      }
+      emit("shrub", d.mode, d.tree_tex_id, uv,
+           d.proto_idx < tree.proto_names.size() ? tree.proto_names[d.proto_idx] : "");
+    }
+  }
+  for (const auto& model : lev.merc_data.models) {
+    for (const auto& eff : model.effects) {
+      for (const auto& d : eff.all_draws) {
+        UvRange uv;
+        for (u32 k = 0; k < d.index_count; k++) {
+          u32 ii = d.first_index + k;
+          if (ii < lev.merc_data.indices.size() &&
+              lev.merc_data.indices[ii] < lev.merc_data.vertices.size()) {
+            const auto& v = lev.merc_data.vertices[lev.merc_data.indices[ii]];
+            uv.add(v.st[0], v.st[1]);
+          }
+        }
+        emit("merc", d.mode, d.tree_tex_id, uv, model.name);
+      }
+    }
+  }
+  for (auto tex_id : lev.hfrag.wang_tree_tex_id) {
+    emit("hfrag", lev.hfrag.draw_mode, tex_id, UvRange{}, "");
+  }
+
+  file_util::write_text_file(out_folder / fmt::format("{}-draw-modes.csv", lev.level_name), result);
+  lg::info("[draw-modes] {}: {} draws over {} textures ({} draws bound an animated slot)",
+           lev.level_name, rows, lev.textures.size(), unresolved);
+}
+
 void extract_from_level(const ObjectFileDB& db,
                         const TextureDB& tex_db,
                         const std::string& dgo_name,
@@ -394,6 +553,10 @@ void extract_from_level(const ObjectFileDB& db,
            100.f * compressed.size() / ser.get_save_result().second);
   file_util::write_binary_file(output_folder / fmt::format("{}.fr3", level_data.level_name),
                                compressed.data(), compressed.size());
+
+  if (config.dump_draw_modes) {
+    dump_draw_modes(level_data, output_folder);
+  }
 
   if (config.rip_levels) {
     auto back_file_path = file_util::get_jak_project_dir() / "decompiler_out" /

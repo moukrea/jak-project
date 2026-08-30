@@ -2497,8 +2497,15 @@ void handle_draw_for_strip(tfrag3::TieTree& tree,
   ASSERT(inst.vis_id < UINT16_MAX);
   vgroup.vis_idx_in_pc_bvh = inst.vis_id;  // associate with the instance for culling
 
-  // only bother with tie proto idx if we use it
-  if (tree.has_per_proto_visibility_toggle) {
+  // only bother with tie proto idx if we use it.
+  // TIE_PROTO_NAMES: jak1 normally carries neither proto_names nor tie_proto_idx
+  // (see the TIE_CENSUS note below -- the name exists here and nowhere
+  // downstream), which leaves every tie-only texture in the draw-mode dump with
+  // no idea what object it is painted on.  Setting the variable records both,
+  // WITHOUT turning on has_per_proto_visibility_toggle, so the renderer path is
+  // untouched.  It does split vis groups more finely (merge_groups compares
+  // tie_proto_idx), so the .fr3 it produces is for inspection, not for shipping.
+  if (tree.has_per_proto_visibility_toggle || std::getenv("TIE_PROTO_NAMES")) {
     ASSERT(proto_idx < UINT16_MAX);
     vgroup.tie_proto_idx = proto_idx;
   }
@@ -2561,7 +2568,7 @@ void add_vertices_and_static_draw(tfrag3::TieTree& tree,
   // loop over all prototypes
   for (size_t proto_idx = 0; proto_idx < protos.size(); proto_idx++) {
     const auto& proto = protos[proto_idx];
-    if (tree.has_per_proto_visibility_toggle) {
+    if (tree.has_per_proto_visibility_toggle || std::getenv("TIE_PROTO_NAMES")) {
       tree.proto_names.push_back(proto.name);
     }
 

@@ -191,5 +191,8 @@ custom_assets/*/recharged_textures_baked/
 custom_assets/jak1/recharged_textures/gamefontnew/
 
 # Gtexture-seamless: raw textures unpacked from the ISO (game assets, like
-# iso_data and decompiler_out) plus the seamlessness report generated from them.
+# iso_data and decompiler_out), the reports generated from them, and the
+# contact sheets + cached vision answers used to describe them.
 /extracted_textures/
+/.texture-sheets/
+/.texdump_shadow/

@@ -97,6 +97,16 @@ class Config:
     # fraction of the interior boundaries trimmed from each end before the rank
     # is computed, so that the seam's own neighbourhood cannot vouch for it.
     rank_margin: float = 0.20
+    # the two border lines must carry at least this share of a typical line's
+    # own variation.  Below it the border is a dead margin: the wrap has no
+    # step because there is nothing there, not because the content continues.
+    border_activity_min: float = 0.35
+    # the statistic is bimodal -- a spike at 0 (matted sprites) and a mode at
+    # 1.0 (real tiling) -- but ~14% of verdicts land in the valley between
+    # them, where a roof tile (0.27) is indistinguishable from an eye sprite
+    # (0.28).  A verdict decided inside this band is reported low confidence
+    # rather than dressed up as clean.
+    border_ambiguous: tuple = (0.05, 0.55)
     # extra strictness, off by default: robust z-score of the seam within the
     # interior distribution.
     z_max: float = 8.0
@@ -140,6 +150,20 @@ def box_down(x: np.ndarray, s: int) -> np.ndarray:
     return x.reshape(h // s, s, w // s, s, c).mean(axis=(1, 3))
 
 
+def line_activity(x: np.ndarray, axis: int) -> np.ndarray:
+    """How much each line varies *along itself*, one value per line.
+
+    A texture meant to repeat has structure running through its border.  A
+    sprite matted into a flat or transparent surround has none: its border
+    lines are dead, which is why its wrap shows no step.  Comparing the two
+    border lines against a typical line separates "the content continues
+    across the wrap" from "there is nothing at the wrap to mismatch".
+    """
+    if axis == 1:  # lines are columns; vary down them
+        return np.abs(np.diff(x, axis=0)).mean(axis=(0, 2))
+    return np.abs(np.diff(x, axis=1)).mean(axis=(1, 2))
+
+
 def rank_pool(interior: np.ndarray, margin: float) -> np.ndarray:
     """Interior steps with the seam's own neighbourhood trimmed off both ends."""
     n = interior.size
@@ -180,8 +204,19 @@ class AxisResult:
     ref: float  # at scale 1
     rank: float  # at scale 1
     z: float  # worst over scales
+    border_activity: float
     reason: str
     scales: list = field(default_factory=list)
+
+
+def border_activity(x: np.ndarray, axis: int) -> float:
+    """Mean activity of the two border lines over a typical line's activity."""
+    act = line_activity(x, axis)
+    if act.size < 3:
+        return 1.0
+    typical = float(np.median(act))
+    border = float(0.5 * (act[0] + act[-1]))
+    return (border + EPS) / (typical + EPS)
 
 
 def analyse_axis(x: np.ndarray, axis: int, cfg: Config) -> AxisResult:
@@ -215,10 +250,17 @@ def analyse_axis(x: np.ndarray, axis: int, cfg: Config) -> AxisResult:
             ok = z <= cfg.z_max
         results.append(ScaleResult(s, xs.shape[axis], e_seam, ref, ratio, z, rank, ok))
 
-    seamless = all(r.passed for r in results)
+    # the seam is measured across `axis`; the border lines that must carry
+    # content are the lines of that same axis
+    bact = border_activity(x, axis)
+    alive = bact >= cfg.border_activity_min
+
+    seamless = all(r.passed for r in results) and alive
     worst = max(results, key=lambda r: r.ratio)
     s1 = results[0]
-    if seamless and s1.e_seam <= cfg.abs_floor:
+    if not alive and all(r.passed for r in results):
+        reason = f"dead-border ({bact:.2f} of a typical line's variation)"
+    elif seamless and s1.e_seam <= cfg.abs_floor:
         reason = "flat-seam"
     elif seamless and s1.ratio <= cfg.ratio_max:
         reason = "step-typical"
@@ -228,6 +270,7 @@ def analyse_axis(x: np.ndarray, axis: int, cfg: Config) -> AxisResult:
         reason = f"step-{worst.ratio:.1f}x-typical"
     return AxisResult(
         seamless=seamless,
+        border_activity=float(bact),
         ratio=float(worst.ratio),
         e_seam=float(s1.e_seam),
         ref=float(s1.ref),
@@ -252,6 +295,16 @@ def classify(x: np.ndarray, cfg: Config) -> dict:
     res_h = analyse_axis(x, 1, cfg)  # columns -> horizontal tiling
     res_v = analyse_axis(x, 0, cfg)  # rows    -> vertical tiling
 
+    lo, hi = cfg.border_ambiguous
+    marginal = False
+    for axis, res in (("h", res_h), ("v", res_v)):
+        # only matters where the seam itself was clean: otherwise the border
+        # activity did not decide anything
+        if "step-" in res.reason or "dead-border" in res.reason or res.seamless:
+            if lo <= res.border_activity <= hi and "step-" not in res.reason:
+                flags.append(f"border-marginal-{axis}")
+                marginal = True
+
     # a border made only of fully transparent pixels tiles trivially; say so
     if x[:, 0, 3].max() <= 1e-6 and x[:, -1, 3].max() <= 1e-6:
         flags.append("transparent-border-h")
@@ -270,7 +323,7 @@ def classify(x: np.ndarray, cfg: Config) -> dict:
     # confidence is about how many interior boundaries the statistics had: a
     # 4-pixel-wide texture offers 3 of them, which is not a distribution.
     small = min(h, w)
-    if small < cfg.degenerate_lines:
+    if small < cfg.degenerate_lines or marginal:
         confidence = "low"
     elif small < 2 * cfg.degenerate_lines:
         confidence = "medium"

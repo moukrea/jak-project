@@ -189,6 +189,26 @@ def regression_cases(root: Path):
         if p.exists():
             with Image.open(p) as im:
                 cases.append((f"sky-{i:02d}", to_analysis_array(im), {"h": False, "v": False}))
+
+    # A provably-tiling image is still a provably-tiling image; matted into a
+    # flat or transparent surround it is a sprite, and its wrap is clean only
+    # because nothing reaches the border.
+    src = next(root.rglob("*.png"))
+    with Image.open(src) as im:
+        rgb = np.asarray(im.convert("RGB"), dtype=np.float64)
+    per = random_phase_synth(rgb, (64, 64), np.random.default_rng(11))
+    cases.append(("periodic", arr_to_analysis(to_rgba(per)), {"h": True, "v": True}))
+    for mat in (2, 6):
+        for alpha, tag in ((128, "opaque"), (0, "alpha")):
+            canvas = np.zeros((64, 64, 4), np.uint8)
+            canvas[..., :3] = 110
+            canvas[..., 3] = alpha
+            inner = np.asarray(
+                Image.fromarray(to_rgba(per)).resize((64 - 2 * mat, 64 - 2 * mat), Image.BILINEAR)
+            )
+            canvas[mat:64 - mat, mat:64 - mat] = inner
+            cases.append((f"matted-{mat}px-{tag}", arr_to_analysis(canvas),
+                          {"h": False, "v": False}))
     return cases
 
 

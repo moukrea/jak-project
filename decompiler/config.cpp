@@ -333,6 +333,9 @@ Config make_config_via_json(nlohmann::json& json) {
   if (json.contains("save_texture_pngs")) {
     config.save_texture_pngs = json.at("save_texture_pngs").get<bool>();
   }
+  if (json.contains("dump_draw_modes")) {
+    config.dump_draw_modes = json.at("dump_draw_modes").get<bool>();
+  }
   if (json.contains("rip_streamed_audio")) {
     config.rip_streamed_audio = json.at("rip_streamed_audio").get<bool>();
   }
