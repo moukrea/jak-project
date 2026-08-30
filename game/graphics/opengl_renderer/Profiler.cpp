@@ -45,8 +45,10 @@ void ProfilerNode::sort(ProfilerSort mode) {
   if (mode == ProfilerSort::NONE) {
     return;
   }
-  std::sort(m_children.begin(), m_children.end(),
-            [=](const ProfilerNode& a, const ProfilerNode& b) {
+  // Ggrass-crash : `list::sort` — `std::sort` exige des iterateurs a acces aleatoire, et
+  // `m_children` est desormais une `std::list` pour que les pointeurs rendus par `make_child`
+  // restent valides (voir Profiler.h). Meme ordre, meme comparateur.
+  m_children.sort([=](const ProfilerNode& a, const ProfilerNode& b) {
               switch (mode) {
                 case ProfilerSort::DRAW_CALLS:
                   return a.m_stats.draw_calls > b.m_stats.draw_calls;

@@ -618,10 +618,48 @@ static bool grass_skip_covered_enabled() {
   return v;
 }
 
+// Ggrass-crash : l'expansion hors du thread de rendu reste ARMEE (defaut d'origine).
+//
+// POURQUOI, ET C'EST UNE MESURE. Elle est nee au commit 25ae957df7 — LE MEME lot qui a fait passer
+// `rebuild()` de `void` a `bool` sans valeur de retour, et LE MEME lot qui separe le build que
+// l'owner voyait charger de celui qui mourait. Sur l'appareil, le fil de rendu meurt d'une
+// `std::bad_alloc` que PERSONNE n'attrape, alors que deux `catch (const std::exception&)`
+// encadrent lexiquement tout le chemin d'herbe et sont bien presents dans le `.so` INSTALLE
+// (verifie par `grep -ac` sur l'appareil). Un handler present sur la pile et introuvable par le
+// derouleur, c'est le symptome d'un etat que le fil de rendu ne possede plus seul — et le SEUL
+// endroit ou le chemin d'herbe partage de l'etat entre deux fils est ici : `expand` lit
+// `m_pending.bake` PAR REFERENCE depuis le fil de `std::async`.
+//
+// CE QU'ON PERD EN LE DESARMANT, ET POURQUOI C'EST LE BON ECHANGE. L'expansion revient sur le fil
+// de rendu : elle y coute 154 a 221 ms UNE FOIS par chargement de niveau a herbe (mesure x86), ce
+// que la phase Gloading-screen-window cherchait justement a retirer. C'est un a-coup pendant
+// l'ecran de chargement. En face : un jeu qui ne charge plus du tout. Un a-coup se voit, une mort
+// se subit — et l'owner nous a deja dit, mot pour mot, « un jeu qui charge vaut mieux qu'un ecran
+// parfait ».
+//
+// L'INTERRUPTEUR RESTE, DANS LES DEUX SENS, pour que l'ablation reste jouable sur LE MEME BINAIRE :
+//   bureau   OG_GRASS_ASYNC=1              -> rearme le fil d'expansion
+//   appareil debug.opengoal.grass_async=1  -> idem (le bureau lit `getenv`, pas l'appareil : sans
+//                                             cette propriete l'ablation etait INJOUABLE la ou le
+//                                             defaut se produit, ce qui est exactement le piege
+//                                             « instrument absent la ou on en a besoin »)
 static bool grass_async_expand_enabled() {
   static bool v = []() {
     const char* e = getenv("OG_GRASS_ASYNC");
-    return (!e || !e[0]) ? true : (atoi(e) != 0);
+    if (e && e[0]) {
+      return atoi(e) != 0;
+    }
+  #ifdef __ANDROID__
+    char b[16] = {0};
+    if (__system_property_get("debug.opengoal.grass_async", b) > 0 && b[0]) {
+      return atoi(b) != 0;
+    }
+  #endif
+    // Ggrass-crash : REARME. Le desarmement etait une hypothese sur la cause ; elle est REFUTEE —
+    // le plantage venait du pointeur pendant de `ScopedProfilerNode` (voir Profiler.h), pas du fil
+    // d'expansion, et `GOVERHANG6` prouvait deja que ce fil allait jusqu'au bout. On ne garde donc
+    // pas l'a-coup de 154-221 ms par chargement que Gloading-screen-window avait retire.
+    return true;
   }();
   return v;
 }
