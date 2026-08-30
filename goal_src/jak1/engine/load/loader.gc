@@ -659,22 +659,179 @@
 ;; C'est un plafond, pas une cible : quand tout est deja pret la boucle ne tourne pas.
 (defconstant SCENE_GATE_CEILING (seconds 20))
 
-(defun scene-level-goal-ready? ((nm symbol))
-  "Le niveau est-il assez avance COTE GOAL pour que `display-level` puisse l'activer dans la frame,
-   et donc pour que `alive` trouve ses acteurs juste apres ?
-   L'echelle des statuts est inactive -> loading -> loading-bt -> loading-done -> login -> loaded
-   -> alive -> active (engine/level/level.gc:248-258) ; `update! *load-state*` (level.gc:1144-1147)
-   n'active QUE ce qui est deja 'loaded ou 'active."
-  (let ((st (level-status *level* nm)))
-    (or (= st 'loaded) (= st 'alive) (= st 'active))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gbeach-actors-gate -- LE SIGNAL « ACTEUR INSTANCIABLE » N'EST PAS CELUI DU DECOR (owner x2)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Le cycle precedent a capture la ligne qui tranche, et elle disculpe le plafond :
+;;     LOADGATE  open  scene=sage-intro-sequence-e waited=9494ms reason=resident
+;;     LOADGATE-GOAL   scene=sage-intro-sequence-e niveau=beach statut=loaded gpu=#t attendu=3510
+;;     SCENECMD alive  nom=harvester-87 trouve=#f lev0=beach/loaded   (10 acteurs sur 10)
+;; `reason=resident`, PAS `timeout` : le plafond de 20 s n'est pour rien dans ce defaut et n'est
+;; PAS touche ici. Et la colonne qui separe les courses qui reussissent de celles qui echouent est
+;; UNE SEULE : `lev0=beach/loaded` quand ca rate, `lev0=beach/active` quand ca passe.
+;;
+;; LE SIGNAL, ET L'ENDROIT OU IL EST PRODUIT. Un acteur d'un niveau est instanciable par son nom
+;; quand `entity-by-name` le trouve (engine/entity/entity.gc:92-113). Cette fonction balaie
+;; `(-> lev bsp actors)` -- une table STATIQUE, presente des la fin du login, donc des 'loaded --
+;; mais elle ne regarde QUE les niveaux dont le statut vaut 'active (entity.gc:100). Le signal
+;; n'est donc ni la residence GPU ni le login : c'est le STATUT 'active du niveau, pose en un seul
+;; endroit, `level-status-set!` (engine/level/level.gc:310), atteint uniquement par
+;; `level-get-for-use ... 'active`, dont le seul producteur en jeu normal est
+;; `update! *load-state*` (engine/level/level.gc:1146) quand un `display-level` a pose son voeu.
+;;
+;; RESIDENCE GPU et STATUT 'active SONT DEUX PIPELINES DIFFERENTS. `mark_level_resident`
+;; (game/graphics/opengl_renderer/loader/Loader.cpp:1462) dit que la GEOMETRIE tfrag3 et les
+;; textures sont televersees. Rien dans ce signal ne parle des ACTEURS. On garde donc la residence
+;; pour le decor, et on ajoute le statut pour les acteurs.
+;;
+;; POURQUOI IL FAUT AUSSI AVANCER LE `display-level`, ET POURQUOI CE N'EST PAS UNE INVENTION.
+;; Attendre 'active sans rien faire d'autre serait le piege que ce fichier documente deja plus bas :
+;; attendre un etat que PERSONNE ne produira, donc aller au plafond pour rien. C'est la scene
+;; elle-meme qui produit cet etat, par son propre `display-level`, mais 937 frames d'artiste trop
+;; tard. On ne fabrique aucune commande : on AVANCE celle que la command-list porte deja, avec son
+;; mode d'affichage a elle (`movie` pour `sage-intro-sequence-e`). La scene la rejouera a la frame
+;; 937 sans effet -- `update!` ne fait rien quand le voeu et l'etat coincident (level.gc:1141).
+;;
+;; CE QUE CA COUTE, DIT FRANCHEMENT : le niveau voisin est DESSINE des l'ouverture de la barriere
+;; au lieu de la frame 937. Ce n'est pas un effet de bord qu'on pourrait eviter : 'active EST
+;; l'etat dessine (`add-connection *background-draw-engine*`, level.gc:296-307), et c'est
+;; EXACTEMENT l'etat que `entity-by-name` exige. Rendre les acteurs instanciables sans dessiner
+;; leur niveau est impossible dans ce moteur. Le cout est donc une paire de niveaux dessines --
+;; la configuration normale de la frontiere village1/beach.
+;;
+;; PORTEE : uniquement les scenes qui portent au moins une commande `alive`. Les autres scenes
+;; retenues par la barriere gardent le predicat d'avant, au bit.
+(defconstant SCENE_GATE_ALIVE_MAX 16)
 
-(defbehavior scene-load-gate! process-drawable ((arg0 spool-anim))
-  "Hold this scene until every level it will DISPLAY is drawable. No-op otherwise."
+;; Ecart maximal, en frames d'artiste, entre le `display-level` d'une scene et le premier `alive`
+;; qui le suit, pour que les deux commandes puissent encore tomber dans le MEME appel a
+;; `execute-commands-up-to` -- c'est-a-dire pour que le defaut soit possible. Voir la justification
+;; chiffree a l'endroit ou il est lu.
+(defconstant SCENE_GATE_ALIVE_GAP 16)
+
+;; Les noms d'acteurs que la scene courante va REVEILLER, releves dans sa command-list. Servent de
+;; SONDE (le verdict par acteur publie a l'ouverture), jamais de condition d'attente : voir le
+;; commentaire de la boucle plus bas.
+(define *scene-gate-alive* (new 'global 'boxed-array string SCENE_GATE_ALIVE_MAX))
+(define *scene-gate-alive-n* 0)
+
+;; CONTROLE POSITIF DE CE CYCLE, ET IL EST OBLIGATOIRE ICI. Vrai partout dans le jeu ; AUCUN code
+;; ne l'ecrit, seule la console de developpement peut le mettre a #f. Il DESARME le mode strict
+;; sans toucher a rien d'autre -- la sonde continue de publier son verdict acteur par acteur.
+;; RAISON D'ETRE : le defaut d'origine est une COURSE (une course x86 sur trois le reproduisait au
+;; cycle precedent), donc « dix sur dix » sur quelques courses ne prouverait rien a lui seul.
+;; Desarme, la barriere s'ouvre sur `statut=loaded` et la sonde rend `trouves=0/10` -- et c'est
+;; DETERMINISTE, parce que rien n'affiche le niveau voisin avant la frame d'artiste du
+;; `display-level`. Arme, elle rend 10/10. Meme binaire, meme course, un bit d'ecart.
+(define *scene-gate-strict* #t)
+
+(defun scene-level-goal-ready? ((nm symbol) (strict symbol))
+  "Le niveau est-il assez avance COTE GOAL pour que la scene puisse s'en servir ?
+   L'echelle des statuts est inactive -> loading -> loading-bt -> loading-done -> login -> loaded
+   -> alive -> active (engine/level/level.gc:248-258).
+   `strict` = la scene va REVEILLER des acteurs : il faut alors 'active, le seul statut que
+   `entity-by-name` regarde (engine/entity/entity.gc:100). Sinon 'loaded suffit -- c'est le seuil
+   a partir duquel `update! *load-state*` (level.gc:1144-1147) peut activer le niveau dans la
+   frame, et c'est le predicat d'avant ce cycle, inchange."
+  (let ((st (level-status *level* nm)))
+    (if strict
+      (= st 'active)
+      (or (= st 'loaded) (= st 'alive) (= st 'active)))))
+
+(defun scene-gate-actors! ((nm string) (quand symbol) (lev symbol))
+  "Publier, acteur par acteur, si la scene pourrait le faire naitre MAINTENANT, et rendre le
+   compte de ceux qui le sont.
+   NATURE : un VERDICT booleen par acteur, pas une duree ni une moyenne.
+   REPERE : la table d'entites des niveaux 'active -- c'est-a-dire, au mot pres, ce que la commande
+   `alive` lira 938 frames d'artiste plus tard. Ce n'est pas un substitut du signal, c'est le
+   signal lui-meme, appele par la meme fonction.
+   CE QU'ELLE LIT QUAND LE DEFAUT EST PRESENT : `trouve=#f` sur les dix, avec `statut=loaded` --
+   exactement la ligne mesuree le 2026-08-29. QUAND IL EST ABSENT : `trouve=#t` sur les dix, avec
+   `statut=active`. Les deux sont publiees dans la MEME course, a `quand=arme` puis `quand=ouvert`."
+  (let ((n 0))
+    (dotimes (i *scene-gate-alive-n*)
+      (let* ((who (-> *scene-gate-alive* i))
+             (e (entity-by-name who)))
+        (if e (+! n 1))
+        (format 0
+                "SCENEACTOR scene=~S quand=~A nom=~S trouve=~A niveau=~A statut=~A~%"
+                nm
+                quand
+                who
+                (if e #t #f)
+                lev
+                (level-status *level* lev))))
+    n))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gbeach-actors-gate -- LE BALAYAGE DE LA COMMAND-LIST VIT HORS DE LA BEHAVIOR
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; MESURE, PAS PRECAUTION. Le premier jet de ce cycle gardait les onze grandeurs du balayage dans
+;; les variables locales de `scene-load-gate!`. C'est un `defbehavior` qui SUSPEND : ses locales
+;; vivent sur la pile du PROCESS, et celle du process `logo` fait 512 octets. Le jeu s'est arrete
+;; net au demarrage, avant meme l'ecran titre :
+;;     ERROR: suspend called without enough stack in proc: #<logo ... :stack 112/512 ...>
+;;     Stack: 592/512
+;; 80 octets de trop, soit EXACTEMENT les dix cases ajoutees. Le balayage ne suspend jamais : il
+;; n'a rien a faire sur cette pile. Il passe donc par une fonction ordinaire, et ses resultats par
+;; des globales -- la behavior ne garde plus que `gpu` et `t0`, cinq cases de moins qu'avant ce
+;; cycle. Une seule scene est barrieree a la fois (`spool-lock`, plus haut dans ce fichier), donc
+;; ces globales n'ont pas deux ecrivains.
+(define *scene-gate-show0* (the-as symbol #f))
+(define *scene-gate-show1* (the-as symbol #f))
+(define *scene-gate-mode0* (the-as symbol #f))
+(define *scene-gate-mode1* (the-as symbol #f))
+;; frames d'ARTISTE, deja converties depuis leur `binteger` (le decalage de 3 bits que fait
+;; `command-get-float`, engine/level/load-boundary.gc:991-996). Publier une frame huit fois trop
+;; grande aurait rendu tout `ecart=` illisible, et aurait colle `gambler-introduction-1` (ecart 2)
+;; pile sur le seuil. -1 = pas vue.
+(define *scene-gate-dispf* -1)
+(define *scene-gate-alivef* -1)
+
+(defun scene-gate-wanted? ()
+  "La scene courante est-elle de celles ou le defaut est POSSIBLE ?
+   Il en faut DEUX a la fois : qu'elle reveille des acteurs, et que son `alive` soit assez PRES de
+   son `display-level` pour que les deux tombent dans le meme appel a `execute-commands-up-to`.
+   Balayage statique des 179 spool-anim de jak1 : la barriere en retient 18, neuf portent un
+   `alive`, et leurs ecarts en frames d'artiste sont
+       1, 1, 1, 2   |   37, 549, 719, 1280, 1360
+   Les deux populations sont separees par un facteur 18 : le seuil n'a pas a etre precis, il doit
+   tomber dans le trou. 16 frames d'artiste valent une frame de jeu de plus d'une demi-seconde
+   (`sage-intro-sequence-e` avance de ~1 frame d'artiste par frame de jeu a 30 images/s : 938
+   frames en 31,37 s de course x86), donc aucune cadence jouable ne fait tomber un ecart de 37
+   dans un meme appel.
+   CE QUE CA PROTEGE : les cinq autres scenes retenues gardent le predicat d'avant, au bit, et
+   leur niveau voisin n'est pas dessine plus tot qu'aujourd'hui."
+  (and (nonzero? *scene-gate-alive-n*)
+       (>= *scene-gate-dispf* 0)
+       (>= *scene-gate-alivef* *scene-gate-dispf*)
+       (<= (- *scene-gate-alivef* *scene-gate-dispf*) SCENE_GATE_ALIVE_GAP)))
+
+(defun scene-gate-strict? ()
+  "`scene-gate-wanted?` est une propriete de la SCENE ; ceci est ce qu'on en fait. Les separer
+   laisse la sonde publier son verdict meme quand le controle desarme la barriere : sans ca,
+   l'ablation n'aurait rien a lire et ne serait pas un controle."
+  (and (scene-gate-wanted?) *scene-gate-strict*))
+
+(defun scene-gate-scan! ((sa spool-anim))
+  "Relever dans la command-list de `sa` : le PREchargement de la frame 0, les niveaux AFFICHES avec
+   leur mode, et les acteurs REVEILLES avec la frame du premier d'entre eux. Demander le
+   prechargement au passage.
+   Les casts `the-as pair` reprennent la facon dont `execute-commands-up-to` parcourt cette meme
+   liste : car/cdr y sont types `object`."
   (let ((pre0 (the-as symbol #f))
         (pre1 (the-as symbol #f))
-        (show0 (the-as symbol #f))
-        (show1 (the-as symbol #f))
-        (cmds (the-as pair (-> arg0 command-list))))
+        (dispf1 -1)
+        (alivef1 -1)
+        (cmds (the-as pair (-> sa command-list))))
+    (set! *scene-gate-show0* (the-as symbol #f))
+    (set! *scene-gate-show1* (the-as symbol #f))
+    (set! *scene-gate-mode0* (the-as symbol #f))
+    (set! *scene-gate-mode1* (the-as symbol #f))
+    (set! *scene-gate-dispf* -1)
+    (set! *scene-gate-alivef* -1)
+    ;; la sonde d'acteurs appartient a CETTE scene et a elle seule
+    (set! *scene-gate-alive-n* 0)
     ;; ON NE BLOQUE PAS SUR `want-levels`, ON BLOQUE SUR `display-level`.
     ;; `want-levels` est un PREchargement : `ndi-intro` reclame `title village1` a la
     ;; frame 0 et n'affiche jamais village1 — le logo Naughty Dog n'a aucune raison
@@ -683,8 +840,6 @@
     ;; 115), `sage-intro-sequence-e` affiche beach (frame 937) : ce sont exactement les
     ;; deux scenes dont l'owner decrit le defaut. Une cible `#f` eteint l'affichage et
     ;; ne compte pas.
-    ;; Les casts `the-as pair` reprennent la facon dont execute-commands-up-to parcourt
-    ;; cette meme liste : car/cdr y sont types `object`.
     (while (not (null? cmds))
       (let ((entry (the-as pair (car cmds))))
         (when (pair? entry)
@@ -709,14 +864,33 @@
                         (let ((rest (the-as pair (cdr args))))
                           (when (and (pair? rest) (car rest))
                             (cond
-                              ((or (not show0) (= show0 (the-as symbol a0)))
-                               (set! show0 (the-as symbol a0)))
-                              ((or (not show1) (= show1 (the-as symbol a0)))
-                               (set! show1 (the-as symbol a0)))
-                              (else (empty))))))))))))))
+                              ((or (not *scene-gate-show0*) (= *scene-gate-show0* (the-as symbol a0)))
+                               (when (not *scene-gate-show0*)
+                                 (set! *scene-gate-mode0* (the-as symbol (car rest)))
+                                 (set! *scene-gate-dispf* (/ frame 8)))
+                               (set! *scene-gate-show0* (the-as symbol a0)))
+                              ((or (not *scene-gate-show1*) (= *scene-gate-show1* (the-as symbol a0)))
+                               (when (not *scene-gate-show1*)
+                                 (set! *scene-gate-mode1* (the-as symbol (car rest)))
+                                 (set! dispf1 (/ frame 8)))
+                               (set! *scene-gate-show1* (the-as symbol a0)))
+                              (else (empty))))))
+                      ;; Gbeach-actors-gate : les acteurs que la scene va REVEILLER. Leur argument
+                      ;; est une CHAINE, donc il passe la meme garde que les symboles ci-dessus.
+                      ;; Au-dela de SCENE_GATE_ALIVE_MAX on cesse d'en relever : la sonde devient
+                      ;; partielle et le DIT (`trouves=n/m`), elle ne ment pas.
+                      (when (= verb 'alive)
+                        (when (< *scene-gate-alive-n* SCENE_GATE_ALIVE_MAX)
+                          (set! (-> *scene-gate-alive* *scene-gate-alive-n*) (the-as string a0))
+                          (+! *scene-gate-alive-n* 1))
+                        ;; premier `alive` POSTERIEUR au `display-level` de chaque emplacement
+                        (if (and (>= *scene-gate-dispf* 0)
+                                 (< *scene-gate-alivef* 0)
+                                 (>= (/ frame 8) *scene-gate-dispf*))
+                          (set! *scene-gate-alivef* (/ frame 8)))
+                        (if (and (>= dispf1 0) (< alivef1 0) (>= (/ frame 8) dispf1))
+                          (set! alivef1 (/ frame 8))))))))))))
       (set! cmds (the-as pair (cdr cmds))))
-    ;; Demander le prechargement MAINTENANT : la command-list ne le ferait qu'a la
-    ;; frame 0, c'est-a-dire une fois le flux audio deja parti.
     ;; N'ATTENDRE QUE CE QUE LA SCENE RECLAME ELLE-MEME.
     ;; Un `display-level` portant sur un niveau que la command-list ne demande PAS a la
     ;; frame 0 (les scenes du maire, du sculpteur, `logo-intro-2`...) veut dire qu'un
@@ -725,78 +899,168 @@
     ;; on aurait remplace un pop-in par un ecran noir de 20 s. Balayage statique sur les
     ;; 179 spool-anim de jak1 : la regle passe de 28 scenes retenues a 18, et les 10 qui
     ;; tombent sont exactement celles qui affichent un niveau qu'elles ne demandent pas.
-    (if (and show0 (not (or (= show0 pre0) (= show0 pre1)))) (set! show0 (the-as symbol #f)))
-    (if (and show1 (not (or (= show1 pre0) (= show1 pre1)))) (set! show1 (the-as symbol #f)))
-    (when (and (not show0) show1)
-      (set! show0 show1)
-      (set! show1 (the-as symbol #f)))
-    (if pre0 (want-levels *load-state* pre0 pre1))
-    (when show0
-      ;; Gloading-screen (owner 2026-08-29) -- LA RESIDENCE GPU NE SUFFIT PAS, ET C'EST LA CAUSE
-      ;; DU POP-IN DES COLLECTEURS D'ECO VERT QUE L'OWNER SIGNALE DEUX FOIS.
-      ;;
-      ;; `__pc-scene-ready?` lit `load_gate::level_is_resident`, publie par
-      ;; `Loader.cpp:1462` — l'instant ou la GEOMETRIE tfrag3 et les textures sont televersees.
-      ;; C'est un pipeline INDEPENDANT du chargement DGO cote GOAL. Or la command-list de
-      ;; `sage-intro-sequence-e` fait `display-level beach movie` a la frame 937 puis
-      ;; `alive "harvester-87..91"` a la frame 938, et `alive` passe par `entity-by-name`
-      ;; (engine/entity/entity.gc:92-113) qui ne parcourt QUE les niveaux au statut 'active.
-      ;; Une barriere qui n'attend que le GPU peut donc laisser partir la scene alors que le DGO
-      ;; de beach est encore en 'login : `display-level` est alors sans effet immediat
-      ;; (engine/level/level.gc:1144-1147 n'active que ce qui est deja 'loaded), la commande
-      ;; `alive` ne trouve rien, et elle est consommee SANS ETRE REJOUEE
-      ;; (engine/level/load-boundary.gc:1185). Les collecteurs n'apparaissent jamais a l'heure.
-      ;;
-      ;; On attend donc les DEUX : residence GPU (le niveau est dessinable) ET statut GOAL
-      ;; 'loaded ou mieux (le niveau est activable dans la frame). Un seul plafond couvre les
-      ;; deux, pour que la somme ne puisse pas depasser ce qu'un humain accepte de regarder.
-      ;;
-      ;; CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : `attendu=0` et `statut=active` des le premier
-      ;; tour, la boucle ne s'execute pas, et le rendu est inchange au bit.
-      (let ((gpu #f)
-            (t0 (current-time)))
-        (until (or (and gpu
-                        (scene-level-goal-ready? show0)
-                        (or (not show1) (scene-level-goal-ready? show1)))
-                   (>= (- (current-time) t0) SCENE_GATE_CEILING))
-          ;; Le volet GPU se LATCHE : `scene_ready` efface son armement quand il rend 1, donc le
-          ;; rappeler republierait une paire arm/open a chaque frame et remettrait son propre
-          ;; plafond a zero. Une fois vrai, il le reste.
-          (when (not gpu)
-            (set! gpu (nonzero? (__pc-scene-ready?
-                                 (-> arg0 name)
-                                 (symbol->string show0)
-                                 (if show1 (symbol->string show1) "none")
-                                 ;; Plafond 20 s. Le loader passe sur son chemin BLOQUANT tant
-                                 ;; que la barriere est fermee (cout mesure d'un niveau : ~5 s,
-                                 ;; village1 4,6 s), donc c'est un plafond, pas une cible.
-                                 20000))))
-          ;; Garder la partie streamee vivante pendant l'attente. Toutes les autres
-          ;; boucles d'attente de ce fichier repoussent a chaque tour pour cette raison :
-          ;; sans push, l'art control peut lacher le spool qu'on s'apprete a jouer.
-          (spool-push *art-control* (-> arg0 name) 0 self -20.0)
-          (set-blackout-frames (seconds 0.05))
-          ;; Gloading-screen : armer l'ecran de chargement AU NOM de la barriere de scene. Les
-          ;; coupes de camera (pov-camera.gc:103), les boutons (basebutton.gc:348) et la mort
-          ;; poussent `blackout-time` juste au-dessus et ne posent JAMAIS ce bit : ils sont exclus
-          ;; par construction, pas par un reglage qu'on pourrait rater.
-          (loading-screen-hold-by! LS_HOLD_SCENE)
-          (suspend))
-        ;; LA LIGNE QUI TRANCHE, et elle manquait : elle publie le statut GOAL du niveau que la
-        ;; scene va AFFICHER, a l'instant ou la barriere s'ouvre. C'est ce statut, et non la
-        ;; residence GPU, qui decide si `alive` trouvera les acteurs.
-        (format 0
-                "LOADGATE-GOAL scene=~S niveau=~A statut=~A gpu=~A attendu=~D~%"
-                (-> arg0 name)
-                show0
-                (level-status *level* show0)
-                gpu
-                (- (current-time) t0)))
-      ;; Gloading-screen : la barriere vient de s'ouvrir -- relacher l'ecran TOUT DE SUITE. La
-      ;; fermeture normale d'un episode est donc un APPEL, pas l'expiration d'un delai, et le
-      ;; sursis de `LOADING_SCREEN_HOLD` n'est plus qu'un chien de garde pour le cas ou ce
-      ;; processus serait tue en pleine attente.
-      (loading-screen-release-by! LS_HOLD_SCENE)))
+    (when (and *scene-gate-show0*
+               (not (or (= *scene-gate-show0* pre0) (= *scene-gate-show0* pre1))))
+      (set! *scene-gate-show0* (the-as symbol #f))
+      (set! *scene-gate-mode0* (the-as symbol #f))
+      (set! *scene-gate-dispf* -1)
+      (set! *scene-gate-alivef* -1))
+    (when (and *scene-gate-show1*
+               (not (or (= *scene-gate-show1* pre0) (= *scene-gate-show1* pre1))))
+      (set! *scene-gate-show1* (the-as symbol #f))
+      (set! *scene-gate-mode1* (the-as symbol #f))
+      (set! dispf1 -1)
+      (set! alivef1 -1))
+    (when (and (not *scene-gate-show0*) *scene-gate-show1*)
+      (set! *scene-gate-show0* *scene-gate-show1*)
+      (set! *scene-gate-mode0* *scene-gate-mode1*)
+      (set! *scene-gate-dispf* dispf1)
+      (set! *scene-gate-alivef* alivef1)
+      (set! *scene-gate-show1* (the-as symbol #f))
+      (set! *scene-gate-mode1* (the-as symbol #f)))
+    ;; Demander le prechargement MAINTENANT : la command-list ne le ferait qu'a la
+    ;; frame 0, c'est-a-dire une fois le flux audio deja parti.
+    (if pre0 (want-levels *load-state* pre0 pre1)))
+  0)
+
+(defun scene-gate-levels-ready? ()
+  "Les niveaux que la scene va AFFICHER sont-ils utilisables cote GOAL ?
+   Une seule fonction, appelee depuis la condition de la boucle : chaque sous-expression laissee
+   dans la behavior coute des cases sur la pile de PROCESS, et il n'en restait que 144."
+  (and (scene-level-goal-ready? *scene-gate-show0* (scene-gate-strict?))
+       (or (not *scene-gate-show1*)
+           (scene-level-goal-ready? *scene-gate-show1* (scene-gate-strict?)))))
+
+(defun scene-gate-arm! ((nm string))
+  "Ce qui se fait UNE FOIS, avant d'attendre : avancer le `display-level` que la scene porte deja,
+   et prendre la LIGNE DE BASE de la sonde d'acteurs.
+   Hors de la behavior pour la meme raison que `scene-gate-scan!` : la pile de process."
+  (when (scene-gate-wanted?)
+    (format 0
+            "SCENEGATE-STRICT scene=~S voulu=~A arme=~A ecart=~D~%"
+            nm
+            (scene-gate-wanted?)
+            *scene-gate-strict*
+            (- *scene-gate-alivef* *scene-gate-dispf*)))
+  (when (scene-gate-strict?)
+    ;; AVANCER LA COMMANDE QUE LA SCENE PORTE DEJA. Sans ca, attendre 'active serait attendre un
+    ;; etat que PERSONNE ne produit avant la frame du `display-level` -- exactement le piege que ce
+    ;; fichier documente plus haut, et on irait au plafond pour rien. On n'invente aucune commande
+    ;; et on ne choisit aucun mode : `*scene-gate-mode0*` sort de la command-list. La scene
+    ;; rejouera son `display-level` a l'heure prevue et `update!` n'y verra rien a faire
+    ;; (level.gc:1141, le voeu et l'etat coincident deja).
+    (want-display-level *load-state* *scene-gate-show0* *scene-gate-mode0*)
+    (if *scene-gate-show1* (want-display-level *load-state* *scene-gate-show1* *scene-gate-mode1*))
+    (format 0
+            "SCENEGATE-DISPLAY scene=~S niveau=~A mode=~A frame=~D alive=~D~%"
+            nm
+            *scene-gate-show0*
+            *scene-gate-mode0*
+            *scene-gate-dispf*
+            *scene-gate-alivef*))
+  ;; LIGNE DE BASE DE LA SONDE, prise AVANT toute attente. C'est le controle negatif : au meme
+  ;; instant ou la barriere s'arme, aucun de ces acteurs n'est instanciable. Sans elle, `trouve=#t`
+  ;; a l'ouverture n'aurait pas d'echelle. Publiee que la barriere soit armee ou non, sinon
+  ;; l'ablation n'aurait rien a comparer.
+  (when (scene-gate-wanted?)
+    (format 0
+            "SCENEGATE-ACTEURS scene=~S quand=arme niveau=~A statut=~A trouves=~D/~D~%"
+            nm
+            *scene-gate-show0*
+            (level-status *level* *scene-gate-show0*)
+            (scene-gate-actors! nm 'arme *scene-gate-show0*)
+            *scene-gate-alive-n*))
+  0)
+
+(defun scene-gate-open! ((nm string) (gpu symbol) (waited time-frame))
+  "Le verdict, a l'instant ou la barriere s'ouvre."
+  ;; LA LIGNE QUI TRANCHE : elle publie le statut GOAL du niveau que la scene va AFFICHER. C'est ce
+  ;; statut, et non la residence GPU, qui decide si `alive` trouvera les acteurs.
+  (format 0
+          "LOADGATE-GOAL scene=~S niveau=~A statut=~A gpu=~A attendu=~D strict=~A~%"
+          nm
+          *scene-gate-show0*
+          (level-status *level* *scene-gate-show0*)
+          gpu
+          waited
+          (scene-gate-strict?))
+  ;; LE VERDICT, ACTEUR PAR ACTEUR, AVANT QUE LA SCENE NE LES REVEILLE.
+  ;; Ce n'est pas une condition d'attente, et c'est delibere : quand les niveaux affiches sont
+  ;; 'active, la barriere n'a plus RIEN a attendre -- une clause « et les acteurs sont trouvables »
+  ;; serait alors soit vraie par construction (donc infalsifiable), soit un blocage de 20 s sur un
+  ;; acteur qui vit dans un TROISIEME niveau, ce qui existe : trois des dix-huit scenes retenues
+  ;; ont un `alive` hors de leur niveau affiche. Publier le verdict le rend au contraire
+  ;; REFUTABLE : un `trouves=` inferieur au total dirait que le modele est faux.
+  (when (scene-gate-wanted?)
+    (format 0
+            "SCENEGATE-ACTEURS scene=~S quand=ouvert niveau=~A statut=~A trouves=~D/~D~%"
+            nm
+            *scene-gate-show0*
+            (level-status *level* *scene-gate-show0*)
+            (scene-gate-actors! nm 'ouvert *scene-gate-show0*)
+            *scene-gate-alive-n*))
+  0)
+
+(defbehavior scene-load-gate! process-drawable ((arg0 spool-anim))
+  "Hold this scene until every level it will DISPLAY is drawable, and -- for the scenes that WAKE
+   actors -- until those actors are instantiable. No-op otherwise."
+  ;; Gbeach-actors-gate -- CETTE BEHAVIOR NE GARDE QUE `gpu` ET `t0`, ET C'EST UNE CONTRAINTE
+  ;; MESUREE, PAS UN GOUT. Elle SUSPEND, donc ses locales vivent sur la pile du PROCESS. Le process
+  ;; `sage` en occupe deja 368 sur 512 quand il l'appelle : il reste 144 octets. Les deux premiers
+  ;; jets de ce cycle les ont depasses et le jeu s'est arrete net --
+  ;;     ERROR: suspend called without enough stack in proc: #<logo ...>  Stack: 592/512
+  ;;     ERROR: suspend called without enough stack in proc: #<sage ...>  Stack: 528/512
+  ;; Tout ce qui ne suspend pas (balayage, armement, verdict) vit donc dans des fonctions
+  ;; ordinaires : `scene-gate-scan!`, `scene-gate-arm!`, `scene-gate-open!`.
+  ;;
+  ;; POURQUOI LA BARRIERE ATTEND DEUX CHOSES. `__pc-scene-ready?` lit
+  ;; `load_gate::level_is_resident`, publie par `Loader.cpp:1462` : la GEOMETRIE tfrag3 et les
+  ;; textures sont televersees. C'est un pipeline INDEPENDANT du chargement DGO cote GOAL, et rien
+  ;; dedans ne parle des ACTEURS. Or la command-list de `sage-intro-sequence-e` fait
+  ;; `display-level beach movie` a la frame 937 puis `alive "harvester-87..91"` a la 938, et
+  ;; `alive` passe par `entity-by-name` (engine/entity/entity.gc:92-113), qui ne parcourt QUE les
+  ;; niveaux au statut 'active. La course du 2026-08-29 tranche : la barriere s'ouvrait sur
+  ;; `statut=loaded` et les dix acteurs sortaient `trouve=#f` ; les courses qui passaient avaient
+  ;; `beach/active`. Une seule colonne separe les deux populations.
+  ;;
+  ;; CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : `attendu=0` et `statut=active` des le premier tour,
+  ;; la boucle ne s'execute pas, et le rendu est inchange au bit.
+  (scene-gate-scan! arg0)
+  (when *scene-gate-show0*
+    (let ((gpu #f)
+          (t0 (current-time)))
+      (scene-gate-arm! (-> arg0 name))
+      (until (or (and gpu (scene-gate-levels-ready?))
+                 (>= (- (current-time) t0) SCENE_GATE_CEILING))
+        ;; Le volet GPU se LATCHE : `scene_ready` efface son armement quand il rend 1, donc le
+        ;; rappeler republierait une paire arm/open a chaque frame et remettrait son propre
+        ;; plafond a zero. Une fois vrai, il le reste.
+        (when (not gpu)
+          (set! gpu (nonzero? (__pc-scene-ready?
+                               (-> arg0 name)
+                               (symbol->string *scene-gate-show0*)
+                               (if *scene-gate-show1* (symbol->string *scene-gate-show1*) "none")
+                               ;; Plafond 20 s. Le loader passe sur son chemin BLOQUANT tant
+                               ;; que la barriere est fermee (cout mesure d'un niveau : ~5 s,
+                               ;; village1 4,6 s), donc c'est un plafond, pas une cible.
+                               20000))))
+        ;; Garder la partie streamee vivante pendant l'attente. Toutes les autres
+        ;; boucles d'attente de ce fichier repoussent a chaque tour pour cette raison :
+        ;; sans push, l'art control peut lacher le spool qu'on s'apprete a jouer.
+        (spool-push *art-control* (-> arg0 name) 0 self -20.0)
+        (set-blackout-frames (seconds 0.05))
+        ;; Gloading-screen : armer l'ecran de chargement AU NOM de la barriere de scene. Les
+        ;; coupes de camera (pov-camera.gc:103), les boutons (basebutton.gc:348) et la mort
+        ;; poussent `blackout-time` juste au-dessus et ne posent JAMAIS ce bit : ils sont exclus
+        ;; par construction, pas par un reglage qu'on pourrait rater.
+        (loading-screen-hold-by! LS_HOLD_SCENE)
+        (suspend))
+      (scene-gate-open! (-> arg0 name) gpu (- (current-time) t0)))
+    ;; Gloading-screen : la barriere vient de s'ouvrir -- relacher l'ecran TOUT DE SUITE. La
+    ;; fermeture normale d'un episode est donc un APPEL, pas l'expiration d'un delai, et le
+    ;; sursis de `LOADING_SCREEN_HOLD` n'est plus qu'un chien de garde pour le cas ou ce
+    ;; processus serait tue en pleine attente.
+    (loading-screen-release-by! LS_HOLD_SCENE))
   0)
 
 ;; Gloading-screen — RETOUR OWNER 2026-08-29 : « L'ecran de chargement est bien la, mais pas quand

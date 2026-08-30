@@ -1664,6 +1664,15 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gbeach-actors-gate
+  name: 'COLLECTEURS D''ECO VERT AU RETOUR DE GEYSER ROCK (owner, signale DEUX FOIS) : les harvester-* sont dans `beach`, pas `village1`, et n''apparaissent pas pendant le survol. LIGNE DECISIVE DEJA CAPTUREE : `LOADGATE open reason=resident`, PAS timeout, et les dix acteurs sortent trouve=#f. Le plafond de 20 s est HORS DE CAUSE, ne pas le relever. La barriere attend la RESIDENCE GPU du decor ; la scene a besoin des ACTEURS.'
+  prompt: prompts/phase-Gbeach-actors-gate.md
+  validator: validators/phase-Gbeach-actors-gate.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gpbr-per-texture-materials
   name: 'PBR PAR MATIERE, PAS DEUX CURSEURS GLOBAUX (owner 2026-08-28) : « un tissu n''a pas les mêmes propriétés qu''un mur en pierres taillées ou que du sable ». MESURE : il n''existe que deux réglages de matière dans tout le moteur. D''ABORD le repère tangent (relief présent/absent/inversé selon les faces), ENSUITE la table de matières par texture, versionnée dans le dépôt d''assets. [PREUVE x86 : l''owner 2026-08-29 — « la plupart des choses sont testables sur x86 aussi, y compris les divers aspect ratios ». La garde de presence d''appareil ne doit PAS bloquer un travail dont la preuve se fait au clavier. Verification sur appareil quand un appareil revient, jamais comme prerequis.]'
   prompt: prompts/phase-Gpbr-per-texture-materials.md
