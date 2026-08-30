@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 250,
+  "current_phase_idx": 244,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -244,8 +244,7 @@
     "Gpbr-material-props": 1,
     "Gbeach-actors-gate": 1,
     "Gjak-hd-rig-strap": 1,
-    "Gbuild-from-scratch": 1,
-    "Gfixed-tick-interpolation": 1
+    "Gbuild-from-scratch": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -884,9 +883,7 @@
     "Grecharged-hd-models4",
     "Grecharged-title-logo-fullres",
     "Grecharged-hud-jak1",
-    "Grecharged-managed-assets-merge",
-    "Gbeach-actors-gate",
-    "Gjak-hd-rig-strap"
+    "Grecharged-managed-assets-merge"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -1106,10 +1103,9 @@
     "Gshield-load-and-crash": 1787771404.1380155,
     "Gmemory-ceiling-and-crash": 1787777998.7240753,
     "Gprecompute-deterministic-bake": 1787793399.3471632,
-    "Gplayability-input-and-loadgate": 1787811833.8953981,
-    "Gfixed-tick-interpolation": 1788082832.8938866
+    "Gplayability-input-and-loadgate": 1787811833.8953981
   },
-  "last_update": "2026-08-30T09:48:14.137684+00:00",
+  "last_update": "2026-08-30T09:01:31.602314+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1237,10 +1233,6 @@
     "Gjak2-polish": "owner 2026-07-10: collision REGRESSION game-breaking (no crates, no moving-platform landing) from the crouch-fix nav/collide enablement; park jak2, resume jak1",
     "Gmemory-ceiling-and-crash": "2026-08-27 : validateur ET gates PASSES, verifie par moi sur le Redmi jusqu'en JEU (memoire 1370 -> 744 Mo, niveau 122,1 -> 40,6 Mo, zero SIGSEGV, build publie sur jak-builds). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/Gmemory-ceiling-and-crash quand il valide.",
     "Gprecompute-deterministic-bake": "2026-08-27 : validateur ET gates PASSES, verifie par moi sur le Redmi \u2014 mise en place des textures 6208 -> 571 ms, pire etape 1602 -> 83 ms, 0 blocage >200ms, memoire 747 Mo stable, zero SIGSEGV, build publie sur jak-builds. N'ATTEND QUE LA PAROLE DE L'OWNER.",
-    "Gplayability-input-and-loadgate": "2026-08-27 : gates PASSEES. Barriere de chargement livree et VUE a l'oeuvre (logo-intro waited=6769ms, plafond 20 s). Le saut reste OUVERT et NON REPRODUIT : chaine d'entree mesuree saine deux fois (228/228), 3 hypotheses refutees par la mesure. Les chiffres avant/apres du survol de la plage sont A REFAIRE : le marqueur 'son' etait faux, la session l'a elle-meme invalide. N'ATTEND QUE LA PAROLE DE L'OWNER.",
-    "Gloading-screen": "2026-08-30 : validateur ET gates PASSES, build installe et verifie sur la Shield (14 fichiers du pack HD apparies par empreinte, 0 ecart, demarrage propre jusqu'au titre, 0 entree ISO dans l'APK). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/<phase> quand il valide.",
-    "Gbuild-from-scratch": "2026-08-30 : validateur ET gates PASSES, build installe et verifie sur la Shield (14 fichiers du pack HD apparies par empreinte, 0 ecart, demarrage propre jusqu'au titre, 0 entree ISO dans l'APK). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/<phase> quand il valide.",
-    "Gpbr-per-texture-materials": "2026-08-30 : validateur ET gates PASSES, build installe et verifie sur la Shield (14 fichiers du pack HD apparies par empreinte, 0 ecart, demarrage propre jusqu'au titre, 0 entree ISO dans l'APK). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/<phase> quand il valide.",
-    "Gpbr-material-props": "2026-08-30 : validateur ET gates PASSES, build installe et verifie sur la Shield (14 fichiers du pack HD apparies par empreinte, 0 ecart, demarrage propre jusqu'au titre, 0 entree ISO dans l'APK). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/<phase> quand il valide."
+    "Gplayability-input-and-loadgate": "2026-08-27 : gates PASSEES. Barriere de chargement livree et VUE a l'oeuvre (logo-intro waited=6769ms, plafond 20 s). Le saut reste OUVERT et NON REPRODUIT : chaine d'entree mesuree saine deux fois (228/228), 3 hypotheses refutees par la mesure. Les chiffres avant/apres du survol de la plage sont A REFAIRE : le marqueur 'son' etait faux, la session l'a elle-meme invalide. N'ATTEND QUE LA PAROLE DE L'OWNER."
   }
 }
