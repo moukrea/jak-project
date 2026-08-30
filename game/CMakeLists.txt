@@ -28,6 +28,8 @@ set(RUNTIME_SOURCE
         external/discord_jakx.cpp
         external/discord.cpp
         graphics/display.cpp
+        # Gfixed-tick-interpolation : horloge a pas fixe + alpha d'interpolation de rendu.
+        graphics/fixed_tick.cpp
         graphics/gfx_test.cpp
         graphics/gfx.cpp
         graphics/jak2_texture_remap.cpp

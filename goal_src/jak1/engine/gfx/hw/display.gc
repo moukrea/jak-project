@@ -39,6 +39,19 @@
   ;; calculations from getting huge.
   (let ((ratio (fmin 4.0 slowdown)))
     (set! (-> this time-ratio) ratio)
+    ;; Gfixed-tick-interpolation : quand l'horloge a pas fixe pilote la simulation, le
+    ;; pas vaut 1/60 s QUELLE QUE SOIT la cadence d'affichage. Les constantes de temps
+    ;; ne doivent donc plus etre derivees de `target-fps` — sinon `seconds-per-frame`
+    ;; vaudrait 1/25 s sur un ecran a 25 Hz et on aurait juste deplace le defaut.
+    ;; Ce sont exactement les constantes de la branche 'ntsc (60 Hz, 5 unites d'horloge
+    ;; par frame => 300 par seconde), et `DISPLAY_FPS_RATIO` retombe donc a 1.0, ce qui
+    ;; neutralise par construction les corrections « high fps » semees dans le moteur.
+    (when (nonzero? *fixed-tick-armed*)
+      (set! (-> this time-adjust-ratio) ratio)
+      (set! (-> this seconds-per-frame) (* 0.016666668 ratio))
+      (set! (-> this frames-per-second) (* 60.0 (/ 1.0 ratio)))
+      (set! (-> this time-factor) 5.0)
+      (return (-> this time-ratio)))
     (case (get-video-mode)
       (('pal)
        (set! (-> this time-adjust-ratio) (* 1.2 ratio))

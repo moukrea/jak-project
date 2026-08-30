@@ -235,7 +235,17 @@
    gameplay camera (look-through-other / external) so the title & scripted cameras stay
    byte-identical/perfect. Call AFTER the mode cond writes the raw pose and BEFORE
    matrix-transpose! rebuilds camera-rot/camera-temp."
-  (let* ((alpha (/ (the float (pc-camera-interp-alpha)) 1000000.0))
+  ;; Gfixed-tick-interpolation : la source de l'alpha. `pc-camera-interp-alpha` est
+  ;; l'horloge de frame ANDROID ; sur x86 son binding renvoie 1e6 en dur
+  ;; (game/kernel/common/kmachine.cpp), donc le bureau n'a JAMAIS fait d'interpolation
+  ;; de rendu. Quand l'horloge a pas fixe est armee, l'alpha vient d'elle et vaut donc
+  ;; la meme chose sur les deux plateformes : ou se situe le temps reel entre le tick
+  ;; precedent et le tick courant. A cadence verrouillee elle publie 1e6, ce qui
+  ;; retombe exactement sur « pose courante » — la sortie 60 fps ne bouge pas.
+  (let* ((alpha (/ (the float (if (nonzero? *fixed-tick-armed*)
+                                  *fixed-tick-alpha*
+                                  (pc-camera-interp-alpha)))
+                   1000000.0))
          (mc *math-camera*)
          (inv (-> mc inv-camera-rot)))
     (let ((curr-quat (new-stack-quaternion0))

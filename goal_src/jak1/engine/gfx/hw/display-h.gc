@@ -206,6 +206,28 @@
 (defmacro real-current-time ()
   `(-> *display* real-frame-counter))
 
+;; Gfixed-tick-interpolation (owner 2026-08-26) — LES TROIS SYMBOLES QUE L'HORLOGE A PAS
+;; FIXE ECRIT DEPUIS LE NATIF (game/graphics/fixed_tick.cpp, publies par
+;; game/kernel/jak1/kmachine.cpp `fixed_tick_publish`), UNE FOIS PAR IMAGE DESSINEE.
+;;
+;; POURQUOI DES VALEURS DE SYMBOLE ET PAS DES FONCTIONS NATIVES. Android ne passe pas
+;; par `init_common_pc_port_functions` (android/android_runtime_compat.cpp
+;; l'ecrase et n'enregistre AUCUN pc-*) : un symbole-fonction oublie la-bas ne casse pas
+;; le lien, il fait sauter GOAL a l'adresse 0 et le processus meurt en SIGILL. Une
+;; valeur de symbole non ecrite laisse au contraire `*fixed-tick-armed*` a 0, donc le
+;; moteur reste EXACTEMENT sur son chemin d'origine. Le mode de defaillance est le
+;; comportement d'avant, jamais un plantage.
+;;
+;; `*fixed-tick-armed*`   1 quand la simulation est pilotee a pas fixe de 1/60 s.
+;; `*fixed-tick-catchup*` ticks de RATTRAPAGE restants : `display-loop` les execute
+;;                        sans rien dessiner et decremente lui-meme ce compteur.
+;; `*fixed-tick-alpha*`   alpha d'interpolation de rendu en micro-unites ; 1000000
+;;                        signifie « pose courante », donc AUCUNE interpolation (c'est
+;;                        ce que publie une cadence verrouillee a 60 Hz).
+(define *fixed-tick-armed* 0)
+(define *fixed-tick-catchup* 0)
+(define *fixed-tick-alpha* 1000000)
+
 (defmacro seconds-per-frame ()
   `(-> *display* seconds-per-frame))
 

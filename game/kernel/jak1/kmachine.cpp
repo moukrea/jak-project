@@ -24,10 +24,12 @@
 #include "common/log/log.h"
 #include "common/symbols.h"
 #include "common/util/FileUtil.h"
+#include "common/util/Timer.h"
 #include "common/util/string_util.h"
 
 #include "game/external/discord_jak1.h"
 #include "game/graphics/display.h"
+#include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
 #include "game/system/load_gate.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
@@ -4861,9 +4863,84 @@ static bool pad_replay_realtime_requested() {
 
 static void pad_replay_force_timestep() {
   if (pad_replay_realtime_requested()) {
+    // Gfixed-tick-interpolation : diagnostic a cadence REELLE — l'accumulateur lit la
+    // montre, donc le rattrapage (plusieurs ticks de 1/60 s par image) s'exerce.
+    fixed_tick::set_deterministic(false);
     return;  // real-timestep diagnostic: let the device's variable pacing drive the clock
   }
+  // Gfixed-tick-interpolation : en rejeu deterministe, l'horloge a pas fixe rend
+  // exactement 1 tick par image sans lire la montre — sinon la gigue reelle de la
+  // machine entrerait dans une course qui doit etre reproductible. Le pas vaut alors
+  // 1/60 s a TOUS les framerates cibles, ce qui isole la taille du pas comme seule
+  // variable entre deux legs de mesure.
+  fixed_tick::set_deterministic(true);
   intern_from_c("*ticks-per-frame*")->value = 0x40000000;
+}
+
+// Gfixed-tick-interpolation : publication de l'horloge vers GOAL. Trois symboles
+// suffisent, et AUCUN nouveau symbole-FONCTION n'est cree — c'est deliberé. Sur
+// Android la table des symboles est batie par un chemin separe
+// (android/android_runtime_compat.cpp n'enregistre AUCUN des pc-*), et un symbole
+// fonction oublie la-bas ne se manifeste pas par une erreur de lien : GOAL saute a 0
+// et le processus meurt en SIGILL. Une VALEUR de symbole non ecrite, elle, laisse
+// simplement `*fixed-tick-armed*` a 0, c'est-a-dire le comportement d'avant.
+static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro) {
+  intern_from_c("*fixed-tick-armed*")->value = (u32)armed;
+  intern_from_c("*fixed-tick-catchup*")->value = (u32)catchup;
+  intern_from_c("*fixed-tick-alpha*")->value = (u32)alpha_micro;
+
+  // SONDE DE CADENCE, une ligne par image DESSINEE (env OG_FIXED_TICK_PROBE=1, sinon
+  // muette). Elle est posee ICI et pas ailleurs parce que ce point est atteint APRES
+  // que `cam-render-interp!` a retime *math-camera* et APRES que la chaine DMA a ete
+  // construite : le lacet publie est donc celui que le RENDU a reellement consomme,
+  // pas un etat interne du processus camera. C'est la grandeur dont le judder est la
+  // derivee seconde (game/kernel/jak1/kmachine.cpp, note « the gameplay camera
+  // juders while the world/Jak stay smooth »).
+  //
+  // Publie aussi la position de Jak : le meme fichier porte alors la trajectoire de
+  // saut ET la cadence, donc on ne peut pas les apparier de travers.
+  static const bool s_probe = (getenv("OG_FIXED_TICK_PROBE") != nullptr);
+  if (!s_probe) {
+    return;
+  }
+  static Timer s_probe_timer;
+  static bool s_probe_have = false;
+  static u64 s_probe_n = 0;
+  double dt_ms = 0.0;
+  if (s_probe_have) {
+    dt_ms = s_probe_timer.getSeconds() * 1000.0;
+  }
+  s_probe_timer.start();
+  s_probe_have = true;
+
+  float cx = 0.f, cy = 0.f, cz = 0.f, yaw = 0.f;
+  float jx = 0.f, jy = 0.f, jz = 0.f;
+  const u32 mc = intern_from_c("*math-camera*")->value;
+  if (mc != 0 && mc != (u32)s7.offset && mc < (u32)(EE_MAIN_MEM_SIZE - 0x424)) {
+    const float* trans = (const float*)(g_ee_main_mem + mc + 844);
+    const float* fwd = (const float*)(g_ee_main_mem + mc + 364 + 32);  // camera-rot ligne 2
+    cx = trans[0];
+    cy = trans[1];
+    cz = trans[2];
+    yaw = (float)(atan2((double)fwd[0], (double)fwd[2]) * 57.29577951308232);
+  }
+  const u32 tgt = intern_from_c("*target*")->value;
+  if (tgt != 0 && tgt != (u32)s7.offset && tgt < (u32)(EE_MAIN_MEM_SIZE - 4)) {
+    u32 ctrl = 0;
+    std::memcpy(&ctrl, g_ee_main_mem + tgt + 108, 4);
+    if (ctrl != 0 && ctrl != (u32)s7.offset && ctrl < (u32)(EE_MAIN_MEM_SIZE - 24)) {
+      const float* jt = (const float*)(g_ee_main_mem + ctrl + 12);
+      jx = jt[0];
+      jy = jt[1];
+      jz = jt[2];
+    }
+  }
+  const s64 lf = pad_replay_logic_frame();
+  fprintf(stderr,
+          "GFT n=%llu lf=%lld armed=%d k=%d alpha=%d dt_ms=%.3f yaw=%.5f "
+          "cam=%.3f,%.3f,%.3f jak=%.3f,%.3f,%.3f\n",
+          (unsigned long long)s_probe_n++, (long long)lf, armed, catchup + 1, alpha_micro,
+          dt_ms, yaw, cx, cy, cz, jx, jy, jz);
 }
 
 // Gcamera-interp (autoport, owner 2026-07-01): per-logic-frame CAMERA-MATRIX dump
@@ -4932,6 +5009,11 @@ void InitMachineScheme() {
   // trace localizes any x86-vs-arm64 camera numerical divergence (no-op unless a
   // trace file is open via OG_PAD_REPLAY_TRACE / debug.opengoal.pad_trace).
   pad_replay::set_state_dump_callback(&pad_replay_dump_camera);
+  // Gfixed-tick-interpolation (autoport, owner 2026-08-26) : brancher l'horloge a pas
+  // fixe sur la table des symboles jak1. InitMachineScheme est atteint sur les DEUX
+  // plateformes (bureau via kboot, Android via android_runtime_full.cpp
+  // InitHeapAndSymbol -> InitMachineScheme), donc ce rappel est le meme des deux cotes.
+  fixed_tick::set_publisher(&fixed_tick_publish);
   make_function_symbol_from_c("install-handler", (void*)InstallHandler);      // used
   make_function_symbol_from_c("install-debug-handler", (void*)InstallDebugHandler);       // used
   make_function_symbol_from_c("file-stream-open", (void*)kopen);                          // used

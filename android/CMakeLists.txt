@@ -684,6 +684,10 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendCPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/FollowProbe.cpp"
+    # Gfixed-tick-interpolation : l'horloge a pas fixe est appelee par
+    # a35_send_gfx_dma_chain (gk_android_main.cpp) ; la liste de sources Android est
+    # separee de celle du bureau, il faut donc la citer ici aussi ou libgk.so ne lie pas.
+    "${JAK_ROOT}/game/graphics/fixed_tick.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
     # Grecharged-mesh-browser V2 — normal-orientation gizmo pass; TFragment.cpp and
     # Tie3.cpp call mb_gizmos::render unconditionally, so libgk.so fails to link

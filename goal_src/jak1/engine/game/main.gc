@@ -1396,6 +1396,28 @@
     (while *run*
       ;; start immediately after all process updates finish.
       (profiler-instant-event "display-loop-top")
+      ;; Gfixed-tick-interpolation (owner 2026-08-26) — TICKS DE RATTRAPAGE.
+      ;;
+      ;; C'est ICI que la simulation cesse de dependre de la cadence d'affichage. Sans
+      ;; ce bloc, une image de 40 ms (25 fps) faisait avancer le moteur d'UN pas de
+      ;; 40 ms : un integrateur regle pour 1/60 s ne rend alors ni la meme hauteur de
+      ;; saut ni les memes seuils d'etat comptes en frames. Avec ce bloc, la meme image
+      ;; execute DEUX OU TROIS pas de 1/60 s — la trajectoire est celle de 60 fps.
+      ;;
+      ;; `display-loop` est le DERNIER processus du pool : quand ce tour arrive, tous
+      ;; les autres processus ont deja tourne une fois. Un tick de rattrapage consiste
+      ;; donc a avancer les horloges d'exactement un pas, a faire avancer les
+      ;; particules du meme pas, puis a rendre la main SANS RIEN DESSINER — le
+      ;; repartiteur du noyau refait alors tourner tout l'arbre des processus.
+      ;;
+      ;; Le compteur est ecrit par le natif une fois par image dessinee et decremente
+      ;; ici : il est donc borne par `kMaxCatchupTicks` (4), et une image ne peut pas
+      ;; se faire attendre indefiniment.
+      (while (> *fixed-tick-catchup* 0)
+        (set! *fixed-tick-catchup* (- *fixed-tick-catchup* 1))
+        (display-frame-advance-clocks! disp 1.0)
+        (process-particles)
+        (suspend))
       ;; drawing effects to be used in foreground drawing.
       (with-profiler "foreground-effects"
         ;; with FP blerc, the vertices are modified in the PC renderer, so we can just skip

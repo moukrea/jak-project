@@ -12,6 +12,7 @@
 
 #include "game/external/discord.h"
 #include "game/graphics/display.h"
+#include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/screenshot.h"
 #include "game/kernel/common/Ptr.h"
@@ -523,6 +524,14 @@ void pc_memmove(u32 dst, u32 src, u32 size) {
 }
 
 void send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
+  // Gfixed-tick-interpolation : c'est le SEUL signal « une image vient d'etre
+  // produite » que GOAL emette exactement une fois par image dessinee
+  // (engine/draw/drawable.gc, `display-sync`). L'horloge a pas fixe y avance son
+  // accumulateur et publie vers GOAL. Le meme appel existe cote Android dans
+  // a35_send_gfx_dma_chain (android/gk_android_main.cpp) : la ce sont DEUX corps
+  // distincts pour le meme symbole GOAL, et n'en cabler qu'un laisserait la
+  // plateforme oubliee sur l'ancien chemin sans que rien ne le dise.
+  fixed_tick::on_render_frame();
   if (Gfx::GetCurrentRenderer()) {
     Gfx::GetCurrentRenderer()->send_chain(g_ee_main_mem, chain);
   }

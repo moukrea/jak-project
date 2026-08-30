@@ -81,6 +81,7 @@ extern "C" void (*g_jak2_post_machine_scheme_hook)(void);
 
 #include "common/util/Timer.h"
 
+#include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
 #include "game/kernel/common/kmachine.h"
 
@@ -908,6 +909,12 @@ u64 a35_pc_camera_interp_alpha() {
 }
 
 void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
+  // Gfixed-tick-interpolation : MEME point qu'au bureau (send_gfx_dma_chain,
+  // game/kernel/common/kmachine.cpp) — une image vient d'etre produite, l'horloge a
+  // pas fixe avance son accumulateur et publie vers GOAL. Android a son propre corps
+  // pour ce symbole, donc les deux doivent etre cables ou la plateforme oubliee reste
+  // silencieusement sur l'ancien chemin.
+  fixed_tick::on_render_frame();
   // Gframerate-variable: this is the once-per-frame signal (drawable.gc
   // display-sync calls __send-gfx-dma-chain exactly once per rendered frame).
   // Run the error-feedback game-clock tick here so the engine's per-frame
