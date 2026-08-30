@@ -2617,6 +2617,21 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gloadgate-crash-regression
+  name: 'REGRESSION BLOQUANTE : LE JEU NE CHARGE PLUS UNE PARTIE (owner 2026-08-30, apres le build de 16h38) : « quand je
+    charge ma sauvegarde a Geyser Rock... sur la fin l''animation freeze, puis reprend et le jeu crash complet... je peux
+    meme plus charger une partie ». C''est NOTRE regression : le build de 14h07 chargeait, celui de 16h38 non, et le seul
+    chantier entre les deux est Gloading-screen-window. L''APPARENCE est validee « le look est nickel bravo » et ne doit pas
+    bouger. Gel PUIS reprise PUIS mort = quelque chose survit au gel : suspect = l''etat partage introduit dans load_gate.cpp
+    (mutex, budget par tranche, scene_ready) entre le fil de rendu et le fil GOAL. Repli autorise : desarmer la barriere en
+    gardant le look. Un jeu qui charge vaut mieux qu''un ecran parfait.'
+  prompt: prompts/phase-Gloadgate-crash-regression.md
+  validator: validators/phase-Gloadgate-crash-regression.sh
+  max_turns: 3000
+  max_retries: 80
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gfixed-tick-interpolation
   name: 'PAS DE TEMPS FIXE + INTERPOLATION DE RENDU (owner 2026-08-26, backlog) : « quand le jeu va en dessous de ce qu''il
     est sensé tourner sur PS2, les sauts, les mouvements de caméra ça chie un peu dans la colle et ça casse le gameplay [...]

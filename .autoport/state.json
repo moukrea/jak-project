@@ -245,9 +245,10 @@
     "Gbeach-actors-gate": 1,
     "Gjak-hd-rig-strap": 1,
     "Gbuild-from-scratch": 1,
-    "Gfixed-tick-interpolation": 2,
+    "Gfixed-tick-interpolation": 3,
     "Gcine-vertical-frame": 1,
-    "Gloading-screen-window": 2
+    "Gloading-screen-window": 2,
+    "Gloadgate-crash-regression": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -662,7 +663,8 @@
       "5effbf31ad3e"
     ],
     "Gfixed-tick-interpolation": [
-      "4932ed30155c"
+      "4932ed30155c",
+      "c2d31134c1f5"
     ],
     "Gloading-screen-window": [
       "7517a0ac2a7e"
@@ -1117,9 +1119,10 @@
     "Gplayability-input-and-loadgate": 1787811833.8953981,
     "Gfixed-tick-interpolation": 1788082832.8938866,
     "Gcine-vertical-frame": 1788083523.7294478,
-    "Gloading-screen-window": 1788089738.5346968
+    "Gloading-screen-window": 1788089738.5346968,
+    "Gloadgate-crash-regression": 1788103921.8125257
   },
-  "last_update": "2026-08-30T15:26:16.042040+00:00",
+  "last_update": "2026-08-30T15:34:51.481402+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
