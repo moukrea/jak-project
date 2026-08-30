@@ -179,4 +179,28 @@ void loading_window_close(const char* why);
 // renderer) a la seule periode qui nous interesse, au lieu de les laisser tourner en jeu normal.
 bool loading_window_is_open();
 
+// ---- L'ECRAN COUVRE-T-IL CETTE IMAGE ? -------------------------------------
+// Gloading-screen-window (owner 2026-08-30, D1/D5) — « l'animation a des petits stutters pendant
+// le chargement ». MESURE, x86, transition `save-geyser` : pendant que l'ecran est tenu, `render()`
+// coute 38 a 41 ms sur CHAQUE image (103 images relevees), et l'arbre de profilage attribue
+// 36,48 ms des 39,70 ms a `grass-draw`. L'ecran de chargement plafonnait donc a ~26 images/s, et
+// c'est CA que l'owner voit bafouiller -- pas un evenement isole.
+//
+// DEUX AUTRES CAUSES ONT ETE MESUREES PUIS ECARTEES, dans cet ordre :
+//   - la destruction du niveau sortant (`level-status-set! 'inactive`), soupconnee sur la seule
+//     POSITION de sa ligne de log : bornee a 0,3 ms (save-geyser) et 0,6 ms (teleport) ;
+//   - le re-televersement de la lumiere d'herbe : 2 televersements pour 103 images, l'etranglement
+//     par `itimes` fonctionne.
+// Reste le DESSIN : 726 851 brins peints sous un ecran opaque, image apres image.
+//
+// `loading_screen_tick(hold_mask)` est appelee par GOAL a chaque image OU L'ECRAN EST PEINT, juste
+// avant `loading-screen-draw` (main.gc:1529). Un `hold_mask` non nul veut donc dire « l'ecran est
+// tenu et il est peint par-dessus le monde a cette image ». On lit ce signal, on ne le devine pas.
+//
+// `loading_screen_render_begin()` est appelee UNE fois par image rendue, en tete de
+// `OpenGLRenderer::render`, et fige la reponse pour toute la duree de l'image : deux appelants
+// dans la meme image ne peuvent pas obtenir deux verdicts differents.
+void loading_screen_render_begin();
+bool loading_screen_is_covering();
+
 }  // namespace load_gate

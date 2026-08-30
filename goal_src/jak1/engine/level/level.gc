@@ -1107,7 +1107,18 @@
               (if (= (-> s4-0 name) (-> this want a1-2 name)) (set! a0-6 #t)))
             (when (not a0-6)
               (format 0 "Discarding level ~A~%" (-> s4-0 name))
+              ;; Gloading-screen-window (D1/D5) — ATTRIBUER LE GEL DE ~49 ms DU DEBUT DE
+              ;; TELEPORTATION, AU LIEU DE LE DEDUIRE DE LA POSITION DES LIGNES DE LOG.
+              ;; Mesure x86 du 2026-08-30, transition `teleport-sagehut` : 47 ms separent
+              ;; « Discarding level training » de « link finish » dans la trace, et DEUX
+              ;; operations vivent dans cet intervalle -- la mise a 'inactive du niveau sortant
+              ;; (qui desactive tous ses process) et l'edition de liens du fichier de spool. La
+              ;; position d'une ligne de log ne dit pas laquelle paie : ces deux bornes le disent.
+              ;; `__pc-lswin-note` ne fait RIEN quand aucune fenetre n'est ouverte (load_gate.cpp
+              ;; sort sur `!g_win.open`) : hors chargement, ce couple n'existe pas.
+              (__pc-lswin-note "discard-debut" 0)
               (level-status-set! s4-0 'inactive)
+              (__pc-lswin-note "discard-fin" 0)
               (set! v1-0 #t)
               (#when PC_PORT
                 (when *debug-segment*

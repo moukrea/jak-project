@@ -33,7 +33,19 @@ FIX='#t'; [ "$JAMBE" = "avant" ] && FIX='#f'
 #   OG_GRASS_DIAG    (C++)   les deux passes de diagnostic du champ d'herbe, qui balayent
 #                            726 851 instances a chaque chargement de niveau et n'ont aucun effet
 #                            sur l'image. =1 rejoue le comportement d'avant.
-if [ "$JAMBE" = "avant" ]; then export OG_GRASS_DIAG=1; else unset OG_GRASS_DIAG; fi
+#   OG_GRASS_ASYNC   (C++)   l'expansion des 726 851 instances d'herbe sur son PROPRE thread.
+#                            =0 la remet sur le thread de RENDU -- c'est le gel de 212 ms que
+#                            l'owner voit (D1/D5), et c'est le comportement d'aujourd'hui.
+# La jambe « avant » doit rejouer LES DEUX, sinon l'ablation ne mesure que la moitie du lot.
+#   OG_GRASS_SKIP_COVERED (C++)  ne pas peindre les 726 851 brins sous un ecran de chargement
+#                            OPAQUE. =0 les repeint -- 36,48 ms sur 39,70 par image, c'est le
+#                            plafond a ~26 images/s que l'owner voit bafouiller (D1/D5).
+# La jambe « avant » doit rejouer LES TROIS, sinon l'ablation ne mesure qu'une partie du lot.
+if [ "$JAMBE" = "avant" ]; then
+  export OG_GRASS_DIAG=1 OG_GRASS_ASYNC=0 OG_GRASS_SKIP_COVERED=0
+else
+  unset OG_GRASS_DIAG OG_GRASS_ASYNC OG_GRASS_SKIP_COVERED
+fi
 LOG="$OUT/window-$JAMBE.log"; GCLOG="$OUT/window-$JAMBE-goalc.log"
 : > "$LOG"; : > "$GCLOG"
 

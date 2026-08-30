@@ -1,5 +1,6 @@
 #include "GrassRenderer.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
+#include "game/system/load_gate.h"
 
 #include <algorithm>
 #include <array>
@@ -604,6 +605,18 @@ static bool grass_diag_enabled() {
 // chemin SYNCHRONE, le comportement d'aujourd'hui, qui est la jambe « avant » de la mesure. Lue une
 // seule fois, comme `grass_diag_enabled()` ci-dessus, pour que l'ablation porte sur TOUTE la course
 // et pas sur une partie.
+// Gloading-screen-window : INTERRUPTEUR D'ABLATION DU SAUT DU DESSIN SOUS L'ECRAN DE CHARGEMENT,
+// SUR LE MEME BINAIRE. Non posee ou non nulle -> on saute (ce qu'on livre) ; `OG_GRASS_SKIP_COVERED=0`
+// -> on peint sous l'ecran, c'est-a-dire le comportement d'aujourd'hui, jambe « avant ». Lue une
+// seule fois, pour que l'ablation porte sur TOUTE la course.
+static bool grass_skip_covered_enabled() {
+  static bool v = []() {
+    const char* e = getenv("OG_GRASS_SKIP_COVERED");
+    return (!e || !e[0]) ? true : (atoi(e) != 0);
+  }();
+  return v;
+}
+
 static bool grass_async_expand_enabled() {
   static bool v = []() {
     const char* e = getenv("OG_GRASS_ASYNC");
@@ -617,6 +630,11 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
                             const std::string& level_name) {
   using clk = std::chrono::steady_clock;
   grass_bake::ExpandResult res;
+  // Instant ou l'expansion commence a etre facturee AU THREAD DE RENDU. Chemin synchrone : juste
+  // avant le calcul lui-meme (il paie tout). Chemin asynchrone : juste avant le ramassage d'un
+  // futur DEJA pret (il ne paie presque rien). L'ecart `tExpandJoin..tExpandDone` est donc la
+  // grandeur que le lot pretend faire tomber, mesuree la ou elle fait mal.
+  clk::time_point tExpandJoin{};
 
   if (!m_expand_pending) {
     // ==================================== ETAPE SOURCE ====================================
@@ -743,6 +761,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
                                    std::cref(m_pending.bake), m_pending.density);
       return false;  // champ pas encore construit : rien a dessiner, on repassera a l'image suivante
     }
+    tExpandJoin = clk::now();
     res = grass_bake::expand(m_bake, m_pending.density);
   } else {
     // ============================== ATTENTE (chemin asynchrone) ==============================
@@ -751,6 +770,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       m_expand_waits++;
       return false;
     }
+    tExpandJoin = clk::now();
     res = m_expand_future.get();
     m_expand_pending = false;
     m_bake = std::move(m_pending.bake);
@@ -908,7 +928,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
         "within radius {:.2f}m + contact band [{:.2f},{:.2f}]m; a blade is culled ONLY if a real object "
         "vertex is that close, so OPEN grass (no object) is NEVER culled = occ ~0 there, NO block-shaped "
         "bald holes. No camera window, no move-rebuild -> nothing de-instances while moving.",
-        level_name, m_bake.stats.considered_draws, m_bake.stats.tie_draws, m_bake.stats.tris_kept,
+        lvl_name, m_bake.stats.considered_draws, m_bake.stats.tie_draws, m_bake.stats.tris_kept,
         m_bake.stats.giant_tris, m_bake.stats.max_area, m_bake.total_area_m2, density,
         m_instance_count, (int)m_chunks.size(),
         Gfx::g_global_settings.recharged_grass_density, budget, occ_culled,
@@ -920,9 +940,14 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
 
   // Only commit the cache once the level is actually loaded (grass draws found), OR the bake loaded
   // successfully (bake path has no considered_draws) — a transient placement is not frozen incomplete.
+  // Gloading-screen-window : LE CACHE SE COMMET SUR LE NIVEAU QUI A ETE EXPANSE, PAS SUR CELUI DE
+  // L'IMAGE QUI RAMASSE. L'etape SOURCE et l'etape CONSOMMATION sont separees par plusieurs images
+  // sur le chemin asynchrone : `lev` et `ld` decrivent l'image COURANTE, `m_pending` decrit
+  // l'expansion LANCEE. Prendre `ld->load_id` ici commettrait le cache sous l'identite d'un autre
+  // chargement et le champ ne serait jamais reconstruit pour lui.
   if (m_bake.stats.considered_draws > 0 || from_bake) {
-    m_cached_level = (const void*)lev;
-    m_cached_load_id = ld->load_id;
+    m_cached_level = m_pending.lev;
+    m_cached_load_id = m_pending.load_id;
     m_cached_precomputed = want_pre;
     m_cached_floor_gap = floor_gap_m;
   }
@@ -945,11 +970,19 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     return std::chrono::duration<float, std::milli>(b - a).count();
   };
   // source = tA..tB (load_bake OR scan); expand+logs = tB..tExpandEnd; upload+light = tExpandEnd..tC.
+  // Gloading-screen-window : LE CANAL SE PROUVE PAR CE QU'IL DEPOSE, PAS PAR LE CODE QU'ON Y LIT.
+  // `async` dit quelle branche a ete PRISE, `attentes` compte les images ou `rebuild()` a rendu la
+  // main pendant que le thread calculait, et `bloque_ms` est le temps reellement paye SUR LE THREAD
+  // DE RENDU par l'expansion (l'attente du futur au ramassage, pas la duree du calcul). Sans ces
+  // trois nombres, « l'expansion n'a rien coute » et « l'expansion n'a pas tourne » sont
+  // indistinguables sur la meme trace.
   lg::info(
       "[recharged-grass] PLACE-TIME mode={} bake={} total={:.0f}ms (source={:.0f}ms "
-      "expand+logs={:.0f}ms upload+light={:.0f}ms) instances={}",
+      "expand+logs={:.0f}ms upload+light={:.0f}ms) instances={} async={} attentes={} "
+      "bloque_ms={:.1f}",
       from_bake ? "precomputed" : "live", resolved_bake_path.empty() ? "<none>" : resolved_bake_path,
-      ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd), ms(tExpandEnd, tC), m_instance_count);
+      ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd), ms(tExpandEnd, tC), m_instance_count,
+      grass_async_expand_enabled() ? 1 : 0, m_expand_waits, ms(tExpandJoin, tExpandDone));
 }
 
 
@@ -1132,6 +1165,30 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     rebuild(rs, ld, grass_level);
   }
   if (m_instance_count <= 0) {
+    return;
+  }
+
+  // ==============================================================================================
+  // Gloading-screen-window (owner 2026-08-30, D1/D5) — ON NE PEINT PAS 726 851 BRINS SOUS UN ECRAN
+  // OPAQUE.
+  // ==============================================================================================
+  // « l'animation a des petits stutters pendant le chargement, des moments ou ca freeze ».
+  // MESURE, x86, `save-geyser`, 103 images consecutives pendant que l'ecran est tenu : `render()`
+  // coute 38 a 41 ms par image, dont 36,48 ms sur 39,70 attribues a `grass-draw` par l'arbre de
+  // profilage. L'ecran plafonnait a ~26 images/s. Ce n'est pas un evenement, c'est le regime.
+  // Deux autres causes ont ete mesurees et ECARTEES avant celle-ci (destruction du niveau sortant :
+  // 0,3-0,6 ms ; re-televersement de la lumiere : 2 pour 103 images) — voir load_gate.h.
+  //
+  // Le champ est INVISIBLE a ces images-la : l'ecran de chargement est peint par-dessus le monde.
+  // On rend donc la main avant le dessin ET avant `update_light`, qui n'a pas plus de raison de
+  // recalculer une lumiere que personne ne voit. Rien n'est detruit, rien n'est invalide : a la
+  // premiere image non couverte, `update_light` reprend (son etranglement compare `itimes` a la
+  // DERNIERE valeur televersee, pas a celle de l'image precedente, donc un saut du cycle du jour
+  // pendant l'ecran est rattrape en une image) et le dessin repart sur le meme VBO.
+  //
+  // ABLATION SUR LE MEME BINAIRE : `OG_GRASS_SKIP_COVERED=0` rejoue le dessin sous l'ecran, c'est
+  // la jambe « avant ». Non posee -> on saute, c'est ce qu'on livre.
+  if (load_gate::loading_screen_is_covering() && grass_skip_covered_enabled()) {
     return;
   }
 

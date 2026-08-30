@@ -1024,6 +1024,10 @@ void OpenGLRenderer::blit_display(ScopedProfilerNode& prof) {
  */
 void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   m_profiler.clear();
+  // Fige, pour TOUTE la duree de cette image, la reponse a « l'ecran de chargement couvre-t-il ? ».
+  // Une fois par image et en tete : deux appelants de la meme image ne peuvent pas obtenir deux
+  // verdicts differents, et le verdict ne peut pas basculer au milieu d'un dessin.
+  load_gate::loading_screen_render_begin();
   m_render_state.reset();
   m_render_state.ee_main_memory = g_ee_main_mem;
   m_render_state.offset_of_s7 = offset_of_s7();
@@ -1203,7 +1207,13 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   // reponse aussi utile qu'un temps long.
   // BORNE : uniquement pendant qu'une fenetre de chargement est ouverte, et uniquement au-dessus
   // de 60 ms. En jeu normal, cette ligne n'existe pas.
-  if (m_profiler.root_time() > 0.060 && load_gate::loading_window_is_open()) {
+  // SEUIL A 25 ms, PAS 60. A 60 ms cette ligne partageait son seuil avec `LSWIN-GEL`
+  // (load_gate.cpp:616) et mesurait un intervalle STRICTEMENT PLUS PETIT que lui (`render()` seul :
+  // ni attente DMA, ni imgui, ni presentation). Pour un ecart d'image de 61 ms il aurait fallu que
+  // `render()` occupe 60 ms, soit 97 % de l'image, pour qu'elle tire : son silence ne disculpait
+  // donc PAS le rendu, il ne disait rien. A 25 ms elle tranche sur les ecarts de 40-50 ms qui
+  // restent, et elle reste bornee aux fenetres de chargement -- en jeu normal, zero ligne.
+  if (m_profiler.root_time() > 0.025 && load_gate::loading_window_is_open()) {
     fmt::print("LSWIN-RENDU total_ms={:.1f}\n{}\n", m_profiler.root_time() * 1000.0,
                m_profiler.to_string());
   }

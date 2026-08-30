@@ -1,5 +1,6 @@
 #include "game/system/load_gate.h"
 
+#include <atomic>
 #include <chrono>
 #include <mutex>
 #include <string>
@@ -207,6 +208,14 @@ struct LsEpisode {
 LsEpisode g_ls;
 int g_ls_next_index = 1;
 
+// « L'ecran couvre-t-il cette image ? » (voir load_gate.h). Declare ICI parce que
+// `loading_screen_tick`, qui l'incremente, est definie bien avant les deux accesseurs.
+// Le compteur est ecrit par le thread GOAL et lu par le thread de rendu : atomique.
+// Les deux autres n'appartiennent qu'au thread de rendu.
+std::atomic<uint64_t> g_ls_cover_tick{0};
+uint64_t g_ls_cover_seen = 0;
+bool g_ls_covering = false;
+
 // caller holds g_ls_mutex
 void ls_flush_locked() {
   if (!g_ls.open) {
@@ -278,6 +287,12 @@ bool g_slice_started[kSliceSlots] = {false, false, false, false};
 
 void loading_screen_tick(int hold_mask) {
   const auto now = std::chrono::steady_clock::now();
+  // GOAL peint l'ecran a cette image (main.gc:1529, juste avant `loading-screen-draw`). Un masque
+  // non nul = l'ecran est TENU, donc opaque par-dessus le monde. Hors du verrou : ce compteur ne
+  // participe a aucune des grandeurs protegees par `g_ls_mutex`.
+  if (hold_mask != 0) {
+    g_ls_cover_tick.fetch_add(1, std::memory_order_relaxed);
+  }
   std::lock_guard<std::mutex> lk(g_ls_mutex);
   if (g_ls.open) {
     const double gap = std::chrono::duration<double, std::milli>(now - g_ls.last).count();
@@ -660,6 +675,25 @@ void loading_window_note(const char* what, int value) {
   }
   fmt::print("LSWIN-NOTE transition={} t_ms={:.1f} quoi={} v={}\n", g_win.label, ls_now_ms(),
              what ? what : "-", value);
+}
+
+// ---- L'ECRAN COUVRE-T-IL CETTE IMAGE ? (voir load_gate.h) -------------------
+// Le compteur est incremente par le thread GOAL (`loading_screen_tick`) et lu par le thread de
+// rendu : il est atomique. Le RENDU, lui, ne compare que des valeurs qui lui appartiennent
+// (`g_ls_cover_seen`, `g_ls_covering`), toutes deux touchees uniquement dans
+// `loading_screen_render_begin`/`loading_screen_is_covering`, donc sur le seul thread de rendu.
+void loading_screen_render_begin() {
+  const uint64_t cur = g_ls_cover_tick.load(std::memory_order_relaxed);
+  // L'ecran couvre cette image SI ET SEULEMENT SI GOAL l'a peint depuis la derniere image rendue.
+  // Un compteur, pas un drapeau retenu : un drapeau resterait arme si la fin d'episode n'etait pas
+  // signalee, et l'herbe disparaitrait pour de bon. Ici, des que GOAL cesse de peindre l'ecran,
+  // le compteur cesse d'avancer et l'image suivante redessine tout.
+  g_ls_covering = (cur != g_ls_cover_seen);
+  g_ls_cover_seen = cur;
+}
+
+bool loading_screen_is_covering() {
+  return g_ls_covering;
 }
 
 bool loading_window_is_open() {
