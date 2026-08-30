@@ -248,7 +248,7 @@
     "Gfixed-tick-interpolation": 3,
     "Gcine-vertical-frame": 1,
     "Gloading-screen-window": 2,
-    "Gloadgate-crash-regression": 1
+    "Gloadgate-crash-regression": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -668,6 +668,9 @@
     ],
     "Gloading-screen-window": [
       "7517a0ac2a7e"
+    ],
+    "Gloadgate-crash-regression": [
+      "afdce60129bf"
     ]
   },
   "stuck_reasons": {
@@ -1122,7 +1125,7 @@
     "Gloading-screen-window": 1788089738.5346968,
     "Gloadgate-crash-regression": 1788103921.8125257
   },
-  "last_update": "2026-08-30T15:34:51.481402+00:00",
+  "last_update": "2026-08-30T17:11:34.735567+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1245,7 +1248,8 @@
     "Gbuild-from-scratch",
     "Gloading-screen",
     "Gcine-vertical-frame",
-    "Gloading-screen-window"
+    "Gloading-screen-window",
+    "Gloadgate-crash-regression"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",

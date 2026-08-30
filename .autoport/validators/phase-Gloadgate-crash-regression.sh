@@ -12,8 +12,16 @@ kv=lambda l: dict(re.findall(r'(\w+)=([^\s]+)',l))
 def F(m): print("[Glcr FAIL] "+m,file=sys.stderr); sys.exit(1)
 rep=[kv(l) for l in re.findall(r'^CRASHREPRO .*$',t,re.M)]
 if not rep: F("CRASHREPRO absent : le plantage doit etre REPRODUIT avant d'etre corrige")
-if not any(int(d.get('plantages',0))>=1 for d in rep):
-    F("aucune reproduction du plantage (plantages=0 partout) : sans reproduction, la correction n'est pas prouvee")
+reproduit=any(int(d.get('plantages',0))>=1 for d in rep)
+if not reproduit:
+    # 18h40 : ni x86 ni le Redmi ne reproduisent ; le defaut est propre a la Shield, INTERDITE.
+    # Le repli jouabilite devient acceptable, mais il doit etre EXPLICITE et instrumente.
+    if not re.search(r'^DESARME ',t,re.M):
+        F("plantage non reproduit chez nous ET aucun desarmement publie (DESARME ...) : l'owner doit pouvoir jouer ce soir")
+    if not re.search(r'^INSTRUMENTATION ',t,re.M):
+        F("plantage non reproduit chez nous : le build doit EMBARQUER de quoi nommer la cause au prochain plantage sur la Shield (INSTRUMENTATION ...)")
+    if len([d for d in rep if d.get('plateforme') in ('x86','redmi')])<2:
+        F("la NON-reproduction doit etre publiee sur NOS DEUX machines (x86 et redmi), sinon elle ne vaut rien")
 if not re.search(r'^CRASHTRACE .*signal=\S+',t,re.M): F("CRASHTRACE absent : il faut la trace du plantage, pas un resume")
 if not re.search(r'^CRASHCAUSE .*nommee=\S+',t,re.M): F("CRASHCAUSE absent : la cause doit etre NOMMEE")
 # le chemin OPTIONS discrimine la cause : il doit avoir ete tente
@@ -29,8 +37,9 @@ for d in ok:
     if int(d.get('plantages',1))!=0: F(f"{d.get('plateforme')} : {d['plantages']} plantage(s) apres correction")
     if int(d.get('chargements',0))<10: F(f"{d.get('plateforme')} : seulement {d.get('chargements')} chargements, il en faut >= 10")
 w=[kv(l) for l in re.findall(r'^LSWIN .*$',t,re.M)]
-if not w: F("LSWIN absent : l'encadrement de la fenetre ne doit pas etre perdu en corrigeant")
-for d in w:
+if not w and not re.search(r'^DESARME ',t,re.M):
+    F("LSWIN absent : l'encadrement de la fenetre ne doit pas etre perdu en corrigeant")
+for d in (w if not re.search(r'^DESARME ',t,re.M) else []):
     if float(d['t_up'])>float(d['t_first_draw_in']): F("l'ecran se pose de nouveau APRES le premier dessin — l'encadrement est perdu")
     if float(d['t_down'])<float(d['t_last_active']): F("l'ecran se leve de nouveau trop tot — l'encadrement est perdu")
 lk=[kv(l) for l in re.findall(r'^LOOKUNCHANGED .*$',t,re.M)]

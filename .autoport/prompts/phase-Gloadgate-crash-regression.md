@@ -73,3 +73,35 @@ Verifie mecaniquement :
 Le validateur exige au moins une ligne CRASHREPRO avec `chemin=options`, et une ligne
 POPULATIONS. Traiter Geyser Rock comme un cas isole n'est pas acceptable : c'est deja le
 niveau du gel et du pop-in signales plus tot — trois symptomes au meme endroit.
+
+## ETAT 2026-08-30 18h40 — LE DEFAUT NE SE REPRODUIT NI SUR x86 NI SUR LE REDMI
+Mesure : x86, chemin options ET chargement Geyser Rock -> 0 plantage, chemins verifies
+empruntes. Redmi eae4df44, deux courses, cycles geyser/sandover avec menu options et
+menu de chargement atteints (captures T6 a T9) -> 0 plantage, le moteur va jusqu'au bout.
+L'owner plante sur sa SHIELD, appareil INTERDIT depuis le 2026-08-30 (« Interdit de
+toucher a la SHIELD a nouveau »). Nous n'avons donc AUCUN acces a la seule machine ou le
+defaut existe.
+
+DEUX HYPOTHESES RESTANTES, ET AUCUNE NE SE TRANCHE ICI :
+  H1. Specifique a la SHIELD (Tegra, pilote graphique, memoire, ordonnancement des fils).
+  H2. Specifique aux DONNEES DE SAUVEGARDE de l'owner — sa save Geyser Rock precisement,
+      alors que Sandover et le repere de Gol et Maia chargent chez lui. Nos courses
+      utilisent nos propres sauvegardes, pas les siennes.
+
+CONSEQUENCE — LA PRIORITE CHANGE. Dans cet ordre :
+  1. RENDRE LE JEU JOUABLE. Livrer un build ou le chantier Gloading-screen-window est
+     DESARME sur sa partie risquee (l'etat partage de la barriere : mutex, budget par
+     tranche, scene_ready), en CONSERVANT l'apparence validee par l'owner (« le look est
+     nickel bravo »). Publier exactement ce qui est desarme.
+  2. INSTRUMENTER POUR LA SHIELD. Puisqu'on ne peut pas y mesurer, le build doit ecrire
+     lui-meme, dans un fichier lisible par l'owner ou dans le journal systeme, de quoi
+     nommer la cause au prochain plantage : etat de la barriere, fil courant, derniere
+     etape franchie, et une trace de pile si le moteur meurt.
+  3. NE PAS declarer la cause tant qu'elle n'est pas mesuree. Un defaut absent sur deux
+     machines et present sur une troisieme n'est PAS explique par une relecture de code.
+
+CRITERE DE FERMETURE REVISE : la porte accepte desormais un lot qui DESARME et
+INSTRUMENTE, a condition de publier CRASHREPRO (avec plantages=0 sur nos deux machines,
+en le disant honnetement comme une NON-reproduction), DESARME (ce qui est retire),
+LOOKUNCHANGED, et l'encadrement LSWIN peut etre perdu si c'est le prix de la jouabilite —
+mais il faut le DIRE.

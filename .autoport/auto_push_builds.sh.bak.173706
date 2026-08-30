@@ -46,17 +46,6 @@ while true; do
   s1=$(stat -c %s "$APK"); sleep 20; s2=$(stat -c %s "$APK")
   [ "$s1" = "$s2" ] || continue
   h=$(md5sum "$APK" | cut -d' ' -f1)
-  # NE JAMAIS PUBLIER DU TRAVAIL INACHEVE A L'OWNER (constate le 2026-08-30 17:32 : le build
-  # publie embarquait le pas de temps fixe dont le validateur avait ECHOUE six minutes plus
-  # tot ; l'owner aurait telecharge, pour reparer un plantage, un binaire portant un chantier
-  # non valide sur les sauts et la camera). Le publieur declenchait sur le seul hash de l'APK,
-  # sans aucune notion d'etat du chantier. On saute tant que HEAD est un point d'etape.
-  HEADMSG=$(git log -1 --format=%s 2>/dev/null || echo "")
-  case "$HEADMSG" in
-    *"WIP checkpoint"*|*"validator FAILED"*)
-      echo "$(date +%H:%M:%S) SKIP publication : HEAD est un point d'etape non valide — $HEADMSG" >> "$LOG"
-      continue ;;
-  esac
   # LE PACK HD EST UN LIVRABLE A PART ENTIERE, PAS UNE PIECE JOINTE DE L'APK.
   # Bug mesure le 2026-08-13 : cette garde ne testait QUE le hash de l'APK, donc un cycle qui ne
   # corrige QUE le mesh (reskin -> GAME.fr3 -> jak1_hd_assets.zip) ne partait JAMAIS, quel que
