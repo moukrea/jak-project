@@ -126,10 +126,22 @@ declare -A BAKE_TARGET=(
 # same parasite, same one-line fix. Delete its line to keep the mask on the JAK 3 Keira look.
 #
 # Per-model EXTRA arguments spliced into the `hd_merc_swap add` invocation (word-split on purpose).
+# Gbuild-from-scratch (owner 2026-08-29) : LES QUATRE INDEX DE KEIRA NE SONT PLUS ECRITS ICI.
+# Ils y etaient : [keira-hd]="--drop-effect 0 --drop-effect 5" et
+# [keira3-hd]="--drop-effect 1 --drop-effect 5" — quatre entiers verifies A LA MAIN une fois, qui
+# ne NOMMENT rien. Aucun re-rip du donneur, aucun changement de decompilateur, aucun changement
+# d'ordre des effets ne pouvait les invalider BRUYAMMENT : ils auraient simplement supprime
+# l'effet de quelqu'un d'autre. C'est exactement la « suppression ponctuelle » que le contrat de
+# cette phase interdit. Ils sont DERIVES dans la boucle par scripts/shell/hd_drop_effects.py, sur
+# le meme critere NOMME que les joints : un effet part si et seulement si CHACUN de ses dessins
+# est peint exclusivement sur des joints nommes par recharged_assets/<char>-drop-joints.txt.
+# Controle : la derivation rend `0 5` pour keira-hd et `1 5` pour keira3-hd, c'est-a-dire
+# exactement les quatre entiers retires — et deux valeurs DIFFERENTES pour le meme prop sur deux
+# donneurs, donc elle lit bien la donnee et ne republie pas une constante.
+# jakm-hd RESTE ici : son `--drop-effect 0` retire l'echarpe remontee sur le nez, qui n'a AUCUN
+# joint a elle (c'est une cible de blerc). Son critere n'est pas le joint, il ne se derive pas.
 declare -A EXTRA_ADD_ARGS=(
   [jakm-hd]="--drop-effect 0 --strip-target 15 --strip-target 22 --strip-target 23"
-  [keira-hd]="--drop-effect 0 --drop-effect 5"
-  [keira3-hd]="--drop-effect 1 --drop-effect 5"
 )
 # CYCLE 5 item 3 (exhaustive inventory): one further cutscene-only Jak look the earlier sweeps
 # missed — jakp-hd = the owner-named "Jak II PRISON" look (Jak 2 prison/experiments cutscenes,
@@ -137,19 +149,19 @@ declare -A EXTRA_ADD_ARGS=(
 # A second candidate, jakf-hd (the jak3 ljkfeet "barefoot" look, boots replaced by foot wraps), was
 # integrated in the same cycle and then REMOVED COMPLETELY on the owner's 2026-08-05 19:30 verdict
 # (buggy and useless) — do not re-add it.
-APPENDS=(
-  "jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0|"
-  "dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0|"
-  "keira-hd|decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb|GAME|out/jak2/fr3/lintcstb.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3"
-  "samos-hd|decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb|GAME|out/jak3/fr3/lsamos.fr3|samos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3"
-  "jak2-hd|decompiler_out/jak2/levels/ljakdax/jak-highres-lod0.glb|GAME|out/jak2/fr3/ljakdax.fr3|jak-highres-lod0|eichar-lod0|"
-  "jak3-hd|decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb|GAME|out/jak3/fr3/ljakc.fr3|jakc-highres-lod0|eichar-lod0|"
-  "daxp-hd|decompiler_out/jak3/levels/loutro2/ottsel-daxpants-lod0.glb|GAME|out/jak3/fr3/loutro2.fr3|ottsel-daxpants-lod0|sidekick-lod0|"
-  "keira3-hd|decompiler_out/jak3/levels/lkeira/keira-highres-lod0.glb|GAME|out/jak3/fr3/lkeira.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3"
-  "ysamos-hd|decompiler_out/jak2/levels/lysamsam/youngsamos-highres-lod0.glb|GAME|out/jak2/fr3/lysamsam.fr3|youngsamos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3"
-  "jakm-hd|decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb|GAME|out/jak3/fr3/ljakc.fr3|jakc-highres-lod0|eichar-lod0|"
-  "jakp-hd|decompiler_out/jak2/levels/ldjakbrn/jak-highres-prison-lod0.glb|GAME|out/jak2/fr3/ldjakbrn.fr3|jak-highres-prison-lod0|eichar-lod0|"
-)
+# Gbuild-from-scratch : la table des personnages HD est SORTIE d'ici. Elle vivait dans ce tableau,
+# et les ARGUMENTS de build_hd_actor_artgroup.sh la redisaient a la main pour le squelette — deux
+# descriptions du meme jeu de personnages, dont une seule etait dans une chaine. Une seule table
+# desormais, et les deux moities du modele la lisent.
+HD_TABLE="recharged_assets/hd_characters.txt"
+[ -f "$HD_TABLE" ] || { log "FATAL: table canonique des personnages HD '$HD_TABLE' absente"; exit 1; }
+mapfile -t APPENDS < <(grep -vE '^[[:space:]]*(#|$)' "$HD_TABLE")
+[ "${#APPENDS[@]}" -gt 0 ] || { log "FATAL: '$HD_TABLE' ne declare aucun personnage"; exit 1; }
+for _row in "${APPENDS[@]}"; do
+  _nf=$(awk -F'|' '{print NF}' <<< "$_row")
+  [ "$_nf" -eq 7 ] || { log "FATAL: '$HD_TABLE' ligne '$_row' a $_nf champs, il en faut 7"; exit 1; }
+done
+log "table canonique: ${#APPENDS[@]} personnage(s) HD lus dans $HD_TABLE"
 # The fr3 that receive appends, in order.
 APPEND_LEVELS=(GAME village1)
 
@@ -208,6 +220,18 @@ if [ ! -x "$SWAP_BIN" ]; then
 fi
 [ -x "$SWAP_BIN" ] || { log "$SWAP_BIN missing after build"; exit 1; }
 
+# Gbuild-from-scratch : le squelette HD est fabrique par `build_actor`, et build.sh:248 ne
+# construit que `gk goalc` — sur un arbre propre l'outil n'existait donc pas. On le construit ici,
+# exactement comme hd_merc_swap juste au-dessus, plutot que d'echouer en demandant a l'utilisateur
+# de lancer une cible a la main.
+BA_BIN="build/goalc/build_actor"
+if [ ! -x "$BA_BIN" ]; then
+  log "building build_actor tool…"
+  cmake --build build --target build_actor -j"$(nproc)" \
+    || { log "failed to build $BA_BIN — configure the desktop 'build' tree first"; exit 1; }
+fi
+[ -x "$BA_BIN" ] || { log "$BA_BIN missing after build"; exit 1; }
+
 # ---------------------------------------------------------------------------
 # 4. Fresh enhanced overlay dir.
 # ---------------------------------------------------------------------------
@@ -238,6 +262,75 @@ for lvl in "${APPEND_LEVELS[@]}"; do
       log "FATAL: donor fr3 '$donor_fr3' missing for $char — cannot stamp draw modes/eye slots"
       rm -rf "$ENHANCED_OUT"; exit 1
     fi
+    # ---- LE SQUELETTE HD, FABRIQUE PAR CETTE CHAINE ET DEPUIS CE MEME RIP -------------------
+    # Gbuild-from-scratch, owner 2026-08-29 : « un utilisateur qui build le jeu from scratch
+    # devrait pouvoir avoir le meme etat que nous ».
+    # Un modele HD est livre en DEUX MOITIES. Le MAILLAGE est bake ci-dessous a chaque build. Le
+    # SQUELETTE (recharged_assets/hd_anim/<char>-ag.go : la liste des os, leur HIERARCHIE, et la
+    # table de retargeting <char>-k2e.json donneur -> jak1) sortait de
+    # scripts/shell/build_hd_actor_artgroup.sh, que RIEN n'appelait — il se lancait a la main, et
+    # `recharged_assets/hd_anim/` est gitignore, donc `git status` ne signalait jamais qu'il etait
+    # perime. Mesure du 2026-08-30 sur le pack REELLEMENT livre :
+    #     25435328  08-30-2026 05:15   fr3/enhanced/GAME.fr3      <- maillage du jour
+    #        12080  08-05-2026 00:39   hd/jak-hd-ag.go            <- squelette de 25 JOURS
+    # Et sur un arbre PROPRE il n'existe pas du tout : package_hd_assets.sh:110 echoue en dur sur
+    # l'absence de `jak-hd-ag.go`, donc build.sh:387 tue le build — le pack HD n'etait pas
+    # constructible depuis zero, quelle que soit la justesse des sources.
+    # Il est donc fabrique ICI, dans la MEME passe, depuis le MEME rip `$glb` (encore brut : les
+    # etapes ci-dessous ne l'ont pas encore touche) et via la MEME table canonique. Les deux
+    # moities ne peuvent plus dater de deux jours differents.
+    # Le GLB DRIVER se RESOUT depuis le champ `driver_model` de la table plutot que d'etre un
+    # huitieme champ : deux ecritures de la meme chose finissent toujours par se contredire.
+    mapfile -t _dglb < <(ls -1 "decompiler_out/jak1/levels/"*/"$driver_model.glb" 2>/dev/null)
+    if [ "${#_dglb[@]}" -ne 1 ]; then
+      log "FATAL: le GLB driver de '$driver_model' rend ${#_dglb[@]} correspondance(s) sous decompiler_out/jak1/levels/*/ — il en faut EXACTEMENT une."
+      log "       Decompile jak1 avec \"rip_levels\": true (decompiler/config/jak1/jak1_config.jsonc) : sans les rips jak1 le retargeting des squelettes est irrealisable."
+      rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    AG_LOG="$HD_TMP/$char-artgroup.txt"
+    if ! scripts/shell/build_hd_actor_artgroup.sh "$char" "$glb" "${_dglb[0]}" > "$AG_LOG" 2>&1; then
+      log "FATAL: fabrication du squelette HD de $char echouee:"
+      sed 's/^/    /' "$AG_LOG" >&2
+      rm -rf "$ENHANCED_OUT"; exit 1
+    fi
+    grep -q '^\[hd-actor-ag\] DONE:' "$AG_LOG" || {
+      log "FATAL: build_hd_actor_artgroup.sh $char n'a pas publie sa ligne DONE — squelette non fabrique"
+      sed 's/^/    /' "$AG_LOG" >&2
+      rm -rf "$ENHANCED_OUT"; exit 1; }
+    log "art-group: $char-ag.go + $char-k2e.json fabriques depuis $glb (driver ${_dglb[0]})"
+
+    # ---- LES EFFETS A RETIRER SONT DERIVES DES JOINTS NOMMES, PAS ECRITS EN DUR --------------
+    # Meme phase, meme raison. La geometrie du masque de soudure de Keira partait par des index
+    # d'effet ecrits a la main dans EXTRA_ADD_ARGS (voir la note la-bas). Elle part maintenant sur
+    # le CRITERE NOMME que ses joints utilisent deja : un effet est retire si et seulement si
+    # chacun de ses dessins est peint exclusivement sur des joints que
+    # `recharged_assets/<char>-drop-joints.txt` nomme (cloture sur le sous-arbre).
+    # La derivation lit le rip BRUT : apres hd_drop_joints.py les sommets du prop sont re-lies a
+    # un ancetre survivant et le prop n'est plus identifiable par le nom d'un joint. L'outil refuse
+    # de repondre dans ce cas au lieu de rendre une liste vide (controle negatif verifie).
+    DERIVED_DROP_ARGS=()
+    DROP_SPEC_EFF="recharged_assets/$char-drop-joints.txt"
+    if [ -f "$DROP_SPEC_EFF" ]; then
+      AUDIT_TXT="$HD_TMP/$char-donor-audit.txt"
+      "$SWAP_BIN" audit "$donor_fr3" "$donor_model" > "$AUDIT_TXT" 2>/dev/null \
+        || { log "FATAL: audit du donneur '$donor_fr3' ($donor_model) echoue"; rm -rf "$ENHANCED_OUT"; exit 1; }
+      DE_LOG="$HD_TMP/$char-drop-effects.txt"
+      if ! python3 scripts/shell/hd_drop_effects.py --glb "$glb" --spec "$DROP_SPEC_EFF" \
+             --audit "$AUDIT_TXT" --model "$donor_model" --report "$DE_LOG" >/dev/null 2>&1; then
+        log "FATAL: derivation des effets a retirer pour $char depuis '$DROP_SPEC_EFF':"
+        sed 's/^/    /' "$DE_LOG" >&2
+        rm -rf "$ENHANCED_OUT"; exit 1
+      fi
+      sed 's/^/    /' "$DE_LOG" | while read -r l; do log "$l"; done
+      DE_LINE="$(grep -m1 '^DROP-EFFECTS' "$DE_LOG" || true)"
+      for _e in ${DE_LINE#DROP-EFFECTS}; do DERIVED_DROP_ARGS+=(--drop-effect "$_e"); done
+      if [ "${#DERIVED_DROP_ARGS[@]}" -eq 0 ]; then
+        log "FATAL: '$DROP_SPEC_EFF' nomme des joints mais la derivation ne rend AUCUN effet — la geometrie du prop resterait a l'ecran"
+        rm -rf "$ENHANCED_OUT"; exit 1
+      fi
+      log "drop-effects derives pour $char:${DE_LINE#DROP-EFFECTS} (critere: joints nommes par $DROP_SPEC_EFF)"
+    fi
+
     # ---- PHYSICS JOINT INJECTION (secondary-motion, 2026-08-13) ----------------------------
     # Same spec, same tool, same donor as scripts/shell/build_hd_actor_artgroup.sh — see the
     # long note there. The art-group and the baked mesh MUST agree on the joint list: physics
@@ -380,7 +473,8 @@ for lvl in "${APPEND_LEVELS[@]}"; do
       --blerc-from "$donor_fr3:$donor_model" \
       ${DRIVER_ARGS[@]+"${DRIVER_ARGS[@]}"} "${LID_ARGS[@]}" \
       ${BAKE_ARGS[@]+"${BAKE_ARGS[@]}"} \
-      ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1 | tee -a "$SWAP_LOG"
+      ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} \
+      ${DERIVED_DROP_ARGS[@]+"${DERIVED_DROP_ARGS[@]}"} 2>&1 | tee -a "$SWAP_LOG"
     if ! grep -qE "APPENDED .*$char-lod0" "$SWAP_LOG"; then
       log "APPEND verification FAILED — no 'APPENDED … $char-lod0' line for $lvl.fr3."
       rm -f "$SWAP_LOG"; rm -rf "$ENHANCED_OUT"; exit 1
@@ -422,6 +516,37 @@ for lvl in "${APPEND_LEVELS[@]}"; do
     fi
   fi
 done
+
+# ---------------------------------------------------------------------------
+# 5-bis. LE RIG PRODUIT PAR CETTE COURSE ET LA TABLE COMPILEE DANS LE JEU DOIVENT CONCORDER.
+#        (Gbuild-from-scratch, owner 2026-08-29.)
+#        Les squelettes viennent d'etre refabriques ci-dessus. Leur transcription GOAL vit dans
+#        goal_src/jak1/pc/jak-hd.gc, SUIVI par git et COMPILE dans le jeu, et elle est recopiee
+#        par .autoport/hd_splice_joint_tables.py que seuls des scripts de cycle sans appelant
+#        lancent. Le rig etait donc refait a chaque build et sa transcription jamais — et rien ne
+#        comparait les deux. C'est le meme defaut d'un cran plus haut, et il est silencieux :
+#        le moteur retargette avec la table COMPILEE, donc un joint ajoute ou retire donne des
+#        matrices d'os non initialisees (deja paye le 2026-08-13 : `PHYSBONE len=NaN`, amp=0).
+#        On refuse de livrer plutot que de livrer une paire desaccordee.
+# ---------------------------------------------------------------------------
+if [ "${#APPENDED_LEVELS[@]}" -gt 0 ]; then
+  JT_LOG="$HD_TMP/joint-tables.txt"
+  if python3 scripts/shell/hd_check_joint_tables.py > "$JT_LOG" 2>&1; then
+    sed 's/^/    /' "$JT_LOG" | while read -r l; do log "$l"; done
+  else
+    log "GARDE-FOU DES TABLES DE RETARGETING: ECHEC — refus de livrer."
+    sed 's/^/    /' "$JT_LOG" >&2
+    rm -rf "$ENHANCED_OUT"; exit 1
+  fi
+  JC_LOG="$HD_TMP/joint-counts.txt"
+  if python3 .autoport/hd_check_joint_counts.py > "$JC_LOG" 2>&1; then
+    log "joint-counts: $(tail -1 "$JC_LOG")"
+  else
+    log "GARDE-FOU DES COMPTES DE JOINTS: ECHEC — refus de livrer."
+    sed 's/^/    /' "$JC_LOG" >&2
+    rm -rf "$ENHANCED_OUT"; exit 1
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # 6. INTEGRITY GATE — every non-character draw in each APPENDED enhanced fr3 MUST be

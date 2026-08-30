@@ -118,7 +118,18 @@
   // turn this on to extract level background graphics data as .fr3 files in out/<game>/fr3
   "levels_extract": true,
   // turn this on if you want extracted levels to be saved out as .glb files in decompiler_out/<game>/levels
-  "rip_levels": false,
+  //
+  // Gbuild-from-scratch (owner 2026-08-29, « un utilisateur qui build le jeu from scratch devrait
+  // pouvoir avoir le meme etat que nous ») : ce drapeau etait a FALSE, et il rendait le
+  // RETARGETING DES SQUELETTES HD irrealisable depuis un arbre propre. Les modeles HD de Jak 2 /
+  // Jak 3 sont reposes sur les rigs de JAK 1 : scripts/shell/build_hd_actor_artgroup.sh a besoin
+  // du GLB "driver" jak1 (eichar-lod0 / sidekick-lod0 / assistant-lod0 / sage-lod0), et ces
+  // fichiers ne sortent QUE d'ici. Sur cette machine ils existaient parce qu'une course
+  // precedente avait eu le drapeau a true — exactement le cas d'un correctif qui ne survit pas a
+  // un build propre. Meme defaut, meme correctif que sur jak2 le 2026-08-13.
+  // Cout : des .glb en plus sous decompiler_out/jak1/levels/. Ne change AUCUN octet des .fr3 de
+  // out/jak1/fr3/, qui sont ce que le jeu charge.
+  "rip_levels": true,
   // should we also extract collision meshes to the .fr3 files?
   // these can be displayed in-game with the OpenGOAL collision renderer
   "extract_collision": true,

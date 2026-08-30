@@ -1,0 +1,52 @@
+# recharged_assets/hd_characters.txt — LA TABLE CANONIQUE DES PERSONNAGES HD.
+#
+# POURQUOI CE FICHIER EXISTE (Gbuild-from-scratch, owner 2026-08-29) :
+#   « un utilisateur qui build le jeu from scratch devrait pouvoir avoir le meme etat que nous »
+#
+# Un modele HD est livre en DEUX MOITIES, et jusqu'ici elles etaient decrites a DEUX endroits :
+#   * le MAILLAGE (merc appende dans out/jak1/fr3/enhanced/GAME.fr3) — decrit par le tableau
+#     `APPENDS` ECRIT EN DUR dans scripts/shell/build_enhanced_models.sh, appele par build.sh:365 ;
+#   * le SQUELETTE (recharged_assets/hd_anim/<char>-ag.go, sa hierarchie de joints et sa table de
+#     retargeting <char>-k2e.json) — decrit par les ARGUMENTS de la ligne de commande de
+#     scripts/shell/build_hd_actor_artgroup.sh, que RIEN n'appelait.
+# Mesure du 2026-08-30 sur le pack REELLEMENT livre (`unzip -l out/artifacts/jak1_hd_assets.zip`) :
+#     25435328  08-30-2026 05:15   fr3/enhanced/GAME.fr3      <- maillage du jour
+#        12080  08-05-2026 00:39   hd/jak-hd-ag.go            <- squelette de VINGT-CINQ JOURS
+# et `recharged_assets/hd_anim/` est gitignore (IP ND), donc `git status` ne le signale jamais.
+# Sur un arbre PROPRE il n'existe pas du tout : package_hd_assets.sh:110-111 echoue en dur sur
+# l'absence de `jak-hd-ag.go`, donc build.sh:387 tue le build. Un utilisateur qui construit depuis
+# zero avec --hd-models n'obtenait AUCUN pack HD.
+#
+# Les deux moities lisent desormais CETTE table, et build_enhanced_models.sh fabrique le squelette
+# dans la MEME passe et depuis le MEME donneur que le maillage : elles ne peuvent plus diverger.
+# C'est la regle de l'owner appliquee au point de production — « quand une perte se repete, on la
+# rend impossible au point de production, pas detectable au point de controle ».
+#
+# FORMAT — une ligne par personnage, sept champs separes par `|`, `#` en commentaire :
+#   1 char          nom du personnage (<= 9 caracteres : `<char>-ag.go` doit tenir sous les 16
+#                   caracteres de l'assert de nom du fake-iso)
+#   2 donor_glb     le rip du donneur ND (decompiler_out/jak{2,3}/...), produit par decomp2/decomp3
+#   3 target        le fr3 jak1 qui recoit le merc appende
+#   4 donor_fr3     le fr3 donneur, source des modes de dessin / fentes d'oeil / index d'effets
+#   5 donor_model   le nom du modele merc dans ce fr3 donneur
+#   6 driver_model  le modele jak1 dont le squelette pilote l'anim — c'est LUI qui donne le GLB
+#                   driver du retargeting, resolu par `decompiler_out/jak1/levels/*/<driver_model>.glb`
+#                   (exactement une correspondance exigee, sinon echec bruyant : pas de devinette)
+#   7 driver_fr3    le fr3 ou vit ce modele driver, VIDE s'il est dans le fr3 cible
+#
+# Le driver GLB n'est pas un huitieme champ EXPRES : le deduire du champ 6 rend impossible qu'un
+# jour les deux se contredisent. Il exige `rip_levels: true` dans decompiler/config/jak1/
+# jak1_config.jsonc — il etait a `false`, donc `decomp.sh` ne produisait AUCUN driver jak1 et le
+# retargeting des squelettes etait irrealisable depuis zero (meme defaut deja paye sur jak2 le
+# 2026-08-13).
+jak-hd|decompiler_out/jak2/levels/introcst/jakone-highres-lod0.glb|GAME|out/jak2/fr3/introcst.fr3|jakone-highres-lod0|eichar-lod0|
+dax-hd|decompiler_out/jak3/levels/ldax/daxter-highres-lod0.glb|GAME|out/jak3/fr3/ldax.fr3|daxter-highres-lod0|sidekick-lod0|
+keira-hd|decompiler_out/jak2/levels/lintcstb/keira-highres-lod0.glb|GAME|out/jak2/fr3/lintcstb.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3
+samos-hd|decompiler_out/jak3/levels/lsamos/samos-highres-lod0.glb|GAME|out/jak3/fr3/lsamos.fr3|samos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3
+jak2-hd|decompiler_out/jak2/levels/ljakdax/jak-highres-lod0.glb|GAME|out/jak2/fr3/ljakdax.fr3|jak-highres-lod0|eichar-lod0|
+jak3-hd|decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb|GAME|out/jak3/fr3/ljakc.fr3|jakc-highres-lod0|eichar-lod0|
+daxp-hd|decompiler_out/jak3/levels/loutro2/ottsel-daxpants-lod0.glb|GAME|out/jak3/fr3/loutro2.fr3|ottsel-daxpants-lod0|sidekick-lod0|
+keira3-hd|decompiler_out/jak3/levels/lkeira/keira-highres-lod0.glb|GAME|out/jak3/fr3/lkeira.fr3|keira-highres-lod0|assistant-lod0|out/jak1/fr3/village1.fr3
+ysamos-hd|decompiler_out/jak2/levels/lysamsam/youngsamos-highres-lod0.glb|GAME|out/jak2/fr3/lysamsam.fr3|youngsamos-highres-lod0|sage-lod0|out/jak1/fr3/village1.fr3
+jakm-hd|decompiler_out/jak3/levels/ljakc/jakc-highres-lod0.glb|GAME|out/jak3/fr3/ljakc.fr3|jakc-highres-lod0|eichar-lod0|
+jakp-hd|decompiler_out/jak2/levels/ldjakbrn/jak-highres-prison-lod0.glb|GAME|out/jak2/fr3/ldjakbrn.fr3|jak-highres-prison-lod0|eichar-lod0|
