@@ -2647,6 +2647,36 @@ phases:
   device: true
   device_serial: eae4df44
   owner_verify: true
+- id: Ggrass-crash
+  name: 'L''HERBE FAIT PLANTER LE JEU (owner 2026-08-30, BISSECTION FAITE PAR LUI) : « j''ai desactive toutes les options
+    rechargees et reactive une par une, avec l''herbe ca crash, sans ca fonctionne ». Sa piste : « c''est ptetre le build
+    from scratch, ca pre-compute plus le placement de l''herbe ». FAITS VERIFIES : le pack livre ne contient AUCUN .grassbake
+    ; village1.grassbake fait 64 octets ; GrassRenderer invalide le bake quand la taille du fr3 change, or le pack REMPLACE
+    village1.fr3 par la version enhanced — donc placement EN DIRECT systematique sur l''appareil. Nos non-reproductions s''expliquent
+    : nos courses tournaient sans l''herbe telle qu''il l''active.'
+  prompt: prompts/phase-Ggrass-crash.md
+  validator: validators/phase-Ggrass-crash.sh
+  max_turns: 3000
+  max_retries: 80
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Ggrass-density-presets
+  name: 'CINQ PALIERS DE DENSITE D''HERBE PRE-CALCULES (owner 2026-08-30) : « on s''en fiche de changer la densite au poil
+    de cul, on veut juste plus ou moins dense — very low / low / medium / high / very high c''est assez, donc on peut pre-calculer
+    le tout et eviter le chemin lourd ». MESURE : le repli en direct est declenche par « density slider above bake density
+    » ; 735 Mo de pointe avec pre-calcul contre 1 207 Mo en direct, et les deux morts reproduites sur le Redmi sont sur le
+    chemin direct. MESURE : la plage ne place JAMAIS un brin (300 releves niveau=beach contre 13 training, 26 placements tous
+    sur training) — owner : « tu peux completement dismiss ». Donc 5 bakes sur le seul training, < 10 Mo, et publier ce que
+    la plage coutait avant de la retirer. Le pack livre en contient ZERO aujourd''hui. Regenerer contre les fr3 REELLEMENT
+    LIVRES, sinon rejet a l''arrivee.'
+  prompt: prompts/phase-Ggrass-density-presets.md
+  validator: validators/phase-Ggrass-density-presets.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Grecharged-hd-eye-scale
   name: 'HD MODELS (owner 2026-08-06, backlog): les yeux HD de Daxter sont bien HD mais l''effet CARTOON de Jak 1 qui fait
     changer la TAILLE des yeux a une influence beaucoup trop forte sur les yeux HD — sur les animations exagerees ils deviennent
@@ -2713,6 +2743,31 @@ phases:
   max_turns: 2400
   max_retries: 5
   device: true
+  owner_verify: true
+- id: Gsubtitle-style
+  name: 'SOUS-TITRES : BLANC PLEIN ET VRAIE OMBRE PORTEE (owner 2026-08-30, backlog) : le NOM du locuteur garde sa couleur
+    et son leger degrade, le RESTE de la ligne passe en blanc plein ; l''ombre actuelle est « juste le texte duplique legerement
+    decale en plain black », a remplacer par « une drop shadow avec un leger flou, plus moderne et probablement plus lisible
+    ». PERIMETRE STRICT : « faut pas que ca change le reste des textes, c''est un autre sujet ».'
+  prompt: prompts/phase-Gsubtitle-style.md
+  validator: validators/phase-Gsubtitle-style.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-skip-all
+  name: 'PASSER TOUTES LES CINEMATIQUES EN MAINTENANT CERCLE (owner 2026-08-30, backlog) : OpenGOAL ne sait sauter que les
+    vraies cinematiques, pas les CONTEXTUELLES comme celles de Geyser Rock. Cible : un seul geste pour toutes — maintien de
+    CERCLE deux secondes, avec un indice bouton + « Skip »/« Passer » localise en bas a droite des qu''on touche un bouton
+    pendant une cinematique, dans une cartouche a coins arrondis qui SE REMPLIT sur les deux secondes. « pareil ca modernise
+    enormement le jeu ».'
+  prompt: prompts/phase-Gcutscene-skip-all.md
+  validator: validators/phase-Gcutscene-skip-all.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
   owner_verify: true
 global:
   git:
