@@ -60,3 +60,19 @@ Verifie mecaniquement :
   yfrac_after > yfrac_before (plus bas) et xfrac_after > xfrac_before (plus a droite) ;
 - LSCOLOR : submitted == FFFFFF et gradient == 0 ;
 - LSANIM : unchanged == 1 — l'animation est VALIDEE par l'owner, la casser est un echec.
+
+## COMPARABILITE — porte ajoutee 2026-08-30 15:35
+Constat sur la tentative 2 : la course APRES publie 15 gels contre 4 AVANT, pire gel
+845 ms contre 751 — apparemment une regression. Mais les deux courses ne mesurent PAS la
+meme chose : 8 evenements de rendu contre 4, et 111 s contre 174 s de duree. Quand
+l'ecran de chargement s'affiche la ou il y avait un ecran noir sans rendu, des images
+EXISTENT la ou il n'y en avait aucune : l'instrument compte des ecarts qu'il ne pouvait
+pas voir avant. Un tel avant/apres ne prouve NI l'amelioration NI la regression.
+
+Publie donc, et le validateur le verifie :
+    LSCOMPARE ouvre_before=<n> ouvre_after=<n> rendu_before=<n> rendu_after=<n> duree_before_s=<f> duree_after_s=<f>
+- meme nombre de transitions mesurees avant et apres (ouvre_before == ouvre_after) ;
+- durees a moins de 25 % d'ecart ;
+- et les chiffres de gel de LSFRAME doivent etre NORMALISES par le nombre d'images
+  reellement rendues, pas des totaux bruts.
+Sans base comparable, ne conclus rien — refais la course.

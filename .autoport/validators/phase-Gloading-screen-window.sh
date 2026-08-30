@@ -25,6 +25,14 @@ for d in fr:
     b,a=float(d['worst_gap_before']),float(d['worst_gap_after'])
     if a>=b: F(f"{d.get('transition')}: pire ecart entre images {a:.0f} ms, pas mieux que les {b:.0f} ms d'avant")
     if a>100: F(f"{d.get('transition')}: pire ecart {a:.0f} ms > plafond 100 ms — l'owner voit encore des freezes")
+c=[kv(l) for l in re.findall(r'^LSCOMPARE .*$',t,re.M)]
+if not c: F("LSCOMPARE absent : sans base comparable, un avant/apres de gels ne prouve rien (tentative 2 : 15 gels contre 4, mais 8 rendus contre 4 et 111 s contre 174 s)")
+d=c[0]
+if d['ouvre_before']!=d['ouvre_after']:
+    F(f"transitions mesurees differentes ({d['ouvre_before']} avant, {d['ouvre_after']} apres) : les deux courses ne mesurent pas la meme chose")
+db,da=float(d['duree_before_s']),float(d['duree_after_s'])
+if db<=0 or abs(da-db)/db>0.25:
+    F(f"durees non comparables ({db:.0f} s avant, {da:.0f} s apres, ecart {abs(da-db)/db*100:.0f} %% > 25 %%) : refaire la course")
 x=[kv(l) for l in re.findall(r'^LSTEXT .*$',t,re.M)]
 if not x: F("LSTEXT absent — la taille du texte (D2) n'est pas mesuree")
 d=x[0]; r=float(d['scale_after'])/float(d['scale_before'])
