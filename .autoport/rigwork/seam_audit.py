@@ -12,7 +12,7 @@ REPERE / NATURE / BASE :
              lecture quand le defaut est absent, et elle est atteignable.
 Balayage EXHAUSTIF du pool : aucune liste de sites ecrite a la main.
 """
-import argparse, os, sys, collections
+import argparse, os, sys, collections, hashlib
 import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'scripts', 'shell'))
 from retarget_hd_models import read_glb, consolidate_buffers, read_accessor, skin_info
@@ -52,7 +52,17 @@ def main():
         binds = {bind(v) for v in vs}
         if len(binds) > 1:
             bad.append((pos, vs))
+    # PROVENANCE PAR CONTENU, PAS PAR CHEMIN. Le 2026-08-30 un `seam_audit.APRES.txt` archive a
+    # 04:57 — donc pris AVANT la version finale de l'outil (05:11) et du modele (05:15) — a
+    # publie 92 divergences la ou le modele LIVRE en porte 89. Le chiffre du rapport etait juste,
+    # c'est sa piece justificative qui etait perimee, et rien dans l'en-tete ne permettait de le
+    # voir : un CHEMIN ne dit pas QUEL contenu a ete lu. On signe donc la sortie par le md5 du
+    # fichier lu, pour qu'une comparaison contre le glb livre suffise a trancher, sans jugement.
+    # (mtime ecarte deliberement : un fichier reecrit a l'identique en change, cf. 2026-08-19.)
+    with open(a.inp, 'rb') as fh:
+        _md5 = hashlib.md5(fh.read()).hexdigest()
     print(f"FILE {a.inp}")
+    print(f"MD5-DU-FICHIER-LU {_md5}")
     print(f"sommets DESSINES {len(drawn)} -> {len(groups)} positions ; "
           f"positions a liaisons DIVERGENTES : {len(bad)}")
     for pos, vs in sorted(bad, key=lambda kv: kv[0][2]):
