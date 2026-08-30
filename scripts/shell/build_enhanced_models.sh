@@ -298,6 +298,29 @@ for lvl in "${APPEND_LEVELS[@]}"; do
       || { log "reskin of $char-lod0.glb failed"; rm -rf "$ENHANCED_OUT"; exit 1; }
     mv -f "$PREPPED.reskin" "$PREPPED"
 
+    # ---- RELIAISON DE PEAU D'UNE PIECE ACCROCHEE AU MAUVAIS OS (Gjak-hd-rig-strap, 2026-08-29) --
+    # « la boucle en metal de la sangle dans son dos [...] semble attachee aux mouvements des
+    # epaules, donc elle bouge separement de la sangle. » L'ilot de 8 sommets de la boucle est lie
+    # a `LshoulderPad` alors que SIX de ses huit sommets sont geometriquement COINCIDENTS avec des
+    # sommets de la sangle/sacoche lies a `chest` : deux positions identiques sur deux os
+    # differents se separent des que ces os divergent. L'outil ADOPTE la liaison des jumeaux et
+    # publie l'accord sommet par sommet.
+    # Il tourne ICI, apres le prep et le reskin, donc sur les octets EXACTS que `hd_merc_swap add`
+    # appende dans l'fr3 et que `skin-keep` conserve pour la mesure — les deux ne peuvent pas
+    # diverger. Pas de spec pour un personnage => passe-plat identique au bit.
+    # Il ne REPARENTE rien : une hierarchie ne voyage que par `<char>-ag.go`, dont le producteur
+    # n'est appele par aucune chaine de livraison (celui du zip du 2026-08-30 datait du 08-05).
+    REBIND_SPEC="recharged_assets/$char-rebind-skin.txt"
+    if [ -f "$REBIND_SPEC" ]; then
+      REBIND_LOG="$HD_TMP/$char-rebind.txt"
+      python3 scripts/shell/hd_rebind_skin.py --in "$PREPPED" --out "$PREPPED.rebind" \
+          --spec "$REBIND_SPEC" --report "$REBIND_LOG" \
+        || { log "FATAL: reliaison de peau de $char depuis '$REBIND_SPEC' echouee:";
+             sed 's/^/    /' "$REBIND_LOG" 2>/dev/null; rm -rf "$ENHANCED_OUT"; exit 1; }
+      mv -f "$PREPPED.rebind" "$PREPPED"
+      sed 's/^/    /' "$REBIND_LOG" | while read -r l; do log "$l"; done
+    fi
+
     # LE MESH QUI PART REELLEMENT, GARDE HORS DU REPERTOIRE TEMPORAIRE (2026-08-13).
     # `HD_TMP` est un `mktemp -d` avec `trap rm -rf ... EXIT` (:164-165) : le glb PREPPE+RESKINNE —
     # le seul qui porte les poids reellement livres — etait detruit a la fin de chaque bake. Toute

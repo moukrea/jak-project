@@ -958,11 +958,48 @@ redistribute rmidhair  chain=Rmidhaira,Rmidhairb,Rmidhairc,Rmidhaird gate=0.05 h
 # restaurer aurait fait payer la correction des cheveux par la peau de huit autres personnages.
 # Source : `git show f86d919800^:recharged_assets/physics_reskin.txt`.
 # =============================================================================================
-[model jak-hd]
-transfer packStrapTop from=chest,upper_body cap=0.85 shape=0.85
-
-[model jak2-hd jakp-hd]
-transfer packStrapTop from=chest,upper_body cap=0.85 shape=0.85
+# =============================================================================================
+# RETIREE LE 2026-08-30 — Gjak-hd-rig-strap. ELLE FABRIQUAIT LE DEFAUT QUE L'OWNER SIGNALE.
+#
+#   [model jak-hd]              transfer packStrapTop from=chest,upper_body cap=0.85 shape=0.85
+#   [model jak2-hd jakp-hd]     transfer packStrapTop from=chest,upper_body cap=0.85 shape=0.85
+#
+# Owner 2026-08-29 : « On dirait qu'un point de sa veste bleue soit lie a la laniere dans son dos
+# qui "bouge avec le vent" du coup les polygones lies passent au travers de la sangle. »
+#
+# C'ETAIT NOUS. `transfer` ne sait que MONTER le poids de sa cible (`gain = max(new - wt, 0)`,
+# .autoport/physics_c7_reskin.py:1037) en le prenant aux os `from=`. Applique a `packStrapTop`,
+# il a environ DOUBLE chacun de ses poids et fait basculer des sommets de VESTE, minoritaires
+# chez ND, en DOMINANTS sur l'os de la sangle. Compare, sur les memes sommets, entre le rip du
+# donneur (= la peau authoree par Naughty Dog) et le glb LIVRE du 2026-08-29 02:10 :
+#
+#   jak-hd   (jak-orig-jackettop / -belt)      ND -> LIVRE
+#     (-0.0953, 1.9768,-0.2450) veste          0.4510 -> 0.8500   DOMINANT
+#     (-0.0170, 2.0755,-0.2314) veste          0.3765 -> 0.7502   DOMINANT
+#     ( 0.1361, 1.9734,-0.2518) veste+ceinture 0.2471 -> 0.5244   DOMINANT
+#     ( 0.0987, 1.7709,-0.1565) veste+ceinture 0.0196 -> 0.0609
+#     quatre sommets de ceinture, DEVANT du torse 0.035-0.051 -> 0.100-0.137
+#   jak2-hd / jakp-hd  (jakb-jacketbody / jakb-prison-shirt)
+#     (+-0.144, 1.809,-0.250) veste            0.1020 -> 0.8500   DOMINANT   (x8.3)
+#
+# Le journal du bake le dit d'ailleurs en toutes lettres, personne ne l'avait lu :
+#   .autoport/logs/build-enhanced-models.log:6
+#   « packStrapTop verts=13 p90 0.436 mean 0.159->0.324 dominant 0->5 weight moved off
+#     chest,upper_body = 2.1 »
+# ND n'avait AUCUN sommet dominant sur cet os ; la regle en a fabrique CINQ. Ces sommets
+# suivent alors la laniere a 85 % au lieu de suivre le torse : c'est mot pour mot « les
+# polygones lies passent au travers de la sangle ».
+#
+# ET LA REGLE N'AVAIT AUCUNE RAISON D'EXISTER SUR CES TROIS MODELES. Le commentaire d'en-tete de
+# ce fichier dit son but : « une chaine n'atteint l'ecran que par les sommets auxquels son joint
+# est pondere » — c'est-a-dire faire posseder sa geometrie a un joint PILOTE PAR LE SOLVEUR.
+# Or `recharged_assets/physics_chains.txt` ne declare que `[model keira-hd]` avec chestL/chestR :
+# `grep -c packStrap` y rend 0. Aucun solveur ne touche `packStrapTop` sur aucun modele de Jak.
+# La regle ne pouvait donc rien apporter, seulement deformer la peau authoree.
+#
+# LE RETRAIT REND EXACTEMENT LA PONDERATION DE NAUGHTY DOG, il n'invente aucune valeur.
+# Les autres modeles de ce fichier ne sont pas touches.
+# =============================================================================================
 
 [model jak3-hd jakm-hd]
 transfer MhairA from=neckB cap=0.85 shape=0.85

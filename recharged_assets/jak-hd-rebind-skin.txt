@@ -1,0 +1,80 @@
+# recharged_assets/jak-hd-rebind-skin.txt
+# Lu par scripts/shell/hd_rebind_skin.py, appele depuis scripts/shell/build_enhanced_models.sh
+# au POINT DE PRODUCTION (sur le glb preppe+reskinne, celui-la meme que `hd_merc_swap add`
+# appende dans fr3/enhanced/GAME.fr3). Pas de spec pour un personnage = passe-plat.
+#
+# ---------------------------------------------------------------------------------------------
+# LA BOUCLE METALLIQUE DE LA SANGLE DU DOS (owner 2026-08-29)
+# « la boucle en metal de la sangle dans son dos, il semblerait qu'elle soit attachee aux
+#   mouvements des epaules, donc elle bouge separement de la sangle c'est bizarre et glitchy. »
+#
+# MESURE, sur le modele LIVRE `out/jak1/fr3/skin/jak-hd-lod0.glb` du 2026-08-29 02:10 :
+#   - la boucle est un ILOT TOPOLOGIQUE de 8 sommets / 8 triangles, texture `jak-orig-armor`,
+#     bbox x[-0.0732,0.1701] y[1.9496,2.1860] z[-0.3930,-0.3692] — au CENTRE du dos, a la
+#     profondeur de la sangle. C'est le seul ilot de cette piece derriere z=-0.30 ;
+#   - 7 de ses 8 sommets portent `LshoulderPad:1.0000`. `LshoulderPad` a pour pose de bind
+#     (0.2240, 2.0370, -0.0700), c'est-a-dire EXACTEMENT celle de `Lshould` : c'est l'os de
+#     l'epaulette, et c'est bien « les mouvements des epaules » que l'owner decrit ;
+#   - la SANGLE sur laquelle la boucle repose (28 sommets, texture `jak-orig-earflaps`) et la
+#     SACOCHE (45 sommets, `jak-orig-leatherpouch`) sont liees a `chest:1.0000`.
+#
+# LE FAIT QUI TRANCHE, ET IL SE LIT SANS AUCUNE COURSE : SIX des huit sommets de la boucle sont
+# GEOMETRIQUEMENT COINCIDENTS avec un sommet de la sangle ou de la sacoche, et les QUATORZE
+# jumeaux concernes portent TOUS `chest:1.0000`, sans une exception :
+#     ( 0.0391, 2.1452,-0.3930)  boucle LshoulderPad:1.0  <-> v4955,v4971 sangle  chest:1.0
+#     ( 0.1293, 2.0857,-0.3896)  boucle LshoulderPad:1.0  <-> v4956,v4973 sangle  chest:1.0
+#     ( 0.0272, 2.1860,-0.3760)  boucle LshoulderPad:1.0  <-> v4978      sacoche chest:1.0
+#     ( 0.1701, 2.0908,-0.3726)  boucle LshoulderPad:1.0  <-> v4979      sacoche chest:1.0
+#     ( 0.0783, 1.9496,-0.3692)  boucle LshoulderPad:1.0  <-> v4977      sacoche chest:1.0
+#     (-0.0732, 2.0533,-0.3777)  boucle packStrapTop:0.85 <-> v4976,v5035 sacoche chest:1.0
+# Deux sommets a la MEME position lies a des os DIFFERENTS se separent des que ces os divergent.
+# La boucle est donc SOUDEE a la sangle en six coins et tiree par l'epaule : « elle bouge
+# separement de la sangle », mot pour mot, demontre par la geometrie seule.
+#
+# L'OS CIBLE N'EST PAS CHOISI, IL EST LU. `chest` est ce que portent les 14 jumeaux, c'est-a-dire
+# la section de sangle sur laquelle la boucle repose. Le lien de la boucle passe donc de la
+# branche EPAULE a la branche de la sangle :
+#     AVANT  boucle <- LshoulderPad <- chest <- upper_body <- main <- prejoint
+#     APRES  boucle <-                 chest <- upper_body <- main <- prejoint
+# Apres l'operation les six couples coincidents portent la MEME liaison : la separation devient
+# IMPOSSIBLE par construction, elle n'est pas seulement reduite.
+#
+# POURQUOI PAR LES POIDS ET NON PAR LA HIERARCHIE : un reparentage ne voyage que par
+# `recharged_assets/hd_anim/jak-hd-ag.go`, dont le producteur `build_hd_actor_artgroup.sh` n'est
+# appele par AUCUNE chaine de livraison — le `jak-hd-ag.go` du zip publie le 2026-08-30 datait du
+# 2026-08-05, 25 jours. Les poids, eux, sont refabriques a chaque bake. Et le contrat de phase
+# exige un nombre de joints et de sommets IDENTIQUE : reparenter y contreviendrait.
+#
+# NOTE : le second defaut de l'owner (« un point de sa veste bleue lie a la laniere ») ne se
+# corrige PAS ici — il etait FABRIQUE PAR NOUS, par la regle `transfer packStrapTop` de
+# recharged_assets/physics_reskin.txt, qui est retiree. Voir ce fichier.
+solidify chest tex=jak-orig-armor box=-0.12,0.22,1.90,2.25,-0.45,-0.30 expect=8
+#
+# ---------------------------------------------------------------------------------------------
+# LA DERNIERE DECHIRURE DE LA SANGLE, CELLE QUE LA PEAU AUTHOREE LAISSE OUVERTE
+#
+# Le retrait de notre regle `transfer packStrapTop` (physics_reskin.txt) rend a ces sommets la
+# ponderation exacte de Naughty Dog, et fait tomber a ZERO le nombre de sommets DOMINES par l'os
+# de la sangle. Il reste pourtant, dans l'art d'origine, TROIS positions du dos ou un sommet de
+# veste/ceinture porte une influence de `packStrapTop` alors que les sommets COINCIDENTS avec lui
+# — la ceinture et la sacoche, a la meme position au 1e-6 pres — portent `chest:1.0000` :
+#
+#     ( 0.1361, 1.9734,-0.2518)  v2893 ceinture + v4997 veste  upper_body:0.6157 packStrapTop:0.2471
+#                                <-> v2864, v2871  ceinture    chest:1.0000
+#     (-0.0953, 1.9768,-0.2450)  v2907 veste                   upper_body:0.5059 packStrapTop:0.4510
+#                                <-> v5029         sacoche     chest:1.0000
+#     (-0.0170, 2.0755,-0.2314)  v2923 veste                   upper_body:0.5098 packStrapTop:0.3765
+#                                <-> v2861 ceinture, v5047 sacoche  chest:1.0000
+#
+# C'est la MEME configuration que la boucle, en plus discret : des sommets a la meme position sur
+# des os differents. Ils se separent des que `packStrapTop` tourne — et il tourne, la table de
+# retarget `jak-hd-k2e.json` le pilote en mode 3 (orient-copy) depuis l'animation jak1 avec un
+# `rot_mismatch=17.10deg` declare. C'est cette separation-la que l'owner decrit : « les polygones
+# lies passent au travers de la sangle ».
+#
+# La liaison adoptee est LUE sur les jumeaux, jamais choisie ; toutes les copies coincidentes sont
+# reecrites ensemble (n'en traiter qu'une fabriquerait une nouvelle divergence).
+# La boite s'arrete a z=-0.29 : elle ne peut pas mordre sur la boucle (z <= -0.3692), ni sur les
+# sommets de ceinture du DEVANT du torse (z >= +0.13), qui gardent l'influence de ND (0.035-0.051)
+# parce qu'aucun jumeau ne les contredit — on ne touche pas a ce que rien ne demontre.
+weld-to-twin packStrapTop box=-0.15,0.20,1.90,2.15,-0.29,-0.20 expect=4

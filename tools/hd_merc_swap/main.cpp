@@ -895,6 +895,152 @@ int do_skin_stats(const fs::path& fr3, const std::string& name) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Gjak-hd-rig-strap: BONE-CENSUS — which BONES drive which vertices, read from the fr3 that is
+// actually DELIVERED. skin-stats cannot answer this: it returns early on `d.eye_id == 0xff`, so
+// it only ever sees the EYE draws. This walks every draw of every effect, DEDUPLICATES by vertex
+// index (a vertex referenced by N triangles is ONE vertex, not N), and reports per bone the
+// vertex count, the weight sum and the bind-pose bounding box. --box restricts to a region of the
+// model in the fr3's OWN units (no conversion), --bone to the vertices a single bone drives.
+int do_bone_census(const fs::path& fr3,
+                   const std::string& name,
+                   bool has_box,
+                   const std::array<float, 6>& box,
+                   int bone_filter,
+                   bool per_vertex) {
+  tfrag3::Level lev;
+  load_fr3(fr3, lev);
+  auto it = std::find_if(lev.merc_data.models.begin(), lev.merc_data.models.end(),
+                         [&](const auto& m) { return m.name == name; });
+  if (it == lev.merc_data.models.end()) {
+    fmt::print("  model '{}' not in {}\n", name, fr3.string());
+    return 2;
+  }
+  const auto& model = *it;
+  const auto& gidx = lev.merc_data.indices;
+  const auto& pool = lev.merc_data.vertices;
+
+  fmt::print("== BONE-CENSUS {} {} ==\n", fr3.string(), model.name);
+  const std::string bone_txt =
+      (bone_filter >= 0) ? fmt::format("{}", bone_filter) : std::string("any");
+  if (has_box) {
+    fmt::print("BONE-CENSUS-FILTER box=on {:.5f}..{:.5f} {:.5f}..{:.5f} {:.5f}..{:.5f} bone={}\n",
+               box[0], box[1], box[2], box[3], box[4], box[5], bone_txt);
+  } else {
+    fmt::print("BONE-CENSUS-FILTER box=off bone={}\n", bone_txt);
+  }
+
+  auto keep = [&](const tfrag3::MercVertex& v) {
+    if (has_box) {
+      if (v.pos[0] < box[0] || v.pos[0] > box[1] || v.pos[1] < box[2] || v.pos[1] > box[3] ||
+          v.pos[2] < box[4] || v.pos[2] > box[5]) {
+        return false;
+      }
+    }
+    if (bone_filter >= 0) {
+      bool hit = false;
+      for (int w = 0; w < 3; w++) {
+        if (v.weights[w] > 0.f && (int)v.mats[w] == bone_filter) {
+          hit = true;
+        }
+      }
+      if (!hit) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  std::set<u32> all_ids;   // every vertex the model references at all, deduplicated
+  std::set<u32> kept_ids;  // ... that passed the filters (global dedup: one pool, one vertex)
+
+  for (size_t ei = 0; ei < model.effects.size(); ei++) {
+    std::set<u32> kept_here;                      // dedup by vertex index, per effect
+    std::map<u32, std::set<std::string>> tex_of;  // vertex -> every texture it is drawn with
+    for (const auto& d : model.effects[ei].all_draws) {
+      const s32 id = d.tree_tex_id;
+      const std::string tex = (id >= 0 && (size_t)id < lev.textures.size())
+                                  ? lev.textures[id].debug_name
+                                  : tex_label(lev, id);
+      for (u32 k = 0; k < d.index_count; k++) {
+        const size_t ii = (size_t)d.first_index + k;
+        if (ii >= gidx.size()) {
+          break;
+        }
+        const u32 vi = gidx[ii];
+        if (vi == UINT32_MAX || vi >= pool.size()) {
+          continue;
+        }
+        all_ids.insert(vi);
+        if (!keep(pool[vi])) {
+          continue;
+        }
+        kept_here.insert(vi);
+        kept_ids.insert(vi);
+        tex_of[vi].insert(tex);
+      }
+    }
+    if (!per_vertex) {
+      continue;
+    }
+    for (const u32 vi : kept_here) {
+      const auto& v = pool[vi];
+      std::string bones;
+      for (int w = 0; w < 3; w++) {
+        if (v.weights[w] > 0.f) {
+          if (!bones.empty()) {
+            bones += " ";
+          }
+          bones += fmt::format("{}:{:.4f}", (int)v.mats[w], v.weights[w]);
+        }
+      }
+      std::string tex;
+      for (const auto& t : tex_of[vi]) {
+        if (!tex.empty()) {
+          tex += ",";
+        }
+        tex += t;
+      }
+      fmt::print("BONE-CENSUS-VERT effect={} vi={} pos=({:.5f},{:.5f},{:.5f}) tex={} bones={}\n", ei,
+                 vi, v.pos[0], v.pos[1], v.pos[2], tex, bones);
+    }
+  }
+
+  struct BoneAcc {
+    size_t verts = 0;
+    double wsum = 0;
+    double mn[3] = {1e30, 1e30, 1e30};
+    double mx[3] = {-1e30, -1e30, -1e30};
+  };
+  std::map<int, BoneAcc> per_bone;
+  for (const u32 vi : kept_ids) {
+    const auto& v = pool[vi];
+    std::map<int, double> here;  // a vertex counts ONCE per bone even if two channels share it
+    for (int w = 0; w < 3; w++) {
+      if (v.weights[w] > 0.f) {
+        here[(int)v.mats[w]] += v.weights[w];
+      }
+    }
+    for (const auto& [b, w] : here) {
+      auto& a = per_bone[b];
+      a.verts++;
+      a.wsum += w;
+      for (int k = 0; k < 3; k++) {
+        a.mn[k] = std::min(a.mn[k], (double)v.pos[k]);
+        a.mx[k] = std::max(a.mx[k], (double)v.pos[k]);
+      }
+    }
+  }
+  for (const auto& [b, a] : per_bone) {
+    fmt::print("BONE-CENSUS-BONE bone={} verts={} wsum={:.4f} bbox=x[{:.5f},{:.5f}] "
+               "y[{:.5f},{:.5f}] z[{:.5f},{:.5f}]\n",
+               b, a.verts, a.wsum, a.mn[0], a.mx[0], a.mn[1], a.mx[1], a.mn[2], a.mx[2]);
+  }
+  fmt::print("BONE-CENSUS-TOTAL model={} effects={} verts_uniques={} verts_retenus={}\n",
+             model.name, model.effects.size(), all_ids.size(), kept_ids.size());
+  return 0;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Grecharged-hd-eye-scale: EYE-GAP — the OFFLINE mirror of the runtime measurement in
 // game/graphics/opengl_renderer/foreground/Merc2.cpp `eye_geom_for` / `eye_blerc_measure_and_damp`.
 //
@@ -2371,7 +2517,12 @@ int main(int argc, char** argv) {
                "[--verbose-targets]\n"
                "        analytic worst-case eye dilation over EVERY animation + the resulting "
                "L/R eye gap, raw and damped by G (default 1.0); --weights replays authored "
-               "per-frame blerc bytes instead\n");
+               "per-frame blerc bytes instead\n"
+               "  hd_merc_swap bone-census <fr3> <model-name> [--box x0 x1 y0 y1 z0 z1] "
+               "[--bone N] [--per-vertex]\n"
+               "        per-bone vertex census of the DELIVERED fr3: every draw, "
+               "deduplicated by vertex index; --box filters on bind position in the fr3's "
+               "own units, --bone on the driving bone, --per-vertex lists each kept vertex\n");
     return 2;
   }
   std::string mode = argv[1];
@@ -2412,6 +2563,36 @@ int main(int argc, char** argv) {
   if (mode == "skin-stats") {
     if (argc < 4) { fmt::print("skin-stats needs <fr3> <model-name>\n"); return 2; }
     return do_skin_stats(argv[2], argv[3]);
+  }
+  if (mode == "bone-census") {
+    if (argc < 4) {
+      fmt::print("bone-census needs <fr3> <model-name>\n");
+      return 2;
+    }
+    bool has_box = false, per_vertex = false;
+    std::array<float, 6> box = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    int bone_filter = -1;
+    for (int i = 4; i < argc; i++) {
+      const std::string a = argv[i];
+      if (a == "--per-vertex") {
+        per_vertex = true;
+      } else if (a == "--box" && i + 6 < argc) {
+        for (int k = 0; k < 6; k++) {
+          box[k] = (float)std::atof(argv[++i]);
+        }
+        has_box = true;
+      } else if (a == "--bone" && i + 1 < argc) {
+        bone_filter = std::atoi(argv[++i]);
+        if (bone_filter < 0) {
+          fmt::print("bone-census: --bone needs a non-negative bone index\n");
+          return 2;
+        }
+      } else {
+        fmt::print("bone-census: unknown or incomplete option '{}'\n", a);
+        return 2;
+      }
+    }
+    return do_bone_census(argv[2], argv[3], has_box, box, bone_filter, per_vertex);
   }
   if (mode == "diff") {
     if (argc < 4) { fmt::print("diff needs <stock.fr3> <enhanced.fr3>\n"); return 2; }
