@@ -41,19 +41,25 @@ State& state() {
 }
 
 bool read_enable_flag() {
-  // Defaut ON. `OG_FIXED_TICK=0` (ou la propriete a "0") desarme — c'est l'ablation
-  // sur LE MEME BINAIRE qu'exigent les directives pour un avant/apres honnete.
+  // DEFAUT DESARME depuis le 2026-08-30. Ce chantier (Gfixed-tick-interpolation) n'a PAS
+  // passe sa porte de sortie : ses deux tentatives ont echoue. Il etait pourtant actif par
+  // defaut dans le build publie a 17h32 et installe par l'owner, qui a vu le jeu planter.
+  // Une reecriture non validee du pas de simulation — ce qui gouverne les sauts, la camera
+  // et les seuils d'etat — ne doit JAMAIS etre armee dans un binaire qui part chez lui.
+  // `OG_FIXED_TICK=1` (ou la propriete a "1") l'arme pour nos propres mesures ; c'est
+  // l'ablation sur LE MEME BINAIRE qu'exigent les directives pour un avant/apres honnete.
+  // A rebasculer sur ON le jour ou le chantier passe son validateur, pas avant.
   const char* e = std::getenv("OG_FIXED_TICK");
-  if (e && e[0] == '0') {
-    return false;
+  if (e && e[0] == '1') {
+    return true;
   }
 #ifdef __ANDROID__
   char pv[8] = {0};
-  if (__system_property_get("debug.opengoal.fixed_tick", pv) > 0 && pv[0] == '0') {
-    return false;
+  if (__system_property_get("debug.opengoal.fixed_tick", pv) > 0 && pv[0] == '1') {
+    return true;
   }
 #endif
-  return true;
+  return false;
 }
 
 }  // namespace
