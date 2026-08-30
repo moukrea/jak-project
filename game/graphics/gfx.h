@@ -18,6 +18,7 @@
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 #include "common/versions/versions.h"
+#include "game/graphics/grass_density_presets.h"
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
@@ -371,11 +372,15 @@ struct GfxGlobalSettings {
   // card = grass-card fade-out (pushed further out than the old fixed 62 m).
   float recharged_grass_near_dist = 30.f;
   float recharged_grass_card_dist = 95.f;
-  // POLISH#5 (owner 2026-07-10): adjustable grass DENSITY, a percent scale (100 = the
-  // baseline instance budget) fed from the third "Recharged Settings" slider via
-  // pc-set-grass-dists! (z component). Scales the whole-level instance budget in the
-  // renderer; a change re-scatters the static field. Clamped renderer-side for memory safety.
-  float recharged_grass_density = 150.f;
+  // Ggrass-density-presets (owner 2026-08-30): la densite n'est plus un POURCENTAGE CONTINU, c'est
+  // l'INDICE d'un des cinq paliers de `grass_density_presets.h` (0 = VERY LOW .. 4 = VERY HIGH,
+  // defaut 2 = MEDIUM = les 150 % livres jusqu'ici). Pousse par pc-set-grass-dists! (composante z).
+  // POURQUOI CE N'EST PLUS UN FLOTTANT : le curseur pouvait demander une densite SUPERIEURE a celle
+  // du bake, et cette comparaison (`density > bake_density_pct`) basculait le placement sur le
+  // chemin EN DIRECT — 1 207 Mo de pointe contre 735, et la population ou les plantages ont ete
+  // reproduits. Chaque palier a desormais SON bake : la densite demandee EST celle du bake charge,
+  // et la comparaison n'existe plus.
+  int recharged_grass_density_preset = grass_bake::kDensityPresetDefault;
   // Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables from <level>.grassbake,
   // cheap load) vs LIVE (full at-load scan). Same expand() path -> identical placement; falls back
   // to LIVE when no valid bake exists or a placement debug prop overrides.

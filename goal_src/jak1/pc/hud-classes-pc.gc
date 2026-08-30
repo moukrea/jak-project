@@ -1825,7 +1825,11 @@
   ;; Grecharged-grass-poc POLISH#4/#5: push the two adjustable grass view-distances + density every frame.
   (set! (-> *grass-dist-scratch* x) (-> obj recharged-grass-near-dist))
   (set! (-> *grass-dist-scratch* y) (-> obj recharged-grass-card-dist))
-  (set! (-> *grass-dist-scratch* z) (-> obj recharged-grass-density)) ;; POLISH#5 density percent
+  ;; Ggrass-density-presets (owner 2026-08-30): z no longer carries a density PERCENT — it carries the
+  ;; PRESET INDEX (0=VERY LOW 1=LOW 2=MEDIUM 3=HIGH 4=VERY HIGH). Each index selects its own shipped
+  ;; bake, so there is no intermediate value left that could ask for more density than the bake holds
+  ;; and tip the renderer into the LIVE at-load placement path.
+  (set! (-> *grass-dist-scratch* z) (the float (-> obj recharged-grass-density-preset)))
   ;; Grecharged-grass-precompute-mode: w channel carries the GRASS MODE toggle (1.0 = PRECOMPUTED
   ;; baked day-cycle tables / 0.0 = LIVE full at-load scan). Read into recharged_grass_precomputed C++-side.
   (set! (-> *grass-dist-scratch* w) (if (-> obj recharged-grass-precomputed?) 1.0 0.0))

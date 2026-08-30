@@ -693,7 +693,8 @@ bool GrassRenderer::oom_disarm(const void* lev,
   m_cached_level = lev;
   m_cached_load_id = load_id;
   m_cached_precomputed = Gfx::g_global_settings.recharged_grass_precomputed;
-  m_cached_density = Gfx::g_global_settings.recharged_grass_density;
+  m_cached_preset =
+      grass_bake::clamp_density_preset(Gfx::g_global_settings.recharged_grass_density_preset);
   m_cached_floor_gap = floor_gap_m;
   return true;
 }
@@ -789,51 +790,121 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     // = « \x80.opengo » : du TEXTE DE CHEMIN lu comme une taille. C'est un compte lu au mauvais
     // endroit, pas une allocation « trop grande ». Le garde ne repare pas ca — il empeche que ca
     // tue le jeu, et il NOMME l'etape, ce que le plantage ne faisait pas.
+    // ================================ Ggrass-density-presets ================================
+    // CINQ PALIERS, CINQ BAKES, ET PLUS AUCUN REPLI EN DIRECT.
+    //
+    // Owner 2026-08-30 : « on s'en fiche de changer la densite au poil de cul, on veut juste plus ou
+    // moins dense [...] donc on peut pre-calculer le tout et eviter le chemin lourd ».
+    //
+    // CE QUI DISPARAIT ICI, ET POURQUOI. L'ancienne resolution chargeait UN bake par niveau puis
+    // comparait le curseur a sa densite (`density > bake_density_pct` -> « density slider above bake
+    // density »), et TOUT echec de validation retombait sur `scan_level` — le placement EN DIRECT,
+    // mesure a 1 207 Mo de pointe contre 735 avec pre-calcul, et la population ou les plantages ont
+    // ete reproduits sur le Redmi (6 sur 6 courses herbe armee).
+    // Le palier demande porte maintenant SON PROPRE fichier, `<niveau>.<palier>.grassbake`, et
+    // l'expansion se fait a la densite DU BAKE CHARGE : la comparaison n'a plus de valeur
+    // intermediaire a rencontrer, elle n'est pas « inatteignable », elle n'existe plus.
+    //
+    // ET S'IL MANQUE UN BAKE : on descend l'echelle vers un palier PLUS BAS (une densite plus faible
+    // est exactement le PREFIXE de la meme liste de candidats — `expand` reprend les candidats 0..n-1
+    // avec les memes graines, cf. GrassBakeCore.cpp:975-982 contre :1770-1785), donc le repli reste
+    // PRE-CALCULE et deterministe. Si aucun palier ne valide, il n'y a PAS D'HERBE et on le dit fort.
+    // Jamais de scan en direct : c'est le chemin qu'on retire, on ne s'y rabat pas en cachette.
+    const int want_preset =
+        grass_bake::clamp_density_preset(Gfx::g_global_settings.recharged_grass_density_preset);
+    int served_preset = want_preset;
     try {
     if (want_pre && !floor_gap_overridden) {
-      // Round 30 (delivery): same one resolver as the fr3 sidecar — package copy wins, decision
-      // journalled. The resolved path is echoed in the PLACE-TIME log below.
-      const std::string bake_path =
-          file_util::resolve_fr3_asset(GameVersion::Jak1, level_name + ".grassbake").path.string();
-      resolved_bake_path = bake_path;
-      grass_bake::BakeData loaded;
-      std::string reason;
-      if (!grass_bake::load_bake(loaded, bake_path)) {
-        reason = "load failed";
-      } else if (loaded.level_name != level_name) {
-        reason = "level mismatch";
-      } else {
-        u64 cur_fr3 = 0;
-        bool have_fr3 = false;
-        try {
-          cur_fr3 = (u64)std::filesystem::file_size(fr3_path);
-          have_fr3 = true;
-        } catch (...) {
-          have_fr3 = false;
+      std::string refus;
+      for (int cand = want_preset; cand >= 0 && !from_bake; --cand) {
+        // Round 30 (delivery): same one resolver as the fr3 sidecar — package copy wins, decision
+        // journalled. The resolved path is echoed in the PLACE-TIME log below.
+        const std::string bake_path =
+            file_util::resolve_fr3_asset(
+                GameVersion::Jak1,
+                fmt::format("{}.{}.grassbake", level_name, grass_bake::density_preset_slug(cand)))
+                .path.string();
+        if (resolved_bake_path.empty()) {
+          resolved_bake_path = bake_path;  // le chemin DEMANDE, meme si c'est un palier plus bas qui sert
         }
-        if (!have_fr3 || loaded.fr3_size != cur_fr3) {
-          // Ggrass-crash : la raison PORTE DESORMAIS SES DEUX NOMBRES ET LE CHEMIN RESOLU. « fr3
-          // size mismatch » tout court ne disait pas CONTRE QUOI la comparaison avait ete faite —
-          // et c'etait precisement la ou etait le defaut : on comparait au mauvais fichier.
-          reason = fmt::format("fr3 size mismatch: bake={} vs {}={} (source={})", loaded.fr3_size,
-                               fr3_path, cur_fr3, fr3_route.source);
-        } else if (loaded.floor_gap_m != floor_gap_m) {
-          reason = "floor-gap mismatch";
-        } else if (Gfx::g_global_settings.recharged_grass_density > loaded.bake_density_pct + 0.01f) {
-          reason = "density slider above bake density";
+        grass_bake::BakeData loaded;
+        std::string reason;
+        if (!grass_bake::load_bake(loaded, bake_path)) {
+          reason = "load failed";
+        } else if (loaded.level_name != level_name) {
+          reason = "level mismatch";
         } else {
-          from_bake = true;
-          m_bake = std::move(loaded);
+          u64 cur_fr3 = 0;
+          bool have_fr3 = false;
+          try {
+            cur_fr3 = (u64)std::filesystem::file_size(fr3_path);
+            have_fr3 = true;
+          } catch (...) {
+            have_fr3 = false;
+          }
+          if (!have_fr3 || loaded.fr3_size != cur_fr3) {
+            // Ggrass-crash : la raison PORTE SES DEUX NOMBRES ET LE CHEMIN RESOLU. « fr3 size
+            // mismatch » tout court ne disait pas CONTRE QUOI la comparaison avait ete faite — et
+            // c'etait precisement la ou etait le defaut : on comparait au mauvais fichier.
+            reason = fmt::format("fr3 size mismatch: bake={} vs {}={} (source={})", loaded.fr3_size,
+                                 fr3_path, cur_fr3, fr3_route.source);
+          } else if (loaded.floor_gap_m != floor_gap_m) {
+            reason = "floor-gap mismatch";
+          } else {
+            from_bake = true;
+            served_preset = cand;
+            resolved_bake_path = bake_path;
+            m_bake = std::move(loaded);
+          }
+        }
+        if (!from_bake) {
+          refus += fmt::format("[{}] {}; ", grass_bake::density_preset_slug(cand), reason);
         }
       }
-      if (!from_bake) {
-        lg::info("[recharged-grass] PRECOMPUTED unavailable ({}) -> LIVE fallback", reason);
-      }
+      // La ligne se publie DANS LES DEUX CAS : elle nomme le palier demande ET le palier servi, donc
+      // « le bake demande manquait » et « tout va bien » ne se confondent plus dans un silence.
+      lg::info(
+          "[recharged-grass] GRASSPRESET niveau={} palier_demande={} palier_servi={} depuis_bake={} "
+          "bake={} refus={}",
+          level_name, grass_bake::density_preset_slug(want_preset),
+          from_bake ? grass_bake::density_preset_slug(served_preset) : "<aucun>", from_bake ? 1 : 0,
+          resolved_bake_path.empty() ? "<none>" : resolved_bake_path,
+          refus.empty() ? "<aucun>" : refus);
+    }
+
+    if (!from_bake && want_pre && !floor_gap_overridden) {
+      // AUCUN PALIER N'A VALIDE. On ne scanne pas : le champ reste vide, le niveau se joue sans
+      // herbe, et la trace le dit. C'est le seul comportement compatible avec « eviter le chemin
+      // lourd » — un repli silencieux vers 1 207 Mo serait exactement le defaut qu'on ferme.
+      lg::error(
+          "[recharged-grass] AUCUN BAKE VALIDE pour '{}' (palier demande {}) — PAS D'HERBE sur ce "
+          "niveau. Le placement EN DIRECT n'est PAS emprunte : il a ete retire du repli.",
+          level_name, grass_bake::density_preset_slug(want_preset));
+      std::vector<grass_bake::GrassInstance>().swap(m_instances);
+      std::vector<u32>().swap(m_inst_tri);
+      std::vector<u8>().swap(m_light);
+      m_chunks.clear();
+      m_bake = grass_bake::BakeData{};
+      m_instance_count = 0;
+      m_droop_start = 0;
+      m_light_valid = false;
+      m_expand_pending = false;
+      m_expand_waits = 0;
+      m_cached_level = (const void*)lev;
+      m_cached_load_id = ld->load_id;
+      m_cached_precomputed = Gfx::g_global_settings.recharged_grass_precomputed;
+      m_cached_preset = want_preset;
+      m_cached_floor_gap = floor_gap_m;
+      return true;
     }
 
     if (!from_bake) {
+      // JAMBE DE MESURE UNIQUEMENT. On n'arrive ici que si `recharged-grass-precomputed?` est a #f
+      // dans settings.ini (cle sans rangee de menu depuis ce lot) ou si le seuil de jointure au sol
+      // est force par une propriete de debug. C'est la jambe « avant » qui permet de publier le pic
+      // memoire du chemin direct ; le jeu livre ne l'emprunte pas.
       m_bake = grass_bake::scan_level(*lev, level_name, fr3_size,
-                                      {Gfx::g_global_settings.recharged_grass_density, floor_gap_m});
+                                      {grass_bake::density_preset_pct(want_preset), floor_gap_m});
     }
 
     const auto tB = clk::now();
@@ -849,7 +920,12 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     m_pending.from_bake = from_bake;
     m_pending.want_pre = want_pre;
     m_pending.floor_gap_m = floor_gap_m;
-    m_pending.density = Gfx::g_global_settings.recharged_grass_density;
+    // Ggrass-density-presets : l'expansion se fait a la densite DU BAKE CHARGE, pas a une valeur
+    // demandee ailleurs. `scan_level` pose la meme valeur sur la jambe de mesure, donc cette ligne
+    // est vraie des deux cotes et il n'existe plus de couple (demande, bake) a comparer.
+    m_pending.density = m_bake.bake_density_pct;
+    m_pending.want_preset = want_preset;
+    m_pending.served_preset = served_preset;
     m_pending.tA = tA;
     m_pending.tB = tB;
     m_expand_waits = 0;
@@ -926,8 +1002,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
   int budget;
   float density;
   {
-    float dens_scale = std::min(2.5f, std::max(0.5f,
-                                               Gfx::g_global_settings.recharged_grass_density / 100.0f));
+    float dens_scale = std::min(2.5f, std::max(0.5f, slider_density / 100.0f));
     budget = (int)((float)grass_bake::MAX_INSTANCES * dens_scale);
     density = grass_bake::D_TARGET;
     if (m_bake.total_area_m2 > 1.0f &&
@@ -936,7 +1011,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     }
   }
 
-  m_cached_density = Gfx::g_global_settings.recharged_grass_density;
+  m_cached_preset = m_pending.want_preset;
 
   // ================================================================================================
   // Gloading-screen-window (owner 2026-08-30, D1/D5) — CES DEUX PASSES SONT DES INSTRUMENTS, ET
@@ -1049,7 +1124,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
         lvl_name, m_bake.stats.considered_draws, m_bake.stats.tie_draws, m_bake.stats.tris_kept,
         m_bake.stats.giant_tris, m_bake.stats.max_area, m_bake.total_area_m2, density,
         m_instance_count, (int)m_chunks.size(),
-        Gfx::g_global_settings.recharged_grass_density, budget, occ_culled,
+        slider_density, budget, occ_culled,
         m_instance_count + occ_culled,
         100.0f * (float)occ_culled / (float)std::max(1, m_instance_count + occ_culled),
         m_bake.stats.occ_objpt_buckets, grass_bake::OCC_RADIUS_M, grass_bake::OCC_LO_M,
@@ -1094,11 +1169,18 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
   // DE RENDU par l'expansion (l'attente du futur au ramassage, pas la duree du calcul). Sans ces
   // trois nombres, « l'expansion n'a rien coute » et « l'expansion n'a pas tourne » sont
   // indistinguables sur la meme trace.
+  // Ggrass-density-presets : la ligne porte le NIVEAU, le palier DEMANDE, le palier SERVI et la
+  // densite reellement passee a `expand`. Sans ces quatre-la, « le bon bake a servi » et « on est
+  // descendu d'un cran » rendent la meme ligne, et un repli passe inapercu.
   lg::info(
-      "[recharged-grass] PLACE-TIME mode={} bake={} total={:.0f}ms (source={:.0f}ms "
+      "[recharged-grass] PLACE-TIME niveau={} mode={} palier_demande={} palier_servi={} "
+      "densite_bake={:.0f} bake={} total={:.0f}ms (source={:.0f}ms "
       "expand+logs={:.0f}ms upload+light={:.0f}ms) instances={} async={} attentes={} "
       "bloque_ms={:.1f}",
-      from_bake ? "precomputed" : "live", resolved_bake_path.empty() ? "<none>" : resolved_bake_path,
+      lvl_name, from_bake ? "precomputed" : "live",
+      grass_bake::density_preset_slug(m_pending.want_preset),
+      from_bake ? grass_bake::density_preset_slug(m_pending.served_preset) : "<aucun>",
+      slider_density, resolved_bake_path.empty() ? "<none>" : resolved_bake_path,
       ms(tA, tC), ms(tA, tB), ms(tB, tExpandEnd), ms(tExpandEnd, tC), m_instance_count,
       grass_async_expand_enabled() ? 1 : 0, m_expand_waits, ms(tExpandJoin, tExpandDone));
 
@@ -1317,7 +1399,8 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // Placement is otherwise camera-independent (whole-level, uniform), so walking NEVER
   // triggers a rebuild — that is the culling fix: no pop-in, no de-instancing while moving.
   if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id ||
-      m_cached_density != Gfx::g_global_settings.recharged_grass_density ||
+      m_cached_preset !=
+          grass_bake::clamp_density_preset(Gfx::g_global_settings.recharged_grass_density_preset) ||
       m_cached_precomputed != Gfx::g_global_settings.recharged_grass_precomputed) {
     rebuild(rs, ld, grass_level);
   }

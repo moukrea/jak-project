@@ -379,6 +379,7 @@ if [ -d "$FR3_DIR" ]; then
   done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.grassbake' 2>/dev/null | sort)
   echo "[custom-pack] grassbake tables: $n_bake"
 
+
   # 2b. Grecharged-mesh-consolidation sidecars — ALWAYS (0 is OK: a level without one just runs the
   #     live pass). These carry the consolidated weld: shared normals, snapped positions, blended
   #     baked-colour indices and seam weights. Measured on the Redmi they cut village1's load from
@@ -415,6 +416,34 @@ if [ -d "$FR3_DIR" ]; then
   done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.fr3' 2>/dev/null | sort)
   echo "[custom-pack] stock fr3 levels: $n_fr3lev"
 fi
+
+# 2a-bis. Ggrass-density-presets — GARDE DURE : UN BAKE QUI SERA REFUSE NE PART PAS.
+#
+# Le moteur refuse un bake dont `fr3_size` ne correspond pas au `.fr3` qu'il charge, et il n'a
+# PLUS de repli en direct : un bake perime ne degrade plus le chargement, il supprime l'herbe.
+# C'est exactement le defaut mesure sur le Redmi (« fr3 size mismatch » a chaque chargement), et
+# il ne se voyait qu'a l'execution, sur l'appareil. On le rend visible ICI, au moment ou le
+# fichier entre dans le pack, en relisant l'en-tete du bake et en le comparant au fr3 qui part
+# avec lui — les deux etant les fichiers EXACTS que l'APK embarque.
+for gb in "$STAGE"/fr3/*.grassbake; do
+  [ -e "$gb" ] || continue
+  gbbase="$(basename "$gb")"
+  hdrline="$(python3 "$ROOT/scripts/shell/grassbake_header.py" "$gb" 2>&1)" \
+    || fail "grassbake guard: en-tete illisible pour $gbbase — $hdrline"
+  gblev="$(sed -n 's/.* niveau=\([^ ]*\).*/\1/p' <<< "$hdrline")"
+  gbsz="$(sed -n 's/.* fr3_size=\([0-9]*\).*/\1/p' <<< "$hdrline")"
+  [ -n "$gblev" ] && [ -n "$gbsz" ] || fail "grassbake guard: en-tete incomplet pour $gbbase — $hdrline"
+  # le nom doit porter le palier : le moteur ne resout QUE <niveau>.<palier>.grassbake
+  case "$gbbase" in
+    "$gblev".very-low.grassbake|"$gblev".low.grassbake|"$gblev".medium.grassbake|"$gblev".high.grassbake|"$gblev".very-high.grassbake) ;;
+    *) fail "grassbake guard: '$gbbase' ne porte pas de palier connu (attendu $gblev.<very-low|low|medium|high|very-high>.grassbake) — le moteur ne le resoudrait JAMAIS, il ne doit pas alourdir le pack";;
+  esac
+  gbfr3="$STAGE/fr3/$gblev.fr3"
+  [ -e "$gbfr3" ] || fail "grassbake guard: '$gbbase' cuit pour le niveau '$gblev' mais aucun $gblev.fr3 n'entre dans le pack"
+  gbfr3sz="$(stat -Lc %s "$gbfr3")"
+  [ "$gbsz" = "$gbfr3sz" ] || fail "grassbake guard: '$gbbase' porte fr3_size=$gbsz alors que le $gblev.fr3 LIVRE fait $gbfr3sz octets — le moteur le REFUSERAIT a l'arrivee et le niveau perdrait son herbe. Regenere : scripts/shell/build_grass_bakes.sh"
+  echo "[custom-pack] grassbake OK: $gbbase (niveau=$gblev fr3_size=$gbsz == $gblev.fr3 livre)"
+done
 
 # 2d. FIRST-PARTY recharged replacement textures — ALWAYS (committed owner-made set at
 #     custom_assets/<game>/recharged_textures/<tpage>/<texname>/{<texname>.png + _height/

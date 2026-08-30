@@ -14,6 +14,10 @@
 
 #include "common/common_types.h"
 #include "common/custom_data/Tfrag3Data.h"
+// Ggrass-density-presets: la table des cinq paliers, partagee mot pour mot par le moteur, l'outil de
+// cuisson hors-ligne et l'empaqueteur. Feuille pure (aucune inclusion GL / loader) : elle peut donc
+// entrer ici, qui est aussi compile dans l'outil de bureau.
+#include "game/graphics/grass_density_presets.h"
 
 namespace grass_bake {
 

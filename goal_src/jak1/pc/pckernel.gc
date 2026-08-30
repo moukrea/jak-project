@@ -459,7 +459,29 @@
     (("recharged-grass?") (set! (-> obj recharged-grass?) (file-stream-read-symbol file)))
     (("recharged-grass-near-dist") (set! (-> obj recharged-grass-near-dist) (file-stream-read-float file)))
     (("recharged-grass-card-dist") (set! (-> obj recharged-grass-card-dist) (file-stream-read-float file)))
-    (("recharged-grass-density") (set! (-> obj recharged-grass-density) (file-stream-read-float file)))
+    ;; Ggrass-density-presets: GRASS DENSITY preset index (0..4). Clamped on read exactly like
+    ;; mesh-subdiv below; out-of-range falls back to 2 (MEDIUM), the shipped default.
+    ;; Ggrass-density-presets — MIGRATION D'UN settings.ini ECRIT AVANT CE LOT. OBLIGATOIRE.
+    ;; `doini-keys` exige que le CORPS de la clause CONSOMME la valeur. Une cle laissee SANS clause
+    ;; ne consomme rien : le tour suivant lit « 150.0000 » COMME UNE CLE, n'y trouve pas de `=`, et
+    ;; `pc-settings-read-throw-error` FERME le fichier. Un settings.ini livre porte cette cle en
+    ;; ligne 69 sur 130 : les ~60 lignes suivantes (pbr, hd-look, physics, audio, bindings)
+    ;; repartiraient au defaut, et le premier `commit-to-file` les persisterait. Le renommage seul
+    ;; effacerait donc les reglages de l'owner.
+    ;; On lit l'ancien pourcentage et on le convertit vers le palier le plus proche PAR DEFAUT —
+    ;; jamais au-dessus, un palier plus haut demanderait un bake qu'on ne livre pas. Meme regle que
+    ;; `grass_bake::density_preset_from_pct` cote moteur.
+    (("recharged-grass-density")
+     (let ((pct (file-stream-read-float file)))
+       (set! (-> obj recharged-grass-density-preset)
+             (cond ((>= pct 250.0) 4)
+                   ((>= pct 200.0) 3)
+                   ((>= pct 150.0) 2)
+                   ((>= pct 100.0) 1)
+                   (else 0)))))
+    (("recharged-grass-density-preset")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj recharged-grass-density-preset) (if (and (>= v 0) (<= v 4)) v 2))))
     (("recharged-grass-precomputed?") (set! (-> obj recharged-grass-precomputed?) (file-stream-read-symbol file)))
     (("recharged-grass-overhang?") (set! (-> obj recharged-grass-overhang?) (file-stream-read-symbol file)))
     (("pbr-materials?") (set! (-> obj pbr-materials?) (file-stream-read-symbol file)))
@@ -575,7 +597,7 @@
   (format file "recharged-grass? = ~A~%" (-> obj recharged-grass?))
   (format file "recharged-grass-near-dist = ~f~%" (-> obj recharged-grass-near-dist))
   (format file "recharged-grass-card-dist = ~f~%" (-> obj recharged-grass-card-dist))
-  (format file "recharged-grass-density = ~f~%" (-> obj recharged-grass-density))
+  (format file "recharged-grass-density-preset = ~D~%" (-> obj recharged-grass-density-preset))
   (format file "recharged-grass-precomputed? = ~A~%" (-> obj recharged-grass-precomputed?))
   (format file "recharged-grass-overhang? = ~A~%" (-> obj recharged-grass-overhang?))
   (format file "pbr-materials? = ~A~%" (-> obj pbr-materials?))

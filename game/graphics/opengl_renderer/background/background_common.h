@@ -113,7 +113,17 @@ GrassFringeFade grass_fringe_fade_params();
 // The GBK7 texture set (tra-grass / bch-grassfringe / bch-leafyground-hang-2x1) matches ONLY these
 // two levels (16-level census 2026-07-14); other levels use differently-named grass textures and
 // stay stock until they get their own curated set + bake.
-inline constexpr const char* kGrassLevels[] = {"training", "beach"};
+// Ggrass-density-presets (owner 2026-08-30) : « sur la plage peut-etre que il y a de l'herbe en
+// calcul mais ca n'a jamais ete visible, tu peux completement dismiss ». MESURE AVANT RETRAIT, course
+// x86 du 2026-08-31 (3 chargements de `beach-start`, herbe armee, pre-calcul actif) :
+//     PLACE-TIME mode=precomputed bake=out/jak1/fr3/beach.grassbake total=423ms
+//                (source=142ms expand+logs=259ms upload+light=22ms) instances=176350
+// La plage n'etait donc PAS vide — elle placait 176 350 brins pour 423 ms de chargement, plus une
+// mise a jour de lumiere par image tant qu'elle est chargee. Ce qu'on retire est du GACHIS paye a
+// chaque premiere entree sur le niveau le plus parcouru du jeu, pas un reste inoffensif : la
+// premisse « la plage ne place jamais un brin » est REFUTEE, c'est le verdict de l'owner sur la
+// VISIBILITE qui tranche, pas l'absence de calcul.
+inline constexpr const char* kGrassLevels[] = {"training"};
 inline bool grass_level_enabled(const std::string& name) {
   for (const char* n : kGrassLevels) {
     if (name == n) {

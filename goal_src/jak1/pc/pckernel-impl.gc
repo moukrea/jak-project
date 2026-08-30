@@ -84,7 +84,7 @@
    (recharged-grass?    symbol) ;; Grecharged-grass-poc: optional 3D grass on the training level. OFF = stock render.
    (recharged-grass-near-dist float) ;; Grecharged-grass-poc POLISH#4: near-blade view distance (m), slider-adjustable
    (recharged-grass-card-dist float) ;; Grecharged-grass-poc POLISH#4: grass-card view distance (m), slider-adjustable
-   (recharged-grass-density   float) ;; Grecharged-grass-poc POLISH#5: grass density percent (100 = base), slider-adjustable
+   (recharged-grass-density-preset int32) ;; Ggrass-density-presets (owner 2026-08-30): grass density PRESET index (0=VERY LOW 1=LOW 2=MEDIUM 3=HIGH 4=VERY HIGH). Replaces the continuous percent slider IN PLACE (4 bytes for 4 bytes, same field order => no layout shift). Each preset has its OWN shipped bake, so the requested density is ALWAYS the loaded bake's density and the LIVE at-load placement path can no longer be selected.
    (recharged-grass-precomputed? symbol) ;; Grecharged-grass-precompute-mode: PRECOMPUTED (baked day-cycle tables) vs LIVE (full at-load scan). Same placement/fidelity; precomputed loads instantly.
    (recharged-grass-overhang? symbol) ;; Grecharged-grass-overhang: 3D drooping edge grass (near LOD only; far = stock alpha texture)
    (pbr-materials? symbol) ;; Grecharged-pbr-materials: realtime PBR lighting/shading over custom-asset materials. #f = stock shading.
@@ -309,7 +309,7 @@
   (set! (-> obj recharged-grass?) #t) ;; Grecharged-grass-poc: OWNER OVERRIDE 2026-07-10 — ships DEFAULT ON (toggle still exists; OFF == stock)
   (set! (-> obj recharged-grass-near-dist) 30.0) ;; POLISH#4 default near-blade view distance (m)
   (set! (-> obj recharged-grass-card-dist) 95.0) ;; POLISH#4 default grass-card view distance (m; pushed further)
-  (set! (-> obj recharged-grass-density) 150.0) ;; POLISH#5 default grass density percent (100 = base budget; owner wants denser)
+  (set! (-> obj recharged-grass-density-preset) 2) ;; Ggrass-density-presets default = 2 MEDIUM, which IS the 150% that shipped until now: the default behaviour does not change.
   (set! (-> obj recharged-grass-precomputed?) #t) ;; precomputed preferred; renderer falls back to LIVE when no bake exists
   (set! (-> obj recharged-grass-overhang?) #f) ;; PARKED 2026-07-15 (owner): overhang default OFF until the feature is resumed (see reports/Grecharged-grass-overhang7/PARKED.md)
   (set! (-> obj pbr-materials?) #t) ;; Grecharged-pbr-materials: default ON (toggle still exists; OFF == stock shading)

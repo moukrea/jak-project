@@ -25,10 +25,15 @@
 static void usage() {
   fmt::print(
       "Usage: grass_bake <level-name> [--fr3-dir <dir>] [--out <path>] [--density <pct>]\n"
+      "                   [--preset <slug>]\n"
       "  <level-name>   e.g. training (loads <fr3-dir>/<level>.fr3)\n"
       "  --fr3-dir DIR  fr3 directory (default: <repo>/out/jak1/fr3)\n"
-      "  --out PATH     output path (default: <fr3-dir>/<level>.grassbake)\n"
+      "  --out PATH     output path (default: <fr3-dir>/<level>[.<preset>].grassbake)\n"
       "  --density PCT  bake candidate density (default: 250 = slider max)\n"
+      "  --preset SLUG  Ggrass-density-presets: cuit LE palier nomme (very-low|low|medium|high|\n"
+      "                 very-high). Pose la densite du palier ET le nom de sortie\n"
+      "                 <fr3-dir>/<level>.<slug>.grassbake. Le moteur ne charge plus que ces\n"
+      "                 fichiers-la : un bake sans palier dans le nom ne sera jamais resolu.\n"
       "  --dump PREFIX  write PREFIX_instances.csv + PREFIX_tris.csv of the ship-default\n"
       "                 (slider 150) expansion, for offline placement analysis\n"
       "  --weld-stats   run the GLOBAL cross-chunk/bucket/system vertex weld (REOPEN #13) and print\n"
@@ -42,6 +47,7 @@ int main(int argc, char** argv) {
   std::string dump_prefix;
   bool weld_stats = false;  // OWNER REOPEN #13: run the GLOBAL cross-chunk weld offline + print its stats
   float density = 250.0f;  // slider maximum; runtime slider densities are exact prefixes
+  std::string preset_slug;  // Ggrass-density-presets: palier nomme (vide = comportement historique)
 
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
@@ -63,6 +69,23 @@ int main(int argc, char** argv) {
       weld_stats = true;
     } else if (a == "--density") {
       density = std::stof(need_val("--density"));
+    } else if (a == "--preset") {
+      preset_slug = need_val("--preset");
+      int found = -1;
+      for (int i2 = 0; i2 < grass_bake::kDensityPresetCount; ++i2) {
+        if (preset_slug == grass_bake::kDensityPresets[i2].slug) {
+          found = i2;
+        }
+      }
+      if (found < 0) {
+        fmt::print("error: palier inconnu '{}' — attendus :", preset_slug);
+        for (int i2 = 0; i2 < grass_bake::kDensityPresetCount; ++i2) {
+          fmt::print(" {}", grass_bake::kDensityPresets[i2].slug);
+        }
+        fmt::print("\n");
+        return 2;
+      }
+      density = grass_bake::kDensityPresets[found].pct;
     } else if (a == "-h" || a == "--help") {
       usage();
       return 0;
@@ -85,9 +108,18 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  // Resolve the fr3 directory. Default = <repo>/out/jak1/fr3 via the project dir.
+  // Resolve the project dir FIRST, and ALWAYS.
+  //
+  // Ggrass-density-presets : c'etait un defaut, et il n'apparaissait qu'avec `--fr3-dir`. Le
+  // chemin du projet n'etait initialise que dans la branche « pas de --fr3-dir » ; or le scan
+  // appelle `file_util::get_jak_project_dir()` plus bas (chemin de diagnostic du weld TIE), qui
+  // ASSERTE si l'initialisation n'a pas eu lieu — l'outil mourait donc sur
+  // « Assertion failed: 'g_file_path_info.initialized' » des qu'on lui donnait un repertoire
+  // explicite. On initialise inconditionnellement ; l'echec n'est fatal que si on avait besoin du
+  // chemin par defaut.
+  const bool have_project = file_util::setup_project_path({});
   if (fr3_dir.empty()) {
-    if (!file_util::setup_project_path({})) {
+    if (!have_project) {
       fmt::print(
           "error: could not resolve the jak-project directory; pass --fr3-dir explicitly.\n");
       return 1;
@@ -97,7 +129,13 @@ int main(int argc, char** argv) {
 
   fs::path fr3_path = fs::path(fr3_dir) / fmt::format("{}.fr3", level_name);
   if (out_path.empty()) {
-    out_path = (fs::path(fr3_dir) / fmt::format("{}.grassbake", level_name)).string();
+    // Ggrass-density-presets : avec --preset, le nom PORTE le palier. C'est ce qui rend
+    // « le bake charge est celui du palier demande » verifiable depuis le systeme de fichiers,
+    // sans ouvrir le fichier.
+    out_path = preset_slug.empty()
+                   ? (fs::path(fr3_dir) / fmt::format("{}.grassbake", level_name)).string()
+                   : (fs::path(fr3_dir) / fmt::format("{}.{}.grassbake", level_name, preset_slug))
+                         .string();
   }
 
   if (!fs::exists(fr3_path)) {

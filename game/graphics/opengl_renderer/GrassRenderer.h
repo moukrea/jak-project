@@ -107,9 +107,10 @@ class GrassRenderer {
   // texture table — the zone-3 textured cards sample these exact resident texels (no new assets).
   GLuint m_hang_tex[2] = {0, 0};
   const void* m_hang_tex_src = nullptr;  // LevelData* the handles were resolved from
-  // POLISH#5: the density-percent used at the last scatter. A density-slider change
-  // (recharged_grass_density) differs from this -> re-scatter the whole static field.
-  float m_cached_density = -1.f;
+  // POLISH#5 / Ggrass-density-presets: l'INDICE DE PALIER utilise a la derniere dispersion. Un
+  // changement de palier (recharged_grass_density_preset) differe de celui-ci -> on re-disperse tout
+  // le champ statique. -1 = jamais disperse, donc toute valeur bornee [0,4] declenche la premiere.
+  int m_cached_preset = -1;
   // Grecharged-grass-precompute-mode cache keys: precomputed-mode toggle + floor-gap threshold.
   bool m_cached_precomputed = false;
   float m_cached_floor_gap = -1.f;
@@ -148,7 +149,12 @@ class GrassRenderer {
     bool from_bake = false;
     bool want_pre = false;
     float floor_gap_m = 0.f;
-    float density = 0.f;  // valeur du curseur AU LANCEMENT (celle avec laquelle le champ est bati)
+    float density = 0.f;  // densite DU BAKE CHARGE (celle avec laquelle le champ est bati)
+    // Ggrass-density-presets: le palier DEMANDE et le palier SERVI. Ils different quand le bake du
+    // palier demande manque et qu'on est descendu d'un cran — publier les deux est le seul moyen de
+    // distinguer « tout va bien » d'un repli, sans lire le code.
+    int want_preset = 0;
+    int served_preset = 0;
     std::chrono::steady_clock::time_point tA{};
     std::chrono::steady_clock::time_point tB{};
   };

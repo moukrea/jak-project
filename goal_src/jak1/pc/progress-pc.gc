@@ -842,6 +842,10 @@
 ;; Grecharged-realtime-lighting: SHADOW QUALITY carousell (Low/Med/High = 1024/2048/4096 shadow-map res).
 ;; Reuses the AO low/med/high text-ids (they render LOW/MEDIUM/HIGH, which fits Shadow Quality).
 (def-progress-carousell *carousell-shadow-quality* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
+;; Ggrass-density-presets (owner 2026-08-30): GRASS DENSITY carousell, five named steps. It REUSES the
+;; five text-ids that the shipped shadow-quality row already draws — no new string id is allocated, so
+;; the rendering of these labels is already proven in every shipped language.
+(def-progress-carousell *carousell-grass-density* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (Hemisphere / SH / IBL).
 (def-progress-carousell *carousell-rt-ambient-model* (pc-text-model-hemisphere pc-text-model-sh pc-text-model-ibl))
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off / Parallax / Tessellation). Off reuses the
@@ -1589,9 +1593,12 @@
 
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
 ;; Settings submenu. Holds ALL grass settings on their own page (owner wanted a sub-submenu so they show
-;; reliably): the RECHARGED GRASS on-off toggle, the near-blade + card view-distance sliders, and the
-;; density slider, the GRASS MODE toggle, the GRASS OVERHANG toggle, then Back (7 rows, ==
+;; reliably): the RECHARGED GRASS on-off toggle, the near-blade + card view-distance sliders, the
+;; DENSITY PRESET carousell, the GRASS OVERHANG toggle, then Back (6 rows, under
 ;; PROGRESS_PC_PAGE_HEIGHT (7) so all show — the scroll machinery only engages when length > 7).
+;; Ggrass-density-presets : la rangee GRASS MODE (PRECOMPUTED/LIVE) est RETIREE — le placement en
+;; direct etait le chemin de 1 207 Mo sur lequel les plantages ont ete reproduits ; il ne se propose
+;; plus. La cle `recharged-grass-precomputed?` reste dans settings.ini comme interrupteur de mesure.
 ;; Values/labels are wired at runtime in init-game-options; on-change persists to *pc-settings*.
 (define-options-array *grass-options-pc*
        game-option
@@ -1616,22 +1623,13 @@
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 3 GRASS DENSITY slider (density percent; 100 = base instance budget, higher = denser near
-       ;; blades AND cards). The renderer re-scatters the whole static field when this changes.
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 100.0 :param2 250.0 :slider-step-size 25.0 :slider-show-decimal? #f
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none)))
-       ;; 4 GRASS MODE: ON = PRECOMPUTED (baked day-cycle tables, instant load) / OFF = LIVE (full scan)
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* recharged-grass-precomputed?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none)))
-       ;; 5 GRASS OVERHANG: 3D drooping grass over platform edges (near); far keeps the stock alpha texture
+       ;; 3 GRASS DENSITY — cinq paliers nommes (Ggrass-density-presets, owner 2026-08-30 : « on
+       ;; s'en fiche de changer la densite au poil de cul, on veut juste plus ou moins dense »).
+       ;; Chaque palier a SON bake livre, donc la densite demandee est TOUJOURS celle du bake charge :
+       ;; il n'existe plus de valeur intermediaire capable de faire basculer le placement EN DIRECT.
+       ;; Pas de :on-change — les rangees carrousel ecrivent dans la branche de retour partagee.
+       (new 'static 'game-option :option-type (game-option-type grass-density) :name (text-id vsync) :scale #t)
+       ;; 4 GRASS OVERHANG: 3D drooping grass over platform edges (near); far keeps the stock alpha texture
        ;; row present only with --grass-overhang.
        (flag-row FLAG_GRASS_OVERHANG
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
@@ -1640,7 +1638,7 @@
               (set! (-> *pc-settings* recharged-grass-overhang?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; 6 Back
+       ;; 5 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; ============================================================================================
@@ -1740,7 +1738,10 @@
       (set! (-> dst n) (-> grs 1)) (set! (-> dst n hint) (text-id pc-text-hint-neardist)) (set! n (+ n 1))    ;; Near Grass Distance
       (set! (-> dst n) (-> grs 2)) (set! (-> dst n hint) (text-id pc-text-hint-carddist)) (set! n (+ n 1))    ;; Grass Card Distance
       (set! (-> dst n) (-> grs 3)) (set! (-> dst n hint) (text-id pc-text-hint-density)) (set! n (+ n 1))     ;; Grass Density
-      (set! (-> dst n) (-> grs 4)) (set! (-> dst n hint) (text-id pc-text-hint-grassmode)) (set! n (+ n 1))   ;; Grass Mode
+      ;; Ggrass-density-presets : la rangee GRASS MODE (PRECOMPUTED/LIVE) a ete RETIREE de
+      ;; *grass-options-pc* — elle proposait au joueur le placement EN DIRECT, mesure a 1 207 Mo de
+      ;; pointe et porteur des plantages appareil. L'indice 4 designe desormais une AUTRE rangee :
+      ;; le laisser aurait insere OVERHANG (ou Back) sous le libelle « Grass Mode ».
       (set! (-> dst n) (-> rch fw)) (set! (-> dst n hint) (text-id pc-text-hint-foliagewind)) (set! n (+ n 1));; Foliage Wind
       ;; --- INTERFACE ---
       (set! (-> dst n) *grp-interface*) (set! n (+ n 1))
@@ -4400,15 +4401,15 @@
   (set! (-> *grass-options-pc* 1 name-override) *recharged-near-dist-label*)
   (set! (-> *grass-options-pc* 2 value-to-modify) (&-> *pc-settings* recharged-grass-card-dist))
   (set! (-> *grass-options-pc* 2 name-override) *recharged-card-dist-label*)
-  (set! (-> *grass-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-grass-density))
+  ;; Ggrass-density-presets: row 3 is now a CAROUSELL (five named density presets), so it points at the
+  ;; shared *progress-carousell* int-backup scratch exactly like physics-quality / shadow-quality do —
+  ;; a carousell row NEVER points at the setting field itself; the write-back clause does that on confirm.
+  (set! (-> *grass-options-pc* 3 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *grass-options-pc* 3 name-override) *recharged-density-label*)
-  ;; Grecharged-grass-precompute-mode: row 4 = GRASS MODE toggle (ON = PRECOMPUTED / OFF = LIVE).
-  (set! (-> *grass-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-precomputed?))
-  (set! (-> *grass-options-pc* 4 name-override) *grass-mode-label*)
-  ;; Grecharged-grass-overhang: row 5 GRASS OVERHANG on-off toggle (present only with --grass-overhang)
+  ;; Grecharged-grass-overhang: row 4 GRASS OVERHANG on-off toggle (present only with --grass-overhang)
   (#when FLAG_GRASS_OVERHANG
-  (set! (-> *grass-options-pc* 5 value-to-modify) (&-> *pc-settings* recharged-grass-overhang?))
-  (set! (-> *grass-options-pc* 5 name-override) *grass-overhang-label*))
+  (set! (-> *grass-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-overhang?))
+  (set! (-> *grass-options-pc* 4 name-override) *grass-overhang-label*))
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
@@ -4581,6 +4582,7 @@
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
+                    (game-option-type grass-density)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
                     (game-option-type mesh-subdiv)
@@ -4678,6 +4680,7 @@
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
+                    (game-option-type grass-density)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
                     (game-option-type mesh-subdiv)
@@ -5052,6 +5055,8 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-strength)))
                  (((game-option-type shadow-quality))
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
+                 ;; Ggrass-density-presets: GRASS DENSITY preset backup (1:1, like shadow-quality).
+                 (((game-option-type grass-density)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* recharged-grass-density-preset)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
                  ;; Gprecompute-deterministic-bake: MESH SUBDIVISION backup (1:1, like pbr-displacement).
@@ -5110,6 +5115,8 @@
                     (((game-option-type ao-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-quality*))
                     (((game-option-type ao-strength)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-strength*))
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
+                    ;; Ggrass-density-presets: GRASS DENSITY carousell list.
+                    (((game-option-type grass-density)) (set! (-> *progress-carousell* current-carousell) *carousell-grass-density*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
                     ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell list.
@@ -5173,6 +5180,8 @@
                (set! (-> *pc-settings* ao-strength) (-> *progress-carousell* int-backup)))
               (((game-option-type shadow-quality))
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
+              ;; Ggrass-density-presets: GRASS DENSITY preset write-back (1:1, like shadow-quality).
+              (((game-option-type grass-density)) (set! (-> *pc-settings* recharged-grass-density-preset) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
               ;; Gprecompute-deterministic-bake: MESH SUBDIVISION write-back (1:1, like pbr-displacement).
@@ -5457,6 +5466,7 @@
       (((game-option-type ao-quality)) (set! lst *carousell-ao-quality*) (set! idx (-> *pc-settings* ao-quality)))
       (((game-option-type ao-strength)) (set! lst *carousell-ao-strength*) (set! idx (-> *pc-settings* ao-strength)))
       (((game-option-type shadow-quality)) (set! lst *carousell-shadow-quality*) (set! idx (-> *pc-settings* realtime-shadow-quality)))
+      (((game-option-type grass-density)) (set! lst *carousell-grass-density*) (set! idx (-> *pc-settings* recharged-grass-density-preset)))
       (((game-option-type rt-ambient-model)) (set! lst *carousell-rt-ambient-model*) (set! idx (-> *pc-settings* realtime-ambient-model)))
       (((game-option-type pbr-displacement)) (set! lst *carousell-pbr-displacement*) (set! idx (-> *pc-settings* pbr-displacement)))
       (((game-option-type mesh-subdiv)) (set! lst *carousell-mesh-subdiv*) (set! idx (-> *pc-settings* mesh-subdiv)))
@@ -5711,6 +5721,7 @@
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
+                      (game-option-type grass-density)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
                       (game-option-type mesh-subdiv)
@@ -5804,6 +5815,7 @@
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
+                      (game-option-type grass-density)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
                       (game-option-type mesh-subdiv)
@@ -6828,6 +6840,10 @@
 ;; Grecharged-realtime-lighting: SHADOW QUALITY carousell (Low/Med/High = 1024/2048/4096 shadow-map res).
 ;; Reuses the AO low/med/high text-ids (they render LOW/MEDIUM/HIGH, which fits Shadow Quality).
 (def-progress-carousell *carousell-shadow-quality* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
+;; Ggrass-density-presets (owner 2026-08-30): GRASS DENSITY carousell, five named steps. It REUSES the
+;; five text-ids that the shipped shadow-quality row already draws — no new string id is allocated, so
+;; the rendering of these labels is already proven in every shipped language.
+(def-progress-carousell *carousell-grass-density* (pc-text-ao-very-low pc-text-ao-low pc-text-ao-medium pc-text-ao-high pc-text-ao-very-high))
 ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (Hemisphere / SH / IBL).
 (def-progress-carousell *carousell-rt-ambient-model* (pc-text-model-hemisphere pc-text-model-sh pc-text-model-ibl))
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off / Parallax / Tessellation). Off reuses the
@@ -7722,9 +7738,12 @@
 
 ;; Grecharged-grass-poc POLISH#6: the dedicated NESTED "Grass Settings" page, reached from the Recharged
 ;; Settings submenu. Holds ALL grass settings on their own page (owner wanted a sub-submenu so they show
-;; reliably): the RECHARGED GRASS on-off toggle, the near-blade + card view-distance sliders, and the
-;; density slider, the GRASS MODE toggle, the GRASS OVERHANG toggle, then Back (7 rows, ==
+;; reliably): the RECHARGED GRASS on-off toggle, the near-blade + card view-distance sliders, the
+;; DENSITY PRESET carousell, the GRASS OVERHANG toggle, then Back (6 rows, under
 ;; PROGRESS_PC_PAGE_HEIGHT (7) so all show — the scroll machinery only engages when length > 7).
+;; Ggrass-density-presets : la rangee GRASS MODE (PRECOMPUTED/LIVE) est RETIREE — le placement en
+;; direct etait le chemin de 1 207 Mo sur lequel les plantages ont ete reproduits ; il ne se propose
+;; plus. La cle `recharged-grass-precomputed?` reste dans settings.ini comme interrupteur de mesure.
 ;; Values/labels are wired at runtime in init-game-options; on-change persists to *pc-settings*.
 (define-options-array *grass-options-pc*
        game-option
@@ -7749,22 +7768,13 @@
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none)))
-       ;; 3 GRASS DENSITY slider (density percent; 100 = base instance budget, higher = denser near
-       ;; blades AND cards). The renderer re-scatters the whole static field when this changes.
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 100.0 :param2 250.0 :slider-step-size 25.0 :slider-show-decimal? #f
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none)))
-       ;; 4 GRASS MODE: ON = PRECOMPUTED (baked day-cycle tables, instant load) / OFF = LIVE (full scan)
-       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :on-change
-            (lambda ((val object))
-              (set! (-> *pc-settings* recharged-grass-precomputed?) (the-as symbol val))
-              (commit-to-file *pc-settings*)
-              (none)))
-       ;; 5 GRASS OVERHANG: 3D drooping grass over platform edges (near); far keeps the stock alpha texture
+       ;; 3 GRASS DENSITY — cinq paliers nommes (Ggrass-density-presets, owner 2026-08-30 : « on
+       ;; s'en fiche de changer la densite au poil de cul, on veut juste plus ou moins dense »).
+       ;; Chaque palier a SON bake livre, donc la densite demandee est TOUJOURS celle du bake charge :
+       ;; il n'existe plus de valeur intermediaire capable de faire basculer le placement EN DIRECT.
+       ;; Pas de :on-change — les rangees carrousel ecrivent dans la branche de retour partagee.
+       (new 'static 'game-option :option-type (game-option-type grass-density) :name (text-id vsync) :scale #t)
+       ;; 4 GRASS OVERHANG: 3D drooping grass over platform edges (near); far keeps the stock alpha texture
        ;; row present only with --grass-overhang.
        (flag-row FLAG_GRASS_OVERHANG
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
@@ -7773,7 +7783,7 @@
               (set! (-> *pc-settings* recharged-grass-overhang?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; 6 Back
+       ;; 5 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
@@ -10420,15 +10430,15 @@
   (set! (-> *grass-options-pc* 1 name-override) *recharged-near-dist-label*)
   (set! (-> *grass-options-pc* 2 value-to-modify) (&-> *pc-settings* recharged-grass-card-dist))
   (set! (-> *grass-options-pc* 2 name-override) *recharged-card-dist-label*)
-  (set! (-> *grass-options-pc* 3 value-to-modify) (&-> *pc-settings* recharged-grass-density))
+  ;; Ggrass-density-presets: row 3 is now a CAROUSELL (five named density presets), so it points at the
+  ;; shared *progress-carousell* int-backup scratch exactly like physics-quality / shadow-quality do —
+  ;; a carousell row NEVER points at the setting field itself; the write-back clause does that on confirm.
+  (set! (-> *grass-options-pc* 3 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *grass-options-pc* 3 name-override) *recharged-density-label*)
-  ;; Grecharged-grass-precompute-mode: row 4 = GRASS MODE toggle (ON = PRECOMPUTED / OFF = LIVE).
-  (set! (-> *grass-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-precomputed?))
-  (set! (-> *grass-options-pc* 4 name-override) *grass-mode-label*)
-  ;; Grecharged-grass-overhang: row 5 GRASS OVERHANG on-off toggle (present only with --grass-overhang)
+  ;; Grecharged-grass-overhang: row 4 GRASS OVERHANG on-off toggle (present only with --grass-overhang)
   (#when FLAG_GRASS_OVERHANG
-  (set! (-> *grass-options-pc* 5 value-to-modify) (&-> *pc-settings* recharged-grass-overhang?))
-  (set! (-> *grass-options-pc* 5 name-override) *grass-overhang-label*))
+  (set! (-> *grass-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-overhang?))
+  (set! (-> *grass-options-pc* 4 name-override) *grass-overhang-label*))
   (apply-dynamic-rs-menu-mode!)
   (set! (-> *misc-options* 0 value-to-modify) (&-> *pc-settings* money-starburst?))
   (set! (-> *misc-options* 1 value-to-modify) (&-> *pc-settings* discord-rpc?))
@@ -10574,6 +10584,7 @@
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
+                    (game-option-type grass-density)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
                     (game-option-type mesh-subdiv)
@@ -10675,6 +10686,7 @@
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
                     (game-option-type shadow-quality)
+                    (game-option-type grass-density)
                     (game-option-type rt-ambient-model)
                     (game-option-type pbr-displacement)
                     (game-option-type mesh-subdiv)
@@ -11022,6 +11034,8 @@
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-strength)))
                  (((game-option-type shadow-quality))
                   (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-shadow-quality)))
+                 ;; Ggrass-density-presets: GRASS DENSITY preset backup (1:1, like shadow-quality).
+                 (((game-option-type grass-density)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* recharged-grass-density-preset)))
                  (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* realtime-ambient-model)))
                  (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-displacement)))
                  ;; Gprecompute-deterministic-bake: MESH SUBDIVISION backup (1:1, like pbr-displacement).
@@ -11085,6 +11099,8 @@
                     (((game-option-type ao-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-quality*))
                     (((game-option-type ao-strength)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-strength*))
                     (((game-option-type shadow-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-shadow-quality*))
+                    ;; Ggrass-density-presets: GRASS DENSITY carousell list.
+                    (((game-option-type grass-density)) (set! (-> *progress-carousell* current-carousell) *carousell-grass-density*))
                     (((game-option-type rt-ambient-model)) (set! (-> *progress-carousell* current-carousell) *carousell-rt-ambient-model*))
                     (((game-option-type pbr-displacement)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-displacement*))
                     ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell list.
@@ -11153,6 +11169,8 @@
                (set! (-> *pc-settings* ao-strength) (-> *progress-carousell* int-backup)))
               (((game-option-type shadow-quality))
                (set! (-> *pc-settings* realtime-shadow-quality) (-> *progress-carousell* int-backup)))
+              ;; Ggrass-density-presets: GRASS DENSITY preset write-back (1:1, like shadow-quality).
+              (((game-option-type grass-density)) (set! (-> *pc-settings* recharged-grass-density-preset) (-> *progress-carousell* int-backup)))
               (((game-option-type rt-ambient-model)) (set! (-> *pc-settings* realtime-ambient-model) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-displacement)) (set! (-> *pc-settings* pbr-displacement) (-> *progress-carousell* int-backup)))
               ;; Gprecompute-deterministic-bake: MESH SUBDIVISION write-back (1:1, like pbr-displacement).
@@ -11637,6 +11655,7 @@
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
+                      (game-option-type grass-density)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
                       (game-option-type mesh-subdiv)
@@ -11734,6 +11753,7 @@
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
                       (game-option-type shadow-quality)
+                      (game-option-type grass-density)
                       (game-option-type rt-ambient-model)
                       (game-option-type pbr-displacement)
                       (game-option-type mesh-subdiv)

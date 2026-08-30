@@ -208,7 +208,11 @@
      ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell
      ;; (Off / Low / Mid / High = 0/1/2/3 pre-subdivision rounds), mirroring pbr-displacement.
      ;; APPENDED AT THE VERY END of the enumeration so not one existing value is renumbered.
-     (mesh-subdiv))) ;; end of PC_PORT = #t branch for enum initialization
+     (mesh-subdiv)
+     ;; Ggrass-density-presets (owner 2026-08-30): GRASS DENSITY carousell (Very Low / Low / Medium /
+     ;; High / Very High = 0..4 pre-baked density presets), mirroring shadow-quality (same five labels).
+     ;; APPENDED AT THE VERY END of the enumeration so not one existing value is renumbered.
+     (grass-density))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu

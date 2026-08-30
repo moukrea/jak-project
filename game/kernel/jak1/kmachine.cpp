@@ -2820,7 +2820,10 @@ void pc_set_jak_pos(u32 vec) {
 }
 
 // Grecharged-grass-poc POLISH#4/#5: push the adjustable grass view distances + density (a GOAL
-// vector, x = near-blade fade-out (m), y = grass-card fade-out (m), z = density percent (100 = base)).
+// vector, x = near-blade fade-out (m), y = grass-card fade-out (m)).
+// Ggrass-density-presets (owner 2026-08-30) : z ne porte PLUS un pourcentage mais l'INDICE DE PALIER
+// (0..4). GOAL y ecrit `recharged-grass-density-preset`, un entier converti en flottant pour tenir
+// dans le vecteur ; on le borne ici, du cote qui l'utilise, plutot que de faire confiance a l'appelant.
 void pc_set_grass_dists(u32 vec) {
   if (!vec) {
     return;
@@ -2828,7 +2831,8 @@ void pc_set_grass_dists(u32 vec) {
   float* p = Ptr<float>(vec).c();
   Gfx::g_global_settings.recharged_grass_near_dist = p[0];
   Gfx::g_global_settings.recharged_grass_card_dist = p[1];
-  Gfx::g_global_settings.recharged_grass_density = p[2];  // POLISH#5 density slider
+  Gfx::g_global_settings.recharged_grass_density_preset =
+      grass_bake::clamp_density_preset((int)(p[2] + 0.5f));
   // Grecharged-grass-precompute-mode: w channel = GRASS MODE toggle (1.0 = PRECOMPUTED baked
   // day-cycle tables / 0.0 = LIVE full at-load scan). GOAL now writes w in the scratch vector.
   Gfx::g_global_settings.recharged_grass_precomputed = p[3] > 0.5f;
