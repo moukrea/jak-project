@@ -128,6 +128,14 @@
    (load-custom-assets? symbol) ;; Gload-custom-assets: load user-supplied custom assets. OFF = stock assets only.
    (recharged-textures? symbol) ;; Grecharged-bundled-textures: use the package-bundled first-party Recharged replacement textures. #f = stock base textures.
    (managed-assets? symbol) ;; Grecharged-managed-assets: use the DOWNLOADED texture pack (managed_assets/<game>/) when one is installed. #f = bundled/stock, no re-download.
+   ;; Gfixed-tick-interpolation (owner 2026-08-26) : PAS DE SIMULATION FIXE a 1/60 s.
+   ;; #f = comportement d'origine AU BIT PRES (le pas suit la cadence d'affichage, ce qui
+   ;; raccourcit les sauts et fait sauter des seuils d'etat des que le telephone descend
+   ;; sous 60 images/s). #t = la logique avance par ticks de 1/60 s exactement, les pas
+   ;; que le temps reel reclame en plus sont executes comme des tours de logique separes,
+   ;; et le rendu interpole entre deux ticks. DEFAUT #f : une reecriture du pas de
+   ;; simulation ne s'arme pas toute seule chez le joueur (superviseur 2026-08-30).
+   (fixed-tick? symbol)
    (secrets             pc-game-secrets :inline) ;; hidden goodies and additional secrets!
    (scenes-seen         uint8 PC_SPOOL_LOG_LENGTH) ;; cutscenes that have been seen, by spool-anim (maybe use 8-char name or bits instead?)
    (memcard-play-hints? symbol)
@@ -224,6 +232,10 @@
 ;; Extern present only with --physics (C++ side gated by OG_FEAT_PHYSICS).
 (#when FLAG_PHYSICS
 (define-extern pc-set-physics! (function int int none)))
+;; Gfixed-tick-interpolation : pousse l'interrupteur du joueur (0/1) vers l'horloge a pas
+;; fixe. PAS de `#when` : un symbole-fonction que le CGO appelle et que le .so ne fournit
+;; pas fait sauter GOAL a l'adresse 0 (SIGILL) — le binding est donc inconditionnel.
+(define-extern pc-set-fixed-tick! (function int none))
 (define-extern pc-set-jak-pos! (function vector none))
 (define-extern pc-grass-tramp-break! (function vector none)) ;; R28: instant grass-trample cancel at a breakable's break frame
 ;; Grecharged-grass-poc POLISH#4: push the two adjustable grass view-distances (a vector: x=near m, y=card m)
@@ -334,6 +346,7 @@
   (set! (-> obj load-custom-assets?) #f) ;; Gload-custom-assets: default OFF so a fresh install uses stock assets only
   (set! (-> obj recharged-textures?) #t) ;; Grecharged-bundled-textures: default ON — a plain install shows the owner's Recharged textures (the MASTER still forces stock when OFF)
   (set! (-> obj managed-assets?) #t) ;; Grecharged-managed-assets: default ON — a downloaded pack is meant to be seen (the MASTER still forces stock when OFF)
+  (set! (-> obj fixed-tick?) #f) ;; Gfixed-tick-interpolation: defaut DESARME = sortie identique au bit a l'existant
   ;; original settings, minus 25 to be a bit more conservative
   (set! (-> obj memcard-volume-sfx) 50.0)
   (set! (-> obj memcard-volume-music) 40.0)

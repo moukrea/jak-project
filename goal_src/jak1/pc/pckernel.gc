@@ -514,6 +514,13 @@
     ;; Grecharged-secondary-motion: chain physics toggle + quality level.
     (("physics?") (set! (-> obj physics?) (file-stream-read-symbol file)))
     (("physics-quality") (set! (-> obj physics-quality) (file-stream-read-int file)))
+    ;; Gfixed-tick-interpolation : POUSSE ICI EN PLUS de la poussee par image. Les toutes
+    ;; premieres images dessinees precedent le premier `update-to-os` ; sans cette ligne
+    ;; elles tourneraient sur l'ancien chemin alors que le joueur a coche la case, et le
+    ;; premier saut apres un demarrage n'aurait pas la meme trajectoire que les suivants.
+    (("fixed-tick?")
+     (set! (-> obj fixed-tick?) (file-stream-read-symbol file))
+     (pc-set-fixed-tick! (if (-> obj fixed-tick?) 1 0)))
     (("load-custom-assets?")
      (set! (-> obj load-custom-assets?) (file-stream-read-symbol file))
      ;; Gload-custom-assets: apply the persisted flag at settings-load (boot) time so the choice
@@ -604,6 +611,7 @@
   ;; Grecharged-secondary-motion: chain physics toggle + quality level.
   (format file "physics? = ~A~%" (-> obj physics?))
   (format file "physics-quality = ~D~%" (-> obj physics-quality))
+  (format file "fixed-tick? = ~A~%" (-> obj fixed-tick?))
   (format file "load-custom-assets? = ~A~%" (-> obj load-custom-assets?))
   (format file "recharged-textures? = ~A~%" (-> obj recharged-textures?))
   (format file "managed-assets? = ~A~%" (-> obj managed-assets?))

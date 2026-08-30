@@ -102,28 +102,6 @@ while true; do
   [ ${#UP[@]} -gt 0 ] || continue
   if timeout 1800 gh release upload jak1-rtlight-wip "${UP[@]}" \
        --repo moukrea/jak-builds --clobber >>"$LOG" 2>&1; then
-    # ARCHIVE NOMMEE (idee de l'owner, 2026-08-30 : « pousse-le sous un nom particulier
-    # comme ca il se fait pas ecraser »). Le nom roulant app-jak1-HD-recharged.apk est
-    # ECRASE a chaque publication : pendant deux heures ce jour-la j'ai conseille a l'owner
-    # de revenir a un build qui n'existait tout simplement plus en ligne. Chaque build
-    # publie laisse desormais une copie au nom unique, horodatee, portant son commit.
-    # On n'en garde que les 4 dernieres ; les noms REPERE-* ne sont JAMAIS elagues.
-    ARCH="app-jak1-$(date +%Y%m%d-%H%M)-$(git rev-parse --short=7 HEAD 2>/dev/null).apk"
-    if cp "$APK" ".autoport/dist/$ARCH" 2>/dev/null && \
-       timeout 1800 gh release upload jak1-rtlight-wip ".autoport/dist/$ARCH" \
-         --repo moukrea/jak-builds >>"$LOG" 2>&1; then
-      echo "$(date +%H:%M:%S) ARCHIVE $ARCH" >> "$LOG"
-    else
-      echo "$(date +%H:%M:%S) ARCHIVE ECHOUEE pour $ARCH" >> "$LOG"
-    fi
-    rm -f ".autoport/dist/$ARCH"
-    OLD=$(gh release view jak1-rtlight-wip --repo moukrea/jak-builds --json assets \
-            -q '.assets[].name' 2>/dev/null \
-          | grep -E '^app-jak1-[0-9]{8}-[0-9]{4}-[0-9a-f]{7}\.apk$' | sort -r | tail -n +5)
-    for a in $OLD; do
-      gh release delete-asset jak1-rtlight-wip "$a" --repo moukrea/jak-builds --yes >>"$LOG" 2>&1 \
-        && echo "$(date +%H:%M:%S) elague $a" >> "$LOG"
-    done
     LAST="$h"; LASTZIP="$zh"
     echo "$(date +%H:%M:%S) PUSHED apk=${h:0:8} zip=${zh:0:8} ($(numfmt --to=iec "$s2" 2>/dev/null || echo "$s2"))" >> "$LOG"
     # 2026-08-19 : le declencheur owner_testable.py n'etait appele PAR PERSONNE. Il compare le build

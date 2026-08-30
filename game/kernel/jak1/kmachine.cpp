@@ -4884,6 +4884,20 @@ static void pad_replay_force_timestep() {
 // fonction oublie la-bas ne se manifeste pas par une erreur de lien : GOAL saute a 0
 // et le processus meurt en SIGILL. Une VALEUR de symbole non ecrite, elle, laisse
 // simplement `*fixed-tick-armed*` a 0, c'est-a-dire le comportement d'avant.
+// Gfixed-tick-interpolation : l'interrupteur du JOUEUR (Recharged Settings), pousse a
+// chaque image depuis GOAL par `pc-set-fixed-tick!`, sur le meme patron que
+// `pc-set-physics!` et le basculement HD-MODELS. Pousser a chaque image plutot qu'au
+// changement rend le reglage robuste a un chargement de sauvegarde ou a une remise a
+// zero des reglages : l'etat du moteur ne peut pas diverger de la case cochee.
+//
+// L'appel est enregistre SANS `#ifdef` : un symbole-fonction que le CGO appelle et que
+// le .so ne fournit pas fait sauter GOAL a l'adresse 0 et tue le processus en SIGILL —
+// c'est le mode de defaillance « FEATURE-STALE libgk » que deploy_verify traque. Ce
+// binding n'a donc pas de drapeau de build, et le cout d'un booleen est nul.
+void pc_set_fixed_tick(u32 on) {
+  fixed_tick::set_enabled(on != 0);
+}
+
 static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro) {
   intern_from_c("*fixed-tick-armed*")->value = (u32)armed;
   intern_from_c("*fixed-tick-catchup*")->value = (u32)catchup;
@@ -4899,8 +4913,10 @@ static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro) {
   //
   // Publie aussi la position de Jak : le meme fichier porte alors la trajectoire de
   // saut ET la cadence, donc on ne peut pas les apparier de travers.
-  static const bool s_probe = (getenv("OG_FIXED_TICK_PROBE") != nullptr);
-  if (!s_probe) {
+  // Gate lue par le module lui-meme : env sur bureau, propriete Android sur telephone
+  // (l'environnement d'un processus Android n'est pas reglable depuis adb, et une sonde
+  // qu'on ne peut pas armer sur l'appareil ne prouve rien de l'appareil).
+  if (!fixed_tick::probe_enabled()) {
     return;
   }
   static Timer s_probe_timer;
@@ -5014,6 +5030,10 @@ void InitMachineScheme() {
   // plateformes (bureau via kboot, Android via android_runtime_full.cpp
   // InitHeapAndSymbol -> InitMachineScheme), donc ce rappel est le meme des deux cotes.
   fixed_tick::set_publisher(&fixed_tick_publish);
+  // Gfixed-tick-interpolation : interrupteur du joueur. Enregistre ICI (InitMachineScheme
+  // de jak1), le seul chemin d'enregistrement des pc-* qui soit atteint sur les DEUX
+  // plateformes — `init_common_pc_port_functions` ne tourne pas sur Android.
+  make_function_symbol_from_c("pc-set-fixed-tick!", (void*)pc_set_fixed_tick);
   make_function_symbol_from_c("install-handler", (void*)InstallHandler);      // used
   make_function_symbol_from_c("install-debug-handler", (void*)InstallDebugHandler);       // used
   make_function_symbol_from_c("file-stream-open", (void*)kopen);                          // used

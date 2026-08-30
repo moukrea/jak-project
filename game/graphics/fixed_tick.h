@@ -67,10 +67,34 @@ constexpr double kSnapTolerance = 0.10;
 // l'horloge se desarme (voir le paragraphe de perimetre ci-dessus).
 constexpr double kDisarmFasterThan = 0.95;
 
-// Armee par l'environnement / la propriete Android. Defaut ON ; `OG_FIXED_TICK=0`
-// (ou `debug.opengoal.fixed_tick` a "0") desarme — c'est l'ablation SUR LE MEME
-// BINAIRE qu'exigent les directives pour un avant/apres honnete.
+// Etat d'armement de l'horloge, et QUI le decide.
+//
+// Deux sources, dans cet ordre de priorite, et la priorite est le point important :
+//   1. l'ENVIRONNEMENT (`OG_FIXED_TICK`, ou la propriete Android
+//      `debug.opengoal.fixed_tick`). Si elle est posee a "0" ou "1", elle FORCE l'etat
+//      et le reglage du joueur est ignore. C'est ce qui rend l'ablation SUR LE MEME
+//      BINAIRE possible : une course armee et une course desarmee, meme .so, meme
+//      donnees, sans passer par le menu ;
+//   2. sinon, le REGLAGE DU JOUEUR, pousse chaque image depuis GOAL par
+//      `pc-set-fixed-tick!` (Recharged Settings). Defaut DESARME = comportement
+//      d'origine au bit pres.
+//
+// DEFAUT DESARME (superviseur 2026-08-30) : une reecriture du pas de simulation ne part
+// pas armee chez l'owner sans qu'il l'ait demandee. Le menu est la pour qu'il puisse
+// l'armer lui-meme, sans adb et sans nouveau build.
 bool enabled();
+
+// Reglage du joueur (Recharged Settings). Sans effet quand l'environnement force
+// l'etat — voir ci-dessus. Une transition desarme->arme rebase l'accumulateur, sinon la
+// premiere image apres l'armement porterait tout le temps ecoule depuis la derniere.
+void set_enabled(bool on);
+
+// Sonde de cadence opt-in (`OG_FIXED_TICK_PROBE`, ou la propriete Android
+// `debug.opengoal.fixed_tick_probe` a "1") : une ligne par image DESSINEE. Elle est
+// OPT-IN au PRODUCTEUR et pas au consommateur — une sonde par-image livree armee a
+// deja coute 40 Mo de sortie en 220 s sur l'appareil. Sur Android stdout/stderr sont
+// routes vers logcat, donc la meme sonde sert aux deux plateformes.
+bool probe_enabled();
 
 // Le harnais de rejeu d'entrees force un pas de temps deterministe (il ecrit
 // *ticks-per-frame* a chaque frame, game/kernel/jak1/kmachine.cpp). Dans ce mode

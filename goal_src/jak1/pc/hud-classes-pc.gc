@@ -1813,6 +1813,11 @@
   (#when FLAG_HD_MODELS (pc-set-recharged-enhanced-models! (if (-> obj recharged-enhanced-models?) 1 0)))
   ;; Grecharged-secondary-motion: push the chain-physics toggle + quality level (0/1 + level index).
   (#when FLAG_PHYSICS (pc-set-physics! (if (-> obj physics?) 1 0) (-> obj physics-quality)))
+  ;; Gfixed-tick-interpolation : pousser l'interrupteur a CHAQUE image, comme la physique
+  ;; et les modeles HD. Pousser au changement seulement laisserait l'etat du moteur
+  ;; diverger de la case cochee apres un chargement de sauvegarde ou une remise a zero
+  ;; des reglages. Sans drapeau de build (voir pckernel-impl.gc).
+  (pc-set-fixed-tick! (if (-> obj fixed-tick?) 1 0))
   ;; Grecharged-ambient-occlusion: push the AO mode + quality + strength every frame (1:1, no translation).
   (pc-set-ambient-occlusion! (-> obj ambient-occlusion) (-> obj ao-quality) (-> obj ao-strength))
   (when *target*

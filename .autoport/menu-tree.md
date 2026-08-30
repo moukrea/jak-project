@@ -24,12 +24,12 @@ Aspect, Résolution (desktop), Dynamic Render Scale (`dynamic-render-scale?`), R
 Min Target FPS (`dyn-target-fps`), FPS Counter, VSync, MSAA, [desktop : Display Mode, Display,
 Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_SUPPORT}`, Back.
 
-## RECHARGED SETTINGS (`*recharged-options-pc`* — 34 lignes livrées avec hd-models+pbr+physics, HUD off)
+## RECHARGED SETTINGS (`*recharged-options-pc`* — 35 lignes livrées avec hd-models+pbr+physics, HUD off)
 
 > Grecharged-hud-jak1 (2026-08-08) : avec `--recharged-hud` la ligne **RECHARGED HUD** s'insère à
 > l'index **1** (juste après RECHARGED MASTER) et **tout le reste glisse de +1** — c'est exactement
 > ce que porte l'arithmétique `FLAG_RECHARGED_HUD_N` de `progress-pc.gc` (fw-idx, collapse HD, etc.).
-> Le tableau ci-dessous reste celui de la config par défaut (HUD off, 34 lignes) ; avec le flag on
+> Le tableau ci-dessous reste celui de la config par défaut (HUD off, 35 lignes) ; avec le flag on
 > passe à 35.
 >
 > Correctif d'indices 2026-08-27 : le tableau omettait la ligne **HD TEXTURE PACK**
@@ -62,11 +62,12 @@ Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_
 | 26 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
 | **27** | **MODERN MATERIALS (on-off, défaut OFF)** `{FLAG_PBR}` (grisé si master ou PBR MATERIALS off) | **`modern-materials?`** |
 | **28** | **CRISP TITLE LOGO (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`crisp-title-logo?`** |
-| **29** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
-| **30** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
-| 31 | HD TEXTURE PACK (on-off, défaut ON) — inconditionnelle (grisé si master off) | `managed-assets?` |
-| 32 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
-| 33 | Back | — |
+| **29** | **FIXED TIMESTEP (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`fixed-tick?`** |
+| **30** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
+| **31** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
+| 32 | HD TEXTURE PACK (on-off, défaut ON) — inconditionnelle (grisé si master off) | `managed-assets?` |
+| 33 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
+| 34 | Back | — |
 
 ### Gprecompute-deterministic-bake — MESH SUBDIVISION (idx 24)
 
@@ -203,7 +204,39 @@ Impact arithmétique : le terme constant des deux gardes de longueur statique pa
   **et verrouille** toute ligne nommée `disable-auto-save` dès que l'auto-save est désactivé, quel
   que soit son `option-type`.
 
-### Grecharged-secondary-motion — PHYSICS + PHYSICS DETAIL (idx 28-29)
+### Gfixed-tick-interpolation — FIXED TIMESTEP (idx 29)
+
+Une ligne **inconditionnelle** (aucun `flag-row`), insérée **entre CRISP TITLE LOGO et le bloc
+PHYSICS** — et surtout pas ENTRE les deux lignes PHYSICS : le câblage auto-localisé `[PHYS-MENU]`
+d'`init-game-options` sort en FATAL si la ligne juste avant PHYSICS DETAIL n'est pas une on-off
+(c'est ainsi qu'il retrouve le
+toggle PHYSICS sans arithmétique). Après insertion : `[PHYS-MENU] rows wired: toggle=30 detail=31
+next-is-meshbrowser=0 len=35` — le `0` est **antérieur** à cette ligne (HD TEXTURE PACK avait déjà
+été inséré entre PHYSICS DETAIL et MESH BROWSER), l'audit ne l'échoue pas. Impact arithmétique : le terme constant des deux gardes de longueur statique passe de
+`12` à `13` (`fw-idx` `progress-pc.gc` et garde de collapse HD).
+
+- **FIXED TIMESTEP** (`fixed-tick?`, symbole, **défaut OFF**) : OFF = chemin d'origine **au bit
+  près** — la logique avance de la durée RÉELLE de l'image, donc à 25 images/s un saut monte
+  +19 % trop haut et à 120 il monte moitié moins (mesuré, rapport de phase). ON = la logique
+  avance par pas de **1/60 s** exactement, les pas que le temps réel réclame en plus sont joués
+  comme des tours de logique séparés (rattrapage dans `display-loop`), et le rendu **interpole**
+  entre deux ticks (`*fixed-tick-alpha*` → `cam-render-interp!`).
+- **Pourquoi défaut OFF** : le superviseur a désarmé ce chantier le 2026-08-30 (un build le
+  portant ARMÉ est parti chez l'owner avant que sa porte de sortie soit passée). Cette ligne
+  existe pour qu'il puisse l'armer **lui-même**, sans adb et sans nouveau build.
+- Plomberie : `pc-set-fixed-tick!` (`kmachine.cpp`, enregistré **sans `#ifdef`**) →
+  `fixed_tick::set_enabled` (`game/graphics/fixed_tick.cpp`), poussé chaque frame par
+  `update-to-os` **et** à la lecture de `settings.ini` (les toutes premières images dessinées
+  précèdent le premier `update-to-os`) ; persisté dans `settings.ini` sous `fixed-tick?`.
+- **L'environnement PRIME sur le menu** : `OG_FIXED_TICK=0|1`, ou la propriété Android
+  `debug.opengoal.fixed_tick`, FORCE l'état et ignore la case cochée. C'est ce qui rend l'ablation
+  sur LE MÊME BINAIRE possible pour nos mesures.
+- Libellé via `name-override` (`*fixed-tick-label*` "FIXED TIMESTEP"). Câblage **auto-localisé**
+  sur `:hint (text-id pc-text-hint-framerate)` — aucune autre ligne du tableau n'écrit CETTE
+  valeur (les deux seules autres sont `pc-text-hint-resolution` / `pc-text-hint-render`). Trace :
+  `[FIXEDTICK-MENU] row wired: idx=N len=M`, sinon échec BRUYANT.
+
+### Grecharged-secondary-motion — PHYSICS + PHYSICS DETAIL (idx 30-31)
 
 Deux lignes présentes **uniquement dans les builds `--physics`** (`FLAG_PHYSICS`) ; absentes du CGO
 sinon (`flag-row`, filtrage à l'expansion GOOS). Elles sont **ajoutées EN QUEUE de tableau**,

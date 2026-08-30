@@ -7623,6 +7623,42 @@
               (set! (-> *pc-settings* crisp-title-logo?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none)))
+       ;; Gfixed-tick-interpolation (owner 2026-08-26) : FIXED TIMESTEP on-off toggle. OFF (defaut)
+       ;; = chemin d'origine AU BIT PRES — la logique avance de la duree REELLE de l'image, donc a
+       ;; 25 images/s un saut monte 19 % trop haut et a 120 il monte MOITIE moins. ON = la logique
+       ;; avance par pas de 1/60 s exactement (le pas de la PS2), les pas que le temps reel reclame
+       ;; en plus sont joues comme des tours de logique separes, et le rendu interpole entre deux
+       ;; ticks. C'est exactement le defaut que l'owner decrit : « les sauts, les mouvements de
+       ;; camera ca chie un peu dans la colle... sauts trop courts ».
+       ;;
+       ;; POURQUOI OFF PAR DEFAUT : le superviseur a desarme ce chantier le 2026-08-30 parce qu'un
+       ;; build le portant ARME est parti chez l'owner avant que sa porte de sortie soit passee.
+       ;; Cette ligne existe pour qu'il puisse l'armer LUI-MEME, sans adb et sans nouveau build —
+       ;; c'est ce qui rend le chantier testable par son oeil, qui est la porte finale.
+       ;;
+       ;; Meme patron que CRISP TITLE LOGO juste au-dessus : :name est le placeholder habituel
+       ;; (le libelle vient de *fixed-tick-label* par name-override) et l'AUTO-LOCALISATION se fait
+       ;; sur :hint, un champ qu'aucune autre ligne de ce tableau n'ecrit et que rien ne lit dans le
+       ;; menu livre. Ne PAS se localiser sur :name : le `name` d'une ligne est dispatche ailleurs,
+       ;; et un decalage compte a la main est la classe de bug Gmenu-flag-off.
+       ;; POSEE ICI, entre CRISP TITLE LOGO et le bloc PHYSICS, et pas ENTRE les deux lignes
+       ;; PHYSICS : le cablage auto-localise [PHYS-MENU] d'`init-game-options` sort en FATAL si la ligne
+       ;; immediatement AVANT PHYSICS DETAIL n'est pas une on-off (c'est ainsi qu'il retrouve le
+       ;; toggle PHYSICS sans arithmetique). S'inserer la casserait l'audit. Note pour un futur
+       ;; cycle : le meme audit imprime `next-is-meshbrowser=0`, et ce 0 est ANTERIEUR a cette
+       ;; ligne — HD TEXTURE PACK a ete insere entre PHYSICS DETAIL et MESH BROWSER. C'est une
+       ;; observation, pas un verdict : l'audit ne echoue que sur la condition ci-dessus.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :hint (text-id pc-text-hint-framerate)
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* fixed-tick?) (the-as symbol val))
+              (pc-set-fixed-tick! (if val 1 0))
+              (commit-to-file *pc-settings*)
+              (none)))
        ;; Grecharged-secondary-motion: PHYSICS on-off toggle. Secondary-motion (chain) physics —
        ;; hair / cloth / straps swing with the animation instead of staying rigid. Real label via
        ;; *physics-label*; value bound to *pc-settings* physics? in init-game-options. Default ON
@@ -7964,6 +8000,10 @@
 ;; only — the jak1 menu font has no lowercase glyphs.
 (define *crisp-title-logo-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *crisp-title-logo-label*) "CRISP TITLE LOGO")
+;; Gfixed-tick-interpolation: libelle de l'interrupteur FIXED TIMESTEP. ASCII majuscule
+;; uniquement — la police du menu jak1 n'a pas de minuscules.
+(define *fixed-tick-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *fixed-tick-label*) "FIXED TIMESTEP")
 ;; Grecharged-grass-poc POLISH#6: label for the "GRASS SETTINGS" nested sub-submenu launcher row inside
 ;; the Recharged Settings submenu (English-only, uppercase ASCII for the menu font; shown via
 ;; name-override on the menu row — like *recharged-settings-label*, never re-formatted).
@@ -10129,7 +10169,12 @@
   ;; (right after DISPLACEMENT), so besides the total-length term the two fw-idx-relative arms that
   ;; followed DISPLACEMENT are renumbered +14/+15 -> +15/+16 below. Verified against the array by
   ;; counting: 12 unconditional rows + hud + PBR MATERIALS + 5 HD + 14 PBR-block + 2 PHYSICS.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 14 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  ;; Gfixed-tick-interpolation: +1 encore sur le terme INCONDITIONNEL (12 -> 13) pour la ligne
+  ;; FIXED TIMESTEP, posee entre CRISP TITLE LOGO et le bloc PHYSICS. Elle est APRES fw-idx et
+  ;; apres tous les bras relatifs a fw-idx ci-dessous, donc SEUL ce terme de longueur change. Un 12
+  ;; perime ferait lire un tableau PLEIN comme « collapse » et cablerait FOLIAGE WIND et toute la
+  ;; suite cinq crans trop tot — la classe de bug Gmenu-flag-off.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 13 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 14 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -10270,8 +10315,10 @@
       ;; fw-idx guard above; a stale 12 here would silently disable the HD-collapse.
       ;; Gprecompute-deterministic-bake: 13 -> 14 for the MESH SUBDIVISION row (same term, same
       ;; reason: a stale 13 here would silently disable the HD-collapse).
+      ;; Gfixed-tick-interpolation: 12 -> 13, MEME terme et MEME raison que la garde fw-idx
+      ;; ci-dessus (un 13 perime ici desactiverait silencieusement le collapse HD).
       (when (= (-> *recharged-options-pc* length)
-               (+ 12 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 14 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+               (+ 13 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 14 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
@@ -10316,6 +10363,30 @@
        (set! (-> *recharged-options-pc* ctl-idx name-override) *crisp-title-logo-label*)
        (format 0 "[CRISPLOGO-MENU] row wired: idx=~D len=~D (self-located)~%"
                ctl-idx (-> *recharged-options-pc* length)))))
+  ;; Gfixed-tick-interpolation: cabler FIXED TIMESTEP. AUTO-LOCALISATION par son marqueur unique
+  ;; :hint (text-id pc-text-hint-framerate) — aucune autre ligne de *recharged-options-pc* n'ecrit
+  ;; CETTE valeur de hint (les deux seules autres sont pc-text-hint-resolution pour CRISP TITLE
+  ;; LOGO et pc-text-hint-render pour MODERN MATERIALS), et `hint` n'est lu par rien dans le menu
+  ;; livre. Meme contrat que les deux blocs ci-dessus : n'importe quelle insertion future laisse
+  ;; ceci juste, et un echec est BRUYANT au lieu de peindre le libelle sur une autre ligne.
+  ;; Place APRES le collapse HD-models, comme CRISP TITLE LOGO, donc il voit le tableau FINAL.
+  (let ((ft-idx -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (when (and (< ft-idx 0)
+                 (= (the int (-> *recharged-options-pc* i hint))
+                    (the int (text-id pc-text-hint-framerate)))
+                 (= (the int (-> *recharged-options-pc* i option-type))
+                    (the int (game-option-type on-off))))
+        (set! ft-idx i)))
+    (cond
+      ((< ft-idx 0)
+       (format 0 "[FIXEDTICK-MENU] FATAL: FIXED TIMESTEP row not found (len=~D) — row left UNWIRED~%"
+               (-> *recharged-options-pc* length)))
+      (else
+       (set! (-> *recharged-options-pc* ft-idx value-to-modify) (&-> *pc-settings* fixed-tick?))
+       (set! (-> *recharged-options-pc* ft-idx name-override) *fixed-tick-label*)
+       (format 0 "[FIXEDTICK-MENU] row wired: idx=~D len=~D (self-located)~%"
+               ft-idx (-> *recharged-options-pc* length)))))
   ;; Grecharged-materials-modern-parity: wire MODERN MATERIALS. SELF-LOCATING by its unique marker
   ;; :hint (text-id pc-text-hint-render) — the retired "RENDU" category hint, referenced by NOTHING
   ;; else in the tree, and `hint` is read by nothing in the shipping menu. Same contract as CRISP

@@ -29,6 +29,10 @@ struct State {
   u64 render_frames = 0;
   u64 armed_frames = 0;
   PublishFn publisher = nullptr;
+  // Armement. `forced` vaut -1 quand l'environnement ne dit rien (le reglage du joueur
+  // decide alors), 0 ou 1 quand il FORCE l'etat pour une course d'ablation.
+  int forced = -2;  // -2 == pas encore lu
+  bool armed_setting = false;
   // Moyenne glissante de la duree reelle d'une image. Sert UNIQUEMENT a decider si
   // l'affichage tourne plus vite que 60 Hz (perimetre de l'etape 1). Une decision
   // prise sur une frame isolee ferait clignoter l'armement a chaque hoquet.
@@ -40,22 +44,43 @@ State& state() {
   return s;
 }
 
-bool read_enable_flag() {
-  // DEFAUT DESARME depuis le 2026-08-30. Ce chantier (Gfixed-tick-interpolation) n'a PAS
-  // passe sa porte de sortie : ses deux tentatives ont echoue. Il etait pourtant actif par
-  // defaut dans le build publie a 17h32 et installe par l'owner, qui a vu le jeu planter.
-  // Une reecriture non validee du pas de simulation — ce qui gouverne les sauts, la camera
-  // et les seuils d'etat — ne doit JAMAIS etre armee dans un binaire qui part chez lui.
-  // `OG_FIXED_TICK=1` (ou la propriete a "1") l'arme pour nos propres mesures ; c'est
-  // l'ablation sur LE MEME BINAIRE qu'exigent les directives pour un avant/apres honnete.
-  // A rebasculer sur ON le jour ou le chantier passe son validateur, pas avant.
+// Lit la CONSIGNE D'ENVIRONNEMENT. Rend -1 quand elle est absente : dans ce cas le
+// reglage du joueur (menu Recharged Settings) decide, et son defaut est DESARME.
+//
+// DEFAUT DESARME depuis le 2026-08-30 (superviseur). Ce chantier reecrit le pas de
+// simulation — sauts, camera, seuils d'etat. Il etait actif par defaut dans le build
+// publie a 17h32 et installe par l'owner, qui a vu le jeu planter. Une telle reecriture
+// ne part pas armee chez lui sans qu'il l'ait demandee. `OG_FIXED_TICK=1` (ou la
+// propriete Android a "1") l'arme pour nos propres mesures ; `...=0` la desarme meme si
+// le joueur l'a activee. C'est l'ablation sur LE MEME BINAIRE qu'exigent les directives
+// pour un avant/apres honnete, et c'est pour ca que l'environnement PRIME sur le menu.
+int read_force_flag() {
   const char* e = std::getenv("OG_FIXED_TICK");
-  if (e && e[0] == '1') {
+  if (e && (e[0] == '0' || e[0] == '1')) {
+    return e[0] - '0';
+  }
+#ifdef __ANDROID__
+  char pv[8] = {0};
+  if (__system_property_get("debug.opengoal.fixed_tick", pv) > 0 &&
+      (pv[0] == '0' || pv[0] == '1')) {
+    return pv[0] - '0';
+  }
+#endif
+  return -1;
+}
+
+// Sonde de cadence, une ligne par image dessinee. Gate a part, parce qu'une sonde
+// par-image livree ARMEE est un defaut deja paye (40 Mo de sortie en 220 s sur
+// l'appareil). Sur Android stdout/stderr sont routes vers logcat
+// (android/gk_android_main.cpp), donc la meme sonde sert aux deux plateformes — mais
+// l'environnement n'y est pas reglable, d'ou la propriete.
+bool read_probe_flag() {
+  if (std::getenv("OG_FIXED_TICK_PROBE") != nullptr) {
     return true;
   }
 #ifdef __ANDROID__
   char pv[8] = {0};
-  if (__system_property_get("debug.opengoal.fixed_tick", pv) > 0 && pv[0] == '1') {
+  if (__system_property_get("debug.opengoal.fixed_tick_probe", pv) > 0 && pv[0] == '1') {
     return true;
   }
 #endif
@@ -65,8 +90,40 @@ bool read_enable_flag() {
 }  // namespace
 
 bool enabled() {
-  static const bool s_enabled = read_enable_flag();
-  return s_enabled;
+  State& s = state();
+  if (s.forced == -2) {
+    s.forced = read_force_flag();
+  }
+  if (s.forced >= 0) {
+    return s.forced == 1;
+  }
+  return s.armed_setting;
+}
+
+void set_enabled(bool on) {
+  State& s = state();
+  if (s.forced == -2) {
+    s.forced = read_force_flag();
+  }
+  if (s.forced >= 0) {
+    return;  // une course d'ablation est en cours : le menu ne la contredit pas
+  }
+  if (on == s.armed_setting) {
+    return;
+  }
+  s.armed_setting = on;
+  // Rebase a chaque transition. Sans ca, la premiere image apres l'armement lirait une
+  // montre arretee depuis la derniere image ARMEE (potentiellement des minutes) et
+  // fabriquerait un rattrapage de 4 ticks pour rien.
+  s.have_last = false;
+  s.accumulator = 0.0;
+  s.dt_ema = kFixedTickSeconds;
+  s.alpha_micro = 1000000;
+}
+
+bool probe_enabled() {
+  static const bool s_probe = read_probe_flag();
+  return s_probe;
 }
 
 void set_deterministic(bool on) {
