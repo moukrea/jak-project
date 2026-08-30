@@ -246,3 +246,44 @@ le front montant se replacait a chaque frame lente.
 
 **Exige** : publier le nombre d'images affichees par seconde MESURE pendant un chargement lourd,
 pas au repos. Une valeur mesuree au repos ne prouve rien sur le defaut signale.
+
+---
+
+# RETOUR OWNER 2026-08-30 — TROIS DEFAUTS RESTANTS SUR LA SILHOUETTE
+
+> « j'ai l'impression que Daxter n'est pas sur l'épaule de Jak, et son framerate n'est pas à
+> 60 FPS c'est bizarre... Plus sur un chargement de sauvegarde, l'animation freeze sur la fin au
+> lieu de continuer de façon fluide. »
+
+Le gel general a ete corrige au cycle precedent (horloge independante). **Ces trois-la sont
+NOUVEAUX ou survivants, et le troisieme montre que le correctif est INCOMPLET.**
+
+## 1. Daxter n'est pas sur l'epaule
+
+La maquette de l'owner montre Daxter SUR L'EPAULE de Jak. La capture a ete faite sur
+`eichar-run` — verifier que Daxter etait bien attache pendant la capture, et pas dans un etat ou
+il court a cote ou est absent. **Publier comment la presence de Daxter sur l'epaule a ete
+VERIFIEE sur les images retenues**, pas supposee.
+
+## 2. La cadence n'est pas de 60 images par seconde
+
+L'owner voit une animation qui ne tourne pas a 60. Le cycle precedent a publie une periode de
+34,79 frames de logique et 16 images. **Publier la cadence de LECTURE reelle** : combien d'images
+distinctes par seconde a l'ecran, mesurees, et la comparer a 60.
+
+Piege probable : 16 images pour une periode de 34,79 frames signifie qu'une image est tenue ~2,17
+frames. Ce n'est PAS 60 images par seconde, c'est ~27. Si l'owner attend du 60, il faut soit plus
+d'images, soit une interpolation entre elles. **Trancher explicitement et le dire.**
+
+## 3. LE GEL SURVIT SUR LA FIN D'UN CHARGEMENT DE SAUVEGARDE
+
+> « sur un chargement de sauvegarde, l'animation freeze sur la FIN au lieu de continuer de façon
+> fluide »
+
+Le correctif d'horloge du cycle precedent ne couvre donc pas ce moment-la. **La FIN d'un
+chargement est un instant particulier** : c'est la ou le moteur bascule, ou les acteurs
+s'instancient, ou la scene demarre. Chercher ce qui, a cet instant precis, reprend la main sur
+l'affichage.
+
+**Exige** : publier la cadence mesuree PENDANT la derniere seconde d'un chargement de sauvegarde,
+pas sur la moyenne du chargement. Une moyenne sur dix secondes noie un gel d'une seconde.

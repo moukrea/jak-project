@@ -79,25 +79,29 @@
        ;; Above 16:9 it is bit-for-bit the old wide branch -- only the bars go away.
        ;; Below 16:9 the band is now magnified to fill the height instead of being framed by
        ;; bars, which is exactly "grossir la partie visible pour qu'elle prenne toute la hauteur".
-         ;; CORRECTION owner 2026-08-29 (3e reprise). Sa consigne, mot pour mot :
-         ;;   « la partie visible verticalement (comprise entre les barres du haut et du bas) doit
-         ;;     prendre toute la hauteur de l'ecran. On ne crop pas le cadre vertical, on agrandit
-         ;;     verticalement (sans deformer). Pour les barres a gauche et a droite, on enleve les
-         ;;     barres en revelant ce qu'il y a en dessous — mais on n'agrandit PAS le champ
-         ;;     initial horizontalement, c'est deja ce qu'on fait pour le vertical. »
+         ;; RETOUR A LA FORMULE D'ORIGINE — ma retouche du 2026-08-29 etait FAUSSE.
          ;;
-         ;; Ce que faisait le code precedent, et qui etait FAUX : il derivait l'HORIZONTAL du
-         ;; format d'ecran (`x *= aspect/16:9`) en gardant le vertical fixe. Il zoomait donc une
-         ;; SECONDE fois lateralement, ce qui sacrifiait le cadre vertical d'auteur.
+         ;; L'owner, 2026-08-30 : « c'est toujours la partie visible HORIZONTALE qui est agrandie
+         ;; pour occuper tout l'espace horizontal, plutot que la partie visible VERTICALE pour
+         ;; occuper tout l'espace vertical de l'ecran TOUT EN ELARGISSANT LE CHAMP DE VUE
+         ;; horizontal pour occuper tout l'espace horizontal. »
          ;;
-         ;;   x-ratio INCHANGE = tan(fov/2), l'horizontal d'AUTEUR : c'est ce que masquaient les
-         ;;                      barres laterales. On le REVELE, on ne l'agrandit pas.
-         ;;   y-ratio = x-ratio / aspect : le cadre rendu prend EXACTEMENT la forme de l'ecran,
-         ;;                      donc plus aucune barre a peindre a aucun format, et la bande
-         ;;                      visible remplit toute la hauteur sans deformation.
-         ;; A 16:9 : y = x/(16:9), soit exactement la bande d'auteur -> aucun changement.
-         (set! (-> math-cam y-ratio)
-               (/ (-> math-cam x-ratio) (-> *pc-settings* aspect-ratio))))
+         ;; Donc : y CONSTANT (la bande d'auteur, independante du format) et x QUI CROIT avec le
+         ;; format d'ecran (on voit PLUS sur les cotes). C'est exactement ce que faisait le code
+         ;; avant que je le change :
+         ;;      ecran 1.778 -> x=1.000 y=0.562      ecran 2.222 -> x=1.250 y=0.562
+         ;;      ecran 3.556 -> x=2.000 y=0.562      (y ne bouge JAMAIS)
+         ;;
+         ;; Ma version posait x constant et y = x/aspect : y RETRECISSAIT quand l'ecran
+         ;; s'elargissait, donc elle CROPPAIT le cadre vertical — l'inverse de la demande.
+         ;;
+         ;; POURQUOI l'owner s'en etait plaint le 29/08 alors que cette formule est la bonne :
+         ;; `(-> *pc-settings* aspect-ratio)` ne valait PAS le format de son ecran. Sur Android la
+         ;; taille de fenetre n'arrivait jamais au moteur, la branche AUTO n'etait jamais atteinte.
+         ;; Corrige depuis par la phase Gandroid-window-size. La formule etait juste, son ENTREE
+         ;; etait fausse — et j'ai change la formule au lieu de regarder l'entree.
+         (set! (-> math-cam y-ratio) (* (1/ ASPECT_16X9) (-> math-cam x-ratio)))
+         (*! (-> math-cam x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9)))
       (else
        ;; not using game vis, allow *extended* aspect ratios
        ;; there is no vertical cropping, and you can see more of the sides
