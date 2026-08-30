@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 251,
+  "current_phase_idx": 252,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -245,7 +245,7 @@
     "Gbeach-actors-gate": 1,
     "Gjak-hd-rig-strap": 1,
     "Gbuild-from-scratch": 1,
-    "Gfixed-tick-interpolation": 1,
+    "Gfixed-tick-interpolation": 2,
     "Gcine-vertical-frame": 1,
     "Gloading-screen-window": 2
   },
@@ -1119,7 +1119,7 @@
     "Gcine-vertical-frame": 1788083523.7294478,
     "Gloading-screen-window": 1788089738.5346968
   },
-  "last_update": "2026-08-30T14:29:17.353625+00:00",
+  "last_update": "2026-08-30T15:26:16.042040+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1254,6 +1254,7 @@
     "Gbuild-from-scratch": "2026-08-30 : validateur ET gates PASSES, build installe et verifie sur la Shield (14 fichiers du pack HD apparies par empreinte, 0 ecart, demarrage propre jusqu'au titre, 0 entree ISO dans l'APK). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/<phase> quand il valide.",
     "Gpbr-per-texture-materials": "2026-08-30 : validateur ET gates PASSES, build installe et verifie sur la Shield (14 fichiers du pack HD apparies par empreinte, 0 ecart, demarrage propre jusqu'au titre, 0 entree ISO dans l'APK). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/<phase> quand il valide.",
     "Gpbr-material-props": "2026-08-30 : validateur ET gates PASSES, build installe et verifie sur la Shield (14 fichiers du pack HD apparies par empreinte, 0 ecart, demarrage propre jusqu'au titre, 0 entree ISO dans l'APK). N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas la fermer sans lui : deposer .autoport/owner-ok/<phase> quand il valide.",
-    "Gcine-vertical-frame": "2026-08-30 13:09 : validateur ET gates PASSES. Perte de champ vertical en cinematique 25,000 % -> 0,000 % sur 5 formats, confirmee par une course d'ablation sur le meme binaire. N'ATTEND QUE LA PAROLE DE L'OWNER."
+    "Gcine-vertical-frame": "2026-08-30 13:09 : validateur ET gates PASSES. Perte de champ vertical en cinematique 25,000 % -> 0,000 % sur 5 formats, confirmee par une course d'ablation sur le meme binaire. N'ATTEND QUE LA PAROLE DE L'OWNER.",
+    "Gloading-screen-window": "2026-08-30 16:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gloading-screen-window quand il valide."
   }
 }
