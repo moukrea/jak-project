@@ -140,6 +140,393 @@
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcine-vertical-frame -- MESURE DU CHEMIN LIVRE (owner 2026-08-30, CINQUIEME signalement)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; « tu prend toujours la largeur originale avec les barre noires et l'etire en largeur jusqu'a ce
+;;   que ca prenne toute la largeur, faisant donc sortir une partie du cadre vertical original de
+;;   la vue »
+;;
+;; Les QUATRE tentatives precedentes ont ete RAISONNEES SUR LA SOURCE de update-math-camera et
+;; declarees bonnes parce que la formule se lisait bien. Elle se lit toujours bien. Le defaut est
+;; toujours la. Et la sonde `cutscene-reframe-probe` ci-dessus FORCE elle-meme le bit `movie` et
+;; balaye des formats SYNTHETIQUES au demarrage : elle prouve la FORMULE, pas que la cinematique
+;; reelle passe par cette branche. C'est exactement le trou.
+;;
+;; Ce bloc ne relit rien. Il publie ce que la chaine LIVREE produit, PENDANT la vraie cinematique.
+;;
+;; NATURE  -- CINELIVE / CINECTL : un ETAT par image (branche prise, pentes de frustum, format,
+;;            taille de rendu). Ni moyenne, ni variance : le defaut decrit est un CADRAGE.
+;;            CINEFIT : deux LONGUEURS en pixels de fenetre hote (hauteur du cadre d'auteur,
+;;            hauteur d'ecran) et un COMPTE de pixels perdus. CINEWIDE : un COMPTE d'objets.
+;; REPERE  -- `x`/`y` sont des pentes de frustum (tangentes de demi-angle) dans le repere de la
+;;            CAMERA, le meme que update-view-planes (cam-update.gc:38). `asp`, `vp`, `authorh`,
+;;            `screenh` sont en PIXELS DE FENETRE HOTE. Jamais l'espace 512x224 du HUD.
+;; QUAND LE DEFAUT EST ABSENT -- CINEFIT lit authorh == screenh et offscreen == 0 a tout format.
+;; CONTROLE -- CINECTL est la MEME ligne prise hors cinematique. Si les deux se ressemblent,
+;;            l'instrument ne discrimine rien et la mesure ne vaut rien.
+
+;; Le cadre d'auteur (CINE_BAR_ROWS, cine-authored-y-ratio) est defini dans
+;; engine/gfx/math-camera.gc : UN SEUL ecrivain de cette grandeur, lu a la fois par le solveur de
+;; camera et par l'instrument ci-dessous. Une seconde definition ici pourrait diverger de celle
+;; qui est reellement appliquee, et l'instrument publierait alors une cible que le moteur ne vise
+;; pas (registre : instrument-republishes-its-target, a l'envers).
+;; Armement du BALAYAGE DE FORMATS uniquement. La trace, elle, est toujours active : elle est
+;; bornee a *cine-live-max* images par cinematique et ne coute rien ensuite. Le balayage
+;; REDIMENSIONNE la fenetre hote, donc il ne s'arme que pour une course de mesure.
+(define *cine-sweep* #f)
+;; 1800 images = 30 s a 60 fps. Il en faut au moins autant : le bit `movie` est arme plusieurs
+;; secondes avant que le flux porte un nom, et la trace doit couvrir la partie NOMMEE.
+(defconstant CINE_LIVE_MAX 1800)
+(defconstant CINE_CTL_MAX 30)
+
+(define *cine-st* 0)          ;; 0 attente, 1 stabilisation, 2 balayage, 3 fini
+(define *cine-step* 0)
+(define *cine-timer* 0)
+(define *cine-live-left* 0)
+(define *cine-ctl-left* 0)
+(define *cine-was-movie* #f)
+(define *cine-said-branch* #f)
+(define *cine-w0* 0)
+(define *cine-h0* 0)
+(define *cine-fmt-n* 0)
+(define *cine-fmt-asp* (new 'static 'array float 8))
+(define *cine-fmt-x* (new 'static 'array float 8))
+
+(defun cine-scene-name ()
+  "Nom de la cinematique en cours, tel que le moteur le porte a l'execution.
+   `active-stream` est pose par loader.gc:1189 au demarrage du flux audio et remis a #f a la fin.
+   PIEGE MESURE : le bit `movie` est arme a l'entree de `play-anim` (process-taskable.gc:748),
+   donc AVANT que le flux existe. Il y a une fenetre ou real-movie? vaut 1 et ou le nom n'est pas
+   encore ecrit ; elle se declare, elle ne se maquille pas en « hors cinematique »."
+  (cond
+    ((-> *art-control* active-stream) (-> *art-control* active-stream))
+    ((real-movie?) "flux-non-arme")
+    (else "hors-cinematique")))
+
+(defun cine-line ((live symbol))
+  "Une ligne d'etat du chemin livre. UN enregistrement logique, DEUX appels : GOAL plafonne un
+   appel a 8 parametres (dest + chaine + 6), donc la ligne se compose en TROIS appels sans saut
+   de ligne intermediaire -- meme construction que GAWIN (pckernel-common.gc)."
+  ;; L'ETIQUETTE EST UN LITTERAL, pas un parametre : `~A` sur une string l'imprime ENTRE
+  ;; GUILLEMETS, ce qui deplacerait le debut de ligne et casserait tout ancrage `^CINELIVE `.
+  (if live (format 0 "CINELIVE ") (format 0 "CINECTL "))
+  (format 0
+          "scene=~S frame=~D usevis=~D realmovie=~D asp=~,,4f "
+          (cine-scene-name)
+          (current-time)
+          (if (-> *pc-settings* use-vis?) 1 0)
+          (if (real-movie?) 1 0)
+          (-> *pc-settings* aspect-ratio))
+  (format 0
+          "aspsym=~A branche=~A x=~,,6f y=~,,6f vp=~Dx~D "
+          (-> *setting-control* current aspect-ratio)
+          *cine-branch*
+          (-> *math-camera* x-ratio)
+          (-> *math-camera* y-ratio)
+          (-> *pc-settings* framebuffer-scissor-width)
+          (-> *pc-settings* framebuffer-scissor-height))
+  ;; `vp` est la region que GOAL demande au rendu (le scissor pousse par pc-set-letterbox) ;
+  ;; `win` est la fenetre hote entiere. Les trois derniers champs sont les interrupteurs qui
+  ;; decident laquelle des deux est utilisee, et le mode video dont depend y-pix.
+  (format 0
+          "win=~Dx~D lbox=~D auto=~D vmode=~A dmode=~A~%"
+          (-> *pc-settings* framebuffer-width)
+          (-> *pc-settings* framebuffer-height)
+          (if (-> *pc-settings* letterbox?) 1 0)
+          (if (-> *pc-settings* aspect-ratio-auto?) 1 0)
+          (-> *setting-control* current video-mode)
+          (pc-get-display-mode))
+  (none))
+
+(defun cine-emit-fit ()
+  "Le cadre d'auteur remplit-il la hauteur, et perd-on des pixels d'auteur ?
+   `authorh` = hauteur, en pixels de fenetre, qu'occupe le cadre d'auteur une fois rendu avec les
+   pentes COURANTES ; elle vaut screenh si et seulement si le frustum rendu porte exactement le
+   champ vertical d'auteur. `offscreen` compte les pixels du CADRE VERTICAL d'auteur qui tombent
+   hors de l'ecran -- la grandeur que l'owner nomme cinq fois.
+   `hcrop` est publie a cote et n'est pas maquille : c'est la perte HORIZONTALE. Depuis que le
+   cadre d'auteur est le champ 4:3 entier (et non la bande laissee par les barres), elle vaut 0 a
+   tout format, 4:3 compris -- a 4:3 le frustum rendu EST exactement le cadre d'auteur."
+  (let* ((mc *math-camera*)
+         (ps *pc-settings*)
+         (xauth (tan (* 0.5 (-> mc fov))))
+         (yauth (cine-authored-y-ratio mc))
+         (sw (the float (-> ps framebuffer-scissor-width)))
+         (sh (the float (-> ps framebuffer-scissor-height)))
+         (authorh (* sh (/ yauth (-> mc y-ratio))))
+         (authorw (* sw (/ xauth (-> mc x-ratio)))))
+    (format 0
+            "CINEFIT scene=~S asp=~,,4f authorh=~,,2f screenh=~,,2f offscreen=~D "
+            (cine-scene-name)
+            (-> ps aspect-ratio)
+            authorh
+            sh
+            (the int (+ 0.5 (fmax 0.0 (- authorh sh)))))
+    (format 0
+            "hcrop=~D y=~,,6f yauth=~,,6f x=~,,6f xauth=~,,6f~%"
+            (the int (+ 0.5 (fmax 0.0 (- authorw sw))))
+            (-> mc y-ratio)
+            yauth
+            (-> mc x-ratio)
+            xauth))
+  (none))
+
+(defun cine-emit-vloss ()
+  "PERTE DE CHAMP VERTICAL A L'ENTREE EN CINEMATIQUE -- l'observable que l'owner decrit.
+   Mesuree par ABLATION sur le MEME binaire, la MEME image, la MEME camera et le MEME format.
+
+   `v_cine` : la pente verticale que cette image utilise reellement. Rien n'est force : le bit
+     `movie` est celui que la cinematique a arme toute seule.
+   `v_jeu`  : la meme grandeur apres avoir RETIRE le bit `movie` et relance LE MEME producteur
+     (`update-math-camera`), l'etat etant ensuite remis a l'identique. C'est ce que le jeu
+     emploierait a cet instant precis -- une valeur MESUREE sur le chemin livre, pas une formule
+     recopiee dans l'instrument.
+
+   POURQUOI CE N'EST PAS LA SONDE DE DEMARRAGE. Celle-la FORCE le bit pour fabriquer une
+   cinematique qui n'existe pas, et c'est pourquoi la phase interdit de s'appuyer dessus. Ici on
+   RETIRE le bit d'une cinematique qui tourne vraiment : c'est une ablation sur le chemin livre,
+   et son sens de lecture est l'inverse.
+
+   NATURE : deux pentes de frustum (tangentes de demi-angle) et leur ecart relatif.
+   REPERE : espace camera, le meme que update-view-planes.
+   QUAND LE DEFAUT EST ABSENT : v_cine == v_jeu, donc perte = 0."
+  (let* ((mc *math-camera*)
+         (vmode (-> *setting-control* current video-mode))
+         (asym (-> *setting-control* current aspect-ratio))
+         (mask (-> *kernel-context* prevent-from-run))
+         (vcine (-> mc y-ratio)))
+    (logclear! (-> *kernel-context* prevent-from-run) (process-mask movie))
+    (update-math-camera mc vmode asym)
+    (let ((vjeu (-> mc y-ratio)))
+      ;; restauration AVANT toute publication : aucun suspend entre les deux, donc rien d'autre
+      ;; ne peut observer l'etat ablate.
+      (set! (-> *kernel-context* prevent-from-run) mask)
+      (update-math-camera mc vmode asym)
+      (format 0
+              "CINEVLOSS asp=~,,4f v_cine=~,,6f v_jeu=~,,6f perte=~,,3f branche=~A~%"
+              (-> *pc-settings* aspect-ratio)
+              vcine
+              vjeu
+              (* 100.0 (- 1.0 (/ vcine vjeu)))
+              *cine-branch*)))
+  (none))
+
+(defun cine-in-fov? ((sph vector) (xr float) (yr float))
+  "La sphere `sph` (centre en xyz, RAYON en w, en repere MONDE) est-elle dans le frustum de pentes
+   (xr, yr) de la camera COURANTE ?
+   C'est le MEME critere que celui du moteur -- `sphere-in-view-frustum?` (draw/drawable.gc:48)
+   teste la SPHERE contre les plans, pas son centre. Un test sur le centre seul serait mon
+   invention ; celui-ci est la definition que le jeu utilise pour dire « visible ».
+   REPERE : espace CAMERA, obtenu par `camera-rot`, transposee de `inv-camera-rot`
+   (cam-update.gc:370). x droite, y haut, z profondeur -- meme convention que update-view-planes."
+  (let ((mc *math-camera*)
+        (tmp (new-stack-vector0))
+        (cam (new-stack-vector0)))
+    (vector-! tmp sph (-> mc trans))
+    (vector-rotate*! cam tmp (-> mc camera-rot))
+    (let ((r (-> sph w))
+          (z (-> cam z))
+          (kx (sqrtf (+ 1.0 (* xr xr))))
+          (ky (sqrtf (+ 1.0 (* yr yr)))))
+      (and (>= (+ z r) (-> mc d))
+           (<= (- z r) (-> mc f))
+           (>= (- (* xr z) (-> cam x)) (- (* r kx)))
+           (>= (+ (* xr z) (-> cam x)) (- (* r kx)))
+           (>= (- (* yr z) (-> cam y)) (- (* r ky)))
+           (>= (+ (* yr z) (-> cam y)) (- (* r ky)))))))
+
+(defun cine-count-in-fov ((xr float) (yr float))
+  "Compte les ENTITES des niveaux CHARGES dont la position tombe dans le frustum de pentes
+   (xr, yr). Une entite est un POINT : sa bsphere est de rayon nul.
+   NATURE : un COMPTE. Population pre-declaree de la premiere course -- conservee et publiee
+   telle quelle, meme apres qu'elle se soit revelee trop maigre (1 a 2 objets en vue) pour
+   trancher dans un sens ou dans l'autre."
+  (let ((n 0)
+        (sph (new-stack-vector0)))
+    (dotimes (li (-> *level* length))
+      (let ((lv (-> *level* level li)))
+        (when (and (= (-> lv status) 'active) (-> lv entity))
+          (dotimes (ei (-> lv entity length))
+            (set! (-> sph quad) (-> lv entity data ei trans quad))
+            (set! (-> sph w) 0.0)
+            (if (cine-in-fov? sph xr yr) (+! n 1))))))
+    n))
+
+(defun cine-count-nodes-in-fov ((xr float) (yr float))
+  "Compte les ELEMENTS DE GEOMETRIE des niveaux charges -- noeuds de hierarchie ET feuilles
+   (tfrag, instances tie, instances shrub) -- dont la bsphere intersecte le frustum (xr, yr).
+
+   POURQUOI CETTE POPULATION ET PAS LES ENTITES. La premiere course a mesure la population des
+   entites pendant `sage-intro-sequence-e` : 1 objet en vue a 4:3, 2 a 32:9. Avec n = 1, un compte
+   ne peut repondre NI OUI NI NON a « le champ s'elargit-il » -- c'est une VACUITE d'instrument,
+   pas un verdict. Les elements de geometrie SONT le monde qu'on voit, ils sont denses, et ce sont
+   litteralement « les objets visibles » que le critere nomme. Les DEUX comptes restent publies
+   cote a cote sur chaque ligne CINEWIDE : rien n'est remplace en silence.
+
+   Chaque niveau de profondeur d'un arbre est un `drawable-inline-array`. Les quatre familles
+   portent toutes une bsphere (toutes derivent de `drawable`) mais leur PAS EN MEMOIRE differe,
+   d'ou un parcours par famille. `type-type?` couvre les sous-types (trans-/dirt-/ice-/lowres-
+   tfrag), qu'une egalite stricte de type manquerait."
+  (let ((n 0))
+    (dotimes (li (-> *level* length))
+      (let ((lv (-> *level* level li)))
+        (when (and (= (-> lv status) 'active) (nonzero? (-> lv bsp)) (nonzero? (-> lv bsp drawable-trees)))
+          (let ((trees (-> lv bsp drawable-trees)))
+            (dotimes (ti (-> trees length))
+              (let ((tree (-> trees trees ti)))
+                (dotimes (di (-> tree length))
+                  (let ((ia (-> tree data di)))
+                    (cond
+                      ((type-type? (-> ia type) drawable-inline-array-node)
+                       (let ((na (the-as drawable-inline-array-node ia)))
+                         (dotimes (ni (-> na length))
+                           (if (cine-in-fov? (the-as vector (-> na data ni bsphere)) xr yr) (+! n 1)))))
+                      ((type-type? (-> ia type) drawable-inline-array-tfrag)
+                       (let ((na (the-as drawable-inline-array-tfrag ia)))
+                         (dotimes (ni (-> na length))
+                           (if (cine-in-fov? (the-as vector (-> na data ni bsphere)) xr yr) (+! n 1)))))
+                      ((type-type? (-> ia type) drawable-inline-array-instance-tie)
+                       (let ((na (the-as drawable-inline-array-instance-tie ia)))
+                         (dotimes (ni (-> na length))
+                           (if (cine-in-fov? (the-as vector (-> na data ni bsphere)) xr yr) (+! n 1)))))
+                      ((type-type? (-> ia type) drawable-inline-array-instance-shrub)
+                       (let ((na (the-as drawable-inline-array-instance-shrub ia)))
+                         (dotimes (ni (-> na length))
+                           (if (cine-in-fov? (the-as vector (-> na data ni bsphere)) xr yr) (+! n 1))))))))))))))
+    n))
+
+(defun cine-emit-wide-control ()
+  "CONTROLE de l'instrument de comptage. Un compte qui bouge peu ne prouve rien tant qu'on n'a pas
+   montre qu'il PEUT bouger, et qu'il PEUT retomber a zero.
+   `devant` : plafond -- champ absurde, donc tout ce qui est devant la camera.
+   `xlarge` : le meme, recalcule ; il DOIT egaler `devant`.
+   `xnul-sph` : champ horizontal NUL sur les spheres. Il ne vaut PAS zero, et c'est correct :
+     le critere du moteur teste la SPHERE contre les plans, or un frustum de largeur nulle reste
+     un plan, que toute sphere a cheval sur l'axe intersecte. Publie tel quel pour que personne
+     ne le lise comme un controle rate.
+   `xnul-pts` : le controle NEGATIF utile -- meme fonction `cine-in-fov?`, meme camera, mais sur
+     la population de POINTS (rayon nul). Un champ nul DOIT y rendre exactement 0."
+  (format 0
+          "CINEWIDE-CTRL devant=~D xlarge=~D xnul-sph=~D xnul-pts=~D entites-devant=~D~%"
+          (cine-count-nodes-in-fov 1000000.0 1000000.0)
+          (cine-count-nodes-in-fov 1000000.0 1000000.0)
+          (cine-count-nodes-in-fov 0.0 1000000.0)
+          (cine-count-in-fov 0.0 1000000.0)
+          (cine-count-in-fov 1000000.0 1000000.0))
+  (none))
+
+(defun cine-emit-bars ()
+  "Octets de DMA que `letterbox` ajoute reellement, PENDANT la cinematique.
+   vis=0 est le mode natif et doit valoir 0 ; vis=1 est le CONTROLE POSITIF et doit etre non nul --
+   un zero sans controle qui a tire ne prouve rien.
+   Effet de bord assume et declare : le controle positif emet vraiment les deux barres PS2, donc
+   exactement UNE image de la course les porte."
+  (let ((vis (-> *pc-settings* use-vis?)))
+    (set! (-> *pc-settings* use-vis?) #f)
+    (let ((p0 (the-as int (-> (current-frame) global-buf base))))
+      (letterbox)
+      (format 0 "CINEBARS vis=0 bytes=~D~%" (- (the-as int (-> (current-frame) global-buf base)) p0)))
+    (set! (-> *pc-settings* use-vis?) #t)
+    (let ((p0 (the-as int (-> (current-frame) global-buf base))))
+      (letterbox)
+      (format 0 "CINEBARS vis=1 bytes=~D~%" (- (the-as int (-> (current-frame) global-buf base)) p0)))
+    (set! (-> *pc-settings* use-vis?) vis))
+  (none))
+
+;; Cinq formats REELS de fenetre hote, tous <= 1280x720 pour qu'aucun ne soit rabote par l'ecran :
+;;   960x720 = 1.3333 (4:3) . 1280x720 = 1.7778 (16:9) . 1280x549 = 2.3315 (21:9)
+;;   1280x432 = 2.9630 . 1280x360 = 3.5556 (32:9)
+;; Les paliers sont ESPACES d'au moins 20 %. La premiere course en avait deux a 7,6 % l'un de
+;; l'autre (2.1658 et 2.3315) et le compte d'objets y rendait la meme valeur : un pas trop fin
+;; pour qu'une geometrie entre dans le coin ajoute. Le pas de la variable independante se dose,
+;; ce n'est pas l'instrument qu'on ajuste.
+;; La fenetre est VRAIMENT redimensionnee : le format traverse donc toute la chaine livree
+;; (pc-get-window-size -> win-aspect -> set-aspect-ratio! -> update-math-camera -> rendu).
+(defun cine-format-w ((i int))
+  (cond ((= i 0) 960) (else 1280)))
+
+(defun cine-format-h ((i int))
+  (cond ((= i 0) 720) ((= i 1) 720) ((= i 2) 549) ((= i 3) 432) (else 360)))
+
+(defun cine-sweep-tick ()
+  "Machine a etats du balayage de formats. Appelee une fois par image, sans suspend : rien ne vit
+   sur une pile de process (registre : behavior-qui-suspend = pile de process)."
+  (cond
+    ((= *cine-st* 0)
+     ;; On n'ouvre le balayage QUE lorsque le flux est arme, donc lorsque la cinematique porte
+     ;; un NOM. Le bit `movie` est pose a l'entree de play-anim (process-taskable.gc:748), soit
+     ;; plusieurs secondes avant `active-stream` : mesurer avant, c'est mesurer une cinematique
+     ;; qu'on ne peut pas nommer -- et le premier livrable de cette phase est une trace sur la
+     ;; cinematique que l'owner NOMME.
+     (when (-> *art-control* active-stream)
+       (set! *cine-w0* (the int (-> *pc-settings* framebuffer-width)))
+       (set! *cine-h0* (the int (-> *pc-settings* framebuffer-height)))
+       (set! *cine-timer* 0)
+       (set! *cine-st* 1)))
+    ((= *cine-st* 1)
+     (+! *cine-timer* 1)
+     (when (>= *cine-timer* 60)
+       (set! *cine-step* 0)
+       (set! *cine-fmt-n* 0)
+       (pc-set-window-size! (cine-format-w 0) (cine-format-h 0))
+       (set! *cine-timer* 0)
+       (set! *cine-st* 2)))
+    ((= *cine-st* 2)
+     (+! *cine-timer* 1)
+     (when (>= *cine-timer* 30)
+       (cine-emit-fit)
+       (cine-emit-vloss)
+       (set! (-> *cine-fmt-asp* *cine-fmt-n*) (-> *pc-settings* aspect-ratio))
+       (set! (-> *cine-fmt-x* *cine-fmt-n*) (-> *math-camera* x-ratio))
+       (+! *cine-fmt-n* 1)
+       (+! *cine-step* 1)
+       (cond
+         ((< *cine-step* 5)
+          (pc-set-window-size! (cine-format-w *cine-step*) (cine-format-h *cine-step*))
+          (set! *cine-timer* 0))
+         (else
+          ;; CINEWIDE se compte a UNE SEULE image, avec les x-ratio que la chaine livree a
+          ;; REELLEMENT produits a chaque format. Compter a des images differentes melangerait
+          ;; l'elargissement du champ et le DEPLACEMENT de la camera de cinematique.
+          (dotimes (i *cine-fmt-n*)
+            (format 0
+                    "CINEWIDE scene=~S asp=~,,4f objets=~D entites=~D~%"
+                    (cine-scene-name)
+                    (-> *cine-fmt-asp* i)
+                    (cine-count-nodes-in-fov (-> *cine-fmt-x* i) (-> *math-camera* y-ratio))
+                    (cine-count-in-fov (-> *cine-fmt-x* i) (-> *math-camera* y-ratio))))
+          (cine-emit-wide-control)
+          (cine-emit-bars)
+          (pc-set-window-size! *cine-w0* *cine-h0*)
+          (set! *cine-st* 3))))))
+  (none))
+
+(defun cine-live-trace ()
+  "Appelee une fois par image, apres (update-camera), au meme endroit que `letterbox` : les pentes
+   lues sont donc celles qui servent a dessiner CETTE image."
+  (let ((mv (real-movie?)))
+    (cond
+      ((and mv (not *cine-was-movie*))
+       (set! *cine-live-left* CINE_LIVE_MAX)
+       (set! *cine-said-branch* #f))
+      ((and (not mv) *cine-was-movie*)
+       (set! *cine-ctl-left* CINE_CTL_MAX)))
+    (set! *cine-was-movie* mv)
+    (when (and mv (not *cine-said-branch*))
+      (set! *cine-said-branch* #t)
+      (format 0 "CINEBRANCH taken=~A~%" *cine-branch*))
+    (cond
+      ((and mv (> *cine-live-left* 0))
+       (set! *cine-live-left* (- *cine-live-left* 1))
+       (cine-line #t))
+      ((and (not mv) (> *cine-ctl-left* 0))
+       (set! *cine-ctl-left* (- *cine-ctl-left* 1))
+       (cine-line #f)))
+    (when (and mv *cine-sweep* (!= *cine-st* 3))
+      (cine-sweep-tick)))
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Gloading-screen -- ETIQUETTE DE L'APPELANT DU NOIR (owner 2026-08-29)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; « ca n'apparait pas non plus sur le chargement de partie ALORS QUE L'ECRAN NOIR Y APPARAIT UN
@@ -1000,6 +1387,11 @@
           (when (not *cutscene-reframe-measured*)
             (set! *cutscene-reframe-measured* #t)
             (cutscene-reframe-measure)))
+        ;; Gcine-vertical-frame : la trace du chemin LIVRE. Ici et pas ailleurs -- c'est
+        ;; exactement le point ou `letterbox` est appele, donc apres (update-camera) de la meme
+        ;; image : *math-camera* porte les pentes qui vont servir a dessiner cette image.
+        (#when PC_PORT
+          (cine-live-trace))
         ;; add letterbox effect
         (when (or (movie?) (< (current-time) (-> *game-info* letterbox-time)))
           (if (< (-> *game-info* letterbox-time) (current-time)) (set! (-> *game-info* letterbox-time) (current-time)))

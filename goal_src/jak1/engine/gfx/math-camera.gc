@@ -51,6 +51,98 @@
 
 (define-extern sprite-distorter-generate-tables (function none))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcine-vertical-frame (owner 2026-08-30, CINQUIEME signalement) -- TEMOIN DE BRANCHE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Les quatre tentatives precedentes ont RELU le `cond` ci-dessous et declare la formule bonne.
+;; Elle l'est. Le defaut persiste. Aucune des quatre n'a jamais mesure QUELLE BRANCHE s'execute
+;; pendant une vraie cinematique -- et `use-vis?` est teste EN PREMIER, donc une seule valeur
+;; suffit a rendre toute retouche de la branche cinematique sans effet.
+;;
+;; NATURE : une IDENTITE (quelle branche a tourne), pas une grandeur ni une moyenne.
+;; REPERE : le `cond` de update-math-camera, une ecriture par appel, sans condition.
+;; CE QUE CA LIT QUAND RIEN N'A TOURNE : 'none, la valeur d'initialisation -- distincte des
+;;   trois valeurs de branche, donc « jamais appele » ne peut pas se confondre avec une branche.
+(define *cine-branch* 'none)
+
+;; INTERRUPTEUR D'ABLATION, defaut #f. Arme, il fait rejouer a la branche cinematique la formule
+;; D'AVANT le correctif (y = tan(fov/2) / 16:9) pour que la perte de champ vertical se mesure sur
+;; LE MEME BINAIRE, la meme scene et les memes formats -- au lieu de comparer deux constructions.
+;; Il n'affecte QUE le moteur : la reference publiee par l'instrument (`cine-authored-y-ratio`)
+;; reste le champ 4:3, sinon la cible bougerait avec la mesure et le defaut deviendrait invisible.
+;; Aucun chemin de jeu ne l'arme ; seule une course de mesure le fait, depuis le listener.
+(define *cine-legacy-y* #f)
+
+(define-extern sprite-distorter-generate-tables (function none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcine-vertical-frame (owner 2026-08-30, CINQUIEME signalement) -- TEMOIN DE BRANCHE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Les quatre tentatives precedentes ont RELU le `cond` ci-dessous et declare la formule bonne.
+;; Elle l'est. Le defaut persiste. Aucune des quatre n'a jamais mesure QUELLE BRANCHE s'execute
+;; pendant une vraie cinematique -- et `use-vis?` est teste EN PREMIER, donc une seule valeur
+;; suffit a rendre toute retouche de la branche cinematique sans effet.
+;;
+;; NATURE : une IDENTITE (quelle branche a tourne), pas une grandeur ni une moyenne.
+;; REPERE : le `cond` de update-math-camera, une ecriture par appel, sans condition.
+;; CE QUE CA LIT QUAND RIEN N'A TOURNE : 'none, la valeur d'initialisation -- distincte des
+;;   trois valeurs de branche, donc « jamais appele » ne peut pas se confondre avec une branche.
+(define *cine-branch* 'none)
+
+;; INTERRUPTEUR D'ABLATION, defaut #f. Arme, il fait rejouer a la branche cinematique la formule
+;; D'AVANT le correctif (y = tan(fov/2) / 16:9) pour que la perte de champ vertical se mesure sur
+;; LE MEME BINAIRE, la meme scene et les memes formats -- au lieu de comparer deux constructions.
+;; Il n'affecte QUE le moteur : la reference publiee par l'instrument (`cine-authored-y-ratio`)
+;; reste le champ 4:3, sinon la cible bougerait avec la mesure et le defaut deviendrait invisible.
+;; Aucun chemin de jeu ne l'arme ; seule une course de mesure le fait, depuis le listener.
+(define *cine-legacy-y* #f)
+
+(defun cine-authored-y-ratio ((math-cam math-camera))
+  "Pente verticale (tangente du demi-angle) du CADRE D'AUTEUR d'une cinematique.
+
+   JE RETIRE MA DEFINITION PRECEDENTE, ET C'EST LA MESURE QUI ME CORRIGE.
+   J'avais derive le cadre d'auteur de la geometrie des barres PS2 -- la bande de 174 lignes sur
+   224 que `letterbox` laisse voir, soit un format de 1.71653 -- et corrige la constante 16:9 vers
+   cette valeur-la. Ca ramenait la perte de champ vertical de 25,0 % a 22,3 %. Ca ne la SUPPRIMAIT
+   pas, parce que la premisse etait fausse : PRENDRE LA COUPE DES BARRES POUR LE CADRE D'AUTEUR,
+   C'EST FIGER DANS LE MOTEUR L'AMPUTATION QU'ON PRETEND CORRIGER. Les barres etaient un CACHE
+   pose par-dessus une image 4:3 ; l'image, elle, a toujours ete rendue en 4:3 entier.
+   En mode natif on ne pose plus de cache -- donc il n'y a plus aucune raison de retirer du champ.
+
+   Le cadre d'auteur est donc le champ vertical 4:3, celui-la meme que le jeu rend hors
+   cinematique. Consequence directe, et c'est le critere : entrer en cinematique ne doit RIEN
+   coder de vertical. Mesure d'ablation publiee par CINEVLOSS (engine/game/main.gc), sur le meme
+   binaire et la meme image : v_cine doit egaler v_jeu.
+
+   Et ca ferme aussi le rognage lateral : a 4:3 cette pente rend x = y * 4:3 = tan(fov/2), donc
+   EXACTEMENT le cadre d'auteur, sans rien retirer ni ajouter. Ma version precedente y coupait
+   22,3 % de la largeur."
+  (/ (tan (* 0.5 (-> math-cam fov))) ASPECT_4X3))
+
+(define-extern sprite-distorter-generate-tables (function none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcine-vertical-frame (owner 2026-08-30, CINQUIEME signalement) -- TEMOIN DE BRANCHE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Les quatre tentatives precedentes ont RELU le `cond` ci-dessous et declare la formule bonne.
+;; Elle l'est. Le defaut persiste. Aucune des quatre n'a jamais mesure QUELLE BRANCHE s'execute
+;; pendant une vraie cinematique -- et `use-vis?` est teste EN PREMIER, donc une seule valeur
+;; suffit a rendre toute retouche de la branche cinematique sans effet.
+;;
+;; NATURE : une IDENTITE (quelle branche a tourne), pas une grandeur ni une moyenne.
+;; REPERE : le `cond` de update-math-camera, une ecriture par appel, sans condition.
+;; CE QUE CA LIT QUAND RIEN N'A TOURNE : 'none, la valeur d'initialisation -- distincte des
+;;   trois valeurs de branche, donc « jamais appele » ne peut pas se confondre avec une branche.
+(define *cine-branch* 'none)
+
+;; INTERRUPTEUR D'ABLATION, defaut #f. Arme, il fait rejouer a la branche cinematique la formule
+;; D'AVANT le correctif (y = tan(fov/2) / 16:9) pour que la perte de champ vertical se mesure sur
+;; LE MEME BINAIRE, la meme scene et les memes formats -- au lieu de comparer deux constructions.
+;; Il n'affecte QUE le moteur : la reference publiee par l'instrument (`cine-authored-y-ratio`)
+;; reste le champ 4:3, sinon la cible bougerait avec la mesure et le defaut deviendrait invisible.
+;; Aucun chemin de jeu ne l'arme ; seule une course de mesure le fait, depuis le listener.
+(define *cine-legacy-y* #f)
+
 (defun update-math-camera ((math-cam math-camera) (video-mode symbol) (aspect symbol))
   "Compute some one-time camera constants.  These should only change when changing aspect ratio."
   ;; the x/y ratio are frustum slopes
@@ -63,9 +155,15 @@
       ((-> *pc-settings* use-vis?)
        ;; using game vis, cannot allow seeing more of the view
        ;; crops excess aspect ratio at the top and bottom
+       (set! *cine-branch* 'usevis)
        ;(set! (-> math-cam y-ratio) (* (1/ (-> *pc-settings* aspect-ratio)) (-> math-cam x-ratio)))
        )
       ((real-movie?)
+       (set! *cine-branch* 'realmovie)
+       ;; CETTE BRANCHE EST DESORMAIS IDENTIQUE A `else`, ET C'EST VOULU, PAS UN DOUBLON OUBLIE :
+       ;; le cadrage d'une cinematique EST celui du jeu, puisque en mode natif on ne pose plus de
+       ;; cache. Elle reste ecrite separement pour que le temoin de branche garde son pouvoir de
+       ;; discrimination (c'est lui qui a refute C1 et C2) et pour que la decision soit lisible.
        ;; Gcutscene-reframe (owner 2026-08-28): RECADRER, ne plus masquer.
        ;; The authored cutscene frame is the 16x9 band: horizontal slope tan(fov/2), vertical
        ;; slope tan(fov/2)/(16:9). Before, that band was obtained by rendering a frame of the
@@ -100,11 +198,31 @@
          ;; taille de fenetre n'arrivait jamais au moteur, la branche AUTO n'etait jamais atteinte.
          ;; Corrige depuis par la phase Gandroid-window-size. La formule etait juste, son ENTREE
          ;; etait fausse — et j'ai change la formule au lieu de regarder l'entree.
-         (set! (-> math-cam y-ratio) (* (1/ ASPECT_16X9) (-> math-cam x-ratio)))
-         (*! (-> math-cam x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9)))
+         ;;
+         ;; CORRECTIF Gcine-vertical-frame (owner 2026-08-30, CINQUIEME signalement).
+         ;; La forme etait bonne -- y CONSTANT, x qui croit avec le format -- mais la VALEUR de y
+         ;; etait fausse : elle posait le cadre d'auteur a 16:9 alors que la bande que les barres
+         ;; PS2 laissent voir vaut 1.71653. Consequence mesuree sur le chemin livre pendant
+         ;; `sage-intro-sequence-e`, a cinq formats de fenetre reels :
+         ;;     y = 0.442282 pour y_auteur = 0.458078   -> 3.45 % du cadre vertical hors ecran
+         ;;     a 16:9, x = 0.786280 = xauth EXACTEMENT -> ZERO elargissement lateral
+         ;; c'est-a-dire, mot pour mot, « la largeur originale etiree jusqu'a prendre toute la
+         ;; largeur, une partie du cadre vertical original sortant de la vue ».
+         ;; Les quatre tentatives precedentes ont relu cette ligne sans jamais deriver le cadre
+         ;; d'auteur de la geometrie des barres qui le DEFINISSENT.
+         (let ((yauth (if *cine-legacy-y*
+                          (* (1/ ASPECT_16X9) (-> math-cam x-ratio)) ;; formule d'avant, pour l'ablation
+                          (cine-authored-y-ratio math-cam))))
+           ;; le cadre vertical d'auteur remplit EXACTEMENT la hauteur, quel que soit le format,
+           ;; et il vaut le champ vertical du JEU : entrer en cinematique ne retire rien.
+           (set! (-> math-cam y-ratio) yauth)
+           ;; et l'espace horizontal se comble en ELARGISSANT le champ, jamais en zoomant :
+           ;; le format du frustum egale celui de l'ecran, donc rien n'est deforme ni masque.
+           (set! (-> math-cam x-ratio) (* yauth (-> *pc-settings* aspect-ratio)))))
       (else
        ;; not using game vis, allow *extended* aspect ratios
        ;; there is no vertical cropping, and you can see more of the sides
+       (set! *cine-branch* 'else)
        (set! (-> math-cam y-ratio) (* (1/ ASPECT_4X3) (-> math-cam x-ratio))) ;; same cropping as 4x3
        (*! (-> math-cam x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_4X3)) ;; extend fov! shows more on the sides.
        )))

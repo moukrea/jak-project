@@ -6,6 +6,8 @@
 
 #include "android_opengl_renderer.h"
 
+#include <cstring>
+
 #include <android/log.h>
 #include <sys/system_properties.h>
 
@@ -1590,6 +1592,30 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
   Fbo* window_blit_src =
       m_ui_pass_active ? &m_fbo_state.ui_buffer : &m_fbo_state.render_buffer;
 
+  // Gcine-vertical-frame (owner 2026-08-30, 5e signalement) -- LE VIEWPORT REELLEMENT SOUMIS AU GPU.
+  // NATURE : deux RECTANGLES en pixels de fenetre hote -- la source qu'on blitte et la region ou
+  //          on la blitte. Pas une moyenne, pas un reglage : la geometrie de presentation.
+  // REPERE : framebuffer 0 (la fenetre), origine en bas a gauche.
+  // POURQUOI ICI : ce blit etire la TOTALITE de la source sur la TOTALITE de la draw-region avec
+  //   un quad plein ecran. Si les deux formats different, l'image est etiree de facon ANISOTROPE.
+  //   C'est le SEUL endroit de la chaine ou « on etire en largeur » peut se produire APRES le
+  //   frustum -- donc le seul moyen de distinguer un defaut de cadrage d'un defaut d'etirement.
+  // CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : srcasp == drawasp, et draw == la fenetre entiere.
+  // Publie SUR CHANGEMENT, jamais par image.
+  {
+    static int cine_vp_last[6] = {-1, -1, -1, -1, -1, -1};
+    const int cine_vp_cur[6] = {render_state->draw_region_w, render_state->draw_region_h,
+                                render_state->draw_offset_x, render_state->draw_offset_y,
+                                window_blit_src->width,      window_blit_src->height};
+    if (memcmp(cine_vp_last, cine_vp_cur, sizeof(cine_vp_cur)) != 0) {
+      memcpy(cine_vp_last, cine_vp_cur, sizeof(cine_vp_cur));
+      printf("CINEVP draw=%dx%d+%d+%d src=%dx%d srcasp=%.4f drawasp=%.4f\n", cine_vp_cur[0],
+             cine_vp_cur[1], cine_vp_cur[2], cine_vp_cur[3], cine_vp_cur[4], cine_vp_cur[5],
+             cine_vp_cur[5] ? (float)cine_vp_cur[4] / (float)cine_vp_cur[5] : 0.f,
+             cine_vp_cur[1] ? (float)cine_vp_cur[0] / (float)cine_vp_cur[1] : 0.f);
+      fflush(stdout);
+    }
+  }
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
   glViewport(render_state->draw_offset_x, render_state->draw_offset_y,
