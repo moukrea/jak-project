@@ -11,6 +11,9 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#if defined(__linux__)
+#include <unistd.h>
+#endif
 
 #include "fmt/core.h"
 
@@ -285,6 +288,61 @@ bool g_slice_started[kSliceSlots] = {false, false, false, false};
 
 }  // namespace
 
+// ================================================================================================
+// Gloadgate-crash-regression (owner 2026-08-30) — INSTRUMENTATION EMBARQUEE POUR NOMMER LA CAUSE
+// AU PROCHAIN PLANTAGE, PARCE QUE NOUS N'ARRIVONS PAS A LE REPRODUIRE.
+// ================================================================================================
+// x86 (24 transitions enchainees + 6 passages OPTIONS) et le Redmi eae4df44 (20 transitions, 2
+// sessions) survivent tous les deux. Le defaut vit donc sur l'appareil de l'owner, que nous ne
+// pouvons pas instrumenter a distance -- sauf en EMBARQUANT la mesure dans le build qu'il recoit.
+//
+// QUELLE GRANDEUR, ET POURQUOI CELLE-LA. La seule quantite qui monte de facon MONOTONE dans les
+// deux sessions du Redmi est la memoire : `dumpsys meminfo` rend +47,5 a +50,8 Mo de « Gfx dev » a
+// CHAQUE transition de niveau (576 Mo -> 822 Mo en dix transitions, 1,39 Go de PSS total), et le
+// systeme a tue deux applications tierces pour faire de la place pendant la course (`am_kill`).
+// Un process tue par le low-memory killer ne laisse NI signal fatal, NI tombstone, NI entree
+// dropbox -- ce qui est EXACTEMENT ce que nous constatons : zero trace sur 202 493 lignes de
+// logcat capturees. C'est le seul mecanisme de mort connu qui reconcilie « le jeu crash complet »
+// avec l'absence totale de trace, et c'est aussi le seul qui explique la dependance a l'appareil.
+//
+// CE N'EST PAS UNE CAUSE ETABLIE, c'est une hypothese appuyee sur une fuite mesuree : nous n'avons
+// pas fait mourir le jeu. La ligne ci-dessous existe pour la TRANCHER sur SA machine, au lieu de
+// la supposer -- si son plantage est precede d'une montee monotone de `rss_mo`, la cause est
+// nommee ; si `rss_mo` est plat, cette famille est refutee et il faudra chercher ailleurs.
+//
+// COUT : deux lignes par episode d'ecran de chargement (pas par image). Une lecture de
+// `/proc/self/statm`, quelques microsecondes, sur un chemin qui n'est emprunte que pendant un
+// chargement.
+namespace {
+double ls_rss_mo() {
+#if defined(__linux__)
+  FILE* f = std::fopen("/proc/self/statm", "rb");
+  if (!f) {
+    return -1.0;
+  }
+  long total = 0, resident = 0;
+  const int n = std::fscanf(f, "%ld %ld", &total, &resident);
+  std::fclose(f);
+  if (n != 2) {
+    return -1.0;
+  }
+  return (double)resident * (double)sysconf(_SC_PAGESIZE) / (1024.0 * 1024.0);
+#else
+  return -1.0;
+#endif
+}
+
+// `episode` est l'index deja tenu par `g_ls` : il croit d'une unite par chargement, donc la SUITE
+// des lignes est directement lisible comme « memoire par transition ».
+void ls_mem_line(const char* phase, int episode) {
+  const double rss = ls_rss_mo();
+  if (rss < 0.0) {
+    return;
+  }
+  fmt::print("GLCR-MEM phase={} episode={} rss_mo={:.1f}\n", phase, episode, rss);
+}
+}  // namespace
+
 void loading_screen_tick(int hold_mask) {
   const auto now = std::chrono::steady_clock::now();
   // GOAL peint l'ecran a cette image (main.gc:1529, juste avant `loading-screen-draw`). Un masque
@@ -312,6 +370,7 @@ void loading_screen_tick(int hold_mask) {
     g_ls.worst_ms = 0.0;
     g_ls.worst_at_ms = 0.0;
     g_ls.seconds.assign(1, LsSecond{1, 0.0});
+    ls_mem_line("debut", g_ls.index);
     return;
   }
   const double gap = std::chrono::duration<double, std::milli>(now - g_ls.last).count();
@@ -335,6 +394,13 @@ void loading_screen_tick(int hold_mask) {
 
 void loading_screen_end() {
   std::lock_guard<std::mutex> lk(g_ls_mutex);
+  // Gloadgate-crash-regression : la memoire A LA FIN de l'episode, relevee AVANT le vidage (qui
+  // remet `g_ls.index` a zero). Les deux lignes `debut`/`fin` d'un meme episode encadrent le
+  // chargement : leur ECART est ce que ce chargement a coute, et la suite des `fin` d'episode en
+  // episode est la courbe qui dira si l'appareil de l'owner meurt d'epuisement memoire.
+  if (g_ls.open) {
+    ls_mem_line("fin", g_ls.index);
+  }
   ls_flush_locked();
 }
 

@@ -743,9 +743,15 @@
 (define *ls-window-label* (the-as string #f))
 
 (defun loading-window-open! ((label string))
-  "Ouvrir la fenetre de mesure d'une transition. Une fenetre deja ouverte est fermee et publiee."
-  (set! *ls-window-open* #t)
-  (__pc-lswin-open (if *ls-window-label* *ls-window-label* label))
+  "Ouvrir la fenetre de mesure d'une transition. Une fenetre deja ouverte est fermee et publiee.
+   SANS EFFET quand l'instrument n'est pas arme (`*ls-window-instr*`, main-h.gc) -- c'est le cas
+   du build livre. Un seul garde suffit et il est POSE ICI, au producteur : tant que la fenetre
+   n'est pas ouverte, `*ls-window-open*` reste #f et `loading-window-frame!`,
+   `loading-window-note!` et `loading-window-close!` sont deja inertes par leur propre test.
+   Poser le garde sur les quatre aurait ete quatre ecrivains pour un seul etat."
+  (when *ls-window-instr*
+    (set! *ls-window-open* #t)
+    (__pc-lswin-open (if *ls-window-label* *ls-window-label* label)))
   (none))
 
 (defun loading-window-close! ((why string))

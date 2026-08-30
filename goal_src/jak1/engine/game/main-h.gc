@@ -326,7 +326,46 @@
 ;; Il existe parce que les deux jambes d'une comparaison avant/apres doivent tourner sur le MEME
 ;; binaire et le MEME etat de depart : un « avant » pris sur un autre build ne prouve rien sur
 ;; celui qu'on livre. Il est POSE A #t : ce que le joueur recoit est la fenetre encadrante.
-(define *ls-window-fix* #t)
+;; DESARME LE 2026-08-30 (Gloadgate-crash-regression). L'owner ne peut plus charger sa sauvegarde
+;; a Geyser Rock depuis le build de 16h38, et le SEUL chantier entre le build qui chargeait (14h07)
+;; et celui qui plante est celui qui a pose ce drapeau a #t. Nous n'avons pas reproduit le plantage
+;; -- x86 : 24 transitions enchainees + 6 passages OPTIONS, vivant ; Redmi eae4df44 : 20
+;; transitions sur deux sessions, dont 19 passages OPTIONS, vivant, zero signal fatal sur 202 493
+;; lignes de logcat. Le defaut est donc propre a SA machine, que nous ne pouvons pas instrumenter.
+;;
+;; Dans ce cas l'arbitrage est celui que l'owner a lui-meme ecrit : « Un jeu qui charge avec un
+;; ecran imparfait vaut infiniment mieux qu'un jeu qui plante. » On revient donc au comportement
+;; d'AVANT sur CE SEUL POINT, au bit pres, par la branche `else` deja ecrite pour l'ablation :
+;;   - `target-continue` ne tient plus l'ecran des sa premiere ligne et ne differe plus la levee
+;;     derriere l'attente de naissance des acteurs (target-death.gc:205-228) ;
+;;   - les deux attentes de spool de `loader.gc` (:1160, :1190) ne posent plus `LS_HOLD_SCENE`.
+;;
+;; CE QUI N'EST PAS RETIRE, ET C'EST VOULU : l'APPARENCE, que l'owner a validee (« le look est
+;; nickel bravo »). Elle vit entierement dans `pc/loading-screen-pc.gc` (taille, position, blanc
+;; plein, silhouette) et ce fichier n'est pas touche -- la preuve est republiee a chaque course
+;; par `LOADSCREEN-COSM` et `LSCOLOR-BRUT`.
+;;
+;; CE QU'ON PERD, ET IL FAUT LE DIRE : l'encadrement de la fenetre (D3/D4/D7 -- l'ecran se posait
+;; AVANT le premier dessin entrant et se levait APRES le dernier). Ce defaut-la REVIENT. C'est le
+;; prix assume d'un jeu qui charge, et le chantier se reprend proprement une fois que le plantage
+;; de la Shield est nomme par `GLCR-MEM` (game/system/load_gate.cpp).
+(define *ls-window-fix* #f)
+
+;; Gloadgate-crash-regression (owner 2026-08-30) — L'INSTRUMENT DE FENETRE EST OPT-IN.
+;; `loading-window-open!` etait appelee INCONDITIONNELLEMENT par `target-continue`, et AUCUN code
+;; de jeu n'appelait jamais `loading-window-close!` : seul le harnais de mesure la ferme, par le
+;; REPL. Consequence MESUREE sur une course x86 de 220 s (3 chargements) : la fenetre reste
+;; ouverte pour toujours des le premier point de reprise -- `GLCR-ETAT lswin-ouvert=#t` 60 s apres
+;; chaque transition -- donc `loading-window-frame!` publie CHAQUE IMAGE, a vie, vers le C++
+;; (un appel par niveau, plus deux, tous sous `g_win_mutex`), et la ligne `LSWIN-RENDU` du
+;; renderer, qui n'est bornee QUE par `loading_window_is_open()`, deverse l'arbre de profilage
+;; entier : 4 200 vidages, 767 823 lignes, 40,5 Mo de sortie standard en 220 s.
+;; Un instrument qui ne s'eteint jamais n'est plus un instrument, c'est une charge permanente
+;; posee sur le chemin du joueur.
+;; POSE A #f : le joueur ne paie plus rien. Le harnais l'arme (`.autoport/glcr_proof.sh`), donc
+;; les quatre instants de la fenetre restent mesurables exactement comme avant.
+;; CE N'EST PAS UN RETRAIT DE `*ls-window-fix*` : l'encadrement de la fenetre, lui, reste arme.
+(define *ls-window-instr* #f)
 
 ;; Combien d'acteurs au plus peuvent naitre dans UNE image pendant que l'ecran de chargement
 ;; couvre l'image. Le jeu d'origine pose 1000 juste avant de rendre la main, ce qui fait naitre

@@ -866,6 +866,23 @@ u32 AndroidOpenGLRenderer::count_chain_bytes(DmaFollower dma) {
 
 void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& settings) {
   m_profiler.clear();
+  // Gloadgate-crash-regression (owner 2026-08-30) — LE CORRECTIF D'A-COUPS D1/D5 NE TOURNAIT PAS
+  // SUR L'APPAREIL DE L'OWNER, ET C'EST CE QU'IL DECRIT PAR « l'animation freeze ».
+  //
+  // `loading_screen_render_begin()` fige, pour l'image en cours, la reponse a « l'ecran de
+  // chargement couvre-t-il ? ». C'est ELLE qui arme `loading_screen_is_covering()`, que
+  // `GrassRenderer::render` (GrassRenderer.cpp:1191) interroge pour ne PAS peindre 726 851 brins
+  // sous un ecran opaque -- les 36,48 ms sur 39,70 par image mesurees au cycle precedent.
+  //
+  // Elle n'avait qu'UN SEUL appelant, `OpenGLRenderer::render` (OpenGLRenderer.cpp:1030), et ce
+  // fichier-la N'EST PAS COMPILE POUR ANDROID. PREUVE PAR L'ARTEFACT LIVRE, pas par le source :
+  // la chaine litterale `LSWIN-RENDU` n'existe QUE dans OpenGLRenderer.cpp et rend 0 occurrence
+  // dans libgk.so, pendant que `recharged-grass` en rend 75 -- donc GrassRenderer EST lie et
+  // interrogeait un drapeau que PLUS RIEN n'ecrivait. `g_ls_covering` restait faux a vie, et
+  // l'herbe etait repeinte a chaque image sous l'ecran de chargement, exactement comme avant le
+  // correctif. C'est le meme piege que `__pc-set-levels` (gk_android_main.cpp:1370) : ce fichier
+  // est la boucle de frame qui tourne REELLEMENT sur l'appareil.
+  load_gate::loading_screen_render_begin();
   m_render_state.reset();
   m_render_state.ee_main_memory = g_ee_main_mem;
   m_render_state.offset_of_s7 = offset_of_s7();
