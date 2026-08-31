@@ -2769,6 +2769,20 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gjak1-crate-collision
+  name: 'CAISSES SANS COLLISION A GEYSER ROCK (owner 2026-08-31) : « certaines caisses, c''est un peu random... n''ont pas
+    de collision et je passe au travers, meaning je peux même pas les casser... c''était pas là avant ». Vu sur DEUX builds
+    a un jour d''ecart. GRAVITE HAUTE : une caisse infranchissable est incassable, donc des ramassages et la progression bloques.
+    INDICE : la phase Gjak2-polish, parquee le 2026-07-10, decrit le MEME symptome — « collision REGRESSION game-breaking
+    (no crates, no moving-platform landing) from the crouch-fix nav/collide enablement ». A confirmer par la mesure. L''intermittence
+    interdit la course unique : compter les caisses sur plusieurs courses.'
+  prompt: prompts/phase-Gjak1-crate-collision.md
+  validator: validators/phase-Gjak1-crate-collision.sh
+  max_turns: 3000
+  max_retries: 80
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true
