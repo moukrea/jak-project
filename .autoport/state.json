@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 256,
+  "current_phase_idx": 259,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -249,7 +249,8 @@
     "Gcine-vertical-frame": 1,
     "Gloading-screen-window": 2,
     "Gloadgate-crash-regression": 2,
-    "Ggrass-crash": 1
+    "Ggrass-crash": 1,
+    "Grecharged-materials-modern-parity": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1116,7 +1117,7 @@
     "Grecharged-secondary-motion": 1786383596.5370586,
     "Grecharged-hd-eye-scale": 1786170899.0463903,
     "Grecharged-title-logo-fullres": 1786153395.9536324,
-    "Grecharged-materials-modern-parity": 1786167637.0459936,
+    "Grecharged-materials-modern-parity": 1788136215.584622,
     "Grecharged-managed-assets-merge": 1787735930.1454916,
     "Gshield-load-and-crash": 1787771404.1380155,
     "Gmemory-ceiling-and-crash": 1787777998.7240753,
@@ -1128,7 +1129,7 @@
     "Gloadgate-crash-regression": 1788103921.8125257,
     "Ggrass-crash": 1788114432.1540587
   },
-  "last_update": "2026-08-31T00:30:12.850225+00:00",
+  "last_update": "2026-08-31T01:17:00.872173+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1273,6 +1274,7 @@
     "Gloadgate-crash-regression": "2026-08-30 19:11 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gloadgate-crash-regression quand il valide.",
     "Gfixed-tick-interpolation": "2026-08-30 20:08 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gfixed-tick-interpolation quand il valide.",
     "Ggrass-crash": "2026-08-31 00:17 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Ggrass-crash quand il valide.",
-    "Grecharged-hd-eye-scale": "2026-08-31 01:46 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-hd-eye-scale quand il valide."
+    "Grecharged-hd-eye-scale": "2026-08-31 01:46 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-hd-eye-scale quand il valide.",
+    "Grecharged-foliage-wind2": "2026-08-31 02:30 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-foliage-wind2 quand il valide."
   }
 }
