@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <random>
 
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
@@ -182,6 +183,98 @@ static float foliage_wind_clock(u64 frame_idx, bool paused) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Grecharged-foliage-wind2 ROUND 3 — OWNER POINT 1: "ceux qui avaient deja une animation doivent
+// l'avoir VRAIMENT et FONCTIONNELLE, telle que prevue par le jeu d'origine. Ce n'est pas
+// « amplifier » : c'est restituer l'intention ND."
+//
+// There is exactly ONE provable deviation from the original on this path, and it is a rate, not an
+// amplitude. jak1's TIE wind is a spring integrated with a HARDCODED dt of 0.0166 s (`cz` in
+// do_wind_math, and `wind-const.z` in goal_src/jak1/engine/gfx/tie/tie-work.gc:15), stepped ONCE
+// PER RENDERED FRAME, and driven by `update-wind` which is likewise called once per rendered frame
+// (goal_src/jak1/engine/camera/cam-update.gc:473). On the PS2 that is 60 steps per second, which is
+// what ND authored. On the Redmi the game renders at ~18 fps, so the whole wind simulation advances
+// 18 * (1/60) = 0.30 s of authored time per wall-clock second: ND's animation plays at 30% SPEED.
+// That is the defect. Restoring it is not a multiplier and not a new waveform — it is running the
+// game's own arithmetic at the rate its own dt claims.
+//
+// NOT a defect, and deliberately NOT "fixed": the spring persists its STIFFNESS-SCALED output back
+// into the position slot (`my_vector[0] = vf27.x()` after `vf27 *= stiffness`). I suspected a
+// decompilation bug — persisting the raw `vf17` would turn this into a 1.59 Hz ringing oscillator,
+// which is far more visible. It is NOT a bug: the raw PS2 EE listing
+// (docs/progress-notes/jak1/scratch/tie_ee.asm:486-522) stores `qmfc2.i s2, vf27` AFTER
+// `vmulw.xyzw vf27, vf27, vf15`, the bit-accurate mips2c transcription
+// (game/mips2c/jak1_functions/tie_methods.cpp:633,647) does the same, and the INDEPENDENT shrub VU
+// program (docs/progress-notes/jak1/scratch/shrub_asm.md:1028-1054) made the same choice. So ND's
+// TIE wind really is a slow, non-ringing lean, and "restoring ND's intent" honestly means restoring
+// its RATE, not inventing the oscillator it never had. The visible breeze remains the ADDED
+// Recharged layer below, which is what owner points 2 and 3 ask for.
+//
+// *wind-scales*, copied literally from goal_src/jak1/engine/gfx/background/wind-h.gc:20-53. This is
+// the gust envelope the game walks through at one entry per 120 wind ticks (2 s at 60 Hz).
+static const u8 FW_WIND_SCALES[32] = {2, 5,  2, 3, 2, 2,  3, 16, 10, 2, 4, 2, 8,  2, 2, 16,
+                                      2, 2,  8, 2, 16, 2, 4, 16, 10, 2, 4, 2, 8,  2, 2, 16};
+
+// How many 60 Hz wind ticks belong to this displayed frame. Returns 1 on a 60 fps display (so the
+// restoration is a NO-OP there, by construction) and 3-4 at ~18 fps. Clamped to 8 so a loading
+// hitch cannot fast-forward the wind, and frozen at 1 while the game's own wind is paused.
+static int foliage_wind_rate_ticks(u64 frame_idx, bool paused) {
+  static int s_ticks = 1;
+  static u64 s_last_frame = (u64)-1;
+  static double s_acc = 0.0;
+  static std::chrono::steady_clock::time_point s_last = std::chrono::steady_clock::now();
+  if (frame_idx != s_last_frame) {
+    s_last_frame = frame_idx;
+    auto now = std::chrono::steady_clock::now();
+    double dt = std::chrono::duration<double>(now - s_last).count();
+    s_last = now;
+    if (dt < 0.0) dt = 0.0;
+    if (dt > 0.1) dt = 0.1;
+    if (paused) {
+      s_ticks = 1;
+    } else {
+      s_acc += dt * 60.0;
+      int n = (int)s_acc;
+      s_acc -= n;
+      if (n < 1) n = 1;
+      if (n > 8) n = 8;
+      s_ticks = n;
+    }
+  }
+  return s_ticks;
+}
+
+// One tick of the game's own `update-wind` (goal_src/jak1/engine/gfx/background/wind.gc:14),
+// transcribed. The renderer keeps its OWN WindWork copy and advances it at 60 Hz; the GOAL-supplied
+// copy (m_wind_data) keeps advancing once per frame and is what the audit uses as the STOCK
+// reference. Same arithmetic on both sides, so the only difference between the two legs is the tick
+// rate — which is exactly the quantity this round claims to restore, and makes the audit a
+// controlled comparison rather than an assertion.
+static void fw_advance_wind_one_tick(Tie3::WindWork& w, std::mt19937& rng) {
+  std::uniform_real_distribution<float> ang(-1024.f, 1024.f);
+  std::uniform_real_distribution<float> mag(0.f, 100.f);
+  // wind-normal random-walks in GOAL angle units (65536 == a full turn), exactly as update-wind does
+  float a = w.wind_normal.w() + ang(rng);
+  a -= std::floor(a / 65536.f) * 65536.f;
+  w.wind_normal.w() = a;
+  const float rad = a * (6.2831853f / 65536.f);
+  w.wind_normal.x() = std::cos(rad);
+  w.wind_normal.z() = std::sin(rad);
+
+  w.wind_time += 1;
+  const u32 t = w.wind_time;
+  const u32 slot = t & 63;
+  const float f0_4 = mag(rng);
+  const u32 v1_5 = t / 120;
+  const float f1_6 = 0.008333334f * (float)(t % 120);
+  const float f2_4 = 0.0625f * (float)FW_WIND_SCALES[v1_5 % 32];
+  const float f2_nx = 0.0625f * (float)FW_WIND_SCALES[(v1_5 + 1) % 32];
+  const float f0_5 = ((f2_nx - f2_4) * f1_6 + f2_4) * f0_4;
+  w.wind_force[slot] = f0_5;
+  w.wind_array[slot] = w.wind_normal * f0_5;
+  w.wind_array[slot].w() = 0.f;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Grecharged-foliage-wind2 SHEAR AUDIT. The permanent renderer-side counter that replaces round
 // 1's capture-derived motion statistic (owner banned that class of proof, 2026-07-26/2026-08-04).
 // Every wind instance reports the stock shear and the shear this build actually applied; once per
@@ -236,7 +329,13 @@ static void fw_audit_tick(u64 frame_idx,
                           float frond,
                           size_t wind_draws,
                           u32 paused,
-                          u32 wind_time) {
+                          u32 wind_time,
+                          // ROUND 3: 60 Hz wind ticks per displayed frame. 1 == stock. This is the
+                          // whole of owner point 1, as a number: on a 60 fps display it reads 1
+                          // (the restoration is a no-op there); on the Redmi at ~18 fps it reads
+                          // 3-4, which is the factor by which the untouched port was running ND's
+                          // wind SLOW.
+                          int rate_ticks) {
   if (frame_idx != g_fw_audit.last_frame) {
     g_fw_audit.last_frame = frame_idx;
     g_fw_audit.frames++;
@@ -255,12 +354,14 @@ static void fw_audit_tick(u64 frame_idx,
   // shear travels between consecutive frames — a frozen lean scores high on the first and ~0 on
   // the second, and only the second is what an eye can see.
   lg::info(
-      "[foliage-wind] shear-audit lev={} on={} paused={} wind_time={} frames={} samples={} "
+      "[foliage-wind] shear-audit lev={} on={} rate_ticks={} paused={} wind_time={} frames={} "
+      "samples={} "
       "wind_draws_submitted={} frond={:.4f} stock_peak={:.6f} stock_rms={:.6f} "
       "applied_peak={:.6f} applied_rms={:.6f} ratio_peak={:.3f} ratio_rms={:.3f} "
       "dstock_peak={:.6f} dstock_rms={:.6f} dapplied_peak={:.6f} dapplied_rms={:.6f} "
       "dratio_peak={:.3f} dratio_rms={:.3f}",
-      g_fw_audit.level, on ? 1 : 0, paused, wind_time, g_fw_audit.frames, g_fw_audit.samples,
+      g_fw_audit.level, on ? 1 : 0, rate_ticks, paused, wind_time, g_fw_audit.frames,
+      g_fw_audit.samples,
       g_fw_audit.draws, frond, g_fw_audit.stock_peak, s_rms, g_fw_audit.appl_peak, a_rms,
       g_fw_audit.stock_peak > 0.f ? g_fw_audit.appl_peak / g_fw_audit.stock_peak : -1.f,
       s_rms > 0.0 ? a_rms / s_rms : -1.0, g_fw_audit.dstock_peak, ds_rms, g_fw_audit.dappl_peak,
@@ -1768,6 +1869,11 @@ void do_wind_math(u16 wind_idx,
                   // Grecharged-foliage-wind2: additive procedural breeze shear {x, z}, computed per
                   // instance in render_tree_wind. nullptr when the toggle is OFF (stock path).
                   const float* shear_add,
+                  // Grecharged-foliage-wind2 ROUND 3: the wind tick to evaluate the drive at. The
+                  // stock leg passes wind_work.wind_time (one tick per displayed frame); the
+                  // restored 60 Hz leg walks it forward one tick per SUBSTEP, which is what the
+                  // game does per frame on a 60 fps console.
+                  u32 wind_time_now,
                   std::array<math::Vector4f, 4>& mat,
                   // Grecharged-foliage-wind2 SHEAR AUDIT (round 2). Round 1 shipped an effect the
                   // owner could not see, and the only evidence it had was a capture-derived pixel
@@ -1781,7 +1887,7 @@ void do_wind_math(u16 wind_idx,
                   // nullptr = no audit. Reading vf27/vf27s cannot change what is rendered.
                   float* audit_out = nullptr) {
   float* my_vector = wind_vector_data + (4 * wind_idx);
-  const auto& work_vector = wind_work.wind_array[(wind_work.wind_time + wind_idx) & 63];
+  const auto& work_vector = wind_work.wind_array[(wind_time_now + wind_idx) & 63];
   constexpr float cx = 0.5;
   constexpr float cy = 100.0;
   constexpr float cz = 0.0166;
@@ -1937,11 +2043,37 @@ void Tie3::render_tree_wind(int idx,
   // Breeze heading: follow the game's own wandering wind direction so the sway agrees with anything
   // else driven by it; fall back to a fixed diagonal if the level never fills it in.
   float rc_dir_x = 0.7071f, rc_dir_z = 0.7071f;
+  // Grecharged-foliage-wind2 ROUND 3 (owner point 1): number of 60 Hz wind ticks this displayed
+  // frame is worth. 1 == the stock behaviour (and 1 is what a 60 fps display yields), so `rc_on`
+  // false leaves every line below on the exact stock path.
+  int rc_ticks = 1;
+  bool rc_on = false;
   if (Gfx::recharged_active(Gfx::g_global_settings.recharged_foliage_wind)) {
-    rc_wind_boost = foliage_wind_tie_mult();  // helper above, default 3.0
+    rc_on = true;
+    rc_wind_boost = foliage_wind_tie_mult();  // helper above, default 1.0 (neutral)
     rc_amp = foliage_wind_tie_amp();          // helper above, default 0.055 (dimensionless shear)
     rc_frond = foliage_wind_frond();          // helper above, default 0.10 (fraction of own reach)
     rc_t = foliage_wind_clock(render_state->frame_idx, m_wind_data.paused != 0);
+    rc_ticks = foliage_wind_rate_ticks(render_state->frame_idx, m_wind_data.paused != 0);
+    // Seed the renderer-owned wind from the game's own state the first time (and whenever the
+    // spring-state array is resized by a level load), then advance it ourselves at 60 Hz. From here
+    // on the two legs diverge ONLY by tick rate.
+    if (!m_wind_rc_seeded || m_wind_vectors_rc.size() != m_wind_vectors.size()) {
+      m_wind_rc = m_wind_data;
+      m_wind_vectors_rc = m_wind_vectors;
+      m_wind_rc_seeded = true;
+    }
+    m_wind_rc.paused = m_wind_data.paused;
+    // Advance the drive ring ONCE PER FRAME (render_tree_wind runs per tree), by rc_ticks ticks.
+    if (m_wind_rc_last_frame != render_state->frame_idx) {
+      m_wind_rc_last_frame = render_state->frame_idx;
+      if (!m_wind_data.paused) {
+        static std::mt19937 s_rng(0x5eed1234u);
+        for (int k = 0; k < rc_ticks; k++) {
+          fw_advance_wind_one_tick(m_wind_rc, s_rng);
+        }
+      }
+    }
     const float dx = m_wind_data.wind_normal.x();
     const float dz = m_wind_data.wind_normal.z();
     const float dlen = std::sqrt(dx * dx + dz * dz);
@@ -1953,8 +2085,11 @@ void Tie3::render_tree_wind(int idx,
     if (!s_logged) {
       s_logged = true;
       // Renderer-side proof line (no captures): if this never appears the feature did not run.
-      lg::info("[foliage-wind] TIE breeze ACTIVE mult={} tie_amp={} frond={} instances={}",
-               rc_wind_boost, rc_amp, rc_frond, tree.instance_info->size());
+      lg::info(
+          "[foliage-wind] TIE breeze ACTIVE mult={} tie_amp={} frond={} instances={} "
+          "rate_ticks={} (rate_ticks>1 == owner point 1: ND's 60 Hz wind was running at "
+          "1/rate_ticks speed on this device)",
+          rc_wind_boost, rc_amp, rc_frond, tree.instance_info->size(), rc_ticks);
     }
   }
 
@@ -1992,8 +2127,42 @@ void Tie3::render_tree_wind(int idx,
     // Grecharged-foliage-wind2: [0]/[1] = stock/applied shear magnitude, [2..5] = the signed
     // components, which is what the frame-to-frame difference below needs.
     float rc_audit[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
-    do_wind_math(info.wind_idx, m_wind_vectors.data(), m_wind_data,
-                 info.stiffness * m_wind_multiplier, rc_wind_boost, rc_add_ptr, mat, rc_audit);
+    const float rc_stiff = info.stiffness * m_wind_multiplier;
+    if (!rc_on) {
+      // Toggle OFF: the one and only stock call, unchanged.
+      do_wind_math(info.wind_idx, m_wind_vectors.data(), m_wind_data, rc_stiff, rc_wind_boost,
+                   rc_add_ptr, m_wind_data.wind_time, mat, rc_audit);
+    } else {
+      // Grecharged-foliage-wind2 ROUND 3. TWO legs, same arithmetic, different tick rate.
+      //
+      // (a) STOCK REFERENCE — the untouched game at THIS device's frame rate: one step per
+      //     displayed frame, off the GOAL-supplied wind state, boost 1.0, no additive term. Its
+      //     matrix output is thrown away; it exists so the shear audit compares against what the
+      //     player would actually get with the toggle off, rather than against ourselves. Without
+      //     it, restoring the rate would move BOTH sides of the ratio and the audit would report
+      //     1.0 while the palms moved 3x more — a self-cancelling instrument.
+      std::array<math::Vector4f, 4> rc_scratch = mat;
+      float rc_stock_audit[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+      do_wind_math(info.wind_idx, m_wind_vectors.data(), m_wind_data, rc_stiff, 1.0f, nullptr,
+                   m_wind_data.wind_time, rc_scratch, rc_stock_audit);
+      // (b) APPLIED — ND's authored 60 Hz. rc_ticks steps of the SAME spring, walking the drive
+      //     ring forward one tick per step exactly as the console does one per frame. Only the
+      //     LAST step is allowed to touch `mat`: do_wind_math ACCUMULATES into the matrix
+      //     (`mat[0].x() += ...`), so letting every substep write would apply the shear rc_ticks
+      //     times and fake a huge bend.
+      const u32 rc_base = m_wind_rc.wind_time - (u32)(rc_ticks - 1);
+      for (int k = 0; k < rc_ticks - 1; k++) {
+        rc_scratch = mat;
+        do_wind_math(info.wind_idx, m_wind_vectors_rc.data(), m_wind_rc, rc_stiff, 1.0f, nullptr,
+                     rc_base + (u32)k, rc_scratch, nullptr);
+      }
+      do_wind_math(info.wind_idx, m_wind_vectors_rc.data(), m_wind_rc, rc_stiff, rc_wind_boost,
+                   rc_add_ptr, m_wind_rc.wind_time, mat, rc_audit);
+      // The audit's "stock" fields must come from leg (a), not from leg (b)'s own pre-boost value.
+      rc_audit[0] = rc_stock_audit[0];
+      rc_audit[4] = rc_stock_audit[4];
+      rc_audit[5] = rc_stock_audit[5];
+    }
     {
       float* prev = &tree.fw_prev_shear[inst_id * 4];
       const float dax = rc_audit[2] - prev[0], daz = rc_audit[3] - prev[1];
@@ -2061,7 +2230,7 @@ void Tie3::render_tree_wind(int idx,
   }
   tree.fw_prev_valid = true;  // the previous-frame shears are now populated for every instance
   fw_audit_tick(render_state->frame_idx, rc_frond > 0.f || rc_amp > 0.f, rc_frond,
-                tree.wind_draws->size(), m_wind_data.paused, m_wind_data.wind_time);
+                tree.wind_draws->size(), m_wind_data.paused, m_wind_data.wind_time, rc_ticks);
 #ifdef OG_FEAT_PBR
   // Round-3 defect A/B: wind-tie foliage receives the sun N.L in-shader; bind the shadow
   // receiver so it also RECEIVES cast shadows. TIE_WIND is the active program here.

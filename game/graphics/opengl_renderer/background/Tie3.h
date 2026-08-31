@@ -191,6 +191,15 @@ class Tie3 : public BucketRenderer {
   TfragPcPortData m_pc_port_data;
 
   std::vector<float> m_wind_vectors;  // note: I suspect these are shared with shrub.
+  // Grecharged-foliage-wind2 ROUND 3 (owner point 1). A SECOND, renderer-owned copy of the game's
+  // wind simulation, advanced at ND's authored 60 Hz instead of once per displayed frame. Used only
+  // while the breeze toggle is ON; `m_wind_data` / `m_wind_vectors` keep running at the display rate
+  // and become the STOCK reference the shear audit compares against. Identical arithmetic on both
+  // legs, so the ONLY difference between them is the tick rate.
+  WindWork m_wind_rc{};
+  bool m_wind_rc_seeded = false;
+  u64 m_wind_rc_last_frame = (u64)-1;  // the drive ring advances once per FRAME, not once per tree
+  std::vector<float> m_wind_vectors_rc;
 
   float m_wind_multiplier = 1.f;
 
