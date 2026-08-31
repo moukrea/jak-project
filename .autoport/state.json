@@ -251,7 +251,8 @@
     "Gloadgate-crash-regression": 2,
     "Ggrass-crash": 1,
     "Grecharged-materials-modern-parity": 2,
-    "Gsubtitle-style": 1
+    "Gsubtitle-style": 1,
+    "Gcutscene-skip-all": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1138,7 +1139,7 @@
     "Gsubtitle-style": 1788145720.1622245,
     "Gcutscene-skip-all": 1788149381.2034535
   },
-  "last_update": "2026-08-31T04:09:41.203473+00:00",
+  "last_update": "2026-08-31T05:29:54.136020+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1268,7 +1269,8 @@
     "Grecharged-hd-eye-scale",
     "Grecharged-foliage-wind2",
     "Grecharged-materials-modern-parity",
-    "Gsubtitle-style"
+    "Gsubtitle-style",
+    "Gcutscene-skip-all"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
