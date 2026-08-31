@@ -58,9 +58,23 @@ while true; do
   # avoir le correctif. On exige donc que l'artefact ait ete CONSTRUIT depuis HEAD.
   HEADSHA=$(git rev-parse HEAD 2>/dev/null || echo "")
   INFOSHA=$(sed -n 's/.*commit: \([0-9a-f]\{7,\}\).*/\1/p' out/artifacts/BUILD-INFO.txt 2>/dev/null | head -1)
-  if [ -n "$HEADSHA" ] && [ -n "$INFOSHA" ] && [ "${HEADSHA#$INFOSHA}" = "$HEADSHA" ]; then
-    echo "$(date +%H:%M:%S) SKIP publication : l'APK vient du commit $INFOSHA, HEAD est ${HEADSHA:0:10} — artefact en retard" >> "$LOG"
-    continue
+  # 2026-08-31 02:05 : la regle « APK == HEAD » etait TROP STRICTE. Le framework commite en
+  # continu, donc HEAD avance pendant la construction et l'APK du correctif d'herbe s'est
+  # fait refuser 4 fois de suite alors qu'il etait BON. Ce qu'on veut interdire, c'est de
+  # republier un artefact PLUS ANCIEN que ce qui est deja en ligne (le bug du 19:08). La
+  # bonne regle est donc : le commit de l'APK doit etre un ANCETRE de HEAD (donc pas d'une
+  # branche divergente) ET ne pas etre anterieur au commit deja publie.
+  if [ -n "$HEADSHA" ] && [ -n "$INFOSHA" ]; then
+    if ! git merge-base --is-ancestor "$INFOSHA" "$HEADSHA" 2>/dev/null; then
+      echo "$(date +%H:%M:%S) SKIP publication : l'APK vient de $INFOSHA, qui n'est pas un ancetre de HEAD" >> "$LOG"
+      continue
+    fi
+    if [ -n "${LASTINFO:-}" ] && [ "$INFOSHA" != "$LASTINFO" ] \
+       && git merge-base --is-ancestor "$INFOSHA" "$LASTINFO" 2>/dev/null; then
+      echo "$(date +%H:%M:%S) SKIP publication : l'APK ($INFOSHA) est ANTERIEUR au build deja publie ($LASTINFO)" >> "$LOG"
+      continue
+    fi
+    LASTINFO="$INFOSHA"
   fi
   HEADMSG=$(git log -1 --format=%s 2>/dev/null || echo "")
   case "$HEADMSG" in
