@@ -996,3 +996,237 @@
         (if (or (not (-> self blocker)) (logtest? (-> self blocker extra perm status) (entity-perm-status complete)))
           (go-virtual die #t 0))
         (suspend))))
+
+;; ============================================================================
+;; Gjak1-crate-collision — SONDE DE RECENSEMENT DES CAISSES (owner 2026-08-31)
+;;
+;; « les caisses sont là mais je passe au travers sans pouvoir les casser... mais
+;;   pas toutes, des fois aucunes, des fois certaines, c'est pas toujours les
+;;   mêmes qui sont impactés. »
+;;
+;; Les caisses sont DESSINEES : l'acteur nait, le modele est charge. Seule la
+;; COLLISION manque. Le defaut vit donc APRES la naissance, dans l'ENREGISTREMENT
+;; de la forme de collision — et il est INTERMITTENT, donc c'est un etat a
+;; l'execution, pas une donnee cassee.
+;;
+;; La sonde publie, pour CHAQUE caisse du niveau, le triplet qui departage les
+;; trois familles de causes (budget epuise / course d'initialisation / allocation
+;; qui echoue en silence) :
+;;   - son IDENTITE          : aid, look, position
+;;   - si sa forme est ENREGISTREE : onlist (est-elle sur la liste de collision
+;;     que `fill-from-foreground-using-box` parcourt ?), rp/mesh/as/with
+;;   - l'OCCUPATION DU POOL a cet instant : longueur / capacite des quatre
+;;     moteurs de collision, et prims/tris du collide-cache
+;; ============================================================================
+
+;; definis dans engine/collide/collide-cache.gc (compile plus tot) — meme idiome de
+;; declaration avancee que les externs de physique de process-drawable.gc
+(define-extern gjcc-cc-report (function int none))
+(define-extern *actor-collision-birth-radius* float)
+(define-extern *gjcc-watch-h* handle)
+(define-extern *gjcc-watch-n* int)
+(define-extern gjcc-cc-reset (function int none))
+
+(defun gjcc-list-count ((eng engine))
+  "Compte les connexions VIVANTES en PARCOURANT la liste — on ne fait pas
+   confiance au champ `length`, qui est un compteur tenu a la main."
+  (let ((n 0)
+        (it (-> eng alive-list next0)))
+    (while (!= it (-> eng alive-list-end))
+      (+! n 1)
+      (set! it (-> it next0)))
+    n))
+
+(defun gjcc-on-list? ((eng engine) (cs collide-shape))
+  "Cette collide-shape est-elle sur la liste que le joueur parcourt ?
+   C'est EXACTEMENT la lecture que fait `fill-from-foreground-using-box`
+   (collide-cache.gc:902 : `(the-as collide-shape (-> (the-as connection it) param1))`)."
+  (let ((f 0)
+        (it (-> eng alive-list next0)))
+    (while (!= it (-> eng alive-list-end))
+      (if (= (the-as collide-shape (-> (the-as connection it) param1)) cs)
+        (set! f 1))
+      (set! it (-> it next0)))
+    f))
+
+(defun gjcc-in-cache? ((cc collide-cache) (prim collide-shape-prim))
+  "Cette primitive est-elle dans le collide-cache que le joueur vient de remplir ?
+   Test FONCTIONNEL : c'est ce tableau-la que la resolution de collision lit."
+  (let ((f 0))
+    (dotimes (i (-> cc num-prims))
+      (if (= (-> cc prims i prim) prim) (set! f 1)))
+    f))
+
+(defun gjcc-scan ((tag int))
+  "Recensement complet. Une ligne par entite `crate` des niveaux actifs, plus un
+   resume qui porte l'occupation des pools."
+  (let ((ents 0) (live 0) (vis 0) (nocol 0))
+    (dotimes (li 3)
+      (let ((lev (-> *level* level li)))
+        (when (and (= (-> lev status) 'active) (nonzero? (the-as int (-> lev bsp))))
+          (let ((acts (-> lev bsp actors)))
+            (when (nonzero? (the-as int acts))
+              (dotimes (ai (-> acts length))
+                (let ((ent (-> acts data ai actor)))
+                  (when (and (nonzero? (the-as int ent))
+                             (nonzero? (the-as int (-> ent etype)))
+                             (type-type? (-> ent etype) crate))
+                    (+! ents 1)
+                    (let ((pr (-> ent extra process)))
+                      (cond
+                        ((and (nonzero? (the-as int pr)) (type-type? (-> pr type) crate))
+                         (+! live 1)
+                         (let* ((c (the-as crate pr))
+                                (r (-> c root))
+                                (pm (the-as collide-shape-prim-mesh (if (nonzero? (the-as int r)) (-> r root-prim) (the-as collide-shape-prim 0))))
+                                (hid (if (logtest? (-> c draw status) (draw-status hidden)) 1 0))
+                                (rp (if (nonzero? (the-as int pm)) 1 0))
+                                (msh (if (and (= rp 1) (-> pm mesh)) 1 0))
+                                (kas (if (= rp 1) (the-as int (-> pm prim-core collide-as)) 0))
+                                (kwi (if (= rp 1) (the-as int (-> pm collide-with)) 0))
+                                (onl (if (nonzero? (the-as int r)) (gjcc-on-list? *collide-usually-hit-by-player-list* r) 0))
+                                (inc (if (= rp 1) (gjcc-in-cache? *collide-cache* (the-as collide-shape-prim pm)) 0))
+                                ;; le VOLUME de collision est-il la ou la caisse est dessinee ?
+                                ;; `update-transforms!` n'est joue QU'UNE FOIS dans l'etat `wait`
+                                ;; (crates.gc:541) : un mauvais tick fige le volume a vie.
+                                (wd (if (= rp 1)
+                                      (vector-vector-distance (the-as vector (-> pm prim-core world-sphere)) (-> c root trans))
+                                      -1.0))
+                                (wr (if (= rp 1) (-> pm prim-core world-sphere w) -1.0))
+                                (d (if *target*
+                                     (vector-vector-distance (-> c root trans) (-> *target* control trans))
+                                     -1.0)))
+                           (if (zero? hid) (+! vis 1))
+                           (if (and (zero? hid)
+                                    (or (zero? rp) (zero? msh) (zero? kas) (zero? kwi) (zero? onl)))
+                             (+! nocol 1))
+                           ;; (le compilateur plafonne un appel a 8 parametres : on publie en morceaux)
+                           (format 0 "GJCC-CRATE tag=~D aid=~D look=~A live=1 hid=~D "
+                                   tag (the-as int (-> ent aid)) (-> c look) hid)
+                           (format 0 "rp=~D mesh=~D onlist=~D incache=~D " rp msh onl inc)
+                           (format 0 "as=#x~X with=#x~X d=~f " kas kwi d)
+                           (format 0 "wd=~f wr=~f " wd wr)
+                           (format 0 "x=~f y=~f z=~f~%"
+                                   (-> ent trans x) (-> ent trans y) (-> ent trans z))))
+                        (else
+                         (format 0 "GJCC-CRATE tag=~D aid=~D look=none live=0 hid=9 "
+                                 tag (the-as int (-> ent aid)))
+                         (format 0 "rp=9 mesh=9 onlist=9 incache=9 as=#x0 with=#x0 d=-1.0 wd=-1.0 wr=-1.0 ")
+                         (format 0 "x=~f y=~f z=~f~%"
+                                 (-> ent trans x) (-> ent trans y) (-> ent trans z)))))))))))))
+    ;; (le compilateur plafonne un appel a 8 parametres : on publie en morceaux)
+    (format 0 "GJCC-SUM tag=~D ents=~D live=~D vis=~D nocol=~D " tag ents live vis nocol)
+    (format 0 "uhbp=~D,~D/~D hbp=~D,~D/~D "
+            (gjcc-list-count *collide-usually-hit-by-player-list*)
+            (-> *collide-usually-hit-by-player-list* length)
+            (-> *collide-usually-hit-by-player-list* allocated-length)
+            (gjcc-list-count *collide-hit-by-player-list*)
+            (-> *collide-hit-by-player-list* length)
+            (-> *collide-hit-by-player-list* allocated-length))
+    (format 0 "hbo=~D,~D/~D plist=~D,~D/~D "
+            (gjcc-list-count *collide-hit-by-others-list*)
+            (-> *collide-hit-by-others-list* length)
+            (-> *collide-hit-by-others-list* allocated-length)
+            (gjcc-list-count *collide-player-list*)
+            (-> *collide-player-list* length)
+            (-> *collide-player-list* allocated-length))
+    (format 0 "ccprims=~D cctris=~D " (-> *collide-cache* num-prims) (-> *collide-cache* num-tris))
+    ;; le BUDGET DE NAISSANCE et ce qui le gouverne, sur la ligne du verdict
+    (format 0 "birthmax=~D runtime=~D pausedist=~f rayon=~f~%"
+            (-> *ACTOR-bank* birth-max)
+            (-> *display* frames (-> *display* last-screen) frame run-time)
+            (-> *ACTOR-bank* pause-dist)
+            *actor-collision-birth-radius*)
+    (gjcc-cc-report tag))
+  (none))
+
+(defun gjcc-watch-set ((aid int) (n int))
+  "Arme la surveillance image par image sur la caisse d'identite `aid`."
+  (set! *gjcc-watch-h* (the-as handle #f))
+  (set! *gjcc-watch-n* 0)
+  (dotimes (li 3)
+    (let ((lev (-> *level* level li)))
+      (when (and (= (-> lev status) 'active) (nonzero? (the-as int (-> lev bsp))))
+        (let ((acts (-> lev bsp actors)))
+          (when (nonzero? (the-as int acts))
+            (dotimes (ai (-> acts length))
+              (let ((ent (-> acts data ai actor)))
+                (when (and (nonzero? (the-as int ent))
+                           (nonzero? (the-as int (-> ent etype)))
+                           (type-type? (-> ent etype) crate)
+                           (= (the-as int (-> ent aid)) aid))
+                  (let ((pr (-> ent extra process)))
+                    (when (and (nonzero? (the-as int pr)) (type-type? (-> pr type) crate))
+                      (set! *gjcc-watch-h* (process->handle pr))
+                      (set! *gjcc-watch-n* n)))))))))))
+  (format 0 "GJCC-WATCH aid=~D arme=~D n=~D~%" aid (if (handle->process *gjcc-watch-h*) 1 0) n)
+  (none))
+
+(defun gjcc-land ((k int) (aid int) (cy float))
+  "TEST PHYSIQUE — c'est l'experience meme de l'owner : on lache le joueur AU-DESSUS d'une
+   caisse et on regarde ou il S'ARRETE. Debout dessus => elle est solide. Au niveau de sa
+   base, alors qu'elle est VIVANTE et VISIBLE => il l'a TRAVERSEE.
+   La ligne est AUTOPORTANTE : elle publie l'etat de la caisse VISEE au moment meme du
+   verdict (nee ? dessinee ? enregistree ? maillage lie ?), pour qu'aucune correlation
+   hors-ligne ne puisse se tromper de caisse."
+  (let ((live 9) (hid 9) (onl 9) (msh 9))
+    (dotimes (li 3)
+      (let ((lev (-> *level* level li)))
+        (when (and (= (-> lev status) 'active) (nonzero? (the-as int (-> lev bsp))))
+          (let ((acts (-> lev bsp actors)))
+            (when (nonzero? (the-as int acts))
+              (dotimes (ai (-> acts length))
+                (let ((ent (-> acts data ai actor)))
+                  (when (and (nonzero? (the-as int ent))
+                             (nonzero? (the-as int (-> ent etype)))
+                             (type-type? (-> ent etype) crate)
+                             (= (the-as int (-> ent aid)) aid))
+                    (let ((pr (-> ent extra process)))
+                      (cond
+                        ((and (nonzero? (the-as int pr)) (type-type? (-> pr type) crate))
+                         (let* ((c (the-as crate pr))
+                                (r (-> c root))
+                                (pm (the-as collide-shape-prim-mesh (if (nonzero? (the-as int r)) (-> r root-prim) (the-as collide-shape-prim 0)))))
+                           (set! live 1)
+                           (set! hid (if (logtest? (-> c draw status) (draw-status hidden)) 1 0))
+                           (set! onl (if (nonzero? (the-as int r)) (gjcc-on-list? *collide-usually-hit-by-player-list* r) 0))
+                           (set! msh (if (and (nonzero? (the-as int pm)) (-> pm mesh)) 1 0))))
+                        (else (set! live 0) (set! hid 9) (set! onl 9) (set! msh 9))))))))))))
+    (if *target*
+      (let ((ty (-> *target* control trans y)))
+        (format 0 "GJCC-LAND k=~D aid=~D cy=~f py=~f " k aid cy ty)
+        (format 0 "dy=~f live=~D hid=~D onlist=~D mesh=~D " (- ty cy) live hid onl msh)
+        (format 0 "px=~f pz=~f st=#x~X~%"
+                (-> *target* control trans x) (-> *target* control trans z)
+                (the-as int (-> *target* control status))))
+      (format 0 "GJCC-LAND k=~D aid=~D cy=~f py=0.0 dy=-999999.0 live=9 hid=9 onlist=9 mesh=9 px=0.0 pz=0.0 st=#x0~%" k aid cy)))
+  (none))
+
+(define *gjcc-victim* (the-as crate #f))
+
+(defun gjcc-inject ((on int))
+  "CONTROLE POSITIF. On INJECTE le defaut sur une caisse vivante et visible :
+   `clear-collide-with-as` met ses deux masques a zero — la caisse reste dessinee
+   et le joueur la traverse. Le compteur `nocol` doit MONTER de 1 exactement,
+   puis REDESCENDRE quand on restaure. Un zero sans ce controle ne vaut rien."
+  (cond
+    ((= on 1)
+     (set! *gjcc-victim*
+           (the-as crate (search-process-tree
+                          *active-pool*
+                          (lambda ((p process-tree))
+                            (and (type-type? (-> p type) crate)
+                                 (nonzero? (the-as int (-> (the-as crate p) draw)))
+                                 (not (logtest? (-> (the-as crate p) draw status) (draw-status hidden))))))))
+     (cond
+       (*gjcc-victim*
+        (clear-collide-with-as (-> *gjcc-victim* root))
+        (format 0 "GJCC-INJECT on=1 victim=#x~X~%" (the-as int *gjcc-victim*)))
+       (else (format 0 "GJCC-INJECT on=1 victim=none~%"))))
+    (else
+     (cond
+       (*gjcc-victim*
+        (restore-collide-with-as (-> *gjcc-victim* root))
+        (format 0 "GJCC-INJECT on=0 victim=#x~X~%" (the-as int *gjcc-victim*)))
+       (else (format 0 "GJCC-INJECT on=0 victim=none~%")))))
+  (none))

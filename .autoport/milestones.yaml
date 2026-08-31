@@ -2783,6 +2783,20 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Ghd-skin-origin-stretch
+  name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
+    s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
+    extrême », intermittent, une fraction de seconde, purement visuel. SIGNATURE : une matrice de squelette qui retombe a
+    l''identite ou a zero pendant une image — les sommets vont a (0,0,0) et la longueur de l''etirement vaut la distance joueur-origine.
+    Distances mesurees des niveaux : beach 135 m, jungle 303 m, village2 1546 m, village3 3601 m, finalboss 5540 m — croissantes
+    dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
+  prompt: prompts/phase-Ghd-skin-origin-stretch.md
+  validator: validators/phase-Ghd-skin-origin-stretch.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true

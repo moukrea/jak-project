@@ -683,6 +683,9 @@
     ],
     "Gjak2-polish": [
       "942fdc576466"
+    ],
+    "Gjak1-crate-collision": [
+      "0df93cb8cd0c"
     ]
   },
   "stuck_reasons": {
@@ -1144,7 +1147,7 @@
     "Gcutscene-skip-all": 1788149381.2034535,
     "Gjak1-crate-collision": 1788154483.2065616
   },
-  "last_update": "2026-08-31T05:49:09.150991+00:00",
+  "last_update": "2026-08-31T05:49:09.276533+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

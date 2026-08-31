@@ -14,6 +14,126 @@
 
 ;; DECOMP BEGINS
 
+;; ============================================================================
+;; Gjak1-crate-collision — AUDIT DU BUDGET DU COLLIDE-CACHE (owner 2026-08-31)
+;;
+;; Le collide-cache est un POOL FIXE : 100 primitives et `*collide-cache-max-tris*`
+;; = 460 triangles (collide-cache-h.gc:91-92, :143). `fill-from-background` sert
+;; EN PREMIER (:263-266), le premier plan ensuite (:268) : ce qui reste du budget
+;; depend donc de la geometrie de fond autour du joueur.
+;;
+;; Quand le budget est epuise, l'import du maillage de premier plan
+;; ((method 14 collide-shape-prim-mesh), game/mips2c/jak1_functions/collide_cache.cpp:1894)
+;; part en `block_12` puis `block_15` : la primitive n'est PAS ajoutee, et le seul
+;; message est mort — il est garde par `*cheat-mode*` compare a #t (le
+;; `load_symbol_addr(v1, debug)` est COMMENTE, :2025) et le drapeau
+;; « deja imprime » n'est jamais ecrit (:2026 commente).
+;; UNE CAISSE PEUT DONC ETRE VIVANTE, DESSINEE, ENREGISTREE — ET ABSENTE DU CACHE
+;; QUE LE JOUEUR INTERROGE, SANS UN MOT. C'est « je passe au travers ».
+;;
+;; L'audit se fait DANS la requete du joueur, pas apres coup : il recense les
+;; caisses qui sont DANS la boite interrogee et regarde si elles sont arrivees
+;; dans le cache. `drop` > 0 = une caisse traversee, a cette frame, mesuree.
+;; ============================================================================
+
+;; L'AUDIT EST OPT-IN, ET L'OPT-IN EST POSE AU PRODUCTEUR. Il parcourt la liste de
+;; collision a CHAQUE requete du joueur : laisse arme, c'est une sonde par image a vie
+;; dans le build livre. `gjcc-cc-reset` l'arme pour une course de mesure, rien d'autre.
+(define *gjcc-cc-on* #f)
+(define *gjcc-cc-q* 0)        ;; requetes par boite
+(define *gjcc-cc-tmax* 0)     ;; pic de triangles
+(define *gjcc-cc-pmax* 0)     ;; pic de primitives
+(define *gjcc-cc-full* 0)     ;; requetes ou le budget TRIANGLES est au plafond
+(define *gjcc-cc-pfull* 0)    ;; requetes ou le budget PRIMITIVES est au plafond
+(define *gjcc-cc-cand* 0)     ;; caisses candidates (dans la boite)
+(define *gjcc-cc-drop* 0)     ;; caisses candidates ABSENTES du cache = traversees
+(define *gjcc-cc-loud* 0)     ;; combien de lignes de detail il reste a imprimer
+;; La caisse surveillee est designee par un HANDLE, jamais par un pointeur : elle MEURT
+;; quand le joueur s'en eloigne (de-naissance d'acteur), et un pointeur garde d'une image
+;; sur l'autre est un pointeur pendant — c'est ce qui a fait segfault la course w10.
+(define *gjcc-watch-h* (the-as handle #f))
+(define *gjcc-watch-n* 0)
+
+(defun gjcc-sphere-in-box? ((s vector) (bb bounding-box))
+  (and (>= (+ (-> s x) (-> s w)) (-> bb min x)) (<= (- (-> s x) (-> s w)) (-> bb max x))
+       (>= (+ (-> s y) (-> s w)) (-> bb min y)) (<= (- (-> s y) (-> s w)) (-> bb max y))
+       (>= (+ (-> s z) (-> s w)) (-> bb min z)) (<= (- (-> s z) (-> s w)) (-> bb max z))))
+
+(defun gjcc-cc-has-prim? ((cc collide-cache) (prim collide-shape-prim))
+  (let ((f 0))
+    (dotimes (i (-> cc num-prims))
+      (if (= (-> cc prims i prim) prim) (set! f 1)))
+    f))
+
+(defun gjcc-cc-audit! ((cc collide-cache))
+  "Appele a la FIN de `fill-using-bounding-box`, donc sur la requete REELLE du joueur."
+  (+! *gjcc-cc-q* 1)
+  (if (> (-> cc num-tris) *gjcc-cc-tmax*) (set! *gjcc-cc-tmax* (-> cc num-tris)))
+  (if (> (-> cc num-prims) *gjcc-cc-pmax*) (set! *gjcc-cc-pmax* (-> cc num-prims)))
+  (if (>= (-> cc num-tris) (+ *collide-cache-max-tris* -2)) (+! *gjcc-cc-full* 1))
+  (if (>= (-> cc num-prims) 100) (+! *gjcc-cc-pfull* 1))
+  (when (logtest? (-> cc collide-with) (collide-kind crate))
+    (let ((it (-> *collide-usually-hit-by-player-list* alive-list next0)))
+      (while (!= it (-> *collide-usually-hit-by-player-list* alive-list-end))
+        (let* ((cs (the-as collide-shape (-> (the-as connection it) param1)))
+               (pr (if (nonzero? (the-as int cs)) (-> cs root-prim) (the-as collide-shape-prim 0))))
+          (when (and (nonzero? (the-as int pr))
+                     (logtest? (-> pr prim-core collide-as) (collide-kind crate))
+                     (!= (-> cs process) (-> cc proc))
+                     (gjcc-sphere-in-box? (the-as vector (-> pr prim-core world-sphere)) (-> cc collide-box)))
+            (+! *gjcc-cc-cand* 1)
+            (when (zero? (gjcc-cc-has-prim? cc pr))
+              (+! *gjcc-cc-drop* 1)
+              (when (> *gjcc-cc-loud* 0)
+                (set! *gjcc-cc-loud* (- *gjcc-cc-loud* 1))
+                (format 0 "GJCC-DROP proc=~A tris=~D/~D prims=~D/100 "
+                        (-> cs process name) (-> cc num-tris) *collide-cache-max-tris* (-> cc num-prims))
+                (format 0 "wx=~f wy=~f wz=~f wr=~f~%"
+                        (-> pr prim-core world-sphere x) (-> pr prim-core world-sphere y)
+                        (-> pr prim-core world-sphere z) (-> pr prim-core world-sphere w))))))
+        (set! it (-> it next0)))))
+  (none))
+
+(defun gjcc-watch-note! ((cc collide-cache))
+  "Publie, A CHAQUE requete du joueur, l'etat de la caisse surveillee : est-elle dans la
+   BOITE interrogee, est-elle arrivee dans le CACHE, et de combien le joueur avance-t-il
+   pendant ce pas. C'est la ligne qui separe « la boite l'a ratee » de « le cache l'a
+   refusee » de « la resolution ne l'a pas vue »."
+  (when (> *gjcc-watch-n* 0)
+    (let ((wp (handle->process *gjcc-watch-h*)))
+      (when wp
+        (let ((cs (-> (the-as process-drawable wp) root)))
+          (when (nonzero? (the-as int cs))
+            (let ((pr (-> (the-as collide-shape cs) root-prim)))
+              (when (nonzero? (the-as int pr))
+                (set! *gjcc-watch-n* (- *gjcc-watch-n* 1))
+                (format 0 "GJCC-W inbox=~D incache=~D tris=~D prims=~D "
+                        (if (gjcc-sphere-in-box? (the-as vector (-> pr prim-core world-sphere)) (-> cc collide-box)) 1 0)
+                        (gjcc-cc-has-prim? cc pr)
+                        (-> cc num-tris) (-> cc num-prims))
+                (format 0 "wsy=~f bminy=~f bmaxy=~f "
+                        (-> pr prim-core world-sphere y) (-> cc collide-box min y) (-> cc collide-box max y))
+                (if *target*
+                  (format 0 "py=~f pvy=~f spf=~f~%"
+                          (-> *target* control trans y) (-> *target* control transv y)
+                          (-> *display* seconds-per-frame))
+                  (format 0 "py=0.0 pvy=0.0 spf=~f~%" (-> *display* seconds-per-frame))))))))))
+  (none))
+
+(defun gjcc-cc-report ((tag int))
+  (format 0 "GJCC-CC tag=~D q=~D tmax=~D/~D pmax=~D/100 "
+          tag *gjcc-cc-q* *gjcc-cc-tmax* *collide-cache-max-tris* *gjcc-cc-pmax*)
+  (format 0 "full=~D pfull=~D cand=~D drop=~D~%"
+          *gjcc-cc-full* *gjcc-cc-pfull* *gjcc-cc-cand* *gjcc-cc-drop*)
+  (none))
+
+(defun gjcc-cc-reset ((loud int))
+  (set! *gjcc-cc-on* #t)
+  (set! *gjcc-cc-q* 0) (set! *gjcc-cc-tmax* 0) (set! *gjcc-cc-pmax* 0)
+  (set! *gjcc-cc-full* 0) (set! *gjcc-cc-pfull* 0)
+  (set! *gjcc-cc-cand* 0) (set! *gjcc-cc-drop* 0) (set! *gjcc-cc-loud* loud)
+  (none))
+
 (defmethod debug-draw ((obj collide-cache))
   "Debug draw all the things in the collide cache!"
   (let ((gp-0 (the-as collide-cache-tri (-> obj tris))))
@@ -266,6 +386,8 @@
                             (method-of-type collide-cache load-mesh-from-spad-in-box)))
     (if (logtest? arg1 (collide-kind water)) (fill-from-water obj (-> arg2 water)))
     (if (logtest? arg1 (collide-kind cak-1 cak-2 cak-3 target)) (fill-from-foreground-using-box obj))
+    ;; Gjak1-crate-collision : audit du budget, DANS la requete du joueur (opt-in)
+    (when *gjcc-cc-on* (gjcc-cc-audit! obj) (gjcc-watch-note! obj))
     0
     (none)))
 

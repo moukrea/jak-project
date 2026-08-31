@@ -45,3 +45,17 @@ de deviner en lisant le journal des modifications.
 Verifie : au moins 2 lignes CRATEREPRO avec caisses_sans_collision >= 1 (sans reproduction
 rien n'est prouve) ; CRATEBISECT sur >= 2 builds pour encadrer l'apparition ; CRATECAUSE
 nommee ; CRATEOK avec >= 3 courses, >= 20 caisses testees, et ZERO sans collision.
+
+## MANQUE CONSTATE PAR LE SUPERVISEUR (2026-08-31 09:35)
+Les courses r1 a r4 publient bien « une caisse sans collision » par course (ligne
+GJCC-SUM, champ nocol). Mais AUCUNE ligne ne dit LAQUELLE : l'identite de la caisse
+fautive n'est pas isolee dans les lignes par caisse.
+C'est pourtant LE test de l'observation de l'owner : « c'est pas toujours les mêmes ».
+ - si c'est la MEME caisse a chaque course -> son observation est infirmee et la cause est
+   probablement liee a cette entite precise (ordre de naissance, position dans la liste) ;
+ - si l'identite CHANGE -> son observation est confirmee et la cause est une course ou une
+   allocation qui echoue selon le timing.
+Les deux menent a des corrections opposees. Publier donc, pour CHAQUE course, l'identite
+(aid) de la ou des caisses sans collision, et le verdict :
+    CRATEIDENT course=<n> aid=<n> position=<x,y,z> ordre_naissance=<n>
+    CRATEIDENTVERDICT memes_caisses=<oui|non> courses=<n>

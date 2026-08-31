@@ -1013,6 +1013,35 @@
   (and (not (logtest? (-> this perm status) (entity-perm-status bit-0 dead)))
        (< (vector-vector-distance (-> this trans) arg0) (-> *ACTOR-bank* birth-dist))))
 
+;; ============================================================================
+;; Gjak1-crate-collision (owner 2026-08-31) — UNE CAISSE QUI N'EXISTE PAS N'A PAS
+;; DE COLLISION, ET C'EST LA CAMERA QUI DECIDE QU'ELLE EXISTE.
+;;
+;; `actors-update` fait NAITRE et MOURIR les acteurs sur la VISIBILITE camera
+;; (`is-object-visible?`, branche `*vis-actors*` plus bas ; `ps2-actor-vis?` vaut #t
+;; par defaut, pckernel-h.gc:449). Un acteur non ne n'a pas de `collide-shape`, n'est
+;; sur AUCUNE liste de collision, et n'entre donc jamais dans le collide-cache du
+;; joueur : il est traversable.
+;;
+;; MESURE (3 courses x86 a Geyser Rock, lacher physique sur les 31 caisses) : le joueur
+;; traverse une caisse quand il arrive a sa place AVANT qu'elle ne naisse, et la MEME
+;; caisse est SOLIDE au second lacher une fois nee (dy 108 -> 8368 et -215 -> 8368).
+;; Le compte varie d'une course a l'autre et ce ne sont pas les memes caisses : c'est
+;; « des fois aucunes, des fois certaines, pas toujours les memes ».
+;;
+;; La visibilite est un critere de DESSIN. S'en servir pour decider de l'existence
+;; PHYSIQUE d'un obstacle est le defaut : ce qu'on peut toucher doit exister, meme si
+;; la camera ne le regarde pas. On ajoute donc un rayon de PORTEE PHYSIQUE autour du
+;; joueur, a l'interieur duquel un acteur nait et ne meurt pas, quelle que soit la
+;; visibilite. Au-dela, la regle de Naughty Dog est inchangee — le cout est borne au
+;; nombre d'acteurs a moins de 30 m, que le jeu garde deja vivants quand ils sont vus.
+;;
+;; A 0.0 le rayon rend EXACTEMENT le comportement d'origine : c'est l'ablation sur le
+;; MEME BINAIRE qu'exigent les directives pour un avant/apres honnete.
+;; ============================================================================
+(define *actor-collision-birth-radius* (meters 30))
+(define *actor-reach-births* 0)   ;; combien de naissances la PORTEE a accordees et la VISIBILITE refusees
+
 (defmethod actors-update ((this level-group))
   (when *compact-actors*
     (if (and (= *compact-actors* 'debug) (= (-> *nk-dead-pool* alive-list prev) (-> *nk-dead-pool* first-gap)))
@@ -1024,6 +1053,11 @@
     (let ((s5-1 (-> *display* frames (-> *display* last-screen) frame run-time)))
       (let ((f0-5 (fmax 327680.0 (fmin (+ 327680.0 (* 204.8 (the float (- 7000 s5-1)))) (-> *ACTOR-bank* birth-dist)))))
         (seek! (-> *ACTOR-bank* pause-dist) f0-5 (* 81920.0 (seconds-per-frame))))
+      ;; Gjak1-crate-collision : PISTE MESUREE PUIS ABANDONNEE — ce frein n'existe pas ici.
+      ;; `run-time` est ECRIT A ZERO par le portage (drawable.gc:1240, `#if PC_PORT`), donc
+      ;; `lerp-scale 25 -> 1 entre 2000 et 7000 us` rend TOUJOURS 25 et `pause-dist` reste a
+      ;; `birth-dist`. Mesure a l'execution : `birthmax=25 runtime=0 pausedist=901120`.
+      ;; Le quota de naissances par image n'est donc PAS ce qui retarde les caisses.
       (seekl! (-> *ACTOR-bank* birth-max) (the int (lerp-scale 25.0 1.0 (the float s5-1) 2000.0 7000.0)) 10))
     (if (movie?) (set! (-> *ACTOR-bank* birth-max) 1000)))
   (when *spawn-actors*
@@ -1106,16 +1140,34 @@
                  (let* ((s3-5 (-> s4-2 entity))
                         (s2-4 (-> s3-5 length))
                         (s0-1 #f))
+                   ;; Gjak1-crate-collision : le point de reference est le JOUEUR, pas la camera —
+                   ;; c'est lui qui touche les obstacles. Sans joueur (cinematique, ecran titre)
+                   ;; on retombe sur la position camera, donc sur le comportement d'origine.
+                   (let ((touch-ref (if *target* (-> *target* control trans) sv-16)))
                    (dotimes (s1-2 s2-4)
-                     (let ((sv-32 (-> s3-5 data s1-2)))
+                     (let* ((sv-32 (-> s3-5 data s1-2))
+                            (vis? (#if PC_PORT
+                                    (or (with-pc (not (-> *pc-settings* ps2-actor-vis?)))
+                                        (is-object-visible? s4-2 (-> sv-32 vis-id)))
+                                    (is-object-visible? s4-2 (-> sv-32 vis-id))))
+                            (near? (and (> *actor-collision-birth-radius* 0.0)
+                                        (< (vector-vector-distance (-> sv-32 trans) touch-ref)
+                                           *actor-collision-birth-radius*))))
                        (cond
                          ;; og:preserve-this check for actor culling setting
-                         ((and (#if PC_PORT
-                                 (or (with-pc (not (-> *pc-settings* ps2-actor-vis?))) (is-object-visible? s4-2 (-> sv-32 vis-id)))
-                                 (is-object-visible? s4-2 (-> sv-32 vis-id)))
+                         ;; Gjak1-crate-collision : ... OU a portee physique du joueur.
+                         ((and (or vis? near?)
                                (not (logtest? (-> sv-32 perm status) (entity-perm-status bit-9 bit-10))))
                           (when (not (or (-> sv-32 process) (logtest? (-> sv-32 perm status) (entity-perm-status bit-0 dead)) s0-1))
                             (birth! (-> sv-32 entity))
+                            ;; PREUVE QUE LE CHEMIN A TIRE, lisible dans logcat sur l'appareil :
+                            ;; une naissance que la VISIBILITE refusait et que la PORTEE accorde.
+                            ;; Ce sont exactement les acteurs qu'on traversait.
+                            (when (and near? (not vis?))
+                              (+! *actor-reach-births* 1)
+                              (when (or (< *actor-reach-births* 5) (zero? (mod *actor-reach-births* 64)))
+                                (format 0 "GJCC-REACH-BIRTH n=~D lvl=~A rayon=~f~%"
+                                        *actor-reach-births* (-> s4-2 name) *actor-collision-birth-radius*)))
                             (+! sv-24 1)
                             (when (< (/ (the float (memory-free *nk-dead-pool*)) (the float (memory-total *nk-dead-pool*))) 0.1)
                               (format 0
@@ -1124,10 +1176,15 @@
                                       (memory-total *nk-dead-pool*))
                               (set! s0-1 #t))))
                          (else
-                          (when (and (-> sv-32 process) (not (logtest? (-> sv-32 perm status) (entity-perm-status bit-3))))
+                          ;; ... et il ne doit pas MOURIR sous les pieds du joueur : sans cette
+                          ;; garde, une caisse a portee naitrait puis serait tuee a l'image
+                          ;; suivante des que la camera cesse de la voir (va-et-vient).
+                          (when (and (-> sv-32 process)
+                                     (not (logtest? (-> sv-32 perm status) (entity-perm-status bit-3)))
+                                     (not near?))
                             (kill! (-> sv-32 entity))
                             (+! sv-24 1)))))
-                     (if (>= sv-24 (-> *ACTOR-bank* birth-max)) (return (the-as object #f)))))))))))))
+                     (if (>= sv-24 (-> *ACTOR-bank* birth-max)) (return (the-as object #f))))))))))))))
   0)
 
 (defun entity-birth-no-kill ((arg0 entity))

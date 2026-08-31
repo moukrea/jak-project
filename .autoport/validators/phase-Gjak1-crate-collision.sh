@@ -17,6 +17,10 @@ c=[kv(l) for l in re.findall(r'^CRATECAUSE .*$',t,re.M)]
 if not c or not c[0].get('nommee'): F("CRATECAUSE absent : la cause doit etre NOMMEE, pas deduite")
 if c[0].get('lien_jak2') not in ('oui','non','indetermine'):
     F("le lien avec la regression jak2 deja documentee doit etre tranche (oui/non/indetermine)")
+if not re.search(r'^CRATEIDENTVERDICT .*memes_caisses=(oui|non)',t,re.M):
+    F("CRATEIDENTVERDICT absent : il faut dire si c'est la MEME caisse a chaque course ou non — c'est le test direct de « c'est pas toujours les mêmes », et les deux reponses menent a des corrections opposees")
+if len(re.findall(r'^CRATEIDENT ',t,re.M))<4:
+    F("moins de 4 lignes CRATEIDENT : l'identite (aid) de la caisse fautive doit etre publiee pour CHAQUE course")
 if not re.search(r'^CRATEALLOC ',t,re.M):
     F("CRATEALLOC absent : l'owner precise que les caisses sont DESSINEES et que ce ne sont pas toujours les memes — il faut publier, par caisse, si sa forme de collision a ete allouee et l'occupation du pool a cet instant")
 ok=[kv(l) for l in re.findall(r'^CRATEOK .*$',t,re.M)]

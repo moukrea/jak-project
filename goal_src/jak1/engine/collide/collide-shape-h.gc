@@ -653,12 +653,36 @@
     (quaternion-identity! (-> this quat))
     (vector-identity! (-> this scale))
     ;; add us to right list.
-    (case collide-list-kind
-      (((collide-list-enum hit-by-player)) (add-connection *collide-hit-by-player-list* proc #f this #f #f))
-      (((collide-list-enum usually-hit-by-player)) (add-connection *collide-usually-hit-by-player-list* proc #f this #f #f))
-      (((collide-list-enum hit-by-others)) (add-connection *collide-hit-by-others-list* proc #f this #f #f))
-      (((collide-list-enum player)) (add-connection *collide-player-list* proc #f this #f #f))
-      (else (format 0 "Unsupported collide-list-enum in collide-shape constructor!~%")))
+    ;; Gjak1-crate-collision (owner 2026-08-31) : `add-connection` rend #f QUAND LE MOTEUR EST
+    ;; PLEIN (connect.gc:340 : la garde `(= con (-> this dead-list-end))`), et ce refus etait
+    ;; AVALE EN SILENCE ici. Une forme refusee n'est sur AUCUNE liste : l'objet est dessine,
+    ;; anime, vivant — et le joueur le TRAVERSE, parce que `fill-from-foreground-using-box`
+    ;; ne parcourt que ces listes. C'est exactement « les caisses sont là mais je passe au
+    ;; travers ». Le refus se PUBLIE desormais, avec l'occupation du pool a cet instant.
+    (let ((con (case collide-list-kind
+                 (((collide-list-enum hit-by-player))
+                  (add-connection *collide-hit-by-player-list* proc #f this #f #f))
+                 (((collide-list-enum usually-hit-by-player))
+                  (add-connection *collide-usually-hit-by-player-list* proc #f this #f #f))
+                 (((collide-list-enum hit-by-others))
+                  (add-connection *collide-hit-by-others-list* proc #f this #f #f))
+                 (((collide-list-enum player))
+                  (add-connection *collide-player-list* proc #f this #f #f))
+                 (else (format 0 "Unsupported collide-list-enum in collide-shape constructor!~%")
+                       (the-as connection #f)))))
+      (when (not con)
+        ;; (le compilateur plafonne un appel a 8 parametres : on publie en trois morceaux)
+        (format 0 "GJCC-NOCON proc=~A list=~D " (-> proc name) (the-as int collide-list-kind))
+        (format 0 "uhbp=~D/~D hbp=~D/~D "
+                (-> *collide-usually-hit-by-player-list* length)
+                (-> *collide-usually-hit-by-player-list* allocated-length)
+                (-> *collide-hit-by-player-list* length)
+                (-> *collide-hit-by-player-list* allocated-length))
+        (format 0 "hbo=~D/~D plist=~D/~D~%"
+                (-> *collide-hit-by-others-list* length)
+                (-> *collide-hit-by-others-list* allocated-length)
+                (-> *collide-player-list* length)
+                (-> *collide-player-list* allocated-length))))
     this))
 
 (defmethod new collide-sticky-rider-group ((allocation symbol) (type-to-make type) (riders-amount int))
