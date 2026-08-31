@@ -180,6 +180,15 @@ stage_harvest() {
       say "  shader positive control: $(grep -a 'shaders compiled under GLES' "$L" | tail -1 | sed 's/^.*opengoal-gk: //')"
       grep -a 'tfrag3_tess. program LINKED' "$L" | tail -1 | sed 's/^/    /'
       grep -a 'MM-MENU' "$L" | tail -1 | sed 's/^/  /'
+      # TROISIEME MECANISME QUI PEUT DESARMER LA PARALLAXE, ET IL EST A NOUS.
+      # kmachine.cpp:434 `recharged_crash_loop_guard_boot()` compte les demarrages qui
+      # MEURENT AVANT 60 s ; a 2, il REECRIT settings.ini (`pbr-displacement -> 0`) et
+      # CLAMPE la valeur pour la session (kmachine.cpp:3114), quoi que GOAL pousse. Une
+      # campagne de captures courtes arme donc elle-meme la garde qui desarme le canal
+      # qu'elle mesure. On publie la ligne : « healthy boot, sentinel cleared » = la course
+      # a dure plus de 60 s et la garde s'est desarmee ; « settings reset » = CETTE JAMBE
+      # NE PEUT RIEN DIRE de la parallaxe.
+      say "  crash-loop guard: $(grep -a 'crash-loop guard' "$L" | tail -1 | sed 's/^.*opengoal-gk: //' || echo 'ABSENTE (ni sentinelle posee ni effacee)')"
     }
     # GARDE CONTRE UN CONTROLE EPINGLE + PREUVE DE DEPLACEMENT. Une course dont le carrousel
     # DISPLACEMENT est sur Off, ou dont PBR-ISOLATE n'est pas BOTH, ne peut RIEN dire de la
@@ -199,6 +208,16 @@ stage_harvest() {
     [ -s "$D" ] && grep -a '^\[mm\]' "$D" | tail -12 | sed 's/^/  /' | tee -a "$PROOF" >/dev/null
     [ -s "$D" ] && grep -a '^\[mm\]' "$D" | tail -12 | sed 's/^/  /'
   done
+  # LECTURE ARRIERE DU FICHIER REELLEMENT UTILISE. On a pousse les defauts livres AVANT la
+  # course ; si quoi que ce soit les a reecrits PENDANT (garde anti-boucle, menu, GOAL), le
+  # verdict de parallaxe porterait sur une valeur qu'on n'a pas mesuree. On republie donc les
+  # deux cles telles qu'elles sont A LA FIN, a cote de ce qu'on avait pousse.
+  SETTINGS_DEV=/storage/emulated/0/OpenGOAL/jak1/settings.ini
+  adbs shell cat "$SETTINGS_DEV" </dev/null > "$OUT/settings-postrun.ini" 2>/dev/null || true
+  if [ -s "$OUT/settings-postrun.ini" ]; then
+    say "  settings PUSHED  : $(grep -aE '^(pbr-displacement|pbr-isolate) =' "$OUT/settings-used.ini" 2>/dev/null | tr '\n' ' ')"
+    say "  settings POSTRUN : $(grep -aE '^(pbr-displacement|pbr-isolate) =' "$OUT/settings-postrun.ini" | tr '\n' ' ')"
+  fi
   say "========================================="
 }
 

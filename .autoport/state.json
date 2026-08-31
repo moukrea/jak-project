@@ -674,6 +674,9 @@
     ],
     "Gloadgate-crash-regression": [
       "afdce60129bf"
+    ],
+    "Grecharged-materials-modern-parity": [
+      "a4bf71a84b2f"
     ]
   },
   "stuck_reasons": {
@@ -1129,7 +1132,7 @@
     "Gloadgate-crash-regression": 1788103921.8125257,
     "Ggrass-crash": 1788114432.1540587
   },
-  "last_update": "2026-08-31T01:17:00.872173+00:00",
+  "last_update": "2026-08-31T01:17:02.628268+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
