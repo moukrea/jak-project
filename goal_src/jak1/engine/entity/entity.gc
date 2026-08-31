@@ -1040,7 +1040,11 @@
 ;; MEME BINAIRE qu'exigent les directives pour un avant/apres honnete.
 ;; ============================================================================
 (define *actor-collision-birth-radius* (meters 30))
-(define *actor-reach-births* 0)   ;; combien de naissances la PORTEE a accordees et la VISIBILITE refusees
+(define *actor-reach-births* 0)   ;; naissances que la PORTEE accorde et que la VISIBILITE refusait
+(define *actor-reach-keeps* 0)    ;; MISES A MORT que la PORTEE refuse — c'est CETTE moitie qui porte
+                                  ;; le resultat : mesure, les caisses etaient surtout TUEES sous les
+                                  ;; pieds du joueur, pas jamais nees. Les deux moitiees sont donc
+                                  ;; instrumentees, sinon la moitie efficace serait invisible.
 
 (defmethod actors-update ((this level-group))
   (when *compact-actors*
@@ -1180,10 +1184,16 @@
                           ;; garde, une caisse a portee naitrait puis serait tuee a l'image
                           ;; suivante des que la camera cesse de la voir (va-et-vient).
                           (when (and (-> sv-32 process)
-                                     (not (logtest? (-> sv-32 perm status) (entity-perm-status bit-3)))
-                                     (not near?))
-                            (kill! (-> sv-32 entity))
-                            (+! sv-24 1)))))
+                                     (not (logtest? (-> sv-32 perm status) (entity-perm-status bit-3))))
+                            (cond
+                              (near?
+                               ;; PREUVE QUE CETTE MOITIE TIRE : un acteur que la visibilite
+                               ;; voulait tuer alors que le joueur est a portee de le toucher.
+                               (+! *actor-reach-keeps* 1)
+                               (when (or (< *actor-reach-keeps* 5) (zero? (mod *actor-reach-keeps* 256)))
+                                 (format 0 "GJCC-REACH-KEEP n=~D lvl=~A rayon=~f~%"
+                                         *actor-reach-keeps* (-> s4-2 name) *actor-collision-birth-radius*)))
+                              (else (kill! (-> sv-32 entity)) (+! sv-24 1)))))))
                      (if (>= sv-24 (-> *ACTOR-bank* birth-max)) (return (the-as object #f))))))))))))))
   0)
 
