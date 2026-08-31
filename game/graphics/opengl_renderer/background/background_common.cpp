@@ -1213,6 +1213,11 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   // nothing to ride on and must be off regardless of what the last draw pushed.
   const int mm_want = (want != 0 && maps) ? (int)maps->mm_flags : 0;
   const void* mm_key = (mm_want != 0) ? (const void*)maps : nullptr;
+  // TWO counters, on purpose: this one is OUTSIDE the guard and counts every bind, the
+  // mm_note_active_draw() below is INSIDE it and counts only material TRANSITIONS (uniform
+  // re-pushes) — so the pair reads as bind volume vs state-reuse instead of a single number that
+  // has silently meant "transitions" while being labelled "draws".
+  custom_tex::mm_note_bind(mm_want);
   if (mm_want != m_cur_mm_flags || mm_key != m_cur_mm_maps) {
     if (m_mm_flags_loc == -2) {
       m_mm_flags_loc = glGetUniformLocation(m_program, "u_mm_flags");

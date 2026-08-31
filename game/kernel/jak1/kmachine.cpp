@@ -3198,9 +3198,13 @@ void pc_set_pbr_isolate(u32 idx) {
       body += custom_tex::pbr_pom_diag_section();
       body += custom_tex::pbr_coverage_section();
       // Grecharged-materials-modern-parity: the modern stack's per-material parameters as the
-      // renderer actually resolved them, plus the per-channel ACTIVE-DRAW counters. The Honor
-      // obscures logcat and the owner has no adb, so a pullable file is the only proof channel
-      // that survives both — and a counter answers "did the code path run" without a screenshot.
+      // renderer actually resolved them, plus the BIND and STATE-PUSH counters. The Honor obscures
+      // logcat and the owner has no adb, so a pullable file is the only proof channel that
+      // survives both. NOTE, corrected 2026-08-31: this used to say "a counter answers 'did the
+      // code path run'". It does NOT. Both counters tick on the CPU at bind time; neither proves a
+      // fragment executed, and the modern chunk can be skipped wholesale by the `u_pbr_debug == 0`
+      // gate of pbr_modern.glsl:40 while they keep rising. That is why the section publishes
+      // u_pbr_debug next to them — read the NOTE line it emits, not the totals alone.
       body += custom_tex::mm_params_diag_section();
 #endif
       file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", body);

@@ -229,13 +229,26 @@ void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
 // preset inert. Parses the file on first use if nobody has yet. A material the file does not name
 // keeps the pm_* defaults, which ARE the pre-phase behaviour.
 void pbrmat_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
-// PATH-ACTIVE COUNTER. Called by PbrDrawBinder every time it pushes a non-zero u_mm_flags, i.e.
-// every time a draw really enters the modern chunk. This is the cheap, non-visual proof the phase
-// owes: "the feature is ACTIVE on device" is a number in a log line, not a screenshot somebody has
-// to squint at. Counts are per channel because "SSS ran" and "clearcoat ran" fail independently.
+// STATE-PUSH COUNTER. NOT a draw counter, and NOT evidence that the modern chunk executed.
+// It is called from INSIDE PbrDrawBinder::set()'s state-change guard
+// (`if (mm_want != m_cur_mm_flags || mm_key != m_cur_mm_maps)`), so it ticks once per MATERIAL
+// TRANSITION: 50 consecutive draws sharing one material count 1, not 50. It also fires on the CPU
+// at uniform-bind time, before any fragment runs — a bind whose draw is later scissored or
+// depth-killed, or whose modern chunk is skipped by the `u_pbr_debug == 0` gate of
+// pbr_modern.glsl:40, still increments it. Read it as "how many times the modern uniform block was
+// re-pushed", never as "how many draws entered the modern chunk". Per channel because SSS and
+// clearcoat opt in independently.
 void mm_note_active_draw(int flags);
-// One line per material with a non-zero mm_flags plus the per-channel active-draw counts, for the
-// pullable diag file. Empty when the stack is off and nothing ever opted in.
+// BIND COUNTER. Called on EVERY PbrDrawBinder::set() bind, OUTSIDE the state-change guard, so it
+// counts the real PBR binds: `total` for all of them, `flagged` for those carrying a non-zero
+// mm_flags. The gap between `flagged` here and mm_note_active_draw's total IS the state-reuse rate
+// (equal = every bind changed material; flagged >> pushes = the binder is coalescing). Like the
+// counter above it fires on the CPU, so it proves a bind happened, never that a fragment ran.
+void mm_note_bind(int flags);
+// One line per material with a non-zero mm_flags, then the counts line, then a NOTE line spelling
+// out what those counts do NOT prove. Emitted UNCONDITIONALLY: an OFF leg publishes explicit zeros
+// instead of going silent, because a missing line is indistinguishable from an uncompiled block or
+// a stale file.
 std::string mm_params_diag_section();
 
 // Registry key for a texture's PBR maps. Keyed on "<tpage>/<name>", NOT the

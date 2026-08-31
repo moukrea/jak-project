@@ -96,6 +96,26 @@ d['materials'][k]['relief']=7.777
 json.dump(d,sys.stdout,separators=(',',':'),sort_keys=True)" > /tmp/mm_surfaces.json || die "cannot mark surfaces.json"
   adbs push /tmp/mm_surfaces.json "$EXT/surfaces.json" >/dev/null || die "push surfaces.json failed"
   say "pushed surfaces.json -> $EXT (external override, vil-beach-01 relief=7.777)"
+  # CONTROLES DE DEBUG EPINGLES SUR L'APPAREIL — c'est TOUTE la raison pour laquelle la
+  # tentative 1 (2026-08-08) a publie `[cover] disp_pom=0 disp_none=22 coverage_pct=0.0`.
+  # Le settings.ini VIVANT portait encore, le 2026-08-31 :
+  #     pbr-displacement = 0   (defaut livre 1 = PARALLAX, pckernel-impl.gc:318)
+  #     pbr-isolate      = 3   (defaut livre 0 = BOTH,     pckernel-impl.gc:321)
+  # autrement dit la bisection DEBUG en menu forcait la carte de normales ET la parallaxe a
+  # OFF. Une course prise dans cet etat mesure le MODE DEBUG, pas la fonctionnalite. On
+  # RETABLIT LES DEFAUTS LIVRES (on ne regle rien) et on publie l'avant/apres pour audit.
+  # Le correctif est pose au PRODUCTEUR de la course, pas en note de bas de page.
+  SETTINGS_DEV=/storage/emulated/0/OpenGOAL/jak1/settings.ini
+  adbs shell cat "$SETTINGS_DEV" </dev/null > /tmp/mm_settings.ini 2>/dev/null || die "no settings.ini on device"
+  [ -s /tmp/mm_settings.ini ] || die "empty settings.ini on device"
+  cp /tmp/mm_settings.ini "$OUT/settings-prerun.ini"
+  say "  settings BEFORE: $(grep -aE '^(pbr-displacement|pbr-isolate|pbr-materials.|modern-materials.|load-custom-assets.|realtime-lighting.|recharged-master.) =' /tmp/mm_settings.ini | tr '\n' ' ')"
+  sed -i 's/^pbr-displacement = .*/pbr-displacement = 1/' /tmp/mm_settings.ini
+  sed -i 's/^pbr-isolate = .*/pbr-isolate = 0/' /tmp/mm_settings.ini
+  adbs push /tmp/mm_settings.ini "$SETTINGS_DEV" >/dev/null || die "cannot push settings.ini"
+  adbs shell cat "$SETTINGS_DEV" </dev/null > /tmp/mm_settings_after.ini 2>/dev/null || true
+  say "  settings AFTER : $(grep -aE '^(pbr-displacement|pbr-isolate) =' /tmp/mm_settings_after.ini | tr '\n' ' ')"
+  cp /tmp/mm_settings_after.ini "$OUT/settings-used.ini" 2>/dev/null || true
 }
 
 leg() {  # $1 = on|off
@@ -127,17 +147,55 @@ stage_harvest() {
       grep -a '\[surfaces\]' "$L" | tail -1 | sed 's/^/  /'
       say "  ORM unpack lines: $(grep -ca 'pbr ORM unpack' "$L" || true)"
       grep -a 'pbr ORM unpack' "$L" | tail -1 | sed 's/^/  /'
-      say "  pbr binding lines with mm_flags!=0: $(grep -a 'pbr binding' "$L" | grep -cav 'mm_flags=0x0 ' || true)"
-      grep -a 'pbr binding' "$L" | grep -av 'mm_flags=0x0 ' | tail -4 | sed 's/^/  /'
+      # CONTROLE PAR ABSENCE — CORRIGE 2026-08-31 (Grecharged-materials-modern-parity).
+      # L'ancienne ligne comptait  grep -cav 'mm_flags=0x0 '  sur TOUTES les lignes
+      # 'pbr binding'. Or 2090 d'entre elles sont des 'maps=NONE (same-source pairing
+      # / no maps)' qui ne portent AUCUN champ mm_flags= : elles passaient le grep
+      # INVERSE quoi qu'il arrive et etaient comptees comme '!=0'. La jambe OFF du
+      # 2026-08-08 publiait donc 2090 alors que ses 8 materiaux etaient TOUS a 0x0 —
+      # un faux rouge, qui coute autant qu'un faux vert. On compare desormais a la
+      # CLE (mm_flags=) en entier, et on publie les TROIS nombres pour que le lecteur
+      # puisse refaire le compte.
+      _bind_all=$(grep -ac 'pbr binding' "$L" || true)
+      _bind_flagged=$(grep -a 'pbr binding' "$L" | grep -ac 'mm_flags=' || true)
+      _bind_zero=$(grep -a 'pbr binding' "$L" | grep -ac 'mm_flags=0x0' || true)
+      _bind_nonzero=$(( _bind_flagged - _bind_zero ))
+      say "  pbr binding: total=$_bind_all carrying-mm_flags=$_bind_flagged  of-those mm_flags=0x0 -> $_bind_zero  mm_flags!=0 -> $_bind_nonzero"
+      grep -a 'pbr binding' "$L" | grep -a 'mm_flags=' | grep -av 'mm_flags=0x0' | tail -4 | sed 's/^/  /'
       say "  crash signals: $(grep -caE 'signal (4|6|7|11) \(SIG' "$L" || true)"
       # SAMPLER BUDGET. The world fragment stage now declares 15 samplers against a GLES floor of
       # 16, so the failure this phase could plausibly introduce is a LINK failure, not a wrong
       # pixel — and a failed link is a black screen, which a clip would show but a counter would
       # not. Must be 0.
-      say "  shader compile/link errors: $(grep -caiE 'shader (compile|link)|ERROR: .*sampler|too many' "$L" || true)"
-      grep -aiE 'shader (compile|link) (error|fail)|too many .*sampler' "$L" | head -3 | sed 's/^/    /'
+      # FAUX POSITIF CORRIGE 2026-08-31. L'ancien motif etait
+      #     grep -caiE 'shader (compile|link)|ERROR: .*sampler|too many'
+      # et il matchait la BANNIERE DU PILOTE, identique dans les deux jambes :
+      #     I AdrenoGLES-0: OpenGL ES Shader Compiler Version: EV031.32.02.16
+      # ('Shader Compiler' matche 'shader (compile|link)' en -i). Le compte valait donc 1
+      # QUOI QU'IL ARRIVE, et le garde-fou « budget de samplers » qu'il pretendait surveiller
+      # n'a jamais ete exerce une seule fois. On compte desormais des ECHECS, et on publie a
+      # cote la contre-preuve positive que le pilote imprime lui-meme.
+      say "  shader compile/link FAILURES: $(grep -acE 'Failed to compile|Failed to link|FAILED to compile|FAILED to LINK|shaders FAILED|GL_INVALID_OPERATION|ERROR: .*sampler|too many .*sampler' "$L" || true)"
+      grep -aE 'Failed to compile|Failed to link|FAILED to compile|FAILED to LINK|shaders FAILED|too many .*sampler' "$L" | head -3 | sed 's/^/    /'
+      say "  shader positive control: $(grep -a 'shaders compiled under GLES' "$L" | tail -1 | sed 's/^.*opengoal-gk: //')"
+      grep -a 'tfrag3_tess. program LINKED' "$L" | tail -1 | sed 's/^/    /'
       grep -a 'MM-MENU' "$L" | tail -1 | sed 's/^/  /'
     }
+    # GARDE CONTRE UN CONTROLE EPINGLE + PREUVE DE DEPLACEMENT. Une course dont le carrousel
+    # DISPLACEMENT est sur Off, ou dont PBR-ISOLATE n'est pas BOTH, ne peut RIEN dire de la
+    # parallaxe : elle mesure le mode debug. On publie les deux gates A COTE du taux de
+    # couverture, pour qu'un 0,0 % ne puisse plus jamais se lire « le POM ne marche pas ».
+    if [ -s "$D" ]; then
+      _disp=$(grep -ao 'displacement=[0-9]*' "$D" | head -1 | cut -d= -f2)
+      _bis=$(grep -ao 'bisect=[0-9]*' "$D" | head -1 | cut -d= -f2)
+      if [ "${_disp:-9}" != "0" ] && [ "${_bis:-9}" = "0" ]; then
+        say "  pinned-control guard: OK (displacement=${_disp:-?} bisect=${_bis:-?}) — parallax is answerable"
+      else
+        say "  pinned-control guard: FAIL (displacement=${_disp:-?} bisect=${_bis:-?}) — need displacement!=0 AND bisect=0; this leg CANNOT judge parallax/POM"
+      fi
+      grep -a '^\[cover\] frame=' "$D" | tail -1 | sed 's/^/  DISPLACEMENT COVERAGE: /' | tee -a "$PROOF"
+      grep -a '^\[cover\] renderer=' "$D" | sed 's/^/  /' | tee -a "$PROOF"
+    fi
     [ -s "$D" ] && grep -a '^\[mm\]' "$D" | tail -12 | sed 's/^/  /' | tee -a "$PROOF" >/dev/null
     [ -s "$D" ] && grep -a '^\[mm\]' "$D" | tail -12 | sed 's/^/  /'
   done

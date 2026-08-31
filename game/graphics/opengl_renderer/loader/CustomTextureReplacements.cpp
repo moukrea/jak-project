@@ -30,6 +30,15 @@
 #include "third-party/json.hpp"
 #include "third-party/stb_image/stb_image.h"
 
+#ifdef OG_FEAT_PBR
+// Grecharged-materials-modern-parity: the modern shader chunk is gated on `u_pbr_debug == 0`
+// (pbr_modern.glsl:40), so a debug visualisation being armed SKIPS the whole chunk while our
+// counters keep rising. The diag section publishes the mode so that hole is never silent.
+// Declared here at GLOBAL scope rather than included: background_common.h (which declares it at
+// :376) includes THIS header at its :15, so including it back would close an include cycle.
+int pbr_debug_mode();
+#endif
+
 namespace custom_tex {
 
 namespace {
@@ -1427,6 +1436,12 @@ std::atomic<u64> g_mm_draws_coat{0};
 std::atomic<u64> g_mm_draws_aniso{0};
 std::atomic<u64> g_mm_draws_energy{0};
 std::atomic<u64> g_mm_draws_specocc{0};
+// BIND counters, ticked OUTSIDE the state-change guard by mm_note_bind(). g_mm_binds_total counts
+// every PbrDrawBinder::set() bind; g_mm_binds_flagged only those carrying a non-zero mm_flags. The
+// counters above are re-pushes of the uniform block, these are binds — publishing both is what
+// makes the state-reuse rate readable instead of guessed.
+std::atomic<u64> g_mm_binds_total{0};
+std::atomic<u64> g_mm_binds_flagged{0};
 }  // namespace
 
 void mm_note_active_draw(int flags) {
@@ -1451,12 +1466,32 @@ void mm_note_active_draw(int flags) {
   }
 }
 
+void mm_note_bind(int flags) {
+  g_mm_binds_total.fetch_add(1, std::memory_order_relaxed);
+  if (flags != 0) {
+    g_mm_binds_flagged.fetch_add(1, std::memory_order_relaxed);
+  }
+}
+
 std::string mm_params_diag_section() {
   std::string out;
   int n = 0;
+  // MEASURED, NOT ASSUMED. The NOTE line below says energy/specocc equal the push total "by
+  // construction". That is true of the SHIPPED surfaces.json (0 of 172 records overrides them) —
+  // but the parser prefers an EXTERNAL recharged-assets surfaces.json over the installed one, and
+  // an override carrying "energy": 0 would falsify the sentence while the sentence kept printing.
+  // So we count the counter-examples on the same walk and publish them: 0/0 proves the claim FOR
+  // THIS RUN, non-zero refutes it in place.
+  int n_no_energy = 0, n_no_specocc = 0;
   for (const auto& kv : g_pbr_materials) {
     if (kv.second.mm_flags == 0) {
       continue;
+    }
+    if ((kv.second.mm_flags & 8u) == 0) {
+      n_no_energy++;
+    }
+    if ((kv.second.mm_flags & 16u) == 0) {
+      n_no_specocc++;
     }
     const auto& m = kv.second;
     out += fmt::format(
@@ -1468,16 +1503,27 @@ std::string mm_params_diag_section() {
     n++;
   }
   const u64 tot = g_mm_draws_total.load(std::memory_order_relaxed);
-  if (n || tot) {
-    out += fmt::format(
-        "[mm] {} material(s) carry the modern stack; ACTIVE DRAWS total={} sss={} coat={} "
-        "aniso={} energy={} specocc={}\n",
-        n, tot, g_mm_draws_sss.load(std::memory_order_relaxed),
-        g_mm_draws_coat.load(std::memory_order_relaxed),
-        g_mm_draws_aniso.load(std::memory_order_relaxed),
-        g_mm_draws_energy.load(std::memory_order_relaxed),
-        g_mm_draws_specocc.load(std::memory_order_relaxed));
-  }
+  const u64 energy = g_mm_draws_energy.load(std::memory_order_relaxed);
+  const u64 specocc = g_mm_draws_specocc.load(std::memory_order_relaxed);
+  // NO GUARD. The old `if (n || tot)` made an OFF leg SILENT, and a missing line reads the same as
+  // an uncompiled block or a stale file. Zeros are a measurement; absence is not.
+  out += fmt::format(
+      "[mm] {} material(s) carry the modern stack; PBR BINDS total={} flagged={}; "
+      "STATE-PUSHES total={} sss={} coat={} aniso={}\n",
+      n, g_mm_binds_total.load(std::memory_order_relaxed),
+      g_mm_binds_flagged.load(std::memory_order_relaxed), tot,
+      g_mm_draws_sss.load(std::memory_order_relaxed),
+      g_mm_draws_coat.load(std::memory_order_relaxed),
+      g_mm_draws_aniso.load(std::memory_order_relaxed));
+  // And the line that stops the numbers above from being read as something they are not.
+  out += fmt::format(
+      "[mm] NOTE energy={} specocc={} == STATE-PUSHES total; counter-examples this run: "
+      "materials WITHOUT bit8={} WITHOUT bit16={} (0/0 => the equality is a property of the loaded "
+      "surfaces.json, measured here, not assumed) -> these two carry no information. "
+      "STATE-PUSHES counts uniform re-pushes (material transitions), NOT draws and NOT fragment "
+      "executions. Modern chunk gate: u_pbr_debug={} (pbr_modern.glsl:40 requires ==0; non-zero "
+      "SKIPS the whole chunk while these counters still rise).\n",
+      energy, specocc, n_no_energy, n_no_specocc, ::pbr_debug_mode());
   return out;
 }
 
