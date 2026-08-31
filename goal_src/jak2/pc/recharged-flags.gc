@@ -1,0 +1,54 @@
+;;-*-Lisp-*-
+(in-package goal)
+;; !!! Tracked DEFAULT copy — ./build.sh --game jak2 rewrites this file per invocation !!!
+;; (build.sh:108 `FLAGS_GC="goal_src/${GAME}/pc/recharged-flags.gc"` — the generator is
+;; already parametrized by game; only jak1's copy had ever been generated and wired.)
+;;
+;; ---------------------------------------------------------------------------------------
+;; Gjak2-polish 2026-08-31 — POURQUOI CE FICHIER EXISTE : LE BUILD JAK2 ETAIT MORT.
+;;
+;; jak2 ne compile pas seulement goal_src/jak2 : il reprend TROIS fichiers de jak1
+;; (goal_src/jak2/lib/project-lib.gp:220-228, « hardcoded cases to grab from jak1 ») —
+;; `pckernel-h`, `pckernel-common`, `pc-debug-common`. Depuis Grecharged-buildsys-flags,
+;; jak1 gate son code Recharged par des constantes `FLAG_*` produites dans
+;; goal_src/jak1/pc/recharged-flags.gc — un fichier que jak2 ne compilait PAS.
+;;
+;; Mesure du 2026-08-31, build x86 jak2 sur l'arbre courant :
+;;   Location: goal_src/jak1/pc/pckernel-common.gc:36
+;;   (#when FLAG_HD_MODELS (define-extern maybe-spawn-jak-hd! (function none)))
+;;   -- Compilation Error! --  Compiler Fatal Error: Compiler Exception
+;; Donc AUCUN CGO jak2 n'etait productible depuis que le compagnon HD-models a atterri
+;; (58bf43e11f). Le jeu etant parke par l'owner depuis le 2026-07-10, personne ne l'a vu :
+;; c'est de la POURRITURE SILENCIEUSE, pas une regression de cette phase.
+;;
+;; CE QUE CE FICHIER POSE. jak2 n'embarque AUCUNE fonctionnalite Recharged — elles sont
+;; ecrites pour jak1 et vivent dans goal_src/jak1/pc/. Les drapeaux valent donc #f, et
+;; `#when` les compile ENTIEREMENT hors des CGO jak2 : pas de branche morte, pas de symbole
+;; non resolu. Ce fichier ne touche AUCUN fichier de jak1 — le build jak1, qui est le jeu
+;; activement developpe, reste bit-pour-bit inchange.
+;;
+;; MISE EN GARDE POUR LA SUITE. Ce fichier est un CONSTAT, pas un verrou : si une future
+;; fonctionnalite jak1 introduit un nouveau `FLAG_*` dans l'un des trois fichiers PARTAGES,
+;; le build jak2 remourra exactement de la meme facon. Le correctif au POINT DE PRODUCTION
+;; est de faire generer les deux copies par build.sh (cf. rapport de phase) — il n'est pas
+;; pose ici pour ne pas toucher au systeme de build de jak1 pendant que jak2 est parke.
+;; ---------------------------------------------------------------------------------------
+
+(defglobalconstant FLAG_RECHARGED_HUD #f)
+(defglobalconstant FLAG_RECHARGED_HUD_N 0)
+(defglobalconstant FLAG_GRASS_OVERHANG #f)
+(defglobalconstant FLAG_GRASS_OVERHANG_N 0)
+(defglobalconstant FLAG_HD_MODELS #f)
+(defglobalconstant FLAG_HD_MODELS_N 0)
+(defglobalconstant FLAG_PBR #f)
+(defglobalconstant FLAG_PBR_N 0)
+(defglobalconstant FLAG_PHYSICS #f)
+(defglobalconstant FLAG_PHYSICS_N 0)
+(defglobalconstant FLAG_VULKAN_SUPPORT #f)
+(defglobalconstant FLAG_VULKAN_SUPPORT_N 0)
+(defglobalconstant FLAG_DEBUG_MENUS #f)
+(defglobalconstant FLAG_DEBUG_MENUS_N 0)
+(defglobalconstant FLAG_MENU_OVERHAUL #f)
+(defglobalconstant FLAG_MENU_OVERHAUL_N 0)
+(defglobalconstant PLATFORM_ANDROID #f)
+(defglobalconstant OG_FLAG_SET_MARKER "ogflags:e3b0c44298fc:linux-x86_64")

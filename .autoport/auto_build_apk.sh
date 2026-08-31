@@ -237,6 +237,11 @@ reconcilier_telephone(){
 }
 
 while true; do
+  # MENAGE DISQUE (2026-08-31) : le disque plein a TUE LE SHELL cette nuit, en pleine
+  # analyse. Le ménage ne se declenche que sous son plancher d'espace libre et ne touche
+  # qu'aux journaux bruts des phases que l'owner a FERMEES. Appele ici parce que c'est la
+  # seule boucle qui tourne en permanence.
+  bash .autoport/disk_reclaim.sh 50 15 >> .autoport/logs/disk_reclaim.txt 2>&1 || true
   shield_keep_out   # owner 2026-08-30 : la Shield ne doit jamais etre visible d'un tour a l'autre
   sleep 240
 

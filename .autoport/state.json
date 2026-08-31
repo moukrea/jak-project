@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 259,
+  "current_phase_idx": 260,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -184,7 +184,7 @@
     "Grecharged-hud-visuals-x86": 1,
     "Gjak2-movement": 1,
     "Grecharged-hud-jak1": 1,
-    "Gjak2-polish": 1,
+    "Gjak2-polish": 2,
     "Grecharged-grass-poc": 16,
     "Grecharged-grass-precompute-mode": 2,
     "Gjak1-icache-flush": 1,
@@ -1132,7 +1132,7 @@
     "Gloadgate-crash-regression": 1788103921.8125257,
     "Ggrass-crash": 1788114432.1540587
   },
-  "last_update": "2026-08-31T01:56:56.196003+00:00",
+  "last_update": "2026-08-31T03:06:03.426974+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1279,6 +1279,7 @@
     "Gfixed-tick-interpolation": "2026-08-30 20:08 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gfixed-tick-interpolation quand il valide.",
     "Ggrass-crash": "2026-08-31 00:17 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Ggrass-crash quand il valide.",
     "Grecharged-hd-eye-scale": "2026-08-31 01:46 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-hd-eye-scale quand il valide.",
-    "Grecharged-foliage-wind2": "2026-08-31 02:30 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-foliage-wind2 quand il valide."
+    "Grecharged-foliage-wind2": "2026-08-31 02:30 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-foliage-wind2 quand il valide.",
+    "Grecharged-materials-modern-parity": "2026-08-31 03:56 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-materials-modern-parity quand il valide."
   }
 }

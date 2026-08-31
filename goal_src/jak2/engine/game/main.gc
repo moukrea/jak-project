@@ -22,44 +22,44 @@
   )
 
 (defun letterbox ()
-  "Draw letterbox bars."
-  (with-dma-buffer-add-bucket ((dma-buf (-> (current-frame) global-buf))
-                               (bucket-id screen-filter))
-    (#cond
-      ((not PC_PORT)
-        (draw-sprite2d-xy-absolute dma-buf 0 0 512 46 (new 'static 'rgba :a #x80))
-        (draw-sprite2d-xy-absolute dma-buf 0 370 512 47 (new 'static 'rgba :a #x80))
-        )
-      (#t
-        (if (-> *pc-settings* use-vis?)
-            ;; original game mode. dont do anything.
-            (begin
-              (draw-sprite2d-xy-absolute dma-buf 0 0 512 46 (new 'static 'rgba :a #x80))
-              (draw-sprite2d-xy-absolute dma-buf 0 370 512 47 (new 'static 'rgba :a #x80)))
-            ;; native mode. force 16x9 letterboxing always.
-            (begin
-              (cond
-                ((< (-> *pc-settings* aspect-ratio) ASPECT_16X9)
-                  ;; too tall. needs vertical letterboxing.
-                  (let ((lbx-h (the int (* 208.0 (- 1.0 (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9))))))
-                    ;(format 0 "using new letterbox! size: ~D~%" lbx-h)
-                    (draw-sprite2d-xy dma-buf 0 0 512 lbx-h (new 'static 'rgba :a #x80))
-                    (draw-sprite2d-xy dma-buf 0 (- 416 lbx-h) 512 lbx-h (new 'static 'rgba :a #x80))
-                      )
-                  )
-                ((> (-> *pc-settings* aspect-ratio) ASPECT_16X9)
-                  ;; too wide. needs horizontal letterboxing.
-                  (let ((lbx-w (the int (* 256.0 (- 1.0 (/ ASPECT_16X9 (-> *pc-settings* aspect-ratio)))))))
-                    ;(format 0 "using new pillarbox! size: ~D~%" lbx-w)
-                    (draw-sprite2d-xy dma-buf 0 0 lbx-w 416 (new 'static 'rgba :a #x80))
-                    (draw-sprite2d-xy dma-buf (- 512 lbx-w) 0 lbx-w 416 (new 'static 'rgba :a #x80))
-                      )
-                  )
-                )
-              )
-            )
-        )
-      )
+  "Draw letterbox bars.
+
+   Gjak2-polish (owner round-3 rejete, PORTAGE DE jak1) -- EN MODE NATIF CETTE FONCTION
+   N'EMET PLUS RIEN, A AUCUN FORMAT. Avant, la branche `use-vis?` = #f FORCAIT un cadre 16:9
+   et dessinait ses propres sprites (bandes horizontales sous 16:9, colonnes au-dessus) : ce
+   sont ces sprites-la que l'owner voyait, et aucune retouche de la camera ne pouvait les
+   effacer puisqu'ils sont peints PAR-DESSUS l'image, apres elle.
+
+   jak1 fait exactement l'inverse et c'est la forme portee ici
+   (goal_src/jak1/engine/game/main.gc, meme fonction) : les sprites ne sont emis que
+   (when (-> *pc-settings* use-vis?) ...), et la branche native ne dessine RIEN.
+   Le cadre de la cinematique est RECOMPOSE en amont par update-math-camera
+   (engine/gfx/math-camera.gc, branche real-movie?), qui rend deja une image au format de
+   l'ecran : il ne reste donc aucune zone a masquer.
+
+   Le `with-dma-buffer-add-bucket` est DANS le `when` et non autour, pour qu'en mode natif
+   il n'y ait pas meme un bucket ouvert -- zero octet de DMA, pas seulement zero sprite.
+
+   La branche `use-vis?` est le rendu PS2-fidele optionnel : elle garde les barres d'origine,
+   parce que la vue n'y est pas extensible (les donnees de visibilite du jeu la bornent)."
+  (#cond
+    ((not PC_PORT)
+     (with-dma-buffer-add-bucket ((dma-buf (-> (current-frame) global-buf))
+                                  (bucket-id screen-filter))
+       (draw-sprite2d-xy-absolute dma-buf 0 0 512 46 (new 'static 'rgba :a #x80))
+       (draw-sprite2d-xy-absolute dma-buf 0 370 512 47 (new 'static 'rgba :a #x80))
+       )
+     )
+    (#t
+     ;; original game mode keeps the PS2 bars. native mode emits no DMA at all.
+     (when (-> *pc-settings* use-vis?)
+       (with-dma-buffer-add-bucket ((dma-buf (-> (current-frame) global-buf))
+                                    (bucket-id screen-filter))
+         (draw-sprite2d-xy-absolute dma-buf 0 0 512 46 (new 'static 'rgba :a #x80))
+         (draw-sprite2d-xy-absolute dma-buf 0 370 512 47 (new 'static 'rgba :a #x80))
+         )
+       )
+     )
     )
   (none)
   )
@@ -944,6 +944,19 @@
       (if (< (-> *game-info* letterbox-time) (-> *display* base-clock frame-counter))
           (set! (-> *game-info* letterbox-time) (-> *display* base-clock frame-counter))
           )
+      ;; Gjak2-polish (owner round-3 rejete) -- LA DISJONCTION AJOUTEE ICI EST RETIREE, ET LE
+      ;; SITE D'APPEL REDEVIENT CELUI D'ORIGINE, ALIGNE SUR jak1
+      ;; (goal_src/jak1/engine/game/main.gc : (or aspect4x3 (not use-vis?))).
+      ;; Le round-3 avait ajoute (and (not use-vis?) (or (not (movie?)) (real-movie?))) comme
+      ;; SECOND terme du `or`. Ce garde ne pouvait RIEN decider : le PREMIER terme du meme `or`,
+      ;; (= (-> *setting-control* user-current aspect-ratio) 'aspect4x3), est VRAI precisement
+      ;; dans la configuration visee -- l'option << Fit to Screen >> ecrit elle-meme 'aspect4x3
+      ;; (pc/progress/progress-static-pc.gc, index 2 du carrousel de format) et c'est aussi le
+      ;; defaut du moteur (engine/game/settings.gc, scf-get-aspect -> 'aspect4x3). Un `or` dont
+      ;; le premier terme est vrai n'evalue jamais le second : `letterbox` etait appelee quoi
+      ;; qu'il arrive, et le correctif etait mort ne.
+      ;; Le correctif vit desormais dans `letterbox` elle-meme (voir sa docstring) : elle
+      ;; n'emet aucun sprite en mode natif. Etre appelee n'y dessine plus rien.
       (if (#if (not PC_PORT)
                (and (= (-> *setting-control* user-current aspect-ratio) 'aspect4x3)
                     (or (zero? *screen-shot-work*) (= (-> *screen-shot-work* count) -1))
@@ -951,15 +964,7 @@
            (or (and (= (-> *setting-control* user-current aspect-ratio) 'aspect4x3)
                     (or (zero? *screen-shot-work*) (= (-> *screen-shot-work* count) -1))
                     )
-               ;; Gjak2-polish (owner 2026-07-09): cutscenes must FILL the screen for
-               ;; fit-to-screen users. The prior fix corrected only the projection
-               ;; (math-camera real-movie? branch); these DRAWN black bars are a second,
-               ;; independent 16:9 forcer. Draw them only when NOT in a movie (scripted
-               ;; timed-letterbox) OR real-movie? (fixed-aspect/vis cutscene) is true, so a
-               ;; fit-to-screen (aspect-ratio-auto?) cutscene draws no bars and fills the
-               ;; screen. real-movie? already folds in (and actually-in-movie? (not auto?)).
-               (and (not (-> *pc-settings* use-vis?))
-                    (or (not (movie?)) (real-movie?)))))
+               (not (-> *pc-settings* use-vis?))))
           (letterbox)
           )
       )

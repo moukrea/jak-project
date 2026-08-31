@@ -380,20 +380,26 @@
   (none))
 
 
-(defun actually-in-movie? ()
-  "are we currently in a real cutscene/movie? Base predicate: used by discord and as the
-   in-cutscene test for letterboxing."
-  (and (!= #f *scene-player*) (nonzero? movie?) (movie?)))
-
 (defun real-movie? ()
-  "should the view be letterboxed to the original 16x9 during a cutscene? Only when the
-   player is NOT using a fit-to-screen (auto) aspect. Fit-to-screen users want cutscenes
-   to FOLLOW their configured aspect the same way gameplay does (owner request,
-   Gjak2-polish): with aspect-ratio-auto? on this returns #f, so update-math-camera
-   (math-camera.gc:88) takes the same extended-aspect branch gameplay already uses.
-   Fixed-aspect / vis users keep the classic 16x9 cutscene letterbox."
-  (and (actually-in-movie?)
-       (not (-> *pc-settings* aspect-ratio-auto?))))
+  "are we in an actual cutscene? (jak2 stock predicate, restored)
+
+   Gjak2-polish -- CE QUI A ETE RETIRE ET POURQUOI (round-3 defait) :
+   le round-3 avait scinde ce predicat en `actually-in-movie?` + un `real-movie?` qui valait
+   (and (actually-in-movie?) (not (-> *pc-settings* aspect-ratio-auto?))), c'est-a-dire un
+   predicat << on est en cinematique >> qui devenait FAUX des que l'utilisateur choisit
+   << Fit to Screen >>. Deux raisons de l'annuler :
+     1. jak1 a laisse SON predicat stock (goal_src/jak1/pc/pckernel-common.gc, real-movie? =
+        (and (nonzero? movie?) (movie?))) et pose son correctif de cadrage AILLEURS -- dans
+        `letterbox` (engine/game/main.gc) et dans la branche real-movie? de update-math-camera
+        (engine/gfx/math-camera.gc). Le mandat de l'owner est de PORTER jak1, pas de reinventer ;
+     2. effet de bord constate : `real-movie?` alimente aussi le RPC Discord ci-dessous
+        (champ `cutscene?`), qui devenait faux en fit-to-screen alors qu'une cinematique JOUE.
+        Un predicat d'etat ne doit pas dependre d'un reglage d'affichage.
+   `actually-in-movie?` n'avait aucun autre appelant (verifie par grep sur goal_src/jak2/) :
+   les deux fonctions sont donc refondues en une seule, la stock.
+   NB par rapport a jak1 : le terme (!= #f *scene-player*) est propre au jak2 AMONT
+   (upstream 9749e42fb9) et n'est PAS une addition de ce projet -- il est conserve tel quel."
+  (and (!= #f *scene-player*) (nonzero? movie?) (movie?)))
 
 (defmethod update-discord-rpc ((obj pc-settings-jak2))
   "update discord rpc module"

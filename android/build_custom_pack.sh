@@ -249,6 +249,32 @@ nd_hd_exclusion_guard(){
 # || true: grep -o | head -1 close the pipe early -> SIGPIPE(141) would abort under
 # set -euo pipefail even on a successful match.
 MARKER=$(grep -a -o 'ogflags:[a-zA-Z0-9:_.-]*' "$GAME_CGO" | head -1 || true)
+
+# --- Gjak2-polish 2026-08-31 : LE MARQUEUR DE DRAPEAUX EST UNE NOTION PROPRE A JAK 1. ---
+# Les drapeaux Recharged (hd-models, pbr, physics, recharged-hud, grass-overhang, ...) gatent du
+# code qui n'existe QUE dans goal_src/jak1/pc/. jak2 et jak3 n'en embarquent aucun : leur jeu de
+# drapeaux est vide PAR CONSTRUCTION, pas par oubli (goal_src/jak2/pc/recharged-flags.gc les pose
+# tous a #f, et c'est ce qui permet au build jak2 de compiler du tout).
+# Exiger d'eux un marqueur Recharged etait donc une erreur de categorie : le pack jak2 mourait sur
+#   [custom-pack] FATAL: pre-flag-era CGO set — rebuild via ./build.sh android-arm64
+# alors qu'aucune valeur de marqueur n'aurait ete a la fois acceptable ici ET pour deploy_verify
+# (qui, lui, exige que le marqueur du CGO soit EGAL a celui du libgk s'il existe : un marqueur
+# jak2 « vide » echouerait l'appariement, un marqueur copie de jak1 mentirait sur ce que jak2
+# a compile). L'absence de marqueur est la seule reponse juste pour ces jeux — et deploy_verify
+# la traite deja comme telle (« warn: device CGOs carry no ogflags marker »).
+# JAK 1 N'EST PAS ASSOUPLI : pour lui le marqueur reste OBLIGATOIRE et son inversion aussi.
+NO_FLAGS_BY_CONSTRUCTION=0
+if [ -z "$MARKER" ] && [ "$GAME" != "jak1" ]; then
+  NO_FLAGS_BY_CONSTRUCTION=1
+fi
+# Initialises AVANT la bifurcation : la branche « sans drapeaux » doit laisser des F_* definis
+# (set -u), et la branche jak1 les reecrit depuis l'inversion du hash.
+F_DEBUG=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_HUD=0; F_VULKAN=0; F_PHYSICS=0
+
+if [ "$NO_FLAGS_BY_CONSTRUCTION" -eq 1 ]; then
+  # Tous les F_* sont deja a 0 ci-dessous ; rien de flag-gate ne sera stage.
+  echo "[custom-pack] $GAME : aucun marqueur ogflags dans GAME.CGO — jeu de drapeaux VIDE par construction (aucune fonctionnalite Recharged n'existe hors de jak1). Inversion du hash sautee."
+else
 [ -n "$MARKER" ] || fail "pre-flag-era CGO set — rebuild via ./build.sh android-arm64"
 # marker = ogflags:<hash>:<target>
 HASH="${MARKER#ogflags:}"; HASH="${HASH%%:*}"
@@ -257,7 +283,6 @@ HASH="${MARKER#ogflags:}"; HASH="${HASH%%:*}"
 # Enumerate 256 subsets of the 8 flags (alphabetical universe), hash each canonical
 # (alphabetical comma-join) string, match against HASH.
 ALL_FLAGS=(debug grass-overhang hd-models menu-overhaul pbr physics recharged-hud vulkan-support)
-F_DEBUG=0; F_OVERHANG=0; F_HDMODELS=0; F_PBR=0; F_HUD=0; F_VULKAN=0; F_PHYSICS=0
 FOUND=0; MATCHED_STR=""
 for mask in $(seq 0 255); do
   set_list=()
@@ -284,6 +309,7 @@ for mask in $(seq 0 255); do
 done
 [ "$FOUND" -eq 1 ] || fail "pre-flag-era CGO set — rebuild via ./build.sh android-arm64"
 echo "[custom-pack] marker=$MARKER  flags='${MATCHED_STR:-<none>}' (hud=$F_HUD overhang=$F_OVERHANG hd-models=$F_HDMODELS pbr=$F_PBR physics=$F_PHYSICS vulkan=$F_VULKAN)"
+fi
 
 mkdir -p "$OUT_DIR"
 rm -rf "$STAGE"

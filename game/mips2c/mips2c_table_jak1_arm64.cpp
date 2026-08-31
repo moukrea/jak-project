@@ -1098,13 +1098,45 @@ bool a37_name_is_real_jak2(const std::string& name) {
       // 18/20/21 were still noop). So collide-cache 17 is real AND nav-engine 17/18/20/21 are
       // real together -> correct ceiling/ground + crash-free. Runtime A/B: setprop
       // debug.opengoal.jak2.noop_names "(method 17 collide-cache)" reverts to the 0-noop. ---
-      "(method 17 collide-cache)",
-      // Gjak2-polish: the four nav-engine (nav-mesh) mips2c methods the collide/find-ground
-      // path feeds into. Enable them TOGETHER with method 17 collide-cache (above): with any
-      // one noop'd the mesh pointer is garbage and the path SIGILLs/SIGSEGVs. Registered in
-      // nav_mesh.cpp (:771/:835/:278/:935); device A/B (LEG-2) boots clean into gameplay.
-      "(method 17 nav-engine)", "(method 18 nav-engine)",
-      "(method 20 nav-engine)", "(method 21 nav-engine)",
+      // --- DESARMEES LE 2026-08-31 (Gjak2-polish round-4). L'OWNER A REPRODUIT LA CASSE. ---
+      // Verbatim 2026-07-10 : « Je peux pas casser les caisses, la premiere plateforme qui
+      // bouge du jeu je peux pas y sauter dessus, la collision fait comme si j'etais en chute
+      // dessus, et je fini par tomber a cote. ça arrive tres vite dans le progres du premier
+      // niveau. » -> Jak 2 PARKE par l'owner sur cette regression.
+      //
+      // Les cinq noms ci-dessous (method 17 collide-cache + les quatre nav-engine) etaient
+      // ARMES ENSEMBLE par le correctif crouch-lock. Ils allument sur arm64 le chemin
+      // nav-mesh + sonde-spheres dont les MATHS divergent, et c'est ce chemin que la repro
+      // de l'owner casse. L'audit qui concluait « les correctifs maths jak1 couvrent deja »
+      // a ete REFUTE par sa repro : un audit ne bat pas un oeil qui voit le defaut.
+      //
+      // CE QUI REMPLACE L'ARMEMENT, ET POURQUOI LE CROUCH-LOCK NE REVIENT PAS. Le crouch-lock
+      // ne venait pas de l'absence du vrai calcul, il venait de la VALEUR DE RETOUR du noop :
+      //   can-exit-duck? (jak2/engine/target/target-util.gc:1288)
+      //     = (if (fill-and-probe-using-spheres *collide-cache* gp-0) #f #t)
+      //   fill-and-probe-using-spheres (jak2/engine/collide/collide-cache.gc:821)
+      //     = (fill-using-spheres ...) puis (probe-using-spheres this arg0) = method 17
+      // et le noop partage rend l'entier 0 (a37_shared_noop_offset_jak2, :1205). En GOAL
+      // SEUL s7 est faux : 0 est VRAI. La sonde repondait donc « plafond touche » a chaque
+      // image -> can-exit-duck? = #f pour toujours -> Jak coince accroupi.
+      // Method 17 est donc reroutee vers un noop qui rend s7 (#f) — voir
+      // a37_shared_false_noop_offset_jak2() plus bas. La sonde repond « rien au-dessus »,
+      // Jak se releve, et AUCUN calcul de collision arm64 n'est rallume : on revient au
+      // chemin d'avant le correctif crouch, celui que l'owner decrivait comme sain
+      // (« bizarre, le build precedent n'avait pas ce probleme »).
+      //
+      // COUT ASSUME ET NON MASQUE : les autres consommateurs de probe-using-spheres
+      // (edge-grab collide-edge-grab.gc:232, carry, gun, mech, board, dark-jak) passent de
+      // « toujours obstrue » a « jamais obstrue ». C'est un defaut de gameplay, pas un
+      // plantage, et c'est strictement moins grave que la repro de l'owner. Le vrai correctif
+      // reste de rendre les maths arm64 justes sur ces cinq corps.
+      //
+      // REARMEMENT SANS REBUILD (A/B pour la phase qui reprendra les maths) :
+      //   setprop debug.opengoal.jak2.enable_names "(method 17 collide-cache),nav-engine"
+      // enable_names force-active un nom meme absent de kSetJak2 (voir plus bas).
+      // "(method 17 collide-cache)",
+      // "(method 17 nav-engine)", "(method 18 nav-engine)",
+      // "(method 20 nav-engine)", "(method 21 nav-engine)",
       // --- These sub-families remain DEFAULT-OFF, each with its OWN boot SIGSEGV
       // (Gjak2-ingame bisect): spatial-hash 33/35/36/37/39 crash at pc 0x1c77f40 (each
       // method individually); sphere-hash 28-33 never isolated (co-enabled only).
@@ -1211,19 +1243,61 @@ u32 a37_shared_noop_offset_jak2() {
   }
   return s_cached;
 }
+
+// Gjak2-polish 2026-08-31 — LE SECOND NOOP, CELUI QUI REND #f.
+// Le noop partage ci-dessus rend l'entier 0. Pour une methode dont le contrat GOAL rend un
+// NOMBRE, 0 est la bonne reponse neutre. Pour une methode dont le contrat rend un SYMBOLE,
+// c'est la PIRE : en GOAL seul s7 est faux, donc 0 se lit « oui, trouve » — le noop repond
+// systematiquement l'inverse de « rien trouve ». C'est exactement ce qui tenait Jak accroupi
+// (cf. le bloc DESARMEES dans a37_name_is_real_jak2).
+u32 a37_shared_false_noop_offset_jak2() {
+  static u32 s_cached = 0;
+  if (!s_cached) {
+    s_cached = ::jak2::make_function_symbol_from_c("__a37-mips2c-noop-false",
+                                                   (void*)+[]() -> u64 { return s7.offset; })
+                   .offset;
+  }
+  return s_cached;
+}
+
+// Les noms noop'd dont le contrat GOAL rend un SYMBOLE, et qui doivent donc tomber sur le
+// noop #f et non sur le noop 0. Liste volontairement MINIMALE : on n'y met que ce qui est
+// etabli par le code appelant, jamais « par precaution ». Chaque entree cite son contrat.
+bool a37_noop_returns_false_jak2(const std::string& name) {
+  static const char* const kSymbolReturningJak2[] = {
+      // probe-using-spheres. Consommee comme booleen par
+      //   can-exit-duck? (jak2/engine/target/target-util.gc:1288) via
+      //   fill-and-probe-using-spheres (jak2/engine/collide/collide-cache.gc:821),
+      // et par collide-edge-grab.gc:232. Rend #f == « rien touche ».
+      "(method 17 collide-cache)",
+  };
+  for (auto* n : kSymbolReturningJak2) {
+    if (name == n) return true;
+  }
+  return false;
+}
 }  // namespace
 
 u32 LinkedFunctionTable::get(const std::string& name) {
   auto it = m_executes.find(name);
   const bool is_jak2 = (g_game_version == GameVersion::Jak2);
   const bool is_real = is_jak2 ? a37_name_is_real_jak2(name) : a37_name_is_real(name);
-  const u32 noop = is_jak2 ? a37_shared_noop_offset_jak2() : a37_shared_noop_offset();
+  // Gjak2-polish: pour jak2, une methode noop'd dont le contrat GOAL rend un SYMBOLE tombe
+  // sur le noop #f (s7), pas sur le noop 0 — 0 est VRAI en GOAL et repond donc l'inverse de
+  // « rien trouve ». Cf. a37_noop_returns_false_jak2().
+  const bool false_noop = is_jak2 && a37_noop_returns_false_jak2(name);
+  const u32 noop = is_jak2 ? (false_noop ? a37_shared_false_noop_offset_jak2()
+                                         : a37_shared_noop_offset_jak2())
+                           : a37_shared_noop_offset();
   if (it == m_executes.end() || !is_real) {
     static std::unordered_map<std::string, bool> s_logged;
     if (!s_logged[name]) {
       s_logged[name] = true;
       if (is_jak2) {
-        fprintf(stderr, "A37-MIPS2C-FALLBACK [jak2] %s -> shared noop (%s)\n", name.c_str(),
+        // Le noop employe est IMPRIME : c'est la seule trace qui prouve, sur l'appareil, que
+        // la sonde de plafond tombe bien sur #f et non sur 0 (un commentaire ne prouve rien).
+        fprintf(stderr, "A37-MIPS2C-FALLBACK [jak2] %s -> shared noop%s (%s)\n", name.c_str(),
+                false_noop ? "(#f/s7)" : "(0)",
                 it == m_executes.end() ? "not registered" : "not on allowlist yet");
       } else {
         fprintf(stderr, "A37-MIPS2C-FALLBACK %s -> shared noop (%s)\n", name.c_str(),

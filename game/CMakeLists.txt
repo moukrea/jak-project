@@ -395,6 +395,18 @@ if(NOT (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
                 # bit-exactness is guaranteed across compiler/NDK changes — same rationale as the
                 # collide TUs above. No-op on today's build (already non-contracted).
                 mips2c/jak1_functions/sparticle.cpp
+                # Gjak2-polish 2026-08-31: les memes TU pour jak2 — la liste Gcollision-arm
+                # n'avait jamais ete etendue au second jeu (501 FMA fusionnees mesurees dans
+                # les objets arm64 livres, contre 0 chez les jumelles jak1 ; detail et mise en
+                # garde sur la mesure dans android/CMakeLists.txt). Ici c'est surtout une
+                # garantie : le desktop compile sans -mfma, donc l'oracle x86 ne contractait
+                # deja pas — on le verrouille au lieu de dependre de la chance, exactement
+                # comme le commentaire sparticle ci-dessus le fait pour jak1.
+                mips2c/jak2_functions/collide_cache.cpp
+                mips2c/jak2_functions/collide_edge_grab.cpp
+                mips2c/jak2_functions/collide_func.cpp
+                mips2c/jak2_functions/collide_hash.cpp
+                mips2c/jak2_functions/collide_mesh.cpp
                 PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
         # Grecharged-grass-precompute-mode: keep the x86 bake tool and the arm64 runtime float-identical —

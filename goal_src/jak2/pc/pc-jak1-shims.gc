@@ -1,0 +1,37 @@
+;;-*-Lisp-*-
+(in-package goal)
+
+;; Gjak2-polish 2026-08-31 — CALES POUR LES CROCHETS JAK1-SEULEMENT DU PCKERNEL PARTAGE.
+;;
+;; jak2 compile TROIS fichiers de jak1 (goal_src/jak2/lib/project-lib.gp:220-228) :
+;; `pckernel-h`, `pckernel-common`, `pc-debug-common`. Quand une phase Recharged ajoute un
+;; crochet a `pckernel-common.gc`, ce crochet part AUSSI dans les CGO de jak2 — alors que
+;; la fonction appelee, elle, vit dans goal_src/jak1/pc/ et n'est jamais compilee pour jak2.
+;;
+;; Deux crochets de ce genre existent aujourd'hui dans (update pc-settings) :
+;;   * pckernel-common.gc:564  (#when FLAG_HD_MODELS (maybe-spawn-jak-hd!))
+;;       -> neutralise A LA COMPILATION par FLAG_HD_MODELS = #f
+;;          (goal_src/jak2/pc/recharged-flags.gc). Rien a caler ici.
+;;   * pckernel-common.gc:557  (mesh-browser-update)
+;;       -> appele SANS AUCUNE garde, et seulement `define-extern`'d (:32), donc il compile
+;;          pour jak2 et se resout PAR SYMBOLE a l'execution. `mesh-browser-pc.gc` etant
+;;          jak1-seulement (verifie : 0 definition dans goal_src/jak2), le symbole n'a pas
+;;          de fonction sur jak2 et l'appel a lieu a CHAQUE image depuis (update *pc-settings*).
+;;
+;; D'ou la cale ci-dessous. Elle est volontairement VIDE : le navigateur de mesh est un
+;; overlay de debug de jak1, jak2 n'a rien a en faire. Le cout est un appel de fonction vide
+;; par image, dans une methode qui en fait deja une vingtaine.
+;;
+;; POURQUOI ICI ET PAS DANS pckernel-common.gc. Garder le correctif du cote jak2 laisse le
+;; build jak1 — le jeu activement developpe — bit-pour-bit inchange. La solution durable est
+;; de gater le crochet dans le fichier PARTAGE (comme l'est deja celui des HD-models), pour
+;; que le prochain crochet Recharged ne reparte pas en silence dans jak2 ; c'est ecrit dans
+;; le rapport de phase, pas pose ici pendant que jak2 est parke.
+;;
+;; NON PROUVE A L'EXECUTION : jak2 n'a pas encore boote avec cette cale au moment ou elle est
+;; ecrite (le build jak2 etait mort, cf. recharged-flags.gc). Elle est deduite du code, pas
+;; d'une trace.
+
+(defun mesh-browser-update ()
+  "Cale jak2 du crochet jak1 `mesh-browser-update` (pckernel-common.gc:557). No-op."
+  (none))

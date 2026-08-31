@@ -57,6 +57,30 @@ renderers that want a single matrix.
 
 (define *math-camera-fog-correction* (new 'global 'fog-corrector))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gjak2-polish -- TEMOINS DE LA BRANCHE DE CADRAGE (portes de jak1)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Les rounds 2 et 3 ont RELU le `cond` de update-math-camera et declare la formule bonne. Le
+;; defaut a survecu aux deux, et aucun des deux n'a jamais pu dire QUELLE BRANCHE s'executait
+;; pendant une vraie cinematique. jak1 a regle ca avec ces deux globales
+;; (goal_src/jak1/engine/gfx/math-camera.gc) ; elles sont portees ici a l'identique.
+;;
+;; a) *cine-branch* -- IDENTITE de la branche qui a tourne (pas une grandeur, pas une moyenne).
+;;    Ecrite dans LES TROIS branches, une fois par appel, sans condition.
+;;    Valeur si rien n'a tourne : 'none, distincte des trois valeurs de branche -- donc
+;;    << jamais appele >> ne peut pas se confondre avec une branche qui aurait tire.
+;;    Convention identique a jak1, et c'est ce que son harnais grep deja
+;;    (CINEBRANCH taken=usevis|realmovie|else) : 'usevis / 'realmovie / 'else.
+(define *cine-branch* 'none)
+
+;; b) *cine-legacy-y* -- INTERRUPTEUR D'ABLATION, defaut #f. Arme, il fait rejouer a la branche
+;;    cinematique l'ANCIEN calcul (forcage du cadre 16:9), pour que la perte de champ se mesure
+;;    sur LE MEME BINAIRE, la meme scene et les memes formats, au lieu de comparer deux
+;;    constructions. C'est le CONTROLE POSITIF : on doit pouvoir refaire apparaitre le defaut a
+;;    volonte. Aucun chemin de jeu ne l'arme ; seule une course de mesure le fait, depuis le
+;;    listener.
+(define *cine-legacy-y* #f)
+
 
 (defun update-math-camera ((arg0 math-camera) (arg1 symbol) (arg2 symbol) (arg3 float))
   "Compute some one-time camera constants.  These should only change when changing aspect ratio."
@@ -68,24 +92,54 @@ renderers that want a single matrix.
       (set! (-> arg0 y-ratio) (* 0.75 (-> arg0 x-ratio)))
       (set! (-> arg0 y-ratio) (* 0.5625 (-> arg0 x-ratio)))
       )
+  ;; PIEGE NOMME PAR jak1 (goal_src/jak1/engine/gfx/math-camera.gc), A LIRE AVANT DE TOUCHER
+  ;; QUOI QUE CE SOIT ICI : `use-vis?` est teste EN PREMIER dans ce `cond`. Si `use-vis?` est
+  ;; vrai, la branche cinematique n'est JAMAIS atteinte et toute retouche qu'on y ferait est
+  ;; sans effet -- c'est ce qui a fait perdre plusieurs rounds. Or les options << 4:3 >> et
+  ;; << 16:9 >> du menu de format de jak2 mettent justement `use-vis?` a #t
+  ;; (pc/progress/progress-static-pc.gc, indices 0 et 1 du carrousel) ; seule << Fit to Screen >>
+  ;; (indice 2) le met a #f. Donc : mesurer *cine-branch* AVANT de conclure quoi que ce soit.
   (with-pc
     (cond
       ((-> *pc-settings* use-vis?)
+       (set! *cine-branch* 'usevis)
        ;; using game vis, cannot allow seeing more of the view
        ;; crops excess aspect ratio at the top and bottom
        ;(set! (-> arg0 y-ratio) (* (1/ (-> *pc-settings* aspect-ratio)) (-> arg0 x-ratio)))
        )
       ((real-movie?)
-       ;; this mess is just so that we can force the original 16x9 cropping during cutscenes.
-       (if (<= (-> *pc-settings* aspect-ratio) ASPECT_16X9)
-           (set! (-> arg0 y-ratio) (* (1/ (-> *pc-settings* aspect-ratio)) (-> arg0 x-ratio)))
-           (begin
-              (set! (-> arg0 y-ratio) (* (1/ ASPECT_16X9) (-> arg0 x-ratio)))
-              (*! (-> arg0 x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9))
+       (set! *cine-branch* 'realmovie)
+       ;; CETTE BRANCHE EST DESORMAIS IDENTIQUE A `else`, ET C'EST VOULU, PAS UN DOUBLON OUBLIE.
+       ;; Portage de jak1 (meme fonction, meme branche, meme commentaire) : en mode natif on ne
+       ;; pose plus aucun cache par-dessus l'image (`letterbox` n'emet plus rien, voir
+       ;; engine/game/main.gc), donc il n'y a plus aucune raison de retirer du champ a l'entree
+       ;; d'une cinematique. Le cadrage d'une cinematique EST celui du jeu.
+       ;; Elle reste ecrite separement pour que le temoin de branche garde son pouvoir de
+       ;; discrimination et pour que la decision reste lisible.
+       (cond
+         (*cine-legacy-y*
+          ;; ABLATION (controle positif) : l'ANCIEN calcul, celui qui forcait le cadrage 16:9
+          ;; d'origine. Ce n'est pas du commentaire, c'est du code vivant : arme
+          ;; `*cine-legacy-y*` depuis le listener et le defaut revient sur le meme binaire.
+          (if (<= (-> *pc-settings* aspect-ratio) ASPECT_16X9)
+              (set! (-> arg0 y-ratio) (* (1/ (-> *pc-settings* aspect-ratio)) (-> arg0 x-ratio)))
+              (begin
+                 (set! (-> arg0 y-ratio) (* (1/ ASPECT_16X9) (-> arg0 x-ratio)))
+                 (*! (-> arg0 x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_16X9))
+                 )
               )
-           )
+          )
+         (else
+          ;; EXACTEMENT le calcul de la branche `else` ci-dessous, dans le meme ordre :
+          ;; y depuis le x d'origine, PUIS x elargi. Le champ vertical est celui du jeu et le
+          ;; champ horizontal s'etend jusqu'au format reel de l'ecran.
+          (set! (-> arg0 y-ratio) (* (1/ ASPECT_4X3) (-> arg0 x-ratio)))
+          (*! (-> arg0 x-ratio) (/ (-> *pc-settings* aspect-ratio) ASPECT_4X3))
+          )
+         )
        )
       (else
+       (set! *cine-branch* 'else)
        ;; not using game vis, allow *extended* aspect ratios
        ;; there is no vertical cropping, and you can see more of the sides
        (set! (-> arg0 y-ratio) (* (1/ ASPECT_4X3) (-> arg0 x-ratio))) ;; same cropping as 4x3

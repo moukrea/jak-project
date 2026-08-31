@@ -510,6 +510,42 @@ set_source_files_properties(
     # bit-identical to the original per-op mips2c VU0 path. Same IEEE-strict
     # requirement as the collision TUs above.
     "${JAK_ROOT}/game/mips2c/jak1_functions/sparticle.cpp"
+    # ---------------------------------------------------------------------------------
+    # Gjak2-polish 2026-08-31 — LE MEME CORRECTIF, JAMAIS ETENDU A JAK 2.
+    # L'owner, 2026-07-09 : « au lieu d'avoir tire des lecons de Jak 1 on reinvente la roue
+    # pour le 2, c'est bizarre et surtout wasteful. » En voici une, litterale : la liste
+    # ci-dessus (Gcollision-arm) ne contenait QUE des TU jak1. Les TU de collision de jak2
+    # sont compilees depuis toujours avec la contraction FMA active.
+    #
+    # MESURE SUR L'ARTEFACT LIVRE (llvm-objdump du NDK sur build-android/.../mips2c/*.o,
+    # comptage de fmla|fmadd|fmsub|fmls), AVANT ce correctif :
+    #     jak1_functions/collide_cache .....   0        jak2_functions/collide_cache ....  66
+    #     jak1_functions/collide_mesh ......   0        jak2_functions/collide_mesh ..... 315
+    #                                                   jak2_functions/collide_hash .....  70
+    #                                                   jak2_functions/collide_func .....  38
+    #                                                   jak2_functions/collide_edge_grab   12
+    # Soit 501 multiply-add FUSIONNES (un seul arrondi) la ou l'oracle x86 en fait deux.
+    # C'est mot pour mot la divergence que Gcollision-arm avait dû neutraliser pour jak1.
+    #
+    # ATTENTION A LA MESURE : `objdump` du systeme est x86 et repond « ne peut desassembler
+    # pour l'architecture UNKNOWN » en sortant 0 partout — un FAUX ZERO silencieux. Utiliser
+    # le llvm-objdump du NDK pour re-mesurer, et exiger 0 sur les cinq TU apres rebuild.
+    #
+    # PORTEE : les cinq TU de collision de jak2, exactement comme le precedent jak1 se
+    # limitait aux cinq collide_*.cpp. jak2_functions/sparticle.cpp n'y est PAS : son ajout
+    # cote jak1 venait d'un chemin rapide NEON propre a jak1 (Gperf-particles2), qui n'existe
+    # pas ici — on ne l'ajoute pas « par symetrie » sans defaut mesure.
+    #
+    # NON PROUVE : que cette contraction SOIT la cause de la repro de l'owner (caisses
+    # incassables, plateforme mobile ratee). Le lien de causalite n'est pas etabli — aucun
+    # chemin GOAL de caisse ou de plateforme n'appelle les corps armes par le correctif
+    # crouch. Ce qui EST etabli, c'est que la collision jak2 sur arm64 n'est pas
+    # bit-identique a son oracle x86, et que jak1 avait juge cela inacceptable.
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_cache.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_edge_grab.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_func.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_hash.cpp"
+    "${JAK_ROOT}/game/mips2c/jak2_functions/collide_mesh.cpp"
     PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
 # Grecharged-grass-precompute-mode: keep the x86 bake tool and the arm64 runtime float-identical —

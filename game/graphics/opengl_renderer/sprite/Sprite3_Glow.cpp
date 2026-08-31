@@ -18,6 +18,88 @@ struct SpriteGlowData {
 };
 static_assert(sizeof(SpriteGlowData) == 16 * 4);
 
+// ===========================================================================================
+// Gjak2-polish 2026-08-31 — DE QUOI MESURER LE GLOW, PARCE QUE DEUX CORRECTIFS A L'AVEUGLE
+// ONT DEJA ETE REJETES.
+//
+// Etat etabli avant d'ecrire ceci :
+//   * la lecon jak1 est DEJA portee — GlowRenderer.h:16-27 met `new_mode = false` sous
+//     __ANDROID__ depuis c9b2102360 (« every glow visibility probe reads as fully visible
+//     and the sun-glow flare draws at full additive intensity -> the blob »). Il n'y a donc
+//     pas de correctif jak1 en attente de portage : il manque une MESURE ;
+//   * le beat de l'owner est nomme : `group-intro-rift-gate-off`, frames 360-2000
+//     (goal_src/jak2/levels/intro/intro-scenes.gc:2404-2414), avec les parts glow 5335 et
+//     5336 a size_x = 40 m et 90 m (:699, :718) ; apres le beat, 5 m et 48 m en glow-soft ;
+//   * une AUTRE famille peut expliquer ce qu'il voit : la part 5334 (:683-697) est un
+//     `harddot` de 24 m a alpha 255 SANS le flag glow — elle ne passe ni par la sonde ni par
+//     GlowRenderer, donc aucun correctif de ce fichier ne peut l'atteindre. C'est
+//     exactement ce que deux rounds sans effet suggerent.
+//
+// Ces trois interrupteurs tranchent entre ces familles SANS rebuild :
+//   setprop debug.opengoal.glow.off      1    -> glow entierement ablate.
+//        Si l'image ne change PAS sur le beat, GlowRenderer est DISCULPE et le suspect est
+//        la part 5334 par le chemin sprite ordinaire.
+//   setprop debug.opengoal.glow.newmode  1|0  -> force le chemin de sonde (1 = « new »,
+//        celui que le correctif jak1 desarme sur Adreno). Doit FAIRE REVENIR la boule : c'est
+//        le controle positif du correctif deja porte.
+//   setprop debug.opengoal.glow.trace    1    -> publie les grandeurs d'entree/sortie.
+// Sur bureau (pas de properties Android) tout est inerte : OFF == stock, par construction.
+// ===========================================================================================
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+namespace {
+bool gj2_prop_flag(const char* name) {
+  char b[PROP_VALUE_MAX] = {0};
+  return __system_property_get(name, b) > 0 && b[0] == '1';
+}
+int gj2_prop_tristate(const char* name) {
+  char b[PROP_VALUE_MAX] = {0};
+  if (__system_property_get(name, b) <= 0 || b[0] == '\0') {
+    return -1;  // non pose -> on ne surcharge rien
+  }
+  return b[0] == '1' ? 1 : 0;
+}
+}  // namespace
+static bool gj2_glow_disabled() {
+  static const bool s = gj2_prop_flag("debug.opengoal.glow.off");
+  return s;
+}
+static int gj2_glow_mode_override() {
+  static const int s = gj2_prop_tristate("debug.opengoal.glow.newmode");
+  return s;
+}
+static void gj2_glow_trace(float size_probe,
+                           float size_x,
+                           float size_y,
+                           const math::Vector4f& flare_color,
+                           float perspective_q,
+                           bool new_mode) {
+  static const bool on = gj2_prop_flag("debug.opengoal.glow.trace");
+  if (!on) {
+    return;
+  }
+  // Une ligne sur 60 : le beat dure ~1600 frames et chaque frame porte plusieurs sprites.
+  // Assez pour voir les deux beats, pas assez pour noyer logcat (lecon
+  // « instrument sans fermeture = livre arme » : ce traceur est OPT-IN au producteur).
+  static u32 n = 0;
+  if ((n++ % 60) != 0) {
+    return;
+  }
+  fprintf(stderr,
+          "GJ2GLOW n=%u probe=%.3f sx=%.3f sy=%.3f q=%.5f flare=%.3f/%.3f/%.3f/%.3f newmode=%d\n",
+          n - 1, size_probe, size_x, size_y, perspective_q, flare_color.x(), flare_color.y(),
+          flare_color.z(), flare_color.w(), new_mode ? 1 : 0);
+}
+#else
+static bool gj2_glow_disabled() {
+  return false;
+}
+static int gj2_glow_mode_override() {
+  return -1;
+}
+static void gj2_glow_trace(float, float, float, const math::Vector4f&, float, bool) {}
+#endif
+
 /*!
  * Transformation math from the sprite-glow vu1 program.
  * Populates the SpriteGlowOutput struct with the same data that would get filled into the
@@ -218,13 +300,32 @@ void Sprite3::glow_dma_and_draw(DmaFollower& dma,
     ASSERT(vecdata_xfer.size_bytes == 4 * 16);
     ASSERT(shader_xfer.size_bytes == 5 * 16);
 
-    if (m_enable_glow) {
+    // Gjak2-polish 2026-08-31 — INSTRUMENT, PAS CORRECTIF (voir le bloc gj2_glow_* ci-dessus).
+    // L'owner a rejete DEUX correctifs de glow a l'aveugle. On ne corrige pas une troisieme
+    // fois sans mesure : on rend le defaut ABLATABLE et ses entrees LISIBLES.
+    if (m_enable_glow && !gj2_glow_disabled()) {
       if (m_glow_renderer.at_max_capacity()) {
         m_glow_renderer.flush(render_state, prof);
       }
+      // Bascule d'A/B du correctif jak1 DEJA porte (GlowRenderer.h:16-27, new_mode=false sur
+      // Android) : le remettre a true doit FAIRE REVENIR la boule. C'est le controle positif.
+      const int mode_override = gj2_glow_mode_override();
+      const bool use_new_mode =
+          (mode_override < 0) ? m_glow_renderer.new_mode : (mode_override != 0);
+      m_glow_renderer.new_mode = use_new_mode;
       auto* out = m_glow_renderer.alloc_sprite();
-      if (!glow_math(&consts, m_glow_renderer.new_mode, vecdata_xfer.data, shader_xfer.data, out)) {
+      if (!glow_math(&consts, use_new_mode, vecdata_xfer.data, shader_xfer.data, out)) {
         m_glow_renderer.cancel_sprite();
+      } else {
+        // Les GRANDEURS D'ENTREE du glow, telles que l'authoring les envoie, a cote des
+        // grandeurs de SORTIE. C'est le « state-dump glow size/interp » que le prompt de
+        // phase reclame depuis le round-2 et qui n'a jamais ete produit. Les parts du beat
+        // pre-metalheads (group-intro-rift-gate-off, intro-scenes.gc:699/718) portent
+        // size_x = 40 m et 90 m ; celles d'apres le beat, 5 m et 48 m en glow-soft. Si les
+        // deux beats rendent la meme chose ici, la difference n'est pas dans l'authoring.
+        const auto* gin = (const SpriteGlowData*)vecdata_xfer.data;
+        gj2_glow_trace(gin->size_probe, gin->size_x, gin->size_y, out->flare_draw_color,
+                       out->perspective_q, use_new_mode);
       }
     }
 

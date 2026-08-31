@@ -31,6 +31,10 @@
   "dma-disasm.o"
   "statistics-h.o" ;; added
   "pc-cheats.o" ;; added
+  ;; Gjak2-polish: le contexte de drapeaux de compilation de jak2. DOIT preceder
+  ;; pckernel-common.o, qui est repris de jak1 et porte des `#when FLAG_*`
+  ;; (goal_src/jak2/pc/recharged-flags.gc explique pourquoi le build jak2 mourait sans lui).
+  "recharged-flags.o" ;; added
   "pckernel-h.o" ;; added
   "pckernel-impl.o" ;; added
   "pc-debug-common.o" ;; added
@@ -340,6 +344,9 @@
   "video.o"
   "capture-pc.o" ;; added
   "pckernel-common.o" ;; added
+  ;; Gjak2-polish: cales des crochets jak1-seulement que pckernel-common appelle par symbole.
+  ;; APRES pckernel-common.o, pour que le `define-extern` precede la definition.
+  "pc-jak1-shims.o" ;; added
   "pckernel.o" ;; added
   "subtitle2-h.o" ;; added
   "subtitle2.o" ;; added
