@@ -84,8 +84,19 @@ leg "R5-ON-blue" 1 3
 say "=== LEG C: recharged HUD OFF (stock A/B), BLUE eco ==="
 leg "R5-OFF-blue" 0 3
 
-adbs shell setprop debug.opengoal.eco.spawn "" >/dev/null 2>&1 || true
-adbs shell setprop debug.opengoal.cpad_inject "" >/dev/null 2>&1 || true
+# NE NETTOYAIT RIEN, ET CA LAISSAIT UN BOUTON ENFONCE. `adbs shell setprop <prop> ""` fait
+# consommer les guillemets vides par le shell LOCAL : adb recoit `setprop <prop>` SANS valeur,
+# ce qui est un no-op cote appareil. Mesure du 2026-08-31 apres une course complete :
+# `getprop debug.opengoal.cpad_inject` rendait encore 'l2' — donc L2 tenu pour la session
+# SUIVANTE, exactement le piege deja paye sur `cpad_inject` (saut mort = bouton coince, jamais
+# de front). La commande entiere doit etre quotee pour qu'un argument vide EXPLICITE arrive au
+# shell de l'appareil.
+adbs shell "setprop debug.opengoal.eco.spawn ''" >/dev/null 2>&1 || true
+adbs shell "setprop debug.opengoal.cpad_inject ''" >/dev/null 2>&1 || true
+for _p in debug.opengoal.cpad_inject debug.opengoal.eco.spawn; do
+  _v=$(adbs shell getprop "$_p" </dev/null 2>/dev/null | tr -d '\r')
+  [ -z "$_v" ] || say "[rhud5-hud WARN] $_p vaut encore '$_v' — bouton potentiellement coince"
+done
 set_key "recharged-hud?" "#t"
 NCRASH=$(adbs shell logcat -d 2>/dev/null | grep -acE 'Fatal signal|GK-DIAG sig=' || true)
 say "crash markers: ${NCRASH:-0}"
