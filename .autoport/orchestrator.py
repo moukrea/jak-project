@@ -1888,6 +1888,18 @@ def main(argv: list[str] | None = None) -> int:
         # Owner-gate resume: if a prior run already validated this owner_verify
         # phase, don't re-run the worker. If the owner has since dropped the OK
         # token, complete + advance; if not, pause again (zero worker burn).
+        # PHASE PARQUEE — on saute (2026-08-31 05:05). L'orchestrateur est entre dans
+        # Gjak2-polish, que l'owner avait fait parquer le 2026-07-10 pour une regression de
+        # collision, et dans Grecharged-materials-modern-parity. Il a rebati jak2 pendant
+        # une heure : le disque est tombe de 6,2 a 2,6 Go et le shell etait a nouveau menace.
+        # Le dict `parked` n'etait consulte NULLE PART dans ce fichier — il ne servait que de
+        # documentation. Il commande desormais un saut reel.
+        if pid in state.get("parked", {}) and pid not in state.get("completed", []):
+            console.print(f"[cyan]  phase {pid} PARQUEE par l'owner — sautee[/cyan]")
+            state["current_phase_idx"] += 1
+            save_state(state)
+            continue
+
         if phase.get("owner_verify", False) and pid in state.get("validator_passed", []):
             token = AUTOPORT_DIR / "owner-ok" / pid
             if token.exists():

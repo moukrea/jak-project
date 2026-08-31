@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 260,
+  "current_phase_idx": 262,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -677,6 +677,9 @@
     ],
     "Grecharged-materials-modern-parity": [
       "a4bf71a84b2f"
+    ],
+    "Gjak2-polish": [
+      "942fdc576466"
     ]
   },
   "stuck_reasons": {
@@ -1130,9 +1133,10 @@
     "Gcine-vertical-frame": 1788083523.7294478,
     "Gloading-screen-window": 1788089738.5346968,
     "Gloadgate-crash-regression": 1788103921.8125257,
-    "Ggrass-crash": 1788114432.1540587
+    "Ggrass-crash": 1788114432.1540587,
+    "Gsubtitle-style": 1788145720.1622245
   },
-  "last_update": "2026-08-31T03:06:03.426974+00:00",
+  "last_update": "2026-08-31T03:08:40.162227+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,

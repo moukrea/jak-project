@@ -235,6 +235,81 @@
 ;;;;  subtitle process and drawing!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;  Gsubtitle-style (owner 2026-08-30) : corps de ligne en BLANC PLEIN, et vraie
+;;;;  OMBRE PORTEE FLOUE a la place du texte duplique en noir.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; CE QUE LE MOTEUR FAIT AUJOURD'HUI -- lu dans le code, pas suppose.
+;;
+;; 1. `draw-string` (engine/gfx/font.gc:643) dessine CHAQUE chaine DEUX fois : une passe
+;;    « ombre » (font.gc:1043-1243) a `hvdf-off + (2*relative-x-scale, 1)` avec la couleur
+;;    PLATE `(-> *font-work* color-shadow)` = noir opaque (font-h.gc:367), puis une passe
+;;    « texte » (font.gc:1249-1516) a `hvdf-off` avec les quatre couleurs de sommet de
+;;    `color-table[index]`. C'est mot pour mot « le texte duplique legerement decale en
+;;    plain black » que l'owner decrit.
+;;
+;; 2. LE DRAPEAU `(font-flags shadow)` N'EST JAMAIS RELU dans jak1. Le bit 0 est calcule une
+;;    seule fois, dans un delay slot, et le registre est ecrase sans avoir servi :
+;;      font.gc:1141                (b! (nonzero? t6-16) cfg-125 :delay (logand a0-3 1))
+;;      mips2c draw_string.cpp:818  c->andi(t6, a0, 1);   puis :900  c->lq(t6, 48, v1);
+;;    (jak2 porte le `beq` qui manque ici : game/mips2c/jak2_functions/font.cpp:1586-1594.)
+;;    On ne peut donc PAS eteindre l'ombre dure en retirant le drapeau. Le seul levier est
+;;    l'alpha de `color-shadow`, deja ecrit par `set-font-color-alpha` (engine/ui/text.gc:249).
+;;
+;; 3. La passe ombre CONSOMME ET IGNORE les echappements de couleur `~NL` (font.gc:1075-1076) :
+;;    elle est uniformement noire quelle que soit la couleur du texte.
+;;
+;; PERIMETRE -- « faut pas que ca change le reste des textes ». Tout ce qui suit vit dans CE
+;; fichier. `print-game-subtitle` est un clone sous-titres de `print-game-text`
+;; (engine/ui/text.gc) et n'a que cinq appelants, tous ici ; le bucket DMA est le 69
+;; (`(bucket-id subtitle)`, engine/dma/dma-h.gc:242). Les 215 autres sites de texte du jeu
+;; passent par `print-game-text` / `draw-string-xy` et ne voient rien de ce qui suit.
+;; AUCUN fichier partage n'est modifie : ni `font.gc`, ni `font-h.gc`, ni `text.gc`.
+;;
+;; LES DEUX COULEURS. `(-> *font-work* color-table)` porte 64 emplacements pour un enum qui
+;; s'arrete a 34 ; le 35 appartient deja a l'ecran de chargement (pc/loading-screen-pc.gc:348).
+;; On prend 36 et 37, a l'execution, depuis ce fichier : UN SEUL ECRIVAIN. Livres a zero, ces
+;; emplacements dessineraient du texte a alpha 0 -- donc invisible : c'est la preuve que
+;; personne ne s'en sert.
+;;   36 = BLANC PLEIN pour le corps de la ligne. Il en fallait un NEUF : ni `default` (00,
+;;        #x70/#x78/#x70 en haut -> #x30/#x38/#x30 en bas, gris-vert -- c'est ce que le corps
+;;        portait), ni `white` (01, #x80 -> #x60, degrade lui aussi) ne sont plats, et `white`
+;;        est partage avec le debug, les reglages de camera et les reperes d'acteurs.
+;;   37 = NOIR PLAT pour les prises de l'ombre ; son alpha est repose a chaque prise.
+;; Le NOM du locuteur ne bouge pas : il reste sur `~3L` (03 = `red`, #x80/#x60/#x20 en haut ->
+;; #x60/#x00/#x00 en bas), c'est-a-dire sa couleur ET son leger degrade, comme demande.
+(defconstant SUB_FONT_SLOT_WHITE  36)
+(defconstant SUB_FONT_SLOT_SHADOW 37)
+(defconstant SUB_FONT_WHITE #x80808080) ;; rgba r=g=b=#x80 (pleine echelle GS = FF a l'ecran), a=#x80
+(defconstant SUB_FONT_BLACK #x80000000) ;; rgba r=g=b=#x00, a=#x80 (repose par prise)
+
+;; Echappements de couleur inseres dans la chaine LIVREE. La passe d'ombre les recoit VIDES :
+;; les caracteres visibles sont alors identiques a ceux du texte, par construction.
+(defconstant SUB_ESC_NAME "~3L")
+(defconstant SUB_ESC_BODY "~36L")
+(defconstant SUB_ESC_NONE "")
+
+;; Alpha GS depose dans `(-> *font-work* color-shadow w)` juste avant `draw-string`, pour les
+;; sous-titres UNIQUEMENT. 0 = la duplication noire dure n'ecrit plus rien de visible ; c'est
+;; la seule facon de l'eteindre, le drapeau etant mort (point 2). Reste une VARIABLE pour que
+;; l'ablation -- le remettre a 128, c'est-a-dire l'ombre d'avant -- soit faisable sans rebuild.
+(define *subtitle-dup-shadow-alpha* 0)
+;; Ce que la ligne de dessin a REELLEMENT depose, relu APRES l'ecriture. C'est cette valeur
+;; que le rapport publie, jamais la constante ci-dessus.
+(define *subtitle-dup-shadow-seen* -1)
+(define *subtitle-style-traced?* #f)
+;; La chaine d'OMBRE ne peut pas partager `*temp-string*` avec le texte : `string-format`
+;; ecrit toujours dans ce meme tampon (kernel/gstring.gc:558-563).
+(define *subtitle-shadow-string* (new 'global 'string 256 (the string #f)))
+
+(defun subtitle-font-colors! ()
+  "Poser les deux entrees de police des sous-titres dans les emplacements libres 36 et 37."
+  (dotimes (i 4)
+    (set! (-> *font-work* color-table SUB_FONT_SLOT_WHITE color i) (the-as rgba SUB_FONT_WHITE))
+    (set! (-> *font-work* color-table SUB_FONT_SLOT_SHADOW color i) (the-as rgba SUB_FONT_BLACK)))
+  (none))
+
 (defun-recursive print-game-subtitle float ((str string) (font-ctxt font-context) (no-draw symbol) (alpha int) (line-height int))
   "Print text. Not worth commenting until we get stack variables in lets, I think"
   (local-vars
@@ -347,7 +422,15 @@
                 (let* ((s1-1 (-> *display* frames (-> *display* on-screen) frame global-buf))
                        (s2-1 (-> s1-1 base)))
                   (set-font-color-alpha (-> font-ctxt color) alpha)
+                  ;; Gsubtitle-style : la passe « ombre » de draw-string est INCONDITIONNELLE
+                  ;; (le bit `shadow` n'est jamais relu, font.gc:1141). Son seul levier est
+                  ;; l'alpha de `color-shadow`, que `set-font-color-alpha` vient justement de
+                  ;; poser a `alpha` : on l'ecrase ICI, apres, puis on RELIT ce qui a ete
+                  ;; depose -- c'est cette relecture que le rapport publie.
+                  (set! (-> *font-work* color-shadow w) *subtitle-dup-shadow-alpha*)
+                  (set! *subtitle-dup-shadow-seen* (-> *font-work* color-shadow w))
                   (draw-string *game-text-line* s1-1 gp-0)
+                  ;; remet `color-shadow w` a 128 : rien ne fuit hors du chemin sous-titres.
                   (set-font-color-alpha (-> font-ctxt color) 128)
                   (set! (-> gp-0 color) (-> *font-work* last-color))
                   (let ((a3-3 (-> s1-1 base)))
@@ -381,17 +464,199 @@
       (set! (-> *video-parms* relative-y-scale-reciprical) sv-132)
       (if (> sv-168 0) (* sv-164 (the float sv-168)) 0.0))))
 
-(defmethod subtitle-format ((obj subtitle) (keyframe subtitle-keyframe))
-  "check settings and format subtitle accordingly."
+(defconstant SUB_SHADOW_TAPS 7)
+
+;; Les prises de l'ombre douce, en unites d'ORIGINE de la police -- les memes que
+;; `(-> font-context origin)`, donc l'ecran virtuel 512x224, +y vers le BAS (l'origine y du
+;; sous-titre vaut 0,80 x 224 = 179,2, soit 80 % de la hauteur). Chaque prise est un dessin
+;; COMPLET de la ligne, en noir plat, a alpha faible : c'est leur RECOUVREMENT qui fabrique le
+;; degrade, et donc le flou. Disque -- centre + hexagone de rayon 1,1 -- plutot que croix,
+;; pour que le flou soit isotrope. Le decalage de l'ombre (barycentre des prises) est publie
+;; a l'execution, il n'est pas ecrit ici.
+;;   x, y = decalage de la prise ; z = alpha GS de la prise (128 = opaque)
+(define *subtitle-shadow-taps*
+  (new 'static 'inline-array vector 7
+       (new 'static 'vector :x 1.2  :y 1.6  :z 34.0)
+       (new 'static 'vector :x 2.3  :y 1.6  :z 22.0)
+       (new 'static 'vector :x 1.75 :y 2.55 :z 22.0)
+       (new 'static 'vector :x 0.65 :y 2.55 :z 22.0)
+       (new 'static 'vector :x 0.1  :y 1.6  :z 22.0)
+       (new 'static 'vector :x 0.65 :y 0.65 :z 22.0)
+       (new 'static 'vector :x 1.75 :y 0.65 :z 22.0)))
+
+(defun sub-rgb24 ((slot int) (corner int))
+  "RGB 24 bits d'un coin de la table de police. Les octets y sont en echelle GS
+   (#x80 = modulation 1,0 = FF a l'ecran), d'ou le 255/128."
+  (let* ((c (the-as int (-> *font-work* color-table slot color corner)))
+         (r (logand c 255))
+         (g (logand (ash c -8) 255))
+         (b (logand (ash c -16) 255)))
+    (logior (ash (/ (* 255 r) 128) 16) (logior (ash (/ (* 255 g) 128) 8) (/ (* 255 b) 128)))))
+
+(defun sub-degrade ((slot int))
+  "1 si les quatre couleurs de sommet different (degrade), 0 si l'entree est PLATE."
+  (let ((c0 (the-as int (-> *font-work* color-table slot color 0)))
+        (c1 (the-as int (-> *font-work* color-table slot color 1)))
+        (c2 (the-as int (-> *font-work* color-table slot color 2)))
+        (c3 (the-as int (-> *font-work* color-table slot color 3))))
+    (if (and (= c0 c1) (= c1 c2) (= c2 c3)) 0 1)))
+
+(defun subtitle-table-sig ()
+  "Somme de controle des emplacements 0 a 35 de la table de police -- c'est-a-dire TOUT ce que
+   le reste du jeu peut lire. Les sous-titres n'ecrivent que 36 et 37 ; si cette signature
+   bouge, c'est qu'un autre texte a ete touche, et le rapport doit le dire.
+   Somme bornee a 31 bits (#x3fffffff) et JAMAIS a 32 : sur 32 bits, 0x89078cac est relue
+   avec son signe etendu depuis le symbole et la comparaison rendait un FAUX ROUGE
+   (`sig_avant=ffffffff89078cac` contre `sig_apres=89078cac`, memes 32 bits utiles).
+   L'octet d'ALPHA est masque a dessein : `set-font-color-alpha` (engine/ui/text.gc:245-248)
+   ecrit l'alpha d'un emplacement quelconque a chaque dessin de texte du jeu, et le remet a
+   128 -- c'est du bruit qui n'appartient pas a cette phase. Le canal RGB, lui, n'est ecrit
+   que par les credits (slot 32, engine/ui/credits.gc:13-19) et par ce fichier (36 et 37)."
+  (let ((h 0))
+    (dotimes (i 36)
+      ;; L'emplacement 32 est celui des CREDITS, que `set-credits-font-color`
+      ;; (engine/ui/credits.gc:8-19) reecrit a chaque image de l'ecran-titre. L'inclure
+      ;; mesurerait le jeu, pas notre changement : il est publie a part, en temoin.
+      (when (!= i 32)
+        (dotimes (j 4)
+          (set! h (logand (+ (* h 33) (logand (the-as int (-> *font-work* color-table i color j)) #xffffff))
+                          #x3fffffff)))))
+    h))
+
+;; Prise AVANT toute ecriture : ce fichier ne touche la table que depuis `subtitle-font-colors!`,
+;; appelee par `setup-subtitle-font`, donc apres l'apparition du process -- bien apres cette ligne.
+(define *subtitle-table-sig0* (subtitle-table-sig))
+
+
+(defun subtitle-style-trace ()
+  "Publier CE QUI EST DEPOSE dans le chemin de dessin : les couleurs RELUES dans la table de
+   police, l'emplacement que `draw-string` a REELLEMENT selectionne (`last-color`, mis a jour
+   par les echappements `~NL`, font.gc:865 et :1309-1340), et l'alpha d'ombre dure tel qu'il a
+   ete relu apres ecriture. Aucune constante de ce fichier n'est republiee telle quelle.
+   Le rayon et l'opacite sont calcules sur la table de prises VIVANTE."
+  (let ((slot-corps (the-as int (-> *font-work* last-color)))
+        (cx 0.0)
+        (cy 0.0)
+        (wsum 0.0)
+        (transp 1.0)
+        (r2 0.0)
+        (rmax 0.0))
+    (dotimes (i SUB_SHADOW_TAPS)
+      (let* ((tp (-> *subtitle-shadow-taps* i))
+             (w (-> tp z)))
+        (+! cx (* w (-> tp x)))
+        (+! cy (* w (-> tp y)))
+        (+! wsum w)
+        (set! transp (* transp (- 1.0 (/ w 128.0))))))
+    (set! cx (/ cx wsum))
+    (set! cy (/ cy wsum))
+    (dotimes (i SUB_SHADOW_TAPS)
+      (let* ((tp (-> *subtitle-shadow-taps* i))
+             (dx (- (-> tp x) cx))
+             (dy (- (-> tp y) cy))
+             (d2 (+ (* dx dx) (* dy dy))))
+        (+! r2 (* (-> tp z) d2))
+        (if (> d2 (* rmax rmax)) (set! rmax (sqrtf d2)))))
+    (set! r2 (sqrtf (/ r2 wsum)))
+    (format 0
+            "SUBCOLOR nom_slot=3 nom_rgb=~X nom_degrade=~D ligne_slot=~D ligne_rgb=~X ligne_degrade=~D~%"
+            (sub-rgb24 3 0)
+            (sub-degrade 3)
+            slot-corps
+            (sub-rgb24 slot-corps 0)
+            (sub-degrade slot-corps))
+    (format 0
+            "SUBCOLOR-BRUT nom=~X,~X,~X,~X~%"
+            (-> *font-work* color-table 3 color 0)
+            (-> *font-work* color-table 3 color 1)
+            (-> *font-work* color-table 3 color 2)
+            (-> *font-work* color-table 3 color 3))
+    (format 0
+            "SUBCOLOR-BRUT ligne_slot=~D ligne=~X,~X,~X,~X~%"
+            slot-corps
+            (-> *font-work* color-table slot-corps color 0)
+            (-> *font-work* color-table slot-corps color 1)
+            (-> *font-work* color-table slot-corps color 2)
+            (-> *font-work* color-table slot-corps color 3))
+    (format 0
+            "SUBCOLOR-TEMOIN defaut00=~X,~X white01=~X,~X~%"
+            (-> *font-work* color-table 0 color 0)
+            (-> *font-work* color-table 0 color 2)
+            (-> *font-work* color-table 1 color 0)
+            (-> *font-work* color-table 1 color 2))
+    (format 0
+            "SUBSHADOW type=~S prises=~D dup_alpha=~D rayon_flou=~f opacite=~f~%"
+            (if (and (> SUB_SHADOW_TAPS 1) (zero? *subtitle-dup-shadow-seen*)) "ombre-floue" "duplique")
+            SUB_SHADOW_TAPS
+            *subtitle-dup-shadow-seen*
+            r2
+            (- 1.0 transp))
+    (format 0 "SUBSHADOW-GEO rayon_max=~f decalage_x=~f decalage_y=~f~%" rmax cx cy))
+  ;; Perimetre vu de l'EXECUTION : les emplacements 0 a 35 de la table -- tout ce que les 215
+  ;; autres sites de texte peuvent lire -- doivent rendre la MEME signature RGB qu'avant que ce
+  ;; fichier n'ait rien ecrit ; et `color-shadow`, qui est global, doit etre revenu a sa valeur
+  ;; de repos (#x80 = 128) apres le dessin. Ligne nommee `SUBSCOPE-TABLE` et pas `SUBSCOPE` :
+  ;; le verdict de perimetre du rapport est la CENSUS des objets compiles, pas cette mesure-ci,
+  ;; qui peut legitimement bouger sur l'emplacement 32 (les credits l'animent a chaque image,
+  ;; engine/ui/credits.gc:13-19) sans que rien de ce fichier y soit pour quoi que ce soit.
+  (let ((sig (subtitle-table-sig))
+        (csw (-> *font-work* color-shadow w)))
+    (format 0
+            "SUBSCOPE-TABLE sig_rgb_0_35_hors32_intacte=~D sig_avant=~X sig_apres=~X color_shadow_w_repos=~D~%"
+            (if (and (= sig *subtitle-table-sig0*) (= csw 128)) 1 0)
+            *subtitle-table-sig0*
+            sig
+            csw)
+    (format 0 "SUBSCOPE-TABLE temoin_slot32_credits=~X~%" (-> *font-work* color-table 32 color 0)))
+  (none))
+
+(defun subtitle-print-soft ((str-main string) (str-shadow string) (ctx font-context))
+  "Dessiner une ligne de sous-titre : d'abord l'OMBRE (SUB_SHADOW_TAPS dessins noirs a alpha
+   faible, decales, dont le recouvrement fait le flou), puis le TEXTE par-dessus.
+   `str-shadow` porte exactement les memes caracteres VISIBLES que `str-main` : les deux
+   sortent du MEME formateur, seuls les echappements de couleur changent, et un echappement ne
+   compte pas dans la largeur (font.gc:1603, `~L` saute la mesure). L'ombre ne peut donc pas se
+   desaligner du texte -- c'est structurel, pas verifie apres coup."
+  (let ((ox (-> ctx origin x))
+        (oy (-> ctx origin y))
+        (oc (-> ctx color))
+        (res 0.0))
+    (set! (-> ctx color) (the-as font-color SUB_FONT_SLOT_SHADOW))
+    (dotimes (i SUB_SHADOW_TAPS)
+      (let ((tp (-> *subtitle-shadow-taps* i)))
+        (set! (-> ctx origin x) (+ ox (-> tp x)))
+        (set! (-> ctx origin y) (+ oy (-> tp y)))
+        (print-game-subtitle str-shadow ctx #f (the int (-> tp z)) 22)))
+    (set! (-> ctx origin x) ox)
+    (set! (-> ctx origin y) oy)
+    (set! (-> ctx color) oc)
+    (set! res (print-game-subtitle str-main ctx #f 128 22))
+    (when (not *subtitle-style-traced?*)
+      (set! *subtitle-style-traced?* #t)
+      (subtitle-style-trace))
+    res))
+
+(defun subtitle-format-into ((dst string) (keyframe subtitle-keyframe) (esc-name string) (esc-body string))
+  "Formater une ligne de sous-titre dans `dst`. Les DEUX echappements de couleur sont des
+   PARAMETRES : la passe d'ombre les recoit vides, ce qui rend une chaine aux caracteres
+   VISIBLES identiques. Un seul chemin de formatage, donc aucune derive possible entre le
+   texte et son ombre."
   (cond
     ((= 0 (length (-> keyframe speaker)))
      ;; there's no speaker so who cares.
-     (string-format "~S" (-> keyframe string)))
+     (format (clear dst) "~S" (-> keyframe string)))
     ((or (= #t (-> *pc-settings* subtitle-speaker?))
          (and (= 'auto (-> *pc-settings* subtitle-speaker?)) (subtitle-flags? keyframe offscreen)))
      ;; there is a speaker and we do want it.
-     (string-format "~3L~S:~0L ~S" (-> keyframe speaker) (-> keyframe string)))
-    (else (string-format "~S" (-> keyframe string)))))
+     (format (clear dst) "~S~S:~S ~S" esc-name (-> keyframe speaker) esc-body (-> keyframe string)))
+    (else (format (clear dst) "~S" (-> keyframe string))))
+  dst)
+
+(defmethod subtitle-format ((obj subtitle) (keyframe subtitle-keyframe))
+  "check settings and format subtitle accordingly."
+  ;; Gsubtitle-style : le corps de la ligne part sur l'emplacement BLANC PLEIN ; le nom du
+  ;; locuteur garde `~3L`, donc sa couleur et son leger degrade.
+  (subtitle-format-into *temp-string* keyframe SUB_ESC_NAME SUB_ESC_BODY))
 
 (defun subtitle? ((hinttitles? symbol))
   "can a subtitle be displayed right now?"
@@ -406,6 +671,10 @@
 
 (defbehavior setup-subtitle-font subtitle ()
   "setup the subtitle font."
+  ;; Gsubtitle-style : les emplacements 36 (blanc plein) et 37 (noir de l'ombre) sont reposes
+  ;; ici, avant tout dessin. `set-font-color-alpha` remet l'alpha a 128 apres chaque ligne,
+  ;; ce qui est deja leur valeur au repos -- l'ecriture est donc idempotente.
+  (subtitle-font-colors!)
   ;; set font settings.
   (set! (-> self font origin x) (* (- 1.0 (-> *SUBTITLE-bank* width)) 256))
   ;; Gcutscene-reframe (owner 2026-08-28): the subtitle used to be RAISED (bank `height`,
@@ -432,7 +701,12 @@
   (when (and (-> self want-subtitle) (subtitle? (-> self hint-subtitle?)))
     ;; we got a valid subtitle! render it.
     (hide-bottom-hud)
-    (print-game-subtitle (subtitle-format self (-> self want-subtitle)) (-> self font) #f 128 22)
+    ;; Gsubtitle-style : la chaine d'OMBRE est formatee EN PREMIER, dans son propre tampon --
+    ;; `subtitle-format` ecrit dans `*temp-string*`, qui serait sinon ecrase.
+    (subtitle-format-into *subtitle-shadow-string* (-> self want-subtitle) SUB_ESC_NONE SUB_ESC_NONE)
+    (subtitle-print-soft (subtitle-format self (-> self want-subtitle))
+                         *subtitle-shadow-string*
+                         (-> self font))
     (#when PC_SUBTITLE_DEBUG
       (draw-debug-text-box (-> self font)))))
 
@@ -539,12 +813,16 @@
         ((and (< (time-passed) (seconds 5)) (= (-> self notice-id) (text-id subtitle-hint)))
          (when (not (-> *pc-settings* subtitles?))
            (set-scale! (-> self font) (* (-> *SUBTITLE-bank* scale) 1.5))
-           (print-game-subtitle (lookup-text! *common-text* (-> self notice-id) #f) (-> self font) #f 128 22)))
+           ;; Gsubtitle-style : meme traitement que la ligne de sous-titre. Cette chaine ne
+           ;; porte aucun echappement de couleur, texte et ombre sont donc la MEME chaine.
+           (let ((s (lookup-text! *common-text* (-> self notice-id) #f)))
+             (subtitle-print-soft s s (-> self font)))))
         ((and (= (-> self cur-channel) (pc-subtitle-channel movie))
               (< (time-passed) (seconds 2))
               (< (mod (time-passed) (seconds 1)) (seconds 0.8)))
          (set! (-> self font origin y) (* (-> *SUBTITLE-bank* notice-height) 224))
-         (print-game-subtitle (lookup-text! *common-text* (-> self notice-id) #f) (-> self font) #f 128 22)))
+         (let ((s (lookup-text! *common-text* (-> self notice-id) #f)))
+           (subtitle-print-soft s s (-> self font)))))
       0))
 
 (defstate subtitle-debug (subtitle)
@@ -782,8 +1060,19 @@
 
 (defbehavior subtitle-init-by-other subtitle ()
   "external initializer for subtitle process"
+  ;; Gsubtitle-style : la couleur de base du contexte est le BLANC PLEIN (emplacement 36), pas
+  ;; `default` (00), qui est le gris-vert degrade que l'owner voit sur le corps des lignes.
+  ;; `(font-flags shadow)` est laisse tel quel : il n'est jamais relu par draw-string
+  ;; (font.gc:1141), le retirer ne changerait rien et masquerait ce fait.
   (set! (-> self font)
-        (new 'process 'font-context *font-default-matrix* 0 0 0.0 (font-color default) (font-flags shadow kerning middle large)))
+        (new 'process
+             'font-context
+             *font-default-matrix*
+             0
+             0
+             0.0
+             (the-as font-color SUB_FONT_SLOT_WHITE)
+             (font-flags shadow kerning middle large)))
   (set! (-> self debug-lines?) #t)
   (set! (-> self checking-lines?) #f)
   (go subtitle-process))
