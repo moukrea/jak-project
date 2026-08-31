@@ -56,6 +56,10 @@
   "text-h.o"
   "settings-h.o"
   "knuth-rand.o" ;; added
+  ;; Gcutscene-skip-all : l'ETAT du geste. Il doit etre resident AVANT loader.o, pov-camera.o et
+  ;; process-taskable.o, qui LISENT son predicat -- un `define-extern` sans objet resident fait
+  ;; sauter GOAL a une adresse morte (SIGSEGV a l'amorcage, mesure le 2026-08-31 06:52).
+  "cutscene-skip.o" ;; added
   "capture.o"
   "memory-usage-h.o"
   "texture.o"
@@ -313,6 +317,10 @@
   "anim-tester-x.o" ;; added
   "entity-debug.o" ;; added
   "subtitle.o" ;; added
+  ;; Gcutscene-skip-all : le dessin de l'indice. `main.o` est present dans CETTE liste aussi et
+  ;; appelle `cutscene-skip-frame!` a CHAQUE image sans condition -- l'objet doit donc etre
+  ;; resident ici aussi, contrairement a `loading-screen-pc.o` dont l'appel est conditionnel.
+  "cutscene-skip-draw.o" ;; added
   "default-menu-pc.o" ;; added
  ))
 

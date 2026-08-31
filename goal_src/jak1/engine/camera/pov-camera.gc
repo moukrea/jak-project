@@ -48,6 +48,11 @@
         (when v1-4
           (set! s4-0 #t)
           (send-event *camera* 'teleport-to-vector-start-string arg1)))
+      ;; Gcutscene-skip-all : ce comportement partage est la derniere etape de plusieurs cameras
+      ;; derivees (sunkencam seq 2/3/4/5/6, village2cam seq 2). Saut d'animation et non
+      ;; `go-virtual` : c'est un `defbehavior`, pas un etat, et le repositionnement de camera qui
+      ;; le suit doit s'executer.
+      (cutscene-skip-anim! 'pov-reposition)
       (suspend)
       (ja :num! (seek! max arg2))))
   0
@@ -80,6 +85,23 @@
          (ja-no-eval :group! (ja-group) :num! (seek!) :frame-num 0.0)
          (until (ja-done? 0)
            (check-for-abort self)
+           ;; Gcutscene-skip-all — LES CINEMATIQUES CONTEXTUELLES, dont celles de Geyser Rock.
+           ;; C'est la branche que jouent les six cameras de `training` (`orbcam`, `fuelcellcam`,
+           ;; `ecocam`, `precursordoorcam`, `ecoventcam`, `greenecocam` -- training-obs.gc:110-125)
+           ;; et 33 des 48 sites `pov-camera` du jeu.
+           ;;
+           ;; ON PASSE PAR `pov-camera-abort`, L'ETAT QUE ND A ECRIT POUR CA, ET QUI ETAIT DU CODE
+           ;; MORT : `check-for-abort` juste au-dessus ne rend `#t` que si le drapeau
+           ;; `notify-of-abort` est pose, et AUCUN des 48 sites ne le pose (47 passent 0, un passe
+           ;; `inherit-orientation`). TRIANGLE etait donc consomme sans rien faire depuis
+           ;; toujours. On ne remplace pas ce chemin, on l'ALIMENTE enfin.
+           ;; Il est prefere au saut d'animation employe ailleurs parce qu'il evite le `:post`
+           ;; `execute-commands-up-to` : pousser l'animation a sa derniere image ferait tirer d'un
+           ;; coup toutes les commandes de chargement restantes de la scene.
+           (cutscene-skip-mark!)
+           (when (cutscene-skip-fired?)
+             (cutscene-skip-abort! 'pov-camera)
+             (go-virtual pov-camera-abort))
            (suspend)
            (ja :num! (seek!))))
         ((= (-> self anim-name type) spool-anim)

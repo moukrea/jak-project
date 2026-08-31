@@ -650,6 +650,10 @@
 ;; Le dessin vit dans pc/loading-screen-pc.gc (il a besoin des quads textures `rhud-*` et des
 ;; textures du pool PC). Meme patron que `entity-inspect-draw` plus bas dans ce fichier.
 (define-extern loading-screen-draw (function none))
+;; Gcutscene-skip-all : l'indice « [O] Skip/Passer » et la machine a etat du geste. Meme patron
+;; que la ligne au-dessus -- le dessin a besoin de la police et du texte localise, donc il vit
+;; dans pc/cutscene-skip-draw.gc, compile bien apres ce fichier.
+(define-extern cutscene-skip-frame! (function none))
 (define-extern ls-capture-trace (function none))
 
 (defun loading-screen-hold! ()
@@ -1563,6 +1567,14 @@
             ;; Une mesure qui ne s'allume que pendant l'ecran ne pourrait jamais constater qu'il
             ;; manque.
             (loading-window-frame! ls-held (< (current-time) (-> *game-info* blackout-time)))
+            ;; Gcutscene-skip-all : la machine a etat du geste « maintenir CERCLE deux secondes »
+            ;; et le dessin de son indice. ICI, et surtout PAS dans un processus : le bit
+            ;; `(movie 11)` de `process-mask` (kernel/gkernel-h.gc:96) empeche un processus de
+            ;; tourner pendant une cinematique -- exactement quand on doit lire le pad et
+            ;; dessiner. Ce bloc, lui, s'execute par image quoi qu'il arrive : `letterbox` juste
+            ;; au-dessus en depend deja, et la trace `CINELIVE ... realmovie=1` le montre en
+            ;; pleine cinematique. Ne dessine rien hors cinematique.
+            (cutscene-skip-frame!)
             ;; controle positif du chemin de dessin -- debug uniquement, un seul tir, et seulement
             ;; une fois la banque de texte chargee (sinon il ne couvrirait que le fond noir).
             (when (and *debug-segment* (not *loading-screen-draw-probed*) *common-text* (not ls-held))

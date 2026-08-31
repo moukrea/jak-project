@@ -513,9 +513,12 @@
           (set! (-> *camera-other-fov* data) (cam-slave-get-fov s5-1)))
         (set! (-> *camera-other-root* quad) (-> self root trans quad))
         (set-time! (-> self state-time))
-        (until (time-elapsed? (-> self state-time) (seconds 0.6))
+        ;; Gcutscene-skip-all : maintien de CERCLE 2 s -- ce chemin joue la cinematique contextuelle de la destruction d'un rocher d'amarrage du dirigeable de Swamp.
+        (until (or (cutscene-skip-fired?) (time-elapsed? (-> self state-time) (seconds 0.6)))
+          (cutscene-skip-mark!)
           (set! *camera-look-through-other* 2)
           (suspend))
+        (if (cutscene-skip-fired?) (cutscene-skip-abort! 'tetherrock))
         (set! (-> self tension) 0.0)
         (close-specific-task! (-> self entity extra perm task) (task-status need-reminder))
         (birth-pickup-at-point (-> self root trans)

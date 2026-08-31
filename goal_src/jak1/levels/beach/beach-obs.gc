@@ -880,7 +880,8 @@
                          (suspend))
                        (camera-change-to "camera-135" 0 #f)
                        (camera-look-at (the-as pair (ppointer->process (-> self parent))) (the-as uint 9))
-                       (suspend-for (seconds 4))
+                       ;; Gcutscene-skip-all : maintien de CERCLE 2 s -- ce chemin joue la cinematique contextuelle de la chute de l'oeuf de flut-flut de Beach.
+                       (cutscene-skip-suspend-for 'cam-tracker-flutflutegg (seconds 4))
                        (while (not (process-release? (handle->process (-> self grab-target))))
                          (suspend))
                        (camera-look-at (the-as pair *target*) (the-as uint 0))

@@ -551,7 +551,8 @@
                       (set! s2-1 (cdr s2-1))
                       (set! a1-5 (car s2-1)))))))
              (('not) (set! gp-0 (not (eval this (the-as pair (car s4-0))))))
-             (('wait-for 'wait 'suspend) (let ((s5-1 (command-get-time (car s4-0) 1))) (suspend-for s5-1)))
+             ;; Gcutscene-skip-all : maintien de CERCLE 2 s -- ce chemin joue les attentes d'horloge des scripts de camera-tracker (cinematiques contextuelles pilotees par script).
+             (('wait-for 'wait 'suspend) (let ((s5-1 (command-get-time (car s4-0) 1))) (cutscene-skip-suspend-for 'cam-tracker-script s5-1)))
              (('message?) (when (= (-> this message) (car s4-0)) (set! gp-0 (-> this message)) (set! (-> this message) #f)))
              (('send-event)
               (let ((s5-2 (command-get-process (car s4-0) *target*))

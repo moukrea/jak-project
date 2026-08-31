@@ -1,0 +1,324 @@
+;;-*-Lisp-*-
+(in-package goal)
+(require "pc/pckernel.gc")
+(require "engine/ui/text.gc")
+(require "engine/camera/pov-camera.gc")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcutscene-skip-all — LA MACHINE A ETAT DU GESTE ET SON INDICE A L'ECRAN
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Demande owner, mot pour mot : « un hint avec le bouton et "Skip"/"Passer" (localise) en bas a
+;; droite de l'ecran des qu'on touche un bouton durant une cinematique (et une cartouche englobant
+;; ca (coins arrondis) qui se rempli en deux secondes si on maintient cercle pendant deux
+;; secondes ».
+;;
+;; APPELE DEPUIS LE `display-loop`, PAS DEPUIS UN PROCESSUS, et ce n'est pas un detail : le bit
+;; `(movie 11)` de `process-mask` (kernel/gkernel-h.gc:96) empeche un processus de tourner
+;; PENDANT une cinematique -- exactement la ou on a besoin de dessiner. `loading-screen-draw`
+;; (pc/loading-screen-pc.gc:623) est appelee au meme endroit et pour la meme raison.
+;;
+;; L'ICONE DU BOUTON NE COUTE RIEN : la balise `<PAD_CIRCLE>` de la banque de texte
+;; (common/util/font/dbs/font_db_jak1.cpp:439) se developpe en quatre glyphes superposes dans les
+;; emplacements de couleur 22/25/1/23, qui sont exactement ceux du bouton rond
+;; (font-h.gc:39-44 : `pad-back 22`, `pad-shine 23`, `pad-circle 25`). C'est le meme glyphe que
+;; « PRESS <PAD_CIRCLE> TO TALK » du jeu d'origine.
+;;
+;; LES COINS ARRONDIS N'EXISTAIENT NULLE PART dans le depot (ni GOAL, ni nuanceur). On les
+;; FABRIQUE : la cartouche est dessinee RANGEE PAR RANGEE, chaque rangee retiree de ses deux
+;; cotes de `r - sqrt(r^2 - dy^2)`. Le remplissage emploie LA MEME fonction de retrait, borne a
+;; gauche par l'avancement -- donc il epouse l'arrondi au lieu de le deborder. Aucune texture,
+;; aucun nuanceur, aucune fente VRAM : cela evite par construction le piege des unites de
+;; compilation feature-gatees (`OG_FEAT_RECHARGED_HUD` est a 0 sur le build livre).
+;;
+;; REPERE : la toile 2D 512 x 224, +y vers le bas. C'est l'ECRAN ENTIER a TOUT format
+;; (shaders/direct2.vert : x_gs 1792..2304 couvre [-1,1] ; SCISSOR_ADJUST amene 224 lignes sur
+;; [-1,1]) -- demonstration complete dans pc/loading-screen-pc.gc:20-29.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; --- geometrie, toile 512 x 224 ---
+(defconstant CS_MARGIN_X 16)     ;; du bord DROIT de l'ecran au bord droit de la cartouche
+(defconstant CS_MARGIN_Y 12)     ;; du bord BAS
+(defconstant CS_PAD_X 11)        ;; marge interne gauche/droite autour du texte
+(defconstant CS_BOX_H 22)        ;; hauteur de la cartouche
+(defconstant CS_RADIUS 6)        ;; rayon des coins
+(defconstant CS_TEXT_DY 2)       ;; descente du texte dans la cartouche
+(defconstant CS_TEXT_SCALE 0.8)  ;; echelle de la police (grande police, comme les invites du jeu)
+
+;; --- etat de l'EPISODE courant (une cinematique = un episode) ---
+;; Nom de la scene, RECOPIE dans un tampon permanent. Ne JAMAIS garder le pointeur d'origine d'une
+;; image sur l'autre : ce nom appartient soit au flux (`active-stream`), soit a l'animation d'un
+;; `pov-camera`, et les deux vivent dans la memoire du NIVEAU. Un `(start 'play ...)` la libere, et
+;; la ligne de verdict rend alors `#<... has invalid type ptr ...>` -- mesure a la course de
+;; 06:59 le 2026-08-31, sur la ligne CUTSKIP elle-meme.
+(define *cutscene-scene-name* (new 'global 'string 48 (the string #f)))
+(define *cutscene-episode-type* 'aucun)      ;; 'film (flux audio) | 'contextuelle (pov-camera) | 'autre
+(define *cutscene-episode-aborts0* 0)        ;; compteur d'abandons a l'ouverture de l'episode
+(define *cutscene-episode-frames* 0)
+(define *cutscene-hint-published* #f)        ;; CUTHINT-RUN deja publie pour cet episode ?
+;; #t des qu'un chemin CABLE a marque pendant cet episode. C'est la porte de l'indice : on
+;; n'affiche « Skip » que la ou le saut aboutit reellement. Cf. `cutscene-skip-mark!`.
+(define *cutscene-episode-skippable* #f)
+
+(defun cutscene-skip-in-cutscene? ()
+  "Une cinematique joue-t-elle a cette image ?
+
+   NATURE : un ETAT, pas une duree. REPERE : les deux marqueurs que les chemins de scene posent
+   EUX-MEMES, jamais une devinette geometrique.
+     - `(movie?)` (engine/game/main.gc:1109) est le bit `movie` de `prevent-from-run`. Il est pose
+       par `othercam-running :enter` (process-taskable.gc:749) -- donc par LES 48 `pov-camera` et
+       par tous les `process-taskable` -- et par `camera-tracker-process :enter`
+       (generic-obs.gc:631). Recensement : vrai sur 57 des 78 chemins.
+     - la marque des chemins CABLES (`cutscene-skip-mark!`). Elle rattrape les cinq scenes du
+       TITRE, dont l'othercam est cree avec `spooling? = 'logo` et n'arme donc pas le bit `movie`
+       (process-taskable.gc:745).
+   CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : `#f` en jeu normal, y compris pendant les
+   animations d'oisiveté STREAMEES de Jak (target2.gc:93) -- celles-la ne posent ni le bit
+   `movie` ni la marque, parce que `cutscene-stream-mark!` n'est pas appelee pour le joueur."
+  (or (movie?) (not (time-elapsed? *cutscene-skip-mark* CS_MARK_GRACE))))
+
+(defun cutscene-skip-scene-name! ()
+  "Relever le nom de la scene en cours DANS `*cutscene-scene-name*`, et classer l'episode.
+
+   L'ORDRE DES DEUX TESTS EST UN CHOIX, ET IL SUIT LE TEXTE DE ND. Un `pov-camera` VIVANT est
+   teste EN PREMIER : le commentaire d'origine de engine/camera/pov-camera.gc:19 appelle ces
+   cameras « the not-quite-cutscenes, for example, the introduction to orbs in geyser » -- ce sont
+   exactement les CONTEXTUELLES que l'owner cite. Certaines d'entre elles lisent une animation
+   STREAMEE (la camera de mort, engine/target/target-death.gc:982) : les classer `film` parce
+   qu'un flux audio tourne dirait le contraire de ce qu'elles sont.
+   Sans pov-camera, un flux audio en cours = une SCENE streamee, donc `film`."
+  (let ((pov (handle->process (-> *game-info* pov-camera-handle)))
+        (stream (-> *art-control* active-stream)))
+    (cond
+      ((and pov (type-type? (-> pov type) pov-camera))
+       (set! *cutscene-episode-type* 'contextuelle)
+       (let ((nm (-> (the-as pov-camera pov) anim-name)))
+         (if (and nm (= (-> nm type) string))
+           (format (clear *cutscene-scene-name*) "~S" nm)
+           (format (clear *cutscene-scene-name*) "~S" (-> pov name)))))
+      (stream
+       (set! *cutscene-episode-type* 'film)
+       (format (clear *cutscene-scene-name*) "~S" stream))
+      (else
+       (if (= *cutscene-episode-type* 'aucun) (set! *cutscene-episode-type* 'autre)))))
+  (none))
+
+(defun cs-corner-inset ((row int) (h int) (r int))
+  "Retrait horizontal de la RANGEE `row` d'un rectangle de hauteur `h` a coins de rayon `r`.
+
+   0 sur toutes les rangees du milieu, croissant vers les deux extremites : c'est CA, un coin
+   arrondi, et c'est ce que la ligne de verdict relit au lieu de croire une etiquette."
+  (if (or (<= r 0) (< h (* 2 r)))
+    0
+    (let ((dy (cond
+                ((< row r) (- (the float (- r row)) 0.5))
+                ((>= row (- h r)) (+ (the float (- row (- h r))) 0.5))
+                (else 0.0))))
+      (if (= dy 0.0)
+        0
+        (let ((rr (the float r)))
+          (the int (+ 0.5 (- rr (sqrtf (- (* rr rr) (* dy dy)))))))))))
+
+(defun cs-round-rect ((buf dma-buffer) (x int) (y int) (w int) (h int) (r int) (fw int) (color rgba))
+  "Rectangle a coins arrondis, une rangee de 1 pixel a la fois. `fw` borne la largeur depuis le
+   bord GAUCHE : `fw = w` donne la cartouche pleine, `fw < w` donne le REMPLISSAGE, qui epouse
+   donc le meme arrondi. Les rangees ne se recouvrent pas, donc l'alpha ne se cumule nulle part."
+  (dotimes (i h)
+    (let* ((d (cs-corner-inset i h r))
+           (rw (min (- w (* 2 d)) (- fw d))))
+      (if (> rw 0) (draw-sprite2d-xy buf (+ x d) (+ y i) rw 1 color))))
+  (none))
+
+(defun cs-text-width ((str string) (scale float))
+  "Largeur RENDUE de `str` sur la toile 512.
+   `get-string-length` (font.gc:1531) rend une avance en unites de PLUME : elle ne lit ni le champ
+   `scale` du contexte ni la matrice de police. `draw-string-xy-scaled` multiplie la matrice par
+   `scale` ET par `relative-x-scale`. Omettre ce dernier sur-estime de 4/3 en 16:9 -- le defaut
+   deja paye une fois sur l'ecran de chargement (pc/loading-screen-pc.gc:437-455)."
+  (let ((ctxt (new 'stack 'font-context *font-default-matrix* 0 0 0.0 (font-color white) (font-flags kerning large))))
+    (* scale (-> *video-parms* relative-x-scale) (get-string-length str ctxt))))
+
+(defun cutscene-skip-update ()
+  "La machine a etat du geste. Une passe par image, depuis le `display-loop`."
+  ;; Instrument de harnais, eteint par defaut : il pose le BIT dans le pad, en amont de la lecture
+  ;; livree, au lieu de court-circuiter le geste. Cf. `*cutscene-skip-inject-circle*`.
+  (if *cutscene-skip-inject-circle* (logior! (cpad-hold 0) (pad-buttons circle)))
+  (let ((in-cs (cutscene-skip-in-cutscene?)))
+    (cond
+      ((and in-cs (not *cutscene-in-cutscene*))
+       ;; --- ouverture d'un episode ---
+       (set! *cutscene-episode-type* 'aucun)
+       (format (clear *cutscene-scene-name*) "?")
+       (set! *cutscene-episode-aborts0* *cutscene-skip-aborts*)
+       (set! *cutscene-episode-frames* 0)
+       (set! *cutscene-frames-no-hint* 0)
+       (set! *cutscene-hint-frames* 0)
+       (set! *cutscene-hint-published* #f)
+       (set! *cutscene-episode-skippable* #f)
+       (set! *cutscene-hint-stamp* (the-as time-frame 0))
+       (set! *cutscene-skip-fired* #f)
+       (set! *cutscene-skip-holding* #f)
+       (set! *cutscene-skip-progress* 0.0))
+      ((and (not in-cs) *cutscene-in-cutscene*)
+       ;; --- fermeture : c'est ICI que le verdict de saut se forme, et il est CAUSAL ---
+       ;; `saut=ok` exige qu'une boucle de scene ait REELLEMENT consomme le verrou
+       ;; (`*cutscene-skip-aborts*` a monte), pas seulement que le verrou ait ete arme.
+       ;; `cablable` distingue les deux facons d'echouer, et c'est la distinction qui compte :
+       ;; « le geste n'a pas abouti » (le joueur n'a pas maintenu) contre « aucun chemin de cette
+       ;; sequence n'est cable » (la barque du pecheur, le pelican -- cf. `cutscene-skip-mark!`).
+       (format 0
+               "CUTSKIP scene=~S type=~A saut=~A cablable=~A abandons=~D images=~D~%"
+               *cutscene-scene-name*
+               *cutscene-episode-type*
+               (if (and *cutscene-skip-fired* (> *cutscene-skip-aborts* *cutscene-episode-aborts0*)) 'ok 'echec)
+               *cutscene-episode-skippable*
+               (- *cutscene-skip-aborts* *cutscene-episode-aborts0*)
+               *cutscene-episode-frames*)
+       (set! *cutscene-skip-fired* #f)
+       (set! *cutscene-skip-holding* #f)
+       (set! *cutscene-skip-progress* 0.0)
+       (set! *cutscene-episode-skippable* #f)
+       (set! *cutscene-hint-stamp* (the-as time-frame 0)))
+      (else 0))
+    (set! *cutscene-in-cutscene* in-cs)
+    (when in-cs
+      (+! *cutscene-episode-frames* 1)
+      (cutscene-skip-scene-name!)
+      ;; Un chemin CABLE a-t-il tourne dans cet episode ? Une fois vu, c'est acquis pour tout
+      ;; l'episode : une chaine de scene alterne des boucles cablees et des attentes qui ne le
+      ;; sont pas, et l'indice ne doit pas clignoter au rythme de ce decoupage.
+      (if (not (time-elapsed? *cutscene-skip-mark* CS_MARK_GRACE)) (set! *cutscene-episode-skippable* #t))
+      ;; « des qu'on touche UN bouton » : le front montant de N'IMPORTE quel bouton. C'est le meme
+      ;; test que le moteur emploie deja pour les codes de triche (pad.gc:419).
+      (if (nonzero? (cpad-pressed 0)) (set! *cutscene-hint-stamp* (current-time)))
+      (cond
+        ;; Le reglage existant du joueur reste maitre : c'est lui que le mode speedrun eteint
+        ;; (pc/features/speedruns.gc:244). Il vaut #t par defaut (pckernel-impl.gc:293).
+        ;; Et rien ne s'arme sur une sequence dont aucun chemin n'est cable.
+        ((or (not (-> *pc-settings* skip-movies?)) (not *cutscene-episode-skippable*))
+         (set! *cutscene-skip-holding* #f)
+         (set! *cutscene-skip-progress* 0.0))
+        ((cpad-hold? 0 circle)
+         (when (not *cutscene-skip-holding*)
+           (set! *cutscene-skip-holding* #t)
+           (set! *cutscene-skip-hold-t0* (current-time))
+           ;; maintenir CERCLE est aussi « toucher un bouton »
+           (set! *cutscene-hint-stamp* (current-time))
+           ;; LE MOT DE BOUTONS REELLEMENT LU, publie a cote du verdict qui en depend : c'est ce
+           ;; qui distingue « le geste a ete fait » de « quelqu'un a pose le drapeau ».
+           (format 0
+                   "CUTPAD debut_maintien=1 abs=~D circle=~D injecte=~A~%"
+                   (the int (cpad-hold 0))
+                   (if (cpad-hold? 0 circle) 1 0)
+                   *cutscene-skip-inject-circle*))
+         (let ((held (- (current-time) *cutscene-skip-hold-t0*)))
+           (set! *cutscene-skip-progress* (if (>= held CS_HOLD_TIME) 1.0 (/ (the float held) (the float CS_HOLD_TIME))))
+           (when (and (not *cutscene-skip-fired*) (>= held CS_HOLD_TIME))
+             (set! *cutscene-skip-fired* #t)
+             (set! *cutscene-skip-ticks* (the int held))
+             (+! *cutscene-skip-count* 1)
+             ;; LA LIGNE DE VERDICT DU REMPLISSAGE. `duree_ms` est le temps REELLEMENT consomme
+             ;; par le maintien (3,3333 ms par unite d'horloge), pas la constante visee : si
+             ;; l'horloge decroche, ce nombre le montre. `coins_arrondis` est relu dans la
+             ;; fonction de dessin elle-meme -- rangee du haut retiree ET rangee du milieu non.
+             ;; `format` de GOAL n'accepte que 8 parametres en tout : la geometrie est publiee
+             ;; sur sa propre ligne, juste en dessous.
+             (format 0
+                     "CUTFILL duree_ms=~D ticks=~D cible_ticks=~D coins_arrondis=~D scene=~S~%"
+                     (the int (* 3.3333333 (the float held)))
+                     (the int held)
+                     CS_HOLD_TIME
+                     (if (and (> (cs-corner-inset 0 CS_BOX_H CS_RADIUS) 0)
+                              (zero? (cs-corner-inset (/ CS_BOX_H 2) CS_BOX_H CS_RADIUS)))
+                       1
+                       0)
+                     *cutscene-scene-name*)
+             (format 0
+                     "CUTFILL-GEO rayon=~D hauteur=~D inset_haut=~D inset_milieu=~D inset_bas=~D~%"
+                     CS_RADIUS
+                     CS_BOX_H
+                     (cs-corner-inset 0 CS_BOX_H CS_RADIUS)
+                     (cs-corner-inset (/ CS_BOX_H 2) CS_BOX_H CS_RADIUS)
+                     (cs-corner-inset (- CS_BOX_H 1) CS_BOX_H CS_RADIUS))
+             (cpad-clear! 0 circle))))
+        (else
+         (when (not *cutscene-skip-fired*)
+           (set! *cutscene-skip-holding* #f)
+           (set! *cutscene-skip-progress* 0.0))))))
+  (none))
+
+(defun cutscene-skip-draw ()
+  "Dessiner l'indice et sa cartouche. Ne dessine RIEN hors cinematique, rien tant qu'aucun bouton
+   n'a ete touche, et rien pendant que l'ecran de chargement tient l'image."
+  (when (and *cutscene-in-cutscene*
+             *cutscene-episode-skippable*
+             (-> *pc-settings* skip-movies?)
+             (nonzero? *cutscene-hint-stamp*)
+             (not (time-elapsed? *cutscene-hint-stamp* CS_HINT_TIME))
+             (not (loading-screen-held?))
+             ;; `*common-text*` vaut #f tant que la banque n'est pas chargee (text-h.gc:1034) et
+             ;; `lookup-text!` la dereferencerait.
+             *common-text*)
+    (let ((str (lookup-text! *common-text* (text-id pc-text-cutscene-skip) #t)))
+      (when str
+        (let* ((bw (+ (the int (cs-text-width str CS_TEXT_SCALE)) (* 2 CS_PAD_X)))
+               (bx (- 512 CS_MARGIN_X bw))
+               (by (- 224 CS_MARGIN_Y CS_BOX_H))
+               (fw (the int (* (the float bw) *cutscene-skip-progress*))))
+          (+! *cutscene-hint-frames* 1)
+          (when (not *cutscene-hint-published*)
+            (set! *cutscene-hint-published* #t)
+            ;; LA LIGNE DE VERDICT DE L'INDICE, publiee a la PREMIERE image ou il est dessine.
+            ;;   `apparait_sur_bouton` : 1 s'il s'est ecoule au moins une image DE CINEMATIQUE
+            ;;     sans indice avant celle-ci. C'est le controle negatif, et il est gratuit :
+            ;;     un indice qui s'afficherait tout seul rendrait 0 ici.
+            ;;   `bas_droite` : un VERDICT calcule sur la boite reellement posee, pas une
+            ;;     etiquette -- le coin bas-droit de l'ecran est (512, 224).
+            (format 0
+                    "CUTHINT-RUN apparait_sur_bouton=~D images_sans_indice=~D position=~S bas_droite=~D~%"
+                    (if (> *cutscene-frames-no-hint* 0) 1 0)
+                    *cutscene-frames-no-hint*
+                    (if (and (> (+ bx bw) 448) (> (+ by CS_BOX_H) 190)) "bas-droite" "ailleurs")
+                    (if (and (> (+ bx bw) 448) (> (+ by CS_BOX_H) 190)) 1 0))
+            (format 0
+                    "CUTHINT-BOX x=~D y=~D w=~D h=~D langue=~D texte=~S~%"
+                    bx
+                    by
+                    bw
+                    CS_BOX_H
+                    ;; la langue qui a REELLEMENT choisi la banque sur le port PC : c'est
+                    ;; `text-language`, pas `(-> *setting-control* current language)` que
+                    ;; `load-game-text-info` (engine/ui/text.gc:135) ignore sous PC_PORT.
+                    (-> *pc-settings* text-language)
+                    str))
+          (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf))
+            ;; Etat GS explicite, comme `loading-screen-draw` : melange alpha standard, test de
+            ;; profondeur neutralise. On ne se repose pas sur l'etat ambiant du bucket.
+            (dma-buffer-add-gs-set buf
+                                   (alpha-1 (new 'static 'gs-alpha :b 1 :d 1))
+                                   (zbuf-1 (new 'static 'gs-zbuf :zbp #x1c0 :psm (gs-psm ct24) :zmsk 1))
+                                   (test-1 (new 'static 'gs-test :zte 1 :ztst (gs-ztest always))))
+            ;; 1. la cartouche
+            (cs-round-rect buf bx by bw CS_BOX_H CS_RADIUS bw (new 'static 'rgba :a #x58))
+            ;; 2. le remplissage, borne a gauche par l'avancement du maintien
+            (if (> fw 0)
+              (cs-round-rect buf bx by bw CS_BOX_H CS_RADIUS fw (new 'static 'rgba :r #x80 :g #x80 :b #x80 :a #x40)))
+            ;; 3. l'icone du bouton et le mot, tous deux dans la meme chaine localisee
+            (draw-string-xy-scaled str
+                                   buf
+                                   (+ bx CS_PAD_X)
+                                   (+ by CS_TEXT_DY)
+                                   (font-color white)
+                                   (font-flags shadow kerning large)
+                                   CS_TEXT_SCALE)))))
+    0)
+  ;; Compter les images de cinematique passees SANS indice : c'est le denominateur du controle
+  ;; negatif ci-dessus, et il doit se compter meme quand on ne dessine pas.
+  (if (and *cutscene-in-cutscene* (not *cutscene-hint-published*)) (+! *cutscene-frames-no-hint* 1))
+  (none))
+
+(defun cutscene-skip-frame! ()
+  "Le point d'entree unique, appele une fois par image depuis `display-loop`
+   (engine/game/main.gc, bloc `post-sync-draw`)."
+  (cutscene-skip-update)
+  (cutscene-skip-draw)
+  (none))

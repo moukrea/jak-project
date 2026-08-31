@@ -1774,13 +1774,19 @@
 
 (goal-src "pc/features/speedruns-h.gc")
 
+;; Gcutscene-skip-all : l'ETAT du geste « maintenir CERCLE deux secondes ». Ici, et pas dans le
+;; bloc pc/ plus bas, parce que loader.gc, pov-camera.gc et process-taskable.gc LISENT son
+;; predicat -- il doit donc etre compile avant eux. Le dessin, lui, est en fin de liste.
+(goal-src "pc/cutscene-skip.gc" "settings-h" "pad" "display")
+
 (goal-src-sequence
  ;; prefix
  "engine/"
 
  :deps
  ("$OUT/obj/settings-h.o"
-  "$OUT/obj/speedruns-h.o")
+  "$OUT/obj/speedruns-h.o"
+  "$OUT/obj/cutscene-skip.o")
 
  "util/capture.gc"
  "debug/memory-usage-h.gc"
@@ -2119,6 +2125,10 @@
 ;; Gloading-screen: the loading screen painted while a load barrier holds a scene back.
 ;; It reuses the recharged-hud textured-quad helpers, hence the hud-classes-pc dependency.
 (goal-src "pc/loading-screen-pc.gc" "pckernel" "hud-classes-pc" "text")
+;; Gcutscene-skip-all : l'indice « [O] Skip/Passer » et sa cartouche a coins arrondis. Appele
+;; par le display-loop (main.gc, post-sync-draw), jamais par un processus -- le bit `movie` de
+;; process-mask gelerait un processus exactement pendant une cinematique.
+(goal-src "pc/cutscene-skip-draw.gc" "pckernel" "text" "cutscene-skip" "pov-camera")
 ;; Grecharged-mesh-browser: the debug mesh browser overlay (warp/frame/observe any level's meshes).
 (goal-src "pc/mesh-browser-pc.gc" "pckernel" "progress-pc" "camera" "cam-states-dbg" "time-of-day" "game-info" "sky-h")
 ;; Grecharged-hd-models3: HD character ANIMATION-RETARGET companion (gated on FLAG_HD_MODELS).

@@ -1,0 +1,138 @@
+;;-*-Lisp-*-
+(in-package goal)
+(require "engine/game/settings-h.gc")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcutscene-skip-all — L'ETAT DU GESTE. Le dessin vit dans pc/cutscene-skip-draw.gc.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Demande owner du 2026-08-30 (soir) : « qu'a la place de ca, on puisse skip TOUTES les
+;; cinematiques en maintenant appuye circle », y compris les CONTEXTUELLES (« celles qu'on a a
+;; Geyser Rock »), que le mecanisme actuel ne couvre pas.
+;;
+;; POURQUOI CE FICHIER EST SI TOT DANS L'ORDRE DE COMPILATION (avant loader.gc, pov-camera.gc,
+;; process-taskable.gc) : ce sont EUX qui lisent le predicat. Le fichier ne contient donc que
+;; l'etat et le predicat ; tout ce qui a besoin de la police, du texte localise ou de `movie?`
+;; (engine/game/main.gc) vit dans le fichier de dessin, compile a la fin.
+;;
+;; CE QUE LE MECANISME ACTUEL COUVRE, MESURE (recensement du 2026-08-31) : UN SEUL chemin sur 78,
+;; `process-taskable.gc:278`, et seulement quand `skip-movies?` est vrai. Le bouton est TRIANGLE,
+;; via `(= (get-response (-> arg0 query)) 'no)`.
+;; LES 48 SITES `pov-camera` SONT DU CODE MORT COTE ABANDON : aucun ne passe le drapeau
+;; `notify-of-abort` (47 passent 0, un passe `inherit-orientation`), donc `check-for-abort`
+;; (pov-camera.gc:9) consomme TRIANGLE et retourne toujours `#f`, et l'etat `pov-camera-abort`
+;; n'est jamais atteint. C'est exactement le trou que l'owner decrit.
+;;
+;; DEUX GRANDEURS, A NE PAS CONFONDRE :
+;;   - « une cinematique joue » : lue dans le fichier de dessin comme
+;;     `(or (movie?) <marque de flux fraiche>)`. C'est la porte de l'INDICE.
+;;   - « le geste a abouti » : `*cutscene-skip-fired*`, arme uniquement APRES deux secondes de
+;;     maintien PENDANT une cinematique. C'est ce que lisent les chemins de lecture de scene.
+;; La seconde ne peut pas s'armer sans la premiere : hors cinematique, maintenir CERCLE ne fait
+;; rien, et la remise a zero se fait a la fin de chaque cinematique.
+;;
+;; L'HORLOGE. `(current-time)` = `base-frame-counter`, 300 unites par seconde de TEMPS REEL
+;; (types-h.gc:54), pas par image : le maintien dure deux secondes quelle que soit la cadence.
+;; RESERVE DECLAREE : sur l'appareil, `time-ratio` est plafonne a 4 images par image REELLEMENT
+;; peinte (android/gk_android_main.cpp:787-799), donc sous 15 images/s l'horloge prend du retard
+;; et le remplissage s'etire. C'est l'horloge de tout le moteur, pas une horloge a nous.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Duree de maintien exigee. `(seconds 2)` = 600 unites de 1/300 s = 2000 ms exactement.
+(defconstant CS_HOLD_TIME (seconds 2))
+;; Combien de temps l'indice reste visible apres qu'on a touche un bouton.
+(defconstant CS_HINT_TIME (seconds 4))
+;; Fraicheur de la marque des chemins cables : 60 unites = 0,2 s. Au-dela, plus aucun chemin cable
+;; ne tourne. Une chaine de scene enchaine plusieurs animations avec une image ou deux de battement
+;; entre elles -- cette tolerance evite que l'indice clignote a chaque raccord.
+(defconstant CS_MARK_GRACE 60)
+
+;; Derniere image ou un chemin de scene REELLEMENT CABLE a tourne. C'est la grandeur qui decide
+;; si l'indice a le droit d'apparaitre : on ne promet « Skip » que la ou le saut aboutit.
+(define *cutscene-skip-mark* (the-as time-frame 0))
+;; LE VERROU. #t = le geste a abouti, la cinematique en cours doit s'arreter. Remis a #f des que
+;; plus aucune cinematique ne tourne.
+(define *cutscene-skip-fired* #f)
+;; Debut du maintien courant de CERCLE ; `*cutscene-skip-holding*` dit s'il est valide.
+(define *cutscene-skip-holding* #f)
+(define *cutscene-skip-hold-t0* (the-as time-frame 0))
+;; Avancement du remplissage, 0.0 -> 1.0. Lu par le dessin.
+(define *cutscene-skip-progress* 0.0)
+;; Derniere fois qu'on a touche un bouton pendant la cinematique. 0 = jamais.
+(define *cutscene-hint-stamp* (the-as time-frame 0))
+;; Publie chaque image par la mise a jour ; lu par le dessin et par les traces.
+(define *cutscene-in-cutscene* #f)
+
+;; --- diagnostics, jamais lus par une decision ---
+(define *cutscene-skip-count* 0)         ;; nombre de gestes aboutis depuis le lancement
+(define *cutscene-skip-ticks* 0)         ;; unites d'horloge REELLEMENT consommees par le dernier
+(define *cutscene-frames-no-hint* 0)     ;; images de cinematique passees AVANT le 1er indice
+(define *cutscene-hint-frames* 0)        ;; images ou l'indice a ete REELLEMENT dessine
+(define *cutscene-skip-trace* #f)        ;; #t = publier une ligne par abandon (opt-in)
+;; INSTRUMENT DE HARNAIS, JAMAIS ECRIT PAR LE JEU. #t force le BIT CERCLE dans le mot de boutons
+;; du pad, a la premiere ligne de la mise a jour -- donc EN AMONT du `cpad-hold?` que le code
+;; livre execute. Ce n'est pas un contournement du geste : la lecture du pad, la mesure des deux
+;; secondes, le remplissage, l'armement du verrou et l'abandon dans la boucle de scene sont tous
+;; exerces tels quels. Le seul maillon qu'il ne couvre pas est SDL -> `cpad-info`, qui est celui
+;; de tous les autres boutons du jeu.
+(define *cutscene-skip-inject-circle* #f)
+(define *cutscene-skip-aborts* 0)        ;; nombre de boucles de scene qui ont vu le verrou
+
+(defun cutscene-skip-fired? ()
+  "Le geste « maintenir CERCLE deux secondes » a-t-il abouti pour la cinematique en cours ?
+
+   C'est le SEUL predicat que les chemins de lecture de scene consultent. Il ne lit pas le pad :
+   il lit un verrou que `cutscene-skip-update` arme, ce qui garantit qu'un chemin ne peut pas
+   s'abandonner sur un appui court ou hors cinematique."
+  *cutscene-skip-fired*)
+
+(defun cutscene-skip-abort! ((who symbol))
+  "A appeler par un chemin de scene juste avant d'abandonner. Compte l'abandon et, si la trace est
+   armee, publie QUI a vu le verrou -- c'est la preuve d'execution du cablage, chemin par chemin."
+  (+! *cutscene-skip-aborts* 1)
+  (if *cutscene-skip-trace*
+    (format 0 "CUTABORT chemin=~A n=~D t=~D~%" who *cutscene-skip-aborts* (current-time)))
+  #t)
+
+(defun cutscene-skip-mark! ()
+  "Marquer, a cette image, qu'un chemin de scene CABLE tourne.
+
+   POURQUOI CETTE MARQUE EXISTE, ET C'EST UNE DECISION DE CONCEPTION. Le bit `movie` de
+   `prevent-from-run` est vrai sur des sequences qu'on ne peut PAS abandonner sans changer le jeu
+   -- la traversee en barque du pecheur (village1/fishermans-boat.gc:706 et :821) et la sequence
+   du pelican (beach/pelican.gc:175) : leur camera est tenue par un evenement de JEU
+   (`(while (!= ... 'release) (suspend))`), pas par une horloge d'auteur. Afficher « Skip » la
+   promettrait un saut qui n'arriverait jamais. L'indice se cale donc sur cette marque, que
+   SEULS les chemins cables posent : la promesse et le cablage sont la MEME grandeur.
+
+   Elle sert AUSSI de detection de cinematique pour les cinq scenes du TITRE, dont l'othercam est
+   cree avec `spooling? = 'logo` et n'arme donc pas le bit `movie` (process-taskable.gc:745).
+
+   `ja-play-spooled-anim` ne l'appelle PAS pour le joueur : `target-stance-ambient`
+   (engine/target/target2.gc:93) joue une anim STREAMEE d'oisiveté pendant que le joueur a le
+   controle total -- ce n'est pas une cinematique et l'indice n'a rien a y faire."
+  (set! *cutscene-skip-mark* (current-time))
+  (none))
+
+(defmacro cutscene-skip-anim! (who)
+  "Si le geste a abouti, pousser l'animation du canal 0 a sa derniere image : la boucle
+   `(until (ja-done? 0) ...)` qui l'entoure sort a son tour suivant.
+
+   MEME OPERATEUR QUE LE SAUT DE DEBUG D'ORIGINE (process-taskable.gc:313) : on ne sort pas du
+   flot de controle, on avance l'animation. Les `:exit`, les `go-virtual` et les envois de
+   notification qui suivent la boucle s'executent donc tous normalement -- c'est ce qui rend ce
+   saut sur-mesure pour les etats derives de `pov-camera`, qui n'ont pas d'etat d'abandon."
+  `(begin
+     (cutscene-skip-mark!)
+     (when (cutscene-skip-fired?)
+       (cutscene-skip-abort! ,who)
+       (ja :num-func num-func-identity :frame-num max))))
+
+(defmacro cutscene-skip-suspend-for (who dur)
+  "`suspend-for` qui rend la main des que le geste a abouti. Pas de sortie de flot : la boucle
+   se termine, le code qui suit s'execute normalement."
+  `(begin
+     (let ((cs-t0 (current-time)))
+       (until (or (cutscene-skip-fired?) (time-elapsed? cs-t0 ,dur))
+         (cutscene-skip-mark!)
+         (suspend)))
+     (if (cutscene-skip-fired?) (cutscene-skip-abort! ,who))))

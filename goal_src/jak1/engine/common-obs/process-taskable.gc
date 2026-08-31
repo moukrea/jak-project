@@ -311,6 +311,11 @@
      (ja-no-eval :group! (ja-group) :num! (seek!) :frame-num 0.0)
      (until (ja-done? 0)
        (if (and *debug-segment* (= (get-response (-> self query)) 'no)) (ja :num-func num-func-identity :frame-num max))
+       ;; Gcutscene-skip-all : la branche NON streamee de `process-taskable` -- le PNJ joue une
+       ;; anim de dialogue sans flux audio. Le saut d'origine juste au-dessus est conditionne par
+       ;; `*debug-segment*`, donc il n'existe pas dans un build livre : ce chemin n'etait
+       ;; abandonnable par personne. Meme operateur, sans la garde de debug.
+       (cutscene-skip-anim! 'taskable-anim)
        (suspend)
        (ja :num! (seek!)))
      #f)))

@@ -1155,7 +1155,12 @@
             (else (ja-channel-set! 0)))
           (while (or (handle->process (-> *art-control* spool-lock)) (!= *master-mode* 'game))
             (format #t "WARNING: ---------------------> loader stall on lock~%")
-            (if (arg3 self) (goto cfg-88))
+            ;; Gcutscene-skip-all : le verrou du geste « maintenir CERCLE deux secondes » est lu
+            ;; A COTE du predicat d'origine, jamais a sa place -- `arg3` garde exactement le
+            ;; comportement qu'il avait. `cutscene-skip-abort!` rend #t et compte l'abandon, donc
+            ;; le compteur ne monte que quand on saute vraiment.
+            (if (or (arg3 self) (and (!= self *target*) (cutscene-skip-fired?) (cutscene-skip-abort! 'spool-stall-lock)))
+              (goto cfg-88))
             (spool-push *art-control* (-> arg0 name) spool-part self -9.0)
             ;; Gloading-screen-window — LE RACCORD. Cette attente-ci et celle de l'art juste en
             ;; dessous precedent `scene-load-gate!` et n'etaient couvertes par AUCUN bit : mesure
@@ -1179,7 +1184,9 @@
               (arg1 (when (!= (ja-group) arg1) (ja-channel-set! 1) (ja :group! arg1 :num! min)))
               (else (ja-channel-set! 0)))
             (while (!= (file-status *art-control* (-> arg0 name) spool-part) 'active)
-              (if (arg3 self) (goto cfg-88))
+              ;; Gcutscene-skip-all : idem, cf. le commentaire de l'attente sur verrou ci-dessus.
+              (if (or (arg3 self) (and (!= self *target*) (cutscene-skip-fired?) (cutscene-skip-abort! 'spool-stall-art)))
+                (goto cfg-88))
               (spool-push *art-control* (-> arg0 name) spool-part self -20.0)
               (format #t "WARNING: ---------------------> loader stall on art ~S ~D~%" (-> arg0 name) spool-part)
               ;; UNIQUEMENT SUR LA PARTIE 0, et ce n'est pas une precaution : les parties
@@ -1215,6 +1222,21 @@
                    (set! sv-40 (the-as int (current-time)))
                    (until (>= (the float v0-39) f28-0)
                      (if (= (-> self skel root-channel 0) (-> self skel channel)) (logior! (-> self skel status) (janim-status spool)))
+                     ;; Gcutscene-skip-all — LE POINT UNIQUE DES SCENES STREAMEES.
+                     ;; `ja-play-spooled-anim` est le SEUL lecteur de spool du jeu (`str-play-async`
+                     ;; n'est appele que 20 lignes plus bas, dans cette meme fonction) : ce que l'on
+                     ;; pose ici couvre d'un coup les 21 chemins de scene streamee, quel que soit le
+                     ;; predicat que l'appelant a fourni -- y compris les 19 qui passent `false-func`
+                     ;; et n'ont donc JAMAIS ete abandonnables.
+                     ;;
+                     ;; L'EXCLUSION DU JOUEUR N'EST PAS UNE PRECAUTION, C'EST UNE MESURE.
+                     ;; `target-stance-ambient` (engine/target/target2.gc:93) joue une anim
+                     ;; STREAMEE d'oisiveté pendant que le joueur a le controle total ; sans ce
+                     ;; test, l'indice « Skip » apparaitrait pendant que Jak fait le poirier.
+                     ;; C'est aussi le seul des 24 appels dont le predicat d'origine lit le stick.
+                     (when (!= self *target*)
+                       (cutscene-skip-mark!)
+                       (if (and (cutscene-skip-fired?) (cutscene-skip-abort! 'spool)) (goto cfg-88)))
                      (if (or (arg3 self)
                              (and (<= sv-72 0) (time-elapsed? (the-as time-frame sv-40) (seconds 4)))
                              (and (< 300 sv-56) (<= sv-72 0)))

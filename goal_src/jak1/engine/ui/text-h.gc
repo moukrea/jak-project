@@ -1003,6 +1003,11 @@
   ;; les minuscules ne sont pas de l'ASCII dans l'encodage jak1, cf. font_db_jak1.cpp).
   ;; #x17b1 etait demande mais il est RESERVE (progress-pc.gc, tags carousel #x17b0..#x17bc).
   (pc-text-loading-precursor #x17ae)
+  ;; --- Gcutscene-skip-all : l'indice affiche en bas a droite pendant une cinematique ---
+  ;; La chaine porte le GLYPHE du bouton puis le mot : "<PAD_CIRCLE> Skip" / "<PAD_CIRCLE> Passer".
+  ;; #x17af est le premier id libre au-dessus du dernier alloue (#x17ae) et reste sous le pool
+  ;; RESERVE #x17b0..#x17bc (progress-pc.gc, tags carousel).
+  (pc-text-cutscene-skip #x17af)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

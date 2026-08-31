@@ -52,6 +52,10 @@
   "text-h.o"
   "settings-h.o"
   "knuth-rand.o" ;; added
+  ;; Gcutscene-skip-all : l'ETAT du geste. Il doit etre resident AVANT loader.o, pov-camera.o et
+  ;; process-taskable.o, qui LISENT son predicat -- un `define-extern` sans objet resident fait
+  ;; sauter GOAL a une adresse morte (SIGSEGV a l'amorcage, mesure le 2026-08-31 06:52).
+  "cutscene-skip.o" ;; added
   "capture.o"
   "memory-usage-h.o"
   "texture.o"
@@ -352,4 +356,7 @@
   "hud-classes-pc.o" ;; added
   "loading-screen-pc.o" ;; added -- Gloading-screen (must be resident at boot: it paints the
                         ;; screen while the logo-intro load barrier holds, before any level)
+  ;; Gcutscene-skip-all : le dessin de l'indice. Meme exigence que la ligne au-dessus -- il est
+  ;; appele par image depuis le display-loop, donc des l'amorcage.
+  "cutscene-skip-draw.o" ;; added
  ))

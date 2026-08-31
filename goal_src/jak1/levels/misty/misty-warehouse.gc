@@ -46,7 +46,8 @@
                                            (while (not (process-grab? *target*))
                                              (suspend))
                                            (camera-change-to "camera-160" 150 #f)
-                                           (suspend-for (seconds 3))
+                                           ;; Gcutscene-skip-all : maintien de CERCLE 2 s -- ce chemin joue la cinematique contextuelle de la marche du silo de Misty (camera scriptee avant la montee).
+                                           (cutscene-skip-suspend-for 'cam-tracker-silostep (seconds 3))
                                            (while (not (process-release? (handle->process (-> self grab-target))))
                                              (suspend))
                                            (camera-change-to (the-as string 'base) 150 #f)

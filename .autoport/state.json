@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 262,
+  "current_phase_idx": 263,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -1135,9 +1135,10 @@
     "Gloading-screen-window": 1788089738.5346968,
     "Gloadgate-crash-regression": 1788103921.8125257,
     "Ggrass-crash": 1788114432.1540587,
-    "Gsubtitle-style": 1788145720.1622245
+    "Gsubtitle-style": 1788145720.1622245,
+    "Gcutscene-skip-all": 1788149381.2034535
   },
-  "last_update": "2026-08-31T04:09:38.433975+00:00",
+  "last_update": "2026-08-31T04:09:41.203473+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1286,6 +1287,7 @@
     "Ggrass-crash": "2026-08-31 00:17 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Ggrass-crash quand il valide.",
     "Grecharged-hd-eye-scale": "2026-08-31 01:46 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-hd-eye-scale quand il valide.",
     "Grecharged-foliage-wind2": "2026-08-31 02:30 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-foliage-wind2 quand il valide.",
-    "Grecharged-materials-modern-parity": "2026-08-31 03:56 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-materials-modern-parity quand il valide."
+    "Grecharged-materials-modern-parity": "2026-08-31 03:56 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-materials-modern-parity quand il valide.",
+    "Gsubtitle-style": "2026-08-31 06:09 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gsubtitle-style quand il valide."
   }
 }

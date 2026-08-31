@@ -729,7 +729,8 @@
                                                  (while (not (send-event *camera* 'intro-done?))
                                                    (suspend))
                                                  (camera-change-to "camera-222" 600 #f)
-                                                 (suspend-for (seconds 2))
+                                                 ;; Gcutscene-skip-all : maintien de CERCLE 2 s -- ce chemin joue la cinematique contextuelle d'introduction du boss-plante de Jungle (camera scriptee sur la plante).
+                                                 (cutscene-skip-suspend-for 'cam-tracker-plantboss (seconds 2))
                                                  (while (not (process-release? (handle->process (-> self grab-target))))
                                                    (suspend))
                                                  (send-event *camera* 'blend-from-as-fixed)
