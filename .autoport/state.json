@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 267,
+  "current_phase_idx": 268,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -257,7 +257,8 @@
     "Ghd-skin-origin-stretch": 1,
     "Gjak1-crate-collision-2": 2,
     "Gfixed-tick-anim-interp": 1,
-    "Gcutscene-npc-flicker": 1
+    "Gcutscene-npc-flicker": 1,
+    "Gsubtitle-style-2": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1159,9 +1160,10 @@
     "Ghd-skin-origin-stretch": 1788246029.843314,
     "Gjak1-crate-collision-2": 1788263660.621679,
     "Gfixed-tick-anim-interp": 1788270191.1346,
-    "Gcutscene-npc-flicker": 1788275147.1497102
+    "Gcutscene-npc-flicker": 1788275147.1497102,
+    "Gsubtitle-style-2": 1788282503.00363
   },
-  "last_update": "2026-09-01T17:08:20.025571+00:00",
+  "last_update": "2026-09-01T18:34:48.884697+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1314,6 +1316,7 @@
     "Gcutscene-skip-all": "2026-08-31 07:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-skip-all quand il valide.",
     "Gjak1-crate-collision": "2026-08-31 12:35 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gjak1-crate-collision quand il valide.",
     "Gjak1-crate-collision-2": "2026-09-01 15:43 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gjak1-crate-collision-2 quand il valide.",
-    "Gfixed-tick-anim-interp": "2026-09-01 17:05 : deja validee, toujours en attente de la parole de l'owner."
+    "Gfixed-tick-anim-interp": "2026-09-01 17:05 : deja validee, toujours en attente de la parole de l'owner.",
+    "Gcutscene-npc-flicker": "2026-09-01 19:08 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-npc-flicker quand il valide."
   }
 }
