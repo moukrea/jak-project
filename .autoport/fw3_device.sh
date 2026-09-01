@@ -83,7 +83,7 @@ leg(){ # $1=tag  $2=toggle(t|f)  $3=native_rate(0|1)  $4=continue  $5=pos
 
 leg d1-ablation f 0 beach-start   "$BEACH_POS"
 leg d1-corrige  f 1 beach-start   "$BEACH_POS"
-leg d2d3-on     t 1 village1      "$VILL_POS"
+leg d2d3-on     t 1 village1-hut  "$VILL_POS"
 
 # ne laisser AUCUNE propriete injectee derriere : une `cpad_inject` oubliee tient un bouton
 # enfonce pour la course suivante, et un `native_rate` oublie desarme le correctif pour l'owner.
