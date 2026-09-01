@@ -1280,6 +1280,8 @@
 (define *gjcc-thru2-n*    0)    ;; dont celles traversees sur DEUX images ou plus
 (define *gjcc-near-lines* 0)    ;; plafond de lignes GJCC-NEAR
 (define *gjcc-dist*       0.0)  ;; distance parcourue par le joueur : PREUVE que le pilote pilote
+(define *gjcc-cctag*      0)    ;; tag du recensement periodique (bit 64)
+(define *gjcc-vide*       0)    ;; images ou le collide-cache du joueur est ENTIEREMENT vide
 (define *gjcc-thru-lines* 0)    ;; plafond de lignes, pour ne jamais inonder logcat
 (define *gjcc-frames*     0)
 (define *gjcc-warp*       0)    ;; images ecartees pour saut de position (teleportation)
@@ -1310,7 +1312,7 @@
   ;; les compteurs repartent de zero a CHAQUE pose de bouton : sans ca, ce qui s'est
   ;; passe avant l'ablation serait compte du cote de l'ablation.
   (set! *gjcc-degen-n* 0) (set! *gjcc-near-n* 0) (set! *gjcc-thru-n* 0) (set! *gjcc-thru2-n* 0)
-  (set! *gjcc-near-lines* 0) (set! *gjcc-dist* 0.0)
+  (set! *gjcc-near-lines* 0) (set! *gjcc-dist* 0.0) (set! *gjcc-cctag* 0) (set! *gjcc-vide* 0)
   (set! *gjcc-thru-lines* 0) (set! *gjcc-warp* 0)
   (dotimes (i GJCC-SLOTS) (set! (-> *gjcc-thru-st* i) 0))
   (format 0 "GJCC-MODE mode=~D rayon=~f maxtris=~D~%"
@@ -1333,6 +1335,8 @@
       (set! *gjcc-prev-py* py)
       (set! *gjcc-prev-pz* pz)
       (if (< step 32768.0) (set! *gjcc-dist* (+ *gjcc-dist* step)))
+      (if (and (zero? (-> *collide-cache* num-tris)) (zero? (-> *collide-cache* num-prims)))
+        (+! *gjcc-vide* 1))
       ;; GARDE DE TELEPORTATION. Un saut de plus de 8 m en une image n'est pas une
       ;; course : c'est un warp, un chargement ou une cinematique. On ne compte
       ;; jamais une traversee sur ces images-la — sinon l'instrument fabriquerait
@@ -1406,8 +1410,18 @@
                                        ;; `gjcc-land`), donc hors bande ; contre le flanc il est a au
                                        ;; moins demi-arete + rayon de corps, donc hors bande aussi.
                                        ;; La marge est d'un facteur 2 des deux cotes.
+                                       ;; UNE IMAGE A CACHE VIDE N'EST PAS UNE CAISSE FAUTIVE.
+                                       ;; Quand `num-tris` ET `num-prims` valent zero, le joueur ne
+                                       ;; collisionne avec RIEN — ni decor, ni premier plan : il
+                                       ;; traverse le monde entier, pas cette caisse-la. C'est ce que
+                                       ;; produisent les premieres images apres une teleportation du
+                                       ;; banc, et c'est exactement ce que portaient les deux
+                                       ;; traversees qui subsistaient apres correctif (`cctris=0
+                                       ;; ccprims=0` sur leur propre ligne). On les compte a part.
                                        ((and (< dx 2867.2) (< dz 2867.2)
-                                             (> py (- ey 2048.0)) (< py (+ ey 5000.0)))
+                                             (> py (- ey 2048.0)) (< py (+ ey 5000.0))
+                                             (or (nonzero? (-> *collide-cache* num-tris))
+                                                 (nonzero? (-> *collide-cache* num-prims))))
                                         (cond
                                           (#t
                                            ;; DES LA PREMIERE image a l'interieur. Exiger DEUX images
@@ -1437,7 +1451,7 @@
                                                        (the-as int (-> pm collide-with)))
                                                (format 0 "px=~f py=~f pz=~f " px py pz)
                                                (format 0 "wx=~f wy=~f wz=~f wr=~f " wx wy wz wr)
-                                               (format 0 "nan=~D degen=~D " (if (!= wx wx) 1 0) *gjcc-degen-n*)
+                                               (format 0 "nan=~D degen=~D " (if (and (< wx 1000000000.0) (> wx -1000000000.0)) 0 1) *gjcc-degen-n*)
                                                (format 0 "dx=~f dz=~f ey=~f step=~f " dx dz ey step)
                                                (format 0 "fps=~f spf=~f tr=~f ft=~D "
                                                        (-> *display* frames-per-second)
@@ -1472,6 +1486,13 @@
                    *actor-collision-birth-radius*)
            ;; LE PILOTE PILOTE-T-IL ? Sans cette ligne, « 0 caisse approchee » ne distingue
            ;; pas « le joueur n'a rencontre aucune caisse » de « le joueur n'a pas bouge ».
-           (format 0 "GJCC-POS f=~D dist_m=~f px=~f py=~f pz=~f~%"
-                   *gjcc-frames* (/ *gjcc-dist* 4096.0) px py pz))))))
+           (format 0 "GJCC-POS f=~D dist_m=~f px=~f py=~f pz=~f vide=~D~%"
+                   *gjcc-frames* (/ *gjcc-dist* 4096.0) px py pz *gjcc-vide*))
+         ;; RECENSEMENT COMPLET PERIODIQUE (bit 64). Sur l'appareil il n'existe aucun
+         ;; listener pour appeler `gjcc-scan` : sans ce declencheur, la couverture se
+         ;; limite aux caisses que le joueur parvient a atteindre a pied — trois, mesure.
+         ;; Ici les 31 caisses du niveau sont inspectees, que le joueur les approche ou non.
+         (when (and (nonzero? (logand *gjcc-mode* 64)) (zero? (mod *gjcc-frames* 900)))
+           (set! *gjcc-cctag* (+ *gjcc-cctag* 1))
+           (gjcc-scan *gjcc-cctag*))))))
   (none))
