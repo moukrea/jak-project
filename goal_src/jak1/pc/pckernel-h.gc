@@ -21,6 +21,20 @@
   If you do not want to include these PC things, you should exclude it from the build system.
 |#
 
+;; ============================================================================
+;; Gjak1-crate-collision-2 (owner 2026-08-31) — LE MOT DE COMMANDE DE LA MESURE.
+;; Lu depuis la cle `gjcc` du fichier de reglages, donc TOUTE l'ablation se fait sur
+;; le MEME BINAIRE, sans reconstruction. ZERO dans le build livre : aucun de ces bits
+;; n'est arme, et l'unique chose qui tourne alors est le detecteur passif de
+;; traversee, qui n'imprime QUE s'il voit le defaut de l'owner.
+;;   bit 1  resume periodique GJCC-RUN (approchees / traversees / cadence mesuree)
+;;   bit 2  audit du collide-cache (GJCC-CC : budget, boite, famine de decor)
+;;   bit 4  ABLATION : rayon de naissance a 0 = regle d'origine de Naughty Dog
+;;   bit 8  quota de naissance PAR SECONDE au lieu de PAR IMAGE
+;;   bit 16 cache de collision agrandi (le tampon de 5000 triangles est deja alloue)
+;; ============================================================================
+(define *gjcc-mode* 0)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; constants
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

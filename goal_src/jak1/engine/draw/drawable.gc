@@ -926,6 +926,11 @@
     ;; le bloc et rend `0`, ce qui ressemblerait a un balayage complet alors que RIEN n'a ete
     ;; tente. C'est exactement l'etat pendant un chargement de partie (game-info.gc:233).
     (set! *actors-sweep-complete* (if (and *spawn-actors* (actors-update *level*)) #t #f)))
+  ;; Gjak1-crate-collision-2 (owner 2026-08-31, retour 2) : le detecteur passif de
+  ;; traversee de caisse. Il est place ICI, juste apres le balayage de naissance, parce
+  ;; que c'est le seul point du moteur ou l'on connait a la fois la pose FINALE du joueur
+  ;; pour cette image et l'etat des acteurs qui viennent de naitre. Il ne modifie rien.
+  (gjcc-thru-tick!)
   (add-ee-profile-frame 'draw :r #x80 :a #x80)
   (when (not (paused?))
     (if *stats-collide* (print-collide-stats)))

@@ -196,6 +196,34 @@
 
 ;; These are the settings that can be set per primitive.
 
+;; ============================================================================
+;; Gjak1-crate-collision-2 (owner 2026-08-31) — UNE SPHERE DE COLLISION NE DOIT
+;; JAMAIS VALOIR NaN.
+;;
+;; `update-transforms!` (collide-shape.gc) place la sphere d'une primitive en
+;; DIVISANT par le `w` de la matrice de l'os designe par `transform-index`. A la
+;; NAISSANCE d'un acteur, `initialize-skeleton` -> `find-collision-meshes` appelle
+;; `update-transforms!` alors qu'AUCUNE matrice d'os n'a encore ete calculee : la
+;; matrice est a zero, `1.0 / 0.0` vaut l'infini, et `0.0 * infini` vaut **NaN**.
+;; La sphere du monde devient NaN, le test de boite du collide-cache la convertit
+;; en INT_MIN et la REJETTE — la caisse est dessinee, inscrite sur la liste de
+;; collision, maillee, et pourtant traversable.
+;;
+;; MESURE (archive du cycle precedent, DEUX instruments independants) : `wd=NaN`
+;; sur 14 des 17 courses, et `wsy=NaN` avec `inbox=0 incache=0` sur la requete du
+;; joueur. 0 a 60 images/s dans la course b60 contre 7 a 8 a 10 images/s.
+;;
+;; Le repli est celui que le moteur applique DEJA quand il n'y a pas d'os
+;; (`transform-index = -2`) : sphere locale + position du collide-shape. Pour une
+;; caisse c'est la BONNE valeur au bit pres (l'ecart mesure entre la sphere et
+;; l'origine vaut exactement l'offset local, 3072 unites).
+;;
+;; `*gjcc-degen-guard*` a 0 retablit le comportement d'origine — l'ablation se
+;; fait donc sur le MEME BINAIRE, pilotee par le bit 32 de `*gjcc-mode*`.
+;; ============================================================================
+(define *gjcc-degen-guard* 1)
+(define *gjcc-degen-n* 0)
+
 (defenum collide-kind
   :type uint64
   :bitfield #t

@@ -389,6 +389,12 @@
 ;; CE QU'IL LIT QUAND LE DEFAUT EST ABSENT : #t des la premiere image ou `*spawn-actors*` est vrai
 ;; sur un niveau deja peuple (renaissance sur place) -- l'attente ne retient alors rien.
 (define *actors-sweep-complete* #f)
+
+;; Gjak1-crate-collision-2 : detecteur passif de traversee de caisse, defini dans
+;; engine/common-obs/crates.gc (compile plus tard) et appele une fois par image
+;; dessinee depuis engine/draw/drawable.gc. Meme idiome que `set-master-mode`
+;; ci-dessous : declare ici, defini plus loin.
+(define-extern gjcc-thru-tick! (function none))
 (define *ls-birth-tours* 0)
 
 (defun-extern on symbol process)

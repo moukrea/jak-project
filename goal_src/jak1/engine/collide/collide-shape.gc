@@ -1531,6 +1531,18 @@
       (cond
         ((nonzero? a1-1)
          (cond
+           ;; Gjak1-crate-collision-2 : l'os a-t-il seulement ete calcule ? Un `w` nul
+           ;; est une matrice VIERGE, et le diviser fabrique un NaN (voir collide-shape-h.gc).
+           ((and (>= a0-1 0)
+                 (nonzero? *gjcc-degen-guard*)
+                 (= (-> a1-1 data a0-1 bone transform vector 3 w) 0.0))
+            (+! *gjcc-degen-n* 1)
+            ;; repli EXACT de la branche `transform-index = -2` : sphere locale + pose
+            (.lvf vf1 (&-> obj local-sphere quad))
+            (.lvf vf2 (&-> v1-0 trans quad))
+            (.add.vf.xyz vf1 vf1 vf2)
+            (.svf (&-> obj prim-core world-sphere quad) vf1)
+            (.mov a0-2 vf1))
            ((>= a0-1 0)
             (let ((v1-4 (-> a1-1 data a0-1 bone transform)))
               (.lvf vf5 (&-> v1-4 vector 3 quad))

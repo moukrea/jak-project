@@ -1230,3 +1230,233 @@
         (format 0 "GJCC-INJECT on=0 victim=#x~X~%" (the-as int *gjcc-victim*)))
        (else (format 0 "GJCC-INJECT on=0 victim=none~%")))))
   (none))
+
+;; ============================================================================
+;; Gjak1-crate-collision-2 (owner 2026-08-31, RETOUR 2) — DETECTEUR PASSIF DE
+;; TRAVERSEE. IL MESURE LE DEFAUT DE L'OWNER, PAS CELUI DU BANC.
+;;
+;; « j'ai toujours le soucis, c'est pas réglé du tout, ptêtre lié au jeux qui
+;;   dépend plus du framerate »
+;;
+;; POURQUOI UN NOUVEL INSTRUMENT. Le banc du cycle precedent TELEPORTE le joueur
+;; au-dessus de chaque caisse. Il fabrique donc la condition « la caisse n'est pas
+;; encore nee » et c'est ce defaut-la qu'il a mesure puis corrige. Or les caisses
+;; que le joueur a TRAVERSEES dans la course f10 publient, au moment meme du
+;; verdict : `live=1 hid=0 onlist=1 mesh=1` — NEE, DESSINEE, INSCRITE, MAILLEE.
+;; C'est mot pour mot ce que decrit l'owner (« les caisses sont là mais je passe
+;; au travers »), et la naissance ne peut pas l'expliquer.
+;;
+;; CE DETECTEUR NE TELEPORTE RIEN. Il regarde le joueur COURIR et publie une
+;; ligne quand il se retrouve A L'INTERIEUR d'une caisse qui est dessinee. C'est
+;; la seule mesure qui vaille sur l'appareil, ou il n'y a pas de listener goalc.
+;;
+;; NATURE / REPERE / LIGNE DE BASE (les trois questions exigees) :
+;;   NATURE  : un ETAT GEOMETRIQUE soutenu (le joueur est DANS le volume), pas une
+;;             amplitude ni une variance ;
+;;   REPERE  : le monde, et le test est fait contre le volume de collision REEL de
+;;             la caisse (`prim-core world-sphere`), pas contre sa pose d'auteur ;
+;;   LIGNE DE BASE quand le defaut est ABSENT : ZERO ligne. Un joueur qui marche
+;;             CONTRE une caisse a son centre a au moins (demi-arete + rayon du
+;;             joueur) du centre, soit ~8100 unites, quand le seuil est a ~3000 :
+;;             la marge est d'un facteur 2,7, il n'y a pas de zone grise.
+;;   Le joueur DEBOUT SUR la caisse est exclu par la bande verticale (il est a
+;;             +8368 alors que la bande s'arrete a +4824).
+;;
+;; CONTROLE POSITIF : `gjcc-inject 1` retire ses masques a une caisse vivante ; le
+;; joueur la traverse et CE compteur doit monter, puis se taire a la restauration.
+;;
+;; COUT : une rejection par boite sur x/z avant tout calcul, sur les entites de
+;; type `crate` des niveaux actifs. Aucune sortie tant qu'aucune traversee n'est
+;; vue — l'instrument est donc SILENCIEUX dans le build livre, et il y reste arme
+;; parce qu'un defaut intermittent que l'owner voit chez lui doit pouvoir se
+;; declarer chez lui.
+;; ============================================================================
+
+(defconstant GJCC-SLOTS 384)
+
+(define *gjcc-thru-st*    (new 'global 'array 'int32 GJCC-SLOTS)) ;; etat par (niveau,acteur)
+(define *gjcc-near-n*     0)    ;; caisses APPROCHEES  = le DENOMINATEUR
+(define *gjcc-thru-n*     0)    ;; caisses TRAVERSEES  = le NUMERATEUR
+(define *gjcc-thru2-n*    0)    ;; dont celles traversees sur DEUX images ou plus
+(define *gjcc-thru-lines* 0)    ;; plafond de lignes, pour ne jamais inonder logcat
+(define *gjcc-frames*     0)
+(define *gjcc-warp*       0)    ;; images ecartees pour saut de position (teleportation)
+(define *gjcc-prev-px*    0.0)
+(define *gjcc-prev-py*    0.0)
+(define *gjcc-prev-pz*    0.0)
+(define *gjcc-applied*    0)    ;; les boutons de `*gjcc-mode*` ont-ils ete poses ?
+
+(defun gjcc-mode-apply! ()
+  "Pose les boutons UNE FOIS, et publie ce qui a ete pose. `*gjcc-mode*` vient du
+   fichier de reglages (cle `gjcc`), donc l'ABLATION se fait sur le MEME BINAIRE :
+   aucun de ces bits n'est arme dans le build livre (mode 0)."
+  (set! *gjcc-applied* (+ *gjcc-mode* 1))
+  ;; Chaque bouton est pose DANS LES DEUX SENS, jamais seulement arme : c'est ce qui
+  ;; rend l'ablation reversible SUR LE MEME BINAIRE, sans reconstruire ni redemarrer.
+  ;; bit 2 : audit du collide-cache (il publie GJCC-CC / GJCC-DROP)
+  (cond ((nonzero? (logand *gjcc-mode* 2)) (gjcc-cc-reset 60))
+        (else (set! *gjcc-cc-on* #f)))
+  ;; bit 4 : ABLATION du correctif precedent — rayon de naissance a ZERO = regle
+  ;;         d'origine de Naughty Dog, a l'octet pres
+  (set! *actor-collision-birth-radius* (if (nonzero? (logand *gjcc-mode* 4)) 0.0 (meters 30)))
+  ;; bit 16 : cache de collision AGRANDI. Le tampon de 5000 triangles est DEJA
+  ;;          alloue (collide-cache-h.gc) ; seul le plafond vaut 460.
+  (set! *collide-cache-max-tris* (if (nonzero? (logand *gjcc-mode* 16)) BIG_COLLIDE_CACHE_SIZE 460))
+  ;; bit 32 : ABLATION du correctif de sphere NaN — on laisse la division par une
+  ;;          matrice vierge produire son NaN, comme dans le build d'avant.
+  (set! *gjcc-degen-guard* (if (nonzero? (logand *gjcc-mode* 32)) 0 1))
+  ;; les compteurs repartent de zero a CHAQUE pose de bouton : sans ca, ce qui s'est
+  ;; passe avant l'ablation serait compte du cote de l'ablation.
+  (set! *gjcc-degen-n* 0) (set! *gjcc-near-n* 0) (set! *gjcc-thru-n* 0) (set! *gjcc-thru2-n* 0)
+  (set! *gjcc-thru-lines* 0) (set! *gjcc-warp* 0)
+  (dotimes (i GJCC-SLOTS) (set! (-> *gjcc-thru-st* i) 0))
+  (format 0 "GJCC-MODE mode=~D rayon=~f maxtris=~D~%"
+          *gjcc-mode* *actor-collision-birth-radius* *collide-cache-max-tris*)
+  (none))
+
+(defun gjcc-thru-tick! ()
+  "Appele UNE FOIS PAR IMAGE DESSINEE depuis engine/draw/drawable.gc, juste apres
+   `actors-update`. Ne teleporte rien, ne modifie rien, ne prend aucune decision de
+   jeu : il regarde et il compte."
+  (if (!= *gjcc-applied* (+ *gjcc-mode* 1)) (gjcc-mode-apply!))
+  (when (and *target* (nonzero? (the-as int (-> *target* control))))
+    (+! *gjcc-frames* 1)
+    (let* ((pt (-> *target* control trans))
+           (px (-> pt x))
+           (py (-> pt y))
+           (pz (-> pt z))
+           (step (+ (fabs (- px *gjcc-prev-px*)) (fabs (- py *gjcc-prev-py*)) (fabs (- pz *gjcc-prev-pz*)))))
+      (set! *gjcc-prev-px* px)
+      (set! *gjcc-prev-py* py)
+      (set! *gjcc-prev-pz* pz)
+      ;; GARDE DE TELEPORTATION. Un saut de plus de 8 m en une image n'est pas une
+      ;; course : c'est un warp, un chargement ou une cinematique. On ne compte
+      ;; jamais une traversee sur ces images-la — sinon l'instrument fabriquerait
+      ;; le defaut qu'il est cense trouver, comme le banc a teleportation.
+      (cond
+        ((>= step 32768.0) (+! *gjcc-warp* 1))
+        (else
+         (dotimes (li 3)
+           (let ((lev (-> *level* level li)))
+             (when (and (= (-> lev status) 'active) (nonzero? (the-as int (-> lev bsp))))
+               (let ((acts (-> lev bsp actors)))
+                 (when (nonzero? (the-as int acts))
+                   (dotimes (ai (-> acts length))
+                     (when (< ai 128)
+                       (let ((ent (-> acts data ai actor)))
+                         (when (and (nonzero? (the-as int ent))
+                                    (nonzero? (the-as int (-> ent etype)))
+                                    (type-type? (-> ent etype) crate)
+                                    ;; rejection par boite AVANT tout calcul
+                                    (< (fabs (- (-> ent trans x) px)) 24576.0)
+                                    (< (fabs (- (-> ent trans z) pz)) 24576.0))
+                           (let ((pr (-> ent extra process)))
+                             (when (and (nonzero? (the-as int pr)) (type-type? (-> pr type) crate))
+                               (let* ((c (the-as crate pr))
+                                      (r (-> c root))
+                                      (pm (the-as collide-shape-prim-mesh
+                                                  (if (nonzero? (the-as int r))
+                                                    (-> r root-prim)
+                                                    (the-as collide-shape-prim 0)))))
+                                 ;; une caisse CACHEE est une caisse cassee : elle n'a
+                                 ;; pas a etre solide, et la traverser n'est pas un defaut
+                                 (when (and (nonzero? (the-as int pm))
+                                            (not (logtest? (-> c draw status) (draw-status hidden))))
+                                   (let* ((wr (-> pm prim-core world-sphere w))
+                                          (wx (-> pm prim-core world-sphere x))
+                                          (wy (-> pm prim-core world-sphere y))
+                                          (wz (-> pm prim-core world-sphere z))
+                                          ;; L'ANCRAGE EST L'ENTITE, JAMAIS LA SPHERE DU MONDE.
+                                          ;; La sphere est precisement la grandeur qui peut valoir
+                                          ;; NaN, et toute comparaison avec un NaN rend FAUX : un
+                                          ;; detecteur qui la lirait serait AVEUGLE au defaut qu'il
+                                          ;; cherche, et publierait un zero. La pose de l'entite et
+                                          ;; la sphere LOCALE sont posees a la construction et ne
+                                          ;; peuvent pas etre NaN.
+                                          (ex (-> ent trans x))
+                                          (ey (-> ent trans y))   ;; base de la caisse
+                                          (ez (-> ent trans z))
+                                          (h (* (-> pm local-sphere w) 0.5773503))
+                                          (dx (fabs (- px ex)))
+                                          (dz (fabs (- pz ez)))
+                                          (slot (+ (* li 128) ai))
+                                          (st (-> *gjcc-thru-st* slot)))
+                                     ;; APPROCHEE : le joueur est venu a portee de la toucher,
+                                     ;; a SA hauteur. C'est le denominateur du verdict.
+                                     (when (and (zero? (logand st 1))
+                                                (< dx (+ h 8192.0)) (< dz (+ h 8192.0))
+                                                (< (fabs (- py ey)) 12288.0))
+                                       (set! st (logior st 1))
+                                       (+! *gjcc-near-n* 1))
+                                     (cond
+                                       ;; DEDANS : le joueur est a moins de son PROPRE rayon de corps
+                                       ;; (2867,2) de l'axe de la caisse, et sa hauteur est dans la
+                                       ;; moitie BASSE du volume. Debout DESSUS il est a +8368 (mesure
+                                       ;; `gjcc-land`), donc hors bande ; contre le flanc il est a au
+                                       ;; moins demi-arete + rayon de corps, donc hors bande aussi.
+                                       ;; La marge est d'un facteur 2 des deux cotes.
+                                       ((and (< dx 2867.2) (< dz 2867.2)
+                                             (> py (- ey 2048.0)) (< py (+ ey 5000.0)))
+                                        (cond
+                                          (#t
+                                           ;; DES LA PREMIERE image a l'interieur. Exiger DEUX images
+                                           ;; consecutives rendrait l'instrument aveugle au cas le plus
+                                           ;; court, qui est justement celui de l'owner : UNE SEULE image
+                                           ;; sans sphere de collision laisse traverser 0,72 m a
+                                           ;; 13,9 images/s, soit la moitie d'une caisse. La PROFONDEUR
+                                           ;; (deux images ou plus) est publiee a part, `profond=` :
+                                           ;; c'est une information, plus une condition d'admission.
+                                           (when (and (nonzero? (logand st 2)) (zero? (logand st 8)))
+                                             (set! st (logior st 8))
+                                             (+! *gjcc-thru2-n* 1))
+                                           (set! st (logior st 2))
+                                           (when (zero? (logand st 4))
+                                             (set! st (logior st 4))
+                                             (+! *gjcc-thru-n* 1)
+                                             (when (< *gjcc-thru-lines* 200)
+                                               (+! *gjcc-thru-lines* 1)
+                                               (format 0 "GJCC-THRU n=~D aid=~D look=~A f=~D "
+                                                       *gjcc-thru-n* (the-as int (-> ent aid)) (-> c look) *gjcc-frames*)
+                                               (format 0 "onlist=~D mesh=~D incache=~D "
+                                                       (if (nonzero? (the-as int r)) (gjcc-on-list? *collide-usually-hit-by-player-list* r) 0)
+                                                       (if (-> pm mesh) 1 0)
+                                                       (gjcc-in-cache? *collide-cache* (the-as collide-shape-prim pm)))
+                                               (format 0 "as=#x~X with=#x~X "
+                                                       (the-as int (-> pm prim-core collide-as))
+                                                       (the-as int (-> pm collide-with)))
+                                               (format 0 "px=~f py=~f pz=~f " px py pz)
+                                               (format 0 "wx=~f wy=~f wz=~f wr=~f " wx wy wz wr)
+                                               (format 0 "nan=~D degen=~D " (if (!= wx wx) 1 0) *gjcc-degen-n*)
+                                               (format 0 "dx=~f dz=~f ey=~f step=~f " dx dz ey step)
+                                               (format 0 "fps=~f spf=~f tr=~f ft=~D "
+                                                       (-> *display* frames-per-second)
+                                                       (-> *display* seconds-per-frame)
+                                                       (-> *display* time-ratio)
+                                                       *fixed-tick-armed*)
+                                               (format 0 "birthmax=~D sweep=~D uhbp=~D cctris=~D ccprims=~D~%"
+                                                       (-> *ACTOR-bank* birth-max)
+                                                       (if *actors-sweep-complete* 1 0)
+                                                       (gjcc-list-count *collide-usually-hit-by-player-list*)
+                                                       (-> *collide-cache* num-tris)
+                                                       (-> *collide-cache* num-prims)))))
+                                          ))
+                                       (else (if (nonzero? (logand st 2)) (set! st (- st 2)))))
+                                     (set! (-> *gjcc-thru-st* slot) st)))))))))))))))
+         ;; RESUME PERIODIQUE — opt-in (bit 1). C'est lui qui porte le compte PAR
+         ;; COURSE que l'owner exige : approchees / traversees, et la cadence
+         ;; REELLEMENT MESUREE pendant la course.
+         (when (and (nonzero? (logand *gjcc-mode* 1)) (zero? (mod *gjcc-frames* 300)))
+           (format 0 "GJCC-RUN f=~D approchees=~D traversees=~D profond=~D warp=~D "
+                   *gjcc-frames* *gjcc-near-n* *gjcc-thru-n* *gjcc-thru2-n* *gjcc-warp*)
+           (format 0 "fps=~f spf=~f tr=~f ft=~D "
+                   (-> *display* frames-per-second)
+                   (-> *display* seconds-per-frame)
+                   (-> *display* time-ratio)
+                   *fixed-tick-armed*)
+           (format 0 "birthmax=~D sweep=~D degen=~D mode=~D rayon=~f~%"
+                   (-> *ACTOR-bank* birth-max)
+                   (if *actors-sweep-complete* 1 0)
+                   *gjcc-degen-n*
+                   *gjcc-mode*
+                   *actor-collision-birth-radius*))))))
+  (none))

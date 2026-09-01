@@ -858,6 +858,10 @@
   "handle the text parsing input for the 'settings' group"
   (case-str *pc-temp-string*
     (("fps") (set-frame-rate! obj (file-stream-read-int file) #t))
+    ;; Gjak1-crate-collision-2 : mot de commande de la mesure des caisses. Absent du
+    ;; fichier = 0 = comportement livre. Volontairement NON REECRIT par `save-settings`
+    ;; pour ne jamais se retrouver colle dans le fichier de l'owner.
+    (("gjcc") (set! *gjcc-mode* (file-stream-read-int file)))
     (("window-size")
      (set! (-> obj window-width) (file-stream-read-int file))
      (set! (-> obj window-height) (file-stream-read-int file)))

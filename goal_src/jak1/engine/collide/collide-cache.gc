@@ -48,6 +48,17 @@
 (define *gjcc-cc-cand* 0)     ;; caisses candidates (dans la boite)
 (define *gjcc-cc-drop* 0)     ;; caisses candidates ABSENTES du cache = traversees
 (define *gjcc-cc-loud* 0)     ;; combien de lignes de detail il reste a imprimer
+;; Gjak1-crate-collision-2 : LE BUDGET EST PARTAGE ET LE DECOR SERT EN PREMIER.
+;; `fill-using-bounding-box` remplit dans l'ordre DECOR -> eau -> PREMIER PLAN, sur un
+;; unique budget de `*collide-cache-max-tris*` triangles. Le rayon de la requete du joueur
+;; vaut `|vitesse| * seconds-per-frame + 4096` : il GRANDIT quand la cadence baisse. Si le
+;; decor consomme le budget, les caisses -- servies EN DERNIER -- sont perdues, et le
+;; depassement est SILENCIEUX en build livre (le message est sous `*cheat-mode* = debug`,
+;; et dans la version mips2c le drapeau « deja imprime » n'est meme pas ecrit).
+;; Ces deux compteurs mesurent exactement ca : ce que le DECOR SEUL a deja pris.
+(define *gjcc-cc-boxmax* 0.0)   ;; plus grande boite interrogee (somme des 3 aretes)
+(define *gjcc-cc-bgmax* 0)    ;; pic de triangles APRES le decor, AVANT le premier plan
+(define *gjcc-cc-bgstarve* 0) ;; requetes ou le decor laisse moins de 48 triangles (4 caisses)
 ;; La caisse surveillee est designee par un HANDLE, jamais par un pointeur : elle MEURT
 ;; quand le joueur s'en eloigne (de-naissance d'acteur), et un pointeur garde d'une image
 ;; sur l'autre est un pointeur pendant — c'est ce qui a fait segfault la course w10.
@@ -65,9 +76,21 @@
       (if (= (-> cc prims i prim) prim) (set! f 1)))
     f))
 
+(defun gjcc-cc-bg-note! ((cc collide-cache))
+  "Appele ENTRE le remplissage du DECOR et celui du PREMIER PLAN. C'est le seul endroit
+   ou l'on peut voir si les caisses arrivent devant un budget deja epuise."
+  (if (> (-> cc num-tris) *gjcc-cc-bgmax*) (set! *gjcc-cc-bgmax* (-> cc num-tris)))
+  (if (> (+ (-> cc num-tris) 48) *collide-cache-max-tris*) (+! *gjcc-cc-bgstarve* 1))
+  (none))
+
 (defun gjcc-cc-audit! ((cc collide-cache))
   "Appele a la FIN de `fill-using-bounding-box`, donc sur la requete REELLE du joueur."
   (+! *gjcc-cc-q* 1)
+  ;; la TAILLE de la boite interrogee : c'est elle qui depend de la cadence
+  (let ((bd (+ (- (-> cc collide-box max x) (-> cc collide-box min x))
+               (- (-> cc collide-box max y) (-> cc collide-box min y))
+               (- (-> cc collide-box max z) (-> cc collide-box min z)))))
+    (if (> bd *gjcc-cc-boxmax*) (set! *gjcc-cc-boxmax* bd)))
   (if (> (-> cc num-tris) *gjcc-cc-tmax*) (set! *gjcc-cc-tmax* (-> cc num-tris)))
   (if (> (-> cc num-prims) *gjcc-cc-pmax*) (set! *gjcc-cc-pmax* (-> cc num-prims)))
   (if (>= (-> cc num-tris) (+ *collide-cache-max-tris* -2)) (+! *gjcc-cc-full* 1))
@@ -123,8 +146,10 @@
 (defun gjcc-cc-report ((tag int))
   (format 0 "GJCC-CC tag=~D q=~D tmax=~D/~D pmax=~D/100 "
           tag *gjcc-cc-q* *gjcc-cc-tmax* *collide-cache-max-tris* *gjcc-cc-pmax*)
-  (format 0 "full=~D pfull=~D cand=~D drop=~D~%"
+  (format 0 "full=~D pfull=~D cand=~D drop=~D "
           *gjcc-cc-full* *gjcc-cc-pfull* *gjcc-cc-cand* *gjcc-cc-drop*)
+  (format 0 "bgmax=~D bgstarve=~D boxmax=~f spf=~f~%"
+          *gjcc-cc-bgmax* *gjcc-cc-bgstarve* *gjcc-cc-boxmax* (-> *display* seconds-per-frame))
   (none))
 
 (defun gjcc-cc-reset ((loud int))
@@ -132,6 +157,7 @@
   (set! *gjcc-cc-q* 0) (set! *gjcc-cc-tmax* 0) (set! *gjcc-cc-pmax* 0)
   (set! *gjcc-cc-full* 0) (set! *gjcc-cc-pfull* 0)
   (set! *gjcc-cc-cand* 0) (set! *gjcc-cc-drop* 0) (set! *gjcc-cc-loud* loud)
+  (set! *gjcc-cc-bgmax* 0) (set! *gjcc-cc-bgstarve* 0) (set! *gjcc-cc-boxmax* 0.0)
   (none))
 
 (defmethod debug-draw ((obj collide-cache))
@@ -384,6 +410,8 @@
       (fill-from-background obj
                             (method-of-type bsp-header collide-with-box)
                             (method-of-type collide-cache load-mesh-from-spad-in-box)))
+    ;; Gjak1-crate-collision-2 : ce que le DECOR SEUL a deja pris (opt-in)
+    (when *gjcc-cc-on* (gjcc-cc-bg-note! obj))
     (if (logtest? arg1 (collide-kind water)) (fill-from-water obj (-> arg2 water)))
     (if (logtest? arg1 (collide-kind cak-1 cak-2 cak-3 target)) (fill-from-foreground-using-box obj))
     ;; Gjak1-crate-collision : audit du budget, DANS la requete du joueur (opt-in)

@@ -1062,7 +1062,20 @@
       ;; `lerp-scale 25 -> 1 entre 2000 et 7000 us` rend TOUJOURS 25 et `pause-dist` reste a
       ;; `birth-dist`. Mesure a l'execution : `birthmax=25 runtime=0 pausedist=901120`.
       ;; Le quota de naissances par image n'est donc PAS ce qui retarde les caisses.
-      (seekl! (-> *ACTOR-bank* birth-max) (the int (lerp-scale 25.0 1.0 (the float s5-1) 2000.0 7000.0)) 10))
+      ;; Gjak1-crate-collision-2 : LE QUOTA EST PAR IMAGE, LE JOUEUR AVANCE PAR SECONDE.
+      ;; `birth-max` borne le nombre d'operations naissance+mort d'UNE image, et
+      ;; `actors-update` est appelee UNE FOIS PAR IMAGE DESSINEE (engine/draw/drawable.gc).
+      ;; A 60 images/s cela fait 1500 operations par seconde ; sur l'appareil, qui rend
+      ;; 13 images/s a Geyser Rock, il n'en reste que 325 — alors que le joueur, lui,
+      ;; parcourt la MEME distance par seconde (`time-adjust-ratio`, plafonne a 4,0).
+      ;; Le bit 8 rend le quota PROPORTIONNEL AU TEMPS ECOULE : meme debit par seconde
+      ;; quelle que soit la cadence. A 0 (build livre) le comportement est celui d'origine,
+      ;; au bit pres — c'est l'ablation sur le meme binaire.
+      (let ((cible (the int (lerp-scale 25.0 1.0 (the float s5-1) 2000.0 7000.0))))
+        (cond
+          ((nonzero? (logand *gjcc-mode* 8))
+           (set! (-> *ACTOR-bank* birth-max) (the int (* (the float cible) (-> *display* time-ratio)))))
+          (else (seekl! (-> *ACTOR-bank* birth-max) cible 10)))))
     (if (movie?) (set! (-> *ACTOR-bank* birth-max) 1000)))
   (when *spawn-actors*
     (let ((sv-16 (camera-pos))
