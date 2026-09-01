@@ -9,9 +9,77 @@
 ;; definition for symbol *wind-work*, type wind-work
 (define *wind-work* (new 'global 'wind-work))
 
+;; Grecharged-foliage-wind3 (owner 2026-08-31, defaut D1) — « les arbres qui sont sensés être
+;; animés par défaut font de légers twitchs sans animations », OPTION ETEINTE.
+;;
+;; CE QUE LA CORRECTION « high fps » FAISAIT, ET POURQUOI ELLE FABRIQUAIT LE DEFAUT.
+;; `update-wind` remplit un ANNEAU de 64 vecteurs : un slot par appel. La version « high fps »
+;; multipliait l'INDEX D'ECRITURE **et** l'amplitude par `(-> *display* time-adjust-ratio)`,
+;; en gardant UN SEUL appel par image dessinee. Or l'index de LECTURE est le compteur BRUT,
+;; chez TOUS les consommateurs :
+;;   - le ressort TIE du renderer   (game/graphics/opengl_renderer/background/Tie3.cpp, `(wind_time + wind_idx) & 63`)
+;;   - `wind-get-hashed-index`      (engine/gfx/background/wind-h.gc:65)
+;;   - le moulin de Sandover        (levels/village1/village-obs.gc:370)
+;;   - l'eolienne de Misty          (levels/misty/misty-obs.gc:1016)
+;; Consequence, purement arithmetique : le pas d'ecriture vaut `tar` slots, donc
+;; `64 - 64/pgcd(tar,64)` slots ne sont JAMAIS reecrits — 32 slots morts a tar=2, **48 a tar=4**
+;; (la valeur mesuree a 15 images/s, ou `(fmin 4.0 ...)` sature). Le lecteur balaie l'anneau
+;; entier a raison d'un slot par image : il tombe donc sur du VIDE trois fois sur quatre, puis
+;; sur une valeur multipliee par 4. Le ressort recoit un train de coups separes par des images
+;; mortes — c'est le « twitch » — et, aux ratios qui remplissent tout l'anneau (tar=3), il recoit
+;; une commande jusqu'a 4,0 dans un etat borne a +/-1,0, donc il se cale sur la butee : l'arbre
+;; se fige sur un plein appui — c'est le « sans animations ».
+;;
+;; LA CORRECTION : `update-wind` retrouve l'arithmetique de ND (`scale` = 1.0) et c'est le NOMBRE
+;; D'APPELS qui porte la cadence — un appel par pas de 1/60 s, ce que fait une PS2 a 60 images/s.
+;; A 60 images/s `tar` vaut 1.0, donc UN appel par image et `scale` 1.0 : le resultat est
+;; IDENTIQUE AU BIT a ce que ce fichier produisait. La correction n'agit que la ou le defaut
+;; existe, c'est-a-dire sous 60 images/s.
+;;
+;; Ce n'est PAS une option « Recharged » : c'est un defaut de PORTAGE, et l'owner demande
+;; explicitement que la brise native marche « par défaut sans notre modification ». L'ablation
+;; se fait donc par `*wind-native-rate*` (defaut 1), ecrit par le natif depuis
+;; OG_WIND_NATIVE_RATE / debug.opengoal.wind.native_rate : a 0, ce fichier reproduit exactement
+;; le comportement d'avant, SUR LE MEME BINAIRE.
+
 ;; definition for function update-wind
 ;; INFO: Return type mismatch int vs none.
+;;
+;; Grecharged-foliage-wind3 : ARITHMETIQUE DE ND, restauree. Le compteur `wind-time` sert
+;; d'index D'ENTIER — un slot par pas, une entree d'enveloppe tous les 120 pas (2 s a 60 Hz) —
+;; et l'amplitude n'est plus mise a l'echelle. La cadence est portee par le NOMBRE D'APPELS
+;; (`update-wind-ticks!` ci-dessous), pas par un facteur.
+;;
+;; Ce que la version « high fps » faisait de plus, et qui se perdait ici : elle multipliait
+;; `wind-time` par `time-adjust-ratio` — un FLOTTANT — puis relisait le resultat avec `the-as`
+;; pour indexer la table d'enveloppe. `the-as` est une REINTERPRETATION DE BITS en GOAL, pas une
+;; conversion : l'index d'enveloppe ne suivait donc plus la marche de 120 pas que ND a ecrite.
+;; La forme ci-dessous n'a que des operations ENTIERES sur le compteur et ne pose pas la question.
 (defun update-wind ((arg0 wind-work) (arg1 (array uint8)))
+  "UN pas de vent de 1/60 s, exactement comme sur console a 60 images/s."
+  (let* ((f0-1 (+ (-> arg0 wind-normal w) (rand-vu-float-range -1024.0 1024.0)))
+         (f30-1 (- f0-1 (* (the float (the int (/ f0-1 65536.0))) 65536.0))))
+    (set! (-> arg0 wind-normal w) f30-1)
+    (set! (-> arg0 wind-normal x) (cos f30-1))
+    (set! (-> arg0 wind-normal z) (sin f30-1)))
+  (set! (-> arg0 wind-time) (+ (-> arg0 wind-time) 1))
+  (let* ((s4-0 (logand (the-as int (-> arg0 wind-time)) 63))
+         (f0-4 (rand-vu-float-range 0.0 100.0))
+         (v1-5 (/ (-> arg0 wind-time) (the-as uint 120)))
+         (f1-6 (* 0.008333334 (the float (mod (-> arg0 wind-time) (the-as uint 120)))))
+         (f2-4 (* 0.0625 (the float (-> arg1 (mod (the-as int v1-5) (-> arg1 length))))))
+         (f0-5 (* (+ (* (- (* 0.0625 (the float (-> arg1 (mod (the-as int (+ v1-5 1)) (-> arg1 length))))) f2-4) f1-6) f2-4) f0-4)))
+    (set! (-> *wind-work* wind-force s4-0) f0-5)
+    (vector-float*! (-> *wind-work* wind-array s4-0) (-> arg0 wind-normal) f0-5)
+    )
+  0
+  (none))
+
+;; Grecharged-foliage-wind3 : LA JAMBE D'ABLATION. Corps VERBATIM de la version « high fps »
+;; livree avant cette phase — il n'est PAS re-derive, sinon l'avant/apres comparerait deux de mes
+;; ecritures au lieu de comparer a ce que l'owner a teste. Un seul appel par image dessinee,
+;; index d'anneau ET amplitude multiplies par `time-adjust-ratio`.
+(defun update-wind-legacy ((arg0 wind-work) (arg1 (array uint8)))
   (let* ((f0-1 (+ (-> arg0 wind-normal w) (rand-vu-float-range -1024.0 1024.0)))
          (f30-1 (- f0-1 (* (the float (the int (/ f0-1 65536.0))) 65536.0))))
     (set! (-> arg0 wind-normal w) f30-1)
@@ -30,4 +98,35 @@
     (vector-float*! (-> *wind-work* wind-array s4-0) (-> arg0 wind-normal) (* (-> *display* time-adjust-ratio) f0-5)) ;; changed for high fps
     )
   0
+  (none))
+
+;; Grecharged-foliage-wind3 : combien de pas de 1/60 s cette image DESSINEE represente.
+;;
+;; `time-adjust-ratio` est deja la croyance du moteur sur ce point — c'est le facteur par lequel
+;; TOUS les autres deltas du jeu sont multiplies (camera-h.gc, process-drawable-h.gc, ...). On ne
+;; fabrique donc pas une horloge de plus : on EXECUTE le tick ce nombre de fois au lieu de
+;; multiplier une amplitude par lui.
+;;
+;; Le reste fractionnaire est CONSERVE (`*wind-tick-acc*`) : sans lui la moyenne longue derive,
+;; puisque le ratio vaut souvent 1.0 avec des a-coups a 2.0 ou 3.0.
+;;
+;; Bornes : 0 en bas — une image de RENDU SEUL (pas fixe arme, affichage au-dessus de 60 Hz)
+;; porte `time-adjust-ratio` = 0 et ne doit avancer aucun tick ; 8 en haut — un a-coup de
+;; chargement ne doit pas faire defiler la brise d'un huitieme de seconde d'un coup.
+(defun wind-ticks-this-frame ()
+  (let* ((want (+ *wind-tick-acc* (-> *display* time-adjust-ratio)))
+         (n (the int want)))
+    (cond ((< n 0) (set! *wind-tick-acc* 0.0) 0)
+          ((> n 8) (set! *wind-tick-acc* 0.0) 8)
+          (else (set! *wind-tick-acc* (- want (the float n))) n))))
+
+;; Grecharged-foliage-wind3 : le SEUL site qui fait avancer le vent. Appele depuis
+;; `update-camera` (engine/camera/cam-update.gc), une fois par tour de `display-loop`.
+(defun update-wind-ticks! ()
+  "Avance le vent de ce que cette image vaut en pas de 1/60 s."
+  (if (zero? *wind-native-rate*)
+      (update-wind-legacy *wind-work* *wind-scales*)
+      (let ((n (wind-ticks-this-frame)))
+        (dotimes (i n)
+          (update-wind *wind-work* *wind-scales*))))
   (none))

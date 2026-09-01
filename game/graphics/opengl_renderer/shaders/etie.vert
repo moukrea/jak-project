@@ -5,6 +5,10 @@ layout (location = 1) in vec3 tex_coord_in;
 layout (location = 2) in int time_of_day_index;
 layout (location = 3) in vec3 normal;
 layout (location = 4) in vec4 proto_tint;
+// Grecharged-foliage-wind3 (defaut D2) : passe ADDITIVE de reflet du TIE envmappe. Elle dessine la
+// meme geometrie que etie_base.vert et doit donc appliquer EXACTEMENT le meme deplacement, sinon
+// le reflet se decollerait de l'objet des que le balancement s'allume.
+#include "tie_sway.glsl"
 
 uniform vec4 hvdf_offset;
 uniform mat4 camera;
@@ -36,10 +40,12 @@ void main() {
                 + cam_no_persp[2].xyz * normal.z;
 
   // transform the point
+  // Grecharged-foliage-wind3 : inerte (retourne son entree) quand u_tie_sway_amp vaut 0.
+  vec3 position_sway = tie_sway_apply(position_in, tie_sway_in);
   vec4 vf17 = cam_no_persp[3];
-  vf17 += cam_no_persp[0] * position_in.x;
-  vf17 += cam_no_persp[1] * position_in.y;
-  vf17 += cam_no_persp[2] * position_in.z;
+  vf17 += cam_no_persp[0] * position_sway.x;
+  vf17 += cam_no_persp[1] * position_sway.y;
+  vf17 += cam_no_persp[2] * position_sway.z;
 
 
   // This is the ETIE math.

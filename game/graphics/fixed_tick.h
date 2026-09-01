@@ -171,6 +171,10 @@ void set_publisher(PublishFn fn);
 //       armee a deja coute 40 Mo de sortie en 220 s.
 bool anim_interp_enabled();
 bool anim_probe_enabled();
+// Grecharged-foliage-wind3 : `wind_native_rate_enabled()` : OG_WIND_NATIVE_RATE /
+// debug.opengoal.wind.native_rate, DEFAUT 1. A 0, la brise native reprend le chemin
+// « high fps » d'avant cette phase (voir wind.gc). C'est l'ablation sur le meme binaire.
+bool wind_native_rate_enabled();
 
 // Fait avancer l'accumulateur d'UNE image dessinee et rend le nombre de pas de
 // 1/60 s dus :

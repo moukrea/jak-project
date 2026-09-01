@@ -2497,18 +2497,28 @@ void handle_draw_for_strip(tfrag3::TieTree& tree,
   ASSERT(inst.vis_id < UINT16_MAX);
   vgroup.vis_idx_in_pc_bvh = inst.vis_id;  // associate with the instance for culling
 
-  // only bother with tie proto idx if we use it.
-  // TIE_PROTO_NAMES: jak1 normally carries neither proto_names nor tie_proto_idx
-  // (see the TIE_CENSUS note below -- the name exists here and nowhere
-  // downstream), which leaves every tie-only texture in the draw-mode dump with
-  // no idea what object it is painted on.  Setting the variable records both,
-  // WITHOUT turning on has_per_proto_visibility_toggle, so the renderer path is
-  // untouched.  It does split vis groups more finely (merge_groups compares
-  // tie_proto_idx), so the .fr3 it produces is for inspection, not for shipping.
-  if (tree.has_per_proto_visibility_toggle || std::getenv("TIE_PROTO_NAMES")) {
-    ASSERT(proto_idx < UINT16_MAX);
-    vgroup.tie_proto_idx = proto_idx;
-  }
+  // Grecharged-foliage-wind3 (owner 2026-08-31, defaut D2 : « tous les arbres ne sont pas
+  // impactés ») — LE NOM DU PROTOTYPE DEVIENT UNE DONNEE LIVREE, PLUS UN OUTIL D'INSPECTION.
+  //
+  // Le renderer doit pouvoir distinguer un palmier d'une falaise. Deux routes ont ete refutees
+  // avant celle-ci : la GEOMETRIE (sur les 218 prototypes alors recenses, la meilleure coupe rend
+  // 15 vrais positifs et 93 FAUX POSITIFS — `wallsmall-04`, `cliffmed`, `clifflarge` : une falaise
+  // qui se balance est bien pire qu'un palmier fige) et le basculement du prototype vers le chemin
+  // VENT a l'extraction (les deux chemins consomment des sommets differents via des shaders
+  // differents, donc « OFF == stock » tomberait). Le NOM est la seule grandeur qui separe les deux,
+  // et il n'existe qu'ici.
+  //
+  // CE QUE CA COUTE, ET CE QUE CA NE COUTE PAS. `proto_names` et `VisGroup::tie_proto_idx` sont
+  // TOUS LES DEUX deja dans la disposition serialisee (common/custom_data/TFrag3Data.cpp), donc
+  // `TFRAG3_VERSION` ne bouge pas et aucun fr3 non regenere ne declenche d'ASSERT. Le seul effet
+  // de bord est que `merge_groups` compare `tie_proto_idx` : les vis-groups se fragmentent
+  // davantage. Le NOMBRE D'INDICES et le NOMBRE DE SOMMETS, eux, ne changent pas — ce sont les
+  // deux grandeurs que l'empreinte du bake `.meshweld` lit.
+  //
+  // `has_per_proto_visibility_toggle` reste FAUX sur jak1 : on ne branche pas le chemin de
+  // visibilite par prototype de jak2, on ne fait que porter le nom jusqu'au runtime.
+  ASSERT(proto_idx < UINT16_MAX);
+  vgroup.tie_proto_idx = proto_idx;
 
   vgroup.num_inds = strip.verts.size() + 1;  // one for the primitive restart!
   vgroup.num_tris = strip.verts.size() - 2;
@@ -2568,9 +2578,12 @@ void add_vertices_and_static_draw(tfrag3::TieTree& tree,
   // loop over all prototypes
   for (size_t proto_idx = 0; proto_idx < protos.size(); proto_idx++) {
     const auto& proto = protos[proto_idx];
-    if (tree.has_per_proto_visibility_toggle || std::getenv("TIE_PROTO_NAMES")) {
-      tree.proto_names.push_back(proto.name);
-    }
+    // Grecharged-foliage-wind3 : le nom part maintenant dans le fr3 pour TOUTES les versions.
+    // `proto_names` est serialise inconditionnellement, donc c'est une table de chaines en plus et
+    // rien d'autre. Cote SHRUB c'etait deja le cas (extract_shrub.cpp) : les fr3 de jak1 livres
+    // portent deja 19 noms de prototypes shrub pour village1 et zero cote TIE — cette ligne ferme
+    // l'asymetrie.
+    tree.proto_names.push_back(proto.name);
 
     TieCategoryInfo info;
     switch (version) {

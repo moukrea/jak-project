@@ -1,0 +1,94 @@
+# Grecharged-foliage-wind3 — LEXIQUE DE VEGETATION TIE (owner 2026-08-31, defaut D2 :
+# « tous les arbres ne sont pas impactés »).
+#
+# POURQUOI UN LEXIQUE DE NOMS ET PAS UN CRITERE GEOMETRIQUE. Mesure du round 3 sur les 218
+# prototypes alors recenses : la meilleure coupe geometrique (`height > 5 m`) rend 15 vrais
+# positifs et 93 FAUX POSITIFS — `wallsmall-04`, `cliffmed`, `clifflarge`... Une falaise qui se
+# balance est un defaut bien pire qu'un palmier fige. Le NOM du prototype est la seule grandeur
+# qui separe une plante d'un mur, et il existe a l'extraction.
+#
+# CE FICHIER EST UNE DONNEE, PAS DU CODE : il est relu au chargement de niveau, donc l'owner peut
+# corriger un classement sans rebuild ni nouveau APK.
+#
+# Un nom par ligne. Le renderer ne fait bouger QUE ces prototypes-la, et il publie a cote le
+# RESIDU (`non_classes=`) — les prototypes du niveau qu'aucune ligne ne couvre — pour qu'une
+# omission se VOIE au lieu de retrecir le denominateur en silence.
+#
+# Genere depuis le recensement complet des 24 DGO de jak1
+# (.autoport/reports/Grecharged-foliage-wind3/tie-census-full.txt, 1188 prototypes, 44 398
+# instances). Les FAUX AMIS ci-dessous portent un nom vegetal sur un objet qui n'en est pas un :
+#   EXCLU  plantboss-floor.mb                   batiment du boss
+#   EXCLU  plantboss-funnel.mb                  batiment du boss
+#   EXCLU  plantboss-litepod.mb                 batiment du boss
+#   EXCLU  plantboss-roof.mb                    batiment du boss
+#   EXCLU  plantboss-shaft-mid.mb               batiment du boss
+#   EXCLU  plantboss-shaft.mb                   batiment du boss
+#   EXCLU  plantboss-support.mb                 batiment du boss
+#   EXCLU  plantboss-wall-01-glow.mb            batiment du boss
+#   EXCLU  plantboss-wall-01.mb                 batiment du boss
+#   EXCLU  vil1-planterbox-01.mb                jardiniere en bois
+#   EXCLU  vil1-sagemachine-bamboo.mb           piece de machine
+#   EXCLU  vil1-trunk-01.mb                     malle, pas un tronc
+#   EXCLU  vil1-windowplanter-01.mb             jardiniere de fenetre
+#   EXCLU  villagehut-large-canopy-burnt.mb     toit de hutte brule
+#   EXCLU  villagehut-large-canopy.mb           toit de hutte
+#   EXCLU  villagehut-small-canopy-burnt.mb     toit de hutte brule
+#   EXCLU  villagehut-small-canopy.mb           toit de hutte
+#   EXCLU  villhut-canopypole-01.mb             poteau de auvent de hutte
+#
+# nom_de_prototype   # instances_dans_le_jeu  hauteur_m
+bch-palmplant-base.mb              #    80 inst   h=2.36 m
+exsmall-leaf-canopy2.mb            #    81 inst   h=11.06 m
+fcn-branch-01.mb                   #   286 inst   h=5.23 m
+fcn-branch-02.mb                   #    52 inst   h=5.92 m
+fcn-branch-03.mb                   #    22 inst   h=4.89 m
+fcn-branch-04.mb                   #    26 inst   h=2.77 m
+fcn-tree-01.mb                     #    27 inst   h=14.25 m
+grass-clump-02.mb                  #    48 inst   h=4.09 m
+grass-clump.mb                     #   186 inst   h=2.77 m
+jng-lrg-rootstump-01.mb            #    11 inst   h=13.86 m
+jng-med-rootstump-01.mb            #    10 inst   h=8.33 m
+jng-small-rootstump-01.mb          #    12 inst   h=4.59 m
+mini-leaf-canopy.mb                #   153 inst   h=6.59 m
+mis-tree-01.mb                     #    13 inst   h=12.38 m
+overgrown-grass.mb                 #     1 inst   h=31.61 m
+palm-01.mb                         #    55 inst   h=23.91 m
+palm-02.mb                         #   126 inst   h=17.52 m
+palm-straight.mb                   #   122 inst   h=17.52 m
+palm-tilt.mb                       #    14 inst   h=23.91 m
+palmplant-base.mb                  #    91 inst   h=2.33 m
+root-01.mb                         #     4 inst   h=7.25 m
+root-02.mb                         #    11 inst   h=8.31 m
+root-03.mb                         #    10 inst   h=4.00 m
+root-04.mb                         #    14 inst   h=5.17 m
+root-05.mb                         #     4 inst   h=2.20 m
+singlecliff-roots.mb               #     7 inst   h=14.20 m
+small-leaf-canopy.mb               #     8 inst   h=11.78 m
+small_branch.mb                    #   121 inst   h=5.47 m
+snowtree-bentback.mb               #     6 inst   h=10.59 m
+snowtree-bentover.mb               #    50 inst   h=8.22 m
+snowtree-sparse-straight.mb        #    79 inst   h=9.48 m
+swp-thornbush-05.mb                #   100 inst   h=1.53 m
+swp-thornbush-06.mb                #    38 inst   h=2.36 m
+swp-thornbush-07.mb                #    26 inst   h=2.16 m
+swp-thornbush-07a.mb               #    37 inst   h=5.17 m
+swp-thornbush-08.mb                #    99 inst   h=2.58 m
+swp-thornbush-08a.mb               #    26 inst   h=5.41 m
+swp-thornbush-08c.mb               #    87 inst   h=2.58 m
+swp-thornbush-09a.mb               #    28 inst   h=3.92 m
+swp-thornbush-09b.mb               #    26 inst   h=4.09 m
+swp-thornbush-09c.mb               #    26 inst   h=4.09 m
+tree-01.mb                         #    24 inst   h=13.16 m
+trunk-02.mb                        #   133 inst   h=28.19 m
+trunk-03.mb                        #    23 inst   h=18.09 m
+trunk01.mb                         #    32 inst   h=25.08 m
+trunk01subtrunks.mb                #    32 inst   h=15.81 m
+trunk02.mb                         #    42 inst   h=30.81 m
+trunk02subtrunks.mb                #    42 inst   h=21.06 m
+trunktop-02ex.mb                   #     8 inst   h=10.27 m
+v1-lores-trees.mb                  #    54 inst   h=16.66 m
+v3-lores-trees.mb                  #   107 inst   h=16.66 m
+vil2-bonzailarge-branches.mb       #    50 inst   h=5.14 m
+vil2-bonzaismall-branches.mb       #    36 inst   h=4.84 m
+vil2-burned-tree.mb                #     1 inst   h=13.41 m
+walltree.mb                        #    21 inst   h=31.44 m

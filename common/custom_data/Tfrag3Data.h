@@ -512,7 +512,69 @@ struct TieTree {
     // non-envmap draws use the TFRAG3 shader, so they need the same continuous TBN. Attribute loc 5.
     // EXPANDED at load from `baked_tangents` above.
     std::vector<math::Vector4f> tangents;
+    // ------------------------------------------------------------------------------------------
+    // Grecharged-foliage-wind3 (owner 2026-08-31, defaut D2 : « tous les arbres ne sont pas
+    // impactés ») — LE BALANCEMENT, DEUX OCTETS PAR SOMMET. Parallele a `vertices`, uploade sur
+    // l'attribut 7 du VAO TIE (meme patron que `tangents`, attribut 5), rendu ensuite comme eux.
+    //   [2*v + 0] = POIDS   : 0 = ce sommet ne bouge JAMAIS, 255 = pleine couronne.
+    //   [2*v + 1] = PHASE   : la phase de balancement de SON INSTANCE, sur 8 bits de [0, 2 pi).
+    //
+    // POURQUOI LA PHASE EST UNE DONNEE ET PAS UN CALCUL DE SHADER. Il faut qu'elle soit constante
+    // sur toute la plante (sinon la plante se DECHIRE au lieu de se balancer) et differente d'une
+    // plante a l'autre (sinon tout le decor glisse en bloc). Les deux seules grandeurs qu'un
+    // sommet TIE porte deja sont sa POSITION — qui varie a l'interieur de la plante — et son
+    // `color_index`, qui sur TIE identifie le PROTOTYPE et non l'instance (voir plus bas) : tous
+    // les palmiers du niveau bougeraient alors en parfait synchronisme. L'identite d'instance
+    // n'existe qu'ici, dans `matrix_groups` ; c'est donc ici que la phase se derive (angle d'or
+    // sur le `matrix_idx`).
+    //
+    // POURQUOI PAR SOMMET ET PAS UNE LUT PAR `color_index` (la route refutee). Sur SHRUB,
+    // extract_shrub ecrit une entree de palette PAR INSTANCE, donc `color_index` identifie la
+    // plante et une LUT (ymin, hauteur) indexee dessus ancre chaque buisson (Shrub.cpp:192-244).
+    // Sur TIE c'est FAUX : `make_big_palette` (extract_tie.cpp:2106-2124) attribue
+    // `color_index_offset_in_big_palette` PAR PROTOTYPE, partage par toutes ses instances. Une LUT
+    // par `color_index` rendrait donc le ymin du PROTOTYPE, faux pour toute instance posee a une
+    // autre altitude — un palmier ancre sur la base de son voisin. L'ancrage doit donc etre
+    // resolu par INSTANCE (`matrix_groups`), et le seul endroit ou l'instance d'un sommet est
+    // encore connue est `unpack()`.
+    //
+    // ET C'EST AUSSI POURQUOI CE N'EST PAS CALCULE DANS `Tie3::load_from_fr3_data` : les sommets
+    // CPU du TIE sont RENDUS avant que cette fonction ne tourne (Loader.cpp:1550-1553 libere des
+    // la fin de l'etape `texture` ; le commentaire Loader.cpp:1588-1591 dit que les lectures
+    // tardives, `Tie3::load_from_fr3_data` comprise, sont appelees par le RENDU apres ce point
+    // malgre leur nom). Une LUT construite la lirait un vecteur VIDE.
+    //
+    // Rendu par `release_uploaded_vertices` en meme temps que `vertices` et `tangents`.
+    std::vector<u8> sway;
   } unpacked;
+
+  // Grecharged-foliage-wind3 — LE RECENSEMENT QUI PORTE LE VERDICT DE D2. Rempli par `unpack()`
+  // (le seul point ou prototypes, instances et sommets coexistent) et IMPRIME par
+  // `Tie3::load_from_fr3_data`, qui est le seul point ou le nom du niveau est connu. Il survit a
+  // la liberation des sommets parce qu'il ne contient que des compteurs.
+  // `noms_non_classes` porte les noms des prototypes qu'AUCUNE ligne du lexique ne couvre :
+  // sans eux, retirer un nom du lexique retrecirait le denominateur en silence.
+  struct SwayCensus {
+    u32 protos = 0;          // proto_names.size() de cet arbre
+    u32 veg_protos = 0;      // ceux que le lexique couvre
+    u32 non_classes = 0;     // les autres
+    u32 inst_total = 0;      // matrix_idx distincts >= 0 (instances posees)
+    u32 inst_veg = 0;        // instances dont au moins un sommet est reclame par un proto vegetal
+    u32 inst_swayed = 0;     // instances dont au moins un sommet finit avec un poids > 0
+    u64 verts = 0;
+    u64 v_sway = 0;          // sommets a poids > 0
+    u64 v_neutre = 0;        // sommets a poids 0 (toutes causes confondues)
+    u64 v_windpath = 0;      // matrix_idx == -1 : chemin VENT, restes locaux au prototype
+    u64 v_sansproto = 0;     // jamais reclames par un vis-group statique
+    u64 v_conflit = 0;       // reclames a la fois par un proto DU lexique et un proto HORS lexique
+    // Les deux garde-fous de l'hypothese de pavage « un run par vis-group, num_inds == length+1 »
+    // (extract_tie.cpp:2531-2545 + merge_groups :2736). Non nuls = l'hypothese est FAUSSE sur ce
+    // niveau, et la ligne de recensement le dit au lieu d'ancrer des sommets au hasard.
+    u32 vg_desync = 0;
+    u64 plain_inds = 0;      // TIE n'en pousse jamais ; non nul = la lecture par runs est partielle
+    bool lexicon_loaded = false;
+    std::vector<std::string> noms_non_classes;  // tronquee a 12
+  } sway_census;
 
   void serialize(Serializer& ser);
   void memory_usage(MemoryUsageTracker* tracker) const;

@@ -92,6 +92,10 @@ class Tie3 : public BucketRenderer {
 
  private:
   void load_from_fr3_data(const LevelData* loader_data);
+  // Grecharged-foliage-wind3 (defaut D2) : pose amplitude / temps / direction du balancement du
+  // TIE STATIQUE sur le programme actif. Appelee apres `first_tfrag_draw_setup`, qui vient de
+  // remettre l'amplitude a 0 pour tout le monde (le terrain TFRAG partage ce vertex shader).
+  void push_tie_sway_uniforms(GLuint program, u64 frame_idx, const char* pass);
   void discard_tree_cache();
   void render_tree_wind(int idx,
                         int geom,
@@ -191,15 +195,23 @@ class Tie3 : public BucketRenderer {
   TfragPcPortData m_pc_port_data;
 
   std::vector<float> m_wind_vectors;  // note: I suspect these are shared with shrub.
-  // Grecharged-foliage-wind2 ROUND 3 (owner point 1). A SECOND, renderer-owned copy of the game's
-  // wind simulation, advanced at ND's authored 60 Hz instead of once per displayed frame. Used only
-  // while the breeze toggle is ON; `m_wind_data` / `m_wind_vectors` keep running at the display rate
-  // and become the STOCK reference the shear audit compares against. Identical arithmetic on both
-  // legs, so the ONLY difference between them is the tick rate.
-  WindWork m_wind_rc{};
-  bool m_wind_rc_seeded = false;
-  u64 m_wind_rc_last_frame = (u64)-1;  // the drive ring advances once per FRAME, not once per tree
-  std::vector<float> m_wind_vectors_rc;
+  // Grecharged-foliage-wind3 (owner 2026-08-31, defaut D1). Le ressort TIE est integre avec un
+  // pas CODE EN DUR de 1/60 s (`cz` dans do_wind_math) et il tournait UNE fois par image
+  // DESSINEE : a 15 images/s la brise de ND avancait donc a un quart de sa vitesse. Le nombre de
+  // pas que porte cette image se LIT sur le compteur du jeu lui-meme — `wind-time` avance
+  // d'exactement un cran par appel a `update-wind`, et depuis cette phase `update-wind` est
+  // appelee une fois par pas de 1/60 s (goal_src/jak1/engine/gfx/background/wind.gc).
+  //
+  // C'est volontairement le compteur et PAS une horloge murale a nous : les deux jambes (le ring
+  // rempli par GOAL, le ressort avance par le renderer) partagent alors la MEME horloge et ne
+  // peuvent pas se contredire — y compris quand l'ablation `*wind-native-rate*` remet GOAL sur
+  // son ancien chemin, ou le delta retombe a 1 tout seul.
+  u32 m_wind_last_time = 0;
+  bool m_wind_time_seeded = false;
+  // le compte de pas est calcule UNE fois par image ; `render_tree_wind` tourne par ARBRE et le
+  // deuxieme arbre lirait sinon un delta de 0.
+  int m_wind_ticks = 1;
+  u64 m_wind_ticks_frame = (u64)-1;
 
   float m_wind_multiplier = 1.f;
 

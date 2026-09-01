@@ -4947,6 +4947,10 @@ static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro, int skip
   intern_from_c("*fixed-tick-skip*")->value = (u32)skip;
   intern_from_c("*anim-interp-on*")->value = fixed_tick::anim_interp_enabled() ? 1 : 0;
   intern_from_c("*anim-interp-probe*")->value = fixed_tick::anim_probe_enabled() ? 1 : 0;
+  // Grecharged-foliage-wind3 : `*wind-native-rate*` — 1 = la brise de ND avance a 60 Hz quelle
+  // que soit la cadence d'affichage, 0 = chemin « high fps » d'avant cette phase. Valeur de
+  // symbole, pas symbole-fonction (cf. le commentaire ci-dessus).
+  intern_from_c("*wind-native-rate*")->value = fixed_tick::wind_native_rate_enabled() ? 1 : 0;
 
   // SONDE DE CADENCE, une ligne par image DESSINEE (env OG_FIXED_TICK_PROBE=1, sinon
   // muette). Elle est posee ICI et pas ailleurs parce que ce point est atteint APRES

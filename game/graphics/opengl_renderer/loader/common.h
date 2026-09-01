@@ -16,6 +16,10 @@ struct LevelData {
   struct TieOpenGL {
     GLuint vertex_buffer;
     GLuint tangent_buffer;  // REOPEN#7 per-vertex tangent VBO (parallel to vertex_buffer), loc 5
+    // Grecharged-foliage-wind3 (defaut D2) : balancement par sommet, DEUX octets (poids + phase
+    // d'instance), VBO parallele a vertex_buffer, attribut 7 du VAO TIE. Meme cycle de vie que
+    // vertex_buffer : cree par TieLoadStage, collecte par Loader::update.
+    GLuint sway_buffer;
     GLuint index_buffer;
     bool has_wind = false;
     GLuint wind_indices;

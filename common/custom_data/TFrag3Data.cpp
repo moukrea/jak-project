@@ -9,6 +9,7 @@
 #include <mutex>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "common/custom_data/TangentDerive.h"
 #include "common/custom_data/normal_pack.h"
@@ -333,6 +334,100 @@ TieMirrorCensus tie_mirror_census(const Level& lev) {
   return c;
 }
 
+namespace {
+// =================================================================================================
+// Grecharged-foliage-wind3 (owner 2026-08-31, defaut D2 : « tous les arbres ne sont pas impactés »)
+// LE LEXIQUE DE VEGETATION TIE.
+//
+// Pourquoi un lexique de NOMS et pas un critere geometrique : mesure du round 3 sur les 218
+// prototypes alors recenses, la meilleure coupe geometrique (`height > 5 m`) rend 15 vrais positifs
+// et 93 FAUX POSITIFS (`wallsmall-04`, `cliffmed`, `clifflarge`...). Une falaise qui se balance est
+// un defaut bien pire qu'un palmier fige, et le NOM du prototype est la seule grandeur qui separe
+// une plante d'un mur. Il existe a l'extraction et il voyage maintenant dans le fr3
+// (`TieTree::proto_names`, extract_tie.cpp).
+//
+// C'est une DONNEE, pas du code : relue au chargement, donc l'owner corrige un classement sans
+// rebuild ni nouveau APK. La precedence de chemin est celle d'EyeRenderer.cpp:188 pour
+// `physics_chains.txt` — un depot EXTERNE bat le pack livre, sinon le pack, sinon l'arbre du
+// projet. Le meme mecanisme sert sur bureau et sur Android.
+//
+// FICHIER ABSENT = ENSEMBLE VIDE + AVERTISSEMENT EXPLICITE. Jamais un comportement devine : zero
+// balancement ajoute, et la ligne de recensement publie `lexique=0` pour que ce cas se VOIE.
+struct FwLexicon {
+  std::unordered_set<std::string> names;
+  bool loaded = false;
+  std::string path;
+};
+
+const FwLexicon& fw_veg_protos() {
+  static const FwLexicon s_lex = [] {
+    FwLexicon out;
+    auto path = file_util::get_recharged_assets_dir() / "foliage_wind_protos.txt";
+    auto ext_dir = file_util::get_external_recharged_assets_dir();
+    if (ext_dir) {
+      auto ext_path = *ext_dir / "foliage_wind_protos.txt";
+      if (file_util::file_exists(ext_path.string())) {
+        path = ext_path;
+      }
+    }
+    out.path = path.string();
+    if (!file_util::file_exists(out.path)) {
+      lg::warn(
+          "[foliage-wind] LEXIQUE ABSENT : {} — AUCUN prototype TIE ne sera classe vegetation et "
+          "le balancement statique reste NUL sur tout le jeu. Ce n'est pas un defaut de rendu, "
+          "c'est un asset manquant.",
+          out.path);
+      return out;
+    }
+    std::string text = file_util::read_text_file(out.path);
+    std::stringstream ss(text);
+    std::string line;
+    while (std::getline(ss, line)) {
+      // premier champ separe par des espaces ; lignes vides et lignes de commentaire ignorees.
+      size_t b = line.find_first_not_of(" \t\r\n");
+      if (b == std::string::npos || line[b] == '#') {
+        continue;
+      }
+      size_t e = line.find_first_of(" \t\r\n", b);
+      std::string name = line.substr(b, e == std::string::npos ? std::string::npos : e - b);
+      if (!name.empty()) {
+        out.names.insert(name);
+      }
+    }
+    out.loaded = true;
+    lg::info("[foliage-wind] lexique charge : {} prototypes de vegetation depuis {}",
+             out.names.size(), out.path);
+    return out;
+  }();
+  return s_lex;
+}
+
+// Le poids de balancement d'un sommet, quantifie sur 8 bits. `y` est la hauteur MONDE du sommet,
+// `ymin`/`ymax` celles de SON instance. Meme forme que shrub.vert (h*h avec le meme plancher de
+// hauteur) : 0 au pied de la plante, ~1 a sa couronne, quadratique pour que les racines ne bougent
+// pas et que le haut fremisse.
+u8 fw_sway_weight(float y, float ymin, float ymax) {
+  const float span = std::max((ymax - ymin) * 0.85f, 0.3f * 4096.f);
+  float h = (y - ymin) / span;
+  if (!(h > 0.f)) {  // couvre aussi NaN
+    return 0;
+  }
+  if (h > 1.f) {
+    h = 1.f;
+  }
+  const float w = h * h;
+  int q = (int)(w * 255.f + 0.5f);
+  if (q < 0) {
+    q = 0;
+  }
+  if (q > 255) {
+    q = 255;
+  }
+  return (u8)q;
+}
+
+}  // namespace
+
 void TieTree::unpack() {
   unpacked.vertices.resize(packed_vertices.color_indices.size());
   size_t i = 0;
@@ -403,6 +498,179 @@ void TieTree::unpack() {
           vtx.a = proto_vtx.a;
           i++;
         }
+      }
+    }
+  }
+
+  // ===============================================================================================
+  // Grecharged-foliage-wind3 (owner 2026-08-31, defaut D2 : « tous les arbres ne sont pas
+  // impactés ») — LE POIDS DE BALANCEMENT PAR SOMMET.
+  //
+  // ICI, ET AVANT `fuse_tree_indices` CI-DESSOUS : apres la soudure un indice peut pointer vers le
+  // sommet d'une AUTRE instance (memes attributs, autre ymin), ce qui ferait balancer un arbre
+  // depuis la base de son voisin. Ici, aucune fusion n'a encore eu lieu.
+  //
+  // TROIS PASSES, et chacune repose sur une propriete VERIFIEE de l'extracteur :
+  //   1. SOMMET -> INSTANCE. `matrix_groups` est parcouru dans l'ordre par la boucle ci-dessus et
+  //      `i` avance en lockstep, donc chaque groupe couvre une plage CONTIGUE de sommets
+  //      depaquetes. Le meme parcours redonne le `matrix_idx` de chaque sommet.
+  //      `matrix_idx == -1` = sommets du chemin VENT, laisses LOCAUX AU PROTOTYPE (voir la branche
+  //      correspondante ci-dessus) : poids 0 obligatoire, un ancrage calcule en Y monde y serait
+  //      faux — c'est `render_tree_wind` qui leur fournit leur matrice d'instance.
+  //   2. SOMMET -> PROTOTYPE. Pour TIE, `plain_indices` est TOUJOURS vide et seuls des `runs` sont
+  //      pousses (extract_tie.cpp:2531-2545), avec `vgroup.num_inds == run.length + 1` et un run
+  //      par vis-group. `merge_groups` (extract_tie.cpp:2736) FUSIONNE les vis-groups a
+  //      `tie_proto_idx` egal sans toucher aux runs : on consomme donc des runs jusqu'a ce que
+  //      Somme(run.length + 1) atteigne `num_inds`. Chaque run donne la plage de sommets
+  //      [run.vertex0, run.vertex0 + run.length) — pas besoin de lire un tableau d'indices.
+  //   3. POIDS. h*h avec le plancher de hauteur de shrub.vert, sur l'ancrage de SON instance.
+  //
+  // LA REGLE DU DOSSIER : un sommet reclame par un prototype HORS lexique reste a 0 meme si un
+  // autre le reclame ensuite. Un mur qui ondule est un defaut bien pire qu'un palmier fige.
+  {
+    const auto& lex = fw_veg_protos();
+    const size_t nverts = unpacked.vertices.size();
+    sway_census = SwayCensus{};
+    sway_census.lexicon_loaded = lex.loaded;
+    sway_census.protos = (u32)proto_names.size();
+    sway_census.verts = (u64)nverts;
+
+    // quels prototypes de CET arbre le lexique couvre-t-il ?
+    std::vector<u8> proto_is_veg(proto_names.size(), 0);
+    for (size_t pi = 0; pi < proto_names.size(); pi++) {
+      if (lex.names.count(proto_names[pi])) {
+        proto_is_veg[pi] = 1;
+        sway_census.veg_protos++;
+      } else {
+        sway_census.non_classes++;
+        if (sway_census.noms_non_classes.size() < 12) {
+          sway_census.noms_non_classes.push_back(proto_names[pi]);
+        }
+      }
+    }
+
+    // --- passe 1 : ancrage (ymin, ymax) par instance -------------------------------------------
+    const size_t n_mat = packed_vertices.matrices.size();
+    std::vector<float> mymin(n_mat, 1e30f), mymax(n_mat, -1e30f);
+    std::vector<u8> mat_used(n_mat, 0);
+    {
+      size_t vi = 0;
+      for (const auto& grp : packed_vertices.matrix_groups) {
+        const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+        if (grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat) {
+          const size_t mi = (size_t)grp.matrix_idx;
+          if (!mat_used[mi]) {
+            mat_used[mi] = 1;
+            sway_census.inst_total++;
+          }
+          for (size_t k = 0; k < n && vi + k < nverts; k++) {
+            const float y = unpacked.vertices[vi + k].y;
+            if (y < mymin[mi]) {
+              mymin[mi] = y;
+            }
+            if (y > mymax[mi]) {
+              mymax[mi] = y;
+            }
+          }
+        }
+        vi += n;
+      }
+    }
+
+    // --- passe 2 : sommet -> prototype (deux bits : reclame vegetal / reclame non-vegetal) ------
+    // bit0 = reclame par un prototype DU lexique, bit1 = reclame par un prototype HORS lexique
+    // (VERROU : bit1 gagne toujours). Un sommet qui porte les DEUX est un conflit et il est
+    // compte ; il reste NEUTRE, parce que le cout d'un mur qui ondule est plus grand que celui
+    // d'un palmier fige.
+    std::vector<u8> vflag(nverts, 0);
+    for (const auto& draw : static_draws) {
+      sway_census.plain_inds += (u64)draw.plain_indices.size();
+      size_t run_i = 0;
+      for (const auto& vg : draw.vis_groups) {
+        const bool is_veg =
+            vg.tie_proto_idx < proto_is_veg.size() && proto_is_veg[vg.tie_proto_idx] != 0;
+        const u8 bit = is_veg ? 1 : 2;
+        u32 inds_left = vg.num_inds;
+        while (inds_left > 0 && run_i < draw.runs.size()) {
+          const auto& run = draw.runs[run_i];
+          const u32 run_inds = (u32)run.length + 1;  // +1 : le code de redemarrage de primitive
+          if (run_inds > inds_left) {
+            // Le pavage run <-> vis-group ne tombe pas juste. On NE DEVINE PAS : on n'attribue
+            // rien de plus a ce vis-group et on le compte, pour que l'hypothese se refute a voix
+            // haute au lieu d'ancrer des sommets sur le mauvais prototype.
+            sway_census.vg_desync++;
+            break;
+          }
+          for (u32 k = 0; k < run.length; k++) {
+            const size_t v = (size_t)run.vertex0 + k;
+            if (v < nverts) {
+              vflag[v] |= bit;
+            }
+          }
+          run_i++;
+          inds_left -= run_inds;
+        }
+      }
+    }
+
+    // --- passe 3 : le poids ET la phase d'instance ---------------------------------------------
+    // Deux octets par sommet : [2v+0] le poids, [2v+1] la phase de SON instance. La phase est
+    // l'angle d'or applique au `matrix_idx` : constante sur toute la plante (donc la plante ne se
+    // dechire pas) et decorrelee d'une plante a l'autre (donc le decor ne glisse pas en bloc).
+    unpacked.sway.assign(nverts * 2, 0);
+    std::vector<u8> inst_has_veg(n_mat, 0), inst_has_sway(n_mat, 0);
+    {
+      size_t vi = 0;
+      for (const auto& grp : packed_vertices.matrix_groups) {
+        const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+        const bool wind_path = grp.matrix_idx < 0;
+        // `have_inst` et pas `!wind_path` : un `matrix_idx` hors bornes ne doit indexer AUCUN des
+        // tableaux par instance. Il ne peut pas arriver aujourd'hui, et c'est exactement pour ca
+        // qu'il ne doit pas etre suppose.
+        const bool have_inst = !wind_path && (size_t)grp.matrix_idx < n_mat;
+        const size_t mi = have_inst ? (size_t)grp.matrix_idx : 0;
+        const bool have_anchor = have_inst && mymax[mi] >= mymin[mi];
+        // angle d'or, replie dans [0, 1) puis quantifie sur 8 bits (pas de 1,4 degre)
+        const float ph01 =
+            have_inst ? (float)std::fmod((double)mi * 0.6180339887498949, 1.0) : 0.f;
+        const u8 ph8 = (u8)std::min(255, (int)(ph01 * 256.f));
+        for (size_t k = 0; k < n && vi + k < nverts; k++) {
+          const size_t v = vi + k;
+          const u8 f = vflag[v];
+          if (wind_path) {
+            sway_census.v_windpath++;
+          }
+          if (f == 0) {
+            sway_census.v_sansproto++;
+          }
+          if ((f & 1) && (f & 2)) {
+            sway_census.v_conflit++;
+          }
+          if ((f & 1) && have_inst) {
+            inst_has_veg[mi] = 1;
+          }
+          u8 w = 0;
+          if ((f & 1) && !(f & 2) && have_anchor) {
+            w = fw_sway_weight(unpacked.vertices[v].y, mymin[mi], mymax[mi]);
+          }
+          unpacked.sway[v * 2 + 0] = w;
+          unpacked.sway[v * 2 + 1] = ph8;
+          if (w > 0) {
+            sway_census.v_sway++;
+            inst_has_sway[mi] = 1;
+          } else {
+            sway_census.v_neutre++;
+          }
+        }
+        vi += n;
+      }
+    }
+    for (size_t mi = 0; mi < n_mat; mi++) {
+      if (inst_has_veg[mi]) {
+        sway_census.inst_veg++;
+      }
+      if (inst_has_sway[mi]) {
+        sway_census.inst_swayed++;
       }
     }
   }

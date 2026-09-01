@@ -1043,6 +1043,40 @@ class TieLoadStage : public LoaderStage {
           glBufferData(GL_ARRAY_BUFFER,
                        in_tree.unpacked.tangents.size() * sizeof(math::Vector4f),
                        in_tree.unpacked.tangents.data(), GL_STATIC_DRAW);
+
+          // Grecharged-foliage-wind3 (defaut D2) : VBO parallele du balancement, DEUX octets par
+          // sommet (poids + phase d'instance), derive par TieTree::unpack de l'ancrage de CHAQUE
+          // instance et du lexique de vegetation. Meme patron que les tangentes ci-dessus : un
+          // seul glBufferData — village1 pese ~3,4 Mo ici contre 52,6 Mo pour les sommets.
+          // Toujours cree, meme quand le balancement est ETEINT : c'est l'uniforme d'amplitude a 0
+          // qui rend le chemin inerte, pas l'absence du buffer, et un buffer conditionnel donnerait
+          // un VAO different selon un reglage.
+          //
+          // LA LONGUEUR EST FORCEE SUR CELLE DU VBO DE SOMMETS, ET CE N'EST PAS DE LA PARANOIA :
+          // `mesh_presubdivide_level` (Loader.cpp:627) tourne APRES `unpack()` et INVENTE des
+          // sommets — sur TIE il est derriere debug.opengoal.mesh.subdivtie, donc eteint par
+          // defaut, mais il peut etre allume. Un tableau plus court laisserait l'attribut 7 lire
+          // hors des bornes pour les sommets inventes. On complete donc a ZERO : un sommet que la
+          // passe de classement n'a pas vu est FIGE, jamais aleatoire — la meme regle que pour un
+          // mur, et le cas est dit a voix haute.
+          glGenBuffers(1, &tree_out.sway_buffer);
+          glBindBuffer(GL_ARRAY_BUFFER, tree_out.sway_buffer);
+          const size_t sway_want = in_tree.unpacked.vertices.size() * 2;
+          if (in_tree.unpacked.sway.size() == sway_want) {
+            glBufferData(GL_ARRAY_BUFFER, sway_want, in_tree.unpacked.sway.data(), GL_STATIC_DRAW);
+          } else {
+            lg::warn(
+                "[foliage-wind] TIE sway buffer DESYNCHRONISE lev={} geo={} : {} octets calcules "
+                "pour {} sommets ({} attendus) — complete a zero, les sommets en trop ne "
+                "balanceront pas.",
+                data.lev_data->level->level_name, geo, in_tree.unpacked.sway.size(),
+                in_tree.unpacked.vertices.size(), sway_want);
+            std::vector<u8> padded(sway_want, 0);
+            const size_t n = std::min(sway_want, in_tree.unpacked.sway.size());
+            std::copy(in_tree.unpacked.sway.begin(), in_tree.unpacked.sway.begin() + n,
+                      padded.begin());
+            glBufferData(GL_ARRAY_BUFFER, sway_want, padded.data(), GL_STATIC_DRAW);
+          }
         }
       }
       m_opengl_created = true;

@@ -470,5 +470,7 @@
   (set! (-> *instance-tie-work* guard-plane 2 quad) (-> *math-camera* guard-plane 2 quad))
   (set! (-> *instance-tie-work* guard-plane 3 quad) (-> *math-camera* guard-plane 3 quad))
   (update-visible *math-camera*)
-  (if (not (paused?)) (update-wind *wind-work* *wind-scales*))
+  ;; Grecharged-foliage-wind3 : le vent avance d'un nombre de pas de 1/60 s, plus d'UN pas par
+  ;; image dessinee avec une amplitude et un index d'anneau multiplies (voir wind.gc).
+  (if (not (paused?)) (update-wind-ticks!))
   #f)

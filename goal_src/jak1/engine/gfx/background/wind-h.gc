@@ -57,6 +57,21 @@
    (wind-force  float 64)
    (wind-time   uint32)))
 
+;; Grecharged-foliage-wind3 (owner 2026-08-31, defaut D1). Deux VALEURS de symbole, aucun
+;; symbole-FONCTION nouveau : sur Android la table des symboles est batie par un chemin separe et
+;; un symbole-fonction oublie la-bas fait sauter GOAL a l'adresse 0 (SIGILL), alors qu'une valeur
+;; non ecrite laisse simplement le defaut ci-dessous.
+;;
+;; `*wind-native-rate*`  1 = le vent avance d'un pas de 1/60 s par 1/60 s de temps de jeu, quelle
+;;                       que soit la cadence d'affichage (le comportement d'une PS2 a 60 images/s).
+;;                       0 = jambe d'ABLATION : un seul pas par image dessinee, avec le facteur
+;;                       `time-adjust-ratio` d'avant cette phase. Ecrit par le natif depuis
+;;                       OG_WIND_NATIVE_RATE / debug.opengoal.wind.native_rate.
+;; `*wind-tick-acc*`     reste fractionnaire de pas, conserve d'une image a l'autre pour que la
+;;                       moyenne longue soit exactement 60 pas par seconde.
+(define *wind-native-rate* 1)
+(define *wind-tick-acc* 0.0)
+
 ; This was likely originally defined inside `wind-h`
 ; but the decompiler won't output it, so we have to manually define it
 (define-extern *wind-work* wind-work)

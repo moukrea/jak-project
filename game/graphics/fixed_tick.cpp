@@ -179,6 +179,22 @@ bool anim_probe_enabled() {
   return s_on;
 }
 
+// Grecharged-foliage-wind3 — ABLATION DE LA CADENCE DU VENT NATIF, SUR LE MEME BINAIRE.
+// A 1 (defaut) le vent de ND avance d'un pas de 1/60 s par 1/60 s de temps de jeu, quelle que
+// soit la cadence d'affichage ; a 0 il reprend le chemin « high fps » d'avant cette phase (UN
+// pas par image dessinee, index d'anneau et amplitude multiplies par `time-adjust-ratio`), qui
+// laisse 48 des 64 slots de l'anneau jamais ecrits a 15 images/s. Le drapeau ne pilote que
+// `goal_src/jak1/engine/gfx/background/wind.gc` : le ressort du renderer derive son nombre de
+// pas du COMPTEUR `wind-time` lui-meme, donc les deux jambes ne peuvent pas se contredire.
+// Vit ici et pas dans Tie3.cpp parce que c'est un reglage de CADENCE DE SIMULATION, du meme
+// genre que le pas fixe, et parce que `fixed_tick_publish` est deja le point qui ecrit les
+// valeurs de symbole une fois par image dessinee.
+bool wind_native_rate_enabled() {
+  static const bool s_on =
+      read_bool_flag("OG_WIND_NATIVE_RATE", "debug.opengoal.wind.native_rate", true);
+  return s_on;
+}
+
 // Gfixed-tick-anim-interp-2 — ABLATION DU CORRECTIF DE CETTE PHASE, SUR LE MEME BINAIRE.
 // A 0, l'horloge reprend l'ACCROCHAGE PAR IMAGE livre a l'owner : toute image a moins de
 // kSnapLegacyTolerance d'un nombre entier de ticks y est ramenee ET l'accumulateur est

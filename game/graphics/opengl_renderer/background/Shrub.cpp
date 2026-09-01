@@ -24,7 +24,10 @@ namespace {
 // (meters * 4096). Round 2 also adds a faster low-amplitude flutter harmonic in shrub.vert: the
 // round-1 waveform ran at 0.24-0.49 Hz, so its per-FRAME displacement was still sub-pixel even
 // though its total excursion was not — big slow drift reads as static at a glance.
-constexpr float FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M = 0.16f;
+// Grecharged-foliage-wind3 : 0,16 -> 0,12 m. Les buissons n'etaient PAS vises par « tempête »
+// (16 cm de deplacement horizontal sur un buisson n'en est pas une), mais l'ensemble doit rester
+// coherent avec la division par 3,44 du cote TIE. La reduction est declaree ici plutot que glissee.
+constexpr float FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M = 0.12f;
 static float foliage_wind_shrub_amp() {
   static float s_cached = FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M * 4096.0f;
   static int s_throttle = 0;

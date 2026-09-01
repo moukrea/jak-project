@@ -2040,6 +2040,27 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1i(glGetUniformLocation(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
   glUniform1i(glGetUniformLocation(id, "decal"), false);
   glUniform1i(glGetUniformLocation(id, "tex_T0"), 0);
+  // -----------------------------------------------------------------------------------------
+  // Grecharged-foliage-wind3 (owner 2026-08-31, defaut D2) — LE VERROU (a) DU BALANCEMENT TIE.
+  //
+  // `tfrag3.vert` porte le balancement du TIE statique, et il est AUSSI le vertex shader du
+  // TERRAIN TFRAG (TFragment.cpp:660, :1249, :1350). Un uniforme reste a sa DERNIERE valeur dans
+  // son programme : sans cette ligne, le premier arbre TIE balance laisserait `u_tie_sway_amp`
+  // arme et le SOL ONDULERAIT. Le point d'ecriture est donc UNIQUE et il est ici — a chaque
+  // activation de programme, pour TOUS les appelants (Tie3 :1120 et :1660, TFragment :660,
+  // Shrub :605) — et seul Tie3 le releve, juste apres, sur ses propres passes.
+  // Un programme qui ne declare pas l'uniforme rend -1, et glUniform sur -1 est un no-op
+  // documente : la ligne est donc sans effet partout ailleurs.
+  glUniform1f(glGetUniformLocation(id, "u_tie_sway_amp"), 0.0f);
+  glUniform1f(glGetUniformLocation(id, "u_tie_sway_time"), 0.0f);
+  glUniform2f(glGetUniformLocation(id, "u_tie_sway_dir"), 0.7071f, 0.7071f);
+  // VERROU (b), INDEPENDANT du premier. L'attribut 7 (poids + phase de balancement) n'est active
+  // que par le VAO du TIE ; celui du TFRAG (TFragment.cpp:443-494) ne l'active pas. La
+  // specification OpenGL dit qu'un attribut desactive rend la valeur generique courante, et cette
+  // ligne la MET a poids 0 — au lieu de se fier a la valeur par defaut (0,0,0,1), qui est garantie
+  // par la spec mais qu'aucune mesure de cet arbre n'a jamais verifiee sur l'Adreno. Deux verrous
+  // valent mieux qu'un : celui-ci tient meme si un uniforme etait optimise (loc -1).
+  glVertexAttrib4f(7, 0.f, 0.f, 0.f, 1.f);
   glUniformMatrix4fv(glGetUniformLocation(id, "camera"), 1, GL_FALSE, settings.camera[0].data());
 
   auto newcam =

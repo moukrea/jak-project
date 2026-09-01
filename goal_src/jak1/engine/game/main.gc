@@ -1554,6 +1554,16 @@
       (while (> *fixed-tick-catchup* 0)
         (set! *fixed-tick-catchup* (- *fixed-tick-catchup* 1))
         (display-frame-advance-clocks! disp 1.0)
+        ;; Grecharged-foliage-wind3 : le vent avance d'un pas ICI AUSSI, sinon le correctif de
+        ;; cadence de D1 est DESARME des que l'horloge a pas fixe est armee. Raison mesuree :
+        ;; `update-wind-ticks!` vit dans `update-camera`, qui n'est appele qu'UNE fois par image
+        ;; DESSINEE (plus bas dans ce meme tour) ; cette boucle de rattrapage, elle, ne repasse
+        ;; PAS par lui. Avec le pas fixe arme, `time-adjust-ratio` vaut 1.0 sur une image de tick,
+        ;; donc `update-wind-ticks!` ne rendrait qu'UN pas la ou l'image en porte `catchup + 1` —
+        ;; et la brise de ND retomberait a la cadence de l'affichage, exactement le defaut D1.
+        ;; Le total est donc bien `catchup + 1` pas par image dessinee, dans les deux regimes.
+        (when (and (nonzero? *wind-native-rate*) (not (paused?)))
+          (update-wind *wind-work* *wind-scales*))
         (process-particles)
         (suspend))
       ;; drawing effects to be used in foreground drawing.

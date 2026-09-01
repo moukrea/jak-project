@@ -16,6 +16,10 @@ layout (location = 3) in vec3 normal_in;
 // + hard-contrast cracks at relief>0. Inert unless the PBR frag path reads v_tangent; an unbound
 // location 5 reads the default (0,0,0,1), which the frag detects as degenerate => derivative fallback.
 layout (location = 5) in vec4 tangent_in;
+// Grecharged-foliage-wind3 (defaut D2) : le balancement du TIE statique. Ce shader sert AUSSI au
+// terrain TFRAG et au shrub ; c'est `first_tfrag_draw_setup` qui remet `u_tie_sway_amp` a 0 pour
+// tout le monde, et Tie3 qui le releve sur ses seules passes. Voir le chunk pour les deux verrous.
+#include "tie_sway.glsl"
 
 uniform vec4 hvdf_offset;
 uniform vec4 cam_trans;
@@ -73,9 +77,12 @@ void main() {
 
 
   // Step 3, the camera transform
-  vec3 vert = position_in - cam_trans.xyz;
+  // Grecharged-foliage-wind3 : balancement du TIE statique. Inerte (retourne son entree) des que
+  // u_tie_sway_amp vaut 0 — ce qui est le cas de CHAQUE appelant sauf Tie3 avec l'option allumee.
+  vec3 sway_pos = tie_sway_apply(position_in, tie_sway_in);
+  vec3 vert = sway_pos - cam_trans.xyz;
   v_fringe_rel = vert * (1.0 / 4096.0);  // Grecharged-grass-overhang2: meters, for the fringe fade
-  v_world = position_in;                 // Grecharged-lightprobes: world pos (game units) for PER-PIXEL probe lookup
+  v_world = sway_pos;                    // Grecharged-lightprobes: world pos (game units) for PER-PIXEL probe lookup
   v_normal = normal_in;  // world-space smooth normal (tfrag verts are already in world space)
   v_tangent = tangent_in;  // REOPEN#7: per-vertex tangent -> continuous PBR TBN in the frag
   v_tess_disp_w = 0.0;     // ROUND 23: non-tessellated program => the tess tier displaced nothing
