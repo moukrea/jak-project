@@ -21,8 +21,15 @@ namespace {
 // image. Trois images (~50 ms a 60 Hz) mettent le seuil hors de portee de ce decalage.
 constexpr int kMinEpisodeFrames = 3;
 
-// Borne haute (4 s a 60 Hz). Voir la note du header : au-dela, ce n'est plus un clignotement.
+// Borne haute. Voir la note du header : au-dela, ce n'est plus un clignotement.
+//
+// DEUX BORNES, ET C'EST L'APPAREIL QUI L'A IMPOSE. La borne en IMAGES seule est fausse des que le
+// recensement ne tourne pas a 60 Hz : sur le Redmi, la MEME absence de caisse qui compte 1760
+// images sur bureau n'en compte que 111 — mais elle dure 29 462 ms des deux cotes. Une borne en
+// images l'aurait classee « clignotement » sur telephone et « longue » sur bureau, pour le meme
+// evenement. L'owner ne voit pas des images, il voit une DUREE : on borne les deux.
 constexpr uint64_t kMaxEpisodeFrames = 240;
+constexpr uint64_t kMaxEpisodeMs = 4000;
 
 // Tolerance de l'appariement des deux horloges : un acteur dessine a l'image de rendu F compte
 // comme present tant que le rendu n'a pas depasse F + tolerance.
@@ -209,10 +216,11 @@ void close_gap(const std::string& name, ActorRec& rec) {
   }
   if (rec.gap_len >= (uint64_t)kMinEpisodeFrames) {
     rec.by_reason[rec.gap_reason]++;
-    if (reason_is_defect(rec.gap_reason) && rec.gap_len > kMaxEpisodeFrames) {
+    if (reason_is_defect(rec.gap_reason) &&
+        (rec.gap_len > kMaxEpisodeFrames || ms > kMaxEpisodeMs)) {
       rec.longues++;
-      fmt::print("NPCFLICK-LONG scene={} pnj={} images={} cause={} hd={}\n", g_scene, name,
-                 rec.gap_len, reason_name(rec.gap_reason), rec.hd ? 1 : 0);
+      fmt::print("NPCFLICK-LONG scene={} pnj={} images={} ms={} cause={} hd={}\n", g_scene, name,
+                 rec.gap_len, ms, reason_name(rec.gap_reason), rec.hd ? 1 : 0);
       fflush(stdout);
     } else if (reason_is_defect(rec.gap_reason)) {
       rec.cycles++;
@@ -355,6 +363,10 @@ int min_episode_frames() {
 
 int max_episode_frames() {
   return (int)kMaxEpisodeFrames;
+}
+
+int max_episode_ms() {
+  return (int)kMaxEpisodeMs;
 }
 
 void note_draw(uint32_t owner_pid, Outcome outcome, bool is_hd_model) {

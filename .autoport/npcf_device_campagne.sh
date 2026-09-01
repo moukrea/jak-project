@@ -9,9 +9,14 @@ R="$OUT/campagne.txt"; : > "$R"
 DUR="${DUR:-220}"
 {
   echo "===== campagne appareil — $(date -Is) ====="
-  echo "-- jambe 0 : CONTROLE POSITIF (injection sur sage-lod0)"
+  echo "-- jambe 0 : CONTROLE POSITIF (injection sur TOUS les modeles -lod0)"
 } | tee -a "$R"
-bash .autoport/npcf_device_run.sh intro-start "$DUR" 1 inject sage-lod0:120:12 2>&1 | tail -40 | tee -a "$R"
+# LE FRAGMENT VISE TOUS LES `-lod0`, ET LA RAISON EST MESUREE. Vise sur `sage-lod0` seul, le
+# controle n'a rien tire : avec les modeles HD actifs, le paquet stock de Samos est DEJA supprime
+# par la couverture et sort de `handle_pc_model` AVANT le point d'injection — on jetait un paquet
+# qui n'etait de toute facon pas dessine. Un controle positif qui ne peut pas tirer est exactement
+# la faute que ce cycle corrige.
+bash .autoport/npcf_device_run.sh intro-start "$DUR" 1 inject -lod0:120:10 2>&1 | tail -40 | tee -a "$R"
 for s in intro-start village1-intro village1-warp; do
   echo "-- jambe $s (modeles HD actifs, pas d'injection)" | tee -a "$R"
   bash .autoport/npcf_device_run.sh "$s" "$DUR" 1 2>&1 | tail -40 | tee -a "$R"

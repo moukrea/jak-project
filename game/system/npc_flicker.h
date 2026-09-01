@@ -156,6 +156,7 @@ bool inject_drop(const char* merc_name);
 // DEFECTUEUSE relevee sur `intro-start` etait une caisse morte pendant 1760 images (29 s).
 int min_episode_frames();
 int max_episode_frames();
+int max_episode_ms();
 
 void reset_for_test();
 
