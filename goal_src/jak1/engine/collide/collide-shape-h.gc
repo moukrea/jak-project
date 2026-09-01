@@ -223,6 +223,14 @@
 ;; ============================================================================
 (define *gjcc-degen-guard* 1)
 (define *gjcc-degen-n* 0)
+;; Gjak1-crate-collision-2 — COMPTEUR DE VIE, JAMAIS REMIS A ZERO.
+;; `*gjcc-degen-n*` repart de zero a chaque pose de bouton, sinon les deux bras de
+;; l'ablation ne seraient pas comparables. Mais du coup il rend ZERO sur une course ou
+;; toute l'action s'est passee PENDANT LE CHARGEMENT du niveau — et c'est justement la
+;; que la condition se produit en masse. Les deux comptes sont publies cote a cote :
+;; sans celui-ci, « la condition ne se produit pas » et « on l'a remise a zero apres »
+;; sont indistinguables.
+(define *gjcc-degen-life* 0)
 
 ;; ============================================================================
 ;; Gjak1-crate-collision-2 — LA REPARATION EST A UN COUP, ET ON COMPTE SES ECHECS

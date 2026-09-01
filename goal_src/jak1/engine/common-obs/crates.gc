@@ -1281,6 +1281,308 @@
   (none))
 
 ;; ============================================================================
+;; Gjak1-crate-collision-2 — LA SONDE PROGRAMMATIQUE. CORRECTION DE METHODE DE
+;; L'OWNER, 2026-09-01 :
+;;
+;;   « fais ça de façon programmatique [...] impossible que tu couvre toutes les
+;;     caisses de Geyser Rock à la vue »
+;;
+;; Il a raison, et le chiffre le prouve : conduire le personnage jusqu'aux caisses
+;; avec de vraies entrees manette a couvert TROIS caisses en deux heures et demie
+;; sur l'appareil. Ni le pilotage ni la lecture d'images ne sont des instruments
+;; acceptables ici.
+;;
+;; CE QUE FAIT LA SONDE. Le niveau est charge NORMALEMENT — on ne teleporte rien,
+;; on ne fabrique pas la condition « pas encore nee ». Puis, POUR CHAQUE caisse
+;; vivante et dessinee, sans qu'aucune image ne soit regardee ni aucun bouton
+;; presse :
+;;   1. sa sphere de collision est-elle un NOMBRE (aucune composante NaN/inf) ?
+;;   2. une REQUETE DE COLLISION SYNTHETIQUE lancee depuis un point proche
+;;      renvoie-t-elle un CONTACT ?
+;;
+;; LA REQUETE EST CELLE DU JEU, PAS UNE IMITATION. C'est `fill-using-line-sphere`
+;; puis `probe-using-line-sphere` sur `*collide-cache*` — exactement le couple que
+;; la sonde de sol du joueur emploie (collide-shape.gc:1085). Le masque
+;; `cak-2 + crate` est celui qui fait marcher la liste `usually-hit-by-player`
+;; (collide-cache.gc:1007) et retenir une primitive de caisse. Donc :
+;;   - une sphere NaN fait REJETER la primitive par le test de boite, `incache=0`,
+;;     et la requete ne rend aucun contact — c'est le defaut de l'owner, mesure ;
+;;   - une matrice d'os vierge rend le MAILLAGE degenere (les sommets sont
+;;     transformes par cette matrice, mips2c collide_cache.cpp:1884), donc `tris`
+;;     et le contact tombent aussi. La ligne publie `bw=`, le `w` de cette matrice,
+;;     pour que les deux causes ne soient jamais confondues.
+;;
+;; ISOLEMENT PAR CAISSE, ET C'EST LUI QUI REND LA MESURE NON AMBIGUE. Apres le
+;; remplissage on EFFACE le masque des primitives du cache qui ne sont pas la
+;; notre — la copie du cache, jamais la primitive d'origine. `probe-using-line-sphere`
+;; ne peut donc rendre QUE notre caisse : un contact rendu par la caisse voisine,
+;; ou par une caisse empilee au-dessus, est mecaniquement impossible. Sans cet
+;; isolement, une pile de caisses rendrait un vert pour la caisse du dessus et
+;; un faux vert pour celles du dessous.
+;;
+;; LES TROIS QUESTIONS EXIGEES AVANT TOUTE MESURE :
+;;   NATURE  : un ETAT (le volume existe et repond), pas une amplitude ;
+;;   REPERE  : le monde, et le point de depart est ancre sur la POSE DE L'ENTITE
+;;             plus la sphere LOCALE — deux grandeurs posees a la construction, qui
+;;             ne peuvent pas valoir NaN. Ancrer la sonde sur la sphere du MONDE
+;;             la rendrait aveugle au defaut qu'elle cherche ;
+;;   LIGNE DE BASE quand le defaut est ABSENT : `contacts_ok = caisses`. Quand il
+;;             est PRESENT (garde ablatee, bit 32) la meme sonde doit rendre moins.
+;;             C'est l'ablation sur le MEME BINAIRE qui sert de controle.
+;;
+;; DETERMINISME : deux courses identiques doivent rendre les memes comptes.
+;; ============================================================================
+
+(defconstant GJCC-PB-SLOTS 1536)   ;; 3 niveaux x 512 acteurs
+
+(define *gjcc-pb-st*    (new 'global 'array 'int32 GJCC-PB-SLOTS))
+(define *gjcc-pb-tag*   0)
+(define *gjcc-pb-lines* 0)
+(define *gjcc-pb-n*     0)   ;; caisses sondees au moins une fois           (DENOMINATEUR)
+(define *gjcc-pb-fini*  0)   ;; ... dont la sphere n'a JAMAIS ete non-finie
+(define *gjcc-pb-ok*    0)   ;; ... dont la requete a TOUJOURS rendu un contact
+(define *gjcc-pb-pass*  0)   ;; caisses sondees dans la DERNIERE passe
+(define *gjcc-pb-np*    0)   ;; numero de passe — c'est LUI qui numerote les lignes
+(define *gjcc-pb-bwz*   0)   ;; ... dont la matrice d'os etait vierge
+
+(defun gjcc-finite? ((f float))
+  "Un flottant est-il un NOMBRE ? `(!= x x)` compare les BITS en GOAL et rend donc
+   FAUX meme sur un NaN — mesure au cycle precedent, le champ `nan=` publiait 0 a
+   cote de coordonnees qui valaient NaN. Le seul test qui marche est
+   l'APPARTENANCE A UNE PLAGE : NaN et les deux infinis echouent tous les trois."
+  (if (and (< f 1000000000.0) (> f -1000000000.0)) 1 0))
+
+(define *gjcc-inj-n* 0)   ;; caisses empoisonnees par le controle positif
+
+(defun gjcc-degen-inject! ()
+  "CONTROLE POSITIF DE LA SONDE — LE DEFAUT EST REPRODUIT A SON PRODUCTEUR.
+
+   POURQUOI IL FAUT CELUI-LA ET PAS UN AUTRE. La sonde rend 31 contacts sur 31 dans la
+   course normale — et elle rend EXACTEMENT LA MEME CHOSE avec la garde ablatee
+   (courses s3 et s4, meme banc, `degen=0` des deux cotes). C'est normal : apres le
+   chargement, plus aucune caisse ne renait, donc la condition ne se represente pas et
+   les deux bras mesurent le meme monde. Un vert qui ne peut pas devenir rouge ne prouve
+   rien — c'est la regle 1 des directives, et elle vaut contre mon propre resultat.
+
+   CE QUE FAIT L'INJECTION. Pour CHAQUE caisse vivante : on remet a ZERO la matrice de
+   l'os que designe sa primitive — c'est litteralement l'etat d'une matrice VIERGE,
+   celui d'une caisse qui vient de naitre — puis on rejoue `update-transforms!`, LA
+   FONCTION DU JEU, pas une imitation. Puis on REMET LA MATRICE COMME ELLE ETAIT.
+   Il ne reste donc que ce que la naissance laisse derriere elle : la sphere de
+   collision recalculee a partir d'une matrice vierge. Le maillage, lui, est intact —
+   et c'est fidele : l'owner VOIT les caisses, donc leurs os sont calcules ; ce qui
+   n'est plus recalcule, c'est la sphere, parce que la caisse dort.
+
+   CE QUE LES DEUX BRAS DOIVENT RENDRE, ET C'EST LE MEME BINAIRE :
+     garde ABLATEE (bit 32) : `1.0 / 0.0` vaut l'infini, `0.0 * infini` vaut NaN, la
+       sphere n'est plus un nombre, le test de boite REJETTE la primitive et la sonde
+       doit rendre `incache=0 ok=0` ;
+     garde ACTIVE : le repli pose la sphere a `pose + sphere locale` et la sonde doit
+       rendre `ok=1`.
+   Si les deux rendent la meme chose, c'est la SONDE qui est fausse, pas le correctif."
+  (let ((sav (new 'stack-no-clear 'matrix))
+        (n 0))
+    (dotimes (li 3)
+      (let ((lev (-> *level* level li)))
+        (when (and (= (-> lev status) 'active) (nonzero? (the-as int (-> lev bsp))))
+          (let ((acts (-> lev bsp actors)))
+            (when (nonzero? (the-as int acts))
+              (dotimes (ai (-> acts length))
+                (when (< ai 512)
+                  (let ((ent (-> acts data ai actor)))
+                    (when (and (nonzero? (the-as int ent))
+                               (nonzero? (the-as int (-> ent etype)))
+                               (type-type? (-> ent etype) crate))
+                      (let ((pr (-> ent extra process)))
+                        (when (and (nonzero? (the-as int pr)) (type-type? (-> pr type) crate))
+                          (let* ((c (the-as crate pr))
+                                 (r (-> c root))
+                                 (pm (the-as collide-shape-prim-mesh
+                                             (if (nonzero? (the-as int r))
+                                               (-> r root-prim)
+                                               (the-as collide-shape-prim 0))))
+                                 (nl (-> c node-list)))
+                            (when (and (nonzero? (the-as int pm))
+                                       (nonzero? (the-as int nl))
+                                       (>= (-> pm transform-index) 0)
+                                       (not (logtest? (-> c draw status) (draw-status hidden))))
+                              (let ((bt (-> nl data (-> pm transform-index) bone transform)))
+                                (dotimes (i 4) (set! (-> sav vector i quad) (-> bt vector i quad)))
+                                (dotimes (i 4) (set! (-> bt vector i quad) (the-as uint128 0)))
+                                (update-transforms! r)
+                                (dotimes (i 4) (set! (-> bt vector i quad) (-> sav vector i quad)))
+                                (set! n (+ n 1))))))))))))))))
+    (set! *gjcc-inj-n* n)
+    (format 0 "GJCC-INJDEGEN caisses_empoisonnees=~D guard=~D degen=~D degenlife=~D~%"
+            n *gjcc-degen-guard* *gjcc-degen-n* *gjcc-degen-life*))
+  (none))
+
+(defun gjcc-probe-all ((tag int))
+  "SONDE PROGRAMMATIQUE — une passe sur TOUTES les caisses des niveaux actifs.
+   Ne teleporte rien, ne presse aucun bouton, ne regarde aucune image."
+  (let ((res (new 'stack-no-clear 'collide-tri-result))
+        (p0  (new 'stack-no-clear 'vector))
+        (dv  (new 'stack-no-clear 'vector))
+        (pass 0)
+        (bwz 0))
+    ;; LE NUMERO DE PASSE EST COMPTE ICI, pas derive du compteur d'images. Derive, il
+    ;; valait 13 a la premiere passe (le tick tourne depuis l'amorcage) et le detail par
+    ;; caisse, conditionne a « passe 1 », n'etait JAMAIS imprime — mesure, course s2.
+    (+! *gjcc-pb-np* 1)
+    (set! tag *gjcc-pb-np*)
+    (set! *gjcc-pb-tag* tag)
+    ;; CONTROLE POSITIF (bit 256), joue JUSTE AVANT la mesure : il reproduit le defaut
+    ;; a son producteur pour que le vert de la sonde soit falsifiable.
+    (if (nonzero? (logand *gjcc-mode* 256)) (gjcc-degen-inject!))
+    (dotimes (li 3)
+      (let ((lev (-> *level* level li)))
+        (when (and (= (-> lev status) 'active) (nonzero? (the-as int (-> lev bsp))))
+          (let ((acts (-> lev bsp actors)))
+            (when (nonzero? (the-as int acts))
+              (dotimes (ai (-> acts length))
+                (when (< ai 512)
+                  (let ((ent (-> acts data ai actor)))
+                    (when (and (nonzero? (the-as int ent))
+                               (nonzero? (the-as int (-> ent etype)))
+                               (type-type? (-> ent etype) crate))
+                      (let ((pr (-> ent extra process)))
+                        (when (and (nonzero? (the-as int pr)) (type-type? (-> pr type) crate))
+                          (let* ((c (the-as crate pr))
+                                 (r (-> c root))
+                                 (pm (the-as collide-shape-prim-mesh
+                                             (if (nonzero? (the-as int r))
+                                               (-> r root-prim)
+                                               (the-as collide-shape-prim 0)))))
+                            ;; une caisse CACHEE est une caisse CASSEE : elle n'a pas a etre
+                            ;; solide, et l'inclure fabriquerait un faux rouge.
+                            (when (and (nonzero? (the-as int pm))
+                                       (not (logtest? (-> c draw status) (draw-status hidden))))
+                              (let* ((slot (+ (* li 512) ai))
+                                     (st (-> *gjcc-pb-st* slot))
+                                     (nl (-> c node-list))
+                                     (ti (-> pm transform-index))
+                                     (bw (if (and (nonzero? (the-as int nl)) (>= ti 0))
+                                           (-> nl data ti bone transform vector 3 w)
+                                           -1.0))
+                                     (wx (-> pm prim-core world-sphere x))
+                                     (wy (-> pm prim-core world-sphere y))
+                                     (wz (-> pm prim-core world-sphere z))
+                                     (wr (-> pm prim-core world-sphere w))
+                                     (fini (if (and (= 1 (gjcc-finite? wx))
+                                                    (= 1 (gjcc-finite? wy))
+                                                    (= 1 (gjcc-finite? wz))
+                                                    (= 1 (gjcc-finite? wr))
+                                                    (> wr 0.0))
+                                             1 0))
+                                     (h  (* (-> pm local-sphere w) 0.5773503))
+                                     (cx (+ (-> r trans x) (-> pm local-sphere x)))
+                                     (cy (+ (-> r trans y) (-> pm local-sphere y)))
+                                     (cz (+ (-> r trans z) (-> pm local-sphere z))))
+                                (set! pass (+ pass 1))
+                                (if (= bw 0.0) (set! bwz (+ bwz 1)))
+                                ;; ---- LA REQUETE SYNTHETIQUE : une sphere qui descend a
+                                ;; travers la caisse, depuis 2 demi-aretes au-dessus de son
+                                ;; centre jusqu'a 2 en dessous. C'est la sonde de sol du jeu.
+                                (set-vector! p0 cx (+ cy (* 2.0 h)) cz 1.0)
+                                (set-vector! dv 0.0 (* -4.0 h) 0.0 1.0)
+                                (fill-using-line-sphere *collide-cache*
+                                                        p0 dv 40.96
+                                                        (collide-kind cak-2 crate)
+                                                        (the-as process-drawable #f)
+                                                        (new 'static 'pat-surface))
+                                (let ((incache 0) (ctris 0))
+                                  ;; ISOLEMENT : on n'interroge QUE notre primitive.
+                                  (dotimes (i (-> *collide-cache* num-prims))
+                                    (cond
+                                      ((= (-> *collide-cache* prims i prim) (the-as collide-shape-prim pm))
+                                       (set! incache 1)
+                                       (set! ctris (the-as int (-> *collide-cache* prims i num-tris))))
+                                      (else
+                                       (set! (-> *collide-cache* prims i prim-core collide-as)
+                                             (the-as collide-kind 0)))))
+                                  (let* ((u (probe-using-line-sphere *collide-cache*
+                                                                    p0 dv 40.96
+                                                                    (collide-kind cak-2 crate)
+                                                                    res
+                                                                    (new 'static 'pat-surface)))
+                                         (ix (-> res intersect x))
+                                         (iy (-> res intersect y))
+                                         (iz (-> res intersect z))
+                                         ;; le point de contact doit tomber DANS la caisse
+                                         ;; sondee. Avec l'isolement c'est un controle
+                                         ;; redondant — et un controle redondant qui tire
+                                         ;; est ce qui distingue une mesure d'une croyance.
+                                         (inb (if (and (>= u 0.0)
+                                                       (< (fabs (- ix cx)) (+ h 4096.0))
+                                                       (< (fabs (- iz cz)) (+ h 4096.0))
+                                                       (< (fabs (- iy cy)) (+ h 4096.0)))
+                                                1 0))
+                                         (ok (if (and (= fini 1) (= incache 1) (= inb 1)) 1 0)))
+                                    ;; accumulation PAR CAISSE : la couverture est l'UNION
+                                    ;; sur la course, et un echec vu UNE FOIS est retenu.
+                                    (set! st (logior st 1))
+                                    (if (zero? fini) (set! st (logior st 2)))
+                                    (if (= ok 1) (set! st (logior st 4)) (set! st (logior st 8)))
+                                    (set! (-> *gjcc-pb-st* slot) st)
+                                    ;; une ligne par caisse a la premiere passe, puis
+                                    ;; uniquement les ECHECS : sur l'appareil chaque `format`
+                                    ;; est une ligne de logcat, et un instrument qui inonde
+                                    ;; le journal detruit la mesure qu'il porte.
+                                    (when (and (< *gjcc-pb-lines* 200)
+                                               (or (= tag 1) (zero? ok)))
+                                      (+! *gjcc-pb-lines* 1)
+                                      ;; MEME RAISON QUE LA LIGNE DE RESUME : sur Android chaque
+                                      ;; `format` est UNE ligne de logcat. Le VERDICT par caisse
+                                      ;; tient donc en un seul appel, et chaque ligne de detail
+                                      ;; reporte `aid` pour qu'aucune ne soit orpheline.
+                                      ;; MEME RAISON QUE LA LIGNE DE RESUME : sur Android chaque
+                                      ;; `format` est UNE ligne de logcat, et le compilateur
+                                      ;; plafonne un appel a SIX valeurs. Le VERDICT par caisse
+                                      ;; tient donc en un seul appel, et chaque ligne de detail
+                                      ;; reporte `aid` pour qu'aucune ne soit orpheline.
+                                      (format 0 "GJCC-PROBE t=~D aid=~D ok=~D fini=~D incache=~D tris=~D~%"
+                                              tag (the-as int (-> ent aid)) ok fini incache ctris)
+                                      (format 0 "GJCC-PROBE2 t=~D aid=~D bw=~f u=~f inb=~D~%"
+                                              tag (the-as int (-> ent aid)) bw u inb)
+                                      (format 0 "GJCC-PROBE3 t=~D aid=~D wx=~f wy=~f wz=~f wr=~f~%"
+                                              tag (the-as int (-> ent aid)) wx wy wz wr)
+                                      (format 0 "GJCC-PROBE4 t=~D aid=~D ix=~f iy=~f iz=~f~%"
+                                              tag (the-as int (-> ent aid)) ix iy iz))))))))))))))))))
+    ;; RECOMPTAGE COMPLET a chaque passe : les trois comptes sont donc toujours
+    ;; coherents entre eux, meme si une caisse meurt et renait entre deux passes.
+    (let ((n 0) (nf 0) (nok 0))
+      (dotimes (i GJCC-PB-SLOTS)
+        (let ((st (-> *gjcc-pb-st* i)))
+          (when (nonzero? (logand st 1))
+            (set! n (+ n 1))
+            (if (zero? (logand st 2)) (set! nf (+ nf 1)))
+            (if (and (nonzero? (logand st 4)) (zero? (logand st 8))) (set! nok (+ nok 1))))))
+      (set! *gjcc-pb-n* n) (set! *gjcc-pb-fini* nf) (set! *gjcc-pb-ok* nok)
+      (set! *gjcc-pb-pass* pass) (set! *gjcc-pb-bwz* bwz)
+      ;; LA LIGNE DE VERDICT EST ATOMIQUE, ET C'EST UNE CONTRAINTE D'ANDROID.
+      ;; Sur l'appareil CHAQUE `format` devient UNE ligne de logcat : une ligne de verdict
+      ;; ecrite en deux morceaux arrive coupee, et `fps=` se retrouve sur une ligne qui ne
+      ;; porte plus le prefixe. Un depouillement par motif rendrait alors un ZERO
+      ;; STRUCTUREL. Les six comptes ET la cadence tiennent donc dans UN SEUL appel
+      ;; (le compilateur en plafonne les parametres a huit) ; le reste part sur une
+      ;; seconde ligne qui porte son propre prefixe et ne se confond avec rien.
+      (format 0 "GJCC-PROBESUM t=~D caisses=~D spheres_finies=~D contacts_ok=~D fps=~f guard=~D~%"
+              tag n nf nok (-> *display* frames-per-second) *gjcc-degen-guard*)
+      (format 0 "GJCC-PROBESUM2 t=~D passe=~D bwz=~D mode=~D " tag pass bwz *gjcc-mode*)
+      ;; `degen` repart de zero a chaque pose de bouton ; `degenlife` compte depuis
+      ;; l'amorcage, donc il porte le CHARGEMENT DU NIVEAU — ou la condition se produit
+      ;; en masse. Publier l'un sans l'autre rendrait « la condition ne se produit pas »
+      ;; indistinguable de « on l'a remise a zero apres ».
+      (format 0 "degen=~D degenlife=~D inj=~D f=~D~%"
+              *gjcc-degen-n* *gjcc-degen-life* *gjcc-inj-n*
+              (the-as int (-> *display* base-frame-counter)))))
+  ;; La cadence publiee sur la ligne de verdict est celle que le moteur RETIENT
+  ;; (`frames-per-second`, ajustee dynamiquement) ; le journal de l'appareil porte en
+  ;; plus la mesure independante `dyn-rs avg-fps`. Les deux sont republiees cote a cote
+  ;; dans le rapport, parce qu'une cadence declaree par le sujet mesure ne vaut pas seule.
+  (none))
+
+;; ============================================================================
 ;; Gjak1-crate-collision-2 (owner 2026-08-31, RETOUR 2) — DETECTEUR PASSIF DE
 ;; TRAVERSEE. IL MESURE LE DEFAUT DE L'OWNER, PAS CELUI DU BANC.
 ;;
@@ -1364,6 +1666,9 @@
   (set! *gjcc-near-lines* 0) (set! *gjcc-dist* 0.0) (set! *gjcc-cctag* 0) (set! *gjcc-vide* 0)
   (set! *gjcc-waitn* 0) (set! *gjcc-waitfail* 0) (set! *gjcc-waitlines* 0)
   (set! *gjcc-thru-lines* 0) (set! *gjcc-warp* 0)
+  (set! *gjcc-pb-tag* 0) (set! *gjcc-pb-lines* 0) (set! *gjcc-pb-n* 0) (set! *gjcc-pb-np* 0)
+  (set! *gjcc-pb-fini* 0) (set! *gjcc-pb-ok* 0) (set! *gjcc-pb-pass* 0) (set! *gjcc-pb-bwz* 0)
+  (dotimes (i GJCC-PB-SLOTS) (set! (-> *gjcc-pb-st* i) 0))
   (dotimes (i GJCC-SLOTS) (set! (-> *gjcc-thru-st* i) 0))
   (format 0 "GJCC-MODE mode=~D rayon=~f maxtris=~D~%"
           *gjcc-mode* *actor-collision-birth-radius* *collide-cache-max-tris*)
@@ -1549,5 +1854,14 @@
          ;; Ici les 31 caisses du niveau sont inspectees, que le joueur les approche ou non.
          (when (and (nonzero? (logand *gjcc-mode* 64)) (zero? (mod *gjcc-frames* 300)))
            (set! *gjcc-cctag* (+ *gjcc-cctag* 1))
-           (gjcc-scan *gjcc-cctag*))))))
+           (gjcc-scan *gjcc-cctag*))
+         ;; SONDE PROGRAMMATIQUE (bit 128) — correction de methode de l'owner du
+         ;; 2026-09-01. Elle couvre TOUTES les caisses en une passe, sans pilotage et
+         ;; sans image regardee. La premiere passe est retardee de 600 images : avant
+         ;; ca le niveau finit de se peupler, et sonder une caisse a l'image de sa
+         ;; naissance mesurerait le banc, pas le jeu.
+         (when (and (nonzero? (logand *gjcc-mode* 128))
+                    (> *gjcc-frames* 600)
+                    (zero? (mod *gjcc-frames* 300)))
+           (gjcc-probe-all 0))))))
   (none))

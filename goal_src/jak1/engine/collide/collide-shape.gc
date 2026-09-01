@@ -1537,7 +1537,7 @@
       (if (and (nonzero? a1-1)
                (>= a0-1 0)
                (= (-> a1-1 data a0-1 bone transform vector 3 w) 0.0))
-        (+! *gjcc-degen-n* 1))
+        (begin (+! *gjcc-degen-n* 1) (+! *gjcc-degen-life* 1)))
       (cond
         ((nonzero? a1-1)
          (cond

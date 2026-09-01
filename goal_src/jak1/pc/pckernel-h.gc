@@ -32,6 +32,15 @@
 ;;   bit 4  ABLATION : rayon de naissance a 0 = regle d'origine de Naughty Dog
 ;;   bit 8  quota de naissance PAR SECONDE au lieu de PAR IMAGE
 ;;   bit 16 cache de collision agrandi (le tampon de 5000 triangles est deja alloue)
+;;   bit 32 ABLATION de la garde de sphere NaN (matrice d'os vierge divisee, comme avant)
+;;   bit 64 recensement complet periodique (GJCC-SUM / GJCC-CRATE), sans listener
+;;   bit 128 SONDE PROGRAMMATIQUE (GJCC-PROBE / GJCC-PROBESUM) : pour CHAQUE caisse,
+;;           sphere finie ? requete de collision synthetique -> contact ? C'est la
+;;           preuve que l'owner exige depuis le 2026-09-01, et elle ne regarde
+;;           aucune image.
+;;   bit 256 CONTROLE POSITIF de la sonde : on remet a zero la matrice d'os de chaque
+;;           caisse, on rejoue `update-transforms!`, on restaure la matrice. Garde
+;;           ablatee -> la sonde DOIT rendre 0 contact ; garde active -> tous.
 ;; ============================================================================
 (define *gjcc-mode* 0)
 
