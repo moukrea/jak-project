@@ -17,7 +17,9 @@ DUR="${DUR:-220}"
 # qui n'etait de toute facon pas dessine. Un controle positif qui ne peut pas tirer est exactement
 # la faute que ce cycle corrige.
 bash .autoport/npcf_device_run.sh intro-start "$DUR" 1 inject -lod0:120:10 2>&1 | tail -40 | tee -a "$R"
-for s in intro-start village1-intro village1-warp; do
+# `village1-intro` et `village1-warp` jouent la MEME scene (`sage-intro-sequence-d1`) :
+# on prend `village1-demo-convo` a la place, qui en apporte deux autres.
+for s in intro-start village1-warp village1-demo-convo; do
   echo "-- jambe $s (modeles HD actifs, pas d'injection)" | tee -a "$R"
   bash .autoport/npcf_device_run.sh "$s" "$DUR" 1 2>&1 | tail -40 | tee -a "$R"
 done
@@ -26,8 +28,8 @@ done
 # zero ne veut rien dire.
 INJ=$(grep -ac 'NPCFLICK-EV' "$OUT/dev-inject-logcat.txt" 2>/dev/null || true)
 # La jambe d'injection est EXCLUE du compte : ses cycles sont voulus, c'est le controle positif.
-CYC=$(cat "$OUT"/dev-intro-start-hd1-logcat.txt "$OUT"/dev-village1-intro-hd1-logcat.txt \
-          "$OUT"/dev-village1-warp-hd1-logcat.txt 2>/dev/null \
+CYC=$(cat "$OUT"/dev-intro-start-hd1-logcat.txt "$OUT"/dev-village1-warp-hd1-logcat.txt \
+          "$OUT"/dev-village1-demo-convo-hd1-logcat.txt 2>/dev/null \
       | grep -a 'NPCFLICK ' | sed -n 's/.*cycles=\([0-9]*\).*/\1/p' | awk '{s+=$1} END {print s+0}')
 {
   echo "-- controle positif (jambe injection) : $INJ evenement(s)"
