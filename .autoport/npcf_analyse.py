@@ -14,8 +14,19 @@ rows = {}   # (leg, scene, pnj) -> (final?, dict)
 for path in sys.argv[1:]:
     leg = 'hd1' if '-hd1-' in path else ('hd0' if '-hd0-' in path else '?')
     for line in open(path, errors='replace'):
-        if line.startswith('NPCFLICK ') or line.startswith('NPCFLICK-P '):
-            final = line.startswith('NPCFLICK ')
+        # Sur l'appareil, chaque ligne porte le prefixe logcat (`... I GK_STDOUT: `) : on
+        # cherche le marqueur PARTOUT dans la ligne, pas seulement en debut.
+        i = line.find('NPCFLICK ')
+        j = line.find('NPCFLICK-P ')
+        if i < 0 and j < 0:
+            continue
+        if j >= 0 and (i < 0 or j < i):
+            line = line[j:]
+            final = False
+        else:
+            line = line[i:]
+            final = True
+        if True:
             d = kv(line)
             key = (leg, d.get('scene'), d.get('pnj'))
             prev = rows.get(key)
