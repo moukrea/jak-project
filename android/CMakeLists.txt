@@ -427,6 +427,7 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/system/iop_thread.cpp"
     # Gplayability-input-and-loadgate: the scene load barrier (no GL deps).
     "${JAK_ROOT}/game/system/load_gate.cpp"
+    "${JAK_ROOT}/game/system/npc_flicker.cpp"
     "${JAK_ROOT}/game/system/Deci2Server.cpp"
     # Phase Ginput-replay (autoport): host-side input record/replay harness,
     # tapped from android_runtime_compat.cpp::CPadGetData (backend-agnostic core,
@@ -962,3 +963,30 @@ target_link_libraries(gk PRIVATE
 set_target_properties(gk PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/${ANDROID_ABI}"
 )
+
+set(NPCF_GUARD_ROOT "${JAK_ROOT}")
+
+# ------------------------------------------------------------------------------------------------
+# Gcutscene-npc-flicker (owner 2026-08-31) — LA GARDE TOURNE AU POINT DE PRODUCTION.
+#
+# Le defaut des PNJ qui clignotent en cinematique a deja ete corrige (Grecharged-hd-models3/4/5)
+# et il est revenu. La garde laissee par ces phases-la etait `[hd-flicker] blackouts=0`, dont le
+# compteur n'a plus AUCUN site d'ecriture depuis 45b7140ca7 : une clause qu'aucun chemin de code
+# ne pouvait violer. Et aucun de ses trois scripts de preuve n'est appele par un validateur, un
+# hook ou l'orchestrateur — ils ont tourne une fois, dans leur propre phase, jamais depuis.
+#
+# On ne peut donc plus construire le moteur sans que la garde passe. C'est la regle des DIRECTIVES
+# du 2026-08-11 : quand une perte se repete, on la rend impossible AU POINT DE PRODUCTION, pas
+# detectable au point de controle.
+#
+# SORTIE DE SECOURS ASSUMEE : OG_SKIP_NPCF_GUARD=1. Une garde qui peut bloquer definitivement la
+# chaine de livraison serait pire que le defaut qu'elle surveille (meme raisonnement que le
+# fail-open de game/system/load_gate.h). Par defaut elle est appliquee.
+# ------------------------------------------------------------------------------------------------
+if(UNIX AND NOT ANDROID_SKIP_NPCF_GUARD)
+    add_custom_command(TARGET gk POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E env
+                bash ${NPCF_GUARD_ROOT}/.autoport/npcf_guard_hook.sh
+        WORKING_DIRECTORY ${NPCF_GUARD_ROOT}
+        COMMENT "npc-flicker: garde de non-regression (instrument + valeurs publiees)")
+endif()

@@ -450,6 +450,18 @@
 ;; See game/system/load_gate.h.
 (define-extern __pc-scene-ready? (function string string string int int))
 (define-extern __pc-scene-release (function string none))
+;; Gcutscene-npc-flicker (owner 2026-08-31) : recensement des PNJ pendant une cinematique.
+;; Le rendu voit les paquets merc qui ARRIVENT ; il ne peut pas voir un acteur qui a cesse d'en
+;; emettre, ni pourquoi. Ces trois ponts lui donnent l'autre moitie : l'existence de l'acteur dans
+;; l'arbre de processus et son octet draw-status, une fois par image, pendant les cinematiques
+;; seulement. Voir game/system/npc_flicker.h.
+(define-extern __pc-npc-census-begin (function string none))
+(define-extern __pc-npc-census-actor (function string int int int none))
+(define-extern __pc-npc-census-end (function none))
+;; Un clone de cinematique n'a pas pu suivre sa source cette image et s'est masque lui-meme
+;; (generic-obs.gc). Sans cette declaration du PRODUCTEUR, ce masquage et un masquage voulu par le
+;; jeu portent le meme bit `hidden` et sont indistinguables.
+(define-extern __pc-npc-clone-fail (function string none))
 ;; Gloading-screen : cadence REELLE de l'ecran de chargement (horloge murale cote C++) et
 ;; decoupage du travail que le thread GOAL fait pendant un chargement A FROID.
 (define-extern __pc-loading-screen-tick (function int none))

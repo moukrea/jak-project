@@ -65,7 +65,21 @@
        (let ((a0-22 (-> self skel effect))) (if a0-22 (effect-control-method-9 a0-22)))
        (if (logtest? (-> self skel status) (janim-status blerc blerc-done)) (merc-blend-shape self))
        (if (logtest? (-> self skel status) (janim-status eye-done eye)) (merc-eye-anim self)))
-      (else (logior! (-> self draw status) (draw-status hidden)) (ja-post))))
+      (else
+        ;; Gcutscene-npc-flicker (owner 2026-08-31) : ICI, le clone se MASQUE parce qu'il n'a pas
+        ;; pu suivre sa source — soit elle n'existe plus, soit `joint-control-remap!` a echoue
+        ;; (engine/anim/joint.gc:811-835, qui rend #f des qu'UN `lookup-art` echoue). Les anims de
+        ;; cinematique sont STREAMEES : `unlink-art!` (engine/load/loader.gc:202-223) remet le slot
+        ;; du groupe d'art a #f quand le tampon est recycle, et le clone n'a AUCUNE des attentes
+        ;; qui protegent l'acteur pilote. Une frontiere de partie = une occasion, et
+        ;; `sage-intro-sequence-a` en compte 22.
+        ;; Le bit pose est `hidden`, exactement celui qu'un masquage VOULU par le jeu pose aussi :
+        ;; seul le producteur peut les separer, donc il le declare. Ligne muette hors cinematique.
+        (#when PC_PORT
+          (if (and (nonzero? (-> self draw)) (nonzero? (-> self draw mgeo)))
+            (__pc-npc-clone-fail (-> self draw mgeo name))))
+        (logior! (-> self draw status) (draw-status hidden))
+        (ja-post))))
   (if (>= arg1 0) (vector<-cspace! (-> self draw origin) (-> self node-list data arg1)))
   0
   (none))

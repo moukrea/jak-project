@@ -1398,3 +1398,131 @@
 
 [asset-route] training.medium.grassbake -> /home/emeric/code/jak-project/out/jak1/fr3/training.medium.grassbake (base-pack) custom=no 0B/t0 base=yes 1683285B/t1788129774
 
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+
+[asset-route] GAME.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/GAME.fr3 (base-pack) custom=no 0B/t0 base=yes 1039218B/t1787798778
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1787796996
+
+[asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13880714B/t1787798779
+
+[asset-route] training.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/training.fr3 (base-pack) custom=no 0B/t0 base=yes 9419374B/t1787796998
+

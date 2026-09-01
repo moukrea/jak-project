@@ -433,6 +433,25 @@
       -1
       (hd-entry-for-char-look c (hd-look-for-char c)))))
 
+;; Gcutscene-npc-flicker (owner 2026-08-31) — ANTI-REBOND DU MIROIR DE VISIBILITE.
+;; Nombre d'images consecutives pendant lesquelles le driver doit porter `no-anim` avant que le
+;; compagnon HD s'eteigne. Voir le bloc de commentaire du miroir (jak-hd-clone :post) : ce bit
+;; recouvre DEUX situations opposees, et seule leur DUREE les separe.
+;;
+;; DEUX VALEURS, ET LA RAISON EST STRUCTURELLE, PAS UN REGLAGE. Le masquage en premiere personne
+;; — le defaut que `Gfirstperson-hd-hide` a ferme et que l'owner a VALIDE — n'existe que pour
+;; `*target*` (`target2.gc:390` et `:466`) et pour le sidekick, qui recopie en bloc le draw-status
+;; du joueur (`sidekick.gc:100`). AUCUN PNJ n'entre en premiere personne. Le seul risque d'un
+;; anti-rebond long — laisser le modele HD visible pendant que le jeu veut le cacher — ne pese
+;; donc que sur Jak et Daxter, et c'est la seule raison pour laquelle leur seuil reste court.
+;; Pour un PNJ, `no-anim` sans `hidden` ne veut dire qu'une chose : il est entre deux segments
+;; d'animation, et pendant ce temps son modele STOCK n'est pas dessine non plus
+;; (`drawable.gc:448`) — laisser le compagnon poursuivre est strictement mieux qu'un trou.
+;; Mesure du 2026-09-01 (x86, 4 cinematiques) : les episodes transitoires releves durent 6 et 7
+;; images. 30 les couvre entierement avec une marge de x4.
+(defglobalconstant HD_NOANIM_DEBOUNCE 4)     ;; Jak et Daxter : la premiere personne les masque
+(defglobalconstant HD_NOANIM_DEBOUNCE_NPC 30) ;; PNJ : aucun masquage de ce genre ne les concerne
+
 (deftype jak-hd (process-drawable)
   ((entry     int32)   ;; replacement-table index
    (driver    handle)  ;; the stock actor this companion covers
@@ -443,7 +462,9 @@
    (kdrv-par  (pointer uint8))  ;; v2: driver-rig parent of e (255 = n/a)
    (blerc-slot int32)        ;; *pc-blerc-override-** registry slot (-1 = none) — class B faces
    (dbg-frames int32)        ;; frame counter for the reliable bone-sanity dump
-   (dbg-mirror-logs int32))  ;; cap for the defect-6 hidden-mirror transition log
+   (dbg-mirror-logs int32)   ;; cap for the defect-6 hidden-mirror transition log
+   (noanim-run int32)        ;; images consecutives ou le driver porte (draw-status no-anim)
+   (dbg-noanim-logs int32))  ;; cap pour la distribution des longueurs de ces episodes
   (:states jak-hd-clone))
 
 ;; Grecharged-secondary-motion: the chain sim lives in jak-hd-physics.gc, compiled AFTER this file
@@ -624,20 +645,82 @@
          ;; it on purpose, it is the companion's OWN engine bit (cleared below every frame because
          ;; this :post bypasses ja-post), and inheriting it would re-latch the M1 invisibility.
          ;; One site covers all four models: dax-hd's driver IS the sidekick, already no-anim.
-         (let ((th (if (logtest? (-> drv draw status) (draw-status hidden no-anim)) 1 0))
-               (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
-           ;; device-readable proof of the mirror (defect 6 + Gfirstperson-hd-hide): log each
-           ;; transition and WHICH driver bit caused it, capped.
-           (when (and (!= th wh) (< (-> self dbg-mirror-logs) 40))
-             (+! (-> self dbg-mirror-logs) 1)
-             (format 0 "[JAK-HD] mirror entry=~D blocked=~D hid=~D noanim=~D~%"
-                     (-> self entry)
-                     th
-                     (if (logtest? (-> drv draw status) (draw-status hidden)) 1 0)
-                     (if (logtest? (-> drv draw status) (draw-status no-anim)) 1 0)))
-           (if (nonzero? th)
-             (logior! (-> self draw status) (draw-status hidden))
-             (logclear! (-> self draw status) (draw-status hidden))))
+         ;; Gcutscene-npc-flicker (owner 2026-08-31, « le probleme des modeles des PNJ qui
+         ;; apparaissent, disparaissent et reapparaissent plusieurs fois pendant les cinematiques
+         ;; est revenu ! c'est pas la premiere fois ») — ANTI-REBOND SUR `no-anim`.
+         ;;
+         ;; CE QUE LA VERSION PRECEDENTE FAISAIT, ET POURQUOI ELLE CREUSAIT UN TROU. Le predicat
+         ;; etait `(hidden no-anim)` : des que le driver portait l'un des deux, le compagnon
+         ;; s'eteignait. Or `drawable.gc:448` refuse AUSSI le dessin stock sur le masque
+         ;; `(hidden no-anim no-skeleton-update)`. Sur une image ou le driver porte `no-anim`, ni
+         ;; le stock ni le HD n'est donc dessine : l'acteur DISPARAIT. Avant Gfirstperson-hd-hide
+         ;; (b11d2c8609, 2026-08-28) le compagnon continuait a soumettre sur ces images-la — un
+         ;; personnage FIGE, visible ; depuis, c'est un TROU. Le signalement de l'owner tombe
+         ;; trois jours apres ce commit, qui a ete livre sans course appareil (son propre message
+         ;; l'ecrit).
+         ;;
+         ;; POURQUOI LA DUREE EST LE BON DISCRIMINANT. Le bit `no-anim` (art-h.gc:187, « set by
+         ;; engine, if there is no active joint animation ») recouvre deux situations opposees, et
+         ;; AUCUN autre bit ne les separe :
+         ;;   - le masquage en premiere personne : `ja-channel-set! 0` sur *target* (target2.gc:390
+         ;;     et :466), tenu tant que le joueur y reste — des dizaines d'images. C'est le defaut
+         ;;     que b11d2c8609 corrige, et il doit rester corrige ;
+         ;;   - la FRONTIERE entre deux segments d'une animation streamee : le `:exit` de
+         ;;     `be-clone` (process-taskable.gc:515) et `process-taskable-hide-enter` (:436) font
+         ;;     eux aussi `ja-channel-set! 0`, et `process-drawable.gc:642` leve `no-anim` jusqu'au
+         ;;     `ja-post` suivant (:654) — une poignee d'images. `sage-intro-sequence-a` compte 22
+         ;;     segments, `mayor-introduction` 16 : autant d'occasions par cinematique, ce qui est
+         ;;     exactement « plusieurs fois pendant UNE cinematique ».
+         ;; On n'eteint donc le compagnon que si `no-anim` TIENT. `hidden`, lui, est une decision
+         ;; explicite du jeu : il agit immediatement, sans anti-rebond.
+         ;;
+         ;; ET LA COUVERTURE TOMBE LA MEME IMAGE. Quand le miroir eteint le compagnon, Merc2
+         ;; continuerait a supprimer le dessin stock pendant ~20 appels de rendu (~1,25 image)
+         ;; avant son fail-open : une seconde fenetre ou rien n'est dessine. `pc-hd-uncover!` rend
+         ;; la suppression caduque des le prochain appel de rendu, et `pc-hd-cover!` la retablit
+         ;; quand le compagnon repart — avant la passe de dessin de la meme image, donc sans
+         ;; jamais dessiner les deux modeles ensemble.
+         (let* ((dhid (logtest? (-> drv draw status) (draw-status hidden)))
+                (dnoa (logtest? (-> drv draw status) (draw-status no-anim)))
+                ;; le seuil depend du driver, pas d'un reglage : voir HD_NOANIM_DEBOUNCE_NPC.
+                (dnm (if (and (nonzero? (-> drv draw)) (nonzero? (-> drv draw mgeo)))
+                       (-> drv draw mgeo name)
+                       (the-as string #f)))
+                (joueur? (and dnm (or (name= dnm "eichar-lod0") (name= dnm "sidekick-lod0"))))
+                (deb (if joueur? HD_NOANIM_DEBOUNCE HD_NOANIM_DEBOUNCE_NPC)))
+           (cond
+             (dnoa (+! (-> self noanim-run) 1))
+             (else
+               ;; La DISTRIBUTION des longueurs, publiee : c'est elle qui justifie le seuil, et
+               ;; elle est falsifiable — un episode transitoire plus long que le seuil se lirait
+               ;; ici avec `bloque=1`.
+               (when (and (> (-> self noanim-run) 0) (< (-> self dbg-noanim-logs) 60))
+                 (+! (-> self dbg-noanim-logs) 1)
+                 (format 0 "[JAK-HD] noanim-run entry=~D images=~D seuil=~D bloque=~D~%"
+                         (-> self entry)
+                         (-> self noanim-run)
+                         deb
+                         (if (>= (-> self noanim-run) deb) 1 0)))
+               (set! (-> self noanim-run) 0)))
+           (let ((th (if (or dhid (>= (-> self noanim-run) deb)) 1 0))
+                 (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
+             ;; device-readable proof of the mirror (defect 6 + Gfirstperson-hd-hide): log each
+             ;; transition and WHICH driver bit caused it, capped.
+             (when (and (!= th wh) (< (-> self dbg-mirror-logs) 40))
+               (+! (-> self dbg-mirror-logs) 1)
+               (format 0 "[JAK-HD] mirror entry=~D blocked=~D hid=~D noanim=~D run=~D~%"
+                       (-> self entry)
+                       th
+                       (if dhid 1 0)
+                       (if dnoa 1 0)
+                       (-> self noanim-run)))
+             (when (!= th wh)
+               (if (nonzero? th)
+                 (pc-hd-uncover! (the int (-> self pid)))
+                 (pc-hd-cover! (the int (-> self pid)) (the int (-> drv pid)))))
+             (if (nonzero? th)
+               (logior! (-> self draw status) (draw-status hidden))
+               (logclear! (-> self draw status) (draw-status hidden)))))
          ;; CLASS B (faces): mirror the DRIVER's blerc weights into the override registry every
          ;; frame. pc-merc-blend-shape reads the DRIVER's channels/anim/mgeo (blerc-data lives on
          ;; the driver's jak1 anims); draw-bones then applies these weights to OUR pc-merc packet.
@@ -701,6 +784,8 @@
   (set! (-> self kdrv-par) (hd-entry-drv-parent entry))
   (set! (-> self dbg-frames) 0)
   (set! (-> self dbg-mirror-logs) 0)
+  (set! (-> self noanim-run) 0)
+  (set! (-> self dbg-noanim-logs) 0)
   ;; claim a blerc override slot (class B faces). Registry full -> no facial anim for this
   ;; companion (log it; 8 slots vs max 4 companions today, so only a leak would exhaust it).
   (set! (-> self blerc-slot) -1)

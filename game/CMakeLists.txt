@@ -357,6 +357,7 @@ set(RUNTIME_SOURCE
         system/IOP_Kernel.cpp
         system/iop_thread.cpp
         system/load_gate.cpp
+        system/npc_flicker.cpp
         system/SystemThread.cpp
         tools/filter_menu/filter_menu.cpp
         tools/subtitle_editor/subtitle_editor_db.cpp
@@ -469,6 +470,36 @@ if(NOT OG_ARM64_BOOT_STUB)
         target_link_libraries(gk ole32 uuid)
     endif()
 endif()
+
+set(NPCF_GUARD_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
+if(NOT OG_ARM64_BOOT_STUB)
+
+# ------------------------------------------------------------------------------------------------
+# Gcutscene-npc-flicker (owner 2026-08-31) — LA GARDE TOURNE AU POINT DE PRODUCTION.
+#
+# Le defaut des PNJ qui clignotent en cinematique a deja ete corrige (Grecharged-hd-models3/4/5)
+# et il est revenu. La garde laissee par ces phases-la etait `[hd-flicker] blackouts=0`, dont le
+# compteur n'a plus AUCUN site d'ecriture depuis 45b7140ca7 : une clause qu'aucun chemin de code
+# ne pouvait violer. Et aucun de ses trois scripts de preuve n'est appele par un validateur, un
+# hook ou l'orchestrateur — ils ont tourne une fois, dans leur propre phase, jamais depuis.
+#
+# On ne peut donc plus construire le moteur sans que la garde passe. C'est la regle des DIRECTIVES
+# du 2026-08-11 : quand une perte se repete, on la rend impossible AU POINT DE PRODUCTION, pas
+# detectable au point de controle.
+#
+# SORTIE DE SECOURS ASSUMEE : OG_SKIP_NPCF_GUARD=1. Une garde qui peut bloquer definitivement la
+# chaine de livraison serait pire que le defaut qu'elle surveille (meme raisonnement que le
+# fail-open de game/system/load_gate.h). Par defaut elle est appliquee.
+# ------------------------------------------------------------------------------------------------
+if(UNIX AND NOT ANDROID_SKIP_NPCF_GUARD)
+    add_custom_command(TARGET gk POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E env
+                bash ${NPCF_GUARD_ROOT}/.autoport/npcf_guard_hook.sh
+        WORKING_DIRECTORY ${NPCF_GUARD_ROOT}
+        COMMENT "npc-flicker: garde de non-regression (instrument + valeurs publiees)")
+endif()
+endif()
+
 # When OG_ARM64_BOOT_STUB is on, the `gk` target is defined at the root scope
 # (see root CMakeLists.txt) so its phony ninja path is `gk`, not `game/gk` —
 # which avoids colliding with the CUSTOM_COMMAND output path build-arm64/game/gk.

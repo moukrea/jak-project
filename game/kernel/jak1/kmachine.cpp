@@ -32,6 +32,7 @@
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
 #include "game/system/load_gate.h"
+#include "game/system/npc_flicker.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 // [pom] device diagnostic: pbr_pom_diag_section() renders the per-material parallax block appended
@@ -721,6 +722,28 @@ s32 pc_scene_ready(u32 scene, u32 lev0, u32 lev1, s32 timeout_ms) {
 
 void pc_scene_release(u32 scene) {
   load_gate::scene_release(scene ? Ptr<String>(scene).c()->data() : nullptr);
+}
+
+// Gcutscene-npc-flicker (owner 2026-08-31) — le RECENSEMENT des PNJ pendant une cinematique.
+// Voir game/system/npc_flicker.h : la garde precedente (`[hd-flicker] blackouts=`) etait un zero
+// de compilation, et elle ne voyait de toute facon que les acteurs COUVERTS par un modele HD.
+// Ces trois ponts publient, cote GOAL, les deux choses que le rendu ne peut pas connaitre :
+// l'EXISTENCE de l'acteur dans l'arbre de processus et son octet draw-status.
+void pc_npc_census_begin(u32 scene) {
+  npc_flicker::begin_census(scene ? Ptr<String>(scene).c()->data() : nullptr);
+}
+
+void pc_npc_census_actor(u32 merc_name, u32 pid, u32 draw_status, s32 level_active) {
+  const char* nm = merc_name ? Ptr<String>(merc_name).c()->data() : nullptr;
+  npc_flicker::census_actor(nm, nm, pid, draw_status, level_active);
+}
+
+void pc_npc_census_end() {
+  npc_flicker::end_census();
+}
+
+void pc_npc_clone_fail(u32 merc_name) {
+  npc_flicker::note_clone_remap_fail(merc_name ? Ptr<String>(merc_name).c()->data() : nullptr);
 }
 
 // Gloading-screen (owner 2026-08-30) — la cadence REELLE de l'ecran de chargement et le decoupage
@@ -4598,6 +4621,10 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-set-levels", (void*)pc_set_levels);
   make_function_symbol_from_c("__pc-scene-ready?", (void*)pc_scene_ready);
   make_function_symbol_from_c("__pc-scene-release", (void*)pc_scene_release);
+  make_function_symbol_from_c("__pc-npc-census-begin", (void*)pc_npc_census_begin);
+  make_function_symbol_from_c("__pc-npc-census-actor", (void*)pc_npc_census_actor);
+  make_function_symbol_from_c("__pc-npc-census-end", (void*)pc_npc_census_end);
+  make_function_symbol_from_c("__pc-npc-clone-fail", (void*)pc_npc_clone_fail);
   // Gloading-screen : instrument de cadence + tranches de travail GOAL
   make_function_symbol_from_c("__pc-loading-screen-tick", (void*)pc_loading_screen_tick);
   make_function_symbol_from_c("__pc-loading-screen-end", (void*)pc_loading_screen_end);

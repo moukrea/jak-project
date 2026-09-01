@@ -1,5 +1,7 @@
 #include "Merc2.h"
 
+#include "game/system/npc_flicker.h"
+
 #ifdef __ANDROID__
 #include <unistd.h>
 
@@ -1461,15 +1463,18 @@ static std::mutex s_hd_cover_mutex;  // pairs: written EE-thread (GOAL), read re
 static std::vector<HdCoverPair> s_hd_cover_pairs;
 static std::unordered_map<u32, int> s_hd_driver_ttl;  // render-thread only
 
-// CYCLE-3 FLICKER DETECTOR (metrics not eyeballs): a "blackout" is a stock packet suppressed
-// while its companion has NOT submitted for more than ~1 frame — the exact frame-level signature
-// of the owner-reported cutscene NPC flicker. jak1 makes 16 Merc2::render calls per frame
+// CYCLE-3 FLICKER DETECTOR (metrics not eyeballs). AVERTISSEMENT, MESURE LE 2026-09-01 : ce
+// detecteur ne voit QUE les acteurs couverts par un modele HD, et son compteur `gaps` ne peut se
+// declencher que sur une fenetre de 25 a 32 appels de rendu (`gap > 24 && gap < 4000`), car toute
+// absence plus longue efface sa propre trace (`s_hd_last_arm_call` est efface a l'expiration du
+// TTL et au fail-open). Une disparition de 3 images ou plus n'y apparait donc nulle part sauf
+// dans `expiries`, qui n'a jamais ete gate. Le recensement qui porte le verdict est desormais
+// game/system/npc_flicker.cpp. jak1 makes 16 Merc2::render calls per frame
 // (16 Merc2BucketRenderers sharing this instance), so TTL 32 = ~2 frames and a healthy covered
 // actor re-arms every ~16 calls. Counters are always on; logging is event-driven + a periodic
 // heartbeat, so a healthy run stays quiet and the cutscene proof leg can grep blackouts=0.
 static u64 s_hd_render_call_idx = 0;                       // render-thread only
 static std::unordered_map<u32, u64> s_hd_last_arm_call;    // driver_pid -> render call idx
-static u64 s_hd_blackout_events = 0;
 static u64 s_hd_submit_gap_events = 0;
 static u64 s_hd_ttl_expiries = 0;
 // fail-open episodes: a stock packet arrived while the companion was silent past the blackout
@@ -1595,11 +1600,21 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // This will return a reference to this model's data, plus a reference to the level's data
   // for stuff shared between models of the same level
   auto model_ref = render_state->loader->get_merc_model(name);
-#ifdef OG_FEAT_HD_MODELS
-  // Grecharged-hd-models4 PER-ACTOR coverage (see the block at the HdCoverPair definition).
+
+  // Gcutscene-npc-flicker (owner 2026-08-31) : le pid du proprietaire voyage dans les octets morts
+  // du champ de nom et GOAL l'ecrit INCONDITIONNELLEMENT (bones.gc:947, `#when FLAG_HD_MODELS` qui
+  // vaut #t dans tous les builds). Le lire ici, HORS du bloc HD, est ce qui rend le recensement
+  // identique modeles HD allumes et eteints — donc l'ablation possible SUR LE MEME BINAIRE.
   u32 owner_pid = 0;
   memcpy(&owner_pid, setup.data + 120, sizeof(owner_pid));
-  if (strstr(name, "-hd-lod0")) {
+  const bool is_hd_packet = strstr(name, "-hd-lod0") != nullptr;
+  // Le personnage que l'owner voit est le DRIVER. Un paquet de compagnon HD est donc compte SOUS
+  // LE PID DE SON DRIVER, sinon « le PNJ est-il visible ? » n'a pas de reponse quand la
+  // couverture est active.
+  u32 census_pid = owner_pid;
+#ifdef OG_FEAT_HD_MODELS
+  // Grecharged-hd-models4 PER-ACTOR coverage (see the block at the HdCoverPair definition).
+  if (is_hd_packet) {
     // an HD companion packet ("<char>-hd-lod0"): log throttled per model name (first submission
     // + one line every 600 — one-shot rolled off the Honor's ~1-minute logcat ring buffer).
     static std::unordered_map<std::string, u64> s_hd_submit_counts;
@@ -1612,17 +1627,22 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     // Merc2BucketRenderers share this instance), so TTL 32 = ~2 FRAMES (the old "~4 frames"
     // claim was wrong by 2x) — the stock draw returns by itself when the companion despawns,
     // and merc2_hd_uncover clears it same-frame on explicit despawn.
-    if (model_ref && owner_pid != 0) {
-      u32 driver_pid = 0;
-      {
-        std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
-        for (const auto& p : s_hd_cover_pairs) {
-          if (p.companion_pid == owner_pid) {
-            driver_pid = p.driver_pid;
-            break;
-          }
+    // La paire de couverture se resout TOUJOURS (le recensement en a besoin meme quand le modele
+    // HD n'est pas resident) ; l'ARMEMENT du TTL, lui, garde exactement sa condition d'avant.
+    u32 driver_pid = 0;
+    if (owner_pid != 0) {
+      std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
+      for (const auto& p : s_hd_cover_pairs) {
+        if (p.companion_pid == owner_pid) {
+          driver_pid = p.driver_pid;
+          break;
         }
       }
+    }
+    if (driver_pid != 0) {
+      census_pid = driver_pid;
+    }
+    if (model_ref && owner_pid != 0) {
       if (driver_pid != 0) {
         // flicker detector: a healthy companion re-arms every ~16 render calls (one frame). A
         // gap of more than ~1.5 frames while still covered means frames were skipped (cull
@@ -1689,16 +1709,29 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         if (n++ % 600 == 0) {
           lg::warn("[hd-render] suppress pid={} name='{}' (covered per-actor)", owner_pid, name);
         }
+        npc_flicker::note_draw(owner_pid, npc_flicker::Outcome::kSuppressed, false);
         return;
       }
     }
   }
 #endif
+  // Gcutscene-npc-flicker — CONTROLE POSITIF, sur le binaire livre et eteint par defaut. Voir
+  // game/system/npc_flicker.h : injecter une disparition doit faire MONTER le compteur, sinon le
+  // zero publie n'est pas une mesure. C'est exactement le bras qui manquait a la garde de
+  // Grecharged-hd-models4/5.
+  if (npc_flicker::inject_drop(name)) {
+    npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kSuppressed, is_hd_packet);
+    return;
+  }
   if (!model_ref) {
     // it can fail, if the game is faster than the loader. In this case, we just don't draw.
+    // Gcutscene-npc-flicker : c'est une DISPARITION de l'acteur, et jusqu'ici elle n'etait
+    // comptee que dans un champ de statistiques que rien ne publie.
+    npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kMissing, is_hd_packet);
     stats->num_missing_models++;
     return;
   }
+  npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kDrawn, is_hd_packet);
 
   // next, we need to check if we have enough room to draw this effect.
   const LevelData* lev = model_ref->level;
@@ -2460,6 +2493,9 @@ void Merc2::render(DmaFollower& dma,
                    SharedRenderState* render_state,
                    ScopedProfilerNode& prof,
                    MercDebugStats* stats) {
+  // Gcutscene-npc-flicker : une image RENDUE de plus. Merc2::render est appele 16 fois par image
+  // (16 Merc2BucketRenderers partagent cette instance) — le module deduplique sur frame_idx.
+  npc_flicker::end_render_frame(render_state->frame_idx);
 #ifdef OG_FEAT_HD_MODELS
   s_hd_render_call_idx++;
   // CYCLE-3 FLICKER FIX: erase TTLs of freshly-uncovered drivers NOW (queued EE-side) so the
@@ -2495,9 +2531,15 @@ void Merc2::render(DmaFollower& dma,
   // these lines and requires blackouts=0 gaps=0 across the scene. Silent until the first
   // companion ever arms (HD off / stock build => zero log traffic).
   if (s_hd_render_call_idx % 3600 == 0 && s_hd_ever_armed) {
-    lg::warn("[hd-flicker] calls={} blackouts={} gaps={} expiries={} failopens={}",
-             s_hd_render_call_idx, s_hd_blackout_events, s_hd_submit_gap_events,
-             s_hd_ttl_expiries, s_hd_failopen_events);
+    // Gcutscene-npc-flicker : `blackouts=` A ETE RETIRE DE CETTE LIGNE. Son compteur etait
+    // declare, imprime, et jamais incremente depuis 45b7140ca7 (le correctif fail-open avait
+    // supprime son unique site). Trois jambes de preuve exigeaient `blackouts=0` : une clause
+    // qu'aucun chemin de code ne pouvait violer. Publier un zero qui ne peut pas etre autre
+    // chose n'est pas une mesure. Le recensement honnete vit desormais dans
+    // game/system/npc_flicker.cpp, et .autoport/npc_flicker_selftest.sh echoue si un compteur
+    // publie redevient muet.
+    lg::warn("[hd-flicker] calls={} gaps={} expiries={} failopens={}", s_hd_render_call_idx,
+             s_hd_submit_gap_events, s_hd_ttl_expiries, s_hd_failopen_events);
   }
 #endif
   bool hack = stats->collect_debug_model_list;

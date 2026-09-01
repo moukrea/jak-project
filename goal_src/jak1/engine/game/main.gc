@@ -527,6 +527,62 @@
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcutscene-npc-flicker (owner 2026-08-31) — RECENSEMENT DES PNJ PENDANT UNE CINEMATIQUE
+;;
+;;   « le probleme des modeles des PNJ qui apparaissent, disparaissent et reapparaissent plusieurs
+;;     fois pendant les cinematiques est revenu ! c'est pas la premiere fois que ca se produit »
+;;
+;; POURQUOI CETTE MOITIE-CI EXISTE. Le rendu voit les paquets merc qui ARRIVENT ; il ne peut pas
+;; voir un acteur qui a cesse d'en emettre, ni distinguer « la camera a coupe, il est hors champ »
+;; (correct) de « il est encore la, visible, et plus rien ne le dessine » (le defaut). Les deux
+;; grandeurs qui tranchent sont ici et nulle part ailleurs : la PRESENCE du processus dans l'arbre,
+;; et l'octet `draw-status` — dont le bit `was-drawn` dit si l'acteur a passe le culling.
+;;
+;; L'ENDROIT N'EST PAS ARBITRAIRE. Appele depuis `post-sync-draw`, c'est-a-dire APRES la passe de
+;; dessin de CETTE image : `was-drawn` (pose en `dma-add-process-drawable`, engine/draw/drawable.gc)
+;; y est celui de l'image en cours, et les paquets merc de cette meme image sont deja dans le
+;; tampon DMA que le rendu va consommer. Lu avant la passe, le bit serait celui de l'image d'avant.
+;;
+;; COUT HORS CINEMATIQUE : un appel de fonction et une comparaison. L'arbre n'est parcouru que
+;; lorsque `real-movie?` est vrai.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun npc-census-visit ((proc process))
+  "Publie un acteur dessinable du recensement. L'IDENTITE est le nom du modele merc et non le nom
+   du processus : le nom d'un processus est un `basic` qui vaut une STRING pour un acteur ne d'une
+   entite mais un SYMBOLE pour un processus interne (le compagnon HD est active sous 'jak-hd), et
+   le lire comme une chaine dereferencerait un symbole. Le nom de mgeo, lui, est toujours une
+   chaine — et il porte en clair le suffixe `-hd-lod0` qui permet d'ecarter le compagnon HD, qui
+   n'est pas un acteur du jeu mais le dessin d'un autre."
+  (when (and (type-type? (-> proc type) process-drawable)
+             (nonzero? (-> (the-as process-drawable proc) draw))
+             (nonzero? (-> (the-as process-drawable proc) draw mgeo)))
+    ;; Statut du NIVEAU de l'acteur. Sans lui, « le moteur de dessin de son niveau ne tourne
+    ;; plus » (defaut : `display-level <lev> #f` desactive le niveau ET tue ses acteurs) et « la
+    ;; camera l'a laisse hors du frustum » (le moteur qui fonctionne) rendent EXACTEMENT le meme
+    ;; etat cote acteur : aucun paquet et `was-drawn` a 0. -1 = pas d'entite, donc l'acteur vit
+    ;; sur `level-default`, dont le moteur tourne toujours.
+    (let ((lv -1)
+          (ent (-> (the-as process-drawable proc) entity)))
+      (when (and ent (nonzero? (-> ent extra)) (nonzero? (-> ent extra level)))
+        (set! lv (if (= (-> ent extra level status) 'active) 1 0)))
+      (__pc-npc-census-actor (-> (the-as process-drawable proc) draw mgeo name)
+                             (-> proc pid)
+                             (the-as int (-> (the-as process-drawable proc) draw status))
+                             lv)))
+  #t)
+
+(defun npc-census-tick ()
+  "Une image de recensement. Hors cinematique, ferme la scene en cours et ne parcourt rien."
+  (cond
+    ((real-movie?)
+     (__pc-npc-census-begin (cine-scene-name))
+     (iterate-process-tree *active-pool* npc-census-visit *null-kernel-context*)
+     (__pc-npc-census-end))
+    (else (__pc-npc-census-begin "hors-cinematique")))
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Gloading-screen -- ETIQUETTE DE L'APPELANT DU NOIR (owner 2026-08-29)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; « ca n'apparait pas non plus sur le chargement de partie ALORS QUE L'ECRAN NOIR Y APPARAIT UN
@@ -1575,6 +1631,10 @@
         ;; image : *math-camera* porte les pentes qui vont servir a dessiner cette image.
         (#when PC_PORT
           (cine-live-trace))
+        ;; Gcutscene-npc-flicker : meme raison d'etre ici que la ligne au-dessus — c'est le seul
+        ;; point de l'iteration ou `was-drawn` est celui de l'image qu'on vient de dessiner.
+        (#when PC_PORT
+          (npc-census-tick))
         ;; add letterbox effect
         (when (or (movie?) (< (current-time) (-> *game-info* letterbox-time)))
           (if (< (-> *game-info* letterbox-time) (current-time)) (set! (-> *game-info* letterbox-time) (current-time)))
