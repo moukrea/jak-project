@@ -31,7 +31,13 @@ cleanup(){
   a shell "setprop debug.opengoal.f1.warp ''"        >/dev/null 2>&1
   a shell "setprop debug.opengoal.level.warp ''"     >/dev/null 2>&1
   a shell "setprop debug.opengoal.level.warp.pos ''" >/dev/null 2>&1
-  [ -n "${LCPID:-}" ] && kill "$LCPID" 2>/dev/null
+  # ET ON TUE AUSSI PAR MOTIF. Meme sans sous-shell, $! n'est pas toujours le PID d'adb :
+  # mesure, quatre `adb logcat` encore vivants en fin de campagne et des lignes
+  # `GJCC-MODE mode=67` retrouvees dans le fichier des courses ABLATEES. Un capteur qui
+  # survit a sa course melange deux experiences dans un seul fichier. Le motif est borne
+  # au NUMERO DE SERIE de l'appareil de mesure : il ne peut pas emporter autre chose.
+  [ -n "${LCPID:-}" ] && { kill "$LCPID" 2>/dev/null; sleep 1; kill -9 "$LCPID" 2>/dev/null; }
+  for _p in $(pgrep -f "${SER} logcat" 2>/dev/null); do kill -9 "$_p" 2>/dev/null; done
   # On ARRETE le jeu en sortant. Sans ca, l'auto-constructeur voit l'application au
   # premier plan, croit qu'une mesure tourne et REFUSE d'installer pendant 1500 s :
   # une campagne qui ne nettoie pas derriere elle bloque la livraison suivante.
@@ -90,7 +96,13 @@ fi
 a shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
 a shell svc power stayon true >/dev/null 2>&1
 a logcat -c >/dev/null 2>&1
-( a logcat -v threadtime > "$LOG" ) & LCPID=$!
+# LE SOUS-SHELL CACHAIT LE VRAI PROCESSUS. `( a logcat ... ) &` met dans $! le PID du
+# SOUS-SHELL, pas celui d'`adb logcat` : le tuer laisse l'enfant vivant, qui continue
+# d'ecrire dans le fichier de la course PRECEDENTE. Mesure : sept `adb logcat` vivants a
+# la fin de la campagne, et `dev-a1-logcat.txt` (course ABLATEE) contenait cinq lignes
+# `GJCC-MODE mode=67` venues des courses CORRIGEES suivantes. Toute la campagne etait
+# a jeter. Sans sous-shell, $! est bien le PID d'adb.
+a logcat -v threadtime > "$LOG" & LCPID=$!
 sleep 1
 a shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
 echo "  attente du niveau (GJCC-MODE ou target vivant)…"
@@ -118,6 +130,13 @@ echo "== RESULTAT $TAG (mode=$MODE) =="
 LN=$(wc -l < "$LOG")
 echo "  lignes de logcat capturees : $LN"
 echo "  GJCC-MODE : $(grep -ac 'GJCC-MODE' "$LOG")   GJCC-RUN : $(grep -ac 'GJCC-RUN' "$LOG")   GJCC-THRU : $(grep -ac 'GJCC-THRU' "$LOG")"
+# L'ECHEC DE LA REPARATION A UN COUP, compte a l'endroit ou il se produit et portant son
+# denominateur. Il ne depend d'AUCUN echantillonnage : une caisse nee, cassee et morte
+# entre deux recensements y figure quand meme.
+echo "  waitfail/waitn : $(grep -a 'waitfail=' "$LOG" | tail -1 | grep -o 'waitfail=[0-9]* waitn=[0-9]* guard=[0-9]*')"
+echo "  GJCC-WAITFAIL (identites) : $(grep -a 'GJCC-WAITFAIL' "$LOG" | sed 's/.*aid=\([0-9]*\).*/\1/' | sort -u | paste -sd, )"
+echo "  recensements : $(grep -ac 'GJCC-SUM' "$LOG")   dernier : $(grep -a 'GJCC-SUM' "$LOG" | tail -1 | sed 's/.*GJCC-SUM/GJCC-SUM/')"
+echo "  nan= cumule (compte PAR LE JEU) : $(grep -a 'GJCC-SUM' "$LOG" | grep -o 'nan=[0-9]*' | awk -F= '{s+=$2} END{print s+0}')"
 grep -a 'GJCC-RUN' "$LOG" | tail -2 | sed 's/^.*GJCC-RUN/  GJCC-RUN/'
 grep -a 'GJCC-THRU' "$LOG" | sed 's/^.*GJCC-THRU/  GJCC-THRU/' | head -12
 echo "  cadence [dyn-rs] : $(grep -a 'dyn-rs.*avg-fps' "$LOG" | sed 's/.*avg-fps=\([0-9.]*\).*/\1/' | sort -n | awk '{v[NR]=$1} END{if(NR>0) printf "n=%d min=%s med=%s max=%s", NR, v[1], v[int((NR+1)/2)], v[NR]; else printf "n=0"}')"

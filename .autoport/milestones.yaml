@@ -2783,15 +2783,39 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
-- id: Ghd-skin-origin-stretch
-  name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
-    s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
-    extrême », intermittent, une fraction de seconde, purement visuel. SIGNATURE : une matrice de squelette qui retombe a
-    l''identite ou a zero pendant une image — les sommets vont a (0,0,0) et la longueur de l''etirement vaut la distance joueur-origine.
-    Distances mesurees des niveaux : beach 135 m, jungle 303 m, village2 1546 m, village3 3601 m, finalboss 5540 m — croissantes
-    dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
-  prompt: prompts/phase-Ghd-skin-origin-stretch.md
-  validator: validators/phase-Ghd-skin-origin-stretch.sh
+- id: Gjak1-crate-collision-2
+  name: 'CAISSES, RETOUR 2 (owner 2026-08-31) : « j''ai toujours le soucis, c''est pas réglé du tout, ptêtre lié au jeux qui
+    dépend plus du framerate ». La porte a donne un FAUX VERT : preuve prise sur x86 a 60 images/s alors que nos PROPRES mesures
+    montrent 4 caisses fautives a 10 fps contre 1 a 60. Son hypothese est corroboree par nos chiffres. Preuve desormais EXIGEE
+    SUR APPAREIL (Redmi) ET a cadence <= 30. Piste : la naissance des acteurs est-elle cadencee par IMAGES ou par TEMPS ?'
+  prompt: prompts/phase-Gjak1-crate-collision.md
+  validator: validators/phase-Gjak1-crate-collision-2.sh
+  max_turns: 3000
+  max_retries: 80
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gfixed-tick-anim-interp
+  name: 'ANIMATIONS NON INTERPOLEES (owner 2026-09-01) : « Le pas de temps fixe a l''air bon, mais les animations sont quand
+    même très jittery ». MESURE : le facteur d''interpolation n''est lu QU''A UN SEUL endroit du moteur, la camera (cam-update.gc:245)
+    ; et drawable.gc:1070 FIGE le rapport de temps a 1,0 des que le pas fixe est arme — les poses sautent d''un pas a l''autre
+    au lieu d''etre melangees. Reutiliser le chemin de melange de poses existant (create-interpolated-joint-animation-frame).
+    A 60 images/s le comportement doit rester IDENTIQUE AU BIT.'
+  prompt: prompts/phase-Gfixed-tick-anim-interp.md
+  validator: validators/phase-Gfixed-tick-anim-interp.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-npc-flicker
+  name: 'PNJ QUI CLIGNOTENT PENDANT LES CINEMATIQUES (owner 2026-08-31) : « les modèles des PNJ qui apparaissent, disparaissent
+    et réapparaîssent plusieurs fois pendant les cinématiques est revenu ! c''est pas la première fois que ça se produit ».
+    REGRESSION QUI REVIENT : le mandat n''est pas de faire disparaitre le symptome mais de dire POURQUOI les corrections precedentes
+    n''ont pas tenu, et de poser une GARDE DE NON-REGRESSION. Piste : Gjak1-crate-collision a etabli que la naissance d''un
+    acteur est conditionnee a la VISIBILITE CAMERA — or une cinematique saute d''un cadrage a l''autre.'
+  prompt: prompts/phase-Gcutscene-npc-flicker.md
+  validator: validators/phase-Gcutscene-npc-flicker.sh
   max_turns: 3000
   max_retries: 60
   device: false
@@ -2811,6 +2835,18 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gcutscene-skip-polish
+  name: 'SAUT DE CINEMATIQUE, FINITION (owner 2026-08-31) : « la cartouche est horrible avec ses coins arrondis pixelisés,
+    on est pas dans un jeu en pixel art [...] le texte et le bouton sont même pas centrés [...] même pas sûr qu''elle ajuste
+    sa taille en fonction de son contenu, ça fait très amateur ». Plus : duree a reduire d''UN QUART (2000 -> 1500 ms), remplissage
+    et saut synchronises. ACQUIS : la couverture 75/75 chemins ne doit pas regresser.'
+  prompt: prompts/phase-Gcutscene-skip-all.md
+  validator: validators/phase-Gcutscene-skip-all.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Grecharged-foliage-wind3
   name: 'BRISE, RETOUR 3 (owner 2026-08-31, NON VALIDE) : TROIS defauts dont un qui n''est pas le notre. D1 la brise NATIVE
     est cassee, option ETEINTE : « les arbres qui sont sensés être animés par défaut font de légers twitchs sans animations
@@ -2825,38 +2861,15 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
-- id: Gjak1-crate-collision-2
-  name: 'CAISSES, RETOUR 2 (owner 2026-08-31) : « j''ai toujours le soucis, c''est pas réglé du tout, ptêtre lié au jeux qui
-    dépend plus du framerate ». La porte a donne un FAUX VERT : preuve prise sur x86 a 60 images/s alors que nos PROPRES mesures
-    montrent 4 caisses fautives a 10 fps contre 1 a 60. Son hypothese est corroboree par nos chiffres. Preuve desormais EXIGEE
-    SUR APPAREIL (Redmi) ET a cadence <= 30. Piste : la naissance des acteurs est-elle cadencee par IMAGES ou par TEMPS ?'
-  prompt: prompts/phase-Gjak1-crate-collision.md
-  validator: validators/phase-Gjak1-crate-collision.sh
-  max_turns: 3000
-  max_retries: 80
-  device: true
-  device_serial: eae4df44
-  owner_verify: true
-- id: Gcutscene-skip-polish
-  name: 'SAUT DE CINEMATIQUE, FINITION (owner 2026-08-31) : « la cartouche est horrible avec ses coins arrondis pixelisés,
-    on est pas dans un jeu en pixel art [...] le texte et le bouton sont même pas centrés [...] même pas sûr qu''elle ajuste
-    sa taille en fonction de son contenu, ça fait très amateur ». Plus : duree a reduire d''UN QUART (2000 -> 1500 ms), remplissage
-    et saut synchronises. ACQUIS : la couverture 75/75 chemins ne doit pas regresser.'
-  prompt: prompts/phase-Gcutscene-skip-all.md
-  validator: validators/phase-Gcutscene-skip-all.sh
-  max_turns: 3000
-  max_retries: 60
-  device: false
-  device_serial: eae4df44
-  owner_verify: true
-- id: Gcutscene-npc-flicker
-  name: 'PNJ QUI CLIGNOTENT PENDANT LES CINEMATIQUES (owner 2026-08-31) : « les modèles des PNJ qui apparaissent, disparaissent
-    et réapparaîssent plusieurs fois pendant les cinématiques est revenu ! c''est pas la première fois que ça se produit ».
-    REGRESSION QUI REVIENT : le mandat n''est pas de faire disparaitre le symptome mais de dire POURQUOI les corrections precedentes
-    n''ont pas tenu, et de poser une GARDE DE NON-REGRESSION. Piste : Gjak1-crate-collision a etabli que la naissance d''un
-    acteur est conditionnee a la VISIBILITE CAMERA — or une cinematique saute d''un cadrage a l''autre.'
-  prompt: prompts/phase-Gcutscene-npc-flicker.md
-  validator: validators/phase-Gcutscene-npc-flicker.sh
+- id: Ghd-skin-origin-stretch
+  name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
+    s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
+    extrême », intermittent, une fraction de seconde, purement visuel. SIGNATURE : une matrice de squelette qui retombe a
+    l''identite ou a zero pendant une image — les sommets vont a (0,0,0) et la longueur de l''etirement vaut la distance joueur-origine.
+    Distances mesurees des niveaux : beach 135 m, jungle 303 m, village2 1546 m, village3 3601 m, finalboss 5540 m — croissantes
+    dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
+  prompt: prompts/phase-Ghd-skin-origin-stretch.md
+  validator: validators/phase-Ghd-skin-origin-stretch.sh
   max_turns: 3000
   max_retries: 60
   device: false

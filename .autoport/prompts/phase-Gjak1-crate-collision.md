@@ -59,3 +59,30 @@ Les deux menent a des corrections opposees. Publier donc, pour CHAQUE course, l'
 (aid) de la ou des caisses sans collision, et le verdict :
     CRATEIDENT course=<n> aid=<n> position=<x,y,z> ordre_naissance=<n>
     CRATEIDENTVERDICT memes_caisses=<oui|non> courses=<n>
+
+## CORRECTION DE METHODE — OWNER 2026-09-01. LIRE ET APPLIQUER, CE QUI PRECEDE EST CADUC.
+  « fais ça de façon programmatique [...] impossible que tu couvre toutes les caisses de
+    Geyser Rock à la vue »
+
+Il a raison et l'exigence precedente etait une erreur du superviseur. Conduire le
+personnage jusqu'a 20 caisses avec de vraies entrees manette a couvert 3 caisses en
+2 h 30. Ni le pilotage, ni la lecture d'images, ne sont des instruments acceptables ici.
+
+LA COLLISION SE TESTE SANS JOUER. Le protocole devient :
+  1. Charger le niveau NORMALEMENT (les caisses naissent comme en jeu — ne rien teleporter,
+     ne pas fabriquer la condition « pas encore nee », c'etait le defaut du cycle d'avant).
+  2. Pour CHACUNE des 31 caisses, par le code, publier :
+       - sa sphere de collision est-elle FINIE (aucune composante NaN/inf) ?
+       - une REQUETE de collision synthetique lancee contre elle depuis un point proche
+         renvoie-t-elle un contact ?
+     Aucune image n'est regardee, aucun bouton n'est presse.
+  3. Repeter a plusieurs cadences, dont une <= 30 img/s, sur l'appareil.
+
+Cela couvre les 31 caisses en une passe au lieu de 3 en deux heures et demie, et c'est
+DETERMINISTE : deux courses identiques doivent rendre les memes comptes.
+
+Format des marqueurs REVISE (les anciens CRATEOK/CRATEREPRO restent valables pour la
+reproduction, mais la PREUVE FINALE se fait ainsi) :
+    CRATEPROBE plateforme=<x86|redmi> fps=<f> caisses=<n> spheres_finies=<n> contacts_ok=<n>
+Verifie : caisses == 31 ; spheres_finies == 31 ; contacts_ok == 31 ; au moins une ligne
+avec plateforme=redmi et fps <= 30.

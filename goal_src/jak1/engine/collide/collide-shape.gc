@@ -1528,6 +1528,16 @@
     (let ((a1-1 (-> arg0 node-list))
           (v1-0 (-> obj cshape))
           (a0-1 (-> obj transform-index)))
+      ;; LE COMPTEUR EST HORS DE LA GARDE, DONC LU DANS LES DEUX BRAS DE L'ABLATION.
+      ;; Compte a l'interieur de la garde, il rendait `degen=0` en ablation : impossible
+      ;; d'y distinguer « la condition ne se produit pas sur l'appareil » de « on ne la
+      ;; compte pas ». C'est le canal mesure AU PRODUCTEUR de la grandeur, et il vaut
+      ;; controle : si les deux bras rendent le MEME compte, la seule chose qui differe
+      ;; entre eux est la REPARATION, pas l'occasion de reparer.
+      (if (and (nonzero? a1-1)
+               (>= a0-1 0)
+               (= (-> a1-1 data a0-1 bone transform vector 3 w) 0.0))
+        (+! *gjcc-degen-n* 1))
       (cond
         ((nonzero? a1-1)
          (cond
@@ -1536,7 +1546,6 @@
            ((and (>= a0-1 0)
                  (nonzero? *gjcc-degen-guard*)
                  (= (-> a1-1 data a0-1 bone transform vector 3 w) 0.0))
-            (+! *gjcc-degen-n* 1)
             ;; repli EXACT de la branche `transform-index = -2` : sphere locale + pose
             (.lvf vf1 (&-> obj local-sphere quad))
             (.lvf vf2 (&-> v1-0 trans quad))

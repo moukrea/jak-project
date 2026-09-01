@@ -224,6 +224,25 @@
 (define *gjcc-degen-guard* 1)
 (define *gjcc-degen-n* 0)
 
+;; ============================================================================
+;; Gjak1-crate-collision-2 — LA REPARATION EST A UN COUP, ET ON COMPTE SES ECHECS
+;;
+;; L'etat `wait` d'une caisse repose sa sphere de collision UNE SEULE FOIS, puis la
+;; caisse s'endort (`process-mask sleep`) et ne la repose plus JAMAIS. Si a cette
+;; unique image la matrice de l'os est toujours vierge, le volume reste perdu jusqu'a
+;; la mort de la caisse : dessinee, et traversable pour de bon.
+;;
+;; POURQUOI CE COMPTEUR PLUTOT QU'UN RECENSEMENT. Un recensement periodique ECHANTILLONNE
+;; : une caisse nee, cassee et morte entre deux passages n'y apparait jamais. Ici on
+;; compte l'EVENEMENT a l'endroit exact ou il se produit, donc le compte est exact quel
+;; que soit le nombre d'images — c'est ce qui rend une mesure appareil possible.
+;; `*gjcc-waitn*` est le DENOMINATEUR (caisses passees par `wait`) : sans lui, un zero
+;; ne se distingue pas d'une course ou aucune caisse n'est nee.
+;; ============================================================================
+(define *gjcc-waitn* 0)
+(define *gjcc-waitfail* 0)
+(define *gjcc-waitlines* 0)
+
 (defenum collide-kind
   :type uint64
   :bitfield #t

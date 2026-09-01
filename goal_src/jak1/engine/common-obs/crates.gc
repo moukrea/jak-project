@@ -96,6 +96,40 @@
   (smush-update! self)
   (rider-post))
 
+(defun gjcc-wait-check! ((c crate))
+  "Gjak1-crate-collision-2 — MESURE L'UNIQUE OCCASION DE REPARER, AU MOMENT OU ELLE PASSE.
+
+   Appelee dans l'etat `wait`, juste AVANT le seul `update-transforms!` que la caisse
+   executera de sa vie. Elle lit la matrice de l'os que designe la primitive : un `w` nul
+   est une matrice VIERGE, donc la reparation qui suit va echouer et la caisse va s'endormir
+   avec un volume de collision perdu — definitivement.
+
+   Elle NE MODIFIE RIEN : elle lit et elle compte. Le compte est exact (pas d'echantillonnage),
+   il est lu dans LES DEUX bras de l'ablation, et il porte son denominateur.
+
+   LIGNE DE BASE QUAND LE DEFAUT EST ABSENT : `*gjcc-waitfail*` = 0 avec `*gjcc-waitn*` > 0.
+   Un `waitfail=0 waitn=0` ne dit rien du tout et se lit comme tel."
+  (+! *gjcc-waitn* 1)
+  (let* ((r (-> c root))
+         (nl (-> c node-list))
+         (pm (if (nonzero? (the-as int r)) (-> r root-prim) (the-as collide-shape-prim 0)))
+         (ti (if (nonzero? (the-as int pm)) (-> pm transform-index) -1)))
+    (when (and (nonzero? (the-as int nl))
+               (>= ti 0)
+               (= (-> nl data ti bone transform vector 3 w) 0.0))
+      (+! *gjcc-waitfail* 1)
+      ;; les lignes sont opt-in (bit 1) et plafonnees : le compteur, lui, tourne toujours.
+      (when (and (nonzero? (logand *gjcc-mode* 1)) (< *gjcc-waitlines* 64))
+        (+! *gjcc-waitlines* 1)
+        (format 0 "GJCC-WAITFAIL n=~D sur=~D aid=~D look=~A f=~D guard=~D~%"
+                *gjcc-waitfail*
+                *gjcc-waitn*
+                (if (nonzero? (the-as int (-> c entity))) (the-as int (-> c entity aid)) -1)
+                (-> c look)
+                (the-as int (-> *display* base-frame-counter))
+                *gjcc-degen-guard*))))
+  (none))
+
 (defpart 281
   :init-specs
   ((:texture (bigpuff effects))
@@ -541,6 +575,9 @@
   :code
     (behavior ()
       (suspend)
+      ;; Gjak1-crate-collision-2 : on MESURE l'unique occasion de reparer avant de la
+      ;; consommer. Lecture seule — `update-transforms!` ci-dessous est inchange.
+      (gjcc-wait-check! self)
       (update-transforms! (-> self root))
       (logior! (-> self mask) (process-mask sleep))
       (loop
@@ -1060,7 +1097,7 @@
 (defun gjcc-scan ((tag int))
   "Recensement complet. Une ligne par entite `crate` des niveaux actifs, plus un
    resume qui porte l'occupation des pools."
-  (let ((ents 0) (live 0) (vis 0) (nocol 0))
+  (let ((ents 0) (live 0) (vis 0) (nocol 0) (nanc 0))
     (dotimes (li 3)
       (let ((lev (-> *level* level li)))
         (when (and (= (-> lev status) 'active) (nonzero? (the-as int (-> lev bsp))))
@@ -1097,6 +1134,17 @@
                                      (vector-vector-distance (-> c root trans) (-> *target* control trans))
                                      -1.0)))
                            (if (zero? hid) (+! vis 1))
+                           ;; LE COMPTE DE NaN EST FAIT PAR LE JEU LUI-MEME, a cote des
+                           ;; lignes brutes. Sur Android chaque `format` est UNE ligne de
+                           ;; logcat : un enregistrement de caisse s'etale sur cinq lignes,
+                           ;; et un `grep 'GJCC-CRATE.*NaN'` rend alors un ZERO STRUCTUREL.
+                           ;; Deux lectures independantes du meme fait : si elles divergent,
+                           ;; c'est le depouillement qui est faux, et on le voit.
+                           ;; (`!=` compare les BITS en GOAL : `(!= x x)` est faux meme sur
+                           ;;  un NaN. Le test est une appartenance a une plage.)
+                           (if (and (= rp 1)
+                                    (not (and (< wd 1000000000.0) (> wd -1000000000.0))))
+                             (+! nanc 1))
                            (if (and (zero? hid)
                                     (or (zero? rp) (zero? msh) (zero? kas) (zero? kwi) (zero? onl)))
                              (+! nocol 1))
@@ -1115,7 +1163,8 @@
                          (format 0 "x=~f y=~f z=~f~%"
                                  (-> ent trans x) (-> ent trans y) (-> ent trans z)))))))))))))
     ;; (le compilateur plafonne un appel a 8 parametres : on publie en morceaux)
-    (format 0 "GJCC-SUM tag=~D ents=~D live=~D vis=~D nocol=~D " tag ents live vis nocol)
+    (format 0 "GJCC-SUM tag=~D ents=~D live=~D vis=~D nocol=~D nan=~D " tag ents live vis nocol nanc)
+    (format 0 "waitfail=~D waitn=~D guard=~D " *gjcc-waitfail* *gjcc-waitn* *gjcc-degen-guard*)
     (format 0 "uhbp=~D,~D/~D hbp=~D,~D/~D "
             (gjcc-list-count *collide-usually-hit-by-player-list*)
             (-> *collide-usually-hit-by-player-list* length)
@@ -1313,6 +1362,7 @@
   ;; passe avant l'ablation serait compte du cote de l'ablation.
   (set! *gjcc-degen-n* 0) (set! *gjcc-near-n* 0) (set! *gjcc-thru-n* 0) (set! *gjcc-thru2-n* 0)
   (set! *gjcc-near-lines* 0) (set! *gjcc-dist* 0.0) (set! *gjcc-cctag* 0) (set! *gjcc-vide* 0)
+  (set! *gjcc-waitn* 0) (set! *gjcc-waitfail* 0) (set! *gjcc-waitlines* 0)
   (set! *gjcc-thru-lines* 0) (set! *gjcc-warp* 0)
   (dotimes (i GJCC-SLOTS) (set! (-> *gjcc-thru-st* i) 0))
   (format 0 "GJCC-MODE mode=~D rayon=~f maxtris=~D~%"
@@ -1478,12 +1528,17 @@
                    (-> *display* seconds-per-frame)
                    (-> *display* time-ratio)
                    *fixed-tick-armed*)
-           (format 0 "birthmax=~D sweep=~D degen=~D mode=~D rayon=~f~%"
+           (format 0 "birthmax=~D sweep=~D degen=~D mode=~D rayon=~f "
                    (-> *ACTOR-bank* birth-max)
                    (if *actors-sweep-complete* 1 0)
                    *gjcc-degen-n*
                    *gjcc-mode*
                    *actor-collision-birth-radius*)
+           ;; L'ECHEC DE LA REPARATION A UN COUP, compte a l'endroit ou il se produit et
+           ;; PORTANT SON DENOMINATEUR. `waitfail=0 waitn=0` ne dit rien ; `waitfail=0
+           ;; waitn=31` dit que 31 caisses ont eu leur occasion et l'ont toutes reussie.
+           (format 0 "waitfail=~D waitn=~D guard=~D~%"
+                   *gjcc-waitfail* *gjcc-waitn* *gjcc-degen-guard*)
            ;; LE PILOTE PILOTE-T-IL ? Sans cette ligne, « 0 caisse approchee » ne distingue
            ;; pas « le joueur n'a rencontre aucune caisse » de « le joueur n'a pas bouge ».
            (format 0 "GJCC-POS f=~D dist_m=~f px=~f py=~f pz=~f vide=~D~%"
@@ -1492,7 +1547,7 @@
          ;; listener pour appeler `gjcc-scan` : sans ce declencheur, la couverture se
          ;; limite aux caisses que le joueur parvient a atteindre a pied — trois, mesure.
          ;; Ici les 31 caisses du niveau sont inspectees, que le joueur les approche ou non.
-         (when (and (nonzero? (logand *gjcc-mode* 64)) (zero? (mod *gjcc-frames* 900)))
+         (when (and (nonzero? (logand *gjcc-mode* 64)) (zero? (mod *gjcc-frames* 300)))
            (set! *gjcc-cctag* (+ *gjcc-cctag* 1))
            (gjcc-scan *gjcc-cctag*))))))
   (none))
