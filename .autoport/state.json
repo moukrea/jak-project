@@ -258,7 +258,7 @@
     "Gjak1-crate-collision-2": 2,
     "Gfixed-tick-anim-interp": 1,
     "Gcutscene-npc-flicker": 1,
-    "Gsubtitle-style-2": 1
+    "Gsubtitle-style-2": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -697,6 +697,9 @@
     ],
     "Gjak1-crate-collision-2": [
       "30d3ca1ef37e"
+    ],
+    "Gsubtitle-style-2": [
+      "d1d8ea815982"
     ]
   },
   "stuck_reasons": {
@@ -1163,7 +1166,7 @@
     "Gcutscene-npc-flicker": 1788275147.1497102,
     "Gsubtitle-style-2": 1788282503.00363
   },
-  "last_update": "2026-09-01T18:34:48.884697+00:00",
+  "last_update": "2026-09-01T19:07:56.963446+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1297,7 +1300,8 @@
     "Gjak1-crate-collision",
     "Gjak1-crate-collision-2",
     "Gfixed-tick-anim-interp",
-    "Gcutscene-npc-flicker"
+    "Gcutscene-npc-flicker",
+    "Gsubtitle-style-2"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
