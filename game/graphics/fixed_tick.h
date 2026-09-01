@@ -63,8 +63,16 @@ constexpr int kMaxCatchupTicks = 4;
 // exactement 1 tick, le reste accumule est nul, et rien ne bouge par rapport a avant.
 constexpr double kSnapTolerance = 0.10;
 
-// Sous ce facteur du pas fixe, la cadence d'affichage est PLUS RAPIDE que 60 Hz :
-// l'horloge se desarme (voir le paragraphe de perimetre ci-dessus).
+// Gfixed-tick-anim-interp (2026-09-01) — CETTE CONSTANTE NE DESARME PLUS RIEN.
+// Elle valait 0.95 et servait a DESARMER l'horloge des que la cadence d'affichage
+// depassait ~63 Hz, parce que l'etape 1 ne savait pas dessiner une image sans tick.
+// C'est exactement ce que le rapport de Gfixed-tick-interpolation a nomme « ETAPE 2 »,
+// et c'est aussi ce qui rendait la phase courante INMESURABLE au-dessus de 60 img/s :
+// les deux bras de l'ablation y publiaient `armed=0`, donc la meme ligne.
+// Desormais l'horloge reste armee et rend simplement k = 0 tick pour les images qui
+// n'en meritent pas ; GOAL met alors `time-ratio` a 0 pour cette image
+// (engine/draw/drawable.gc) et la logique n'avance pas. La constante est conservee
+// UNIQUEMENT comme seuil de DIAGNOSTIC (`fast_display()`), plus comme decision.
 constexpr double kDisarmFasterThan = 0.95;
 
 // Etat d'armement de l'horloge, et QUI le decide.
@@ -113,16 +121,41 @@ void set_deterministic(bool on);
 //   armed   : 1 si cette image est pilotee par l'horloge a pas fixe, 0 sinon
 //   catchup : nombre de ticks de RATTRAPAGE a executer sans rien dessiner
 //   alpha   : alpha d'interpolation de rendu en micro-unites (1e6 == pose courante)
-using PublishFn = void (*)(int armed, int catchup, s32 alpha_micro);
+//   skip    : 1 si cette image DESSINEE ne porte AUCUN tick de logique (affichage
+//             plus rapide que 1/60 s). C'est l'etape 2 nommee par le rapport de
+//             Gfixed-tick-interpolation : au-dessus de 60 Hz il FAUT dessiner des
+//             images sans tick, sinon la logique suit la cadence d'affichage.
+using PublishFn = void (*)(int armed, int catchup, s32 alpha_micro, int skip);
 void set_publisher(PublishFn fn);
+
+// Gfixed-tick-anim-interp — INTERPOLATION DES POSES DE SQUELETTE.
+// Deux interrupteurs publies vers GOAL comme VALEURS de symbole (jamais des
+// symboles-FONCTION : voir la note ci-dessus sur le SIGILL Android).
+//   `anim_interp_enabled()` : OG_ANIM_INTERP / debug.opengoal.animinterp, DEFAUT 1.
+//       Mis a 0, le moteur reprend exactement le chemin d'avant cette phase — c'est
+//       l'ablation SUR LE MEME BINAIRE qu'exigent les directives.
+//   `anim_probe_enabled()`  : OG_ANIM_PROBE / debug.opengoal.animprobe, DEFAUT 0.
+//       Sonde par image dessinee ; opt-in au PRODUCTEUR, une sonde par-image livree
+//       armee a deja coute 40 Mo de sortie en 220 s.
+bool anim_interp_enabled();
+bool anim_probe_enabled();
 
 // Fait avancer l'accumulateur d'UNE image dessinee et rend le nombre de pas de
 // 1/60 s dus :
-//   0   => horloge NON armee pour cette image (desarmee, ou cadence plus rapide que
-//          60 Hz) : le moteur garde son calcul d'origine ;
+//   0   => AUCUN tick pour cette image. Deux cas, que `armed()` distingue :
+//          horloge desarmee (le moteur garde son calcul d'origine), ou horloge armee
+//          et image de RENDU SEUL (affichage plus rapide que 1/60 s) ;
 //   >=1 => cette image consomme 1 tick, les (n-1) autres sont des ticks de RATTRAPAGE
 //          que `display-loop` execute sans rien dessiner.
 int begin_render_frame();
+
+// Etat de l'horloge pour la DERNIERE image passee par `begin_render_frame`. Separe du
+// nombre de ticks, precisement parce que « 0 tick » et « pas armee » ne sont plus la
+// meme chose depuis Gfixed-tick-anim-interp.
+bool armed_last_frame();
+
+// Cadence d'affichage plus rapide que le pas fixe (moyenne glissante). DIAGNOSTIC.
+bool fast_display();
 
 // Appelee UNE fois par image dessinee, au point de soumission de la chaine DMA
 // (`__send-gfx-dma-chain`) — le seul signal « une image vient d'etre produite » qui

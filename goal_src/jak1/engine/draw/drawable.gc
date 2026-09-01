@@ -997,6 +997,19 @@
   (set! (-> disp old-part-frame-counter) (-> disp part-frame-counter))
   (set! (-> disp old-actual-frame-counter) (-> disp actual-frame-counter))
   (set! (-> disp old-real-actual-frame-counter) (-> disp real-actual-frame-counter))
+  ;; Gfixed-tick-anim-interp — IMAGE DE RENDU SEUL : aucune horloge n'avance.
+  ;; Les huit compteurs ci-dessus sont deja neutres a `time-ratio = 0` (leur increment
+  ;; est `scaled-seconds`, qui vaut 0), MAIS deux ne le sont pas : `actual-frame-counter`
+  ;; et `real-actual-frame-counter` avancent d'un `1` LITTERAL, insensible au ratio. Le
+  ;; premier indexe le rejeu d'entrees (game/kernel/jak1/kmachine.cpp
+  ;; `pad_replay_logic_frame`) : le laisser avancer donnerait deux index pour un seul
+  ;; tick et casserait le determinisme du rejeu. Le second est lu par
+  ;; `sparticle-launcher.gc:689`, qui exige EXACTEMENT +1 entre deux naissances et
+  ;; recule d'une frame de particules des qu'il voit un saut.
+  ;; On sort donc avant les deux, apres avoir mis le temps de particule a zero.
+  (when (= time-ratio 0.0)
+    (set-particle-frame-time 0)
+    (return 0))
   ;; get the increment in seconds unit.
   (let ((scaled-seconds (* (the int time-ratio) (the int (-> disp time-factor)))))
     ;; tell the sparticle system
@@ -1067,7 +1080,22 @@
     ;; calcul ci-dessus reste en place et sert de chemin d'origine des que l'horloge
     ;; se desarme (cadence d'affichage superieure a 60 Hz, ou OG_FIXED_TICK=0).
     (#when PC_PORT
-      (if (nonzero? *fixed-tick-armed*) (set! time-ratio 1.0)))
+      (if (nonzero? *fixed-tick-armed*)
+          (set! time-ratio (if (nonzero? *fixed-tick-skip*) 0.0 1.0))))
+    ;; Gfixed-tick-anim-interp — L'ALPHA EFFECTIF DE L'IMAGE QUI VA ETRE CONSTRUITE.
+    ;; Il se pose ICI et nulle part ailleurs : `display-frame-start` est appele en QUEUE
+    ;; de `swap-display`, donc juste APRES que le natif a publie l'alpha de cette image
+    ;; (game/kernel/jak1/kmachine.cpp `fixed_tick_publish`) et juste AVANT le `(suspend)`
+    ;; qui fait tourner tout l'arbre des process. Le pose plus tard -- par exemple dans
+    ;; `update-camera` -- le rendrait vieux d'une image pour les animations, qui sont
+    ;; calculees pendant l'arbre.
+    ;; MEME SOURCE QUE LA CAMERA (engine/camera/cam-update.gc) : sans quoi la camera et
+    ;; le squelette seraient retimes sur deux horloges differentes, ce qui est pire que
+    ;; de n'en retimer aucun.
+    (#when PC_PORT
+      (set! *anim-interp-alpha*
+            (/ (the float (if (nonzero? *fixed-tick-armed*) *fixed-tick-alpha* (pc-camera-interp-alpha)))
+               1000000.0)))
     ;; inform display system of our speed. This will adjust the scaling used in all physics calculations
     (set-time-ratios *display* time-ratio)
     ;; Gfixed-tick-interpolation : un seul chemin pour avancer les horloges, partage

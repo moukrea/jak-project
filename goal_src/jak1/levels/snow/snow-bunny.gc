@@ -237,7 +237,11 @@
     (let* ((f0-1 (- f0-0 (-> *TARGET-bank* spin-radius)))
            (f0-2 (+ -2457.6 f0-1)))
       (if (>= 40.96 f0-2) (set! f0-2 40.96))
-      (let ((v1-13 (the int (/ f0-2 (* (-> this nav-info run-travel-speed) (seconds-per-frame))))))
+      ;; Gfixed-tick-anim-interp : `seconds-per-frame` vaut 0 sur une image de RENDU SEUL,
+      ;; et c'est la SEULE division par cette grandeur de tout jak1. `x / 0` = +inf puis
+      ;; `(the int +inf)` est indefini : on retombe sur le pas NOMINAL de 1/60 s.
+      (let ((v1-13 (the int (/ f0-2 (* (-> this nav-info run-travel-speed)
+                                       (let ((spf (seconds-per-frame))) (if (> spf 0.0) spf 0.016666668)))))))
         (if (<= (- (- (seconds 0.36) (- (current-time) (-> this last-nondangerous-time))) (the-as time-frame v1-13)) 0) (return #f)))))
   #t)
 

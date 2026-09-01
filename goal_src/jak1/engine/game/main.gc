@@ -1384,6 +1384,60 @@
           ))))
   0)
 
+
+;; ============================================================================
+;; Gfixed-tick-anim-interp — SONDE DE GIGUE D'ANIMATION, une ligne par image DESSINEE
+;; ============================================================================
+;; Ce que le contrat demande de mesurer : « ecart image a image de la position d'un
+;; joint pendant une animation, a plusieurs cadences d'affichage ». La grandeur fait
+;; donc foi PAR IMAGE DESSINEE, jamais par tick de logique -- c'est precisement la
+;; distinction que le defaut exploite : le nombre de ticks par image varie, et sans
+;; retimage la pose dessinee saute.
+;;
+;; ELLE EST LUE ICI, apres `(*draw-hook*)` : `do-joint-math!` a ecrit les os pendant
+;; l'arbre des process, et le rendu de cette image les a deja consommes. Ce qui sort
+;; est donc la pose REELLEMENT DESSINEE, pas un etat interne.
+;;
+;; TROIS joints plutot qu'un, et la RACINE a cote : le depouillement retient le joint
+;; qui bouge le plus, et la racine dit quelle part de l'ecart vient du deplacement de
+;; l'acteur plutot que de son animation. Publier un seul chiffre laisserait les deux
+;; indistinguables.
+;;
+;; OPT-IN AU PRODUCTEUR (`OG_ANIM_PROBE=1`). Une sonde par-image livree armee a deja
+;; coute 40 Mo de sortie en 220 s sur l'appareil.
+(defun anim-jit-probe! ()
+  (when (and (nonzero? *anim-interp-probe*) *target*)
+    (let* ((pd (the-as process-drawable *target*))
+           (nl (-> pd node-list)))
+      (when (and nl (> (-> nl length) 1))
+        (let* ((last (+ (-> nl length) -1))
+               (i0 (min 3 last))
+               (i1 (min 10 last))
+               ;; MESURE : l'index `last` rend 0,0,0 sur Jak (le dernier cspace ne pilote
+               ;; pas d'os dessine) -- un joint immobile ne mesure aucune gigue. On prend
+               ;; donc trois indices qui portent tous de la geometrie.
+               (i2 (min 40 last)))
+          (format 0 "AJP n=~D arm=~D skip=~D alpha=~f ni=~D "
+                  (-> *display* real-actual-frame-counter)
+                  *fixed-tick-armed* *fixed-tick-skip* *anim-interp-alpha* *anim-interp-n*)
+          (format 0 "r=~f,~f,~f "
+                  (-> nl data 0 bone transform vector 3 x)
+                  (-> nl data 0 bone transform vector 3 y)
+                  (-> nl data 0 bone transform vector 3 z))
+          (format 0 "j~D=~f,~f,~f " i0
+                  (-> nl data i0 bone transform vector 3 x)
+                  (-> nl data i0 bone transform vector 3 y)
+                  (-> nl data i0 bone transform vector 3 z))
+          (format 0 "j~D=~f,~f,~f " i1
+                  (-> nl data i1 bone transform vector 3 x)
+                  (-> nl data i1 bone transform vector 3 y)
+                  (-> nl data i1 bone transform vector 3 z))
+          (format 0 "j~D=~f,~f,~f~%" i2
+                  (-> nl data i2 bone transform vector 3 x)
+                  (-> nl data i2 bone transform vector 3 y)
+                  (-> nl data i2 bone transform vector 3 z))))))
+  (none))
+
 (defbehavior display-loop process ()
   "the main 'display loop' in GOAL. v-sync is done in this function, so all frames start and end here."
   ;; increase our stack size.
@@ -1435,8 +1489,14 @@
         (unless *use-fp-blerc*
           (blerc-execute))
         (blerc-init)
-        (texscroll-execute)
-        (ripple-execute))
+        ;; Gfixed-tick-anim-interp : defilement de texture et rides avancent PAR APPEL
+        ;; (leur pas est une donnee, pas une duree). Meme raison que `process-particles`
+        ;; ci-dessous : sur une image de RENDU SEUL ils doivent se taire. `blerc` reste,
+        ;; lui : les process ont bien tourne, ils ont donc re-depose leurs requetes, et
+        ;; `blerc-init` doit rester appaire avec `blerc-execute`.
+        (when (zero? *fixed-tick-skip*)
+          (texscroll-execute)
+          (ripple-execute)))
       ;;;;;;;;;;;;;;;;;;;;
       ;; AMBIENT
       ;;;;;;;;;;;;;;;;;;;;
@@ -1478,6 +1538,8 @@
       (add-ee-profile-frame 'draw :r #x40 :b #x40)
       (with-profiler "draw-hook"
         (*draw-hook*))
+      ;; Gfixed-tick-anim-interp : la pose dessinee de CETTE image, opt-in.
+      (anim-jit-probe!)
       (add-ee-profile-frame 'draw :g #x80)
       (with-profiler "menu"
         (#when PC_PORT
@@ -1684,8 +1746,14 @@
         (set! *teleport* #t)
         (set! *teleport-count* (+ *teleport-count* -1)))
       ;; perf stats
-      (with-profiler "process-particles"
-        (process-particles))
+      ;; Gfixed-tick-anim-interp : `process-particles` avance les particules PAR APPEL,
+      ;; pas par temps de jeu. Sur une image de RENDU SEUL rien d'autre n'avance ; la
+      ;; laisser tourner ferait vivre les particules a la cadence de l'AFFICHAGE (donc
+      ;; deux fois trop vite sur un panneau 120 Hz) et casserait la continuite que
+      ;; `sparticle-launcher.gc:689` exige (+1 exactement entre deux naissances).
+      (when (zero? *fixed-tick-skip*)
+        (with-profiler "process-particles"
+          (process-particles)))
       ;; vif0 collide
       (with-profiler "sound-update"
         (swap-sound-buffers (ear-trans) (camera-pos) (camera-angle))

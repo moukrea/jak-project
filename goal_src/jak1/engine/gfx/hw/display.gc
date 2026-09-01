@@ -49,7 +49,13 @@
     (when (nonzero? *fixed-tick-armed*)
       (set! (-> this time-adjust-ratio) ratio)
       (set! (-> this seconds-per-frame) (* 0.016666668 ratio))
-      (set! (-> this frames-per-second) (* 60.0 (/ 1.0 ratio)))
+      ;; Gfixed-tick-anim-interp : `ratio` vaut 0 sur une image de RENDU SEUL (affichage
+      ;; plus rapide que 1/60 s). `60/0` donnerait +inf, et `frames-per-second` est
+      ;; multiplie par des deltas qui valent exactement 0 dans ce cas -- `0 x +inf` = NaN,
+      ;; propage jusqu'a la velocite de Jak (engine/target/target-util.gc:531) et donc a
+      ;; sa position. On publie donc la valeur NOMINALE : tous ces produits rendent alors
+      ;; 0, et la logique GELE proprement au lieu de diverger.
+      (set! (-> this frames-per-second) (if (= ratio 0.0) 60.0 (* 60.0 (/ 1.0 ratio))))
       (set! (-> this time-factor) 5.0)
       (return (-> this time-ratio)))
     (case (get-video-mode)

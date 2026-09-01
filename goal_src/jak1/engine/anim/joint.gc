@@ -8,6 +8,7 @@
 (require "engine/data/art-h.gc")
 (require "engine/anim/mspace-h.gc")
 (require "engine/game/game-h.gc")
+(require "engine/common-obs/process-drawable-h.gc")
 
 ;; a joint is just used to store the tree structure of a skeleton + bind pose.
 ;; it's mostly used as a more user-friendly interface
@@ -142,7 +143,13 @@
         (when (> weight 0.001) ;; only both if weight is nonzero
           (let* ((req (-> this requests (-> this num-requests))) ;; request to create
                  (jacc (-> chan frame-group frames)) ;; compressed animation
-                 (frame-num (-> chan frame-num)) ;; floating-point frame (eg 1.23)
+                 ;; Gfixed-tick-anim-interp : la frame a DESSINER, pas celle du dernier
+                 ;; tick. `joint-channel-render-frame` (engine/common-obs/process-drawable-h.gc)
+                 ;; recule de (1 - alpha) pas et rend `frame-num` INCHANGE des que
+                 ;; alpha vaut 1.0 -- donc la sortie a 60 images/s ne bouge pas d'un bit.
+                 ;; Le melange lui-meme n'est pas nouveau : c'est `frac-frame` ci-dessous,
+                 ;; le chemin a deux frames que le decompresseur exerce deja.
+                 (frame-num (joint-channel-render-frame chan)) ;; floating-point frame (eg 1.23)
                  (base-frame (the int frame-num)) ;; integer round-down frame (eg 1)
                  (frac-frame (- frame-num (the float base-frame))) ;; interp to next frame (eg 0.23)
                  (last-frame (the int (- (-> jacc num-frames) 1))))

@@ -89,6 +89,100 @@
   "seems to be the same thing as none."
   (-> arg0 frame-num))
 
+;; ============================================================================
+;; Gfixed-tick-anim-interp (owner 2026-09-01) — INTERPOLATION DE RENDU DES POSES
+;; ============================================================================
+;; « Le pas de temps fixe a l'air bon, mais les animations sont quand meme tres
+;; jittery ». Mesure : l'alpha d'interpolation de rendu n'avait qu'UN consommateur,
+;; la camera. La pose de squelette etait dessinee telle qu'elle sortait du DERNIER
+;; tick, donc elle sautait pendant que la camera avancait regulierement.
+;;
+;; LE PRINCIPE, ET POURQUOI IL NE COUTE RIEN. `frame-num` est un FLOTTANT, et le
+;; decompresseur melange DEJA les deux frames compressees voisines par sa partie
+;; fractionnaire (engine/anim/joint.gc, `build-requests!` -> `frame-interp` de
+;; `joint-decomp-request`, puis `process-request!`). La pose est donc une fonction
+;; CONTINUE de `frame-num`. Retimer le squelette, c'est evaluer cette meme fonction
+;; a `frame-num - (1 - alpha) * pas`, sans decompresser une pose de plus, sans
+;; stocker une pose N-1, et sans ecrire quoi que ce soit dans l'etat de jeu : c'est
+;; le chemin de melange que le contrat demande de REUTILISER plutot que de doubler.
+;;
+;; RIEN N'EST MEMORISE. Le pas du dernier tick se RECALCULE a partir des memes
+;; facteurs que les `num-func-*` ci-dessus (`param`, `frame-group speed`,
+;; `time-adjust-ratio`). Un etat memorise se serait desynchronise a la premiere
+;; naissance d'acteur, au premier changement d'animation et au premier chargement.
+
+(defun joint-channel-tick-delta-direct ((chan joint-control-channel))
+  "Pas applique par le DERNIER tick de logique, pour un canal qui avance tout seul.
+   Rend 0.0 pour tout le reste : ce canal ne sera pas retime."
+  (let* ((nf (-> chan num-func))
+         ;; Sous pas fixe, un tick vaut TOUJOURS 1.0 -- y compris sur une image de
+         ;; RENDU SEUL, ou `time-adjust-ratio` vaut 0 et ou lire ce champ rendrait un
+         ;; pas nul, donc aucune interpolation exactement la ou elle est necessaire.
+         (ratio (if (nonzero? *fixed-tick-armed*) 1.0 (-> *display* time-adjust-ratio)))
+         (rate (* (-> chan frame-group speed) ratio)))
+    (cond
+      ((or (= nf num-func-+!) (= nf num-func-loop!)) (* (-> chan param 0) rate))
+      ((= nf num-func--!) (- (* (-> chan param 0) rate)))
+      ((= nf num-func-seek!)
+       ;; `seek` vers (param 0) au rythme (param 1). Tant que la cible n'est pas
+       ;; atteinte le pas applique est PLEIN ; une fois dessus il vaut 0 et on ne
+       ;; retime pas -- c'est la reponse conservatrice, jamais une extrapolation.
+       (let ((step (* (-> chan param 1) rate))
+             (rest (- (-> chan param 0) (-> chan frame-num))))
+         (cond ((> rest 0.0) step)
+               ((< rest 0.0) (- step))
+               (else 0.0))))
+      (else 0.0))))
+
+(defun joint-channel-tick-delta ((chan joint-control-channel))
+  "Comme ci-dessus, mais suit la redirection de `num-func-chan`.
+   Un canal `chan` RECOPIE le `frame-num` d'un autre (meme arithmetique de 48 octets
+   que `num-func-chan`) : il doit reculer d'autant que sa source, sinon un groupe
+   multi-canal melangerait une pose retimee avec une pose qui ne l'est pas -- pire que
+   de n'en retimer aucune. UN SEUL niveau de redirection, jamais de recursion."
+  (if (= (-> chan num-func) num-func-chan)
+      (joint-channel-tick-delta-direct
+        (the-as joint-control-channel
+                (+ (the-as uint chan)
+                   (the-as uint (* 48 (- (the int (-> chan param 0)) (-> chan group-sub-index)))))))
+      (joint-channel-tick-delta-direct chan)))
+
+(defun joint-channel-render-frame ((chan joint-control-channel))
+  "Numero de frame a DESSINER pour ce canal : `frame-num` recule de (1 - alpha) pas.
+   RENDU SEUL -- n'ecrit jamais `frame-num`, donc la logique reste identique et les
+   deux bras de l'ablation jouent exactement la meme partie."
+  (let ((fn (-> chan frame-num)))
+    (cond
+      ;; Trois sorties qui rendent le MEME flottant qu'avant cette phase, au bit pres.
+      ;;  - ablation (`OG_ANIM_INTERP=0`) ;
+      ;;  - alpha == 1.0, c'est-a-dire « pose courante » : ce que publie une cadence
+      ;;    VERROUILLEE a 60 Hz. La non-regression 60 fps est donc obtenue par
+      ;;    CONSTRUCTION, pas par un reglage ;
+      ;;  - acteur de CINEMATIQUE : son `frame-num` n'est pas incremente par un
+      ;;    `num-func`, il est REECRIT chaque image depuis la position du flux audio
+      ;;    (engine/load/loader.gc). Sa cadence est deja le temps reel ; le retimer
+      ;;    ajouterait du flou la ou il n'y en a pas.
+      ((or (zero? *anim-interp-on*)
+           (>= *anim-interp-alpha* 1.0)
+           (logtest? (-> chan parent status) (janim-status spool)))
+       fn)
+      (else
+       (let ((delta (joint-channel-tick-delta chan)))
+         (cond
+           ((= delta 0.0) fn)
+           (else
+            ;; PREUVE DE CABLAGE : ce compteur est le seul temoin qu'une pose a
+            ;; REELLEMENT ete retimee. A 60 images/s il doit rester a 0.
+            (+! *anim-interp-n* 1)
+            (let ((f (- fn (* (- 1.0 *anim-interp-alpha*) delta))))
+              (cond
+                ((>= f 0.0) f)
+                ;; Animation en BOUCLE : reculer avant 0 doit revenir par la FIN,
+                ;; sinon la premiere image apres chaque bouclage saute au debut.
+                ((= (-> chan num-func) num-func-loop!)
+                 (+ f (the float (+ (-> chan frame-group data 0 length) -1))))
+                (else 0.0))))))))))
+
 (defenum entity-perm-status
   :bitfield #t
   :type uint16

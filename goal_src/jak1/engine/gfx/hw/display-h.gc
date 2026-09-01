@@ -228,6 +228,42 @@
 (define *fixed-tick-catchup* 0)
 (define *fixed-tick-alpha* 1000000)
 
+;; Gfixed-tick-anim-interp (owner 2026-09-01) — « le pas de temps fixe a l'air bon, mais
+;; les animations sont quand meme tres jittery ».
+;;
+;; CE QUI MANQUAIT, MESURE : l'alpha d'interpolation de rendu n'avait qu'UN SEUL
+;; consommateur dans tout le moteur, la camera (`cam-render-interp!`). La pose de
+;; squelette, elle, etait dessinee telle qu'elle sortait du DERNIER tick de logique,
+;; donc elle sautait d'un tick a l'autre pendant que la camera, elle, avancait
+;; regulierement. C'est exactement la gigue decrite.
+;;
+;; `*fixed-tick-skip*`     1 quand cette image DESSINEE ne porte AUCUN tick de logique.
+;;                         C'est l'« etape 2 » nommee par le rapport precedent : au-dessus
+;;                         de 60 Hz il faut dessiner des images sans tick, sinon la
+;;                         simulation reprend la cadence de l'affichage. `time-ratio` vaut
+;;                         alors 0 (engine/draw/drawable.gc) et rien n'avance.
+;; `*anim-interp-on*`      interrupteur d'ABLATION, ecrit par le natif depuis
+;;                         OG_ANIM_INTERP / debug.opengoal.animinterp. Defaut 1. A 0, le
+;;                         moteur reprend au bit pres le chemin d'avant cette phase.
+;; `*anim-interp-probe*`   sonde par image dessinee (OG_ANIM_PROBE), opt-in au PRODUCTEUR.
+;; `*anim-interp-alpha*`   l'alpha EFFECTIF de l'image en cours, en [0,1]. 1.0 signifie
+;;                         « pose courante », donc AUCUNE interpolation — c'est ce que
+;;                         publie une cadence verrouillee a 60 Hz, et c'est ce qui rend la
+;;                         sortie 60 fps identique au bit PAR CONSTRUCTION.
+;; `*anim-interp-n*`       nombre de canaux d'animation reellement retimes depuis le
+;;                         demarrage. PREUVE DE CABLAGE : a 60 fps il doit rester a 0.
+(define *fixed-tick-skip* 0)
+(define *anim-interp-on* 1)
+(define *anim-interp-probe* 0)
+(define *anim-interp-alpha* 1.0)
+(define *anim-interp-n* 0)
+
+;; Declaree ici (et pas seulement dans pc/pckernel-h.gc) parce que `display-frame-start`
+;; en a besoin et qu'il est compile bien avant le pckernel. Le symbole est fourni par les
+;; DEUX plateformes (game/kernel/common/kmachine.cpp cote bureau,
+;; android/gk_android_main.cpp cote appareil) et `cam-render-interp!` l'appelle deja.
+(define-extern pc-camera-interp-alpha (function int))
+
 (defmacro seconds-per-frame ()
   `(-> *display* seconds-per-frame))
 

@@ -25,6 +25,10 @@ struct State {
   s32 alpha_micro = 1000000;  // 1.0 == pose courante == pas d'interpolation
   bool deterministic = false;
   bool disarmed_fast_display = false;
+  // Gfixed-tick-anim-interp : « l'horloge gouverne cette image » n'est PLUS la meme
+  // chose que « cette image porte un tick ». Au-dessus de 60 Hz elle gouverne des
+  // images de RENDU SEUL, qui portent zero tick.
+  bool clock_governs = false;
   u64 ticks = 0;
   u64 render_frames = 0;
   u64 armed_frames = 0;
@@ -87,6 +91,26 @@ bool read_probe_flag() {
   return false;
 }
 
+// Gfixed-tick-anim-interp — lecture d'un interrupteur 0/1 avec un DEFAUT declare.
+// L'environnement (bureau) prime, puis la propriete Android, sinon le defaut. C'est
+// le meme patron que `read_force_flag`, et c'est ce qui permet l'ablation SUR LE MEME
+// BINAIRE que les directives exigent : une course avec, une course sans, meme .so.
+bool read_bool_flag(const char* env_name, const char* prop_name, bool dflt) {
+  const char* e = std::getenv(env_name);
+  if (e && (e[0] == '0' || e[0] == '1')) {
+    return e[0] == '1';
+  }
+#ifdef __ANDROID__
+  char pv[8] = {0};
+  if (__system_property_get(prop_name, pv) > 0 && (pv[0] == '0' || pv[0] == '1')) {
+    return pv[0] == '1';
+  }
+#else
+  (void)prop_name;
+#endif
+  return dflt;
+}
+
 }  // namespace
 
 bool enabled() {
@@ -126,6 +150,24 @@ bool probe_enabled() {
   return s_probe;
 }
 
+bool anim_interp_enabled() {
+  static const bool s_on = read_bool_flag("OG_ANIM_INTERP", "debug.opengoal.animinterp", true);
+  return s_on;
+}
+
+bool anim_probe_enabled() {
+  static const bool s_on = read_bool_flag("OG_ANIM_PROBE", "debug.opengoal.animprobe", false);
+  return s_on;
+}
+
+bool armed_last_frame() {
+  return state().clock_governs;
+}
+
+bool fast_display() {
+  return state().disarmed_fast_display;
+}
+
 void set_deterministic(bool on) {
   state().deterministic = on;
 }
@@ -157,19 +199,26 @@ void set_publisher(PublishFn fn) {
 void on_render_frame() {
   State& s = state();
   const int k = begin_render_frame();
-  if (k >= 1) {
+  if (s.clock_governs) {
     s.armed_frames++;
   }
   if (s.publisher) {
-    s.publisher(k >= 1 ? 1 : 0, k >= 1 ? (k - 1) : 0, s.alpha_micro);
+    // `armed` suit desormais l'horloge, pas le nombre de ticks : une image de RENDU
+    // SEUL est ARMEE et porte `skip=1`. Publier `armed=0` pour elle rendrait la main
+    // au calcul d'origine, qui deduit le pas de la duree de la frame — c'est-a-dire
+    // exactement le pas variable que ce module existe pour supprimer.
+    s.publisher(s.clock_governs ? 1 : 0, k >= 1 ? (k - 1) : 0, s.alpha_micro,
+                (s.clock_governs && k == 0) ? 1 : 0);
   }
 }
 
 int begin_render_frame() {
   if (!enabled()) {
+    state().clock_governs = false;
     return 0;
   }
   State& s = state();
+  s.clock_governs = true;
   s.render_frames++;
 
   // Mode deterministe (harnais de rejeu) : exactement un tick par image, sans lire la
@@ -194,16 +243,16 @@ int begin_render_frame() {
   }
   s.timer.start();
 
-  // Cadence d'affichage plus rapide que le pas fixe : hors perimetre de l'etape 1
-  // (il faudrait des images SANS tick). On desarme, le moteur garde son calcul.
+  // Gfixed-tick-anim-interp — CE BLOC DESARMAIT, IL NE FAIT PLUS QUE CONSTATER.
+  // Jusqu'ici, des que la moyenne glissante de la duree d'image passait sous 0,95 tick
+  // (~63 img/s), l'horloge rendait la main au calcul d'origine. Deux consequences
+  // mesurees : la simulation reprenait la cadence de l'AFFICHAGE sur tout panneau
+  // 90/120 Hz, et l'ablation de cette phase publiait `armed=0` DES DEUX COTES au-dessus
+  // de 60 img/s — donc deux lignes identiques et une comparaison vide.
+  // L'horloge reste desormais armee et rend k = 0 pour les images qui ne meritent pas
+  // de tick ; `time-ratio` vaut alors 0 cote GOAL et la logique n'avance pas.
   s.dt_ema = 0.85 * s.dt_ema + 0.15 * dt;
-  if (s.dt_ema < kFixedTickSeconds * kDisarmFasterThan) {
-    s.disarmed_fast_display = true;
-    s.accumulator = 0.0;
-    s.alpha_micro = 1000000;
-    return 0;
-  }
-  s.disarmed_fast_display = false;
+  s.disarmed_fast_display = (s.dt_ema < kFixedTickSeconds * kDisarmFasterThan);
 
   // Un hoquet (chargement, changement de niveau) ne doit pas fabriquer un
   // fast-forward : on borne l'apport a ce que le rattrapage peut absorber.
@@ -221,6 +270,18 @@ int begin_render_frame() {
   if (nearest >= 1.0 && std::fabs(ticks_f - nearest) <= kSnapTolerance) {
     dt = nearest * kFixedTickSeconds;
     snapped = true;
+    // Gfixed-tick-anim-interp — L'ACCROCHAGE PORTE AUSSI SUR L'ACCUMULATEUR, ET C'EST
+    // CE QUI MANQUAIT. Mesure : a 60,0 img/s verrouilles, l'alpha publie restait FIGE a
+    // 0,738171 sur 800 images sur 800, jamais 1,0. Cause : l'accrochage ne corrigeait
+    // que `dt` ; le reste fractionnaire herite du chargement (cadence irreguliere) etait
+    // ensuite ajoute puis retire a l'identique a chaque image, donc il ne se resorbait
+    // JAMAIS. Tant que rien ne lisait l'alpha en dehors de la camera -- ou un alpha
+    // CONSTANT ne produit qu'une latence constante -- ca ne se voyait pas.
+    // Ici il se voit : la reference « 60 images/s identique au bit » exige alpha == 1,0.
+    // Accrocher, c'est declarer que cette image vaut EXACTEMENT N ticks : il n'y a donc
+    // pas de reste sous-tick, et le porter serait se contredire. Le temps jete vaut au
+    // plus une fraction de tick, UNE FOIS, au moment ou la cadence se verrouille.
+    s.accumulator = 0.0;
   }
 
   s.accumulator += dt;
@@ -236,10 +297,18 @@ int begin_render_frame() {
     s.accumulator = kFixedTickSeconds * 0.999;
   }
   if (k < 1) {
-    // Peut arriver ponctuellement (une image plus courte qu'un tick alors que la
-    // moyenne dit le contraire). On rend 0 : le moteur garde son calcul pour CETTE
-    // image et l'accumulateur conserve le reste, donc rien n'est perdu.
-    s.alpha_micro = 1000000;
+    // IMAGE DE RENDU SEUL : le temps reel n'a pas encore paye un tick entier. On garde
+    // l'horloge armee et on publie l'alpha, de sorte que la pose DESSINEE avance quand
+    // meme — c'est tout l'objet de cette phase. Le reste accumule est conserve, donc
+    // rien n'est perdu ni invente.
+    double a0 = s.accumulator / kFixedTickSeconds;
+    if (a0 < 0.0) {
+      a0 = 0.0;
+    }
+    if (a0 > 1.0) {
+      a0 = 1.0;
+    }
+    s.alpha_micro = (s32)(a0 * 1000000.0 + 0.5);
     return 0;
   }
 

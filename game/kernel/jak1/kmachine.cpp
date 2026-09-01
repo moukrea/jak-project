@@ -4906,10 +4906,20 @@ void pc_set_fixed_tick(u32 on) {
   fixed_tick::set_enabled(on != 0);
 }
 
-static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro) {
+static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro, int skip) {
   intern_from_c("*fixed-tick-armed*")->value = (u32)armed;
   intern_from_c("*fixed-tick-catchup*")->value = (u32)catchup;
   intern_from_c("*fixed-tick-alpha*")->value = (u32)alpha_micro;
+  // Gfixed-tick-anim-interp : trois VALEURS de symbole de plus, et toujours aucun
+  // symbole-FONCTION (une fonction oubliee cote Android fait sauter GOAL a l'adresse 0
+  // et tue le processus en SIGILL ; une valeur non ecrite laisse simplement le moteur
+  // sur son chemin d'origine).
+  //   `*fixed-tick-skip*`   1 quand cette image DESSINEE ne porte aucun tick de logique.
+  //   `*anim-interp-on*`    interrupteur d'ablation de l'interpolation de pose.
+  //   `*anim-interp-probe*` sonde par image dessinee, opt-in au PRODUCTEUR.
+  intern_from_c("*fixed-tick-skip*")->value = (u32)skip;
+  intern_from_c("*anim-interp-on*")->value = fixed_tick::anim_interp_enabled() ? 1 : 0;
+  intern_from_c("*anim-interp-probe*")->value = fixed_tick::anim_probe_enabled() ? 1 : 0;
 
   // SONDE DE CADENCE, une ligne par image DESSINEE (env OG_FIXED_TICK_PROBE=1, sinon
   // muette). Elle est posee ICI et pas ailleurs parce que ce point est atteint APRES
@@ -4961,10 +4971,10 @@ static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro) {
   }
   const s64 lf = pad_replay_logic_frame();
   fprintf(stderr,
-          "GFT n=%llu lf=%lld armed=%d k=%d alpha=%d dt_ms=%.3f yaw=%.5f "
+          "GFT n=%llu lf=%lld armed=%d skip=%d k=%d alpha=%d dt_ms=%.3f yaw=%.5f "
           "cam=%.3f,%.3f,%.3f jak=%.3f,%.3f,%.3f\n",
-          (unsigned long long)s_probe_n++, (long long)lf, armed, catchup + 1, alpha_micro,
-          dt_ms, yaw, cx, cy, cz, jx, jy, jz);
+          (unsigned long long)s_probe_n++, (long long)lf, armed, skip,
+          skip ? 0 : (catchup + 1), alpha_micro, dt_ms, yaw, cx, cy, cz, jx, jy, jz);
 }
 
 // Gcamera-interp (autoport, owner 2026-07-01): per-logic-frame CAMERA-MATRIX dump

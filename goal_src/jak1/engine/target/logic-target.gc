@@ -679,7 +679,13 @@
   (if (logtest? (-> self control status) (cshape-moving-flags twall t-act)) (set-time! (-> self control unknown-dword20)))
   (when (logtest? (-> self state-flags) (state-flags timed-invulnerable))
     ;; og:preserve-this changed for high fps. This fixes the flicker speed when damaged
-    (if (< (logand (- (current-time) (-> self control unknown-dword80)) 3) (/ 1.0 (-> *display* time-adjust-ratio)))
+    ;; Gfixed-tick-anim-interp : `time-adjust-ratio` vaut 0 sur une image de RENDU SEUL
+    ;; (affichage plus rapide que 1/60 s). `1.0 / 0` = +inf rendrait la comparaison
+    ;; TOUJOURS vraie, donc Jak invisible une image sur deux pendant son invulnerabilite.
+    ;; On retombe sur le ratio NOMINAL, qui est la cadence a laquelle ce clignotement a
+    ;; ete ecrit.
+    (if (< (logand (- (current-time) (-> self control unknown-dword80)) 3)
+           (/ 1.0 (let ((r (-> *display* time-adjust-ratio))) (if (> r 0.0) r 1.0))))
       (logior! (-> self draw status) (draw-status hidden))
       (logclear! (-> self draw status) (draw-status hidden)))
     (if (time-elapsed? (-> self control unknown-dword80) (-> self control unknown-dword81))
