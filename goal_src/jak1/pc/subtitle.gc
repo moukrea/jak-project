@@ -303,6 +303,140 @@
 ;; ecrit toujours dans ce meme tampon (kernel/gstring.gc:558-563).
 (define *subtitle-shadow-string* (new 'global 'string 256 (the string #f)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;  Gsubtitle-style-2 (owner 2026-08-31) -- NON VALIDE. Mot pour mot :
+;;;;  « on voit encore le texte en dur duppliqué dessous avec une opacité réduite. L'ombre
+;;;;   portée est décalée du texte au lieu d'être pile en dessous avec le flou (elle a quand
+;;;;   même du flou tel quel, mais elle est vraiment décalé un poil vers le bas et vers la
+;;;;   droite comme était l'ombre originale au lieu d'être pile sous le texte. »
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; SES DEUX PHRASES DECRIVENT LE MEME OBJET, ET CE N'EST PAS LA DUPLICATION DU MOTEUR.
+;; La passe d'ombre integree de `draw-string` est bien eteinte : `color-shadow` est lu UNE
+;; fois (`draw_string.cpp:925`, `lqc2 vf9, 1968(v1)`, seul acces a cet offset du fichier,
+;; aucun store) et depose tel quel en RGBAQ des 4 sommets ; le bucket 69 est un
+;; `DirectRenderer` (`OpenGLRenderer.cpp:883`) qui melange en (A,B,C,D)=(0,1,0,1) --
+;; `(Cs-Cd).As + Cd`, C = SOURCE et non FIX (`DirectRenderer.h:142-147`, aucun `alpha-1` n'est
+;; emis sur ce chemin), avec `tcc=1 tfx=MODULATE` donc `color = fragment_color * T0`
+;; (`direct_basic_textured.frag:79`) et le test alpha desarme. A = 0 donne `As = 0` a chaque
+;; etage : la duplication du moteur ne pose AUCUN pixel. Ce n'est donc pas elle.
+;;
+;; CE QU'IL VOIT, C'EST NOTRE PROPRE OMBRE, ET POUR DEUX RAISONS QUI SE CUMULENT :
+;;
+;;  1. LE BARYCENTRE DES PRISES ETAIT A (+1,20 ; +1,60). Le rapport du cycle 1 l'a PUBLIE
+;;     (`SUBSHADOW-GEO decalage_x=1.1999 decalage_y=1.6000`) et ne l'a compare a rien. Le
+;;     corps du sous-titre fait 8 unites d'ecran virtuel de haut (grande police 16 x scale
+;;     0,5, `*SUBTITLE-bank*` :111) : 1,60 vaut 20 % de la hauteur d'un glyphe. Une ombre
+;;     dont le barycentre n'est pas nul EST un double decale -- « comme etait l'ombre
+;;     originale », mot pour mot.
+;;
+;;  2. ET CE QUI ETAIT DESSINE N'ETAIT MEME PAS CE DISQUE. `print-game-subtitle` fabrique son
+;;     contexte de pile avec `(the int (-> font-ctxt origin x))` : l'origine est TRONQUEE A
+;;     L'ENTIER. Or le cycle 1 passait le decalage d'une prise PAR cette origine. Origine du
+;;     sous-titre : x = (1 - 0,87) x 256 = 33,28 -> 33 ; y = 0,80 x 224 = 179,2 -> 179. Les
+;;     sept prises a 1,2 / 2,3 / 1,75 / 0,65 / 0,1 et 1,6 / 2,55 / 0,65 tombaient donc sur
+;;     SEPT POSITIONS ENTIERES de la grille {0,1,2}x{0,1,2}. Pas un flou : un tampon de
+;;     3x3 unites (7,5 x 9,6 px a 1080p), decale en bas a droite. « Le texte duplique avec
+;;     une opacite reduite » decrit exactement cela.
+;;
+;; DEUX CORRECTIFS, ET IL FAUT LES DEUX :
+;;   - les prises deviennent CENTRE + HEXAGONE DE RAYON 1 autour de zero. Les six prises du
+;;     bord se compensent deux a deux, donc le barycentre est nul PAR CONSTRUCTION, quelles
+;;     que soient les ponderations : l'ombre n'a plus de direction, elle ne tient que par son
+;;     flou -- « pile sous le texte », et il ecrit que le flou, lui, etait bon ;
+;;   - le decalage d'une prise ne passe plus par `(-> ctx origin)` mais par
+;;     `*subtitle-draw-dx/dy*`, ajoutes EN FLOTTANT apres la construction du contexte, donc
+;;     apres la troncature. Le chemin du TEXTE garde dx=dy=0 : il est inchange.
+;;
+;; ET L'INSTRUMENT CHANGE DE NATURE, parce que c'est lui qui a laisse passer le defaut.
+;;   - le barycentre n'est plus calcule sur la TABLE SOURCE mais sur les origines
+;;     REELLEMENT DEPOSEES dans le contexte que `draw-string` recoit. Si la troncature
+;;     revenait, ou si la table redevenait dissymetrique, le chiffre publie redeviendrait non
+;;     nul : la mesure se refute elle-meme ;
+;;   - le nombre de passes de texte n'est plus une constante mais un COMPTE DES OCTETS DMA
+;;     que `draw-string` vient d'ecrire (`sub-dma-census` ci-dessous).
+
+(defconstant SUB_SHADOW_TAPS 7)
+
+;; Decalage applique au contexte de dessin APRES sa construction -- donc en flottant, apres
+;; la troncature a l'entier. Vaut 0 pour la passe de TEXTE : son chemin est inchange.
+(define *subtitle-draw-dx* 0.0)
+(define *subtitle-draw-dy* 0.0)
+;; Biais de CONTROLE POSITIF : deplace toutes les prises d'un coup. Le barycentre publie doit
+;; le suivre, sinon la mesure d'offset ne mesure rien. Nul dans l'etat livre.
+(define *subtitle-shadow-bias-x* 0.0)
+(define *subtitle-shadow-bias-y* 0.0)
+
+;; Journal de CE QUI EST DEPOSE, une entree par passe : 0..SUB_SHADOW_TAPS-1 = les prises,
+;; SUB_SHADOW_TAPS = le texte. x,y = origine reellement remise a `draw-string` ; z = alpha
+;; relu dans la table de police apres ecriture ; w = 1 des que la passe a dessine.
+(define *subtitle-pass-idx* -1)
+(define *subtitle-pass-log*
+  (new 'static 'inline-array vector 8
+       (new 'static 'vector) (new 'static 'vector) (new 'static 'vector) (new 'static 'vector)
+       (new 'static 'vector) (new 'static 'vector) (new 'static 'vector) (new 'static 'vector)))
+
+;; Recensement des octets DMA ecrits par `draw-string` (voir `sub-dma-census`).
+(define *sub-blocs* 0)
+(define *sub-blocs-encres* 0)
+(define *sub-alpha-dup* -1)
+(define *sub-alpha-texte* -1)
+(define *sub-ombre-blocs* 0)
+(define *sub-ombre-encres* 0)
+
+(defun sub-qw-same? ((p pointer) (q pointer))
+  "Deux quadwords identiques, compares en deux moities de 64 bits."
+  (and (= (-> (the-as (pointer uint64) p) 0) (-> (the-as (pointer uint64) q) 0))
+       (= (-> (the-as (pointer uint64) p) 1) (-> (the-as (pointer uint64) q) 1))))
+
+(defun sub-bloc-alpha ((p pointer))
+  "Alpha REELLEMENT ecrit dans le premier RGBAQ d'un bloc de glyphe : quadword 4, quatrieme
+   mot de 32 bits. Les deux sous-passes de `draw-string` posent la meme disposition
+   (font.gc:1206 pour l'ombre integree, :1362 pour le texte)."
+  (the-as int (-> (the-as (pointer uint32) (&+ p 76)) 0)))
+
+(defun sub-dma-reset! ()
+  (set! *sub-blocs* 0)
+  (set! *sub-blocs-encres* 0)
+  (set! *sub-alpha-dup* -1)
+  (set! *sub-alpha-texte* -1)
+  (none))
+
+(defun sub-dma-census ((start pointer) (end pointer))
+  "Compter les blocs de glyphe DANS LES OCTETS QUE `draw-string` VIENT D'ECRIRE, et y lire
+   l'alpha de chacun. Un bloc fait 15 quadwords (font.gc:1243 et :1516) et commence par le
+   quadword `char-tmpl dma-vif` du font-work : c'est CE motif qu'on reconnait, donc le compte
+   ne depend d'aucune constante de ce fichier.
+   `draw-string` emet DEUX sous-passes par glyphe, l'ombre integree d'abord (font.gc:1043-1243)
+   puis le texte (:1249-1516) : les blocs [0,n/2) sont la duplication, [n/2,n) le texte."
+  (let ((tmpl (the-as pointer (&-> *font-work* char-tmpl quad 0)))
+        (p start)
+        (n 0)
+        (enc 0))
+    (while (>= (- (the-as int end) (the-as int p)) 240)
+      (cond
+        ((sub-qw-same? p tmpl)
+         (set! n (+ n 1))
+         (if (nonzero? (sub-bloc-alpha p)) (set! enc (+ enc 1)))
+         (set! p (&+ p 240)))
+        (else (set! p (&+ p 16)))))
+    ;; alphas des deux sous-passes, relus DANS LE DMA, sur le premier appel suivant un reset
+    (when (and (zero? *sub-blocs*) (> n 1))
+      (let ((q start)
+            (k 0)
+            (half (/ n 2)))
+        (while (>= (- (the-as int end) (the-as int q)) 240)
+          (cond
+            ((sub-qw-same? q tmpl)
+             (if (zero? k) (set! *sub-alpha-dup* (sub-bloc-alpha q)))
+             (if (= k half) (set! *sub-alpha-texte* (sub-bloc-alpha q)))
+             (set! k (+ k 1))
+             (set! q (&+ q 240)))
+            (else (set! q (&+ q 16)))))))
+    (set! *sub-blocs* (+ *sub-blocs* n))
+    (set! *sub-blocs-encres* (+ *sub-blocs-encres* enc))
+    n))
+
 (defun subtitle-font-colors! ()
   "Poser les deux entrees de police des sous-titres dans les emplacements libres 36 et 37."
   (dotimes (i 4)
@@ -354,6 +488,13 @@
       (set! (-> gp-0 flags) (-> font-ctxt flags))
       (set! (-> gp-0 color) (-> font-ctxt color))
       (set! (-> gp-0 scale) sv-136)
+      ;; Gsubtitle-style-2 : le decalage d'une prise d'ombre est ajoute ICI, en FLOTTANT,
+      ;; apres la construction du contexte -- qui tronque l'origine a l'entier (voir plus
+      ;; haut). Le passer par `(-> ctx origin)`, comme au cycle 1, faisait tomber les sept
+      ;; prises sur une grille entiere. Pour le TEXTE, dx = dy = 0 : chemin inchange.
+      (when (not no-draw)
+        (+! (-> gp-0 origin x) *subtitle-draw-dx*)
+        (+! (-> gp-0 origin y) *subtitle-draw-dy*))
       (when (logtest? (-> gp-0 flags) (font-flags middle-vert))
         (logclear! (-> gp-0 flags) (font-flags middle-vert))
         (let ((f30-0 (-> gp-0 width))
@@ -429,7 +570,21 @@
                   ;; depose -- c'est cette relecture que le rapport publie.
                   (set! (-> *font-work* color-shadow w) *subtitle-dup-shadow-alpha*)
                   (set! *subtitle-dup-shadow-seen* (-> *font-work* color-shadow w))
+                  ;; Journal de la passe : l'origine REELLEMENT remise a `draw-string` et
+                  ;; l'alpha REELLEMENT depose dans la table, une seule fois par passe (une
+                  ;; passe dessine une ligne par tour de boucle, on retient la premiere).
+                  (let ((pi *subtitle-pass-idx*))
+                    (when (and (>= pi 0) (= 0.0 (-> *subtitle-pass-log* pi w)))
+                      (let ((lg (-> *subtitle-pass-log* pi)))
+                        (set! (-> lg x) (-> gp-0 origin x))
+                        (set! (-> lg y) (-> gp-0 origin y))
+                        (set! (-> lg z)
+                              (the float (the-as int (-> *font-work* color-table (-> font-ctxt color) color 0 a))))
+                        (set! (-> lg w) 1.0))))
                   (draw-string *game-text-line* s1-1 gp-0)
+                  ;; Recensement des octets que `draw-string` vient d'ecrire. Borne a la
+                  ;; premiere ligne tracee : cout nul une fois la mesure prise.
+                  (if (not *subtitle-style-traced?*) (sub-dma-census s2-1 (-> s1-1 base)))
                   ;; remet `color-shadow w` a 128 : rien ne fuit hors du chemin sous-titres.
                   (set-font-color-alpha (-> font-ctxt color) 128)
                   (set! (-> gp-0 color) (-> *font-work* last-color))
@@ -464,25 +619,26 @@
       (set! (-> *video-parms* relative-y-scale-reciprical) sv-132)
       (if (> sv-168 0) (* sv-164 (the float sv-168)) 0.0))))
 
-(defconstant SUB_SHADOW_TAPS 7)
 
-;; Les prises de l'ombre douce, en unites d'ORIGINE de la police -- les memes que
-;; `(-> font-context origin)`, donc l'ecran virtuel 512x224, +y vers le BAS (l'origine y du
-;; sous-titre vaut 0,80 x 224 = 179,2, soit 80 % de la hauteur). Chaque prise est un dessin
-;; COMPLET de la ligne, en noir plat, a alpha faible : c'est leur RECOUVREMENT qui fabrique le
-;; degrade, et donc le flou. Disque -- centre + hexagone de rayon 1,1 -- plutot que croix,
-;; pour que le flou soit isotrope. Le decalage de l'ombre (barycentre des prises) est publie
-;; a l'execution, il n'est pas ecrit ici.
+;; Les prises de l'ombre douce, en unites d'ECRAN VIRTUEL (512x224), +y vers le BAS.
+;; CENTRE + HEXAGONE DE RAYON 1, autour de ZERO. Les six prises du bord se compensent DEUX A
+;; DEUX (+1/-1, +0,5/-0,5, +0,866/-0,866) : le barycentre vaut zero EXACTEMENT, quelles que
+;; soient les ponderations. L'ombre n'a donc plus de direction -- elle ne tient que par son
+;; flou, et c'est ce que l'owner demande (« pile sous le texte », le flou lui convenant).
+;; Le rayon 1 vaut 12,5 % de la hauteur d'un glyphe (8 unites) : le meme etalement que ce qui
+;; etait REELLEMENT dessine au cycle 1 (grille entiere de rayon 1 autour de (+1;+1)), mais
+;; centre et sans quantification. Ponderations et compte de prises inchanges : l'opacite
+;; cumulee reste 1 - (1-34/128)(1-22/128)^6 = 0,763, et le cout DMA est celui d'aujourd'hui.
 ;;   x, y = decalage de la prise ; z = alpha GS de la prise (128 = opaque)
 (define *subtitle-shadow-taps*
   (new 'static 'inline-array vector 7
-       (new 'static 'vector :x 1.2  :y 1.6  :z 34.0)
-       (new 'static 'vector :x 2.3  :y 1.6  :z 22.0)
-       (new 'static 'vector :x 1.75 :y 2.55 :z 22.0)
-       (new 'static 'vector :x 0.65 :y 2.55 :z 22.0)
-       (new 'static 'vector :x 0.1  :y 1.6  :z 22.0)
-       (new 'static 'vector :x 0.65 :y 0.65 :z 22.0)
-       (new 'static 'vector :x 1.75 :y 0.65 :z 22.0)))
+       (new 'static 'vector :x  0.0 :y  0.0   :z 34.0)
+       (new 'static 'vector :x  1.0 :y  0.0   :z 22.0)
+       (new 'static 'vector :x -1.0 :y  0.0   :z 22.0)
+       (new 'static 'vector :x  0.5 :y  0.866 :z 22.0)
+       (new 'static 'vector :x -0.5 :y -0.866 :z 22.0)
+       (new 'static 'vector :x -0.5 :y  0.866 :z 22.0)
+       (new 'static 'vector :x  0.5 :y -0.866 :z 22.0)))
 
 (defun sub-rgb24 ((slot int) (corner int))
   "RGB 24 bits d'un coin de la table de police. Les octets y sont en echelle GS
@@ -531,33 +687,54 @@
 (defun subtitle-style-trace ()
   "Publier CE QUI EST DEPOSE dans le chemin de dessin : les couleurs RELUES dans la table de
    police, l'emplacement que `draw-string` a REELLEMENT selectionne (`last-color`, mis a jour
-   par les echappements `~NL`, font.gc:865 et :1309-1340), et l'alpha d'ombre dure tel qu'il a
-   ete relu apres ecriture. Aucune constante de ce fichier n'est republiee telle quelle.
-   Le rayon et l'opacite sont calcules sur la table de prises VIVANTE."
+   par les echappements `~NL`, font.gc:865 et :1309-1340), et l'alpha d'ombre dure relu apres
+   ecriture. Aucune constante de ce fichier n'est republiee telle quelle.
+   Gsubtitle-style-2 : la GEOMETRIE de l'ombre n'est plus lue dans la table source mais dans
+   `*subtitle-pass-log*` -- les origines REELLEMENT remises a `draw-string`, prise par prise,
+   moins celle de la passe de texte. La troncature a l'entier du contexte (cf. en-tete) est
+   donc DANS la mesure : si elle revenait, le barycentre publie redeviendrait non nul.
+   Le barycentre de la TABLE est publie a cote, en temoin : les deux doivent coincider."
   (let ((slot-corps (the-as int (-> *font-work* last-color)))
+        (tx (-> *subtitle-pass-log* SUB_SHADOW_TAPS x))
+        (ty (-> *subtitle-pass-log* SUB_SHADOW_TAPS y))
         (cx 0.0)
         (cy 0.0)
         (wsum 0.0)
         (transp 1.0)
         (r2 0.0)
-        (rmax 0.0))
+        (rmax 0.0)
+        (posees 0)
+        (sx 0.0)
+        (sy 0.0)
+        (swsum 0.0))
+    ;; temoin : barycentre de la TABLE SOURCE (c'est ce que le cycle 1 publiait)
     (dotimes (i SUB_SHADOW_TAPS)
       (let* ((tp (-> *subtitle-shadow-taps* i))
              (w (-> tp z)))
-        (+! cx (* w (-> tp x)))
-        (+! cy (* w (-> tp y)))
-        (+! wsum w)
-        (set! transp (* transp (- 1.0 (/ w 128.0))))))
-    (set! cx (/ cx wsum))
-    (set! cy (/ cy wsum))
+        (+! sx (* w (-> tp x)))
+        (+! sy (* w (-> tp y)))
+        (+! swsum w)))
+    (when (> swsum 0.0) (set! sx (/ sx swsum)) (set! sy (/ sy swsum)))
+    ;; VERDICT : barycentre des origines REELLEMENT DEPOSEES, pondere par l'alpha relu
     (dotimes (i SUB_SHADOW_TAPS)
-      (let* ((tp (-> *subtitle-shadow-taps* i))
-             (dx (- (-> tp x) cx))
-             (dy (- (-> tp y) cy))
-             (d2 (+ (* dx dx) (* dy dy))))
-        (+! r2 (* (-> tp z) d2))
-        (if (> d2 (* rmax rmax)) (set! rmax (sqrtf d2)))))
-    (set! r2 (sqrtf (/ r2 wsum)))
+      (let* ((lg (-> *subtitle-pass-log* i))
+             (w (-> lg z)))
+        (when (> (-> lg w) 0.0)
+          (set! posees (+ posees 1))
+          (+! cx (* w (- (-> lg x) tx)))
+          (+! cy (* w (- (-> lg y) ty)))
+          (+! wsum w)
+          (set! transp (* transp (- 1.0 (/ w 128.0)))))))
+    (when (> wsum 0.0) (set! cx (/ cx wsum)) (set! cy (/ cy wsum)))
+    (dotimes (i SUB_SHADOW_TAPS)
+      (let ((lg (-> *subtitle-pass-log* i)))
+        (when (> (-> lg w) 0.0)
+          (let* ((dx (- (- (-> lg x) tx) cx))
+                 (dy (- (- (-> lg y) ty) cy))
+                 (d2 (+ (* dx dx) (* dy dy))))
+            (+! r2 (* (-> lg z) d2))
+            (if (> d2 (* rmax rmax)) (set! rmax (sqrtf d2)))))))
+    (if (> wsum 0.0) (set! r2 (sqrtf (/ r2 wsum))))
     (format 0
             "SUBCOLOR nom_slot=3 nom_rgb=~X nom_degrade=~D ligne_slot=~D ligne_rgb=~X ligne_degrade=~D~%"
             (sub-rgb24 3 0)
@@ -584,14 +761,52 @@
             (-> *font-work* color-table 0 color 2)
             (-> *font-work* color-table 1 color 0)
             (-> *font-work* color-table 1 color 2))
+    ;; SUBDUP : combien de fois la CHAINE est-elle rasterisee en encre visible, par passe ?
+    ;; Compte pris dans les octets DMA de la passe de TEXTE (`sub-dma-census`). `draw-string`
+    ;; emet toujours DEUX sous-passes par glyphe : la duplication d'abord, le texte ensuite.
+    ;; `blocs` vaut donc 2 x glyphes ; `blocs_encres` compte ceux dont l'alpha DEPOSE est non
+    ;; nul. Un rapport de 1 veut dire : le texte est dessine, sa copie ne l'est pas.
+    (let* ((glyphes (/ *sub-blocs* 2))
+           (pdt (if (> glyphes 0) (/ *sub-blocs-encres* glyphes) 9))
+           (reste (if (> glyphes 0) (- *sub-blocs-encres* (* pdt glyphes)) -1))
+           (pombre (if (> glyphes 0) (/ *sub-ombre-encres* glyphes) -1)))
+      ;; une seule LIGNE, en deux ecritures : `format` n'accepte pas plus de 8 parametres.
+      (format 0 "SUBDUP passes_de_texte=~D reste=~D glyphes=~D " pdt reste glyphes)
+      (format 0
+              "blocs=~D blocs_encres=~D alpha_dup_dma=~D alpha_texte_dma=~D passes_ombre=~D~%"
+              *sub-blocs*
+              *sub-blocs-encres*
+              *sub-alpha-dup*
+              *sub-alpha-texte*
+              pombre)
+      (format 0
+              "SUBDUP-OMBRE blocs=~D blocs_encres=~D prises_posees=~D~%"
+              *sub-ombre-blocs*
+              *sub-ombre-encres*
+              posees))
     (format 0
-            "SUBSHADOW type=~S prises=~D dup_alpha=~D rayon_flou=~f opacite=~f~%"
+            "SUBSHADOW type=~S prises=~D dup_alpha=~D "
             (if (and (> SUB_SHADOW_TAPS 1) (zero? *subtitle-dup-shadow-seen*)) "ombre-floue" "duplique")
             SUB_SHADOW_TAPS
-            *subtitle-dup-shadow-seen*
-            r2
-            (- 1.0 transp))
-    (format 0 "SUBSHADOW-GEO rayon_max=~f decalage_x=~f decalage_y=~f~%" rmax cx cy))
+            *subtitle-dup-shadow-seen*)
+    (format 0 "rayon_flou=~f opacite=~f offset_x=~f offset_y=~f~%" r2 (- 1.0 transp) cx cy)
+    (format 0
+            "SUBSHADOW-GEO rayon_max=~f prises_posees=~D texte_ox=~f texte_oy=~f table_x=~f table_y=~f~%"
+            rmax
+            posees
+            tx
+            ty
+            sx
+            sy)
+    (dotimes (i SUB_SHADOW_TAPS)
+      (let ((lg (-> *subtitle-pass-log* i)))
+        (format 0
+                "SUBSHADOW-PRISE i=~D dessinee=~D dx=~f dy=~f alpha=~f~%"
+                i
+                (the int (-> lg w))
+                (- (-> lg x) tx)
+                (- (-> lg y) ty)
+                (-> lg z)))))
   ;; Perimetre vu de l'EXECUTION : les emplacements 0 a 35 de la table -- tout ce que les 215
   ;; autres sites de texte peuvent lire -- doivent rendre la MEME signature RGB qu'avant que ce
   ;; fichier n'ait rien ecrit ; et `color-shadow`, qui est global, doit etre revenu a sa valeur
@@ -612,25 +827,39 @@
 
 (defun subtitle-print-soft ((str-main string) (str-shadow string) (ctx font-context))
   "Dessiner une ligne de sous-titre : d'abord l'OMBRE (SUB_SHADOW_TAPS dessins noirs a alpha
-   faible, decales, dont le recouvrement fait le flou), puis le TEXTE par-dessus.
+   faible, CENTRES sur le texte, dont le recouvrement fait le flou), puis le TEXTE par-dessus.
    `str-shadow` porte exactement les memes caracteres VISIBLES que `str-main` : les deux
    sortent du MEME formateur, seuls les echappements de couleur changent, et un echappement ne
    compte pas dans la largeur (font.gc:1603, `~L` saute la mesure). L'ombre ne peut donc pas se
-   desaligner du texte -- c'est structurel, pas verifie apres coup."
-  (let ((ox (-> ctx origin x))
-        (oy (-> ctx origin y))
-        (oc (-> ctx color))
+   desaligner du texte -- c'est structurel, pas verifie apres coup.
+   Gsubtitle-style-2 : le decalage d'une prise passe par `*subtitle-draw-dx/dy*`, ajoutes en
+   FLOTTANT dans `print-game-subtitle` apres la construction du contexte. Il ne passe plus par
+   `(-> ctx origin)`, que cette construction TRONQUE A L'ENTIER -- c'est cette troncature qui
+   ecrasait les sept prises sur une grille entiere et fabriquait le double net que l'owner
+   voit. L'origine du contexte de l'appelant n'est plus touchee du tout."
+  (let ((oc (-> ctx color))
         (res 0.0))
+    ;; ---- OMBRE ----------------------------------------------------------------------
     (set! (-> ctx color) (the-as font-color SUB_FONT_SLOT_SHADOW))
+    (sub-dma-reset!)
     (dotimes (i SUB_SHADOW_TAPS)
       (let ((tp (-> *subtitle-shadow-taps* i)))
-        (set! (-> ctx origin x) (+ ox (-> tp x)))
-        (set! (-> ctx origin y) (+ oy (-> tp y)))
+        (set! (-> *subtitle-pass-log* i w) 0.0)
+        (set! *subtitle-draw-dx* (+ (-> tp x) *subtitle-shadow-bias-x*))
+        (set! *subtitle-draw-dy* (+ (-> tp y) *subtitle-shadow-bias-y*))
+        (set! *subtitle-pass-idx* i)
         (print-game-subtitle str-shadow ctx #f (the int (-> tp z)) 22)))
-    (set! (-> ctx origin x) ox)
-    (set! (-> ctx origin y) oy)
+    (set! *sub-ombre-blocs* *sub-blocs*)
+    (set! *sub-ombre-encres* *sub-blocs-encres*)
+    ;; ---- TEXTE ----------------------------------------------------------------------
+    (set! *subtitle-draw-dx* 0.0)
+    (set! *subtitle-draw-dy* 0.0)
     (set! (-> ctx color) oc)
+    (set! (-> *subtitle-pass-log* SUB_SHADOW_TAPS w) 0.0)
+    (set! *subtitle-pass-idx* SUB_SHADOW_TAPS)
+    (sub-dma-reset!)
     (set! res (print-game-subtitle str-main ctx #f 128 22))
+    (set! *subtitle-pass-idx* -1)
     (when (not *subtitle-style-traced?*)
       (set! *subtitle-style-traced?* #t)
       (subtitle-style-trace))
