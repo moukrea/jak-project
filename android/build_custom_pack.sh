@@ -199,6 +199,7 @@ data_freshness_guard(){
     "${RHUD_SRC}"$'\t''*.png'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''physics_chains.txt'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''physics_mesh.txt'$'\t''recharged_assets/'
+    "${RHUD_SRC}"$'\t''foliage_wind_protos.txt'$'\t''recharged_assets/'
   )
   local n_cov=0 spec cdir cglob cpfx cbase want
   for spec in "${cov_specs[@]}"; do
@@ -360,6 +361,19 @@ if [ -f "$ROOT/$RHUD_SRC/physics_mesh.txt" ]; then
   ln -s "$ROOT/$RHUD_SRC/physics_mesh.txt" "$STAGE/recharged_assets/physics_mesh.txt"
   MEMBERS+=("recharged_assets/physics_mesh.txt")
   echo "[custom-pack] physics mesh samples: 1 (delivery ungated; runtime feature flag physics=$F_PHYSICS)"
+fi
+# (C15) LEXIQUE DE VEGETATION TIE (Grecharged-foliage-wind3, defaut D2) — meme regle de livraison
+# que les deux ci-dessus : c'est une donnee A NOUS, le pack de base est iso-seul, donc une
+# livraison conditionnee par un drapeau ne l'expedierait NULLE PART. Et son absence est un mode de
+# defaillance SILENCIEUX : le moteur classe alors zero prototype comme vegetation, plus aucune
+# plante statique ne bouge, et rien ne plante — le journal publie `lexique=0` sur la ligne
+# `TIE sway-cover`, et c'est la SEULE trace. La boucle des PNG plus haut ne globe que *.png, donc
+# ce .txt a besoin de sa propre ligne, exactement comme physics_chains.txt.
+if [ -f "$ROOT/$RHUD_SRC/foliage_wind_protos.txt" ]; then
+  mkdir -p "$STAGE/recharged_assets"
+  ln -s "$ROOT/$RHUD_SRC/foliage_wind_protos.txt" "$STAGE/recharged_assets/foliage_wind_protos.txt"
+  MEMBERS+=("recharged_assets/foliage_wind_protos.txt")
+  echo "[custom-pack] lexique de vegetation TIE: 1 (livraison inconditionnelle; sans lui, zero balancement statique)"
 fi
 # (Gpbr-material-props) PER-TEXTURE MATERIAL PROPERTIES ARE DELIBERATELY NOT STAGED HERE.
 #    The previous phase shipped recharged_assets/materials.txt inside this pack. The owner
