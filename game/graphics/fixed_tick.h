@@ -58,10 +58,42 @@ constexpr double kFixedTickSeconds = 1.0 / 60.0;
 // plafond que le moteur s'impose deja lui-meme (`set-time-ratios`, fmin 4.0).
 constexpr int kMaxCatchupTicks = 4;
 
-// Tolerance d'accrochage : une frame reelle a moins de 10 % d'un nombre ENTIER de
-// ticks est ramenee dessus. Sur un panneau verrouille a 60 Hz, chaque frame vaut alors
-// exactement 1 tick, le reste accumule est nul, et rien ne bouge par rapport a avant.
-constexpr double kSnapTolerance = 0.10;
+// Gfixed-tick-anim-interp-2 — L'ACCROCHAGE PAR IMAGE EST REMPLACE PAR UN VERROU DE
+// CADENCE HYSTERETIQUE, ET C'EST LE CORRECTIF DE CETTE PHASE.
+//
+// CE QUI ETAIT FAUX. L'accrochage decidait IMAGE PAR IMAGE : toute image dont la duree
+// tombait a moins de 0,10 tick d'un entier etait ramenee dessus ET l'accumulateur etait
+// REMIS A ZERO. Sur un panneau verrouille (60,0 Hz) ca ne se voit pas : le reste vaut
+// deja zero. Chez l'owner, qui joue vers 20 images/s avec une duree d'image VARIABLE,
+// une image sur deux tombait dans la bande et l'autre non — donc le reste sous-tick
+// etait fabrique puis DETRUIT en alternance.
+//
+// Or l'avance de la pose DESSINEE entre deux images vaut exactement
+//     k + alpha(n) - alpha(n-1)   ticks,
+// c'est-a-dire dt/tick, donc le TEMPS REEL ECOULE... sauf sur une image accrochee, ou
+// le reste detruit `r` est retranche. Une image accrochee avance donc de (dt - r), avec
+// r pouvant valoir jusqu'a UN TICK ENTIER. Banc hors-ligne, 3000 images a 20 images/s
+// avec 12 % de variation de duree d'image (mesure sur la seule horloge, sans le jeu) :
+//     accrochage livre : avance de pose min 1,82 max 4,00 tick — amplitude 76 % ;
+//     verrou hysteretique : min 2,82 max 3,18 — amplitude 12 %, soit EXACTEMENT la
+//     variation reelle de la duree d'image, et rien de plus.
+// C'est ca, « c'est jittery PLUS QUE LE FRAMERATE » : l'horloge FABRIQUAIT de la gigue.
+//
+// CE QUI REMPLACE. Deux regimes, et on ne passe de l'un a l'autre que sur une preuve de
+// STABILITE, jamais image par image :
+//   - VERROUILLE : la cadence est un multiple entier constant du tick (panneau 60 Hz,
+//     limiteur a 30 ou 20 images/s). On declare l'image comme valant exactement N ticks,
+//     le reste est nul et alpha vaut 1,0 — c'est le comportement d'avant, au bit pres ;
+//   - LIBRE : tout le reste. L'accumulateur n'est JAMAIS remis a zero, alpha vaut
+//     acc/tick, et l'avance de pose suit le temps reel a la precision de la montre.
+constexpr double kLockTolerance = 0.05;   // ecart max a un entier de ticks, en ticks
+constexpr int kLockFrames = 12;           // images consecutives sur la grille avant verrou
+constexpr int kUnlockBadFrames = 3;       // images consecutives hors grille avant sortie
+constexpr double kPhaseSlew = 0.02;       // glissement de phase max par image, en ticks
+
+// Tolerance de l'ACCROCHAGE LIVRE, conservee UNIQUEMENT pour le bras d'ablation
+// `OG_TICK_LOCK=0` : c'est la valeur exacte du build que l'owner a teste.
+constexpr double kSnapLegacyTolerance = 0.10;
 
 // Gfixed-tick-anim-interp (2026-09-01) — CETTE CONSTANTE NE DESARME PLUS RIEN.
 // Elle valait 0.95 et servait a DESARMER l'horloge des que la cadence d'affichage
@@ -174,5 +206,25 @@ s32 render_alpha_micro();
 u64 total_ticks();
 u64 total_render_frames();
 u64 total_armed_frames();
+
+// Gfixed-tick-anim-interp-2 — ETAT DU VERROU DE CADENCE, publie a cote des mesures.
+// Sans lui, « pas d'amelioration a 30 images/s » et « la condition ne se represente
+// pas a 30 images/s verrouillees » sont indistinguables — c'est exactement l'erreur
+// que le cycle 1 a commise en publiant un rapport de 0,846 comme un resultat.
+//   lock_state()      1 = cadence verrouillee sur un multiple entier de ticks
+//   last_dev_ticks()  |dt/tick - entier le plus proche| de la derniere image
+//   lock_events()     entrees en verrou ; unlock_events() sorties
+//   ceiling_clamps()  images dont la duree a ete ecretee a kMaxCatchupTicks
+//   catchup_clamps()  images ou le plafond de rattrapage a JETE du temps de jeu
+// Correctif de cette phase ARME (defaut) ou non. A 0 (`OG_TICK_LOCK=0` /
+// `debug.opengoal.ticklock`), l'horloge reprend l'accrochage par image tel qu'il a ete
+// livre : c'est l'ablation du correctif sur LE MEME binaire.
+bool tick_lock_enabled();
+int lock_state();
+double last_dev_ticks();
+u64 lock_events();
+u64 unlock_events();
+u64 ceiling_clamps();
+u64 catchup_clamps();
 
 }  // namespace fixed_tick

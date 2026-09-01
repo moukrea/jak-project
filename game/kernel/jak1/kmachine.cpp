@@ -4997,11 +4997,24 @@ static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro, int skip
     }
   }
   const s64 lf = pad_replay_logic_frame();
+  // Gfixed-tick-anim-interp-2 — L'ETAT DU VERROU DE CADENCE EST PUBLIE SUR LA MEME
+  // LIGNE QUE LA MESURE. Sans lui, « pas d'amelioration a 30 images/s » et « la
+  // condition ne se represente pas parce que la cadence est verrouillee » rendent le
+  // meme chiffre : c'est exactement l'erreur du cycle 1, qui a publie un rapport de
+  // 0,846 comme un resultat alors que l'horloge etait verrouillee des deux cotes.
+  //   lock  1 = cadence verrouillee sur un multiple entier de ticks (alpha force a 1,0)
+  //   dev   |dt/tick - entier le plus proche| de CETTE image, en ticks
+  //   cl    cumul des images dont la duree a ete ecretee au plafond de rattrapage
+  //   cc    cumul des images ou le plafond a JETE du temps de jeu
   fprintf(stderr,
           "GFT n=%llu lf=%lld armed=%d skip=%d k=%d alpha=%d dt_ms=%.3f yaw=%.5f "
-          "cam=%.3f,%.3f,%.3f jak=%.3f,%.3f,%.3f\n",
+          "cam=%.3f,%.3f,%.3f jak=%.3f,%.3f,%.3f lock=%d dev=%.4f cl=%llu cc=%llu ticklock=%d\n",
           (unsigned long long)s_probe_n++, (long long)lf, armed, skip,
-          skip ? 0 : (catchup + 1), alpha_micro, dt_ms, yaw, cx, cy, cz, jx, jy, jz);
+          skip ? 0 : (catchup + 1), alpha_micro, dt_ms, yaw, cx, cy, cz, jx, jy, jz,
+          fixed_tick::lock_state(), fixed_tick::last_dev_ticks(),
+          (unsigned long long)fixed_tick::ceiling_clamps(),
+          (unsigned long long)fixed_tick::catchup_clamps(),
+          fixed_tick::tick_lock_enabled() ? 1 : 0);
 }
 
 // Gcamera-interp (autoport, owner 2026-07-01): per-logic-frame CAMERA-MATRIX dump

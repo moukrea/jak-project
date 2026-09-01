@@ -41,6 +41,20 @@ struct State {
   // l'affichage tourne plus vite que 60 Hz (perimetre de l'etape 1). Une decision
   // prise sur une frame isolee ferait clignoter l'armement a chaque hoquet.
   double dt_ema = kFixedTickSeconds;
+  // Gfixed-tick-anim-interp-2 — VERROU DE CADENCE HYSTERETIQUE.
+  // L'etat initial est VERROUILLE sur 1 tick : c'est le panneau 60 Hz, et c'est ce qui
+  // rend une course a 60 images/s identique au bit DES LA PREMIERE IMAGE, sans passer
+  // par une phase d'acquisition. Une cadence differente sort du verrou en
+  // `kUnlockBadFrames` images.
+  bool locked = true;
+  double lock_n = 1.0;
+  int good_run = kLockFrames;
+  int bad_run = 0;
+  double last_dev = 0.0;
+  u64 lock_events = 0;
+  u64 unlock_events = 0;
+  u64 ceiling_clamps = 0;
+  u64 catchup_clamps = 0;
 };
 
 State& state() {
@@ -143,6 +157,11 @@ void set_enabled(bool on) {
   s.accumulator = 0.0;
   s.dt_ema = kFixedTickSeconds;
   s.alpha_micro = 1000000;
+  // Meme etat initial que le demarrage : verrouille sur 1 tick.
+  s.locked = true;
+  s.lock_n = 1.0;
+  s.good_run = kLockFrames;
+  s.bad_run = 0;
 }
 
 bool probe_enabled() {
@@ -157,6 +176,17 @@ bool anim_interp_enabled() {
 
 bool anim_probe_enabled() {
   static const bool s_on = read_bool_flag("OG_ANIM_PROBE", "debug.opengoal.animprobe", false);
+  return s_on;
+}
+
+// Gfixed-tick-anim-interp-2 — ABLATION DU CORRECTIF DE CETTE PHASE, SUR LE MEME BINAIRE.
+// A 0, l'horloge reprend l'ACCROCHAGE PAR IMAGE livre a l'owner : toute image a moins de
+// kSnapLegacyTolerance d'un nombre entier de ticks y est ramenee ET l'accumulateur est
+// remis a zero. C'est ce que le build qu'il a teste faisait, et c'est ce qui fabriquait
+// la gigue qu'il decrit. Sans cet interrupteur, l'avant/apres se ferait entre deux
+// binaires — donc entre deux compilations, deux jeux de donnees et deux courses.
+bool tick_lock_enabled() {
+  static const bool s_on = read_bool_flag("OG_TICK_LOCK", "debug.opengoal.ticklock", true);
   return s_on;
 }
 
@@ -186,6 +216,30 @@ u64 total_render_frames() {
 
 u64 total_armed_frames() {
   return state().armed_frames;
+}
+
+int lock_state() {
+  return state().locked ? 1 : 0;
+}
+
+double last_dev_ticks() {
+  return state().last_dev;
+}
+
+u64 lock_events() {
+  return state().lock_events;
+}
+
+u64 unlock_events() {
+  return state().unlock_events;
+}
+
+u64 ceiling_clamps() {
+  return state().ceiling_clamps;
+}
+
+u64 catchup_clamps() {
+  return state().catchup_clamps;
 }
 
 void set_publisher(PublishFn fn) {
@@ -255,32 +309,113 @@ int begin_render_frame() {
   s.disarmed_fast_display = (s.dt_ema < kFixedTickSeconds * kDisarmFasterThan);
 
   // Un hoquet (chargement, changement de niveau) ne doit pas fabriquer un
-  // fast-forward : on borne l'apport a ce que le rattrapage peut absorber.
+  // fast-forward : on borne l'apport a ce que le rattrapage peut absorber. Le temps
+  // au-dela est JETE — c'est compte, parce qu'un temps jete est une saccade.
   const double dt_ceiling = kMaxCatchupTicks * kFixedTickSeconds;
+  bool ceiling_hit = false;
   if (dt > dt_ceiling) {
     dt = dt_ceiling;
+    ceiling_hit = true;
+    s.ceiling_clamps++;
   }
 
-  // Accrochage a un nombre entier de ticks. C'est ce qui rend la sortie a 60 fps
-  // identique : sur un panneau verrouille, dt vaut 1 tick a la milliseconde pres,
-  // donc exactement 1 tick, et le reste accumule reste NUL.
-  bool snapped = false;
+  // ------------------------------------------------------------------------------
+  // VERROU DE CADENCE HYSTERETIQUE (Gfixed-tick-anim-interp-2). Voir fixed_tick.h
+  // pour la mesure qui refute l'accrochage par image qu'il remplace.
+  // ------------------------------------------------------------------------------
   const double ticks_f = dt / kFixedTickSeconds;
   const double nearest = std::floor(ticks_f + 0.5);
-  if (nearest >= 1.0 && std::fabs(ticks_f - nearest) <= kSnapTolerance) {
-    dt = nearest * kFixedTickSeconds;
-    snapped = true;
-    // Gfixed-tick-anim-interp — L'ACCROCHAGE PORTE AUSSI SUR L'ACCUMULATEUR, ET C'EST
-    // CE QUI MANQUAIT. Mesure : a 60,0 img/s verrouilles, l'alpha publie restait FIGE a
-    // 0,738171 sur 800 images sur 800, jamais 1,0. Cause : l'accrochage ne corrigeait
-    // que `dt` ; le reste fractionnaire herite du chargement (cadence irreguliere) etait
-    // ensuite ajoute puis retire a l'identique a chaque image, donc il ne se resorbait
-    // JAMAIS. Tant que rien ne lisait l'alpha en dehors de la camera -- ou un alpha
-    // CONSTANT ne produit qu'une latence constante -- ca ne se voyait pas.
-    // Ici il se voit : la reference « 60 images/s identique au bit » exige alpha == 1,0.
-    // Accrocher, c'est declarer que cette image vaut EXACTEMENT N ticks : il n'y a donc
-    // pas de reste sous-tick, et le porter serait se contredire. Le temps jete vaut au
-    // plus une fraction de tick, UNE FOIS, au moment ou la cadence se verrouille.
+  s.last_dev = std::fabs(ticks_f - nearest);
+  // Une image ECRETEE n'est pas une mesure de cadence : son `ticks_f` vaut exactement
+  // kMaxCatchupTicks par construction, donc elle tomberait pile sur la grille et
+  // ferait croire a un verrou. Elle est declaree hors grille.
+  // Et on refuse de verrouiller au-dela du plafond de rattrapage : le verrou
+  // declarerait N ticks que la boucle ne saurait pas executer, donc du temps jete a
+  // chaque image.
+  const bool on_grid = !ceiling_hit && nearest >= 1.0 &&
+                       nearest <= (double)kMaxCatchupTicks && s.last_dev <= kLockTolerance;
+
+  if (!tick_lock_enabled()) {
+    // BRAS D'ABLATION : l'accrochage PAR IMAGE tel qu'il a ete livre. Conserve pour que
+    // l'avant/apres se mesure sur LE MEME binaire, la MEME course et la MEME suite de
+    // durees d'image. `locked` sert alors d'etiquette « cette image a ete accrochee ».
+    s.locked = nearest >= 1.0 && s.last_dev <= kSnapLegacyTolerance;
+    if (s.locked) {
+      dt = nearest * kFixedTickSeconds;
+      s.accumulator = 0.0;
+    }
+    s.accumulator += dt;
+    int kl = 0;
+    while (s.accumulator >= kFixedTickSeconds && kl < kMaxCatchupTicks) {
+      s.accumulator -= kFixedTickSeconds;
+      kl++;
+    }
+    if (s.accumulator >= kFixedTickSeconds) {
+      s.accumulator = kFixedTickSeconds * 0.999;
+      s.catchup_clamps++;
+    }
+    if (s.locked && kl >= 1 && s.accumulator < 1e-9) {
+      s.alpha_micro = 1000000;
+    } else {
+      double al = s.accumulator / kFixedTickSeconds;
+      if (al < 0.0) {
+        al = 0.0;
+      }
+      if (al > 1.0) {
+        al = 1.0;
+      }
+      s.alpha_micro = (s32)(al * 1000000.0 + 0.5);
+    }
+    if (kl < 1) {
+      return 0;
+    }
+    s.ticks += (u64)kl;
+    return kl;
+  }
+
+  if (s.locked) {
+    if (on_grid && nearest == s.lock_n) {
+      s.bad_run = 0;
+    } else if (++s.bad_run >= kUnlockBadFrames) {
+      // SORTIE DE VERROU. Une image isolee hors grille (une image sautee sur un
+      // panneau 60 Hz) ne casse rien : il en faut kUnlockBadFrames de suite.
+      s.locked = false;
+      s.unlock_events++;
+      s.good_run = 0;
+      s.lock_n = 0.0;
+      // CONTINUITE D'ALPHA. Verrouille il valait 1,0 ; le regime libre le calcule en
+      // acc/tick. On repart donc du HAUT de l'intervalle pour que la premiere image
+      // libre publie 1,0 moins epsilon, et non 0 — sans quoi la pose reculerait d'un
+      // tick entier sur l'image de transition.
+      s.accumulator = kFixedTickSeconds * (1.0 - 1e-6);
+    }
+  } else {
+    if (on_grid && nearest == s.lock_n) {
+      s.good_run++;
+    } else {
+      s.lock_n = on_grid ? nearest : 0.0;
+      s.good_run = on_grid ? 1 : 0;
+    }
+    if (s.good_run >= kLockFrames) {
+      // ENTREE EN VERROU. La cadence est stable depuis kLockFrames images ; il reste a
+      // aligner la PHASE. On ne la saute pas — un saut vaudrait jusqu'a un tick entier,
+      // c'est-a-dire le defaut qu'on corrige. On la fait GLISSER de kPhaseSlew par
+      // image (0,33 ms) jusqu'au haut de l'intervalle, ou alpha vaut deja 1,0 moins
+      // epsilon : l'encliquetage ne coute alors que kPhaseSlew de tick.
+      s.accumulator += kPhaseSlew * kFixedTickSeconds;
+      if (s.accumulator >= kFixedTickSeconds * (1.0 - kPhaseSlew)) {
+        s.locked = true;
+        s.lock_events++;
+        s.bad_run = 0;
+        s.accumulator = 0.0;
+      }
+    }
+  }
+
+  if (s.locked) {
+    // La cadence EST un multiple entier du tick : on le declare exactement, et le reste
+    // sous-tick est nul PAR CONSTRUCTION, pas par remise a zero repetee.
+    dt = s.lock_n * kFixedTickSeconds;
     s.accumulator = 0.0;
   }
 
@@ -295,28 +430,16 @@ int begin_render_frame() {
     // Le plafond de rattrapage a mordu : on jette le retard au lieu de le porter,
     // sinon la frame suivante hériterait d'un backlog qui ne se resorbe jamais.
     s.accumulator = kFixedTickSeconds * 0.999;
-  }
-  if (k < 1) {
-    // IMAGE DE RENDU SEUL : le temps reel n'a pas encore paye un tick entier. On garde
-    // l'horloge armee et on publie l'alpha, de sorte que la pose DESSINEE avance quand
-    // meme — c'est tout l'objet de cette phase. Le reste accumule est conserve, donc
-    // rien n'est perdu ni invente.
-    double a0 = s.accumulator / kFixedTickSeconds;
-    if (a0 < 0.0) {
-      a0 = 0.0;
-    }
-    if (a0 > 1.0) {
-      a0 = 1.0;
-    }
-    s.alpha_micro = (s32)(a0 * 1000000.0 + 0.5);
-    return 0;
+    s.catchup_clamps++;
   }
 
-  s.ticks += (u64)k;
-
-  // Alpha de rendu. Cadence verrouillee (accroche ET reste nul) => 1.0, donc aucune
-  // interpolation et aucune latence ajoutee : c'est la reference 60 fps.
-  if (snapped && s.accumulator < 1e-9) {
+  // ALPHA. Verrouille => 1,0, aucune interpolation, aucune latence ajoutee : c'est la
+  // reference 60 images/s, et elle est obtenue par l'ETAT de l'horloge, pas par une
+  // coincidence numerique sur le reste accumule.
+  // Libre => acc/tick, ce qui fait avancer la pose dessinee exactement du temps reel
+  // ecoule. Vrai AUSSI pour une image de rendu seul (k = 0, affichage plus rapide que
+  // le tick) : c'est le meme calcul, il n'y a plus deux chemins.
+  if (s.locked) {
     s.alpha_micro = 1000000;
   } else {
     double a = s.accumulator / kFixedTickSeconds;
@@ -328,6 +451,13 @@ int begin_render_frame() {
     }
     s.alpha_micro = (s32)(a * 1000000.0 + 0.5);
   }
+  if (k < 1) {
+    // IMAGE DE RENDU SEUL : le temps reel n'a pas encore paye un tick entier. Le reste
+    // accumule est conserve, donc rien n'est perdu ni invente.
+    return 0;
+  }
+
+  s.ticks += (u64)k;
   return k;
 }
 

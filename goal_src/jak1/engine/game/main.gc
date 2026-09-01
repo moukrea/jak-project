@@ -1476,6 +1476,24 @@
           (format 0 "AJP n=~D arm=~D skip=~D alpha=~f ni=~D "
                   (-> *display* real-actual-frame-counter)
                   *fixed-tick-armed* *fixed-tick-skip* *anim-interp-alpha* *anim-interp-n*)
+          ;; Gfixed-tick-anim-interp-2 — IDENTITE DE L'ANIMATION JOUEE, et son numero de
+          ;; frame de LOGIQUE. Sans elles, la fenetre de mesure ne sait pas si elle
+          ;; enjambe un CHANGEMENT d'animation — et un changement d'animation est une
+          ;; discontinuite de pose REELLE, que le retimage ne peut ni ne doit lisser.
+          ;; Mesure : sur la queue d'une course d'attente, les deux bras publiaient le
+          ;; MEME ecart maximum de 1039,3867 unites ; le maximum ne mesurait plus la
+          ;; gigue, il mesurait la transition. La fenetre se definit donc par
+          ;; « `ag` constant », un critere de CONTENU, jamais par la grandeur jugee.
+          ;; `joint-channel-render-frame` n'est deliberement PAS appelee ici : elle
+          ;; incremente `*anim-interp-n*`, et la sonde fausserait sa propre preuve.
+          (let ((sk (-> pd skel)))
+            (format 0 "ag=~D fn=~f "
+                    (if (and sk (> (-> sk active-channels) 0))
+                        (the-as int (-> sk root-channel 0 frame-group))
+                        0)
+                    (if (and sk (> (-> sk active-channels) 0))
+                        (-> sk root-channel 0 frame-num)
+                        0.0)))
           (format 0 "r=~f,~f,~f "
                   (-> nl data 0 bone transform vector 3 x)
                   (-> nl data 0 bone transform vector 3 y)

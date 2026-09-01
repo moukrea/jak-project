@@ -52,6 +52,39 @@
 
 constexpr bool run_dma_copy = false;
 
+// Gfixed-tick-anim-interp-2 — STIMULUS DE CADENCE IRREGULIERE, opt-in au PRODUCTEUR
+// (`OG_FRAME_JITTER_PCT=<p>` ; absent => rend la cible telle quelle, cout nul).
+//
+// POURQUOI IL A FALLU L'AJOUTER. Le limiteur x86 tient sa cible a la fraction de
+// milliseconde : a 30 images/s imposees, CHAQUE image vaut exactement 2 ticks, l'horloge
+// a pas fixe se verrouille dessus et il n'y a rien a interpoler. Or le defaut que l'owner
+// subit — « quand le framerate est dans les 20 FPS, je trouve que c'est jittery, PLUS QUE
+// LE FRAMERATE » — vient precisement de ce que la duree d'image VARIE sur son telephone.
+// Mesurer a cadence parfaitement verrouillee, c'est mesurer une condition ABSENTE : le
+// cycle 1 l'a fait et a publie deux bras d'ablation identiques a 30 images/s.
+//
+// Le decalage est tire d'un generateur congruentiel indexe sur le NUMERO D'IMAGE, donc la
+// meme suite de durees est rejouee A L'IDENTIQUE dans les deux bras d'une ablation : la
+// seule difference qui reste entre eux est l'interpolation elle-meme.
+static double jittered_target_fps(double target) {
+  static const double s_amp = []() -> double {
+    const char* e = std::getenv("OG_FRAME_JITTER_PCT");
+    return e ? std::atof(e) / 100.0 : 0.0;
+  }();
+  if (s_amp <= 0.0 || target <= 0.0) {
+    return target;
+  }
+  static u32 s_n = 0;
+  u32 x = ++s_n * 2654435761u;
+  x ^= x >> 15;
+  x *= 2246822519u;
+  x ^= x >> 13;
+  const double u = ((double)(x >> 8) / 16777216.0) * 2.0 - 1.0;  // [-1, 1)
+  const double period = (1.0 / target) * (1.0 + s_amp * u);
+  return 1.0 / period;
+}
+
+
 constexpr PerGameVersion<int> fr3_level_count(jak1::LEVEL_TOTAL,
                                               jak2::LEVEL_TOTAL,
                                               jak3::LEVEL_TOTAL,
@@ -775,7 +808,8 @@ void GLDisplay::render() {
   if (Gfx::g_global_settings.framelimiter) {
     auto p = scoped_prof("frame-limiter");
     g_gfx_data->frame_limiter.run(
-        Gfx::g_global_settings.target_fps, Gfx::g_global_settings.experimental_accurate_lag,
+        jittered_target_fps(Gfx::g_global_settings.target_fps),
+        Gfx::g_global_settings.experimental_accurate_lag,
         Gfx::g_global_settings.sleep_in_frame_limiter, g_gfx_data->last_engine_time);
   }
 
