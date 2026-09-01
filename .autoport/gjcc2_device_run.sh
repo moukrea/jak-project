@@ -19,7 +19,7 @@ ADB=/home/emeric/Android/platform-tools/adb
 [ -x "$ADB" ] || ADB=$(command -v adb)
 SER=eae4df44
 PKG=org.opengoal.gk.jak1
-TAG="${1:-d1}"; MODE="${2:-3}"; DUR="${3:-240}"; POS="${4:-}"
+TAG="${1:-d1}"; MODE="${2:-3}"; DUR="${3:-240}"; POS="${4:-}"   # POS = "X Z" cible du pilote, en metres
 OUT=.autoport/reports/Gjak1-crate-collision/device2; mkdir -p "$OUT"
 LOG="$OUT/dev-$TAG-logcat.txt"; SUM="$OUT/dev-$TAG-resume.txt"
 a(){ "$ADB" -s "$SER" "$@"; }
@@ -32,6 +32,10 @@ cleanup(){
   a shell "setprop debug.opengoal.level.warp ''"     >/dev/null 2>&1
   a shell "setprop debug.opengoal.level.warp.pos ''" >/dev/null 2>&1
   [ -n "${LCPID:-}" ] && kill "$LCPID" 2>/dev/null
+  # On ARRETE le jeu en sortant. Sans ca, l'auto-constructeur voit l'application au
+  # premier plan, croit qu'une mesure tourne et REFUSE d'installer pendant 1500 s :
+  # une campagne qui ne nettoie pas derriere elle bloque la livraison suivante.
+  a shell am force-stop $PKG >/dev/null 2>&1
   return 0
 }
 trap cleanup EXIT
@@ -64,8 +68,25 @@ echo "  relu sur le telephone : $(a shell "grep '^gjcc' $SET" 2>/dev/null | tr -
 echo "== DEMARRAGE =="
 a shell am force-stop $PKG >/dev/null 2>&1
 pad ""
-a shell "setprop debug.opengoal.f1.warp 1" >/dev/null 2>&1
-if [ -n "$POS" ]; then a shell "setprop debug.opengoal.level.warp.pos '$POS'" >/dev/null 2>&1; echo "  spawn force a : $POS"; fi
+# Le spawn reste le point de depart AUTORISE (`f1.warp`). Deux essais l'imposent :
+#  - `level.warp.pos` vers le milieu d'un amas a GELE le joueur — `GJCC-POS dist_m=0.0000`
+#    sur 4500 images, position figee a la valeur demandee, cadence 35,9 (rien de rendu) ;
+#  - le spawn autorise, lui, charge tout et le joueur bouge (`dist_m=853,7` en 3000 images).
+# On part donc de la ou le jeu sait demarrer, et c'est le PILOTE qui amene le joueur sur
+# les caisses, avec de vraies entrees manette.
+if [ -n "${SPAWN:-}" ]; then
+  # `training-warp`, PAS `game-start`. Les deux points de reprise sont a 2,4 m l'un de
+  # l'autre, mais `game-start` porte le drapeau `game-start` (level-info.gc:90) qui declenche
+  # la sequence de nouvelle partie : mesure v4, le joueur nait bien au milieu des caisses
+  # (GJCC-NEAR sur 4 caisses a l'image 642) puis il est REPLACE au depart autorise a
+  # l'image 900. `training-warp` ne porte que le drapeau `warp`.
+  a shell "setprop debug.opengoal.level.warp training-warp" >/dev/null 2>&1
+  a shell "setprop debug.opengoal.level.warp.pos '$SPAWN'" >/dev/null 2>&1
+  echo "  spawn force via level.warp a : $SPAWN"
+else
+  a shell "setprop debug.opengoal.f1.warp 1" >/dev/null 2>&1
+fi
+[ -n "$POS" ] && echo "  cible du pilote (metres) : $POS"
 a shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
 a shell svc power stayon true >/dev/null 2>&1
 a logcat -c >/dev/null 2>&1
@@ -82,28 +103,13 @@ done
 grep -a 'GJCC-MODE' "$LOG" | tail -1 | sed 's/.*GJCC-MODE/  GJCC-MODE/'
 sleep 20
 
-echo "== COURSE : le joueur COURT pendant ${DUR}s (vraies entrees manette) =="
-END=$(( $(date +%s) + DUR ))
-k=0
-while [ "$(date +%s)" -lt "$END" ]; do
-  k=$((k+1))
-  # Le motif fait DEUX choses a la fois : il deplace le joueur, et il BALAYE LA CAMERA
-  # (stick droit `rx`). C'est le geste que l'owner decrit — une caisse qui apparait quand
-  # on tourne la camera nait TARD, donc juste sous les pieds du joueur : c'est la seule
-  # facon d'arriver sur une caisse pendant la fenetre ou sa sphere n'est pas encore posee.
-  case $(( k % 10 )) in
-    0) pad "ly=0 rx=230";  sleep 2.0 ;;     # court en balayant la camera a droite
-    1) pad "ly=0";         sleep 4   ;;
-    2) pad "ly=0 rx=25";   sleep 2.0 ;;     # court en balayant la camera a gauche
-    3) pad "ly=0";         sleep 4   ;;
-    4) pad "ly=0 lx=210";  sleep 1.5 ;;     # vire a droite
-    5) pad "ly=0 rx=230";  sleep 2.0 ;;
-    6) pad "ly=0 x";       sleep 1   ;;     # saut, pour se degager d'un decor
-    7) pad "ly=0 lx=45";   sleep 1.5 ;;     # vire a gauche
-    8) pad "rx=15";        sleep 1.5 ;;     # demi-tour camera a l'arret
-    9) pad "ly=0";         sleep 4   ;;
-  esac
-done
+echo "== COURSE : le joueur COURT ${DUR}s vers les caisses (pilote en boucle fermee) =="
+if [ -n "$POS" ]; then
+  bash .autoport/gjcc2_pilote.sh "$SER" "$PKG" "$DUR" $POS
+else
+  END=$(( $(date +%s) + DUR ))
+  while [ "$(date +%s)" -lt "$END" ]; do pad "ly=0"; sleep 4; pad "ly=0 lx=200"; sleep 1.2; done
+fi
 pad ""
 sleep 6
 kill "$LCPID" 2>/dev/null; sleep 1

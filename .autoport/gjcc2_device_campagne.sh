@@ -5,16 +5,17 @@
 # Redmi rend vraiment. Sans la paire, un zero ne veut rien dire.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
-D="${DUR:-300}"
+D="${DUR:-240}"
 # Les caisses de Geyser Rock ne sont PAS au point de depart : la plus proche est a 39 m et
 # elles s'etalent sur 244 m. Une course a l'aveugle depuis le spawn n'en approche AUCUNE
 # (mesure : course `probe`, 2700 images, approchees=0, dist confirmee par GJCC-POS).
-# On fait donc naitre le joueur AU MILIEU d'un amas, par `debug.opengoal.level.warp.pos`
-# (metres). Les trois amas couvrent 24 des 31 caisses ; leurs centres sont calcules a
-# partir de .autoport/gjcc_waypoints.txt, pas choisis a la main.
-C1="-1159.72 30.0 995.85"    # 11 caisses, rayon 28 m
-C2="-1196.10 31.0 862.06"    #  8 caisses, rayon 21 m
-C3="-1182.03 21.0 913.49"    #  5 caisses, rayon 18 m
+# Le joueur part donc du point de depart AUTORISE et un PILOTE EN BOUCLE FERMEE l'y
+# amene, en lisant sa position (sonde `dump.pos`, ~4 Hz) et en corrigeant le cap par de
+# vraies entrees manette. Les trois amas couvrent 24 des 31 caisses ; leurs centres sont
+# calcules depuis .autoport/gjcc_waypoints.txt, pas choisis a la main.
+C1="-1291.85 1028.92"  # amas de 3 caisses, le seul ATTEIGNABLE a pied depuis le depart (39 m)
+C2="-1159.72 995.85"   # amas de 11 caisses, plus haut sur le rocher
+C3="-1182.03 913.49"   # amas de 5 caisses
 run(){ echo "############ COURSE $1 (gjcc=$2, amas $4) ############"
        bash .autoport/gjcc2_device_run.sh "$1" "$2" "$D" "$3" || echo "  (course $1 en echec, on continue)"
        sleep 5; }
