@@ -2821,6 +2821,19 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gfixed-tick-anim-interp-2
+  name: 'ANIMATIONS SACCADEES EN BASSE CADENCE (owner 2026-09-01, retour 2) : « Quand le framerate est dans les 20 FPS, je
+    trouve que c''est jittery, PLUS QUE LE FRAMERATE [...] faut que ça marche dans les deux sens ». Le cycle 1 a ameliore
+    la HAUTE cadence (180 img/s : 7,58 -> 2,56) et laisse la basse INTACTE voire PIRE (30 img/s : 17,04 -> 20,14). Ma porte
+    exigeait une mesure > 60 et reléguait les basses en « hors verdict » : elle a valide un chantier qui ne traite pas son
+    cas.'
+  prompt: prompts/phase-Gfixed-tick-anim-interp-2.md
+  validator: validators/phase-Gfixed-tick-anim-interp-2.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gsubtitle-style-2
   name: 'SOUS-TITRES, RETOUR 2 (owner 2026-08-31, NON VALIDE) : « on voit encore le texte en dur duppliqué dessous avec une
     opacité réduite. L''ombre portée est décalée du texte au lieu d''être pile en dessous ». DEUX defauts : le texte duplique
@@ -2839,7 +2852,9 @@ phases:
   name: 'SAUT DE CINEMATIQUE, FINITION (owner 2026-08-31) : « la cartouche est horrible avec ses coins arrondis pixelisés,
     on est pas dans un jeu en pixel art [...] le texte et le bouton sont même pas centrés [...] même pas sûr qu''elle ajuste
     sa taille en fonction de son contenu, ça fait très amateur ». Plus : duree a reduire d''UN QUART (2000 -> 1500 ms), remplissage
-    et saut synchronises. ACQUIS : la couverture 75/75 chemins ne doit pas regresser.'
+    et saut synchronises. ACQUIS : la couverture 75/75 chemins ne doit pas regresser. PLUS (owner 2026-09-01) : RETIRER le
+    saut instantane natif d''OpenGOAL (triangle) — « ça collide un peu [...] c''est un peu wacky ». Un seul geste de saut
+    dans le jeu.'
   prompt: prompts/phase-Gcutscene-skip-all.md
   validator: validators/phase-Gcutscene-skip-all.sh
   max_turns: 3000

@@ -18,5 +18,9 @@ if not c or abs(float(c[0].get('marge_g',0))-float(c[0].get('marge_d',9)))>1 \
    or abs(float(c[0].get('marge_h',0))-float(c[0].get('marge_b',9)))>1: F("texte non centre dans la cartouche")
 fit=[kv(l) for l in re.findall(r'^CUTFIT .*$',t,re.M)]
 if len({x.get('largeur_cartouche') for x in fit})<2: F("la cartouche ne s'adapte pas a la longueur du texte")
-print("[Gcsp ok] 1,5 s, coins lisses, texte centre, cartouche adaptative")
+n=[kv(l) for l in re.findall(r'^CUTNATIVE .*$',t,re.M)]
+if not n: F("CUTNATIVE absent : l'owner veut le saut instantane d'OpenGOAL (triangle) RETIRE, il collide avec le maintien de cercle")
+if int(n[0].get('sites_skip_instantane',9))!=0 or n[0].get('touche_triangle_saute')!='0':
+    F(f"saut instantane encore actif ({n[0].get('sites_skip_instantane')} site(s), triangle={n[0].get('touche_triangle_saute')}) — un seul oubli et le comportement wacky revient")
+print("[Gcsp ok] 1,5 s, coins lisses, texte centre, cartouche adaptative, saut natif retire")
 PY

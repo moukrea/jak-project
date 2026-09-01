@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 266,
+  "current_phase_idx": 267,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -256,7 +256,8 @@
     "Gjak1-crate-collision": 2,
     "Ghd-skin-origin-stretch": 1,
     "Gjak1-crate-collision-2": 2,
-    "Gfixed-tick-anim-interp": 1
+    "Gfixed-tick-anim-interp": 1,
+    "Gcutscene-npc-flicker": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1157,9 +1158,10 @@
     "Gjak1-crate-collision": 1788154483.2065616,
     "Ghd-skin-origin-stretch": 1788246029.843314,
     "Gjak1-crate-collision-2": 1788263660.621679,
-    "Gfixed-tick-anim-interp": 1788270191.1346
+    "Gfixed-tick-anim-interp": 1788270191.1346,
+    "Gcutscene-npc-flicker": 1788275147.1497102
   },
-  "last_update": "2026-09-01T14:48:23.122118+00:00",
+  "last_update": "2026-09-01T17:08:20.025571+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1292,7 +1294,8 @@
     "Gcutscene-skip-all",
     "Gjak1-crate-collision",
     "Gjak1-crate-collision-2",
-    "Gfixed-tick-anim-interp"
+    "Gfixed-tick-anim-interp",
+    "Gcutscene-npc-flicker"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
@@ -1310,6 +1313,7 @@
     "Grecharged-materials-modern-parity": "2026-08-31 03:56 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-materials-modern-parity quand il valide.",
     "Gcutscene-skip-all": "2026-08-31 07:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-skip-all quand il valide.",
     "Gjak1-crate-collision": "2026-08-31 12:35 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gjak1-crate-collision quand il valide.",
-    "Gjak1-crate-collision-2": "2026-09-01 15:43 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gjak1-crate-collision-2 quand il valide."
+    "Gjak1-crate-collision-2": "2026-09-01 15:43 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gjak1-crate-collision-2 quand il valide.",
+    "Gfixed-tick-anim-interp": "2026-09-01 17:05 : deja validee, toujours en attente de la parole de l'owner."
   }
 }
