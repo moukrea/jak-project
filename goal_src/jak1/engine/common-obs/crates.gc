@@ -1278,6 +1278,8 @@
 (define *gjcc-near-n*     0)    ;; caisses APPROCHEES  = le DENOMINATEUR
 (define *gjcc-thru-n*     0)    ;; caisses TRAVERSEES  = le NUMERATEUR
 (define *gjcc-thru2-n*    0)    ;; dont celles traversees sur DEUX images ou plus
+(define *gjcc-near-lines* 0)    ;; plafond de lignes GJCC-NEAR
+(define *gjcc-dist*       0.0)  ;; distance parcourue par le joueur : PREUVE que le pilote pilote
 (define *gjcc-thru-lines* 0)    ;; plafond de lignes, pour ne jamais inonder logcat
 (define *gjcc-frames*     0)
 (define *gjcc-warp*       0)    ;; images ecartees pour saut de position (teleportation)
@@ -1308,6 +1310,7 @@
   ;; les compteurs repartent de zero a CHAQUE pose de bouton : sans ca, ce qui s'est
   ;; passe avant l'ablation serait compte du cote de l'ablation.
   (set! *gjcc-degen-n* 0) (set! *gjcc-near-n* 0) (set! *gjcc-thru-n* 0) (set! *gjcc-thru2-n* 0)
+  (set! *gjcc-near-lines* 0) (set! *gjcc-dist* 0.0)
   (set! *gjcc-thru-lines* 0) (set! *gjcc-warp* 0)
   (dotimes (i GJCC-SLOTS) (set! (-> *gjcc-thru-st* i) 0))
   (format 0 "GJCC-MODE mode=~D rayon=~f maxtris=~D~%"
@@ -1329,6 +1332,7 @@
       (set! *gjcc-prev-px* px)
       (set! *gjcc-prev-py* py)
       (set! *gjcc-prev-pz* pz)
+      (if (< step 32768.0) (set! *gjcc-dist* (+ *gjcc-dist* step)))
       ;; GARDE DE TELEPORTATION. Un saut de plus de 8 m en une image n'est pas une
       ;; course : c'est un warp, un chargement ou une cinematique. On ne compte
       ;; jamais une traversee sur ces images-la — sinon l'instrument fabriquerait
@@ -1387,7 +1391,14 @@
                                                 (< dx (+ h 8192.0)) (< dz (+ h 8192.0))
                                                 (< (fabs (- py ey)) 12288.0))
                                        (set! st (logior st 1))
-                                       (+! *gjcc-near-n* 1))
+                                       (+! *gjcc-near-n* 1)
+                                       ;; l'IDENTITE de chaque caisse approchee, pour que le
+                                       ;; denominateur du verdict soit une UNION verifiable entre
+                                       ;; courses et non un simple compte qu'on ne peut pas recouper.
+                                       (when (< *gjcc-near-lines* 64)
+                                         (+! *gjcc-near-lines* 1)
+                                         (format 0 "GJCC-NEAR aid=~D look=~A f=~D dx=~f dz=~f~%"
+                                                 (the-as int (-> ent aid)) (-> c look) *gjcc-frames* dx dz)))
                                      (cond
                                        ;; DEDANS : le joueur est a moins de son PROPRE rayon de corps
                                        ;; (2867,2) de l'axe de la caisse, et sa hauteur est dans la
@@ -1458,5 +1469,9 @@
                    (if *actors-sweep-complete* 1 0)
                    *gjcc-degen-n*
                    *gjcc-mode*
-                   *actor-collision-birth-radius*))))))
+                   *actor-collision-birth-radius*)
+           ;; LE PILOTE PILOTE-T-IL ? Sans cette ligne, « 0 caisse approchee » ne distingue
+           ;; pas « le joueur n'a rencontre aucune caisse » de « le joueur n'a pas bouge ».
+           (format 0 "GJCC-POS f=~D dist_m=~f px=~f py=~f pz=~f~%"
+                   *gjcc-frames* (/ *gjcc-dist* 4096.0) px py pz))))))
   (none))
