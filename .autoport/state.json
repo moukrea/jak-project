@@ -255,7 +255,7 @@
     "Gcutscene-skip-all": 1,
     "Gjak1-crate-collision": 2,
     "Ghd-skin-origin-stretch": 1,
-    "Gjak1-crate-collision-2": 1
+    "Gjak1-crate-collision-2": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -691,6 +691,9 @@
     ],
     "Ghd-skin-origin-stretch": [
       "7e6d5d25c60d"
+    ],
+    "Gjak1-crate-collision-2": [
+      "30d3ca1ef37e"
     ]
   },
   "stuck_reasons": {
@@ -1154,7 +1157,7 @@
     "Ghd-skin-origin-stretch": 1788246029.843314,
     "Gjak1-crate-collision-2": 1788263660.621679
   },
-  "last_update": "2026-09-01T12:15:59.705016+00:00",
+  "last_update": "2026-09-01T13:43:08.023553+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1285,7 +1288,8 @@
     "Grecharged-hd-eye-scale",
     "Grecharged-materials-modern-parity",
     "Gcutscene-skip-all",
-    "Gjak1-crate-collision"
+    "Gjak1-crate-collision",
+    "Gjak1-crate-collision-2"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
