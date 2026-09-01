@@ -2862,6 +2862,30 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gcutscene-npc-flicker-2
+  name: 'PNJ QUI CLIGNOTENT, RETOUR 2 (owner 2026-09-01) : « c''est pas réglé du tout, le pire cas que j''ai observé c''est
+    la cinématique avec MAIRE (la première) ». La porte precedente a ete satisfaite sur 3 scenes qui n''etaient PAS celle
+    qui echoue — un compte de scenes ne vaut rien sans le cas NOMME. La premiere cinematique du maire est desormais IMPOSEE
+    dans la preuve.'
+  prompt: prompts/phase-Gcutscene-npc-flicker.md
+  validator: validators/phase-Gcutscene-npc-flicker.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-skip-polish-2
+  name: 'CARTOUCHE DE SAUT, RETOUR 2 (owner 2026-09-01) : « c''est déjà beaucoup mieux » MAIS les coins ne sont pas assez
+    arrondis — il veut une CAPSULE, « l''arrondi des coins inférieurs doit rejoindre l''arrondi des coins supérieurs, des
+    demi cercles de chaque côté », donc rayon = hauteur/2 ; la cartouche doit serrer « bien plus près » le <CIRCLE> Skip (marges
+    11,4 px actuelles trop larges) ; et elle APPARAIT DANS LE MENU PRINCIPAL sans raison, a corriger.'
+  prompt: prompts/phase-Gcutscene-skip-all.md
+  validator: validators/phase-Gcutscene-skip-polish.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Grecharged-foliage-wind3
   name: 'BRISE, RETOUR 3 (owner 2026-08-31, NON VALIDE) : TROIS defauts dont un qui n''est pas le notre. D1 la brise NATIVE
     est cassee, option ETEINTE : « les arbres qui sont sensés être animés par défaut font de légers twitchs sans animations

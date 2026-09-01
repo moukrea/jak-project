@@ -12,6 +12,10 @@ if not re.search(r'^NPCGUARD .*echoue_si=\S+',t,re.M):
 ok=[kv(l) for l in re.findall(r'^NPCOK .*$',t,re.M)]
 if not ok: F("NPCOK absent")
 if int(ok[0].get('scenes',0))<3: F(f"{ok[0].get('scenes')} scenes verifiees, il en faut >= 3")
+# SCENE IMPOSEE (owner 2026-09-01) : la porte precedente a ete satisfaite sur 3 scenes qui
+# n'etaient PAS celle qui echoue. Un compte de scenes ne vaut rien sans le cas nomme.
+if not re.search(r'(?i)^NPC(FLICK|OK) .*(maire|mayor)',t,re.M):
+    F("la premiere cinematique du MAIRE n'est pas couverte — c'est le pire cas nomme par l'owner, une preuve sans elle est refusee")
 if int(ok[0].get('cycles',1))!=0: F(f"{ok[0]['cycles']} clignotement(s) subsistent")
 print("[Gcnf ok] 0 clignotement sur >=3 scenes, garde de non-regression posee")
 PY
