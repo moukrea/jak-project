@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 264,
+  "current_phase_idx": 265,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -253,7 +253,8 @@
     "Grecharged-materials-modern-parity": 2,
     "Gsubtitle-style": 1,
     "Gcutscene-skip-all": 1,
-    "Gjak1-crate-collision": 2
+    "Gjak1-crate-collision": 2,
+    "Ghd-skin-origin-stretch": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1145,9 +1146,10 @@
     "Ggrass-crash": 1788114432.1540587,
     "Gsubtitle-style": 1788145720.1622245,
     "Gcutscene-skip-all": 1788149381.2034535,
-    "Gjak1-crate-collision": 1788154483.2065616
+    "Gjak1-crate-collision": 1788154483.2065616,
+    "Ghd-skin-origin-stretch": 1788246029.843314
   },
-  "last_update": "2026-08-31T10:35:42.764016+00:00",
+  "last_update": "2026-09-01T07:11:57.988072+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1167,7 +1169,8 @@
     "Grecharged-hd-models3": 2,
     "Grecharged-hd-models4": 1,
     "Grecharged-hd-eye-scale": 2,
-    "Grecharged-secondary-motion": 220
+    "Grecharged-secondary-motion": 220,
+    "Ghd-skin-origin-stretch": 230
   },
   "supervisor_rollback": {
     "applied_at": "2026-05-20T19:53:00Z",
@@ -1293,6 +1296,7 @@
     "Gloadgate-crash-regression": "2026-08-30 19:11 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gloadgate-crash-regression quand il valide.",
     "Grecharged-hd-eye-scale": "2026-08-31 01:46 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-hd-eye-scale quand il valide.",
     "Grecharged-materials-modern-parity": "2026-08-31 03:56 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-materials-modern-parity quand il valide.",
-    "Gcutscene-skip-all": "2026-08-31 07:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-skip-all quand il valide."
+    "Gcutscene-skip-all": "2026-08-31 07:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-skip-all quand il valide.",
+    "Gjak1-crate-collision": "2026-08-31 12:35 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gjak1-crate-collision quand il valide."
   }
 }
