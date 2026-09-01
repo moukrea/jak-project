@@ -5,75 +5,128 @@
 (require "engine/camera/pov-camera.gc")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Gcutscene-skip-all — LA MACHINE A ETAT DU GESTE ET SON INDICE A L'ECRAN
+;; Gcutscene-skip — LA MACHINE A ETAT DU GESTE ET SON INDICE A L'ECRAN
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Demande owner, mot pour mot : « un hint avec le bouton et "Skip"/"Passer" (localise) en bas a
+;; Demande owner du 2026-08-30 : « un hint avec le bouton et "Skip"/"Passer" (localise) en bas a
 ;; droite de l'ecran des qu'on touche un bouton durant une cinematique (et une cartouche englobant
-;; ca (coins arrondis) qui se rempli en deux secondes si on maintient cercle pendant deux
-;; secondes ».
+;; ca (coins arrondis) qui se rempli [...] si on maintient cercle ».
+;;
+;; RETOUR OWNER DU 2026-08-31, QUATRE DEFAUTS DE FINITION, et c'est ce que ce fichier corrige :
+;;   « faudrait que la cartouche pour skip (et donc l'action de skip) prenne un quart moins de
+;;     temps que ce que ça prend. la cartouche est horrible avec ses coins arrondis pixelisés, on
+;;     est pas dans un jeu en pixel art on attend des trucs propres et lisses. aussi le texte et le
+;;     bouton sont même pas centrés dans la cartouche, même pas sûr qu'elle ajuste sa taille en
+;;     fonction de son contenu, ça fait très amateur, pas polish du tout ! »
 ;;
 ;; APPELE DEPUIS LE `display-loop`, PAS DEPUIS UN PROCESSUS, et ce n'est pas un detail : le bit
 ;; `(movie 11)` de `process-mask` (kernel/gkernel-h.gc:96) empeche un processus de tourner
 ;; PENDANT une cinematique -- exactement la ou on a besoin de dessiner. `loading-screen-draw`
-;; (pc/loading-screen-pc.gc:623) est appelee au meme endroit et pour la meme raison.
+;; (pc/loading-screen-pc.gc) est appelee au meme endroit et pour la meme raison.
 ;;
 ;; L'ICONE DU BOUTON NE COUTE RIEN : la balise `<PAD_CIRCLE>` de la banque de texte
 ;; (common/util/font/dbs/font_db_jak1.cpp:439) se developpe en quatre glyphes superposes dans les
 ;; emplacements de couleur 22/25/1/23, qui sont exactement ceux du bouton rond
-;; (font-h.gc:39-44 : `pad-back 22`, `pad-shine 23`, `pad-circle 25`). C'est le meme glyphe que
-;; « PRESS <PAD_CIRCLE> TO TALK » du jeu d'origine.
+;; (font-h.gc:39-44 : `pad-back 22`, `pad-shine 23`, `pad-circle 25`).
 ;;
-;; LES COINS ARRONDIS N'EXISTAIENT NULLE PART dans le depot (ni GOAL, ni nuanceur). On les
-;; FABRIQUE : la cartouche est dessinee RANGEE PAR RANGEE, chaque rangee retiree de ses deux
-;; cotes de `r - sqrt(r^2 - dy^2)`. Le remplissage emploie LA MEME fonction de retrait, borne a
-;; gauche par l'avancement -- donc il epouse l'arrondi au lieu de le deborder. Aucune texture,
-;; aucun nuanceur, aucune fente VRAM : cela evite par construction le piege des unites de
-;; compilation feature-gatees (`OG_FEAT_RECHARGED_HUD` est a 0 sur le build livre).
+;; ================================================================================================
+;; POURQUOI LES COINS ETAIENT « PIXELISES », ET CE QUI LES REMPLACE
+;; ================================================================================================
+;; Le cycle 1 empilait des sprites de UNE RANGEE DE TOILE de haut, chaque rangee retiree de
+;; `r - sqrt(r^2 - dy^2)` arrondi a l'entier. La toile fait 224 lignes pour TOUT l'ecran : a
+;; 1920x1080 une rangee de toile mesure 4,82 pixels de sortie et une unite de toile en x en mesure
+;; 3,75. L'escalier avait donc des marches de 4 a 8 PIXELS DE SORTIE. Ce n'est pas un choix de
+;; rayon, c'est une rasterisation faite a 512x224 puis AGRANDIE -- exactement ce que l'owner
+;; decrit (« on est pas dans un jeu en pixel art »).
+;;
+;; LA CARTOUCHE EST MAINTENANT UNE BANDE DE TRIANGLES (`gs-prim-type tri-strip`), dont le GPU
+;; rasterise les aretes A LA RESOLUTION DE SORTIE. Trois faits qui rendent la chose possible et
+;; qui sont verifies dans le code, pas supposes :
+;;   1. le champ x/y de XYZF2 est en 12.4 -- 1/16 d'unite de toile -- et la fraction est PRESERVEE
+;;      de bout en bout : `handle_xyzf2` garde les 16 bits (DirectRenderer.cpp:1426-1435), le
+;;      tampon de sommets divise par 2^32 en flottant (:1491-1494), et `direct_basic.vert` ne fait
+;;      aucun arrondi. Un quantum de 1/16 d'unite vaut 0,23 px a 1080p ;
+;;   2. l'etat `m_prim_building` PERSISTE d'un gif-tag au suivant et n'est remis a zero que par une
+;;      ecriture du registre PRIM (DirectRenderer.cpp:1172) : on ecrit donc PRIM une seule fois,
+;;      puis tous les sommets dans un second tag ;
+;;   3. en mode REGLIST, le champ `pre`/`prim` du gif-tag est IGNORE (le `if (tag.pre())` n'existe
+;;      que dans la branche PACKED, :684) : PRIM doit etre un REGISTRE de la liste.
+;; Le bucket `debug-no-zbuf` est un `DirectRenderer` sur bureau (OpenGLRenderer.cpp:880) COMME sur
+;; telephone (android/android_opengl_renderer.cpp:388) : le chemin est le meme des deux cotes.
+;;
+;; CE QUI RESTE, ET JE LE DIS AU LIEU DE LE TAIRE : l'arete reste BINAIRE (pas de MSAA : la FBO
+;; d'interface est a 1 echantillon, OpenGLRenderer.cpp:1443, et le make_fbo Android est « msaa
+;; stripped »). Le crenelage residuel est donc d'UN pixel de sortie, comme celui du texte et de
+;; tous les sprites du jeu -- au lieu des 4 a 8 de l'escalier. La mesure le publie.
 ;;
 ;; REPERE : la toile 2D 512 x 224, +y vers le bas. C'est l'ECRAN ENTIER a TOUT format
-;; (shaders/direct2.vert : x_gs 1792..2304 couvre [-1,1] ; SCISSOR_ADJUST amene 224 lignes sur
-;; [-1,1]) -- demonstration complete dans pc/loading-screen-pc.gc:20-29.
+;; (direct_basic.vert : x_gs 1792..2304 couvre [-1,1] ; SCISSOR_ADJUST = 512/448 amene les 224
+;; lignes sur [-1,1], avec screen-miny = 1936 et screen-maxy = 2160, video.gc:45-47).
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; --- geometrie, toile 512 x 224 ---
 (defconstant CS_MARGIN_X 16)     ;; du bord DROIT de l'ecran au bord droit de la cartouche
 (defconstant CS_MARGIN_Y 12)     ;; du bord BAS
 (defconstant CS_PAD_X 11)        ;; marge interne gauche/droite autour du texte
-(defconstant CS_BOX_H 22)        ;; hauteur de la cartouche
-(defconstant CS_RADIUS 6)        ;; rayon des coins
-(defconstant CS_TEXT_DY 2)       ;; descente du texte dans la cartouche
+(defconstant CS_PAD_Y 6.0)       ;; marge interne haut/bas -- c'est ELLE qui fixe la hauteur
+(defconstant CS_RADIUS 6.0)      ;; rayon des coins, en unites de toile
+(defconstant CS_ARC_SEG 8)       ;; segments par quart de cercle
+(defconstant CS_FILL_INSET 1.0)  ;; retrait du remplissage par rapport au bord de la cartouche
 (defconstant CS_TEXT_SCALE 0.8)  ;; echelle de la police (grande police, comme les invites du jeu)
+
+;; BANDE D'ENCRE DE REFERENCE, en unites de POLICE. Relevee sur l'atlas LIVRE
+;; `custom_assets/jak1/recharged_textures/gamefontnew/ascii.24lo.png` par `.autoport/gcs_ink.py` :
+;; le fond du bouton (glyphe `<`) occupe 0,01 .. 12,46 dans sa cellule de 16.
+;; POURQUOI CE GLYPHE ET PAS LA CELLULE : `draw-string` place le HAUT DE LA CELLULE a l'ordonnee
+;; qu'on lui donne (font.gc:1153, `pos0 = plume + vf0`), et la cellule fait 16 unites de haut dont
+;; une bonne part est du vide -- la ligne de base est cuite dans l'atlas, le moteur n'a AUCUN terme
+;; vertical par glyphe (font.gc:607-610). Centrer la CELLULE laisse donc le texte visiblement trop
+;; haut : c'est le defaut que l'owner voit. Ce glyphe-ci est le PREMIER des 23 chaines localisees
+;; (toutes commencent par `<PAD_CIRCLE>`) et sa bande coincide avec capitale -> ligne de base des
+;; lettres : c'est la meme reference dans les 23 langues.
+(defconstant CS_INK_TOP 0.01)
+(defconstant CS_INK_BOT 12.46)
+
+;; cos et sin de k*pi/16, k = 0..8. Table STATIQUE : la geometrie de l'arc est ainsi AUDITABLE a la
+;; lecture, et on n'appelle pas `sin-rad`/`cos-rad` dont le domaine de validite n'est pas documente
+;; dans ce depot.
+(define *cs-arc-cos*
+  (new 'static 'array float 9 1.0 0.9807853 0.9238795 0.8314696 0.7071068 0.5555702 0.3826834 0.1950903 0.0))
+(define *cs-arc-sin*
+  (new 'static 'array float 9 0.0 0.1950903 0.3826834 0.5555702 0.7071068 0.8314696 0.9238795 0.9807853 1.0))
 
 ;; --- etat de l'EPISODE courant (une cinematique = un episode) ---
 ;; Nom de la scene, RECOPIE dans un tampon permanent. Ne JAMAIS garder le pointeur d'origine d'une
 ;; image sur l'autre : ce nom appartient soit au flux (`active-stream`), soit a l'animation d'un
-;; `pov-camera`, et les deux vivent dans la memoire du NIVEAU. Un `(start 'play ...)` la libere, et
-;; la ligne de verdict rend alors `#<... has invalid type ptr ...>` -- mesure a la course de
-;; 06:59 le 2026-08-31, sur la ligne CUTSKIP elle-meme.
+;; `pov-camera`, et les deux vivent dans la memoire du NIVEAU.
 (define *cutscene-scene-name* (new 'global 'string 48 (the string #f)))
 (define *cutscene-episode-type* 'aucun)      ;; 'film (flux audio) | 'contextuelle (pov-camera) | 'autre
 (define *cutscene-episode-aborts0* 0)        ;; compteur d'abandons a l'ouverture de l'episode
 (define *cutscene-episode-frames* 0)
 (define *cutscene-hint-published* #f)        ;; CUTHINT-RUN deja publie pour cet episode ?
-;; #t des qu'un chemin CABLE a marque pendant cet episode. C'est la porte de l'indice : on
-;; n'affiche « Skip » que la ou le saut aboutit reellement. Cf. `cutscene-skip-mark!`.
+;; #t des qu'un chemin CABLE a marque pendant cet episode. C'est la porte de l'indice.
 (define *cutscene-episode-skippable* #f)
+;; Instant ou le remplissage DESSINE a atteint la largeur entiere de la cartouche. Releve dans le
+;; chemin de DESSIN, pas dans la machine a etat : c'est l'une des deux jambes de la mesure de
+;; synchronisme « cartouche pleine = saut », l'autre etant `*cutscene-skip-abort-t*`, relevee dans
+;; la boucle de scene qui abandonne. Publier deux fois la meme variable ne prouverait rien.
+(define *cutscene-skip-fill-t* (the-as time-frame 0))
+(define *cutscene-fill-published* #f)
+(define *cutscene-geom-published* #f)        ;; CUTSMOOTH deja publie ? (une fois par lancement)
+(define *cutscene-quads-published* #f)       ;; CUTCENTER-QUADS idem
 
 (defun cutscene-skip-in-cutscene? ()
   "Une cinematique joue-t-elle a cette image ?
 
    NATURE : un ETAT, pas une duree. REPERE : les deux marqueurs que les chemins de scene posent
    EUX-MEMES, jamais une devinette geometrique.
-     - `(movie?)` (engine/game/main.gc:1109) est le bit `movie` de `prevent-from-run`. Il est pose
-       par `othercam-running :enter` (process-taskable.gc:749) -- donc par LES 48 `pov-camera` et
-       par tous les `process-taskable` -- et par `camera-tracker-process :enter`
-       (generic-obs.gc:631). Recensement : vrai sur 57 des 78 chemins.
+     - `(movie?)` (engine/game/main.gc) est le bit `movie` de `prevent-from-run`. Il est pose
+       par `othercam-running :enter` -- donc par les 48 `pov-camera` et par tous les
+       `process-taskable` -- et par `camera-tracker-process :enter`. Vrai sur 57 des 75 chemins.
      - la marque des chemins CABLES (`cutscene-skip-mark!`). Elle rattrape les cinq scenes du
-       TITRE, dont l'othercam est cree avec `spooling? = 'logo` et n'arme donc pas le bit `movie`
-       (process-taskable.gc:745).
+       TITRE, dont l'othercam est cree avec `spooling? = 'logo` et n'arme donc pas le bit `movie`.
    CE QU'ELLE LIT QUAND LE DEFAUT EST ABSENT : `#f` en jeu normal, y compris pendant les
-   animations d'oisiveté STREAMEES de Jak (target2.gc:93) -- celles-la ne posent ni le bit
-   `movie` ni la marque, parce que `cutscene-stream-mark!` n'est pas appelee pour le joueur."
+   animations d'oisiveté STREAMEES de Jak (target2.gc) -- celles-la ne posent ni le bit `movie`
+   ni la marque, parce que `ja-play-spooled-anim` ne marque pas pour le joueur."
   (or (movie?) (not (time-elapsed? *cutscene-skip-mark* CS_MARK_GRACE))))
 
 (defun cutscene-skip-scene-name! ()
@@ -82,10 +135,7 @@
    L'ORDRE DES DEUX TESTS EST UN CHOIX, ET IL SUIT LE TEXTE DE ND. Un `pov-camera` VIVANT est
    teste EN PREMIER : le commentaire d'origine de engine/camera/pov-camera.gc:19 appelle ces
    cameras « the not-quite-cutscenes, for example, the introduction to orbs in geyser » -- ce sont
-   exactement les CONTEXTUELLES que l'owner cite. Certaines d'entre elles lisent une animation
-   STREAMEE (la camera de mort, engine/target/target-death.gc:982) : les classer `film` parce
-   qu'un flux audio tourne dirait le contraire de ce qu'elles sont.
-   Sans pov-camera, un flux audio en cours = une SCENE streamee, donc `film`."
+   exactement les CONTEXTUELLES que l'owner cite."
   (let ((pov (handle->process (-> *game-info* pov-camera-handle)))
         (stream (-> *art-control* active-stream)))
     (cond
@@ -102,11 +152,17 @@
        (if (= *cutscene-episode-type* 'aucun) (set! *cutscene-episode-type* 'autre)))))
   (none))
 
-(defun cs-corner-inset ((row int) (h int) (r int))
-  "Retrait horizontal de la RANGEE `row` d'un rectangle de hauteur `h` a coins de rayon `r`.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LA GEOMETRIE DE LA CARTOUCHE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-   0 sur toutes les rangees du milieu, croissant vers les deux extremites : c'est CA, un coin
-   arrondi, et c'est ce que la ligne de verdict relit au lieu de croire une etiquette."
+(defun cs-corner-inset ((row int) (h int) (r int))
+  "L'ANCIENNE GEOMETRIE DU CYCLE 1, CONSERVEE COMME CONTROLE ET RIEN D'AUTRE.
+
+   Retrait horizontal de la RANGEE `row` d'un rectangle de hauteur `h` a coins de rayon `r`,
+   arrondi a l'entier -- c'est-a-dire l'escalier que l'owner juge pixelise. Plus AUCUN dessin ne
+   l'appelle ; seule `cs-measure-corner!` s'en sert, pour montrer que le compteur de marches sait
+   monter. Une mesure de douceur qui ne serait jamais mise en defaut ne mesurerait rien."
   (if (or (<= r 0) (< h (* 2 r)))
     0
     (let ((dy (cond
@@ -118,15 +174,200 @@
         (let ((rr (the float r)))
           (the int (+ 0.5 (- rr (sqrtf (- (* rr rr) (* dy dy)))))))))))
 
-(defun cs-round-rect ((buf dma-buffer) (x int) (y int) (w int) (h int) (r int) (fw int) (color rgba))
-  "Rectangle a coins arrondis, une rangee de 1 pixel a la fois. `fw` borne la largeur depuis le
-   bord GAUCHE : `fw = w` donne la cartouche pleine, `fw < w` donne le REMPLISSAGE, qui epouse
-   donc le meme arrondi. Les rangees ne se recouvrent pas, donc l'alpha ne se cumule nulle part."
-  (dotimes (i h)
-    (let* ((d (cs-corner-inset i h r))
-           (rw (min (- w (* 2 d)) (- fw d))))
-      (if (> rw 0) (draw-sprite2d-xy buf (+ x d) (+ y i) rw 1 color))))
+(defun cs-outline-x ((i int) (bx float) (bw float) (r float))
+  "Abscisse du i-eme sommet du contour, i = 0 .. 2*CS_ARC_SEG+1, de la gauche vers la droite.
+   Les points tombent EXACTEMENT sur le cercle : x = bx + r(1 - cos(k.pi/16))."
+  (let ((k (if (<= i CS_ARC_SEG) i (- (+ (* 2 CS_ARC_SEG) 1) i))))
+    (if (<= i CS_ARC_SEG)
+      (+ bx (* r (- 1.0 (-> *cs-arc-cos* k))))
+      (- (+ bx bw) (* r (- 1.0 (-> *cs-arc-cos* k)))))))
+
+(defun cs-outline-ins ((i int) (r float))
+  "Retrait vertical du i-eme sommet : ins = r(1 - sin(k.pi/16)). Vaut r aux deux bouts (le bord
+   gauche/droit est un segment vertical) et 0 sur toute la partie droite du haut."
+  (let ((k (if (<= i CS_ARC_SEG) i (- (+ (* 2 CS_ARC_SEG) 1) i))))
+    (* r (- 1.0 (-> *cs-arc-sin* k)))))
+
+(defun cs-inset-at ((x float) (bx float) (bw float) (r float))
+  "Retrait vertical EXACT a une abscisse quelconque. Sert au sommet de coupe du remplissage, pour
+   qu'il epouse l'arrondi au lieu de le deborder."
+  (cond
+    ((< x (+ bx r))
+     (let ((d (- (+ bx r) x))) (- r (sqrtf (fmax 0.0 (- (* r r) (* d d)))))))
+    ((> x (- (+ bx bw) r))
+     (let ((d (- x (- (+ bx bw) r)))) (- r (sqrtf (fmax 0.0 (- (* r r) (* d d)))))))
+    (else 0.0)))
+
+(defun cs-gx ((cx float))
+  "Toile -> champ x de XYZF2, en 12.4. MEME transformation que `draw-sprite2d-xy`
+   (display.gc:407) : +1792, pas de facteur d'aspect en x. La fraction de 1/16 est conservee."
+  (the int (+ 0.5 (* 16.0 (fmax 1792.0 (fmin 2304.0 (+ 1792.0 cx)))))))
+
+(defun cs-gy ((cy float))
+  "Toile -> champ y de XYZF2. MEME transformation que `draw-sprite2d-xy` via `draw-context`
+   (gs.gc:788) : multiplication par `relative-y-scale` puis +`screen-miny`, borne a `screen-maxy`."
+  (let ((v (+ (the float (-> *video-parms* screen-miny)) (* cy (-> *video-parms* relative-y-scale)))))
+    (the int (+ 0.5 (* 16.0 (fmax (the float (-> *video-parms* screen-miny))
+                                  (fmin (the float (-> *video-parms* screen-maxy)) v)))))))
+
+(defun cs-span ((buf dma-buffer) (x float) (by float) (bh float) (ins float) (color rgba))
+  "Les DEUX sommets d'une meme abscisse. La bande de triangles est un zigzag entre ces paires, donc
+   chaque paire ajoute deux triangles.
+
+   BAS PUIS HAUT, ET C'EST DELIBERE. `draw-quad2d` (display.gc:441) emet son `tri-strip` dans
+   l'ordre haut-gauche, haut-droite, bas-gauche : son premier triangle a une aire signee POSITIVE
+   dans le repere ecran (y vers le bas). En emettant haut puis bas par colonne on obtiendrait
+   l'orientation INVERSE. Or plusieurs rendus du moteur allument `GL_CULL_FACE` et ne le
+   retablissent pas toujours (AmbientOcclusion.cpp:818, Tie3.cpp:1333), et `DirectRenderer` ne le
+   force pas. Une orientation opposee a celle du seul `tri-strip` dont on SAIT qu'il s'affiche
+   (`screen-gradient`, qui peint le fondu au noir) ferait disparaitre la cartouche entiere sans
+   qu'aucune trace ne bronche. On copie donc son orientation."
+  (dma-buffer-add-uint64 buf color (new 'static 'gs-xyzf :x (cs-gx x) :y (cs-gy (- (+ by bh) ins)) :z #x3fffff))
+  (dma-buffer-add-uint64 buf color (new 'static 'gs-xyzf :x (cs-gx x) :y (cs-gy (+ by ins)) :z #x3fffff))
   (none))
+
+(defun cs-capsule ((buf dma-buffer) (bx float) (by float) (bw float) (bh float) (r float) (xmax float) (color rgba))
+  "Cartouche a coins arrondis, en UNE bande de triangles. `xmax` borne le dessin a droite : la
+   cartouche entiere se demande avec `xmax = bx + bw`, le REMPLISSAGE avec une borne plus petite --
+   et il epouse alors le meme arrondi, parce que le sommet de coupe est calcule sur le cercle."
+  (let ((ns (+ (* 2 CS_ARC_SEG) 2))
+        (n 0)
+        (clip 0))
+    (dotimes (i ns)
+      (if (<= (cs-outline-x i bx bw r) xmax) (set! n (+ n 1))))
+    ;; un sommet de coupe si la borne tombe STRICTEMENT entre deux echantillons
+    (if (and (> n 0) (< n ns) (> xmax (cs-outline-x (- n 1) bx bw r))) (set! clip 1))
+    (let ((nv (* 2 (+ n clip))))
+      (when (>= nv 6)
+        (with-cnt-vif-block (buf)
+          ;; PRIM une SEULE fois : toute reecriture redemarre la bande (DirectRenderer.cpp:1172).
+          (dma-buffer-add-gif-tag buf
+                                  (new 'static 'gif-tag64 :nloop 1 :eop 0 :flg (gif-flag reg-list) :nreg 2)
+                                  (gs-reg-list prim rgbaq))
+          (dma-buffer-add-uint64 buf
+                                 (new 'static 'gs-prim :prim (gs-prim-type tri-strip) :abe 1)
+                                 color)
+          ;; 2 mots de 64 bits par sommet -> le compte de mots reste PAIR, donc le qwc de
+          ;; `with-cnt-vif-block` (qui arrondit vers le BAS, dma-buffer.gc:214) est exact.
+          (dma-buffer-add-gif-tag buf
+                                  (new 'static 'gif-tag64 :nloop nv :eop 1 :flg (gif-flag reg-list) :nreg 2)
+                                  (gs-reg-list rgbaq xyzf2))
+          (dotimes (i n)
+            (cs-span buf (cs-outline-x i bx bw r) by bh (cs-outline-ins i r) color))
+          (if (nonzero? clip)
+            (cs-span buf xmax by bh (cs-inset-at xmax bx bw r) color))))))
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LA MESURE DE DOUCEUR — elle compare LE BORD DESSINE A L'ARC IDEAL, en PIXELS DE SORTIE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; NATURE DU DEFAUT : une FORME (« coins pixelisés »), pas une amplitude. REPERE : le pixel de
+;; SORTIE, jamais l'unite de toile -- c'est tout le probleme, une marche d'une unite de toile en
+;; fait pres de cinq a l'ecran. LIGNE DE BASE : la meme mesure appliquee a la geometrie du cycle 1
+;; (`cs-corner-inset`), publiee a cote sous `CUTSMOOTH-AVANT`.
+;;
+;; DEFINITION D'UNE MARCHE, et elle est ecrite ici pour etre relisible : on parcourt le coin
+;; haut-gauche une RANGEE DE PIXELS DE SORTIE a la fois ; a chaque rangee on compare l'abscisse du
+;; bord DESSINE a celle de l'arc de cercle IDEAL ; une « marche » est une plage continue de
+;; rangees ou cet ecart depasse UN pixel de sortie. C'est exactement « on voit un escalier au lieu
+;; d'une courbe ». Un bord parfait rend 0 ; l'empilement de rangees en rend plusieurs.
+(define *cs-m-marches* 0)
+(define *cs-m-ecart-max* 0.0)
+(define *cs-m-ecart-moy* 0.0)
+(define *cs-m-rows* 0)
+
+(defun cs-drawn-x ((u float) (bx float) (bw float) (r float))
+  "Abscisse du bord GAUCHE tel que la BANDE DE TRIANGLES le dessine a la profondeur `u` sous le
+   haut de la cartouche : interpolation lineaire entre deux sommets consecutifs -- c'est
+   exactement ce que le GPU rasterise entre eux."
+  (let ((res (+ bx r)))
+    (dotimes (i CS_ARC_SEG)
+      (let ((a (cs-outline-ins i r))
+            (b (cs-outline-ins (+ i 1) r)))
+        (when (and (<= u a) (>= u b))
+          (let* ((den (- a b))
+                 (tt (if (> den 0.0001) (/ (- a u) den) 0.0)))
+            (set! res (+ (cs-outline-x i bx bw r)
+                         (* tt (- (cs-outline-x (+ i 1) bx bw r) (cs-outline-x i bx bw r)))))))))
+    res))
+
+(defun cs-measure-corner! ((mode int) (bx float) (bw float) (bh float) (r float) (pxux float) (pxuy float))
+  "mode 0 = la bande de triangles LIVREE ; mode 1 = l'empilement de rangees du cycle 1."
+  (let ((rows (max 8 (min 128 (the int (* r pxuy)))))
+        (marches 0)
+        (emax 0.0)
+        (esum 0.0)
+        (dedans #f))
+    (dotimes (j rows)
+      (let* ((u (* r (/ (+ 0.5 (the float j)) (the float rows))))
+             (dy (- r u))
+             (xi (- (+ bx r) (sqrtf (fmax 0.0 (- (* r r) (* dy dy))))))
+             (xd (if (zero? mode)
+                   (cs-drawn-x u bx bw r)
+                   (+ bx (the float (cs-corner-inset (the int u) (the int bh) (the int r))))))
+             (e (* (fabs (- xd xi)) pxux))
+             (out (> e 1.0)))
+        (set! emax (fmax emax e))
+        (set! esum (+ esum e))
+        (if (and out (not dedans)) (+! marches 1))
+        (set! dedans out)))
+    (set! *cs-m-marches* marches)
+    (set! *cs-m-ecart-max* emax)
+    (set! *cs-m-ecart-moy* (/ esum (the float rows)))
+    (set! *cs-m-rows* rows))
+  (none))
+
+(defun cs-smooth-line! ((etiq string) (bw float) (bh float) (ow float) (oh float))
+  "Publier la douceur des coins pour une sortie de `ow` x `oh` pixels : la LIVREE, puis la meme
+   mesure sur la geometrie du cycle 1. Les ecarts sont en MILLIEMES DE PIXEL DE SORTIE (entiers :
+   une ligne cle=valeur doit rester relisible par un analyseur)."
+  (let ((pxux (/ ow 512.0))
+        (pxuy (/ oh 224.0)))
+    (cs-measure-corner! 0 0.0 bw bh CS_RADIUS pxux pxuy)
+    (format 0
+            "CUTSMOOTH~S marches_par_coin=~D ecart_max_millipx=~D ecart_moy_millipx=~D rangees=~D~%"
+            etiq *cs-m-marches* (the int (* 1000.0 *cs-m-ecart-max*)) (the int (* 1000.0 *cs-m-ecart-moy*)) *cs-m-rows*)
+    (cs-measure-corner! 1 0.0 bw bh CS_RADIUS pxux pxuy)
+    (format 0
+            "CUTSMOOTH-AVANT~S marches_par_coin=~D ecart_max_millipx=~D ecart_moy_millipx=~D rangees=~D~%"
+            etiq *cs-m-marches* (the int (* 1000.0 *cs-m-ecart-max*)) (the int (* 1000.0 *cs-m-ecart-moy*)) *cs-m-rows*))
+  (none))
+
+(defun cutscene-skip-smooth-probe ((bw float) (bh float))
+  "POURQUOI LA MESURE PORTE UNE RESOLUTION DECLAREE, ET PAS CELLE DE LA FENETRE.
+   Une marche se voit en PIXELS DE SORTIE. La course de mesure x86 tourne dans une fenetre de
+   320x240 -- une unite de toile n'y fait que 0,63 pixel, donc AUCUN escalier ne peut y depasser
+   un pixel et le controle ne tirerait pas : la mesure serait vide de sens. La ligne de verdict est
+   donc prise a 1920x1080, l'ordre de grandeur de l'ecran de l'owner, et les deux jambes (livree et
+   cycle 1) y sont calculees IDENTIQUEMENT. Les deux autres resolutions sont publiees a cote pour
+   qu'on voie la dependance."
+  (cs-smooth-line! "" bw bh 1920.0 1080.0)
+  (cs-smooth-line! "-TEL" bw bh 2400.0 1080.0)
+  (let* ((fbw (the float (-> *pc-settings* framebuffer-width)))
+         (fbh (the float (if (-> *pc-settings* letterbox?)
+                           (-> *pc-settings* framebuffer-scissor-height)
+                           (-> *pc-settings* framebuffer-height)))))
+    (if (and (> fbw 0.0) (> fbh 0.0)) (cs-smooth-line! "-FENETRE" bw bh fbw fbh))
+    (format 0
+            "CUTSMOOTH-SORTIE fb_w=~D fb_h=~D scissor_h=~D letterbox=~A~%"
+            (-> *pc-settings* framebuffer-width)
+            (-> *pc-settings* framebuffer-height)
+            (-> *pc-settings* framebuffer-scissor-height)
+            (-> *pc-settings* letterbox?))
+    (format 0
+            "CUTSMOOTH-REPERE segments=~D rayon_u=~f rel_x=~f rel_y=~f miny=~D maxy=~D~%"
+            CS_ARC_SEG
+            CS_RADIUS
+            (-> *video-parms* relative-x-scale)
+            (-> *video-parms* relative-y-scale)
+            (-> *video-parms* screen-miny)
+            (-> *video-parms* screen-maxy)))
+  (none))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LA MISE EN PAGE — la cartouche est DERIVEE de son contenu, dans les deux directions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun cs-text-width ((str string) (scale float))
   "Largeur RENDUE de `str` sur la toile 512.
@@ -136,6 +377,95 @@
    deja paye une fois sur l'ecran de chargement (pc/loading-screen-pc.gc:437-455)."
   (let ((ctxt (new 'stack 'font-context *font-default-matrix* 0 0 0.0 (font-color white) (font-flags kerning large))))
     (* scale (-> *video-parms* relative-x-scale) (get-string-length str ctxt))))
+
+(defun cs-box-w ((str string))
+  "Largeur de la cartouche : l'avance RENDUE du texte, plus la marge interne des deux cotes.
+   C'est ce qui fait que « Skip » (4 caracteres), « Passer » (6) et « Überspringen » (12, 2,26 fois
+   l'avance anglaise) ne donnent PAS la meme cartouche."
+  ;; ARRONDIE A UNE LARGEUR PAIRE, et ce n'est pas de la coquetterie : `draw-string-xy-scaled` ne
+  ;; prend qu'une abscisse ENTIERE, donc un centre a `bx + bw/2` sur une largeur IMPAIRE decale le
+  ;; texte d'une demi-unite de toile -- pres de deux pixels de sortie, et toujours du meme cote.
+  (let ((raw (+ (the int (+ 0.5 (cs-text-width str CS_TEXT_SCALE))) (* 2 CS_PAD_X))))
+    (* 2 (/ (+ raw 1) 2))))
+
+(defun cs-box-h ()
+  "Hauteur de la cartouche, DERIVEE de la bande d'encre du texte et de la marge interne -- pas
+   choisie. `(12,46 - 0,01) * 0,8 + 2 * 6 = 21,96` -> 22."
+  (the int (+ 0.5 (+ (* (- CS_INK_BOT CS_INK_TOP) (* CS_TEXT_SCALE (-> *video-parms* relative-y-scale)))
+                     (* 2.0 CS_PAD_Y)))))
+
+(defun cs-text-y ((by int) (bh int))
+  "Ordonnee a passer a `draw-string-xy-scaled`, c'est-a-dire le HAUT DE LA CELLULE du glyphe,
+   placee pour que le MILIEU DE LA BANDE D'ENCRE tombe au milieu de la cartouche.
+   C'est ici que se corrige « le texte et le bouton sont même pas centrés » : la cellule fait 16
+   unites de police, l'encre n'en occupe que 12,45, et le cycle 1 posait la CELLULE a 2 unites du
+   haut -- d'ou un texte 2,8 a 4,2 pixels trop haut dans une cartouche de 22."
+  (the int (+ 0.5 (- (+ (the float by) (* 0.5 (the float bh)))
+                     (* (* 0.5 (+ CS_INK_TOP CS_INK_BOT))
+                        (* CS_TEXT_SCALE (-> *video-parms* relative-y-scale)))))))
+
+(defun cutscene-skip-fit-probe ()
+  "Publier, pour la langue COURAMMENT chargee, la largeur du texte et celle de la cartouche que le
+   code livre en deduit. Appelee par le harnais apres chaque changement de banque : c'est ce qui
+   prouve que la cartouche S'ADAPTE, au lieu de l'affirmer."
+  (when *common-text*
+    (let ((str (lookup-text! *common-text* (text-id pc-text-cutscene-skip) #t)))
+      (when str
+        (format 0
+                "CUTFIT langue=~D largeur_texte_millu=~D largeur_cartouche=~D hauteur_cartouche=~D rxs=~f texte=~S~%"
+                (-> *pc-settings* text-language)
+                (the int (* 1000.0 (cs-text-width str CS_TEXT_SCALE)))
+                (cs-box-w str)
+                (cs-box-h)
+                (-> *video-parms* relative-x-scale)
+                str))))
+  (none))
+
+(defun cs-scan-quads! ((p0 pointer) (p1 pointer) (bx int) (by int) (bw int) (bh int))
+  "Relire la boite des QUADS DE GLYPHES que `draw-string` VIENT D'ECRIRE dans le tampon DMA.
+   C'est une lecture de CE QUI EST DESSINE, pas de ce qu'on voulait dessiner.
+
+   LAYOUT, etabli sur `font-h.gc:248-274` et `font.gc:1454-1516` : 15 qwords = 240 octets par
+   glyphe, un gif-tag par glyphe (nloop 1), 4 sommets aux offsets 80/128/176/224, chaque XYZF2
+   etant un `vftoi4` dont la voie 0 est x*16 et la voie 1 y*16, en int32.
+   LA PASSE D'OMBRE EST INCONDITIONNELLE (le bit `shadow` est calcule puis ecrase sans
+   branchement, font.gc:1141 / draw_string.cpp:818-900) : la PREMIERE moitie des paquets est
+   l'ombre, la seconde le texte. On ne lit que la seconde.
+
+   RESERVE PUBLIEE AVEC LA MESURE : la cellule d'un glyphe fait 24 unites de police de large alors
+   que son avance en vaut 5 a 23, donc la boite des quads DEBORDE a droite du dernier glyphe. Ce
+   n'est pas de l'encre, c'est du remplissage transparent -- la marge droite lue ici est donc
+   SOUS-ESTIMEE, et le verdict de centrage se lit sur la bande d'encre (`.autoport/gcs_ink.py`),
+   pas sur cette ligne."
+  (let* ((nb (&- p1 p0))
+         (np (/ nb 240)))
+    (when (>= np 2)
+      (let ((x0 100000.0) (x1 -100000.0) (y0 100000.0) (y1 -100000.0)
+            (k0 (/ np 2))
+            (miny (the float (-> *video-parms* screen-miny))))
+        (dotimes (kk (- np k0))
+          (dotimes (vi 4)
+            (let* ((off (+ (* (+ k0 kk) 240) 80 (* vi 48)))
+                   (pv (the-as (pointer int32) (&+ p0 off)))
+                   (cx (- (/ (the float (-> pv 0)) 16.0) 1792.0))
+                   (cy (/ (- (/ (the float (-> pv 1)) 16.0) miny) (-> *video-parms* relative-y-scale))))
+              (set! x0 (fmin x0 cx))
+              (set! x1 (fmax x1 cx))
+              (set! y0 (fmin y0 cy))
+              (set! y1 (fmax y1 cy)))))
+        (format 0
+                "CUTCENTER-QUADS marge_g=~f marge_d=~f marge_h=~f marge_b=~f paquets=~D reste=~D~%"
+                (- x0 (the float bx))
+                (- (the float (+ bx bw)) x1)
+                (- y0 (the float by))
+                (- (the float (+ by bh)) y1)
+                np
+                (- nb (* np 240))))))
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LA MACHINE A ETAT
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun cutscene-skip-update ()
   "La machine a etat du geste. Une passe par image, depuis le `display-loop`."
@@ -157,14 +487,14 @@
        (set! *cutscene-hint-stamp* (the-as time-frame 0))
        (set! *cutscene-skip-fired* #f)
        (set! *cutscene-skip-holding* #f)
-       (set! *cutscene-skip-progress* 0.0))
+       (set! *cutscene-skip-progress* 0.0)
+       (set! *cutscene-skip-fill-t* (the-as time-frame 0))
+       (set! *cutscene-skip-abort-t* (the-as time-frame 0))
+       (set! *cutscene-fill-published* #f))
       ((and (not in-cs) *cutscene-in-cutscene*)
        ;; --- fermeture : c'est ICI que le verdict de saut se forme, et il est CAUSAL ---
        ;; `saut=ok` exige qu'une boucle de scene ait REELLEMENT consomme le verrou
        ;; (`*cutscene-skip-aborts*` a monte), pas seulement que le verrou ait ete arme.
-       ;; `cablable` distingue les deux facons d'echouer, et c'est la distinction qui compte :
-       ;; « le geste n'a pas abouti » (le joueur n'a pas maintenu) contre « aucun chemin de cette
-       ;; sequence n'est cable » (la barque du pecheur, le pelican -- cf. `cutscene-skip-mark!`).
        (format 0
                "CUTSKIP scene=~S type=~A saut=~A cablable=~A abandons=~D images=~D~%"
                *cutscene-scene-name*
@@ -173,10 +503,22 @@
                *cutscene-episode-skippable*
                (- *cutscene-skip-aborts* *cutscene-episode-aborts0*)
                *cutscene-episode-frames*)
+       ;; LES DEUX JAMBES DE LA MEME EXPRESSION, cote a cote et par episode. `natif_vrai` compte les
+       ;; images ou le predicat d'abandon FOURNI PAR L'APPELANT a rendu #t -- le saut instantane
+       ;; d'OpenGOAL. `geste_abandons` compte celles ou le verrou du maintien de CERCLE a ete
+       ;; consomme, dans le MEME `or`, a la meme image (loader.gc:1162, :1189, :1242).
+       ;; Un zero a gauche pendant que la droite monte n'est donc pas un zero de silence.
+       (format 0
+               "CUTNATIVE-RUN scene=~S natif_vrai=~D geste_abandons=~D~%"
+               *cutscene-scene-name*
+               *cutscene-native-true*
+               (- *cutscene-skip-aborts* *cutscene-episode-aborts0*))
        (set! *cutscene-skip-fired* #f)
        (set! *cutscene-skip-holding* #f)
        (set! *cutscene-skip-progress* 0.0)
        (set! *cutscene-episode-skippable* #f)
+       (set! *cutscene-skip-fill-t* (the-as time-frame 0))
+       (set! *cutscene-skip-abort-t* (the-as time-frame 0))
        (set! *cutscene-hint-stamp* (the-as time-frame 0)))
       (else 0))
     (set! *cutscene-in-cutscene* in-cs)
@@ -187,13 +529,11 @@
       ;; l'episode : une chaine de scene alterne des boucles cablees et des attentes qui ne le
       ;; sont pas, et l'indice ne doit pas clignoter au rythme de ce decoupage.
       (if (not (time-elapsed? *cutscene-skip-mark* CS_MARK_GRACE)) (set! *cutscene-episode-skippable* #t))
-      ;; « des qu'on touche UN bouton » : le front montant de N'IMPORTE quel bouton. C'est le meme
-      ;; test que le moteur emploie deja pour les codes de triche (pad.gc:419).
+      ;; « des qu'on touche UN bouton » : le front montant de N'IMPORTE quel bouton.
       (if (nonzero? (cpad-pressed 0)) (set! *cutscene-hint-stamp* (current-time)))
       (cond
         ;; Le reglage existant du joueur reste maitre : c'est lui que le mode speedrun eteint
         ;; (pc/features/speedruns.gc:244). Il vaut #t par defaut (pckernel-impl.gc:293).
-        ;; Et rien ne s'arme sur une sequence dont aucun chemin n'est cable.
         ((or (not (-> *pc-settings* skip-movies?)) (not *cutscene-episode-skippable*))
          (set! *cutscene-skip-holding* #f)
          (set! *cutscene-skip-progress* 0.0))
@@ -201,10 +541,8 @@
          (when (not *cutscene-skip-holding*)
            (set! *cutscene-skip-holding* #t)
            (set! *cutscene-skip-hold-t0* (current-time))
-           ;; maintenir CERCLE est aussi « toucher un bouton »
            (set! *cutscene-hint-stamp* (current-time))
-           ;; LE MOT DE BOUTONS REELLEMENT LU, publie a cote du verdict qui en depend : c'est ce
-           ;; qui distingue « le geste a ete fait » de « quelqu'un a pose le drapeau ».
+           ;; LE MOT DE BOUTONS REELLEMENT LU, publie a cote du verdict qui en depend.
            (format 0
                    "CUTPAD debut_maintien=1 abs=~D circle=~D injecte=~A~%"
                    (the int (cpad-hold 0))
@@ -216,34 +554,28 @@
              (set! *cutscene-skip-fired* #t)
              (set! *cutscene-skip-ticks* (the int held))
              (+! *cutscene-skip-count* 1)
-             ;; LA LIGNE DE VERDICT DU REMPLISSAGE. `duree_ms` est le temps REELLEMENT consomme
-             ;; par le maintien (3,3333 ms par unite d'horloge), pas la constante visee : si
-             ;; l'horloge decroche, ce nombre le montre. `coins_arrondis` est relu dans la
-             ;; fonction de dessin elle-meme -- rangee du haut retiree ET rangee du milieu non.
-             ;; `format` de GOAL n'accepte que 8 parametres en tout : la geometrie est publiee
-             ;; sur sa propre ligne, juste en dessous.
-             (format 0
-                     "CUTFILL duree_ms=~D ticks=~D cible_ticks=~D coins_arrondis=~D scene=~S~%"
-                     (the int (* 3.3333333 (the float held)))
-                     (the int held)
-                     CS_HOLD_TIME
-                     (if (and (> (cs-corner-inset 0 CS_BOX_H CS_RADIUS) 0)
-                              (zero? (cs-corner-inset (/ CS_BOX_H 2) CS_BOX_H CS_RADIUS)))
-                       1
-                       0)
-                     *cutscene-scene-name*)
-             (format 0
-                     "CUTFILL-GEO rayon=~D hauteur=~D inset_haut=~D inset_milieu=~D inset_bas=~D~%"
-                     CS_RADIUS
-                     CS_BOX_H
-                     (cs-corner-inset 0 CS_BOX_H CS_RADIUS)
-                     (cs-corner-inset (/ CS_BOX_H 2) CS_BOX_H CS_RADIUS)
-                     (cs-corner-inset (- CS_BOX_H 1) CS_BOX_H CS_RADIUS))
              (cpad-clear! 0 circle))))
         (else
          (when (not *cutscene-skip-fired*)
            (set! *cutscene-skip-holding* #f)
-           (set! *cutscene-skip-progress* 0.0))))))
+           (set! *cutscene-skip-progress* 0.0))))
+      ;; --- LA LIGNE DE VERDICT DU REMPLISSAGE, publiee quand LES DEUX instants sont connus ---
+      ;; `duree_ms` est mesuree sur le chemin de DESSIN (l'image ou le remplissage occupe la
+      ;; largeur entiere), `duree_saut_ms` dans la BOUCLE DE SCENE qui abandonne. Deux chemins,
+      ;; deux horloges relevees separement : c'est ce qui rend la clause de synchronisme
+      ;; falsifiable au lieu d'etre un miroir. 3,3333 ms par unite d'horloge.
+      (when (and (not *cutscene-fill-published*)
+                 (nonzero? *cutscene-skip-fill-t*)
+                 (nonzero? *cutscene-skip-abort-t*))
+        (set! *cutscene-fill-published* #t)
+        (format 0
+                "CUTFILL duree_ms=~D duree_saut_ms=~D cible_ms=~D ticks=~D cible_ticks=~D scene=~S~%"
+                (the int (* 3.3333333 (the float (- *cutscene-skip-fill-t* *cutscene-skip-hold-t0*))))
+                (the int (* 3.3333333 (the float (- *cutscene-skip-abort-t* *cutscene-skip-hold-t0*))))
+                (the int (* 3.3333333 (the float CS_HOLD_TIME)))
+                (the int (- *cutscene-skip-fill-t* *cutscene-skip-hold-t0*))
+                CS_HOLD_TIME
+                *cutscene-scene-name*))))
   (none))
 
 (defun cutscene-skip-draw ()
@@ -260,36 +592,56 @@
              *common-text*)
     (let ((str (lookup-text! *common-text* (text-id pc-text-cutscene-skip) #t)))
       (when str
-        (let* ((bw (+ (the int (cs-text-width str CS_TEXT_SCALE)) (* 2 CS_PAD_X)))
+        (let* ((bw (cs-box-w str))
+               (bh (cs-box-h))
                (bx (- 512 CS_MARGIN_X bw))
-               (by (- 224 CS_MARGIN_Y CS_BOX_H))
-               (fw (the int (* (the float bw) *cutscene-skip-progress*))))
+               (by (- 224 CS_MARGIN_Y bh))
+               (fbx (the float bx))
+               (fby (the float by))
+               (fbw (the float bw))
+               (fbh (the float bh))
+               (ins CS_FILL_INSET)
+               (fill-w (* (- fbw (* 2.0 ins)) *cutscene-skip-progress*)))
           (+! *cutscene-hint-frames* 1)
+          ;; L'INSTANT OU LA CARTOUCHE EST PLEINE, relevee ICI et pas dans la machine a etat :
+          ;; c'est le remplissage DESSINE qui doit coincider avec le saut, pas une variable.
+          (when (and (zero? *cutscene-skip-fill-t*) (>= fill-w (- fbw (* 2.0 ins))))
+            (set! *cutscene-skip-fill-t* (current-time)))
+          (when (not *cutscene-geom-published*)
+            (set! *cutscene-geom-published* #t)
+            (cutscene-skip-smooth-probe fbw fbh))
           (when (not *cutscene-hint-published*)
             (set! *cutscene-hint-published* #t)
-            ;; LA LIGNE DE VERDICT DE L'INDICE, publiee a la PREMIERE image ou il est dessine.
             ;;   `apparait_sur_bouton` : 1 s'il s'est ecoule au moins une image DE CINEMATIQUE
-            ;;     sans indice avant celle-ci. C'est le controle negatif, et il est gratuit :
-            ;;     un indice qui s'afficherait tout seul rendrait 0 ici.
-            ;;   `bas_droite` : un VERDICT calcule sur la boite reellement posee, pas une
-            ;;     etiquette -- le coin bas-droit de l'ecran est (512, 224).
+            ;;     sans indice avant celle-ci. C'est le controle negatif, et il est gratuit.
+            ;;   `bas_droite` : un VERDICT calcule sur la boite reellement posee -- le coin
+            ;;     bas-droit de l'ecran est (512, 224).
             (format 0
                     "CUTHINT-RUN apparait_sur_bouton=~D images_sans_indice=~D position=~S bas_droite=~D~%"
                     (if (> *cutscene-frames-no-hint* 0) 1 0)
                     *cutscene-frames-no-hint*
-                    (if (and (> (+ bx bw) 448) (> (+ by CS_BOX_H) 190)) "bas-droite" "ailleurs")
-                    (if (and (> (+ bx bw) 448) (> (+ by CS_BOX_H) 190)) 1 0))
+                    (if (and (> (+ bx bw) 448) (> (+ by bh) 190)) "bas-droite" "ailleurs")
+                    (if (and (> (+ bx bw) 448) (> (+ by bh) 190)) 1 0))
             (format 0
                     "CUTHINT-BOX x=~D y=~D w=~D h=~D langue=~D texte=~S~%"
                     bx
                     by
                     bw
-                    CS_BOX_H
+                    bh
                     ;; la langue qui a REELLEMENT choisi la banque sur le port PC : c'est
                     ;; `text-language`, pas `(-> *setting-control* current language)` que
                     ;; `load-game-text-info` (engine/ui/text.gc:135) ignore sous PC_PORT.
                     (-> *pc-settings* text-language)
-                    str))
+                    str)
+            ;; L'ANCRE REELLEMENT PASSEE A `draw-string-xy-scaled`, publiee a cote de la boite :
+            ;; c'est elle que l'analyse d'encre hors ligne consomme, pour ne pas avoir a supposer
+            ;; ou le texte a ete pose.
+            (format 0
+                    "CUTHINT-TEXTPOS tx=~D ty=~D largeur_texte_millu=~D echelle_millu=~D~%"
+                    (+ bx (/ bw 2))
+                    (cs-text-y by bh)
+                    (the int (* 1000.0 (cs-text-width str CS_TEXT_SCALE)))
+                    (the int (* 1000.0 (* CS_TEXT_SCALE (-> *video-parms* relative-x-scale))))))
           (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf))
             ;; Etat GS explicite, comme `loading-screen-draw` : melange alpha standard, test de
             ;; profondeur neutralise. On ne se repose pas sur l'etat ambiant du bucket.
@@ -298,18 +650,36 @@
                                    (zbuf-1 (new 'static 'gs-zbuf :zbp #x1c0 :psm (gs-psm ct24) :zmsk 1))
                                    (test-1 (new 'static 'gs-test :zte 1 :ztst (gs-ztest always))))
             ;; 1. la cartouche
-            (cs-round-rect buf bx by bw CS_BOX_H CS_RADIUS bw (new 'static 'rgba :a #x58))
-            ;; 2. le remplissage, borne a gauche par l'avancement du maintien
-            (if (> fw 0)
-              (cs-round-rect buf bx by bw CS_BOX_H CS_RADIUS fw (new 'static 'rgba :r #x80 :g #x80 :b #x80 :a #x40)))
-            ;; 3. l'icone du bouton et le mot, tous deux dans la meme chaine localisee
-            (draw-string-xy-scaled str
-                                   buf
-                                   (+ bx CS_PAD_X)
-                                   (+ by CS_TEXT_DY)
-                                   (font-color white)
-                                   (font-flags shadow kerning large)
-                                   CS_TEXT_SCALE)))))
+            (cs-capsule buf fbx fby fbw fbh CS_RADIUS (+ fbx fbw) (new 'static 'rgba :a #x58))
+            ;; 2. le remplissage, RETRAIT D'UNE UNITE : il vit a l'interieur de la capsule au lieu
+            ;;    de partager sa silhouette, donc son bord ne peut pas creneler le contour.
+            (if (> fill-w 0.0)
+              (cs-capsule buf
+                          (+ fbx ins)
+                          (+ fby ins)
+                          (- fbw (* 2.0 ins))
+                          (- fbh (* 2.0 ins))
+                          (- CS_RADIUS ins)
+                          (+ fbx ins fill-w)
+                          (new 'static 'rgba :r #x80 :g #x80 :b #x80 :a #x40)))
+            ;; 3. l'icone du bouton et le mot, tous deux dans la meme chaine localisee.
+            ;;    `middle` centre sur l'ORIGINE X (font.gc:1026-1037, facteur 0,5 de
+            ;;    `size-st1 w`), sur la MEME avance que celle qui a dimensionne la cartouche :
+            ;;    la troncature entiere ne peut plus decaler le texte d'un cote.
+            ;;    `middle-vert` n'existe PAS dans `draw-string` (aucun test du bit 3 dans toute la
+            ;;    fonction, cf. game/mips2c/jak1_functions/draw_string.cpp) -- le centrage
+            ;;    vertical est donc calcule par `cs-text-y`, sur la bande d'ENCRE.
+            (let ((p0 (-> buf base)))
+              (draw-string-xy-scaled str
+                                     buf
+                                     (+ bx (/ bw 2))
+                                     (cs-text-y by bh)
+                                     (font-color white)
+                                     (font-flags shadow kerning middle large)
+                                     CS_TEXT_SCALE)
+              (when (not *cutscene-quads-published*)
+                (set! *cutscene-quads-published* #t)
+                (cs-scan-quads! p0 (-> buf base) bx by bw bh)))))))
     0)
   ;; Compter les images de cinematique passees SANS indice : c'est le denominateur du controle
   ;; negatif ci-dessus, et il doit se compter meme quand on ne dessine pas.

@@ -85,20 +85,107 @@ echo "$S/levels/village2/swamp-blimp.gc         (swamp-tetherrock-break)"
 C=$((CT - CT_EXCL + 2))
 echo "  C_retenu=$C"
 
+
 echo
 echo "=============================================================================="
-echo " COUVERTURE"
+echo " COUVERTURE — DERIVEE SITE PAR SITE, PLUS ASSERTEE"
 echo "=============================================================================="
-TOT=$((A + B + C))
-# AVANT : le seul chemin abandonnable etait process-taskable.gc, branche STREAMEE, sous skip-movies?
-AVANT=1
-# APRES : compte les chemins qui atteignent le verrou, par les points de cablage POSES.
-#   - loader.gc couvre les A retenus ET la branche spool des B ;
-#   - pov-camera.gc (etat de base + pov-camera-play-and-reposition) et les 4 surcharges couvrent B ;
-#   - process-taskable.gc, generic-obs.gc + les 4 lambdas camera-tracker, swamp-blimp.gc couvrent C.
-HOOKS=$(grep -rln "cutscene-skip-anim!\|cutscene-skip-fired?\|cutscene-skip-suspend-for\|cutscene-skip-mark!" \
-        $S --include=*.gc | grep -v "goal_src/jak1/pc/cutscene-skip" | sort)
-echo "fichiers PORTEURS d'un point de cablage :"
-echo "$HOOKS" | sed 's/^/  /'
-echo
-echo "CUTPATHS total=$TOT couverts_avant=$AVANT couverts_apres=$TOT"
+# Gcutscene-skip-polish : `couverts_apres` valait litteralement `$TOT` -- une tautologie, la porte
+# ne pouvait donc pas tomber si un point de cablage disparaissait. Or ce cycle RETIRE du code
+# (le saut natif par TRIANGLE), donc c'est exactement le cycle ou cette garde doit mordre.
+# Desormais chaque site est ASSOCIE au fichier qui porte le MECANISME par lequel il serait saute,
+# et il n'est compte couvert que si ce fichier contient reellement un appel de cablage.
+python3 - <<'PYEOF'
+import re, os
+S = "goal_src/jak1"
+HOOK = re.compile(r"cutscene-skip-(anim!|fired\?|suspend-for|mark!|abort!)")
+cache = {}
+# CONTROLE POSITIF DE L'INSTRUMENT, opt-in : `GCS_CENSUS_ABLATE=<chemin>` fait comme si ce fichier
+# avait perdu son point de cablage. Le compte DOIT alors chuter. Sans ce levier, « couverts=total »
+# ne serait qu'une affirmation de plus -- c'est exactement le defaut qu'on corrige ici.
+ABLATE = os.environ.get("GCS_CENSUS_ABLATE", "")
+def has_hook(p):
+    if ABLATE and ABLATE in p:
+        return False
+    if p not in cache:
+        try:
+            cache[p] = bool(HOOK.search(open(p, encoding="utf-8").read()))
+        except OSError:
+            cache[p] = False
+    return cache[p]
+
+def load(p):
+    return [l.strip() for l in open(p) if l.strip()]
+
+def srcline(site):
+    f, n = site.rsplit(":", 1)
+    try:
+        return open(f, encoding="utf-8").read().splitlines()[int(n) - 1]
+    except Exception:
+        return ""
+
+LOADER   = f"{S}/engine/load/loader.gc"
+POVBASE  = f"{S}/engine/camera/pov-camera.gc"
+GENERIC  = f"{S}/engine/common-obs/generic-obs.gc"
+TASKABLE = f"{S}/engine/common-obs/process-taskable.gc"
+BLIMP    = f"{S}/levels/village2/swamp-blimp.gc"
+
+# Un `pov-camera` derive joue son animation dans SA PROPRE surcharge de `pov-camera-playing` :
+# les surcharges n'heritent ni du `:event` ni du `:post` du type de base, donc le cablage doit
+# vivre dans le fichier de la surcharge. `maincavecam` ne lit qu'un spool -> loader.gc.
+MECH = {
+    "pov-camera":      POVBASE,
+    "snowcam":         f"{S}/levels/snow/snow-obs.gc",
+    "sunkencam":       f"{S}/levels/sunken/sunken-obs.gc",
+    "village2cam":     f"{S}/levels/village2/village2-obs.gc",
+    "precurbridgecam": f"{S}/levels/jungle/jungle-obs.gc",
+    "maincavecam":     LOADER,
+}
+
+EXCL_A = ("engine/target/target2.gc", "levels/title/title-obs.gc:505")
+EXCL_C = ("levels/beach/pelican.gc", "levels/village1/fishermans-boat.gc")
+
+rows = []   # (famille, site, mecanisme, couvert)
+
+for s in load("/tmp/gcs_A.txt"):
+    if any(e in s for e in EXCL_A):          # exclusions publiees, jamais tues
+        continue
+    if "engine/camera/pov-camera.gc" in s:   # deja compte dans B
+        continue
+    rows.append(("A", s, LOADER, has_hook(LOADER)))
+
+for s in load("/tmp/gcs_B.txt"):
+    m = re.search(r"\(process-spawn\s+([a-z0-9-]+)", srcline(s))
+    typ = m.group(1) if m else "pov-camera"
+    mech = MECH.get(typ, POVBASE)
+    rows.append(("B:" + typ, s, mech, has_hook(mech)))
+
+for s in load("/tmp/gcs_C.txt"):
+    if any(e in s for e in EXCL_C):
+        continue
+    own = s.rsplit(":", 1)[0]
+    # un `camera-tracker` a horloge d'auteur est saute soit par sa propre lambda, soit par
+    # l'interprete de script partage de generic-obs.gc.
+    mech = own if has_hook(own) else GENERIC
+    rows.append(("C:tracker", s, mech, has_hook(mech)))
+rows.append(("C:taskable", TASKABLE + "  (branche NON streamee)", TASKABLE, has_hook(TASKABLE)))
+rows.append(("C:tetherrock", BLIMP + "  (swamp-tetherrock-break)", BLIMP, has_hook(BLIMP)))
+
+w = max(len(r[1]) for r in rows)
+for fam, site, mech, ok in rows:
+    print(f"  {'OUI' if ok else 'NON':3}  {fam:16} {site:<{w}}  <- {mech}")
+
+tot = len(rows)
+cov = sum(1 for r in rows if r[3])
+mechs = sorted({r[2] for r in rows})
+print()
+print("fichiers PORTEURS d'un point de cablage, et nombre de sites qui en DEPENDENT :")
+for m in mechs:
+    n = sum(1 for r in rows if r[2] == m)
+    print(f"  {'OUI' if has_hook(m) else 'NON':3}  {n:3} sites  {m}")
+print()
+# AVANT : le seul chemin abandonnable du jeu livre etait process-taskable.gc, branche STREAMEE,
+# sous `skip-movies?`, par TRIANGLE -- et ce chemin est RETIRE par ce cycle (demande owner
+# 2026-09-01). `couverts_avant` decrit donc l'etat d'ORIGINE, avant le cycle 1.
+print(f"CUTPATHS total={tot} couverts_avant=1 couverts_apres={cov}")
+PYEOF

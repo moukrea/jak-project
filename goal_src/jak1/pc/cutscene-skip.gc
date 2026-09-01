@@ -14,13 +14,19 @@
 ;; l'etat et le predicat ; tout ce qui a besoin de la police, du texte localise ou de `movie?`
 ;; (engine/game/main.gc) vit dans le fichier de dessin, compile a la fin.
 ;;
-;; CE QUE LE MECANISME ACTUEL COUVRE, MESURE (recensement du 2026-08-31) : UN SEUL chemin sur 78,
-;; `process-taskable.gc:278`, et seulement quand `skip-movies?` est vrai. Le bouton est TRIANGLE,
+;; CE QUE LE MECANISME D'ORIGINE COUVRAIT (recensement du 2026-08-31) : UN SEUL chemin sur 75,
+;; `process-taskable.gc`, et seulement quand `skip-movies?` est vrai. Le bouton etait TRIANGLE,
 ;; via `(= (get-response (-> arg0 query)) 'no)`.
-;; LES 48 SITES `pov-camera` SONT DU CODE MORT COTE ABANDON : aucun ne passe le drapeau
+;; LES 48 SITES `pov-camera` ETAIENT DU CODE MORT COTE ABANDON : aucun ne passe le drapeau
 ;; `notify-of-abort` (47 passent 0, un passe `inherit-orientation`), donc `check-for-abort`
-;; (pov-camera.gc:9) consomme TRIANGLE et retourne toujours `#f`, et l'etat `pov-camera-abort`
-;; n'est jamais atteint. C'est exactement le trou que l'owner decrit.
+;; consommait TRIANGLE et retournait toujours `#f`, et l'etat `pov-camera-abort` n'etait jamais
+;; atteint. C'est exactement le trou que l'owner decrivait.
+;;
+;; 2026-09-01 — LE SAUT NATIF EST RETIRE, sur demande de l'owner (« ça collide un peu [...] c'est
+;; un peu wacky »). Six sites sont tombes : le predicat de `process-taskable`, la lecture de
+;; TRIANGLE de `check-for-abort`, et QUATRE rattrapages d'etat en `:exit` que le cycle 1 avait
+;; manques parce qu'ils RESONDENT le pad (sage, sidekick-human x2, sequence-a-village1,
+;; citadel-sages). Le maintien de CERCLE est desormais le seul geste de saut du jeu.
 ;;
 ;; DEUX GRANDEURS, A NE PAS CONFONDRE :
 ;;   - « une cinematique joue » : lue dans le fichier de dessin comme
@@ -37,8 +43,12 @@
 ;; et le remplissage s'etire. C'est l'horloge de tout le moteur, pas une horloge a nous.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Duree de maintien exigee. `(seconds 2)` = 600 unites de 1/300 s = 2000 ms exactement.
-(defconstant CS_HOLD_TIME (seconds 2))
+;; Duree de maintien exigee. UN QUART DE MOINS QUE LES 2 s DU CYCLE 1, demande owner du
+;; 2026-08-31 : « faudrait que la cartouche pour skip (et donc l'action de skip) prenne un quart
+;; moins de temps que ce que ça prend ». 2000 ms - 500 ms = 1500 ms = 450 unites de 1/300 s.
+;; Ecrit en unites et non `(seconds 1.5)` : ce macro rend un FLOTTANT pour un argument flottant
+;; (types-h.gc:62), et l'horloge se compare en entiers.
+(defconstant CS_HOLD_TIME 450)
 ;; Combien de temps l'indice reste visible apres qu'on a touche un bouton.
 (defconstant CS_HINT_TIME (seconds 4))
 ;; Fraicheur de la marque des chemins cables : 60 unites = 0,2 s. Au-dela, plus aucun chemin cable
@@ -76,6 +86,24 @@
 ;; de tous les autres boutons du jeu.
 (define *cutscene-skip-inject-circle* #f)
 (define *cutscene-skip-aborts* 0)        ;; nombre de boucles de scene qui ont vu le verrou
+;; Instant du PREMIER abandon de l'episode courant, releve DANS la boucle de scene (0 = aucun).
+;; C'est l'une des deux jambes de la mesure de synchronisme remplissage/saut ; l'autre est
+;; `*cutscene-skip-fill-t*`, relevee dans le chemin de DESSIN.
+(define *cutscene-skip-abort-t* (the-as time-frame 0))
+
+;; --- Gcutscene-skip-polish : LE COMPTEUR DU SAUT NATIF, POSE SUR LA LIGNE QUI DECIDE ---
+;; L'owner (2026-09-01) demande le RETRAIT du saut instantane d'OpenGOAL (TRIANGLE). Le predicat
+;; qui le portait etait `arg3`, l'argument que l'appelant passe a `ja-play-spooled-anim` ; il vaut
+;; desormais `false-func` sur les 22 sites qui jouent une cinematique.
+;; POURQUOI CE COMPTEUR EST HONNETE : il est lu SUR LA MEME LIGNE que le verrou du geste, dans le
+;; meme `or`, a la meme image. Si l'instrument etait mort, `*cutscene-skip-aborts*` resterait a 0
+;; lui aussi -- or il monte des qu'on saute. Les deux jambes sont dans la meme expression, donc un
+;; zero ici n'est PAS un zero de silence.
+(define *cutscene-native-true* 0)
+(defun cutscene-native-pred? ((v symbol))
+  "Compter, puis rendre tel quel, le predicat d'abandon FOURNI PAR L'APPELANT. Ne decide rien."
+  (when v (+! *cutscene-native-true* 1))
+  v)
 
 (defun cutscene-skip-fired? ()
   "Le geste « maintenir CERCLE deux secondes » a-t-il abouti pour la cinematique en cours ?
@@ -87,7 +115,14 @@
 
 (defun cutscene-skip-abort! ((who symbol))
   "A appeler par un chemin de scene juste avant d'abandonner. Compte l'abandon et, si la trace est
-   armee, publie QUI a vu le verrou -- c'est la preuve d'execution du cablage, chemin par chemin."
+   armee, publie QUI a vu le verrou -- c'est la preuve d'execution du cablage, chemin par chemin.
+
+   ELLE HORODATE AUSSI LE SAUT, ET C'EST LA MOITIE DE LA MESURE DE SYNCHRONISME. L'owner demande
+   que la cartouche pleine SOIT le saut. Les deux instants sont donc releves par DEUX chemins
+   differents : celui-ci, dans la boucle de scene qui abandonne vraiment, et
+   `*cutscene-skip-fill-t*`, dans la fonction de DESSIN a l'image ou le remplissage atteint la
+   largeur entiere de la cartouche. Publier deux fois la meme variable ne prouverait rien."
+  (when (zero? *cutscene-skip-abort-t*) (set! *cutscene-skip-abort-t* (current-time)))
   (+! *cutscene-skip-aborts* 1)
   (if *cutscene-skip-trace*
     (format 0 "CUTABORT chemin=~A n=~D t=~D~%" who *cutscene-skip-aborts* (current-time)))

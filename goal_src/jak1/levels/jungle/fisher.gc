@@ -1313,8 +1313,14 @@
         (none))
     :exit
       (behavior ()
-        (set! *fisher-camera-use-backup*
-              (and (= (get-response (-> self query)) 'no) (or (not (= *cheat-mode* 'debug)) (not (cpad-hold? 0 r1))) (-> self training)))
+        ;; Gcutscene-skip-polish (owner 2026-09-01) : SIXIEME rattrapage du saut natif d'OpenGOAL,
+        ;; et le plus discret -- il ne saute rien, il restaure une camera de secours APRES coup.
+        ;; Mais il appelait `get-response`, qui SONDE TRIANGLE (process-taskable.gc:93) : un appui
+        ;; sur l'image de sortie forcait la camera sur une pose sauvegardee, sans que rien n'ait
+        ;; ete saute. C'est exactement le « ça collide un peu [...] c'est un peu wacky » de
+        ;; l'owner. Le geste « maintenir CERCLE » ne pose pas `decision`, il n'a donc jamais
+        ;; emprunte ce chemin : la valeur livree ici est celle qu'il produisait deja.
+        (set! *fisher-camera-use-backup* #f)
         (set! (-> self cur-trans-hook)
               (lambda ()
                 (when *fisher-camera-use-backup*

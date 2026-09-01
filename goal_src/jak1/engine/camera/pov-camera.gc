@@ -7,10 +7,16 @@
 ;; DECOMP BEGINS
 
 (defmethod check-for-abort ((this pov-camera))
-  (when (or (and (time-elapsed? (-> this debounce-start-time) (seconds 0.2)) (cpad-pressed? 0 triangle))
-            (logtest? (-> this flags) (pov-camera-flag allow-abort)))
-    (logclear! (-> *cpad-list* cpads 0 button0-abs 0) (pad-buttons triangle))
-    (logclear! (-> *cpad-list* cpads 0 button0-rel 0) (pad-buttons triangle))
+  ;; Gcutscene-skip-polish (owner 2026-09-01) : « si j'appuies sur triangle dans une cinématique
+  ;; ça l'instant skip [...] c'est un peu wacky ». LA LECTURE DE TRIANGLE EST RETIREE ICI.
+  ;; Elle etait DEJA sans effet -- le `#t` n'est rendu que sous `notify-of-abort`, que AUCUN des
+  ;; 48 sites de creation ne pose (47 passent 0, target-death.gc:982 passe `inherit-orientation`)
+  ;; -- mais elle CONSOMMAIT le bouton (`logclear!` sur `button0-abs` ET `button0-rel`) a chaque
+  ;; image de chaque cinematique contextuelle. « TRIANGLE ne fait rien pendant une cinematique »
+  ;; est desormais litteral, et non plus « TRIANGLE est avale sans consequence ».
+  ;; Le chemin d'evenement de ND est conserve intact : c'est le message `'abort`
+  ;; (pov-camera-playing :event) qui pose `allow-abort`, et lui seul.
+  (when (logtest? (-> this flags) (pov-camera-flag allow-abort))
     (when (logtest? (-> this flags) (pov-camera-flag notify-of-abort))
       (send-event (handle->process (-> this notify-handle)) 'notify 'abort-request)
       #t)))

@@ -274,16 +274,28 @@
      ;; save a sort of timestamp just so we know if it took at least 1 frame
      (#when PC_PORT
        (define *play-anim-time* (current-time)))
-     (if (#if PC_PORT (= (-> *pc-settings* skip-movies?) #t) (and *debug-segment* *cheat-mode*))
-       (ja-play-spooled-anim (the-as spool-anim arg1)
-                             arg0
-                             (-> self blend-on-exit)
-                             (lambda ((arg0 process-taskable))
-                               (= (get-response (-> arg0 query)) 'no)))
-       (ja-play-spooled-anim (the-as spool-anim arg1)
-                             arg0
-                             (-> self blend-on-exit)
-                             (the-as (function process-drawable symbol) false-func)))
+     ;; Gcutscene-skip-polish (owner 2026-09-01) : « faut aussi que tu désactive (retire) le skip
+     ;; de OpenGoal parce que ça collide un peu, si j'appuies sur triangle dans une cinématique ça
+     ;; l'instant skip (comportement de OpenGoal), c'est un peu wacky ».
+     ;;
+     ;; C'ETAIT LE SEUL SAUT INSTANTANE VIVANT DU JEU LIVRE, et c'est mesure : sur les 24 sites
+     ;; d'appel de `ja-play-spooled-anim`, 21 passent `false-func`, un passe `check-for-abort`
+     ;; (mort : aucun des 48 sites `pov-camera` ne pose `notify-of-abort`) et un passe le predicat
+     ;; du STICK pour l'anim d'oisiveté de Jak (target2.gc:96, pas une cinematique). Restait
+     ;; celui-ci. `get-response` n'est pas un accesseur : il LIT TRIANGLE (:93) et pose
+     ;; `decision` a 'no, donc le predicat abandonnait la scene des le premier appui.
+     ;;
+     ;; ON NE RETIRE PAS LE REGLAGE, ON RETIRE LE GESTE. `skip-movies?` reste le maitre du
+     ;; nouveau geste (pc/cutscene-skip-draw.gc) : le libelle « Cutscene Skips » (#x1501) et son
+     ;; indice (#x179d) restent vrais mot pour mot, et le mode speedrun l'eteint toujours
+     ;; (pc/features/speedruns.gc:244).
+     ;;
+     ;; CE QUI RESTE ICI EST EXACTEMENT LA CONFIGURATION DEJA LIVREE quand le joueur met le
+     ;; reglage sur OFF -- ce n'est pas un chemin neuf, c'est l'autre branche du `if` d'avant.
+     (ja-play-spooled-anim (the-as spool-anim arg1)
+                           arg0
+                           (-> self blend-on-exit)
+                           (the-as (function process-drawable symbol) false-func))
      ;; og:preserve-this
      (#when PC_PORT
        (if (= (current-time) *play-anim-time*) (suspend)))

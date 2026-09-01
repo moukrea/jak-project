@@ -1159,7 +1159,8 @@
             ;; A COTE du predicat d'origine, jamais a sa place -- `arg3` garde exactement le
             ;; comportement qu'il avait. `cutscene-skip-abort!` rend #t et compte l'abandon, donc
             ;; le compteur ne monte que quand on saute vraiment.
-            (if (or (arg3 self) (and (!= self *target*) (cutscene-skip-fired?) (cutscene-skip-abort! 'spool-stall-lock)))
+            (if (or (cutscene-native-pred? (arg3 self))
+                    (and (!= self *target*) (cutscene-skip-fired?) (cutscene-skip-abort! 'spool-stall-lock)))
               (goto cfg-88))
             (spool-push *art-control* (-> arg0 name) spool-part self -9.0)
             ;; Gloading-screen-window — LE RACCORD. Cette attente-ci et celle de l'art juste en
@@ -1185,7 +1186,8 @@
               (else (ja-channel-set! 0)))
             (while (!= (file-status *art-control* (-> arg0 name) spool-part) 'active)
               ;; Gcutscene-skip-all : idem, cf. le commentaire de l'attente sur verrou ci-dessus.
-              (if (or (arg3 self) (and (!= self *target*) (cutscene-skip-fired?) (cutscene-skip-abort! 'spool-stall-art)))
+              (if (or (cutscene-native-pred? (arg3 self))
+                      (and (!= self *target*) (cutscene-skip-fired?) (cutscene-skip-abort! 'spool-stall-art)))
                 (goto cfg-88))
               (spool-push *art-control* (-> arg0 name) spool-part self -20.0)
               (format #t "WARNING: ---------------------> loader stall on art ~S ~D~%" (-> arg0 name) spool-part)
@@ -1237,7 +1239,7 @@
                      (when (!= self *target*)
                        (cutscene-skip-mark!)
                        (if (and (cutscene-skip-fired?) (cutscene-skip-abort! 'spool)) (goto cfg-88)))
-                     (if (or (arg3 self)
+                     (if (or (cutscene-native-pred? (arg3 self))
                              (and (<= sv-72 0) (time-elapsed? (the-as time-frame sv-40) (seconds 4)))
                              (and (< 300 sv-56) (<= sv-72 0)))
                        (goto cfg-88))

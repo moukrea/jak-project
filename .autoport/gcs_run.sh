@@ -87,8 +87,13 @@ echo '(set! *cutscene-skip-inject-circle* #f)' >&3
 sleep 4
 
 say "== balayage des langues : la chaine localisee, RELUE par le chemin du jeu =="
-echo '(dotimes (i 25) (when (and (!= i 17) (!= i 18)) (set! (-> *pc-settings* text-language) (the-as pc-language i)) (load-game-text-info "common" (quote *common-text*) *common-text-heap*) (format 0 "CUTLANG id=~D texte=~S~%" i (lookup-text! *common-text* (text-id pc-text-cutscene-skip) #t))))' >&3
-sleep 20
+# `17COMMON.TXT` (coreen) et `18COMMON.TXT` (russe) N'EXISTENT PAS dans l'iso : le chemin d'erreur
+# de `load-game-text-info` sort SANS reecrire `*common-text*`, qui pendrait alors dans un tas vide.
+# On saute donc ces deux identifiants -- et on le dit, au lieu de laisser un trou muet.
+# `cutscene-skip-fit-probe` publie la largeur que le CODE LIVRE calcule pour la langue chargee :
+# c'est ce qui prouve que la cartouche s'ADAPTE a son contenu, au lieu de l'affirmer.
+echo '(dotimes (i 25) (when (and (!= i 17) (!= i 18)) (set! (-> *pc-settings* text-language) (the-as pc-language i)) (load-game-text-info "common" (quote *common-text*) *common-text-heap*) (format 0 "CUTLANG id=~D texte=~S~%" i (lookup-text! *common-text* (text-id pc-text-cutscene-skip) #t)) (cutscene-skip-fit-probe)))' >&3
+sleep 25
 echo '(set! (-> *pc-settings* text-language) (pc-language english))' >&3
 echo '(load-game-text-info "common" (quote *common-text*) *common-text-heap*)' >&3
 sleep 4
@@ -135,7 +140,11 @@ tcprobe; tcprobe; tcprobe; tcprobe; tcprobe; tcprobe; tcprobe; tcprobe; tcprobe;
 echo '(set! *cutscene-skip-inject-circle* #f)' >&3
 sleep 4
 
-echo '(format 0 "CUTFIN gestes=~D abandons=~D~%" *cutscene-skip-count* *cutscene-skip-aborts*)' >&3
-sleep 5
+echo '(format 0 "CUTFIN gestes=~D abandons=~D natif=~D~%" *cutscene-skip-count* *cutscene-skip-aborts* *cutscene-native-true*)' >&3
+sleep 3
+# Filet : si aucun indice n'a ete dessine de toute la course, la ligne de douceur manquerait. Elle
+# appelle la MEME fonction que le chemin de dessin, sur la meme geometrie.
+echo '(cutscene-skip-smooth-probe 70.0 (the float (cs-box-h)))' >&3
+sleep 3
 say "== fin ; lignes CUT capturees : $(grep -acE '^CUT' "$LOG") ; gk vivant=$(pgrep -cf 'game/gk --game jak1' || echo 0) =="
 grep -aE '^CUT' "$LOG" | tee "$OUT/cut-lines.txt" | head -60

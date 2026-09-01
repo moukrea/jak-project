@@ -749,18 +749,16 @@
           (let ((t9-5 send-event-function)
                 (v1-28 (-> self alt-actor)))
             (t9-5 (if v1-28 (-> v1-28 extra process)) a1-4))))
-      ;; og:preserve-this
-      (#when PC_PORT
-        (when (and (= (get-response (-> self query)) 'no)
-                   (or (not (= *cheat-mode* 'debug)) (not (cpad-hold? 0 r1)))
-                   (= (-> self which-movie) 1))
-          (format #t "skipped green-sagecage~%")
-          (start 'play (get-continue-by-name *game-info* "citadel-elevator"))
-          (send-event (process-by-name "citb-exit-plat-4" *active-pool*) 'trigger)
-          (set! (-> self draw bounds w) 10240.0)
-          ((-> (method-of-type process-taskable play-anim) exit))
-          (set! (-> self which-movie) 2)
-          (return #f)))
+      ;; Gcutscene-skip-polish (owner 2026-09-01) : « faut aussi que tu désactive (retire) le skip
+      ;; de OpenGoal parce que ça collide un peu, si j'appuies sur triangle dans une cinématique ça
+      ;; l'instant skip (comportement de OpenGoal), c'est un peu wacky ».
+      ;; ICI VIVAIT LE RATTRAPAGE D'ETAT DU SAUT NATIF (« extra stuff when skipping cutscene »).
+      ;; Il RESONDAIT LE PAD : `get-response` n'est pas un accesseur, il lit TRIANGLE
+      ;; (process-taskable.gc:93) et pose `decision` a 'no -- donc un appui sur l'image de sortie
+      ;; suffisait a declencher un `start 'play`. Le cycle 1 avait manque ces cinq blocs : il
+      ;; n'avait recense que le predicat d'abandon, pas les rattrapages qui le suivent.
+      ;; Le geste « maintenir CERCLE » ne pose PAS `decision`, il n'a donc jamais emprunte ce
+      ;; chemin : la voie retail ci-dessous est deja celle qu'il prend aujourd'hui.
       (cond
         ((= (-> self which-movie) 1) (set-blackout-frames (seconds 100)))
         ((= (-> self which-movie) 2) (start 'play (get-continue-by-name *game-info* "citadel-elevator"))))
