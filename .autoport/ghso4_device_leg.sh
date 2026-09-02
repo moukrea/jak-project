@@ -95,8 +95,10 @@ echo "-- reglages poses : modeles HD #t, looks HD = 1"
 
 # ---- une scene = un lancement du jeu (le warp est un reglage de demarrage) ---------------------
 run_scene(){
-  local scene="$1" dur="$2" mode="$3"   # mode : zoomer | pied
-  local LOG="$OUT/$TAG-$scene-logcat.txt"
+  local scene="$1" dur="$2" mode="$3"   # mode : zoomer | pied | idle
+  # le MODE fait partie du nom : deux scenes sur le meme point de reprise (zoomer immobile puis
+  # conduit) s'ecrasaient l'une l'autre (prf2, 17:12 — la scene immobile a ete sauvee a la main)
+  local LOG="$OUT/$TAG-$scene-$mode-logcat.txt"
   a shell am force-stop $PKG >/dev/null 2>&1
   a shell "setprop debug.opengoal.level.warp '$scene'" >/dev/null 2>&1
   a shell "setprop debug.opengoal.hd.finite_arm '$FARM'" >/dev/null 2>&1
@@ -162,8 +164,8 @@ run_scene(){
   # marqueurs = HORODATAGE logcat + ligne nue (le tag est retire, quel qu'il soit) : l'horodatage
   # sert a mesurer les minutes REELLES entre le premier paquet HD dessine et le dernier battement.
   grep -aE 'HDSKIN |HDSKINEV |HDSKINMODEL |HDHB[0-9]? |HDNANSRC|HDFINITEARM|LEVEL-WARP|JAK-HD-TGT|F1D-INJECT applied|HDRESET|HDEPISODE|FATAL|signal [0-9]+' "$LOG" \
-    | sed -E 's/^([0-9-]+ [0-9:.]+) +[0-9]+ +[0-9]+ [A-Z] [A-Za-z_-]+: /\1 /' | tr -d '\r' > "$OUT/$TAG-$scene-marqueurs.txt"
-  echo "HDWALL scene=$scene secondes=$((T1 - T0)) farme=$FARM" >> "$OUT/$TAG-$scene-marqueurs.txt"
+    | sed -E 's/^([0-9-]+ [0-9:.]+) +[0-9]+ +[0-9]+ [A-Z] [A-Za-z_-]+: /\1 /' | tr -d '\r' > "$OUT/$TAG-$scene-$mode-marqueurs.txt"
+  echo "HDWALL scene=$scene-$mode secondes=$((T1 - T0)) farme=$FARM" >> "$OUT/$TAG-$scene-$mode-marqueurs.txt"
 }
 
 # QUATRE SCENES, DE 3601 m A 5540 m DE L'ORIGINE (owner : « la ou l'effet est le plus visible »)

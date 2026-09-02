@@ -181,8 +181,16 @@ reconcilier_telephone(){
 
   dev_c=$("$ADBX" -s "$SERX" exec-out run-as "$PKGX" cat files/.custom_pack_stamp_jak1 2>/dev/null | tr -d '\r\n')
   dev_g=$("$ADBX" -s "$SERX" exec-out run-as "$PKGX" cat files/.cgo_pack_stamp_jak1 2>/dev/null | tr -d '\r\n')
+  # LE BINAIRE AUSSI, PAS SEULEMENT LES PACKS (2026-09-02 17:08). Un changement C++ seul
+  # (Merc2.cpp, commit 7f69ed7579) laisse les DEUX tampons de pack identiques : le telephone
+  # etait declare « deja a jour » avec le libgk.so de 16:16 pendant que l'APK de 16:59 attendait
+  # sur le disque — et l'owner aurait eu, lui, le nouveau binaire par jak-builds. L'identite de
+  # l'APK INSTALLE par ce script est memorisee (taille-mtime, .autoport/.redmi_installed_apk) ;
+  # une identite differente vaut « telephone en arriere », comme un tampon de pack different.
+  apk_id=$(stat -c '%s-%Y' "$APKX" 2>/dev/null)
+  inst_id=$(cat .autoport/.redmi_installed_apk 2>/dev/null)
   # DEJA A JOUR : le cas normal. Silence total, sinon le log se remplit toutes les 4 min.
-  [ "$dev_c" = "$want_c" ] && [ "$dev_g" = "$want_g" ] && { fg_bloque_depuis=""; return 0; }
+  [ "$dev_c" = "$want_c" ] && [ "$dev_g" = "$want_g" ] && [ "$apk_id" = "$inst_id" ] && { fg_bloque_depuis=""; return 0; }
 
   # L'APK du disque doit EMBARQUER ce que l'arbre a bati, sinon on installerait un APK
   # perime et les tampons ne bougeraient pas d'un pouce — une attente sans fin.
@@ -205,11 +213,12 @@ reconcilier_telephone(){
   fi
   fg_bloque_depuis=""
 
-  say "reconciliation: telephone en arriere du build (custom '$dev_c'->'$want_c', cgo '$dev_g'->'$want_g') — installation"
+  say "reconciliation: telephone en arriere du build (custom '$dev_c'->'$want_c', cgo '$dev_g'->'$want_g', apk '$inst_id'->'$apk_id') — installation"
   if ! timeout 1800 "$ADBX" -s "$SERX" install -r "$APKX" >> "$LOG" 2>&1; then
     say "reconciliation: adb install a echoue — retentee au prochain tour (voir plus haut dans ce log)"
     return 0
   fi
+  echo "$apk_id" > .autoport/.redmi_installed_apk
   # Lancement par l'activite RESOLUE (LoaderActivity), JAMAIS MainActivity : c'est
   # LoaderActivity, et elle seule, qui reextrait les packs et ecrit les tampons
   # .cgo_pack_stamp_jak1 / .custom_pack_stamp_jak1 que deploy_verify relit. Un lancement
