@@ -826,11 +826,72 @@
 ;; colle, comme pour `sing`. Debrayable (`*hd-scale-arm*` = 0, propriete
 ;; `debug.opengoal.hd.scale_arm`) pour que les deux bras tournent sur le meme APK.
 ;; ------------------------------------------------------------------------------------------------
-(define *hd-scale-arm* 1)
+(define *hd-scale-arm* 0)   ;; DESARME PAR DEFAUT : mesure Redmi dev6-ctl/ctl2/ctl3, `sclep=0` sur
+                            ;; 10 minutes — l'hypothese de l'echelle du parent etait FAUSSE (voir la
+                            ;; cause reelle plus bas, cycle 6e) ; le garde reste, inerte, comme trace.
 (defglobalconstant HD_SCALE_MIN 0.25)
 (defglobalconstant HD_SCALE_MAX 4.0)
 (define *hd-scl-ep*     0)   ;; parents pilotes REFUSES par le garde d'echelle (mode 1, arme ou non : occasions)
 (define *hd-scl-eplogs* 0)
+
+;; ------------------------------------------------------------------------------------------------
+;; cycle 6e — LA CAUSE, MESUREE SUR LE REDMI (dev6-ctl3, finalboss, 23:45:52) : `HDMTXREF k=7
+;; w3=0.9982`, `asm_vs_goal_max_u=0.0000`. La matrice MONDE de l'os HD a une composante w de
+;; 0,9982 sur sa ligne de translation au lieu de 1. `new-bones-mtx-calc-asm` (verifie identique au
+;; produit generique) calcule `t-mtx3 = ... + w3 . cam3`, et `cam3 = -c.R` est la position de
+;; l'ORIGINE DU MONDE dans le repere camera : l'os est deplace de (1 - w3) x |cam3|, c'est-a-dire
+;; 0,0018 x 5540 m = 10 m a finalboss, VERS l'origine, PROPORTIONNELLEMENT a l'eloignement de
+;; Sandover — mot pour mot l'owner (« comme s'il essayait d'atteindre un point d'origine au
+;; loin », « plus on est loin, plus c'est extreme »). Mesure : `len_skel_m=0.3218` (positions
+;; justes), `len_mtx_m=5.0287` (produit consomme), chaine k=6->7->8 de Jak a +5 m par maillon.
+;;
+;; D'OU VIENT LE w. Les os du PILOTE (`cspace<-parented-transformq-joint!`, mips2c) portent des
+;; composantes w NON AFFINES sur leurs lignes (ce que le calcul de quaternion laisse dans la lane
+;; w — dependant de la plateforme, invisible sur x86). Le chemin STOCK n'en souffre pas : le
+;; skinning ignore le w des lignes 0-2 et la ligne 3 est ecrite avec w=1. Le RECIBLAGE, lui,
+;; MULTIPLIE des matrices : `res = tmp . A_e` melange la colonne w parasite de A_e dans la ligne
+;; de translation du produit — `row3.w = A_e[3].w + Sum_k tmp3k . A_e[k].w`, ou tmp3 est une
+;; translation de bind en MILLIERS d'unites : un w parasite de 1e-6 devient 1e-3 sur row3.w.
+;; C'est pourquoi le defaut est propre aux modeles HD, intermittent (il suit les lanes w de
+;; l'animation du moment), et proportionnel a la distance de la camera a l'origine.
+;;
+;; LE CORRECTIF est au niveau du MOTEUR, pas du personnage : toute matrice du pilote lue par le
+;; reciblage est d'abord rendue AFFINE (colonne w = 0,0,0,1) dans une copie, et le produit ecrit
+;; dans le squelette est rendu affine lui aussi. Debrayable (`*hd-affine-arm*`, propriete
+;; `debug.opengoal.hd.affine_arm`) pour l'ablation sur le meme APK ; les OCCASIONS (matrices
+;; pilotes non affines rencontrees) sont comptees des deux cotes.
+;; ------------------------------------------------------------------------------------------------
+(define *hd-affine-arm* 1)
+(define *hd-w-occ*    0)   ;; matrices pilotes NON AFFINES lues par le reciblage (occasions, les deux bras)
+(define *hd-w-imgs*   0)   ;; images (par compagnon) avec au moins une telle lecture
+(define *hd-w-worst*  0.0) ;; pire |w| parasite vu (lignes 0-2 : |w| ; ligne 3 : |w - 1|)
+(define *hd-w-logs*   0)
+(define *hd-w-cur*    0)   ;; occasions dans l'image en cours (par compagnon)
+
+(defun hd-mat-affine! ((dst matrix) (src matrix))
+  "Copie `src` dans `dst` en forcant la colonne w a (0,0,0,1). Compte et publie une occasion si
+   `src` n'etait pas affine (au-dela de 1e-7 : le bruit d'un produit flottant est bien dessous)."
+  (matrix-copy! dst src)
+  (let ((w0 (fabs (-> src vector 0 w)))
+        (w1 (fabs (-> src vector 1 w)))
+        (w2 (fabs (-> src vector 2 w)))
+        (w3 (fabs (- (-> src vector 3 w) 1.0))))
+    (let ((wm (fmax w0 (fmax w1 (fmax w2 w3)))))
+      (when (or (> wm 0.0000001) (not (< wm 1.0)) (not (>= wm 0.0)))
+        (+! *hd-w-occ* 1)
+        (+! *hd-w-cur* 1)
+        (when (and (< wm HD_FAR_SANE) (> wm *hd-w-worst*)) (set! *hd-w-worst* wm))
+        (when (< *hd-w-logs* 40)
+          (+! *hd-w-logs* 1)
+          (format 0 "HDWGARB w0=~f w1=~f w2=~f w3=~f arme=~D~%"
+                  (-> src vector 0 w) (-> src vector 1 w) (-> src vector 2 w) (-> src vector 3 w)
+                  *hd-affine-arm*)))))
+  (when (nonzero? *hd-affine-arm*)
+    (set! (-> dst vector 0 w) 0.0)
+    (set! (-> dst vector 1 w) 0.0)
+    (set! (-> dst vector 2 w) 0.0)
+    (set! (-> dst vector 3 w) 1.0))
+  (none))
 
 (defun hd-drv-scale-sane? ((a matrix) (binv matrix))
   "Vrai si chaque ligne de base de l'os pilote `a` a une longueur entre 1/4 et 4 fois son
@@ -1005,7 +1066,11 @@
               ;; Ghd-skin-origin-stretch (cycle 4) : TOUTE branche ecrit ici, jamais directement dans
               ;; le squelette. La copie vers l'os HD est faite par le FILET, plus bas, et seulement si
               ;; le resultat est FINI. `wrote` nomme la branche qui a produit `res` (0 = aucune).
-              (res   (new-stack-matrix0)))
+              (res   (new-stack-matrix0))
+              ;; cycle 6e : copies AFFINES des matrices du pilote (voir hd-mat-affine!)
+              (ae    (new-stack-matrix0))
+              (aep   (new-stack-matrix0)))
+          (set! *hd-w-cur* 0)
           (dotimes (k (-> obj hd-joints))
             (when (< (+ k 1) nbones)
               (let ((md (the int (-> kmode k)))
@@ -1033,7 +1098,8 @@
                         ;; produit ci-dessous. Si elle est perimee, le joint HD est SERVI par elle.
                         (when (not ok) (hd-stale-note! obj (= p #xff)))
                         (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
-                        (matrix*! res tmp (-> tgt-skel bones (+ e 1) transform))
+                        (hd-mat-affine! ae (the-as matrix (-> tgt-skel bones (+ e 1) transform)))
+                        (matrix*! res tmp ae)
                         (set! wrote 1)))))
                   (else
                    ;; modes 1/2: L'_k = inv(bind-pose_hd[k]) . bind-pose_hd[p]
@@ -1105,7 +1171,8 @@
                         ;; SITE DE CONSOMMATION 2/3 (mode 3) : la matrice pilote entre dans `tmp2`.
                         (when (not ok) (hd-stale-note! obj #f))
                         (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
-                        (matrix*! tmp2 tmp (the-as matrix (-> tgt-skel bones (+ e 1) transform)))
+                        (hd-mat-affine! ae (the-as matrix (-> tgt-skel bones (+ e 1) transform)))
+                        (matrix*! tmp2 tmp ae)
                         (matrix*! tmp lk (the-as matrix (-> skel bones (+ p 1) transform)))
                         (dotimes (r 3)
                           (let ((len  (vector-length (-> tmp2 vector r)))
@@ -1128,8 +1195,10 @@
                         ;; SITE DE CONSOMMATION 3/3 (mode 1) : les DEUX matrices pilotes (`e` et son
                         ;; parent `ep`) entrent dans le delta ci-dessous.
                         (when (not ok) (hd-stale-note! obj #f))
-                        (matrix-4x4-inverse! inv1 (the-as matrix (-> tgt-skel bones (+ ep 1) transform)))
-                        (matrix*! tmp (the-as matrix (-> tgt-skel bones (+ e 1) transform)) inv1)
+                        (hd-mat-affine! aep (the-as matrix (-> tgt-skel bones (+ ep 1) transform)))
+                        (hd-mat-affine! ae (the-as matrix (-> tgt-skel bones (+ e 1) transform)))
+                        (matrix-4x4-inverse! inv1 aep)
+                        (matrix*! tmp ae inv1)
                         (matrix-4x4-inverse! inv1 (-> tgt-jgeo data ep bind-pose))
                         (matrix*! tmp2 tmp inv1)
                         (matrix*! tmp tmp2 (-> tgt-jgeo data e bind-pose))
@@ -1151,6 +1220,13 @@
                 ;; pilote) ou, sans parent utilisable, pose stock conservee. Filet desarme, il
                 ;; passe tel quel — c'est le bras de controle, et il est compte comme tel.
                 ;; ------------------------------------------------------------------------
+                ;; cycle 6e : le produit ecrit est AFFINE (colonne w = 0,0,0,1), quelle que soit
+                ;; la branche — c'est la ligne que bones-mtx-calc multiplie par la camera.
+                (when (and (nonzero? wrote) (nonzero? *hd-affine-arm*))
+                  (set! (-> res vector 0 w) 0.0)
+                  (set! (-> res vector 1 w) 0.0)
+                  (set! (-> res vector 2 w) 0.0)
+                  (set! (-> res vector 3 w) 1.0))
                 (let ((dst (the-as matrix (-> skel bones (+ k 1) transform))))
                   (cond
                     ((and (nonzero? wrote) (hd-mat-finite? res))
@@ -1194,6 +1270,7 @@
           ;; instruments (squelette GOAL, consommation GPU dans Merc2) doivent le COMPTER, sinon
           ;; leur zero ne vaut rien. Jamais arme en production (propriete de debug, kmachine).
           ;; ------------------------------------------------------------------------------
+          (when (> *hd-w-cur* 0) (+! *hd-w-imgs* 1))
           (when (nonzero? *hd-stretch-inject*)
             (+! *hd-inject-tick* 1)
             (when (= (mod *hd-inject-tick* 300) 0)
@@ -1453,6 +1530,10 @@
   (set! *hd-mtx-logs* 0)
   (set! *hd-mtx-skel* 0)
   (set! *hd-mtx-asmdiff* 0)
+  (set! *hd-w-occ* 0)
+  (set! *hd-w-imgs* 0)
+  (set! *hd-w-worst* 0.0)
+  (set! *hd-w-logs* 0)
   (set! *hd-moves-dist* 0.0)
   (set! *hd-moves-frames* 0)
   (set! *hd-moves-ticks* 0)
@@ -2721,7 +2802,11 @@
         ;; `mtxskel` squelette change entre le :post et bones-mtx-calc.
         (format 0 "HDLEN5 drawdev=~D drawimgs=~D mtxdev=~D mtximgs=~D mtxjuges=~D mtxskel=~D~%"
                 *hd-draw-dev* *hd-draw-imgs* *hd-mtx-dev* *hd-mtx-imgs* *hd-mtx-judged* *hd-mtx-skel*)
-        (format 0 "HDLEN6 asmdiff=~D~%" *hd-mtx-asmdiff*))))
+        (format 0 "HDLEN6 asmdiff=~D~%" *hd-mtx-asmdiff*)
+        ;; LA CAUSE : matrices pilotes NON AFFINES lues par le reciblage (occasions, les deux
+        ;; bras) et le pire w parasite ; `affarme` dit si le correctif etait en place.
+        (format 0 "HDLEN7 wocc=~D wimgs=~D pire_w=~f affarme=~D~%"
+                *hd-w-occ* *hd-w-imgs* *hd-w-worst* *hd-affine-arm*))))
   ;; cycle 6 : sondage des entrees d'etat du joueur, une fois par image, sans cap.
   (hd-moves-poll!)
   ;; phase 1: collect.

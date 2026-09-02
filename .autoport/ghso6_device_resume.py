@@ -48,7 +48,10 @@ def main():
                cmd_judged=0, cmd_bones=0, cmd_frames=0, cmd_nostock=0, scl_bones=0, scl_frames=0,
                ring_ok=0, ring_bad=0, ring_nostamp=0, ring_judged=0, ring_far=0)
     goal = dict(imgs=0, etimgs=0, etos=0, nan=0, drvstale=0, origine=0, blend=0, inject=0, minutes=0.0,
-                cmdos=0, cmdimgs=0, sclos=0, sclimgs=0, sclep=0)
+                cmdos=0, cmdimgs=0, sclos=0, sclimgs=0, sclep=0, drawdev=0, mtxdev=0, mtxjuges=0, mtxskel=0,
+                asmdiff=0, wocc=0, wimgs=0)
+    w_worst = 0.0
+    affarm_seen = set()
     scl_worst = 0.0
     goal_scl_worst = 0.0
     sclarm_seen = set()
@@ -75,6 +78,9 @@ def main():
         hl2 = [kv(l) for t, l in lines if l.startswith('HDLEN2 ')]
         hl3 = [kv(l) for t, l in lines if l.startswith('HDLEN3 ')]
         hl4 = [kv(l) for t, l in lines if l.startswith('HDLEN4 ')]
+        hl5 = [kv(l) for t, l in lines if l.startswith('HDLEN5 ')]
+        hl6 = [kv(l) for t, l in lines if l.startswith('HDLEN6 ')]
+        hl7 = [kv(l) for t, l in lines if l.startswith('HDLEN7 ')]
         hm = [kv(l) for t, l in lines if l.startswith('HDMOVES ')]
         hb = [kv(l) for t, l in lines if l.startswith('HDHB ')]
         wall = [kv(l) for t, l in lines if l.startswith('HDWALL ')]
@@ -86,6 +92,8 @@ def main():
                 inj_seen.add(kv(l).get('value', '?'))
             if l.startswith('HDSCALEARM '):
                 sclarm_seen.add(kv(l).get('value', '?'))
+            if l.startswith('HDAFFINEARM '):
+                affarm_seen.add(kv(l).get('value', '?'))
             if l.startswith('HDSCLEP '):
                 sclep_ev.append(kv(l))
             elif l.startswith('HDSCLEP2 ') and sclep_ev:
@@ -186,6 +194,15 @@ def main():
             for k in ('sclos', 'sclimgs', 'sclep'):
                 goal[k] += int(hl4[-1].get(k, 0) or 0)
             goal_scl_worst = max(goal_scl_worst, float(hl4[-1].get('pire_scl', 0) or 0))
+        if hl5:
+            for k in ('drawdev', 'mtxdev', 'mtxjuges', 'mtxskel'):
+                goal[k] += int(hl5[-1].get(k, 0) or 0)
+        if hl6:
+            goal['asmdiff'] += int(hl6[-1].get('asmdiff', 0) or 0)
+        if hl7:
+            for k in ('wocc', 'wimgs'):
+                goal[k] += int(hl7[-1].get(k, 0) or 0)
+            w_worst = max(w_worst, float(hl7[-1].get('pire_w', 0) or 0))
         if hl3:
             for k in ('cmdos', 'cmdimgs'):
                 goal[k] += int(hl3[-1].get(k, 0) or 0)
@@ -215,7 +232,8 @@ def main():
               f"| MOVES {hm[-1] if hm else 'ABSENT'} | reel={span/60:.4f} min (pad {wall[-1].get('secondes','?') if wall else '?'} s)")
     modeles = sorted({MODEL[i] for i in range(11) if ents & (1 << i)} | set(models_gpu))
     print(f"# inject vu par le jeu (HDSTRETCHINJECT value=) : {','.join(sorted(inj_seen)) or 'ABSENT (defaut GOAL = 0)'}  demande={inj}")
-    print(f"# garde d'echelle vu par le jeu (HDSCALEARM value=) : {','.join(sorted(sclarm_seen)) or 'ABSENT (defaut GOAL = 1)'}")
+    print(f"# garde d'echelle vu par le jeu (HDSCALEARM value=) : {','.join(sorted(sclarm_seen)) or 'ABSENT (defaut GOAL = 0)'}")
+    print(f"# correctif AFFINE vu par le jeu (HDAFFINEARM value=) : {','.join(sorted(affarm_seen)) or 'ABSENT (defaut GOAL = 1)'}")
     for e in sclep_ev[:60]:
         print(f"HDATTRIB site=squelette-garde-echelle modele={MODEL.get(int(e.get('entry', 0)), '?')} os={e.get('k')} pilote={e.get('e')} "
               f"parent_pilote={e.get('ep')} arme={e.get('arme')} echelle_parent=({e.get('r0')},{e.get('r1')},{e.get('r2')}) det={e.get('det')} "
@@ -233,7 +251,9 @@ def main():
     # aussi. Elle reste publiee comme diagnostic (`os_longueur`).
     print(f"HDSTRETCHCOUNT bras={tag} plateforme=redmi inject={inj} scenes={scenes} minutes={wall_s/60:.4f} "
           f"minutes_de_jeu_moteur={goal['minutes']:.4f} secondes_pad={pad_s} images={gpu['hd_frames']} "
-          f"os_etires={gpu['cmd_bones'] + goal['cmdos'] + gpu['scl_bones'] + goal['sclos'] + gpu['ring_far']} critere=ecart-a-la-pose-commandee-0.25m-ou-echelle-de-base-hors-bande-ou-ecart-a-la-position-ecrite-par-goal "
+          f"os_etires={gpu['cmd_bones'] + goal['cmdos'] + gpu['scl_bones'] + goal['sclos'] + gpu['ring_far'] + goal['mtxdev']} critere=ecart-a-la-pose-commandee-0.25m-ou-echelle-de-base-hors-bande-ou-ecart-a-la-position-ecrite-par-goal "
+          f"affine_arme={','.join(sorted(affarm_seen)) or '1'} matrices_pilotes_non_affines={goal['wocc']} images_non_affines={goal['wimgs']} pire_w={w_worst:.6f} "
+          f"os_matrice_merc_vs_squelette={goal['mtxdev']} os_juges_bones_mtx_calc={goal['mtxjuges']} squelette_change_apres_post={goal['mtxskel']} os_changes_avant_draw={goal['drawdev']} asm_vs_generique={goal['asmdiff']} "
           f"os_echelle_gpu={gpu['scl_bones']} images_echelle_gpu={gpu['scl_frames']} pire_echelle_gpu={scl_worst:.2f} "
           f"os_echelle_squelette={goal['sclos']} images_echelle_squelette={goal['sclimgs']} pire_echelle_squelette={goal_scl_worst:.2f} "
           f"parents_pilotes_echelle_aberrante={goal['sclep']} "

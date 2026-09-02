@@ -23,7 +23,7 @@ ADB=/home/emeric/Android/platform-tools/adb
 [ -x "$ADB" ] || ADB=$(command -v adb)
 SER=eae4df44
 PKG=org.opengoal.gk.jak1
-INJ="${1:-0}"; TAG="${2:-dev6-inj$INJ}"; DP="${3:-240}"; SCLARM="${SCLARM:-1}"   # garde d'echelle du mode 1 (0 = bras de controle)
+INJ="${1:-0}"; TAG="${2:-dev6-inj$INJ}"; DP="${3:-240}"; SCLARM="${SCLARM:-0}"; AFFARM="${AFFARM:-1}"   # garde d'echelle (mesuree inerte) ; correctif AFFINE (0 = bras de controle)
 OUT=.autoport/reports/Ghd-skin-origin-stretch/device; mkdir -p "$OUT"
 SUM="$OUT/$TAG-resume.txt"
 a(){ "$ADB" -s "$SER" "$@"; }
@@ -48,6 +48,7 @@ cleanup(){
   a shell "setprop debug.opengoal.cpad_inject ''"       >/dev/null 2>&1
   a shell "setprop debug.opengoal.hd.stretch_inject ''" >/dev/null 2>&1
   a shell "setprop debug.opengoal.hd.scale_arm ''"      >/dev/null 2>&1
+  a shell "setprop debug.opengoal.hd.affine_arm ''"     >/dev/null 2>&1
   [ -n "${LCPID:-}" ] && { kill "$LCPID" 2>/dev/null; sleep 1; kill -9 "$LCPID" 2>/dev/null; }
   a shell am force-stop $PKG >/dev/null 2>&1
   if [ -n "$PREV_LOCK" ]; then printf '%s\n' "$PREV_LOCK" > "$LOCK"; else rm -f "$LOCK"; fi
@@ -110,6 +111,7 @@ run_scene(){
   a shell "setprop debug.opengoal.level.warp '$scene'" >/dev/null 2>&1
   a shell "setprop debug.opengoal.hd.stretch_inject '$INJ'" >/dev/null 2>&1
   a shell "setprop debug.opengoal.hd.scale_arm '$SCLARM'" >/dev/null 2>&1
+  a shell "setprop debug.opengoal.hd.affine_arm '$AFFARM'" >/dev/null 2>&1
   a shell "setprop debug.opengoal.cpad_inject ''" >/dev/null 2>&1
   a logcat -c >/dev/null 2>&1
   a logcat -v threadtime GK_STDOUT:I GK_STDERR:I opengoal-gk:I libc:F DEBUG:V '*:S' > "$LOG" 2>/dev/null &
@@ -120,7 +122,7 @@ run_scene(){
     grep -aq "LEVEL-WARP.*start .play" "$LOG" && { W=1; break; }
     sleep 1
   done
-  echo "== scene $scene ($mode) : warp=$W, fenetre ${dur}s, inject=$(grep -a 'HDSTRETCHINJECT' "$LOG" | tail -1 | sed 's/^.*HDSTRETCHINJECT/HDSTRETCHINJECT/' | tr -d '\r'), $(grep -a 'HDSCALEARM' "$LOG" | tail -1 | sed 's/^.*HDSCALEARM/HDSCALEARM/' | tr -d '\r')"
+  echo "== scene $scene ($mode) : warp=$W, fenetre ${dur}s, inject=$(grep -a 'HDSTRETCHINJECT' "$LOG" | tail -1 | sed 's/^.*HDSTRETCHINJECT/HDSTRETCHINJECT/' | tr -d '\r'), $(grep -a 'HDSCALEARM' "$LOG" | tail -1 | sed 's/^.*HDSCALEARM/HDSCALEARM/' | tr -d '\r'), $(grep -a 'HDAFFINEARM' "$LOG" | tail -1 | sed 's/^.*HDAFFINEARM/HDAFFINEARM/' | tr -d '\r')"
   sleep 12
   local T0=$(date +%s) k=0 n=${#BRUSQUE[@]}
   while [ $(( $(date +%s) - T0 )) -lt "$dur" ]; do
@@ -148,14 +150,14 @@ run_scene(){
   a shell am force-stop $PKG >/dev/null 2>&1
   echo "   lignes capturees : $(grep -ac . "$LOG" || true)   injections pad : $(grep -ac 'F1D-INJECT applied' "$LOG" || true)   fenetre_pad=$((T1 - T0))s"
   echo "   etats joueur : $(grep -a 'JAK-HD-TGT\] st=' "$LOG" | sed 's/^.*st=//' | tr -d '\r' | sort | uniq -c | sort -rn | head -8 | awk '{printf "%s(%s) ", $2, $1}')"
-  for m in HDMOVES HDLEN HDLEN2 HDLEN3 HDLEN4 HDLEN5 HDSKINLEN HDSKIN; do
+  for m in HDMOVES HDLEN HDLEN2 HDLEN3 HDLEN4 HDLEN5 HDLEN6 HDLEN7 HDSKINLEN HDSKIN; do
     echo "   $m (dernier) : $(grep -a "$m " "$LOG" | tail -1 | sed "s/^.*$m /$m /" | tr -d '\r')"
   done
   echo "   HDLENG : $(grep -ac 'HDLENG ' "$LOG" || true) evenement(s) squelette   HDLENEV : $(grep -ac 'HDLENEV ' "$LOG" || true) HDCMDEV : $(grep -ac 'HDCMDEV ' "$LOG" || true) evenement(s) GPU   HDINJECT : $(grep -ac 'HDINJECT ' "$LOG" || true)   HDLENRIG : $(grep -ac 'HDLENRIG ' "$LOG" || true)"
   grep -a 'HDLENEV ' "$LOG" | sed 's/^.*HDLENEV/HDLENEV/' | tr -d '\r' | head -6
-  grep -aE 'HDSKINLEN |HDLENEV |HDLENRIG |HDSKIN |HDSKINEV |HDSKINMODEL |HDHB[0-9]? |HDLEN[2345]? |HDDRAWDEV |HDMTXDEV |HDMTXREF[23]? |HDLEN6 |HDLENG[0-9]? |HDSCLEP2? |HDCMDEV |HDMOVES |HDINJECT |HDSTRETCHINJECT|HDSCALEARM|HDNANSRC|HDFINITEARM|LEVEL-WARP|JAK-HD-TGT|F1D-INJECT applied|HDRESET|FATAL|signal [0-9]+' "$LOG" \
+  grep -aE 'HDSKINLEN |HDLENEV |HDLENRIG |HDSKIN |HDSKINEV |HDSKINMODEL |HDHB[0-9]? |HDLEN[2345]? |HDDRAWDEV |HDMTXDEV |HDMTXREF[23]? |HDLEN[67] |HDWGARB |HDAFFINEARM|HDLENG[0-9]? |HDSCLEP2? |HDCMDEV |HDMOVES |HDINJECT |HDSTRETCHINJECT|HDSCALEARM|HDNANSRC|HDFINITEARM|LEVEL-WARP|JAK-HD-TGT|F1D-INJECT applied|HDRESET|FATAL|signal [0-9]+' "$LOG" \
     | sed -E 's/^([0-9-]+ [0-9:.]+) +[0-9]+ +[0-9]+ [A-Z] [A-Za-z_-]+: /\1 /' | tr -d '\r' > "$OUT/$TAG-$scene-$mode-marqueurs.txt"
-  echo "HDWALL scene=$scene-$mode secondes=$((T1 - T0)) inject=$INJ sclarm=$SCLARM" >> "$OUT/$TAG-$scene-$mode-marqueurs.txt"
+  echo "HDWALL scene=$scene-$mode secondes=$((T1 - T0)) inject=$INJ sclarm=$SCLARM affarm=$AFFARM" >> "$OUT/$TAG-$scene-$mode-marqueurs.txt"
 }
 
 if [ -n "${SCENES:-}" ]; then
