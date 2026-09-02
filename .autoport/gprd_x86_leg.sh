@@ -35,7 +35,8 @@ CONTS=${GPRD_CONTS:-village1-hut beach-start jungle-start}
 HOLD=${GPRD_HOLD:-40}
 OUT=.autoport/reports/Gpbr-props-reach-draw
 mkdir -p "$OUT"
-DIAG="$REPO/pbr_tan_diag.txt"
+# Le recensement a son PROPRE fichier : pbr_tan_diag.txt a deux ecrivains qui s'ecrasent.
+DIAG="$REPO/pbr_reach.txt"
 export DISPLAY="${DISPLAY:-:0}"
 export OG_MM_ON="$MM"
 

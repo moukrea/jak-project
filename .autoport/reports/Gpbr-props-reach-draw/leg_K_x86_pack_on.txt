@@ -1,0 +1,81 @@
+===== JAMBE K_x86_pack_on  (pack=on  modern-materials=1  niveaux='village1-hut beach-start jungle-start'  hold=35s) =====
+gk=2026-09-02 09:57:16  rpacks presents=14  surfaces.json=present
+
+---------- NIVEAU village1-hut (spawn=1) ----------
+[13:30:856] [info] [mm] surfaces.json parsed: 172 material records, defaults=0, 0 unknown keys
+[13:30:856] [info] [pbrmat] PARAMSRC=managed path=/home/emeric/code/jak-project/managed_assets/jak1/surfaces.json blocks=172 defaults=0
+[13:30:853] [info] managed_assets: 14 shards, 688 entries (+680 cles nom-nu) from /home/emeric/code/jak-project/managed_assets/jak1/state.json
+niveaux charges : level village1 has 10 PBR material;
+matieres AUTHOREES SANS CARTE (bit 256) : 0
+[surfaces] apply avec enregistrement : 27
+[surfaces] apply NO RECORD          : 3
+plantages : 0
+
+PBRREACH plateforme=x86 matieres_dans_table=172 matieres_rencontrees=9 avec_record=6 params_deposes=9 draws_consommes=45025 hors_identite=6 modern_master=1 textures_chargees=997 textures_nommees=27
+PBRVAL matiere=village1-vis-alpha/vil-beach-01 famille=sand clearcoat=0.0000 aniso=0.0000 reflectance=0.0300 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-tfrag/vil-beach-01 famille=sand clearcoat=0.0000 aniso=0.0000 reflectance=0.0300 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-tfrag/vil-beachrock famille=rock_wet clearcoat=0.1500 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.8000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=village1-vis-tfrag/vil-hut-roof-tile-01 famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil-rug-01 famille=cloth clearcoat=0.0000 aniso=0.0000 reflectance=0.0350 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x19
+PBRVAL matiere=village1-vis-tfrag/vil-wallplaster famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil1-jng-leafyground famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil1-sages-stonewall-01 famille=stone_cut clearcoat=0.1000 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.7500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=village1-vis-tfrag/vil1-sages-strawroof-01 famille=straw clearcoat=0.0000 aniso=0.4000 reflectance=0.0400 metallic=0.0000 rugosite=0.8500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1d
+PBRNOTE draws_consommes est un compte CPU pris au bind, juste avant que l'appelant emette son draw : il ne prouve PAS qu'un fragment a tourne. `source=readback` veut dire que reflectance/metallic/rugosite ont ete RELUS par glGetUniformfv dans u_pbr_mat de l'objet programme que ce draw utilise, pas recopies depuis nos variables ; `source_mm=readback` dit la meme chose de clearcoat/aniso, relus de u_mm_coat / u_mm_aniso. clearcoat et aniso ne franchissent u_mm_flags que si la ligne de menu MODERN MATERIALS est active (elle est ici a 1) ; hors de ca ils valent 0 QUELLE QUE SOIT la valeur authoree. textures_chargees / textures_nommees sont prises a la DECISION D'INSCRIPTION, une par texture et par chargement : elles disent quelle part des surfaces que le jeu charge la table nomme, ce que le recensement du binder ne peut pas voir puisqu'il ne rencontre que des matieres inscrites.
+
+---------- NIVEAU beach-start (spawn=1) ----------
+[14:19:079] [info] [mm] surfaces.json parsed: 172 material records, defaults=0, 0 unknown keys
+[14:19:079] [info] [pbrmat] PARAMSRC=managed path=/home/emeric/code/jak-project/managed_assets/jak1/surfaces.json blocks=172 defaults=0
+[14:19:077] [info] managed_assets: 14 shards, 688 entries (+680 cles nom-nu) from /home/emeric/code/jak-project/managed_assets/jak1/state.json
+niveaux charges : level beach has 52 PBR material;level village1 has 10 PBR material;
+matieres AUTHOREES SANS CARTE (bit 256) : 0
+[surfaces] apply avec enregistrement : 27
+[surfaces] apply NO RECORD          : 3
+plantages : 0
+
+PBRREACH plateforme=x86 matieres_dans_table=172 matieres_rencontrees=16 avec_record=13 params_deposes=16 draws_consommes=41558 hors_identite=13 modern_master=1 textures_chargees=997 textures_nommees=27
+PBRVAL matiere=beach-vis-shrub/bch-hut-wood-01endcap famille=wood clearcoat=0.0000 aniso=0.2500 reflectance=0.0420 metallic=0.0000 rugosite=0.8200 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1c
+PBRVAL matiere=beach-vis-tfrag/bch-ecovalve-grate famille=metal_painted clearcoat=0.2000 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.5500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=beach-vis-tfrag/bch-hut-wood-01endcap famille=wood clearcoat=0.0000 aniso=0.2500 reflectance=0.0420 metallic=0.0000 rugosite=0.8200 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1c
+PBRVAL matiere=beach-vis-tfrag/bch-huttoprim-hitweak famille=wood clearcoat=0.0000 aniso=0.2500 reflectance=0.0420 metallic=0.0000 rugosite=0.8200 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1c
+PBRVAL matiere=beach-vis-tfrag/bch-idol-broken famille=gravel clearcoat=0.0000 aniso=0.0000 reflectance=0.0380 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=beach-vis-tfrag/bch-outpostwall famille=stone_cut clearcoat=0.1000 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.7500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=beach-vis-tfrag/bch-path-01 famille=dirt clearcoat=0.0000 aniso=0.0000 reflectance=0.0310 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-alpha/vil-beach-01 famille=sand clearcoat=0.0000 aniso=0.0000 reflectance=0.0300 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-tfrag/vil-beach-01 famille=sand clearcoat=0.0000 aniso=0.0000 reflectance=0.0300 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-tfrag/vil-beachrock famille=rock_wet clearcoat=0.1500 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.8000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=village1-vis-tfrag/vil-hut-roof-tile-01 famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil-rug-01 famille=cloth clearcoat=0.0000 aniso=0.0000 reflectance=0.0350 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x19
+PBRVAL matiere=village1-vis-tfrag/vil-wallplaster famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil1-jng-leafyground famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil1-sages-stonewall-01 famille=stone_cut clearcoat=0.1000 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.7500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=village1-vis-tfrag/vil1-sages-strawroof-01 famille=straw clearcoat=0.0000 aniso=0.4000 reflectance=0.0400 metallic=0.0000 rugosite=0.8500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1d
+PBRNOTE draws_consommes est un compte CPU pris au bind, juste avant que l'appelant emette son draw : il ne prouve PAS qu'un fragment a tourne. `source=readback` veut dire que reflectance/metallic/rugosite ont ete RELUS par glGetUniformfv dans u_pbr_mat de l'objet programme que ce draw utilise, pas recopies depuis nos variables ; `source_mm=readback` dit la meme chose de clearcoat/aniso, relus de u_mm_coat / u_mm_aniso. clearcoat et aniso ne franchissent u_mm_flags que si la ligne de menu MODERN MATERIALS est active (elle est ici a 1) ; hors de ca ils valent 0 QUELLE QUE SOIT la valeur authoree. textures_chargees / textures_nommees sont prises a la DECISION D'INSCRIPTION, une par texture et par chargement : elles disent quelle part des surfaces que le jeu charge la table nomme, ce que le recensement du binder ne peut pas voir puisqu'il ne rencontre que des matieres inscrites.
+
+---------- NIVEAU jungle-start (spawn=1) ----------
+[15:09:430] [info] [mm] surfaces.json parsed: 172 material records, defaults=0, 0 unknown keys
+[15:09:430] [info] [pbrmat] PARAMSRC=managed path=/home/emeric/code/jak-project/managed_assets/jak1/surfaces.json blocks=172 defaults=0
+[15:09:428] [info] managed_assets: 14 shards, 688 entries (+680 cles nom-nu) from /home/emeric/code/jak-project/managed_assets/jak1/state.json
+niveaux charges : level jungle has 24 PBR material;level village1 has 10 PBR material;
+matieres AUTHOREES SANS CARTE (bit 256) : 0
+[surfaces] apply avec enregistrement : 14
+[surfaces] apply NO RECORD          : 3
+plantages : 0
+
+PBRREACH plateforme=x86 matieres_dans_table=172 matieres_rencontrees=15 avec_record=12 params_deposes=15 draws_consommes=21995 hors_identite=11 modern_master=1 textures_chargees=963 textures_nommees=14
+PBRVAL matiere=jungle-vis-tfrag/cmn-precursor-plainstripe famille=precursor_alloy clearcoat=0.0000 aniso=0.0000 reflectance=0.0500 metallic=0.5500 rugosite=0.6000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=jungle-vis-tfrag/jng-leafyground famille=foliage clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x19
+PBRVAL matiere=jungle-vis-tfrag/jng-lrkr-metal-03 famille=metal_rusty clearcoat=0.0000 aniso=0.0000 reflectance=0.0450 metallic=0.3000 rugosite=0.8000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=jungle-vis-tfrag/jng-lrkr-metal-07 famille=metal_painted clearcoat=0.2000 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.5500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=jungle-vis-tfrag/jng-path1-4x4 famille=dirt clearcoat=0.0000 aniso=0.0000 reflectance=0.0310 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=jungle-vis-tfrag/jng-ropebridge-anchor-01 famille=metal_rusty clearcoat=0.0000 aniso=0.0000 reflectance=0.0450 metallic=0.3000 rugosite=0.8000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-alpha/vil-beach-01 famille=sand clearcoat=0.0000 aniso=0.0000 reflectance=0.0300 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-tfrag/vil-beach-01 famille=sand clearcoat=0.0000 aniso=0.0000 reflectance=0.0300 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-tfrag/vil-beachrock famille=rock_wet clearcoat=0.1500 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.8000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=village1-vis-tfrag/vil-hut-roof-tile-01 famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil-rug-01 famille=cloth clearcoat=0.0000 aniso=0.0000 reflectance=0.0350 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x19
+PBRVAL matiere=village1-vis-tfrag/vil-wallplaster famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil1-jng-leafyground famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil1-sages-stonewall-01 famille=stone_cut clearcoat=0.1000 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.7500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=village1-vis-tfrag/vil1-sages-strawroof-01 famille=straw clearcoat=0.0000 aniso=0.4000 reflectance=0.0400 metallic=0.0000 rugosite=0.8500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1d
+PBRNOTE draws_consommes est un compte CPU pris au bind, juste avant que l'appelant emette son draw : il ne prouve PAS qu'un fragment a tourne. `source=readback` veut dire que reflectance/metallic/rugosite ont ete RELUS par glGetUniformfv dans u_pbr_mat de l'objet programme que ce draw utilise, pas recopies depuis nos variables ; `source_mm=readback` dit la meme chose de clearcoat/aniso, relus de u_mm_coat / u_mm_aniso. clearcoat et aniso ne franchissent u_mm_flags que si la ligne de menu MODERN MATERIALS est active (elle est ici a 1) ; hors de ca ils valent 0 QUELLE QUE SOIT la valeur authoree. textures_chargees / textures_nommees sont prises a la DECISION D'INSCRIPTION, une par texture et par chargement : elles disent quelle part des surfaces que le jeu charge la table nomme, ce que le recensement du binder ne peut pas voir puisqu'il ne rencontre que des matieres inscrites.

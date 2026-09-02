@@ -1,0 +1,37 @@
+===== JAMBE APPAREIL G_redmi_pack_on  (continue=village1-hut hold=75s) =====
+APK: android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk (1174695948 octets, bati 2026-09-02 10:00:36)
+  libgk porte 'PBRREACH' (x1)
+  libgk porte 'PBRVAL' (x1)
+  libgk porte 'pbr authored-only material' (x3)
+  libgk porte 'pbr_reach_section' (x4)
+-- installation --
+Performing Streamed Install
+Success
+package:org.opengoal.gk.jak1
+  settings AVANT : recharged-master? = #t pbr-materials? = #t pbr-displacement = 1 pbr-isolate = 0 modern-materials? = #t managed-assets? = #t 
+  settings APRES : pbr-displacement = 1 pbr-isolate = 0 
+-- course lancee, attente du spawn (<=180s) --
+  spawn a ~24s
+-- recolte --
+  logcat : 10984 lignes
+  diag   : 13 lignes
+  plantages : 0
+  [pbrmat] PARAMSRC : 09-02 10:01:59.456 26569 26652 I opengoal-gk: [pbrmat] PARAMSRC=managed path=/data/user/0/org.opengoal.gk.jak1/files/managed_assets/jak1/surfaces.json blocks=172 defaults=0
+  surfaces.json analyse : 09-02 10:01:59.455 26569 26652 I opengoal-gk: [mm] surfaces.json parsed: 172 material records, defaults=0, 0 unknown keys
+  matieres AUTHOREES SANS CARTE (bit 256) : 0
+  [surfaces] apply avec enregistrement : 7
+  [surfaces] apply NO RECORD          : 3
+
+-- LE RECENSEMENT (files/pbr_tan_diag.txt, tire de l'appareil) --
+PBRREACH plateforme=redmi matieres_dans_table=172 matieres_rencontrees=9 avec_record=6 params_deposes=9 draws_consommes=25 hors_identite=6 modern_master=1 textures_chargees=734 textures_nommees=7
+PBRVAL matiere=village1-vis-alpha/vil-beach-01 famille=sand clearcoat=0.0000 aniso=0.0000 reflectance=0.0300 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-tfrag/vil-beach-01 famille=sand clearcoat=0.0000 aniso=0.0000 reflectance=0.0300 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x18
+PBRVAL matiere=village1-vis-tfrag/vil-beachrock famille=rock_wet clearcoat=0.1500 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.8000 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=village1-vis-tfrag/vil-hut-roof-tile-01 famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil-rug-01 famille=cloth clearcoat=0.0000 aniso=0.0000 reflectance=0.0350 metallic=0.0000 rugosite=0.9500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x19
+PBRVAL matiere=village1-vis-tfrag/vil-wallplaster famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil1-jng-leafyground famille=- clearcoat=0.0000 aniso=0.0000 reflectance=0.0400 metallic=0.0000 rugosite=0.9000 atteint_draw=1 record=NO_RECORD source=readback source_mm=cpu mode=0x13 mm_flags=0x0
+PBRVAL matiere=village1-vis-tfrag/vil1-sages-stonewall-01 famille=stone_cut clearcoat=0.1000 aniso=0.0000 reflectance=0.0500 metallic=0.0000 rugosite=0.7500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1a
+PBRVAL matiere=village1-vis-tfrag/vil1-sages-strawroof-01 famille=straw clearcoat=0.0000 aniso=0.4000 reflectance=0.0400 metallic=0.0000 rugosite=0.8500 atteint_draw=1 record=oui source=readback source_mm=readback mode=0x93 mm_flags=0x1d
+PBRNOTE draws_consommes est un compte CPU pris au bind, juste avant que l'appelant emette son draw : il ne prouve PAS qu'un fragment a tourne. `source=readback` veut dire que reflectance/metallic/rugosite ont ete RELUS par glGetUniformfv dans u_pbr_mat de l'objet programme que ce draw utilise, pas recopies depuis nos variables ; `source_mm=readback` dit la meme chose de clearcoat/aniso, relus de u_mm_coat / u_mm_aniso. clearcoat et aniso ne franchissent u_mm_flags que si la ligne de menu MODERN MATERIALS est active (elle est ici a 1) ; hors de ca ils valent 0 QUELLE QUE SOIT la valeur authoree. textures_chargees / textures_nommees sont prises a la DECISION D'INSCRIPTION, une par texture et par chargement : elles disent quelle part des surfaces que le jeu charge la table nomme, ce que le recensement du binder ne peut pas voir puisqu'il ne rencontre que des matieres inscrites.
+[gprd-dev] -> .autoport/reports/Gpbr-props-reach-draw/leg_G_redmi_pack_on.txt

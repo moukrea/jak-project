@@ -25,7 +25,24 @@ P="$OUT/leg_$TAG.txt"; : > "$P"
 adbs(){ "$ADB" -s "$S" "$@"; }
 say(){ echo "$*" | tee -a "$P"; }
 die(){ say "[gprd-dev FAIL] $*"; exit 1; }
-cleanup(){ adbs shell 'setprop debug.opengoal.level.warp ""; setprop debug.opengoal.level.warp.pos ""' </dev/null >/dev/null 2>&1 || true; }
+# GPRD_DEV_PACK=off : on met de cote le state.json du PACK GERE sur l'appareil (les rpacks
+# restent, mais l'index n'a plus rien a lire) EN GARDANT surfaces.json. C'est, sur le vrai
+# materiel, la configuration d'un joueur qui a la table et pas les 223 Mo de cartes — l'etat
+# que AssetPackDownloader.java:164-210 installe explicitement quand aucun shard ne correspond.
+# La restauration est dans le trap : une jambe interrompue ne laisse pas l'appareil ampute.
+DEVPACK="${GPRD_DEV_PACK:-on}"
+MA=files/managed_assets/jak1
+restore_devpack(){
+  if [ "$DEVPACK" = off ] && [ -s "$OUT/settings-prerun_$TAG.ini" ]; then
+    adbs push "$OUT/settings-prerun_$TAG.ini" /storage/emulated/0/OpenGOAL/jak1/settings.ini >/dev/null 2>&1 || true
+    echo "  settings restaures : $(adbs shell "grep -aE '^managed-assets.' /storage/emulated/0/OpenGOAL/jak1/settings.ini" </dev/null 2>&1 | tr -d '\r')" | tee -a "$P"
+  fi
+  if [ "$DEVPACK" = off ]; then
+    adbs shell "run-as $PKG sh -c 'mv $MA/state.json.gprd-bak $MA/state.json'" </dev/null >/dev/null 2>&1 || true
+    echo "  pack appareil restaure : state.json = $(adbs shell "run-as $PKG sh -c 'ls $MA/ | grep state'" </dev/null 2>&1 | tr -d '\r')" | tee -a "$P"
+  fi
+}
+cleanup(){ adbs shell 'setprop debug.opengoal.level.warp ""; setprop debug.opengoal.level.warp.pos ""' </dev/null >/dev/null 2>&1 || true; restore_devpack; }
 trap cleanup EXIT
 
 say "===== JAMBE APPAREIL $TAG  (continue=$CONT hold=${HOLD}s) ====="
@@ -55,14 +72,36 @@ cp /tmp/gprd_settings.ini "$OUT/settings-prerun_$TAG.ini"
 say "  settings AVANT : $(grep -aE '^(pbr-displacement|pbr-isolate|pbr-materials.|modern-materials.|recharged-master.|managed-assets.) =' /tmp/gprd_settings.ini | tr '\n' ' ')"
 sed -i 's/^pbr-displacement = .*/pbr-displacement = 1/' /tmp/gprd_settings.ini
 sed -i 's/^pbr-isolate = .*/pbr-isolate = 0/' /tmp/gprd_settings.ini
+if [ "$DEVPACK" = off ]; then
+  # ABLATION PAR L'INTERRUPTEUR LIVRE, apres DEUX tentatives ratees qu'il faut nommer :
+  #   - `run-as PKG mv a b` rend 0 et NE FAIT RIEN (jambe H : 14 shards indexes apres un
+  #     renommage « reussi ») ;
+  #   - renommer state.json ne suffit pas non plus (jambe I : verifie absent, et le journal dit
+  #     quand meme « 14 shards ... from .../state.json ») — LoaderActivity.downloadManagedAssets()
+  #     tourne A CHAQUE demarrage et RECRIT state.json par rename avant que le moteur le lise.
+  # Le seul levier qui tienne est celui que le jeu expose : `managed-assets?`, lu par
+  # ManagedAssets.cpp:84 pour toute la couche rpack. surfaces.json continue d'etre lu (il vient de
+  # install_dir, pas du niveau rpack), ce qui EST la configuration a mesurer.
+  sed -i 's/^managed-assets? = .*/managed-assets? = #f/' /tmp/gprd_settings.ini
+fi
 adbs push /tmp/gprd_settings.ini "$SET" >/dev/null || die "push settings.ini impossible"
 adbs shell cat "$SET" </dev/null > /tmp/gprd_settings_after.ini 2>/dev/null || true
 say "  settings APRES : $(grep -aE '^(pbr-displacement|pbr-isolate) =' /tmp/gprd_settings_after.ini | tr '\n' ' ')"
 cp /tmp/gprd_settings_after.ini "$OUT/settings-used_$TAG.ini" 2>/dev/null || true
 
+if [ "$DEVPACK" = off ]; then
+  # `run-as PKG mv a b` rend 0 ET NE FAIT RIEN — mesure de la jambe H, qui a publie 14 shards
+  # indexes apres un renommage « reussi ». Il faut un shell explicite, et on VERIFIE le resultat
+  # au lieu de faire confiance au code de retour : une ablation qui ne tire pas est un faux vert.
+  adbs shell "run-as $PKG sh -c 'mv $MA/state.json $MA/state.json.gprd-bak'" </dev/null >/dev/null 2>&1 || true
+  st=$(adbs shell "run-as $PKG sh -c 'ls $MA/ | grep -c \"^state.json$\"'" </dev/null 2>&1 | tr -d "\r")
+  [ "${st:-1}" = 0 ] || die "state.json toujours en place ($st) — l'ablation n'a pas tire"
+  say "  PACK GERE de l'appareil mis de cote (state.json renomme, verifie absent) ; surfaces.json CONSERVE"
+fi
+
 # ---- 4. COURSE -----------------------------------------------------------------------------
 LOG="$OUT/logcat_$TAG.log"
-adbs shell "run-as $PKG rm -f files/pbr_tan_diag.txt" </dev/null >/dev/null 2>&1 || true
+adbs shell "run-as $PKG rm -f files/pbr_tan_diag.txt files/pbr_reach.txt" </dev/null >/dev/null 2>&1 || true
 adbs shell "am force-stop $PKG" </dev/null
 sleep 2
 adbs shell "setprop debug.opengoal.level.warp $CONT" </dev/null
@@ -81,7 +120,12 @@ sleep "$HOLD"
 kill "$(cat /tmp/gprd_lc.pid 2>/dev/null)" 2>/dev/null || true
 
 # ---- 5. RECOLTE ----------------------------------------------------------------------------
-adbs shell "run-as $PKG cat files/pbr_tan_diag.txt" </dev/null > "$OUT/diag_$TAG.txt" 2>/dev/null || true
+# Gpbr-props-reach-draw : le recensement a son PROPRE fichier. `pbr_tan_diag.txt` a DEUX
+# ecrivains (kmachine.cpp et TFrag3Data.cpp) et le dernier ecrase l'autre : la course F a
+# rendu 62 lignes de couverture de tangentes et ZERO PBRREACH sur l'appareil, la ou le meme
+# binaire en publiait 40 sur x86. On tire les deux, mais le verdict se lit dans pbr_reach.txt.
+adbs shell "run-as $PKG cat files/pbr_reach.txt" </dev/null > "$OUT/diag_$TAG.txt" 2>/dev/null || true
+adbs shell "run-as $PKG cat files/pbr_tan_diag.txt" </dev/null > "$OUT/tandiag_$TAG.txt" 2>/dev/null || true
 say "-- recolte --"
 say "  logcat : $(wc -l < "$LOG") lignes"
 say "  diag   : $(wc -l < "$OUT/diag_$TAG.txt") lignes"

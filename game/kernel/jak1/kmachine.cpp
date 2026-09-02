@@ -3250,6 +3250,21 @@ void pc_set_pbr_isolate(u32 idx) {
       body += custom_tex::pbr_reach_section();
 #endif
       file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", body);
+      // ===== Gpbr-props-reach-draw : FICHIER PROPRE, ET C'EST UNE CORRECTION MESUREE ============
+      // `pbr_tan_diag.txt` a DEUX ECRIVAINS — celui-ci et TFrag3Data.cpp:1504 — et le dernier
+      // ecrase l'autre. Sur x86 c'est celui-ci qui gagnait, sur le Redmi c'est celui du
+      // chargement de niveau : la course F du 2026-09-02 a rendu un fichier de 62 lignes de
+      // couverture de tangentes et ZERO ligne PBRREACH, alors que le meme binaire en publiait
+      // 40 sur x86. Un recensement qui existe et qu'un autre ecrivain efface est indiscernable
+      // d'un recensement qui n'a rien vu. Il a donc son PROPRE fichier, avec UN SEUL ecrivain.
+      // (Le conflit entre les deux autres sections preexiste a cette phase et n'est pas touche ici,
+      // mais il est reel et signale dans le rapport.)
+#ifdef OG_FEAT_PBR
+      const std::string reach = custom_tex::pbr_reach_section();
+      if (!reach.empty()) {
+        file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_reach.txt", reach);
+      }
+#endif
     } catch (...) {
       // best-effort diag; never let a file error affect the render path
     }
