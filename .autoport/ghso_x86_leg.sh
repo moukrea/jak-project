@@ -189,5 +189,5 @@ kill "$GKPID" 2>/dev/null; wait "$GKPID" 2>/dev/null
 SECS=$((T1 - T0))
 { echo "HDWALL secondes=$SECS minutes=$(python3 -c "print(f'{$SECS/60:.4f}')") arme=$ARM"; } >> "$LOG"
 say "== fenetre : ${SECS}s ; episodes=$(grep -ac '^HDEPISODE' "$LOG") =="
-grep -aE '^(HDEPISODE|HDEPX|HDEPY|HDEPZ|HDEPV|HDEPW|HDHB|HDHB2|HDHB3|HDBIND|HDDRV|HDPOSD|HDLEVEL|HDRESET|HDWALL)' "$LOG" > "$OUT/$TAG-marqueurs.txt"
+grep -aE '^(HDEPISODE|HDEPX|HDEPY|HDEPZ|HDEPV|HDEPW|HDHB|HDHB2|HDHB3|HDHB4|HDEPN|HDBIND|HDDRV|HDPOSD|HDSPH|HDSPJ|HDLEVEL|HDRESET|HDWALL)' "$LOG" > "$OUT/$TAG-marqueurs.txt"
 say "marqueurs -> $OUT/$TAG-marqueurs.txt ($(wc -l < "$OUT/$TAG-marqueurs.txt") lignes)"

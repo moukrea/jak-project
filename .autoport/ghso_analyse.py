@@ -5,6 +5,9 @@ Publie :
   HDSTRETCH  la CIBLE de l'etirement (barycentre des os en fuite, pondere par leur nombre) et le
              verdict `est_origine` — ce qui tranche « origine du monde » contre « un lieu » ;
   HDCORREL   la regression lineaire longueur_etirement ~ distance_origine ;
+  HDSPREAD   le residu d'ETALEMENT (diagnostic, PAS le verdict) : combien d'images ou le modele
+             s'etale de plus de 6 m au-dela de sa plus grande taille naturelle, et les joints qui
+             le portent (vidage HDSPH/HDSPJ) ;
   HDANIM     l'etat du SEUL terme variable du reciblage, `M_eichar_anim[e]`, releve au pic de
              chaque episode : combien d'episodes lisent une matrice pilote NULLE ;
   HDSPLIT    dechirures vers l'ORIGINE contre dechirures AILLEURS, fermetures forcees, serie max ;
@@ -32,7 +35,8 @@ def load(path):
     """Ne lit QUE les marqueurs postérieurs au dernier `HDRESET` : c'est lui qui ouvre la fenetre
     de mesure. Les episodes d'avant (ecran-titre, amorce) portent des identifiants qui se
     REPETENT apres la remise a zero — les melanger ecrasait silencieusement des lignes."""
-    eps, hb, hb2, hb3, wall, levels, drv = {}, {}, {}, {}, {}, [], []
+    eps, hb, hb2, hb3, hb4, wall, levels, drv = {}, {}, {}, {}, {}, {}, [], []
+    spread = []   # [(header_kv, [joint_kv, ...]), ...]
     raw = open(path, errors='replace').read().split('\n')
     if any(l.startswith('HDRESET') for l in raw):
         i = max(n for n, l in enumerate(raw) if l.startswith('HDRESET'))
@@ -46,7 +50,9 @@ def load(path):
                 eps.setdefault(d['id'], {})[key] = d
                 if key == 'ep':
                     eps[d['id']]['raw'] = ln
-        if ln.startswith('HDHB '):
+        if ln.startswith('HDHB4 '):
+            hb4 = kv(ln)
+        elif ln.startswith('HDHB '):
             hb = kv(ln)
         elif ln.startswith('HDHB2 '):
             hb2 = kv(ln)
@@ -58,7 +64,11 @@ def load(path):
             drv.append(kv(ln))
         elif ln.startswith('HDLEVEL '):
             levels.append(ln.split('=', 1)[1].strip('"'))
-    return eps, hb, hb2, hb3, wall, levels, drv
+        elif ln.startswith('HDSPH '):
+            spread.append((kv(ln), []))
+        elif ln.startswith('HDSPJ ') and spread:
+            spread[-1][1].append(kv(ln))
+    return eps, hb, hb2, hb3, hb4, wall, levels, drv, spread
 
 
 def regress(xs, ys):
@@ -79,7 +89,7 @@ def regress(xs, ys):
 
 def main():
     path = sys.argv[1]
-    eps, hb, hb2, hb3, wall, levels, drv = load(path)
+    eps, hb, hb2, hb3, hb4, wall, levels, drv, spread = load(path)
     allc = sorted((v for v in eps.values() if 'ep' in v and 'x' in v),
                   key=lambda v: int(v['ep']['id']))
     placed = [v for v in allc if float(v['ep']['distance_origine_m']) > 0.5]
@@ -140,9 +150,27 @@ def main():
         du = sorted(float(v['ep']['duree_ms']) for v in placed)
         print(f"# duree_ms : min={du[0]:.1f} mediane={du[len(du) // 2]:.1f} max={du[-1]:.1f}")
 
+    # --- residu d'ETALEMENT : diagnostic publie, jamais le verdict -------------------------
+    if spread:
+        print(f"# vidages d'etalement (HDSPH) : {len(spread)}")
+        for h, js in spread:
+            ds = []
+            for j in js:
+                d = (float(j['dx']) ** 2 + float(j['dy']) ** 2 + float(j['dz']) ** 2) ** 0.5
+                ds.append((d, int(j['k']), int(j['md'])))
+            ds.sort(reverse=True)
+            print(f"HDSPREAD entry={h['entry']} etal_m={h['etal_m']} ref_m={h['ref_m']} "
+                  f"rfsrc={h['rfsrc']} nv={h['nv']} nrun={h['nrun']} joints={len(js)}")
+            top = ' '.join(f"k{k}/md{m}={d:.3f}m" for d, k, m in ds[:8])
+            print(f"#   les 8 os les plus eloignes du personnage : {top}")
+            if ds:
+                print(f"#   le plus proche : k{ds[-1][1]}/md{ds[-1][2]}={ds[-1][0]:.3f} m")
     print(f"HDSPLIT origine={hb3.get('origine', '?')} autres={hb3.get('autres', '?')} "
           f"forcees={hb3.get('forcees', '?')} runmax={hb3.get('runmax', '?')} "
           f"images_pilote_sans_pose={hb3.get('sansposeimages', '?')}")
+    print(f"HDNAN images_avec_os_non_fini={hb4.get('nanimages', '?')} "
+          f"pire_compte_par_image={hb4.get('nanmax', '?')} "
+          f"images_pose_de_secours={hb4.get('secours', '?')}")
     print(f"HDOCC images_recibles={hb.get('fills', '?')} images_avec_occasion={hb.get('gardeimages', '?')} "
           f"joints_refuses={hb.get('gardejoints', '?')} occasions_joints={hb2.get('occjoints', '?')} "
           f"occasions_racine={hb2.get('occracine', '?')} "

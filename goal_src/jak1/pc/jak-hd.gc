@@ -493,7 +493,11 @@
    (st-ar      float)        ;; |ligne 0| de A_e : 0 => matrice NULLE
    (st-at      float)        ;; |translation| de A_e : 0 => le pilote ne porte plus la position monde
    (st-vis     int32)        ;; images de l'episode ou le compagnon etait SOUMISSIBLE au dessin
-   (st-hb      int32))       ;; compteur d'images pour le recensement periodique par compagnon
+   (st-hb      int32)        ;; compteur d'images pour le recensement periodique par compagnon
+   (st-refsrc  int32)        ;; d'ou vient le REPERE au pic : 1 = os 4 du pilote, 0 = racine du process
+   (st-dbgj    int32)        ;; cap de vidages joint-par-joint deja emis par ce compagnon
+   (st-nan     int32)        ;; os a position NON FINIE au pic de l'episode
+   (st-warm    int32))       ;; 1 des qu'un reciblage a REELLEMENT tourne sur ce compagnon
   (:states jak-hd-clone))
 
 ;; Grecharged-secondary-motion: the chain sim lives in jak-hd-physics.gc, compiled AFTER this file
@@ -548,6 +552,7 @@
                                ;; garde reste sur la pose stock pendant que ses voisins sont
                                ;; recibles : coherent tant que quelques joints sont touches, plus du
                                ;; tout quand le pilote n'a aucune pose.
+(define *hd-guard-warm* 0)     ;; images ou la POSE DE SECOURS a ete ecrite (compagnon jamais recible)
 (define *hd-guard-occ-root* 0) ;; occasions sur les joints-RACINES du rig (align/prejoint) : elles
                                ;; sont PERMANENTES par construction (l'os align du pilote n'est
                                ;; jamais ecrit, en-tete l.49-50) et n'ont aucun effet visible, donc
@@ -570,6 +575,10 @@
 ;; defaut n'a AUCUNE amplitude visible, puisque la longueur de l'etirement vaut la distance du
 ;; personnage a l'origine. On ne perd donc rien d'observable.
 (defglobalconstant HD_BONE_SANE 163840.0)  ;; (meters 40)
+;; BORNE DE FINITUDE, en unites moteur. 1e9 unites = 244 km, soit 44 fois le point de reprise le
+;; plus eloigne du jeu (finalboss, 5540 m). Toute position au-dela, ou NON COMPARABLE (NaN), est
+;; de la memoire, pas une pose.
+(defglobalconstant HD_FAR_SANE 1000000000.0)
 
 (defun hd-bone-usable? ((s skeleton) (i int) (ref vector))
   "Vrai si l'os i porte une pose MONDE utilisable pour le reciblage : base ecrite ET translation
@@ -741,7 +750,46 @@
                        (else
                         ;; mode 2 glue (also mode-1 with a root driver joint, defensively)
                         (matrix*! (-> skel bones (+ k 1) transform) lk
-                                  (the-as matrix (-> skel bones (+ p 1) transform)))))))))))))))))
+                                  (the-as matrix (-> skel bones (+ p 1) transform)))))))))))))
+        ;; ----------------------------------------------------------------------------------
+        ;; POSE DE SECOURS — UN COMPAGNON QUI N'A JAMAIS ETE RECIBLE NE DOIT PAS TENIR DE LA
+        ;; MEMOIRE. Sauter le reciblage laisse le squelette du compagnon sur ce que le chemin
+        ;; stock lui a donne ; et sur ses premieres images ce chemin ne lui donne RIEN — sa
+        ;; premiere clause `cond` a un corps VIDE quand le compagnon porte `hidden` ou `no-anim`
+        ;; (process-drawable.gc:238-240), ce qui est precisement son etat pendant un chargement.
+        ;; MESURE QUI L'IMPOSE (course dg1 du 2026-09-02, vidage HDSPJ) : sur les 73 os non
+        ;; racines de Jak, 55 portaient une position NON FINIE (`dx=NaN dy=NaN dz=NaN`) et les 18
+        ;; autres etaient empilees sur trois points (dix os exactement a (0 ; 4,5361 ; 0) m du
+        ;; personnage). Les douze vidages, pris sur six vies de compagnon, rendaient le MEME
+        ;; etalement a la quatrieme decimale — 9,3242 m. Ce n'est pas une pose, c'est de la
+        ;; memoire non ecrite, et c'est ce qui portait les 37 « dechirures » residuelles du bras
+        ;; arme de la campagne precedente.
+        ;; CE QU'ON ECRIT A LA PLACE : la POSE DE BIND du rig HD, ancree sur la racine du pilote.
+        ;; Les emplacements `bind-pose` STOCKENT le bind INVERSE, donc la matrice monde du joint
+        ;; s'obtient par une vraie INVERSION (`transposee != inverse sur une IBM`, registre du
+        ;; depot) ; l'ancrage est une pure translation, donc composer se reduit a additionner la
+        ;; racine sur la ligne 3. C'est une pose VALIDE — jamais NaN, jamais a l'origine — et elle
+        ;; est remplacee par le reciblage des que le pilote a une pose. Elle ne s'ecrit QU'UNE
+        ;; SEULE FOIS PAR VIE DE COMPAGNON : des qu'un reciblage a tourne, `st-warm` vaut 1 et
+        ;; cette branche ne peut plus rien recouvrir.
+        ;; AUCUN COMPAGNON N'EST MASQUE ICI : masquer creerait le TROU que Gcutscene-npc-flicker a
+        ;; paye deux fois.
+        ;; ----------------------------------------------------------------------------------
+        (when (and (nonzero? *hd-guard-arm*) (zero? (-> obj st-warm))
+                   (not (hd-bone-posed? tgt-skel 4)))
+          (+! *hd-guard-warm* 1)
+          (let ((hbind (new-stack-matrix0)))
+            (dotimes (k (-> obj hd-joints))
+              (when (< (+ k 1) nbones)
+                (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
+                (let ((dst (the-as matrix (-> skel bones (+ k 1) transform))))
+                  (matrix-copy! dst hbind)
+                  (+! (-> dst vector 3 x) (-> drv root trans x))
+                  (+! (-> dst vector 3 y) (-> drv root trans y))
+                  (+! (-> dst vector 3 z) (-> drv root trans z))
+                  (set! (-> dst vector 3 w) 1.0))))))
+        (when (or (zero? *hd-guard-arm*) (hd-bone-posed? tgt-skel 4))
+          (set! (-> obj st-warm) 1))))))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; Ghd-skin-origin-stretch (owner 2026-08-31) — DETECTEUR D'ETIREMENT VERS L'ORIGINE DU MONDE.
@@ -810,6 +858,9 @@
 (define *hd-stretch-t0* (the-as time-frame 0))
 (define *hd-stretch-next-hb* 0)
 (define *hd-drv-logs* 0)           ;; cap des lignes de recensement par compagnon
+(define *hd-spj-logs* 0)           ;; cap GLOBAL des vidages joint-par-joint (HDSPH/HDSPJ)
+(define *hd-stretch-nanimg* 0)     ;; images ou AU MOINS UN os HD porte une position non finie
+(define *hd-stretch-nanmax* 0)     ;; le plus grand nombre d'os non finis vu sur une seule image
 
 (defun hd-stretch-reset! ()
   "Ouvre une fenetre de mesure : remet a zero tous les compteurs. Appele UNE fois depuis la REPL au
@@ -826,6 +877,10 @@
   (set! *hd-stretch-t0* (the-as time-frame 0))
   (set! *hd-stretch-next-hb* 0)
   (set! *hd-drv-logs* 0)
+  (set! *hd-spj-logs* 0)
+  (set! *hd-stretch-nanimg* 0)
+  (set! *hd-stretch-nanmax* 0)
+  (set! *hd-guard-warm* 0)
   (set! *hd-guard-skips* 0)
   (set! *hd-guard-noposed* 0)
   (set! *hd-guard-occ* 0)
@@ -859,27 +914,63 @@
         ;; OCCASION : le LOD courant ne calcule pas tous les joints que le squelette porte.
         (when (and (>= nj 0) (< (+ nj 3) tbones)) (+! *hd-stretch-occ* 1))
         ;; ------------------------------------------------------------------------------------
-        ;; LE PREDICAT DE DECHIRURE N'A PLUS AUCUN REPERE EXTERIEUR. C'est le troisieme repere
-        ;; essaye, et les deux premiers sont REFUTES PAR LA MESURE, chacun par son propre chiffre :
+        ;; LE PREDICAT DE DECHIRURE EST « CET OS A-T-IL QUITTE LE PERSONNAGE ? », ET SON REPERE EST
+        ;; LE PERSONNAGE. Quatrieme repere essaye ; les trois autres sont REFUTES PAR LA MESURE,
+        ;; chacun par son propre chiffre, et je garde la liste parce qu'elle borne ce qu'on peut
+        ;; encore essayer :
         ;;   - l'OS PILOTE homologue : c'est LUI que le defaut annule, donc l'os HD et sa reference
         ;;     tombent tous les deux a (0,0,0) et l'ecart rend ZERO. Aveugle a ce qu'il doit voir ;
         ;;   - `(-> drv draw origin)` : lue depuis l'OS 0 du squelette du pilote quand
         ;;     `origin-joint-index` vaut 0 (process-drawable.gc:273-277) — or la boucle de joints
         ;;     n'ecrit que les noeuds 3..num-joints+2 (:265-271), donc l'os 0 n'est JAMAIS ecrit.
-        ;;     Le recensement le montre en clair : le compagnon de Daxter rendait `loin=60` sur 62
-        ;;     os en regime parfaitement normal. Une reference tiree de la grandeur que le defaut
-        ;;     detruit ne peut pas servir a mesurer ce defaut.
-        ;; CE QU'ON MESURE A LA PLACE — et c'est la NATURE du defaut que l'owner decrit
-        ;; (« le modele s'allonge »), donc une FORME, pas un deplacement : l'ETALEMENT du modele
-        ;; sur lui-meme. Boite englobante de ses propres os, plus grande arete = `maxd`. Un rig
-        ;; humanoide tient dans ~2 m ; au-dela de 6 m il est DECHIRE, et ca se lit sans savoir ou
-        ;; le personnage se trouve. La CIBLE de l'etirement est ensuite le barycentre du groupe
-        ;; MINORITAIRE de part et d'autre du milieu du plus long axe — un groupe defini par la
-        ;; geometrie du modele, JAMAIS par sa proximite a l'origine. C'est ce qui empeche
-        ;; `cible=(0,0,0)` d'etre une tautologie : rien dans sa construction ne parle de l'origine.
+        ;;     Le compagnon de Daxter rendait `loin=60` sur 62 os en regime parfaitement normal ;
+        ;;   - l'ETALEMENT DU MODELE SUR LUI-MEME (boite englobante de ses propres os, plus grande
+        ;;     arete). REFUTE PAR SES DEUX BOUTS sur la campagne du 2026-09-02, et c'est ce refus
+        ;;     qui impose le repere actuel :
+        ;;       * TROP SENSIBLE : le bras arme publiait 35 « dechirures » sur Jak dont la longueur
+        ;;         valait 9,4261 m puis 9,3446 m A LA QUATRIEME DECIMALE, de 134 m a 5540 m de
+        ;;         l'origine (`HDCORREL pente=0.000000`), pour une reference d'etalement a 3,2106 m
+        ;;         (`HDBIND`). Le verdict tenait donc a une marge de 0,13 m sur un seuil de 6 m
+        ;;         qu'aucune source independante ne fixe : c'est un parametre ajuste sur
+        ;;         l'instrument, exactement ce que le depot interdit ;
+        ;;       * PAS ASSEZ SENSIBLE, ET C'EST PIRE : quand TOUS les os partent a l'origine — le
+        ;;         cas de Jak, `HDDRV osnuls=84 lus=72` — le modele ne s'etale PAS, il se
+        ;;         TELEPORTE. Le bras de controle rendait 0 episode sur Jak alors que la course de
+        ;;         diagnostic mesurait sur lui `longueur_etirement_m` EGALE a `distance_origine_m`
+        ;;         a 246,6228 / 303,4464 / 1546,1818 / 3600,7265 / 5387,6958 m. Un instrument
+        ;;         aveugle au cas total du personnage que l'owner NOMME EN PREMIER ne peut pas
+        ;;         porter le verdict.
+        ;; CE QU'ON MESURE A LA PLACE. Pour chaque os HD non racine, sa DISTANCE AU PERSONNAGE.
+        ;; Le repere est l'os 4 du squelette du PILOTE — le premier joint que sa boucle
+        ;; d'animation ecrit, sur une chaine que notre code n'ecrit JAMAIS — et, quand ce
+        ;; squelette n'a aucune pose, la racine du process du compagnon (`root trans`, ecrite par
+        ;; la logique de l'acteur). Un os a plus de HD_BONE_SANE (40 m) du personnage a QUITTE le
+        ;; personnage. Ce rayon n'est pas choisi ici : c'est celui que `hd-bone-usable?` justifie
+        ;; deja plus haut (facteur 2,5 au-dessus des 15,7 m du pire ecart anim/racine mesure).
+        ;; POURQUOI CE N'EST PAS UNE TAUTOLOGIE. Le groupe EN FUITE est defini par « loin du
+        ;; PERSONNAGE », jamais par « pres de l'origine ». C'est SEULEMENT ENSUITE qu'on publie
+        ;; `cible_*`, son barycentre, et `norig`, combien de ses os sont a moins de 6 m de (0,0,0).
+        ;; Un os projete n'importe ou ailleurs serait compte de la meme facon et rendrait
+        ;; `est_origine=0` : la prediction « cible = (0,0,0) et longueur = distance a l'origine »
+        ;; est falsifiable a chaque episode.
+        ;; L'ETALEMENT RESTE MESURE ET PUBLIE (`imagesdechirees`, `etal_pilote_m`) : il ne porte
+        ;; plus le verdict, il reste un diagnostic — et le residu de 9,34 m est publie avec lui.
         ;; ------------------------------------------------------------------------------------
-        (let ((nrun 0) (nnear 0) (nroot 0) (norig 0) (nunp 0) (maxd 0.0) (bk -1) (sx 0.0) (sy 0.0) (sz 0.0)
+        (let ((nrun 0) (nnear 0) (nroot 0) (norig 0) (nunp 0) (nnan 0) (maxd 0.0) (bk -1) (sx 0.0) (sy 0.0) (sz 0.0)
+              (farmax 0.0) (rfx 0.0) (rfy 0.0) (rfz 0.0) (rfsrc 0)
               (nv 0) (mnx 0.0) (mxx 0.0) (mny 0.0) (mxy 0.0) (mnz 0.0) (mxz 0.0))
+          ;; LE REPERE, CHOISI AVANT DE REGARDER LE MOINDRE OS HD.
+          (cond
+            ((hd-bone-posed? tskel 4)
+             (set! rfx (-> tskel bones 4 transform vector 3 x))
+             (set! rfy (-> tskel bones 4 transform vector 3 y))
+             (set! rfz (-> tskel bones 4 transform vector 3 z))
+             (set! rfsrc 1))
+            (else
+             (set! rfx (-> obj root trans x))
+             (set! rfy (-> obj root trans y))
+             (set! rfz (-> obj root trans z))
+             (set! rfsrc 0)))
           ;; PASSE A — boite englobante des os non racines, et recensement des os pilotes non ecrits.
           (dotimes (k (-> obj hd-joints))
             (let ((p (the int (-> khd-par k)))
@@ -901,7 +992,30 @@
                       (if (> (-> bp y) mxy) (set! mxy (-> bp y)))
                       (if (< (-> bp z) mnz) (set! mnz (-> bp z)))
                       (if (> (-> bp z) mxz) (set! mxz (-> bp z)))))
-                   (+! nv 1))
+                   (+! nv 1)
+                   ;; CLASSEMENT — cet os a-t-il QUITTE LE PERSONNAGE ? Le groupe EN FUITE est
+                   ;; forme ici, sur cette seule question ; sa proximite a l'origine n'est lue
+                   ;; qu'APRES, et publiee a part (`norig`).
+                   (let* ((dx (- (-> bp x) rfx))
+                          (dy (- (-> bp y) rfy))
+                          (dz (- (-> bp z) rfz))
+                          (dd (sqrtf (+ (* dx dx) (+ (* dy dy) (* dz dz))))))
+                     (cond
+                       ;; POSITION NON FINIE — ET ELLE PASSAIT EN SILENCE. Une comparaison IEEE
+                       ;; avec NaN est FAUSSE des deux cotes : `(> dd HD_BONE_SANE)` rend #f et
+                       ;; l'os serait compte comme « sur le personnage ». C'est le mode d'echec
+                       ;; qu'un predicat de distance doit nommer AVANT de publier un zero — le
+                       ;; vidage HDSPJ en a trouve 55 sur 73 chez Jak. Compte a part : ce n'est
+                       ;; PAS un etirement vers l'origine, et ca ne se fond pas dedans.
+                       ((not (and (< dd HD_FAR_SANE) (> dd -1.0))) (+! nnan 1))
+                       ((> dd HD_BONE_SANE)
+                        (+! nrun 1)
+                        ;; DIAGNOSTIC, PAS CLASSEMENT : cet os en fuite est-il pose sur l'origine
+                        ;; du monde ? Le groupe a ete forme sans jamais consulter cette distance.
+                        (if (< (vector-length bp) HD_STRETCH_THRESH) (+! norig 1))
+                        (+! sx (-> bp x)) (+! sy (-> bp y)) (+! sz (-> bp z))
+                        (when (> dd farmax) (set! farmax dd) (set! bk k)))
+                       (else (+! nnear 1)))))
                  ;; RECENSEMENT DES OCCASIONS : cet os HD lit-il une matrice pilote INUTILISABLE ?
                  ;; Meme predicat, au bit pres, que celui que le garde applique dans le reciblage —
                  ;; sinon le compte d'occasions ne serait pas le denominateur du verdict.
@@ -979,52 +1093,49 @@
             (if (> (- dxy dny) dsp) (set! dsp (- dxy dny)))
             (if (> (- dxz dnz) dsp) (set! dsp (- dxz dnz)))
             (set! (-> obj st-dspread) dsp)
-          ;; plus longue arete de la boite du COMPAGNON, et l'axe qui la porte (0=x 1=y 2=z).
-          (let ((ex (- mxx mnx)) (ey (- mxy mny)) (ez (- mxz mnz)) (ax 0) (mid 0.0))
-            (set! maxd ex) (set! ax 0) (set! mid (* 0.5 (+ mnx mxx)))
-            (when (> ey maxd) (set! maxd ey) (set! ax 1) (set! mid (* 0.5 (+ mny mxy))))
-            (when (> ez maxd) (set! maxd ez) (set! ax 2) (set! mid (* 0.5 (+ mnz mxz))))
-            ;; PASSE B — seulement si le compagnon est etale de plus de 6 m DE PLUS que son pilote.
-            ;; On separe au milieu du plus long axe et le groupe MINORITAIRE est celui qui s'est
-            ;; echappe.
-            ;; REFERENCE D'ETALEMENT = la plus grande des deux tailles NATURELLES connues : celle
-            ;; du rig HD en pose de bind, et celle du rig du pilote a cette image. Les deux sont
-            ;; des controles : la premiere est statique donc incontaminable, la seconde vit sur une
-            ;; chaine que notre code n'ecrit jamais. Prendre le max, c'est refuser de compter une
-            ;; dechirure quand l'UNE des deux l'explique.
+            ;; ETALEMENT DU COMPAGNON, plus longue arete de sa propre boite. IL NE PORTE PLUS LE
+            ;; VERDICT (voir l'en-tete du predicat) : il reste publie comme DIAGNOSTIC, contre la
+            ;; plus grande des deux tailles naturelles connues — celle du rig HD dans sa pose de
+            ;; bind (statique, incontaminable, publiee en `HDBIND`) et celle du rig du pilote a
+            ;; cette image. C'est cette ligne-la qui compte les 9,34 m residuels de Jak, et elle
+            ;; est publiee que le verdict soit vert ou non.
+            (let ((ex (- mxx mnx)) (ey (- mxy mny)) (ez (- mxz mnz)))
+              (set! maxd ex)
+              (when (> ey maxd) (set! maxd ey))
+              (when (> ez maxd) (set! maxd ez)))
             (if (> (-> obj st-bindsp) dsp) (set! dsp (-> obj st-bindsp)))
-            (set! (-> obj st-dspread) dsp)
-            (when (and (> maxd (+ dsp HD_STRETCH_THRESH)) (> nv 1))
-              (let ((nlo 0) (nhi 0))
-                (dotimes (k (-> obj hd-joints))
-                  (when (and (< (+ k 1) nbones) (!= (the int (-> khd-par k)) #xff))
-                    (let* ((bp (-> skel bones (+ k 1) transform vector 3))
-                           (c (cond ((zero? ax) (-> bp x)) ((= ax 1) (-> bp y)) (else (-> bp z)))))
-                      (if (< c mid) (+! nlo 1) (+! nhi 1)))))
-                ;; `lorun` : 1 si le groupe en fuite est celui du BAS de l'axe, 0 sinon. ENTIER
-                ;; et pas booleen — comparer deux booleens GOAL est un piege connu du depot.
-                (let ((lorun (if (<= nlo nhi) 1 0)) (best -1.0))
-                  (dotimes (k (-> obj hd-joints))
-                    (when (and (< (+ k 1) nbones) (!= (the int (-> khd-par k)) #xff))
-                      (let* ((bp (-> skel bones (+ k 1) transform vector 3))
-                             (c (cond ((zero? ax) (-> bp x)) ((= ax 1) (-> bp y)) (else (-> bp z)))))
-                        (cond
-                          ((= (if (< c mid) 1 0) lorun)
-                           (+! nrun 1)
-                           ;; DIAGNOSTIC, PAS CLASSEMENT : cet os en fuite est-il pose sur
-                           ;; l'origine du monde ? Le groupe a ete forme sans jamais consulter
-                           ;; cette distance.
-                           (if (< (vector-length bp) HD_STRETCH_THRESH) (+! norig 1))
-                           (+! sx (-> bp x)) (+! sy (-> bp y)) (+! sz (-> bp z))
-                           (let ((dm (- c mid)))
-                             (if (< dm 0.0) (set! dm (- 0.0 dm)))
-                             (when (> dm best) (set! best dm) (set! bk k))))
-                          (else (+! nnear 1)))))))))))
+            (set! (-> obj st-dspread) dsp))
 
-          ;; IMAGES DECHIREES, brut : l'etalement du modele depasse 6 m sur cette image. C'est le
-          ;; denominateur du verdict — un `episodes=0` accompagne d'un compte d'images dechirees
-          ;; nul sur une course entiere dirait seulement que la condition ne s'est pas presentee.
-          (if (> maxd (+ (-> obj st-dspread) HD_STRETCH_THRESH)) (+! *hd-stretch-moved* 1))
+          ;; OS NON FINIS : compte d'images et pire compte par image. Publie a chaque battement,
+          ;; bras arme comme bras desarme.
+          (when (> nnan 0)
+            (+! *hd-stretch-nanimg* 1)
+            (if (> nnan *hd-stretch-nanmax*) (set! *hd-stretch-nanmax* nnan)))
+          ;; IMAGES ETALEES, brut : l'etalement du modele depasse de plus de 6 m la plus grande de
+          ;; ses deux tailles naturelles. CE N'EST PLUS LE VERDICT (voir l'en-tete du predicat),
+          ;; c'est le diagnostic qui porte le residu de 9,34 m de Jak : il est publie a chaque
+          ;; course, arme ou non, et il n'est PAS declare corrige par ce cycle.
+          (when (> maxd (+ (-> obj st-dspread) HD_STRETCH_THRESH))
+            (+! *hd-stretch-moved* 1)
+            ;; VIDAGE JOINT PAR JOINT, DEUX FOIS PAR COMPAGNON. Le residu de 9,34 m etait
+            ;; rigoureusement constant a la quatrieme decimale sur 35 episodes : une telle
+            ;; grandeur se NOMME, elle ne se resume pas. On publie l'offset de CHAQUE os non
+            ;; racine au personnage, avec son mode de reciblage — de quoi dire quels os s'ecartent
+            ;; et par quelle branche ils ont ete ecrits, sans une course de plus.
+            (when (and (< (-> obj st-dbgj) 2) (< *hd-spj-logs* 8))
+              (+! (-> obj st-dbgj) 1)
+              (+! *hd-spj-logs* 1)
+              (format 0 "HDSPH entry=~D etal_m=~f ref_m=~f rfsrc=~D nv=~D nrun=~D~%"
+                      (-> obj entry) (/ maxd 4096.0) (/ (-> obj st-dspread) 4096.0)
+                      rfsrc nv nrun)
+              (dotimes (k (-> obj hd-joints))
+                (when (and (< (+ k 1) nbones) (!= (the int (-> khd-par k)) #xff))
+                  (let ((bp (-> skel bones (+ k 1) transform vector 3)))
+                    (format 0 "HDSPJ entry=~D k=~D md=~D dx=~f dy=~f dz=~f~%"
+                            (-> obj entry) k (the int (-> kmode k))
+                            (/ (- (-> bp x) rfx) 4096.0)
+                            (/ (- (-> bp y) rfy) 4096.0)
+                            (/ (- (-> bp z) rfz) 4096.0)))))))
           ;; RECENSEMENT PAR COMPAGNON, une ligne toutes les 900 images : combien d'os du PILOTE
           ;; sont NON ECRITS (base nulle), combien de joints HD en LISENT un, combien d'os HD sont
           ;; loin. C'est ce que le compteur global d'occasions agrege — publie ici PAR MODELE.
@@ -1050,7 +1161,12 @@
           ;; dechirure PERMANENTE ne se comptait JAMAIS et rendait `episodes=0`. Passe
           ;; HD_STRETCH_RUNCAP images, la serie est fermee DE FORCE (`force=1`) puis repart.
           ;; --------------------------------------------------------------------------------
-          (let ((tear? (and (> nrun 0) (> nnear 0) (>= bk 0))))
+          ;; `(> nnear 0)` N'EST PLUS EXIGE, et c'est le point qui change le plus. L'exiger revenait
+          ;; a ne compter QUE les etirements PARTIELS et a laisser passer le cas TOTAL — tous les os
+          ;; a l'origine, le modele ne s'etire pas, il se teleporte. C'est le cas de Jak
+          ;; (`HDDRV osnuls=84 lus=72`), et c'est le personnage que l'owner nomme en premier.
+          ;; `nnear` reste publie (`HDEPX n=` contre le total) : partiel et total se lisent dessus.
+          (let ((tear? (and (> nrun 0) (>= bk 0))))
             (when tear?
               (when (zero? (-> obj st-run))
                 (set! (-> obj st-t0) (get-current-time))
@@ -1064,8 +1180,10 @@
               ;; de les fondre — un episode invisible n'est pas son defaut.
               (if (not (logtest? (-> obj draw status) (draw-status hidden no-anim no-skeleton-update)))
                 (+! (-> obj st-vis) 1))
-              (when (> maxd (-> obj st-maxlen))
-                (set! (-> obj st-maxlen) maxd)
+              (when (> farmax (-> obj st-maxlen))
+                (set! (-> obj st-maxlen) farmax)
+                (set! (-> obj st-refsrc) rfsrc)
+                (set! (-> obj st-nan) nnan)
                 (set! (-> obj st-n) nrun)
                 (set! (-> obj st-nroot) norig)
                 (set! (-> obj st-k) bk)
@@ -1143,11 +1261,13 @@
                   ;; SECONDE derivation de la distance, sur sa propre ligne (la limite d'appel GOAL
                   ;; est de 8 parametres). `dessin_m` = |draw origin|, `distance_origine_m` de la
                   ;; ligne HDEPISODE = |root trans| : quand les deux divergent, c'est le defaut.
-                  (format 0 "HDEPV id=~D dessin_m=~f racine_m=~f etal_pilote_m=~f~%"
+                  (format 0 "HDEPN id=~D osnonfinis=~D~%" *hd-stretch-episodes* (-> obj st-nan))
+                  (format 0 "HDEPV id=~D dessin_m=~f racine_m=~f etal_pilote_m=~f rfsrc=~D~%"
                           *hd-stretch-episodes*
                           (/ (-> obj st-dist) 4096.0)
                           (/ (-> obj st-dist2) 4096.0)
-                          (/ (-> obj st-dspread) 4096.0)))
+                          (/ (-> obj st-dspread) 4096.0)
+                          (-> obj st-refsrc)))
                 (set! (-> obj st-run) 0))))))))
   (none))
 
@@ -1575,7 +1695,15 @@
         ;; force — sans eux, une dechirure permanente rendrait `episodes=0` sans jamais se fermer.
         (format 0 "HDHB3 origine=~D autres=~D forcees=~D runmax=~D sansposeimages=~D~%"
                 *hd-stretch-ep-orig* *hd-stretch-ep-autre* *hd-stretch-forced* *hd-stretch-runmax*
-                *hd-guard-noposed*))))
+                *hd-guard-noposed*)
+        ;; OS NON FINIS ET POSE DE SECOURS. `nanimages`/`nanmax` sont publies bras arme comme bras
+        ;; desarme : une position NaN passe SILENCIEUSEMENT tout predicat de distance (toute
+        ;; comparaison IEEE avec NaN est fausse), donc un `episodes=0` sans ce compte a cote ne
+        ;; vaudrait rien. `secours` compte les images ou la pose de bind a ete posee sur un
+        ;; compagnon jamais recible — c'est le controle positif de ce correctif-la : s'il vaut 0,
+        ;; la branche n'a jamais tire et son effet n'est pas mesure.
+        (format 0 "HDHB4 nanimages=~D nanmax=~D secours=~D arme=~D~%"
+                *hd-stretch-nanimg* *hd-stretch-nanmax* *hd-guard-warm* *hd-guard-arm*))))
   ;; phase 1: collect.
   (set! *hd-scan-driver-count* 0)
   (set! *hd-scan-companion-count* 0)

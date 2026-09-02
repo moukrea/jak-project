@@ -31,13 +31,13 @@ printf '(make "$OUT/iso/GAME.CGO")\n(make "$OUT/iso/ENGINE.CGO")\n(e)\n' \
 if [ "$(grep -ac 'Successfully built all' /tmp/ghso-mi.log)" -lt 2 ]; then
   echo "BUILD CGO ECHOUE"; tail -30 /tmp/ghso-mi.log; exit 1
 fi
-# CONTROLE DE FRAICHEUR, ET IL A COUTE DEUX COURSES : le marqueur HDHB3 n'existe que dans le code
+# CONTROLE DE FRAICHEUR, ET IL A COUTE DEUX COURSES : le marqueur HDSPJ n'existe que dans le code
 # de ce cycle. `(build-game)` depuis le listener compile vers out/jak1/obj et NE LIVRE RIEN au jeu,
 # qui tourne sur les CGO de l'iso — le 2026-09-02 a 05:23, deux courses completes ont mesure un
 # GAME.CGO de 04:46, anterieur a toute edition du jour, sans que rien ne le signale.
 for f in GAME ENGINE; do
-  if ! grep -qa "HDHB3" "out/jak1/iso/$f.CGO"; then
-    echo "$f.CGO NE CONTIENT PAS LE CODE DU CYCLE (HDHB3 absent) — campagne annulee"; exit 1
+  if ! grep -qa "HDSPJ" "out/jak1/iso/$f.CGO"; then
+    echo "$f.CGO NE CONTIENT PAS LE CODE DU CYCLE (HDSPJ absent) — campagne annulee"; exit 1
   fi
 done
 rm -rf "$REF"; cp -a --reflink=auto out/jak1/iso "$REF"
