@@ -497,7 +497,9 @@
    (st-refsrc  int32)        ;; d'ou vient le REPERE au pic : 1 = os 4 du pilote, 0 = racine du process
    (st-dbgj    int32)        ;; cap de vidages joint-par-joint deja emis par ce compagnon
    (st-nan     int32)        ;; os a position NON FINIE au pic de l'episode
-   (st-warm    int32))       ;; 1 des qu'un reciblage a REELLEMENT tourne sur ce compagnon
+   (st-warm    int32)        ;; 1 des qu'un reciblage a REELLEMENT tourne sur ce compagnon
+   (st-lenreg  int32))       ;; cycle 6 : 1 quand le rig (parents + positions de bind) a ete
+                             ;; enregistre aupres du renderer (pc-hd-skel-joint!) pour CE pid
   (:states jak-hd-clone))
 
 ;; Grecharged-secondary-motion: the chain sim lives in jak-hd-physics.gc, compiled AFTER this file
