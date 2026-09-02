@@ -517,6 +517,25 @@ rtex_material_fully_baked(){
   done
   return 0
 }
+# (Gfont-regression, owner 2026-09-02 : « ça utilise des glyphs chinois de la font par défaut »)
+# LA POLICE EST UN ACQUIS VALIDE ET ELLE VOYAGE ICI. Les deux atlas Urbanist sont GENERES
+# localement (gitignore : ils compositent des pixels Naughty Dog) — sur un arbre propre le dossier
+# n'existe pas, la boucle ci-dessous n'embarque rien, et le jeu retombe SANS ERREUR sur l'atlas
+# d'origine, dont les cellules a-z de la grande police sont des kanji, avec un texte deja converti
+# en minuscules. Un pack sans police n'est pas un pack degrade, c'est un jeu illisible : on
+# regenere, et si ca echoue on REFUSE le pack. (Le texte, lui, part par le pack CGO : les deux
+# moities de l'acquis n'ont pas le meme vehicule, d'ou cette garde au goulot du vehicule qui manque.)
+FONT_ATLAS_DIR="$ROOT/$RTEX_SRC/gamefontnew"
+if [ ! -s "$FONT_ATLAS_DIR/ascii.12lo.png" ] || [ ! -s "$FONT_ATLAS_DIR/ascii.24lo.png" ]; then
+  echo "[custom-pack] POLICE : atlas Urbanist absent de $FONT_ATLAS_DIR — regeneration (gen_game_atlas.py)" >&2
+  ( cd "$ROOT" && python3 recharged_assets/font/gen_game_atlas.py ) >&2 || true
+fi
+if [ ! -s "$FONT_ATLAS_DIR/ascii.12lo.png" ] || [ ! -s "$FONT_ATLAS_DIR/ascii.24lo.png" ]; then
+  echo "[custom-pack] REFUS : les atlas de police Urbanist manquent et ne se regenerent pas ; un pack sans eux livre des kanji a la place des minuscules (acquis owner 2026-08-30)" >&2
+  exit 1
+fi
+echo "[custom-pack] police Urbanist : 2 atlas presents ($(stat -c %s "$FONT_ATLAS_DIR/ascii.12lo.png")+$(stat -c %s "$FONT_ATLAS_DIR/ascii.24lo.png") octets)"
+
 if [ -d "$ROOT/$RTEX_SRC" ]; then
   n_rtex=0
   n_rtex_skip=0

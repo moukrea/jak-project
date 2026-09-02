@@ -1124,6 +1124,35 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
         if not booted:
             return ("fail", why)
 
+    # GATE 4 — ACQUIS VALIDES PAR L'OWNER (Gfont-regression, 2026-09-02). La police Urbanist,
+    # fermee par sa parole le 2026-08-30, a ete cassee et AUCUNE garde ne l'a vu : chaque phase
+    # ne verifie que son propre perimetre, et un acquis n'est le perimetre de personne. Chaque
+    # script de .autoport/acquis/ est une verification d'un acquis owner, cheap (une minute), et
+    # tourne a CHAQUE fermeture de phase — device ou pas — quelle que soit la phase. Un echec
+    # bloque : une phase qui casse ce que l'owner a valide n'a pas le droit de se fermer, et
+    # « je n'ai pas touche a ca » n'est pas une preuve (la police est tombee sur un reglage de
+    # menu, pas sur un commit de police). Fail-CLOSED : un acquis qu'on ne peut pas prouver
+    # est un acquis qu'on ne tient pas.
+    acquis_dir = AUTOPORT_DIR / "acquis"
+    if acquis_dir.is_dir():
+        acq_serial = ""
+        if phase.get("device", False):
+            acq_serial = (phase.get("device_serial")
+                          or os.environ.get("ANDROID_SERIAL", "eae4df44"))
+        for script in sorted(acquis_dir.glob("*.sh")):
+            try:
+                r = subprocess.run(["bash", str(script), acq_serial], cwd=REPO_ROOT,
+                                   capture_output=True, text=True, timeout=600)
+            except subprocess.TimeoutExpired:
+                return ("fail", f"CLOSE-GATE/acquis: {script.name} n'a pas repondu en 600 s")
+            if r.returncode != 0:
+                tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-4:])
+                return ("fail",
+                        f"CLOSE-GATE/acquis: {script.name} — un ACQUIS VALIDE PAR L'OWNER "
+                        "n'est plus tenu (ou plus prouvable) sur ce build. La phase ne se ferme "
+                        "pas tant qu'il n'est pas retabli.\n" + tail)
+            console.print(f"[green]close-gate acquis: {script.name} ok[/green]")
+
     # GATE 3 — owner play-test is the FINAL gate (the owner's eye overrides any
     # synthetic pass; the collision fix false-greened a validator twice before
     # the owner confirmed it). For `owner_verify: true` phases, validator pass is

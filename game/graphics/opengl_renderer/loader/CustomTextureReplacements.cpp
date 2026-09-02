@@ -367,21 +367,51 @@ void ensure_scanned() {
 }
 }  // namespace
 
+bool is_font_atlas(const std::string& tpage_name) {
+  return tpage_name == "gamefontnew";
+}
+
 std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std::string& tex_name) {
   const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
   const bool bundled_on = Gfx::recharged_active(Gfx::g_global_settings.recharged_textures);
-  if (!user_on && !bundled_on) {
+  const bool font = is_font_atlas(tpage_name);
+  if (!font && !user_on && !bundled_on) {
     return std::nullopt;
   }
   ensure_scanned();
 
   const std::string exact_key = normalize_key(tpage_name + "/" + tex_name);
-  // PRECEDENCE (owner): user custom_assets > bundled recharged > stock.
-  const fs::path* path = user_on ? find_key(g_state.user_index, exact_key, tex_name) : nullptr;
+  const fs::path* path = nullptr;
   const char* src = "user";
-  if (!path && bundled_on) {
+  if (font) {
+    // Gfont-regression : la page de police se resout SANS porte et depuis le paquet livre
+    // UNIQUEMENT (voir le header). Un PNG joueur n'est pas honore : le texte du jeu est encode
+    // pour CET atlas (minuscules dans les cellules qui portent des kanji dans l'original), un
+    // autre atlas ne peut que le casser. On le dit au lieu de l'avaler.
+    if (find_key(g_state.user_index, exact_key, tex_name)) {
+      lg::warn("FONTTEX user-override IGNORE pour {} : la police du jeu n'est pas remplacable",
+               exact_key);
+    }
     path = find_key(g_state.bundled_index, exact_key, tex_name);
-    src = "bundled";
+    src = "bundled-police";
+    if (!path) {
+      // Les pages `hi` (mt4hh : icones de boutons) restent d'origine par construction, seules
+      // `12lo`/`24lo` portent les lettres. Pour celles-la, l'absence est le seul cas ou l'atlas
+      // d'origine peut encore etre dessine : un defaut de LIVRAISON, jamais un choix — nomme.
+      if (tex_name.size() >= 2 && tex_name.compare(tex_name.size() - 2, 2, "lo") == 0) {
+        lg::warn("FONTTEX atlas Urbanist ABSENT du paquet livre pour {} -> atlas d'origine (les "
+                 "minuscules de la grande police y sont des kanji)",
+                 exact_key);
+      }
+      return std::nullopt;
+    }
+  } else {
+    // PRECEDENCE (owner): user custom_assets > bundled recharged > stock.
+    path = user_on ? find_key(g_state.user_index, exact_key, tex_name) : nullptr;
+    if (!path && bundled_on) {
+      path = find_key(g_state.bundled_index, exact_key, tex_name);
+      src = "bundled";
+    }
   }
   if (!path) {
     return std::nullopt;
@@ -410,11 +440,19 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
 BaseSource base_source(const std::string& tpage_name, const std::string& tex_name) {
   const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
   const bool bundled_on = Gfx::recharged_active(Gfx::g_global_settings.recharged_textures);
-  if (!user_on && !bundled_on) {
+  const bool font = is_font_atlas(tpage_name);
+  if (!font && !user_on && !bundled_on) {
     return BaseSource::Stock;
   }
   ensure_scanned();
   const std::string exact_key = normalize_key(tpage_name + "/" + tex_name);
+  if (font) {
+    // Gfont-regression : miroir exact de lookup() — la police vient du paquet livre, sans porte,
+    // et jamais du dossier joueur. add_texture s'en sert pour NE PAS consulter les niveaux
+    // telecharge/pre-cuit sur cette page.
+    return find_key(g_state.bundled_index, exact_key, tex_name) ? BaseSource::Bundled
+                                                                : BaseSource::Stock;
+  }
   if (user_on && find_key(g_state.user_index, exact_key, tex_name)) {
     return BaseSource::User;
   }
@@ -422,6 +460,56 @@ BaseSource base_source(const std::string& tpage_name, const std::string& tex_nam
     return BaseSource::Bundled;
   }
   return BaseSource::Stock;
+}
+
+// ===== Gfont-regression — registre des atlas de police televerses / lies =======================
+// Ecrit par le chargeur (add_texture, thread de chargement) a raison de QUATRE entrees par boot
+// (ascii.12lo/12hi/24lo/24hi) ; lu et compte par le dessin direct (thread GL). Les deux threads
+// n'ecrivent jamais le meme champ : le chargeur pose l'entree, le dessin incremente `binds`.
+namespace {
+std::mutex g_font_atlas_mutex;
+std::vector<FontAtlasRec> g_font_atlas;  // petit et stable : jamais plus de quelques entrees
+}  // namespace
+
+void note_font_atlas_upload(const std::string& key, const char* source, u32 gl_id, int w, int h) {
+  std::lock_guard<std::mutex> lock(g_font_atlas_mutex);
+  for (auto& r : g_font_atlas) {
+    if (r.key == key) {
+      r.source = source;
+      r.gl = gl_id;
+      r.w = w;
+      r.h = h;
+      r.binds = 0;
+      return;
+    }
+  }
+  FontAtlasRec r;
+  r.key = key;
+  r.source = source;
+  r.gl = gl_id;
+  r.w = w;
+  r.h = h;
+  g_font_atlas.push_back(std::move(r));
+}
+
+FontAtlasRec* font_atlas_by_gl(u32 gl_id) {
+  std::lock_guard<std::mutex> lock(g_font_atlas_mutex);
+  for (auto& r : g_font_atlas) {
+    if (r.gl == gl_id) {
+      return &r;  // les entrees ne sont jamais retirees, le pointeur reste valide
+    }
+  }
+  return nullptr;
+}
+
+std::string font_atlas_section() {
+  std::lock_guard<std::mutex> lock(g_font_atlas_mutex);
+  std::string out;
+  for (const auto& r : g_font_atlas) {
+    out += fmt::format("FONTATLAS name={} source={} gl={} w={} h={} binds={}\n", r.key, r.source,
+                       r.gl, r.w, r.h, r.binds);
+  }
+  return out;
 }
 
 // ===============================================================================================

@@ -40,6 +40,38 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
 // Report which source would win the BASE texture for this key, without loading pixels.
 BaseSource base_source(const std::string& tpage_name, const std::string& tex_name);
 
+// ===== Gfont-regression (owner 2026-09-02) — LA POLICE N'EST PAS UNE « TEXTURE RECHARGED » =====
+// « t'as complètement niqué la font (Urbanist) ça utilise des glyphs chinois de la font par
+// défaut du jeu ». Mesure : les deux atlas Urbanist (gamefontnew/ascii.12lo, ascii.24lo)
+// voyagent comme des remplacements de textures LIVRES, donc derriere les MEMES portes que les
+// textures HD : `recharged-master?`, `recharged-textures?`, et la precedence joueur > telecharge
+// > livre > stock de add_texture. Or le TEXTE, lui, est converti en casse mixte SANS porte
+// (banques de texte, cycle Gfont-urbanist). Une seule de ces portes fermee — ou un PNG
+// `gamefontnew` pose par le joueur, ou un pack telecharge qui porterait cette page — et le jeu
+// dessine des minuscules avec l'atlas D'ORIGINE, dont les cellules a-z de la GRANDE police
+// sont 26 KANJI (mesure cellule par cellule, project_jak1_two_font_code_pages). C'est mot pour
+// mot ce qu'il decrit, et le Redmi ne le montrait pas : toutes ses portes sont a #t.
+// Le texte et l'atlas sont UNE unite : l'un ne se livre pas sans l'autre. La page de police se
+// resout donc SANS AUCUNE porte, depuis le paquet livre uniquement, et rien ne peut la masquer.
+bool is_font_atlas(const std::string& tpage_name);  // tpage_name == "gamefontnew"
+
+// Registre des atlas de police REELLEMENT TELEVERSES (add_texture) et REELLEMENT LIES au dessin
+// (DirectRenderer::update_gl_texture) — la preuve se prend au point de LECTURE, pas au chargement.
+struct FontAtlasRec {
+  std::string key;     // "gamefontnew/ascii.24lo"
+  std::string source;  // "bundled-police" (Urbanist) | "stock" (atlas d'origine = kanji)
+  int w = 0;
+  int h = 0;
+  u32 gl = 0;
+  u64 binds = 0;  // fois ou le dessin direct a lie cette texture
+};
+void note_font_atlas_upload(const std::string& key, const char* source, u32 gl_id, int w, int h);
+// nullptr si ce GL id n'est pas un atlas de police connu.
+FontAtlasRec* font_atlas_by_gl(u32 gl_id);
+// Lignes `FONTATLAS ...` pour le fichier de diag natif (files/font_atlas.txt sur Android, ou
+// logcat est muet sur le Honor de l'owner).
+std::string font_atlas_section();
+
 // ===== Gshield-load-and-crash: the PRE-BAKED tier ==============================================
 // Grecharged / Gshield-load-and-crash : niveau PRE-CUIT (baked). Les memes images
 // que le niveau PNG, mais deja compressees GPU (ASTC) et deja mipmappees hors ligne.

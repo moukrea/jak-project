@@ -14,7 +14,7 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ADB=${ADB:-/home/emeric/Android/platform-tools/adb}
 S=${1:-eae4df44}; P=org.opengoal.gk.jak1
-RAW=.autoport/reports/Gfont-urbanist/logcat-full.txt
+RAW=${RAW:-.autoport/reports/Gfont-urbanist/logcat-full.txt}
 mkdir -p "$(dirname "$RAW")"
 trap 'bash .autoport/device_teardown.sh >/dev/null 2>&1 || true' EXIT
 

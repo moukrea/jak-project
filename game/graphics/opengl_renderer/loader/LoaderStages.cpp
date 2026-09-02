@@ -155,8 +155,13 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   // TRUE when `managed` came from the PRE-BAKED tier rather than the downloaded pack. The only
   // thing it changes is which index the companion maps come from (same-source rule).
   bool managed_is_baked = false;
-  if (custom_tex::base_source(tex.debug_tpage_name, tex.debug_name) !=
-      custom_tex::BaseSource::User) {
+  // Gfont-regression : la page de police (gamefontnew) ne consulte NI le pack telecharge NI le
+  // niveau pre-cuit — un pack qui porterait cette page masquerait l'atlas Urbanist, et le texte
+  // du jeu est encode pour lui (voir CustomTextureReplacements.h). Elle passe directement au
+  // lookup() PNG, qui la resout sans porte depuis le paquet livre.
+  const bool font_page = custom_tex::is_font_atlas(tex.debug_tpage_name);
+  if (!font_page && custom_tex::base_source(tex.debug_tpage_name, tex.debug_name) !=
+                        custom_tex::BaseSource::User) {
     managed = managed_assets::lookup_base(tex.debug_tpage_name, tex.debug_name);
     // baked_available() est faux des que le PROFIL du GPU n'est pas l'ASTC — pas seulement
     // quand la capacite manque. Mesure du 2026-08-26 : un pilote de bureau GL 4.6 annonce
@@ -276,6 +281,16 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     return a;
   }();
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, aniso);
+  if (font_page) {
+    // Gfont-regression : ce qui a ete REELLEMENT televerse pour cette page, avec sa source. Le
+    // dessin direct relit ce registre au moment ou il LIE la texture (FONTTEX bind) : c'est la
+    // preuve au point de lecture, pas au chargement.
+    const char* font_src = rep ? rep->src : "stock";
+    custom_tex::note_font_atlas_upload(tex.debug_tpage_name + "/" + tex.debug_name, font_src,
+                                       gl_tex, rep ? rep->w : tex.w, rep ? rep->h : tex.h);
+    fmt::print("FONTTEX upload name={}/{} source={} gl={} w={} h={}\n", tex.debug_tpage_name,
+               tex.debug_name, font_src, gl_tex, rep ? rep->w : tex.w, rep ? rep->h : tex.h);
+  }
   // Real uploaded bytes for the streaming budgets (see LoaderStages.h).
   g_last_add_texture_bytes = managed ? managed->payload.size()
                              : rep   ? rep->rgba.size() * 4 / 3  // + generated mips

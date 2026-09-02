@@ -3,6 +3,9 @@
 #include "common/dma/gs.h"
 #include "common/log/log.h"
 #include "common/util/Assert.h"
+#include "common/util/FileUtil.h"
+
+#include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 
 #include "game/graphics/pipelines/opengl.h"
 #include "game/mips2c/spart_prof.h"
@@ -425,6 +428,35 @@ void DirectRenderer::update_gl_texture(SharedRenderState* render_state, int unit
     tex = render_state->texture_pool->get_placeholder_texture();
   }
   ASSERT(tex);
+
+  // Gfont-regression : PREUVE AU POINT DE LECTURE. Le dessin direct est le seul consommateur
+  // des atlas de police (jak1 : texture-relocate pose la petite a #xe0000 et la grande a #xe6000,
+  // en OCTETS ; le registre TEX0 porte l'adresse en mots de 64, soit 0x3800 et 0x3980). Ce qu'il lie ICI est ce
+  // que l'ecran montre — pas ce que le chargeur a televerse ni ce qu'une porte a decide. Une
+  // ligne par CHANGEMENT de liaison (jamais par draw), et le fichier natif `font_atlas.txt`
+  // pour les telephones qui taisent logcat (le Honor de l'owner).
+  if (render_state->version == GameVersion::Jak1 &&
+      (state.texture_base_ptr == 0x3800 || state.texture_base_ptr == 0x3980)) {
+    // Quatre liaisons distinctes : {petite, grande} x {lo (lettres), hi (icones de boutons)}.
+    static u64 s_last_bound[4] = {0, 0, 0, 0};
+    const int slot = (state.texture_base_ptr == 0x3800 ? 0 : 2) + (state.using_mt4hh ? 1 : 0);
+    auto* rec = custom_tex::font_atlas_by_gl((u32)*tex);
+    if (rec) {
+      rec->binds++;
+    }
+    if (s_last_bound[slot] != *tex) {
+      s_last_bound[slot] = *tex;
+      fmt::print("FONTTEX bind tbp=0x{:x} mt4hh={} gl={} name={} source={} w={} h={}\n",
+                 state.texture_base_ptr, state.using_mt4hh ? 1 : 0, *tex,
+                 rec ? rec->key : "INCONNU", rec ? rec->source : "stock", rec ? rec->w : 0,
+                 rec ? rec->h : 0);
+      try {
+        file_util::write_text_file(file_util::get_jak_project_dir() / "font_atlas.txt",
+                                   custom_tex::font_atlas_section());
+      } catch (...) {
+      }
+    }
+  }
 
   glActiveTexture(GL_TEXTURE20 + unit);
   glBindTexture(GL_TEXTURE_2D, *tex);

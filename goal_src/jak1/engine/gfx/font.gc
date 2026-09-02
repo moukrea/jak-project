@@ -637,6 +637,13 @@
     (font-trace-one "p" 112 tbl k texh))
   0)
 
+;; Gfont-regression (owner 2026-09-02) : trace BORNEE des chaines que `draw-string` dessine
+;; reellement, avec la police choisie. Armee depuis le listener (`(set! *font-str-trace* 400)`),
+;; elle publie une ligne par appel et se desarme toute seule au bout de N appels : zero cout en
+;; jeu, et une preuve « quelle chaine, quelle police » prise a l'ENTREE du dessin, que le rapport
+;; croise avec la ligne `FONTTEX bind` du moteur (quel atlas est LIE pour cette police).
+(define *font-str-trace* 0)
+
 (define draw-string (the (function string dma-buffer font-context float) (__pc-get-mips2c "draw-string")))
 
 ;; for now, use the GOAL one. the mips2c one is super slow with the game compiled in debug mode.
@@ -774,6 +781,12 @@
     (t8-3 int)
     (t8-4 uint)
     (t8-5 int))
+  (when (> *font-str-trace* 0)
+    (set! *font-str-trace* (+ *font-str-trace* -1))
+    (format 0 "FONT-STR large=~D len=~D str=~S~%"
+            (if (logtest? (-> arg2 flags) (font-flags large)) 1 0)
+            (length str-in)
+            str-in))
   (set! r0 (the-as uint128 0))
   (rlet ((acc :class vf)
          (Q :class vf)
