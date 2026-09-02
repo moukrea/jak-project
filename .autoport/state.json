@@ -254,7 +254,7 @@
     "Gsubtitle-style": 1,
     "Gcutscene-skip-all": 1,
     "Gjak1-crate-collision": 2,
-    "Ghd-skin-origin-stretch": 7,
+    "Ghd-skin-origin-stretch": 8,
     "Gjak1-crate-collision-2": 2,
     "Gfixed-tick-anim-interp": 1,
     "Gcutscene-npc-flicker": 1,
@@ -704,6 +704,7 @@
       "7e6d5d25c60d",
       "7e6d5d25c60d",
       "9823d79aedd7",
+      "fc96fc064476",
       "fc96fc064476"
     ],
     "Gjak1-crate-collision-2": [
@@ -1191,7 +1192,7 @@
     "Gmenu-census-cleanup": 1788337784.4468226,
     "Gfont-regression": 1788341198.8582702
   },
-  "last_update": "2026-09-02T16:32:27.360548+00:00",
+  "last_update": "2026-09-02T23:03:33.268051+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1330,7 +1331,8 @@
     "Gcutscene-npc-flicker-2",
     "Gpbr-props-reach-draw",
     "Gmenu-census-cleanup",
-    "Gfont-regression"
+    "Gfont-regression",
+    "Ghd-skin-origin-stretch"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
