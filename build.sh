@@ -135,6 +135,16 @@ cat > "$FLAGS_GC" <<EOF
 ;; every build regardless.
 (defglobalconstant FLAG_DEBUG_MENUS $(b $F_DEBUG))
 (defglobalconstant FLAG_DEBUG_MENUS_N $F_DEBUG)
+;; Gmenu-census-cleanup (owner 2026-08-31 : « PBR test preset et PBR isolate c'est quoi ? »).
+;; PBR ET debug. Les deux carrousels de mise au point PBR (PBR TEST PRESET, PBR ISOLATE) etaient
+;; marques « DEBUG, removable » dans notre propre source et vivaient quand meme dans le menu du
+;; JOUEUR. Ils sont desormais des (flag-row FLAG_PBR_DEBUG ...) : absents du CGO d'un build livre,
+;; presents dans un build --pbr --debug ou on en a besoin pour bisecter. Le produit est necessaire
+;; parce que leurs libelles sont definis sous FLAG_PBR : un build --debug sans --pbr ne compilerait
+;; pas s'ils ne dependaient que de FLAG_DEBUG_MENUS. « debug » est deja dans FLAG_LIST, donc le
+;; marqueur ogflags distingue les deux builds et deploy_verify ne peut pas les melanger.
+(defglobalconstant FLAG_PBR_DEBUG $(b $(( F_PBR * F_DEBUG ))))
+(defglobalconstant FLAG_PBR_DEBUG_N $(( F_PBR * F_DEBUG )))
 ;; Gmenu-flag-off: the Grecharged-menu-overhaul refonte is BROKEN (phantom params, colliding
 ;; bindings, displacement selector lost — owner 2026-08-04) and is compiled OUT by default.
 ;; OFF (default) = the pre-overhaul functional menu; --menu-overhaul = the refonte, kept only

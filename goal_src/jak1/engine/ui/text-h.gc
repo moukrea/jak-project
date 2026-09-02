@@ -1008,6 +1008,16 @@
   ;; #x17af est le premier id libre au-dessus du dernier alloue (#x17ae) et reste sous le pool
   ;; RESERVE #x17b0..#x17bc (progress-pc.gc, tags carousel).
   (pc-text-cutscene-skip #x17af)
+  ;; --- Gmenu-census-cleanup (2026-09-02) : MARQUEUR d'auto-localisation de la rangee PHYSICS ---
+  ;; Ce n'est PAS un texte : rien ne l'affiche jamais, aucune banque ne le contient. C'est une
+  ;; valeur unique posee dans le champ `hint` de la rangee PHYSICS de *recharged-options-pc*, pour
+  ;; que `init-game-options` la RETROUVE au lieu de la compter a la main. Elle s'ancrait jusqu'ici
+  ;; sur la rangee PHYSICS DETAIL, qui vient d'etre retiree du menu du joueur (ses trois niveaux
+  ;; LIGHT/FULL/MAXIMUM produisent le meme solveur — voir le rapport de la phase). Meme mecanisme
+  ;; que CRISP TITLE LOGO (#x1751), FIXED TIMESTEP (#x17ac) et ADVANCED MATERIALS (#x173c).
+  ;; #x17be est le premier id libre AU-DESSUS du pool reserve #x17b0..#x17bc et au-dessus de
+  ;; #x17bd, laisse libre par le retrait de JAK 3 BAREFOOT mais charge d'un historique.
+  (pc-text-hint-physics #x17be)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

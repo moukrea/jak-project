@@ -26,6 +26,10 @@
 ;; every build regardless.
 (defglobalconstant FLAG_DEBUG_MENUS #f)
 (defglobalconstant FLAG_DEBUG_MENUS_N 0)
+;; Gmenu-census-cleanup: PBR ET debug — gate des deux carrousels de mise au point PBR
+;; (PBR TEST PRESET, PBR ISOLATE), retires du menu du joueur le 2026-09-02.
+(defglobalconstant FLAG_PBR_DEBUG #f)
+(defglobalconstant FLAG_PBR_DEBUG_N 0)
 ;; Gmenu-flag-off: the Grecharged-menu-overhaul refonte is BROKEN (phantom params, colliding
 ;; bindings, displacement selector lost — owner 2026-08-04) and is compiled OUT by default.
 ;; OFF (default) = the pre-overhaul functional menu; --menu-overhaul = the refonte, kept only

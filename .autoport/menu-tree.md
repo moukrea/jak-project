@@ -24,50 +24,79 @@ Aspect, Résolution (desktop), Dynamic Render Scale (`dynamic-render-scale?`), R
 Min Target FPS (`dyn-target-fps`), FPS Counter, VSync, MSAA, [desktop : Display Mode, Display,
 Frame Rate], **RECHARGED SETTINGS** (sous-menu), Advanced, Vulkan `{FLAG_VULKAN_SUPPORT}`, Back.
 
-## RECHARGED SETTINGS (`*recharged-options-pc`* — 35 lignes livrées avec hd-models+pbr+physics, HUD off)
+## RECHARGED SETTINGS (`*recharged-options-pc*` — **30 lignes** livrées avec hd-models+pbr+physics, HUD off)
 
-> Grecharged-hud-jak1 (2026-08-08) : avec `--recharged-hud` la ligne **RECHARGED HUD** s'insère à
-> l'index **1** (juste après RECHARGED MASTER) et **tout le reste glisse de +1** — c'est exactement
-> ce que porte l'arithmétique `FLAG_RECHARGED_HUD_N` de `progress-pc.gc` (fw-idx, collapse HD, etc.).
-> Le tableau ci-dessous reste celui de la config par défaut (HUD off, 35 lignes) ; avec le flag on
-> passe à 35.
+> **Gmenu-census-cleanup (2026-09-02) — RECENSEMENT ET NETTOYAGE.** Owner 2026-08-31 : « je vois que
+> des options sont un peu chelou ou carrément inutilisées... recharged assets VS HD texture pack ?
+> WTF. Modern Materials c'est quoi ? PBR test preset et PBR isolate c'est quoi ? ».
+> La page passe de **35 à 30 lignes** : **5 rangées sont sorties du menu du joueur**, et
+> **4 sont renommées**. Détail chiffré, chaîne par chaîne, dans
+> `.autoport/reports/Gmenu-census-cleanup/report.txt`.
 >
-> Correctif d'indices 2026-08-27 : le tableau omettait la ligne **HD TEXTURE PACK**
-> (`managed-assets?`, arrivée avec l'absorption `Grecharged-managed-assets`, en avant-dernière
-> position avant MESH BROWSER + Back) — les indices publiés étaient donc décalés d'un cran à partir
-> d'elle. Elle est rétablie ci-dessous, en même temps que l'insertion de MESH SUBDIVISION.
+> **SORTIES (5)** — aucune n'est perdue, chacune peut revenir :
+> | rangée | pourquoi elle sort | où elle est maintenant |
+> |---|---|---|
+> | `PBR TEST PRESET` | outil de mise au point, marqué « DEBUG, removable » dans notre source depuis sa pose | `(flag-row FLAG_PBR_DEBUG …)` : build `--pbr --debug` |
+> | `PBR ISOLATE` | idem | idem ; la clé `pbr-isolate` de settings.ini est **forcée à 0** au chargement dans un build livré, sinon le joueur resterait coincé avec des cartes éteintes sans ligne pour annuler |
+> | `ENV PROBE` | **morte** : `FollowProbe.cpp:224` est le seul écrivain de `u_rt_probe_on` et il écrit `0` ; les 5 lectures de `u_rt_probe_cube` sont toutes derrière `u_rt_probe_on != 0`. En prime elle coûtait un `refresh_face` + `glGenerateMipmap` par image | supprimée ; défaut de `follow-probe` passé de 1 à **0** pour que le coût s'arrête |
+> | `AMBIENT CONTRAST` | **morte** : ses 4 seules lectures shader (`tfrag3.frag:556`, `shrub.frag:491`, `etie_base.frag:491`, `tie_wind.frag:490`) vivent dans le bloc ouvert par `if (u_rt_probe_on != 0)`, donc inatteignable | supprimée ; la clé reste dans settings.ini, personne ne la lit |
+> | `PHYSICS DETAIL` | **morte** : LIGHT/FULL/MAXIMUM produisent le **même solveur au bit près**. 4 des 5 clés de `[levels]` n'ont aucun lecteur ; la 5e (`fixedhz`) donne `nsf = 1/1/4` mais `ns = max(nsf, HardImpactSubstepsHi=4) = 4` aux trois niveaux | supprimée ; la clé `physics-quality` reste dans settings.ini (la salle de mesure garde son levier) |
+>
+> **RENOMMÉES (4)** — trois rangées parlaient de textures de remplacement sans jamais dire **d'où
+> viennent les fichiers**, ce qui est exactement le « WTF » de l'owner ; elles portent désormais leur
+> SOURCE, avec le même suffixe :
+> | avant | après | source des fichiers |
+> |---|---|---|
+> | `LOAD CUSTOM ASSETS` | **`USER TEXTURES`** | `<racine du jeu>/custom_assets` — ce que le joueur pose lui-même |
+> | `RECHARGED TEXTURES` | **`BUILT-IN TEXTURES`** | livrées dans le paquet : 9 bases (7 matières de Sandover) + **les 2 atlas de police**, 17,8 Mo + 88,1 Mo de cuisson ASTC |
+> | `HD TEXTURE PACK` | **`DOWNLOADED TEXTURES`** | `managed_assets/jak1/` téléchargé : **172 matières × 4 cartes**, 26 niveaux, 705 Mo |
+> | `MODERN MATERIALS` | **`ADVANCED MATERIALS`** | (sans objet) l'étage supérieur de PBR MATERIALS : diffusion sous la peau, vernis, reflets étirés, correction d'énergie |
+>
+> Ce n'est **pas** un doublon : intersection **4 noms de base** seulement, et le paquet livré est le
+> seul à porter les polices. Mais la précédence les fait se masquer — `LoaderStages.cpp:158-174` :
+> **joueur > téléchargé > cuisson ASTC livrée > PNG livré > stock** — mesuré sur la même scène :
+> pack ON → 5 remplacements livrés, pack OFF → **10**.
+>
+> **RESTE UN OUTIL DE DÉVELOPPEMENT DEVANT LE JOUEUR : `MESH BROWSER`.** Son commentaire le nomme
+> « DEBUG launcher », mais il est **validé par l'owner** (`.autoport/owner-ok/Grecharged-mesh-browser`),
+> il a été construit pour qu'il inspecte des maillages sur appareil **sans adb**, et il ne figure pas
+> dans sa liste. Il reste, et c'est une décision à un mot de lui pour la défaire.
 
 | idx | ligne | pilote |
 |---|---|---|
 | 0 | RECHARGED MASTER (on-off) | `recharged-master?` |
 | 1 | GRASS SETTINGS (sous-menu) | → `*grass-options-pc*` |
-| 2 | LOAD CUSTOM ASSETS | `load-custom-assets?` |
-| 3 | RECHARGED TEXTURES | `recharged-textures?` |
+| 2 | **USER TEXTURES** (ex LOAD CUSTOM ASSETS) | `load-custom-assets?` |
+| 3 | **BUILT-IN TEXTURES** (ex RECHARGED TEXTURES) | `recharged-textures?` |
 | 4 | PBR MATERIALS `{FLAG_PBR}` | `pbr-materials?` |
 | 5 | ENHANCED MODELS `{FLAG_HD_MODELS}` (collapse si FR3 HD absents) | `recharged-enhanced-models?` |
-| **6** | **JAK LOOK (carousell ORIGINAL / HD / JAK II / JAK 3 / JAK 3 MASKED / JAK II PRISON)** `{FLAG_HD_MODELS}` (grisé si master ou ENHANCED MODELS off) | **`hd-look-jak`** via int-backup (write-back respond-common) |
-| **7** | **DAXTER LOOK (carousell ORIGINAL / HD / PANTS)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-daxter`** via int-backup |
-| **8** | **KEIRA LOOK (carousell ORIGINAL / HD / JAK 3)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-keira`** via int-backup |
-| **9** | **SAMOS LOOK (carousell ORIGINAL / HD / YOUNG)** `{FLAG_HD_MODELS}` (même grisage) | **`hd-look-samos`** via int-backup |
-| 10 | FOLIAGE WIND | `recharged-foliage-wind?` |
-| 11-13 | AMBIENT OCCLUSION / AO QUALITY / AO STRENGTH (carousells) | `ambient-occlusion`/`ao-quality`/`ao-strength` via int-backup |
+| 6-9 | JAK / DAXTER / KEIRA / SAMOS LOOK (carousells) `{FLAG_HD_MODELS}` | `hd-look-*` via int-backup |
+| 10 | FOLIAGE WIND — **c'est le `fw-idx` de l'arithmétique** | `recharged-foliage-wind?` |
+| 11-13 | AMBIENT OCCLUSION / AO QUALITY / AO STRENGTH (carousells) | `ambient-occlusion`/`ao-quality`/`ao-strength` |
 | 14 | REALTIME LIGHTING `{FLAG_PBR}` | `realtime-lighting?` |
-| 15-16 | FOLLOW PROBE / AMBIENT MODEL (carousells) `{FLAG_PBR}` | int-backup → champs rt |
-| 17-19 | AMBIENT STRENGTH / CONTRAST / SHADOW DISTANCE (sliders) `{FLAG_PBR}` | `realtime-ambient-strength`/`-contrast`/`realtime-shadow-dist` |
-| 20 | SHADOW QUALITY (carousell) `{FLAG_PBR}` | int-backup → `shadow-quality` |
-| 21-22 | TEXTURE RELIEF / SPECULAR INTENSITY (sliders) `{FLAG_PBR}` | `pbr-texture-relief`/`pbr-specular-intensity` |
-| **23** | **DISPLACEMENT (carousell Off/Parallax/Tessellation)** `{FLAG_PBR}` (grisé si master ou materials off) | **`pbr-displacement`** via int-backup (write-back respond-common) |
-| **24** | **MESH SUBDIVISION (carousell Off / Low / Mid / High, défaut Low=1)** `{FLAG_PBR}` (grisé si master ou materials off — MÊME prédicat que DISPLACEMENT) | **`mesh-subdiv`** via int-backup (write-back respond-common) |
-| 25 | PBR TEST PRESET (carousell, jamais grisé) `{FLAG_PBR}` | applique le preset complet |
-| 26 | PBR ISOLATE (carousell) `{FLAG_PBR}` | `pbr-isolate` |
-| **27** | **MODERN MATERIALS (on-off, défaut OFF)** `{FLAG_PBR}` (grisé si master ou PBR MATERIALS off) | **`modern-materials?`** |
-| **28** | **CRISP TITLE LOGO (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`crisp-title-logo?`** |
-| **29** | **FIXED TIMESTEP (on-off, défaut OFF)** — inconditionnelle (aucun flag build) (grisé si master off uniquement) | **`fixed-tick?`** |
-| **30** | **PHYSICS (on-off, défaut ON)** `{FLAG_PHYSICS}` (grisé si master off uniquement) | **`physics?`** |
-| **31** | **PHYSICS DETAIL (carousell LIGHT / FULL / MAXIMUM, défaut FULL)** `{FLAG_PHYSICS}` (grisé si master ou PHYSICS off) | **`physics-quality`** via int-backup (write-back respond-common) |
-| 32 | HD TEXTURE PACK (on-off, défaut ON) — inconditionnelle (grisé si master off) | `managed-assets?` |
-| 33 | MESH BROWSER (bouton) | ouvre l'overlay mesh-browser |
-| 34 | Back | — |
+| 15 | AMBIENT MODEL (carousell) `{FLAG_PBR}` | `realtime-ambient-model` |
+| 16 | AMBIENT STRENGTH (slider) `{FLAG_PBR}` | `realtime-ambient-strength` |
+| 17 | SHADOW DISTANCE (slider) `{FLAG_PBR}` | `realtime-shadow-dist` |
+| 18 | SHADOW QUALITY (carousell) `{FLAG_PBR}` | **`realtime-shadow-quality`** (le nom `shadow-quality` publié ici était faux) |
+| 19-20 | TEXTURE RELIEF / SPECULAR INTENSITY (sliders) `{FLAG_PBR}` | `pbr-texture-relief`/`pbr-specular-intensity` |
+| 21 | DISPLACEMENT (carousell Off/Parallax/Tessellation) `{FLAG_PBR}` | `pbr-displacement` |
+| 22 | MESH SUBDIVISION (carousell Off/Low/Mid/High) `{FLAG_PBR}` | `mesh-subdiv` |
+| 23 | **ADVANCED MATERIALS** (ex MODERN MATERIALS, on-off, défaut OFF) `{FLAG_PBR}` | `modern-materials?` |
+| 24 | CRISP TITLE LOGO (on-off, défaut OFF) | `crisp-title-logo?` |
+| 25 | FIXED TIMESTEP (on-off, défaut OFF) | `fixed-tick?` |
+| 26 | PHYSICS (on-off, défaut ON) `{FLAG_PHYSICS}` — porte désormais son propre marqueur `:hint pc-text-hint-physics` | `physics?` |
+| 27 | **DOWNLOADED TEXTURES** (ex HD TEXTURE PACK, on-off, défaut ON) | `managed-assets?` |
+| 28 | MESH BROWSER (bouton, outil de développement) | ouvre l'overlay mesh-browser |
+| 29 | Back | — |
+
+**Arithmétique de longueur à jour** (`init-game-options`, garde `fw-idx` ET garde du collapse HD) :
+`(+ 13 hud-N pbr-N (* 5 hd-N) (* 10 pbr-N) (* 2 pbrdbg-N) phys-N)` = **30** en configuration livrée,
+`fw-idx = (+ 4 hud-N pbr-N (* 5 hd-N))` = **10**. Vérifiable sans lire le code :
+`python3 .autoport/gmcc_rows.py` recense le tableau, **lit la garde DANS LA SOURCE** (il n'en porte pas
+de copie) et publie la table `fw-idx+N -> option-type`. Une garde périmée est la classe de bug
+Gmenu-flag-off ; à l'exécution, la ligne `[RCH-MENU] pbr rows aligned: mis=0` la re-vérifie sur les
+4 rangées du bloc PBR dont l'`option-type` est unique.
+
 
 ### Gprecompute-deterministic-bake — MESH SUBDIVISION (idx 24)
 

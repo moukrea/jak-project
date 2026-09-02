@@ -1806,19 +1806,31 @@
 (#when FLAG_RECHARGED_HUD
 (define *recharged-hud-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-hud-label*) "RECHARGED HUD"))
-;; Gload-custom-assets: label for the "LOAD CUSTOM ASSETS" on-off toggle in the Recharged
+;; Gmenu-census-cleanup (owner 2026-08-31 : « recharged assets VS HD texture pack ? WTF »).
+;; TROIS rangees allument des textures de remplacement, et rien dans leurs anciens libelles ne
+;; disait ce qui les separe : la SOURCE des fichiers. Elles sont renommees par leur source, avec
+;; le meme suffixe, pour qu'on lise la famille d'un coup d'oeil :
+;;   USER TEXTURES       = les fichiers que le JOUEUR pose dans <racine du jeu>/custom_assets
+;;   BUILT-IN TEXTURES   = les textures refaites LIVREES dans le paquet (+ les 2 atlas de police)
+;;   DOWNLOADED TEXTURES = le gros pack HD TELECHARGE (managed_assets/, 172 matieres, 26 niveaux)
+;; Ce ne sont PAS des doublons — mesure du 2026-09-02 : 4 noms de base seulement en commun sur
+;; 9 livrees contre 172 telechargees, et les 2 polices n'existent QUE dans le paquet livre. Mais
+;; la precedence les fait se masquer (LoaderStages.cpp:158-174 : joueur > telecharge > livre >
+;; stock), d'ou la confusion. Voir .autoport/reports/Gmenu-census-cleanup/report.txt.
+;; Gload-custom-assets: label for the "USER TEXTURES" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
+;; Ces trois libelles ne passent PAS par refresh-runtime-option-labels! : ils restent anglais.
 (define *load-custom-assets-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *load-custom-assets-label*) "LOAD CUSTOM ASSETS")
-;; Grecharged-bundled-textures: label for the "RECHARGED TEXTURES" on-off toggle in the Recharged
+(format (clear *load-custom-assets-label*) "USER TEXTURES")
+;; Grecharged-bundled-textures: label for the "BUILT-IN TEXTURES" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
 (define *recharged-textures-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-textures-label*) "RECHARGED TEXTURES")
-;; Grecharged-managed-assets: label for the "HD TEXTURE PACK" on-off toggle (the DOWNLOADED
+(format (clear *recharged-textures-label*) "BUILT-IN TEXTURES")
+;; Grecharged-managed-assets: label for the "DOWNLOADED TEXTURES" on-off toggle (the DOWNLOADED
 ;; pack) in the Recharged Settings submenu. Uppercase ASCII for the menu font, English-only,
 ;; shown via name-override like every other recharged row.
 (define *managed-assets-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *managed-assets-label*) "HD TEXTURE PACK")
+(format (clear *managed-assets-label*) "DOWNLOADED TEXTURES")
 ;; Grecharged-pbr-materials: label for the "PBR MATERIALS" on-off toggle in the Recharged Settings
 ;; submenu (uppercase ASCII for the menu font; shown via name-override). English-only. Present only with --pbr.
 (#when FLAG_PBR
@@ -7465,15 +7477,19 @@
               (set! (-> *pc-settings* realtime-lighting?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (Off/Low/Mid/High DYNAMIC FOLLOW-PROBE tier).
-       ;; Occupies the reserved slot (fw-idx+5) vacated by the deleted BAKED AMBIENT probe toggle. Disabled
-       ;; unless PBR MATERIALS on (same lambda as DISPLACEMENT). Carousell mirrors pbr-displacement: no
-       ;; :on-change, value written via respond-common. :name is a placeholder; real label via name-override.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type follow-probe) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; Gmenu-census-cleanup (2026-09-02) — ENV PROBE (carrousel Off/Low/Mid/High) est RETIREE :
+       ;; elle ne changeait RIEN a l'ecran et coutait du GPU a chaque image.
+       ;; La preuve tient en une ligne : `FollowProbe.cpp:224` est le SEUL ecrivain de
+       ;; `u_rt_probe_on` dans tout le depot et il ecrit le litteral 0 (« The SH-volume grid is
+       ;; DELETED — force its world-projection OFF »). Or les CINQ lectures de `u_rt_probe_cube`
+       ;; (pbr_fused.glsl:733, tfrag3.frag:540 et :961, shrub.frag:475, etie_base.frag:475,
+       ;; tie_wind.frag:474) sont TOUTES sous `u_rt_probe_on != 0`. Aucun pixel ne lit jamais la
+       ;; cubemap — mais aux paliers 1 a 3, FollowProbe.cpp:250-263 la rafraichissait et
+       ;; regenerait ses mipmaps A CHAQUE IMAGE. Le reglage n'etait meme pas persiste
+       ;; (zero occurrence de `follow-probe` dans pckernel.gc), donc il repartait a 1 a chaque
+       ;; lancement : le joueur payait le cout sans pouvoir l'eteindre durablement.
+       ;; Le defaut de `follow-probe` passe a 0 dans pckernel-impl.gc pour que le cout s'arrete.
+       ;; A REMETTRE le jour ou une grille de sondes revient et ou `u_rt_probe_on` peut valoir 1.
        ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
        ;; disabled when Realtime Lighting off): Hemisphere = DC + vertical band, SH = full L1, IBL = + probe
        ;; cubemap env term. Carousell writes via respond-common; no on-change needed.
@@ -7494,18 +7510,16 @@
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; Ambient Contrast slider (0.0 .. 1.5; disabled when Realtime Lighting off). Bound directly to
-       ;; the *pc-settings* realtime-ambient-contrast float (ambient contrast level).
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
-            :param1 0.0 :param2 1.5 :slider-step-size 0.1 :slider-show-decimal? #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
-            :on-change
-            (lambda ((val object))
-              (commit-to-file *pc-settings*)
-              (none))))
+       ;; Gmenu-census-cleanup (2026-09-02) — AMBIENT CONTRAST est RETIREE : elle ne change RIEN.
+       ;; La valeur voyage correctement jusqu'au shader (background_common.cpp:3114 pousse bien
+       ;; `u_rt_ambient_contrast`), et c'est precisement ce qui rendait le defaut invisible : la
+       ;; coupure est PLUS LOIN. Ses QUATRE seules lectures — tfrag3.frag:556, shrub.frag:491,
+       ;; etie_base.frag:491, tie_wind.frag:490 — vivent toutes dans le bloc « BAKED AMBIENT
+       ;; curiosity path », ouvert par `if (u_rt_probe_on != 0)` (tfrag3.frag:532 -> :691), et
+       ;; `u_rt_probe_on` vaut TOUJOURS 0 (FollowProbe.cpp:224, seul ecrivain). `pbr_fused.glsl`
+       ;; et `pbr_helpers.glsl`, qui portent le chemin LIVRE, ne la mentionnent pas du tout.
+       ;; La cle `realtime-ambient-contrast` reste dans settings.ini : rien ne la lit, elle ne
+       ;; coute rien, et la rangee revient telle quelle si le bloc redevient atteignable.
        ;; Shadow Distance slider (realtime cast-shadow range, meters)
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
@@ -7573,15 +7587,22 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
-       ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET carousell. ALWAYS ENABLED (no
-       ;; option-disabled-func) — the STOCK preset turns recharged-master? off, so this row must stay usable
-       ;; to switch back. Carousell mirrors rt-ambient-model; the write-back arm applies the whole config.
-       (flag-row FLAG_PBR
+       ;; Gmenu-census-cleanup (owner 2026-08-31 : « PBR test preset et PBR isolate c'est quoi ? ») :
+       ;; ces DEUX carrousels sont des OUTILS DE MISE AU POINT. Notre propre source les marquait
+       ;; « DEBUG, removable » depuis le jour de leur pose, et personne ne les avait retires — ils
+       ;; sont restes dans le menu du JOUEUR, qui a fini par demander ce que c'etait.
+       ;; Ils passent de (flag-row FLAG_PBR ...) a (flag-row FLAG_PBR_DEBUG ...) : ABSENTS du CGO
+       ;; d'un build livre, PRESENTS dans un build `--pbr --debug` quand on doit bisecter. Rien
+       ;; n'est perdu : `pbr-isolate` reste une cle de settings.ini (pckernel.gc:500 / :610), donc
+       ;; le levier survit sans rangee de menu, et `--debug` est deja dans FLAG_LIST (build.sh:89)
+       ;; donc le marqueur ogflags distingue les deux builds.
+       ;; PBR TEST PRESET : applique une CONFIGURATION entiere d'un coup (dont le preset STOCK qui
+       ;; eteint recharged-master?), c'etait ma table de bisection, jamais un reglage de joueur.
+       (flag-row FLAG_PBR_DEBUG
        (new 'static 'game-option :option-type (game-option-type pbr-test-preset) :name (text-id msaa) :scale #t))
-       ;; Gpbr-fusion REOPEN #10 (DEBUG, removable later): PBR ISOLATE carousell (Both/Normal-map only/Parallax
-       ;; only/Neither; disabled unless PBR MATERIALS on). The owner's in-menu term bisection at his own vantage —
-       ;; drives the real facet fix. Carousell mirrors pbr-displacement: no :on-change, value written via respond-common.
-       (flag-row FLAG_PBR
+       ;; PBR ISOLATE : eteint la carte de normales ou le parallaxe pour savoir lequel des deux
+       ;; produit un artefact. Bisection de terme, pas un reglage de qualite.
+       (flag-row FLAG_PBR_DEBUG
        (new 'static 'game-option :option-type (game-option-type pbr-isolate) :name (text-id msaa) :scale #t
             :option-disabled-func
             (lambda ()
@@ -7651,6 +7672,17 @@
        ;; build le portant ARME est parti chez l'owner avant que sa porte de sortie soit passee.
        ;; Cette ligne existe pour qu'il puisse l'armer LUI-MEME, sans adb et sans nouveau build —
        ;; c'est ce qui rend le chantier testable par son oeil, qui est la porte finale.
+       ;; Gmenu-census-cleanup (2026-09-02) — PRECISION, parce que « desarme » se lit mal :
+       ;; « desarme » veut dire DEFAUT A OFF (pckernel-impl.gc `(set! fixed-tick? #f)`), PAS un
+       ;; consommateur neutralise. La chaine est VIVANTE de bout en bout : pc-set-fixed-tick! ->
+       ;; kmachine `pc_set_fixed_tick` -> `fixed_tick.cpp set_enabled`/`enabled()` ->
+       ;; `begin_render_frame` -> `fixed_tick_publish`, lu par drawable.gc (`time-ratio`),
+       ;; main.gc (tours de logique de rattrapage), cam-update.gc et process-drawable-h.gc.
+       ;; Cocher la case FAIT quelque chose. Le recensement a verifie ce point precisement parce
+       ;; que le commentaire donnait le contraire a lire.
+       ;; RESERVE CONNUE : si la propriete Android `debug.opengoal.fixed_tick` (ou la variable
+       ;; d'environnement OG_FIXED_TICK) est posee, elle GAGNE en silence sur le choix du joueur
+       ;; (fixed_tick.cpp:146-148) — et notre outillage pose souvent des `debug.opengoal.*`.
        ;;
        ;; Meme patron que CRISP TITLE LOGO juste au-dessus : :name est le placeholder habituel
        ;; (le libelle vient de *fixed-tick-label* par name-override) et l'AUTO-LOCALISATION se fait
@@ -7685,8 +7717,16 @@
        ;; APPENDED AT THE TAIL, immediately before MESH BROWSER + Back, so no existing row index
        ;; moves (the index-shift bug class fixed in Gmenu-flag-off; see init-game-options).
        ;; row present only with --physics.
+       ;; Gmenu-census-cleanup (2026-09-02) : cette rangee porte desormais son PROPRE marqueur
+       ;; d'auto-localisation, `:hint (text-id pc-text-hint-physics)`. Elle se faisait retrouver
+       ;; par la rangee PHYSICS DETAIL placee juste apres (« la on-off qui precede le carrousel
+       ;; physics-quality ») ; PHYSICS DETAIL vient d'etre retiree, il fallait donc un ancrage a
+       ;; elle. Meme contrat que CRISP TITLE LOGO et FIXED TIMESTEP : `hint` n'est ecrit par
+       ;; aucune autre rangee de ce tableau et n'est lu par rien dans le menu livre, donc toute
+       ;; insertion future laisse le cablage juste et un rate echoue BRUYAMMENT.
        (flag-row FLAG_PHYSICS
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :hint (text-id pc-text-hint-physics)
             :option-disabled-func
             (lambda ()
               (not (-> *pc-settings* recharged-master?)))
@@ -7696,17 +7736,25 @@
               (pc-set-physics! (if val 1 0) (-> *pc-settings* physics-quality))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell row — LIGHT / FULL / MAXIMUM (the
-       ;; data-driven chain levels). Carousell mirrors pbr-displacement: :name is a placeholder, the
-       ;; real label comes from the *physics-detail-label* name-override, there is no :on-change
-       ;; (respond-common backs up / writes the value back), and the row is greyed while its feature
-       ;; toggle is off — here PHYSICS, exactly as DISPLACEMENT is greyed unless PBR MATERIALS is on.
-       ;; row present only with --physics.
-       (flag-row FLAG_PHYSICS
-       (new 'static 'game-option :option-type (game-option-type physics-quality) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* physics?))))))
+       ;; Gmenu-census-cleanup (2026-09-02) — PHYSICS DETAIL (LIGHT / FULL / MAXIMUM) est RETIREE :
+       ;; les TROIS niveaux produisent le MEME solveur, au bit pres, et ca se demontre par algebre
+       ;; sur les valeurs livrees plutot que par une course.
+       ;;   - Sur les 5 cles du bloc `[levels]` de recharged_assets/physics_chains.txt, QUATRE
+       ;;     (`substeps`, `iters`, `collide`, `classmask`) n'ont AUCUN lecteur : elles sont rangees
+       ;;     dans `s_phys_levels` (kmachine.cpp:1632-1640) et le seul lecteur de ce tableau est
+       ;;     `pc_physics_level_param_mi`, dont les deux seuls appelants GOAL du depot
+       ;;     (jak-hd-physics.gc:2516 et :2519) ne demandent que le parametre 4.
+       ;;   - La 5e (`fixedhz`) est bien lue, mais son effet est NUL : elle ne sert que de PLANCHER
+       ;;     de sous-pas, `nsf = 1 / 1 / 4` pour les niveaux 0/1/2 (fixedhz = 0 / 0 / 240), puis
+       ;;     `ns = max(nsf, pset[24])` (jak-hd-physics.gc:2872). Les deux chaines livrees ont un
+       ;;     maillon libre donc `axo = 1`, et `pset[24]` = `HardImpactSubstepsHi` = 4
+       ;;     (physics_chains.txt:144 et :247). Donc ns = 4 AUX TROIS NIVEAUX.
+       ;;   - Et meme si `fixedhz` mordait, LIGHT et FULL resteraient identiques entre eux : les
+       ;;     deux declarent `fixedhz=0`.
+       ;; Trois libelles, un seul comportement : c'est exactement « une option carrement inutilisee »
+       ;; que l'owner denonce. La cle `physics-quality` RESTE dans settings.ini et reste poussee par
+       ;; `pc-set-physics!`, donc la salle de mesure garde son levier ; seule la rangee part.
+       ;; A REMETTRE le jour ou `substeps`/`iters`/`collide`/`classmask` auront un lecteur.
        ;; Grecharged-mesh-browser: DEBUG launcher for the mesh browser overlay (warp into any level,
        ;; preview any mesh with its textures / PBR / checker, all touch AND gamepad, no adb). A button
        ;; row; respond-common opens the overlay and closes the menu on confirm. Label is a runtime
@@ -7836,30 +7884,51 @@
 (#when FLAG_RECHARGED_HUD
 (define *recharged-hud-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-hud-label*) "RECHARGED HUD"))
-;; Gload-custom-assets: label for the "LOAD CUSTOM ASSETS" on-off toggle in the Recharged
+;; Gmenu-census-cleanup (owner 2026-08-31 : « recharged assets VS HD texture pack ? WTF »).
+;; TROIS rangees allument des textures de remplacement, et rien dans leurs anciens libelles ne
+;; disait ce qui les separe : la SOURCE des fichiers. Elles sont renommees par leur source, avec
+;; le meme suffixe, pour qu'on lise la famille d'un coup d'oeil :
+;;   USER TEXTURES       = les fichiers que le JOUEUR pose dans <racine du jeu>/custom_assets
+;;   BUILT-IN TEXTURES   = les textures refaites LIVREES dans le paquet (+ les 2 atlas de police)
+;;   DOWNLOADED TEXTURES = le gros pack HD TELECHARGE (managed_assets/, 172 matieres, 26 niveaux)
+;; Ce ne sont PAS des doublons — mesure du 2026-09-02 : 4 noms de base seulement en commun sur
+;; 9 livrees contre 172 telechargees, et les 2 polices n'existent QUE dans le paquet livre. Mais
+;; la precedence les fait se masquer (LoaderStages.cpp:158-174 : joueur > telecharge > livre >
+;; stock), d'ou la confusion. Voir .autoport/reports/Gmenu-census-cleanup/report.txt.
+;; Gload-custom-assets: label for the "USER TEXTURES" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
+;; Ces trois libelles ne passent PAS par refresh-runtime-option-labels! : ils restent anglais.
 (define *load-custom-assets-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *load-custom-assets-label*) "LOAD CUSTOM ASSETS")
-;; Grecharged-bundled-textures: label for the "RECHARGED TEXTURES" on-off toggle in the Recharged
+(format (clear *load-custom-assets-label*) "USER TEXTURES")
+;; Grecharged-bundled-textures: label for the "BUILT-IN TEXTURES" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
 (define *recharged-textures-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-textures-label*) "RECHARGED TEXTURES")
-;; Grecharged-managed-assets: label for the "HD TEXTURE PACK" on-off toggle (the DOWNLOADED
+(format (clear *recharged-textures-label*) "BUILT-IN TEXTURES")
+;; Grecharged-managed-assets: label for the "DOWNLOADED TEXTURES" on-off toggle (the DOWNLOADED
 ;; pack) in the Recharged Settings submenu. Uppercase ASCII for the menu font, English-only,
 ;; shown via name-override like every other recharged row.
 (define *managed-assets-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *managed-assets-label*) "HD TEXTURE PACK")
+(format (clear *managed-assets-label*) "DOWNLOADED TEXTURES")
 ;; Grecharged-pbr-materials: label for the "PBR MATERIALS" on-off toggle in the Recharged Settings
 ;; submenu (uppercase ASCII for the menu font; shown via name-override). English-only. Present only with --pbr.
 (#when FLAG_PBR
 (define *pbr-materials-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *pbr-materials-label*) "PBR MATERIALS"))
-;; Grecharged-materials-modern-parity: label for the "MODERN MATERIALS" on-off toggle in the
-;; Recharged Settings submenu (uppercase ASCII for the menu font; shown via name-override).
-;; English-only. Present only with --pbr, exactly like *pbr-materials-label* just above.
+;; Gmenu-census-cleanup (owner 2026-08-31 : « Modern Materials c'est quoi ? »). « MODERN » ne
+;; disait rien : moderne par rapport a quoi ? La rangee est l'ETAGE SUPERIEUR de PBR MATERIALS —
+;; elle est grisee quand PBR MATERIALS est eteinte, et elle ajoute par-dessus lui la diffusion de
+;; la lumiere sous la peau et les feuilles, le vernis brillant, les reflets etires du bois et de
+;; la paille, plus une correction d'energie. D'ou « ADVANCED MATERIALS » : le meme sujet que la
+;; rangee dont elle depend, un cran plus loin, ce que sa position et son grisage disent deja.
+;; Ce n'est PAS un doublon de PBR MATERIALS et ca ne se fond pas dedans : c'est un etage OPTIONNEL,
+;; par defaut ETEINT, avec un cout GPU propre, et l'A/B du 2026-09-02 le mesure des deux cotes
+;; (0 matiere / 0 draw marque contre 27 matieres / 29 903 draws marques a scene identique).
+;; Longueur : « ADVANCED MATERIALS » = 18 caracteres, sous le plus long libelle deja livre
+;; (« DYNAMIC RENDER SCALE », 20). Le tampon reste dimensionne 32.
+;; Uppercase ASCII : la police du menu jak1 n'a pas de minuscules. Present only with --pbr.
 (#when FLAG_PBR
 (define *modern-materials-label* (new 'global 'string 32 (the-as string #f)))
-(format (clear *modern-materials-label*) "MODERN MATERIALS"))
+(format (clear *modern-materials-label*) "ADVANCED MATERIALS"))
 ;; Grecharged-realtime-lighting: labels for the 4 realtime-lighting rows (English-only, uppercase ASCII
 ;; for the menu font; shown via name-override). Present only with --pbr, like *pbr-materials-label*.
 (#when FLAG_PBR
@@ -7872,8 +7941,10 @@
 (format (clear *hemisphere-ambient-label*) "BAKED AMBIENT")
 (define *ambient-strength-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *ambient-strength-label*) "AMBIENT STRENGTH")
-(define *ambient-contrast-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ambient-contrast-label*) "AMBIENT CONTRAST")
+;; Gmenu-census-cleanup : le libelle AMBIENT CONTRAST est SUPPRIME avec sa rangee (morte : ses
+;; 4 lectures shader vivent dans un bloc que `u_rt_probe_on == 0` rend inatteignable). Le
+;; supprimer, au lieu de le laisser orphelin, est ce qui rend le retrait verifiable sur
+;; l'ARTEFACT : `strings GAME.CGO | grep "AMBIENT CONTRAST"` doit rendre ZERO.
 (define *shadow-distance-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *shadow-distance-label*) "SHADOW DISTANCE")
 (define *shadow-quality-label* (new 'global 'string 64 (the-as string #f)))
@@ -7891,15 +7962,22 @@
 ;; DISPLACEMENT label it sits under.
 (define *mesh-subdiv-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *mesh-subdiv-label*) "MESH SUBDIVISION")
-;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell label.
-(define *envprobe-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *envprobe-label*) "ENV PROBE")
-;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell label.
+;; Gmenu-census-cleanup : le libelle ENV PROBE est SUPPRIME avec sa rangee (morte : le seul
+;; ecrivain de `u_rt_probe_on` ecrit 0). Meme raison qu'AMBIENT CONTRAST — le retrait se prouve
+;; sur l'artefact. Les libelles d'OPTIONS `pc-text-envprobe-low/-mid/-high` RESTENT : la rangee
+;; MESH SUBDIVISION les reutilise tels quels pour afficher Off/Low/Mid/High.
+;; Gmenu-census-cleanup : les libelles des DEUX outils de mise au point PBR suivent leurs rangees
+;; sous FLAG_PBR_DEBUG. Ce n'est pas cosmetique, c'est ce qui rend le retrait PROUVABLE SUR
+;; L'ARTEFACT plutot que sur une course : dans un CGO livre `strings GAME.CGO | grep "PBR TEST
+;; PRESET"` doit rendre ZERO, et rendre 1 dans un CGO `--pbr --debug`. Un libelle laisse dans le
+;; binaire aurait fait passer le grep quoi qu'il arrive — le controle par ABSENCE aurait ete muet.
+;; Les libelles d'OPTIONS du carrousel (*pbr-iso-both-label* etc.) restent inconditionnels : le
+;; resolveur partage carousell-option-string les cite dans toutes les configurations.
+(#when FLAG_PBR_DEBUG
 (define *pbr-test-preset-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *pbr-test-preset-label*) "PBR TEST PRESET")
-;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell label.
 (define *pbr-isolate-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *pbr-isolate-label*) "PBR ISOLATE")
+(format (clear *pbr-isolate-label*) "PBR ISOLATE"))
 (define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
 ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT labels
 ;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
@@ -7965,8 +8043,10 @@
 (#when FLAG_PHYSICS
 (define *physics-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *physics-label*) "PHYSICS")
-(define *physics-detail-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *physics-detail-label*) "PHYSICS DETAIL"))
+;; Gmenu-census-cleanup : le libelle PHYSICS DETAIL est SUPPRIME avec sa rangee (les trois
+;; niveaux produisent le meme solveur). Le tag #x17b8 reste RESERVE : ne pas le reutiliser, la
+;; rangee revient telle quelle le jour ou les cles du bloc [levels] auront un lecteur.
+)
 ;; Grecharged-secondary-motion: the three PHYSICS DETAIL carousell OPTION labels. Runtime globals
 ;; resolved by carousell-option-string from the reserved tag ids #x17b9..#x17bb (see the carousell
 ;; array above) — the same stale-text-bank-proof mechanism as the HD LOOK / PBR ISOLATE options.
@@ -10184,7 +10264,13 @@
   ;; apres tous les bras relatifs a fw-idx ci-dessous, donc SEUL ce terme de longueur change. Un 12
   ;; perime ferait lire un tableau PLEIN comme « collapse » et cablerait FOLIAGE WIND et toute la
   ;; suite cinq crans trop tot — la classe de bug Gmenu-flag-off.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 13 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 14 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  ;; Gmenu-census-cleanup (2026-09-02) : le bloc PBR qui suit PBR MATERIALS passe de 14 a 12
+  ;; rangees — PBR TEST PRESET et PBR ISOLATE sont sortis du menu du joueur et ne reviennent
+  ;; que dans un build `--pbr --debug`, d'ou le terme separe (* 2 FLAG_PBR_DEBUG_N). Laisser 14
+  ;; ferait lire un tableau PLEIN comme « collapse » et cablerait FOLIAGE WIND et toute la suite
+  ;; cinq crans trop tot : la classe de bug Gmenu-flag-off. Recompte a la main sur le tableau :
+  ;; 13 inconditionnelles + hud + PBR MATERIALS + 5 HD + 12 PBR + 2 PBR-debug + 2 PHYSICS.
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 13 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 10 FLAG_PBR_N) (* 2 FLAG_PBR_DEBUG_N) FLAG_PHYSICS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -10206,33 +10292,31 @@
     (#when FLAG_PBR
       (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* realtime-lighting?))
       (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *realtime-lighting-label*)
-      ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (row +5, the slot vacated by the deleted BAKED
-      ;; AMBIENT probe toggle). int-backup scratch, mapped 1:1 to follow-probe in respond-common, mirroring
-      ;; the DISPLACEMENT / AMBIENT MODEL carousells.
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *envprobe-label*)
+      ;; Gmenu-census-cleanup (2026-09-02) : ENV PROBE (ex-+5) et AMBIENT CONTRAST (ex-+8) sont
+      ;; RETIREES du tableau — elles ne changeaient RIEN a l'ecran (voir leurs pierres tombales
+      ;; dans le tableau plus haut). Tous les bras qui les suivaient RECULENT donc de deux crans
+      ;; au total, et le terme PBR des deux gardes de longueur passe de 12 a 10. La garde
+      ;; d'alignement [RCH-MENU] plus bas verifie que chaque carrousel retombe bien sur SON
+      ;; option-type : c'est le controle qui manquait aux renumerotations precedentes.
       ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (int-backup scratch, mapped 1:1
       ;; to realtime-ambient-model in respond-common).
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-model-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *ambient-strength-label*)
-      ;; Grecharged-directional-ambient: AMBIENT CONTRAST slider bound directly to the float.
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *pc-settings* realtime-ambient-contrast))
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *ambient-contrast-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
-      (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-distance-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *shadow-quality-label*)
-      ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF + SPECULAR INTENSITY sliders (rows +11/+12, before Back).
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* pbr-texture-relief))
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *texture-relief-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *specular-intensity-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *ambient-model-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-strength-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
+      (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *shadow-distance-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *shadow-quality-label*)
+      ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF + SPECULAR INTENSITY sliders.
+      (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *pc-settings* pbr-texture-relief))
+      (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *texture-relief-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
+      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *specular-intensity-label*)
       ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (row +13, before Back). int-backup scratch, mapped
       ;; 1:1 to pbr-displacement in respond-common, mirroring the AMBIENT MODEL / SHADOW QUALITY carousells.
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *displacement-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *displacement-label*)
       ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell, INSERTED right after DISPLACEMENT
       ;; (row +14). int-backup scratch, mapped 1:1 to mesh-subdiv in respond-common, exactly like the
       ;; DISPLACEMENT carousell above. Because this row is inserted IN THE MIDDLE of the PBR block and
@@ -10241,18 +10325,37 @@
       ;; total-static-length guards gains one row. Nothing else moves: everything after PBR ISOLATE
       ;; (MODERN MATERIALS, CRISP TITLE LOGO, the two PHYSICS rows, HD TEXTURE PACK) is either
       ;; SELF-LOCATING or addressed from the END of the array, so it is immune to this insertion.
-      (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *mesh-subdiv-label*)
-      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (row +15, before Back). int-backup
-      ;; scratch, mapped 1:1 to pbr-test-preset in respond-common; the write-back arm applies the whole config.
-      (set! (-> *recharged-options-pc* (+ fw-idx 15) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-test-preset-label*)
-      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (row +16, before Back). int-backup
-      ;; scratch, mapped 1:1 to pbr-isolate in respond-common, mirroring the DISPLACEMENT carousell.
-      (set! (-> *recharged-options-pc* (+ fw-idx 16) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 16) name-override) *pbr-isolate-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *mesh-subdiv-label*)
+      ;; Gmenu-census-cleanup : les deux bras des outils de mise au point PBR sont desormais sous
+      ;; FLAG_PBR_DEBUG, EXACTEMENT comme leurs rangees. Il le FAUT : sans ce gate, dans un build
+      ;; livre ou les deux rangees sont absentes, fw-idx+15 et fw-idx+16 designent MODERN MATERIALS
+      ;; et CRISP TITLE LOGO — on peindrait « PBR TEST PRESET » sur une autre ligne et on
+      ;; repointerait sa valeur. C'est la classe de bug Gmenu-flag-off, en pire.
+      (#when FLAG_PBR_DEBUG
+        (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
+        (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *pbr-test-preset-label*)
+        (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
+        (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *pbr-isolate-label*))
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
-      ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
+      ;; were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
+      ;; Gmenu-census-cleanup : GARDE D'ALIGNEMENT. Les bras ci-dessus sont des decalages FIXES
+      ;; depuis fw-idx, et un decalage perime est la classe de bug Gmenu-flag-off : le libelle
+      ;; d'une rangee se peint alors sur une AUTRE et repointe sa valeur, en silence. Quatre des
+      ;; rangees de ce bloc ont un option-type UNIQUE dans tout le tableau ; on verifie qu'elles
+      ;; tombent bien la ou on vient d'ecrire. La ligne est publiee a CHAQUE ouverture du menu,
+      ;; donc n'importe quelle trace de course la contient : mis=0 ou le cablage est faux.
+      (let ((mis 0))
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 5) option-type))
+                  (the int (game-option-type rt-ambient-model))) (+! mis 1))
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 8) option-type))
+                  (the int (game-option-type shadow-quality))) (+! mis 1))
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 11) option-type))
+                  (the int (game-option-type pbr-displacement))) (+! mis 1))
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 12) option-type))
+                  (the int (game-option-type mesh-subdiv))) (+! mis 1))
+        (format 0 "[RCH-MENU] pbr rows aligned: mis=~D fw=~D len=~D~%"
+                mis fw-idx (-> *recharged-options-pc* length)))
       ))
   ;; Grecharged-secondary-motion: wire the two PHYSICS rows. (The same invariant is audited at BOOT
   ;; by physics-menu-static-audit! — init-game-options only runs when the menu is actually opened,
@@ -10264,37 +10367,39 @@
   ;; respond-common dispatches buttons on the STATIC `name` (pc-text-mesh-browser), never on
   ;; name-override — so the row reading "PHYSICS DETAIL" opened the mesh browser. Born wrong.
   ;; The fix is NOT `-4`: hand-counted tail offsets are the bug class (same class as Gmenu-flag-off).
-  ;; The rows are now SELF-LOCATING — `physics-quality` is the option-type of exactly ONE row in the
-  ;; whole array, so we FIND it and take the on-off row immediately before it. Any future row
-  ;; inserted anywhere (incl. at the tail) is now harmless, and a mis-order fails LOUDLY instead of
-  ;; silently stealing another row's action. The [PHYS-MENU] line is the permanent artifact gate:
-  ;; it prints both resolved indices AND next-is-meshbrowser=1, i.e. positive proof that the
-  ;; mesh-browser button was left untouched.
-  ;; The DETAIL carousell points value-to-modify at the shared *progress-carousell* int-backup
-  ;; scratch (the pbr-displacement pattern); respond-common maps it 1:1 to physics-quality.
+  ;; Gmenu-census-cleanup (2026-09-02) : L'ANCRAGE CHANGE, LE PRINCIPE NON. La rangee PHYSICS se
+  ;; faisait retrouver PAR SA VOISINE — « le carrousel physics-quality est le seul de son type,
+  ;; on prend la on-off juste avant ». PHYSICS DETAIL vient d'etre retiree du menu du joueur
+  ;; (ses trois niveaux produisent le meme solveur, demonstration au tableau plus haut), donc
+  ;; cet ancrage n'existe plus. PHYSICS porte maintenant SON PROPRE marqueur,
+  ;; `:hint (text-id pc-text-hint-physics)` (#x17be, ajoute pour ca et affiche par rien) — meme
+  ;; contrat que CRISP TITLE LOGO, FIXED TIMESTEP et ADVANCED MATERIALS. Aucune arithmetique
+  ;; d'index, une insertion future ou qu'elle soit laisse le cablage juste, et un rate echoue
+  ;; BRUYAMMENT au lieu de peindre « PHYSICS » sur une autre rangee.
+  ;; La ligne [PHYS-MENU] reste la gate d'artefact permanente : elle publie l'indice resolu ET
+  ;; `next-is-meshbrowser`, preuve positive que le bouton MESH BROWSER n'a pas ete touche.
+  ;; (Ce 0/1 est indicatif : depuis l'insertion de DOWNLOADED TEXTURES entre PHYSICS et MESH
+  ;; BROWSER il vaut 0 en fonctionnement normal ; c'est une observation, pas un verdict.)
   (#when FLAG_PHYSICS
-  (let ((det-idx -1))
+  (let ((ph-idx -1))
     (dotimes (i (-> *recharged-options-pc* length))
-      (when (and (< det-idx 0)
+      (when (and (< ph-idx 0)
+                 (= (the int (-> *recharged-options-pc* i hint))
+                    (the int (text-id pc-text-hint-physics)))
                  (= (the int (-> *recharged-options-pc* i option-type))
-                    (the int (game-option-type physics-quality))))
-        (set! det-idx i)))
+                    (the int (game-option-type on-off))))
+        (set! ph-idx i)))
     (cond
-      ((or (< det-idx 1)
-           (!= (the int (-> *recharged-options-pc* (+ det-idx -1) option-type))
-               (the int (game-option-type on-off))))
-       (format 0 "[PHYS-MENU] FATAL: physics rows not found or mis-ordered (det-idx=~D len=~D) — rows left UNWIRED~%"
-               det-idx (-> *recharged-options-pc* length)))
+      ((< ph-idx 0)
+       (format 0 "[PHYS-MENU] FATAL: PHYSICS row not found (len=~D) — row left UNWIRED~%"
+               (-> *recharged-options-pc* length)))
       (else
-       (set! (-> *recharged-options-pc* (+ det-idx -1) value-to-modify) (&-> *pc-settings* physics?))
-       (set! (-> *recharged-options-pc* (+ det-idx -1) name-override) *physics-label*)
-       (set! (-> *recharged-options-pc* det-idx value-to-modify) (&-> *progress-carousell* int-backup))
-       (set! (-> *recharged-options-pc* det-idx name-override) *physics-detail-label*)
-       (format 0 "[PHYS-MENU] rows wired: toggle=~D detail=~D next-is-meshbrowser=~D len=~D (self-located)~%"
-               (+ det-idx -1)
-               det-idx
-               (if (and (< (+ det-idx 1) (-> *recharged-options-pc* length))
-                        (= (the int (-> *recharged-options-pc* (+ det-idx 1) name))
+       (set! (-> *recharged-options-pc* ph-idx value-to-modify) (&-> *pc-settings* physics?))
+       (set! (-> *recharged-options-pc* ph-idx name-override) *physics-label*)
+       (format 0 "[PHYS-MENU] row wired: toggle=~D next-is-meshbrowser=~D len=~D (self-located)~%"
+               ph-idx
+               (if (and (< (+ ph-idx 1) (-> *recharged-options-pc* length))
+                        (= (the int (-> *recharged-options-pc* (+ ph-idx 1) name))
                            (the int (text-id pc-text-mesh-browser))))
                    1 0)
                (-> *recharged-options-pc* length))))))
@@ -10328,7 +10433,7 @@
       ;; Gfixed-tick-interpolation: 12 -> 13, MEME terme et MEME raison que la garde fw-idx
       ;; ci-dessus (un 13 perime ici desactiverait silencieusement le collapse HD).
       (when (= (-> *recharged-options-pc* length)
-               (+ 13 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 14 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+               (+ 13 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 10 FLAG_PBR_N) (* 2 FLAG_PBR_DEBUG_N) FLAG_PHYSICS_N))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
@@ -12246,10 +12351,13 @@
 ;; The regression ("PHYSICS DETAIL opens the MESH BROWSER") lived in init-game-options, which only
 ;; runs when the player actually OPENS the options menu — so the wiring proof it emits can never
 ;; appear in a passive boot proof leg. This audits the same invariant against the STATIC row array
-;; at boot, where every leg can see it: the physics-quality row must exist, the row before it must
-;; be the on-off toggle, and the row AFTER it must still be the mesh-browser button (i.e. nothing
-;; was painted over the button). Runs once; called from jak-hd-physics-init, which fires on every
-;; companion spawn INCLUDING with the physics toggle off.
+;; at boot, where every leg can see it. Runs once; called from jak-hd-physics-init, which fires on
+;; every companion spawn INCLUDING with the physics toggle off.
+;; Gmenu-census-cleanup (2026-09-02) : l'invariant audite est desormais « la rangee PHYSICS existe
+;; et se retrouve par son marqueur `:hint pc-text-hint-physics` », puisque PHYSICS DETAIL a ete
+;; retiree du menu du joueur. La ligne publie aussi `len=`, c'est-a-dire le nombre de rangees
+;; reellement livrees — la preuve, lisible dans n'importe quelle trace de demarrage, que les
+;; rangees mortes sont bien parties.
 ;; ------------------------------------------------------------------------------------------------
 (#when FLAG_PHYSICS
 (define *phys-menu-audited* #f)
@@ -12257,24 +12365,30 @@
 (defun physics-menu-static-audit! ()
   (when (not *phys-menu-audited*)
     (set! *phys-menu-audited* #t)
-    (let ((det-idx -1))
+    ;; Gmenu-census-cleanup (2026-09-02) : meme invariant, nouvel ancrage. Il ne reste qu'UNE
+    ;; rangee physique dans le menu (PHYSICS DETAIL est retiree : ses trois niveaux produisent
+    ;; le meme solveur), et elle se retrouve par son marqueur `:hint pc-text-hint-physics`.
+    ;; L'audit s'execute au DEMARRAGE, donc n'importe quelle jambe passive le voit — contrairement
+    ;; a `init-game-options`, qui ne tourne que si le joueur OUVRE le menu.
+    ;; `len=` est la mesure qui compte ici : c'est le nombre de rangees REELLEMENT presentes dans
+    ;; le tableau livre, donc la preuve directe que les rangees mortes sont parties.
+    (let ((ph-idx -1))
       (dotimes (i (-> *recharged-options-pc* length))
-        (when (and (< det-idx 0)
+        (when (and (< ph-idx 0)
+                   (= (the int (-> *recharged-options-pc* i hint))
+                      (the int (text-id pc-text-hint-physics)))
                    (= (the int (-> *recharged-options-pc* i option-type))
-                      (the int (game-option-type physics-quality))))
-          (set! det-idx i)))
+                      (the int (game-option-type on-off))))
+          (set! ph-idx i)))
       (cond
-        ((or (< det-idx 1)
-             (!= (the int (-> *recharged-options-pc* (+ det-idx -1) option-type))
-                 (the int (game-option-type on-off))))
-         (format 0 "[PHYS-MENU] FATAL: static audit — physics rows not found or mis-ordered (det-idx=~D len=~D)~%"
-                 det-idx (-> *recharged-options-pc* length)))
+        ((< ph-idx 0)
+         (format 0 "[PHYS-MENU] FATAL: static audit — PHYSICS row not found (len=~D)~%"
+                 (-> *recharged-options-pc* length)))
         (else
-         (format 0 "[PHYS-MENU] static audit: toggle=~D detail=~D next-is-meshbrowser=~D len=~D~%"
-                 (+ det-idx -1)
-                 det-idx
-                 (if (and (< (+ det-idx 1) (-> *recharged-options-pc* length))
-                          (= (the int (-> *recharged-options-pc* (+ det-idx 1) name))
+         (format 0 "[PHYS-MENU] static audit: toggle=~D next-is-meshbrowser=~D len=~D~%"
+                 ph-idx
+                 (if (and (< (+ ph-idx 1) (-> *recharged-options-pc* length))
+                          (= (the int (-> *recharged-options-pc* (+ ph-idx 1) name))
                              (the int (text-id pc-text-mesh-browser))))
                      1 0)
                  (-> *recharged-options-pc* length))))))

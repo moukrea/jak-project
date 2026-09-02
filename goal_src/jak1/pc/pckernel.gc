@@ -497,7 +497,17 @@
        (set! (-> obj mesh-subdiv) (if (and (>= v 0) (<= v 3)) v 1)))
      (pc-set-mesh-subdiv-rounds! (-> obj mesh-subdiv)))
     (("pbr-test-preset") (set! (-> obj pbr-test-preset) (file-stream-read-int file)))
-    (("pbr-isolate") (set! (-> obj pbr-isolate) (file-stream-read-int file)))
+    ;; Gmenu-census-cleanup (2026-09-02) : PBR ISOLATE n'a plus de rangee dans un build livre
+    ;; (elle est passee sous FLAG_PBR_DEBUG). Or cette valeur DEGRADE le rendu — elle eteint la
+    ;; carte de normales ou le parallaxe via le masque u_pbr_bisect de pc-set-pbr-isolate!. Un
+    ;; settings.ini qui en porte une non nulle laisserait donc le joueur avec des cartes eteintes
+    ;; ET aucun moyen de revenir, puisque la rangee qui servait a annuler est justement celle
+    ;; qu'on retire. On lit la cle quand meme (ne pas la lire desynchroniserait le parcours du
+    ;; fichier) et on la RAMENE A 0 (BOTH = chemin fusionne complet), sauf dans un build
+    ;; `--pbr --debug` ou la rangee existe et ou l'on veut justement conserver le reglage.
+    (("pbr-isolate")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj pbr-isolate) (#if FLAG_PBR_DEBUG v 0))))
     ;; Grecharged-materials-modern-parity: MODERN MATERIAL STACK master. #f = accepted PBR path.
     (("modern-materials?") (set! (-> obj modern-materials?) (file-stream-read-symbol file)))
     (("realtime-lighting?") (set! (-> obj realtime-lighting?) (file-stream-read-symbol file)))
