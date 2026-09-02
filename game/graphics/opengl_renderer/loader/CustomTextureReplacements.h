@@ -229,6 +229,58 @@ void mm_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
 // preset inert. Parses the file on first use if nobody has yet. A material the file does not name
 // keeps the pm_* defaults, which ARE the pre-phase behaviour.
 void pbrmat_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* maps);
+
+// ===== Gpbr-props-reach-draw ====================================================================
+// VRAI quand surfaces.json NOMME ce materiau exactement, ou via l'index de noms nus uniques
+// (surf_resolve_key). Le bloc optionnel `defaults` est DELIBEREMENT ignore ici : `defaults` est un
+// repli pour des matieres qui portent deja des cartes, et le laisser repondre VRAI ferait de CHAQUE
+// texture du jeu une matiere authoree — des milliers d'entrees vides inscrites au registre.
+bool pbrmat_has_record(const std::string& tex_debug_name);
+
+// ===== Gpbr-props-reach-draw — LE RECENSEMENT « LA PROPRIETE ATTEINT-ELLE UN DRAW » ==============
+// Owner 2026-08-31 : « ça applique le PBR uniquement aux 7 textures PBR qui étaient dans le projet
+// depuis un bail et ça ignore les autres ». Le defaut est INVISIBLE par construction : chaque defaut
+// de la table EST l'identite, donc une matiere dont les proprietes ne sont jamais deposees rend
+// exactement ce que rend une matiere correctement authoree par defaut. Il n'existe aucun message
+// « aucune correspondance » a chercher. La seule reponse est de publier la resolution de CHAQUE
+// matiere rencontree, absences comprises.
+//
+// TROIS temps, et ils sont separes exprès :
+//   note_seen()   : appele AVANT la sortie anticipee du binder, des que le registre a rendu une
+//                   entree pour la texture de ce draw. Une matiere resolue puis ignoree est donc
+//                   comptee comme RENCONTREE avec params_deposes = 0 — la forme exacte du defaut.
+//   note_pushed() : appele APRES glUniform, et il ne stocke PAS ce qu'on a voulu ecrire : il stocke
+//                   ce que `glGetUniformfv` RELIT DANS L'OBJET PROGRAMME. Une valeur relue du
+//                   programme que le draw suivant utilise n'est pas une variable a nous.
+//   note_draw()   : un bind portant une matiere poussee, immediatement avant que l'appelant emette
+//                   son draw. COMPTE CPU : il ne prouve pas qu'un fragment a tourne, et la ligne
+//                   NOTE de la section le dit.
+// `needs_probe()` borne le cout : `glGetUniformfv` est une requete SYNCHRONE qui draine le pipeline
+// du pilote (cf. le commentaire glGetFloatv de LoaderStages.cpp:270 — 8 blocages de 1,2 a 2,1 s
+// quand il tournait par texture). Il ne tourne donc qu'UNE FOIS par materiau, jamais par draw.
+bool pbr_reach_needs_probe(const std::string& key);
+void pbr_reach_note_seen(const std::string& key, const PbrMaterialMaps& maps);
+void pbr_reach_note_pushed(const std::string& key,
+                           const float* mat_readback,   // 4 floats relus de u_pbr_mat, ou nullptr
+                           const float* mat2_readback,  // 2 floats relus de u_pbr_mat2, ou nullptr
+                           int mode);
+// Meme contrat que note_pushed, pour la MOITIE MODERNE : clearcoat et aniso ne voyagent pas dans
+// u_pbr_mat mais dans u_mm_coat / u_mm_aniso, poussees par un bloc separe. Sans cette relecture
+// leurs valeurs publiees seraient recopiees de nos variables, c'est-a-dire mesurees par leur
+// EFFET SUPPOSE — et quand l'effet est absent « le modele est faux » et « rien n'a ete pousse »
+// deviennent indistinguables. Appelee HORS de la garde de changement d'etat du binder : la garde
+// evite de RE-pousser, elle ne change pas ce que l'objet programme contient, donc la relecture est
+// valide meme pour un draw qui n'a rien repousse.
+void pbr_reach_note_mm(const std::string& key,
+                       const float* coat_readback,   // 4 floats de u_mm_coat, ou nullptr
+                       const float* aniso_readback,  // 2 floats de u_mm_aniso, ou nullptr
+                       int mm_flags);
+void pbr_reach_note_draw();
+// Avance quand une matiere NOUVELLE apparait ou qu'une matiere passe a « poussee », pour que
+// l'ecrivain de diag re-emette le fichier. Jamais par draw.
+u32 pbr_reach_generation();
+// Les lignes PBRREACH / PBRVAL. Vide tant qu'aucune matiere n'a ete rencontree.
+std::string pbr_reach_section();
 // STATE-PUSH COUNTER. NOT a draw counter, and NOT evidence that the modern chunk executed.
 // It is called from INSIDE PbrDrawBinder::set()'s state-change guard
 // (`if (mm_want != m_cur_mm_flags || mm_key != m_cur_mm_maps)`), so it ticks once per MATERIAL

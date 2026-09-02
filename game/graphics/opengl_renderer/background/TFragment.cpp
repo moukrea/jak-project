@@ -371,22 +371,40 @@ void TFragment::update_load(const std::vector<tfrag3::TFragmentTreeKind>& tree_k
   m_pbr_draws.clear();
   for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
     if (const auto* maps = custom_tex::find_pbr_material(custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name, lev_data->textures[ti].debug_name))) {
+      const auto mat_key = custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name,
+                                                        lev_data->textures[ti].debug_name);
+      // Gpbr-props-reach-draw : une matiere AUTHOREE SANS AUCUNE CARTE n'a rien qui lise la densite
+      // UV — elle pilote l'amplitude POM/tessellation, qui exigent toutes deux une carte de hauteur.
+      // Sauter la marche de geometrie garde les nouvelles entrees gratuites au chargement.
+      const bool has_any_map = maps->normal_tex || maps->rough_tex || maps->metal_tex ||
+                               maps->ao_tex || maps->height_tex || maps->specular_tex ||
+                               maps->emissive_tex;
       // Grecharged-pbr-realtime-fusion ROUND 20: measure THIS material's authored UV density from
       // the level's own geometry, so the tess displacement uses the material's real feature size
       // instead of the shaders' hardcoded 0.5 tiles/m. 0 = not enough samples => keep the old 0.5.
       u32 nsamp = 0;
-      float dens = measure_uv_density_tfrag(*lev_data, (s32)ti, &nsamp);
-      if (dens <= 0.f) {
-        dens = 0.5f;
+      float dens = 0.5f;
+      if (has_any_map) {
+        dens = measure_uv_density_tfrag(*lev_data, (s32)ti, &nsamp);
+        if (dens <= 0.f) {
+          dens = 0.5f;
+        }
       }
-      m_pbr_draws.push_back({(s32)ti, *maps, dens});
-      // [pom] device diagnostic: the measured density is geometry-derived, so this is the only
-      // place that knows it — hand it to the diag registry the pbr_tan_diag.txt writer reads.
-      custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
-      lg::info(
-          "pbr uv density: {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, ratio "
-          "{:.2f}x) samples={}",
-          lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp);
+      m_pbr_draws.push_back({(s32)ti, *maps, dens, mat_key});
+      if (has_any_map) {
+        // [pom] device diagnostic: the measured density is geometry-derived, so this is the only
+        // place that knows it — hand it to the diag registry the pbr_tan_diag.txt writer reads.
+        custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
+        lg::info(
+            "pbr uv density: {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, ratio "
+            "{:.2f}x) samples={}",
+            lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp);
+      } else {
+        lg::info(
+            "pbr authored-only material: {} (aucune carte compagnon ; u_pbr_mode bit 256, les "
+            "constantes authorees de surfaces.json remplacent les cartes absentes)",
+            lev_data->textures[ti].debug_name);
+      }
     }
   }
   if (!m_pbr_draws.empty()) {

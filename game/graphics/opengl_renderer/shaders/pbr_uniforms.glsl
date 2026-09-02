@@ -3,6 +3,14 @@ uniform int u_pbr_mode;        // 0=legacy; bit1 normal, bit2 rough, bit4 metal,
                                // bit128 (Grecharged-managed-assets): the bound normal map stores only
                                // X/Y (BC5 / EAC RG11 / ASTC two-channel — the GPU-compressed pack
                                // formats have no third channel), so Z is reconstructed here.
+                               // bit256 (Gpbr-props-reach-draw) : MATIERE AUTHOREE SANS AUCUNE
+                               // CARTE. Aucune branche ne le teste : il sert uniquement a ouvrir la
+                               // porte `u_pbr_mode != 0`, apres quoi chaque lecture retombe sur la
+                               // constante authoree (u_pbr_mat.x rugosite, .y metallicite,
+                               // .z reflectance, .w sens du vert de la normale). Sans lui, les
+                               // champs nommes pm_rough_NOMAP / pm_metal_NOMAP etaient
+                               // inatteignables : leur seul lecteur vit derriere une porte qui
+                               // exigeait une carte.
 uniform vec3 u_pbr_sun_dir;    // world-space, surface->sun, normalized (viz/legacy)
 uniform vec3 u_pbr_sun_color;
 // Round-4 multi-light: 3 direct lights from light-group 0 (soleil + lune verte + fill),

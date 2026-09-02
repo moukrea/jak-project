@@ -867,8 +867,16 @@ void release_uploaded_tangents(tfrag3::Level& lev, int systeme) {
 // sommets liberes et retomberait sur la densite constante 0.5 — un faux silencieux sur le POM.
 void precompute_uv_density(tfrag3::Level& lev) {
   for (size_t ti = 0; ti < lev.textures.size(); ++ti) {
-    if (!custom_tex::find_pbr_material(custom_tex::pbr_material_key(
-            lev.textures[ti].debug_tpage_name, lev.textures[ti].debug_name))) {
+    const auto* mm = custom_tex::find_pbr_material(custom_tex::pbr_material_key(
+        lev.textures[ti].debug_tpage_name, lev.textures[ti].debug_name));
+    if (!mm) {
+      continue;
+    }
+    // Gpbr-props-reach-draw : une matiere AUTHOREE SANS CARTE est desormais inscrite au registre
+    // (c'etait le defaut). Elle n'a rien qui lise la densite UV — trois marches de geometrie pour
+    // un nombre que personne ne consulte.
+    if (!(mm->normal_tex || mm->rough_tex || mm->metal_tex || mm->ao_tex || mm->height_tex ||
+          mm->specular_tex || mm->emissive_tex)) {
       continue;
     }
     u32 n = 0;

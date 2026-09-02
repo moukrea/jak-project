@@ -3211,6 +3211,15 @@ void pc_set_pbr_isolate(u32 idx) {
     s_last_cover_gen = cover_gen;
     pom_changed = true;
   }
+  // Gpbr-props-reach-draw : meme mecanique pour le recensement par MATIERE. Sa generation
+  // n'avance que quand une matiere NOUVELLE est rencontree ou passe a « poussee », jamais par
+  // draw — donc aucune ecriture disque par image.
+  static u32 s_last_reach_gen = 0;
+  const u32 reach_gen = custom_tex::pbr_reach_generation();
+  if (reach_gen != s_last_reach_gen) {
+    s_last_reach_gen = reach_gen;
+    pom_changed = true;
+  }
 #else
   const bool pom_changed = false;
 #endif
@@ -3236,6 +3245,9 @@ void pc_set_pbr_isolate(u32 idx) {
       // gate of pbr_modern.glsl:40 while they keep rising. That is why the section publishes
       // u_pbr_debug next to them — read the NOTE line it emits, not the totals alone.
       body += custom_tex::mm_params_diag_section();
+      // Gpbr-props-reach-draw : le recensement par MATIERE — quelle entree de surfaces.json a ete
+      // trouvee, quelles valeurs sont RELUES dans l'objet programme, et si un draw les portait.
+      body += custom_tex::pbr_reach_section();
 #endif
       file_util::write_text_file(file_util::get_jak_project_dir() / "pbr_tan_diag.txt", body);
     } catch (...) {

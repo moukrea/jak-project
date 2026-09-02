@@ -1074,7 +1074,32 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
              // Grecharged-managed-assets: X/Y-only normal (compressed pack) — the shader
              // reconstructs Z. Only meaningful alongside bit 1.
              ((maps->normal_tex && maps->normal_is_rg) ? 128 : 0);
+      // ===== Gpbr-props-reach-draw : BIT 256, MATIERE AUTHOREE SANS AUCUNE CARTE =================
+      // Owner 2026-08-31 : « ça applique le PBR uniquement aux 7 textures PBR qui étaient dans le
+      // projet depuis un bail ». C'etait litteral : les bits ci-dessus sont tous derives d'une
+      // TEXTURE, donc `want` restait 0 pour une matiere que surfaces.json nomme mais qui ne porte
+      // aucune carte compagnon — et la porte `u_pbr_mode != 0` de chaque shader la renvoyait au
+      // chemin d'avant. Ses `roughness`, `metallic`, `reflectance`, `spec`, `normal_y` authores
+      // sont pourtant EXACTEMENT les valeurs que le shader lit quand la carte correspondante
+      // manque (tfrag3.frag:876-889 lit u_pbr_mat.x/.y/.z sous `(mode & 2/4) == 0`) : les champs
+      // s'appellent pm_rough_NOMAP et pm_metal_NOMAP. Ils etaient inatteignables.
+      // Le bit 256 n'allume aucune branche de carte (aucun shader ne le teste) : il ouvre la porte,
+      // et toutes les lectures retombent sur les constantes authorees. Une matiere que personne ne
+      // nomme garde want = 0 et rend exactement ce qu'elle rendait — « non authoree == stock ».
+      if (want == 0 && maps->pm_authored) {
+        want = 256;
+      }
     }
+  }
+  // Gpbr-props-reach-draw : le recensement est pris AVANT la sortie anticipee, exprès. Une matiere
+  // que le registre resout puis que le binder ignore doit apparaitre RENCONTREE avec
+  // params_deposes = 0 — sinon le defaut de l'owner disparait de sa propre mesure.
+  const bool reach_probe = ent && custom_tex::pbr_reach_needs_probe(ent->key);
+  if (reach_probe) {
+    custom_tex::pbr_reach_note_seen(ent->key, *maps);
+  }
+  if (ent && want != 0) {
+    custom_tex::pbr_reach_note_draw();
   }
   if (want == 0 && m_cur_mode == 0) {
     return;
@@ -1204,6 +1229,25 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   // `want == 0 || !maps` => the IDENTITY (globals x 1 and the shader's own constants), so a draw
   // with no resolved material renders exactly as before and cannot inherit the previous one.
   pbr_push_material_uniforms(m_program, (want != 0) ? maps : nullptr);
+  // Gpbr-props-reach-draw : la PREUVE que les boutons sont dans le programme que le draw suivant
+  // va utiliser — relus de l'objet programme par glGetUniformfv, pas recopies de nos variables.
+  // UNE SEULE FOIS par materiau (`reach_probe`) : glGetUniformfv est une requete synchrone qui
+  // draine le pipeline du pilote, et la faire par draw couterait ce que le commentaire
+  // glGetFloatv de LoaderStages.cpp:270 a deja mesure (des blocages de plus d'une seconde).
+  if (reach_probe && want != 0) {
+    const auto& rl = pbr_mat_uniform_locs(m_program);
+    float rb_mat[4] = {0.f, 0.f, 0.f, 0.f};
+    float rb_mat2[2] = {0.f, 0.f};
+    const bool have = rl.mat >= 0;
+    if (have) {
+      glGetUniformfv(m_program, rl.mat, rb_mat);
+      if (rl.mat2 >= 0) {
+        glGetUniformfv(m_program, rl.mat2, rb_mat2);
+      }
+    }
+    custom_tex::pbr_reach_note_pushed(ent->key, have ? rb_mat : nullptr,
+                                      (have && rl.mat2 >= 0) ? rb_mat2 : nullptr, want);
+  }
   // ===== Grecharged-materials-modern-parity: the MODERN MATERIAL STACK block =====================
   // mm_flags already carries the master AND the per-material opt-in: mm_apply_params() cleared it
   // to 0 at load time if either was absent, and re-stamps every registered material when the menu
@@ -1251,6 +1295,25 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     }
     m_cur_mm_flags = mm_want;
     m_cur_mm_maps = mm_key;
+  }
+  // Gpbr-props-reach-draw : la meme relecture pour la MOITIE MODERNE. Posee HORS de la garde de
+  // changement d'etat ci-dessus a dessein : la garde evite de RE-pousser des uniformes identiques,
+  // elle ne change pas ce que l'objet programme CONTIENT — donc un draw qui n'a rien repousse
+  // utilise quand meme ces valeurs, et les relire ici les attribue au bon materiau. Une seule fois
+  // par matiere (`reach_probe`), comme la moitie PBR : glGetUniformfv est synchrone.
+  if (reach_probe && mm_want != 0 && m_mm_flags_loc >= 0) {
+    float rb_coat[4] = {0.f, 0.f, 0.f, 0.f};
+    float rb_aniso[2] = {0.f, 0.f};
+    const bool have_coat = m_mm_coat_loc >= 0;
+    const bool have_aniso = m_mm_aniso_loc >= 0;
+    if (have_coat) {
+      glGetUniformfv(m_program, m_mm_coat_loc, rb_coat);
+    }
+    if (have_aniso) {
+      glGetUniformfv(m_program, m_mm_aniso_loc, rb_aniso);
+    }
+    custom_tex::pbr_reach_note_mm(ent->key, have_coat ? rb_coat : nullptr,
+                                  have_aniso ? rb_aniso : nullptr, mm_want);
   }
 }
 

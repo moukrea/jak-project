@@ -141,26 +141,45 @@ void Shrub::update_load(const LevelData* loader_data) {
   m_pbr_draws.clear();
   for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
     if (const auto* maps = custom_tex::find_pbr_material(custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name, lev_data->textures[ti].debug_name))) {
+      const auto mat_key = custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name,
+                                                        lev_data->textures[ti].debug_name);
+      // Gpbr-props-reach-draw : une matiere AUTHOREE SANS AUCUNE CARTE n'a rien qui lise la densite
+      // UV — elle pilote l'amplitude POM/tessellation, qui exigent toutes deux une carte de hauteur.
+      // Sauter la marche de geometrie garde les nouvelles entrees gratuites au chargement.
+      const bool has_any_map = maps->normal_tex || maps->rough_tex || maps->metal_tex ||
+                               maps->ao_tex || maps->height_tex || maps->specular_tex ||
+                               maps->emissive_tex;
       u32 nsamp = 0;
-      float dens = measure_uv_density_shrub(*lev_data, (s32)ti, &nsamp);
-      const bool measured = dens > 0.f;
-      if (!measured) {
-        dens = 0.5f;  // not enough samples: fall back to the constant the shaders used to assume
+      float dens = 0.5f;
+      bool measured = false;
+      if (has_any_map) {
+        dens = measure_uv_density_shrub(*lev_data, (s32)ti, &nsamp);
+        measured = dens > 0.f;
+        if (!measured) {
+          dens = 0.5f;  // not enough samples: fall back to the constant the shaders used to assume
+        }
       }
-      m_pbr_draws.push_back({(s32)ti, *maps, dens});
-      // Only publish to the shared [pom] diag registry when shrub geometry ACTUALLY uses this
-      // texture. Most PBR materials are tfrag/tie ground and walls with zero shrub triangles, and
-      // an unconditional note would overwrite their real measured density with our 0.5 fallback
-      // (diagnostics only — each renderer keeps its own PbrDrawList value — but it would make the
-      // dump lie).
-      if (measured) {
-        custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
+      m_pbr_draws.push_back({(s32)ti, *maps, dens, mat_key});
+      if (has_any_map) {
+        // Only publish to the shared [pom] diag registry when shrub geometry ACTUALLY uses this
+        // texture. Most PBR materials are tfrag/tie ground and walls with zero shrub triangles, and
+        // an unconditional note would overwrite their real measured density with our 0.5 fallback
+        // (diagnostics only — each renderer keeps its own PbrDrawList value — but it would make the
+        // dump lie).
+        if (measured) {
+          custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
+        }
+        lg::info(
+            "pbr uv density (shrub): {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => "
+            "200.0cm, ratio {:.2f}x) samples={}{}",
+            lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp,
+            measured ? "" : " [UNMEASURED - no shrub geometry uses this texture, 0.5 fallback]");
+      } else {
+        lg::info(
+            "pbr authored-only material (shrub): {} (aucune carte compagnon ; u_pbr_mode bit 256, "
+            "les constantes authorees de surfaces.json remplacent les cartes absentes)",
+            lev_data->textures[ti].debug_name);
       }
-      lg::info(
-          "pbr uv density (shrub): {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => "
-          "200.0cm, ratio {:.2f}x) samples={}{}",
-          lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp,
-          measured ? "" : " [UNMEASURED - no shrub geometry uses this texture, 0.5 fallback]");
     }
   }
   if (!m_pbr_draws.empty()) {

@@ -199,6 +199,11 @@ struct PbrDrawEntry {
   // texture tiles per world metre (see measure_uv_density_* below). 0.5 = the constant the
   // shaders used to assume, so an unmeasured entry reproduces the old behaviour exactly.
   float uv_per_m = 0.5f;
+  // Gpbr-props-reach-draw : la CLE de registre "<tpage>/<nom>" de ce materiau. Le binder ne
+  // dispose que d'un index de texture ; le recensement doit nommer la matiere, et seuls les
+  // constructeurs de liste (TFragment / Tie3 / Shrub) connaissent la cle. Une chaine par
+  // materiau et par niveau.
+  std::string key;
 };
 using PbrDrawList = std::vector<PbrDrawEntry>;
 

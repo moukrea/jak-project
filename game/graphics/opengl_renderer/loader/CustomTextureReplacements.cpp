@@ -1428,6 +1428,32 @@ void pbrmat_apply_params(const std::string& tex_debug_name, PbrMaterialMaps* map
 }
 
 namespace {
+// Gpbr-props-reach-draw — COUVERTURE DE LA TABLE SUR CE QU'UN NIVEAU CHARGE REELLEMENT.
+// Le recensement du binder ne peut voir que des matieres INSCRITES : une texture que personne
+// n'authore et qui ne porte aucune carte n'y apparait jamais, donc « combien de surfaces la table
+// ignore-t-elle » y est structurellement invisible. Ces deux compteurs sont pris au SEUL endroit
+// qui voit les deux faits en meme temps — la decision d'inscription, une fois par texture et par
+// chargement. Dedupliques par cle, sinon un rechargement de niveau les doublerait et le rapport
+// publierait une couverture fausse dans le sens flatteur.
+std::set<std::string> g_surf_seen_tex;
+std::set<std::string> g_surf_named_tex;
+}  // namespace
+
+bool pbrmat_has_record(const std::string& tex_debug_name) {
+  if (!g_mm_loaded) {
+    mm_params_reload();
+  }
+  bool via_alias = false;
+  const std::string key = surf_resolve_key(tex_debug_name, &via_alias);
+  const bool found = g_pbrmat_params.find(key) != g_pbrmat_params.end();
+  g_surf_seen_tex.insert(tex_debug_name);
+  if (found) {
+    g_surf_named_tex.insert(tex_debug_name);
+  }
+  return found;
+}
+
+namespace {
 // Per-channel active-draw counters. Written from the GL thread only, read by the diag writer, so
 // relaxed atomics are enough and cost nothing on the hot path.
 std::atomic<u64> g_mm_draws_total{0};
@@ -1735,6 +1761,173 @@ std::string pbr_coverage_section() {
                     n, cover_read(s.c, kCovHeight), cover_read(s.c, kCovTess),
                     cover_read(s.c, kCovPom), cover_read(s.c, kCovNone));
   }
+  return out;
+}
+
+namespace {
+// Gpbr-props-reach-draw. Un enregistrement par MATIERE rencontree a un draw. Ecrit depuis le seul
+// thread GL (PbrDrawBinder::set), lu par l'ecrivain de diag sur le meme thread.
+struct ReachRec {
+  std::string family;
+  bool authored = false;      // surfaces.json nomme cette matiere
+  bool pushed = false;        // ses parametres ont ete RELUS dans l'objet programme
+  bool from_readback = false; // reflectance/metallic viennent du programme, pas de nos variables
+  bool mm_from_readback = false;  // clearcoat/aniso idem, mais depuis u_mm_coat / u_mm_aniso
+  int mode = 0;               // u_pbr_mode au moment du push
+  int mm_flags = 0;           // u_mm_flags au moment du push
+  float clearcoat = 0.f;
+  float aniso = 0.f;
+  float reflectance = 0.f;
+  float metallic = 0.f;
+  float rough = 0.f;
+};
+std::unordered_map<std::string, ReachRec> g_reach;
+u64 g_reach_draws = 0;
+u32 g_reach_gen = 0;
+}  // namespace
+
+bool pbr_reach_needs_probe(const std::string& key) {
+  const auto it = g_reach.find(key);
+  return it == g_reach.end() || !it->second.pushed;
+}
+
+void pbr_reach_note_seen(const std::string& key, const PbrMaterialMaps& maps) {
+  auto& r = g_reach[key];
+  if (r.family.empty()) {
+    g_reach_gen++;  // premiere apparition de cette matiere
+    bool via_alias = false;
+    const auto fam = g_pbrmat_family.find(surf_resolve_key(key, &via_alias));
+    r.family = (fam == g_pbrmat_family.end()) ? "-" : fam->second;
+  }
+  r.authored = maps.pm_authored;
+  if (!r.mm_from_readback) {
+    r.clearcoat = maps.coat_weight;
+    r.aniso = maps.aniso;
+  }
+  if (!r.from_readback) {
+    // Repli CPU tant qu'aucune relecture n'a eu lieu. Marque comme tel dans la ligne publiee.
+    r.reflectance = maps.pm_reflectance;
+    r.metallic = maps.pm_metal_nomap;
+    r.rough = maps.pm_rough_nomap;
+  }
+}
+
+void pbr_reach_note_pushed(const std::string& key,
+                           const float* mat_readback,
+                           const float* mat2_readback,
+                           int mode) {
+  auto it = g_reach.find(key);
+  if (it == g_reach.end()) {
+    return;  // note_seen court toujours d'abord ; rien a inventer ici
+  }
+  ReachRec& r = it->second;
+  if (!r.pushed) {
+    g_reach_gen++;
+  }
+  r.pushed = true;
+  r.mode = mode;
+  if (mat_readback) {
+    // u_pbr_mat = (rough_nomap, metal_nomap, reflectance, normal_y) — voir
+    // pbr_push_material_uniforms(). Ces quatre nombres sortent de l'objet programme, pas de nous.
+    r.rough = mat_readback[0];
+    r.metallic = mat_readback[1];
+    r.reflectance = mat_readback[2];
+    r.from_readback = true;
+  }
+  (void)mat2_readback;
+}
+
+void pbr_reach_note_mm(const std::string& key,
+                       const float* coat_readback,
+                       const float* aniso_readback,
+                       int mm_flags) {
+  auto it = g_reach.find(key);
+  if (it == g_reach.end()) {
+    return;
+  }
+  ReachRec& r = it->second;
+  r.mm_flags = mm_flags;
+  // u_mm_coat = (coat_weight, coat_rough, sss_ambient, 0) et u_mm_aniso = (aniso, aniso_angle) —
+  // voir PbrDrawBinder::set. Les deux sortent de l'objet programme.
+  if (coat_readback) {
+    r.clearcoat = coat_readback[0];
+    r.mm_from_readback = true;
+  }
+  if (aniso_readback) {
+    r.aniso = aniso_readback[0];
+    r.mm_from_readback = true;
+  }
+}
+
+void pbr_reach_note_draw() {
+  g_reach_draws++;
+}
+
+u32 pbr_reach_generation() {
+  return g_reach_gen;
+}
+
+std::string pbr_reach_section() {
+  if (g_reach.empty()) {
+    return {};
+  }
+  // Trie a travers un std::map pour que deux courses du meme etat emettent des lignes identiques
+  // au bit (le stockage est un unordered_map, dont l'ordre n'est pas une promesse).
+  std::map<std::string, const ReachRec*> sorted;
+  for (const auto& kv : g_reach) {
+    sorted[kv.first] = &kv.second;
+  }
+  int with_record = 0, pushed = 0, non_identity = 0;
+  for (const auto& kv : sorted) {
+    if (kv.second->authored) {
+      with_record++;
+    }
+    if (kv.second->pushed) {
+      pushed++;
+      if (kv.second->authored &&
+          (kv.second->clearcoat > 0.f || std::fabs(kv.second->aniso) > 0.f ||
+           std::fabs(kv.second->reflectance - 0.04f) > 1e-6f ||
+           kv.second->metallic > 0.f || std::fabs(kv.second->rough - 0.9f) > 1e-6f)) {
+        non_identity++;
+      }
+    }
+  }
+  std::string out = "\n";
+  out += fmt::format(
+      "PBRREACH plateforme={} matieres_dans_table={} matieres_rencontrees={} avec_record={} "
+      "params_deposes={} draws_consommes={} hors_identite={} modern_master={} "
+      "textures_chargees={} textures_nommees={}\n",
+#ifdef __ANDROID__
+      "redmi",
+#else
+      "x86",
+#endif
+      (int)g_pbrmat_params.size(), (int)sorted.size(), with_record, pushed, g_reach_draws,
+      non_identity, mm_master_active() ? 1 : 0, (int)g_surf_seen_tex.size(),
+      (int)g_surf_named_tex.size());
+  for (const auto& kv : sorted) {
+    const ReachRec& r = *kv.second;
+    out += fmt::format(
+        "PBRVAL matiere={} famille={} clearcoat={:.4f} aniso={:.4f} reflectance={:.4f} "
+        "metallic={:.4f} rugosite={:.4f} atteint_draw={} record={} source={} source_mm={} "
+        "mode=0x{:x} mm_flags=0x{:x}\n",
+        kv.first, r.family.empty() ? "-" : r.family, r.clearcoat, r.aniso, r.reflectance,
+        r.metallic, r.rough, r.pushed ? 1 : 0, r.authored ? "oui" : "NO_RECORD",
+        r.from_readback ? "readback" : "cpu", r.mm_from_readback ? "readback" : "cpu", r.mode,
+        r.mm_flags);
+  }
+  out += fmt::format(
+      "PBRNOTE draws_consommes est un compte CPU pris au bind, juste avant que l'appelant emette "
+      "son draw : il ne prouve PAS qu'un fragment a tourne. `source=readback` veut dire que "
+      "reflectance/metallic/rugosite ont ete RELUS par glGetUniformfv dans u_pbr_mat de l'objet "
+      "programme que ce draw utilise, pas recopies depuis nos variables ; `source_mm=readback` dit "
+      "la meme chose de clearcoat/aniso, relus de u_mm_coat / u_mm_aniso. clearcoat et aniso ne franchissent "
+      "u_mm_flags que si la ligne de menu MODERN MATERIALS est active (elle est ici a {}) ; hors de "
+      "ca ils valent 0 QUELLE QUE SOIT la valeur authoree. textures_chargees / textures_nommees "
+      "sont prises a la DECISION D'INSCRIPTION, une par texture et par chargement : elles disent "
+      "quelle part des surfaces que le jeu charge la table nomme, ce que le recensement du binder "
+      "ne peut pas voir puisqu'il ne rencontre que des matieres inscrites.\n",
+      mm_master_active() ? "1" : "0");
   return out;
 }
 #endif

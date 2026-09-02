@@ -507,21 +507,39 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
   m_pbr_draws.clear();
   for (size_t ti = 0; ti < lev_data->textures.size(); ++ti) {
     if (const auto* maps = custom_tex::find_pbr_material(custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name, lev_data->textures[ti].debug_name))) {
+      const auto mat_key = custom_tex::pbr_material_key(lev_data->textures[ti].debug_tpage_name,
+                                                        lev_data->textures[ti].debug_name);
+      // Gpbr-props-reach-draw : une matiere AUTHOREE SANS AUCUNE CARTE n'a rien qui lise la densite
+      // UV — elle pilote l'amplitude POM/tessellation, qui exigent toutes deux une carte de hauteur.
+      // Sauter la marche de geometrie garde les nouvelles entrees gratuites au chargement.
+      const bool has_any_map = maps->normal_tex || maps->rough_tex || maps->metal_tex ||
+                               maps->ao_tex || maps->height_tex || maps->specular_tex ||
+                               maps->emissive_tex;
       // Grecharged-pbr-realtime-fusion ROUND 20: same measured authored UV density as TFragment,
       // walked over the TIE geo-0 static draws (same StripDraw / PreloadedVertex types).
       u32 nsamp = 0;
-      float dens = measure_uv_density_tie(*lev_data, (s32)ti, &nsamp);
-      if (dens <= 0.f) {
-        dens = 0.5f;
+      float dens = 0.5f;
+      if (has_any_map) {
+        dens = measure_uv_density_tie(*lev_data, (s32)ti, &nsamp);
+        if (dens <= 0.f) {
+          dens = 0.5f;
+        }
       }
-      m_pbr_draws.push_back({(s32)ti, *maps, dens});
-      // [pom] device diagnostic: same hand-off as TFragment — TIE materials are exactly the draws
-      // the per-PROGRAM tess gate now keeps the POM on, so they must appear in the dump too.
-      custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
-      lg::info(
-          "pbr uv density (tie): {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, "
-          "ratio {:.2f}x) samples={}",
-          lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp);
+      m_pbr_draws.push_back({(s32)ti, *maps, dens, mat_key});
+      if (has_any_map) {
+        // [pom] device diagnostic: same hand-off as TFragment — TIE materials are exactly the draws
+        // the per-PROGRAM tess gate now keeps the POM on, so they must appear in the dump too.
+        custom_tex::pbr_pom_diag_note(lev_data->textures[ti].debug_name, *maps, dens);
+        lg::info(
+            "pbr uv density (tie): {} tiles/m={:.3f} tile={:.1f}cm (shader assumed 0.5 => 200.0cm, "
+            "ratio {:.2f}x) samples={}",
+            lev_data->textures[ti].debug_name, dens, 100.f / dens, dens / 0.5f, nsamp);
+      } else {
+        lg::info(
+            "pbr authored-only material (tie): {} (aucune carte compagnon ; u_pbr_mode bit 256, "
+            "les constantes authorees de surfaces.json remplacent les cartes absentes)",
+            lev_data->textures[ti].debug_name);
+      }
     }
   }
   if (!m_pbr_draws.empty()) {

@@ -352,7 +352,14 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     }
     load_map("specular", &maps.specular_tex);
     load_map("emissive", &maps.emissive_tex);
-    if (any) {
+    // Gpbr-props-reach-draw : une matiere que surfaces.json NOMME s'inscrit meme sans une seule
+    // carte. Ses `roughness`/`metallic`/`reflectance`/`spec`/`normal_y` authores SONT ce que le
+    // shader lit quand la carte manque ; sans inscription elle n'entre dans aucune PbrDrawList,
+    // le binder sort avant tout push, et la porte `u_pbr_mode != 0` la renvoie au chemin d'avant.
+    // C'est exactement « le PBR ne s'applique qu'aux textures qui ont des cartes depuis un bail ».
+    const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
+    const bool surf_authored = custom_tex::pbrmat_has_record(mat_key);
+    if (any || surf_authored) {
       // Gpbr-material-props: stamp the AUTHORED half HERE too. This is the MANAGED-pack path, and
       // until this line it was the only registration site that never called them — so every one of
       // the 172 materials the asset pack ships arrived with its maps and WITHOUT its properties.
@@ -362,7 +369,6 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       // run before this line existed: 25 materials bound maps, ONE reached a draw with authored
       // knobs. An un-authored material renders exactly like a correctly-authored default, which is
       // why nothing anywhere reported a problem.
-      const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
       custom_tex::mm_apply_params(mat_key, &maps);
       custom_tex::pbrmat_apply_params(mat_key, &maps);
       auto prev = custom_tex::register_pbr_material(mat_key, maps);
@@ -437,7 +443,14 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
                                                                      : "stock";
     // ROUND 20: with the test pattern on, register the material EVEN IF it has no real maps —
     // in mode 2 that is the whole point (every surface gets the checker N/R/H).
-    if (n || r || m || h || s || e || th || orm || tp_apply) {
+    // Gpbr-props-reach-draw : une matiere que surfaces.json NOMME s'inscrit meme sans une seule
+    // carte. Ses `roughness`/`metallic`/`reflectance`/`spec`/`normal_y` authores SONT ce que le
+    // shader lit quand la carte manque ; sans inscription elle n'entre dans aucune PbrDrawList,
+    // le binder sort avant tout push, et la porte `u_pbr_mode != 0` la renvoie au chemin d'avant.
+    // C'est exactement « le PBR ne s'applique qu'aux textures qui ont des cartes depuis un bail ».
+    const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
+    const bool surf_authored = custom_tex::pbrmat_has_record(mat_key);
+    if (n || r || m || h || s || e || th || orm || tp_apply || surf_authored) {
       auto make_map = [&](const custom_tex::ReplacementImage* img) -> u32 {
         if (!img) {
           return 0;
@@ -722,7 +735,6 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       // This site used to pass the bare name, which worked only because the old text file keyed its
       // blocks that way. One key shape at every call site, and surf_resolve_key still recovers a
       // bare-name record for a hand-written external override.
-      const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
       custom_tex::mm_apply_params(mat_key, &maps);
       // Gpbr-per-texture-materials: and the PBR-path half of the same block — relief, roughness,
       // metallicity, reflectance, normal-map handedness. Deliberately NOT gated on the MODERN
