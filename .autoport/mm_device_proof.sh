@@ -96,6 +96,16 @@ d['materials'][k]['relief']=7.777
 json.dump(d,sys.stdout,separators=(',',':'),sort_keys=True)" > /tmp/mm_surfaces.json || die "cannot mark surfaces.json"
   adbs push /tmp/mm_surfaces.json "$EXT/surfaces.json" >/dev/null || die "push surfaces.json failed"
   say "pushed surfaces.json -> $EXT (external override, vil-beach-01 relief=7.777)"
+  # ===== RETRAIT GARANTI DU MARQUEUR (Gpbr-props-reach-draw, 2026-09-02) =========================
+  # Ce fichier BAT la table installee (CustomTextureReplacements.cpp:1031-1038) et ce script ne le
+  # retirait JAMAIS — ni `rm`, ni `trap`. Mesure : le Redmi a tourne du 2026-08-31 03:26 au
+  # 2026-09-02 10:00 avec `vil-beach-01 relief = 7.777`, donc TOUTE course appareil de cette
+  # fenetre a mesure une table trafiquee, y compris la premiere jambe de la phase
+  # Gpbr-props-reach-draw (`PARAMSRC=external-override`).
+  # Regle de l'owner : quand une perte se repete, on la rend impossible AU POINT DE PRODUCTION,
+  # pas detectable au point de controle. Le retrait est donc arme ICI, au moment de la pose, et il
+  # survit a une sortie par erreur ou par Ctrl-C.
+  trap 'adbs shell "rm -f \"$EXT/surfaces.json\"" </dev/null >/dev/null 2>&1 || true' EXIT INT TERM
   # CONTROLES DE DEBUG EPINGLES SUR L'APPAREIL — c'est TOUTE la raison pour laquelle la
   # tentative 1 (2026-08-08) a publie `[cover] disp_pom=0 disp_none=22 coverage_pct=0.0`.
   # Le settings.ini VIVANT portait encore, le 2026-08-31 :
