@@ -200,3 +200,5 @@ custom_assets/jak1/recharged_textures/gamefontnew/
 /.texdump_shadow/
 # Gfont-regression : preuve de liaison de la police, ecrite par le moteur a chaque course (artefact, pas une source)
 /font_atlas.txt
+/asset_route.txt
+/mesh_audit.txt

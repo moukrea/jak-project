@@ -701,7 +701,8 @@
     ],
     "Ghd-skin-origin-stretch": [
       "7e6d5d25c60d",
-      "7e6d5d25c60d"
+      "7e6d5d25c60d",
+      "9823d79aedd7"
     ],
     "Gjak1-crate-collision-2": [
       "30d3ca1ef37e"
@@ -1181,7 +1182,7 @@
     "Gmenu-census-cleanup": 1788337784.4468226,
     "Gfont-regression": 1788341198.8582702
   },
-  "last_update": "2026-09-02T11:51:34.032614+00:00",
+  "last_update": "2026-09-02T11:51:34.438051+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
