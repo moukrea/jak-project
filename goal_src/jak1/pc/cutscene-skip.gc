@@ -85,6 +85,14 @@
 ;; exerces tels quels. Le seul maillon qu'il ne couvre pas est SDL -> `cpad-info`, qui est celui
 ;; de tous les autres boutons du jeu.
 (define *cutscene-skip-inject-circle* #f)
+;; MEME NATURE, POUR L'AUTRE MOITIE DU GESTE : un MASQUE de boutons pose dans le mot des FRONTS
+;; (`button0-rel`), c'est-a-dire « on vient de toucher ces boutons-la » -- la condition qui fait
+;; APPARAITRE l'indice. Un masque et non un booleen parce que le harnais a besoin de deux boutons
+;; differents : HAUT pour simuler la navigation (inerte a « Press Start », deplace seulement le
+;; curseur dans le menu) et START pour faire ouvrir le menu principal PAR LE JEU LUI-MEME
+;; (`target-title-wait :trans`, levels/title/title-obs.gc:834-840) -- l'appeler depuis la REPL
+;; tue gk en SIGSEGV, mesure du 2026-09-02 04:01. 0 = rien d'injecte.
+(define *cutscene-skip-inject-press* 0)
 (define *cutscene-skip-aborts* 0)        ;; nombre de boucles de scene qui ont vu le verrou
 ;; Instant du PREMIER abandon de l'episode courant, releve DANS la boucle de scene (0 = aucun).
 ;; C'est l'une des deux jambes de la mesure de synchronisme remplissage/saut ; l'autre est
@@ -99,6 +107,45 @@
 ;; meme `or`, a la meme image. Si l'instrument etait mort, `*cutscene-skip-aborts*` resterait a 0
 ;; lui aussi -- or il monte des qu'on saute. Les deux jambes sont dans la meme expression, donc un
 ;; zero ici n'est PAS un zero de silence.
+;; --- Gcutscene-skip-polish-2 : LA BOUCLE DU TITRE N'EST PAS UNE CINEMATIQUE ---
+;; Owner 2026-09-01 : « la cartouche apparaît dans le menu principal sans raison, a corriger ».
+;;
+;; LA CAUSE, ET ELLE EST UNE SEULE LIGNE. L'ecran de titre rejoue le spool `logo-loop` EN BOUCLE
+;; (`levels/title/title-obs.gc`, `defstate idle (logo)` : `(loop ... (ja-play-spooled-anim ...))`),
+;; pendant tout le temps ou l'ecran « Press Start » puis le MENU sont affiches. Or c'est
+;; `ja-play-spooled-anim` qui pose la marque des chemins cables. La course precedente le montre
+;; noir sur blanc :
+;;     CUTSKIP scene=logo-loop type=film saut=echec cablable=#t abandons=0 images=1958
+;; 1958 images d'un « episode de cinematique » : c'est le menu, pas une scene. Et comme l'indice
+;; apparait des qu'on touche UN bouton -- ce qu'on fait sans arret dans un menu -- la cartouche
+;; s'affichait par-dessus.
+;;
+;; DEUX SPOOLS SONT EXCLUS, PAS UN, ET LA FRONTIERE EST CELLE DU TITRE AFFICHE. Le process `logo`
+;; joue quatre spools (`levels/title/title-obs.gc`) :
+;;     ndi-intro      :500/:505   logo Naughty Dog          }  DEMARRAGE : ca defile, ca se termine,
+;;     logo-intro     :232        survol d'approche         }  et le titre n'est pas encore la
+;;     ------------- :243 « BOOTLINE etape=titre-affiche », :244 send-event 'wait -------------
+;;     logo-intro-2   :276        survol DE FOND, titre affiche  }  L'ECRAN DE TITRE
+;;     logo-loop      :327        boucle de fond, sans fin       }
+;; La coupure est la ligne :244 : c'est la que le titre est a l'ecran et que « Press Start » se met
+;; a clignoter. Tout ce qui joue APRES est un fond d'ecran de titre, pas une cinematique -- y
+;; compris `logo-intro-2`, qui defile derriere le logo. Aucun etat global ne separe ces deux-la du
+;; menu (l'etat de Jak est `target-title-wait` pour les deux ET pour le menu) : c'est le NOM du
+;; spool qui porte la distinction, parce que c'est la seule chose qui differe.
+;;
+;; ET LES DEUX INTRODUCTIONS DU DEMARRAGE RESTENT SAUTABLES : elles se terminent, donc « Skip » y
+;; promet quelque chose de reel.
+(define *cutscene-skip-loop-mark* #f)   ;; instrument d'ablation, cf. plus bas
+
+(defun cutscene-skip-spool-eligible? ((nm string))
+  "Ce spool-la est-il une CINEMATIQUE, c'est-a-dire quelque chose qu'un saut peut abreger ?
+
+   Rend #f pour les deux fonds de l'ecran de titre. `*cutscene-skip-loop-mark*` retablit le
+   comportement du cycle precedent SANS rebatir : c'est le bras d'ablation de la mesure `CUTHORS`,
+   et il vit sur LE MEME binaire que le bras corrige, sinon la comparaison ne vaudrait rien."
+  (or *cutscene-skip-loop-mark*
+      (not (and nm (or (string= nm "logo-loop") (string= nm "logo-intro-2"))))))
+
 (define *cutscene-native-true* 0)
 (defun cutscene-native-pred? ((v symbol))
   "Compter, puis rendre tel quel, le predicat d'abandon FOURNI PAR L'APPELANT. Ne decide rien."

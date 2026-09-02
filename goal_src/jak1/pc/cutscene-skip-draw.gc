@@ -66,11 +66,24 @@
 ;; --- geometrie, toile 512 x 224 ---
 (defconstant CS_MARGIN_X 16)     ;; du bord DROIT de l'ecran au bord droit de la cartouche
 (defconstant CS_MARGIN_Y 12)     ;; du bord BAS
-(defconstant CS_PAD_X 11)        ;; marge interne gauche/droite autour du texte
+;; MARGE INTERNE : 11 -> 6, demande owner du 2026-09-01 (« être bien plus près du <CIRCLE>
+;; Skip »). Meme valeur sur les DEUX axes : sur le panneau 20:9 de l'appareil une unite de toile
+;; est presque carree a l'ecran (cf. `cs-aspect-out-k`, k = 1,03), donc « 6 et 6 » y est aussi un
+;; ecart uniforme en PIXELS. La hauteur, elle, ne bouge pas : l'owner a juge le centrage vertical
+;; « déjà beaucoup mieux » et on ne touche pas a un acquis.
+(defconstant CS_PAD_X 6)         ;; marge interne gauche/droite autour du texte
 (defconstant CS_PAD_Y 6.0)       ;; marge interne haut/bas -- c'est ELLE qui fixe la hauteur
-(defconstant CS_RADIUS 6.0)      ;; rayon des coins, en unites de toile
-(defconstant CS_ARC_SEG 8)       ;; segments par quart de cercle
-(defconstant CS_FILL_INSET 1.0)  ;; retrait du remplissage par rapport au bord de la cartouche
+;; Rayon des coins du CYCLE PRECEDENT. Plus aucun dessin ne l'emploie : il ne sert QUE de ligne de
+;; base aux deux mesures de controle (`CUTSMOOTH-AVANT`, `CUTSHAPE-AVANT`).
+(defconstant CS_RADIUS_C1 6.0)
+;; SEGMENTS PAR QUART D'ARC : 8 -> 12, ET C'EST UNE CONSEQUENCE DU RAYON, PAS UN GOUT.
+;; L'ecart maximal entre la corde et l'arc, mesure a profondeur constante, croit comme rayon/N^2.
+;; Le rayon passe de 6 a 11,3 unites (14,1 en 16:9) : a 8 segments l'ecart bondirait de 0,33 a
+;; 0,77 pixel de sortie -- toujours sous la marche d'un pixel, mais avec une marge de 23 % la ou
+;; le cycle precedent en avait 67. A 12 segments il retombe a 0,34 px, c'est-a-dire la douceur que
+;; l'owner a jugee « déjà beaucoup mieux », rendue sur une forme deux fois plus grande.
+(defconstant CS_ARC_SEG 12)      ;; segments par quart d'arc
+(defconstant CS_FILL_INSET 1.0)  ;; retrait du remplissage, en unites de toile VERTICALES
 (defconstant CS_TEXT_SCALE 0.8)  ;; echelle de la police (grande police, comme les invites du jeu)
 
 ;; BANDE D'ENCRE DE REFERENCE, en unites de POLICE. Relevee sur l'atlas LIVRE
@@ -86,13 +99,15 @@
 (defconstant CS_INK_TOP 0.01)
 (defconstant CS_INK_BOT 12.46)
 
-;; cos et sin de k*pi/16, k = 0..8. Table STATIQUE : la geometrie de l'arc est ainsi AUDITABLE a la
+;; cos et sin de k*pi/24, k = 0..12. Table STATIQUE : la geometrie de l'arc est ainsi AUDITABLE a la
 ;; lecture, et on n'appelle pas `sin-rad`/`cos-rad` dont le domaine de validite n'est pas documente
 ;; dans ce depot.
 (define *cs-arc-cos*
-  (new 'static 'array float 9 1.0 0.9807853 0.9238795 0.8314696 0.7071068 0.5555702 0.3826834 0.1950903 0.0))
+  (new 'static 'array float 13
+       1.0 0.9914449 0.9659258 0.9238795 0.8660254 0.7933533 0.7071068 0.6087614 0.5 0.3826834 0.258819 0.1305262 0.0))
 (define *cs-arc-sin*
-  (new 'static 'array float 9 0.0 0.1950903 0.3826834 0.5555702 0.7071068 0.8314696 0.9238795 0.9807853 1.0))
+  (new 'static 'array float 13
+       0.0 0.1305262 0.258819 0.3826834 0.5 0.6087614 0.7071068 0.7933533 0.8660254 0.9238795 0.9659258 0.9914449 1.0))
 
 ;; --- etat de l'EPISODE courant (une cinematique = un episode) ---
 ;; Nom de la scene, RECOPIE dans un tampon permanent. Ne JAMAIS garder le pointeur d'origine d'une
@@ -113,6 +128,7 @@
 (define *cutscene-fill-published* #f)
 (define *cutscene-geom-published* #f)        ;; CUTSMOOTH deja publie ? (une fois par lancement)
 (define *cutscene-quads-published* #f)       ;; CUTCENTER-QUADS idem
+(define *cutscene-shape-published* #f)       ;; CUTSHAPE idem
 
 (defun cutscene-skip-in-cutscene? ()
   "Une cinematique joue-t-elle a cette image ?
@@ -128,6 +144,90 @@
    animations d'oisiveté STREAMEES de Jak (target2.gc) -- celles-la ne posent ni le bit `movie`
    ni la marque, parce que `ja-play-spooled-anim` ne marque pas pour le joueur."
   (or (movie?) (not (time-elapsed? *cutscene-skip-mark* CS_MARK_GRACE))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LE CONTEXTE « ECRAN DE TITRE / MENU PRINCIPAL » — L'INSTRUMENT DU DEFAUT D3
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Owner 2026-09-01 : « la cartouche apparaît dans le menu principal sans raison ».
+;;
+;; POURQUOI CE PREDICAT N'EST PAS CELUI QUI GOUVERNE LE DESSIN, ET C'EST TOUT L'INTERET. Le
+;; correctif vit ailleurs -- `cutscene-skip-spool-eligible?` retire la BOUCLE du titre de la liste
+;; des chemins qui posent la marque. Si je fermais AUSSI le dessin avec le predicat ci-dessous, le
+;; compteur `CUTHORS` compterait zero par construction : un miroir. Ici les deux jambes sont
+;; disjointes -- le dessin est gouverne par la marque, le compteur lit l'ETAT DE JAK -- donc un
+;; zero est une observation, et le bras d'ablation (`*cutscene-skip-loop-mark*`) le fait remonter.
+
+(defun cs-title-screen? ()
+  "L'ECRAN DE TITRE EST-IL A L'ECRAN ? (survol de fond, « Press Start », ou menu principal ouvert)
+
+   NATURE : un ETAT. REPERE : la machine a etats de Jak, qui n'a aucun rapport avec la marque des
+   chemins de scene ni avec le bit `movie`. CE QU'IL LIT QUAND LE DEFAUT EST ABSENT : #f pendant
+   toute cinematique de jeu, et #f aussi pendant la sequence de DEMARRAGE (logo Naughty Dog, survol
+   `logo-intro`), qui n'est pas l'ecran de titre.
+
+   CE QUE `target-title-wait` COUVRE EXACTEMENT, releve dans `levels/title/title-obs.gc` :
+     - `target-title`      (:643) : le logo Naughty Dog, `ndi-intro`         -> HORS predicat
+     - `target-title-play` (:784) : le survol d'approche, `logo-intro`       -> HORS predicat
+     - `target-title-wait` (:805) : entre sur l'unique 'wait de :244, envoye JUSTE APRES
+       `BOOTLINE etape=titre-affiche` -- c'est-a-dire une fois le TITRE AFFICHE. Il couvre donc le
+       survol de fond `logo-intro-2`, la boucle `logo-loop`, le clignotement « Press Start »
+       (:834) et le menu ouvert par START (:838).
+   Le predicat colle donc a « le titre est a l'ecran », pas a « une animation joue ».
+
+   POURQUOI PAS `(paused?)`, QUE J'AVAIS D'ABORD RETENU : il vaut #f a « Press Start », et surtout
+   il peut valoir #t PENDANT UNE CINEMATIQUE DE JEU -- `pause-allowed?`
+   (engine/ui/progress/progress.gc:54) ne teste ni `movie?` ni l'othercam, et aucun chemin de
+   cinematique ne pose `allow-pause` a #f. Un appui sur START en pleine scene mettrait donc le
+   compteur en marche sur une image parfaitement legitime."
+  (and *target*
+       (-> *target* next-state)
+       (= (-> *target* next-state name) 'target-title-wait)))
+
+;; images ou `cs-title-screen?` etait vrai : c'est le DENOMINATEUR. Un `images_hors_cinematique=0`
+;; obtenu avec un denominateur nul ne dirait rien du tout -- ce serait le zero de silence.
+(define *cutscene-menu-frames* 0)
+;; images ou la cartouche a ete REELLEMENT DESSINEE alors que ce contexte etait vrai. C'est le
+;; defaut de l'owner, compte.
+(define *cutscene-hors-frames* 0)
+;; parmi elles, celles ou le menu (`*progress-process*`) etait effectivement ouvert -- « le menu
+;; principal » de sa phrase, par opposition a l'ecran « Press Start ».
+(define *cutscene-hors-progress* 0)
+;; images de titre AVEC LE MENU OUVERT. C'est le denominateur PROPRE au cas que l'owner nomme :
+;; un `images_hors_cinematique=0` mesure uniquement a « Press Start » ne dirait rien du menu.
+(define *cutscene-menu-open-frames* 0)
+
+(defun cutscene-skip-hors-reset! ()
+  "Remettre a zero les trois compteurs, entre deux bras de l'ablation."
+  (set! *cutscene-menu-frames* 0)
+  (set! *cutscene-menu-open-frames* 0)
+  (set! *cutscene-hors-frames* 0)
+  (set! *cutscene-hors-progress* 0)
+  (none))
+
+(defun cutscene-skip-hors-probe ((etiq string))
+  "Publier le compte. `etiq` distingue les bras : \"\" pour le code livre, \"-AVANT\" pour
+   l'ablation qui retablit le marquage des fonds du titre.
+
+   DEUX LIGNES, PARCE QU'UN APPEL GOAL NE PREND PAS PLUS DE HUIT ARGUMENTS -- et parce que les
+   bits de contexte meritent d'etre lus separement : un `images_hors_cinematique=0` obtenu avec
+   `images_titre=0` ne dirait rien, c'est le zero de silence."
+  (format 0
+          "CUTHORS~S images_hors_cinematique=~D images_titre=~D images_menu_ouvert=~D images_dessinees=~D ablation=~D~%"
+          etiq
+          *cutscene-hors-frames*
+          *cutscene-menu-frames*
+          *cutscene-menu-open-frames*
+          *cutscene-hint-frames*
+          (if *cutscene-skip-loop-mark* 1 0))
+  (format 0
+          "CUTHORS-CONTEXTE~S progress=~D etat_jak=~A encinematique=~A cablable=~A dont_menu_ouvert=~D~%"
+          etiq
+          (if *progress-process* 1 0)
+          (if (and *target* (-> *target* next-state)) (-> *target* next-state name) 'pas-de-target)
+          *cutscene-in-cutscene*
+          *cutscene-episode-skippable*
+          *cutscene-hors-progress*)
+  (none))
 
 (defun cutscene-skip-scene-name! ()
   "Relever le nom de la scene en cours DANS `*cutscene-scene-name*`, et classer l'episode.
@@ -174,28 +274,88 @@
         (let ((rr (the float r)))
           (the int (+ 0.5 (- rr (sqrtf (- (* rr rr) (* dy dy)))))))))))
 
-(defun cs-outline-x ((i int) (bx float) (bw float) (r float))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; L'ANISOTROPIE DE LA TOILE — POURQUOI UN « CERCLE » EN UNITES DE TOILE N'EN EST PAS UN
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Owner 2026-09-01 : « l'arrondi des coins inférieur doit rejoindre l'arrondi des coins
+;; supérieurs histoire de faire des demi cercles de chaque côté de la cartouche ».
+;;
+;; DEUX EXIGENCES, PAS UNE, et elles se traitent sur deux axes differents :
+;;   (a) les deux arcs se REJOIGNENT  <=>  le rayon VERTICAL vaut la moitie de la hauteur. C'est
+;;       la forme de stade, et elle ne depend d'aucune resolution ;
+;;   (b) le bout est un DEMI-CERCLE a l'ecran  <=>  le rayon HORIZONTAL couvre, en pixels de
+;;       sortie, la meme distance que le rayon vertical. Or la toile n'est PAS isotrope :
+;;       `cs-gx` etale 512 unites sur toute la largeur et `cs-gy` 224 unites (x `relative-y-scale`)
+;;       sur toute la hauteur. Une unite de toile vaut donc ow/512 pixels en x et rys.oh/224 en y.
+;;       Poser rx = ry en unites de TOILE rendrait un bout OVALE partout ou ces deux nombres
+;;       different -- de 3 % sur le panneau 20:9 de l'appareil, mais de 29 % sur un 16:9 et de
+;;       71 % en 4:3. On corrige donc rx, et la mesure `CUTSHAPE` lit le resultat en PIXELS.
+
+(defun cs-aspect-out-k ((ow float) (oh float))
+  "Combien d'unites de toile EN X couvrent, a l'ecran, la meme distance qu'UNE unite en Y.
+
+   Borne a [0,5 ; 2,5] : si la sortie n'est pas encore connue au demarrage, mieux vaut une capsule
+   legerement ovale qu'une capsule absurde. La valeur employee est publiee a cote de la forme."
+  (let ((px (/ ow 512.0))
+        (py (* (-> *video-parms* relative-y-scale) (/ oh 224.0))))
+    (if (or (< px 0.0001) (< py 0.0001)) 1.0 (fmax 0.5 (fmin 2.5 (/ py px))))))
+
+(defun cs-out-w ()
+  "Largeur de la REGION REELLEMENT DESSINEE, en pixels.
+
+   LES DEUX DIMENSIONS VIENNENT DE LA MEME PAIRE, ET C'EST LE POINT. `update-to-os`
+   (pc/pckernel-common.gc:425-426) transmet au moteur SOIT le couple du CISEAU, SOIT celui de la
+   FENETRE -- jamais un panache des deux. Prendre la largeur de fenetre avec la hauteur de ciseau
+   donnerait un aspect qui n'existe sur aucun ecran : inerte tant que l'aspect automatique est
+   arme (le ciseau vaut alors la fenetre, mesure Redmi 2400x1080 et bureau 320x240), mais faux
+   d'un facteur 1,67 des que l'owner force le 4:3 sur son telephone -- et c'est justement le cas
+   ou la capsule aurait des bouts franchement ovales."
+  (the float (if (-> *pc-settings* letterbox?)
+               (-> *pc-settings* framebuffer-scissor-width)
+               (-> *pc-settings* framebuffer-width))))
+
+(defun cs-out-h ()
+  "Hauteur de la region reellement dessinee, prise dans la MEME paire que `cs-out-w`."
+  (the float (if (-> *pc-settings* letterbox?)
+               (-> *pc-settings* framebuffer-scissor-height)
+               (-> *pc-settings* framebuffer-height))))
+
+(defun cs-aspect-k ()
+  "Le meme facteur pour la sortie COURANTE."
+  (let ((ow (cs-out-w))
+        (oh (cs-out-h)))
+    (if (or (< ow 1.0) (< oh 1.0)) 1.0 (cs-aspect-out-k ow oh))))
+
+(defun cs-box-rx ((fbw float) (ry float) (k float))
+  "Rayon HORIZONTAL, en unites de toile. Borne a la demi-largeur : une capsule dont les deux bouts
+   se chevaucheraient n'est plus une capsule. Le cas ne se presente pas sur les 23 langues livrees
+   (la plus courte, « Skip », donne 76 unites contre 2rx = 38 au pire), mais un dessin ne doit pas
+   dependre d'une table de textes pour rester valide."
+  (fmin (* 0.5 fbw) (* k ry)))
+
+(defun cs-outline-x ((i int) (bx float) (bw float) (rx float))
   "Abscisse du i-eme sommet du contour, i = 0 .. 2*CS_ARC_SEG+1, de la gauche vers la droite.
-   Les points tombent EXACTEMENT sur le cercle : x = bx + r(1 - cos(k.pi/16))."
+   Les points tombent EXACTEMENT sur l'ellipse : x = bx + rx(1 - cos(k.pi/16))."
   (let ((k (if (<= i CS_ARC_SEG) i (- (+ (* 2 CS_ARC_SEG) 1) i))))
     (if (<= i CS_ARC_SEG)
-      (+ bx (* r (- 1.0 (-> *cs-arc-cos* k))))
-      (- (+ bx bw) (* r (- 1.0 (-> *cs-arc-cos* k)))))))
+      (+ bx (* rx (- 1.0 (-> *cs-arc-cos* k))))
+      (- (+ bx bw) (* rx (- 1.0 (-> *cs-arc-cos* k)))))))
 
-(defun cs-outline-ins ((i int) (r float))
-  "Retrait vertical du i-eme sommet : ins = r(1 - sin(k.pi/16)). Vaut r aux deux bouts (le bord
-   gauche/droit est un segment vertical) et 0 sur toute la partie droite du haut."
+(defun cs-outline-ins ((i int) (ry float))
+  "Retrait vertical du i-eme sommet : ins = ry(1 - sin(k.pi/16)). Vaut ry au bout -- et comme
+   ry = hauteur/2, la paire de sommets y est CONFONDUE : c'est la pointe de la capsule, l'endroit
+   ou l'arc du bas rejoint celui du haut."
   (let ((k (if (<= i CS_ARC_SEG) i (- (+ (* 2 CS_ARC_SEG) 1) i))))
-    (* r (- 1.0 (-> *cs-arc-sin* k)))))
+    (* ry (- 1.0 (-> *cs-arc-sin* k)))))
 
-(defun cs-inset-at ((x float) (bx float) (bw float) (r float))
+(defun cs-inset-at ((x float) (bx float) (bw float) (rx float) (ry float))
   "Retrait vertical EXACT a une abscisse quelconque. Sert au sommet de coupe du remplissage, pour
    qu'il epouse l'arrondi au lieu de le deborder."
   (cond
-    ((< x (+ bx r))
-     (let ((d (- (+ bx r) x))) (- r (sqrtf (fmax 0.0 (- (* r r) (* d d)))))))
-    ((> x (- (+ bx bw) r))
-     (let ((d (- x (- (+ bx bw) r)))) (- r (sqrtf (fmax 0.0 (- (* r r) (* d d)))))))
+    ((< x (+ bx rx))
+     (let ((d (/ (- (+ bx rx) x) rx))) (* ry (- 1.0 (sqrtf (fmax 0.0 (- 1.0 (* d d))))))))
+    ((> x (- (+ bx bw) rx))
+     (let ((d (/ (- x (- (+ bx bw) rx)) rx))) (* ry (- 1.0 (sqrtf (fmax 0.0 (- 1.0 (* d d))))))))
     (else 0.0)))
 
 (defun cs-gx ((cx float))
@@ -210,6 +370,19 @@
     (the int (+ 0.5 (* 16.0 (fmax (the float (-> *video-parms* screen-miny))
                                   (fmin (the float (-> *video-parms* screen-maxy)) v)))))))
 
+;; --- sommets REELLEMENT emis par la derniere capsule, en 1/16 d'unite GS (cf. `cs-span`) ---
+(define *cs-v-n* 0)
+(define *cs-v-x0* 0)
+(define *cs-v-y0* 0)
+(define *cs-v-y1* 0)
+(define *cs-v-hmax* 0)
+(define *cs-v-xfull* 0)
+
+(defun cs-vertex-reset! ()
+  "A appeler juste avant la capsule dont on veut lire la forme."
+  (set! *cs-v-n* 0)
+  (none))
+
 (defun cs-span ((buf dma-buffer) (x float) (by float) (bh float) (ins float) (color rgba))
   "Les DEUX sommets d'une meme abscisse. La bande de triangles est un zigzag entre ces paires, donc
    chaque paire ajoute deux triangles.
@@ -222,21 +395,54 @@
    force pas. Une orientation opposee a celle du seul `tri-strip` dont on SAIT qu'il s'affiche
    (`screen-gradient`, qui peint le fondu au noir) ferait disparaitre la cartouche entiere sans
    qu'aucune trace ne bronche. On copie donc son orientation."
-  (dma-buffer-add-uint64 buf color (new 'static 'gs-xyzf :x (cs-gx x) :y (cs-gy (- (+ by bh) ins)) :z #x3fffff))
-  (dma-buffer-add-uint64 buf color (new 'static 'gs-xyzf :x (cs-gx x) :y (cs-gy (+ by ins)) :z #x3fffff))
+  (let ((gx (cs-gx x))
+        (gyb (cs-gy (- (+ by bh) ins)))
+        (gyt (cs-gy (+ by ins))))
+    ;; LES SOMMETS SONT RELEVES ICI, APRES `cs-gx`/`cs-gy` : ce sont les coordonnees exactes que le
+    ;; paquet DMA emporte, quantifiees en 12.4 et bornees a l'ecran comme le GS les verra. La forme
+    ;; publiee est donc celle qui est DESSINEE, pas celle qu'on a voulu dessiner -- si le rayon
+    ;; etait mal calcule, si la borne de demi-largeur avait mordu ou si la quantification comptait,
+    ;; ces chiffres-la le diraient.
+    (when (zero? *cs-v-n*)
+      (set! *cs-v-x0* gx)
+      (set! *cs-v-y0* gyt)
+      (set! *cs-v-y1* gyb)
+      (set! *cs-v-hmax* -1)
+      (set! *cs-v-xfull* gx))
+    (+! *cs-v-n* 1)
+    (set! *cs-v-x0* (min *cs-v-x0* gx))
+    (set! *cs-v-y0* (min *cs-v-y0* gyt))
+    (set! *cs-v-y1* (max *cs-v-y1* gyb))
+    ;; Premiere abscisse ou la tranche atteint sa hauteur MAXIMALE : c'est la fin du bout arrondi,
+    ;; donc le rayon horizontal tel qu'il est reellement emis. Les tranches du bout gauche ont une
+    ;; hauteur strictement croissante, celles qui suivent sont egales -- la premiere gagne.
+    (when (> (- gyb gyt) *cs-v-hmax*)
+      (set! *cs-v-hmax* (- gyb gyt))
+      (set! *cs-v-xfull* gx))
+    (dma-buffer-add-uint64 buf color (new 'static 'gs-xyzf :x gx :y gyb :z #x3fffff))
+    (dma-buffer-add-uint64 buf color (new 'static 'gs-xyzf :x gx :y gyt :z #x3fffff)))
   (none))
 
-(defun cs-capsule ((buf dma-buffer) (bx float) (by float) (bw float) (bh float) (r float) (xmax float) (color rgba))
-  "Cartouche a coins arrondis, en UNE bande de triangles. `xmax` borne le dessin a droite : la
-   cartouche entiere se demande avec `xmax = bx + bw`, le REMPLISSAGE avec une borne plus petite --
-   et il epouse alors le meme arrondi, parce que le sommet de coupe est calcule sur le cercle."
-  (let ((ns (+ (* 2 CS_ARC_SEG) 2))
+(defun cs-capsule ((buf dma-buffer) (bx float) (by float) (bw float) (ry float) (rx float) (xmax float) (color rgba))
+  "CAPSULE (forme de stade), en UNE bande de triangles.
+
+   LA HAUTEUR N'EST PLUS UN ARGUMENT, ET CE N'EST PAS UNE ECONOMIE DE REGISTRE : dans une capsule
+   elle VAUT 2.ry par definition. La passer separement autoriserait un appel ou les deux ne
+   concordent pas, c'est-a-dire un rectangle a coins arrondis -- exactement la forme dont l'owner
+   ne veut plus. Le type de la fonction interdit desormais de la dessiner.
+   `rx` est le meme rayon exprime en unites de toile HORIZONTALES, corrige de l'anisotropie de la
+   toile, pour que le bout soit un demi-cercle A L'ECRAN.
+   `xmax` borne le dessin a droite : la capsule entiere se demande avec `xmax = bx + bw`, le
+   REMPLISSAGE avec une borne plus petite -- et il epouse alors le meme arrondi, parce que le
+   sommet de coupe est calcule sur l'ellipse."
+  (let ((bh (* 2.0 ry))
+        (ns (+ (* 2 CS_ARC_SEG) 2))
         (n 0)
         (clip 0))
     (dotimes (i ns)
-      (if (<= (cs-outline-x i bx bw r) xmax) (set! n (+ n 1))))
+      (if (<= (cs-outline-x i bx bw rx) xmax) (set! n (+ n 1))))
     ;; un sommet de coupe si la borne tombe STRICTEMENT entre deux echantillons
-    (if (and (> n 0) (< n ns) (> xmax (cs-outline-x (- n 1) bx bw r))) (set! clip 1))
+    (if (and (> n 0) (< n ns) (> xmax (cs-outline-x (- n 1) bx bw rx))) (set! clip 1))
     (let ((nv (* 2 (+ n clip))))
       (when (>= nv 6)
         (with-cnt-vif-block (buf)
@@ -253,9 +459,9 @@
                                   (new 'static 'gif-tag64 :nloop nv :eop 1 :flg (gif-flag reg-list) :nreg 2)
                                   (gs-reg-list rgbaq xyzf2))
           (dotimes (i n)
-            (cs-span buf (cs-outline-x i bx bw r) by bh (cs-outline-ins i r) color))
+            (cs-span buf (cs-outline-x i bx bw rx) by bh (cs-outline-ins i ry) color))
           (if (nonzero? clip)
-            (cs-span buf xmax by bh (cs-inset-at xmax bx bw r) color))))))
+            (cs-span buf xmax by bh (cs-inset-at xmax bx bw rx ry) color))))))
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -276,35 +482,35 @@
 (define *cs-m-ecart-moy* 0.0)
 (define *cs-m-rows* 0)
 
-(defun cs-drawn-x ((u float) (bx float) (bw float) (r float))
+(defun cs-drawn-x ((u float) (bx float) (bw float) (rx float) (ry float))
   "Abscisse du bord GAUCHE tel que la BANDE DE TRIANGLES le dessine a la profondeur `u` sous le
    haut de la cartouche : interpolation lineaire entre deux sommets consecutifs -- c'est
    exactement ce que le GPU rasterise entre eux."
-  (let ((res (+ bx r)))
+  (let ((res (+ bx rx)))
     (dotimes (i CS_ARC_SEG)
-      (let ((a (cs-outline-ins i r))
-            (b (cs-outline-ins (+ i 1) r)))
+      (let ((a (cs-outline-ins i ry))
+            (b (cs-outline-ins (+ i 1) ry)))
         (when (and (<= u a) (>= u b))
           (let* ((den (- a b))
                  (tt (if (> den 0.0001) (/ (- a u) den) 0.0)))
-            (set! res (+ (cs-outline-x i bx bw r)
-                         (* tt (- (cs-outline-x (+ i 1) bx bw r) (cs-outline-x i bx bw r)))))))))
+            (set! res (+ (cs-outline-x i bx bw rx)
+                         (* tt (- (cs-outline-x (+ i 1) bx bw rx) (cs-outline-x i bx bw rx)))))))))
     res))
 
-(defun cs-measure-corner! ((mode int) (bx float) (bw float) (bh float) (r float) (pxux float) (pxuy float))
+(defun cs-measure-corner! ((mode int) (bx float) (bw float) (bh float) (rx float) (ry float) (pxux float) (pxuy float))
   "mode 0 = la bande de triangles LIVREE ; mode 1 = l'empilement de rangees du cycle 1."
-  (let ((rows (max 8 (min 128 (the int (* r pxuy)))))
+  (let ((rows (max 8 (min 128 (the int (* ry pxuy)))))
         (marches 0)
         (emax 0.0)
         (esum 0.0)
         (dedans #f))
     (dotimes (j rows)
-      (let* ((u (* r (/ (+ 0.5 (the float j)) (the float rows))))
-             (dy (- r u))
-             (xi (- (+ bx r) (sqrtf (fmax 0.0 (- (* r r) (* dy dy))))))
+      (let* ((u (* ry (/ (+ 0.5 (the float j)) (the float rows))))
+             (dy (/ (- ry u) ry))
+             (xi (- (+ bx rx) (* rx (sqrtf (fmax 0.0 (- 1.0 (* dy dy)))))))
              (xd (if (zero? mode)
-                   (cs-drawn-x u bx bw r)
-                   (+ bx (the float (cs-corner-inset (the int u) (the int bh) (the int r))))))
+                   (cs-drawn-x u bx bw rx ry)
+                   (+ bx (the float (cs-corner-inset (the int u) (the int bh) (the int rx))))))
              (e (* (fabs (- xd xi)) pxux))
              (out (> e 1.0)))
         (set! emax (fmax emax e))
@@ -318,16 +524,29 @@
   (none))
 
 (defun cs-smooth-line! ((etiq string) (bw float) (bh float) (ow float) (oh float))
-  "Publier la douceur des coins pour une sortie de `ow` x `oh` pixels : la LIVREE, puis la meme
-   mesure sur la geometrie du cycle 1. Les ecarts sont en MILLIEMES DE PIXEL DE SORTIE (entiers :
-   une ligne cle=valeur doit rester relisible par un analyseur)."
-  (let ((pxux (/ ow 512.0))
-        (pxuy (/ oh 224.0)))
-    (cs-measure-corner! 0 0.0 bw bh CS_RADIUS pxux pxuy)
+  "Publier la douceur du bout arrondi pour une sortie de `ow` x `oh` pixels : la LIVREE, puis la
+   meme mesure sur la geometrie du cycle 1. Les ecarts sont en MILLIEMES DE PIXEL DE SORTIE
+   (entiers : une ligne cle=valeur doit rester relisible par un analyseur).
+
+   LE RAYON EST RECALCULE POUR CHAQUE RESOLUTION, parce que c'est ce que le code fait : `rx` suit
+   l'anisotropie de la sortie. Mesurer la forme d'une resolution avec le rayon d'une autre ne
+   decrirait aucun dessin existant."
+  (let* ((pxux (/ ow 512.0))
+         (pxuy (* (-> *video-parms* relative-y-scale) (/ oh 224.0)))
+         (ry (* 0.5 bh))
+         (kk (cs-aspect-out-k ow oh))
+         (rx (cs-box-rx bw ry kk)))
+    (cs-measure-corner! 0 0.0 bw bh rx ry pxux pxuy)
     (format 0
             "CUTSMOOTH~S marches_par_coin=~D ecart_max_millipx=~D ecart_moy_millipx=~D rangees=~D~%"
             etiq *cs-m-marches* (the int (* 1000.0 *cs-m-ecart-max*)) (the int (* 1000.0 *cs-m-ecart-moy*)) *cs-m-rows*)
-    (cs-measure-corner! 1 0.0 bw bh CS_RADIUS pxux pxuy)
+    ;; Les rayons employes, sur leur propre ligne : ils changent avec la sortie, et une mesure de
+    ;; douceur qui ne dirait pas SUR QUELLE FORME elle a ete prise ne serait pas relisible.
+    (format 0
+            "CUTSMOOTH-RAYONS~S rx_millu=~D ry_millu=~D k_millu=~D out_w=~D out_h=~D~%"
+            etiq (the int (* 1000.0 rx)) (the int (* 1000.0 ry)) (the int (* 1000.0 kk))
+            (the int ow) (the int oh))
+    (cs-measure-corner! 1 0.0 bw bh CS_RADIUS_C1 CS_RADIUS_C1 pxux pxuy)
     (format 0
             "CUTSMOOTH-AVANT~S marches_par_coin=~D ecart_max_millipx=~D ecart_moy_millipx=~D rangees=~D~%"
             etiq *cs-m-marches* (the int (* 1000.0 *cs-m-ecart-max*)) (the int (* 1000.0 *cs-m-ecart-moy*)) *cs-m-rows*))
@@ -343,27 +562,76 @@
    qu'on voie la dependance."
   (cs-smooth-line! "" bw bh 1920.0 1080.0)
   (cs-smooth-line! "-TEL" bw bh 2400.0 1080.0)
-  (let* ((fbw (the float (-> *pc-settings* framebuffer-width)))
-         (fbh (the float (if (-> *pc-settings* letterbox?)
-                           (-> *pc-settings* framebuffer-scissor-height)
-                           (-> *pc-settings* framebuffer-height)))))
+  (let ((fbw (cs-out-w))
+        (fbh (cs-out-h)))
     (if (and (> fbw 0.0) (> fbh 0.0)) (cs-smooth-line! "-FENETRE" bw bh fbw fbh))
     (format 0
-            "CUTSMOOTH-SORTIE fb_w=~D fb_h=~D scissor_h=~D letterbox=~A~%"
+            "CUTSMOOTH-SORTIE fb_w=~D fb_h=~D scissor_w=~D scissor_h=~D letterbox=~A~%"
             (-> *pc-settings* framebuffer-width)
             (-> *pc-settings* framebuffer-height)
+            (-> *pc-settings* framebuffer-scissor-width)
             (-> *pc-settings* framebuffer-scissor-height)
             (-> *pc-settings* letterbox?))
     (format 0
             "CUTSMOOTH-REPERE segments=~D rayon_u=~f rel_x=~f rel_y=~f miny=~D maxy=~D~%"
             CS_ARC_SEG
-            CS_RADIUS
+            (* 0.5 bh)
             (-> *video-parms* relative-x-scale)
             (-> *video-parms* relative-y-scale)
             (-> *video-parms* screen-miny)
             (-> *video-parms* screen-maxy)))
   (none))
 
+
+(defun cutscene-skip-shape-line! ((bw float) (bh float))
+  "LA FORME, LUE SUR LES SOMMETS QUE LA CAPSULE VIENT D'EMETTRE, EN PIXELS DE SORTIE.
+
+   NATURE DU DEFAUT : une FORME (« des demi cercles de chaque côté »), pas une amplitude.
+   REPERE : le PIXEL DE SORTIE, jamais l'unite de toile -- c'est tout l'interet, une unite de
+   toile n'a pas la meme taille dans les deux directions.
+   CE QU'ELLE LIT QUAND LE DEFAUT EST PRESENT : les deux lignes de controle ci-dessous, calculees
+   avec la MEME arithmetique de conversion sur deux geometries fausses.
+
+   POURQUOI CE N'EST PAS UN MIROIR. `rayon_px` est l'ecart entre la premiere abscisse emise et la
+   premiere ou la tranche atteint sa hauteur maximale ; `hauteur_px` est l'etendue verticale des
+   sommets emis. Les deux sortent du TAMPON, apres `cs-gx`/`cs-gy`, donc apres la quantification en
+   12.4 et apres le bornage a l'ecran. Aucune des deux ne relit `rx` ni `ry`. Si la borne de
+   demi-largeur avait mordu, si la sortie etait inconnue, si un sommet sortait de l'ecran, l'egalite
+   se casserait -- et les deux controles montrent de combien elle se casse quand la forme est
+   fausse."
+  (let* ((rawx (cs-out-w))
+         (rawy (cs-out-h))
+         (ow (if (< rawx 1.0) 512.0 rawx))
+         (oh (if (< rawy 1.0) 224.0 rawy))
+         (rys (-> *video-parms* relative-y-scale))
+         (pxx (/ ow 512.0))
+         (pxy (/ oh 224.0))
+         (kk (cs-aspect-k))
+         (ry (* 0.5 bh))
+         (rx (cs-box-rx bw ry kk))
+         (rpx (* pxx (/ (the float (- *cs-v-xfull* *cs-v-x0*)) 16.0)))
+         (hpx (* pxy (/ (the float (- *cs-v-y1* *cs-v-y0*)) 16.0)))
+         (h0px (* pxy rys bh)))
+    (format 0
+            "CUTSHAPE rayon_px=~f hauteur_px=~f demi_hauteur_px=~f ecart_px=~f sommets=~D source=sommets-emis~%"
+            rpx hpx (* 0.5 hpx) (fabs (- rpx (* 0.5 hpx))) *cs-v-n*)
+    (format 0
+            "CUTSHAPE-REPERE k_millu=~D rx_millu=~D ry_millu=~D out_w=~D out_h=~D~%"
+            (the int (* 1000.0 kk)) (the int (* 1000.0 rx)) (the int (* 1000.0 ry))
+            (the int ow) (the int oh))
+    ;; CONTROLE 1 -- la cartouche du CYCLE PRECEDENT : un rectangle de meme hauteur a coins de
+    ;; rayon 6. C'est litteralement ce que l'owner regardait quand il a ecrit « coins pas assez
+    ;; arrondis ».
+    (format 0
+            "CUTSHAPE-AVANT rayon_px=~f hauteur_px=~f demi_hauteur_px=~f ecart_px=~f source=cycle-precedent-rayon-6~%"
+            (* pxx CS_RADIUS_C1) h0px (* 0.5 h0px) (fabs (- (* pxx CS_RADIUS_C1) (* 0.5 h0px))))
+    ;; CONTROLE 2 -- la capsule SANS la correction d'anisotropie (rx = ry en unites de toile).
+    ;; Les deux arcs se rejoindraient bien, mais le bout serait un demi-OVALE. Cette ligne dit de
+    ;; combien, sur la sortie courante.
+    (format 0
+            "CUTSHAPE-SANS-CORRECTION rayon_px=~f hauteur_px=~f demi_hauteur_px=~f ecart_px=~f source=rx-egal-ry-en-unites-de-toile~%"
+            (* pxx ry) h0px (* 0.5 h0px) (fabs (- (* pxx ry) (* 0.5 h0px)))))
+  (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; LA MISE EN PAGE — la cartouche est DERIVEE de son contenu, dans les deux directions
@@ -472,6 +740,12 @@
   ;; Instrument de harnais, eteint par defaut : il pose le BIT dans le pad, en amont de la lecture
   ;; livree, au lieu de court-circuiter le geste. Cf. `*cutscene-skip-inject-circle*`.
   (if *cutscene-skip-inject-circle* (logior! (cpad-hold 0) (pad-buttons circle)))
+  ;; Second instrument de harnais, eteint par defaut : il pose un MASQUE DE FRONTS dans le mot
+  ;; `button0-rel` du pad, en amont du `(cpad-pressed 0)` que le code livre execute deux lignes
+  ;; plus bas. C'est litteralement « l'owner touche un bouton », et c'est ce qui fait apparaitre
+  ;; l'indice. Le harnais y pose HAUT (inerte a « Press Start », simple deplacement de curseur
+  ;; dans le menu) ou START (c'est alors le jeu qui ouvre son menu, title-obs.gc:834-840).
+  (if (nonzero? *cutscene-skip-inject-press*) (logior! (cpad-pressed 0) *cutscene-skip-inject-press*))
   (let ((in-cs (cutscene-skip-in-cutscene?)))
     (cond
       ((and in-cs (not *cutscene-in-cutscene*))
@@ -600,12 +874,25 @@
                (fby (the float by))
                (fbw (the float bw))
                (fbh (the float bh))
+               (kk (cs-aspect-k))
+               (ry (* 0.5 fbh))
+               (rx (cs-box-rx fbw ry kk))
+               ;; Retrait du remplissage : UNE unite de toile verticale, et la MEME distance a
+               ;; l'ecran horizontalement -- sinon l'anneau qui reste visible serait plus fin d'un
+               ;; cote que de l'autre, exactement le defaut qu'on vient de corriger sur le bout.
                (ins CS_FILL_INSET)
-               (fill-w (* (- fbw (* 2.0 ins)) *cutscene-skip-progress*)))
+               (insx (* kk ins))
+               (fill-w (* (- fbw (* 2.0 insx)) *cutscene-skip-progress*)))
           (+! *cutscene-hint-frames* 1)
+          ;; Le defaut D3, compte LA OU IL SE PRODUIT : une image de cartouche pendant que Jak est
+          ;; a l'ecran de titre. Aucun `when` du bloc ci-dessus ne lit `cs-menu-context?` : ce
+          ;; compteur observe, il ne gouverne pas.
+          (when (cs-title-screen?)
+            (+! *cutscene-hors-frames* 1)
+            (if *progress-process* (+! *cutscene-hors-progress* 1)))
           ;; L'INSTANT OU LA CARTOUCHE EST PLEINE, relevee ICI et pas dans la machine a etat :
           ;; c'est le remplissage DESSINE qui doit coincider avec le saut, pas une variable.
-          (when (and (zero? *cutscene-skip-fill-t*) (>= fill-w (- fbw (* 2.0 ins))))
+          (when (and (zero? *cutscene-skip-fill-t*) (>= fill-w (- fbw (* 2.0 insx))))
             (set! *cutscene-skip-fill-t* (current-time)))
           (when (not *cutscene-geom-published*)
             (set! *cutscene-geom-published* #t)
@@ -649,18 +936,26 @@
                                    (alpha-1 (new 'static 'gs-alpha :b 1 :d 1))
                                    (zbuf-1 (new 'static 'gs-zbuf :zbp #x1c0 :psm (gs-psm ct24) :zmsk 1))
                                    (test-1 (new 'static 'gs-test :zte 1 :ztst (gs-ztest always))))
-            ;; 1. la cartouche
-            (cs-capsule buf fbx fby fbw fbh CS_RADIUS (+ fbx fbw) (new 'static 'rgba :a #x58))
-            ;; 2. le remplissage, RETRAIT D'UNE UNITE : il vit a l'interieur de la capsule au lieu
-            ;;    de partager sa silhouette, donc son bord ne peut pas creneler le contour.
+            ;; 1. la capsule
+            (cs-vertex-reset!)
+            (cs-capsule buf fbx fby fbw ry rx (+ fbx fbw) (new 'static 'rgba :a #x58))
+            ;; La forme se lit sur les sommets de CETTE capsule-la, avant que le remplissage
+            ;; n'en emette d'autres.
+            (when (not *cutscene-shape-published*)
+              (set! *cutscene-shape-published* #t)
+              (cutscene-skip-shape-line! fbw fbh))
+            ;; 2. le remplissage, EN RETRAIT : il vit a l'interieur de la capsule au lieu de
+            ;;    partager sa silhouette, donc son bord ne peut pas creneler le contour. Son
+            ;;    rayon vertical est (ry - ins) = la moitie de SA hauteur : c'est encore une
+            ;;    capsule, par construction et sans second reglage.
             (if (> fill-w 0.0)
               (cs-capsule buf
-                          (+ fbx ins)
+                          (+ fbx insx)
                           (+ fby ins)
-                          (- fbw (* 2.0 ins))
-                          (- fbh (* 2.0 ins))
-                          (- CS_RADIUS ins)
-                          (+ fbx ins fill-w)
+                          (- fbw (* 2.0 insx))
+                          (- ry ins)
+                          (- rx insx)
+                          (+ fbx insx fill-w)
                           (new 'static 'rgba :r #x80 :g #x80 :b #x80 :a #x40)))
             ;; 3. l'icone du bouton et le mot, tous deux dans la meme chaine localisee.
             ;;    `middle` centre sur l'ORIGINE X (font.gc:1026-1037, facteur 0,5 de
@@ -684,6 +979,10 @@
   ;; Compter les images de cinematique passees SANS indice : c'est le denominateur du controle
   ;; negatif ci-dessus, et il doit se compter meme quand on ne dessine pas.
   (if (and *cutscene-in-cutscene* (not *cutscene-hint-published*)) (+! *cutscene-frames-no-hint* 1))
+  ;; Le denominateur de `CUTHORS`, compte a CHAQUE image et hors de tout garde de dessin.
+  (when (cs-title-screen?)
+    (+! *cutscene-menu-frames* 1)
+    (if *progress-process* (+! *cutscene-menu-open-frames* 1)))
   (none))
 
 (defun cutscene-skip-frame! ()

@@ -1160,7 +1160,10 @@
             ;; comportement qu'il avait. `cutscene-skip-abort!` rend #t et compte l'abandon, donc
             ;; le compteur ne monte que quand on saute vraiment.
             (if (or (cutscene-native-pred? (arg3 self))
-                    (and (!= self *target*) (cutscene-skip-fired?) (cutscene-skip-abort! 'spool-stall-lock)))
+                    (and (!= self *target*)
+                         (cutscene-skip-spool-eligible? (-> arg0 name))
+                         (cutscene-skip-fired?)
+                         (cutscene-skip-abort! 'spool-stall-lock)))
               (goto cfg-88))
             (spool-push *art-control* (-> arg0 name) spool-part self -9.0)
             ;; Gloading-screen-window — LE RACCORD. Cette attente-ci et celle de l'art juste en
@@ -1187,7 +1190,10 @@
             (while (!= (file-status *art-control* (-> arg0 name) spool-part) 'active)
               ;; Gcutscene-skip-all : idem, cf. le commentaire de l'attente sur verrou ci-dessus.
               (if (or (cutscene-native-pred? (arg3 self))
-                      (and (!= self *target*) (cutscene-skip-fired?) (cutscene-skip-abort! 'spool-stall-art)))
+                      (and (!= self *target*)
+                           (cutscene-skip-spool-eligible? (-> arg0 name))
+                           (cutscene-skip-fired?)
+                           (cutscene-skip-abort! 'spool-stall-art)))
                 (goto cfg-88))
               (spool-push *art-control* (-> arg0 name) spool-part self -20.0)
               (format #t "WARNING: ---------------------> loader stall on art ~S ~D~%" (-> arg0 name) spool-part)
@@ -1236,7 +1242,11 @@
                      ;; STREAMEE d'oisiveté pendant que le joueur a le controle total ; sans ce
                      ;; test, l'indice « Skip » apparaitrait pendant que Jak fait le poirier.
                      ;; C'est aussi le seul des 24 appels dont le predicat d'origine lit le stick.
-                     (when (!= self *target*)
+                     ;; Gcutscene-skip-polish-2 : la boucle de fond de l'ecran de titre
+                     ;; (`logo-loop`) traverse ce meme appel et posait donc la marque pendant
+                     ;; TOUT le menu principal -- 1958 images d'un faux « episode ». Elle est
+                     ;; exclue par son nom, les introductions du titre restant sautables.
+                     (when (and (!= self *target*) (cutscene-skip-spool-eligible? (-> arg0 name)))
                        (cutscene-skip-mark!)
                        (if (and (cutscene-skip-fired?) (cutscene-skip-abort! 'spool)) (goto cfg-88)))
                      (if (or (cutscene-native-pred? (arg3 self))
