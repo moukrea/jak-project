@@ -26,6 +26,8 @@ if not re.search(r'^HDCAUSE .*nommee=\S+',t,re.M): F("HDCAUSE absent : la cause 
 ok_stale = any(int(d.get('images_avec_matrice_perimee',-1))==0 and float(d.get('minutes',0))>=5 for d in stale)
 hdok=[kv(l) for l in re.findall(r'^HDOK .*$',t,re.M)]
 ok_ep = any(int(d.get('episodes',-1))==0 and float(d.get('minutes_de_jeu',0))>=5 for d in hdok)
+if not re.search(r'^HD(OK|STALE) .*plateforme=redmi',t,re.M):
+    F("la preuve APRES correction doit etre prise sur l'APPAREIL avec les modeles HD installes — l'owner voit encore le defaut, une preuve x86 ne vaut rien ici")
 if not (ok_stale or ok_ep):
     F("aucune preuve APRES correction : zero image a matrice perimee, ou zero etirement, sur >= 5 minutes de jeu")
 print("[Ghso ok] defaut reproduit et mesure, cause nommee, zero apres correction sur >=5 min")

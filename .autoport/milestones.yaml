@@ -2874,32 +2874,6 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
-- id: Gcutscene-skip-polish-2
-  name: 'CARTOUCHE DE SAUT, RETOUR 2 (owner 2026-09-01) : « c''est déjà beaucoup mieux » MAIS les coins ne sont pas assez
-    arrondis — il veut une CAPSULE, « l''arrondi des coins inférieurs doit rejoindre l''arrondi des coins supérieurs, des
-    demi cercles de chaque côté », donc rayon = hauteur/2 ; la cartouche doit serrer « bien plus près » le <CIRCLE> Skip (marges
-    11,4 px actuelles trop larges) ; et elle APPARAIT DANS LE MENU PRINCIPAL sans raison, a corriger.'
-  prompt: prompts/phase-Gcutscene-skip-all.md
-  validator: validators/phase-Gcutscene-skip-polish.sh
-  max_turns: 3000
-  max_retries: 60
-  device: false
-  device_serial: eae4df44
-  owner_verify: true
-- id: Ghd-skin-origin-stretch
-  name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
-    s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
-    extrême », intermittent, une fraction de seconde, purement visuel. SIGNATURE : une matrice de squelette qui retombe a
-    l''identite ou a zero pendant une image — les sommets vont a (0,0,0) et la longueur de l''etirement vaut la distance joueur-origine.
-    Distances mesurees des niveaux : beach 135 m, jungle 303 m, village2 1546 m, village3 3601 m, finalboss 5540 m — croissantes
-    dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
-  prompt: prompts/phase-Ghd-skin-origin-stretch.md
-  validator: validators/phase-Ghd-skin-origin-stretch.sh
-  max_turns: 3000
-  max_retries: 60
-  device: false
-  device_serial: eae4df44
-  owner_verify: true
 - id: Grecharged-foliage-wind3
   name: 'BRISE, RETOUR 3 (owner 2026-08-31, NON VALIDE) : TROIS defauts dont un qui n''est pas le notre. D1 la brise NATIVE
     est cassee, option ETEINTE : « les arbres qui sont sensés être animés par défaut font de légers twitchs sans animations
@@ -2933,6 +2907,44 @@ phases:
     dans le menu du joueur. Prealable a la refonte des menus qu''il a rouverte en disant « pas fini du tout ».'
   prompt: prompts/phase-Gmenu-census-cleanup.md
   validator: validators/phase-Gmenu-census-cleanup.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gfont-regression
+  name: 'REGRESSION SUR UN ACQUIS VALIDE — LA POLICE URBANIST EST CASSEE (owner 2026-09-02) : « t''as complètement niqué la
+    font, ça utilise des glyphs chinois de la font par défaut du jeu ». Elle etait FERMEE par sa parole le 31/08. Piege connu
+    : a-z sont des KANJI dans la GRANDE police de jak1 — le texte a bascule de police ou l''atlas Urbanist n''est plus lie.
+    Bissecter sur les builds de 21:14 et 04:54. POSER UNE GARDE permanente : un acquis valide se verifie a chaque cycle.'
+  prompt: reports/Gfont-regression/owner-defects.txt
+  validator: validators/phase-Gfont-regression.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Ghd-skin-origin-stretch
+  name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
+    s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
+    extrême », intermittent, une fraction de seconde, purement visuel. SIGNATURE : une matrice de squelette qui retombe a
+    l''identite ou a zero pendant une image — les sommets vont a (0,0,0) et la longueur de l''etirement vaut la distance joueur-origine.
+    Distances mesurees des niveaux : beach 135 m, jungle 303 m, village2 1546 m, village3 3601 m, finalboss 5540 m — croissantes
+    dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
+  prompt: prompts/phase-Ghd-skin-origin-stretch.md
+  validator: validators/phase-Ghd-skin-origin-stretch.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-skip-polish-2
+  name: 'CARTOUCHE DE SAUT, RETOUR 2 (owner 2026-09-01) : « c''est déjà beaucoup mieux » MAIS les coins ne sont pas assez
+    arrondis — il veut une CAPSULE, « l''arrondi des coins inférieurs doit rejoindre l''arrondi des coins supérieurs, des
+    demi cercles de chaque côté », donc rayon = hauteur/2 ; la cartouche doit serrer « bien plus près » le <CIRCLE> Skip (marges
+    11,4 px actuelles trop larges) ; et elle APPARAIT DANS LE MENU PRINCIPAL sans raison, a corriger.'
+  prompt: prompts/phase-Gcutscene-skip-all.md
+  validator: validators/phase-Gcutscene-skip-polish.sh
   max_turns: 3000
   max_retries: 60
   device: false

@@ -26,6 +26,9 @@ c=[kv(l) for l in re.findall(r'^CUTCENTER .*$',t,re.M)]
 if c and float(c[0].get('marge_g',0))>=11.4: F(f"marge laterale {c[0]['marge_g']} px : l'owner veut la cartouche « bien plus pres » du texte, resserrer")
 if not c or abs(float(c[0].get('marge_g',0))-float(c[0].get('marge_d',9)))>1 \
    or abs(float(c[0].get('marge_h',0))-float(c[0].get('marge_b',9)))>1: F("texte non centre dans la cartouche")
+ic=[kv(l) for l in re.findall(r'^CUTICON .*$',t,re.M)]
+if not ic or abs(float(ic[0].get('marge_h',0))-float(ic[0].get('marge_b',9)))>1:
+    F("l'ICONE du bouton n'est pas centree verticalement (owner 2026-09-02) — le centrage du texte ne suffit pas")
 fit=[kv(l) for l in re.findall(r'^CUTFIT .*$',t,re.M)]
 if len({x.get('largeur_cartouche') for x in fit})<2: F("la cartouche ne s'adapte pas a la longueur du texte")
 n=[kv(l) for l in re.findall(r'^CUTNATIVE .*$',t,re.M)]

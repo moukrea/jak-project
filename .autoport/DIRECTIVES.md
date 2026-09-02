@@ -2285,3 +2285,12 @@ joints sont en ajout seul, un nouveau joint ne peut pas devenir le parent d'un j
 4. Instancier une SECONDE famille (meche ou oreille) et prouver que le meme solveur la porte
    sans branche speciale. C'est le test qui separe un moteur d'un correctif.
 5. Durete : raideur de contact reelle, et collision chaine-contre-chaine.
+
+## PREUVES PROGRAMMATIQUES, JAMAIS VISUELLES (owner 2026-09-02, autorite sur tout prompt)
+« tu le sais t'es une merde en vision, faut que tu te démerdes pour des preuves
+programmatiques ». Une capture d'ecran, une video, un jugement « ca a l'air bon » ne
+constituent JAMAIS une preuve. Toute porte de sortie doit lire une grandeur produite par
+le CODE : compteur, identifiant, empreinte, mesure. Si un chantier ne sait pas se prouver
+autrement que par l'image, il n'est pas prouve. Deja applique aux caisses (sonde par le
+code, 31/31 en une passe) et aux modeles HD (compte de matrices perimees) — c'est la regle
+generale, pas un cas particulier.
