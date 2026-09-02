@@ -64,6 +64,18 @@ void level_warp_maybe();
 void task_close_maybe();
 
 /*!
+ * CINE KICK (Gcutscene-npc-flicker-2 debug-only cutscene launcher) — env OG_CINE_KICK
+ * / Android prop debug.opengoal.cine.kick = "<type>[,<type>...]" (GOAL TYPE names, in
+ * order), OFF by default. Calls the GOAL `pc-cine-kick!` on the kernel thread via the
+ * same *listener-function* trampoline, which sends the game's own 'play-anim event to
+ * the taskable NPC of that type (process-taskable.gc:439/:555) — so a cutscene the
+ * player would have to walk up and trigger (the MAYOR's first one) can be played with
+ * nobody at the pad. Re-arms once per name instead of latching. Never armed in the
+ * shipped APK.
+ */
+void cine_kick_maybe();
+
+/*!
  * WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro tools) — env
  * OG_WANT_LEVELS / prop debug.opengoal.want.levels = "lev1,lev2" and env
  * OG_WANT_DISPLAY / prop debug.opengoal.want.display = "lev[,sym]", OFF by default.

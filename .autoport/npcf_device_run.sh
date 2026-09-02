@@ -16,6 +16,11 @@ SER=eae4df44
 PKG=org.opengoal.gk.jak1
 SCENE="${1:-intro-start}"; DUR="${2:-200}"; HD="${3:-1}"; TAG="${4:-$SCENE-hd$HD}"
 INJECT="${5:-}"   # "<fragment>:<periode>:<duree>" — controle positif SUR L'APPAREIL
+# Gcutscene-npc-flicker-2 : liste de TYPES de PNJ taskables a qui envoyer 'play-anim, dans
+# l'ordre, ex. "mayor,sculptor". C'est le seul moyen d'atteindre la cinematique du MAIRE — aucun
+# `continue-flags` de jak1 ne la declenche (engine/target/target-death.gc:230-357 ne nomme que
+# "sage-23"). L'application Android ne recoit pas l'environnement du shell : d'ou la propriete.
+KICK="${6:-}"
 OUT=.autoport/reports/Gcutscene-npc-flicker/device; mkdir -p "$OUT"
 LOG="$OUT/dev-$TAG-logcat.txt"; SUM="$OUT/dev-$TAG-resume.txt"
 a(){ "$ADB" -s "$SER" "$@"; }
@@ -25,6 +30,7 @@ cleanup(){
   a shell "setprop debug.opengoal.level.warp ''"      >/dev/null 2>&1
   a shell "setprop debug.opengoal.cpad_inject ''"     >/dev/null 2>&1
   a shell "setprop debug.opengoal.npcf.inject ''"     >/dev/null 2>&1
+  a shell "setprop debug.opengoal.cine.kick ''"       >/dev/null 2>&1
   [ -n "${LCPID:-}" ] && { kill "$LCPID" 2>/dev/null; sleep 1; kill -9 "$LCPID" 2>/dev/null; }
   for _p in $(pgrep -f "${SER} logcat" 2>/dev/null); do kill -9 "$_p" 2>/dev/null; done
   # On ARRETE le jeu en sortant : sinon l'auto-constructeur voit l'application au premier plan et
@@ -68,7 +74,9 @@ echo "-- reglage pose : recharged-enhanced-models? = $val"
 a shell am force-stop $PKG >/dev/null 2>&1
 a shell "setprop debug.opengoal.level.warp '$SCENE'" >/dev/null 2>&1
 a shell "setprop debug.opengoal.npcf.inject '$INJECT'" >/dev/null 2>&1
+a shell "setprop debug.opengoal.cine.kick '$KICK'" >/dev/null 2>&1
 [ -n "$INJECT" ] && echo "-- CONTROLE POSITIF arme sur l'appareil : $INJECT"
+[ -n "$KICK" ] && echo "-- lanceur de cinematique arme sur l'appareil : $KICK"
 a logcat -c >/dev/null 2>&1
 a logcat > "$LOG" 2>/dev/null &
 LCPID=$!
@@ -89,6 +97,11 @@ echo "-- lignes capturees : $CAP"
 echo "-- NPCSCENE : $(grep -ac 'NPCSCENE ' "$LOG" || true)   NPCFLICK : $(grep -ac 'NPCFLICK ' "$LOG" || true)   evenements : $(grep -ac 'NPCFLICK-EV ' "$LOG" || true)"
 grep -a 'NPCSCENE \|NPCFLICK \|NPCFLICK-EV \|NPCFLICK-LONG ' "$LOG" | sed 's/^.*NPC/NPC/' | tail -60
 echo "-- injection : $(grep -ac 'NPCF-INJECT arme' "$LOG" || true) ligne(s) d'armement"
+echo "-- CINEKICK : $(grep -ac 'CINEKICK ' "$LOG" || true) envoi(s), $(grep -a 'CINEKICK ' "$LOG" | grep -ac 'envoye=1' || true) reussi(s)"
+grep -a 'CINEKICK' "$LOG" | sed 's/^.*CINEKICK/CINEKICK/' | head -20
+echo "-- scenes vues : $(grep -a 'NPCSCENE ' "$LOG" | sed -n 's/.*scene=\([^ ]*\).*/\1/p' | sort -u | tr '\n' ' ')"
+echo "-- NPCCULL : $(grep -ac 'NPCCULL ' "$LOG" || true) ligne(s)"
+grep -a 'NPCCULL ' "$LOG" | sed 's/^.*NPCCULL/NPCCULL/' | head -10
 echo "-- miroir HD : $(grep -ac 'JAK-HD\] mirror' "$LOG" || true) transitions   noanim-run : $(grep -ac 'noanim-run' "$LOG" || true)"
 grep -a 'JAK-HD\] noanim-run' "$LOG" | sed 's/^.*\[JAK-HD\]/[JAK-HD]/' | sort | uniq -c | sort -rn | head -20
 grep -a 'hd-flicker\] calls=' "$LOG" | tail -2

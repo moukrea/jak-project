@@ -456,7 +456,7 @@
 ;; l'arbre de processus et son octet draw-status, une fois par image, pendant les cinematiques
 ;; seulement. Voir game/system/npc_flicker.h.
 (define-extern __pc-npc-census-begin (function string none))
-(define-extern __pc-npc-census-actor (function string int int int none))
+(define-extern __pc-npc-census-actor (function string int int int int none))
 (define-extern __pc-npc-census-end (function none))
 ;; Un clone de cinematique n'a pas pu suivre sa source cette image et s'est masque lui-meme
 ;; (generic-obs.gc). Sans cette declaration du PRODUCTEUR, ce masquage et un masquage voulu par le

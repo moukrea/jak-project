@@ -107,7 +107,7 @@ struct ActorRec {
   Reason gap_reason = kReasonCulled;
   uint64_t cycles = 0;
   uint64_t blinks = 0;
-  uint64_t by_reason[8] = {};
+  uint64_t by_reason[10] = {};
   uint64_t coupes = 0;
   uint64_t longues = 0;
   uint64_t max_gap = 0;
@@ -127,6 +127,7 @@ struct ActorRec {
   uint32_t frame_pid = 0;
   int frame_level = -1;
   int frame_block = 99;  // score de blocage de l'instance la moins bloquee
+  int frame_in_fov = -1;  // verdict INDEPENDANT de position (cf. census_actor dans le header)
   uint64_t frame_instances = 0;
 };
 
@@ -165,7 +166,8 @@ Reason classify(const std::string& key,
                 bool in_tree,
                 uint32_t status,
                 uint32_t pid,
-                int level_active) {
+                int level_active,
+                int in_fov) {
   if (!in_tree) {
     return kReasonDead;
   }
@@ -182,11 +184,22 @@ Reason classify(const std::string& key,
   if (status & 0x4) {  // no-anim
     return kReasonNoAnim;
   }
+  // LE NIVEAU SE LIT AVANT LE BIT, et ce n'est pas cosmetique. `was-drawn` est efface EN TETE de
+  // `dma-add-process-drawable` (drawable.gc:447) : quand le moteur d'avant-plan du niveau ne
+  // tourne plus, cette fonction n'est plus appelee du tout et le bit GARDE la valeur de la
+  // derniere image ou elle a tourne. Un `was-drawn` reste a 1 ferait alors classer l'episode en
+  // `nodraw` — un defaut, donc le compte serait juste, mais la CAUSE publiee serait fausse et
+  // enverrait le chantier chercher dans le rendu ce qui se passe dans le systeme de niveaux.
+  if (level_active == 0) {
+    return kReasonLevel;
+  }
   if (!(status & 0x8)) {
-    // was-drawn absent => GOAL n'a rien soumis. Deux causes tres differentes, et sans le statut
-    // du niveau elles rendent le meme etat : le moteur de dessin de son niveau ne tourne plus
-    // (defaut), ou la camera l'a laisse hors du frustum (le moteur qui fonctionne).
-    return level_active == 0 ? kReasonLevel : kReasonCulled;
+    // was-drawn absent => GOAL n'a rien soumis, et son niveau dessine (teste juste au-dessus).
+    // Restent DEUX etats que le cycle 1 rendait identiques :
+    //   - la camera l'a laisse hors du frustum, ET sa position racine le confirme : normal ;
+    //   - la camera est CENSEE le voir (`in_fov == 1`) et il n'a quand meme pas ete soumis :
+    //     defaut. C'est celui-la que `culled` avalait.
+    return in_fov == 1 ? kReasonCullBlind : kReasonCulled;
   }
   // was-drawn present : GOAL a soumis, la perte est cote rendu.
   auto it = g_render.find(pid);
@@ -200,7 +213,11 @@ Reason classify(const std::string& key,
       return kReasonMissing;
     }
   }
-  return kReasonCulled;
+  // was-drawn POSE et rien de dessine, sans que la couverture ni le chargeur l'expliquent. Le
+  // cycle 1 rendait `kReasonCulled` ici — c'est-a-dire qu'il classait « le jeu dit l'avoir
+  // dessine, l'ecran dit que non » dans le seau NON GATE des coupes de camera. C'est un etat
+  // distinct, et il porte un nom distinct.
+  return kReasonNodraw;
 }
 
 void close_gap(const std::string& name, ActorRec& rec) {
@@ -249,14 +266,16 @@ void snapshot() {
     }
     fmt::print(
         "NPCFLICK-P scene={} pnj={} cycles={} hd={} coupes={} longues={} blinks={} mort={} hidden={} "
-        "noanim={} culled={} supprime={} modele_absent={} niveau={} clone={} trou_max={} "
+        "noanim={} culled={} supprime={} modele_absent={} niveau={} clone={} nodraw={} "
+        "cull_aveugle={} trou_max={} "
         "trou_max_ms={} "
         "images={} "
         "dessine={} inst={}\n",
         g_scene, kv.first, r.cycles, r.hd ? 1 : 0, r.coupes, r.longues, r.blinks,
         r.by_reason[kReasonDead], r.by_reason[kReasonHidden], r.by_reason[kReasonNoAnim],
         r.by_reason[kReasonCulled], r.by_reason[kReasonSuppressed], r.by_reason[kReasonMissing],
-        r.by_reason[kReasonLevel], r.by_reason[kReasonRemap], r.max_gap, r.max_gap_ms, r.frames,
+        r.by_reason[kReasonLevel], r.by_reason[kReasonRemap], r.by_reason[kReasonNodraw],
+        r.by_reason[kReasonCullBlind], r.max_gap, r.max_gap_ms, r.frames,
         r.shown,
         r.max_instances);
   }
@@ -282,14 +301,16 @@ void flush_scene() {
     cycles += r.cycles;
     fmt::print(
         "NPCFLICK scene={} pnj={} cycles={} hd={} coupes={} longues={} blinks={} mort={} hidden={} "
-        "noanim={} culled={} supprime={} modele_absent={} niveau={} clone={} trou_max={} "
+        "noanim={} culled={} supprime={} modele_absent={} niveau={} clone={} nodraw={} "
+        "cull_aveugle={} trou_max={} "
         "trou_max_ms={} "
         "images={} "
         "dessine={} inst={}\n",
         g_scene, kv.first, r.cycles, r.hd ? 1 : 0, r.coupes, r.longues, r.blinks,
         r.by_reason[kReasonDead], r.by_reason[kReasonHidden], r.by_reason[kReasonNoAnim],
         r.by_reason[kReasonCulled], r.by_reason[kReasonSuppressed], r.by_reason[kReasonMissing],
-        r.by_reason[kReasonLevel], r.by_reason[kReasonRemap], r.max_gap, r.max_gap_ms, r.frames,
+        r.by_reason[kReasonLevel], r.by_reason[kReasonRemap], r.by_reason[kReasonNodraw],
+        r.by_reason[kReasonCullBlind], r.max_gap, r.max_gap_ms, r.frames,
         r.shown,
         r.max_instances);
     g_totals.cycles += r.cycles;
@@ -297,7 +318,7 @@ void flush_scene() {
     g_totals.longues += r.longues;
     g_totals.blinks += r.blinks;
     g_totals.frames += r.frames;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 10; i++) {
       g_totals.by_reason[i] += r.by_reason[i];
     }
   }
@@ -337,6 +358,10 @@ const char* reason_name(Reason r) {
       return "niveau-inactif";
     case kReasonRemap:
       return "clone-desynchronise";
+    case kReasonNodraw:
+      return "soumis-mais-non-dessine";
+    case kReasonCullBlind:
+      return "cull-aveugle";
   }
   return "?";
 }
@@ -354,6 +379,8 @@ void note_clone_remap_fail(const char* merc_name) {
 
 bool reason_is_defect(Reason r) {
   // `culled` et `hidden` sont des decisions du jeu, pas des pannes : voir la note du header.
+  // `cull-aveugle` et `nodraw` en ont ete SEPARES au cycle 2 et sont, eux, des defauts : dans les
+  // deux cas rien dans le jeu n'a demande que l'acteur disparaisse.
   return r != kReasonCulled && r != kReasonHidden;
 }
 
@@ -408,9 +435,18 @@ void begin_census(const char* scene) {
     return;
   }
   if (g_scene != scene) {
-    flush_scene();
-    g_scene = scene;
-    g_census_frame = 0;
+    // LE RACCORD « flux-non-arme » -> NOM REEL. Le bit `movie` est arme a l'entree de play-anim,
+    // mais `active-stream` n'est ecrit qu'apres `str-play-async` (loader.gc), c'est-a-dire APRES
+    // toute l'attente d'art de la partie 0. Jeter le recensement a ce changement de nom, comme le
+    // faisait le cycle 1, effacait donc systematiquement le debut de chaque cinematique — dont sa
+    // PREMIERE frontiere de partie. On renomme en place au lieu de vider.
+    if (g_scene == "flux-non-arme") {
+      g_scene = scene;
+    } else {
+      flush_scene();
+      g_scene = scene;
+      g_census_frame = 0;
+    }
   }
   g_census_frame++;
   if (g_census_frame % 600 == 0) {
@@ -422,7 +458,8 @@ void census_actor(const char* proc_name,
                   const char* merc_name,
                   uint32_t pid,
                   uint32_t draw_status,
-                  int level_active) {
+                  int level_active,
+                  int in_fov) {
   if (!proc_name || !proc_name[0]) {
     return;
   }
@@ -444,6 +481,7 @@ void census_actor(const char* proc_name,
     rec.frame_status = 0;
     rec.frame_pid = 0;
     rec.frame_level = -1;
+    rec.frame_in_fov = -1;
     rec.frame_instances = 0;
     rec.frames++;
   }
@@ -473,6 +511,14 @@ void census_actor(const char* proc_name,
     rec.frame_pid = pid;
     rec.frame_level = level_active;
   }
+  // Le verdict de position se prend sur l'instance la PLUS favorable : si une seule des instances
+  // portant ce modele est dans le champ, l'absence de dessin demande une explication. Prendre
+  // l'instance la moins bloquee (comme ci-dessus) sous-compterait dans l'autre sens.
+  if (in_fov == 1) {
+    rec.frame_in_fov = 1;
+  } else if (in_fov == 0 && rec.frame_in_fov == -1) {
+    rec.frame_in_fov = 0;
+  }
 }
 
 void end_census() {
@@ -499,8 +545,8 @@ void end_census() {
       rec.in_gap = true;
       rec.gap_len = 0;
       rec.gap_start_ms = now_ms();
-      rec.gap_reason =
-          classify(kv.first, in_tree, rec.frame_status, rec.frame_pid, rec.frame_level);
+      rec.gap_reason = classify(kv.first, in_tree, rec.frame_status, rec.frame_pid, rec.frame_level,
+                                rec.frame_in_fov);
     }
     rec.gap_len++;
   }

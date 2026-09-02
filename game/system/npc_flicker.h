@@ -83,15 +83,27 @@ void begin_census(const char* scene);
 // Un acteur du recensement. `draw_status` est l'octet draw-status de jak1 :
 //   bit0 needs-clip, bit1 hidden, bit2 no-anim, bit3 was-drawn, bit4 no-skeleton-update,
 //   bit5 skip-bones, bit6 do-not-check-distance, bit7 has-joint-channels.
-// `level_active` : 1 = le niveau de l'acteur est 'active (ses moteurs de dessin tournent),
+// `level_active` : 1 = le niveau de l'acteur dessine reellement — status 'active ET display?
+// non-#f. Le second terme a ete AJOUTE au cycle 2 : `display-level <lev> #f` deconnecte le bsp du
+// moteur de fond (level.gc:645) SANS changer `status`, donc lire `status` seul publiait 1 pour un
+// niveau qui ne dessine plus, et l'episode retombait dans `culled`, non gate. Or
+// `mayor-introduction` fait `(0 display-level beach special)` et le maire est un acteur de beach.
 // 0 = il ne l'est plus, -1 = l'acteur n'a pas d'entite (il vit sur level-default, qui tourne
 // toujours). Sans cette entree, « le niveau a ete desactive sous l'acteur » et « la camera l'a
 // laisse hors champ » rendent le MEME etat : pas de paquet et `was-drawn` a 0.
+// `in_fov` : LE CONTROLE INDEPENDANT DU CULLING, et la raison pour laquelle il vient de GOAL.
+//   1 = la position RACINE de l'acteur (root trans, la source ecrite par sa logique) tombe dans le
+//       frustum de la camera courante ; 0 = elle est dehors ; -1 = non evalue.
+// Le moteur, lui, cull sur `draw origin + draw bounds` (drawable.gc:452-460) — une AUTRE source,
+// ecrite par `do-joint-math!`, qui ne l'ecrit pas du tout quand l'acteur porte hidden ou no-anim
+// (process-drawable.gc:240). Comparer les deux est donc une mesure, pas un miroir : elles ne
+// peuvent diverger que si la sphere de culling a cesse de suivre l'acteur.
 void census_actor(const char* proc_name,
                   const char* merc_name,
                   uint32_t pid,
                   uint32_t draw_status,
-                  int level_active);
+                  int level_active,
+                  int in_fov);
 
 void end_census();
 
@@ -111,29 +123,51 @@ struct Totals {
   uint64_t coupes = 0;   // episodes explicables : hors du frustum, ou masque volontairement
   uint64_t longues = 0;  // episodes de cause DEFECTUEUSE mais plus longs que la borne haute
   uint64_t blinks = 0;   // episodes de 1 a kMinEpisodeFrames-1 images (publies, non gates)
-  uint64_t by_reason[8] = {};  // indexe par Reason
+  uint64_t by_reason[10] = {};  // indexe par Reason
   uint64_t frames = 0;
 };
 
 // DEUX FAMILLES, ET LA DISTINCTION PORTE LE VERDICT.
 //   GATEES (comptees dans `cycles`) : rien dans le jeu n'a demande que l'acteur disparaisse.
-//     mort / noanim / supprime / modele-absent / niveau.
+//     mort / noanim / supprime / modele-absent / niveau / clone / nodraw / cull-aveugle.
 //   EXPLIQUEES (comptees dans `coupes`, publiees, jamais gatees) :
-//     culled  — GOAL lui-meme a juge l'acteur hors du frustum. C'est le moteur qui fonctionne :
-//               une cinematique COUPE d'un cadrage a l'autre, et un acteur hors champ n'est pas
-//               un defaut. Mesure a l'appui : sur `sage-intro-sequence-a`, les seuls episodes
-//               observes sont de cette classe et durent jusqu'a 1686 images (28 s) — les compter
-//               fabriquerait un rouge sur toutes les cinematiques du jeu.
+//     culled  — GOAL a juge l'acteur hors du frustum, ET un test INDEPENDANT de sa position
+//               racine le confirme hors champ. C'est le moteur qui fonctionne : une cinematique
+//               COUPE d'un cadrage a l'autre.
 //     hidden  — le jeu a explicitement pose (draw-status hidden). C'est une decision d'auteur.
+//
+// GCUTSCENE-NPC-FLICKER-2 : `culled` ETAIT UN FOURRE-TOUT, ET C'EST LA LE DEFAUT DE L'INSTRUMENT.
+// Au cycle 1, `culled` recevait TROIS etats structurellement differents, tous non gates, et il
+// portait 100 % des episodes observes (37 a 106 par course, sur les sept courses archivees de
+// `.autoport/reports/Gcutscene-npc-flicker/` : `culled` = le seul seau non vide). Un seau exclu
+// qui contient toute la population n'est pas une exclusion, c'est un angle mort — l'owner a
+// revu le defaut, l'instrument publiait `cycles=0`.
+// Les trois etats sont desormais separes, et les deux nouveaux sont des DEFAUTS :
+//   * `culled`       was-drawn a 0 et le test independant de position dit « hors champ »   -> normal
+//   * `cull-aveugle` was-drawn a 0 alors que la POSITION RACINE de l'acteur est DANS le frustum.
+//                    Ce n'est donc pas la camera qui l'a laisse dehors : ou bien la sphere de
+//                    culling que le moteur teste (draw origin + draw bounds, drawable.gc:452-460)
+//                    a derive de l'acteur, ou bien il n'est jamais passe par la passe de dessin.
+//                    Le test est INDEPENDANT parce qu'il porte sur une AUTRE source de position
+//                    (`root trans`, ecrite par la logique) que celle que le moteur cull
+//                    (`draw origin`, ecrite par do-joint-math! — et do-joint-math! ne l'ecrit PAS
+//                    quand l'acteur porte hidden ou no-anim, process-drawable.gc:240).
+//   * `nodraw`       was-drawn a 1 — GOAL a SOUMIS — et le rendu n'a rien dessine, sans que la
+//                    couverture HD ni l'absence de modele l'expliquent. « Le jeu dit qu'il l'a
+//                    dessine, l'ecran dit que non. » Couvre les sorties tardives de
+//                    dma-add-process-drawable (skip-bones :611, LOD/distance :582/:594) et le
+//                    debordement du moteur d'avant-plan.
 enum Reason {
   kReasonDead = 0,        // le processus a disparu de l'arbre
   kReasonHidden = 1,      // (draw-status hidden)
   kReasonNoAnim = 2,      // (draw-status no-anim)
-  kReasonCulled = 3,      // vivant, visible, mais was-drawn a 0 et son niveau tourne
+  kReasonCulled = 3,      // was-drawn a 0 ET la position racine est hors du frustum
   kReasonSuppressed = 4,  // GOAL a soumis, le rendu a supprime (couverture HD)
   kReasonMissing = 5,     // GOAL a soumis, le modele n'etait pas resident
-  kReasonLevel = 6,       // le niveau de l'acteur n'est plus 'active : ses moteurs ne tournent plus
+  kReasonLevel = 6,       // le niveau de l'acteur ne dessine plus (status ou display?)
   kReasonRemap = 7,       // un CLONE de cinematique n'a pas pu suivre sa source et s'est masque
+  kReasonNodraw = 8,      // GOAL a soumis (was-drawn) et RIEN n'a ete dessine, sans explication
+  kReasonCullBlind = 9,   // was-drawn a 0 alors que la position racine EST dans le frustum
 };
 bool reason_is_defect(Reason r);
 const char* reason_name(Reason r);

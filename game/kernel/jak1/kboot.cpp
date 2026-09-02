@@ -191,6 +191,13 @@ void KernelCheckAndDispatch() {
     // gated routes. Same in-context dispatch point as the warps.
     task_close_maybe();
 
+    // CINE KICK (Gcutscene-npc-flicker-2 debug-only cutscene launcher) — gated (env
+    // OG_CINE_KICK / prop debug.opengoal.cine.kick = "<type>[,<type>...]"), OFF by
+    // default. Sends the game's own 'play-anim event to the taskable NPC of each named
+    // TYPE, so an NPC cutscene the player would have to walk up to and trigger (the
+    // mayor's first one) plays with nobody at the pad. Same in-context dispatch point.
+    cine_kick_maybe();
+
     // WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro) — gated
     // (env OG_WANT_LEVELS / OG_WANT_DISPLAY, props debug.opengoal.want.*), OFF by
     // default. Deterministically replay the village2->swamp load-boundary commands.

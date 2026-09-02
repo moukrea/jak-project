@@ -33,11 +33,19 @@ for path in sys.argv[1:]:
             if prev is None or (final and not prev[0]) or (final == prev[0]):
                 rows[key] = (final, d)
 
-REASONS = ['mort', 'hidden', 'noanim', 'culled', 'supprime', 'modele_absent', 'niveau', 'clone']
-# Les causes GATEES : rien dans le jeu n'a demande que l'acteur disparaisse. `culled` (hors du
-# frustum, decide par GOAL) et `hidden` (pose explicitement par le jeu) sont publiees et jamais
-# gatees — sinon toute cinematique qui coupe d'un cadrage a l'autre passerait au rouge.
-DEFAUTS = ['mort', 'noanim', 'supprime', 'modele_absent', 'niveau', 'clone']
+REASONS = ['mort', 'hidden', 'noanim', 'culled', 'supprime', 'modele_absent', 'niveau', 'clone',
+           'nodraw', 'cull_aveugle']
+# Les causes GATEES : rien dans le jeu n'a demande que l'acteur disparaisse. `culled` et `hidden`
+# sont publiees et jamais gatees — sinon toute cinematique qui coupe d'un cadrage a l'autre
+# passerait au rouge.
+# Gcutscene-npc-flicker-2 : `culled` etait un FOURRE-TOUT non gate qui portait 100 % des episodes
+# des sept courses du cycle 1. Il en a ete extrait deux etats qui sont, eux, des defauts :
+#   `cull_aveugle` was-drawn a 0 alors qu'un test INDEPENDANT de position dit l'acteur DANS le champ
+#   `nodraw`       was-drawn a 1 — GOAL a soumis — et rien n'a ete dessine, sans explication
+# `culled` ne garde donc que les episodes ou les DEUX sources de position s'accordent sur
+# « hors champ » : c'est ce qui le rend falsifiable au lieu d'etre un residu.
+DEFAUTS = ['mort', 'noanim', 'supprime', 'modele_absent', 'niveau', 'clone', 'nodraw',
+           'cull_aveugle']
 tot = collections.Counter()
 scenes = collections.defaultdict(set)
 print(f"{'jambe':5} {'scene':28} {'pnj':26} {'cyc':>4} {'hd':>2} {'blk':>4} "
@@ -54,7 +62,13 @@ for (leg, scene, pnj), (final, d) in sorted(rows.items()):
     tot[(leg, 'cycles')] += cyc
     tot[(leg, 'blinks')] += int(d.get('blinks', 0))
     for r in REASONS:
-        tot[(leg, r)] += int(d.get(r, 0))
+        # UN CHAMP ABSENT N'EST PAS UN ZERO. Les journaux du cycle 1 ne portent ni `nodraw=` ni
+        # `cull_aveugle=` : publier 0 pour eux ferait passer « cette course ne pouvait pas le
+        # mesurer » pour « cette course a mesure zero ». On compte les lignes qui portent
+        # reellement le champ, et l'agregat ecrit `?` quand aucune ne le porte.
+        if r in d:
+            tot[(leg, r)] += int(d[r])
+            tot[(leg, r + '#')] += 1
     tot[(leg, 'pnj')] += 1
     print(f"{leg:5} {scene:28} {pnj:26} {cyc:4d} {d.get('hd','?'):>2} {d.get('blinks','?'):>4} "
           + ' '.join(f"{d.get(r,'?'):>7}" for r in REASONS)
@@ -67,7 +81,7 @@ npcok_cycles = 0
 for leg in sorted(scenes):
     print(f"[{leg}] scenes={len(scenes[leg])} pnj_suivis={tot[(leg,'pnj')]} "
           f"cycles_defaut={tot[(leg,'cycles')]} blinks={tot[(leg,'blinks')]} "
-          + ' '.join(f"{r}={tot[(leg,r)]}" for r in REASONS))
+          + ' '.join(f"{r}={tot[(leg,r)] if tot[(leg,r+'#')] else '?'}" for r in REASONS))
     print(f"      scenes: {sorted(scenes[leg])}")
     npcok_scenes |= {sc for sc in scenes[leg] if sc != 'flux-non-arme'}
     npcok_pnj += tot[(leg, 'pnj')]

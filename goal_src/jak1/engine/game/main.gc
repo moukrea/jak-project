@@ -547,6 +547,10 @@
 ;; lorsque `real-movie?` est vrai.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; Plafond de publication de NPCCULL : un diagnostic ne doit pas noyer la trace. Le COMPTE des
+;; episodes, lui, n'est pas plafonne — il vit dans le recensement C++.
+(define *npc-cull-logs* 0)
+
 (defun npc-census-visit ((proc process))
   "Publie un acteur dessinable du recensement. L'IDENTITE est le nom du modele merc et non le nom
    du processus : le nom d'un processus est un `basic` qui vaut une STRING pour un acteur ne d'une
@@ -562,14 +566,61 @@
     ;; camera l'a laisse hors du frustum » (le moteur qui fonctionne) rendent EXACTEMENT le meme
     ;; etat cote acteur : aucun paquet et `was-drawn` a 0. -1 = pas d'entite, donc l'acteur vit
     ;; sur `level-default`, dont le moteur tourne toujours.
-    (let ((lv -1)
-          (ent (-> (the-as process-drawable proc) entity)))
+    (let* ((pd (the-as process-drawable proc))
+           (lv -1)
+           (fov -1)
+           (ent (-> pd entity)))
+      ;; STATUS **ET** DISPLAY?. Le cycle 1 ne lisait que `status`, et c'etait un angle mort :
+      ;; `display-level <lev> #f` retire le bsp du moteur de fond (level.gc:645) — plus rien de ce
+      ;; niveau n'est dessine — SANS toucher a `status`. Un acteur d'un tel niveau publiait donc
+      ;; lv=1, et son absence retombait dans `culled`, qui n'est pas gate. Or `mayor-introduction`
+      ;; fait `(0 display-level beach special)` (levels/beach/mayor.gc:147) et le maire est un
+      ;; acteur de BEACH : c'est exactement ce champ-la qui bouge sous lui.
       (when (and ent (nonzero? (-> ent extra)) (nonzero? (-> ent extra level)))
-        (set! lv (if (= (-> ent extra level status) 'active) 1 0)))
-      (__pc-npc-census-actor (-> (the-as process-drawable proc) draw mgeo name)
+        (set! lv (if (and (= (-> ent extra level status) 'active) (-> ent extra level display?)) 1 0)))
+      ;; LE CONTROLE INDEPENDANT DU CULLING, ET POURQUOI CE N'EST PAS UN MIROIR.
+      ;; Le moteur decide `was-drawn` en testant la sphere `draw origin + draw bounds` contre les
+      ;; plans de la camera (draw/drawable.gc:452-460). `draw origin` est ecrit par `do-joint-math!`
+      ;; — qui NE FAIT RIEN quand l'acteur porte `hidden` ou `no-anim` (process-drawable.gc:240) :
+      ;; cette sphere peut donc rester en arriere de l'acteur. On applique ici le MEME test de
+      ;; plans a l'AUTRE source de position, `root trans`, ecrite par la logique de l'acteur. Les
+      ;; deux ne peuvent diverger que si la sphere de culling a cesse de le suivre — ce que la
+      ;; ligne NPCCULL ci-dessous chiffre au lieu de le supposer.
+      ;; CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : fov=0 partout ou le moteur cull, donc `culled`
+      ;; garde exactement la population qu'il avait, et `cull-aveugle` reste a zero.
+      (when (nonzero? (-> pd root))
+        (let ((sph (new-stack-vector0))
+              (cs (new-stack-vector0)))
+          (vector+! cs (-> pd draw origin) (-> pd draw bounds))
+          (set! (-> sph quad) (-> pd root trans quad))
+          ;; RAYON CONSERVATEUR, ET LA RAISON EST UN MODE DE FAUX ROUGE. `draw origin` n'est pas
+          ;; toujours la racine : `origin-joint-index` le place sur un JOINT (33 pour Jak,
+          ;; logic-target.gc:1232 ; 6 pour Daxter, sidekick.gc:162 ; pose par
+          ;; process-taskable.gc:667 pour les PNJ), donc les deux centres different d'un metre ou
+          ;; deux en fonctionnement NORMAL. En bord de frustum, cet ecart seul suffirait a faire
+          ;; dire « dedans » a l'un et « dehors » a l'autre, et fabriquerait un `cull-aveugle` la
+          ;; ou il n'y a rien. On RETRANCHE donc cet ecart du rayon : `fov=1` veut dire « meme en
+          ;; defalquant le desaccord des deux sources, il est dans le champ ». Quand le desaccord
+          ;; est enorme — le defaut qu'on cherche — le rayon tombe a zero et le test porte sur le
+          ;; point racine lui-meme, ce qui est exactement la question posee.
+          (set! (-> sph w) (fmax 0.0 (- (+ (-> pd draw origin w) (-> pd draw bounds w))
+                                        (vector-vector-distance cs (-> pd root trans)))))
+          (set! fov (if (sphere-in-view-frustum? (the-as sphere sph)) 1 0))
+          (when (and (= fov 1)
+                     (not (logtest? (-> pd draw status) (draw-status was-drawn)))
+                     (< *npc-cull-logs* 60))
+            (+! *npc-cull-logs* 1)
+            ;; GOAL plafonne un appel a 8 parametres (dest + chaine + 6) : la ligne se compose
+            ;; en trois appels sans saut de ligne intermediaire, comme `cine-line` plus haut.
+            (format 0 "NPCCULL pnj=~S statut=~D lv=~D " (-> pd draw mgeo name) (the-as int (-> pd draw status)) lv)
+            (format 0 "racine=(~,,1f ~,,1f ~,,1f) r=~,,1f " (-> pd root trans x) (-> pd root trans y) (-> pd root trans z) (-> sph w))
+            (format 0 "sphere=(~,,1f ~,,1f ~,,1f) derive=~,,1f~%" (-> cs x) (-> cs y) (-> cs z)
+                    (vector-vector-distance cs (-> pd root trans))))))
+      (__pc-npc-census-actor (-> pd draw mgeo name)
                              (-> proc pid)
-                             (the-as int (-> (the-as process-drawable proc) draw status))
-                             lv)))
+                             (the-as int (-> pd draw status))
+                             lv
+                             fov)))
   #t)
 
 (defun npc-census-tick ()
@@ -581,6 +632,155 @@
      (__pc-npc-census-end))
     (else (__pc-npc-census-begin "hors-cinematique")))
   (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Gcutscene-npc-flicker-2 -- LANCEUR DE CINEMATIQUE DE PNJ SANS JOUEUR HUMAIN
+;;
+;; Le cycle 1 n'atteignait que les cinematiques qu'un `continue-flags` declenche tout seul
+;; (engine/target/target-death.gc:230-271) : cinq scenes, toutes de Sandover, AUCUNE du maire --
+;; et le maire est precisement le pire cas que l'owner nomme. Ce lanceur reutilise le meme geste
+;; que le jeu : `send-event 'play-anim` sur le process taskable, gere par l'etat `hidden`
+;; (engine/common-obs/process-taskable.gc:439) comme par l'etat `idle` (:555, qui pose
+;; `been-kicked` et laisse son `:trans` :623-627 partir en `play-anim`). C'est la porte que
+;; `engine/target/target-death.gc:239` emprunte deja pour `sage-23`.
+;;
+;; POURQUOI PAR LE TYPE ET PAS PAR LE NOM D'ENTITE. Le nom d'entite (« mayor-5 ») vit dans les
+;; donnees de niveau, pas dans le source : le coder en dur serait une constante devinee. Le TYPE
+;; est declare dans le source (`(deftype mayor (process-taskable) ())`, levels/beach/mayor.gc:8)
+;; et se lit a l'execution par `(-> proc type symbol)` -- la meme lecture que
+;; engine/collide/collide-shape-h.gc:703.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define *cine-kick-name* (the-as basic #f))
+(define *cine-kick-found* (the-as process #f))
+
+(define *cine-kick-seen* 0)
+(define *cine-kick-sends* 0)
+(define *cine-kick-logs* 0)
+
+(defun cine-kick-visit ((proc process))
+  "Retient le premier process-taskable dont le TYPE porte le nom demande, et RECENSE la
+   population. Sans ce recensement, « type absent du pool » et « mon comparateur est faux » sont
+   indistinguables : ce serait mesurer un canal par son seul effet."
+  (when (type-type? (-> proc type) process-taskable)
+    (+! *cine-kick-seen* 1)
+    (when (< *cine-kick-logs* 40)
+      (+! *cine-kick-logs* 1)
+      (format 0 "CINEKICK-VU type=~A proc=~A~%" (-> proc type symbol) (-> proc name)))
+    (when (and (not *cine-kick-found*) (name= (-> proc type symbol) *cine-kick-name*))
+      (set! *cine-kick-found* proc)))
+  #t)
+
+(defun cine-kick-birth! ((tname basic))
+  "Force la naissance de la premiere entite dont le TYPE porte ce nom, dans les niveaux 'active.
+   Rend 1 si une entite a ete trouvee et mise au monde, 0 sinon — et le DIT dans les deux cas :
+   « le PNJ n'est pas ne » et « aucune entite de ce type n'existe dans les niveaux charges » sont
+   deux situations differentes qui rendraient sinon le meme silence."
+  (let ((ne 0))
+    (dotimes (li (-> *level* length))
+      (let ((lev (-> *level* level li)))
+        (when (= (-> lev status) 'active)
+          (let* ((tbl (-> lev entity))
+                 (cnt (-> tbl length)))
+            (dotimes (i cnt)
+              (let ((el (-> tbl data i)))
+                (when (and (zero? ne)
+                           (-> el entity)
+                           (name= (-> (the-as entity-actor (-> el entity)) etype symbol) tname))
+                  ;; ON PUBLIE CE QUE LA NAISSANCE A FAIT, PAS QU ON L A DEMANDEE.
+                  ;; `entity-birth-no-kill` (entity.gc:1213) ne fait RIEN si l entite porte deja un
+                  ;; process, ou si son `perm status` porte `dead` ou `bit-0`. Sans publier l etat
+                  ;; AVANT et le process APRES, « j ai appele la naissance » et « la naissance a eu
+                  ;; lieu » sont indistinguables — et la trace montrait justement `ne=1` a chaque
+                  ;; tentative avec un pool qui ne changeait pas.
+                  (format 0 "CINEKICK-BIRTH type=~A niveau=~A statut_avant=~D proc_avant=~D "
+                          tname (-> lev name)
+                          (the-as int (-> el perm status))
+                          (if (-> el process) 1 0))
+                  (entity-birth-no-kill (-> el entity))
+                  (format 0 "statut_apres=~D proc_apres=~D~%"
+                          (the-as int (-> el perm status))
+                          (if (-> el process) 1 0))
+                  (set! ne 1))))))))
+    (if (zero? ne)
+      (format 0 "CINEKICK-BIRTH type=~A ne=0 raison=aucune-entite-de-ce-type-dans-un-niveau-actif~%" tname))
+    ne))
+
+(defun pc-cine-kick! ((tname string))
+  "Declenche la cinematique du PNJ taskable dont le type s'appelle `tname`.
+   Rend 2 = une cinematique joue deja (ne rien faire), 1 = evenement envoye, 0 = type absent du
+   pool actif."
+  (cond
+    ((real-movie?) 2)
+    (else
+     (set! *cine-kick-name* tname)
+     (set! *cine-kick-found* (the-as process #f))
+     (set! *cine-kick-seen* 0)
+     (iterate-process-tree *active-pool* cine-kick-visit *null-kernel-context*)
+     ;; SECOURS : FAIRE NAITRE UN SEUL ACTEUR NOMME, comme le jeu le fait lui-meme.
+     ;; J'avais d'abord LEVE LA BORNE DE DISTANCE. C'etait faux deux fois, et les deux se mesurent :
+     ;;   1. la levee ne tient pas UNE image — `pc-settings::update` rabaisse `birth-dist` a 220 m
+     ;;      des que `ps2-actor-vis?` est arme, ce qui est le defaut (pc/pckernel-common.gc:548-550).
+     ;;      La trace le montre : `ancienne_unites=901120` (= 220 m) aux 29 appels successifs ;
+     ;;   2. et surtout la borne n'etait PAS le blocage. La boucle de naissance ordinaire vit A
+     ;;      L'INTERIEUR de `(when (not (and (-> lev vis-info 0) (-> lev all-visible?))))`
+     ;;      (engine/entity/entity.gc:1155) : quand un niveau se declare tout-visible, AUCUNE de ses
+     ;;      entites ne nait, quelle que soit la borne. Mesure a `beach-start` : `taskables_vus=3`,
+     ;;      tous de village1, zero de beach — et un commentaire pose par une phase anterieure au
+     ;;      meme endroit (entity.gc:1136-1144) decrivait deja exactement ca.
+     ;; Passer par `force-actors?` faisait bien naitre le maire, mais faisait naitre TOUT le reste
+     ;; avec lui et coincait la barriere `LS_HOLD_TARGET` 6120 images sans que la scene demarre.
+     ;; `entity-birth-no-kill` (entity.gc:1213) est le geste chirurgical que `target-death.gc:236`
+     ;; emploie deja pour `sage-23` : il pose `bit-3` (l'acteur est alors aussi protege des boucles
+     ;; de mise a mort) et appelle `birth!`. UN acteur, rien d'autre ne change.
+     (when (not *cine-kick-found*)
+       (cine-kick-birth! tname))
+     (cond
+       (*cine-kick-found*
+        ;; « ENVOYE » N'EST PAS « DEMARRE », ET LA DIFFERENCE EST TOUT LE PROBLEME.
+        ;; Premiere version : on postait l'evenement et on rendait 1. Mesure : `envoye=1` publie,
+        ;; et la cinematique ne demarrait JAMAIS — seuls les PRECHARGEMENTS de spool sortaient
+        ;; (`A36-STR-DIAG chunk=0`), jamais chunk 1..15, et le recensement ne tournait pas d'une
+        ;; image. L'evenement pose `been-kicked` (process-taskable.gc:555) ; c'est le `:trans` de
+        ;; `idle` (:623-627) qui decide, et il exige `(not *progress-process*)`,
+        ;; `(process-grab? *target*)` et aucune autre camera. Un lanceur qui declare succes sur
+        ;; l'evenement POSTE mesure la mauvaise chose : il rend un vert pendant qu'il ne se passe
+        ;; rien.
+        ;; Le contrat est donc : 1 = la scene JOUE (etat `play-anim`), 2 = evenement (re)poste,
+        ;; rappelle-moi. Et on publie l'etat REEL du PNJ plus les deux conditions du garde qu'on
+        ;; peut lire sans effet de bord — `process-grab?` en a un (il envoie 'change-mode 'grab),
+        ;; donc on ne le sonde pas, on le laisse au `:trans`.
+        (+! *cine-kick-sends* 1)
+        (format 0 "CINEKICK type=~S proc=~A etat=~A envois=~D "
+                tname (-> *cine-kick-found* name) (-> *cine-kick-found* state name) *cine-kick-sends*)
+        ;; L ETAT DE JAK, EN LECTURE SEULE. La troisieme condition du garde est
+        ;; `(process-grab? *target*)`, et elle a un EFFET DE BORD : elle envoie 'change-mode 'grab.
+        ;; L appeler ici pour la publier mettrait Jak en `target-grab` depuis MON contexte, et si
+        ;; cet etat ne repond pas a 'change-mode le garde du PNJ echouerait ensuite pour toujours —
+        ;; je fabriquerais le verrou que je soupconne. On publie donc l etat de Jak, qui dit la
+        ;; meme chose sans rien changer.
+        (format 0 "progress=~A autrecam=~A jak=~A~%"
+                (if *progress-process* 1 0)
+                (if (handle->process (-> *game-info* other-camera-handle)) 1 0)
+                (if *target* (-> *target* state name) 'pas-de-target))
+        (cond
+          ((name= (-> *cine-kick-found* state name) "play-anim") 1)
+          ((> *cine-kick-sends* 60)
+           (format 0 "CINEKICK-GIVEUP type=~S raison=~D-envois-sans-entree-en-play-anim~%"
+                   tname *cine-kick-sends*)
+           0)
+          (else (send-event *cine-kick-found* 'play-anim) 2)))
+       (else
+        ;; LE TABLEAU DES NIVEAUX, PARCE QUE « absent du pool » A DEUX CAUSES OPPOSEES : l'acteur
+        ;; n'est pas ne (son niveau tourne, la naissance est bornee par la visibilite), ou son
+        ;; NIVEAU n'est pas 'active et sa table d'entites n'est meme pas parcourue
+        ;; (engine/entity/entity.gc:1084). Les deux rendent le meme silence.
+        (format 0 "CINEKICK type=~S envoye=0 raison=absent-du-pool-actif taskables_vus=~D "
+                tname *cine-kick-seen*)
+        (format 0 "lev0=~A/~A/~A lev1=~A/~A/~A~%"
+                (-> *level* level0 name) (-> *level* level0 status) (-> *level* level0 display?)
+                (-> *level* level1 name) (-> *level* level1 status) (-> *level* level1 display?))
+        0)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Gloading-screen -- ETIQUETTE DE L'APPELANT DU NOIR (owner 2026-08-29)

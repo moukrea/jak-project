@@ -733,9 +733,16 @@ void pc_npc_census_begin(u32 scene) {
   npc_flicker::begin_census(scene ? Ptr<String>(scene).c()->data() : nullptr);
 }
 
-void pc_npc_census_actor(u32 merc_name, u32 pid, u32 draw_status, s32 level_active) {
+// `in_fov` (Gcutscene-npc-flicker-2) : verdict INDEPENDANT de position. Le moteur cull sur
+// `draw origin + draw bounds` ; ce parametre porte le meme test de frustum applique a
+// `root trans`, l'autre source de position de l'acteur. Voir game/system/npc_flicker.h.
+void pc_npc_census_actor(u32 merc_name,
+                         u32 pid,
+                         u32 draw_status,
+                         s32 level_active,
+                         s32 in_fov) {
   const char* nm = merc_name ? Ptr<String>(merc_name).c()->data() : nullptr;
-  npc_flicker::census_actor(nm, nm, pid, draw_status, level_active);
+  npc_flicker::census_actor(nm, nm, pid, draw_status, level_active, in_fov);
 }
 
 void pc_npc_census_end() {
@@ -5618,6 +5625,195 @@ void task_close_maybe() {
   ListenerFunction->value = f.offset;
   lg::info("[TASK-CLOSE] armed *listener-function* = #x{:x} for spec '{}'", f.offset,
            s_task_close_spec);
+}
+
+// ─── CINE KICK (Gcutscene-npc-flicker-2 debug-only cutscene launcher) ──────────
+// Plays an NPC cutscene WITHOUT a human at the pad. The previous cycle could only
+// reach the five cutscenes a `continue-flags` fires on its own (target-death.gc
+// :230-271) — all of them Sandover, none of them the MAYOR, which is the exact case
+// the owner names ("le pire cas que j'ai observé c'est la cinématique avec MAIRE").
+// This hook calls the GOAL `pc-cine-kick!` (engine/game/main.gc), which sends the
+// game's own 'play-anim event to the taskable NPC process — the same door
+// target-death.gc:239 already uses for sage-23.
+//   env OG_CINE_KICK / prop debug.opengoal.cine.kick = "<type>[,<type>...]"
+//     comma-separated GOAL TYPE names, in order, e.g. "mayor,farmer,explorer".
+//     Empty/unset = hook off (default; production is unchanged bit-for-bit).
+//   OG_CINE_KICK_DELAY (default 900 dispatch ticks) — longer than the level warp's
+//     600 so the level is loaded and the player settled when the first kick fires.
+//   OG_CINE_KICK_GAP   (default 60)   — minimum spacing between two arms, so the
+//     single *listener-function* slot is not hammered every dispatch.
+//   OG_CINE_KICK_HOLD  (default 1800) — wait after a delivered kick, so the cutscene
+//     plays out ENTIRELY before the next name is attempted.
+// Unlike the two hooks above it does NOT latch on a global s_done: it re-arms the
+// listener once per name in the list, advancing only inside cine_kick_run and only
+// according to what the GOAL side returned (2 busy = retry, 1 sent = advance + hold,
+// 0 absent = retry up to 40 times then give up). Sized independently of
+// PROP_VALUE_MAX (Android-only macro) so the desktop x86 build compiles.
+static char s_cine_kick_spec[256] = {0};
+static char s_cine_kick_cur[64] = {0};
+static int s_cine_kick_idx = 0;    // which name of the list we are launching
+static int s_cine_kick_tries = 0;  // consecutive "absent" retries on that name
+static int s_cine_kick_wait = 0;   // dispatch ticks to burn before the next arm
+
+static bool cine_kick_requested() {
+  if (s_cine_kick_spec[0]) {
+    return true;  // already read this boot; the list never changes mid-run
+  }
+  if (const char* e = std::getenv("OG_CINE_KICK")) {
+    if (e[0]) {
+      std::strncpy(s_cine_kick_spec, e, sizeof(s_cine_kick_spec) - 1);
+      s_cine_kick_spec[sizeof(s_cine_kick_spec) - 1] = 0;
+      return true;
+    }
+  }
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("debug.opengoal.cine.kick", buf) > 0 && buf[0]) {
+    std::strncpy(s_cine_kick_spec, buf, sizeof(s_cine_kick_spec) - 1);
+    s_cine_kick_spec[sizeof(s_cine_kick_spec) - 1] = 0;
+    return true;
+  }
+#endif
+  return false;
+}
+
+// Copies token #idx of the comma-separated list into out (surrounding blanks
+// trimmed, empty tokens skipped). Returns false once idx is past the end — that is
+// the hook's stop condition.
+static bool cine_kick_name_at(int idx, char* out, size_t out_sz) {
+  out[0] = 0;
+  int n = 0;
+  const char* p = s_cine_kick_spec;
+  while (*p) {
+    const char* start = p;
+    while (*p && *p != ',') {
+      ++p;
+    }
+    const char* end = p;
+    if (*p == ',') {
+      ++p;
+    }
+    while (start < end && (*start == ' ' || *start == '\t')) {
+      ++start;
+    }
+    while (end > start && (end[-1] == ' ' || end[-1] == '\t')) {
+      --end;
+    }
+    size_t len = (size_t)(end - start);
+    if (len == 0) {
+      continue;  // "a,,b" / trailing comma
+    }
+    if (n == idx) {
+      if (len > out_sz - 1) {
+        len = out_sz - 1;
+      }
+      std::memcpy(out, start, len);
+      out[len] = 0;
+      return true;
+    }
+    ++n;
+  }
+  return false;
+}
+
+static int cine_kick_env_int(const char* name, int def) {
+  if (const char* v = std::getenv(name)) {
+    if (v[0]) {
+      return atoi(v);
+    }
+  }
+  return def;
+}
+
+// The kick body — invoked BY THE KERNEL as *listener-function*, the same in-context
+// trampoline level_warp_run / task_close_run use. Returns what pc-cine-kick! returned
+// (0 absent / 1 sent / 2 a cutscene is already playing) and OWNS the list index: the
+// C++ side never advances anywhere else, so the index can only move on an answer that
+// actually came back from GOAL.
+static u64 cine_kick_run() {
+  u32 fn = intern_from_c("pc-cine-kick!")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    printf("CINEKICK-FAIL reason=pc-cine-kick!-unbound\n");
+    fflush(stdout);
+    return 0;
+  }
+  u32 lp = intern_from_c("*listener-process*")->value;
+  u64 s = make_string_from_c(s_cine_kick_cur);
+  u64 args[8] = {s, 0, 0, 0, 0, 0, 0, 0};
+  u64 r = _call_goal8_asm_systemv((void*)(g_ee_main_mem + fn), args, 0, (u64)lp, (u64)s7.offset,
+                                  g_ee_main_mem);
+  int ret = (int)(u32)r;
+  printf("CINEKICK-CALL type=%s ret=%d\n", s_cine_kick_cur, ret);
+  fflush(stdout);
+  int gap = cine_kick_env_int("OG_CINE_KICK_GAP", 60);
+  if (ret == 1) {
+    // Delivered: let this cutscene play out ENTIRELY before touching the next name.
+    s_cine_kick_idx++;
+    s_cine_kick_tries = 0;
+    s_cine_kick_wait = cine_kick_env_int("OG_CINE_KICK_HOLD", 1800);
+  } else if (ret == 2) {
+    // A cutscene is already running — do NOT advance, this name is still owed.
+    s_cine_kick_wait = gap;
+  } else {
+    // Not in the active pool yet. pc-cine-kick! raises the actor birth bound on the
+    // first miss, so the next tries can see an NPC that had not been born.
+    s_cine_kick_tries++;
+    if (s_cine_kick_tries >= 40) {
+      printf("CINEKICK-GIVEUP type=%s\n", s_cine_kick_cur);
+      fflush(stdout);
+      s_cine_kick_idx++;
+      s_cine_kick_tries = 0;
+    }
+    s_cine_kick_wait = gap;
+  }
+  return r;
+}
+
+void cine_kick_maybe() {
+  if (!cine_kick_requested()) {
+    return;
+  }
+  // Stop condition: the index walked past the last name of the list.
+  if (!cine_kick_name_at(s_cine_kick_idx, s_cine_kick_cur, sizeof(s_cine_kick_cur))) {
+    return;
+  }
+  // Readiness: same gate as task_close_maybe, with pc-cine-kick! in place of
+  // close-specific-task! — the very function the runner will call.
+  u32 gi = intern_from_c("*game-info*")->value;
+  if (gi == 0 || gi == (u32)s7.offset || (gi & OFFSET_MASK) != 4 /*BASIC_OFFSET*/) {
+    return;
+  }
+  u32 fn = intern_from_c("pc-cine-kick!")->value;
+  if (fn == 0 || fn == (u32)s7.offset) {
+    return;
+  }
+  u32 dead_pool = intern_from_c("*target-dead-pool*")->value;
+  if (dead_pool == 0 || dead_pool == (u32)s7.offset) {
+    return;
+  }
+  static int s_ticks = 0;
+  if (s_ticks++ < cine_kick_env_int("OG_CINE_KICK_DELAY", 900)) {
+    return;
+  }
+  if (s_cine_kick_wait > 0) {
+    s_cine_kick_wait--;
+    return;
+  }
+  // don't clobber a pending listener function — another hook's, or our own previous
+  // arm that the kernel has not dispatched yet
+  if (ListenerFunction->value != (u32)s7.offset && ListenerFunction->value != 0) {
+    return;
+  }
+  // Minimum spacing; cine_kick_run overwrites it with its own policy when it fires.
+  s_cine_kick_wait = cine_kick_env_int("OG_CINE_KICK_GAP", 60);
+  static Ptr<Function> s_cine_kick_fn(0);
+  if (s_cine_kick_fn.offset == 0) {
+    // allocated once: this hook arms many times, unlike its two neighbours
+    s_cine_kick_fn = make_function_from_c((void*)cine_kick_run, false);
+  }
+  ListenerFunction->value = s_cine_kick_fn.offset;
+  lg::info("[CINE-KICK] armed *listener-function* = #x{:x} for type '{}' (idx {}, try {})",
+           s_cine_kick_fn.offset, s_cine_kick_cur, s_cine_kick_idx, s_cine_kick_tries);
 }
 
 // ─── WANT-LEVELS / WANT-DISPLAY (Gcrash-rockvillage debug-only repro tool) ──────

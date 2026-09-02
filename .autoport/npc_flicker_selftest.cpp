@@ -45,6 +45,10 @@ struct Actor {
   bool drawn;
   npc_flicker::Outcome outcome = npc_flicker::Outcome::kDrawn;
   int level_active = 1;
+  // Verdict INDEPENDANT de position (cf. npc_flicker.h) : 1 = la racine de l'acteur est dans le
+  // frustum, 0 = dehors, -1 = non evalue. Par defaut -1, pour que les cas anterieurs a
+  // Gcutscene-npc-flicker-2 rendent EXACTEMENT ce qu'ils rendaient avant.
+  int in_fov = -1;
 };
 
 // Une image complete, dans l'ORDRE REEL du moteur : le rendu avance et publie ses issues, puis
@@ -62,7 +66,7 @@ void run_frame(const char* scene, const std::vector<Actor>& actors) {
   npc_flicker::begin_census(scene);
   for (const auto& a : actors) {
     if (a.in_tree) {
-      npc_flicker::census_actor(a.name, a.name, a.pid, a.status, a.level_active);
+      npc_flicker::census_actor(a.name, a.name, a.pid, a.status, a.level_active, a.in_fov);
     }
   }
   npc_flicker::end_census();
@@ -397,6 +401,114 @@ int main() {
           "clone qui ne suit plus sa source : cycle cause=clone-desynchronise",
           "cycles=" + std::to_string(t.cycles) +
               " clone=" + std::to_string(t.by_reason[npc_flicker::kReasonRemap]));
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Gcutscene-npc-flicker-2 — LES DEUX SEAUX QUE `culled` AVALAIT, ET LE RACCORD DE DEBUT DE SCENE.
+  //
+  // Au cycle 1, `culled` recevait tout ce que classify() ne savait pas nommer, et il n'etait
+  // jamais gate : sur les sept courses archivees de .autoport/reports/Gcutscene-npc-flicker/ il
+  // etait le SEUL seau non vide (37 a 106 episodes par course) pendant que `cycles` valait 0. Un
+  // compteur neuf sans controle qui le fasse MONTER est exactement la faute que cette garde
+  // existe pour interdire : les deux nouveaux seaux ont donc ici leur controle positif ET leur
+  // controle negatif.
+  // ---------------------------------------------------------------------------------------------
+
+  // 15. CULL-AVEUGLE, CONTROLE POSITIF — was-drawn a 0 alors que la position racine est DANS le
+  //     champ. Le moteur ne l'a pas soumis, et ce n'est pas la camera qui l'a laisse dehors.
+  npc_flicker::reset_for_test();
+  g_frame = 0;
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-CA", {shown("mayor-lod0", 700)});
+  }
+  for (int i = 0; i < 8; i++) {
+    Actor a{"mayor-lod0", 700, 0u, true, false};  // was-drawn absent
+    a.in_fov = 1;                                 // ... et pourtant dans le champ
+    run_frame("scene-CA", {a});
+  }
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-CA", {shown("mayor-lod0", 700)});
+  }
+  npc_flicker::begin_census("hors-cinematique");
+  {
+    auto t = npc_flicker::totals();
+    check(t.cycles == 1 && t.by_reason[npc_flicker::kReasonCullBlind] == 1,
+          "was-drawn=0 mais racine DANS le champ : cycle cause=cull-aveugle",
+          "cycles=" + std::to_string(t.cycles) +
+              " cull_aveugle=" + std::to_string(t.by_reason[npc_flicker::kReasonCullBlind]));
+    check(t.by_reason[npc_flicker::kReasonCulled] == 0,
+          "  ... et il ne retombe PAS dans le seau non gate `culled`",
+          "culled=" + std::to_string(t.by_reason[npc_flicker::kReasonCulled]));
+  }
+
+  // 16. CULL-AVEUGLE, CONTROLE NEGATIF — meme absence, mais la racine est HORS du champ. C'est la
+  //     camera qui a coupe : non gate, exactement comme avant.
+  npc_flicker::reset_for_test();
+  g_frame = 0;
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-CB", {shown("mayor-lod0", 700)});
+  }
+  for (int i = 0; i < 8; i++) {
+    Actor a{"mayor-lod0", 700, 0u, true, false};
+    a.in_fov = 0;
+    run_frame("scene-CB", {a});
+  }
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-CB", {shown("mayor-lod0", 700)});
+  }
+  npc_flicker::begin_census("hors-cinematique");
+  {
+    auto t = npc_flicker::totals();
+    check(t.cycles == 0 && t.by_reason[npc_flicker::kReasonCulled] == 1,
+          "was-drawn=0 et racine HORS du champ : coupe, pas un cycle",
+          "cycles=" + std::to_string(t.cycles) +
+              " culled=" + std::to_string(t.by_reason[npc_flicker::kReasonCulled]));
+  }
+
+  // 17. NODRAW, CONTROLE POSITIF — was-drawn POSE, donc GOAL a soumis, et le rendu n'a rien
+  //     dessine, sans suppression de couverture ni modele absent. Le cycle 1 rendait `culled`.
+  npc_flicker::reset_for_test();
+  g_frame = 0;
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-CC", {shown("farmer-lod0", 800)});
+  }
+  for (int i = 0; i < 8; i++) {
+    run_frame("scene-CC", {Actor{"farmer-lod0", 800, kWasDrawn, true, false}});
+  }
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-CC", {shown("farmer-lod0", 800)});
+  }
+  npc_flicker::begin_census("hors-cinematique");
+  {
+    auto t = npc_flicker::totals();
+    check(t.cycles == 1 && t.by_reason[npc_flicker::kReasonNodraw] == 1,
+          "was-drawn=1 et rien de dessine : cycle cause=soumis-mais-non-dessine",
+          "cycles=" + std::to_string(t.cycles) +
+              " nodraw=" + std::to_string(t.by_reason[npc_flicker::kReasonNodraw]));
+  }
+
+  // 18. LE RACCORD « flux-non-arme » -> NOM REEL NE DOIT PAS JETER LE RECENSEMENT. Le bit `movie`
+  //     est arme a l'entree de play-anim, mais `active-stream` n'est ecrit qu'apres
+  //     `str-play-async` : le cycle 1 vidait tout a ce changement de nom, donc le DEBUT de chaque
+  //     cinematique — dont sa premiere frontiere de partie — etait hors instrument. Ici l'episode
+  //     s'ouvre sous « flux-non-arme » et se ferme sous le vrai nom : UNE scene, UN cycle.
+  npc_flicker::reset_for_test();
+  g_frame = 0;
+  for (int i = 0; i < 10; i++) {
+    run_frame("flux-non-arme", {shown("mayor-lod0", 900)});
+  }
+  for (int i = 0; i < 8; i++) {
+    run_frame("flux-non-arme", {Actor{"mayor-lod0", 900, kNoAnim, true, false}});
+  }
+  for (int i = 0; i < 10; i++) {
+    run_frame("mayor-introduction", {shown("mayor-lod0", 900)});
+  }
+  npc_flicker::begin_census("hors-cinematique");
+  {
+    auto t = npc_flicker::totals();
+    check(t.scenes == 1 && t.cycles == 1,
+          "episode ouvert avant que le flux porte son nom : compte, sous UNE seule scene",
+          "scenes=" + std::to_string(t.scenes) + " cycles=" + std::to_string(t.cycles));
   }
 
   printf("\n%s — %d echec(s)\n", g_fail ? "SELFTEST FAILED" : "SELFTEST PASS", g_fail);
