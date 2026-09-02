@@ -19,7 +19,7 @@ from datetime import datetime
 TS = re.compile(r'^(\d\d-\d\d \d\d:\d\d:\d\d\.\d+) (.*)$')
 SRC = {0: 'aucun-pose-stock', 1: 'reciblage-mode0', 2: 'reciblage-mode3', 3: 'reciblage-mode1',
        4: 'colle', 5: 'filet-repare', 6: 'filet-perime-repare', 7: 'pose-de-secours',
-       8: 'garde-saute', 9: 'controle-positif-inject'}
+       8: 'garde-saute', 9: 'controle-positif-inject', 10: 'colle-par-le-garde-d-echelle-mode1'}
 MODEL = {0: 'jak', 1: 'daxter', 2: 'keira', 3: 'samos', 4: 'jak', 5: 'jak', 6: 'daxter', 7: 'keira',
          8: 'samos', 9: 'jak', 10: 'jak'}
 
@@ -45,9 +45,14 @@ def main():
     tag, inj, files = sys.argv[1], sys.argv[2], sys.argv[3:]
     gpu = dict(frames=0, hd_frames=0, hd_stretch_frames=0, hd_stretch_bones=0, bones_judged=0,
                torn=0, same=0, nan=0, null=0, rep=0, norig=0, hd_bad_frames=0, hd_bad_bones=0,
-               cmd_judged=0, cmd_bones=0, cmd_frames=0, cmd_nostock=0)
+               cmd_judged=0, cmd_bones=0, cmd_frames=0, cmd_nostock=0, scl_bones=0, scl_frames=0,
+               ring_ok=0, ring_bad=0, ring_nostamp=0, ring_judged=0, ring_far=0)
     goal = dict(imgs=0, etimgs=0, etos=0, nan=0, drvstale=0, origine=0, blend=0, inject=0, minutes=0.0,
-                cmdos=0, cmdimgs=0)
+                cmdos=0, cmdimgs=0, sclos=0, sclimgs=0, sclep=0)
+    scl_worst = 0.0
+    goal_scl_worst = 0.0
+    sclarm_seen = set()
+    sclep_ev = []
     mv = dict(sauts=0, demi_tours=0, coups=0, spins=0)
     mv_dist = 0.0
     mv_speed = []
@@ -69,6 +74,7 @@ def main():
         hl = [kv(l) for t, l in lines if l.startswith('HDLEN ')]
         hl2 = [kv(l) for t, l in lines if l.startswith('HDLEN2 ')]
         hl3 = [kv(l) for t, l in lines if l.startswith('HDLEN3 ')]
+        hl4 = [kv(l) for t, l in lines if l.startswith('HDLEN4 ')]
         hm = [kv(l) for t, l in lines if l.startswith('HDMOVES ')]
         hb = [kv(l) for t, l in lines if l.startswith('HDHB ')]
         wall = [kv(l) for t, l in lines if l.startswith('HDWALL ')]
@@ -78,6 +84,12 @@ def main():
         for t, l in lines:
             if l.startswith('HDSTRETCHINJECT '):
                 inj_seen.add(kv(l).get('value', '?'))
+            if l.startswith('HDSCALEARM '):
+                sclarm_seen.add(kv(l).get('value', '?'))
+            if l.startswith('HDSCLEP '):
+                sclep_ev.append(kv(l))
+            elif l.startswith('HDSCLEP2 ') and sclep_ev:
+                sclep_ev[-1].update(kv(l))
             if l.startswith('HDLENG '):
                 cur = kv(l)
                 cur['_t'] = t
@@ -88,6 +100,8 @@ def main():
             elif l.startswith('HDLENG4 ') and cur is not None:
                 cur.update(kv(l))
             elif l.startswith('HDLENG5 ') and cur is not None:
+                cur.update(kv(l))
+            elif l.startswith('HDLENG6 ') and cur is not None:
                 cur.update(kv(l))
                 e = cur
                 src = int(e.get('src', 0))
@@ -105,7 +119,8 @@ def main():
                     f"pilote_perime={e.get('drvstale')} canaux={e.get('chans')} anim0={e.get('anim0')} "
                     f"interp0={e.get('interp0')} anim1={e.get('anim1')} etat={e.get('st')} image_sautee={e.get('skipped')} "
                     f"pose_cmd={e.get('cmd')} ecart_commande_m={e.get('ecart_cmd_m')} longueur_commandee_m={e.get('len_cmd_m')} "
-                    f"vitesse_m_s={e.get('vitesse_m_s')}")
+                    f"vitesse_m_s={e.get('vitesse_m_s')} echelle_base=({e.get('scl0')},{e.get('scl1')},{e.get('scl2')}) "
+                    f"echelle_aberrante={e.get('sclbad')} parent_pilote={e.get('ep')} echelle_parent_pilote={e.get('sclep')}")
                 cur = None
             elif l.startswith('HDCMDEV '):
                 e = kv(l)
@@ -125,7 +140,8 @@ def main():
                     f"saut_m={e.get('saut_m')} longueur_commandee_m={e.get('len_cmd_m')} longueur_rendue_m={e.get('len_ren_m')} "
                     f"angle_deg={e.get('angle_deg')} rendu_camera={e.get('ren')} commande_camera={e.get('cmd')} "
                     f"chemin={chemin} torn={e.get('torn')} same={e.get('same')} rep={e.get('rep')} stock_gap={e.get('stock_gap')} "
-                    f"image={e.get('frame')}")
+                    f"image={e.get('frame')} lignes_base={e.get('rows')} translation_brute={e.get('t')} estampille_ok={e.get('stamp_ok')} "
+                    f"goal_camera={e.get('goal_cam')} ecart_goal_m={e.get('d_goal_m')}")
             elif l.startswith('HDLENEV '):
                 e = kv(l)
                 m = e.get('model', '?')
@@ -148,7 +164,8 @@ def main():
                     f"ratio={e.get('ratio')} fuite_camera={e.get('pos')} parent_camera={e.get('ppos')} "
                     f"chemin={chemin} nan={e.get('nan')} null={e.get('null')} torn={e.get('torn')} "
                     f"same={e.get('same')} psame={e.get('psame')} gap={e.get('gap')} rep={e.get('rep')} "
-                    f"n_etires_paquet={e.get('n_stretched')} image={e.get('frame')}")
+                    f"n_etires_paquet={e.get('n_stretched')} image={e.get('frame')} lignes_base={e.get('rows')} lignes_parent={e.get('prows')} "
+                    f"translation_brute={e.get('t')} estampille_ok={e.get('stamp_ok')} goal_camera={e.get('goal_cam')} ecart_goal_m={e.get('d_goal_m')}")
         if wall:
             pad_s += int(wall[-1].get('secondes', 0))
         if not sl:
@@ -164,6 +181,11 @@ def main():
         worst_ratio = max(worst_ratio, float(last.get('worst_ratio', 0) or 0))
         worst_m = max(worst_m, float(last.get('worst_m', 0) or 0))
         cmd_worst = max(cmd_worst, float(last.get('cmd_worst_m', 0) or 0))
+        scl_worst = max(scl_worst, float(last.get('scl_worst', 0) or 0))
+        if hl4:
+            for k in ('sclos', 'sclimgs', 'sclep'):
+                goal[k] += int(hl4[-1].get(k, 0) or 0)
+            goal_scl_worst = max(goal_scl_worst, float(hl4[-1].get('pire_scl', 0) or 0))
         if hl3:
             for k in ('cmdos', 'cmdimgs'):
                 goal[k] += int(hl3[-1].get(k, 0) or 0)
@@ -193,14 +215,32 @@ def main():
               f"| MOVES {hm[-1] if hm else 'ABSENT'} | reel={span/60:.4f} min (pad {wall[-1].get('secondes','?') if wall else '?'} s)")
     modeles = sorted({MODEL[i] for i in range(11) if ents & (1 << i)} | set(models_gpu))
     print(f"# inject vu par le jeu (HDSTRETCHINJECT value=) : {','.join(sorted(inj_seen)) or 'ABSENT (defaut GOAL = 0)'}  demande={inj}")
+    print(f"# garde d'echelle vu par le jeu (HDSCALEARM value=) : {','.join(sorted(sclarm_seen)) or 'ABSENT (defaut GOAL = 1)'}")
+    for e in sclep_ev[:60]:
+        print(f"HDATTRIB site=squelette-garde-echelle modele={MODEL.get(int(e.get('entry', 0)), '?')} os={e.get('k')} pilote={e.get('e')} "
+              f"parent_pilote={e.get('ep')} arme={e.get('arme')} echelle_parent=({e.get('r0')},{e.get('r1')},{e.get('r2')}) det={e.get('det')} "
+              f"anim={e.get('anim')} etat={e.get('st')} chemin={'colle-par-le-garde-d-echelle-mode1' if e.get('arme') == '1' else 'reciblage-mode1-inverse-du-parent-a-echelle-aberrante'}")
     for a in attribs[:200]:
         print(a)
-    # os_etires = UNION des deux criteres au point de consommation GPU (longueur > 2 x repos + 0,25 m
-    # OU ecart > 0,25 m a la pose COMMANDEE par l'animation en cours, derivee du paquet stock du
-    # pilote dans la MEME image) ; les deux criteres sont publies a part, et le squelette a cote.
+    # os_etires = os RENDUS ou ECRITS a plus de 0,25 m de la pose COMMANDEE par l'animation en cours
+    # (owner 21:05 : « pas dans un sens ou ils sont censes s'etirer, pas lie a l'animation ») :
+    #   - squelette : position ecrite contre le produit du reciblage de la MEME image (tous joints) ;
+    #   - GPU : position consommee contre la commande derivee du paquet STOCK du pilote, MEME image
+    #     (joints en mode 0, ~55 % des os juges).
+    # La longueur contre le REPOS DE BIND n'est PAS le verdict : mesure Redmi dev6-inj1, Daxter
+    # k=5 et k=32 rendent 5 x leur repos pendant `sidekick-attack-from-jump` avec un ecart de
+    # 0,0000 m a la commande — l'animation ND etire ces os (squash & stretch), le modele stock
+    # aussi. Elle reste publiee comme diagnostic (`os_longueur`).
     print(f"HDSTRETCHCOUNT bras={tag} plateforme=redmi inject={inj} scenes={scenes} minutes={wall_s/60:.4f} "
           f"minutes_de_jeu_moteur={goal['minutes']:.4f} secondes_pad={pad_s} images={gpu['hd_frames']} "
-          f"os_etires={gpu['hd_bad_bones']} images_etirees={gpu['hd_bad_frames']} os_juges={gpu['bones_judged']} "
+          f"os_etires={gpu['cmd_bones'] + goal['cmdos'] + gpu['scl_bones'] + goal['sclos'] + gpu['ring_far']} critere=ecart-a-la-pose-commandee-0.25m-ou-echelle-de-base-hors-bande-ou-ecart-a-la-position-ecrite-par-goal "
+          f"os_echelle_gpu={gpu['scl_bones']} images_echelle_gpu={gpu['scl_frames']} pire_echelle_gpu={scl_worst:.2f} "
+          f"os_echelle_squelette={goal['sclos']} images_echelle_squelette={goal['sclimgs']} pire_echelle_squelette={goal_scl_worst:.2f} "
+          f"parents_pilotes_echelle_aberrante={goal['sclep']} "
+          f"os_ecart_goal_gpu={gpu['ring_far']} os_compares_goal={gpu['ring_judged']} os_mauvais_ecrits_par_goal={gpu['ring_ok']} "
+          f"os_mauvais_corrompus_apres_ecriture={gpu['ring_bad']} paquets_sans_estampille={gpu['ring_nostamp']} "
+          f"os_etires_gpu_commande={gpu['cmd_bones']} os_etires_squelette_commande={goal['cmdos']} "
+          f"images_etirees={gpu['cmd_frames'] + goal['cmdimgs']} os_juges={gpu['bones_judged']} "
           f"os_longueur={gpu['hd_stretch_bones']} images_longueur={gpu['hd_stretch_frames']} "
           f"os_ecart_commande={gpu['cmd_bones']} images_ecart_commande={gpu['cmd_frames']} os_compares_commande={gpu['cmd_judged']} "
           f"pire_ecart_commande_m={cmd_worst:.2f} paquets_sans_stock={gpu['cmd_nostock']} "

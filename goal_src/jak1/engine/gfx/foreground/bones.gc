@@ -946,7 +946,12 @@
       ;; deref a garbage pid off the symbol table).
       (set! (-> (the-as (pointer uint32) (&+ dma-buf 120)))
             (the-as uint (let ((proc (-> dc process)))
-                           (if (and proc (nonzero? proc)) (-> proc pid) 0)))))
+                           (if (and proc (nonzero? proc)) (-> proc pid) 0))))
+      ;; Ghd-skin-origin-stretch (cycle 6) : l'ESTAMPILLE D'IMAGE aux octets 124..127, la meme
+      ;; `real-frame-counter` que jak-hd.gc ecrit dans son anneau de positions — Merc2 apparie le
+      ;; paquet consomme a ce que le squelette GOAL portait a cette image-la.
+      (set! (-> (the-as (pointer uint32) (&+ dma-buf 124)))
+            (the-as uint (logand (the-as int (-> *display* real-frame-counter)) #xffffffff))))
     (&+! dma-buf (* 16 8))
     (+! qwc-total 8)
     ;; LIGHTS:

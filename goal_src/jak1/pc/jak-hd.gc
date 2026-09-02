@@ -73,6 +73,17 @@
 ;; float sur la frontiere FFI) est enregistre aupres de Merc2 pour que la sonde de LONGUEUR
 ;; D'OS tourne au point de consommation GPU, la ou l'owner voit le defaut.
 (define-extern pc-hd-skel-joint! (function int int int int int int int int none))
+;; cycle 6 — L'ANNEAU DE POSITIONS ECRITES : ce que le squelette GOAL portait pour chaque joint
+;; HD a chaque image (repere monde) + la matrice camera de l'image + l'estampille d'image, dans
+;; un anneau STATIQUE de 4 images par emplacement de compagnon, lu par Merc2 au point de
+;; consommation GPU pour departager « GOAL l'a ecrit » de « corrompu entre l'ecriture et le rendu ».
+(define-extern pc-hd-ring! (function int int int none))
+(define-extern pc-hd-ring-slot! (function int int none))
+(defglobalconstant HD_RING_SLOTS 11)
+(define *hd-ring*       (new 'global 'inline-array 'vector 5632))  ;; 11 emplacements x 4 images x 128 joints
+(define *hd-ring-cam*   (new 'global 'inline-array 'matrix 44))   ;; 11 x 4 matrices camera-rot
+(define *hd-ring-stamp* (new 'global 'inline-array 'vector 44))   ;; 11 x 4 : x = estampille (motif de bits d'un entier)
+(define *hd-ring-registered* 0)
 
 ;; ------------------------------------------------------------------------------------------------
 ;; retarget tables v2: per character, FOUR parallel arrays (mirrors of *-k2e.gc-snippet):
@@ -521,7 +532,10 @@
    ;; sont censés s'étirer, pas lié à l'animation en cours ») : la position que le RECIBLAGE de
    ;; cette image commande pour le joint k (le produit `res`, calcule depuis la pose du pilote),
    ;; AVANT filet, physique et controle positif. w = 1 si commandee cette image, 0 sinon.
-   (hd-cmd     vector 128 :inline))
+   (hd-cmd     vector 128 :inline)
+   ;; ECHELLE de bind du joint k dans le monde (|ligne 0| du bind direct) : la reference de la
+   ;; mesure d'echelle de la base ecrite — les positions ne voient pas une base qui explose.
+   (hd-bs      float 128))
   (:states jak-hd-clone))
 
 ;; les chemins d'ecriture d'un os HD, tels que `hd-src` les nomme (un octet par joint et par image)
@@ -535,6 +549,7 @@
 (defglobalconstant HD_SRC_SECOURS 7) ;; pose de secours (bind ancre sur la racine du pilote)
 (defglobalconstant HD_SRC_GUARD  8)  ;; saute par le garde (os pilote inutilisable) : pose stock conservee
 (defglobalconstant HD_SRC_INJECT 9)  ;; CONTROLE POSITIF : deplace expres par `*hd-stretch-inject*`
+(defglobalconstant HD_SRC_SCALE 10)  ;; colle par le GARDE D'ECHELLE (parent pilote a echelle aberrante, mode 1)
 
 ;; Grecharged-secondary-motion: the chain sim lives in jak-hd-physics.gc, compiled AFTER this file
 ;; (its functions take jak-hd args). Forward externs, same idiom as maybe-spawn-jak-hd! in
@@ -792,6 +807,40 @@
     ;; NaN rend faux des deux cotes : un determinant non comparable est refuse aussi.
     (or (> d HD_DET_EPS) (< d (- 0.0 HD_DET_EPS)))))
 
+;; ------------------------------------------------------------------------------------------------
+;; cycle 6 — LE GARDE D'ECHELLE DU MODE 1. Mesure Redmi dev6-nat (2026-09-02 22:25:12, finalboss
+;; images 720-723 ; snow 690-694 ; village3-farside 688-689) : le squelette GOAL est propre
+;; (positions des joints a 0,0000 m de la commande, `singep=0`) et pourtant le GPU consomme, sur
+;; Jak ET Daxter, des chaines d'os de 4,5 m chacun (k=6->11->12, ratio 13 a 80) pendant 4 a 5 images,
+;; exactement a la transition stance->walk->attack. Positions justes, produit GPU faux : c'est la
+;; BASE (echelle) des matrices, que les positions ne voient pas. Le mode 1 est la seule branche qui
+;; INVERSE un os du pilote (`inv(A'_ep)`) ; `hd-mat-invertible?` ne refuse que |det| < 1e-9, donc
+;; un parent pilote a echelle 0,1 (det 1e-3) passe et son inverse amplifie x10 toute la chaine HD
+;; en dessous — le pudding « subit, pas dans un sens censé », pendant une fraction de seconde.
+;; Le garde compare chaque ligne de base de A'_ep a l'echelle de BIND du meme os du pilote (les
+;; emplacements `bind-pose` stockent l'inverse : echelle de bind = 1 / |ligne de l'inverse|) : hors
+;; de [1/4, 4], le parent n'est pas inversible AU SENS UTILE et le joint retombe sur le produit
+;; colle, comme pour `sing`. Debrayable (`*hd-scale-arm*` = 0, propriete
+;; `debug.opengoal.hd.scale_arm`) pour que les deux bras tournent sur le meme APK.
+;; ------------------------------------------------------------------------------------------------
+(define *hd-scale-arm* 1)
+(defglobalconstant HD_SCALE_MIN 0.25)
+(defglobalconstant HD_SCALE_MAX 4.0)
+(define *hd-scl-ep*     0)   ;; parents pilotes REFUSES par le garde d'echelle (mode 1, arme ou non : occasions)
+(define *hd-scl-eplogs* 0)
+
+(defun hd-drv-scale-sane? ((a matrix) (binv matrix))
+  "Vrai si chaque ligne de base de l'os pilote `a` a une longueur entre 1/4 et 4 fois son
+   echelle de bind (binv = bind INVERSE stocke : echelle de bind = 1/|ligne|). NaN rend faux."
+  (let ((ok #t))
+    (dotimes (r 3)
+      (let* ((la (vector-length (-> a vector r)))
+             (li (vector-length (-> binv vector r)))
+             (ratio (if (> li 0.000001) (* la li) la)))   ;; la / (1/li)
+        (when (not (and (> ratio HD_SCALE_MIN) (< ratio HD_SCALE_MAX)))
+          (set! ok #f))))
+    ok))
+
 (defun hd-nan-note! ((obj jak-hd) (branch int) (k int) (e int) (ep int) (p int) (md int))
   "Un os HD NON FINI vient d'etre PRODUIT par la branche `branch` (1 mode 0, 2 mode 3, 3 mode 1,
    4 collee). Compte par branche et publie, sous cap, le contexte qui attribue : joints, mode,
@@ -1000,7 +1049,13 @@
                           ;; l'inversion, et compte a part : ce n'est pas un os « perime ».
                           (sing (and (= md 1) (!= ep #xff) (< (+ ep 1) tbones)
                                      (not (hd-mat-invertible?
-                                            (the-as matrix (-> tgt-skel bones (+ ep 1) transform)))))))
+                                            (the-as matrix (-> tgt-skel bones (+ ep 1) transform))))))
+                          ;; cycle 6 : parent pilote a echelle ABERRANTE (voir hd-drv-scale-sane?).
+                          ;; Compte comme occasion que le garde soit arme ou non ; n'agit qu'arme.
+                          (sclbad (and (= md 1) (!= ep #xff) (< (+ ep 1) tbones)
+                                       (not (hd-drv-scale-sane?
+                                              (the-as matrix (-> tgt-skel bones (+ ep 1) transform))
+                                              (-> tgt-jgeo data ep bind-pose))))))
                      (when (not ok)
                        (+! *hd-guard-occ* 1)
                        (when (nonzero? *hd-guard-arm*)
@@ -1009,6 +1064,22 @@
                          ;; son propre code. Ici on ne nomme que le REFUS.
                          (if (< k 128) (set! (-> obj hd-src k) (the-as uint HD_SRC_GUARD)))))
                      (when sing (+! *hd-sing-ep* 1))
+                     (when sclbad
+                       (+! *hd-scl-ep* 1)
+                       (when (< *hd-scl-eplogs* 60)
+                         (+! *hd-scl-eplogs* 1)
+                         (let ((am (the-as matrix (-> tgt-skel bones (+ ep 1) transform)))
+                               (bi (-> tgt-jgeo data ep bind-pose)))
+                           (format 0 "HDSCLEP entry=~D k=~D e=~D ep=~D arme=~D r0=~f~%"
+                                   (-> obj entry) k e ep *hd-scale-arm*
+                                   (* (vector-length (-> am vector 0)) (vector-length (-> bi vector 0))))
+                           (format 0 "HDSCLEP2 r1=~f r2=~f det=~f anim=~S st=~S~%"
+                                   (* (vector-length (-> am vector 1)) (vector-length (-> bi vector 1)))
+                                   (* (vector-length (-> am vector 2)) (vector-length (-> bi vector 2)))
+                                   (hd-mat-det3 am)
+                                   (if (and (-> drv skel) (-> drv skel channel 0 frame-group))
+                                     (-> drv skel channel 0 frame-group name) "none")
+                                   (if (and *target* (-> *target* state)) (-> *target* state name) (the symbol #f))))))
                      (cond
                        ;; Ghd-skin-origin-stretch : `hd-bone-posed?` ajoute aux DEUX gardes de mode.
                        ;; Un os pilote non ecrit fait retomber le joint sur le produit COLLE
@@ -1047,7 +1118,9 @@
                              (!= ep #xff) (< (+ ep 1) tbones)
                              (or ok (zero? *hd-guard-arm*))
                              ;; filet arme : un parent pilote non inversible n'entre jamais ici
-                             (or (not sing) (zero? *hd-finite-arm*)))
+                             (or (not sing) (zero? *hd-finite-arm*))
+                             ;; garde d'echelle arme : un parent a echelle aberrante non plus
+                             (or (not sclbad) (zero? *hd-scale-arm*)))
                         ;; Delta' = A'_e . inv(A'_ep) . inv(bind-pose_drv[ep]) . bind-pose_drv[e]
                         ;; SITE DE CONSOMMATION 3/3 (mode 1) : les DEUX matrices pilotes (`e` et son
                         ;; parent `ep`) entrent dans le delta ci-dessous.
@@ -1064,7 +1137,10 @@
                        (else
                         ;; mode 2 glue (also mode-1 with a root driver joint, defensively)
                         (matrix*! res lk (the-as matrix (-> skel bones (+ p 1) transform)))
-                        (set! wrote 4))))))
+                        (set! wrote 4)
+                        ;; cycle 6 : colle PARCE QUE le garde d'echelle a refuse le parent pilote
+                        ;; — nomme a part dans `hd-src` (meme produit, autre cause)
+                        (if (and sclbad (nonzero? *hd-scale-arm*)) (set! wrote HD_SRC_SCALE)))))))
                 ;; ------------------------------------------------------------------------
                 ;; LE FILET DE FINITUDE (cycle 4). `res` n'atteint le squelette que s'il est
                 ;; fini. Un resultat non fini est COMPTE PAR BRANCHE (les deux bras), puis, filet
@@ -1250,6 +1326,10 @@
 (define *hd-cmd-bones*    0)   ;; os dont la position ecrite s'ecarte de la pose commandee
 (define *hd-cmd-frames*   0)   ;; images (par compagnon) avec au moins un tel os
 (define *hd-cmd-worst*    0.0) ;; pire ecart a la pose commandee (unites)
+(defglobalconstant HD_SCL_TOL 3.0)  ;; base ecrite : |ligne| entre 1/3 et 3 x l'echelle de bind du joint
+(define *hd-scl-bones*    0)   ;; os dont une ligne de base sort de la bande (ECHELLE aberrante)
+(define *hd-scl-frames*   0)   ;; images (par compagnon) avec au moins un tel os
+(define *hd-scl-worst*    0.0) ;; pire rapport d'echelle vu (>1 : explosion ; <1 publie en 1/x)
 (define *hd-len-imgs*     0)   ;; denominateur : images mesurees (une par compagnon et par image)
 (define *hd-len-frames*   0)   ;; images avec AU MOINS UN os etire — le verdict
 (define *hd-len-bones*    0)   ;; os etires cumules
@@ -1339,6 +1419,11 @@
   (set! *hd-cmd-bones* 0)
   (set! *hd-cmd-frames* 0)
   (set! *hd-cmd-worst* 0.0)
+  (set! *hd-scl-bones* 0)
+  (set! *hd-scl-frames* 0)
+  (set! *hd-scl-worst* 0.0)
+  (set! *hd-scl-ep* 0)
+  (set! *hd-scl-eplogs* 0)
   (set! *hd-moves-dist* 0.0)
   (set! *hd-moves-frames* 0)
   (set! *hd-moves-ticks* 0)
@@ -1826,6 +1911,7 @@
               (set! (-> obj hd-l0 k) 0.0)
               (let ((p (the int (-> khd-par k))))
                 (matrix-4x4-inverse! binv (-> obj draw jgeo data k bind-pose))
+                (set! (-> obj hd-bs k) (vector-length (-> binv vector 0)))
                 (when (and (!= p #xff) (< p nj))
                   (matrix-4x4-inverse! pinv (-> obj draw jgeo data p bind-pose))
                   (set! (-> obj hd-l0 k)
@@ -1837,7 +1923,13 @@
                                    (the int (* 64.0 (-> binv vector 3 x)))
                                    (the int (* 64.0 (-> binv vector 3 y)))
                                    (the int (* 64.0 (-> binv vector 3 z))))))
-            (format 0 "HDLENRIG entry=~D pid=~D joints=~D~%" (-> obj entry) (-> obj pid) nj)))
+            (format 0 "HDLENRIG entry=~D pid=~D joints=~D~%" (-> obj entry) (-> obj pid) nj))
+          ;; l'anneau : adresses enregistrees une fois par session, emplacement = entree du compagnon
+          (when (zero? *hd-ring-registered*)
+            (set! *hd-ring-registered* 1)
+            (pc-hd-ring! (the-as int *hd-ring*) (the-as int *hd-ring-cam*) (the-as int *hd-ring-stamp*)))
+          (when (< (-> obj entry) HD_RING_SLOTS)
+            (pc-hd-ring-slot! (the int (-> obj pid)) (-> obj entry))))
         ;; A1 — LA MESURE, par os. DEUX CRITERES, publies separement et reunis dans `n` :
         ;;   - LONGUEUR : |k - p| > 2 x repos + 0,25 m (aucune animation ne double un os) ;
         ;;   - ECART A LA POSE COMMANDEE (owner 21:05) : la position ECRITE dans le squelette
@@ -1846,7 +1938,7 @@
         ;;     (filet, physique, controle positif) apparait ici avec son chemin. Le seuil couvre
         ;;     l'excursion legitime de la physique de Keira (0,5 B0 ~ 0,075 m, SPEC §22).
         (+! *hd-len-imgs* 1)
-        (let* ((n 0) (nnan 0) (nlog 0) (ncmd 0)
+        (let* ((n 0) (nnan 0) (nlog 0) (ncmd 0) (nscl 0)
                (ref (-> tskel bones 4 transform vector 3))
                ;; le personnage a-t-il bouge depuis l'image precedente ? (sinon un os pilote
                ;; bit-identique est normal et ne dit rien de sa fraicheur)
@@ -1879,8 +1971,25 @@
                        ;; ecart de la position ECRITE a la position COMMANDEE, et longueur commandee
                        (dev (if cmdok (vector-vector-distance bp (-> obj hd-cmd k)) 0.0))
                        (lcmd (if cmdok (vector-vector-distance (-> obj hd-cmd k) (-> obj hd-cmd p)) -1.0))
-                       (devbad (and cmdok (not (and (< dev HD_CMD_DEV) (> dev -1.0))))))
-                  (when (or lenbad devbad)
+                       (devbad (and cmdok (not (and (< dev HD_CMD_DEV) (> dev -1.0)))))
+                       ;; ECHELLE DE LA BASE ECRITE : |ligne 0| / echelle de bind. Les positions
+                       ;; ne voient pas une base x13 ; le GPU, lui, skinne avec.
+                       (bs (-> obj hd-bs k))
+                       (r0 (vector-length (-> skel bones (+ k 1) transform vector 0)))
+                       (r1 (vector-length (-> skel bones (+ k 1) transform vector 1)))
+                       (r2 (vector-length (-> skel bones (+ k 1) transform vector 2)))
+                       (rmax (if (> bs 0.000001) (/ (fmax r0 (fmax r1 r2)) bs) 1.0))
+                       (rmin (if (> bs 0.000001) (/ (fmin r0 (fmin r1 r2)) bs) 1.0))
+                       ;; comme la longueur : pas sur un joint dont le parent est une racine du
+                       ;; rig (mesure x86 c6ring : keira k=64 et samos k=41, parent prejoint,
+                       ;; rendaient des lignes NULLES a chaque image — jamais ecrits, jamais lus)
+                       (sclbad (and lenok (not (and (< rmax HD_SCL_TOL) (> rmin (/ 1.0 HD_SCL_TOL)))))))
+                  (when sclbad
+                    (+! nscl 1)
+                    (+! *hd-scl-bones* 1)
+                    (let ((w (if (> rmax 1.0) rmax (if (> rmin 0.000001) (/ 1.0 rmin) 1000000.0))))
+                      (when (and (< w HD_FAR_SANE) (> w *hd-scl-worst*)) (set! *hd-scl-worst* w))))
+                  (when (or lenbad devbad sclbad)
                     (+! n 1)
                     (when devbad (+! ncmd 1) (+! *hd-cmd-bones* 1))
                     (when (and lenok (not fin)) (+! nnan 1) (+! *hd-len-nan* 1))
@@ -1929,12 +2038,45 @@
                         (format 0 "HDLENG5 cmd=~D ecart_cmd_m=~f len_cmd_m=~f cx=~f cz=~f vitesse_m_s=~f~%"
                                 (if cmdok 1 0) (/ dev 4096.0) (/ lcmd 4096.0)
                                 (/ (-> obj hd-cmd k x) 4096.0) (/ (-> obj hd-cmd k z) 4096.0)
-                                spd))))))))
+                                spd)
+                        ;; l'ECHELLE de la base ecrite (rapport a l'echelle de bind), et celle du
+                        ;; parent pilote lu par ce joint (l'amplificateur du mode 1)
+                        (format 0 "HDLENG6 scl0=~f scl1=~f scl2=~f sclbad=~D ep=~D sclep=~f~%"
+                                (if (> bs 0.000001) (/ r0 bs) -1.0)
+                                (if (> bs 0.000001) (/ r1 bs) -1.0)
+                                (if (> bs 0.000001) (/ r2 bs) -1.0)
+                                (if sclbad 1 0)
+                                (the int (-> obj kdrv-par k))
+                                (let ((ep (the int (-> obj kdrv-par k))))
+                                  (if (and (!= ep #xff) (< (+ ep 1) tbones))
+                                    (* (vector-length (-> tskel bones (+ ep 1) transform vector 0))
+                                       (vector-length (-> drv draw jgeo data ep bind-pose vector 0)))
+                                    -1.0))))))))))
           (when (> n 0)
             (+! *hd-len-frames* 1)
             (+! *hd-len-bones* n)
             (set! *hd-len-ents* (logior *hd-len-ents* (ash 1 (-> obj entry)))))
           (when (> ncmd 0) (+! *hd-cmd-frames* 1))
+          (when (> nscl 0) (+! *hd-scl-frames* 1))
+          ;; L'ANNEAU : positions ecrites (monde), camera de l'image, estampille. L'estampille est
+          ;; `real-frame-counter`, lue ici et par bones.gc dans le paquet (octets 124..127 du nom)
+          ;; dans la MEME image : Merc2 apparie les deux.
+          (when (< (-> obj entry) HD_RING_SLOTS)
+            (let* ((stamp (the-as int (-> *display* real-frame-counter)))
+                   (cell (+ (* (-> obj entry) 4) (logand stamp 3)))
+                   (base (* cell 128)))
+              (dotimes (k nj)
+                (when (< (+ k 1) nbones)
+                  (vector-copy! (-> *hd-ring* (+ base k)) (-> skel bones (+ k 1) transform vector 3))))
+              (matrix-copy! (-> *hd-ring-cam* cell) (-> *math-camera* camera-rot))
+              (set! (-> *hd-ring-stamp* cell x) (the-as float (logand stamp #xffffffff)))
+              ;; controle de l'anneau lui-meme (une ligne par 600 images et par compagnon) :
+              ;; l'adresse et le contenu du joint 2, tels que Merc2 doit les relire
+              (when (and (> nj 2) (= (mod (-> obj st-hb) 600) 0))
+                (format 0 "HDRINGDBG entry=~D cell=~D stamp=~D base_addr=~D cell_addr=~D x2=~f~%"
+                        (-> obj entry) cell (logand stamp #xffffffff)
+                        (the-as int *hd-ring*) (the-as int (-> *hd-ring* (+ base 2)))
+                        (-> *hd-ring* (+ base 2) x)))))
           ;; memoire pour la fraicheur a l'image suivante
           (vector-copy! (-> obj hd-reflast) ref)
           (dotimes (k nj)
@@ -2442,7 +2584,11 @@
         ;; L'ECART A LA POSE COMMANDEE, a part : `cmdos` os ecrits loin de ce que le reciblage
         ;; de la meme image commandait, `cmdimgs` images concernees, `pire_cmd_m` le pire ecart.
         (format 0 "HDLEN3 cmdos=~D cmdimgs=~D pire_cmd_m=~f seuil_cmd_m=~f~%"
-                *hd-cmd-bones* *hd-cmd-frames* (/ *hd-cmd-worst* 4096.0) (/ HD_CMD_DEV 4096.0)))))
+                *hd-cmd-bones* *hd-cmd-frames* (/ *hd-cmd-worst* 4096.0) (/ HD_CMD_DEV 4096.0))
+        ;; L'ECHELLE de la base ecrite : `sclos` os dont une ligne sort de [1/3, 3] x bind, et
+        ;; `sclep` = parents pilotes refuses par le garde d'echelle du mode 1 (occasions, arme ou non).
+        (format 0 "HDLEN4 sclos=~D sclimgs=~D pire_scl=~f sclep=~D sclarme=~D~%"
+                *hd-scl-bones* *hd-scl-frames* *hd-scl-worst* *hd-scl-ep* *hd-scale-arm*))))
   ;; cycle 6 : sondage des entrees d'etat du joueur, une fois par image, sans cap.
   (hd-moves-poll!)
   ;; phase 1: collect.

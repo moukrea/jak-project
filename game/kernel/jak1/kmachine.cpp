@@ -109,6 +109,10 @@ void merc2_hd_skel_joint(u32 companion_pid,
                          float by,
                          float bz);
 void merc2_hd_skel_forget(u32 companion_pid);
+// Ghd-skin-origin-stretch : l'anneau GOAL (ce que le squelette a ECRIT par joint et par image)
+// et l'emplacement d'un compagnon dedans — sonde HDRING de Merc2.
+void merc2_hd_ring(u32 ring_addr, u32 cam_addr, u32 stamp_addr);
+void merc2_hd_ring_slot(u32 companion_pid, int slot);
 #endif
 
 namespace jak1 {
@@ -1051,6 +1055,19 @@ u64 pc_hd_skel_joint(u64* args) {
   const s64 ix = (s64)args[5], iy = (s64)args[6], iz = (s64)args[7];
   ::merc2_hd_skel_joint(pid, k, parent, e, mode, ix / 64.f, iy / 64.f, iz / 64.f);
   return 0;
+}
+// Ghd-skin-origin-stretch : L'ANNEAU GOAL. Le squelette GOAL etait PROPRE a l'image ou le GPU
+// consommait des chaines de 4,5 m ; comme pos = [bindpos,1].bindinv.W.cam = W.t.cam exactement,
+// les translations consommees different de celles ecrites. GOAL enregistre une fois les trois
+// adresses de `*hd-ring*` / `*hd-ring-cam*` / `*hd-ring-stamp*` (offsets dans ee_main_memory) et,
+// par compagnon, son emplacement (0..10) ; Merc2 relit la cellule de l'image du paquet et
+// compare, par os, ce que GOAL a ecrit a ce qu'il consomme (sonde HDRING). Trois et deux
+// arguments : rampe classique, comme pc-hd-cover!.
+void pc_hd_ring(u32 ring_addr, u32 cam_addr, u32 stamp_addr) {
+  ::merc2_hd_ring(ring_addr, cam_addr, stamp_addr);
+}
+void pc_hd_ring_slot(u32 pid, u32 slot) {
+  ::merc2_hd_ring_slot(pid, (int)slot);
 }
 #endif
 
@@ -4809,6 +4826,10 @@ void InitMachine_PCPort() {
   // Ghd-skin-origin-stretch: rig du compagnon HD (parent, pilote, mode, bind par joint) ->
   // sondes HDSKINLEN / HDCMD. 8 arguments -> rampe a tableau (voir pc_hd_skel_joint).
   make_stack_arg_function_symbol_from_c("pc-hd-skel-joint!", (void*)pc_hd_skel_joint);
+  // Ghd-skin-origin-stretch: l'anneau GOAL (ecrit par le squelette) + emplacement par compagnon
+  // -> sonde HDRING (ce que GOAL a ecrit contre ce que le GPU consomme)
+  make_function_symbol_from_c("pc-hd-ring!", (void*)pc_hd_ring);
+  make_function_symbol_from_c("pc-hd-ring-slot!", (void*)pc_hd_ring_slot);
 #endif
 #ifdef OG_FEAT_PHYSICS
   // Grecharged-secondary-motion: chain-physics toggle + the data-driven parameter queries.
@@ -5549,6 +5570,32 @@ static u64 level_warp_run() {
       auto sym = intern_from_c("*hd-stretch-inject*");
       sym->value = (injbuf[0] == '1') ? 1 : 0;
       printf("HDSTRETCHINJECT value=%d source=prop\n", (int)sym->value);
+      fflush(stdout);
+    }
+  }
+  // Ghd-skin-origin-stretch — BRAS DE L'ABLATION DE LA GARDE D'ECHELLE. Mesure Redmi dev6-nat
+  // (finalboss 720-723, snow 690-694) : joints a 0,000 m de la commande, GPU consommant des os
+  // de 4,5 m — la BASE de la matrice explose, pas sa translation. La garde `*hd-scale-arm*`
+  // (jak-hd.gc, defaut 1) se desarme ici depuis `debug.opengoal.hd.scale_arm=0` (env
+  // OG_HD_SCALE_ARM sur x86) pour que les deux bras tournent sur LE MEME APK. Meme pont que
+  // les deux blocs ci-dessus : entier GOAL brut dans le symbole, vide = on ne touche a rien.
+  {
+    char sclbuf[16] = {0};
+    if (const char* e = std::getenv("OG_HD_SCALE_ARM")) {
+      std::strncpy(sclbuf, e, sizeof(sclbuf) - 1);
+    }
+#if defined(__ANDROID__)
+    if (!sclbuf[0]) {
+      char pbuf[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.hd.scale_arm", pbuf) > 0 && pbuf[0]) {
+        std::strncpy(sclbuf, pbuf, sizeof(sclbuf) - 1);
+      }
+    }
+#endif
+    if (sclbuf[0] == '0' || sclbuf[0] == '1') {
+      auto sym = intern_from_c("*hd-scale-arm*");
+      sym->value = (sclbuf[0] == '1') ? 1 : 0;
+      printf("HDSCALEARM value=%d source=prop\n", (int)sym->value);
       fflush(stdout);
     }
   }

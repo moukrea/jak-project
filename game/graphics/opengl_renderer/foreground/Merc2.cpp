@@ -14,6 +14,7 @@
 // repaired) to stdout (dup2'd to logcat tag GK_STDOUT on Android). The repair itself
 // is unconditional on arm64; this gate only controls the diagnostic print.
 #include <algorithm>
+#include <atomic>
 #include <bitset>
 #include <cmath>
 #include <cstdlib>
@@ -1778,6 +1779,30 @@ struct HdRig {
 std::mutex s_hd_rigs_mutex;  // s_hd_rigs : ecrit thread jeu (GOAL), lu thread de rendu
 std::unordered_map<u32, HdRig> s_hd_rigs;
 
+// ─── L'ANNEAU GOAL (sonde « HDRING ») — L'ATTRIBUTION DECISIVE ──────────────────────────
+// Le squelette GOAL etait PROPRE (joints a 0,000 m de la commande) a l'image ou le GPU consommait
+// des chaines de 4,5 m. Or pos = [bindpos,1] . bindinv . W . cam = W.t . cam EXACTEMENT
+// (bindpos . bindinv = origine) : les translations CONSOMMEES different donc de celles ECRITES.
+// Pour le prouver par image, GOAL tient un anneau global (jak-hd.gc `*hd-ring*`) : 11
+// emplacements x 4 images x 128 joints de vecteurs W.t (monde, 16 o), `*hd-ring-cam*` = 44
+// matrices camera-rot (64 o, vecteur-ligne comme tmat), `*hd-ring-stamp*` = 44 vecteurs dont le
+// premier u32 est l'estampille d'image (`real-frame-counter`, bas 32 bits). Cellule
+// c = emplacement*4 + (stamp & 3) ; joint k de la cellule = ring[c*128 + k]. bones.gc ecrit la
+// meme estampille aux octets 124..127 du nom de CHAQUE paquet merc : un paquet s'apparie a sa
+// cellule quand les deux estampilles sont egales, sinon la cellule a deja ete recyclee.
+// Les adresses sont des offsets GOAL dans ee_main_memory, ecrits une fois par GOAL (thread jeu)
+// et lus par le rendu : atomiques ; l'emplacement par pid partage le verrou du rig.
+constexpr int HD_RING_SLOTS = 11;
+constexpr int HD_RING_FRAMES = 4;
+constexpr int HD_RING_JOINTS = 128;
+std::atomic<u32> s_hd_ring_addr{0}, s_hd_ring_cam_addr{0}, s_hd_ring_stamp_addr{0};
+std::unordered_map<u32, int> s_hd_ring_slots;  // pid -> emplacement (0..10), sous s_hd_rigs_mutex
+// d_goal = |pos derivee - (W.t ecrit par GOAL) . cam| : sous 0,10 m, « GOAL l'avait ecrit tel
+// quel » (ring_ok) ; au-dela, corrompu entre l'ecriture et la consommation (ring_bad). Et sur
+// TOUS les os juges, 0,25 m est le troisieme critere de verdict, independant du bind et du stock.
+// (HD_RING_OK_U supprime : l attribution ring_ok/ring_bad suit ring_bad_bone, sans camera)
+constexpr float HD_RING_FAR_U = 1024.0f;
+
 // ─── LA POSE COMMANDEE (sonde « HDCMD ») ─────────────────────────────────────────────────
 // Owner (porte refondue le 2026-09-02 21:05) : les os « s'etirent subitement, pas dans un sens
 // ou ils sont censes s'etirer, pas lie a l'animation ». Le detecteur compare donc l'os RENDU a
@@ -1841,6 +1866,16 @@ constexpr float HD_LEN_FLOOR_U = 1024.0f;
 constexpr float HD_CMD_DEV_U = 1024.0f;
 // Angle rendu/commande publie seulement si les deux vecteurs d'os font plus de 0,05 m (205 u).
 constexpr float HD_CMD_ANGLE_MIN_U = 204.8f;
+// LA BASE (echelle) DE LA MATRICE. Mesure Redmi dev6-nat (finalboss images 720-723, snow
+// 690-694) : le squelette GOAL est propre (joints a 0,000 m de la commande) mais le GPU consomme
+// des chaines d'os de 4,5 m (jak-hd k=6->11->12, ratio 13-80) pendant 4-5 images aux transitions
+// stance->walk. Positions justes, produit GPU faux : c'est la BASE de tmat qui explose pendant
+// que la translation reste juste — pos = bindpos . tmat multiplie bindpos par une base x13.
+// tmat = bindinv . W . cam, donc une base saine vaut l'echelle d'animation du pilote (~1) :
+// lignes r0=|f[0..2]|, r1=|f[4..6]|, r2=|f[8..10]|. scl_bad si une ligne depasse 5 ou tombe sous
+// 0,2 : le squash & stretch legitime de Daxter reste dessous, une base x13 est dehors.
+constexpr float HD_SCL_MAX_ROW = 5.0f;
+constexpr float HD_SCL_MIN_ROW = 0.2f;
 
 struct HdLenStats {
   u64 last_frame = ~0ull;
@@ -1848,11 +1883,18 @@ struct HdLenStats {
   u64 hd_stretch_bones = 0, bones_judged = 0, packets_judged = 0, hd_packets_norig = 0;
   u64 torn_bones = 0, same_bones = 0, nan_bones = 0, null_bones = 0, rep_bones = 0;
   float worst_ratio = 0.f, worst_m = 0.f;
-  // le VERDICT est l'union : un os est mauvais s'il est etire (longueur) OU loin de sa commande
+  // le VERDICT est l'union : un os est mauvais s'il est etire (longueur), loin de sa commande,
+  // OU porte par une base hors d'echelle
   u64 hd_bad_frames = 0, hd_bad_bones = 0;
   u64 cmd_judged = 0, cmd_bones = 0, cmd_frames = 0, cmd_nostock = 0;
   float cmd_worst_m = 0.f;
-  bool cur_hd = false, cur_hd_stretch = false, cur_hd_bad = false, cur_cmd = false;
+  u64 scl_bones = 0, scl_frames = 0;
+  float scl_worst = 0.f;  // max sur les os de max(max(r), 1/min(r)) — voir hdlen_row_worst
+  // anneau GOAL : ring_ok/ring_bad sur les os MAUVAIS apparies (d_goal < / >= 0,10 m),
+  // ring_nostamp = paquets HD sans cellule appariee, ring_judged/ring_far sur TOUS les os juges
+  u64 ring_ok = 0, ring_bad = 0, ring_nostamp = 0, ring_judged = 0, ring_far = 0;
+  bool cur_hd = false, cur_hd_stretch = false, cur_hd_bad = false, cur_cmd = false,
+       cur_scl = false;
   int ev_logs = 0;      // cap des lignes HDLENEV
   int ev_logs_cmd = 0;  // cap des lignes HDCMDEV (separe : l'un ne doit pas etouffer l'autre)
   u64 next_hb = 300;
@@ -1878,7 +1920,11 @@ void hdlen_close_frame() {
   if (s_hdlen.cur_cmd) {
     s_hdlen.cmd_frames++;
   }
-  s_hdlen.cur_hd = s_hdlen.cur_hd_stretch = s_hdlen.cur_hd_bad = s_hdlen.cur_cmd = false;
+  if (s_hdlen.cur_scl) {
+    s_hdlen.scl_frames++;
+  }
+  s_hdlen.cur_hd = s_hdlen.cur_hd_stretch = s_hdlen.cur_hd_bad = s_hdlen.cur_cmd =
+      s_hdlen.cur_scl = false;
   if (s_hdlen.frames >= s_hdlen.next_hb) {
     s_hdlen.next_hb += 300;
     int rigs = 0;
@@ -1918,7 +1964,9 @@ void hdlen_close_frame() {
     printf("HDSKINLEN frames=%llu hd_frames=%llu hd_stretch_frames=%llu hd_stretch_bones=%llu "
            "bones_judged=%llu torn=%llu same=%llu nan=%llu null=%llu rep=%llu worst_ratio=%.2f "
            "worst_m=%.2f rigs=%d norig=%llu hd_bad_frames=%llu hd_bad_bones=%llu "
-           "cmd_judged=%llu cmd_bones=%llu cmd_frames=%llu cmd_worst_m=%.2f cmd_nostock=%llu\n",
+           "cmd_judged=%llu cmd_bones=%llu cmd_frames=%llu cmd_worst_m=%.2f cmd_nostock=%llu "
+           "scl_bones=%llu scl_frames=%llu scl_worst=%.2f ring_ok=%llu ring_bad=%llu "
+           "ring_nostamp=%llu ring_judged=%llu ring_far=%llu\n",
            (unsigned long long)s_hdlen.frames, (unsigned long long)s_hdlen.hd_frames,
            (unsigned long long)s_hdlen.hd_stretch_frames,
            (unsigned long long)s_hdlen.hd_stretch_bones, (unsigned long long)s_hdlen.bones_judged,
@@ -1929,9 +1977,30 @@ void hdlen_close_frame() {
            (unsigned long long)s_hdlen.hd_bad_frames, (unsigned long long)s_hdlen.hd_bad_bones,
            (unsigned long long)s_hdlen.cmd_judged, (unsigned long long)s_hdlen.cmd_bones,
            (unsigned long long)s_hdlen.cmd_frames, s_hdlen.cmd_worst_m,
-           (unsigned long long)s_hdlen.cmd_nostock);
+           (unsigned long long)s_hdlen.cmd_nostock, (unsigned long long)s_hdlen.scl_bones,
+           (unsigned long long)s_hdlen.scl_frames, s_hdlen.scl_worst,
+           (unsigned long long)s_hdlen.ring_ok, (unsigned long long)s_hdlen.ring_bad,
+           (unsigned long long)s_hdlen.ring_nostamp, (unsigned long long)s_hdlen.ring_judged,
+           (unsigned long long)s_hdlen.ring_far);
     fflush(stdout);
   }
+}
+
+// Longueurs des trois lignes de base de la t-mtx f (convention vecteur-ligne : ligne r =
+// f[4r..4r+2]). Une base saine vaut ~1 sur chaque ligne.
+void hdlen_rows(const float* f, float rows[3]) {
+  for (int r = 0; r < 3; r++) {
+    const float* v = f + 4 * r;
+    rows[r] = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+  }
+}
+
+// Le pire facteur d'echelle d'une base : max(max(r), 1/min(r)) quand min(r) > 0 ; une ligne
+// NULLE (min = 0) rend max(r) seul — l'inverse serait infini et ne se publie pas en %.2f.
+float hdlen_row_worst(const float rows[3]) {
+  const float mx = std::max(rows[0], std::max(rows[1], rows[2]));
+  const float mn = std::min(rows[0], std::min(rows[1], rows[2]));
+  return (mn > 0.f) ? std::max(mx, 1.f / mn) : mx;
 }
 
 // Appele pour CHAQUE paquet (HD ou non) : c'est ce qui tient le compte d'images commun.
@@ -1976,6 +2045,24 @@ void merc2_hd_skel_joint(u32 companion_pid,
 void merc2_hd_skel_forget(u32 companion_pid) {
   std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
   s_hd_rigs.erase(companion_pid);
+  // l'emplacement d'anneau meurt avec le rig : les pids GOAL sont monotones, la map ne se
+  // viderait jamais autrement
+  s_hd_ring_slots.erase(companion_pid);
+}
+
+void merc2_hd_ring(u32 ring_addr, u32 cam_addr, u32 stamp_addr) {
+  s_hd_ring_addr.store(ring_addr);
+  s_hd_ring_cam_addr.store(cam_addr);
+  s_hd_ring_stamp_addr.store(stamp_addr);
+}
+
+void merc2_hd_ring_slot(u32 companion_pid, int slot) {
+  std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+  if (slot < 0 || slot >= HD_RING_SLOTS) {
+    s_hd_ring_slots.erase(companion_pid);
+    return;
+  }
+  s_hd_ring_slots[companion_pid] = slot;
 }
 
 void Merc2::handle_pc_model(const DmaTransfer& setup,
@@ -2011,6 +2098,10 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // identique modeles HD allumes et eteints — donc l'ablation possible SUR LE MEME BINAIRE.
   u32 owner_pid = 0;
   memcpy(&owner_pid, setup.data + 120, sizeof(owner_pid));
+  // Ghd-skin-origin-stretch (sonde HDRING) : l'estampille d'image du paquet, octets 124..127,
+  // ecrite par bones.gc avec la meme valeur que la cellule de l'anneau GOAL a cette image.
+  u32 pkt_stamp = 0;
+  memcpy(&pkt_stamp, setup.data + 124, sizeof(pkt_stamp));
   const bool is_hd_packet = strstr(name, "-hd-lod0") != nullptr;
   // Le personnage que l'owner voit est le DRIVER. Un paquet de compagnon HD est donc compte SOUS
   // LE PID DE SON DRIVER, sinon « le PNJ est-il visible ? » n'a pas de reponse quand la
@@ -2711,6 +2802,51 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
       if (!stock) {
         s_hdlen.cmd_nostock++;
       }
+      // L'ANNEAU GOAL : la cellule de CE paquet (emplacement du pid, image de l'estampille).
+      // Appariee seulement si l'estampille de la cellule est celle du paquet — sinon la cellule
+      // a ete recyclee (ou l'anneau/l'emplacement n'est pas enregistre) : ring_nostamp.
+      const u8* ee_base = (const u8*)render_state->ee_main_memory;
+      const float* ring_cam = nullptr;  // camera-rot de la cellule (16 floats, vecteur-ligne)
+      const float* ring_wt = nullptr;   // ring[c*128 + 0] : joint k = ring_wt + 4*k
+      bool stamp_ok = false;
+      {
+        int ring_slot = -1;
+        {
+          std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+          auto rs = s_hd_ring_slots.find(owner_pid);
+          if (rs != s_hd_ring_slots.end()) {
+            ring_slot = rs->second;
+          }
+        }
+        const u32 ring_addr = s_hd_ring_addr.load();
+        const u32 cam_addr = s_hd_ring_cam_addr.load();
+        const u32 stamp_addr = s_hd_ring_stamp_addr.load();
+        if (ring_slot >= 0 && ring_addr != 0 && cam_addr != 0 && stamp_addr != 0) {
+          const int c = ring_slot * HD_RING_FRAMES + (int)(pkt_stamp & 3u);
+          u32 ring_stamp = 0;
+          std::memcpy(&ring_stamp, ee_base + stamp_addr + c * 16, sizeof(ring_stamp));
+          if (ring_stamp == pkt_stamp) {
+            stamp_ok = true;
+            ring_cam = reinterpret_cast<const float*>(ee_base + cam_addr + c * 64);
+            ring_wt = reinterpret_cast<const float*>(ee_base + ring_addr +
+                                                     (c * HD_RING_JOINTS) * 16);
+          }
+        }
+        if (!stamp_ok) {
+          s_hdlen.ring_nostamp++;
+        }
+        // controle de l'anneau lui-meme, en face de HDRINGDBG (GOAL) : adresse, cellule, et le
+        // joint 2 tel qu'on le relit — une ligne toutes les 300 images HD
+        static u64 s_ringdbg_next = 0;
+        if (render_state->frame_idx >= s_ringdbg_next) {
+          s_ringdbg_next = render_state->frame_idx + 300;
+          const int c = (ring_slot >= 0) ? ring_slot * HD_RING_FRAMES + (int)(pkt_stamp & 3u) : -1;
+          printf("HDRINGDBGC pid=%u slot=%d cell=%d stamp=%u ring_addr=%u stamp_ok=%d wt2=(%.1f,%.1f,%.1f)\n",
+                 owner_pid, ring_slot, c, pkt_stamp, ring_addr, stamp_ok ? 1 : 0,
+                 ring_wt ? ring_wt[8] : -1.f, ring_wt ? ring_wt[9] : -1.f, ring_wt ? ring_wt[10] : -1.f);
+          fflush(stdout);
+        }
+      }
       // `same` et `dev_prev` se lisent AVANT la mise a jour de la memoire du pid
       HdLenLast& last = s_hd_len_last[owner_pid];
       const u64 gap =
@@ -2728,18 +2864,24 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         int k, parent;
         float len, rest, ratio, dev;
         float pos[3], ppos[3];
+        float rows[3], prows[3], t[3];
+        float goal_cam[3], d_goal;  // anneau GOAL : d_goal = -1 sans cellule appariee
         int nan, null, torn, same, psame, rep;
       };
       struct HdCmdHit {
         int k, e;
         float dev, dev_prev, saut, len_cmd, len_ren, angle;
         float ren[3], cmd[3];
+        float rows[3], prows[3], t[3];
+        float goal_cam[3], d_goal;
         int torn, same, rep;
       };
       constexpr int HD_LEN_EV_PER_PACKET = 8;  // au plus 8 os publies par paquet, par sonde
       HdLenHit hits[HD_LEN_EV_PER_PACKET];
       HdCmdHit chits[HD_LEN_EV_PER_PACKET];
       int n_stretched = 0;  // TOUS les os etires (longueur) du paquet, publies ou non
+      int n_lenev = 0;      // os candidats a HDLENEV : etires, base hors d'echelle, ou loin
+                            // de ce que GOAL a ecrit
       int n_cmd = 0;        // TOUS les os loin de leur commande, publies ou non
       s_hdlen.packets_judged++;
       for (int k = 0; k < rig.n && k < MAX_SKEL_BONES - 1; k++) {
@@ -2775,6 +2917,27 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         const bool len_ok = rig.parent[pk] != 255;
         const bool is_nan = len_ok && !std::isfinite(len);
         const bool len_bad = len_ok && (is_nan || (len > HD_LEN_RATIO * rest + HD_LEN_FLOOR_U));
+
+        // --- la base : lignes de l'os et du parent (voir HD_SCL_MAX_ROW). Juge sur CHAQUE os,
+        //     racine ou pas : une base explosee n'a pas besoin d'une longueur pour etre fausse ---
+        float rows[3], prows[3];
+        hdlen_rows(f, rows);
+        hdlen_rows(pf, prows);
+        const float rmax = std::max(rows[0], std::max(rows[1], rows[2]));
+        const float rmin = std::min(rows[0], std::min(rows[1], rows[2]));
+        // comme la longueur (len_ok) : pas sur un joint dont le parent est une racine du rig —
+        // mesure x86 c6ring3 : 248 « echelles » et 952 « longueurs GOAL » toutes sur k=2
+        // (main -> prejoint, matrice model-space), a chaque image, jamais lues par un sommet
+        const bool scl_bad = len_ok && (!std::isfinite(rmax) || !std::isfinite(rmin) ||
+                                        rmax > HD_SCL_MAX_ROW || rmin < HD_SCL_MIN_ROW);
+        if (scl_bad) {
+          s_hdlen.scl_bones++;
+          s_hdlen.cur_scl = true;
+          const float w = hdlen_row_worst(rows);
+          if (std::isfinite(w) && w > s_hdlen.scl_worst) {
+            s_hdlen.scl_worst = w;
+          }
+        }
 
         // --- la commande ---
         bool cmd_ok = false, cmd_bad = false;
@@ -2819,12 +2982,56 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
             }
           }
         }
-        if (!len_bad && !cmd_bad) {
+        // --- l'anneau GOAL, sur TOUS les os juges : ce que le squelette a ECRIT pour ce joint
+        //     a cette image (W.t monde), passe par la camera-rot de la meme cellule, contre la
+        //     position derivee de ce que le GPU consomme. Independant du bind (longueur) et du
+        //     paquet stock (commande) : troisieme critere de verdict. ---
+        float goal_cam[3] = {0.f, 0.f, 0.f};
+        float d_goal = -1.f;
+        bool ring_bad_bone = false;
+        if (stamp_ok) {
+          const float* wt = ring_wt + 4 * k;
+          hdlen_joint_pos(ring_cam, wt, goal_cam);
+          const float gx = pos[0] - goal_cam[0], gy = pos[1] - goal_cam[1],
+                      gz = pos[2] - goal_cam[2];
+          d_goal = std::sqrt(gx * gx + gy * gy + gz * gz);
+          s_hdlen.ring_judged++;
+          // LE VERDICT DE L'ANNEAU EST SANS CAMERA. Mesure x86 c6ring2 : `d_goal` (position
+          // derivee contre W.t passe par la camera-rot lue au :post du compagnon) valait 255 m sur
+          // TOUS les os des 900 premieres images (ecran-titre : la camera de `*math-camera*` au
+          // moment du :post n'est pas celle que bones-mtx-calc applique en fin d'image), puis
+          // ~0 en jeu — et a 30 images/s une camera qui suit un personnage a 10 m/s bouge de
+          // 0,33 m par image, plus que le seuil. On compare donc la LONGUEUR d'os consommee
+          // (|pos_k - pos_p|, espace camera, rigide) a la longueur ECRITE par GOAL
+          // (|W.t_k - W.t_p|, monde) : invariante par toute transformation rigide, donc par la
+          // camera, quelle qu'elle soit. `d_goal` reste publie comme diagnostic.
+          const float* wtp = ring_wt + 4 * pk;
+          const float wx = wt[0] - wtp[0], wy = wt[1] - wtp[1], wz = wt[2] - wtp[2];
+          const float glen = std::sqrt(wx * wx + wy * wy + wz * wz);
+          const float d_len = std::fabs(len - glen);
+          ring_bad_bone = len_ok && (!std::isfinite(d_len) || d_len > HD_RING_FAR_U);
+          if (ring_bad_bone) {
+            s_hdlen.ring_far++;
+          }
+        }
+        if (!len_bad && !cmd_bad && !scl_bad && !ring_bad_bone) {
           continue;
         }
-        // --- attributs communs, calcules une fois par os mauvais ---
+        // --- attributs communs, calcules une fois par os mauvais (union des quatre) ---
         s_hdlen.hd_bad_bones++;
         s_hdlen.cur_hd_bad = true;
+        // attribution : GOAL l'avait-il ecrit tel quel (ring_ok), ou l'os a-t-il ete corrompu
+        // entre l'ecriture et la consommation (ring_bad) ? Seulement sur une cellule appariee.
+        // Sans camera (voir plus haut) : la longueur d'os consommee est-elle celle que GOAL a
+        // ecrite ? `ring_bad_bone` est exactement « non » ; `ring_ok` = l'os est mauvais (bind,
+        // commande ou echelle) MAIS a la longueur ecrite par GOAL — le defaut est ne dans GOAL.
+        if (stamp_ok) {
+          if (!ring_bad_bone) {
+            s_hdlen.ring_ok++;
+          } else {
+            s_hdlen.ring_bad++;
+          }
+        }
         bool all_zero = true;
         for (int z = 0; z < 16; z++) {
           if (f[z] != 0.f) {
@@ -2843,37 +3050,52 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         }
         const int a_same = same_now.test(s) ? 1 : 0;
         const int a_psame = same_now.test(ps) ? 1 : 0;
-        if (len_bad) {
+        // HDLENEV : os etire (longueur), a base hors d'echelle, OU loin de ce que GOAL a ecrit —
+        // les lignes de base, la translation brute et la position ecrite par GOAL publiees a
+        // cote departagent « base explosee », « translation fausse » et « corrompu apres
+        // l'ecriture ». Les compteurs de longueur (hd_stretch_bones, nan/null/rep/torn/same) ne
+        // comptent que les os ETIRES, comme avant.
+        if (len_bad || scl_bad || ring_bad_bone) {
           HdLenHit scratch;
-          HdLenHit& h = (n_stretched < HD_LEN_EV_PER_PACKET) ? hits[n_stretched] : scratch;
-          n_stretched++;
+          HdLenHit& h = (n_lenev < HD_LEN_EV_PER_PACKET) ? hits[n_lenev] : scratch;
+          n_lenev++;
           h.k = k;
           h.parent = pk;
           h.len = len;
           h.rest = rest;
           // ratio = -1 quand L0 = 0 (joint coincident) : « infini » ne se publie pas en %.2f
-          h.ratio = (rest > 0.f && !is_nan) ? len / rest : -1.f;
+          h.ratio = (rest > 0.f && std::isfinite(len)) ? len / rest : -1.f;
           h.dev = cmd_ok ? dev : -1.f;
           std::memcpy(h.pos, pos, sizeof(pos));
           std::memcpy(h.ppos, ppos, sizeof(ppos));
+          std::memcpy(h.rows, rows, sizeof(rows));
+          std::memcpy(h.prows, prows, sizeof(prows));
+          h.t[0] = f[12];
+          h.t[1] = f[13];
+          h.t[2] = f[14];
+          std::memcpy(h.goal_cam, goal_cam, sizeof(goal_cam));
+          h.d_goal = d_goal;
           h.nan = is_nan ? 1 : 0;
           h.null = a_null;
           h.rep = a_rep;
           h.torn = a_torn;
           h.same = a_same;
           h.psame = a_psame;
-          s_hdlen.hd_stretch_bones++;
-          s_hdlen.nan_bones += h.nan;
-          s_hdlen.null_bones += h.null;
-          s_hdlen.rep_bones += h.rep;
-          s_hdlen.torn_bones += (h.torn == 1) ? 1 : 0;
-          s_hdlen.same_bones += h.same;
-          if (!is_nan) {
-            if (h.ratio > s_hdlen.worst_ratio) {
-              s_hdlen.worst_ratio = h.ratio;
-            }
-            if (len / 4096.f > s_hdlen.worst_m) {
-              s_hdlen.worst_m = len / 4096.f;
+          if (len_bad) {
+            n_stretched++;
+            s_hdlen.hd_stretch_bones++;
+            s_hdlen.nan_bones += h.nan;
+            s_hdlen.null_bones += h.null;
+            s_hdlen.rep_bones += h.rep;
+            s_hdlen.torn_bones += (h.torn == 1) ? 1 : 0;
+            s_hdlen.same_bones += h.same;
+            if (!is_nan) {
+              if (h.ratio > s_hdlen.worst_ratio) {
+                s_hdlen.worst_ratio = h.ratio;
+              }
+              if (len / 4096.f > s_hdlen.worst_m) {
+                s_hdlen.worst_m = len / 4096.f;
+              }
             }
           }
         }
@@ -2891,6 +3113,13 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           c.angle = angle;
           std::memcpy(c.ren, pos, sizeof(pos));
           std::memcpy(c.cmd, cmd, sizeof(cmd));
+          std::memcpy(c.rows, rows, sizeof(rows));
+          std::memcpy(c.prows, prows, sizeof(prows));
+          c.t[0] = f[12];
+          c.t[1] = f[13];
+          c.t[2] = f[14];
+          std::memcpy(c.goal_cam, goal_cam, sizeof(goal_cam));
+          c.d_goal = d_goal;
           c.torn = a_torn;
           c.same = a_same;
           c.rep = a_rep;
@@ -2900,19 +3129,26 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
       }
       if (n_stretched > 0) {
         s_hdlen.cur_hd_stretch = true;
+      }
+      if (n_lenev > 0) {
         // au plus 8 os par paquet, 150 lignes en tout : le battement porte le reste
-        for (int e = 0; e < n_stretched && e < HD_LEN_EV_PER_PACKET && s_hdlen.ev_logs < 150;
-             e++) {
+        for (int e = 0; e < n_lenev && e < HD_LEN_EV_PER_PACKET && s_hdlen.ev_logs < 150; e++) {
           const HdLenHit& h = hits[e];
           s_hdlen.ev_logs++;
           printf("HDLENEV frame=%llu model=%s pid=%u k=%d parent=%d len_m=%.3f rest_m=%.3f "
                  "ratio=%.2f pos=(%.2f,%.2f,%.2f) ppos=(%.2f,%.2f,%.2f) nan=%d null=%d torn=%d "
-                 "same=%d psame=%d gap=%llu rep=%d n_stretched=%d dev_m=%.3f stock_gap=%lld\n",
+                 "same=%d psame=%d gap=%llu rep=%d n_stretched=%d dev_m=%.3f stock_gap=%lld "
+                 "rows=(%.2f,%.2f,%.2f) prows=(%.2f,%.2f,%.2f) t=(%.2f,%.2f,%.2f) "
+                 "stamp_ok=%d goal_cam=(%.2f,%.2f,%.2f) d_goal_m=%.3f\n",
                  (unsigned long long)render_state->frame_idx, name, owner_pid, h.k, h.parent,
                  h.len / 4096.f, h.rest / 4096.f, h.ratio, h.pos[0] / 4096.f, h.pos[1] / 4096.f,
                  h.pos[2] / 4096.f, h.ppos[0] / 4096.f, h.ppos[1] / 4096.f, h.ppos[2] / 4096.f,
                  h.nan, h.null, h.torn, h.same, h.psame, (unsigned long long)gap, h.rep,
-                 n_stretched, h.dev >= 0.f ? h.dev / 4096.f : -1.f, (long long)stock_gap);
+                 n_stretched, h.dev >= 0.f ? h.dev / 4096.f : -1.f, (long long)stock_gap,
+                 h.rows[0], h.rows[1], h.rows[2], h.prows[0], h.prows[1], h.prows[2],
+                 h.t[0] / 4096.f, h.t[1] / 4096.f, h.t[2] / 4096.f, stamp_ok ? 1 : 0,
+                 h.goal_cam[0] / 4096.f, h.goal_cam[1] / 4096.f, h.goal_cam[2] / 4096.f,
+                 h.d_goal >= 0.f ? h.d_goal / 4096.f : -1.f);
         }
         fflush(stdout);
       }
@@ -2924,13 +3160,18 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           printf("HDCMDEV frame=%llu model=%s pid=%u drv=%u k=%d e=%d dev_m=%.3f "
                  "dev_prev_m=%.3f saut_m=%.3f len_cmd_m=%.3f len_ren_m=%.3f angle_deg=%.1f "
                  "ren=(%.2f,%.2f,%.2f) cmd=(%.2f,%.2f,%.2f) torn=%d same=%d rep=%d "
-                 "stock_gap=%lld\n",
+                 "stock_gap=%lld rows=(%.2f,%.2f,%.2f) prows=(%.2f,%.2f,%.2f) "
+                 "t=(%.2f,%.2f,%.2f) stamp_ok=%d goal_cam=(%.2f,%.2f,%.2f) d_goal_m=%.3f\n",
                  (unsigned long long)render_state->frame_idx, name, owner_pid, driver_pid, c.k,
                  c.e, c.dev / 4096.f, c.dev_prev >= 0.f ? c.dev_prev / 4096.f : -1.f,
                  c.saut / 4096.f, c.len_cmd >= 0.f ? c.len_cmd / 4096.f : -1.f,
                  c.len_ren / 4096.f, c.angle, c.ren[0] / 4096.f, c.ren[1] / 4096.f,
                  c.ren[2] / 4096.f, c.cmd[0] / 4096.f, c.cmd[1] / 4096.f, c.cmd[2] / 4096.f,
-                 c.torn, c.same, c.rep, (long long)stock_gap);
+                 c.torn, c.same, c.rep, (long long)stock_gap, c.rows[0], c.rows[1], c.rows[2],
+                 c.prows[0], c.prows[1], c.prows[2], c.t[0] / 4096.f, c.t[1] / 4096.f,
+                 c.t[2] / 4096.f, stamp_ok ? 1 : 0, c.goal_cam[0] / 4096.f,
+                 c.goal_cam[1] / 4096.f, c.goal_cam[2] / 4096.f,
+                 c.d_goal >= 0.f ? c.d_goal / 4096.f : -1.f);
         }
         fflush(stdout);
       }

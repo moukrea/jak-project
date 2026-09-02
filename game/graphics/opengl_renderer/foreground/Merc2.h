@@ -45,6 +45,13 @@ void merc2_hd_skel_joint(u32 companion_pid,
                          float by,
                          float bz);
 void merc2_hd_skel_forget(u32 companion_pid);
+// L'ANNEAU GOAL (jak-hd.gc `*hd-ring*`) : ce que le squelette a ECRIT, par joint et par image,
+// pour le comparer a ce que le GPU CONSOMME (sonde HDRING dans handle_pc_model). Trois adresses
+// GOAL (offsets dans ee_main_memory) : `ring` = 11 emplacements x 4 images x 128 joints de
+// vecteurs W.t monde (16 o), `cam` = 44 matrices camera-rot (64 o), `stamp` = 44 vecteurs dont le
+// premier u32 est l'estampille d'image. Un compagnon (pid) possede un emplacement (0..10).
+void merc2_hd_ring(u32 ring_addr, u32 cam_addr, u32 stamp_addr);
+void merc2_hd_ring_slot(u32 companion_pid, int slot);
 
 struct MercDebugStats {
   int num_models = 0;
