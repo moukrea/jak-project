@@ -43,3 +43,31 @@ quatre, publier lesquels sont touches.
 Verifie : HDSTRETCH avec est_origine tranche ; >= 20 lignes HDEPISODE couvrant au moins
 2 modeles ; HDCORREL avec r2 >= 0,8 (la longueur doit suivre la distance) ; HDCAUSE
 nommee ; HDOK avec >= 10 minutes de jeu et episodes == 0 apres correction.
+
+## CORRECTION DE METHODE — SUPERVISEUR 2026-09-02 07:10. CE QUI PRECEDE EST CADUC.
+Trois tentatives, deux heures et demie, ZERO mesure produite. Attraper a l'ecran vingt
+episodes d'une fraction de seconde chacun est un instrument trop cher — c'est la meme
+faute que sur les caisses, ou l'owner a du me faire abandonner le pilotage pour une sonde
+programmatique (« fais ça de façon programmatique [...] impossible que tu couvre toutes
+les caisses à la vue »).
+
+ON NE MESURE PLUS LE SYMPTOME, ON MESURE LA CAUSE.
+La formule est connue : `bone_hd[k] = M_eichar_anim[e] . inv_bind_eichar[e] . bind_hd[k]`.
+Les deux derniers termes sont CONSTANTS. Seul `M_eichar_anim[e]` varie, et c'est lui qui
+porte la position monde. Le defaut est donc, par construction, une lecture de ce terme
+avant qu'il soit rempli.
+
+PROTOCOLE :
+  1. Instrumenter le site EXACT ou le reciblage consomme `M_eichar_anim[e]`.
+  2. A CHAQUE IMAGE et pour CHAQUE joint pilote, tester la matrice consommee : est-elle
+     remplie pour cette image (compteur d'image a jour), ou est-ce une valeur de l'image
+     precedente / non initialisee / nulle ?
+  3. Publier le compte d'images ou au moins un joint est servi par une matrice PERIMEE.
+     Aucune image regardee, aucun episode a guetter : le defaut se compte tout seul.
+  4. Corriger, puis remontrer ce compte a ZERO sur une duree de jeu equivalente.
+
+Format des marqueurs REVISE :
+    HDSTALE minutes=<f> images=<n> images_avec_matrice_perimee=<n> joints_touches=<n> modeles=<liste>
+Verifie : au moins une ligne AVANT correction avec images_avec_matrice_perimee >= 1 (sans
+reproduction rien n'est prouve), et une ligne APRES a ZERO sur >= 5 minutes de jeu.
+Les anciens marqueurs HDEPISODE / HDCORREL ne sont plus exiges.
