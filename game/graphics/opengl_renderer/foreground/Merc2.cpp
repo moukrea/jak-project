@@ -1591,7 +1591,8 @@ struct HdSkinStats {
   u64 nan_bones = 0, far_bones = 0, hd_nan_bones = 0, hd_far_bones = 0, repaired = 0, missing = 0;
   float worst_m = 0.f;
   bool cur_bad = false, cur_hd = false, cur_hd_bad = false;
-  int ev_logs = 0;
+  int ev_logs = 0;     // cap des evenements NON HD (bruit : les gros maillages `medres-*`)
+  int ev_logs_hd = 0;  // cap des evenements HD — la colonne que l'owner regarde
   u64 next_hb = 300;
 };
 HdSkinStats s_hdskin;
@@ -1664,8 +1665,12 @@ void hdskin_note_packet(u64 frame_idx,
   if (worst_m > s_hdskin.worst_m) {
     s_hdskin.worst_m = worst_m;
   }
-  if (s_hdskin.ev_logs < 80) {
-    s_hdskin.ev_logs++;
+  if (is_hd ? (s_hdskin.ev_logs_hd < 80) : (s_hdskin.ev_logs < 20)) {
+    if (is_hd) {
+      s_hdskin.ev_logs_hd++;
+    } else {
+      s_hdskin.ev_logs++;
+    }
     printf("HDSKINEV frame=%llu model=%s hd=%d used=%d nan=%d far=%d miss=%d far_slot=%d "
            "far_m=%.1f ref_slot=%d ref_cam_m=%.1f\n",
            (unsigned long long)frame_idx, name, is_hd ? 1 : 0, slots, nan_bones, far_bones,
