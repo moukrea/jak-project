@@ -728,7 +728,50 @@
                 (- y0 (the float by))
                 (- (the float (+ by bh)) y1)
                 np
-                (- nb (* np 240))))))
+                (- nb (* np 240)))
+        ;; L'ICONE DU BOUTON, A PART. Owner 2026-09-02 : « l'icone de bouton n'est pas centré
+        ;; verticalement dans la cartouche ça fait tâche ». Le centrage publie jusqu'ici portait sur
+        ;; la chaine ENTIERE ; l'icone est un element distinct et n'etait pas mesuree.
+        ;;
+        ;; CE QU'ON PUBLIE : pour chacun des QUATRE premiers paquets de la passe de TEXTE -- les
+        ;; quatre glyphes superposes de `<PAD_CIRCLE>` (font_db_jak1.cpp:439 : `<`, `@`, `>`, `[`
+        ;; entre `~Y`/`~Z`, donc tous a la MEME plume) -- la CELLULE telle qu'elle part dans le
+        ;; tampon (ses deux marges verticales a la cartouche) ET la FENETRE DE TEXELS qu'elle
+        ;; echantillonne (le registre ST des sommets haut-gauche et bas-droit, en millioniemes).
+        ;; Le ST est ce que le GPU lira : la mesure d'encre hors ligne (`.autoport/gcs_icon.py`)
+        ;; decoupe l'atlas LIVRE sur CETTE fenetre-la, sans passer par `*font24-table*` ni par les
+        ;; constantes `CS_INK_*` -- si la table, la page ou l'ancre etaient faux, la fenetre le
+        ;; dirait, et l'egalite des deux marges se casserait. Rien ici ne relit une constante.
+        ;;
+        ;; LAYOUT DU PAQUET, meme source que ci-dessus (font-h.gc:248-274) : dma+vif 16, gif-tag
+        ;; 16, a+d 16, puis 4 x (st 16, rgbaq 16, xyzf2 16) ; le sommet 0 est plume+vf0 (coin
+        ;; HAUT-GAUCHE), le sommet 3 plume+vf15 = size3 (coin BAS-DROIT), font.gc:1153-1156. Le
+        ;; registre ST porte s et t en flottants (font.gc:1149-1152, vf16/vf17 ajoutes au coin).
+        (dotimes (kk (min 4 (- np k0)))
+          (let* ((base (* (+ k0 kk) 240))
+                 (pv0 (the-as (pointer int32) (&+ p0 (+ base 80))))
+                 (pv3 (the-as (pointer int32) (&+ p0 (+ base 224))))
+                 (st0 (the-as (pointer float) (&+ p0 (+ base 48))))
+                 (st3 (the-as (pointer float) (&+ p0 (+ base 192))))
+                 (cx0 (- (/ (the float (-> pv0 0)) 16.0) 1792.0))
+                 (cy0 (/ (- (/ (the float (-> pv0 1)) 16.0) miny) (-> *video-parms* relative-y-scale)))
+                 (cx3 (- (/ (the float (-> pv3 0)) 16.0) 1792.0))
+                 (cy3 (/ (- (/ (the float (-> pv3 1)) 16.0) miny) (-> *video-parms* relative-y-scale))))
+            ;; deux lignes : un appel GOAL ne prend pas plus de huit arguments.
+            (format 0
+                    "CUTICON-QUAD i=~D haut=~f bas=~f gauche=~f droite=~f~%"
+                    kk
+                    (- cy0 (the float by))
+                    (- (the float (+ by bh)) cy3)
+                    (- cx0 (the float bx))
+                    (- (the float (+ bx bw)) cx3))
+            (format 0
+                    "CUTICON-ST i=~D s0_micro=~D t0_micro=~D s1_micro=~D t1_micro=~D~%"
+                    kk
+                    (the int (* 1000000.0 (-> st0 0)))
+                    (the int (* 1000000.0 (-> st0 1)))
+                    (the int (* 1000000.0 (-> st3 0)))
+                    (the int (* 1000000.0 (-> st3 1)))))))))
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
