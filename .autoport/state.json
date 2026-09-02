@@ -266,7 +266,7 @@
     "Gpbr-props-reach-draw": 1,
     "Gmenu-census-cleanup": 1,
     "Gfont-regression": 1,
-    "Gcine-cut": 1
+    "Gcine-cut": 2
   },
   "fingerprints": {
     "00-harness": [
@@ -710,6 +710,9 @@
     ],
     "Gsubtitle-style-2": [
       "d1d8ea815982"
+    ],
+    "Gcine-cut": [
+      "6ad6b9fdbd1c"
     ]
   },
   "stuck_reasons": {
@@ -1183,7 +1186,7 @@
     "Gmenu-census-cleanup": 1788337784.4468226,
     "Gfont-regression": 1788341198.8582702
   },
-  "last_update": "2026-09-02T16:06:18.816597+00:00",
+  "last_update": "2026-09-02T16:07:32.909724+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
