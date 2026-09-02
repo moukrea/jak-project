@@ -88,6 +88,7 @@ def main():
         scene = wall[-1].get('scene', path) if wall else path
         # attribution : evenements squelette (4 lignes) et GPU (1 ligne)
         cur = None
+        mcur = None
         for t, l in lines:
             if l.startswith('HDSTRETCHINJECT '):
                 inj_seen.add(kv(l).get('value', '?'))
@@ -99,6 +100,19 @@ def main():
                 sclep_ev.append(kv(l))
             elif l.startswith('HDSCLEP2 ') and sclep_ev:
                 sclep_ev[-1].update(kv(l))
+            if l.startswith('HDMTXDEV '):
+                mcur = kv(l)
+            elif l.startswith('HDMTXREF ') and mcur is not None:
+                mcur.update(kv(l))
+                e = mcur
+                w3 = float(e.get('w3', 1.0) or 1.0)
+                attribs.append(
+                    f"HDATTRIB site=bones-mtx-calc scene={scene} modele={MODEL.get(int(e.get('entry', 0)), '?')} os={e.get('k')} "
+                    f"parent={e.get('p')} longueur_squelette_m={e.get('len_skel_m')} longueur_matrice_merc_m={e.get('len_mtx_m')} "
+                    f"squelette_vs_post_m={e.get('skel_vs_post_m')} w0={e.get('w0')} w1={e.get('w1')} w2={e.get('w2')} w3={e.get('w3')} "
+                    f"asm_vs_produit_generique_u={e.get('asm_vs_goal_max_u')} "
+                    f"chemin={'bones-mtx-calc-w3-different-de-1-fois-cam3-origine-du-monde' if abs(w3 - 1.0) > 1e-4 else 'bones-mtx-calc-w3-egal-1-autre'}")
+                mcur = None
             if l.startswith('HDLENG '):
                 cur = kv(l)
                 cur['_t'] = t
