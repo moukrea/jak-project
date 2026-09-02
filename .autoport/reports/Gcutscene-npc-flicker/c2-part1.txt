@@ -1,0 +1,76 @@
+DIRECTIVES vd9e8b66782
+
+# PNJ QUI CLIGNOTENT, RETOUR 2 — LE SEAU QUI EXCUSAIT PORTAIT TOUS LES EPISODES
+
+Owner, 2026-09-01 : « c'est pas réglé du tout, le pire cas que j'ai observé c'est la
+cinématique avec MAIRE (la première) ».
+
+--------------------------------------------------------------------------------------------------
+## 1. NPCPRIOR — POURQUOI LE CYCLE 1 N'A PAS TENU
+--------------------------------------------------------------------------------------------------
+
+NPCPRIOR correction=Grecharged-hd-models3 pourquoi_pas_tenu=le-trou-cinematique-etait-DECLARE-dans-d4fddfd245-et-livre-quand-meme
+NPCPRIOR correction=Grecharged-hd-models4-fail-open pourquoi_pas_tenu=45b7140ca7-supprime-le-SEUL-site-d-ecriture-de-s_hd_blackout_events-et-laisse-blackouts=0-comme-barre-de-passage
+NPCPRIOR correction=Gcutscene-npc-flicker pourquoi_pas_tenu=DEUX-DEFAUTS-DISTINCTS-la-scene-qui-echoue-n-a-jamais-ete-JOUEE-et-le-seul-seau-non-vide-etait-declare-non-defaut
+NPCPRIOR correction=Gcutscene-npc-flicker pourquoi_pas_tenu=aucun-continue-flags-de-jak1-ne-declenche-une-cinematique-du-maire-les-trois-qui-en-declenchent-une-nomment-tous-sage-23
+
+### 1.1 Le cycle 1 a ferme trois scenes qui n'etaient pas celle qui echoue
+
+Son propre rapport le declarait : « les cinematiques du maire, du fermier, de l'oracle, des
+mineurs, de Gol [...] demandent un lanceur de scene par nom qui n'existe pas encore ». La porte de
+la phase demandait `scenes >= 3` et elle a ete satisfaite avec trois scenes de Sandover. Un compte
+de scenes ne prouve rien tant que le cas NOMME par l'owner n'en fait pas partie — c'est pourquoi le
+validateur l'exige maintenant nommement.
+
+La cause est verifiable : le SEUL consommateur de `continue-flags` est
+`engine/target/target-death.gc:230-357`, et les trois drapeaux qui declenchent une cinematique
+(`sage-intro` :233, `sage-ecorocks` :236, `sage-demo-convo` :253) nomment tous la meme entite,
+`"sage-23"`. Il n'existe aucun bit « mayor » dans l'enumeration
+(`engine/game/game-info-h.gc:80-92`). Aucune quantite de courses n'aurait atteint la scene du
+maire : il fallait construire le lanceur.
+
+### 1.2 ET LE DEFAUT DE FOND : LE SEAU EXCUSE ETAIT LE SEUL SEAU NON VIDE
+
+C'est le point le plus grave, et il ne depend d'aucune course neuve — il se lit sur les journaux
+QUE LE CYCLE 1 A LUI-MEME ARCHIVES, avec l'analyseur qu'il a lui-meme ecrit :
+
+    $ python3 .autoport/npcf_analyse.py .autoport/reports/Gcutscene-npc-flicker/gk-hd1-village1-intro.log
+    [hd1] scenes=3 pnj_suivis=44 cycles_defaut=0 blinks=3
+          mort=0 hidden=4 noanim=0 culled=94 supprime=0 modele_absent=0 niveau=0 clone=0
+
+**94 episodes, 94 dans `culled`, et `culled` etait declare NON-DEFAUT.** Les SEPT courses
+archivees, passees au meme analyseur, donnent la meme forme :
+
+    course                       pnj  cycles  mort  hidden  culled
+    hd0 village1-demo-convo       25     0      0      0      38
+    hd0 village1-intro            21     0      0      0      37
+    hd0 village1-warp             46     0      0      4     105
+    hd1 intro-start               64     0      1      0      48
+    hd1 village1-demo-convo       25     0      0      0      38
+    hd1 village1-intro            44     0      0      4      94
+    hd1 village1-warp             46     0      0      4     106
+    ----------------------------------------------------------------
+    TOTAL                        271     0      1     12     466
+
+**479 episodes releves. 478 dans les DEUX seaux que l'instrument excuse** (`culled` 466 +
+`hidden` 12), soit 99,8 %. Le seul episode restant est la caisse morte que le rapport du cycle 1
+decrit lui-meme, et il est parti en `longues`, hors de `cycles`. Donc `cycles=0` n'etait pas un
+resultat de mesure : c'etait la definition du seau ou tout tombait.
+
+Deux proprietes se cumulaient dans `game/system/npc_flicker.cpp` :
+
+  * `reason_is_defect` excluait `kReasonCulled` (« c'est le moteur qui fonctionne ») ;
+  * et `classify()` **finissait par `return kReasonCulled;`** — le cas « je ne sais pas nommer cet
+    etat ». Le repli et l'excuse etaient le MEME seau.
+
+Consequence structurelle : tout etat que l'instrument n'avait pas anticipe etait automatiquement
+declare normal. C'est un faux vert par construction, et il est insensible a la quantite de courses
+qu'on lui fait passer.
+
+TROIS etats distincts y tombaient ensemble :
+  1. `was-drawn` a 0 et l'acteur reellement hors du frustum — la coupe de camera, legitime ;
+  2. `was-drawn` a 0 alors que la camera regarde l'acteur — ce n'est PAS la camera qui l'a laisse
+     dehors ;
+  3. `was-drawn` a 1 — GOAL A SOUMIS — et le rendu n'a rien dessine, sans que la couverture HD ni
+     l'absence de modele l'expliquent. « Le jeu dit qu'il l'a dessine, l'ecran dit que non. »
+

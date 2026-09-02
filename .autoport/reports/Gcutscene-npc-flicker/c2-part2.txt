@@ -1,0 +1,81 @@
+--------------------------------------------------------------------------------------------------
+## 2. CE QUE J'AI CHANGE DANS L'INSTRUMENT, ET POURQUOI CE N'EST PAS UN MIROIR
+--------------------------------------------------------------------------------------------------
+
+### 2.1 Le fourre-tout est separe en trois, et deux des trois sont des defauts
+
+| seau           | ce qu'il veut dire                                                     | gate |
+|----------------|------------------------------------------------------------------------|------|
+| `culled`       | `was-drawn` a 0 ET un test INDEPENDANT de position confirme « hors champ » | non |
+| `cull_aveugle` | `was-drawn` a 0 alors que la position RACINE est DANS le frustum          | OUI |
+| `nodraw`       | `was-drawn` a 1 — GOAL a soumis — et rien n'a ete dessine, sans explication | OUI |
+
+### 2.2 L'INDEPENDANCE EST REELLE, ET ELLE SE DEMONTRE
+
+Le moteur decide `was-drawn` en testant la sphere `draw origin + draw bounds` contre les plans de
+la camera (`engine/draw/drawable.gc:452-460`). `draw origin` est ecrit par `do-joint-math!` —
+**qui ne fait RIEN quand l'acteur porte `hidden` ou `no-anim`** (`process-drawable.gc:240`, la
+premiere clause du `cond` est vide). La sphere de culling peut donc rester en arriere de l'acteur.
+
+Le nouveau test applique **les memes plans** a **l'autre source de position** : `root trans`,
+ecrite par la logique de l'acteur. Ce n'est pas le meme nombre relu : ce sont deux producteurs
+differents de la meme grandeur physique, et ils ne peuvent diverger que si la sphere de culling a
+cesse de suivre l'acteur. La ligne `NPCCULL` publie les deux positions et leur ecart, de sorte que
+le mecanisme se lit au lieu de se supposer.
+
+**UN MODE DE FAUX ROUGE A ETE FERME AVANT DE POUVOIR TIRER.** `draw origin` n'est pas toujours la
+racine : `origin-joint-index` le place sur un JOINT (33 pour Jak `logic-target.gc:1232`, 6 pour
+Daxter `sidekick.gc:162`, pose par `process-taskable.gc:667` pour les PNJ). Les deux centres
+different donc d'un metre ou deux en fonctionnement NORMAL, et en bord de frustum cet ecart seul
+suffirait a faire dire « dedans » a l'un et « dehors » a l'autre. Le rayon du test independant est
+donc DIMINUE de cet ecart : `fov=1` veut dire « meme en defalquant le desaccord des deux sources,
+il est dans le champ ». Quand le desaccord est enorme — le defaut cherche — le rayon tombe a zero
+et le test porte sur le point racine, ce qui est exactement la question posee.
+
+### 2.3 Deux autres angles morts fermes dans le meme lot
+
+**(a) Le statut de niveau ne lisait que `status`, jamais `display?`.** `display-level <lev> #f`
+retire le bsp du moteur de fond (`engine/level/level.gc:645`) — plus rien de ce niveau n'est
+dessine — **sans toucher a `status`**. Un acteur d'un tel niveau publiait donc `lv=1` et son
+absence retombait dans `culled`. Or `mayor-introduction` fait `(0 display-level beach special)`
+(`levels/beach/mayor.gc:147`) et le maire est un acteur de BEACH : c'est exactement ce champ-la qui
+bouge sous lui.
+
+**(b) Le niveau se lit maintenant AVANT le bit `was-drawn`, et ce n'est pas cosmetique.**
+`was-drawn` est efface EN TETE de `dma-add-process-drawable` (`drawable.gc:447`) : quand le moteur
+d'avant-plan du niveau ne tourne plus, cette fonction n'est plus appelee du tout et le bit GARDE la
+valeur de la derniere image ou elle a tourne. Un `was-drawn` reste a 1 aurait fait classer
+l'episode en `nodraw` — le compte aurait ete juste, mais la CAUSE publiee aurait envoye le chantier
+chercher dans le rendu ce qui se passe dans le systeme de niveaux.
+
+**(c) Le recensement se jetait lui-meme au debut de chaque cinematique.** Le bit `movie` est arme a
+l'entree de `play-anim`, mais `active-stream` — d'ou sort le NOM de la scene — n'est ecrit qu'apres
+`str-play-async` (`engine/load/loader.gc:1219`), c'est-a-dire APRES toute l'attente d'art de la
+partie 0. Le cycle 1 vidait tous ses enregistrements a ce changement de nom
+(`flux-non-arme` -> nom reel) : le DEBUT de chaque cinematique, **dont sa premiere frontiere de
+partie**, etait hors instrument. On renomme desormais en place.
+
+--------------------------------------------------------------------------------------------------
+## 3. NPCGUARD — CE QUI EMPECHE LA TROISIEME FOIS
+--------------------------------------------------------------------------------------------------
+
+NPCGUARD nom=npc-flicker-selftest echoue_si=une-des-21-proprietes-du-recensement-tombe-OU-une-valeur-publiee-n-a-aucun-site-d-ecriture-OU-le-repli-de-classify-nomme-une-cause-que-reason_is_defect-EXCUSE
+
+Trois bras, aucun appareil, aucune course, ~5 s, et le crochet `add_custom_command(TARGET gk
+POST_BUILD ...)` existe deja dans `game/CMakeLists.txt:497` ET `android/CMakeLists.txt:989` : on ne
+peut lier le moteur ni pour le bureau ni pour le telephone sans que la garde passe.
+
+  * **BRAS 1 — 21 proprietes**, chacune avec son controle POSITIF (le compteur doit MONTER) et son
+    controle negatif. Les quatre ajoutees ce cycle sont : `cull-aveugle` qui tire quand la racine
+    est dans le champ, `cull-aveugle` qui NE tire PAS quand elle est dehors, `nodraw` qui tire sur
+    `was-drawn=1` sans dessin, et le raccord de debut de scene qui doit rendre UNE scene et UN
+    cycle.
+  * **BRAS 2 — aucune valeur publiee n'est morte** (inchange, cycle 1).
+  * **BRAS 3, NOUVEAU — le repli de `classify()` n'excuse pas.** `.autoport/npcf_catchall_gate.py`
+    lit dans le code les causes que `reason_is_defect` exclut, lit le DERNIER `return` de
+    `classify()` — celui qu'aucune condition ne garde — et echoue si le second est dans les
+    premieres. **Il porte son propre controle positif** : il s'applique d'abord a un texte de
+    reference qui reproduit exactement la faute du cycle 1 et echoue s'il ne la detecte pas.
+    C'est la regle generale qui sort de ce cycle : *ne pas savoir expliquer une disparition n'est
+    pas une raison de la declarer normale.*
+

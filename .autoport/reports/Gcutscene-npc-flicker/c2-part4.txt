@@ -1,0 +1,84 @@
+--------------------------------------------------------------------------------------------------
+## 4. LE LANCEUR DE CINEMATIQUE — CE QUE LE CYCLE 1 DECLARAIT MANQUANT
+--------------------------------------------------------------------------------------------------
+
+Le rapport du cycle 1 ecrivait : les cinematiques du maire « demandent un lanceur de scene par nom
+qui n'existe pas encore ». Il est construit, et il est PROUVE.
+
+### 4.1 Il n'y a pas de scene a lancer : il y a un PNJ a pousser
+
+jak1 n'a ni `defscene`, ni type `scene`, ni `scene-player` — ce sont des notions de jak2/jak3. Une
+cinematique de jak1 est un `spool-anim` joue par le PROCESSUS DU PNJ lui-meme
+(`levels/beach/mayor.gc:55-149` pour `"mayor-introduction"`, 16 parties).
+
+Le geste est deja dans le jeu : envoyer l'evenement `'play-anim` a un `process-taskable` pose
+`been-kicked` (`engine/common-obs/process-taskable.gc:555` en `idle`, `:439` en `hidden`) et le
+`:trans` de `idle` (`:623-627`) part en `play-anim` — sans dialogue, sans bouton, sans approche.
+C'est exactement la porte que `engine/target/target-death.gc:239` emprunte deja pour `sage-23`.
+
+`OG_CINE_KICK` / `debug.opengoal.cine.kick` = liste de noms de TYPE, dans l'ordre. Le TYPE et pas
+le nom d'entite : le nom (« mayor-5 ») vit dans les donnees de niveau, le type est declare dans le
+source (`(deftype mayor (process-taskable) ())`) et se lit a l'execution par `(-> proc type symbol)`.
+Meme trampoline `*listener-function*` que `level_warp_maybe` et `task_close_maybe`, meme gate de
+disponibilite, eteint par defaut.
+
+### 4.2 PROUVE, sur des cinematiques reelles
+
+    NPCSCENE scene=farmer-introduction pnj_suivis=12 cycles=0 images=1200 ...
+    NPCSCENE scene=farmer-reminder-1   pnj_suivis=12 cycles=0 images=402  ...
+
+Deux cinematiques completes, jouees et recensees, sans personne au pad.
+
+### 4.3 « ENVOYE » N'EST PAS « DEMARRE » — et ma premiere version mesurait la mauvaise chose
+
+Le lanceur rendait succes des que l'evenement etait POSTE. Mesure : `envoye=1` publie, et la scene
+ne demarrait jamais — seuls sortaient les PRECHARGEMENTS de spool (`A36-STR-DIAG chunk=0`), jamais
+chunk 1..15, et le recensement ne tournait pas d'une image. Un lanceur qui declare succes sur un
+evenement poste rend un vert pendant qu'il ne se passe rien.
+
+Le contrat est desormais : **1 = le PNJ est dans l'etat `play-anim`**, 2 = evenement (re)poste,
+rappelle-moi. Et chaque tentative publie l'etat REEL du PNJ plus les deux conditions du garde
+lisibles sans effet de bord :
+
+    CINEKICK type=mayor proc="mayor-5" etat=idle envois=24 progress=0 autrecam=0
+
+`progress=0 autrecam=0` : les deux conditions lisibles sont bonnes. La seule qui reste est
+`(process-grab? *target*)` — et c'est elle qui echoue. Sans cette ligne, « la scene ne demarre pas »
+serait reste un silence.
+
+--------------------------------------------------------------------------------------------------
+## 5. TROIS PROPRIETES DU MOTEUR QUE CE CYCLE A DU MESURER POUR AVANCER
+--------------------------------------------------------------------------------------------------
+
+### 5.1 La boucle de naissance vit DANS le garde `all-visible?`
+
+`engine/entity/entity.gc:1155` : toute la boucle qui fait naitre les acteurs d'un niveau est
+enfermee dans `(when (not (and (-> lev vis-info 0) (-> lev all-visible?))))`. **Quand un niveau se
+declare tout-visible, aucune de ses entites ne nait, quelle que soit la distance.**
+
+Mesure a `beach-start`, Jak pose a 6 m du maire : `taskables_vus=3`, tous de village1
+(`explorer-4`, `farmer-3`, `oracle-1`), **zero de beach** — alors que la meme ligne publie
+`lev0=beach/active/display lev1=village1/active/display`. Le niveau n'etait donc pas en cause.
+Un commentaire pose par une phase anterieure au meme endroit (`entity.gc:1136-1144`) decrivait deja
+exactement ce cas, `beach-start` compris.
+
+### 5.2 La levee de la borne de naissance ne survit pas UNE image
+
+`pc-settings::update` rabaisse `birth-dist` a 220 m a chaque image des que `ps2-actor-vis?` est
+arme, ce qui est le defaut (`pc/pckernel-common.gc:548-550`). La trace le prouve au lieu de le
+supposer : `ancienne_unites=901120` (= 220 m) a CHACUN des 29 appels successifs — si la levee avait
+tenu, le deuxieme appel aurait lu 40 960 000. Ma premiere version de secours publiait donc une
+levee INERTE. Remplacee par `entity-birth-no-kill` (`entity.gc:1213`), le geste chirurgical que
+`target-death.gc:236` emploie deja : UN acteur nomme, rien d'autre ne change.
+
+### 5.3 `beach-start` laisse `LS_HOLD_TARGET` arme, et Jak n'est jamais saisissable
+
+    LOADSCREEN-SHOW arm=4 frames=6120        (arm=4 = LS_HOLD_TARGET, main-h.gc:299)
+
+Sur ce point de reprise, `target-continue` ne se termine pas : la barriere reste armee plus de
+6000 images pendant que le jeu tourne a 59,92 img/s. Consequence pour ce chantier : `process-grab?`
+echoue, donc AUCUN PNJ ne peut etre pousse en cinematique depuis `beach-start`. C'est un defaut
+PRE-EXISTANT de ce chemin — il se reproduit sans `force-actors?` — et il n'appartient pas a cette
+phase ; il est publie ici parce qu'il a coute trois courses et qu'il rendra le meme service a la
+phase qui le traitera.
+

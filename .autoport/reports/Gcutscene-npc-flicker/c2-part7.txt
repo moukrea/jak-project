@@ -1,0 +1,32 @@
+--------------------------------------------------------------------------------------------------
+## 7. LE CONTROLE POSITIF, SUR LA SCENE DE L'OWNER
+--------------------------------------------------------------------------------------------------
+
+Un zero ne vaut rien si l'instrument peut etre muet — c'est litteralement la faute qui a fait
+revenir ce defaut une premiere fois (`blackouts=0` sur un compteur sans site d'ecriture). Le
+controle est donc joue SUR `mayor-introduction` elle-meme, pas sur une autre scene.
+
+    NPCF-INJECT arme fragment=-lod0 periode=120 duree=10
+
+    NPCFLICK-EV scene=mayor-introduction pnj=mayor-lod0      images=9 ms=149 cause=supprime hd=0
+    NPCFLICK-EV scene=mayor-introduction pnj=crate-iron-lod0 images=9 ms=149 cause=supprime hd=0
+    NPCFLICK-EV scene=mayor-introduction pnj=mayor-lod0      images=9 ms=148 cause=supprime hd=0
+
+    19 cinematiques du maire couvertes, 325 evenements comptes,
+    et la distribution des longueurs mesurees tient sur UNE ligne :
+
+        325 evenement(s) a 9 images        (pour 10 images injectees)
+
+**10 images injectees, 9 mesurees, sur 325 evenements sur 325 — pas de queue, pas de dispersion.**
+L'ecart d'exactement UNE image est la
+tolerance d'appariement des deux horloges que le module DECLARE (`draw_tolerance`, defaut 1) : la
+prediction est donc verifiee au sens strict, et non « le compteur a bouge ». La cause publiee est
+la bonne (`supprime` = le rendu a jete le paquet), ce qui montre que ce n'est pas seulement le
+COMPTE qui repond mais la CLASSIFICATION.
+
+C'est la forme que les DIRECTIVES du 2026-08-20 exigent : une PREDICTION QUANTITATIVE
+(« injecter X doit faire monter la mesure de X »), pas un ratio a une ligne de base qui bouge.
+
+**LA PAIRE EST COMPLETE SUR LA MEME SCENE :** avec injection, le compteur monte a la valeur
+predite ; sans injection, la meme scene rend `cycles=0`. Le zero de la section 6 est donc une
+mesure, pas un silence.

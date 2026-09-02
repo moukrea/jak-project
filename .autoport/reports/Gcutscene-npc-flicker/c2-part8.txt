@@ -1,0 +1,37 @@
+--------------------------------------------------------------------------------------------------
+## 8. CE QUE JE N'AI PAS FAIT, ET CE QUI RESTE OUVERT
+--------------------------------------------------------------------------------------------------
+
+  * **Je n'ai toujours pas REPRODUIT le defaut de l'owner.** La cinematique qu'il nomme est
+    desormais atteignable et mesuree, et elle rend zero cycle sur bureau. Ce cycle livre donc la
+    MESURE DU CAS NOMME et les deux seaux qui manquaient — pas une guerison demontree. Si l'owner
+    revoit le clignotement sur le maire, le recensement publiera maintenant une cause, et cette
+    cause pourra etre `cull-aveugle` ou `nodraw`, qui n'existaient pas au cycle 1.
+
+  * **Le zero est de BUREAU.** L'owner voit le defaut sur son telephone. Le cycle 1 a deja
+    presente un zero de bureau comme un resultat ; celui-ci n'est une ligne de base qu'accompagne
+    de son controle positif et de la reprise sur l'appareil.
+
+  * **`LS_HOLD_TARGET` reste arme sur `beach-start`** (`LOADSCREEN-SHOW arm=4 frames=6120` pendant
+    que le jeu tourne a 59,92 img/s). C'est un defaut PRE-EXISTANT de ce point de reprise, sans
+    rapport avec cette phase — il rend `process-grab?` faux et interdit d'y pousser une
+    cinematique. Publie ici parce qu'il a coute trois courses et qu'il servira a la phase qui le
+    traitera. NON CORRIGE : hors perimetre.
+
+  * **Le detour par `force-actors?` a ete essaye puis RETIRE.** Il faisait bien naitre le maire,
+    mais faisait naitre tout le reste avec lui et bloquait la barriere. Il n'y a plus aucune
+    deviation de reglage dans la campagne : `entity-birth-no-kill` ne touche qu'un acteur nomme.
+
+  * **Le PNJ doit etre proche pour que la mesure soit possible.** `bit-3`, la seule protection
+    contre la boucle de mise a mort par visibilite (`entity.gc:1204`), est EFFACEE par
+    `process-taskable` apres 0,2 s d'oisiveté (`process-taskable.gc:578-580`). Mesure : depuis un
+    spawn eloigne, le maire nait (`proc_apres=1 statut_apres=8`) et est retue avant la tentative
+    suivante (`statut_avant=0 proc_avant=0`), en boucle. **C'est un cycle naissance/mort reel, et
+    mon recensement le classe `mort`, donc en DEFAUT.** Je ne l'attribue PAS au defaut de l'owner
+    — je l'ai produit avec un spawn artificiel — mais le mecanisme est verifie dans le code et il
+    est exactement de la forme qu'il decrit : un PNJ oisif plus de 0,2 s, hors du jeu de
+    visibilite, perd sa protection et se fait tuer puis renaitre. **C'est la premiere piste a
+    instruire si le defaut revient**, et elle n'aurait pas pu etre formulee sans ce cycle.
+
+  * **`culled` reste non gate**, mais il n'est plus le fourre-tout : le repli de `classify()` est
+    desormais `nodraw`, un defaut, et la garde BRAS 3 empeche que ca reparte dans l'autre sens.

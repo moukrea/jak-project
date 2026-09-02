@@ -1,0 +1,430 @@
+DIRECTIVES vd9e8b66782
+
+# PNJ QUI CLIGNOTENT, RETOUR 2 — LE SEAU QUI EXCUSAIT PORTAIT TOUS LES EPISODES
+
+Owner, 2026-09-01 : « c'est pas réglé du tout, le pire cas que j'ai observé c'est la
+cinématique avec MAIRE (la première) ».
+
+--------------------------------------------------------------------------------------------------
+## 1. NPCPRIOR — POURQUOI LE CYCLE 1 N'A PAS TENU
+--------------------------------------------------------------------------------------------------
+
+NPCPRIOR correction=Grecharged-hd-models3 pourquoi_pas_tenu=le-trou-cinematique-etait-DECLARE-dans-d4fddfd245-et-livre-quand-meme
+NPCPRIOR correction=Grecharged-hd-models4-fail-open pourquoi_pas_tenu=45b7140ca7-supprime-le-SEUL-site-d-ecriture-de-s_hd_blackout_events-et-laisse-blackouts=0-comme-barre-de-passage
+NPCPRIOR correction=Gcutscene-npc-flicker pourquoi_pas_tenu=DEUX-DEFAUTS-DISTINCTS-la-scene-qui-echoue-n-a-jamais-ete-JOUEE-et-le-seul-seau-non-vide-etait-declare-non-defaut
+NPCPRIOR correction=Gcutscene-npc-flicker pourquoi_pas_tenu=aucun-continue-flags-de-jak1-ne-declenche-une-cinematique-du-maire-les-trois-qui-en-declenchent-une-nomment-tous-sage-23
+
+### 1.1 Le cycle 1 a ferme trois scenes qui n'etaient pas celle qui echoue
+
+Son propre rapport le declarait : « les cinematiques du maire, du fermier, de l'oracle, des
+mineurs, de Gol [...] demandent un lanceur de scene par nom qui n'existe pas encore ». La porte de
+la phase demandait `scenes >= 3` et elle a ete satisfaite avec trois scenes de Sandover. Un compte
+de scenes ne prouve rien tant que le cas NOMME par l'owner n'en fait pas partie — c'est pourquoi le
+validateur l'exige maintenant nommement.
+
+La cause est verifiable : le SEUL consommateur de `continue-flags` est
+`engine/target/target-death.gc:230-357`, et les trois drapeaux qui declenchent une cinematique
+(`sage-intro` :233, `sage-ecorocks` :236, `sage-demo-convo` :253) nomment tous la meme entite,
+`"sage-23"`. Il n'existe aucun bit « mayor » dans l'enumeration
+(`engine/game/game-info-h.gc:80-92`). Aucune quantite de courses n'aurait atteint la scene du
+maire : il fallait construire le lanceur.
+
+### 1.2 ET LE DEFAUT DE FOND : LE SEAU EXCUSE ETAIT LE SEUL SEAU NON VIDE
+
+C'est le point le plus grave, et il ne depend d'aucune course neuve — il se lit sur les journaux
+QUE LE CYCLE 1 A LUI-MEME ARCHIVES, avec l'analyseur qu'il a lui-meme ecrit :
+
+    $ python3 .autoport/npcf_analyse.py .autoport/reports/Gcutscene-npc-flicker/gk-hd1-village1-intro.log
+    [hd1] scenes=3 pnj_suivis=44 cycles_defaut=0 blinks=3
+          mort=0 hidden=4 noanim=0 culled=94 supprime=0 modele_absent=0 niveau=0 clone=0
+
+**94 episodes, 94 dans `culled`, et `culled` etait declare NON-DEFAUT.** Les SEPT courses
+archivees, passees au meme analyseur, donnent la meme forme :
+
+    course                       pnj  cycles  mort  hidden  culled
+    hd0 village1-demo-convo       25     0      0      0      38
+    hd0 village1-intro            21     0      0      0      37
+    hd0 village1-warp             46     0      0      4     105
+    hd1 intro-start               64     0      1      0      48
+    hd1 village1-demo-convo       25     0      0      0      38
+    hd1 village1-intro            44     0      0      4      94
+    hd1 village1-warp             46     0      0      4     106
+    ----------------------------------------------------------------
+    TOTAL                        271     0      1     12     466
+
+**479 episodes releves. 478 dans les DEUX seaux que l'instrument excuse** (`culled` 466 +
+`hidden` 12), soit 99,8 %. Le seul episode restant est la caisse morte que le rapport du cycle 1
+decrit lui-meme, et il est parti en `longues`, hors de `cycles`. Donc `cycles=0` n'etait pas un
+resultat de mesure : c'etait la definition du seau ou tout tombait.
+
+Deux proprietes se cumulaient dans `game/system/npc_flicker.cpp` :
+
+  * `reason_is_defect` excluait `kReasonCulled` (« c'est le moteur qui fonctionne ») ;
+  * et `classify()` **finissait par `return kReasonCulled;`** — le cas « je ne sais pas nommer cet
+    etat ». Le repli et l'excuse etaient le MEME seau.
+
+Consequence structurelle : tout etat que l'instrument n'avait pas anticipe etait automatiquement
+declare normal. C'est un faux vert par construction, et il est insensible a la quantite de courses
+qu'on lui fait passer.
+
+TROIS etats distincts y tombaient ensemble :
+  1. `was-drawn` a 0 et l'acteur reellement hors du frustum — la coupe de camera, legitime ;
+  2. `was-drawn` a 0 alors que la camera regarde l'acteur — ce n'est PAS la camera qui l'a laisse
+     dehors ;
+  3. `was-drawn` a 1 — GOAL A SOUMIS — et le rendu n'a rien dessine, sans que la couverture HD ni
+     l'absence de modele l'expliquent. « Le jeu dit qu'il l'a dessine, l'ecran dit que non. »
+
+--------------------------------------------------------------------------------------------------
+## 2. CE QUE J'AI CHANGE DANS L'INSTRUMENT, ET POURQUOI CE N'EST PAS UN MIROIR
+--------------------------------------------------------------------------------------------------
+
+### 2.1 Le fourre-tout est separe en trois, et deux des trois sont des defauts
+
+| seau           | ce qu'il veut dire                                                     | gate |
+|----------------|------------------------------------------------------------------------|------|
+| `culled`       | `was-drawn` a 0 ET un test INDEPENDANT de position confirme « hors champ » | non |
+| `cull_aveugle` | `was-drawn` a 0 alors que la position RACINE est DANS le frustum          | OUI |
+| `nodraw`       | `was-drawn` a 1 — GOAL a soumis — et rien n'a ete dessine, sans explication | OUI |
+
+### 2.2 L'INDEPENDANCE EST REELLE, ET ELLE SE DEMONTRE
+
+Le moteur decide `was-drawn` en testant la sphere `draw origin + draw bounds` contre les plans de
+la camera (`engine/draw/drawable.gc:452-460`). `draw origin` est ecrit par `do-joint-math!` —
+**qui ne fait RIEN quand l'acteur porte `hidden` ou `no-anim`** (`process-drawable.gc:240`, la
+premiere clause du `cond` est vide). La sphere de culling peut donc rester en arriere de l'acteur.
+
+Le nouveau test applique **les memes plans** a **l'autre source de position** : `root trans`,
+ecrite par la logique de l'acteur. Ce n'est pas le meme nombre relu : ce sont deux producteurs
+differents de la meme grandeur physique, et ils ne peuvent diverger que si la sphere de culling a
+cesse de suivre l'acteur. La ligne `NPCCULL` publie les deux positions et leur ecart, de sorte que
+le mecanisme se lit au lieu de se supposer.
+
+**UN MODE DE FAUX ROUGE A ETE FERME AVANT DE POUVOIR TIRER.** `draw origin` n'est pas toujours la
+racine : `origin-joint-index` le place sur un JOINT (33 pour Jak `logic-target.gc:1232`, 6 pour
+Daxter `sidekick.gc:162`, pose par `process-taskable.gc:667` pour les PNJ). Les deux centres
+different donc d'un metre ou deux en fonctionnement NORMAL, et en bord de frustum cet ecart seul
+suffirait a faire dire « dedans » a l'un et « dehors » a l'autre. Le rayon du test independant est
+donc DIMINUE de cet ecart : `fov=1` veut dire « meme en defalquant le desaccord des deux sources,
+il est dans le champ ». Quand le desaccord est enorme — le defaut cherche — le rayon tombe a zero
+et le test porte sur le point racine, ce qui est exactement la question posee.
+
+### 2.3 Deux autres angles morts fermes dans le meme lot
+
+**(a) Le statut de niveau ne lisait que `status`, jamais `display?`.** `display-level <lev> #f`
+retire le bsp du moteur de fond (`engine/level/level.gc:645`) — plus rien de ce niveau n'est
+dessine — **sans toucher a `status`**. Un acteur d'un tel niveau publiait donc `lv=1` et son
+absence retombait dans `culled`. Or `mayor-introduction` fait `(0 display-level beach special)`
+(`levels/beach/mayor.gc:147`) et le maire est un acteur de BEACH : c'est exactement ce champ-la qui
+bouge sous lui.
+
+**(b) Le niveau se lit maintenant AVANT le bit `was-drawn`, et ce n'est pas cosmetique.**
+`was-drawn` est efface EN TETE de `dma-add-process-drawable` (`drawable.gc:447`) : quand le moteur
+d'avant-plan du niveau ne tourne plus, cette fonction n'est plus appelee du tout et le bit GARDE la
+valeur de la derniere image ou elle a tourne. Un `was-drawn` reste a 1 aurait fait classer
+l'episode en `nodraw` — le compte aurait ete juste, mais la CAUSE publiee aurait envoye le chantier
+chercher dans le rendu ce qui se passe dans le systeme de niveaux.
+
+**(c) Le recensement se jetait lui-meme au debut de chaque cinematique.** Le bit `movie` est arme a
+l'entree de `play-anim`, mais `active-stream` — d'ou sort le NOM de la scene — n'est ecrit qu'apres
+`str-play-async` (`engine/load/loader.gc:1219`), c'est-a-dire APRES toute l'attente d'art de la
+partie 0. Le cycle 1 vidait tous ses enregistrements a ce changement de nom
+(`flux-non-arme` -> nom reel) : le DEBUT de chaque cinematique, **dont sa premiere frontiere de
+partie**, etait hors instrument. On renomme desormais en place.
+
+--------------------------------------------------------------------------------------------------
+## 3. NPCGUARD — CE QUI EMPECHE LA TROISIEME FOIS
+--------------------------------------------------------------------------------------------------
+
+NPCGUARD nom=npc-flicker-selftest echoue_si=une-des-21-proprietes-du-recensement-tombe-OU-une-valeur-publiee-n-a-aucun-site-d-ecriture-OU-le-repli-de-classify-nomme-une-cause-que-reason_is_defect-EXCUSE
+
+Trois bras, aucun appareil, aucune course, ~5 s, et le crochet `add_custom_command(TARGET gk
+POST_BUILD ...)` existe deja dans `game/CMakeLists.txt:497` ET `android/CMakeLists.txt:989` : on ne
+peut lier le moteur ni pour le bureau ni pour le telephone sans que la garde passe.
+
+  * **BRAS 1 — 21 proprietes**, chacune avec son controle POSITIF (le compteur doit MONTER) et son
+    controle negatif. Les quatre ajoutees ce cycle sont : `cull-aveugle` qui tire quand la racine
+    est dans le champ, `cull-aveugle` qui NE tire PAS quand elle est dehors, `nodraw` qui tire sur
+    `was-drawn=1` sans dessin, et le raccord de debut de scene qui doit rendre UNE scene et UN
+    cycle.
+  * **BRAS 2 — aucune valeur publiee n'est morte** (inchange, cycle 1).
+  * **BRAS 3, NOUVEAU — le repli de `classify()` n'excuse pas.** `.autoport/npcf_catchall_gate.py`
+    lit dans le code les causes que `reason_is_defect` exclut, lit le DERNIER `return` de
+    `classify()` — celui qu'aucune condition ne garde — et echoue si le second est dans les
+    premieres. **Il porte son propre controle positif** : il s'applique d'abord a un texte de
+    reference qui reproduit exactement la faute du cycle 1 et echoue s'il ne la detecte pas.
+    C'est la regle generale qui sort de ce cycle : *ne pas savoir expliquer une disparition n'est
+    pas une raison de la declarer normale.*
+
+--------------------------------------------------------------------------------------------------
+## 4. LE LANCEUR DE CINEMATIQUE — CE QUE LE CYCLE 1 DECLARAIT MANQUANT
+--------------------------------------------------------------------------------------------------
+
+Le rapport du cycle 1 ecrivait : les cinematiques du maire « demandent un lanceur de scene par nom
+qui n'existe pas encore ». Il est construit, et il est PROUVE.
+
+### 4.1 Il n'y a pas de scene a lancer : il y a un PNJ a pousser
+
+jak1 n'a ni `defscene`, ni type `scene`, ni `scene-player` — ce sont des notions de jak2/jak3. Une
+cinematique de jak1 est un `spool-anim` joue par le PROCESSUS DU PNJ lui-meme
+(`levels/beach/mayor.gc:55-149` pour `"mayor-introduction"`, 16 parties).
+
+Le geste est deja dans le jeu : envoyer l'evenement `'play-anim` a un `process-taskable` pose
+`been-kicked` (`engine/common-obs/process-taskable.gc:555` en `idle`, `:439` en `hidden`) et le
+`:trans` de `idle` (`:623-627`) part en `play-anim` — sans dialogue, sans bouton, sans approche.
+C'est exactement la porte que `engine/target/target-death.gc:239` emprunte deja pour `sage-23`.
+
+`OG_CINE_KICK` / `debug.opengoal.cine.kick` = liste de noms de TYPE, dans l'ordre. Le TYPE et pas
+le nom d'entite : le nom (« mayor-5 ») vit dans les donnees de niveau, le type est declare dans le
+source (`(deftype mayor (process-taskable) ())`) et se lit a l'execution par `(-> proc type symbol)`.
+Meme trampoline `*listener-function*` que `level_warp_maybe` et `task_close_maybe`, meme gate de
+disponibilite, eteint par defaut.
+
+### 4.2 PROUVE, sur des cinematiques reelles
+
+    NPCSCENE scene=farmer-introduction pnj_suivis=12 cycles=0 images=1200 ...
+    NPCSCENE scene=farmer-reminder-1   pnj_suivis=12 cycles=0 images=402  ...
+
+Deux cinematiques completes, jouees et recensees, sans personne au pad.
+
+### 4.3 « ENVOYE » N'EST PAS « DEMARRE » — et ma premiere version mesurait la mauvaise chose
+
+Le lanceur rendait succes des que l'evenement etait POSTE. Mesure : `envoye=1` publie, et la scene
+ne demarrait jamais — seuls sortaient les PRECHARGEMENTS de spool (`A36-STR-DIAG chunk=0`), jamais
+chunk 1..15, et le recensement ne tournait pas d'une image. Un lanceur qui declare succes sur un
+evenement poste rend un vert pendant qu'il ne se passe rien.
+
+Le contrat est desormais : **1 = le PNJ est dans l'etat `play-anim`**, 2 = evenement (re)poste,
+rappelle-moi. Et chaque tentative publie l'etat REEL du PNJ plus les deux conditions du garde
+lisibles sans effet de bord :
+
+    CINEKICK type=mayor proc="mayor-5" etat=idle envois=24 progress=0 autrecam=0
+
+`progress=0 autrecam=0` : les deux conditions lisibles sont bonnes. La seule qui reste est
+`(process-grab? *target*)` — et c'est elle qui echoue. Sans cette ligne, « la scene ne demarre pas »
+serait reste un silence.
+
+--------------------------------------------------------------------------------------------------
+## 5. TROIS PROPRIETES DU MOTEUR QUE CE CYCLE A DU MESURER POUR AVANCER
+--------------------------------------------------------------------------------------------------
+
+### 5.1 La boucle de naissance vit DANS le garde `all-visible?`
+
+`engine/entity/entity.gc:1155` : toute la boucle qui fait naitre les acteurs d'un niveau est
+enfermee dans `(when (not (and (-> lev vis-info 0) (-> lev all-visible?))))`. **Quand un niveau se
+declare tout-visible, aucune de ses entites ne nait, quelle que soit la distance.**
+
+Mesure a `beach-start`, Jak pose a 6 m du maire : `taskables_vus=3`, tous de village1
+(`explorer-4`, `farmer-3`, `oracle-1`), **zero de beach** — alors que la meme ligne publie
+`lev0=beach/active/display lev1=village1/active/display`. Le niveau n'etait donc pas en cause.
+Un commentaire pose par une phase anterieure au meme endroit (`entity.gc:1136-1144`) decrivait deja
+exactement ce cas, `beach-start` compris.
+
+### 5.2 La levee de la borne de naissance ne survit pas UNE image
+
+`pc-settings::update` rabaisse `birth-dist` a 220 m a chaque image des que `ps2-actor-vis?` est
+arme, ce qui est le defaut (`pc/pckernel-common.gc:548-550`). La trace le prouve au lieu de le
+supposer : `ancienne_unites=901120` (= 220 m) a CHACUN des 29 appels successifs — si la levee avait
+tenu, le deuxieme appel aurait lu 40 960 000. Ma premiere version de secours publiait donc une
+levee INERTE. Remplacee par `entity-birth-no-kill` (`entity.gc:1213`), le geste chirurgical que
+`target-death.gc:236` emploie deja : UN acteur nomme, rien d'autre ne change.
+
+### 5.3 `beach-start` laisse `LS_HOLD_TARGET` arme, et Jak n'est jamais saisissable
+
+    LOADSCREEN-SHOW arm=4 frames=6120        (arm=4 = LS_HOLD_TARGET, main-h.gc:299)
+
+Sur ce point de reprise, `target-continue` ne se termine pas : la barriere reste armee plus de
+6000 images pendant que le jeu tourne a 59,92 img/s. Consequence pour ce chantier : `process-grab?`
+echoue, donc AUCUN PNJ ne peut etre pousse en cinematique depuis `beach-start`. C'est un defaut
+PRE-EXISTANT de ce chemin — il se reproduit sans `force-actors?` — et il n'appartient pas a cette
+phase ; il est publie ici parce qu'il a coute trois courses et qu'il rendra le meme service a la
+phase qui le traitera.
+
+--------------------------------------------------------------------------------------------------
+## 6. LA CINEMATIQUE DU MAIRE — MESUREE, POUR LA PREMIERE FOIS
+--------------------------------------------------------------------------------------------------
+
+    NPCSCENE scene=mayor-introduction   pnj_suivis=6 cycles=0 images=3778 ecart0=17373 ecart1=18
+    NPCSCENE scene=mayor-reminder-beams pnj_suivis=6 cycles=0 images=640  ecart0=1287  ecart1=5
+
+Le detail par acteur, sur la scene que l'owner NOMME :
+
+    pnj                cycles  coupes  culled  nodraw  cull_aveugle  trou_max        images  dessine
+    mayor-lod0            0      1       1       0         0        128 (2,13 s)     3778     3650
+    eichar-lod0 (Jak)     0      2       2       0         0       1131 (18,85 s)    3778     2519
+    sidekick-lod0         0      1       1       0         0        392 (6,53 s)     3778     3386
+    crate-iron-lod0       0      2       2       0         0        276 (4,60 s)     3778     3374
+    hutlamp-lod0          0      1       1       0         0        448 (7,47 s)     3778     3330
+    mayorgears-geo        0      1       1       0         0        825 (13,75 s)    3778      309
+
+**ZERO cycle de cause defectueuse.** Et — c'est le point qui compte pour juger la mesure
+elle-meme — **`nodraw` et `cull_aveugle` valent ZERO partout**. Les deux seaux que j'ai crees ce
+cycle ne se sont pas mis a tirer des qu'on les a ouverts : le decoupage n'a pas fabrique de faux
+rouge. Chaque absence relevee est une absence ou les DEUX sources de position s'accordent sur
+« hors champ », c'est-a-dire une coupe de camera.
+
+### CE QUE CE ZERO NE DIT PAS, ET JE LE DIS AVANT TOUTE CONCLUSION
+
+Ce zero est pris **sur bureau**, dans une scene atteinte par un lanceur de debug, et l'owner voit
+le defaut **sur son telephone**. Le cycle 1 s'est deja trompe en presentant un zero de bureau
+comme un resultat ; ici le zero de bureau n'est qu'une ligne de base, et il ne devient une preuve
+que si (a) le controle positif tire sur CETTE scene et (b) la meme scene est rejouee sur
+l'appareil. Tant que les deux ne sont pas faits, ce tableau se lit « la mesure fonctionne et ne
+voit rien ici », jamais « c'est repare ».
+
+### LE SEUL ELEMENT ANORMAL RELEVE, ET IL EST REEL
+
+    NPCCULL pnj=lurkerworm-lod0 statut=132 lv=1
+            racine=(-698129.8 5308.2 -922041.9) sphere=(0.0 8192.0 0.0) derive=1156527.1
+
+La sphere de culling de cet acteur est posee a **l'origine du monde** pendant que sa racine est a
+1 156 527 unites de la (282 m). C'est un `draw origin` JAMAIS ECRIT — la memoire de tas d'un
+process est mise a zero a l'allocation, et `do-joint-math!` ne l'ecrit pas tant que l'acteur porte
+`hidden` ou `no-anim` (`process-drawable.gc:240`). C'est exactement la famille de defaut que la
+phase `Ghd-skin-origin-stretch` traite sur les os HD, vue ici sur la sphere de CULLING.
+Ca ne compte pas comme un cycle sur cette scene (l'acteur n'a jamais ete dessine, donc aucun
+episode ne s'ouvre pour lui), et je ne le presente pas comme la cause du defaut de l'owner : je le
+publie parce que c'est une sphere de culling fausse de 282 m, que ce cycle avait la ligne pour la
+voir, et que le cycle 1 ne l'aurait jamais vue.
+--------------------------------------------------------------------------------------------------
+## 7. LE CONTROLE POSITIF, SUR LA SCENE DE L'OWNER
+--------------------------------------------------------------------------------------------------
+
+Un zero ne vaut rien si l'instrument peut etre muet — c'est litteralement la faute qui a fait
+revenir ce defaut une premiere fois (`blackouts=0` sur un compteur sans site d'ecriture). Le
+controle est donc joue SUR `mayor-introduction` elle-meme, pas sur une autre scene.
+
+    NPCF-INJECT arme fragment=-lod0 periode=120 duree=10
+
+    NPCFLICK-EV scene=mayor-introduction pnj=mayor-lod0      images=9 ms=149 cause=supprime hd=0
+    NPCFLICK-EV scene=mayor-introduction pnj=crate-iron-lod0 images=9 ms=149 cause=supprime hd=0
+    NPCFLICK-EV scene=mayor-introduction pnj=mayor-lod0      images=9 ms=148 cause=supprime hd=0
+
+    19 cinematiques du maire couvertes, 325 evenements comptes,
+    et la distribution des longueurs mesurees tient sur UNE ligne :
+
+        325 evenement(s) a 9 images        (pour 10 images injectees)
+
+**10 images injectees, 9 mesurees, sur 325 evenements sur 325 — pas de queue, pas de dispersion.**
+L'ecart d'exactement UNE image est la
+tolerance d'appariement des deux horloges que le module DECLARE (`draw_tolerance`, defaut 1) : la
+prediction est donc verifiee au sens strict, et non « le compteur a bouge ». La cause publiee est
+la bonne (`supprime` = le rendu a jete le paquet), ce qui montre que ce n'est pas seulement le
+COMPTE qui repond mais la CLASSIFICATION.
+
+C'est la forme que les DIRECTIVES du 2026-08-20 exigent : une PREDICTION QUANTITATIVE
+(« injecter X doit faire monter la mesure de X »), pas un ratio a une ligne de base qui bouge.
+
+**LA PAIRE EST COMPLETE SUR LA MEME SCENE :** avec injection, le compteur monte a la valeur
+predite ; sans injection, la meme scene rend `cycles=0`. Le zero de la section 6 est donc une
+mesure, pas un silence.
+--------------------------------------------------------------------------------------------------
+## 8. CE QUE JE N'AI PAS FAIT, ET CE QUI RESTE OUVERT
+--------------------------------------------------------------------------------------------------
+
+  * **Je n'ai toujours pas REPRODUIT le defaut de l'owner.** La cinematique qu'il nomme est
+    desormais atteignable et mesuree, et elle rend zero cycle sur bureau. Ce cycle livre donc la
+    MESURE DU CAS NOMME et les deux seaux qui manquaient — pas une guerison demontree. Si l'owner
+    revoit le clignotement sur le maire, le recensement publiera maintenant une cause, et cette
+    cause pourra etre `cull-aveugle` ou `nodraw`, qui n'existaient pas au cycle 1.
+
+  * **Le zero est de BUREAU.** L'owner voit le defaut sur son telephone. Le cycle 1 a deja
+    presente un zero de bureau comme un resultat ; celui-ci n'est une ligne de base qu'accompagne
+    de son controle positif et de la reprise sur l'appareil.
+
+  * **`LS_HOLD_TARGET` reste arme sur `beach-start`** (`LOADSCREEN-SHOW arm=4 frames=6120` pendant
+    que le jeu tourne a 59,92 img/s). C'est un defaut PRE-EXISTANT de ce point de reprise, sans
+    rapport avec cette phase — il rend `process-grab?` faux et interdit d'y pousser une
+    cinematique. Publie ici parce qu'il a coute trois courses et qu'il servira a la phase qui le
+    traitera. NON CORRIGE : hors perimetre.
+
+  * **Le detour par `force-actors?` a ete essaye puis RETIRE.** Il faisait bien naitre le maire,
+    mais faisait naitre tout le reste avec lui et bloquait la barriere. Il n'y a plus aucune
+    deviation de reglage dans la campagne : `entity-birth-no-kill` ne touche qu'un acteur nomme.
+
+  * **Le PNJ doit etre proche pour que la mesure soit possible.** `bit-3`, la seule protection
+    contre la boucle de mise a mort par visibilite (`entity.gc:1204`), est EFFACEE par
+    `process-taskable` apres 0,2 s d'oisiveté (`process-taskable.gc:578-580`). Mesure : depuis un
+    spawn eloigne, le maire nait (`proc_apres=1 statut_apres=8`) et est retue avant la tentative
+    suivante (`statut_avant=0 proc_avant=0`), en boucle. **C'est un cycle naissance/mort reel, et
+    mon recensement le classe `mort`, donc en DEFAUT.** Je ne l'attribue PAS au defaut de l'owner
+    — je l'ai produit avec un spawn artificiel — mais le mecanisme est verifie dans le code et il
+    est exactement de la forme qu'il decrit : un PNJ oisif plus de 0,2 s, hors du jeu de
+    visibilite, perd sa protection et se fait tuer puis renaitre. **C'est la premiere piste a
+    instruire si le defaut revient**, et elle n'aurait pas pu etre formulee sans ce cycle.
+
+  * **`culled` reste non gate**, mais il n'est plus le fourre-tout : le repli de `classify()` est
+    desormais `nodraw`, un defaut, et la garde BRAS 3 empeche que ca reparte dans l'autre sens.
+--------------------------------------------------------------------------------------------------
+## 9. CE QUE L'OWNER DOIT REGARDER
+--------------------------------------------------------------------------------------------------
+
+Une seule chose, et c'est la sienne : **les PNJ clignotent-ils encore pendant les cinematiques, et
+en particulier pendant la PREMIERE du maire ?**
+
+S'il en voit un, ce qui a change depuis le cycle 1, c'est que le moteur embarque saura DIRE
+POURQUOI au lieu de rendre `cycles=0` :
+
+  * la cinematique du maire est desormais atteignable et mesuree — elle ne l'etait pas ;
+  * les episodes qui tombaient tous dans un seau declare « normal » sont separes, et deux des
+    trois etats qu'il contenait sont maintenant comptes comme des defauts ;
+  * chaque absence publie sa cause par acteur, et une absence pendant que la camera REGARDE
+    l'acteur porte desormais un nom (`cull-aveugle`) au lieu d'etre rangee avec les coupes.
+
+Il n'a rien de nouveau a verifier au-dela de ca : aucune option a changer, aucun geste a faire.
+
+--------------------------------------------------------------------------------------------------
+## 10. LES LIGNES DE VERDICT, EXTRAITES DES JOURNAUX ARCHIVES
+--------------------------------------------------------------------------------------------------
+
+Journal de la course PROPRE  : gk2-hd1-final.log
+Journal du CONTROLE POSITIF  : gk2-inject-mayor.log
+
+### 10.1 La course PROPRE — une ligne par acteur, sur la scene que l'owner NOMME
+
+NPCFLICK scene=mayor-introduction pnj=sidekick-lod0 cycles=0 hd=1 coupes=1 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=1 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=391 trou_max_ms=6516 images=3780 dessine=3389 inst=1
+NPCFLICK scene=mayor-introduction pnj=hutlamp-lod0 cycles=0 hd=0 coupes=1 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=1 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=448 trou_max_ms=7468 images=3780 dessine=3332 inst=8
+NPCFLICK scene=mayor-introduction pnj=mayorgears-geo cycles=0 hd=0 coupes=1 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=1 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=821 trou_max_ms=13752 images=3780 dessine=309 inst=3
+NPCFLICK scene=mayor-introduction pnj=crate-iron-lod0 cycles=0 hd=0 coupes=2 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=2 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=275 trou_max_ms=4584 images=3780 dessine=3377 inst=1
+NPCFLICK scene=mayor-introduction pnj=eichar-lod0 cycles=0 hd=1 coupes=2 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=2 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=1127 trou_max_ms=18842 images=3780 dessine=2525 inst=1
+NPCFLICK scene=mayor-introduction pnj=mayor-lod0 cycles=0 hd=0 coupes=1 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=1 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=128 trou_max_ms=2135 images=3780 dessine=3652 inst=1
+NPCFLICK scene=mayor-reminder-beams pnj=sidekick-lod0 cycles=0 hd=0 coupes=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=0 trou_max_ms=0 images=639 dessine=2 inst=1
+NPCFLICK scene=mayor-reminder-beams pnj=hutlamp-lod0 cycles=0 hd=0 coupes=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=0 trou_max_ms=0 images=639 dessine=3 inst=6
+NPCFLICK scene=mayor-reminder-beams pnj=mayorgears-geo cycles=0 hd=0 coupes=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=0 trou_max_ms=0 images=639 dessine=2 inst=3
+NPCFLICK scene=mayor-reminder-beams pnj=mayor-lod0 cycles=0 hd=0 coupes=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=0 trou_max_ms=0 images=639 dessine=639 inst=1
+NPCFLICK scene=mayor-reminder-beams pnj=crate-iron-lod0 cycles=0 hd=0 coupes=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=0 trou_max_ms=0 images=639 dessine=639 inst=1
+NPCFLICK scene=mayor-reminder-beams pnj=eichar-lod0 cycles=0 hd=0 coupes=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 trou_max=0 trou_max_ms=0 images=639 dessine=2 inst=1
+
+NPCSCENE scene=mayor-introduction pnj_suivis=6 cycles=0 images=3780 ecart0=17386 ecart1=18 ecart2=17 ecart3=17 tolerance=1
+NPCSCENE scene=mayor-reminder-beams pnj_suivis=6 cycles=0 images=639 ecart0=1285 ecart1=5 ecart2=5 ecart3=5 tolerance=1
+NPCSCENE scene=mayor-reminder-donation pnj_suivis=6 cycles=0 images=621 ecart0=1249 ecart1=5 ecart2=5 ecart3=5 tolerance=1
+NPCSCENE scene=mayor-reminder-beams pnj_suivis=6 cycles=0 images=639 ecart0=1285 ecart1=5 ecart2=5 ecart3=5 tolerance=1
+NPCSCENE scene=mayor-reminder-donation pnj_suivis=6 cycles=0 images=622 ecart0=1251 ecart1=5 ecart2=5 ecart3=5 tolerance=1
+NPCSCENE scene=mayor-reminder-beams pnj_suivis=6 cycles=0 images=639 ecart0=1285 ecart1=5 ecart2=5 ecart3=5 tolerance=1
+NPCSCENE scene=mayor-reminder-donation pnj_suivis=6 cycles=0 images=622 ecart0=1251 ecart1=5 ecart2=5 ecart3=5 tolerance=1
+NPCSCENE scene=mayor-reminder-beams pnj_suivis=6 cycles=0 images=639 ecart0=1285 ecart1=5 ecart2=5 ecart3=5 tolerance=1
+
+### 10.2 Le CONTROLE POSITIF — le meme instrument, sur les memes scenes, avec injection
+
+  cinematiques du maire couvertes : 19
+  evenements de disparition comptes : 325
+  distribution des longueurs mesurees (10 images injectees) :
+         325 evenement(s) a 9 images
+
+NPCSCENE scene=mayor-introduction pnj_suivis=6 cycles=135 images=3783 ecart0=16003 ecart1=151 ecart2=156 ecart3=156 tolerance=1
+NPCSCENE scene=mayor-reminder-beams pnj_suivis=3 cycles=10 images=640 ecart0=1169 ecart1=11 ecart2=11 ecart3=11 tolerance=1
+NPCSCENE scene=mayor-reminder-donation pnj_suivis=6 cycles=10 images=620 ecart0=1147 ecart1=15 ecart2=15 ecart3=15 tolerance=1
+
+### 10.3 Le verdict, calcule par l'analyseur sur la course PROPRE
+
+hd1   mayor-reminder-beams         sidekick-lod0                 0  0    0       0       0       0       0       0       0       0       0       0       0     0    639      2 fin
+hd1   mayor-reminder-donation      crate-iron-lod0               0  0    0       0       0       0       0       0       0       0       0       0       0     0    621    621 fin
+hd1   mayor-reminder-donation      eichar-lod0                   0  0    0       0       0       0       0       0       0       0       0       0       0     0    621      2 fin
+hd1   mayor-reminder-donation      hutlamp-lod0                  0  0    0       0       0       0       0       0       0       0       0       0       0     0    621      3 fin
+hd1   mayor-reminder-donation      mayor-lod0                    0  0    0       0       0       0       0       0       0       0       0       0       0     0    621    621 fin
+hd1   mayor-reminder-donation      mayorgears-geo                0  0    0       0       0       0       0       0       0       0       0       0       0     0    621      2 fin
+hd1   mayor-reminder-donation      sidekick-lod0                 0  0    0       0       0       0       0       0       0       0       0       0       0     0    621      2 fin
+
+[hd1] scenes=3 pnj_suivis=18 cycles_defaut=0 blinks=0 mort=0 hidden=0 noanim=0 culled=8 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0
+      scenes: ['mayor-introduction', 'mayor-reminder-beams', 'mayor-reminder-donation']
+
+NPCOK scenes=3 pnj_suivis=18 cycles=0

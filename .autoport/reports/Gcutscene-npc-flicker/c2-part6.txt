@@ -1,0 +1,46 @@
+--------------------------------------------------------------------------------------------------
+## 6. LA CINEMATIQUE DU MAIRE — MESUREE, POUR LA PREMIERE FOIS
+--------------------------------------------------------------------------------------------------
+
+    NPCSCENE scene=mayor-introduction   pnj_suivis=6 cycles=0 images=3778 ecart0=17373 ecart1=18
+    NPCSCENE scene=mayor-reminder-beams pnj_suivis=6 cycles=0 images=640  ecart0=1287  ecart1=5
+
+Le detail par acteur, sur la scene que l'owner NOMME :
+
+    pnj                cycles  coupes  culled  nodraw  cull_aveugle  trou_max        images  dessine
+    mayor-lod0            0      1       1       0         0        128 (2,13 s)     3778     3650
+    eichar-lod0 (Jak)     0      2       2       0         0       1131 (18,85 s)    3778     2519
+    sidekick-lod0         0      1       1       0         0        392 (6,53 s)     3778     3386
+    crate-iron-lod0       0      2       2       0         0        276 (4,60 s)     3778     3374
+    hutlamp-lod0          0      1       1       0         0        448 (7,47 s)     3778     3330
+    mayorgears-geo        0      1       1       0         0        825 (13,75 s)    3778      309
+
+**ZERO cycle de cause defectueuse.** Et — c'est le point qui compte pour juger la mesure
+elle-meme — **`nodraw` et `cull_aveugle` valent ZERO partout**. Les deux seaux que j'ai crees ce
+cycle ne se sont pas mis a tirer des qu'on les a ouverts : le decoupage n'a pas fabrique de faux
+rouge. Chaque absence relevee est une absence ou les DEUX sources de position s'accordent sur
+« hors champ », c'est-a-dire une coupe de camera.
+
+### CE QUE CE ZERO NE DIT PAS, ET JE LE DIS AVANT TOUTE CONCLUSION
+
+Ce zero est pris **sur bureau**, dans une scene atteinte par un lanceur de debug, et l'owner voit
+le defaut **sur son telephone**. Le cycle 1 s'est deja trompe en presentant un zero de bureau
+comme un resultat ; ici le zero de bureau n'est qu'une ligne de base, et il ne devient une preuve
+que si (a) le controle positif tire sur CETTE scene et (b) la meme scene est rejouee sur
+l'appareil. Tant que les deux ne sont pas faits, ce tableau se lit « la mesure fonctionne et ne
+voit rien ici », jamais « c'est repare ».
+
+### LE SEUL ELEMENT ANORMAL RELEVE, ET IL EST REEL
+
+    NPCCULL pnj=lurkerworm-lod0 statut=132 lv=1
+            racine=(-698129.8 5308.2 -922041.9) sphere=(0.0 8192.0 0.0) derive=1156527.1
+
+La sphere de culling de cet acteur est posee a **l'origine du monde** pendant que sa racine est a
+1 156 527 unites de la (282 m). C'est un `draw origin` JAMAIS ECRIT — la memoire de tas d'un
+process est mise a zero a l'allocation, et `do-joint-math!` ne l'ecrit pas tant que l'acteur porte
+`hidden` ou `no-anim` (`process-drawable.gc:240`). C'est exactement la famille de defaut que la
+phase `Ghd-skin-origin-stretch` traite sur les os HD, vue ici sur la sphere de CULLING.
+Ca ne compte pas comme un cycle sur cette scene (l'acteur n'a jamais ete dessine, donc aucun
+episode ne s'ouvre pour lui), et je ne le presente pas comme la cause du defaut de l'owner : je le
+publie parce que c'est une sphere de culling fausse de 282 m, que ce cycle avait la ligne pour la
+voir, et que le cycle 1 ne l'aurait jamais vue.

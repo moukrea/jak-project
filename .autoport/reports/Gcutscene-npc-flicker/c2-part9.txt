@@ -1,0 +1,17 @@
+--------------------------------------------------------------------------------------------------
+## 9. CE QUE L'OWNER DOIT REGARDER
+--------------------------------------------------------------------------------------------------
+
+Une seule chose, et c'est la sienne : **les PNJ clignotent-ils encore pendant les cinematiques, et
+en particulier pendant la PREMIERE du maire ?**
+
+S'il en voit un, ce qui a change depuis le cycle 1, c'est que le moteur embarque saura DIRE
+POURQUOI au lieu de rendre `cycles=0` :
+
+  * la cinematique du maire est desormais atteignable et mesuree — elle ne l'etait pas ;
+  * les episodes qui tombaient tous dans un seau declare « normal » sont separes, et deux des
+    trois etats qu'il contenait sont maintenant comptes comme des defauts ;
+  * chaque absence publie sa cause par acteur, et une absence pendant que la camera REGARDE
+    l'acteur porte desormais un nom (`cull-aveugle`) au lieu d'etre rangee avec les coupes.
+
+Il n'a rien de nouveau a verifier au-dela de ca : aucune option a changer, aucun geste a faire.
