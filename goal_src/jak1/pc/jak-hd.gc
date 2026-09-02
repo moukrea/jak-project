@@ -69,6 +69,10 @@
 ;; ------------------------------------------------------------------------------------------------
 (define-extern pc-hd-cover! (function int int none))
 (define-extern pc-hd-uncover! (function int none))
+;; cycle 6 : le rig HD (parent + position de bind du joint k, en unites x64 entieres — pas de
+;; float sur la frontiere FFI) est enregistre aupres de Merc2 pour que la sonde de LONGUEUR
+;; D'OS tourne au point de consommation GPU, la ou l'owner voit le defaut.
+(define-extern pc-hd-skel-joint! (function int int int int int int int int none))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; retarget tables v2: per character, FOUR parallel arrays (mirrors of *-k2e.gc-snippet):
@@ -498,9 +502,39 @@
    (st-dbgj    int32)        ;; cap de vidages joint-par-joint deja emis par ce compagnon
    (st-nan     int32)        ;; os a position NON FINIE au pic de l'episode
    (st-warm    int32)        ;; 1 des qu'un reciblage a REELLEMENT tourne sur ce compagnon
-   (st-lenreg  int32))       ;; cycle 6 : 1 quand le rig (parents + positions de bind) a ete
+   (st-lenreg  int32)        ;; cycle 6 : 1 quand le rig (parents + positions de bind) a ete
                              ;; enregistre aupres du renderer (pc-hd-skel-joint!) pour CE pid
+   ;; Ghd-skin-origin-stretch (cycle 6, porte refondue le 2026-09-02 18:25) — L'ETIREMENT LUI-MEME.
+   ;; « zero NaN » n'est pas « zero etirement » : on compte par image et par os la LONGUEUR
+   ;; (distance joint -> parent HD) contre la longueur de REPOS (pose de bind), quelle qu'en soit
+   ;; la cause. Les trois tableaux vivent sur le tas du process (zero-initialises a `activate`,
+   ;; gkernel.gc:1766 ; ~2,6 Ko sur les ~17 Ko libres mesures) :
+   (hd-l0      float 128)    ;; longueur de repos de l'os k (unites moteur), 0 = racine / inconnue
+   (hd-src     uint8 128)    ;; QUEL CHEMIN a ecrit l'os k A CETTE IMAGE (voir HD_SRC_*), 0 = aucun
+   (hd-drvlast vector 128 :inline) ;; translation de l'os PILOTE e lue a l'image precedente : un os
+                             ;; pilote bit-identique d'une image a l'autre pendant que l'os 4 a bouge
+                             ;; est un os PERIME — la fraicheur que `hd-bone-usable?` ne teste pas
+   (hd-skipped int32)        ;; 1 si le reciblage de cette image a ete saute EN ENTIER (garde)
+   (hd-reflast vector :inline) ;; translation de l'os 4 du pilote a l'image precedente (le
+                             ;; personnage a-t-il bouge ? sinon « bit-identique » ne dit rien)
+   ;; LA POSE COMMANDEE (owner 2026-09-02 21:05 : « s'étirent subitement pas dans un sens où ils
+   ;; sont censés s'étirer, pas lié à l'animation en cours ») : la position que le RECIBLAGE de
+   ;; cette image commande pour le joint k (le produit `res`, calcule depuis la pose du pilote),
+   ;; AVANT filet, physique et controle positif. w = 1 si commandee cette image, 0 sinon.
+   (hd-cmd     vector 128 :inline))
   (:states jak-hd-clone))
+
+;; les chemins d'ecriture d'un os HD, tels que `hd-src` les nomme (un octet par joint et par image)
+(defglobalconstant HD_SRC_NONE   0)  ;; rien ecrit cette image : pose stock (ou image sautee entiere)
+(defglobalconstant HD_SRC_MODE0  1)  ;; produit monde (mode 0)
+(defglobalconstant HD_SRC_MODE3  2)  ;; copie d'orientation (mode 3)
+(defglobalconstant HD_SRC_MODE1  3)  ;; delta local (mode 1)
+(defglobalconstant HD_SRC_GLUE   4)  ;; produit colle (mode 2, ou repli des modes 1/3)
+(defglobalconstant HD_SRC_REPAIR 5)  ;; filet : produit non fini repare (colle / bind / point)
+(defglobalconstant HD_SRC_STALE  6)  ;; filet : joint saute dont la pose conservee etait loin/NaN, repare
+(defglobalconstant HD_SRC_SECOURS 7) ;; pose de secours (bind ancre sur la racine du pilote)
+(defglobalconstant HD_SRC_GUARD  8)  ;; saute par le garde (os pilote inutilisable) : pose stock conservee
+(defglobalconstant HD_SRC_INJECT 9)  ;; CONTROLE POSITIF : deplace expres par `*hd-stretch-inject*`
 
 ;; Grecharged-secondary-motion: the chain sim lives in jak-hd-physics.gc, compiled AFTER this file
 ;; (its functions take jak-hd args). Forward externs, same idiom as maybe-spawn-jak-hd! in
@@ -716,6 +750,12 @@
 ;; ------------------------------------------------------------------------------------------------
 (define *hd-finite-arm* 1)
 (defglobalconstant HD_DET_EPS 0.000000001)
+;; cycle 6 — CONTROLE POSITIF de l'instrument de longueur (voir le bloc HDINJECT dans
+;; `fill-jak-hd-bones!`). ENTIER comme `*hd-finite-arm*`, pose par la propriete
+;; `debug.opengoal.hd.stretch_inject=1` (env OG_HD_STRETCH_INJECT sur x86) au moment du warp.
+(define *hd-stretch-inject* 0)
+(define *hd-inject-tick*  0)   ;; images de reciblage vues par le controle (toutes entrees)
+(define *hd-inject-shots* 0)   ;; os deplaces expres — le compte que les deux sondes doivent rendre
 (define *hd-nan-m0*     0)   ;; os non finis PRODUITS par la branche mode 0 (produit monde)
 (define *hd-nan-m3*     0)   ;; ... par la branche mode 3 (copie d'orientation)
 (define *hd-nan-m1*     0)   ;; ... par la branche mode 1 (delta local, la seule qui inverse le pilote)
@@ -894,6 +934,15 @@
         ;;   - la boucle de joints n'ecrit que les noeuds 3..num-joints+2 (:265-271).
         (when (not (hd-bone-posed? tgt-skel 4))
           (+! *hd-guard-noposed* 1))
+        ;; cycle 6 : chaque image repart de « aucun chemin n'a ecrit cet os » ; les branches
+        ;; ci-dessous posent leur code au moment ou elles ECRIVENT le squelette, pas ou elles
+        ;; calculent. Une image sautee en entier laisse tout a HD_SRC_NONE et pose `hd-skipped`.
+        (dotimes (k (-> obj hd-joints))
+          (when (< k 128)
+            (set! (-> obj hd-src k) (the-as uint HD_SRC_NONE))
+            (set! (-> obj hd-cmd k w) 0.0)))
+        (set! (-> obj hd-skipped)
+              (if (or (zero? *hd-guard-arm*) (hd-bone-posed? tgt-skel 4)) 0 1))
         (when (or (zero? *hd-guard-arm*) (hd-bone-posed? tgt-skel 4))
         (let ((dref (-> tgt-skel bones 4 transform vector 3))
               (hbind (new-stack-matrix0))
@@ -924,7 +973,9 @@
                      (when (not ok)
                        (if (= p #xff) (+! *hd-guard-occ-root* 1) (+! *hd-guard-occ* 1)))
                      (cond
-                       ((and (nonzero? *hd-guard-arm*) (not ok)) (+! *hd-guard-skips* 1))
+                       ((and (nonzero? *hd-guard-arm*) (not ok))
+                        (+! *hd-guard-skips* 1)
+                        (if (< k 128) (set! (-> obj hd-src k) (the-as uint HD_SRC_GUARD))))
                        (else
                         ;; SITE DE CONSOMMATION 1/3 (mode 0) : la matrice pilote entre dans le
                         ;; produit ci-dessous. Si elle est perimee, le joint HD est SERVI par elle.
@@ -952,7 +1003,11 @@
                                             (the-as matrix (-> tgt-skel bones (+ ep 1) transform)))))))
                      (when (not ok)
                        (+! *hd-guard-occ* 1)
-                       (if (nonzero? *hd-guard-arm*) (+! *hd-guard-skips* 1)))
+                       (when (nonzero? *hd-guard-arm*)
+                         (+! *hd-guard-skips* 1)
+                         ;; le joint retombe sur la branche collee ci-dessous : elle re-pose
+                         ;; son propre code. Ici on ne nomme que le REFUS.
+                         (if (< k 128) (set! (-> obj hd-src k) (the-as uint HD_SRC_GUARD)))))
                      (when sing (+! *hd-sing-ep* 1))
                      (cond
                        ;; Ghd-skin-origin-stretch : `hd-bone-posed?` ajoute aux DEUX gardes de mode.
@@ -1020,16 +1075,25 @@
                 (let ((dst (the-as matrix (-> skel bones (+ k 1) transform))))
                   (cond
                     ((and (nonzero? wrote) (hd-mat-finite? res))
-                     (matrix-copy! dst res))
+                     (matrix-copy! dst res)
+                     ;; cycle 6 : le chemin qui a ECRIT cet os, tel que `wrote` le nomme
+                     ;; (1 mode 0, 2 mode 3, 3 mode 1, 4 colle) — memes codes que HD_SRC_*.
+                     ;; Et la POSE COMMANDEE : ce que l'animation en cours, reciblee, demande.
+                     (when (< k 128)
+                       (set! (-> obj hd-src k) (the-as uint wrote))
+                       (vector-copy! (-> obj hd-cmd k) (-> res vector 3))
+                       (set! (-> obj hd-cmd k w) 1.0)))
                     ((nonzero? wrote)
                      ;; produit NON FINI : compte par branche (les deux bras), puis repare ou laisse
                      (hd-nan-note! obj wrote k e ep p md)
                      (cond
                        ((zero? *hd-finite-arm*)
                         (+! *hd-nan-passed* 1)
-                        (matrix-copy! dst res))
+                        (matrix-copy! dst res)
+                        (if (< k 128) (set! (-> obj hd-src k) (the-as uint wrote))))
                        (else
-                        (hd-nan-repair! obj k p))))
+                        (hd-nan-repair! obj k p)
+                        (if (< k 128) (set! (-> obj hd-src k) (the-as uint HD_SRC_REPAIR))))))
                     ((and (nonzero? *hd-finite-arm*)
                           ;; jamais sur les joints-racines du rig (align/prejoint, p=255) : leur
                           ;; pose stock est une matrice MODEL-SPACE pres de l'origine PAR
@@ -1041,7 +1105,31 @@
                      ;; est elle-meme non finie OU loin du personnage (une position monde d'une
                      ;; image ancienne) : la conserver serait la meme faute, un cran plus loin.
                      (+! *hd-nan-stale* 1)
-                     (hd-nan-repair! obj k p)))))))))
+                     (hd-nan-repair! obj k p)
+                     (if (< k 128) (set! (-> obj hd-src k) (the-as uint HD_SRC_STALE)))))))))
+          ;; ------------------------------------------------------------------------------
+          ;; CONTROLE POSITIF (cycle 6). `*hd-stretch-inject*` non nul : toutes les 300 images
+          ;; de ce compagnon, UN os HD reciblee en mode 0 (le premier joint non racine, hors
+          ;; align/prejoint) est deplace de 3 m en x APRES le reciblage. C'est LE defaut que
+          ;; l'owner voit — un os qui quitte le personnage — injecte a la source. Les deux
+          ;; instruments (squelette GOAL, consommation GPU dans Merc2) doivent le COMPTER, sinon
+          ;; leur zero ne vaut rien. Jamais arme en production (propriete de debug, kmachine).
+          ;; ------------------------------------------------------------------------------
+          (when (nonzero? *hd-stretch-inject*)
+            (+! *hd-inject-tick* 1)
+            (when (= (mod *hd-inject-tick* 300) 0)
+              (let ((done #f))
+                (dotimes (k (-> obj hd-joints))
+                  (when (and (not done) (>= k 2) (< (+ k 1) nbones) (< k 128)
+                             (!= (the int (-> khd-par k)) #xff)
+                             (= (the int (-> kmode k)) 0)
+                             (= (the int (-> obj hd-src k)) HD_SRC_MODE0))
+                    (set! done #t)
+                    (+! (-> skel bones (+ k 1) transform vector 3 x) 12288.0)
+                    (set! (-> obj hd-src k) (the-as uint HD_SRC_INJECT))
+                    (+! *hd-inject-shots* 1)
+                    (format 0 "HDINJECT entry=~D k=~D tick=~D shots=~D~%"
+                            (-> obj entry) k *hd-inject-tick* *hd-inject-shots*))))))))
         ;; ----------------------------------------------------------------------------------
         ;; POSE DE SECOURS — UN COMPAGNON QUI N'A JAMAIS ETE RECIBLE NE DOIT PAS TENIR DE LA
         ;; MEMOIRE. Sauter le reciblage laisse le squelette du compagnon sur ce que le chemin
@@ -1078,7 +1166,8 @@
                   (+! (-> dst vector 3 x) (-> drv root trans x))
                   (+! (-> dst vector 3 y) (-> drv root trans y))
                   (+! (-> dst vector 3 z) (-> drv root trans z))
-                  (set! (-> dst vector 3 w) 1.0))))))
+                  (set! (-> dst vector 3 w) 1.0)
+                  (if (< k 128) (set! (-> obj hd-src k) (the-as uint HD_SRC_SECOURS))))))))
         (when (or (zero? *hd-guard-arm*) (hd-bone-posed? tgt-skel 4))
           (set! (-> obj st-warm) 1))))))
 
@@ -1153,6 +1242,43 @@
 (define *hd-stretch-nanimg* 0)     ;; images ou AU MOINS UN os HD porte une position non finie
 (define *hd-stretch-nanmax* 0)     ;; le plus grand nombre d'os non finis vu sur une seule image
 
+;; cycle 6 — compteurs de l'instrument de LONGUEUR D'OS (voir hd-len-scan!, plus bas) et des
+;; MOUVEMENTS du joueur (voir hd-moves-poll!), definis ici parce que hd-stretch-reset! les remet a zero.
+(defglobalconstant HD_LEN_RATIO 2.0)
+(defglobalconstant HD_LEN_FLOOR 1024.0)   ;; 0,25 m en unites moteur
+(defglobalconstant HD_CMD_DEV   1024.0)   ;; 0,25 m : ecart maximal tolere a la pose COMMANDEE
+(define *hd-cmd-bones*    0)   ;; os dont la position ecrite s'ecarte de la pose commandee
+(define *hd-cmd-frames*   0)   ;; images (par compagnon) avec au moins un tel os
+(define *hd-cmd-worst*    0.0) ;; pire ecart a la pose commandee (unites)
+(define *hd-len-imgs*     0)   ;; denominateur : images mesurees (une par compagnon et par image)
+(define *hd-len-frames*   0)   ;; images avec AU MOINS UN os etire — le verdict
+(define *hd-len-bones*    0)   ;; os etires cumules
+(define *hd-len-nan*      0)   ;; ... dont a position non finie
+(define *hd-len-worst*    0.0) ;; pire ratio longueur/repos vu
+(define *hd-len-worstm*   0.0) ;; pire longueur vue (unites)
+(define *hd-len-ents*     0)   ;; masque des entrees (modeles) touchees
+(define *hd-len-srcs*     0)   ;; masque des chemins d'ecriture vus sur un os etire (bit = HD_SRC_*)
+(define *hd-len-drvstale* 0)   ;; os etires dont l'os pilote etait bit-identique a l'image d'avant
+(define *hd-len-orig*     0)   ;; os etires poses a moins de 6 m de (0,0,0)
+(define *hd-len-blend*    0)   ;; os etires pendant un melange d'animations du pilote (>1 canal)
+(define *hd-len-logs*     0)   ;; cap des evenements HDLENG
+
+(define *hd-moves-last*  (the symbol #f))
+(define *hd-moves-jumps* 0)
+(define *hd-moves-turns* 0)
+(define *hd-moves-punch* 0)
+(define *hd-moves-spin*  0)
+(define *hd-moves-trans* 0)   ;; toutes transitions d'etat confondues (denominateur)
+;; owner 21:05 : « ça se produit quand il y a du MOUVEMENT » — la distance PARCOURUE par le
+;; personnage (somme des deplacements de `control trans` par image, un saut de plus de 20 m en
+;; une image etant un warp/respawn, ecarte) et sa vitesse moyenne sur les images comptees.
+(define *hd-moves-dist*   0.0)  ;; unites moteur
+(define *hd-moves-frames* 0)
+(define *hd-moves-ticks*  0)    ;; temps de JEU couvert par les deplacements comptes (300 ticks/s)
+(define *hd-moves-lastt*  (the-as time-frame 0))
+(define *hd-moves-lastpos* (new 'static 'vector :x 0.0 :y 0.0 :z 0.0 :w 0.0))
+
+
 (defun hd-stretch-reset! ()
   "Ouvre une fenetre de mesure : remet a zero tous les compteurs. Appele UNE fois depuis la REPL au
    debut d'une jambe — une seule commande, pour ne pas saturer l'ecouteur."
@@ -1197,7 +1323,71 @@
   (set! *hd-nan-stale* 0)
   (set! *hd-nan-bind* 0)
   (set! *hd-nan-point* 0)
-  (format 0 "HDRESET arme=~D farme=~D~%" *hd-guard-arm* *hd-finite-arm*)
+  ;; cycle 6 : l'instrument de longueur, le controle positif et les comptes de mouvements
+  (set! *hd-len-imgs* 0)
+  (set! *hd-len-frames* 0)
+  (set! *hd-len-bones* 0)
+  (set! *hd-len-nan* 0)
+  (set! *hd-len-worst* 0.0)
+  (set! *hd-len-worstm* 0.0)
+  (set! *hd-len-ents* 0)
+  (set! *hd-len-srcs* 0)
+  (set! *hd-len-drvstale* 0)
+  (set! *hd-len-orig* 0)
+  (set! *hd-len-blend* 0)
+  (set! *hd-len-logs* 0)
+  (set! *hd-cmd-bones* 0)
+  (set! *hd-cmd-frames* 0)
+  (set! *hd-cmd-worst* 0.0)
+  (set! *hd-moves-dist* 0.0)
+  (set! *hd-moves-frames* 0)
+  (set! *hd-moves-ticks* 0)
+  (set! *hd-inject-tick* 0)
+  (set! *hd-inject-shots* 0)
+  (set! *hd-moves-jumps* 0)
+  (set! *hd-moves-turns* 0)
+  (set! *hd-moves-punch* 0)
+  (set! *hd-moves-spin* 0)
+  (set! *hd-moves-trans* 0)
+  (format 0 "HDRESET arme=~D farme=~D inject=~D~%" *hd-guard-arm* *hd-finite-arm* *hd-stretch-inject*)
+  (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; cycle 6 — CE QUE LE PERSONNAGE A FAIT, compte par le CODE (owner 2026-09-02 18:35 : « ça arrive
+;; en bougeant beaucoup, courant, faisant des demi-tours, des sauts, des coups de poing »). Une
+;; preuve « zero » prise sur un personnage qui marche ne prouve rien : on compte les ENTREES dans
+;; les etats du joueur, au changement de nom d'etat — pas les commandes du script d'injection.
+;;   sauts      : target-jump / target-jump-forward / target-double-jump / target-high-jump
+;;   demi-tours : target-turn-around (target.gc:591, depuis target-walk seulement)
+;;   coups      : target-running-attack = le coup de poing (CARRE, target.gc:1237)
+;;   spins      : target-attack (ROND) / target-attack-air — publies a part, pas des coups de poing
+;; ------------------------------------------------------------------------------------------------
+(defun hd-moves-poll! ()
+  (when *target*
+    ;; distance parcourue : w = 1 marque une position precedente valide
+    (let ((tp (-> *target* control trans))
+          (now (get-current-time)))
+      (when (= (-> *hd-moves-lastpos* w) 1.0)
+        (let ((d (vector-vector-distance tp *hd-moves-lastpos*))
+              (dt (the int (- now *hd-moves-lastt*))))
+          (when (and (< d 81920.0) (> d -1.0) (> dt 0) (< dt 300))
+            (+! *hd-moves-dist* d)
+            (+! *hd-moves-frames* 1)
+            (+! *hd-moves-ticks* dt))))
+      (vector-copy! *hd-moves-lastpos* tp)
+      (set! (-> *hd-moves-lastpos* w) 1.0)
+      (set! *hd-moves-lastt* now))
+    (let ((st (if (-> *target* state) (-> *target* state name) (the symbol #f))))
+      (when (!= st *hd-moves-last*)
+        (set! *hd-moves-last* st)
+        (+! *hd-moves-trans* 1)
+        (cond
+          ((or (= st 'target-jump) (= st 'target-jump-forward)
+               (= st 'target-double-jump) (= st 'target-high-jump))
+           (+! *hd-moves-jumps* 1))
+          ((= st 'target-turn-around) (+! *hd-moves-turns* 1))
+          ((= st 'target-running-attack) (+! *hd-moves-punch* 1))
+          ((or (= st 'target-attack) (= st 'target-attack-air)) (+! *hd-moves-spin* 1))))))
   (none))
 
 (defun hd-model-name ((entry int))
@@ -1582,6 +1772,177 @@
                 (set! (-> obj st-run) 0))))))))
   (none))
 
+;; ------------------------------------------------------------------------------------------------
+;; Ghd-skin-origin-stretch (cycle 6) — L'ETIREMENT LUI-MEME, COMPTE PAR LE CODE.
+;;
+;; Porte refondue par le superviseur (2026-09-02 18:25) apres le troisieme « toujours pas corrige »
+;; de l'owner : « compter L'ETIREMENT LUI-MEME (longueur d'os / repos) par image et par os, pas
+;; les NaN — "zero NaN" n'est pas "zero etirement" ». C'est la grandeur qu'il VOIT : un os dont la
+;; longueur depasse sa longueur de repos est un etirement, quelle qu'en soit la cause.
+;;
+;; CE QU'ON MESURE (SPEC §7, les trois questions) :
+;;   1. NATURE : une FORME — par os, la distance joint k -> parent HD p, contre la longueur de
+;;      repos L0 tiree de la pose de bind (calculee une fois par vie, statique, incontaminable).
+;;   2. REPERE : celui du personnage lui-meme, k contre p ; aucun repere exterieur, aucune
+;;      hypothese sur la cible (origine ou ailleurs : `dorig_m` est PUBLIE, jamais utilise).
+;;   3. LIGNE DE BASE : aucune animation ne double une longueur d'os. Seuil = 2 x L0 + 0,25 m ;
+;;      le plancher ecarte les joints d'aide coincidents (L0 ~ 0) que le bruit du bind ferait
+;;      « doubler » ; il est publie avec chaque evenement et le controle positif (HDINJECT, 3 m)
+;;      le franchit d'un facteur 10. Une position NON FINIE compte comme etiree : une comparaison
+;;      IEEE avec NaN est fausse des deux cotes, on exige les deux bornes.
+;;
+;; ATTRIBUTION (mandat : « quel chemin de code a produit la matrice ») : `hd-src` porte, par
+;; joint, la branche qui a ECRIT l'os a cette image (HD_SRC_*), `drvstale` dit si l'os PILOTE lu
+;; par ce joint etait bit-identique a l'image precedente pendant que l'os 4 bougeait (la
+;; fraicheur que `hd-bone-usable?` ne teste pas), et le contexte d'animation du pilote (canaux
+;; actifs, animations, interpolation) dit si l'image tombait pendant un MELANGE (owner 18:35).
+;;
+;; Ce site mesure le SQUELETTE ; la meme grandeur est mesuree au point de CONSOMMATION GPU
+;; (Merc2.cpp, HDSKINLEN/HDLENEV, rig enregistre par `pc-hd-skel-joint!`). Les deux comptes sont
+;; publies ; un ecart entre eux localise le defaut entre l'ecriture et le rendu.
+;; ------------------------------------------------------------------------------------------------
+(defun hd-len-scan! ((obj jak-hd))
+  (let ((drv (the-as process-drawable (handle->process (-> obj driver)))))
+    (when (and *hd-stretch-arm* drv
+               (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton)) (nonzero? (-> obj draw jgeo))
+               (nonzero? (-> drv draw)) (nonzero? (-> drv draw skeleton)))
+      (let* ((skel    (-> obj draw skeleton))
+             (nbones  (-> skel length))
+             (tskel   (-> drv draw skeleton))
+             (tbones  (-> tskel length))
+             (khd-par (-> obj khd-par))
+             (k2e     (-> obj k2e))
+             (kmode   (-> obj kmode))
+             (nj      (-> obj hd-joints)))
+        (if (> nj 128) (set! nj 128))
+        ;; A0 — LONGUEURS DE REPOS et ENREGISTREMENT DU RIG, une fois par vie de compagnon. Les
+        ;; emplacements `bind-pose` stockent le bind INVERSE : la position de bind s'obtient par une
+        ;; vraie inversion (`transposee != inverse sur une IBM`, registre du depot).
+        (when (zero? (-> obj st-lenreg))
+          (set! (-> obj st-lenreg) 1)
+          (let ((binv (new-stack-matrix0))
+                (pinv (new-stack-matrix0)))
+            (dotimes (k nj)
+              (set! (-> obj hd-l0 k) 0.0)
+              (let ((p (the int (-> khd-par k))))
+                (matrix-4x4-inverse! binv (-> obj draw jgeo data k bind-pose))
+                (when (and (!= p #xff) (< p nj))
+                  (matrix-4x4-inverse! pinv (-> obj draw jgeo data p bind-pose))
+                  (set! (-> obj hd-l0 k)
+                        (vector-vector-distance (-> binv vector 3) (-> pinv vector 3))))
+                ;; huit arguments, la limite d'un appel GOAL : pid, k, parent, joint pilote,
+                ;; mode, puis la position de bind en unites x64 entieres.
+                (pc-hd-skel-joint! (the int (-> obj pid)) k p
+                                   (the int (-> k2e k)) (the int (-> kmode k))
+                                   (the int (* 64.0 (-> binv vector 3 x)))
+                                   (the int (* 64.0 (-> binv vector 3 y)))
+                                   (the int (* 64.0 (-> binv vector 3 z))))))
+            (format 0 "HDLENRIG entry=~D pid=~D joints=~D~%" (-> obj entry) (-> obj pid) nj)))
+        ;; A1 — LA MESURE, par os. DEUX CRITERES, publies separement et reunis dans `n` :
+        ;;   - LONGUEUR : |k - p| > 2 x repos + 0,25 m (aucune animation ne double un os) ;
+        ;;   - ECART A LA POSE COMMANDEE (owner 21:05) : la position ECRITE dans le squelette
+        ;;     s'ecarte de plus de 0,25 m de ce que le reciblage de CETTE image a commande pour ce
+        ;;     joint (`hd-cmd`), quand les deux existent. Tout ce qui ecrit APRES le reciblage
+        ;;     (filet, physique, controle positif) apparait ici avec son chemin. Le seuil couvre
+        ;;     l'excursion legitime de la physique de Keira (0,5 B0 ~ 0,075 m, SPEC §22).
+        (+! *hd-len-imgs* 1)
+        (let* ((n 0) (nnan 0) (nlog 0) (ncmd 0)
+               (ref (-> tskel bones 4 transform vector 3))
+               ;; le personnage a-t-il bouge depuis l'image precedente ? (sinon un os pilote
+               ;; bit-identique est normal et ne dit rien de sa fraicheur)
+               (moved (or (!= (-> ref x) (-> obj hd-reflast x))
+                          (!= (-> ref y) (-> obj hd-reflast y))
+                          (!= (-> ref z) (-> obj hd-reflast z))))
+               (chans (if (-> drv skel) (-> drv skel active-channels) 0))
+               (st (if (and *target* (-> *target* state)) (-> *target* state name) (the symbol #f)))
+               ;; vitesse du personnage a cet instant (owner : « quand il y a du mouvement »)
+               (spd (if *target* (/ (vector-length (-> *target* control transv)) 4096.0) -1.0)))
+          (dotimes (k nj)
+            (let ((p (the int (-> khd-par k))))
+              (when (and (!= p #xff) (< p 128) (< (+ k 1) nbones) (< (+ p 1) nbones))
+                (let* ((bp  (-> skel bones (+ k 1) transform vector 3))
+                       (pp  (-> skel bones (+ p 1) transform vector 3))
+                       (l0  (-> obj hd-l0 k))
+                       (dd  (vector-vector-distance bp pp))
+                       (lim (+ (* HD_LEN_RATIO l0) HD_LEN_FLOOR))
+                       (fin (and (< dd HD_FAR_SANE) (> dd -1.0)))
+                       ;; LE PARENT EST-IL UN VRAI OS ? Les joints-racines du rig (align k=0,
+                       ;; prejoint k=1 : parent 255) portent une matrice MODEL-SPACE, aucun sommet
+                       ;; ne les lit. Mesure x86 c6inj1 : le « bone » main->prejoint de Jak rend
+                       ;; 15,2 m pour 1,44 m de repos A CHAQUE IMAGE (298 evenements sur 600),
+                       ;; idem 5,9 m chez Keira, 9,2 m chez Samos — une constante, pas un
+                       ;; etirement. Un joint dont le parent est une racine n'a pas de longueur
+                       ;; d'os mesurable ; il reste juge par l'ECART A LA POSE COMMANDEE.
+                       (lenok (!= (the int (-> khd-par p)) #xff))
+                       (lenbad (and lenok (or (not fin) (> dd lim))))
+                       (cmdok (and (= (-> obj hd-cmd k w) 1.0) (= (-> obj hd-cmd p w) 1.0)))
+                       ;; ecart de la position ECRITE a la position COMMANDEE, et longueur commandee
+                       (dev (if cmdok (vector-vector-distance bp (-> obj hd-cmd k)) 0.0))
+                       (lcmd (if cmdok (vector-vector-distance (-> obj hd-cmd k) (-> obj hd-cmd p)) -1.0))
+                       (devbad (and cmdok (not (and (< dev HD_CMD_DEV) (> dev -1.0))))))
+                  (when (or lenbad devbad)
+                    (+! n 1)
+                    (when devbad (+! ncmd 1) (+! *hd-cmd-bones* 1))
+                    (when (and lenok (not fin)) (+! nnan 1) (+! *hd-len-nan* 1))
+                    (let* ((e (the int (-> k2e k)))
+                           (ratio (if (and fin (> l0 1.0)) (/ dd l0) -1.0))
+                           (dorig (vector-length bp))
+                           (dref  (vector-vector-distance bp ref))
+                           ;; FRAICHEUR de l'os pilote lu par ce joint : bit-identique a l'image
+                           ;; precedente alors que l'os 4 a bouge = os PERIME.
+                           (drvstale (if (and moved (!= e #xff) (< (+ e 1) tbones)
+                                              (= (-> tskel bones (+ e 1) transform vector 3 x) (-> obj hd-drvlast k x))
+                                              (= (-> tskel bones (+ e 1) transform vector 3 y) (-> obj hd-drvlast k y))
+                                              (= (-> tskel bones (+ e 1) transform vector 3 z) (-> obj hd-drvlast k z)))
+                                       1 0))
+                           (src  (the int (-> obj hd-src k)))
+                           (psrc (the int (-> obj hd-src p))))
+                      (when (and fin (> ratio *hd-len-worst*)) (set! *hd-len-worst* ratio))
+                      (when (and fin (> dd *hd-len-worstm*)) (set! *hd-len-worstm* dd))
+                      (when (and cmdok (< dev HD_FAR_SANE) (> dev *hd-cmd-worst*)) (set! *hd-cmd-worst* dev))
+                      (set! *hd-len-srcs* (logior *hd-len-srcs* (ash 1 src)))
+                      (if (= drvstale 1) (+! *hd-len-drvstale* 1))
+                      (if (and fin (< dorig HD_STRETCH_THRESH)) (+! *hd-len-orig* 1))
+                      (if (> chans 1) (+! *hd-len-blend* 1))
+                      ;; EVENEMENT : cinq lignes (un appel GOAL porte au plus 8 parametres et
+                      ;; `format` en consomme deux : six valeurs par ligne), au plus 6 os par image
+                      ;; et par compagnon, cap global.
+                      (when (and (< nlog 6) (< *hd-len-logs* 300))
+                        (+! nlog 1)
+                        (+! *hd-len-logs* 1)
+                        (format 0 "HDLENG entry=~D k=~D p=~D e=~D md=~D src=~D~%"
+                                (-> obj entry) k p e (the int (-> kmode k)) src)
+                        (format 0 "HDLENG2 psrc=~D len_m=~f rest_m=~f ratio=~f dorig_m=~f dref_m=~f~%"
+                                psrc (/ dd 4096.0) (/ l0 4096.0) ratio
+                                (/ dorig 4096.0) (/ dref 4096.0))
+                        (format 0 "HDLENG3 px=~f py=~f pz=~f drvstale=~D chans=~D skipped=~D~%"
+                                (/ (-> bp x) 4096.0) (/ (-> bp y) 4096.0) (/ (-> bp z) 4096.0)
+                                drvstale chans (-> obj hd-skipped))
+                        (format 0 "HDLENG4 anim0=~S interp0=~f anim1=~S st=~S~%"
+                                (if (and (-> drv skel) (-> drv skel channel 0 frame-group))
+                                  (-> drv skel channel 0 frame-group name) "none")
+                                (if (-> drv skel) (-> drv skel channel 0 frame-interp) -1.0)
+                                (if (and (-> drv skel) (> chans 1) (-> drv skel channel 1 frame-group))
+                                  (-> drv skel channel 1 frame-group name) "none")
+                                st)
+                        ;; la pose COMMANDEE contre la pose ECRITE, et la vitesse du personnage
+                        (format 0 "HDLENG5 cmd=~D ecart_cmd_m=~f len_cmd_m=~f cx=~f cz=~f vitesse_m_s=~f~%"
+                                (if cmdok 1 0) (/ dev 4096.0) (/ lcmd 4096.0)
+                                (/ (-> obj hd-cmd k x) 4096.0) (/ (-> obj hd-cmd k z) 4096.0)
+                                spd))))))))
+          (when (> n 0)
+            (+! *hd-len-frames* 1)
+            (+! *hd-len-bones* n)
+            (set! *hd-len-ents* (logior *hd-len-ents* (ash 1 (-> obj entry)))))
+          (when (> ncmd 0) (+! *hd-cmd-frames* 1))
+          ;; memoire pour la fraicheur a l'image suivante
+          (vector-copy! (-> obj hd-reflast) ref)
+          (dotimes (k nj)
+            (let ((e (the int (-> k2e k))))
+              (when (and (!= e #xff) (< (+ e 1) tbones))
+                (vector-copy! (-> obj hd-drvlast k) (-> tskel bones (+ e 1) transform vector 3)))))))))
+  (none))
+
 ;; do-joint-math! override: run the stock path (housekeeping + HD idle anim + bounds/origin), then
 ;; overwrite the bones with the retargeted transforms so draw-bones skins the HD mesh to follow.
 (defmethod do-joint-math! ((obj jak-hd))
@@ -1612,6 +1973,9 @@
   (hd-stretch-scan! obj)
   ;; Grecharged-secondary-motion: verlet/spring chains on top of the freshly retargeted pose.
   (#when FLAG_PHYSICS (jak-hd-physics-step obj))
+  ;; cycle 6 : la longueur d'os se mesure sur le squelette FINAL — apres le reciblage, le filet
+  ;; ET la physique (sixieme ecrivain d'os HD) — c'est-a-dire ce que `draw-bones` va consommer.
+  (hd-len-scan! obj)
   (none))
 
 ;; the driver's mesh needs NO restore: it is never hidden GOAL-side. Merc2 suppresses the driver's
@@ -2055,7 +2419,32 @@
                 *hd-finite-arm*)
         (format 0 "HDHB8 glued=~D bind=~D point=~D stale=~D passed=~D singep=~D~%"
                 *hd-nan-glued* *hd-nan-bind* *hd-nan-point* *hd-nan-stale* *hd-nan-passed*
-                *hd-sing-ep*))))
+                *hd-sing-ep*)
+        ;; CYCLE 6 — L'ETIREMENT LUI-MEME (porte refondue 18:25) : `etimgs` = images (par
+        ;; compagnon) avec au moins un os plus long que 2 x repos + 0,25 m, `etos` = ces os,
+        ;; `imgs` le denominateur pris au meme endroit. `srcs` = masque des chemins d'ecriture
+        ;; vus sur un os etire (bit HD_SRC_*), `drvstale`/`origine`/`blend` = l'attribution.
+        ;; `inject` = os deplaces expres par le controle positif : s'il est non nul, `etos`
+        ;; DOIT l'etre au moins autant.
+        (format 0 "HDLEN imgs=~D etimgs=~D etos=~D nan=~D pire_ratio=~f pire_m=~f~%"
+                *hd-len-imgs* *hd-len-frames* *hd-len-bones* *hd-len-nan*
+                *hd-len-worst* (/ *hd-len-worstm* 4096.0))
+        (format 0 "HDLEN2 ents=~D srcs=~D drvstale=~D origine=~D blend=~D inject=~D~%"
+                *hd-len-ents* *hd-len-srcs* *hd-len-drvstale* *hd-len-orig* *hd-len-blend*
+                *hd-inject-shots*)
+        ;; CE QUE LE PERSONNAGE A FAIT pendant la fenetre, compte par les entrees d'etat.
+        (format 0 "HDMOVES sauts=~D demi_tours=~D coups=~D spins=~D distance_m=~f vitesse_moy_m_s=~f~%"
+                *hd-moves-jumps* *hd-moves-turns* *hd-moves-punch* *hd-moves-spin*
+                (/ *hd-moves-dist* 4096.0)
+                (if (> *hd-moves-ticks* 0)
+                  (/ (* 300.0 (/ *hd-moves-dist* 4096.0)) (the float *hd-moves-ticks*))
+                  0.0))
+        ;; L'ECART A LA POSE COMMANDEE, a part : `cmdos` os ecrits loin de ce que le reciblage
+        ;; de la meme image commandait, `cmdimgs` images concernees, `pire_cmd_m` le pire ecart.
+        (format 0 "HDLEN3 cmdos=~D cmdimgs=~D pire_cmd_m=~f seuil_cmd_m=~f~%"
+                *hd-cmd-bones* *hd-cmd-frames* (/ *hd-cmd-worst* 4096.0) (/ HD_CMD_DEV 4096.0)))))
+  ;; cycle 6 : sondage des entrees d'etat du joueur, une fois par image, sans cap.
+  (hd-moves-poll!)
   ;; phase 1: collect.
   (set! *hd-scan-driver-count* 0)
   (set! *hd-scan-companion-count* 0)

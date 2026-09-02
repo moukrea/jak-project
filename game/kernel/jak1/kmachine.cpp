@@ -97,6 +97,18 @@ using namespace ee;
 // jak1::merc2_hd_* and the link fails (attempt-1 failure of this phase).
 void merc2_hd_cover(u32 companion_pid, u32 driver_pid);
 void merc2_hd_uncover(u32 companion_pid);
+// Ghd-skin-origin-stretch : registre du rig HD (parent, joint pilote, mode de reciblage et
+// position de bind par joint) pour les sondes HDSKINLEN / HDCMD de Merc2 — meme regle de portee
+// que les deux prototypes ci-dessus.
+void merc2_hd_skel_joint(u32 companion_pid,
+                         int k,
+                         int parent,
+                         int e,
+                         int mode,
+                         float bx,
+                         float by,
+                         float bz);
+void merc2_hd_skel_forget(u32 companion_pid);
 #endif
 
 namespace jak1 {
@@ -1011,6 +1023,34 @@ void pc_hd_cover(u32 companion_pid, u32 driver_pid) {
 }
 void pc_hd_uncover(u32 companion_pid) {
   ::merc2_hd_uncover(companion_pid);
+  // Ghd-skin-origin-stretch : le rig N'EST PAS oublie ici. `pc-hd-uncover!` est aussi appele
+  // PENDANT la vie du compagnon (jak-hd.gc, miroir hidden : uncover puis cover), et le rig n'est
+  // enregistre qu'une fois par vie — mesure x86 c6inj1 : `norig=11818` paquets HD sans rig,
+  // `rigs=0`. Les pids GOAL ne sont jamais reutilises (gkernel.gc, next-pid monotone) : Merc2
+  // purge les rigs non vus depuis 3000 images, comme ses autres memoires par pid.
+}
+// Ghd-skin-origin-stretch : GOAL declare, joint par joint, le rig du compagnon HD — parent,
+// joint PILOTE e lu par k dans le modele stock (255 = aucun), mode de reciblage (0 monde,
+// 1 local, 2 colle, 3 orientation) et position de bind (`jgeo data k`) — pour que Merc2 mesure
+// chaque os CONSOMME par le GPU contre sa longueur de repos (HDSKINLEN) et contre la pose que
+// l'animation du pilote lui COMMANDE (HDCMD). Les positions arrivent en ENTIERS x64 (resolution
+// 1/64 u, soit 0,004 mm) : aucun float ne traverse la frontiere FFI ici, meme regle que le bloc
+// physique ci-dessous. parent = -1 (ou tout hors [0,128)) = racine.
+// HUIT ARGUMENTS : (pid k parent e mode ix iy iz). Ils ne passent PAS par
+// make_function_symbol_from_c — la rampe x86 `_arg_call_systemv` (asm_funcs_x86_64.asm:7-37) ne
+// transmet au C que les 6 registres SysV ; les arguments GOAL 7 et 8 (r10, r11) y sont empiles
+// pour etre SAUVES, pas lus, et un C a 8 parametres lirait iy/iz dans la sauvegarde de xmm8.
+// La rampe a tableau (`_stack_call_systemv` :47-70, `_stack_call_arm64`) collecte les 8
+// registres GOAL et passe le tableau : c'est la liaison de `_format`, `link` et `rpc-call`.
+u64 pc_hd_skel_joint(u64* args) {
+  const u32 pid = (u32)args[0];
+  const int k = (int)(s64)args[1];
+  const int parent = (int)(s64)args[2];
+  const int e = (int)(s64)args[3];
+  const int mode = (int)(s64)args[4];
+  const s64 ix = (s64)args[5], iy = (s64)args[6], iz = (s64)args[7];
+  ::merc2_hd_skel_joint(pid, k, parent, e, mode, ix / 64.f, iy / 64.f, iz / 64.f);
+  return 0;
 }
 #endif
 
@@ -4766,6 +4806,9 @@ void InitMachine_PCPort() {
   // Grecharged-hd-models4: per-actor coverage — companion pid -> driver pid registry in Merc2
   make_function_symbol_from_c("pc-hd-cover!", (void*)pc_hd_cover);
   make_function_symbol_from_c("pc-hd-uncover!", (void*)pc_hd_uncover);
+  // Ghd-skin-origin-stretch: rig du compagnon HD (parent, pilote, mode, bind par joint) ->
+  // sondes HDSKINLEN / HDCMD. 8 arguments -> rampe a tableau (voir pc_hd_skel_joint).
+  make_stack_arg_function_symbol_from_c("pc-hd-skel-joint!", (void*)pc_hd_skel_joint);
 #endif
 #ifdef OG_FEAT_PHYSICS
   // Grecharged-secondary-motion: chain-physics toggle + the data-driven parameter queries.
@@ -5481,6 +5524,31 @@ static u64 level_warp_run() {
       auto sym = intern_from_c("*hd-finite-arm*");
       sym->value = (armbuf[0] == '1') ? 1 : 0;
       printf("HDFINITEARM value=%d source=prop\n", (int)sym->value);
+      fflush(stdout);
+    }
+  }
+  // Ghd-skin-origin-stretch — CONTROLE POSITIF DE LA SONDE HDSKINLEN. Un zero d'etirement ne
+  // vaut que si l'instrument a tire une fois : `*hd-stretch-inject*` (jak-hd.gc) INJECTE un
+  // etirement dans le squelette HD, et la sonde doit le compter. Meme pont que ci-dessus :
+  // propriete `debug.opengoal.hd.stretch_inject` (env OG_HD_STRETCH_INJECT sur x86), un `int`
+  // GOAL brut dans la valeur du symbole, vide = on ne touche a rien (defaut GOAL = 0).
+  {
+    char injbuf[16] = {0};
+    if (const char* e = std::getenv("OG_HD_STRETCH_INJECT")) {
+      std::strncpy(injbuf, e, sizeof(injbuf) - 1);
+    }
+#if defined(__ANDROID__)
+    if (!injbuf[0]) {
+      char pbuf[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.hd.stretch_inject", pbuf) > 0 && pbuf[0]) {
+        std::strncpy(injbuf, pbuf, sizeof(injbuf) - 1);
+      }
+    }
+#endif
+    if (injbuf[0] == '0' || injbuf[0] == '1') {
+      auto sym = intern_from_c("*hd-stretch-inject*");
+      sym->value = (injbuf[0] == '1') ? 1 : 0;
+      printf("HDSTRETCHINJECT value=%d source=prop\n", (int)sym->value);
       fflush(stdout);
     }
   }

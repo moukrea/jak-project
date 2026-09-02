@@ -1744,7 +1744,239 @@ const HdSkinModelInfo& hdskin_model_info(const tfrag3::MercModel* model, const L
   }
   return e;
 }
+
+// ─── Ghd-skin-origin-stretch — LA SONDE « HDSKINLEN » : l'ETIREMENT de chaque os HD ─────────
+// HDSKIN juge une POSITION (un os a plus de 40 m de la reference du paquet). Ce que l'owner voit
+// est un ETIREMENT : des sommets tires loin de leurs voisins — et un os deplace de 2 m le produit
+// deja, sous le seuil de HDSKIN. La grandeur qui le mesure sans seuil de distance est la LONGUEUR
+// DE L'OS : distance entre le joint k et son parent, calculee sur les matrices que le GPU
+// CONSOMME (skel_matrix_buffer, apres la reparation Gd3), comparee a la longueur de REPOS de ce
+// meme os (pose de bind). tmat(slot s) = bindinv[k] x W[k] x camera est rigide : une longueur
+// d'os ne change qu'avec l'animation, et aucune animation ne double la longueur d'un os.
+// Position camera du joint k = [bx,by,bz,1] . tmat (convention vecteur-ligne, ligne r =
+// f[4r..4r+3], translation f[12..14]), avec k = s - 1 (slot 0 = align).
+// Le rig (parent + position de bind de chaque joint, unites moteur) est enregistre par GOAL, par
+// compagnon HD (pid), via pc-hd-skel-joint! (jak1/kmachine.cpp) : GOAL ecrit sur le thread jeu,
+// la sonde lit sur le thread de rendu, d'ou le verrou et la COPIE locale a chaque paquet
+// (~1,8 Ko, un paquet HD par personnage et par image).
+struct HdRig {
+  int n = 0;           // 1 + le plus grand k enregistre
+  u8 parent[128];      // 255 = racine / inconnu
+  u8 e[128];           // joint PILOTE du modele stock lu par k (255 = aucun)
+  u8 mode[128];        // mode de reciblage : 0 monde, 1 local, 2 colle, 3 orientation
+  float bp[128][3];    // position de bind du joint k, unites moteur (4096 u = 1 m)
+  bool have[128];
+  u64 last_seen = 0;   // derniere image ou un paquet de ce compagnon a ete juge (purge par age)
+  HdRig() {
+    std::memset(parent, 255, sizeof(parent));
+    std::memset(e, 255, sizeof(e));
+    std::memset(mode, 0, sizeof(mode));
+    std::memset(bp, 0, sizeof(bp));
+    std::memset(have, 0, sizeof(have));
+  }
+};
+std::mutex s_hd_rigs_mutex;  // s_hd_rigs : ecrit thread jeu (GOAL), lu thread de rendu
+std::unordered_map<u32, HdRig> s_hd_rigs;
+
+// ─── LA POSE COMMANDEE (sonde « HDCMD ») ─────────────────────────────────────────────────
+// Owner (porte refondue le 2026-09-02 21:05) : les os « s'etirent subitement, pas dans un sens
+// ou ils sont censes s'etirer, pas lie a l'animation ». Le detecteur compare donc l'os RENDU a
+// l'os que l'animation en cours COMMANDE. Fait etabli : pour un joint HD k en mode 0 mappe sur
+// le joint pilote e, le reciblage commande W_k = bind_hd_k . bindinv_e . A_e, donc sa position
+// camera commandee vaut [bindpos_hd_k, 1] . tmat_stock(e+1), ou tmat_stock est la matrice du
+// paquet merc STOCK du pilote (`eichar-lod0`, owner_pid = pid du pilote) dans la MEME image —
+// meme camera, meme convention vecteur-ligne. GOAL SOUMET ce paquet stock a chaque image, meme
+// quand il est supprime (branche « suppress pid », qui `return` AVANT la lecture des matrices) :
+// la capture se fait donc en tete de la branche stock, avant tout retour. Thread de rendu seul.
+struct HdStockCapture {
+  u64 frame_idx = ~0ull;
+  std::bitset<128> provided;
+  float tmat[128][16];
+};
+std::unordered_map<u32 /*driver pid*/, HdStockCapture> s_hd_stock;
+
+// Copie de la chaine de slots + t-mtx (64 octets) du paquet stock du pilote `driver_pid`.
+// `slots` pointe sur la chaine de 128 octets, les adresses GOAL suivent (une par qw).
+void hd_stock_capture(const u8* slots, const u8* ee_base, u64 frame_idx, u32 driver_pid) {
+  const u32* addrs = reinterpret_cast<const u32*>(slots + 128);
+  HdStockCapture& cap = s_hd_stock[driver_pid];
+  cap.frame_idx = frame_idx;
+  cap.provided.reset();
+  for (int j = 0; j < 128; j++) {
+    if (slots[j] == 0xff) {
+      break;
+    }
+    const int slot = slots[j];
+    if (slot >= 128) {
+      continue;
+    }
+    u32 addr;
+    std::memcpy(&addr, &addrs[j * 4], 4);
+    std::memcpy(cap.tmat[slot], ee_base + addr, 64);
+    cap.provided.set(slot);
+  }
+}
+
+// Derniere t-mtx consommee par slot et par pid, pour `same` / `psame` : une matrice IDENTIQUE AU
+// BIT a celle de l'image precedente, alors que le personnage bouge, est une matrice que GOAL n'a
+// pas reecrite (lue avant remplissage). Le sens de `same` depend de l'ecart d'images (`gap`) :
+// il est publie a cote. `dev` : ecart rendu/commande de l'image precedente, pour « subit »
+// (saut_m = dev - dev_prev). Thread de rendu seul.
+struct HdLenLast {
+  u64 last_frame = ~0ull;
+  std::bitset<128> valid;
+  std::array<std::array<u8, 64>, 128> tmat{};
+  std::bitset<128> dev_valid;
+  float dev[128] = {};
+};
+std::unordered_map<u32, HdLenLast> s_hd_len_last;
+
+// SEUIL D'ETIREMENT : ETIRE si L > HD_LEN_RATIO * L0 + HD_LEN_FLOOR_U. Ratio 2 : aucune
+// animation ne double une longueur d'os. Plancher 0,25 m (1024 u) : les joints d'aide
+// COINCIDENTS avec leur parent ont L0 = 0, et tout ecart y serait un ratio infini — sous 0,25 m,
+// un tel ecart n'est pas l'etirement que l'owner decrit (des metres).
+constexpr float HD_LEN_RATIO = 2.0f;
+constexpr float HD_LEN_FLOOR_U = 1024.0f;
+// SEUIL D'ECART A LA COMMANDE : cmd_bad si |rendu - commande| > 0,25 m (1024 u), ou non fini.
+constexpr float HD_CMD_DEV_U = 1024.0f;
+// Angle rendu/commande publie seulement si les deux vecteurs d'os font plus de 0,05 m (205 u).
+constexpr float HD_CMD_ANGLE_MIN_U = 204.8f;
+
+struct HdLenStats {
+  u64 last_frame = ~0ull;
+  u64 frames = 0, hd_frames = 0, hd_stretch_frames = 0;
+  u64 hd_stretch_bones = 0, bones_judged = 0, packets_judged = 0, hd_packets_norig = 0;
+  u64 torn_bones = 0, same_bones = 0, nan_bones = 0, null_bones = 0, rep_bones = 0;
+  float worst_ratio = 0.f, worst_m = 0.f;
+  // le VERDICT est l'union : un os est mauvais s'il est etire (longueur) OU loin de sa commande
+  u64 hd_bad_frames = 0, hd_bad_bones = 0;
+  u64 cmd_judged = 0, cmd_bones = 0, cmd_frames = 0, cmd_nostock = 0;
+  float cmd_worst_m = 0.f;
+  bool cur_hd = false, cur_hd_stretch = false, cur_hd_bad = false, cur_cmd = false;
+  int ev_logs = 0;      // cap des lignes HDLENEV
+  int ev_logs_cmd = 0;  // cap des lignes HDCMDEV (separe : l'un ne doit pas etouffer l'autre)
+  u64 next_hb = 300;
+};
+HdLenStats s_hdlen;
+
+// Meme cadence que HDSKIN (une image = un frame_idx ou au moins un paquet merc a ete consomme,
+// battement toutes les 300 images) : les deux battements tombent sur les memes images.
+void hdlen_close_frame() {
+  if (s_hdlen.last_frame == ~0ull) {
+    return;
+  }
+  s_hdlen.frames++;
+  if (s_hdlen.cur_hd) {
+    s_hdlen.hd_frames++;
+  }
+  if (s_hdlen.cur_hd_stretch) {
+    s_hdlen.hd_stretch_frames++;
+  }
+  if (s_hdlen.cur_hd_bad) {
+    s_hdlen.hd_bad_frames++;
+  }
+  if (s_hdlen.cur_cmd) {
+    s_hdlen.cmd_frames++;
+  }
+  s_hdlen.cur_hd = s_hdlen.cur_hd_stretch = s_hdlen.cur_hd_bad = s_hdlen.cur_cmd = false;
+  if (s_hdlen.frames >= s_hdlen.next_hb) {
+    s_hdlen.next_hb += 300;
+    int rigs = 0;
+    {
+      std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+      rigs = (int)s_hd_rigs.size();
+    }
+    // les pids GOAL ne sont jamais reutilises : un compagnon mort laisserait ses 8 Ko de
+    // dernieres matrices pour toujours — on oublie ce qui n'a pas ete vu depuis 3000 images.
+    for (auto it = s_hd_len_last.begin(); it != s_hd_len_last.end();) {
+      if (it->second.last_frame + 3000 < s_hdlen.last_frame) {
+        it = s_hd_len_last.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    // meme regle pour les rigs : `pc-hd-uncover!` est appele pendant la vie du compagnon (miroir
+    // hidden), donc le rig ne meurt pas avec lui mais par age — les pids ne sont jamais reutilises
+    {
+      std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+      for (auto it = s_hd_rigs.begin(); it != s_hd_rigs.end();) {
+        if (it->second.last_seen + 3000 < s_hdlen.last_frame) {
+          it = s_hd_rigs.erase(it);
+        } else {
+          ++it;
+        }
+      }
+    }
+    // meme regle pour les captures stock (8 Ko par pilote)
+    for (auto it = s_hd_stock.begin(); it != s_hd_stock.end();) {
+      if (it->second.frame_idx + 3000 < s_hdlen.last_frame) {
+        it = s_hd_stock.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    printf("HDSKINLEN frames=%llu hd_frames=%llu hd_stretch_frames=%llu hd_stretch_bones=%llu "
+           "bones_judged=%llu torn=%llu same=%llu nan=%llu null=%llu rep=%llu worst_ratio=%.2f "
+           "worst_m=%.2f rigs=%d norig=%llu hd_bad_frames=%llu hd_bad_bones=%llu "
+           "cmd_judged=%llu cmd_bones=%llu cmd_frames=%llu cmd_worst_m=%.2f cmd_nostock=%llu\n",
+           (unsigned long long)s_hdlen.frames, (unsigned long long)s_hdlen.hd_frames,
+           (unsigned long long)s_hdlen.hd_stretch_frames,
+           (unsigned long long)s_hdlen.hd_stretch_bones, (unsigned long long)s_hdlen.bones_judged,
+           (unsigned long long)s_hdlen.torn_bones, (unsigned long long)s_hdlen.same_bones,
+           (unsigned long long)s_hdlen.nan_bones, (unsigned long long)s_hdlen.null_bones,
+           (unsigned long long)s_hdlen.rep_bones, s_hdlen.worst_ratio, s_hdlen.worst_m, rigs,
+           (unsigned long long)s_hdlen.hd_packets_norig,
+           (unsigned long long)s_hdlen.hd_bad_frames, (unsigned long long)s_hdlen.hd_bad_bones,
+           (unsigned long long)s_hdlen.cmd_judged, (unsigned long long)s_hdlen.cmd_bones,
+           (unsigned long long)s_hdlen.cmd_frames, s_hdlen.cmd_worst_m,
+           (unsigned long long)s_hdlen.cmd_nostock);
+    fflush(stdout);
+  }
+}
+
+// Appele pour CHAQUE paquet (HD ou non) : c'est ce qui tient le compte d'images commun.
+void hdlen_note_frame(u64 frame_idx) {
+  if (frame_idx != s_hdlen.last_frame) {
+    hdlen_close_frame();
+    s_hdlen.last_frame = frame_idx;
+  }
+}
+
+// Position camera du joint de bind b sous la t-mtx f (convention vecteur-ligne).
+void hdlen_joint_pos(const float* f, const float* b, float out[3]) {
+  out[0] = b[0] * f[0] + b[1] * f[4] + b[2] * f[8] + f[12];
+  out[1] = b[0] * f[1] + b[1] * f[5] + b[2] * f[9] + f[13];
+  out[2] = b[0] * f[2] + b[1] * f[6] + b[2] * f[10] + f[14];
+}
 }  // namespace
+
+void merc2_hd_skel_joint(u32 companion_pid,
+                         int k,
+                         int parent,
+                         int e,
+                         int mode,
+                         float bx,
+                         float by,
+                         float bz) {
+  if (k < 0 || k >= 128) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+  HdRig& rig = s_hd_rigs[companion_pid];
+  rig.parent[k] = (parent >= 0 && parent < 128) ? (u8)parent : 255;
+  rig.e[k] = (e >= 0 && e < 128) ? (u8)e : 255;
+  rig.mode[k] = (mode >= 0 && mode < 255) ? (u8)mode : 255;
+  rig.bp[k][0] = bx;
+  rig.bp[k][1] = by;
+  rig.bp[k][2] = bz;
+  rig.have[k] = true;
+  rig.n = std::max(rig.n, k + 1);
+}
+
+void merc2_hd_skel_forget(u32 companion_pid) {
+  std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+  s_hd_rigs.erase(companion_pid);
+}
 
 void Merc2::handle_pc_model(const DmaTransfer& setup,
                             SharedRenderState* render_state,
@@ -1846,6 +2078,36 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
       }
     }
   } else if (owner_pid != 0) {
+    // Ghd-skin-origin-stretch (sonde HDCMD) — CAPTURE DE LA POSE COMMANDEE. Ce paquet stock
+    // est celui du PILOTE si son pid est le driver d'une paire de couverture ; ses matrices sont
+    // la commande que le reciblage du compagnon a lue. Prise ICI, avant la suppression
+    // ci-dessous (qui `return` avant la lecture des matrices) et avant le fail-open : dans les
+    // deux cas le paquet a ete soumis avec des matrices ecrites, c'est ce qu'on veut lire.
+    // Seulement si le compagnon a un rig enregistre : sans rig, rien ne saurait la consommer.
+    {
+      u32 companion_pid = 0;
+      {
+        std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
+        for (const auto& cp : s_hd_cover_pairs) {
+          if (cp.driver_pid == owner_pid) {
+            companion_pid = cp.companion_pid;
+            break;
+          }
+        }
+      }
+      bool has_rig = false;
+      if (companion_pid != 0) {
+        std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+        has_rig = s_hd_rigs.find(companion_pid) != s_hd_rigs.end();
+      }
+      if (has_rig) {
+        // memes offsets que la lecture des matrices plus bas : lights, +16 water (jak1), slots
+        const u8* slots = input_data + sizeof(VuLights) +
+                          (render_state->version == GameVersion::Jak1 ? 16 : 0);
+        hd_stock_capture(slots, (const u8*)render_state->ee_main_memory,
+                         render_state->frame_idx, owner_pid);
+      }
+    }
     // a stock packet: drop it ONLY if ITS OWN pid is covered by an actively-submitting companion.
     // Renderer-level (never GOAL draw-status: skip-bones on *target* propagated to the sidekick
     // and swallowed Daxter on M1 builds 10-12). Uncovered same-name actors (ND logo) draw stock.
@@ -1990,6 +2252,9 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // us which bones go where. (the game doesn't go in order because it follows the merc format)
   ShaderMercMat skel_matrix_buffer[MAX_SKEL_BONES];
   auto* matrix_array = (const u32*)(input_data + 128);
+  // Ghd-skin-origin-stretch (sonde HDSKINLEN) : l'adresse GOAL de chaque slot est gardee pour
+  // RELIRE la matrice apres coup et savoir si GOAL l'a reecrite pendant qu'on la consommait.
+  u32 hd_slot_addr[MAX_SKEL_BONES] = {};
   int i;
   for (i = 0; i < 128; i++) {
     if (input_data[i] == 0xff) {  // indicates end of string.
@@ -2006,6 +2271,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     // identical pointer.
     const u8* real_addr = (const u8*)render_state->ee_main_memory + addr;
     ASSERT(input_data[i] < MAX_SKEL_BONES);
+    hd_slot_addr[input_data[i]] = addr;
     // get the matrix data
     memcpy(&skel_matrix_buffer[input_data[i]], real_addr, sizeof(MercMat));
   }
@@ -2271,6 +2537,11 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // Sans aucun os fini dans le paquet (le cas d'origine, squelette entier NaN), identite comme avant.
   const bool gd3_is_jak = gd3_bones_on() && std::strstr(name, "eichar") != nullptr;
   int gd3_bones_repaired = 0;
+  // Ghd-skin-origin-stretch (sonde HDSKINLEN) : les slots que la reparation a REECRITS dans la
+  // copie locale. Sur ces slots la copie ne reflete plus la memoire GOAL, donc « GOAL a reecrit
+  // la matrice pendant qu'on la consommait » n'est plus decidable (torn=-1). Sur x86 le bloc
+  // est compile hors : le tableau reste a zero.
+  bool hd_repaired_slot[MAX_SKEL_BONES] = {};
 #ifdef __aarch64__
   {
     static const ShaderMercMat kIdent = []() {
@@ -2350,6 +2621,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         if (tmat_bad) {
           skel_matrix_buffer[slot] = ref_copy;
           gd3_bones_repaired++;
+          hd_repaired_slot[slot] = true;
         } else if (nmat_bad) {
           // keep the finite, correct tmat; reset only the normal matrix to identity.
           for (int k = 16; k < 32; k++) {
@@ -2357,12 +2629,325 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           }
           f[16] = f[21] = f[26] = 1.f;  // nmat = identity
           gd3_bones_repaired++;
+          hd_repaired_slot[slot] = true;
         }
       }
     }
   }
 #endif
   hdskin_note_repair(gd3_bones_repaired);
+
+  // === Ghd-skin-origin-stretch — SONDES « HDSKINLEN » et « HDCMD » (voir HdLenStats) ========
+  // Placees APRES la reparation Gd3 : c'est skel_matrix_buffer tel qu'il part au GPU qui est
+  // juge, pas ce que GOAL a ecrit. Chaque os HD fourni et LU par des sommets (minfo.used) dont
+  // le parent est fourni est mesure deux fois :
+  //   LONGUEUR : L = |pos(k) - pos(parent)| en espace camera contre L0, la meme distance en
+  //              pose de bind (len_bad, HDLENEV) ;
+  //   COMMANDE : dev = |pos(k) - cmd(k)|, ou cmd(k) = [bindpos_k, 1] . tmat_stock(e+1) est la
+  //              position que l'animation du PILOTE commande a ce joint dans la MEME image
+  //              (cmd_bad, HDCMDEV) — mode 0 seulement, pilote e mappe, capture stock de
+  //              l'image courante.
+  // Le VERDICT par os est l'union (hd_bad_bones / hd_bad_frames). Attributs qui separent les
+  // mecanismes :
+  //   nan   : L non finie (matrice non finie qui a survecu, ou x86 sans reparation)
+  //   null  : les 16 floats de la t-mtx sont nuls (os jamais ecrit : sommets a l'origine)
+  //   torn  : la memoire GOAL relue MAINTENANT differe de ce qu'on a copie — GOAL a reecrit
+  //           la matrice pendant qu'on la consommait ; -1 si la reparation a modifie la copie
+  //   same  : t-mtx identique au bit a celle du paquet precedent du meme pid (a lire avec gap)
+  //   psame : idem pour le parent ; rep : slot reecrit par la reparation Gd3
+  //   saut  : dev - dev de l'image precedente (« subitement » : l'ecart apparait d'un coup)
+  hdlen_note_frame(render_state->frame_idx);
+  if (is_hd_packet && owner_pid != 0) {
+    s_hdlen.cur_hd = true;
+    HdRig rig;
+    bool have_rig = false;
+    {
+      std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+      auto it = s_hd_rigs.find(owner_pid);
+      if (it != s_hd_rigs.end()) {
+        it->second.last_seen = render_state->frame_idx;
+        rig = it->second;
+        have_rig = true;
+      }
+    }
+    if (!have_rig) {
+      // un zero d'etirement sans rig serait un zero vide : compte et publie dans le battement
+      s_hdlen.hd_packets_norig++;
+    } else {
+      const HdSkinModelInfo& minfo = hdskin_model_info(model, lev);
+      std::bitset<128> provided;
+      for (int j = 0; j < i; j++) {
+        int slot = input_data[j];
+        if (slot < MAX_SKEL_BONES) {
+          provided.set(slot);
+        }
+      }
+      // LA COMMANDE : la capture stock du PILOTE de ce compagnon, si elle date de cette image.
+      // Sans paire de couverture (builds sans HD) ou sans capture de l'image courante, aucun os
+      // n'est compare et le paquet compte dans cmd_nostock — jamais un zero silencieux.
+      u32 driver_pid = 0;
+#ifdef OG_FEAT_HD_MODELS
+      {
+        std::lock_guard<std::mutex> lock(s_hd_cover_mutex);
+        for (const auto& cp : s_hd_cover_pairs) {
+          if (cp.companion_pid == owner_pid) {
+            driver_pid = cp.driver_pid;
+            break;
+          }
+        }
+      }
+#endif
+      const HdStockCapture* stock = nullptr;
+      s64 stock_gap = -1;  // -1 = aucune capture pour ce pilote ; 0 = meme image
+      if (driver_pid != 0) {
+        auto sit = s_hd_stock.find(driver_pid);
+        if (sit != s_hd_stock.end()) {
+          stock_gap = (s64)(render_state->frame_idx - sit->second.frame_idx);
+          if (stock_gap == 0) {
+            stock = &sit->second;
+          }
+        }
+      }
+      if (!stock) {
+        s_hdlen.cmd_nostock++;
+      }
+      // `same` et `dev_prev` se lisent AVANT la mise a jour de la memoire du pid
+      HdLenLast& last = s_hd_len_last[owner_pid];
+      const u64 gap =
+          (last.last_frame == ~0ull) ? 0 : (render_state->frame_idx - last.last_frame);
+      std::bitset<128> same_now;
+      for (int s = 0; s < MAX_SKEL_BONES; s++) {
+        if (provided.test(s) && last.valid.test(s) &&
+            std::memcmp(&skel_matrix_buffer[s], last.tmat[s].data(), 64) == 0) {
+          same_now.set(s);
+        }
+      }
+      float new_dev[MAX_SKEL_BONES] = {};
+      std::bitset<128> new_dev_valid;
+      struct HdLenHit {
+        int k, parent;
+        float len, rest, ratio, dev;
+        float pos[3], ppos[3];
+        int nan, null, torn, same, psame, rep;
+      };
+      struct HdCmdHit {
+        int k, e;
+        float dev, dev_prev, saut, len_cmd, len_ren, angle;
+        float ren[3], cmd[3];
+        int torn, same, rep;
+      };
+      constexpr int HD_LEN_EV_PER_PACKET = 8;  // au plus 8 os publies par paquet, par sonde
+      HdLenHit hits[HD_LEN_EV_PER_PACKET];
+      HdCmdHit chits[HD_LEN_EV_PER_PACKET];
+      int n_stretched = 0;  // TOUS les os etires (longueur) du paquet, publies ou non
+      int n_cmd = 0;        // TOUS les os loin de leur commande, publies ou non
+      s_hdlen.packets_judged++;
+      for (int k = 0; k < rig.n && k < MAX_SKEL_BONES - 1; k++) {
+        const int s = k + 1;
+        if (!rig.have[k] || !provided.test(s) || !minfo.used.test(s)) {
+          continue;
+        }
+        const int pk = rig.parent[k];  // joint parent (255 = racine : rien a mesurer)
+        if (pk == 255 || !rig.have[pk]) {
+          continue;
+        }
+        const int ps = pk + 1;
+        if (ps >= MAX_SKEL_BONES || !provided.test(ps)) {
+          continue;
+        }
+        const float* f = reinterpret_cast<const float*>(&skel_matrix_buffer[s]);
+        const float* pf = reinterpret_cast<const float*>(&skel_matrix_buffer[ps]);
+        float pos[3], ppos[3];
+        hdlen_joint_pos(f, rig.bp[k], pos);
+        hdlen_joint_pos(pf, rig.bp[pk], ppos);
+        const float dx = pos[0] - ppos[0], dy = pos[1] - ppos[1], dz = pos[2] - ppos[2];
+        const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+        const float bx = rig.bp[k][0] - rig.bp[pk][0], by = rig.bp[k][1] - rig.bp[pk][1],
+                    bz = rig.bp[k][2] - rig.bp[pk][2];
+        const float rest = std::sqrt(bx * bx + by * by + bz * bz);
+        s_hdlen.bones_judged++;
+        // LE PARENT EST-IL UN VRAI OS ? Les joints-racines du rig (align k=0, prejoint k=1 :
+        // parent 255) portent une matrice MODEL-SPACE qu'aucun sommet ne lit. Mesure x86 c6inj1 :
+        // le « bone » main->prejoint de Jak rend 15,2 m pour 1,44 m de repos A CHAQUE IMAGE
+        // (298 evenements sur 600 cote squelette, `same=294` ici) — une constante, pas un
+        // etirement. Un joint dont le parent est une racine n'a pas de longueur d'os mesurable :
+        // il reste juge par l'ecart a la pose COMMANDEE, plus bas.
+        const bool len_ok = rig.parent[pk] != 255;
+        const bool is_nan = len_ok && !std::isfinite(len);
+        const bool len_bad = len_ok && (is_nan || (len > HD_LEN_RATIO * rest + HD_LEN_FLOOR_U));
+
+        // --- la commande ---
+        bool cmd_ok = false, cmd_bad = false;
+        float dev = -1.f, dev_prev = -1.f, saut = 0.f, len_cmd = -1.f, angle = -1.f;
+        float cmd[3] = {0.f, 0.f, 0.f};
+        if (stock && rig.mode[k] == 0 && rig.e[k] != 255) {
+          const int es = rig.e[k] + 1;
+          if (es < MAX_SKEL_BONES && stock->provided.test(es)) {
+            hdlen_joint_pos(stock->tmat[es], rig.bp[k], cmd);
+            const float cx = pos[0] - cmd[0], cy = pos[1] - cmd[1], cz = pos[2] - cmd[2];
+            dev = std::sqrt(cx * cx + cy * cy + cz * cz);
+            cmd_ok = true;
+            s_hdlen.cmd_judged++;
+            cmd_bad = !std::isfinite(dev) || dev > HD_CMD_DEV_U;
+            // « subit » : dev_prev = -1 sans echantillon anterieur, et le saut vaut alors dev
+            // entier (l'ecart est apparu dans la fenetre d'observation)
+            dev_prev = last.dev_valid.test(s) ? last.dev[s] : -1.f;
+            saut = (dev_prev >= 0.f) ? dev - dev_prev : dev;
+            new_dev[s] = dev;
+            new_dev_valid.set(s);
+            if (std::isfinite(dev) && dev / 4096.f > s_hdlen.cmd_worst_m) {
+              s_hdlen.cmd_worst_m = dev / 4096.f;
+            }
+            // longueur et direction commandees de l'os, si le parent est lui aussi commande
+            if (rig.mode[pk] == 0 && rig.e[pk] != 255) {
+              const int eps = rig.e[pk] + 1;
+              if (eps < MAX_SKEL_BONES && stock->provided.test(eps)) {
+                float cmd_p[3];
+                hdlen_joint_pos(stock->tmat[eps], rig.bp[pk], cmd_p);
+                const float vx = cmd[0] - cmd_p[0], vy = cmd[1] - cmd_p[1],
+                            vz = cmd[2] - cmd_p[2];
+                len_cmd = std::sqrt(vx * vx + vy * vy + vz * vz);
+                // angle entre l'os rendu (dx,dy,dz) et l'os commande (vx,vy,vz), en degres,
+                // seulement si les deux font plus de 0,05 m : sous ca, la direction est du bruit
+                if (len > HD_CMD_ANGLE_MIN_U && len_cmd > HD_CMD_ANGLE_MIN_U &&
+                    std::isfinite(len) && std::isfinite(len_cmd)) {
+                  float c = (dx * vx + dy * vy + dz * vz) / (len * len_cmd);
+                  c = std::max(-1.f, std::min(1.f, c));
+                  angle = std::acos(c) * (180.f / 3.14159265f);
+                }
+              }
+            }
+          }
+        }
+        if (!len_bad && !cmd_bad) {
+          continue;
+        }
+        // --- attributs communs, calcules une fois par os mauvais ---
+        s_hdlen.hd_bad_bones++;
+        s_hdlen.cur_hd_bad = true;
+        bool all_zero = true;
+        for (int z = 0; z < 16; z++) {
+          if (f[z] != 0.f) {
+            all_zero = false;
+            break;
+          }
+        }
+        const int a_null = all_zero ? 1 : 0;
+        const int a_rep = hd_repaired_slot[s] ? 1 : 0;
+        int a_torn;
+        if (hd_repaired_slot[s]) {
+          a_torn = -1;
+        } else {
+          const u8* now = (const u8*)render_state->ee_main_memory + hd_slot_addr[s];
+          a_torn = (std::memcmp(now, &skel_matrix_buffer[s], 64) != 0) ? 1 : 0;
+        }
+        const int a_same = same_now.test(s) ? 1 : 0;
+        const int a_psame = same_now.test(ps) ? 1 : 0;
+        if (len_bad) {
+          HdLenHit scratch;
+          HdLenHit& h = (n_stretched < HD_LEN_EV_PER_PACKET) ? hits[n_stretched] : scratch;
+          n_stretched++;
+          h.k = k;
+          h.parent = pk;
+          h.len = len;
+          h.rest = rest;
+          // ratio = -1 quand L0 = 0 (joint coincident) : « infini » ne se publie pas en %.2f
+          h.ratio = (rest > 0.f && !is_nan) ? len / rest : -1.f;
+          h.dev = cmd_ok ? dev : -1.f;
+          std::memcpy(h.pos, pos, sizeof(pos));
+          std::memcpy(h.ppos, ppos, sizeof(ppos));
+          h.nan = is_nan ? 1 : 0;
+          h.null = a_null;
+          h.rep = a_rep;
+          h.torn = a_torn;
+          h.same = a_same;
+          h.psame = a_psame;
+          s_hdlen.hd_stretch_bones++;
+          s_hdlen.nan_bones += h.nan;
+          s_hdlen.null_bones += h.null;
+          s_hdlen.rep_bones += h.rep;
+          s_hdlen.torn_bones += (h.torn == 1) ? 1 : 0;
+          s_hdlen.same_bones += h.same;
+          if (!is_nan) {
+            if (h.ratio > s_hdlen.worst_ratio) {
+              s_hdlen.worst_ratio = h.ratio;
+            }
+            if (len / 4096.f > s_hdlen.worst_m) {
+              s_hdlen.worst_m = len / 4096.f;
+            }
+          }
+        }
+        if (cmd_bad) {
+          HdCmdHit scratch;
+          HdCmdHit& c = (n_cmd < HD_LEN_EV_PER_PACKET) ? chits[n_cmd] : scratch;
+          n_cmd++;
+          c.k = k;
+          c.e = rig.e[k];
+          c.dev = dev;
+          c.dev_prev = dev_prev;
+          c.saut = saut;
+          c.len_cmd = len_cmd;
+          c.len_ren = len;
+          c.angle = angle;
+          std::memcpy(c.ren, pos, sizeof(pos));
+          std::memcpy(c.cmd, cmd, sizeof(cmd));
+          c.torn = a_torn;
+          c.same = a_same;
+          c.rep = a_rep;
+          s_hdlen.cmd_bones++;
+          s_hdlen.cur_cmd = true;
+        }
+      }
+      if (n_stretched > 0) {
+        s_hdlen.cur_hd_stretch = true;
+        // au plus 8 os par paquet, 150 lignes en tout : le battement porte le reste
+        for (int e = 0; e < n_stretched && e < HD_LEN_EV_PER_PACKET && s_hdlen.ev_logs < 150;
+             e++) {
+          const HdLenHit& h = hits[e];
+          s_hdlen.ev_logs++;
+          printf("HDLENEV frame=%llu model=%s pid=%u k=%d parent=%d len_m=%.3f rest_m=%.3f "
+                 "ratio=%.2f pos=(%.2f,%.2f,%.2f) ppos=(%.2f,%.2f,%.2f) nan=%d null=%d torn=%d "
+                 "same=%d psame=%d gap=%llu rep=%d n_stretched=%d dev_m=%.3f stock_gap=%lld\n",
+                 (unsigned long long)render_state->frame_idx, name, owner_pid, h.k, h.parent,
+                 h.len / 4096.f, h.rest / 4096.f, h.ratio, h.pos[0] / 4096.f, h.pos[1] / 4096.f,
+                 h.pos[2] / 4096.f, h.ppos[0] / 4096.f, h.ppos[1] / 4096.f, h.ppos[2] / 4096.f,
+                 h.nan, h.null, h.torn, h.same, h.psame, (unsigned long long)gap, h.rep,
+                 n_stretched, h.dev >= 0.f ? h.dev / 4096.f : -1.f, (long long)stock_gap);
+        }
+        fflush(stdout);
+      }
+      if (n_cmd > 0) {
+        for (int e = 0; e < n_cmd && e < HD_LEN_EV_PER_PACKET && s_hdlen.ev_logs_cmd < 150;
+             e++) {
+          const HdCmdHit& c = chits[e];
+          s_hdlen.ev_logs_cmd++;
+          printf("HDCMDEV frame=%llu model=%s pid=%u drv=%u k=%d e=%d dev_m=%.3f "
+                 "dev_prev_m=%.3f saut_m=%.3f len_cmd_m=%.3f len_ren_m=%.3f angle_deg=%.1f "
+                 "ren=(%.2f,%.2f,%.2f) cmd=(%.2f,%.2f,%.2f) torn=%d same=%d rep=%d "
+                 "stock_gap=%lld\n",
+                 (unsigned long long)render_state->frame_idx, name, owner_pid, driver_pid, c.k,
+                 c.e, c.dev / 4096.f, c.dev_prev >= 0.f ? c.dev_prev / 4096.f : -1.f,
+                 c.saut / 4096.f, c.len_cmd >= 0.f ? c.len_cmd / 4096.f : -1.f,
+                 c.len_ren / 4096.f, c.angle, c.ren[0] / 4096.f, c.ren[1] / 4096.f,
+                 c.ren[2] / 4096.f, c.cmd[0] / 4096.f, c.cmd[1] / 4096.f, c.cmd[2] / 4096.f,
+                 c.torn, c.same, c.rep, (long long)stock_gap);
+        }
+        fflush(stdout);
+      }
+      // memoire du pid pour le prochain paquet : les t-mtx CONSOMMEES (post-reparation) et
+      // l'ecart a la commande de chaque os compare
+      for (int s = 0; s < MAX_SKEL_BONES; s++) {
+        if (provided.test(s)) {
+          std::memcpy(last.tmat[s].data(), &skel_matrix_buffer[s], 64);
+        }
+        last.dev[s] = new_dev[s];
+      }
+      last.valid = provided;
+      last.dev_valid = new_dev_valid;
+      last.last_frame = render_state->frame_idx;
+    }
+  }
+
   // Gjak2-visuals probe: per-model one-shot of bone-translation magnitude and
   // light colors — the white wash bisects to the plain-merc bucket family, and
   // huge-but-finite garbage matrices (wrong-address reads) or blown lights

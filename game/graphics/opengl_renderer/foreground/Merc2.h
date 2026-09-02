@@ -27,6 +27,25 @@ bool merc2_hd_eye_slot_covered(u8 slot);
 u64 merc2_hd_eye_slot_lid_gl(u8 slot);
 #endif
 
+// Ghd-skin-origin-stretch — registre du RIG des compagnons HD pour les sondes HDSKINLEN / HDCMD
+// (Merc2.cpp, handle_pc_model). GOAL enregistre, par compagnon (pid), pour chaque joint HD k :
+// son parent, le joint PILOTE e du modele stock qu'il lit (255 = aucun), le mode de reciblage
+// (0 monde, 1 local, 2 colle, 3 orientation) et sa position de bind (unites moteur, 4096 u =
+// 1 m) via `pc-hd-skel-joint!` (jak1/kmachine.cpp) ; `pc-hd-uncover!` oublie le rig. Les sondes
+// comparent l'os tel que le GPU le CONSOMME a sa longueur de repos ET a la pose que l'animation
+// du pilote lui COMMANDE. Declare hors du #ifdef, comme HDSKIN : les sondes tournent dans tous
+// les builds et sur toutes les plateformes ; seul l'enregistrement des builtins GOAL reste sous
+// OG_FEAT_HD_MODELS.
+void merc2_hd_skel_joint(u32 companion_pid,
+                         int k,
+                         int parent,
+                         int e,
+                         int mode,
+                         float bx,
+                         float by,
+                         float bz);
+void merc2_hd_skel_forget(u32 companion_pid);
+
 struct MercDebugStats {
   int num_models = 0;
   int num_missing_models = 0;
