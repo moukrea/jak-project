@@ -464,7 +464,26 @@
    (dbg-frames int32)        ;; frame counter for the reliable bone-sanity dump
    (dbg-mirror-logs int32)   ;; cap for the defect-6 hidden-mirror transition log
    (noanim-run int32)        ;; images consecutives ou le driver porte (draw-status no-anim)
-   (dbg-noanim-logs int32))  ;; cap pour la distribution des longueurs de ces episodes
+   (dbg-noanim-logs int32)   ;; cap pour la distribution des longueurs de ces episodes
+   ;; Ghd-skin-origin-stretch : etat de l'EPISODE d'etirement en cours (voir le detecteur, plus bas)
+   (st-run     int32)        ;; images consecutives avec au moins un os HD en fuite (0 = pas d'episode)
+   (st-t0      time-frame)   ;; instant du debut de l'episode
+   (st-maxlen  float)        ;; plus grande distance racine->os atteinte pendant l'episode (unites)
+   (st-dist    float)        ;; |racine| au moment du pic : la distance a l'ORIGINE DU MONDE
+   (st-cx      float)        ;; barycentre des os en fuite au moment du pic (la CIBLE de l'etirement)
+   (st-cy      float)
+   (st-cz      float)
+   (st-n       int32)        ;; nombre d'os en fuite au pic
+   (st-nroot   int32)        ;; dont joints-racines du rig (hd-parent=255 : align/prejoint, non peaux)
+   (st-k       int32)        ;; le pire joint HD
+   (st-e       int32)        ;; le joint pilote qu'il lit
+   (st-md      int32)        ;; son mode de reciblage
+   (st-lod     int32)        ;; LOD courant du driver au pic
+   (st-nj      int32)        ;; num-joints du mgeo courant du driver (ce que son LOD calcule)
+   (st-ar      float)        ;; |ligne 0| de A_e : 0 => matrice NULLE
+   (st-at      float)        ;; |translation| de A_e : 0 => le pilote ne porte plus la position monde
+   (st-vis     int32)        ;; images de l'episode ou le compagnon etait SOUMISSIBLE au dessin
+   (st-hb      int32))       ;; compteur d'images pour le recensement periodique par compagnon
   (:states jak-hd-clone))
 
 ;; Grecharged-secondary-motion: the chain sim lives in jak-hd-physics.gc, compiled AFTER this file
@@ -475,6 +494,55 @@
   (define-extern jak-hd-physics-step (function jak-hd none))
   (define-extern jak-hd-physics-release (function jak-hd none))
   (define-extern phys-note-covered! (function int none)))
+
+;; ------------------------------------------------------------------------------------------------
+;; Ghd-skin-origin-stretch (owner 2026-08-31) — LE GARDE : NE JAMAIS CONSOMMER UNE MATRICE D'OS QUE
+;; LE PILOTE N'A PAS ECRITE.
+;;
+;; MESURE QUI L'IMPOSE (course x86 du 2026-09-02, marqueurs HDEPZ) : `arow=0.0000 atrans=0.0000` —
+;; l'os du pilote est la matrice NULLE. Le produit du reciblage vaut alors zero, et les 47 joints
+;; HD en mode 0 se posent EXACTEMENT a (0,0,0) : `cible_x=0.0000 cible_y=0.0000 cible_z=0.0000`,
+;; avec `longueur_etirement_m` EGALE a `distance_origine_m` au centieme (246,62 / 303,45 / 1546,18).
+;;
+;; D'OU VIENT UNE MATRICE NULLE. La memoire de tas d'un process est memsettee a ZERO a
+;; l'allocation (game/kernel/jak1/kscheme.cpp:186-192), et le squelette du pilote est alloue la
+;; (process-drawable.gc:124-127, depuis `initialize-skeleton`). Un os reste donc a ZERO tant que
+;; `do-joint-math!` ne l'a pas ecrit — et trois familles de cas font qu'il ne l'ecrit pas :
+;;   - le squelette vient d'etre (re)alloue et le :post du pilote n'a pas encore tourne ; le
+;;     compagnon est un ENFANT du pilote, mais `execute-process-tree` (gkernel.gc:1264) ne coupe
+;;     PAS les enfants quand le parent est saute (`run-logic?` faux, pause, chargement) ;
+;;   - la boucle de `do-joint-math!` est bornee par `(-> draw mgeo num-joints)`
+;;     (process-drawable.gc:247/266), pas par la longueur du squelette : sur eichar elle ecrit les
+;;     noeuds 3..81 alors que le squelette en porte 84 — mesure HDDRVZ `len=84 nj=79 zerobase=3` ;
+;;   - le noeud 1 (align) n'a pas de `param0` (process-drawable.gc:141-145) : il n'est jamais
+;;     ecrit par cette boucle.
+;; Le garde du reciblage testait la LONGUEUR du squelette (`(>= (+ e 1) tbones)`), c'est-a-dire la
+;; place allouee — jamais si la matrice avait ete REMPLIE. C'est la le defaut.
+;;
+;; CE QUE LE GARDE FAIT. Il laisse le joint sur la pose que le chemin stock vient de lui donner
+;; (l'animation d'inactivite du modele HD, a la position du pilote) au lieu de l'envoyer a
+;; l'origine ; les modes 1 et 3 retombent sur le produit COLLE, qui ne lit rien du pilote. Aucun
+;; compagnon n'est masque : masquer creerait le TROU que Gcutscene-npc-flicker a paye deux fois.
+;; ------------------------------------------------------------------------------------------------
+;; ARMEMENT RUNTIME : le garde se desarme SANS rebuild, pour que les deux bras de l'ablation
+;; tournent sur LE MEME BINAIRE et LE MEME INSTRUMENT (bras OFF = le defaut d'origine).
+(define *hd-guard-arm* 1)   ;; ENTIER, pas un symbole : la veracite d'un symbole GOAL est un
+                            ;; piege connu du depot, on ne la met pas sur le chemin d'un verdict.
+(define *hd-guard-skips* 0)    ;; ecritures de joints REFUSEES (n'existe que quand le garde est arme)
+(define *hd-guard-occ* 0)      ;; joints dont l'os pilote n'etait PAS ecrit — les OCCASIONS, comptees
+                               ;; que le garde soit arme ou non : c'est ce compte qui empeche un
+                               ;; `episodes=0` d'etre vide de sens.
+(define *hd-guard-frames* 0)   ;; images ou au moins une occasion s'est presentee
+(define *hd-guard-occ-root* 0) ;; occasions sur les joints-RACINES du rig (align/prejoint) : elles
+                               ;; sont PERMANENTES par construction (l'os align du pilote n'est
+                               ;; jamais ecrit, en-tete l.49-50) et n'ont aucun effet visible, donc
+                               ;; elles sont comptees A PART et n'entrent pas dans les OCCASIONS.
+
+(defun hd-bone-posed? ((s skeleton) (i int))
+  "Vrai si l'os i a deja ete ECRIT par le do-joint-math! de son proprietaire. Une base nulle est
+   la signature d'un os jamais ecrit (tas de process memsette a zero) ; aucune pose reelle ne
+   porte une ligne de base de longueur nulle."
+  (>= (vector-length-squared (-> s bones i transform vector 0)) 0.0001))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; the per-frame fill: overwrite the HD skeleton's world bone matrices from the driver's.
@@ -525,15 +593,38 @@
                    ;; mode 0 (or a rootless local joint, defensively): M1 world-delta math.
                    (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
                    (when (or (= e #xff) (>= (+ e 1) tbones)) (set! e 0))
-                   (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
-                   (matrix*! (-> skel bones (+ k 1) transform) tmp (-> tgt-skel bones (+ e 1) transform)))
+                   ;; Ghd-skin-origin-stretch : os pilote jamais ecrit -> on garde la pose que le
+                   ;; chemin stock vient de poser sur ce joint. Consommer une matrice nulle place
+                   ;; le joint a (0,0,0) et etire le modele jusqu'a l'origine du monde.
+                   (let ((ok (hd-bone-posed? tgt-skel (+ e 1))))
+                     (when (not ok)
+                       (if (= p #xff) (+! *hd-guard-occ-root* 1) (+! *hd-guard-occ* 1)))
+                     (cond
+                       ((and (nonzero? *hd-guard-arm*) (not ok)) (+! *hd-guard-skips* 1))
+                       (else
+                        (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
+                        (matrix*! (-> skel bones (+ k 1) transform) tmp (-> tgt-skel bones (+ e 1) transform))))))
                   (else
                    ;; modes 1/2: L'_k = inv(bind-pose_hd[k]) . bind-pose_hd[p]
                    (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
                    (matrix*! lk hbind (-> hd-jgeo data p bind-pose))
-                   (let ((ep (the int (-> kdrv-par k))))
+                   (let* ((ep (the int (-> kdrv-par k)))
+                          ;; Ghd-skin-origin-stretch : les os pilotes que ce joint doit lire
+                          ;; sont-ils ECRITS ? (un index non mappe ou hors squelette ne lit rien,
+                          ;; il est donc « ok » ici et retombe sur la branche collee plus bas.)
+                          (ok (and (or (= e #xff) (>= (+ e 1) tbones)
+                                       (hd-bone-posed? tgt-skel (+ e 1)))
+                                   (or (= ep #xff) (>= (+ ep 1) tbones)
+                                       (hd-bone-posed? tgt-skel (+ ep 1))))))
+                     (when (not ok)
+                       (+! *hd-guard-occ* 1)
+                       (if (nonzero? *hd-guard-arm*) (+! *hd-guard-skips* 1)))
                      (cond
-                       ((and (= md 3) (!= e #xff) (< (+ e 1) tbones))
+                       ;; Ghd-skin-origin-stretch : `hd-bone-posed?` ajoute aux DEUX gardes de mode.
+                       ;; Un os pilote non ecrit fait retomber le joint sur le produit COLLE
+                       ;; (branche `else`), qui ne lit rien du pilote — jamais sur l'origine.
+                       ((and (= md 3) (!= e #xff) (< (+ e 1) tbones)
+                             (or ok (zero? *hd-guard-arm*)))
                         ;; mode 3 ORIENT-COPY (cycle 3): rotation from the mode-0 world product —
                         ;; its inv(R(C_e)).R(B_k) factor cancels the donor-vs-driver LOCAL BIND
                         ;; FRAME mismatch (sage beard_lip: 82deg + 1.5x scale in jak1's bind;
@@ -561,7 +652,8 @@
                           (vector-copy! (-> dst vector 3) (-> tmp vector 3))
                           (set! (-> dst vector 3 w) 1.0)))
                        ((and (= md 1) (!= e #xff) (< (+ e 1) tbones)
-                             (!= ep #xff) (< (+ ep 1) tbones))
+                             (!= ep #xff) (< (+ ep 1) tbones)
+                             (or ok (zero? *hd-guard-arm*)))
                         ;; Delta' = A'_e . inv(A'_ep) . inv(bind-pose_drv[ep]) . bind-pose_drv[e]
                         (matrix-4x4-inverse! inv1 (the-as matrix (-> tgt-skel bones (+ ep 1) transform)))
                         (matrix*! tmp (the-as matrix (-> tgt-skel bones (+ e 1) transform)) inv1)
@@ -577,11 +669,244 @@
                         (matrix*! (-> skel bones (+ k 1) transform) lk
                                   (the-as matrix (-> skel bones (+ p 1) transform))))))))))))))))
 
+;; ------------------------------------------------------------------------------------------------
+;; Ghd-skin-origin-stretch (owner 2026-08-31) — DETECTEUR D'ETIREMENT VERS L'ORIGINE DU MONDE.
+;;
+;; « le modèle s'allonge horizontalement comme s'il essayait d'atteindre un point d'origine au loin
+;;   [...] plus on est loin de Sandover Village, plus l'effet est extrême. ça dure à chaque fois une
+;;   split seconde ».
+;;
+;; CE QU'ON MESURE, ET POURQUOI CETTE GRANDEUR-LA. Le defaut est une FORME — une partie du modele
+;; reste sur le personnage pendant que l'autre part ailleurs — pas une amplitude : un scalaire par
+;; personnage ne peut pas le decrire (SPEC §7, question 1). La grandeur qui le decrit est, POUR
+;; CHAQUE JOINT HD, son ECART A LA REFERENCE QUE LE RECIBLAGE EST CENSE LUI DONNER.
+;;
+;; REPERE, ET IL EST INDEPENDANT DE NOUS (SPEC §7, question 2). Pour un joint HD `k` mappe sur le
+;; joint pilote `e`, la reference est l'OS DU PILOTE LUI-MEME, `bones[e+1]` : c'est la pose que le
+;; jeu d'origine calcule, elle ne passe par aucune de nos matrices. Les deux os doivent coincider a
+;; une fraction de metre pres (proportions du rig HD). Pour un joint COLLE (e=255, mode 2), la
+;; reference est son PARENT HD : l'ecart y est une LONGUEUR D'OS, et un os de 6 m est une dechirure.
+;; Une premiere version comparait a `(-> obj root trans)` : REFUTEE par la course de 01:13 — pendant
+;; une cinematique la racine du process ne bouge pas alors que l'animation deplace le personnage,
+;; et 73 os sur 74 sortaient a 15,7 m sans qu'aucun ne soit anormal. Ce repere-la mesurait le
+;; decalage racine/animation, pas une dechirure.
+;;
+;; LE PREDICAT D'EPISODE EST UNE DECHIRURE, PAS UN DEPLACEMENT : il faut AU MOINS UN os en fuite ET
+;; AU MOINS UN os reste en place. Un modele entier deplace en bloc est compte a part
+;; (`*hd-stretch-moved*`, publie dans HDHB) — c'est un autre phenomene, on ne le fond pas dans
+;; celui-ci et on ne le cache pas non plus.
+;;
+;; CE QUI TRANCHE « ORIGINE DU MONDE » CONTRE « UN LIEU » : `norig`, le nombre d'os en fuite dont la
+;; position MONDE est a moins de HD_STRETCH_THRESH de (0,0,0), publie a cote du barycentre `cible_*`.
+;;
+;; LIGNE DE BASE (ce que l'instrument lit quand le defaut est absent, SPEC §7 question 3) :
+;; `nrun=0`, aucune ligne emise. Le DENOMINATEUR est publie a part (`fills`), et surtout les
+;; OCCASIONS (`occ`) : les images ou le LOD courant du pilote calcule MOINS de joints que son
+;; squelette n'en porte — le precurseur mecanique. Un `episodes=0` sans occasions serait vide de
+;; sens (DIRECTIVES 2026-08-2x : les DEUX bras d'une ablation au vert).
+;;
+;; LES JOINTS-RACINES DU RIG (hd-parent = 255 : align et prejoint) sont ECARTES et comptes a part
+;; (`nroot`) : l'en-tete de ce fichier (l.49-50) documente que le joint align porte une matrice
+;; MODEL-SPACE dans un emplacement world-space, donc pres de l'origine PAR CONSTRUCTION, sur tous
+;; les personnages et a toutes les images. Les compter serait publier une constante.
+;; ------------------------------------------------------------------------------------------------
+(defglobalconstant HD_STRETCH_THRESH 24576.0)  ;; (meters 6) — un rig humanoide tient dans ~2 m
+(define *hd-stretch-arm* #t)
+(define *hd-stretch-episodes* 0)   ;; episodes FERMES (dechirures) depuis le demarrage
+(define *hd-stretch-moved* 0)      ;; images ou TOUS les os sont loin (deplacement en bloc, autre chose)
+(define *hd-stretch-fills* 0)      ;; images ou un compagnon a recible (le denominateur)
+(define *hd-stretch-occ* 0)        ;; OCCASIONS : images ou le LOD du pilote calcule moins de joints
+(define *hd-stretch-logs* 0)       ;; cap d'impression
+(define *hd-stretch-t0* (the-as time-frame 0))
+(define *hd-stretch-next-hb* 0)
+(define *hd-drv-logs* 0)           ;; cap des lignes de recensement par compagnon
+
+(defun hd-stretch-reset! ()
+  "Ouvre une fenetre de mesure : remet a zero tous les compteurs. Appele UNE fois depuis la REPL au
+   debut d'une jambe — une seule commande, pour ne pas saturer l'ecouteur."
+  (set! *hd-stretch-episodes* 0)
+  (set! *hd-stretch-moved* 0)
+  (set! *hd-stretch-fills* 0)
+  (set! *hd-stretch-occ* 0)
+  (set! *hd-stretch-logs* 0)
+  (set! *hd-stretch-t0* (the-as time-frame 0))
+  (set! *hd-stretch-next-hb* 0)
+  (set! *hd-drv-logs* 0)
+  (set! *hd-guard-skips* 0)
+  (set! *hd-guard-occ* 0)
+  (set! *hd-guard-occ-root* 0)
+  (set! *hd-guard-frames* 0)
+  (format 0 "HDRESET arme=~D~%" *hd-guard-arm*)
+  (none))
+
+(defun hd-model-name ((entry int))
+  (case entry
+    ((1 6) "daxter")
+    ((2 7) "keira")
+    ((3 8) "samos")
+    (else "jak")))
+
+(defun hd-stretch-scan! ((obj jak-hd))
+  (let ((drv (the-as process-drawable (handle->process (-> obj driver)))))
+    (when (and *hd-stretch-arm* drv
+               (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton))
+               (nonzero? (-> drv draw)) (nonzero? (-> drv draw skeleton)))
+      (let* ((skel   (-> obj draw skeleton))
+             (nbones (-> skel length))
+             (tskel  (-> drv draw skeleton))
+             (tbones (-> tskel length))
+             (k2e    (-> obj k2e))
+             (kmode  (-> obj kmode))
+             (khd-par (-> obj khd-par))
+             (nj     (if (nonzero? (-> drv draw mgeo)) (-> drv draw mgeo num-joints) -1)))
+        (+! *hd-stretch-fills* 1)
+        (if (zero? *hd-stretch-t0*) (set! *hd-stretch-t0* (get-current-time)))
+        ;; OCCASION : le LOD courant ne calcule pas tous les joints que le squelette porte.
+        (when (and (>= nj 0) (< (+ nj 3) tbones)) (+! *hd-stretch-occ* 1))
+        (let ((nrun 0) (nnear 0) (nroot 0) (norig 0) (nunp 0) (maxd 0.0) (bk -1) (sx 0.0) (sy 0.0) (sz 0.0))
+          (dotimes (k (-> obj hd-joints))
+            (let ((p (the int (-> khd-par k)))
+                  (e (the int (-> k2e k))))
+              (cond
+                ((>= (+ k 1) nbones))
+                ((= p #xff) (+! nroot 1))    ;; align/prejoint : ecartes, voir l'en-tete
+                (else
+                 ;; DEUX REPERES ONT ETE REFUTES PAR LA MESURE AVANT CELUI-CI, ET LES DEUX
+                 ;; REFUTATIONS SONT PUBLIEES :
+                 ;;   - l'OS PILOTE homologue : c'est LUI qui est nul quand le defaut tire, donc
+                 ;;     l'os HD et sa reference tombent tous les deux a (0,0,0) et l'ecart rend
+                 ;;     ZERO. Aveugle a exactement ce qu'il doit voir (course de 01:44) ;
+                 ;;   - `(-> obj root trans)`, la position du PROCESS : le recensement HDDRV la
+                 ;;     donne a plus de 6 m de SOIXANTE des 62 os du compagnon de Daxter en regime
+                 ;;     normal (`loin=60`) — la racine du sidekick ne suit pas son squelette.
+                 ;; LE REPERE RETENU est `(-> drv draw origin)` : la position monde que le MOTEUR
+                 ;; calcule lui-meme pour le pilote (process-drawable.gc:274-277), sur chaque
+                 ;; branche de son do-joint-math!. Elle existe pour tout pilote, elle ne passe par
+                 ;; aucune de nos matrices, et le recensement la valide (`loin=0`).
+                 ;; Le PREDICAT reste une DECHIRURE : au moins un os parti ET au moins un os reste.
+                 ;; Un modele entier decale rend nnear=0 et n'est PAS un episode.
+                 (let* ((bp (-> skel bones (+ k 1) transform vector 3))
+                        (d  (vector-vector-distance bp (-> drv draw origin))))
+                   (cond
+                     ((> d HD_STRETCH_THRESH)
+                      (+! nrun 1)
+                      (if (< (vector-length bp) HD_STRETCH_THRESH) (+! norig 1))
+                      (+! sx (-> bp x))
+                      (+! sy (-> bp y))
+                      (+! sz (-> bp z))
+                      (when (> d maxd) (set! maxd d) (set! bk k)))
+                     (else (+! nnear 1))))
+                 ;; recensement : cet os HD lit-il une matrice pilote JAMAIS ECRITE ?
+                 (when (and (!= e #xff) (< (+ e 1) tbones)
+                            (not (hd-bone-posed? tskel (+ e 1))))
+                   (+! nunp 1))))))
+          ;; deplacement EN BLOC : tout est loin, rien n'est reste. Autre phenomene, compte a part.
+          (if (and (> nrun 0) (zero? nnear)) (+! *hd-stretch-moved* 1))
+          ;; RECENSEMENT PAR COMPAGNON, une ligne toutes les 900 images : combien d'os du PILOTE
+          ;; sont NON ECRITS (base nulle), combien de joints HD en LISENT un, combien d'os HD sont
+          ;; loin. C'est ce que le compteur global d'occasions agrege — publie ici PAR MODELE.
+          (+! (-> obj st-hb) 1)
+          (when (and (>= (-> obj st-hb) 900) (< *hd-drv-logs* 240))
+            (set! (-> obj st-hb) 0)
+            (+! *hd-drv-logs* 1)
+            (let ((nz 0))
+              (dotimes (i tbones)
+                (if (not (hd-bone-posed? tskel i)) (+! nz 1)))
+              (format 0 "HDDRV entry=~D tbones=~D nj=~D osnuls=~D lus=~D loin=~D~%"
+                      (-> obj entry) tbones nj nz nunp nrun)
+              ;; sonde de calibration du predicat : la grandeur BRUTE sur deux os connus.
+              (format 0 "HDPOSD e=~D x=~f y=~f L=~f R0x=~f~%"
+                      (-> obj entry)
+                      (-> tskel bones 4 transform vector 3 x)
+                      (-> tskel bones 4 transform vector 3 y)
+                      (vector-length (-> tskel bones 4 transform vector 3))
+                      (-> tskel bones 4 transform vector 0 x))))
+          (cond
+            ((and (> nrun 0) (> nnear 0) (>= bk 0))
+             (when (zero? (-> obj st-run))
+               (set! (-> obj st-t0) (get-current-time))
+               (set! (-> obj st-maxlen) 0.0)
+               (set! (-> obj st-vis) 0))
+             (+! (-> obj st-run) 1)
+             ;; le meme masque que `dma-add-process-drawable` (drawable.gc:448) : une image ou le
+             ;; compagnon n'est pas soumissible n'est PAS vue par l'owner. On les separe au lieu
+             ;; de les fondre — un episode invisible n'est pas son defaut.
+             (if (not (logtest? (-> obj draw status) (draw-status hidden no-anim no-skeleton-update)))
+               (+! (-> obj st-vis) 1))
+             (when (> maxd (-> obj st-maxlen))
+               (set! (-> obj st-maxlen) maxd)
+               (set! (-> obj st-n) nrun)
+               (set! (-> obj st-nroot) norig)
+               (set! (-> obj st-k) bk)
+               (set! (-> obj st-e) (the int (-> k2e bk)))
+               (set! (-> obj st-md) (the int (-> kmode bk)))
+               (set! (-> obj st-lod) (the int (-> drv draw cur-lod)))
+               (set! (-> obj st-nj) nj)
+               ;; distance a l'ORIGINE DU MONDE : prise sur la position monde que le MOTEUR calcule
+               ;; pour le pilote (draw origin, ecrite par son propre do-joint-math!), pas sur nous.
+               (set! (-> obj st-dist) (vector-length (-> drv draw origin)))
+               (set! (-> obj st-cx) (/ sx (the float nrun)))
+               (set! (-> obj st-cy) (/ sy (the float nrun)))
+               (set! (-> obj st-cz) (/ sz (the float nrun)))
+               (let ((ee (the int (-> k2e bk))))
+                 (cond
+                   ((< (+ ee 1) tbones)
+                    (let ((am (the-as matrix (-> drv draw skeleton bones (+ ee 1) transform))))
+                      (set! (-> obj st-ar) (vector-length (-> am vector 0)))
+                      (set! (-> obj st-at) (vector-length (-> am vector 3)))))
+                   (else (set! (-> obj st-ar) -1.0) (set! (-> obj st-at) -1.0))))))
+            (else
+             (when (> (-> obj st-run) 0)
+               (+! *hd-stretch-episodes* 1)
+               (when (< *hd-stretch-logs* 900)
+                 (+! *hd-stretch-logs* 1)
+                 (format 0 "HDEPISODE modele=~S distance_origine_m=~f longueur_etirement_m=~f duree_ms=~f id=~D~%"
+                         (hd-model-name (-> obj entry))
+                         (/ (-> obj st-dist) 4096.0)
+                         (/ (-> obj st-maxlen) 4096.0)
+                         ;; TICKS_PER_SECOND = 300 (types-h.gc:54) -> 1 tick = 3,3333 ms
+                         (* 3.33333 (the float (the int (- (get-current-time) (-> obj st-t0)))))
+                         *hd-stretch-episodes*)
+                 (format 0 "HDEPX id=~D cible_x=~f cible_y=~f cible_z=~f n=~D norig=~D~%"
+                         *hd-stretch-episodes*
+                         (/ (-> obj st-cx) 4096.0)
+                         (/ (-> obj st-cy) 4096.0)
+                         (/ (-> obj st-cz) 4096.0)
+                         (-> obj st-n)
+                         (-> obj st-nroot))
+                 (format 0 "HDEPY id=~D entry=~D k=~D e=~D md=~D lod=~D~%"
+                         *hd-stretch-episodes*
+                         (-> obj entry)
+                         (-> obj st-k)
+                         (-> obj st-e)
+                         (-> obj st-md)
+                         (-> obj st-lod))
+                 (format 0 "HDEPW id=~D visibles=~D images=~D gardes=~D~%"
+                         *hd-stretch-episodes*
+                         (-> obj st-vis)
+                         (-> obj st-run)
+                         *hd-guard-frames*)
+                 (format 0 "HDEPZ id=~D arow=~f atrans=~f tbones=~D nj=~D images=~D~%"
+                         *hd-stretch-episodes*
+                         (-> obj st-ar)
+                         (-> obj st-at)
+                         tbones
+                         (-> obj st-nj)
+                         (-> obj st-run)))
+               (set! (-> obj st-run) 0))))))))
+  (none))
+
 ;; do-joint-math! override: run the stock path (housekeeping + HD idle anim + bounds/origin), then
 ;; overwrite the bones with the retargeted transforms so draw-bones skins the HD mesh to follow.
 (defmethod do-joint-math! ((obj jak-hd))
   ((method-of-type process-drawable do-joint-math!) obj)
-  (fill-jak-hd-bones! obj)
+  ;; Ghd-skin-origin-stretch : compter les IMAGES ou le garde a refuse au moins une ecriture.
+  ;; C'est le compte d'OCCASIONS : sans lui, un `episodes=0` apres correctif ne prouverait rien
+  ;; (la condition pourrait simplement ne plus se presenter).
+  (let ((s0 *hd-guard-occ*))
+    (fill-jak-hd-bones! obj)
+    (if (> *hd-guard-occ* s0) (+! *hd-guard-frames* 1)))
+  (hd-stretch-scan! obj)
   ;; Grecharged-secondary-motion: verlet/spring chains on top of the freshly retargeted pose.
   (#when FLAG_PHYSICS (jak-hd-physics-step obj))
   (none))
@@ -786,6 +1111,25 @@
   (set! (-> self dbg-mirror-logs) 0)
   (set! (-> self noanim-run) 0)
   (set! (-> self dbg-noanim-logs) 0)
+  ;; Ghd-skin-origin-stretch : etat de detection par compagnon.
+  (set! (-> self st-run) 0)
+  (set! (-> self st-t0) (the-as time-frame 0))
+  (set! (-> self st-maxlen) 0.0)
+  (set! (-> self st-dist) 0.0)
+  (set! (-> self st-cx) 0.0)
+  (set! (-> self st-cy) 0.0)
+  (set! (-> self st-cz) 0.0)
+  (set! (-> self st-n) 0)
+  (set! (-> self st-nroot) 0)
+  (set! (-> self st-k) -1)
+  (set! (-> self st-e) -1)
+  (set! (-> self st-md) -1)
+  (set! (-> self st-lod) -1)
+  (set! (-> self st-nj) -1)
+  (set! (-> self st-ar) 0.0)
+  (set! (-> self st-at) 0.0)
+  (set! (-> self st-vis) 0)
+  (set! (-> self st-hb) 0)
   ;; claim a blerc override slot (class B faces). Registry full -> no facial anim for this
   ;; companion (log it; 8 slots vs max 4 companions today, so only a leak would exhaust it).
   (set! (-> self blerc-slot) -1)
@@ -953,6 +1297,23 @@
                 (if (logtest? (-> *cpad-list* cpads pad-idx button0-rel 0) (pad-buttons x)) 1 0)
                 (-> *target* control unknown-float61)
                 (-> *target* control unknown-float63)))))
+  ;; Ghd-skin-origin-stretch : battement de coeur du detecteur, toutes les 600 images de JEU
+  ;; (10 s). Publie le temps de jeu ecoule, les episodes fermes, le denominateur (images
+  ;; recibles) et les OCCASIONS — c'est cette derniere colonne qui empeche un `episodes=0` d'etre
+  ;; vide de sens. Tourne dans le hook per-frame, donc INDEPENDANT du basculement HD.
+  (when (and *hd-stretch-arm* (nonzero? *hd-stretch-t0*))
+    (let ((el (the int (- (get-current-time) *hd-stretch-t0*))))
+      (when (>= el *hd-stretch-next-hb*)
+        (set! *hd-stretch-next-hb* (+ *hd-stretch-next-hb* 6000))  ;; 6000 ticks = 20 s de jeu
+        ;; TICKS_PER_SECOND = 300 (types-h.gc:54) -> une minute de JEU vaut 18 000 ticks.
+        (format 0 "HDHB minutes=~f episodes=~D fills=~D gardeimages=~D gardejoints=~D~%"
+                (/ (the float el) 18000.0)
+                *hd-stretch-episodes*
+                *hd-stretch-fills*
+                *hd-guard-frames*
+                *hd-guard-skips*)
+        (format 0 "HDHB2 occjoints=~D occracine=~D deplaces=~D arme=~D~%"
+                *hd-guard-occ* *hd-guard-occ-root* *hd-stretch-moved* *hd-guard-arm*))))
   ;; phase 1: collect.
   (set! *hd-scan-driver-count* 0)
   (set! *hd-scan-companion-count* 0)

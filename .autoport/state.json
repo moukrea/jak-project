@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 270,
+  "current_phase_idx": 271,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -260,7 +260,8 @@
     "Gcutscene-npc-flicker": 1,
     "Gsubtitle-style-2": 2,
     "Gcutscene-skip-polish": 1,
-    "Grecharged-foliage-wind3": 1
+    "Grecharged-foliage-wind3": 1,
+    "Gcutscene-npc-flicker-2": 1
   },
   "fingerprints": {
     "00-harness": [
@@ -1168,9 +1169,10 @@
     "Gcutscene-npc-flicker": 1788275147.1497102,
     "Gsubtitle-style-2": 1788282503.00363,
     "Gcutscene-skip-polish": 1788289680.1825094,
-    "Grecharged-foliage-wind3": 1788293400.5972333
+    "Grecharged-foliage-wind3": 1788293400.5972333,
+    "Gcutscene-npc-flicker-2": 1788307528.6883595
   },
-  "last_update": "2026-09-01T22:55:03.318302+00:00",
+  "last_update": "2026-09-02T01:28:18.193949+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1307,7 +1309,8 @@
     "Gcutscene-npc-flicker",
     "Gsubtitle-style-2",
     "Gcutscene-skip-polish",
-    "Grecharged-foliage-wind3"
+    "Grecharged-foliage-wind3",
+    "Gcutscene-npc-flicker-2"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
@@ -1329,6 +1332,7 @@
     "Gfixed-tick-anim-interp": "2026-09-01 17:05 : deja validee, toujours en attente de la parole de l'owner.",
     "Gcutscene-npc-flicker": "2026-09-01 19:08 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-npc-flicker quand il valide.",
     "Gsubtitle-style-2": "2026-09-01 21:07 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gsubtitle-style-2 quand il valide.",
-    "Gcutscene-skip-polish": "2026-09-01 22:10 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-skip-polish quand il valide."
+    "Gcutscene-skip-polish": "2026-09-01 22:10 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-skip-polish quand il valide.",
+    "Grecharged-foliage-wind3": "2026-09-02 00:55 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-foliage-wind3 quand il valide."
   }
 }

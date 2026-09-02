@@ -2886,20 +2886,6 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
-- id: Grecharged-foliage-wind3
-  name: 'BRISE, RETOUR 3 (owner 2026-08-31, NON VALIDE) : TROIS defauts dont un qui n''est pas le notre. D1 la brise NATIVE
-    est cassee, option ETEINTE : « les arbres qui sont sensés être animés par défaut font de légers twitchs sans animations
-    » — un correctif de VITESSE pose sur une animation qui ne joue pas produit exactement des twitchs. D2 couverture incomplete
-    : « tous les arbres ne sont pas impactés ». D3 amplitude absurde : « ils bougent comme s''il y avait une tempête c''est
-    ridicule » alors qu''il demandait une LEGERE brise. ORDRE IMPOSE : D1 (reparer la reference), puis D2, puis D3 — calibrer
-    l''amplitude sur une animation cassee reviendrait a calibrer sur du bruit.'
-  prompt: prompts/phase-Grecharged-foliage-wind3.md
-  validator: validators/phase-Grecharged-foliage-wind3.sh
-  max_turns: 3000
-  max_retries: 60
-  device: false
-  device_serial: eae4df44
-  owner_verify: true
 - id: Ghd-skin-origin-stretch
   name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
     s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
@@ -2909,6 +2895,20 @@ phases:
     dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
   prompt: prompts/phase-Ghd-skin-origin-stretch.md
   validator: validators/phase-Ghd-skin-origin-stretch.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-foliage-wind3
+  name: 'BRISE, RETOUR 3 (owner 2026-08-31, NON VALIDE) : TROIS defauts dont un qui n''est pas le notre. D1 la brise NATIVE
+    est cassee, option ETEINTE : « les arbres qui sont sensés être animés par défaut font de légers twitchs sans animations
+    » — un correctif de VITESSE pose sur une animation qui ne joue pas produit exactement des twitchs. D2 couverture incomplete
+    : « tous les arbres ne sont pas impactés ». D3 amplitude absurde : « ils bougent comme s''il y avait une tempête c''est
+    ridicule » alors qu''il demandait une LEGERE brise. ORDRE IMPOSE : D1 (reparer la reference), puis D2, puis D3 — calibrer
+    l''amplitude sur une animation cassee reviendrait a calibrer sur du bruit.'
+  prompt: prompts/phase-Grecharged-foliage-wind3.md
+  validator: validators/phase-Grecharged-foliage-wind3.sh
   max_turns: 3000
   max_retries: 60
   device: false
