@@ -1377,6 +1377,7 @@
 (define *hd-mtx-judged* 0)
 (define *hd-mtx-logs*   0)
 (define *hd-mtx-skel*   0)   ;; os dont le SQUELETTE a change entre le :post et bones-mtx-calc
+(define *hd-mtx-asmdiff* 0)  ;; os fautifs dont la t-mtx de l'asm differe du produit GOAL generique (> 4 u)
 
 (defun hd-stretch-reset! ()
   "Ouvre une fenetre de mesure : remet a zero tous les compteurs. Appele UNE fois depuis la REPL au
@@ -1451,6 +1452,7 @@
   (set! *hd-mtx-judged* 0)
   (set! *hd-mtx-logs* 0)
   (set! *hd-mtx-skel* 0)
+  (set! *hd-mtx-asmdiff* 0)
   (set! *hd-moves-dist* 0.0)
   (set! *hd-moves-frames* 0)
   (set! *hd-moves-ticks* 0)
@@ -2538,10 +2540,31 @@
                     (when (not (and (< ds HD_CMD_DEV) (> ds -1.0))) (+! ns 1))
                     (when (not (and (< dd HD_CMD_DEV) (> dd -1.0)))
                       (+! n 1)
-                      (when (< *hd-mtx-logs* 100)
-                        (+! *hd-mtx-logs* 1)
-                        (format 0 "HDMTXDEV entry=~D k=~D p=~D len_skel_m=~f len_mtx_m=~f skel_vs_post_m=~f~%"
-                                (-> obj entry) k p (/ ls 4096.0) (/ lc 4096.0) (/ ds 4096.0)))))))))
+                      ;; L'ASM CONTRE LE PRODUIT GENERIQUE : bindinv_k x W_k x camera-rot recompose
+                      ;; par matrix*! (code GOAL ordinaire) contre la t-mtx PRODUITE par
+                      ;; new-bones-mtx-calc-asm pour le meme joint, meme image. Un ecart nomme
+                      ;; l'asm (arm64) ; l'egalite nomme les entrees.
+                      (let ((ref (new-stack-matrix0))
+                            (tmp (new-stack-matrix0))
+                            (w (the-as matrix (-> skel bones (+ k 1) transform)))
+                            (maxd 0.0))
+                        (matrix*! tmp (-> obj draw jgeo data k bind-pose) w)
+                        (matrix*! ref tmp (-> *math-camera* camera-rot))
+                        (dotimes (r 4)
+                          (dotimes (c 4)
+                            (let ((d (fabs (- (-> ref vector r data c) (-> tk vector r data c)))))
+                              (if (> d maxd) (set! maxd d)))))
+                        (when (> maxd 4.0) (+! *hd-mtx-asmdiff* 1))
+                        (when (< *hd-mtx-logs* 100)
+                          (+! *hd-mtx-logs* 1)
+                          (format 0 "HDMTXDEV entry=~D k=~D p=~D len_skel_m=~f len_mtx_m=~f skel_vs_post_m=~f~%"
+                                  (-> obj entry) k p (/ ls 4096.0) (/ lc 4096.0) (/ ds 4096.0))
+                          (format 0 "HDMTXREF k=~D asm_vs_goal_max_u=~f w0=~f w1=~f w2=~f w3=~f~%"
+                                  k maxd (-> w vector 0 w) (-> w vector 1 w) (-> w vector 2 w) (-> w vector 3 w))
+                          (format 0 "HDMTXREF2 k=~D asm_t=(~f ~f ~f)~%"
+                                  k (/ (-> tk vector 3 x) 4096.0) (/ (-> tk vector 3 y) 4096.0) (/ (-> tk vector 3 z) 4096.0))
+                          (format 0 "HDMTXREF3 k=~D goal_t=(~f ~f ~f)~%"
+                                  k (/ (-> ref vector 3 x) 4096.0) (/ (-> ref vector 3 y) 4096.0) (/ (-> ref vector 3 z) 4096.0))))))))))
           (when (> n 0) (+! *hd-mtx-dev* n) (+! *hd-mtx-imgs* 1))
           (+! *hd-mtx-skel* ns)
           (set! (-> obj hd-mtxarea) (the-as pointer 0))))))
@@ -2697,7 +2720,8 @@
         ;; `mtxdev` matrices merc produites qui ne portent pas la longueur du squelette,
         ;; `mtxskel` squelette change entre le :post et bones-mtx-calc.
         (format 0 "HDLEN5 drawdev=~D drawimgs=~D mtxdev=~D mtximgs=~D mtxjuges=~D mtxskel=~D~%"
-                *hd-draw-dev* *hd-draw-imgs* *hd-mtx-dev* *hd-mtx-imgs* *hd-mtx-judged* *hd-mtx-skel*))))
+                *hd-draw-dev* *hd-draw-imgs* *hd-mtx-dev* *hd-mtx-imgs* *hd-mtx-judged* *hd-mtx-skel*)
+        (format 0 "HDLEN6 asmdiff=~D~%" *hd-mtx-asmdiff*))))
   ;; cycle 6 : sondage des entrees d'etat du joueur, une fois par image, sans cap.
   (hd-moves-poll!)
   ;; phase 1: collect.
