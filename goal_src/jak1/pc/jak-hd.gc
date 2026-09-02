@@ -469,7 +469,13 @@
    (st-run     int32)        ;; images consecutives avec au moins un os HD en fuite (0 = pas d'episode)
    (st-t0      time-frame)   ;; instant du debut de l'episode
    (st-maxlen  float)        ;; plus grande distance racine->os atteinte pendant l'episode (unites)
-   (st-dist    float)        ;; |racine| au moment du pic : la distance a l'ORIGINE DU MONDE
+   (st-dist    float)        ;; |draw origin| du pilote au pic — SECONDE derivation, publiee a cote
+   (st-dist2   float)        ;; |root trans| du pilote au pic : LA distance a l'ORIGINE DU MONDE.
+                             ;; `draw origin` est recopie d'un OS du squelette (process-drawable.gc
+                             ;; :245) — c'est-a-dire de la grandeur meme que le defaut annule. Il ne
+                             ;; peut donc pas servir d'abscisse a la correlation : il rend 0 pendant
+                             ;; l'episode. `root trans` est la position du PROCESS, ecrite par la
+                             ;; logique de l'acteur, jamais par notre chaine de peau.
    (st-cx      float)        ;; barycentre des os en fuite au moment du pic (la CIBLE de l'etirement)
    (st-cy      float)
    (st-cz      float)
@@ -480,6 +486,10 @@
    (st-md      int32)        ;; son mode de reciblage
    (st-lod     int32)        ;; LOD courant du driver au pic
    (st-nj      int32)        ;; num-joints du mgeo courant du driver (ce que son LOD calcule)
+   (st-dspread float)        ;; etalement du squelette du PILOTE au pic — le CONTROLE APPARIE
+   (st-bindsp  float)        ;; etalement du rig HD DANS SA POSE DE BIND : sa taille naturelle,
+                             ;; calculee une seule fois, statique, et par construction insensible
+                             ;; au defaut. Voir la reference d'etalement dans le detecteur.
    (st-ar      float)        ;; |ligne 0| de A_e : 0 => matrice NULLE
    (st-at      float)        ;; |translation| de A_e : 0 => le pilote ne porte plus la position monde
    (st-vis     int32)        ;; images de l'episode ou le compagnon etait SOUMISSIBLE au dessin
@@ -533,16 +543,59 @@
                                ;; que le garde soit arme ou non : c'est ce compte qui empeche un
                                ;; `episodes=0` d'etre vide de sens.
 (define *hd-guard-frames* 0)   ;; images ou au moins une occasion s'est presentee
+(define *hd-guard-noposed* 0)  ;; images ou le squelette du pilote n'a AUCUNE pose (os 4 non ecrit)
+                               ;; et ou le reciblage a ete saute EN ENTIER. Saut par joint, un joint
+                               ;; garde reste sur la pose stock pendant que ses voisins sont
+                               ;; recibles : coherent tant que quelques joints sont touches, plus du
+                               ;; tout quand le pilote n'a aucune pose.
 (define *hd-guard-occ-root* 0) ;; occasions sur les joints-RACINES du rig (align/prejoint) : elles
                                ;; sont PERMANENTES par construction (l'os align du pilote n'est
                                ;; jamais ecrit, en-tete l.49-50) et n'ont aucun effet visible, donc
                                ;; elles sont comptees A PART et n'entrent pas dans les OCCASIONS.
 
 (defun hd-bone-posed? ((s skeleton) (i int))
-  "Vrai si l'os i a deja ete ECRIT par le do-joint-math! de son proprietaire. Une base nulle est
-   la signature d'un os jamais ecrit (tas de process memsette a zero) ; aucune pose reelle ne
-   porte une ligne de base de longueur nulle."
+  "Vrai si la BASE de l'os i a ete ecrite. Une base nulle est la signature d'un os jamais ecrit
+   (tas de process memsette a zero, kscheme.cpp:190) ; aucune pose reelle ne porte une ligne de
+   base de longueur nulle."
   (>= (vector-length-squared (-> s bones i transform vector 0)) 0.0001))
+
+;; RAYON DE VRAISEMBLANCE D'UN OS, en unites moteur. Un os du squelette d'un personnage ne peut pas
+;; etre a 40 m du premier joint reel de ce meme squelette : le rig entier tient dans ~2 m, et la
+;; plus grosse divergence jamais mesuree entre la pose d'animation et la racine du process est de
+;; 15,7 m (cinematique, cycle du 2026-09-02). 40 m laisse donc un facteur 2,5 de marge au-dessus du
+;; pire cas legitime connu, et refuse un os pose sur l'origine du monde des que le personnage en est
+;; a plus de 40 m.
+;; LIMITE DECLAREE, ET ELLE EST SANS CONSEQUENCE : a moins de 40 m de l'origine du monde, ce test ne
+;; sait pas distinguer un os parque sur l'origine d'un os legitime. C'est exactement la zone ou le
+;; defaut n'a AUCUNE amplitude visible, puisque la longueur de l'etirement vaut la distance du
+;; personnage a l'origine. On ne perd donc rien d'observable.
+(defglobalconstant HD_BONE_SANE 163840.0)  ;; (meters 40)
+
+(defun hd-bone-usable? ((s skeleton) (i int) (ref vector))
+  "Vrai si l'os i porte une pose MONDE utilisable pour le reciblage : base ecrite ET translation
+   vraisemblable pour ce squelette.
+
+   POURQUOI LES DEUX, ET C'EST UNE MESURE QUI L'IMPOSE. Le seul test de base laissait passer le cas
+   de Samos, releve sur la course de controle du 2026-09-02 : joint pilote 40, `arow=1.5000`
+   (base ECRITE) et `atrans=2.7620` unites, soit 0,7 mm de l'origine du monde. Le produit du
+   reciblage posait alors le joint HD 41 sur (0,0,0), et l'episode publiait
+   `longueur_etirement_m=257,0198` contre `distance_origine_m=257,0197` — egales a SEPT chiffres
+   significatifs. Une base ecrite ne prouve donc pas qu'un os porte la position monde du
+   personnage ; il faut le dire des deux cotes."
+  (and (>= (vector-length-squared (-> s bones i transform vector 0)) 0.0001)
+       ;; LE TEST DE POSITION NE S'APPLIQUE PAS AUX OS STRUCTURELS DU PILOTE (indices 0 a 3).
+       ;; L'en-tete de ce fichier (l.49-50) le documente : le joint `align` porte une matrice
+       ;; MODEL-SPACE dans un emplacement world-space, donc PRES DE L'ORIGINE PAR CONSTRUCTION,
+       ;; sur tous les personnages et a toutes les images. Un test de position ne peut pas y
+       ;; distinguer un os parque d'un os legitime : il les refuse TOUS, toujours.
+       ;; C'EST UNE MESURE QUI L'IMPOSE, ET C'ETAIT MA PROPRE REGRESSION : le bras arme du
+       ;; 2026-09-02 rendait 42 dechirures residuelles, et les 42 portaient le MEME joint —
+       ;; `entry=0 k=2 e=2 md=0`, c'est-a-dire l'os pilote 3. Elles etaient ABSENTES du bras
+       ;; desarme en cours de jeu : c'est donc le garde qui les fabriquait, pas le defaut.
+       ;; La boucle de joints du pilote n'ecrit que les noeuds 3..num-joints+2, soit les os 4 et
+       ;; au-dela (process-drawable.gc:265-271) : au-dessous de 4, seule la BASE fait foi.
+       (or (< i 4)
+           (< (vector-vector-distance (-> s bones i transform vector 3) ref) HD_BONE_SANE))))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; the per-frame fill: overwrite the HD skeleton's world bone matrices from the driver's.
@@ -578,7 +631,28 @@
              (kmode    (-> obj kmode))
              (khd-par  (-> obj khd-par))
              (kdrv-par (-> obj kdrv-par)))
-        (let ((hbind (new-stack-matrix0))
+        ;; REFERENCE INTRA-SQUELETTE : la translation de l'os 4 du pilote, son premier joint reel,
+        ;; celui que la boucle de `do-joint-math!` ecrit en premier (process-drawable.gc:265-271).
+        ;; Elle ne depend NI de `root trans` (refute : 15,7 m d'ecart en cinematique) NI de
+        ;; `draw origin` (refute : lu depuis l'os 0 quand `origin-joint-index` vaut 0, or l'os 0
+        ;; n'est jamais ecrit — le compagnon de Daxter rendait `loin=60` sur 62 os en regime normal).
+        ;; Ghd-skin-origin-stretch — GARDE D'IMAGE ENTIERE. L'os 4 du squelette pilote (son premier
+        ;; joint reel) est ecrit par toutes les branches vivantes de `do-joint-math!`. S'il est nul,
+        ;; le squelette du pilote n'a AUCUNE pose : ni recibler un joint ni le laisser sur la pose
+        ;; stock n'a de sens joint par joint, on saute le reciblage ENTIER et le compagnon reste sur
+        ;; l'animation d'inactivite HD que le chemin stock vient de lui poser, a la position du
+        ;; pilote. Trois faits l'imposent, tous cites :
+        ;;   - la memoire de tas d'un process est memsettee a ZERO a l'allocation
+        ;;     (game/kernel/jak1/kscheme.cpp:190), et le squelette y est alloue
+        ;;     (process-drawable.gc:126-127) : un os non ecrit est EXACTEMENT la matrice nulle ;
+        ;;   - `do-joint-math!` n'ecrit AUCUN os quand le pilote porte `hidden` ou `no-anim` — la
+        ;;     premiere clause de son `cond` a un CORPS VIDE (process-drawable.gc:239) ;
+        ;;   - la boucle de joints n'ecrit que les noeuds 3..num-joints+2 (:265-271).
+        (when (not (hd-bone-posed? tgt-skel 4))
+          (+! *hd-guard-noposed* 1))
+        (when (or (zero? *hd-guard-arm*) (hd-bone-posed? tgt-skel 4))
+        (let ((dref (-> tgt-skel bones 4 transform vector 3))
+              (hbind (new-stack-matrix0))
               (tmp   (new-stack-matrix0))
               (tmp2  (new-stack-matrix0))
               (lk    (new-stack-matrix0))
@@ -596,7 +670,7 @@
                    ;; Ghd-skin-origin-stretch : os pilote jamais ecrit -> on garde la pose que le
                    ;; chemin stock vient de poser sur ce joint. Consommer une matrice nulle place
                    ;; le joint a (0,0,0) et etire le modele jusqu'a l'origine du monde.
-                   (let ((ok (hd-bone-posed? tgt-skel (+ e 1))))
+                   (let ((ok (hd-bone-usable? tgt-skel (+ e 1) dref)))
                      (when (not ok)
                        (if (= p #xff) (+! *hd-guard-occ-root* 1) (+! *hd-guard-occ* 1)))
                      (cond
@@ -613,9 +687,9 @@
                           ;; sont-ils ECRITS ? (un index non mappe ou hors squelette ne lit rien,
                           ;; il est donc « ok » ici et retombe sur la branche collee plus bas.)
                           (ok (and (or (= e #xff) (>= (+ e 1) tbones)
-                                       (hd-bone-posed? tgt-skel (+ e 1)))
+                                       (hd-bone-usable? tgt-skel (+ e 1) dref))
                                    (or (= ep #xff) (>= (+ ep 1) tbones)
-                                       (hd-bone-posed? tgt-skel (+ ep 1))))))
+                                       (hd-bone-usable? tgt-skel (+ ep 1) dref)))))
                      (when (not ok)
                        (+! *hd-guard-occ* 1)
                        (if (nonzero? *hd-guard-arm*) (+! *hd-guard-skips* 1)))
@@ -667,7 +741,7 @@
                        (else
                         ;; mode 2 glue (also mode-1 with a root driver joint, defensively)
                         (matrix*! (-> skel bones (+ k 1) transform) lk
-                                  (the-as matrix (-> skel bones (+ p 1) transform))))))))))))))))
+                                  (the-as matrix (-> skel bones (+ p 1) transform)))))))))))))))))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; Ghd-skin-origin-stretch (owner 2026-08-31) — DETECTEUR D'ETIREMENT VERS L'ORIGINE DU MONDE.
@@ -691,19 +765,24 @@
 ;; et 73 os sur 74 sortaient a 15,7 m sans qu'aucun ne soit anormal. Ce repere-la mesurait le
 ;; decalage racine/animation, pas une dechirure.
 ;;
-;; LE PREDICAT D'EPISODE EST UNE DECHIRURE, PAS UN DEPLACEMENT : il faut AU MOINS UN os en fuite ET
-;; AU MOINS UN os reste en place. Un modele entier deplace en bloc est compte a part
-;; (`*hd-stretch-moved*`, publie dans HDHB) — c'est un autre phenomene, on ne le fond pas dans
-;; celui-ci et on ne le cache pas non plus.
+;; LE PREDICAT D'EPISODE EST UNE DECHIRURE, PAS UN DEPLACEMENT, et il se lit SANS REPERE
+;; EXTERIEUR : l'ETALEMENT du modele sur lui-meme (plus grande arete de la boite englobante de ses
+;; propres os) depasse HD_STRETCH_THRESH. Un modele entier deplace ne s'etale pas et n'est donc pas
+;; un episode ; le compte brut d'images etalees est publie a part (`imagesdechirees`).
 ;;
-;; CE QUI TRANCHE « ORIGINE DU MONDE » CONTRE « UN LIEU » : `norig`, le nombre d'os en fuite dont la
-;; position MONDE est a moins de HD_STRETCH_THRESH de (0,0,0), publie a cote du barycentre `cible_*`.
+;; CE QUI TRANCHE « ORIGINE DU MONDE » CONTRE « UN LIEU », ET POURQUOI CE N'EST PAS UNE TAUTOLOGIE.
+;; Le groupe EN FUITE est forme par la GEOMETRIE seule : on coupe au milieu du plus long axe de la
+;; boite et on prend le groupe MINORITAIRE. Rien dans cette construction ne parle de l'origine.
+;; C'est SEULEMENT ENSUITE qu'on publie `cible_*`, son barycentre, et `norig`, le nombre de ses os
+;; a moins de HD_STRETCH_THRESH de (0,0,0). Un instrument qui aurait defini le groupe par sa
+;; proximite a l'origine puis republie cette proximite ne mesurerait rien
+;; (`instrument-republishes-its-target`, 13 lignes du registre payees pour ca).
 ;;
 ;; LIGNE DE BASE (ce que l'instrument lit quand le defaut est absent, SPEC §7 question 3) :
-;; `nrun=0`, aucune ligne emise. Le DENOMINATEUR est publie a part (`fills`), et surtout les
-;; OCCASIONS (`occ`) : les images ou le LOD courant du pilote calcule MOINS de joints que son
-;; squelette n'en porte — le precurseur mecanique. Un `episodes=0` sans occasions serait vide de
-;; sens (DIRECTIVES 2026-08-2x : les DEUX bras d'une ablation au vert).
+;; etalement < 6 m, `nrun=0`, aucune ligne emise. Le DENOMINATEUR est publie a part (`fills`), et
+;; surtout les OCCASIONS (`occjoints`, `gardeimages`) : les images ou un joint HD a lu — ou aurait
+;; lu — une matrice pilote JAMAIS ECRITE. C'est le precurseur mecanique du defaut. Un `episodes=0`
+;; sans occasions serait vide de sens (DIRECTIVES : les DEUX bras d'une ablation au vert).
 ;;
 ;; LES JOINTS-RACINES DU RIG (hd-parent = 255 : align et prejoint) sont ECARTES et comptes a part
 ;; (`nroot`) : l'en-tete de ce fichier (l.49-50) documente que le joint align porte une matrice
@@ -711,8 +790,19 @@
 ;; les personnages et a toutes les images. Les compter serait publier une constante.
 ;; ------------------------------------------------------------------------------------------------
 (defglobalconstant HD_STRETCH_THRESH 24576.0)  ;; (meters 6) — un rig humanoide tient dans ~2 m
+;; DUREE MAXIMALE D'UNE SERIE OUVERTE, en images de jeu. Passe ce cap, l'episode est FERME DE FORCE
+;; et republie avec `force=1`, puis la serie repart. C'EST UN TROU D'INSTRUMENT QUI EST BOUCHE ICI :
+;; un episode ne se compte qu'a sa FERMETURE, donc une dechirure PERMANENTE n'aurait jamais ete
+;; comptee et aurait rendu `episodes=0` — le faux vert le plus facile a produire de tout le dossier
+;; (cf. « gaps efface sa propre trace au-dela de 2 images »). 900 images = 15 s de jeu, soit deux
+;; ordres de grandeur au-dessus de la « split seconde » que l'owner decrit.
+(defglobalconstant HD_STRETCH_RUNCAP 900)
 (define *hd-stretch-arm* #t)
 (define *hd-stretch-episodes* 0)   ;; episodes FERMES (dechirures) depuis le demarrage
+(define *hd-stretch-ep-orig* 0)    ;; ... dont ceux DIRIGES VERS L'ORIGINE (norig > 0) : LE defaut
+(define *hd-stretch-ep-autre* 0)   ;; ... dont ceux qui partent AILLEURS : un autre phenomene, publie
+(define *hd-stretch-forced* 0)     ;; fermetures FORCEES par le cap ci-dessus (dechirures durables)
+(define *hd-stretch-runmax* 0)     ;; plus longue serie ouverte observee, en images
 (define *hd-stretch-moved* 0)      ;; images ou TOUS les os sont loin (deplacement en bloc, autre chose)
 (define *hd-stretch-fills* 0)      ;; images ou un compagnon a recible (le denominateur)
 (define *hd-stretch-occ* 0)        ;; OCCASIONS : images ou le LOD du pilote calcule moins de joints
@@ -725,6 +815,10 @@
   "Ouvre une fenetre de mesure : remet a zero tous les compteurs. Appele UNE fois depuis la REPL au
    debut d'une jambe — une seule commande, pour ne pas saturer l'ecouteur."
   (set! *hd-stretch-episodes* 0)
+  (set! *hd-stretch-ep-orig* 0)
+  (set! *hd-stretch-ep-autre* 0)
+  (set! *hd-stretch-forced* 0)
+  (set! *hd-stretch-runmax* 0)
   (set! *hd-stretch-moved* 0)
   (set! *hd-stretch-fills* 0)
   (set! *hd-stretch-occ* 0)
@@ -733,6 +827,7 @@
   (set! *hd-stretch-next-hb* 0)
   (set! *hd-drv-logs* 0)
   (set! *hd-guard-skips* 0)
+  (set! *hd-guard-noposed* 0)
   (set! *hd-guard-occ* 0)
   (set! *hd-guard-occ-root* 0)
   (set! *hd-guard-frames* 0)
@@ -763,7 +858,29 @@
         (if (zero? *hd-stretch-t0*) (set! *hd-stretch-t0* (get-current-time)))
         ;; OCCASION : le LOD courant ne calcule pas tous les joints que le squelette porte.
         (when (and (>= nj 0) (< (+ nj 3) tbones)) (+! *hd-stretch-occ* 1))
-        (let ((nrun 0) (nnear 0) (nroot 0) (norig 0) (nunp 0) (maxd 0.0) (bk -1) (sx 0.0) (sy 0.0) (sz 0.0))
+        ;; ------------------------------------------------------------------------------------
+        ;; LE PREDICAT DE DECHIRURE N'A PLUS AUCUN REPERE EXTERIEUR. C'est le troisieme repere
+        ;; essaye, et les deux premiers sont REFUTES PAR LA MESURE, chacun par son propre chiffre :
+        ;;   - l'OS PILOTE homologue : c'est LUI que le defaut annule, donc l'os HD et sa reference
+        ;;     tombent tous les deux a (0,0,0) et l'ecart rend ZERO. Aveugle a ce qu'il doit voir ;
+        ;;   - `(-> drv draw origin)` : lue depuis l'OS 0 du squelette du pilote quand
+        ;;     `origin-joint-index` vaut 0 (process-drawable.gc:273-277) — or la boucle de joints
+        ;;     n'ecrit que les noeuds 3..num-joints+2 (:265-271), donc l'os 0 n'est JAMAIS ecrit.
+        ;;     Le recensement le montre en clair : le compagnon de Daxter rendait `loin=60` sur 62
+        ;;     os en regime parfaitement normal. Une reference tiree de la grandeur que le defaut
+        ;;     detruit ne peut pas servir a mesurer ce defaut.
+        ;; CE QU'ON MESURE A LA PLACE — et c'est la NATURE du defaut que l'owner decrit
+        ;; (« le modele s'allonge »), donc une FORME, pas un deplacement : l'ETALEMENT du modele
+        ;; sur lui-meme. Boite englobante de ses propres os, plus grande arete = `maxd`. Un rig
+        ;; humanoide tient dans ~2 m ; au-dela de 6 m il est DECHIRE, et ca se lit sans savoir ou
+        ;; le personnage se trouve. La CIBLE de l'etirement est ensuite le barycentre du groupe
+        ;; MINORITAIRE de part et d'autre du milieu du plus long axe — un groupe defini par la
+        ;; geometrie du modele, JAMAIS par sa proximite a l'origine. C'est ce qui empeche
+        ;; `cible=(0,0,0)` d'etre une tautologie : rien dans sa construction ne parle de l'origine.
+        ;; ------------------------------------------------------------------------------------
+        (let ((nrun 0) (nnear 0) (nroot 0) (norig 0) (nunp 0) (maxd 0.0) (bk -1) (sx 0.0) (sy 0.0) (sz 0.0)
+              (nv 0) (mnx 0.0) (mxx 0.0) (mny 0.0) (mxy 0.0) (mnz 0.0) (mxz 0.0))
+          ;; PASSE A — boite englobante des os non racines, et recensement des os pilotes non ecrits.
           (dotimes (k (-> obj hd-joints))
             (let ((p (the int (-> khd-par k)))
                   (e (the int (-> k2e k))))
@@ -771,37 +888,143 @@
                 ((>= (+ k 1) nbones))
                 ((= p #xff) (+! nroot 1))    ;; align/prejoint : ecartes, voir l'en-tete
                 (else
-                 ;; DEUX REPERES ONT ETE REFUTES PAR LA MESURE AVANT CELUI-CI, ET LES DEUX
-                 ;; REFUTATIONS SONT PUBLIEES :
-                 ;;   - l'OS PILOTE homologue : c'est LUI qui est nul quand le defaut tire, donc
-                 ;;     l'os HD et sa reference tombent tous les deux a (0,0,0) et l'ecart rend
-                 ;;     ZERO. Aveugle a exactement ce qu'il doit voir (course de 01:44) ;
-                 ;;   - `(-> obj root trans)`, la position du PROCESS : le recensement HDDRV la
-                 ;;     donne a plus de 6 m de SOIXANTE des 62 os du compagnon de Daxter en regime
-                 ;;     normal (`loin=60`) — la racine du sidekick ne suit pas son squelette.
-                 ;; LE REPERE RETENU est `(-> drv draw origin)` : la position monde que le MOTEUR
-                 ;; calcule lui-meme pour le pilote (process-drawable.gc:274-277), sur chaque
-                 ;; branche de son do-joint-math!. Elle existe pour tout pilote, elle ne passe par
-                 ;; aucune de nos matrices, et le recensement la valide (`loin=0`).
-                 ;; Le PREDICAT reste une DECHIRURE : au moins un os parti ET au moins un os reste.
-                 ;; Un modele entier decale rend nnear=0 et n'est PAS un episode.
-                 (let* ((bp (-> skel bones (+ k 1) transform vector 3))
-                        (d  (vector-vector-distance bp (-> drv draw origin))))
+                 (let ((bp (-> skel bones (+ k 1) transform vector 3)))
                    (cond
-                     ((> d HD_STRETCH_THRESH)
-                      (+! nrun 1)
-                      (if (< (vector-length bp) HD_STRETCH_THRESH) (+! norig 1))
-                      (+! sx (-> bp x))
-                      (+! sy (-> bp y))
-                      (+! sz (-> bp z))
-                      (when (> d maxd) (set! maxd d) (set! bk k)))
-                     (else (+! nnear 1))))
-                 ;; recensement : cet os HD lit-il une matrice pilote JAMAIS ECRITE ?
+                     ((zero? nv)
+                      (set! mnx (-> bp x)) (set! mxx (-> bp x))
+                      (set! mny (-> bp y)) (set! mxy (-> bp y))
+                      (set! mnz (-> bp z)) (set! mxz (-> bp z)))
+                     (else
+                      (if (< (-> bp x) mnx) (set! mnx (-> bp x)))
+                      (if (> (-> bp x) mxx) (set! mxx (-> bp x)))
+                      (if (< (-> bp y) mny) (set! mny (-> bp y)))
+                      (if (> (-> bp y) mxy) (set! mxy (-> bp y)))
+                      (if (< (-> bp z) mnz) (set! mnz (-> bp z)))
+                      (if (> (-> bp z) mxz) (set! mxz (-> bp z)))))
+                   (+! nv 1))
+                 ;; RECENSEMENT DES OCCASIONS : cet os HD lit-il une matrice pilote INUTILISABLE ?
+                 ;; Meme predicat, au bit pres, que celui que le garde applique dans le reciblage —
+                 ;; sinon le compte d'occasions ne serait pas le denominateur du verdict.
                  (when (and (!= e #xff) (< (+ e 1) tbones)
-                            (not (hd-bone-posed? tskel (+ e 1))))
+                            (not (hd-bone-usable? tskel (+ e 1)
+                                                  (-> tskel bones 4 transform vector 3))))
                    (+! nunp 1))))))
-          ;; deplacement EN BLOC : tout est loin, rien n'est reste. Autre phenomene, compte a part.
-          (if (and (> nrun 0) (zero? nnear)) (+! *hd-stretch-moved* 1))
+          ;; PASSE A0 — TAILLE NATURELLE DU RIG HD, DANS SA POSE DE BIND. Calculee UNE FOIS par
+          ;; compagnon, elle est statique et ne peut pas etre contaminee par le defaut.
+          ;; POURQUOI ELLE EST NECESSAIRE, ET C'EST UNE MESURE QUI L'IMPOSE : le bras arme du
+          ;; 2026-09-02 rendait 5 « dechirures » sur Jak dont la longueur valait 9,4261 m A LA
+          ;; QUATRIEME DECIMALE, a tous les niveaux et a toutes les positions, pendant que leur
+          ;; barycentre SUIVAIT le personnage. Une grandeur rigoureusement constante n'est pas une
+          ;; dechirure : c'est la taille du rig. Le rig HD de Jak s'etale sur 9,43 m la ou son
+          ;; pilote tient dans 2,93 m — l'ecart entre les deux rigs depassait a lui seul la marge.
+          ;; Les emplacements `bind-pose` STOCKENT le bind INVERSE : la position de bind s'obtient
+          ;; par une vraie INVERSION, jamais par une transposee (`transposee != inverse sur une
+          ;; IBM`, registre du depot).
+          (when (= (-> obj st-bindsp) 0.0)
+            (set! (-> obj st-bindsp) -1.0)   ;; marque « calcule », meme si le rig rend 0
+            (let ((bnx 0.0) (bxx 0.0) (bny 0.0) (bxy 0.0) (bnz 0.0) (bxz 0.0) (nb 0)
+                  (binv (new-stack-matrix0)))
+              (when (nonzero? (-> obj draw jgeo))
+                (dotimes (k (-> obj hd-joints))
+                  (when (!= (the int (-> khd-par k)) #xff)
+                    (matrix-4x4-inverse! binv (-> obj draw jgeo data k bind-pose))
+                    (let ((bt (-> binv vector 3)))
+                      (cond
+                        ((zero? nb)
+                         (set! bnx (-> bt x)) (set! bxx (-> bt x))
+                         (set! bny (-> bt y)) (set! bxy (-> bt y))
+                         (set! bnz (-> bt z)) (set! bxz (-> bt z)))
+                        (else
+                         (if (< (-> bt x) bnx) (set! bnx (-> bt x)))
+                         (if (> (-> bt x) bxx) (set! bxx (-> bt x)))
+                         (if (< (-> bt y) bny) (set! bny (-> bt y)))
+                         (if (> (-> bt y) bxy) (set! bxy (-> bt y)))
+                         (if (< (-> bt z) bnz) (set! bnz (-> bt z)))
+                         (if (> (-> bt z) bxz) (set! bxz (-> bt z)))))
+                      (+! nb 1))))
+                (let ((bs (- bxx bnx)))
+                  (if (> (- bxy bny) bs) (set! bs (- bxy bny)))
+                  (if (> (- bxz bnz) bs) (set! bs (- bxz bnz)))
+                  (when (> bs 0.0) (set! (-> obj st-bindsp) bs))
+                  (format 0 "HDBIND entry=~D joints=~D etal_bind_m=~f~%"
+                          (-> obj entry) nb (/ bs 4096.0))))))
+          ;; PASSE A2 — LE MEME ETALEMENT, SUR LE SQUELETTE DU PILOTE. C'est un CONTROLE APPARIE :
+          ;; meme grandeur, meme image, meme personnage, sur une chaine que notre code n'ecrit
+          ;; JAMAIS. Il remplace le seuil absolu de 6 m, qui etait faux pour un rig qui porte
+          ;; naturellement des os loin de son centre — mesure : Samos rend `loin=2` en regime
+          ;; parfaitement normal, et 16 des 17 episodes du bras de controle du 2026-09-02 tombaient
+          ;; entre 6,00 et 6,20 m, c'est-a-dire SUR le seuil. Un seuil qu'un rig sain franchit ne
+          ;; mesure pas une dechirure, il mesure la taille du rig.
+          ;; Seuls les os UTILISABLES du pilote entrent dans sa boite : un os nul, lui, est a
+          ;; l'origine, et l'inclure gonflerait la reference jusqu'a MASQUER la dechirure.
+          (let ((nd 0) (dsp 0.0) (dnx 0.0) (dxx 0.0) (dny 0.0) (dxy 0.0) (dnz 0.0) (dxz 0.0))
+            (let ((dref (-> tskel bones 4 transform vector 3)))
+              (dotimes (i tbones)
+                (when (hd-bone-usable? tskel i dref)
+                  (let ((tp (-> tskel bones i transform vector 3)))
+                    (cond
+                      ((zero? nd)
+                       (set! dnx (-> tp x)) (set! dxx (-> tp x))
+                       (set! dny (-> tp y)) (set! dxy (-> tp y))
+                       (set! dnz (-> tp z)) (set! dxz (-> tp z)))
+                      (else
+                       (if (< (-> tp x) dnx) (set! dnx (-> tp x)))
+                       (if (> (-> tp x) dxx) (set! dxx (-> tp x)))
+                       (if (< (-> tp y) dny) (set! dny (-> tp y)))
+                       (if (> (-> tp y) dxy) (set! dxy (-> tp y)))
+                       (if (< (-> tp z) dnz) (set! dnz (-> tp z)))
+                       (if (> (-> tp z) dxz) (set! dxz (-> tp z)))))
+                    (+! nd 1)))))
+            (set! dsp (- dxx dnx))
+            (if (> (- dxy dny) dsp) (set! dsp (- dxy dny)))
+            (if (> (- dxz dnz) dsp) (set! dsp (- dxz dnz)))
+            (set! (-> obj st-dspread) dsp)
+          ;; plus longue arete de la boite du COMPAGNON, et l'axe qui la porte (0=x 1=y 2=z).
+          (let ((ex (- mxx mnx)) (ey (- mxy mny)) (ez (- mxz mnz)) (ax 0) (mid 0.0))
+            (set! maxd ex) (set! ax 0) (set! mid (* 0.5 (+ mnx mxx)))
+            (when (> ey maxd) (set! maxd ey) (set! ax 1) (set! mid (* 0.5 (+ mny mxy))))
+            (when (> ez maxd) (set! maxd ez) (set! ax 2) (set! mid (* 0.5 (+ mnz mxz))))
+            ;; PASSE B — seulement si le compagnon est etale de plus de 6 m DE PLUS que son pilote.
+            ;; On separe au milieu du plus long axe et le groupe MINORITAIRE est celui qui s'est
+            ;; echappe.
+            ;; REFERENCE D'ETALEMENT = la plus grande des deux tailles NATURELLES connues : celle
+            ;; du rig HD en pose de bind, et celle du rig du pilote a cette image. Les deux sont
+            ;; des controles : la premiere est statique donc incontaminable, la seconde vit sur une
+            ;; chaine que notre code n'ecrit jamais. Prendre le max, c'est refuser de compter une
+            ;; dechirure quand l'UNE des deux l'explique.
+            (if (> (-> obj st-bindsp) dsp) (set! dsp (-> obj st-bindsp)))
+            (set! (-> obj st-dspread) dsp)
+            (when (and (> maxd (+ dsp HD_STRETCH_THRESH)) (> nv 1))
+              (let ((nlo 0) (nhi 0))
+                (dotimes (k (-> obj hd-joints))
+                  (when (and (< (+ k 1) nbones) (!= (the int (-> khd-par k)) #xff))
+                    (let* ((bp (-> skel bones (+ k 1) transform vector 3))
+                           (c (cond ((zero? ax) (-> bp x)) ((= ax 1) (-> bp y)) (else (-> bp z)))))
+                      (if (< c mid) (+! nlo 1) (+! nhi 1)))))
+                ;; `lorun` : 1 si le groupe en fuite est celui du BAS de l'axe, 0 sinon. ENTIER
+                ;; et pas booleen — comparer deux booleens GOAL est un piege connu du depot.
+                (let ((lorun (if (<= nlo nhi) 1 0)) (best -1.0))
+                  (dotimes (k (-> obj hd-joints))
+                    (when (and (< (+ k 1) nbones) (!= (the int (-> khd-par k)) #xff))
+                      (let* ((bp (-> skel bones (+ k 1) transform vector 3))
+                             (c (cond ((zero? ax) (-> bp x)) ((= ax 1) (-> bp y)) (else (-> bp z)))))
+                        (cond
+                          ((= (if (< c mid) 1 0) lorun)
+                           (+! nrun 1)
+                           ;; DIAGNOSTIC, PAS CLASSEMENT : cet os en fuite est-il pose sur
+                           ;; l'origine du monde ? Le groupe a ete forme sans jamais consulter
+                           ;; cette distance.
+                           (if (< (vector-length bp) HD_STRETCH_THRESH) (+! norig 1))
+                           (+! sx (-> bp x)) (+! sy (-> bp y)) (+! sz (-> bp z))
+                           (let ((dm (- c mid)))
+                             (if (< dm 0.0) (set! dm (- 0.0 dm)))
+                             (when (> dm best) (set! best dm) (set! bk k))))
+                          (else (+! nnear 1)))))))))))
+
+          ;; IMAGES DECHIREES, brut : l'etalement du modele depasse 6 m sur cette image. C'est le
+          ;; denominateur du verdict — un `episodes=0` accompagne d'un compte d'images dechirees
+          ;; nul sur une course entiere dirait seulement que la condition ne s'est pas presentee.
+          (if (> maxd (+ (-> obj st-dspread) HD_STRETCH_THRESH)) (+! *hd-stretch-moved* 1))
           ;; RECENSEMENT PAR COMPAGNON, une ligne toutes les 900 images : combien d'os du PILOTE
           ;; sont NON ECRITS (base nulle), combien de joints HD en LISENT un, combien d'os HD sont
           ;; loin. C'est ce que le compteur global d'occasions agrege — publie ici PAR MODELE.
@@ -821,79 +1044,111 @@
                       (-> tskel bones 4 transform vector 3 y)
                       (vector-length (-> tskel bones 4 transform vector 3))
                       (-> tskel bones 4 transform vector 0 x))))
-          (cond
-            ((and (> nrun 0) (> nnear 0) (>= bk 0))
-             (when (zero? (-> obj st-run))
-               (set! (-> obj st-t0) (get-current-time))
-               (set! (-> obj st-maxlen) 0.0)
-               (set! (-> obj st-vis) 0))
-             (+! (-> obj st-run) 1)
-             ;; le meme masque que `dma-add-process-drawable` (drawable.gc:448) : une image ou le
-             ;; compagnon n'est pas soumissible n'est PAS vue par l'owner. On les separe au lieu
-             ;; de les fondre — un episode invisible n'est pas son defaut.
-             (if (not (logtest? (-> obj draw status) (draw-status hidden no-anim no-skeleton-update)))
-               (+! (-> obj st-vis) 1))
-             (when (> maxd (-> obj st-maxlen))
-               (set! (-> obj st-maxlen) maxd)
-               (set! (-> obj st-n) nrun)
-               (set! (-> obj st-nroot) norig)
-               (set! (-> obj st-k) bk)
-               (set! (-> obj st-e) (the int (-> k2e bk)))
-               (set! (-> obj st-md) (the int (-> kmode bk)))
-               (set! (-> obj st-lod) (the int (-> drv draw cur-lod)))
-               (set! (-> obj st-nj) nj)
-               ;; distance a l'ORIGINE DU MONDE : prise sur la position monde que le MOTEUR calcule
-               ;; pour le pilote (draw origin, ecrite par son propre do-joint-math!), pas sur nous.
-               (set! (-> obj st-dist) (vector-length (-> drv draw origin)))
-               (set! (-> obj st-cx) (/ sx (the float nrun)))
-               (set! (-> obj st-cy) (/ sy (the float nrun)))
-               (set! (-> obj st-cz) (/ sz (the float nrun)))
-               (let ((ee (the int (-> k2e bk))))
-                 (cond
-                   ((< (+ ee 1) tbones)
-                    (let ((am (the-as matrix (-> drv draw skeleton bones (+ ee 1) transform))))
-                      (set! (-> obj st-ar) (vector-length (-> am vector 0)))
-                      (set! (-> obj st-at) (vector-length (-> am vector 3)))))
-                   (else (set! (-> obj st-ar) -1.0) (set! (-> obj st-at) -1.0))))))
-            (else
-             (when (> (-> obj st-run) 0)
-               (+! *hd-stretch-episodes* 1)
-               (when (< *hd-stretch-logs* 900)
-                 (+! *hd-stretch-logs* 1)
-                 (format 0 "HDEPISODE modele=~S distance_origine_m=~f longueur_etirement_m=~f duree_ms=~f id=~D~%"
-                         (hd-model-name (-> obj entry))
-                         (/ (-> obj st-dist) 4096.0)
-                         (/ (-> obj st-maxlen) 4096.0)
-                         ;; TICKS_PER_SECOND = 300 (types-h.gc:54) -> 1 tick = 3,3333 ms
-                         (* 3.33333 (the float (the int (- (get-current-time) (-> obj st-t0)))))
-                         *hd-stretch-episodes*)
-                 (format 0 "HDEPX id=~D cible_x=~f cible_y=~f cible_z=~f n=~D norig=~D~%"
-                         *hd-stretch-episodes*
-                         (/ (-> obj st-cx) 4096.0)
-                         (/ (-> obj st-cy) 4096.0)
-                         (/ (-> obj st-cz) 4096.0)
-                         (-> obj st-n)
-                         (-> obj st-nroot))
-                 (format 0 "HDEPY id=~D entry=~D k=~D e=~D md=~D lod=~D~%"
-                         *hd-stretch-episodes*
-                         (-> obj entry)
-                         (-> obj st-k)
-                         (-> obj st-e)
-                         (-> obj st-md)
-                         (-> obj st-lod))
-                 (format 0 "HDEPW id=~D visibles=~D images=~D gardes=~D~%"
-                         *hd-stretch-episodes*
-                         (-> obj st-vis)
-                         (-> obj st-run)
-                         *hd-guard-frames*)
-                 (format 0 "HDEPZ id=~D arow=~f atrans=~f tbones=~D nj=~D images=~D~%"
-                         *hd-stretch-episodes*
-                         (-> obj st-ar)
-                         (-> obj st-at)
-                         tbones
-                         (-> obj st-nj)
-                         (-> obj st-run)))
-               (set! (-> obj st-run) 0))))))))
+          ;; --------------------------------------------------------------------------------
+          ;; ACCUMULATION puis FERMETURE. La fermeture a DEUX declencheurs, et le second bouche un
+          ;; trou de l'instrument : un episode ne se comptait qu'a sa fin naturelle, donc une
+          ;; dechirure PERMANENTE ne se comptait JAMAIS et rendait `episodes=0`. Passe
+          ;; HD_STRETCH_RUNCAP images, la serie est fermee DE FORCE (`force=1`) puis repart.
+          ;; --------------------------------------------------------------------------------
+          (let ((tear? (and (> nrun 0) (> nnear 0) (>= bk 0))))
+            (when tear?
+              (when (zero? (-> obj st-run))
+                (set! (-> obj st-t0) (get-current-time))
+                (set! (-> obj st-maxlen) 0.0)
+                (set! (-> obj st-vis) 0))
+              (+! (-> obj st-run) 1)
+              (if (> (-> obj st-run) *hd-stretch-runmax*)
+                (set! *hd-stretch-runmax* (-> obj st-run)))
+              ;; le meme masque que `dma-add-process-drawable` (drawable.gc:448) : une image ou le
+              ;; compagnon n'est pas soumissible n'est PAS vue par l'owner. On les separe au lieu
+              ;; de les fondre — un episode invisible n'est pas son defaut.
+              (if (not (logtest? (-> obj draw status) (draw-status hidden no-anim no-skeleton-update)))
+                (+! (-> obj st-vis) 1))
+              (when (> maxd (-> obj st-maxlen))
+                (set! (-> obj st-maxlen) maxd)
+                (set! (-> obj st-n) nrun)
+                (set! (-> obj st-nroot) norig)
+                (set! (-> obj st-k) bk)
+                (set! (-> obj st-e) (the int (-> k2e bk)))
+                (set! (-> obj st-md) (the int (-> kmode bk)))
+                (set! (-> obj st-lod) (the int (-> drv draw cur-lod)))
+                (set! (-> obj st-nj) nj)
+                ;; DEUX derivations de la distance a l'origine, publiees COTE A COTE :
+                ;;   st-dist2 = |root trans|, la position du PROCESS. Ecrite par la logique de
+                ;;     l'acteur, elle ne passe par aucune matrice de squelette : c'est la seule
+                ;;     valide PENDANT l'episode, donc la seule utilisable comme abscisse ;
+                ;;   st-dist  = |draw origin|, recopie de l'OS 3 du squelette du pilote
+                ;;     (process-drawable.gc:245) — c'est-a-dire de la grandeur que le defaut
+                ;;     annule. Conservee comme SECONDE lecture : quand les deux divergent, c'est
+                ;;     le defaut lui-meme qu'on lit dans l'ecart.
+                (set! (-> obj st-dist) (vector-length (-> drv draw origin)))
+                (set! (-> obj st-dist2) (vector-length (-> drv root trans)))
+                (set! (-> obj st-cx) (/ sx (the float nrun)))
+                (set! (-> obj st-cy) (/ sy (the float nrun)))
+                (set! (-> obj st-cz) (/ sz (the float nrun)))
+                (let ((ee (the int (-> k2e bk))))
+                  (cond
+                    ((< (+ ee 1) tbones)
+                     (let ((am (the-as matrix (-> drv draw skeleton bones (+ ee 1) transform))))
+                       (set! (-> obj st-ar) (vector-length (-> am vector 0)))
+                       (set! (-> obj st-at) (vector-length (-> am vector 3)))))
+                    (else (set! (-> obj st-ar) -1.0) (set! (-> obj st-at) -1.0))))))
+            (let ((forcee (and tear? (>= (-> obj st-run) HD_STRETCH_RUNCAP))))
+              (when (and (> (-> obj st-run) 0) (or (not tear?) forcee))
+                (+! *hd-stretch-episodes* 1)
+                ;; SPLIT DU VERDICT. `norig` (range dans st-nroot) est le nombre d'os en fuite qui
+                ;; sont A MOINS DE 6 m DE (0,0,0). Un episode avec norig>0 est LE defaut que
+                ;; l'owner decrit — le modele part vers l'origine du monde. Un episode a norig=0
+                ;; part AILLEURS : autre phenomene, compte et publie a part, jamais fondu.
+                (if (> (-> obj st-nroot) 0)
+                  (+! *hd-stretch-ep-orig* 1)
+                  (+! *hd-stretch-ep-autre* 1))
+                (if forcee (+! *hd-stretch-forced* 1))
+                (when (< *hd-stretch-logs* 900)
+                  (+! *hd-stretch-logs* 1)
+                  (format 0 "HDEPISODE modele=~S distance_origine_m=~f longueur_etirement_m=~f duree_ms=~f id=~D~%"
+                          (hd-model-name (-> obj entry))
+                          (/ (-> obj st-dist2) 4096.0)
+                          (/ (-> obj st-maxlen) 4096.0)
+                          ;; TICKS_PER_SECOND = 300 (types-h.gc:54) -> 1 tick = 3,3333 ms
+                          (* 3.33333 (the float (the int (- (get-current-time) (-> obj st-t0)))))
+                          *hd-stretch-episodes*)
+                  (format 0 "HDEPX id=~D cible_x=~f cible_y=~f cible_z=~f n=~D norig=~D~%"
+                          *hd-stretch-episodes*
+                          (/ (-> obj st-cx) 4096.0)
+                          (/ (-> obj st-cy) 4096.0)
+                          (/ (-> obj st-cz) 4096.0)
+                          (-> obj st-n)
+                          (-> obj st-nroot))
+                  (format 0 "HDEPY id=~D entry=~D k=~D e=~D md=~D lod=~D~%"
+                          *hd-stretch-episodes*
+                          (-> obj entry)
+                          (-> obj st-k)
+                          (-> obj st-e)
+                          (-> obj st-md)
+                          (-> obj st-lod))
+                  (format 0 "HDEPW id=~D visibles=~D images=~D gardes=~D force=~D~%"
+                          *hd-stretch-episodes*
+                          (-> obj st-vis)
+                          (-> obj st-run)
+                          *hd-guard-frames*
+                          (if forcee 1 0))
+                  (format 0 "HDEPZ id=~D arow=~f atrans=~f tbones=~D nj=~D images=~D~%"
+                          *hd-stretch-episodes*
+                          (-> obj st-ar)
+                          (-> obj st-at)
+                          tbones
+                          (-> obj st-nj)
+                          (-> obj st-run))
+                  ;; SECONDE derivation de la distance, sur sa propre ligne (la limite d'appel GOAL
+                  ;; est de 8 parametres). `dessin_m` = |draw origin|, `distance_origine_m` de la
+                  ;; ligne HDEPISODE = |root trans| : quand les deux divergent, c'est le defaut.
+                  (format 0 "HDEPV id=~D dessin_m=~f racine_m=~f etal_pilote_m=~f~%"
+                          *hd-stretch-episodes*
+                          (/ (-> obj st-dist) 4096.0)
+                          (/ (-> obj st-dist2) 4096.0)
+                          (/ (-> obj st-dspread) 4096.0)))
+                (set! (-> obj st-run) 0))))))))
   (none))
 
 ;; do-joint-math! override: run the stock path (housekeeping + HD idle anim + bounds/origin), then
@@ -1312,8 +1567,15 @@
                 *hd-stretch-fills*
                 *hd-guard-frames*
                 *hd-guard-skips*)
-        (format 0 "HDHB2 occjoints=~D occracine=~D deplaces=~D arme=~D~%"
-                *hd-guard-occ* *hd-guard-occ-root* *hd-stretch-moved* *hd-guard-arm*))))
+        (format 0 "HDHB2 occjoints=~D occracine=~D imagesdechirees=~D arme=~D~%"
+                *hd-guard-occ* *hd-guard-occ-root* *hd-stretch-moved* *hd-guard-arm*)
+        ;; LE VERDICT EST ICI, SEPARE EN DEUX : `origine` = les dechirures vers (0,0,0), c'est-a-dire
+        ;; le defaut de l'owner ; `autres` = les dechirures qui partent ailleurs, publiees et jamais
+        ;; fondues dedans. `forcees` et `runmax` disent si une dechirure DURABLE a du etre fermee de
+        ;; force — sans eux, une dechirure permanente rendrait `episodes=0` sans jamais se fermer.
+        (format 0 "HDHB3 origine=~D autres=~D forcees=~D runmax=~D sansposeimages=~D~%"
+                *hd-stretch-ep-orig* *hd-stretch-ep-autre* *hd-stretch-forced* *hd-stretch-runmax*
+                *hd-guard-noposed*))))
   ;; phase 1: collect.
   (set! *hd-scan-driver-count* 0)
   (set! *hd-scan-companion-count* 0)

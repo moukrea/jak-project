@@ -22,9 +22,9 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 OUT=.autoport/reports/Ghd-skin-origin-stretch; mkdir -p "$OUT"
 GOALC=build-x86/goalc/goalc; GK=build-x86/game/gk
-ISO=out/jak1/iso; SNAP=/home/emeric/.autoport-scratch/ghso-iso
+ISO="${ISO:-out/jak1/iso}"; SNAP=/home/emeric/.autoport-scratch/ghso-iso
 SETTINGS=build/game/OpenGOAL/jak1/settings/settings.ini
-ARM="${ARM:-1}"; TAG="${TAG:-leg$ARM}"; DWELL="${DWELL:-16}"; LOADW="${LOADW:-45}"
+ARM="${ARM:-1}"; TAG="${TAG:-leg$ARM}"; DWELL="${DWELL:-14}"; LOADW="${LOADW:-15}"
 LOG="$OUT/$TAG.log"; GCLOG="$OUT/$TAG-goalc.log"; DRV="$OUT/$TAG-driver.log"
 : > "$LOG"; : > "$GCLOG"; : > "$DRV"
 say(){ echo "$(date +%H:%M:%S) $*" | tee -a "$DRV"; }
@@ -85,6 +85,17 @@ start_listener(){
   timeout 3000 "$GOALC" --game jak1 --proj-path . --iso-path "$ISO" --disable-ansi < "$FIFO" >> "$GCLOG" 2>&1 &
   GCPID=$!
   exec 3>"$FIFO"
+  # DEUX CHOSES DISTINCTES, ET LES CONFONDRE A COUTE TROIS COURSES :
+  #  - `(build-game)` N'EST PAS UNE LIVRAISON. Il compile vers out/jak1/obj alors que le jeu
+  #    tourne sur les CGO de l'iso. Mesure (2026-09-02 05:23) : out/jak1/iso/GAME.CGO datait de
+  #    04:46, AVANT toute edition du jour, et zero ligne HDHB3/HDEPV sur deux courses completes.
+  #    C'est la campagne qui bat et fige l'iso, pas le listener.
+  #  - MAIS `(build-game)` RESTE INDISPENSABLE : sans lui, goalc n'a ni table des symboles ni
+  #    table des types du jeu, donc `(set! *hd-guard-arm* ...)`, `(hd-stretch-reset!)` et
+  #    `(start 'play ...)` ne COMPILENT PAS chez lui et ne sont JAMAIS envoyees. Course de 05:32 :
+  #    aucun HDRESET, aucun niveau charge, et les 22 episodes portaient tous `racine_m=238,9985`
+  #    — la position de `title-start`. Le jeu etait reste sur l'ecran-titre pendant toute la
+  #    course, sans qu'aucun compteur ne s'en plaigne.
   echo '(lt)' >&3; sleep 6
   local before; before=$(grep -ac "Successfully built all" "$GCLOG")
   echo '(build-game)' >&3
@@ -117,12 +128,29 @@ fi
 
 # premier niveau AVANT d'ouvrir la fenetre : l'episode du passage titre->jeu n'a pas de position
 # monde (le pilote est encore a l'origine) et ne doit pas polluer la mesure.
+# CONFIRMATION DE CHARGEMENT — le marqueur utilise au premier essai (`GAMEPLAY: enter <niveau>`)
+# n'est emis QUE pour `title` : les 34 chargements sortaient donc tous `charge=0` et attendaient les
+# 45 s pleines. Le marqueur qui tire VRAIMENT a chaque chargement de niveau est la ligne de
+# consolidation de maillage du moteur (`[global-weld] level=<nom>` / `[mesh-consolidate] level=`).
+WELD_RE='\[(global-weld|mesh-consolidate)\] level='
+weldn(){ grep -acE "$WELD_RE" "$LOG"; }
+n0=$(weldn)
 echo "(start (quote play) (get-continue-by-name *game-info* \"beach-start\"))" >&3
-for i in $(seq 1 "$LOADW"); do grep -qa "GAMEPLAY: enter beach" "$LOG" && break; sleep 1; done
+for i in $(seq 1 45); do [ "$(weldn)" -gt "$n0" ] && break; sleep 1; done
 sleep 10
-say "amorce : beach charge=$(grep -ac 'GAMEPLAY: enter beach' "$LOG")"
+say "amorce : beach welds=$(weldn) (avant $n0)"
 
-echo '(hd-stretch-reset!)' >&3; sleep 3
+echo '(hd-stretch-reset!)' >&3; sleep 5
+# GARDE DURE : `HDRESET` est imprime PAR LE JEU a la reception de la commande. S'il n'apparait pas,
+# la REPL ne parle pas au jeu et TOUT ce qui suit est du bruit — c'est exactement ce qui s'est
+# produit a 05:32 (aucun niveau charge, 22 episodes releves sur l'ecran-titre). On refuse la course
+# au lieu de publier ses chiffres.
+if ! grep -qa '^HDRESET' "$LOG"; then
+  say "!! HDRESET absent — la REPL n'atteint pas le jeu, jambe ABANDONNEE"
+  exit 3
+fi
+say "  fenetre ouverte, garde arme=$(grep -a '^HDRESET' "$LOG" | tail -1)"
+NLOAD=0
 T0=$(date +%s)
 say "== FENETRE DE MESURE OUVERTE =="
 
@@ -134,17 +162,25 @@ for lv in "${LEVELS[@]}"; do
     start_listener || break
     ACKS=$(grep -ac 'Runtime is not responding' "$GCLOG")
   fi
-  n0=$(grep -ac "^GAMEPLAY" "$LOG")
+  n0=$(weldn)
   echo "(format 0 \"HDLEVEL nom=~S~%\" \"$lv\")" >&3
   echo "(start (quote play) (get-continue-by-name *game-info* \"$lv\"))" >&3
   ok=0
   for i in $(seq 1 "$LOADW"); do
-    [ "$(grep -ac '^GAMEPLAY' "$LOG")" -gt "$n0" ] && { ok=1; break; }
+    [ "$(weldn)" -gt "$n0" ] && { ok=1; break; }
     sleep 1
   done
   sleep "$DWELL"
+  NLOAD=$((NLOAD + ok))
   say "  $lv charge=$ok ep=$(grep -ac '^HDEPISODE' "$LOG")"
 done
+# SECONDE GARDE DURE : une jambe ou presque aucun niveau n'a charge n'a pas parcouru l'itineraire,
+# donc ses compteurs ne decrivent pas ce qu'on croit. La course du 05:32 rendait charge=0 sur les
+# 34 points de reprise et personne ne l'avait vu passer.
+say "niveaux effectivement charges : $NLOAD / ${#LEVELS[@]}"
+if [ "$NLOAD" -lt $(( ${#LEVELS[@]} / 2 )) ]; then
+  say "!! moins de la moitie des niveaux charges — jambe NON CONCLUANTE"
+fi
 
 T1=$(date +%s)
 sleep 3
@@ -153,5 +189,5 @@ kill "$GKPID" 2>/dev/null; wait "$GKPID" 2>/dev/null
 SECS=$((T1 - T0))
 { echo "HDWALL secondes=$SECS minutes=$(python3 -c "print(f'{$SECS/60:.4f}')") arme=$ARM"; } >> "$LOG"
 say "== fenetre : ${SECS}s ; episodes=$(grep -ac '^HDEPISODE' "$LOG") =="
-grep -aE '^(HDEPISODE|HDEPX|HDEPY|HDEPZ|HDEPW|HDHB|HDHB2|HDDRV|HDPOSD|HDLEVEL|HDRESET|HDWALL)' "$LOG" > "$OUT/$TAG-marqueurs.txt"
+grep -aE '^(HDEPISODE|HDEPX|HDEPY|HDEPZ|HDEPV|HDEPW|HDHB|HDHB2|HDHB3|HDBIND|HDDRV|HDPOSD|HDLEVEL|HDRESET|HDWALL)' "$LOG" > "$OUT/$TAG-marqueurs.txt"
 say "marqueurs -> $OUT/$TAG-marqueurs.txt ($(wc -l < "$OUT/$TAG-marqueurs.txt") lignes)"
