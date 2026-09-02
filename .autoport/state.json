@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 277,
+  "current_phase_idx": 276,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -254,7 +254,7 @@
     "Gsubtitle-style": 1,
     "Gcutscene-skip-all": 1,
     "Gjak1-crate-collision": 2,
-    "Ghd-skin-origin-stretch": 5,
+    "Ghd-skin-origin-stretch": 6,
     "Gjak1-crate-collision-2": 2,
     "Gfixed-tick-anim-interp": 1,
     "Gcutscene-npc-flicker": 1,
@@ -714,6 +714,9 @@
     "Gcine-cut": [
       "6ad6b9fdbd1c",
       "6ad6b9fdbd1c"
+    ],
+    "Gcutscene-skip-polish-2": [
+      "fc582bcbeb70"
     ]
   },
   "stuck_reasons": {
@@ -1187,7 +1190,7 @@
     "Gmenu-census-cleanup": 1788337784.4468226,
     "Gfont-regression": 1788341198.8582702
   },
-  "last_update": "2026-09-02T16:14:55.862365+00:00",
+  "last_update": "2026-09-02T16:18:42.093142+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1326,8 +1329,7 @@
     "Gcutscene-npc-flicker-2",
     "Gpbr-props-reach-draw",
     "Gmenu-census-cleanup",
-    "Gfont-regression",
-    "Ghd-skin-origin-stretch"
+    "Gfont-regression"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
@@ -1353,7 +1355,6 @@
     "Gcutscene-npc-flicker-2": "2026-09-02 03:28 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-npc-flicker-2 quand il valide.",
     "Gpbr-props-reach-draw": "2026-09-02 10:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gpbr-props-reach-draw quand il valide.",
     "Gmenu-census-cleanup": "2026-09-02 11:19 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gmenu-census-cleanup quand il valide.",
-    "Gfont-regression": "2026-09-02 12:38 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gfont-regression quand il valide.",
-    "Ghd-skin-origin-stretch": "2026-09-02 17:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Ghd-skin-origin-stretch quand il valide."
+    "Gfont-regression": "2026-09-02 12:38 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gfont-regression quand il valide."
   }
 }

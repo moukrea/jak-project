@@ -15,6 +15,13 @@ if not st: F("HDSTRETCHCOUNT absent : compter l'ETIREMENT lui-meme (longueur d'o
 avant=[d for d in st if int(d.get('os_etires',0))>=1 and d.get('plateforme')=='redmi']
 if not avant: F("aucune reproduction de l'etirement SUR L'APPAREIL avant correction : sans reproduction rien n'est prouve")
 if not re.search(r'^HDATTRIB .*chemin=\S+',t,re.M): F("HDATTRIB absent : pour chaque etirement, publier l'os, la longueur, le point de fuite et le CHEMIN DE CODE qui a produit la matrice")
+# CONDITION DE DECLENCHEMENT (owner 18:35) : mouvements brusques. Une preuve sans
+# sauts / demi-tours / coups en quantite ne prouve rien.
+mv=[kv(l) for l in re.findall(r'^HDMOVES .*$',t,re.M)]
+if not mv: F("HDMOVES absent : la course doit enchainer sauts, demi-tours et coups de poing par entrees synthetiques et en publier le COMPTE")
+m=mv[-1]
+for k in ('sauts','demi_tours','coups'):
+    if int(m.get(k,0))<200: F(f"{m.get(k,0)} {k} pendant la preuve, il en faut >= 200 : le defaut se declenche sur des mouvements brusques")
 apres=[d for d in st if int(d.get('os_etires',-1))==0 and d.get('plateforme')=='redmi' and float(d.get('minutes',0))>=10]
 if not apres: F("aucune preuve APRES sur le Redmi a ZERO os etire sur >= 10 minutes")
 print("[Ghso ok] etirement compte par le code, reproduit sur appareil, attribue, puis zero sur >=10 min")
