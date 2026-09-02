@@ -783,8 +783,14 @@
     (t8-5 int))
   (when (> *font-str-trace* 0)
     (set! *font-str-trace* (+ *font-str-trace* -1))
-    (format 0 "FONT-STR large=~D len=~D str=~S~%"
+    ;; `table=` est la table de glyphes REELLEMENT consultee pour cette chaine (le meme test
+    ;; `large` qui choisit *font24-table* ou *font12-table* plus bas) ; `tbp=` est l'adresse
+    ;; VRAM (mots de 64) de l'atlas que le dessin direct liera pour elle — c'est la cle qui
+    ;; croise cette ligne avec `FONTTEX bind` du moteur C++.
+    (format 0 "FONT-STR large=~D table=~A tbp=0x~X len=~D str=~S~%"
             (if (logtest? (-> arg2 flags) (font-flags large)) 1 0)
+            (if (logtest? (-> arg2 flags) (font-flags large)) (quote *font24-table*) (quote *font12-table*))
+            (if (logtest? (-> arg2 flags) (font-flags large)) #x3980 #x3800)
             (length str-in)
             str-in))
   (set! r0 (the-as uint128 0))
