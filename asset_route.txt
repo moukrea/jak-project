@@ -5404,3 +5404,215 @@
 
 [asset-route] village1.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village1.fr3 (base-pack) custom=no 0B/t0 base=yes 13915635B/t1788297106
 
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1788297115
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1788302181
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1788302276
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] beach.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/beach.fr3 (base-pack) custom=no 0B/t0 base=yes 13060692B/t1788297105
+
+[asset-route] beach.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld (base-pack) custom=no 0B/t0 base=yes 4477409B/t1788301362
+
+[mesh-consolidate] level=beach OPENED /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld bytes=4477409 md5=94e99f69c3dc9288e57b6689bc44efad bake_version=9 -> APPLIED (verts=1407562 tangent_w_flipped=893399)
+
+[asset-route] lavatube.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.fr3 (base-pack) custom=no 0B/t0 base=yes 17915350B/t1788297114
+
+[asset-route] lavatube.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld (base-pack) custom=no 0B/t0 base=yes 14352928B/t1788301666
+
+[mesh-consolidate] level=lavatube OPENED /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld bytes=14352928 md5=54e016c3d4edf1fabca7b63e16e86507 bake_version=9 -> APPLIED (verts=4319448 tangent_w_flipped=3269329)
+
+[asset-route] village3.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village3.fr3 (base-pack) custom=no 0B/t0 base=yes 11178651B/t1788297136
+
+[asset-route] village3.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld (base-pack) custom=no 0B/t0 base=yes 4383303B/t1788302368
+
+[mesh-consolidate] level=village3 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld bytes=4383303 md5=21d817f4d18466e9c9bbb9dc3980723c bake_version=9 -> APPLIED (verts=1225653 tangent_w_flipped=872708)
+
+[asset-route] citadel.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.fr3 (base-pack) custom=no 0B/t0 base=yes 18604912B/t1788297123
+
+[asset-route] citadel.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld (base-pack) custom=no 0B/t0 base=yes 6409067B/t1788301426
+
+[mesh-consolidate] level=citadel OPENED /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld bytes=6409067 md5=d3920e752bc4a19178b06abc4c400ba9 bake_version=9 -> APPLIED (verts=2337250 tangent_w_flipped=1571357)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1788297115
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1788302181
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1788302276
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] beach.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/beach.fr3 (base-pack) custom=no 0B/t0 base=yes 13060692B/t1788297105
+
+[asset-route] beach.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld (base-pack) custom=no 0B/t0 base=yes 4477409B/t1788301362
+
+[mesh-consolidate] level=beach OPENED /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld bytes=4477409 md5=94e99f69c3dc9288e57b6689bc44efad bake_version=9 -> APPLIED (verts=1407562 tangent_w_flipped=893399)
+
+[asset-route] lavatube.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.fr3 (base-pack) custom=no 0B/t0 base=yes 17915350B/t1788297114
+
+[asset-route] lavatube.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld (base-pack) custom=no 0B/t0 base=yes 14352928B/t1788301666
+
+[mesh-consolidate] level=lavatube OPENED /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld bytes=14352928 md5=54e016c3d4edf1fabca7b63e16e86507 bake_version=9 -> APPLIED (verts=4319448 tangent_w_flipped=3269329)
+
+[asset-route] village3.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village3.fr3 (base-pack) custom=no 0B/t0 base=yes 11178651B/t1788297136
+
+[asset-route] village3.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld (base-pack) custom=no 0B/t0 base=yes 4383303B/t1788302368
+
+[mesh-consolidate] level=village3 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld bytes=4383303 md5=21d817f4d18466e9c9bbb9dc3980723c bake_version=9 -> APPLIED (verts=1225653 tangent_w_flipped=872708)
+
+[asset-route] citadel.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.fr3 (base-pack) custom=no 0B/t0 base=yes 18604912B/t1788297123
+
+[asset-route] citadel.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld (base-pack) custom=no 0B/t0 base=yes 6409067B/t1788301426
+
+[mesh-consolidate] level=citadel OPENED /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld bytes=6409067 md5=d3920e752bc4a19178b06abc4c400ba9 bake_version=9 -> APPLIED (verts=2337250 tangent_w_flipped=1571357)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1788297115
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1788302181
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1788302276
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] beach.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/beach.fr3 (base-pack) custom=no 0B/t0 base=yes 13060692B/t1788297105
+
+[asset-route] beach.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld (base-pack) custom=no 0B/t0 base=yes 4477409B/t1788301362
+
+[mesh-consolidate] level=beach OPENED /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld bytes=4477409 md5=94e99f69c3dc9288e57b6689bc44efad bake_version=9 -> APPLIED (verts=1407562 tangent_w_flipped=893399)
+
+[asset-route] lavatube.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.fr3 (base-pack) custom=no 0B/t0 base=yes 17915350B/t1788297114
+
+[asset-route] lavatube.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld (base-pack) custom=no 0B/t0 base=yes 14352928B/t1788301666
+
+[mesh-consolidate] level=lavatube OPENED /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld bytes=14352928 md5=54e016c3d4edf1fabca7b63e16e86507 bake_version=9 -> APPLIED (verts=4319448 tangent_w_flipped=3269329)
+
+[asset-route] village3.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village3.fr3 (base-pack) custom=no 0B/t0 base=yes 11178651B/t1788297136
+
+[asset-route] village3.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld (base-pack) custom=no 0B/t0 base=yes 4383303B/t1788302368
+
+[mesh-consolidate] level=village3 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld bytes=4383303 md5=21d817f4d18466e9c9bbb9dc3980723c bake_version=9 -> APPLIED (verts=1225653 tangent_w_flipped=872708)
+
+[asset-route] citadel.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.fr3 (base-pack) custom=no 0B/t0 base=yes 18604912B/t1788297123
+
+[asset-route] citadel.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld (base-pack) custom=no 0B/t0 base=yes 6409067B/t1788301426
+
+[mesh-consolidate] level=citadel OPENED /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld bytes=6409067 md5=d3920e752bc4a19178b06abc4c400ba9 bake_version=9 -> APPLIED (verts=2337250 tangent_w_flipped=1571357)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1788297115
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1788302181
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1788302276
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] beach.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/beach.fr3 (base-pack) custom=no 0B/t0 base=yes 13060692B/t1788297105
+
+[asset-route] beach.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld (base-pack) custom=no 0B/t0 base=yes 4477409B/t1788301362
+
+[mesh-consolidate] level=beach OPENED /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld bytes=4477409 md5=94e99f69c3dc9288e57b6689bc44efad bake_version=9 -> APPLIED (verts=1407562 tangent_w_flipped=893399)
+
+[asset-route] lavatube.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.fr3 (base-pack) custom=no 0B/t0 base=yes 17915350B/t1788297114
+
+[asset-route] lavatube.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld (base-pack) custom=no 0B/t0 base=yes 14352928B/t1788301666
+
+[mesh-consolidate] level=lavatube OPENED /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld bytes=14352928 md5=54e016c3d4edf1fabca7b63e16e86507 bake_version=9 -> APPLIED (verts=4319448 tangent_w_flipped=3269329)
+
+[asset-route] village3.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village3.fr3 (base-pack) custom=no 0B/t0 base=yes 11178651B/t1788297136
+
+[asset-route] village3.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld (base-pack) custom=no 0B/t0 base=yes 4383303B/t1788302368
+
+[mesh-consolidate] level=village3 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld bytes=4383303 md5=21d817f4d18466e9c9bbb9dc3980723c bake_version=9 -> APPLIED (verts=1225653 tangent_w_flipped=872708)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1788297115
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1788302181
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1788302276
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] beach.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/beach.fr3 (base-pack) custom=no 0B/t0 base=yes 13060692B/t1788297105
+
+[asset-route] beach.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld (base-pack) custom=no 0B/t0 base=yes 4477409B/t1788301362
+
+[mesh-consolidate] level=beach OPENED /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld bytes=4477409 md5=94e99f69c3dc9288e57b6689bc44efad bake_version=9 -> APPLIED (verts=1407562 tangent_w_flipped=893399)
+
+[asset-route] lavatube.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.fr3 (base-pack) custom=no 0B/t0 base=yes 17915350B/t1788297114
+
+[asset-route] lavatube.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld (base-pack) custom=no 0B/t0 base=yes 14352928B/t1788301666
+
+[mesh-consolidate] level=lavatube OPENED /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld bytes=14352928 md5=54e016c3d4edf1fabca7b63e16e86507 bake_version=9 -> APPLIED (verts=4319448 tangent_w_flipped=3269329)
+
+[asset-route] village3.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village3.fr3 (base-pack) custom=no 0B/t0 base=yes 11178651B/t1788297136
+
+[asset-route] village3.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld (base-pack) custom=no 0B/t0 base=yes 4383303B/t1788302368
+
+[mesh-consolidate] level=village3 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld bytes=4383303 md5=21d817f4d18466e9c9bbb9dc3980723c bake_version=9 -> APPLIED (verts=1225653 tangent_w_flipped=872708)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1788297115
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1788302181
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1788302276
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] beach.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/beach.fr3 (base-pack) custom=no 0B/t0 base=yes 13060692B/t1788297105
+
+[asset-route] beach.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld (base-pack) custom=no 0B/t0 base=yes 4477409B/t1788301362
+
+[mesh-consolidate] level=beach OPENED /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld bytes=4477409 md5=94e99f69c3dc9288e57b6689bc44efad bake_version=9 -> APPLIED (verts=1407562 tangent_w_flipped=893399)
+
+[asset-route] lavatube.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.fr3 (base-pack) custom=no 0B/t0 base=yes 17915350B/t1788297114
+
+[asset-route] lavatube.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld (base-pack) custom=no 0B/t0 base=yes 14352928B/t1788301666
+
+[mesh-consolidate] level=lavatube OPENED /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld bytes=14352928 md5=54e016c3d4edf1fabca7b63e16e86507 bake_version=9 -> APPLIED (verts=4319448 tangent_w_flipped=3269329)
+
+[asset-route] village3.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village3.fr3 (base-pack) custom=no 0B/t0 base=yes 11178651B/t1788297136
+
+[asset-route] village3.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld (base-pack) custom=no 0B/t0 base=yes 4383303B/t1788302368
+
+[mesh-consolidate] level=village3 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld bytes=4383303 md5=21d817f4d18466e9c9bbb9dc3980723c bake_version=9 -> APPLIED (verts=1225653 tangent_w_flipped=872708)
+
+[asset-route] citadel.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.fr3 (base-pack) custom=no 0B/t0 base=yes 18604912B/t1788297123
+
+[asset-route] citadel.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld (base-pack) custom=no 0B/t0 base=yes 6409067B/t1788301426
+
+[mesh-consolidate] level=citadel OPENED /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld bytes=6409067 md5=d3920e752bc4a19178b06abc4c400ba9 bake_version=9 -> APPLIED (verts=2337250 tangent_w_flipped=1571357)
+
+[asset-route] title.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/title.fr3 (base-pack) custom=no 0B/t0 base=yes 497030B/t1788297115
+
+[asset-route] title.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/title.meshweld (base-pack) custom=no 0B/t0 base=yes 52B/t1788302181
+
+[asset-route] village1.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld (base-pack) custom=no 0B/t0 base=yes 5933659B/t1788302276
+
+[mesh-consolidate] level=village1 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village1.meshweld bytes=5933659 md5=27b41d1cc5da5e6725649663d2bac541 bake_version=9 -> APPLIED (verts=1867939 tangent_w_flipped=1175085)
+
+[asset-route] beach.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/beach.fr3 (base-pack) custom=no 0B/t0 base=yes 13060692B/t1788297105
+
+[asset-route] beach.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld (base-pack) custom=no 0B/t0 base=yes 4477409B/t1788301362
+
+[mesh-consolidate] level=beach OPENED /home/emeric/code/jak-project/out/jak1/fr3/beach.meshweld bytes=4477409 md5=94e99f69c3dc9288e57b6689bc44efad bake_version=9 -> APPLIED (verts=1407562 tangent_w_flipped=893399)
+
+[asset-route] lavatube.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.fr3 (base-pack) custom=no 0B/t0 base=yes 17915350B/t1788297114
+
+[asset-route] lavatube.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld (base-pack) custom=no 0B/t0 base=yes 14352928B/t1788301666
+
+[mesh-consolidate] level=lavatube OPENED /home/emeric/code/jak-project/out/jak1/fr3/lavatube.meshweld bytes=14352928 md5=54e016c3d4edf1fabca7b63e16e86507 bake_version=9 -> APPLIED (verts=4319448 tangent_w_flipped=3269329)
+
+[asset-route] village3.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/village3.fr3 (base-pack) custom=no 0B/t0 base=yes 11178651B/t1788297136
+
+[asset-route] village3.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld (base-pack) custom=no 0B/t0 base=yes 4383303B/t1788302368
+
+[mesh-consolidate] level=village3 OPENED /home/emeric/code/jak-project/out/jak1/fr3/village3.meshweld bytes=4383303 md5=21d817f4d18466e9c9bbb9dc3980723c bake_version=9 -> APPLIED (verts=1225653 tangent_w_flipped=872708)
+
+[asset-route] citadel.fr3 -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.fr3 (base-pack) custom=no 0B/t0 base=yes 18604912B/t1788297123
+
+[asset-route] citadel.meshweld -> /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld (base-pack) custom=no 0B/t0 base=yes 6409067B/t1788301426
+
+[mesh-consolidate] level=citadel OPENED /home/emeric/code/jak-project/out/jak1/fr3/citadel.meshweld bytes=6409067 md5=d3920e752bc4a19178b06abc4c400ba9 bake_version=9 -> APPLIED (verts=2337250 tangent_w_flipped=1571357)
+
