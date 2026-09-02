@@ -2914,6 +2914,30 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
+- id: Gpbr-props-reach-draw
+  name: 'LES PROPRIETES PBR N''ARRIVENT PAS AU RENDU (owner 2026-08-31, refus) : « ça applique le PBR uniquement aux 7 textures
+    qui étaient dans le projet depuis un bail et ça ignore les autres ». MESURE : surfaces.json contient 172 matieres et EST
+    sur l''appareil au md5 pres, mais une course reelle n''enregistre que 37 matieres et ZERO ligne de clearcoat/aniso/reflectance/metallic.
+    La table est livree, lue, et son contenu n''atteint pas le draw.'
+  prompt: prompts/phase-Gpbr-props-reach-draw.md
+  validator: validators/phase-Gpbr-props-reach-draw.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gmenu-census-cleanup
+  name: 'RECENSER LE MENU ET EN SORTIR CE QUI N''A RIEN A Y FAIRE (owner 2026-08-31) : « des options sont un peu chelou ou
+    carrement inutilisées... recharged assets VS HD texture pack ? WTF. Modern Materials c''est quoi ? PBR test preset et
+    PBR isolate c''est quoi ? ». DEUX de ces entrees sont marquees « DEBUG, removable » DANS NOTRE PROPRE SOURCE et sont restees
+    dans le menu du joueur. Prealable a la refonte des menus qu''il a rouverte en disant « pas fini du tout ».'
+  prompt: prompts/phase-Gmenu-census-cleanup.md
+  validator: validators/phase-Gmenu-census-cleanup.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 global:
   git:
     push_after_each_phase: true

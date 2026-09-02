@@ -2097,26 +2097,6 @@ def main(argv: list[str] | None = None) -> int:
                 )
             time.sleep(30)
 
-    # REPRISE DES CHANTIERS INACHEVES (owner 2026-09-02 : « Pourquoi il s'arrete, il y a
-    # du backlog a faire non ? »). Arriver au bout de la liste ne veut PAS dire que tout
-    # est fait : 27 phases sur 277 n'ont jamais ete ni terminees ni validees — 15 bloquees
-    # sur un echec technique et jamais reprises, 11 sans aucune raison enregistree. Le
-    # curseur lineaire les enjambait et declarait la victoire. On revient donc au premier
-    # chantier inachevé qui n'est ni parque par l'owner ni bloque, et on continue.
-    if state["current_phase_idx"] >= len(phases):
-        done = set(state.get("completed", [])) | set(state.get("validator_passed", []))
-        parked = set(state.get("parked", {}))
-        blocked = set(state.get("blocked", []))
-        reprise = next((i for i, ph in enumerate(phases)
-                        if ph.get("id") not in done
-                        and ph.get("id") not in parked
-                        and ph.get("id") not in blocked), None)
-        if reprise is not None:
-            console.print(f"[cyan]fin de liste — reprise du chantier inacheve "
-                          f"{phases[reprise].get('id')} (index {reprise})[/cyan]")
-            state["current_phase_idx"] = reprise
-            save_state(state)
-            return 0
     if state["current_phase_idx"] >= len(phases):
         console.print("[bold green]🎉 All phases complete![/bold green]")
         total_elapsed = time.time() - datetime.fromisoformat(
