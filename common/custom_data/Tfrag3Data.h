@@ -741,6 +741,12 @@ struct MercModel {
   u32 st_vif_add = 0;
   float xyz_scale = 0;
   float st_magic = 0;
+  // Ghd-skin-origin-stretch (cycle 4) — RUNTIME SEULEMENT, jamais serialise : un bit par slot
+  // d'os (0..127) que les sommets de ce modele lisent (mats[0] toujours, mats[1]/[2] si leur poids
+  // est > 0). Calcule par le chargeur AVANT que les sommets CPU soient rendus
+  // (release_uploaded_merc_vertices) ; la sonde HDSKIN de Merc2 s'en sert pour ne juger que les os
+  // qu'un sommet consomme vraiment. Vide = inconnu.
+  std::vector<u8> used_bone_mask_rt;
   void serialize(Serializer& ser);
   void memory_usage(MemoryUsageTracker* tracker) const;
 };

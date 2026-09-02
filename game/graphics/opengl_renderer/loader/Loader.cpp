@@ -1108,7 +1108,47 @@ void compact_merc_vertex_pool(tfrag3::Level& lev) {
 // `effect.mod.vertices`, une copie PROPRE A CHAQUE EFFET, qui n'est pas touchee ici.
 // LES INDEX RESTENT : `Merc2.cpp:826` (eye_blerc) et la garde F1A-MERC-OOB (`Merc2.cpp:3048`,
 // evaluee a CHAQUE draw sur Android) lisent `merc_data.indices` en pleine partie.
+// Ghd-skin-origin-stretch (cycle 4) — LES SLOTS D'OS QUE CHAQUE MODELE LIT VRAIMENT, calcules ICI
+// parce que c'est le dernier instant ou les sommets CPU existent. La chaine de slots d'un paquet
+// merc liste TOUS les os du modele, `align` compris (slot 0, matrice model-space dans un
+// emplacement world-space, en-tete de jak-hd.gc l.49-50) ; sans ce masque la sonde HDSKIN prenait
+// `align` pour un os en fuite a 2 097 152 m sur chaque image. Meme regle que le shader merc2.vert :
+// mats[0] toujours, mats[1]/mats[2] seulement si leur poids est > 0.
+static void compute_merc_used_bone_masks(tfrag3::Level& lev) {
+  const auto& verts = lev.merc_data.vertices;
+  const auto& inds = lev.merc_data.indices;
+  for (auto& model : lev.merc_data.models) {
+    std::vector<u8> mask(128, 0);
+    auto scan = [&](const std::vector<tfrag3::MercDraw>& draws,
+                    const std::vector<tfrag3::MercVertex>& vs) {
+      for (const auto& d : draws) {
+        for (u32 q = d.first_index; q < d.first_index + d.index_count && q < inds.size(); q++) {
+          u32 vi = inds[q];
+          if (vi >= vs.size()) {
+            continue;  // index de redemarrage de bande, ou hors de ce tableau
+          }
+          const auto& v = vs[vi];
+          mask[v.mats[0] & 127] = 1;
+          if (v.weights[1] > 0.f) {
+            mask[v.mats[1] & 127] = 1;
+          }
+          if (v.weights[2] > 0.f) {
+            mask[v.mats[2] & 127] = 1;
+          }
+        }
+      }
+    };
+    for (const auto& eff : model.effects) {
+      scan(eff.all_draws, verts);
+      scan(eff.mod.fix_draw, verts);
+      scan(eff.mod.mod_draw, eff.mod.vertices);
+    }
+    model.used_bone_mask_rt = std::move(mask);
+  }
+}
+
 void release_uploaded_merc_vertices(tfrag3::Level& lev) {
+  compute_merc_used_bone_masks(lev);
   const size_t freed = lev.merc_data.vertices.size() * sizeof(tfrag3::MercVertex);
   std::vector<tfrag3::MercVertex>().swap(lev.merc_data.vertices);
   fmt::print("A58-MERCFREE lev={} libere={:.1f}MB (sommets CPU ; index gardes)\n", lev.level_name,

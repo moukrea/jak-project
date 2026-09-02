@@ -639,6 +639,25 @@
    `longueur_etirement_m=257,0198` contre `distance_origine_m=257,0197` — egales a SEPT chiffres
    significatifs. Une base ecrite ne prouve donc pas qu'un os porte la position monde du
    personnage ; il faut le dire des deux cotes."
+  ;; CYCLE 4 — UN OS A ECHELLE NULLE MAIS BIEN PLACE EST UNE POSE, PAS UNE MATRICE PERIMEE.
+  ;; Mesure (x86, 2026-09-02 13:05, marqueurs HDNANSRC) : dans les animations `eichar-racer-*`
+  ;; (Jak sur le zoomer), ND ECRASE les chevilles et les lanieres de pied a l'echelle zero
+  ;; (`det_ep=0.0000`, `arow_e=0.0000` sur Lankle/Rankle 28/32 et footLStrap/footRStrap 71/75) :
+  ;; c'est ainsi que le jeu d'origine cache les pieds dans la moto. La base est nulle, la
+  ;; TRANSLATION reste celle du joint. Le premier test de ce garde (`|ligne 0| >= 0.0001`) prenait
+  ;; cet os pour un os jamais ecrit et SAUTAIT le joint HD, qui gardait alors sa pose PRECEDENTE —
+  ;; une position MONDE d'avant le depart de la moto, pendant que le reste du corps s'eloignait :
+  ;; le pied HD s'etirait de la moto jusqu'au point de depart, d'autant plus loin qu'on avait roule.
+  ;; Le produit du reciblage avec une base nulle est ce qu'il faut : le pied HD s'effondre sur la
+  ;; cheville, exactement ce que ND dessine. Pour les os reels (i >= 4) seule la TRANSLATION fait
+  ;; donc foi : un os jamais ecrit (tas memsette a zero) est a (0,0,0), loin de `ref` des que le
+  ;; personnage est a plus de 40 m de l'origine ; un os NaN echoue a toute comparaison.
+  (if (< i 4)
+    (>= (vector-length-squared (-> s bones i transform vector 0)) 0.0001)
+    (< (vector-vector-distance (-> s bones i transform vector 3) ref) HD_BONE_SANE)))
+
+(defun hd-bone-usable-v3? ((s skeleton) (i int) (ref vector))
+  "Version du cycle 3, conservee pour reference : base ecrite ET translation vraisemblable."
   (and (>= (vector-length-squared (-> s bones i transform vector 0)) 0.0001)
        ;; LE TEST DE POSITION NE S'APPLIQUE PAS AUX OS STRUCTURELS DU PILOTE (indices 0 a 3).
        ;; L'en-tete de ce fichier (l.49-50) le documente : le joint `align` porte une matrice
@@ -653,6 +672,172 @@
        ;; au-dela (process-drawable.gc:265-271) : au-dessous de 4, seule la BASE fait foi.
        (or (< i 4)
            (< (vector-vector-distance (-> s bones i transform vector 3) ref) HD_BONE_SANE))))
+
+;; ------------------------------------------------------------------------------------------------
+;; Ghd-skin-origin-stretch, cycle 4 (owner 2026-09-02 : « Le modèle HD qui s'étire c'est pas
+;; corrigé du tout ») — LE FILET DE FINITUDE : AUCUN OS HD NON FINI NE SORT DU RECIBLAGE.
+;;
+;; CE QUE LA MESURE DU CYCLE 3 DISAIT DEJA, ET QUE PERSONNE N'AVAIT LU JUSQU'AU BOUT : le bras
+;; ARME de la campagne du 2026-09-02 08:00 rendait `HDHB4 nanimages=507 nanmax=10`, et les 507
+;; images tombent TOUTES entre `[JAK-HD-TGT] st=target-racing` a lavatube-middle et la fin de
+;; lavatube-end (prf.log l.49557-54089) — Jak SUR LE ZOOMER. Aucune autre situation de
+;; l'itineraire n'en produit. Un os NON FINI n'est pas une matrice nulle : le garde `hd-bone-usable?`
+;; ne le voit pas (toute comparaison IEEE avec NaN est fausse, et il ne regarde que le PILOTE), et
+;; il n'a rien a voir avec « pilote cache pendant un chargement ».
+;;
+;; POURQUOI x86 NE LE MONTRE PAS ET L'APPAREIL OUI. Sur x86, un sommet dont la matrice est NaN est
+;; simplement ECARTE par le GPU : le triangle disparait une image, invisible. Sur arm64, Merc2 porte
+;; une REPARATION (Gd3-jak, `#ifdef __aarch64__`, Merc2.cpp) qui remplace toute matrice non finie
+;; par l'instantane « dernier bon » du modele — pris sur une image ANTERIEURE, dans l'espace camera
+;; de CETTE image-la — ou par l'identite. Rendue avec la camera COURANTE, cette matrice pose le
+;; sommet la ou l'os ETAIT a l'ecran, pas la ou il est : le modele s'etire de la distance parcourue
+;; depuis, d'autant plus que le personnage va vite. C'est un defaut DEPENDANT DE L'APPAREIL PAR
+;; CONSTRUCTION (`#ifdef __aarch64__`), ce que « present sur son telephone, absent sur x86 » exige.
+;;
+;; LA SEULE INVERSION PAR IMAGE D'UNE MATRICE DU PILOTE est celle du mode 1 :
+;;     (matrix-4x4-inverse! inv1 A_ep)   avec A_ep = l'os PARENT du joint pilote.
+;; Un os pilote a ECHELLE NULLE sur un axe (det = 0) y produit inf/NaN, que le produit propage a
+;; tous les enfants HD (modes 1/2/3 lisent le parent HD deja recible). Les modes 0 et 3 n'inversent
+;; rien du pilote ; les autres inversions sont des constantes de bind.
+;;
+;; CE QUE LE FILET FAIT, ET IL EST AU NIVEAU DU MOTEUR, PAS DU MODELE :
+;;   1. mode 1 : si le parent pilote n'est pas INVERSIBLE (|det| de sa base < HD_DET_EPS), le joint
+;;      retombe sur le produit COLLE, qui ne lit rien du pilote — comme un os inutilisable ;
+;;   2. toute branche ecrit d'abord dans une matrice de travail ; elle n'est copiee dans le squelette
+;;      que si elle est FINIE. Sinon le joint est recolle sur son parent HD (produit colle) ou, sans
+;;      parent, garde la pose que le chemin stock vient de lui donner. Le compte est tenu PAR
+;;      BRANCHE (mode 0 / mode 3 / mode 1 / colle) : c'est l'attribution que le cycle 3 avait
+;;      nommee comme prochain pas, et elle se lit sans regarder une image.
+;; ARMEMENT RUNTIME (`*hd-finite-arm*`) : a 0, le filet COMPTE mais laisse passer — c'est le bras de
+;; controle de l'ablation, meme binaire, meme instrument. Sur l'appareil, la propriete
+;; `debug.opengoal.hd.finite_arm=0` le pose (kmachine.cpp, pont au moment du warp).
+;; ------------------------------------------------------------------------------------------------
+(define *hd-finite-arm* 1)
+(defglobalconstant HD_DET_EPS 0.000000001)
+(define *hd-nan-m0*     0)   ;; os non finis PRODUITS par la branche mode 0 (produit monde)
+(define *hd-nan-m3*     0)   ;; ... par la branche mode 3 (copie d'orientation)
+(define *hd-nan-m1*     0)   ;; ... par la branche mode 1 (delta local, la seule qui inverse le pilote)
+(define *hd-nan-glue*   0)   ;; ... par la branche collee (ne peut venir que d'un parent HD non fini)
+(define *hd-nan-frames* 0)   ;; images (par compagnon) ou au moins un os non fini a ete produit
+(define *hd-nan-glued*  0)   ;; reparations : joint recolle sur son parent HD (filet arme)
+(define *hd-nan-passed* 0)   ;; os non finis LAISSES PASSER dans le squelette (filet desarme)
+(define *hd-sing-ep*    0)   ;; parents pilotes NON INVERSIBLES refuses avant l'inversion (mode 1)
+(define *hd-nan-logs*   0)   ;; cap des lignes HDNANSRC
+
+(defun hd-mat-finite? ((m matrix))
+  "Vrai si les composantes xyz des quatre lignes sont FINIES. Une comparaison IEEE avec NaN est
+   fausse des deux cotes : on exige les DEUX bornes, et on ne fait confiance a aucune."
+  (let ((ok #t)
+        (lim HD_FAR_SANE)
+        (nlim (- 0.0 HD_FAR_SANE)))
+    (dotimes (r 4)
+      (let ((v (-> m vector r)))
+        (when (not (and (< (-> v x) lim) (> (-> v x) nlim)
+                        (< (-> v y) lim) (> (-> v y) nlim)
+                        (< (-> v z) lim) (> (-> v z) nlim)))
+          (set! ok #f))))
+    ok))
+
+(defun hd-mat-det3 ((m matrix))
+  "Determinant de la base 3x3 (lignes 0..2). Zero = un axe a echelle nulle = matrice non inversible."
+  (let ((a (-> m vector 0)) (b (-> m vector 1)) (c (-> m vector 2)))
+    (+ (* (-> a x) (- (* (-> b y) (-> c z)) (* (-> b z) (-> c y))))
+       (- 0.0 (* (-> a y) (- (* (-> b x) (-> c z)) (* (-> b z) (-> c x)))))
+       (* (-> a z) (- (* (-> b x) (-> c y)) (* (-> b y) (-> c x)))))))
+
+(defun hd-mat-invertible? ((m matrix))
+  (let ((d (hd-mat-det3 m)))
+    ;; NaN rend faux des deux cotes : un determinant non comparable est refuse aussi.
+    (or (> d HD_DET_EPS) (< d (- 0.0 HD_DET_EPS)))))
+
+(defun hd-nan-note! ((obj jak-hd) (branch int) (k int) (e int) (ep int) (p int) (md int))
+  "Un os HD NON FINI vient d'etre PRODUIT par la branche `branch` (1 mode 0, 2 mode 3, 3 mode 1,
+   4 collee). Compte par branche et publie, sous cap, le contexte qui attribue : joints, mode,
+   determinant du parent pilote, longueur de la base de l'os pilote, animation du pilote."
+  (case branch
+    ((1) (+! *hd-nan-m0* 1))
+    ((2) (+! *hd-nan-m3* 1))
+    ((3) (+! *hd-nan-m1* 1))
+    (else (+! *hd-nan-glue* 1)))
+  (when (< *hd-nan-logs* 80)
+    (+! *hd-nan-logs* 1)
+    (let* ((drv (the-as process-drawable (handle->process (-> obj driver))))
+           (ts  (if (and drv (nonzero? (-> drv draw))) (-> drv draw skeleton) (the-as skeleton #f)))
+           (tb  (if ts (-> ts length) 0))
+           (dep (if (and ts (!= ep #xff) (< (+ ep 1) tb))
+                  (hd-mat-det3 (the-as matrix (-> ts bones (+ ep 1) transform)))
+                  -1.0))
+           (are (if (and ts (!= e #xff) (< (+ e 1) tb))
+                  (vector-length (-> ts bones (+ e 1) transform vector 0))
+                  -1.0))
+           (fg  (if (and drv (-> drv skel)) (-> drv skel root-channel 0 frame-group) (the-as art-joint-anim #f))))
+      ;; deux lignes : un appel GOAL porte au plus 8 parametres, `format` en consomme deux.
+      (format 0 "HDNANSRC entry=~D branche=~D k=~D e=~D ep=~D p=~D~%"
+              (-> obj entry) branch k e ep p)
+      (format 0 "HDNANSRC2 md=~D det_ep=~f arow_e=~f anim=~S arme=~D~%"
+              md dep are (if fg (-> fg name) "none") *hd-finite-arm*)))
+  (none))
+
+(define *hd-nan-stale* 0)    ;; joints SAUTES par le garde dont la pose conservee etait non finie
+(define *hd-nan-bind*  0)    ;; reparations : pose de bind du joint ancree sur la racine du pilote
+(define *hd-nan-point* 0)    ;; reparations : joint effondre sur la racine (bind lui-meme non fini)
+
+(defun hd-nan-repair-bind! ((obj jak-hd) (k int) (hbind matrix))
+  "Pose de bind du joint k (hbind = bind MONDE, deja inverse depuis l'emplacement `bind-pose` qui
+   stocke l'inverse) ancree sur la racine du pilote ; si ce bind n'est pas fini, base nulle et
+   translation = racine : les sommets s'effondrent sur le personnage."
+  (let* ((skel (-> obj draw skeleton))
+         (drv  (the-as process-drawable (handle->process (-> obj driver))))
+         (dst  (the-as matrix (-> skel bones (+ k 1) transform)))
+         (rt   (if drv (-> drv root trans) (-> obj root trans))))
+    (cond
+      ((hd-mat-finite? hbind)
+       (matrix-copy! dst hbind)
+       (+! *hd-nan-bind* 1))
+      (else
+       (matrix-identity! dst)
+       (set! (-> dst vector 0 x) 0.0)
+       (set! (-> dst vector 1 y) 0.0)
+       (set! (-> dst vector 2 z) 0.0)
+       (set! (-> dst vector 3 x) 0.0)
+       (set! (-> dst vector 3 y) 0.0)
+       (set! (-> dst vector 3 z) 0.0)
+       (+! *hd-nan-point* 1)))
+    (+! (-> dst vector 3 x) (-> rt x))
+    (+! (-> dst vector 3 y) (-> rt y))
+    (+! (-> dst vector 3 z) (-> rt z))
+    (set! (-> dst vector 3 w) 1.0))
+  (none))
+
+
+(defun hd-nan-repair! ((obj jak-hd) (k int) (p int))
+  "Ecrit une pose FINIE, quoi qu'il arrive, dans l'os HD k+1. Dans l'ordre : produit colle sur le
+   parent HD s'il est fini ; sinon la pose de bind du joint ancree sur la racine du pilote (comme la
+   pose de secours) ; sinon — bind lui-meme non fini, joint a echelle nulle dans le rig HD — les
+   sommets sont effondres sur la racine du pilote (base nulle, translation = racine). Aucune de ces
+   trois sorties ne peut etre NaN ni a l'origine du monde."
+  (let* ((skel    (-> obj draw skeleton))
+         (hd-jgeo (-> obj draw jgeo))
+         (nbones  (-> skel length))
+         (drv     (the-as process-drawable (handle->process (-> obj driver))))
+         (dst     (the-as matrix (-> skel bones (+ k 1) transform)))
+         (hbind   (new-stack-matrix0))
+         (lk      (new-stack-matrix0)))
+    (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
+    (cond
+      ((and (!= p #xff) (< (+ p 1) nbones)
+            (hd-mat-finite? (the-as matrix (-> skel bones (+ p 1) transform)))
+            (hd-mat-finite? hbind))
+       (matrix*! lk hbind (-> hd-jgeo data p bind-pose))
+       (matrix*! dst lk (the-as matrix (-> skel bones (+ p 1) transform)))
+       (if (hd-mat-finite? dst)
+         (+! *hd-nan-glued* 1)
+         (hd-nan-repair-bind! obj k hbind)))
+      (else
+       (hd-nan-repair-bind! obj k hbind)))
+    (when (not drv)
+      (+! *hd-nan-point* 0)))
+  (none))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; the per-frame fill: overwrite the HD skeleton's world bone matrices from the driver's.
@@ -713,12 +898,18 @@
               (tmp   (new-stack-matrix0))
               (tmp2  (new-stack-matrix0))
               (lk    (new-stack-matrix0))
-              (inv1  (new-stack-matrix0)))
+              (inv1  (new-stack-matrix0))
+              ;; Ghd-skin-origin-stretch (cycle 4) : TOUTE branche ecrit ici, jamais directement dans
+              ;; le squelette. La copie vers l'os HD est faite par le FILET, plus bas, et seulement si
+              ;; le resultat est FINI. `wrote` nomme la branche qui a produit `res` (0 = aucune).
+              (res   (new-stack-matrix0)))
           (dotimes (k (-> obj hd-joints))
             (when (< (+ k 1) nbones)
               (let ((md (the int (-> kmode k)))
                     (e  (the int (-> k2e k)))
-                    (p  (the int (-> khd-par k))))
+                    (p  (the int (-> khd-par k)))
+                    (ep (the int (-> kdrv-par k)))
+                    (wrote 0))
                 (cond
                   ((or (zero? md) (= p #xff) (>= (+ p 1) nbones))
                    ;; mode 0 (or a rootless local joint, defensively): M1 world-delta math.
@@ -737,22 +928,30 @@
                         ;; produit ci-dessous. Si elle est perimee, le joint HD est SERVI par elle.
                         (when (not ok) (hd-stale-note! obj (= p #xff)))
                         (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
-                        (matrix*! (-> skel bones (+ k 1) transform) tmp (-> tgt-skel bones (+ e 1) transform))))))
+                        (matrix*! res tmp (-> tgt-skel bones (+ e 1) transform))
+                        (set! wrote 1)))))
                   (else
                    ;; modes 1/2: L'_k = inv(bind-pose_hd[k]) . bind-pose_hd[p]
                    (matrix-4x4-inverse! hbind (-> hd-jgeo data k bind-pose))
                    (matrix*! lk hbind (-> hd-jgeo data p bind-pose))
-                   (let* ((ep (the int (-> kdrv-par k)))
-                          ;; Ghd-skin-origin-stretch : les os pilotes que ce joint doit lire
+                   (let* (;; Ghd-skin-origin-stretch : les os pilotes que ce joint doit lire
                           ;; sont-ils ECRITS ? (un index non mappe ou hors squelette ne lit rien,
                           ;; il est donc « ok » ici et retombe sur la branche collee plus bas.)
                           (ok (and (or (= e #xff) (>= (+ e 1) tbones)
                                        (hd-bone-usable? tgt-skel (+ e 1) dref))
                                    (or (= ep #xff) (>= (+ ep 1) tbones)
-                                       (hd-bone-usable? tgt-skel (+ ep 1) dref)))))
+                                       (hd-bone-usable? tgt-skel (+ ep 1) dref))))
+                          ;; Ghd-skin-origin-stretch (cycle 4) : le mode 1 INVERSE le parent pilote.
+                          ;; Un parent a echelle nulle sur un axe (det = 0) rend inf/NaN, que le
+                          ;; produit propage a toute la chaine HD en dessous. Il est refuse AVANT
+                          ;; l'inversion, et compte a part : ce n'est pas un os « perime ».
+                          (sing (and (= md 1) (!= ep #xff) (< (+ ep 1) tbones)
+                                     (not (hd-mat-invertible?
+                                            (the-as matrix (-> tgt-skel bones (+ ep 1) transform)))))))
                      (when (not ok)
                        (+! *hd-guard-occ* 1)
                        (if (nonzero? *hd-guard-arm*) (+! *hd-guard-skips* 1)))
+                     (when sing (+! *hd-sing-ep* 1))
                      (cond
                        ;; Ghd-skin-origin-stretch : `hd-bone-posed?` ajoute aux DEUX gardes de mode.
                        ;; Un os pilote non ecrit fait retomber le joint sur le produit COLLE
@@ -777,19 +976,21 @@
                         (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
                         (matrix*! tmp2 tmp (the-as matrix (-> tgt-skel bones (+ e 1) transform)))
                         (matrix*! tmp lk (the-as matrix (-> skel bones (+ p 1) transform)))
-                        (let ((dst (the-as matrix (-> skel bones (+ k 1) transform))))
-                          (dotimes (r 3)
-                            (let ((len  (vector-length (-> tmp2 vector r)))
-                                  (blen (vector-length (-> hbind vector r))))
-                              (if (< 0.000001 len)
-                                (vector-float*! (-> dst vector r) (-> tmp2 vector r) (/ blen len))
-                                (vector-copy! (-> dst vector r) (-> tmp2 vector r)))
-                              (set! (-> dst vector r w) 0.0)))
-                          (vector-copy! (-> dst vector 3) (-> tmp vector 3))
-                          (set! (-> dst vector 3 w) 1.0)))
+                        (dotimes (r 3)
+                          (let ((len  (vector-length (-> tmp2 vector r)))
+                                (blen (vector-length (-> hbind vector r))))
+                            (if (< 0.000001 len)
+                              (vector-float*! (-> res vector r) (-> tmp2 vector r) (/ blen len))
+                              (vector-copy! (-> res vector r) (-> tmp2 vector r)))
+                            (set! (-> res vector r w) 0.0)))
+                        (vector-copy! (-> res vector 3) (-> tmp vector 3))
+                        (set! (-> res vector 3 w) 1.0)
+                        (set! wrote 2))
                        ((and (= md 1) (!= e #xff) (< (+ e 1) tbones)
                              (!= ep #xff) (< (+ ep 1) tbones)
-                             (or ok (zero? *hd-guard-arm*)))
+                             (or ok (zero? *hd-guard-arm*))
+                             ;; filet arme : un parent pilote non inversible n'entre jamais ici
+                             (or (not sing) (zero? *hd-finite-arm*)))
                         ;; Delta' = A'_e . inv(A'_ep) . inv(bind-pose_drv[ep]) . bind-pose_drv[e]
                         ;; SITE DE CONSOMMATION 3/3 (mode 1) : les DEUX matrices pilotes (`e` et son
                         ;; parent `ep`) entrent dans le delta ci-dessous.
@@ -801,12 +1002,44 @@
                         (matrix*! tmp tmp2 (-> tgt-jgeo data e bind-pose))
                         ;; W'_k = Delta' . L'_k . W'_par
                         (matrix*! tmp2 tmp lk)
-                        (matrix*! (-> skel bones (+ k 1) transform) tmp2
-                                  (the-as matrix (-> skel bones (+ p 1) transform))))
+                        (matrix*! res tmp2 (the-as matrix (-> skel bones (+ p 1) transform)))
+                        (set! wrote 3))
                        (else
                         ;; mode 2 glue (also mode-1 with a root driver joint, defensively)
-                        (matrix*! (-> skel bones (+ k 1) transform) lk
-                                  (the-as matrix (-> skel bones (+ p 1) transform)))))))))))))
+                        (matrix*! res lk (the-as matrix (-> skel bones (+ p 1) transform)))
+                        (set! wrote 4))))))
+                ;; ------------------------------------------------------------------------
+                ;; LE FILET DE FINITUDE (cycle 4). `res` n'atteint le squelette que s'il est
+                ;; fini. Un resultat non fini est COMPTE PAR BRANCHE (les deux bras), puis, filet
+                ;; arme, REPARE : recolle sur le parent HD (produit colle, qui ne lit rien du
+                ;; pilote) ou, sans parent utilisable, pose stock conservee. Filet desarme, il
+                ;; passe tel quel — c'est le bras de controle, et il est compte comme tel.
+                ;; ------------------------------------------------------------------------
+                (let ((dst (the-as matrix (-> skel bones (+ k 1) transform))))
+                  (cond
+                    ((and (nonzero? wrote) (hd-mat-finite? res))
+                     (matrix-copy! dst res))
+                    ((nonzero? wrote)
+                     ;; produit NON FINI : compte par branche (les deux bras), puis repare ou laisse
+                     (hd-nan-note! obj wrote k e ep p md)
+                     (cond
+                       ((zero? *hd-finite-arm*)
+                        (+! *hd-nan-passed* 1)
+                        (matrix-copy! dst res))
+                       (else
+                        (hd-nan-repair! obj k p))))
+                    ((and (nonzero? *hd-finite-arm*)
+                          ;; jamais sur les joints-racines du rig (align/prejoint, p=255) : leur
+                          ;; pose stock est une matrice MODEL-SPACE pres de l'origine PAR
+                          ;; CONSTRUCTION (en-tete l.49-50), aucun sommet ne les lit.
+                          (!= p #xff)
+                          (or (not (hd-mat-finite? dst))
+                              (>= (vector-vector-distance (-> dst vector 3) dref) HD_BONE_SANE)))
+                     ;; joint SAUTE par le garde (os pilote inutilisable) dont la pose conservee
+                     ;; est elle-meme non finie OU loin du personnage (une position monde d'une
+                     ;; image ancienne) : la conserver serait la meme faute, un cran plus loin.
+                     (+! *hd-nan-stale* 1)
+                     (hd-nan-repair! obj k p)))))))))
         ;; ----------------------------------------------------------------------------------
         ;; POSE DE SECOURS — UN COMPAGNON QUI N'A JAMAIS ETE RECIBLE NE DOIT PAS TENIR DE LA
         ;; MEMOIRE. Sauter le reciblage laisse le squelette du compagnon sur ce que le chemin
@@ -950,7 +1183,19 @@
   (set! *hd-stale-imgs* 0)
   (set! *hd-stale-jmax* 0)
   (set! *hd-stale-ents* 0)
-  (format 0 "HDRESET arme=~D~%" *hd-guard-arm*)
+  (set! *hd-nan-m0* 0)
+  (set! *hd-nan-m3* 0)
+  (set! *hd-nan-m1* 0)
+  (set! *hd-nan-glue* 0)
+  (set! *hd-nan-frames* 0)
+  (set! *hd-nan-glued* 0)
+  (set! *hd-nan-passed* 0)
+  (set! *hd-sing-ep* 0)
+  (set! *hd-nan-logs* 0)
+  (set! *hd-nan-stale* 0)
+  (set! *hd-nan-bind* 0)
+  (set! *hd-nan-point* 0)
+  (format 0 "HDRESET arme=~D farme=~D~%" *hd-guard-arm* *hd-finite-arm*)
   (none))
 
 (defun hd-model-name ((entry int))
@@ -1349,9 +1594,13 @@
   ;; qui aurait cesse de se recibler.
   (let ((s0 *hd-guard-occ*)
         (v0 *hd-stale-served*)
-        (w0 *hd-stale-nr*))
+        (w0 *hd-stale-nr*)
+        ;; cycle 4 : images (par compagnon) ou le reciblage a PRODUIT au moins un os non fini,
+        ;; toutes branches confondues — le numerateur du filet, sur le meme denominateur.
+        (n0 (+ *hd-nan-m0* *hd-nan-m3* *hd-nan-m1* *hd-nan-glue*)))
     (+! *hd-stale-imgs* 1)
     (fill-jak-hd-bones! obj)
+    (if (> (+ *hd-nan-m0* *hd-nan-m3* *hd-nan-m1* *hd-nan-glue*) n0) (+! *hd-nan-frames* 1))
     (if (> *hd-guard-occ* s0) (+! *hd-guard-frames* 1))
     (if (> *hd-stale-nr* w0) (+! *hd-stale-frnr* 1))
     (when (> *hd-stale-served* v0)
@@ -1793,7 +2042,18 @@
                 *hd-guard-arm*)
         (format 0 "HDHB6 staleroot=~D stalemax=~D nr=~D nrimg=~D arme=~D~%"
                 *hd-stale-root* *hd-stale-jmax* *hd-stale-nr* *hd-stale-frnr*
-                *hd-guard-arm*))))
+                *hd-guard-arm*)
+        ;; CYCLE 4 — LE FILET DE FINITUDE, PAR BRANCHE. `nanimgs` est le compte d'images (par
+        ;; compagnon) ou le reciblage a PRODUIT un os non fini ; `m0/m3/m1/glue` disent QUELLE
+        ;; branche l'a produit. Filet arme : `glued`/`kept` disent ce qu'il en a fait, et
+        ;; `passed` vaut 0 par construction ; filet desarme : `passed` compte ce qui est entre
+        ;; dans le squelette. `singep` = parents pilotes non inversibles refuses avant l'inversion.
+        (format 0 "HDHB7 nanm0=~D nanm3=~D nanm1=~D nanglue=~D nanimgs=~D farme=~D~%"
+                *hd-nan-m0* *hd-nan-m3* *hd-nan-m1* *hd-nan-glue* *hd-nan-frames*
+                *hd-finite-arm*)
+        (format 0 "HDHB8 glued=~D bind=~D point=~D stale=~D passed=~D singep=~D~%"
+                *hd-nan-glued* *hd-nan-bind* *hd-nan-point* *hd-nan-stale* *hd-nan-passed*
+                *hd-sing-ep*))))
   ;; phase 1: collect.
   (set! *hd-scan-driver-count* 0)
   (set! *hd-scan-companion-count* 0)

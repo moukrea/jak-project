@@ -5458,6 +5458,32 @@ static u64 level_warp_run() {
       fflush(stdout);
     }
   }
+  // Ghd-skin-origin-stretch (cycle 4) — BRAS DE L'ABLATION SUR L'APPAREIL. Le filet de finitude
+  // du reciblage HD (goal_src/jak1/pc/jak-hd.gc, `*hd-finite-arm*`) se desarme ici, depuis la
+  // propriete `debug.opengoal.hd.finite_arm=0` (env OG_HD_FINITE_ARM sur x86), pour que les deux
+  // bras tournent sur LE MEME APK : sans REPL sur le telephone, c'est le seul chemin vers un
+  // symbole GOAL. Un `int` GOAL est stocke brut dans la valeur du symbole. DEBUG SEUL : la
+  // propriete n'est jamais posee en production, et vide = on ne touche a rien (defaut GOAL = 1).
+  {
+    char armbuf[16] = {0};
+    if (const char* e = std::getenv("OG_HD_FINITE_ARM")) {
+      std::strncpy(armbuf, e, sizeof(armbuf) - 1);
+    }
+#if defined(__ANDROID__)
+    if (!armbuf[0]) {
+      char pbuf[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.hd.finite_arm", pbuf) > 0 && pbuf[0]) {
+        std::strncpy(armbuf, pbuf, sizeof(armbuf) - 1);
+      }
+    }
+#endif
+    if (armbuf[0] == '0' || armbuf[0] == '1') {
+      auto sym = intern_from_c("*hd-finite-arm*");
+      sym->value = (armbuf[0] == '1') ? 1 : 0;
+      printf("HDFINITEARM value=%d source=prop\n", (int)sym->value);
+      fflush(stdout);
+    }
+  }
   u32 start_fn = intern_from_c("start")->value;
   u32 lp = intern_from_c("*listener-process*")->value;
   u64 args[8] = {intern_from_c("play").offset, cont, 0, 0, 0, 0, 0, 0};
