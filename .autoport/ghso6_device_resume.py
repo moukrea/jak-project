@@ -46,7 +46,8 @@ def main():
     gpu = dict(frames=0, hd_frames=0, hd_stretch_frames=0, hd_stretch_bones=0, bones_judged=0,
                torn=0, same=0, nan=0, null=0, rep=0, norig=0, hd_bad_frames=0, hd_bad_bones=0,
                cmd_judged=0, cmd_bones=0, cmd_frames=0, cmd_nostock=0, scl_bones=0, scl_frames=0,
-               ring_ok=0, ring_bad=0, ring_nostamp=0, ring_judged=0, ring_far=0)
+               ring_ok=0, ring_bad=0, ring_nostamp=0, ring_judged=0, ring_far=0,
+               stock_w_bad=0, hd_w_bad=0, scl_abs_bones=0, scl_unjudged=0)
     goal = dict(imgs=0, etimgs=0, etos=0, nan=0, drvstale=0, origine=0, blend=0, inject=0, minutes=0.0,
                 cmdos=0, cmdimgs=0, sclos=0, sclimgs=0, sclep=0, drawdev=0, mtxdev=0, mtxjuges=0, mtxskel=0,
                 asmdiff=0, wocc=0, wimgs=0)
@@ -240,6 +241,12 @@ def main():
               f"anim={e.get('anim')} etat={e.get('st')} chemin={'colle-par-le-garde-d-echelle-mode1' if e.get('arme') == '1' else 'reciblage-mode1-inverse-du-parent-a-echelle-aberrante'}")
     for a in attribs[:200]:
         print(a)
+    # os_etires (cycle 6e) = la chaine HD de bout en bout : squelette ecrit vs commande du reciblage
+    # (cmdos), echelle de la base vs echelle du pilote (x2), longueur CONSOMMEE par le GPU vs longueur
+    # ECRITE (ring_far), matrice merc produite vs squelette (mtxdev). La comparaison a la reference
+    # STOCK (cmd_bones) est publiee A PART : le paquet stock porte lui-meme le w != 1 que le correctif
+    # retire du chemin HD (stock_w_bad), donc sa position n'est plus une commande fiable — c'est
+    # l'instrument qui le mesure, pas une hypothese.
     # os_etires = os RENDUS ou ECRITS a plus de 0,25 m de la pose COMMANDEE par l'animation en cours
     # (owner 21:05 : « pas dans un sens ou ils sont censes s'etirer, pas lie a l'animation ») :
     #   - squelette : position ecrite contre le produit du reciblage de la MEME image (tous joints) ;
@@ -251,7 +258,8 @@ def main():
     # aussi. Elle reste publiee comme diagnostic (`os_longueur`).
     print(f"HDSTRETCHCOUNT bras={tag} plateforme=redmi inject={inj} scenes={scenes} minutes={wall_s/60:.4f} "
           f"minutes_de_jeu_moteur={goal['minutes']:.4f} secondes_pad={pad_s} images={gpu['hd_frames']} "
-          f"os_etires={gpu['cmd_bones'] + goal['cmdos'] + gpu['scl_bones'] + goal['sclos'] + gpu['ring_far'] + goal['mtxdev']} critere=ecart-a-la-pose-commandee-0.25m-ou-echelle-de-base-hors-bande-ou-ecart-a-la-position-ecrite-par-goal "
+          f"os_etires={goal['cmdos'] + gpu['scl_bones'] + goal['sclos'] + gpu['ring_far'] + goal['mtxdev']} critere=squelette-vs-pose-commandee-0.25m+echelle-vs-commande-x2+longueur-consommee-vs-ecrite-0.25m+matrice-merc-vs-squelette-0.25m "
+          f"os_ecart_vs_reference_stock={gpu['cmd_bones']} reference_stock_w_hors_1={gpu['stock_w_bad']} hd_w_hors_1={gpu['hd_w_bad']} "
           f"affine_arme={','.join(sorted(affarm_seen)) or '1'} matrices_pilotes_non_affines={goal['wocc']} images_non_affines={goal['wimgs']} pire_w={w_worst:.6f} "
           f"os_matrice_merc_vs_squelette={goal['mtxdev']} os_juges_bones_mtx_calc={goal['mtxjuges']} squelette_change_apres_post={goal['mtxskel']} os_changes_avant_draw={goal['drawdev']} asm_vs_generique={goal['asmdiff']} "
           f"os_echelle_gpu={gpu['scl_bones']} images_echelle_gpu={gpu['scl_frames']} pire_echelle_gpu={scl_worst:.2f} "

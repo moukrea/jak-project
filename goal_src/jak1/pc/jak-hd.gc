@@ -2092,10 +2092,35 @@
                        (r2 (vector-length (-> skel bones (+ k 1) transform vector 2)))
                        (rmax (if (> bs 0.000001) (/ (fmax r0 (fmax r1 r2)) bs) 1.0))
                        (rmin (if (> bs 0.000001) (/ (fmin r0 (fmin r1 r2)) bs) 1.0))
+                       ;; L'ECHELLE COMMANDEE : celle du joint PILOTE e a cette image, relative a
+                       ;; son bind (les emplacements bind-pose stockent l'inverse : echelle de
+                       ;; bind = 1/|ligne de l'inverse|). Mesure Redmi dev6-prf : Daxter k=4
+                       ;; rend x4,5 sur une ligne pendant `sidekick-attack-from-stance`, ecart 0 a
+                       ;; la commande — c'est le squash & stretch de l'animation ND, le stock le
+                       ;; porte aussi. Le critere est donc RELATIF a l'echelle du pilote : une base
+                       ;; HD plus de 2x plus grande ou plus petite que celle que l'animation
+                       ;; commande est une echelle aberrante ; sans pilote (e = 255) rien a juger.
+                       (ee (the int (-> k2e k)))
+                       (esc (if (and (!= ee #xff) (< (+ ee 1) tbones))
+                              (let ((m (-> tskel bones (+ ee 1) transform))
+                                    (bi (-> drv draw jgeo data ee bind-pose)))
+                                (fmax (* (vector-length (-> m vector 0)) (vector-length (-> bi vector 0)))
+                                      (fmax (* (vector-length (-> m vector 1)) (vector-length (-> bi vector 1)))
+                                            (* (vector-length (-> m vector 2)) (vector-length (-> bi vector 2))))))
+                              -1.0))
+                       (esmin (if (and (!= ee #xff) (< (+ ee 1) tbones))
+                                (let ((m (-> tskel bones (+ ee 1) transform))
+                                      (bi (-> drv draw jgeo data ee bind-pose)))
+                                  (fmin (* (vector-length (-> m vector 0)) (vector-length (-> bi vector 0)))
+                                        (fmin (* (vector-length (-> m vector 1)) (vector-length (-> bi vector 1)))
+                                              (* (vector-length (-> m vector 2)) (vector-length (-> bi vector 2))))))
+                                -1.0))
                        ;; comme la longueur : pas sur un joint dont le parent est une racine du
                        ;; rig (mesure x86 c6ring : keira k=64 et samos k=41, parent prejoint,
                        ;; rendaient des lignes NULLES a chaque image — jamais ecrits, jamais lus)
-                       (sclbad (and lenok (not (and (< rmax HD_SCL_TOL) (> rmin (/ 1.0 HD_SCL_TOL)))))))
+                       (sclbad (and lenok (> esc 0.000001) (> esmin 0.000001)
+                                    (not (and (< (/ rmax esc) 2.0) (> (/ rmin esmin) 0.5)
+                                              (< (/ rmax esc) HD_FAR_SANE) (> (/ rmin esmin) -1.0))))))
                   (when sclbad
                     (+! nscl 1)
                     (+! *hd-scl-bones* 1)
@@ -2163,7 +2188,9 @@
                                   (if (and (!= ep #xff) (< (+ ep 1) tbones))
                                     (* (vector-length (-> tskel bones (+ ep 1) transform vector 0))
                                        (vector-length (-> drv draw jgeo data ep bind-pose vector 0)))
-                                    -1.0))))))))))
+                                    -1.0)))
+                        ;; l'echelle COMMANDEE par le joint pilote e (max / min sur ses lignes)
+                        (format 0 "HDLENG7 e=~D scle_max=~f scle_min=~f~%" ee esc esmin))))))))
           (when (> n 0)
             (+! *hd-len-frames* 1)
             (+! *hd-len-bones* n)

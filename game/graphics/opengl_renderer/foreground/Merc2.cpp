@@ -1876,6 +1876,18 @@ constexpr float HD_CMD_ANGLE_MIN_U = 204.8f;
 // 0,2 : le squash & stretch legitime de Daxter reste dessous, une base x13 est dehors.
 constexpr float HD_SCL_MAX_ROW = 5.0f;
 constexpr float HD_SCL_MIN_ROW = 0.2f;
+// L'ECHELLE JUGEE EST RELATIVE A LA COMMANDE. Mesure : Daxter k=4 rend x4,5 sur une ligne
+// pendant `sidekick-attack-from-stance` avec un ecart NUL a la commande — c'est le squash &
+// stretch de ND, et le paquet stock du pilote le porte aussi ; l'absolu [0,2 ; 5] le comptait
+// (707 os sur la preuve). Le verdict compare donc chaque ligne de l'os HD a la ligne
+// correspondante de la t-mtx stock du pilote : ratio hors [0,5 ; 2] = scl_bad. Une ligne stock
+// sous 1e-6 (nulle) rend le ratio indefini : non juge. L'absolu reste un diagnostic
+// (scl_abs_bones).
+constexpr float HD_SCL_REL_MAX = 2.0f;
+constexpr float HD_SCL_REL_MIN = 0.5f;
+constexpr float HD_SCL_STOCK_ROW_EPS = 1e-6f;
+// |w - 1| au-dela duquel une t-mtx n'est pas affine (f[15], ligne 3 colonne w)
+constexpr float HD_W_EPS = 1e-4f;
 
 struct HdLenStats {
   u64 last_frame = ~0ull;
@@ -1888,8 +1900,12 @@ struct HdLenStats {
   u64 hd_bad_frames = 0, hd_bad_bones = 0;
   u64 cmd_judged = 0, cmd_bones = 0, cmd_frames = 0, cmd_nostock = 0;
   float cmd_worst_m = 0.f;
-  u64 scl_bones = 0, scl_frames = 0;
-  float scl_worst = 0.f;  // max sur les os de max(max(r), 1/min(r)) — voir hdlen_row_worst
+  u64 scl_bones = 0, scl_frames = 0;  // echelle RELATIVE au stock (le verdict)
+  float scl_worst = 0.f;              // pire facteur relatif : max(rel_max, 1/rel_min)
+  u64 scl_abs_bones = 0;   // diagnostic : lignes hors [0,2 ; 5] en absolu (l'ancien critere)
+  u64 scl_unjudged = 0;    // os sans reference stock (ou sous une racine) : echelle non jugee
+  u64 stock_w_bad = 0;     // os compares (cmd) dont la t-mtx STOCK a |w - 1| > 1e-4
+  u64 hd_w_bad = 0;        // os juges dont la t-mtx HD a |w - 1| > 1e-4
   // anneau GOAL : ring_ok/ring_bad sur les os MAUVAIS apparies (d_goal < / >= 0,10 m),
   // ring_nostamp = paquets HD sans cellule appariee, ring_judged/ring_far sur TOUS les os juges
   u64 ring_ok = 0, ring_bad = 0, ring_nostamp = 0, ring_judged = 0, ring_far = 0;
@@ -1966,7 +1982,8 @@ void hdlen_close_frame() {
            "worst_m=%.2f rigs=%d norig=%llu hd_bad_frames=%llu hd_bad_bones=%llu "
            "cmd_judged=%llu cmd_bones=%llu cmd_frames=%llu cmd_worst_m=%.2f cmd_nostock=%llu "
            "scl_bones=%llu scl_frames=%llu scl_worst=%.2f ring_ok=%llu ring_bad=%llu "
-           "ring_nostamp=%llu ring_judged=%llu ring_far=%llu\n",
+           "ring_nostamp=%llu ring_judged=%llu ring_far=%llu stock_w_bad=%llu hd_w_bad=%llu "
+           "scl_abs_bones=%llu scl_unjudged=%llu\n",
            (unsigned long long)s_hdlen.frames, (unsigned long long)s_hdlen.hd_frames,
            (unsigned long long)s_hdlen.hd_stretch_frames,
            (unsigned long long)s_hdlen.hd_stretch_bones, (unsigned long long)s_hdlen.bones_judged,
@@ -1981,7 +1998,9 @@ void hdlen_close_frame() {
            (unsigned long long)s_hdlen.scl_frames, s_hdlen.scl_worst,
            (unsigned long long)s_hdlen.ring_ok, (unsigned long long)s_hdlen.ring_bad,
            (unsigned long long)s_hdlen.ring_nostamp, (unsigned long long)s_hdlen.ring_judged,
-           (unsigned long long)s_hdlen.ring_far);
+           (unsigned long long)s_hdlen.ring_far, (unsigned long long)s_hdlen.stock_w_bad,
+           (unsigned long long)s_hdlen.hd_w_bad, (unsigned long long)s_hdlen.scl_abs_bones,
+           (unsigned long long)s_hdlen.scl_unjudged);
     fflush(stdout);
   }
 }
@@ -2866,6 +2885,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         float pos[3], ppos[3];
         float rows[3], prows[3], t[3];
         float goal_cam[3], d_goal;  // anneau GOAL : d_goal = -1 sans cellule appariee
+        float stock_rows[3], hd_w;  // lignes de la t-mtx stock (-1 sans stock), w de l'os HD
         int nan, null, torn, same, psame, rep;
       };
       struct HdCmdHit {
@@ -2874,6 +2894,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         float ren[3], cmd[3];
         float rows[3], prows[3], t[3];
         float goal_cam[3], d_goal;
+        float stock_rows[3], stock_w, hd_w;
         int torn, same, rep;
       };
       constexpr int HD_LEN_EV_PER_PACKET = 8;  // au plus 8 os publies par paquet, par sonde
@@ -2918,9 +2939,35 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         const bool is_nan = len_ok && !std::isfinite(len);
         const bool len_bad = len_ok && (is_nan || (len > HD_LEN_RATIO * rest + HD_LEN_FLOOR_U));
 
-        // --- la base : lignes de l'os et du parent (voir HD_SCL_MAX_ROW). Juge sur CHAQUE os,
-        //     racine ou pas : une base explosee n'a pas besoin d'une longueur pour etre fausse ---
-        float rows[3], prows[3];
+        // --- la t-mtx STOCK du pilote de ce joint (meme image), reference commune de la
+        //     commande et de l'echelle : mode 0, pilote mappe, slot e+1 fourni par le stock ---
+        const float* stock_f = nullptr;
+        if (stock && rig.mode[k] == 0 && rig.e[k] != 255) {
+          const int es = rig.e[k] + 1;
+          if (es < MAX_SKEL_BONES && stock->provided.test(es)) {
+            stock_f = stock->tmat[es];
+          }
+        }
+        // LE w DES MATRICES. Cause trouvee cote GOAL : une composante w != 1 sur la ligne 3 des
+        // matrices pilote, multipliee par cam3 (l'origine du monde en camera) deplace le joint
+        // de (1 - w3) x |cam3| (10 m a finalboss). Le correctif GOAL rend les matrices HD
+        // affines ; le paquet STOCK, lui, n'est pas notre chemin et porte encore w3 ~ 0,998 :
+        // la commande derivee du stock est donc elle-meme deplacee de (1 - w3) x |cam3|
+        // (cmd_bones=54252 avec le correctif arme, ring_far=0). f[15] des deux matrices est
+        // publie a cote de chaque ecart : c'est la preuve que l'ecart est porte par le w stock.
+        const float hd_w = f[15];
+        const float stock_w = stock_f ? stock_f[15] : -1.f;
+        if (std::fabs(hd_w - 1.f) > HD_W_EPS) {
+          s_hdlen.hd_w_bad++;
+        }
+        if (stock_f && std::fabs(stock_w - 1.f) > HD_W_EPS) {
+          s_hdlen.stock_w_bad++;
+        }
+
+        // --- la base : lignes de l'os et du parent, RELATIVES a la ligne correspondante de la
+        //     t-mtx stock du pilote (voir HD_SCL_REL_MAX). L'absolu [0,2 ; 5] reste publie en
+        //     diagnostic (scl_abs_bones) mais ne juge plus. ---
+        float rows[3], prows[3], stock_rows[3] = {-1.f, -1.f, -1.f};
         hdlen_rows(f, rows);
         hdlen_rows(pf, prows);
         const float rmax = std::max(rows[0], std::max(rows[1], rows[2]));
@@ -2928,56 +2975,76 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         // comme la longueur (len_ok) : pas sur un joint dont le parent est une racine du rig —
         // mesure x86 c6ring3 : 248 « echelles » et 952 « longueurs GOAL » toutes sur k=2
         // (main -> prejoint, matrice model-space), a chaque image, jamais lues par un sommet
-        const bool scl_bad = len_ok && (!std::isfinite(rmax) || !std::isfinite(rmin) ||
-                                        rmax > HD_SCL_MAX_ROW || rmin < HD_SCL_MIN_ROW);
-        if (scl_bad) {
-          s_hdlen.scl_bones++;
-          s_hdlen.cur_scl = true;
-          const float w = hdlen_row_worst(rows);
-          if (std::isfinite(w) && w > s_hdlen.scl_worst) {
-            s_hdlen.scl_worst = w;
+        const bool scl_abs_bad = len_ok && (!std::isfinite(rmax) || !std::isfinite(rmin) ||
+                                            rmax > HD_SCL_MAX_ROW || rmin < HD_SCL_MIN_ROW);
+        if (scl_abs_bad) {
+          s_hdlen.scl_abs_bones++;
+        }
+        bool scl_bad = false;
+        if (stock_f) {
+          hdlen_rows(stock_f, stock_rows);
+        }
+        if (stock_f && len_ok && stock_rows[0] >= HD_SCL_STOCK_ROW_EPS &&
+            stock_rows[1] >= HD_SCL_STOCK_ROW_EPS && stock_rows[2] >= HD_SCL_STOCK_ROW_EPS) {
+          float rel[3];
+          for (int r = 0; r < 3; r++) {
+            rel[r] = rows[r] / stock_rows[r];
           }
+          const float rel_max = std::max(rel[0], std::max(rel[1], rel[2]));
+          const float rel_min = std::min(rel[0], std::min(rel[1], rel[2]));
+          scl_bad = !std::isfinite(rel_max) || !std::isfinite(rel_min) ||
+                    rel_max > HD_SCL_REL_MAX || rel_min < HD_SCL_REL_MIN;
+          if (scl_bad) {
+            s_hdlen.scl_bones++;
+            s_hdlen.cur_scl = true;
+            // le pire facteur RELATIF : max(rel_max, 1/rel_min) quand rel_min > 0
+            const float w = hdlen_row_worst(rel);
+            if (std::isfinite(w) && w > s_hdlen.scl_worst) {
+              s_hdlen.scl_worst = w;
+            }
+          }
+        } else {
+          // sans reference stock (pas de capture, hors mode 0, pilote non fourni, ligne stock
+          // nulle) ou sous une racine : l'echelle n'est pas jugee, et ca se compte
+          s_hdlen.scl_unjudged++;
         }
 
         // --- la commande ---
         bool cmd_ok = false, cmd_bad = false;
         float dev = -1.f, dev_prev = -1.f, saut = 0.f, len_cmd = -1.f, angle = -1.f;
         float cmd[3] = {0.f, 0.f, 0.f};
-        if (stock && rig.mode[k] == 0 && rig.e[k] != 255) {
-          const int es = rig.e[k] + 1;
-          if (es < MAX_SKEL_BONES && stock->provided.test(es)) {
-            hdlen_joint_pos(stock->tmat[es], rig.bp[k], cmd);
-            const float cx = pos[0] - cmd[0], cy = pos[1] - cmd[1], cz = pos[2] - cmd[2];
-            dev = std::sqrt(cx * cx + cy * cy + cz * cz);
-            cmd_ok = true;
-            s_hdlen.cmd_judged++;
-            cmd_bad = !std::isfinite(dev) || dev > HD_CMD_DEV_U;
-            // « subit » : dev_prev = -1 sans echantillon anterieur, et le saut vaut alors dev
-            // entier (l'ecart est apparu dans la fenetre d'observation)
-            dev_prev = last.dev_valid.test(s) ? last.dev[s] : -1.f;
-            saut = (dev_prev >= 0.f) ? dev - dev_prev : dev;
-            new_dev[s] = dev;
-            new_dev_valid.set(s);
-            if (std::isfinite(dev) && dev / 4096.f > s_hdlen.cmd_worst_m) {
-              s_hdlen.cmd_worst_m = dev / 4096.f;
-            }
-            // longueur et direction commandees de l'os, si le parent est lui aussi commande
-            if (rig.mode[pk] == 0 && rig.e[pk] != 255) {
-              const int eps = rig.e[pk] + 1;
-              if (eps < MAX_SKEL_BONES && stock->provided.test(eps)) {
-                float cmd_p[3];
-                hdlen_joint_pos(stock->tmat[eps], rig.bp[pk], cmd_p);
-                const float vx = cmd[0] - cmd_p[0], vy = cmd[1] - cmd_p[1],
-                            vz = cmd[2] - cmd_p[2];
-                len_cmd = std::sqrt(vx * vx + vy * vy + vz * vz);
-                // angle entre l'os rendu (dx,dy,dz) et l'os commande (vx,vy,vz), en degres,
-                // seulement si les deux font plus de 0,05 m : sous ca, la direction est du bruit
-                if (len > HD_CMD_ANGLE_MIN_U && len_cmd > HD_CMD_ANGLE_MIN_U &&
-                    std::isfinite(len) && std::isfinite(len_cmd)) {
-                  float c = (dx * vx + dy * vy + dz * vz) / (len * len_cmd);
-                  c = std::max(-1.f, std::min(1.f, c));
-                  angle = std::acos(c) * (180.f / 3.14159265f);
-                }
+        if (stock_f) {
+          hdlen_joint_pos(stock_f, rig.bp[k], cmd);
+          const float cx = pos[0] - cmd[0], cy = pos[1] - cmd[1], cz = pos[2] - cmd[2];
+          dev = std::sqrt(cx * cx + cy * cy + cz * cz);
+          cmd_ok = true;
+          s_hdlen.cmd_judged++;
+          cmd_bad = !std::isfinite(dev) || dev > HD_CMD_DEV_U;
+          // « subit » : dev_prev = -1 sans echantillon anterieur, et le saut vaut alors dev
+          // entier (l'ecart est apparu dans la fenetre d'observation)
+          dev_prev = last.dev_valid.test(s) ? last.dev[s] : -1.f;
+          saut = (dev_prev >= 0.f) ? dev - dev_prev : dev;
+          new_dev[s] = dev;
+          new_dev_valid.set(s);
+          if (std::isfinite(dev) && dev / 4096.f > s_hdlen.cmd_worst_m) {
+            s_hdlen.cmd_worst_m = dev / 4096.f;
+          }
+          // longueur et direction commandees de l'os, si le parent est lui aussi commande
+          if (rig.mode[pk] == 0 && rig.e[pk] != 255) {
+            const int eps = rig.e[pk] + 1;
+            if (eps < MAX_SKEL_BONES && stock->provided.test(eps)) {
+              float cmd_p[3];
+              hdlen_joint_pos(stock->tmat[eps], rig.bp[pk], cmd_p);
+              const float vx = cmd[0] - cmd_p[0], vy = cmd[1] - cmd_p[1],
+                          vz = cmd[2] - cmd_p[2];
+              len_cmd = std::sqrt(vx * vx + vy * vy + vz * vz);
+              // angle entre l'os rendu (dx,dy,dz) et l'os commande (vx,vy,vz), en degres,
+              // seulement si les deux font plus de 0,05 m : sous ca, la direction est du bruit
+              if (len > HD_CMD_ANGLE_MIN_U && len_cmd > HD_CMD_ANGLE_MIN_U &&
+                  std::isfinite(len) && std::isfinite(len_cmd)) {
+                float c = (dx * vx + dy * vy + dz * vz) / (len * len_cmd);
+                c = std::max(-1.f, std::min(1.f, c));
+                angle = std::acos(c) * (180.f / 3.14159265f);
               }
             }
           }
@@ -3075,6 +3142,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           h.t[2] = f[14];
           std::memcpy(h.goal_cam, goal_cam, sizeof(goal_cam));
           h.d_goal = d_goal;
+          std::memcpy(h.stock_rows, stock_rows, sizeof(stock_rows));
+          h.hd_w = hd_w;
           h.nan = is_nan ? 1 : 0;
           h.null = a_null;
           h.rep = a_rep;
@@ -3120,6 +3189,9 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           c.t[2] = f[14];
           std::memcpy(c.goal_cam, goal_cam, sizeof(goal_cam));
           c.d_goal = d_goal;
+          std::memcpy(c.stock_rows, stock_rows, sizeof(stock_rows));
+          c.stock_w = stock_w;
+          c.hd_w = hd_w;
           c.torn = a_torn;
           c.same = a_same;
           c.rep = a_rep;
@@ -3139,7 +3211,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
                  "ratio=%.2f pos=(%.2f,%.2f,%.2f) ppos=(%.2f,%.2f,%.2f) nan=%d null=%d torn=%d "
                  "same=%d psame=%d gap=%llu rep=%d n_stretched=%d dev_m=%.3f stock_gap=%lld "
                  "rows=(%.2f,%.2f,%.2f) prows=(%.2f,%.2f,%.2f) t=(%.2f,%.2f,%.2f) "
-                 "stamp_ok=%d goal_cam=(%.2f,%.2f,%.2f) d_goal_m=%.3f\n",
+                 "stamp_ok=%d goal_cam=(%.2f,%.2f,%.2f) d_goal_m=%.3f "
+                 "stock_rows=(%.2f,%.2f,%.2f) hd_w=%.4f\n",
                  (unsigned long long)render_state->frame_idx, name, owner_pid, h.k, h.parent,
                  h.len / 4096.f, h.rest / 4096.f, h.ratio, h.pos[0] / 4096.f, h.pos[1] / 4096.f,
                  h.pos[2] / 4096.f, h.ppos[0] / 4096.f, h.ppos[1] / 4096.f, h.ppos[2] / 4096.f,
@@ -3148,7 +3221,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
                  h.rows[0], h.rows[1], h.rows[2], h.prows[0], h.prows[1], h.prows[2],
                  h.t[0] / 4096.f, h.t[1] / 4096.f, h.t[2] / 4096.f, stamp_ok ? 1 : 0,
                  h.goal_cam[0] / 4096.f, h.goal_cam[1] / 4096.f, h.goal_cam[2] / 4096.f,
-                 h.d_goal >= 0.f ? h.d_goal / 4096.f : -1.f);
+                 h.d_goal >= 0.f ? h.d_goal / 4096.f : -1.f, h.stock_rows[0], h.stock_rows[1],
+                 h.stock_rows[2], h.hd_w);
         }
         fflush(stdout);
       }
@@ -3161,7 +3235,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
                  "dev_prev_m=%.3f saut_m=%.3f len_cmd_m=%.3f len_ren_m=%.3f angle_deg=%.1f "
                  "ren=(%.2f,%.2f,%.2f) cmd=(%.2f,%.2f,%.2f) torn=%d same=%d rep=%d "
                  "stock_gap=%lld rows=(%.2f,%.2f,%.2f) prows=(%.2f,%.2f,%.2f) "
-                 "t=(%.2f,%.2f,%.2f) stamp_ok=%d goal_cam=(%.2f,%.2f,%.2f) d_goal_m=%.3f\n",
+                 "t=(%.2f,%.2f,%.2f) stamp_ok=%d goal_cam=(%.2f,%.2f,%.2f) d_goal_m=%.3f "
+                 "stock_rows=(%.2f,%.2f,%.2f) stock_w=%.4f hd_w=%.4f\n",
                  (unsigned long long)render_state->frame_idx, name, owner_pid, driver_pid, c.k,
                  c.e, c.dev / 4096.f, c.dev_prev >= 0.f ? c.dev_prev / 4096.f : -1.f,
                  c.saut / 4096.f, c.len_cmd >= 0.f ? c.len_cmd / 4096.f : -1.f,
@@ -3171,7 +3246,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
                  c.prows[0], c.prows[1], c.prows[2], c.t[0] / 4096.f, c.t[1] / 4096.f,
                  c.t[2] / 4096.f, stamp_ok ? 1 : 0, c.goal_cam[0] / 4096.f,
                  c.goal_cam[1] / 4096.f, c.goal_cam[2] / 4096.f,
-                 c.d_goal >= 0.f ? c.d_goal / 4096.f : -1.f);
+                 c.d_goal >= 0.f ? c.d_goal / 4096.f : -1.f, c.stock_rows[0], c.stock_rows[1],
+                 c.stock_rows[2], c.stock_w, c.hd_w);
         }
         fflush(stdout);
       }
