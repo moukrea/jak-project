@@ -558,6 +558,54 @@
                                ;; jamais ecrit, en-tete l.49-50) et n'ont aucun effet visible, donc
                                ;; elles sont comptees A PART et n'entrent pas dans les OCCASIONS.
 
+;; ------------------------------------------------------------------------------------------------
+;; Ghd-skin-origin-stretch — SONDE DE MATRICE PERIMEE (protocole du superviseur, 2026-09-02 07:10).
+;;
+;; « ON NE MESURE PLUS LE SYMPTOME, ON MESURE LA CAUSE. [...] A CHAQUE IMAGE et pour CHAQUE joint
+;;   pilote, tester la matrice consommee [...] Publier le compte d'images ou au moins un joint est
+;;   servi par une matrice PERIMEE. »
+;;
+;; LA DIFFERENCE AVEC `*hd-guard-occ*`, ET ELLE EST LE VERDICT. `occ` compte les DETECTIONS : il
+;; s'incremente que le garde soit arme ou non, donc il vaut 12064 sur le bras arme alors qu'AUCUNE
+;; de ces matrices n'a ete consommee (elles sont toutes refusees : `skips` = `occ` + `occ-root`,
+;; 60741 = 12064 + 48677 au bit pres sur la course du 2026-09-02). Les compteurs ci-dessous sont
+;; poses AU SITE D'ECRITURE, dans la branche qui consomme reellement la matrice du pilote : ils ne
+;; comptent que ce qui a ETE SERVI. C'est la grandeur que la porte nomme, et elle est la meme des
+;; deux cotes de l'ablation — donc le zero du bras arme est falsifiable, puisque le MEME compteur,
+;; dans le MEME binaire, tire massivement des que `*hd-guard-arm*` passe a 0.
+;;
+;; TROIS SITES DE CONSOMMATION, ET IL N'Y EN A PAS D'AUTRE : `fill-jak-hd-bones!` ne lit une matrice
+;; du squelette pilote qu'aux lignes du mode 0 (produit monde), du mode 3 (rotation) et du mode 1
+;; (delta local). La branche COLLEE ne lit rien du pilote, et la pose de secours n'utilise que
+;; `root trans` du process. Chacun des trois porte l'appel ci-dessous.
+;; ------------------------------------------------------------------------------------------------
+(define *hd-stale-served* 0)   ;; ECRITURES de joint HD servies par une matrice pilote PERIMEE
+(define *hd-stale-root*   0)   ;; part de ces ecritures portant un joint-RACINE du rig HD (p=255)
+(define *hd-stale-nr*     0)   ;; le COMPLEMENT : les ecritures sur un joint qui a un parent HD
+(define *hd-stale-frames* 0)   ;; images ou AU MOINS UNE de ces ecritures a eu lieu — LE VERDICT
+(define *hd-stale-frnr*   0)   ;; images ou au moins une ecriture HORS RACINE a eu lieu.
+                               ;; POURQUOI LES DEUX, ET C'EST UNE MESURE QUI L'IMPOSE : la premiere
+                               ;; course instrumentee (2026-09-02 07:44, bras desarme) rendait
+                               ;; `staleimg = imgs` a l'unite pres — 4330 sur 4330. Les occasions de
+                               ;; RACINE se presentent sur PRESQUE TOUTES les images (l'os `align`
+                               ;; du pilote n'est jamais ecrit, en-tete l.49-50 : c'est une
+                               ;; constante de construction, pas le defaut de l'owner). Un compte
+                               ;; qui vaut son propre denominateur ne discrimine plus rien ; le
+                               ;; sous-ensemble HORS RACINE, lui, porte les joints reellement
+                               ;; skinnes. Les DEUX sont publies — narrower serait un de-scope.
+(define *hd-stale-imgs*   0)   ;; denominateur : images de reciblage (une par compagnon et par image)
+(define *hd-stale-jmax*   0)   ;; pire nombre de joints servis dans une seule image
+(define *hd-stale-ents*   0)   ;; masque de bits des ENTREES (modeles) touchees
+
+(defun hd-stale-note! ((obj jak-hd) (root? symbol))
+  "Un joint HD vient d'etre ECRIT depuis une matrice du pilote que `hd-bone-usable?` refuse :
+   base non ecrite (tas de process memsette a zero, kscheme.cpp:190) ou translation invraisemblable
+   pour ce squelette. On l'enregistre AU SITE D'ECRITURE, pas au site de detection."
+  (+! *hd-stale-served* 1)
+  (if root? (+! *hd-stale-root* 1) (+! *hd-stale-nr* 1))
+  (set! *hd-stale-ents* (logior *hd-stale-ents* (ash 1 (-> obj entry))))
+  (none))
+
 (defun hd-bone-posed? ((s skeleton) (i int))
   "Vrai si la BASE de l'os i a ete ecrite. Une base nulle est la signature d'un os jamais ecrit
    (tas de process memsette a zero, kscheme.cpp:190) ; aucune pose reelle ne porte une ligne de
@@ -685,6 +733,9 @@
                      (cond
                        ((and (nonzero? *hd-guard-arm*) (not ok)) (+! *hd-guard-skips* 1))
                        (else
+                        ;; SITE DE CONSOMMATION 1/3 (mode 0) : la matrice pilote entre dans le
+                        ;; produit ci-dessous. Si elle est perimee, le joint HD est SERVI par elle.
+                        (when (not ok) (hd-stale-note! obj (= p #xff)))
                         (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
                         (matrix*! (-> skel bones (+ k 1) transform) tmp (-> tgt-skel bones (+ e 1) transform))))))
                   (else
@@ -721,6 +772,8 @@
                         ;; world bind scale — the jak rig is uniformly 1.4 below 'main' and keira's
                         ;; strap chains are 0.103, so unit rows would scale skinning by 1/s (28%
                         ;; strap shrink / 9.7x strap blow-up, caught by generator PROOF D).
+                        ;; SITE DE CONSOMMATION 2/3 (mode 3) : la matrice pilote entre dans `tmp2`.
+                        (when (not ok) (hd-stale-note! obj #f))
                         (matrix*! tmp hbind (-> tgt-jgeo data e bind-pose))
                         (matrix*! tmp2 tmp (the-as matrix (-> tgt-skel bones (+ e 1) transform)))
                         (matrix*! tmp lk (the-as matrix (-> skel bones (+ p 1) transform)))
@@ -738,6 +791,9 @@
                              (!= ep #xff) (< (+ ep 1) tbones)
                              (or ok (zero? *hd-guard-arm*)))
                         ;; Delta' = A'_e . inv(A'_ep) . inv(bind-pose_drv[ep]) . bind-pose_drv[e]
+                        ;; SITE DE CONSOMMATION 3/3 (mode 1) : les DEUX matrices pilotes (`e` et son
+                        ;; parent `ep`) entrent dans le delta ci-dessous.
+                        (when (not ok) (hd-stale-note! obj #f))
                         (matrix-4x4-inverse! inv1 (the-as matrix (-> tgt-skel bones (+ ep 1) transform)))
                         (matrix*! tmp (the-as matrix (-> tgt-skel bones (+ e 1) transform)) inv1)
                         (matrix-4x4-inverse! inv1 (-> tgt-jgeo data ep bind-pose))
@@ -886,6 +942,14 @@
   (set! *hd-guard-occ* 0)
   (set! *hd-guard-occ-root* 0)
   (set! *hd-guard-frames* 0)
+  (set! *hd-stale-served* 0)
+  (set! *hd-stale-root* 0)
+  (set! *hd-stale-nr* 0)
+  (set! *hd-stale-frames* 0)
+  (set! *hd-stale-frnr* 0)
+  (set! *hd-stale-imgs* 0)
+  (set! *hd-stale-jmax* 0)
+  (set! *hd-stale-ents* 0)
   (format 0 "HDRESET arme=~D~%" *hd-guard-arm*)
   (none))
 
@@ -1278,9 +1342,22 @@
   ;; Ghd-skin-origin-stretch : compter les IMAGES ou le garde a refuse au moins une ecriture.
   ;; C'est le compte d'OCCASIONS : sans lui, un `episodes=0` apres correctif ne prouverait rien
   ;; (la condition pourrait simplement ne plus se presenter).
-  (let ((s0 *hd-guard-occ*))
+  ;; Ghd-skin-origin-stretch — LE VERDICT DE LA PORTE se compte ICI, autour du seul site qui
+  ;; ecrit les os HD : combien d'images ont vu AU MOINS UN joint servi par une matrice perimee.
+  ;; `*hd-stale-imgs*` est le denominateur EXACT de ce numerateur — meme appel, meme cadence,
+  ;; une unite par compagnon et par image — pour qu'un zero ne puisse pas venir d'un compagnon
+  ;; qui aurait cesse de se recibler.
+  (let ((s0 *hd-guard-occ*)
+        (v0 *hd-stale-served*)
+        (w0 *hd-stale-nr*))
+    (+! *hd-stale-imgs* 1)
     (fill-jak-hd-bones! obj)
-    (if (> *hd-guard-occ* s0) (+! *hd-guard-frames* 1)))
+    (if (> *hd-guard-occ* s0) (+! *hd-guard-frames* 1))
+    (if (> *hd-stale-nr* w0) (+! *hd-stale-frnr* 1))
+    (when (> *hd-stale-served* v0)
+      (+! *hd-stale-frames* 1)
+      (let ((d (- *hd-stale-served* v0)))
+        (if (> d *hd-stale-jmax*) (set! *hd-stale-jmax* d)))))
   (hd-stretch-scan! obj)
   ;; Grecharged-secondary-motion: verlet/spring chains on top of the freshly retargeted pose.
   (#when FLAG_PHYSICS (jak-hd-physics-step obj))
@@ -1703,7 +1780,20 @@
         ;; compagnon jamais recible — c'est le controle positif de ce correctif-la : s'il vaut 0,
         ;; la branche n'a jamais tire et son effet n'est pas mesure.
         (format 0 "HDHB4 nanimages=~D nanmax=~D secours=~D arme=~D~%"
-                *hd-stretch-nanimg* *hd-stretch-nanmax* *hd-guard-warm* *hd-guard-arm*))))
+                *hd-stretch-nanimg* *hd-stretch-nanmax* *hd-guard-warm* *hd-guard-arm*)
+        ;; LA LIGNE DE VERDICT DE LA PORTE (protocole superviseur 2026-09-02 07:10) : le compte
+        ;; d'IMAGES ou au moins un joint HD a ete SERVI par une matrice de pilote perimee, et son
+        ;; denominateur pris au meme endroit. `ents` est le masque des entrees touchees, il dit
+        ;; QUELS modeles portent le defaut sans qu'on ait a regarder une image.
+        ;; DEUX LIGNES, PAS UNE : un appel GOAL porte au plus 8 parametres, et `format` en
+        ;; consomme deja deux (la destination et le format). Six valeurs sur une ligne ne
+        ;; compileraient pas.
+        (format 0 "HDHB5 staleimg=~D imgs=~D stale=~D ents=~D arme=~D~%"
+                *hd-stale-frames* *hd-stale-imgs* *hd-stale-served* *hd-stale-ents*
+                *hd-guard-arm*)
+        (format 0 "HDHB6 staleroot=~D stalemax=~D nr=~D nrimg=~D arme=~D~%"
+                *hd-stale-root* *hd-stale-jmax* *hd-stale-nr* *hd-stale-frnr*
+                *hd-guard-arm*))))
   ;; phase 1: collect.
   (set! *hd-scan-driver-count* 0)
   (set! *hd-scan-companion-count* 0)

@@ -36,6 +36,7 @@ def load(path):
     de mesure. Les episodes d'avant (ecran-titre, amorce) portent des identifiants qui se
     REPETENT apres la remise a zero — les melanger ecrasait silencieusement des lignes."""
     eps, hb, hb2, hb3, hb4, wall, levels, drv = {}, {}, {}, {}, {}, {}, [], []
+    hb5, hb6 = {}, {}
     spread = []   # [(header_kv, [joint_kv, ...]), ...]
     raw = open(path, errors='replace').read().split('\n')
     if any(l.startswith('HDRESET') for l in raw):
@@ -50,7 +51,11 @@ def load(path):
                 eps.setdefault(d['id'], {})[key] = d
                 if key == 'ep':
                     eps[d['id']]['raw'] = ln
-        if ln.startswith('HDHB4 '):
+        if ln.startswith('HDHB5 '):
+            hb5 = kv(ln)
+        elif ln.startswith('HDHB6 '):
+            hb6 = kv(ln)
+        elif ln.startswith('HDHB4 '):
             hb4 = kv(ln)
         elif ln.startswith('HDHB '):
             hb = kv(ln)
@@ -68,7 +73,7 @@ def load(path):
             spread.append((kv(ln), []))
         elif ln.startswith('HDSPJ ') and spread:
             spread[-1][1].append(kv(ln))
-    return eps, hb, hb2, hb3, hb4, wall, levels, drv, spread
+    return eps, hb, hb2, hb3, hb4, wall, levels, drv, spread, hb5, hb6
 
 
 def regress(xs, ys):
@@ -89,7 +94,7 @@ def regress(xs, ys):
 
 def main():
     path = sys.argv[1]
-    eps, hb, hb2, hb3, hb4, wall, levels, drv, spread = load(path)
+    eps, hb, hb2, hb3, hb4, wall, levels, drv, spread, hb5, hb6 = load(path)
     allc = sorted((v for v in eps.values() if 'ep' in v and 'x' in v),
                   key=lambda v: int(v['ep']['id']))
     placed = [v for v in allc if float(v['ep']['distance_origine_m']) > 0.5]
@@ -177,11 +182,43 @@ def main():
           f"images_dechirees={hb2.get('imagesdechirees', hb2.get('deplaces', '?'))}")
 
     mins = float(wall.get('minutes', 0))
+
+    # -------------------------------------------------------------------------------------
+    # HDSTALE — LA LIGNE QUE LA PORTE LIT (protocole superviseur 2026-09-02 07:10).
+    # On ne compte PAS les detections (`gardeimages`, qui s'incremente que le garde soit arme
+    # ou non) mais les CONSOMMATIONS : les images ou au moins un joint HD a ete ECRIT depuis
+    # une matrice de pilote perimee. Les compteurs sont poses aux trois sites d'ecriture de
+    # `fill-jak-hd-bones!` (modes 0, 1 et 3), pas au site de detection.
+    # `images` est pris au MEME appel que le numerateur (`*hd-stale-imgs*`, une unite par
+    # compagnon et par image) : le rapport des deux ne peut donc pas etre fausse par un
+    # compagnon qui aurait cesse de se recibler.
+    # -------------------------------------------------------------------------------------
+    ents = int(hb5.get('ents', 0) or 0)
+    noms = []
+    for b in range(12):
+        if ents & (1 << b):
+            n = {1: 'daxter', 6: 'daxter', 2: 'keira', 7: 'keira',
+                 3: 'samos', 8: 'samos'}.get(b, 'jak')
+            if n not in noms:
+                noms.append(n)
+    print(f"HDSTALE bras={'controle' if hb2.get('arme') == '0' else 'preuve'} "
+          f"minutes={mins:.4f} minutes_de_jeu_moteur={float(hb.get('minutes', 0)):.4f} "
+          f"images={hb5.get('imgs', '?')} "
+          f"images_avec_matrice_perimee={hb5.get('staleimg', '?')} "
+          f"joints_touches={hb5.get('stale', '?')} "
+          f"pire_par_image={hb6.get('stalemax', '?')} "
+          f"dont_racine={hb6.get('staleroot', '?')} "
+          f"images_hors_racine={hb6.get('nrimg', '?')} "
+          f"joints_hors_racine={hb6.get('nr', '?')} "
+          f"modeles={','.join(noms) if noms else 'aucun'}")
+
     nep = int(hb.get('episodes', len(allc)))
     print(f"HDOK minutes_de_jeu={mins:.4f} episodes={nep}")
     print(f"# dernier battement : {hb}")
     print(f"# dernier battement2 : {hb2}")
     print(f"# dernier battement3 : {hb3}")
+    print(f"# dernier battement5 : {hb5}")
+    print(f"# dernier battement6 : {hb6}")
 
 
 if __name__ == '__main__':

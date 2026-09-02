@@ -36,8 +36,8 @@ fi
 # qui tourne sur les CGO de l'iso — le 2026-09-02 a 05:23, deux courses completes ont mesure un
 # GAME.CGO de 04:46, anterieur a toute edition du jour, sans que rien ne le signale.
 for f in GAME ENGINE; do
-  if ! grep -qa "HDSPJ" "out/jak1/iso/$f.CGO"; then
-    echo "$f.CGO NE CONTIENT PAS LE CODE DU CYCLE (HDSPJ absent) — campagne annulee"; exit 1
+  if ! grep -qa "nrimg=" "out/jak1/iso/$f.CGO"; then
+    echo "$f.CGO NE CONTIENT PAS LE CODE DU CYCLE (nrimg= absent) — campagne annulee"; exit 1
   fi
 done
 rm -rf "$REF"; cp -a --reflink=auto out/jak1/iso "$REF"
