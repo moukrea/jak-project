@@ -52,6 +52,16 @@
   (bncfl15 15))
 
 ;; this type represents a "calculation" that will be performed at later time.
+;; Ghd-skin-origin-stretch (cycle 6b) — deux controles de CHAINE, definis dans pc/jak-hd.gc :
+;;   hd-draw-check   : au moment ou draw-bones enregistre le calcul d'os d'un compagnon HD, le
+;;                     squelette porte-t-il encore ce que le :post a ecrit ? (memorise matrix-area)
+;;   hd-mtx-check-all: apres bones-mtx-calc, les matrices merc produites portent-elles les
+;;                     longueurs d'os du squelette ? Mesure Redmi : le GPU consomme des chaines
+;;                     de 5 m par maillon la ou le :post avait ecrit 0,35 m.
+(#when FLAG_HD_MODELS
+  (define-extern hd-draw-check (function draw-control pointer none))
+  (define-extern hd-mtx-check-all (function none)))
+
 (deftype bone-calculation (structure)
   ((flags               bone-calc-flags :offset-assert 0)
    (num-bones           uint16 :offset-assert 2)
@@ -562,6 +572,9 @@
             (b! (nonzero? a0-22) cfg-8 :delay (.svf (&-> a1-9 -2 quad) vf8)))
           0)
         (set! s4-0 (-> s4-0 next))))
+    ;; Ghd-skin-origin-stretch (cycle 6b) : toutes les matrices merc de l'image sont calculees —
+    ;; on les relit pour les compagnons HD avant qu'elles partent au GPU.
+    (#when FLAG_HD_MODELS (hd-mtx-check-all))
     (#unless PC_PORT
       (set! (-> (the-as dma-bank-control #x1000e000) sqwc) (new 'static 'dma-sqwc :sqwc #x1 :tqwc #x1)))
     (bone-list-init)
@@ -1149,7 +1162,8 @@
             (set! (-> t5-0 matrix-area) (the-as (inline-array matrix) t0-2))
             (set! (-> t5-0 joints) t2-0)
             (set! (-> t5-0 bones) t3-0)
-            (set! (-> t5-0 next) (the-as bone-calculation 0)))
+            (set! (-> t5-0 next) (the-as bone-calculation 0))
+            (#when FLAG_HD_MODELS (hd-draw-check arg0 (the-as pointer t0-2))))
           (if (nonzero? (-> a2-8 next)) (set! (-> a2-8 next next) a3-8))
           (if (zero? (-> a2-8 first)) (set! (-> a2-8 first) a3-8))
           (set! (-> a2-8 next) a3-8))

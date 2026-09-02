@@ -535,7 +535,10 @@
    (hd-cmd     vector 128 :inline)
    ;; ECHELLE de bind du joint k dans le monde (|ligne 0| du bind direct) : la reference de la
    ;; mesure d'echelle de la base ecrite — les positions ne voient pas une base qui explose.
-   (hd-bs      float 128))
+   (hd-bs      float 128)
+   (hd-bp      vector 128 :inline) ;; position de bind (monde du modele) du joint k : [bp,1].tmat = W.t.cam
+   (hd-mtxarea pointer)      ;; matrix-area de CETTE image (pose par hd-draw-check), 0 = pas dessine
+   (hd-drawdev int32))       ;; os deplaces entre le :post et draw-bones a cette image
   (:states jak-hd-clone))
 
 ;; les chemins d'ecriture d'un os HD, tels que `hd-src` les nomme (un octet par joint et par image)
@@ -1359,6 +1362,22 @@
 (define *hd-moves-lastpos* (new 'static 'vector :x 0.0 :y 0.0 :z 0.0 :w 0.0))
 
 
+;; ------------------------------------------------------------------------------------------------
+;; cycle 6b — LES DEUX CONTROLES DE CHAINE (appeles depuis bones.gc). Mesure Redmi dev6-ctl : le
+;; :post ecrit des os de 0,35 m, le GPU consomme des chaines de 5 m par maillon (28029 os en
+;; 5 minutes), estampille d'image identique. Entre les deux : la fin du :post, la math-engine, la
+;; camera, draw-bones (draw-hook) puis bones-mtx-calc. On relit le squelette a draw-bones et les
+;; matrices produites apres bones-mtx-calc pour dire OU les translations changent.
+;; ------------------------------------------------------------------------------------------------
+(define *hd-draw-dev*   0)   ;; os dont la translation a change entre le :post et draw-bones (> 0,25 m)
+(define *hd-draw-imgs*  0)   ;; images (par compagnon) avec au moins un tel os
+(define *hd-draw-logs*  0)
+(define *hd-mtx-dev*    0)   ;; os dont la matrice merc produite ne porte pas la longueur du squelette
+(define *hd-mtx-imgs*   0)
+(define *hd-mtx-judged* 0)
+(define *hd-mtx-logs*   0)
+(define *hd-mtx-skel*   0)   ;; os dont le SQUELETTE a change entre le :post et bones-mtx-calc
+
 (defun hd-stretch-reset! ()
   "Ouvre une fenetre de mesure : remet a zero tous les compteurs. Appele UNE fois depuis la REPL au
    debut d'une jambe — une seule commande, pour ne pas saturer l'ecouteur."
@@ -1424,6 +1443,14 @@
   (set! *hd-scl-worst* 0.0)
   (set! *hd-scl-ep* 0)
   (set! *hd-scl-eplogs* 0)
+  (set! *hd-draw-dev* 0)
+  (set! *hd-draw-imgs* 0)
+  (set! *hd-draw-logs* 0)
+  (set! *hd-mtx-dev* 0)
+  (set! *hd-mtx-imgs* 0)
+  (set! *hd-mtx-judged* 0)
+  (set! *hd-mtx-logs* 0)
+  (set! *hd-mtx-skel* 0)
   (set! *hd-moves-dist* 0.0)
   (set! *hd-moves-frames* 0)
   (set! *hd-moves-ticks* 0)
@@ -1912,6 +1939,8 @@
               (let ((p (the int (-> khd-par k))))
                 (matrix-4x4-inverse! binv (-> obj draw jgeo data k bind-pose))
                 (set! (-> obj hd-bs k) (vector-length (-> binv vector 0)))
+                (vector-copy! (-> obj hd-bp k) (-> binv vector 3))
+                (set! (-> obj hd-bp k w) 1.0)
                 (when (and (!= p #xff) (< p nj))
                   (matrix-4x4-inverse! pinv (-> obj draw jgeo data p bind-pose))
                   (set! (-> obj hd-l0 k)
@@ -2444,6 +2473,81 @@
 (define *hd-scan-companions* (new 'static 'array jak-hd 16))
 (define *hd-scan-companion-count* 0)
 
+(defun hd-draw-check ((dc draw-control) (mtxarea pointer))
+  (let ((proc (-> dc process)))
+    (when (and proc (nonzero? proc) (= (-> proc type) jak-hd))
+      (let* ((obj (the-as jak-hd proc))
+             (skel (-> obj draw skeleton))
+             (nbones (if (nonzero? skel) (-> skel length) 0))
+             (nj (-> obj hd-joints))
+             (n 0))
+        (if (> nj 128) (set! nj 128))
+        (set! (-> obj hd-mtxarea) mtxarea)
+        (when (nonzero? skel)
+          (dotimes (k nj)
+            (when (and (< (+ k 1) nbones) (= (-> obj hd-cmd k w) 1.0))
+              (let ((d (vector-vector-distance (-> skel bones (+ k 1) transform vector 3) (-> obj hd-cmd k))))
+                (when (not (and (< d HD_CMD_DEV) (> d -1.0)))
+                  (+! n 1)
+                  (when (< *hd-draw-logs* 100)
+                    (+! *hd-draw-logs* 1)
+                    (format 0 "HDDRAWDEV entry=~D k=~D d_m=~f post_x=~f draw_x=~f skipped=~D~%"
+                            (-> obj entry) k (/ d 4096.0)
+                            (/ (-> obj hd-cmd k x) 4096.0)
+                            (/ (-> skel bones (+ k 1) transform vector 3 x) 4096.0)
+                            (-> obj hd-skipped))))))))
+        (set! (-> obj hd-drawdev) n)
+        (when (> n 0)
+          (+! *hd-draw-dev* n)
+          (+! *hd-draw-imgs* 1)))))
+  (none))
+
+(defun hd-mtx-check-all ()
+  "Apres bones-mtx-calc : pour chaque compagnon dessine cette image, la longueur d'os portee par
+   les matrices merc PRODUITES (position = [bp,1].tmat, espace camera) contre la longueur du
+   squelette MAINTENANT, et le squelette maintenant contre le :post (hd-cmd)."
+  (dotimes (i *hd-scan-companion-count*)
+    (let ((obj (-> *hd-scan-companions* i)))
+      (when (and obj (nonzero? (-> obj hd-mtxarea)) (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton)))
+        (let* ((skel (-> obj draw skeleton))
+               (nbones (-> skel length))
+               (khd-par (-> obj khd-par))
+               (nj (-> obj hd-joints))
+               (n 0) (ns 0)
+               (pk (new-stack-vector0))
+               (pp (new-stack-vector0)))
+          (if (> nj 128) (set! nj 128))
+          (dotimes (k nj)
+            (let ((p (the int (-> khd-par k))))
+              (when (and (!= p #xff) (< p 128) (< (+ k 1) nbones) (< (+ p 1) nbones)
+                         (!= (the int (-> khd-par p)) #xff)
+                         (= (-> obj hd-bp k w) 1.0) (= (-> obj hd-bp p w) 1.0))
+                (let* ((tk (the-as matrix (&+ (-> obj hd-mtxarea) (* 128 (+ k 1)))))
+                       (tp (the-as matrix (&+ (-> obj hd-mtxarea) (* 128 (+ p 1))))))
+                  (vector-matrix*! pk (-> obj hd-bp k) tk)
+                  (vector-matrix*! pp (-> obj hd-bp p) tp)
+                  (let* ((lc (vector-vector-distance pk pp))
+                         (ls (vector-vector-distance (-> skel bones (+ k 1) transform vector 3)
+                                                     (-> skel bones (+ p 1) transform vector 3)))
+                         (dd (fabs (- lc ls)))
+                         ;; le squelette a-t-il bouge depuis le :post ?
+                         (ds (if (= (-> obj hd-cmd k w) 1.0)
+                               (vector-vector-distance (-> skel bones (+ k 1) transform vector 3) (-> obj hd-cmd k))
+                               0.0)))
+                    (+! *hd-mtx-judged* 1)
+                    (when (not (and (< ds HD_CMD_DEV) (> ds -1.0))) (+! ns 1))
+                    (when (not (and (< dd HD_CMD_DEV) (> dd -1.0)))
+                      (+! n 1)
+                      (when (< *hd-mtx-logs* 100)
+                        (+! *hd-mtx-logs* 1)
+                        (format 0 "HDMTXDEV entry=~D k=~D p=~D len_skel_m=~f len_mtx_m=~f skel_vs_post_m=~f~%"
+                                (-> obj entry) k p (/ ls 4096.0) (/ lc 4096.0) (/ ds 4096.0)))))))))
+          (when (> n 0) (+! *hd-mtx-dev* n) (+! *hd-mtx-imgs* 1))
+          (+! *hd-mtx-skel* ns)
+          (set! (-> obj hd-mtxarea) (the-as pointer 0))))))
+  (none))
+
+
 (defun hd-scan-visit ((proc process))
   (cond
     ((= (-> proc type) jak-hd)
@@ -2588,7 +2692,12 @@
         ;; L'ECHELLE de la base ecrite : `sclos` os dont une ligne sort de [1/3, 3] x bind, et
         ;; `sclep` = parents pilotes refuses par le garde d'echelle du mode 1 (occasions, arme ou non).
         (format 0 "HDLEN4 sclos=~D sclimgs=~D pire_scl=~f sclep=~D sclarme=~D~%"
-                *hd-scl-bones* *hd-scl-frames* *hd-scl-worst* *hd-scl-ep* *hd-scale-arm*))))
+                *hd-scl-bones* *hd-scl-frames* *hd-scl-worst* *hd-scl-ep* *hd-scale-arm*)
+        ;; LES DEUX CONTROLES DE CHAINE : `drawdev` os deplaces entre le :post et draw-bones,
+        ;; `mtxdev` matrices merc produites qui ne portent pas la longueur du squelette,
+        ;; `mtxskel` squelette change entre le :post et bones-mtx-calc.
+        (format 0 "HDLEN5 drawdev=~D drawimgs=~D mtxdev=~D mtximgs=~D mtxjuges=~D mtxskel=~D~%"
+                *hd-draw-dev* *hd-draw-imgs* *hd-mtx-dev* *hd-mtx-imgs* *hd-mtx-judged* *hd-mtx-skel*))))
   ;; cycle 6 : sondage des entrees d'etat du joueur, une fois par image, sans cap.
   (hd-moves-poll!)
   ;; phase 1: collect.
