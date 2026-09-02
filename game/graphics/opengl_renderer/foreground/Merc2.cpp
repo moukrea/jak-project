@@ -1638,7 +1638,8 @@ void hdskin_note_packet(u64 frame_idx,
                         float far_worst,
                         const float* tref,
                         int ref_slot,
-                        int missing) {
+                        int missing,
+                        const std::string& far_list) {
   if (frame_idx != s_hdskin.last_frame) {
     hdskin_close_frame();
     s_hdskin.last_frame = frame_idx;
@@ -1672,12 +1673,14 @@ void hdskin_note_packet(u64 frame_idx,
       s_hdskin.ev_logs++;
     }
     printf("HDSKINEV frame=%llu model=%s hd=%d used=%d nan=%d far=%d miss=%d far_slot=%d "
-           "far_m=%.1f ref_slot=%d ref_cam_m=%.1f\n",
+           "far_m=%.1f ref_slot=%d ref_cam_m=%.1f ref_cam=(%.2f,%.2f,%.2f) far_list=%s\n",
            (unsigned long long)frame_idx, name, is_hd ? 1 : 0, slots, nan_bones, far_bones,
            missing, far_slot, worst_m, ref_slot,
            tref ? std::sqrt(tref[12] * tref[12] + tref[13] * tref[13] + tref[14] * tref[14]) /
                       4096.f
-                : -1.f);
+                : -1.f,
+           tref ? tref[12] / 4096.f : 0.f, tref ? tref[13] / 4096.f : 0.f,
+           tref ? tref[14] / 4096.f : 0.f, far_list.empty() ? "-" : far_list.c_str());
     fflush(stdout);
   }
 }
@@ -2181,6 +2184,11 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     }
     // 2) distance a la reference ; si la MAJORITE en est loin, c'est la reference qui est
     //    l'intrus (cas mesure : `align`) — on la reprend dans le groupe majoritaire et on recompte.
+    // Ghd-skin-origin-stretch (cycle 5) — LA LISTE des slots loin, pas seulement le pire : un
+    // residu d'UNE image (finalboss, Redmi, 16:46:55 : 9 os de Jak et 6 de Daxter a 43-45 m,
+    // 1,4 s apres un respawn) ne s'attribue a un mecanisme qu'en sachant QUELS joints partent,
+    // et ou (position camera de chacun, en metres). Format : slot:dist_m@(x,y,z);...
+    std::string far_list;
     auto count_far = [&](int ref, bool record) {
       int nfar = 0;
       const float* tr = reinterpret_cast<const float*>(&skel_matrix_buffer[ref]);
@@ -2197,6 +2205,12 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           if (record && d > far_worst) {
             far_worst = (float)d;
             far_slot = slot;
+          }
+          if (record && far_list.size() < 900) {
+            char b[96];
+            snprintf(b, sizeof(b), "%d:%.1f@(%.1f,%.1f,%.1f);", slot, d / 4096.0, f[12] / 4096.f,
+                     f[13] / 4096.f, f[14] / 4096.f);
+            far_list += b;
           }
         }
       }
@@ -2230,7 +2244,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     // slots que des sommets lisent et que le paquet NE FOURNIT PAS : le shader y lirait la pile
     const int missing = (int)(minfo.used & ~provided).count();
     hdskin_note_packet(render_state->frame_idx, name, is_hd_packet, minfo.n_used, nan_bones,
-                       far_bones, far_slot, far_worst, tref, hd_ref_slot, missing);
+                       far_bones, far_slot, far_worst, tref, hd_ref_slot, missing, far_list);
   }
 
   // === Gd3-jak FIX (always-on, arm64): repair non-finite merc bone matrices =====

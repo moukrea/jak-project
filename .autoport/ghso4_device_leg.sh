@@ -64,22 +64,32 @@ if [ -n "$APK" ]; then
 fi
 PATHAPK=$(a shell pm path $PKG 2>/dev/null | tr -d '\r' | sed -n 's/^package://p' | head -1)
 if [ -n "$PATHAPK" ]; then
-  a pull "$PATHAPK" /tmp/ghso4-installed.apk >/dev/null 2>&1 && \
-    echo "   marqueur HDSKINEV dans libgk.so INSTALLE : $(unzip -p /tmp/ghso4-installed.apk 'lib/arm64-v8a/libgk.so' 2>/dev/null | grep -ac HDSKINEV || true)"
+  # sur DISQUE, pas /tmp : /tmp est un tmpfs et l'APK de 667 Mo y echoue a 31 % (mesure 16:18)
+  SCR=/home/emeric/.autoport-scratch; mkdir -p "$SCR"
+  a pull "$PATHAPK" "$SCR/ghso4-installed.apk" >/dev/null 2>&1 && \
+    echo "   marqueur HDSKINEV dans libgk.so INSTALLE : $(unzip -p "$SCR/ghso4-installed.apk" 'lib/arm64-v8a/libgk.so' 2>/dev/null | grep -ac HDSKINEV || true)   md5 = $(unzip -p "$SCR/ghso4-installed.apk" 'lib/arm64-v8a/libgk.so' 2>/dev/null | md5sum | cut -c1-12) (arbre build-android : $(md5sum build-android/lib/arm64-v8a/libgk.so | cut -c1-12))"
 fi
 echo "   marqueur HDNANSRC dans les CGO du telephone : $(a exec-out run-as $PKG sh -c 'cat files/*/GAME.CGO files/*/*/GAME.CGO 2>/dev/null' 2>/dev/null | grep -ac HDNANSRC || true)"
 
 SET=/storage/emulated/0/OpenGOAL/jak1/settings.ini
 a shell cat "$SET" > /tmp/ghso4_settings.ini 2>/dev/null
 cp -f /tmp/ghso4_settings.ini "$OUT/.settings.pre-$TAG.ini" 2>/dev/null || true
-for kv in "recharged-enhanced-models? = #t" "hd-look-jak = 1" "hd-look-daxter = 1" "hd-look-keira = 1" "hd-look-samos = 1"; do
-  k="${kv%% =*}"
-  if grep -q "^$(printf '%s' "$k" | sed 's/[][\.*^$\/?]/\\&/g') = " /tmp/ghso4_settings.ini; then
-    sed -i "s|^$(printf '%s' "$k" | sed 's/[][\.*^$\/?]/\\&/g') = .*|$kv|" /tmp/ghso4_settings.ini
-  else
-    echo "FAIL: cle '$k' absente des reglages de l'appareil"; exit 1
-  fi
-done
+# Cles a poser. PAS de regex shell ici : `?` echappe en `\?` devient « optionnel » en BRE GNU, et
+# `recharged-enhanced-models?` n'etait plus jamais trouvee (tentative 5, 16:19). Python, litteral.
+python3 - /tmp/ghso4_settings.ini <<'PY' || { echo "FAIL: cle absente des reglages de l'appareil"; exit 1; }
+import sys
+p=sys.argv[1]; lines=open(p).read().split('\n')
+want={"recharged-enhanced-models?":"#t","hd-look-jak":"1","hd-look-daxter":"1","hd-look-keira":"1","hd-look-samos":"1"}
+seen=set()
+for i,l in enumerate(lines):
+    for k,v in want.items():
+        if l.startswith(k+" = "):
+            lines[i]=f"{k} = {v}"; seen.add(k)
+missing=set(want)-seen
+if missing:
+    print("cles absentes :",sorted(missing)); sys.exit(1)
+open(p,'w').write('\n'.join(lines))
+PY
 a push /tmp/ghso4_settings.ini "$SET" >/dev/null 2>&1
 echo "-- reglages poses : modeles HD #t, looks HD = 1"
 
@@ -107,7 +117,12 @@ run_scene(){
   sleep 12
   local T0=$(date +%s) k=0
   while [ $(( $(date +%s) - T0 )) -lt "$dur" ]; do
-    if [ "$mode" = zoomer ]; then
+    if [ "$mode" = idle ]; then
+      # AUCUNE entree : sur le zoomer, l'animation de conduite reste a sa frame neutre, celle ou ND
+      # ecrase les chevilles a l'echelle zero (mesure x86 c4ctl : 3968 images sur 10063 SANS pad).
+      # C'est ce qui rend la condition du cycle 4 ABONDANTE — le bras de preuve doit la rencontrer.
+      sleep 5
+    elif [ "$mode" = zoomer ]; then
       # accelerer en continu, virer alternativement : la moto avance et la camera bouge vite.
       case $((k % 4)) in
         0) a shell "setprop debug.opengoal.cpad_inject 'x ly=0'" ;;
@@ -153,10 +168,16 @@ run_scene(){
 
 # QUATRE SCENES, DE 3601 m A 5540 m DE L'ORIGINE (owner : « la ou l'effet est le plus visible »)
 # plus le zoomer de lavatube, ou la cause du cycle 4 (chevilles a echelle zero) se presente.
-run_scene lavatube-middle "$DZ" zoomer
-run_scene village3-start  "$DP" pied
-run_scene citadel-start   "$DP" pied
-run_scene finalboss-start "$DP" pied
+# Surcharge : SCENES="nom:duree:mode nom:duree:mode ..." (mode : zoomer | pied | idle) — sert a
+# rejouer une scene seule, p.ex. le zoomer IMMOBILE ou la condition du cycle 4 est abondante.
+if [ -n "${SCENES:-}" ]; then
+  for sc in $SCENES; do IFS=: read -r nm du mo <<< "$sc"; run_scene "$nm" "$du" "$mo"; done
+else
+  run_scene lavatube-middle "$DZ" zoomer
+  run_scene village3-start  "$DP" pied
+  run_scene citadel-start   "$DP" pied
+  run_scene finalboss-start "$DP" pied
+fi
 echo "===== fin bras finite_arm=$FARM — $(date -Is) ====="
-echo "== resume du bras (les 4 scenes agregees) =="
+echo "== resume du bras (les scenes agregees) =="
 python3 .autoport/ghso4_device_resume.py "$TAG" "$FARM" "$OUT"/"$TAG"-*-marqueurs.txt | tee "$OUT/$TAG-hdstale.txt"
