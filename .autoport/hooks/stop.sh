@@ -1,77 +1,43 @@
 #!/usr/bin/env bash
-# stop.sh — runs after every Claude turn. Refuses to let Claude stop
-# until the current phase's validator passes.
-# Exit 0 = allow stop. Exit 2 = block stop, feed message back to Claude.
+# stop.sh — CONSULTATIF. Il montre ce que dit le validateur, et il laisse sortir.
+#
+# POURQUOI IL NE BLOQUE PLUS. Tant qu'il refusait la sortie jusqu'au vert, le chemin le plus
+# court vers le vert etait d'ecrire dans le rapport la ligne que le validateur cherchait —
+# c'est le « chemin du printf », le mode d'echec que les notes enregistrent depuis la phase 20.
+# Il a aussi tourne PENDANT des courses de 25 minutes (« trace absente » lu comme « il n'a rien
+# fait »), et il a parque la boucle 14 h sur une porte que seul un humain pouvait ouvrir.
+# Le verdict qui compte est celui que l'ORCHESTRATEUR prend apres la sortie, sur le meme
+# validateur. Ce hook informe ; il n'arbitre pas.
+#
+# Sortie : TOUJOURS 0.
+set -uo pipefail
 
-set -euo pipefail
+# Portee : ce hook ne s'adresse qu'aux sessions lancees par l'orchestrateur (il pose
+# AUTOPORT_PHASE_ID avant d'exec claude). Une session interactive dans le meme depot n'a
+# pas a lire le verdict d'un item qu'elle n'essaie pas de fermer.
+[ -n "${AUTOPORT_PHASE_ID:-}" ] || exit 0
 
-STATE="$CLAUDE_PROJECT_DIR/.autoport/state.json"
-PLAN="$CLAUDE_PROJECT_DIR/.autoport/milestones.yaml"
-
-# Scope guard: this hook is meant for orchestrator-spawned Claude sessions
-# only (orchestrator.py sets AUTOPORT_PHASE_ID before exec'ing claude). For
-# regular interactive sessions in the same repo (user conversations, ad-hoc
-# debugging, etc.) we exit cleanly so the user isn't held hostage by a
-# phase validator they aren't trying to make pass.
-if [ -z "${AUTOPORT_PHASE_ID:-}" ]; then
-    exit 0
+INPUT=$(cat 2>/dev/null || true)
+# stop_hook_active : le hook est deja en train de tourner, on ne s'empile pas.
+if command -v jq >/dev/null 2>&1; then
+  [ "$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)" = "true" ] && exit 0
 fi
 
-# Read hook stdin (JSON from Claude Code) — we don't actually need it, but
-# consume it so the pipe doesn't break.
-INPUT=$(cat || true)
+V="${CLAUDE_PROJECT_DIR:-.}/.autoport/validators/generic.sh"
+[ -f "$V" ] || exit 0
 
-# stop_hook_active prevents infinite loops where the hook itself triggers
-# another stop. If the same hook is already running, allow the stop.
-ALREADY=$(echo "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
-if [ "$ALREADY" = "true" ]; then
-    exit 0
-fi
-
-# Stale-session guard: each orchestrator-spawned session is supposed to make
-# ITS OWN phase pass (orchestrator.py sets AUTOPORT_PHASE_ID before exec'ing
-# claude). If state.json's `completed` list already contains this session's
-# AUTOPORT_PHASE_ID, the orchestrator has already accepted this phase as
-# done and possibly advanced state.json past it (spawning a new session for
-# the next phase). Holding the now-stale session hostage on the NEW phase's
-# validator is wrong: that's a different session's responsibility. Allow
-# stop so the stale session can exit cleanly.
-ALREADY_DONE=$(jq -r --arg id "$AUTOPORT_PHASE_ID" \
-    '(.completed // []) | index($id) != null' "$STATE" 2>/dev/null || echo "false")
-if [ "$ALREADY_DONE" = "true" ]; then
-    exit 0
-fi
-
-IDX=$(jq -r '.current_phase_idx // 0' "$STATE" 2>/dev/null || echo 0)
-PHASE_ID=$(yq -r ".phases[$IDX].id" "$PLAN" 2>/dev/null || echo "")
-VALIDATOR=$(yq -r ".phases[$IDX].validator" "$PLAN" 2>/dev/null || echo "")
-
-if [ -z "$PHASE_ID" ] || [ -z "$VALIDATOR" ]; then
-    exit 0
-fi
-
-VPATH="$CLAUDE_PROJECT_DIR/.autoport/$VALIDATOR"
-if [ ! -x "$VPATH" ]; then
-    exit 0
-fi
-
-# Run validator
-OUT=$(bash "$VPATH" 2>&1) && {
-    echo "Phase $PHASE_ID validator PASSED. Stop allowed."
-    exit 0
-}
-
-# Validator failed — block stop with feedback
-cat <<EOF >&2
-The phase $PHASE_ID validator is still failing. You must keep working.
-
-Validator command:
-  bash .autoport/$VALIDATOR
-
-Last 80 lines of validator output:
-$(echo "$OUT" | tail -n 80)
-
-Diagnose the failure precisely (don't guess) and fix it. Do not stop again
-until \`bash .autoport/$VALIDATOR\` exits with status 0.
-EOF
-exit 2
+OUT=$(AUTOPORT_PHASE_ID="$AUTOPORT_PHASE_ID" bash "$V" 2>&1); RC=$?
+{
+  if [ "$RC" = 0 ]; then
+    echo "[stop] validateur generic.sh : VERT pour $AUTOPORT_PHASE_ID."
+  else
+    echo "[stop] validateur generic.sh : ROUGE pour $AUTOPORT_PHASE_ID (sortie $RC). Pour information :"
+  fi
+  printf '%s\n' "$OUT" | tail -n 40
+  if [ "$RC" != 0 ]; then
+    echo "[stop] Rien ne t'empeche de sortir. Si la preuve manque, elle se PRODUIT :"
+    echo "       .autoport/lib/proof_run.sh $AUTOPORT_PHASE_ID x86     (ou 'device')"
+    echo "       Elle ne s'ecrit pas a la main : le validateur recalcule le sha du binaire."
+  fi
+} 2>&1
+exit 0

@@ -2,43 +2,47 @@
 """
 OpenGOAL → Android autonomous orchestrator.
 
+WHAT IT DOES, in one sentence: it takes the next open item of
+`.autoport/backlog.yaml`, runs ONE worker session on it, then judges the result
+ITSELF with `validators/generic.sh` — never on the worker's word.
+
 Hardcoded design choices (per project owner's preference):
 - Model/effort come from the ACTIVE profile in model-profiles.json (single
-  source of truth). Current (owner 2026-07-31): profile "opus48-xhigh" —
-  * MANAGER (the phase session): claude-opus-4-8[1m] @ effort=xhigh — plans,
-    judges, synthesizes, reviews. Per-phase override via `effort:` in
-    milestones.yaml.
-  * WORKERS (subagents via CLAUDE_CODE_SUBAGENT_MODEL): claude-opus-4-8[1m]
-    @ xhigh for research / code generation / testing. Per-agent effort in
-    .claude/agents/*.md frontmatter. Owner: "Opus 5 is lame as heck and
-    dumber than Opus 4.8" — explicitly opus-4-8, NOT opus-5.
-  (History: opus-4-8 max for every phase 2026-06-10→12; opus-4-7 through A32.)
-- Thinking: 'ultrathink' keyword in prompts keeps planning depth at the
-  manager level despite effort=high.
-- Rate-limit waits use the EXACT reset epoch returned by the API.
-  No "next Monday" assumption. The API tells us when the window resets;
-  we sleep until that timestamp + a small buffer.
+  source of truth). Active profile 2026-09-03: "fable51-high" —
+  * MANAGER (the item session): the profile's `manager_model` @ `manager_effort`.
+    Plans, decides, judges, synthesizes, reviews.
+  * WORKERS (subagents via CLAUDE_CODE_SUBAGENT_MODEL): the profile's
+    `worker_model`, per-agent effort in `.claude/agents/*.md` frontmatter.
+  Flip `active` in model-profiles.json, run apply-model-profile.sh, relaunch.
+- Thinking: the 'ultrathink' keyword in prompts keeps planning depth at the
+  manager level whatever the effort setting.
 
-Lifecycle:
-1. Load milestones.yaml, load state.json
-2. For each unfinished phase:
-   a. Poll rate-limit API. If above threshold, sleep until reset_at + buffer.
-   b. Launch `claude -p` with the phase prompt, Opus 4.7, max effort.
-   c. Stop-hook inside Claude Code re-runs the validator after every turn
-      and blocks completion until it passes (or turn cap is hit).
-   d. After claude exits, re-run validator post-hoc as ground truth.
-   e. On pass: git commit, optional push, notify, advance.
-   f. On fail: increment retry, feed validator output back into the next attempt.
-   g. After max_retries: mark blocked, notify, halt.
+Lifecycle of one turn of the loop:
+1. Promote every `to-test` item whose `owner_ok` is filled → `validated`.
+2. `backlog.next_open()` picks the work. No cursor, no index, no milestones.yaml.
+3. The item goes `in-progress`; one `claude -p` session runs with the item's
+   prompt, the directives block, the preflight findings and the previous
+   attempt's `handoff.md`.
+4. After it exits, the orchestrator runs `validators/generic.sh` as ground
+   truth, then the close-gate (real code change, fresh device build, acquis,
+   owner's word).
+5. Outcome: `validated` / `to-test` / back to `open` for a retry / `blocked`.
+
+WHAT DOES **NOT** COUNT AS AN ATTEMPT (2026-09-03): a session cut by a signal,
+by the scope watchdog, or refused at the door before doing any work. 373 of 597
+worker sessions lasted under three minutes because a Ctrl-C burned a retry,
+ran the validator on an untouched tree and appended a fingerprint. Those three
+paths now commit the work and return WITHOUT touching `retries` or
+`fingerprints`.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
-import random
 import re
 import select
 import signal
@@ -50,13 +54,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
-import yaml
 from rich.console import Console
 from rich.panel import Panel
 
 # ============================================================
-# Configuration — hardcoded per owner preference.
+# Configuration
 # ============================================================
 
 # Model + effort come from the ACTIVE profile in .autoport/model-profiles.json
@@ -65,18 +67,18 @@ from rich.panel import Panel
 # used only if the JSON is missing/unreadable.
 _PROFILE_PATH = Path(__file__).resolve().parent / "model-profiles.json"
 
+
 def _load_model_profile() -> dict:
     fallback = {
-        "manager_model": "claude-opus-4-8[1m]", "manager_effort": "xhigh",
-        "worker_model": "claude-opus-4-8[1m]",
-        "worker_efforts": {"autoport-researcher": "xhigh",
-                           "autoport-implementer": "xhigh",
-                           "autoport-tester": "xhigh"},
+        "manager_model": "claude-fable-5-1[1m]", "manager_effort": "high",
+        "worker_model": "claude-fable-5-1[1m]",
+        "worker_efforts": {"autoport-researcher": "high",
+                           "autoport-implementer": "medium",
+                           "autoport-tester": "medium"},
     }
     try:
         cfg = json.loads(_PROFILE_PATH.read_text())
         prof = cfg["profiles"][cfg["active"]]
-        # minimal validation
         for k in ("manager_model", "manager_effort", "worker_model", "worker_efforts"):
             if k not in prof:
                 raise KeyError(k)
@@ -86,38 +88,18 @@ def _load_model_profile() -> dict:
         fallback["_active_name"] = f"FALLBACK ({e})"
         return fallback
 
+
 _PROFILE = _load_model_profile()
-MODEL = _PROFILE["manager_model"]           # MANAGER model (orchestrator phase sessions)
-EFFORT = _PROFILE["manager_effort"]         # manager default; per-phase `effort:` in milestones.yaml overrides
-SUBAGENT_MODEL = _PROFILE["worker_model"]   # WORKER model for Task-tool subagents (CLAUDE_CODE_SUBAGENT_MODEL)
-WORKER_EFFORTS = _PROFILE["worker_efforts"] # per-agent effort (also baked into .claude/agents/*.md frontmatter)
+MODEL = _PROFILE["manager_model"]           # MANAGER model (the item session)
+EFFORT = _PROFILE["manager_effort"]         # manager default
+SUBAGENT_MODEL = _PROFILE["worker_model"]   # subagent model (CLAUDE_CODE_SUBAGENT_MODEL)
+WORKER_EFFORTS = _PROFILE["worker_efforts"] # per-agent effort (also in .claude/agents/*.md)
 PROFILE_NAME = _PROFILE["_active_name"]
 
 # Full YOLO mode: --dangerously-skip-permissions bypasses ALL permission
-# prompts. No per-tool allowlist — Claude can use any tool freely.
-# Safety net: per-phase git commits make any damage trivially revertable.
+# prompts. Safety net: per-attempt git checkpoints make damage revertable.
 
-# Rate-limit thresholds (0-100 percent)
-# OWNER POLICY 2026-06-12: NO pre-emptive stops. Run until the API actually
-# rejects; then wait for the reset and resume automatically. Telemetry stays
-# (it costs zero model tokens) but has no power to pause or kill.
-SESSION_PAUSE_PCT = 100.0  # pre-phase pause ONLY if the API reports the window truly exhausted
-WEEKLY_PAUSE_PCT = 999.0   # weekly gate DISABLED by owner 2026-06-11 (was 95.0)
-HARD_KILL_PCT = 999.0      # mid-phase pre-emptive kill DISABLED by owner 2026-06-12 (was 98.0) — only a real API rejection stops a session
-RESET_BUFFER_SECONDS = 90  # wait this long after the API-reported reset
-POLL_INTERVAL_SECONDS = 300  # how often to re-check while sleeping (5 min)
-
-# Hardened rate probe behavior
-PROBE_PER_ATTEMPT_TIMEOUT = 8       # HTTP timeout per attempt (sec)
-PROBE_DEADLINE_SEC = 30             # total wall-clock budget for a probe
-PROBE_RETRY_DELAYS = (2, 4, 8, 16)  # backoff schedule (sec, jitter added)
-PROBE_TTL_SEC = 60                  # in-memory cache TTL for successful probes
-
-# Mid-phase probing triggers (inline, from the stream read loop)
-PROBE_TOOL_CALLS_TRIGGER = 5  # probe every N tool_use events
-PROBE_TIME_TRIGGER = 60.0     # AND at least this many seconds since last probe
-
-# Live verbosity: how often to emit the periodic usage/progress tick line
+# Live verbosity: how often to emit the periodic progress tick line
 LIVE_TICK_INTERVAL = 15.0  # seconds
 
 # Stall detection for the read loop. Claude Code in -p mode sometimes keeps
@@ -129,11 +111,32 @@ STALL_HARD_SEC = 1800.0        # absolute max idle, regardless of session state
 READ_POLL_SEC = 5.0            # select timeout slice (drives ticks + stall checks)
 
 # Stuck detection: how many identical validator-failure fingerprints in a
-# row before we conclude the agent has stopped learning and is just burning
-# tokens. Set to 3 = halt when the same failure recurs three attempts in a
-# row. Note: a "different failure" still counts as progress, even if both
-# fail — what we're guarding against is the exact-same error repeating.
+# row before we conclude the agent has stopped learning. A "different failure"
+# still counts as progress; what we guard against is the exact same error.
 STUCK_REPEAT_THRESHOLD = 3
+
+# A session refused at the door (zero tokens, zero tool calls) is INFRA, not a
+# failed attempt — but it must not loop forever either. On 2026-08-31 it looped
+# 230 times over 19.7 h on a five-minute fixed sleep, and the cause could not be
+# recovered afterwards because the attempt log was overwritten every iteration
+# and claude's stderr was dropped. Both are fixed; this is the hard stop.
+MAX_NO_START_ITERATIONS = 6
+NO_START_FALLBACK_SLEEP = 300      # only when the API returned no reset time
+NO_START_MAX_SLEEP = 6 * 3600      # never sleep longer than this on one refusal
+
+# An Anthropic 529 storm is an infra outage: it must not consume a retry. It is
+# counted ONLY from structured API error events (see count_api_529): counting
+# the string "529" anywhere in the stream turned every one of our own SIGTERM
+# kills (exit 143) into a fake "infra outage", and this file's own source
+# contains the literal, so a worker reading the harness pre-loaded the counter.
+API_529_STORM_THRESHOLD = 3
+API_529_SLEEP = 600
+
+# The worker's progress is judged on ARTIFACTS, not output.
+NO_PROGRESS_SEC = 45 * 60
+
+# A handoff is a short note, not a report.
+HANDOFF_MAX_LINES = 30
 
 # ============================================================
 # Stuck detection — fingerprint validator failures so we can tell
@@ -168,13 +171,8 @@ def fingerprint_validator_output(output: str) -> tuple[str, list[str]]:
     """
     Reduce validator output to a stable failure signature.
 
-    Returns (sha1_short, key_lines) where:
-      - sha1_short is a 12-char hash that's the same across attempts that
-        fail the same way, and different when the failure mode changes
-      - key_lines is the actual normalized text we hashed, for human display
-
-    Strategy: keep only lines mentioning errors/failures, normalize away
-    timestamps/paths/addresses/durations, then hash the tail.
+    Returns (sha1_short, key_lines) where sha1_short is the same across attempts
+    that fail the same way and different when the failure mode changes.
     """
     sig_lines: list[str] = []
     for line in output.splitlines():
@@ -193,29 +191,23 @@ def fingerprint_validator_output(output: str) -> tuple[str, list[str]]:
                 normalized = pat.sub(repl, normalized)
             sig_lines.append(normalized)
 
-    # Keep the last 15 — most-recent errors are the most diagnostic.
     key_lines = sig_lines[-15:]
     fp = hashlib.sha1('\n'.join(key_lines).encode('utf-8', errors='replace')).hexdigest()[:12]
     return fp, key_lines
 
 
-def check_stuck(state: dict, phase_id: str, current_fp: str) -> tuple[bool, str]:
-    """
-    Returns (is_stuck, human_reason).
-
-    Stuck = the same fingerprint has now occurred STUCK_REPEAT_THRESHOLD
-    times in a row across recorded attempts for this phase.
-    """
-    history = state.get("fingerprints", {}).get(phase_id, [])
+def check_stuck(state: dict, item_id: str, current_fp: str) -> tuple[bool, str]:
+    """Stuck = the same fingerprint STUCK_REPEAT_THRESHOLD times in a row."""
+    history = state.get("fingerprints", {}).get(item_id, [])
     if len(history) < STUCK_REPEAT_THRESHOLD:
         return False, ""
 
     recent = history[-STUCK_REPEAT_THRESHOLD:]
     if all(fp == current_fp for fp in recent):
         return True, (
-            f"Same failure fingerprint '{current_fp}' has recurred "
-            f"{STUCK_REPEAT_THRESHOLD} attempts in a row. The agent is no longer "
-            f"learning from validator feedback — halting to preserve token quota."
+            f"Même empreinte d'échec '{current_fp}' {STUCK_REPEAT_THRESHOLD} essais "
+            f"de suite : le worker n'apprend plus du validateur. On arrête cet item "
+            f"au lieu de brûler du quota dessus."
         )
     return False, ""
 
@@ -227,31 +219,29 @@ def check_stuck(state: dict, phase_id: str, current_fp: str) -> tuple[bool, str]
 REPO_ROOT = Path(__file__).resolve().parent.parent
 AUTOPORT_DIR = REPO_ROOT / ".autoport"
 STATE_PATH = AUTOPORT_DIR / "state.json"
-MILESTONES_PATH = AUTOPORT_DIR / "milestones.yaml"
+BACKLOG_PATH = AUTOPORT_DIR / "backlog.yaml"
+BACKLOG_LIB = AUTOPORT_DIR / "lib" / "backlog.py"
+GENERIC_VALIDATOR = AUTOPORT_DIR / "validators" / "generic.sh"
 LOG_ROOT = AUTOPORT_DIR / "logs"
-NOTIFY_SCRIPT = AUTOPORT_DIR / "lib" / "notify.sh"
+REPORTS_DIR = AUTOPORT_DIR / "reports"
+OWNER_OK_DIR = AUTOPORT_DIR / "owner-ok"
+SHIELD_GUARD = AUTOPORT_DIR / "shield_guard.sh"
 CREDENTIALS_PATH = Path.home() / ".claude" / ".credentials.json"
 
 console = Console()
 HALT = False
 QUIET = False  # set from argparse; suppresses live event rendering
 
-# Set inside run_phase while a claude subprocess is alive. The signal handler
-# forwards SIGTERM to its process group so Ctrl-C kills Claude promptly
-# instead of waiting up to 30 minutes for the current attempt to drain.
+# Set inside run_attempt while a claude subprocess is alive. The signal handler
+# forwards SIGTERM to its process group so Ctrl-C kills Claude promptly.
 _CURRENT_CHILD: subprocess.Popen | None = None
 
-# In-memory cache for the rate-limit probe. Keyed only by recency (TTL).
-_PROBE_CACHE: tuple[float, "RateStatus"] | None = None
 
-
-def _sig(_sig, _frame):
+def _sig(_signum, _frame):
     global HALT
-    console.print("\n[yellow]⚠ Received signal — finishing current step then halting.[/yellow]")
+    console.print("\n[yellow]⚠ Signal reçu — l'essai en cours est ANNULÉ (ni compté, "
+                  "ni empreinté). Le travail déjà fait est commité.[/yellow]")
     HALT = True
-    # Forward to the running child so claude exits promptly. We use the
-    # process group (start_new_session=True in Popen) to cover claude's own
-    # child processes too.
     child = _CURRENT_CHILD
     if child is not None and child.poll() is None:
         try:
@@ -264,189 +254,187 @@ signal.signal(signal.SIGINT, _sig)
 signal.signal(signal.SIGTERM, _sig)
 
 
+def log(message: str, style: str = "") -> None:
+    """One console line. There is no notification channel any more: the ntfy/Slack
+    push was dropped by the owner on 2026-06-13 and `notify()` had been printing
+    to this same console ever since, behind a level argument nobody read."""
+    console.print(f"[{style}]{message}[/{style}]" if style else message)
+
+
+def format_duration(seconds: float) -> str:
+    """Human-readable duration like '3d 4h', '2h 15m', '45m', '12s'."""
+    s = int(seconds)
+    if s < 60:
+        return f"{s}s"
+    m, s = divmod(s, 60)
+    if m < 60:
+        return f"{m}m"
+    h, m = divmod(m, 60)
+    if h < 24:
+        return f"{h}h {m}m" if m else f"{h}h"
+    d, h = divmod(h, 24)
+    return f"{d}d {h}h" if h else f"{d}d"
+
+
 # ============================================================
-# State persistence
+# State — atomic, versioned, and only five keys
 # ============================================================
+#
+# state.json holds MECHANICS ONLY. Every status lives in backlog.yaml.
+#
+# The version guard exists because of an observed LOST UPDATE (2026-09-03
+# 02:13): an orchestrator that had received a signal kept running its validator
+# until 02:15 while a NEW orchestrator started at 02:13:18 and rewrote
+# state.json at 02:13:19. The first run's result was never recorded. The flock
+# did not prevent the overlap, so the write itself now refuses to clobber a file
+# that moved under it.
+
+STATE_KEYS = ("version", "retries", "fingerprints", "attempt_seq",
+              "rate_interrupts", "last_update")
+
+
+class StateConflict(Exception):
+    """state.json changed under us: another orchestrator is alive."""
+
 
 def load_state() -> dict:
+    raw: dict = {}
     if STATE_PATH.exists():
-        return json.loads(STATE_PATH.read_text())
+        try:
+            raw = json.loads(STATE_PATH.read_text())
+        except (OSError, ValueError) as e:
+            raise SystemExit(f"state.json illisible ({e}). Répare-le ou supprime-le "
+                             f"(il ne contient que des compteurs, aucun statut).")
+    # The statuses (`completed`, `parked`, `blocked`, `validator_passed`) moved to
+    # backlog.yaml. The first write here would drop them for good, and
+    # tools/migrate_backlog.py reads them — so keep one copy, once, before any
+    # write can happen.
+    legacy = [k for k in raw if k not in STATE_KEYS]
+    if legacy:
+        backup = STATE_PATH.with_name(STATE_PATH.name + ".legacy")
+        if not backup.exists():
+            backup.write_text(json.dumps(raw, indent=2))
+            log(f"· ancien state.json ({len(legacy)} clés de statut) sauvegardé dans "
+                f"{backup.name} avant de passer au format à cinq compteurs.", "yellow")
+
     return {
-        "current_phase_idx": 0,
-        "retries": {},
-        "fingerprints": {},
-        "stuck_reasons": {},
-        "completed": [],
-        "blocked": [],
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "version": int(raw.get("version", 0) or 0),
+        "retries": dict(raw.get("retries") or {}),
+        "fingerprints": dict(raw.get("fingerprints") or {}),
+        "attempt_seq": dict(raw.get("attempt_seq") or {}),
+        "rate_interrupts": dict(raw.get("rate_interrupts") or {}),
+        "last_update": raw.get("last_update", ""),
     }
 
 
 def save_state(state: dict) -> None:
-    state["last_update"] = datetime.now(timezone.utc).isoformat()
-    STATE_PATH.write_text(json.dumps(state, indent=2))
-
-
-def load_milestones() -> dict:
-    return yaml.safe_load(MILESTONES_PATH.read_text())
-
-
-# ============================================================
-# Rate-limit awareness — uses ACTUAL reset_at from API.
-# No hardcoded weekly boundaries.
-# ============================================================
-
-@dataclass
-class RateStatus:
-    session_pct: float
-    session_reset: int  # unix epoch
-    weekly_pct: float
-    weekly_reset: int   # unix epoch
-    raw: dict
-
-    def session_reset_iso(self) -> str:
-        return datetime.fromtimestamp(self.session_reset, tz=timezone.utc).isoformat()
-
-    def weekly_reset_iso(self) -> str:
-        return datetime.fromtimestamp(self.weekly_reset, tz=timezone.utc).isoformat()
-
-
-def get_oauth_token() -> str | None:
-    if not CREDENTIALS_PATH.exists():
-        return None
-    try:
-        return json.loads(CREDENTIALS_PATH.read_text()) \
-            .get("claudeAiOauth", {}).get("accessToken")
-    except Exception:
-        return None
-
-
-_RATE_URL = "https://api.anthropic.com/api/oauth/usage"
-
-
-def _parse_rate_payload(data: dict) -> RateStatus:
-    return RateStatus(
-        session_pct=float(data["five_hour"]["utilization"]),
-        session_reset=int(
-            datetime.fromisoformat(
-                data["five_hour"]["resets_at"].replace("Z", "+00:00")
-            ).timestamp()
-        ),
-        weekly_pct=float(data["seven_day"]["utilization"]),
-        weekly_reset=int(
-            datetime.fromisoformat(
-                data["seven_day"]["resets_at"].replace("Z", "+00:00")
-            ).timestamp()
-        ),
-        raw=data,
-    )
-
-
-def fetch_rate_status(force: bool = False) -> RateStatus | None:
-    """Probe /oauth/usage with retries, 429-aware backoff, and a 60s cache.
-
-    Returns None only when the API is truly unreachable inside the deadline
-    budget (no caller should treat None as 'all good' — the mid-phase logic
-    falls back to a token-based estimate when this is None).
-    """
-    global _PROBE_CACHE
-    now = time.monotonic()
-    if not force and _PROBE_CACHE is not None and (now - _PROBE_CACHE[0]) < PROBE_TTL_SEC:
-        return _PROBE_CACHE[1]
-
-    token = get_oauth_token()
-    if not token:
-        return None
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "anthropic-beta": "oauth-2025-04-20",
-    }
-    deadline = now + PROBE_DEADLINE_SEC
-
-    last_error: str = ""
-    for i, base in enumerate(PROBE_RETRY_DELAYS):
-        if time.monotonic() >= deadline:
-            break
+    """Atomic write, refused if the on-disk version moved under us."""
+    on_disk = 0
+    if STATE_PATH.exists():
         try:
-            r = requests.get(_RATE_URL, headers=headers, timeout=PROBE_PER_ATTEMPT_TIMEOUT)
-            if r.status_code == 429:
-                ra_hdr = r.headers.get("Retry-After")
-                try:
-                    wait = float(ra_hdr) if ra_hdr else float(base)
-                except ValueError:
-                    wait = float(base)
-                wait = min(wait, max(0.0, deadline - time.monotonic()))
-                if wait <= 0 or i == len(PROBE_RETRY_DELAYS) - 1:
-                    last_error = f"429 (Retry-After={ra_hdr or 'n/a'})"
-                    break
-                console.print(f"[dim]rate probe 429; sleeping {wait:.1f}s before retry[/dim]")
-                time.sleep(wait + random.uniform(0, 0.5))
-                continue
-            r.raise_for_status()
-            status = _parse_rate_payload(r.json())
-            _PROBE_CACHE = (now, status)
-            return status
-        except (requests.Timeout, requests.ConnectionError) as e:
-            last_error = f"{type(e).__name__}"
-            if i == len(PROBE_RETRY_DELAYS) - 1:
-                break
-            backoff = base + random.uniform(0, base * 0.25)
-            if time.monotonic() + backoff > deadline:
-                break
-            console.print(f"[dim]rate probe {last_error}; retry {i + 1}/{len(PROBE_RETRY_DELAYS)} in {backoff:.1f}s[/dim]")
-            time.sleep(backoff)
-            continue
-        except (ValueError, KeyError) as e:
-            last_error = f"bad-payload:{type(e).__name__}"
-            break
-        except Exception as e:
-            last_error = f"{type(e).__name__}: {e}"
-            break
+            on_disk = int(json.loads(STATE_PATH.read_text()).get("version", 0) or 0)
+        except (OSError, ValueError):
+            on_disk = state["version"]      # unreadable: don't wedge on it
+    if on_disk != state["version"]:
+        raise StateConflict(
+            f"state.json est en version {on_disk}, nous tenons la {state['version']} : "
+            f"un autre orchestrateur écrit dans ce dépôt. Écriture REFUSÉE (c'est la "
+            f"mise à jour perdue du 2026-09-03 02:13). Arrête l'autre instance."
+        )
+    new = {k: state.get(k) for k in STATE_KEYS}
+    new["version"] = state["version"] + 1
+    new["last_update"] = datetime.now(timezone.utc).isoformat()
+    tmp = STATE_PATH.with_name(STATE_PATH.name + f".tmp.{os.getpid()}")
+    tmp.write_text(json.dumps(new, indent=2))
+    os.replace(tmp, STATE_PATH)
+    state["version"] = new["version"]
+    state["last_update"] = new["last_update"]
 
-    console.print(f"[yellow]Rate-limit probe failed after retries: {last_error or 'budget exhausted'}[/yellow]")
-    return None
+
+def next_attempt_seq(state: dict, item_id: str) -> int:
+    """A monotonic, never-reused attempt number.
+
+    The number USED to be `retries + 1`. The OPEN-DEFECTS exemption reset
+    `retries` to 0, so the next attempt was numbered 1 again and reopened
+    `attempt-01.jsonl` in "w" mode: on Grecharged-secondary-motion, 117
+    fingerprints had left 18 attempt logs on disk. This counter never goes
+    backwards, and it skips any number whose log file somehow already exists."""
+    seqs = state.setdefault("attempt_seq", {})
+    n = int(seqs.get(item_id, 0) or 0)
+    while True:
+        n += 1
+        if not (LOG_ROOT / item_id / f"attempt-{n:03d}.jsonl").exists():
+            break
+    seqs[item_id] = n
+    save_state(state)
+    return n
 
 
 # ============================================================
-# Live verbosity — smart-compact stream-json renderer + inline
-# mid-phase rate probing.
+# Backlog — the only source of work (lib/backlog.py, chantier D)
+# ============================================================
+
+def load_backlog():
+    """Fresh read every turn: the operator edits backlog.yaml while we run."""
+    lib = str(AUTOPORT_DIR / "lib")
+    if lib not in sys.path:
+        sys.path.insert(0, lib)
+    import backlog as _bk
+    importlib.reload(_bk)
+    return _bk.load()
+
+
+def backlog_missing_reason() -> str:
+    """'' when we can start, otherwise the reason AND what to do about it."""
+    if not BACKLOG_LIB.exists():
+        return (f"{BACKLOG_LIB} est absent. L'orchestrateur ne sait plus choisir le "
+                f"travail sans lui : il ne lit plus milestones.yaml ni de curseur.\n"
+                f"  → livre lib/backlog.py (chantier D), puis relance.")
+    if not BACKLOG_PATH.exists():
+        return (f"{BACKLOG_PATH} est absent : il n'y a aucun backlog à traiter.\n"
+                f"  → crée-le avec `python3 .autoport/tools/migrate_backlog.py`, "
+                f"vérifie-le avec `./.autoport/autoport lint`, puis relance.")
+    return ""
+
+
+def _reread_item(item_id: str, fallback: dict) -> dict:
+    """The item as it is ON DISK right now.
+
+    A close-gate decision must never be taken on the copy loaded when the
+    attempt started: an operator who fixes `device_serial` or sets `no_code`
+    mid-attempt (which is exactly what this gate's own message tells them to do)
+    would otherwise be refused until a relaunch."""
+    try:
+        got = load_backlog().get(item_id)
+        return got if got else fallback
+    except Exception:  # noqa: BLE001 — fail-safe: keep the in-memory item
+        return fallback
+
+
+# ============================================================
+# Live verbosity — smart-compact stream-json renderer
 # ============================================================
 
 @dataclass
 class PrettyState:
-    """Per-phase live-rendering and probing state.
-
-    Threaded between every event read off Claude's stdout. The orchestrator
-    must never raise out of the read loop on account of this state; the
-    printer wraps every render in try/except.
-    """
-    t0: float                                # phase start (monotonic)
+    """Per-attempt live-rendering state. The printer never raises."""
+    t0: float                                # attempt start (monotonic)
     session_id: str = ""
-    tool_calls: int = 0                      # cumulative tool_use events
-    tool_calls_since_probe: int = 0
-    tokens_in: int = 0                       # cumulative input tokens
-    tokens_out: int = 0                      # cumulative output tokens
-    cache_read: int = 0                      # cumulative cache-read tokens
+    tool_calls: int = 0
+    tokens_in: int = 0
+    tokens_out: int = 0
+    cache_read: int = 0
     cache_creation: int = 0
     last_tick_at: float = 0.0
-    last_probe_at: float = 0.0
-    last_session_pct: float | None = None    # last *probed* (authoritative)
-    # In-subprocess probes for slope-based extrapolation. Each entry is
-    # (probed_pct, total_in_out_tokens_at_probe_time). Single-anchor
-    # extrapolation was wildly wrong: it assumes the session started at 0%
-    # when this claude subprocess began, but the 5-hour window accumulates
-    # across many subprocesses (including the orchestrator's own setup).
-    # Slope is meaningful only between two probes inside the SAME
-    # subprocess, where token deltas correspond to real session-pct deltas.
-    probes: list[tuple[float, int]] = field(default_factory=list)
-    probe_failures: int = 0                  # consecutive 429/timeout count; drives backoff
-    last_claude_rate_status: str = ""        # from rate_limit_event payloads
     tool_use_names: dict[str, str] = field(default_factory=dict)  # id -> name
-    kill_pending: bool = False               # set True when threshold crossed
     init_printed: bool = False
     dirty_since_tick: bool = False           # gate periodic tick on activity
     result_seen: bool = False                # at least one result/* event arrived
+    # The ONE piece of quota behaviour we keep (owner policy): when the API
+    # REFUSES us, it tells us when the window resets. We sleep until then
+    # instead of guessing five minutes.
+    rate_rejected: bool = False
+    rate_reset_at: int | None = None
 
 
 def _short_id(s: str, n: int = 7) -> str:
@@ -472,15 +460,12 @@ def _primary_arg(tool_name: str, tool_input: dict) -> str:
     """Best single string to identify what the tool is doing."""
     if not isinstance(tool_input, dict):
         return ""
-    # Bash is special-cased so the shell command shows up.
     if tool_name == "Bash":
         return str(tool_input.get("command", ""))
-    # Common conventions: file_path / path / pattern / query / url / command
     for key in ("file_path", "path", "pattern", "query", "url", "command",
                 "subject", "description", "old_string"):
         if key in tool_input and tool_input[key]:
             return str(tool_input[key])
-    # Fallback: first non-empty value
     for v in tool_input.values():
         if v:
             return str(v)
@@ -496,39 +481,6 @@ def _accumulate_usage(state: PrettyState, usage: dict) -> None:
     state.cache_creation += int(usage.get("cache_creation_input_tokens", 0) or 0)
 
 
-def _current_pct(state: PrettyState) -> tuple[float | None, bool]:
-    """Return (pct, is_estimated_from_slope). pct is None if we've never seen a probe.
-
-    Rules — designed to avoid the phantom-105% bug:
-      - 0 in-subprocess probes: fall back to the (possibly cache-seeded)
-        last probed value. Mark as NOT estimated — it's the last actual
-        reading we have, not an extrapolation.
-      - 1 in-subprocess probe: same as above. We don't have a slope yet,
-        so any extrapolation would be inventing one (the prior formula's
-        bug was assuming the session started at 0% when this subprocess
-        began — wrong, because the 5-hour window accumulates across
-        subprocesses including the orchestrator's own setup).
-      - 2+ probes: compute the per-token slope between the last two
-        probes (real, in-subprocess data points), then extrapolate
-        forward from the latest. Marked estimated.
-    """
-    now_tokens = state.tokens_in + state.tokens_out
-    if len(state.probes) >= 2:
-        p1_pct, p1_tok = state.probes[-2]
-        p2_pct, p2_tok = state.probes[-1]
-        if p2_tok > p1_tok and now_tokens > p2_tok:
-            slope = (p2_pct - p1_pct) / (p2_tok - p1_tok)
-            est = p2_pct + (now_tokens - p2_tok) * slope
-            # Never report below the last actual probe (slope can be ≤0 if
-            # the session reset between probes; defend against weirdness).
-            return (max(est, p2_pct), True)
-        # No usable token delta — just report the last probe value.
-        return (p2_pct, False)
-    if state.last_session_pct is not None:
-        return (state.last_session_pct, False)
-    return (None, False)
-
-
 def _maybe_emit_tick(state: PrettyState) -> None:
     if QUIET:
         return
@@ -539,15 +491,10 @@ def _maybe_emit_tick(state: PrettyState) -> None:
         return
     state.last_tick_at = now
     state.dirty_since_tick = False
-    elapsed = now - state.t0
-    mins, secs = divmod(int(elapsed), 60)
-    pct, estimated = _current_pct(state)
-    pct_str = "?" if pct is None else f"{'~' if estimated else ''}{pct:.0f}%"
+    mins, secs = divmod(int(now - state.t0), 60)
     tokens = state.tokens_in + state.tokens_out
-    console.print(
-        f"[dim][{mins}m{secs:02d}s · {state.tool_calls} calls · "
-        f"{_human_tokens(tokens)} tok · session {pct_str}][/dim]"
-    )
+    console.print(f"[dim][{mins}m{secs:02d}s · {state.tool_calls} calls · "
+                  f"{_human_tokens(tokens)} tok][/dim]")
 
 
 def pretty_print_event(ev: dict, state: PrettyState) -> None:
@@ -561,37 +508,32 @@ def pretty_print_event(ev: dict, state: PrettyState) -> None:
                 state.init_printed = True
                 state.session_id = ev.get("session_id", "")
                 if not QUIET:
-                    console.print(
-                        f"[cyan]▶ claude session {_short_id(state.session_id)} · "
-                        f"model={ev.get('model', '?')}[/cyan]"
-                    )
+                    console.print(f"[cyan]▶ claude session {_short_id(state.session_id)} · "
+                                  f"model={ev.get('model', '?')}[/cyan]")
             elif sub == "api_retry":
                 if not QUIET:
                     n = ev.get("attempt"); mx = ev.get("max_retries")
-                    delay = ev.get("retry_delay_ms", 0)
-                    err = ev.get("error", "?")
-                    console.print(f"[yellow]· api_retry {n}/{mx} (delay {delay/1000:.1f}s, {err})[/yellow]")
-            # task_started, task_notification, hook_started/response: ignore
+                    delay = ev.get("retry_delay_ms", 0) or 0
+                    console.print(f"[yellow]· api_retry {n}/{mx} (delay {delay/1000:.1f}s, "
+                                  f"status={ev.get('error_status')}, {ev.get('error', '?')})[/yellow]")
             return
 
         if t == "rate_limit_event":
             info = ev.get("rate_limit_info", {}) or {}
-            if info.get("rateLimitType") == "five_hour":
-                state.last_claude_rate_status = str(info.get("status", ""))
-                # OWNER POLICY 2026-06-12: only a REAL rejection stops the
-                # session. "allowed_warning" (fires from ~90%) must NOT kill —
-                # that wasted two healthy F1e sessions on 2026-06-12.
-                if state.last_claude_rate_status in ("rejected", "blocked", "exceeded"):
-                    state.kill_pending = True
-                    if not QUIET:
-                        console.print(
-                            f"[red]⚠ claude rate_limit_event: {state.last_claude_rate_status} (real rejection — stopping)[/red]"
-                        )
-                elif state.last_claude_rate_status not in ("allowed", ""):
-                    if not QUIET:
-                        console.print(
-                            f"[dim]· rate_limit_event: {state.last_claude_rate_status} (warning only — continuing)[/dim]"
-                        )
+            status = str(info.get("status", ""))
+            if status in ("rejected", "blocked", "exceeded"):
+                state.rate_rejected = True
+                reset = info.get("resetsAt")
+                if isinstance(reset, (int, float)) and reset > 0:
+                    state.rate_reset_at = int(reset)
+                console.print(f"[red]⚠ l'API nous a REFUSÉS ({status})"
+                              + (f", fenêtre réouverte à "
+                                 f"{datetime.fromtimestamp(state.rate_reset_at, tz=timezone.utc).isoformat()}"
+                                 if state.rate_reset_at else "")
+                              + "[/red]")
+            elif status not in ("allowed", "") and not QUIET:
+                console.print(f"[dim]· rate_limit_event: {status} (avertissement seul — "
+                              f"on continue, politique owner 2026-06-12)[/dim]")
             return
 
         if t == "assistant":
@@ -603,7 +545,6 @@ def pretty_print_event(ev: dict, state: PrettyState) -> None:
                 ctype = c.get("type")
                 if ctype == "tool_use":
                     state.tool_calls += 1
-                    state.tool_calls_since_probe += 1
                     state.dirty_since_tick = True
                     name = c.get("name", "?")
                     state.tool_use_names[c.get("id", "")] = name
@@ -613,10 +554,8 @@ def pretty_print_event(ev: dict, state: PrettyState) -> None:
                 elif ctype == "text":
                     text = (c.get("text") or "").strip()
                     if text and not QUIET:
-                        # First sentence, max 120 chars.
                         first = re.split(r'(?<=[.!?])\s', text, maxsplit=1)[0]
                         console.print(f"[dim]{_truncate(first, 120)}[/dim]")
-                # thinking: silent (already costs tokens; no value to display)
             return
 
         if t == "user":
@@ -624,279 +563,271 @@ def pretty_print_event(ev: dict, state: PrettyState) -> None:
             for c in msg.get("content", []) or []:
                 if c.get("type") != "tool_result":
                     continue
-                is_err = bool(c.get("is_error"))
-                content = c.get("content", "")
-                if isinstance(content, list):
-                    parts = []
-                    for blk in content:
-                        if isinstance(blk, dict) and blk.get("type") == "text":
-                            parts.append(blk.get("text", ""))
-                    content = "".join(parts) if parts else str(content)
-                content = str(content)
-                if not QUIET and is_err:
-                    head = _truncate(content, 100)
-                    console.print(f"   [red]↳ ERROR:[/red] [dim]{head}[/dim]")
-                # Successful tool_results are silent — they add no signal
-                # beyond what the next assistant turn shows. Byte counts and
-                # `ok` markers were pure clutter (per user feedback).
+                if not (QUIET or not c.get("is_error")):
+                    content = c.get("content", "")
+                    if isinstance(content, list):
+                        parts = [b.get("text", "") for b in content
+                                 if isinstance(b, dict) and b.get("type") == "text"]
+                        content = "".join(parts) if parts else str(content)
+                    console.print(f"   [red]↳ ERROR:[/red] [dim]{_truncate(str(content), 100)}[/dim]")
             return
 
         if t == "result":
             state.result_seen = True
-            usage = ev.get("usage", {}) or {}
-            _accumulate_usage(state, usage)
+            _accumulate_usage(state, ev.get("usage", {}) or {})
             if not QUIET:
                 dur_ms = ev.get("duration_ms", 0)
                 cost = ev.get("total_cost_usd", 0) or 0
-                turns = ev.get("num_turns", 0)
-                err = ev.get("is_error")
-                head = "[red]✗ result[/red]" if err else "[green]✓ result[/green]"
+                head = "[red]✗ result[/red]" if ev.get("is_error") else "[green]✓ result[/green]"
                 console.print(
-                    f"{head} [dim]turns={turns} · {dur_ms/1000:.1f}s · "
+                    f"{head} [dim]turns={ev.get('num_turns', 0)} · {dur_ms/1000:.1f}s · "
                     f"in {_human_tokens(state.tokens_in)} out {_human_tokens(state.tokens_out)} "
-                    f"cache_r {_human_tokens(state.cache_read)} · ${cost:.3f}[/dim]"
-                )
+                    f"cache_r {_human_tokens(state.cache_read)} · ${cost:.3f}[/dim]")
             return
 
-        # Anything else: silent (raw line still goes to JSONL log).
-    except Exception as e:
-        # Printer must NEVER kill the orchestrator.
+    except Exception as e:  # noqa: BLE001 — the printer must NEVER kill the loop
         if not QUIET:
             console.print(f"[dim]· print-err {type(e).__name__}[/dim]")
     finally:
         _maybe_emit_tick(state)
 
 
-def maybe_probe_inline(state: PrettyState) -> None:
-    """If trigger conditions are met, probe the rate API and update state.
+# ============================================================
+# Forensics — read the attempt JSONL as EVENTS, never as text
+# ============================================================
 
-    On success: append (pct, tokens) to state.probes; with 2+ probes,
-    _current_pct() can slope-extrapolate honestly.
-
-    On failure (429, network blip): exponential back-off so we don't burn
-    the rate-probe endpoint when it's throttling us. Notably, we DO NOT
-    trigger a hard-kill from a single-probe extrapolation — that's the
-    bug that caused the phantom 105%. We only kill if the actual probed
-    value crosses HARD_KILL_PCT, or if a 2+ probe slope-extrapolation
-    crosses it (slope-extrapolation has real data behind it).
-    """
-    now = time.monotonic()
-    if state.tool_calls_since_probe < PROBE_TOOL_CALLS_TRIGGER:
-        return
-    # Exponential back-off on consecutive failures: 60s → 120s → 240s →
-    # 480s, capped at 300s. Doubles on each failure; resets on success.
-    min_interval = min(PROBE_TIME_TRIGGER * (2 ** state.probe_failures), 300.0)
-    if (now - state.last_probe_at) < min_interval:
+def _iter_events(path: Path):
+    try:
+        with path.open(errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(ev, dict):
+                    yield ev
+    except OSError:
         return
 
-    state.last_probe_at = now
-    state.tool_calls_since_probe = 0
 
-    st = fetch_rate_status()
-    if st is not None:
-        state.probe_failures = 0
-        prev_pct = state.last_session_pct
-        state.last_session_pct = st.session_pct
-        # Append to the slope-extrapolation window. Use total in+out
-        # tokens at probe time as the x-axis. Cap memory at last 5.
-        state.probes.append((st.session_pct, state.tokens_in + state.tokens_out))
-        state.probes = state.probes[-5:]
+def _api_error_statuses(ev: Any, out: list[int] | None = None) -> list[int]:
+    """Every `api_error_status` found anywhere in an event, as ints."""
+    if out is None:
+        out = []
+    if isinstance(ev, dict):
+        for k, v in ev.items():
+            if k == "api_error_status" and isinstance(v, (int, str)) and str(v).isdigit():
+                out.append(int(v))
+            else:
+                _api_error_statuses(v, out)
+    elif isinstance(ev, list):
+        for v in ev:
+            _api_error_statuses(v, out)
+    return out
 
-        if not QUIET:
-            arrow = ""
-            if prev_pct is not None:
-                delta = st.session_pct - prev_pct
-                arrow = f" ({'+' if delta >= 0 else ''}{delta:.1f})"
-            console.print(
-                f"[dim]· probed session={st.session_pct:.1f}%{arrow} "
-                f"weekly={st.weekly_pct:.1f}%[/dim]"
-            )
 
-        # Kill on the *probed* value crossing threshold. Always reliable.
-        if st.session_pct >= HARD_KILL_PCT:
-            state.kill_pending = True
-        return
+def count_api_529(path: Path) -> int:
+    """Structured 529s only.
 
-    # Probe failed.
-    state.probe_failures += 1
-    if not QUIET:
-        next_interval = min(PROBE_TIME_TRIGGER * (2 ** state.probe_failures), 300.0)
-        console.print(
-            f"[dim]· rate probe failed ({state.probe_failures}x consecutive); "
-            f"next attempt in ≥{next_interval:.0f}s[/dim]"
-        )
+    The old heuristic counted `overloaded` and `\\b529\\b` ANYWHERE in the
+    attempt stream — tool outputs included. This file itself contained six such
+    literals, so a worker that read the harness source pre-loaded the counter;
+    and any non-zero exit with three hits became an "infra outage", which is how
+    58 of our OWN watchdog kills (exit 143) were logged as Anthropic outages,
+    skipping the validator and the WIP commit."""
+    n = 0
+    for ev in _iter_events(path):
+        if ev.get("type") == "system" and ev.get("subtype") == "api_retry":
+            st = ev.get("error_status")
+            if str(st) == "529":
+                n += 1
+                continue
+        n += sum(1 for s in _api_error_statuses(ev) if s == 529)
+    return n
 
-    # Only hard-kill on extrapolation when we have ≥2 in-subprocess probes
-    # (a real slope, not a single-anchor invented one). Otherwise the
-    # phantom-105% bug returns.
-    if len(state.probes) >= 2:
-        pct, est = _current_pct(state)
-        if pct is not None and est and pct >= HARD_KILL_PCT:
-            state.kill_pending = True
+
+def fatal_config_reason(path: Path) -> str:
+    """A model/auth/request error that will repeat forever, not a rate limit."""
+    for ev in _iter_events(path):
+        for st in _api_error_statuses(ev):
+            if st in (401, 403, 404):
+                return (f"erreur API {st} (modèle / authentification / requête). "
+                        f"Vérifie le modèle « {MODEL} » et les identifiants.")
+    try:
+        if "may not exist or you may not have access" in path.read_text(errors="replace"):
+            return (f"le modèle « {MODEL} » n'existe pas ou n'est pas accessible "
+                    f"(404) — corrige model-profiles.json.")
+    except OSError:
+        pass
+    return ""
+
+
+def rate_reset_from_log(path: Path) -> int | None:
+    """The reset epoch the API itself returned on a refusal."""
+    best = None
+    for ev in _iter_events(path):
+        if ev.get("type") != "rate_limit_event":
+            continue
+        info = ev.get("rate_limit_info", {}) or {}
+        if str(info.get("status", "")) not in ("rejected", "blocked", "exceeded"):
+            continue
+        reset = info.get("resetsAt")
+        if isinstance(reset, (int, float)) and reset > 0:
+            best = max(best or 0, int(reset))
+    return best
+
+
+def nap(seconds: float) -> None:
+    """Sleep in one-second slices so a Ctrl-C is felt now, not in five minutes.
+
+    PEP 475 makes `time.sleep` RESUME after a signal handler returns, so a plain
+    `time.sleep(300)` swallowed the operator's interrupt for the rest of it."""
+    end = time.monotonic() + seconds
+    while not HALT and time.monotonic() < end:
+        time.sleep(min(1.0, end - time.monotonic()))
 
 
 def sleep_until(epoch: int, label: str) -> None:
-    """Sleep until the given UTC epoch. Wakes early if HALT is signaled."""
+    """Sleep until a UTC epoch, waking early on HALT."""
     while not HALT:
         remaining = epoch - int(time.time())
         if remaining <= 0:
             return
-        mins = remaining // 60
-        hrs = mins // 60
         when = datetime.fromtimestamp(epoch, tz=timezone.utc)
-        console.print(
-            f"[dim]Sleeping {hrs}h{mins % 60:02d}m until {label} reset "
-            f"({when.isoformat()})[/dim]"
-        )
-        # Sleep in chunks so we can react to signals and re-probe periodically
-        chunk = min(remaining, POLL_INTERVAL_SECONDS)
-        time.sleep(chunk)
+        log(f"En attente de {label} : {format_duration(remaining)} "
+            f"(jusqu'à {when.isoformat()})", "dim")
+        nap(min(remaining, 60))
 
 
-def wait_for_quota() -> bool:
-    """
-    Block until safe to launch the next phase.
-    Returns False if HALT was signaled.
-    Notifies on pause and resume so the user knows what's happening.
-    """
-    slept = False
-    while not HALT:
-        status = fetch_rate_status()
-        if status is None:
-            console.print("[yellow]No rate data — proceeding optimistically.[/yellow]")
-            if slept:
-                notify("▶ resumed after pause", level="info")
-            return True
+# ============================================================
+# Git checkpointing — the worker's paths, never the whole tree
+# ============================================================
+#
+# `git add -A` swallowed everything the SUPERVISOR wrote while a worker ran
+# (journal, directives, milestones) into the worker's own commit, which made the
+# supervisor's trace invisible in the history. The orchestrator now stages
+# exactly the paths the tree shows as dirty, minus the harness's own state.
 
-        console.print(
-            f"[dim]Rate check: session={status.session_pct:.1f}%  "
-            f"weekly={status.weekly_pct:.1f}%[/dim]"
-        )
+_HARNESS_STATE_FILES = {
+    ".autoport/state.json",
+    ".autoport/backlog.yaml",
+    ".autoport/milestones.yaml",
+    ".autoport/.orchestrator.lock",
+    ".autoport/.scope_stamp",
+    ".autoport/.directives_issued",
+    ".autoport/.last_apk_build_sha",
+    ".autoport/.last_owner_notify.json",
+    ".autoport/DIRECTIVES.md",
+}
 
-        # Weekly first — bigger window, more catastrophic if missed
-        if status.weekly_pct >= WEEKLY_PAUSE_PCT:
-            wait_secs = max(0, status.weekly_reset - int(time.time()))
-            notify(
-                f"⏸ WEEKLY limit at {status.weekly_pct:.1f}%. "
-                f"Pausing until {status.weekly_reset_iso()} "
-                f"({format_duration(wait_secs)})",
-                level="warn",
-            )
-            sleep_until(status.weekly_reset + RESET_BUFFER_SECONDS, "weekly")
-            slept = True
+_HARNESS_STATE_PREFIXES = (
+    ".autoport/logs/",
+    ".autoport/archive/",
+    ".autoport/plans/",
+    ".autoport/prompts/",
+    ".autoport/owner-ok/",
+    ".autoport/.phase-claim.",
+)
+
+
+def _is_harness_state(path: str) -> bool:
+    return (path in _HARNESS_STATE_FILES
+            or path.startswith(_HARNESS_STATE_PREFIXES))
+
+
+def dirty_paths() -> list[str]:
+    """Every path git reports as changed, renames counted on both sides.
+
+    `-uall` is not optional: the default collapses an untracked directory to
+    `dir/`, and staging `.autoport/` would put state.json, the logs and
+    DIRECTIVES.md straight back into the worker's commit — the exact thing this
+    function exists to prevent."""
+    try:
+        r = subprocess.run(["git", "status", "--porcelain=v1", "-z", "-uall"],
+                           cwd=REPO_ROOT, capture_output=True, text=True, timeout=120)
+    except Exception:  # noqa: BLE001
+        return []
+    fields = r.stdout.split("\0")
+    out: list[str] = []
+    i = 0
+    while i < len(fields):
+        entry = fields[i]
+        i += 1
+        if len(entry) < 4:
             continue
-
-        if status.session_pct >= SESSION_PAUSE_PCT:
-            wait_secs = max(0, status.session_reset - int(time.time()))
-            console.print(
-                f"[yellow]Session at {status.session_pct:.1f}% — "
-                f"pausing until {status.session_reset_iso()}[/yellow]"
-            )
-            notify(
-                f"⏸ session limit {status.session_pct:.1f}%. "
-                f"Resume in {format_duration(wait_secs)} (~{status.session_reset_iso()[11:16]} UTC)",
-                level="info",
-            )
-            sleep_until(status.session_reset + RESET_BUFFER_SECONDS, "session")
-            slept = True
-            continue
-
-        if slept:
-            notify("▶ resumed after rate-limit pause", level="info")
-        return True
-
-    return False
+        xy, path = entry[:2], entry[3:]
+        if "R" in xy or "C" in xy:          # rename/copy: source is the NEXT field
+            if i < len(fields) and fields[i]:
+                out.append(fields[i])
+            i += 1
+        out.append(path)
+    return out
 
 
-# ============================================================
-# Notifications
-# ============================================================
-
-def notify(message: str, level: str = "info") -> None:
-    """Send a notification at the given level. See notify.sh for level meanings."""
-    icon = {
-        "info": "[dim]→[/dim]",
-        "ok": "[green]✓[/green]",
-        "warn": "[yellow]⚠[/yellow]",
-        "alert": "[red]🛑[/red]",
-        "celebrate": "[bold green]🎉[/bold green]",
-    }.get(level, "→")
-    # ntfy.sh / Slack push dropped by owner 2026-06-13 — local console line only.
-    console.print(f"{icon} [cyan]notify({level}):[/cyan] {message}")
+def worker_paths() -> list[str]:
+    """The dirty paths a worker's checkpoint may carry."""
+    return sorted({p for p in dirty_paths() if p and not _is_harness_state(p)})
 
 
-def format_duration(seconds: float) -> str:
-    """Human-readable duration like '3d 4h', '2h 15m', '45m', '12s'."""
-    s = int(seconds)
-    if s < 60:
-        return f"{s}s"
-    m, s = divmod(s, 60)
-    if m < 60:
-        return f"{m}m"
-    h, m = divmod(m, 60)
-    if h < 24:
-        return f"{h}h {m}m" if m else f"{h}h"
-    d, h = divmod(h, 24)
-    return f"{d}d {h}h" if h else f"{d}d"
-
-
-# ============================================================
-# Git checkpointing
-# ============================================================
-
-def git_commit(phase_id: str, message: str) -> bool:
-    subprocess.run(["git", "add", "-A"], cwd=REPO_ROOT, check=True)
-    diff = subprocess.run(
-        ["git", "diff", "--cached", "--quiet"], cwd=REPO_ROOT
-    )
-    if diff.returncode == 0:
-        return False  # nothing to commit
-    subprocess.run(
-        ["git", "commit", "-m", f"[autoport/{phase_id}] {message}"],
-        cwd=REPO_ROOT, check=True,
-    )
+def git_commit_paths(item_id: str, message: str, paths: list[str]) -> bool:
+    """Commit ONLY `paths`. Returns True if a commit was created."""
+    if not paths:
+        return False
+    spec = "\0".join(paths)
+    add = subprocess.run(["git", "add", "--pathspec-from-file=-", "--pathspec-file-nul"],
+                         cwd=REPO_ROOT, input=spec, capture_output=True, text=True)
+    if add.returncode != 0:
+        log(f"git add a échoué : {add.stderr.strip()[:300]}", "yellow")
+        return False
+    staged = subprocess.run(["git", "diff", "--cached", "--quiet",
+                             "--pathspec-from-file=-", "--pathspec-file-nul"],
+                            cwd=REPO_ROOT, input=spec, capture_output=True, text=True)
+    if staged.returncode == 0:
+        return False                       # nothing of ours actually changed
+    r = subprocess.run(["git", "commit", "-m", f"[autoport/{item_id}] {message}",
+                        "--pathspec-from-file=-", "--pathspec-file-nul"],
+                       cwd=REPO_ROOT, input=spec, capture_output=True, text=True)
+    if r.returncode != 0:
+        log(f"git commit a échoué : {(r.stderr or r.stdout).strip()[:300]}", "yellow")
+        return False
     return True
 
 
 def git_push() -> None:
-    subprocess.run(
-        ["git", "push", "-u", "origin", "HEAD"],
-        cwd=REPO_ROOT, check=False,
-    )
+    subprocess.run(["git", "push", "-u", "origin", "HEAD"], cwd=REPO_ROOT, check=False)
 
 
 # ============================================================
 # Close-gate — defense-in-depth against false-greens
 # ============================================================
 #
-# Owner mandate (2026-06-30): per-phase validators kept FALSE-GREENING (marking
-# work "done" that wasn't) — collision/jungle/flicker all slipped a lax validator
-# and only the owner's eye caught them. This central gate runs AFTER a phase's own
-# validator exits 0 and re-checks the three false-green patterns we actually hit,
-# so NO phase can close on them regardless of how weak its own validator is:
-#   1. validator passes on ZERO code change (a stub / no-op phase),
+# Owner mandate (2026-06-30): per-item validators kept FALSE-GREENING (marking
+# work "done" that wasn't) — collision/jungle/flicker all slipped a lax check and
+# only the owner's eye caught them. This central gate runs AFTER the validator
+# exits 0 and re-checks the false-green patterns we actually hit:
+#   1. validator passes on ZERO code change (a stub / no-op item),
 #   2. validator passes while the DEVICE runs a stale/mixed build,
-#   3. validator passes but the OWNER's play-test (final gate) hasn't happened.
-# Each gate is opt-in/opt-out via milestones.yaml phase fields.
+#   3. validator passes but an ACQUIS the owner already validated is broken,
+#   4. validator passes but the OWNER hasn't looked at it yet.
 
-def _supervisor_anchor(pid: str | None = None) -> str:
-    """The 'no new game fix' anchor the per-phase validators already use.
-    Phase-aware: mid-phase [autoport/supervisor] journal commits (storm bookkeeping,
-    profile flips) must NOT advance the anchor past the phase's own fix commits —
-    Gcrash-blueeco 2026-07-02: anchor 5cb0642ee postdated the real fix commits
-    (c91304925/0943a586d) and GATE 1 false-negatived a device-proven fix. With a
-    pid, the anchor is the last supervisor commit BEFORE the phase's first commit;
-    without one (or with no phase commits yet), the most recent supervisor commit.
-    Falls back to HEAD~1."""
+def _supervisor_anchor(item_id: str | None = None) -> str:
+    """The 'no new game fix' anchor the gate uses to prove real work.
+    Item-aware: mid-run [autoport/supervisor] journal commits must NOT advance
+    the anchor past the item's own fix commits — Gcrash-blueeco 2026-07-02:
+    the anchor postdated the real fix commits and GATE 1 false-negatived a
+    device-proven fix. Falls back to HEAD~1."""
     def _log(*extra: str) -> list[str]:
         r = subprocess.run(["git", "log", "--format=%H", *extra],
                            cwd=REPO_ROOT, capture_output=True, text=True)
         return [l for l in r.stdout.splitlines() if l.strip()]
 
-    if pid:
-        phase_commits = _log("--grep", rf"\[autoport/{re.escape(pid)}\]")
-        if phase_commits:
-            pre = _log("--grep", r"\[autoport/supervisor\]", f"{phase_commits[-1]}^")
+    if item_id:
+        item_commits = _log("--grep", rf"\[autoport/{re.escape(item_id)}\]")
+        if item_commits:
+            pre = _log("--grep", r"\[autoport/supervisor\]", f"{item_commits[-1]}^")
             if pre:
                 return pre[0]
     lines = _log("--grep", r"\[autoport/supervisor\]")
@@ -909,14 +840,14 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
     'Setup failed: bundle/jak1_assets.zip' asset-unpack failure the owner hit
     2026-06-30, where the .so was fresh but the app never started). Tolerates the
     flaky first-launch (monkey/am start sometimes doesn't take) via 3 attempts.
-    Fail-OPEN on adb infra errors (don't wedge the loop; GATE 3 owner is the backstop).
+    Fail-OPEN on adb infra errors (don't wedge the loop; the owner is the backstop).
 
     Launch goes through the RESOLVED launcher activity, never MainActivity directly:
     MainActivity BYPASSES LoaderActivity, the sole writer of the pack stamps, so a
-    direct launch unpacks nothing and mis-reports any phase that moves the packs.
+    direct launch unpacks nothing and mis-reports any item that moves the packs.
 
     Two evidence routes:
-      A. LOG route (primary, unchanged) — logcat shows master-mode=game / A35-RENDER.
+      A. LOG route (primary) — logcat shows master-mode=game / A35-RENDER.
       B. ARTIFACT route — for phones that DROP third-party app log lines. The owner's
          Honor BKQ-N49 emits ZERO app lines (even LoaderActivity's own Log.i);
          `logcat --pid=<pid>` yields nothing but the encrypted (HKS) banner, so route
@@ -931,6 +862,7 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
          absent. NOTE: `adb exec-out run-as ls` exits 0 even for a MISSING file, so
          every file test here reads OUTPUT, never the exit code."""
     adb = os.environ.get("ADB") or "/home/emeric/Android/platform-tools/adb"
+
     def sh(*args, t=40):
         return subprocess.run([adb, "-s", serial, *args], cwd=REPO_ROOT,
                               capture_output=True, text=True, timeout=t)
@@ -958,7 +890,7 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
                 if "Setup failed" in lc or "jak1_assets" in lc:
                     return (False, "CLOSE-GATE/boot: app shows 'Setup failed' (asset "
                             "bundle/unpack) — the deployed build does NOT boot. Re-stage "
-                            "the game assets / fix the bundle before this phase can close.")
+                            "the game assets / fix the bundle before this item can close.")
                 pid = sh("shell", "pidof", pkg).stdout.strip()
                 if pid and not first_pid:
                     first_pid = pid
@@ -996,116 +928,57 @@ def _device_boot_check(serial: str, pkg: str = "org.opengoal.gk.jak1") -> tuple[
         return (True, "")
 
 
-def spec_sections_remaining() -> int:
-    """Sections of SPEC-COVERAGE.md that still have work: NON TENUE or PARTIELLE.
+def owner_said_yes(item: dict) -> bool:
+    """The owner's word, from the backlog field or the legacy token file.
 
-    `OPEN breast-spec-incomplete` is a human gate with no passing mode, so the
-    validator always exits 1. Parking on it made the loop idle for 14 h with 12
-    sections still NON TENUE (2026-08-26). Park only when the ledger is empty of
-    work; while sections remain, the human gate must not stop the worker.
-    Returns -1 when the ledger cannot be read (caller then keeps prior behaviour).
-    """
-    led = AUTOPORT_DIR / "SPEC-COVERAGE.md"
-    try:
-        text = led.read_text(errors="ignore")
-    except OSError:
-        return -1
-    pat = re.compile(r"(TENUE PAR CONSTRUCTION|NON TENUE|NON ETABLI|NON \u00c9TABLI|PARTIELLE|TENUE)")
-    remaining = 0
-    rows = 0
-    for line in text.splitlines():
-        if not re.match(r"^\|\s*\u00a7?\d+", line):
-            continue
-        rows += 1
-        cells = [c.strip() for c in line.split("|")]
-        verdict = None
-        for cell in cells[2:]:
-            m = pat.search(cell)
-            if m:
-                verdict = m.group(1)
-                break
-        if verdict in ("NON TENUE", "PARTIELLE", "NON ETABLI", "NON \u00c9TABLI"):
-            remaining += 1
-    return remaining if rows else -1
+    The token file is still read because nine items carried an `owner-ok/<id>`
+    token that the old loop could never act on: the "parked" shortcut ran BEFORE
+    the token check, so an item the owner had already approved was re-parked on
+    sight, forever."""
+    if item.get("owner_ok"):
+        return True
+    return (OWNER_OK_DIR / str(item.get("id", ""))).exists()
 
 
-def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
-    """Run after a phase's validator exits 0. Returns (status, reason):
-      ("pass", "")            -> all gates clear; the phase may complete
+def close_gate(item: dict) -> tuple[str, str]:
+    """Run after generic.sh exits 0. Returns (status, reason):
+      ("pass", "")            -> all gates clear; the item is validated
       ("fail", reason)        -> a FIXABLE gate failed; retry + feed reason back
-      ("awaiting-owner", "")  -> validator+gates clear, owner play-test pending
+      ("awaiting-owner", "")  -> gates clear, the owner still has to look
     """
-    pid = phase["id"]
+    iid = item["id"]
+    item = _reread_item(iid, item)
 
     # GATE 1 — real translation-layer code change (anti-stub false-green).
-    # F1b was marked done with ZERO code. Require a real change since the
-    # supervisor anchor in a port/translation dir, unless the phase declares
-    # `no_code: true` (pure asset/packaging/investigation phases).
-    # Re-read the flag from milestones.yaml on DISK: the in-memory phase dict
-    # is loaded once at startup, so a worker that (per this gate's own advice)
-    # sets `no_code: true` mid-run would otherwise be refused until a manual
-    # orchestrator relaunch (Grecharged-grass-object-clip 2026-07-13: attempt 2
-    # declared the flag in-yaml and still burned a retry on the stale dict).
-    no_code = phase.get("no_code", False)
-    try:
-        for p in load_milestones().get("phases", []):
-            if p.get("id") == pid:
-                no_code = p.get("no_code", no_code)
-                break
-    except Exception:  # noqa: BLE001 — fail-safe: keep the in-memory value
-        pass
-    if not no_code:
-        anchor = _supervisor_anchor(pid)
+    # An item was once marked done with ZERO code. Require a real change since
+    # the supervisor anchor, unless the item declares `no_code: true`.
+    if not item.get("no_code", False):
+        anchor = _supervisor_anchor(iid)
         paths = ["game/", "android/", "goalc/", "goal_src/"]
-        committed = subprocess.run(
-            ["git", "diff", "--name-only", anchor, "--", *paths],
-            cwd=REPO_ROOT, capture_output=True, text=True,
-        ).stdout.splitlines()
-        dirty = subprocess.run(
-            ["git", "status", "--porcelain", "--", *paths],
-            cwd=REPO_ROOT, capture_output=True, text=True,
-        ).stdout.splitlines()
+        committed = subprocess.run(["git", "diff", "--name-only", anchor, "--", *paths],
+                                   cwd=REPO_ROOT, capture_output=True, text=True).stdout.splitlines()
+        dirty = subprocess.run(["git", "status", "--porcelain", "--", *paths],
+                               cwd=REPO_ROOT, capture_output=True, text=True).stdout.splitlines()
         # x86 emitter is LOCKED (our-x86 must == original-x86) — a change there
         # is not a legitimate port fix, so it doesn't count toward "real work".
-        real = [f for f in (committed + dirty)
-                if f.strip() and "IGenX86_64" not in f]
+        real = [f for f in (committed + dirty) if f.strip() and "IGenX86_64" not in f]
         if not real:
             return ("fail",
-                    "CLOSE-GATE/code: validator exit 0 but NO translation-layer code "
-                    "changed since the supervisor anchor — refusing the false-green. "
-                    "A real fix must touch game/ android/ goalc/ goal_src/ (not the "
-                    "locked x86 emitter). If this phase legitimately ships no code, "
-                    "set `no_code: true` in milestones.yaml.")
+                    "CLOSE-GATE/code: le validateur sort 0 mais AUCUN code de portage n'a "
+                    "changé depuis l'ancre superviseur — faux vert refusé. Un vrai correctif "
+                    "touche game/ android/ goalc/ goal_src/ (jamais l'émetteur x86 verrouillé). "
+                    "Si cet item ne livre légitimement aucun code, mets `no_code: true` "
+                    "sur lui dans backlog.yaml.")
 
     # GATE 2 — device runs the fresh, CONSISTENT build (anti stale/mixed-build).
     # The validator can pass while the phone still runs an old libgk, or a MIXED
-    # build (fresh CGOs + stale libgk, or vice-versa — exactly the 2026-06-30
-    # flicker incident). deploy_verify proves build==APK==device for libgk;
-    # phases that touch CGOs should also assert CGO-consistency in their own
-    # validator, but this gate at minimum stops the stale-.so false-green.
-    if phase.get("device", False):
-        # Re-read device_serial from milestones.yaml on DISK, for the same reason
-        # GATE 1 re-reads no_code: the in-memory phase dict is loaded once at
-        # startup, so a phase re-pointed at another phone mid-run would keep being
-        # verified against the OLD default and could never close. This bit
-        # Grecharged-loader-packfix 2026-07-29: the work was on the owner's Honor
-        # while the gate kept probing the (unplugged) Redmi and reported the
-        # misleading "package not installed" as if it were a stale build.
-        serial = phase.get("device_serial")
-        try:
-            for p in load_milestones().get("phases", []):
-                if p.get("id") == pid:
-                    serial = p.get("device_serial", serial)
-                    break
-        except Exception:  # noqa: BLE001 — fail-safe: keep the in-memory value
-            pass
-        serial = serial or os.environ.get("ANDROID_SERIAL", "eae4df44")
-        # Game-aware deploy gate: a jak2/jak3 phase must verify against ITS package +
-        # APK, not the jak1 default. Otherwise the fresh SHARED libgk never matches the
-        # un-rebuilt jak1 APK -> deploy_verify reports STALE and the gate can NEVER
-        # close for a jak2 phase (2026-07-09 Gjak2-polish: attempts 1+2 stuck here).
-        game = phase.get("game") or ("jak2" if "jak2" in pid.lower()
-                                     else "jak3" if "jak3" in pid.lower() else "jak1")
+    # build (fresh CGOs + stale libgk) — exactly the 2026-06-30 flicker incident.
+    if item.get("device", False):
+        serial = item.get("device_serial") or os.environ.get("ANDROID_SERIAL", "eae4df44")
+        # Game-aware deploy gate: a jak2/jak3 item must verify against ITS package +
+        # APK, not the jak1 default (2026-07-09 Gjak2-polish stuck here twice).
+        game = item.get("game") or ("jak2" if "jak2" in iid.lower()
+                                    else "jak3" if "jak3" in iid.lower() else "jak1")
         dv = AUTOPORT_DIR / "lib" / "deploy_verify.sh"
         if dv.exists():
             r = subprocess.run(["bash", str(dv), serial, game],
@@ -1113,167 +986,197 @@ def close_gate(phase: dict, validator_log: Path) -> tuple[str, str]:
             if r.returncode != 0:
                 tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-4:])
                 return ("fail",
-                        "CLOSE-GATE/deploy: deploy_verify FAILED — the device is NOT "
-                        "provably running the fresh HEAD build (stale or mixed "
-                        "CGO/libgk). Rebuild a CONSISTENT set (CGOs + libgk together) "
-                        "and redeploy before this phase can close.\n" + tail)
-        # deploy_verify only proves the libgk sha chain — also prove the app BOOTS
-        # (catches 'Setup failed'/non-booting builds deploy_verify can't see).
-        pkg = phase.get("device_pkg") or f"org.opengoal.gk.{game}"
+                        "CLOSE-GATE/deploy: deploy_verify a ÉCHOUÉ — rien ne prouve que "
+                        "l'appareil tourne le build de HEAD (CGO/libgk périmés ou mélangés). "
+                        "Rebâtis un ensemble COHÉRENT et redéploie.\n" + tail)
+        pkg = item.get("device_pkg") or f"org.opengoal.gk.{game}"
         booted, why = _device_boot_check(serial, pkg)
         if not booted:
             return ("fail", why)
 
-    # GATE 4 — ACQUIS VALIDES PAR L'OWNER (Gfont-regression, 2026-09-02). La police Urbanist,
-    # fermee par sa parole le 2026-08-30, a ete cassee et AUCUNE garde ne l'a vu : chaque phase
-    # ne verifie que son propre perimetre, et un acquis n'est le perimetre de personne. Chaque
-    # script de .autoport/acquis/ est une verification d'un acquis owner, cheap (une minute), et
-    # tourne a CHAQUE fermeture de phase — device ou pas — quelle que soit la phase. Un echec
-    # bloque : une phase qui casse ce que l'owner a valide n'a pas le droit de se fermer, et
-    # « je n'ai pas touche a ca » n'est pas une preuve (la police est tombee sur un reglage de
-    # menu, pas sur un commit de police). Fail-CLOSED : un acquis qu'on ne peut pas prouver
-    # est un acquis qu'on ne tient pas.
+    # GATE 3 — ACQUIS VALIDES PAR L'OWNER (Gfont-regression, 2026-09-02). La police
+    # Urbanist, fermee par sa parole le 2026-08-30, a ete cassee et AUCUNE garde ne
+    # l'a vu : chaque item ne verifie que son propre perimetre, et un acquis n'est le
+    # perimetre de personne. Chaque script de .autoport/acquis/ verifie un acquis
+    # owner et tourne a CHAQUE fermeture. Fail-CLOSED : un acquis qu'on ne peut pas
+    # prouver est un acquis qu'on ne tient pas.
     acquis_dir = AUTOPORT_DIR / "acquis"
     if acquis_dir.is_dir():
         acq_serial = ""
-        if phase.get("device", False):
-            acq_serial = (phase.get("device_serial")
-                          or os.environ.get("ANDROID_SERIAL", "eae4df44"))
+        if item.get("device", False):
+            acq_serial = item.get("device_serial") or os.environ.get("ANDROID_SERIAL", "eae4df44")
         for script in sorted(acquis_dir.glob("*.sh")):
             try:
                 r = subprocess.run(["bash", str(script), acq_serial], cwd=REPO_ROOT,
                                    capture_output=True, text=True, timeout=600)
             except subprocess.TimeoutExpired:
-                return ("fail", f"CLOSE-GATE/acquis: {script.name} n'a pas repondu en 600 s")
+                return ("fail", f"CLOSE-GATE/acquis: {script.name} n'a pas répondu en 600 s")
             if r.returncode != 0:
                 tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-4:])
                 return ("fail",
-                        f"CLOSE-GATE/acquis: {script.name} — un ACQUIS VALIDE PAR L'OWNER "
-                        "n'est plus tenu (ou plus prouvable) sur ce build. La phase ne se ferme "
-                        "pas tant qu'il n'est pas retabli.\n" + tail)
+                        f"CLOSE-GATE/acquis: {script.name} — un ACQUIS VALIDÉ PAR L'OWNER "
+                        "n'est plus tenu (ou plus prouvable) sur ce build. L'item ne se ferme "
+                        "pas tant qu'il n'est pas rétabli.\n" + tail)
             console.print(f"[green]close-gate acquis: {script.name} ok[/green]")
 
-    # GATE 3 — owner play-test is the FINAL gate (the owner's eye overrides any
-    # synthetic pass; the collision fix false-greened a validator twice before
-    # the owner confirmed it). For `owner_verify: true` phases, validator pass is
-    # NOT completion: require an owner-OK token the supervisor drops after the
-    # owner play-tests (touch .autoport/owner-ok/<pid>).
-    if phase.get("owner_verify", False):
-        token = AUTOPORT_DIR / "owner-ok" / pid
-        if not token.exists():
-            return ("awaiting-owner", "")
+    # GATE 4 — l'oeil de l'owner est la porte FINALE. Un item passe donc en
+    # `to-test`, jamais directement en `validated` : seul `owner_ok` le ferme.
+    if item.get("owner_verify", True) and not owner_said_yes(item):
+        return ("awaiting-owner", "")
 
     return ("pass", "")
 
 
 # ============================================================
-# Phase execution
+# Attempt execution
 # ============================================================
 
-SCOPE_STAMP = REPO_ROOT / ".autoport" / ".scope_stamp"   # bumped by the supervisor on a scope change
+SCOPE_STAMP = AUTOPORT_DIR / ".scope_stamp"   # bumped by the supervisor on a scope change
 
 
 def _scope_changed(seen: str | None) -> str | None:
     """A scope change must kill the running attempt IMMEDIATELY.
 
     The owner lost hours twice because an attempt kept grinding the OLD scope
-    after I narrowed it. Touching .autoport/.scope_stamp now aborts the attempt
-    on the next tick instead of waiting for the 45-minute progress watchdog.
-    """
+    after he narrowed it. Touching .autoport/.scope_stamp aborts on the next
+    tick instead of waiting for the 45-minute progress watchdog. Since
+    2026-09-03 that abort does NOT burn an attempt: we cut the work, so we pay
+    for it."""
     try:
         return f"{SCOPE_STAMP.stat().st_mtime_ns}"
     except OSError:
         return seen
 
 
-NO_PROGRESS_SEC = 45 * 60  # abort an attempt whose artifacts stop changing
+def _progress_fingerprint(item_id: str) -> str:
+    """Cheap snapshot of what THIS attempt has actually produced.
 
+    Deliberately artifact-based: an attempt that prints constantly while the
+    tree stays frozen is not making progress.
 
-def _progress_fingerprint() -> str:
-    """Cheap snapshot of what the attempt has actually produced.
-
-    Deliberately artifact-based, not output-based: an attempt that prints
-    constantly while the tree stays frozen is not making progress.
-    """
+    Two corrections (2026-09-03). The APK and `.autoport/tmp/` are REWRITTEN BY
+    THE BUILD DAEMON on its own schedule, so an idle worker looked alive purely
+    because a build finished next to it — the watchdog was measuring the wrong
+    process. And a worker that reads and analyses for 45 minutes without
+    touching the tree was killed 13 times, so its notes and its handoff now
+    count as progress: thinking that leaves a written trace IS progress."""
     try:
-        r = subprocess.run(
-            ["git", "status", "--porcelain=v1"],
-            cwd=REPO_ROOT, capture_output=True, text=True, timeout=30,
-        )
-        tree = r.stdout
-    except Exception:
+        tree = subprocess.run(["git", "status", "--porcelain=v1"], cwd=REPO_ROOT,
+                              capture_output=True, text=True, timeout=30).stdout
+    except Exception:  # noqa: BLE001
         tree = ""
     stamps = []
-    # Report files AND device/build work products. The original fingerprint only
-    # watched git status + report.txt, so a legitimate 45+ minute device campaign
-    # (deploy, extraction boot, logcat legs — none of which touch the tree) was
-    # killed mid-flight three times in a row and tripped the STUCK detector.
-    globs = [
-        (REPO_ROOT / ".autoport" / "reports", "*/report.txt"),
-        (REPO_ROOT / ".autoport" / "reports", "*/device/*"),
-        (REPO_ROOT / ".autoport" / "tmp", "*"),
-    ]
-    apk = (REPO_ROOT / "android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk")
-    for base, pat in globs:
-        if not base.exists():
-            continue
-        for d in base.glob(pat):
+    rep = REPORTS_DIR / item_id
+    for pat in ("report.txt", "proof*.txt", "handoff.md", "notes/**/*", "device/*"):
+        for d in rep.glob(pat):
             try:
-                stamps.append(f"{d}:{d.stat().st_mtime_ns}:{d.stat().st_size}")
+                st = d.stat()
+                stamps.append(f"{d}:{st.st_mtime_ns}:{st.st_size}")
             except OSError:
                 pass
-    try:
-        stamps.append(f"apk:{apk.stat().st_mtime_ns}")
-    except OSError:
-        pass
     return hashlib.sha1(("".join(sorted(stamps)) + tree).encode()).hexdigest()
 
 
-def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
-    """Run one phase attempt; return (result, reason, key_lines).
+def handoff_path(item_id: str) -> Path:
+    return REPORTS_DIR / item_id / "handoff.md"
 
-    result is one of: 'pass', 'fail', 'blocked', 'stuck', 'rate-interrupted'.
-    'rate-interrupted' means we killed claude because session usage crossed
-    HARD_KILL_PCT mid-phase. The caller must wait_for_quota() and retry the
-    phase from scratch without incrementing retries or recording a fingerprint.
-    """
-    global _CURRENT_CHILD
-    pid = phase["id"]
-    log_dir = LOG_ROOT / pid
-    log_dir.mkdir(parents=True, exist_ok=True)
-    attempt = state["retries"].get(pid, 0) + 1
-    attempt_log = log_dir / f"attempt-{attempt:02d}.jsonl"
-    validator_log = log_dir / f"validator-{attempt:02d}.txt"
 
-    prompt_path = AUTOPORT_DIR / phase["prompt"]
-    validator = AUTOPORT_DIR / phase["validator"]
+def read_handoff(item_id: str) -> str:
+    """The previous attempt's handoff, capped at HANDOFF_MAX_LINES."""
+    p = handoff_path(item_id)
+    try:
+        lines = p.read_text(errors="replace").splitlines()
+    except OSError:
+        return ""
+    text = "\n".join(lines[:HANDOFF_MAX_LINES])
+    if len(lines) > HANDOFF_MAX_LINES:
+        text += f"\n… (tronqué : {len(lines)} lignes, plafond {HANDOFF_MAX_LINES})"
+    return text.strip()
 
-    if not prompt_path.exists():
-        console.print(f"[red]Missing prompt: {prompt_path}[/red]")
-        return "blocked", "missing prompt", []
-    if not validator.exists():
-        console.print(f"[red]Missing validator: {validator}[/red]")
-        return "blocked", "missing validator", []
 
-    # Per-phase effort override (milestones.yaml `effort:`), else manager default.
-    effort = phase.get("effort", EFFORT)
+def write_minimal_handoff(item_id: str, seq: int, validator_log: Path,
+                          touched: list[str], gate_reason: str) -> None:
+    """What the NEXT attempt gets when this one left no note.
 
-    # Assemble prompt. "ultrathink" keyword reinforces deep thinking even if
-    # CLAUDE_EFFORT env isn't honored by current build. The WORK-ECONOMY
-    # preamble enforces the tiered manager/worker architecture (owner
-    # 2026-06-12): the fable manager must delegate bulk execution to
-    # opus-4-8 subagents instead of burning manager-effort tokens on it.
-    _we = WORKER_EFFORTS
-    delegation_preamble = (
+    A retry used to receive the item prompt plus 4 KB of validator tail and
+    nothing else — no idea what the previous attempt had established, tried or
+    ruled out. That is the "re-discovers everything" loop. The worker is asked
+    to write this file itself; when it doesn't, the orchestrator writes the
+    little it can prove from the forensic log."""
+    p = handoff_path(item_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        vlines = [l for l in validator_log.read_text(errors="replace").splitlines() if l.strip()]
+    except OSError:
+        vlines = []
+    body = [
+        f"# Handoff — {item_id} (essai {seq}, {datetime.now():%Y-%m-%d %H:%M})",
+        "",
+        "_Écrit par l'orchestrateur : cet essai n'a laissé aucune note. Ce qui suit est",
+        "tout ce que la machine peut prouver, pas un compte rendu._",
+        "",
+        "## Dernier échec du validateur",
+        "```",
+        *vlines[-10:],
+        "```",
+    ]
+    if gate_reason:
+        body += ["", "## Porte de fermeture", gate_reason.splitlines()[0][:200]]
+    if touched:
+        body += ["", "## Fichiers touchés par cet essai"]
+        body += [f"- {f}" for f in touched[:8]]
+        if len(touched) > 8:
+            body.append(f"- … et {len(touched) - 8} autres")
+    body += ["", "## Ce qui reste", "- inconnu : à rétablir en lisant le diff ci-dessus."]
+    p.write_text("\n".join(body[:HANDOFF_MAX_LINES]) + "\n")
+
+
+def _item_header(item: dict, seq: int) -> str:
+    """The item, in the worker's own prompt.
+
+    The owner's words used to live only in a YAML field the prompt never
+    carried; they reached the worker, if at all, through a session banner that
+    resolved the wrong item half the time. They travel with the instructions
+    now."""
+    gate = item.get("gate") or {}
+    lines = [
+        "## CET ESSAI",
+        "",
+        f"- item : `{item['id']}` — essai {seq} (plafond {item.get('max_retries', 6)})",
+        f"- ce que l'OWNER doit voir marcher : {item.get('feature', '(non renseigné)')}",
+    ]
+    if gate:
+        lines.append(f"- critère machine : `{gate.get('key')} {gate.get('op')} "
+                     f"{gate.get('value')}` lu dans `.autoport/reports/{item['id']}/proof.txt`")
+    if item.get("device"):
+        lines.append(f"- preuve exigée SUR APPAREIL "
+                     f"{item.get('device_serial') or 'eae4df44'} (jamais la SHIELD)")
+    else:
+        lines.append("- preuve sur x86 (`lib/proof_run.sh <id> x86`)")
+    lines.append("- le validateur `.autoport/validators/generic.sh` est lancé par "
+                 "l'orchestrateur, pas par toi : ta parole ne ferme rien.")
+    fb = item.get("owner_feedback") or []
+    if fb:
+        lines += ["", "### Ce que l'owner a dit, mot pour mot"]
+        for entry in fb[-4:]:
+            if isinstance(entry, dict):
+                lines.append(f"- {entry.get('date', '?')} : « {entry.get('text', '')} »")
+    lines += ["", "---", ""]
+    return "\n".join(lines)
+
+
+def _delegation_preamble(effort: str) -> str:
+    we = WORKER_EFFORTS
+    return (
         "## WORK ECONOMY (mandatory — manager/worker delegation)\n"
         f"You are the MANAGER ({MODEL}, effort={effort}): plan, decide, judge,\n"
         "synthesize, review. Delegate bulk execution to subagents via the Task\n"
         f"tool — they run on {SUBAGENT_MODEL} (CLAUDE_CODE_SUBAGENT_MODEL):\n"
-        f"- `autoport-researcher` (effort {_we.get('autoport-researcher','high')}): "
+        f"- `autoport-researcher` (effort {we.get('autoport-researcher', 'high')}): "
         "code/disassembly/log/oracle scans, symbol hunts, large-file analysis. Read-only.\n"
-        f"- `autoport-implementer` (effort {_we.get('autoport-implementer','medium')}): "
+        f"- `autoport-implementer` (effort {we.get('autoport-implementer', 'medium')}): "
         "mechanical code edits to YOUR exact spec (files, lines, precise semantics).\n"
-        f"- `autoport-tester` (effort {_we.get('autoport-tester','medium')}): "
+        f"- `autoport-tester` (effort {we.get('autoport-tester', 'medium')}): "
         "builds, qemu runs, device runs, log harvesting, screencaps.\n"
         "Keep main-thread tool calls for decisions, small precise edits, and\n"
         "VERIFYING subagent claims (read their diffs/logs yourself — trust but\n"
@@ -1281,325 +1184,267 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
         "exact file paths, line numbers, commands, and expected outputs.\n"
         "Parallelize independent subagent runs in one message.\n"
         "MANDATORY: every subagent prompt STARTS with the active scope and the\n"
-        "`DIRECTIVES <version>` line from the block above. Their agent definitions\n"
-        "make them re-read .autoport/DIRECTIVES.md before acting, which overrides\n"
-        "your task text on conflict. If the scope changes mid-attempt, RELAUNCH\n"
-        "them — never let a subagent finish on the abandoned scope.\n\n"
+        "`DIRECTIVES <version>` line from the block above. If the scope changes\n"
+        "mid-attempt, RELAUNCH them — never let one finish on the abandoned scope.\n\n"
         "## BUILD & DELIVERY EFFICIENCY (owner standing order 2026-08-06)\n"
         "The owner: 'c'est pas possible sur une journee d'avoir quasi la moitie du\n"
         "temps gaspillee en builds'. ALWAYS pick the CHEAPEST path that proves the\n"
-        "change, and actively look for faster ones:\n"
+        "change:\n"
         "- DATA-only change (params/config read at runtime) => NO build. Push the\n"
-        "  file to the device / edit in place, relaunch. (e.g. physics_chains.txt\n"
-        "  lives at files/custom/jak1/recharged_assets/ on device.)\n"
+        "  file to the device / edit in place, relaunch.\n"
         "- GOAL-only change => make-group iso + gradle repack. NO NDK/libgk rebuild.\n"
         "- C++ change => rebuild, but INCREMENTAL: `cmake --build <dir> --target gk`.\n"
-        "  NEVER re-run `cmake -B <dir>` (reconfigure) unless a build OPTION changed:\n"
-        "  it invalidates the whole tree (1300+ objects, incl. unrelated jak2 mips2c).\n"
-        "- Start the ANDROID build as soon as the code is final; do not serialize it\n"
-        "  behind long x86 runtime tests that could run after/in parallel.\n"
-        "- Batch changes: land ALL edits of a cycle before building, never build per edit.\n"
-        "- Prefer runtime-tunable DATA over hardcoded constants precisely so future\n"
-        "  iterations need no build at all — and make such data overridable from the\n"
-        "  EXTERNAL asset pack so the owner re-downloads KB, not a 581MB APK.\n"
-        "State in your report which tier you used and why.\n\n"
+        "  NEVER re-run `cmake -B <dir>` unless a build OPTION changed: it\n"
+        "  invalidates the whole tree (1300+ objects, incl. unrelated jak2 mips2c).\n"
+        "- Batch changes: land ALL edits of a cycle before building, never per edit.\n\n"
         "## PROOF ECONOMY (owner standing order 2026-08-06)\n"
-        "Owner: efficiency on builds AND on proof collection — but it must still\n"
-        "work, no breakage, no false greens. So: prove ONLY what would break\n"
-        "SILENTLY, with the CHEAPEST instrument that already exists:\n"
-        "- MUST prove (cheap, non-negotiable): no crash, no regression of a\n"
-        "  locked-in acquis, the feature is actually ACTIVE (a counter/log showing\n"
-        "  the code path ran on device), deploy_verify freshness.\n"
-        "- MUST NOT build: elaborate new proof harnesses, multi-leg device\n"
-        "  campaigns, or any visual-measurement campaign (permanently banned).\n"
-        "  Reuse existing counters/logs; one short device run is enough.\n"
+        "Prove ONLY what would break SILENTLY, with the CHEAPEST instrument that\n"
+        "already exists:\n"
+        "- MUST prove: no crash, no regression of a locked-in acquis, the feature is\n"
+        "  actually ACTIVE (a counter/log showing the code path ran), deploy freshness.\n"
+        "- MUST NOT build: elaborate new proof harnesses, multi-leg device campaigns,\n"
+        "  or any visual-measurement campaign (permanently banned).\n"
         "- QUALITY/aesthetics are judged by the OWNER, never by you: ship the build\n"
         "  and let him look. Your report lists what HE must test.\n"
-        "Budget guide: proof runs are MINUTES, not hours. If proving costs more\n"
-        "than the fix, ship with an honest 'not proven: X' line instead of\n"
-        "burning the cycle on instrumentation.\n\n"
+        "Budget guide: proof runs are MINUTES, not hours.\n\n"
+        "## HANDOFF (obligatoire si tu n'aboutis pas)\n"
+        f"Avant de t'arrêter sans avoir fait passer la porte, écris "
+        f"`.autoport/reports/<id>/handoff.md`, {HANDOFF_MAX_LINES} lignes MAXIMUM,\n"
+        "en trois sections : ce qui est ÉTABLI (mesuré, pas supposé), ce qui a été\n"
+        "TENTÉ et pourquoi ça a échoué, ce qui RESTE à faire. C'est le seul contexte\n"
+        "que l'essai suivant recevra.\n\n"
     )
-    # DIRECTIVE TRANSMISSION (owner 2026-08-11: "t'arrives pas a faire
-    # descendre a tes agents les changements et ca gaspille des heures").
-    # The contract is INLINED, not referenced by path: measured on attempt 2 of
-    # Grecharged-secondary-motion, the worker spawned 6 subagents and 0 of them
-    # carried the scope. A path the worker may or may not open is not a channel.
-    _dblock = ""
-    try:
-        sys.path.insert(0, str(REPO_ROOT / ".autoport" / "lib"))
-        import directives as _dv
-        import importlib
-        importlib.reload(_dv)          # picked up fresh each attempt, never cached
-        _dblock = _dv.block(pid)
-        console.print(f"[dim]· directives {_dv.version(pid)} inlined into the worker "
-                      f"prompt ({len(_dblock)} chars)[/dim]")
-    except Exception as _e:            # never let transmission break the run
-        console.print(f"[yellow]· directives block unavailable: {_e}[/yellow]")
 
-    # PREFLIGHT (owner 2026-08-11: "le but etant d'avoir un cercle vertueux, pas
-    # un frein"). Known traps are checked automatically before every attempt and
-    # the WORKER-owned findings are injected into its prompt, so the framework
-    # warns it before it steps in a trap that already cost us once. Findings the
-    # worker is not allowed to fix (validator/harness) go to this log, for the
-    # supervisor -- never into the prompt.
-    _pblock = ""
+
+def build_instructions(item: dict, seq: int) -> str:
+    """ultrathink + directives + preflight + work economy + the item + handoff."""
+    iid = item["id"]
+    effort = item.get("effort", EFFORT)
+
+    # DIRECTIVE TRANSMISSION (owner 2026-08-11: "t'arrives pas a faire descendre a
+    # tes agents les changements et ca gaspille des heures"). The contract is
+    # INLINED, not referenced by path: a path the worker may or may not open is
+    # not a channel.
+    dblock = ""
+    try:
+        lib = str(AUTOPORT_DIR / "lib")
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        import directives as _dv
+        importlib.reload(_dv)
+        dblock = _dv.block(iid)
+        log(f"· directives {_dv.version(iid)} inlinées dans le prompt "
+            f"({len(dblock)} caractères)", "dim")
+    except Exception as e:  # noqa: BLE001 — never let transmission break the run
+        log(f"· bloc directives indisponible : {e}", "yellow")
+
+    # PREFLIGHT (owner 2026-08-11: "le but etant d'avoir un cercle vertueux, pas un
+    # frein"). At most 5 findings reach the prompt; the rest are printed here.
+    pblock = ""
     try:
         import preflight as _pf
         importlib.reload(_pf)
-        _pblock = _pf.prompt_block(pid)
-        _w, _sup = _pf.split(pid)
-        if _w:
-            console.print(f"[dim]· preflight: {len(_w)} finding(s) injected into the "
-                          f"worker prompt[/dim]")
-        for _sev, _code, _msg in _sup:
-            console.print(f"[yellow]· preflight/SUPERVISOR [{_code}] {_msg}[/yellow]")
-    except Exception as _e:
-        console.print(f"[yellow]· preflight unavailable: {_e}[/yellow]")
+        pblock = _pf.prompt_block(iid)
+        injected, overflow, sup = _pf.prompt_findings(iid)
+        if injected:
+            log(f"· preflight : {len(injected)} constat(s) injecté(s) dans le prompt", "dim")
+        if overflow:
+            log(f"· preflight : {len(overflow)} constat(s) AU-DELÀ du plafond de "
+                f"{_pf.MAX_PROMPT_FINDINGS} — non injectés, les voici :", "yellow")
+            for sev, code, msg in overflow:
+                log(f"    [{sev} {code}] {msg}", "yellow")
+        for sev, code, msg in sup:
+            log(f"· preflight/SUPERVISEUR [{code}] {msg}", "yellow")
+    except Exception as e:  # noqa: BLE001
+        log(f"· preflight indisponible : {e}", "yellow")
 
-    instructions = ("ultrathink\n\n" + _dblock + _pblock + delegation_preamble
-                    + prompt_path.read_text())
-    if attempt > 1:
-        prev_validator = log_dir / f"validator-{attempt - 1:02d}.txt"
-        if prev_validator.exists():
-            tail = prev_validator.read_text()[-4000:]
-            instructions += (
-                f"\n\n## Previous attempt {attempt - 1} failed. Validator output (last 4KB):\n"
-                f"\n```\n{tail}\n```\n\n"
-                "Diagnose root cause and fix. Do not declare success until "
-                f"`bash {phase['validator']}` exits 0."
-            )
+    prompt_path = AUTOPORT_DIR / item["prompt"]
+    text = ("ultrathink\n\n" + dblock + pblock + _delegation_preamble(effort)
+            + _item_header(item, seq) + prompt_path.read_text())
+
+    handoff = read_handoff(iid)
+    if handoff:
+        text += (f"\n\n## CE QUE L'ESSAI PRÉCÉDENT A LAISSÉ (`reports/{iid}/handoff.md`)\n\n"
+                 f"{handoff}\n\n"
+                 "Reprends À PARTIR DE LÀ. Ne refais pas ce qui y est déjà établi.\n")
+    return text
+
+
+@dataclass
+class Outcome:
+    """What one attempt produced.
+
+    kind:
+      pass            gates clear, the owner does not need to look
+      awaiting-owner  gates clear, the owner has to look  -> to-test
+      fail            counted, fingerprinted, retried
+      stuck           same failure 3x -> blocked
+      blocked         max_retries, missing input, fatal config
+      interrupted     signal / scope change / duplicate worker: NOT counted
+      no-start        refused at the door, zero work: NOT counted
+      infra           529 storm: NOT counted
+    """
+    kind: str
+    reason: str = ""
+    key_lines: list[str] = field(default_factory=list)
+    resume_at: int | None = None
+    stderr_tail: list[str] = field(default_factory=list)
+
+
+def run_attempt(item: dict, state: dict) -> Outcome:
+    global _CURRENT_CHILD
+    iid = item["id"]
+    log_dir = LOG_ROOT / iid
+    log_dir.mkdir(parents=True, exist_ok=True)
+    seq = next_attempt_seq(state, iid)
+    attempt_log = log_dir / f"attempt-{seq:03d}.jsonl"
+    validator_log = log_dir / f"validator-{seq:03d}.txt"
+    started_at = time.time()
+
+    prompt_path = AUTOPORT_DIR / item.get("prompt", "")
+    if not item.get("prompt") or not prompt_path.exists():
+        return Outcome("blocked", f"prompt absent : {prompt_path}")
+    if not GENERIC_VALIDATOR.exists():
+        return Outcome("blocked", f"validateur absent : {GENERIC_VALIDATOR}")
+
+    effort = item.get("effort", EFFORT)
+    instructions = build_instructions(item, seq)
 
     console.print(Panel.fit(
-        f"[bold cyan]Phase {pid}[/bold cyan] · attempt {attempt}/"
-        f"{phase.get('max_retries', 3)} · model={MODEL} · effort={effort} · "
-        f"workers={SUBAGENT_MODEL}",
-        border_style="cyan",
-    ))
+        f"[bold cyan]{iid}[/bold cyan] · essai {seq} · "
+        f"{item.get('feature', '')[:70]}\n"
+        f"modèle={MODEL} · effort={effort} · sous-agents={SUBAGENT_MODEL}",
+        border_style="cyan"))
 
     env = os.environ.copy()
     env["CLAUDE_EFFORT"] = effort
     env["CLAUDE_CODE_SUBAGENT_MODEL"] = SUBAGENT_MODEL
-    env["AUTOPORT_PHASE_ID"] = pid
-    env["AUTOPORT_PHASE_VALIDATOR"] = str(validator)
+    env["AUTOPORT_PHASE_ID"] = iid                       # = l'id d'item
+    env["AUTOPORT_PHASE_VALIDATOR"] = str(GENERIC_VALIDATOR)
 
-    # `--effort max` is the CLI flag form of the CLAUDE_EFFORT env var set
-    # below. Recent Claude Code builds honor the flag; older ones fall back
-    # to the env. We pass both. The 'ultrathink' keyword prepended into
-    # `instructions` reinforces max thinking at the prompt level too, which
-    # works regardless of build version. See REDESIGN.md §5 on why
-    # ultrathink is mandatory for every phase.
-    # 2026-08-17: le prompt passe par STDIN, plus jamais en argv. Un argument
-    # unique est plafonne a MAX_ARG_STRLEN (~128 Ko) sur Linux; le contrat a
-    # depasse cette taille et l'exec mourait en OSError E2BIG ('Argument list
-    # too long') AVANT tout travail. `claude -p` sans valeur lit le prompt sur
-    # stdin — aucune limite de taille, et argv reste court.
+    # 2026-08-17 : le prompt passe par STDIN, plus jamais en argv. Un argument
+    # unique est plafonne a MAX_ARG_STRLEN (~128 Ko) sur Linux ; le contrat a
+    # depasse cette taille et l'exec mourait en OSError E2BIG AVANT tout travail.
     cmd = [
-        "claude",
-        "-p",
+        "claude", "-p",
         "--model", MODEL,
         "--effort", effort,
-        "--max-turns", str(phase.get("max_turns", 150)),
+        "--max-turns", str(item.get("max_turns", 1200)),
         "--output-format", "stream-json",
         "--verbose",
         "--dangerously-skip-permissions",
     ]
 
     pstate = PrettyState(t0=time.monotonic())
-    # Seed last_session_pct from the cache so the first live tick shows a
-    # value instead of "?". Do NOT push into pstate.probes — that list is
-    # exclusively for in-subprocess data points used to compute a
-    # token-vs-pct slope. The cache entry has the right pct but the wrong
-    # token reference frame (it predates this subprocess), so feeding it
-    # to the slope estimator would resurrect the phantom-105% bug.
-    if _PROBE_CACHE is not None:
-        cache_age = time.monotonic() - _PROBE_CACHE[0]
-        if cache_age < PROBE_TTL_SEC:
-            pstate.last_session_pct = _PROBE_CACHE[1].session_pct
-            pstate.last_probe_at = _PROBE_CACHE[0]
-
-    rate_interrupted = False
+    stderr_tail: list[str] = []
+    abort_reason = ""       # "" | scope | no-progress | post-result | hard-silence
     rc = -1
-    with attempt_log.open("w") as f:
+
+    with attempt_log.open("x") as f:
         f.write(json.dumps({
-            "event": "phase_start",
-            "phase_id": pid,
-            "attempt": attempt,
-            "model": MODEL,
-            "effort": effort,
-            "subagent_model": SUBAGENT_MODEL,
-            "cmd": cmd,
-            "started_at": datetime.now(timezone.utc).isoformat(),
+            "event": "attempt_start", "item_id": iid, "attempt": seq,
+            "model": MODEL, "effort": effort, "subagent_model": SUBAGENT_MODEL,
+            "cmd": cmd, "started_at": datetime.now(timezone.utc).isoformat(),
         }) + "\n")
         f.flush()
 
-        proc = subprocess.Popen(
-            cmd,
-            cwd=REPO_ROOT,
-            env=env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            bufsize=1,
-            text=True,
-            start_new_session=True,
-        )
-        # Le prompt part par stdin (voir la note sur MAX_ARG_STRLEN au-dessus
-        # de `cmd`). close() envoie EOF, sans quoi claude attend indefiniment.
+        proc = subprocess.Popen(cmd, cwd=REPO_ROOT, env=env,
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, bufsize=1, text=True,
+                                start_new_session=True)
         try:
             proc.stdin.write(instructions)
         finally:
-            proc.stdin.close()
+            proc.stdin.close()          # EOF, sans quoi claude attend indefiniment
         _CURRENT_CHILD = proc
 
-        stall_forced = False
         last_event_at = time.monotonic()
-        # PROGRESS watchdog (2026-08-06): the stall detector above only sees
-        # OUTPUT silence. A worker can print constantly for hours (build-watch
-        # sleep loops) while the working tree never changes — that is exactly how
-        # one attempt burned 3h15 with a frozen diff. Watch the ARTIFACT instead.
         last_progress_at = time.monotonic()
-        last_progress_fp = _progress_fingerprint()
+        last_progress_fp = _progress_fingerprint(iid)
         scope_seen = _scope_changed(None)
+
+        def _kill(reason: str) -> None:
+            nonlocal abort_reason
+            abort_reason = reason
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+
         try:
             stdout_fd = proc.stdout
             while True:
-                # Wait for stdout to be readable, or a 5s tick. The tick lets
-                # us check for stalls, emit the periodic usage line, and
-                # detect a child that already exited without us blocking
-                # forever on a never-arriving EOF.
                 try:
                     ready, _, _ = select.select([stdout_fd], [], [], READ_POLL_SEC)
                 except (OSError, ValueError):
-                    # stdout was closed underneath us.
-                    break
+                    break                          # stdout closed underneath us
 
                 if not ready:
                     idle = time.monotonic() - last_event_at
-                    # Process is already gone — close out cleanly.
                     if proc.poll() is not None:
                         break
-                    # claude said `result` but won't actually exit (we saw
-                    # this with TaskCreate task-notification re-engagements:
-                    # claude keeps the process open in -p mode and never
-                    # closes its stdout). Force the issue.
+                    # claude said `result` but won't exit (TaskCreate re-engagements
+                    # keep the process open in -p mode). Force the issue.
                     if pstate.result_seen and idle >= STALL_POST_RESULT_SEC:
-                        console.print(
-                            f"[yellow]· claude emitted result but hasn't exited "
-                            f"({idle:.0f}s idle); forcing close[/yellow]"
-                        )
-                        stall_forced = True
-                        try:
-                            os.killpg(proc.pid, signal.SIGTERM)
-                        except (ProcessLookupError, PermissionError):
-                            pass
+                        log(f"· claude a émis result sans sortir ({idle:.0f}s) — "
+                            f"fermeture forcée", "yellow")
+                        _kill("post-result")
                         break
-                    # No change to the working tree or the phase report for
-                    # NO_PROGRESS_SEC while the child is still chatting: the
-                    # attempt is going nowhere. Kill it and let the retry restart
-                    # with the tree (and any WIP checkpoint) preserved.
-                    _sc = _scope_changed(scope_seen)
-                    if _sc != scope_seen:
-                        console.print("[red]· SCOPE CHANGED — aborting the attempt now[/red]")
-                        stall_forced = True
-                        try:
-                            os.killpg(proc.pid, signal.SIGTERM)
-                        except (ProcessLookupError, PermissionError):
-                            pass
+                    sc = _scope_changed(scope_seen)
+                    if sc != scope_seen:
+                        log("· PÉRIMÈTRE CHANGÉ — essai annulé immédiatement "
+                            "(ni compté, ni empreinté)", "red")
+                        _kill("scope")
                         break
-
                     if time.monotonic() - last_progress_at >= NO_PROGRESS_SEC:
-                        fp_now = _progress_fingerprint()
+                        fp_now = _progress_fingerprint(iid)
                         if fp_now != last_progress_fp:
                             last_progress_fp = fp_now
                             last_progress_at = time.monotonic()
                         else:
                             mins = (time.monotonic() - last_progress_at) / 60.0
-                            console.print(
-                                f"[red]· no ARTIFACT progress for {mins:.0f} min "
-                                f"(tree + report unchanged); aborting attempt[/red]"
-                            )
-                            stall_forced = True
-                            try:
-                                os.killpg(proc.pid, signal.SIGTERM)
-                            except (ProcessLookupError, PermissionError):
-                                pass
+                            log(f"· aucun ARTEFACT modifié depuis {mins:.0f} min "
+                                f"(arbre, rapport, notes, handoff) — essai abandonné", "red")
+                            _kill("no-progress")
                             break
-
-                    # Defensive absolute cap: even without a result, we
-                    # should never wait silently forever.
                     if idle >= STALL_HARD_SEC:
-                        console.print(
-                            f"[red]· no output from claude for {idle:.0f}s; killing[/red]"
-                        )
-                        stall_forced = True
-                        try:
-                            os.killpg(proc.pid, signal.SIGTERM)
-                        except (ProcessLookupError, PermissionError):
-                            pass
+                        log(f"· aucune sortie de claude depuis {idle:.0f}s — on tue", "red")
+                        _kill("hard-silence")
                         break
-                    # Keep the live tick alive during quiet stretches.
                     _maybe_emit_tick(pstate)
                     continue
 
                 raw_line = stdout_fd.readline()
                 if not raw_line:
-                    # EOF.
-                    break
+                    break                          # EOF
                 last_event_at = time.monotonic()
 
-                # Forensic log gets every byte unchanged.
-                f.write(raw_line)
+                f.write(raw_line)                  # forensic log gets every byte
                 f.flush()
 
                 line = raw_line.rstrip("\n")
                 if not line.strip():
                     continue
 
-                # Parse + render.
-                ev: dict | None = None
                 try:
                     ev = json.loads(line)
                 except json.JSONDecodeError:
-                    if not QUIET:
-                        console.print(f"[dim]{_truncate(line, 200)}[/dim]")
+                    # NOT json = claude's own stderr. It is the only account of why
+                    # a session refused to start, and `--quiet` used to throw it
+                    # away: 230 consecutive no-starts over 19.7 h whose cause could
+                    # never be recovered. It is printed whatever the verbosity.
+                    stderr_tail.append(line)
+                    del stderr_tail[:-40]
+                    console.print(f"[magenta]claude:[/magenta] [dim]{_truncate(line, 300)}[/dim]")
                     continue
 
                 pretty_print_event(ev, pstate)
-                maybe_probe_inline(pstate)
-
-                # Kill at a safe point: just after a tool_result drained.
-                # Killing mid-tool-call is what we're explicitly avoiding.
-                if pstate.kill_pending and ev.get("type") == "user":
-                    pct, est = _current_pct(pstate)
-                    pct_str = "?" if pct is None else f"{'~' if est else ''}{pct:.1f}%"
-                    console.print(
-                        f"[bold red]🛑 session usage at {pct_str} — "
-                        f"hard-killing claude to avoid mid-tool-call cutoff[/bold red]"
-                    )
-                    rate_interrupted = True
-                    try:
-                        os.killpg(proc.pid, signal.SIGTERM)
-                    except (ProcessLookupError, PermissionError):
-                        pass
-                    break
         except KeyboardInterrupt:
-            try:
-                os.killpg(proc.pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError):
-                pass
+            _kill("signal")
             raise
         finally:
-            # Drain any remaining output so the pipe doesn't deadlock at exit.
-            if rate_interrupted:
-                try:
-                    rest = proc.stdout.read()
-                    if rest:
-                        f.write(rest); f.flush()
-                except Exception:
-                    pass
-
             try:
-                rc = proc.wait(timeout=15 if rate_interrupted else None)
+                rc = proc.wait(timeout=None if not abort_reason else 30)
             except subprocess.TimeoutExpired:
                 try:
                     os.killpg(proc.pid, signal.SIGKILL)
@@ -1609,191 +1454,115 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
             _CURRENT_CHILD = None
 
         f.write(json.dumps({
-            "event": "phase_end",
-            "exit_code": rc,
+            "event": "attempt_end", "exit_code": rc,
             "ended_at": datetime.now(timezone.utc).isoformat(),
-            "rate_interrupted": rate_interrupted,
-            "stall_forced": stall_forced,
+            "abort_reason": abort_reason, "halted": HALT,
             "tool_calls": pstate.tool_calls,
-            "tokens_in": pstate.tokens_in,
-            "tokens_out": pstate.tokens_out,
+            "tokens_in": pstate.tokens_in, "tokens_out": pstate.tokens_out,
             "cache_read": pstate.cache_read,
         }) + "\n")
 
-    # FATAL CONFIG detection (2026-06-13): a 0-work exit caused by a bad model
-    # / auth / request error must NOT be mistaken for a rate limit — that loops
-    # forever (fable-5[1m] 404 spun the loop every 5 min). Scan the attempt log
-    # for a non-429 API error or the model-unavailable signature and HALT loudly.
-    if not rate_interrupted and rc != 0 \
-            and (pstate.tokens_in + pstate.tokens_out) == 0 \
-            and pstate.tool_calls == 0:
+    touched = worker_paths()          # ce que l'essai a laissé dans l'arbre
+    did_work = (pstate.tokens_in + pstate.tokens_out) > 0 or pstate.tool_calls > 0
+
+    def _checkpoint(label: str) -> bool:
+        """Save the work. ALWAYS — an attempt we cancel is still work done.
+
+        The path list is recomputed here rather than reused: the validator and
+        the close-gate run between the worker's exit and this commit."""
         try:
-            tail = attempt_log.read_text(errors="replace")[-6000:]
-        except Exception:
-            tail = ""
-        fatal = (
-            "may not exist or you may not have access" in tail
-            or '"api_error_status":401' in tail or '"api_error_status":403' in tail
-            or '"api_error_status":404' in tail
-        )
-        if fatal:
-            msg = "model/auth/request error (non-rate-limit) — check MODEL / credentials"
-            if "may not exist or you may not have access" in tail:
-                msg = f"model '{MODEL}' unavailable (API 404) — update MODEL in orchestrator.py"
-            notify(f"🛑 phase {pid} HALT: {msg}", level="alert")
-            return "blocked", msg, []
+            paths = worker_paths()
+            if git_commit_paths(iid, label, paths):
+                log(f"  checkpoint commité ({len(paths)} chemin(s))", "green")
+                return True
+        except Exception as e:  # noqa: BLE001 — never let checkpointing crash the loop
+            log(f"checkpoint impossible : {e}", "yellow")
+        return False
 
-    # NO-START detection (owner 2026-06-12): a session that exits having done
-    # essentially NOTHING (no tokens, no tool calls) did not fail the phase —
-    # it was refused at the door (hard rate limit / "out of extra usage").
-    # Treating it as a failed attempt is what falsely blocked F1d (two 0-turn
-    # no-ops consumed retries and faked a 3x-identical-failure fingerprint).
-    # Back off in place, then re-enter the phase without consuming anything.
-    if not rate_interrupted and rc != 0 \
-            and (pstate.tokens_in + pstate.tokens_out) == 0 \
-            and pstate.tool_calls == 0:
-        notify(
-            f"⏳ phase {pid}: claude exited {rc} with ZERO work done — "
-            "hard rate limit at the door. Backing off 5 min, then retrying "
-            f"(attempt {attempt} NOT counted).",
-            level="warn",
-        )
-        time.sleep(300)
-        rate_interrupted = True
+    # ---- VOID OUTCOMES: work saved, nothing counted ----------------------
+    # A signal, a scope change or a refusal at the door is OUR interruption, not
+    # the worker's failure. Counting them is what made 373 of 597 sessions last
+    # under three minutes and blocked items on retries nobody ever used.
+    if HALT or abort_reason == "signal":
+        _checkpoint(f"essai {seq} interrompu par un signal (non compté)")
+        return Outcome("interrupted", "signal reçu")
+    if abort_reason == "scope":
+        _checkpoint(f"essai {seq} annulé — changement de périmètre (non compté)")
+        return Outcome("interrupted", "périmètre changé pendant l'essai")
 
-    if rate_interrupted:
-        pct, est = _current_pct(pstate)
-        pct_str = "?" if pct is None else f"{'~' if est else ''}{pct:.1f}%"
-        state.setdefault("rate_interrupts", {})
-        state["rate_interrupts"][pid] = state["rate_interrupts"].get(pid, 0) + 1
-        save_state(state)
-        notify(
-            f"⏸ phase {pid} rate-interrupted at session {pct_str} "
-            f"(attempt {attempt} not counted; will retry after reset)",
-            level="alert",
-        )
-        if state["rate_interrupts"][pid] > 3:
-            notify(
-                f"⚠ phase {pid} has rate-interrupted {state['rate_interrupts'][pid]} times. "
-                f"Quota may be structurally too low for this phase.",
-                level="warn",
-            )
-        # Reason carries the percentage so the caller can log it; no key_lines
-        # because we never ran the validator.
-        return "rate-interrupted", f"session {pct_str}", []
+    fatal = fatal_config_reason(attempt_log) if (rc != 0 and not did_work) else ""
+    if fatal:
+        return Outcome("blocked", fatal, stderr_tail=stderr_tail)
 
-    # API-529-STORM GUARD (2026-07-02): an Anthropic "Overloaded" storm kills the
-    # session mid-work (repeated 529s -> long silent retry gaps -> the stall
-    # watchdog SIGTERMs -> exit 143 with no report). That is an INFRA outage, not
-    # a worker failure — it must not consume a retry or feed the stuck detector
-    # (it burned 2x3 attempts on Gcrash-blueeco). Detect: nonzero exit + >=5
-    # occurrences of 529/Overloaded in the attempt stream -> sleep out the storm
-    # and retry the same attempt number.
-    if rc != 0:
-        try:
-            _atxt = attempt_log.read_text(errors="replace")
-            _low = _atxt.lower()
-            _n529 = _low.count("overloaded") + len(re.findall(r"\b529\b", _atxt))
-        except Exception:
-            _n529 = 0
-        if _n529 >= 3:
-            console.print(
-                f"[yellow]API 529-storm detected ({_n529} overload markers, exit {rc}) — "
-                f"infra outage, attempt {attempt} NOT counted. Sleeping 10 min before retry.[/yellow]"
-            )
-            notify(
-                f"⏸ phase {pid}: Anthropic API 529-storm killed the session "
-                f"({_n529} markers). Waiting it out; attempt not counted.",
-                level="warn",
-            )
-            time.sleep(600)
-            return "rate-interrupted", f"api-529-storm x{_n529}", []
+    if rc != 0 and not abort_reason and (not did_work or pstate.rate_rejected):
+        # Refused by the API: either at the door (zero tokens, zero tool calls)
+        # or mid-work with an explicit `rejected`. Either way it is a quota
+        # event, not a failure of the worker, and the API told us WHEN the
+        # window reopens — we sleep until then instead of guessing five minutes.
+        reset = pstate.rate_reset_at or rate_reset_from_log(attempt_log)
+        why = ("l'API nous a refusés en cours de session"
+               if did_work else f"claude est sorti en {rc} sans rien faire")
+        _checkpoint(f"essai {seq} — session refusée par l'API (non compté)")
+        return Outcome("no-start", why, resume_at=reset, stderr_tail=stderr_tail)
 
-    console.print(f"[dim]Claude Code exited {rc}. Running validator...[/dim]")
+    if rc != 0 and not abort_reason:
+        # An Anthropic outage, counted from structured API errors only, and only
+        # when WE did not kill the child (our own SIGTERM is exit 143).
+        n529 = count_api_529(attempt_log)
+        if n529 >= API_529_STORM_THRESHOLD:
+            _checkpoint(f"essai {seq} — tempête 529 de l'API (non compté)")
+            return Outcome("infra", f"tempête 529 ({n529} erreurs d'API)",
+                           resume_at=int(time.time()) + API_529_SLEEP)
 
-    # Ground-truth validator pass: this is what decides pass/fail, not Claude's word.
+    # ---- COUNTED OUTCOMES ------------------------------------------------
+    log(f"Claude Code est sorti en {rc}. Validateur…", "dim")
     with validator_log.open("w") as f:
-        v = subprocess.run(
-            ["bash", str(validator)],
-            cwd=REPO_ROOT, stdout=f, stderr=subprocess.STDOUT,
-        )
+        v = subprocess.run(["bash", str(GENERIC_VALIDATOR)], cwd=REPO_ROOT,
+                           env={**os.environ, "AUTOPORT_PHASE_ID": iid},
+                           stdout=f, stderr=subprocess.STDOUT)
 
-    state["retries"][pid] = attempt
+    state["retries"][iid] = int(state["retries"].get(iid, 0)) + 1
+    attempt_count = state["retries"][iid]
     save_state(state)
 
-    # 2026-08-23 — LA PORTE HUMAINE N'EST PAS UN ECHEC A REESSAYER.
-    # `OPEN breast-spec-incomplete` n'a pas de mode « reussi » : seul l'owner la retire. Le
-    # validateur sort donc TOUJOURS en 1, meme quand les 13 gates de MESURE passent, et chaque
-    # tentative etait comptee comme un echec puis relancee — une boucle qui ne peut pas se
-    # terminer, sur une phase qui attend en realite une personne. Le worker a signale le conflit
-    # au lieu de le contourner (cycle 117) ; le contourner aurait voulu dire toucher a la gate.
-    # Ici : si le SEUL echec du validateur est cette porte, l'etat est `awaiting-owner`, pas
-    # `fail`. Un seul echec, et il doit NOMMER OPEN-DEFECTS — sinon on retombe dans le cas normal.
-    if v.returncode != 0:
-        try:
-            _vlog = validator_log.read_text(errors="ignore")
-        except OSError:
-            _vlog = ""
-        _fails = [l for l in _vlog.splitlines() if "FAIL]" in l]
-        if len(_fails) == 1 and "OPEN-DEFECTS" in _fails[0]:
-            # 2026-08-26 — se garer ici a laisse la boucle inerte 14 h alors que 12
-            # sections du registre etaient NON TENUE. La porte humaine empeche la
-            # phase de SE TERMINER ; elle ne doit pas empecher le worker de TRAVAILLER.
-            _left = spec_sections_remaining()
-            if _left == 0:
-                console.print("[dim]validateur: seule la porte de l'owner echoue, et le "
-                              "registre est complet — en attente de sa parole.[/dim]")
-                return "awaiting-owner", "", []
-            if _left > 0:
-                console.print(f"[yellow]validateur: porte de l'owner seule en echec, mais "
-                              f"{_left} section(s) du registre restent a fermer — on continue."
-                              "[/yellow]")
-            else:
-                console.print("[dim]validateur: porte de l'owner seule en echec, registre "
-                              "illisible — en attente de sa parole.[/dim]")
-                return "awaiting-owner", "", []
-
+    gate_reason = ""
     if v.returncode == 0:
-        # The phase's own validator passed — but run the central close-gate to
-        # catch false-greens a lax validator misses (no-code stub, stale/mixed
-        # device build, missing owner play-test). Only "pass" lets it complete.
-        gate_status, gate_reason = close_gate(phase, validator_log)
-        if gate_status == "pass":
-            return "pass", "", []
-        if gate_status == "awaiting-owner":
-            return "awaiting-owner", "", []
-        # Fixable gate failure: append the reason to the validator log and fall
-        # through to the normal failure path (checkpoint, fingerprint, retry —
-        # the worker sees gate_reason as feedback on the next attempt).
+        gate_status, gate_reason = close_gate(item)
+        if gate_status in ("pass", "awaiting-owner"):
+            if _checkpoint(item.get("feature", iid)
+                           + ("" if gate_status == "pass"
+                              else " (porte passée — EN ATTENTE DU TEST DE L'OWNER)")):
+                git_push()
+            return Outcome(gate_status)
         with validator_log.open("a") as f:
             f.write("\n\n" + gate_reason + "\n")
-        console.print(f"[yellow]{gate_reason}[/yellow]")
+        log(gate_reason, "yellow")
 
-    # AUTO-CHECKPOINT (owner 2026-06-13): version EVERY failed attempt's work.
-    # The orchestrator used to commit ONLY on PASS, so a long failing/iterating
-    # phase left hours of engine changes — and any regression it introduced —
-    # unversioned and un-bisectable. Commit a labeled WIP now so we can always
-    # roll back / diff. (PASS path already commits with the phase name.)
-    try:
-        git_commit(pid, f"WIP checkpoint — attempt {attempt} (validator FAILED; auto-versioned for rollback/bisect, NOT a pass)")
-    except Exception as e:  # noqa: BLE001 — never let checkpointing crash the loop
-        console.print(f"[yellow]auto-checkpoint commit failed: {e}[/yellow]")
-
-    # Validator failed. Fingerprint the failure and check for stuck loops.
-    failure_text = validator_log.read_text(errors='replace')
+    failure_text = validator_log.read_text(errors="replace")
     fp, key_lines = fingerprint_validator_output(failure_text)
-
-    state.setdefault("fingerprints", {}).setdefault(pid, []).append(fp)
+    state.setdefault("fingerprints", {}).setdefault(iid, []).append(fp)
     save_state(state)
 
-    stuck, stuck_reason = check_stuck(state, pid, fp)
+    # The handoff is written BEFORE the checkpoint so the next attempt's context
+    # is versioned with the work it describes.
+    hp = handoff_path(iid)
+    if not hp.exists() or hp.stat().st_mtime < started_at:
+        write_minimal_handoff(iid, seq, validator_log, touched, gate_reason)
+        log("  handoff minimal écrit par l'orchestrateur (le worker n'en a pas laissé)",
+            "yellow")
+
+    # AUTO-CHECKPOINT (owner 2026-06-13): version EVERY failed attempt's work so
+    # a long iterating item never leaves hours of engine changes un-bisectable.
+    _checkpoint(f"WIP essai {seq} (validateur ÉCHOUÉ — versionné pour bisect, "
+                f"PAS une réussite)")
+
+    stuck, stuck_reason = check_stuck(state, iid, fp)
     if stuck:
-        return "stuck", stuck_reason, key_lines
-
-    if attempt >= phase.get("max_retries", 10):
-        return "blocked", f"max_retries ({phase.get('max_retries', 10)}) exhausted", key_lines
-
-    return "fail", "", key_lines
+        return Outcome("stuck", stuck_reason, key_lines)
+    if attempt_count >= int(item.get("max_retries", 6)):
+        return Outcome("blocked",
+                       f"max_retries ({item.get('max_retries', 6)}) épuisé", key_lines)
+    return Outcome("fail", "", key_lines)
 
 
 # ============================================================
@@ -1803,33 +1572,26 @@ def run_phase(phase: dict, state: dict) -> tuple[str, str, list[str]]:
 def acquire_single_instance_lock() -> Any:
     """UN SEUL ORCHESTRATEUR PAR DEPOT. Rend le verrou (a garder vivant), ou quitte.
 
-    Mesure du 2026-08-12 07:20 : DEUX orchestrateurs tournaient sur ce depot (PID 705057 et
-    924374), et chacun a lance son worker sur la MEME phase, a seize secondes d'ecart :
+    Mesure du 2026-08-12 07:20 : DEUX orchestrateurs tournaient sur ce depot, et
+    chacun a lance son worker sur la MEME phase, a seize secondes d'ecart. Les deux
+    workers ont partage le meme arbre, la meme trace, le meme tableau et la meme
+    branche ; un worker regenerait les parametres pendant que l'autre mesurait une
+    course lancee sur les parametres d'avant — la mesure decrit alors un etat que
+    personne n'a choisi. Et un rapport n'a qu'un seul auteur : le dernier qui ecrit.
 
-        PID 922762  demarre  06:59:09     PID 925937  demarre  06:59:25
-        lignes de commande identiques au caractere pres
+    L'owner, 2026-08-11 : « t'assurer que ton travail n'est pas systematiquement
+    detruit [...] tu peux pas juste dire "ah oups" et laisser reproduire en boucle ! »
+    — la regle qu'il en tire est de rendre la perte impossible AU POINT DE
+    PRODUCTION. Le point de production est ici : le lanceur de workers.
 
-    Les deux workers ont alors partage le meme arbre de travail, le meme fichier de trace
-    (`keira-room-x86.log`), le meme tableau (`keira-room-table.txt`), le meme `report.txt` et la
-    meme branche. Constate dans la meme heure : un worker regenerait `physics_chains.txt` a 07:14
-    pendant que l'autre mesurait une course lancee a 07:11 sur les parametres d'avant — la mesure
-    decrit alors un etat que personne n'a choisi. Et `report.txt` n'a qu'un seul auteur : le
-    dernier qui ecrit, l'autre travail est perdu.
-
-    L'owner, 2026-08-11 : « t'assurer que ton travail n'est pas systematiquement detruit, c'est
-    chelou comme comportement, tu peux pas juste dire "ah oups", corriger et laisser reproduire en
-    boucle ! » — la regle qu'il en tire est de rendre la perte impossible AU POINT DE PRODUCTION,
-    pas detectable au point de controle. Le point de production de cette perte-la est ici : c'est
-    le lanceur de workers. Un verrou exclusif sur le depot, pris avant toute lecture d'etat.
-
-    `flock` et pas un fichier de PID : le noyau relache le verrou a la mort du processus, donc un
-    orchestrateur tue laisse le depot libre sans qu'aucun nettoyage ne soit necessaire — un verrou
-    perime qui bloque tout serait un defaut pire que celui qu'on corrige.
-    """
+    `flock` et pas un fichier de PID : le noyau relache le verrou a la mort du
+    processus, donc un orchestrateur tue laisse le depot libre sans nettoyage.
+    Le fichier de verrou n'est plus suivi par git (un checkout remplacait son
+    inode et annulait le verrou en silence)."""
     try:
         import fcntl
-    except ImportError:                      # pragma: no cover - plateformes sans fcntl
-        console.print("[yellow]· pas de fcntl : verrou d'instance unique indisponible[/yellow]")
+    except ImportError:                      # pragma: no cover
+        log("· pas de fcntl : verrou d'instance unique indisponible", "yellow")
         return None
     lock_path = AUTOPORT_DIR / ".orchestrator.lock"
     fh = open(lock_path, "a+")
@@ -1842,11 +1604,9 @@ def acquire_single_instance_lock() -> Any:
         console.print(
             f"[red]Un orchestrateur tourne deja sur ce depot (PID {holder}).[/red]\n"
             f"[red]Verrou : {lock_path}[/red]\n"
-            "Deux orchestrateurs lancent deux workers sur la MEME phase : ils partagent l'arbre,\n"
-            "la trace de course, le tableau et report.txt, et le dernier qui ecrit efface l'autre.\n"
-            "Arrete l'instance en cours (PID exact, jamais de kill par motif) avant d'en lancer\n"
-            "une autre."
-        )
+            "Deux orchestrateurs lancent deux workers sur le MEME item : ils partagent\n"
+            "l'arbre, la trace, le tableau et le rapport, et le dernier qui ecrit efface\n"
+            "l'autre. Arrete l'instance en cours (PID exact, jamais de kill par motif).")
         return "BUSY"
     fh.seek(0)
     fh.truncate()
@@ -1855,306 +1615,206 @@ def acquire_single_instance_lock() -> Any:
     return fh                                # garde le descripteur ouvert = garde le verrou
 
 
+def promote_owner_validated(bk) -> list[str]:
+    """`to-test` + la parole de l'owner = `validated`.
+
+    Neuf items avaient le feu vert de l'owner sur disque et ne se seraient JAMAIS
+    fermes : le saut « item parqué » s'executait AVANT la lecture du jeton, donc
+    l'item etait re-parqué a vue, indefiniment. La lecture de la parole de l'owner
+    passe maintenant en premier, et sur TOUT le backlog, pas sur le seul item du
+    curseur."""
+    promoted = []
+    for item in bk.items:
+        if item.get("status") != "to-test":
+            continue
+        if not owner_said_yes(item):
+            continue
+        iid = item["id"]
+        fields = {}
+        if not item.get("owner_ok"):
+            token = OWNER_OK_DIR / iid
+            fields["owner_ok"] = {
+                "date": datetime.fromtimestamp(token.stat().st_mtime).strftime("%Y-%m-%d"),
+                "text": f"jeton .autoport/owner-ok/{iid} déposé par le superviseur",
+            }
+        bk.set_status(iid, "validated", **fields)
+        promoted.append(iid)
+        log(f"✓ {iid} : l'owner a dit oui — validé.", "bold green")
+    return promoted
+
+
+def release_stale_in_progress(bk) -> list[str]:
+    """Un item laissé `in-progress` par un orchestrateur tué redevient `open`."""
+    freed = []
+    for item in bk.items:
+        if item.get("status") == "in-progress":
+            bk.set_status(item["id"], "open")
+            freed.append(item["id"])
+    if freed:
+        log(f"· items rendus au backlog après un arrêt brutal : {', '.join(freed)}", "yellow")
+    return freed
+
+
+def _startup_refusals() -> str:
+    """'' when we may start, otherwise the reason and what to do about it."""
+    import shutil
+    if shutil.which("claude") is None:
+        return ("`claude` n'est pas dans le PATH : aucun worker ne peut démarrer.\n"
+                "  → installe la CLI Claude Code, ou corrige le PATH du service.")
+    if not CREDENTIALS_PATH.exists():
+        return (f"aucun identifiant Claude Code dans {CREDENTIALS_PATH}.\n"
+                f"  → lance `claude` une fois en interactif pour finir l'OAuth.")
+    reason = backlog_missing_reason()
+    if reason:
+        return reason
+    if not GENERIC_VALIDATOR.exists():
+        return (f"{GENERIC_VALIDATOR} est absent : plus aucun item ne peut être jugé.\n"
+                f"  → livre validators/generic.sh (chantier C), puis relance.")
+    if SHIELD_GUARD.exists():
+        # INTERDICTION OWNER 2026-08-30 : « Interdit de toucher a la SHIELD a
+        # nouveau. Assures toi que vraiment rien n'y touche. » Le controle
+        # tournait dans preflight, ou il violait le contrat du module (adb, pas
+        # « sous la seconde ») et ou il a fini par eteindre TOUS les constats.
+        # Ici il est ce qu'il doit etre : un REFUS DE DEMARRER, une fois.
+        r = subprocess.run(["bash", str(SHIELD_GUARD)], cwd=REPO_ROOT,
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            return ("la SHIELD est touchée ou ciblée — interdiction de l'owner du "
+                    "2026-08-30 :\n" + (r.stderr or r.stdout).strip()[:800])
+    return ""
+
+
 def main(argv: list[str] | None = None) -> int:
     global QUIET
     parser = argparse.ArgumentParser(description="Autoport orchestrator")
-    parser.add_argument(
-        "--quiet", action="store_true",
-        help="Suppress live event rendering (silent mode, like pre-verbose behavior)",
-    )
+    parser.add_argument("--quiet", action="store_true",
+                        help="Supprime le rendu des événements (le stderr de claude "
+                             "reste imprimé : c'est la seule trace d'un non-démarrage)")
     args = parser.parse_args(argv)
     QUIET = bool(args.quiet)
 
-    _lock = acquire_single_instance_lock()
-    if _lock == "BUSY":
+    lock = acquire_single_instance_lock()
+    if lock == "BUSY":
         return 1
 
-    if not MILESTONES_PATH.exists():
-        console.print(f"[red]Missing {MILESTONES_PATH}[/red]")
-        return 1
-    if not CREDENTIALS_PATH.exists():
-        console.print(
-            f"[red]No Claude Code credentials at {CREDENTIALS_PATH}.\n"
-            "Run 'claude' interactively once to complete OAuth.[/red]"
-        )
+    refusal = _startup_refusals()
+    if refusal:
+        console.print(Panel.fit(f"[bold red]Démarrage refusé[/bold red]\n\n{refusal}",
+                                border_style="red"))
         return 1
 
-    plan = load_milestones()
-    phases = plan["phases"]
     state = load_state()
+    bk = load_backlog()
+    release_stale_in_progress(bk)
 
     console.print(Panel.fit(
-        f"[bold green]Autoport orchestrator starting[/bold green]\n"
-        f"Repo: {REPO_ROOT}\n"
-        f"Profile: {PROFILE_NAME} · Manager: {MODEL} @ {EFFORT} · Workers: {SUBAGENT_MODEL}\n"
-        f"Resuming at phase index {state['current_phase_idx']} / {len(phases)}\n"
-        f"Completed: {len(state['completed'])} · "
-        f"Blocked: {len(state['blocked'])}",
-        border_style="green",
-    ))
+        f"[bold green]Orchestrateur autoport[/bold green]\n"
+        f"Dépôt : {REPO_ROOT}\n"
+        f"Profil : {PROFILE_NAME} · manager {MODEL} @ {EFFORT} · sous-agents {SUBAGENT_MODEL}\n"
+        f"Backlog : {len(bk.items)} items",
+        border_style="green"))
 
-    while state["current_phase_idx"] < len(phases) and not HALT:
-        phase = phases[state["current_phase_idx"]]
-        pid = phase["id"]
+    no_start_streak = 0
 
-        if pid in state["completed"]:
-            state["current_phase_idx"] += 1
-            save_state(state)
-            continue
+    while not HALT:
+        bk = load_backlog()
+        promote_owner_validated(bk)
 
-        if pid in state["blocked"]:
-            console.print(
-                f"[red]Phase {pid} is BLOCKED. Edit state.json to unblock "
-                "(remove from 'blocked', clear 'retries' and 'fingerprints' for "
-                "this phase).[/red]"
-            )
-            notify(
-                f"Resumed but phase {pid} is still BLOCKED. Manual fix needed.",
-                level="alert",
-            )
-            return 0
+        item = bk.next_open()
+        if item is None:
+            log("Rien d'ouvert dans le backlog : tout est validé, à tester ou bloqué. "
+                "`./.autoport/autoport status` dit quoi.", "bold green")
+            break
 
-        # Owner-gate resume: if a prior run already validated this owner_verify
-        # phase, don't re-run the worker. If the owner has since dropped the OK
-        # token, complete + advance; if not, pause again (zero worker burn).
-        # PHASE PARQUEE — on saute (2026-08-31 05:05). L'orchestrateur est entre dans
-        # Gjak2-polish, que l'owner avait fait parquer le 2026-07-10 pour une regression de
-        # collision, et dans Grecharged-materials-modern-parity. Il a rebati jak2 pendant
-        # une heure : le disque est tombe de 6,2 a 2,6 Go et le shell etait a nouveau menace.
-        # Le dict `parked` n'etait consulte NULLE PART dans ce fichier — il ne servait que de
-        # documentation. Il commande desormais un saut reel.
-        if pid in state.get("parked", {}) and pid not in state.get("completed", []):
-            console.print(f"[cyan]  phase {pid} PARQUEE par l'owner — sautee[/cyan]")
-            state["current_phase_idx"] += 1
-            save_state(state)
-            continue
+        iid = item["id"]
+        started = time.time()
+        bk.set_status(iid, "in-progress")
+        try:
+            out = run_attempt(item, state)
+        except StateConflict as e:
+            bk.set_status(iid, "open")
+            console.print(Panel.fit(f"[bold red]{e}[/bold red]", border_style="red"))
+            return 1
 
-        if phase.get("owner_verify", False) and pid in state.get("validator_passed", []):
-            token = AUTOPORT_DIR / "owner-ok" / pid
-            if token.exists():
-                console.print(f"[bold green]✓ Phase {pid} owner-confirmed[/bold green]")
-                state["completed"].append(pid)
-                state["current_phase_idx"] += 1
-                save_state(state)
-                notify(f"✓ phase {pid} owner-confirmed — advancing.", level="ok")
-                continue
-            console.print(
-                f"[yellow]Phase {pid} still awaiting owner play-test "
-                f"(touch {AUTOPORT_DIR / 'owner-ok' / pid}).[/yellow]"
-            )
-            # Meme regle qu'a la fin de phase : on ne s'arrete pas sur le verdict de
-            # l'owner, on parque et on avance. La phase reste ouverte tant qu'il n'a
-            # pas depose son token.
-            state.setdefault("parked", {})[pid] = (
-                f"{datetime.now():%Y-%m-%d %H:%M} : deja validee, toujours en attente "
-                f"de la parole de l'owner."
-            )
-            state["current_phase_idx"] += 1
-            save_state(state)
-            console.print(f"[cyan]  phase {pid} toujours en attente owner — parquee, on continue[/cyan]")
-            continue
+        if out.kind == "pass":
+            bk.set_status(iid, "validated")
+            log(f"✓ {iid} validé en {format_duration(time.time() - started)} "
+                f"({state['retries'].get(iid, 1)} essai(s)).", "bold green")
+            no_start_streak = 0
 
-        if not wait_for_quota():
-            return 0
-
-        # Record phase start time (only on first attempt for this phase)
-        if pid not in state["retries"]:
-            # phase_started_at MUST be a {phase: epoch} dict. A supervisor edit once
-            # replaced it with a single ISO string, which made this line raise
-            # TypeError and .get(pid) below raise AttributeError at the exact moment
-            # a phase passed. Coerce defensively instead of trusting the file.
-            if not isinstance(state.get("phase_started_at"), dict):
-                state["phase_started_at"] = {}
-            state["phase_started_at"][pid] = time.time()
-            save_state(state)
-            notify(
-                f"▶ phase {pid} starting ({phase['name']})",
-                level="info",
-            )
-
-        result, reason, key_lines = run_phase(phase, state)
-
-        if result == "rate-interrupted":
-            # We deliberately did not consume a retry, did not fingerprint,
-            # and did not run the validator. wait_for_quota() at the top of
-            # the next iteration will sleep until the session window resets,
-            # then we re-enter this phase from scratch.
-            console.print(
-                f"[yellow]Phase {pid} interrupted by rate-limit guard "
-                f"({reason}). Retrying after session reset.[/yellow]"
-            )
-            continue
-
-        if result == "pass":
-            _psa = state.get("phase_started_at")
-            _psa = _psa if isinstance(_psa, dict) else {}
-            elapsed = time.time() - _psa.get(pid, time.time())
-            attempts = state["retries"].get(pid, 1)
-            console.print(f"[bold green]✓ Phase {pid} validator passed[/bold green]")
-            state["completed"].append(pid)
-            state["current_phase_idx"] += 1
-            save_state(state)
-            if git_commit(pid, phase["name"]):
-                console.print(f"[green]  committed[/green]")
-                if plan.get("global", {}).get("git", {}).get("push_after_each_phase", True):
-                    git_push()
-                    console.print(f"[green]  pushed[/green]")
-            # Rich completion notification
-            remaining = len(phases) - state["current_phase_idx"]
-            notify(
-                f"✓ phase {pid} done in {format_duration(elapsed)} "
-                f"({attempts} attempt{'s' if attempts != 1 else ''}). "
-                f"{remaining} phase{'s' if remaining != 1 else ''} remaining.",
-                level="ok",
-            )
-
-        elif result == "awaiting-owner":
-            # Validator + close-gate passed, but this phase is owner_verify: the
-            # owner's eye is the final gate. Commit the work (so it's versioned),
-            # record that it validated, and PAUSE — do NOT mark it done. The loop
-            # resumes (top-of-loop shortcut) once the owner drops the OK token.
-            state.setdefault("validator_passed", [])
-            if pid not in state["validator_passed"]:
-                state["validator_passed"].append(pid)
-            save_state(state)
-            if git_commit(pid, phase["name"] + " (validator+gates passed — AWAITING OWNER PLAY-TEST, NOT done)"):
-                console.print("[green]  committed (awaiting-owner checkpoint)[/green]")
-                if plan.get("global", {}).get("git", {}).get("push_after_each_phase", True):
-                    git_push()
-            token_path = AUTOPORT_DIR / "owner-ok" / pid
+        elif out.kind == "awaiting-owner":
+            bk.set_status(iid, "to-test")
             console.print(Panel.fit(
-                f"[bold yellow]⏸ Phase {pid} AWAITING OWNER PLAY-TEST[/bold yellow]\n\n"
-                f"Validator + close-gate passed, but {pid} is owner_verify — the "
-                f"owner's eye is the final gate.\n\n"
-                f"If it's good, confirm and continue:\n  touch {token_path}\n"
-                f"then relaunch the orchestrator.",
-                border_style="yellow",
-                title="HUMAN GATE",
-            ))
-            notify(
-                f"⏸ phase {pid} validator+gates PASSED — awaiting your play-test "
-                f"(owner's eye = final gate). If good: touch {token_path}",
-                level="alert",
-            )
-            # Le verdict de l'owner NE DOIT PAS arreter la file. Historiquement ce
-            # `return 0` immobilisait tout le pipeline : le 2026-08-30 six phases
-            # terminees dormaient derriere une seule porte, puis Gcine-vertical-frame
-            # a bloque une deuxieme fois le meme jour. On parque la phase (elle reste
-            # OUVERTE — seul l'owner la ferme, via le token) et on passe a la suivante.
-            state.setdefault("parked", {})[pid] = (
-                f"{datetime.now():%Y-%m-%d %H:%M} : validateur ET gates PASSES. "
-                f"N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : "
-                f"deposer {token_path} quand il valide."
-            )
-            state["current_phase_idx"] += 1
-            save_state(state)
-            console.print(f"[cyan]  phase {pid} parquee (attente owner) — on continue[/cyan]")
-            continue
+                f"[bold yellow]⏸ {iid} — À TESTER PAR L'OWNER[/bold yellow]\n\n"
+                f"{item.get('feature', '')}\n\n"
+                f"Validateur et portes passés. Seul l'owner ferme :\n"
+                f"  ./.autoport/autoport ok {iid} \"sa phrase\"",
+                border_style="yellow"))
+            no_start_streak = 0
 
-        elif result == "stuck":
-            # EXEMPTION (2026-08-12) : une phase dont la gate echoue par CONSTRUCTION ne doit pas
-            # etre declaree bloquee. `OPEN-DEFECTS` liste les defauts que l'owner voit et que lui
-            # seul peut fermer : la signature est donc identique a chaque tour, PAR DESSEIN. Sans
-            # cette exemption le detecteur arretait la phase toutes les trois tentatives alors que
-            # le travail avancait (trois causes racines trouvees ce jour-la). On n'eteint pas le
-            # detecteur, on l'informe.
-            if any("OPEN-DEFECTS" in ln for ln in (key_lines or [])):
-                console.print("[yellow]· signature = OPEN-DEFECTS (defauts owner ouverts) : "
-                              "attendu, la phase continue[/yellow]")
-                state.setdefault("retries", {})[pid] = 0
-                save_state(state)
-                continue
-
+        elif out.kind in ("stuck", "blocked"):
+            # lib/backlog.py refuse un `blocked` sans raison : on ne laisse
+            # jamais ce refus tuer la boucle au moment précis où un item bloque.
+            bk.set_status(iid, "blocked",
+                          block_reason=out.reason or "raison non enregistrée")
             console.print(Panel.fit(
-                f"[bold red]🛑 STUCK at phase {pid}[/bold red]\n\n"
-                f"{reason}\n\n"
-                f"[yellow]Recurring failure signature:[/yellow]\n"
-                + "\n".join(f"  {ln}" for ln in key_lines[-10:]),
-                border_style="red",
-                title="HONEST STOP",
-            ))
-            # stuck_reasons a ete ecrit en LISTE par une version anterieure et le code l'utilise
-            # en DICT : la ligne suivante levait TypeError et tuait l'orchestrateur au moment
-            # precis ou une phase se bloquait -- donc exactement quand on en avait besoin.
-            # (2026-08-12 : plantage constate, meme classe que phase_started_at en aout.)
-            _sr = state.get("stuck_reasons")
-            if not isinstance(_sr, dict):
-                state["stuck_reasons"] = {k: "" for k in (_sr or [])}
-            state["stuck_reasons"][pid] = reason
-            state["blocked"].append(pid)
-            save_state(state)
-            short_lines = "\n".join(key_lines[-5:]) if key_lines else "(no error lines extracted)"
-            notify(
-                f"🛑 STUCK at {pid}: same failure 3x in a row. "
-                f"Halting to save quota.\n\nRecurring error:\n{short_lines}",
-                level="alert",
-            )
-            return 0
+                f"[bold red]✗ {iid} BLOQUÉ[/bold red]\n\n{out.reason}\n\n"
+                + "\n".join(f"  {ln}" for ln in out.key_lines[-8:]),
+                border_style="red"))
+            if out.stderr_tail:
+                log("Ce que claude a dit :", "yellow")
+                for ln in out.stderr_tail[-10:]:
+                    log(f"  {ln}", "dim")
+            no_start_streak = 0
 
-        elif result == "blocked":
-            console.print(Panel.fit(
-                f"[bold red]✗ Phase {pid} BLOCKED[/bold red]\n\n"
-                f"{reason}\n\n"
-                f"[yellow]Last failure lines:[/yellow]\n"
-                + "\n".join(f"  {ln}" for ln in key_lines[-10:]),
-                border_style="red",
-            ))
-            state["blocked"].append(pid)
-            save_state(state)
-            short_lines = "\n".join(key_lines[-5:]) if key_lines else ""
-            notify(
-                f"✗ BLOCKED at {pid}: {reason}.\n\nLast errors:\n{short_lines}",
-                level="alert",
-            )
-            return 0
+        elif out.kind == "interrupted":
+            bk.set_status(iid, "open")
+            log(f"· {iid} : essai annulé ({out.reason}) — ni compté, ni empreinté. "
+                f"Le travail est commité.", "yellow")
+            if HALT:
+                break
 
-        else:  # fail, will retry
-            attempt = state["retries"][pid]
-            max_r = phase.get("max_retries", 10)
-            fp_hist = state.get("fingerprints", {}).get(pid, [])
-            unique_fps = len(set(fp_hist))
-            console.print(
-                f"[yellow]Phase {pid} attempt {attempt}/{max_r} failed. "
-                f"Distinct failure modes so far: {unique_fps}. Retrying...[/yellow]"
-            )
-            # Heartbeat every 3rd attempt so user knows we're still working
-            if attempt > 0 and attempt % 3 == 0:
-                notify(
-                    f"phase {pid}: attempt {attempt}/{max_r}, "
-                    f"{unique_fps} distinct failure modes (still iterating)",
-                    level="info",
-                )
-            time.sleep(30)
-
-    # REPRISE DES CHANTIERS INACHEVES (owner 2026-09-02 : « Pourquoi il s'arrete, il y a
-    # du backlog a faire non ? »). Arriver au bout de la liste ne veut PAS dire que tout
-    # est fait : 27 phases sur 277 n'ont jamais ete ni terminees ni validees — 15 bloquees
-    # sur un echec technique et jamais reprises, 11 sans aucune raison enregistree. Le
-    # curseur lineaire les enjambait et declarait la victoire. On revient donc au premier
-    # chantier inachevé qui n'est ni parque par l'owner ni bloque, et on continue.
-    if state["current_phase_idx"] >= len(phases):
-        done = set(state.get("completed", [])) | set(state.get("validator_passed", []))
-        parked = set(state.get("parked", {}))
-        blocked = set(state.get("blocked", []))
-        reprise = next((i for i, ph in enumerate(phases)
-                        if ph.get("id") not in done
-                        and ph.get("id") not in parked
-                        and ph.get("id") not in blocked), None)
-        if reprise is not None:
-            console.print(f"[cyan]fin de liste — reprise du chantier inacheve "
-                          f"{phases[reprise].get('id')} (index {reprise})[/cyan]")
-            state["current_phase_idx"] = reprise
+        elif out.kind == "no-start":
+            bk.set_status(iid, "open")
+            no_start_streak += 1
+            state["rate_interrupts"][iid] = int(state["rate_interrupts"].get(iid, 0)) + 1
             save_state(state)
-            return 0
-    if state["current_phase_idx"] >= len(phases):
-        console.print("[bold green]🎉 All phases complete![/bold green]")
-        total_elapsed = time.time() - datetime.fromisoformat(
-            state.get("started_at", datetime.now(timezone.utc).isoformat())
-        ).timestamp()
-        notify(
-            f"🎉 All {len(phases)} phases complete! Total time: {format_duration(total_elapsed)}",
-            level="celebrate",
-        )
+            log(f"⏳ {iid} : {out.reason} (non compté, {no_start_streak}/"
+                f"{MAX_NO_START_ITERATIONS})", "yellow")
+            for ln in out.stderr_tail[-10:]:
+                log(f"    claude: {ln}", "dim")
+            if no_start_streak >= MAX_NO_START_ITERATIONS:
+                console.print(Panel.fit(
+                    f"[bold red]{MAX_NO_START_ITERATIONS} sessions de suite refusées au "
+                    f"démarrage[/bold red]\n\nOn s'arrête au lieu de boucler : la boucle "
+                    f"précédente a tourné 230 fois en 19,7 h sans que personne puisse dire "
+                    f"pourquoi.\nDernières lignes de claude :\n"
+                    + "\n".join(f"  {ln}" for ln in out.stderr_tail[-10:]),
+                    border_style="red"))
+                return 1
+            if out.resume_at:
+                sleep_until(min(out.resume_at + 90,
+                                int(time.time()) + NO_START_MAX_SLEEP),
+                            "la réouverture de la fenêtre annoncée par l'API")
+            else:
+                log(f"L'API n'a annoncé aucune heure de réouverture — repli sur "
+                    f"{NO_START_FALLBACK_SLEEP}s.", "dim")
+                nap(NO_START_FALLBACK_SLEEP)
+
+        elif out.kind == "infra":
+            bk.set_status(iid, "open")
+            log(f"⏸ {iid} : {out.reason} — panne d'infra, essai non compté.", "yellow")
+            if out.resume_at:
+                sleep_until(out.resume_at, "la fin de la tempête d'API")
+
+        else:  # fail
+            bk.set_status(iid, "open")
+            attempts = state["retries"].get(iid, 0)
+            fps = state.get("fingerprints", {}).get(iid, [])
+            log(f"{iid} : essai {attempts}/{item.get('max_retries', 6)} échoué. "
+                f"{len(set(fps))} mode(s) d'échec distinct(s). On recommence.", "yellow")
+            no_start_streak = 0
+            nap(30)
 
     return 0
 

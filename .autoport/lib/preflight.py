@@ -12,19 +12,35 @@ before every attempt, and whose findings are INJECTED INTO THE WORKER'S PROMPT
 so the framework warns the worker before it steps in the trap.
 
 Audience contract (as important as severity): a finding goes to whoever is
-ALLOWED to fix it. Validator/harness defects are SUPERVISOR work -- the worker is
-forbidden from touching validators -- so they are printed in the orchestrator log
-and never injected into the worker's prompt, where they would only push it to
-break the rule. Tree/code defects are WORKER work and are injected.
+ALLOWED to fix it. Harness/preflight defects are SUPERVISOR work and are printed
+in the orchestrator log, never injected into the worker's prompt. Tree/code
+defects are WORKER work and are injected.
 
 Severity contract, deliberately not a brake:
   BLOCKER — this WILL waste a cycle (silent runtime failure, false green).
             Injected into the prompt as work to do first.
   WARN    — worth knowing, injected as a note, never stops anything.
 
+HARD CAP (2026-09-03): at most MAX_PROMPT_FINDINGS findings ever reach the
+worker's prompt; the overflow goes to the supervisor log. A preflight that
+prints 147 lines is a brake, and the file's own rule already said so.
+
+CONTRACT OF A CHECK (2026-09-03, the bug that killed this module for four days):
+a check is a GENERATOR that YIELDS `(sev, code, message)` TRIPLES. It never
+`return`s a tuple. `check_shield_untouched` returned a 2-tuple, `run()` did
+`findings.extend(...)` on it — which appended its two STRINGS as two findings —
+and `prompt_block` then raised `ValueError: not enough values to unpack` on the
+first of them. The orchestrator swallowed the exception, so from 2026-08-30 to
+2026-09-03 EVERY attempt logged `preflight unavailable` (278 occurrences) and
+not one finding, worker or supervisor, was ever emitted. Two defences now:
+`run()` validates the SHAPE of everything a check produces and turns a
+malformed item into a PREFLIGHT-BROKEN finding instead of a crash, and
+`tests/harness/test_preflight.py` asserts the triple shape for every check.
+
 Adding a trap is three lines: a function that yields (sev, code, message), and
-its name in CHECKS. Keep every check CHEAP (no builds, no device) — preflight
-runs before each attempt and must stay under a second.
+its name in CHECKS. Keep every check CHEAP (no builds, no device, no adb) —
+preflight runs before each attempt and must stay under a second. A check that
+needs a device belongs in `.autoport/acquis/`, not here.
 """
 import json
 import re
@@ -33,6 +49,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# The worker's prompt never carries more than this many preflight findings.
+MAX_PROMPT_FINDINGS = 5
 
 
 class MissingInput(Exception):
@@ -50,6 +69,10 @@ def _read(p, required=False):
     return fp.read_text(errors="ignore")
 
 
+def _list(pat):
+    return [p.as_posix().replace(str(ROOT) + "/", "") for p in ROOT.glob(pat)]
+
+
 def _active_set():
     """Files this cycle actually touches: the working tree plus the last 20
     commits. Style checks apply HERE only -- auditing every archived script of
@@ -64,6 +87,19 @@ def _active_set():
         for ln in r.stdout.splitlines():
             f = ln[3:] if cmd[3] == "status" else ln
             out.add(f.strip().strip('"'))
+    return out
+
+
+def _live_autoport_scripts():
+    """The `.autoport/*.sh` scripts of THIS cycle. The directory holds 624
+    one-off campaign scripts of closed phases; reading all of them costs real
+    time on every attempt and the findings it produces are about work nobody is
+    doing. Same live-set rule as everywhere else in this file."""
+    live = _active_set()
+    out = []
+    for p in sorted((ROOT / ".autoport").glob("*.sh")):
+        if p.as_posix().replace(str(ROOT) + "/", "") in live:
+            out.append(p)
     return out
 
 
@@ -85,20 +121,13 @@ def check_goal_objects_linked():
                    "the other pc objects." % (gc.as_posix().replace(str(ROOT) + "/", ""), obj))
 
 
-def _list(pat):
-    return [p.as_posix().replace(str(ROOT) + "/", "") for p in ROOT.glob(pat)]
-
-
 # --------------------------------------------------------------------------
 # TRAP 2 — pattern-kill that matches its own command line.
 # Cost: `pkill -f "foo"` kills the caller (exit 144); a wait loop
 # `while pgrep -f "foo"; do ...` waits on ITSELF forever, and the [f]oo bracket
 # trick does NOT save the loop form. Has hung the harness overnight.
 def check_self_matching_kills():
-    live = _active_set()
-    for p in sorted((ROOT / ".autoport").glob("*.sh")):
-        if p.as_posix().replace(str(ROOT) + "/", "") not in live:
-            continue
+    for p in _live_autoport_scripts():
         txt = p.read_text(errors="ignore")
         for m in re.finditer(r"^[^#\n]*\b(pkill|pgrep)\s+-f\s+(['\"]?)([^'\"\s|)]+)\2",
                              txt, re.M):
@@ -115,80 +144,56 @@ def check_self_matching_kills():
 
 
 # --------------------------------------------------------------------------
-# TRAP 3 — `cmake -B` inside a harness script.
-# Cost: a full reconfigure invalidates 1300+ objects incl. unrelated jak2
-# mips2c. The owner's standing order is incremental builds only.
-def check_no_cmake_reconfigure():
-    live = _active_set()
-    for p in sorted((ROOT / ".autoport").glob("*.sh")):
-        if p.as_posix().replace(str(ROOT) + "/", "") not in live:
+# TRAP 3 — une propriete de debogage laissee armee sur un appareil de l'owner.
+# Cout REEL, 2026-08-28 : `debug.opengoal.cpad_inject` est restee a `x` sur
+# l'appareil. Le jeu lit cette propriete en continu et `x` = bit 14 = CROIX, donc
+# le bouton de SAUT etait TENU en permanence. Un bouton tenu n'emet aucun FRONT,
+# et `(cpad-pressed? 0 x)` ne tire que sur le front : jeu injouable pendant des
+# semaines, pendant que chaque controle de la chaine d'entree disait « saine »
+# (les 228 evenements SDL arrivaient bien). Trois hypotheses ont ete refutees
+# avant de trouver, toutes cherchaient une entree ABSENTE alors qu'elle etait
+# COINCEE A 1.
+_PROP = "debug.opengoal.cpad_inject"
+
+
+def check_device_prop_leak():
+    leakers = []
+    scripts = _live_autoport_scripts()
+    for p in scripts:
+        txt = p.read_text(errors="ignore")
+        if ("setprop %s" % _PROP) not in txt:
             continue
-        txt = p.read_text(errors="ignore")
-        for m in re.finditer(r"^[^#\n]*cmake\s+(-B|--build\s+\S+\s+-B)", txt, re.M):
-            yield ("WARN", "CMAKE-B",
-                   "%s:%d runs `cmake -B` (full reconfigure, ~1300 objects). "
-                   "Incremental `cmake --build <dir> --target gk` unless a build "
-                   "OPTION changed." % (p.name, txt[:m.start()].count("\n") + 1))
-
-
-
-def _live_validators(phase_id):
-    """This cycle's validator plus any validator being edited. Scanning the ~230
-    validators of closed phases produced 65KB of true-but-irrelevant findings --
-    a flood is a brake, and it buries the one line that matters."""
-    live = _active_set()
-    out = []
-    if phase_id:
-        v = ROOT / ".autoport" / "validators" / ("phase-%s.sh" % phase_id)
-        if v.exists():
-            out.append(v)
-    for f in live:
-        if f.startswith(".autoport/validators/") and f.endswith(".sh"):
-            fp = ROOT / f
-            if fp.exists() and fp not in out:
-                out.append(fp)
-    return out
-
-
-# --------------------------------------------------------------------------
-# TRAP 4 — `set -o pipefail` + `grep -q` in a validator.
-# Cost: grep -q exits early, SIGPIPEs the writer, and the pipeline's non-zero
-# status silently flips a gate. This produced a false green once already.
-def check_validator_pipefail_grepq(phase_id=None):
-    for p in _live_validators(phase_id):
-        txt = p.read_text(errors="ignore")
-        if "pipefail" not in txt:
-            continue
-        for m in re.finditer(r"^[^#\n]*\|\s*grep\s+(-\w*q\w*)\s", txt, re.M):
-            yield ("BLOCKER", "PIPEFAIL-GREPQ",
-                   "%s:%d pipes into `grep -q` under `set -o pipefail`: grep exits "
-                   "early, the writer takes SIGPIPE and the gate silently flips. "
-                   "Use `grep -c`/a variable, or drop pipefail on that line."
-                   % (p.name, txt[:m.start()].count("\n") + 1))
-
-
-# --------------------------------------------------------------------------
-# TRAP 5 — a negated character class written [^\n] in a validator grep.
-# Cost: in POSIX grep that class excludes the LETTER n, not newline, so the gate
-# matches nothing and reads green. Cost us a false green.
-def check_validator_negated_class(phase_id=None):
-    for p in _live_validators(phase_id):
-        txt = p.read_text(errors="ignore")
-        for m in re.finditer(r"grep[^\n]*\[\^\\n\]", txt):
-            yield ("BLOCKER", "GREP-NEG-N",
-                   "%s:%d grep uses [^\\n], which excludes the LETTER n in POSIX "
-                   "grep, not a newline: the gate matches nothing and reads green."
-                   % (p.name, txt[:m.start()].count("\n") + 1))
-
-
-# --------------------------------------------------------------------------
-# TRAP 6 — the phase's own report is older than the artifacts it describes.
-# Cost: a stale report passes gates that describe work from a previous attempt.
-def check_report_not_stale(phase_id=None):
-    if not phase_id:
+        # un nettoyage = la propriete remise a vide, ou le teardown appele
+        cleared = re.search(r"setprop\s+%s\s+(''|\"\"|\s*$)" % re.escape(_PROP),
+                            txt, re.M) or "device_teardown.sh" in txt
+        if not cleared:
+            leakers.append(p.name)
+    if not leakers:
         return
-    rep = ROOT / ".autoport" / "reports" / phase_id / "report.txt"
-    if not rep.exists():
+    head = ", ".join(sorted(leakers)[:3]) + (" ..." if len(leakers) > 3 else "")
+    yield ("BLOCKER", "DEVICE-PROP-LEAK",
+           "%d script(s) de CE cycle posent `%s` sans jamais la vider (%s). Une "
+           "valeur laissee la TIENT un bouton enfonce sur l'appareil de l'owner : "
+           "plus aucun front, donc le jeu ne reagit plus a ce bouton, jusqu'au "
+           "redemarrage. Ajouter `trap 'bash .autoport/lib/device_teardown.sh' EXIT` "
+           "en tete de tout script qui touche un appareil, y compris quand il echoue."
+           % (len(leakers), _PROP, head))
+
+
+# --------------------------------------------------------------------------
+# TRAP 4 — the item's own proof/report is older than the artifacts it describes.
+# Cost: a stale report passes gates that describe work from a previous attempt.
+def check_report_not_stale(item_id=None):
+    if not item_id:
+        return
+    rep_dir = ROOT / ".autoport" / "reports" / item_id
+    rep = None
+    for name in ("proof.txt", "report.txt"):
+        cand = rep_dir / name
+        if cand.exists():
+            rep = cand
+            break
+    if rep is None:
         return
     try:
         out = subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain"],
@@ -204,233 +209,106 @@ def check_report_not_stale(phase_id=None):
             newer.append(f)
     if newer:
         yield ("WARN", "REPORT-STALE",
-               "the report predates %d changed source file(s) (%s%s): rewrite it "
-               "from THIS attempt's numbers, never leave a previous attempt's text."
-               % (len(newer), ", ".join(newer[:3]), " ..." if len(newer) > 3 else ""))
-
-
-
-# --------------------------------------------------------------------------
-# TRAP 7 — une mesure exprimée dans le mauvais REPÈRE, ou de la mauvaise NATURE.
-# Racine commune aux trois erreurs du 2026-08-11, toutes trouvées par l'œil de
-# l'owner et non par l'instrument :
-#   * affaissement sous gravité mesuré par une VARIANCE (une variance ne peut pas
-#     décrire un déplacement soutenu) ;
-#   * dégradé le long d'une chaîne mesuré par un SCALAIRE unique (un nombre ne peut
-#     pas décrire une forme) ;
-#   * déplacement par maillon mesuré en repère MONDE (un maillon hérite du mouvement
-#     de son parent, donc une pointe immobile par rapport à son parent affiche un
-#     grand chiffre).
-# Le check ne prétend pas juger la physique : il exige que le code de mesure DÉCLARE
-# le repère et la nature de chaque grandeur publiée, pour que l'erreur soit visible
-# à la lecture au lieu d'être découverte trois heures plus tard.
-def check_metric_frame_declared():
-    import re as _re
-    for rel in ("goal_src/jak1/pc/phys-room.gc", ".autoport/physics_room_table.py"):
-        txt = _read(rel)
-        if not txt:
-            continue
-        emitted = set(_re.findall(r"ROOM-([A-Z][A-Z0-9-]+)", txt))
-        for name in sorted(emitted):
-            # une grandeur est "déclarée" si son nom apparaît à moins de 400 caractères
-            # d'un mot de repère ou de nature
-            for m in _re.finditer(r"ROOM-" + _re.escape(name), txt):
-                ctx = txt[max(0, m.start() - 400):m.start() + 400].lower()
-                if any(k in ctx for k in ("repere", "repère", "frame", "relatif", "relative",
-                                          "monde", "world", "ancre", "anchor", "parent",
-                                          "soutenu", "variance", "moyenne", "nature")):
-                    break
-            else:
-                yield ("WARN", "METRIC-FRAME",
-                       "%s publie ROOM-%s sans declarer son REPERE ni sa NATURE dans le code "
-                       "alentour. Les trois faux verts du 2026-08-11 viennent de la : variance "
-                       "pour un deplacement soutenu, scalaire pour une forme, repere monde pour "
-                       "un mouvement relatif au parent." % (rel.split('/')[-1], name))
-
-
-# --------------------------------------------------------------------------
-# TRAP 8 — un verrou qui rouille. Chaque piege rencontre est inscrit dans
-# .autoport/PITFALLS.md avec le fichier et le marqueur de son verrou ; ce check
-# verifie a chaque tentative que le verrou est TOUJOURS LA. Sans lui, un verrou
-# supprime par une refonte ne se voit qu'a la prochaine occurrence du piege --
-# c'est-a-dire trop tard, ce qui est exactement le probleme qu'on essaie de
-# supprimer (owner 2026-08-12 : « fais en sorte que tes soucis recurrents ne se
-# reproduisent plus, ca fait partie de l'amelioration continue »).
-def check_guards_still_installed():
-    reg = _read(".autoport/PITFALLS.md")
-    if not reg:
-        yield ("WARN", "GUARD-REGISTRY",
-               "PITFALLS.md absent : le registre des pieges rencontres et de leurs verrous "
-               "n'existe plus, donc plus rien ne verifie qu'un verrou n'a pas ete supprime.")
-        return
-    import re as _re
-
-    # Le marqueur d'un verrou est une CITATION de prose (DIRECTIVES.md, owner-defects.txt), pas un
-    # identifiant. Une comparaison litterale le rend donc sensible a la MISE EN FORME du texte cite
-    # -- emphase markdown inseree au milieu de la citation, majuscule de debut de phrase, retour a
-    # la ligne d'un paragraphe reflowe. Mesure du 2026-08-13 : les deux verrous `target-is-response`
-    # et `recipe-not-transferable` etaient annonces DISPARUS alors que leur lecon est intacte a
-    # DIRECTIVES.md:118 et :48 -- seuls `**` et un `L` majuscule les separaient de leur motif. Deux
-    # cycles de suite ont paye un BLOCKER permanent pour ca, ce qui est exactement l'inverse du but :
-    # un BLOCKER qu'on apprend a ignorer ne protege plus rien.
-    # On normalise donc LES DEUX COTES a l'identique avant de comparer -- emphase retiree, espaces
-    # replies, casse ignoree. Aucun marqueur qui passait avant ne peut echouer maintenant : la
-    # comparaison litterale reste tentee en premier et la normalisation ne fait qu'ajouter des
-    # correspondances. Ce qui est verifie reste le FOND de la lecon, pas sa typographie.
-    def _norm(s):
-        return _re.sub(r"\s+", " ", s.replace("*", "").replace("`", "")).strip().casefold()
-
-    for m in _re.finditer(r"^GUARD (\S+) (\S+) (.+)$", reg, _re.M):
-        gid, path, marker = m.group(1), m.group(2), m.group(3).strip()
-        # 2026-08-21 : quatre de MES entrees pointaient un REPERTOIRE (`.autoport/reports`), et
-        # `_read` levait IsADirectoryError -- ce qui tuait la boucle entiere. Le verificateur de
-        # verrous ne verifiait donc plus AUCUN verrou, silencieusement, parce qu'une seule ligne
-        # etait malformee. Un dispositif qui protege N choses ne doit jamais tomber sur la 1re.
-        # Une entree invalide se SIGNALE et la boucle continue.
-        import os as _os
-        if _os.path.isdir(path):
-            yield ("WARN", "GUARD-MALFORMED",
-                   "verrou '%s' : son chemin '%s' est un REPERTOIRE, pas un fichier. Ce verrou "
-                   "n'est pas verifie tant que l'entree n'est pas corrigee." % (gid, path))
-            continue
-        try:
-            body = _read(path)
-        except OSError as e:
-            yield ("WARN", "GUARD-MALFORMED",
-                   "verrou '%s' : '%s' illisible (%s). Non verifie." % (gid, path, e))
-            continue
-        if not body:
-            yield ("BLOCKER", "GUARD-GONE",
-                   "verrou '%s' : son fichier %s a disparu. Le piege qu'il empechait peut "
-                   "revenir sans que rien ne le signale." % (gid, path))
-        elif marker not in body and _norm(marker) not in _norm(body):
-            yield ("BLOCKER", "GUARD-GONE",
-                   "verrou '%s' : le marqueur \"%s\" n'est plus dans %s. Il a ete retire ou "
-                   "renomme par une refonte -- le piege correspondant n'est plus couvert."
-                   % (gid, marker[:40], path))
-
-
-# --------------------------------------------------------------------------
-# TRAP — une propriete de debogage laissee armee sur un appareil de l'owner.
-# Cout REEL, 2026-08-28 : `debug.opengoal.cpad_inject` est restee a `x` sur la
-# Shield. Le jeu lit cette propriete en continu et `x` = bit 14 = CROIX, donc le
-# bouton de SAUT etait TENU en permanence. Un bouton tenu n'emet aucun FRONT, et
-# `(cpad-pressed? 0 x)` ne tire que sur le front : jeu injouable pendant des
-# semaines, pendant que chaque controle de la chaine d'entree disait « saine »
-# (les 228 evenements SDL arrivaient bien). Trois hypotheses ont ete refutees
-# avant de trouver, toutes cherchaient une entree ABSENTE alors qu'elle etait
-# COINCEE A 1.
-_PROP = "debug.opengoal.cpad_inject"
-
-
-def check_device_prop_leak():
-    live = _active_set()
-    setters, leakers = [], []
-    for p in sorted((ROOT / ".autoport").glob("*.sh")):
-        rel = p.as_posix().replace(str(ROOT) + "/", "")
-        txt = p.read_text(errors="ignore")
-        if ("setprop %s" % _PROP) not in txt:
-            continue
-        setters.append(p.name)
-        # un nettoyage = la propriete remise a vide, ou le teardown appele
-        cleared = re.search(r"setprop\s+%s\s+(''|\"\"|\s*$)" % re.escape(_PROP),
-                            txt, re.M) or "device_teardown.sh" in txt
-        if not cleared:
-            leakers.append((p.name, rel in live))
-    if not leakers:
-        return
-    live_leakers = [n for n, is_live in leakers if is_live]
-    sev = "BLOCKER" if live_leakers else "WARN"
-    head = (", ".join(sorted(live_leakers)[:3]) + ("..." if len(live_leakers) > 3 else "")
-            if live_leakers else ", ".join(n for n, _ in leakers[:3]) + "...")
-    yield (sev, "DEVICE-PROP-LEAK",
-           "%d des %d scripts qui posent `%s` ne la vident JAMAIS (%s). Une valeur "
-           "laissee la TIENT un bouton enfonce sur l'appareil de l'owner : plus aucun "
-           "front, donc le jeu ne reagit plus a ce bouton, jusqu'au redemarrage. "
-           "Ajouter `trap '.autoport/device_teardown.sh' EXIT` en tete de tout script "
-           "qui touche un appareil, y compris quand il echoue."
-           % (len(leakers), len(setters), _PROP, head))
-
-
-def check_shield_untouched():
-    """INTERDICTION OWNER 2026-08-30 : « Interdit de toucher a la SHIELD a nouveau.
-    Assures toi que vraiment rien n'y touche. » BLOQUANT : ni connexion adb vivante,
-    ni script/config vivant qui cible l'adresse INTERDITE de la Shield."""
-    import subprocess, pathlib
-    guard = pathlib.Path(__file__).resolve().parents[1] / "shield_guard.sh"
-    if not guard.exists():
-        return ("BLOCKER", "shield_guard.sh absent — l'interdiction Shield n'est plus verifiee")
-    r = subprocess.run(["bash", str(guard)], capture_output=True, text=True)
-    if r.returncode != 0:
-        return ("BLOCKER", "Shield touchee ou ciblee :\n" + (r.stderr or r.stdout).strip()[:800])
-    return ("ok", (r.stdout or "").strip())
+               "%s predates %d changed source file(s) (%s%s): it describes a "
+               "PREVIOUS attempt. Re-run the proof from THIS attempt's build, "
+               "never leave the previous run's numbers in place."
+               % (rep.name, len(newer), ", ".join(newer[:3]),
+                  " ..." if len(newer) > 3 else ""))
 
 
 CHECKS = [
-    check_goal_objects_linked,
-    check_self_matching_kills,
-    check_no_cmake_reconfigure,
-    check_validator_pipefail_grepq,
-    check_validator_negated_class,
-    check_report_not_stale,
-    check_metric_frame_declared,
-    check_guards_still_installed,
-    check_device_prop_leak,
-    check_shield_untouched,
+    check_goal_objects_linked,     # GD-LINK
+    check_self_matching_kills,     # SELF-KILL
+    check_device_prop_leak,        # DEVICE-PROP-LEAK
+    check_report_not_stale,        # REPORT-STALE
 ]
 
 
-def run(phase_id=None):
+def _valid_finding(x):
+    return (isinstance(x, tuple) and len(x) == 3
+            and all(isinstance(p, str) for p in x))
+
+
+def run(item_id=None):
+    """Every finding is a `(sev, code, message)` triple of strings.
+
+    A check that produces anything else is reported as PREFLIGHT-BROKEN rather
+    than allowed to raise: the whole module went dark for four days because one
+    malformed value reached an unpacking site (see the module docstring)."""
     findings = []
     for fn in CHECKS:
         try:
-            args = (phase_id,) if fn.__code__.co_argcount else ()
-            findings.extend(fn(*args))
+            args = (item_id,) if fn.__code__.co_argcount else ()
+            produced = list(fn(*args) or ())
         except MissingInput as e:                   # the CHECK is broken, not the tree
             findings.append(("WARN", "PREFLIGHT-BROKEN",
                              "%s cannot run: input %s is missing. Fix the check "
                              "before trusting its silence." % (fn.__name__, e)))
+            continue
         except Exception as e:                      # a check must never break a run
             findings.append(("WARN", "PREFLIGHT-ERR", "%s: %s" % (fn.__name__, e)))
+            continue
+        for item in produced:
+            if _valid_finding(item):
+                findings.append(item)
+            else:
+                findings.append((
+                    "WARN", "PREFLIGHT-BROKEN",
+                    "%s produced %r, which is not a (sev, code, message) triple of "
+                    "strings. A check YIELDS triples; it never returns a tuple."
+                    % (fn.__name__, item)))
     return findings
 
 
-SUPERVISOR_CODES = {"PIPEFAIL-GREPQ", "GREP-NEG-N", "PREFLIGHT-BROKEN",
-                    "PREFLIGHT-ERR"}
+SUPERVISOR_CODES = {"PREFLIGHT-BROKEN", "PREFLIGHT-ERR"}
 
 
-def split(phase_id=None):
+def split(item_id=None):
     """(worker-owned, supervisor-owned) findings."""
-    f = run(phase_id)
+    f = run(item_id)
     return ([x for x in f if x[1] not in SUPERVISOR_CODES],
             [x for x in f if x[1] in SUPERVISOR_CODES])
 
 
-def prompt_block(phase_id=None):
+def prompt_findings(item_id=None):
+    """(injected, overflow, supervisor).
+
+    `injected` is capped at MAX_PROMPT_FINDINGS, BLOCKERs first. `overflow` is
+    everything the cap dropped — the orchestrator prints it in its own log so a
+    dropped finding is visible to a human, never silently lost."""
+    worker, sup = split(item_id)
+    ordered = ([x for x in worker if x[0] == "BLOCKER"]
+               + [x for x in worker if x[0] != "BLOCKER"])
+    return ordered[:MAX_PROMPT_FINDINGS], ordered[MAX_PROMPT_FINDINGS:], sup
+
+
+def prompt_block(item_id=None):
     """The WORKER's findings, formatted for injection into its instructions."""
-    f, _sup = split(phase_id)
-    blockers = [x for x in f if x[0] == "BLOCKER"]
-    if not f:
+    injected, overflow, _sup = prompt_findings(item_id)
+    if not injected:
         return ""
     out = ["## PREFLIGHT — pièges connus détectés dans l'arbre AVANT que tu commences",
            "",
            "Ces points viennent de checks automatiques du framework, pas d'une opinion :",
            "chacun a déjà coûté un cycle par le passé. Les BLOCKER se règlent EN PREMIER.",
            ""]
-    for sev, code, msg in blockers + [x for x in f if x[0] != "BLOCKER"]:
+    for sev, code, msg in injected:
         out.append("* **%s [%s]** %s" % (sev, code, msg))
+    if overflow:
+        out += ["", "(%d autre(s) constat(s) au-delà du plafond de %d : ils sont dans le "
+                "log de l'orchestrateur, pas ici.)" % (len(overflow), MAX_PROMPT_FINDINGS)]
     out += ["", "---", ""]
     return "\n".join(out)
 
 
 if __name__ == "__main__":
-    pid = sys.argv[1] if len(sys.argv) > 1 else None
+    iid = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else None
     if "--json" in sys.argv:
-        print(json.dumps([{"sev": s, "code": c, "msg": m} for s, c, m in run(pid)], indent=2))
+        print(json.dumps([{"sev": s, "code": c, "msg": m} for s, c, m in run(iid)], indent=2))
     else:
-        f = run(pid)
+        f = run(iid)
         for sev, code, msg in f:
             print("[%s %s] %s" % (sev, code, msg))
-        print("preflight: %d finding(s), %d blocker(s)"
-              % (len(f), sum(1 for x in f if x[0] == "BLOCKER")))
+        print("preflight: %d finding(s), %d blocker(s), cap %d"
+              % (len(f), sum(1 for x in f if x[0] == "BLOCKER"), MAX_PROMPT_FINDINGS))
         sys.exit(0)

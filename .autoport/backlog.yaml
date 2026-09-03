@@ -1,0 +1,3325 @@
+# Genere par tools/migrate_backlog.py depuis milestones.yaml + state.json +
+# owner-ok/ + prompts/ + reports/*/owner-defects.txt + git log. Rejouable.
+# Les blocs owner_feedback sont les mots de l'owner, jamais reformules.
+version: 1
+items:
+- id: cutscene-npc-flicker
+  feature: Les PNJ clignotent pendant les cinematiques
+  status: open
+  priority: 10
+  owner_feedback:
+  - date: '2026-08-31'
+    text: le faire disparaitre a nouveau
+  - date: '2026-08-31'
+    text: le problème des modèles des PNJ qui apparaissent, disparaissent et réapparaîssent plusieurs
+      fois pendant les cinématiques est revenu ! c'est pas la première fois que ça se produit, ça me saoule
+      un peu !
+  - date: '2026-09-01'
+    text: les PNJs qui disparaissent, réapparaîssent, etc etc c'est pas réglé du tout, le pire cas que
+      j'ai observé c'est la cinématique avec maire (la première)
+  - date: '2026-09-03'
+    text: bah non c'est toujours pété, première cinématique avec le Maire est le worst offender... c'est
+      pas corrigé du tout
+  - date: '2026-09-03'
+    text: le seau qui excusait portait 478 des 479 episodes
+  gate:
+    key: npc_culled_in_frustum
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcutscene-npc-flicker
+  - Gcutscene-npc-flicker-2
+  prompt: prompts/item-cutscene-npc-flicker.md
+  owner_ok: null
+  device: true
+  where: la premiere cinematique avec le Maire
+  notes: 'meme prompt (prompts/phase-Gcutscene-npc-flicker.md) et meme validateur ; le clone -2 est le
+    retour 2 de l''owner sur le meme defaut | statut force : l''owner a redit le 2026-09-03 « c''est pas
+    corrige du tout » ; la phase etait parquee « en attente de sa parole », ce qui est faux : il a parle,
+    et c''est non | gate deduit de validators/phase-Gcutscene-npc-flicker.sh : NPCCULL .*dans_frustum_et_culled=0
+    | device force a true : validators/phase-Gcutscene-npc-flicker.sh exige plateforme=redmi'
+  known_cause: 'Le maire porte deja `culled=1` DANS SA PROPRE SCENE pendant que le compteur de cycles
+    reste a 0 : le culling est range dans une categorie « justifiee » qui ne compte pas. Les trois portes
+    precedentes ont mesure des scenes ou des acteurs qui ne sont pas ceux qui clignotent, et la preuve
+    du 02/09 a ete prise sur PC.'
+  deliverable: Zero PNJ ecarte du rendu pendant qu'il est dans le champ de la camera, sur la PREMIERE
+    cinematique du MAIRE, mesure sur le Redmi avec les modeles HD installes, plus une garde de non-regression
+    qui echoue si le symptome revient.
+  out_of_scope: 'Jak et Daxter ne sont pas concernes : l''owner parle des PNJ. Pas de refonte du culling
+    general. Aucune capture d''ecran ne vaut preuve.'
+- id: cutscene-skip
+  feature: Passer une cinematique en maintenant Cercle, avec la cartouche « Skip »
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-30'
+    text: pareil ca modernise enormement le jeu
+  - date: '2026-08-31'
+    text: faudrait que la cartouche pour skip (et donc l'action de skip) prenne un quart moins de temps
+      que ce que ça prend. la cartouche est horrible avec ses coins arrondis pixelisés, on est pas dans
+      un jeu en pixel art on attend des trucs propres et lisses. aussi le texte et le bouton sont même
+      pas centrés dans la cartouche, même pas sûr qu'elle ajuste sa taille en fonction de son contenu,
+      ça fait très amateur, pas polish du tout !
+  - date: '2026-08-31'
+    text: l'arrondi des coins inferieurs doit rejoindre l'arrondi des coins superieurs
+  - date: '2026-08-31'
+    text: la cartouche est horrible avec ses coins arrondis pixelisés, on est pas dans un jeu en pixel
+      art [...] le texte et le bouton sont même pas centrés [...] même pas sûr qu'elle ajuste sa taille
+      en fonction de son contenu, ça fait très amateur
+  - date: '2026-09-01'
+    text: c'est déjà beaucoup mieux
+  - date: '2026-09-01'
+    text: faut aussi que tu désactive (retire) le skip de OpenGoal parce que ça collide un peu, si j'appuies
+      sur triangle dans une cinématique ça l'instant skip (comportement de OpenGoal), c'est un peu wacky
+  - date: '2026-09-01'
+    text: l'arrondi des coins inférieurs doit rejoindre l'arrondi des coins supérieurs, des demi cercles
+      de chaque côté
+  - date: '2026-09-01'
+    text: ça collide un peu [...] c'est un peu wacky
+  - date: '2026-09-02'
+    text: l'icone de bouton n'est pas centré verticalement dans la cartouche ça fait tâche
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcutscene-skip-all
+  - Gcutscene-skip-polish
+  - Gcutscene-skip-polish-2
+  prompt: null
+  owner_ok:
+    date: '2026-09-03'
+    text: la cartouche de skip de cinematique c est impeccable, valide !
+    build_sha: null
+    source: owner-ok/Gcutscene-skip-polish-2
+  notes: les trois partagent prompts/phase-Gcutscene-skip-all.md ; -polish et -polish-2 sont les retours
+    1 et 2 de l'owner sur la meme cartouche de saut
+- id: subtitle-style
+  feature: 'Les sous-titres : texte blanc plein et vraie ombre portee'
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-30'
+    text: faut pas que ca change le reste des textes, c'est un autre sujet
+  - date: '2026-08-30'
+    text: juste le texte duplique legerement decale en plain black
+  - date: '2026-08-30'
+    text: une drop shadow avec un leger flou, plus moderne et probablement plus lisible
+  - date: '2026-08-31'
+    text: pas valide, on voit encore le texte en dur duppliqué dessous avec une opacité réduite. L'ombre
+      portée est décalée du texte au lieu d'être pile en dessous avec le flou (elle a quand même du flou
+      tel quel, mais elle est vraiment décalé un poil vers le bas et vers la droite comme était l'ombre
+      originale au lieu d'être pile sous le texte
+  - date: '2026-09-01'
+    text: 'les sous-titres: validé !'
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gsubtitle-style
+  - Gsubtitle-style-2
+  prompt: null
+  owner_ok:
+    date: '2026-09-01'
+    text: 'les sous-titres: validé !'
+    build_sha: null
+    source: owner-ok/Gsubtitle-style-2
+  notes: meme prompt ; -2 est intitule « SOUS-TITRES, RETOUR 2 » et l'owner valide « les sous-titres »
+    d'un seul mot
+- id: crate-collision
+  feature: Les caisses de Geyser Rock a travers lesquelles on passe
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-31'
+    text: certaines, pas toujours les memes
+  - date: '2026-08-31'
+    text: des fois aucunes, des fois plusieurs
+  - date: '2026-08-31'
+    text: en passant geyser rock en exprès (je connais le niveau par cœur) je remarque que certaines caisses,
+      c'est un peu random... n'ont pas de collision et je passe au travers, meaning je peux même pas les
+      casser... c'était pas là avant c'est bizarre. J'avais remarqué sur un build hier soir mais je croyais
+      que c'était un fluke
+  - date: '2026-08-31'
+    text: les caisses sont là mais je passe au travers sans pouvoir les casser... mais pas toutes, des
+      fois aucunes, des fois certaines, c'est pas toujours les mêmes qui sont impactés
+  - date: '2026-08-31'
+    text: les caisses... j'ai toujours le soucis, c'est pas réglé du tout, ptêtre lié au jeux qui dépend
+      plus du framerate (j'émets un hypothèse)
+  - date: '2026-08-31'
+    text: lié au jeu qui dépend du framerate
+  - date: '2026-08-31'
+    text: une caisse sans collision
+  - date: '2026-09-01'
+    text: Bon les caisses sont réparées, tu peux clore ce chantier et le valider
+  - date: '2026-09-01'
+    text: fais ça de façon programmatique [...] impossible que tu couvre toutes les caisses de Geyser
+      Rock à la vue
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak1-crate-collision
+  - Gjak1-crate-collision-2
+  prompt: null
+  owner_ok:
+    date: '2026-09-01'
+    text: Bon les caisses sont réparées, tu peux clore ce chantier et le valider
+    build_sha: null
+    source: owner-ok/Gjak1-crate-collision-2
+  notes: meme prompt ; -2 est « CAISSES, RETOUR 2 » ; l'owner ferme « les caisses » en un mot
+- id: anim-interp-low-fps
+  feature: Les animations saccadees quand le jeu descend vers 20 images/s
+  status: open
+  priority: 13
+  owner_feedback:
+  - date: '2026-09-01'
+    text: Le pas de temps fixe a l'air bon, mais les animations sont quand même très jittery hein !
+  - date: '2026-09-01'
+    text: Quand le framerate est dans les 20 FPS, je trouve que c'est jittery, plus que le framerate...
+      L'interpolation doit pas bien fonctionner. et of course faut que ça marche dans les deux sens !
+  - date: '2026-09-01'
+    text: c'est la que le jitter se voit
+  - date: '2026-09-01'
+    text: interpolation de rendu
+  - date: '2026-09-03'
+    text: je trouve les animations très jittery [...] c'est très jittery quelque soit le framerate, 60
+      FPS comme 15 fps comme 45... etc
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gfixed-tick-anim-interp
+  - Gfixed-tick-anim-interp-2
+  prompt: prompts/item-anim-interp-low-fps.md
+  owner_ok: null
+  device: false
+  where: 'joue autour de 20 images/s : les animations des personnages'
+  notes: -2 est « ANIMATIONS SACCADEES ..., retour 2 » sur le meme defaut d'interpolation
+  known_cause: 'Le facteur d''interpolation n''est lu qu''a UN SEUL endroit du moteur. La porte du cycle
+    1 exigeait une mesure au-dessus de 60 img/s et releguait les mesures basses hors verdict : elle a
+    valide un travail qui ne traitait pas le cas de l''owner, qui joue vers 20 img/s.'
+  deliverable: Le jitter reduit AUX DEUX BOUTS (a 30 img/s et moins, et au-dessus de 60), le comportement
+    a 60 img/s identique au bit.
+- id: grass-overhang
+  feature: L'herbe qui retombe par-dessus le bord des plateformes
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-grass-overhang
+  - Grecharged-grass-overhang2
+  - Grecharged-grass-overhang3
+  - Grecharged-grass-overhang4
+  - Grecharged-grass-overhang5
+  - Grecharged-grass-overhang6
+  - Grecharged-grass-overhang7
+  prompt: null
+  owner_ok: null
+  notes: 'sept rounds du meme livrable ; chaque round nomme le precedent comme rejete par l''owner ; il
+    a fini par ordonner « Parke ... et passe a l''occlusion ambiante » | statut force : l''owner a ordonne
+    le 2026-07-15 « Parke, note tes echecs cuisants, desactive par defaut et passe a l''occlusion ambiante
+    » ; livre par defaut ETEINT. Ce n''est ni une validation ni quelque chose a lui redemander'
+- id: foliage-wind
+  feature: La brise dans les arbres et les buissons
+  status: open
+  priority: 12
+  owner_feedback:
+  - date: '2026-08-06'
+    text: le vent d'origine tournait au quart de sa vitesse
+  - date: '2026-08-08'
+    text: Je ne savais pas que certains palmiers avaient une animation de base quand j'ai spécifié cette
+      tâche
+  - date: '2026-08-08'
+    text: Ça serait cool si les FEUILLES bougeaient aussi comme si elles étaient balayées par le vent,
+      et pas que sur les palmiers mais TOUTES LES PLANTES ET LES SHRUBS. Ça doit être SUBTIL et CRÉDIBLE
+      pour un vent naturel
+  - date: '2026-08-31'
+    text: bon déjà il y a un problème avec la brise dans les arbres native... cette dernière devrait fonctionner
+      par défaut sans notre modification, mais à la place les arbres qui sont sensés être animés par défaut
+      font de légers twitchs sans animations. Avec notre option activé... déjà tous les arbres ne sont
+      pas impactés, et ils bougent comme s'il y avait une tempête c'est ridicule !
+  - date: '2026-08-31'
+    text: deux identiques cote a cote, un pris l'autre non
+  - date: '2026-08-31'
+    text: joue=1 et amplitude 0
+  - date: '2026-08-31'
+    text: ondulation sous l'eau
+  - date: '2026-08-31'
+    text: tous ne sont pas pris
+  gate:
+    key: wind_divergent_pairs
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-foliage-wind
+  - Grecharged-foliage-wind2
+  - Grecharged-foliage-wind3
+  prompt: prompts/item-foliage-wind.md
+  owner_ok: null
+  device: false
+  where: les palmiers et les buissons de Sandover, option de brise eteinte PUIS allumee
+  notes: 'rounds 1/2/3 de la meme brise dans les arbres ; -wind2 et -wind3 citent le round precedent comme
+    non valide par l''owner | gate deduit de validators/phase-Grecharged-foliage-wind3.sh : WINDPAIRS
+    paires_identiques_divergentes=0'
+  known_cause: 'L''anneau de vent a 48 slots morts sur 64 (index d''ecriture multiplie par `time-adjust-ratio`,
+    index de lecture brut) : le ressort lit du vide trois images sur quatre. Le vent TIE est un affaissement
+    lent VOULU ; le defaut du port est le pas de temps, qui avance par image RENDUE. La vegetation statique
+    se classe par `TIE_PROTO_NAMES`, jamais par la geometrie.'
+  deliverable: La brise NATIVE conforme au chemin stock (option eteinte), le pivot des buissons a leur
+    base, la couverture par instance dessinee complete, et un spectre de brise, pas une seule frequence.
+- id: hd-models
+  feature: Les modeles HD de Jak, Daxter, Samos et Keira
+  status: to-test
+  priority: 203
+  owner_feedback:
+  - date: '2026-08-03'
+    text: Ça serait vraiment top ! Des bonus sympa en plus des meilleurs modèles (accurate) existants
+      possibles pour nos personnages !
+  - date: '2026-08-04'
+    text: Au minimum la mâchoire qui parle... Non faut TOUTES les animations !
+  - date: '2026-08-04'
+    text: C'est des preuves visuelles… ça ne marchera jamais ou va irrémédiablement finir en truc qui
+      échoue constamment, irreproductible ou faux vert comme à chaque fois. J'aimerais que toi, le framework,
+      workers et autres arrêtiez de faire ça… POUR TOUJOURS
+  - date: '2026-08-04'
+    text: Je comprends même pas pourquoi t'as pas fait la correspondance des bones VISAGE d'entrée. Si
+      on veut backporter des modèles on veut qu'ils soient BIEN SUPPORTÉS, pas juste leur corps
+  - date: '2026-08-04'
+    text: backporté avec des défauts
+  - date: '2026-08-04'
+    text: c'est un problème qu'on a déjà eu sur la phase des personnages HD et que tu as déjà réglé
+  - date: '2026-08-04'
+    text: documenter la limite
+  - date: '2026-08-04'
+    text: il est possible que dans la première cinématique de Jak 2 elle ait déjà des bottines, mais pas
+      sûr
+  - date: '2026-08-04'
+    text: le modèle choisi PARTOUT
+  - date: '2026-08-04'
+    text: le transfert par liens de bones entre l'original et la version HD n'est pas tip top
+  - date: '2026-08-04'
+    text: les personnages sont enfin VIVANTS
+  - date: '2026-08-04'
+    text: si c'est les pupilles de Jak 1, c'est pas bon !
+  - date: '2026-08-05'
+    text: Mais que les versions CINÉMATIQUES hein !
+  - date: '2026-08-05'
+    text: S'il y a des looks alternatifs de Jak dans le II ou le 3, qui existent en modèles de cinématiques…
+      Il me les FAUT TOUS ! Genre le look de Jak au début de Jak II quand ils font des expériences sur
+      lui, les looks de Jak 3 s'il y en a plusieurs, etc
+  - date: '2026-08-05'
+    text: bien meilleur mais ça clip encore selon certaines animations
+  - date: '2026-08-05'
+    text: ils ne clignent plus vraiment des yeux… ça bouge mais j'ai l'impression qu'ils clignent pas,
+      c'est un peu bizarre
+  - date: '2026-08-05'
+    text: impeccable, ça fonctionne parfaitement !
+  - date: '2026-08-05'
+    text: la version non masquée de Jak 3 EST la version masquée
+  - date: '2026-08-05'
+    text: on est pas mal, moving on!
+  - date: '2026-08-05'
+    text: vraiment beaucoup, beaucoup mieux
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-hd-models
+  - Grecharged-hd-models2
+  - Grecharged-hd-models3
+  - Grecharged-hd-models4
+  - Grecharged-hd-models5
+  prompt: null
+  owner_ok: null
+  where: Options > Recharged > Enhanced Models, puis regarde Jak, Daxter, Samos et Keira en cinematique
+  delivered: '2026-08-05'
+  build: build du 2026-08-05, remplace depuis
+  notes: cinq rounds du meme remplacement de modeles ; chaque round cite le verdict de l'owner sur le
+    precedent (« un carnage », « CURSED », roadmap M2/M3)
+- id: cutscene-vertical-frame
+  feature: Les bandes noires et le cadrage des cinematiques
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-28'
+    text: Lors des cinématiques, sur PS2 ça mettait des barres noires en haut et en bas [...] au lieu
+      d'avoir des barres noires on devrait grossir la partie visible pour qu'elle prenne toute la hauteur,
+      et ne rien masquer horizontalement [...] QUELQUE SOIT L'ASPECT RATIO ! [...] on peut voir sur les
+      aspect ratio très larges que le compteur de FPS se retrouve sous les barres noires, bien sûr le
+      compteur de FPS devrait être exactement au même endroit où il est habituellement, idem pour les
+      sous-titres et compagnie
+  - date: '2026-08-28'
+    text: Pourquoi avoir gardé les barres a gauche et à droite ?? Ça fait bizarre on dirait qu'on passe
+      en 4:3 forcé
+  - date: '2026-08-28'
+    text: les cinematiques doivent suivre le reglage d'aspect
+  - date: '2026-08-28'
+    text: mesurer sur deux appareils de ratios differents
+  - date: '2026-08-28'
+    text: pour les cinématiques, toujours les barres noires à gauche et à droite hein !
+  - date: '2026-08-29'
+    text: c'est toujours la partie visible horizontale qui est aggrandie
+  - date: '2026-08-29'
+    text: la formule est correcte
+  - date: '2026-08-29'
+    text: la plupart des choses sont testables sur x86 aussi, y compris les divers aspect ratios
+  - date: '2026-08-29'
+    text: latéralement, au lieu de laisser voir plus de champ de vue, tu as fait en sorte que là où l'image
+      s'arrêtait avec les barres à gauche et à droite aille aux bords de l'écran... Ce qui fait que ça
+      sacrifie le cadre vertical que j'avais demandé de préserver (en zoomant pour n'avoir que la hauteur
+      visible entre les barres en haut et en bas). Les barres latérales, elles, c'est le CHAMP DE VISION
+      qui doit s'agrandir pour qu'on ne les voie pas
+  - date: '2026-08-29'
+    text: 'mesure sur sept formats : le vertical rend la meme valeur partout (0,3514)'
+  - date: '2026-08-30'
+    text: 'Cinematiques: C''est valide'
+  - date: '2026-08-30'
+    text: Visiblement tu prend toujours la largeur originale avec les barre noires et l'etire en largeur
+      jusqu'a ce que ca prenne toute la largeur, faisant donc sortir une partie du cadre vertical original
+      de la vue, je vais devoir t'expliquer ca combien de fois avant que tu le corrige tocard ?
+  - date: '2026-08-30'
+    text: les barres noires laterales ? c'est regle avec les cinematiques
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcutscene-reframe
+  - Gandroid-window-size
+  - Gcine-vertical-frame
+  prompt: null
+  owner_ok:
+    date: '2026-08-30'
+    text: 'Cinematiques: C''est valide'
+    build_sha: null
+    source: owner-ok/Gcine-vertical-frame
+  notes: 'l''owner : « les barres noires laterales ? c''est regle avec les cinematiques » (jeton Gandroid-window-size)
+    ; le jeton Gcutscene-reframe dit que Gcine-vertical-frame porte le verdict'
+- id: pbr-per-material
+  feature: Des proprietes PBR par matiere, pas deux curseurs globaux
+  status: to-test
+  priority: 14
+  owner_feedback:
+  - date: '2026-08-28'
+    text: Tu peux utiliser Haiku en mode vision pour obtenir des descriptifs de chaque texture (la version
+      couleur, pas les normales et compagnie évidemment) pour en déduire des présets
+  - date: '2026-08-28'
+    text: on a toujours un problème où on dirait que ça marche d'un côté mais pas de l'autre, certaines
+      faces n'ont l'air d'avoir aucun displacement/tesselation/etc, d'autres oui nickel, d'autres on dirait
+      que c'est inversé [...] on applique un specular truc machin et un relief globalement, ça devrait
+      être texture par texture, et ça devrait faire partie de "presets" propres à chaque textures "rechargées",
+      parce qu'un tissu n'a pas les mêmes propriétés qu'un mur en pierres taillées ou que du sable [...]
+      c'est un peu light il me semble juste ces deux params [...] je pense que ça devrait tout être fait
+      dans le dépôt d'assets
+  - date: '2026-08-28'
+    text: une matiere a une position de curseur
+  - date: '2026-08-29'
+    text: ces props doivent faire partie du repo Recharged assets, pas dans l'APK
+  - date: '2026-08-29'
+    text: je veux des config de matériaux par matériaux, pas seulement les normales, roughness et height
+      en image, mais des PROPRIÉTÉS ! [...] on a des normales pour un mur en pierre taillée et de l'herbe
+      par exemple, peut-être qu'on veut pas que la texture de height ait le même impact de profondeur
+  - date: '2026-08-29'
+    text: je veux des config de matériaux par matériaux, pas seulement les normales/roughness/height en
+      image, mais des PROPRIÉTÉS
+  - date: '2026-08-29'
+    text: la déduction du nom est complètement teubé
+  - date: '2026-08-29'
+    text: la plupart des choses sont testables sur x86 aussi, y compris les divers aspect ratios
+  - date: '2026-08-31'
+    text: defaut IDENTITE = enregistrement non applique invisible
+  - date: '2026-08-31'
+    text: j'ai l'impression que ça prend pas en compte les propriétés individuelles de Recharged assets
+      et que ça applique le PBR uniquement aux 7 textures PBR qui étaient dans le projet depuis un bail
+      et que ça ignore les autres
+  - date: '2026-08-31'
+    text: ça applique le PBR uniquement aux 7 textures qui étaient dans le projet depuis un bail et ça
+      ignore les autres
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gpbr-per-texture-materials
+  - Gpbr-material-props
+  - Gpbr-props-reach-draw
+  prompt: null
+  owner_ok: null
+  where: Options > Recharged > PBR Materials, puis regarde le sable, la pierre et le tissu de Sandover
+  delivered: '2026-09-02'
+  build: dernier build publie sur jak-builds
+  notes: 'l''owner : « pourquoi deux chantiers ? c''est debile » ; Gpbr-material-props dit « la phase
+    precedente en avait livre 7 » et le refus de Gpbr-props-reach-draw porte sur ces memes 7 textures'
+- id: loading-screen
+  feature: L'ecran de chargement a la place de l'ecran noir
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-28'
+    text: car je suis seul ce soir
+  - date: '2026-08-28'
+    text: l'animation de Jak qui court devrait aussi occuper moins de hauteur, là c'est un peu "Bim dans
+      ta face !"
+  - date: '2026-08-28'
+    text: le texte "Loading.../Chargement.../etc." avec ses glyphs Precursor en dessous est un poil trop
+      gros pour faire moderne, ça devrait être plus petit
+  - date: '2026-08-28'
+    text: vraie animation, capturee d'une certaine facon in-game
+  - date: '2026-08-28'
+    text: ça empêcherait l'utilisateur de se poser des questions quand c'est en chargement (le jeu a crash
+      ? pourquoi cet écran noir ?)
+  - date: '2026-08-29'
+    text: Déjà c'est pas l'animation où Jak court vu de côté du tout, c'est plus de la marche... Et en
+      plus la silhouette animée a l'air d'aller vers la gauche au lieu de la droite (et prise avec un
+      angle bizarre) en plus de mal boucler et freeze par moment (quand ça charge des gros trucs je suppose)
+      ça devrait être fluide !
+  - date: '2026-08-29'
+    text: L'écran de chargement est bien là, mais pas quand on charge une partie
+  - date: '2026-08-29'
+    text: je propose une image fixe d'abord, une boucle animee est une extension naturelle
+  - date: '2026-08-29'
+    text: l'encre est minoritaire
+  - date: '2026-08-29'
+    text: la cinématique qui se déclenche quand on retourne à la hutte du Sage vert après avoir terminé
+      Geyser Rock, toujours mes soucis de chargement des collecteurs d'Eco vert (pas chargés pendant le
+      fly over, pop-in) parce qu'ils sont pas dans le nouveau Sandover Village mais à Sandover beach qui
+      est le niveau juste à côté !
+  - date: '2026-08-29'
+    text: la plupart des choses sont testables sur x86 aussi, y compris les divers aspect ratios
+  - date: '2026-08-29'
+    text: la silhouette de Jak and Daxter en train de courir latéralement vers la droite... bah c'est
+      pas animé ! J'avais explicitement demandé de capturer cette animation in game (mets un fond vert
+      ou whatever) en haute résolution pour ensuite en faire une séquence d'images animées en haute définition
+      où toute l'image extraite du fond vert est transformée en blanc plein (silhouette)
+  - date: '2026-08-29'
+    text: le texte "Chargement..." est moins large que son pendant en Precursor, ce que je voulais éviter,
+      t'as pas réussi
+  - date: '2026-08-29'
+    text: les glyphs precursor sont pixellisés et certains sont inversés (fond blanc glyph noir) pendant
+      que d'autres sont bons
+  - date: '2026-08-29'
+    text: une animation de deplacement
+  - date: '2026-08-29'
+    text: Ça n'apparaît pas avant l'écran titre (ça devrait, j'imagine charger le niveau de l'écran titre
+      avant même de montrer Jak et Daxter et le logo Naughty Dog pour éviter un chargement entre cette
+      séquence et l'écran titre) et ça n'apparaît pas non plus sur le chargement de partie alors que l'ÉCRAN
+      NOIR y apparaît un moment (le temps de charger le niveau de la partie chargée)
+  - date: '2026-08-30'
+    text: L'animation est parfaite par contre, beau boulot
+  - date: '2026-08-30'
+    text: j'ai l'impression que Daxter n'est pas sur l'épaule de Jak, et son framerate n'est pas à 60
+      FPS c'est bizarre... Plus sur un chargement de sauvegarde, l'animation freeze sur la fin au lieu
+      de continuer de façon fluide
+  - date: '2026-08-30'
+    text: je pense que tu pourrais les vectoriser via imagick/inkscape programmatiquement en s'assurant
+      que ça soit pas jagged, en extraire des bitmaps en haute résolution
+  - date: '2026-08-30'
+    text: la barriere qui AFFICHE l'ecran le FIGE
+  - date: '2026-08-30'
+    text: la fin du chargement
+  - date: '2026-08-30'
+    text: le freeze n'apparaît QUE sur le chargement d'une sauvegarde qui se passe dans un AUTRE niveau
+      que Sandover Village (Geyser Rock) ; pour une téléportation entre Geyser Rock vers Sandover Village
+      j'ai pas constaté le problème
+  - date: '2026-08-30'
+    text: non non, pas d'interpolation ! faut que tu te démerdes pour que ça capture 60 FPS réel que ce
+      soit silky smooth
+  - date: '2026-08-31'
+    text: 'Ecran de chargement : Valide, on y reviendra peut-etre pour ajuster, mais termine cette phase'
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gloading-screen
+  - Gloading-screen-window
+  prompt: null
+  owner_ok:
+    date: '2026-08-31'
+    text: 'Ecran de chargement : Valide, on y reviendra peut-etre pour ajuster, mais termine cette phase'
+    build_sha: null
+    source: owner-ok/Gloading-screen-window
+  notes: -window est « ECRAN DE CHARGEMENT, RETOUR 4 » ; le jeton Gloading-screen dit que ses sept defauts
+    sont traites par -window
+- id: font-urbanist
+  feature: La police moderne Urbanist a la place du tout-majuscules
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-28'
+    text: Plutôt que bidouiller le système de fonts existant et de le tordre dans tous les sens... Pourquoi
+      pas plutôt en faire un tout nouveau à côté bien propre ? Avec des textures haute résolution pour
+      les glyphs, un alignement qui se base sur ce que la font fait vraiment, un kerning idem... Ça nous
+      permettrait de pouvoir le toggle on/off en settings recharged pour basculer entre l'affichage de
+      texte original (menus, hints, subtitles) et le nouveau plus moderne basé sur Urbanist ! Beaucoup
+      plus clean je pense
+  - date: '2026-08-28'
+    text: adapter la table existante
+  - date: '2026-08-28'
+    text: fini le all caps, let's go font moderne
+  - date: '2026-08-31'
+    text: Urbanist me semble deja avoir valide
+  - date: '2026-08-31'
+    text: 'jak1 : a-z sont de vraies minuscules en PETITE police et des KANJI en GRANDE ; la table d''encodage
+      decrit la page JAPONAISE et ment sur l''atlas occidental'
+  - date: '2026-09-02'
+    text: Attention hein tes preuves sur appareil, tu le sais t'es une merde en vision, faut que tu te
+      démerdes pour des preuves programmatiques !
+  - date: '2026-09-02'
+    text: t'as complètement niqué la font (Urbanist) ça utilise des glyphs chinois de la font par défaut
+      du jeu. Pour la cartouche vu que la font est explosée je peux pas valider, mais je peux dire que
+      l'icone de bouton n'est pas centré verticalement dans la cartouche ça fait tâche. Le modèle HD qui
+      s'étire c'est pas corrigé du tout. Je test pas plus les autres chantiers, ton travail est merdique
+  - date: '2026-09-02'
+    text: t'as complètement niqué la font, ça utilise des glyphs chinois de la font par défaut du jeu
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gfont-urbanist
+  - Gfont-regression
+  prompt: null
+  owner_ok:
+    date: '2026-09-03'
+    text: la regression de la font Urbanist c est regle
+    build_sha: null
+    source: owner-ok/Gfont-regression
+  notes: 'Gfont-regression est intitule « REGRESSION SUR UN ACQUIS VALIDE — LA POLICE URBANIST EST CASSEE
+    » : c''est la meme police, rouverte'
+- id: keira-hd-parts
+  feature: Les morceaux detaches du modele HD de Keira (visiere, bretelles, lunettes)
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-18'
+    text: ne pas editer le .glb, c'est un artefact GENERE, corriger la PREPARATION
+  - date: '2026-08-28'
+    text: La visière faut la supprimer, rien à foutre là, le reste j'en sais rien
+  - date: '2026-08-28'
+    text: il a une visière attachée à genre quelques mètres du main modèle [...] faut que tu vires cette
+      partie
+  - date: '2026-08-28'
+    text: le modèle de Keira HD il a une visière attachée, à genre quelques mètres du main modèle, je
+      pense que c'était un moyen hacky d'avoir la visière à disposition pour certaines animations de Jak
+      2 (ou p'tetre 3) mais dans Jak 1 ça sert à rien, faut que tu vires cette partie
+  - date: '2026-08-29'
+    text: Keira HD a toujours la visière attachée
+  - date: '2026-08-29'
+    text: Pour la vue en premiere personne et la visiere de Keira c'est regle, bien joue
+  - date: '2026-08-30'
+    text: 'Morceaux de Keira: on avait dit la visiere seulement a supprimer, il y a rien d''autre a faire.
+      et la visiere est supprimee, donc c''est regle'
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gkeira-hd-detached-parts
+  - Gkeira-visor-deliver
+  prompt: null
+  owner_ok:
+    date: '2026-08-29'
+    text: Pour la vue en premiere personne et la visiere de Keira c'est regle, bien joue
+    build_sha: null
+    source: owner-ok/Gkeira-visor-deliver
+  notes: validateur partage (validators/phase-Gkeira-hd-detached-parts.sh) ; -deliver dit que Gkeira-hd-detached-parts
+    a ete declaree passee sans que le modele change
+- id: title-sun-halo
+  feature: 'RE-DO (owner ground truth, prior Ghalo/Ghalo-sun false-green): title sun is a ~20% glow instead
+    of a small disc + visi…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Ghalo
+  - Ghalo-sun
+  - Gsun-halo
+  prompt: null
+  owner_ok: null
+  notes: 'Gsun-halo : « RE-DO (owner ground truth, prior Ghalo/Ghalo-sun false-green) » — il nomme les
+    deux precedentes'
+- id: menu-placement
+  feature: 'RE-DO (owner ground truth, prior Gmenu-placement PART-proxy false-green): main menu ALL textures
+    still bunched toward …'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gmenu-ui-placement
+  - Gmenu-placement
+  - Gmenu-textures
+  prompt: null
+  owner_ok: null
+  notes: 'Gmenu-placement : « prior Gmenu-ui-placement scale-proxy false-green » ; Gmenu-textures : «
+    prior Gmenu-placement PART-proxy false-green »'
+- id: newgame-cinematic-crash
+  feature: the intro cinematic renders well but CRASHES MID-CINEMATIC (non-deterministic
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gnewgame-crash
+  - Gcine-crash2
+  - Gcine-crash3
+  - Gfix-cinematic-crash
+  - Gcine-crash-mid
+  prompt: null
+  owner_ok: null
+  notes: 'chaine explicite : crash2 cite le correctif de Gnewgame-crash, crash3 cite crash2, Gfix-cinematic-crash
+    est un RE-DO du meme chemin owner, crash-mid le residu'
+- id: particles-stars
+  feature: 'RE-DO (owner ground truth, prior Gd2 builder-count proxy false-green): particles "not working"
+    + no stars at night on …'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gd2-particles-sun
+  - Gparticles-stars
+  prompt: null
+  owner_ok: null
+  notes: 'Gparticles-stars : « RE-DO (owner ground truth, prior Gd2 builder-count proxy false-green) »'
+- id: logo-smash
+  feature: the logo-smash renders GARBLED/corrupted (mesh/textures scrambled)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Glogo-smash
+  - Glogo-garble
+  prompt: null
+  owner_ok: null
+  notes: 'Glogo-garble : « the prior Glogo-smash false-greened on tris+state »'
+- id: scout-fly-crash
+  feature: real in-level scout-fly collect STILL crashes on the latest build (Gcrash-mouche2 6/6 was a
+    FALSE GREEN
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcrash-mouche
+  - Gcrash-mouche2
+  - Gcrash-mouche3
+  prompt: null
+  owner_ok: null
+  notes: mouche2 est le residu de mouche, mouche3 dit « Gcrash-mouche2 6/6 was a FALSE GREEN »
+- id: swamp-crash
+  feature: Le plantage en passant de Rock Village aux marais
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-05'
+    text: il y a une vraie amélioration
+  - date: '2026-07-05'
+    text: je suis dans les swamps
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcrash-rockvillage
+  - Gcrash-swamp-load
+  - Gcrash-swamp-real
+  - Gswamp-fstore
+  prompt: null
+  owner_ok:
+    date: '2026-07-06'
+    text: il y a une vraie amélioration
+    build_sha: null
+    source: owner-ok/Gswamp-fstore
+  notes: 'swamp-load : « FALSE-GREEN REOPEN ... Gcrash-rockvillage » ; swamp-real : « 2nd FALSE-GREEN
+    REOPEN » ; Gswamp-fstore : « TRUE swamp fix (follow-up to the shipped band-aid) »'
+- id: input-replay
+  feature: 'OWNER 2026-06-28 (PRIORITY, blocks collision diff): under the warp anchor the v2 record drops
+    the owner REAL input (to…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Ginput-replay
+  - Ginput-replay-determinism
+  - Ginput-replay-liverecord
+  - Ginput-replay-realinput
+  prompt: null
+  owner_ok: null
+  notes: trois suites qui nomment chacune l'echec de la precedente sur le meme harnais
+- id: collision-arm64
+  feature: fmin/fmax fix proven op-level but did NOT fix the in-game glitch (only fires at degenerate
+    contacts headless cant reac…
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcollision-arm
+  - Gcollision-wallslide
+  - Gcollision-systemic
+  - Gcollision-replay-diff
+  - Gcollision-nanroot
+  - Gcollision-glitchcapture
+  prompt: null
+  owner_ok: null
+  notes: wallslide est le residu de collision-arm ; replay-diff dit « the Gcollision-systemic FCVTZS fix
+    was a FALSE GREEN » ; nanroot et glitchcapture sont les deux methodes suivantes sur la meme divergence
+    arm64
+- id: recharged-buildsys
+  feature: Le systeme de build unifie, le packaging et l'installation
+  status: to-test
+  priority: 207
+  owner_feedback:
+  - date: '2026-07-17'
+    text: je pense 217 en premier … en autonomie
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-buildsys-flags
+  - Grecharged-buildsys-packaging
+  - Grecharged-buildsys-firstboot
+  - Grecharged-buildsys-cidocs
+  prompt: null
+  owner_ok: null
+  where: 'l''installation elle-meme : telecharge l''APK et l''archive d''assets, installe par-dessus,
+    verifie que tes sauvegardes sont la'
+  delivered: '2026-07-17'
+  build: jak1-buildsys-v1
+  notes: 'les jetons les nomment PILLAR P1 a P4 d''un seul chantier : « Pillar P1-P4 complete and shipped
+    »'
+- id: portage-jalons-initiaux
+  feature: 'Portage arm64 : les 26 jalons initiaux (harnais differentiel, emetteur, boot, APK, jak1/2/3)'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - 00-harness
+  - 01-scaffold
+  - 02-intarith
+  - 03-memops
+  - 04-controlflow
+  - 05-abi
+  - 06-float
+  - 07-neon
+  - 08-coroutines
+  - 09-boot-linux-arm
+  - 10-android-ndk
+  - 11-apk
+  - 12-android-runtime
+  - 13-real-apk
+  - 14-jak1
+  - 15-jak2
+  - 16-jak3
+  - 17-apk-assets
+  - 18-sdl3-bridge
+  - 19-emitter-stress
+  - 20-goal-main
+  - 21-gles-shaders
+  - 22-bionic-portability
+  - 23-input-audio
+  - 24-emitter-audit
+  - 25-cgo-regen
+  prompt: null
+  owner_ok: null
+  notes: 'regroupement d''epoque : portage arm64/Android de mai-juin, aucun jeton owner, aucune feature
+    a re-tester'
+- id: emetteur-arm64
+  feature: 'Portage arm64 : l''emetteur de code AArch64 de goalc (29 sprints A*, plus la regeneration
+    CGO)'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - A1-emitter-enumerate
+  - A2-emitter-implement
+  - A3-emitter-differential
+  - A4-linker-fixups
+  - A5-emitter-far-relocs
+  - A6-emitter-off-register
+  - A7-emitter-unit-tests
+  - A8-qemu-repro-and-displaygc-fix
+  - A9-codegen-spill-ops
+  - A10-callee-save-area
+  - A11-texture-sym-binding
+  - A12-gsound-stack-fnptr
+  - A13-iop-kernel-mutex-init
+  - A14-pc-memmove-bind
+  - A15-regalloc-fnptr-livethrough
+  - A16-device-cpu-divergence-diag
+  - A17-idiv-emitter-spill
+  - A18-type-method-zero-bind
+  - A19-goalc-arm64-codegen-fixes
+  - A20-goalc-arm64-field-offset
+  - A21-arm64-codegen-deeper-investigation
+  - A22-arm64-codegen-h2-fix
+  - A23-arm64-blr-target-tracer
+  - A24-arm64-epilogue-x30-tracer
+  - A25-arm64-ir-regset-fpr-dispatch
+  - A26-arm64-xmm-symmetric-and-break-trap
+  - A27-arm64-catch-frame-chain-tracer
+  - A28-arm64-codegen-fix-sprint
+  - A29-arm64-gsound-iop-rpc-sprint
+  - B1-cgo-regen-strict
+  - B2-cgo-qemu-stress
+  prompt: null
+  owner_ok: null
+  notes: 'regroupement d''epoque : portage arm64/Android de mai-juin, aucun jeton owner, aucune feature
+    a re-tester'
+- id: boot-arm64-et-android
+  feature: 'Portage arm64 : boot Linux arm64, portage Android (bionic, GLES, SDL3) et premiere image'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - C1-linux-arm64-config
+  - C2-linux-arm64-symbols
+  - C3-linux-arm64-title
+  - C4-klink-arm64-execute
+  - D1-android-bionic-shims
+  - D2-android-gles-shaders
+  - D3-android-sdl3-surface
+  - D4-android-apk-title
+  - A30-android-runtime-surface-bringup
+  - A31-android-boot-to-titlescreen
+  - A32-android-renderer-path-bringup
+  - A33-arm64-regalloc-spill-sprint
+  - A34-android-display-loop-first-frame
+  - A35-android-renderer-dma-to-gles
+  - A36-android-kernel-steady-state-first-frame
+  - A37-android-camera-matrix-first-visible-frame
+  - A38-android-float-spray-tripwire-goal-frame
+  - A39-android-goal-frame-capture
+  - A40-android-hint-cursor-reset-goal-frame
+  - A41-android-texture-path-goal-frame
+  - A42-android-tfrag-init-village-flythrough
+  prompt: null
+  owner_ok: null
+  notes: 'regroupement d''epoque : portage arm64/Android de mai-juin, aucun jeton owner, aucune feature
+    a re-tester'
+- id: ux-android-initiale
+  feature: 'Portage arm64 : UX Android de depart (paysage/manette, superposition tactile, sauvegardes)'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - E1-ux-landscape-gamepad
+  - E2-ux-touch-overlay-optional
+  - E3-ux-save-load
+  prompt: null
+  owner_ok: null
+  notes: 'regroupement d''epoque : portage arm64/Android de mai-juin, aucun jeton owner, aucune feature
+    a re-tester'
+- id: premiere-scene-jouable
+  feature: 'Portage arm64 : la premiere scene jouable (camera, decompression des joints, entrees) a Geyser
+    Rock'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - F1a-android-camera-merc-title-correct
+  - F1b-android-joint-decompress-start-geyser
+  - F1c-android-camera-channel-start-geyser
+  - F1e-android-reveal-crash-fix
+  - F1d-android-input-cpad-start-geyser
+  prompt: null
+  owner_ok: null
+  notes: 'regroupement d''epoque : portage arm64/Android de mai-juin, aucun jeton owner, aucune feature
+    a re-tester'
+- id: g1-arm64-go-enterstate-oracle-correct
+  feature: Make the arm64 go/enter-state control transfer OBJECTIVELY CORRECT vs the x86 oracle
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - G1-arm64-go-enterstate-oracle-correct
+  prompt: null
+  owner_ok: null
+- id: ref-pristine-x86-gold-standard
+  feature: Build the PRISTINE upstream x86 GOLD STANDARD + 3-tier comparison harness
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gref-pristine-x86-gold-standard
+  prompt: null
+  owner_ok: null
+- id: intro-sce-nd-logo-render
+  feature: 'Chronological step 1: make the pre-title intro RENDER'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gintro-sce-nd-logo-render
+  prompt: null
+  owner_ok: null
+- id: nd-arm64-blendshape-dma-stomp
+  feature: Fix the arm64 blend-shape/joint OOB stomp so the ND/Daxter logo RENDERS (chronological step
+    1b)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gnd-arm64-blendshape-dma-stomp
+  prompt: null
+  owner_ok: null
+- id: sce-first-frames-presents-screen
+  feature: Restore the "Sony Computer Entertainment presents" screen in the FIRST frames (chronological
+    step 0)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gsce-first-frames-presents-screen
+  prompt: null
+  owner_ok: null
+- id: sprite-arm64-sparticle-mips2c-unnoop
+  feature: Un-noop the arm64 sparticle sprite-DMA builders so screen-space sprites RENDER (SCE presents
+    logo first)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gsprite-arm64-sparticle-mips2c-unnoop
+  prompt: null
+  owner_ok: null
+- id: title-attract-overspawn
+  feature: Remove the spurious "Press CIRCLE to use" interaction prompt that appears during the title
+    attract (chronological step…
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtitle-attract-overspawn
+  prompt: null
+  owner_ok: null
+- id: water-ocean-render
+  feature: Fix water/ocean rendering in the title flythrough & village (chronological step 3 - title polish)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gwater-ocean-render
+  prompt: null
+  owner_ok: null
+- id: pcompare-pixel-gate-infra
+  feature: 'OBJECTIVE GATE (owner: pixel-match the original build; supervisor eyes unreliable)'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Pcompare-pixel-gate-infra
+  prompt: null
+  owner_ok: null
+- id: ndlogo-intro-on-black-sequence
+  feature: TOP PRIORITY (owner)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gndlogo-intro-on-black-sequence
+  prompt: null
+  owner_ok: null
+- id: title-pixelmatch
+  feature: 'Chronological beat after the ND logo: the title screen ("PRESS START" over Sandover) must
+    PIXEL-MATCH the original bui…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtitle-pixelmatch
+  prompt: null
+  owner_ok: null
+- id: cine-pose
+  feature: Cinematic character models "switch poses in blinks" (glitch into a wrong pose for a frame,
+    then snap back and resume)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcine-pose
+  prompt: null
+  owner_ok: null
+- id: cine-audit
+  feature: 'DIAGNOSTIC (owner: "check yourself for issues, there must be a proper way without me"): objectively
+    find what is still…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcine-audit
+  prompt: null
+  owner_ok: null
+- id: match-original
+  feature: Make the device match the UNTOUCHED v0.3.3 original via the objective graphics harness (zero
+    human eyeballing)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gmatch-original
+  prompt: null
+  owner_ok: null
+- id: spark-enterstate
+  feature: Fix the frame-180 enter-state null-enter SIGILL that blocks ALL current-source CGO ships
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gspark-enterstate
+  prompt: null
+  owner_ok: null
+- id: cine-camfov
+  feature: 'Fix D1 from Gcine-audit (objectively measured): the new-game cutscene camera projects at 4:3
+    (1.333) instead of the pa…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcine-camfov
+  prompt: null
+  owner_ok: null
+- id: vistruth
+  feature: Build a TRUSTWORTHY programmatic visual-quality gate vs the untouched v0.3.3 original so the
+    owner never has to watch
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gvistruth
+  prompt: null
+  owner_ok: null
+- id: hd-skin-origin-stretch
+  feature: Les modeles HD qui s'etirent vers un point lointain
+  status: open
+  priority: 11
+  owner_feedback:
+  - date: '2026-08-31'
+    text: faut pas oublier que les modèles HD sont retargetes sur les originaux pour les animations, il
+      y a ptetre un truc là dessus
+  - date: '2026-08-31'
+    text: le modele s'allonge vers un point d'origine au loin
+  - date: '2026-08-31'
+    text: les modèles HD de Jak and Daxter... à Sandover Village ils ne glitch pas, mais j'ai l'impression
+      que plus je m'éloigne de Sandover Village, plus ils ont tendance à glitch. [...] en bougeant, sautant
+      et compagnie, par moment ils glitchent genre le modèle s'allonge horizontalement comme s'il essayait
+      d'atteindre un point d'origine au loin (Sandover Village ?) et j'ai l'impression que plus on est
+      loin de Sandover Village, plus l'effet est extrême. ça dure à chaque fois une split seconde et ça
+      se produit plus ou moins souvent, ça nuit absolument pas au gameplay (c'est juste visuel) mais c'est
+      très bizarre ! et je me demande si ça n'affecte pas non plus Samos et Keira, dans une moindre mesure
+      vu qu'on ne les contrôle pas mais quand même
+  - date: '2026-08-31'
+    text: pas de correspondance
+  - date: '2026-08-31'
+    text: peau en RETARD d'une frame
+  - date: '2026-08-31'
+    text: plus on avance, plus c'est extreme
+  - date: '2026-08-31'
+    text: plus on est loin, plus c'est extreme
+  - date: '2026-08-31'
+    text: transposee != inverse sur une IBM
+  - date: '2026-08-31'
+    text: zero NaN mais toujours l'etirement
+  - date: '2026-08-31'
+    text: zero episode sur >= 5 min
+  - date: '2026-09-02'
+    text: Jak et Daxter qui s'étirent en glitch avec les modèles HD c'est toujours le cas. je sais pas
+      si c'est vers l'origine ou whatever mais en tout cas ça se produit toujours !
+  - date: '2026-09-02'
+    text: Le modèle HD qui s'étire c'est pas corrigé du tout
+  - date: '2026-09-02'
+    text: fais ça de façon programmatique [...] impossible que tu couvre toutes les caisses à la vue
+  - date: '2026-09-02'
+    text: non c'est pas les transitions d'animation, ça se produit quand il y a du mouvement, nuance !
+      et ça devrait être simple de détecter programmatiquement que les modèles s'étirent subitement pas
+      dans un sens où ils sont sensés s'étirer (pas lié à l'animation en cours) c'est vraiment un glitch
+      quoi !
+  - date: '2026-09-02'
+    text: pas les transitions, le MOUVEMENT ; comparer l'os RENDU a l'os COMMANDE
+  - date: '2026-09-02'
+    text: ça arrive un peu at random en bougeant beaucoup, courant, faisant des demis tours, des sauts,
+      des coups de poing, etc
+  - date: '2026-09-03'
+    text: en effet il s'étire plus, mais j'ai l'impression que maintenant c'est le modèle qui (en glitch)
+      est transposé visuellement dans la direction ou l'étirement se faisait (voir, c'est difficile à
+      constater parce que ça glitch, t-pose dans cette direction)
+  gate:
+    key: hd_bones_stretched
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Ghd-skin-origin-stretch
+  prompt: prompts/item-hd-skin-origin-stretch.md
+  owner_ok: null
+  device: true
+  where: 'loin de Sandover (village3, boss final) : les modeles HD pendant un saut ou un demi-tour'
+  notes: 'statut force : state.json la marque « blocked » parce que l''orchestrateur a halte sur trois
+    empreintes d''echec identiques — un mecanisme du harnais, pas une attente de l''owner ; le defaut
+    qu''il a signale le 2026-08-31 est entier | gate deduit de validators/phase-Ghd-skin-origin-stretch.sh
+    : HDSTRETCHCOUNT os_etires=0 sur >=10 min Redmi | device force a true : validators/phase-Ghd-skin-origin-stretch.sh
+    exige plateforme=redmi'
+  known_cause: 'L''etirement vaut (1 - w3) x distance camera-origine : la ligne de translation des os
+    du PILOTE porte w3 = 0,9982, que `bones-mtx-calc` multiplie par l''origine du monde en camera. Le
+    correctif `hd-mat-affine!` est ecrit et debrayable. Le residu Redmi est attribue au squelette du pilote,
+    pas a la chaine HD.'
+  deliverable: '`hd-mat-affine!` livre et arme par defaut, zero os etire et zero saut de racine sur au
+    moins 10 minutes de jeu en mouvement sur le Redmi.'
+  out_of_scope: Ne touche pas a la chaine de peau stock, ni aux modeles HD eux-memes. Le residu du squelette
+    pilote se traite ici, pas dans hd-models.
+- id: cine-cut
+  feature: Les coupes de camera des cinematiques qui glissent au lieu de couper
+  status: open
+  priority: 249
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcine-cut
+  prompt: prompts/item-cine-cut.md
+  owner_ok: null
+  device: false
+  where: 'les changements de plan d''une cinematique : ils doivent couper, pas glisser'
+  known_cause: 'Ouvert en juin, jamais pris. La logique de coupe est partagee avec x86 : le defaut peut
+    s''y reproduire, ce qui rendrait la preuve possible au clavier.'
+- id: render-audit
+  feature: 'DIAGNOSTIC (owner observations on the latest device run): pinpoint DETERMINISTICALLY + x86-FIRST
+    why the device render…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grender-audit
+  prompt: null
+  owner_ok: null
+- id: d1-cutscene-clock
+  feature: 'Render-audit fix #1 (HIGH, low-risk): cinematics play in fluid SLOW-MOTION because the cutscene
+    spool/IOP-vblank clock…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gd1-cutscene-clock
+  prompt: null
+  owner_ok: null
+- id: d3-jak-cinematic
+  feature: 'Render-audit fix: make Jak VISIBLE in the new-game cinematic (owner: "Jak is literally invisible
+    in the cinematic")'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gd3-jak-cinematic
+  prompt: null
+  owner_ok: null
+- id: consolidate
+  feature: Build ONE consistent HEAD build with ALL the landed fixes (menu, halos, cutscene-clock real-time,
+    Jak-visible, 3D part…
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gconsolidate
+  prompt: null
+  owner_ok: null
+- id: ffi-xmm-validate
+  feature: 'Validate & ship the arm64 FFI xmm8-15 preservation fix found by Gfix-title-rays: the GOAL->C++
+    trampolines (asm_funcs_…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gffi-xmm-validate
+  prompt: null
+  owner_ok: null
+- id: consolidate-deploy
+  feature: Make the device persistently run a fresh CONSISTENT HEAD build (28-file arm64 CGO/DGO + libgk)
+    and update the known-go…
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gconsolidate-deploy
+  prompt: null
+  owner_ok: null
+- id: water-lod
+  feature: 'RE-DO (owner ground truth): near-camera water chunks render as plain blue squares on the title
+    flyover'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gwater-lod
+  prompt: null
+  owner_ok: null
+- id: birds-anim
+  feature: 'RE-DO (owner ground truth): title birds over the tower appear but are STATIC (not animating)'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gbirds-anim
+  prompt: null
+  owner_ok: null
+- id: final-acceptance
+  feature: 'Final consolidated acceptance: one fresh-HEAD device session deterministically verifying ALL
+    9 owner-reported defects …'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gfinal-acceptance
+  prompt: null
+  owner_ok: null
+  notes: 'statut force : recette globale de juin jamais lancee, depassee par les phases qui ont suivi'
+- id: crash-geyser
+  feature: 'OWNER GROUND TRUTH 2026-06-23 (now top priority, blocks first level): Geyser Rock crash climbing
+    the steps (must jump …'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcrash-geyser
+  prompt: null
+  owner_ok: null
+- id: touch-controls
+  feature: complete the Android on-screen touch controls
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtouch-controls
+  prompt: null
+  owner_ok: null
+- id: touch-rightstick
+  feature: the right camera control is a mouse/trackpad drag-delta (horrible, low sens)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtouch-rightstick
+  prompt: null
+  owner_ok: null
+- id: f1-gameplay-geyser-rock
+  feature: First playable level (Geyser Rock) reached and navigable; physics + collision real
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - F1-gameplay-geyser-rock
+  prompt: null
+  owner_ok: null
+- id: f2-gameplay-audio
+  feature: Audio works on Android (AAudio/OpenSL output, ssound RPC, music + SFX)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - F2-gameplay-audio
+  prompt: null
+  owner_ok: null
+- id: f3-gameplay-30fps
+  feature: 30 FPS sustained on the Redmi Note 9 Pro for 60s of gameplay
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - F3-gameplay-30fps
+  prompt: null
+  owner_ok: null
+- id: audio-sfx
+  feature: 'OWNER GROUND TRUTH 2026-06-23 (F2-audio false-greened): in-game only MUSIC plays; SFX (crates,
+    orb collect) + VOICE (s…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gaudio-sfx
+  prompt: null
+  owner_ok: null
+- id: orb-icon
+  feature: the Precursor ORB icon is a plain white egg in the HUD + menu (the ONLY asset that fails to
+    load)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gorb-icon
+  prompt: null
+  owner_ok: null
+- id: collectible-state
+  feature: green eco RESPAWNS after collect (not consumed, infinite-money-like) = arm64 state/variable
+    divergence; + crate DEBRIS…
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcollectible-state
+  prompt: null
+  owner_ok: null
+- id: sfx-actions
+  feature: no SOUND on crate-break + orb/blue-eco/green-eco-stock collect (x86 plays them)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gsfx-actions
+  prompt: null
+  owner_ok: null
+- id: audio-hint-voices
+  feature: 'OWNER CLARIFICATION 2026-06-24 (note for later): cinematic voices + background SFX are FINE;
+    the IN-GAME tutorial/hint…'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gaudio-hint-voices
+  prompt: null
+  owner_ok: null
+- id: echo-pool
+  feature: La mare d'eco noire non rendue dans la cinematique d'intro
+  status: open
+  priority: 245
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gecho-pool
+  prompt: prompts/item-echo-pool.md
+  owner_ok: null
+  device: false
+  where: la cinematique de nouvelle partie, quand Daxter tombe dans l'eco noire
+  notes: 'statut force : bloquee en juin sans raison enregistree dans state.json ; le defaut (la mare
+    d''eco noire non rendue dans la cinematique d''intro) n''a jamais ete corrige'
+  known_cause: Ouvert en juin, bloque par l'orchestrateur sans raison enregistree. La mare d'eco noire
+    n'est pas rendue sur arm64, donc la forme d'ottsel de Daxter apparait trop tot.
+- id: portal-crash
+  feature: game CRASHES at the blue-eco portal/gate you charge to open
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gportal-crash
+  prompt: null
+  owner_ok: null
+- id: death-crash
+  feature: dying CRASHES the app (back to Android home, process killed) in the first real level
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gdeath-crash
+  prompt: null
+  owner_ok: null
+- id: ledge-glitch
+  feature: at ledges/borders you grab or fall off, collision glitches badly and PROJECTS/launches Jak
+    (ca projette)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gledge-glitch
+  prompt: null
+  owner_ok: null
+- id: pkg-branding
+  feature: ship as a real product
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gpkg-branding
+  prompt: null
+  owner_ok: null
+- id: pkg-distributable
+  feature: self-contained APK
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gpkg-distributable
+  prompt: null
+  owner_ok: null
+- id: framerate-variable
+  feature: Le jeu tourne a la cadence de l'ecran, sans verrou 30/60
+  status: to-test
+  priority: 243
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gframerate-variable
+  prompt: null
+  owner_ok: null
+  where: 'n''importe ou en jeu : la cadence doit flotter librement et la vitesse du jeu ne doit pas changer'
+  delivered: '2026-06-30'
+  build: build du 2026-06-30, remplace depuis
+- id: res-picker
+  feature: Le choix de la resolution de jeu dans les options
+  status: to-test
+  priority: 213
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gres-picker
+  prompt: null
+  owner_ok: null
+  where: Options > Graphismes > Game Resolution
+  delivered: '2026-06-30'
+  build: build du 2026-06-30, remplace depuis
+- id: render-split
+  feature: L'interface reste nette quand on baisse l'echelle de rendu
+  status: to-test
+  priority: 214
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grender-split
+  prompt: null
+  owner_ok: null
+  where: 'baisse Render Scale a 50 % : le HUD et les menus doivent rester nets'
+  delivered: '2026-06-30'
+  build: build du 2026-06-30, remplace depuis
+- id: dynamic-renderscale
+  feature: L'echelle de rendu qui s'adapte toute seule pour tenir la cadence
+  status: to-test
+  priority: 246
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gdynamic-renderscale
+  prompt: null
+  owner_ok: null
+  where: Options > Graphismes > Dynamic Render Scale, puis une zone chargee
+  delivered: '2026-07-01'
+  build: build du 2026-07-01, remplace depuis
+- id: camera-smooth
+  feature: La camera qui saccade quand on tourne autour de Jak
+  status: to-test
+  priority: 250
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcamera-smooth
+  prompt: null
+  owner_ok: null
+  where: tourne la camera autour de Jak, a l'arret, dans Sandover
+  delivered: '2026-07-01'
+  build: build du 2026-07-01, remplace depuis
+- id: dynamic-fix
+  feature: L'echelle de rendu dynamique qui ne repondait pas aux reglages
+  status: to-test
+  priority: 247
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gdynamic-fix
+  prompt: null
+  owner_ok: null
+  where: 'Options > Graphismes : change Min Render Scale en pleine partie, il doit s''appliquer tout de
+    suite'
+  delivered: '2026-07-01'
+  build: build du 2026-07-01, remplace depuis
+- id: camera-interp
+  feature: La camera qui saute encore par petits pas
+  status: to-test
+  priority: 251
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcamera-interp
+  prompt: null
+  owner_ok: null
+  where: 'tourne la camera autour de Jak : elle ne doit plus avancer par paliers'
+  delivered: '2026-07-01'
+  build: build du 2026-07-01, remplace depuis
+- id: options-reorder
+  feature: L'ordre des lignes du menu Graphismes
+  status: to-test
+  priority: 235
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Goptions-reorder
+  prompt: null
+  owner_ok: null
+  where: 'Options > Graphismes : l''ordre des lignes'
+  delivered: '2026-07-02'
+  build: build du 2026-07-02, remplace depuis
+- id: launcher-collection
+  feature: Un APK par jeu, avec son nom et son icone
+  status: to-test
+  priority: 237
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Glauncher-collection
+  prompt: null
+  owner_ok: null
+  where: 'l''ecran d''accueil Android : le nom et l''icone de l''application'
+  delivered: '2026-07-02'
+  build: build du 2026-07-02, remplace depuis
+- id: touch-menus
+  feature: Naviguer les menus au doigt, sans la croix directionnelle
+  status: to-test
+  priority: 210
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtouch-menus
+  prompt: null
+  owner_ok: null
+  where: ouvre les options au doigt seulement, sans manette
+  delivered: '2026-07-02'
+  build: build du 2026-07-02, remplace depuis
+- id: warp-dpad
+  feature: Le stick fait office de croix directionnelle devant un teleporteur
+  status: to-test
+  priority: 209
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gwarp-dpad
+  prompt: null
+  owner_ok: null
+  where: devant un teleporteur, choisis la destination au stick
+  delivered: '2026-07-02'
+  build: build du 2026-07-02, remplace depuis
+- id: crash-blueeco
+  feature: Plantage a la source d'eco bleue de la Jungle Interdite
+  status: to-test
+  priority: 248
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gcrash-blueeco
+  prompt: null
+  owner_ok: null
+  where: Jungle Interdite, la source d'eco bleue
+  delivered: '2026-07-02'
+  build: build du 2026-07-02, remplace depuis
+- id: touch-fix
+  feature: Les interrupteurs et les curseurs des menus au doigt
+  status: to-test
+  priority: 211
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtouch-fix
+  prompt: null
+  owner_ok: null
+  where: 'dans les options au doigt : les interrupteurs marche/arret et les curseurs'
+  delivered: '2026-07-03'
+  build: build du 2026-07-03, remplace depuis
+- id: perf-batching
+  feature: Le gain de cadence par regroupement des appels de dessin
+  status: to-test
+  priority: 233
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gperf-batching
+  prompt: null
+  owner_ok: null
+  where: 'Geyser Rock et Sandover : le compteur d''images'
+  delivered: '2026-07-03'
+  build: v3 APK
+- id: orb-hud-regression
+  feature: Les orbes precurseurs blanches dans le HUD et les menus
+  status: to-test
+  priority: 234
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gorb-hud-regression
+  prompt: null
+  owner_ok: null
+  where: le compteur d'orbes dans le HUD et dans le menu
+  delivered: '2026-07-03'
+  build: v3 APK
+- id: eco-spheres
+  feature: Les spheres d'eco mal rendues sur Android
+  status: to-test
+  priority: 244
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Geco-spheres
+  prompt: null
+  owner_ok: null
+  where: 'ramasse de l''eco vert, bleu et rouge : la bulle lumineuse'
+  delivered: '2026-07-03'
+  build: v3 APK
+- id: lang-mixed
+  feature: Des invites restent en anglais quand le texte est en francais
+  status: to-test
+  priority: 238
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Glang-mixed
+  prompt: null
+  owner_ok: null
+  where: 'texte en francais, audio en anglais : les invites devant les objets et les PNJ'
+  delivered: '2026-07-03'
+  build: v4 APK
+- id: ndskip
+  feature: Passer le logo Naughty Dog avec Start
+  status: to-test
+  priority: 236
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gndskip
+  prompt: null
+  owner_ok: null
+  where: appuie sur Start pendant le logo Naughty Dog
+  delivered: '2026-07-03'
+  build: v4 APK
+- id: title-tap
+  feature: « Appuie sur start ou touche l'ecran » et le tap au titre
+  status: to-test
+  priority: 212
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtitle-tap
+  prompt: null
+  owner_ok: null
+  where: 'l''ecran titre : le texte et un tap sur l''ecran'
+  delivered: '2026-07-03'
+  build: v4 APK
+- id: perf-particles
+  feature: La cadence dans les zones a particules (les feux)
+  status: to-test
+  priority: 232
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gperf-particles
+  prompt: null
+  owner_ok: null
+  where: les feux de Rock Village de nuit
+  delivered: '2026-07-04'
+  build: v5 APK
+- id: perf-particles2
+  feature: 'Les particules : image qui pope et textures qui clignotent'
+  status: to-test
+  priority: 231
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gperf-particles2
+  prompt: null
+  owner_ok: null
+  where: 'les memes feux : la geometrie ne doit pas apparaitre/disparaitre et les textures ne doivent
+    pas clignoter'
+  delivered: '2026-07-05'
+  build: build du 2026-07-05, remplace depuis
+- id: vulkan-option
+  feature: Un moteur de rendu Vulkan en option
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gvulkan-option
+  prompt: null
+  owner_ok: null
+  notes: 'statut force : l''owner a decide le 2026-07-06 de remiser le portage Vulkan complet et d''accepter
+    l''increment partiel ; l''echafaudage est conserve'
+- id: jak2-boot
+  feature: Jak II demarre sur Android
+  status: to-test
+  priority: 242
+  owner_feedback: []
+  gate: null
+  game: jak2
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak2-boot
+  prompt: null
+  owner_ok: null
+  where: lance Jak II
+  delivered: '2026-07-06'
+  build: build du 2026-07-06, remplace depuis
+- id: jak2-render
+  feature: Jak II affiche Haven City sur le telephone
+  status: to-test
+  priority: 240
+  owner_feedback: []
+  gate: null
+  game: jak2
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak2-render
+  prompt: null
+  owner_ok: null
+  where: 'Jak II : l''ecran titre et le survol de Haven City'
+  delivered: '2026-07-07'
+  build: build du 2026-07-07, remplace depuis
+- id: jak2-visuals
+  feature: La qualite d'image de Jak II au titre et dans l'intro
+  status: to-test
+  priority: 239
+  owner_feedback: []
+  gate: null
+  game: jak2
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak2-visuals
+  prompt: null
+  owner_ok: null
+  where: 'Jak II : le titre et la cinematique d''intro'
+  delivered: '2026-07-08'
+  build: build du 2026-07-08, remplace depuis
+- id: jak2-ingame
+  feature: 'Jak II jouable : collision et transition des deux ans'
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-08'
+    text: Jak tient bien sur le sol, on peut se déplacer
+  gate: null
+  game: jak2
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak2-ingame
+  prompt: null
+  owner_ok:
+    date: '2026-07-08'
+    text: Jak tient bien sur le sol, on peut se déplacer
+    build_sha: null
+    source: owner-ok/Gjak2-ingame
+- id: recharged-hud-visuals-x86
+  feature: 'false'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-hud-visuals-x86
+  prompt: null
+  owner_ok: null
+- id: jak2-pcmenus
+  feature: Les menus PC de Jak II (format d'image, resolution)
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-08'
+    text: l'aspect ratio c'est réglé, ça prend la full width
+  gate: null
+  game: jak2
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak2-pcmenus
+  prompt: null
+  owner_ok:
+    date: '2026-07-08'
+    text: l'aspect ratio c'est réglé, ça prend la full width
+    build_sha: null
+    source: owner-ok/Gjak2-pcmenus
+- id: jak2-movement
+  feature: 'Jak II : le personnage qui ne se deplacait pas'
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-08'
+    text: ingame, oui on peut se déplacer
+  - date: '2026-07-08'
+    text: nickel, très bon rendu
+  gate: null
+  game: jak2
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak2-movement
+  prompt: null
+  owner_ok:
+    date: '2026-07-08'
+    text: ingame, oui on peut se déplacer
+    build_sha: null
+    source: owner-ok/Gjak2-movement
+- id: recharged-grass-poc
+  feature: L'herbe 3D
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-13'
+    text: At last, c'est tout bon ! Validé !
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-grass-poc
+  prompt: null
+  owner_ok:
+    date: '2026-07-13'
+    text: At last, c'est tout bon ! Validé !
+    build_sha: null
+    source: owner-ok/Grecharged-grass-poc
+- id: recharged-grass-precompute-mode
+  feature: L'herbe pre-calculee pour le temps de chargement
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-13'
+    text: est juste plus rapide au chargement... C
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-grass-precompute-mode
+  prompt: null
+  owner_ok:
+    date: '2026-07-13'
+    text: est juste plus rapide au chargement... C
+    build_sha: null
+    source: owner-ok/Grecharged-grass-precompute-mode
+- id: jak1-icache-flush
+  feature: 'port arm64 bug class #14 (stale-icache CacheFlush no-op) to jak1 klink.cpp:623'
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak1-icache-flush
+  prompt: null
+  owner_ok: null
+- id: jak1-intermittent-events
+  feature: Des mini-cinematiques et des plateformes qui ne se declenchent pas
+  status: to-test
+  priority: 208
+  owner_feedback:
+  - date: '2026-07-07'
+    text: corrigé tout simplement
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak1-intermittent-events
+  prompt: null
+  owner_ok: null
+  where: 'joue normalement : les mini-cinematiques, les plateformes mobiles et les ennemis doivent partir
+    a chaque fois'
+  delivered: '2026-07-13'
+  build: build du 2026-07-13, remplace depuis
+- id: recharged-grass-object-clip
+  feature: L'herbe qui traverse les objets poses au sol
+  status: to-test
+  priority: 226
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-grass-object-clip
+  prompt: null
+  owner_ok: null
+  where: le bouton du portail de l'ile de depart, et les decors poses au sol
+  delivered: '2026-07-13'
+  build: build du 2026-07-13, remplace depuis
+- id: recharged-grass-wear
+  feature: L'usure et la hauteur variable de l'herbe
+  status: blocked
+  priority: 225
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-grass-wear
+  prompt: null
+  owner_ok: null
+  device: false
+  notes: 'statut force : spike de conception seulement, aucune ligne de code : le jeton dit que l''implementation
+    attend le feu vert de l''owner, ses 14 criteres d''acceptation sont dans le document'
+  block_reason: 'spike de conception seulement, aucune ligne de code : le jeton dit que l''implementation
+    attend le feu vert de l''owner, ses 14 criteres d''acceptation sont dans le document'
+- id: jak1-shadow-cast
+  feature: L'ombre de Jak au sol
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-14'
+    text: Alors l'ombre c'est 100% ok !
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak1-shadow-cast
+  prompt: null
+  owner_ok:
+    date: '2026-07-14'
+    text: Alors l'ombre c'est 100% ok !
+    build_sha: null
+    source: owner-ok/Gjak1-shadow-cast
+- id: recharged-external-assets
+  feature: Les assets hors de l'APK, telecharges a part
+  status: to-test
+  priority: 227
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-external-assets
+  prompt: null
+  owner_ok: null
+  where: 'la premiere installation : l''APK est petit et les assets se telechargent a part'
+  delivered: '2026-07-14'
+  build: jak2-alpha1
+- id: recharged-ambient-occlusion
+  feature: L'occlusion ambiante (le relief dans les creux)
+  status: to-test
+  priority: 230
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-ambient-occlusion
+  prompt: null
+  owner_ok: null
+  where: 'Options > Recharged > Ambient Occlusion : les creux et les angles de Sandover'
+  delivered: '2026-07-16'
+  build: build du 2026-07-16, remplace depuis
+- id: recharged-pbr-materials
+  feature: Les matieres PBR (le systeme de remplacement de textures)
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-17'
+    text: Realtime Lighting On/Off
+  - date: '2026-07-17'
+    text: t'as tout faux, rien ne fonctionne bien
+  - date: '2026-07-19'
+    text: PBR material ON/OFF on laisse, on dit que c'est bon
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-pbr-materials
+  prompt: null
+  owner_ok:
+    date: '2026-07-19'
+    text: PBR material ON/OFF on laisse, on dit que c'est bon
+    build_sha: null
+    source: owner-ok/Grecharged-pbr-materials
+- id: recharged-realtime-lighting
+  feature: L'eclairage temps reel au soleil, avec ombres portees
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-07-19'
+    text: Bon ça a l'air OK! Go pour la suite
+  - date: '2026-07-19'
+    text: moins beau que du baked
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-realtime-lighting
+  prompt: null
+  owner_ok:
+    date: '2026-07-19'
+    text: Bon ça a l'air OK! Go pour la suite
+    build_sha: null
+    source: owner-ok/Grecharged-realtime-lighting
+- id: recharged-directional-ambient
+  feature: L'ambiante directionnelle (le relief dans les zones d'ombre)
+  status: to-test
+  priority: 228
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-directional-ambient
+  prompt: null
+  owner_ok: null
+  where: 'Options > Recharged : le relief des zones a l''ombre'
+  delivered: '2026-07-20'
+  build: build du 2026-07-20, remplace depuis
+- id: recharged-lightprobes
+  feature: Les sondes de lumiere locales a la place de l'ambiante globale
+  status: to-test
+  priority: 223
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-lightprobes
+  prompt: null
+  owner_ok: null
+  where: les interieurs (hutte du Sage Vert) contre l'exterieur
+  delivered: '2026-07-22'
+  build: build du 2026-07-22, remplace depuis
+- id: recharged-master-toggle
+  feature: Un interrupteur global Recharged marche/arret
+  status: to-test
+  priority: 221
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-master-toggle
+  prompt: null
+  owner_ok: null
+  where: 'Options > Recharged : l''interrupteur global doit tout rendre au jeu d''origine'
+  delivered: '2026-07-22'
+  build: build du 2026-07-22, remplace depuis
+- id: recharged-bundled-textures
+  feature: Les textures PBR maison livrees dans l'APK
+  status: to-test
+  priority: 229
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-bundled-textures
+  prompt: null
+  owner_ok: null
+  where: les sept textures de Sandover que tu as faites
+  delivered: '2026-07-22'
+  build: build du 2026-07-22, remplace depuis
+- id: recharged-naming
+  feature: Le nom des jeux et de la collection Recharged
+  status: to-test
+  priority: 218
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-naming
+  prompt: null
+  owner_ok: null
+  where: le nom des jeux dans le lanceur et dans les menus
+  delivered: '2026-07-23'
+  build: build du 2026-07-23, remplace depuis
+- id: recharged-mesh-consolidation
+  feature: Les coutures visibles sur les meshes du jeu
+  status: to-test
+  priority: 219
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-mesh-consolidation
+  prompt: null
+  owner_ok: null
+  where: les coutures sur les personnages et les decors
+  delivered: '2026-07-25'
+  build: build du 2026-07-25, remplace depuis
+- id: recharged-loader-packfix
+  feature: Le build ne demarrait plus sur son Honor (pack de 420 Mo)
+  status: open
+  priority: 222
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-loader-packfix
+  prompt: prompts/item-recharged-loader-packfix.md
+  owner_ok: null
+  device: true
+  where: la premiere installation sur ton Honor
+  known_cause: 'Le pack de 190 Mo du 27/07 demarrait, ceux de 420 Mo des 28-29/07 mouraient AVANT l''extraction.
+    Aucun cycle n''a tourne depuis, et les builds actuels demarrent chez l''owner : verifie d''abord que
+    l''item a encore un objet.'
+- id: recharged-pbr-realtime-fusion
+  feature: Les matieres PBR eclairees par la lumiere temps reel
+  status: open
+  priority: 217
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-pbr-realtime-fusion
+  prompt: prompts/item-recharged-pbr-realtime-fusion.md
+  owner_ok: null
+  device: true
+  where: les matieres PBR avec l'eclairage temps reel allume
+  known_cause: 25 rounds archives dans prompts/archive-Grecharged-pbr-realtime-fusion-rounds1-25.md. La
+    branche rt-lighting du shader ignore encore les cartes PBR ; le chemin autonome u_pbr_mode est le
+    repli faible. Jamais accepte par l'owner.
+- id: recharged-mesh-browser
+  feature: Le navigateur de mesh de debug
+  status: to-test
+  priority: 206
+  owner_feedback:
+  - date: '2026-07-30'
+    text: on vise un objet clairement visible et pouf on a en fait sélectionné autre chose à proximité
+  - date: '2026-07-31'
+    text: En réouvrant ce mode, les marques précédentes devraient subsister pour pouvoir reprendre et
+      continuer
+  - date: '2026-07-31'
+    text: Ils sont affichés comme s'il n'y avait pas de texture ou de mesh devant... on sait pas vraiment
+      s'ils sont du bon côté ou du mauvais
+  - date: '2026-07-31'
+    text: Je sais pas pourquoi je peux pas aller au-delà de 256 polygones marqués... C'est pas bon !
+  - date: '2026-07-31'
+    text: On devrait voir ce qui est marqué d'une façon différente que ce qui ne l'est pas
+  - date: '2026-07-31'
+    text: Quand on a sélectionné un mesh, on devrait avoir la possibilité de cacher les autres — plus
+      pratique pour marquer tous les polygones sans jouer avec la caméra au travers des autres mesh
+  - date: '2026-07-31'
+    text: le device est avec l'owner / indisponible
+  - date: '2026-07-31'
+    text: triangle sous le réticule
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-mesh-browser
+  prompt: null
+  owner_ok: null
+  where: le navigateur de mesh de debug
+  delivered: '2026-07-31'
+  build: build du 2026-07-31, remplace depuis
+- id: recharged-menu-overhaul
+  feature: La refonte des menus
+  status: open
+  priority: 205
+  owner_feedback:
+  - date: '2026-08-04'
+    text: l'idée c'était de réorganiser pour que ce soit sensé, logique, intuitif, agréable à parcourir,
+      avec des hints qui expliquent ce que ça change et, pour la partie graphique, l'impact potentiel
+      sur les performances
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - recharged-mesh-browser
+  - menu-census-cleanup
+  history:
+  - Grecharged-menu-overhaul
+  prompt: prompts/item-recharged-menu-overhaul.md
+  owner_ok: null
+  device: true
+  where: les menus, du titre aux options
+  known_cause: 'La refonte a deja ete livree une fois puis SORTIE des builds par menu-flag-off (owner
+    2026-08-04 : parametres inventes, displacement disparu). Elle ne redemarre qu''apres le recensement
+    du menu et la fermeture du navigateur de mesh (memes fichiers).'
+- id: recharged-texture-hotreload
+  feature: Basculer les textures Recharged sans redemarrer le jeu
+  status: open
+  priority: 216
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-texture-hotreload
+  prompt: prompts/item-recharged-texture-hotreload.md
+  owner_ok: null
+  device: true
+  where: bascule les textures Recharged en pleine partie, sans redemarrer
+  known_cause: Aucun cycle n'a tourne sur cet item.
+- id: touch-longjump-regression
+  feature: Le long jump au tactile qui ne part plus
+  status: to-test
+  priority: 204
+  owner_feedback:
+  - date: '2026-08-04'
+    text: Pour le long jump j'ai pas de manette, mais faut faire en sorte qu'avec le tactile ça fonctionne
+      aussi ! **Ça fonctionnait avant** donc il n'y a pas de raisons que ça fonctionne plus !
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtouch-longjump-regression
+  prompt: null
+  owner_ok: null
+  where: 'au tactile : avance + R1/R2 + saut, tu dois partir en long jump'
+  delivered: '2026-08-04'
+  build: build du 2026-08-04, remplace depuis
+- id: menu-flag-off
+  feature: Sortir la refonte de menu cassee des builds
+  status: to-test
+  priority: 100
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gmenu-flag-off
+  prompt: null
+  owner_ok: null
+  where: le menu doit etre l'ancien, complet, sans parametre fantome
+  delivered: '2026-08-05'
+  build: build du 2026-08-05, remplace depuis
+- id: recharged-managed-assets-merge
+  feature: Le gestionnaire d'assets avec installation reprenable
+  status: to-test
+  priority: 200
+  owner_feedback:
+  - date: '2026-08-26'
+    text: d'abord la branche dont je viens de parler à absorber nickel (dans le framework, pas toi tout
+      seul en autonomie)
+  - date: '2026-08-26'
+    text: le logo apparait bien apres le son qui est sense etre la au moment de son apparition [...] C'est
+      je crois le pire truc honnetement
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-managed-assets-merge
+  prompt: null
+  owner_ok: null
+  where: 'l''installation des assets : coupe-la en cours et relance-la, elle doit reprendre'
+  delivered: '2026-08-26'
+  build: dernier build publie sur jak-builds
+- id: memory-ceiling-and-crash
+  feature: Chargement interminable et plantage par manque de memoire
+  status: to-test
+  priority: 202
+  owner_feedback:
+  - date: '2026-08-26'
+    text: Nouvelle partie... La cinématique commence avec le fond visuel violacés et la voix de Samos...
+      puis ça crash
+  - date: '2026-08-26'
+    text: je pense qu'il y a un truc qu'on gère très mal et régler le soucis sur l'appareil de test devrait
+      bénéficier toutes les targets de test actuelles
+  - date: '2026-08-26'
+    text: l'appareil de test est aussi BEAUCOUP plus puissante que la PS2 sur laquelle on a pas de pop-in
+      ni de longs chargements, je vois pas pourquoi ça devrait ramer du cul sur l'appareil de test
+  - date: '2026-08-26'
+    text: la machine est petite
+  - date: '2026-08-26'
+    text: le logo apparait bien apres le son qui est sense etre la au moment de son apparition [...] C'est
+      je crois le pire truc honnetement
+  - date: '2026-08-26'
+    text: le logo apparaît bien après le son qui est sensé être là au moment de son apparition (donc on
+      le voit jamais casser au travers de l'écran noir avec le halo lumineux comme c'est prévu dans le
+      jeu, alors qu'aucun problème sur x86, Redmi ou Honor... C'est je crois le pire truc honnêtement
+  - date: '2026-08-26'
+    text: ça crash quand je charge la partie (black screen avec la musique en fond... puis crash)
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gmemory-ceiling-and-crash
+  prompt: null
+  owner_ok: null
+  where: 'charge une sauvegarde et enchaine trois niveaux : plus de chargement interminable ni de plantage'
+  delivered: '2026-08-27'
+  build: dernier build publie sur jak-builds
+- id: precompute-deterministic-bake
+  feature: Pre-calculer ce qui peut l'etre au lieu de le refaire a chaque chargement
+  status: to-test
+  priority: 201
+  owner_feedback:
+  - date: '2026-08-26'
+    text: je vois pas pourquoi la subdivision serait la solution [...] c'est p'tetre un truc en lien au
+      PBR, auquel cas ca devrait etre une option ajustable et pas un truc qui se fait automatiquement
+  - date: '2026-08-26'
+    text: le logo apparait bien apres le son qui est sense etre la au moment de son apparition [...] aucun
+      probleme sur x86, Redmi ou Honor
+  - date: '2026-08-26'
+    text: les textures HD rechargees, le PBR
+  - date: '2026-08-26'
+    text: tout ce qu'on peut pre-computer devrait l'etre au lieu de prendre du temps CPU/GPU c'est debile.
+      Ca profitera a tout materiel ! Of course les trucs real time, c'est different, mais ce qui peut
+      etre fait en aval devrait l'etre !
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gprecompute-deterministic-bake
+  prompt: null
+  owner_ok: null
+  where: le temps de chargement d'un niveau
+  delivered: '2026-08-27'
+  build: dernier build publie sur jak-builds
+- id: playability-input-and-loadgate
+  feature: La touche saut qui ne repond pas a la manette
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-27'
+    text: Limite il devrait y avoir un mecanisme de chargement qui s'assure que tout le necessaire soit
+      bien charge avant de lancer l'ecran titre, la on dirait que ca y va meme si rien n'est charge, c'est
+      problematique quand ca charge pas assez vite !
+  - date: '2026-08-27'
+    text: la touche saut (X sur PS2, A en Xinput) ne fonctionne pas a la manette
+  - date: '2026-08-27'
+    text: quand on revient de geyser rock la cinematique avec Samos declenche un fly over de la plage
+      et le niveau n'est pas charge assez vite donc il manque des elements. Pareil pour l'ecran titre,
+      le logo est visible bien apres le son d'intro ou il est sense apparaitre (et le niveau apparait
+      d'un coup), c'est mieux qu'avant mais c'est toujours pas nickel
+  - date: '2026-08-28'
+    text: Le saut fonctionne, j'ai teste
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gplayability-input-and-loadgate
+  prompt: null
+  owner_ok:
+    date: '2026-08-28'
+    text: Le saut fonctionne, j'ai teste
+    build_sha: null
+    source: owner-ok/Gplayability-input-and-loadgate
+- id: recharged-secondary-motion
+  feature: Le mouvement secondaire des personnages HD (physique de Keira)
+  status: open
+  priority: 20
+  owner_feedback:
+  - date: '2026-08-04'
+    text: c'est la COMPOSITION qui decide
+  - date: '2026-08-04'
+    text: c'est plus du pudding, c'est PAS trop lent et mou, c'est vraiment pas coherent... on dirait
+      les mouvements quand on tape sur un pudding, pas des mouvements naturels de cheveux
+  - date: '2026-08-04'
+    text: ca suit pas une logique de gravite, ca n'a pas l'air d'avoir une masse particuliere
+  - date: '2026-08-04'
+    text: defaut d'ordre et de terminaison
+  - date: '2026-08-04'
+    text: la forme tient 9 cibles sur 9
+  - date: '2026-08-04'
+    text: le milieu bouge beaucoup plus que les pointes
+  - date: '2026-08-04'
+    text: les collisions des lunettes contre les seins sont mal gerees et ca clip toujours un peu
+  - date: '2026-08-04'
+    text: les deux centroides tombent au meme point
+  - date: '2026-08-04'
+    text: les languettes des genoux bougent dans les cinematiques mais pas (ou pas remarquable) sur l'animation
+      IDLE
+  - date: '2026-08-04'
+    text: les seins sur les animations lentes c'est nickel, les animations IMPORTANTES toujours pareil
+  - date: '2026-08-04'
+    text: ne suivent pas vraiment la gravite
+  - date: '2026-08-04'
+    text: 'regle 6 : RETRAIT IMMEDIAT, pas d''adoucissement'
+  - date: '2026-08-04'
+    text: sommets pilotes a moins de 50 % au-dela de la mi-organe
+  - date: '2026-08-04'
+    text: un pudding sur lequel on tape tres fort AU MOINDRE MOUVEMENT
+  - date: '2026-08-04'
+    text: une partie de la geometrie reste ancree et ca casse
+  - date: '2026-08-11'
+    text: ce qu'on veut c'est de la physique sur les oreilles, cheveux, mèches, seins, lunettes
+  - date: '2026-08-13'
+    text: beaucoup d'hysteresis pour TOUS les cheveux
+  - date: '2026-08-13'
+    text: de la physique coherente et realiste qui donne une impression de masse, de gravite, qui suit
+      le mouvement
+  - date: '2026-08-13'
+    text: je vois plus les lunettes partir dans son dos
+  - date: '2026-08-13'
+    text: la moitie basse a l'air detachee du crane et bouge independamment, mais la moitie HAUTE est
+      toujours partiellement ancree (ET PAS QUE LES RACINES)
+  - date: '2026-08-13'
+    text: les languettes/lanières des genoux bougent !
+  - date: '2026-08-14'
+    text: Les cheveux, les bretelles, les lunettes sont completement petees, les languettes des genoux
+      sont completement petees... Les languettes sur ses bottines aussi... On voit un peu plus son pantacourt
+      mais c'est aussi pete et toujours dans ses mollets. Tu sais quoi, retire toute physique de Keira
+      hormis ses seins. Fais la spec de ses seins a 100% comme specifie, on fera le reste apres
+  - date: '2026-08-17'
+    text: une defaillance de DISCRIMINANT peut etre un defaut de dimensionnement
+  - date: '2026-08-20'
+    text: je suis sur a 99.99999% que t'as pas implemente la spec comme il faut
+  - date: '2026-08-23'
+    text: premiere des quatre unites
+  - date: '2026-08-27'
+    text: '**Fais lui ecrire du code, ca sert a rien ces cycles d''instruments... Il serait temps d''arreter
+      de perdre du temps et faire du taff**'
+  - date: '2026-08-27'
+    text: '**Laisse courir le chantier, on fait la spec à 100%**'
+  - date: '2026-08-27'
+    text: la spec a 100%, pas de raccourcis
+  - date: '2026-08-28'
+    text: le budget d'execution du chantier pre-specifie est de QUATRE lignes
+  - date: '2026-08-28'
+    text: un terme de COM dans le tenseur valant x1,61 a x1,68
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-secondary-motion
+  prompt: prompts/item-recharged-secondary-motion.md
+  owner_ok: null
+  device: true
+  where: les personnages HD en mouvement brusque
+  known_cause: 'Le deficit et l''exces vivent dans DEUX canaux differents (angulaire 9/10 au-dessus, lineaire
+    centre) : aucun operateur d''amplitude ne ferme les deux. Le plafond d''apex de §22 ne bornait que
+    translation+rotation et laissait le tenseur libre a 0,59 B0. Les echelles de forme sont au niveau
+    de l''ORGANE, appliquees par maillon.'
+  out_of_scope: Aucune mesure visuelle. Ne rouvre pas les items deja valides (yeux de Daxter, visiere
+    de Keira, sangle de la veste).
+- id: firstperson-hd-hide
+  feature: En vue premiere personne on se retrouve dans la tete de Jak
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-28'
+    text: en caméra première personne on se retrouve, quand on utilise les modèles HD, à l'intérieur de
+      la tête de Jak, et on voit aussi le modèle HD de Daxter... d'abord faut corriger le problème et
+      faire comme avec les modèles originaux, les masquer en vue première personne
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gfirstperson-hd-hide
+  prompt: null
+  owner_ok:
+    date: '2026-08-29'
+    text: Pour la vue en premiere personne et la visiere de Keira c'est regle, bien joue
+    build_sha: null
+    source: owner-ok/Gkeira-visor-deliver
+  notes: 'statut force : l''owner ferme la premiere personne ET la visiere dans la meme phrase, recopiee
+    du jeton owner-ok/Gkeira-visor-deliver'
+- id: text-tone
+  feature: Le ton des textes du jeu, trop formel
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-28'
+    text: '"Appuyer sur la touche start" c''est hyper formel et l''infinitif est bizarre... Ça colle pas
+      à l''esprit teenager du jeu. Ça devrait plutôt être "Appuies sur start" (et sur mobile "Appuies
+      sur start ou touche l''écran"), de même dans les autres langues, moins formel, moins robotique...
+      pour tous les hints genre bouton à appuyer pour parler à un PNJ et interactions (genre les portails).
+      C''est pas une quantité astronomique de trucs à changer, mais ça rendrait le jeu plus moderne et
+      raccord avec son ton teenage. C''est à faire SEPAREMENT de la refonte du système d''affichage de
+      texte avec la font Urbanist hein !'
+  - date: '2026-08-30'
+    text: 'Ton des textes: Valide'
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gtext-tone
+  prompt: null
+  owner_ok:
+    date: '2026-08-30'
+    text: 'Ton des textes: Valide'
+    build_sha: null
+    source: owner-ok/Gtext-tone
+- id: beach-actors-gate
+  feature: Les collecteurs d'eco vert au retour de Geyser Rock
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-29'
+    text: la cinématique qui se déclenche quand on retourne à la hutte du Sage vert après avoir terminé
+      Geyser Rock, toujours mes soucis de chargement des collecteurs d'Eco vert (pas chargés pendant le
+      fly over, pop-in) parce qu'ils sont pas dans le nouveau Sandover Village mais à Sandover beach qui
+      est le niveau juste à côté !
+  - date: '2026-08-30'
+    text: Pour les collecteurs d'eco vert, le probleme est regle !
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gbeach-actors-gate
+  prompt: null
+  owner_ok:
+    date: '2026-08-30'
+    text: Pour les collecteurs d'eco vert, le probleme est regle !
+    build_sha: null
+    source: owner-ok/Gbeach-actors-gate
+- id: jak-hd-rig-strap
+  feature: La sangle et la boucle de la veste de Jak qui traversent les polygones
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-29'
+    text: On dirait qu'un point de sa veste bleue soit lié à la lanière dans son dos qui "bouge avec le
+      vent" du coup les polygones liés passent au travers de la sangle dans son dos c'est bizarre. Idem
+      pour la boucle en métal de la sangle dans son dos, il semblerait qu'elle soit attachée aux mouvements
+      des épaules, donc elle bouge séparément de la sangle c'est bizarre et glitchy
+  - date: '2026-08-29'
+    text: un point de sa veste bleue lié à la lanière, du coup les polygones passent au travers
+  - date: '2026-08-30'
+    text: La boucle et la veste de Jak sont corrigees aussi, top !
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak-hd-rig-strap
+  prompt: null
+  owner_ok:
+    date: '2026-08-30'
+    text: La boucle et la veste de Jak sont corrigees aussi, top !
+    build_sha: null
+    source: owner-ok/Gjak-hd-rig-strap
+- id: build-from-scratch
+  feature: Un build depuis zero doit donner le meme jeu que le notre
+  status: to-test
+  priority: 19
+  owner_feedback:
+  - date: '2026-08-29'
+    text: faut t'assurer qu'elle revienne pas par erreur, c'est un truc qui doit se corriger automatiquement
+      au build from scratch quand ça exporte le modèle HD de Jak 2 ou 3 (idem pour les bones, retargeting
+      des squelettes, physique et compagnie... Un utilisateur qui build le jeu from scratch devrait pouvoir
+      avoir le même état que nous)
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gbuild-from-scratch
+  prompt: null
+  owner_ok: null
+  where: 'rien a tester en jeu : c''est la reproductibilite du build'
+  delivered: '2026-08-30'
+  build: dernier build publie sur jak-builds
+- id: loadgate-crash-regression
+  feature: Le jeu ne charge plus une sauvegarde
+  status: to-test
+  priority: 17
+  owner_feedback:
+  - date: '2026-08-30'
+    text: Interdit de toucher a la SHIELD a nouveau
+  - date: '2026-08-30'
+    text: desarmer la barriere
+  - date: '2026-08-30'
+    text: fin du chargement + gel + reprise + mort
+  - date: '2026-08-30'
+    text: il se trouve que j'ai pu charger Sandover Village (une autre save) et le repere de Gol et Maia
+      (une autre save) par contre a Sandover Village j'ai fait pause pour charger geyser rock et le jeu
+      a crash en allant dans les OPTIONS, j'ai meme pas pu aller au menu de chargement
+  - date: '2026-08-30'
+    text: l'animation freeze, puis reprend, puis le jeu crash complet
+  - date: '2026-08-30'
+    text: le jeu ne charge plus
+  - date: '2026-08-30'
+    text: pour le chargement, le look est nickel bravo... par contre quand je charge ma sauvegarde a Geyser
+      Rock... bah sur la fin l'animation freeze, puis reprend et le jeu crash complet... je peux meme
+      plus charger une partie il semblerait
+  - date: '2026-08-30'
+    text: quand je charge ma sauvegarde a Geyser Rock... sur la fin l'animation freeze, puis reprend et
+      le jeu crash complet... je peux meme plus charger une partie
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gloadgate-crash-regression
+  prompt: null
+  owner_ok: null
+  where: charge ta sauvegarde de Geyser Rock
+  delivered: '2026-08-30'
+  build: dernier build publie sur jak-builds
+- id: fixed-tick-interpolation
+  feature: Le pas de temps fixe et l'interpolation du rendu
+  status: to-test
+  priority: 16
+  owner_feedback:
+  - date: '2026-08-26'
+    text: quand le jeu va en dessous de ce qu'il est sensé tourner sur PS2, les sauts, les mouvements
+      de caméra ça chie un peu dans la colle et ça casse le gameplay [...] On devrait en fait faire de
+      l'interpolation VERSUS l'original
+  - date: '2026-08-26'
+    text: quand le jeu va en dessous de ce qu'il est sensé tourner sur PS2, les sauts, les mouvements
+      de caméra, etc etc ça chie un peu dans la colle et ça casse le gameplay (skips, camera jumps, sauts
+      trop courts...) je sais qu'OpenGoal a déjà du travail pour ça, mais j'ai l'impression que c'est
+      pas bon [...] On devrait en fait faire de l'interpolation VERSUS l'original histoire de mitiger
+      tous les problèmes sans tout casser
+  - date: '2026-08-26'
+    text: Ça permettrait de tourner sans réel souci à des framerates inférieurs (imaginons qu'on aille
+      all in avec les settings PBR, realtime lighting, grass etc etc... mais que ça permette que de maintenir
+      un framerate à 25FPS sur le device concerné, faudrait pas que ça casse le gameplay ni le confort
+      de jeu) et dans l'autre sens, imaginons qu'on puisse aller au delà de 60FPS (75, 90, 120, etc...
+      variable bien sûr)... Je sais que OpenGoal a déjà un truc pour 120FPS... Mais pareil, c'est pas
+      bon, ça bénéficierait tout autant de l'interpolation au lieu de hacks spécifiques, puis en plus
+      ça s'adapterait aux variations de framerate de façon bien plus souple !
+  - date: '2026-08-31'
+    text: 'Fixed timestep : Aucun crash mais difficile a valider... ca a l''air bon'
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gfixed-tick-interpolation
+  prompt: null
+  owner_ok: null
+  where: Options > Fixed timestep, puis joue autour de 20 images/s
+  delivered: '2026-08-30'
+  build: dernier build publie sur jak-builds
+- id: grass-crash
+  feature: L'herbe fait planter le jeu
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-30'
+    text: c'est ptetre le build from scratch, ca pre-compute plus le placement de l'herbe
+  - date: '2026-08-30'
+    text: j'ai desactive toutes les options rechargees et reactive une par une, avec l'herbe ca crash,
+      sans ca fonctionne
+  - date: '2026-08-31'
+    text: 'Herbe: Valide, ca fonctionne bien'
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Ggrass-crash
+  prompt: null
+  owner_ok:
+    date: '2026-08-31'
+    text: 'Herbe: Valide, ca fonctionne bien'
+    build_sha: null
+    source: owner-ok/Ggrass-crash
+- id: grass-density-presets
+  feature: Cinq paliers de densite d'herbe au lieu d'un curseur
+  status: open
+  priority: 18
+  owner_feedback:
+  - date: '2026-08-30'
+    text: on s'en fiche de changer la densite au poil de cul, on veut juste plus ou moins dense — very
+      low / low / medium / high / very high c'est assez, donc on peut pre-calculer le tout et eviter le
+      chemin lourd
+  - date: '2026-08-30'
+    text: sur la plage [...] ca n'a jamais ete visible, tu peux completement dismiss
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Ggrass-density-presets
+  prompt: prompts/item-grass-density-presets.md
+  owner_ok: null
+  device: false
+  where: 'Options > Recharged > densite d''herbe : cinq paliers'
+  known_cause: 'Aucun cycle n''a tourne. L''owner a deja tranche la forme : cinq paliers nommes, pas un
+    curseur continu.'
+  deliverable: Cinq paliers nommes very low / low / medium / high / very high dans les options, pre-calcules,
+    avec le cout memoire de chacun.
+- id: recharged-hd-eye-scale
+  feature: 'HD MODELS (owner 2026-08-06, backlog): les yeux HD de Daxter sont bien HD mais l''effet CARTOON
+    de Jak 1 qui fait chang…'
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-08-06'
+    text: Les yeux de Daxter sont bien des yeux HD, mais il y a un truc non maîtrisé... Dans Jak 1 ses
+      yeux changent de TAILLE (cartoon), et visiblement l'influence de cet effet est beaucoup trop grosse
+      sur les yeux HD, ce qui génère des yeux bien trop GLOBULEUX sur certaines animations exagérées (bien
+      plus globuleux que ce qu'ils sont avec les modèles originaux). Donc à TONE DOWN pour que ça ne fasse
+      pas buggé
+  - date: '2026-08-08'
+    text: Les yeux de Daxter continuent de DOUBLER DE TAILLE, au point où les deux yeux se TOUCHENT sur
+      beaucoup d'animations. Absolument aucune différence. PAS VALIDÉ
+  - date: '2026-08-14'
+    text: Concernant les yeux globuleux de Daxter... C'est mieux, mais un soucis persiste ! Certes ses
+      yeux ne grossissent plus autant quand ils grossissent, mais ses eye sockets eux c'est comme avant,
+      ce qui fait que ses yeux flottent dans le vide quand ils grossissent car les sockets grossissent
+      toujours autant ! Donc la phase des yeux de Jak n'est pas terminee
+  - date: '2026-09-01'
+    text: les yeux de Daxter sont maintenant nickel ! Plus de soucis sur ça, on peut valider le chantier
+      de ses yeux !
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-hd-eye-scale
+  prompt: null
+  owner_ok:
+    date: '2026-09-01'
+    text: les yeux de Daxter sont maintenant nickel ! Plus de soucis sur ça, on peut valider le chantier
+      de ses yeux !
+    build_sha: null
+    source: owner-ok/Grecharged-hd-eye-scale
+- id: recharged-title-logo-fullres
+  feature: Le logo du titre pixelise a basse resolution de rendu
+  status: to-test
+  priority: 215
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-title-logo-fullres
+  prompt: null
+  owner_ok: null
+  where: 'l''ecran titre a faible echelle de rendu : le logo Jak and Daxter'
+  delivered: '2026-08-08'
+  build: build du 2026-08-08, remplace depuis
+- id: recharged-hud-jak1
+  feature: Le HUD Recharged de jak1
+  status: blocked
+  priority: 224
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-hud-jak1
+  prompt: null
+  owner_ok: null
+  device: true
+  notes: 'statut force : l''owner a ordonne le 2026-07-09 de parquer le HUD (« revisit later, more important
+    work first ») ; livre par defaut ETEINT'
+  block_reason: l'owner a ordonne le 2026-07-09 de parquer le HUD (« revisit later, more important work
+    first ») ; livre par defaut ETEINT
+- id: recharged-materials-modern-parity
+  feature: Des materiaux au niveau des moteurs modernes
+  status: to-test
+  priority: 220
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Grecharged-materials-modern-parity
+  prompt: null
+  owner_ok: null
+  where: 'Options > Recharged : le rendu des matieres'
+  delivered: '2026-08-31'
+  build: dernier build publie sur jak-builds
+- id: jak2-polish
+  feature: Les finitions de Jak II (mapping L1/R1, cadrage, menus, particules)
+  status: blocked
+  priority: 241
+  owner_feedback: []
+  gate: null
+  game: jak2
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gjak2-polish
+  prompt: null
+  owner_ok: null
+  device: true
+  notes: 'statut force : l''owner a ordonne le 2026-07-10 de parquer jak2 pour reprendre jak1'
+  block_reason: l'owner a ordonne le 2026-07-10 de parquer jak2 pour reprendre jak1
+- id: menu-census-cleanup
+  feature: Le menu contient des options inutiles ou incomprehensibles
+  status: to-test
+  priority: 15
+  owner_feedback:
+  - date: '2026-08-31'
+    text: je vois que des options sont un peu chelou ou carrement inutilisées... recharged assets VS HD
+      texture pack ? WTF. Modern Materials c'est quoi ? PBR test preset et PBR isolate c'est quoi ?
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gmenu-census-cleanup
+  prompt: null
+  owner_ok: null
+  where: 'Options : les lignes qui ne servent a rien doivent avoir disparu'
+  delivered: '2026-09-02'
+  build: dernier build publie sur jak-builds
+- id: audits-abandonnes
+  feature: Audits de juin abandonnes (pixel-match du menu, images anglaises de reference)
+  status: archived
+  priority: null
+  owner_feedback: []
+  gate: null
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history:
+  - Gmenu-pixelmatch
+  - Grefen-english-pristine-frames-audit
+  prompt: null
+  owner_ok: null
+  notes: ids bloques presents dans state.json mais absents de milestones.yaml

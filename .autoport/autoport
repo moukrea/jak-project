@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""autoport — le backlog en ligne de commande.
+
+    ./.autoport/autoport status [--changed] [--json]
+    ./.autoport/autoport next
+    ./.autoport/autoport show <id>
+    ./.autoport/autoport set <id> <statut> [--reason "..."]
+    ./.autoport/autoport ok <id> "la phrase de l'owner" [--date AAAA-MM-JJ]
+    ./.autoport/autoport lint
+
+`status` imprime trois blocs en francais : en cours, a tester, bloque. Un bloc vide est
+omis, un item valide n'y apparait jamais. `--changed` n'imprime rien si rien n'a bouge
+depuis le dernier appel.
+"""
+
+import argparse
+import datetime
+import json
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lib import backlog as bl  # noqa: E402
+
+
+def cmd_status(args):
+    b = bl.load(args.file)
+    if args.json:
+        out = [it for it in b.items if it.get("status") in bl.ACTIONABLE]
+        out.sort(key=lambda it: (it.get("priority") if isinstance(it.get("priority"), int)
+                                 else 10 ** 6, it.get("id", "")))
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return 0
+    text = b.status_report(changed_only=args.changed, show_all=args.all)
+    if text:
+        print(text)
+    return 0
+
+
+def cmd_next(args):
+    b = bl.load(args.file)
+    it = b.next_open()
+    if it is None:
+        print("rien a prendre : aucun item `open` dont les dependances soient validees")
+        return 1
+    print(it["id"])
+    return 0
+
+
+def cmd_show(args):
+    b = bl.load(args.file)
+    it = b.get(args.id)
+    if it is None:
+        print("item inconnu : %s" % args.id, file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(it, ensure_ascii=False, indent=2))
+        return 0
+    print("%s — %s" % (it["id"], it.get("feature", "")))
+    print("statut    : %s%s" % (it.get("status"),
+                                "" if it.get("priority") is None
+                                else "  (priorite %s)" % it["priority"]))
+    if it.get("gate"):
+        g = it["gate"]
+        print("preuve    : %s %s %s" % (g.get("key"), g.get("op"), g.get("value")))
+    else:
+        print("preuve    : aucun critere machine (gate a ecrire)")
+    print("appareil  : %s" % ("oui" if it.get("device") else "non"))
+    if it.get("where"):
+        print("ou voir   : %s" % it["where"])
+    if it.get("build"):
+        print("build     : %s" % it["build"])
+    if it.get("block_reason"):
+        print("bloque    : %s" % it["block_reason"])
+    if it.get("depends_on"):
+        print("depend de : %s" % ", ".join(it["depends_on"]))
+    if it.get("owner_ok"):
+        ok = it["owner_ok"]
+        print("feu vert  : %s — « %s »" % (ok.get("date"), ok.get("text")))
+    print("historique: %s" % ", ".join(it.get("history") or []))
+    fb = it.get("owner_feedback") or []
+    if fb:
+        print("retours de l'owner :")
+        for e in fb:
+            print("  %s  « %s »" % (e.get("date"), e.get("text")))
+    if it.get("notes"):
+        print("note      : %s" % it["notes"])
+    return 0
+
+
+def cmd_set(args):
+    b = bl.load(args.file)
+    extra = {}
+    if args.reason:
+        extra["block_reason" if args.status == "blocked" else "notes"] = args.reason
+    try:
+        it = b.set_status(args.id, args.status, **extra)
+    except bl.BacklogError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if it["status"] == "open":
+        # rouvrir = regenerer le prompt depuis l'item. C'est ce qui remplace les clones `-2`
+        # qui reutilisaient le prompt de la phase precedente.
+        if not it.get("prompt"):
+            it = b.set_status(it["id"], "open", prompt="prompts/item-%s.md" % it["id"])
+        try:
+            print("prompt regenere : %s"
+                  % bl.write_prompt(it, os.path.dirname(os.path.abspath(b.path))))
+        except bl.BacklogError as exc:
+            print("prompt non regenere : %s" % exc, file=sys.stderr)
+    print("%s : %s" % (it["id"], it["status"]))
+    return 0
+
+
+def cmd_ok(args):
+    b = bl.load(args.file)
+    try:
+        it = b.validate(args.id, args.text, date=args.date)
+    except bl.BacklogError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    ok = it["owner_ok"]
+    print("%s : valide par l'owner le %s (build %s)\n  « %s »"
+          % (it["id"], ok["date"], ok.get("build_sha") or "inconnu", ok["text"]))
+    return 0
+
+
+def cmd_lint(args):
+    b = bl.load(args.file)
+    problems = b.lint()
+    for p in problems:
+        print(p)
+    if not problems:
+        print("backlog coherent : %d items" % len(b.items))
+        return 0
+    print("\n%d incoherence(s)" % len(problems))
+    return 1
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(prog="autoport", description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--file", default=None, help="backlog.yaml a lire (defaut : celui du harnais)")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("status", help="les trois blocs pour l'owner")
+    s.add_argument("--changed", action="store_true",
+                   help="ne rien imprimer si la section « A tester » n'a pas bouge")
+    s.add_argument("--all", action="store_true",
+                   help="detailler aussi la dette a trier")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_status)
+
+    n = sub.add_parser("next", help="l'id du prochain item a prendre")
+    n.set_defaults(func=cmd_next)
+
+    sh = sub.add_parser("show", help="tout ce qu'on sait d'un item")
+    sh.add_argument("id")
+    sh.add_argument("--json", action="store_true")
+    sh.set_defaults(func=cmd_show)
+
+    st = sub.add_parser("set", help="changer le statut d'un item")
+    st.add_argument("id")
+    st.add_argument("status", choices=bl.STATUSES)
+    st.add_argument("--reason", default=None)
+    st.set_defaults(func=cmd_set)
+
+    ok = sub.add_parser("ok", help="poser le feu vert de l'owner")
+    ok.add_argument("id")
+    ok.add_argument("text", help="la phrase de l'owner, mot pour mot")
+    ok.add_argument("--date", default=datetime.date.today().isoformat())
+    ok.set_defaults(func=cmd_ok)
+
+    li = sub.add_parser("lint", help="chercher les incoherences")
+    li.set_defaults(func=cmd_lint)
+
+    args = ap.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
