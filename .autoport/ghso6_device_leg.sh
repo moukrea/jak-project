@@ -57,6 +57,16 @@ cleanup(){
 trap cleanup EXIT
 
 a devices | grep -qE "^${SER}[[:space:]]+device$" || { echo "FAIL: $SER absent"; exit 1; }
+# GARDE AMONT (cycle 8, superviseur 07:35) : derriere un keyguard SECURISE le processus SURVIT sans
+# signal mais LoaderActivity est mise en pause a l'instant et son `am start MainActivity` est
+# refuse en « Background activity start » (isCallingUidForeground: false) : aucun moteur, aucune
+# image, 15 lignes de logcat. Ce n'est pas un plantage, c'est une action OWNER (entrer le PIN).
+# Il n'existe aucun deverrouillage sans humain (memoire device-pin-lock-wait-for-owner).
+locked(){ a shell dumpsys trust 2>/dev/null | grep -a '(current)' | grep -q 'deviceLocked=1'; }
+if locked; then
+  echo "FAIL: $SER VERROUILLE (deviceLocked=1, $(a shell dumpsys trust 2>/dev/null | grep -ao 'strongAuthRequired=0x[0-9a-f]*' | head -1 | tr -d '\r')) — le jeu ne recoit aucune surface derriere le keyguard ; action owner : deverrouiller le telephone. Aucune scene lancee."
+  exit 4
+fi
 echo "===== appareil $SER — bras stretch_inject=$INJ — $(date -Is) ====="
 echo "-- fraicheur de l'installation"
 a shell dumpsys package $PKG 2>/dev/null | grep -E "lastUpdateTime|versionName" | head -2 | tr -d '\r'
@@ -122,6 +132,17 @@ run_scene(){
     grep -aq "LEVEL-WARP.*start .play" "$LOG" && { W=1; break; }
     sleep 1
   done
+  if [ "$W" = 0 ]; then
+    # DIAGNOSTIC DE SURVIE (superviseur 07:35) : pid vivant ? derniere ligne moteur ? refus Android ?
+    echo "== scene $scene ($mode) : PAS DE WARP en 240 s — diagnostic :"
+    echo "   pid=$(a shell pidof $PKG 2>/dev/null | tr -d '\r') verrouille=$(locked && echo 1 || echo 0) focus=$(a shell dumpsys window 2>/dev/null | grep -a mCurrentFocus | tr -d '\r' | sed 's/.*Window{//')"
+    echo "   lignes moteur=$(grep -ac 'opengoal-gk\|GK_STD' "$LOG" || true) derniere=$(grep -a 'opengoal-gk\|GK_STD' "$LOG" | tail -1 | cut -c1-160 | tr -d '\r')"
+    echo "   signaux=$(grep -aciE 'signal [0-9]+|Fatal|SIGSEGV|SIGILL|SIGABRT' "$LOG" || true)  refus_android=$(a logcat -d 2>/dev/null | grep -ac 'Background activity start.*opengoal' || true)"
+    kill "$LCPID" 2>/dev/null; sleep 1; LCPID=""
+    a shell am force-stop $PKG >/dev/null 2>&1
+    echo "HDWALL scene=$scene-$mode secondes=0 inject=$INJ sclarm=$SCLARM affarm=$AFFARM sans_surface=1" > "$OUT/$TAG-$scene-$mode-marqueurs.txt"
+    return 1
+  fi
   echo "== scene $scene ($mode) : warp=$W, fenetre ${dur}s, inject=$(grep -a 'HDSTRETCHINJECT' "$LOG" | tail -1 | sed 's/^.*HDSTRETCHINJECT/HDSTRETCHINJECT/' | tr -d '\r'), $(grep -a 'HDSCALEARM' "$LOG" | tail -1 | sed 's/^.*HDSCALEARM/HDSCALEARM/' | tr -d '\r'), $(grep -a 'HDAFFINEARM' "$LOG" | tail -1 | sed 's/^.*HDAFFINEARM/HDAFFINEARM/' | tr -d '\r')"
   sleep 12
   local T0=$(date +%s) k=0 n=${#BRUSQUE[@]}
