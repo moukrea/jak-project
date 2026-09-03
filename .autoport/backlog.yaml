@@ -1364,7 +1364,10 @@ items:
   owner_ok: null
   device: true
   device_serial: eae4df44
-  proof_timeout: 780
+  # 900 s : la course du 2026-09-03 18:44 montre que l'horloge de JEU avance a 0,81 x le temps
+  # reel sur le Redmi (360 s de jeu pour 442 s d'observation). 900 s d'observation donnent donc
+  # ~11,5 min de jeu, au-dessus des 10 min demandees sur les DEUX horloges.
+  proof_timeout: 900
   proof_props:
   - debug.opengoal.level.warp=citadel-start
   - debug.opengoal.pad_replay=replay
