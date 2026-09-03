@@ -2152,6 +2152,18 @@
         (format 0 "HDANGTAB entry=~D hd=~D pilote=~D~%" ent nj nd))))
   (none))
 
+(defun hd-rj-chan-log ((jc joint-control) (i int))
+  "cycle 8 : un canal d'animation du PILOTE a l'image du saut de racine — nom, frame-num /
+   num-frames, interpolation. Un frame-num au-dela du dernier frame avec interp > 0 lit le frame
+   SUIVANT (hors de l'animation) : c'est l'hypothese a trancher pour le residu Redmi (20 img/s)."
+  (let ((ch (-> jc channel i)))
+    (format 0 "HDRJEVC i=~D c=~S f=~f/~D interp=~f~%" i
+            (if (-> ch frame-group) (-> ch frame-group name) "none")
+            (-> ch frame-num)
+            (if (-> ch frame-group) (the int (-> ch frame-group frames num-frames)) -1)
+            (-> ch frame-interp)))
+  (none))
+
 (defun hd-root-scan! ((obj jak-hd))
   (let ((drv (the-as process-drawable (handle->process (-> obj driver)))))
     (cond
@@ -2238,6 +2250,16 @@
                       (format 0 "HDRJEV4 os_hd=(~f,~f,~f) os_pilote=(~f,~f,~f)~%"
                               (/ (-> bp x) 4096.0) (/ (-> bp y) 4096.0) (/ (-> bp z) 4096.0)
                               (/ (-> pp x) 4096.0) (/ (-> pp y) 4096.0) (/ (-> pp z) 4096.0))
+                      ;; cycle 8 : les os 0 (align) et 1 (prejoint) du PILOTE, monde — la translation locale
+                      ;; du prejoint = (os1 - trans) tournee : plusieurs metres = donnee d'animation fausse
+                      (format 0 "HDRJEV9 os0=(~f,~f,~f) os1=(~f,~f,~f)~%"
+                              (/ (-> tskel bones 0 transform vector 3 x) 4096.0) (/ (-> tskel bones 0 transform vector 3 y) 4096.0) (/ (-> tskel bones 0 transform vector 3 z) 4096.0)
+                              (/ (-> tskel bones 1 transform vector 3 x) 4096.0) (/ (-> tskel bones 1 transform vector 3 y) 4096.0) (/ (-> tskel bones 1 transform vector 3 z) 4096.0))
+                      (when (-> drv skel)
+                        (let ((nc (-> drv skel active-channels)))
+                          (if (> nc 4) (set! nc 4))
+                          (format 0 "HDRJEV6 canaux=~D~%" (-> drv skel active-channels))
+                          (dotimes (ci nc) (hd-rj-chan-log (-> drv skel) ci))))
                       (format 0 "HDRJEV5 trans=(~f,~f,~f) trans_prec=(~f,~f,~f)~%"
                               (/ (-> tp x) 4096.0) (/ (-> tp y) 4096.0) (/ (-> tp z) 4096.0)
                               (/ (-> *hd-rj-lastpos* (+ ri 1) x) 4096.0) (/ (-> *hd-rj-lastpos* (+ ri 1) y) 4096.0) (/ (-> *hd-rj-lastpos* (+ ri 1) z) 4096.0))))
