@@ -452,9 +452,27 @@ while true; do
     [ -f .autoport/OWNER-VERIFY-QUEUE.md ] && sed -n '1,40p' .autoport/OWNER-VERIFY-QUEUE.md
   } > out/artifacts/BUILD-INFO.txt
 
-  _sz=$(stat -c %s android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk 2>/dev/null || echo 0)
+  # ESPACE MORT DE GRADLE : un assemble incremental repete gonfle l'APK. Le 2026-09-03 le
+  # nettoyage est devenu conditionnel (il coutait plusieurs minutes a CHAQUE build) et la
+  # condition regardait la taille de l'APK AVANT la passe — donc trop tot : l'APK de 15:03 est
+  # sorti a 1,17 Go, cette garde l'a refuse, et l'owner n'a recu AUCUN build. Une garde qui
+  # refuse sans reparer transforme un defaut connu en livraison manquante.
+  # On repare donc a la sortie : au-dela du seuil, on nettoie et on rassemble UNE fois, puis on
+  # rejuge. Le cout du nettoyage n'est paye que quand le defaut se manifeste vraiment.
+  _apk=android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk
+  _sz=$(stat -c %s "$_apk" 2>/dev/null || echo 0)
   if [ "$_sz" -gt 700000000 ]; then
-    say "APK anormalement gros ($_sz octets) — espace mort, NON publie"
+    say "APK a $_sz octets (espace mort) — nettoyage et reassemblage, une seule fois"
+    ( cd android && timeout 900 ./gradlew :app:clean >> "../$LOG" 2>&1 )
+    if ( cd android && timeout 2400 ./gradlew assembleJak1Debug >> "../$LOG" 2>&1 ); then
+      _sz=$(stat -c %s "$_apk" 2>/dev/null || echo 0)
+      say "apres nettoyage : $_sz octets"
+    else
+      say "reassemblage apres nettoyage ECHOUE"
+    fi
+  fi
+  if [ "$_sz" -gt 700000000 ]; then
+    say "APK toujours anormalement gros ($_sz octets) apres nettoyage — NON publie"
     echo "$h" > "$STAMP"
     fin_de_passe
     continue

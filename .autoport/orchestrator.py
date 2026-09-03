@@ -375,13 +375,21 @@ def next_attempt_seq(state: dict, item_id: str) -> int:
 # ============================================================
 
 def load_backlog():
-    """Fresh read every turn: the operator edits backlog.yaml while we run."""
+    """Fresh read every turn: the operator edits backlog.yaml while we run.
+
+    On passe BACKLOG_PATH EXPLICITEMENT. `backlog.load()` sans argument retombe sur
+    le chemin par defaut, c'est-a-dire le VRAI fichier — y compris quand un test
+    croit travailler dans un bac a sable. Mesure du 2026-09-03 : un test de la
+    reclamation a rouvert `hd-skin-origin-stretch` dans le backlog de production
+    pendant qu'un worker vivant le tenait, ce qui aurait pu mettre deux workers sur
+    le meme arbre. Le fixture promettait l'isolation, cette ligne la lui rendait fausse.
+    """
     lib = str(AUTOPORT_DIR / "lib")
     if lib not in sys.path:
         sys.path.insert(0, lib)
     import backlog as _bk
     importlib.reload(_bk)
-    return _bk.load()
+    return _bk.load(BACKLOG_PATH)
 
 
 def backlog_missing_reason() -> str:
@@ -1644,12 +1652,33 @@ def promote_owner_validated(bk) -> list[str]:
 
 
 def release_stale_in_progress(bk) -> list[str]:
-    """Un item laissé `in-progress` par un orchestrateur tué redevient `open`."""
+    """Un item laissé `in-progress` par un orchestrateur tué redevient `open`.
+
+    Un arrêt brutal (SIGKILL, terminal fermé, machine éteinte) ne passe par aucun
+    chemin de sortie : l'item reste marqué `in-progress` pour toujours, et
+    `next_open()` l'ignore — le harnais ne le reprendrait donc JAMAIS. C'est le
+    remplaçant exact des 9 phases « parquées » qui ne fermaient plus dans l'ancien
+    modèle, et ça s'est produit dès le premier jour (hd-skin-origin-stretch).
+
+    On ne libère QUE ce que plus personne ne tient : `phase_claim.sh status` sort 0
+    tant que le détenteur est vivant (pid + starttime + comm). Libérer un item tenu
+    par un worker vivant remettrait deux workers sur le même arbre, ce que l'owner a
+    explicitement interdit après que ça se soit produit deux fois.
+    """
     freed = []
     for item in bk.items:
-        if item.get("status") == "in-progress":
-            bk.set_status(item["id"], "open")
-            freed.append(item["id"])
+        if item.get("status") != "in-progress":
+            continue
+        iid = item["id"]
+        held = subprocess.run(
+            ["bash", str(AUTOPORT_DIR / "phase_claim.sh"), "status", iid],
+            cwd=REPO_ROOT, capture_output=True, text=True)
+        if held.returncode == 0:
+            log(f"· {iid} est tenu par un worker VIVANT ({held.stdout.strip()[:60]}) "
+                f"— laissé en place", "yellow")
+            continue
+        bk.set_status(iid, "open")
+        freed.append(iid)
     if freed:
         log(f"· items rendus au backlog après un arrêt brutal : {', '.join(freed)}", "yellow")
     return freed
@@ -1715,6 +1744,12 @@ def main(argv: list[str] | None = None) -> int:
         border_style="green"))
 
     no_start_streak = 0
+
+    # Au démarrage seulement : rendre au backlog ce qu'un arrêt brutal a laissé
+    # marqué `in-progress` sans détenteur vivant. Sans ça l'item est perdu pour
+    # toujours, `next_open()` l'ignorant. Ne jamais faire ça DANS la boucle : notre
+    # propre item y est légitimement `in-progress`.
+    release_stale_in_progress(load_backlog())
 
     while not HALT:
         bk = load_backlog()

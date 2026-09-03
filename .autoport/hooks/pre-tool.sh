@@ -134,10 +134,16 @@ while IFS= read -r seg; do
   is_text "$CW" && continue
 
   # 3a. pgrep/pkill -f sans classe de caracteres : le motif se matche LUI-MEME.
+  # Deux exemptions, toutes deux parce qu'on ne PEUT PAS juger : un motif qui contient deja des
+  # crochets, et un motif passe par une VARIABLE (`pgrep -cf "$p"`), dont on ne voit pas le
+  # contenu. Refuser le second serait un faux refus, et cette garde s'est donne pour regle que
+  # laisser passer coute moins cher que bloquer a tort — elle a refuse sa propre verification
+  # le 2026-09-03 avant cette exemption.
   if [[ $seg =~ (pgrep|pkill)([[:space:]]|$) ]] && [[ $seg =~ (-[a-zA-Z]*f([[:space:]]|$)|--full) ]]; then
-    case "$seg" in *'['*) ;; *)
-      refuse "\`pgrep/pkill -f\` avec un motif sans classe de caracteres : il se matche lui-meme." \
-             "mets une lettre entre crochets : pgrep -f '[o]rchestrator'" ;;
+    case "$seg" in
+      *'['*|*'$'*) ;;
+      *) refuse "\`pgrep/pkill -f\` avec un motif sans classe de caracteres : il se matche lui-meme." \
+                "mets une lettre entre crochets : pgrep -f '[o]rchestrator'" ;;
     esac
   fi
   # 3b. cmake -B : une reconfiguration invalide tout le cache d'objets (~1300).
