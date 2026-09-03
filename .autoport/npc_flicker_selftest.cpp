@@ -11,10 +11,12 @@
 // prouvee AVEC son controle positif (le compteur monte) ET son controle negatif (il ne monte
 // pas). Un test qui ne saurait qu'echouer sur du bruit ne prouve rien.
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "game/system/npc_flicker.h"
@@ -749,6 +751,73 @@ int main() {
     auto t = npc_flicker::totals();
     check(t.in_fov_dark_frames_npc == 0,
           "porte : dessine par un CLONE (autre pid, meme modele) -> 0",
+          "npc_culled_in_frustum=" + std::to_string(t.in_fov_dark_frames_npc));
+  }
+
+  {
+    // (f) LE CORRECTIF LUI-MEME — CONTROLE POSITIF. `should_hold_clone` doit rendre VRAI tant que
+    //     la serie tient dans son budget : c'est ce qui garde le modele a l'ecran a la place du
+    //     `hidden` de generic-obs.gc:81. Un correctif qui ne rend jamais vrai serait exactement
+    //     la garde morte de 45b7140ca7.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    int held = 0;
+    for (int i = 0; i < 5; i++) {
+      g_frame++;
+      npc_flicker::end_render_frame(g_frame);
+      if (npc_flicker::should_hold_clone(777)) {
+        held++;
+      }
+    }
+    check(held == 5, "correctif : 5 images d'echec de suite -> le clone est MAINTENU 5 fois",
+          "maintenus=" + std::to_string(held) + "/5");
+  }
+  {
+    // (g) SON PLAFOND — CONTROLE NEGATIF. Au-dela de `clone_hold_ms()`, on retombe sur l'ancien
+    //     comportement : un echec PERMANENT ne doit pas laisser un modele fige indefiniment.
+    //     Sans ce bras, le correctif remplacerait un defaut par un autre.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    g_frame++;
+    npc_flicker::end_render_frame(g_frame);
+    const bool first = npc_flicker::should_hold_clone(778);
+    std::this_thread::sleep_for(std::chrono::milliseconds(npc_flicker::clone_hold_ms() + 40));
+    g_frame++;
+    npc_flicker::end_render_frame(g_frame);
+    const bool after = npc_flicker::should_hold_clone(778);
+    check(first && !after, "correctif : au-dela du plafond, retour a l'ancien comportement",
+          "premiere=" + std::to_string(first ? 1 : 0) + " apres_plafond=" +
+              std::to_string(after ? 1 : 0) + " plafond_ms=" +
+              std::to_string(npc_flicker::clone_hold_ms()));
+    // ... et une NOUVELLE serie repart a zero : un echec transitoire ne doit jamais payer le
+    // budget deja consomme par un echec plus ancien.
+    g_frame += 10;
+    npc_flicker::end_render_frame(g_frame);
+    check(npc_flicker::should_hold_clone(778),
+          "correctif : une serie rompue repart avec un budget neuf", "serie=2");
+  }
+  {
+    // (i) LA POPULATION DE L'OWNER SURVIT AU CHANGEMENT DE SCENE. `is_npc` vient d'un predicat de
+    //     type evalue sur le PROCESS ; pendant une cinematique le modele d'un PNJ est porte par un
+    //     CLONE, qui n'est pas un `process-taskable`. Le meme modele valait donc 1 dans une scene
+    //     et 0 dans la suivante, et le compteur de la porte le perdait EN SILENCE.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 6; i++) {
+      run_frame("porte-i1", {Actor{"mayor-lod0", 900, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    // scene suivante : le MEME modele, porte par un clone que GOAL ne reconnait pas taskable.
+    for (int i = 0; i < 6; i++) {
+      run_frame("porte-i2", {Actor{"mayor-lod0", 901, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 0}});
+    }
+    for (int i = 0; i < 6; i++) {
+      run_frame("porte-i2", {Actor{"mayor-lod0", 901, kNoAnim, true, false, npc_flicker::Outcome::kDrawn, 1, 0, 0}});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    auto t = npc_flicker::totals();
+    check(t.in_fov_dark_frames_npc == 5,
+          "porte : un modele deja reconnu PNJ le reste sous un clone (is_npc=0)",
           "npc_culled_in_frustum=" + std::to_string(t.in_fov_dark_frames_npc));
   }
 

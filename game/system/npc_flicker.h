@@ -143,6 +143,34 @@ void end_census();
 // chaque frontiere de partie — 22 pour `sage-intro-sequence-a`, 16 pour `mayor-introduction`.
 void note_clone_remap_fail(const char* merc_name);
 
+// LE CORRECTIF, ET SON POINT DE PRODUCTION (2026-09-03).
+// `clone-anim-once` posait `hidden` sur LUI-MEME des que `joint-control-remap!` rendait #f
+// (generic-obs.gc:81). En dessous : une anime de cinematique est STREAMEE ; a chaque frontiere de
+// partie, `ja-play-spooled-anim` appelle `(update *art-control* #f)` (loader.gc:1193-1195), et
+// `unlink-art!` (loader.gc:202-222) remet a #f les slots du groupe d'art MAITRE. Le PILOTE se
+// protege — il attend `(!= (file-status ...) 'active)` (loader.gc:1197-1207) ; la boucle
+// `clone-anim` (generic-obs.gc:89-91) n'a AUCUNE attente equivalente. Le clone ne retrouve donc
+// plus son anime, se masque, et `dma-add-process-drawable` (drawable.gc:448) refuse de soumettre
+// quoi que ce soit : le modele DISPARAIT, puis revient des que le remap repasse. Une frontiere de
+// partie = un clignotement.
+// La correction precedente (45b7140ca7) n'a touche que la suppression du paquet stock cote C++
+// (Merc2, couverture HD). Elle ne pouvait pas tenir : quand le clone est `hidden`, GOAL n'emet
+// AUCUN paquet et il n'y a rien a laisser passer.
+//
+// CE QUE FAIT LE CORRECTIF. Le clone garde la pose de l'image precedente au lieu de disparaitre.
+// C'est gratuit et sur : `draw-bones` (bones.gc:1141-1147) n'inscrit qu'un POINTEUR sur
+// `(-> draw skeleton bones)`, un tableau PERSISTANT (mspace-h.gc:41) que seul `do-joint-math!`
+// ecrit (process-drawable.gc:267). Ne pas l'appeler = la pose de l'image precedente, jamais une
+// pose de bind.
+//
+// BORNE EN TEMPS, PAS EN IMAGES. Un echec TRANSITOIRE (une frontiere de partie) dure une a trois
+// images ; un echec PERMANENT (l'anime n'existe pas dans le groupe du clone) durerait toute la
+// scene, et un modele fige dix secondes serait un autre defaut. Au-dela de `kCloneHoldMs`, on
+// retombe exactement sur l'ancien comportement, et le compteur `npc_clone_hold_expired` le dit.
+// Rend faux quand la feature est DESARMEE : c'est le bras d'ablation du harnais.
+bool should_hold_clone(uint32_t pid);
+int clone_hold_ms();
+
 // LE CORRECTIF DE LA COUVERTURE HD, ET SON OCCASION.
 // `jak-hd.gc` eteignait le compagnon HD des que le pilote portait `no-anim` plus de N images.
 // Or `drawable.gc:446` refuse DEJA de dessiner le stock sous `no-anim` : eteindre le compagnon

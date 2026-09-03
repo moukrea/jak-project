@@ -8,6 +8,7 @@
 #include <mutex>
 #include <sys/stat.h>
 #include <unordered_map>
+#include <unordered_set>
 
 #if defined(__ANDROID__)
 #include <sys/system_properties.h>
@@ -201,6 +202,31 @@ uint64_t g_fov_unevaluated = 0;
 uint64_t g_hd_noanim_cover = 0;
 // Appels de `clone-anim-once` ou le clone n'a pas pu suivre sa source (generic-obs.gc:80).
 uint64_t g_clone_fails = 0;
+
+// LE MAINTIEN DU CLONE — l'etat du correctif, et ses deux compteurs.
+// Voir le pave de `should_hold_clone` dans game/system/npc_flicker.h. Un `pid` par clone en cours
+// de maintien ; la serie se rompt des qu'une image passe sans appel (le remap est repasse, ou le
+// clone est mort).
+constexpr uint64_t kCloneHoldMs = 400;
+struct CloneHold {
+  uint64_t last_frame = 0;
+  uint64_t start_ms = 0;
+};
+std::unordered_map<uint32_t, CloneHold> g_clone_hold;
+// L'OCCASION du correctif : images ou un modele est reste a l'ecran la ou l'ancien code le faisait
+// disparaitre. Sans elle, un zero au compteur de la porte ne dirait pas si le correctif a servi.
+uint64_t g_clone_holds = 0;
+// Et son PLAFOND, publie a cote : un echec PERMANENT (l'anime n'existe pas dans le groupe du
+// clone) retombe sur l'ancien comportement au bout de `kCloneHoldMs`. Une exclusion qui ne se
+// publie pas est un angle mort.
+uint64_t g_clone_hold_expired = 0;
+
+// LA POPULATION DE L'OWNER, RETENUE PAR NOM DE MODELE ET NON PAR PROCESS.
+// `is_npc` vient d'un predicat de TYPE (`process-taskable`) evalue sur le process recense. Or
+// pendant une cinematique le modele d'un PNJ est souvent porte par un CLONE, qui n'est pas un
+// `process-taskable` : le meme modele valait 1 dans une scene et 0 dans la suivante, et le
+// compteur de la porte le perdait en silence. Le nom du modele, lui, ne change pas.
+std::unordered_set<std::string> g_npc_names;
 
 int g_last_defect_reason = -1;
 
@@ -484,6 +510,11 @@ void publish_keys_locked() {
   // ailleurs. C'est la faute exacte des trois cycles precedents.
   autoport_proof::publish("npc_hd_noanim_covered", g_hd_noanim_cover);
   autoport_proof::publish("npc_clone_remap_fails", g_clone_fails);
+  // L'OCCASION DU CORRECTIF ET SON PLAFOND. `holds` = images ou un modele est reste a l'ecran la
+  // ou l'ancien code le faisait disparaitre ; `expired` = series qui ont depasse kCloneHoldMs et
+  // sont retombees sur l'ancien comportement.
+  autoport_proof::publish("npc_clone_hold_frames", g_clone_holds);
+  autoport_proof::publish("npc_clone_hold_expired", g_clone_hold_expired);
   autoport_proof::publish("npc_episodes_dead", g_totals.by_reason[kReasonDead]);
   autoport_proof::publish("npc_episodes_hidden", g_totals.by_reason[kReasonHidden]);
   autoport_proof::publish("npc_episodes_culled", g_totals.by_reason[kReasonCulled]);
@@ -536,6 +567,46 @@ void note_clone_remap_fail(const char* merc_name) {
   }
   g_remap_fail[merc_name] = g_census_frame;
   g_clone_fails++;
+}
+
+int clone_hold_ms() {
+  return (int)kCloneHoldMs;
+}
+
+bool should_hold_clone(uint32_t pid) {
+  // DESARME = ANCIEN COMPORTEMENT. C'est le bras d'ablation du harnais, et il passe par le meme
+  // interrupteur que le reste de l'item : `armed()` ne rend faux que si le harnais a nomme CET
+  // item et pose `armed=0`.
+  if (!autoport_proof::armed()) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  const uint64_t now = now_ms();
+  auto& h = g_clone_hold[pid];
+  // Une serie se poursuit si le clone a deja demande le maintien a l'image precedente. Sinon
+  // c'est une NOUVELLE serie, et son horloge repart : un echec transitoire ne consomme jamais le
+  // budget d'un echec plus ancien.
+  if (h.start_ms == 0 || h.last_frame + 1 < g_render_frame) {
+    h.start_ms = now;
+  }
+  h.last_frame = g_render_frame;
+  if (now - h.start_ms > kCloneHoldMs) {
+    g_clone_hold_expired++;
+    return false;
+  }
+  g_clone_holds++;
+  // La table ne suit que des clones VIVANTS : au-dela d'une poignee d'entrees, celles qui n'ont
+  // rien demande depuis 600 images sont retirees. Un pid mort ne doit pas tenir de memoire.
+  if (g_clone_hold.size() > 64) {
+    for (auto it = g_clone_hold.begin(); it != g_clone_hold.end();) {
+      if (it->first != pid && it->second.last_frame + 600 < g_render_frame) {
+        it = g_clone_hold.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+  return true;
 }
 
 bool reason_is_defect(Reason r) {
@@ -684,6 +755,9 @@ void census_actor(const char* proc_name,
   // Plusieurs instances peuvent porter le meme modele merc ; il suffit qu'UNE soit un PNJ pour
   // que le modele appartienne a la population de l'owner.
   if (is_npc == 1) {
+    g_npc_names.insert(proc_name);
+  }
+  if (!rec.npc && g_npc_names.count(proc_name) != 0) {
     rec.npc = true;
   }
   if (rec.frame_stamp != g_census_frame) {
@@ -981,6 +1055,10 @@ void reset_for_test() {
   g_fov_unevaluated = 0;
   g_hd_noanim_cover = 0;
   g_clone_fails = 0;
+  g_clone_hold.clear();
+  g_clone_holds = 0;
+  g_clone_hold_expired = 0;
+  g_npc_names.clear();
   for (int i = 0; i < 4; i++) {
     g_skew[i] = 0;
   }

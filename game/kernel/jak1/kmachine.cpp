@@ -789,6 +789,14 @@ void pc_npc_clone_fail(u32 merc_name) {
   npc_flicker::note_clone_remap_fail(merc_name ? Ptr<String>(merc_name).c()->data() : nullptr);
 }
 
+// LE CORRECTIF, LU PAR `clone-anim-once`. Rend 1 quand le clone doit GARDER la pose de l'image
+// precedente au lieu de se masquer, 0 quand il doit retomber sur l'ancien comportement (jamais
+// dessine encore, serie de maintien plus longue que le plafond, ou feature desarmee par le
+// harnais). Voir le pave de `should_hold_clone` dans game/system/npc_flicker.h.
+s32 pc_npcf_clone_hold(s32 pid) {
+  return npc_flicker::should_hold_clone((u32)pid) ? 1 : 0;
+}
+
 // Gcutscene-npc-flicker-2 (cycle 3) — L'ETAT VIVANT DU RECENSEMENT, POUR L'ECRAN DE L'OWNER.
 // Rend un entier compose, lu par draw-pc-fps-counter (pc/pckernel.gc) pendant une cinematique :
 //   bit 0        une cinematique est recensee
@@ -4756,6 +4764,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-npc-census-end", (void*)pc_npc_census_end);
   make_function_symbol_from_c("__pc-npc-census-live", (void*)pc_npc_census_live);
   make_function_symbol_from_c("__pc-npc-clone-fail", (void*)pc_npc_clone_fail);
+  make_function_symbol_from_c("__pc-npcf-clone-hold?", (void*)pc_npcf_clone_hold);
   make_function_symbol_from_c("__pc-autoport-frame", (void*)pc_autoport_frame);
   make_function_symbol_from_c("__pc-npcf-fix-armed?", (void*)pc_npcf_fix_armed);
   make_function_symbol_from_c("__pc-npcf-note-cover", (void*)pc_npcf_note_cover);

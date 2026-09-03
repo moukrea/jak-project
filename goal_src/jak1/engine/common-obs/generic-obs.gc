@@ -78,8 +78,35 @@
         (#when PC_PORT
           (if (and (nonzero? (-> self draw)) (nonzero? (-> self draw mgeo)))
             (__pc-npc-clone-fail (-> self draw mgeo name))))
-        (logior! (-> self draw status) (draw-status hidden))
-        (ja-post))))
+        ;; LE CORRECTIF (owner 2026-09-03, « c'est toujours pete »), ET IL EST ICI PARCE QUE C'EST
+        ;; ICI QUE LE MODELE DISPARAIT.
+        ;; L'ancien code posait `hidden` inconditionnellement. `dma-add-process-drawable`
+        ;; (draw/drawable.gc:448) refuse alors de soumettre quoi que ce soit, et `jak-hd.gc:2807`
+        ;; recopie le bit sur le compagnon HD : les DEUX modeles s'eteignent. Une frontiere de
+        ;; partie d'anime streamee = un clignotement, et la correction precedente (45b7140ca7)
+        ;; ne pouvait pas tenir parce qu'elle agissait cote rendu, sur un paquet que GOAL n'emet
+        ;; plus.
+        ;; On garde donc la POSE DE L'IMAGE PRECEDENTE : `draw-bones` (gfx/foreground/bones.gc:1141)
+        ;; n'inscrit qu'un pointeur sur `(-> self draw skeleton bones)`, tableau PERSISTANT
+        ;; (anim/mspace-h.gc:41) que seul `do-joint-math!` ecrit (process-drawable.gc:267). Ne pas
+        ;; l'appeler, c'est reafficher exactement ce qui etait a l'ecran — jamais une pose de bind.
+        ;; DEUX GARDE-FOUS, et ils sont dans le C++ (`should_hold_clone`) :
+        ;;   * `was-drawn` (teste ici) : on ne maintient que ce qui etait DEJA a l'ecran l'image
+        ;;     precedente. Un clone jamais dessine n'a pas de pose a garder, et il se masque
+        ;;     comme avant ;
+        ;;   * un plafond en TEMPS : au-dela de 400 ms de maintien consecutif, on retombe sur
+        ;;     l'ancien comportement. Un echec transitoire (frontiere de partie) est couvert ;
+        ;;     un echec permanent ne laisse pas un modele fige dix secondes.
+        (cond
+          ((#if PC_PORT
+             (and (logtest? (-> self draw status) (draw-status was-drawn))
+                  (nonzero? (__pc-npcf-clone-hold? (the-as int (-> self pid)))))
+             #f)
+           ;; rien : ni masquage, ni calcul d'os. La pose de l'image precedente reste a l'ecran.
+           0)
+          (else
+            (logior! (-> self draw status) (draw-status hidden))
+            (ja-post))))))
   (if (>= arg1 0) (vector<-cspace! (-> self draw origin) (-> self node-list data arg1)))
   0
   (none))

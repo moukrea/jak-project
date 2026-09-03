@@ -478,6 +478,10 @@
 ;; (generic-obs.gc). Sans cette declaration du PRODUCTEUR, ce masquage et un masquage voulu par le
 ;; jeu portent le meme bit `hidden` et sont indistinguables.
 (define-extern __pc-npc-clone-fail (function string none))
+;; LE CORRECTIF DU CLIGNOTEMENT, cote GOAL. 1 = le clone garde la pose de l'image precedente au
+;; lieu de se masquer (game/system/npc_flicker.h, `should_hold_clone`) ; 0 = ancien comportement.
+;; ENTIER, pas un symbole : la veracite d'un symbole GOAL est un piege connu du depot.
+(define-extern __pc-npcf-clone-hold? (function int int))
 ;; Gloading-screen : cadence REELLE de l'ecran de chargement (horloge murale cote C++) et
 ;; decoupage du travail que le thread GOAL fait pendant un chargement A FROID.
 (define-extern __pc-loading-screen-tick (function int none))
