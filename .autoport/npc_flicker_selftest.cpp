@@ -13,6 +13,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -585,6 +586,45 @@ int main() {
     check(t.cycles == 0 && t.by_reason[npc_flicker::kReasonGarbage] == 0 && t.blinks <= 1,
           "une seule image invalide : au plus un blink, jamais un cycle",
           "cycles=" + std::to_string(t.cycles) + " blinks=" + std::to_string(t.blinks));
+  }
+
+  // 23. DANS LE FRUSTUM ET ECARTE DU RENDU, PAR IMAGE (porte du superviseur 2026-09-03 03:05).
+  //     Positif : 2 images ou la racine est dans le champ, statut 0 (ni hidden ni no-anim, pas de
+  //     was-drawn) -> dans_frustum_et_culled=2, sous le seuil d'episode (blink) mais COMPTE.
+  //     Negatif : les memes 2 images avec la racine HORS du champ -> 0. Et hidden dans le champ
+  //     ne compte pas : c'est une decision du jeu, pas un ecartement.
+  {
+    auto run_case = [&](int fov, uint32_t status) -> npc_flicker::Totals {
+      npc_flicker::reset_for_test();
+      g_frame = 0;
+      for (int i = 0; i < 10; i++) {
+        run_frame("scene-F", {shown("mayor-lod0", 1200)});
+      }
+      for (int i = 0; i < 2; i++) {
+        Actor a{"mayor-lod0", 1200, status, true, false};
+        a.in_fov = fov;
+        run_frame("scene-F", {a});
+      }
+      for (int i = 0; i < 10; i++) {
+        run_frame("scene-F", {shown("mayor-lod0", 1200)});
+      }
+      npc_flicker::begin_census("hors-cinematique");
+      return npc_flicker::totals();
+    };
+    auto pos = run_case(1, 0u);
+    auto neg = run_case(0, 0u);
+    auto hid = run_case(1, kHidden);
+    check(pos.in_fov_culled_frames == 2 && pos.in_fov_frames == 2 && pos.cycles == 0,
+          "dans le champ + was-drawn=0, 2 images : dans_frustum_et_culled=2 (sous le seuil, compte)",
+          "dans_frustum_et_culled=" + std::to_string(pos.in_fov_culled_frames) +
+              " images_dans_frustum=" + std::to_string(pos.in_fov_frames));
+    check(neg.in_fov_culled_frames == 0 && neg.in_fov_frames == 0,
+          "hors du champ + was-drawn=0 : dans_frustum_et_culled=0",
+          "dans_frustum_et_culled=" + std::to_string(neg.in_fov_culled_frames));
+    check(hid.in_fov_culled_frames == 0 && hid.in_fov_frames == 2,
+          "hidden dans le champ : compte dans le champ, pas comme ecarte",
+          "dans_frustum_et_culled=" + std::to_string(hid.in_fov_culled_frames) +
+              " images_dans_frustum=" + std::to_string(hid.in_fov_frames));
   }
 
   // 22. LA PLATEFORME EST PUBLIEE PAR LE CODE, pas par l'analyseur : sur ce bureau elle vaut

@@ -18,6 +18,8 @@ if not re.search(r'^NPC(FLICK|OK) .*plateforme=redmi',t,re.M):
     F("aucune mesure SUR L'APPAREIL : la porte du 02/09 s'est ouverte sur une preuve PC pendant que l'owner voyait le defaut — preuve Redmi exigee, modeles HD installes")
 if not re.search(r'(?i)^NPCFLICK .*scene=\S*mayor\S* .*pnj=mayor',t,re.M):
     F("le MAIRE lui-meme n'est pas suivi dans sa propre cinematique (les lignes precedentes listaient Daxter, la lampe et les engrenages)")
+if not re.search(r'^NPCCULL .*dans_frustum_et_culled=0\b',t,re.M):
+    F("NPCCULL : le maire portait culled=1 dans sa scene avec cycles=0 — un PNJ ecarte du rendu PENDANT qu'il est dans le champ EST un clignotement, pas une exclusion justifiee ; attendu 0 sur l'appareil")
 if not re.search(r'(?i)^NPC(FLICK|OK) .*(maire|mayor)',t,re.M):
     F("la premiere cinematique du MAIRE n'est pas couverte — c'est le pire cas nomme par l'owner, une preuve sans elle est refusee")
 if int(ok[0].get('cycles',1))!=0: F(f"{ok[0]['cycles']} clignotement(s) subsistent")

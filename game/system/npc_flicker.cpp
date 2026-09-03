@@ -121,6 +121,12 @@ struct ActorRec {
   uint64_t gap_start_ms = 0;
   uint64_t max_gap_ms = 0;
   uint64_t max_instances = 0;
+  // Cycle 3, porte du superviseur (03:05) : « un PNJ ecarte du rendu PENDANT qu'il est dans le
+  // champ EST un clignotement ». Compte PAR IMAGE, pas par episode : `cull_aveugle` ne compte
+  // que les episodes >= kMinEpisodeFrames, celui-ci compte chaque image ou la racine est dans le
+  // frustum, l'acteur n'est ni hidden ni no-anim, et `was-drawn` est a 0 quand meme.
+  uint64_t in_fov_frames = 0;
+  uint64_t in_fov_culled_frames = 0;
 
   // etat de l'image en cours (rempli par census_actor, consomme par end_census). Plusieurs
   // acteurs peuvent partager un meme modele merc : on les FUSIONNE sur « au moins un est
@@ -359,7 +365,12 @@ void flush_scene() {
         r.frames,
         r.shown,
         r.max_instances, platform_tag());
+    emit("NPCCULL scene={} pnj={} dans_frustum_et_culled={} images_dans_frustum={} images={} "
+         "plateforme={}\n",
+         g_scene, kv.first, r.in_fov_culled_frames, r.in_fov_frames, r.frames, platform_tag());
     g_totals.cycles += r.cycles;
+    g_totals.in_fov_frames += r.in_fov_frames;
+    g_totals.in_fov_culled_frames += r.in_fov_culled_frames;
     g_totals.coupes += r.coupes;
     g_totals.longues += r.longues;
     g_totals.blinks += r.blinks;
@@ -593,6 +604,12 @@ void end_census() {
   for (auto& kv : g_actors) {
     ActorRec& rec = kv.second;
     const bool in_tree = (rec.frame_stamp == g_census_frame);
+    if (in_tree && rec.frame_in_fov == 1) {
+      rec.in_fov_frames++;
+      if (!(rec.frame_status & 0x8) && !(rec.frame_status & 0x2) && !(rec.frame_status & 0x4)) {
+        rec.in_fov_culled_frames++;
+      }
+    }
     if (in_tree && rec.frame_drawn) {
       close_gap(kv.first, rec);
       rec.ever_shown = true;

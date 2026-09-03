@@ -114,6 +114,11 @@ void census_actor(const char* proc_name,
 
 void end_census();
 
+// Cycle 3 : a la fin de chaque scene, une ligne `NPCCULL scene= pnj= dans_frustum_et_culled=N
+// images_dans_frustum=M images= plateforme=` par acteur — N = images ou la racine est DANS le
+// frustum, l'acteur n'est ni hidden ni no-anim, et was-drawn vaut 0 quand meme (ecarte du rendu
+// pendant qu'il est dans le champ). Par IMAGE, pas par episode : un trou d'une image y compte.
+
 // Un CLONE de cinematique (`clone-anim-once`, engine/common-obs/generic-obs.gc) n'a pas pu suivre
 // sa source cette image et s'est pose `hidden` lui-meme. C'est le SEUL moyen de separer ce
 // masquage-la d'un masquage voulu par le jeu : les deux posent le meme bit. Les figurants des
@@ -132,6 +137,9 @@ struct Totals {
   uint64_t blinks = 0;   // episodes de 1 a kMinEpisodeFrames-1 images (publies, non gates)
   uint64_t by_reason[11] = {};  // indexe par Reason
   uint64_t frames = 0;
+  // cycle 3 : sommes des lignes NPCCULL (par image, cf. end_census)
+  uint64_t in_fov_frames = 0;
+  uint64_t in_fov_culled_frames = 0;
 };
 
 // DEUX FAMILLES, ET LA DISTINCTION PORTE LE VERDICT.
