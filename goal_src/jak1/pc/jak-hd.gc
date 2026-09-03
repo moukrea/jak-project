@@ -538,8 +538,29 @@
    (hd-bs      float 128)
    (hd-bp      vector 128 :inline) ;; position de bind (monde du modele) du joint k : [bp,1].tmat = W.t.cam
    (hd-mtxarea pointer)      ;; matrix-area de CETTE image (pose par hd-draw-check), 0 = pas dessine
-   (hd-drawdev int32))       ;; os deplaces entre le :post et draw-bones a cette image
+   (hd-drawdev int32)        ;; os deplaces entre le :post et draw-bones a cette image
+   ;; cycle 7 (owner 2026-09-03 : « le modele entier transpose, voire t-pose ») — SAUT DE RACINE :
+   ;; position de l'os HD de reference RELATIVE a `root trans` du pilote (la position du process,
+   ;; ecrite par la logique de l'acteur, jamais par notre chaine de peau), d'une image a l'autre.
+   (rj-k       int32)        ;; joint HD de reference (0 = pas encore choisi, -1 = aucun)
+   (rj-valid   int32)        ;; 1 si `rj-last` porte l'image precedente (reciblage consecutif)
+   (rj-last    vector :inline)) ;; os de reference - root trans du pilote, image precedente
   (:states jak-hd-clone))
+
+;; cycle 7 — TABLE DES ANGLES DE BIND, par entree (modele) : cosinus entre la ligne 0 (puis 1) d'un
+;; joint et celle de son parent dans le bind DIRECT, pour le rig HD (hc*) et le rig PILOTE (dc*).
+;; Une pose est « au repos » quand ces cosinus sont ceux du bind ; le t-pose = rig HD au repos
+;; PENDANT que le rig pilote ne l'est pas. Tas GLOBAL (~2,2 Ko par entree), calcule une fois.
+(deftype hd-angtab (structure)
+  ((init int32)
+   (hc0  float 128)
+   (hc1  float 128)
+   (dpar uint8 128)   ;; parent (numero de joint) de chaque joint du rig pilote, 255 = racine
+   (dc0  float 128)
+   (dc1  float 128)))
+(deftype hd-angtabs (structure)
+  ((tab hd-angtab 16 :inline)))
+(define *hd-angtabs* (new 'global 'hd-angtabs))
 
 ;; les chemins d'ecriture d'un os HD, tels que `hd-src` les nomme (un octet par joint et par image)
 (defglobalconstant HD_SRC_NONE   0)  ;; rien ecrit cette image : pose stock (ou image sautee entiere)
@@ -861,7 +882,12 @@
 ;; `debug.opengoal.hd.affine_arm`) pour l'ablation sur le meme APK ; les OCCASIONS (matrices
 ;; pilotes non affines rencontrees) sont comptees des deux cotes.
 ;; ------------------------------------------------------------------------------------------------
-(define *hd-affine-arm* 1)
+;; cycle 7 : 2 = NORMALISATION PROJECTIVE (division de toute la matrice par w3, comme ND le fait
+;; lui-meme dans `cspace<-cspace+quaternion!`, sidekick.gc:41-43) ; 1 = l'ancien correctif (colonne
+;; w forcee SANS division : xyz reste a s.t, le modele entier se deplace de (1-s).|t| — le symptome
+;; de l'owner du 03/09) ; 0 = rien. La SOURCE du w (somme des poids de melange, joint.gc
+;; finalize-frame!) est normalisee a la production quand cette valeur vaut 2.
+(define *hd-affine-arm* 2)
 (define *hd-w-occ*    0)   ;; matrices pilotes NON AFFINES lues par le reciblage (occasions, les deux bras)
 (define *hd-w-imgs*   0)   ;; images (par compagnon) avec au moins une telle lecture
 (define *hd-w-worst*  0.0) ;; pire |w| parasite vu (lignes 0-2 : |w| ; ligne 3 : |w - 1|)
@@ -887,11 +913,47 @@
                   (-> src vector 0 w) (-> src vector 1 w) (-> src vector 2 w) (-> src vector 3 w)
                   *hd-affine-arm*)))))
   (when (nonzero? *hd-affine-arm*)
+    ;; cycle 7 : la ligne 3 est HOMOGENE (s.t, s) — la vraie translation est t = (s.t)/s. Diviser
+    ;; TOUTE la matrice par w3 (lignes de base a l'echelle s elles aussi) avant de forcer la colonne.
+    (when (>= *hd-affine-arm* 2)
+      (let ((w3 (-> src vector 3 w)))
+        (when (and (> w3 0.25) (< w3 4.0) (> (fabs (- w3 1.0)) 0.0000001))
+          (let ((inv (/ 1.0 w3)))
+            (dotimes (i 16)
+              (set! (-> dst data i) (* inv (-> dst data i))))))))
     (set! (-> dst vector 0 w) 0.0)
     (set! (-> dst vector 1 w) 0.0)
     (set! (-> dst vector 2 w) 0.0)
     (set! (-> dst vector 3 w) 1.0))
   (none))
+
+;; cycle 7 — compteurs du SAUT DE RACINE et du T-POSE (voir hd-root-scan!)
+(defglobalconstant HD_ROOT_JUMP 8192.0)   ;; 2 m : un os ne change pas de 2 m par rapport a la racine en une image
+(defconstant HD_TPOSE_DCOS 0.02)          ;; ecart de cosinus au bind au-dela duquel un joint est « pose »
+(define *hd-rj-frames*   0)   ;; images jugees (deux reciblages consecutifs sur le meme compagnon)
+(define *hd-rj-jumps*    0)   ;; images ou l'os de reference a saute de > 2 m par rapport a root trans
+(define *hd-rj-nan*      0)   ;; images ou l'ecart etait non fini
+(define *hd-rj-worst*    0.0) ;; pire saut (unites)
+(define *hd-rj-worstok*  0.0) ;; pire saut SOUS le seuil (la marge de l'instrument)
+(define *hd-rj-offmax*   0.0) ;; pire |os de reference - root trans| (unites)
+(define *hd-rj-logs*     0)
+(define *hd-rj-skip*     0)   ;; images NON jugees : ecran-titre / pas de joueur (root trans n'y suit pas
+                              ;; le squelette : mesure x86 c7smoke, 15,2 m d'ecart pendant eichar-ndi-intro)
+(define *hd-tp-frames*   0)   ;; images jugees (>= 8 joints de chaque rig)
+(define *hd-tp-count*    0)   ;; images en T-POSE : rig HD au repos (< 15 % de joints poses) pendant que le pilote est pose (> 30 %)
+(define *hd-tp-hdmin*    100) ;; plus petite part (%) de joints HD poses vue
+(define *hd-tp-hdmax*    0)
+(define *hd-tp-pmin*     100) ;; plus petite part (%) de joints PILOTE poses vue
+(define *hd-tp-pmax*     0)
+(define *hd-tp-logs*     0)
+
+(defun hd-row-cos ((a vector) (b vector))
+  "Cosinus de l'angle entre deux lignes (xyz) ; 2.0 si l'une est nulle (sentinelle > 1)."
+  (let ((la (vector-length a))
+        (lb (vector-length b)))
+    (if (and (> la 0.000001) (> lb 0.000001) (< la HD_FAR_SANE) (< lb HD_FAR_SANE))
+      (/ (vector-dot a b) (* la lb))
+      2.0)))
 
 (defun hd-drv-scale-sane? ((a matrix) (binv matrix))
   "Vrai si chaque ligne de base de l'os pilote `a` a une longueur entre 1/4 et 4 fois son
@@ -1273,7 +1335,22 @@
           (when (> *hd-w-cur* 0) (+! *hd-w-imgs* 1))
           (when (nonzero? *hd-stretch-inject*)
             (+! *hd-inject-tick* 1)
-            (when (= (mod *hd-inject-tick* 300) 0)
+            (when (and (= (mod *hd-inject-tick* 300) 0) (= *hd-stretch-inject* 2))
+              ;; cycle 7, CONTROLE POSITIF DES DEUX DETECTEURS : la POSE DE BIND (rig HD, espace du
+              ;; modele, donc a l'ORIGINE DU MONDE) est ecrite sur tous les os HD non racines pour
+              ;; UNE image. Le saut de racine (5 km) ET le t-pose (rig HD au repos, pilote pose)
+              ;; doivent compter cette image, sinon leur zero ne vaut rien.
+              (let ((n 0))
+                (dotimes (k (-> obj hd-joints))
+                  (when (and (< (+ k 1) nbones) (< k 128) (!= (the int (-> khd-par k)) #xff))
+                    (matrix-4x4-inverse! (the-as matrix (-> skel bones (+ k 1) transform))
+                                         (-> hd-jgeo data k bind-pose))
+                    (set! (-> obj hd-src k) (the-as uint HD_SRC_INJECT))
+                    (+! n 1)))
+                (+! *hd-inject-shots* 1)
+                (format 0 "HDINJECT entry=~D k=-1 tick=~D shots=~D bind_joints=~D~%"
+                        (-> obj entry) *hd-inject-tick* *hd-inject-shots* n)))
+            (when (and (= (mod *hd-inject-tick* 300) 0) (!= *hd-stretch-inject* 2))
               (let ((done #f))
                 (dotimes (k (-> obj hd-joints))
                   (when (and (not done) (>= k 2) (< (+ k 1) nbones) (< k 128)
@@ -1534,6 +1611,27 @@
   (set! *hd-w-imgs* 0)
   (set! *hd-w-worst* 0.0)
   (set! *hd-w-logs* 0)
+  (set! *hd-rj-frames* 0)
+  (set! *hd-rj-jumps* 0)
+  (set! *hd-rj-nan* 0)
+  (set! *hd-rj-worst* 0.0)
+  (set! *hd-rj-worstok* 0.0)
+  (set! *hd-rj-offmax* 0.0)
+  (set! *hd-rj-logs* 0)
+  (set! *hd-rj-skip* 0)
+  (set! *hd-tp-frames* 0)
+  (set! *hd-tp-count* 0)
+  (set! *hd-tp-hdmin* 100)
+  (set! *hd-tp-hdmax* 0)
+  (set! *hd-tp-pmin* 100)
+  (set! *hd-tp-pmax* 0)
+  (set! *hd-tp-logs* 0)
+  (set! *anim-mtx-norm-calls* 0)
+  (set! *anim-mtx-norm-occ* 0)
+  (set! *anim-mtx-norm-imgs* 0)
+  (set! *anim-mtx-norm-zero* 0)
+  (set! *anim-mtx-norm-worst* 0.0)
+  (set! *anim-mtx-norm-logs* 0)
   (set! *hd-moves-dist* 0.0)
   (set! *hd-moves-frames* 0)
   (set! *hd-moves-ticks* 0)
@@ -1996,6 +2094,186 @@
 ;; (Merc2.cpp, HDSKINLEN/HDLENEV, rig enregistre par `pc-hd-skel-joint!`). Les deux comptes sont
 ;; publies ; un ecart entre eux localise le defaut entre l'ecriture et le rendu.
 ;; ------------------------------------------------------------------------------------------------
+;; ------------------------------------------------------------------------------------------------
+;; cycle 7 — LE T-POSE ET LE SAUT DE RACINE, comptes par le code (owner 2026-09-03 : « le modele
+;; qui (en glitch) est transpose visuellement dans la direction ou l'etirement se faisait, voire
+;; t-pose dans cette direction »).
+;;   SAUT DE RACINE : l'os HD de reference (premier joint non racine recible en mode 0) moins
+;;   `root trans` du PILOTE — une grandeur ecrite par la logique de l'acteur, jamais par notre
+;;   chaine de peau — d'une image a la suivante. Une animation deplace un os de quelques dizaines
+;;   de cm par image par rapport a la racine ; le defaut le deplace de (1-s) x |position| (9 m a
+;;   citadel). Seuil 2 m, la marge de l'instrument (pire saut SOUS le seuil) est publiee a cote.
+;;   T-POSE : part des joints dont les cosinus (ligne 0, ligne 1) avec le parent sont ceux du bind
+;;   (a 0,02 pres). Rig HD < 15 % de joints poses PENDANT que le rig pilote en a > 30 % = image en
+;;   t-pose. Les deux parts (min/max) sont publiees : c'est la dynamique de l'instrument.
+;; ------------------------------------------------------------------------------------------------
+(defun hd-angtab-init! ((obj jak-hd) (drv process-drawable))
+  (let ((ent (-> obj entry)))
+    (when (and (>= ent 0) (< ent 16) (zero? (-> *hd-angtabs* tab ent init))
+               (nonzero? (-> obj draw)) (nonzero? (-> obj draw jgeo))
+               (nonzero? (-> drv draw)) (nonzero? (-> drv draw jgeo)) (nonzero? (-> drv draw skeleton)))
+      (let ((tab (-> *hd-angtabs* tab ent))
+            (binv (new-stack-matrix0))
+            (pinv (new-stack-matrix0))
+            (nj (-> obj hd-joints))
+            (khd-par (-> obj khd-par))
+            (nd (- (-> drv draw skeleton length) 1)))
+        (if (> nj 128) (set! nj 128))
+        (if (> nd 128) (set! nd 128))
+        (dotimes (k 128)
+          (set! (-> tab hc0 k) 2.0) (set! (-> tab hc1 k) 2.0)
+          (set! (-> tab dc0 k) 2.0) (set! (-> tab dc1 k) 2.0)
+          (set! (-> tab dpar k) (the-as uint 255)))
+        (dotimes (k nj)
+          (let ((p (the int (-> khd-par k))))
+            (when (and (!= p #xff) (< p nj))
+              (matrix-4x4-inverse! binv (-> obj draw jgeo data k bind-pose))
+              (matrix-4x4-inverse! pinv (-> obj draw jgeo data p bind-pose))
+              (set! (-> tab hc0 k) (hd-row-cos (-> binv vector 0) (-> pinv vector 0)))
+              (set! (-> tab hc1 k) (hd-row-cos (-> binv vector 1) (-> pinv vector 1))))))
+        (let ((jg (-> drv draw jgeo)))
+          (dotimes (e nd)
+            (let ((pj (-> jg data e parent)))
+              (when pj
+                (let ((pn (-> pj number)))
+                  (when (and (>= pn 0) (< pn nd) (!= pn e))
+                    (set! (-> tab dpar e) (the-as uint pn))
+                    (matrix-4x4-inverse! binv (-> jg data e bind-pose))
+                    (matrix-4x4-inverse! pinv (-> jg data pn bind-pose))
+                    (set! (-> tab dc0 e) (hd-row-cos (-> binv vector 0) (-> pinv vector 0)))
+                    (set! (-> tab dc1 e) (hd-row-cos (-> binv vector 1) (-> pinv vector 1)))))))))
+        (set! (-> tab init) 1)
+        (format 0 "HDANGTAB entry=~D hd=~D pilote=~D~%" ent nj nd))))
+  (none))
+
+(defun hd-root-scan! ((obj jak-hd))
+  (let ((drv (the-as process-drawable (handle->process (-> obj driver)))))
+    (cond
+      ((not (and drv (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton)) (nonzero? (-> obj draw jgeo))
+                 (nonzero? (-> drv draw)) (nonzero? (-> drv draw skeleton))
+                 (zero? (-> obj hd-skipped)) (nonzero? (-> obj st-warm))))
+       ;; pas de reciblage cette image : la paire d'images consecutives est rompue
+       (set! (-> obj rj-valid) 0))
+      (else
+       (let* ((skel    (-> obj draw skeleton))
+              (nbones  (-> skel length))
+              (tskel   (-> drv draw skeleton))
+              (tbones  (-> tskel length))
+              (nj      (-> obj hd-joints))
+              (khd-par (-> obj khd-par))
+              (k2e     (-> obj k2e))
+              (kmode   (-> obj kmode))
+              (ent     (-> obj entry))
+              (fg      (if (-> drv skel) (-> drv skel root-channel 0 frame-group) (the-as art-joint-anim #f)))
+              (st      (if (and *target* (-> *target* state)) (-> *target* state name) (the symbol #f))))
+         (if (> nj 128) (set! nj 128))
+         ;; --- l'os de reference, choisi une fois : premier joint non racine, mode 0, pilote mappe
+         (when (zero? (-> obj rj-k))
+           (set! (-> obj rj-k) -1)
+           (dotimes (k nj)
+             (when (and (< (-> obj rj-k) 0) (> k 0)
+                        (!= (the int (-> khd-par k)) #xff)
+                        (zero? (the int (-> kmode k)))
+                        (!= (the int (-> k2e k)) #xff)
+                        (< (+ (the int (-> k2e k)) 1) tbones)
+                        (< (+ k 1) nbones))
+               (set! (-> obj rj-k) k))))
+         ;; --- SAUT DE RACINE. Juge seulement EN JEU : a l'ecran-titre (eichar-ndi-intro) et sans
+         ;; joueur, `root trans` ne suit pas le squelette (le mouvement vient de l'align) — mesure
+         ;; x86 c7smoke : 15,2 m d'ecart, sauts de 2,5 m — ce n'est pas le defaut, c'est la reference
+         ;; qui n'y vaut rien. Ces images sont COMPTEES a part (`rjskip`), jamais tues.
+         (cond
+           ((or (not st) (= st 'target-title))
+            (+! *hd-rj-skip* 1)
+            (set! (-> obj rj-valid) 0))
+           ((> (-> obj rj-k) 0)
+           (let* ((k   (-> obj rj-k))
+                  (e   (the int (-> k2e k)))
+                  (bp  (-> skel bones (+ k 1) transform vector 3))
+                  (tp  (-> drv root trans))
+                  (off (new-stack-vector0)))
+             (set! (-> off x) (- (-> bp x) (-> tp x)))
+             (set! (-> off y) (- (-> bp y) (-> tp y)))
+             (set! (-> off z) (- (-> bp z) (-> tp z)))
+             (set! (-> off w) 1.0)
+             (let ((ol (vector-length off)))
+               (when (and (< ol HD_FAR_SANE) (> ol *hd-rj-offmax*)) (set! *hd-rj-offmax* ol))
+               ;; reference SAINE : un os d'un personnage n'est jamais a plus de 20 m de son process.
+               ;; Au-dela (chargement : squelette au point d'arrivee, root trans pas encore suivi —
+               ;; 3 708 m mesures sur x86 c7smoke), l'image n'est pas jugee et la paire est rompue.
+               (when (not (and (< ol 81920.0) (>= ol 0.0)))
+                 (+! *hd-rj-skip* 1)
+                 (set! (-> obj rj-valid) 2)))
+             (when (= (-> obj rj-valid) 1)
+               (+! *hd-rj-frames* 1)
+               (let ((jump (vector-vector-distance off (-> obj rj-last))))
+                 (cond
+                   ((not (and (< jump HD_FAR_SANE) (>= jump 0.0)))
+                    (+! *hd-rj-nan* 1))
+                   ((> jump HD_ROOT_JUMP)
+                    (+! *hd-rj-jumps* 1)
+                    (if (> jump *hd-rj-worst*) (set! *hd-rj-worst* jump))
+                    (when (< *hd-rj-logs* 40)
+                      (+! *hd-rj-logs* 1)
+                      (format 0 "HDRJEV entry=~D k=~D e=~D saut_m=~f ecart_trans_m=~f arme=~D~%"
+                              ent k e (/ jump 4096.0) (/ (vector-length off) 4096.0) *hd-affine-arm*)
+                      (format 0 "HDRJEV2 w3_pilote=~f src=~D anim=~S st=~S normarme=~D~%"
+                              (-> tskel bones (+ e 1) transform vector 3 w)
+                              (if (< k 128) (the int (-> obj hd-src k)) -1)
+                              (if fg (-> fg name) "none") st *anim-mtx-norm-arm*)))
+                   (else
+                    (if (> jump *hd-rj-worstok*) (set! *hd-rj-worstok* jump))))))
+             (vector-copy! (-> obj rj-last) off)
+             (set! (-> obj rj-valid) (if (= (-> obj rj-valid) 2) 0 1)))))
+         ;; --- T-POSE
+         (when (and (>= ent 0) (< ent 16) (nonzero? (-> *hd-angtabs* tab ent init)))
+           (let ((tab (-> *hd-angtabs* tab ent))
+                 (hn 0) (hdv 0) (dn 0) (ddv 0))
+             (dotimes (k nj)
+               (let ((p (the int (-> khd-par k))))
+                 (when (and (!= p #xff) (< p nj) (< (+ k 1) nbones) (< (+ p 1) nbones)
+                            (< (-> tab hc0 k) 1.5) (< (-> tab hc1 k) 1.5))
+                   (let ((c0 (hd-row-cos (-> skel bones (+ k 1) transform vector 0)
+                                         (-> skel bones (+ p 1) transform vector 0)))
+                         (c1 (hd-row-cos (-> skel bones (+ k 1) transform vector 1)
+                                         (-> skel bones (+ p 1) transform vector 1))))
+                     (when (and (< c0 1.5) (< c1 1.5))
+                       (+! hn 1)
+                       (if (or (> (fabs (- c0 (-> tab hc0 k))) HD_TPOSE_DCOS)
+                               (> (fabs (- c1 (-> tab hc1 k))) HD_TPOSE_DCOS))
+                         (+! hdv 1)))))))
+             (dotimes (e (- tbones 1))
+               (when (< e 128)
+                 (let ((pn (the int (-> tab dpar e))))
+                   (when (and (!= pn #xff) (< (+ pn 1) tbones) (< (+ e 1) tbones)
+                              (< (-> tab dc0 e) 1.5) (< (-> tab dc1 e) 1.5))
+                     (let ((c0 (hd-row-cos (-> tskel bones (+ e 1) transform vector 0)
+                                           (-> tskel bones (+ pn 1) transform vector 0)))
+                           (c1 (hd-row-cos (-> tskel bones (+ e 1) transform vector 1)
+                                           (-> tskel bones (+ pn 1) transform vector 1))))
+                       (when (and (< c0 1.5) (< c1 1.5))
+                         (+! dn 1)
+                         (if (or (> (fabs (- c0 (-> tab dc0 e))) HD_TPOSE_DCOS)
+                                 (> (fabs (- c1 (-> tab dc1 e))) HD_TPOSE_DCOS))
+                           (+! ddv 1))))))))
+             (when (and (>= hn 8) (>= dn 8))
+               (+! *hd-tp-frames* 1)
+               (let ((hf (/ (* 100 hdv) hn))
+                     (df (/ (* 100 ddv) dn)))
+                 (if (< hf *hd-tp-hdmin*) (set! *hd-tp-hdmin* hf))
+                 (if (> hf *hd-tp-hdmax*) (set! *hd-tp-hdmax* hf))
+                 (if (< df *hd-tp-pmin*) (set! *hd-tp-pmin* df))
+                 (if (> df *hd-tp-pmax*) (set! *hd-tp-pmax* df))
+                 (when (and (< hf 15) (> df 30))
+                   (+! *hd-tp-count* 1)
+                   (when (< *hd-tp-logs* 40)
+                     (+! *hd-tp-logs* 1)
+                     (format 0 "HDTPEV entry=~D hd_poses=~D/~D pilote_poses=~D/~D arme=~D~%"
+                             ent hdv hn ddv dn *hd-affine-arm*)
+                     (format 0 "HDTPEV2 anim=~S st=~S inject=~D~%"
+                             (if fg (-> fg name) "none") st *hd-stretch-inject*)))))))))))
+  (none))
+
 (defun hd-len-scan! ((obj jak-hd))
   (let ((drv (the-as process-drawable (handle->process (-> obj driver)))))
     (when (and *hd-stretch-arm* drv
@@ -2036,6 +2314,8 @@
                                    (the int (* 64.0 (-> binv vector 3 y)))
                                    (the int (* 64.0 (-> binv vector 3 z))))))
             (format 0 "HDLENRIG entry=~D pid=~D joints=~D~%" (-> obj entry) (-> obj pid) nj))
+          ;; cycle 7 : la table des angles de bind des deux rigs (t-pose), une fois par entree
+          (hd-angtab-init! obj drv)
           ;; l'anneau : adresses enregistrees une fois par session, emplacement = entree du compagnon
           (when (zero? *hd-ring-registered*)
             (set! *hd-ring-registered* 1)
@@ -2257,6 +2537,8 @@
   ;; cycle 6 : la longueur d'os se mesure sur le squelette FINAL — apres le reciblage, le filet
   ;; ET la physique (sixieme ecrivain d'os HD) — c'est-a-dire ce que `draw-bones` va consommer.
   (hd-len-scan! obj)
+  ;; cycle 7 : le saut de racine et le t-pose, sur le meme squelette FINAL
+  (hd-root-scan! obj)
   (none))
 
 ;; the driver's mesh needs NO restore: it is never hidden GOAL-side. Merc2 suppresses the driver's
@@ -2833,7 +3115,23 @@
         ;; LA CAUSE : matrices pilotes NON AFFINES lues par le reciblage (occasions, les deux
         ;; bras) et le pire w parasite ; `affarme` dit si le correctif etait en place.
         (format 0 "HDLEN7 wocc=~D wimgs=~D pire_w=~f affarme=~D~%"
-                *hd-w-occ* *hd-w-imgs* *hd-w-worst* *hd-affine-arm*))))
+                *hd-w-occ* *hd-w-imgs* *hd-w-worst* *hd-affine-arm*)
+        ;; cycle 7 — LE SAUT DE RACINE (`rjsauts` images ou l'os de reference a saute de > 2 m par
+        ;; rapport a root trans du pilote, `rjimgs` le denominateur, `pire_saut_ok_m` la marge),
+        ;; LE T-POSE (`tpose` images, avec la dynamique des deux rigs) et LA NORMALISATION A LA
+        ;; PRODUCTION (joint.gc : `normocc` matrices d'image non affines rencontrees, `normzero`
+        ;; non normalisables, `pire_w_prod` le pire |w3 - 1|, `normarme` l'etat du correctif).
+        (format 0 "HDLEN8 rjimgs=~D rjsauts=~D pire_saut_m=~f pire_saut_ok_m=~f ecart_trans_max_m=~f rjnan=~D~%"
+                *hd-rj-frames* *hd-rj-jumps* (/ *hd-rj-worst* 4096.0) (/ *hd-rj-worstok* 4096.0)
+                (/ *hd-rj-offmax* 4096.0) *hd-rj-nan*)
+        (format 0 "HDLEN9 tpimgs=~D tpose=~D hd_poses_min=~D hd_poses_max=~D pilote_poses_min=~D pilote_poses_max=~D~%"
+                *hd-tp-frames* *hd-tp-count* *hd-tp-hdmin* *hd-tp-hdmax* *hd-tp-pmin* *hd-tp-pmax*)
+        (format 0 "HDLEN10 normocc=~D normimgs=~D normzero=~D pire_w_prod=~f normarme=~D normcalls=~D~%"
+                *anim-mtx-norm-occ* *anim-mtx-norm-imgs* *anim-mtx-norm-zero* *anim-mtx-norm-worst*
+                *anim-mtx-norm-arm* *anim-mtx-norm-calls*)
+        (format 0 "HDLEN11 rjskip_titre_ou_reference=~D~%" *hd-rj-skip*))))
+  ;; cycle 7 : le correctif a la production (joint.gc) suit le meme levier que le consommateur
+  (set! *anim-mtx-norm-arm* (if (>= *hd-affine-arm* 2) 1 0))
   ;; cycle 6 : sondage des entrees d'etat du joueur, une fois par image, sans cap.
   (hd-moves-poll!)
   ;; phase 1: collect.

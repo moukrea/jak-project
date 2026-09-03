@@ -18,6 +18,61 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define *use-new-decompressor* #t)
+;; ------------------------------------------------------------------------------------------------
+;; Ghd-skin-origin-stretch (cycle 7) — NORMALISATION PROJECTIVE DES DEUX MATRICES DE L'IMAGE.
+;; `decomp-fixed` / `decomp-frame` ACCUMULENT `matrices 0/1` (align, prejoint) ponderees par le poids
+;; de chaque requete (`add-scaled-matrix!`, `amount`). `finalize-frame!` normalise les transformq
+;; (trans.w = 1, scale.w = 1, quaternion normalise) mais ne touchait PAS ces deux matrices : leur
+;; ligne 3 porte w = SOMME DES POIDS, et leurs lignes de base sont a la meme echelle. Quand la somme
+;; vaut s != 1 (canal ecarte sous 0,001 par `build-requests!`, melange en cours), la matrice est
+;; HOMOGENE d'echelle s : (s.R, s.t, s). Le chemin STOCK ne le voit pas — la projection divise par
+;; un w proportionnel (merc2.vert, Q = fog / w) et l'echelle s'annule ; ND divise d'ailleurs lui-meme
+;; par w quand il consomme une ligne 3 (`cspace<-cspace+quaternion!`, sidekick.gc:41-43). Tout
+;; consommateur AFFINE (le reciblage HD, `matrix*!` puis lecture de la translation) prend s.t pour
+;; t : forcer w = 1 sans diviser deplace le modele ENTIER de (1 - s) x |t| vers l'origine du monde
+;; (9,2 m a citadel, mesure Redmi dev6-prf2 : rendu (4.62,-2.93,-2.77) contre commande
+;; (-0.02,-0.37,4.78), stock_w = 0.9983). Ici, AU POINT DE PRODUCTION : la matrice accumulee est
+;; divisee par sa propre ligne 3 w (moyenne ponderee = somme / somme des poids), puis rendue
+;; affine. Debrayable (`*anim-mtx-norm-arm*`, recopie de `*hd-affine-arm*` >= 2 par jak-hd.gc)
+;; pour que les deux bras tournent sur le meme APK ; les OCCASIONS sont comptees des deux cotes.
+;; ------------------------------------------------------------------------------------------------
+(define *anim-mtx-norm-arm*   1)   ;; 1 = normalise (defaut) ; 0 = bras de controle (compte seulement)
+(define *anim-mtx-norm-calls* 0)   ;; images (par process-drawable) passees par finalize-frame!
+(define *anim-mtx-norm-occ*   0)   ;; matrices trouvees NON AFFINES (|w3 - 1| > 1e-6 ou lignes w != 0)
+(define *anim-mtx-norm-imgs*  0)   ;; images (par process-drawable) avec au moins une telle matrice
+(define *anim-mtx-norm-zero*  0)   ;; matrices dont w3 est hors de ]0,25 ; 4[ : NON normalisables (comptees, laissees)
+(define *anim-mtx-norm-worst* 0.0) ;; pire |w3 - 1| vu (parmi les normalisables)
+(define *anim-mtx-norm-logs*  0)
+(define *anim-mtx-norm-cur*   0)   ;; occasions dans l'image en cours
+(define *anim-mtx-norm-w0*    1.0) ;; w3 de `matrices 0` AVANT normalisation, derniere image
+(define *anim-mtx-norm-w1*    1.0) ;; w3 de `matrices 1` AVANT normalisation, derniere image
+
+(defun anim-mtx-normalize! ((m matrix))
+  "Rend `m` affine par NORMALISATION PROJECTIVE : toutes ses composantes sont divisees par la
+   composante w de sa ligne 3 (quand elle est finie et dans ]0,25 ; 4[), puis la colonne w est
+   forcee a (0,0,0,1). Compte une occasion si `m` n'etait pas affine. Rend w3 AVANT normalisation."
+  (let* ((w3 (-> m vector 3 w))
+         (dw (fabs (- w3 1.0)))
+         (rw (fmax (fabs (-> m vector 0 w)) (fmax (fabs (-> m vector 1 w)) (fabs (-> m vector 2 w)))))
+         (sane (and (> w3 0.25) (< w3 4.0)))
+         (bad (or (> dw 0.000001) (> rw 0.000001) (not (< dw 1.0)) (not (< rw 1.0)))))
+    (when bad
+      (+! *anim-mtx-norm-occ* 1)
+      (+! *anim-mtx-norm-cur* 1)
+      (if (not sane) (+! *anim-mtx-norm-zero* 1))
+      (when (and sane (> dw *anim-mtx-norm-worst*)) (set! *anim-mtx-norm-worst* dw)))
+    (when (and (nonzero? *anim-mtx-norm-arm*) bad)
+      (when (and sane (> dw 0.0000001))
+        (let ((inv (/ 1.0 w3)))
+          (dotimes (i 16)
+            (set! (-> m data i) (* inv (-> m data i))))))
+      (when sane
+        (set! (-> m vector 0 w) 0.0)
+        (set! (-> m vector 1 w) 0.0)
+        (set! (-> m vector 2 w) 0.0)
+        (set! (-> m vector 3 w) 1.0)))
+    w3))
+
 
 ;; this was re-written in GOAL. Despite being not well optimized, it ends up being faster
 ;; than the original.
@@ -36,6 +91,8 @@
 (deftype new-joint-decompressor-work (structure)
   ((requests     joint-decomp-request 24 :inline)
    (num-requests int32)
+   (amount-sum   float)   ;; Ghd-skin-origin-stretch : somme des poids des requetes de l'image
+   (req-count    int32)   ;; ... et leur nombre (num-requests est remis a 0 par process-requests!)
    (blend-stack  blend-tree-stack-frame 4 :inline))
   (:methods
    (eval-blend-tree! (_type_ joint-control) none)
@@ -59,6 +116,20 @@
   (init-frame! *new-joint-decompressor-work* dst num-joints)
   (process-requests! *new-joint-decompressor-work* dst num-joints)
   (finalize-frame! *new-joint-decompressor-work* dst num-joints)
+  ;; Ghd-skin-origin-stretch (cycle 7) — LA CAUSE, nommee par le code : le w3 observe sur la
+  ;; matrice 1 AVANT normalisation, a cote de la SOMME DES POIDS des requetes de la meme image.
+  ;; Egaux a 1e-6 pres = le w parasite EST la somme des poids de melange. Cap 40 lignes.
+  (when (and (> *anim-mtx-norm-cur* 0) (< *anim-mtx-norm-logs* 40)
+             (> (fabs (- *anim-mtx-norm-w1* 1.0)) 0.0001))
+    (+! *anim-mtx-norm-logs* 1)
+    (format 0 "HDBLEND w0=~f w1=~f somme_poids=~f nreq=~D canaux=~D arme=~D~%"
+            *anim-mtx-norm-w0* *anim-mtx-norm-w1* (-> *new-joint-decompressor-work* amount-sum)
+            (-> *new-joint-decompressor-work* req-count) (-> jc active-channels) *anim-mtx-norm-arm*)
+    (format 0 "HDBLEND2 anim0=~S interp0=~f anim1=~S interp1=~f~%"
+            (if (and (> (-> jc active-channels) 0) (-> jc channel 0 frame-group)) (-> jc channel 0 frame-group name) "none")
+            (if (> (-> jc active-channels) 0) (-> jc channel 0 frame-interp) -1.0)
+            (if (and (> (-> jc active-channels) 1) (-> jc channel 1 frame-group)) (-> jc channel 1 frame-group name) "none")
+            (if (> (-> jc active-channels) 1) (-> jc channel 1 frame-interp) -1.0)))
   (none))
 
 (defmethod eval-blend-tree! ((this new-joint-decompressor-work) (jc joint-control))
@@ -136,6 +207,7 @@
 (defmethod build-requests! ((this new-joint-decompressor-work) (jc joint-control))
   "Use the anim weights computed by eval-blend-tree! to build decompression requests"
   (set! (-> this num-requests) 0)
+  (set! (-> this amount-sum) 0.0)
   (let ((num-channels (-> jc active-channels)))
     (dotimes (chan-idx num-channels)
       (let ((weight (-> this blend-stack 0 weights chan-idx))
@@ -164,7 +236,9 @@
             (set! (-> req jacc) jacc)
             (set! (-> req frame) base-frame)
             (set! (-> req frame-interp) frac-frame)
-            (set! (-> req amount) weight))))))
+            (set! (-> req amount) weight)
+            (+! (-> this amount-sum) weight))))))
+  (set! (-> this req-count) (-> this num-requests))
   (none))
 
 (defmethod init-frame! ((this new-joint-decompressor-work) (output-frame joint-anim-frame) (num-joints int))
@@ -384,6 +458,15 @@
   (none))
 
 (defmethod finalize-frame! ((this new-joint-decompressor-work) (output-frame joint-anim-frame) (num-joints int))
+  ;; Ghd-skin-origin-stretch (cycle 7) : les DEUX matrices de l'image (align, prejoint) sont des
+  ;; sommes ponderees — leur w3 vaut la somme des poids. Normalisation projective ICI, au point de
+  ;; production, avant que `cspace<-parented-matrix-joint!` (matrix*!) ne les multiplie dans l'os 2
+  ;; du squelette et que tous les descendants n'heritent de l'echelle homogene.
+  (+! *anim-mtx-norm-calls* 1)
+  (set! *anim-mtx-norm-cur* 0)
+  (set! *anim-mtx-norm-w0* (anim-mtx-normalize! (-> output-frame matrices 0)))
+  (set! *anim-mtx-norm-w1* (anim-mtx-normalize! (-> output-frame matrices 1)))
+  (when (> *anim-mtx-norm-cur* 0) (+! *anim-mtx-norm-imgs* 1))
   (when (<= num-joints 2)
     (return #f))
   (dotimes (tqi (- num-joints 2))

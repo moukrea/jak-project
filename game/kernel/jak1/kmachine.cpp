@@ -5627,7 +5627,7 @@ static u64 level_warp_run() {
   // reciblage HD sont rendues AFFINES (jak-hd.gc, `*hd-affine-arm*`, voir hd-mat-affine!). Mesure
   // Redmi : w3=0.9982 sur la ligne de translation d'un os HD -> deplace de (1-w3) x distance de la
   // camera a l'origine du monde (10 m a finalboss). Meme pont, `debug.opengoal.hd.affine_arm`
-  // (env OG_HD_AFFINE_ARM), pour l'ablation sur le meme APK ; defaut GOAL = 1 (arme).
+  // (env OG_HD_AFFINE_ARM), pour l'ablation sur le meme APK ; defaut GOAL = 2 (projectif, cycle 7).
   {
     char affbuf[16] = {0};
     if (const char* e = std::getenv("OG_HD_AFFINE_ARM")) {
@@ -5641,9 +5641,12 @@ static u64 level_warp_run() {
       }
     }
 #endif
-    if (affbuf[0] == '0' || affbuf[0] == '1') {
+    // cycle 7 : 0 = rien, 1 = colonne w forcee SANS division (l'ancien correctif : translation du
+    // modele entier), 2 = normalisation PROJECTIVE (division par w3) + normalisation a la
+    // production (joint.gc finalize-frame!, `*anim-mtx-norm-arm*` recopie par jak-hd.gc).
+    if (affbuf[0] >= '0' && affbuf[0] <= '2') {
       auto sym = intern_from_c("*hd-affine-arm*");
-      sym->value = (affbuf[0] == '1') ? 1 : 0;
+      sym->value = (s32)(affbuf[0] - '0');
       printf("HDAFFINEARM value=%d source=prop\n", (int)sym->value);
       fflush(stdout);
     }

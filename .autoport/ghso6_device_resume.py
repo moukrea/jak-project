@@ -50,7 +50,17 @@ def main():
                stock_w_bad=0, hd_w_bad=0, scl_abs_bones=0, scl_unjudged=0)
     goal = dict(imgs=0, etimgs=0, etos=0, nan=0, drvstale=0, origine=0, blend=0, inject=0, minutes=0.0,
                 cmdos=0, cmdimgs=0, sclos=0, sclimgs=0, sclep=0, drawdev=0, mtxdev=0, mtxjuges=0, mtxskel=0,
-                asmdiff=0, wocc=0, wimgs=0)
+                asmdiff=0, wocc=0, wimgs=0,
+                rjimgs=0, rjsauts=0, rjnan=0, rjskip=0, tpimgs=0, tpose=0, normocc=0, normimgs=0, normzero=0, normcalls=0)
+    rj_worst = 0.0
+    rj_worst_ok = 0.0
+    rj_offmax = 0.0
+    tp_hdmin, tp_hdmax, tp_pmin, tp_pmax = 100, 0, 100, 0
+    norm_worst = 0.0
+    normarm_seen = set()
+    blend_ev = []
+    rj_ev = []
+    tp_ev = []
     w_worst = 0.0
     affarm_seen = set()
     scl_worst = 0.0
@@ -82,6 +92,10 @@ def main():
         hl5 = [kv(l) for t, l in lines if l.startswith('HDLEN5 ')]
         hl6 = [kv(l) for t, l in lines if l.startswith('HDLEN6 ')]
         hl7 = [kv(l) for t, l in lines if l.startswith('HDLEN7 ')]
+        hl8 = [kv(l) for t, l in lines if l.startswith('HDLEN8 ')]
+        hl9 = [kv(l) for t, l in lines if l.startswith('HDLEN9 ')]
+        hl10 = [kv(l) for t, l in lines if l.startswith('HDLEN10 ')]
+        hl11 = [kv(l) for t, l in lines if l.startswith('HDLEN11 ')]
         hm = [kv(l) for t, l in lines if l.startswith('HDMOVES ')]
         hb = [kv(l) for t, l in lines if l.startswith('HDHB ')]
         wall = [kv(l) for t, l in lines if l.startswith('HDWALL ')]
@@ -96,6 +110,18 @@ def main():
                 sclarm_seen.add(kv(l).get('value', '?'))
             if l.startswith('HDAFFINEARM '):
                 affarm_seen.add(kv(l).get('value', '?'))
+            if l.startswith('HDBLEND '):
+                e = kv(l); e['scene'] = scene; blend_ev.append(e)
+            elif l.startswith('HDBLEND2 ') and blend_ev:
+                blend_ev[-1].update(kv(l))
+            if l.startswith('HDRJEV '):
+                e = kv(l); e['scene'] = scene; rj_ev.append(e)
+            elif l.startswith('HDRJEV2 ') and rj_ev:
+                rj_ev[-1].update(kv(l))
+            if l.startswith('HDTPEV '):
+                e = kv(l); e['scene'] = scene; tp_ev.append(e)
+            elif l.startswith('HDTPEV2 ') and tp_ev:
+                tp_ev[-1].update(kv(l))
             if l.startswith('HDSCLEP '):
                 sclep_ev.append(kv(l))
             elif l.startswith('HDSCLEP2 ') and sclep_ev:
@@ -218,6 +244,26 @@ def main():
             for k in ('wocc', 'wimgs'):
                 goal[k] += int(hl7[-1].get(k, 0) or 0)
             w_worst = max(w_worst, float(hl7[-1].get('pire_w', 0) or 0))
+        if hl8:
+            for k in ('rjimgs', 'rjsauts', 'rjnan'):
+                goal[k] += int(hl8[-1].get(k, 0) or 0)
+            rj_worst = max(rj_worst, float(hl8[-1].get('pire_saut_m', 0) or 0))
+            rj_worst_ok = max(rj_worst_ok, float(hl8[-1].get('pire_saut_ok_m', 0) or 0))
+            rj_offmax = max(rj_offmax, float(hl8[-1].get('ecart_trans_max_m', 0) or 0))
+        if hl9:
+            for k in ('tpimgs', 'tpose'):
+                goal[k] += int(hl9[-1].get(k, 0) or 0)
+            tp_hdmin = min(tp_hdmin, int(hl9[-1].get('hd_poses_min', 100) or 100))
+            tp_hdmax = max(tp_hdmax, int(hl9[-1].get('hd_poses_max', 0) or 0))
+            tp_pmin = min(tp_pmin, int(hl9[-1].get('pilote_poses_min', 100) or 100))
+            tp_pmax = max(tp_pmax, int(hl9[-1].get('pilote_poses_max', 0) or 0))
+        if hl10:
+            for k in ('normocc', 'normimgs', 'normzero', 'normcalls'):
+                goal[k] += int(hl10[-1].get(k, 0) or 0)
+            norm_worst = max(norm_worst, float(hl10[-1].get('pire_w_prod', 0) or 0))
+            normarm_seen.add(hl10[-1].get('normarme', '?'))
+        if hl11:
+            goal['rjskip'] += int(hl11[-1].get('rjskip_titre_ou_reference', 0) or 0)
         if hl3:
             for k in ('cmdos', 'cmdimgs'):
                 goal[k] += int(hl3[-1].get(k, 0) or 0)
@@ -292,6 +338,39 @@ def main():
           f"nan_squelette={goal['nan']} pilote_perime={goal['drvstale']} origine={goal['origine']} melange={goal['blend']} "
           f"os_ecart_commande_squelette={goal['cmdos']} images_ecart_commande_squelette={goal['cmdimgs']} "
           f"pire_ecart_commande_squelette_m={goal_cmd_worst:.3f} "
+          f"inject_shots={goal['inject']} modeles={','.join(modeles) if modeles else 'aucun'}")
+    # cycle 7 — LA CAUSE nommee par le code : w3 de la matrice d'image AVANT normalisation, a cote
+    # de la somme des poids de melange de la meme image (joint.gc). Egaux = le w EST cette somme.
+    for e in blend_ev[:40]:
+        try:
+            eq = abs(float(e.get('w1', 0)) - float(e.get('somme_poids', 0))) < 1e-4
+        except ValueError:
+            eq = False
+        print(f"HDATTRIB site=melange scene={e.get('scene')} w3_matrice0={e.get('w0')} w3_matrice1={e.get('w1')} "
+              f"somme_poids_melange={e.get('somme_poids')} requetes={e.get('nreq')} canaux={e.get('canaux')} "
+              f"anim0={e.get('anim0')} interp0={e.get('interp0')} anim1={e.get('anim1')} interp1={e.get('interp1')} "
+              f"w3_egal_somme={1 if eq else 0} normalise={e.get('arme')} "
+              f"chemin={'joint.gc-finalize-frame-matrices-0-1-somme-ponderee-des-canaux-w3-egale-somme-des-poids' if eq else 'joint.gc-finalize-frame-matrices-0-1-w3-different-de-la-somme-des-poids-AUTRE-CAUSE'}")
+    for e in rj_ev[:40]:
+        print(f"HDATTRIB site=racine scene={e.get('scene')} modele={MODEL.get(int(e.get('entry', 0)), '?')} os={e.get('k')} pilote={e.get('e')} "
+              f"saut_m={e.get('saut_m')} ecart_trans_m={e.get('ecart_trans_m')} w3_pilote={e.get('w3_pilote')} chemin_os={SRC.get(int(e.get('src', 0) or 0), '?')} "
+              f"anim={e.get('anim')} etat={e.get('st')} affine_arme={e.get('arme')} norm_production={e.get('normarme')} "
+              f"chemin={'controle-positif-inject-bind' if e.get('src') == '9' else ('colonne-w-forcee-sans-division-xyz-reste-a-s.t' if e.get('arme') == '1' else ('matrice-pilote-homogene-non-normalisee' if e.get('arme') == '0' else 'AUTRE-a-attribuer'))}")
+    for e in tp_ev[:40]:
+        print(f"HDATTRIB site=tpose scene={e.get('scene')} modele={MODEL.get(int(e.get('entry', 0)), '?')} hd_poses={e.get('hd_poses')} "
+              f"pilote_poses={e.get('pilote_poses')} anim={e.get('anim')} etat={e.get('st')} affine_arme={e.get('arme')} inject={e.get('inject')} "
+              f"chemin={'controle-positif-inject-bind' if e.get('inject') == '2' else 'rig-HD-au-repos-pendant-que-le-pilote-est-pose-a-attribuer'}")
+    # LA LIGNE DE PORTE DU CYCLE 7 (owner 03/09 : modele entier transpose + t-pose)
+    print(f"HDROOTJUMP bras={tag} plateforme=redmi inject={inj} scenes={scenes} minutes={wall_s/60:.4f} "
+          f"images={goal['rjimgs']} sauts_racine={goal['rjsauts']} images_tpose={goal['tpose']} "
+          f"critere_saut=os-HD-de-reference-moins-root-trans-du-pilote-saute-de-plus-de-2m-entre-deux-images "
+          f"pire_saut_m={rj_worst:.3f} pire_saut_sous_seuil_m={rj_worst_ok:.3f} ecart_trans_max_m={rj_offmax:.3f} sauts_non_finis={goal['rjnan']} images_non_jugees_titre_ou_reference_hors_20m={goal['rjskip']} "
+          f"critere_tpose=rig-HD-moins-de-15pct-de-joints-hors-bind-pendant-que-le-pilote-en-a-plus-de-30pct "
+          f"images_tpose_jugees={goal['tpimgs']} hd_poses_min_pct={tp_hdmin} hd_poses_max_pct={tp_hdmax} pilote_poses_min_pct={tp_pmin} pilote_poses_max_pct={tp_pmax} "
+          f"os_hd_vs_stock_gpu={gpu['cmd_bones']} stock_w_hors_1={gpu['stock_w_bad']} hd_w_hors_1={gpu['hd_w_bad']} "
+          f"matrices_pilotes_non_affines_lues={goal['wocc']} normalisations_production={goal['normocc']} images_normalisees={goal['normimgs']} "
+          f"non_normalisables={goal['normzero']} pire_w_production={norm_worst:.6f} images_finalisees={goal['normcalls']} "
+          f"affine_arme={','.join(sorted(affarm_seen)) or '2'} norm_production_arme={','.join(sorted(normarm_seen)) or '?'} "
           f"inject_shots={goal['inject']} modeles={','.join(modeles) if modeles else 'aucun'}")
     print(f"HDMOVES bras={tag} plateforme=redmi distance_m={mv_dist:.1f} "
           f"vitesse_moy_m_s={(sum(mv_speed)/len(mv_speed)) if mv_speed else 0.0:.2f} "
