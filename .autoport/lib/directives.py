@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-"""Directive transmission — one version stamp shared by the orchestrator, the
-worker prompt, the subagents and the validator.
+"""Directive transmission — the contract inlined into a worker's prompt.
 
-The owner, 2026-08-11: "t'arrives pas a faire descendre a tes agents les
-changements et ca gaspille des heures a ne pas le faire". Measured on
-Grecharged-secondary-motion attempt 2: 6 subagents spawned, 0 carried the
-contract, and the phase prompt still pointed at a scope the supervisor had
-narrowed hours earlier. The channel did not exist; this file is the channel.
+What travels: the standing orders (`.autoport/DIRECTIVES.md`, ~3 KB) and, when it
+exists, the scope of THIS item (`.autoport/prompts/SCOPE-<item_id>.md`). Nothing
+else. Until 2026-09-03 this module inlined the whole of DIRECTIVES.md plus the
+first `SPEC-*.md` it named, which shipped 167 285 characters of Keira breast
+physics into every phase, cutscenes and fonts included, for ~1 % of on-topic text.
 
-  version  -> a short hash over DIRECTIVES.md + the SPEC it designates + the
-              phase prompt. Any edit to any of the three changes it.
-  block    -> the text INLINED into the worker prompt (no path to maybe-open:
-              the contract travels with the instructions), plus the line the
-              report must echo back.
+  version(item_id) -> short hash over the serial, the item id and the text that is
+                      ACTUALLY inlined for that item. One version per item, so a
+                      scope change kills only the attempts it concerns.
+  block(item_id)   -> that text, plus the line the report must echo back.
 
-The validator recomputes `version` and rejects a report carrying a stale one,
-so a mid-attempt directive change costs one failed validation instead of hours.
+Hard cap: MAX_BLOCK_BYTES. Over it, block() raises instead of truncating — a
+launch must fail loudly, because a silently trimmed contract is how the worker
+ends up obeying a rule it never received.
 """
 import hashlib
 import re
@@ -23,58 +22,69 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DIRECTIVES = ROOT / ".autoport" / "DIRECTIVES.md"
+AUTOPORT = ROOT / ".autoport"
+DIRECTIVES = AUTOPORT / "DIRECTIVES.md"
+SERIAL_FILE = AUTOPORT / "SCOPE-SERIAL"
+ISSUED = AUTOPORT / ".directives_issued"
+
+MAX_BLOCK_BYTES = 12288
 
 
-def _spec_path(directives_text):
-    """The SPEC is named INSIDE DIRECTIVES.md, so retargeting the contract is a
-    one-line edit there rather than a code change here."""
-    m = re.search(r"`(\.autoport/prompts/SPEC-[^`]+\.md)`", directives_text)
-    return ROOT / m.group(1) if m else None
+class DirectivesTooLarge(RuntimeError):
+    """The assembled contract busted the cap. Raised, never swallowed."""
 
 
-def parts(phase_id=None):
-    txt = DIRECTIVES.read_text() if DIRECTIVES.exists() else ""
-    spec = _spec_path(txt)
-    spec_txt = spec.read_text() if spec and spec.exists() else ""
-    prompt_txt = ""
-    if phase_id:
-        p = ROOT / ".autoport" / "prompts" / f"phase-{phase_id}.md"
-        prompt_txt = p.read_text() if p.exists() else ""
-    return txt, spec, spec_txt, prompt_txt
+def _dtext():
+    return DIRECTIVES.read_text(encoding="utf-8") if DIRECTIVES.exists() else ""
+
+
+def scope_path(item_id):
+    """The per-item scope. Absent is normal: standing orders alone are a contract."""
+    if not item_id:
+        return None
+    return AUTOPORT / "prompts" / f"SCOPE-{item_id}.md"
+
+
+def _scope_text(item_id):
+    p = scope_path(item_id)
+    return p.read_text(encoding="utf-8") if p and p.exists() else ""
 
 
 def serial():
     """The scope serial, bumped BY HAND when the scope genuinely changes.
 
-    First cut hashed the whole prompt, which made a typo fix kill a healthy
-    attempt -- a brake, not a circle. Keying on a deliberate serial means an
-    attempt dies exactly when I mean it to, and prose edits cost nothing."""
+    Hashing the whole prompt made a typo fix kill a healthy attempt -- a brake,
+    not a circle. A deliberate serial means an attempt dies exactly when we mean
+    it to, and prose edits cost nothing."""
+    if SERIAL_FILE.exists():
+        m = re.search(r"\d+", SERIAL_FILE.read_text(encoding="utf-8"))
+        if m:
+            return int(m.group(0))
     m = re.search(r"^SCOPE-SERIAL:\s*(\d+)", _dtext(), re.M)
     return int(m.group(1)) if m else 0
 
 
-def _dtext():
-    return DIRECTIVES.read_text() if DIRECTIVES.exists() else ""
+def parts(item_id=None):
+    """(standing orders, scope path or None, scope text)."""
+    return _dtext(), scope_path(item_id), _scope_text(item_id)
 
 
-def _scope_section():
-    """Only the ACTIVE SCOPE block feeds the version, not the whole document."""
-    t = _dtext()
-    m = re.search(r"## PÉRIMÈTRE ACTIF.*?(?=\n## )", t, re.S)
-    return m.group(0) if m else t
+def _body(item_id=None):
+    """Exactly the contract text inlined for this item — what version() hashes."""
+    txt, spath, stext = parts(item_id)
+    out = [txt.strip()]
+    if stext:
+        out += ["", "---", "",
+                f"## PÉRIMÈTRE DE CETTE TÂCHE — {spath.name}", "", stext.strip()]
+    return "\n".join(out)
 
 
-def version(phase_id=None):
-    _txt, _spec, spec_txt, _prompt = parts(phase_id)
+def version(item_id=None):
     h = hashlib.sha256()
-    for chunk in (str(serial()), _scope_section(), spec_txt):
-        h.update(chunk.encode())
+    for chunk in (str(serial()), item_id or "", _body(item_id)):
+        h.update(chunk.encode("utf-8"))
         h.update(b"\0")
     return "v" + h.hexdigest()[:10]
-
-
-ISSUED = ROOT / ".autoport" / ".directives_issued"
 
 
 def issued_for_current_serial():
@@ -82,56 +92,67 @@ def issued_for_current_serial():
     acceptable: the scope did not change, so the attempt is not stale."""
     cur, out = serial(), set()
     if ISSUED.exists():
-        for ln in ISSUED.read_text().splitlines():
-            parts_ = ln.split()
-            if len(parts_) == 2 and parts_[0].isdigit() and int(parts_[0]) == cur:
-                out.add(parts_[1])
+        for ln in ISSUED.read_text(encoding="utf-8").splitlines():
+            f = ln.split()
+            if len(f) == 2 and f[0].isdigit() and int(f[0]) == cur:
+                out.add(f[1])
     out.add(version())
     return out
 
 
-def block(phase_id=None):
-    """The contract, inlined, with the echo instruction and the subagent rule."""
-    txt, spec, spec_txt, _prompt = parts(phase_id)
-    ver = version(phase_id)
+def _record(ver):
     try:
         line = "%d %s\n" % (serial(), ver)
-        if line not in (ISSUED.read_text() if ISSUED.exists() else ""):
-            with ISSUED.open("a") as fh:
+        if line not in (ISSUED.read_text(encoding="utf-8") if ISSUED.exists() else ""):
+            with ISSUED.open("a", encoding="utf-8") as fh:
                 fh.write(line)
     except Exception:
         pass
+
+
+def block(item_id=None, record=True):
+    """The contract, inlined. Raises DirectivesTooLarge past MAX_BLOCK_BYTES."""
+    ver = version(item_id)
+    if record:
+        _record(ver)
     out = [
-        "## DIRECTIVES — AUTORITÉ SUPÉRIEURE À TOUT CE QUI SUIT",
+        "## DIRECTIVES — autorité supérieure à tout ce qui suit",
         "",
         f"Version courante : **DIRECTIVES {ver}**. Écris cette ligne, littéralement,",
-        "dans ton rapport (`DIRECTIVES " + ver + "`). Le validateur recalcule la version et",
-        "refuse un rapport qui en porte une périmée — c'est ce qui empêche de travailler des",
-        "heures sur un périmètre abandonné.",
+        f"dans ton rapport (`DIRECTIVES {ver}`). Le validateur recalcule la version et refuse",
+        "un rapport qui en porte une périmée : c'est ce qui empêche de travailler des heures",
+        "sur un périmètre abandonné.",
         "",
-        "**Transmission aux sous-agents (obligatoire).** Chaque prompt de sous-agent doit",
-        "commencer par le périmètre actif et la ligne `DIRECTIVES " + ver + "`. Les définitions",
-        "d'agents leur imposent de relire `.autoport/DIRECTIVES.md` avant d'agir : si tu changes",
-        "de périmètre, relance-les, ne les laisse pas finir sur l'ancien.",
+        "Chaque prompt de sous-agent commence par le périmètre de sa tâche et cette ligne.",
         "",
-        txt.strip(),
+        _body(item_id),
+        "",
+        "---",
+        "",
     ]
-    if spec_txt:
-        out += [
-            "",
-            "---",
-            f"## CONTRAT DE PÉRIMÈTRE — {spec.name} (inliné : rien à aller chercher)",
-            "",
-            spec_txt.strip(),
-        ]
-    out += ["", "---", ""]
-    return "\n".join(out)
+    text = "\n".join(out)
+    size = len(text.encode("utf-8"))
+    if size > MAX_BLOCK_BYTES:
+        spath = scope_path(item_id)
+        detail = f"{spath} ({len(_scope_text(item_id).encode('utf-8'))} o)" \
+            if spath and spath.exists() else "aucun SCOPE"
+        raise DirectivesTooLarge(
+            f"contrat inliné pour '{item_id or '(aucun item)'}' : {size} octets pour un "
+            f"plafond de {MAX_BLOCK_BYTES}. DIRECTIVES.md = "
+            f"{len(_dtext().encode('utf-8'))} o, périmètre = {detail}. "
+            "Raccourcis l'un des deux ; le lancement ne doit pas partir tronqué."
+        )
+    return text
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "version"
-    pid = sys.argv[2] if len(sys.argv) > 2 else None
+    item = sys.argv[2] if len(sys.argv) > 2 else None
     if cmd == "accepted":
         print(" ".join(sorted(issued_for_current_serial())))
+    elif cmd == "size":
+        print(len(block(item, record=False).encode("utf-8")))
+    elif cmd == "block":
+        print(block(item))
     else:
-        print(version(pid) if cmd == "version" else block(pid))
+        print(version(item))
