@@ -1,6 +1,6 @@
-# Genere par tools/migrate_backlog.py depuis milestones.yaml + state.json +
-# owner-ok/ + prompts/ + reports/*/owner-defects.txt + git log. Rejouable.
-# Les blocs owner_feedback sont les mots de l'owner, jamais reformules.
+# La seule verite du travail. Une feature = un item.
+# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
+# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: cutscene-npc-flicker
