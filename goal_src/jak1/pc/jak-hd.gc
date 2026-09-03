@@ -943,6 +943,12 @@
 ;; au type jak-hd (3 vecteurs inline) : SIGSEGV x86 a la premiere image de reciblage (lecture a
 ;; la base GOAL + 0), deux fois sur deux ; sur le tas global le type ne bouge pas.
 (define *hd-rj-lastpos* (new 'global 'inline-array 'vector 48))
+(define *hd-ord-a* 0) (define *hd-ord-b* 0) (define *hd-ord-c* 0) (define *hd-ord-d* 0) (define *hd-ord-e* 0)
+(define *hd-tgt-math-seq* 0)   ;; cycle 8 : +1 a chaque calcul d'os du TARGET (pilote de Jak)
+(define *hd-tgt-seen-seq* -1)  ;; ... et la valeur vue par le compagnon de Jak a son calcul precedent
+(define *hd-seq-same* 0) (define *hd-seq-plus1* 0) (define *hd-seq-plus2* 0) (define *hd-seq-first* 0)
+(define *hd-seq-skip* 0)       ;; images « same » pendant un tick de logique sans rendu (*fixed-tick-skip*)
+
 (define *hd-rj-skip*     0)   ;; images NON jugees : ecran-titre / pas de joueur (root trans n'y suit pas
                               ;; le squelette : mesure x86 c7smoke, 15,2 m d'ecart pendant eichar-ndi-intro)
 (define *hd-tp-frames*   0)   ;; images jugees (>= 8 joints de chaque rig)
@@ -1624,6 +1630,8 @@
   (set! *hd-rj-worstok* 0.0)
   (set! *hd-rj-offmax* 0.0)
   (set! *hd-rj-logs* 0)
+  (set! *hd-ord-a* 0) (set! *hd-ord-b* 0) (set! *hd-ord-c* 0) (set! *hd-ord-d* 0) (set! *hd-ord-e* 0)
+  (set! *hd-seq-same* 0) (set! *hd-seq-plus1* 0) (set! *hd-seq-plus2* 0) (set! *hd-seq-first* 0) (set! *hd-seq-skip* 0) (set! *hd-tgt-seen-seq* -1)
   (set! *hd-rj-skip* 0)
   (set! *hd-tp-frames* 0)
   (set! *hd-tp-count* 0)
@@ -2551,7 +2559,49 @@
 
 ;; do-joint-math! override: run the stock path (housekeeping + HD idle anim + bounds/origin), then
 ;; overwrite the bones with the retargeted transforms so draw-bones skins the HD mesh to follow.
+(defun hd-order-probe! ((obj jak-hd))
+  "cycle 8 — QUI CALCULE SES OS EN PREMIER, le pilote ou le compagnon ? `*matrix-engine*` est vide
+   par `countdown` (index haut d'abord) dans execute-math-engine, apres tout l'arbre ; un process
+   `inited` calcule tout de suite dans son ja-post (phase arbre, default-pool AVANT target-pool).
+   Cinq cas, comptes par image : A moi+pilote en moteur, pilote a un index PLUS HAUT (il passe
+   avant : OK) ; B idem, index plus bas (il passe APRES moi : RETARD) ; C moi en moteur, pilote
+   absent (il a calcule dans l'arbre : OK) ; D moi absent (arbre), pilote en moteur (RETARD) ;
+   E ni l'un ni l'autre (arbre tous deux, default-pool d'abord : RETARD)."
+  (let ((me  (process->handle obj))
+        (dh  (-> obj driver))
+        (im  -1)
+        (ip  -1)
+        (n   (-> *matrix-engine* length)))
+    (if (> n MATRIX_ENGINE_AMOUNT) (set! n MATRIX_ENGINE_AMOUNT))
+    (dotimes (i n)
+      (let ((h (-> *matrix-engine* i)))
+        (if (= (the-as uint h) (the-as uint me)) (set! im i))
+        (if (= (the-as uint h) (the-as uint dh)) (set! ip i))))
+    (cond
+      ((and (>= im 0) (>= ip 0) (> ip im)) (+! *hd-ord-a* 1))
+      ((and (>= im 0) (>= ip 0))           (+! *hd-ord-b* 1))
+      ((>= im 0)                           (+! *hd-ord-c* 1))
+      ((>= ip 0)                           (+! *hd-ord-d* 1))
+      (else                                (+! *hd-ord-e* 1))))
+  (none))
+
+(defmethod do-joint-math! ((obj target))
+  "cycle 8 : estampille chaque calcul d'os du pilote de Jak (mesure de fraicheur pour le compagnon)."
+  (+! *hd-tgt-math-seq* 1)
+  ((method-of-type process-drawable do-joint-math!) obj)
+  (none))
+
 (defmethod do-joint-math! ((obj jak-hd))
+  (hd-order-probe! obj)
+  ;; cycle 8 : le pilote a-t-il recalcule ses os depuis mon calcul precedent ? (Jak seulement)
+  (when (zero? (-> obj entry))
+    (let ((d (- *hd-tgt-math-seq* *hd-tgt-seen-seq*)))
+      (cond
+        ((< *hd-tgt-seen-seq* 0) (+! *hd-seq-first* 1))
+        ((= d 0) (+! *hd-seq-same* 1) (if (nonzero? *fixed-tick-skip*) (+! *hd-seq-skip* 1)))
+        ((= d 1) (+! *hd-seq-plus1* 1))
+        (else (+! *hd-seq-plus2* 1))))
+    (set! *hd-tgt-seen-seq* *hd-tgt-math-seq*))
   ((method-of-type process-drawable do-joint-math!) obj)
   ;; Ghd-skin-origin-stretch : compter les IMAGES ou le garde a refuse au moins une ecriture.
   ;; C'est le compte d'OCCASIONS : sans lui, un `episodes=0` apres correctif ne prouverait rien
@@ -2936,7 +2986,8 @@
         (set! (-> obj hd-drawdev) n)
         (when (> n 0)
           (+! *hd-draw-dev* n)
-          (+! *hd-draw-imgs* 1)))))
+          (+! *hd-draw-imgs* 1))
+        )))
   (none))
 
 (defun hd-mtx-check-all ()
@@ -3166,7 +3217,11 @@
         ;; LE T-POSE (`tpose` images, avec la dynamique des deux rigs) et LA NORMALISATION A LA
         ;; PRODUCTION (joint.gc : `normocc` matrices d'image non affines rencontrees, `normzero`
         ;; non normalisables, `pire_w_prod` le pire |w3 - 1|, `normarme` l'etat du correctif).
-        (format 0 "HDLEN8 rjimgs=~D rjsauts=~D pire_saut_m=~f pire_saut_ok_m=~f ecart_trans_max_m=~f rjnan=~D~%"
+        (format 0 "HDORD pilote_avant_moteur=~D pilote_apres_moteur=~D pilote_arbre_moi_moteur=~D moi_arbre_pilote_moteur=~D tous_deux_arbre=~D~%"
+          *hd-ord-a* *hd-ord-b* *hd-ord-c* *hd-ord-d* *hd-ord-e*)
+  (format 0 "HDSEQ pilote_meme=~D pilote_plus1=~D pilote_plus2=~D premiere=~D meme_pendant_skip=~D seq=~D~%"
+          *hd-seq-same* *hd-seq-plus1* *hd-seq-plus2* *hd-seq-first* *hd-seq-skip* *hd-tgt-math-seq*)
+  (format 0 "HDLEN8 rjimgs=~D rjsauts=~D pire_saut_m=~f pire_saut_ok_m=~f ecart_trans_max_m=~f rjnan=~D~%"
                 *hd-rj-frames* *hd-rj-jumps* (/ *hd-rj-worst* 4096.0) (/ *hd-rj-worstok* 4096.0)
                 (/ *hd-rj-offmax* 4096.0) *hd-rj-nan*)
         (format 0 "HDLEN9 tpimgs=~D tpose=~D hd_poses_min=~D hd_poses_max=~D pilote_poses_min=~D pilote_poses_max=~D~%"

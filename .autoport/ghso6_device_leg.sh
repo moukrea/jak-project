@@ -181,7 +181,7 @@ run_scene(){
   done
   echo "   HDLENG : $(grep -ac 'HDLENG ' "$LOG" || true) evenement(s) squelette   HDLENEV : $(grep -ac 'HDLENEV ' "$LOG" || true) HDCMDEV : $(grep -ac 'HDCMDEV ' "$LOG" || true) evenement(s) GPU   HDINJECT : $(grep -ac 'HDINJECT ' "$LOG" || true)   HDLENRIG : $(grep -ac 'HDLENRIG ' "$LOG" || true)"
   grep -a 'HDLENEV ' "$LOG" | sed 's/^.*HDLENEV/HDLENEV/' | tr -d '\r' | head -6
-  grep -aE 'HDSKINLEN |HDLENEV |HDLENRIG |HDSKIN |HDSKINEV |HDSKINMODEL |HDHB[0-9]? |HDLEN[2345]? |HDDRAWDEV |HDMTXDEV |HDMTXREF[23]? |HDLEN[67] |HDLEN(8|9|10|11) |HDRJEV[2-9C]? |HDTPEV2? |HDBLEND2? |HDANGTAB |HDWGARB |HDAFFINEARM|HDLENG[0-9]? |HDSCLEP2? |HDCMDEV |HDMOVES |HDINJECT |HDSTRETCHINJECT|HDSCALEARM|HDNANSRC|HDFINITEARM|LEVEL-WARP|JAK-HD-TGT|F1D-INJECT applied|HDRESET|FATAL|signal [0-9]+' "$LOG" \
+  grep -aE 'HDSKINLEN |HDLENEV |HDLENRIG |HDSKIN |HDSKINEV |HDSKINMODEL |HDHB[0-9]? |HDLEN[2345]? |HDDRAWDEV |HDMTXDEV |HDMTXREF[23]? |HDLEN[67] |HDLEN(8|9|10|11) |HDRJEV[2-9C]? |HDORD |HDSEQ |HDTPEV2? |HDBLEND2? |HDANGTAB |HDWGARB |HDAFFINEARM|HDLENG[0-9]? |HDSCLEP2? |HDCMDEV |HDMOVES |HDINJECT |HDSTRETCHINJECT|HDSCALEARM|HDNANSRC|HDFINITEARM|LEVEL-WARP|JAK-HD-TGT|F1D-INJECT applied|HDRESET|FATAL|signal [0-9]+' "$LOG" \
     | sed -E 's/^([0-9-]+ [0-9:.]+) +[0-9]+ +[0-9]+ [A-Z] [A-Za-z_-]+: /\1 /' | tr -d '\r' > "$OUT/$TAG-$scene-$mode$sfx-marqueurs.txt"
   echo "HDWALL scene=$scene-$mode secondes=$((T1 - T0)) inject=$INJ sclarm=$SCLARM affarm=$AFFARM" >> "$OUT/$TAG-$scene-$mode$sfx-marqueurs.txt"
 }
