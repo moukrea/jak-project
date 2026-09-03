@@ -407,11 +407,20 @@ while true; do
     ( cd android && timeout 900 ./gradlew :app:clean >> "../$LOG" 2>&1 )
   fi
   if ! ( cd android && timeout 2400 ./gradlew assembleJak1Debug >> "../$LOG" 2>&1 ); then
+    ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
     say "gradle ÉCHOUÉ"
     echo "$h" > "$STAMP"
     fin_de_passe
     continue
   fi
+  # LE DEMON GRADLE SURVIT A SON BUILD, ET IL A COUTE 30 MINUTES DEUX FOIS (2026-09-03 17:26).
+  # `lib/proof_run.sh::busy_reason` teste `pgrep -f '[g]radle'` : un demon INACTIF y ressemble
+  # exactement a un build en cours, et proof_run attend jusqu'a `AUTOPORT_PROOF_WAIT_MAX` (1800 s)
+  # sans mesurer quoi que ce soit. La perte s'est repetee ; on la rend impossible au POINT DE
+  # PRODUCTION plutot que d'assouplir la garde du preuveur — un `busy_reason` plus permissif
+  # laisserait un `gk` demarrer pendant que `out/jak1/iso` se reecrit, ce qu'elle existe pour
+  # empecher. Le demon rendu ici coute ~10 s au prochain build.
+  ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
 
   # ----------------------------------------------------------------------------------------------
   # LE PACK HD EXTERNE — LE SEUL VEHICULE DU MESH, ET AUCUNE ETAPE NE LE REFABRIQUAIT.
