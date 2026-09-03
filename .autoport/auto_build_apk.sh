@@ -447,6 +447,7 @@ while true; do
   if [ "$_sz" -gt 700000000 ]; then
     say "APK anormalement gros ($_sz octets) — espace mort, NON publie"
     echo "$h" > "$STAMP"
+    fin_de_passe
     continue
   fi
   # BUILD-INFO ECRIT A CHAQUE BUILD AUTOMATIQUE (2026-08-11 23:30). Sans ca, le publieur poussait

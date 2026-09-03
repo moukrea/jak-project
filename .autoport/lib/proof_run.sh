@@ -296,13 +296,20 @@ fi
 FEATLINE=$(grep -aE "^FEATURE $ID armed=[01] hits=[0-9]+" "$NORM" | tail -1)
 # Les `cle=valeur` SEULES SUR LEUR LIGNE, derniere valeur gagnante, les champs reserves du
 # runner exclus : le moteur ne peut pas se faire passer pour la machine qui l'a lance.
+# `next` DANS UN BLOC `END` EST UNE ERREUR FATALE POUR gawk (2026-09-03) :
+#     awk: ligne de commande:5: error: « next » est utilise dans l'action END
+# L'awk sortait donc en erreur A CHAQUE COURSE, `KVLINES` restait VIDE, et proof.txt ne portait
+# JAMAIS la moindre ligne `cle=valeur`. Mesure : course appareil du 2026-09-03 15:20, le moteur
+# publie `npc_culled_in_frustum=0` 240 fois dans son journal, proof.txt n'en porte aucune et le
+# validateur rend « le proof ne porte pas 'npc_culled_in_frustum=' : le moteur doit emettre cette
+# grandeur ». Le moteur l'emettait. AUCUN item du backlog, quel qu'il soit, ne pouvait passer sa
+# porte tant que cette ligne etait la. Le filtre est simplement retourne en condition positive.
 KVLINES=$(grep -aE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+$' "$NORM" \
   | awk -F= '{k=$1; sub(/^[^=]*=/,"",$0); v[k]=$0; if(!(k in seen)){seen[k]=1; ord[++n]=k}}
              END{for(i=1;i<=n;i++){k=ord[i];
-                 if(k=="source"||k=="serial"||k=="binary"||k=="sha"||k=="started_at"||
-                    k=="duration_s"||k=="crash"||k=="frames"||k=="local_lib_md5"||
-                    k=="device_lib_md5") next;
-                 printf "%s=%s\n", k, v[k]}}')
+                 if(k!="source" && k!="serial" && k!="binary" && k!="sha" && k!="started_at" &&
+                    k!="duration_s" && k!="crash" && k!="frames" && k!="local_lib_md5" &&
+                    k!="device_lib_md5") printf "%s=%s\n", k, v[k]}}')
 rm -f "$NORM"
 
 TMP="$D/.proof$SUF.tmp.$$"
