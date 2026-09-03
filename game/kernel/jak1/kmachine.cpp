@@ -5590,9 +5590,12 @@ static u64 level_warp_run() {
       }
     }
 #endif
-    if (injbuf[0] == '0' || injbuf[0] == '1') {
+    // Cycle 8 : le pont n'acceptait que '0'/'1' — la valeur 2 (pose de bind, controle positif du
+    // detecteur de t-pose, jak-hd.gc:1338) etait AVALEE en silence : Redmi dev7-inj2 a rendu
+    // inject_shots=0 sans une ligne HDSTRETCHINJECT. Tout chiffre 0-9 passe tel quel.
+    if (injbuf[0] >= '0' && injbuf[0] <= '9') {
       auto sym = intern_from_c("*hd-stretch-inject*");
-      sym->value = (injbuf[0] == '1') ? 1 : 0;
+      sym->value = (s64)(injbuf[0] - '0');
       printf("HDSTRETCHINJECT value=%d source=prop\n", (int)sym->value);
       fflush(stdout);
     }
