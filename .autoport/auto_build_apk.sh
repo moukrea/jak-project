@@ -62,8 +62,12 @@ export GRADLE_OPTS="${GRADLE_OPTS:+$GRADLE_OPTS }-Djava.io.tmpdir=$TMPDIR"
 # motif : `ps | grep motif` compte le grep lui-meme, piege tombe quatre fois en 24h et qui a
 # fait tuer la chaine de livraison toute la nuit du 2026-08-11.
 PIDFILE=".autoport/.auto_build_apk.pid"
-echo $$ > "$PIDFILE"
-trap 'rm -f "$PIDFILE"' EXIT
+# LE FICHIER PID N'EST ECRIT QU'APRES LA PRISE DU VERROU (2026-09-03). Ecrit ici, un DOUBLON
+# lance par erreur ecrasait le pid de l'instance vivante, puis son `trap EXIT` EFFACAIT ce
+# fichier en sortant — refuse par le verrou, il emportait donc l'identite du builder qui
+# tournait vraiment. Constate en direct pendant la passe de verification : le verrou a bien
+# refuse le doublon, et le fichier pid s'est retrouve vide alors qu'un builder tournait.
+# Le trap est pose au meme endroit, pour que seul le detenteur puisse retirer son propre pid.
 LOG=.autoport/logs/auto_build_apk.txt
 STAMP=.autoport/.last_apk_build_sha
 # DECLENCHEMENT (remis d'equerre 2026-09-03). Avant : l'empreinte incluait `git rev-parse HEAD`,
@@ -88,6 +92,8 @@ if ! flock -n 9; then
   echo "$(date +%H:%M:%S) une autre instance detient le verrou — sortie" >> "$LOG"
   exit 0
 fi
+echo $$ > "$PIDFILE"
+trap 'rm -f "$PIDFILE"' EXIT
 say "auto-builder démarré (branche $(git branch --show-current), verrou pris)"
 
 # =====================================================================================
