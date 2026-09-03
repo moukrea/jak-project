@@ -1,0 +1,1 @@
+delegate-verified by supervisor 2026-07-03: validator+gates PASS, deploy chain d71f01c32ca9f6e6 == HEAD 5fd298aae, device foreground+title renders clean, fps 28->35 Geyser / 20.9->28 village1, dyn-rs locks ~60 under motion. Owner final feel-test happens on the v3 APK.

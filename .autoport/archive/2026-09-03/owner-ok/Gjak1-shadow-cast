@@ -1,0 +1,7 @@
+supervisor gate-close 2026-07-13 23:50: validator PASS + personal eyeball (after-stand-03: shadow at Jak's
+feet; after-jump-air: airborne Jak with ground shadow — the decisive parity beat). Root cause = full Gwater
+3-part gap: shadow-execute arm64 body was a cursor pass-through since Gnd (geometry never computed) + 15
+shadow-* builders absent from jak1 kSet + ShadowRenderer not compiled/registered (SkipRenderer). Stock
+restoration, no toggle (kill-switch prop debug-only). Cost ~0.9ms median, 60Hz pacing unchanged. x86
+untouched (#if __aarch64__). deploy_verify PASS (161260cec).
+OWNER VALIDATED 2026-07-14 00:15 (HONOR, verbatim): "Alors l'ombre c'est 100% ok !"

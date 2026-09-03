@@ -1,0 +1,2956 @@
+phases:
+- id: 00-harness
+  name: Differential test harness
+  prompt: prompts/phase-00-harness.md
+  validator: validators/phase-00-harness.sh
+  max_turns: 120
+  max_retries: 10
+- id: 01-scaffold
+  name: AArch64 emitter scaffold
+  prompt: prompts/phase-01-scaffold.md
+  validator: validators/phase-01-scaffold.sh
+  max_turns: 150
+  max_retries: 10
+- id: 02-intarith
+  name: Integer arithmetic codegen
+  prompt: prompts/phase-02-intarith.md
+  validator: validators/phase-02-intarith.sh
+  max_turns: 200
+  max_retries: 12
+- id: 03-memops
+  name: Memory load/store codegen
+  prompt: prompts/phase-03-memops.md
+  validator: validators/phase-03-memops.sh
+  max_turns: 200
+  max_retries: 12
+- id: 04-controlflow
+  name: Branches, labels, comparisons
+  prompt: prompts/phase-04-controlflow.md
+  validator: validators/phase-04-controlflow.sh
+  max_turns: 200
+  max_retries: 12
+- id: 05-abi
+  name: Function calls and AArch64 ABI
+  prompt: prompts/phase-05-abi.md
+  validator: validators/phase-05-abi.sh
+  max_turns: 300
+  max_retries: 15
+- id: 06-float
+  name: Scalar floating point
+  prompt: prompts/phase-06-float.md
+  validator: validators/phase-06-float.sh
+  max_turns: 200
+  max_retries: 12
+- id: 07-neon
+  name: 'SIMD: SSE/AVX -> NEON'
+  prompt: prompts/phase-07-neon.md
+  validator: validators/phase-07-neon.sh
+  max_turns: 400
+  max_retries: 15
+- id: 08-coroutines
+  name: GOAL kernel context switch
+  prompt: prompts/phase-08-coroutines.md
+  validator: validators/phase-08-coroutines.sh
+  max_turns: 300
+  max_retries: 15
+- id: 09-boot-linux-arm
+  name: Boot Jak 1 under qemu-aarch64
+  prompt: prompts/phase-09-boot.md
+  validator: validators/phase-09-boot.sh
+  max_turns: 300
+  max_retries: 20
+- id: 10-android-ndk
+  name: Android NDK cross-build
+  prompt: prompts/phase-10-android.md
+  validator: validators/phase-10-android.sh
+  max_turns: 250
+  max_retries: 10
+- id: 11-apk
+  name: APK packaging and emulator boot
+  prompt: prompts/phase-11-apk.md
+  validator: validators/phase-11-apk.sh
+  max_turns: 250
+  max_retries: 10
+- id: 12-android-runtime
+  name: Full OpenGOAL runtime cross-built into libgk.so
+  prompt: prompts/phase-12-android-runtime.md
+  validator: validators/phase-12-android-runtime.sh
+  max_turns: 600
+  max_retries: 25
+- id: 13-real-apk
+  name: Real APK (AGP, binary manifest, debug-signed)
+  prompt: prompts/phase-13-real-apk.md
+  validator: validators/phase-13-real-apk.sh
+  max_turns: 300
+  max_retries: 15
+- id: 14-jak1
+  name: 'Jak 1: goalc-arm64 compile + stage into APK assets'
+  prompt: prompts/phase-14-jak1.md
+  validator: validators/phase-14-jak1.sh
+  max_turns: 400
+  max_retries: 20
+- id: 15-jak2
+  name: 'Jak 2: goalc-arm64 compile + stage into APK assets'
+  prompt: prompts/phase-15-jak2.md
+  validator: validators/phase-15-jak2.sh
+  max_turns: 400
+  max_retries: 20
+- id: 16-jak3
+  name: 'Jak 3: goalc-arm64 compile + stage into APK assets'
+  prompt: prompts/phase-16-jak3.md
+  validator: validators/phase-16-jak3.sh
+  max_turns: 400
+  max_retries: 20
+- id: 17-apk-assets
+  name: APK-bundled assets used at runtime (no manual push)
+  prompt: prompts/phase-17-apk-assets.md
+  validator: validators/phase-17-apk-assets.sh
+  max_turns: 200
+  max_retries: 10
+- id: 18-sdl3-bridge
+  name: SDL3 cross-build + Activity-SDL surface bridge
+  prompt: prompts/phase-18-sdl3-bridge.md
+  validator: validators/phase-18-sdl3-bridge.sh
+  max_turns: 500
+  max_retries: 20
+- id: 19-emitter-stress
+  name: AArch64 emitter stress against real jak1 CGOs (qemu-aarch64)
+  prompt: prompts/phase-19-emitter-stress.md
+  validator: validators/phase-19-emitter-stress.sh
+  max_turns: 500
+  max_retries: 15
+- id: 20-goal-main
+  name: Wire goal_main into gk_sdl_main; kernel boots on device
+  prompt: prompts/phase-20-goal-main.md
+  validator: validators/phase-20-goal-main.sh
+  max_turns: 500
+  max_retries: 20
+- id: 21-gles-shaders
+  name: GLES shader port + GL API audit; first frame rendered
+  prompt: prompts/phase-21-gles-shaders.md
+  validator: validators/phase-21-gles-shaders.sh
+  max_turns: 500
+  max_retries: 20
+- id: 22-bionic-portability
+  name: Bionic shims + W^X code mapping + 5-min longevity
+  prompt: prompts/phase-22-bionic-portability.md
+  validator: validators/phase-22-bionic-portability.sh
+  max_turns: 400
+  max_retries: 10
+- id: 23-input-audio
+  name: Touch input → GOAL pad mapping + audio output
+  prompt: prompts/phase-23-input-audio.md
+  validator: validators/phase-23-input-audio.sh
+  max_turns: 400
+  max_retries: 8
+- id: 24-emitter-audit
+  name: AArch64 emitter byte-pattern audit on synthetic GOAL source
+  prompt: prompts/phase-24-emitter-audit.md
+  validator: validators/phase-24-emitter-audit.sh
+  max_turns: 500
+  max_retries: 15
+- id: 25-cgo-regen
+  name: Re-emit jak1 CGOs with strict aarch64 verification
+  prompt: prompts/phase-25-cgo-regen.md
+  validator: validators/phase-25-cgo-regen.sh
+  max_turns: 400
+  max_retries: 10
+- id: A1-emitter-enumerate
+  name: Enumerate every IR form used by jak1 source
+  prompt: prompts/phase-A1-emitter-enumerate.md
+  validator: validators/phase-A1-emitter-enumerate.sh
+  max_turns: 200
+  max_retries: 5
+- id: A2-emitter-implement
+  name: Implement aarch64 codegen for every IR cluster
+  prompt: prompts/phase-A2-emitter-implement.md
+  validator: validators/phase-A2-emitter-implement.sh
+  max_turns: 1200
+  max_retries: 30
+- id: A3-emitter-differential
+  name: 'Per-IR-form differential: aarch64 disasm + qemu execute == x86 result'
+  prompt: prompts/phase-A3-emitter-differential.md
+  validator: validators/phase-A3-emitter-differential.sh
+  max_turns: 600
+  max_retries: 15
+- id: A4-linker-fixups
+  name: Arm64 link-time fix-up support (LDR imm12, B/BL imm26, B.cond imm19)
+  prompt: prompts/phase-A4-linker-fixups.md
+  validator: validators/phase-A4-linker-fixups.sh
+  max_turns: 800
+  max_retries: 20
+- id: B1-cgo-regen-strict
+  name: Re-emit jak1 CGOs with the now-complete emitter; structural check
+  prompt: prompts/phase-B1-cgo-regen-strict.md
+  validator: validators/phase-B1-cgo-regen-strict.sh
+  max_turns: 400
+  max_retries: 10
+- id: B2-cgo-qemu-stress
+  name: Decode-stress all jak1 CGOs under qemu-aarch64; no SIGILL/SIGSEGV
+  prompt: prompts/phase-B2-cgo-qemu-stress.md
+  validator: validators/phase-B2-cgo-qemu-stress.sh
+  max_turns: 500
+  max_retries: 15
+- id: C1-linux-arm64-config
+  name: Configure build-arm64-linux with cross-toolchain; gk builds
+  prompt: prompts/phase-C1-linux-arm64-config.md
+  validator: validators/phase-C1-linux-arm64-config.sh
+  max_turns: 400
+  max_retries: 12
+- id: C2-linux-arm64-symbols
+  name: Resolve glibc + dynamic symbol issues so gk dlopens cleanly
+  prompt: prompts/phase-C2-linux-arm64-symbols.md
+  validator: validators/phase-C2-linux-arm64-symbols.sh
+  max_turns: 500
+  max_retries: 15
+- id: C3-linux-arm64-title
+  name: Reach title under qemu-aarch64; trace-diff matches oracle through title milestone
+  prompt: prompts/phase-C3-linux-arm64-title.md
+  validator: validators/phase-C3-linux-arm64-title.sh
+  max_turns: 800
+  max_retries: 25
+- id: C4-klink-arm64-execute
+  name: klink arm64 ADRP+ADD fixups + gcommon top-level GOAL executes under qemu
+  prompt: prompts/phase-C4-klink-arm64-execute.md
+  validator: validators/phase-C4-klink-arm64-execute.sh
+  max_turns: 600
+  max_retries: 20
+- id: D1-android-bionic-shims
+  name: 'Bionic shims: every glibc symbol gk uses has a real Bionic implementation or wrapper'
+  prompt: prompts/phase-D1-android-bionic-shims.md
+  validator: validators/phase-D1-android-bionic-shims.sh
+  max_turns: 600
+  max_retries: 20
+- id: D2-android-gles-shaders
+  name: 'Real GLES shader port: every upstream shader translated and compiles'
+  prompt: prompts/phase-D2-android-gles-shaders.md
+  validator: validators/phase-D2-android-gles-shaders.sh
+  max_turns: 600
+  max_retries: 20
+- id: D3-android-sdl3-surface
+  name: SDL3 Android driver wired to MainActivity's SurfaceView; eglSwapBuffers sustained
+  prompt: prompts/phase-D3-android-sdl3-surface.md
+  validator: validators/phase-D3-android-sdl3-surface.sh
+  max_turns: 500
+  max_retries: 15
+- id: D4-android-apk-title
+  name: APK reaches title on device; trace-diff matches Linux-arm64 build through title milestone
+  prompt: prompts/phase-D4-android-apk-title.md
+  validator: validators/phase-D4-android-apk-title.sh
+  max_turns: 600
+  max_retries: 20
+- id: A5-emitter-far-relocs
+  name: 'Codegen unlock (narrow): emit far-reloc sequence for ADRP+ADD references whose page-delta exceeds 21-bit, closing
+    the 691 NOP gap; regenerate CGOs; re-validate B1-D4; audit and trim dodge-only shims from android_runtime_compat.cpp'
+  prompt: prompts/phase-A5-emitter-far-relocs.md
+  validator: validators/phase-A5-emitter-far-relocs.sh
+  max_turns: 800
+  max_retries: 25
+- id: E1-ux-landscape-gamepad
+  name: Landscape rendering correct; Bluetooth gamepad routes through SDL_OpenGamepad into GOAL
+  prompt: prompts/phase-E1-ux-landscape-gamepad.md
+  validator: validators/phase-E1-ux-landscape-gamepad.sh
+  max_turns: 400
+  max_retries: 10
+- id: E2-ux-touch-overlay-optional
+  name: Optional on-screen PS2-button overlay behind settings flag
+  prompt: prompts/phase-E2-ux-touch-overlay-optional.md
+  validator: validators/phase-E2-ux-touch-overlay-optional.sh
+  max_turns: 400
+  max_retries: 10
+- id: E3-ux-save-load
+  name: Save/load works on Android (kmemcard cross-compiles; filesDir-backed)
+  prompt: prompts/phase-E3-ux-save-load.md
+  validator: validators/phase-E3-ux-save-load.sh
+  max_turns: 400
+  max_retries: 10
+- id: A6-emitter-off-register
+  name: 'Codegen unlock (narrow, IGenARM64.cpp only): fix the 6 off-register helpers (load_goal_gpr / store_goal_gpr / load_goal_xmm32
+    / load_goal_xmm128 / store_goal_xmm32 / store_goal_vf) to emit ADD X16, Xn, X15 then LDR/STR, instead of dropping the
+    EE-base register. Remove the g_android_skip_goal_call dodge entirely (storage, arming, dispatcher branch, asm short-circuit).
+    Regenerate CGOs; D4 re-passes WITH the GOAL dispatcher actually running.'
+  prompt: prompts/phase-A6-emitter-off-register.md
+  validator: validators/phase-A6-emitter-off-register.sh
+  max_turns: 600
+  max_retries: 20
+- id: A7-emitter-unit-tests
+  name: 'Build emitter unit test harness (Level 0 encoding asserts + Level 1 qemu-aarch64-static exec tests) at .autoport/tests/emitter/.
+    Runtime < 30s. Catches arm64 emitter cascade bugs deterministically without 3-min device cycles. Codegen-locked: tooling
+    only, must not modify any goalc file.'
+  prompt: prompts/phase-A7-emitter-unit-tests.md
+  validator: validators/phase-A7-emitter-unit-tests.sh
+  max_turns: 600
+  max_retries: 15
+- id: A8-qemu-repro-and-displaygc-fix
+  name: qemu-aarch64-static reproduction of display.gc NULL fn-ptr BLR + the actual fix. Extend linux-arm64 driver to load
+    ENGINE/GAME.CGO; per-BLR trace; identify root-cause; fix in IGenARM64.cpp / ObjectGenerator.cpp / klink.cpp / kscheme.cpp
+    as appropriate. D4 device validator must pass end-to-end (hardened SDL/GL marker requirements). No fault-recovery dodges.
+  prompt: prompts/phase-A8-qemu-repro-and-displaygc-fix.md
+  validator: validators/phase-A8-qemu-repro-and-displaygc-fix.sh
+  max_turns: 800
+  max_retries: 20
+- id: A9-codegen-spill-ops
+  name: 'Narrow unlock of goalc/compiler/CodeGenerator.cpp::do_goal_function_arm64 to implement real spill ops (LDR/STR Xt,
+    [SP, #imm12]) + frame setup (SUB/ADD SP, SP, #frame). Replaces NOP placeholders that caused the display.gc NULL fn-ptr
+    BLR. D4 device validator must pass end-to-end.'
+  prompt: prompts/phase-A9-codegen-spill-ops.md
+  validator: validators/phase-A9-codegen-spill-ops.sh
+  max_turns: 600
+  max_retries: 15
+- id: A10-callee-save-area
+  name: Caller-save-area preservation across GOAL→GOAL BLR. Identify and fix the IR_* op (most likely vector/128-bit store
+    or stack-var-offset miscomputation) that corrupts the caller's preserved-register area. Narrow IR.cpp unlock. D4 device-validator
+    must pass end-to-end.
+  prompt: prompts/phase-A10-callee-save-area.md
+  validator: validators/phase-A10-callee-save-area.sh
+  max_turns: 600
+  max_retries: 15
+- id: A11-texture-sym-binding
+  name: Resolve texture-CGO top-level sym=0 SIGILL. Instrument klink + symbol bind to identify the unbound symbol whose slot
+    reads 0 at the failing BLR site, then fix the root cause (likely CGO link-order or missing top-level define). Narrow klink.cpp
+    + symbol.cpp diagnostic unlock; D4 device-validator must pass end-to-end with ≥3/5 SDL/GL real-init markers.
+  prompt: prompts/phase-A11-texture-sym-binding.md
+  validator: validators/phase-A11-texture-sym-binding.sh
+  max_turns: 600
+  max_retries: 12
+- id: A12-gsound-stack-fnptr
+  name: Resolve gsound stack-loaded fn-ptr=0 SIGILL (the post-A11-FFI-bridge boot ceiling at 156 link-finishes). Extend SIGILL
+    diag with backward-provenance stack-store trace to localise which earlier instruction wrote 0 to the slot, then fix the
+    underlying unbound-sym / unset-method-slot / uninitialised-struct-field. Same unlock list as A11 (klink/kmachine/symbol/diag
+    handlers); codegen + kscheme + asm trampoline stay locked.
+  prompt: prompts/phase-A12-gsound-stack-fnptr.md
+  validator: validators/phase-A12-gsound-stack-fnptr.sh
+  max_turns: 600
+  max_retries: 12
+- id: A13-iop-kernel-mutex-init
+  name: Initialise IOP_Kernel's pthread_mutex_t members on linux-arm64 / android-arm64 (zero-init in BSS by default, so the
+    first sif_rpc call from gsound's top-level SEGVs in pthread_mutex_lock). Smallest A13 candidate per A12 next-blocker —
+    mutex pre-init only, no IOP thread spawning. Async RPCs queue but don't wait; sync RPCs (A14+) need a real IOP thread.
+  prompt: prompts/phase-A13-iop-kernel-mutex-init.md
+  validator: validators/phase-A13-iop-kernel-mutex-init.sh
+  max_turns: 600
+  max_retries: 12
+- id: A14-pc-memmove-bind
+  name: Bind __mem-move on linux-arm64 / android-arm64 (the next unbound pc-* helper that dma-buffer's top-level invokes after
+    the A13 IOP unblock). Add a klink_a14_ensure_pc_memmove_bound helper to klink.cpp mirroring the A11/A12 pattern; chain
+    into the pre-version -check hook in both boot drivers. Smallest A14 candidate per A13 attempt-3 next-blocker.
+  prompt: prompts/phase-A14-pc-memmove-bind.md
+  validator: validators/phase-A14-pc-memmove-bind.sh
+  max_turns: 400
+  max_retries: 8
+- id: A15-regalloc-fnptr-livethrough
+  name: Add a regalloc constraint so a CALL_R64's function-pointer source register cannot be reused as the destination of
+    any intervening IR op between the load and the BLR. Closes the sig=7 SIGBUS at sin*! call sites where the V2 allocator
+    assigned the fn-ptr and an SDIV destination to the same physical reg, the SDIV clobbered the fn-ptr, and BLR jumped to
+    ee_base+offset/10 (unaligned PC). Unlocks goalc/regalloc/ for the first time since A1.
+  prompt: prompts/phase-A15-regalloc-fnptr-livethrough.md
+  validator: validators/phase-A15-regalloc-fnptr-livethrough.sh
+  max_turns: 600
+  max_retries: 12
+- id: A16-device-cpu-divergence-diag
+  name: Diagnose what the Redmi Note 9 Pro Cortex-A76 CPU rejects that qemu-aarch64-static accepts. Diagnostic-only phase
+    — extend the SIGSEGV diag handler to walk back through ADRP/ADD pairs in the lr-window, identify which Xd was clobbered
+    between an ADRP and a subsequent LDR/STR. Authored after A15 attempts 1+2 both reverted (qemu +46, device -101 to -113)
+    — two failed fix attempts is enough; we need data, not more guesses.
+  prompt: prompts/phase-A16-device-cpu-divergence-diag.md
+  validator: validators/phase-A16-device-cpu-divergence-diag.sh
+  max_turns: 400
+  max_retries: 6
+- id: A17-idiv-emitter-spill
+  name: Emitter-side IDIV spill — preserve X8 across SDIV/UDIV in the IDIV emit itself so the regalloc never sees X8 as clobbered.
+    Closes the sin call site sig=7 SIGBUS that A14 surfaced and that A15 (regalloc-layer) attempts both failed to fix. Per
+    A16 diagnostic, x16 is not clobbered; the bug IS the original SDIV-X8 → BLR-X8. Localizing the X8 use to the emit avoids
+    the qemu/device allocation-ripple divergence that broke A15.
+  prompt: prompts/phase-A17-idiv-emitter-spill.md
+  validator: validators/phase-A17-idiv-emitter-spill.sh
+  max_turns: 500
+  max_retries: 10
+- id: A18-type-method-zero-bind
+  name: Close the next BLR-to-ee_base at time-of-day top-level — a GOAL function-pointer dispatch through a type-method slot
+    at object offset 0x68 loads 0. Extend GK-DIAG with a type-method-zero walker to name the failing type+method, then either
+    bind the missing method via klink_a18 helper OR install an honest-abort surface that names the missing impl (NOT a silent
+    return-0 stub).
+  prompt: prompts/phase-A18-type-method-zero-bind.md
+  validator: validators/phase-A18-type-method-zero-bind.sh
+  max_turns: 500
+  max_retries: 8
+- id: A19-goalc-arm64-codegen-fixes
+  name: 'Land TWO arm64-specific goalc codegen fixes diagnosed by A18 attempt-4. (1) X12 regalloc clobber: when a GOAL→C arg-shuffle
+    stashes a value into X12 that is live across an IR_FunctionCall, the caller-save spill list must include X12 (or the regalloc
+    must move the value to AAPCS callee-save X19-X28). Evidence: disasm of dead-pool-heap.get-process shows MOV X12,X7 at
+    lr-388 then STP/STR list at lr-292..lr-284 saving {X3,X5,X10,X11,X23} but NOT X12 — find-gap-by-size clobbers X12, X12
+    used as this for the next dispatch → SIGILL. (2) Field-offset off-by-4 in arm64 emit: LDR/STR of basic-relative field
+    offsets encode (real-4) instead of real. Evidence: find-gap-by-size emits LDR W3,[X16,#0x30] (=48) for (-> this first-gap)
+    which is at offset 52 per gkernel-h.gc layout (basic 0 + process-tree 32 + dead-pool +0 + dead-pool-heap[allocated-length,compact-time,
+    compact-count-targ,compact-count,fill-percent]=20 → first-gap at 52). x86 boots; cannot be reading 48. Both fixes must
+    land together to advance boot past the 216 link-finish ceiling at start-time-of-day. New arm64 CGO baseline required.'
+  prompt: prompts/phase-A19-goalc-arm64-codegen-fixes.md
+  validator: validators/phase-A19-goalc-arm64-codegen-fixes.sh
+  max_turns: 600
+  max_retries: 6
+- id: A20-goalc-arm64-field-offset
+  name: 'Land the arm64-specific field-offset off-by-4 fix in the goalc compiler layer. A19 attempt-1 proved via 8 encoder
+    unit tests that IGenARM64.cpp imm12-encoding helpers honour offsets verbatim, so Bug 2 is NOT in the emitter. Most likely
+    sites: goalc/compiler/IR.cpp::IR_LoadConstOffset::do_codegen_arm64; goalc/compiler/Val.cpp::MemoryDerefVal::to_reg or
+    get_constant_offset_and_base; goalc/compiler/compilation/Type.cpp''s MemoryOffsetConstantVal construction (lines 47, 143,
+    707, 717, 856, 874, 901 per A19 attempt-1 next-blocker). Path A: add OG_OFFSET_TRACE env-gated diag in do_codegen_arm64/x86,
+    compare m_offset for find-gap-by-size, identify diverging site, one-line fix. Path B: walk MemoryOffsetConstantVal sites
+    for arm64-specific branches. A19''s X12 fix stays in HEAD (no IGenARM64 changes in A20). New arm64 CGO baseline.'
+  prompt: prompts/phase-A20-goalc-arm64-field-offset.md
+  validator: validators/phase-A20-goalc-arm64-field-offset.sh
+  max_turns: 600
+  max_retries: 6
+- id: A21-arm64-codegen-deeper-investigation
+  name: 'Diagnostic phase post-A20 off-by-4 falsification. A20 attempt-1 proved via OG_OFFSET_TRACE (196k-line zero-diff trace)
+    and KERNEL.CGO byte-scan (15 instances each of LDR Wt,[X16,#48] and [X16,#52] at mod-4=2 alignment) that the field-offset
+    off-by-4 hypothesis is wrong. Real 216-link-finish ceiling cause is one of 4 hypotheses per A20-attempt-1-next-blocker.md:
+    H1 second regalloc-clobber surface (weak per supervisor check — HEAD already saves R3/R5/R10/R11/R12+X23 in call_r64);
+    H2 X16 corruption in IR_FunctionCall::do_codegen_arm64 across BLR; H3 klink-time LDR-literal imm19 NOPs (81 warnings in
+    qemu log); H4 AAPCS arg-shuffle gap in kscheme.cpp::call_goal. A21 is DIAGNOSTIC ONLY — add env-gated trace patches in
+    linux_arm64_main.cpp, klink.cpp, Allocator_v2.cpp, kscheme.cpp; discriminate which hypothesis holds; honest-exit with
+    bug-class-identified.md naming primary hypothesis and recommended A22 narrow-fix scope. In-scope fixes (klink, kscheme
+    call_goal, linux_arm64_main) may be landed if evidence is unambiguous. IGenARM64.cpp and IR.cpp stay locked (A19/A20 proved
+    no bug there).'
+  prompt: prompts/phase-A21-arm64-codegen-deeper-investigation.md
+  validator: validators/phase-A21-arm64-codegen-deeper-investigation.sh
+  max_turns: 600
+  max_retries: 6
+- id: A22-arm64-codegen-h2-fix
+  name: 'H2 fix phase post-A21 diagnosis. A21 attempt-1 named H2 (scratch/X16 corruption across BLR producing stack-as-GOAL-ptr)
+    as primary cause of the 216-link-finish ceiling, with arithmetic-verified evidence (8 regs X16+X24..X30 = 0x212afffe84,
+    SP+32 = 0x07fffe84, math 0x07fffe84+0x2123000000=0x212afffe84). A22 unlocks IGenARM64.{cpp,h} + IR.cpp + asm_funcs_arm64.s
+    to find and fix the SOURCE emit sequence that writes stack_addr into a scratch/callee-saved reg. Forbidden cheats: widening
+    call_r64 to save all X19..X28 without naming source, trampoline-wrapper masking the bug, NOP padding, removing OG_*_TRACE
+    diags. Three valid exits: A) fix landed + qemu boot >=217 + A22-fix-summary.md naming specific emit surface; B) honest
+    next-blocker.md naming file outside unlock list; C) no-source-located.md (lowest quality but honest). All require A22-investigation-trace.md
+    ≥150 lines.'
+  prompt: prompts/phase-A22-arm64-codegen-h2-fix.md
+  validator: validators/phase-A22-arm64-codegen-h2-fix.sh
+  max_turns: 800
+  max_retries: 5
+- id: A23-arm64-blr-target-tracer
+  name: 'Runtime BLR-target tracer phase post-A22 Path C honest-exit. A22 attempt-1 confirmed H2 mechanism (m_func value is
+    GOAL form of host stack addr) with new arithmetic evidence (X7=X8=0x07fffe84, X16=X7+X15, X29=X30=X16) but could not locate
+    specific emit-site / GOAL function within IGenARM64.cpp + IR.cpp + asm_funcs_arm64.s unlock list. A23 adds env-gated (OG_BLR_TARGET_TRACE_EMIT)
+    compile-time tracer in call_r64 that emits CMP-against-heap-top + UDF-with-tag for stack-range BLR targets; SIGILL handler
+    decodes the UDF tag and prints emit_pc + freg_value + caller_lr. Cross-reference emit_pc against klink symbol table to
+    NAME the GOAL function. NEW unlocks vs A22: goalc/compiler/Val.cpp + .h (StackVarAddrVal / MemoryDerefVal flow audit),
+    goalc/compiler/compilation/Type.cpp (fn-ptr-vs-stack-ptr typecheck audit). Four exit paths: A) fix landed (qemu>=217 +
+    Val/Type/IR fix); B) next-blocker; C) bug-located-named-source (tracer fired + named GOAL function but fix outside A23
+    reach — MOST LIKELY successful exit); D) no-source-located. All require ≥200-line investigation trace.'
+  prompt: prompts/phase-A23-arm64-blr-target-tracer.md
+  validator: validators/phase-A23-arm64-blr-target-tracer.sh
+  max_turns: 1000
+  max_retries: 5
+- id: A24-arm64-epilogue-x30-tracer
+  name: 'Epilogue X30 stack-range tracer phase post-A23 Path C falsification of H2-via-call_r64. A23 attempt-1 instrumented
+    61204 call_r64 BLR sites with env-gated CMP-against-0x07000000 + UDF-with-tag check; the tracer fired ZERO times across
+    a complete 216-link-finish boot run, proving the 216 ceiling crash is NOT via call_r64 BLR-to-stack. The real mechanism
+    is RET-to-corrupted-LR: some STR/STP inside a function body corrupts the function''s X29/X30 save slot, the epilogue ''LDP
+    X29, X30, [SP], #N; RET'' loads the corrupted X30 and propagates the stack addr to PC. A24 unlocks goalc/compiler/CodeGenerator.cpp
+    + .h to add env-gated (OG_X30_TRACE_EMIT) post-LDP X30 stack-range check in do_goal_function_arm64''s epilogue emit: SUB
+    X17 X30 X15; MOVZ X16 0x07000000; CMP; B.LO; UDF #0x1EF0. Distinct tag from A23''s 0x1EE0..0x1EFF range. SIGILL handler
+    decodes 0x1EF0, prints emit_pc + x30 + goal_off + caller_lr, cross-references emit_pc to the GOAL function whose frame
+    got corrupted. Five exit paths: A) fix landed (qemu>=217); B) next-blocker; C) bug-located-named-source (MOST LIKELY —
+    tracer fires, GOAL function named); D) no-source-located; E) tracer-doesnt-fire (would be very surprising given A23 evidence;
+    would imply RET also isn''t the source).'
+  prompt: prompts/phase-A24-arm64-epilogue-x30-tracer.md
+  validator: validators/phase-A24-arm64-epilogue-x30-tracer.sh
+  max_turns: 1200
+  max_retries: 5
+- id: A25-arm64-ir-regset-fpr-dispatch
+  name: 'FIRST TRUE FIX PHASE SINCE A19. A24 attempt-1 located the root cause of the 216-link-finish ceiling: IR_RegSet::do_codegen_arm64
+    (goalc/compiler/IR.cpp:520-527) unconditionally emits mov_gpr64_gpr64 for every IR_RegSet, regardless of register class.
+    The shared Register enum has XMM regs at IDs 16-31 which arm64_reg5() maps 1:1 to GPR IDs X16-X31, so (.mov xmm14 src)
+    emits MOV X30, X(src) — CORRUPTING THE LINK REGISTER. In throw-dispatch (gkernel.gc:1531), the 8-iteration XMM-restore
+    loop has X16 = host form of stack-allocated this, so X30 = stack addr → raw RET → SIGILL at 0x212afffe84. A24 tracer fired
+    at emit_pc=0x21231d713c with arithmetic-verified evidence. A25 fix is concrete: add FPR/GPR dispatch to IR_RegSet::do_codegen_arm64
+    (mirror x86 regset_common pattern), add FMOV helpers (FMOV Dd Dn / FMOV Dn Xd / FMOV Xd Dn) in IGenARM64.cpp, audit other
+    IRs that share the same mov_gpr64_gpr64 bug. Three exits: A) fix landed (qemu>=217 STRICT); B) next-blocker if scope expands
+    beyond IR.cpp+IGenARM64; C) partial-fix if CGOs differ but qemu still ceilings.'
+  prompt: prompts/phase-A25-arm64-ir-regset-fpr-dispatch.md
+  validator: validators/phase-A25-arm64-ir-regset-fpr-dispatch.sh
+  max_turns: 800
+  max_retries: 5
+- id: A26-arm64-xmm-symmetric-and-break-trap
+  name: 'Widen IR_RegSet dispatch from X30-only (A25 narrow fix) to ALL XMM-class operand cases (IDs 24..31), tackling 3 of
+    A25''s 5 blockers: cpu-thread-suspend SAVE side, cpu-thread-resume RESTORE for dst IDs 24-29/31, new-catch-frame SAVE
+    side. Plus add IDIV-by-zero trap in arm64 emit so `(break)` macro actually traps (currently arm64 SDIV by zero silently
+    returns 0, making `(/ 0 0)` a no-op → post-throw- not-found path unwinds with corrupt SP). A26 audits gcommon FLOAT-FLOAT
+    callsites that A25 attempt 1.1 broke and either patches them individually or scopes the dispatch context-aware. Four exit
+    paths: A) fix landed (qemu >= 217 STRICT); B) next-blocker; C) partial-fix (e.g., BREAK-MACRO-TRAP fires, makes next bug
+    visible); D) regression (revert if worse than A25). Deferred to later phase: blocker 4 (gcommon FLOAT-FLOAT downstream
+    callsites — too broad blast radius for A26).'
+  prompt: prompts/phase-A26-arm64-xmm-symmetric-and-break-trap.md
+  validator: validators/phase-A26-arm64-xmm-symmetric-and-break-trap.sh
+  max_turns: 1000
+  max_retries: 5
+- id: A27-arm64-catch-frame-chain-tracer
+  name: 'Diagnostic phase to discriminate between A26-identified hypotheses for the throw-not-found-tag-initialize chain mismatch
+    (separate bug from XMM corruption A24-A26 fixed). A26 BREAK-MACRO-TRAP fires 35 times in the boot, once at the throw function
+    tail (goal_off=0x1d68f8). Five candidate hypotheses: H1 catch-frame constructor mis-emits chain link; H2 chain-head pointer
+    write mis-emits; H3 throw walker chain-pointer load mis-emits; H4 regalloc/live-range bug in catch-frame construction
+    (DEFERRED — would need Allocator.cpp unlock); H5 missing catch-frame setup before throw. A27 extends the A26 0xBEEF SIGILL
+    decoder with a catch-frame chain dumper: walks chain head from s7 symbol, prints each frame tag, identifies whether ''initialize
+    is present. Empty chain → H5 confirmed; non-empty without ''initialize → H1/H2 (frame lost); ''initialize present but
+    throw still fails → H3 (walker bug). Disasm-driven constant derivation. Four exit paths: A) fix lands; B) next-blocker;
+    C) bug-located-named-source (most likely); D) no-source-located.'
+  prompt: prompts/phase-A27-arm64-catch-frame-chain-tracer.md
+  validator: validators/phase-A27-arm64-catch-frame-chain-tracer.sh
+  max_turns: 800
+  max_retries: 5
+- id: A28-arm64-codegen-fix-sprint
+  name: 'METHODOLOGY RESET. A21-A27 were narrow one-bug-per-phase diagnostic phases — too slow. A28 is a wide-scope fix sprint:
+    unlock all of goalc (except IGenX86_64 oracle) + game/kernel + game/linux-arm64 + game/system + common/type_system + android,
+    keep only x86-emitter and goal_src and infra locked. Lean validator: x86 desktop still boots to link finish logo (replaces
+    byte-identity — x86 CGO bytes MAY change as long as it still boots), qemu no regression below 216, no weak/abort/dodge/stubs/fake-link,
+    one report >=80 lines. Start with A27-confirmed H5.b (catch-frame constructor chain-push mis-emit at gkernel.gc:1514-1515
+    — disassemble new catch-frame method, check STR offsets vs walker loads at pp+0x58 / this+0x04). FIX AS MANY arm64 codegen
+    bugs as found in one session (they are all asm-func .mov / field-store class-mismatch bugs, 2-5 likely remain). Iterate
+    fix→build→qemu until boot advances past 216 or a GOAL-source change is needed. max_turns 2500, budget ~$200/session. Goal:
+    stop fragmenting, let claude rip.'
+  prompt: prompts/phase-A28-arm64-codegen-fix-sprint.md
+  validator: validators/phase-A28-arm64-codegen-fix-sprint.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A29-arm64-gsound-iop-rpc-sprint
+  name: 'Continue the A28 wide-sprint methodology past the gsound blocker. A28 broke the 216 ceiling to 462 link-finishes
+    (RSP-SP + x86-call/ret asm-func fixes); qemu now dies at link-finish 462 with `Assertion failed: rec->cmd.finished &&
+    rec->cmd.started` in game/system/IOP_Kernel.cpp (the EE-IOP sound-RPC emulation). A29 fixes the IOP RPC state-machine
+    / mips2c-IOP-codegen / init issue so gsound runs, then keeps fixing whatever blocks next (sound init, more IOP RPCs, level/DGO
+    load, the logo title DGO, the display loop) until boot reaches the renderer stage or hits a GOAL-source wall. Lean gates
+    (same as A28): x86 still boots to link finish logo, qemu no regression below 462, no weak/abort-additions/dodge/stubs/fake-link,
+    one report >=80 lines. Relaxing the firing assert is allowed ONLY if the underlying RPC state is shown correct (no silencing
+    asserts to fake progress). max_turns 2500, budget ~$200.'
+  prompt: prompts/phase-A29-arm64-gsound-iop-rpc-sprint.md
+  validator: validators/phase-A29-arm64-gsound-iop-rpc-sprint.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A30-android-runtime-surface-bringup
+  name: 'PIVOT from qemu-codegen to Android-runtime integration. A28+A29 took qemu 216→462→660 (past the title screen logo,
+    into Geyser Rock level load) — codegen is essentially done. But on the real device (Redmi Note 9 Pro, adb eae4df44) the
+    GOAL kernel does NOT run: app loads libgk.so + mmaps EE mem + MainActivity onCreate, then sits at 0% CPU sleeping with
+    a black screen — gk_main never starts the GOAL boot (SDL main thread blocked on GL-surface/EGL creation), and native stdout
+    is not routed to logcat (boot invisible on-device). A30 mandate: (1) route gk native stdout/stderr to logcat FIRST so
+    the device boot is visible; (2) diagnose+fix why gk_main/the SDL surface does not start the kernel; (3) boot the kernel
+    on-device toward logo + the display loop; (4) render the title screen + screencap it. Device-centric inner loop (d4_run;
+    warm cache so installs are fast). ALWAYS -s eae4df44 (never the emulator); disable the egggameplus launcher reversibly
+    for clean foreground, re-enable after. Lean gates: x86 still boots, qemu >=660 no-regression, native-log routing present,
+    an A30-device-*.png screencap captured; supervisor judges the screencap (black is not a pass). Unlocks android/** + game/linux-arm64
+    SDL/surface glue + all non-oracle code. max_turns 2500, budget ~$200.'
+  prompt: prompts/phase-A30-android-runtime-surface-bringup.md
+  validator: validators/phase-A30-android-runtime-surface-bringup.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A31-android-boot-to-titlescreen
+  name: 'Push the on-device boot from 291 through init to the display loop + render the title screen. A30 got the GOAL kernel
+    RUNNING on the real device (0→291 on-device link-finishes) via native-log routing (gk_log_pipe), fixing the launcher/MIUI-dialog
+    activity hijack + a MAP_FIXED_NOREPLACE SIGILL, and refreshing stale APK CGOs. SDL/Adreno surface comes up (dark-blue
+    clear). But the device SIGSEGVs at the progress-part CGO top-level (on-device link #291), mid-init, before the display/dispatch
+    loop — so the title screen (which draws only once the display loop runs after init) is not reached. qemu is already at
+    660; the 291→660 gap is Android-specific crashes qemu does not hit. A31 fixes the progress-part SIGSEGV + each subsequent
+    on-device crash to reach the display loop, then confirms the renderer draws the title screen (screencap). On-device link-finish
+    count (routed logcat) is the metric, not qemu. Device rules: ALWAYS -s eae4df44 (never emulator), disable/re-enable egggameplus
+    reversibly, keep APK CGOs synced from out/jak1-arm64/iso. Lean gates: x86 boots, qemu >=660, gk_log_pipe preserved, A31-device-*.png
+    screencap captured; supervisor judges the image (black is not a pass). Unlocks android/** + renderer + all non-oracle
+    code. max_turns 2500, budget ~$250.'
+  prompt: prompts/phase-A31-android-boot-to-titlescreen.md
+  validator: validators/phase-A31-android-boot-to-titlescreen.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A32-android-renderer-path-bringup
+  name: 'Fix the null-object dispatch at tpage-463 — the device now exercises the real renderer that qemu skips. qemu reaches
+    660 but the device crashes at on-device link #316 (tpage-463 = texture-page = RENDERER data) with a type-method-zero dispatch
+    on a NULL/freed object (obj-goal=0x0, method slot=0xdeadbeef freed-poison → BLR EE_BASE → SIGILL). Same arm64 CGOs, so
+    it is the runtime env: the device has a real Adreno GL renderer + GS-emulation/texture-page path that headless qemu skips/stubs
+    — the remaining device-only crashes are likely renderer/GS bugs (the "renderer is the real unknown" surface, now reached).
+    A31 was diagnostics-only (its +25 was ASLR drift, no real fix). A32 MUST land a real fix + advance past 316: use the A18
+    a18_method_zero_trap to NAME the null object/type/method at tpage-463, root-cause why it is null on Android vs qemu (heap
+    layout/size mismatch in gk_android_main vs linux_arm64_main? renderer-init path run only on real GL? init-order?), FIX
+    (make the object valid — NOT null-guard to skip), push toward the display loop + render the title screen. Fixing by null-guarding
+    the dispatch is forbidden (hides the bug, renderer still wont draw). Device rules: -s eae4df44 only, egggameplus reversible,
+    keep APK CGOs synced. Lean gates + supervisor judges the screencap (black is not a pass). max_turns 2500.'
+  prompt: prompts/phase-A32-android-renderer-path-bringup.md
+  validator: validators/phase-A32-android-renderer-path-bringup.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A33-arm64-regalloc-spill-sprint
+  name: 'Fix the SHARED hud-classes-pc SIGSEGV — qemu 660 ceiling == device 354 ceiling, same bug, back in the fast qemu loop.
+    A32 fixed Android pc-helper bindings (named via the A18 trap: __pc-texture-upload-now + __read-ee-timer + __send-gfx-dma-chain
+    missing from a17_bind_pc_helpers, never back-ported from linux A29; plus __pc-get-mips2c returning 0 for every name) and
+    the device advanced 316→354 — to the SAME DGO+signal where qemu dies at 660. Crash: SIGSEGV with a bogus 0xfd596f80 GOAL
+    ptr spilled to [SP,#0] — suspected arm64 regalloc/spill bug (spill-slot collision? 32/64-bit spill size mismatch? XMM-class
+    value through a GPR spill slot — the A24-A26 class-mismatch family?). hud-classes-pc is PC-port GOAL code that may exercise
+    a unique spill pattern. A33: reproduce in qemu (fast loop, no device round-trips), root-cause via the A21-A26 tracer arsenal
+    + disasm, FIX (no guards), iterate past 660; then sync CGOs to APK assets, verify the device advances past 354, screencap.
+    First phase on claude-fable-5[1m]. Lean gates: x86 boots, qemu >=660 (fix path >660 + baseline), no cheats, report >=80
+    lines.'
+  prompt: prompts/phase-A33-arm64-regalloc-spill-sprint.md
+  validator: validators/phase-A33-arm64-regalloc-spill-sprint.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A34-android-display-loop-first-frame
+  name: 'Fix the post-title-vis sentinel deref → start the display loop → FIRST RENDERED FRAME. A33 fixed the shared calling-convention/
+    classing inversion: qemu now links AND executes to completion (exit 0, 675 link-finishes incl. link finish: logo, TIT.DGO
+    staged) — the fast loop is done; qemu harness never runs the display loop. On-device: 369 link-finishes through ndi/ndi-cam/ndi-volumes/title-vis
+    (the title-screen data), app stable in LANDSCAPE with the touch overlay rendered (A33-device-4-1500ms.png — first live
+    capture of our UI), then 2ms after title-vis: SIGSEGV fault=0x7efffffffe (= device EE_base − 2) — a GOAL ptr of −2 host-converted
+    and dereferenced, x3=0, kernel-global-area values in x0/x1/x2 — an uninitialized display/title-init global, in code qemu
+    never executes. Same disease as A32 (linux-arm64 runtime init/bindings never back-ported to Android): A34 must audit the
+    FULL linux_arm64_main vs gk_android_main GOAL-visible init delta, fix the gap class, let the display loop spin, and capture
+    the first frame (multi-frame screencaps at 2/4/6/10/20/40s — kernel boots its 369 DGOs in ~3-4s on-device). A render claim
+    is ONLY a screencap with real game content (ND logo / title screen); supervisor re-captures independently. If display
+    runs but draws nothing, name the exact renderer stage (DMA/GS/texture/ GLES). Lean gates: x86 boots, qemu >=675, gk_log_pipe
+    preserved, A34-device-*.png present, report >=80. max_turns 2500.'
+  prompt: prompts/phase-A34-android-display-loop-first-frame.md
+  validator: validators/phase-A34-android-display-loop-first-frame.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A35-android-renderer-dma-to-gles
+  name: 'Android renderer bring-up: DMA chains to GLES 3.2, first real content frame. A34 fixed SIX arm64 codegen/runtime
+    bug classes (init_crc; push-RA trampoline + .load-sym-to-SP x2; offset truncation 620 sites; float conditionals on the
+    wrong register bank 605 sites; LDR-literal static loads 304 sites; PS2 128-bit SIMD arrangements) — device boot now 427
+    link-finishes through title-vis into logo-intro, display loop starts, renderer thread alive. TWO blockers remain: (1)
+    kernel loop crash 6ms after logo-intro, fault=EE-4 pc=0x7f004c5234 — same -4 family, fix with the A34-DIAG arsenal; audit
+    kmachine pc-hook stubs returning 0 (screen-size/display-mode) as candidate sources; (2) NO GAME CONTENT RENDERER on Android
+    — android_renderer.cpp is an honest clear/swap stub, desktop opengl_renderer not compiled into libgk.so, __send-gfx-dma-chain
+    bound to a drain stub. Port the minimum subset: OpenGLRenderer bucket-dispatch skeleton + DirectRenderer (legal/text/2D
+    content) + TexturePool + texture-upload hook, shaders to 320 es; wire the chain hand-off mirroring kmachine.cpp:486; unported
+    buckets skip with one-time named logs. Validator adds PHYSICAL checks: nm finds DirectRenderer + DmaFollower/send_chain
+    symbols in libgk.so. Render claims judged by supervisor vision on A35-device-*.png. Lean gates: x86 boots, qemu >=675,
+    gk_log_pipe preserved, report >=80 lines. max_turns 2500.'
+  prompt: prompts/phase-A35-android-renderer-dma-to-gles.md
+  validator: validators/phase-A35-android-renderer-dma-to-gles.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A36-android-kernel-steady-state-first-frame
+  name: 'Kernel steady-state + first real content frame. A35 shipped the WHOLE renderer (bucket dispatch 70 buckets, DirectRenderer
+    x3, TextureUploadHandler on 11 TEX buckets, EyeRenderer, TexturePool, fr3 Loader; 43/43 shaders compile on Adreno 618;
+    GAME.fr3 loads; per-frame A35-RENDER frame/chain_bytes/buckets_drawn stats; chains flow) and fixed arm64 bug class 7 (A33
+    cc truncated every 128-bit arg/return — the uint128 res-tag chain that fed name= its null). Boot now: 427 links + village1
+    actors birthing, zero crashes to +33ms, then SIGSEGV fault=0x7f1000001a pc=0x7f001900fc — gkernel process-tree walker
+    (fn65+0xE8) reads a ppointer slot holding 0x10000002 (process-mask-shaped, not a pointer); caller = dead-pool-heap method
+    15 return-process: get-process/return-process/compact rec bookkeeping corruption, runs every frame once entities exist.
+    A36: (1) kill the rec corruption with the A34/A35 forensics loop (gkernel base mapping 0x189304 makes kernel addresses
+    nameable); (2) sync missing COMMON/SUBTIT TXT into APK fakeiso; (3) sustain kernel >=30s, frame counter >=300; (4) first
+    real content frame (port additional buckets if content-gated — tfrag3 for title scene, DirectRenderer covers 2D/text).
+    Foreground proof per frame (mCurrentFocus=org.opengoal.gk.jak1 — sshx parallel project steals focus). Validator: A35 gates
+    + frame>=300 in newest A36 routed logcat. Render judged by supervisor vision. max_turns 2500.'
+  prompt: prompts/phase-A36-android-kernel-steady-state-first-frame.md
+  validator: validators/phase-A36-android-kernel-steady-state-first-frame.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A37-android-camera-matrix-first-visible-frame
+  name: 'Fix update-math-camera arm64 divergence so the 64K submitted tris become the VISIBLE title scene. A36 achieved kernel
+    steady-state on-device (4380+ frames, zero crashes, zero tree violations; fixed the A18-trap method-slot-13 poisoning
+    that caused the dead-pool heap overlap, the missing exec_runtime init_globals on Android, and the AArch64 unsigned-char
+    class). Renderer feeds real chains 60fps: frame=2940 chain=152KB buckets_drawn=18 draws=103 tris=64404 — but the screen
+    renders BLACK because *math-camera* camera-temp (+0x23C) is ZERO: update-math-camera (heavy 128-bit matrix GOAL code)
+    diverges on arm64 and never writes the projection product; zero matrix degenerates every vertex. A37: root-cause via x86-oracle
+    object diff (cgo_inspect extract + objdump) or field-write instrumentation; fix the IGenARM64/cc CLASS (no hardcoded matrices
+    — camera must compute); regen ALL 28 DGOs + sync APK; captures at 5/10/15/20/30/45/60s with mCurrentFocus before AND after
+    each tick; goal frame = village1 title scene / ND logo / any real game visual with focus proof. Validator: A36 gates +
+    frame>=300 + tris>0 in newest A37 logcat. Render judged by supervisor vision. max_turns 2500.'
+  prompt: prompts/phase-A37-android-camera-matrix-first-visible-frame.md
+  validator: validators/phase-A37-android-camera-matrix-first-visible-frame.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A38-android-float-spray-tripwire-goal-frame
+  name: 'Catch the float-sprayer with the A37-designed tripwire, fix it, capture the goal frame. A37 killed the camera blocker:
+    the entire jak1 def-mips2c surface was bound to a no-op on Android (bone producers included — the camera follows a joint
+    transform); real arm64 mips2c table + _mips2c_call_arm64 rewrite landed; camera-rot/trans/camera-temp now BIT-IDENTICAL
+    to the x86 oracle on-device. Plus bug class 9 (LDP Xt,Xt constrained-unpredictable — SIGILL on device, silent on qemu),
+    the condvar UB hang fix, mid-link arena, bucket-stream guard + chain validator. Remaining blocker NAMED: a float-spray
+    writes garbage over the engine-object band [0x1904000,0x1915000) once deep draw paths engage — kills l0-tfrag (village
+    geometry) per frame + font-code SIGILL at level-hint. A38: implement the designed tripwire (mprotect-RO band or canary
+    grid + per-frame rearm; fault handler logs the spraying STORE pc/lr/fp-walk + WHOSYM), name the sprayer in one boot, fix
+    at mechanism (if ocean/ripple/load-boundary mips2c: fix their translations, do not widen the guard), verify tripwire-OFF,
+    then the goal frame: village flythrough captures across the 20-30s window + 45/60s with focus brackets. Wrong-colored-but-present
+    village = real content = goal met (name residual). Validator: A37 gates + frame>=300 + tris>0 in newest A38 logcat. Render
+    judged by supervisor vision. max_turns 2500.'
+  prompt: prompts/phase-A38-android-float-spray-tripwire-goal-frame.md
+  validator: validators/phase-A38-android-float-spray-tripwire-goal-frame.sh
+  max_turns: 2500
+  max_retries: 3
+- id: A39-android-goal-frame-capture
+  name: 'Capture run: A38 fixed the last named blocker (blerc mips2c pair noop-bound — returned 0 into the global-buf base,
+    DMA cursor swept ALL GOAL memory at 152KB/frame; the single mechanism behind the residual crashes, font SIGILL, and l0-tfrag
+    death). All three A38 attempts failed ONLY the screencap gate: the device keyguard was up (user asleep). A39 is narrow:
+    build+install the committed fix, wait for keyguard down (do not burn attempts on a locked phone), final tripwire-OFF boots,
+    captures 5-60s with focus brackets, A39-fix-summary >=80 lines. Expected: GK-DIAG 0, frame>=300, tris jump to tens-of-thousands
+    sustained, no font SIGILL. Goal frame judged by supervisor vision. max_turns 800.'
+  prompt: prompts/phase-A39-android-goal-frame-capture.md
+  validator: validators/phase-A39-android-goal-frame-capture.sh
+  max_turns: 800
+  max_retries: 3
+- id: A40-android-hint-cursor-reset-goal-frame
+  name: 'Stop the 64B/frame hint-text cursor walk, boot past frame 522, capture the goal frame. A39 verified the blerc fix
+    live and named the residual SIGILL at instruction level: an UNRESET display-frame DMA cursor walked by print-game-text
+    64B/frame (empty hint-line NEXT-tag appends +0xf80/f90/fa0, cursor writeback +0xfbc via dma-bucket-insert-tag+0x40). Collateral
+    observed live: buf1 header zeroed in passing, l0 level heap poisoned (the tris<=82 pin), engine band entered at 0x1904000,
+    draw-string code smashed at band+0x7b40 = exactly 493 frames x 64B, then print-game-text calls draw-string -> sig=4 frame
+    ~522 every boot (process level-hint). A40: oracle-compare (does x86 append empty hint lines? who resets +0xfbc?), fix
+    at mechanism (no skip-hints null-guards), regen DGOs if CGOs change, boot past 522 -> tris explode (l0 unpinned) -> title
+    sequence -> captures 5-60s w/ focus brackets -> goal frame. Diagnostics available: a39.symdump/linkscan, A38 tripwire
+    (all property-gated). Validator: A39 gates + frame>=300 + tris>0 newest A40 logcat. Render judged by supervisor vision.
+    max_turns 1500.'
+  prompt: prompts/phase-A40-android-hint-cursor-reset-goal-frame.md
+  validator: validators/phase-A40-android-hint-cursor-reset-goal-frame.sh
+  max_turns: 1500
+  max_retries: 3
+- id: A41-android-texture-path-goal-frame
+  name: 'Texture the quads: glyphs readable, scene visible, THE GOAL FRAME. A40 found arm64 bug class 10 — callee-saved xmm8-15
+    preserved by NOBODY (prologues banked only GPRs); one clobbered s24 froze print-game-text origin.y and a padding loop
+    swept 12MB/call (the real mechanism; A39 cursor framing falsified). Fix: prologues/epilogues bank used saved-xmms; 28
+    DGOs regenerated; x86 byte-identical; qemu 675. Device NOW (supervisor-verified): frame=3720 @60fps, 62s, ZERO faults,
+    tris=63612, ANIMATED UNTEXTURED TEXT QUADS over black 3D — first visible game content. A41 = texture path: (1) adgif-shader<-texture-with-update!
+    mips2c binding state (noop = no texture ids in packets — same disease as blerc, prime suspect); (2) TexturePool GLES upload
+    formats (desktop GL consts; A36 fixed one REV->BYTE sibling); (3) DirectRenderer tex-id MISS logging. Fix at mechanism,
+    no hardcoded textures. Then: readable text + textured title scene, captures 5-60s + focus brackets. Validator: A40 gates
+    + frame>=300 + tris>0 newest A41 logcat. Render judged by supervisor vision. max_turns 1500.'
+  prompt: prompts/phase-A41-android-texture-path-goal-frame.md
+  validator: validators/phase-A41-android-texture-path-goal-frame.sh
+  max_turns: 1500
+  max_retries: 3
+- id: A42-android-tfrag-init-village-flythrough
+  name: 'tfrag-init: the loaded title level sets up, the village flythrough completes the title screen. A41 made the texture
+    path LIVE (readable real-font text over the textured time-of-day logo scene; adgif bound real; boot-time uploads queued
+    via call-time snapshots + handle_upload_precomputed at renderer-ready; GLES REV->BYTE on LoaderStages/SkyBlend; __pc-set-levels
+    bound real = first level-fr3 streams). Residual: boot loops in logo scene — tfrag buckets emit no tfrag-init so TFragment
+    never sets up the loaded title level (textures already in pool). A42: root-cause (GOAL state machine waiting? bucket-id
+    mapping drops init packets? TFragment GLES setup aborts silently?), fix at mechanism, run >=90s, captures 10-90s + focus
+    brackets -> village flythrough with real terrain. Validator: A41 gates + frame>=300 + tris>0 newest A42 logcat. Render
+    judged by supervisor vision. max_turns 1500.'
+  prompt: prompts/phase-A42-android-tfrag-init-village-flythrough.md
+  validator: validators/phase-A42-android-tfrag-init-village-flythrough.sh
+  max_turns: 1500
+  max_retries: 3
+- id: F1a-android-camera-merc-title-correct
+  name: 'Straighten the camera, port merc: the title screen finally looks right. A42 made the village RENDER (vsync discard-shim
+    fixed so spooled cutscenes stream; send_chain copy-mode kills the GL hangs; bug class 11 PSHUFLW/HW stand-ins made every
+    .ppach garbage -> TOD alpha=0 discarded the village — exact semantics now, 38 sites). USER-verified residuals: camera
+    parked INSIDE a hut tilted ~+85 deg constant (cutscene streams but the course camera does not fly — one transform bug:
+    audit remaining SIMD stand-in families .pextlw/.pcpyld/etc + projection/viewport w-h transposes vs A37-CAM oracle dumps);
+    merc/generic/sprite buckets still skipped (no J+D logo — a merc model — no actors, and no Jak, the F1b prerequisite).
+    F1a: fix camera pose at mechanism, port MercRenderer (+generic/eye hookups, sprite if cheap), correct title = logo over
+    FLYING camera, horizon horizontal, PRESS START; >=150s run, captures 10-150s + focus brackets. Validator: A42 gates +
+    MercRenderer>=5 nm syms + frame>=300 + tris>0 newest F1a logcat. Title correctness judged by supervisor vision. max_turns
+    1500.'
+  prompt: prompts/phase-F1a-android-camera-merc-title-correct.md
+  validator: validators/phase-F1a-android-camera-merc-title-correct.sh
+  max_turns: 1500
+  max_retries: 3
+- id: F1b-android-joint-decompress-start-geyser
+  name: 'Fix the joint-decompress chain (camera flies, Jak animates) then press START -> Geyser Rock controllable. F1a delivered
+    bug class 12 (swizzle_vf cross products), the merc/generic/sprite port (title merc draws bit-perfect + executing live;
+    Adreno fault = village-data-specific, knob-isolatable), and the camera verdict: pose freezes at logo-loop respawn while
+    channels play — calc-animation-from-spr eliminated (zero calls both backends); the freeze lives in the GOAL channel-eval
+    decompress chain. F1b: TRS-per-joint dump vs oracle + joint.gc op census vs IGenARM64 (the class-11/12 method, bug class
+    13 candidate) -> fix exact semantics -> camera flies + logo-slaves verify; THEN inject START (overlay coords from boot
+    log), Geyser Rock (training) DGO links, inject movement -> Jak position changes (frames + log timeline as evidence; no
+    fake input evidence). Validator: F1a gates with F1b names. Flight/START/control judged by supervisor vision + logs. max_turns
+    1500.'
+  prompt: prompts/phase-F1b-android-joint-decompress-start-geyser.md
+  validator: validators/phase-F1b-android-joint-decompress-start-geyser.sh
+  max_turns: 1500
+  max_retries: 3
+- id: F1c-android-camera-channel-start-geyser
+  name: 'Unfreeze the title camera (joint-1 channel) then START -> Geyser Rock controllable. SUPERVISOR NOTE: F1b false-greened
+    — its validator passed on STALE village-render evidence (frame/tris from an earlier attempt logcat) while landing ZERO
+    code; its only deliverable was a precise re-localization. F1c carries the real work with a STRICT validator (requires
+    a real F1c-fix-summary.md + a camera-flight/level marker; a progress report does NOT pass — honest block instead of false-green).
+    Re-localization (oracle-confirmed, NOT a SIMD stand-in — falsified 3 ways): the freeze is SPECIFIC to logo-cam-logo-loop
+    joint 1 (ctrl=0xb, dyn big-trans + dyn quat = the camera-look joint); its decompressed output is a single static pose
+    on device, flies on desktop; master skel animates fine (Jak/Daxter move). F1c: probe the loop-camera channel both backends
+    (active-channels, per-channel command/frame-num/blend-weight); determine self-animated vs copy-fed (flatten-joint-control-to-spr/clone-anim/othercam
+    copy) — lead hypotheses: copy path reading stale/zero source (Merc2-EE-base-style pointer divergence), blend-weight=0
+    on the dynamic channel, or ctrl=0xb decode branch. Fix at mechanism (no hardcoded pose) -> camera FLIES (A37-CAM delta
+    post-f1200, different locales across ticks) + logo verify -> inject START (overlay coords) -> Geyser/training DGO links
+    -> inject movement -> Jak position changes (frames + same-timeline log evidence). Flight/START/control judged by supervisor
+    vision + logs. max_turns 2000.'
+  prompt: prompts/phase-F1c-android-camera-channel-start-geyser.md
+  validator: validators/phase-F1c-android-camera-channel-start-geyser.sh
+  max_turns: 2000
+  max_retries: 3
+- id: F1e-android-reveal-crash-fix
+  name: 'Kill the title-reveal crash (sig=11 fault=0x28 pc=0x7610d56414 at the logo->island reveal, ~4-7s after set-master-mode
+    game, 3/3 reproducible in F1d-routed-logcat-run3) while PRESERVING F1d attempt-1 real win (input bridge: injected START+X
+    navigated title->menu->save screens, foreground-verified). F1d landed ZERO commits — its work is UNCOMMITTED in the tree
+    (android_input_audio.cpp/h +270 bridge, android_runtime_compat.cpp +48/-13 CPadOpen/CPadGetData, gk_android_main.cpp +90);
+    one of these likely introduced the crash (F1c HEAD was stable 54s+), OR it is latent merc/envmap in HEAD. BISECT by build
+    matrix (clean HEAD / HEAD+bridge / full tree), SYMBOLIZE pc+lr via addr2line on the matching unstripped libgk.so (fault=0x28
+    = null+0x28 member read — name the object), fix at mechanism (no fault-swallow, no skipping the reveal, island must still
+    render), commit the bridge separately if innocent. Verify 3 consecutive boots >=60s past set-master-mode game, zero sig=11,
+    focus stays org.opengoal at every bracket, camera still flies (F1c regression check). STRICT validator: F1e-fix-summary
+    (>=80 lines, must reference 0x7610d56414/fault=0x28 + symbolization) + newest F1e logcat (set-master-mode present, frame>=300,
+    tris>0, ZERO sig=11) + newest F1e-focus ending on org.opengoal. Island reveal judged by supervisor vision. max_turns 2000.'
+  prompt: prompts/phase-F1e-android-reveal-crash-fix.md
+  validator: validators/phase-F1e-android-reveal-crash-fix.sh
+  max_turns: 2000
+  max_retries: 3
+- id: F1d-android-input-cpad-start-geyser
+  name: 'Make input reach the GOAL cpad: press START -> Geyser Rock loads -> Jak spawns and moves. F1c VERIFIED the camera
+    fix (bug class #13 = arm64 mod returned quotient not remainder / missing MSUB; title flies, supervisor-confirmed own boot:
+    2 distinct locales, horizon level, logo+PRESS START). F1c honest residual = THIS: injected input does NOT reach the game.
+    adb input tap AND keyevent 108 (BUTTON_START) are DELIVERED to the app (MIUIInput ACTION_DOWN/UP on MainActivity channel)
+    but neither reaches (cpad-pressed? 0 start); coords already corrected (1080x2400 phys vs 2298x1036 overlay, +102,0 cutout).
+    Gap = headless-inject -> SDL virtual-gamepad -> GOAL cpad path. F1d: trace TouchOverlayView->cpad bridge, make autonomous
+    input register a REAL cpad press (fix overlay to accept injected events, or a documented cpad-injection test hook where
+    the GAME genuinely responds, or SDL event injection — NO faked results), then START->title advances (frame visually distinct
+    from title)-> medres-training ACTIVE + target (Jak) SPAWNS -> inject movement -> Jak position changes (logcat timeline
+    + frames). Owner can press START live as cross-check. STRICT validator: F1d-fix-summary + play-mode/target-spawn marker
+    in newest logcat (boot-time medres-training data link does NOT pass). Judged by supervisor vision. max_turns 2000.'
+  prompt: prompts/phase-F1d-android-input-cpad-start-geyser.md
+  validator: validators/phase-F1d-android-input-cpad-start-geyser.sh
+  max_turns: 2000
+  max_retries: 3
+- id: G1-arm64-go-enterstate-oracle-correct
+  name: 'Make the arm64 go/enter-state control transfer OBJECTIVELY CORRECT vs the x86 oracle. F1f fixed go enough to play
+    the new-game cinematic + spawn Jak once (run19: 344 positions, 0 crash) but REGRESSED the title into a crash (sig=11 fault=0x7effffffec
+    = control-transfer-to-garbage / corrupted return address) and never verified vs x86. enter-state/go underlies title attract,
+    cinematics AND gameplay, so a one-path fix destabilizes the rest. The go-change lives in goalc/compiler/CodeGenerator.cpp
+    (19bb8e50a) + kernel asm_funcs_arm64.s/klink.cpp/mips2c (WIP 5b70c8d59). Baseline e1f35fc0c had a stable flying title.
+    G1: oracle-diff the compiled enter-state/.jr/return path x86 vs arm64 (disasm), find why a return address restores to
+    garbage on some path, fix RA/SP contract to MATCH x86. PRIORITY FLOOR (non-negotiable): the title MUST end stable (flying,
+    0 sig=11) — revert the regressor if needed, a stable title with no cinematic beats a crashing title. STRETCH: oracle-correct
+    go that ALSO keeps the cinematic+spawn. Methodology reset: single defect, oracle-grounded, auto-checkpoint commits, TITLE-REGRESSION
+    GATE in the validator. Collision/visible-Jak (run19 fell through floor) is OUT OF SCOPE = G2. max_turns 1200.'
+  prompt: prompts/phase-G1-arm64-go-enterstate-oracle-correct.md
+  validator: validators/phase-G1-arm64-go-enterstate-oracle-correct.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gref-pristine-x86-gold-standard
+  name: 'Build the PRISTINE upstream x86 GOLD STANDARD + 3-tier comparison harness. We modified goalc for arm64, so our own
+    x86 build is not a trustworthy reference (compiler mods could corrupt BOTH x86 and Android invisibly to a 2-way diff).
+    Establish: Original (pristine upstream x86, merge-base 704972dd6) -> Our x86 -> Our Android. Build 704972dd6 in a worktree,
+    produce pristine CGOs/DGOs + gk under .autoport/gold/. Tier-A diff (gold vs our-x86 CGOs, per-object verdict) PROVES our
+    46 goalc commits are arm64-gated or finds the x86 leaks. Capture pristine boot SEQUENCE (.autoport/gold/pristine-boot-sequence.log):
+    SCEE->ND/Daxter logo->title->menu->new-game cinematic state order + actor list = the chronological ground truth. Write
+    compare-3tier.sh harness later phases use. Reference-build only (no engine edits). Replaces the circular "byte-identical
+    to A2 baseline" check with a real pristine one. max_turns 1200.'
+  prompt: prompts/phase-Gref-pristine-x86-gold-standard.md
+  validator: validators/phase-Gref-pristine-x86-gold-standard.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gintro-sce-nd-logo-render
+  name: 'Chronological step 1: make the pre-title intro RENDER — SCE "presents" static screen + Naughty Dog/Daxter logo. Gold-standard
+    boot diff PROVED the intro states EXECUTE on Android (static-screen fires, ndi-intro streams 30x, logo-intro/-2/loop all
+    stream, identical to pristine 704972dd6) — but the owner sees SCE + ND/Daxter SKIPPED on screen while the later logo flythrough
+    renders. So it is a RENDER-PATH gap, NOT a state skip. Diff the ndi/static-screen draw path (static-screen-spawn texture
+    blit title-obs.gc:553; ndi state + *ndi-cam-sg* camera + Daxter *sidekick-sg* merc draws) vs the WORKING logo-intro-2
+    path (same engine, adjacent in time) via .autoport/gold/compare-3tier.sh; fix the GLES camera/texture/bucket gap so SCE
+    + ND/Daxter logo DISPLAY in order. goal_src is LOCKED (state chain is pristine-correct). Title-regression gate (G1 stable
+    title must hold). Supervisor pixel-judges the SCE+ND frames. NO hardcoded/painted screens. max_turns 1200.'
+  prompt: prompts/phase-Gintro-sce-nd-logo-render.md
+  validator: validators/phase-Gintro-sce-nd-logo-render.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gnd-arm64-blendshape-dma-stomp
+  name: 'Fix the arm64 blend-shape/joint OOB stomp so the ND/Daxter logo RENDERS (chronological step 1b). Gintro proved the
+    intro executes + paced correctly but the ND logo is BLACK because (oracle diff, decisive): during ndi-intro frames the
+    DMA bucket-NEXT pointer is corrupted Android-only from a high heap ptr to 0x1a50 (== 0x501a50 & 0xffff = low bits of *default-regs-buffer*
+    RET tag) -> chain breaks -> ndi geometry dropped. x86/pristine keeps bucket-NEXT a valid high ptr (zero-copy) = proof
+    it is arm64 runtime corruption: an arm64 blend-shape/joint-decompress OOB WRITE (the long-standing F1a/A37 joint-decompress
+    blocker) clobbering the adjacent bucket-NEXT. dma_copy.cpp ASSERT(addr>0x80000) is the tripwire. Gnd: catch the OOB writer
+    (write-watch / bounds-check / oracle-diff the blend-shape/joint decompress arm64 vs x86), bound it to match x86 (goal_src
+    LOCKED, no buffer-widen masks). Verify bucket-NEXT stays valid (no 0x1a50), tris>0 in ndi window, and the ND logo+Daxter
+    VISIBLY render (supervisor eyes). Likely fixes a whole class of joint-anim renders. Title-regression gate. max_turns 1500.'
+  prompt: prompts/phase-Gnd-arm64-blendshape-dma-stomp.md
+  validator: validators/phase-Gnd-arm64-blendshape-dma-stomp.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gsce-first-frames-presents-screen
+  name: 'Restore the "Sony Computer Entertainment presents" screen in the FIRST frames (chronological step 0). OWNER DIRECT
+    OBSERVATION (authoritative): SCE shows in the first frames on the REAL game incl. the FRENCH/SCEE version, before the
+    ND/Daxter logo; our build does not. OpenGOAL upstream gated the boot static-screen to JAPAN ONLY (title-obs.gc:554: (and
+    (= (scf-get-territory) GAME_TERRITORY_SCEI) *first-boot*)) — an UPSTREAM REMOVAL, so pristine also skips it on non-Japan;
+    this is NOT a port bug but an intentional content restoration to match the ORIGINAL game (deliberately diverges from upstream
+    — the target here is the original, not pristine). Gsce: empirically confirm SCE absent in our first frames, un-gate static-screen
+    so it spawns+renders for all regions (SCEA/SCEE), verify SCE shows in the first ~3s before the ND logo. MAY edit goal_src
+    title-obs.gc + demo/static-screen.gc only (intentional). Validator gates on a static-screen SPAWN marker (not just link)
+    + crash-free + first-frame capture; SCE visibility = supervisor eyes. No painted/hardcoded image. max_turns 1200.'
+  prompt: prompts/phase-Gsce-first-frames-presents-screen.md
+  validator: validators/phase-Gsce-first-frames-presents-screen.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gsprite-arm64-sparticle-mips2c-unnoop
+  name: 'Un-noop the arm64 sparticle sprite-DMA builders so screen-space sprites RENDER (SCE presents logo first). Gsce restored
+    the SCE screen SPAWN but it renders BLACK: the SCE logo draws 3 screen-space sparticle sprites (defpart 2966/2967/2968)
+    built by sp-launch-particles-var + related particle->sprite-DMA mips2c functions, which are NOOP on arm64 because not
+    in the allowlist (kSet) in game/mips2c/mips2c_table_jak1_arm64.cpp -> empty sprite bucket -> black. x86 binds the real
+    code (renders) = arm64-only divergence, same class as A37 camera (mips2c noop-bound). Gsprite: add the sparticle builders
+    to the arm64 allowlist, VERIFY the translation runs+emits sprite DMA (not just bound; fix translation if broken; no noop-pretend),
+    confirm SCE logo renders in first ~3s + tris rises above the ~4 empty baseline. Likely also lights up menu overlay + other
+    2D sprites (broad payoff). Title-regression gate; supervisor pixel-judges the SCE screen. max_turns 1200.'
+  prompt: prompts/phase-Gsprite-arm64-sparticle-mips2c-unnoop.md
+  validator: validators/phase-Gsprite-arm64-sparticle-mips2c-unnoop.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gtitle-attract-overspawn
+  name: Remove the spurious "Press CIRCLE to use" interaction prompt that appears during the title attract (chronological
+    step 2 - title flythrough polish). Pristine attract (.autoport/gold/pristine-boot-sequence.log) holds at target-title-play/-wait
+    with NOTHING title-only over-spawning; ours raises a gameplay use-prompt (interactable/process-drawable or HUD button-prompt
+    active under master-mode game in attract). Diff the attract process/actor list vs pristine (compare-3tier.sh --boot),
+    name the spurious process, fix at the source (no blanket prompt-suppression hack). Verify across the attract loop the
+    prompt is gone, title still flies (G1), Daxter/SCE still render (Gnd/Gsprite). goal_src LOCKED unless a documented arm64-runtime
+    cause. Supervisor pixel-judges the attract is prompt-free. Water + missing-elements = separate follow-ups. max_turns 1200.
+  prompt: prompts/phase-Gtitle-attract-overspawn.md
+  validator: validators/phase-Gtitle-attract-overspawn.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gwater-ocean-render
+  name: 'Fix water/ocean rendering in the title flythrough & village (chronological step 3 - title polish). Owner reports
+    water renders wrong. The ocean is a dedicated renderer family (OceanTexture render-to-texture + OceanMid/Near/Far LOD
+    meshes + CommonOceanRenderer, game/graphics/opengl_renderer/ocean/) separate from tfrag/merc/sprite — prime suspect for
+    wrong water on GLES. Gwater: empirically capture the water vs the pristine gold build (compare-3tier.sh), pin WHAT is
+    wrong (missing/color/animation/ blend/render-to-texture/noop ocean DMA builders), fix at the GLES ocean mechanism (goal_src
+    LOCKED), verify water matches the original + title still flies (G1) + intro beats dont regress (Gnd/Gsprite/Gtitle). No
+    painted/faked water. Supervisor pixel-judges vs the original. Missing-elements + menu overlay = next follow-ups; then
+    cinematic. max_turns 1500.'
+  prompt: prompts/phase-Gwater-ocean-render.md
+  validator: validators/phase-Gwater-ocean-render.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Pcompare-pixel-gate-infra
+  name: 'OBJECTIVE GATE (owner: pixel-match the original build; supervisor eyes unreliable). Build .autoport/lib/frame_compare
+    + capture frame-indexed golden PNGs from the ORIGINAL build (/home/emeric/code/jak-original-v033), anchored to deterministic
+    events, starting with the on-black intro beats. Self-tested gate (identical->match, different->mismatch). Foundation for
+    all chronological intro/title pixel-match phases; ships NO game fix (tooling + reference data only).'
+  prompt: prompts/phase-Pcompare-pixel-gate-infra.md
+  validator: validators/phase-Pcompare-pixel-gate-infra.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gndlogo-intro-on-black-sequence
+  name: TOP PRIORITY (owner). The Naughty Dog logo beat (Daxter + Jak pushing the ND logo + stamp, on BLACK, before the title)
+    must PIXEL-MATCH the original build, gated OBJECTIVELY by frame_compare vs the 2400x1080 golden (touch-overlay masked)
+    — no eyeballing. Fix the ndi timing so village1 is preloaded but NOT displayed until ndi deactivates (dd3ee36ad made display-self
+    unconditional -> village renders behind the ND logo). Oracle-diff arm64 vs x86; rebuild TIT.DGO both backends. Regression-gated
+    (title flies, village renders, no crash).
+  prompt: prompts/phase-Gndlogo-intro-on-black-sequence.md
+  validator: validators/phase-Gndlogo-intro-on-black-sequence.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gtitle-pixelmatch
+  name: 'Chronological beat after the ND logo: the title screen ("PRESS START" over Sandover) must PIXEL-MATCH the original
+    build, gated objectively by frame_compare vs the 2400x1080 title-pressstart golden (overlay-masked, cross-GPU-calibrated
+    threshold, diff-image anti-gaming proof). Fix any divergence (stray level-names over PRESS START, J&D-logo edge, missing/extra
+    geometry). Regression-gated: the Gndlogo ND-logo beat must still match; village renders; no crash.'
+  prompt: prompts/phase-Gtitle-pixelmatch.md
+  validator: validators/phase-Gtitle-pixelmatch.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gnewgame-crash
+  name: Fix the crash when starting a NEW GAME (overwrite save -> intro cinematic) on device — blocks actually playing. Cinematic
+    works on x86 => arm64 codegen/runtime bug in the new-game/cinematic path. Repro via cpad_inject (or owner navigates),
+    capture crash forensics (name the function + arm64 mechanism), oracle-diff vs x86, fix. Clean-rebuild + deploy_verify
+    (lands on device); crash signature must be GONE; owner eye-confirms the cinematic plays. NO screenshot grind.
+  prompt: prompts/phase-Gnewgame-crash.md
+  validator: validators/phase-Gnewgame-crash.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gcine-crash2
+  name: The new-game intro cinematic STILL crashes mid-playback (kicks to phone home) AFTER the ~75s target-racer-h fix (66ef643c4)
+    — find + fix the NEXT crash. Reproduce via cpad_inject (cinematic plays through then dies), capture forensics, name the
+    arm64 mechanism (likely GOAL-ptr hi32 / mips2c-contract recurring), oracle-diff vs x86. Clean-rebuild + deploy_verify;
+    the full cinematic must run crash-free (frame >= 9000); owner eye-confirms full play-through. CRASH only (camera/cadence/pose/water
+    are separate).
+  prompt: prompts/phase-Gcine-crash2.md
+  validator: validators/phase-Gcine-crash2.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gcine-pose
+  name: Cinematic character models "switch poses in blinks" (glitch into a wrong pose for a frame, then snap back and resume)
+    — the new-game intro cinematic now plays fully through (Gcine-crash2) but characters pose-glitch. SINGLE arm64 defect,
+    almost certainly the recurring joint-decompress / merc skeleton-animation class (plays correct on x86). Localize via an
+    OBJECTIVE joint-sanity tripwire (before>0 -> after=0), name the function + arm64 mechanism, oracle-diff vs x86, fix. Clean-rebuild
+    + deploy_verify; cinematic still plays through (frame >= 9000, crash-free); owner eye-confirms smooth poses. Camera/cadence/water/green-glow
+    are SEPARATE phases.
+  prompt: prompts/phase-Gcine-pose.md
+  validator: validators/phase-Gcine-pose.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gcine-crash3
+  name: 'RESIDUAL new-game cinematic crash: it now survives the Gol/Maia close-up cut (Gcine-crash2) and the NaN pose-blink
+    (Gcine-pose, 60ba2f477) but STILL crashes a few beats LATER in the same pinkish-halo Gol/Maia portal scene (returns to
+    Android home = native crash). Gcine-crash2/Gcine-pose false-passed because their logs stopped at ~frame 9960; this phase
+    MUST capture a LONG run well past the scene into gameplay and prove the app is still FOREGROUND at end-of-run (no return-to-home).
+    Reproduce on pose-fixed HEAD via cpad_inject, forensics (or evidence the pose-guard already fixed it), oracle-diff vs
+    x86, fix at the libgk.so/mips2c boundary (boot-CGO unsafe). deploy_verify; long run with 0 sig 11/6/4, frame >= 10500,
+    foreground=org.opengoal.gk.jak1. Owner eye-confirms play-through to gameplay.'
+  prompt: prompts/phase-Gcine-crash3.md
+  validator: validators/phase-Gcine-crash3.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gcine-audit
+  name: 'DIAGNOSTIC (owner: "check yourself for issues, there must be a proper way without me"): objectively find what is
+    still wrong with the new-game cinematic by diffing the device run against the x86 ORIGINAL — per-frame camera + scene-player
+    DATA diff (deterministic, grind-free; catches camera/cadence/transition-between-camera-plans bugs) plus a few bounded
+    matched-beat pixel diffs vs the oracle (catches water-garbage + green-glow lighting). Produce a RANKED, evidence-backed
+    divergence map (.autoport/reports/Gcine-audit/ divergences.md) with a recommended fix order. NO code fix, NO screenshot/video
+    grind. Supervisor triages the map into single-defect fixes.'
+  prompt: prompts/phase-Gcine-audit.md
+  validator: validators/phase-Gcine-audit.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gmatch-original
+  name: 'Make the device match the UNTOUCHED v0.3.3 original via the objective graphics harness (zero human eyeballing). Baseline
+    verdict: NEW GAME crashes (sig=11 at the intro cutscene link) so it never reaches in-game; halo present at the ND-logo
+    beat (halo_excess_frac=0.05); menu opens and its layout matches. The device can only boot f1c CGOs (rebuilds crash at
+    frame 180 = the Gspark-enterstate phase), so fixes ship via libgk; the current device libgk 93f639155 PRE-DATES the cutscene-crash
+    fixes 6a8035ae4/3deef6bf3 — first deploy a CLEAN HEAD/3deef6bf3 libgk + f1c CGOs and re-run the harness. Gate (verify_device_graphics.sh
+    vs jak-original-v033): crash_signatures==0 + reaches in-game + no halo at intro-logo.'
+  prompt: prompts/phase-Gmatch-original.md
+  validator: validators/phase-Gmatch-original.sh
+  max_turns: 2000
+  max_retries: 5
+- id: Gspark-enterstate
+  name: 'Fix the frame-180 enter-state null-enter SIGILL that blocks ALL current-source CGO ships. Rebuilt boot CGOs crash
+    ~3s into boot (ND-logo intro): enter-state (gstate.gc:339) BLRs a null (raw 0, not #f) enter slot. f1c (2026-06-11) boots,
+    current source does not => a goal_src regression since June 11. NOT sparticle (the A40-SPWIN dump is a red herring); FOUR
+    fixes already falsified (consistency rebuild, gpr_addr sparticle #f-guards, un-noop sp-process-block-3d, GOAL-level null-guard
+    in enter-state). Find WHY the ndi/logo intro state has enter=0 on arm64 (go-hook / define-state-hook / state-field-store
+    codegen class; cf. F1f/G1/G2) and fix at the real mechanism. Device-safe via .autoport/restore_knowngood_device.sh + build_arm64_full_consistent.sh.
+    Gate: a fresh consistent CURRENT-source 28-file set boots past frame 180 (frame>=600, foreground=jak1, 0 sig=4), known-good
+    restored after.'
+  prompt: prompts/phase-Gspark-enterstate.md
+  validator: validators/phase-Gspark-enterstate.sh
+  max_turns: 2000
+  max_retries: 4
+- id: Gcine-camfov
+  name: 'Fix D1 from Gcine-audit (objectively measured): the new-game cutscene camera projects at 4:3 (1.333) instead of the
+    panel 2.222 — matched-pose beats show pose_dist=0.0 but projection rows scaled by exactly 5/3 (c0.x x0.80, c1.y x1.333),
+    turning intended close-ups into pulled-back wide shots. arm64-specific (x86 correct). The global *video-parms* aspect
+    float IS correct (2.222) so the cutscene math-camera reads a stale/default aspect (Android aspect4x3 boot default) or
+    applies it to the wrong axis. Localize + oracle-diff + fix; gate objectively by re-running the Gcine-audit camera diff
+    (RESULT: D1 RESOLVED, projection matches oracle, position unchanged) + deploy_verify + cinematic still plays through (frame>=10500,
+    foreground). Fixes the framing that confounds D3/water. Owner eye-confirms.'
+  prompt: prompts/phase-Gcine-camfov.md
+  validator: validators/phase-Gcine-camfov.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gvistruth
+  name: 'Build a TRUSTWORTHY programmatic visual-quality gate vs the untouched v0.3.3 original so the owner never has to watch.
+    Correction of a real false-green: Gmatch passed on liveness (no-crash + in-game) while the SAME report measured main-menu
+    57% / title 75% pixel-divergence vs the matched-aspect (2400x1080/2.222) oracle (ungated) and a halo metric reading 0.0
+    on a visibly haloed ND logo. Gate EVERY static beat (logo/title/menu) on oracle pixel-match, FIX the broken halo/bloom
+    detector, make cinematic/in-game MEASURED (capture oracle refs), and make this the STANDING graphics gate. Trust requires
+    an anti-false-green self-test: the gate MUST FAIL on the current defects (menu garble + logo/title halo) and PASS oracle-vs-oracle.
+    Detection-only phase; the menu/halo/cinematic FIXES follow, gated by this. Owner ground truth wins.'
+  prompt: prompts/phase-Gvistruth.md
+  validator: validators/phase-Gvistruth.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Ghalo
+  name: 'Kill the spurious halo/glow on the Naughty Dog logo + title screens. Supervisor confirmed by direct device-vs-v0.3.3
+    comparison: the ND-logo beat shows a bright yellow glow on the RIGHT with Jak+Daxter art + a red seal = village1 geometry
+    + sun-particle glow leaking onto the ND-logo screen (original is clean black); same halo class on the title. Almost certainly
+    a REGRESSION of the Gndlogo done?-gated-village + sun-fade-suppression fix on the current consistent build. Fix the leak
+    (likely TIT.DGO, now shippable post-Gspark). OBJECTIVE gate via the trustworthy detector: intro-logo halo_excess_frac<0.01
+    (was ~0.276) AND title<0.02 vs the original, crash-free, reaches in-game. NOT owner-eye-gated.'
+  prompt: prompts/phase-Ghalo.md
+  validator: validators/phase-Ghalo.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gmenu-ui-placement
+  name: 'OPEN diagnosis+fix (owner: do NOT presume aspect-ratio): the menu UI elements are bunched in the CENTER instead of
+    placed where they belong, on the device ultrawide ~20:9/21:9 panel (2400x1080). Diagnose WHY from the UI placement code
+    (progress.gc adjust-ratios + 2D coord/scale mapping + aspect detection); DECISIVE test = does the ORIGINAL/x86 at 2400x1080
+    also center it (=> add ultrawide support) or place it right (=> our build regressed)? Fix the real cause. Engine/boot-CGO
+    => FULL rebuild + deploy. DATA/mechanics-gated + NO screenshot/video grind; the menu placement is OWNER eye-verified on
+    the deployed build.'
+  prompt: prompts/phase-Gmenu-ui-placement.md
+  validator: validators/phase-Gmenu-ui-placement.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Ghalo-sun
+  name: 'Fix the TITLE-screen halo — a SUN/LIGHTING-state bug (owner: big glow at sun-UP, fades at sun-DOWN, does NOT return
+    at next sunrise => sun glow/light state not reset/re-armed across the day/night cycle). Distinct from the ND-logo village-leak.
+    The prior screenshot halo metric was timing-flawed (read 0.002 at sun-down, false-greened it). Verify by DETERMINISTIC
+    sun-cycle STATE DUMPS (sun elevation/phase vs glow intensity), x86-FIRST (likely reproduces on our x86 = host-fixable),
+    dumps removed after, golden pristine.'
+  prompt: prompts/phase-Ghalo-sun.md
+  validator: validators/phase-Ghalo-sun.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gcutscene-npc-flicker-2
+  name: 'PNJ QUI CLIGNOTENT, RETOUR 2 (owner 2026-09-01) : « c''est pas réglé du tout, le pire cas que j''ai observé c''est
+    la cinématique avec MAIRE (la première) ». La porte precedente a ete satisfaite sur 3 scenes qui n''etaient PAS celle
+    qui echoue — un compte de scenes ne vaut rien sans le cas NOMME. La premiere cinematique du maire est desormais IMPOSEE
+    dans la preuve.'
+  prompt: prompts/phase-Gcutscene-npc-flicker.md
+  validator: validators/phase-Gcutscene-npc-flicker.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Ghd-skin-origin-stretch
+  name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
+    s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
+    extrême », intermittent, une fraction de seconde, purement visuel. SIGNATURE : une matrice de squelette qui retombe a
+    l''identite ou a zero pendant une image — les sommets vont a (0,0,0) et la longueur de l''etirement vaut la distance joueur-origine.
+    Distances mesurees des niveaux : beach 135 m, jungle 303 m, village2 1546 m, village3 3601 m, finalboss 5540 m — croissantes
+    dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
+  prompt: prompts/phase-Ghd-skin-origin-stretch.md
+  validator: validators/phase-Ghd-skin-origin-stretch.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-foliage-wind3
+  name: 'BRISE, RETOUR 3 (owner 2026-08-31, NON VALIDE) : TROIS defauts dont un qui n''est pas le notre. D1 la brise NATIVE
+    est cassee, option ETEINTE : « les arbres qui sont sensés être animés par défaut font de légers twitchs sans animations
+    » — un correctif de VITESSE pose sur une animation qui ne joue pas produit exactement des twitchs. D2 couverture incomplete
+    : « tous les arbres ne sont pas impactés ». D3 amplitude absurde : « ils bougent comme s''il y avait une tempête c''est
+    ridicule » alors qu''il demandait une LEGERE brise. ORDRE IMPOSE : D1 (reparer la reference), puis D2, puis D3 — calibrer
+    l''amplitude sur une animation cassee reviendrait a calibrer sur du bruit.'
+  prompt: prompts/phase-Grecharged-foliage-wind3.md
+  validator: validators/phase-Grecharged-foliage-wind3.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gfixed-tick-anim-interp-2
+  name: 'ANIMATIONS SACCADEES EN BASSE CADENCE (owner 2026-09-01, retour 2) : « Quand le framerate est dans les 20 FPS, je
+    trouve que c''est jittery, PLUS QUE LE FRAMERATE [...] faut que ça marche dans les deux sens ». Le cycle 1 a ameliore
+    la HAUTE cadence (180 img/s : 7,58 -> 2,56) et laisse la basse INTACTE voire PIRE (30 img/s : 17,04 -> 20,14). Ma porte
+    exigeait une mesure > 60 et reléguait les basses en « hors verdict » : elle a valide un chantier qui ne traite pas son
+    cas.'
+  prompt: prompts/phase-Gfixed-tick-anim-interp-2.md
+  validator: validators/phase-Gfixed-tick-anim-interp-2.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcine-cut
+  name: 'Fix the cinematic camera CUTS (owner: instead of changing plan with a hard CUT, the camera MOVES/interpolates toward
+    the next target => continuous pans where there should be discrete shot changes). May also reproduce on our x86 (shared
+    cut logic). Verify by DETERMINISTIC per-plan-boundary CUT-vs-INTERP camera STATE DUMPS (extend the Gcine-audit camera-DATA
+    tooling), x86-FIRST, dumps removed after, golden pristine.'
+  prompt: prompts/phase-Gcine-cut.md
+  validator: validators/phase-Gcine-cut.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Grender-audit
+  name: 'DIAGNOSTIC (owner observations on the latest device run): pinpoint DETERMINISTICALLY + x86-FIRST why the device render
+    diverges from the original — (D1) the game runs at ~HALF SPEED (fluid but 2x time; measure game-clock advance rate device
+    vs x86); (D2) missing particles/stars + the sun renders as a weird halo (per-bucket draw census device vs x86 → which
+    sparticle/effect/sun builders are noop''d/excluded); (D3) Jak is INVISIBLE in the cinematic + villains crash it (is it
+    one arm64 merc-render root?). Produce a ranked divergence map (.autoport/reports/Grender-audit/divergences.md). NO code
+    fix, NO screenshot grind. Supervisor triages into fixes.'
+  prompt: prompts/phase-Grender-audit.md
+  validator: validators/phase-Grender-audit.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gd1-cutscene-clock
+  name: 'Render-audit fix #1 (HIGH, low-risk): cinematics play in fluid SLOW-MOTION because the cutscene spool/IOP-vblank
+    clock is paced per-render-vsync (~16fps on Adreno) instead of wall-clock 60Hz. Decouple it: fire the IOP/overlord VBlank
+    on a wall-clock 60Hz schedule (android/android_gfx.cpp ~:569,618) so cinematics play at ~1x real-time even when render
+    fps drops. Likely ALSO resolves the deferred Gcine-cut "device glides where x86 cuts" (a cut smeared over a 0.27x timeline
+    reads as a glide). Verify by deterministic str-pos/vblank rate (BEFORE ~16Hz -> AFTER ~60Hz wall-clock), x86 unchanged,
+    no crash. NO screenshots.'
+  prompt: prompts/phase-Gd1-cutscene-clock.md
+  validator: validators/phase-Gd1-cutscene-clock.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gd3-jak-cinematic
+  name: 'Render-audit fix: make Jak VISIBLE in the new-game cinematic (owner: "Jak is literally invisible in the cinematic").
+    The merc pipeline is proven byte-correct on arm64 (audit D3), so this is a cinematic-specific Jak SPAWN / scene-player
+    / art-joint issue, not a render gap. Diagnose deterministically (census Jak''s merc draw / spawn state device vs x86),
+    fix the real cause. Verify: device Jak merc bucket draws >0 tris in the cinematic, x86 unchanged, crash-free. NO screenshots.'
+  prompt: prompts/phase-Gd3-jak-cinematic.md
+  validator: validators/phase-Gd3-jak-cinematic.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gd2-particles-sun
+  name: 'Render-audit fix: restore the 3D world-particles / stars / real sun corona on arm64 (owner: original has particles+stars+a
+    real sun; device is missing them, sun is a "weird halo"). Root cause (audit D2/D4): sp-process-block-3d is noop''d on
+    arm64 because it SIGSEGVs at frame ~190; that builder makes the 3D particles/stars AND the group-sun corona. Fix the frame-190
+    crash, un-noop the builder. Verify: 3D-particle/sun-corona buckets draw >0 tris on device matching x86, crash-free. NO
+    screenshots.'
+  prompt: prompts/phase-Gd2-particles-sun.md
+  validator: validators/phase-Gd2-particles-sun.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gconsolidate
+  name: Build ONE consistent HEAD build with ALL the landed fixes (menu, halos, cutscene-clock real-time, Jak-visible, 3D
+    particles/stars/sun) + deploy it + LEAVE it on the device (do NOT restore known-good) so the owner can SEE the cumulative
+    result. Verify all fixes hold together on one build (deterministic per-fix signals), crash-free to gameplay. The payoff
+    phase.
+  prompt: prompts/phase-Gconsolidate.md
+  validator: validators/phase-Gconsolidate.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gfix-cinematic-crash
+  name: 'RE-DO (owner ground truth overrides prior false-green): the new-game intro cinematic CRASHES on the owner exact path
+    (menu -> NEW GAME -> select save -> overwrite -> yes -> cinematic). Prior gate dodged it via a shortcut. Reproduce the
+    EXACT path, calibrate (BEFORE must reproduce the crash), fix the real cause (likely the deferred non-deterministic merc/DMA
+    stomp), verify the cinematic completes crash-free >=3x. No proxy greens.'
+  prompt: prompts/phase-Gfix-cinematic-crash.md
+  validator: validators/phase-Gfix-cinematic-crash.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gffi-xmm-validate
+  name: 'Validate & ship the arm64 FFI xmm8-15 preservation fix found by Gfix-title-rays: the GOAL->C++ trampolines (asm_funcs_arm64.s)
+    now save/restore q24-q31 (=goalc xmm8-15 / V24-V31) instead of the wrong q8-q15, so FFI callees no longer clobber GOAL
+    floats — the root of the f30-0 corruption class (title spool + Gd1/Gcine cutscene slow-mo). Regression-soak across boot/flythrough/cutscene/gameplay
+    (0 crashes), confirm f30-0 preserved, 1-to-1 source. (Title-ray "linger" itself is deterministically correct; the visible
+    regression is folded into the source-hack revert.)'
+  prompt: prompts/phase-Gffi-xmm-validate.md
+  validator: validators/phase-Gffi-xmm-validate.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gsun-halo
+  name: 'RE-DO (owner ground truth, prior Ghalo/Ghalo-sun false-green): title sun is a ~20% glow instead of a small disc +
+    visible SUN. Re-baseline on HEAD (the FFI xmm fix may have changed it), dump sun disc + corona SIZE/scale x86-first (original
+    vs our-x86 vs device, NEVER pixels); if our-x86 diverges revert the source hack to pristine, else fix the arm64/GLES size
+    defect. Device corona size must match original; our-x86 == original.'
+  prompt: prompts/phase-Gsun-halo.md
+  validator: validators/phase-Gsun-halo.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Gparticles-stars
+  name: 'RE-DO (owner ground truth, prior Gd2 builder-count proxy false-green): particles "not working" + no stars at night
+    on title. Re-baseline on fresh HEAD (FFI fix + Gd2 un-noop may already render them), dump ACTUAL emitted/visible particle
+    + night-star counts x86-first (original vs our-x86 vs device, NEVER pixels, NOT builder invocations); device counts must
+    match original; our-x86 == original; fix in translation layer if a real gap remains.'
+  prompt: prompts/phase-Gparticles-stars.md
+  validator: validators/phase-Gparticles-stars.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Gmenu-placement
+  name: 'RE-DO (owner ground truth, prior Gmenu-ui-placement scale-proxy false-green): main-menu UI assets bunched toward
+    center. Re-baseline on HEAD; dump each menu element computed X/Y position x86-first (original vs our-x86 vs device @2400x1080,
+    NEVER pixels — menu is transparent over a moving island); decisive: does original-x86 place correctly at 2400x1080 (=>
+    arm64 regressed, fix translation) or also bunch (=> ultrawide-support via runtime aspect glue). our-x86 == original; 1-to-1
+    source.'
+  prompt: prompts/phase-Gmenu-placement.md
+  validator: validators/phase-Gmenu-placement.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Gconsolidate-deploy
+  name: 'Make the device persistently run a fresh CONSISTENT HEAD build (28-file arm64 CGO/DGO + libgk) and update the known-good
+    backup to it. Root cause of most owner-visible defects: restore_knowngood reverts CGOs to the June-11 f1c set, dropping
+    DATA-resident fixes (menu widescreen-widen in GAME.CGO etc). f1c constraint lifted; fresh set proven to boot (Gmenu).
+    Build, deploy, verify boot->gameplay crash-free + menu/sun/particles render, new dated known-good backup (keep June-11
+    fallback), point restore SRC at it. If it does not boot, restore June-11 + report (never brick). 1-to-1 source.'
+  prompt: prompts/phase-Gconsolidate-deploy.md
+  validator: validators/phase-Gconsolidate-deploy.sh
+  max_turns: 1600
+  max_retries: 3
+- id: Gwater-lod
+  name: 'RE-DO (owner ground truth): near-camera water chunks render as plain blue squares on the title flyover. Re-baseline
+    on the fresh consolidated HEAD; dump per-near-chunk water LOD + detailed-draw counts x86-first (original vs our-x86 vs
+    device, NEVER pixels); if device near-chunks draw flat/0 while x86 draws detailed, fix the ocean renderer/LOD in the translation
+    layer (game/graphics + mips2c + CMakeLists TU + bucket/GLES gate). our-x86 == original; 1-to-1 source.'
+  prompt: prompts/phase-Gwater-lod.md
+  validator: validators/phase-Gwater-lod.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Gbirds-anim
+  name: 'RE-DO (owner ground truth): title birds over the tower appear but are STATIC (not animating). Re-baseline on fresh
+    consolidated HEAD; dump per-frame bird anim-frame/joint advance x86-first (original vs our-x86 vs device, NEVER pixels);
+    if device anim-frame is stuck while x86 advances, fix the arm64 anim-advance defect in the translation layer. our-x86
+    == original; 1-to-1 source.'
+  prompt: prompts/phase-Gbirds-anim.md
+  validator: validators/phase-Gbirds-anim.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Gfinal-acceptance
+  name: 'Final consolidated acceptance: one fresh-HEAD device session deterministically verifying ALL 9 owner-reported defects
+    are fixed with no regression (boot->gameplay crash-free; sun corona 24576; particles vproc3d>0 + stars; birds bob advances;
+    menu spread; near-water detailed; cinematic save-overwrite completes). Verification only, no new fix, no pixels, 1-to-1
+    source.'
+  prompt: prompts/phase-Gfinal-acceptance.md
+  validator: validators/phase-Gfinal-acceptance.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gcine-crash-mid
+  name: 'OWNER GROUND TRUTH 2026-06-22: the intro cinematic renders well but CRASHES MID-CINEMATIC (non-deterministic — the
+    acceptance run reached gameplay crash-free, so it does not fire every run). Deferred merc/DMA blend-shape/envmap stomp
+    class. Reproduce by driving the FULL owner cinematic >=8x, name the stomp (fp-walk + content canary), fix the root (repair-and-resume).
+    Gate: full cinematic -> gameplay 8/8 crash-free. libgk fix; x86 1-to-1.'
+  prompt: prompts/phase-Gcine-crash-mid.md
+  validator: validators/phase-Gcine-crash-mid.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Glogo-smash
+  name: 'OWNER GROUND TRUTH 2026-06-22: the Jak&Daxter logo-smash (breaking the black screen) is now BROKEN — a regression
+    from Gconsolidate-deploy swapping in a fresh TIT.DGO built from current source (accumulated title-obs.gc edits: Gtitle
+    16x9 main-joint, Ghalo, Gsce). Dump the logo-black/logo smash SEQUENCE state x86-first (original vs our-x86 vs device,
+    NEVER pixels), bisect the regressing edit, revert it to pristine (aspect need -> runtime glue). RESULT: logo smash matches
+    original on device.'
+  prompt: prompts/phase-Glogo-smash.md
+  validator: validators/phase-Glogo-smash.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Gmenu-textures
+  name: 'RE-DO (owner ground truth, prior Gmenu-placement PART-proxy false-green): main menu ALL textures still bunched toward
+    center. Enumerate EVERY menu 2D draw (icons/textures/strings, not just PART), dump each on-screen X/Y x86-first (original
+    vs our-x86 vs device @2400x1080, NEVER pixels), find+fix the bunched texture layer the PART check missed; our-x86 == original;
+    1-to-1.'
+  prompt: prompts/phase-Gmenu-textures.md
+  validator: validators/phase-Gmenu-textures.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Glogo-garble
+  name: 'OWNER-CONFIRMED 2026-06-22: the logo-smash renders GARBLED/corrupted (mesh/textures scrambled) — the prior Glogo-smash
+    false-greened on tris+state, blind to it. Cause = GND-OOB-WRITE firing ~400x during the logo intro stomping the logo geometry.
+    Characterize the OOB writer/target x86-first, fix at source (arm64 mips2c/builder bad index/base, or content-canary fallback);
+    verify GND-OOB-WRITE 400->0 + logo data intact. our-x86==original; 1-to-1.'
+  prompt: prompts/phase-Glogo-garble.md
+  validator: validators/phase-Glogo-garble.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gcrash-geyser
+  name: 'OWNER GROUND TRUTH 2026-06-23 (now top priority, blocks first level): Geyser Rock crash climbing the steps (must
+    jump up). Non-deterministic: (A) BLUE-SCREEN render-lock at first steps (music keeps playing, A35-RENDER frames stop ->
+    render thread hung, NOT a process crash) OR (B) HARD CRASH TO HOME further on (signal). Reproduce both via cpad_inject
+    >=8x, name them (crash fp-walk/canary; blue-lock = hung GL site), fix the root. libgk; goal_src 1-to-1.'
+  prompt: prompts/phase-Gcrash-geyser.md
+  validator: validators/phase-Gcrash-geyser.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gtouch-controls
+  name: 'OWNER REQUEST 2026-06-23 (priority 1): complete the Android on-screen touch controls. Existing TouchOverlayView is
+    partial (9 buttons, ASCII letters, no shoulders/select/analog sticks, always-visible). Add FULL control set (face/dpad/start/select/L1R1L2R2/L3R3
+    + LEFT+RIGHT analog sticks), proper PlayStation icons (not letters), and show-on-touch + fade-after-10s-idle. android-only,
+    goal_src 1-to-1.'
+  prompt: prompts/phase-Gtouch-controls.md
+  validator: validators/phase-Gtouch-controls.sh
+  max_turns: 1600
+  max_retries: 3
+- id: Gtouch-rightstick
+  name: 'OWNER 2026-06-23 testing the overlay: the right camera control is a mouse/trackpad drag-delta (horrible, low sens).
+    Make it a FLOATING INVISIBLE virtual stick on the right 3/4 (non-button): anchor at touch-down, RIGHTX/RIGHTY = deflection
+    (offset-from-anchor, sustained), like the left stick but invisible+dynamic. android-only.'
+  prompt: prompts/phase-Gtouch-rightstick.md
+  validator: validators/phase-Gtouch-rightstick.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gcrash-mouche
+  name: 'OWNER GROUND TRUTH 2026-06-23: collecting a scout fly (buzzer/mouche) INSTANT-crashes (deterministic) — UNRESOLVED
+    (Gcrash-geyser only fixed the steps blue-lock, could not collect a buzzer). Lead: buzzer pickup -> manipy fly-to-HUD merc
+    draw (merc/DMA stomp class). Exercise the REAL buzzer pickup FX (NOT orbs) via listener spawn/trigger; if exhaustively
+    unreproducible, fix the manipy/HUD-merc path + require owner verification.'
+  prompt: prompts/phase-Gcrash-mouche.md
+  validator: validators/phase-Gcrash-mouche.sh
+  max_turns: 1600
+  max_retries: 4
+- id: F1-gameplay-geyser-rock
+  name: First playable level (Geyser Rock) reached and navigable; physics + collision real
+  prompt: prompts/phase-F1-gameplay-geyser-rock.md
+  validator: validators/phase-F1-gameplay-geyser-rock.sh
+  max_turns: 800
+  max_retries: 20
+- id: F2-gameplay-audio
+  name: Audio works on Android (AAudio/OpenSL output, ssound RPC, music + SFX)
+  prompt: prompts/phase-F2-gameplay-audio.md
+  validator: validators/phase-F2-gameplay-audio.sh
+  max_turns: 500
+  max_retries: 15
+- id: F3-gameplay-30fps
+  name: 30 FPS sustained on the Redmi Note 9 Pro for 60s of gameplay
+  prompt: prompts/phase-F3-gameplay-30fps.md
+  validator: validators/phase-F3-gameplay-30fps.sh
+  max_turns: 600
+  max_retries: 20
+- id: Gaudio-sfx
+  name: 'OWNER GROUND TRUTH 2026-06-23 (F2-audio false-greened): in-game only MUSIC plays; SFX (crates, orb collect) + VOICE
+    (sage, woman) are SILENT. Wire the sound-bank/989snd SFX synth + voice path to the AAudio output (music VAG-stream works,
+    SFX bank path silent). Measure non-silent SFX/voice RMS at output (calibrated BEFORE silent -> AFTER audible), not a call-count
+    proxy. goal_src 1-to-1.'
+  prompt: prompts/phase-Gaudio-sfx.md
+  validator: validators/phase-Gaudio-sfx.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gcrash-mouche2
+  name: 'OWNER VERIFICATION 2026-06-24: buzzer collect now BLUE-LOCKS (music continues, must force-kill) instead of hard-crashing
+    — the residual SP-relative stack stomp after Gcrash-mouche partial fix. DETERMINISTIC. Reproduce the blue-lock (render
+    frames stop, app alive), catch the SP-relative stomp writer (content canary / HW watchpoint on the manipy/buzzer path),
+    fix the root so collecting a buzzer keeps rendering 5/5. goal_src 1-to-1.'
+  prompt: prompts/phase-Gcrash-mouche2.md
+  validator: validators/phase-Gcrash-mouche2.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gcollision-arm
+  name: 'OWNER GROUND TRUTH 2026-06-24: arm64 collision divergences NOT in x86 original — (1) Jak clips THROUGH the taller
+    wall right of the Geyser steps and falls into the map; (2) jumping near certain walls leaves Jak stuck CROUCHED. Owner:
+    likely arm64 float/decimal/codegen mishandling. x86-first collision-state diff, name the arm64 divergence, fix in TRANSLATION
+    layer so arm64==x86. NO collision-logic rewrite (must stay the identical game).'
+  prompt: prompts/phase-Gcollision-arm.md
+  validator: validators/phase-Gcollision-arm.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gorb-icon
+  name: 'OWNER 2026-06-23: the Precursor ORB icon is a plain white egg in the HUD + menu (the ONLY asset that fails to load)
+    — a single missing/unbound texture on arm64. x86-first: find which orb texture/tpage/TextureAnimator path is not loaded/bound
+    on device; fix in translation layer; goal_src 1-to-1.'
+  prompt: prompts/phase-Gorb-icon.md
+  validator: validators/phase-Gorb-icon.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Gcollision-wallslide
+  name: 'OWNER 2026-06-25: hitting a ledge too high -> Jak slow-slides down the wall (falling state, stuck vs wall) + ends
+    CROUCHED, differs from x86. Residual collision/float divergence (clip-through already FMA-fixed). x86-first diff, fix
+    arm64==x86.'
+  prompt: prompts/phase-Gcollision-wallslide.md
+  validator: validators/phase-Gcollision-wallslide.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Ginput-replay
+  name: 'OWNER DIRECTIVE 2026-06-25: foundational input record/replay harness — boot, idle until first input, RECORD every
+    input faithfully (full pad state per LOGIC TICK, flush-per-tick) until the crash -> infinitely-replayable demo the worker
+    replays autonomously; + replay the SAME demo on x86 vs arm64 and compare STATE-anchored (deterministic logical state /
+    process-state / event, NOT render frames which are framerate-dependent): variables/floats must be bit-identical, the first
+    divergent state/value names the bug. Self-verified: record->replay byte-identical at every logic tick (ALL inputs captured).
+    Unblocks Gportal-crash + Gcrash-mouche3 + sharpens every state phase. goal_src 1-to-1.'
+  prompt: prompts/phase-Ginput-replay.md
+  validator: validators/phase-Ginput-replay.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gcollectible-state
+  name: 'OWNER 2026-06-25: green eco RESPAWNS after collect (not consumed, infinite-money-like) = arm64 state/variable divergence;
+    + crate DEBRIS flicker (appear/disappear loop) = render/state. x86-first, fix arm64==x86.'
+  prompt: prompts/phase-Gcollectible-state.md
+  validator: validators/phase-Gcollectible-state.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gsfx-actions
+  name: 'OWNER 2026-06-25: no SOUND on crate-break + orb/blue-eco/green-eco-stock collect (x86 plays them). Per-source RMS
+    find which action snd-play triggers produce 0 on device, fix.'
+  prompt: prompts/phase-Gsfx-actions.md
+  validator: validators/phase-Gsfx-actions.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gaudio-hint-voices
+  name: 'OWNER CLARIFICATION 2026-06-24 (note for later): cinematic voices + background SFX are FINE; the IN-GAME tutorial/hint
+    dialog VOICES (Sage explaining orbs/items during play) are SILENT on arm64, + some action sounds missing. Targeted fix
+    of the in-game talker/hint voice trigger+route (distinct from the working cinematic-voice path). goal_src 1-to-1.'
+  prompt: prompts/phase-Gaudio-hint-voices.md
+  validator: validators/phase-Gaudio-hint-voices.sh
+  max_turns: 1400
+  max_retries: 3
+- id: Gecho-pool
+  name: 'OWNER 2026-06-23: in the NEW-GAME intro cinematic the BLACK dark-eco pool Daxter falls into is NOT rendered on arm64
+    -> his ottsel (animal) form shows through prematurely (the black eco should hide it). Sole cinematic issue. x86-first:
+    find the unrendered dark-eco-pool draw (renderer-family noop/subset gap likely), fix in translation layer; goal_src 1-to-1.'
+  prompt: prompts/phase-Gecho-pool.md
+  validator: validators/phase-Gecho-pool.sh
+  max_turns: 1500
+  max_retries: 3
+- id: Gportal-crash
+  name: 'OWNER 2026-06-25: game CRASHES at the blue-eco portal/gate you charge to open. arm64 crash (merc/DMA/float class);
+    not on x86. Reproduce+capture+fix.'
+  prompt: prompts/phase-Gportal-crash.md
+  validator: validators/phase-Gportal-crash.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gcrash-mouche3
+  name: 'OWNER VERIFY 2026-06-24: real in-level scout-fly collect STILL crashes on the latest build (Gcrash-mouche2 6/6 was
+    a FALSE GREEN — programmatic collect != real crate->fly->collect). Re-do: exercise the REAL crate-break+pickup path OR
+    owner-in-the-loop crash capture (armed forensics, owner collects a fly), name the real crash, fix. After the current queue
+    per owner.'
+  prompt: prompts/phase-Gcrash-mouche3.md
+  validator: validators/phase-Gcrash-mouche3.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gdeath-crash
+  name: 'OWNER 2026-06-27: dying CRASHES the app (back to Android home, process killed) in the first real level. mouche+blue-eco-portal
+    crashes now GONE (owner finished the level). arm64-vs-x86 divergence in the death/respawn/checkpoint path; x86 does not
+    crash on death. Reproduce (trigger a death; demo .autoport/demos/death-crash.inputs as aid), name the arm64 divergence,
+    fix in translation layer, goal_src 1-to-1.'
+  prompt: prompts/phase-Gdeath-crash.md
+  validator: validators/phase-Gdeath-crash.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gledge-glitch
+  name: 'OWNER 2026-06-27: at ledges/borders you grab or fall off, collision glitches badly and PROJECTS/launches Jak (ca
+    projette). arm64 collision-RESPONSE divergence (velocity/normal/edge-grab). Regression-check vs recent collide_cache/collide_edge_grab/FMA
+    fixes FIRST. x86-first diff, fix arm64==x86, goal_src 1-to-1.'
+  prompt: prompts/phase-Gledge-glitch.md
+  validator: validators/phase-Gledge-glitch.sh
+  max_turns: 1500
+  max_retries: 4
+- id: Gpkg-branding
+  name: 'OWNER 2026-06-27 (do LAST): ship as a real product — app label "Jak & Daxter" (keep package id org.opengoal.gk.jak1)
+    + proper adaptive launcher icon at all densities. Icon art is owner-provided (copyright); else clean placeholder. APK
+    packaging only, engine/goal_src untouched.'
+  prompt: prompts/phase-Gpkg-branding.md
+  validator: validators/phase-Gpkg-branding.sh
+  max_turns: 1200
+  max_retries: 3
+- id: Gpkg-distributable
+  name: 'OWNER 2026-06-27 REVISED (do LAST): self-contained APK — KEEP PC build; bundle the PC-extracted runtime assets COMPRESSED
+    in the APK and DECOMPRESS them at FIRST RUN (progress UI, idempotent version-stamp). No ISO picker / no on-device extractor
+    (scrapped — would be a massacre). Packaging/UX only, goal_src 1-to-1.'
+  prompt: prompts/phase-Gpkg-distributable.md
+  validator: validators/phase-Gpkg-distributable.sh
+  max_turns: 1600
+  max_retries: 4
+- id: Gcollision-systemic
+  name: 'OWNER 2026-06-27 (PRIORITY): collision broken EVERYWHERE on arm64 (x86 fine) — clip through walls, jumps under map,
+    eject far OR stuck-crouch near objects, invisible walls / must-jump on flat ground, blue-eco zone ejects off cliff. SYSTEMIC
+    arm64 collision-math divergence (owner: related to ARM conversion). Prime suspect: arm64 float<->int (vftoi family) /
+    FMA / VU0 op wrong pervasively (ledge vftoi0 was one instance). x86-first unit-diff sweep (many->0) + state-anchored in-game
+    confirm on >=3 scenarios; fix the ROOT in translation layer; goal_src 1-to-1.'
+  prompt: prompts/phase-Gcollision-systemic.md
+  validator: validators/phase-Gcollision-systemic.sh
+  max_turns: 1800
+  max_retries: 5
+- id: Ginput-replay-determinism
+  name: 'OWNER 2026-06-27 (PRIORITY, blocks collision diff): replay does NOT reproduce a real-gameplay recording — Jak does
+    the recorded moves but at the wrong place/direction from the first seconds (owner-observed). Harness records inputs faithfully
+    but the GAME trajectory diverges = hidden non-determinism. Prime suspect: inputs indexed on the controller-READ counter
+    (advances during load/cinematics, variable) instead of the deterministic game-logic frame; + unrestored rng. Fix so record-trace==replay-trace
+    (same backend, bit-identical) on a REAL clip. goal_src 1-to-1.'
+  prompt: prompts/phase-Ginput-replay-determinism.md
+  validator: validators/phase-Ginput-replay-determinism.sh
+  max_turns: 1800
+  max_retries: 5
+- id: Ginput-replay-liverecord
+  name: 'OWNER 2026-06-27 (PRIORITY, blocks collision diff): the v2 LIVE record captures ALL-NEUTRAL — owner re-recorded ~20min/71354
+    frames but 0 non-neutral (determinism phase only tested scripted-drive record, never a live record). Likely the f1.warp
+    drive overwrites the pad before the tap. Fix so a LIVE record under the deterministic anchor captures real touch/gamepad
+    input, verify via cpad_inject (known input -> non-neutral byte-match) + replay==record. goal_src 1-to-1.'
+  prompt: prompts/phase-Ginput-replay-liverecord.md
+  validator: validators/phase-Ginput-replay-liverecord.sh
+  max_turns: 1600
+  max_retries: 5
+- id: Ginput-replay-realinput
+  name: 'OWNER 2026-06-28 (PRIORITY, blocks collision diff): under the warp anchor the v2 record drops the owner REAL input
+    (touch overlay / gamepad merge) — 2 owner re-captures (~20min, ~2.5h) recorded ALL-NEUTRAL. Ginput-replay-liverecord false-greened
+    (verified only the headless cpad_inject, which survives the warp). Supervisor confirmed: adb-input real touch is 0% captured
+    under warp. Fix so the real touch/gamepad merge reaches the record tap under the anchor; VERIFY with adb input (NOT cpad_inject).
+    goal_src 1-to-1.'
+  prompt: prompts/phase-Ginput-replay-realinput.md
+  validator: validators/phase-Ginput-replay-realinput.sh
+  max_turns: 1600
+  max_retries: 5
+- id: Gcollision-nanroot
+  name: 'OWNER 2026-06-28 (PRIORITY): DROP the input-replay approach (going in circles). Direct fix of the arm64 collision
+    NaN root: a NaN reaches collision (vftoi0 inputs all NaN, 74948x) where x86 is finite -> clip/eject/under-map. FCVTZS
+    fix was a false-green (symptom not root). Instrument the collision-reaction math (warp+nudge, systemic so any collision
+    shows it), find the FIRST arm64 op that makes a NaN where x86 is finite (normalize/divide/rsqrt of a degenerate vector?),
+    fix it x86==arm64. Re-examine/revert FCVTZS as needed. goal_src 1-to-1. OWNER play-tests the fix (final gate, no synthetic
+    pass).'
+  prompt: prompts/phase-Gcollision-nanroot.md
+  validator: validators/phase-Gcollision-nanroot.sh
+  max_turns: 1800
+  max_retries: 5
+- id: Gcollision-glitchcapture
+  name: 'OWNER 2026-06-28 (PRIORITY): fmin/fmax fix proven op-level but did NOT fix the in-game glitch (only fires at degenerate
+    contacts headless cant reach); record->replay failed 3x. NEW robust method: instrument a device build that GLITCH-TRIGGERS
+    a dump of the collision-reaction math (separation vec, normalize in/out, fmin/fmax in/out, normals, transv) when Jak projects/clips/under-maps
+    during the owner REAL play (no warp, no replay, touch/gamepad agnostic); feed the dumped operands to the x86 oracle to
+    name the first divergent op; fix; owner play-tests. goal_src 1-to-1.'
+  prompt: prompts/phase-Gcollision-glitchcapture.md
+  validator: validators/phase-Gcollision-glitchcapture.sh
+  max_turns: 1800
+  max_retries: 5
+- id: Gcollision-replay-diff
+  name: 'OWNER 2026-06-27 (PRIORITY): the Gcollision-systemic FCVTZS fix was a FALSE GREEN (owner: different glitches, not
+    fixed). Diagnose the REAL arm64 collision divergence from the OWNER recorded glitch playthrough (.autoport/demos/collision-glitch.inputs,
+    28229 ticks): replay it on x86 AND arm64 with per-logic-tick collision dumps, compare, name the FIRST divergent tick +
+    real root op, fix in translation layer. Demo-driven, NOT synthetic. goal_src 1-to-1. Owner re-plays to confirm.'
+  prompt: prompts/phase-Gcollision-replay-diff.md
+  validator: validators/phase-Gcollision-replay-diff.sh
+  max_turns: 1800
+  max_retries: 5
+- id: Gframerate-variable
+  name: 'OWNER 2026-06-30: replace the 30/60 vblank LOCK with the engine native variable-fps support — free-fluctuating fps
+    + CONSTANT game speed. Root: Android hardcodes target-fps=60 while the device renders ~45-50, and the lock caps fps +
+    flaps at the boundary. Fix (runtime/pc only): set target-fps to the real device refresh, feed real per-frame dt, REMOVE
+    the lock, unpin the IOP cutscene pacer from 60; KEEP the flicker fix. State-anchored verify + owner play-test.'
+  prompt: prompts/phase-Gframerate-variable.md
+  validator: validators/phase-Gframerate-variable.sh
+  max_turns: 1800
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gres-picker
+  name: 'OWNER 2026-06-30: "Game Resolution" picker — NATIVE entry (real screen res) + standard ladder per aspect ratio (down
+    to 640w/480h floor), both builds. Finish the WIP (commit 9a1e64c84). Coexists with RENDER SCALE % (base game_res x scale).
+    Higher res = sharper, lower fps (expected; user chooses). Owner play-test.'
+  prompt: prompts/phase-Gres-picker.md
+  validator: validators/phase-Gres-picker.sh
+  max_turns: 1800
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Grender-split
+  name: 'OWNER 2026-06-30: UI native + 3D scaled, RENDERER-SIDE (works on x86 AND Android, NOT an Android UI hack). Today
+    all GOAL rendering shares one game_res FBO so RENDER SCALE softens the UI too; split into a scaled-3D pass + native UI/HUD/text
+    pass + composite. Touches the historically-locked engine renderer — honest BLOCKED outcome accepted if a clean split breaks
+    PS2-res-dependent effects. Owner play-test.'
+  prompt: prompts/phase-Grender-split.md
+  validator: validators/phase-Grender-split.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gdynamic-renderscale
+  name: 'OWNER 2026-06-30 (PRIORITY, before launcher): adaptive render scale to HOLD a target framerate. Dynamic Render Scale
+    ON/OFF; when ON, "RENDER SCALE" becomes "Minimum Render Scale" (floor, default 40%) + new "Minimum target framerate" (25..60);
+    the game auto-adjusts the 3D render scale within [min,100%] to keep fps >= target (lower under load, raise with headroom).
+    Must be anti-thrash (smoothed fps, dead-band, cooldown, bounded steps). UI stays native (Grender-split). Owner play-test.'
+  prompt: prompts/phase-Gdynamic-renderscale.md
+  validator: validators/phase-Gdynamic-renderscale.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gcamera-smooth
+  name: 'OWNER 2026-06-30/07-01: the CAMERA jitters/steps when panning around Jak while everything else is perfectly fluid.
+    Separate from game-speed (fixed). Prime lead: camera advance may ride the flickery INTEGER time-ratio (or render without
+    interpolation) instead of the smooth fractional time-adjust-ratio Jak uses. State-anchored diagnosis (per-frame camera
+    transform device vs golden x86), fix in the runtime/translation layer so panning is smooth without reintroducing the speed
+    bug. Owner play-test.'
+  prompt: prompts/phase-Gcamera-smooth.md
+  validator: validators/phase-Gcamera-smooth.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gdynamic-fix
+  name: 'OWNER 2026-07-01 (TOP PRIORITY, feature unusable): dynamic render scale is broken. (1) raising Min Render Scale at
+    runtime while scaled below it is not applied (no re-clamp); (2) the controller stays STUCK at the floor with obvious headroom
+    — owner repro: a zone that runs ~32fps at a fixed 60% scale, target 30, stays at 30% instead of climbing to ~60%. Must
+    CONVERGE to the HIGHEST scale that holds fps>=target (best quality that meets target), descend only below target, anti-thrash,
+    re-clamp on setting change. Owner play-test.'
+  prompt: prompts/phase-Gdynamic-fix.md
+  validator: validators/phase-Gdynamic-fix.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gcamera-interp
+  name: 'OWNER 2026-07-01: camera STILL steps/jumps (Gcamera-smooth FrameLimiter helped but did not fully fix it). Owner:
+    real INTERPOLATION issue "qu on a pas sur PC, le build original". Find what the PC/original does to keep the camera smooth
+    (per-frame interpolation between logic-frame states?) and replicate it on Android so panning is smooth at any fps / variable
+    frame timing (incl. under dynamic render scale). State-anchored device-vs-original. Owner play-test.'
+  prompt: prompts/phase-Gcamera-interp.md
+  validator: validators/phase-Gcamera-interp.sh
+  max_turns: 2200
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Goptions-reorder
+  name: 'OWNER 2026-07-01 (TOP PRIORITY): reorder Graphics Options to: 1 Aspect Ratio, 2 Game Resolution, 3 Dynamic Render
+    Scale, 4 Render Scale/Min Render Scale, 5 Min Target FPS (HIDDEN when Dynamic off), 6 FPS Counter, 7 V-Sync, 8 MSAA, 9
+    Advanced settings (rename PS2 Options). Both desktop + Android arrays; keep Android hides intact. pc/ menu only. Owner
+    play-test.'
+  prompt: prompts/phase-Goptions-reorder.md
+  validator: validators/phase-Goptions-reorder.sh
+  max_turns: 1500
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Glauncher-collection
+  name: 'OWNER 2026-06-30 (REVISED): per-game APK OR collection by BUILD assets. ONE game provided -> NO launcher, boots straight
+    into it, per-game name+icon (Jak 1->"Jak & Daxter", 2->"Jak II", 3->"Jak 3", X->"Jak X"). >1 game -> COLLECTION mode "Jak
+    and Daxter: The Recharged Jak-pot" + a selection menu (text, touch+gamepad; future: bg/logos/idle preview). jak1-only
+    build = verify direct boot. jak1 stays playable. Owner play-test.'
+  prompt: prompts/phase-Glauncher-collection.md
+  validator: validators/phase-Glauncher-collection.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gtouch-menus
+  name: 'OWNER 2026-07-02: make the in-game menus fully TOUCH-browsable — tap a menu entry to enter its submenu / reveal sub-options,
+    tap a sub-option to select it, all by touch WITHOUT the D-pad (verified with real adb input tap). D-pad + gamepad still
+    work (additive). pc/ + android touch glue; engine goal_src untouched.'
+  prompt: prompts/phase-Gtouch-menus.md
+  validator: validators/phase-Gtouch-menus.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gwarp-dpad
+  name: 'OWNER 2026-07-02: during teleporter (warp) selection, the analog stick should act as the D-pad (same context switch
+    the options menus use), since warp selection is D-pad-driven. Reuse the options stick->D-pad mapping while the warp UI
+    is active; restore normal stick after. Runtime glue + pc/; engine goal_src untouched.'
+  prompt: prompts/phase-Gwarp-dpad.md
+  validator: validators/phase-Gwarp-dpad.sh
+  max_turns: 1800
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gcrash-blueeco
+  name: 'OWNER 2026-07-02 (final-APK playtest, PRIORITY crash): in Forbidden Jungle the BLUE ECO VENT/FOUNTAIN causes an instant
+    crash-to-home on the owner phone. Reproduce on eae4df44 (warp jungle + trigger the vent), full crash forensics (signal,
+    faulting fn+PC, classify: codegen/mips2c/stack/renderer), 1-to-1 arm64 fix, crash-free sustained run past the trigger.
+    Prior fixes intact.'
+  prompt: prompts/phase-Gcrash-blueeco.md
+  validator: validators/phase-Gcrash-blueeco.sh
+  max_turns: 2200
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gtouch-fix
+  name: 'OWNER 2026-07-02 (final-APK playtest): touch menus are incomplete — main rows work but ON/OFF toggles are NOT tappable
+    and SLIDERS not at all; save-file rows only focus. Extend the tap layer to ALL option types (toggle=flip on tap, sliders=left/right-half
+    stepping or bar-position, save rows activate, carousels) and sweep the whole menu tree tap-complete. Verify per-type with
+    real adb input tap, no D-pad.'
+  prompt: prompts/phase-Gtouch-fix.md
+  validator: validators/phase-Gtouch-fix.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gperf-batching
+  name: 'OWNER-AGREED next big effort (2026-07-03, after v2 validation): 60fps push via GL draw-call BATCHING. Device is draw-call-submission
+    bound (571 draws ~20ms; fill-rate has huge headroom). Profile per renderer family first, then batch (multidraw-style index
+    merge, state sorting/caching, UBO/instancing) family by family; measure fps+buckets_ms after each; NUMERIC gain required
+    (>=+5fps), visual parity screencap-proven, 0 flicker, all prior fixes intact. Incremental delivery OK (30->45 is a win).
+    Owner play-test.'
+  prompt: prompts/phase-Gperf-batching.md
+  validator: validators/phase-Gperf-batching.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gorb-hud-regression
+  name: 'OWNER 2026-07-03 (REGRESSION): Precursor orbs render WHITE again on the HUD and ALL interfaces since the render-split
+    decoupled UI/HUD from the main render. The original Gorb-icon fix must be restored WITHIN the split architecture (owner:
+    garder la correlation, do NOT revert the split). Sweep every orb site (HUD, menus, save screens), verify at 100% and 50%
+    render scale. Owner play-test.'
+  prompt: prompts/phase-Gorb-hud-regression.md
+  validator: validators/phase-Gorb-hud-regression.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Geco-spheres
+  name: 'OWNER 2026-07-03: eco spheres render badly on Android and always have (green confirmed; blue/red likely same; check
+    yellow). Oracle-diff vs pristine x86, name the missing/degraded renderer family (glow/generic/sparticle), fix with the
+    3-part Android renderer-family pattern (kSet un-noop + CMake TUs + bucket/GLES registration). Per-color screencap match
+    vs golden; note fps cost. Owner play-test.'
+  prompt: prompts/phase-Geco-spheres.md
+  validator: validators/phase-Geco-spheres.sh
+  max_turns: 2200
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gcrash-rockvillage
+  name: 'OWNER 2026-07-03: Rock Village (village2) crash-to-home — after paying 90 orbs to the soldier to restore the pontoons,
+    past the buzzer-crate spot, walking further crashes straight to home. Reproduce (cross the 90-orb gate via continue point/progress
+    flag), forensics (fp-walk+LR+byte-match, classify codegen/mips2c/stack/DGO-streaming/stomp), 1-to-1 translation-layer
+    fix, crash-free sustained AFTER run. For the v4 pre-version (after the v3 eco/orb build). Owner play-test.'
+  prompt: prompts/phase-Gcrash-rockvillage.md
+  validator: validators/phase-Gcrash-rockvillage.sh
+  max_turns: 2200
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Glang-mixed
+  name: 'OWNER 2026-07-03 (v3 playtest): with audio=EN and text=FR, some interaction prompts (objects/NPCs) stay ENGLISH —
+    they must follow the TEXT language. Repro + sweep every affected string, x86 oracle verdict (divergence vs upstream),
+    find where the text-language id is lost, fix in pc/translation layer, both-ways language check. Owner play-test.'
+  prompt: prompts/phase-Glang-mixed.md
+  validator: validators/phase-Glang-mixed.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gndskip
+  name: 'OWNER 2026-07-03 (v3 playtest): pressing START at the Naughty Dog logo does NOT skip — screen goes black (audio keeps
+    playing) until the J&D logo appears at its normal time. Make skip land directly on the Jak and Daxter logo appearance
+    (~1s), audio consistent, no-skip path intact, title/attract unregressed (Gndlogo/Ghalo lessons). Owner play-test.'
+  prompt: prompts/phase-Gndskip.md
+  validator: validators/phase-Gndskip.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gtitle-tap
+  name: 'OWNER 2026-07-03 (v3 playtest): title screen must read "PRESS START OR TAP SCREEN" (localized, Android only) and
+    a screen tap must open the start menu like START. Reuse the touch plumbing, scope to the press-start screen only (in-game
+    taps unaffected), title layout unregressed at both aspects. Owner play-test.'
+  prompt: prompts/phase-Gtitle-tap.md
+  validator: validators/phase-Gtitle-tap.sh
+  max_turns: 2000
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gcrash-swamp-load
+  name: 'OWNER 2026-07-04 (v4 playtest, FALSE-GREEN REOPEN): the Rock Village->Swamp crash is NOT fixed — crossing the pontoons
+    toward Boggy Swamp still crashes to home as the swamp DGO loads. Gcrash-rockvillage (58ee45b15) was validated on SYNTHETIC
+    want-levels replay, not the real walked route. Reproduce by WALKING the real route until it crashes, forensics at swamp-load,
+    1-to-1 fix, AFTER = same real route crash-free past the boundary (synthetic replay is NOT accepted as proof). Owner play-test.'
+  prompt: prompts/phase-Gcrash-swamp-load.md
+  validator: validators/phase-Gcrash-swamp-load.sh
+  max_turns: 2400
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gperf-particles
+  name: 'OWNER 2026-07-03 (v3 playtest, SD 8 Elite Gen 5): particle-heavy zones (moving fire effects) drop below 25fps even
+    at 30% render scale — low scale not helping proves CPU/submission bound, particle path is the prime suspect. Profile the
+    fire regime (A35-PERF + CPU sparticle kernel + draw counts), fix the top costs (sprite/generic batching-instancing, state
+    cache, sync dedupe, NEON the sparticle inner loop if CPU-bound), NUMERIC pose-held A/B >= max(+20%, +5fps), eco-burst
+    + orb regression re-verified, kill switches. Owner play-test.'
+  prompt: prompts/phase-Gperf-particles.md
+  validator: validators/phase-Gperf-particles.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gcrash-swamp-real
+  name: 'OWNER 2026-07-05 (v5 play-test, 2nd FALSE-GREEN REOPEN): Rock Village->Swamp STILL crashes to home crossing the pontoons
+    — the 543b7739b fix cured a DIFFERENT crash (the target.drive hook reproduced a non-faithful one). Reproduce with REAL
+    controller INPUT walking the pontoons (target.drive BANNED as proof), or the owner capture; forensics, 1-to-1 fix, faithful
+    AFTER. Owner play-test.'
+  prompt: prompts/phase-Gcrash-swamp-real.md
+  validator: validators/phase-Gcrash-swamp-real.sh
+  max_turns: 2600
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gperf-particles2
+  name: 'OWNER 2026-07-05 (v5 play-test): the Gperf-particles perf changes CORRUPT the image in real play (geometry pops in/out
+    from GOAL/GL overlap; textures flicker day/night/sunrise from TOD memoize). Supervisor STOPGAP defaulted them OFF (v4
+    renderer restored). Re-earn each optimization CORRECTLY under REAL MOVING gameplay with natural TOD, video-inspected for
+    pop+flicker vs a known-bad control; keep only correct+gainful ones. Owner play-test.'
+  prompt: prompts/phase-Gperf-particles2.md
+  validator: validators/phase-Gperf-particles2.sh
+  max_turns: 2600
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gswamp-fstore
+  name: 'TRUE swamp fix (follow-up to the shipped band-aid): joint-control.effect is left 0 (memset) not #f on arm64 -> null-effect
+    dispatch crash. Codegen is correct; the #f store fails because x14 (st/#f-mirror reg) is clobbered to ee_base by a GOAL->C++
+    call path (the _arg_call/_stack_call trampoline x14-save did NOT fully fix it -> a mips2c or other path clobbers x14).
+    Instrument the store point (new joint-control) on-device to prove x14==x15, find the clobbering path, fix it, eliminate
+    the fault at source (repair counter 0), remove the band-aid. Owner play-test. Device-specific (owner Snapdragon).'
+  prompt: prompts/phase-Gswamp-fstore.md
+  validator: validators/phase-Gswamp-fstore.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gvulkan-option
+  name: 'OWNER 2026-07-04 (backlog): add a VULKAN renderer backend as a selectable option in BOTH builds (x86 currently OpenGL,
+    Android OpenGL ES), exposed via a dedicated Graphics Options entry. LARGE effort — investigate the existing upstream Vulkan
+    tree first, wire it up (compile into Android build + Android VkSurface), persisted backend selection, GL/GLES stays the
+    default. Incremental/honest partial delivery OK. Owner play-test.'
+  prompt: prompts/phase-Gvulkan-option.md
+  validator: validators/phase-Gvulkan-option.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gjak2-boot
+  name: 'OWNER 2026-07-06: start jak2 — bring up JAK 2 on Android arm64 (build + boot to render on device), inheriting jak1
+    game-agnostic arm64 work'
+  prompt: prompts/phase-Gjak2-boot.md
+  validator: validators/phase-Gjak2-boot.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gjak2-render
+  name: 'jak2 chapter 2 — first RENDER frame on Android arm64: fix the gcommon SIGSEGV (new jak2 codegen path) + wire jak2
+    renderer subset/mips2c allowlist'
+  prompt: prompts/phase-Gjak2-render.md
+  validator: validators/phase-Gjak2-render.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gjak2-visuals
+  name: 'jak2 chapter 3 — visual quality on the title flythrough (owner: "pas bon, beaucoup d erreurs et d éléments manquants"):
+    TOD/lighting palettes, remaining bucket families (sky/ocean/sprite/shadow/eye/direct), visual-error fixes vs x86 oracle;
+    keep 60fps crash-free'
+  prompt: prompts/phase-Gjak2-visuals.md
+  validator: validators/phase-Gjak2-visuals.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gjak2-ingame
+  name: 'jak2 chapter 4 — PLAYABLE: systemic collision absence (falls through floor everywhere; data-load vs collide-mips2c
+    vs noop audit) + intro cinematic crash at the Two-years-later scene transition; owner in-game verify'
+  prompt: prompts/phase-Gjak2-ingame.md
+  validator: validators/phase-Gjak2-ingame.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-hud-visuals-x86
+  name: 'RECHARGED HUD visuals x86 pass (device:false — owner-approved in-framework deviceless rule): gated heart 4-state+blink,
+    eco gauge mask+rotated tip, REAL full power-cell/scout-fly models in HUD (owner: naked-sg is a lesser version); OFF byte-identical;
+    x86-verified'
+  prompt: prompts/phase-Grecharged-hud-visuals-x86.md
+  validator: validators/phase-Grecharged-hud-visuals-x86.sh
+  max_turns: 2400
+  max_retries: 4
+  device: false
+  owner_verify: false
+- id: Gjak2-pcmenus
+  name: 'OWNER 2026-07-08 (jak2 menu test): backport the whole jak1 PC options system to jak2 — Fit-to-screen aspect (4:3
+    stuck now), Window Size/resolution picker (empty), Display Mode (UNKNOWN ID 999187), dynamic render scale, conditional
+    menus, touch nav; goal_src/jak2/pc only'
+  prompt: prompts/phase-Gjak2-pcmenus.md
+  validator: validators/phase-Gjak2-pcmenus.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gjak2-movement
+  name: 'OWNER 2026-07-08 VERBATIM: jak2 inputs ARRIVE (movement anims play) but the character never TRANSLATES (glued) +
+    constant one-direction drift — movement/physics integration broken (collision-response resolution / velocity->transform),
+    NOT input; state-dump move-resolution vs x86'
+  prompt: prompts/phase-Gjak2-movement.md
+  validator: validators/phase-Gjak2-movement.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-poc
+  name: 'RECHARGED (owner 2026-07-07): 3D GRASS proof-of-concept on the TRAINING level — real blades near (flat-color, random
+    distribution, variable size/orientation/curvature/tint, individual breeze motion, flatten under Jak), crossed grass cards
+    mid (slight sway), plain ground texture far; placement driven by grass ground-texture detection (tra-grass); gated in
+    Recharged Settings, default OFF; transpose-everywhere later if cool'
+  prompt: prompts/phase-Grecharged-grass-poc.md
+  validator: validators/phase-Grecharged-grass-poc.sh
+  max_turns: 3000
+  max_retries: 20
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-precompute-mode
+  name: 'RECHARGED (owner 2026-07-11, backlog after grass-poc): PRECOMPUTED grass mode for PERF at EQUAL fidelity — bake placement
+    + per-instance tint + DAY-CYCLE lighting keyframes OFFLINE (same way the game bakes tfrag ground lighting for the day
+    cycle), runtime = lookup+interpolate instead of live sampling. KEEPS full day-cycle fidelity (NOT frozen at one time),
+    just cheaper. Toggle PRECOMPUTED/LIVE in GRASS SETTINGS'
+  prompt: prompts/phase-Grecharged-grass-precompute-mode.md
+  validator: validators/phase-Grecharged-grass-precompute-mode.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gjak1-icache-flush
+  name: 'port arm64 bug class #14 (stale-icache CacheFlush no-op) to jak1 klink.cpp:623 — LATENT-correctness fix; owner 2026-07-09:
+    NO boot-flake exists, do NOT gate on 20 boots; land the real-range flush + prove no regression + x86 byte-identical'
+  prompt: prompts/phase-Gjak1-icache-flush.md
+  validator: validators/phase-Gjak1-icache-flush.sh
+  max_turns: 1200
+  max_retries: 4
+  device: true
+  owner_verify: false
+- id: Gjak1-intermittent-events
+  name: 'OWNER 2026-07-07/09 (jak1 play-test): INTERMITTENT event-trigger failures GAME-WIDE — sometimes contextual mini-cutscenes
+    do not fire, platforms that should move do not move, enemies stay immobile (Snowy Mountain fort was ONE instance but worked
+    on retry — NOT a constant example). Find the common intermittent mechanism (strongly suspect bug class #14 stale-icache
+    + enter-state/SUSPEND + event dispatch); x86-first oracle; 1-to-1 fix'
+  prompt: prompts/phase-Gjak1-intermittent-events.md
+  validator: validators/phase-Gjak1-intermittent-events.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-overhang
+  name: 'RECHARGED (owner 2026-07-11, backlog, AFTER clean edges): 3D DROOPING grass over platform edges. Reuse round#15 rim/lip
+    data — the excluded overhang-LIP tris become the placement zone for blades oriented DOWN+OUTWARD (gravity droop) covering
+    the game overhang ALPHA texture (grass-fringe). LOD: near=3D droop, FAR=original alpha texture only (NO cards), crossfade
+    to avoid double-up. Toggle, OFF==stock. Exempt from the rim height-taper (intended overhang). Gated on Grecharged-grass-poc
+    edges being owner-clean.'
+  prompt: prompts/phase-Grecharged-grass-overhang.md
+  validator: validators/phase-Grecharged-grass-overhang.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-object-clip
+  name: 'RECHARGED (owner 2026-07-11, backlog, AFTER clean edges; owner: "un détail"): grass pokes THROUGH ground-resting
+    objects (island warp-gate BUTTON + other decor). Root-cause hyp: round#13 object-cull only occludes NON-grass-TIE points;
+    the gate button is a game-object/actor/prototype, not a TIE -> absent from occluders. Fix: add non-TIE ground-resting
+    objects to the occluder set. CRITICAL: cull by the GROUND-CONTACT footprint (near-surface points, keep the [0.05..1.00m]
+    contact band), NOT the full/buried mesh -> no giant bald patch on buried-base objects. Correctness within grass-ON, OFF==stock.'
+  prompt: prompts/phase-Grecharged-grass-object-clip.md
+  validator: validators/phase-Grecharged-grass-object-clip.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+  no_code: true
+- id: Grecharged-grass-overhang2
+  name: 'RECHARGED ROUND 2 (owner 2026-07-13 HONOR test FAILED round1): overhang droop must COVER the original fringe alpha
+    texture (it shows through), droop far too LOW (shorten, tunable), and transition upright->droop must be PROGRESSIVE with
+    rim distance (currently binary). Owner verbatim in prompt. Edge stack LOCKED, OFF==stock incl. fringe.'
+  prompt: prompts/phase-Grecharged-grass-overhang2.md
+  validator: validators/phase-Grecharged-grass-overhang2.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-wear
+  name: 'RECHARGED (owner 2026-07-12, backlog, AFTER grass-poc/overhang/object-clip): Procedural Grass Wear and Height Distribution
+    — DESIGN SPIKE ONLY (no implementation). Replace uniform blade height with a continuous player-traffic likelihood field
+    built from level data (collectibles/orbs/crates/eco, inferred organic paths between collectible chains, platform approach/jump/landing
+    spots, navigability, walls WITHOUT gameplay = NO short grass) -> shorter grass where players go, longer in unvisited zones,
+    deterministic coherent variation, artist-quality result, code-tunable parameters (NOT Recharged Settings), debug heatmaps.
+    Deliverable: analysis of current systems + available level data, architecture (Android-compatible, no per-blade runtime
+    pathfinding), MVP + ordered sub-task backlog, risks, 14 owner acceptance criteria.'
+  prompt: prompts/phase-Grecharged-grass-wear.md
+  validator: validators/phase-Grecharged-grass-wear.sh
+  max_turns: 2000
+  max_retries: 4
+  device: false
+  owner_verify: true
+  no_code: true
+- id: Grecharged-grass-overhang3
+  name: 'RECHARGED ROUND 3 (owner 2026-07-13: round2 ''failure totale''): droop must be placed ON the fringe-textured tris
+    themselves (follow mesh+relief by construction, never sprout from walls below the floor), root at the shared rim edge
+    (reuse the global rim hash), per-tri length never exceeding the fringe texture extent, blade profile == adjacent platform
+    grass, CONTINUOUS upright->lean->droop gradient. Design note committed BEFORE code. Owner verbatim in prompt.'
+  prompt: prompts/phase-Grecharged-grass-overhang3.md
+  validator: validators/phase-Grecharged-grass-overhang3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gjak1-shadow-cast
+  name: 'PORT PARITY (owner 2026-07-12, right after the grass backlog items): Jak casts NO shadow on Android while the original
+    PC build does — longstanding unnoticed bug. jak1 HAS the shadow system (engine/gfx/shadow/shadow-cpu.gc + shadow-vu1.gc,
+    set up from bones.gc). Suspects in order: (1) shadow renderer missing from the Android curated subset (Gwater 3-part pattern:
+    mips2c kSet + CMakeLists TU + bucket/GLES registration); (2) arm64 mips2c shadow-cpu noop (jak2 had exactly this); (3)
+    x86-first oracle to prove translation-layer-only. No toggle — stock behavior restoration. Proof: device frames standing+jumping
+    w/ visible shadow, x86 A/B, fps before/after.'
+  prompt: prompts/phase-Gjak1-shadow-cast.md
+  validator: validators/phase-Gjak1-shadow-cast.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Grecharged-external-assets
+  name: 'RECHARGED infra PROMOTED (owner 2026-07-07: ''assets externes, pas un contournement débile'' — jak2 already exceeds
+    the AGP 2GB cap and lost non-EN VAGWADs to it): split BINARY from ASSETS on every build (slim APK + external assets archive,
+    ALL languages restored incl. VAGWADs — kills the size-cap workarounds), first-boot asset-location prompt (Android storage
+    permissions), <chosen>/jak_N/{assets,saves,custom_assets}, LOAD CUSTOM ASSETS toggle, jak1+jak2+jak3/Collection, safe
+    migration'
+  prompt: prompts/phase-Grecharged-external-assets.md
+  validator: validators/phase-Grecharged-external-assets.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-overhang4
+  name: 'RECHARGED ROUND 4 (owner 2026-07-14: round3 ''complètement loupé''): comb clips through the transition mesh (surface-constrain
+    the comb: down-slope tangent + normal offset + tip-plane clamp, geometric self-check counters), transition brutal (per-BLADE
+    continuous weight from rim distance + interpolated vertex normals, no per-tri seams), weird diagonal bands on HONOR (investigate
+    placement rows vs mediump precision; force highp; honest if not reproducible on Redmi). Owner verbatim in prompt.'
+  prompt: prompts/phase-Grecharged-grass-overhang4.md
+  validator: validators/phase-Grecharged-grass-overhang4.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-hd-models
+  name: 'RECHARGED (owner 2026-07-07): use jak2 intro-era detailed models of Jak/Daxter/Samos/Keira (jak1 look, pre-timeskip)
+    to replace jak1 low-poly models — extract via decompiler, retarget to jak1 skeletons via the custom-model (.glb->merc)
+    pipeline; CONDITIONAL on jak2 assets present at build; "ENHANCED MODELS" toggle in Recharged Settings (hidden if built
+    without jak2), default OFF=stock; honest per-character partial OK'
+  prompt: prompts/phase-Grecharged-hd-models.md
+  validator: validators/phase-Grecharged-hd-models.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-overhang5
+  name: 'ROUND 5 (owner 2026-07-14, shipped-APK test): overhang STILL broken (clip/bands/transition), precompute on/off no
+    diff. overhang4 objective PASS was FALSE. Reproduce the OWNER install flow (slim APK + external archive, NO adb push),
+    find why the fix doesn''t manifest through the real pipeline, prove via real-install captures.'
+  prompt: prompts/phase-Grecharged-grass-overhang5.md
+  validator: validators/phase-Grecharged-grass-overhang5.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-hd-models2
+  name: 'ROUND 2 (owner 2026-07-14, HONOR): round-1 models CURSED — WRONG source (jak2 in-game not the intro/first-cutscene
+    jak1-look highres), GARBLED retarget (weight-borrow fails), only 2/4 swap. Rip correct intro-cutscene source, name-based
+    rig remap (no garbled geo), all-4-or-honest-partial. Verify via the OWNER real install flow, not adb-push.'
+  prompt: prompts/phase-Grecharged-hd-models2.md
+  validator: validators/phase-Grecharged-hd-models2.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-overhang6
+  name: 'ROUND 6 (owner 2026-07-14 Redmi: v5 rim-drape ''complètement pourri, pas exploitable''; his verbatim 3-zone SPEC):
+    zone1 walkable-top lean gradient at the boundary (no overshoot), zone2 blades ON the flat-green sub-lip mesh strip following
+    it EXACTLY with increasing lean, zone3 >=2 LAYERED animated grass falling down fully covering the native overhang alpha
+    (hide near/restore far LOD), volume/thickness ''believable''; NO blades from dirt faces (kill v5 bare-lip drape). Verify
+    at the owner''s exact Redmi vantage, real install flow.'
+  prompt: prompts/phase-Grecharged-grass-overhang6.md
+  validator: validators/phase-Grecharged-grass-overhang6.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-foliage-wind
+  name: 'RECHARGED (owner 2026-07-09, backlog): jak1 palm leaves + shrubs are completely static — add light wind wobble/sway
+    so foliage reacts to a light breeze; "FOLIAGE WIND"-style toggle in Recharged Settings, default OFF=stock (byte-identical
+    render when OFF)'
+  prompt: prompts/phase-Grecharged-foliage-wind.md
+  validator: validators/phase-Grecharged-foliage-wind.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-grass-overhang7
+  name: 'ROUND 7 (owner: ''fini ce putain d''overhang'' — v6 still ''à chier'' on his Redmi; wind cross-hint: menu-toggled
+    features may not reach C++ at all): STEP1 reproduce HIS boot (his settings untouched, plain launch) and decide (a) zones
+    not rendering (state/toggle chain) vs (b) rendering but ugly; fix accordingly; prove via MENU toggle + 10s video at his
+    vantage. ONE task.'
+  prompt: prompts/phase-Grecharged-grass-overhang7.md
+  validator: validators/phase-Grecharged-grass-overhang7.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-ambient-occlusion
+  name: 'RECHARGED (owner 2026-07-11, backlog): screen-space AMBIENT OCCLUSION (SSAO) for depth/relief across the whole game
+    — GLES post-process pass sampling the existing depth FBO (reconstruct pos/normal, darken creases/contacts), half-res +
+    blur for Adreno 618 perf, composited into the final image. TOGGLE "AMBIENT OCCLUSION" in Recharged Settings, default OFF
+    (OFF == stock). #1 RISK (owner-flagged): alpha-cut/transparent meshes (foliage, grass cards, fences) must be EXCLUDED
+    from the AO depth or they get boxy shadows/halos on their transparent parts. Grass: contact-AO at blade base is nice but
+    keep grass cards out of AO-depth'
+  prompt: prompts/phase-Grecharged-ambient-occlusion.md
+  validator: validators/phase-Grecharged-ambient-occlusion.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-buildsys-flags
+  name: 'PILLAR P1 (owner 2026-07-17 top priority): unified build CLI (linux-x86_64 + android-arm64) + build-time feature
+    flags --recharged-hud/--grass-overhang/--hd-models/--vulkan-support/--yolo via DUAL plumbing (CMake defines + generated
+    GOAL defconstants -> off features absent from binary AND menus), flag-set-hash keyed CGO cache + verifies; Android-hidden
+    menus stay on desktop. Plan: .autoport/plans/build-system-pillar.md'
+  prompt: prompts/phase-Grecharged-buildsys-flags.md
+  validator: validators/phase-Grecharged-buildsys-flags.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-buildsys-packaging
+  name: 'PILLAR P2: package vs assets.zip split by the diff-vanilla rule — package = engine + ALL port-custom (CGO/DGO, rebuilt
+    TXT, HD overlays, recharged PNGs); assets.zip = ONLY unaltered source-derived (iso_data + stock fr3, all VAGWAD langs);
+    per game+target producers; verifies re-keyed'
+  prompt: prompts/phase-Grecharged-buildsys-packaging.md
+  validator: validators/phase-Grecharged-buildsys-packaging.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-buildsys-firstboot
+  name: 'PILLAR P3: native file pickers (SAF/xdg/IFileDialog, --game-root fallback), <root>/jakN/{assets,custom_assets,saves,settings.ini}
+    tree, settings.ini INI bridge (GOAL stays truth), custom_assets filename override, FULL device-harness path migration,
+    Redmi cutover (ADB saves -> wipe -> clean install); NO migration/legacy code'
+  prompt: prompts/phase-Grecharged-buildsys-firstboot.md
+  validator: validators/phase-Grecharged-buildsys-firstboot.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-buildsys-cidocs
+  name: 'PILLAR P4: CI matrix (windows msvc/clang, macos-arm, linux) adapted to the new CLI/flags/packaging, windows artifact
+    green; README full non-dev rewrite + docs/build-<target>.md + per-OS user guides (''tonton Jeanot'' bar); jak-builds release
+    switched to the new artifacts'
+  prompt: prompts/phase-Grecharged-buildsys-cidocs.md
+  validator: validators/phase-Grecharged-buildsys-cidocs.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Grecharged-pbr-materials
+  name: 'RECHARGED (owner 2026-07-17 REPRIORITIZED to next, most autonomous): add REALTIME LIGHTING + full PBR shading path,
+    test with a REAL PBR material DOWNLOADED from the internet (CC0) dropped over ONE existing texture via the custom_assets
+    override (the P3 filename-override system extended to multi-map sets: <tex>.png albedo + <tex>_normal/_roughness/_metallic/_ao).
+    Modern path lit by the EXISTING mood/TOD light env (current-sun / mood-shadow-direction / 9 per-level light-groups) +
+    a realtime specular/BRDF response; baked vertex lighting IGNORED for that surface (no double-dose). No PBR map / toggle
+    OFF -> legacy texture x baked-vertex path UNCHANGED (OFF==stock, byte-identical). Build-flag gated (--pbr, pillar dual-plumbing)
+    + Recharged Settings toggle. Full offline conversion pipeline DEFERRED (owner: "on verra plus tard"). Deliverable = realtime
+    PBR path + 1 downloaded-material device PoC A/B ON/OFF + elegant fallback proof. NOT faux-PBR.'
+  prompt: prompts/phase-Grecharged-pbr-materials.md
+  validator: validators/phase-Grecharged-pbr-materials.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-realtime-lighting
+  name: 'RECHARGED (owner 2026-07-19, FURIOUS at round-1..5 lighting, COMPLETE REWRITE): PBR Materials On/Off kept as good-enough;
+    NEW separate "Realtime Lighting On/Off" toggle + a sub-option to disable baked lighting when it is ON (dev state = baked
+    OFF). Redo realtime lighting from scratch, dead simple + correct: ONE light = the SUN (dir from the VISIBLE sun / current-sun
+    / mood-shadow-direction), sun-facing side LIT + opposite side DARK (N.L per-face), object CASTS a shadow on whatever is
+    behind it. NO OTHER LIGHTS, NO ambient, baked OFF everywhere. Strip the round-1..5 accretion (ambient/multi-light/moon/baked-GI/bakedw);
+    keep+simplify the world shadow map + camera-stable fit + per-face N.L. Obvious-model acceptance (sun-side lit/dark-side
+    dark, cast shadow at base opposite the visible sun, h8/h16 flip, 360-orbit pinned, no-ambient genuinely dark, baked-off
+    proven). OFF==stock. Owner eye gates. "Comme c est cense l etre."'
+  prompt: prompts/phase-Grecharged-realtime-lighting.md
+  validator: validators/phase-Grecharged-realtime-lighting.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-directional-ambient
+  name: 'RECHARGED (owner 2026-07-19, chosen Option B): make the ~0.2 sky-fill floor DIRECTIONAL (the pro way shadowed areas
+    keep their form without AO). Progression: (1) HEMISPHERE ambient — blend sky-color (up-facing) vs ground-color (down-facing)
+    by the per-face normal (cheap, uses existing normals, immediate form); (2) SH / light-probe ambient (low-freq directional);
+    (3) IBL from a prefiltered sky env map (real PBR ambient). Replaces the flat constant floor from Grecharged-realtime-lighting.
+    THEN other light sources / colored bounce. Golden rule preserved: ambient only, never touches direct sun. Sky/ground colors
+    driven by the mood/TOD env so it tracks the day cycle. Owner re-scopes at phase start; start with hemisphere, prove form-in-shadow
+    AO-off, then climb.'
+  prompt: prompts/phase-Grecharged-directional-ambient.md
+  validator: validators/phase-Grecharged-directional-ambient.sh
+  max_turns: 3500
+  max_retries: 14
+  device: true
+  owner_verify: true
+- id: Grecharged-lightprobes
+  name: 'RECHARGED (owner 2026-07-20, "killer truc qui change la donne"): replace the GLOBAL-per-level analytic hemisphere/SH/IBL
+    ambient with precomputed LOCAL environment probes, baked PROGRAMMATICALLY from the STOCK game (baked light probes / irradiance
+    volumes + reflection probes). GO ALL IN (full quality, automation not scope-cut). Auto probe placement: 3D grid over ALL
+    explorable heights (a layer above each walkable collision surface) + volume layers + a probe at each inside-box/inside-sphere
+    ROOM CENTER, collision-clipped. Bake without actors/player/collectibles, at all 8 TOD keys, INCLUDING the suns (a real
+    HDRI of the lit world — excluding them falsifies it / dead reflections). Process to L2 irradiance SH (diffuse) + GGX-prefiltered
+    roughness-mip cubemaps (reflections). NOT a redite: env INPUT to a dynamic relight, composed WITHOUT double-counting the
+    sun. Consumers each adapted: realtime ambient (local SH replaces global), PBR IBL, metal/Precursor/water reflections,
+    color grading; Adreno tiers; coherent Recharged menu (no unknown-ID); OFF==stock byte-identical. PROVE ON VILLAGE1 first;
+    roll out to the rest in one block afterwards.'
+  prompt: prompts/phase-Grecharged-lightprobes.md
+  validator: validators/phase-Grecharged-lightprobes.sh
+  max_turns: 4000
+  max_retries: 16
+  device: true
+  owner_verify: true
+- id: Grecharged-master-toggle
+  name: 'RECHARGED (owner 2026-07-21): GLOBAL Recharged ON/OFF master toggle — OFF forces the stock state of EVERY recharged
+    feature at runtime (custom assets, PBR, HD models, HUD, grass, foliage wind, AO, realtime lighting, probes) => byte-identical
+    VANILLA render, WITHOUT resetting the user''s individual toggles (restored exactly on re-enable). Single effective-flag
+    helper consumed at every feature gate (no drift copies). Rows greyed when OFF; menu-tree.md synced; debug.opengoal.recharged
+    prop for headless vanilla (probe captures). Device A/B vs stock baseline.'
+  prompt: prompts/phase-Grecharged-master-toggle.md
+  validator: validators/phase-Grecharged-master-toggle.sh
+  max_turns: 2500
+  max_retries: 8
+  device: true
+  owner_verify: true
+- id: Grecharged-bundled-textures
+  name: 'RECHARGED (owner 2026-07-21): first-party PBR texture set (owner-made from scratch, 7 village1 textures committed
+    at custom_assets/jak1/recharged_textures/<tpage>/<tex>/) shipped BUNDLED in the APK (LoaderActivity recharged channel,
+    install-only). NEW "Recharged Textures" on/off menu row = base replacements; _height/_normal/_roughness feed the PBR pipeline
+    when PBR is ON. PRECEDENCE: user custom_assets > bundled recharged > stock. OFF==stock; menu-tree synced; device A/B proof.'
+  prompt: prompts/phase-Grecharged-bundled-textures.md
+  validator: validators/phase-Grecharged-bundled-textures.sh
+  max_turns: 2500
+  max_retries: 8
+  device: true
+  owner_verify: true
+- id: Grecharged-naming
+  name: 'RECHARGED (owner 2026-07-22): product renaming — collection = "Jak and Daxter: Recharged Collection" (was The Recharged
+    Jak-pot); Jak1 = "Jak and Daxter: Recharged" (Warped nod); Jak II = "Jak II: Recharged"; Jak 3 = "Jak 3: Recharged". USER-FACING
+    strings only (launcher label, collection UI, README, window titles); package ids org.opengoal.gk.* and save identifiers
+    UNTOUCHED (installs/ saves compat). menu-tree synced if menu strings change.'
+  prompt: prompts/phase-Grecharged-naming.md
+  validator: validators/phase-Grecharged-naming.sh
+  max_turns: 1500
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-mesh-consolidation
+  name: 'RECHARGED (owner 2026-07-24, PRIORITY BEFORE PBR POLISH): fix EVERY mesh in the game — exhaustive weld of coincident-but-unshared
+    edges (the objective no-omissions metric, target ~0), kill the couture (normal or baked-colour delta at chunk seams),
+    seam-consistent displacement (no tessellation slits), correct normal orientation everywhere (collision authority); tfrag+tie+shrub,
+    EVERY level, audit numbers per level; precompute to a sidecar once proven.'
+  prompt: prompts/phase-Grecharged-mesh-consolidation.md
+  validator: validators/phase-Grecharged-mesh-consolidation.sh
+  max_turns: 3000
+  max_retries: 16
+  device: true
+  owner_verify: true
+- id: Grecharged-loader-packfix
+  name: 'PRIORITE 1 (owner 2026-07-29): le build ne demarre plus sur son Honor. Le 27/07 (pack 190 Mo) boote et extrait ses
+    74 CGO; les builds 28-29/07 (pack 420 Mo, apres le deplacement du derive dans l''APK) meurent AVANT toute extraction.
+    Trouver la cause avec une preuve, corriger sans retirer les donnees de l''APK, et livrer un build qui demarre chez lui
+    avec les mesh corriges et le mesh browser.'
+  prompt: prompts/phase-Grecharged-loader-packfix.md
+  validator: validators/phase-Grecharged-loader-packfix.sh
+  device: true
+  device_serial: eae4df44
+  max_turns: 400
+  max_retries: 20
+  owner_verify: true
+- id: Grecharged-pbr-realtime-fusion
+  name: 'RECHARGED (owner 2026-07-20): PBR materials must be LIT BY the realtime lighting (sun + green-sun + SH/IBL ambient)
+    — that is where PBR shines. Today the rt-lighting shader branch (u_rt_light_on) ignores the PBR material maps and the
+    standalone u_pbr_mode path is the weak "bidon" fallback. FUSE: inside the rt path, when pbr-materials is ON, run Cook-Torrance
+    GGX (normal/roughness/metallic/ao/height/specular/emissive) lit by the realtime analytic lights + ambient. WIRE specular
+    + emissive (currently not even loaded). Keep the standalone pbr path as the rt-OFF fallback. Golden rule: rt-off+pbr-off
+    == stock byte-identical; rt-on+pbr-off == accepted directional-ambient (no regression). Test material vil1-sages-stonewall-01
+    full map set.'
+  prompt: prompts/phase-Grecharged-pbr-realtime-fusion.md
+  validator: validators/phase-Grecharged-pbr-realtime-fusion.sh
+  max_turns: 3500
+  max_retries: 36
+  device: true
+  owner_verify: true
+- id: Grecharged-mesh-browser
+  name: 'Navigateur de mesh de debug (owner): warp dans n''importe quel niveau, previsualiser n''importe quel mesh avec ses
+    textures / son PBR / le damier, orbite + rotation, heure du jour, identifiant affiche ET exporte. ENTIEREMENT UTILISABLE
+    AU TACTILE (l''owner n''a ni manette permanente ni adb).'
+  prompt: prompts/phase-Grecharged-mesh-browser.md
+  validator: validators/phase-Grecharged-mesh-browser.sh
+  device: true
+  max_turns: 400
+  max_retries: 20
+  owner_verify: true
+- id: Grecharged-menu-overhaul
+  name: 'REFONTE MENUS (propal superviseur validee owner 2026-07-30): titre conditionnel (Continuer / Charger cache sans save),
+    quit flow (retour titre / quitter / annuler), OPTIONS unifiees en 6 categories avec en-tetes de groupe + valeur live sur
+    100% des lignes + hints, Recharged dissous, 3 lignes Android retablies, categorie Debug cachee-pas-supprimee derriere
+    --debug, 6 langues, table de correspondance ancien->nouveau pour chaque ligne. NE DEMARRE PAS avant fermeture de Grecharged-mesh-browser
+    (memes fichiers).'
+  prompt: prompts/phase-Grecharged-menu-overhaul.md
+  validator: validators/phase-Grecharged-menu-overhaul.sh
+  device: true
+  max_turns: 400
+  max_retries: 20
+  owner_verify: true
+- id: Grecharged-texture-hotreload
+  name: 'RECHARGED (owner 2026-07-23): LIVE texture toggling — Recharged Textures / custom assets ON<->OFF must apply without
+    restarting the game (rescan + GPU re-upload / pool invalidation). Precedence semantics unchanged (user > bundled > stock,
+    alpha-last-wins among user dupes).'
+  prompt: prompts/phase-Grecharged-texture-hotreload.md
+  validator: validators/phase-Grecharged-texture-hotreload.sh
+  max_turns: 2000
+  max_retries: 8
+  device: true
+  owner_verify: true
+- id: Grecharged-hd-models3
+  name: 'ROUND 3 (owner 2026-07-14: round2 ''un carnage'' — textures mal wrap, shading bizarre, yeux/masque de Jak non texturés,
+    mâchoire de Daxter invisible, retarget loupé): suspects = UV-seam welding + recomputed normals (preserve authored normals,
+    never merge distinct-UV verts), untextured draws (eyes/mask page binding), jaw draw missing/culled; FACE close-up captures
+    vs jak2-intro ground truth mandatory; honest partial beats carnage.'
+  prompt: prompts/phase-Grecharged-hd-models3.md
+  validator: validators/phase-Grecharged-hd-models3.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-hd-models4
+  name: 'HD MODELS M2 — remplacements PRINCIPAUX Daxter/Keira/Samos (owner 2026-08-03, roadmap exacte dans prompts/phase-Grecharged-hd-models4.md):
+    Daxter = cinématique JAK 3 SANS pantalon (look identique entre les 3 jeux, vérifié par l''owner, ne pas re-vérifier);
+    Keira = cinématique de la TOUTE PREMIÈRE cutscene de Jak 2 (avant le passage sandales->bottines); Samos = cinématique
+    Jak 3 (look inchangé, modèle le plus détaillé). Même mécanisme anim-retarget que M1-Jak (companion + append merc + table
+    k->e par personnage). NE DÉMARRE PAS avant que Grecharged-hd-models3 (Jak M1) soit owner-accepté: même pipeline, les fixes
+    de M1 s''appliquent à M2.'
+  prompt: prompts/phase-Grecharged-hd-models4.md
+  validator: validators/phase-Grecharged-hd-models4.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gtouch-longjump-regression
+  name: 'REGRESSION TACTILE LONG JUMP (owner 2026-08-04): avancer + R1/R2 + saut au TACTILE => saut annulé (duck-walk + saut
+    normal au lieu du wheel/long jump). FAIT CLÉ owner: ÇA FONCTIONNAIT AVANT au tactile => régression récente, BISECTABLE.
+    Le A/B HD ON/OFF innocente le toggle HD (rate en stock aussi sur le même binaire) mais PAS le binaire: suspects = refonte
+    menu-overhaul (zones tactiles/ overlay retouchés), pacing/dyn-rs affectant la vitesse de stick lue par can-wheel?. Bar:
+    la combo exacte de l''owner marche au tactile, prouvée par injection touch (pas cpad) + trace d''états.'
+  prompt: prompts/phase-Gtouch-longjump-regression.md
+  validator: validators/phase-Gtouch-longjump-regression.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gmenu-flag-off
+  name: 'MENU OVERHAUL HORS DES BUILDS (owner 2026-08-04): la refonte menu est CASSÉE (paramètres inventés qui n''existent
+    pas, d''autres redéfinis qui ne fonctionnent plus, displacement parallax/tess/none DISPARU) et n''est PAS flag-gatée —
+    elle remplace le menu sans garde. Mission: introduire FLAG_MENU_OVERHAUL (défaut OFF, généré par build.sh comme les autres)
+    qui restaure l''ANCIEN menu fonctionnel complet (structure pré-refonte: displacement opérationnel, aucun paramètre fantôme,
+    bindings corrects) et compile-out la refonte. ON = la refonte actuelle (pour sa future phase de rework). Preuve: build
+    OFF => le menu = l''ancien, chaque ligne pilote le bon réglage (audit bindings value-to-modify), displacement sélectionnable;
+    les features HD/PBR restent accessibles depuis l''ancien menu. Pas de preuves visuelles: bindings/state dumps.'
+  prompt: prompts/phase-Gmenu-flag-off.md
+  validator: validators/phase-Gmenu-flag-off.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-hd-models5
+  name: 'HD MODELS M3 — customisations BONUS (owner 2026-08-03): looks alternatifs en OPTION (menu), toujours des modèles
+    de CINÉMATIQUES, même mécanisme de backport: Keira Jak2-bottines + Keira Jak3 (bottines + visage remodelé); Daxter avec
+    pantalon (fin Jak 3); Young Samos (Jak 2); Jak version Jak 2 et Jak version Jak 3. Roadmap détaillée: memory project_hd_model_sourcing_roadmap
+    + prompt M2.'
+  prompt: prompts/phase-Grecharged-hd-models5.md
+  validator: validators/phase-Grecharged-hd-models5.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-managed-assets-merge
+  name: 'ABSORBER feat/recharged-managed-assets (owner 2026-08-26, TOP PRIORITE, « à absorber nickel — dans le framework,
+    pas toi tout seul en autonomie ») : gestionnaire d''assets avec installation verifiee reprenable, conteneur RPack, KTX2
+    (textures compressees GPU, donc PLUS DE DECODAGE PNG au chargement), verrou de version assets-v0.2.1, telechargement Android
+    au premier lancement, profil GPU detecte, bascule HD dans le menu. Depot d''assets : moukrea/recharged-assets. 13 commits,
+    56 fichiers, +3569 lignes ; base commune 26b26029d9, notre branche a 1065 commits en plus ; 16 fichiers touches des deux
+    cotes dont Loader.cpp, LoaderStages.cpp, CustomTextureReplacements.cpp et android_gfx.cpp. FUSIONNER, JAMAIS ECRASER.'
+  prompt: prompts/phase-Grecharged-managed-assets-merge.md
+  validator: validators/phase-Grecharged-managed-assets-merge.sh
+  max_turns: 3000
+  max_retries: 400
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gmemory-ceiling-and-crash
+  name: 'PLAFOND MEMOIRE — CHARGEMENT INTERMINABLE ET CRASH (owner 2026-08-26, TOP PRIORITE, la phase des seins de Keira est
+    MISE EN PAUSE pour celle-ci) : « le logo apparait bien apres le son qui est sense etre la au moment de son apparition
+    [...] C''est je crois le pire truc honnetement » et « ca crash quand je charge la partie ». MESURE : 8 etapes de texture
+    sur 107 concentrent 94 % d''un demarrage de 11,5 s, cause = decodage de PNG 2048x2048 au chargement (4 cartes par materiau).
+    Et le processus est tue au premier plan sans signal, pic RSS 1 212-1 234 Mo sur 2 946 Mo, dont DEUX BLOCS RESIDENTS DE
+    150,32 Mo NON IDENTIFIES. L''owner refuse « la machine est petite » comme explication, et il a raison : la PS2 tenait
+    dans 32 Mo.'
+  prompt: prompts/phase-Gmemory-ceiling-and-crash.md
+  validator: validators/phase-Gmemory-ceiling-and-crash.sh
+  max_turns: 3000
+  max_retries: 400
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gprecompute-deterministic-bake
+  name: 'PRE-CALCUL DETERMINISTE (owner 2026-08-26, backlog place JUSTE APRES la physique des seins de Keira) : « tout ce
+    qu''on peut pre-computer devrait l''etre au lieu de prendre du temps CPU/GPU c''est debile. Ca profitera a tout materiel
+    ! Of course les trucs real time, c''est different, mais ce qui peut etre fait en aval devrait l''etre ! » -- Mesure du
+    2026-08-26 sur l''appareil de test : la pre-subdivision de maillage (max_edge_m=1.6 m, max_rounds=3, DEFAUT ACTIF) et
+    la reconstruction des tangentes MikkTSpace tournent A CHAQUE CHARGEMENT DE NIVEAU, sur CHAQUE machine, alors que leur
+    resultat est entierement determine par le .fr3 d''entree. Cout mesure : ecran-titre a 7 700 915 triangles / 82,8 ms /
+    768x432 avec le defaut, contre 65 318 triangles / 8,1 ms / 1920x1080 avec subdivrounds=1 -- et 26,3 Mo de tangentes par
+    niveau reconstruites puis jamais relues cote CPU. Le travail : cuire ces deux passes dans les .fr3 au moment du build
+    (bump de version fr3 + regeneration), et faire du niveau de subdivision une OPTION reglable plutot qu''un comportement
+    automatique impose. Aucun rendu temps reel ne doit changer.'
+  prompt: prompts/phase-Gprecompute-deterministic-bake.md
+  validator: validators/phase-Gprecompute-deterministic-bake.sh
+  max_turns: 3000
+  max_retries: 400
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gplayability-input-and-loadgate
+  name: 'JOUABILITE (owner 2026-08-27, apres validation de la memoire et du pre-calcul) : 1) « la touche saut (X sur PS2,
+    A en Xinput) ne fonctionne pas a la manette » — MESURE : le moteur voit la 8Bitdo SF30 Pro et recoit sdl_button=9 et 1,
+    mais JAMAIS l''index 0 (=A). 2) « il devrait y avoir un mecanisme de chargement qui s''assure que tout le necessaire soit
+    bien charge avant de lancer l''ecran titre, la on dirait que ca y va meme si rien n''est charge » — le logo arrive apres
+    son signal sonore, le decor apparait d''un bloc. 3) meme cause au retour de Geyser Rock : le survol de la plage demarre
+    avant que ses elements soient charges. Conserver les acquis : 744 Mo, niveau 40,6 Mo, textures 571 ms, 0 plantage.'
+  prompt: prompts/phase-Gplayability-input-and-loadgate.md
+  validator: validators/phase-Gplayability-input-and-loadgate.sh
+  max_turns: 3000
+  max_retries: 400
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-secondary-motion
+  name: 'PHYSIQUE SECONDAIRE / JIGGLE (owner 2026-08-04, backlog assumé): maintenant que les personnages HD existent, ajouter
+    du mouvement secondaire naturel et cohérent ("rien de fou") — poitrine de Keira (jiggle subtil, design sexualisé assumé
+    du jeu, aurait été fait si la PS2 l''avait permis); barbe de Samos (après fix clip/bout); vêtements de Jak en VRAIE physique
+    (col, partie bleue sur le pantalon blanc, lanières de cuir qui pendent, cheveux); cheveux longs de tous les personnages
+    concernés (Keira, Samos, Jak, le méchant/Gol); Maia + l''archéologue notées aussi (PAS de modèle HD => faisabilité à évaluer:
+    leurs squelettes stock n''ont probablement pas les os de chaîne nécessaires). Mécanisme pressenti: chaînes ressort/verlet
+    post-anim dans les companions (do-joint-math! après le retarget), os de physique injectables au prep si le donor n''en
+    a pas. Détail complet: prompts/phase-Grecharged-secondary-motion.md.'
+  prompt: prompts/phase-Grecharged-secondary-motion.md
+  validator: validators/phase-Grecharged-secondary-motion.sh
+  max_turns: 3000
+  max_retries: 400
+  device: true
+  device_serial: eae4df44
+  owner_verify: false
+- id: Gfirstperson-hd-hide
+  name: 'VUE PREMIERE PERSONNE / MODELES HD (owner 2026-08-28) : « en caméra première personne on se retrouve, quand on utilise
+    les modèles HD, à l''intérieur de la tête de Jak, et on voit aussi le modèle HD de Daxter... d''abord faut corriger le
+    problème et faire comme avec les modèles originaux, les masquer en vue première personne. » REGRESSION du chemin HD :
+    les modèles stock sont bien masqués. Reproduire le comportement d''origine, sur Jak ET Daxter.'
+  prompt: prompts/phase-Gfirstperson-hd-hide.md
+  validator: validators/phase-Gfirstperson-hd-hide.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gkeira-hd-detached-parts
+  name: 'MODELE HD DE KEIRA / TROIS MORCEAUX DETACHES (owner 2026-08-28) : « il a une visière attachée à genre quelques mètres
+    du main modèle [...] faut que tu vires cette partie ». MESURE : trois defauts distincts, pas un — les BOUTS DE BRETELLES
+    (lTopStrap2/rTopStrap2/lBotStrap2/rBotStrap2) a 167,86 soit 62x la taille du modele (112 sommets) ; gogglesBase a 2,43
+    du torse, sous et devant (40 sommets) ; maskstrap epingle a l''ORIGINE du modele, parente a la racine et non a la tete
+    (100 sommets). L''owner veut de la physique sur ses bretelles ET ses lunettes plus tard : DECISION OWNER : la visiere
+    (maskstrap, 100 sommets a l''origine, parente a la RACINE) est SUPPRIMEE ; gogglesBase et les bouts de bretelles sont
+    RECOLLES car il veut de la physique dessus plus tard.'
+  prompt: prompts/phase-Gkeira-hd-detached-parts.md
+  validator: validators/phase-Gkeira-hd-detached-parts.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-reframe
+  name: 'CINEMATIQUES SANS BARRES NOIRES (owner 2026-08-28) : recadrer au lieu de masquer — conserver le champ vertical prévu,
+    déduire l''horizontal du format d''écran, plus aucune bande à aucun format. MESURE : le jeu force du 16:9 en toutes circonstances
+    et ajoute des bandes VERTICALES en ultra-large ; les bandes sont dessinées dans un des derniers buckets, d''où le compteur
+    de FPS recouvert. Le HUD et les sous-titres doivent rester à leur place habituelle.'
+  prompt: prompts/phase-Gcutscene-reframe.md
+  validator: validators/phase-Gcutscene-reframe.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gfont-urbanist
+  name: 'POLICE MODERNE URBANIST, FIN DU TOUT-MAJUSCULES (owner 2026-08-28) : « fini le all caps, let''s go font moderne ».
+    L''atlas est DEJA GENERE dans recharged_assets/font/ (181 caractères dérivés des 31 banques de texte). Reste : brancher
+    la table UV, étendre la correspondance des minuscules, et convertir les textes en casse normale (~670 entrées par langue).
+    Le japonais garde sa police.'
+  prompt: prompts/phase-Gfont-urbanist.md
+  validator: validators/phase-Gfont-urbanist.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gtext-tone
+  name: 'TON DES TEXTES (owner 2026-08-28) : « "Appuyer sur la touche start" c''est hyper formel et l''infinitif est bizarre,
+    ça colle pas à l''esprit teenager du jeu ». MESURE : les indices en jeu sont DEJA au bon ton (« Appuie sur <PAD_CIRCLE>
+    pour parler »), seules 8 chaines sur 626 sont a l''infinitif et elles sont toutes de niveau menu/systeme. Plus une variante
+    tactile a creer pour mobile. SEPARE de Gfont-urbanist par ordre explicite de l''owner.'
+  prompt: prompts/phase-Gtext-tone.md
+  validator: validators/phase-Gtext-tone.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gandroid-window-size
+  name: 'TAILLE DE FENETRE ANDROID (owner 2026-08-28, signale DEUX FOIS) : « toujours les barres noires à gauche et à droite
+    ». CAUSE RACINE MESUREE : pc_get_window_size sort sans rien ecrire sur Android, donc la garde `unless (zero? ...)` saute
+    toute la derivation du format et la branche AUTO n''est JAMAIS ATTEINTE. Le reglage auto de l''owner est correct et inerte.
+    Invisible sur un ecran proche du 16:9 (Redmi : 0 barre mesuree), visible sur un ratio non standard. Bloque le rendu correct
+    des cinematiques.'
+  prompt: prompts/phase-Gandroid-window-size.md
+  validator: validators/phase-Gandroid-window-size.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gkeira-visor-deliver
+  name: 'LIVRER REELLEMENT LA SUPPRESSION DU MASQUE DE KEIRA (owner 2026-08-29) : « Keira HD a toujours la visière attachée
+    ». MESURE : le modele livre dans jak1_hd_assets.zip est keira-hd-ag.go DATE DU 18 AOUT et contient encore `mask` et `maskstrap`
+    ; keira-hd-lod0.glb porte toujours le joint, 214 noeuds inchanges. La phase Gkeira-hd-detached-parts a ete declaree passee
+    le 28/08 a 15h53 sans que le modele change. Les correctifs de GEOMETRIE ne voyagent QUE par ce zip, jamais par l''APK.'
+  prompt: prompts/phase-Gkeira-visor-deliver.md
+  validator: validators/phase-Gkeira-hd-detached-parts.sh
+  max_turns: 3000
+  max_retries: 60
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gloading-screen
+  name: 'ECRAN DE CHARGEMENT AU LIEU D''UN ECRAN NOIR (owner 2026-08-28, maquette fournie) : silhouette de Jak et Daxter courant,
+    « Loading... » localisé en Urbanist, glyphes précurseurs à la largeur exacte du texte. Répond aux 6,7 s d''écran noir
+    mesurées sur la Shield. PIEGE : l''écran noir sert aussi aux coupes de caméra, il faut un seuil sinon le texte clignote
+    en permanence. [PREUVE x86 : l''owner 2026-08-29 — « la plupart des choses sont testables sur x86 aussi, y compris les
+    divers aspect ratios ». La garde de presence d''appareil ne doit PAS bloquer un travail dont la preuve se fait au clavier.
+    Verification sur appareil quand un appareil revient, jamais comme prerequis.]'
+  prompt: prompts/phase-Gloading-screen.md
+  validator: validators/phase-Gloading-screen.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gbeach-actors-gate
+  name: 'COLLECTEURS D''ECO VERT AU RETOUR DE GEYSER ROCK (owner, signale DEUX FOIS) : les harvester-* sont dans `beach`,
+    pas `village1`, et n''apparaissent pas pendant le survol. LIGNE DECISIVE DEJA CAPTUREE : `LOADGATE open reason=resident`,
+    PAS timeout, et les dix acteurs sortent trouve=#f. Le plafond de 20 s est HORS DE CAUSE, ne pas le relever. La barriere
+    attend la RESIDENCE GPU du decor ; la scene a besoin des ACTEURS.'
+  prompt: prompts/phase-Gbeach-actors-gate.md
+  validator: validators/phase-Gbeach-actors-gate.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gjak-hd-rig-strap
+  name: 'RIG DE JAK HD / SANGLE DU DOS (owner 2026-08-29) : « un point de sa veste bleue lié à la lanière, du coup les polygones
+    passent au travers » et « la boucle en métal semble attachée aux mouvements des épaules, donc elle bouge séparément de
+    la sangle ». DEUX defauts, aucun n''est de la physique : un POIDS DE PEAU faux et un PARENTAGE faux. Positions a calculer
+    avec une VRAIE inverse 4x4. Les correctifs de geometrie ne voyagent QUE par jak1_hd_assets.zip.'
+  prompt: prompts/phase-Gjak-hd-rig-strap.md
+  validator: validators/phase-Gjak-hd-rig-strap.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gbuild-from-scratch
+  name: 'BUILD DEPUIS ZERO REPRODUCTIBLE (owner 2026-08-29) : « un utilisateur qui build le jeu from scratch devrait pouvoir
+    avoir le même état que nous ». Les correctifs de modele appliques a la main disparaissent au prochain build propre — QUATRE
+    fois cette semaine, source juste, artefact perime. L''exporteur doit retirer les pieces parasites sur un critere NOMME,
+    et deux constructions successives doivent rendre les memes empreintes.'
+  prompt: prompts/phase-Gbuild-from-scratch.md
+  validator: validators/phase-Gbuild-from-scratch.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gpbr-per-texture-materials
+  name: 'PBR PAR MATIERE, PAS DEUX CURSEURS GLOBAUX (owner 2026-08-28) : « un tissu n''a pas les mêmes propriétés qu''un mur
+    en pierres taillées ou que du sable ». MESURE : il n''existe que deux réglages de matière dans tout le moteur. D''ABORD
+    le repère tangent (relief présent/absent/inversé selon les faces), ENSUITE la table de matières par texture, versionnée
+    dans le dépôt d''assets. [PREUVE x86 : l''owner 2026-08-29 — « la plupart des choses sont testables sur x86 aussi, y compris
+    les divers aspect ratios ». La garde de presence d''appareil ne doit PAS bloquer un travail dont la preuve se fait au
+    clavier. Verification sur appareil quand un appareil revient, jamais comme prerequis.]'
+  prompt: prompts/phase-Gpbr-per-texture-materials.md
+  validator: validators/phase-Gpbr-per-texture-materials.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gpbr-material-props
+  name: 'PROPRIETES PBR PAR MATIERE, DANS LE DEPOT D''ASSETS (owner 2026-08-29) : « je veux des config de matériaux par matériaux,
+    pas seulement les normales/roughness/height en image, mais des PROPRIÉTÉS » et « ces props doivent faire partie du repo
+    Recharged assets, pas dans l''APK ». MESURE : 172 matieres, chacune avec 4 cartes et un fichier de metadonnees deja en
+    place qui ne porte AUCUNE propriete ; le moteur applique deja 10 reglages par matiere. La phase precedente en avait livre
+    7, dans jak-project. PIEGE : un git clone normal du depot d''assets deballe le LFS et TUE LE SHELL (2 fois, 1 reboot).
+    INTERDIT : deduire la matiere du nom de fichier, il faut REGARDER l''albedo.'
+  prompt: prompts/phase-Gpbr-material-props.md
+  validator: validators/phase-Gpbr-material-props.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcine-vertical-frame
+  name: 'CADRE VERTICAL DES CINEMATIQUES (owner 2026-08-30, CINQUIEME signalement) : « tu prend toujours la largeur originale
+    avec les barre noires et l''etire en largeur jusqu''a ce que ca prenne toute la largeur, faisant donc sortir une partie
+    du cadre vertical original de la vue ». Le cadre vertical d''auteur doit remplir la HAUTEUR sans deformation, et l''espace
+    horizontal se comble en ELARGISSANT le champ de vue. PIEGE MESURE : la formule actuelle est JUSTE sur le papier et le
+    defaut persiste sur un ecran 16:9 — les 4 tentatives precedentes ont toutes ete raisonnees sur la source. La sonde de
+    demarrage force elle-meme le bit `movie` sur des formats synthetiques : elle prouve la formule, PAS la branche reellement
+    prise. Premier livrable = une trace image-par-image du chemin livre pendant la vraie cinematique.'
+  prompt: prompts/phase-Gcine-vertical-frame.md
+  validator: validators/phase-Gcine-vertical-frame.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gloading-screen-window
+  name: 'ECRAN DE CHARGEMENT, RETOUR 4 (owner 2026-08-30) : l''animation est VALIDEE « beau boulot », mais la FENETRE est
+    decalee — l''ecran se pose APRES que la scene entrante se dessine (on voit l''interieur de la hutte du Sage Vert avant
+    lui) et se leve AVANT qu''elle soit complete (pop-in a Geyser Rock). Plus des a-coups pendant les gros chargements et
+    au declenchement de la cinematique. Plus deux points cosmetiques independants : texte et glyphes precurseurs MOITIE moins
+    gros, plus bas a droite, et le texte en BLANC PLEIN au lieu d''un degrade gris.'
+  prompt: prompts/phase-Gloading-screen-window.md
+  validator: validators/phase-Gloading-screen-window.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gloadgate-crash-regression
+  name: 'REGRESSION BLOQUANTE : LE JEU NE CHARGE PLUS UNE PARTIE (owner 2026-08-30, apres le build de 16h38) : « quand je
+    charge ma sauvegarde a Geyser Rock... sur la fin l''animation freeze, puis reprend et le jeu crash complet... je peux
+    meme plus charger une partie ». C''est NOTRE regression : le build de 14h07 chargeait, celui de 16h38 non, et le seul
+    chantier entre les deux est Gloading-screen-window. L''APPARENCE est validee « le look est nickel bravo » et ne doit pas
+    bouger. Gel PUIS reprise PUIS mort = quelque chose survit au gel : suspect = l''etat partage introduit dans load_gate.cpp
+    (mutex, budget par tranche, scene_ready) entre le fil de rendu et le fil GOAL. Repli autorise : desarmer la barriere en
+    gardant le look. Un jeu qui charge vaut mieux qu''un ecran parfait.'
+  prompt: prompts/phase-Gloadgate-crash-regression.md
+  validator: validators/phase-Gloadgate-crash-regression.sh
+  max_turns: 3000
+  max_retries: 80
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gfixed-tick-interpolation
+  name: 'PAS DE TEMPS FIXE + INTERPOLATION DE RENDU (owner 2026-08-26, backlog) : « quand le jeu va en dessous de ce qu''il
+    est sensé tourner sur PS2, les sauts, les mouvements de caméra ça chie un peu dans la colle et ça casse le gameplay [...]
+    On devrait en fait faire de l''interpolation VERSUS l''original ». Aujourd''hui la logique avance a PAS VARIABLE (seconds-per-frame
+    multiplie chaque delta, des centaines de sites GOAL), ce qui ne conserve ni les trajectoires balistiques ni les seuils
+    d''etat — d''ou sauts trop courts, skips, judder de camera (deja documente, kmachine.cpp:4507). Cible : simulation a 1/60
+    s fixe, rendu interpole, jouable a 25 fps comme a 120, sans chemin special par palier. Sortie a 60 fps INCHANGEE : c''est
+    la reference.'
+  prompt: prompts/phase-Gfixed-tick-interpolation.md
+  validator: validators/phase-Gfixed-tick-interpolation.sh
+  max_turns: 3000
+  max_retries: 400
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Ggrass-crash
+  name: 'L''HERBE FAIT PLANTER LE JEU (owner 2026-08-30, BISSECTION FAITE PAR LUI) : « j''ai desactive toutes les options
+    rechargees et reactive une par une, avec l''herbe ca crash, sans ca fonctionne ». Sa piste : « c''est ptetre le build
+    from scratch, ca pre-compute plus le placement de l''herbe ». FAITS VERIFIES : le pack livre ne contient AUCUN .grassbake
+    ; village1.grassbake fait 64 octets ; GrassRenderer invalide le bake quand la taille du fr3 change, or le pack REMPLACE
+    village1.fr3 par la version enhanced — donc placement EN DIRECT systematique sur l''appareil. Nos non-reproductions s''expliquent
+    : nos courses tournaient sans l''herbe telle qu''il l''active.'
+  prompt: prompts/phase-Ggrass-crash.md
+  validator: validators/phase-Ggrass-crash.sh
+  max_turns: 3000
+  max_retries: 80
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Ggrass-density-presets
+  name: 'CINQ PALIERS DE DENSITE D''HERBE PRE-CALCULES (owner 2026-08-30) : « on s''en fiche de changer la densite au poil
+    de cul, on veut juste plus ou moins dense — very low / low / medium / high / very high c''est assez, donc on peut pre-calculer
+    le tout et eviter le chemin lourd ». MESURE : le repli en direct est declenche par « density slider above bake density
+    » ; 735 Mo de pointe avec pre-calcul contre 1 207 Mo en direct, et les deux morts reproduites sur le Redmi sont sur le
+    chemin direct. MESURE : la plage ne place JAMAIS un brin (300 releves niveau=beach contre 13 training, 26 placements tous
+    sur training) — owner : « tu peux completement dismiss ». Donc 5 bakes sur le seul training, < 10 Mo, et publier ce que
+    la plage coutait avant de la retirer. Le pack livre en contient ZERO aujourd''hui. Regenerer contre les fr3 REELLEMENT
+    LIVRES, sinon rejet a l''arrivee.'
+  prompt: prompts/phase-Ggrass-density-presets.md
+  validator: validators/phase-Ggrass-density-presets.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-hd-eye-scale
+  name: 'HD MODELS (owner 2026-08-06, backlog): les yeux HD de Daxter sont bien HD mais l''effet CARTOON de Jak 1 qui fait
+    changer la TAILLE des yeux a une influence beaucoup trop forte sur les yeux HD — sur les animations exagerees ils deviennent
+    BIEN PLUS globuleux qu''avec les modeles d''origine, ca fait bugge. Attenuer le facteur d''echelle applique aux yeux HD
+    (garder l''effet, reduire son gain) pour que l''exageration reste au niveau du modele original ou en dessous. Verifier
+    sur les autres persos HD qui heritent du meme canal. PAS de preuve visuelle: mesurer le facteur d''echelle applique (min/max
+    sur une anim exageree) cote code, stock vs HD.'
+  prompt: prompts/phase-Grecharged-hd-eye-scale.md
+  validator: validators/phase-Grecharged-hd-eye-scale.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-foliage-wind2
+  name: 'ROUND 2 (owner: ''aucune feuille qui bouge, nada'' — supervisor-reproduced: +9% palm motion = invisible, some trees
+    have ZERO wind draws): make the breeze VISIBLE — full coverage census, amplitude tuning (visible-but-natural), acceptance
+    = human-visible sway in a 10s video + supervisor-measured crown-motion ratio >=2.0. ONE task.'
+  prompt: prompts/phase-Grecharged-foliage-wind2.md
+  validator: validators/phase-Grecharged-foliage-wind2.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-title-logo-fullres
+  name: 'RECHARGED (owner 2026-07-09, backlog): title-screen Jak and Daxter logo renders mega-pixelated at low render scale
+    on phones — draw it full-resolution like the HUD 3D models (which stay crisp while the world renders at a lower scale);
+    toggle in Recharged Settings, default OFF=stock'
+  prompt: prompts/phase-Grecharged-title-logo-fullres.md
+  validator: validators/phase-Grecharged-title-logo-fullres.sh
+  max_turns: 3000
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Grecharged-hud-jak1
+  name: 'RECHARGED (owner 2026-07-06, fork "Jak and Daxter: The Recharged Jak-pot"): optional gated NEW HUD for jak1 — Graphics
+    Options > "Recharged Settings" (before Advanced) > "Recharged HUD" ON/OFF (default OFF=stock); ON = 4-state heart sprite
+    (100/66/33-blink/0), eco gauge with mask+rotated tip per eco type, real 3D model for power-cell + scout-fly; assets in
+    recharged_assets/; font deferred'
+  prompt: prompts/phase-Grecharged-hud-jak1.md
+  validator: validators/phase-Grecharged-hud-jak1.sh
+  max_turns: 4200
+  max_retries: 10
+  device: true
+  owner_verify: true
+- id: Grecharged-materials-modern-parity
+  name: 'RECHARGED backlog (owner 2026-07-17): EVOLUTION of the generic PBR (Grecharged-pbr-materials) toward what the best
+    MODERN game engines do materials-wise, so fork materials can approach that bar. Starts ONLY once the generic PBR is nailed
+    (robust tangents, visible per-channel contribution, realtime mood-sun proven). Scope to define when reached: full modern
+    material stack — height/DISPLACEMENT (parallax-occlusion), SUBSURFACE SCATTERING (scattering color), ORM packing, clearcoat/
+    anisotropy where it matters, image-based ambient/IBL, energy-conserving multi-light — flag-gated (--pbr family), per-material
+    opt-in, OFF==stock. NOT NOW: parked in backlog behind the generic-PBR PoC; owner will re-scope at start.'
+  prompt: prompts/phase-Grecharged-materials-modern-parity.md
+  validator: validators/phase-Grecharged-materials-modern-parity.sh
+  max_turns: 3500
+  max_retries: 6
+  device: true
+  owner_verify: true
+- id: Gjak2-polish
+  name: 'OWNER 2026-07-08 round-2 (movement confirmed): L1/R1 overlay=jak2 crouch-lock (own mapping), cutscenes must follow
+    aspect setting (forced 16:9 now), menu order/label parity vs jak1 + FPS counter option, rift-gate glow too bright pre-metalheads'
+  prompt: prompts/phase-Gjak2-polish.md
+  validator: validators/phase-Gjak2-polish.sh
+  max_turns: 2400
+  max_retries: 5
+  device: true
+  owner_verify: true
+- id: Gsubtitle-style
+  name: 'SOUS-TITRES : BLANC PLEIN ET VRAIE OMBRE PORTEE (owner 2026-08-30, backlog) : le NOM du locuteur garde sa couleur
+    et son leger degrade, le RESTE de la ligne passe en blanc plein ; l''ombre actuelle est « juste le texte duplique legerement
+    decale en plain black », a remplacer par « une drop shadow avec un leger flou, plus moderne et probablement plus lisible
+    ». PERIMETRE STRICT : « faut pas que ca change le reste des textes, c''est un autre sujet ».'
+  prompt: prompts/phase-Gsubtitle-style.md
+  validator: validators/phase-Gsubtitle-style.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-skip-all
+  name: 'PASSER TOUTES LES CINEMATIQUES EN MAINTENANT CERCLE (owner 2026-08-30, backlog) : OpenGOAL ne sait sauter que les
+    vraies cinematiques, pas les CONTEXTUELLES comme celles de Geyser Rock. Cible : un seul geste pour toutes — maintien de
+    CERCLE deux secondes, avec un indice bouton + « Skip »/« Passer » localise en bas a droite des qu''on touche un bouton
+    pendant une cinematique, dans une cartouche a coins arrondis qui SE REMPLIT sur les deux secondes. « pareil ca modernise
+    enormement le jeu ».'
+  prompt: prompts/phase-Gcutscene-skip-all.md
+  validator: validators/phase-Gcutscene-skip-all.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gjak1-crate-collision
+  name: 'CAISSES SANS COLLISION A GEYSER ROCK (owner 2026-08-31) : « certaines caisses, c''est un peu random... n''ont pas
+    de collision et je passe au travers, meaning je peux même pas les casser... c''était pas là avant ». Vu sur DEUX builds
+    a un jour d''ecart. GRAVITE HAUTE : une caisse infranchissable est incassable, donc des ramassages et la progression bloques.
+    INDICE : la phase Gjak2-polish, parquee le 2026-07-10, decrit le MEME symptome — « collision REGRESSION game-breaking
+    (no crates, no moving-platform landing) from the crouch-fix nav/collide enablement ». A confirmer par la mesure. L''intermittence
+    interdit la course unique : compter les caisses sur plusieurs courses.'
+  prompt: prompts/phase-Gjak1-crate-collision.md
+  validator: validators/phase-Gjak1-crate-collision.sh
+  max_turns: 3000
+  max_retries: 80
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gjak1-crate-collision-2
+  name: 'CAISSES, RETOUR 2 (owner 2026-08-31) : « j''ai toujours le soucis, c''est pas réglé du tout, ptêtre lié au jeux qui
+    dépend plus du framerate ». La porte a donne un FAUX VERT : preuve prise sur x86 a 60 images/s alors que nos PROPRES mesures
+    montrent 4 caisses fautives a 10 fps contre 1 a 60. Son hypothese est corroboree par nos chiffres. Preuve desormais EXIGEE
+    SUR APPAREIL (Redmi) ET a cadence <= 30. Piste : la naissance des acteurs est-elle cadencee par IMAGES ou par TEMPS ?'
+  prompt: prompts/phase-Gjak1-crate-collision.md
+  validator: validators/phase-Gjak1-crate-collision-2.sh
+  max_turns: 3000
+  max_retries: 80
+  device: true
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gfixed-tick-anim-interp
+  name: 'ANIMATIONS NON INTERPOLEES (owner 2026-09-01) : « Le pas de temps fixe a l''air bon, mais les animations sont quand
+    même très jittery ». MESURE : le facteur d''interpolation n''est lu QU''A UN SEUL endroit du moteur, la camera (cam-update.gc:245)
+    ; et drawable.gc:1070 FIGE le rapport de temps a 1,0 des que le pas fixe est arme — les poses sautent d''un pas a l''autre
+    au lieu d''etre melangees. Reutiliser le chemin de melange de poses existant (create-interpolated-joint-animation-frame).
+    A 60 images/s le comportement doit rester IDENTIQUE AU BIT.'
+  prompt: prompts/phase-Gfixed-tick-anim-interp.md
+  validator: validators/phase-Gfixed-tick-anim-interp.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-npc-flicker
+  name: 'PNJ QUI CLIGNOTENT PENDANT LES CINEMATIQUES (owner 2026-08-31) : « les modèles des PNJ qui apparaissent, disparaissent
+    et réapparaîssent plusieurs fois pendant les cinématiques est revenu ! c''est pas la première fois que ça se produit ».
+    REGRESSION QUI REVIENT : le mandat n''est pas de faire disparaitre le symptome mais de dire POURQUOI les corrections precedentes
+    n''ont pas tenu, et de poser une GARDE DE NON-REGRESSION. Piste : Gjak1-crate-collision a etabli que la naissance d''un
+    acteur est conditionnee a la VISIBILITE CAMERA — or une cinematique saute d''un cadrage a l''autre.'
+  prompt: prompts/phase-Gcutscene-npc-flicker.md
+  validator: validators/phase-Gcutscene-npc-flicker.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gsubtitle-style-2
+  name: 'SOUS-TITRES, RETOUR 2 (owner 2026-08-31, NON VALIDE) : « on voit encore le texte en dur duppliqué dessous avec une
+    opacité réduite. L''ombre portée est décalée du texte au lieu d''être pile en dessous ». DEUX defauts : le texte duplique
+    SUBSISTE alors que le rapport publiait dup_alpha=0 et que la porte l''a accepte — L''INSTRUMENT A MENTI, le trouver AVANT
+    de retoucher le rendu ; et l''ombre est decalee bas-droite comme l''ancienne, elle doit etre PILE sous le texte. Le flou
+    lui-meme est juge correct. ACQUIS : couleurs (corps blanc plein, nom dore a degrade) et isolation (1 objet sur 524) ne
+    doivent pas regresser.'
+  prompt: prompts/phase-Gsubtitle-style.md
+  validator: validators/phase-Gsubtitle-style-2.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-skip-polish
+  name: 'SAUT DE CINEMATIQUE, FINITION (owner 2026-08-31) : « la cartouche est horrible avec ses coins arrondis pixelisés,
+    on est pas dans un jeu en pixel art [...] le texte et le bouton sont même pas centrés [...] même pas sûr qu''elle ajuste
+    sa taille en fonction de son contenu, ça fait très amateur ». Plus : duree a reduire d''UN QUART (2000 -> 1500 ms), remplissage
+    et saut synchronises. ACQUIS : la couverture 75/75 chemins ne doit pas regresser. PLUS (owner 2026-09-01) : RETIRER le
+    saut instantane natif d''OpenGOAL (triangle) — « ça collide un peu [...] c''est un peu wacky ». Un seul geste de saut
+    dans le jeu.'
+  prompt: prompts/phase-Gcutscene-skip-all.md
+  validator: validators/phase-Gcutscene-skip-all.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gpbr-props-reach-draw
+  name: 'LES PROPRIETES PBR N''ARRIVENT PAS AU RENDU (owner 2026-08-31, refus) : « ça applique le PBR uniquement aux 7 textures
+    qui étaient dans le projet depuis un bail et ça ignore les autres ». MESURE : surfaces.json contient 172 matieres et EST
+    sur l''appareil au md5 pres, mais une course reelle n''enregistre que 37 matieres et ZERO ligne de clearcoat/aniso/reflectance/metallic.
+    La table est livree, lue, et son contenu n''atteint pas le draw.'
+  prompt: prompts/phase-Gpbr-props-reach-draw.md
+  validator: validators/phase-Gpbr-props-reach-draw.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gmenu-census-cleanup
+  name: 'RECENSER LE MENU ET EN SORTIR CE QUI N''A RIEN A Y FAIRE (owner 2026-08-31) : « des options sont un peu chelou ou
+    carrement inutilisées... recharged assets VS HD texture pack ? WTF. Modern Materials c''est quoi ? PBR test preset et
+    PBR isolate c''est quoi ? ». DEUX de ces entrees sont marquees « DEBUG, removable » DANS NOTRE PROPRE SOURCE et sont restees
+    dans le menu du joueur. Prealable a la refonte des menus qu''il a rouverte en disant « pas fini du tout ».'
+  prompt: prompts/phase-Gmenu-census-cleanup.md
+  validator: validators/phase-Gmenu-census-cleanup.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gfont-regression
+  name: 'REGRESSION SUR UN ACQUIS VALIDE — LA POLICE URBANIST EST CASSEE (owner 2026-09-02) : « t''as complètement niqué la
+    font, ça utilise des glyphs chinois de la font par défaut du jeu ». Elle etait FERMEE par sa parole le 31/08. Piege connu
+    : a-z sont des KANJI dans la GRANDE police de jak1 — le texte a bascule de police ou l''atlas Urbanist n''est plus lie.
+    Bissecter sur les builds de 21:14 et 04:54. POSER UNE GARDE permanente : un acquis valide se verifie a chaque cycle.'
+  prompt: reports/Gfont-regression/owner-defects.txt
+  validator: validators/phase-Gfont-regression.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gcutscene-skip-polish-2
+  name: 'CARTOUCHE DE SAUT, RETOUR 2 (owner 2026-09-01) : « c''est déjà beaucoup mieux » MAIS les coins ne sont pas assez
+    arrondis — il veut une CAPSULE, « l''arrondi des coins inférieurs doit rejoindre l''arrondi des coins supérieurs, des
+    demi cercles de chaque côté », donc rayon = hauteur/2 ; la cartouche doit serrer « bien plus près » le <CIRCLE> Skip (marges
+    11,4 px actuelles trop larges) ; et elle APPARAIT DANS LE MENU PRINCIPAL sans raison, a corriger.'
+  prompt: prompts/phase-Gcutscene-skip-all.md
+  validator: validators/phase-Gcutscene-skip-polish.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+global:
+  git:
+    push_after_each_phase: true
+    branch_prefix: autoport/

@@ -1,0 +1,19 @@
+gate-close Grecharged-pbr-materials — owner 2026-07-19: SCOPED acceptance of the MATERIAL feature only.
+
+Owner verbatim: "PBR material ON/OFF on laisse, on dit que c'est bon" — he accepts the PBR MATERIAL
+replacement system (custom_assets multi-map: albedo/normal/roughness/metallic/ao/height + Cook-Torrance
+BRDF + POM + the PBR Materials On/Off toggle) as GOOD-ENOUGH ("j'ai vu que t'arrivais à en rendre,
+probablement mal mais ça fonctionne good enough").
+
+NOT accepted / handled elsewhere:
+- The specific downloaded test materials were rejected ("à chier") and ARCHIVED to
+  .autoport/recalled/pbr-test-materials-round5/ (removed from the delivery custom_assets + owner's device).
+  The material SYSTEM stays; the shit test textures do not ship.
+- The REALTIME LIGHTING was rejected entirely ("t'as tout faux, rien ne fonctionne bien") and is SPLIT
+  into a new dedicated phase Grecharged-realtime-lighting (idx 215) for a COMPLETE rewrite: a separate
+  "Realtime Lighting On/Off" toggle + a baked-off sub-option; sun-only (dir = visible sun), sun-side lit /
+  opposite dark, objects cast shadows behind them, NO ambient / NO other lights, baked OFF everywhere.
+
+Supervisor-verified before advancing: validator PASS (run myself), report honest (acknowledges the IoU
+metric fix==control and defers shadow-stability to the owner's eye), material now sandstone/tan not red
+brick, device chain deploy-verified, gold pristine. Advancing to Grecharged-realtime-lighting.

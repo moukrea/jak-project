@@ -1,0 +1,8 @@
+SUPERVISOR-VERIFIED INFRA PARTIAL 2026-07-06 (NOT owner-testable — nothing renders yet):
+jak2 BUILDS for Android arm64 (libgk has 498 real jak2 symbols + 1956 jak2 strings) and BOOTS
+through game-select -> jak2::InitMachine -> IOP/overlord init. Ceiling = SIGSEGV in gcommon's
+linked GOAL code on a jak2-specific NEW arm64 codegen path; NO jak2 render frame reached yet
+(device fell back to jak1). x86 jak2 oracle intact; engine goal_src untouched. This is the
+kernel-boot infra milestone (exactly where jak1 started A1..). Owner play-test DEFERRED to the
+first-render phase (Gjak2-render). Validator was too lenient (keyword-matched "render"); the
+render phase validator requires an ACTUAL jak2 frame on device. Advancing to keep momentum.

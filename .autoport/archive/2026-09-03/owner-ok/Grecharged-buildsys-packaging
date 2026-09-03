@@ -1,0 +1,8 @@
+supervisor gate-close 2026-07-17 06:20 (infra, objective proofs self-verified): the owner's rule is a
+mechanical CLASSIFIER (vanilla iff byte-identical to iso_data / vanilla-derived fr3), not a hand list.
+My probes on the manifests: jak1_assets.zip = 247 vanilla iso + 26 stock fr3, ZERO port artifact,
+flag-independent, no manifest inside (pure unaltered data). Package = CGO/DGO + 46 TXT (custom ids
+1700-1713) + jak1_custom.zip (grassbake = port tool output; recharged PNGs iff --recharged-hud; enhanced
+fr3 iff --hd-models — custom set is flag-gated, coherent with P1). Linux tarball = gk + run.sh + port
+code + custom + runtime data (172MB). deploy_verify PASS incl. NEW custom-pack pairing line. Device boots
+from the new pair reading customs from APK-internal storage.

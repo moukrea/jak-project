@@ -1,0 +1,8 @@
+OWNER PARTIAL-CONFIRM 2026-07-08 (~04:30, live device): "L'animation d'intro de Jak II est nickel
+maintenant" = the phase's core mandate (title/attract + intro cinematic visual quality) is MET
+(shadow-cpu un-noop root fix + 1.85x vertical-stretch root fix + night city + subtitles + textured
+logo). Residuals EXPLICITLY TRANSFERRED to Gjak2-ingame (committed): jak1 orange overlay behind jak2
+menus (never fixed this attempt), rift-gate huge luminous ball + particle issues, Daxter-plug
+electric particles. TwoYears-later crash + systemic collision already scoped there. Menus system =
+Gjak2-pcmenus. Device build verified current (APK 02:21==libgk fix, installed 02:22). Not a false
+green: closure is on the intro/title mandate the owner himself called nickel.

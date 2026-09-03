@@ -1,0 +1,23 @@
+gate-advance Grecharged-buildsys-cidocs (PILLAR P4 / pillar complete) — 2026-07-17
+
+NOTE: this is a supervisor gate-ADVANCE, not the owner's final subjective sign-off. The owner is remote
+and redirected work to the next feature ("je pense 217 en premier … en autonomie"), explicitly asking to
+move forward. He will run the fresh-install owner flow on his Honor tonight when he plugs it in
+(saves-cutover discussion in progress). Any docs/install-UX fix he flags is tracked as a FOLLOW-UP on top
+of the shipped pillar, not a blocker to starting the next feature.
+
+Objectively verified by me before advancing:
+- Port CI 4/4 GREEN (windows-msvc, windows-clang, macos-arm64, linux) — both the 09:02 and the 09:26
+  re-run reached success across all four jobs.
+- Published release moukrea/jak-builds `jak1-buildsys-v1` (Latest) is well-formed: app-jak1-{android-arm64.apk,
+  linux-x86_64.tar.gz, windows-x86_64.zip} + per-target manifests + jak1_assets.zip + properties + full FR
+  non-dev release notes and per-OS install guides.
+- I downloaded the ACTUAL published APK and ran release_verify.sh on it -> all PASS: flag-set pairing
+  libgk==CGO==custom (ogflags:e3b0c44298fc:android-arm64 = clean default, no half-baked features), zero
+  vanilla data in the APK, jak1_assets.zip 273 members == manifest with correct vanilla/port split, sha
+  spot-check 6/6.
+- P3 device flow (jakN tree, settings.ini round-trip, custom_assets override, Redmi cutover with 9 save
+  banks preserved) was already device-verified at the P3 gate.
+
+Pillar P1-P4 complete and shipped. Advancing to reprioritized idx 214 Grecharged-pbr-materials
+(realtime lighting + PBR, owner 2026-07-17).

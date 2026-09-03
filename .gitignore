@@ -94,7 +94,24 @@ __pycache__/
 unifont-15.0.03.ttf
 *.diff
 goalc-report.html
-_new-all-types.gc.autoport/state.json
+_new-all-types.gc
+# autoport: etat runtime du harnais — jamais suivi (corrige 2026-09-03)
+.autoport/state.json
+.autoport/state.json.bak*
+.autoport/.orchestrator.lock
+.autoport/.phase-claim.*
+.autoport/.scope_stamp
+.autoport/.directives_issued
+.autoport/.last_*
+.autoport/.auto_*.pid
+.autoport/.auto_*.lock
+.autoport/.build-request
+.autoport/.deploy-in-progress
+.autoport/**/*.bak
+.autoport/**/*.bak[0-9]
+.autoport/**/*.bak.*
+.autoport/**/*.bak[0-9].*
+.autoport/**/*.bak-shield
 .autoport/logs/
 .autoport/.notify.conf
 .claude/settings.local.json
