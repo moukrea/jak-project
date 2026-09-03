@@ -130,13 +130,16 @@ while true; do
     # a deviner ce qu'il y a a tester dans le build en ligne.
     bash .autoport/release_notes.sh >> "$LOG" 2>&1 || true
     echo "$(date +%H:%M:%S) PUSHED apk=${h:0:8} zip=${zh:0:8} ($(numfmt --to=iec "$s2" 2>/dev/null || echo "$s2"))" >> "$LOG"
-    # 2026-08-19 : le declencheur owner_testable.py n'etait appele PAR PERSONNE. Il compare le build
-    # courant a un JALON qu'il n'avance qu'en tournant ; ne tournant qu'a la main, le jalon datait de
-    # la veille et il a attribue au build de 20:00 un changement de rayon fait le 08-18 a 14:23. Un
-    # « a tester » sur un build dont la physique est IDENTIQUE a celui qu'il a deja, c'est exactement
-    # le bruit que ce script existe pour eviter. Il tourne desormais a CHAQUE publication, donc le
-    # jalon avance build par build et un delta ne peut plus etre impute au mauvais.
-    python3 .autoport/owner_testable.py >> "$LOG" 2>&1 || true
+    # 2026-09-03 : `owner_testable.py` est archive. Son intention etait juste — ne prevenir
+    # l'owner que quand une grandeur QU'IL PEUT VOIR a bouge — mais son empreinte perceptible
+    # etait entierement faite de chaines de physique de Keira (`physics_chains.txt`, les
+    # rapports de secondary-motion), donc il etait aveugle a une police, une cinematique ou
+    # une caisse. C'est `autoport status --changed` qui rend ce service maintenant : il ne sort
+    # rien quand rien n'a bouge, et il parle des features dans les mots de l'owner.
+    if [ -x ./.autoport/autoport ]; then
+      CHG=$(./.autoport/autoport status --changed 2>/dev/null || true)
+      [ -n "$CHG" ] && { echo "$(date +%H:%M:%S) A TESTER :"; echo "$CHG"; } >> "$LOG"
+    fi
   else
     echo "$(date +%H:%M:%S) upload FAILED ${h:0:8}" >> "$LOG"
   fi
