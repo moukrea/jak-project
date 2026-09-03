@@ -6,7 +6,8 @@ import re, glob, os
 R = '.autoport/reports/Ghd-skin-origin-stretch'
 rep = f'{R}/report.txt'
 blocks = []
-for tag, label in [('dev7-abl0', 'ABLATION affine_arm=0 (defaut brut)'),
+for tag, label in [('dev7-abl1', 'ABLATION affine_arm=1 (ancien correctif : colonne w forcee sans division)'),
+                   ('dev7-abl0', 'ABLATION affine_arm=0 (defaut brut)'),
                    ('dev7-inj2', 'CONTROLE POSITIF inject=2 (pose de bind)'),
                    ('dev7-prf',  'PREUVE affine_arm=2 (>= 10 min)')]:
     f = f'{R}/device/{tag}-hdstretch.txt'

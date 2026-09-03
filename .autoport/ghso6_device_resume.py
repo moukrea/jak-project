@@ -12,6 +12,7 @@ le compte squelette est publie a cote, jamais a la place.
 
 usage : ghso6_device_resume.py <tag> <inject> <marqueurs de chaque scene>...
 """
+import os
 import re
 import sys
 from datetime import datetime
@@ -43,6 +44,7 @@ def parse(path):
 
 def main():
     tag, inj, files = sys.argv[1], sys.argv[2], sys.argv[3:]
+    plat = os.environ.get('PLATEFORME', 'redmi')   # cycle 7b : les jambes x86 (pad replay) passent PLATEFORME=x86
     gpu = dict(frames=0, hd_frames=0, hd_stretch_frames=0, hd_stretch_bones=0, bones_judged=0,
                torn=0, same=0, nan=0, null=0, rep=0, norig=0, hd_bad_frames=0, hd_bad_bones=0,
                cmd_judged=0, cmd_bones=0, cmd_frames=0, cmd_nostock=0, scl_bones=0, scl_frames=0,
@@ -223,6 +225,8 @@ def main():
         t_last, last = sl[-1]
         t0 = first_hd[0] if first_hd else sl[0][0]
         span = max((t_last - t0).total_seconds() if (t_last and t0) else 0.0, 0.0)
+        if span == 0.0 and wall:   # x86 : pas d'horodatage logcat, la fenetre de pad fait foi
+            span = float(wall[-1].get('secondes', 0) or 0)
         wall_s += span
         scenes += 1
         for k in gpu:
@@ -244,6 +248,7 @@ def main():
             for k in ('wocc', 'wimgs'):
                 goal[k] += int(hl7[-1].get(k, 0) or 0)
             w_worst = max(w_worst, float(hl7[-1].get('pire_w', 0) or 0))
+            affarm_seen.add(hl7[-1].get('affarme', '?'))   # cycle 7b : l'etat REEL du levier (HDLEN7), meme sans ligne HDAFFINEARM (defaut GOAL)
         if hl8:
             for k in ('rjimgs', 'rjsauts', 'rjnan'):
                 goal[k] += int(hl8[-1].get(k, 0) or 0)
@@ -316,7 +321,7 @@ def main():
     # k=5 et k=32 rendent 5 x leur repos pendant `sidekick-attack-from-jump` avec un ecart de
     # 0,0000 m a la commande — l'animation ND etire ces os (squash & stretch), le modele stock
     # aussi. Elle reste publiee comme diagnostic (`os_longueur`).
-    print(f"HDSTRETCHCOUNT bras={tag} plateforme=redmi inject={inj} scenes={scenes} minutes={wall_s/60:.4f} "
+    print(f"HDSTRETCHCOUNT bras={tag} plateforme={plat} inject={inj} scenes={scenes} minutes={wall_s/60:.4f} "
           f"minutes_de_jeu_moteur={goal['minutes']:.4f} secondes_pad={pad_s} images={gpu['hd_frames']} "
           f"os_etires={goal['cmdos'] + gpu['scl_bones'] + goal['sclos'] + gpu['ring_far'] + goal['mtxdev']} critere=squelette-vs-pose-commandee-0.25m+echelle-vs-commande-x2+longueur-consommee-vs-ecrite-0.25m+matrice-merc-vs-squelette-0.25m "
           f"os_ecart_vs_reference_stock={gpu['cmd_bones']} reference_stock_w_hors_1={gpu['stock_w_bad']} hd_w_hors_1={gpu['hd_w_bad']} "
@@ -361,7 +366,7 @@ def main():
               f"pilote_poses={e.get('pilote_poses')} anim={e.get('anim')} etat={e.get('st')} affine_arme={e.get('arme')} inject={e.get('inject')} "
               f"chemin={'controle-positif-inject-bind' if e.get('inject') == '2' else 'rig-HD-au-repos-pendant-que-le-pilote-est-pose-a-attribuer'}")
     # LA LIGNE DE PORTE DU CYCLE 7 (owner 03/09 : modele entier transpose + t-pose)
-    print(f"HDROOTJUMP bras={tag} plateforme=redmi inject={inj} scenes={scenes} minutes={wall_s/60:.4f} "
+    print(f"HDROOTJUMP bras={tag} plateforme={plat} inject={inj} scenes={scenes} minutes={wall_s/60:.4f} "
           f"images={goal['rjimgs']} sauts_racine={goal['rjsauts']} images_tpose={goal['tpose']} "
           f"critere_saut=os-HD-de-reference-moins-root-trans-du-pilote-saute-de-plus-de-2m-entre-deux-images "
           f"pire_saut_m={rj_worst:.3f} pire_saut_sous_seuil_m={rj_worst_ok:.3f} ecart_trans_max_m={rj_offmax:.3f} sauts_non_finis={goal['rjnan']} images_non_jugees_titre_ou_reference_hors_20m={goal['rjskip']} "
@@ -372,7 +377,7 @@ def main():
           f"non_normalisables={goal['normzero']} pire_w_production={norm_worst:.6f} images_finalisees={goal['normcalls']} "
           f"affine_arme={','.join(sorted(affarm_seen)) or '2'} norm_production_arme={','.join(sorted(normarm_seen)) or '?'} "
           f"inject_shots={goal['inject']} modeles={','.join(modeles) if modeles else 'aucun'}")
-    print(f"HDMOVES bras={tag} plateforme=redmi distance_m={mv_dist:.1f} "
+    print(f"HDMOVES bras={tag} plateforme={plat} distance_m={mv_dist:.1f} "
           f"vitesse_moy_m_s={(sum(mv_speed)/len(mv_speed)) if mv_speed else 0.0:.2f} "
           f"sauts={mv['sauts']} demi_tours={mv['demi_tours']} coups={mv['coups']} spins={mv['spins']}")
 
