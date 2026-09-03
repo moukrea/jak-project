@@ -544,12 +544,7 @@
    ;; ecrite par la logique de l'acteur, jamais par notre chaine de peau), d'une image a l'autre.
    (rj-k       int32)        ;; joint HD de reference (0 = pas encore choisi, -1 = aucun)
    (rj-valid   int32)        ;; 1 si `rj-last` porte l'image precedente (reciblage consecutif)
-   (rj-last    vector :inline)  ;; os de reference - root trans du pilote, image precedente
-   ;; cycle 8 : les TROIS positions de l'image precedente, pour dire QUI a bouge (Redmi dev7-prf snow :
-   ;; 7 sauts a w3=1, ecart 2,6 -> 4,6 -> 6,7 -> 0,85 m — le pilote ou son trans ?)
-   (rj-bp-last vector :inline)  ;; os HD de reference, monde, image precedente
-   (rj-tp-last vector :inline)  ;; root trans du pilote, image precedente
-   (rj-pp-last vector :inline)) ;; os PILOTE mappe, monde, image precedente
+   (rj-last    vector :inline)) ;; os de reference - root trans du pilote, image precedente
   (:states jak-hd-clone))
 
 ;; cycle 7 — TABLE DES ANGLES DE BIND, par entree (modele) : cosinus entre la ligne 0 (puis 1) d'un
@@ -942,6 +937,12 @@
 (define *hd-rj-worstok*  0.0) ;; pire saut SOUS le seuil (la marge de l'instrument)
 (define *hd-rj-offmax*   0.0) ;; pire |os de reference - root trans| (unites)
 (define *hd-rj-logs*     0)
+;; cycle 8 : les TROIS positions de l'image precedente PAR COMPAGNON (entree 0..15, x3 : os HD de
+;; reference, root trans du pilote, os PILOTE mappe), sur le tas global — pour dire QUI a bouge
+;; (Redmi dev7-prf snow : 7 sauts a w3=1, ecart 2,6 -> 4,6 -> 6,7 -> 0,85 m). Ajoutees d'abord
+;; au type jak-hd (3 vecteurs inline) : SIGSEGV x86 a la premiere image de reciblage (lecture a
+;; la base GOAL + 0), deux fois sur deux ; sur le tas global le type ne bouge pas.
+(define *hd-rj-lastpos* (new 'global 'inline-array 'vector 48))
 (define *hd-rj-skip*     0)   ;; images NON jugees : ecran-titre / pas de joueur (root trans n'y suit pas
                               ;; le squelette : mesure x86 c7smoke, 15,2 m d'ecart pendant eichar-ndi-intro)
 (define *hd-tp-frames*   0)   ;; images jugees (>= 8 joints de chaque rig)
@@ -2197,6 +2198,7 @@
                   (bp  (-> skel bones (+ k 1) transform vector 3))
                   (tp  (-> drv root trans))
                   (pp  (-> tskel bones (+ e 1) transform vector 3))
+                  (ri  (if (and (>= ent 0) (< ent 16)) (* ent 3) 45))   ;; cycle 8 : 3 vecteurs par entree, 45 = poubelle
                   (off (new-stack-vector0)))
              (set! (-> off x) (- (-> bp x) (-> tp x)))
              (set! (-> off y) (- (-> bp y) (-> tp y)))
@@ -2229,22 +2231,22 @@
                               (if fg (-> fg name) "none") st *anim-mtx-norm-arm*)
                       ;; cycle 8 : QUI a bouge entre les deux images — l'os HD, l'os pilote, ou le trans ?
                       (format 0 "HDRJEV3 d_os_hd_m=~f d_os_pilote_m=~f d_trans_m=~f hd_moins_pilote_m=~f~%"
-                              (/ (vector-vector-distance bp (-> obj rj-bp-last)) 4096.0)
-                              (/ (vector-vector-distance pp (-> obj rj-pp-last)) 4096.0)
-                              (/ (vector-vector-distance tp (-> obj rj-tp-last)) 4096.0)
+                              (/ (vector-vector-distance bp (-> *hd-rj-lastpos* ri)) 4096.0)
+                              (/ (vector-vector-distance pp (-> *hd-rj-lastpos* (+ ri 2))) 4096.0)
+                              (/ (vector-vector-distance tp (-> *hd-rj-lastpos* (+ ri 1))) 4096.0)
                               (/ (vector-vector-distance bp pp) 4096.0))
                       (format 0 "HDRJEV4 os_hd=(~f,~f,~f) os_pilote=(~f,~f,~f)~%"
                               (/ (-> bp x) 4096.0) (/ (-> bp y) 4096.0) (/ (-> bp z) 4096.0)
                               (/ (-> pp x) 4096.0) (/ (-> pp y) 4096.0) (/ (-> pp z) 4096.0))
                       (format 0 "HDRJEV5 trans=(~f,~f,~f) trans_prec=(~f,~f,~f)~%"
                               (/ (-> tp x) 4096.0) (/ (-> tp y) 4096.0) (/ (-> tp z) 4096.0)
-                              (/ (-> obj rj-tp-last x) 4096.0) (/ (-> obj rj-tp-last y) 4096.0) (/ (-> obj rj-tp-last z) 4096.0))))
+                              (/ (-> *hd-rj-lastpos* (+ ri 1) x) 4096.0) (/ (-> *hd-rj-lastpos* (+ ri 1) y) 4096.0) (/ (-> *hd-rj-lastpos* (+ ri 1) z) 4096.0))))
                    (else
                     (if (> jump *hd-rj-worstok*) (set! *hd-rj-worstok* jump))))))
              (vector-copy! (-> obj rj-last) off)
-             (vector-copy! (-> obj rj-bp-last) bp)
-             (vector-copy! (-> obj rj-tp-last) tp)
-             (vector-copy! (-> obj rj-pp-last) pp)
+             (vector-copy! (-> *hd-rj-lastpos* ri) bp)
+             (vector-copy! (-> *hd-rj-lastpos* (+ ri 1)) tp)
+             (vector-copy! (-> *hd-rj-lastpos* (+ ri 2)) pp)
              (set! (-> obj rj-valid) (if (= (-> obj rj-valid) 2) 0 1)))))
          ;; --- T-POSE
          (when (and (>= ent 0) (< ent 16) (nonzero? (-> *hd-angtabs* tab ent init)))
