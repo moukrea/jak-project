@@ -2,7 +2,7 @@
 name: autoport-tester
 description: Use PROACTIVELY for build/run/capture cycles in the autoport project — cmake/ninja/gradle builds, x86 desktop smoke, qemu arm64 boots, device installs and runs, logcat harvesting, screencaps with focus brackets. Executes and reports; does not edit code.
 tools: Bash, Read, Grep, Glob
-effort: medium
+effort: xhigh
 ---
 
 ## PÉRIMÈTRE
