@@ -27,8 +27,9 @@ def count(path, pat):
     except FileNotFoundError:
         return 0
 
-hd1 = f'{DEV}/dev-c3-mayor-hd1-logcat.txt'
-hd0 = f'{DEV}/dev-c3-mayor-hd0-logcat.txt'
+DEVB = f'{D}/device3b'  # cycle 3b : le binaire qui publie NPCCULL par acteur
+hd1 = f'{DEVB}/dev-c3b-mayor-hd1-logcat.txt'
+hd0 = f'{DEVB}/dev-c3b-mayor-hd0-logcat.txt'
 inj = f'{DEV}/dev-c3-inject-logcat.txt'
 x86 = f'{D}/gk2-hd1-c3b.log'
 
@@ -99,32 +100,65 @@ w('`absent-du-pool-actif` (course de 02:16). Ecran reveille avant chaque course 
 w('tentative (`mWakefulness=Asleep`) a rendu 0 ligne en 480 s — un zero qui se serait lu « aucun')
 w('defaut » (voir la note dans le script).')
 w('')
-w('### 2.1 Jambe HD ACTIFS (la configuration de l\'owner) — dev-c3-mayor-hd1-logcat.txt')
+w('### 2.1 Jambe HD ACTIFS (la configuration de l\'owner) — device3b/dev-c3b-mayor-hd1-logcat.txt')
 w('')
 for l in lines(hd1, r'^NPCFLICK scene=mayor-introduction '):
     w(l)
 for l in lines(hd1, r'^NPCSCENE scene=mayor-introduction '):
     w(l)
 w('')
-w('### 2.2 Jambe HD ETEINTS (ablation, meme binaire) — dev-c3-mayor-hd0-logcat.txt')
+w('### 2.2 Jambe HD ETEINTS (ablation, meme binaire) — device3b/dev-c3b-mayor-hd0-logcat.txt')
 w('')
 for l in lines(hd0, r'^NPCFLICK scene=mayor-introduction '):
     w(l)
 for l in lines(hd0, r'^NPCSCENE scene=mayor-introduction '):
     w(l)
 w('')
-w('### 2.3 Les autres cinematiques du maire, memes courses')
+w('### 2.3 NPCCULL — DANS LE CHAMP ET ECARTE DU RENDU, PAR IMAGE (porte du superviseur, 03:05)')
+w('')
+w('`cull_aveugle` ne comptait que les EPISODES d\'au moins 3 images ; cette ligne compte CHAQUE image')
+w('ou la racine de l\'acteur est dans le frustum (test de plans independant, rayon reduit du')
+w('desaccord des deux sources de position), l\'acteur n\'est ni hidden ni no-anim, et `was-drawn`')
+w('vaut 0 quand meme. Le maire d\'abord, puis tous les acteurs de sa scene, sur les deux jambes.')
 w('')
 for p in (hd1, hd0):
-    for l in lines(p, r'^NPCSCENE scene=mayor-reminder'):
+    for l in lines(p, r'^NPCCULL scene=mayor-introduction pnj=mayor-lod0'):
         w(l)
 w('')
+for p in (hd1, hd0):
+    for l in lines(p, r'^NPCCULL scene=mayor-introduction '):
+        if 'pnj=mayor-lod0' not in l:
+            w(l)
+w('')
+w('Le controle positif de cette grandeur est dans la garde (propriete 23 : 2 images dans le champ')
+w('sans was-drawn -> dans_frustum_et_culled=2, sous le seuil d\'episode et pourtant compte ; hors du')
+w('champ -> 0 ; hidden dans le champ -> 0). Lecture de `images_dans_frustum` : le maire est dans le')
+def mayor_gap(path):
+    for l in lines(path, r'^NPCFLICK scene=mayor-introduction pnj=mayor-lod0 '):
+        m = re.search(r'trou_max=(\d+) trou_max_ms=(\d+)', l)
+        if m:
+            return f'{m.group(1)} images ({int(m.group(2))/1000:.1f} s)'
+    return '?'
+w(f'champ pendant la plus grande part de sa scene et JAMAIS ecarte du rendu pendant ce temps ; sa')
+w(f'coupe de {mayor_gap(hd1)} (HD actifs) / {mayor_gap(hd0)} (HD eteints) est faite d\'images ou sa')
+w('racine est HORS du frustum — la camera ne le cadre pas, le moteur ne le dessine pas.')
+w('')
+w('### 2.4 Les autres cinematiques du maire, memes courses')
+w('')
+for p in (hd1, hd0):
+    rem = lines(p, r'^NPCSCENE scene=mayor-reminder')
+    cyc = sum(int(re.search(r' cycles=(\d+)', l).group(1)) for l in rem)
+    w(f'  {os.path.basename(p)} : {len(rem)} passages de mayor-reminder-beams / mayor-reminder-donation')
+    w(f'  (le lanceur reprovoque le maire tant que la course dure), cycles cumules = {cyc} ; les deux premiers :')
+    for l in rem[:2]:
+        w('  ' + l)
+w('')
 w(f'Cadence mesuree : {fps(hd1)} images de recensement (HD actifs) et {fps(hd0)} (HD eteints) pour')
-w('une scene de 63 s — ~19 img/s, `Kernel dispatch time: 55 ms`. Le Redmi Note 9 Pro (Adreno 618)')
+w(f'une scene de ~63 s — ~{fps(hd1)/63.4:.0f} img/s, `Kernel dispatch time: 55 ms`. Le Redmi Note 9 Pro (Adreno 618)')
 w('joue cette scene TROIS FOIS plus lentement que le Honor de l\'owner (Snapdragon 8 Elite,')
 w('Adreno 840, 60 img/s). Voir §6 : c\'est la limite de cette preuve, et elle est dite.')
 w('')
-w('### 2.4 Le verdict, calcule par l\'analyseur sur les DEUX jambes sans injection')
+w('### 2.5 Le verdict, calcule par l\'analyseur sur les DEUX jambes sans injection')
 w('')
 for l in agg:
     w(l)
@@ -132,7 +166,7 @@ w('')
 w(npcok)
 w('')
 w('-' * 98)
-w('## 3. LE CONTROLE POSITIF, SUR LA SCENE DU MAIRE, SUR L\'APPAREIL — dev-c3-inject-logcat.txt')
+w('## 3. LE CONTROLE POSITIF, SUR LA SCENE DU MAIRE, SUR L\'APPAREIL — device3/dev-c3-inject-logcat.txt')
 w('-' * 98)
 w('')
 w('Injection `-lod0:120:10` (10 images de rendu jetees toutes les 120), armee par la propriete')
@@ -200,13 +234,20 @@ w('## 6. CE QUE CE ZERO NE DIT PAS — ET CE QUI REND LE TELEPHONE DE L\'OWNER L
 w('-' * 98)
 w('')
 w('Le defaut n\'est REPRODUIT NULLE PART chez moi. Deux raisons possibles, et je ne choisis pas :')
-w('  a) il depend de la CADENCE. Le Redmi joue la scene a ~19 img/s (thread GOAL arm64 a 55 ms,')
+w('  a) il depend de la CADENCE. Le Redmi joue la scene a ~19-22 img/s (thread GOAL arm64 a 55 ms,')
 w('     HD ou pas), x86 a 60 mais n\'est pas arm64, le Honor est arm64 A 60. Les fenetres de la')
 w('     couverture HD sont en APPELS de rendu (~8 par image ici : TTL 32 = 4 images, fail-open')
 w('     20 = 2,5 images) — une constante en appels n\'est pas une duree ;')
 w('  b) il vit dans ce que le recensement ne voit toujours pas : un trou de UNE image de rendu')
 w('     (tolerance d\'appariement des deux horloges), ou un dessin invisible pour une raison')
 w('     autre que les matrices (fondu, effets tous desactives) — non instrumentes.')
+w('  c) ET UNE LIMITE QUE LA LIGNE NPCCULL REVELE : `sidekick-lod0 images_dans_frustum=0` sur')
+w('     toute la scene alors que Daxter y est dessine plus de mille images. La `root trans` du')
+w('     sidekick n\'est pas sa position (il est porte par un joint de Jak) : pour LUI, le test')
+w('     independant rend toujours « hors champ », donc une absence de Daxter avec was-drawn=0 est')
+w('     toujours classee `culled` (non gatee). Le maire, Jak et les decors ont une racine vraie ;')
+w('     Daxter n\'en a pas, et son `culled=1 trou_max=128` de la jambe HD n\'est donc PAS verifie')
+w('     par la position — il est publie tel quel, pas excuse.')
 w('')
 w('Donc trois sorties, produites par le CODE, pour que SON appareil parle :')
 w('  1. `plateforme=` sur chaque ligne (ro.product.brand : `redmi` ici, `honor` chez lui) ;')
@@ -239,10 +280,13 @@ w('')
 w('  * Le defaut de l\'owner n\'est pas reproduit ; ce cycle livre la mesure sur l\'appareil, un')
 w('    angle mort ferme et un canal de lecture depuis son telephone — pas une guerison.')
 w('  * `lurkercrab-lod0` dessine avec 20/23 os nuls a chaque naissance : hors perimetre, publie.')
+w('  * Le controle positif (§3) a ete pris avec le binaire 049204c570 (cycle 3) ; les jambes de')
+w('    verdict (§2) avec 03ceca299c (cycle 3b, qui ajoute la ligne NPCCULL) : meme recensement,')
+w('    meme classification, seule la ligne NPCCULL est nouvelle.')
 w('  * Les trous d\'UNE image de rendu restent sous la tolerance d\'appariement.')
 w('')
 w('-' * 98)
-w('## 9. LIGNES DE VERDICT COMPLETES (Redmi, jambes sans injection)')
+w('## 9. LIGNES DE VERDICT COMPLETES (Redmi, jambes sans injection, cycle 3b)')
 w('-' * 98)
 w('')
 for p in (hd1, hd0):
