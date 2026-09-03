@@ -478,6 +478,19 @@
 ;; (generic-obs.gc). Sans cette declaration du PRODUCTEUR, ce masquage et un masquage voulu par le
 ;; jeu portent le meme bit `hidden` et sont indistinguables.
 (define-extern __pc-npc-clone-fail (function string none))
+;; Ghd-skin-origin-stretch : l'armement d'UN item nomme (1 par defaut ; 0 seulement quand le
+;; harnais a nomme CET item avec `armed=0`). `__pc-npcf-fix-armed?` ci-dessus lit l'armement
+;; GLOBAL : mesurer un item desarme du meme coup les correctifs de tous les autres.
+(define-extern __pc-autoport-armed-for (function string int))
+;; Une grandeur mesuree, publiee sous son nom sur SA PROPRE LIGNE — la seule forme que
+;; `lib/proof_run.sh` moissonne. Un chiffre noye dans un `format` a six colonnes n'atteint pas
+;; proof.txt.
+(define-extern __pc-autoport-publish (function string int none))
+;; Ghd-skin-origin-stretch : le compte de la porte. Arguments, dans l'ordre : moitie GOAL du
+;; verdict, images de t-pose VUES, images ou l'ecart HD/pilote a bouge, sauts de racine (publie a
+;; cote, hors somme), occasions de pose de bind, cumul des fois ou un correctif a tourne.
+;; La moitie GPU du verdict est lue dans Merc2 par le pont lui-meme.
+(define-extern __pc-hd-proof (function int int int int int int none))
 ;; LE CORRECTIF DU CLIGNOTEMENT, cote GOAL. 1 = le clone garde la pose de l'image precedente au
 ;; lieu de se masquer (game/system/npc_flicker.h, `should_hold_clone`) ; 0 = ancien comportement.
 ;; ENTIER, pas un symbole : la veracite d'un symbole GOAL est un piege connu du depot.

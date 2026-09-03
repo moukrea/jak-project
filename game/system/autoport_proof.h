@@ -57,6 +57,13 @@ bool feature_is(const char* id);
 // item ET pose `armed=0`.
 bool armed();
 
+// Etat d'armement POUR UN ITEM NOMME. Identique a `armed()` quand le harnais parle de CET item,
+// VRAI dans tous les autres cas. `armed()` est global : si le harnais mesure l'item A avec
+// `armed=0`, il desarme du meme coup le correctif de l'item B, qui n'a rien demande — deux
+// features livrees se desarment l'une l'autre et la course ne mesure plus le binaire de l'owner.
+// Un correctif qui se debraye consulte donc CETTE fonction avec son propre identifiant.
+bool armed_for(const char* id);
+
 // Le chemin de code de la feature vient de tourner. No-op quand la feature est desarmee : c'est
 // ce qui fait la difference entre les deux bras de l'ablation.
 void note_hit(uint64_t n = 1);

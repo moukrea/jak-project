@@ -959,6 +959,36 @@
 (define *hd-tp-pmax*     0)
 (define *hd-tp-logs*     0)
 
+;; ------------------------------------------------------------------------------------------
+;; cycle 9 — LE T-POSE QU'AUCUN COMPTEUR NE VOYAIT, ET L'ECART HD/PILOTE
+;;
+;; « ça glitch, t-pose dans cette direction » (owner 2026-09-03). La POSE DE SECOURS (plus bas,
+;; `*hd-guard-warm*`) ecrit la pose de bind du rig HD sur un compagnon que le reciblage n'a
+;; jamais servi — c'est-a-dire, litteralement, une T-POSE — et le compagnon est DESSINE pendant
+;; ce temps-la. Aucune porte ne la voyait : `hd-root-scan!` refuse ces images (`st-warm` = 0,
+;; jak-hd.gc:2180) et `HDLEN9 tpose=...` ne peut donc pas les compter. Mesure sur l'appareil
+;; (dev8b-snow, 2026-09-03 09:54 -> 09:59) : `secours` passe de 1376 a 1590 APRES la fin du
+;; chargement, soit 214 images de t-pose pendant 3,5 min de jeu reel, par bourrees de 10 a 38
+;; images entre deux battements de 21 s. C'est le defaut, et il etait dans l'angle mort.
+;;
+;; LE CORRECTIF : un compagnon jamais recible n'est pas DESSINE. Il n'y a pas de trou a la clef —
+;; un pilote dont l'os 4 n'est pas pose porte encore `no-skeleton-update` de `initialize-skeleton`
+;; et `dma-add-process-drawable` (drawable.gc:446) refuse deja son dessin stock : sur ces
+;; images-la, rien n'etait dessinable, ni stock ni HD. La pose de bind continue d'etre ECRITE
+;; (elle est valide, jamais NaN, et protege le cas ou le compagnon redeviendrait visible) ; ce
+;; qui change, c'est qu'on ne la MONTRE plus.
+(define *hd-tpose-arm* 1)   ;; 1 = un compagnon jamais recible est retire du dessin (defaut)
+(define *hd-tp-drawn*  0)   ;; LE DEFAUT : images ou la pose de bind a ete ecrite sur un compagnon
+                            ;; NON masque, donc vue. 0 arme, > 0 desarme.
+;; L'ECART HD/PILOTE. `bp - pp` (os HD de reference moins l'os pilote qu'il recopie) est un
+;; decalage de BIND : constant tant que le reciblage fait son travail. Les 15 episodes de saut de
+;; racine de la course appareil du cycle 8 le donnent a 0,0000 m — l'os HD est EXACTEMENT sur l'os
+;; stock. Le saut brut ne peut donc pas servir de verdict a un item qui n'a pas le droit de
+;; toucher la chaine stock ; ce qui est a nous, c'est que ce decalage CHANGE.
+(defconstant HD_PILOT_DEV 1024.0)   ;; 0,25 m
+(define *hd-rj-hddev* 0)            ;; images ou l'ecart HD/pilote a bouge de plus de 0,25 m
+(define *hd-pilot-base* (new 'global 'inline-array 'vector 17))  ;; x = ecart de reference, w = pose ?
+
 (defun hd-row-cos ((a vector) (b vector))
   "Cosinus de l'angle entre deux lignes (xyz) ; 2.0 si l'une est nulle (sentinelle > 1)."
   (let ((la (vector-length a))
@@ -1396,12 +1426,24 @@
         ;; est remplacee par le reciblage des que le pilote a une pose. Elle ne s'ecrit QU'UNE
         ;; SEULE FOIS PAR VIE DE COMPAGNON : des qu'un reciblage a tourne, `st-warm` vaut 1 et
         ;; cette branche ne peut plus rien recouvrir.
-        ;; AUCUN COMPAGNON N'EST MASQUE ICI : masquer creerait le TROU que Gcutscene-npc-flicker a
-        ;; paye deux fois.
+        ;; CE QUI A CHANGE AU CYCLE 9. Cette branche ecrit toujours la pose de bind — elle est valide
+        ;; et protege la memoire non ecrite decrite ci-dessus — mais le compagnon n'est plus
+        ;; DESSINE tant qu'aucun reciblage n'a tourne (miroir de `:post`, `*hd-tpose-arm*`).
+        ;; L'ancienne note disait « aucun compagnon n'est masque ici : masquer creerait le TROU
+        ;; que Gcutscene-npc-flicker a paye deux fois » ; ce trou-la est celui d'un compagnon
+        ;; DEJA recible qu'un episode `no-anim` eteint, et il reste interdit. Ici le pilote n'a
+        ;; AUCUNE pose : il porte encore `no-skeleton-update`, son dessin stock est deja refuse
+        ;; (drawable.gc:446), il n'y a rien a trouer — et ce qu'on montrait a la place etait une
+        ;; T-POSE, 214 images en 3,5 min sur le telephone.
         ;; ----------------------------------------------------------------------------------
         (when (and (nonzero? *hd-guard-arm*) (zero? (-> obj st-warm))
                    (not (hd-bone-posed? tgt-skel 4)))
           (+! *hd-guard-warm* 1)
+          ;; cycle 9 : L'OCCASION est `*hd-guard-warm*` (les deux bras) ; LE DEFAUT est cette
+          ;; ligne — la pose de bind ecrite sur un compagnon que rien ne masque, donc VUE.
+          (when (and (nonzero? (-> obj draw))
+                     (not (logtest? (-> obj draw status) (draw-status hidden))))
+            (+! *hd-tp-drawn* 1))
           (let ((hbind (new-stack-matrix0)))
             (dotimes (k (-> obj hd-joints))
               (when (< (+ k 1) nbones)
@@ -1564,6 +1606,9 @@
   (set! *hd-stretch-nanimg* 0)
   (set! *hd-stretch-nanmax* 0)
   (set! *hd-guard-warm* 0)
+  (set! *hd-tp-drawn* 0)
+  (set! *hd-rj-hddev* 0)
+  (dotimes (i 17) (set! (-> *hd-pilot-base* i w) 0.0))
   (set! *hd-guard-skips* 0)
   (set! *hd-guard-noposed* 0)
   (set! *hd-guard-occ* 0)
@@ -2232,6 +2277,18 @@
                (when (not (and (< ol 81920.0) (>= ol 0.0)))
                  (+! *hd-rj-skip* 1)
                  (set! (-> obj rj-valid) 2)))
+             ;; cycle 9 — L'ECART HD/PILOTE (voir *hd-rj-hddev*). Premiere valeur vue = la
+             ;; reference de ce compagnon ; on compte ce qui s'en ecarte, et tout ecart non fini.
+             (let ((dp (vector-vector-distance bp pp))
+                   (bi (if (and (>= ent 0) (< ent 16)) ent 16)))
+               (cond
+                 ((not (and (< dp HD_FAR_SANE) (>= dp 0.0)))
+                  (+! *hd-rj-hddev* 1))
+                 ((zero? (-> *hd-pilot-base* bi w))
+                  (set! (-> *hd-pilot-base* bi x) dp)
+                  (set! (-> *hd-pilot-base* bi w) 1.0))
+                 ((> (fabs (- dp (-> *hd-pilot-base* bi x))) HD_PILOT_DEV)
+                  (+! *hd-rj-hddev* 1))))
              (when (= (-> obj rj-valid) 1)
                (+! *hd-rj-frames* 1)
                (let ((jump (vector-vector-distance off (-> obj rj-last))))
@@ -2786,8 +2843,18 @@
            ;; il rend 1 : le correctif est dans le jeu de l'owner, pas derriere un drapeau.
            (when (and (>= (-> self noanim-run) deb) (not dhid))
              (__pc-npcf-note-cover))
-           (let ((th (if (or dhid (and (zero? (__pc-npcf-fix-armed?))
-                                       (>= (-> self noanim-run) deb)))
+           ;; cycle 9 : ET UN COMPAGNON JAMAIS RECIBLE N'EST PAS DESSINE. `st-warm` ne vaut 1
+           ;; qu'apres un reciblage reel ; avant, le squelette porte la pose de bind du rig HD,
+           ;; c'est-a-dire une T-POSE (owner 2026-09-03). Ce n'est pas le cas `no-anim` discute
+           ;; ci-dessus : le pilote n'a AUCUNE pose, il porte encore `no-skeleton-update`, et son
+           ;; dessin stock est deja refuse — il n'y a donc rien a trouer. `st-warm` est lu ici
+           ;; avant `do-joint-math!` de cette image : le compagnon reapparait l'image suivant son
+           ;; premier reciblage, pendant laquelle le stock est rendu a lui-meme par
+           ;; `pc-hd-uncover!`.
+           (let ((th (if (or dhid
+                             (and (nonzero? *hd-tpose-arm*) (zero? (-> self st-warm)))
+                             (and (zero? (__pc-npcf-fix-armed?))
+                                  (>= (-> self noanim-run) deb)))
                        1 0))
                  (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
              ;; device-readable proof of the mirror (defect 6 + Gfirstperson-hd-hide): log each
@@ -3265,8 +3332,40 @@
         (format 0 "HDLEN10 normocc=~D normimgs=~D normzero=~D pire_w_prod=~f normarme=~D normcalls=~D~%"
                 *anim-mtx-norm-occ* *anim-mtx-norm-imgs* *anim-mtx-norm-zero* *anim-mtx-norm-worst*
                 *anim-mtx-norm-arm* *anim-mtx-norm-calls*)
-        (format 0 "HDLEN11 rjskip_titre_ou_reference=~D~%" *hd-rj-skip*))))
+        (format 0 "HDLEN11 rjskip_titre_ou_reference=~D~%" *hd-rj-skip*)
+        (format 0 "HDLEN12 tpose_vue=~D ecart_hd_pilote=~D tposearme=~D~%"
+                *hd-tp-drawn* *hd-rj-hddev* *hd-tpose-arm*)
+        ;; LE COMPTE DE LA PORTE (`hd_bones_stretched`, lu par validators/generic.sh). Il est
+        ;; assemble cote C++ parce que la moitie GPU du verdict vit dans Merc2 ; ici on rend la
+        ;; moitie GOAL et les deux grandeurs que ce cycle ajoute. Le dernier argument est le cumul
+        ;; des fois ou un correctif a REELLEMENT tourne — normalisations de matrice pilote et
+        ;; images ou un compagnon jamais recible a ete retire du dessin : c'est lui qui remplit
+        ;; `hits=` et qui interdit un vert sur une feature qui n'a jamais tire.
+        ;; CE QUE LE PERSONNAGE A FAIT, sur des lignes que proof_run.sh sait moissonner : sans
+        ;; elles, une course immobile rendrait `hd_bones_stretched=0` en n'ayant rien mesure. Le
+        ;; defaut, dit par l'owner, se declenche « en bougeant beaucoup ».
+        (__pc-autoport-publish "hd_moves_distance_m" (the int (/ *hd-moves-dist* 4096.0)))
+        (__pc-autoport-publish "hd_moves_jumps" *hd-moves-jumps*)
+        (__pc-autoport-publish "hd_moves_turns" *hd-moves-turns*)
+        (__pc-autoport-publish "hd_moves_punches" *hd-moves-punch*)
+        (__pc-autoport-publish "hd_retarget_fills" *hd-stretch-fills*)
+        (__pc-autoport-publish "hd_game_seconds" (the int (/ (the float el) 300.0)))
+        (__pc-autoport-publish "hd_rj_frames_judged" *hd-rj-frames*)
+        (__pc-hd-proof (+ *hd-cmd-bones* *hd-scl-bones* *hd-mtx-dev* *hd-draw-dev*)
+                       *hd-tp-drawn*
+                       *hd-rj-hddev*
+                       *hd-rj-jumps*
+                       *hd-guard-warm*
+                       (+ *hd-w-occ* *hd-guard-warm*)))))
   ;; cycle 7 : le correctif a la production (joint.gc) suit le meme levier que le consommateur
+  ;; cycle 9 — L'ABLATION DE CET ITEM, ET D'AUCUN AUTRE. `__pc-autoport-armed-for` rend 1 tant
+  ;; que le harnais n'a pas nomme `hd-skin-origin-stretch` avec `armed=0` : le binaire de l'owner
+  ;; porte donc les deux correctifs ARMES, sans qu'aucune propriete soit posee. Desarme, les deux
+  ;; comportements d'avant reviennent dans LE MEME binaire. Consulter l'armement GLOBAL a la
+  ;; place aurait desarme ce correctif chaque fois que le harnais mesure un AUTRE item.
+  (when (zero? (__pc-autoport-armed-for "hd-skin-origin-stretch"))
+    (set! *hd-affine-arm* 0)
+    (set! *hd-tpose-arm* 0))
   (set! *anim-mtx-norm-arm* (if (>= *hd-affine-arm* 2) 1 0))
   ;; cycle 6 : sondage des entrees d'etat du joueur, une fois par image, sans cap.
   (hd-moves-poll!)

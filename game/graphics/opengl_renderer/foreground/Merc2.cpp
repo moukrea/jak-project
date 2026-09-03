@@ -2038,6 +2038,45 @@ void hdlen_joint_pos(const float* f, const float* b, float out[3]) {
 }
 }  // namespace
 
+// ─── Ghd-skin-origin-stretch — LES TROIS CRITERES DE VERDICT MESURES AU POINT DE CONSOMMATION ──
+// Le compte de la porte (`hd_bones_stretched`) est assemble en UN seul endroit (kmachine.cpp,
+// `pc_hd_proof`) : cette fonction lui rend la moitie GPU, GOAL lui rend la sienne.
+//
+// QUELS COMPTEURS, ET POURQUOI CEUX-LA. Reconciliation sur les trois bras Redmi du cycle 7, qui
+// portent la meme somme `os_etires` calculee a l'epoque cote hote :
+//   - bras desarme (dev7-abl0) : 18 209 = 9 370 (matrice merc vs squelette, cote GOAL)
+//     + 8 839 (`ring_bad`, ecart entre ce que GOAL a ecrit et ce que le GPU a consomme) ;
+//   - bras arme (dev7-prf, 21,4 min) : 0 sur tous.
+// `cmd_bones` — l'os CONSOMME compare a la pose que le reciblage COMMANDAIT — est ajoute ici
+// parce que c'est LUI, et lui seul, qui voit le defaut du 2026-09-03 : le bras `affine_arm=1`
+// (dev7-abl1) publie `cmd_bones = 17 688`, `cmd_worst_m = 14,18` — le modele entier deplace de
+// 14 m — pendant que l'ancienne somme `os_etires` rendait 0. C'est exactement le faux vert que
+// l'owner a corrige de sa main (« il s'etire plus, mais il est transpose »).
+//
+// CE QUI N'Y EST PAS, ET POURQUOI. `hd_stretch_bones` (longueur d'os / longueur de repos) vaut
+// 4 804 dans le bras VERT : Daxter allonge ses bras x6 pendant `sidekick-attack-punch`, c'est le
+// squash & stretch de l'animation ND et le modele stock le porte aussi. `hd_bad_bones` vaut
+// 2 279 dans ce meme bras vert. Les deux restent publies a cote, jamais fondus dans le verdict.
+u64 merc2_hd_stretch_verdict() {
+  return s_hdlen.cmd_bones + s_hdlen.scl_bones + s_hdlen.ring_bad;
+}
+
+// Les memes grandeurs, une par une, pour que le proof.txt porte la decomposition et pas seulement
+// la somme : un verdict a 0 dont on ne peut pas lire les termes ne se refute pas.
+u64 merc2_hd_stretch_diag(int which) {
+  switch (which) {
+    case 0: return s_hdlen.cmd_bones;
+    case 1: return s_hdlen.scl_bones;
+    case 2: return s_hdlen.ring_bad;
+    case 3: return s_hdlen.bones_judged;
+    case 4: return s_hdlen.hd_stretch_bones;
+    case 5: return s_hdlen.hd_bad_bones;
+    case 6: return s_hdlen.ring_judged;
+    case 7: return s_hdlen.cmd_judged;
+    default: return 0;
+  }
+}
+
 void merc2_hd_skel_joint(u32 companion_pid,
                          int k,
                          int parent,

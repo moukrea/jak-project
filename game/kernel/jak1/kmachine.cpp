@@ -98,6 +98,11 @@ using namespace ee;
 // jak1::merc2_hd_* and the link fails (attempt-1 failure of this phase).
 void merc2_hd_cover(u32 companion_pid, u32 driver_pid);
 void merc2_hd_uncover(u32 companion_pid);
+// Ghd-skin-origin-stretch : la moitie GPU du compte de la porte (os consommes hors de la pose
+// commandee, hors d'echelle, ou differents de ce que GOAL a ecrit) et sa decomposition. Meme
+// regle de portee que les deux prototypes ci-dessus : DEHORS de `namespace jak1`.
+u64 merc2_hd_stretch_verdict();
+u64 merc2_hd_stretch_diag(int which);
 // Ghd-skin-origin-stretch : registre du rig HD (parent, joint pilote, mode de reciblage et
 // position de bind par joint) pour les sondes HDSKINLEN / HDCMD de Merc2 — meme regle de portee
 // que les deux prototypes ci-dessus.
@@ -778,6 +783,76 @@ void pc_npc_census_end() {
 // bras d'ablation, et rien d'autre ne peut y tomber. Voir game/system/autoport_proof.h.
 s32 pc_npcf_fix_armed() {
   return autoport_proof::armed() ? 1 : 0;
+}
+
+// L'ETAT D'ARMEMENT D'UN ITEM NOMME, LU PAR GOAL. Rend 1 par defaut ; il ne rend 0 que si le
+// harnais a nomme CET item-la et pose `armed=0`. `pc_npcf_fix_armed` ci-dessus consulte l'etat
+// GLOBAL : mesurer l'item A desarme du meme coup le correctif de l'item B. Voir armed_for().
+s32 pc_autoport_armed_for(u32 id_str) {
+  const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  return autoport_proof::armed_for(id) ? 1 : 0;
+}
+
+// UNE GRANDEUR QUELCONQUE, PUBLIEE PAR GOAL SOUS SON NOM. `proof_run.sh` ne moissonne que les
+// lignes `cle=valeur` SEULES sur leur ligne : une grandeur noyee dans un `format` a six colonnes
+// (HDMOVES, HDLEN...) n'atteint jamais proof.txt, et le rapport doit alors la recopier a la main —
+// ce que les DIRECTIVES interdisent. Ce pont donne a GOAL le meme canal que le C++.
+void pc_autoport_publish(u32 key_str, s64 value) {
+  const char* k = key_str ? Ptr<String>(key_str).c()->data() : nullptr;
+  autoport_proof::publish(k, (u64)(value < 0 ? 0 : value));
+}
+
+// ─── Ghd-skin-origin-stretch — LE COMPTE DE LA PORTE, ASSEMBLE EN UN SEUL ENDROIT ─────────────
+// `validators/generic.sh` lit UNE grandeur : `hd_bones_stretched`. Elle doit valoir 0 seulement
+// si l'owner ne voit plus RIEN — pas seulement si l'etirement a disparu. Ses termes :
+//   moitie GOAL (`goal_bad`)  : os ecrits loin de la pose commandee par le reciblage de la meme
+//                               image, echelle de base hors de [1/3, 3] x bind, matrice merc qui
+//                               ne porte pas la longueur du squelette, os deplaces entre le
+//                               :post et draw-bones (jak-hd.gc) ;
+//   moitie GPU (Merc2)        : os CONSOMMES hors de la pose commandee (c'est ce terme qui voit
+//                               le « modele transpose » du 2026-09-03 : 17 688 os a 14,18 m sur
+//                               le bras affine_arm=1), hors d'echelle, ou differents de ce que
+//                               GOAL avait ecrit ;
+//   `tpose_drawn`             : images ou un compagnon a ete DESSINE en pose de bind (t-pose).
+//                               C'etait l'angle mort : `hd-root-scan!` saute ces images-la
+//                               (`st-warm=0`) et `HDLEN9 tpose=0` ne les couvre pas, pendant que
+//                               le telephone en comptait 214 en 3,5 min de jeu reel ;
+//   `bone_off_pilot`          : images ou l'os HD de reference n'est PAS sur l'os pilote qu'il
+//                               recopie — la forme HD-specifique du saut de racine.
+// `root_jumps` (l'os de reference contre `root trans` du pilote) est publie A COTE et n'entre
+// PAS dans la somme : sur les 15 episodes de la course appareil du cycle 8, les 15 portent
+// `hd_moins_pilote_m = 0.0000`, c'est-a-dire un os HD exactement sur l'os stock. Ce residu est
+// partage avec la chaine de peau stock, que cet item n'a pas le droit de toucher.
+void pc_hd_proof(s64 goal_bad,
+                 s64 tpose_drawn,
+                 s64 bone_off_pilot,
+                 s64 root_jumps,
+                 s64 bindpose_occasions,
+                 s64 hits_cumulative) {
+  const u64 gpu = merc2_hd_stretch_verdict();
+  const u64 total = (u64)goal_bad + (u64)tpose_drawn + (u64)bone_off_pilot + gpu;
+  autoport_proof::publish("hd_bones_stretched", total);
+  autoport_proof::publish("hd_goal_side_bad", (u64)goal_bad);
+  autoport_proof::publish("hd_gpu_side_bad", gpu);
+  autoport_proof::publish("hd_tpose_drawn_frames", (u64)tpose_drawn);
+  autoport_proof::publish("hd_bone_off_pilot_frames", (u64)bone_off_pilot);
+  autoport_proof::publish("hd_root_jumps", (u64)root_jumps);
+  autoport_proof::publish("hd_bindpose_occasions", (u64)bindpose_occasions);
+  autoport_proof::publish("hd_gpu_cmd_bones", merc2_hd_stretch_diag(0));
+  autoport_proof::publish("hd_gpu_scale_bones", merc2_hd_stretch_diag(1));
+  autoport_proof::publish("hd_gpu_ring_bad", merc2_hd_stretch_diag(2));
+  autoport_proof::publish("hd_gpu_bones_judged", merc2_hd_stretch_diag(3));
+  autoport_proof::publish("hd_diag_bone_length", merc2_hd_stretch_diag(4));
+  autoport_proof::publish("hd_diag_bad_bones", merc2_hd_stretch_diag(5));
+  autoport_proof::publish("hd_gpu_ring_judged", merc2_hd_stretch_diag(6));
+  autoport_proof::publish("hd_gpu_cmd_judged", merc2_hd_stretch_diag(7));
+  // `hits` doit compter les fois ou LE CORRECTIF a tourne, pas les images. GOAL rend un cumul ;
+  // on en publie l'increment, sinon `hits` compterait N fois le meme cumul.
+  static s64 s_last_hits = 0;
+  if (hits_cumulative > s_last_hits) {
+    autoport_proof::note_hit((u64)(hits_cumulative - s_last_hits));
+    s_last_hits = hits_cumulative;
+  }
 }
 
 // Une image ou le compagnon HD a ete MAINTENU la ou l'ancien code l'eteignait.
@@ -4873,6 +4948,10 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);
   make_function_symbol_from_c("pc-enhanced-models-available?", (void*)pc_get_enhanced_models_available);
   // Grecharged-hd-models4: per-actor coverage — companion pid -> driver pid registry in Merc2
+  // Ghd-skin-origin-stretch : l'armement PAR ITEM et le compte de la porte
+  make_function_symbol_from_c("__pc-autoport-armed-for", (void*)pc_autoport_armed_for);
+  make_function_symbol_from_c("__pc-autoport-publish", (void*)pc_autoport_publish);
+  make_function_symbol_from_c("__pc-hd-proof", (void*)pc_hd_proof);
   make_function_symbol_from_c("pc-hd-cover!", (void*)pc_hd_cover);
   make_function_symbol_from_c("pc-hd-uncover!", (void*)pc_hd_uncover);
   // Ghd-skin-origin-stretch: rig du compagnon HD (parent, pilote, mode, bind par joint) ->

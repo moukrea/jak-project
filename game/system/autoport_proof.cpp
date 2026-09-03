@@ -122,6 +122,15 @@ bool armed() {
   return s_armed;
 }
 
+bool armed_for(const char* id) {
+  // Sans item nomme : rien n'est sous ablation, tout est arme (le binaire de l'owner).
+  // Item nomme mais different du notre : ce n'est pas notre bras d'ablation, on reste arme.
+  if (feature_str().empty() || !id || !id[0] || feature_str() != id) {
+    return true;
+  }
+  return armed();
+}
+
 void note_hit(uint64_t n) {
   if (!armed()) {
     return;
