@@ -263,6 +263,18 @@ items:
     text: ondulation sous l'eau
   - date: '2026-08-31'
     text: tous ne sont pas pris
+  - date: '2026-09-03'
+    text: Le foliage wind c'est très très mauvais... déjà avec l'option off on devrait avoir le natif
+      d'origine qui fonctionne correctement et je pense que c'est toujours pas carré comparé à ce que
+      c'était d'origine sur PS2. avec l'option activé, certe c'est plus subtil maintenant sur les arbres,
+      mais j'ai quand même l'impression que tous les arbres ne sont pas pris en compte, et pour les shrubs,
+      certains sont pris, d'autres ignorés, même deux identiques côté à côte... un est pris l'autre non
+      c'est bizarre. et l'effet est vraiment mauvais, que ce soit sur les shrubs ou arbres... on dirait
+      une ondulation bizarre comme si c'était pour simuler une distorsion visuelle sous l'eau, ça marcherait
+      beaucoup mieux si c'était un jeu sous-marin, là ça fonctionne pas du tout on dirait pas une légère
+      brise/vent avec des variations et compagnie, c'est nase ! et pour les shrubs, certains sont placés
+      plus bas que le sol pour le style volontairement... mais avec l'animation, bah du coup ils ont l'air
+      de glisser sur le sol ça aussi ça fait tâche.
   gate:
     key: wind_divergent_pairs
     op: ==
@@ -3094,7 +3106,7 @@ items:
   build: dernier build publie sur jak-builds
 - id: fixed-tick-interpolation
   feature: Le pas de temps fixe et l'interpolation du rendu
-  status: to-test
+  status: open
   priority: 16
   owner_feedback:
   - date: '2026-08-26'
@@ -3117,6 +3129,10 @@ items:
       ça s'adapterait aux variations de framerate de façon bien plus souple !
   - date: '2026-08-31'
     text: 'Fixed timestep : Aucun crash mais difficile a valider... ca a l''air bon'
+  - date: '2026-09-03'
+    text: je trouve les animations très jittery (un autre chantier si je dis pas de bêtises que j'ai auparavant
+      lié au fixed time truc machin ou le gameplay n'est plus tied au framerate... d'ailleurs c'est très
+      jittery quelque soit le framerate, 60 FPS comme 15 fps comme 45... etc.
   gate: null
   game: jak1
   max_turns: 800
@@ -3124,11 +3140,16 @@ items:
   depends_on: []
   history:
   - Gfixed-tick-interpolation
-  prompt: null
+  prompt: prompts/item-fixed-tick-interpolation.md
   owner_ok: null
   where: Options > Fixed timestep, puis joue autour de 20 images/s
   delivered: '2026-08-30'
   build: dernier build publie sur jak-builds
+  notes: 'owner 2026-09-03 : jittery a 60 comme a 15 comme a 45. Or 60 est la reference identique au bit
+    dans la porte du 02/09 : le tremblement qu''il voit n''est PAS celui du pas de temps. Le gain mesure
+    (22,7->16,8 a 30 img/s) portait sur un defaut qui n''est pas le sien. Mesurer d''abord a 60 avec le
+    pas de temps ETEINT et publier l''ecart image a image d''un joint ; il soupconne un lien avec le w
+    des modeles HD.'
 - id: grass-crash
   feature: L'herbe fait planter le jeu
   status: validated
