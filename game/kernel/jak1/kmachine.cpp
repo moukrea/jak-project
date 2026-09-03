@@ -769,6 +769,25 @@ void pc_npc_clone_fail(u32 merc_name) {
   npc_flicker::note_clone_remap_fail(merc_name ? Ptr<String>(merc_name).c()->data() : nullptr);
 }
 
+// Gcutscene-npc-flicker-2 (cycle 3) — L'ETAT VIVANT DU RECENSEMENT, POUR L'ECRAN DE L'OWNER.
+// Rend un entier compose, lu par draw-pc-fps-counter (pc/pckernel.gc) pendant une cinematique :
+//   bit 0        une cinematique est recensee
+//   bits 1..16   cycles de cause defectueuse fermes dans la scene en cours (plafonne a 65535)
+//   bits 17..32  blinks (episodes trop courts pour compter)
+//   bits 33..40  cause du dernier cycle (Reason + 1 ; 0 = aucun)
+//   bits 41..56  coupes de camera / masquages voulus
+// Un seul entier, sans allocation GOAL : on l'appelle a chaque image sans rien fuir.
+u64 pc_npc_census_live() {
+  const npc_flicker::Live l = npc_flicker::live_status();
+  auto cap16 = [](u64 v) { return v > 0xffff ? (u64)0xffff : v; };
+  u64 r = l.in_scene ? 1 : 0;
+  r |= cap16(l.cycles) << 1;
+  r |= cap16(l.blinks) << 17;
+  r |= ((u64)(l.last_reason < 0 ? 0 : (l.last_reason + 1)) & 0xff) << 33;
+  r |= cap16(l.coupes) << 41;
+  return r;
+}
+
 // Gloading-screen (owner 2026-08-30) — la cadence REELLE de l'ecran de chargement et le decoupage
 // du travail GOAL qui la detruit. Voir game/system/load_gate.h : `LOADSCREEN-GAP` se tait des que
 // la barriere de residence s'ouvre, c'est-a-dire exactement au moment que l'owner decrit
@@ -4715,6 +4734,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-npc-census-begin", (void*)pc_npc_census_begin);
   make_function_symbol_from_c("__pc-npc-census-actor", (void*)pc_npc_census_actor);
   make_function_symbol_from_c("__pc-npc-census-end", (void*)pc_npc_census_end);
+  make_function_symbol_from_c("__pc-npc-census-live", (void*)pc_npc_census_live);
   make_function_symbol_from_c("__pc-npc-clone-fail", (void*)pc_npc_clone_fail);
   // Gloading-screen : instrument de cadence + tranches de travail GOAL
   make_function_symbol_from_c("__pc-loading-screen-tick", (void*)pc_loading_screen_tick);
@@ -4898,6 +4918,10 @@ void InitMachine_PCPort() {
       make_string_from_c(user_dir_path.string().c_str());
   auto settings_path = file_util::get_user_settings_dir(g_game_version);
   intern_from_c("*pc-settings-folder*")->value = make_string_from_c(settings_path.string().c_str());
+  // Gcutscene-npc-flicker-2 (cycle 3) : le recensement des PNJ ecrit AUSSI ses lignes dans le
+  // dossier de reglages — sur Android c'est /storage/emulated/0/OpenGOAL/jak1/npc_flicker.txt,
+  // le seul endroit du telephone de l'owner qu'il peut nous envoyer (son logcat est invisible).
+  npc_flicker::set_log_path((settings_path / "npc_flicker.txt").string().c_str());
   intern_from_c("*pc-settings-built-sha*")->value = make_string_from_c(build_revision().c_str());
 }
 

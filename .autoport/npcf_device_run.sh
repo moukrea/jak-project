@@ -21,7 +21,12 @@ INJECT="${5:-}"   # "<fragment>:<periode>:<duree>" — controle positif SUR L'AP
 # `continue-flags` de jak1 ne la declenche (engine/target/target-death.gc:230-357 ne nomme que
 # "sage-23"). L'application Android ne recoit pas l'environnement du shell : d'ou la propriete.
 KICK="${6:-}"
-OUT=.autoport/reports/Gcutscene-npc-flicker/device; mkdir -p "$OUT"
+# Gcutscene-npc-flicker-2, reprise sur l'appareil de la ROUTE x86 qui a atteint le maire
+# (x86_campagne2.txt, 2026-09-02 03:20) : spawn devant `mayor-5`, beach amene en 'active puis
+# affiche par les deux crochets de debug. Sans ces trois-la le maire ne nait pas (29 tentatives
+# `absent-du-pool-actif` mesurees sur x86). Memes proprietes que les env x86, cote Android.
+POS="${POS-}"; WANTLEV="${WANTLEV-}"; WANTDISP="${WANTDISP-}"
+OUT="${OUT_OVERRIDE:-.autoport/reports/Gcutscene-npc-flicker/device}"; mkdir -p "$OUT"
 LOG="$OUT/dev-$TAG-logcat.txt"; SUM="$OUT/dev-$TAG-resume.txt"
 a(){ "$ADB" -s "$SER" "$@"; }
 exec > >(tee "$SUM") 2>&1
@@ -31,11 +36,15 @@ cleanup(){
   a shell "setprop debug.opengoal.cpad_inject ''"     >/dev/null 2>&1
   a shell "setprop debug.opengoal.npcf.inject ''"     >/dev/null 2>&1
   a shell "setprop debug.opengoal.cine.kick ''"       >/dev/null 2>&1
+  a shell "setprop debug.opengoal.level.warp.pos ''"  >/dev/null 2>&1
+  a shell "setprop debug.opengoal.want.levels ''"     >/dev/null 2>&1
+  a shell "setprop debug.opengoal.want.display ''"    >/dev/null 2>&1
   [ -n "${LCPID:-}" ] && { kill "$LCPID" 2>/dev/null; sleep 1; kill -9 "$LCPID" 2>/dev/null; }
   for _p in $(pgrep -f "${SER} logcat" 2>/dev/null); do kill -9 "$_p" 2>/dev/null; done
   # On ARRETE le jeu en sortant : sinon l'auto-constructeur voit l'application au premier plan et
   # refuse d'installer pendant 1500 s — une campagne qui ne nettoie pas bloque la livraison.
   a shell am force-stop $PKG >/dev/null 2>&1
+  a shell svc power stayon false >/dev/null 2>&1
   return 0
 }
 trap cleanup EXIT
@@ -72,9 +81,21 @@ a push /tmp/npcf_settings.ini "$SET" >/dev/null 2>&1
 echo "-- reglage pose : recharged-enhanced-models? = $val"
 
 a shell am force-stop $PKG >/dev/null 2>&1
+# L'ECRAN DOIT ETRE ALLUME. Mesure du 2026-09-03 02:16 : appareil `mWakefulness=Asleep`, l'activite
+# est passee onResume -> onPause -> onStop dans la meme seconde et gk n'a jamais demarre — 480 s
+# d'observation d'un ecran noir, zero ligne, ce qui se lirait « aucun defaut ». On reveille, on
+# leve le verrou d'ecran, et on tient l'ecran allume le temps de la course (restaure a la sortie).
+a shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1; sleep 1
+a shell wm dismiss-keyguard >/dev/null 2>&1
+a shell svc power stayon true >/dev/null 2>&1
+echo "-- ecran : $(a shell dumpsys power | grep -o 'mWakefulness=[A-Za-z]*' | head -1 | tr -d '\r')"
 a shell "setprop debug.opengoal.level.warp '$SCENE'" >/dev/null 2>&1
 a shell "setprop debug.opengoal.npcf.inject '$INJECT'" >/dev/null 2>&1
 a shell "setprop debug.opengoal.cine.kick '$KICK'" >/dev/null 2>&1
+a shell "setprop debug.opengoal.level.warp.pos '$POS'" >/dev/null 2>&1
+a shell "setprop debug.opengoal.want.levels '$WANTLEV'" >/dev/null 2>&1
+a shell "setprop debug.opengoal.want.display '$WANTDISP'" >/dev/null 2>&1
+[ -n "$POS" ] && echo "-- spawn (m) : $POS   want-levels : $WANTLEV   want-display : $WANTDISP"
 [ -n "$INJECT" ] && echo "-- CONTROLE POSITIF arme sur l'appareil : $INJECT"
 [ -n "$KICK" ] && echo "-- lanceur de cinematique arme sur l'appareil : $KICK"
 a logcat -c >/dev/null 2>&1

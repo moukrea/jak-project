@@ -1,10 +1,12 @@
 #include "game/system/npc_flicker.h"
 
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <sys/stat.h>
 #include <unordered_map>
 
 #if defined(__ANDROID__)
@@ -87,9 +89,11 @@ struct RenderRec {
   uint64_t last_drawn = 0;
   uint64_t last_suppressed = 0;
   uint64_t last_missing = 0;
+  uint64_t last_garbage = 0;
   bool ever_drawn = false;
   bool ever_suppressed = false;
   bool ever_missing = false;
+  bool ever_garbage = false;
   bool hd = false;
 };
 
@@ -107,7 +111,7 @@ struct ActorRec {
   Reason gap_reason = kReasonCulled;
   uint64_t cycles = 0;
   uint64_t blinks = 0;
-  uint64_t by_reason[10] = {};
+  uint64_t by_reason[kReasonCount] = {};
   uint64_t coupes = 0;
   uint64_t longues = 0;
   uint64_t max_gap = 0;
@@ -157,6 +161,41 @@ uint64_t g_skew[4] = {};
 std::string g_scene;
 uint64_t g_census_frame = 0;
 Totals g_totals;
+
+int g_last_defect_reason = -1;
+
+// --- SORTIE : stdout ET, si un chemin est pose, un fichier du dossier de reglages ---------------
+// Le fichier existe pour le telephone de l'OWNER : son logcat n'est lisible par personne, mais un
+// fichier de son dossier OpenGOAL/jak1 peut etre envoye. Borne : au-dela de 1 Mo, l'ancien contenu
+// est tourne en `.1` (une seule generation) — une cinematique ecrit quelques Ko, jamais plus.
+std::string g_log_path;
+constexpr long kLogRotateBytes = 1024 * 1024;
+
+void write_log_line(const std::string& line) {
+  if (g_log_path.empty()) {
+    return;
+  }
+  struct stat st;
+  if (stat(g_log_path.c_str(), &st) == 0 && st.st_size > kLogRotateBytes) {
+    std::string old = g_log_path + ".1";
+    std::remove(old.c_str());
+    std::rename(g_log_path.c_str(), old.c_str());
+  }
+  FILE* f = std::fopen(g_log_path.c_str(), "a");
+  if (!f) {
+    return;
+  }
+  std::fputs(line.c_str(), f);
+  std::fclose(f);
+}
+
+template <typename... Args>
+void emit(const char* fmtstr, Args&&... args) {
+  std::string line = fmt::format(fmt::runtime(fmtstr), std::forward<Args>(args)...);
+  std::fputs(line.c_str(), stdout);
+  std::fflush(stdout);
+  write_log_line(line);
+}
 
 bool is_hd_name(const char* merc_name) {
   return merc_name && std::strstr(merc_name, "-hd-lod") != nullptr;
@@ -212,6 +251,12 @@ Reason classify(const std::string& key,
         g_render_frame - it->second.last_missing <= draw_tolerance() + 1) {
       return kReasonMissing;
     }
+    // Cycle 3 : le rendu a DESSINE, mais avec des matrices d'os invalides — a l'ecran, rien.
+    // Teste avant `nodraw` : ici le paquet EST passe, la cause est connue et nommee.
+    if (it->second.ever_garbage &&
+        g_render_frame - it->second.last_garbage <= draw_tolerance() + 1) {
+      return kReasonGarbage;
+    }
   }
   // was-drawn POSE et rien de dessine, sans que la couverture ni le chargeur l'expliquent. Le
   // cycle 1 rendait `kReasonCulled` ici — c'est-a-dire qu'il classait « le jeu dit l'avoir
@@ -236,14 +281,13 @@ void close_gap(const std::string& name, ActorRec& rec) {
     if (reason_is_defect(rec.gap_reason) &&
         (rec.gap_len > kMaxEpisodeFrames || ms > kMaxEpisodeMs)) {
       rec.longues++;
-      fmt::print("NPCFLICK-LONG scene={} pnj={} images={} ms={} cause={} hd={}\n", g_scene, name,
-                 rec.gap_len, ms, reason_name(rec.gap_reason), rec.hd ? 1 : 0);
-      fflush(stdout);
+      emit("NPCFLICK-LONG scene={} pnj={} images={} ms={} cause={} hd={} plateforme={}\n", g_scene,
+           name, rec.gap_len, ms, reason_name(rec.gap_reason), rec.hd ? 1 : 0, platform_tag());
     } else if (reason_is_defect(rec.gap_reason)) {
       rec.cycles++;
-      fmt::print("NPCFLICK-EV scene={} pnj={} images={} ms={} cause={} hd={}\n", g_scene, name,
-                 rec.gap_len, ms, reason_name(rec.gap_reason), rec.hd ? 1 : 0);
-      fflush(stdout);
+      g_last_defect_reason = (int)rec.gap_reason;
+      emit("NPCFLICK-EV scene={} pnj={} images={} ms={} cause={} hd={} plateforme={}\n", g_scene,
+           name, rec.gap_len, ms, reason_name(rec.gap_reason), rec.hd ? 1 : 0, platform_tag());
     } else {
       rec.coupes++;
     }
@@ -264,20 +308,21 @@ void snapshot() {
     if (!r.ever_shown) {
       continue;
     }
-    fmt::print(
+    emit(
         "NPCFLICK-P scene={} pnj={} cycles={} hd={} coupes={} longues={} blinks={} mort={} hidden={} "
         "noanim={} culled={} supprime={} modele_absent={} niveau={} clone={} nodraw={} "
-        "cull_aveugle={} trou_max={} "
+        "cull_aveugle={} matrice_invalide={} trou_max={} "
         "trou_max_ms={} "
         "images={} "
-        "dessine={} inst={}\n",
+        "dessine={} inst={} plateforme={}\n",
         g_scene, kv.first, r.cycles, r.hd ? 1 : 0, r.coupes, r.longues, r.blinks,
         r.by_reason[kReasonDead], r.by_reason[kReasonHidden], r.by_reason[kReasonNoAnim],
         r.by_reason[kReasonCulled], r.by_reason[kReasonSuppressed], r.by_reason[kReasonMissing],
         r.by_reason[kReasonLevel], r.by_reason[kReasonRemap], r.by_reason[kReasonNodraw],
-        r.by_reason[kReasonCullBlind], r.max_gap, r.max_gap_ms, r.frames,
+        r.by_reason[kReasonCullBlind], r.by_reason[kReasonGarbage], r.max_gap, r.max_gap_ms,
+        r.frames,
         r.shown,
-        r.max_instances);
+        r.max_instances, platform_tag());
   }
   fflush(stdout);
 }
@@ -299,40 +344,42 @@ void flush_scene() {
     // l'acteur devait revenir.
     actors++;
     cycles += r.cycles;
-    fmt::print(
+    emit(
         "NPCFLICK scene={} pnj={} cycles={} hd={} coupes={} longues={} blinks={} mort={} hidden={} "
         "noanim={} culled={} supprime={} modele_absent={} niveau={} clone={} nodraw={} "
-        "cull_aveugle={} trou_max={} "
+        "cull_aveugle={} matrice_invalide={} trou_max={} "
         "trou_max_ms={} "
         "images={} "
-        "dessine={} inst={}\n",
+        "dessine={} inst={} plateforme={}\n",
         g_scene, kv.first, r.cycles, r.hd ? 1 : 0, r.coupes, r.longues, r.blinks,
         r.by_reason[kReasonDead], r.by_reason[kReasonHidden], r.by_reason[kReasonNoAnim],
         r.by_reason[kReasonCulled], r.by_reason[kReasonSuppressed], r.by_reason[kReasonMissing],
         r.by_reason[kReasonLevel], r.by_reason[kReasonRemap], r.by_reason[kReasonNodraw],
-        r.by_reason[kReasonCullBlind], r.max_gap, r.max_gap_ms, r.frames,
+        r.by_reason[kReasonCullBlind], r.by_reason[kReasonGarbage], r.max_gap, r.max_gap_ms,
+        r.frames,
         r.shown,
-        r.max_instances);
+        r.max_instances, platform_tag());
     g_totals.cycles += r.cycles;
     g_totals.coupes += r.coupes;
     g_totals.longues += r.longues;
     g_totals.blinks += r.blinks;
     g_totals.frames += r.frames;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < kReasonCount; i++) {
       g_totals.by_reason[i] += r.by_reason[i];
     }
   }
   g_totals.scenes++;
   g_totals.actors += actors;
-  fmt::print("NPCSCENE scene={} pnj_suivis={} cycles={} images={} ecart0={} ecart1={} ecart2={} "
-             "ecart3={} tolerance={}\n",
-             g_scene, actors, cycles, g_census_frame, g_skew[0], g_skew[1], g_skew[2], g_skew[3],
-             draw_tolerance());
+  emit("NPCSCENE scene={} pnj_suivis={} cycles={} images={} ecart0={} ecart1={} ecart2={} "
+       "ecart3={} tolerance={} plateforme={}\n",
+       g_scene, actors, cycles, g_census_frame, g_skew[0], g_skew[1], g_skew[2], g_skew[3],
+       draw_tolerance(), platform_tag());
   fflush(stdout);
   g_actors.clear();
   g_remap_fail.clear();
   g_scene.clear();
   g_census_frame = 0;
+  g_last_defect_reason = -1;
   for (int i = 0; i < 4; i++) {
     g_skew[i] = 0;
   }
@@ -362,6 +409,8 @@ const char* reason_name(Reason r) {
       return "soumis-mais-non-dessine";
     case kReasonCullBlind:
       return "cull-aveugle";
+    case kReasonGarbage:
+      return "matrice-invalide";
   }
   return "?";
 }
@@ -415,6 +464,12 @@ void note_draw(uint32_t owner_pid, Outcome outcome, bool is_hd_model) {
     case Outcome::kMissing:
       r.last_missing = g_render_frame;
       r.ever_missing = true;
+      break;
+    case Outcome::kGarbage:
+      // Le paquet a ete dessine (kDrawn est deja note pour cette image) : on retient l'image ou
+      // les matrices etaient invalides, et census_actor en fait une ABSENCE.
+      r.last_garbage = g_render_frame;
+      r.ever_garbage = true;
       break;
   }
 }
@@ -499,7 +554,13 @@ void census_actor(const char* proc_name,
   }
   if (it != g_render.end() && it->second.ever_drawn &&
       g_render_frame - it->second.last_drawn <= draw_tolerance()) {
-    rec.frame_drawn = true;
+    // Un dessin dont les matrices etaient invalides a la meme image n'est PAS une presence :
+    // l'ecran n'a rien recu de visible. (cycle 3, angle mort « dessine mais invisible »)
+    const bool garbage_same_frame =
+        it->second.ever_garbage && it->second.last_garbage == it->second.last_drawn;
+    if (!garbage_same_frame) {
+      rec.frame_drawn = true;
+    }
     if (it->second.hd) {
       rec.hd = true;
     }
@@ -587,6 +648,58 @@ Totals totals() {
   return g_totals;
 }
 
+const char* platform_tag() {
+  static char s_tag[32] = {0};
+  if (s_tag[0]) {
+    return s_tag;
+  }
+#if defined(__ANDROID__)
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get("ro.product.brand", buf) > 0 && buf[0]) {
+    int n = 0;
+    for (int i = 0; buf[i] && n < (int)sizeof(s_tag) - 1; i++) {
+      char c = buf[i];
+      if (c >= 'A' && c <= 'Z') {
+        c = (char)(c - 'A' + 'a');
+      }
+      if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+        s_tag[n++] = c;
+      }
+    }
+    s_tag[n] = 0;
+  }
+  if (!s_tag[0]) {
+    std::snprintf(s_tag, sizeof(s_tag), "android");
+  }
+#else
+  std::snprintf(s_tag, sizeof(s_tag), "x86");
+#endif
+  return s_tag;
+}
+
+void set_log_path(const char* path) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_log_path = (path && path[0]) ? path : "";
+  if (!g_log_path.empty()) {
+    fmt::print("NPCF-LOG fichier={} plateforme={}\n", g_log_path, platform_tag());
+    fflush(stdout);
+  }
+}
+
+Live live_status() {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  Live l;
+  l.in_scene = !g_scene.empty();
+  l.frames = g_census_frame;
+  l.last_reason = g_last_defect_reason;
+  for (const auto& kv : g_actors) {
+    l.cycles += kv.second.cycles;
+    l.blinks += kv.second.blinks;
+    l.coupes += kv.second.coupes;
+  }
+  return l;
+}
+
 void reset_for_test() {
   std::lock_guard<std::mutex> lock(g_mutex);
   g_render.clear();
@@ -595,6 +708,7 @@ void reset_for_test() {
   g_scene.clear();
   g_render_frame = 0;
   g_census_frame = 0;
+  g_last_defect_reason = -1;
   for (int i = 0; i < 4; i++) {
     g_skew[i] = 0;
   }

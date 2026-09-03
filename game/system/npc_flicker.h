@@ -66,6 +66,13 @@ enum class Outcome {
   kDrawn = 0,       // le paquet a ete accepte et dessine
   kSuppressed = 1,  // la couverture HD a jete le paquet stock (Merc2, per-pid TTL)
   kMissing = 2,     // le modele merc n'est pas resident dans le chargeur
+  // Gcutscene-npc-flicker-2 (cycle 3) : le paquet a ete DESSINE, mais ses matrices d'os sont
+  // INVALIDES (NaN/inf, os projete a des kilometres de la camera, ou matrice nulle). Un tel
+  // dessin ne met RIEN a l'ecran : les sommets partent a l'infini ou s'effondrent en un point.
+  // C'etait l'angle mort structurel du recensement : « GOAL a soumis, le rendu a dessine » etait
+  // compte comme une presence, alors que l'oeil ne voit rien. Le rendu continue de dessiner le
+  // paquet tel quel — c'est une MESURE, pas une correction.
+  kGarbage = 3,
 };
 
 // Un paquet merc vient d'etre traite pour l'acteur `owner_pid`. Pour un paquet de COMPAGNON HD,
@@ -123,7 +130,7 @@ struct Totals {
   uint64_t coupes = 0;   // episodes explicables : hors du frustum, ou masque volontairement
   uint64_t longues = 0;  // episodes de cause DEFECTUEUSE mais plus longs que la borne haute
   uint64_t blinks = 0;   // episodes de 1 a kMinEpisodeFrames-1 images (publies, non gates)
-  uint64_t by_reason[10] = {};  // indexe par Reason
+  uint64_t by_reason[11] = {};  // indexe par Reason
   uint64_t frames = 0;
 };
 
@@ -168,7 +175,9 @@ enum Reason {
   kReasonRemap = 7,       // un CLONE de cinematique n'a pas pu suivre sa source et s'est masque
   kReasonNodraw = 8,      // GOAL a soumis (was-drawn) et RIEN n'a ete dessine, sans explication
   kReasonCullBlind = 9,   // was-drawn a 0 alors que la position racine EST dans le frustum
+  kReasonGarbage = 10,    // dessine avec des matrices d'os INVALIDES : rien de visible a l'ecran
 };
+constexpr int kReasonCount = 11;
 bool reason_is_defect(Reason r);
 const char* reason_name(Reason r);
 
@@ -193,5 +202,28 @@ int max_episode_frames();
 int max_episode_ms();
 
 void reset_for_test();
+
+// --- Gcutscene-npc-flicker-2, cycle 3 : L'APPAREIL DE L'OWNER DEVIENT LISIBLE -----------------
+// L'owner voit le defaut sur SON telephone, que personne d'autre ne peut observer ; les courses
+// sur le Redmi et sur x86 rendent zero. Trois sorties de plus, toutes produites par le CODE :
+//   * `plateforme=` sur chaque ligne publiee : "x86", ou la marque Android en minuscules lue
+//     dans `ro.product.brand` ("redmi", "honor"). Une ligne dit ainsi d'elle-meme d'ou elle vient.
+//   * les lignes NPCFLICK/NPCSCENE sont AUSSI ecrites dans un fichier du dossier de reglages
+//     (`<dossier settings>/npc_flicker.txt`, borne en taille) — sur le telephone de l'owner,
+//     c'est /storage/emulated/0/OpenGOAL/jak1/npc_flicker.txt, qu'il peut envoyer.
+//   * `live_status()` : l'etat de la scene EN COURS, que le compteur FPS affiche a l'ecran pendant
+//     une cinematique. L'owner lit un NOMBRE produit par le code, pas une image.
+const char* platform_tag();
+void set_log_path(const char* path);  // nullptr / "" = pas de fichier
+
+struct Live {
+  bool in_scene = false;  // une cinematique est recensee en ce moment
+  uint64_t cycles = 0;    // cycles de cause DEFECTUEUSE fermes dans la scene en cours
+  uint64_t blinks = 0;    // episodes trop courts pour etre comptes
+  uint64_t coupes = 0;    // coupes de camera / masquages voulus
+  int last_reason = -1;   // Reason du dernier episode DEFECTUEUX ferme, -1 si aucun
+  uint64_t frames = 0;    // images de recensement de la scene en cours
+};
+Live live_status();
 
 }  // namespace npc_flicker

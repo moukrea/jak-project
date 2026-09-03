@@ -34,7 +34,11 @@ for path in sys.argv[1:]:
                 rows[key] = (final, d)
 
 REASONS = ['mort', 'hidden', 'noanim', 'culled', 'supprime', 'modele_absent', 'niveau', 'clone',
-           'nodraw', 'cull_aveugle']
+           'nodraw', 'cull_aveugle', 'matrice_invalide']
+# Cycle 3 : `matrice_invalide` = le paquet a ete DESSINE avec des matrices d'os invalides (NaN,
+# os a des kilometres, matrice nulle) — rien de visible a l'ecran. L'angle mort « dessine mais
+# invisible » des deux premiers cycles. Un journal anterieur au cycle 3 ne porte pas ce champ et
+# publie `?`, jamais 0.
 # Les causes GATEES : rien dans le jeu n'a demande que l'acteur disparaisse. `culled` et `hidden`
 # sont publiees et jamais gatees — sinon toute cinematique qui coupe d'un cadrage a l'autre
 # passerait au rouge.
@@ -45,7 +49,7 @@ REASONS = ['mort', 'hidden', 'noanim', 'culled', 'supprime', 'modele_absent', 'n
 # `culled` ne garde donc que les episodes ou les DEUX sources de position s'accordent sur
 # « hors champ » : c'est ce qui le rend falsifiable au lieu d'etre un residu.
 DEFAUTS = ['mort', 'noanim', 'supprime', 'modele_absent', 'niveau', 'clone', 'nodraw',
-           'cull_aveugle']
+           'cull_aveugle', 'matrice_invalide']
 tot = collections.Counter()
 scenes = collections.defaultdict(set)
 print(f"{'jambe':5} {'scene':28} {'pnj':26} {'cyc':>4} {'hd':>2} {'blk':>4} "
@@ -86,5 +90,11 @@ for leg in sorted(scenes):
     npcok_scenes |= {sc for sc in scenes[leg] if sc != 'flux-non-arme'}
     npcok_pnj += tot[(leg, 'pnj')]
     npcok_cycles += tot[(leg, 'cycles')]
+# Cycle 3 : la PLATEFORME vient des lignes elles-memes (`plateforme=` est ecrit par le code du
+# moteur, `ro.product.brand` sur Android, `x86` sur bureau), jamais devinee depuis un nom de
+# fichier. L'agregat les liste toutes, et un journal anterieur au cycle 3 rend `?`.
+plateformes = sorted({d.get('plateforme', '?') for (_, sc, _), (_, d) in rows.items()
+                      if sc not in ('hors-cinematique', 'flux-non-arme')})
 print()
-print(f"NPCOK scenes={len(npcok_scenes)} pnj_suivis={npcok_pnj} cycles={npcok_cycles}")
+print(f"NPCOK scenes={len(npcok_scenes)} pnj_suivis={npcok_pnj} cycles={npcok_cycles} "
+      f"plateforme={','.join(plateformes) if plateformes else '?'}")

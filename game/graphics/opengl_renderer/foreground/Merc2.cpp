@@ -2386,6 +2386,91 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     memcpy(&skel_matrix_buffer[input_data[i]], real_addr, sizeof(MercMat));
   }
 
+  // Gcutscene-npc-flicker-2 (cycle 3) — « DESSINE MAIS INVISIBLE », l'angle mort du recensement.
+  // Le recensement (game/system/npc_flicker.h) ne voyait qu'une ABSENCE de paquet : un paquet
+  // DESSINE avec des matrices d'os invalides — NaN/inf, os projete a des kilometres de la camera,
+  // matrice nulle — ne met rien a l'ecran et comptait pourtant comme une presence. C'est la
+  // signature que Ghd-skin-origin-stretch a mesuree sur les os HD (matrice retombee a zero ou a
+  // l'identite pendant UNE image) ; ici elle est testee sur TOUS les paquets, stock compris, et
+  // publiee comme une absence de cause `matrice-invalide`. Le paquet est dessine tel quel : c'est
+  // une MESURE, jamais une correction. Cout : <= 128 lectures de 12 flottants par paquet.
+  //
+  // SEULS LES OS QU'UN SOMMET LIT SONT JUGES. Premiere version : « slot 0 = racine » et un seul
+  // os invalide suffisait. Mesure x86 (gk2-hd1-c3a.log) : `dax-hd-lod0 os_invalides=1/76
+  // racine=1 t0=(0 0 0)` puis `t0=(8589934592 0 -0)` — le slot 0 des compagnons HD est un
+  // joint que le reciblage n'ecrit PAS (memoire jamais initialisee : zero, puis n'importe quoi)
+  // et qu'AUCUN sommet ne lit. Il fabriquait 5 faux cycles `supprime` sur Daxter dans la scene
+  // du maire. Le masque `used_bone_mask_rt` (calcule par le chargeur, Loader.cpp
+  // compute_merc_used_bone_masks — le meme que la sonde HDSKIN) rend le verdict : un os non lu
+  // ne peut rien rendre invisible. Masque absent = tous les slots comptent (plus severe).
+  {
+    int bad = 0;
+    int judged = 0;
+    int first_bad_slot = -1;
+    const bool mask_known = model->used_bone_mask_rt.size() >= 128;
+    // Une racine projetee a plus de 3 km de la camera n'est pas un acteur que GOAL a juge visible
+    // (la sphere de culling est a quelques metres). 4096 unites = 1 m.
+    constexpr float kFarUnits = 4096.0f * 3000.0f;
+    for (int k = 0; k < i; k++) {
+      const int slot = input_data[k];
+      if (mask_known && !model->used_bone_mask_rt[slot]) {
+        continue;
+      }
+      judged++;
+      const ShaderMercMat& m = skel_matrix_buffer[slot];
+      bool ok = true;
+      float rot_abs = 0.f;
+      for (int r = 0; r < 3 && ok; r++) {
+        for (int c = 0; c < 3; c++) {
+          const float v = m.tmat[r][c];
+          if (!std::isfinite(v)) {
+            ok = false;
+            break;
+          }
+          rot_abs += std::fabs(v);
+        }
+      }
+      const float tx = m.tmat[3][0], ty = m.tmat[3][1], tz = m.tmat[3][2];
+      if (ok && (!std::isfinite(tx) || !std::isfinite(ty) || !std::isfinite(tz))) {
+        ok = false;
+      }
+      if (ok && (rot_abs == 0.f || std::fabs(tx) > kFarUnits || std::fabs(ty) > kFarUnits ||
+                 std::fabs(tz) > kFarUnits)) {
+        ok = false;
+      }
+      if (!ok) {
+        bad++;
+        if (first_bad_slot < 0) {
+          first_bad_slot = slot;
+        }
+      }
+    }
+    // Un paquet est INVISIBLE quand la majorite des os que ses sommets lisent sont invalides ;
+    // un seul os faux est un ETIREMENT (l'autre phase), pas une disparition.
+    if (judged > 0 && bad * 2 >= judged) {
+      static u64 s_npcf_garbage_packets = 0;
+      s_npcf_garbage_packets++;
+      if (s_npcf_garbage_packets <= 20 || s_npcf_garbage_packets % 100 == 0) {
+        const ShaderMercMat& mb = skel_matrix_buffer[first_bad_slot];
+        lg::warn("[npc-flicker] MATRICE-INVALIDE name='{}' pid={} os_invalides={}/{} juges={} "
+                 "masque={} premier_slot={} t=({:.1f} {:.1f} {:.1f}) total={}",
+                 name, census_pid, bad, i, judged, mask_known ? 1 : 0, first_bad_slot,
+                 mb.tmat[3][0], mb.tmat[3][1], mb.tmat[3][2], s_npcf_garbage_packets);
+      }
+      npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kGarbage, is_hd_packet);
+    } else if (bad > 0) {
+      // Diagnostic seul : un ou quelques os faux sur un paquet lisible. Pas une absence.
+      static u64 s_npcf_partial_bad = 0;
+      s_npcf_partial_bad++;
+      if (s_npcf_partial_bad <= 10 || s_npcf_partial_bad % 500 == 0) {
+        lg::warn("[npc-flicker] OS-INVALIDE-PARTIEL name='{}' pid={} os_invalides={}/{} juges={} "
+                 "masque={} premier_slot={} total={}",
+                 name, census_pid, bad, i, judged, mask_known ? 1 : 0, first_bad_slot,
+                 s_npcf_partial_bad);
+      }
+    }
+  }
+
   // OWNER ROUND#18 (Grecharged-grass-poc): capture ground-object world positions for the grass
   // object-clip. Crates + the warp-gate button are merc actors (not TIE / not in static level data), so
   // the grass renderer can't see them at level load. Snapshot the first bone's world XYZ (tmat is

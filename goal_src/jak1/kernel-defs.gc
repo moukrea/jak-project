@@ -458,6 +458,7 @@
 (define-extern __pc-npc-census-begin (function string none))
 (define-extern __pc-npc-census-actor (function string int int int int none))
 (define-extern __pc-npc-census-end (function none))
+(define-extern __pc-npc-census-live (function int))
 ;; Un clone de cinematique n'a pas pu suivre sa source cette image et s'est masque lui-meme
 ;; (generic-obs.gc). Sans cette declaration du PRODUCTEUR, ce masquage et un masquage voulu par le
 ;; jeu portent le meme bit `hidden` et sont indistinguables.

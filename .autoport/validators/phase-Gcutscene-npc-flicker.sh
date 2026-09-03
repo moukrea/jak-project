@@ -14,6 +14,10 @@ if not ok: F("NPCOK absent")
 if int(ok[0].get('scenes',0))<3: F(f"{ok[0].get('scenes')} scenes verifiees, il en faut >= 3")
 # SCENE IMPOSEE (owner 2026-09-01) : la porte precedente a ete satisfaite sur 3 scenes qui
 # n'etaient PAS celle qui echoue. Un compte de scenes ne vaut rien sans le cas nomme.
+if not re.search(r'^NPC(FLICK|OK) .*plateforme=redmi',t,re.M):
+    F("aucune mesure SUR L'APPAREIL : la porte du 02/09 s'est ouverte sur une preuve PC pendant que l'owner voyait le defaut — preuve Redmi exigee, modeles HD installes")
+if not re.search(r'(?i)^NPCFLICK .*scene=\S*mayor\S* .*pnj=mayor',t,re.M):
+    F("le MAIRE lui-meme n'est pas suivi dans sa propre cinematique (les lignes precedentes listaient Daxter, la lampe et les engrenages)")
 if not re.search(r'(?i)^NPC(FLICK|OK) .*(maire|mayor)',t,re.M):
     F("la premiere cinematique du MAIRE n'est pas couverte — c'est le pire cas nomme par l'owner, une preuve sans elle est refusee")
 if int(ok[0].get('cycles',1))!=0: F(f"{ok[0]['cycles']} clignotement(s) subsistent")

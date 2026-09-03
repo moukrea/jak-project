@@ -701,6 +701,22 @@
 ;; Gated on the fps-counter? graphics option; reads the REAL measured render fps
 ;; published by the renderer present path (pc-get-fps). Called every frame from
 ;; (update *pc-settings*).
+(defun npc-census-cause-name ((r int))
+  "Nom de la cause d'un cycle du recensement des PNJ (game/system/npc_flicker.h, Reason + 1)."
+  (case r
+    ((1) "mort")
+    ((2) "hidden")
+    ((3) "noanim")
+    ((4) "culled")
+    ((5) "supprime")
+    ((6) "modele-absent")
+    ((7) "niveau-inactif")
+    ((8) "clone-desync")
+    ((9) "non-dessine")
+    ((10) "cull-aveugle")
+    ((11) "matrice-invalide")
+    (else "aucune")))
+
 (defun draw-pc-fps-counter ()
   (when (-> *pc-settings* fps-counter?)
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf))
@@ -709,7 +725,26 @@
                       16
                       (the int (* 16.0 (-> (get-video-params) relative-y-scale)))
                       (font-color flat-yellow)
-                      (font-flags shadow kerning large))))
+                      (font-flags shadow kerning large))
+      ;; Gcutscene-npc-flicker-2 (cycle 3) — LE COMPTEUR DES PNJ SOUS LE COMPTEUR FPS, PENDANT
+      ;; UNE CINEMATIQUE. L'owner voit le clignotement sur SON telephone, que personne ne peut
+      ;; observer ; les courses Redmi/x86 rendent zero. Cette ligne lui montre ce que le
+      ;; recensement (game/system/npc_flicker.cpp) COMPTE au moment ou il voit le defaut :
+      ;; `PNJ cycles=N blinks=M coupes=K cause=<nom>`. Un nombre produit par le code, qu'il lit —
+      ;; pas une image. Si le compteur reste a 0 pendant qu'il voit un PNJ disparaitre, c'est
+      ;; l'instrument qui est aveugle, et on le saura enfin de SON appareil.
+      (let ((live (__pc-npc-census-live)))
+        (when (logtest? live 1)
+          (draw-string-xy (string-format "PNJ cycles=~D blinks=~D coupes=~D cause=~S"
+                                         (logand (shr live 1) #xffff)
+                                         (logand (shr live 17) #xffff)
+                                         (logand (shr live 41) #xffff)
+                                         (npc-census-cause-name (logand (shr live 33) #xff)))
+                          buf
+                          16
+                          (the int (* 32.0 (-> (get-video-params) relative-y-scale)))
+                          (font-color flat-yellow)
+                          (font-flags shadow kerning))))))
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

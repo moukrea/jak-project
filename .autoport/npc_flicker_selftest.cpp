@@ -59,6 +59,12 @@ void run_frame(const char* scene, const std::vector<Actor>& actors) {
   for (const auto& a : actors) {
     if (a.drawn) {
       npc_flicker::note_draw(a.pid, npc_flicker::Outcome::kDrawn, false);
+      // Cycle 3 : un paquet DESSINE peut porter des matrices invalides — Merc2 note alors les
+      // deux issues pour la meme image, exactement dans cet ordre (kDrawn a la lecture du
+      // modele, kGarbage a la lecture des matrices).
+      if (a.outcome == npc_flicker::Outcome::kGarbage) {
+        npc_flicker::note_draw(a.pid, npc_flicker::Outcome::kGarbage, false);
+      }
     } else if (a.outcome != npc_flicker::Outcome::kDrawn) {
       npc_flicker::note_draw(a.pid, a.outcome, false);
     }
@@ -509,6 +515,83 @@ int main() {
     check(t.scenes == 1 && t.cycles == 1,
           "episode ouvert avant que le flux porte son nom : compte, sous UNE seule scene",
           "scenes=" + std::to_string(t.scenes) + " cycles=" + std::to_string(t.cycles));
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Gcutscene-npc-flicker-2, CYCLE 3 — L'ANGLE MORT « DESSINE MAIS INVISIBLE ».
+  // Les deux cycles precedents ne pouvaient voir qu'une ABSENCE de dessin. Un paquet dessine avec
+  // des matrices d'os invalides (NaN, os a des kilometres, matrice nulle) ne met rien a l'ecran
+  // et comptait comme une PRESENCE. Trois proprietes : le controle positif tire avec la bonne
+  // cause, le controle negatif ne tire pas, et l'etat vivant (celui que le compteur FPS affiche
+  // a l'owner) reflete le cycle pendant la scene.
+  // ---------------------------------------------------------------------------------------------
+  // 19. MATRICE INVALIDE, CONTROLE POSITIF — was-drawn pose, paquet DESSINE, matrices invalides
+  //     pendant 8 images : un cycle, cause `matrice-invalide`, et PAS `nodraw`.
+  npc_flicker::reset_for_test();
+  g_frame = 0;
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-G", {shown("mayor-lod0", 1000)});
+  }
+  for (int i = 0; i < 8; i++) {
+    Actor a = shown("mayor-lod0", 1000);
+    a.outcome = npc_flicker::Outcome::kGarbage;
+    run_frame("scene-G", {a});
+  }
+  npc_flicker::Live mid = npc_flicker::live_status();
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-G", {shown("mayor-lod0", 1000)});
+  }
+  npc_flicker::Live fin = npc_flicker::live_status();
+  npc_flicker::begin_census("hors-cinematique");
+  {
+    auto t = npc_flicker::totals();
+    check(t.cycles == 1 && t.by_reason[npc_flicker::kReasonGarbage] == 1 &&
+              t.by_reason[npc_flicker::kReasonNodraw] == 0,
+          "dessine avec des matrices INVALIDES : cycle cause=matrice-invalide",
+          "cycles=" + std::to_string(t.cycles) +
+              " matrice_invalide=" + std::to_string(t.by_reason[npc_flicker::kReasonGarbage]) +
+              " nodraw=" + std::to_string(t.by_reason[npc_flicker::kReasonNodraw]));
+    // 20. L'ETAT VIVANT (compteur FPS) : pendant l'episode rien n'est encore ferme, apres la
+    //     reprise du dessin le cycle est visible AVEC sa cause — et la scene est declaree en cours.
+    check(mid.in_scene && mid.cycles == 0 && fin.in_scene && fin.cycles == 1 &&
+              fin.last_reason == (int)npc_flicker::kReasonGarbage,
+          "etat vivant : 0 cycle pendant l'episode, 1 cycle + cause apres la reprise",
+          "mid=" + std::to_string(mid.cycles) + " fin=" + std::to_string(fin.cycles) +
+              " cause=" + std::to_string(fin.last_reason));
+    npc_flicker::Live out = npc_flicker::live_status();
+    check(!out.in_scene && out.cycles == 0, "etat vivant hors cinematique : aucune scene",
+          "in_scene=" + std::to_string(out.in_scene));
+  }
+
+  // 21. MATRICE INVALIDE, CONTROLE NEGATIF — une matrice invalide notee a une image ANTERIEURE ne
+  //     doit pas contaminer les images suivantes ou le dessin est sain : 1 image invalide = un
+  //     `blink` au plus, jamais un cycle, et `matrice_invalide` reste a 0 dans les cycles.
+  npc_flicker::reset_for_test();
+  g_frame = 0;
+  for (int i = 0; i < 10; i++) {
+    run_frame("scene-H", {shown("mayor-lod0", 1100)});
+  }
+  {
+    Actor a = shown("mayor-lod0", 1100);
+    a.outcome = npc_flicker::Outcome::kGarbage;
+    run_frame("scene-H", {a});
+  }
+  for (int i = 0; i < 20; i++) {
+    run_frame("scene-H", {shown("mayor-lod0", 1100)});
+  }
+  npc_flicker::begin_census("hors-cinematique");
+  {
+    auto t = npc_flicker::totals();
+    check(t.cycles == 0 && t.by_reason[npc_flicker::kReasonGarbage] == 0 && t.blinks <= 1,
+          "une seule image invalide : au plus un blink, jamais un cycle",
+          "cycles=" + std::to_string(t.cycles) + " blinks=" + std::to_string(t.blinks));
+  }
+
+  // 22. LA PLATEFORME EST PUBLIEE PAR LE CODE, pas par l'analyseur : sur ce bureau elle vaut
+  //     "x86" ; sur Android c'est la marque lue dans ro.product.brand (redmi, honor).
+  {
+    std::string tag = npc_flicker::platform_tag();
+    check(tag == "x86", "plateforme publiee par le code (bureau = x86)", "plateforme=" + tag);
   }
 
   printf("\n%s — %d echec(s)\n", g_fail ? "SELFTEST FAILED" : "SELFTEST PASS", g_fail);
