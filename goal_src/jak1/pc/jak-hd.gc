@@ -2851,8 +2851,20 @@
            ;; avant `do-joint-math!` de cette image : le compagnon reapparait l'image suivant son
            ;; premier reciblage, pendant laquelle le stock est rendu a lui-meme par
            ;; `pc-hd-uncover!`.
+           ;; ET LA CONDITION EST BORNEE PAR LE DESSIN DU PILOTE. On ne retire le compagnon que
+           ;; si le pilote n'est de toute facon pas dessinable — `dma-add-process-drawable`
+           ;; (drawable.gc:446) refuse le dessin stock sur exactement ce masque. Un pilote dont
+           ;; l'os 4 n'est pas pose sort de `initialize-skeleton`, qui pose
+           ;; `no-skeleton-update` : le cas nominal tombe donc dedans, et rien n'est troue. Si un
+           ;; jour un pilote DESSINABLE arrivait sans pose, on ne le trouerait pas non plus — on
+           ;; garderait l'ancien comportement, et `hd_tpose_drawn_frames` le compterait au lieu
+           ;; de le taire. C'est la difference entre une garde et un pari.
            (let ((th (if (or dhid
-                             (and (nonzero? *hd-tpose-arm*) (zero? (-> self st-warm)))
+                             (and (nonzero? *hd-tpose-arm*)
+                                  (zero? (-> self st-warm))
+                                  (nonzero? (-> drv draw))
+                                  (logtest? (-> drv draw status)
+                                            (draw-status hidden no-anim no-skeleton-update)))
                              (and (zero? (__pc-npcf-fix-armed?))
                                   (>= (-> self noanim-run) deb)))
                        1 0))

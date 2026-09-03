@@ -5,7 +5,7 @@ version: 1
 items:
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
-  status: in-progress
+  status: to-test
   priority: 10
   owner_feedback:
   - date: '2026-08-31'
@@ -37,11 +37,6 @@ items:
   owner_ok: null
   device: true
   device_serial: eae4df44
-  # LA ROUTE QUI ATTEINT LA CINEMATIQUE DU MAIRE SANS PERSONNE AU PAD. `lib/proof_run.sh` ne fait
-  # qu'un `am start` puis attend : sans ces cinq proprietes il mesure l'ecran de titre. Elles sont
-  # celles, mot pour mot, qui ont produit `NPCCULL scene=mayor-introduction ... images=1411` deux
-  # fois de suite le 2026-09-03 (reports/Gcutscene-npc-flicker/device3b). Le maire est un acteur de
-  # BEACH, que `village1-hut` charge sans l'afficher : sans `want.display`, il ne nait jamais.
   proof_timeout: 420
   proof_props:
   - debug.opengoal.level.warp=village1-hut
@@ -452,7 +447,7 @@ items:
     ; le jeton Gcutscene-reframe dit que Gcine-vertical-frame porte le verdict'
 - id: pbr-per-material
   feature: Des proprietes PBR par matiere, pas deux curseurs globaux
-  status: to-test
+  status: blocked
   priority: 14
   owner_feedback:
   - date: '2026-08-28'
@@ -506,6 +501,9 @@ items:
   build: dernier build publie sur jak-builds
   notes: 'l''owner : « pourquoi deux chantiers ? c''est debile » ; Gpbr-material-props dit « la phase
     precedente en avait livre 7 » et le refus de Gpbr-props-reach-draw porte sur ces memes 7 textures'
+  block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-materials : surfaces.json
+    etend a TOUTE matiere, y compris sans carte, sur le chemin unique. A rouvrir seulement si l''owner
+    le demande.'
 - id: loading-screen
   feature: L'ecran de chargement a la place de l'ecran noir
   status: validated
@@ -1300,7 +1298,7 @@ items:
   owner_ok: null
 - id: hd-skin-origin-stretch
   feature: Les modeles HD qui s'etirent vers un point lointain
-  status: open
+  status: in-progress
   priority: 11
   owner_feedback:
   - date: '2026-08-31'
@@ -1365,6 +1363,16 @@ items:
   prompt: prompts/item-hd-skin-origin-stretch.md
   owner_ok: null
   device: true
+  device_serial: eae4df44
+  proof_timeout: 780
+  proof_props:
+  - debug.opengoal.level.warp=citadel-start
+  - debug.opengoal.pad_replay=replay
+  - debug.opengoal.pad_replay_realtime=1
+  proof_env:
+  - OG_LEVEL_WARP=citadel-start
+  - OG_PAD_REPLAY_REPLAY=/home/emeric/.autoport-scratch/ghso9-brusque.inputs
+  - OG_PAD_REPLAY_REALTIME=1
   where: 'loin de Sandover (village3, boss final) : les modeles HD pendant un saut ou un demi-tour'
   notes: 'statut force : state.json la marque « blocked » parce que l''orchestrateur a halte sur trois
     empreintes d''echec identiques — un mecanisme du harnais, pas une attente de l''owner ; le defaut
@@ -2433,7 +2441,7 @@ items:
   build: jak2-alpha1
 - id: recharged-ambient-occlusion
   feature: L'occlusion ambiante (le relief dans les creux)
-  status: to-test
+  status: blocked
   priority: 230
   owner_feedback: []
   gate: null
@@ -2448,6 +2456,9 @@ items:
   where: 'Options > Recharged > Ambient Occlusion : les creux et les angles de Sandover'
   delivered: '2026-07-16'
   build: build du 2026-07-16, remplace depuis
+  block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-ao-indirect : l''AO cesse
+    de composer sur l''image finale et multiplie le seul terme indirect, en lineaire, dans shade(). A
+    rouvrir seulement si l''owner le demande.'
 - id: recharged-pbr-materials
   feature: Les matieres PBR (le systeme de remplacement de textures)
   status: validated
@@ -2496,7 +2507,7 @@ items:
     source: owner-ok/Grecharged-realtime-lighting
 - id: recharged-directional-ambient
   feature: L'ambiante directionnelle (le relief dans les zones d'ombre)
-  status: to-test
+  status: blocked
   priority: 228
   owner_feedback: []
   gate: null
@@ -2511,9 +2522,12 @@ items:
   where: 'Options > Recharged : le relief des zones a l''ombre'
   delivered: '2026-07-20'
   build: build du 2026-07-20, remplace depuis
+  block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-regimes : les trois modeles
+    d''ambiante analytiques sont remplaces par l''environnement mesure (SH du ciel reel renormalise sur
+    amb-color). A rouvrir seulement si l''owner le demande.'
 - id: recharged-lightprobes
   feature: Les sondes de lumiere locales a la place de l'ambiante globale
-  status: to-test
+  status: blocked
   priority: 223
   owner_feedback: []
   gate: null
@@ -2528,6 +2542,9 @@ items:
   where: les interieurs (hutte du Sage Vert) contre l'exterieur
   delivered: '2026-07-22'
   build: build du 2026-07-22, remplace depuis
+  block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-interiors : volume de sondes
+    epars avec visibilite inter-sondes cuite (anti-fuite au point de production). La grille dense de juillet
+    est supprimee. A rouvrir seulement si l''owner le demande.'
 - id: recharged-master-toggle
   feature: Un interrupteur global Recharged marche/arret
   status: to-test
@@ -2617,7 +2634,7 @@ items:
     l''item a encore un objet.'
 - id: recharged-pbr-realtime-fusion
   feature: Les matieres PBR eclairees par la lumiere temps reel
-  status: open
+  status: blocked
   priority: 217
   owner_feedback: []
   gate: null
@@ -2634,6 +2651,10 @@ items:
   known_cause: 25 rounds archives dans prompts/archive-Grecharged-pbr-realtime-fusion-rounds1-25.md. La
     branche rt-lighting du shader ignore encore les cartes PBR ; le chemin autonome u_pbr_mode est le
     repli faible. Jamais accepte par l'owner.
+  block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md : son defaut EST la cause 1 de la spec
+    (cinq chemins d''ombrage exclusifs). L''item lighting-unify le supprime, lighting-materials livre
+    les matieres PBR sur le chemin unique. 25 rounds, jamais accepte. A rouvrir seulement si l''owner
+    le demande.'
 - id: recharged-mesh-browser
   feature: Le navigateur de mesh de debug
   status: to-test
@@ -3295,7 +3316,7 @@ items:
     first ») ; livre par defaut ETEINT
 - id: recharged-materials-modern-parity
   feature: Des materiaux au niveau des moteurs modernes
-  status: to-test
+  status: blocked
   priority: 220
   owner_feedback: []
   gate: null
@@ -3310,6 +3331,8 @@ items:
   where: 'Options > Recharged : le rendu des matieres'
   delivered: '2026-08-31'
   build: dernier build publie sur jak-builds
+  block_reason: supplante par prompts/SPEC-refonte-lumiere.md, item lighting-materials. A rouvrir seulement
+    si l'owner le demande.
 - id: jak2-polish
   feature: Les finitions de Jak II (mapping L1/R1, cadrage, menus, particules)
   status: blocked
@@ -3363,3 +3386,473 @@ items:
   prompt: null
   owner_ok: null
   notes: ids bloques presents dans state.json mais absents de milestones.yaml
+- id: lighting-census
+  feature: Savoir quel chemin d'eclairage a dessine chaque pixel, et figer les deux references
+  status: open
+  priority: 30
+  owner_feedback:
+  - date: '2026-09-03'
+    text: on a deja implemente du rela time lighting et un support de PBR qu'on a jamais finalise (et
+      probablement tres bancal)
+  gate:
+    key: refset_replay_maxdiff
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history: []
+  prompt: prompts/item-lighting-census.md
+  owner_ok: null
+  device: false
+  where: 'rien de visible : cet item ne change aucun pixel, il pose l''instrument'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. Cinq composites d''ombrage exclusifs choisis par quatre interrupteurs globaux
+    : personne ne peut dire lequel a dessine un pixel, et aucun item suivant ne peut prouver qu''il n''a
+    rien casse. SPEC 2.3.'
+  deliverable: 'Le moteur publie la repartition des draws monde entre les cinq chemins (la somme egale
+    le total) et le temps GPU par passe. Plus DEUX jeux d''images de reference rejouables — ORIGINE (master
+    OFF) et RECHARGED — et le script qui les compare, rejoue a la fermeture de chaque item suivant. SPEC
+    7.3. PREUVE : `FEATURE lighting-census armed=1 hits=<draws monde classes dans un des cinq chemins>`
+    + la ligne `refset_replay_maxdiff=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans
+    la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-census"),
+    jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle.'
+  notes: 'SPEC prompts/SPEC-refonte-lumiere.md sections 2 et 7.1. Point de vue : village1-hut.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: draws monde classes dans un des cinq chemins
+- id: lighting-unify
+  feature: Un seul modele d'eclairage au lieu de cinq, sans changer un pixel
+  status: open
+  priority: 31
+  owner_feedback: []
+  gate:
+    key: shade_variants
+    op: ==
+    value: 1
+  game: jak1
+  max_turns: 1600
+  max_retries: 8
+  depends_on:
+  - lighting-census
+  history: []
+  prompt: prompts/item-lighting-unify.md
+  owner_ok: null
+  device: false
+  where: 'rien de visible : la sortie doit etre identique a aujourd''hui'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. 4106 lignes de shading monde en 4 quasi-copies, dont deux chemins morts et
+    4 samplers lies a une texture noire 1x1. SPEC 2.2, 2.4 et l''annexe D (le sort des 94 uniformes, un
+    par un).'
+  deliverable: 'Une fonction shade() dans un chunk unique, incluse par les 5 shaders monde ; chaque renderer
+    remplit Surface et ne decide plus de rien. Retrait des seules couches RECHARGED mortes. Sortie STRICTEMENT
+    identique sur les deux references. SPEC 4.2 donne l''interface GLSL exacte. PREUVE : `FEATURE lighting-unify
+    armed=1 hits=<draws passes par shade()>` + la ligne `shade_variants=` seule sur sa ligne ; `--off`
+    doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("lighting-unify"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. Le chemin d''origine n''entre pas dans shade() : il reste tel quel.'
+  notes: 'budget : refonte transverse sur 5 shaders et leur cote C++, avec une porte a diff nul sur deux
+    jeux de reference. SPEC section 6.1.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: draws passes par shade()
+- id: lighting-hdr
+  feature: Le rendu passe en HDR avec un seul tone map
+  status: open
+  priority: 32
+  owner_feedback: []
+  gate:
+    key: tonemap_sites
+    op: ==
+    value: 1
+  game: jak1
+  max_turns: 1000
+  max_retries: 6
+  depends_on:
+  - lighting-unify
+  history: []
+  prompt: prompts/item-lighting-hdr.md
+  owner_ok: null
+  device: true
+  where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. Framebuffer RGBA8, pow(1/2.2) dans six shaders, un genou maison par chemin
+    : aucune marge au-dessus de 1, donc ni eclat, ni bloom, ni exposition possibles. SPEC 2.3 cause 6.'
+  deliverable: 'Monde en RGBA16F, exposition et tone map appliques UNE fois au resolve, repli declare
+    et mesure. Le mode ORIGINE ne passe PAS par la chaine HDR. SPEC 4.5. PREUVE : `FEATURE lighting-hdr
+    armed=1 hits=<images passees par le tone map>` + la ligne `tonemap_sites=` seule sur sa ligne ; `--off`
+    doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("lighting-hdr"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. Pas de bloom, pas d''exposition automatique : ils viennent apres.'
+  notes: 'budget : touche les six shaders monde et la chaine de FBO, avec un bras appareil pour le repli
+    flottant. SPEC section 6.9.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: images passees par le tone map
+- id: lighting-ao-indirect
+  feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
+  status: open
+  priority: 33
+  owner_feedback:
+  - date: '2026-09-03'
+    text: L'occlusion Ambiante screen... Je comprend pas ca, on l'a fait tout a la fin du rendu par dessus
+      le reste plutot qu'en composant integral du rendu comme font (je suppose, a toi de dire) les jeux
+      modernes ?
+  gate:
+    key: ao_direct_leak_px
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - lighting-hdr
+  history: []
+  prompt: prompts/item-lighting-ao-indirect.md
+  owner_ok: null
+  device: false
+  where: 'Options > Recharged > Ambient Occlusion : les creux et les angles, et surtout les zones en plein
+    soleil qui ne doivent plus s''assombrir'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. ao_composite.frag multiplie l''image opaque FINALE, apres l''encodage gamma,
+    ce qui assombrit aussi le direct — d''ou le masque de luminance, qui est le symptome du mauvais emplacement.
+    SPEC 4.7.'
+  deliverable: 'Prepasse profondeur+normale+rugosite. L''AO ecrit une texture ; shade() l''applique au
+    SEUL terme indirect, en lineaire, avant le tone map. Le masque de luminance disparait, l''alpha et
+    l''eau sont enfin ombrees. SPEC 4.6 et 4.7. PREUVE : `FEATURE lighting-ao-indirect armed=1 hits=<pixels
+    dont le terme indirect a recu l''AO>` + la ligne `ao_direct_leak_px=` seule sur sa ligne ; `--off`
+    doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("lighting-ao-indirect"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas.'
+  notes: 'SPEC section 6.4. Point de vue : village1-hut. L''ablation se prend a la MEME vantage.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: pixels dont le terme indirect a recu l'AO
+- id: lighting-bake
+  feature: Le baked devient l'indirect, et l'original reste intact
+  status: open
+  priority: 34
+  owner_feedback:
+  - date: '2026-07-19'
+    text: moins beau que du baked
+  - date: '2026-09-03'
+    text: j'imagine qu'ils utilisent du baked aussi, faut qu'on soit en phase, et que malgre nos changements
+      ca suive le ton du jeu original, juste plus "real time possible"
+  gate:
+    key: bake_reconstruction_maxdelta
+    op: <=
+    value: 2
+  game: jak1
+  max_turns: 2000
+  max_retries: 8
+  depends_on:
+  - lighting-ao-indirect
+  history: []
+  prompt: prompts/item-lighting-bake.md
+  owner_ok: null
+  device: false
+  where: 'les quatre niveaux de la premiere livraison : village1, swamp, lavatube, snow'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. Le chemin valide fait color.rgb *= rt_mod : le soleil teinte le bake au lieu
+    de s''y ajouter, donc il ne peut jamais eclairer ce que le bake a laisse sombre. La decomposition
+    a pourtant une forme CLOSE. SPEC 3.1 et 5.2.'
+  deliverable: 'tools/light_bake ecrit <niveau>.lightbake A COTE du fr3 : palette B, residu artistique,
+    visibilite du ciel, AO, normales coudees, sondes, regimes, emetteurs. La palette A n''est JAMAIS reecrite.
+    Le moteur verifie la reconstruction au chargement. SPEC 5 en entier, format octet par octet en 5.4.
+    PREUVE : `FEATURE lighting-bake armed=1 hits=<index de couleur reconstruits et verifies>` + la ligne
+    `bake_reconstruction_maxdelta=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la
+    MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-bake"),
+    jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. Les 22 autres niveaux viennent apres les quatre de la premiere livraison.'
+  notes: 'budget : nouvel outil hors ligne, nouveau format de compagnon, bump TFRAG3_VERSION, verification
+    au chargement, sur quatre niveaux. SPEC section 6.3.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: index de couleur reconstruits et verifies
+- id: lighting-regimes
+  feature: La lumiere cle n'est pas toujours un soleil
+  status: open
+  priority: 35
+  owner_feedback:
+  - date: '2026-09-03'
+    text: Il y a aussi des niveaux et/zones ou le ciel n'est pas visible (tunels, overcast) come le lava
+      tube ou le niveau de swamp par example [...] Dans le cas de ciels overcast (ie. Swamp level) la
+      lumiere est diffusee par le ciel, pas le soleil car il n'y est pas vraiment visible
+  - date: '2026-09-03'
+    text: Pour l'ambiance qui vient du ciel attention avec l'artistic intent [...] faut etre super smart
+      la dessus
+  gate:
+    key: regime_sun_override_wrong
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 1000
+  max_retries: 6
+  depends_on:
+  - lighting-bake
+  history: []
+  prompt: prompts/item-lighting-regimes.md
+  owner_ok: null
+  device: false
+  where: 'swamp et lavatube : la lumiere ne doit plus venir d''un soleil invisible'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. pc-set-pbr-sky-sun! est pousse sans garde et ecrase la lumiere cle : dans
+    16 niveaux sur 20 la clef du monde suit un soleil que le joueur ne voit pas. SPEC 3.2, 3.3 et l''annexe
+    A.'
+  deliverable: 'Le shader lit le REGIME du creneau au lieu de supposer un soleil ; sun-fade module la
+    part directe. La ou il y a un ciel, sa FORME est capturee et renormalisee sur amb-color : le ciel
+    donne la distribution, la table donne le ton. SPEC 4.10 et 4.11. PREUVE : `FEATURE lighting-regimes
+    armed=1 hits=<images dont le regime a ete lu dans la table>` + la ligne `regime_sun_override_wrong=`
+    seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE
+    : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-regimes"), jamais armed(), et n''en
+    ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. Les modeles d''ambiante analytiques sont deja retires par lighting-unify.'
+  notes: 'budget : touche la chaine GOAL->C++, le shader et la capture de ciel, sur quatre regimes. SPEC
+    sections 4.2, 4.3, 6.5, 6.6. Points de vue : village1-hut et un continue swamp.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: images dont le regime a ete lu dans la table
+- id: lighting-shadows
+  feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
+  status: open
+  priority: 36
+  owner_feedback:
+  - date: '2026-09-03'
+    text: quand les deux overlap... Bah ca doit etre pris en compte, ca l'est pour nous aussi quand on
+      a la lune et le soleil visibles en meme temps !
+  gate:
+    key: shadow_caster_classes
+    op: ==
+    value: 4
+  game: jak1
+  max_turns: 1600
+  max_retries: 8
+  depends_on:
+  - lighting-ao-indirect
+  history: []
+  prompt: prompts/item-lighting-shadows.md
+  owner_ok: null
+  device: true
+  where: l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. Une seule cascade attribuee a « l''astre le plus haut », avec fondu et EMA
+    pour cacher une bascule qui n''a pas lieu d''etre : les deux astres sont leves ENSEMBLE 3 h 30 par
+    jour. Et aucun acteur n''entre dans la carte. SPEC 3.4 et 4.8.'
+  deliverable: 'Atlas unique tuile, cascades stabilisees pour l''astre dominant, une tuile pour le second,
+    les acteurs dans la passe de profondeur avec leur maillage skinne, ombres de contact sur la prepasse.
+    L''aplat PS2 reste le repli et le mode Original. SPEC 4.8. PREUVE : `FEATURE lighting-shadows armed=1
+    hits=<pixels de sol ombres par un acteur>` + la ligne `shadow_caster_classes=` seule sur sa ligne
+    ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("lighting-shadows"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. L''aplat PS2 de shadow-geo n''est pas retire ici : il devient le repli et le mode
+    original (decision owner 2026-09-03). Son remplacement en champ proche est lighting-actors.'
+  notes: 'budget : atlas, cascades, passe de profondeur des acteurs, ombres de contact, avec un bras appareil.
+    SPEC sections 4.4 et 6.8.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: pixels de sol ombres par un acteur
+- id: lighting-local-lights
+  feature: Les lampes, torches et laves eclairent enfin
+  status: open
+  priority: 37
+  owner_feedback:
+  - date: '2026-09-03'
+    text: les sources de lumiere en sus du soleil/lune sont d'autant plus importantes a valoriser
+  gate:
+    key: lights_unjudged
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 1600
+  max_retries: 8
+  depends_on:
+  - lighting-regimes
+  history: []
+  prompt: prompts/item-lighting-local-lights.md
+  owner_ok: null
+  device: true
+  where: Sandover a la nuit tombee sous un lampadaire, les torches de la neige, la lave du lavatube
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. Zero lumiere ponctuelle, alors que la donnee les nomme : 62 prototypes candidats,
+    1192 instances, dont 16 jumeaux -glow.mb qui SONT les surfaces emissives authorees. SPEC 5.3.8 et
+    annexe C.'
+  deliverable: 'light_emitters.txt cote assets (un verdict par prototype, residu publie), extraction hors
+    ligne, grille de clusters remplie sur le fil de rendu, vacillement branche sur update-mood-flames.
+    SPEC 4.9 et 5.7.1. PREUVE : `FEATURE lighting-local-lights armed=1 hits=<pixels eclaires par au moins
+    une lumiere locale>` + la ligne `lights_unjudged=` seule sur sa ligne ; `--off` doit rendre `armed=0
+    hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-local-lights"),
+    jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. Pas d''ombre par lumiere locale a cet item.'
+  notes: 'budget : lexique d''assets, extraction hors ligne, grille de clusters, pont de vacillement,
+    avec un bras appareil pour le budget. SPEC section 6.7.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: pixels eclaires par au moins une lumiere locale
+- id: lighting-interiors
+  feature: Les interieurs gardent leur lumiere, sans fuite par les murs
+  status: open
+  priority: 38
+  owner_feedback: []
+  gate:
+    key: probe_leak_permille
+    op: <=
+    value: 10
+  game: jak1
+  max_turns: 1200
+  max_retries: 6
+  depends_on:
+  - lighting-bake
+  - lighting-local-lights
+  history: []
+  prompt: prompts/item-lighting-interiors.md
+  owner_ok: null
+  device: false
+  where: la hutte du Sage Vert et les huttes de Sandover, contre l'exterieur
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. La grille de sondes a ete supprimee et son remplacant est un degrade CPU
+    sans notion d''interieur : les huttes recoivent le ciel a travers leurs murs. SPEC 4.12.'
+  deliverable: 'Volume de sondes epars L1 avec visibilite inter-sondes CUITE : etanche par construction,
+    cout nul a l''execution. C''est aussi la source d''ambiante des 7 niveaux sans ciel. SPEC 4.12 et
+    5.3.5. PREUVE : `FEATURE lighting-interiors armed=1 hits=<sondes echantillonnees par image>` + la
+    ligne `probe_leak_permille=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME
+    scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-interiors"),
+    jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle.'
+  notes: 'budget : volume de sondes, interpolation ponderee par visibilite, quatre niveaux. SPEC sections
+    6.2 et 6.6.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: sondes echantillonnees par image
+- id: lighting-actors
+  feature: Jak, les PNJ et les ennemis eclaires comme le sol sur lequel ils marchent
+  status: open
+  priority: 39
+  owner_feedback:
+  - date: '2026-09-03'
+    text: Les acteurs je sais que leur lighting est faked, faut plus que ce soit le cas !
+  - date: '2026-09-03'
+    text: l'ombre que cast Jak, ennemies et PNJ est tres bizarre, on dirait une version ultra low poly
+      projete sur le sol, c'est pas la bonne methode pour un truc modern
+  gate:
+    key: merc_legacy_light_draws
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 1600
+  max_retries: 8
+  depends_on:
+  - lighting-shadows
+  - lighting-interiors
+  history: []
+  prompt: prompts/item-lighting-actors.md
+  owner_ok: null
+  device: true
+  where: Jak et les PNJ a Sandover, puis dans une hutte, puis la nuit sous un lampadaire
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. merc2.vert eclaire PAR SOMMET et merc2.frag ne fait que vtx_color*T0*2 :
+    ni normale par pixel, ni ombre recue, ni AO. Et l''ombre projetee est un shadow-geo de 115 sommets
+    extrude en stencil. SPEC 3.5.'
+  deliverable: 'merc, generic et emerc passent par shade() : memes astres, memes ombres, memes locales,
+    meme environnement, meme AO. L''indirect vient des sondes, light-index reste honore comme surcharge
+    artistique. SPEC 4.13. PREUVE : `FEATURE lighting-actors armed=1 hits=<pixels merc ayant lu la carte
+    d''ombre>` + la ligne `merc_legacy_light_draws=` seule sur sa ligne ; `--off` doit rendre `armed=0
+    hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-actors"),
+    jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. Le reciblage des modeles HD n''est pas touche.'
+  notes: 'budget : unification du chemin acteur, reception d''ombre, sondes, remplacement de l''aplat,
+    avec un bras appareil. SPEC section 5.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: pixels merc ayant lu la carte d'ombre
+- id: lighting-materials
+  feature: Les matieres PBR eclairees par la lumiere temps reel, sans fusion
+  status: open
+  priority: 40
+  owner_feedback:
+  - date: '2026-09-03'
+    text: les materiaux, PBR et tesselation viendront apres car ils dependent du lightning pour etre au
+      top
+  - date: '2026-08-31'
+    text: j'ai l'impression que ca prend pas en compte les proprietes individuelles de Recharged assets
+      et que ca applique le PBR uniquement aux 7 textures PBR qui etaient dans le projet depuis un bail
+      et que ca ignore les autres
+  gate:
+    key: materials_named_but_unreached
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 1200
+  max_retries: 6
+  depends_on:
+  - lighting-actors
+  history: []
+  prompt: prompts/item-lighting-materials.md
+  owner_ok: null
+  device: false
+  where: 'Options > Recharged > PBR Materials : le sable, la pierre et le tissu de Sandover'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. 25 rounds sans acceptation, parce que « fusionner » deux chemins qui ne partagent
+    ni normale, ni tone map, ni espace colorimetrique n''a pas de solution. SPEC 4.14.'
+  deliverable: 'Les cartes PBR deviennent des entrees ordinaires de shade(). surfaces.json etendu a TOUTE
+    matiere, y compris sans aucune carte : la porte qui exigeait une carte disparait. _orm fusionne trois
+    cartes. SPEC 4.14. PREUVE : `FEATURE lighting-materials armed=1 hits=<matieres atteintes au draw avec
+    leur enregistrement>` + la ligne `materials_named_but_unreached=` seule sur sa ligne ; `--off` doit
+    rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("lighting-materials"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle. La tessellation et le displacement ne changent pas ici : ils sont re-heberges tels
+    quels dans le chemin unique.'
+  notes: 'budget : reprise du chemin materiaux sur shade(), extension de surfaces.json, test du damier.
+    SPEC section 11.1 : cet item remplace recharged-pbr-realtime-fusion et pbr-per-material.'
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: matieres atteintes au draw avec leur enregistrement
+- id: lighting-presets
+  feature: 'Du Redmi au Snapdragon 8 Elite : des paliers, et chaque ajout debrayable'
+  status: open
+  priority: 41
+  owner_feedback: []
+  gate:
+    key: preset_apply_mismatch
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - lighting-materials
+  history: []
+  prompt: prompts/item-lighting-presets.md
+  owner_ok: null
+  device: true
+  where: 'Options > Recharged : l''echelle de qualite, et le raccourci Original/Recharged'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
+    ce prompt ne repete pas. Les reglages d''eclairage sont epars, sans echelle coherente ni detection,
+    et le Redmi a servi de cible alors qu''il est le pire cas du harnais — et que son goulot est le fil
+    GOAL, pas le GPU. SPEC 1.2 et 1.3.'
+  deliverable: 'Une echelle Tres bas -> Ultra qui pose toutes les valeurs, un palier de depart deduit
+    du materiel et du temps de frame, chaque reglage ecrasable. Deux prereglages nommes Original et Recharged,
+    et un raccourci de bascule. Chaque fonctionnalite prouve que son OFF est bit-identique a son absence.
+    SPEC 6.2, 6.3 et 6.4. PREUVE : `FEATURE lighting-presets armed=1 hits=<reglages effectivement poses
+    par le prereglage>` + la ligne `preset_apply_mismatch=` seule sur sa ligne ; `--off` doit rendre `armed=0
+    hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-presets"),
+    jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique
+    : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
+    mesure visuelle.'
+  notes: SPEC sections 1.1, 1.2 et 10. Le palier auto choisi sur chaque appareil de test est journalise
+    dans la preuve.
+  spec: prompts/SPEC-refonte-lumiere.md
+  hits_means: reglages effectivement poses par le prereglage
