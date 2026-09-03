@@ -20,7 +20,8 @@ ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"
 PKG="${AUTOPORT_PKG:-org.opengoal.gk.jak1}"
 [ -x "$ADB" ] || ADB=adb
 
-# La SHIELD (192.168.1.32) est interdite : on ne s'y connecte pas, meme pour nettoyer.
+# La SHIELD est interdite : on ne s'y connecte pas, meme pour nettoyer. Un serial en forme
+# d'adresse reseau est refuse par principe — seul un appareil branche en USB est autorise.
 case "$SERIAL" in
   *[0-9].[0-9]*.[0-9]*|*:*)
     echo "[teardown] serial '$SERIAL' ressemble a une adresse reseau : on ne touche pas (SHIELD interdite)."

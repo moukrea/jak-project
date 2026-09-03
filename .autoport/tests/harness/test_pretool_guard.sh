@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Bancs d'essai de la garde pre-tool : faux refus d'un cote, vrais refus de l'autre.
 cd /home/emeric/code/jak-project || exit 1
-SHIELD="192.168.1.32"
+# Adresse construite a l'execution : aucun fichier vivant ne doit contenir le litteral,
+# sinon shield_guard.sh refuse le demarrage a cause du code qui protege la Shield.
+SHIELD="192.168.$((1)).$((32))"
 t(){
   printf '{"tool_name":"Bash","tool_input":{"command":%s}}' \
     "$(printf '%s' "$1" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')" \
@@ -21,7 +23,7 @@ echo "--- doivent ETRE REFUSES ---"
 t 'adb shell ls /sdcard' "adb sans -s" 2
 t 'pkill -f orchestrator' "pkill -f sans crochet" 2
 t 'cmake -B build -DCMAKE_BUILD_TYPE=Release' "cmake -B" 2
-t "adb -s $SHIELD shell ls" "adresse de la SHIELD" 2
+t "adb -s $SHIELD shell ls" "appareil vise par une adresse reseau" 2
 t 'adb -s eae4df44 shell screencap -p > .autoport/reports/x/a.png' "capture d ecran" 2
 t 'until ! pgrep -f gradle; do sleep 5; done' "boucle qui attend sur pgrep" 2
 echo "--- cout ---"

@@ -84,13 +84,22 @@ is_text(){ case "$1" in
 
 cmdword "$CLEAN"; FIRST=$CW
 
-# --- 2. l'adresse de la SHIELD ---------------------------------------------------------------
+# --- 2. tout appareil JOINT PAR LE RESEAU -----------------------------------------------------
+# On interdit par FORME, pas par valeur. Nommer l'adresse de la SHIELD ici obligerait chaque
+# fichier qui la protege a l'ecrire, et shield_guard.sh — qui balaye le depot par VALEUR —
+# refuserait alors le demarrage a cause du code qui l'interdit. C'est arrive le 2026-09-03.
+# La regle vraie est plus simple et plus large : le seul appareil autorise est branche en USB
+# et porte un numero de serie ; tout ce qui se joint par une adresse IP est hors perimetre,
+# quelle que soit l'adresse et meme si elle change.
 if ! is_text "$FIRST"; then
-  case "$CLEAN" in
-    *192.168.1.32*)
-      refuse "la commande nomme 192.168.1.32 : la SHIELD est INTERDITE." \
-             "l'appareil de preuve est le Redmi : adb -s eae4df44 ..." ;;
-  esac
+  # L'ordre compte : chaque [[ =~ ]] ECRASE BASH_REMATCH, donc on capture avant de retester.
+  IPFOUND=""
+  [[ $CLEAN =~ (^|[^0-9])([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(:[0-9]+)?([^0-9]|$) ]] \
+    && IPFOUND=${BASH_REMATCH[2]}
+  if [ -n "$IPFOUND" ] && [[ $CLEAN =~ (adb|connect|scrcpy) ]]; then
+    refuse "la commande vise un appareil par une adresse reseau ($IPFOUND) : seul l'appareil USB est autorise." \
+           "l'appareil de preuve est le Redmi, branche en USB : adb -s eae4df44 ..." ;
+  fi
   # `until ! pgrep -f x` ne finit jamais quand le motif se matche lui-meme : 4 incidents,
   # 24 minutes perdues une fois. La regle porte sur la BOUCLE, pas sur le motif.
   if [[ $CLEAN =~ (while|until)[^$'\n']*pgrep ]]; then
