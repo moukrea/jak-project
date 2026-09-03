@@ -66,16 +66,18 @@ echo $$ > "$PIDFILE"
 trap 'rm -f "$PIDFILE"' EXIT
 LOG=.autoport/logs/auto_build_apk.txt
 STAMP=.autoport/.last_apk_build_sha
-# NE PAS surveiller physics_chains.txt : build_custom_pack.sh le REECRIT a l'empaquetage (il y
-# applique les reglages de l'owner), donc chaque cycle declenchait le suivant en boucle. Resultat
-# constate le 2026-08-11 : deux APK publies sous le MEME commit avec des donnees de physique
-# differentes -- exactement la paire depareillee qui donne du comportement aleatoire. On surveille
-# les SOURCES (moteur, salle, retargeting) et le fichier de reglages de l'owner, jamais l'artefact
-# genere.
-WATCH=(goal_src/jak1/pc/jak-hd-physics.gc
-       goal_src/jak1/pc/phys-room.gc
-       goal_src/jak1/pc/jak-hd.gc
-       recharged_assets/keira-owner-tuning.txt)
+# DECLENCHEMENT (remis d'equerre 2026-09-03). Avant : l'empreinte incluait `git rev-parse HEAD`,
+# donc CHAQUE commit WIP d'un essai rate lancait un build arm64 complet + `gradle clean`. Mesure
+# de la revue : 454 builds, 672 lancements « pendant un gk », et l'ISO reecrite en ARM64 sous les
+# pieds du `gk` x86 de l'essai suivant — un faux rouge, un nouveau WIP, un nouveau build. C'est la
+# boucle d'auto-sabotage que l'owner decrit par « la moitie du temps gaspillee en builds ».
+# Desormais on ne batit QUE sur une intention explicite :
+#   - `.autoport/.build-request` : pose par le worker quand SON CODE EST FINAL (contenu libre) ;
+#   - un commit dont le sujet n'est PAS un checkpoint WIP (donc un passage de porte, une
+#     livraison, un correctif du superviseur).
+# La liste WATCH de fichiers Keira a disparu avec le perimetre qu'elle servait.
+REQ=".autoport/.build-request"
+head_is_wip(){ git log -1 --format=%s 2>/dev/null | grep -qiE 'WIP checkpoint|checkpoint automatique'; }
 
 say(){ echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
 # VERROU D'INSTANCE UNIQUE. Le 2026-08-11 trois instances tournaient en meme temps apres un
@@ -258,8 +260,16 @@ while true; do
   # impossible qu'un report d'installation devienne un abandon (voir le pave ci-dessus).
   reconcilier_telephone
 
-  # empreinte du contenu surveillé : on rebâtit sur le CONTENU, pas sur la mtime
-  h=$( { git rev-parse HEAD; cat "${WATCH[@]}"; } 2>/dev/null | md5sum | cut -d' ' -f1)
+  # Une demande explicite prime sur tout ; sinon on regarde HEAD, mais jamais un WIP.
+  if [ -f "$REQ" ]; then
+    h=$( { git rev-parse HEAD; cat "$REQ"; } 2>/dev/null | md5sum | cut -d' ' -f1)
+    reason="demande explicite ($(head -c 120 "$REQ" 2>/dev/null | tr '\n' ' '))"
+  elif head_is_wip; then
+    continue                       # checkpoint WIP : du travail en cours, pas une livraison
+  else
+    h=$(git rev-parse HEAD 2>/dev/null | md5sum | cut -d' ' -f1)
+    reason="commit livrable $(git log -1 --format=%h 2>/dev/null)"
+  fi
   [ "$h" = "$(cat "$STAMP" 2>/dev/null)" ] && continue
 
   # ne jamais démarrer par-dessus un build en cours (goalc, cmake, gradle) ni pendant qu'un
@@ -292,8 +302,13 @@ while true; do
     # livrer au fil de l'eau prime. Passe le delai on construit MALGRE le worker ; au pire sa
     # compilation en cours echoue et il la relance, ce qui coute une minute — contre une
     # livraison qui n'arrive jamais.
-    if [ $(( now - blocked_since )) -gt 1500 ]; then
-      say "patience depassee (25 min sans fenetre) — build lance pendant un gk"
+    # 2026-09-03 : on ne bâtit PLUS par-dessus un `gk` en cours. La raison d'origine (« l'owner
+    # ne recevait plus aucun APK ») tombe : les builds ne sont plus declenches par les WIP, donc
+    # ils sont rares et intentionnels, et attendre une fenetre libre ne retarde plus la livraison.
+    # Ecraser l'ISO sous un `gk` de mesure produisait un faux rouge ET un APK depareille.
+    # On n'exige plus que l'absence de COMPILATEUR passe 20 min, jamais l'absence de gk seule.
+    if [ $(( now - blocked_since )) -gt 1200 ] && [ "${hard:-0}" -eq 0 ]; then
+      say "patience depassee (20 min) mais aucun compilateur actif — build lance"
       blocked_since=$now
     else
       continue
@@ -335,9 +350,7 @@ while true; do
   # flickers qui font plus glitch qu'intentionnels". Un build livrable se fait depuis un etat
   # COMMITE, donc auto-coherent. On attend simplement le prochain point de commit du worker :
   # il en fait regulierement, la livraison continue, mais plus jamais a moitie.
-  dirty=$(git status --porcelain -- goal_src/jak1/pc/jak-hd-physics.gc \
-                                    goal_src/jak1/pc/phys-room.gc \
-                                    recharged_assets/physics_chains.txt 2>/dev/null | grep -c . || true)
+  dirty=$(git status --porcelain -- goal_src/ game/ android/ common/ goalc/ 2>/dev/null | grep -c . || true)
   if [ "${dirty:-0}" -gt 0 ]; then
     # Un arbre sale n'est pas forcement a moitie ecrit : le seul test objectif, c'est qu'il
     # COMPILE. S'il compile, l'etat est coherent et on en fait un point de commit pour livrer;
@@ -345,16 +358,22 @@ while true; do
     # garde-fou pose a 18:50 aurait bloque toute livraison pendant des heures — l'owner a demande
     # l'inverse.
     if timeout 900 ./build/goalc/goalc --user-auto --cmd '(make-group "iso")' >> "$LOG" 2>&1; then
-      git add -A goal_src/jak1/pc/jak-hd-physics.gc goal_src/jak1/pc/phys-room.gc \
-                 recharged_assets/physics_chains.txt >> "$LOG" 2>&1
-      git commit -q -m "[keira-physique] checkpoint automatique du constructeur: l'arbre compile (551 cibles), etat coherent livrable" >> "$LOG" 2>&1
+      git add -- goal_src/ game/ android/ common/ goalc/ >> "$LOG" 2>&1
+      git commit -q -m "[autoport/builder] checkpoint automatique du constructeur : l'arbre compile, etat coherent livrable" >> "$LOG" 2>&1
       say "arbre sale mais COMPILE — checkpoint commite, build autorise"
     else
       say "arbre sale ET ne compile pas — worker au milieu d'une edition, build reporte"
       continue
     fi
   fi
-  say "sources changées ($h) → build arm64 cohérent"
+  # LE CONSTRUCTEUR POSE LE VERROU QU'IL FAISAIT LIRE AUX AUTRES (2026-09-03). Il consultait
+  # `.deploy-in-progress` sans jamais l'ecrire : rien n'empechait un `gk` de demarrer pendant que
+  # lui reecrivait `out/jak1/iso` en ARM64. `lib/proof_run.sh` attend ce verrou ; il faut donc
+  # qu'il existe pendant toute la passe. PID vivant inscrit dedans, retire par trap.
+  echo "pid=$$ started=$(date -Is) what=build-arm64-apk" > .autoport/.deploy-in-progress
+  trap 'rm -f "$PIDFILE" .autoport/.deploy-in-progress' EXIT
+  rm -f "$REQ"
+  say "build declenche — $reason"
   if ! timeout 3600 bash .autoport/build_arm64_full_consistent.sh >> "$LOG" 2>&1; then
     say "build arm64 ÉCHOUÉ — rien à publier, on retentera au prochain changement"
     echo "$h" > "$STAMP"   # ne pas boucler sur un état cassé
@@ -365,7 +384,17 @@ while true; do
   # Espace mort de Gradle : un assemble incremental repete gonfle l'APK (588 Mo -> 1019 Mo
   # constate le 2026-08-11, il aurait double le telechargement de l'owner sans que personne
   # ne le voie). On nettoie le module avant chaque APK publiable.
-  ( cd android && timeout 900 ./gradlew :app:clean >> "../$LOG" 2>&1 )
+  # `:app:clean` avant CHAQUE APK coutait plusieurs minutes par build. Il servait a un vrai
+  # defaut (l'espace mort d'un assemble incremental repete : 588 Mo -> 1019 Mo le 2026-08-11).
+  # On ne nettoie donc que lorsque le defaut se manifeste : au-dela de 700 Mo, ou tous les
+  # 10 builds, ou sur demande explicite (`full` dans .build-request).
+  APKF=$(ls -t android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk 2>/dev/null | head -1)
+  SZ=$(stat -c %s "$APKF" 2>/dev/null || echo 0)
+  NB=$(( $(cat .autoport/.build-count 2>/dev/null || echo 0) + 1 )); echo "$NB" > .autoport/.build-count
+  if [ "$SZ" -gt 734003200 ] || [ $(( NB % 10 )) -eq 0 ] || echo "${reason:-}" | grep -q full; then
+    say "gradle clean (taille=${SZ}o build#${NB})"
+    ( cd android && timeout 900 ./gradlew :app:clean >> "../$LOG" 2>&1 )
+  fi
   if ! ( cd android && timeout 2400 ./gradlew assembleJak1Debug >> "../$LOG" 2>&1 ); then
     say "gradle ÉCHOUÉ"
     echo "$h" > "$STAMP"

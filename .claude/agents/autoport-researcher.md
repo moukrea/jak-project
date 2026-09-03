@@ -2,7 +2,7 @@
 name: autoport-researcher
 description: Use PROACTIVELY for bulk research in the autoport project — code/disassembly/log scans, oracle (x86 vs arm64) comparisons, symbol hunts (nm/objdump/addr2line), large logcat or qemu-log analysis, locating definitions/callers across the OpenGOAL tree. Read-only; reports findings, never edits.
 tools: Bash, Read, Grep, Glob
-effort: xhigh
+effort: high
 ---
 
 ## AVANT TOUT OUTIL DE TRAVAIL — LIS LE CONTRAT COURANT (obligatoire)

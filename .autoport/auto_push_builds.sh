@@ -76,11 +76,20 @@ while true; do
     fi
     LASTINFO="$INFOSHA"
   fi
-  HEADMSG=$(git log -1 --format=%s 2>/dev/null || echo "")
-  case "$HEADMSG" in
+  # 2026-09-03 — CETTE GARDE JUGEAIT HEAD, PAS L'ARTEFACT. HEAD etait un checkpoint WIP la
+  # plupart du temps, donc l'owner ne recevait en pratique de build qu'apres un passage de
+  # validateur : exactement l'INVERSE de son ordre du 2026-08-11 (« meme si pas vert, quand un
+  # build existe tu le pousses ») repete le 2026-09-01. Depuis la remise d'equerre, le
+  # constructeur ne fabrique plus d'APK a partir d'un WIP : il ne bâtit que sur un commit
+  # livrable ou sur une demande explicite du worker. Une garde sur HEAD n'a donc plus d'objet.
+  # On juge desormais le COMMIT DE L'ARTEFACT, et on publie en le signalant plutot que de le
+  # retenir : c'est ce que l'owner demande.
+  INFOMSG=$(git log -1 --format=%s "${INFOSHA:-HEAD}" 2>/dev/null || echo "")
+  case "$INFOMSG" in
     *"WIP checkpoint"*|*"validator FAILED"*)
-      echo "$(date +%H:%M:%S) SKIP publication : HEAD est un point d'etape non valide — $HEADMSG" >> "$LOG"
-      continue ;;
+      echo "$(date +%H:%M:%S) NOTE : l'APK vient d'un point d'etape ($INFOSHA) — publie quand meme, signale dans les notes" >> "$LOG"
+      export AUTOPORT_BUILD_IS_WIP=1 ;;
+    *) export AUTOPORT_BUILD_IS_WIP=0 ;;
   esac
   # LE PACK HD EST UN LIVRABLE A PART ENTIERE, PAS UNE PIECE JOINTE DE L'APK.
   # Bug mesure le 2026-08-13 : cette garde ne testait QUE le hash de l'APK, donc un cycle qui ne

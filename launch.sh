@@ -55,10 +55,11 @@ cat <<EOF
 ================================================================
   Autoport orchestrator -- foreground mode
 ================================================================
-  Model:     claude-opus-4-8[1m]
-  Effort:    max
-  Perms:     --dangerously-skip-permissions (full YOLO)
-  Verbose:   $VERBOSE_LABEL (use --quiet for silent)
+  Profil:    $(jq -r '.active' "$REPO_ROOT/.autoport/model-profiles.json" 2>/dev/null)
+             (modele et effort: .autoport/model-profiles.json, source unique)
+  Perms:     --dangerously-skip-permissions
+  Verbose:   $VERBOSE_LABEL (--quiet pour le mode silencieux)
+  Backlog:   ./.autoport/autoport status
 
   Live log:  $LOG
   Run log:   $RUN_LOG
