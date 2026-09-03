@@ -32,6 +32,7 @@
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
 #include "game/system/load_gate.h"
+#include "game/system/autoport_proof.h"
 #include "game/system/npc_flicker.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
@@ -756,13 +757,32 @@ void pc_npc_census_actor(u32 merc_name,
                          u32 pid,
                          u32 draw_status,
                          s32 level_active,
-                         s32 in_fov) {
+                         s32 in_fov,
+                         s32 is_npc) {
   const char* nm = merc_name ? Ptr<String>(merc_name).c()->data() : nullptr;
-  npc_flicker::census_actor(nm, nm, pid, draw_status, level_active, in_fov);
+  npc_flicker::census_actor(nm, nm, pid, draw_status, level_active, in_fov, is_npc);
+}
+
+// Une image de plus, publiee par le compteur que `lib/proof_run.sh` moissonne. Appelee du meme
+// point que le recensement (post-sync-draw), c'est-a-dire une fois par image RENDUE.
+void pc_autoport_frame() {
+  autoport_proof::frame_tick();
 }
 
 void pc_npc_census_end() {
   npc_flicker::end_census();
+}
+
+// L'ETAT D'ARMEMENT DU CORRECTIF, LU PAR GOAL. Rend 1 par defaut — le binaire de l'owner
+// EST corrige. Il ne rend 0 que si le harnais a nomme cet item et pose `armed=0` : c'est le
+// bras d'ablation, et rien d'autre ne peut y tomber. Voir game/system/autoport_proof.h.
+s32 pc_npcf_fix_armed() {
+  return autoport_proof::armed() ? 1 : 0;
+}
+
+// Une image ou le compagnon HD a ete MAINTENU la ou l'ancien code l'eteignait.
+void pc_npcf_note_cover() {
+  npc_flicker::note_hd_noanim_cover();
 }
 
 void pc_npc_clone_fail(u32 merc_name) {
@@ -4736,6 +4756,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-npc-census-end", (void*)pc_npc_census_end);
   make_function_symbol_from_c("__pc-npc-census-live", (void*)pc_npc_census_live);
   make_function_symbol_from_c("__pc-npc-clone-fail", (void*)pc_npc_clone_fail);
+  make_function_symbol_from_c("__pc-autoport-frame", (void*)pc_autoport_frame);
+  make_function_symbol_from_c("__pc-npcf-fix-armed?", (void*)pc_npcf_fix_armed);
+  make_function_symbol_from_c("__pc-npcf-note-cover", (void*)pc_npcf_note_cover);
   // Gloading-screen : instrument de cadence + tranches de travail GOAL
   make_function_symbol_from_c("__pc-loading-screen-tick", (void*)pc_loading_screen_tick);
   make_function_symbol_from_c("__pc-loading-screen-end", (void*)pc_loading_screen_end);

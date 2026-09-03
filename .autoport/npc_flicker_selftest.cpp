@@ -50,6 +50,10 @@ struct Actor {
   // frustum, 0 = dehors, -1 = non evalue. Par defaut -1, pour que les cas anterieurs a
   // Gcutscene-npc-flicker-2 rendent EXACTEMENT ce qu'ils rendaient avant.
   int in_fov = -1;
+  // 1 = GOAL a reconnu un `process-taskable` (la population que l'owner nomme). Par defaut 1 :
+  // les cas de ce fichier decrivent tous des PNJ de cinematique, et un defaut a 0 rendrait le
+  // compteur de la porte MUET sur tous les cas anterieurs sans qu'aucun d'eux ne change.
+  int is_npc = 1;
 };
 
 // Une image complete, dans l'ORDRE REEL du moteur : le rendu avance et publie ses issues, puis
@@ -59,21 +63,22 @@ void run_frame(const char* scene, const std::vector<Actor>& actors) {
   npc_flicker::end_render_frame(g_frame);
   for (const auto& a : actors) {
     if (a.drawn) {
-      npc_flicker::note_draw(a.pid, npc_flicker::Outcome::kDrawn, false);
+      npc_flicker::note_draw(a.pid, npc_flicker::Outcome::kDrawn, false, a.name);
       // Cycle 3 : un paquet DESSINE peut porter des matrices invalides — Merc2 note alors les
       // deux issues pour la meme image, exactement dans cet ordre (kDrawn a la lecture du
       // modele, kGarbage a la lecture des matrices).
       if (a.outcome == npc_flicker::Outcome::kGarbage) {
-        npc_flicker::note_draw(a.pid, npc_flicker::Outcome::kGarbage, false);
+        npc_flicker::note_draw(a.pid, npc_flicker::Outcome::kGarbage, false, a.name);
       }
     } else if (a.outcome != npc_flicker::Outcome::kDrawn) {
-      npc_flicker::note_draw(a.pid, a.outcome, false);
+      npc_flicker::note_draw(a.pid, a.outcome, false, a.name);
     }
   }
   npc_flicker::begin_census(scene);
   for (const auto& a : actors) {
     if (a.in_tree) {
-      npc_flicker::census_actor(a.name, a.name, a.pid, a.status, a.level_active, a.in_fov);
+      npc_flicker::census_actor(a.name, a.name, a.pid, a.status, a.level_active, a.in_fov,
+                                a.is_npc);
     }
   }
   npc_flicker::end_census();
@@ -632,6 +637,119 @@ int main() {
   {
     std::string tag = npc_flicker::platform_tag();
     check(tag == "x86", "plateforme publiee par le code (bureau = x86)", "plateforme=" + tag);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // LA GRANDEUR DE LA PORTE : `npc_culled_in_frustum` (Totals::in_fov_dark_frames_npc).
+  //
+  // POURQUOI CES CINQ CAS EXISTENT. Le defaut est deja revenu trois fois, et A CHAQUE FOIS la
+  // porte publiait zero. Le zero n'etait jamais faux : c'est ce qu'il COMPTAIT qui l'etait. Un
+  // compteur de porte sans controle positif est un compteur mort en puissance — c'est
+  // exactement l'histoire de `[hd-flicker] blackouts=`. Ces cas fixent, dans du code que la
+  // construction de `gk` execute, ce que le compteur doit compter ET ce qu'il ne doit pas.
+  // ---------------------------------------------------------------------------------------------
+  printf("\n");
+  {
+    // (a) CONTROLE POSITIF : PNJ dans le champ, plus rien de dessine, 5 images -> 5 comptees.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      run_frame("porte-a", {Actor{"mayor-lod0", 900, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    for (int i = 0; i < 5; i++) {
+      run_frame("porte-a", {Actor{"mayor-lod0", 900, kWasDrawn, true, false, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    for (int i = 0; i < 10; i++) {
+      run_frame("porte-a", {Actor{"mayor-lod0", 900, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    auto t = npc_flicker::totals();
+    // 5 images sans dessin -> 4 comptees. La difference est la TOLERANCE D'UNE IMAGE entre
+    // l'horloge du recensement et celle du rendu (`draw_tolerance()`, npc_flicker.cpp) : la
+    // premiere image d'un trou est encore lue « dessine ». C'est un sous-comptage ASSUME et
+    // documente ; il est fixe ici pour qu'un changement de tolerance ne passe pas inapercu.
+    check(t.in_fov_dark_frames_npc == 4,
+          "porte : PNJ dans le champ, rien de dessine 5 images -> 4 (tolerance 1)",
+          "npc_culled_in_frustum=" + std::to_string(t.in_fov_dark_frames_npc));
+  }
+  {
+    // (b) CONTROLE NEGATIF DE SEUIL : une SEULE image noire est le decalage des deux horloges,
+    //     pas un clignotement. La regle des trois images doit la rejeter.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      run_frame("porte-b", {Actor{"mayor-lod0", 900, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    run_frame("porte-b", {Actor{"mayor-lod0", 900, kWasDrawn, true, false, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    for (int i = 0; i < 10; i++) {
+      run_frame("porte-b", {Actor{"mayor-lod0", 900, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    auto t = npc_flicker::totals();
+    check(t.in_fov_dark_frames_npc == 0,
+          "porte : une image noire isolee ne compte pas (regle des 3)",
+          "npc_culled_in_frustum=" + std::to_string(t.in_fov_dark_frames_npc));
+  }
+  {
+    // (c) CONTROLE NEGATIF DE CAUSE : hors du champ, sphere A JOUR -> c'est une coupe de camera,
+    //     et le moteur qui fonctionne ne doit jamais faire monter la porte.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      run_frame("porte-c", {Actor{"mayor-lod0", 900, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    for (int i = 0; i < 20; i++) {
+      run_frame("porte-c", {Actor{"mayor-lod0", 900, 0, true, false, npc_flicker::Outcome::kDrawn, 1, 0, 1}});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    auto t = npc_flicker::totals();
+    check(t.in_fov_dark_frames_npc == 0,
+          "porte : hors du champ avec sphere a jour = coupe de camera, 0",
+          "npc_culled_in_frustum=" + std::to_string(t.in_fov_dark_frames_npc));
+  }
+  {
+    // (d) SPHERE PERIMEE : `no-anim` fige `draw origin` (process-drawable.gc:239). Le verdict
+    //     « hors du champ » n'est plus une mesure, c'est un souvenir : l'absence compte, meme
+    //     avec in_fov=0. C'est le mecanisme que `Gfirstperson-hd-hide` a arme le 2026-08-28 et
+    //     que l'owner a signale trois jours plus tard.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      run_frame("porte-d", {Actor{"mayor-lod0", 900, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    for (int i = 0; i < 6; i++) {
+      run_frame("porte-d", {Actor{"mayor-lod0", 900, kNoAnim, true, false, npc_flicker::Outcome::kDrawn, 1, 0, 1}});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    auto t = npc_flicker::totals();
+    check(t.in_fov_dark_frames_npc == 5,
+          "porte : sphere perimee (no-anim) -> l'absence compte quand meme (6-1)",
+          "npc_culled_in_frustum=" + std::to_string(t.in_fov_dark_frames_npc));
+  }
+  {
+    // (e) LE MODELE, PAS LE PID. Pendant une cinematique le personnage est souvent porte par un
+    //     CLONE, dont le pid n'est pas celui du process recense. Une presence dessinee sous un
+    //     AUTRE pid mais le MEME modele doit fermer l'episode : sinon la porte publie un defaut
+    //     la ou l'ecran montre le personnage.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      run_frame("porte-e", {Actor{"mayor-lod0", 900, kWasDrawn, true, true, npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    }
+    for (int i = 0; i < 8; i++) {
+      g_frame++;
+      npc_flicker::end_render_frame(g_frame);
+      // le CLONE dessine le meme modele sous un pid different
+      npc_flicker::note_draw(4242, npc_flicker::Outcome::kDrawn, false, "mayor-lod0");
+      npc_flicker::begin_census("porte-e");
+      npc_flicker::census_actor("mayor-lod0", "mayor-lod0", 900, kWasDrawn, 1, 1, 1);
+      npc_flicker::end_census();
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    auto t = npc_flicker::totals();
+    check(t.in_fov_dark_frames_npc == 0,
+          "porte : dessine par un CLONE (autre pid, meme modele) -> 0",
+          "npc_culled_in_frustum=" + std::to_string(t.in_fov_dark_frames_npc));
   }
 
   printf("\n%s — %d echec(s)\n", g_fail ? "SELFTEST FAILED" : "SELFTEST PASS", g_fail);

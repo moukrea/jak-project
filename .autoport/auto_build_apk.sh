@@ -372,11 +372,22 @@ while true; do
   # qu'il existe pendant toute la passe. PID vivant inscrit dedans, retire par trap.
   echo "pid=$$ started=$(date -Is) what=build-arm64-apk" > .autoport/.deploy-in-progress
   trap 'rm -f "$PIDFILE" .autoport/.deploy-in-progress' EXIT
+  # LE VERROU SE REND A LA FIN DE LA PASSE, PAS A LA MORT DU DEMON (2026-09-03 14:00).
+  # Le `trap ... EXIT` ci-dessus ne tire que quand ce script s'arrete. Or ce script est une
+  # boucle sans fin : apres son PREMIER build, le marqueur restait sur le disque avec un PID
+  # BIEN VIVANT, pendant les 240 s de sommeil et pendant toutes les passes ou rien n'est bati.
+  # `lib/proof_run.sh::busy_reason` lit exactement ca — « deploy-in-progress pid=N vivant » — et
+  # attend 1800 s avant de rendre 3 SANS ecrire de preuve. Mesure : marqueur pose a 12:12, build
+  # fini a 12:18, encore la a 14:00. Aucune preuve appareil n'etait possible entre les deux.
+  # On le rend donc a chaque sortie de passe. Le trap EXIT reste, comme filet.
+  # shellcheck disable=SC2317
+  fin_de_passe(){ rm -f .autoport/.deploy-in-progress; }
   rm -f "$REQ"
   say "build declenche — $reason"
   if ! timeout 3600 bash .autoport/build_arm64_full_consistent.sh >> "$LOG" 2>&1; then
     say "build arm64 ÉCHOUÉ — rien à publier, on retentera au prochain changement"
     echo "$h" > "$STAMP"   # ne pas boucler sur un état cassé
+    fin_de_passe
     continue
   fi
 
@@ -398,6 +409,7 @@ while true; do
   if ! ( cd android && timeout 2400 ./gradlew assembleJak1Debug >> "../$LOG" 2>&1 ); then
     say "gradle ÉCHOUÉ"
     echo "$h" > "$STAMP"
+    fin_de_passe
     continue
   fi
 
@@ -482,4 +494,5 @@ while true; do
   # tour suivant le retentera : c'est la boucle, en tete, qui garantit qu'un report ne
   # devient jamais un abandon.
   reconcilier_telephone
+  fin_de_passe
 done

@@ -24,16 +24,17 @@ FAIL=0
 echo "===== BRAS 1 — proprietes de l'instrument ====="
 g++ -std=c++17 -O1 -Wall -Wextra -Werror -I. -Ithird-party/fmt/include -DFMT_HEADER_ONLY=1 \
     .autoport/npc_flicker_selftest.cpp game/system/npc_flicker.cpp \
+    game/system/autoport_proof.cpp \
     -o /tmp/npc_flicker_selftest || { echo "[GARDE FAIL] compilation"; exit 1; }
 /tmp/npc_flicker_selftest || FAIL=1
 
 echo
 echo "===== BRAS 2 — aucun compteur publie n'est mort ====="
-python3 .autoport/npcf_dead_counter_gate.py || FAIL=1
+python3 .autoport/lib/npcf_dead_counter_gate.py || FAIL=1
 
 echo
 echo "===== BRAS 3 — le fourre-tout de classify() n'excuse pas ====="
-python3 .autoport/npcf_catchall_gate.py || FAIL=1
+python3 .autoport/lib/npcf_catchall_gate.py || FAIL=1
 
 echo
 if [ "$FAIL" = 0 ]; then

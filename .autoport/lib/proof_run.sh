@@ -230,6 +230,20 @@ else
   fi
   EXTRA="local_lib_md5=$LOCAL_MD5"$'\n'"device_lib_md5=$DEV_MD5"
 
+  # L'ECRAN DOIT ETRE ALLUME AVANT LE `am start`, SINON ON MESURE DU NOIR.
+  # Mesure du 2026-09-03 02:16 : appareil `mWakefulness=Asleep`, l'activite est passee
+  # onResume -> onPause -> onStop dans la meme seconde, `gk` n'a jamais demarre, et 480 s
+  # d'observation ont rendu ZERO ligne — ce qui se lit exactement comme « aucun defaut ».
+  # C'est un FAUX ROUGE d'instrument : le seul ajout ici est de rendre la course possible,
+  # aucun champ de proof.txt n'en depend. On ne touche AUCUN reglage systeme durable
+  # (`svc power stayon` n'est pas pose) : l'activite du jeu tient l'ecran elle-meme
+  # (LoaderActivity.java:178, FLAG_KEEP_SCREEN_ON).
+  timeout 15 "$ADB" -s "$SERIAL" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+  timeout 15 "$ADB" -s "$SERIAL" shell wm dismiss-keyguard >/dev/null 2>&1
+  WAKE=$(timeout 15 "$ADB" -s "$SERIAL" shell dumpsys power 2>/dev/null \
+         | grep -o 'mWakefulness=[A-Za-z]*' | head -1 | tr -d '\r')
+  log "ecran : ${WAKE:-inconnu}"
+
   timeout 20 "$ADB" -s "$SERIAL" shell am force-stop "$PKG" >/dev/null 2>&1
   bash "$AP"/lib/device_teardown.sh "$SERIAL" >/dev/null 2>&1
   timeout 20 "$ADB" -s "$SERIAL" exec-out run-as "$PKG" sh -c "rm -f files/gk_crash.txt files/$ID.txt" >/dev/null 2>&1

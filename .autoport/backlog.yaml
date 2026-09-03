@@ -5,7 +5,7 @@ version: 1
 items:
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
-  status: open
+  status: in-progress
   priority: 10
   owner_feedback:
   - date: '2026-08-31'
@@ -36,6 +36,25 @@ items:
   prompt: prompts/item-cutscene-npc-flicker.md
   owner_ok: null
   device: true
+  device_serial: eae4df44
+  # LA ROUTE QUI ATTEINT LA CINEMATIQUE DU MAIRE SANS PERSONNE AU PAD. `lib/proof_run.sh` ne fait
+  # qu'un `am start` puis attend : sans ces cinq proprietes il mesure l'ecran de titre. Elles sont
+  # celles, mot pour mot, qui ont produit `NPCCULL scene=mayor-introduction ... images=1411` deux
+  # fois de suite le 2026-09-03 (reports/Gcutscene-npc-flicker/device3b). Le maire est un acteur de
+  # BEACH, que `village1-hut` charge sans l'afficher : sans `want.display`, il ne nait jamais.
+  proof_timeout: 420
+  proof_props:
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
+  - debug.opengoal.cine.kick=mayor
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_CINE_KICK=mayor
   where: la premiere cinematique avec le Maire
   notes: 'meme prompt (prompts/phase-Gcutscene-npc-flicker.md) et meme validateur ; le clone -2 est le
     retour 2 de l''owner sur le meme defaut | statut force : l''owner a redit le 2026-09-03 « c''est pas

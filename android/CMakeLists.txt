@@ -427,6 +427,9 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/system/iop_thread.cpp"
     # Gplayability-input-and-loadgate: the scene load barrier (no GL deps).
     "${JAK_ROOT}/game/system/load_gate.cpp"
+    # Le publicateur de preuve moissonne par .autoport/lib/proof_run.sh (ligne FEATURE,
+    # compteur d'images, cle=valeur). Sans lui, toute preuve APPAREIL sort avec frames=0.
+    "${JAK_ROOT}/game/system/autoport_proof.cpp"
     "${JAK_ROOT}/game/system/npc_flicker.cpp"
     "${JAK_ROOT}/game/system/Deci2Server.cpp"
     # Phase Ginput-replay (autoport): host-side input record/replay harness,
@@ -986,7 +989,7 @@ set(NPCF_GUARD_ROOT "${JAK_ROOT}")
 if(UNIX AND NOT ANDROID_SKIP_NPCF_GUARD)
     add_custom_command(TARGET gk POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E env
-                bash ${NPCF_GUARD_ROOT}/.autoport/npcf_guard_hook.sh
+                bash ${NPCF_GUARD_ROOT}/.autoport/lib/npcf_guard_hook.sh
         WORKING_DIRECTORY ${NPCF_GUARD_ROOT}
         COMMENT "npc-flicker: garde de non-regression (instrument + valeurs publiees)")
 endif()

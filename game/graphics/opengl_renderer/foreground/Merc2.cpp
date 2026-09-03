@@ -2253,7 +2253,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         if (n++ % 600 == 0) {
           lg::warn("[hd-render] suppress pid={} name='{}' (covered per-actor)", owner_pid, name);
         }
-        npc_flicker::note_draw(owner_pid, npc_flicker::Outcome::kSuppressed, false);
+        npc_flicker::note_draw(owner_pid, npc_flicker::Outcome::kSuppressed, false, name);
         return;
       }
     }
@@ -2264,18 +2264,18 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // zero publie n'est pas une mesure. C'est exactement le bras qui manquait a la garde de
   // Grecharged-hd-models4/5.
   if (npc_flicker::inject_drop(name)) {
-    npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kSuppressed, is_hd_packet);
+    npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kSuppressed, is_hd_packet, name);
     return;
   }
   if (!model_ref) {
     // it can fail, if the game is faster than the loader. In this case, we just don't draw.
     // Gcutscene-npc-flicker : c'est une DISPARITION de l'acteur, et jusqu'ici elle n'etait
     // comptee que dans un champ de statistiques que rien ne publie.
-    npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kMissing, is_hd_packet);
+    npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kMissing, is_hd_packet, name);
     stats->num_missing_models++;
     return;
   }
-  npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kDrawn, is_hd_packet);
+  npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kDrawn, is_hd_packet, name);
 
   // next, we need to check if we have enough room to draw this effect.
   const LevelData* lev = model_ref->level;
@@ -2457,7 +2457,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
                  name, census_pid, bad, i, judged, mask_known ? 1 : 0, first_bad_slot,
                  mb.tmat[3][0], mb.tmat[3][1], mb.tmat[3][2], s_npcf_garbage_packets);
       }
-      npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kGarbage, is_hd_packet);
+      npc_flicker::note_draw(census_pid, npc_flicker::Outcome::kGarbage, is_hd_packet, name);
     } else if (bad > 0) {
       // Diagnostic seul : un ou quelques os faux sur un paquet lisible. Pas une absence.
       static u64 s_npcf_partial_bad = 0;

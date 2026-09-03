@@ -357,6 +357,7 @@ set(RUNTIME_SOURCE
         system/IOP_Kernel.cpp
         system/iop_thread.cpp
         system/load_gate.cpp
+        system/autoport_proof.cpp
         system/npc_flicker.cpp
         system/SystemThread.cpp
         tools/filter_menu/filter_menu.cpp
@@ -494,7 +495,7 @@ if(NOT OG_ARM64_BOOT_STUB)
 if(UNIX AND NOT ANDROID_SKIP_NPCF_GUARD)
     add_custom_command(TARGET gk POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E env
-                bash ${NPCF_GUARD_ROOT}/.autoport/npcf_guard_hook.sh
+                bash ${NPCF_GUARD_ROOT}/.autoport/lib/npcf_guard_hook.sh
         WORKING_DIRECTORY ${NPCF_GUARD_ROOT}
         COMMENT "npc-flicker: garde de non-regression (instrument + valeurs publiees)")
 endif()

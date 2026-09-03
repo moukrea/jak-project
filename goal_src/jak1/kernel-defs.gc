@@ -456,9 +456,24 @@
 ;; l'arbre de processus et son octet draw-status, une fois par image, pendant les cinematiques
 ;; seulement. Voir game/system/npc_flicker.h.
 (define-extern __pc-npc-census-begin (function string none))
-(define-extern __pc-npc-census-actor (function string int int int int none))
+;; `is-npc` (2026-09-03) : 1 quand l'acteur est un `process-taskable` — le type que le jeu donne
+;; aux PNJ avec qui on parle (mayor, sage, oracle, farmer...). L'owner a nomme cette population :
+;; « les PNJ, pas Jak ni Daxter ». Sans ce bit, le compteur de la porte melangerait le joueur, les
+;; caisses et les lampes a la population dont il parle.
+(define-extern __pc-npc-census-actor (function string int int int int int none))
 (define-extern __pc-npc-census-end (function none))
 (define-extern __pc-npc-census-live (function int))
+;; Une image de plus pour le publicateur de preuve (game/system/autoport_proof.h) : c'est cette
+;; ligne `AUTOPORT-FRAMES n=` que `lib/proof_run.sh` compte pour remplir `frames=`. Sans elle,
+;; toute preuve APPAREIL sort avec `frames=0` et le validateur la refuse — panne d'instrument,
+;; pas panne du jeu.
+(define-extern __pc-autoport-frame (function none))
+;; Armement du correctif de couverture HD. ENTIER, pas un symbole : la veracite d'un symbole GOAL
+;; est un piege connu du depot, on ne la met pas sur le chemin d'un verdict. 1 = corrige (defaut,
+;; donc le binaire de l'owner), 0 = comportement d'avant, uniquement sous ablation du harnais.
+(define-extern __pc-npcf-fix-armed? (function int))
+;; Une image ou le compagnon HD a ete maintenu la ou l'ancien code l'eteignait : L'OCCASION.
+(define-extern __pc-npcf-note-cover (function none))
 ;; Un clone de cinematique n'a pas pu suivre sa source cette image et s'est masque lui-meme
 ;; (generic-obs.gc). Sans cette declaration du PRODUCTEUR, ce masquage et un masquage voulu par le
 ;; jeu portent le meme bit `hidden` et sont indistinguables.

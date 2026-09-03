@@ -2752,7 +2752,43 @@
                          deb
                          (if (>= (-> self noanim-run) deb) 1 0)))
                (set! (-> self noanim-run) 0)))
-           (let ((th (if (or dhid (>= (-> self noanim-run) deb)) 1 0))
+           ;; ------------------------------------------------------------------------------
+           ;; ETEINDRE LE COMPAGNON SUR UN EPISODE `no-anim` NE REND PAS LA MAIN AU STOCK :
+           ;; CA LAISSE UN TROU. (owner 2026-08-31 / 09-01 / 09-03, correction du 2026-09-03)
+           ;;
+           ;; `dma-add-process-drawable` (engine/draw/drawable.gc:446) refuse DEJA de soumettre
+           ;; le modele stock quand le pilote porte `hidden`, `no-anim` ou `no-skeleton-update`.
+           ;; Sur une image `no-anim`, le stock n'est donc PAS dessine — quoi qu'on fasse du
+           ;; compagnon. Eteindre le compagnon en plus ne remplace rien : ca retire la SEULE
+           ;; chose qui restait a l'ecran. Mesure sur le Redmi eae4df44 le 2026-09-03 :
+           ;;     [JAK-HD] noanim-run entry=0 images=8 seuil=4 bloque=1
+           ;;     [JAK-HD] noanim-run entry=1 images=8 seuil=4 bloque=1
+           ;; soit deux episodes de 8 images ou le personnage n'etait NULLE PART — a 22 img/s,
+           ;; 360 ms d'absence, deux fois. C'est exactement « apparait, disparait, reapparait ».
+           ;;
+           ;; L'ANTI-REBOND NE POUVAIT PAS FERMER CA. Il ne fait que reculer le moment ou le trou
+           ;; s'ouvre : au-dela du seuil, l'ancien code eteignait quand meme. Le seuil est un
+           ;; delai, pas une correction.
+           ;;
+           ;; POURQUOI CA NE CASSE PAS `Gfirstperson-hd-hide` (acquis VALIDE par l'owner).
+           ;; Le masquage en premiere personne pose `hidden`, pas `no-anim` :
+           ;; engine/target/logic-target.gc:689-690 est le seul site qui l'arme et il ecrit
+           ;; `(draw-status hidden)`. `dhid` est conserve tel quel ci-dessous et agit toujours
+           ;; sans anti-rebond. Seule la branche `no-anim` disparait.
+           ;;
+           ;; CE QUE VOIT L'OEIL A LA PLACE. Le compagnon garde sa derniere pose reciblee le
+           ;; temps que l'anim reprenne — une pose figee de quelques images. C'est le meme choix
+           ;; que le garde de reciblage, quinze cents lignes plus haut : « Aucun compagnon n'est
+           ;; masque : masquer creerait le TROU que Gcutscene-npc-flicker a paye deux fois. »
+           ;;
+           ;; ABLATION : `__pc-npcf-fix-armed?` rend 0 quand le harnais pose `armed=0` sur cet
+           ;; item, et l'ancien comportement revient — MEME BINAIRE, meme instrument. Par defaut
+           ;; il rend 1 : le correctif est dans le jeu de l'owner, pas derriere un drapeau.
+           (when (and (>= (-> self noanim-run) deb) (not dhid))
+             (__pc-npcf-note-cover))
+           (let ((th (if (or dhid (and (zero? (__pc-npcf-fix-armed?))
+                                       (>= (-> self noanim-run) deb)))
+                       1 0))
                  (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
              ;; device-readable proof of the mirror (defect 6 + Gfirstperson-hd-hide): log each
              ;; transition and WHICH driver bit caused it, capped.

@@ -550,6 +550,13 @@
 ;; Plafond de publication de NPCCULL : un diagnostic ne doit pas noyer la trace. Le COMPTE des
 ;; episodes, lui, n'est pas plafonne — il vit dans le recensement C++.
 (define *npc-cull-logs* 0)
+;; POURQUOI UN CONTROLE PEUT ETRE MUET, ET COMMENT ON LE VOIT. Sur `mayor-introduction`,
+;; `sidekick-lod0` (Daxter) rend 0 image « dans le frustum » sur 3719 alors que le rendu le dessine
+;; 3311 fois. Un controle qui rend zero sur 100 % des images d'un acteur present a l'ecran
+;; n'excuse pas une absence : il la rend INVISIBLE. Ces lignes publient la position racine et le
+;; rayon reellement utilises pour les 40 premieres evaluations de chaque cinematique, pour que la
+;; cause d'un zero se lise au lieu de se supposer.
+(define *npc-root-logs* 0)
 
 (defun npc-census-visit ((proc process))
   "Publie un acteur dessinable du recensement. L'IDENTITE est le nom du modele merc et non le nom
@@ -578,34 +585,66 @@
       ;; acteur de BEACH : c'est exactement ce champ-la qui bouge sous lui.
       (when (and ent (nonzero? (-> ent extra)) (nonzero? (-> ent extra level)))
         (set! lv (if (and (= (-> ent extra level status) 'active) (-> ent extra level display?)) 1 0)))
-      ;; LE CONTROLE INDEPENDANT DU CULLING, ET POURQUOI CE N'EST PAS UN MIROIR.
-      ;; Le moteur decide `was-drawn` en testant la sphere `draw origin + draw bounds` contre les
-      ;; plans de la camera (draw/drawable.gc:452-460). `draw origin` est ecrit par `do-joint-math!`
-      ;; — qui NE FAIT RIEN quand l'acteur porte `hidden` ou `no-anim` (process-drawable.gc:240) :
-      ;; cette sphere peut donc rester en arriere de l'acteur. On applique ici le MEME test de
-      ;; plans a l'AUTRE source de position, `root trans`, ecrite par la logique de l'acteur. Les
-      ;; deux ne peuvent diverger que si la sphere de culling a cesse de le suivre — ce que la
-      ;; ligne NPCCULL ci-dessous chiffre au lieu de le supposer.
-      ;; CE QUE CA LIT QUAND LE DEFAUT EST ABSENT : fov=0 partout ou le moteur cull, donc `culled`
-      ;; garde exactement la population qu'il avait, et `cull-aveugle` reste a zero.
+      ;; LE CONTROLE INDEPENDANT DU CULLING, ET POURQUOI IL A ETE REECRIT LE 2026-09-03.
+      ;; Le moteur decide `was-drawn` en testant la sphere `centre = draw origin + draw bounds`,
+      ;; `rayon = draw bounds w` contre les plans de la camera (draw/drawable.gc:452-460 : le
+      ;; `.mul.x.vf.w vf16 vf16 vf0` annule le w de `origin`, puis `.add.vf` prend celui de
+      ;; `bounds`). `draw origin` est ecrit par `do-joint-math!` — qui NE FAIT RIEN quand l'acteur
+      ;; porte `hidden` ou `no-anim` (process-drawable.gc:239) : cette sphere peut donc rester en
+      ;; arriere de l'acteur. On applique ici EXACTEMENT le meme test, avec EXACTEMENT le meme
+      ;; rayon, a l'AUTRE source de position — `root trans`, ecrite par la logique de l'acteur.
+      ;; Seule la source de position change : c'est ce qui en fait un controle et non un miroir.
+      ;;
+      ;; CE QUE FAISAIT LA VERSION PRECEDENTE, ET POURQUOI ELLE EXCUSAIT LE DEFAUT. Elle centrait
+      ;; la sphere sur `root trans` NU (sans le decalage de modele `bounds`) et RETRANCHAIT du
+      ;; rayon la derive entre les deux centres :
+      ;;     r = max(0, (origin w + bounds w) - |(origin + bounds) - root trans|)
+      ;; Or cette derive EST la grandeur qu'on cherche : plus la sphere de culling decroche de
+      ;; l'acteur, plus le rayon du controle tombe — jusqu'a zero, ou le test se reduit au point
+      ;; racine. Le controle etait donc structurellement incapable de tirer dans le cas meme qu'il
+      ;; devait detecter, et toute absence retombait dans le seau `culled`, qui n'est pas gate.
+      ;; Mesure a l'appui, Redmi, `mayor-introduction`, 2026-09-03 :
+      ;;     sidekick-lod0  images_dans_frustum=0/1411  alors que dessine=1257
+      ;;     medres-jungle2 images_dans_frustum=0/1410
+      ;; Un controle qui rend zero sur 100 % des images d'un acteur que le rendu dessine 89 % du
+      ;; temps ne mesure rien : son zero etait un zero de construction.
       (when (nonzero? (-> pd root))
         (let ((sph (new-stack-vector0))
               (cs (new-stack-vector0)))
           (vector+! cs (-> pd draw origin) (-> pd draw bounds))
-          (set! (-> sph quad) (-> pd root trans quad))
-          ;; RAYON CONSERVATEUR, ET LA RAISON EST UN MODE DE FAUX ROUGE. `draw origin` n'est pas
-          ;; toujours la racine : `origin-joint-index` le place sur un JOINT (33 pour Jak,
-          ;; logic-target.gc:1232 ; 6 pour Daxter, sidekick.gc:162 ; pose par
-          ;; process-taskable.gc:667 pour les PNJ), donc les deux centres different d'un metre ou
-          ;; deux en fonctionnement NORMAL. En bord de frustum, cet ecart seul suffirait a faire
-          ;; dire « dedans » a l'un et « dehors » a l'autre, et fabriquerait un `cull-aveugle` la
-          ;; ou il n'y a rien. On RETRANCHE donc cet ecart du rayon : `fov=1` veut dire « meme en
-          ;; defalquant le desaccord des deux sources, il est dans le champ ». Quand le desaccord
-          ;; est enorme — le defaut qu'on cherche — le rayon tombe a zero et le test porte sur le
-          ;; point racine lui-meme, ce qui est exactement la question posee.
-          (set! (-> sph w) (fmax 0.0 (- (+ (-> pd draw origin w) (-> pd draw bounds w))
-                                        (vector-vector-distance cs (-> pd root trans)))))
-          (set! fov (if (sphere-in-view-frustum? (the-as sphere sph)) 1 0))
+          (vector+! sph (-> pd root trans) (-> pd draw bounds))
+          (set! (-> sph w) (-> pd draw bounds w))
+          (set! (-> cs w) (-> pd draw bounds w))
+          ;; LA SPHERE DU MOTEUR, ET C'EST LA BONNE — MESURE DU 2026-09-03 15:00.
+          ;; J'ai d'abord centre le controle sur `root trans`, en croyant tenir une SOURCE DE
+          ;; POSITION INDEPENDANTE. La trace dit que c'est faux : sur `mayor-introduction`,
+          ;;     NPCCULL pnj=eichar-lod0 racine=(-475735.7 44632.4 188033.7)
+          ;;                             sphere=(-476716.9 31214.5 187830.1) derive=13455.2
+          ;; soit 3,3 m d'ECART EN ALTITUDE, constant sur les 348 lignes. `root trans` est la
+          ;; position du PROCESS ; ce qui est A L'ECRAN, c'est le SQUELETTE, et `draw origin` en
+          ;; est un joint (`origin-joint-index`). Un controle centre sur la racine declarait donc
+          ;; « dans le champ » 1131 images ou le modele etait hors cadre : 1131 faux rouges sur
+          ;; un seul acteur. Une position qui n'est pas celle du modele dessine ne peut pas
+          ;; arbitrer sa visibilite.
+          ;;
+          ;; CE QUE CE CONTROLE DIT, ET POURQUOI CE N'EST PAS UNE TAUTOLOGIE. C'est la meme
+          ;; sphere que `dma-add-process-drawable` (drawable.gc:452-460). Combine a « RIEN n'a ete
+          ;; dessine pour cet acteur » (mesure du RENDU, cote C++), il dit : la geometrie du jeu
+          ;; le declare visible et l'ecran n'a rien recu. Les deux moities viennent de deux
+          ;; sous-systemes differents ; leur desaccord est le defaut lui-meme.
+          ;; La derive racine/squelette reste PUBLIEE ci-dessous : c'est elle qui a montre que le
+          ;; premier controle mesurait autre chose que ce qu'il croyait.
+          (set! fov (if (sphere-in-view-frustum? (the-as sphere cs)) 1 0))
+          (when (< *npc-root-logs* 40)
+            (+! *npc-root-logs* 1)
+            (format 0 "NPCROOT pnj=~S fov=~D r=~,,1f " (-> pd draw mgeo name) fov (-> cs w))
+            (format 0 "racine=(~,,1f ~,,1f ~,,1f) sphere=(~,,1f ~,,1f ~,,1f)~%"
+                    (-> pd root trans x) (-> pd root trans y) (-> pd root trans z)
+                    (-> cs x) (-> cs y) (-> cs z)))
+          ;; La DERIVE est publiee au lieu d'etre supposee : c'est elle qui dit si la sphere de
+          ;; culling suit encore l'acteur. Plafond REMIS A ZERO a chaque cinematique
+          ;; (npc-census-tick) : global et jamais rearme, il etait epuise 3,4 s apres le debut de
+          ;; la DEUXIEME scene d'une course, et les 31 suivantes n'ont produit aucune ligne.
           (when (and (= fov 1)
                      (not (logtest? (-> pd draw status) (draw-status was-drawn)))
                      (< *npc-cull-logs* 60))
@@ -616,21 +655,38 @@
             (format 0 "racine=(~,,1f ~,,1f ~,,1f) r=~,,1f " (-> pd root trans x) (-> pd root trans y) (-> pd root trans z) (-> sph w))
             (format 0 "sphere=(~,,1f ~,,1f ~,,1f) derive=~,,1f~%" (-> cs x) (-> cs y) (-> cs z)
                     (vector-vector-distance cs (-> pd root trans))))))
+      ;; LA POPULATION QUE L'OWNER NOMME. « les PNJ, pas Jak ni Daxter » : `process-taskable` est le
+      ;; type que le jeu donne aux personnages avec qui on parle — `(deftype mayor (process-taskable)
+      ;; ())`, levels/beach/mayor.gc:8 — et c'est la meme lecture que `cine-kick-visit` plus bas.
+      ;; Un PREDICAT DE TYPE, pas une liste de noms devinee. Les caisses, les lampes, les
+      ;; engrenages et le joueur restent recenses et publies, mais dans l'autre compteur.
       (__pc-npc-census-actor (-> pd draw mgeo name)
                              (-> proc pid)
                              (the-as int (-> pd draw status))
                              lv
-                             fov)))
+                             fov
+                             (if (type-type? (-> proc type) process-taskable) 1 0))))
   #t)
 
 (defun npc-census-tick ()
   "Une image de recensement. Hors cinematique, ferme la scene en cours et ne parcourt rien."
+  ;; Le compteur d'images du publicateur de preuve, ici parce que c'est le seul point de
+  ;; l'iteration qui tourne a CHAQUE image rendue, cinematique ou non. Voir
+  ;; game/system/autoport_proof.h : sans cette ligne, `lib/proof_run.sh` remplit `frames=0` sur
+  ;; l'appareil et le validateur refuse toute preuve pour « rien n'a ete dessine assez longtemps ».
+  (__pc-autoport-frame)
   (cond
     ((real-movie?)
      (__pc-npc-census-begin (cine-scene-name))
      (iterate-process-tree *active-pool* npc-census-visit *null-kernel-context*)
      (__pc-npc-census-end))
-    (else (__pc-npc-census-begin "hors-cinematique")))
+    (else
+      ;; Le plafond de publication se REARME entre deux cinematiques. Global et jamais remis a
+      ;; zero, il etait consomme par la premiere scene de la course et les suivantes — dont celle
+      ;; que l'owner nomme — n'en obtenaient aucune ligne.
+      (set! *npc-cull-logs* 0)
+      (set! *npc-root-logs* 0)
+      (__pc-npc-census-begin "hors-cinematique")))
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

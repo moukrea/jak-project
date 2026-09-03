@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Gcutscene-npc-flicker — le crochet POST_BUILD de `gk` (x86 ET arm64/Android).
 #
-# Il lance .autoport/npc_flicker_selftest.sh. Deux sorties possibles seulement :
+# Il lance .autoport/lib/npc_flicker_selftest.sh. Deux sorties possibles seulement :
 #   0  la garde passe (ou elle est explicitement desarmee par OG_SKIP_NPCF_GUARD=1)
 #   1  la garde MORD : le lien de `gk` echoue, et le message dit quoi reparer.
 #
@@ -9,7 +9,7 @@
 # SA phase. Les trois scripts de preuve de Grecharged-hd-models4/5 n'ont jamais ete rappeles par
 # personne, et c'est pour ca que le defaut est revenu sans qu'aucune porte ne s'ouvre.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(git rev-parse --show-toplevel)"
 
 if [ "${OG_SKIP_NPCF_GUARD:-0}" = "1" ]; then
   echo "[npc-flicker] garde DESARMEE par OG_SKIP_NPCF_GUARD=1 — assume et non par defaut"
@@ -20,7 +20,7 @@ if ! command -v g++ >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; the
   exit 0
 fi
 
-OUT=$(bash .autoport/npc_flicker_selftest.sh 2>&1)
+OUT=$(bash .autoport/lib/npc_flicker_selftest.sh 2>&1)
 if [ $? -eq 0 ]; then
   echo "[npc-flicker] garde OK — $(printf '%s' "$OUT" | grep -c '^\[ok\]') proprietes tenues"
   exit 0

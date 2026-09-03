@@ -15,6 +15,8 @@
 
 #include "fmt/core.h"
 
+#include "game/system/autoport_proof.h"
+
 namespace npc_flicker {
 namespace {
 
@@ -99,6 +101,11 @@ struct RenderRec {
 
 // indexe par pid de DRIVER (l'acteur du jeu), jamais par pid de compagnon HD.
 std::unordered_map<uint32_t, RenderRec> g_render;
+// LA MEME CHOSE, INDEXEE PAR NOM DE MODELE. Voir la note de `note_draw` dans le header : pendant
+// une cinematique le modele d'un personnage est souvent porte par un CLONE, dont le pid n'est pas
+// celui du process recense. Cette table repond a la question que l'owner pose reellement — « ce
+// modele etait-il a l'ecran cette image ? » — sans passer par l'identite du processus.
+std::unordered_map<std::string, RenderRec> g_render_by_name;
 uint64_t g_render_frame = 0;
 
 struct ActorRec {
@@ -127,6 +134,12 @@ struct ActorRec {
   // frustum, l'acteur n'est ni hidden ni no-anim, et `was-drawn` est a 0 quand meme.
   uint64_t in_fov_frames = 0;
   uint64_t in_fov_culled_frames = 0;
+  // Voir game/system/npc_flicker.h : la grandeur de la porte. « dans le champ, et rien a
+  // l'ecran », sans qu'aucun bit de statut n'excuse.
+  uint64_t in_fov_dark_frames = 0;
+  uint64_t dark_run = 0;         // images NOIRES consecutives en cours (voir la regle des 3)
+  bool npc = false;  // GOAL a reconnu un `process-taskable`
+  uint64_t open_gap_frames = 0;  // images de l'episode ENCORE OUVERT au flush (jetees avant)
 
   // etat de l'image en cours (rempli par census_actor, consomme par end_census). Plusieurs
   // acteurs peuvent partager un meme modele merc : on les FUSIONNE sur « au moins un est
@@ -167,6 +180,27 @@ uint64_t g_skew[4] = {};
 std::string g_scene;
 uint64_t g_census_frame = 0;
 Totals g_totals;
+
+// LA SCENE QUE L'OWNER NOMME, EN DUR, ET C'EST VOULU. « le pire cas que j'ai observe c'est la
+// cinematique avec maire (la premiere) » (2026-09-01), puis « premiere cinematique avec le Maire
+// est le worst offender » (2026-09-03). Le cycle precedent a passe une porte « 0 clignotement sur
+// >= 3 scenes » sur trois scenes qui n'etaient pas celle-la. Ces deux compteurs rendent
+// IMPOSSIBLE de publier un zero sans dire si la scene nommee a seulement ete jouee.
+constexpr const char* kOwnerScene = "mayor-introduction";
+uint64_t g_owner_scene_frames = 0;
+uint64_t g_owner_scene_dark = 0;
+
+// Plafond de la ligne de diagnostic, REARME A CHAQUE SCENE. Le plafond GOAL de la sonde par image
+// etait global et jamais rearme : il etait epuise par la premiere cinematique de la course.
+int g_dark_logs = 0;
+constexpr int kMaxDarkLogs = 40;
+
+// Images de recensement ou un PNJ etait la mais ou le controle de frustum n'a PAS pu etre evalue.
+uint64_t g_fov_unevaluated = 0;
+// Images ou le compagnon HD a ete MAINTENU alors que l'ancien code l'aurait eteint.
+uint64_t g_hd_noanim_cover = 0;
+// Appels de `clone-anim-once` ou le clone n'a pas pu suivre sa source (generic-obs.gc:80).
+uint64_t g_clone_fails = 0;
 
 int g_last_defect_reason = -1;
 
@@ -365,12 +399,23 @@ void flush_scene() {
         r.frames,
         r.shown,
         r.max_instances, platform_tag());
-    emit("NPCCULL scene={} pnj={} dans_frustum_et_culled={} images_dans_frustum={} images={} "
-         "plateforme={}\n",
-         g_scene, kv.first, r.in_fov_culled_frames, r.in_fov_frames, r.frames, platform_tag());
+    emit("NPCCULL scene={} pnj={} npc={} dans_frustum_et_culled={} noir_dans_frustum={} "
+         "images_dans_frustum={} images={} ouvert={} plateforme={}\n",
+         g_scene, kv.first, r.npc ? 1 : 0, r.in_fov_culled_frames, r.in_fov_dark_frames,
+         r.in_fov_frames, r.frames, r.in_gap ? r.gap_len : 0, platform_tag());
+    // L'EPISODE ENCORE OUVERT AU FLUSH ETAIT JETE. Mesure du 2026-09-03 : `mayorgears-geo`
+    // absent 1256 images sur 1411, dont 302 seulement dans l'unique episode ferme — 954 images
+    // n'etaient classees nulle part. On le publie (`ouvert=`) au lieu de le perdre. Il n'entre
+    // pas dans `cycles` : rien ne prouve que l'acteur devait revenir. Le compteur de la porte,
+    // lui, compte PAR IMAGE et n'a jamais dependu de la fermeture d'un episode.
     g_totals.cycles += r.cycles;
     g_totals.in_fov_frames += r.in_fov_frames;
     g_totals.in_fov_culled_frames += r.in_fov_culled_frames;
+    g_totals.in_fov_dark_frames += r.in_fov_dark_frames;
+    if (r.npc) {
+      g_totals.in_fov_dark_frames_npc += r.in_fov_dark_frames;
+      g_totals.in_fov_frames_npc += r.in_fov_frames;
+    }
     g_totals.coupes += r.coupes;
     g_totals.longues += r.longues;
     g_totals.blinks += r.blinks;
@@ -386,14 +431,64 @@ void flush_scene() {
        g_scene, actors, cycles, g_census_frame, g_skew[0], g_skew[1], g_skew[2], g_skew[3],
        draw_tolerance(), platform_tag());
   fflush(stdout);
+  // Les chiffres de la porte sortent tout de suite a la fin d'une scene, sans attendre la
+  // prochaine echeance periodique : une course peut etre coupee dans la seconde qui suit.
+  autoport_proof::flush();
   g_actors.clear();
   g_remap_fail.clear();
   g_scene.clear();
   g_census_frame = 0;
   g_last_defect_reason = -1;
+  g_dark_logs = 0;
   for (int i = 0; i < 4; i++) {
     g_skew[i] = 0;
   }
+}
+
+// LES LIGNES QUE `lib/proof_run.sh` MOISSONNE, ET POURQUOI ELLES SONT CALCULEES SCENE COMPRISE.
+// Une course de mesure est bornee en temps : elle peut s'arreter au milieu d'une cinematique. Si
+// ces chiffres n'etaient publies qu'au flush de la scene, une course coupee publierait zero — et
+// un zero de troncature se lit exactement comme un zero de bon fonctionnement. On additionne donc
+// les scenes deja fermees ET la scene en cours, a chaque image de recensement.
+void publish_keys_locked() {
+  uint64_t dark_npc = g_totals.in_fov_dark_frames_npc;
+  uint64_t dark_all = g_totals.in_fov_dark_frames;
+  uint64_t fov_npc = g_totals.in_fov_frames_npc;
+  uint64_t actors_npc = 0;
+  for (const auto& kv : g_actors) {
+    const ActorRec& r = kv.second;
+    dark_all += r.in_fov_dark_frames;
+    if (r.npc) {
+      dark_npc += r.in_fov_dark_frames;
+      fov_npc += r.in_fov_frames;
+      actors_npc++;
+    }
+  }
+  // LA CLE DE LA PORTE (`gate: npc_culled_in_frustum == 0`, .autoport/backlog.yaml).
+  autoport_proof::publish("npc_culled_in_frustum", dark_npc);
+  // Le meme compte SANS la restriction aux PNJ : une exclusion qui ne se publie pas est un angle
+  // mort. Jak, Daxter, les caisses, les lampes et les engrenages sont ici.
+  autoport_proof::publish("npc_culled_in_frustum_all", dark_all);
+  // LE DENOMINATEUR. Un zero au numerateur ne vaut rien si le controle de frustum ne repond
+  // jamais : c'est exactement ce qui s'est passe le 2026-09-03 (0 image dans le frustum sur 1411
+  // pour un acteur dessine 1257 fois).
+  autoport_proof::publish("npc_in_frustum_frames", fov_npc);
+  autoport_proof::publish("npc_actors_followed", actors_npc + g_totals.actors);
+  autoport_proof::publish("npc_scenes", g_totals.scenes + (g_scene.empty() ? 0 : 1));
+  autoport_proof::publish("npc_census_frames", g_totals.frames + g_census_frame);
+  // LA SCENE QUE L'OWNER NOMME. Sans ces deux-la, un zero pourrait venir d'une course ou sa
+  // cinematique n'a tout simplement pas ete jouee — la faute exacte du cycle precedent.
+  autoport_proof::publish("npc_fov_unevaluated_frames", g_fov_unevaluated);
+  // LES OCCASIONS ET LES SEAUX EXCUSES, PUBLIES A COTE DU VERDICT. Un zero au numerateur ne dit
+  // rien si personne ne sait combien de fois la situation s'est presentee, ni ce qui a ete range
+  // ailleurs. C'est la faute exacte des trois cycles precedents.
+  autoport_proof::publish("npc_hd_noanim_covered", g_hd_noanim_cover);
+  autoport_proof::publish("npc_clone_remap_fails", g_clone_fails);
+  autoport_proof::publish("npc_episodes_dead", g_totals.by_reason[kReasonDead]);
+  autoport_proof::publish("npc_episodes_hidden", g_totals.by_reason[kReasonHidden]);
+  autoport_proof::publish("npc_episodes_culled", g_totals.by_reason[kReasonCulled]);
+  autoport_proof::publish("npc_mayor_intro_frames", g_owner_scene_frames);
+  autoport_proof::publish("npc_mayor_intro_dark", g_owner_scene_dark);
 }
 
 }  // namespace
@@ -426,6 +521,11 @@ const char* reason_name(Reason r) {
   return "?";
 }
 
+void note_hd_noanim_cover() {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_hd_noanim_cover++;
+}
+
 void note_clone_remap_fail(const char* merc_name) {
   if (!merc_name || !merc_name[0]) {
     return;
@@ -435,6 +535,7 @@ void note_clone_remap_fail(const char* merc_name) {
     return;
   }
   g_remap_fail[merc_name] = g_census_frame;
+  g_clone_fails++;
 }
 
 bool reason_is_defect(Reason r) {
@@ -456,11 +557,26 @@ int max_episode_ms() {
   return (int)kMaxEpisodeMs;
 }
 
-void note_draw(uint32_t owner_pid, Outcome outcome, bool is_hd_model) {
+namespace {
+void apply_outcome(RenderRec& r, Outcome outcome, bool is_hd_model, uint64_t frame);
+}  // namespace
+
+void note_draw(uint32_t owner_pid, Outcome outcome, bool is_hd_model, const char* merc_name) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (merc_name && merc_name[0]) {
+    // Le compagnon HD porte un nom a lui (`...-hd-lod0`) : l'enregistrer sous CE nom ne dirait
+    // rien du modele stock. On le range sous le nom du modele qu'il REMPLACE, en retirant le
+    // marqueur `-hd`, pour que la presence du personnage se lise sur une seule cle.
+    std::string key = merc_name;
+    const size_t pos = key.find("-hd-lod");
+    if (pos != std::string::npos) {
+      key.erase(pos, 3);  // "xxx-hd-lod0" -> "xxx-lod0"
+    }
+    apply_outcome(g_render_by_name[key], outcome, is_hd_model, g_render_frame);
+  }
   if (owner_pid == 0) {
     return;
   }
-  std::lock_guard<std::mutex> lock(g_mutex);
   RenderRec& r = g_render[owner_pid];
   switch (outcome) {
     case Outcome::kDrawn:
@@ -484,6 +600,30 @@ void note_draw(uint32_t owner_pid, Outcome outcome, bool is_hd_model) {
       break;
   }
 }
+
+namespace {
+void apply_outcome(RenderRec& r, Outcome outcome, bool is_hd_model, uint64_t frame) {
+  switch (outcome) {
+    case Outcome::kDrawn:
+      r.last_drawn = frame;
+      r.ever_drawn = true;
+      r.hd = is_hd_model;
+      break;
+    case Outcome::kSuppressed:
+      r.last_suppressed = frame;
+      r.ever_suppressed = true;
+      break;
+    case Outcome::kMissing:
+      r.last_missing = frame;
+      r.ever_missing = true;
+      break;
+    case Outcome::kGarbage:
+      r.last_garbage = frame;
+      r.ever_garbage = true;
+      break;
+  }
+}
+}  // namespace
 
 void end_render_frame(uint64_t frame_idx) {
   std::lock_guard<std::mutex> lock(g_mutex);
@@ -525,7 +665,8 @@ void census_actor(const char* proc_name,
                   uint32_t pid,
                   uint32_t draw_status,
                   int level_active,
-                  int in_fov) {
+                  int in_fov,
+                  int is_npc) {
   if (!proc_name || !proc_name[0]) {
     return;
   }
@@ -540,6 +681,11 @@ void census_actor(const char* proc_name,
     return;
   }
   ActorRec& rec = g_actors[proc_name];
+  // Plusieurs instances peuvent porter le meme modele merc ; il suffit qu'UNE soit un PNJ pour
+  // que le modele appartienne a la population de l'owner.
+  if (is_npc == 1) {
+    rec.npc = true;
+  }
   if (rec.frame_stamp != g_census_frame) {
     rec.frame_stamp = g_census_frame;
     rec.frame_drawn = false;
@@ -563,17 +709,30 @@ void census_actor(const char* proc_name,
       g_skew[skew]++;
     }
   }
-  if (it != g_render.end() && it->second.ever_drawn &&
-      g_render_frame - it->second.last_drawn <= draw_tolerance()) {
+  // DEUX CLES POUR UNE SEULE QUESTION : « quelque chose etait-il a l'ecran pour ce personnage ? »
+  // Le pid repond quand c'est SON process qui dessine ; le NOM DU MODELE repond aussi quand c'est
+  // un clone de cinematique (voir la note de `note_draw` dans le header).
+  auto fresh = [&](const RenderRec& r) {
+    if (!r.ever_drawn || g_render_frame - r.last_drawn > draw_tolerance()) {
+      return false;
+    }
     // Un dessin dont les matrices etaient invalides a la meme image n'est PAS une presence :
     // l'ecran n'a rien recu de visible. (cycle 3, angle mort « dessine mais invisible »)
-    const bool garbage_same_frame =
-        it->second.ever_garbage && it->second.last_garbage == it->second.last_drawn;
-    if (!garbage_same_frame) {
-      rec.frame_drawn = true;
-    }
+    return !(r.ever_garbage && r.last_garbage == r.last_drawn);
+  };
+  if (it != g_render.end() && fresh(it->second)) {
+    rec.frame_drawn = true;
     if (it->second.hd) {
       rec.hd = true;
+    }
+  }
+  if (!rec.frame_drawn) {
+    auto nit = g_render_by_name.find(proc_name);
+    if (nit != g_render_by_name.end() && fresh(nit->second)) {
+      rec.frame_drawn = true;
+      if (nit->second.hd) {
+        rec.hd = true;
+      }
     }
   }
   const int b = block_score(draw_status);
@@ -601,14 +760,86 @@ void end_census() {
   // UNE evaluation par acteur et par image, ici et nulle part ailleurs : `census_actor` ne fait
   // qu'accumuler. Un acteur absent de l'arbre cette image a ete DESACTIVE — c'est la disparition
   // la plus violente et elle ne se lit sur aucun bit de draw-status.
+  uint64_t npc_seen = 0;
   for (auto& kv : g_actors) {
     ActorRec& rec = kv.second;
     const bool in_tree = (rec.frame_stamp == g_census_frame);
-    if (in_tree && rec.frame_in_fov == 1) {
+    if (rec.npc && in_tree) {
+      npc_seen++;
+      // UN CONTROLE NON EVALUE N'EST PAS UN CONTROLE NEGATIF. Quand l'acteur n'a pas de `root`,
+      // GOAL rend -1 et l'absence retombe dans un seau excuse sans que rien ne le dise. On le
+      // compte pour qu'un zero au numerateur ne puisse pas venir d'un instrument muet.
+      if (rec.frame_in_fov == -1) {
+        g_fov_unevaluated++;
+      }
+    }
+    // LA SPHERE DE CULLING EST-ELLE ENCORE A JOUR ? `do-joint-math!` ne fait RIEN quand l'acteur
+    // porte `hidden`, `no-anim` ou `no-skeleton-update` (process-drawable.gc:239) : `draw origin`
+    // — donc le centre de la sphere que le moteur teste — GARDE alors la valeur d'une image
+    // precedente. Le verdict « hors du champ » n'est plus une mesure a cet instant-la, c'est un
+    // souvenir. Une absence sous sphere PERIMEE ne peut donc pas etre excusee par la camera :
+    // c'est nous qui avons cesse de mettre le modele a jour, et c'est nous qui l'avons efface.
+    const bool sphere_perimee = (rec.frame_status & (0x2 | 0x4 | 0x10)) != 0;
+    // UN ACTEUR QUI QUITTE L'ARBRE PENDANT QU'IL EST DANS LE CHAMP. C'est la disparition la plus
+    // violente — le process n'existe plus — et elle etait invisible a ce compteur, qui exigeait
+    // `in_tree`. Elle est loin d'etre theorique : la liste de commandes de `mayor-introduction`
+    // (levels/beach/mayor.gc:69-152) commence par une trentaine de `kill` d'entites du village.
+    // Un acteur tue hors champ ne compte pas ; un acteur tue DANS le champ, si. On borne a la
+    // longueur maximale d'un episode : au-dela, sa position figee ne dit plus rien de la camera.
+    const bool mort_dans_le_champ =
+        !in_tree && rec.ever_shown && rec.frame_in_fov == 1 && rec.gap_len < kMaxEpisodeFrames;
+    if ((in_tree && (rec.frame_in_fov == 1 || sphere_perimee)) || mort_dans_le_champ) {
       rec.in_fov_frames++;
-      if (!(rec.frame_status & 0x8) && !(rec.frame_status & 0x2) && !(rec.frame_status & 0x4)) {
+      // Le compteur STRICT du cycle 3 garde exactement sa definition d'origine (dans le champ,
+      // was-drawn absent, ni hidden ni no-anim) : il est publie tel quel sur la ligne NPCCULL
+      // pour que la comparaison avec les courses precedentes reste possible.
+      if (rec.frame_in_fov == 1 && !(rec.frame_status & 0x8) && !(rec.frame_status & 0x2) &&
+          !(rec.frame_status & 0x4)) {
         rec.in_fov_culled_frames++;
       }
+      // LA GRANDEUR DE LA PORTE. Dans le champ, deja vu a l'ecran dans cette scene, et RIEN de
+      // dessine pour lui cette image. Aucun bit de statut n'excuse : voir le pave du header.
+      if (rec.ever_shown && !rec.frame_drawn) {
+        // LA REGLE DES TROIS IMAGES, LA MEME QUE POUR LES EPISODES. Le recensement GOAL et le
+        // compteur d'images du rendu sont deux horloges, decalees d'au plus une image : la ligne
+        // NPCSCENE publie l'histogramme (`ecart1=21 ecart2=20 ecart3=20` sur 17457 mesures).
+        // Compter une image noire isolee, c'est publier ce decalage comme un defaut. Mesure du
+        // 2026-09-03 : sur `mayor-introduction`, les sept acteurs totalisent 8 images noires,
+        // TOUTES isolees — un clignotement d'une image a 60 Hz n'existe pour aucun oeil.
+        // On ne compte donc que les images appartenant a une SUITE d'au moins trois. Sous-compter
+        // est honnete ; sur-compter fabriquerait un faux rouge, qui coute aussi cher qu'un faux
+        // vert. L'owner decrit un modele qui « disparait et reapparait » : jamais une image.
+        rec.dark_run++;
+        if (rec.dark_run == (uint64_t)kMinEpisodeFrames) {
+          rec.in_fov_dark_frames += rec.dark_run;
+          if (g_scene == kOwnerScene) {
+            g_owner_scene_dark += rec.dark_run;
+          }
+        } else if (rec.dark_run > (uint64_t)kMinEpisodeFrames) {
+          rec.in_fov_dark_frames++;
+          if (g_scene == kOwnerScene) {
+            g_owner_scene_dark++;
+          }
+        }
+        // Nommer la CAUSE au moment ou elle se produit, pas au moment ou l'episode se ferme :
+        // c'est la seule ligne qui dise POURQUOI rien n'etait a l'ecran pendant que la camera
+        // regardait l'acteur.
+        if (g_dark_logs < kMaxDarkLogs) {
+          g_dark_logs++;
+          const Reason r = classify(kv.first, in_tree, rec.frame_status, rec.frame_pid,
+                                    rec.frame_level, rec.frame_in_fov);
+          emit("NPCDARK scene={} pnj={} npc={} image={} statut={} niveau={} cause={} hd={} "
+               "plateforme={}\n",
+               g_scene, kv.first, rec.npc ? 1 : 0, g_census_frame, rec.frame_status,
+               rec.frame_level, reason_name(r), rec.hd ? 1 : 0, platform_tag());
+        }
+      }
+    }
+    if (rec.frame_drawn || (in_tree && rec.frame_in_fov == 0 && !sphere_perimee)) {
+      // La suite d'images noires se referme des que le modele revient a l'ecran OU des que la
+      // camera cesse de le regarder avec une sphere A JOUR : dans ce dernier cas son absence est
+      // expliquee, elle n'appartient pas a l'episode.
+      rec.dark_run = 0;
     }
     if (in_tree && rec.frame_drawn) {
       close_gap(kv.first, rec);
@@ -619,15 +850,32 @@ void end_census() {
     if (!rec.ever_shown) {
       continue;  // jamais vu a l'ecran dans cette scene : rien a compter
     }
+    const Reason now = classify(kv.first, in_tree, rec.frame_status, rec.frame_pid, rec.frame_level,
+                                rec.frame_in_fov);
     if (!rec.in_gap) {
       rec.in_gap = true;
       rec.gap_len = 0;
       rec.gap_start_ms = now_ms();
-      rec.gap_reason = classify(kv.first, in_tree, rec.frame_status, rec.frame_pid, rec.frame_level,
-                                rec.frame_in_fov);
+      rec.gap_reason = now;
+    } else if (!reason_is_defect(rec.gap_reason) && reason_is_defect(now)) {
+      // RECLASSER PENDANT L'EPISODE, PAS SEULEMENT A SON OUVERTURE. La version precedente
+      // n'appelait `classify` qu'a la PREMIERE image du trou : un episode ouvert alors que la
+      // camera venait de couper restait etiquete `culled` — donc non gate — meme si la camera
+      // revenait sur l'acteur et qu'il restait invisible dix secondes de plus. Le seau qui
+      // excusait n'avait besoin que d'une image favorable pour excuser tout l'episode.
+      rec.gap_reason = now;
     }
     rec.gap_len++;
   }
+  if (npc_seen > 0) {
+    // La feature a tire : un PNJ a ete evalue pendant une cinematique. C'est le compte que
+    // `FEATURE <id> armed=1 hits=<n>` publie, et il reste a zero dans le bras desarme.
+    autoport_proof::note_hit();
+  }
+  if (g_scene == kOwnerScene) {
+    g_owner_scene_frames++;
+  }
+  publish_keys_locked();
 }
 
 bool inject_drop(const char* merc_name) {
@@ -720,12 +968,19 @@ Live live_status() {
 void reset_for_test() {
   std::lock_guard<std::mutex> lock(g_mutex);
   g_render.clear();
+  g_render_by_name.clear();
   g_actors.clear();
   g_remap_fail.clear();
   g_scene.clear();
   g_render_frame = 0;
   g_census_frame = 0;
   g_last_defect_reason = -1;
+  g_dark_logs = 0;
+  g_owner_scene_frames = 0;
+  g_owner_scene_dark = 0;
+  g_fov_unevaluated = 0;
+  g_hd_noanim_cover = 0;
+  g_clone_fails = 0;
   for (int i = 0; i < 4; i++) {
     g_skew[i] = 0;
   }

@@ -78,7 +78,17 @@ enum class Outcome {
 // Un paquet merc vient d'etre traite pour l'acteur `owner_pid`. Pour un paquet de COMPAGNON HD,
 // `owner_pid` doit etre le pid du DRIVER (l'acteur du jeu), pas celui du compagnon : c'est le
 // personnage qui est visible ou non, pas le processus qui le dessine.
-void note_draw(uint32_t owner_pid, Outcome outcome, bool is_hd_model);
+//
+// `merc_name` (2026-09-03) : LE NOM DU MODELE DESSINE, ET C'EST LA SECONDE CLE.
+// Le pid seul a un angle mort structurel : pendant une cinematique, le personnage a l'ecran n'est
+// pas toujours dessine par SON process. Jak passe en `target-clone-anim` et c'est un CLONE, avec
+// son propre pid, qui porte le modele. Le recensement, indexe sur le pid du process recense,
+// voyait alors « rien de dessine » pendant que le modele etait bel et bien a l'ecran — mesure du
+// 2026-09-03 sur `mayor-introduction` : `eichar-lod0` compte 1132 images « dans le champ et rien
+// de dessine » sur 3719. L'owner ne voit pas des pid, il voit des MODELES : on note donc aussi le
+// nom, et une presence vaut si l'un OU l'autre repond. Sous-compter est honnete, sur-compter
+// fabriquerait un faux rouge.
+void note_draw(uint32_t owner_pid, Outcome outcome, bool is_hd_model, const char* merc_name);
 
 // Une image rendue de plus. Appelee une fois par image (Merc2::render deduplique).
 void end_render_frame(uint64_t frame_idx);
@@ -105,12 +115,18 @@ void begin_census(const char* scene);
 // ecrite par `do-joint-math!`, qui ne l'ecrit pas du tout quand l'acteur porte hidden ou no-anim
 // (process-drawable.gc:240). Comparer les deux est donc une mesure, pas un miroir : elles ne
 // peuvent diverger que si la sphere de culling a cesse de suivre l'acteur.
+// `is_npc` : 1 quand GOAL a reconnu un `process-taskable` — le type du jeu pour les personnages
+// avec qui on parle (mayor, sage, oracle, farmer...). C'est LA population que l'owner nomme :
+// « les PNJ, pas Jak ni Daxter ». Le recensement suit tout le monde ; seul le compteur de la
+// porte se restreint a cette population, et le compteur large est publie a cote pour qu'aucune
+// exclusion ne se fasse en silence.
 void census_actor(const char* proc_name,
                   const char* merc_name,
                   uint32_t pid,
                   uint32_t draw_status,
                   int level_active,
-                  int in_fov);
+                  int in_fov,
+                  int is_npc);
 
 void end_census();
 
@@ -127,6 +143,15 @@ void end_census();
 // chaque frontiere de partie — 22 pour `sage-intro-sequence-a`, 16 pour `mayor-introduction`.
 void note_clone_remap_fail(const char* merc_name);
 
+// LE CORRECTIF DE LA COUVERTURE HD, ET SON OCCASION.
+// `jak-hd.gc` eteignait le compagnon HD des que le pilote portait `no-anim` plus de N images.
+// Or `drawable.gc:446` refuse DEJA de dessiner le stock sous `no-anim` : eteindre le compagnon
+// ne rend pas la main au stock, ca laisse un TROU. Mesure sur le Redmi, 2026-09-03 :
+// `[JAK-HD] noanim-run entry=1 images=8 seuil=4 bloque=1` — 8 images sans rien a l'ecran.
+// `note_hd_noanim_cover()` compte les images ou le compagnon EST MAINTENU alors que l'ancien
+// code l'aurait eteint : c'est l'OCCASION, sans laquelle un zero ne voudrait rien dire.
+void note_hd_noanim_cover();
+
 // --- lecture ----------------------------------------------------------------
 struct Totals {
   uint64_t scenes = 0;
@@ -140,6 +165,21 @@ struct Totals {
   // cycle 3 : sommes des lignes NPCCULL (par image, cf. end_census)
   uint64_t in_fov_frames = 0;
   uint64_t in_fov_culled_frames = 0;
+  // 2026-09-03 — LA GRANDEUR DE LA PORTE, ET POURQUOI ELLE N'EST PAS `in_fov_culled_frames`.
+  // Cette derniere exige `!was-drawn && !hidden && !no-anim`. Elle est donc AVEUGLE a trois
+  // familles entieres de disparition : un acteur que le jeu masque pendant qu'il est a l'ecran
+  // (`hidden`), un acteur entre deux segments d'animation (`no-anim` — et `do-joint-math!` ne
+  // tourne pas non plus, donc rien n'est dessine), et toute perte COTE RENDU (couverture HD,
+  // modele non resident, matrices d'os invalides) qui laisse `was-drawn` a 1. Sur le Redmi,
+  // `mayor-introduction`, le 2026-09-03 : `dans_frustum_et_culled=0` pour les sept acteurs, dont
+  // le maire, alors qu'il n'etait pas dessine pendant 55 images d'affilee (2117 ms).
+  // Celui-ci compte ce que l'OWNER voit : l'acteur est dans le champ, et RIEN n'est a l'ecran
+  // pour lui. Aucun bit de statut n'excuse — du point de vue de l'oeil, ils produisent tous la
+  // meme chose. Ne compte qu'apres une PREMIERE presence dessinee dans la scene : un acteur qui
+  // n'est jamais apparu n'a pas disparu.
+  uint64_t in_fov_dark_frames = 0;      // toute la population recensee
+  uint64_t in_fov_dark_frames_npc = 0;  // les `process-taskable` seuls — la porte
+  uint64_t in_fov_frames_npc = 0;       // le denominateur : un zero sans lui serait muet
 };
 
 // DEUX FAMILLES, ET LA DISTINCTION PORTE LE VERDICT.
