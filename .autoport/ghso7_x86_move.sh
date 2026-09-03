@@ -72,7 +72,7 @@ for scene in $SCENES; do
   T1=$(date +%s)
   kill "$GKPID" 2>/dev/null; wait "$GKPID" 2>/dev/null; GKPID=""
   echo "HDWALL scene=$scene-x86 secondes=$((T1 - T0)) inject=0 affarm=$ARM plateforme=x86" >> "$LOG"
-  grep -aE '^(HDWGARB|HDLEN[0-9]*|HDMTXREF[23]?|HDAFFINEARM|HDDRAWDEV|HDMTXDEV|HDHB[0-9]?|HDLENG[0-9]?|HDLENRIG|HDMOVES|HDINJECT|HDSKINLEN|HDLENEV|HDCMDEV|HDRESET|HDWALL|HDSKINMODEL|HDBLEND2?|HDRJEV2?|HDTPEV2?|HDANGTAB|HDSCLEP2?|HDSTRETCHINJECT|LEVEL-WARP[A-Z-]*)|^\[JAK-HD-TGT\]' "$LOG" > "$OUT/$TAG-$scene-marqueurs.txt"
+  grep -aE '^(HDWGARB|HDLEN[0-9]*|HDMTXREF[23]?|HDAFFINEARM|HDDRAWDEV|HDMTXDEV|HDHB[0-9]?|HDLENG[0-9]?|HDLENRIG|HDMOVES|HDINJECT|HDSKINLEN|HDLENEV|HDCMDEV|HDRESET|HDWALL|HDSKINMODEL|HDBLEND2?|HDRJEV[2345]?|HDTPEV2?|HDANGTAB|HDSCLEP2?|HDSTRETCHINJECT|LEVEL-WARP[A-Z-]*)|^\[JAK-HD-TGT\]' "$LOG" > "$OUT/$TAG-$scene-marqueurs.txt"
   say "   etats joueur : $(grep -a 'JAK-HD-TGT\] st=' "$LOG" | sed 's/^.*st=//' | sort | uniq -c | sort -rn | head -6 | awk '{printf "%s(%s) ", $2, $1}')"
   for m in HDMOVES HDLEN7 HDLEN8 HDLEN9 HDLEN10 HDLEN11 HDLEN HDLEN3; do say "   $(grep -a "^$m " "$LOG" | tail -1 | cut -c1-200)"; done
   say "   HDBLEND=$(grep -ac '^HDBLEND ' "$LOG") HDRJEV=$(grep -ac '^HDRJEV ' "$LOG") HDTPEV=$(grep -ac '^HDTPEV ' "$LOG") HDLENG=$(grep -ac '^HDLENG ' "$LOG") HDCMDEV=$(grep -ac '^HDCMDEV ' "$LOG") HDSKINLEN=$(grep -a '^HDSKINLEN ' "$LOG" | tail -1 | grep -o 'cmd_bones=[0-9]* .*stock_w_bad=[0-9]* hd_w_bad=[0-9]*' | cut -c1-120)"
