@@ -24,6 +24,10 @@ if float(mv[-1].get('distance_m',0))<500: F(f"{mv[-1].get('distance_m')} m parco
 # LE DETECTEUR (owner) : ecart brusque a la POSE COMMANDEE, pas NaN, pas melange.
 if not re.search(r'^HDSTRETCHCOUNT .*(commande|pose_cmd)',t,re.M):
     F("HDSTRETCHCOUNT doit comparer l'os RENDU a l'os COMMANDE par l'animation en cours — « pas dans un sens ou ils sont senses s'etirer »")
+# NOUVEAU SYMPTOME (owner 03/09) : translation du modele entier + t-pose. Compter les deux.
+tr=[kv(l) for l in re.findall(r'^HDROOTJUMP .*$',t,re.M)]
+if not tr or not any(d.get('plateforme')=='redmi' and int(d.get('sauts_racine',1))==0 and int(d.get('images_tpose',1))==0 and float(d.get('minutes',0))>=10 for d in tr):
+    F("HDROOTJUMP : l'owner voit maintenant le MODELE ENTIER transpose et en t-pose — compter par le code les sauts de la racine et les images en pose de repos non commandee, ZERO sur >= 10 min Redmi en mouvement")
 apres=[d for d in st if int(d.get('os_etires',-1))==0 and d.get('plateforme')=='redmi' and float(d.get('minutes',0))>=10]
 if not apres: F("aucune preuve APRES sur le Redmi a ZERO os etire sur >= 10 minutes")
 print("[Ghso ok] etirement compte par le code, reproduit sur appareil, attribue, puis zero sur >=10 min")

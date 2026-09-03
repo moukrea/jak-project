@@ -1072,6 +1072,59 @@ phases:
   validator: validators/phase-Ghalo-sun.sh
   max_turns: 1500
   max_retries: 3
+- id: Gcutscene-npc-flicker-2
+  name: 'PNJ QUI CLIGNOTENT, RETOUR 2 (owner 2026-09-01) : « c''est pas réglé du tout, le pire cas que j''ai observé c''est
+    la cinématique avec MAIRE (la première) ». La porte precedente a ete satisfaite sur 3 scenes qui n''etaient PAS celle
+    qui echoue — un compte de scenes ne vaut rien sans le cas NOMME. La premiere cinematique du maire est desormais IMPOSEE
+    dans la preuve.'
+  prompt: prompts/phase-Gcutscene-npc-flicker.md
+  validator: validators/phase-Gcutscene-npc-flicker.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Ghd-skin-origin-stretch
+  name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
+    s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
+    extrême », intermittent, une fraction de seconde, purement visuel. SIGNATURE : une matrice de squelette qui retombe a
+    l''identite ou a zero pendant une image — les sommets vont a (0,0,0) et la longueur de l''etirement vaut la distance joueur-origine.
+    Distances mesurees des niveaux : beach 135 m, jungle 303 m, village2 1546 m, village3 3601 m, finalboss 5540 m — croissantes
+    dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
+  prompt: prompts/phase-Ghd-skin-origin-stretch.md
+  validator: validators/phase-Ghd-skin-origin-stretch.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Grecharged-foliage-wind3
+  name: 'BRISE, RETOUR 3 (owner 2026-08-31, NON VALIDE) : TROIS defauts dont un qui n''est pas le notre. D1 la brise NATIVE
+    est cassee, option ETEINTE : « les arbres qui sont sensés être animés par défaut font de légers twitchs sans animations
+    » — un correctif de VITESSE pose sur une animation qui ne joue pas produit exactement des twitchs. D2 couverture incomplete
+    : « tous les arbres ne sont pas impactés ». D3 amplitude absurde : « ils bougent comme s''il y avait une tempête c''est
+    ridicule » alors qu''il demandait une LEGERE brise. ORDRE IMPOSE : D1 (reparer la reference), puis D2, puis D3 — calibrer
+    l''amplitude sur une animation cassee reviendrait a calibrer sur du bruit.'
+  prompt: prompts/phase-Grecharged-foliage-wind3.md
+  validator: validators/phase-Grecharged-foliage-wind3.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
+- id: Gfixed-tick-anim-interp-2
+  name: 'ANIMATIONS SACCADEES EN BASSE CADENCE (owner 2026-09-01, retour 2) : « Quand le framerate est dans les 20 FPS, je
+    trouve que c''est jittery, PLUS QUE LE FRAMERATE [...] faut que ça marche dans les deux sens ». Le cycle 1 a ameliore
+    la HAUTE cadence (180 img/s : 7,58 -> 2,56) et laisse la basse INTACTE voire PIRE (30 img/s : 17,04 -> 20,14). Ma porte
+    exigeait une mesure > 60 et reléguait les basses en « hors verdict » : elle a valide un chantier qui ne traite pas son
+    cas.'
+  prompt: prompts/phase-Gfixed-tick-anim-interp-2.md
+  validator: validators/phase-Gfixed-tick-anim-interp-2.sh
+  max_turns: 3000
+  max_retries: 60
+  device: false
+  device_serial: eae4df44
+  owner_verify: true
 - id: Gcine-cut
   name: 'Fix the cinematic camera CUTS (owner: instead of changing plan with a hard CUT, the camera MOVES/interpolates toward
     the next target => continuous pans where there should be discrete shot changes). May also reproduce on our x86 (shared
@@ -2821,19 +2874,6 @@ phases:
   device: false
   device_serial: eae4df44
   owner_verify: true
-- id: Gfixed-tick-anim-interp-2
-  name: 'ANIMATIONS SACCADEES EN BASSE CADENCE (owner 2026-09-01, retour 2) : « Quand le framerate est dans les 20 FPS, je
-    trouve que c''est jittery, PLUS QUE LE FRAMERATE [...] faut que ça marche dans les deux sens ». Le cycle 1 a ameliore
-    la HAUTE cadence (180 img/s : 7,58 -> 2,56) et laisse la basse INTACTE voire PIRE (30 img/s : 17,04 -> 20,14). Ma porte
-    exigeait une mesure > 60 et reléguait les basses en « hors verdict » : elle a valide un chantier qui ne traite pas son
-    cas.'
-  prompt: prompts/phase-Gfixed-tick-anim-interp-2.md
-  validator: validators/phase-Gfixed-tick-anim-interp-2.sh
-  max_turns: 3000
-  max_retries: 60
-  device: false
-  device_serial: eae4df44
-  owner_verify: true
 - id: Gsubtitle-style-2
   name: 'SOUS-TITRES, RETOUR 2 (owner 2026-08-31, NON VALIDE) : « on voit encore le texte en dur duppliqué dessous avec une
     opacité réduite. L''ombre portée est décalée du texte au lieu d''être pile en dessous ». DEUX defauts : le texte duplique
@@ -2857,32 +2897,6 @@ phases:
     dans le jeu.'
   prompt: prompts/phase-Gcutscene-skip-all.md
   validator: validators/phase-Gcutscene-skip-all.sh
-  max_turns: 3000
-  max_retries: 60
-  device: false
-  device_serial: eae4df44
-  owner_verify: true
-- id: Gcutscene-npc-flicker-2
-  name: 'PNJ QUI CLIGNOTENT, RETOUR 2 (owner 2026-09-01) : « c''est pas réglé du tout, le pire cas que j''ai observé c''est
-    la cinématique avec MAIRE (la première) ». La porte precedente a ete satisfaite sur 3 scenes qui n''etaient PAS celle
-    qui echoue — un compte de scenes ne vaut rien sans le cas NOMME. La premiere cinematique du maire est desormais IMPOSEE
-    dans la preuve.'
-  prompt: prompts/phase-Gcutscene-npc-flicker.md
-  validator: validators/phase-Gcutscene-npc-flicker.sh
-  max_turns: 3000
-  max_retries: 60
-  device: false
-  device_serial: eae4df44
-  owner_verify: true
-- id: Grecharged-foliage-wind3
-  name: 'BRISE, RETOUR 3 (owner 2026-08-31, NON VALIDE) : TROIS defauts dont un qui n''est pas le notre. D1 la brise NATIVE
-    est cassee, option ETEINTE : « les arbres qui sont sensés être animés par défaut font de légers twitchs sans animations
-    » — un correctif de VITESSE pose sur une animation qui ne joue pas produit exactement des twitchs. D2 couverture incomplete
-    : « tous les arbres ne sont pas impactés ». D3 amplitude absurde : « ils bougent comme s''il y avait une tempête c''est
-    ridicule » alors qu''il demandait une LEGERE brise. ORDRE IMPOSE : D1 (reparer la reference), puis D2, puis D3 — calibrer
-    l''amplitude sur une animation cassee reviendrait a calibrer sur du bruit.'
-  prompt: prompts/phase-Grecharged-foliage-wind3.md
-  validator: validators/phase-Grecharged-foliage-wind3.sh
   max_turns: 3000
   max_retries: 60
   device: false
@@ -2919,20 +2933,6 @@ phases:
     Bissecter sur les builds de 21:14 et 04:54. POSER UNE GARDE permanente : un acquis valide se verifie a chaque cycle.'
   prompt: reports/Gfont-regression/owner-defects.txt
   validator: validators/phase-Gfont-regression.sh
-  max_turns: 3000
-  max_retries: 60
-  device: false
-  device_serial: eae4df44
-  owner_verify: true
-- id: Ghd-skin-origin-stretch
-  name: 'MODELES HD QUI S''ETIRENT VERS L''ORIGINE DU MONDE (owner 2026-08-31) : « le modèle s''allonge horizontalement comme
-    s''il essayait d''atteindre un point d''origine au loin [...] plus on est loin de Sandover Village, plus l''effet est
-    extrême », intermittent, une fraction de seconde, purement visuel. SIGNATURE : une matrice de squelette qui retombe a
-    l''identite ou a zero pendant une image — les sommets vont a (0,0,0) et la longueur de l''etirement vaut la distance joueur-origine.
-    Distances mesurees des niveaux : beach 135 m, jungle 303 m, village2 1546 m, village3 3601 m, finalboss 5540 m — croissantes
-    dans l''ordre du jeu. A verifier aussi sur Samos et Keira, meme chaine de peau.'
-  prompt: prompts/phase-Ghd-skin-origin-stretch.md
-  validator: validators/phase-Ghd-skin-origin-stretch.sh
   max_turns: 3000
   max_retries: 60
   device: false

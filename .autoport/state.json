@@ -1,5 +1,5 @@
 {
-  "current_phase_idx": 277,
+  "current_phase_idx": 109,
   "retries": {
     "00-harness": 2,
     "01-scaffold": 1,
@@ -261,7 +261,7 @@
     "Gsubtitle-style-2": 2,
     "Gcutscene-skip-polish": 1,
     "Grecharged-foliage-wind3": 1,
-    "Gcutscene-npc-flicker-2": 1,
+    "Gcutscene-npc-flicker-2": 2,
     "Gcutscene-skip-polish-2": 3,
     "Gpbr-props-reach-draw": 1,
     "Gmenu-census-cleanup": 1,
@@ -950,7 +950,9 @@
     "Gjak-hd-rig-strap",
     "Ggrass-crash",
     "Gloading-screen-window",
-    "Gfixed-tick-interpolation"
+    "Gfixed-tick-interpolation",
+    "Gcutscene-skip-polish-2",
+    "Gfont-regression"
   ],
   "blocked": [
     "A6-emitter-off-register",
@@ -1192,7 +1194,7 @@
     "Gmenu-census-cleanup": 1788337784.4468226,
     "Gfont-regression": 1788341198.8582702
   },
-  "last_update": "2026-09-02T23:26:20.791317+00:00",
+  "last_update": "2026-09-03T01:58:10.458297+00:00",
   "rate_interrupts": {
     "17-apk-assets": 2,
     "F1e-android-reveal-crash-fix": 2,
@@ -1327,13 +1329,11 @@
     "Gfixed-tick-anim-interp",
     "Gcutscene-npc-flicker",
     "Gsubtitle-style-2",
-    "Grecharged-foliage-wind3",
-    "Gcutscene-npc-flicker-2",
     "Gpbr-props-reach-draw",
     "Gmenu-census-cleanup",
     "Gfont-regression",
-    "Ghd-skin-origin-stretch",
-    "Gcutscene-skip-polish-2"
+    "Gcutscene-skip-polish-2",
+    "Gcutscene-npc-flicker-2"
   ],
   "parked": {
     "Grecharged-hud-jak1": "owner 2026-07-09: park WIP HUD, default recharged-hud? already #f (OFF=stock), revisit later; more important work first",
@@ -1355,11 +1355,7 @@
     "Gfixed-tick-anim-interp": "2026-09-01 17:05 : deja validee, toujours en attente de la parole de l'owner.",
     "Gcutscene-npc-flicker": "2026-09-01 19:08 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-npc-flicker quand il valide.",
     "Gsubtitle-style-2": "2026-09-01 21:07 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gsubtitle-style-2 quand il valide.",
-    "Grecharged-foliage-wind3": "2026-09-02 00:55 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Grecharged-foliage-wind3 quand il valide.",
-    "Gcutscene-npc-flicker-2": "2026-09-02 03:28 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gcutscene-npc-flicker-2 quand il valide.",
     "Gpbr-props-reach-draw": "2026-09-02 10:29 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gpbr-props-reach-draw quand il valide.",
-    "Gmenu-census-cleanup": "2026-09-02 11:19 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gmenu-census-cleanup quand il valide.",
-    "Gfont-regression": "2026-09-02 12:38 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gfont-regression quand il valide.",
-    "Ghd-skin-origin-stretch": "2026-09-03 01:03 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Ghd-skin-origin-stretch quand il valide."
+    "Gmenu-census-cleanup": "2026-09-02 11:19 : validateur ET gates PASSES. N'ATTEND QUE LA PAROLE DE L'OWNER. Ne pas fermer sans lui : deposer /home/emeric/code/jak-project/.autoport/owner-ok/Gmenu-census-cleanup quand il valide."
   }
 }
