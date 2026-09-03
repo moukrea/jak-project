@@ -1,3 +1,5 @@
+> **ERRATUM 2026-09-03 (owner) :** la session superviseur `fc2d3cfc` est ACTIVE (lancee par `supervisor.sh`, 120 messages owner et 1 138 commandes shell sur la semaine du 27/08 au 03/09). « Le superviseur a disparu » est faux. Ce qui est vrai : zero commit propre depuis le 1er aout (ses ecritures par heredoc sont absorbees par les commits `git add -A` des workers), journal mort depuis le 18/06, 335 tours de cron par semaine contre 120 messages owner, et un prompt de cron au contexte fige au 26/08. Voir le plan, etape 6.
+
 # Review of the autoport session history — how the owner interacts with the harness, and where it goes wrong
 
 Scope: 1111 transcripts in `~/.claude/projects/-home-emeric-code-jak-project/` (1.8 GB), `~/.claude/history.jsonl` (1799 typed prompts for jak-project), `.autoport/` (orchestrator, DIRECTIVES, milestones, state, owner-ok). Period 2026-05-18 → 2026-09-03. All quotes are the owner's French verbatim (typos included). Intermediate files are in the scratchpad: `sessions-table.csv`, `sessions-all.csv`, `sessions.json`, `owner-messages.jsonl`, `events-3w.jsonl`, `kw-hits.json`, `ctx.py` (context extractor), `scan.py`/`scan2.py`.

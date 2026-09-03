@@ -71,3 +71,17 @@ Format des marqueurs REVISE :
 Verifie : au moins une ligne AVANT correction avec images_avec_matrice_perimee >= 1 (sans
 reproduction rien n'est prouve), et une ligne APRES a ZERO sur >= 5 minutes de jeu.
 Les anciens marqueurs HDEPISODE / HDCORREL ne sont plus exiges.
+
+## RELANCE SUPERVISEUR 2026-09-03 07:35 — LA CAMPAGNE REDMI MEURT AU LANCEMENT
+La capture dev7-abl1 fait 41 ko : le jeu s'initialise et la trace s'arrete UNE SECONDE
+apres SDL_Init. Rien depuis 06:18. Deux tentatives (9 et 10) ont eu la partie technique
+finie (source du w fermee, ablation x86 : 686 / 848 / 0 sauts) et n'ont JAMAIS produit
+une course Redmi qui aille au bout.
+
+ORDRE POUR CETTE TENTATIVE, AVANT TOUTE AUTRE CHOSE :
+  1. Lancer le jeu sur le Redmi et VERIFIER qu'il tourne 60 s (ps + logcat qui avance).
+     S'il meurt : publier le diagnostic (signal, derniere ligne) et le corriger. Ne pas
+     passer a la mesure tant qu'une course ne survit pas.
+  2. Ensuite seulement, la campagne : >= 10 min en mouvement (>= 500 m), HDROOTJUMP et
+     t-pose a zero, sur les niveaux lointains.
+Rien d'autre n'est attendu de cette tentative.

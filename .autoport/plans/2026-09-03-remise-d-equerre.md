@@ -1,8 +1,8 @@
 # Autoport : remise d'équerre
 
-Revue complète du harnais, 3 septembre 2026. Rien n'a été modifié : ni code, ni état, ni process. L'orchestrateur, le worker en cours (Gcutscene-npc-flicker-2) et les deux démons de build tournaient pendant la revue et tournent toujours.
+Revue complète du harnais, 3 septembre 2026. Corrigée le même jour sur le point du superviseur : la session est active, voir §1 et étape 6. Rien n'a été modifié : ni code, ni état, ni process. L'orchestrateur, le worker en cours (Gcutscene-npc-flicker-2) et les deux démons de build tournaient pendant la revue et tournent toujours.
 
-Sources : le code du harnais, `state.json` et `milestones.yaml`, 4 778 commits `[autoport/…]`, 573 journaux d'essais, les 1 111 transcripts de sessions Claude Code (dont ta session superviseur unique de 77 jours), tes 1 617 messages depuis mai, les 763 fichiers de mémoire. Les cinq rapports détaillés sont joints dans `.autoport/plans/revue-2026-09-03/`.
+Sources : le code du harnais, `state.json` et `milestones.yaml`, 4 778 commits `[autoport/…]`, 573 journaux d'essais, les 1 111 transcripts de sessions Claude Code (dont ta session superviseur de 77 jours, active pendant la revue), tes 1 617 messages depuis mai, les 763 fichiers de mémoire. Les cinq rapports détaillés sont joints dans `.autoport/plans/revue-2026-09-03/`.
 
 ---
 
@@ -14,7 +14,7 @@ Le harnais n'est pas cassé à un endroit. Il a été patché en réaction à ch
 - **Les validateurs des 19 dernières phases ne lisent qu'un seul fichier : le rapport écrit par le worker lui-même.** 116 vérifications sur 116 portent sur ce texte, zéro sur un binaire, un log ou l'appareil. Les seules portes qui testent l'artefact réel (`deploy_verify` + boot check) sont désactivées (`device: false`) sur toutes les phases que tu testes en ce moment.
 - **Le débit s'est effondré** : 22 à 46 phases closes par semaine en juin, puis 5, 3 et 0 sur les quatre dernières semaines. Du 10 au 23 août, 645 commits sur une seule phase et zéro phase close.
 - **Le temps des workers va à la preuve, pas au code.** Sur les trois dernières semaines : 66 % des appels prouvent, mesurent ou analysent, 13 % lisent du code, **1,3 % éditent le jeu** (1,6 h sur 309 h). En août et septembre, 56 à 59 % des essais ne contiennent aucune édition de code.
-- **Le superviseur a disparu.** Le journal est mort depuis le 18 juin. Aucun commit superviseur depuis le 28 août. Depuis le 26 août, ce sont les workers qui écrivent leurs propres phases, prompts, validateurs et directives, à l'intérieur d'un essai d'une autre phase. La moitié du travail de la session superviseur répond à son propre cron de 30 minutes.
+- **Le superviseur est vivant, mais il travaille sans trace.** C'est ta session interactive de 77 jours, lancée par `supervisor.sh`, et c'est aujourd'hui ton seul canal vers le harnais. Sur la dernière semaine : 120 messages de toi, 335 tours de son propre cron de 30 minutes, 1 138 commandes shell, zéro commit. Elle écrit les prompts, validateurs et jetons par heredoc et ne commite jamais : ses écritures sont absorbées par le commit suivant d'un worker, sous le préfixe de ce worker. Le journal qu'elle devait tenir est mort depuis le 18 juin. Et le prompt de son cron porte un « contexte » figé au 26 août (phase 232) qu'il répète à chaque tour.
 - **Le harnais se sabote mécaniquement** : chaque essai raté fait un commit WIP, ce commit déclenche le démon de build (build arm64 complet + `gradle clean`), qui réécrit `out/jak1/iso` en ARM64 pendant que le worker suivant lance un `gk` x86 dessus. Faux rouge, nouveau commit WIP, nouveau build. Huit builds cette nuit entre 23 h et 3 h.
 - **Chaque relance manuelle brûle un essai.** Ton Ctrl-C ou `kill` laisse l'orchestrateur exécuter le validateur, compter l'essai et enregistrer une empreinte. 373 des 597 sessions worker ont duré moins de 3 minutes. Une boucle « pas de démarrage » a tourné 230 fois (19,7 h) sur Ghd-skin-origin-stretch le 31 août, sans que la cause soit récupérable.
 - **Le backlog n'a plus une seule vérité.** 278 phases dans une liste positionnelle indexée par un curseur qu'on déplace à la main pendant que la liste est éditée. 41 phases « complétées » dont le dernier commit dit « NOT done ». 27 phases validées mais pas closes. 9 phases parquées qui ont ton feu vert et ne fermeront jamais (le saut « parquée » passe avant la lecture du jeton). 39 des 96 jetons `owner-ok` ont été écrits par le superviseur, pas par toi, 31 sont vides. Le fichier de la file « à tester » date du 22 août et parle de la spec des seins.
@@ -55,7 +55,7 @@ Chaque ligne relie un symptôme que tu as exprimé à sa cause mécanique et à 
 | « Ton travail est systématiquement détruit » | kill + relance = essai brûlé + contexte perdu ; le watchdog « 45 min sans changement d'artefact » tue les essais d'analyse (13 kills) ; le rejeu ne reçoit que 4 Ko de sortie de validateur | review-mechanics B5, B10, D6 |
 | « Ça revient, c'est toujours pété » | Aucune porte artefact sur les phases récentes ; validateur = grep du rapport ; un seul acquis (`font-urbanist`) sur 96 phases validées ; le clone `-2` valide sur le rapport de la phase 1 (npc-flicker-2 est passé vert le 2/09 avec 0 édition de code, ton verdict le 3/09 : « bah non c'est toujours pété ») | review-validators §1-2, review-throughput §5 |
 | « Je dois tester quoi ? » / « J'ai déjà validé ça » | L'unité que tu valides est une feature ; l'unité du harnais est un id de phase ; une demande = 2 à 3 phases ; 21 phases parquées ; la file « à tester » n'est pas maintenue | review-sessions L4, E5 |
-| « T'es endormi ? » / « Et le cron ? » | Session superviseur unique de 77 jours, 5 022 tours, compactions ; absent pendant les quotas et les PC éteints ; l'orchestrateur continue sur l'ancien périmètre | review-sessions L6 |
+| « T'es endormi ? » / « Et le cron ? » | Une seule session de 77 jours, 17 000 tours, compactée plusieurs fois ; absente pendant les quotas et quand le PC est éteint pendant que l'orchestrateur continue sur l'ancien périmètre ; 335 tours de cron par semaine contre 120 messages de toi | review-sessions L6, vérifié le 3/09 |
 | « La moitié du temps gaspillée en builds » | Chaque WIP commit lance un build arm64 complet + gradle clean ; 454 builds ; « pendant un gk » 672 fois | review-mechanics B17, D4 |
 | « Tu touches à la SHIELD » | L'ordre est en prose (mémoire, cron, DIRECTIVES) ; ce que le worker exécute (prompt, `device_serial`, 18 scripts) dit l'adresse de la SHIELD | review-sessions E4 |
 
@@ -160,13 +160,15 @@ Critère : `autoport status` produit la liste ; tu confirmes qu'aucune feature d
 
 ### Étape 6 : le superviseur (½ journée)
 
-1. **Nouvelle session, prompt de 60 lignes** à la place des 434 actuelles (qui parlent encore d'Opus 4.7 et de Geyser Rock). Rôle : traduire tes messages en items de backlog, poser tes jetons, arbitrer les blocages, entretenir les acquis. Interdits : éditer le moteur, lancer des campagnes, toucher un appareil.
-2. **Sessions courtes** : une par jour ou par thème, relancée avec `autoport status` en entrée. L'état vit dans les fichiers, pas dans 77 jours de contexte compacté.
-3. **Digest** uniquement quand quelque chose a changé (`noop` sinon), trois rubriques, en français, ≤ 12 lignes.
-4. **Ordre = fichier.** Un ordre du type « n'y touche plus » devient une règle de hook (étape 2.6) ou un champ de backlog, le jour même, et le superviseur te montre le diff.
-5. Le cron de 30 min passe à un `autoport status --changed` : s'il ne sort rien, pas de tour de session.
+Le rôle est bon et la session fait le travail de traduction : on la garde. Ce qu'on change, c'est sa trace et son coût.
 
-Critère : trois jours de fonctionnement sans que tu aies à demander « tu bosses sur quoi ? ».
+1. **Une trace propre** : chaque écriture du superviseur (prompt, validateur, backlog, jeton) est committée sur-le-champ sous `[autoport/supervisor]`, et l'orchestrateur ne fait plus `git add -A` (il ne commite que les chemins touchés par le worker). Aujourd'hui ses écritures partent dans les commits des workers et sa piste est invisible dans git.
+2. **Un prompt système de 60 lignes** à la place des 434 actuelles (Opus 4.7, Geyser Rock, buckets A-F). Rôle : traduire tes messages en items de backlog, poser tes jetons, arbitrer les blocages, entretenir les acquis. Interdits : éditer le moteur, lancer des campagnes, toucher un appareil.
+3. **Le cron** : plus de contexte figé dans le prompt du digest (il cite encore la phase 232 du 26 août). Le digest lit `autoport status --changed` ; s'il ne sort rien, deux lignes ou pas de tour du tout. Trois rubriques, ≤ 12 lignes.
+4. **Ordre = fichier.** Un ordre du type « n'y touche plus » devient une règle de hook (étape 2.6) ou un champ de backlog, le jour même, et le superviseur te montre le diff.
+5. **La session** : tu peux garder la session longue si elle te convient. Ce qui doit changer, c'est que l'état vive dans les fichiers (`backlog.yaml`, `autoport status`) et non dans le contexte compacté, pour qu'une reprise après quota ou PC éteint reparte de la vérité et non d'un résumé. Je recommande une session par semaine, relancée avec `autoport status` en entrée.
+
+Critère : trois jours de fonctionnement sans que tu aies à demander « tu bosses sur quoi ? », et un `git log` qui montre les écritures du superviseur sous son propre préfixe.
 
 ### Étape 7 : nettoyage (½ journée, en dernier, réversible)
 
@@ -188,7 +190,7 @@ Critère : trois jours de fonctionnement sans que tu aies à demander « tu boss
 | 3 orchestrateur | 1 j | 0 | fin des essais brûlés, des boucles de 19 h, des journaux écrasés |
 | 4 build | ½ j | 3 | fin des faux rouges x86 et des builds de nuit |
 | 5 backlog | 1 j | 0 (migration) | une liste « à tester » vraie ; plus de features re-listées |
-| 6 superviseur | ½ j | 5 | un interlocuteur qui répond à toi, pas à son cron |
+| 6 superviseur | ½ j | 5 | un superviseur avec une trace git, un cron qui coûte zéro quand rien ne change |
 | 7 nettoyage | ½ j | tout | 19 Go → quelques centaines de Mo ; preflight qui ne scanne plus 942 scripts |
 
 Les étapes 1, 3 et 5 sont indépendantes et peuvent avancer en parallèle. Total : environ 6 jours de travail de harnais, pendant lesquels le harnais ne fait pas de jeu. C'est le prix : trois semaines de physique ont produit zéro phase close, donc six jours d'atelier sont rentabilisés dès la première semaine à 5 phases.

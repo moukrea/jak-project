@@ -1,3 +1,5 @@
+> **ERRATUM 2026-09-03 (owner) :** la session superviseur `fc2d3cfc` est ACTIVE (lancee par `supervisor.sh`, 120 messages owner et 1 138 commandes shell sur la semaine du 27/08 au 03/09). « Le superviseur a disparu » est faux. Ce qui est vrai : zero commit propre depuis le 1er aout (ses ecritures par heredoc sont absorbees par les commits `git add -A` des workers), journal mort depuis le 18/06, 335 tours de cron par semaine contre 120 messages owner, et un prompt de cron au contexte fige au 26/08. Voir le plan, etape 6.
+
 # Autoport harness: throughput and failure-pattern review (May 18 to Sep 3, 2026)
 
 Sources: `git log --all` (14 415 unique commits, 4 778 tagged `[autoport/…]`), 573 surviving `attempt-NN.jsonl` logs, `orchestrator.log` (covers Aug 2 onward only, no timestamps), `state.json`, `milestones.yaml` (278 phases), `owner-ok/`, `acquis/`, `reports/` (9.1 GB, 5 488 files, 91 phases). Read-only; nothing was modified.
