@@ -134,9 +134,15 @@ void breeze_offset(float anchor_x,
 struct Instance {
   float anchor_x = 0.f;  // ancrage monde (unites GOAL)
   float anchor_z = 0.f;
-  float height_m = 0.f;  // hauteur de la plante, metres
+  float height_m = 0.f;  // hauteur de la plante, metres (ymax - base_y)
   float peak_w = 0.f;    // poids a la couronne, tel que le shader le lit (0 = ne bouge jamais) ;
                          // la flexion en metres est `bend_metres() * peak_w`, calculee a la lecture
+  // essai 7 — ce qu'il faut pour juger PHASE, PIVOT et SPECTRE, pas seulement l'amplitude :
+  float ph01 = 0.f;        // phase d'instance ecrite dans les enregistrements (u8 / 256)
+  float base_w = 0.f;      // |poids interpole| a la ligne de sol (shrub ; 0 pour le TIE)
+  bool ground_found = false;  // shrub : un triangle TFRAG trouve sous l'ancrage
+  u32 sunk_mm = 0;         // shrub : enfoncement max(0, sol - ymin), mm
+  bool shrub = false;      // instance du systeme SHRUB (les verdicts 2 ne regardent que celles-la)
 };
 
 // Les trois systemes qui dessinent de la vegetation. Un arbre est identifie par (niveau, systeme,
@@ -167,5 +173,31 @@ void frame(u64 frame_idx);
 
 // Valeur publiee quand AUCUNE paire n'a pu etre examinee. Ce n'est pas 0, deliberement.
 constexpr u64 kNoMeasurement = 999999;
+
+// ------------------------------------------------- le vent du JEU (ND), partage TIE -> SHRUB ----
+// essai 7. Tie3 est le seul renderer a recevoir `wind-work` par DMA (tie-methods.gc:385) ; le shrub
+// n'en recoit rien alors que sur PS2 il integre le MEME ressort. Tie3 depose ici une copie octet
+// pour octet de la structure (sizeof(Tie3::WindWork) = 1344), une fois par image ; Shrub la relit.
+// Le nombre de pas de 1/60 s que cette image porte est calcule UNE fois ici (meme regle que
+// Tie3::fw_wind_ticks : delta de `wind-time`, 1 a la premiere image, 0 en pause, borne a 8), et la
+// cadence est MESUREE pour le verdict (1) : pas par seconde murale hors pause, compare a 60.
+void note_game_wind(const void* wind_work_bytes, size_t nbytes, u64 frame_idx);
+const void* game_wind_work();  // nullptr tant qu'aucune copie n'est arrivee
+size_t game_wind_bytes();
+int game_wind_ticks();         // pas de 1/60 s portes par l'image courante (0..8)
+u32 game_wind_time();          // `wind-time` de la copie courante
+bool game_wind_paused();
+
+// Le vent NATIF des buissons (hors option Recharged : c'est du stock restaure). Levier d'ablation
+// `OG_WIND_SHRUB_NATIVE` / `debug.opengoal.wind.shrub_native` = 0 ; defaut 1. Lu une fois.
+bool shrub_native_enabled();
+// Ce que le chemin natif shrub a fait cette image (une ligne par arbre) : pour l'audit et le
+// verdict (1). `shear_rms`/`shear_peak` = |vf27| applique ; `sunk_shift_mm` = max sur les instances
+// enfoncees de |s| x (sol - origine), la ligne de sol que le cisaillement NATIF de ND deplace.
+void note_shrub_native(const std::string& level,
+                       u64 instances_with_wind,
+                       double shear_rms,
+                       double shear_peak,
+                       double sunk_shift_mm);
 
 }  // namespace foliage_wind

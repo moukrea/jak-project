@@ -1,6 +1,8 @@
 #include "extract_shrub.h"
 
 #include <array>
+#include <cstdlib>
+#include <fstream>
 
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
@@ -58,6 +60,10 @@ struct ShrubInstanceInfo {
   u32 color_idx;
   std::array<math::Vector4f, 4> mat;
   math::Vector4f bsphere;
+  // foliage-wind : le `wind-index` de l'instance (instance-shrubbery, offset 62), le meme champ
+  // que le TIE. Il n'entre PAS dans le fr3 (pas de bump de TFRAG3_VERSION) : il est ecrit dans le
+  // sidecar `foliage_wind_shrub.txt` quand SHRUB_WIND_DUMP_DIR est pose, voir extract_shrub().
+  u16 wind_index = 0;
 };
 
 struct ShrubProtoInfo {
@@ -334,7 +340,7 @@ void extract_instance(const shrub_types::InstanceShrubbery& inst,
   result.mat[3][0] += result.bsphere[0];
   result.mat[3][1] += result.bsphere[1];
   result.mat[3][2] += result.bsphere[2];
-  // result.wind_index = instance.wind_index;
+  result.wind_index = inst.wind_index;
 
   result.mat[0][3] = 0.f;
   result.color_idx = inst.color_indices / 4;
@@ -604,6 +610,45 @@ void extract_shrub(const shrub_types::DrawableTreeInstanceShrub* tree,
   tree_out.time_of_day_colors = pack_colors(tree->time_of_day);
 
   make_draws(out, tree_out, proto_info, tex_db);
+
+  // foliage-wind (owner 2026-09-03 : « avec l'option off on devrait avoir le natif d'origine »).
+  // Sur PS2 les buissons ont un vent natif (draw-inline-array-instance-shrub, EE : le meme ressort
+  // que le TIE, docs/progress-notes/jak1/scratch/shrub_asm.md:957-1057), pilote par le `wind-index`
+  // de chaque instance et la raideur du prototype (`rdists.w` = stiffness, `dists.y` = near-stiff,
+  // `rdists.y` = rlength-stiff). Le port jetait ces trois grandeurs. Elles ne rentrent pas dans le
+  // fr3 sans bump de version ; on les ecrit donc dans un SIDECAR TEXTE, dans l'ordre EXACT des
+  // matrices de `make_draws` (proto puis instance), que le moteur relit au chargement et VERIFIE
+  // (comptes et noms de prototypes) avant de s'en servir.
+  if (const char* dump_dir = std::getenv("SHRUB_WIND_DUMP_DIR"); dump_dir && dump_dir[0]) {
+    std::string txt;
+    size_t n_inst = 0;
+    for (const auto& p : proto_info) {
+      n_inst += p.instances.size();
+    }
+    txt += fmt::format("level {} tree {} protos {} instances {}\n", out.level_name,
+                       out.shrub_trees.size() - 1, protos.data.size(), n_inst);
+    for (size_t pi = 0; pi < protos.data.size(); pi++) {
+      const auto& p = protos.data[pi];
+      txt += fmt::format(
+          "proto {} {} stiffness {:.6f} dists {:.4f} {:.4f} {:.4f} {:.4f} rdists {:.8f} {:.8f} "
+          "{:.8f} {:.8f}\n",
+          pi, p.name, p.stiffness, p.dists.data[0], p.dists.data[1], p.dists.data[2],
+          p.dists.data[3], p.rdists.data[0], p.rdists.data[1], p.rdists.data[2], p.rdists.data[3]);
+    }
+    size_t matrix_idx = 0;
+    for (size_t pi = 0; pi < proto_info.size(); pi++) {
+      for (const auto& inst : proto_info[pi].instances) {
+        txt += fmt::format("inst {} {} {}\n", matrix_idx, pi, inst.wind_index);
+        matrix_idx++;
+      }
+    }
+    auto path = fs::path(dump_dir) / "foliage_wind_shrub.txt";
+    file_util::create_dir_if_needed_for_file(path.string());
+    std::ofstream of(path, std::ios::app);
+    of << txt;
+    lg::info("[foliage-wind] sidecar shrub : {} prototypes, {} instances -> {}", protos.data.size(),
+             n_inst, path.string());
+  }
 
   if (dump_level) {
     auto path = file_util::get_file_path({fmt::format("debug_out/shrub_all/{}.obj", debug_name)});
