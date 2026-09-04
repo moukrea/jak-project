@@ -238,7 +238,10 @@ class Backlog:
             en_cours = ("## En cours\nRien en cours. Le prochain sujet est : %s"
                         % nxt.get("feature", nxt.get("id"))) if nxt else ""
 
-        todo = sorted(self.by_status("to-test"),
+        # `owner_test: false` : la preuve est machine (empreinte, reproductibilite), il n'y a rien
+        # que l'owner puisse regarder en jeu. Il l'a dit le 2026-09-04 : « s'il n'y a rien a
+        # tester ne le met pas a tester ». Ces items ne lui sont jamais presentes.
+        todo = sorted((it for it in self.by_status("to-test") if it.get("owner_test", True)),
                       key=lambda it: (it.get("delivered") or "", -self._prio(it)), reverse=True)
         now = [it for it in todo if self._testable_now(it)]
         debt = [it for it in todo if it not in now]
@@ -328,7 +331,7 @@ class Backlog:
                 problems.append("%s : max_retries %s au-dessus du defaut %d sans raison "
                                 "« %s » dans notes" % (iid, it.get("max_retries"),
                                                        DEFAULT_MAX_RETRIES, BUDGET_NOTE))
-            if status == "to-test" and not (it.get("where") or "").strip():
+            if status == "to-test" and it.get("owner_test", True) and not (it.get("where") or "").strip():
                 problems.append("%s : a tester sans « ou regarder » — l'owner ne saurait pas "
                                 "quoi regarder" % iid)
             if status == "blocked" and not (it.get("block_reason") or "").strip():

@@ -1,12 +1,9 @@
-# La seule verite du travail. Une feature = un item.
-# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
-# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
-  status: to-test
-  priority: 10
+  status: open
+  priority: 20
   owner_feedback:
   - date: '2026-08-31'
     text: le faire disparaitre a nouveau
@@ -22,6 +19,10 @@ items:
       pas corrigé du tout
   - date: '2026-09-03'
     text: le seau qui excusait portait 478 des 479 episodes
+  - date: '2026-09-04'
+    text: Bah c'est toujours pas corrigé, tu commence sérieusement à me péter les couilles tu l'avais
+      pourtant déjà réglé plusieurs fois déjà ce bug, ça devrait être simple pour toi de le régler de
+      nouveau !
   gate:
     key: npc_culled_in_frustum
     op: ==
@@ -51,11 +52,17 @@ items:
   - OG_WANT_DISPLAY=beach,display
   - OG_CINE_KICK=mayor
   where: la premiere cinematique avec le Maire
-  notes: 'meme prompt (prompts/phase-Gcutscene-npc-flicker.md) et meme validateur ; le clone -2 est le
-    retour 2 de l''owner sur le meme defaut | statut force : l''owner a redit le 2026-09-03 « c''est pas
-    corrige du tout » ; la phase etait parquee « en attente de sa parole », ce qui est faux : il a parle,
-    et c''est non | gate deduit de validators/phase-Gcutscene-npc-flicker.sh : NPCCULL .*dans_frustum_et_culled=0
-    | device force a true : validators/phase-Gcutscene-npc-flicker.sh exige plateforme=redmi'
+  notes: 'owner 2026-09-04, QUATRIEME refus : « Bah c''est toujours pas corrigé, tu commence sérieusement
+    à me péter les couilles tu l''avais pourtant déjà réglé plusieurs fois déjà ce bug, ça devrait être
+    simple pour toi de le régler de nouveau ! ». Le build teste (d4cac6019b) CONTIENT le correctif du
+    clone (verifie par merge-base). Donc : la cause « clone masque aux frontieres streamees » n''est pas
+    SA cause, ou pas la seule. Les 3 preuves precedentes etaient a zero pendant qu''il voyait le defaut
+    : la preuve ne reproduit pas ses conditions (Honor 60 img/s vs Redmi 22 ; ou c''est Daxter, sans racine
+    exploitable, qui clignote et pas le maire). PROCHAINE ETAPE OBLIGATOIRE : reproduire sur le Redmi
+    AVANT de corriger — un compteur qui monte pendant la scene du maire. Sans reproduction, aucun correctif
+    ne sera accepte. | 2026-09-04 : 4e refus. Reproduction chiffree sur Redmi AVANT tout correctif (compteur
+    > 0 pendant mayor-introduction). Chercher aussi la REGRESSION : le bug avait ete valide en juillet
+    et est revenu.'
   known_cause: 'Le maire porte deja `culled=1` DANS SA PROPRE SCENE pendant que le compteur de cycles
     reste a 0 : le culling est range dans une categorie « justifiee » qui ne compte pas. Les trois portes
     precedentes ont mesure des scenes ou des acteurs qui ne sont pas ceux qui clignotent, et la preuve
@@ -253,7 +260,7 @@ items:
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
   status: open
-  priority: 12
+  priority: 19
   owner_feedback:
   - date: '2026-08-06'
     text: le vent d'origine tournait au quart de sa vitesse
@@ -289,6 +296,14 @@ items:
       brise/vent avec des variations et compagnie, c'est nase ! et pour les shrubs, certains sont placés
       plus bas que le sol pour le style volontairement... mais avec l'animation, bah du coup ils ont l'air
       de glisser sur le sol ça aussi ça fait tâche.
+  - date: '2026-09-04'
+    text: Déjà j'ai du mal à croire que la version native (quad réglé sur off) soit vraiment comme elle
+      est actuellement, j'ai l'impression que c'est buggé. Réglé sur on... Bah l'effet est bizarre, t'as
+      tous les éléments impactés qui twitch à peine, c'est pas convainquant du tout, c'est un mouvement
+      très binaire, plutôt mauvais, aucune variation, aucune ondulation (certes l'ondulation peut faire
+      un effet sous-marin, mais juste un tilt c'est aussi pourri) et pour les arbres par example ça twitch
+      autant côté feuilles que le tronc, nul ! Je pense d'ailleurs que tous les éléments qui devraient
+      ne sont pas impactés... C'est mauvais, je tiens mon précédent feedback, nul !
   gate:
     key: wind_owner_defects_open
     op: ==
@@ -314,12 +329,9 @@ items:
   - debug.opengoal.level.warp=village1-warp
   - debug.opengoal.want.levels=village1,beach
   where: les palmiers et les buissons de Sandover, option de brise eteinte PUIS allumee
-  notes: 'Superviseur 2026-09-04 : item redeclare. device etait FALSE pour un defaut que l''owner voit
-    sur son telephone et qui plantait l''arm64 au lien hier — la porte a donc accepte a bon droit une
-    preuve x86 de 4 min, sur UN seul des cinq defauts. Nouvelle porte : wind_owner_defects_open == 0,
-    somme de cinq verdicts que le moteur publie un par un (natif vs stock, pivot des buissons, couverture
-    par instance dessinee, paires identiques, spectre de brise). Le seul code livre a ce jour est l''ajout
-    du fichier au build arm64.'
+  notes: 'owner 2026-09-04, deuxieme refus complet (voir owner_feedback). Deux verdicts de plus : tronc
+    immobile/cime mobile (ratio <= 0,15) et enveloppe qui varie (CV >= 0,30) — ni ondulation sous-marine
+    ni tilt binaire. Le natif est toujours soupconne bugge : comparaison au stock OBLIGATOIRE en premier.'
   known_cause: 'L''anneau de vent a 48 slots morts sur 64 (index d''ecriture multiplie par `time-adjust-ratio`,
     index de lecture brut) : le ressort lit du vide trois images sur quatre. Le vent TIE est un affaissement
     lent VOULU ; le defaut du port est le pas de temps, qui avance par image RENDUE. La vegetation statique
@@ -331,7 +343,10 @@ items:
     == 0 sur les instances DESSINEES, les protos non classes expliques par nom ; (4) `wind_divergent_pairs`
     == 0 — deux instances identiques cote a cote bougent pareil ; (5) `wind_spectrum_peak_pct` <= 40 —
     le spectre du deplacement d''un sommet est celui d''une brise (large, enveloppe variable), pas d''UNE
-    frequence (« ondulation sous l''eau »). Preuve sur le Redmi.'
+    frequence (« ondulation sous l''eau »). Preuve sur le Redmi ; (6) `wind_base_to_crown_ratio` <= 0.15
+    — le tronc ne bouge pas, la cime oui (« ça twitch autant côté feuilles que le tronc ») ; (7) `wind_envelope_cv`
+    >= 0.30 — l''amplitude varie dans le temps (rafales), ni sinusoide pure ni tilt binaire. wind_owner_defects_open
+    somme les SEPT.'
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: to-test
@@ -1316,8 +1331,8 @@ items:
   owner_ok: null
 - id: hd-skin-origin-stretch
   feature: Les modeles HD qui s'etirent vers un point lointain
-  status: to-test
-  priority: 11
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-31'
     text: faut pas oublier que les modèles HD sont retargetes sur les originaux pour les animations, il
@@ -1368,6 +1383,8 @@ items:
     text: en effet il s'étire plus, mais j'ai l'impression que maintenant c'est le modèle qui (en glitch)
       est transposé visuellement dans la direction ou l'étirement se faisait (voir, c'est difficile à
       constater parce que ça glitch, t-pose dans cette direction)
+  - date: '2026-09-04'
+    text: Ça m'a l'air réglé ! Enfin !
   gate:
     key: hd_bones_stretched
     op: ==
@@ -1379,7 +1396,10 @@ items:
   history:
   - Ghd-skin-origin-stretch
   prompt: prompts/item-hd-skin-origin-stretch.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-04'
+    text: Ça m'a l'air réglé ! Enfin !
+    build_sha: cbd4b478a2314736
   device: true
   device_serial: eae4df44
   proof_timeout: 900
@@ -2790,7 +2810,7 @@ items:
   build: build du 2026-08-05, remplace depuis
 - id: recharged-managed-assets-merge
   feature: Le gestionnaire d'assets avec installation reprenable
-  status: to-test
+  status: archived
   priority: 200
   owner_feedback:
   - date: '2026-08-26'
@@ -2799,6 +2819,8 @@ items:
   - date: '2026-08-26'
     text: le logo apparait bien apres le son qui est sense etre la au moment de son apparition [...] C'est
       je crois le pire truc honnetement
+  - date: '2026-09-04'
+    text: Pas testable facilement, drop cet item
   gate: null
   game: jak1
   max_turns: 800
@@ -2811,10 +2833,11 @@ items:
   where: 'l''installation des assets : coupe-la en cours et relance-la, elle doit reprendre'
   delivered: '2026-08-26'
   build: dernier build publie sur jak-builds
+  notes: 'owner 2026-09-04 : « Pas testable facilement, drop cet item »'
 - id: memory-ceiling-and-crash
   feature: Chargement interminable et plantage par manque de memoire
-  status: to-test
-  priority: 202
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-26'
     text: Nouvelle partie... La cinématique commence avec le fond visuel violacés et la voix de Samos...
@@ -2836,6 +2859,8 @@ items:
       jeu, alors qu'aucun problème sur x86, Redmi ou Honor... C'est je crois le pire truc honnêtement
   - date: '2026-08-26'
     text: ça crash quand je charge la partie (black screen avec la musique en fond... puis crash)
+  - date: '2026-09-04'
+    text: C'est bon
   gate: null
   game: jak1
   max_turns: 800
@@ -2844,7 +2869,10 @@ items:
   history:
   - Gmemory-ceiling-and-crash
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-04'
+    text: C'est bon
+    build_sha: cbd4b478a2314736
   where: 'charge une sauvegarde et enchaine trois niveaux : plus de chargement interminable ni de plantage'
   delivered: '2026-08-27'
   build: dernier build publie sur jak-builds
@@ -2865,6 +2893,9 @@ items:
     text: tout ce qu'on peut pre-computer devrait l'etre au lieu de prendre du temps CPU/GPU c'est debile.
       Ca profitera a tout materiel ! Of course les trucs real time, c'est different, mais ce qui peut
       etre fait en aval devrait l'etre !
+  - date: '2026-09-04'
+    text: Bah t'as pre-calculé quoi de plus qu'avant ? Encore une fois, sans les infos je vois pas quoi
+      tester !
   gate: null
   game: jak1
   max_turns: 800
@@ -2874,7 +2905,11 @@ items:
   - Gprecompute-deterministic-bake
   prompt: null
   owner_ok: null
-  where: le temps de chargement d'un niveau
+  where: 'Avant : a CHAQUE chargement de niveau, le jeu re-subdivisait les maillages et reconstruisait
+    les tangentes (82,8 ms par image a l''ecran-titre, 26 Mo recalcules par niveau). Maintenant : c''est
+    cuit dans les fichiers de niveau au build. A REGARDER : le temps entre l''ecran de chargement et le
+    jeu, sur un niveau lourd (village de glace) — plus court qu''avant ; et Options > Recharged > niveau
+    de subdivision, devenu un reglage au lieu d''un automatisme.'
   delivered: '2026-08-27'
   build: dernier build publie sur jak-builds
 - id: playability-input-and-loadgate
@@ -3112,6 +3147,9 @@ items:
       au build from scratch quand ça exporte le modèle HD de Jak 2 ou 3 (idem pour les bones, retargeting
       des squelettes, physique et compagnie... Un utilisateur qui build le jeu from scratch devrait pouvoir
       avoir le même état que nous)
+  - date: '2026-09-04'
+    text: bah s'il n'y a rien à tester ne le met pas à tester... Mais faut que le jeux marche tout aussi
+      bien quand build de zéro !
   gate: null
   game: jak1
   max_turns: 800
@@ -3121,13 +3159,16 @@ items:
   - Gbuild-from-scratch
   prompt: null
   owner_ok: null
-  where: 'rien a tester en jeu : c''est la reproductibilite du build'
+  where: null
   delivered: '2026-08-30'
   build: dernier build publie sur jak-builds
+  owner_test: false
+  notes: 'owner 2026-09-04 : ne pas lister a l''owner, la preuve est machine (empreinte identique). Exigence
+    maintenue : le jeu doit marcher aussi bien bati de zero.'
 - id: loadgate-crash-regression
   feature: Le jeu ne charge plus une sauvegarde
-  status: to-test
-  priority: 17
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-30'
     text: Interdit de toucher a la SHIELD a nouveau
@@ -3150,6 +3191,8 @@ items:
   - date: '2026-08-30'
     text: quand je charge ma sauvegarde a Geyser Rock... sur la fin l'animation freeze, puis reprend et
       le jeu crash complet... je peux meme plus charger une partie
+  - date: '2026-09-04'
+    text: J'ai pu charger une sauvegarde, mais je sais pas si c'était un problème honnêtement...
   gate: null
   game: jak1
   max_turns: 800
@@ -3158,7 +3201,10 @@ items:
   history:
   - Gloadgate-crash-regression
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-04'
+    text: J'ai pu charger une sauvegarde, mais je sais pas si c'était un problème honnêtement...
+    build_sha: cbd4b478a2314736
   where: charge ta sauvegarde de Geyser Rock
   delivered: '2026-08-30'
   build: dernier build publie sur jak-builds
@@ -3370,12 +3416,18 @@ items:
   block_reason: l'owner a ordonne le 2026-07-10 de parquer jak2 pour reprendre jak1
 - id: menu-census-cleanup
   feature: Le menu contient des options inutiles ou incomprehensibles
-  status: to-test
-  priority: 15
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-31'
     text: je vois que des options sont un peu chelou ou carrement inutilisées... recharged assets VS HD
       texture pack ? WTF. Modern Materials c'est quoi ? PBR test preset et PBR isolate c'est quoi ?
+  - date: '2026-09-04'
+    text: Encore faudrait-il savoir quelles sont les lignes qui ne servaient à rien mais j'ai bien l'impression
+      que c'est nettoyé, en revanche tous les éléments sont en majuscule dans les réglages rechargées,
+      et pas tous sont localisés correctement.
+  - date: '2026-09-04'
+    text: j'ai bien l'impression que c'est nettoyé
   gate: null
   game: jak1
   max_turns: 800
@@ -3384,10 +3436,45 @@ items:
   history:
   - Gmenu-census-cleanup
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-04'
+    text: j'ai bien l'impression que c'est nettoyé
+    build_sha: cbd4b478a2314736
   where: 'Options : les lignes qui ne servent a rien doivent avoir disparu'
   delivered: '2026-09-02'
   build: dernier build publie sur jak-builds
+  notes: 'owner 2026-09-04 : nettoyage « j''ai bien l''impression que c''est nettoyé » — pas une validation
+    ferme ; deux defauts neufs portes par recharged-settings-case-l10n'
+- id: recharged-settings-case-l10n
+  feature: Les reglages Recharged sont tout en majuscules et pas tous traduits
+  status: in-progress
+  priority: 11
+  game: jak1
+  gate:
+    key: settings_case_l10n_defects
+    op: ==
+    value: 0
+  device: false
+  max_turns: 400
+  max_retries: 4
+  depends_on: []
+  history: []
+  prompt: prompts/item-recharged-settings-case-l10n.md
+  owner_ok: null
+  where: 'Options > Recharged : chaque ligne en casse normale (comme le reste du menu, police Urbanist),
+    et chaque ligne traduite quand le jeu est en francais'
+  deliverable: 'Le moteur emet `settings_case_l10n_defects=N` = lignes du menu Recharged rendues en TOUT-MAJUSCULES
+    (hors sigles) + lignes dont la chaine affichee en francais est identique a la chaine anglaise alors
+    qu''une traduction existe pour les autres menus. Zero. La casse des autres menus est la reference
+    : ce menu ne doit pas se distinguer.'
+  known_cause: null
+  out_of_scope: Ne touche pas au censement des options (menu-census-cleanup), seulement leur rendu et
+    leur traduction.
+  notes: Ne de menu-census-cleanup, owner 2026-09-04.
+  owner_feedback:
+  - date: '2026-09-04'
+    text: tous les éléments sont en majuscule dans les réglages rechargées, et pas tous sont localisés
+      correctement.
 - id: audits-abandonnes
   feature: Audits de juin abandonnes (pixel-match du menu, images anglaises de reference)
   status: archived
