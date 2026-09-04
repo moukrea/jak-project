@@ -12,8 +12,11 @@
 #include "common/log/log.h"
 #include "common/util/Assert.h"
 
+#include "common/custom_data/FoliageWindLaw.h"
+
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/background/MeshBrowserGizmos.h"
+#include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/mips2c/spart_prof.h"
 
@@ -24,213 +27,6 @@
 #endif
 
 namespace {
-// Grecharged-foliage-wind: live-tunable TIE (palm/foliage) wind-shear multiplier applied on top of the
-// stock per-instance wind when the toggle is ON. Mirrors GrassRenderer.cpp's grass_droop_len() dual
-// mechanism EXACTLY (cached + throttled with (s_throttle++ & 63) so it isn't re-read every frame):
-// Android prop debug.opengoal.foliage.tie_mult / desktop env FOLIAGE_WIND_TIE_MULT. Default 3.0
-// (device-tuned at the village1-hut vantage: palms/trees roughly double their motion-energy vs
-// stock, gentle not stormy; 8.0 bends palms comically), clamped [1.0, 8.0] (1.0 == neutral ==
-// stock arithmetic).
-// ROUND 2 MEASUREMENT — this default goes back to 1.0 (neutral), and the reason is the whole
-// post-mortem of round 1. The device shear audit says the stock jak1 TIE wind is NOT small:
-// bend_rms 0.057-0.077, i.e. a palm crown already displaced ~1.0-1.35 m. What it is, is GLACIAL —
-// differencing the applied shear frame to frame gives motion_rms 0.0011, so the shear traverses
-// its own magnitude in ~50 frames: an oscillation of 0.04-0.06 Hz, a SEVENTEEN-TO-TWENTY-FIVE
-// SECOND period. The palms were never static; they were bent and drifting too slowly to read as
-// movement, which is exactly "on voit aucune feuille qui bouge".
-// Multiplying that term is therefore the wrong lever twice over: it scales bend and motion
-// together, so the frequency — the thing that was broken — is unchanged, and at x3 it bent the
-// crown 3.27 m RMS (a storm) while still moving at 0.11 Hz. Per unit of bend, the procedural
-// breeze below buys 8.2x more motion than this multiplier does. So: leave the game's own wind
-// alone (x1 == stock arithmetic) and get the movement from the term that actually oscillates.
-// The knob survives for experiments; it is simply no longer the default answer.
-constexpr float FOLIAGE_WIND_TIE_MULT_DEFAULT = 1.0f;
-static float foliage_wind_tie_mult() {
-  static float s_cached = FOLIAGE_WIND_TIE_MULT_DEFAULT;
-  static int s_throttle = 0;
-  if ((s_throttle++ & 63) != 0) {
-    return s_cached;
-  }
-  char buf[16] = {0};
-  bool have = false;
-#ifdef __ANDROID__
-  if (__system_property_get("debug.opengoal.foliage.tie_mult", buf) > 0 && buf[0]) {
-    have = true;
-  }
-#else
-  const char* e = std::getenv("FOLIAGE_WIND_TIE_MULT");
-  if (e && e[0]) {
-    std::strncpy(buf, e, sizeof(buf) - 1);
-    have = true;
-  }
-#endif
-  float v = have ? (float)std::atof(buf) : FOLIAGE_WIND_TIE_MULT_DEFAULT;
-  if (v < 1.0f) v = FOLIAGE_WIND_TIE_MULT_DEFAULT;  // unparsable/zero -> default, never < neutral
-  if (v > 8.0f) v = 8.0f;
-  s_cached = v;
-  return v;
-}
-
-// ---------------------------------------------------------------------------------------------
-// Grecharged-foliage-wind2 (ROUND 2). Owner verdict on round 1: "on voit aucune feuille qui bouge,
-// aucun palmier, nada". Round 1's only lever was MULTIPLYING the stock shear, and the stock shear on
-// jak1 foliage is tiny: do_wind_math integrates a spring whose restoring term is cy = 100, so the
-// steady-state oscillator settles at |vf17| ~= |drive| / 100 before it is even multiplied by the
-// per-prototype `stiffness`. 3x of almost-nothing is still almost-nothing (+9% measured crown
-// motion). Round 2 therefore stops scaling the stock term and ADDS two guaranteed-amplitude terms
-// whose size does not depend on the level's authored stiffness at all:
-//
-//   (1) TIE_AMP   - a procedural breeze SHEAR added to the instance matrix (CPU, here). Because the
-//                   shear is applied as `row.x += s.x * row.y`, the world displacement of a point is
-//                   s * (its height above the instance origin): the base stays planted and the crown
-//                   swings. s is DIMENSIONLESS, so 0.055 moves a 10 m palm crown +-0.55 m at the
-//                   waveform peak (~+-0.25 m RMS) — a light breeze, not a storm.
-//   (2) FROND     - a per-vertex flutter in tie_wind.vert (GPU). The shear above moves a palm
-//                   rigidly; leaves only look ALIVE when they deform. The flutter displaces each
-//                   vertex by a FRACTION OF ITS OWN HORIZONTAL REACH from the trunk axis, so it is
-//                   exactly zero on the trunk, largest at the frond tips, and needs no per-prototype
-//                   size data (unit- and scale-invariant). 0.10 moves a 3.5 m frond tip +-0.35 m.
-//
-// Both are 0 when the toggle is OFF, which leaves the stock arithmetic untouched (the CPU term is
-// not added at all and the shader takes the `u_fw_amp > 0.0` branch never).
-// Live-tunable with NO rebuild: Android props debug.opengoal.foliage.{tie_amp,frond} / desktop envs
-// FOLIAGE_WIND_{TIE_AMP,FROND}.
-// ROUND 2 FINAL DEFAULTS, chosen from the device shear audit rather than from taste. Both levers
-// are DIMENSIONLESS (a fraction of the object's own size), so they mean the same thing on every
-// prototype. Predicted effect on beach's palm-02.mb (17.52 m tall, census-measured), against the
-// stock numbers this build measured on the device:
-//   TIE_AMP 0.12 -> the breeze contributes bend_rms 0.052 at ~0.52 Hz. Summed with the stock wind
-//                   the crown sits at bend_rms 0.081 = 1.42 m, i.e. 8% of the palm's height, which
-//                   a palm does in a breeze; and the aggregate oscillation lands at 0.35 Hz (a
-//                   ~3 s cycle) against stock's 0.05 Hz. Frame-to-frame motion goes 0.00136 ->
-//                   0.0098, SEVEN TIMES the stock wind, while total bend DROPS from round 1's
-//                   x3-boosted 0.187 (3.27 m, a storm) to 0.081. More movement, less bending —
-//                   which is the actual definition of "légère brise" and the opposite of what
-//                   raising a multiplier does.
-//   FROND   0.14 -> each crown vertex flutters +-14% of its own lever arm (capped at 4 m and
-//                   ramped in with height, see tie_wind.vert), so a frond tip sweeps <= +-0.56 m
-//                   at ~0.37/0.59 Hz while the trunk holds still. This is the term that makes
-//                   LEAVES read as alive rather than the whole tree read as leaning.
-// Both remain live-tunable via props/env with no rebuild, and both are 0 when the toggle is OFF.
-// Grecharged-foliage-wind3 (owner 2026-08-31, defaut D3) — « ils bougent comme s'il y avait une
-// tempête c'est ridicule ». MESURE avant de toucher au chiffre, sur deux courses du meme binaire :
-// la brise AJOUTEE (difference en quadrature de `applied_rms` et `stock_rms` de la meme ligne
-// d'audit) valait **0,05362** de cisaillement, soit **1,282 m** de couronne RMS sur `palm-01.mb`
-// (23,91 m, la plus haute plante de jak1, hauteur du recensement) — et son mouvement par image
-// pesait 4,3 a 12,6 fois celui du jeu lui-meme. C'est la tempete, chiffree.
-// CIBLE POSEE AVANT LA COURSE DE VERIFICATION : la brise ajoutee ne deplace pas la couronne de la
-// plus haute plante de plus de 0,50 m RMS, soit un cisaillement de 0,0209.
-// LIVRE : 0,035 -> **0,01560** mesure, soit **0,373 m**. Les deux niveaux (beach, village1)
-// s'accordent a 0,4 % sur 25 fenetres. Facteur 3,44 de reduction.
-// `frond` suit la meme division : la pointe d'une fronde balaie au plus 4 m x 0,055 = 0,22 m au
-// lieu de 0,56 m (le bras de levier est plafonne a 4 m dans tie_wind.vert, donc la conversion ne
-// depend d'aucune donnee de niveau).
-constexpr float FOLIAGE_WIND_TIE_AMP_DEFAULT = 0.035f;
-constexpr float FOLIAGE_WIND_FROND_DEFAULT = 0.055f;
-
-// Shared reader for the round-2 knobs (same cached + (throttle & 63) discipline as the mult above).
-static float foliage_wind_knob(const char* prop, const char* env, float def, float hi, float* cache) {
-  char buf[16] = {0};
-  bool have = false;
-#ifdef __ANDROID__
-  (void)env;
-  if (__system_property_get(prop, buf) > 0 && buf[0]) {
-    have = true;
-  }
-#else
-  (void)prop;
-  const char* e = std::getenv(env);
-  if (e && e[0]) {
-    std::strncpy(buf, e, sizeof(buf) - 1);
-    have = true;
-  }
-#endif
-  float v = have ? (float)std::atof(buf) : def;
-  if (!(v >= 0.0f) || v > hi) {
-    v = def;  // unparsable / NaN / out of range -> default
-  }
-  *cache = v;
-  return v;
-}
-
-static float foliage_wind_tie_amp() {
-  static float s_cached = FOLIAGE_WIND_TIE_AMP_DEFAULT;
-  static int s_throttle = 0;
-  if ((s_throttle++ & 63) != 0) {
-    return s_cached;
-  }
-  return foliage_wind_knob("debug.opengoal.foliage.tie_amp", "FOLIAGE_WIND_TIE_AMP",
-                           FOLIAGE_WIND_TIE_AMP_DEFAULT, 0.30f, &s_cached);
-}
-
-static float foliage_wind_frond() {
-  static float s_cached = FOLIAGE_WIND_FROND_DEFAULT;
-  static int s_throttle = 0;
-  if ((s_throttle++ & 63) != 0) {
-    return s_cached;
-  }
-  return foliage_wind_knob("debug.opengoal.foliage.frond", "FOLIAGE_WIND_FROND",
-                           FOLIAGE_WIND_FROND_DEFAULT, 0.40f, &s_cached);
-}
-
-// ---------------------------------------------------------------------------------------------
-// Grecharged-foliage-wind3 (owner 2026-08-31, defaut D2 : « tous les arbres ne sont pas
-// impactés ») — L'AMPLITUDE DU BALANCEMENT DU TIE **STATIQUE**, en METRES a la couronne.
-//
-// Les deux boutons ci-dessus ne touchent QUE le chemin VENT, c'est-a-dire les seules instances que
-// l'extracteur a basculees en `instanced_wind_draws` parce que leur prototype porte une raideur
-// non nulle. Tout le reste de la vegetation TIE est de la geometrie STATIQUE, sans matrice
-// d'instance a l'execution : aucun reglage de ce fichier ne pouvait la faire bouger, et c'est
-// exactement « tous les arbres ne sont pas impactés ». Ce bouton-ci pilote le chemin neuf.
-//
-// HIERARCHIE, ET ELLE EST L'ORDRE DE L'OWNER (« ceux qui n'en ont pas doivent en recevoir une,
-// PLUS LEGERE »). Le chemin VENT applique un cisaillement SANS DIMENSION (`tie_amp`, 0,12 par
-// defaut) multiplie par la HAUTEUR du sommet au-dessus de l'origine de son instance : sur le
-// palmier `palm-02.mb` de la plage (17,52 m, mesure au recensement) cela vaut 0,12 x 17,52 =
-// 2,10 m a la crete de la forme d'onde. Ici, 0,10 m, quelle que soit la taille de la plante :
-// vingt-et-une fois moins sur ce palmier, et STRICTEMENT MOINS sur toute plante de plus de
-// 0,84 m. La comparaison est publiee sur la ligne de preuve, pas seulement affirmee ici.
-// Le bouton vit sur le meme patron que `foliage_wind_tie_amp` : prop Android
-// debug.opengoal.foliage.tie_sway / env FOLIAGE_WIND_TIE_SWAY, cache + (s_throttle++ & 63), et la
-// meme semantique de bornes que le lecteur partage — une valeur illisible, negative ou AU-DESSUS
-// de 0,40 m retombe sur le DEFAUT (0,10 m), elle n'est pas rabotee a 0,40. Un doigt qui glisse sur
-// le clavier rend donc la brise nominale, jamais une tempete.
-// Renvoie des UNITES MONDE (metres x 4096), comme `foliage_wind_shrub_amp`.
-constexpr float FOLIAGE_WIND_TIE_SWAY_DEFAULT_M = 0.10f;
-constexpr float FOLIAGE_WIND_TIE_SWAY_MAX_M = 0.40f;
-static float foliage_wind_tie_sway() {
-  static float s_cached_m = FOLIAGE_WIND_TIE_SWAY_DEFAULT_M;
-  static int s_throttle = 0;
-  if ((s_throttle++ & 63) == 0) {
-    foliage_wind_knob("debug.opengoal.foliage.tie_sway", "FOLIAGE_WIND_TIE_SWAY",
-                      FOLIAGE_WIND_TIE_SWAY_DEFAULT_M, FOLIAGE_WIND_TIE_SWAY_MAX_M, &s_cached_m);
-  }
-  return s_cached_m * 4096.0f;  // metres -> unites monde
-}
-
-// Breeze clock, in seconds. Deliberately NOT the game's wind_time frame counter: that advances once
-// per rendered frame, so on the Redmi (variable fps, often ~30) the whole breeze would run at half
-// speed and lose exactly the per-frame motion the eye keys on. A monotonic clock keeps the sway at
-// the authored frequency on any device. It is advanced ONCE per frame (render_tree_wind is called
-// per tree) and frozen while the game's own wind is paused, so pausing still freezes the foliage.
-static float foliage_wind_clock(u64 frame_idx, bool paused) {
-  static float s_t = 0.f;
-  static u64 s_last_frame = (u64)-1;
-  static std::chrono::steady_clock::time_point s_last = std::chrono::steady_clock::now();
-  if (frame_idx != s_last_frame) {
-    s_last_frame = frame_idx;
-    auto now = std::chrono::steady_clock::now();
-    float dt = std::chrono::duration<float>(now - s_last).count();
-    s_last = now;
-    if (dt < 0.f) dt = 0.f;
-    if (dt > 0.1f) dt = 0.1f;  // hitch/loading guard: never jump the breeze
-    if (!paused) {
-      s_t += dt;
-    }
-  }
-  return s_t;
-}
-
 // ---------------------------------------------------------------------------------------------
 // Grecharged-foliage-wind3 (owner 2026-08-31, defaut D1) — LA BRISE NATIVE, OPTION ETEINTE.
 //
@@ -669,6 +465,45 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
             c.protos, c.veg_protos, c.non_classes, c.inst_total, c.inst_veg, c.inst_swayed,
             c.verts, c.v_sway, c.v_neutre, c.v_windpath, c.v_sansproto, c.v_conflit, c.vg_desync,
             c.plain_inds, noms.empty() ? "-" : noms);
+        foliage_wind::note_unclassified(lev_data->level_name, l_tree, c.non_classes);
+      }
+      // foliage-wind (owner 2026-09-03) : LA POPULATION DU RECENSEMENT, les deux chemins TIE.
+      //   * chemin STATIQUE : une entree par instance vegetale posee, poids de couronne = celui que
+      //     le VBO d'attribut 7 porte reellement ;
+      //   * chemin VENT : une entree par instance animee par ND, poids de couronne = le facteur de
+      //     taille que le CPU multipliera (la meme table que le depaqueteur).
+      // `wind_inst_local_ymax` reste pointe pour le rendu : c'est lui qui convertit la flexion de
+      // couronne en cisaillement d'instance.
+      lod_tree[l_tree].wind_local_ymax = &tree.wind_inst_local_ymax;
+      lod_tree[l_tree].fw_inst_flutter_amp.assign(tree.wind_instance_info.size(), 0.f);
+      {
+        std::vector<foliage_wind::Instance> pop;
+        pop.reserve(tree.sway_instances.size());
+        for (const auto& si : tree.sway_instances) {
+          foliage_wind::Instance in;
+          in.anchor_x = si.x;
+          in.anchor_z = si.z;
+          in.height_m = (si.ymax - si.ymin) / 4096.f;
+          in.peak_w = si.peak_w;
+          pop.push_back(in);
+        }
+        foliage_wind::set_tree(lev_data->level_name, foliage_wind::kSystemTieStatic, (int)l_tree,
+                               (int)l_geo, std::move(pop));
+        std::vector<foliage_wind::Instance> wpop;
+        wpop.reserve(tree.wind_instance_info.size());
+        for (size_t wi = 0; wi < tree.wind_instance_info.size(); wi++) {
+          const auto& m = tree.wind_instance_info[wi].matrix;
+          const float ys = std::sqrt(m[1].x() * m[1].x() + m[1].y() * m[1].y() + m[1].z() * m[1].z());
+          const float h_loc = wi < tree.wind_inst_local_ymax.size() ? tree.wind_inst_local_ymax[wi] : 0.f;
+          foliage_wind::Instance in;
+          in.anchor_x = m[3].x();
+          in.anchor_z = m[3].z();
+          in.height_m = h_loc * ys / 4096.f;
+          in.peak_w = in.height_m > 0.f ? foliage_law::size_factor(in.height_m) : 0.f;
+          wpop.push_back(in);
+        }
+        foliage_wind::set_tree(lev_data->level_name, foliage_wind::kSystemTieWind, (int)l_tree,
+                               (int)l_geo, std::move(wpop));
       }
       // OpenGL index buffer (fixed index buffer for multidraw system)
       lod_tree[l_tree].index_buffer = loader_data->tie_data[l_geo][l_tree].index_buffer;
@@ -833,6 +668,8 @@ bool Tie3::try_loading_level(const std::string& level, SharedRenderState* render
     // not loaded
     m_has_level = false;
     m_textures = nullptr;
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemTieStatic);
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemTieWind);
     m_level_name = "";
     discard_tree_cache();
     return false;
@@ -841,6 +678,8 @@ bool Tie3::try_loading_level(const std::string& level, SharedRenderState* render
   if (m_has_level && lev_data->load_id != m_load_id) {
     m_has_level = false;
     m_textures = nullptr;
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemTieStatic);
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemTieWind);
     m_level_name = "";
     discard_tree_cache();
     return try_loading_level(level, render_state);
@@ -853,6 +692,9 @@ bool Tie3::try_loading_level(const std::string& level, SharedRenderState* render
   // see if this is the first time we've gotten the level
   if (m_level_name != level) {
     // it is! do the one time load.
+    // foliage-wind : le niveau que ce renderer lachait sort de la population du recensement.
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemTieStatic);
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemTieWind);
     load_from_fr3_data(lev_data);
     m_has_level = true;
     m_level_name = level;
@@ -989,6 +831,11 @@ void Tie3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfi
   }
 
   if (set_up_common_data_from_dma(dma, render_state)) {
+    // foliage-wind : l'etat du vent du JEU (cap, pause), recopie pour les quatre programmes, et
+    // l'image comptee pour le recensement (une seule fois par frame_idx, quel que soit le renderer).
+    foliage_wind::set_wind_state(m_wind_data.wind_normal.x(), m_wind_data.wind_normal.z(),
+                                 m_wind_data.paused != 0);
+    foliage_wind::frame(render_state->frame_idx);
     // Gperf-particles: attribute per-tree TOD/cull/index-build setup vs draw
     // submission separately so A35-PERF can steer the batching work (mirrors
     // TFragment's "t3" child idiom).
@@ -1233,65 +1080,9 @@ void init_etie_cam_uniforms(const EtieUniforms& uniforms, const GoalBackgroundCa
 // elle ecrit 0, le `if` du chunk saute le bloc et le sommet ressort a l'identique. Elle n'ecrit
 // RIEN d'autre sur le chemin statique.
 void Tie3::push_tie_sway_uniforms(GLuint program, u64 frame_idx, const char* pass) {
-  float amp = 0.f;
-  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_foliage_wind)) {
-    amp = foliage_wind_tie_sway();  // unites monde (metres x 4096)
-  }
-  // Horloge MURALE, la meme que le chemin vent (helper partage en haut de ce fichier) : elle
-  // n'avance qu'une fois par image et se fige avec la pause du jeu, donc le balancement garde sa
-  // frequence quel que soit le nombre d'images par seconde de l'appareil.
-  const float t = foliage_wind_clock(frame_idx, m_wind_data.paused != 0);
-  // Cap du vent : celui du jeu, comme le fait deja `render_tree_wind`, pour que le statique et le
-  // chemin vent penchent du meme cote. Repli sur une diagonale fixe si le niveau ne le remplit pas.
-  float dx = m_wind_data.wind_normal.x();
-  float dz = m_wind_data.wind_normal.z();
-  const float dlen = std::sqrt(dx * dx + dz * dz);
-  if (dlen > 1e-3f) {
-    dx /= dlen;
-    dz /= dlen;
-  } else {
-    dx = 0.7071f;
-    dz = 0.7071f;
-  }
-  const GLint amp_loc = glGetUniformLocation(program, "u_tie_sway_amp");
-  const GLint time_loc = glGetUniformLocation(program, "u_tie_sway_time");
-  const GLint dir_loc = glGetUniformLocation(program, "u_tie_sway_dir");
-  if (amp_loc >= 0) {
-    glUniform1f(amp_loc, amp);
-  }
-  if (time_loc >= 0) {
-    glUniform1f(time_loc, t);
-  }
-  if (dir_loc >= 0) {
-    glUniform2f(dir_loc, dx, dz);
-  }
-  if (amp > 0.f) {
-    // Ligne de preuve one-shot PAR PASSE. Elle publie les trois modes de defaillance SILENCIEUX de
-    // ce chemin, parce qu'aucun d'eux ne produit d'erreur GL :
-    //   * un `loc` a -1 = l'uniforme n'existe pas dans le programme lie (chunk absent du blob
-    //     GLES, bloc optimise) : on ecrirait dans le vide ;
-    //   * `attr7_on=0` = l'attribut 7 n'est pas active sur le VAO courant, donc le poids arrive a
-    //     0 partout et RIEN ne bouge, sans le moindre message ;
-    //   * la comparaison au chemin VENT, qui est l'ordre de l'owner : la brise ajoutee doit rester
-    //     STRICTEMENT SOUS celle des arbres qui en ont deja une.
-    static std::unordered_map<std::string, bool> s_logged;
-    if (!s_logged[pass]) {
-      s_logged[pass] = true;
-      GLint attr_on = 0, attr_size = 0;
-      glGetVertexAttribiv(7, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attr_on);
-      glGetVertexAttribiv(7, GL_VERTEX_ATTRIB_ARRAY_SIZE, &attr_size);
-      const float amp_m = amp / 4096.f;
-      const float wind_shear = foliage_wind_tie_amp();
-      const float wind_m_palm = wind_shear * 17.52f;  // palm-02.mb, hauteur du recensement
-      lg::info(
-          "[foliage-wind] TIE static sway ACTIVE pass={} amp={:.1f}u ({:.3f} m a la couronne) "
-          "amp_loc={} time_loc={} dir_loc={} attr7_on={} attr7_size={} dir=({:.3f},{:.3f}) "
-          "vent_shear={:.3f} (soit {:.2f} m sur palm-02.mb, 17,52 m) "
-          "rapport_statique_sur_vent={:.4f}",
-          pass, amp, amp_m, amp_loc, time_loc, dir_loc, attr_on, attr_size, dx, dz, wind_shear,
-          wind_m_palm, wind_m_palm > 0.f ? amp_m / wind_m_palm : -1.f);
-    }
-  }
+  // foliage-wind (owner 2026-09-03) : une seule loi, une seule amplitude, une seule horloge pour
+  // les quatre programmes (TIE statique x3 et shrub) — poussees d'un seul endroit.
+  foliage_wind::push_uniforms(program, frame_idx, pass);
 }
 
 void Tie3::draw_matching_draws_for_tree(int idx,
@@ -1327,6 +1118,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // que la ligne de preuve puisse interroger l'etat REEL de l'attribut 7.
   push_tie_sway_uniforms(render_state->shaders[shader_id].id(), render_state->frame_idx,
                          use_envmap ? "etie_base" : "tfrag3");
+  foliage_wind::mark_drawn(m_level_name, foliage_wind::kSystemTieStatic, idx, geom);
 
   glActiveTexture(GL_TEXTURE10);
   // Gperf-particles round 3: bind the TOD texture selected at update time (the
@@ -2291,20 +2083,15 @@ void Tie3::render_tree_wind(int idx,
     cam[i] = cam_bad[i];
   }
 
-  // Grecharged-foliage-wind: when the toggle is ON, amplify the per-instance TIE wind shear so the
-  // jak1 palms/foliage react to a stronger-but-still-light breeze. The boost is applied ONLY to the
-  // matrix shear inside do_wind_math (the integrator state stays stock — boosting stiffness is
-  // self-cancelling via the restoring feedback). OFF => boost 1.0 => byte-identical stock
-  // arithmetic. Live-tunable for A/B (prop/env), clamped to a sane range.
-  float rc_wind_boost = 1.0f;
-  // Grecharged-foliage-wind2: additive procedural breeze (see foliage_wind_tie_amp above). rc_amp
-  // stays 0 when the toggle is OFF, and 0 means the additive pointer is never handed to
-  // do_wind_math => the stock code path, bit for bit.
-  float rc_amp = 0.0f;
-  float rc_frond = 0.0f;
+  // foliage-wind (owner 2026-09-03) : la brise AJOUTEE au chemin VENT est la loi partagee
+  // (foliage_wind::breeze_offset, jumelle de breeze.glsl), appliquee en CISAILLEMENT d'instance —
+  // le seul terme que ce chemin sait ajouter. `rc_wind_boost` reste le litteral 1.0 : le ressort de
+  // ND n'est jamais amplifie. Option ETEINTE => `rc_bend_u` = 0 => le pointeur additif n'est jamais
+  // passe a do_wind_math => le chemin stock, au bit pres.
+  const float rc_wind_boost = 1.0f;
+  float rc_bend_u = 0.0f;    // flexion de couronne d'une plante de reference, unites monde
+  float rc_flutter = 0.0f;   // part de fremissement de feuille
   float rc_t = 0.0f;
-  // Breeze heading: follow the game's own wandering wind direction so the sway agrees with anything
-  // else driven by it; fall back to a fixed diagonal if the level never fills it in.
   float rc_dir_x = 0.7071f, rc_dir_z = 0.7071f;
   // Grecharged-foliage-wind3 (defaut D1) : combien de pas de 1/60 s cette image DESSINEE porte.
   // Lu sur `wind-time`, que GOAL avance d'un cran par pas de 1/60 s depuis cette phase. HORS du
@@ -2318,26 +2105,24 @@ void Tie3::render_tree_wind(int idx,
   }
   const int rc_ticks = m_wind_ticks;
   bool rc_on = false;
-  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_foliage_wind)) {
+  if (foliage_wind::enabled()) {
     rc_on = true;
-    rc_wind_boost = foliage_wind_tie_mult();  // helper above, default 1.0 (neutral)
-    rc_amp = foliage_wind_tie_amp();          // helper above, additive breeze shear
-    rc_frond = foliage_wind_frond();          // helper above, per-vertex leaf flutter
-    rc_t = foliage_wind_clock(render_state->frame_idx, m_wind_data.paused != 0);
-    const float dx = m_wind_data.wind_normal.x();
-    const float dz = m_wind_data.wind_normal.z();
-    const float dlen = std::sqrt(dx * dx + dz * dz);
-    if (dlen > 1e-3f) {
-      rc_dir_x = dx / dlen;
-      rc_dir_z = dz / dlen;
-    }
+    rc_bend_u = foliage_wind::bend_metres() * 4096.f;
+    rc_flutter = foliage_wind::flutter_fraction();
+    rc_t = foliage_wind::clock_seconds(render_state->frame_idx, foliage_wind::paused());
+    foliage_wind::direction(&rc_dir_x, &rc_dir_z);
     static bool s_logged = false;
     if (!s_logged) {
       s_logged = true;
       // Renderer-side proof line (no captures): if this never appears the feature did not run.
-      lg::info("[foliage-wind] TIE breeze ACTIVE mult={} tie_amp={} frond={} instances={}",
-               rc_wind_boost, rc_amp, rc_frond, tree.instance_info->size());
+      lg::info("[foliage-wind] TIE breeze ACTIVE bend={:.4f}m flutter={:.2f} instances={} "
+               "local_ymax_known={}",
+               rc_bend_u / 4096.f, rc_flutter, tree.instance_info->size(),
+               tree.wind_local_ymax ? tree.wind_local_ymax->size() : 0);
     }
+  }
+  if (tree.fw_inst_flutter_amp.size() < tree.instance_info->size()) {
+    tree.fw_inst_flutter_amp.assign(tree.instance_info->size(), 0.f);
   }
   {
     // Preuve de cablage de D1, une ligne par course : si `ticks` ne monte jamais au-dessus de 1
@@ -2358,30 +2143,34 @@ void Tie3::render_tree_wind(int idx,
     auto mat = info.matrix;
 
     ASSERT(info.wind_idx * 4 <= m_wind_vectors.size());
-    // Grecharged-foliage-wind2: three incommensurate sinusoids (slow lean + sway + light rustle)
-    // along the wind heading, plus a smaller cross-axis term so crowns trace ellipses instead of
-    // sliding on a line. The per-instance golden-angle phase keeps neighbouring palms from moving
-    // in lockstep (which reads as the whole level sliding, not as wind).
+    // foliage-wind : la flexion de couronne de la loi partagee, convertie en cisaillement. Le
+    // cisaillement deplace un sommet de `s x (sa hauteur monde au-dessus de l'origine de l'instance)`
+    // (do_wind_math : `mat[r].x += s.x * mat[r].y`), donc `s = flexion / hauteur_monde` met la
+    // couronne EXACTEMENT a la flexion que le chemin statique donne a une plante de meme taille —
+    // c'est ce qui rend `wind_divergent_pairs` tenable entre un palm-02 (vent) et un palm-01
+    // (statique) voisins. Le fremissement de feuille, lui, est par sommet (tie_wind.vert) : on lui
+    // passe son amplitude en unites LOCALES du prototype, avec le gain de rafale de l'instant.
     float rc_shear_add[2];
     const float* rc_add_ptr = nullptr;
-    if (rc_amp > 0.0f) {
-      const float p = (float)inst_id * 2.3999632f;  // golden angle
-      // Grecharged-foliage-wind2 SPECTRUM REBALANCE. The round-2 weights put 55% of the amplitude
-      // budget on the 0.14 Hz term — a SEVEN-SECOND lean. A seven-second oscillation has almost no
-      // per-frame velocity, so the eye reads it as a tree that is simply standing at an angle: the
-      // amplitude was spent where it cannot be seen. Moving weight to the 0.45 Hz band raises the
-      // perceptually salient share from 0.45 to 0.70 (+55% visible motion) at an UNCHANGED peak
-      // excursion, which is the opposite trade to "make it bigger" — the palm does not lean any
-      // further, it just gets there and back at a speed the eye resolves. Same lesson the shrub
-      // path already learned with its 1.1 Hz flutter term (shrub.vert).
-      const float sway = 0.30f * std::sin(rc_t * 0.8796f + p)                  // 0.14 Hz slow lean
-                         + 0.50f * std::sin(rc_t * 2.8274f + 1.7f * p + 0.9f)  // 0.45 Hz main sway
-                         + 0.20f * std::sin(rc_t * 6.5973f + 2.3f * p);        // 1.05 Hz rustle
-      const float cross = 0.35f * std::sin(rc_t * 1.8850f + 1.3f * p + 2.1f);  // 0.30 Hz cross-axis
-      rc_shear_add[0] = rc_amp * (rc_dir_x * sway - rc_dir_z * cross * 0.4f);
-      rc_shear_add[1] = rc_amp * (rc_dir_z * sway + rc_dir_x * cross * 0.4f);
-      rc_add_ptr = rc_shear_add;
+    float rc_flut_local = 0.f;
+    if (rc_bend_u > 0.0f && tree.wind_local_ymax && inst_id < tree.wind_local_ymax->size()) {
+      const float h_loc = (*tree.wind_local_ymax)[inst_id];
+      const float ys =
+          std::sqrt(mat[1].x() * mat[1].x() + mat[1].y() * mat[1].y() + mat[1].z() * mat[1].z());
+      const float h_u = h_loc * ys;  // hauteur monde de la plante
+      if (h_u > 1.f && ys > 1e-6f) {
+        const float w = foliage_law::size_factor(h_u / 4096.f);
+        const float ph01 = (float)foliage_law::phase_u8((u64)inst_id) / 256.f;
+        float ox = 0.f, oz = 0.f, gain = 0.f;
+        foliage_wind::breeze_offset(mat[3].x(), mat[3].z(), rc_dir_x, rc_dir_z, ph01, rc_t, w,
+                                    rc_bend_u, 0.f, &ox, &oz, &gain);
+        rc_shear_add[0] = ox / h_u;
+        rc_shear_add[1] = oz / h_u;
+        rc_add_ptr = rc_shear_add;
+        rc_flut_local = rc_bend_u * w * rc_flutter * gain / ys;
+      }
     }
+    tree.fw_inst_flutter_amp[inst_id] = rc_flut_local;
     // Grecharged-foliage-wind2: [0]/[1] = stock/applied shear magnitude, [2..5] = the signed
     // components, which is what the frame-to-frame difference below needs.
     float rc_audit[8] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
@@ -2450,12 +2239,14 @@ void Tie3::render_tree_wind(int idx,
   const GLint fw_amp_loc = glGetUniformLocation(fw_prog, "u_fw_amp");
   const GLint fw_time_loc = glGetUniformLocation(fw_prog, "u_fw_time");
   const GLint fw_phase_loc = glGetUniformLocation(fw_prog, "u_fw_phase");
+  const GLint fw_height_loc = glGetUniformLocation(fw_prog, "u_fw_height");
   if (fw_amp_loc >= 0) {
-    glUniform1f(fw_amp_loc, rc_frond);
+    glUniform1f(fw_amp_loc, 0.f);  // par instance ci-dessous ; 0 = le bloc du shader est saute
   }
   if (fw_time_loc >= 0) {
     glUniform1f(fw_time_loc, rc_t);
   }
+  foliage_wind::mark_drawn(m_level_name, foliage_wind::kSystemTieWind, idx, geom);
   // Grecharged-foliage-wind2: the flutter's one silent-failure mode. If the linked TIE_WIND program
   // does not expose these uniforms (shader blob stale, or the block optimised away), every
   // glUniform1f above is skipped and the leaves simply never deform — with no error anywhere.
@@ -2464,9 +2255,9 @@ void Tie3::render_tree_wind(int idx,
     static bool s_fw_uni_logged = false;
     if (!s_fw_uni_logged) {
       s_fw_uni_logged = true;
-      lg::info("[foliage-wind] TIE flutter uniforms amp_loc={} time_loc={} phase_loc={} (all >= 0 "
-               "means the round-2 per-vertex flutter is live in the linked program)",
-               fw_amp_loc, fw_time_loc, fw_phase_loc);
+      lg::info("[foliage-wind] TIE flutter uniforms amp_loc={} time_loc={} phase_loc={} "
+               "height_loc={} (all >= 0 means the per-vertex flutter is live in the linked program)",
+               fw_amp_loc, fw_time_loc, fw_phase_loc, fw_height_loc);
     }
   }
   tree.fw_prev_valid = true;  // the previous-frame shears are now populated for every instance
@@ -2474,7 +2265,7 @@ void Tie3::render_tree_wind(int idx,
   // Le tour precedent avait NOMME ce defaut d'etiquette dans ses « honest gaps » sans le corriger :
   // une course avec le basculement ALLUME et les amplitudes mises a 0 par les proprietes vivantes
   // s'etiquetait `on=0`, donc une ligne qui n'etait PAS le chemin stock se presentait comme telle.
-  fw_audit_tick(m_level_name, render_state->frame_idx, rc_on, rc_frond,
+  fw_audit_tick(m_level_name, render_state->frame_idx, rc_on, rc_bend_u / 4096.f,
                 tree.wind_draws->size(), m_wind_data.paused, m_wind_data.wind_time, rc_ticks);
 #ifdef OG_FEAT_PBR
   // Round-3 defect A/B: wind-tie foliage receives the sun N.L in-shader; bind the shadow
@@ -2584,11 +2375,23 @@ void Tie3::render_tree_wind(int idx,
 
       glUniformMatrix4fv(glGetUniformLocation(render_state->shaders[shader_id].id(), "camera"), 1,
                          GL_FALSE, tree.wind_matrix_cache.at(grp.instance_idx)[0].data());
-      // Grecharged-foliage-wind2: per-instance flutter phase (same golden-angle decorrelation the
-      // CPU shear uses), so two palms side by side never rustle in lockstep. Skipped entirely when
-      // the flutter is off.
-      if (fw_phase_loc >= 0 && rc_frond > 0.0f) {
-        glUniform1f(fw_phase_loc, (float)grp.instance_idx * 2.3999632f);
+      // foliage-wind : le fremissement de feuille PAR INSTANCE — amplitude locale (portant le gain
+      // de rafale de l'instant), phase propre (la meme que le cisaillement CPU) et hauteur locale
+      // du prototype. Tout est saute quand l'option est eteinte (amplitude 0).
+      if (rc_on && fw_amp_loc >= 0) {
+        const float fa = grp.instance_idx < tree.fw_inst_flutter_amp.size()
+                             ? tree.fw_inst_flutter_amp[grp.instance_idx]
+                             : 0.f;
+        glUniform1f(fw_amp_loc, fa);
+        if (fw_phase_loc >= 0) {
+          glUniform1f(fw_phase_loc, (float)foliage_law::phase_u8((u64)grp.instance_idx) / 256.f);
+        }
+        if (fw_height_loc >= 0) {
+          const float hl = (tree.wind_local_ymax && grp.instance_idx < tree.wind_local_ymax->size())
+                               ? (*tree.wind_local_ymax)[grp.instance_idx]
+                               : 0.f;
+          glUniform1f(fw_height_loc, hl);
+        }
       }
 
       prof.add_draw_call();

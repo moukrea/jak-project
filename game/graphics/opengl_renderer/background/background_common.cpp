@@ -2117,6 +2117,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   glUniform1f(glGetUniformLocation(id, "u_tie_sway_amp"), 0.0f);
   glUniform1f(glGetUniformLocation(id, "u_tie_sway_time"), 0.0f);
   glUniform2f(glGetUniformLocation(id, "u_tie_sway_dir"), 0.7071f, 0.7071f);
+  glUniform1f(glGetUniformLocation(id, "u_tie_sway_flutter"), 0.0f);
   // VERROU (b), INDEPENDANT du premier. L'attribut 7 (poids + phase de balancement) n'est active
   // que par le VAO du TIE ; celui du TFRAG (TFragment.cpp:443-494) ne l'active pas. La
   // specification OpenGL dit qu'un attribut desactive rend la valeur generique courante, et cette

@@ -29,6 +29,9 @@ struct LevelData {
   // REOPEN#7 per-vertex tangent VBOs (parallel 1:1 to tfrag_vertex_data), attribute location 5.
   std::array<std::vector<GLuint>, tfrag3::TIE_GEOS> tfrag_tangent_data;
   std::vector<GLuint> shrub_vertex_data;
+  // foliage-wind (owner 2026-09-03) : poids + phase de balancement par sommet SHRUB, deux octets,
+  // VBO parallele a shrub_vertex_data (1:1), attribut 7 du VAO shrub — le meme attribut que le TIE.
+  std::vector<GLuint> shrub_sway_data;
   GLuint collide_vertices;
 
   GLuint merc_vertices;

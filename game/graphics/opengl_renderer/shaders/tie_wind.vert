@@ -28,18 +28,22 @@ uniform float fog_max;
 // texel-exact on desktop GL and required on GLES (no sampler1D).
 uniform sampler2D tex_T10; // note, sampled in the vertex shader on purpose.
 uniform int decal;
-// Grecharged-foliage-wind2: FROND FLUTTER. Round 1 only sheared the whole instance matrix, so a
-// palm translated rigidly and the owner read the scene as dead ("aucune feuille qui bouge"). Leaves
-// look alive when they DEFORM, which needs a per-vertex term — this one.
-// position_in here is PROTOTYPE-LOCAL (Tie3::render_tree_wind supplies the per-instance matrix in
-// `camera`; TieTree::unpack leaves wind vertices untransformed), so length(position_in.xz) is a
-// vertex's horizontal reach from the trunk axis. Displacing by a FRACTION of that reach means:
-// exactly zero on the trunk, largest at the frond tips, and no per-prototype size data needed —
-// the term is invariant to prototype units and to instance scale.
-// u_fw_amp == 0.0 => toggle OFF => the block below is skipped and the stock vertex path runs.
-uniform float u_fw_amp;    // flutter amplitude, as a fraction of a vertex's own reach (0 = off)
-uniform float u_fw_time;   // breeze clock, seconds (frozen while the game's wind is paused)
-uniform float u_fw_phase;  // per-instance phase, set with `camera` for each instance group
+// foliage-wind (owner 2026-09-03) : LE FREMISSEMENT DE FEUILLE du chemin VENT (les palmiers que ND
+// anime deja). La flexion de couronne, elle, est un CISAILLEMENT de la matrice d'instance calcule
+// sur CPU par la loi partagee (foliage_wind::breeze_offset, jumelle de breeze.glsl) ; ici ne vit
+// que le terme rapide, par sommet, avec les MEMES raies (1,40 et 2,13 Hz) et le MEME poids de
+// hauteur que les deux autres chemins (FoliageWindLaw.h : tiers du bas rigide, smoothstep^2).
+// position_in est LOCAL AU PROTOTYPE (Tie3::render_tree_wind fournit la matrice d'instance dans
+// `camera`) : `position_in.y / u_fw_height` est donc la hauteur relative du sommet dans SA plante,
+// et length(position_in.xz) sa portee depuis l'axe du tronc (0 sur le tronc, max au bout des
+// palmes). STRICTEMENT HORIZONTAL : l'ancien ballant vertical en quadrature (« flottaison ») est
+// retire — c'est lui, avec la phase spatiale des buissons, qui lisait comme « sous l'eau ».
+// u_fw_amp == 0.0 => option ETEINTE => le bloc est saute et le chemin de sommet stock tourne.
+uniform float u_fw_amp;     // amplitude du fremissement en UNITES LOCALES du prototype (0 = off) ;
+                            // porte deja bend x taille x flutter x gain de rafale (CPU)
+uniform float u_fw_time;    // horloge de brise, secondes (figee en pause)
+uniform float u_fw_phase;   // phase propre de l'instance, dans [0, 1)
+uniform float u_fw_height;  // hauteur LOCALE du prototype (plus haut sommet), unites locales
 #ifdef OG_PBR
 uniform vec4 cam_trans;
 // Grecharged-lightprobes PLAYTEST#1 #4: the LOCAL probe SH is evaluated PER-PIXEL in the fragment
@@ -64,34 +68,27 @@ void main() {
   // position uses the fluttered vertex; v_world / v_fringe_rel below stay on the authored position
   // so nothing in the PBR/probe path shifts with the breeze.
   vec3 lpos = position_in;
-  if (u_fw_amp > 0.0) {
-    float reach = length(position_in.xz);   // 0 on the trunk axis, max at the frond tips
-    // The flutter's lever arm. `reach` alone was not safe: the offline prototype census
-    // (tie-census.txt) shows jak1 wind prototypes whose geometry spreads far from their OWN
-    // origin — palm-01.mb reaches 23.00 m — so `reach * amp` alone would have flung vertices
-    // ~3 m sideways instead of fluttering a frond. Two bounded weights fix that:
-    //   * the reach is capped at 4 m, which is a real palm frond and clamps only the outliers;
-    //   * hw ramps in with height above the prototype's own base (both palm protos have
-    //     ylo = 0.0, so position_in.y IS that height), so roots hold still and only the crown
-    //     flutters.
-    // hw also fails SAFE: a prototype whose geometry hangs BELOW its origin (jak1's
-    // vil1-fish-01.mb, ylo = -32192) gets hw = 0 and no flutter at all, which keeps this term
-    // out of geometry it was never designed for. Peak displacement is therefore bounded at
-    // 4 m * u_fw_amp regardless of what the level data contains.
-    float hw = clamp(position_in.y / (8.0 * 4096.0), 0.0, 1.0);
-    float lever = min(reach, 4.0 * 4096.0) * hw;
-    float ph = u_fw_phase;
-    // two incommensurate rates: a ~0.37 Hz frond bend plus a ~0.59 Hz ripple. The reach term inside
-    // the phase makes the wave travel OUT along a frond instead of moving it as a rigid stick.
-    float f1 = sin(u_fw_time * 2.30 + ph + reach * 0.00035);
-    float f2 = sin(u_fw_time * 3.71 + ph * 1.7 + 2.1);
-    float bend = u_fw_amp * (0.70 * f1 + 0.30 * f2);
-    float cross = u_fw_amp * 0.55 * sin(u_fw_time * 2.93 + ph * 1.3 + 1.1);
-    lpos.x += lever * bend;
-    lpos.z += lever * cross;
-    // tips dip slightly as they bend (a frond swept sideways also droops) — keeps the crown from
-    // reading as a flat disc spinning in place. Always <= 0 so leaves never pop upward.
-    lpos.y -= lever * u_fw_amp * 0.35 * (0.5 + 0.5 * f1);
+  if (u_fw_amp > 0.0 && u_fw_height > 0.0) {
+    // le poids de hauteur de FoliageWindLaw.h : nul sous 30 % de la plante, smoothstep^2 au-dessus
+    float h = position_in.y / u_fw_height;
+    float w = 0.0;
+    if (h > 0.30) {
+      float u = min((h - 0.30) / 0.70, 1.0);
+      float s = u * u * (3.0 - 2.0 * u);
+      w = s * s;
+    }
+    // la portee depuis l'axe du tronc, plafonnee a 4 m (une vraie palme) : le tronc ne fremit pas,
+    // et un prototype dont la geometrie s'etale loin de son origine (palm-01.mb, 23 m) ne projette
+    // pas ses sommets a 3 m de cote.
+    float reach = min(length(position_in.xz), 4.0 * 4096.0) * (1.0 / (4.0 * 4096.0));
+    w *= reach;
+    // les deux raies du fremissement, la phase ne variant qu'avec le poids (donc la hauteur dans
+    // la plante), jamais avec la position monde — breeze.glsl, regle (1)
+    float lf1 = sin(u_fw_time * 8.7965 + u_fw_phase * 12.566 + w * 2.9);
+    float lf2 = sin(u_fw_time * 13.4035 + u_fw_phase * 7.3 + w * 4.1 + 1.3);
+    // axes LOCAUX du prototype : un fremissement de feuille n'a pas de cap lisible
+    lpos.x += (0.62 * lf1 + 0.38 * lf2) * u_fw_amp * w;
+    lpos.z += (lf2 * 0.45) * u_fw_amp * w;
   }
   vec4 transformed = -camera[3];
   transformed -= camera[0] * lpos.x;

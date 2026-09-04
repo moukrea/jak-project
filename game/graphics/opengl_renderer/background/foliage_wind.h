@@ -40,10 +40,17 @@
 // comme un zero de « tout va bien », et c'est le faux vert que ce dossier a deja paye plusieurs
 // fois. `wind_pairs_examined` est publie a cote pour que le denominateur soit lisible.
 //
-// LA REPONSE EST LUE AU POINT DE LECTURE. `response_m` n'est pas une prediction du mouvement : pour
-// les chemins ponderes (TIE statique, shrub) c'est le produit de l'UNIFORME reellement pousse
-// (`bend_metres()`) par le MAXIMUM DE L'ATTRIBUT reellement televerse (le poids sur 8 bits que le
-// sommet-shader consomme). Les deux facteurs sont les deux seules grandeurs que le shader lit.
+// LA REPONSE EST LUE AU POINT DE LECTURE. La flexion d'une instance n'est pas une prediction du
+// mouvement : pour les chemins ponderes (TIE statique, shrub) c'est le produit de l'UNIFORME
+// reellement pousse (`bend_metres()`) par le MAXIMUM DE L'ATTRIBUT reellement televerse (`peak_w`,
+// le poids sur 8 bits que le sommet-shader consomme, relu apres quantification). Les deux facteurs
+// sont les deux seules grandeurs que le shader lit. Pour le chemin VENT, `peak_w` est le facteur de
+// taille que le CPU multiplie (`size_factor`), lu de la meme table.
+//
+// OPTION ETEINTE = RIEN A MESURER. Toute reponse vaut 0, toute paire est « immobile des deux cotes »
+// et le compte de divergences serait 0 par construction : ce zero-la est un faux vert. La porte
+// publie donc `kNoMeasurement` tant que la brise n'est pas allumee ; la course de preuve l'allume
+// par `FOLIAGE_WIND_FORCE=1` (proof_env de l'item), ce qui ne change rien pour l'owner.
 // =================================================================================================
 
 #include <cstdint>
@@ -52,6 +59,7 @@
 
 #include "common/common_types.h"
 #include "common/custom_data/FoliageWindLaw.h"
+#include "game/graphics/pipelines/opengl.h"
 
 namespace foliage_wind {
 
@@ -81,10 +89,20 @@ float flutter_fraction();
 // la brise d'un dixieme de seconde d'un coup).
 float clock_seconds(u64 frame_idx, bool paused);
 
-// Cap du vent, normalise (x, z). Suit `wind_normal` du moteur quand il est exploitable, sinon
-// (0.7071, 0.7071).
-void set_direction(float x, float z);
+// L'etat du vent du JEU, recopie une fois par image par Tie3 (le seul renderer qui recoit
+// `wind-work` par DMA) : cap (x, z) et pause. Un vecteur nul ou NaN garde le cap precedent. Shrub,
+// qui ne recoit rien, lit le meme etat : les deux chemins penchent du meme cote et se figent ensemble.
+void set_wind_state(float dir_x, float dir_z, bool paused);
 void direction(float* out_x, float* out_z);
+bool paused();
+
+// LES UNIFORMES DU CHUNK tie_sway.glsl, POUSSES D'UN SEUL ENDROIT pour les quatre programmes
+// (tfrag3, etie_base, etie, shrub) : `u_tie_sway_amp` (bend en unites monde, 0 si l'option est
+// eteinte), `u_tie_sway_time`, `u_tie_sway_dir`, `u_tie_sway_flutter`. A appeler APRES
+// `first_tfrag_draw_setup`, qui vient d'ecrire 0 dans l'amplitude (verrou (a) du terrain). Publie
+// une ligne de journal one-shot par `pass` avec les emplacements d'uniformes et l'etat de l'attribut
+// 7 — les deux modes de defaillance silencieux de ce chemin. Rend l'amplitude poussee.
+float push_uniforms(GLuint program, u64 frame_idx, const char* pass);
 
 // ------------------------------------------------------- la loi, cote CPU (chemin VENT du TIE) ---
 // Jumelle EXACTE de `breeze_offset` de shaders/breeze.glsl. Le chemin VENT du TIE n'a pas
@@ -92,8 +110,11 @@ void direction(float* out_x, float* out_z);
 // ici. Les deux implementations doivent rester identiques ligne pour ligne — c'est pour ca
 // qu'elles portent les memes constantes nommees et le meme ordre d'operations.
 // `anchor_x/z` : position monde de l'instance. `ph01` : sa phase. `t` : secondes.
-// `w` : poids (le chemin VENT vaut 1 a la couronne). `bend_u` : `bend_metres() * 4096`.
-// Sortie : deplacement horizontal en unites monde.
+// `w` : poids a la couronne (le chemin VENT passe `size_factor(hauteur)`). `bend_u` :
+// `bend_metres() * 4096`. `flutter_f` : part de fremissement ; 0 pour n'obtenir que la flexion (le
+// chemin VENT fait fremir ses feuilles par sommet dans tie_wind.vert, avec le gain rendu ici).
+// Sortie : deplacement horizontal en unites monde ; `out_flutter_gain` (optionnel) : le gain de
+// fremissement de la rafale a cet instant, dans [0.25, 1].
 void breeze_offset(float anchor_x,
                    float anchor_z,
                    float dir_x,
@@ -104,17 +125,18 @@ void breeze_offset(float anchor_x,
                    float bend_u,
                    float flutter_f,
                    float* out_x,
-                   float* out_z);
+                   float* out_z,
+                   float* out_flutter_gain = nullptr);
 
 // ------------------------------------------------------------------------------ le recensement ---
 
 // Une instance de vegetation DESSINABLE.
 struct Instance {
-  float anchor_x = 0.f;   // ancrage monde (unites GOAL)
+  float anchor_x = 0.f;  // ancrage monde (unites GOAL)
   float anchor_z = 0.f;
-  float height_m = 0.f;   // hauteur de la plante, metres
-  float response_m = 0.f; // flexion de couronne effective, metres (0 = ne bouge pas)
-  u32 proto = 0;          // index de prototype dans son arbre (diagnostic seulement)
+  float height_m = 0.f;  // hauteur de la plante, metres
+  float peak_w = 0.f;    // poids a la couronne, tel que le shader le lit (0 = ne bouge jamais) ;
+                         // la flexion en metres est `bend_metres() * peak_w`, calculee a la lecture
 };
 
 // Les trois systemes qui dessinent de la vegetation. Un arbre est identifie par (niveau, systeme,
@@ -125,6 +147,11 @@ enum System : int { kSystemTieStatic = 0, kSystemTieWind = 1, kSystemShrub = 2 }
 // point que le recensement existant. Un rechargement de niveau ecrase, il n'accumule pas.
 void set_tree(const std::string& level, int system, int tree, int geo, std::vector<Instance>&& v);
 
+// Oublie tous les arbres d'un niveau pour un systeme : appele quand le renderer lache le niveau.
+// Sans lui, un niveau decharge resterait « dessine » dans la population et formerait des paires
+// avec le niveau voisin qui le remplace.
+void forget(const std::string& level, int system);
+
 // Cet arbre a ete SOUMIS au moins une fois. Sans cette marque, ses instances ne comptent pas :
 // une porte qui juge des instances jamais dessinees ne mesure pas ce que l'owner voit.
 void mark_drawn(const std::string& level, int system, int tree, int geo);
@@ -134,8 +161,9 @@ void mark_drawn(const std::string& level, int system, int tree, int geo);
 // n'entre pas dans la population), donc le residu est publie en clair a cote d'elle.
 void note_unclassified(const std::string& level, int tree, u32 count);
 
-// Une image de plus. Recalcule et publie toutes les `kRepublishFrames` images.
-void frame();
+// Une image de plus. Appelee par chaque renderer ; ne compte qu'une fois par `frame_idx`.
+// Recalcule et publie toutes les `kRepublishFrames` images.
+void frame(u64 frame_idx);
 
 // Valeur publiee quand AUCUNE paire n'a pu etre examinee. Ce n'est pas 0, deliberement.
 constexpr u64 kNoMeasurement = 999999;

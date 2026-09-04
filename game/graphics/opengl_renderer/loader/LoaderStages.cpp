@@ -965,6 +965,29 @@ class ShrubLoadStage : public LoaderStage {
         glBufferData(GL_ARRAY_BUFFER,
                      in_tree.unpacked.vertices.size() * sizeof(tfrag3::ShrubGpuVertex), nullptr,
                      GL_STATIC_DRAW);
+        // foliage-wind (owner 2026-09-03) : le VBO de balancement, DEUX octets par sommet, televerse
+        // d'un bloc (il pese 1/16 du VBO de sommets). Toujours cree, meme option eteinte : c'est
+        // l'uniforme d'amplitude a 0 qui rend le chemin inerte, pas l'absence du buffer. Longueur
+        // FORCEE sur celle du VBO de sommets, complete a ZERO si le tableau calcule est plus court
+        // (meme regle que le TIE, LoaderStages `tie` : un sommet non classe est FIGE).
+        GLuint& sway_out = data.lev_data->shrub_sway_data.emplace_back();
+        glGenBuffers(1, &sway_out);
+        glBindBuffer(GL_ARRAY_BUFFER, sway_out);
+        const size_t sway_want = in_tree.unpacked.vertices.size() * 2;
+        if (in_tree.unpacked.sway.size() == sway_want) {
+          glBufferData(GL_ARRAY_BUFFER, sway_want, in_tree.unpacked.sway.data(), GL_STATIC_DRAW);
+        } else {
+          lg::warn(
+              "[foliage-wind] SHRUB sway buffer DESYNCHRONISE lev={} : {} octets calcules pour {} "
+              "sommets ({} attendus) — complete a zero, les sommets en trop ne balanceront pas.",
+              data.lev_data->level->level_name, in_tree.unpacked.sway.size(),
+              in_tree.unpacked.vertices.size(), sway_want);
+          std::vector<u8> padded(sway_want, 0);
+          const size_t n = std::min(sway_want, in_tree.unpacked.sway.size());
+          std::copy(in_tree.unpacked.sway.begin(), in_tree.unpacked.sway.begin() + n,
+                    padded.begin());
+          glBufferData(GL_ARRAY_BUFFER, sway_want, padded.data(), GL_STATIC_DRAW);
+        }
       }
       m_opengl_created = true;
       return false;

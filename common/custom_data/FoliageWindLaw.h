@@ -80,18 +80,6 @@ inline u8 sway_weight_u8(float y, float ymin, float ymax) {
   return (u8)q;
 }
 
-// LE POIDS MAXIMAL qu'une instance de hauteur `span_u` (unites monde) peut atteindre. C'est la
-// valeur que `sway_weight_u8` rend a la couronne, et c'est le facteur que le recensement multiplie
-// par l'uniforme d'amplitude pour obtenir la reponse en metres. Ecrit ici, une fois, pour que le
-// recenseur ne puisse pas modeliser autre chose que ce que le depaqueteur a ecrit.
-inline float sway_weight_peak(float span_u) {
-  if (!(span_u > 0.f)) {
-    return 0.f;
-  }
-  const float q = std::floor(size_factor(span_u / 4096.f) * 255.f + 0.5f);
-  return q / 255.f;
-}
-
 // LA PHASE PROPRE D'UNE PLANTE, dans [0, 1), sur 8 bits. Angle d'or sur l'identifiant d'instance :
 // constante sur toute la plante (sinon elle se dechire), decorrelee d'une plante a l'autre (sinon
 // le decor glisse en bloc).

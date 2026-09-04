@@ -91,8 +91,10 @@ std::mutex g_mutex;
 std::map<TreeKey, TreeEntry> g_trees;
 std::map<std::pair<std::string, int>, u32> g_unclassified;
 u64 g_frames = 0;
+u64 g_last_frame_idx = (u64)-1;
 float g_dir_x = 0.70710678f;
 float g_dir_z = 0.70710678f;
+bool g_paused = false;
 
 // Assez souvent pour qu'une course de deux minutes republie une vingtaine de fois, assez rare pour
 // que le cout O(N x voisins) ne se voie pas : 300 images, c'est 5 s sur bureau.
@@ -124,6 +126,11 @@ bool enabled() {
   }();
   if (s_forced) {
     return true;
+  }
+  // Le bras d'ablation du harnais (`proof_run.sh --off` sur CET item) eteint la brise ajoutee ;
+  // sans item nomme, ou pour un autre item, `armed_for` rend vrai et rien ne change pour l'owner.
+  if (!autoport_proof::armed_for("foliage-wind")) {
+    return false;
   }
   return Gfx::recharged_active(Gfx::g_global_settings.recharged_foliage_wind);
 }
@@ -169,7 +176,8 @@ float clock_seconds(u64 frame_idx, bool paused) {
   return s_t;
 }
 
-void set_direction(float x, float z) {
+void set_wind_state(float x, float z, bool paused_now) {
+  g_paused = paused_now;
   const float len = std::sqrt(x * x + z * z);
   if (!(len > 1e-4f)) {
     return;  // vecteur nul ou NaN : on garde le cap precedent
@@ -181,6 +189,51 @@ void set_direction(float x, float z) {
 void direction(float* out_x, float* out_z) {
   *out_x = g_dir_x;
   *out_z = g_dir_z;
+}
+
+bool paused() {
+  return g_paused;
+}
+
+float push_uniforms(GLuint program, u64 frame_idx, const char* pass) {
+  const float amp = enabled() ? bend_metres() * 4096.f : 0.f;
+  const float t = clock_seconds(frame_idx, g_paused);
+  const GLint amp_loc = glGetUniformLocation(program, "u_tie_sway_amp");
+  const GLint time_loc = glGetUniformLocation(program, "u_tie_sway_time");
+  const GLint dir_loc = glGetUniformLocation(program, "u_tie_sway_dir");
+  const GLint flut_loc = glGetUniformLocation(program, "u_tie_sway_flutter");
+  if (amp_loc >= 0) {
+    glUniform1f(amp_loc, amp);
+  }
+  if (time_loc >= 0) {
+    glUniform1f(time_loc, t);
+  }
+  if (dir_loc >= 0) {
+    glUniform2f(dir_loc, g_dir_x, g_dir_z);
+  }
+  if (flut_loc >= 0) {
+    glUniform1f(flut_loc, flutter_fraction());
+  }
+  if (amp > 0.f) {
+    // Ligne de preuve one-shot PAR PASSE : les deux modes de defaillance SILENCIEUX de ce chemin,
+    // parce qu'aucun d'eux ne produit d'erreur GL — un `loc` a -1 (l'uniforme n'existe pas dans le
+    // programme lie : chunk absent du blob GLES, bloc optimise), et `attr7_on=0` (l'attribut 7
+    // n'est pas active sur le VAO courant, donc le poids arrive a 0 partout et RIEN ne bouge).
+    static std::map<std::string, bool> s_logged;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!s_logged[pass]) {
+      s_logged[pass] = true;
+      GLint attr_on = 0, attr_size = 0;
+      glGetVertexAttribiv(7, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attr_on);
+      glGetVertexAttribiv(7, GL_VERTEX_ATTRIB_ARRAY_SIZE, &attr_size);
+      lg::info(
+          "[foliage-wind] sway ACTIVE pass={} bend={:.4f}m flutter={:.2f} amp_loc={} time_loc={} "
+          "dir_loc={} flutter_loc={} attr7_on={} attr7_size={} dir=({:.3f},{:.3f})",
+          pass, amp / 4096.f, flutter_fraction(), amp_loc, time_loc, dir_loc, flut_loc, attr_on,
+          attr_size, g_dir_x, g_dir_z);
+    }
+  }
+  return amp;
 }
 
 // --------------------------------------------------- la loi, jumelle de shaders/breeze.glsl -----
@@ -196,7 +249,8 @@ void breeze_offset(float anchor_x,
                    float bend_u,
                    float flutter_f,
                    float* out_x,
-                   float* out_z) {
+                   float* out_z,
+                   float* out_flutter_gain) {
   constexpr float kGustK = 1.27828e-5f;  // 2*pi / (120 m * 4096)
   const float travel = (anchor_x * dir_x + anchor_z * dir_z) * kGustK;
   const float pp = ph01 * 6.2831853f;
@@ -214,14 +268,19 @@ void breeze_offset(float anchor_x,
   float ox = (dir_x * along + perp_x * cross) * (bend_u * w);
   float oz = (dir_z * along + perp_z * cross) * (bend_u * w);
 
-  const float lf1 = std::sin(t * 8.7965f + ph01 * 12.566f + w * 2.9f);
-  const float lf2 = std::sin(t * 13.4035f + ph01 * 7.3f + w * 4.1f + 1.3f);
-  const float lf_amp = bend_u * w * flutter_f * flut_gain;
-  ox += (dir_x * (0.62f * lf1 + 0.38f * lf2) + perp_x * (lf2 * 0.45f)) * lf_amp;
-  oz += (dir_z * (0.62f * lf1 + 0.38f * lf2) + perp_z * (lf2 * 0.45f)) * lf_amp;
+  if (flutter_f > 0.f) {
+    const float lf1 = std::sin(t * 8.7965f + ph01 * 12.566f + w * 2.9f);
+    const float lf2 = std::sin(t * 13.4035f + ph01 * 7.3f + w * 4.1f + 1.3f);
+    const float lf_amp = bend_u * w * flutter_f * flut_gain;
+    ox += (dir_x * (0.62f * lf1 + 0.38f * lf2) + perp_x * (lf2 * 0.45f)) * lf_amp;
+    oz += (dir_z * (0.62f * lf1 + 0.38f * lf2) + perp_z * (lf2 * 0.45f)) * lf_amp;
+  }
 
   *out_x = ox;
   *out_z = oz;
+  if (out_flutter_gain) {
+    *out_flutter_gain = flut_gain;
+  }
 }
 
 // ----------------------------------------------------------------------------- le recensement ----
@@ -231,6 +290,27 @@ void set_tree(const std::string& level, int system, int tree, int geo, std::vect
   auto& e = g_trees[TreeKey{level, system, tree, geo}];
   e.instances = std::move(v);
   e.drawn = false;  // un arbre recharge n'herite pas du « deja dessine » de l'ancien
+}
+
+void forget(const std::string& level, int system) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  for (auto it = g_trees.begin(); it != g_trees.end();) {
+    if (it->first.level == level && it->first.system == system) {
+      it = g_trees.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  if (system == kSystemTieStatic) {
+    g_unclassified.erase({level, 0});
+    for (auto it = g_unclassified.begin(); it != g_unclassified.end();) {
+      if (it->first.first == level) {
+        it = g_unclassified.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
 }
 
 void mark_drawn(const std::string& level, int system, int tree, int geo) {
@@ -261,9 +341,15 @@ void recompute_and_publish_locked() {
     pop.insert(pop.end(), kv.second.instances.begin(), kv.second.instances.end());
   }
 
+  const bool on = enabled();
+  const float bend_m = on ? bend_metres() : 0.f;
+  // la flexion en metres, lue au point de lecture : l'uniforme reellement pousse x le poids
+  // reellement televerse (voir l'en-tete)
+  auto response_m = [bend_m](const Instance& in) { return bend_m * in.peak_w; };
+
   u64 still = 0;
   for (const auto& in : pop) {
-    if (!(in.response_m > kStillM)) {
+    if (!(response_m(in) > kStillM)) {
       still++;
     }
   }
@@ -313,8 +399,8 @@ void recompute_and_publish_locked() {
           }
           pairs++;
           // la flexion RELATIVE : un angle, pas une longueur.
-          const float ra = a.response_m / a.height_m;
-          const float rb = b.response_m / b.height_m;
+          const float ra = response_m(a) / a.height_m;
+          const float rb = response_m(b) / b.height_m;
           const float lo = std::min(ra, rb);
           const float hi = std::max(ra, rb);
           float ratio;
@@ -340,20 +426,22 @@ void recompute_and_publish_locked() {
     unclassified += kv.second;
   }
 
-  // LA REGLE ANTI-FAUX-VERT : aucune paire examinee => la porte ne peut pas etre verte.
-  const u64 gate = (pairs == 0) ? kNoMeasurement : divergent;
+  // LA REGLE ANTI-FAUX-VERT : aucune paire examinee, ou brise ETEINTE (toute paire est alors
+  // immobile des deux cotes et le zero ne mesure rien) => la porte ne peut pas etre verte.
+  const u64 gate = (pairs == 0 || !on) ? kNoMeasurement : divergent;
   autoport_proof::publish("wind_divergent_pairs", gate);
   autoport_proof::publish("wind_pairs_examined", pairs);
   autoport_proof::publish("wind_instances_censused", (u64)pop.size());
   autoport_proof::publish("wind_instances_still", still);
   autoport_proof::publish("wind_trees_drawn", trees_drawn);
   autoport_proof::publish("wind_unclassified_protos", unclassified);
-  autoport_proof::publish("wind_option_on", enabled() ? 1 : 0);
+  autoport_proof::publish("wind_option_on", on ? 1 : 0);
   autoport_proof::publish("wind_worst_ratio_x100",
                           (u64)std::min(1e9, (double)worst_ratio * 100.0));
-  if (pairs > 0) {
+  autoport_proof::publish("wind_bend_mm", (u64)(bend_m * 1000.f + 0.5f));
+  if (pairs > 0 && on) {
     // Le chemin de code a tire : des paires reelles ont ete jugees sur des instances reellement
-    // dessinees. Aucun `note_hit` quand rien n'a ete mesure.
+    // dessinees, brise allumee. Aucun `note_hit` quand rien n'a ete mesure.
     autoport_proof::note_hit();
   }
 
@@ -362,15 +450,19 @@ void recompute_and_publish_locked() {
     lg::info(
         "[foliage-wind] pairs divergent={} examined={} instances={} still={} trees_drawn={} "
         "unclassified={} option_on={} worst_ratio={:.3f} bend_m={:.4f}",
-        gate, pairs, pop.size(), still, trees_drawn, unclassified, enabled() ? 1 : 0, worst_ratio,
-        bend_metres());
+        gate, pairs, pop.size(), still, trees_drawn, unclassified, on ? 1 : 0, worst_ratio,
+        bend_m);
   }
 }
 
 }  // namespace
 
-void frame() {
+void frame(u64 frame_idx) {
   std::lock_guard<std::mutex> lock(g_mutex);
+  if (frame_idx == g_last_frame_idx) {
+    return;  // deja comptee par un autre renderer sur cette image
+  }
+  g_last_frame_idx = frame_idx;
   g_frames++;
   if ((g_frames % kRepublishFrames) == 0) {
     recompute_and_publish_locked();

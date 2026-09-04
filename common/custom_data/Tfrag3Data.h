@@ -548,6 +548,26 @@ struct TieTree {
     std::vector<u8> sway;
   } unpacked;
 
+  // foliage-wind (owner 2026-09-03) — LES INSTANCES DE VEGETATION, POUR LE RECENSEMENT DE LA PORTE.
+  // Une entree par instance STATIQUE (matrix_idx >= 0) dont au moins un sommet est reclame par un
+  // prototype du lexique : son ancrage monde et sa hauteur. C'est ce que `foliage_wind::set_tree`
+  // recoit ; `wind_divergent_pairs` se calcule dessus. Survit a la liberation des sommets : il ne
+  // pese que 16 octets par plante.
+  struct SwayInstance {
+    float x = 0.f;     // ancrage monde (translation de la matrice d'instance)
+    float z = 0.f;
+    float ymin = 0.f;  // plus bas / plus haut sommet de l'instance, unites monde
+    float ymax = 0.f;
+    float peak_w = 0.f;  // le plus grand poids reellement ecrit dans `unpacked.sway` pour cette
+                         // instance, relu apres quantification (0 = elle ne bougera jamais)
+  };
+  std::vector<SwayInstance> sway_instances;
+  // La hauteur LOCALE (unites du prototype, avant la matrice d'instance) de chaque instance du
+  // chemin VENT, indexee comme `wind_instance_info`. Le chemin vent n'a pas d'attribut par sommet :
+  // c'est cette hauteur qui convertit une flexion de couronne en cisaillement de matrice, et qui
+  // donne au recensement la taille de la plante.
+  std::vector<float> wind_inst_local_ymax;
+
   // Grecharged-foliage-wind3 — LE RECENSEMENT QUI PORTE LE VERDICT DE D2. Rempli par `unpack()`
   // (le seul point ou prototypes, instances et sommets coexistent) et IMPRIME par
   // `Tie3::load_from_fr3_data`, qui est le seul point ou le nom du niveau est connu. Il survit a
@@ -591,7 +611,23 @@ struct ShrubTree {
 
   struct {
     std::vector<ShrubGpuVertex> vertices;  // mesh vertices
+    // foliage-wind (owner 2026-09-03 : « deux identiques côté à côte... un est pris l'autre non »,
+    // « ils ont l'air de glisser sur le sol »). DEUX OCTETS PAR SOMMET, parallele a `vertices`,
+    // attribut 7 du VAO shrub — le MEME attribut, la MEME loi et le MEME chunk de shader que le TIE
+    // statique (tie_sway.glsl). [2v+0] = poids (0 = fige), [2v+1] = phase de SON instance.
+    //
+    // POURQUOI PAR INSTANCE ET PLUS PAR `color_index`. L'ancien chemin ancrait chaque buisson par
+    // une LUT indexee sur `color_index`, en supposant « une entree de palette par instance ». Ici
+    // l'identite d'instance est LUE dans `packed_vertices.instance_groups` (matrix_idx), elle n'est
+    // pas supposee : deux instances qui partagent une entree de palette gardent chacune son propre
+    // pied et sa propre hauteur.
+    std::vector<u8> sway;
   } unpacked;
+  // Une entree par instance (matrix_idx), voir TieTree::SwayInstance. Pour le recensement.
+  std::vector<TieTree::SwayInstance> sway_instances;
+  // Diagnostic publie au chargement : entrees de palette partagees par PLUSIEURS instances. Non nul
+  // = l'hypothese de l'ancien chemin (« une entree par instance ») etait fausse sur ce niveau.
+  u32 sway_shared_color_slots = 0;
 
   // jak 2 and later can toggle on and off visibility per proto by name
   bool has_per_proto_visibility_toggle = false;

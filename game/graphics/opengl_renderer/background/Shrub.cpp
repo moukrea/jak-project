@@ -8,52 +8,12 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/mips2c/spart_prof.h"
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
 #endif
-
-namespace {
-// Grecharged-foliage-wind: live-tunable shrub sway amplitude (horizontal, in world units). Mirrors
-// GrassRenderer.cpp's grass_droop_len() dual mechanism EXACTLY (cached + throttled with
-// (s_throttle++ & 63) so it isn't re-read every frame): Android prop debug.opengoal.foliage.shrub_amp
-// / desktop env FOLIAGE_WIND_SHRUB_AMP, interpreted in METERS. Round 2 default 0.16 m (~655 world
-// units); round 1's 0.10 m was part of the build the owner called dead ("aucune feuille qui bouge"),
-// and 0.045 m before that was sub-pixel past a few metres. Clamped [0.0, 0.3] m. Returns world units
-// (meters * 4096). Round 2 also adds a faster low-amplitude flutter harmonic in shrub.vert: the
-// round-1 waveform ran at 0.24-0.49 Hz, so its per-FRAME displacement was still sub-pixel even
-// though its total excursion was not — big slow drift reads as static at a glance.
-// Grecharged-foliage-wind3 : 0,16 -> 0,12 m. Les buissons n'etaient PAS vises par « tempête »
-// (16 cm de deplacement horizontal sur un buisson n'en est pas une), mais l'ensemble doit rester
-// coherent avec la division par 3,44 du cote TIE. La reduction est declaree ici plutot que glissee.
-constexpr float FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M = 0.12f;
-static float foliage_wind_shrub_amp() {
-  static float s_cached = FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M * 4096.0f;
-  static int s_throttle = 0;
-  if ((s_throttle++ & 63) != 0) {
-    return s_cached;
-  }
-  char buf[16] = {0};
-  bool have = false;
-#ifdef __ANDROID__
-  if (__system_property_get("debug.opengoal.foliage.shrub_amp", buf) > 0 && buf[0]) {
-    have = true;
-  }
-#else
-  const char* e = std::getenv("FOLIAGE_WIND_SHRUB_AMP");
-  if (e && e[0]) {
-    std::strncpy(buf, e, sizeof(buf) - 1);
-    have = true;
-  }
-#endif
-  float m = have ? (float)std::atof(buf) : FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M;
-  if (m < 0.0f) m = FOLIAGE_WIND_SHRUB_AMP_DEFAULT_M;  // unparsable/negative -> default
-  if (m > 0.3f) m = 0.3f;
-  s_cached = m * 4096.0f;  // meters -> world units
-  return s_cached;
-}
-}  // namespace
 
 Shrub::Shrub(const std::string& name, int my_id) : BucketRenderer(name, my_id) {
   m_color_result.resize(TIME_OF_DAY_COLOR_COUNT);
@@ -127,6 +87,7 @@ void Shrub::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProf
   update_render_state_from_pc_settings(render_state, m_pc_port_data);
 
   m_has_level = setup_for_level(m_pc_port_data.level_name, render_state);
+  foliage_wind::frame(render_state->frame_idx);
   render_all_trees(settings, render_state, prof);
 }
 
@@ -211,57 +172,28 @@ void Shrub::update_load(const LevelData* loader_data) {
     time_of_day_count = std::max(tree.time_of_day_colors.color_count, time_of_day_count);
     max_inds = std::max(tree.indices.size(), max_inds);
     u32 verts = tree.unpacked.vertices.size();
-    // Grecharged-foliage-wind: per-plant sway anchor LUT. color_index is constant per shrub
-    // instance (extract_shrub assigns one time-of-day palette slot per instance), so a
-    // per-color_index (minY, height) table anchors each plant's own base and normalizes the sway
-    // by its own height. Packed 16+16 bit into the same Wx1 RGBA8 texture pattern as the TOD LUT
-    // (device-proven; no float textures on the Adreno path). Built once per level load; the
-    // shader samples it only when the toggle is ON.
+    // foliage-wind (owner 2026-09-03) : LE RECENSEMENT des buissons de cet arbre, une entree par
+    // instance (identite lue dans `instance_groups`, jamais supposee par `color_index`). C'est la
+    // population que `wind_divergent_pairs` juge, avec celle du TIE. Le poids de couronne est celui
+    // que le VBO porte REELLEMENT (relu apres quantification).
     {
-      auto& t = m_trees[l_tree];
-      std::vector<float> cmin(TIME_OF_DAY_COLOR_COUNT, 1e30f);
-      std::vector<float> cmax(TIME_OF_DAY_COLOR_COUNT, -1e30f);
-      float ymin_all = 1e30f, ymax_all = -1e30f;
-      for (const auto& v : tree.unpacked.vertices) {
-        u32 ci = v.color_index < TIME_OF_DAY_COLOR_COUNT ? v.color_index : 0;
-        if (v.y < cmin[ci]) cmin[ci] = v.y;
-        if (v.y > cmax[ci]) cmax[ci] = v.y;
-        if (v.y < ymin_all) ymin_all = v.y;
-        if (v.y > ymax_all) ymax_all = v.y;
+      std::vector<foliage_wind::Instance> pop;
+      pop.reserve(tree.sway_instances.size());
+      for (const auto& si : tree.sway_instances) {
+        foliage_wind::Instance in;
+        in.anchor_x = si.x;
+        in.anchor_z = si.z;
+        in.height_m = (si.ymax - si.ymin) / 4096.f;
+        in.peak_w = si.peak_w;
+        pop.push_back(in);
       }
-      if (ymax_all < ymin_all) {  // empty tree
-        ymin_all = 0.f;
-        ymax_all = 1.f;
-      }
-      float range = ymax_all - ymin_all;
-      if (range < 1.f) range = 1.f;
-      t.wind_lut_base = ymin_all;
-      t.wind_lut_scale = range / 65535.0f;
-      std::vector<u8> lut(TIME_OF_DAY_COLOR_COUNT * 4);
-      for (int ci = 0; ci < TIME_OF_DAY_COLOR_COUNT; ci++) {
-        u32 qm = 0, qh = 65535;  // unused entry: base anchor + huge height => zero sway
-        if (cmax[ci] >= cmin[ci]) {
-          float m = (cmin[ci] - ymin_all) / t.wind_lut_scale;
-          float h = (cmax[ci] - cmin[ci]) / t.wind_lut_scale;
-          qm = (u32)(m < 0.f ? 0.f : (m > 65535.f ? 65535.f : m));
-          qh = (u32)(h < 0.f ? 0.f : (h > 65535.f ? 65535.f : h));
-        }
-        lut[ci * 4 + 0] = (qm >> 8) & 0xff;
-        lut[ci * 4 + 1] = qm & 0xff;
-        lut[ci * 4 + 2] = (qh >> 8) & 0xff;
-        lut[ci * 4 + 3] = qh & 0xff;
-      }
-      // Grecharged-pbr-realtime-fusion ROUND 22: unit 11 is the PBR NORMAL MAP now (the shrub
-      // program gained the fused PBR path this round). The wind-anchor LUT lives on unit 18 —
-      // see shrub.vert's tex_T18 comment. This upload-time bind must match, or the very first
-      // frame would leave the LUT parked on the normal map's unit.
-      glActiveTexture(GL_TEXTURE18);
-      glGenTextures(1, &t.wind_lut_texture);
-      glBindTexture(GL_TEXTURE_2D, t.wind_lut_texture);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TIME_OF_DAY_COLOR_COUNT, 1, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, lut.data());
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      lg::info(
+          "[foliage-wind] SHRUB sway-cover lev={} tree={} instances={} verts={} sway_bytes={} "
+          "shared_color_slots={}",
+          lev_data->level_name, l_tree, pop.size(), verts, tree.unpacked.sway.size(),
+          tree.sway_shared_color_slots);
+      foliage_wind::set_tree(lev_data->level_name, foliage_wind::kSystemShrub, (int)l_tree, 0,
+                             std::move(pop));
     }
     glGenVertexArrays(1, &m_trees[l_tree].vao);
     glBindVertexArray(m_trees[l_tree].vao);
@@ -336,6 +268,14 @@ void Shrub::update_load(const LevelData* loader_data) {
                           sizeof(tfrag3::ShrubGpuVertex),  // stride
                           (void*)offsetof(tfrag3::ShrubGpuVertex, seam_w)  // offset
     );
+
+    // foliage-wind (owner 2026-09-03) : poids + phase de balancement, DEUX octets par sommet, sur la
+    // LOCATION 7 — la meme que le TIE, parce que c'est le meme chunk (tie_sway.glsl) qui les lit.
+    // VBO parallele au VBO de sommets (LoaderStages, etape shrub). Normalise : 0..255 -> 0..1.
+    glBindBuffer(GL_ARRAY_BUFFER, loader_data->shrub_sway_data.at(l_tree));
+    glEnableVertexAttribArray(7);
+    glVertexAttribPointer(7, 2, GL_UNSIGNED_BYTE, GL_TRUE, 2 * sizeof(u8), (void*)0);
+    glBindBuffer(GL_ARRAY_BUFFER, m_trees[l_tree].vertex_buffer);
 
     glGenBuffers(1, &m_trees[l_tree].single_draw_index_buffer);
     glGenBuffers(1, &m_trees[l_tree].index_buffer);
@@ -449,6 +389,7 @@ bool Shrub::setup_for_level(const std::string& level, SharedRenderState* render_
     // not loaded
     m_has_level = false;
     m_textures = nullptr;
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemShrub);
     m_level_name = "";
     discard_tree_cache();
     return false;
@@ -457,6 +398,7 @@ bool Shrub::setup_for_level(const std::string& level, SharedRenderState* render_
   if (m_has_level && lev_data->load_id != m_load_id) {
     m_has_level = false;
     m_textures = nullptr;
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemShrub);
     m_level_name = "";
     discard_tree_cache();
     return setup_for_level(level, render_state);
@@ -466,6 +408,8 @@ bool Shrub::setup_for_level(const std::string& level, SharedRenderState* render_
   m_load_id = lev_data->load_id;
 
   if (m_level_name != level) {
+    // foliage-wind : le niveau que ce renderer lachait sort de la population du recensement.
+    foliage_wind::forget(m_level_name, foliage_wind::kSystemShrub);
     update_load(lev_data);
     m_has_level = true;
     m_level_name = level;
@@ -489,8 +433,6 @@ void Shrub::discard_tree_cache() {
     glDeleteTextures(1, &tree.time_of_day_texture);
     // Gperf-particles round 3: delete the ping-pong TOD texture too.
     glDeleteTextures(1, &tree.time_of_day_texture_pp);
-    // Grecharged-foliage-wind: delete the per-plant sway-anchor LUT (rebuilt each level load).
-    glDeleteTextures(1, &tree.wind_lut_texture);
     glDeleteBuffers(1, &tree.index_buffer);
     if (tree.caster_index_buffer) {
       glDeleteBuffers(1, &tree.caster_index_buffer);
@@ -636,36 +578,14 @@ void Shrub::render_tree(int idx,
     pbr_binder.set_coverage_context("shrub", nullptr, false, render_state->frame_idx);
 #endif
 
-    // Grecharged-foliage-wind: drive the shrub breeze. Set every frame; strength 0 when OFF makes the
-    // shader's sway branch a no-op => byte-identical stock render.
-    {
-      GLuint sid = render_state->shaders[ShaderId::SHRUB].id();
-      static const auto s_t0 = std::chrono::steady_clock::now();
-      float u_time = std::chrono::duration<float>(std::chrono::steady_clock::now() - s_t0).count();
-      float amp =
-          Gfx::recharged_active(Gfx::g_global_settings.recharged_foliage_wind) ? foliage_wind_shrub_amp() : 0.0f;
-      if (amp > 0.0f) {
-        static bool s_logged = false;
-        if (!s_logged) {
-          s_logged = true;
-          lg::info("[foliage-wind] shrub sway ACTIVE amp={} lut_base={} lut_scale={}", amp,
-                   tree.wind_lut_base, tree.wind_lut_scale);
-        }
-      }
-      glUniform1f(glGetUniformLocation(sid, "u_time"), u_time);
-      glUniform1f(glGetUniformLocation(sid, "u_wind_strength"), amp);
-      glUniform1f(glGetUniformLocation(sid, "u_wind_lut_base"), tree.wind_lut_base);
-      glUniform1f(glGetUniformLocation(sid, "u_wind_lut_scale"), tree.wind_lut_scale);
-      // ROUND 22: unit 18, NOT 11 — 11-17 are the PBR material maps now (tex_PBR_N..tex_PBR_E,
-      // parked by first_tfrag_draw_setup / PbrDrawBinder). Shader.cpp's tex_T<i> auto-bind
-      // already points tex_T18 at unit 18; this explicit pair keeps the binding self-contained.
-      glUniform1i(glGetUniformLocation(sid, "tex_T18"), 18);
-      glActiveTexture(GL_TEXTURE18);
-      glBindTexture(GL_TEXTURE_2D, tree.wind_lut_texture);
-      // (the active unit is restored to 0 a few lines below, as before)
-    }
-
     glBindVertexArray(tree.vao);
+    // foliage-wind (owner 2026-09-03) : les uniformes du chunk partage, APRES `first_tfrag_draw_setup`
+    // (qui vient d'ecrire 0 dans l'amplitude) et APRES le bind du VAO (pour que la ligne de preuve
+    // lise l'etat REEL de l'attribut 7). Option eteinte => amplitude 0 => le bloc du shader est
+    // saute et le sommet ressort a l'identique.
+    foliage_wind::push_uniforms(render_state->shaders[ShaderId::SHRUB].id(), render_state->frame_idx,
+                                "shrub");
+    foliage_wind::mark_drawn(m_level_name, foliage_wind::kSystemShrub, idx, 0);
     glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
                  render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);

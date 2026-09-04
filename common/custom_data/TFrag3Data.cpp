@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "common/custom_data/FoliageWindLaw.h"
 #include "common/custom_data/TangentDerive.h"
 #include "common/custom_data/normal_pack.h"
 #include "common/log/log.h"
@@ -403,27 +404,11 @@ const FwLexicon& fw_veg_protos() {
 }
 
 // Le poids de balancement d'un sommet, quantifie sur 8 bits. `y` est la hauteur MONDE du sommet,
-// `ymin`/`ymax` celles de SON instance. Meme forme que shrub.vert (h*h avec le meme plancher de
-// hauteur) : 0 au pied de la plante, ~1 a sa couronne, quadratique pour que les racines ne bougent
-// pas et que le haut fremisse.
+// `ymin`/`ymax` celles de SON instance. foliage-wind (owner 2026-09-03) : la loi vit dans
+// common/custom_data/FoliageWindLaw.h et elle est la MEME pour le TIE statique, le shrub et le
+// recensement qui porte la porte — trois copies se seraient desynchronisees au premier reglage.
 u8 fw_sway_weight(float y, float ymin, float ymax) {
-  const float span = std::max((ymax - ymin) * 0.85f, 0.3f * 4096.f);
-  float h = (y - ymin) / span;
-  if (!(h > 0.f)) {  // couvre aussi NaN
-    return 0;
-  }
-  if (h > 1.f) {
-    h = 1.f;
-  }
-  const float w = h * h;
-  int q = (int)(w * 255.f + 0.5f);
-  if (q < 0) {
-    q = 0;
-  }
-  if (q > 255) {
-    q = 255;
-  }
-  return (u8)q;
+  return foliage_law::sway_weight_u8(y, ymin, ymax);
 }
 
 }  // namespace
@@ -618,7 +603,7 @@ void TieTree::unpack() {
     // l'angle d'or applique au `matrix_idx` : constante sur toute la plante (donc la plante ne se
     // dechire pas) et decorrelee d'une plante a l'autre (donc le decor ne glisse pas en bloc).
     unpacked.sway.assign(nverts * 2, 0);
-    std::vector<u8> inst_has_veg(n_mat, 0), inst_has_sway(n_mat, 0);
+    std::vector<u8> inst_has_veg(n_mat, 0), inst_has_sway(n_mat, 0), inst_max_w(n_mat, 0);
     {
       size_t vi = 0;
       for (const auto& grp : packed_vertices.matrix_groups) {
@@ -630,10 +615,8 @@ void TieTree::unpack() {
         const bool have_inst = !wind_path && (size_t)grp.matrix_idx < n_mat;
         const size_t mi = have_inst ? (size_t)grp.matrix_idx : 0;
         const bool have_anchor = have_inst && mymax[mi] >= mymin[mi];
-        // angle d'or, replie dans [0, 1) puis quantifie sur 8 bits (pas de 1,4 degre)
-        const float ph01 =
-            have_inst ? (float)std::fmod((double)mi * 0.6180339887498949, 1.0) : 0.f;
-        const u8 ph8 = (u8)std::min(255, (int)(ph01 * 256.f));
+        // angle d'or sur l'identite d'instance, quantifie sur 8 bits (FoliageWindLaw.h)
+        const u8 ph8 = have_inst ? foliage_law::phase_u8((u64)mi) : 0;
         for (size_t k = 0; k < n && vi + k < nverts; k++) {
           const size_t v = vi + k;
           const u8 f = vflag[v];
@@ -658,6 +641,7 @@ void TieTree::unpack() {
           if (w > 0) {
             sway_census.v_sway++;
             inst_has_sway[mi] = 1;
+            inst_max_w[mi] = std::max(inst_max_w[mi], w);
           } else {
             sway_census.v_neutre++;
           }
@@ -665,12 +649,50 @@ void TieTree::unpack() {
         vi += n;
       }
     }
+    sway_instances.clear();
     for (size_t mi = 0; mi < n_mat; mi++) {
       if (inst_has_veg[mi]) {
         sway_census.inst_veg++;
+        // foliage-wind : une entree de recensement par instance VEGETALE posee. L'ancrage est la
+        // translation de la matrice d'instance ; la hauteur, l'etendue en Y de ses sommets monde.
+        SwayInstance si;
+        si.x = packed_vertices.matrices[mi][3].x();
+        si.z = packed_vertices.matrices[mi][3].z();
+        si.ymin = mymin[mi];
+        si.ymax = mymax[mi];
+        si.peak_w = inst_max_w[mi] / 255.f;
+        sway_instances.push_back(si);
       }
       if (inst_has_sway[mi]) {
         sway_census.inst_swayed++;
+      }
+    }
+
+    // --- chemin VENT : la hauteur LOCALE de chaque instance -------------------------------------
+    // Les sommets du chemin vent restent LOCAUX AU PROTOTYPE (branche matrix_idx == -1 ci-dessus)
+    // et `instanced_wind_draws[d].vertex_index_stream` les indexe, segmente par
+    // `instance_groups` (num indices par instance, UINT32_MAX = redemarrage de bande). On en tire,
+    // par instance, le plus haut sommet local : c'est ce que `Tie3::render_tree_wind` multiplie par
+    // le cisaillement pour obtenir la flexion de couronne, et ce que le recensement lit comme
+    // taille de plante.
+    wind_inst_local_ymax.assign(wind_instance_info.size(), 0.f);
+    for (const auto& draw : instanced_wind_draws) {
+      size_t off = 0;
+      for (const auto& grp : draw.instance_groups) {
+        const size_t end = std::min(off + (size_t)grp.num, draw.vertex_index_stream.size());
+        if (grp.instance_idx < wind_inst_local_ymax.size()) {
+          float& ymax = wind_inst_local_ymax[grp.instance_idx];
+          for (size_t k = off; k < end; k++) {
+            const u32 vi2 = draw.vertex_index_stream[k];
+            if (vi2 != UINT32_MAX && vi2 < nverts) {
+              const float y = unpacked.vertices[vi2].y;
+              if (y > ymax) {
+                ymax = y;
+              }
+            }
+          }
+        }
+        off = end;
       }
     }
   }
@@ -728,6 +750,96 @@ void ShrubTree::unpack() {
     }
   }
   ASSERT(i == unpacked.vertices.size());
+
+  // ===============================================================================================
+  // foliage-wind (owner 2026-09-03) — LE POIDS DE BALANCEMENT PAR SOMMET, ANCRE SUR SON INSTANCE.
+  //
+  // `instance_groups` est parcouru dans le meme ordre que la boucle ci-dessus et `i` avance en
+  // lockstep : chaque groupe couvre une plage CONTIGUE de sommets depaquetes, et `grp.matrix_idx`
+  // EST l'identite de l'instance (une matrice par buisson pose). Deux passes :
+  //   1. par instance, le plus bas et le plus haut sommet MONDE (son pied et sa couronne) ;
+  //   2. par sommet, le poids de la loi partagee (FoliageWindLaw.h : tiers du bas RIGIDE, facteur
+  //      de taille replie) et la phase de son instance.
+  // Le pied est celui de l'instance elle-meme — un buisson volontairement enfonce sous le sol garde
+  // ses 30 % du bas immobiles, donc la ligne ou il croise le terrain ne porte plus de deplacement :
+  // c'est le correctif du « ils ont l'air de glisser sur le sol ».
+  // ===============================================================================================
+  {
+    const size_t n_mat = packed_vertices.matrices.size();
+    const size_t nverts = unpacked.vertices.size();
+    std::vector<float> mymin(n_mat, 1e30f), mymax(n_mat, -1e30f);
+    std::vector<u8> mat_used(n_mat, 0);
+    {
+      size_t vi = 0;
+      for (const auto& grp : packed_vertices.instance_groups) {
+        const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+        if (grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat) {
+          const size_t mi = (size_t)grp.matrix_idx;
+          mat_used[mi] = 1;
+          for (size_t k = 0; k < n && vi + k < nverts; k++) {
+            const float y = unpacked.vertices[vi + k].y;
+            mymin[mi] = std::min(mymin[mi], y);
+            mymax[mi] = std::max(mymax[mi], y);
+          }
+        }
+        vi += n;
+      }
+    }
+    unpacked.sway.assign(nverts * 2, 0);
+    // diagnostic : combien d'entrees de palette (color_index) sont partagees par plusieurs
+    // instances — l'hypothese que l'ancien chemin faisait sans la verifier.
+    std::unordered_map<u32, s32> slot_owner;  // color_index -> matrix_idx, ou -2 si partage
+    std::vector<u8> inst_max_w(n_mat, 0);
+    {
+      size_t vi = 0;
+      for (const auto& grp : packed_vertices.instance_groups) {
+        const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+        const bool have_inst = grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat;
+        const size_t mi = have_inst ? (size_t)grp.matrix_idx : 0;
+        const bool have_anchor = have_inst && mymax[mi] >= mymin[mi];
+        const u8 ph8 = have_inst ? foliage_law::phase_u8((u64)mi) : 0;
+        if (have_inst) {
+          auto it = slot_owner.find(grp.color_index);
+          if (it == slot_owner.end()) {
+            slot_owner[grp.color_index] = (s32)mi;
+          } else if (it->second != (s32)mi && it->second != -2) {
+            it->second = -2;
+          }
+        }
+        for (size_t k = 0; k < n && vi + k < nverts; k++) {
+          const size_t v = vi + k;
+          const u8 w = have_anchor
+                           ? foliage_law::sway_weight_u8(unpacked.vertices[v].y, mymin[mi], mymax[mi])
+                           : 0;
+          unpacked.sway[v * 2 + 0] = w;
+          unpacked.sway[v * 2 + 1] = ph8;
+          if (have_inst) {
+            inst_max_w[mi] = std::max(inst_max_w[mi], w);
+          }
+        }
+        vi += n;
+      }
+    }
+    sway_shared_color_slots = 0;
+    for (const auto& kv : slot_owner) {
+      if (kv.second == -2) {
+        sway_shared_color_slots++;
+      }
+    }
+    sway_instances.clear();
+    for (size_t mi = 0; mi < n_mat; mi++) {
+      if (!mat_used[mi] || !(mymax[mi] >= mymin[mi])) {
+        continue;
+      }
+      TieTree::SwayInstance si;
+      si.x = packed_vertices.matrices[mi][3].x();
+      si.z = packed_vertices.matrices[mi][3].z();
+      si.ymin = mymin[mi];
+      si.ymax = mymax[mi];
+      si.peak_w = inst_max_w[mi] / 255.f;
+      sway_instances.push_back(si);
+    }
+  }
 }
 
 // Grecharged-directional-ambient ROOT-CAUSE FIX (smooth per-vertex normals) — ROUND 2 CREASE-AWARE.

@@ -144,6 +144,11 @@ class Tie3 : public BucketRenderer {
     // peak/RMS statistic. Differencing against the previous frame is what separates the two.
     std::vector<float> fw_prev_shear;
     bool fw_prev_valid = false;
+    // foliage-wind (owner 2026-09-03) : la hauteur LOCALE de chaque instance du chemin vent
+    // (TieTree::wind_inst_local_ymax, calculee au depaquetage) et, par image, l'amplitude locale
+    // du fremissement de feuille de chaque instance (poussee en uniforme au dessin).
+    const std::vector<float>* wind_local_ymax = nullptr;
+    std::vector<float> fw_inst_flutter_amp;
     GLuint wind_vertex_index_buffer;
     std::vector<u32> wind_vertex_index_offsets;
     bool has_proto_visibility = false;

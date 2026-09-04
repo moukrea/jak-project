@@ -1784,6 +1784,12 @@ void Loader::update(TexturePool& texture_pool) {
             m_garbage_buffers.push_back(tfrag_buff);
           }
         }
+        // foliage-wind : le VBO de balancement SHRUB suit le cycle de vie des autres VBO de
+        // niveau. (Note, PAS corrigee ici parce qu'anterieure et hors perimetre :
+        // `shrub_vertex_data` lui-meme n'est collecte nulle part.)
+        for (auto& shrub_sway : lev->shrub_sway_data) {
+          m_garbage_buffers.push_back(shrub_sway);
+        }
 
         m_garbage_buffers.push_back(lev->hfrag_indices);
         m_garbage_buffers.push_back(lev->hfrag_indices);
