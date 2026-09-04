@@ -45,6 +45,8 @@ C'est un ordre de l'owner, pas une préférence.
   vérifie avec un `grep -a` d'un marqueur neuf dans chacun.
 * **Un fichier GOAL neuf doit être listé dans `goal_src/jak1/dgos/game.gd` et `engine.gd`**,
   sinon `gk` saute dans le vide au chargement avec une pile inexploitable.
+* **Un `.cpp` neuf doit être listé dans `game/CMakeLists.txt` ET `android/CMakeLists.txt`.** Les deux
+  listes sont indépendantes : x86 compile et passe sa preuve, l'arm64 meurt au lien (`undefined symbol`).
 * **Le build arm64 livré est `build-android/`.** `build-arm64/` a toutes les options à OFF
   et n'a jamais produit de binaire : un échec là-bas est un faux rouge.
 * **Un `-Wreturn-type` ignoré est un plantage arm64 garanti.** x86/GCC retombe par hasard

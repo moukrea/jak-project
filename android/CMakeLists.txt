@@ -733,6 +733,9 @@ add_library(gk SHARED
     # separee de celle du bureau, il faut donc la citer ici aussi ou libgk.so ne lie pas.
     "${JAK_ROOT}/game/graphics/fixed_tick.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
+    # foliage-wind : la loi, le recensement et la porte `wind_divergent_pairs`. Un .cpp neuf doit
+    # etre liste ICI ET dans game/CMakeLists.txt : sinon x86 passe et l'arm64 meurt au LIEN.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/background/foliage_wind.cpp"
     # Grecharged-mesh-browser V2 — normal-orientation gizmo pass; TFragment.cpp and
     # Tie3.cpp call mb_gizmos::render unconditionally, so libgk.so fails to link
     # without it (attempt-1 added it to the desktop game/CMakeLists.txt only).
