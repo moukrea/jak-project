@@ -821,6 +821,67 @@ int main() {
           "npc_culled_in_frustum=" + std::to_string(t.in_fov_dark_frames_npc));
   }
 
+  {
+    // (j) ESSAI 11 — LES COMPTEURS DE PLATEFORME SORTENT PAR SCENE, EN DELTA, ET DISENT LEUR SOURCE.
+    //     Le defaut n'existe que sur l'appareil de l'owner ; la seule trace qui en revient est
+    //     npc_flicker.txt. Cette ligne doit donc (1) porter la DIFFERENCE entre la fin et le debut
+    //     de la scene, jamais le cumul depuis le boot, (2) declarer QUI l'a remplie : un zero
+    //     sans source n'est pas une mesure. Controle positif : la source bouge pendant la scene,
+    //     le delta doit etre exactement ce mouvement.
+    npc_flicker::reset_for_test();
+    npc_flicker::set_host_counters_fn(nullptr);
+    npc_flicker::set_render_counters_fn(nullptr);
+    g_frame = 0;
+    for (int i = 0; i < 6; i++) {
+      run_frame("plat-0", {shown("mayor-lod0", 950)});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    check(npc_flicker::platform_sources() == 0 && npc_flicker::platform_totals()[0] == 0,
+          "plateforme : sans source, sources=0 et rien n'est compte",
+          "sources=" + std::to_string(npc_flicker::platform_sources()));
+    // une source hote factice : nullfg part de 5, et monte a 7 PENDANT la scene
+    static uint64_t s_fake_nullfg = 5;
+    static uint64_t s_fake_failopen = 100;
+    npc_flicker::set_host_counters_fn([](uint64_t* out, int n) {
+      if (n > npc_flicker::kPlatNullFg) {
+        out[npc_flicker::kPlatNullFg] = s_fake_nullfg;
+      }
+    });
+    npc_flicker::set_render_counters_fn([](uint64_t* out, int n) {
+      if (n > npc_flicker::kPlatHdFailOpen) {
+        out[npc_flicker::kPlatHdFailOpen] = s_fake_failopen;
+      }
+    });
+    for (int i = 0; i < 6; i++) {
+      run_frame("plat-1", {shown("mayor-lod0", 951)});
+    }
+    s_fake_nullfg = 7;      // deux reparations pendant la scene
+    s_fake_failopen = 103;  // trois fail-open
+    for (int i = 0; i < 6; i++) {
+      run_frame("plat-1", {shown("mayor-lod0", 951)});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    const uint64_t* pt = npc_flicker::platform_totals();
+    check(npc_flicker::platform_sources() == 3, "plateforme : hote ET rendu declares (sources=3)",
+          "sources=" + std::to_string(npc_flicker::platform_sources()));
+    check(pt[npc_flicker::kPlatNullFg] == 2,
+          "plateforme : la scene publie le DELTA (7-5=2), pas le cumul depuis le boot",
+          "nullfg=" + std::to_string(pt[npc_flicker::kPlatNullFg]));
+    check(pt[npc_flicker::kPlatHdFailOpen] == 3, "plateforme : le rendu remplit sa case (fail-open=3)",
+          "hd_failopen=" + std::to_string(pt[npc_flicker::kPlatHdFailOpen]));
+    // une scene SANS mouvement rend zero : le delta ne fuit pas d'une scene a l'autre
+    for (int i = 0; i < 6; i++) {
+      run_frame("plat-2", {shown("mayor-lod0", 952)});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    check(pt[npc_flicker::kPlatNullFg] == 2 && pt[npc_flicker::kPlatHdFailOpen] == 3,
+          "plateforme : une scene sans evenement n'ajoute rien",
+          "nullfg=" + std::to_string(pt[npc_flicker::kPlatNullFg]) +
+              " hd_failopen=" + std::to_string(pt[npc_flicker::kPlatHdFailOpen]));
+    npc_flicker::set_host_counters_fn(nullptr);
+    npc_flicker::set_render_counters_fn(nullptr);
+  }
+
   printf("\n%s — %d echec(s)\n", g_fail ? "SELFTEST FAILED" : "SELFTEST PASS", g_fail);
   return g_fail ? 1 : 0;
 }
