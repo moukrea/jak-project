@@ -67,6 +67,7 @@
 #include "game/kernel/jak2/kscheme.h"  // Gjak2-render: jak2::make_function_symbol_from_c for a17_bind_pc_helpers_jak2
 #include "game/runtime.h"
 #include "game/system/pad_replay.h"
+#include "game/system/npc_flicker.h"  // cutscene-npc-flicker (essai 11) : compteurs de plateforme par scene
 
 // A11: jak1::InitHeapAndSymbol exposes a chainable hook that fires
 // between the kernel-CGO load and the kernel-version check. We chain
@@ -8894,6 +8895,37 @@ void gk_sigusr2_hang_dump(int /*sig*/, siginfo_t* /*info*/, void* ucontext) {
   }
 }
 
+// cutscene-npc-flicker (essai 11) — CE QUE L'HOTE arm64 SAIT DES DISPARITIONS QUE GOAL NE VOIT PAS.
+// Chaque reparation de faute ci-dessus est une disparition POSSIBLE d'un modele (anim de canal
+// sautee, process deactive, store jete), et chaque chaine DMA rejetee efface tous les modeles
+// d'une image. Sur le Redmi ces compteurs valent 0 pendant les cinematiques du maire ; le Honor
+// de l'owner, ou le defaut vit, n'a pas de logcat : la ligne NPCPLAT de npc_flicker.txt est le
+// seul endroit ou ces chiffres peuvent lui revenir. Index : game/system/npc_flicker.h.
+extern "C" void gk_npc_chain_health_counters(unsigned long long out[2]);
+extern "C" unsigned long long gk_a37_malformed_buckets_total();
+void gk_npc_platform_counters(uint64_t* out, int n) {
+  auto put = [&](int idx, uint64_t v) {
+    if (idx < n) {
+      out[idx] = v;
+    }
+  };
+  put(npc_flicker::kPlatNullFg, a38_trip::g_grv_nullfg_repairs.load(std::memory_order_relaxed));
+  put(npc_flicker::kPlatBareRet, a38_trip::g_grv_bareret_redirects.load(std::memory_order_relaxed));
+  put(npc_flicker::kPlatDblEe, a38_trip::g_dblee_repairs.load(std::memory_order_relaxed));
+  put(npc_flicker::kPlatKernCode, a38_trip::g_dblee_kerncode_drops.load(std::memory_order_relaxed));
+  put(npc_flicker::kPlatEnterState,
+      a38_trip::g_enter_state_code_repairs.load(std::memory_order_relaxed));
+  put(npc_flicker::kPlatRftd, a38_trip::g_rftd_sigill_repairs.load(std::memory_order_relaxed) +
+                                  a38_trip::g_rftd_nullret_redirects.load(std::memory_order_relaxed));
+  put(npc_flicker::kPlatSuspend,
+      a38_trip::g_suspend_overflow_tolerated.load(std::memory_order_relaxed));
+  unsigned long long chain[2] = {0, 0};
+  gk_npc_chain_health_counters(chain);
+  put(npc_flicker::kPlatChainPrecopy, chain[0]);
+  put(npc_flicker::kPlatChainLoop, chain[1]);
+  put(npc_flicker::kPlatBucketBad, gk_a37_malformed_buckets_total());
+}
+
 void gk_install_sigsegv_diag() {
   struct sigaction sa{};
   sa.sa_sigaction = &gk_sigsegv_diag;
@@ -8913,6 +8945,9 @@ void gk_install_sigsegv_diag() {
   // now, while we are still on normal control flow (dladdr/strlen are not
   // async-signal-safe, so the handler itself must not do this).
   gk_crashlog_resolve();
+  // cutscene-npc-flicker (essai 11) : l'hote declare ses compteurs au recensement des PNJ, ici
+  // parce que c'est le point ou les reparations qu'ils comptent sont installees.
+  npc_flicker::set_host_counters_fn(gk_npc_platform_counters);
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "gk_install_sigsegv_diag: installed (+A37 SIGUSR2 hang dump, crash record -> %s)",
                       g_gk_crash_path[0] ? g_gk_crash_path : "(unresolved)");

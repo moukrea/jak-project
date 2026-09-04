@@ -200,6 +200,32 @@ constexpr int kMaxDarkLogs = 40;
 uint64_t g_fov_unevaluated = 0;
 // Images ou le compagnon HD a ete MAINTENU alors que l'ancien code l'aurait eteint.
 uint64_t g_hd_noanim_cover = 0;
+
+// --- compteurs de PLATEFORME (voir le pave dans npc_flicker.h) -----------------------------
+// Deux sources enregistrees par l'hote et le rendu ; `g_plat_at_start` est l'instantane pris a
+// la premiere image de la scene, la ligne NPCPLAT publie la DIFFERENCE, et `g_plat_total` cumule
+// ces differences pour les cles `npc_plat_*` du proof.
+PlatformCountersFn g_plat_host_fn = nullptr;
+PlatformCountersFn g_plat_render_fn = nullptr;
+uint64_t g_plat_at_start[kPlatCounterCount] = {};
+uint64_t g_plat_total[kPlatCounterCount] = {};
+uint64_t g_scene_start_ms = 0;
+
+void read_platform_counters(uint64_t out[kPlatCounterCount]) {
+  for (int i = 0; i < kPlatCounterCount; i++) {
+    out[i] = 0;
+  }
+  if (g_plat_host_fn) {
+    g_plat_host_fn(out, kPlatCounterCount);
+  }
+  if (g_plat_render_fn) {
+    g_plat_render_fn(out, kPlatCounterCount);
+  }
+}
+
+uint32_t platform_sources_unlocked() {
+  return (g_plat_host_fn ? 1u : 0u) | (g_plat_render_fn ? 2u : 0u);
+}
 // Appels de `clone-anim-once` ou le clone n'a pas pu suivre sa source (generic-obs.gc:80).
 uint64_t g_clone_fails = 0;
 
@@ -452,6 +478,26 @@ void flush_scene() {
   }
   g_totals.scenes++;
   g_totals.actors += actors;
+  // LA LIGNE QUE L'APPAREIL DE L'OWNER PEUT NOUS RENDRE (npc_flicker.h, « compteurs de
+  // PLATEFORME ») : ce qui s'est passe SOUS GOAL pendant cette scene. `sources=` dit qui a
+  // rempli les cases (1 hote, 2 rendu) : un zero sans source n'est pas un zero.
+  {
+    uint64_t now_v[kPlatCounterCount];
+    read_platform_counters(now_v);
+    uint64_t d[kPlatCounterCount];
+    for (int i = 0; i < kPlatCounterCount; i++) {
+      d[i] = now_v[i] >= g_plat_at_start[i] ? now_v[i] - g_plat_at_start[i] : 0;
+      g_plat_total[i] += d[i];
+    }
+    const uint64_t scene_ms = g_scene_start_ms ? now_ms() - g_scene_start_ms : 0;
+    std::string line = fmt::format("NPCPLAT scene={} images={} ms={} sources={}", g_scene,
+                                   g_census_frame, scene_ms, platform_sources_unlocked());
+    for (int i = 0; i < kPlatCounterCount; i++) {
+      line += fmt::format(" {}={}", kPlatCounterNames[i], d[i]);
+    }
+    line += fmt::format(" plateforme={}\n", platform_tag());
+    emit("{}", line);
+  }
   emit("NPCSCENE scene={} pnj_suivis={} cycles={} images={} ecart0={} ecart1={} ecart2={} "
        "ecart3={} tolerance={} plateforme={}\n",
        g_scene, actors, cycles, g_census_frame, g_skew[0], g_skew[1], g_skew[2], g_skew[3],
@@ -520,6 +566,20 @@ void publish_keys_locked() {
   autoport_proof::publish("npc_episodes_culled", g_totals.by_reason[kReasonCulled]);
   autoport_proof::publish("npc_mayor_intro_frames", g_owner_scene_frames);
   autoport_proof::publish("npc_mayor_intro_dark", g_owner_scene_dark);
+  // LES MECANISMES DE PLATEFORME, CUMULES SUR LES SCENES RECENSEES, et le masque des sources
+  // qui les ont remplis : un zero avec `npc_plat_sources=0` veut dire « personne ne compte ».
+  autoport_proof::publish("npc_plat_sources", platform_sources_unlocked());
+  uint64_t repairs = 0, chain = 0;
+  for (int i = kPlatNullFg; i <= kPlatSuspend; i++) {
+    repairs += g_plat_total[i];
+  }
+  for (int i = kPlatChainPrecopy; i <= kPlatBucketBad; i++) {
+    chain += g_plat_total[i];
+  }
+  autoport_proof::publish("npc_plat_repairs", repairs);
+  autoport_proof::publish("npc_plat_chain_rejects", chain);
+  autoport_proof::publish("npc_plat_hd_failopen", g_plat_total[kPlatHdFailOpen]);
+  autoport_proof::publish("npc_plat_hd_gap", g_plat_total[kPlatHdGap]);
 }
 
 }  // namespace
@@ -726,6 +786,12 @@ void begin_census(const char* scene) {
     }
   }
   g_census_frame++;
+  if (g_census_frame == 1) {
+    // Premiere image de la scene (le renommage flux-non-arme -> nom reel ne repasse pas ici) :
+    // l'instantane des compteurs de plateforme et l'horloge de la scene partent d'ici.
+    read_platform_counters(g_plat_at_start);
+    g_scene_start_ms = now_ms();
+  }
   if (g_census_frame % 600 == 0) {
     snapshot();
   }
@@ -1062,7 +1128,35 @@ void reset_for_test() {
   for (int i = 0; i < 4; i++) {
     g_skew[i] = 0;
   }
+  for (int i = 0; i < kPlatCounterCount; i++) {
+    g_plat_at_start[i] = 0;
+    g_plat_total[i] = 0;
+  }
+  g_scene_start_ms = 0;
   g_totals = Totals();
+}
+
+const char* const kPlatCounterNames[kPlatCounterCount] = {
+    "nullfg",    "bareret",   "dblee",     "kerncode",    "enterstate", "rftd",
+    "suspend",   "precopy",   "chainloop", "malformed",   "hd_failopen", "hd_gap"};
+
+void set_host_counters_fn(PlatformCountersFn fn) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_plat_host_fn = fn;
+}
+
+void set_render_counters_fn(PlatformCountersFn fn) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_plat_render_fn = fn;
+}
+
+uint32_t platform_sources() {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  return platform_sources_unlocked();
+}
+
+const uint64_t* platform_totals() {
+  return g_plat_total;
 }
 
 }  // namespace npc_flicker

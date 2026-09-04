@@ -259,6 +259,52 @@ const char* reason_name(Reason r);
 
 Totals totals();
 
+// --- compteurs de PLATEFORME, DANS LA LIGNE DE SCENE (essai 11, 2026-09-04) -------------------
+// LE DEFAUT N'EXISTE QUE SUR L'APPAREIL DE L'OWNER. Huit courses de `mayor-introduction` sur le
+// Redmi (arm64, 20 img/s), trois sur x86 a 60 et ~110 img/s, pas fixe arme ou non : la scene est
+// identique a la milliseconde, aucun cycle. Le Honor (Snapdragon 8 Elite, 60-120 img/s) montre le
+// defaut a chaque fois, et son logcat est invisible. La SEULE trace qui en revient est le fichier
+// `npc_flicker.txt` que ce module ecrit dans le dossier de reglages. Il doit donc porter, PAR
+// SCENE, ce que l'hote sait des mecanismes qui n'existent que la-bas :
+//   * les REPARATIONS arm64 (android/gk_android_main.cpp) : un joint-eval sur un frame-group nul
+//     repare en « sauter l'anim de ce canal cette image » (= pas de dessin), un RET vers une
+//     adresse pietinee redirige vers return-from-thread-dead (= le process MEURT), un store a
+//     double base EE complete ou jete... chacune est UNE disparition possible d'un modele, et
+//     aucune n'apparait dans les bits de draw-status ;
+//   * la chaine DMA REJETEE (android/android_gfx.cpp, android_opengl_renderer.cpp) : une image
+//     dont la chaine est corrompue est re-presentee (A42) ou un seau merc entier est saute (A37) —
+//     tous les modeles du seau disparaissent UNE image ;
+//   * la couverture HD (Merc2.cpp) : fail-open et trous de soumission du compagnon.
+// npc_flicker ne connait ni Android ni OpenGL : l'hote et le rendu ENREGISTRENT une fonction qui
+// remplit les cases qu'ils connaissent. Les index sont fixes, les noms publies sont dans
+// `kPlatCounterNames`. Une case qu'aucune source ne remplit reste a 0 ET la ligne dit
+// `sources=` : un zero sans source se lit « pas cable », jamais « sain ».
+constexpr int kPlatCounterCount = 12;
+enum PlatCounter {
+  kPlatNullFg = 0,       // joint-eval sur frame-group nul, anim du canal sautee (nullfg)
+  kPlatBareRet = 1,      // RET vers un offset GOAL nu, process deactive (bareret)
+  kPlatDblEe = 2,        // store a double base EE, complete apres correction (dblee)
+  kPlatKernCode = 3,     // idem mais cible = code du noyau : JETE (kerncode)
+  kPlatEnterState = 4,   // enter-state avec code nul, repare (enterstate)
+  kPlatRftd = 5,         // trampoline return-from-thread-dead pietine / RET nul (rftd)
+  kPlatSuspend = 6,      // debordement de pile a la suspension, tolere (suspend)
+  kPlatChainPrecopy = 7, // chaine DMA corrompue avant copie : image RE-PRESENTEE (precopy)
+  kPlatChainLoop = 8,    // chaine DMA sans fin : image SAUTEE (chainloop)
+  kPlatBucketBad = 9,    // seau DMA malforme : seau SAUTE (malformed)
+  kPlatHdFailOpen = 10,  // couverture HD : fail-open, le stock redessine (hd_failopen)
+  kPlatHdGap = 11,       // couverture HD : trou de soumission du compagnon (hd_gap)
+};
+extern const char* const kPlatCounterNames[kPlatCounterCount];
+// `out` a `n` cases, deja a zero ; la source n'ecrit que les index qu'elle connait et verifie
+// `n` avant d'ecrire. Sources : 1 = hote (Android), 2 = rendu (Merc2).
+typedef void (*PlatformCountersFn)(uint64_t* out, int n);
+void set_host_counters_fn(PlatformCountersFn fn);
+void set_render_counters_fn(PlatformCountersFn fn);
+// Ce que la derniere lecture a donne : masque des sources cablees, et cumul des deltas par
+// scene depuis le debut (ce que publient `npc_plat_*`).
+uint32_t platform_sources();
+const uint64_t* platform_totals();  // kPlatCounterCount cases
+
 // --- controle positif, sur le binaire LIVRE ---------------------------------
 // Env OG_NPCF_INJECT="<fragment-de-nom>:<periode>:<duree>" — ETEINT par defaut. Quand il est
 // arme, le rendu jette les paquets dont le nom contient <fragment> pendant <duree> images toutes

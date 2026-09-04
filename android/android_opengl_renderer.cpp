@@ -40,6 +40,17 @@
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/kernel/common/kmachine.h"
+
+#include <atomic>
+
+// cutscene-npc-flicker (essai 11) : un seau DMA malforme est SAUTE pour l'image — tous les modeles
+// merc de ce seau disparaissent une image. Cumul non plafonne (jak1 et jak2), lu par scene par le
+// recensement (ligne NPCPLAT, game/system/npc_flicker.h) ; le journal plafonne a 40 lignes ne
+// change pas.
+static std::atomic<unsigned long long> g_a37_malformed_buckets_total{0};
+extern "C" unsigned long long gk_a37_malformed_buckets_total() {
+  return g_a37_malformed_buckets_total.load(std::memory_order_relaxed);
+}
 #include "game/mips2c/spart_prof.h"
 #include "game/runtime.h"
 
@@ -1365,6 +1376,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
       }
       if (probe.current_tag_offset() != m_render_state.next_bucket) {
         bucket_stream_ok = false;
+        g_a37_malformed_buckets_total.fetch_add(1, std::memory_order_relaxed);
         static int s_malformed_logged = 0;
         if (s_malformed_logged < 40) {
           s_malformed_logged++;
@@ -1569,6 +1581,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
       }
       if (probe.current_tag_offset() != m_render_state.next_bucket) {
         bucket_stream_ok = false;
+        g_a37_malformed_buckets_total.fetch_add(1, std::memory_order_relaxed);
         static int s_malformed_logged = 0;
         if (s_malformed_logged < 40) {
           s_malformed_logged++;

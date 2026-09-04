@@ -2,6 +2,10 @@
 
 #include "game/system/npc_flicker.h"
 
+// cutscene-npc-flicker (essai 11) : defini plus bas, aupres des compteurs de couverture HD qu'il
+// lit ; le constructeur l'enregistre aupres du recensement.
+static void merc2_npc_platform_counters(uint64_t* out, int n);
+
 #ifdef __ANDROID__
 #include <unistd.h>
 
@@ -234,6 +238,9 @@ std::mutex g_merc_data_mutex;
 
 Merc2::Merc2(ShaderLibrary& shaders, const std::vector<GLuint>* anim_slot_array)
     : m_anim_slot_array(anim_slot_array) {
+  // cutscene-npc-flicker (essai 11) : le rendu declare ses compteurs de couverture HD au
+  // recensement (defini plus bas, au-dessus des compteurs qu'il lit).
+  npc_flicker::set_render_counters_fn(merc2_npc_platform_counters);
   ASSERT(fnv64("the quick brown fox jumps over the lazy dog") == 0x7404cea13ff89bb0);
 
   // Set up main vertex array. This will point to the data stored in the .FR3 level file, and will
@@ -1485,6 +1492,20 @@ static u64 s_hd_ttl_expiries = 0;
 // respawn) are the expected source. Counted for the heartbeat, NOT gated.
 static u64 s_hd_failopen_events = 0;
 static bool s_hd_ever_armed = false;  // heartbeat stays silent until the first companion arms
+
+// cutscene-npc-flicker (essai 11) : les deux evenements de couverture HD que l'owner pourrait
+// voir comme un clignotement, remis au recensement pour qu'ils sortent PAR SCENE dans
+// npc_flicker.txt (voir le pave « compteurs de PLATEFORME » de game/system/npc_flicker.h).
+// Thread de rendu ecrit, thread GOAL lit : des u64 non atomiques, une lecture dechiree vaut au
+// pire un delta faux d'une image, sur une ligne de journal — pas sur une porte.
+static void merc2_npc_platform_counters(uint64_t* out, int n) {
+  if (n > npc_flicker::kPlatHdFailOpen) {
+    out[npc_flicker::kPlatHdFailOpen] = s_hd_failopen_events;
+  }
+  if (n > npc_flicker::kPlatHdGap) {
+    out[npc_flicker::kPlatHdGap] = s_hd_submit_gap_events;
+  }
+}
 
 // CYCLE-3 (Keira black-eyes-on-blink): dynamic eye slots referenced by actively-submitting HD
 // companion draws. Armed alongside the pid TTL, drained in render(); EyeRenderer consults this

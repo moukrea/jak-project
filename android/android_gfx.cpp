@@ -197,6 +197,13 @@ std::atomic<bool> g_renderer_ready{false};
 std::function<void()> g_vsync_callback;
 std::atomic<u32> g_chains_received{0};
 std::atomic<u32> g_chains_dropped_pre_init{0};
+// cutscene-npc-flicker (essai 11) : les deux rejets de chaine DMA que le thread GL ne peut pas
+// dessiner — tous les modeles de l'image disparaissent une image (re-presentation A42) ou le
+// GOAL attend une image de plus (A37). Cumuls non plafonnes, lus par scene par le recensement
+// (gk_npc_chain_health_counters, en bas de ce fichier) ; les `static` locaux plafonnes a 8/40
+// lignes de journal restent ce qu'ils etaient.
+std::atomic<u32> g_a42_precopy_total{0};
+std::atomic<u32> g_a37_chain_loops_total{0};
 std::atomic<int> g_window_w{0};
 std::atomic<int> g_window_h{0};
 std::atomic<int> g_refresh_rate{0};
@@ -456,6 +463,7 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
       steps++;
     }
     if (!probe.ended()) {
+      g_a37_chain_loops_total.fetch_add(1, std::memory_order_relaxed);
       static u32 s_loops_logged = 0;
       if (s_loops_logged < 8) {
         s_loops_logged++;
@@ -1219,8 +1227,7 @@ void send_chain(const void* data, u32 offset) {
       // destination (data + addr) so we can tell a legit jump from garbage.
       // addr is only dereferenced for REF/REFE/REFS (kind 0/3/4) and
       // NEXT/CALL (kind 2/5); CNT/RET/END (1/6/7) ignore it.
-      static std::atomic<u32> s_precopy_total{0};
-      const u32 ntot = s_precopy_total.fetch_add(1) + 1;
+      const u32 ntot = g_a42_precopy_total.fetch_add(1) + 1;
       if (do_dump) {
         s_dump_frames.fetch_add(1);
       }
@@ -1522,6 +1529,16 @@ const GfxRendererModule* renderer_module() {
 // A40: shim-counter snapshot for the gk_android_main.cpp 1 Hz probe.
 // out[0..5] = vsync_entry, vsync_exit, sync_path_entry, sync_path_exit,
 // chains_received, chains_dropped_pre_init.
+// cutscene-npc-flicker (essai 11) : sante de la chaine DMA pour la ligne NPCPLAT du recensement
+// (game/system/npc_flicker.h). out[0] = chaines re-presentees (A42-CHAIN-PRECOPY), out[1] = chaines
+// sans fin sautees (A37-CHAIN-LOOP). Le seau malforme (A37-BUCKET-MALFORMED) vit dans
+// android_opengl_renderer.cpp : gk_a37_malformed_buckets_total().
+extern "C" void gk_npc_chain_health_counters(unsigned long long out[2]) {
+  using namespace android_gfx;
+  out[0] = g_a42_precopy_total.load(std::memory_order_relaxed);
+  out[1] = g_a37_chain_loops_total.load(std::memory_order_relaxed);
+}
+
 extern "C" void gk_a40_shim_counters(unsigned long long out[6]) {
   using namespace android_gfx;
   out[0] = g_a40_vsync_entry.load(std::memory_order_relaxed);
