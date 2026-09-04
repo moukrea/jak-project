@@ -69,7 +69,6 @@ class Shrub : public BucketRenderer {
     std::vector<std::pair<int, int>> cached_draw_idx;
     bool idx_cached = false;
     u32 cached_idx_count = 0;
->>>
 
     struct {
       u32 draws = 0;
