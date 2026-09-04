@@ -3,7 +3,7 @@ items:
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
   status: open
-  priority: 20
+  priority: 1
   owner_feedback:
   - date: '2026-08-31'
     text: le faire disparaitre a nouveau
@@ -260,7 +260,7 @@ items:
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
   status: open
-  priority: 19
+  priority: 2
   owner_feedback:
   - date: '2026-08-06'
     text: le vent d'origine tournait au quart de sa vitesse
@@ -3447,8 +3447,8 @@ items:
     ferme ; deux defauts neufs portes par recharged-settings-case-l10n'
 - id: recharged-settings-case-l10n
   feature: Les reglages Recharged sont tout en majuscules et pas tous traduits
-  status: in-progress
-  priority: 11
+  status: open
+  priority: 14
   game: jak1
   gate:
     key: settings_case_l10n_defects
