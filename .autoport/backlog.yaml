@@ -252,7 +252,7 @@ items:
     » ; livre par defaut ETEINT. Ce n''est ni une validation ni quelque chose a lui redemander'
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
-  status: in-progress
+  status: open
   priority: 12
   owner_feedback:
   - date: '2026-08-06'
@@ -290,7 +290,7 @@ items:
       plus bas que le sol pour le style volontairement... mais avec l'animation, bah du coup ils ont l'air
       de glisser sur le sol ça aussi ça fait tâche.
   gate:
-    key: wind_divergent_pairs
+    key: wind_owner_defects_open
     op: ==
     value: 0
   game: jak1
@@ -303,7 +303,7 @@ items:
   - Grecharged-foliage-wind3
   prompt: prompts/item-foliage-wind.md
   owner_ok: null
-  device: false
+  device: true
   proof_timeout: 240
   proof_env:
   - FOLIAGE_WIND_FORCE=1
@@ -314,15 +314,24 @@ items:
   - debug.opengoal.level.warp=village1-warp
   - debug.opengoal.want.levels=village1,beach
   where: les palmiers et les buissons de Sandover, option de brise eteinte PUIS allumee
-  notes: 'rounds 1/2/3 de la meme brise dans les arbres ; -wind2 et -wind3 citent le round precedent comme
-    non valide par l''owner | gate deduit de validators/phase-Grecharged-foliage-wind3.sh : WINDPAIRS
-    paires_identiques_divergentes=0'
+  notes: 'Superviseur 2026-09-04 : item redeclare. device etait FALSE pour un defaut que l''owner voit
+    sur son telephone et qui plantait l''arm64 au lien hier — la porte a donc accepte a bon droit une
+    preuve x86 de 4 min, sur UN seul des cinq defauts. Nouvelle porte : wind_owner_defects_open == 0,
+    somme de cinq verdicts que le moteur publie un par un (natif vs stock, pivot des buissons, couverture
+    par instance dessinee, paires identiques, spectre de brise). Le seul code livre a ce jour est l''ajout
+    du fichier au build arm64.'
   known_cause: 'L''anneau de vent a 48 slots morts sur 64 (index d''ecriture multiplie par `time-adjust-ratio`,
     index de lecture brut) : le ressort lit du vide trois images sur quatre. Le vent TIE est un affaissement
     lent VOULU ; le defaut du port est le pas de temps, qui avance par image RENDUE. La vegetation statique
     se classe par `TIE_PROTO_NAMES`, jamais par la geometrie.'
-  deliverable: La brise NATIVE conforme au chemin stock (option eteinte), le pivot des buissons a leur
-    base, la couverture par instance dessinee complete, et un spectre de brise, pas une seule frequence.
+  deliverable: 'Le moteur emet `wind_owner_defects_open=N`, somme de CINQ verdicts binaires qu''il publie
+    aussi un par un : (1) `wind_native_stock_dev_pct` <= 1 — option ETEINTE, le mouvement natif compare
+    au chemin stock (amplitude, frequence, forme) ; (2) `wind_shrub_base_shift_mm` == 0 — le pivot des
+    buissons est leur base, un buisson enfonce sous le sol ne glisse pas ; (3) `wind_instances_still`
+    == 0 sur les instances DESSINEES, les protos non classes expliques par nom ; (4) `wind_divergent_pairs`
+    == 0 — deux instances identiques cote a cote bougent pareil ; (5) `wind_spectrum_peak_pct` <= 40 —
+    le spectre du deplacement d''un sommet est celui d''une brise (large, enveloppe variable), pas d''UNE
+    frequence (« ondulation sous l''eau »). Preuve sur le Redmi.'
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: to-test
