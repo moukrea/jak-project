@@ -252,7 +252,7 @@ items:
     » ; livre par defaut ETEINT. Ce n''est ni une validation ni quelque chose a lui redemander'
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
-  status: open
+  status: in-progress
   priority: 12
   owner_feedback:
   - date: '2026-08-06'
@@ -304,6 +304,15 @@ items:
   prompt: prompts/item-foliage-wind.md
   owner_ok: null
   device: false
+  proof_timeout: 240
+  proof_env:
+  - FOLIAGE_WIND_FORCE=1
+  - OG_LEVEL_WARP=village1-warp
+  - OG_WANT_LEVELS=village1,beach
+  proof_props:
+  - debug.opengoal.foliage.force=1
+  - debug.opengoal.level.warp=village1-warp
+  - debug.opengoal.want.levels=village1,beach
   where: les palmiers et les buissons de Sandover, option de brise eteinte PUIS allumee
   notes: 'rounds 1/2/3 de la meme brise dans les arbres ; -wind2 et -wind3 citent le round precedent comme
     non valide par l''owner | gate deduit de validators/phase-Grecharged-foliage-wind3.sh : WINDPAIRS
@@ -1298,7 +1307,7 @@ items:
   owner_ok: null
 - id: hd-skin-origin-stretch
   feature: Les modeles HD qui s'etirent vers un point lointain
-  status: in-progress
+  status: to-test
   priority: 11
   owner_feedback:
   - date: '2026-08-31'
@@ -1364,9 +1373,6 @@ items:
   owner_ok: null
   device: true
   device_serial: eae4df44
-  # 900 s : la course du 2026-09-03 18:44 montre que l'horloge de JEU avance a 0,81 x le temps
-  # reel sur le Redmi (360 s de jeu pour 442 s d'observation). 900 s d'observation donnent donc
-  # ~11,5 min de jeu, au-dessus des 10 min demandees sur les DEUX horloges.
   proof_timeout: 900
   proof_props:
   - debug.opengoal.level.warp=citadel-start
@@ -3859,3 +3865,30 @@ items:
     dans la preuve.
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: reglages effectivement poses par le prereglage
+- id: proof-kv-provenance
+  feature: La preuve ne doit recopier que ce que le MOTEUR a dit
+  status: open
+  priority: 40
+  owner_feedback: []
+  gate:
+    key: proof_foreign_kv_lines
+    op: ==
+    value: 0
+  device: true
+  game: jak1
+  max_turns: 600
+  max_retries: 4
+  depends_on: []
+  history: []
+  prompt: prompts/item-proof-kv-provenance.md
+  owner_ok: null
+  where: 'rien a voir en jeu : c''est la fiabilite de la porte elle-meme'
+  notes: 'Trouve le 2026-09-03 en verifiant une vraie preuve appareil. `lib/proof_run.sh` capture `logcat`
+    SANS filtre de processus, puis recopie dans proof.txt toute ligne `cle=valeur` seule sur sa ligne.
+    La preuve de cutscene-npc-flicker portait donc isNeedSkipTouch, coldStartMode, bgMode et lastIncreasingIntervalStartIndex,
+    qui viennent du framework Android et non du jeu. Inoffensif aujourd''hui (les cles de porte sont trop
+    specifiques pour entrer en collision), mais le principe « c''est le moteur qui emet, jamais le worker
+    » n''est pas tenu tant qu''un autre processus du telephone peut ecrire une ligne que la porte lira.
+    Deux voies : filtrer logcat sur le pid du jeu (--pid, connu apres le lancement, donc capture en deux
+    temps), ou faire porter aux lignes du moteur un marqueur comme la ligne FEATURE en porte deja. La
+    seconde demande une edition du moteur et se prouve mieux.'
