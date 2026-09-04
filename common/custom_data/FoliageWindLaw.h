@@ -38,54 +38,46 @@ inline float size_factor(float height_m) {
   return std::min(std::max(height_m, 0.8f), 8.0f) * 0.125f;
 }
 
-// LE POIDS DE BALANCEMENT D'UN SOMMET, SIGNE, sur 16 bits, POUR LES TROIS CHEMINS (essai 7).
-//   `y`       hauteur monde du sommet
-//   `base_y`  hauteur monde du PIVOT de son instance : `ymin` pour le TIE ; pour un buisson le SOL
-//             trouve sous lui (Tfrag3Data.h, `foliage_wind_finalize_level`), sinon `ymin`
-//   `ymax`    plus haut sommet de son instance
+// LE POIDS DE BALANCEMENT D'UN SOMMET, sur 8 bits, POUR LES TROIS CHEMINS.
+//   `y`           hauteur monde du sommet
+//   `ymin, ymax`  hauteurs monde de SON instance
 //
-// UN CISAILLEMENT PUR, ET C'EST LE CORRECTIF DU « GLISSE SUR LE SOL ». Owner 2026-09-03 : « certains
-// sont placés plus bas que le sol pour le style volontairement... mais avec l'animation, bah du coup
-// ils ont l'air de glisser sur le sol ». L'essai 6 rendait rigides les 30 % du bas (smoothstep^2)
-// depuis `ymin` — mais (a) `ymin` est SOUS le terrain pour une plante enfoncee, donc la ligne de sol
-// pouvait etre au-dessus des 30 % ; et surtout (b) le GPU interpole LINEAIREMENT entre deux sommets :
-// entre un sommet enterre (poids 0) et un sommet visible (poids > 0), la ligne de sol recoit une
-// fraction du deplacement du sommet visible, quelle que soit la loi. La seule loi que l'interpolation
-// lineaire respecte EXACTEMENT est une loi LINEAIRE en y : le deplacement vaut `s * (y - base_y)`, il
-// est NEGATIF sous le pivot (partie invisible, enfoncee), NUL au pivot pour TOUT triangle, quelle que
-// soit la tessellation. C'est d'ailleurs exactement la forme du vent NATIF de ND (do_wind_math :
-// `mat[r].x += s.x * mat[r].y`, un cisaillement de la matrice d'instance), donc une plante qui recoit
-// les deux termes se deforme de la meme famille de mouvement.
+// LE TIERS DU BAS EST RIGIDE, ET C'EST LE CORRECTIF DU « GLISSE SUR LE SOL ». Owner 2026-09-03 :
+// « certains sont placés plus bas que le sol pour le style volontairement... mais avec l'animation,
+// bah du coup ils ont l'air de glisser sur le sol ». L'ancienne loi (`h*h` mesure depuis `ymin`)
+// donnait un poids NON NUL des le premier centimetre au-dessus du sommet le plus bas de la plante.
+// Or pour une plante volontairement enfoncee, ce sommet est SOUS le terrain : la ligne ou la plante
+// croise le sol portait donc deja du deplacement horizontal, et c'est exactement ce que l'oeil lit
+// comme un glissement.
+// `smoothstep(0.30, 1.0, h)^2` rend les 30 % du bas STRICTEMENT immobiles. Une plante enfoncee
+// jusqu'a 30 % de sa hauteur ne glisse plus ; une plante posee normalement garde un pied rigide, ce
+// qui est de toute facon son comportement physique.
 //
 // Le facteur de taille est REPLIE dedans, de sorte que le shader n'ait qu'une seule amplitude a
-// connaitre, quelle que soit la plante. Borne a [-1, 1] : une plante enfoncee de plus que sa hauteur
-// visible sature sous le sol, ou personne ne la voit.
-inline s16 sway_weight_s16(float y, float base_y, float ymax) {
-  const float span = ymax - base_y;
+// connaitre, quelle que soit la plante.
+inline u8 sway_weight_u8(float y, float ymin, float ymax) {
+  const float span = ymax - ymin;
   if (!(span > 0.f)) {  // couvre aussi NaN
     return 0;
   }
-  float u = (y - base_y) / span;
-  if (!(u > -1.f)) {  // couvre aussi NaN
-    u = -1.f;
+  float h = (y - ymin) / span;
+  if (!(h > 0.30f)) {  // couvre aussi NaN
+    return 0;
   }
-  if (u > 1.f) {
-    u = 1.f;
+  if (h > 1.f) {
+    h = 1.f;
   }
-  const float w = u * size_factor(span / 4096.f);
-  int q = (int)std::lround(w * 32767.f);
-  if (q < -32767) {
-    q = -32767;
+  const float u = (h - 0.30f) / 0.70f;
+  const float s = u * u * (3.f - 2.f * u);  // smoothstep, derivee nulle aux deux bouts
+  const float w = s * s * size_factor(span / 4096.f);
+  int q = (int)(w * 255.f + 0.5f);
+  if (q < 0) {
+    q = 0;
   }
-  if (q > 32767) {
-    q = 32767;
+  if (q > 255) {
+    q = 255;
   }
-  return (s16)q;
-}
-
-// La meme loi, NON quantifiee, pour le recensement : la flexion relative attendue d'un sommet.
-inline float sway_weight_f(float y, float base_y, float ymax) {
-  return (float)sway_weight_s16(y, base_y, ymax) / 32767.f;
+  return (u8)q;
 }
 
 // LA PHASE PROPRE D'UNE PLANTE, dans [0, 1), sur 8 bits. Angle d'or sur l'identifiant d'instance :

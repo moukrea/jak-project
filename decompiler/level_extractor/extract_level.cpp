@@ -200,9 +200,6 @@ level_tools::BspHeader extract_bsp_from_level(const ObjectFileDB& db,
   int i = 0;
 
   std::vector<const level_tools::DrawableTreeInstanceTie*> all_ties;
-  // foliage-wind (essai 7) : le nom du niveau est connu AVANT les arbres, pour que le sidecar
-  // shrub (extract_shrub.cpp, SHRUB_WIND_DUMP_DIR) le porte ; il etait pose apres, et sortait vide.
-  level_data.level_name = bsp_header.name;
   for (auto& draw_tree : bsp_header.drawable_tree_array.trees) {
     auto as_tie_tree = dynamic_cast<level_tools::DrawableTreeInstanceTie*>(draw_tree.get());
     if (as_tie_tree) {

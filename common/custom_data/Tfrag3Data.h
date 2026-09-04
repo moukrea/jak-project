@@ -358,24 +358,6 @@ constexpr const char* tfrag_tree_names[] = {"normal", "trans",        "dirt",  "
                                             "lowres", "lowres-trans", "water", "invalid"};
 
 // A tfrag model
-// foliage-wind (essai 7) — L'ENREGISTREMENT DE BALANCEMENT PAR SOMMET, 6 octets, parallele a
-// `unpacked.vertices` (TIE statique ET shrub), televerse tel quel dans le VBO de balancement.
-//   w      poids SIGNE, GL_SHORT normalise -> [-1, 1] dans le shader (attribut 7). Lineaire en
-//          (y - base_y) / (ymax - base_y), multiplie par le facteur de taille (FoliageWindLaw.h) ;
-//          negatif SOUS le pivot (partie enfoncee d'un buisson), 0 sur tout ce qui n'est pas vegetal.
-//   ph     phase d'instance, GL_UNSIGNED_BYTE normalise -> [0, 1) (attribut 8 .x)
-//   flags  bit 0 = `inst` valide (le sommet appartient a une instance posee) (attribut 8 .y)
-//   inst   matrix_idx & 0xffff, entier (attribut 9, shrub seulement : index du texel de vent natif)
-struct SwayRecord {
-  s16 w = 0;
-  u8 ph = 0;
-  u8 flags = 0;
-  u16 inst = 0;
-};
-static_assert(sizeof(SwayRecord) == 6, "SwayRecord doit faire 6 octets, le VAO le suppose");
-constexpr u8 kSwayFlagInstance = 1;
-constexpr size_t kSwayRecordBytes = sizeof(SwayRecord);
-
 struct TfragTree {
   TFragmentTreeKind kind = TFragmentTreeKind::INVALID;        // our tfrag kind
   std::vector<StripDraw> draws;  // the actual topology and settings
@@ -578,21 +560,6 @@ struct TieTree {
     float ymax = 0.f;
     float peak_w = 0.f;  // le plus grand poids reellement ecrit dans `unpacked.sway` pour cette
                          // instance, relu apres quantification (0 = elle ne bougera jamais)
-    // foliage-wind (essai 7) — LE PIVOT. `base_y` est la hauteur monde ou le poids de balancement
-    // vaut exactement 0 : `ymin` pour le TIE ; pour un buisson, le SOL trouve sous son ancrage
-    // (lancer de rayon vertical sur le TFRAG au chargement, `foliage_wind_finalize_level`), sinon
-    // `ymin`. Le poids est LINEAIRE en (y - base_y) : un cisaillement pur, donc l'interpolation
-    // lineaire du GPU rend la ligne de sol EXACTEMENT immobile quelle que soit la tessellation.
-    float base_y = 0.f;
-    float origin_y = 0.f;     // translation Y de la matrice d'instance (pivot du vent NATIF de ND)
-    bool ground_found = false;  // un triangle TFRAG a ete trouve sous l'ancrage
-    u32 sunk_mm = 0;          // profondeur d'enfoncement max(0, base_y - ymin), en mm
-    // |poids interpole| a la hauteur `base_y`, relu sur les enregistrements QUANTIFIES le long de
-    // chaque arete de l'instance qui traverse `base_y` (0 quand aucune arete ne la traverse). C'est
-    // la grandeur que `wind_shrub_base_shift_mm` multiplie par la flexion : ce que le GPU dessine a
-    // la ligne de sol, pas ce que la loi promet.
-    float base_w = 0.f;
-    u8 ph8 = 0;               // phase d'instance ecrite dans les enregistrements
   };
   std::vector<SwayInstance> sway_instances;
   // La hauteur LOCALE (unites du prototype, avant la matrice d'instance) de chaque instance du
@@ -657,25 +624,7 @@ struct ShrubTree {
     std::vector<u8> sway;
   } unpacked;
   // Une entree par instance (matrix_idx), voir TieTree::SwayInstance. Pour le recensement.
-  // foliage-wind (essai 7) : indexee PAR matrix_idx (une entree par matrice, meme non utilisee,
-  // `ymax < ymin` alors) pour que `wind_instances` et le rendu s'y retrouvent sans table.
   std::vector<TieTree::SwayInstance> sway_instances;
-  // foliage-wind (essai 7) — LE VENT NATIF DE ND POUR LES BUISSONS. Sur PS2 chaque instance-shrubbery
-  // porte un `wind-index` (offset 62, comme le TIE) et son prototype une raideur (`rdists.w`), un
-  // seuil (`dists.y` = near-stiff) et une pente (`rdists.y` = rlength-stiff) ; l'EE integre le meme
-  // ressort que le TIE (shrub_asm.md:957-1057). L'extracteur jetait tout cela ; il l'ecrit maintenant
-  // dans le sidecar texte `recharged_assets/foliage_wind_shrub.txt` (SHRUB_WIND_DUMP_DIR), que
-  // `foliage_wind_finalize_level` relit et VERIFIE (comptes, noms de prototypes) avant de remplir
-  // ceci. Indexe par matrix_idx. Vide = pas de sidecar valide = pas de vent natif shrub.
-  struct WindInstance {
-    u16 wind_idx = 0;
-    float stiffness = 0.f;      // rdists.w du prototype
-    float near_stiff = 0.f;     // dists.y
-    float rlength_stiff = 0.f;  // rdists.y ; raideur effective = stiffness * clamp01(1 - (d - near) * rlength)
-  };
-  std::vector<WindInstance> wind_instances;
-  bool wind_sidecar_ok = false;
-  u16 wind_max_idx = 0;
   // Diagnostic publie au chargement : entrees de palette partagees par PLUSIEURS instances. Non nul
   // = l'hypothese de l'ancien chemin (« une entree par instance ») etait fausse sur ce niveau.
   u32 sway_shared_color_slots = 0;
@@ -888,16 +837,6 @@ u64 baked_tangent_expand_verts();
 // the inter-chunk seam LINES the per-tree weld left open), orients inward normals outward via the
 // walkable collision mesh, then averages across the welded seams with a crease-angle threshold.
 void reconstruct_level_global_weld(Level& lev);
-
-// foliage-wind (essai 7) — LA PASSE QUI FIXE LE PIVOT DES BUISSONS ET LEUR VENT NATIF. A appeler UNE
-// fois, apres que tfrag, tie et shrub sont depaquetes (Loader.cpp, juste apres `shrub_tree.unpack()`),
-// AVANT la soudure globale (les positions n'ont pas encore bouge, l'ordre des sommets ne bougera
-// plus). Pour chaque instance shrub : lancer de rayon vertical sur les triangles de
-// `tfrag_trees[0]` -> `base_y` ; ecriture des poids SIGNES (SwayRecord) lineaires en (y - base_y) ;
-// `base_w` relu sur les aretes qui traversent le pivot ; puis lecture du sidecar
-// `foliage_wind_shrub.txt` (wind-index + raideur ND) dans `ShrubTree::wind_instances`.
-// Publie une ligne de journal `[foliage-wind] SHRUB ground lev=...` par arbre.
-void foliage_wind_finalize_level(Level& lev);
 
 // ROUND 31 — RE-DERIVE EVERY PER-VERTEX TANGENT FRAME FROM THE VERTEX NORMALS AS THEY STAND NOW.
 //
