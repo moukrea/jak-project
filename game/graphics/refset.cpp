@@ -9,7 +9,9 @@
 
 #include "common/util/FileUtil.h"
 
+#include "game/graphics/fixed_tick.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
+#include "game/graphics/render_pace.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/pad_replay.h"
 
@@ -83,6 +85,11 @@ uint64_t g_rewarps = 0;
 
 // ── mesures ─────────────────────────────────────────────────────────────────────────────────
 uint64_t g_captured = 0;
+// L'alpha BRUT du retimeur de rendu, echantillonne une fois par image dessinee. Voir
+// `publish_state` : c'est la mesure de ce que la course de reference supprime.
+int64_t g_raw_alpha_min = 1 << 30;
+int64_t g_raw_alpha_max = -1;
+uint64_t g_raw_alpha_n = 0;
 uint64_t g_compared = 0;
 uint64_t g_missing = 0;
 uint64_t g_size_bad = 0;
@@ -143,6 +150,26 @@ void publish_state() {
   autoport_proof::publish("refset_slip_min",
                           (uint64_t)(g_frame_slip_min > (1 << 19) ? 0 : g_frame_slip_min));
   autoport_proof::publish("refset_roundtrip_bad", g_roundtrip_bad);
+  // LE RETIMEUR DE RENDU, LU SUR SON ETAT REELLEMENT LATCHE — pas sur notre intention.
+  // `render_pace` est la seule entree de montre murale du chemin de dessin : son alpha
+  // reecrit la pose DESSINEE de la camera (cam-update.gc:246) et celle des articulations
+  // (drawable.gc:1107). Tant qu'il est arme, deux courses identiques ne peuvent pas rendre
+  // la meme image, et `refset_replay_maxdiff` le dirait sans dire pourquoi. Ces deux lignes
+  // nomment la cause dans la preuve elle-meme : une reference n'est rejouable que capturee
+  // et rejouee avec `refset_pace_armed=0`.
+  autoport_proof::publish("refset_pace_armed", render_pace::armed() ? 1 : 0);
+  autoport_proof::publish("refset_fixed_tick_armed", fixed_tick::enabled() ? 1 : 0);
+  // CE QUE LA NEUTRALISATION SUPPRIME, MESURE. `refset_pace_alpha` est ce que GOAL lit
+  // vraiment (1000000 = identite). `refset_raw_alpha_min/max` est ce que `render_pace` a
+  // calcule depuis la cadence d'affichage REELLE pendant la meme course : min != max prouve
+  // que la grandeur supprimee variait, donc que la neutralisation n'est pas une clause vide.
+  autoport_proof::publish("refset_pace_alpha", (uint64_t)(int64_t)render_pace::alpha_micro());
+  autoport_proof::publish("refset_pace_skip", render_pace::skip() ? 1 : 0);
+  if (g_raw_alpha_n) {
+    autoport_proof::publish("refset_raw_alpha_min", (uint64_t)g_raw_alpha_min);
+    autoport_proof::publish("refset_raw_alpha_max", (uint64_t)g_raw_alpha_max);
+    autoport_proof::publish("refset_raw_alpha_n", g_raw_alpha_n);
+  }
   if (g_mode == 2) {
     autoport_proof::publish("refset_compared", g_compared);
     autoport_proof::publish("refset_missing", g_missing);
@@ -323,6 +350,18 @@ void tick() {
     return;
   }
   std::lock_guard<std::mutex> lock(g_mutex);
+  // AVANT tout retour anticipe : l'alpha brut s'echantillonne sur TOUTE la course, y compris
+  // le chargement. Le poser apres les gardes ci-dessous ne mesurerait que les images du plan.
+  {
+    const int64_t raw = (int64_t)render_pace::raw_alpha_micro();
+    if (raw < g_raw_alpha_min) {
+      g_raw_alpha_min = raw;
+    }
+    if (raw > g_raw_alpha_max) {
+      g_raw_alpha_max = raw;
+    }
+    g_raw_alpha_n++;
+  }
   if (g_warp1 < 0 || g_finished) {
     return;
   }

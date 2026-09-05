@@ -22,6 +22,7 @@
 
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 
 namespace render_pace {
@@ -847,15 +848,41 @@ bool armed() {
   return s_armed;
 }
 
+// lighting-census : LES DEUX SEULES SORTIES DE CE MODULE QUI ENTRENT DANS CE QUI EST DESSINE,
+// et donc les deux seules a neutraliser pour qu'un jeu d'images de reference existe.
+//   `alpha_micro()`  -> `cam-render-interp!` (cam-update.gc:246) reecrit `trans` et
+//                       `inv-camera-rot` de *math-camera*, et `*anim-interp-alpha*`
+//                       (drawable.gc:1107) reecrit les poses d'articulation.
+//   `skip()`         -> `*render-pace-skip*` (kmachine.cpp:5288) met `time-ratio` a 0.
+// Les deux se deduisent de la cadence d'AFFICHAGE reelle, que rien ne reproduit d'une course a
+// l'autre. Mesure du 2026-09-06 : deux courses STRICTEMENT identiques (meme binaire, meme
+// environnement, meme rejeu d'entree) divergeaient sur la pose camera des l'ancre+7 puis se
+// figeaient a ~0,02 m d'ecart, alors que la translation de `*target*` etait bit-identique sur
+// 900 images de logique — la simulation etait deja reproductible, le RETIMAGE ne l'etait pas.
+//
+// On neutralise ICI et pas dans `armed()` : le module reste arme, donc `ee_timer()` continue de
+// rendre l'horloge VIRTUELLE. C'est exactement la configuration ou la simulation a ete mesuree
+// bit-identique ; la desarmer ferait basculer GOAL sur la montre murale, c'est-a-dire echanger
+// une source de non-determinisme contre une autre.
+//
+// `OG_REFSET` n'est jamais pose en jeu ni dans le binaire de l'owner : hors d'une course de
+// reference, ces deux fonctions sont inchangees au bit pres.
 s32 alpha_micro() {
-  if (!armed()) {
-    return 1000000;
+  if (!armed() || refset::enabled()) {
+    return 1000000;  // l'identite : `cam-render-interp!` sort sur son test `(< alpha 0.999)`
   }
   return state().alpha;
 }
 
 bool skip() {
-  return armed() && state().skip;
+  return armed() && !refset::enabled() && state().skip;
+}
+
+s32 raw_alpha_micro() {
+  if (!armed()) {
+    return 1000000;
+  }
+  return state().alpha;
 }
 
 double last_k() {

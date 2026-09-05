@@ -143,6 +143,13 @@ s32 alpha_micro();
 // `*render-pace-skip*` ; `display-frame-start` y met `time-ratio` a 0.
 bool skip();
 
+// L'ALPHA BRUT, AVANT LA NEUTRALISATION DE `OG_REFSET`. `alpha_micro()` rend 1e6 pendant une
+// course de reference ; celle-ci rend ce que le module a REELLEMENT calcule depuis la cadence
+// d'affichage. Elle existe pour que la course de reference puisse PROUVER que la grandeur
+// qu'elle supprime varie vraiment (min != max) au lieu de supposer que la suppression sert a
+// quelque chose : une neutralisation dont la condition est absente ne prouve rien.
+s32 raw_alpha_micro();
+
 // Le k (nombre de ticks de logique) et le reste d'AVANT emission de la derniere image. Ne
 // servent qu'aux sondes de diagnostic deja en place ; aucune porte ne les lit.
 double last_k();

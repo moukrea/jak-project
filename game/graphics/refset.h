@@ -26,6 +26,19 @@
 //   4. La capture passe par le chemin de capture d'ecran INTERNE : l'image est rendue a une
 //      resolution FIXE (320x180, msaa 1) dans le FBO interne, donc la taille de la fenetre de
 //      la machine qui rejoue n'entre pas dans la comparaison.
+//   5. LES DEUX SORTIES DU RETIMEUR DE RENDU SONT NEUTRALISEES sous `OG_REFSET` seulement
+//      (render_pace.cpp `alpha_micro()` rend 1e6, `skip()` rend faux ; le module RESTE arme, donc
+//      `ee_timer()` continue de rendre l'horloge virtuelle).
+//      C'etait la derniere entree de montre murale du chemin de dessin, et c'etait LA cause de
+//      l'echec de l'essai 1 : `render_pace::alpha_micro()` publie la position du temps REEL
+//      entre deux ticks, et deux consommateurs en reecrivent ce qui est dessine —
+//      `cam-render-interp!` (cam-update.gc:246) retime trans + inv-camera-rot de *math-camera*,
+//      `*anim-interp-alpha*` (drawable.gc:1107) retime les poses d'articulation. Mesure du
+//      2026-09-06 : deux courses strictement identiques divergeaient sur la pose camera des
+//      l'ancre+7 puis se figeaient a ~0,02 m, alors que la translation de *target* etait
+//      bit-identique sur 900 images de logique. La preuve porte `refset_pace_alpha=1000000` et
+//      `refset_raw_alpha_min/max` : le second dit que la grandeur supprimee VARIAIT vraiment,
+//      sans quoi la neutralisation serait une clause vide.
 // La capture est appariee a la frame de LOGIQUE de la chaine DMA rendue, pas au numero d'image
 // du renderer : sans ca l'entrelacement des deux fils deciderait, a une frame pres, de quelle
 // pose de Jak on garde la photo — et une frame d'ecart suffit a faire mentir la porte.
