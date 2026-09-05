@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "game/graphics/opengl_renderer/background/MeshBrowserGizmos.h"
+#include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/kernel/jak2/kscheme.h"
@@ -815,12 +816,14 @@ void TFragment::render_tree(int geom,
       // on camera rotation). Draw the FULL static tree index buffer, then rebind the
       // frame's element buffer for the main pass.
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
+      lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
       glDrawElements(tree.draw_mode, tree.index_count, GL_UNSIGNED_INT, nullptr);
       sh_st.cast_indices += (u64)tree.index_count;
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render_state->no_multidraw
                                                 ? tree.single_draw_index_buffer
                                                 : tree.index_buffer);
     } else {
+      lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
       glDrawElements(tree.draw_mode, pbr_depth_index_count, GL_UNSIGNED_INT, nullptr);
       sh_st.cast_indices += (u64)pbr_depth_index_count;
     }
@@ -1198,6 +1201,7 @@ void TFragment::render_tree(int geom,
       tree.tris_this_frame += draw.num_triangles;
       tree.draws_this_frame++;
       prof.add_draw_call();
+      lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
       glDrawElements(GL_PATCHES, rng.second, GL_UNSIGNED_INT, (void*)(rng.first * sizeof(u32)));
       if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
         prof.add_draw_call();
@@ -1209,6 +1213,7 @@ void TFragment::render_tree(int geom,
         }
         glDepthMask(GL_FALSE);
         draw_state_cache.valid = false;
+        lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
         glDrawElements(GL_PATCHES, rng.second, GL_UNSIGNED_INT, (void*)(rng.first * sizeof(u32)));
       }
     }
@@ -1310,6 +1315,7 @@ void TFragment::render_tree(int geom,
       }
 
       prof.add_draw_call();
+      lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
 
       if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
@@ -1319,6 +1325,7 @@ void TFragment::render_tree(int geom,
         glDepthMask(GL_FALSE);
         // depth-mask toggled: cached mode's depth state is now stale.
         draw_state_cache.valid = false;
+        lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
         glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       }
       draw_idx = next;
@@ -1386,9 +1393,11 @@ void TFragment::render_tree(int geom,
 
     prof.add_draw_call();
     if (render_state->no_multidraw) {
+      lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
+      lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
       glMultiDrawElements(tree.draw_mode, &m_cache.multidraw_count_buffer[multidraw_indices.first],
                           GL_UNSIGNED_INT,
                           &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
@@ -1411,9 +1420,11 @@ void TFragment::render_tree(int geom,
         // depth-mask toggled: cached mode's depth state is now stale.
         draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
+          lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
+          lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
           glMultiDrawElements(
               tree.draw_mode, &m_cache.multidraw_count_buffer[multidraw_indices.first],
               GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],

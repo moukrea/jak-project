@@ -4,6 +4,8 @@
 
 #include "FollowProbe.h"
 
+#include "game/graphics/opengl_renderer/lighting_census.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -222,6 +224,7 @@ void FollowProbe::update_and_bind(uint32_t program,
   // (2) The SH-volume grid is DELETED — force its world-projection OFF and bind dummies so the
   // dead sampler3D declarations stay complete on strict GLES drivers.
   glUniform1i(loc("u_rt_probe_on"), 0);
+  lighting_census::gate_probe(0);
   for (int b = 0; b < 4; b++) {
     glActiveTexture(GL_TEXTURE4 + b);
     glBindTexture(GL_TEXTURE_3D, m_dummy_3d);

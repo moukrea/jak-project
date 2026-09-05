@@ -1,0 +1,102 @@
+[refset] capture pendant 420s (census armed=0) -> .autoport/refset/refset-capture.log
+Terminated                 stdbuf -oL -eL env OG_REFSET="$MODE" OG_REFSET_DIR=.autoport/refset OG_LEVEL_WARP=village1-hut OG_LEVEL_WARP_POS="-116 14 40" OG_WANT_LEVELS=village1,beach OG_WANT_DISPLAY=beach,display OG_PAD_REPLAY_REPLAY="$DEMO" ${REFSET_TRACE:+OG_PAD_REPLAY_TRACE="$REFSET_TRACE"} ${REFSET_SETTLE:+OG_REFSET_SETTLE="$REFSET_SETTLE"} OG_PACE_MEASURE=1 AUTOPORT_FEATURE=lighting-census AUTOPORT_FEATURE_ARMED="$ARMED" timeout -k 5 "$TIMEOUT" "$BIN" --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso -- -boot -debug-mem > "$LOG" 2>&1
+--- REFSET ---
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap origine/h18 step=6/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap origine/h21 step=7/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap recharged/h00 step=8/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap recharged/h03 step=9/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap recharged/h06 step=10/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap recharged/h09 step=11/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap recharged/h12 step=12/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap recharged/h15 step=13/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap recharged/h18 step=14/16
+REFSET rewarp armed
+LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
+LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
+REFSET cap recharged/h21 step=15/16
+REFSET done steps=16 captured=16 compared=0 maxdiff=0 diffpx=0 missing=0 slip=0..0 rewarps=16 settle=180
+--- grandeurs ---
+refset_captured=0
+refset_captured=1
+refset_captured=10
+refset_captured=11
+refset_captured=12
+refset_captured=13
+refset_captured=14
+refset_captured=15
+refset_captured=16
+refset_captured=2
+refset_captured=3
+refset_captured=4
+refset_captured=5
+refset_captured=6
+refset_captured=7
+refset_captured=8
+refset_captured=9
+refset_mode=capture
+refset_platform=x86
+refset_rewarps=1
+refset_rewarps=10
+refset_rewarps=11
+refset_rewarps=12
+refset_rewarps=13
+refset_rewarps=14
+refset_rewarps=15
+refset_rewarps=16
+refset_rewarps=2
+refset_rewarps=3
+refset_rewarps=4
+refset_rewarps=5
+refset_rewarps=6
+refset_rewarps=7
+refset_rewarps=8
+refset_rewarps=9
+refset_roundtrip_bad=0
+refset_settle=180
+refset_slip_max=0
+refset_slip_min=0
+refset_step_anchor_set=1
+refset_step_done=0
+refset_step_done=1
+refset_step_done=10
+refset_step_done=11
+refset_step_done=12
+refset_step_done=13
+refset_step_done=14
+refset_step_done=15
+refset_step_done=16
+refset_step_done=2
+refset_step_done=3
+refset_step_done=4
+refset_step_done=5
+refset_step_done=6
+refset_step_done=7
+refset_step_done=8
+refset_step_done=9
+refset_steps=16

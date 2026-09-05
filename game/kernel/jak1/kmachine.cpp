@@ -32,6 +32,7 @@
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/refset.h"
 #include "game/system/load_gate.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/settings_case_l10n.h"
@@ -798,8 +799,19 @@ void pc_wind_note_rate(u32 ratio_bits, u32 steps) {
 
 // Une image de plus, publiee par le compteur que `lib/proof_run.sh` moissonne. Appelee du meme
 // point que le recensement (post-sync-draw), c'est-a-dire une fois par image RENDUE.
+// Defini plus bas, apres `level_warp_run` dont il reutilise le trampoline.
+static void refset_rewarp_maybe();
+
 void pc_autoport_frame() {
   autoport_proof::frame_tick();
+  // lighting-census : l'ancre du jeu d'images de reference est un ETAT, pas une duree. Elle se
+  // pose quand *target* est vivant ET que le warp de niveau a deja lance (start 'play ...) —
+  // la garde que `pad_replay` n'applique qu'au warp F1 (voir pad_replay_anchor_reached).
+  // A cette ancre, et pas a celle du titre, on refixe TOUTES les sources d'alea : entre le
+  // titre et le niveau il se consomme un nombre variable de tirages, et sans ce second forcage
+  // l'etat du jeu au moment de la mesure differerait d'une course a l'autre.
+  refset_rewarp_maybe();
+  refset::tick();
 }
 
 void pc_npc_census_end() {
@@ -3108,6 +3120,16 @@ void pc_set_grass_dists(u32 vec) {
 // Android: prop debug.opengoal.tod.hour ("9.5" = 09:30). Desktop: env GRASS_TOD. Returns
 // hour*100 as int (950), or -1 when unset/invalid. Read at most once per second.
 u64 pc_get_tod_hour() {
+  // lighting-census : quand un jeu d'images de reference est en cours, c'est LUI qui impose
+  // l'heure, et il la change entre deux etapes. Le cache d'une seconde ci-dessous serait alors
+  // une source de non-determinisme (l'heure appliquee dependrait de la montre), donc la
+  // surcharge est lue AVANT lui, a chaque image. Hors de ce mode, rien ne change.
+  {
+    const int ov = refset::tod_override_x100();
+    if (ov >= 0) {
+      return (u64)(s64)ov;
+    }
+  }
   static s64 s_cached = -1;
   static std::chrono::steady_clock::time_point s_last{};
   auto now = std::chrono::steady_clock::now();
@@ -5123,6 +5145,11 @@ void InitMachine_PCPort() {
 // no title-phase input pollutes the recorded clip.
 static bool f1_warp_requested();
 static bool s_pad_replay_warp_gameplay = false;  // set true by f1_warp_run after spawn
+// lighting-census : le pendant du precedent pour le warp de niveau GENERIQUE. Le menu-titre
+// a lui aussi un *target* vivant : sans ce drapeau, toute ancre « Jak existe » se pose au
+// titre et le chargement de niveau, de duree variable en frames de logique, entre dans la
+// mesure.
+static bool s_level_warp_gameplay = false;
 
 // Deterministic game-logic frame = *display* actual-frame-counter (int64): +1 per
 // UNPAUSED simulated frame, pacing-independent — NOT the render/read counter.
@@ -5388,6 +5415,9 @@ void InitMachineScheme() {
   // (*_vu-reg-R_*, *random-generator*) at the anchor. Backend-agnostic: this runs
   // on x86 and on the arm64 device. No-op unless the harness is armed.
   pad_replay::set_logic_frame_provider(&pad_replay_logic_frame);
+  // lighting-census : la MEME horloge pour le jeu d'images de reference — *display*
+  // actual-frame-counter, +1 par image de logique simulee.
+  refset::set_logic_frame_provider(&pad_replay_logic_frame);
   pad_replay::set_anchor_provider(&pad_replay_anchor_reached);
   pad_replay::add_rng_reseed_callback(&pad_replay_force_goal_rng);
   pad_replay::set_timestep_force_callback(&pad_replay_force_timestep);
@@ -5848,6 +5878,20 @@ static u64 level_warp_run() {
   lg::info("[LEVEL-WARP] (start 'play {}) -> *target* #x{:x}", s_level_warp_name, (u32)tgt);
   printf("LEVEL-WARP-SPAWN name=%s target=#x%x\n", s_level_warp_name, (u32)tgt);
   fflush(stdout);
+  s_level_warp_gameplay = true;
+  // lighting-census : L'ANCRE DU JEU D'IMAGES DE REFERENCE, prise ICI et pas par un sondage
+  // par image. `pc_autoport_frame` tourne une fois par image RENDUE alors que le compteur de
+  // frames de logique avance a chaque image SIMULEE : pendant un chargement les deux se
+  // desynchronisent, et l'ancre lue par sondage valait 601 dans une course et 600 dans la
+  // suivante. Une frame de logique d'ecart, c'est une autre pose de Jak et une autre position
+  // de camera : mesure du 2026-09-06, maxdiff 172-215 et 276093 pixels differents sur 16 images.
+  // Ici, l'instant est celui ou `(start 'play <continue>)` vient de rendre *target* — un point
+  // fixe de la boucle GOAL.
+  // On refixe aussi TOUTES les sources d'alea a cette ancre-la : celle de `pad_replay` s'est
+  // posee au menu-titre (il a lui aussi un *target*), et entre le titre et le niveau il se
+  // consomme un nombre variable de tirages.
+  pad_replay::reseed_now(0x0AD12345u);
+  refset::note_anchor();
   return tgt;
 }
 
@@ -5889,6 +5933,24 @@ void level_warp_maybe() {
   ListenerFunction->value = warp_fn.offset;
   lg::info("[LEVEL-WARP] armed *listener-function* = #x{:x} for continue '{}'",
            warp_fn.offset, s_level_warp_name);
+}
+
+// lighting-census : LE SECOND WARP. `(start 'play <continue>)` rend la main avant que le niveau
+// soit entierement resident — le chargement est asynchrone — et la camera passe donc quelques
+// images a se poser contre une geometrie incomplete. Son point de repos depend du CHEMIN : deux
+// rejeux strictement identiques divergent a partir de l'ancre+7 et se figent a ~0,02 m d'ecart,
+// ce qui suffit a rendre 27000 pixels differents sur 57600 (mesure du 2026-09-06), alors que la
+// translation de Jak est bit-identique sur 900 images de logique. Re-lancer le meme warp quand le
+// niveau est charge TELEPORTE la camera depuis un monde complet. Ne tourne que sous `OG_REFSET`.
+static void refset_rewarp_maybe() {
+  if (!refset::wants_rewarp()) {
+    return;
+  }
+  Ptr<Function> warp_fn = make_function_from_c((void*)level_warp_run, false);
+  ListenerFunction->value = warp_fn.offset;
+  lg::info("[LEVEL-WARP] second warp arme pour le jeu d'images de reference");
+  printf("REFSET rewarp armed\n");
+  fflush(stdout);
 }
 
 // ─── TASK CLOSE (Gcrash-rockvillage debug-only repro tool) ──────────────────────

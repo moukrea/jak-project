@@ -83,6 +83,13 @@ uint64_t current_tick();   // controller-read counter (legacy / self-test)
 int64_t current_frame();   // logic frame since the gameplay anchor (-1 pre-anchor)
 uint32_t replay_seed();    // rng seed from the demo header (Replay mode)
 
+// Force TOUTES les sources d'alea enregistrees a `seed`, tout de suite. Le harnais le fait deja
+// a son ancre ; ce point d'entree existe parce qu'un consommateur peut avoir une ancre PLUS
+// TARDIVE que celle du harnais (le warp de niveau generique arrive apres le menu-titre, ou
+// `*target*` est deja vivant). Sans lui, l'alea consomme pendant le chargement — de duree
+// variable — se retrouve dans l'etat du jeu au moment de la mesure.
+void reseed_now(uint32_t seed);
+
 // THE TAP. Call once per frame per pad from CPadGetData, AFTER the live state has
 // been read into the out-params. Only controller 0 advances the harness and is
 // recorded/replayed; other controllers are ignored.

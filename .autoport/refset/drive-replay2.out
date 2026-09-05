@@ -1,0 +1,3 @@
+[refset] replay pendant 420s (census armed=1) -> .autoport/refset/refset-replay.log
+.autoport/lib/refset.sh: line 78: syntax error near unexpected token `('
+.autoport/lib/refset.sh: line 78: `echo "[refset] $MODE pendant ${TIMEOUT}s (census armed=$ARMED) -> $LOG" >&2'

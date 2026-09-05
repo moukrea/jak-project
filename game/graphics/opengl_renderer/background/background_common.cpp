@@ -28,6 +28,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/FollowProbe.h"
+#include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/graphics/pipelines/opengl.h"
@@ -992,6 +993,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
       const int cwant = 1 | 2 | 16;  // normal + rough + height: the full checker set
       if (cwant != m_cur_mode) {
         glUniform1i(m_mode_loc, cwant);
+        lighting_census::gate_pbr_mode(cwant);
         m_cur_mode = cwant;
       }
       // The checker maps are synthetic and well-conditioned: zero normal DC, identity height
@@ -1155,6 +1157,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   }
   if (want != m_cur_mode) {
     glUniform1i(m_mode_loc, want);
+    lighting_census::gate_pbr_mode(want);
     m_cur_mode = want;
   }
   // Push this material's normal-map DC (mean surface gradient) alongside the mode. Zero when the
@@ -1325,6 +1328,7 @@ void PbrDrawBinder::finish() {
     }
     if (m_mode_loc >= 0) {
       glUniform1i(m_mode_loc, 0);
+      lighting_census::gate_pbr_mode(0);
     }
     m_cur_mode = 0;
   }
@@ -2014,7 +2018,9 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
                 (cam_trans[2] - st.read_cam[2]) / 4096.f);
   }
   if (on_loc >= 0) {
-    glUniform1i(on_loc, (st.valid && st.read_valid) ? 1 : 0);
+    const int shadow_on = (st.valid && st.read_valid) ? 1 : 0;
+    glUniform1i(on_loc, shadow_on);
+    lighting_census::gate_shadow(shadow_on);
   }
   // Item 1: which light (0 = yellow sun / 1 = green sun) the READ-side map was rendered from,
   // so the shader applies the cast-shadow occlusion to the MATCHING directional term.
@@ -2172,6 +2178,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // Grecharged-pbr-materials: frame-constant PBR uniforms; glGetUniformLocation returns -1
   // for programs without them (glUniform on -1 is a no-op), so this is safe for every ShaderId.
   glUniform1i(glGetUniformLocation(id, "u_pbr_mode"), 0);
+  lighting_census::gate_pbr_mode(0);
   // IDENTITY height normalisation (mean 0.5, norm 1.0) — the per-draw binder overrides it with the
   // material's measured statistics and restores this default in finish().
   glUniform2f(glGetUniformLocation(id, "u_pbr_height_stat"), 0.5f, 1.0f);
@@ -2208,6 +2215,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // class) even before/without a receiver bind.
   glUniform1i(glGetUniformLocation(id, "tex_PBR_SHADOW"), 9);
   glUniform1i(glGetUniformLocation(id, "u_pbr_shadow_on"), 0);
+  lighting_census::gate_shadow(0);
   if (pbr_shadow_state().valid) {
     glActiveTexture(GL_TEXTURE9);
     // Park the READ-side map (the one receivers sample; any complete depth tex works
@@ -2648,6 +2656,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float rt_shadow_residual =
       (rt_shadow_strength >= 0.0f && rt_shadow_strength <= 1.0f) ? (1.0f - rt_shadow_strength) : 0.0f;
   glUniform1i(glGetUniformLocation(id, "u_rt_light_on"), rt_light_on);
+  lighting_census::gate_rt_light(rt_light_on);
   glUniform3f(glGetUniformLocation(id, "u_rt_sun_dir"), light_dir[0], light_dir[1], light_dir[2]);
   // Sun color: normalize the mood sun tint to unit max, blend 50% toward white so it
   // reads as a natural sun (not an oversaturated hue), then scale by intensity.

@@ -9,6 +9,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/background/Tie3.h"
+#include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/mips2c/spart_prof.h"
 
@@ -825,6 +826,7 @@ void Shrub::render_tree(int idx,
       // instead of the raw strip stream — the slivers were the long straight phantom
       // shadow lines (the X on the ground), under both suns since the map is shared.
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
+      lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
       glDrawElements(GL_TRIANGLES, tree.caster_index_count, GL_UNSIGNED_INT, nullptr);
       sh_st.cast_indices += (u64)tree.caster_index_count;
 
@@ -967,6 +969,7 @@ void Shrub::render_tree(int idx,
 
       draws_prof.add_draw_call();
       draws_prof.add_tri(run_tris);
+      lighting_census::note_world_draw(lighting_census::Kind::Shrub);
       glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
 
       if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
@@ -977,6 +980,7 @@ void Shrub::render_tree(int idx,
         glDepthMask(GL_FALSE);
         // depth-mask toggled: cached mode's depth state is now stale.
         draw_state_cache.valid = false;
+        lighting_census::note_world_draw(lighting_census::Kind::Shrub);
         glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       }
       draw_idx = next;
@@ -1031,9 +1035,11 @@ void Shrub::render_tree(int idx,
     tree.perf.draws++;
 
     if (render_state->no_multidraw) {
+      lighting_census::note_world_draw(lighting_census::Kind::Shrub);
       glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
+      lighting_census::note_world_draw(lighting_census::Kind::Shrub);
       glMultiDrawElements(GL_TRIANGLE_STRIP,
                           &m_cache.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
                           &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
@@ -1057,9 +1063,11 @@ void Shrub::render_tree(int idx,
         // depth-mask toggled: cached mode's depth state is now stale.
         draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
+          lighting_census::note_world_draw(lighting_census::Kind::Shrub);
           glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
+          lighting_census::note_world_draw(lighting_census::Kind::Shrub);
           glMultiDrawElements(
               GL_TRIANGLE_STRIP, &m_cache.multidraw_count_buffer[multidraw_indices.first],
               GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],

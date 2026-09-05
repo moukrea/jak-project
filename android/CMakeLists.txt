@@ -729,6 +729,10 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendCPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/FollowProbe.cpp"
+    # lighting-census : le recensement des cinq chemins d'ombrage et les deux jeux de
+    # references. Un .cpp neuf absent d'ICI compile sur x86 et meurt au lien en arm64.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/lighting_census.cpp"
+    "${JAK_ROOT}/game/graphics/refset.cpp"
     # Gfixed-tick-interpolation : l'horloge a pas fixe est appelee par
     # a35_send_gfx_dma_chain (gk_android_main.cpp) ; la liste de sources Android est
     # separee de celle du bureau, il faut donc la citer ici aussi ou libgk.so ne lie pas.

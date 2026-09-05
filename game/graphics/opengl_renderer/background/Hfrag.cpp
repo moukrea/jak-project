@@ -1,4 +1,5 @@
 #include "Hfrag.h"
+#include "game/graphics/opengl_renderer/lighting_census.h"
 
 #include <cstdio>
 
@@ -429,6 +430,7 @@ void Hfrag::render_hfrag_level(Hfrag::HfragLevel* lev,
     for (u32 corner_idx : bucket.corners) {
       const auto& corner = lev->hfrag->corners[corner_idx];
       if (m_corner_vis[corner_idx]) {
+        lighting_census::note_world_draw(lighting_census::Kind::Hfrag);
         glDrawElements(GL_TRIANGLE_STRIP, corner.index_length, GL_UNSIGNED_INT,
                        (void*)(corner.index_start * sizeof(u32)));
         prof.add_draw_call(1);

@@ -26,6 +26,7 @@
 
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/refset.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/opengl_renderer/GpuCaps.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
@@ -182,6 +183,10 @@ struct GraphicsData {
   std::condition_variable dma_cv;
   u64 frame_idx = 0;
   u64 frame_idx_of_input_data = 0;
+  // lighting-census / refset : la frame de LOGIQUE du jeu que cette chaine dessine.
+  // Le numero d'image du renderer ne suffit pas : c'est l'etat GOAL qui doit etre
+  // identique d'une course a l'autre, et lui seul est indexe par la frame de logique.
+  int64_t logic_frame_of_input_data = -1;
   bool has_data_to_render = false;
   FixedChunkDmaCopier dma_copier;
 
@@ -640,6 +645,32 @@ void render_game_frame(int game_width,
       options.quick_screenshot = true;
       options.screenshot_path = file_util::make_screenshot_filepath(g_game_version);
     }
+    // lighting-census : le jeu de references capture la chaine d'une frame de LOGIQUE
+    // NOMMEE, jamais « la prochaine image ». Sans cette condition, l'entrelacement des deux
+    // fils deciderait a une frame pres de quelle pose de Jak on garde la photo, et une frame
+    // d'ecart suffit a faire mentir la porte.
+    {
+      char refset_name[96] = {0};
+      int rw = 0, rh = 0;
+      if (refset::capture_for_chain(g_gfx_data->logic_frame_of_input_data, refset_name,
+                                    sizeof(refset_name), &rw, &rh)) {
+        options.save_screenshot = true;
+        options.internal_res_screenshot = true;
+        options.quick_screenshot = false;
+        options.game_res_w = rw;
+        options.game_res_h = rh;
+        options.window_framebuffer_width = rw;
+        options.window_framebuffer_height = rh;
+        options.draw_region_width = rw;
+        options.draw_region_height = rh;
+        options.msaa_samples = 1;
+        // Chemin de repli seulement : `refset::consume_capture` prend la relecture en charge
+        // et le PNG ordinaire n'est pas ecrit. S'il l'etait, ce serait le signe que la
+        // machine a etats du jeu de references a decroche, et le fichier le dirait.
+        options.screenshot_path = "refset-unconsumed.png";
+        (void)refset_name;
+      }
+    }
     // note : it's important we call get_screenshot_flag first because it modifies state
     if (g_gfx_data->debug_gui.get_screenshot_flag() || g_want_screenshot) {
       g_want_screenshot = false;
@@ -1000,6 +1031,9 @@ u32 gl_sync_path() {
 void gl_send_chain(const void* data, u32 offset) {
   if (g_gfx_data) {
     std::unique_lock<std::mutex> lock(g_gfx_data->dma_mutex);
+    // Appele depuis le fil GOAL, apres que la pad ait ete lue pour cette frame de logique :
+    // `pad_replay::current_frame()` est donc l'index de la frame que cette chaine decrit.
+    g_gfx_data->logic_frame_of_input_data = refset::current_logic_frame();
     if (g_gfx_data->has_data_to_render) {
       lg::error(
           "Gfx::send_chain called when the graphics renderer has pending data. Was this called "

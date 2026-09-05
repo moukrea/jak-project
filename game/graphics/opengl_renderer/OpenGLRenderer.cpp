@@ -1,5 +1,8 @@
 #include "OpenGLRenderer.h"
 
+#include "game/graphics/opengl_renderer/lighting_census.h"
+#include "game/graphics/refset.h"
+
 #include <cstring>
 
 #include "common/goal_constants.h"
@@ -1114,7 +1117,11 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   // render the buckets!
   {
     auto prof = m_profiler.root()->make_scoped_child("buckets");
+    // lighting-census : temps GPU de la totalite des buckets, pour rapporter les passes
+    // individuelles a un tout mesure et non a une somme supposee.
+    lighting_census::pass_begin("__buckets");
     dispatch_buckets(dma, prof, settings.gpu_sync);
+    lighting_census::pass_end();
     if (m_texture_animator) {
       // if animation requests weren't made, assume the level is unloaded and the textures should
       // reset.
@@ -1197,6 +1204,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   }
 
   m_profiler.finish();
+  lighting_census::frame_end();
   // Gloading-screen-window : ATTRIBUER LE GEL, AU LIEU DE LE SUPPOSER.
   // Mesure x86 du 2026-08-30, transition `save-geyser` : la derniere image de l'ecran de
   // chargement dure 253 ms quand les 60 precedentes tiennent a 17,3 ms de maximum. Le premier
@@ -1578,7 +1586,11 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
       m_render_state.begin_2d_ui_pass();
     }
     // lg::info("Render: {} start", g_current_renderer);
+    // lighting-census : temps GPU de CE bucket. Une paire de `glQueryCounter`, moissonnee
+    // trois images plus tard : aucune synchronisation, aucune image perdue.
+    lighting_census::pass_begin(renderer->name_and_id().c_str());
     renderer->render(dma, &m_render_state, bucket_prof);
+    lighting_census::pass_end();
     if (sync_after_buckets) {
       auto pp = scoped_prof("finish");
       glFinish();
@@ -1678,7 +1690,11 @@ void OpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma,
     auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
     g_current_renderer = renderer->name_and_id();
     // lg::info("Render: {} start", g_current_renderer);
+    // lighting-census : temps GPU de CE bucket. Une paire de `glQueryCounter`, moissonnee
+    // trois images plus tard : aucune synchronisation, aucune image perdue.
+    lighting_census::pass_begin(renderer->name_and_id().c_str());
     renderer->render(dma, &m_render_state, bucket_prof);
+    lighting_census::pass_end();
     if (sync_after_buckets) {
       auto pp = scoped_prof("finish");
       glFinish();
@@ -1720,7 +1736,11 @@ void OpenGLRenderer::dispatch_buckets_jak3(DmaFollower dma,
     auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
     g_current_renderer = renderer->name_and_id();
     // lg::info("Render: {} start", g_current_renderer);
+    // lighting-census : temps GPU de CE bucket. Une paire de `glQueryCounter`, moissonnee
+    // trois images plus tard : aucune synchronisation, aucune image perdue.
+    lighting_census::pass_begin(renderer->name_and_id().c_str());
     renderer->render(dma, &m_render_state, bucket_prof);
+    lighting_census::pass_end();
     if (sync_after_buckets) {
       auto pp = scoped_prof("finish");
       glFinish();
@@ -1918,7 +1938,12 @@ void OpenGLRenderer::finish_screenshot(const std::string& output_name,
     }
   }
 
-  file_util::write_rgba_png(output_name, buffer.data(), width, height);
+  // lighting-census : si cette relecture est une etape du jeu de references, c'est le
+  // module refset qui la traite (comparaison ou ecriture de la reference) et le PNG de
+  // capture d'ecran ordinaire n'est pas ecrit.
+  if (!refset::consume_capture(width, height, buffer.data())) {
+    file_util::write_rgba_png(output_name, buffer.data(), width, height);
+  }
   glReadBuffer(oldreadbuf);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, oldbuf);
 }

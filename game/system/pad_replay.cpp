@@ -296,6 +296,15 @@ uint32_t replay_seed() {
   return g.seed;
 }
 
+void reseed_now(uint32_t seed) {
+  // La graine de la demo n'est pas ecrasee : elle appartient au fichier, et un enregistrement
+  // en cours doit continuer a decrire ce qu'il a vraiment force a SON ancre.
+  const uint32_t saved = g.seed;
+  g.seed = seed;
+  fire_reseed();
+  g.seed = saved;
+}
+
 void on_cpad_read(int controller_number,
                   uint16_t* button0,
                   uint8_t* leftx,

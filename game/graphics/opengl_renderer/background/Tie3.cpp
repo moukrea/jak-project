@@ -16,6 +16,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/background/MeshBrowserGizmos.h"
+#include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/mips2c/spart_prof.h"
@@ -1236,6 +1237,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           Gfx::g_global_settings.mb_ctr_hidden_draws++;
           continue;
         }
+        lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
         glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT,
                        (void*)((size_t)draw.unpacked.idx_of_first_idx_in_full_buffer * sizeof(u32)));
         sh_st.cast_indices += (u64)count;
@@ -1281,6 +1283,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       }
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
       for (const auto& r : ranges) {
+        lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
         glDrawElements(tree.draw_mode, r.second, GL_UNSIGNED_INT,
                        (void*)((size_t)r.first * sizeof(u32)));
         sh_st.cast_indices += (u64)r.second;
@@ -1311,6 +1314,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           if (sd.second == 0) {
             continue;
           }
+          lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
           glDrawElements(tree.draw_mode, sd.second, GL_UNSIGNED_INT,
                          (void*)(sd.first * sizeof(u32)));
           sh_st.cast_indices += (u64)sd.second;
@@ -1319,6 +1323,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           if (md.second == 0) {
             continue;
           }
+          lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
           glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[md.first],
                               GL_UNSIGNED_INT, &tree.multidraw_index_offset_buffer[md.first],
                               md.second);
@@ -1513,6 +1518,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       }
 
       prof.add_draw_call();
+      lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
     }
@@ -1586,9 +1592,11 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     prof.add_draw_call();
 
     if (render_state->no_multidraw) {
+      lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
+      lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glMultiDrawElements(
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
@@ -1611,9 +1619,11 @@ void Tie3::draw_matching_draws_for_tree(int idx,
         // depth-mask toggled: cached mode's depth state is now stale.
         draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
+          lighting_census::note_world_draw(lighting_census::Kind::Tie);
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
+          lighting_census::note_world_draw(lighting_census::Kind::Tie);
           glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first],
                               GL_UNSIGNED_INT,
                               &tree.multidraw_index_offset_buffer[multidraw_indices.first],
@@ -1744,6 +1754,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
       }
 
       prof.add_draw_call();
+      lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
     }
@@ -1785,9 +1796,11 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
     prof.add_draw_call();
 
     if (render_state->no_multidraw) {
+      lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
+      lighting_census::note_world_draw(lighting_census::Kind::Tie);
       glMultiDrawElements(
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
@@ -2432,6 +2445,7 @@ void Tie3::render_tree_wind(int idx,
       prof.add_draw_call();
       prof.add_tri(grp.num);
 
+      lighting_census::note_world_draw(lighting_census::Kind::TieWind);
       glDrawElements(tree.draw_mode, grp.num, GL_UNSIGNED_INT,
                      (void*)((off + tree.wind_vertex_index_offsets.at(draw_idx)) * sizeof(u32)));
       off += grp.num;
@@ -2452,6 +2466,7 @@ void Tie3::render_tree_wind(int idx,
           glDepthMask(GL_FALSE);
           // depth-mask toggled: cached mode's depth state is now stale.
           draw_state_cache.valid = false;
+          lighting_census::note_world_draw(lighting_census::Kind::TieWind);
           glDrawElements(tree.draw_mode, draw.vertex_index_stream.size(), GL_UNSIGNED_INT,
                          (void*)0);
           break;
