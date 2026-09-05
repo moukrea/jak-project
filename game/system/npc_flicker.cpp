@@ -1292,7 +1292,7 @@ const char* const kPlatCounterNames[kPlatCounterCount] = {
     "nullfg",    "bareret",   "dblee",     "kerncode",    "enterstate", "rftd",
     "suspend",   "precopy",   "chainloop", "malformed",   "hd_failopen", "hd_gap",
     "evict_pression", "evictions", "evict_passe2", "evict_merc_vivant",
-    "merc_vecteur_vide", "merc_cle_absente"};
+    "merc_vecteur_vide", "merc_cle_absente", "evict_rescape"};
 
 void set_host_counters_fn(PlatformCountersFn fn) {
   std::lock_guard<std::mutex> lock(g_mutex);

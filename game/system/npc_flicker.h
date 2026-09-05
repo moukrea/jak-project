@@ -290,7 +290,7 @@ Totals totals();
 // c'est-a-dire uniquement sur des courses qui ne reproduisent pas le defaut. Les six cases
 // ci-dessous rendent la ligne NPCPLAT REFUTABLE : si le maire est `modele-absent` chez lui avec
 // `merc_vecteur_vide=0`, l'hypothese de l'eviction est FAUSSE et il faut chercher ailleurs.
-constexpr int kPlatCounterCount = 18;
+constexpr int kPlatCounterCount = 19;
 enum PlatCounter {
   kPlatNullFg = 0,       // joint-eval sur frame-group nul, anim du canal sautee (nullfg)
   kPlatBareRet = 1,      // RET vers un offset GOAL nu, process deactive (bareret)
@@ -311,6 +311,10 @@ enum PlatCounter {
   kPlatEvictLiveMerc = 15,  // ... dont celles qui emportent un niveau dessinant un merc
   kPlatMercVecEmpty = 16,   // get_merc_model : cle presente, vecteur VIDE (= niveau evince)
   kPlatMercKeyMissing = 17, // get_merc_model : cle absente (= modele jamais charge)
+  // essai 16 : evictions prises sur un niveau que GOAL ne nomme plus, AVANT tout sacrifice d'un
+  // niveau desire. Lu a cote de `evict_passe2`, qui doit desormais rester a zero tant qu'un
+  // rescape est resident : les deux ensemble disent QUI a paye l'eviction.
+  kPlatEvictStraggler = 18, // (evict_rescape)
 };
 extern const char* const kPlatCounterNames[kPlatCounterCount];
 // `out` a `n` cases, deja a zero ; la source n'ecrit que les index qu'elle connait et verifie

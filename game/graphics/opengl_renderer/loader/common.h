@@ -86,6 +86,25 @@ struct LevelData {
   // correctif publierait un zero qu'on ne pourrait pas distinguer d'une course ou la situation
   // ne s'est jamais presentee.
   int frames_since_last_used_no_merc = 0;
+
+  // Gcutscene-npc-flicker (essai 16) — DEPUIS COMBIEN D'IMAGES LE JEU NE VEUT PLUS DE CE NIVEAU.
+  //
+  // `m_desired_levels` vient de `__pc-set-levels` (goal_src/jak1/engine/level/level.gc:1419 ->
+  // game/kernel/jak1/kmachine.cpp:721), qui prend EXACTEMENT deux arguments : `level0` et
+  // `level1`. En jak1 la liste porte donc au plus DEUX noms, jamais trois. Un troisieme niveau
+  // resident est par construction un RESCAPE — un niveau que GOAL a cesse de nommer et qu'il ne
+  // dessine plus.
+  //
+  // POURQUOI CE COMPTEUR EXISTE. `get_most_unloadable_level` n'avait que deux passes : « pas
+  // desire ET age > 180 », puis « age > 180 », cette seconde-la ignorant `m_desired_levels`. Un
+  // rescape JEUNE (age <= 180, il vient d'etre lache) echappe donc a la premiere passe, et la
+  // seconde sacrifie a sa place un niveau que le jeu VEUT ENCORE. C'est l'ordre inverse du bon
+  // sens : on jette ce qui est demande en gardant ce qui ne l'est plus. Le rechargement qui suit
+  // coute 202 a 317 images sur l'appareil de l'owner, pendant lesquelles ses PNJ n'existent plus.
+  //
+  // L'age de dessin (`frames_since_last_used`) ne peut pas repondre a cette question : un rescape
+  // vient justement d'etre dessine. Il faut une horloge separee, celle de l'INTENTION du jeu.
+  int frames_not_desired = 0;
 };
 
 struct MercRef {

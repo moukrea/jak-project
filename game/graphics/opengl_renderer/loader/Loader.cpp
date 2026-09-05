@@ -81,6 +81,15 @@ static uint64_t s_npcf_evictable_while_drawing = 0;
 // sans lequel un zero ne dit pas si la situation s'est presentee.
 static uint64_t s_npcf_evictions = 0;
 static uint64_t s_npcf_evict_with_live_merc = 0;
+// Evictions prises par la passe RESCAPE (essai 16) : un niveau que le jeu ne nomme plus, evince
+// AVANT qu'on touche a un niveau desire. Chacune est un sacrifice que l'ancien ordre faisait
+// porter a un niveau encore demande.
+static uint64_t s_npcf_evict_straggler = 0;
+// Delai de grace avant qu'un niveau lache par GOAL devienne evincable. `m_desired_levels` est
+// reecrit a chaque image depuis `level-update` ; une image de battement pendant un changement de
+// statut ne doit pas suffire a jeter un niveau. 30 images = un demi-quart de la fenetre de 180,
+// et deux ordres de grandeur sous le cout d'un rechargement (202-317 images mesurees).
+static constexpr int kNotDesiredGraceFrames = 30;
 
 // ============================ L'OCCASION, SANS LAQUELLE LE ZERO NE VAUT RIEN ==================
 // Treize essais ont publie `npc_evict_with_live_merc = 0` / `npc_flicker_episodes = 0` pendant que
@@ -127,6 +136,7 @@ static void npcf_loader_counters(uint64_t* out, int n) {
   out[npc_flicker::kPlatEvictLiveMerc] = s_npcf_evict_with_live_merc;
   out[npc_flicker::kPlatMercVecEmpty] = s_npcf_merc_vec_empty;
   out[npc_flicker::kPlatMercKeyMissing] = s_npcf_merc_key_missing;
+  out[npc_flicker::kPlatEvictStraggler] = s_npcf_evict_straggler;
 }
 
 static void publish_level_age_counters() {
@@ -134,6 +144,7 @@ static void publish_level_age_counters() {
   autoport_proof::publish("npc_evictable_while_drawing", s_npcf_evictable_while_drawing);
   autoport_proof::publish("npc_level_evictions", s_npcf_evictions);
   autoport_proof::publish("npc_evict_with_live_merc", s_npcf_evict_with_live_merc);
+  autoport_proof::publish("npc_evict_straggler", s_npcf_evict_straggler);
   autoport_proof::publish("npc_evict_pressure_frames", s_npcf_evict_pressure_frames);
   autoport_proof::publish("npc_loaded_levels_max", s_npcf_loaded_levels_max);
   autoport_proof::publish("npc_evict_pass2", s_npcf_evict_pass2);
@@ -1663,9 +1674,49 @@ const std::string* Loader::get_most_unloadable_level() {
     }
   }
 
+  // ============================================================================================
+  // LA PASSE RESCAPE (Gcutscene-npc-flicker, essai 16). ELLE PASSE AVANT LE SACRIFICE.
+  //
+  // La passe ci-dessus ne prend un niveau non desire que s'il a AUSSI depasse 180 images sans
+  // etre dessine. Un rescape JEUNE — GOAL vient de le lacher, il etait dessine l'image d'avant —
+  // ne la declenche pas. La passe suivante, elle, ne regarde que l'age et IGNORE
+  // `m_desired_levels` : elle jette alors un niveau que le jeu demande encore, en gardant celui
+  // qu'il ne demande plus. C'est l'ordre inverse du bon sens, et c'est la seule facon dont
+  // `beach` peut partir pendant `mayor-introduction` — `beach` y est desire (son `status` est
+  // 'active, level.gc:1419 le nomme a chaque image) mais jamais dessine en fond
+  // (`(0 display-level beach special)`, levels/beach/mayor.gc:147 ; le cas 'special de
+  // drawable-tree.gc:15-20 est une branche VIDE), donc c'est le seul dont l'age monte.
+  //
+  // LA REGLE : le chargeur ne jette jamais ce que le jeu demande tant qu'il tient encore quelque
+  // chose que le jeu ne demande plus. Une eviction prise ici est gratuite — GOAL a cesse de
+  // nommer ce niveau, plus rien ne le dessine. Une eviction prise plus bas coute un rechargement
+  // (202 a 317 images mesurees sur l'appareil de l'owner) PENDANT lequel les acteurs du niveau
+  // n'ont plus de modele : c'est exactement le maire qui disparait.
+  //
+  // Garde-fou : si `m_desired_levels` est VIDE — GOAL n'a pas encore parle, on est avant la
+  // premiere image de `level-update` — « non desire » ne veut rien dire et cette passe se tait.
+  // Le comportement d'avant est alors rendu a l'identique.
+  if (!m_desired_levels.empty()) {
+    const std::string* rescape = nullptr;
+    int rescape_age = kNotDesiredGraceFrames;
+    for (const auto& [name, lev] : m_loaded_tfrag3_levels) {
+      // Le plus anciennement lache d'abord : c'est celui dont le retour est le moins probable.
+      if (lev->frames_not_desired > rescape_age) {
+        rescape_age = lev->frames_not_desired;
+        rescape = &name;
+      }
+    }
+    if (rescape) {
+      s_npcf_evict_straggler++;
+      return rescape;
+    }
+  }
+
   // Ce second passage evince un niveau que le jeu VEUT ENCORE (il est dans `m_desired_levels`).
   // Il reste — sans lui, un tas plein de niveaux desires ne se libererait jamais — mais depuis
-  // Gcutscene-npc-flicker un niveau qui dessine un acteur ne peut plus atteindre cet age.
+  // Gcutscene-npc-flicker un niveau qui dessine un acteur ne peut plus atteindre cet age, et
+  // depuis la passe RESCAPE ci-dessus il ne peut plus etre sacrifie tant qu'un niveau lache par
+  // GOAL est encore resident. Y arriver signifie que TOUS les residents sont desires.
   for (const auto& [name, lev] : m_loaded_tfrag3_levels) {
     if (lev->frames_since_last_used > kUnloadAgeFrames) {
       // LA PASSE QUI EMPORTE LE MAIRE. `beach` est le seul fr3 qui porte `mayor-lod0`, la scene
@@ -1708,6 +1759,17 @@ void Loader::update(TexturePool& texture_pool) {
       const bool merc_live =
           lev->last_merc_use_frame.load(std::memory_order_relaxed) + kMercKeepaliveFrames >=
           s_level_age_frame;
+
+      // Gcutscene-npc-flicker (essai 16) — L'HORLOGE DE L'INTENTION DU JEU, tenue ici parce que
+      // c'est le seul endroit qui tourne une fois par image en tenant `m_loader_mutex`. Voir le
+      // pave de `LevelData::frames_not_desired` (loader/common.h) : `m_desired_levels` porte au
+      // plus DEUX noms en jak1, donc un troisieme resident est toujours un rescape.
+      if (std::find(m_desired_levels.begin(), m_desired_levels.end(), name) !=
+          m_desired_levels.end()) {
+        lev->frames_not_desired = 0;
+      } else {
+        lev->frames_not_desired++;
+      }
 
       // L'age CONTREFACTUEL, celui d'avant le correctif. Aucune decision ne le lit.
       if (in_active_list) {

@@ -176,6 +176,35 @@ def audit(loader_src, common_src):
         " le vecteur vide = niveau EVINCE (l'eviction fait `mercs.erase` et laisse la cle)."
         " Les confondre a envoye les essais precedents chercher dans le chargement"))
 
+    # ---------------------------------------------------------- ESSAI 16 : L'ORDRE DU SACRIFICE
+    # `m_desired_levels` vient de `__pc-set-levels` (kmachine.cpp:721), qui prend DEUX arguments :
+    # en jak1 la liste porte au plus deux noms. Un troisieme resident est donc toujours un niveau
+    # que GOAL a lache. Or la premiere passe ne le prend que s'il a AUSSI depasse 180 images sans
+    # dessin : un rescape jeune y echappe, et la seconde passe sacrifie a sa place un niveau
+    # DESIRE. Ce maillon exige la passe intermediaire qui prend le rescape en premier.
+    out.append((
+        "un niveau LACHE par GOAL est evince avant tout niveau desire",
+        bool(unload) and bool(re.search(r'\bframes_not_desired\b', unload))
+        and bool(re.search(r's_npcf_evict_straggler\s*\+\+', unload)),
+        "get_most_unloadable_level peut sacrifier un niveau que le jeu VEUT ENCORE alors qu'il"
+        " tient un rescape : le rechargement qui suit coute 202 a 317 images pendant lesquelles"
+        " les acteurs du niveau n'ont plus de modele"))
+
+    out.append((
+        "l'horloge de l'intention du jeu est tenue une fois par image",
+        bool(update) and bool(re.search(r'frames_not_desired\s*=\s*0', update))
+        and bool(re.search(r'frames_not_desired\+\+', update))
+        and bool(re.search(r'm_desired_levels', update)),
+        "frames_not_desired doit etre remis a zero / incremente dans la boucle de Loader::update"
+        " selon m_desired_levels, sinon la passe rescape lit un champ mort"))
+
+    out.append((
+        "le rescape porte un delai de grace NOMME",
+        bool(re.search(r'\bkNotDesiredGraceFrames\b', loader))
+        and not re.search(r'frames_not_desired\s*>\s*\d', loader),
+        "le seuil du rescape est un litteral : une image de battement de m_desired_levels"
+        " pendant un changement de statut pourrait jeter un niveau sur-le-champ"))
+
     return out
 
 
