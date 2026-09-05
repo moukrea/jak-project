@@ -70,8 +70,8 @@ _PROFILE_PATH = Path(__file__).resolve().parent / "model-profiles.json"
 
 def _load_model_profile() -> dict:
     fallback = {
-        "manager_model": "claude-fable-5-1", "manager_effort": "high",
-        "worker_model": "claude-fable-5-1",
+        "manager_model": "claude-opus-5", "manager_effort": "high",
+        "worker_model": "claude-opus-5",
         "worker_efforts": {"autoport-researcher": "high",
                            "autoport-implementer": "medium",
                            "autoport-tester": "medium"},
@@ -1337,7 +1337,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         "claude", "-p",
         "--model", MODEL,
         "--effort", effort,
-        "--max-turns", str(item.get("max_turns", 1200)),
+        "--max-turns", str(min(item.get("max_turns", 300), 300)),
         "--output-format", "stream-json",
         "--verbose",
         "--dangerously-skip-permissions",
