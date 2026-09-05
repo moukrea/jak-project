@@ -195,7 +195,21 @@
                       (+! *anim-cen-static* 1))
                      ((= (-> chan num-func) num-func-seek!) (+! *anim-cen-seekend* 1))
                      ((= (-> chan num-func) num-func-blend-in!))
-                     (else (+! *anim-cen-other* 1)))
+                     ;; ESSAI 11 — LE SEAU `other` N'ETAIT PAS INEXPLIQUE, IL ETAIT MAL TRIE.
+                     ;; Le tri lit le num-func EXTERIEUR ; pour un `num-func-chan` le delta
+                     ;; vient du canal SOURCE, donc tous les canaux redirigees a source
+                     ;; immobile tombaient ici. On les nomme au lieu de les reclasser : un
+                     ;; recensement qui se corrige tout seul ne se falsifie plus.
+                     (else
+                      (+! *anim-cen-other* 1)
+                      (cond
+                        ((= (-> chan num-func) num-func-chan) (+! *anim-cen-other-chan* 1))
+                        ((and (or (= (-> chan num-func) num-func-+!)
+                                  (= (-> chan num-func) num-func--!)
+                                  (= (-> chan num-func) num-func-loop!))
+                              (= 0.0 (* (-> chan param 0) (-> chan frame-group speed))))
+                         (+! *anim-cen-other-p0z* 1))
+                        (else (+! *anim-cen-other-unk* 1)))))
                    (set! br 2)
                    fn)
                   (else
@@ -237,6 +251,36 @@
                             ;; frame — c'est un saut, pas une identite — et il masquait le cas
                             ;; degenere ci-dessus des que le canal n'etait pas un `loop!`.
                             (else (+! *anim-cen-oob* 1) fn)))))))))))))
+    ;; ESSAI 11 — LA SEULE MESURE QUI FALSIFIE LE RECENSEMENT CI-DESSUS. Les seaux disent
+    ;; POURQUOI on n'a pas retime ; aucun ne disait si la pose avait BOUGE quand meme. C'est
+    ;; pourtant la seule chose que l'owner voit : un canal non retime dont `frame-num` change
+    ;; d'une image dessinee a la suivante saute d'un tick entier, sans interpolation, a
+    ;; cadence non entiere. La sonde de pose ne peut pas le voir : elle n'adopte qu'UN canal
+    ;; `+!`/`loop!` par image, jamais un `identity` dont le jeu ecrit `frame-num` lui-meme
+    ;; (83 sites font `(ja :num-func num-func-identity :frame-num ...)`).
+    ;; On compare donc, pour les branches NON retimees (2 = delta nul, 4 = animation
+    ;; degeneree), le `frame-num` de ce canal a celui qu'il portait a l'image PRECEDENTE.
+    ;; La comparaison n'est faite que si l'adresse, le numero d'image et le `frame-group`
+    ;; concordent : une collision de table perd un echantillon, un changement d'animation en
+    ;; ecarte un. Aucun des deux n'en fabrique.
+    (when (or (= br 2) (= br 4))
+      (if (zero? *anim-hist*) (set! *anim-hist* (the-as int (malloc 'global 32768))))
+      (let* ((tab (the-as (pointer int32) *anim-hist*))
+             (slot (* 4 (logand (shr (the-as int chan) 4) 2047)))
+             (q (the int (* 65536.0 fn))))
+        (when (and (= (-> tab slot) (the-as int chan))
+                   (= (-> tab (+ slot 2)) (+ *anim-cen-frame* -1))
+                   (= (-> tab (+ slot 3)) (the-as int (-> chan frame-group))))
+          (+! *anim-cen-hist-n* 1)
+          (let ((d (- q (-> tab (+ slot 1)))))
+            (when (nonzero? d)
+              (+! *anim-cen-moved* 1)
+              (if (< d 0) (set! d (- d)))
+              (if (> d *anim-cen-movemax-q*) (set! *anim-cen-movemax-q* d)))))
+        (set! (-> tab slot) (the-as int chan))
+        (set! (-> tab (+ slot 1)) q)
+        (set! (-> tab (+ slot 2)) *anim-cen-frame*)
+        (set! (-> tab (+ slot 3)) (the-as int (-> chan frame-group)))))
     ;; SONDE DE POSE DESSINEE. `out` est exactement le flottant que `build-requests!`
     ;; (joint.gc:224) transforme en `base-frame` + `frac-frame` : c'est la pose DESSINEE, pas un
     ;; modele. On ne l'echantillonne que sur le canal 0 de l'acteur sonde, et seulement quand le

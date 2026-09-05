@@ -334,6 +334,34 @@
 ;; -0,2686 sur le meme canal, a chaque image. Le compteur doit valoir 0 apres correction.
 (define *anim-cen-oob* 0)       ;; retimage abandonne : la cible sortait de l'animation
 (define *anim-cen-degen* 0)     ;; animation d'une frame ou moins : rien a interpoler
+
+;; ESSAI 11 — LA POSE NON RETIMEE A-T-ELLE BOUGE ? Le recensement ci-dessus classe des CAUSES.
+;; L'audit de l'essai 10 a constate qu'AUCUNE MESURE ne soutenait sa phrase de conclusion
+;; (« none/identity ne bougent pas, seek! arrive ne bouge plus : rien a retimer ») : c'etait un
+;; raisonnement sur le code. Or c'est la seule affirmation qui porte le vert. Un canal qu'on
+;; refuse de retimer DOIT avoir un `frame-num` constant d'une image DESSINEE a la suivante ;
+;; s'il bouge, sa pose saute d'un tick entier a cadence non entiere, et la sonde de pose ne
+;; peut pas le voir — elle n'echantillonne qu'UN canal `+!`/`loop!` par image, et jamais un
+;; canal `identity` dont le jeu ecrit `frame-num` lui-meme.
+;; Table ouverte de 2048 entrees de 4 mots (adresse du canal, frame-num x65536, numero d'image
+;; dessinee, frame-group), indexee par l'adresse du canal. Une collision PERD un echantillon,
+;; elle n'en fabrique pas ; un changement de `frame-group` ecarte la comparaison, sinon un
+;; changement d'animation se lirait comme un saut de pose.
+(define *anim-hist* 0)          ;; adresse du tampon, 0 tant qu'il n'est pas alloue
+(define *anim-cen-frame* 0)     ;; images DESSINEES (incremente dans display-frame-start)
+(define *anim-cen-hist-n* 0)    ;; comparaisons reellement faites : un zero ici invalide le reste
+(define *anim-cen-moved* 0)     ;; canal NON retime dont `frame-num` a bouge : LE defaut
+(define *anim-cen-movemax-q* 0) ;; pire |delta frame-num| x65536 parmi ceux-la
+;; Decomposition du seul seau qui restait sans cause nommee (`*anim-cen-other*`, 4,4 % des
+;; evaluations, 10884 sur 249270 le 2026-09-05). `num-func-chan` recopie le `frame-num` d'un
+;; autre canal : il tombait ici parce que le recensement teste le num-func EXTERIEUR alors que
+;; le delta vient du canal SOURCE. Le seau n'etait donc pas « inexplique », il etait mal trie.
+(define *anim-cen-other-chan* 0)
+(define *anim-cen-other-p0z* 0) ;; +!/-!/loop! avec param0 * speed = 0 : le jeu non plus n'avance pas
+;; NI l'un NI l'autre : un pas nul qu'aucune identite arithmetique n'explique. Un `+!` avec
+;; param0 * speed non nul qui rendrait quand meme un delta nul (ratio nul) tombe ICI, pas dans
+;; le seau precedent : c'est ce qui rend cette ligne falsifiable.
+(define *anim-cen-other-unk* 0)
 (define *djm-total* 0)          ;; appels a do-joint-math!
 (define *djm-shift* 0)          ;; racine decalee (trans seulement)
 (define *djm-noroot* 0)         ;; root absente ou pas un trsqv : racine NON decalee

@@ -1114,7 +1114,11 @@
       ;; Le verrou n'a pas repondu pendant l'image qui vient de finir : la sonde en adoptera un
       ;; autre a la prochaine. Sans ce constat, un acteur qui meurt fige la sonde pour toujours.
       (if (zero? *anim-probe-seen*) (set! *anim-probe-miss* 1))
-      (set! *anim-probe-seen* 0))
+      (set! *anim-probe-seen* 0)
+      ;; ESSAI 11 — NUMERO D'IMAGE DESSINEE. C'est l'estampille de l'historique de pose par
+      ;; canal (`*anim-hist*`) : sans elle, un canal reapparu apres plusieurs images se
+      ;; comparerait a une valeur vieille de tout un chargement et se lirait comme un saut.
+      (+! *anim-cen-frame* 1))
     ;; inform display system of our speed. This will adjust the scaling used in all physics calculations
     (set-time-ratios *display* time-ratio)
     ;; anim-interp-low-fps — LE PAS DU DERNIER TICK. `time-adjust-ratio` vaut 0 sur une image

@@ -97,6 +97,15 @@ struct GoalReadout {
   u64 cen_static = 0, cen_seekend = 0, cen_other = 0;
   // Retimages ABANDONNES : cible hors de l'animation, ou animation d'une seule frame.
   u64 cen_oob = 0, cen_degen = 0;
+  // ESSAI 11 — LA MESURE QUI FALSIFIE LE RECENSEMENT. `cen_moved` compte les canaux NON
+  // retimes dont `frame-num` a change d'une image dessinee a la suivante : c'est une pose qui
+  // saute d'un tick entier sans interpolation, exactement ce que l'owner voit. `cen_hist_n`
+  // est le nombre de comparaisons faites — un `cen_moved` a zero sur zero comparaison ne
+  // prouve rien. `cen_movemax_q` est le pire ecart, x65536.
+  u64 cen_hist_n = 0, cen_moved = 0;
+  s32 cen_movemax_q = 0;
+  // Decomposition de `cen_other`, le seul seau qui n'avait pas de cause NOMMEE.
+  u64 cen_other_chan = 0, cen_other_p0z = 0, cen_other_unk = 0;
   u64 djm_total = 0, djm_shift = 0, djm_noroot = 0, djm_rotv = 0;
 };
 

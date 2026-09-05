@@ -775,6 +775,16 @@ void publish() {
     // Les deux doivent etre lisibles pour que « ecarte » ne se confonde pas avec « corrige ».
     autoport_proof::publish("anim_cen_degen", g.cen_degen);
     autoport_proof::publish("anim_cen_oob", g.cen_oob);
+    // ESSAI 11 — LE RECENSEMENT SE FALSIFIE ENFIN. `anim_cen_moved` doit valoir 0 : un canal
+    // que le retimeur a ECARTE dont la pose bouge quand meme est le defaut lui-meme, et la
+    // sonde de pose ne l'echantillonne pas. `anim_cen_hist_n` est le denominateur : il est
+    // publie a cote parce qu'un zero sur zero comparaison n'est pas un vert.
+    autoport_proof::publish("anim_cen_hist_n", g.cen_hist_n);
+    autoport_proof::publish("anim_cen_moved", g.cen_moved);
+    autoport_proof::publish("anim_cen_movemax_q", (u64)(s64)g.cen_movemax_q);
+    autoport_proof::publish("anim_cen_other_chan", g.cen_other_chan);
+    autoport_proof::publish("anim_cen_other_p0z", g.cen_other_p0z);
+    autoport_proof::publish("anim_cen_other_unk", g.cen_other_unk);
     autoport_proof::publish("anim_djm_total", g.djm_total);
     autoport_proof::publish("anim_djm_shift", g.djm_shift);
     autoport_proof::publish("anim_djm_noroot", g.djm_noroot);
