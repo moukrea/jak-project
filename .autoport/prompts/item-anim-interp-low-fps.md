@@ -12,7 +12,7 @@ Le facteur d'interpolation n'est lu qu'a UN SEUL endroit du moteur. La porte du 
 Le jitter reduit AUX DEUX BOUTS (a 30 img/s et moins, et au-dessus de 60), le comportement a 60 img/s identique au bit.
 
 ## Preuve exigee
-Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
+`anim_render_step_err_max_us <= 2000` dans `reports/anim-interp-low-fps/proof.txt`.
 Le proof se produit par `lib/proof_run.sh anim-interp-low-fps x86` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : joue autour de 20 images/s : les animations des personnages.
 

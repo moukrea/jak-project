@@ -1,6 +1,3 @@
-# La seule verite du travail. Une feature = un item.
-# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
-# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: cutscene-npc-flicker
@@ -234,10 +231,17 @@ items:
   - date: '2026-09-03'
     text: je trouve les animations très jittery [...] c'est très jittery quelque soit le framerate, 60
       FPS comme 15 fps comme 45... etc
+  - date: '2026-09-05'
+    text: Les animations jitter toujours sur des framerates inattendus par le jeu (genre 45 FPS) à 30
+      ça roule nickel, à 60 pareil (les deux framerates attendus par l'App, car sur PS2 ça oscillait entre
+      ces deux là et le jeu était prévu pour) mais sur des framerates autres qu'aux alentours de 30 et
+      60 ça jitter! Par contre le pas de temps on valide, juste les animations qu'on valide pas... Enfin
+      j'ai l'impression ! D'ailleurs on devrait pouvoir unlock le framerate, là ça lock à 60 max alors
+      que ça pourrait ne pas être cap si le pas de temps fixe est bien fait !
   gate:
-    key: anim_render_step_err_max_us
+    key: anim_step_jitter_worst_us
     op: <=
-    value: 2000
+    value: 500
   game: jak1
   max_turns: 800
   max_retries: 6
@@ -255,14 +259,58 @@ items:
   - Gfixed-tick-anim-interp-2
   prompt: prompts/item-anim-interp-low-fps.md
   owner_ok: null
-  device: false
-  where: 'joue autour de 20 images/s : les animations des personnages'
-  notes: -2 est « ANIMATIONS SACCADEES ..., retour 2 » sur le meme defaut d'interpolation
-  known_cause: 'Le facteur d''interpolation n''est lu qu''a UN SEUL endroit du moteur. La porte du cycle
-    1 exigeait une mesure au-dessus de 60 img/s et releguait les mesures basses hors verdict : elle a
-    valide un travail qui ne traitait pas le cas de l''owner, qui joue vers 20 img/s.'
-  deliverable: Le jitter reduit AUX DEUX BOUTS (a 30 img/s et moins, et au-dessus de 60), le comportement
-    a 60 img/s identique au bit.
+  device: true
+  where: 'joue a 45 images/s (et 50, 75) : les animations doivent etre aussi lisses qu''a 30 et a 60'
+  notes: 'owner 2026-09-05 : nickel A 30 ET A 60, jitter a 45. Les deux cadences propres sont exactement
+    celles ou 60 ticks/s tombent en compte ENTIER par image (2 ticks a 30, 1 a 60) ; a 45 il en faut 1,333,
+    donc la suite reelle est 1,2,1,1,2... Le retimage doit absorber ce reste par l''alpha d''interpolation,
+    et il ne le fait pas : la porte mesurait un ecart moyen (2 ms) qui reste vert sur une alternance 1/2
+    ticks. NOUVELLE PORTE : mesurer aux cadences NON ENTIERES (45, 50, 75, 90, 100) et exiger que le pas
+    de pose vu par le rendu soit REGULIER — ecart type du pas image a image, pas sa moyenne. A 30 et 60
+    le comportement doit rester identique au bit.'
+  known_cause: 'Owner 2026-09-05 : propre a 30 et 60, jitter a 45. Ce sont exactement les cadences ou
+    les 60 ticks/s de la logique tombent en compte ENTIER par image (2 ticks a 30, 1 a 60). A 45 il en
+    faudrait 1,333 : la suite reelle est 1,2,1,1,2... et le reste doit etre absorbe par l''alpha d''interpolation.
+    `*fixed-tick-alpha*` n''a que DEUX consommateurs (cam-update.gc:246 et drawable.gc:1107) ; si le retimage
+    d''animation ne le consomme pas, la pose saute d''un tick entier certaines images et pas d''autres
+    — invisible aux ratios entiers, visible a 45.'
+  deliverable: Le moteur emet `anim_step_jitter_worst_us` = le PIRE ecart type du pas de pose vu par le
+    rendu, image apres image, mesure a CHAQUE cadence de la serie 30, 45, 50, 60, 75, 90 — pas la moyenne,
+    qui reste verte sur une alternance 1-2-1-1-2 ticks. Zero a 500 us pres partout. A 30 et a 60 le comportement
+    reste identique au bit (`anim_step_bitexact_30`, `anim_step_bitexact_60` = 1). Preuve sur le Redmi.
+- id: framerate-uncap
+  feature: Debrider la cadence au-dela de 60 images/s
+  status: open
+  priority: 15
+  game: jak1
+  gate:
+    key: uncap_defects
+    op: ==
+    value: 0
+  device: true
+  max_turns: 300
+  max_retries: 4
+  depends_on:
+  - anim-interp-low-fps
+  history: []
+  prompt: prompts/item-framerate-uncap.md
+  owner_ok: null
+  where: 'Options : un reglage de cadence qui monte au-dela de 60 (90, 120, illimite) et un jeu qui reste
+    correct'
+  deliverable: '`target_fps` (gfx.h:99, fige a 60) devient reglable au-dela de 60 : le moteur emet `uncap_defects=N`
+    = somme des verdicts — la logique recoit toujours 60 ticks par seconde reelle quelle que soit la cadence
+    affichee, les animations restent lisses (meme mesure que anim-interp-low-fps), l''horloge des scenes
+    ne derive pas (srpc.cpp:491 `(s32)(1024/target_fps)` tourne a 93,75 % a 120 Hz), et rien ne s''accelere
+    ni ne ralentit. Zero.'
+  known_cause: 'srpc.cpp:491 : `(s32)(1024/target_fps)` — a 120 Hz l''horloge de scene tourne a 93,75
+    % du reel. Trouve par cutscene-npc-flicker le 2026-09-05.'
+  out_of_scope: Ne touche pas au pas de temps fixe lui-meme, valide par l'owner le 2026-09-05.
+  notes: Ne du retour owner 2026-09-05 ; il le classe explicitement « un truc a faire plus tard ». Depend
+    des animations lisses aux cadences non entieres.
+  owner_feedback:
+  - date: '2026-09-05'
+    text: on devrait pouvoir unlock le framerate, là ça lock à 60 max alors que ça pourrait ne pas être
+      cap si le pas de temps fixe est bien fait ! Bon ça c'est un truc à faire plus tard
 - id: grass-overhang
   feature: L'herbe qui retombe par-dessus le bord des plateformes
   status: archived
@@ -3254,8 +3302,8 @@ items:
   build: dernier build publie sur jak-builds
 - id: fixed-tick-interpolation
   feature: Le pas de temps fixe et l'interpolation du rendu
-  status: in-progress
-  priority: 12
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-26'
     text: quand le jeu va en dessous de ce qu'il est sensé tourner sur PS2, les sauts, les mouvements
@@ -3284,6 +3332,15 @@ items:
   - date: '2026-09-05'
     text: Heuuuu ça va pas avec les animations saccadées chronologiquement ? Faut p'tetre reordonner en
       accord
+  - date: '2026-09-05'
+    text: Par contre le pas de temps on valide
+  - date: '2026-09-05'
+    text: Les animations jitter toujours sur des framerates inattendus par le jeu (genre 45 FPS) à 30
+      ça roule nickel, à 60 pareil (les deux framerates attendus par l'App, car sur PS2 ça oscillait entre
+      ces deux là et le jeu était prévu pour) mais sur des framerates autres qu'aux alentours de 30 et
+      60 ça jitter! Par contre le pas de temps on valide, juste les animations qu'on valide pas... Enfin
+      j'ai l'impression ! D'ailleurs on devrait pouvoir unlock le framerate, là ça lock à 60 max alors
+      que ça pourrait ne pas être cap si le pas de temps fixe est bien fait !
   gate:
     key: tick_worst_dev_pct_x100
     op: <=
@@ -3295,7 +3352,10 @@ items:
   history:
   - Gfixed-tick-interpolation
   prompt: prompts/item-fixed-tick-interpolation.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-05'
+    text: Par contre le pas de temps on valide
+    build_sha: 30c95a6d8097da9d
   device: false
   proof_timeout: 180
   proof_env:
@@ -3310,33 +3370,29 @@ items:
   where: Options > Fixed timestep, puis joue autour de 20 images/s
   delivered: '2026-08-30'
   build: dernier build publie sur jak-builds
-  notes: 'essai 3 (2026-09-05) : le defaut restant est TROUVE, MESURE et CORRIGE, et c''etait
-    un FAUX VERT. Les deux termes de la porte jugeaient le TEMPS ; aucun ne lisait la POSE. Sur
-    le meme binaire et la meme course, `tick_pose_err_pct_x100` vaut 9390 (93,9 %% d''un tick de
-    saut de la pose dessinee) avec l''ancien alpha et 0 avec le nouveau, pendant que le terme de
-    temps restait vert des deux cotes (45 et 35). La porte porte maintenant les TROIS termes sous
-    la meme cle et le meme seuil. Reste NON PROUVE : arm64 (course x86 seule), et le fait que
-    l''owner joue par defaut sur l''AUTRE horloge (render_pace, item anim-interp-low-fps) —
-    c''est le sens de sa question d''ordre du 05/09, et elle est toujours ouverte cote
-    superviseur.'
-  known_cause: 'L''ALPHA D''INTERPOLATION ETAIT DECIDE PAR L''ETAT DU VERROU (`if (s.locked)
-    alpha = 1,0`) PENDANT QUE LA DUREE ETAIT DECIDEE PAR LA CONFORMITE DE L''IMAGE (`lock_hit`,
-    correctif de l''essai 2). Les deux se contredisent exactement sur les kUnlockBadFrames - 1
-    images HORS grille tenues sous verrou (74 par course) : leur duree reelle passe ENTIERE dans
-    l''accumulateur, donc le temps est parfaitement conserve et `tick_conserve_err` rend 0, et
-    l''alpha est quand meme epingle a 1,0 — l''avance de la pose DESSINEE vaut alors `k + 0` au
-    lieu de `dt/tick`. Cause de fond : les deux regimes n''avaient pas la meme REFERENCE.
-    L''extraction par plancher laisse le reste dans [0, tick), la simulation est toujours en
-    retard sur le temps reel, et la pose, bornee a l''etat courant, ne peut jamais l''atteindre :
-    le regime libre la placait un tick entier en arriere, le regime verrouille pile dessus.
-    Corriger l''alpha SEUL AGGRAVE le defaut (0,48 tick d''avance pour 1,48 tick reel). Corrige
-    par une reference unique : extraction par PLAFOND sur un reste SIGNE et
-    `alpha = 1 + reste/tick` pour les deux regimes, ce qui rend l''identite
-    `avance = k + alpha(n) - alpha(n-1) = dt/tick` exacte sans cas particulier et supprime le
-    glissement de phase et le rebase de sortie (69953 us de temps de jeu fabrique -> 0).
-    Mesure sur LE MEME binaire (sha=b8ee88a7d5d85599) et la meme course, OG_TICK_ALPHA_UNIFIED
-    0 -> 1 : tick_pose_err_pct_x100 9390 -> 0, tick_worst_dev_pct_x100 9390 -> 35.'
-
+  notes: 'essai 3 (2026-09-05) : le defaut restant est TROUVE, MESURE et CORRIGE, et c''etait un FAUX
+    VERT. Les deux termes de la porte jugeaient le TEMPS ; aucun ne lisait la POSE. Sur le meme binaire
+    et la meme course, `tick_pose_err_pct_x100` vaut 9390 (93,9 %% d''un tick de saut de la pose dessinee)
+    avec l''ancien alpha et 0 avec le nouveau, pendant que le terme de temps restait vert des deux cotes
+    (45 et 35). La porte porte maintenant les TROIS termes sous la meme cle et le meme seuil. Reste NON
+    PROUVE : arm64 (course x86 seule), et le fait que l''owner joue par defaut sur l''AUTRE horloge (render_pace,
+    item anim-interp-low-fps) — c''est le sens de sa question d''ordre du 05/09, et elle est toujours
+    ouverte cote superviseur.'
+  known_cause: 'L''ALPHA D''INTERPOLATION ETAIT DECIDE PAR L''ETAT DU VERROU (`if (s.locked) alpha = 1,0`)
+    PENDANT QUE LA DUREE ETAIT DECIDEE PAR LA CONFORMITE DE L''IMAGE (`lock_hit`, correctif de l''essai
+    2). Les deux se contredisent exactement sur les kUnlockBadFrames - 1 images HORS grille tenues sous
+    verrou (74 par course) : leur duree reelle passe ENTIERE dans l''accumulateur, donc le temps est parfaitement
+    conserve et `tick_conserve_err` rend 0, et l''alpha est quand meme epingle a 1,0 — l''avance de la
+    pose DESSINEE vaut alors `k + 0` au lieu de `dt/tick`. Cause de fond : les deux regimes n''avaient
+    pas la meme REFERENCE. L''extraction par plancher laisse le reste dans [0, tick), la simulation est
+    toujours en retard sur le temps reel, et la pose, bornee a l''etat courant, ne peut jamais l''atteindre
+    : le regime libre la placait un tick entier en arriere, le regime verrouille pile dessus. Corriger
+    l''alpha SEUL AGGRAVE le defaut (0,48 tick d''avance pour 1,48 tick reel). Corrige par une reference
+    unique : extraction par PLAFOND sur un reste SIGNE et `alpha = 1 + reste/tick` pour les deux regimes,
+    ce qui rend l''identite `avance = k + alpha(n) - alpha(n-1) = dt/tick` exacte sans cas particulier
+    et supprime le glissement de phase et le rebase de sortie (69953 us de temps de jeu fabrique -> 0).
+    Mesure sur LE MEME binaire (sha=b8ee88a7d5d85599) et la meme course, OG_TICK_ALPHA_UNIFIED 0 -> 1
+    : tick_pose_err_pct_x100 9390 -> 0, tick_worst_dev_pct_x100 9390 -> 35.'
 - id: grass-crash
   feature: L'herbe fait planter le jeu
   status: validated
