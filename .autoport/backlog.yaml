@@ -3310,23 +3310,33 @@ items:
   where: Options > Fixed timestep, puis joue autour de 20 images/s
   delivered: '2026-08-30'
   build: dernier build publie sur jak-builds
-  notes: 'essai 2 (2026-09-05) : cause etablie et corrigee, porte tenue sur x86 (tick_worst_dev_pct_x100=46).
-    RESTE OUVERT, et c''est probablement ce que l''owner voit le 05/09 : sur SON build, `render_pace::armed()`
-    (render_pace.cpp:135-149) est LATCHE au premier appel, avant que GOAL ait pousse le reglage du menu
-    — donc cocher « Fixed timestep » en cours de partie n''eteint PAS l''horloge d''anim-interp-low-fps,
-    et les deux horloges retiment la meme image. Non prouve (aucun instrument ne publie l''ordre des deux
-    premiers appels). Cet item ne porte pas ce defaut : il est dans le fichier d''anim-interp-low-fps,
-    et c''est cette horloge-la qui tourne par defaut chez lui — d''ou sa question d''ordre du 05/09.'
-  known_cause: 'Le VERROU DE CADENCE remplacait la duree d''une image des que l''ETAT etait verrouille,
-    et pas seulement quand l''image etait CONFORME au pas verrouille : les kUnlockBadFrames-1 images hors
-    grille qui precedent une sortie de verrou voyaient leur duree reecrite en `lock_n/60` ET leur reste
-    accumule detruit (fixed_tick.cpp, `if (s.locked) { dt = ...; accumulator = 0; }`). L''avance de la
-    pose dessinee vaut `k + alpha(n) - alpha(n-1)`, donc le reste detruit se retranche de l''avance :
-    c''est le mecanisme exact d''un skip. Mesure sur la meme course et le meme binaire (OG_TICK_LOCK_STRICT=0
-    vs 1) : 233 ms de temps de jeu detruites en 173 s, ecart max de 198 %% d''un tick sur une image, contre
-    0 apres correctif. L''essai 1 ne pouvait pas le voir : son recensement jugeait un CUMUL sur 5 s (destruction
-    et refabrication s''y compensent) et son stimulus (gigue uniforme 8 %%) ne faisait JAMAIS tenir le
-    verrou (tick_locked_pct=0), donc la condition du defaut etait absente.'
+  notes: 'essai 3 (2026-09-05) : le defaut restant est TROUVE, MESURE et CORRIGE, et c''etait
+    un FAUX VERT. Les deux termes de la porte jugeaient le TEMPS ; aucun ne lisait la POSE. Sur
+    le meme binaire et la meme course, `tick_pose_err_pct_x100` vaut 9390 (93,9 %% d''un tick de
+    saut de la pose dessinee) avec l''ancien alpha et 0 avec le nouveau, pendant que le terme de
+    temps restait vert des deux cotes (45 et 35). La porte porte maintenant les TROIS termes sous
+    la meme cle et le meme seuil. Reste NON PROUVE : arm64 (course x86 seule), et le fait que
+    l''owner joue par defaut sur l''AUTRE horloge (render_pace, item anim-interp-low-fps) —
+    c''est le sens de sa question d''ordre du 05/09, et elle est toujours ouverte cote
+    superviseur.'
+  known_cause: 'L''ALPHA D''INTERPOLATION ETAIT DECIDE PAR L''ETAT DU VERROU (`if (s.locked)
+    alpha = 1,0`) PENDANT QUE LA DUREE ETAIT DECIDEE PAR LA CONFORMITE DE L''IMAGE (`lock_hit`,
+    correctif de l''essai 2). Les deux se contredisent exactement sur les kUnlockBadFrames - 1
+    images HORS grille tenues sous verrou (74 par course) : leur duree reelle passe ENTIERE dans
+    l''accumulateur, donc le temps est parfaitement conserve et `tick_conserve_err` rend 0, et
+    l''alpha est quand meme epingle a 1,0 — l''avance de la pose DESSINEE vaut alors `k + 0` au
+    lieu de `dt/tick`. Cause de fond : les deux regimes n''avaient pas la meme REFERENCE.
+    L''extraction par plancher laisse le reste dans [0, tick), la simulation est toujours en
+    retard sur le temps reel, et la pose, bornee a l''etat courant, ne peut jamais l''atteindre :
+    le regime libre la placait un tick entier en arriere, le regime verrouille pile dessus.
+    Corriger l''alpha SEUL AGGRAVE le defaut (0,48 tick d''avance pour 1,48 tick reel). Corrige
+    par une reference unique : extraction par PLAFOND sur un reste SIGNE et
+    `alpha = 1 + reste/tick` pour les deux regimes, ce qui rend l''identite
+    `avance = k + alpha(n) - alpha(n-1) = dt/tick` exacte sans cas particulier et supprime le
+    glissement de phase et le rebase de sortie (69953 us de temps de jeu fabrique -> 0).
+    Mesure sur LE MEME binaire (sha=b8ee88a7d5d85599) et la meme course, OG_TICK_ALPHA_UNIFIED
+    0 -> 1 : tick_pose_err_pct_x100 9390 -> 0, tick_worst_dev_pct_x100 9390 -> 35.'
+
 - id: grass-crash
   feature: L'herbe fait planter le jeu
   status: validated
