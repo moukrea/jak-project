@@ -23,6 +23,9 @@ items:
     text: Bah c'est toujours pas corrigé, tu commence sérieusement à me péter les couilles tu l'avais
       pourtant déjà réglé plusieurs fois déjà ce bug, ça devrait être simple pour toi de le régler de
       nouveau !
+  - date: '2026-09-05'
+    text: Je comprends pas comment tu fais pour pas arriver à régler ça alors qu'on l'a déjà réglé plusieurs
+      fois, check l'historique
   gate:
     key: npc_culled_in_frustum
     op: ==
@@ -66,7 +69,13 @@ items:
   known_cause: 'Le maire porte deja `culled=1` DANS SA PROPRE SCENE pendant que le compteur de cycles
     reste a 0 : le culling est range dans une categorie « justifiee » qui ne compte pas. Les trois portes
     precedentes ont mesure des scenes ou des acteurs qui ne sont pas ceux qui clignotent, et la preuve
-    du 02/09 a ete prise sur PC.'
+    du 02/09 a ete prise sur PC. | PISTE DEMANDEE PAR L''OWNER (historique, 2026-09-05) : le 2026-08-28,
+    Gfirstperson-hd-hide a corrige EXACTEMENT cette famille de defaut — « le miroir de visibilite HD lisait
+    UN bit d''une porte qui en compte TROIS », Jak HD et Daxter HD restaient masques. Un miroir qui ne
+    lit qu''un bit d''une porte multi-bits est la cause connue la plus proche du clignotement, et elle
+    n''a jamais ete re-verifiee sur le chemin des cinematiques. Verifier AUSSI que ce correctif n''a pas
+    regresse depuis. Second precedent : le 2026-09-01, le compteur qui gardait ce defaut n''avait plus
+    aucun site d''ecriture depuis 28 jours.'
   deliverable: Zero PNJ ecarte du rendu pendant qu'il est dans le champ de la camera, sur la PREMIERE
     cinematique du MAIRE, mesure sur le Redmi avec les modeles HD installes, plus une garde de non-regression
     qui echoue si le symptome revient.
@@ -222,11 +231,22 @@ items:
   - date: '2026-09-03'
     text: je trouve les animations très jittery [...] c'est très jittery quelque soit le framerate, 60
       FPS comme 15 fps comme 45... etc
-  gate: null
+  gate:
+    key: anim_render_step_err_max_us
+    op: <=
+    value: 2000
   game: jak1
   max_turns: 800
   max_retries: 6
   depends_on: []
+  proof_timeout: 180
+  proof_env:
+  - OG_FRAME_JITTER_PCT=35
+  - OG_FRAME_LIMIT_FPS=60,20,45,120,30
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
   history:
   - Gfixed-tick-anim-interp
   - Gfixed-tick-anim-interp-2
@@ -266,7 +286,7 @@ items:
     » ; livre par defaut ETEINT. Ce n''est ni une validation ni quelque chose a lui redemander'
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
-  status: open
+  status: to-test
   priority: 2
   owner_feedback:
   - date: '2026-08-06'
@@ -1434,7 +1454,7 @@ items:
     pilote se traite ici, pas dans hd-models.
 - id: cine-cut
   feature: Les coupes de camera des cinematiques qui glissent au lieu de couper
-  status: open
+  status: archived
   priority: 249
   owner_feedback: []
   gate: null
@@ -1450,6 +1470,8 @@ items:
   where: 'les changements de plan d''une cinematique : ils doivent couper, pas glisser'
   known_cause: 'Ouvert en juin, jamais pris. La logique de coupe est partagee avec x86 : le defaut peut
     s''y reproduire, ce qui rendrait la preuve possible au clavier.'
+  notes: 'owner 2026-09-05 : « Encore un item préhistorique, dégage ça, c''est réglé depuis une éternité
+    »'
 - id: render-audit
   feature: 'DIAGNOSTIC (owner observations on the latest device run): pinpoint DETERMINISTICALLY + x86-FIRST
     why the device render…'
@@ -1746,7 +1768,7 @@ items:
   owner_ok: null
 - id: echo-pool
   feature: La mare d'eco noire non rendue dans la cinematique d'intro
-  status: open
+  status: archived
   priority: 245
   owner_feedback: []
   gate: null
@@ -1760,8 +1782,8 @@ items:
   owner_ok: null
   device: false
   where: la cinematique de nouvelle partie, quand Daxter tombe dans l'eco noire
-  notes: 'statut force : bloquee en juin sans raison enregistree dans state.json ; le defaut (la mare
-    d''eco noire non rendue dans la cinematique d''intro) n''a jamais ete corrige'
+  notes: 'owner 2026-09-05 : « Encore un item préhistorique, dégage ça, c''est réglé depuis une éternité
+    »'
   known_cause: Ouvert en juin, bloque par l'orchestrateur sans raison enregistree. La mare d'eco noire
     n'est pas rendue sur arm64, donc la forme d'ottsel de Daxter apparait trop tot.
 - id: portal-crash
@@ -2663,7 +2685,7 @@ items:
   build: build du 2026-07-25, remplace depuis
 - id: recharged-loader-packfix
   feature: Le build ne demarrait plus sur son Honor (pack de 420 Mo)
-  status: open
+  status: archived
   priority: 222
   owner_feedback: []
   gate: null
@@ -2680,6 +2702,7 @@ items:
   known_cause: 'Le pack de 190 Mo du 27/07 demarrait, ceux de 420 Mo des 28-29/07 mouraient AVANT l''extraction.
     Aucun cycle n''a tourne depuis, et les builds actuels demarrent chez l''owner : verifie d''abord que
     l''item a encore un objet.'
+  notes: 'owner 2026-09-05 : « le jeu boot sur mon Honor, supprime moi ça »'
 - id: recharged-pbr-realtime-fusion
   feature: Les matieres PBR eclairees par la lumiere temps reel
   status: blocked
@@ -2956,7 +2979,7 @@ items:
 - id: recharged-secondary-motion
   feature: Le mouvement secondaire des personnages HD (physique de Keira)
   status: open
-  priority: 20
+  priority: 900
   owner_feedback:
   - date: '2026-08-04'
     text: c'est la COMPOSITION qui decide
@@ -3026,6 +3049,11 @@ items:
     text: le budget d'execution du chantier pre-specifie est de QUATRE lignes
   - date: '2026-08-28'
     text: un terme de COM dans le tenseur valant x1,61 a x1,68
+  - date: '2026-09-05'
+    text: Je pense que la physique on peut mettre vraiment tout en bas de la pile, d'ailleurs cet item
+      date d'avant la spec des seins de Keira je pense donc on peut reclasser après le moteur de physique,
+      les seins de Keira, de Maïa, etc. Et mettre tout ce qui est lié à la physique tout en bas de la
+      pile
   gate: null
   game: jak1
   max_turns: 800
@@ -3043,6 +3071,9 @@ items:
     de l''ORGANE, appliquees par maillon.'
   out_of_scope: Aucune mesure visuelle. Ne rouvre pas les items deja valides (yeux de Daxter, visiere
     de Keira, sangle de la veste).
+  notes: 'owner 2026-09-05 : TOUTE la physique va en bas de pile. Cet item precede la spec des seins de
+    Keira : quand la physique reprendra, l''ordre est moteur de physique, puis Keira, puis Maia, puis
+    le reste du casting.'
 - id: firstperson-hd-hide
   feature: En vue premiere personne on se retrouve dans la tete de Jak
   status: validated
@@ -3221,7 +3252,7 @@ items:
 - id: fixed-tick-interpolation
   feature: Le pas de temps fixe et l'interpolation du rendu
   status: open
-  priority: 16
+  priority: 12
   owner_feedback:
   - date: '2026-08-26'
     text: quand le jeu va en dessous de ce qu'il est sensé tourner sur PS2, les sauts, les mouvements
@@ -3247,6 +3278,9 @@ items:
     text: je trouve les animations très jittery (un autre chantier si je dis pas de bêtises que j'ai auparavant
       lié au fixed time truc machin ou le gameplay n'est plus tied au framerate... d'ailleurs c'est très
       jittery quelque soit le framerate, 60 FPS comme 15 fps comme 45... etc.
+  - date: '2026-09-05'
+    text: Heuuuu ça va pas avec les animations saccadées chronologiquement ? Faut p'tetre reordonner en
+      accord
   gate: null
   game: jak1
   max_turns: 800
@@ -3291,7 +3325,7 @@ items:
     source: owner-ok/Ggrass-crash
 - id: grass-density-presets
   feature: Cinq paliers de densite d'herbe au lieu d'un curseur
-  status: open
+  status: to-test
   priority: 18
   owner_feedback:
   - date: '2026-08-30'
@@ -3300,6 +3334,8 @@ items:
       chemin lourd
   - date: '2026-08-30'
     text: sur la plage [...] ca n'a jamais ete visible, tu peux completement dismiss
+  - date: '2026-09-05'
+    text: C'est déjà fait ça non ? C'est plus à faire il me semble
   gate: null
   game: jak1
   max_turns: 800
@@ -3310,11 +3346,14 @@ items:
   prompt: prompts/item-grass-density-presets.md
   owner_ok: null
   device: false
-  where: 'Options > Recharged > densite d''herbe : cinq paliers'
+  where: 'Options > Recharged > densite d''herbe : cinq paliers nommes (tres bas a tres haut) au lieu
+    d''un curseur'
   known_cause: 'Aucun cycle n''a tourne. L''owner a deja tranche la forme : cinq paliers nommes, pas un
     curseur continu.'
   deliverable: Cinq paliers nommes very low / low / medium / high / very high dans les options, pre-calcules,
     avec le cout memoire de chacun.
+  notes: livre le 2026-08-31 (game/graphics/grass_density_presets.h) mais jamais soumis a son verdict
+    ; l'owner pense que c'est fait, une seule apparition dans sa liste pour qu'il tranche.
 - id: recharged-hd-eye-scale
   feature: 'HD MODELS (owner 2026-08-06, backlog): les yeux HD de Daxter sont bien HD mais l''effet CARTOON
     de Jak 1 qui fait chang…'
@@ -3471,12 +3510,13 @@ items:
   history: []
   prompt: prompts/item-recharged-settings-case-l10n.md
   owner_ok: null
-  where: 'Options > Recharged : chaque ligne en casse normale (comme le reste du menu, police Urbanist),
-    et chaque ligne traduite quand le jeu est en francais'
+  where: 'Options > Recharged, dans chaque langue du jeu : casse normale comme le reste du menu, et rien
+    qui reste en anglais'
   deliverable: 'Le moteur emet `settings_case_l10n_defects=N` = lignes du menu Recharged rendues en TOUT-MAJUSCULES
-    (hors sigles) + lignes dont la chaine affichee en francais est identique a la chaine anglaise alors
-    qu''une traduction existe pour les autres menus. Zero. La casse des autres menus est la reference
-    : ce menu ne doit pas se distinguer.'
+    (hors sigles) + lignes non traduites, comptees DANS CHAQUE LANGUE QUE LE JEU SUPPORTE, pas seulement
+    le francais : une ligne dont la chaine affichee est identique a l''anglais alors que les autres menus
+    sont traduits dans cette langue-la compte comme un defaut. Zero, toutes langues confondues. La casse
+    des autres menus est la reference.'
   known_cause: null
   out_of_scope: Ne touche pas au censement des options (menu-census-cleanup), seulement leur rendu et
     leur traduction.
@@ -3485,6 +3525,8 @@ items:
   - date: '2026-09-04'
     text: tous les éléments sont en majuscule dans les réglages rechargées, et pas tous sont localisés
       correctement.
+  - date: '2026-09-05'
+    text: Traduire celles qui restent en anglais dans toutes les langues supportées par le jeu !
 - id: audits-abandonnes
   feature: Audits de juin abandonnes (pixel-match du menu, images anglaises de reference)
   status: archived
@@ -3973,7 +4015,7 @@ items:
   hits_means: reglages effectivement poses par le prereglage
 - id: proof-kv-provenance
   feature: La preuve ne doit recopier que ce que le MOTEUR a dit
-  status: open
+  status: archived
   priority: 40
   owner_feedback: []
   gate:
@@ -3989,12 +4031,4 @@ items:
   prompt: prompts/item-proof-kv-provenance.md
   owner_ok: null
   where: 'rien a voir en jeu : c''est la fiabilite de la porte elle-meme'
-  notes: 'Trouve le 2026-09-03 en verifiant une vraie preuve appareil. `lib/proof_run.sh` capture `logcat`
-    SANS filtre de processus, puis recopie dans proof.txt toute ligne `cle=valeur` seule sur sa ligne.
-    La preuve de cutscene-npc-flicker portait donc isNeedSkipTouch, coldStartMode, bgMode et lastIncreasingIntervalStartIndex,
-    qui viennent du framework Android et non du jeu. Inoffensif aujourd''hui (les cles de porte sont trop
-    specifiques pour entrer en collision), mais le principe « c''est le moteur qui emet, jamais le worker
-    » n''est pas tenu tant qu''un autre processus du telephone peut ecrire une ligne que la porte lira.
-    Deux voies : filtrer logcat sur le pid du jeu (--pid, connu apres le lancement, donc capture en deux
-    temps), ou faire porter aux lignes du moteur un marqueur comme la ligne FEATURE en porte deja. La
-    seconde demande une edition du moteur et se prouve mieux.'
+  notes: 'owner 2026-09-05 : « Whaaaat ? Dégage moi ça »'
