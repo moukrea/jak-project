@@ -223,6 +223,33 @@ u64 total_armed_frames();
 // Correctif de cette phase ARME (defaut) ou non. A 0 (`OG_TICK_LOCK=0` /
 // `debug.opengoal.ticklock`), l'horloge reprend l'accrochage par image tel qu'il a ete
 // livre : c'est l'ablation du correctif sur LE MEME binaire.
+//
+// CE QUE LE MODULE PUBLIE POUR `lib/proof_run.sh` (item `fixed-tick-interpolation`).
+// Jusqu'ici AUCUNE de ces grandeurs ne sortait sous forme `cle=valeur` : `ceiling_clamps()`
+// et `catchup_clamps()` — c'est-a-dire le temps de jeu JETE — n'existaient que dans la sonde
+// `GFT`, elle-meme opt-in derriere `OG_FIXED_TICK_PROBE`. Aucune porte ne pouvait donc lire
+// quoi que ce soit de ce chantier, et l'item n'avait pas de `gate:`.
+//
+//   tick_rate_dev_pct_x100   LA PORTE. Ecart max, sur une fenetre de 5 s de temps mural
+//                            ADMIS, entre le temps de jeu emis (ticks/60) et ce temps
+//                            mural, en CENTIEMES de pourcent. C'est l'invariant dont
+//                            depend « le saut fait la meme hauteur a 25 et a 120 img/s ».
+//                            Vaut 999999 s'il y a moins de 8 fenetres : une absence de
+//                            mesure doit faire ECHOUER la porte, jamais la passer.
+//   tick_rate_windows        fenetres jugees.
+//   tick_drift_ms            (temps de jeu emis - temps mural admis), cumule et SIGNE.
+//   tick_time_dropped_ms     temps reel JETE par l'ecretage anti-spirale, cumule. Rien
+//                            n'est exclu de la mesure : ce qui est jete est compte ici.
+//   tick_ceiling_clamps      images dont la duree a ete ecretee.
+//   tick_catchup_clamps      images ou le plafond de rattrapage a jete du retard.
+//   tick_locked_pct          part des images en cadence VERROUILLEE. A 100, la course est
+//                            un temoin et pas un verdict : verrouillee, l'horloge declare
+//                            un entier de ticks et l'ecart ne peut pas se manifester.
+//   tick_lock_err_pct_x100   ecart max, en verrouille, entre la duree REELLE de l'image et
+//                            la duree DECLAREE (`lock_n / 60`). Publie a part parce que
+//                            c'est du temps cree/perdu par REMPLACEMENT de la mesure, pas
+//                            par arrondi d'accumulateur.
+//   tick_armed / tick_frames / tick_ticks / tick_lock_armed : preuve de cablage.
 bool tick_lock_enabled();
 int lock_state();
 double last_dev_ticks();

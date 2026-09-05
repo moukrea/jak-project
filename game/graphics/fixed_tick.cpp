@@ -5,7 +5,11 @@
 #include <cmath>
 #include <cstdlib>
 
+#include "fmt/core.h"
+
 #include "common/util/Timer.h"
+
+#include "game/system/autoport_proof.h"
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
@@ -14,6 +18,49 @@
 namespace fixed_tick {
 
 namespace {
+
+// ---------------------------------------------------------------------------------------
+// RECENSEMENT DE CONSERVATION DU TEMPS DE JEU (item `fixed-tick-interpolation`).
+//
+// LE DEFAUT DE L'OWNER, RAMENE A UNE SEULE GRANDEUR. « quand le jeu va en dessous de ce
+// qu'il est sense tourner sur PS2, les sauts, les mouvements de camera ça chie un peu dans
+// la colle et ça casse le gameplay (skips, camera jumps, sauts trop courts...) ». Un saut
+// de Jak est une SUITE DE TICKS de 1/60 s : sa hauteur ne depend que du nombre de ticks
+// passes en l'air. Il est donc identique a 25 comme a 120 images/s SI ET SEULEMENT SI la
+// logique recoit 60 ticks par seconde REELLE quelle que soit la cadence d'affichage.
+// C'est cette egalite, et rien d'autre, que ce recensement mesure — et c'est la seule
+// chose qu'une porte machine peut lire de ce chantier, puisque « le saut a l'air bon » n'en
+// est pas une.
+//
+// CE QU'IL COMPARE. Par fenetre de `kCensusWindowSeconds` secondes de temps mural ADMIS :
+//     ecart = | ticks_emis / 60 - secondes_admises | / secondes_admises
+// et la porte lit le MAXIMUM sur toutes les fenetres. Pas la moyenne : sous le balayage de
+// cadence (`OG_FRAME_LIMIT_FPS`), une moyenne noierait le bras a 20 images/s — celui de
+// l'owner — dans les quatre autres.
+//
+// « ADMIS » ET NON « ECOULE », ET POURQUOI CE N'EST PAS UN SEAU D'EXCLUSION. Une image dont
+// la duree depasse `kMaxCatchupTicks` (chargement, hoquet de flux) voit son temps ECRETE :
+// au-dela, l'horloge le JETTE, sinon le jeu part en spirale de rattrapage. Ce temps jete
+// n'est pas une erreur de conversion, c'est une decision — mais il ne disparait pas de la
+// preuve pour autant : il est compte EN ENTIER dans `tick_time_dropped_ms` et dans
+// `tick_drift_ms`. Aucune fenetre n'est jamais ecartee ; ecarter les fenetres des cadences
+// basses reviendrait a exclure exactement le cas que l'owner joue.
+//
+// LE PLANCHER DE LA MESURE est la quantification de l'accumulateur : un tick au plus par
+// fenetre, soit 1/(60 * kCensusWindowSeconds) = 0,33 % a 5 s. Tout ce qui depasse est du
+// temps de jeu FABRIQUE ou PERDU : un k mal choisi, un reste detruit, ou la REECRITURE de
+// la duree d'image que fait le verrou de cadence (`dt = lock_n / 60`) — dont l'erreur
+// propre est publiee a part, `tick_lock_err_pct_x100`, parce qu'elle ne vient pas de la
+// conversion mais du fait de remplacer la mesure.
+// ---------------------------------------------------------------------------------------
+constexpr double kCensusWindowSeconds = 5.0;
+
+// En dessous de ce nombre de fenetres il n'y a rien a juger, et un maximum sur zero
+// echantillon vaut zero — c'est-a-dire un VERT obtenu par ABSENCE de mesure. On publie
+// alors une valeur hors bande, qui fait ECHOUER la porte. Meme patron que
+// `render_pace.cpp` (`kMinJudgedSteps` / `kNoMeasurement`).
+constexpr u64 kCensusMinWindows = 8;
+constexpr u64 kCensusNoMeasurement = 999999;
 
 // Etat de l'horloge. Tout ceci ne vit QUE sur le fil GOAL/EE : `begin_render_frame`
 // est appelee depuis la soumission de la chaine DMA, sur le fil GOAL/EE. Aucune synchronisation necessaire, et
@@ -55,6 +102,22 @@ struct State {
   u64 unlock_events = 0;
   u64 ceiling_clamps = 0;
   u64 catchup_clamps = 0;
+  // Recensement de conservation du temps de jeu — voir le bloc de commentaire ci-dessus.
+  // Montre SEPAREE de `timer` : celle-ci mesure la duree que l'horloge s'accorde (elle est
+  // ecretee, et REECRITE par le verrou) ; celle-la mesure la duree REELLE, qui est la
+  // reference contre laquelle on juge.
+  Timer census_timer;
+  bool census_have = false;
+  double win_sec = 0.0;         // temps mural ADMIS accumule dans la fenetre courante
+  u64 win_ticks = 0;            // ticks emis dans la fenetre courante
+  double dev_max = 0.0;         // fraction, pas pourcentage
+  double lock_err_max = 0.0;    // fraction
+  double drift_sec = 0.0;       // (ticks/60 - mur admis) cumule, SIGNE
+  double dropped_sec = 0.0;     // temps reel jete par l'ecretage, cumule
+  u64 windows = 0;
+  u64 census_frames = 0;
+  u64 census_locked = 0;
+  u64 prev_ticks = 0;
 };
 
 State& state() {
@@ -125,10 +188,110 @@ bool read_bool_flag(const char* env_name, const char* prop_name, bool dflt) {
   return dflt;
 }
 
+// Une image gouvernee par l'horloge vient de passer : on solde sa duree REELLE contre les
+// ticks qu'elle a produits. Appelee APRES `begin_render_frame`, donc `s.locked`, `s.lock_n`
+// et `s.ticks` decrivent deja la decision prise pour CETTE image.
+void census_frame() {
+  State& s = state();
+  const u64 dticks = s.ticks - s.prev_ticks;
+  s.prev_ticks = s.ticks;
+
+  if (!s.census_have) {
+    // Premiere image gouvernee, ou reprise apres un desarmement. C'est aussi l'image ou
+    // l'horloge POSE dt = 1 tick au lieu de le mesurer (`have_last`) : il n'y a donc rien
+    // a juger, on se contente de demarrer la montre.
+    s.census_timer.start();
+    s.census_have = true;
+    return;
+  }
+  const double dt = s.census_timer.getSeconds();
+  s.census_timer.start();
+
+  s.census_frames++;
+  if (s.locked) {
+    s.census_locked++;
+  }
+
+  // TEMPS ADMIS : ce que l'horloge a accepte de convertir en ticks. Au-dela du plafond de
+  // rattrapage elle jette, et le temps jete est compte ici en entier.
+  const double ceiling = (double)kMaxCatchupTicks * kFixedTickSeconds;
+  double admitted = dt;
+  if (admitted > ceiling) {
+    s.dropped_sec += dt - ceiling;
+    admitted = ceiling;
+  }
+
+  // ERREUR PROPRE DU VERROU. Verrouille, l'horloge ne convertit pas la duree mesuree : elle
+  // la REMPLACE par `lock_n / 60`. L'ecart entre les deux est du temps de jeu cree ou perdu
+  // qui ne vient d'aucun arrondi d'accumulateur — il se publie donc a part. Le bras
+  // d'ablation `OG_TICK_LOCK=0` n'a pas de `lock_n` : on ne le mesure pas la.
+  if (s.locked && tick_lock_enabled() && s.lock_n >= 1.0) {
+    const double declared = s.lock_n * kFixedTickSeconds;
+    const double e = std::fabs(admitted - declared) / declared;
+    if (e > s.lock_err_max) {
+      s.lock_err_max = e;
+    }
+  }
+
+  s.drift_sec += (double)dticks * kFixedTickSeconds - admitted;
+
+  s.win_sec += admitted;
+  s.win_ticks += dticks;
+  if (s.win_sec >= kCensusWindowSeconds) {
+    const double dev =
+        std::fabs((double)s.win_ticks * kFixedTickSeconds - s.win_sec) / s.win_sec;
+    if (dev > s.dev_max) {
+      s.dev_max = dev;
+    }
+    s.windows++;
+    s.win_sec = 0.0;
+    s.win_ticks = 0;
+  }
+}
+
+// Publie le recensement pour `lib/proof_run.sh`. Appelee a CHAQUE image, y compris quand
+// l'horloge est desarmee : une course d'ablation doit porter `tick_armed=0` et la valeur
+// hors bande, pas une absence de ligne — une cle absente et une cle a zero se lisent
+// pareil dans un rapport, et l'une des deux est un faux vert.
+void census_publish() {
+  State& s = state();
+  autoport_proof::publish("tick_armed", s.armed_frames > 0 ? 1 : 0);
+  autoport_proof::publish("tick_frames", s.armed_frames);
+  autoport_proof::publish("tick_ticks", s.ticks);
+  autoport_proof::publish("tick_rate_windows", s.windows);
+  autoport_proof::publish("tick_rate_dev_pct_x100",
+                          s.windows >= kCensusMinWindows
+                              ? (u64)(s.dev_max * 10000.0 + 0.5)
+                              : kCensusNoMeasurement);
+  autoport_proof::publish("tick_lock_err_pct_x100", (u64)(s.lock_err_max * 10000.0 + 0.5));
+  autoport_proof::publish(
+      "tick_locked_pct",
+      s.census_frames ? (u64)((100.0 * (double)s.census_locked) / (double)s.census_frames + 0.5)
+                      : (u64)0);
+  autoport_proof::publish("tick_time_dropped_ms", (u64)(s.dropped_sec * 1000.0 + 0.5));
+  autoport_proof::publish("tick_ceiling_clamps", s.ceiling_clamps);
+  autoport_proof::publish("tick_catchup_clamps", s.catchup_clamps);
+  autoport_proof::publish("tick_lock_armed", tick_lock_enabled() ? 1 : 0);
+  // Signe : un drift NEGATIF est du temps de jeu PERDU (le monde ralentit), un positif est
+  // du temps FABRIQUE (il accelere). Les deux cassent le gameplay, et pas de la meme facon.
+  autoport_proof::publish_text("tick_drift_ms",
+                               fmt::format("{:.1f}", s.drift_sec * 1000.0).c_str());
+}
+
 }  // namespace
 
 bool enabled() {
   State& s = state();
+  // BRAS D'ABLATION DU HARNAIS, ET IL PRIME SUR TOUT LE RESTE, ENVIRONNEMENT COMPRIS.
+  // `proof_run.sh --off` pose `AUTOPORT_FEATURE=fixed-tick-interpolation` +
+  // `AUTOPORT_FEATURE_ARMED=0`, alors que le MEME `proof_env` pose `OG_FIXED_TICK=1` pour
+  // les DEUX bras. Sans cette priorite, le bras desarme tournerait avec l'horloge armee :
+  // l'ablation ne separerait rien et publierait deux lignes identiques.
+  // `armed_for` ne rend faux que si le harnais nomme EXACTEMENT cet item — la course d'un
+  // autre item, et le binaire de l'owner, ne passent jamais par ce chemin.
+  if (!autoport_proof::armed_for("fixed-tick-interpolation")) {
+    return false;
+  }
   if (s.forced == -2) {
     s.forced = read_force_flag();
   }
@@ -271,7 +434,20 @@ void on_render_frame() {
   const int k = begin_render_frame();
   if (s.clock_governs) {
     s.armed_frames++;
+    // PREUVE DE CABLAGE. `hits` ne monte que lorsque l'horloge a REELLEMENT gouverne une
+    // image ; desarmee elle n'appelle pas, et le bras d'ablation publie `hits=0`. Un
+    // compteur qui monte des deux cotes ne separe rien.
+    autoport_proof::note_hit();
+    census_frame();
+  } else if (s.census_have) {
+    // Desarmement en pleine course (le joueur decoche la case) : on rebase la montre du
+    // recensement, sinon la premiere image REARMEE porterait tout le temps ecoule pendant
+    // le desarmement et fabriquerait une fenetre fausse.
+    s.census_have = false;
+    s.win_sec = 0.0;
+    s.win_ticks = 0;
   }
+  census_publish();
   if (s.publisher) {
     // `armed` suit desormais l'horloge, pas le nombre de ticks : une image de RENDU
     // SEUL est ARMEE et porte `skip=1`. Publier `armed=0` pour elle rendrait la main

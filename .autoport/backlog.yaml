@@ -1,3 +1,6 @@
+# La seule verite du travail. Une feature = un item.
+# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
+# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: cutscene-npc-flicker
@@ -3251,7 +3254,7 @@ items:
   build: dernier build publie sur jak-builds
 - id: fixed-tick-interpolation
   feature: Le pas de temps fixe et l'interpolation du rendu
-  status: open
+  status: in-progress
   priority: 12
   owner_feedback:
   - date: '2026-08-26'
@@ -3281,7 +3284,10 @@ items:
   - date: '2026-09-05'
     text: Heuuuu ça va pas avec les animations saccadées chronologiquement ? Faut p'tetre reordonner en
       accord
-  gate: null
+  gate:
+    key: tick_rate_dev_pct_x100
+    op: <=
+    value: 100
   game: jak1
   max_turns: 800
   max_retries: 6
@@ -3290,6 +3296,16 @@ items:
   - Gfixed-tick-interpolation
   prompt: prompts/item-fixed-tick-interpolation.md
   owner_ok: null
+  device: false
+  proof_timeout: 180
+  proof_env:
+  - OG_FIXED_TICK=1
+  - OG_FRAME_JITTER_PCT=8
+  - OG_FRAME_LIMIT_FPS=60,20,45,120,30
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
   where: Options > Fixed timestep, puis joue autour de 20 images/s
   delivered: '2026-08-30'
   build: dernier build publie sur jak-builds
