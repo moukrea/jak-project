@@ -250,6 +250,8 @@ bool g_open = false;
 bool g_done = false;
 int g_current_language = -1;
 std::vector<Row> g_rows;
+std::set<std::string> g_seen;
+uint64_t g_notes = 0;
 uint64_t g_uncovered = 0;
 std::vector<std::string> g_uncovered_names;
 
@@ -264,6 +266,8 @@ void begin_census(int current_language) {
   g_open = true;
   g_current_language = current_language;
   g_rows.clear();
+  g_seen.clear();
+  g_notes = 0;
   g_uncovered = 0;
   g_uncovered_names.clear();
 }
@@ -272,9 +276,24 @@ void note_label(int text_id, const char* shown) {
   if (!g_open || g_done) {
     return;
   }
+  // Le nombre BRUT de chaines dessinees qui ont ete rapportees, compte AVANT le
+  // dedoublonnage. Sans lui, `rows` (les chaines DISTINCTES) tombe quand on couvre PLUS de
+  // choses — les quatre carrousels HD LOOK partagent `Original`/`HD`, GRASS DENSITY reprend
+  // les cinq valeurs de SHADOW QUALITY — et une couverture elargie se lirait comme un
+  // retrecissement. Les deux se publient ensemble ou aucun ne veut rien dire.
+  g_notes++;
   Row r;
   r.id = text_id;
   r.shown = shown ? shown : "";
+  // Une meme chaine dessinee par PLUSIEURS rangees ne se juge qu'une fois : les treize bascules
+  // des deux ecrans Recharged dessinent toutes le meme `On` (#x111) et le meme `Off` (#x112),
+  // sortis du meme identifiant de banc. Le verdict est par identifiant ET par langue ; la
+  // multiplicite ne ferait que repeter un meme reproche treize fois. La cle porte la chaine
+  // AFFICHEE, pas seulement l'identifiant : deux rangees qui dessineraient deux textes
+  // differents sous un meme id resteraient deux mesures distinctes du pont GOAL <-> banc.
+  if (!g_seen.insert(fmt::format("{:x}\x1f{}", r.id, r.shown)).second) {
+    return;
+  }
   g_rows.push_back(r);
 }
 
@@ -355,14 +374,18 @@ void end_census() {
     }
   }
 
-  // LES CHAINES STOCK NE SONT PAS JUGEES ICI, ET C'EST DIT. `On` (#x111), `Off` (#x112) et
-  // `Back` (#x13e) sont partagees par TOUT le menu, pas propres au menu Recharged : elles sont
-  // deja redigees a la main dans onze bancs, avec des choix qui varient par langue (fr
-  // « Oui/Non », de « AN/AUS », pl « Wl./Wyl. »), et elles manquent dans douze bancs pour le
-  // menu ENTIER. Les compter ici ferait porter a cet item un defaut qui n'est pas le sien, et les
-  // reecrire serait une regression hors perimetre. Le compte des lignes ecartees est PUBLIE :
-  // une frontiere de perimetre qu'on ne voit pas est un de-scope silencieux.
-  uint64_t stock_skipped = 0;
+  // LES CHAINES STOCK SONT JUGEES ICI, ET C'EST NOUVEAU. `On` (#x111), `Off` (#x112) et `Back`
+  // (#x13e) sont partagees par tout le menu, mais elles sont DESSINEES sur les deux ecrans
+  // Recharged : les treize bascules y ecrivent `On`/`Off` a chaque image, et chacun des deux
+  // ecrans finit par une rangee `Back`. Le cycle precedent les a ecartees en publiant leur
+  // compte — et ce seau ecarte contenait exactement le defaut que l'owner decrit : `AN`/`AUS`/
+  // `ZURUCK` tout en majuscules en de-DE, et les trois identifiants ABSENTS de douze bancs sur
+  // vingt-trois, donc rendus en anglais. Un seau publie mais non juge n'est pas un perimetre,
+  // c'est un angle mort : la porte sortait zero pendant que l'owner lisait le defaut.
+  // Les chaines manquantes ont ete ecrites dans les vingt-trois bancs ; la mesure les couvre
+  // desormais. `stock_judged` compte ce qui etait autrefois hors mesure, et le recensement est
+  // declare VIDE s'il retombe a zero : on ne peut plus re-exclure ces lignes en silence.
+  uint64_t stock_judged = 0;
   uint64_t caps = 0, missing = 0, same_as_en = 0, mismatch = 0;
   std::vector<std::string> first_offenders;
   const auto note_offender = [&](const std::string& s) {
@@ -373,8 +396,7 @@ void end_census() {
 
   for (const auto& row : g_rows) {
     if (row.id < 0x1700) {
-      stock_skipped++;
-      continue;
+      stock_judged++;
     }
     // Le pont GOAL <-> banc, verifie et non suppose : la chaine que le menu DESSINE doit etre
     // celle du banc de la langue courante pour l'identifiant annonce.
@@ -421,12 +443,15 @@ void end_census() {
     }
   }
 
-  const uint64_t rows = (uint64_t)g_rows.size() - stock_skipped;
+  const uint64_t rows = (uint64_t)g_rows.size();
   const uint64_t langs = (uint64_t)banks.size();
   uint64_t defects = g_uncovered + caps + missing + same_as_en + mismatch;
 
-  // Un instrument qui n'a rien regarde ne dit pas « zero ». Voir l'en-tete.
-  const bool vacuous = rows == 0 || langs < 2 || translated.size() < 2;
+  // Un instrument qui n'a rien regarde ne dit pas « zero ». Voir l'en-tete. `stock_judged == 0`
+  // en fait partie : les deux rangees `Back` et les `On`/`Off` des bascules existent toujours
+  // sur ces deux ecrans, donc un zero ici ne peut vouloir dire qu'une chose — quelqu'un a
+  // re-exclu le seau ou le recensement ne passe plus par les rangees. La porte le dit.
+  const bool vacuous = rows == 0 || langs < 2 || translated.size() < 2 || stock_judged == 0;
   if (vacuous) {
     defects = kVacuous;
   }
@@ -434,10 +459,11 @@ void end_census() {
   autoport_proof::note_hit(rows * langs + 1);
   autoport_proof::publish("settings_case_l10n_defects", defects);
   autoport_proof::publish("settings_case_l10n_rows", rows);
+  autoport_proof::publish("settings_case_l10n_drawn", g_notes);
   autoport_proof::publish("settings_case_l10n_langs", langs);
   autoport_proof::publish("settings_case_l10n_langs_translated", (uint64_t)translated.size());
   autoport_proof::publish("settings_case_l10n_uncovered", g_uncovered);
-  autoport_proof::publish("settings_case_l10n_stock_skipped", stock_skipped);
+  autoport_proof::publish("settings_case_l10n_stock_judged", stock_judged);
   autoport_proof::publish("settings_case_l10n_caps", caps);
   autoport_proof::publish("settings_case_l10n_missing", missing);
   autoport_proof::publish("settings_case_l10n_same_as_en", same_as_en);
@@ -452,8 +478,11 @@ void end_census() {
   for (const auto& s : g_uncovered_names) {
     fmt::print("[SCL10N] uncovered {}\n", s);
   }
-  fmt::print("[SCL10N] rows={} langs={} translated={} uncovered={} caps={} missing={} same={} mismatch={}\n",
-             rows, langs, translated.size(), g_uncovered, caps, missing, same_as_en, mismatch);
+  fmt::print(
+      "[SCL10N] drawn={} rows={} stock_judged={} langs={} translated={} uncovered={} caps={} "
+      "missing={} same={} mismatch={}\n",
+      g_notes, rows, stock_judged, langs, translated.size(), g_uncovered, caps, missing,
+      same_as_en, mismatch);
   autoport_proof::flush();
 }
 

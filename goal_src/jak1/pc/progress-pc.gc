@@ -7903,7 +7903,9 @@
 ;; stock), d'ou la confusion. Voir .autoport/reports/Gmenu-census-cleanup/report.txt.
 ;; Gload-custom-assets: label for the "USER TEXTURES" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
-;; Ces trois libelles ne passent PAS par refresh-runtime-option-labels! : ils restent anglais.
+;; Ces trois libelles passent par `refresh-runtime-option-labels!` depuis 2026-09-05 : ils sont
+;; dans `*scl10n-label-ids*` (#x17c1, #x17c2, #x17c3) et suivent la langue du texte. Le
+;; litteral ci-dessous n'est que leur valeur avant le premier chargement de banc.
 (define *load-custom-assets-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *load-custom-assets-label*) "User Textures")
 ;; Grecharged-bundled-textures: label for the "BUILT-IN TEXTURES" on-off toggle in the Recharged
@@ -12472,11 +12474,29 @@
 (define *scl10n-census-done?* #f)
 (define *scl10n-census-ticks* 0)
 
+(defun scl10n-note-bank-string! ((who string) (id int))
+  "Une chaine que `draw-options` va chercher dans le banc par son identifiant, notee AVEC la
+   resolution que le dessin utilise (`lookup-text!` sans repli, exactement comme les lignes
+   11829-11836). Un `#f` en retour est ce que le dessin ecrirait : rien. C'est un defaut, pas
+   une absence de mesure — il part dans le seau INTRADUISIBLE."
+  (let ((s (lookup-text! *common-text* (the-as text-id id) #f)))
+    (if s
+      (__pc-scl10n-label id s)
+      (__pc-scl10n-uncovered (string-format "~S:banc:~D" who id))))
+  (none))
+
 (defun scl10n-scan-rows! ((who string) (arr (array game-option)))
   "Une rangee, telle que `draw-options` la DESSINE : le tampon `name-override` s'il est pose,
    sinon le `:name` resolu dans le banc. Meme test que progress-pc.gc (`nonzero?` sur le
    POINTEUR, pas sur la longueur). Une rangee dont le tampon n'est dans aucune entree de la
-   table est rapportee INTRADUISIBLE."
+   table est rapportee INTRADUISIBLE.
+
+   LA VALEUR AUSSI, PAS SEULEMENT LE LIBELLE. Une bascule dessine son libelle A GAUCHE et son
+   couple `On`/`Off` A DROITE (draw-options, branche `on-off`/`aspect-native`) : les DEUX sont
+   dans l'ecran que l'owner regarde. Ne recenser que le libelle laissait ces chaines-la hors de
+   la mesure, et c'est justement ou vivaient `AN`/`AUS` en capitales et le repli anglais de
+   douze langues. Les DEUX etats sont notes, pas seulement celui qui est actif : le joueur
+   bascule la rangee, et un `Off` casse ne se verrait pas derriere un `On` sain."
   (dotimes (i (length arr))
     (let ((row (-> arr i)))
       (cond
@@ -12487,7 +12507,11 @@
              (__pc-scl10n-uncovered (string-format "~S:~D" who i)))))
         ((nonzero? (-> row name))
          (__pc-scl10n-label (the-as int (-> row name)) (lookup-text! *common-text* (-> row name) #f)))
-        (else (__pc-scl10n-uncovered (string-format "~S:~D" who i))))))
+        (else (__pc-scl10n-uncovered (string-format "~S:~D" who i))))
+      (case (-> row option-type)
+        (((game-option-type on-off) (game-option-type aspect-native))
+         (scl10n-note-bank-string! who (the-as int (text-id on)))
+         (scl10n-note-bank-string! who (the-as int (text-id off)))))))
   (none))
 
 (defun scl10n-scan-carousell! ((arr (array text-id)))
@@ -12506,6 +12530,12 @@
       (set! *scl10n-census-done?* #t)
       (init-game-options (the-as progress #f))
       (__pc-scl10n-begin (the-as int (-> *pc-settings* text-language)))
+      ;; LA RANGEE SUR LAQUELLE L'OWNER CLIQUE. Elle vit sur l'ecran GRAPHISMES
+      ;; (`*graphic-options-pc*` 11, `*graphic-options-pc-android*` 8) et porte le NOM du menu
+      ;; dont il parle : c'est elle qu'il lit avant d'entrer. Elle n'appartient a aucun des deux
+      ;; tableaux recenses ci-dessous, et l'ecran GRAPHISMES entier n'est pas le perimetre de cet
+      ;; item — donc cette rangee-la, et elle seule, est notee a la main.
+      (__pc-scl10n-label #x1706 *recharged-settings-label*)
       (scl10n-scan-rows! "recharged" *recharged-options-pc*)
       (scl10n-scan-rows! "grass" *grass-options-pc*)
       (scl10n-scan-carousell! *carousell-ambient-occlusion*)

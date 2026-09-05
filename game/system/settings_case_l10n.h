@@ -44,9 +44,29 @@
 // fabriquerait 70 faux defauts. Toutes les autres sont entre 0.58 et 0.90. Sans cette mesure,
 // le seuil serait un choix ; avec elle, c'est un fosse.
 //
-// LA VACUITE EST UN ECHEC, PAS UN ZERO. Aucune ligne rapportee, ou moins de deux bancs lus, et
-// le module publie une valeur SENTINELLE hors de portee de la porte : un compteur qui n'a rien
-// regarde ne doit jamais dire « zero defaut ».
+// CE QUI EST DESSINE, PAS SEULEMENT CE QUI EST ETIQUETE (2026-09-05). Le cycle precedent ne
+// jugeait que le LIBELLE d'une rangee et ECARTAIT toute chaine d'identifiant stock (< 0x1700) en
+// publiant leur compte. Ce seau ecarte contenait le defaut de l'owner : les treize bascules des
+// deux ecrans Recharged dessinent `On` (#x111) et `Off` (#x112), chaque ecran finit par `Back`
+// (#x13e), et ces trois identifiants etaient TOUT-MAJUSCULES en de-DE (`AN`/`AUS`/`ZURUCK`) et
+// ABSENTS de douze bancs sur vingt-trois. La porte sortait zero pendant que l'owner lisait le
+// defaut. Un seau publie mais non juge n'est pas un perimetre, c'est un angle mort.
+// Aujourd'hui GOAL note aussi la valeur de chaque bascule et la rangee de l'ecran GRAPHISMES qui
+// porte le nom du menu (#x1706, celle sur laquelle l'owner clique), et le C++ juge TOUT ce qui
+// lui est note. `settings_case_l10n_stock_judged` compte les chaines autrefois hors mesure ; a zero,
+// le recensement est declare VIDE, donc on ne peut plus les re-exclure en silence.
+// Une meme chaine notee par plusieurs rangees n'est jugee qu'une fois : le verdict est par
+// identifiant et par langue. Deux compteurs le disent, et il faut les deux :
+// `settings_case_l10n_drawn` = les chaines dessinees RAPPORTEES, `settings_case_l10n_rows` = les
+// chaines DISTINCTES jugees. Elargir la couverture fait monter le premier et peut faire baisser
+// le second (les quatre carrousels HD LOOK partagent `Original`/`HD` ; GRASS DENSITY reprend les
+// cinq valeurs de SHADOW QUALITY) : lu seul, `rows` ferait passer un elargissement pour un
+// retrecissement.
+//
+// LA VACUITE EST UN ECHEC, PAS UN ZERO. Aucune ligne rapportee, moins de deux bancs lus, moins
+// de deux langues traduites, ou plus aucune chaine stock jugee, et le module publie une valeur
+// SENTINELLE hors de portee de la porte : un compteur qui n'a rien regarde ne doit jamais dire
+// « zero defaut ».
 
 #include <cstdint>
 
