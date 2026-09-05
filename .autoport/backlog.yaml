@@ -42,9 +42,10 @@ items:
   - date: '2026-09-05'
     text: Alors j'ai supprimé les assets sur le HONOR pour mettre ceux de la dernière release sortie et
       mis à jour l'APK... Instant crash au startup
+  device_serial: AREE026206000788
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
-  status: blocked
+  status: open
   priority: 1
   owner_feedback:
   - date: '2026-08-31'
@@ -68,8 +69,11 @@ items:
   - date: '2026-09-05'
     text: Je comprends pas comment tu fais pour pas arriver à régler ça alors qu'on l'a déjà réglé plusieurs
       fois, check l'historique
+  - date: '2026-09-05'
+    text: tu peux en profiter pour le soucis du maire qui disparaît et réaparaît dans la cinématique (ça
+      doit toucher d'autres acteurs mais tu vois le problème dont je parle)
   gate:
-    key: npc_culled_in_frustum
+    key: npc_flicker_episodes
     op: ==
     value: 0
   game: jak1
@@ -108,28 +112,27 @@ items:
     ne sera accepte. | 2026-09-04 : 4e refus. Reproduction chiffree sur Redmi AVANT tout correctif (compteur
     > 0 pendant mayor-introduction). Chercher aussi la REGRESSION : le bug avait ete valide en juillet
     et est revenu.'
-  known_cause: 'Le maire porte deja `culled=1` DANS SA PROPRE SCENE pendant que le compteur de cycles
-    reste a 0 : le culling est range dans une categorie « justifiee » qui ne compte pas. Les trois portes
-    precedentes ont mesure des scenes ou des acteurs qui ne sont pas ceux qui clignotent, et la preuve
-    du 02/09 a ete prise sur PC. | PISTE DEMANDEE PAR L''OWNER (historique, 2026-09-05) : le 2026-08-28,
-    Gfirstperson-hd-hide a corrige EXACTEMENT cette famille de defaut — « le miroir de visibilite HD lisait
-    UN bit d''une porte qui en compte TROIS », Jak HD et Daxter HD restaient masques. Un miroir qui ne
-    lit qu''un bit d''une porte multi-bits est la cause connue la plus proche du clignotement, et elle
-    n''a jamais ete re-verifiee sur le chemin des cinematiques. Verifier AUSSI que ce correctif n''a pas
-    regresse depuis. Second precedent : le 2026-09-01, le compteur qui gardait ce defaut n''avait plus
-    aucun site d''ecriture depuis 28 jours.'
-  deliverable: Zero PNJ ecarte du rendu pendant qu'il est dans le champ de la camera, sur la PREMIERE
-    cinematique du MAIRE, mesure sur le Redmi avec les modeles HD installes, plus une garde de non-regression
-    qui echoue si le symptome revient.
+  known_cause: "LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05\
+    \ : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session\
+    \ de 14h44).\nSCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes\
+    \ DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en\
+    \ visait qu'un :\n  * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas\
+    \ la au moment de dessiner)\n  * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine\
+    \ (soumis au rendu, rien ne sort)\n  * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter\n\
+    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent\
+    \ 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le\
+    \ 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.\nDaxter recidive : 6 episodes longs a\
+    \ lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible.\
+    \ warp-gate-switch-lod0 : 4 episodes.\nNPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0\
+    \ enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des\
+    \ mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT\
+    \ et pourquoi une soumission ne DESSINE pas."
+  deliverable: 'Sur la scene du maire, sur un appareil : zero cycle et zero episode long. Les deux causes
+    dominantes doivent tomber a zero et etre EXPLIQUEES : `modele-absent` (130 occurrences) et `soumis-mais-non-dessine`
+    (210). Le moteur emet `npc_flicker_episodes` = somme des episodes longs toutes causes.'
   out_of_scope: 'Jak et Daxter ne sont pas concernes : l''owner parle des PNJ. Pas de refonte du culling
     general. Aucune capture d''ecran ne vaut preuve.'
-  block_reason: 'Rien a tester : le defaut n''a JAMAIS ete reproduit chez nous. Mesure de l''essai 11
-    : la scene du maire est identique a la milliseconde sur Redmi 20 img/s, PC 60/100/110 img/s, pas fixe
-    arme ou non, HD actif ou non — un seul trou de 15 ms ecrit dans la scene elle-meme. Le maire n''est
-    pas un clone (le correctif du clone ne le touchait pas). Le defaut n''existe que sur le Honor (Snapdragon
-    8 Elite, 60-120 Hz). Le build en ligne ecrit sur le telephone un fichier de diagnostic qui nomme le
-    mecanisme : ON ATTEND CE FICHIER DE L''OWNER. Chemin sur le Honor : /storage/emulated/0/OpenGOAL/jak1/npc_flicker.txt
-    (et npc_flicker.txt.1), a envoyer apres avoir vu le maire clignoter une fois.'
+  block_reason: null
 - id: cutscene-skip
   feature: Passer une cinematique en maintenant Cercle, avec la cartouche « Skip »
   status: validated
