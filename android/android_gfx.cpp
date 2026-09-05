@@ -34,6 +34,7 @@
 #include "game/graphics/opengl_renderer/loader/Loader.h"
 #include "game/graphics/texture/TexturePool.h"
 #include "game/runtime.h"
+#include "game/system/autoport_proof.h"
 
 #include "android_opengl_renderer.h"
 
@@ -396,14 +397,33 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
   auto fr3_dir = file_util::get_fr3_dir(g_game_version);
   const int fr3_levels =
       g_game_version == GameVersion::Jak2 ? jak2::LEVEL_TOTAL : jak1::LEVEL_TOTAL;
-  if (fs::exists(fr3_dir / "GAME.fr3")) {
-    data->loader = std::make_shared<Loader>(fr3_dir, fr3_levels);
-  } else {
-    __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                        "A35-RENDER %s/GAME.fr3 missing — common textures will be "
-                        "checkerboard placeholders",
-                        fr3_dir.string().c_str());
-  }
+  // Ghonor-boot-crash (owner, 2026-09-05 : « Instant crash au startup »). CE `if` ETAIT LA CAUSE.
+  // Il valait `if (fs::exists(fr3_dir / "GAME.fr3"))` et, quand il etait faux, laissait
+  // `data->loader` NUL tout en construisant quand meme le renderer. Or `SharedRenderState::loader`
+  // n'est garde qu'a DEUX endroits (load_common ici, update par image) ; tout le reste du moteur
+  // le deref sans garde — TFragment.cpp:559, Tie3, Shrub, Hfrag, Merc2, CollideMeshRenderer. Le
+  // jeu bootait donc normalement, dessinait 2 images sans geometrie, puis mourait des que le
+  // bucket `l0-tfrag` portait des donnees (entree dans `title`) :
+  //     GK-DIAG sig=11 fault=0x260 ... REG x0=0x260  REG x19=0x0
+  //     TFragment::setup_for_level -> Loader::get_tfrag3_level -> std::mutex::lock -> SIGSEGV
+  // 0x260 = 608 = offsetof(Loader, m_loader_mutex) applique a un `this` NUL : le mutex n'etait pas
+  // « invalide », l'objet Loader n'avait jamais ete construit.
+  //
+  // POURQUOI LE `if` ETAIT FAUX CHEZ L'OWNER, ALORS QUE LE FICHIER EST LA. Le test portait sur un
+  // chemin BRUT (`<game-root>/assets/fr3/GAME.fr3`) qu'AUCUNE lecture de fr3 n'emprunte : toutes
+  // passent par `hd_fr3_path` -> `<base>/enhanced/<name>.fr3`, puis `resolve_fr3_asset`, qui
+  // consulte le pack empaquete dans l'APK. Sur son Honor GAME.fr3 existait DEUX FOIS
+  // (assets/fr3/enhanced/GAME.fr3, 25,4 Mo ; files/custom/jak1/fr3/GAME.fr3, 1,0 Mo, avec les 26
+  // fr3 de niveau dont title.fr3) et nulle part au chemin teste. Le pack d'assets de la derniere
+  // release range les fr3 sous `enhanced/` ; l'ancien les posait a la racine. Remplacer ses assets
+  // suffisait donc a rendre le test faux — sans qu'aucun fichier ne manque reellement.
+  //
+  // LE CORRECTIF EST AU POINT DE PRODUCTION : le Loader est construit INCONDITIONNELLEMENT, comme
+  // sur bureau (game/graphics/pipelines/opengl.cpp:209, sans garde depuis toujours — d'ou un defaut
+  // structurellement inatteignable sur x86). Son constructeur n'ouvre aucun fichier : il lance son
+  // thread et bati ses etages. Un fr3 manquant redevient ce qu'il aurait toujours du etre : un
+  // `get_tfrag3_level` qui rend nullptr et un `setup_for_level` qui sort proprement.
+  data->loader = std::make_shared<Loader>(fr3_dir, fr3_levels);
 
   rss_census::mark("loader-cree");
   data->renderer = std::make_unique<AndroidOpenGLRenderer>(data->texture_pool, data->loader);
@@ -729,6 +749,20 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
 #endif
 
     const u64 n = d->frames_rendered.fetch_add(1) + 1;
+
+    // Ghonor-boot-crash : la grandeur de la porte. « Combien d'images le jeu a-t-il SURVECU depuis
+    // que le rendu a demarre. » Elle est publiee ICI, au seul endroit qui ne peut pas mentir : une
+    // image de plus n'est comptee que si la precedente est revenue vivante de
+    // `dispatch_buckets_*`. Le defaut tuait le process a la 3e image (`A35-RENDER frame=2` est la
+    // derniere ligne du journal du Honor), donc un binaire non corrige ne peut PAS atteindre le
+    // seuil : le compteur s'arrete avec le process. La porte est causale, pas declarative.
+    // `note_hit` est un no-op quand le harnais desarme, ce qui donne `hits=0` au bras d'ablation.
+    autoport_proof::note_hit();
+    autoport_proof::publish("boot_crash_frames_survived", n);
+    if ((n % 60) == 0) {
+      autoport_proof::flush();
+    }
+
     if (n <= 5 || (n % 60) == 0 || st.buckets_skipped > 0) {
       static u32 s_last_logged_skips = 0;
       if (n <= 5 || (n % 60) == 0 || st.buckets_skipped != s_last_logged_skips) {

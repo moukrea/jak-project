@@ -161,12 +161,18 @@ AndroidOpenGLRenderer::AndroidOpenGLRenderer(std::shared_ptr<TexturePool> textur
 
   // Common (GAME.fr3) textures: font, hud, common sprites. Without this
   // every slot the game links resolves to the checkerboard placeholder.
-  if (m_render_state.loader) {
+  // Ghonor-boot-crash : le Loader existe TOUJOURS desormais (android_gfx.cpp), donc la question
+  // n'est plus « ai-je un loader ? » mais « load_common trouvera-t-il son fichier ? ». Elle se pose
+  // avec le resolveur du Loader lui-meme, jamais avec un `fs::exists` sur un chemin brut : c'est
+  // exactement la confusion qui a tue le demarrage chez l'owner. `load_common` leve sur un fichier
+  // absent (read_binary_file), c'est la SEULE raison pour laquelle un test est necessaire ici.
+  if (m_render_state.loader && m_render_state.loader->common_level_exists("GAME")) {
     m_common_level = &m_render_state.loader->load_common(*m_render_state.texture_pool, "GAME");
     lg::info("A35-RENDER common level (GAME.fr3) loaded");
   } else {
     __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                        "A35-RENDER no loader — textures will be placeholders");
+                        "A35-RENDER GAME.fr3 introuvable par le resolveur — textures en damier "
+                        "(le jeu continue : le loader existe, les niveaux rendront nullptr)");
   }
 
   if (g_game_version == GameVersion::Jak2) {

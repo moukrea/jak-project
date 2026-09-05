@@ -49,6 +49,13 @@ class Loader {
   const LevelData* get_tfrag3_level(const std::string& level_name);
   std::optional<MercRef> get_merc_model(const char* model_name);
   const tfrag3::Level& load_common(TexturePool& tex_pool, const std::string& name);
+  // Ghonor-boot-crash : « est-ce que load_common(name) trouverait son fichier ? », pose avec LE
+  // MEME resolveur que load_common (hd_fr3_path : `<base>/enhanced/<name>.fr3` puis
+  // file_util::resolve_fr3_asset, qui consulte le pack empaquete dans l'APK). L'appelant Android
+  // testait `fs::exists(<base>/<name>.fr3)`, un chemin BRUT qu'aucune lecture de fr3 n'emprunte :
+  // sur le Honor de l'owner GAME.fr3 etait present DEUX FOIS (assets/fr3/enhanced/GAME.fr3 et
+  // files/custom/jak1/fr3/GAME.fr3) et absent de ce chemin-la. Voir le pave d'android_gfx.cpp.
+  bool common_level_exists(const std::string& name) const;
   void set_want_levels(const std::vector<std::string>& levels);
   void set_active_levels(const std::vector<std::string>& levels);
   std::vector<LevelData*> get_in_use_levels();

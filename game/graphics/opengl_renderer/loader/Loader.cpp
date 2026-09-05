@@ -379,6 +379,20 @@ static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
   return file_util::resolve_fr3_asset(base, fmt::format("{}.fr3", name)).path;
 }
 
+// Ghonor-boot-crash : les DEUX candidats que `hd_fr3_path` peut rendre, testes sans dependre du
+// bascule « modeles ameliores ». On ne peut pas simplement appeler `hd_fr3_path` : c'est
+// `load_common` qui seme `recharged_enhanced_models` a son PREMIER appel, donc un test pose avant
+// lirait un bascule perime et pourrait rater le fichier enhanced. On teste donc les deux.
+bool Loader::common_level_exists(const std::string& name) const {
+#ifdef OG_FEAT_HD_MODELS
+  if (file_util::file_exists((m_base_path / "enhanced" / fmt::format("{}.fr3", name)).string())) {
+    return true;
+  }
+#endif
+  return file_util::file_exists(
+      file_util::resolve_fr3_asset(m_base_path, fmt::format("{}.fr3", name)).path.string());
+}
+
 // Grecharged-hd-models2: objective loaded-model discriminator. The bake-time "Replacing" line
 // (extract_merc.cpp) never appears at runtime, so a capture alone can't prove WHICH mesh (stock vs
 // HD) was loaded under a merc name. Log per-model triangle/draw counts at fr3 load so every run
