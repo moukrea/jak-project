@@ -67,6 +67,7 @@ struct State {
   bool have_prev = false;
   bool prev_judged = false;
   double prev_pose = 0.0;
+  double prev_pose_push = 0.0;
   double prev_real = 0.0;
 
   double err_max = 0.0;         // ticks, sur les pas JUGES (alpha reellement consomme)
@@ -214,7 +215,12 @@ void on_render_frame(u64 anim_interp_n) {
     // rien, ni dans un sens ni dans l'autre : elle est comptee a part, pas noyee dedans.
     const bool judged = retimed || s.pending_alpha >= 1000000;
     if (s.have_prev) {
-      const double e_push = std::fabs((pose_push - s.prev_pose) - (s.sum_real - s.prev_real));
+      // DEUX REFERENCES, DEUX SUITES. Compare l'alpha pousse a l'alpha pousse de l'image
+      // d'AVANT, jamais a l'alpha effectif : melanger les deux reperes fabrique un ecart d'un
+      // tick entier sur toute image qui change de regime, et ce chiffre-la ne decrit alors
+      // aucun defaut. `err_max_pushed` repond a une seule question : de combien la mesure
+      // changerait si l'alpha pousse etait lu PARTOUT.
+      const double e_push = std::fabs((pose_push - s.prev_pose_push) - (s.sum_real - s.prev_real));
       if (e_push > s.err_max_pushed) {
         s.err_max_pushed = e_push;
       }
@@ -227,6 +233,7 @@ void on_render_frame(u64 anim_interp_n) {
       }
     }
     s.prev_pose = pose;
+    s.prev_pose_push = pose_push;
     s.prev_real = s.sum_real;
     s.prev_judged = judged;
     s.have_prev = true;
