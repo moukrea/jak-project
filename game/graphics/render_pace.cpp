@@ -115,6 +115,23 @@ struct State {
   int pending_bucket = -1;
   int prev_bucket = -1;
   u64 straddle_dropped = 0;
+
+  // ----------------------------------------------- LA SONDE DE POSE DESSINEE ----------
+  // L'essai 5 mesurait un MODELE. Ces champs-ci suivent ce que GOAL a REELLEMENT dessine.
+  bool have_prev_probe = false;
+  u64 prev_probe_n = 0;
+  u32 prev_probe_id = 0;
+  s32 prev_probe_rate_q = 0;
+  double prev_probe_ticks = 0.0;
+  u64 probe_samples = 0;    // images ou GOAL a depose un echantillon
+  u64 probe_rejected = 0;   // echantillons ecartes (identite changee, bouclage, taux nul)
+  // POURQUOI un pas est ecarte. Un total d'ecarts ne dit pas quoi reparer : 15049 rejets sur
+  // 15055 echantillons se lisaient « la sonde ne marche pas » sans dire lequel des trois
+  // predicats mordait. Chacun est donc compte separement.
+  u64 rej_id = 0;    // l'ANIMATION (frame-group) a change entre les deux images
+  u64 rej_rate = 0;  // le TAUX a change : le pas n'a plus de reference
+  u64 rej_step = 0;  // pas negatif ou hors bande : bouclage d'animation
+  GoalReadout last_readout{};
 };
 
 // Un seau de mesure = un segment de cadence du balayage.
@@ -135,6 +152,9 @@ struct Bucket {
   u64 present_n = 0;         // dispersion de l'intervalle de SWAP (fil GL, Android)
   double present_sum = 0.0;
   double present_sum2 = 0.0;
+  u64 dsteps = 0;      // pas de pose DESSINEE juges (sonde GOAL)
+  double dsum = 0.0;   // somme de d(n) = pas de pose dessine - temps reel, en ticks
+  double dsum2 = 0.0;
 };
 
 std::mutex& present_mutex() {
@@ -340,6 +360,7 @@ void publish() {
     const Sweep& sw = sweep();
     const int nb = sw.configured ? (int)sw.fps.size() : 1;
     double worst = 0.0, worst_raw = 0.0, worst_ee = 0.0, worst_present = 0.0;
+    double worst_model = 0.0;
     double worst_fps = 0.0;
     bool missing = false;
     for (int b = 0; b < nb; b++) {
@@ -347,18 +368,30 @@ void publish() {
       const double fps_nom = sw.configured ? sw.fps[b] : 0.0;
       const int key_fps = (int)(fps_nom > 0.0 ? fps_nom + 0.5 : target_fps() + 0.5);
       const bool enough = q.steps >= kMinSegSteps;
-      const double sd = enough ? stddev(q.sum_e, q.sum_e2, q.steps) : 0.0;
+      const double sd_model = enough ? stddev(q.sum_e, q.sum_e2, q.steps) : 0.0;
       const double sd_raw = enough ? stddev(q.sum_raw, q.sum_raw2, q.steps) : 0.0;
       if (!enough) {
         missing = true;
       } else {
-        if (sd > worst) {
-          worst = sd;
-          worst_fps = fps_nom;
+        // LE MODELE NE GOUVERNE PLUS LA PORTE. Il garde son propre pire cas, publie a cote.
+        if (sd_model > worst_model) {
+          worst_model = sd_model;
         }
         if (sd_raw > worst_raw) {
           worst_raw = sd_raw;
         }
+      }
+
+      // ------------------------------------------------- LA GRANDEUR DE LA PORTE --------
+      // Ecart type de d(n) = (pas de la pose REELLEMENT DESSINEE, lue dans
+      // `*anim-probe-frame*`) - (temps reel de l'image). Aucun modele C++ n'intervient.
+      const bool denough = q.dsteps >= kMinSegSteps;
+      const double sd_drawn = denough ? stddev(q.dsum, q.dsum2, q.dsteps) : 0.0;
+      if (!denough) {
+        missing = true;   // une cadence sans pose MESUREE n'est pas une cadence propre
+      } else if (sd_drawn > worst) {
+        worst = sd_drawn;
+        worst_fps = fps_nom;
       }
       const double sd_ee = stddev(q.ee_sum, q.ee_sum2, q.ee_n);
       if (sd_ee > worst_ee) {
@@ -373,7 +406,10 @@ void publish() {
         worst_present = sd_present;
       }
       autoport_proof::publish(fmt::format("anim_step_jitter_{}_us", key_fps).c_str(),
-                              enough ? (u64)(sd * us_per_tick + 0.5) : kNoMeasurement);
+                              denough ? (u64)(sd_drawn * us_per_tick + 0.5) : kNoMeasurement);
+      autoport_proof::publish(fmt::format("anim_probe_steps_{}", key_fps).c_str(), q.dsteps);
+      autoport_proof::publish(fmt::format("anim_step_model_jitter_{}_us", key_fps).c_str(),
+                              enough ? (u64)(sd_model * us_per_tick + 0.5) : kNoMeasurement);
       autoport_proof::publish(fmt::format("anim_step_steps_{}", key_fps).c_str(), q.steps);
       // Cadence REELLEMENT atteinte, x100. Une cadence demandee que l'appareil ne tient pas
       // est un PLAFOND, pas une mesure : sans cette ligne, un segment a 90 demande / 58 tenu
@@ -386,6 +422,8 @@ void publish() {
     autoport_proof::publish("anim_step_jitter_worst_us",
                             missing ? kNoMeasurement : (u64)(worst * us_per_tick + 0.5));
     autoport_proof::publish("anim_step_jitter_worst_fps", (u64)(worst_fps + 0.5));
+    autoport_proof::publish("anim_step_model_jitter_worst_us",
+                            (u64)(worst_model * us_per_tick + 0.5));
     autoport_proof::publish("anim_step_rawjit_worst_us",
                             missing ? kNoMeasurement : (u64)(worst_raw * us_per_tick + 0.5));
     autoport_proof::publish("anim_step_straddle_dropped", s.straddle_dropped);
@@ -435,6 +473,42 @@ void publish() {
         autoport_proof::publish(gkey, buckets()[found].on_grid);
       }
     }
+
+    // RECENSEMENT DES POSES NON RETIMEES, PAR CAUSE. Le modele de l'essai 5 ne pouvait pas les
+    // voir : il ne decrivait que le canal `frame-num`. Ces chiffres disent OU la pose saute.
+    const GoalReadout& g = state().last_readout;
+    autoport_proof::publish("anim_cen_total", g.cen_total);
+    autoport_proof::publish("anim_cen_ident", g.cen_ident);
+    autoport_proof::publish("anim_cen_zero", g.cen_zero);
+    autoport_proof::publish("anim_cen_blend", g.cen_blend);
+    autoport_proof::publish("anim_cen_done", g.cen_done);
+    autoport_proof::publish("anim_cen_static", g.cen_static);
+    autoport_proof::publish("anim_cen_seekend", g.cen_seekend);
+    autoport_proof::publish("anim_cen_other", g.cen_other);
+    autoport_proof::publish("anim_djm_total", g.djm_total);
+    autoport_proof::publish("anim_djm_shift", g.djm_shift);
+    autoport_proof::publish("anim_djm_noroot", g.djm_noroot);
+    autoport_proof::publish("anim_djm_rotv", g.djm_rotv);
+    autoport_proof::publish("anim_probe_samples", state().probe_samples);
+    autoport_proof::publish("anim_probe_rejected", state().probe_rejected);
+    autoport_proof::publish("anim_probe_rej_id", state().rej_id);
+    // LES VALEURS BRUTES DE LA DERNIERE IMAGE. 15169 rejets pour 10 causes nommees : le
+    // predicat de base mordait, et un compteur de rejets ne dit pas LAQUELLE de ses cinq
+    // clauses. On publie donc ce que GOAL a reellement depose, sans interpretation.
+    autoport_proof::publish("anim_probe_raw_id", (u64)g.probe_id);
+    autoport_proof::publish("anim_probe_raw_rate_q", (u64)(s64)g.probe_rate_q);
+    autoport_proof::publish("anim_probe_raw_frame_q", (u64)(s64)g.probe_frame_q);
+    autoport_proof::publish("anim_probe_raw_p0_q", (u64)(s64)g.probe_p0_q);
+    autoport_proof::publish("anim_probe_branch", (u64)g.probe_br);
+    // Le k de GOAL contre le k du C++, en ticks x1000. Un ecart qui CROIT dit que les deux
+    // horloges ne comptent pas la meme chose ; un ecart nul innocente le compte et accuse le
+    // retimeur lui-meme.
+    autoport_proof::publish("anim_goal_ksum_x1000",
+                            (u64)((double)g.goal_ksum_q * 1000.0 / 1024.0 + 0.5));
+    autoport_proof::publish("anim_cpp_ksum_x1000", (u64)(state().sum_pose * 1000.0 + 0.5));
+    autoport_proof::publish("anim_probe_rej_rate", state().rej_rate);
+    autoport_proof::publish("anim_probe_rej_step", state().rej_step);
+    autoport_proof::publish("anim_probe_n", g.probe_n);
   }
 }
 
@@ -546,7 +620,7 @@ u64 ee_timer() {
   return s.virtual_ee;
 }
 
-void on_render_frame(u64 anim_interp_n) {
+void on_render_frame(const GoalReadout& g) {
   State& s = state();
 
   // ------------------------------------------------------------- solde de l'image d'avant --
@@ -554,8 +628,9 @@ void on_render_frame(u64 anim_interp_n) {
   // reellement retimes (process-drawable-h.gc:176) et l'arbre des process a tourne entre
   // l'appel precedent et celui-ci. Un alpha pousse mais jamais lu se solde a 1,0 : la mesure
   // decrit ce qui a ete DESSINE, pas ce qu'on a voulu pousser.
-  const bool retimed = anim_interp_n > s.prev_anim_interp_n;
-  s.prev_anim_interp_n = anim_interp_n;
+  const bool retimed = g.anim_interp_n > s.prev_anim_interp_n;
+  s.prev_anim_interp_n = g.anim_interp_n;
+  s.last_readout = g;
 
   if (s.pending) {
     if (retimed) {
@@ -628,6 +703,57 @@ void on_render_frame(u64 anim_interp_n) {
           // du segment qui commence. Un seul pas par frontiere, donc au plus n-1 par cycle.
           s.straddle_dropped++;
         }
+      }
+    }
+
+    // ------------------------------------------- LA POSE REELLEMENT DESSINEE ------------
+    // ALIGNEMENT. `s.pending_*` decrit l'image preparee a l'appel PRECEDENT ; l'arbre des
+    // process a tourne entre cet appel-la et celui-ci, donc la valeur que GOAL vient de
+    // deposer EST la pose de cette image. Son pas se compare donc a `pending_inc_raw`, le
+    // temps reel qui gouvernait cette meme image. Un decalage d'une image injecterait ici la
+    // gigue de l'affichage elle-meme (9846 us d'ecart type mesures sur l'appareil).
+    {
+      const double rate = (double)g.probe_rate_q / 65536.0;
+      const double frame = (double)g.probe_frame_q / 65536.0;
+      const bool fresh = g.probe_n > s.prev_probe_n;
+      if (fresh) {
+        s.probe_samples++;
+      }
+      const bool base_ok = fresh && g.probe_id != 0 && g.probe_rate_q > 0 && s.have_prev_probe;
+      if (base_ok && g.probe_id != s.prev_probe_id) {
+        s.rej_id++;
+      } else if (base_ok && g.probe_rate_q != s.prev_probe_rate_q) {
+        s.rej_rate++;
+      }
+      const bool usable = base_ok && g.probe_id == s.prev_probe_id &&
+                          g.probe_rate_q == s.prev_probe_rate_q;
+      const double ticks = (rate > 0.0) ? (frame / rate) : 0.0;
+      if (usable) {
+        const double step = ticks - s.prev_probe_ticks;
+        // Un pas negatif ou enorme est un BOUCLAGE d'animation ou un changement de groupe :
+        // il ne decrit pas la fluidite. Il est ecarte ET COMPTE, jamais absorbe dans la moyenne.
+        if (step > 0.0 && step < kMaxTicks * 3.0) {
+          const double d = step - s.pending_inc_raw;
+          const int bb = s.pending_bucket;
+          if (bb >= 0 && bb < kMaxSegments && s.prev_bucket == bb) {
+            Bucket& qd = buckets()[bb];
+            qd.dsteps++;
+            qd.dsum += d;
+            qd.dsum2 += d * d;
+          }
+        } else {
+          s.probe_rejected++;
+          s.rej_step++;
+        }
+      } else if (fresh && s.have_prev_probe) {
+        s.probe_rejected++;
+      }
+      if (fresh) {
+        s.prev_probe_n = g.probe_n;
+        s.prev_probe_id = g.probe_id;
+        s.prev_probe_rate_q = g.probe_rate_q;
+        s.prev_probe_ticks = ticks;
+        s.have_prev_probe = true;
       }
     }
     s.prev_bucket = b;

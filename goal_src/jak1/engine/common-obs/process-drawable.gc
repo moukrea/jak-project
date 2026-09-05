@@ -245,20 +245,34 @@
   ;; grandeur que l'integrateur de collision utilise (collide-shape.gc:785) — puis on la
   ;; RESTAURE avant de rendre la main. Aucun etat de jeu n'est touche : c'est du rendu seul,
   ;; comme le scratch de `cam-render-interp!`.
+  ;; anim-interp-low-fps essai 6 — l'acteur SONDE. `*anim-probe-on*` n'est vrai que pendant le
+  ;; calcul de pose de CET acteur, de sorte que la sonde de `joint-channel-render-frame` ne
+  ;; capte pas un canal quelconque du monde. RECENSEMENT a cote : une racine non decalee et une
+  ;; rotation non retimee sont des poses qui sautent, et aucune ne se voit dans le modele C++.
+  (+! *djm-total* 1)
+  (set! *anim-probe-on* (if (and *target* (= (the-as process-drawable *target*) obj)) 1 0))
   (let ((rp-saved (new-stack-vector0))
         (rp-shift #f))
-    (when (and (nonzero? *anim-interp-on*)
-               (< *anim-interp-alpha* 1.0)
-               (nonzero? (-> obj root))
-               (type-type? (-> obj root type) trsqv))
-      (let ((rp-root (the-as trsqv (-> obj root)))
-            (rp-step (new-stack-vector0)))
-        (set! (-> rp-saved quad) (-> rp-root trans quad))
-        (set! rp-shift #t)
-        (vector-float*! rp-step
-                        (-> rp-root transv)
-                        (* (- *anim-interp-alpha* 1.0) (* 0.016666668 *render-pace-ratio*)))
-        (vector+! (-> rp-root trans) (-> rp-root trans) rp-step)))
+    (if (and (nonzero? *anim-interp-on*)
+             (< *anim-interp-alpha* 1.0)
+             (nonzero? (-> obj root))
+             (type-type? (-> obj root type) trsqv))
+        (begin
+          (let ((rp-root (the-as trsqv (-> obj root)))
+                (rp-step (new-stack-vector0)))
+            (set! (-> rp-saved quad) (-> rp-root trans quad))
+            (set! rp-shift #t)
+            (+! *djm-shift* 1)
+            ;; Seul `trans` est decale. `quat`/`rot` sont pris tels quels par `matrix<-transformq!`
+            ;; (joint.gc:1188) : la ROTATION monde avance donc par ticks ENTIERS. On la recense,
+            ;; on ne la corrige pas dans cette passe.
+            (if (!= 0.0 (+ (fabs (-> rp-root rotv x)) (fabs (-> rp-root rotv y)) (fabs (-> rp-root rotv z))))
+                (+! *djm-rotv* 1))
+            (vector-float*! rp-step
+                            (-> rp-root transv)
+                            (* (- *anim-interp-alpha* 1.0) (* 0.016666668 *render-pace-ratio*)))
+            (vector+! (-> rp-root trans) (-> rp-root trans) rp-step)))
+        (+! *djm-noroot* 1))
   (cond
     ((logtest? (-> obj draw status) (draw-status hidden no-anim)))
     ((zero? (-> obj skel))
@@ -302,7 +316,8 @@
     ;; anim-interp-low-fps : la position monde revient a sa valeur de simulation AVANT tout ce
     ;; qui suit (physique secondaire, debug) et avant que le process ne reprenne la main.
     (when rp-shift
-      (set! (-> (the-as trsqv (-> obj root)) trans quad) (-> rp-saved quad))))
+      (set! (-> (the-as trsqv (-> obj root)) trans quad) (-> rp-saved quad)))
+    (set! *anim-probe-on* 0))
   (#when PC_PORT
     (when *debug-segment*
       (if *display-bones* (draw-bone-lines obj))

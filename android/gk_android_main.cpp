@@ -793,11 +793,39 @@ static void a35_gfps_frame_tick() {
   // `*anim-interp-n*` est un symbole JAK 1 ; ce meme corps sert aussi a jak2, dont la table
   // de symboles est une autre. On ne l'interroge donc que pour jak1 : ailleurs la mesure vaut
   // simplement zero et le module se comporte a l'identique.
-  u64 anim_interp_n = 0;
+  // La grandeur de la porte est desormais LUE dans `*anim-probe-frame*` : la pose que
+  // `build-requests!` (engine/anim/joint.gc:224) a REELLEMENT convertie en base-frame +
+  // frac-frame, et non un modele tenu en C++ qui ne voyait que le canal `frame-num`. MEME
+  // lecture qu'au bureau (send_gfx_dma_chain, game/kernel/common/kmachine.cpp) : ce sont DEUX
+  // corps distincts pour le meme symbole GOAL, et n'en cabler qu'un laisserait l'arm64 — la
+  // plateforme sur laquelle la preuve est exigee — sur l'ancien chemin sans que rien ne le
+  // dise. Les champs `*_bits` sont des MOTIFS DE BITS de flottants GOAL : la valeur du symbole
+  // EST le mot de 32 bits du flottant, jamais un entier a convertir.
+  render_pace::GoalReadout g;
   if (g_game_version == GameVersion::Jak1) {
-    anim_interp_n = jak1::intern_from_c("*anim-interp-n*")->value;
+    auto rd = [](const char* n) -> u64 { return (u64)jak1::intern_from_c(n)->value; };
+    g.anim_interp_n = rd("*anim-interp-n*");
+    g.probe_n = rd("*anim-probe-n*");
+    g.probe_frame_q = (s32)(u32)rd("*anim-probe-frame-q*");
+    g.probe_rate_q = (s32)(u32)rd("*anim-probe-rate-q*");
+g.probe_p0_q = (s32)(u32)rd("*anim-probe-p0-q*");
+g.probe_br = (u32)rd("*anim-probe-br*");
+g.goal_ksum_q = (s32)(u32)rd("*anim-goal-ksum-q*");
+    g.probe_id = (u32)rd("*anim-probe-id*");
+    g.cen_total = rd("*anim-cen-total*");
+    g.cen_ident = rd("*anim-cen-ident*");
+    g.cen_zero = rd("*anim-cen-zero*");
+    g.cen_blend = rd("*anim-cen-blend*");
+    g.cen_done = rd("*anim-cen-done*");
+    g.cen_static = rd("*anim-cen-static*");
+    g.cen_seekend = rd("*anim-cen-seekend*");
+    g.cen_other = rd("*anim-cen-other*");
+    g.djm_total = rd("*djm-total*");
+    g.djm_shift = rd("*djm-shift*");
+    g.djm_noroot = rd("*djm-noroot*");
+    g.djm_rotv = rd("*djm-rotv*");
   }
-  render_pace::on_render_frame(anim_interp_n);
+  render_pace::on_render_frame(g);
   const long k = (long)render_pace::last_k();
   const double deficit = render_pace::last_deficit();
   g_gfps_virtual = render_pace::ee_timer();

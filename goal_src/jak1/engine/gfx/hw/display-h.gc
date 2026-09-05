@@ -258,6 +258,63 @@
 (define *anim-interp-alpha* 1.0)
 (define *anim-interp-n* 0)
 
+;; anim-interp-low-fps essai 6 — SONDE DE POSE DESSINEE ET RECENSEMENT PAR CAUSE.
+;; La grandeur de la porte de l'essai 5 etait un MODELE tenu en C++ (`pose = E - (1-alpha)*k`) :
+;; elle ne lisait AUCUNE valeur produite par GOAL, donc elle restait verte quel que soit le
+;; nombre de poses non retimees. Ces symboles-ci sont lus par le natif a chaque image
+;; (kmachine.cpp `send_gfx_dma_chain`) et remplacent le modele par une lecture.
+(define *anim-probe-on* 0)      ;; 1 pendant do-joint-math! de l'acteur sonde (recensement seul)
+;; La sonde ADOPTE le premier canal eligible de chaque image et le garde tant que son
+;; `frame-group` ne change pas. Restreinte a `*target*`, elle n'a tire que 10 fois sur
+;; 15720 images (mesure x86 du 2026-09-05) : le canal 0 de Jak n'avance presque jamais a
+;; taux constant. Une sonde qui ne tire pas ne publie pas un vert, elle publie
+;; `kNoMeasurement` -- mais elle ne mesure rien non plus.
+(define *anim-probe-seen* 0)    ;; 1 des qu'un canal a ete echantillonne pour CETTE image
+;; VERROU D'ACTEUR. Adopter « le premier canal eligible de l'image » ne suffit pas :
+;; l'ordre de l'arbre des process change, et 15049 pas sur 15055 ont ete JETES parce que
+;; l'identite changeait d'une image a l'autre (mesure x86 du 2026-09-05). La sonde se
+;; verrouille donc sur UN `joint-control` — un acteur — et ne le lache que s'il disparait.
+;; Le `frame-group` reste publie a cote : le natif jette le pas si l'ANIMATION change.
+(define *anim-probe-key* 0)     ;; joint-control verrouille (identite de l'ACTEUR)
+(define *anim-probe-miss* 1)    ;; le verrou n'a pas repondu a l'image precedente : readopter
+(define *anim-probe-n* 0)       ;; nombre d'echantillons de pose deposes
+;; EN VIRGULE FIXE, x65536, ET PAS EN FLOTTANT. Mesure du 2026-09-05 : un symbole GOAL
+;; ENTIER traverse `intern_from_c().value` sans probleme (`*anim-probe-id*` a rendu 51730292),
+;; un symbole FLOTTANT rend un motif de bits NUL — 15109 pas sur 15113 jetes pour cette seule
+;; raison. On convertit donc cote GOAL. Resolution 1/65536 de frame, soit 0,25 us a un tick par
+;; frame : trois ordres de grandeur sous le seuil de 500 us de la porte.
+(define *anim-probe-frame-q* 0) ;; frame-num DESSINE x65536
+(define *anim-probe-rate-q* 0)  ;; pas d'UN tick a ratio 1 x65536 : param0 * speed
+(define *anim-probe-p0-q* 0)    ;; param0 seul x65536 : separe « flottant muet » de « speed nulle »
+;; QUELLE BRANCHE le canal SONDE a-t-il prise ? 1 = sortie en identite (ablation, alpha>=1,
+;; spool), 2 = delta nul, 3 = REELLEMENT retime. La sonde mesure 7222 us de gigue a 45 img/s
+;; la ou le modele en annonce 153 : il faut savoir si le retimeur s'applique et se trompe,
+;; ou s'il ne s'applique pas du tout. Un total de canaux retimes ne repond pas pour CE canal.
+(define *anim-probe-br* 0)
+;; LE k QUE GOAL A REELLEMENT APPLIQUE, x65536, cumule. Le modele C++ additionne SON k ;
+;; la sonde lit une pose avancee par `time-adjust-ratio`. Si les deux k divergent, le
+;; modele reste vert et la pose saute — c'est exactement l'ecart de 7222 us contre 153
+;; mesure a 45 img/s. On publie donc la somme des k de GOAL pour la comparer a celle du C++.
+(define *anim-goal-ksum-q* 0)  ;; x1024
+(define *anim-probe-id* 0)      ;; identite (frame-group) du canal ; un changement invalide le pas
+;; Recensement des poses NON retimees. Recense le GESTE, pas le predicat : un recensement
+;; par SITE rendrait zero alors que le defaut est dans le nombre d'occurrences par cause.
+(define *anim-cen-total* 0)     ;; appels a joint-channel-render-frame
+(define *anim-cen-ident* 0)     ;; sortie en identite : ablation, alpha>=1.0, ou canal spool
+(define *anim-cen-zero* 0)      ;; delta = 0 : num-func hors des quatre traites, ou seek a la cible
+;; `anim_cen_zero` vaut 59 % des canaux (413912 / 697775, x86 2026-09-05). Un seul chiffre
+;; ne dit pas si c'est un DEFAUT : une pose statique n'a rien a retimer. On l'audite donc
+;; par VALEUR de `num-func`, pas par site.
+(define *anim-cen-static* 0)    ;; none/identity : frame-num n'avance pas -- rien a retimer, PAS un defaut
+(define *anim-cen-seekend* 0)   ;; seek! arrive a la cible : pas nul, reponse conservatrice
+(define *anim-cen-other* 0)     ;; delta nul SANS raison connue : c'est la seule part suspecte
+(define *anim-cen-blend* 0)     ;; canaux num-func-blend-in! : c'est frame-interp qui avance, jamais retime
+(define *anim-cen-done* 0)      ;; poses reellement retimees
+(define *djm-total* 0)          ;; appels a do-joint-math!
+(define *djm-shift* 0)          ;; racine decalee (trans seulement)
+(define *djm-noroot* 0)         ;; root absente ou pas un trsqv : racine NON decalee
+(define *djm-rotv* 0)           ;; rotv non nulle : la ROTATION monde n'est PAS retimee
+
 ;; anim-interp-low-fps — L'IMAGE DE RENDU SEUL, HORS HORLOGE A PAS FIXE.
 ;; `*render-pace-skip*`  1 quand l'image DESSINEE qu'on prepare ne porte aucun tick de
 ;;                       logique (l'affichage va plus vite que la cadence cible).

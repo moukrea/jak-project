@@ -257,7 +257,7 @@ items:
   - OG_WANT_LEVELS=village1,beach
   - OG_WANT_DISPLAY=beach,display
   proof_props:
-  - debug.opengoal.frame.limit=30,45,50,60,75,90@20
+  - debug.opengoal.frame.limit=60,30,20,18,16,15@25
   - debug.opengoal.render.scale=25
   - debug.opengoal.level.warp=village1-hut
   - debug.opengoal.level.warp.pos=-116 14 40

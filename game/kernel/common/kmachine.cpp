@@ -543,12 +543,37 @@ void send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
   // On passe `*anim-interp-n*` — le nombre cumule de canaux d'animation REELLEMENT retimes
   // (process-drawable-h.gc:176) — parce que la mesure d'erreur doit se faire au point de
   // LECTURE : un alpha pousse que personne ne lit se solde a 1,0 dans le chiffre publie.
-  u64 anim_interp_n = 0;
-  if (g_pc_port_funcs.intern_from_c) {
-    anim_interp_n = g_pc_port_funcs.intern_from_c("*anim-interp-n*").value;
-  }
-  render_pace::on_render_frame(anim_interp_n);
-  fixed_tick::on_render_frame(anim_interp_n);
+  // La grandeur de la porte est desormais LUE dans `*anim-probe-frame*` : la pose que
+  // `build-requests!` (engine/anim/joint.gc:224) a REELLEMENT convertie en base-frame +
+  // frac-frame. Un modele tenu en C++ ne voyait que le canal `frame-num` et restait vert sur
+  // les poses non retimees. Les deux champs `*_bits` sont des MOTIFS DE BITS de flottants
+  // GOAL : `intern_from_c().value` rend le mot de 32 bits, jamais un entier a convertir.
+  auto rd = [](const char* n) -> u64 {
+    return g_pc_port_funcs.intern_from_c ? (u64)g_pc_port_funcs.intern_from_c(n).value : 0;
+  };
+  render_pace::GoalReadout g;
+  g.anim_interp_n = rd("*anim-interp-n*");
+  g.probe_n = rd("*anim-probe-n*");
+  g.probe_frame_q = (s32)(u32)rd("*anim-probe-frame-q*");
+  g.probe_rate_q = (s32)(u32)rd("*anim-probe-rate-q*");
+g.probe_p0_q = (s32)(u32)rd("*anim-probe-p0-q*");
+g.probe_br = (u32)rd("*anim-probe-br*");
+g.goal_ksum_q = (s32)(u32)rd("*anim-goal-ksum-q*");
+  g.probe_id = (u32)rd("*anim-probe-id*");
+  g.cen_total = rd("*anim-cen-total*");
+  g.cen_ident = rd("*anim-cen-ident*");
+  g.cen_zero = rd("*anim-cen-zero*");
+  g.cen_blend = rd("*anim-cen-blend*");
+  g.cen_done = rd("*anim-cen-done*");
+  g.cen_static = rd("*anim-cen-static*");
+  g.cen_seekend = rd("*anim-cen-seekend*");
+  g.cen_other = rd("*anim-cen-other*");
+  g.djm_total = rd("*djm-total*");
+  g.djm_shift = rd("*djm-shift*");
+  g.djm_noroot = rd("*djm-noroot*");
+  g.djm_rotv = rd("*djm-rotv*");
+  render_pace::on_render_frame(g);
+  fixed_tick::on_render_frame(g.anim_interp_n);
   if (Gfx::GetCurrentRenderer()) {
     Gfx::GetCurrentRenderer()->send_chain(g_ee_main_mem, chain);
   }

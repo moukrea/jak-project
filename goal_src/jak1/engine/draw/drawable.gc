@@ -1106,6 +1106,15 @@
       (set! *anim-interp-alpha*
             (/ (the float (if (nonzero? *fixed-tick-armed*) *fixed-tick-alpha* (pc-camera-interp-alpha)))
                1000000.0)))
+    ;; anim-interp-low-fps essai 6 — REARMEMENT DE LA SONDE DE POSE. Elle adopte le premier
+    ;; canal eligible de l'image ; sans cette remise a zero elle n'echantillonnerait que la
+    ;; toute premiere image de la course. C'est le seul endroit qui tourne EXACTEMENT une fois
+    ;; par image dessinee, et il tourne AVANT l'arbre des process qui calcule les poses.
+    (#when PC_PORT
+      ;; Le verrou n'a pas repondu pendant l'image qui vient de finir : la sonde en adoptera un
+      ;; autre a la prochaine. Sans ce constat, un acteur qui meurt fige la sonde pour toujours.
+      (if (zero? *anim-probe-seen*) (set! *anim-probe-miss* 1))
+      (set! *anim-probe-seen* 0))
     ;; inform display system of our speed. This will adjust the scaling used in all physics calculations
     (set-time-ratios *display* time-ratio)
     ;; anim-interp-low-fps — LE PAS DU DERNIER TICK. `time-adjust-ratio` vaut 0 sur une image
@@ -1115,6 +1124,12 @@
     (#when PC_PORT
       (if (!= time-ratio 0.0)
           (set! *render-pace-ratio* (-> *display* time-adjust-ratio))))
+    ;; anim-interp-low-fps essai 6 — le k EFFECTIVEMENT applique par GOAL, cumule x65536.
+    ;; C'est la seule grandeur qui distingue « le retimeur se trompe » de « GOAL n'a pas
+    ;; applique le k que le C++ croit avoir impose ».
+    (#when PC_PORT
+      (set! *anim-goal-ksum-q*
+            (+ *anim-goal-ksum-q* (the int (* 1024.0 (-> *display* time-adjust-ratio))))))
     ;; Gfixed-tick-interpolation : un seul chemin pour avancer les horloges, partage
     ;; avec les ticks de rattrapage de `display-loop`.
     (display-frame-advance-clocks! disp time-ratio))

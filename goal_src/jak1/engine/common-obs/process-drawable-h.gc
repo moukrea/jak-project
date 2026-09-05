@@ -155,37 +155,105 @@
   "Numero de frame a DESSINER pour ce canal : `frame-num` recule de (1 - alpha) pas.
    RENDU SEUL -- n'ecrit jamais `frame-num`, donc la logique reste identique et les
    deux bras de l'ablation jouent exactement la meme partie."
-  (let ((fn (-> chan frame-num)))
-    (cond
-      ;; Trois sorties qui rendent le MEME flottant qu'avant cette phase, au bit pres.
-      ;;  - ablation (`OG_ANIM_INTERP=0`) ;
-      ;;  - alpha == 1.0, c'est-a-dire « pose courante » : ce que publie une cadence
-      ;;    VERROUILLEE a 60 Hz. La non-regression 60 fps est donc obtenue par
-      ;;    CONSTRUCTION, pas par un reglage ;
-      ;;  - acteur de CINEMATIQUE : son `frame-num` n'est pas incremente par un
-      ;;    `num-func`, il est REECRIT chaque image depuis la position du flux audio
-      ;;    (engine/load/loader.gc). Sa cadence est deja le temps reel ; le retimer
-      ;;    ajouterait du flou la ou il n'y en a pas.
-      ((or (zero? *anim-interp-on*)
-           (>= *anim-interp-alpha* 1.0)
-           (logtest? (-> chan parent status) (janim-status spool)))
-       fn)
-      (else
-       (let ((delta (joint-channel-tick-delta chan)))
-         (cond
-           ((= delta 0.0) fn)
-           (else
-            ;; PREUVE DE CABLAGE : ce compteur est le seul temoin qu'une pose a
-            ;; REELLEMENT ete retimee. A 60 images/s il doit rester a 0.
-            (+! *anim-interp-n* 1)
-            (let ((f (- fn (* (- 1.0 *anim-interp-alpha*) delta))))
-              (cond
-                ((>= f 0.0) f)
-                ;; Animation en BOUCLE : reculer avant 0 doit revenir par la FIN,
-                ;; sinon la premiere image apres chaque bouclage saute au debut.
-                ((= (-> chan num-func) num-func-loop!)
-                 (+ f (the float (+ (-> chan frame-group data 0 length) -1))))
-                (else 0.0))))))))))
+  (+! *anim-cen-total* 1)
+  (let* ((fn (-> chan frame-num))
+         (br 0)
+         (out
+           (cond
+             ;; Trois sorties qui rendent le MEME flottant qu'avant cette phase, au bit pres.
+             ;;  - ablation (`OG_ANIM_INTERP=0`) ;
+             ;;  - alpha == 1.0, c'est-a-dire « pose courante » : ce que publie une cadence
+             ;;    VERROUILLEE a 60 Hz. La non-regression 60 fps est donc obtenue par
+             ;;    CONSTRUCTION, pas par un reglage ;
+             ;;  - acteur de CINEMATIQUE : son `frame-num` n'est pas incremente par un
+             ;;    `num-func`, il est REECRIT chaque image depuis la position du flux audio
+             ;;    (engine/load/loader.gc). Sa cadence est deja le temps reel ; le retimer
+             ;;    ajouterait du flou la ou il n'y en a pas.
+             ((or (zero? *anim-interp-on*)
+                  (>= *anim-interp-alpha* 1.0)
+                  (logtest? (-> chan parent status) (janim-status spool)))
+              (+! *anim-cen-ident* 1)
+              (set! br 1)
+              fn)
+             (else
+              (let ((delta (joint-channel-tick-delta chan)))
+                (cond
+                  ((= delta 0.0)
+                   ;; RECENSEMENT : cette pose n'est PAS retimee. `num-func-blend-in!` tombe ici
+                   ;; parce qu'il n'avance pas `frame-num` mais `frame-interp`, le POIDS DE
+                   ;; MELANGE lu par `eval-blend-tree!` (joint.gc:166,181) — un poids qui avance
+                   ;; par ticks entiers pendant que tout le reste est interpole.
+                   (+! *anim-cen-zero* 1)
+                   (if (= (-> chan num-func) num-func-blend-in!) (+! *anim-cen-blend* 1))
+                   ;; AUDIT PAR VALEUR. Un `delta = 0` n'est un defaut que si le canal AVANCE
+                   ;; malgre tout. `none`/`identity` ne bougent pas : rien a retimer. `seek!`
+                   ;; arrive a sa cible ne bouge plus non plus. Ce qui reste est la seule part
+                   ;; qui decrit une pose qui saute.
+                   (cond
+                     ((or (= (-> chan num-func) num-func-none)
+                          (= (-> chan num-func) num-func-identity))
+                      (+! *anim-cen-static* 1))
+                     ((= (-> chan num-func) num-func-seek!) (+! *anim-cen-seekend* 1))
+                     ((= (-> chan num-func) num-func-blend-in!))
+                     (else (+! *anim-cen-other* 1)))
+                   (set! br 2)
+                   fn)
+                  (else
+                   ;; PREUVE DE CABLAGE : ce compteur est le seul temoin qu'une pose a
+                   ;; REELLEMENT ete retimee. A 60 images/s il doit rester a 0.
+                   (+! *anim-interp-n* 1)
+                   (+! *anim-cen-done* 1)
+                   (set! br 3)
+                   (let ((f (- fn (* (- 1.0 *anim-interp-alpha*) delta))))
+                     (cond
+                       ((>= f 0.0) f)
+                       ;; Animation en BOUCLE : reculer avant 0 doit revenir par la FIN,
+                       ;; sinon la premiere image apres chaque bouclage saute au debut.
+                       ((= (-> chan num-func) num-func-loop!)
+                        (+ f (the float (+ (-> chan frame-group data 0 length) -1))))
+                       (else 0.0))))))))))
+    ;; SONDE DE POSE DESSINEE. `out` est exactement le flottant que `build-requests!`
+    ;; (joint.gc:224) transforme en `base-frame` + `frac-frame` : c'est la pose DESSINEE, pas un
+    ;; modele. On ne l'echantillonne que sur le canal 0 de l'acteur sonde, et seulement quand le
+    ;; canal avance a taux constant (`+!` ou `loop!`) — sinon le pas n'a pas de reference.
+    ;; Elle ADOPTE le PREMIER canal eligible de chaque image, quel que soit l'acteur.
+    ;; Restreinte a `*target*`, elle n'a tire que 10 fois sur 15720 images : le canal 0 de Jak
+    ;; n'avance presque jamais a taux constant. L'identite du groupe est publiee a cote et le
+    ;; natif JETTE tout pas dont l'identite ou le taux a change — un changement d'acteur ne
+    ;; peut donc pas se lire comme un pas de pose.
+    ;; ELIGIBILITE : le canal doit AVANCER. Mesure du 2026-09-05 : la sonde s'etait verrouillee
+    ;; sur un canal dont `param 0` vaut 0 — une animation a l'arret — et les 15109 pas ont ete
+    ;; jetes pour taux nul. Un canal immobile est une pose parfaitement lisse et ne dit rien du
+    ;; defaut ; c'est une cadence NON exercee, pas un vert.
+    (when (and (zero? (-> chan group-sub-index))
+               (or (= (-> chan num-func) num-func-+!)
+                   (= (-> chan num-func) num-func-loop!))
+               (> (* (-> chan param 0) (-> chan frame-group speed)) 0.0))
+      (cond
+        ;; L'ACTEUR VERROUILLE, ou qu'il se trouve dans l'arbre. On ne s'arrete pas au premier
+        ;; canal eligible : le verrou peut apparaitre plus loin que lui.
+        ((and (nonzero? *anim-probe-key*)
+              (= (the-as int (-> chan parent)) *anim-probe-key*))
+         (set! *anim-probe-seen* 1)
+         (set! *anim-probe-frame-q* (the int (* 65536.0 out)))
+         (set! *anim-probe-rate-q* (the int (* 65536.0 (* (-> chan param 0) (-> chan frame-group speed)))))
+         (set! *anim-probe-p0-q* (the int (* 65536.0 (-> chan param 0))))
+         (set! *anim-probe-id* (the-as int (-> chan frame-group)))
+         (set! *anim-probe-br* br)
+         (+! *anim-probe-n* 1))
+        ;; Le verrou n'a pas repondu a l'image precedente : on en adopte un nouveau, une seule
+        ;; fois, et le natif jettera le pas qui enjambe l'adoption.
+        ((and (zero? *anim-probe-seen*) (nonzero? *anim-probe-miss*))
+         (set! *anim-probe-seen* 1)
+         (set! *anim-probe-miss* 0)
+         (set! *anim-probe-key* (the-as int (-> chan parent)))
+         (set! *anim-probe-frame-q* (the int (* 65536.0 out)))
+         (set! *anim-probe-rate-q* (the int (* 65536.0 (* (-> chan param 0) (-> chan frame-group speed)))))
+         (set! *anim-probe-p0-q* (the int (* 65536.0 (-> chan param 0))))
+         (set! *anim-probe-id* (the-as int (-> chan frame-group)))
+         (set! *anim-probe-br* br)
+         (+! *anim-probe-n* 1))))
+    out))
 
 (defenum entity-perm-status
   :bitfield #t

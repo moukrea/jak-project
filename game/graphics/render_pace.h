@@ -69,6 +69,28 @@
 
 namespace render_pace {
 
+// Ce que GOAL publie pour CETTE image. Lu par `send_gfx_dma_chain` (bureau) et
+// `a35_send_gfx_dma_chain` (Android) juste avant l'appel. Les deux champs `*_bits` sont des
+// MOTIFS DE BITS de flottants GOAL : `intern_from_c().value` rend le mot de 32 bits du symbole.
+struct GoalReadout {
+  u64 anim_interp_n = 0;
+  u64 probe_n = 0;
+  // EN VIRGULE FIXE x65536, pas en flottant : un symbole GOAL flottant lu par
+  // `intern_from_c().value` rend zero (mesure du 2026-09-05, 15109 pas jetes pour cette seule
+  // raison), un symbole ENTIER traverse sans probleme.
+  s32 probe_frame_q = 0;
+  s32 probe_rate_q = 0;
+  s32 probe_p0_q = 0;
+  u32 probe_br = 0;
+  s32 goal_ksum_q = 0;  // somme des k appliques par GOAL, x65536  // 1 = identite, 2 = delta nul, 3 = retime
+  u32 probe_id = 0;
+  u64 cen_total = 0, cen_ident = 0, cen_zero = 0, cen_blend = 0, cen_done = 0;
+  // Audit PAR VALEUR de `num-func` du seau `cen_zero` : une pose statique n'a rien a
+  // retimer, seul `cen_other` decrit une pose qui saute.
+  u64 cen_static = 0, cen_seekend = 0, cen_other = 0;
+  u64 djm_total = 0, djm_shift = 0, djm_noroot = 0, djm_rotv = 0;
+};
+
 // Vrai quand le module gouverne la cadence. Faux sous l'ablation du harnais
 // (`AUTOPORT_FEATURE=anim-interp-low-fps` + `..._ARMED=0`) et quand l'horloge a pas fixe
 // est armee (elle a sa propre horloge ; deux horloges qui se disputent la meme image ne
@@ -77,9 +99,18 @@ bool armed();
 
 // Une image vient d'etre produite. Appele UNE fois par image dessinee, sur le fil GOAL/EE,
 // depuis `send_gfx_dma_chain` (bureau) et `a35_send_gfx_dma_chain` (Android).
-// `anim_interp_n` est la valeur courante du symbole GOAL `*anim-interp-n*` : le nombre
+// `g.anim_interp_n` est la valeur courante du symbole GOAL `*anim-interp-n*` : le nombre
 // cumule de canaux d'animation REELLEMENT retimes. C'est le point de LECTURE.
-void on_render_frame(u64 anim_interp_n);
+//
+// LA GRANDEUR DE LA PORTE N'EST PLUS MODELISEE. `anim_step_jitter_worst_us` etait calculee a
+// partir d'un modele tenu en C++ (`pose = sum_pose - (1-alpha)*k_last`), qui ne decrivait que
+// le canal `frame-num` : il etait structurellement aveugle a toute pose non retimee (rotation
+// de la racine, poids de melange `frame-interp`, `joint-mod`) et restait vert pendant que
+// l'owner voyait encore le defaut. Elle est desormais LUE dans `*anim-probe-frame*`, le
+// flottant EXACT que `build-requests!` (goal_src/jak1/engine/anim/joint.gc:224) convertit en
+// `base-frame` + `frac-frame` : la pose REELLEMENT DESSINEE. Le modele reste publie a cote,
+// sous `anim_step_model_jitter_*`, mais il ne gouverne plus aucune porte.
+void on_render_frame(const GoalReadout& g);
 
 // La valeur que `__read-ee-timer` doit rendre : horloge virtuelle quand le module est arme,
 // horloge murale sinon.
