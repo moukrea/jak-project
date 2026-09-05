@@ -1,9 +1,9 @@
 {
   "_doc": "Source unique du modele et de l'effort pour tout le harnais (orchestrateur, workers, superviseur). Bascule: changer 'active', lancer ./.autoport/apply-model-profile.sh (il regenere l'effort dans .claude/agents/*.md), relancer. 2026-09-03: 5 profils morts supprimes (notes contradictoires, modeles retires); il n'en reste que l'actif et un secours.",
-  "active": "fable51-high",
+  "active": "fable51-sobre",
   "profiles": {
     "fable51-high": {
-      "_note": "Profil ACTIF. Manager fable-5-1 a effort high, workers tieres (researcher high, implementer/tester medium) — la forme d'origine du 2026-06-12, remise a jour le 2026-09-03.",
+      "_note": "RETIRE le 2026-09-05 : le [1m] fumait le quota (voir fable51-sobre). Ne pas reactiver.",
       "manager_model": "claude-fable-5-1[1m]",
       "manager_effort": "high",
       "worker_model": "claude-fable-5-1[1m]",
@@ -22,6 +22,17 @@
         "autoport-researcher": "xhigh",
         "autoport-implementer": "xhigh",
         "autoport-tester": "xhigh"
+      }
+    },
+    "fable51-sobre": {
+      "_note": "Profil ACTIF depuis le 2026-09-05. Owner : « tu utilises un profil qui fume les tokens ». MESURE sur les traces : le suffixe [1m] laissait le contexte monter a 450-470k tokens par tour et le relire 300 a 355 fois par essai (cutscene-npc-flicker/011 : 104 M de tokens lus, 268 tours au-dessus de 200k ; hd-skin/11 : 100 M). Sans [1m], Claude Code compacte vers 160k : meme nombre de tours, ~2,5x moins de tokens, et pas de tarif 'contexte long'. Meme forme que fable5-high : manager high, researcher high, implementer/tester medium.",
+      "manager_model": "claude-fable-5-1",
+      "manager_effort": "high",
+      "worker_model": "claude-fable-5-1",
+      "worker_efforts": {
+        "autoport-researcher": "high",
+        "autoport-implementer": "medium",
+        "autoport-tester": "medium"
       }
     }
   }
