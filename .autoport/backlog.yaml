@@ -1,6 +1,3 @@
-# La seule verite du travail. Une feature = un item.
-# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
-# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: cutscene-npc-flicker
@@ -219,7 +216,7 @@ items:
   notes: meme prompt ; -2 est « CAISSES, RETOUR 2 » ; l'owner ferme « les caisses » en un mot
 - id: anim-interp-low-fps
   feature: Les animations saccadees quand le jeu descend vers 20 images/s
-  status: in-progress
+  status: open
   priority: 13
   owner_feedback:
   - date: '2026-09-01'
@@ -242,9 +239,9 @@ items:
       j'ai l'impression ! D'ailleurs on devrait pouvoir unlock le framerate, là ça lock à 60 max alors
       que ça pourrait ne pas être cap si le pas de temps fixe est bien fait !
   gate:
-    key: anim_step_jitter_worst_us
-    op: <=
-    value: 500
+    key: anim_sweep_defects
+    op: ==
+    value: 0
   game: jak1
   max_turns: 800
   max_retries: 6
@@ -270,23 +267,30 @@ items:
   owner_ok: null
   device: true
   where: 'joue a 45 images/s (et 50, 75) : les animations doivent etre aussi lisses qu''a 30 et a 60'
-  notes: 'owner 2026-09-05 : nickel A 30 ET A 60, jitter a 45. Les deux cadences propres sont exactement
-    celles ou 60 ticks/s tombent en compte ENTIER par image (2 ticks a 30, 1 a 60) ; a 45 il en faut 1,333,
-    donc la suite reelle est 1,2,1,1,2... Le retimage doit absorber ce reste par l''alpha d''interpolation,
-    et il ne le fait pas : la porte mesurait un ecart moyen (2 ms) qui reste vert sur une alternance 1/2
-    ticks. NOUVELLE PORTE : mesurer aux cadences NON ENTIERES (45, 50, 75, 90, 100) et exiger que le pas
-    de pose vu par le rendu soit REGULIER — ecart type du pas image a image, pas sa moyenne. A 30 et 60
-    le comportement doit rester identique au bit.'
+  notes: 'FAUX VERT : le balayage a mesure 15, 16, 18, 20, 30 et 60 img/s — PAS 45, 50, 75, 90, les seules
+    cadences ou l''owner voit le defaut. Pire, les cadences ATTEINTES ne sont pas celles demandees : le
+    seau « 60 » a tourne a 30,45 img/s et le seau « 30 » a 26,1 (le Redmi plafonne vers 30). Le pire jitter
+    rapporte (270 us) vient donc du seau « 60 » qui etait en fait du 30. Et anim_step_bitexact_30 = anim_step_bitexact_60
+    = 0 : l''exigence « identique au bit a 30 et a 60 » a ECHOUE en silence, parce que la porte ne lit
+    qu''une seule cle. L''owner a ete explicite : « à 30 ça roule nickel, à 60 pareil [...] mais sur des
+    framerates autres qu''aux alentours de 30 et 60 ça jitter ».'
   known_cause: 'Owner 2026-09-05 : propre a 30 et 60, jitter a 45. Ce sont exactement les cadences ou
     les 60 ticks/s de la logique tombent en compte ENTIER par image (2 ticks a 30, 1 a 60). A 45 il en
     faudrait 1,333 : la suite reelle est 1,2,1,1,2... et le reste doit etre absorbe par l''alpha d''interpolation.
     `*fixed-tick-alpha*` n''a que DEUX consommateurs (cam-update.gc:246 et drawable.gc:1107) ; si le retimage
     d''animation ne le consomme pas, la pose saute d''un tick entier certaines images et pas d''autres
-    — invisible aux ratios entiers, visible a 45.'
-  deliverable: Le moteur emet `anim_step_jitter_worst_us` = le PIRE ecart type du pas de pose vu par le
-    rendu, image apres image, mesure a CHAQUE cadence de la serie 30, 45, 50, 60, 75, 90 — pas la moyenne,
-    qui reste verte sur une alternance 1-2-1-1-2 ticks. Zero a 500 us pres partout. A 30 et a 60 le comportement
-    reste identique au bit (`anim_step_bitexact_30`, `anim_step_bitexact_60` = 1). Preuve sur le Redmi.
+    — invisible aux ratios entiers, visible a 45. | 2026-09-05, essai 7 : le residu est concentre dans
+    UN canal d''animation immobile (16 606 us). La porte precedente lisait un modele C++ au lieu de la
+    pose dessinee.'
+  deliverable: "Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement,\
+    \ sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :\n  (1) chaque cadence\
+    \ demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue\
+    \ s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent\
+    \ la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.\n\
+    \  (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.\n  (3)\
+    \ `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.\n  (4) `anim_step_bitexact_30`\
+    \ = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne\
+    \ change pas d'un bit.\nN est la somme des manquements ; zero."
 - id: framerate-uncap
   feature: Debrider la cadence au-dela de 60 images/s
   status: open
