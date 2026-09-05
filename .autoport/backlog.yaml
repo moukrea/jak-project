@@ -294,7 +294,7 @@ items:
 - id: framerate-uncap
   feature: Debrider la cadence au-dela de 60 images/s
   status: open
-  priority: 15
+  priority: 27
   game: jak1
   gate:
     key: uncap_defects
@@ -626,8 +626,9 @@ items:
   notes: 'l''owner : « pourquoi deux chantiers ? c''est debile » ; Gpbr-material-props dit « la phase
     precedente en avait livre 7 » et le refus de Gpbr-props-reach-draw porte sur ces memes 7 textures'
   block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-materials : surfaces.json
-    etend a TOUTE matiere, y compris sans carte, sur le chemin unique. A rouvrir seulement si l''owner
-    le demande.'
+    etend a TOUTE matiere, y compris sans carte, sur le chemin unique. — L''OWNER A TRANCHE le 2026-09-05
+    : « on passe sur l''integralite du realtime lighting ». Cet item est livre PAR la refonte, il ne se
+    rouvre pas seul.'
 - id: loading-screen
   feature: L'ecran de chargement a la place de l'ecran noir
   status: validated
@@ -2591,8 +2592,9 @@ items:
   delivered: '2026-07-16'
   build: build du 2026-07-16, remplace depuis
   block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-ao-indirect : l''AO cesse
-    de composer sur l''image finale et multiplie le seul terme indirect, en lineaire, dans shade(). A
-    rouvrir seulement si l''owner le demande.'
+    de composer sur l''image finale et multiplie le seul terme indirect, en lineaire, dans shade(). —
+    L''OWNER A TRANCHE le 2026-09-05 : « on passe sur l''integralite du realtime lighting ». Cet item
+    est livre PAR la refonte, il ne se rouvre pas seul.'
 - id: recharged-pbr-materials
   feature: Les matieres PBR (le systeme de remplacement de textures)
   status: validated
@@ -2658,7 +2660,8 @@ items:
   build: build du 2026-07-20, remplace depuis
   block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-regimes : les trois modeles
     d''ambiante analytiques sont remplaces par l''environnement mesure (SH du ciel reel renormalise sur
-    amb-color). A rouvrir seulement si l''owner le demande.'
+    amb-color). — L''OWNER A TRANCHE le 2026-09-05 : « on passe sur l''integralite du realtime lighting
+    ». Cet item est livre PAR la refonte, il ne se rouvre pas seul.'
 - id: recharged-lightprobes
   feature: Les sondes de lumiere locales a la place de l'ambiante globale
   status: blocked
@@ -2678,7 +2681,8 @@ items:
   build: build du 2026-07-22, remplace depuis
   block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-interiors : volume de sondes
     epars avec visibilite inter-sondes cuite (anti-fuite au point de production). La grille dense de juillet
-    est supprimee. A rouvrir seulement si l''owner le demande.'
+    est supprimee. — L''OWNER A TRANCHE le 2026-09-05 : « on passe sur l''integralite du realtime lighting
+    ». Cet item est livre PAR la refonte, il ne se rouvre pas seul.'
 - id: recharged-master-toggle
   feature: Un interrupteur global Recharged marche/arret
   status: to-test
@@ -2788,8 +2792,9 @@ items:
     repli faible. Jamais accepte par l'owner.
   block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md : son defaut EST la cause 1 de la spec
     (cinq chemins d''ombrage exclusifs). L''item lighting-unify le supprime, lighting-materials livre
-    les matieres PBR sur le chemin unique. 25 rounds, jamais accepte. A rouvrir seulement si l''owner
-    le demande.'
+    les matieres PBR sur le chemin unique. 25 rounds, jamais accepte. — L''OWNER A TRANCHE le 2026-09-05
+    : « on passe sur l''integralite du realtime lighting ». Cet item est livre PAR la refonte, il ne se
+    rouvre pas seul.'
 - id: recharged-mesh-browser
   feature: Le navigateur de mesh de debug
   status: to-test
@@ -2829,7 +2834,7 @@ items:
 - id: recharged-menu-overhaul
   feature: La refonte des menus
   status: open
-  priority: 205
+  priority: 28
   owner_feedback:
   - date: '2026-08-04'
     text: l'idée c'était de réorganiser pour que ce soit sensé, logique, intuitif, agréable à parcourir,
@@ -2854,7 +2859,7 @@ items:
 - id: recharged-texture-hotreload
   feature: Basculer les textures Recharged sans redemarrer le jeu
   status: open
-  priority: 216
+  priority: 29
   owner_feedback: []
   gate: null
   game: jak1
@@ -2975,8 +2980,8 @@ items:
   build: dernier build publie sur jak-builds
 - id: precompute-deterministic-bake
   feature: Le chargement d'un niveau recalculait a chaque fois ce qui pouvait etre cuit une seule fois
-  status: to-test
-  priority: 201
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-26'
     text: je vois pas pourquoi la subdivision serait la solution [...] c'est p'tetre un truc en lien au
@@ -2993,6 +2998,8 @@ items:
   - date: '2026-09-04'
     text: Bah t'as pre-calculé quoi de plus qu'avant ? Encore une fois, sans les infos je vois pas quoi
       tester !
+  - date: '2026-09-05'
+    text: Pour le pre-calcul c'est validé
   gate: null
   game: jak1
   max_turns: 800
@@ -3001,7 +3008,10 @@ items:
   history:
   - Gprecompute-deterministic-bake
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-05'
+    text: Pour le pre-calcul c'est validé
+    build_sha: 6e38293ba0a4143c
   where: 'Charge le village de glace et chronometre l''ecran de chargement : il doit etre plus court qu''avant.
     Le jeu re-decoupait les maillages et recalculait 26 Mo de donnees d''eclairage a CHAQUE chargement,
     sur chaque machine, alors que le resultat est toujours le meme ; c''est desormais calcule une fois
@@ -3562,8 +3572,9 @@ items:
   where: 'Options > Recharged : le rendu des matieres'
   delivered: '2026-08-31'
   build: dernier build publie sur jak-builds
-  block_reason: supplante par prompts/SPEC-refonte-lumiere.md, item lighting-materials. A rouvrir seulement
-    si l'owner le demande.
+  block_reason: 'supplante par prompts/SPEC-refonte-lumiere.md, item lighting-materials. — L''OWNER A
+    TRANCHE le 2026-09-05 : « on passe sur l''integralite du realtime lighting ». Cet item est livre PAR
+    la refonte, il ne se rouvre pas seul.'
 - id: jak2-polish
   feature: Les finitions de Jak II (mapping L1/R1, cadrage, menus, particules)
   status: blocked
@@ -3615,7 +3626,7 @@ items:
 - id: recharged-settings-case-l10n
   feature: Les reglages Recharged sont tout en majuscules et pas tous traduits
   status: open
-  priority: 14
+  priority: 26
   game: jak1
   gate:
     key: settings_case_l10n_defects
@@ -3664,11 +3675,16 @@ items:
 - id: lighting-census
   feature: Savoir quel chemin d'eclairage a dessine chaque pixel, et figer les deux references
   status: open
-  priority: 30
+  priority: 14
   owner_feedback:
   - date: '2026-09-03'
     text: on a deja implemente du rela time lighting et un support de PBR qu'on a jamais finalise (et
       probablement tres bancal)
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -3702,8 +3718,13 @@ items:
 - id: lighting-unify
   feature: Un seul modele d'eclairage au lieu de cinq, sans changer un pixel
   status: open
-  priority: 31
-  owner_feedback: []
+  priority: 15
+  owner_feedback:
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: shade_variants
     op: ==
@@ -3738,8 +3759,13 @@ items:
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
   status: open
-  priority: 32
-  owner_feedback: []
+  priority: 16
+  owner_feedback:
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: tonemap_sites
     op: ==
@@ -3772,12 +3798,17 @@ items:
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
-  priority: 33
+  priority: 17
   owner_feedback:
   - date: '2026-09-03'
     text: L'occlusion Ambiante screen... Je comprend pas ca, on l'a fait tout a la fin du rendu par dessus
       le reste plutot qu'en composant integral du rendu comme font (je suppose, a toi de dire) les jeux
       modernes ?
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: ao_direct_leak_px
     op: ==
@@ -3812,13 +3843,18 @@ items:
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
-  priority: 34
+  priority: 18
   owner_feedback:
   - date: '2026-07-19'
     text: moins beau que du baked
   - date: '2026-09-03'
     text: j'imagine qu'ils utilisent du baked aussi, faut qu'on soit en phase, et que malgre nos changements
       ca suive le ton du jeu original, juste plus "real time possible"
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: bake_reconstruction_maxdelta
     op: <=
@@ -3854,7 +3890,7 @@ items:
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
   status: open
-  priority: 35
+  priority: 19
   owner_feedback:
   - date: '2026-09-03'
     text: Il y a aussi des niveaux et/zones ou le ciel n'est pas visible (tunels, overcast) come le lava
@@ -3863,6 +3899,11 @@ items:
   - date: '2026-09-03'
     text: Pour l'ambiance qui vient du ciel attention avec l'artistic intent [...] faut etre super smart
       la dessus
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: regime_sun_override_wrong
     op: ==
@@ -3898,11 +3939,16 @@ items:
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
   status: open
-  priority: 36
+  priority: 20
   owner_feedback:
   - date: '2026-09-03'
     text: quand les deux overlap... Bah ca doit etre pris en compte, ca l'est pour nous aussi quand on
       a la lune et le soleil visibles en meme temps !
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: shadow_caster_classes
     op: ==
@@ -3938,10 +3984,15 @@ items:
 - id: lighting-local-lights
   feature: Les lampes, torches et laves eclairent enfin
   status: open
-  priority: 37
+  priority: 21
   owner_feedback:
   - date: '2026-09-03'
     text: les sources de lumiere en sus du soleil/lune sont d'autant plus importantes a valoriser
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: lights_unjudged
     op: ==
@@ -3976,8 +4027,13 @@ items:
 - id: lighting-interiors
   feature: Les interieurs gardent leur lumiere, sans fuite par les murs
   status: open
-  priority: 38
-  owner_feedback: []
+  priority: 22
+  owner_feedback:
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: probe_leak_permille
     op: <=
@@ -4012,13 +4068,18 @@ items:
 - id: lighting-actors
   feature: Jak, les PNJ et les ennemis eclaires comme le sol sur lequel ils marchent
   status: open
-  priority: 39
+  priority: 23
   owner_feedback:
   - date: '2026-09-03'
     text: Les acteurs je sais que leur lighting est faked, faut plus que ce soit le cas !
   - date: '2026-09-03'
     text: l'ombre que cast Jak, ennemies et PNJ est tres bizarre, on dirait une version ultra low poly
       projete sur le sol, c'est pas la bonne methode pour un truc modern
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: merc_legacy_light_draws
     op: ==
@@ -4054,7 +4115,7 @@ items:
 - id: lighting-materials
   feature: Les matieres PBR eclairees par la lumiere temps reel, sans fusion
   status: open
-  priority: 40
+  priority: 24
   owner_feedback:
   - date: '2026-09-03'
     text: les materiaux, PBR et tesselation viendront apres car ils dependent du lightning pour etre au
@@ -4063,6 +4124,11 @@ items:
     text: j'ai l'impression que ca prend pas en compte les proprietes individuelles de Recharged assets
       et que ca applique le PBR uniquement aux 7 textures PBR qui etaient dans le projet depuis un bail
       et que ca ignore les autres
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: materials_named_but_unreached
     op: ==
@@ -4097,8 +4163,13 @@ items:
 - id: lighting-presets
   feature: 'Du Redmi au Snapdragon 8 Elite : des paliers, et chaque ajout debrayable'
   status: open
-  priority: 41
-  owner_feedback: []
+  priority: 25
+  owner_feedback:
+  - date: '2026-09-05'
+    text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
+      un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
+      histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
+      sur l'intégralité du realtime lighting !
   gate:
     key: preset_apply_mismatch
     op: ==
