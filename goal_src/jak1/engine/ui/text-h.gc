@@ -1018,6 +1018,44 @@
   ;; #x17be est le premier id libre AU-DESSUS du pool reserve #x17b0..#x17bc et au-dessus de
   ;; #x17bd, laisse libre par le retrait de JAK 3 BAREFOOT mais charge d'un historique.
   (pc-text-hint-physics #x17be)
+  ;; --- Grecharged-settings-case-l10n (2026-09-05) : LES LIBELLES DU MENU RECHARGED ---
+  ;; Vingt-huit rangees des ecrans RECHARGED SETTINGS et GRASS SETTINGS n'avaient AUCUN
+  ;; identifiant de banc : leur libelle etait un litteral anglais MAJUSCULE dans progress-pc.gc,
+  ;; donc ni traduisible ni convertible en casse normale. #x17bf est le premier id libre au-dessus
+  ;; du dernier alloue (#x17be) et au-dessus du pool reserve #x17b0..#x17bc.
+  ;; Les tags #x17b0..#x17b7 et #x17bc (valeurs des carrousels HD LOOK, rangee PHYSICS) restent
+  ;; des tags resolus par `carousell-option-string` — mais le tampon derriere chacun est desormais
+  ;; rempli depuis le banc a ce meme identifiant, donc ils portent enfin du texte traduisible.
+  (pc-text-recharged-master #x17bf)
+  (pc-text-grass-settings #x17c0)
+  (pc-text-user-textures #x17c1)
+  (pc-text-builtin-textures #x17c2)
+  (pc-text-downloaded-textures #x17c3)
+  (pc-text-pbr-materials #x17c4)
+  (pc-text-enhanced-models #x17c5)
+  (pc-text-look-jak #x17c6)
+  (pc-text-look-daxter #x17c7)
+  (pc-text-look-keira #x17c8)
+  (pc-text-look-samos #x17c9)
+  (pc-text-foliage-wind #x17ca)
+  (pc-text-realtime-lighting #x17cb)
+  (pc-text-ambient-model-row #x17cc)
+  (pc-text-ambient-strength #x17cd)
+  (pc-text-shadow-distance #x17ce)
+  (pc-text-shadow-quality #x17cf)
+  (pc-text-texture-relief #x17d0)
+  (pc-text-specular-intensity #x17d1)
+  (pc-text-displacement #x17d2)
+  (pc-text-mesh-subdivision #x17d3)
+  (pc-text-advanced-materials #x17d4)
+  (pc-text-crisp-title-logo #x17d5)
+  (pc-text-fixed-timestep #x17d6)
+  (pc-text-recharged-grass #x17d7)
+  (pc-text-near-grass-distance #x17d8)
+  (pc-text-grass-card-distance #x17d9)
+  (pc-text-grass-density #x17da)
+  ;; #x17db est RESERVE pour GRASS OVERHANG (rangee sous FLAG_GRASS_OVERHANG, absente de ce build).
+  (pc-text-grass-overhang #x17db)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

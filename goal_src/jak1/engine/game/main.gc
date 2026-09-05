@@ -668,6 +668,8 @@
                              (if (type-type? (-> proc type) process-taskable) 1 0))))
   #t)
 
+(define-extern scl10n-census! (function none))
+
 (defun npc-census-tick ()
   "Une image de recensement. Hors cinematique, ferme la scene en cours et ne parcourt rien."
   ;; Le compteur d'images du publicateur de preuve, ici parce que c'est le seul point de
@@ -675,6 +677,13 @@
   ;; game/system/autoport_proof.h : sans cette ligne, `lib/proof_run.sh` remplit `frames=0` sur
   ;; l'appareil et le validateur refuse toute preuve pour « rien n'a ete dessine assez longtemps ».
   (__pc-autoport-frame)
+  ;; Grecharged-settings-case-l10n : le recensement du menu Recharged. Il ne fait rien tant que
+  ;; le harnais n'a pas nomme cet item (`__pc-scl10n-wanted?`), et rien de plus d'une fois.
+  ;; Ici parce que c'est le seul point qui tourne a CHAQUE image sans qu'un menu soit ouvert —
+  ;; or `init-game-options`, seul ecrivain des `name-override`, ne tourne qu'a l'ouverture du menu.
+  ;; `progress-pc.o` est charge dans le meme DGO que `main.o` (dgos/engine.gd:272 et :296) et le
+  ;; lien est fait avant la premiere image : le symbole est pose quand cette ligne s'execute.
+  (scl10n-census!)
   (cond
     ((real-movie?)
      (__pc-npc-census-begin (cine-scene-name))

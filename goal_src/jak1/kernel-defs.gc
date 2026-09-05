@@ -492,6 +492,16 @@
 ;; `lib/proof_run.sh` moissonne. Un chiffre noye dans un `format` a six colonnes n'atteint pas
 ;; proof.txt.
 (define-extern __pc-autoport-publish (function string int none))
+;; Grecharged-settings-case-l10n : LE RECENSEMENT DU MENU RECHARGED. GOAL parcourt les tableaux
+;; d'options REELLEMENT compiles et rapporte, ligne par ligne, l'identifiant de banc qui alimente
+;; son libelle ET la chaine que le menu DESSINE. Le C++ relit les 23 bancs livres et juge toutes
+;; les langues. Sans la chaine dessinee, une table d'identifiants qui aurait derive du menu
+;; rendrait un zero qui ne parle de rien. Voir game/system/settings_case_l10n.h.
+(define-extern __pc-scl10n-begin (function int none))
+(define-extern __pc-scl10n-label (function int string none))
+(define-extern __pc-scl10n-uncovered (function string none))
+(define-extern __pc-scl10n-end (function none))
+(define-extern __pc-scl10n-wanted? (function int))
 ;; Ghd-skin-origin-stretch : le compte de la porte. Arguments, dans l'ordre : moitie GOAL du
 ;; verdict, images de t-pose VUES, images ou l'ecart HD/pilote a bouge, sauts de racine (publie a
 ;; cote, hors somme), occasions de pose de bind, cumul des fois ou un correctif a tourne.

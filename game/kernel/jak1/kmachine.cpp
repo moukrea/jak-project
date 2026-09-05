@@ -34,6 +34,7 @@
 #include "game/graphics/gfx.h"
 #include "game/system/load_gate.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/settings_case_l10n.h"
 #include "game/system/npc_flicker.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
@@ -827,6 +828,35 @@ s32 pc_autoport_armed_for(u32 id_str) {
 void pc_autoport_publish(u32 key_str, s64 value) {
   const char* k = key_str ? Ptr<String>(key_str).c()->data() : nullptr;
   autoport_proof::publish(k, (u64)(value < 0 ? 0 : value));
+}
+
+// ─── Grecharged-settings-case-l10n — LE PONT DU RECENSEMENT DU MENU ───────────────────────────
+// GOAL seul sait quelles LIGNES le menu Recharged contient et quel identifiant de banc alimente
+// le libelle de chacune ; le C++ seul sait relire les 23 bancs `<n>COMMON.TXT` livres. Ces
+// quatre ponts joignent les deux moities. Voir game/system/settings_case_l10n.h.
+void pc_scl10n_begin(s64 current_language) {
+  settings_case_l10n::begin_census((int)current_language);
+}
+
+void pc_scl10n_label(s64 text_id, u32 shown_str) {
+  const char* shown = shown_str ? Ptr<String>(shown_str).c()->data() : nullptr;
+  settings_case_l10n::note_label((int)text_id, shown);
+}
+
+void pc_scl10n_uncovered(u32 who_str) {
+  const char* who = who_str ? Ptr<String>(who_str).c()->data() : nullptr;
+  settings_case_l10n::note_uncovered_row(who);
+}
+
+void pc_scl10n_end() {
+  settings_case_l10n::end_census();
+}
+
+// 1 quand le harnais mesure CET item. Le recensement appelle `init-game-options` au boot, ce que
+// le jeu ne fait qu'a l'ouverture du menu : hors mesure, on ne touche a rien. C'est l'INSTRUMENT
+// qui est sous drapeau, jamais le correctif — les libelles traduits sont dans le banc pour tous.
+s32 pc_scl10n_wanted() {
+  return autoport_proof::feature_is("recharged-settings-case-l10n") ? 1 : 0;
 }
 
 // ─── Ghd-skin-origin-stretch — LE COMPTE DE LA PORTE, ASSEMBLE EN UN SEUL ENDROIT ─────────────
@@ -4985,6 +5015,12 @@ void InitMachine_PCPort() {
   // Ghd-skin-origin-stretch : l'armement PAR ITEM et le compte de la porte
   make_function_symbol_from_c("__pc-autoport-armed-for", (void*)pc_autoport_armed_for);
   make_function_symbol_from_c("__pc-autoport-publish", (void*)pc_autoport_publish);
+  // Grecharged-settings-case-l10n : le recensement du menu Recharged (casse + traduction)
+  make_function_symbol_from_c("__pc-scl10n-begin", (void*)pc_scl10n_begin);
+  make_function_symbol_from_c("__pc-scl10n-label", (void*)pc_scl10n_label);
+  make_function_symbol_from_c("__pc-scl10n-uncovered", (void*)pc_scl10n_uncovered);
+  make_function_symbol_from_c("__pc-scl10n-end", (void*)pc_scl10n_end);
+  make_function_symbol_from_c("__pc-scl10n-wanted?", (void*)pc_scl10n_wanted);
   make_function_symbol_from_c("__pc-hd-proof", (void*)pc_hd_proof);
   make_function_symbol_from_c("pc-hd-cover!", (void*)pc_hd_cover);
   make_function_symbol_from_c("pc-hd-uncover!", (void*)pc_hd_uncover);

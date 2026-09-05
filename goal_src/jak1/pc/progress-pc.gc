@@ -7837,52 +7837,58 @@
 ;; label shown for the FPS-counter toggle (no engine text-id was added; rendered
 ;; via the game-option name-override path which progress-pc.gc honors for on-off rows)
 ;; NOTE: all-uppercase — the jak1 menu font maps uppercase ASCII to the correct
-;; glyphs (matching the other menu rows), but lowercase ASCII bytes do NOT map to
-;; lowercase glyphs in this font's encoding (they render as garbage). The rest of
-;; the menu reads as all-caps anyway, so this matches the existing style.
+;; glyphs. La suite de cette note etait FAUSSE depuis la phase Gfont-urbanist : elle
+;; disait que les minuscules ASCII sortaient en charabia. Mesure du 2026-09-05 sur
+;; `goal_src/jak1/engine/gfx/font.gc` : les avances de `*font24-table*` pour 0x61-0x7a
+;; valent 14,57 / 15,08 / 12,40 ... et 5,89 pour `i` et `l` — des chasses de MINUSCULES
+;; Urbanist, ecrites par `recharged_assets/font/patch_font_tables.py` dans la source suivie.
+;; La GRANDE police du menu (draw-options pose `font-flags ... large`) ecrit donc de vraies
+;; minuscules, et tout le menu stock est deja livre en casse mixte (`0COMMON.TXT` #x0128 =
+;; « Graphic Options »). C'est cette note perimee qui a fige les 40 libelles Recharged en
+;; TOUT-MAJUSCULES — le defaut que l'owner nomme le 2026-09-04.
 ;; Glang-mixed: these labels are runtime BUFFERS (not static literals) so they can be
 ;; re-formatted from the text bank and follow the TEXT language (ids #x1700-#x1705 in
 ;; game_custom_text_*.json; languages without them fall back to English via the
 ;; fallback bank). English defaults formatted here cover boot-before-text-load.
-(define *fps-counter-label* (new 'global 'string 64 (the-as string #f)))
+(define *fps-counter-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *fps-counter-label*) "FPS COUNTER")
 
 ;; label for the RENDER SCALE slider (uppercase ASCII for the menu font; see the
 ;; FPS-counter label note above). Shown via the game-option name-override path.
-(define *render-scale-label* (new 'global 'string 64 (the-as string #f)))
+(define *render-scale-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *render-scale-label*) "RENDER SCALE")
 
 ;; Gdynamic-renderscale menu labels (uppercase ASCII for the menu font; shown via name-override).
-(define *dynamic-render-scale-label* (new 'global 'string 64 (the-as string #f)))
+(define *dynamic-render-scale-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *dynamic-render-scale-label*) "DYNAMIC RENDER SCALE")
-(define *min-render-scale-label* (new 'global 'string 64 (the-as string #f)))
+(define *min-render-scale-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *min-render-scale-label*) "MIN RENDER SCALE")
-(define *min-target-fps-label* (new 'global 'string 64 (the-as string #f)))
+(define *min-target-fps-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *min-target-fps-label*) "MIN TARGET FPS")
 ;; Goptions-reorder: "PS2 Options" is relabelled "ADVANCED SETTINGS" via name-override (the menu font
 ;; only maps uppercase ASCII; see the FPS-counter label note). Submenu (gfx-ps2-options) is unchanged.
-(define *advanced-settings-label* (new 'global 'string 64 (the-as string #f)))
+(define *advanced-settings-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *advanced-settings-label*) "ADVANCED SETTINGS")
 
 ;; Gvulkan-option: label for the "VULKAN RENDERER" on-off toggle (uppercase ASCII for the menu font;
 ;; shown via the name-override path). OFF = OpenGL/GLES (default), ON = Vulkan. Changing it persists and
 ;; takes effect after a restart (the render surface is recreated at startup).
 (#when FLAG_VULKAN_SUPPORT
-(define *vulkan-renderer-label* (new 'global 'string 64 (the-as string #f)))
+(define *vulkan-renderer-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *vulkan-renderer-label*) "VULKAN RENDERER"))
 
 ;; Grecharged-hud-jak1: labels for the new "Recharged Settings" submenu row (in Graphics Options,
 ;; before Advanced) and the "Recharged HUD" on-off toggle inside it (uppercase ASCII for the menu
 ;; font; shown via the name-override path, re-formatted from the text bank in
 ;; refresh-runtime-option-labels! so they follow the TEXT language — ids #x1706 / #x1707).
-(define *recharged-settings-label* (new 'global 'string 64 (the-as string #f)))
+(define *recharged-settings-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *recharged-settings-label*) "RECHARGED SETTINGS")
 ;; Grecharged-master-toggle: label for the GLOBAL "RECHARGED MASTER" on-off row (uppercase ASCII
 ;; for the menu font; shown via name-override — English-only, not re-formatted).
-(define *recharged-master-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-master-label*) "RECHARGED MASTER")
+(define *recharged-master-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *recharged-master-label*) "Recharged Master")
 (#when FLAG_RECHARGED_HUD
-(define *recharged-hud-label* (new 'global 'string 64 (the-as string #f)))
+(define *recharged-hud-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *recharged-hud-label*) "RECHARGED HUD"))
 ;; Gmenu-census-cleanup (owner 2026-08-31 : « recharged assets VS HD texture pack ? WTF »).
 ;; TROIS rangees allument des textures de remplacement, et rien dans leurs anciens libelles ne
@@ -7898,22 +7904,22 @@
 ;; Gload-custom-assets: label for the "USER TEXTURES" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
 ;; Ces trois libelles ne passent PAS par refresh-runtime-option-labels! : ils restent anglais.
-(define *load-custom-assets-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *load-custom-assets-label*) "USER TEXTURES")
+(define *load-custom-assets-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *load-custom-assets-label*) "User Textures")
 ;; Grecharged-bundled-textures: label for the "BUILT-IN TEXTURES" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English-only.
-(define *recharged-textures-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-textures-label*) "BUILT-IN TEXTURES")
+(define *recharged-textures-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *recharged-textures-label*) "Built-in Textures")
 ;; Grecharged-managed-assets: label for the "DOWNLOADED TEXTURES" on-off toggle (the DOWNLOADED
 ;; pack) in the Recharged Settings submenu. Uppercase ASCII for the menu font, English-only,
 ;; shown via name-override like every other recharged row.
-(define *managed-assets-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *managed-assets-label*) "DOWNLOADED TEXTURES")
+(define *managed-assets-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *managed-assets-label*) "Downloaded Textures")
 ;; Grecharged-pbr-materials: label for the "PBR MATERIALS" on-off toggle in the Recharged Settings
 ;; submenu (uppercase ASCII for the menu font; shown via name-override). English-only. Present only with --pbr.
 (#when FLAG_PBR
-(define *pbr-materials-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *pbr-materials-label*) "PBR MATERIALS"))
+(define *pbr-materials-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *pbr-materials-label*) "PBR Materials"))
 ;; Gmenu-census-cleanup (owner 2026-08-31 : « Modern Materials c'est quoi ? »). « MODERN » ne
 ;; disait rien : moderne par rapport a quoi ? La rangee est l'ETAGE SUPERIEUR de PBR MATERIALS —
 ;; elle est grisee quand PBR MATERIALS est eteinte, et elle ajoute par-dessus lui la diffusion de
@@ -7927,41 +7933,41 @@
 ;; (« DYNAMIC RENDER SCALE », 20). Le tampon reste dimensionne 32.
 ;; Uppercase ASCII : la police du menu jak1 n'a pas de minuscules. Present only with --pbr.
 (#when FLAG_PBR
-(define *modern-materials-label* (new 'global 'string 32 (the-as string #f)))
-(format (clear *modern-materials-label*) "ADVANCED MATERIALS"))
+(define *modern-materials-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *modern-materials-label*) "Advanced Materials"))
 ;; Grecharged-realtime-lighting: labels for the 4 realtime-lighting rows (English-only, uppercase ASCII
 ;; for the menu font; shown via name-override). Present only with --pbr, like *pbr-materials-label*.
 (#when FLAG_PBR
-(define *realtime-lighting-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *realtime-lighting-label*) "REALTIME LIGHTING")
+(define *realtime-lighting-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *realtime-lighting-label*) "Realtime Lighting")
 (define *hemisphere-ambient-label* (new 'global 'string 64 (the-as string #f)))
 ;; OWNER FINAL ARCHITECTURE 2026-07-21: renamed AMBIENT -> BAKED AMBIENT (the probe
 ;; world-projection curiosity toggle, default OFF; existing valid text-id + name-override
 ;; convention => no unknown-ID garbage).
 (format (clear *hemisphere-ambient-label*) "BAKED AMBIENT")
-(define *ambient-strength-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ambient-strength-label*) "AMBIENT STRENGTH")
+(define *ambient-strength-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *ambient-strength-label*) "Ambient Strength")
 ;; Gmenu-census-cleanup : le libelle AMBIENT CONTRAST est SUPPRIME avec sa rangee (morte : ses
 ;; 4 lectures shader vivent dans un bloc que `u_rt_probe_on == 0` rend inatteignable). Le
 ;; supprimer, au lieu de le laisser orphelin, est ce qui rend le retrait verifiable sur
 ;; l'ARTEFACT : `strings GAME.CGO | grep "AMBIENT CONTRAST"` doit rendre ZERO.
-(define *shadow-distance-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *shadow-distance-label*) "SHADOW DISTANCE")
-(define *shadow-quality-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *shadow-quality-label*) "SHADOW QUALITY")
+(define *shadow-distance-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *shadow-distance-label*) "Shadow Distance")
+(define *shadow-quality-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *shadow-quality-label*) "Shadow Quality")
 ;; Gpbr-fusion REOPEN #2: PBR TEXTURE RELIEF + SPECULAR INTENSITY slider labels.
-(define *texture-relief-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *texture-relief-label*) "TEXTURE RELIEF")
-(define *specular-intensity-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *specular-intensity-label*) "SPECULAR INTENSITY")
+(define *texture-relief-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *texture-relief-label*) "Texture Relief")
+(define *specular-intensity-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *specular-intensity-label*) "Specular Intensity")
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell label.
-(define *displacement-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *displacement-label*) "DISPLACEMENT")
+(define *displacement-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *displacement-label*) "Displacement")
 ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell row label (name-override, runtime
 ;; global — no text-id, so nothing to add to a text bank). English-only uppercase ASCII, like the
 ;; DISPLACEMENT label it sits under.
-(define *mesh-subdiv-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *mesh-subdiv-label*) "MESH SUBDIVISION")
+(define *mesh-subdiv-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *mesh-subdiv-label*) "Mesh Subdivision")
 ;; Gmenu-census-cleanup : le libelle ENV PROBE est SUPPRIME avec sa rangee (morte : le seul
 ;; ecrivain de `u_rt_probe_on` ecrit 0). Meme raison qu'AMBIENT CONTRAST — le retrait se prouve
 ;; sur l'artefact. Les libelles d'OPTIONS `pc-text-envprobe-low/-mid/-high` RESTENT : la rangee
@@ -7974,15 +7980,15 @@
 ;; Les libelles d'OPTIONS du carrousel (*pbr-iso-both-label* etc.) restent inconditionnels : le
 ;; resolveur partage carousell-option-string les cite dans toutes les configurations.
 (#when FLAG_PBR_DEBUG
-(define *pbr-test-preset-label* (new 'global 'string 64 (the-as string #f)))
+(define *pbr-test-preset-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *pbr-test-preset-label*) "PBR TEST PRESET")
-(define *pbr-isolate-label* (new 'global 'string 64 (the-as string #f)))
+(define *pbr-isolate-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *pbr-isolate-label*) "PBR ISOLATE"))
-(define *ambient-model-label* (new 'global 'string 64 (the-as string #f)))
+(define *ambient-model-label* (new 'global 'string 128 (the-as string #f)))
 ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT labels
 ;; (*probe-enable-label*/*probe-reflections-label*/*probe-quality-label*) were removed with their
 ;; rows; the probe data now feeds the unified AMBIENT tiers (Hemisphere/SH/IBL).
-(format (clear *ambient-model-label*) "AMBIENT MODEL"))
+(format (clear *ambient-model-label*) "Ambient Model"))
 ;; Gpbr-fusion REOPEN #11 SUPERVISOR pre-ship fix: the 4 PBR-ISOLATE carousell OPTION labels are
 ;; RUNTIME GLOBAL strings (like *displacement-label*), NOT the COMMON.TXT text-ids 0x1724-0x1727.
 ;; carousell-option-string (see print-string-in-carousell) routes those ids to these globals so the
@@ -7990,10 +7996,10 @@
 ;; when the Android text bank is stale — the recurring slim-APK text-bank staleness that made them
 ;; show "Unknown ID 5924-5927" (0x1724-0x1727). English-only, matching *pbr-isolate-label*. Defined
 ;; UNCONDITIONALLY (not under FLAG_PBR) so the shared carousell resolver compiles in every build config.
-(define *pbr-iso-both-label* (new 'global 'string 32 (the-as string #f)))
-(define *pbr-iso-nm-label* (new 'global 'string 32 (the-as string #f)))
-(define *pbr-iso-pom-label* (new 'global 'string 32 (the-as string #f)))
-(define *pbr-iso-neither-label* (new 'global 'string 32 (the-as string #f)))
+(define *pbr-iso-both-label* (new 'global 'string 128 (the-as string #f)))
+(define *pbr-iso-nm-label* (new 'global 'string 128 (the-as string #f)))
+(define *pbr-iso-pom-label* (new 'global 'string 128 (the-as string #f)))
+(define *pbr-iso-neither-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *pbr-iso-both-label*) "BOTH")
 (format (clear *pbr-iso-nm-label*) "NORMAL-MAP ONLY")
 (format (clear *pbr-iso-pom-label*) "PARALLAX ONLY")
@@ -8001,48 +8007,48 @@
 ;; Grecharged-hd-models: label for the "ENHANCED MODELS" on-off toggle in the Recharged Settings
 ;; submenu (English-only, uppercase ASCII for the menu font; shown via name-override, not re-formatted).
 (#when FLAG_HD_MODELS
-(define *enhanced-models-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *enhanced-models-label*) "ENHANCED MODELS"))
+(define *enhanced-models-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *enhanced-models-label*) "Enhanced Models"))
 ;; Grecharged-hd-models5: the four per-character HD LOOK ROW labels (name-override), gated with the
 ;; rows themselves. Same convention as *enhanced-models-label*: English-only uppercase ASCII, never
 ;; re-formatted.
 (#when FLAG_HD_MODELS
-(define *hd-look-jak-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *hd-look-jak-label*) "JAK LOOK")
-(define *hd-look-daxter-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *hd-look-daxter-label*) "DAXTER LOOK")
-(define *hd-look-keira-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *hd-look-keira-label*) "KEIRA LOOK")
-(define *hd-look-samos-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *hd-look-samos-label*) "SAMOS LOOK"))
+(define *hd-look-jak-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *hd-look-jak-label*) "Jak Look")
+(define *hd-look-daxter-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *hd-look-daxter-label*) "Daxter Look")
+(define *hd-look-keira-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *hd-look-keira-label*) "Keira Look")
+(define *hd-look-samos-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *hd-look-samos-label*) "Samos Look"))
 ;; Grecharged-hd-models5: the six HD LOOK carousell OPTION labels. Runtime globals resolved by
 ;; carousell-option-string from the reserved tag ids #x17b0..#x17b6 + #x17bc (see the carousell arrays above) —
 ;; the same stale-text-bank-proof mechanism as the PBR ISOLATE options. Defined UNCONDITIONALLY (not
 ;; under FLAG_HD_MODELS) so the shared resolver compiles in every build config.
-(define *hd-look-original-label* (new 'global 'string 32 (the-as string #f)))
-(define *hd-look-hd-label* (new 'global 'string 32 (the-as string #f)))
-(define *hd-look-jak2-label* (new 'global 'string 32 (the-as string #f)))
-(define *hd-look-jak3-label* (new 'global 'string 32 (the-as string #f)))
-(define *hd-look-pants-label* (new 'global 'string 32 (the-as string #f)))
-(define *hd-look-young-label* (new 'global 'string 32 (the-as string #f)))
-(define *hd-look-jak3m-label* (new 'global 'string 32 (the-as string #f)))
-(define *hd-look-jak2p-label* (new 'global 'string 32 (the-as string #f)))
-(format (clear *hd-look-original-label*) "ORIGINAL")
+(define *hd-look-original-label* (new 'global 'string 128 (the-as string #f)))
+(define *hd-look-hd-label* (new 'global 'string 128 (the-as string #f)))
+(define *hd-look-jak2-label* (new 'global 'string 128 (the-as string #f)))
+(define *hd-look-jak3-label* (new 'global 'string 128 (the-as string #f)))
+(define *hd-look-pants-label* (new 'global 'string 128 (the-as string #f)))
+(define *hd-look-young-label* (new 'global 'string 128 (the-as string #f)))
+(define *hd-look-jak3m-label* (new 'global 'string 128 (the-as string #f)))
+(define *hd-look-jak2p-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *hd-look-original-label*) "Original")
 (format (clear *hd-look-hd-label*) "HD")
-(format (clear *hd-look-jak2-label*) "JAK II")
-(format (clear *hd-look-jak3-label*) "JAK 3")
-(format (clear *hd-look-pants-label*) "PANTS")
-(format (clear *hd-look-young-label*) "YOUNG")
-(format (clear *hd-look-jak3m-label*) "JAK 3 MASKED")
-(format (clear *hd-look-jak2p-label*) "JAK II PRISON")
+(format (clear *hd-look-jak2-label*) "Jak II")
+(format (clear *hd-look-jak3-label*) "Jak 3")
+(format (clear *hd-look-pants-label*) "Pants")
+(format (clear *hd-look-young-label*) "Young")
+(format (clear *hd-look-jak3m-label*) "Jak 3 Masked")
+(format (clear *hd-look-jak2p-label*) "Jak II Prison")
 ;; Grecharged-secondary-motion: the PHYSICS on-off ROW label and the PHYSICS DETAIL carousell ROW
 ;; label (name-override), gated with the rows themselves. Same convention as *enhanced-models-label*:
 ;; English-only, uppercase ASCII for the menu font, never re-formatted. Tag ids #x17b7 (PHYSICS) and
 ;; #x17b8 (PHYSICS DETAIL) are RESERVED for these two row labels so nobody reuses them; the labels
 ;; themselves render through name-override, which never touches a text bank.
 (#when FLAG_PHYSICS
-(define *physics-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *physics-label*) "PHYSICS")
+(define *physics-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *physics-label*) "Physics")
 ;; Gmenu-census-cleanup : le libelle PHYSICS DETAIL est SUPPRIME avec sa rangee (les trois
 ;; niveaux produisent le meme solveur). Le tag #x17b8 reste RESERVE : ne pas le reutiliser, la
 ;; rangee revient telle quelle le jour ou les cles du bloc [levels] auront un lecteur.
@@ -8051,26 +8057,26 @@
 ;; resolved by carousell-option-string from the reserved tag ids #x17b9..#x17bb (see the carousell
 ;; array above) — the same stale-text-bank-proof mechanism as the HD LOOK / PBR ISOLATE options.
 ;; Defined UNCONDITIONALLY (not under FLAG_PHYSICS) so the shared resolver compiles in every config.
-(define *physics-light-label* (new 'global 'string 32 (the-as string #f)))
-(define *physics-full-label* (new 'global 'string 32 (the-as string #f)))
-(define *physics-max-label* (new 'global 'string 32 (the-as string #f)))
+(define *physics-light-label* (new 'global 'string 128 (the-as string #f)))
+(define *physics-full-label* (new 'global 'string 128 (the-as string #f)))
+(define *physics-max-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *physics-light-label*) "LIGHT")
 (format (clear *physics-full-label*) "FULL")
 (format (clear *physics-max-label*) "MAXIMUM")
 ;; Grecharged-grass-poc: label for the "RECHARGED GRASS" on-off toggle in the Recharged
 ;; Settings submenu (uppercase ASCII for the menu font; shown via name-override). English
 ;; only for the PoC (no text-bank id), so this buffer is never re-formatted.
-(define *recharged-grass-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-grass-label*) "RECHARGED GRASS")
+(define *recharged-grass-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *recharged-grass-label*) "Recharged Grass")
 ;; Grecharged-grass-poc POLISH#4: labels for the two grass distance sliders (English-only, uppercase
 ;; ASCII for the menu font; shown via name-override, like *recharged-grass-label* — not re-formatted).
-(define *recharged-near-dist-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-near-dist-label*) "NEAR GRASS DISTANCE")
-(define *recharged-card-dist-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-card-dist-label*) "GRASS CARD DISTANCE")
+(define *recharged-near-dist-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *recharged-near-dist-label*) "Near Grass Distance")
+(define *recharged-card-dist-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *recharged-card-dist-label*) "Grass Card Distance")
 ;; Grecharged-grass-poc POLISH#5: label for the grass DENSITY slider (English-only, uppercase ASCII).
-(define *recharged-density-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *recharged-density-label*) "GRASS DENSITY")
+(define *recharged-density-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *recharged-density-label*) "Grass Density")
 ;; Grecharged-grass-precompute-mode: label for the "PRECOMPUTED GRASS" on-off toggle (ON = PRECOMPUTED
 ;; baked day-cycle tables / OFF = LIVE full scan). English-only, uppercase ASCII for the menu font;
 ;; shown via name-override, like *recharged-grass-label* (not re-formatted).
@@ -8080,35 +8086,143 @@
 ;; over platform edges, near LOD only / OFF = stock alpha texture). English-only, uppercase ASCII for the
 ;; menu font; shown via name-override, like *grass-mode-label* (not re-formatted).
 (#when FLAG_GRASS_OVERHANG
-(define *grass-overhang-label* (new 'global 'string 64 (the-as string #f)))
+(define *grass-overhang-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *grass-overhang-label*) "GRASS OVERHANG"))
 ;; Grecharged-foliage-wind: label for the "FOLIAGE WIND" on-off toggle (light wind sway on palms + shrubs).
 ;; English-only, uppercase ASCII for the menu font; shown via name-override, like *grass-overhang-label*.
-(define *foliage-wind-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *foliage-wind-label*) "FOLIAGE WIND")
+(define *foliage-wind-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *foliage-wind-label*) "Foliage Wind")
 ;; Grecharged-title-logo-fullres: label for the CRISP TITLE LOGO on-off toggle. Uppercase ASCII
 ;; only — the jak1 menu font has no lowercase glyphs.
-(define *crisp-title-logo-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *crisp-title-logo-label*) "CRISP TITLE LOGO")
+(define *crisp-title-logo-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *crisp-title-logo-label*) "Crisp Title Logo")
 ;; Gfixed-tick-interpolation: libelle de l'interrupteur FIXED TIMESTEP. ASCII majuscule
 ;; uniquement — la police du menu jak1 n'a pas de minuscules.
-(define *fixed-tick-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *fixed-tick-label*) "FIXED TIMESTEP")
+(define *fixed-tick-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *fixed-tick-label*) "Fixed Timestep")
 ;; Grecharged-grass-poc POLISH#6: label for the "GRASS SETTINGS" nested sub-submenu launcher row inside
 ;; the Recharged Settings submenu (English-only, uppercase ASCII for the menu font; shown via
 ;; name-override on the menu row — like *recharged-settings-label*, never re-formatted).
-(define *grass-settings-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *grass-settings-label*) "GRASS SETTINGS")
+(define *grass-settings-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *grass-settings-label*) "Grass Settings")
 ;; Grecharged-ambient-occlusion: labels for the two AO carousell rows (uppercase ASCII for the menu font;
 ;; shown via name-override). Runtime BUFFERS re-formatted from the text bank in refresh-runtime-option-labels!
 ;; so they follow the TEXT language — ids #x170e / #x170f. English defaults cover boot-before-text-load.
-(define *ambient-occlusion-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ambient-occlusion-label*) "AMBIENT OCCLUSION")
-(define *ao-quality-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ao-quality-label*) "AO QUALITY")
+(define *ambient-occlusion-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *ambient-occlusion-label*) "Ambient Occlusion")
+(define *ao-quality-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *ao-quality-label*) "AO Quality")
 ;; Grecharged-ambient-occlusion closing round: AO STRENGTH row label (id #x1713).
-(define *ao-strength-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *ao-strength-label*) "AO STRENGTH")
+(define *ao-strength-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *ao-strength-label*) "AO Strength")
+
+;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
+;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
+;; re-canonicalizes there) and again right after a text-language change reloads the bank
+;; (same-menu-session navigation must not read stale heap pointers — hence buffers + copy,
+;; never bank pointers). A #f lookup (id absent AND fallback disabled) leaves the buffer as-is.
+;; ─── Grecharged-settings-case-l10n — LA TABLE UNIQUE DES LIBELLES DU MENU RECHARGED ─────────
+;; L'owner, 2026-09-04 : « tous les elements sont en majuscule dans les reglages rechargees, et
+;; pas tous sont localises correctement. » 2026-09-05 : « Traduire celles qui restent en anglais
+;; dans toutes les langues supportees par le jeu ! »
+;;
+;; LA CAUSE, MESUREE. `refresh-runtime-option-labels!` ne re-formatait que ONZE tampons depuis le
+;; banc de texte. Des QUARANTE libelles des deux ecrans Recharged, vingt-neuf etaient des
+;; litteraux anglais MAJUSCULES qu'aucun banc ne touchait jamais : ils ne pouvaient etre ni mis
+;; en casse normale ni traduits, dans aucune langue. Les onze autres n'existaient que dans deux
+;; bancs sur vingt-trois (en-US, fr-FR), donc les vingt et une autres langues retombaient sur
+;; l'anglais (`lookup-text-impl!`, engine/ui/text.gc:73-111).
+;;
+;; LE REMEDE EST UNE TABLE, PAS UNE LISTE D'APPELS. Un identifiant de banc et son tampon sont
+;; declares UNE fois ici. `refresh-runtime-option-labels!` la parcourt pour remplir les tampons ;
+;; le recensement de la porte (`scl10n-census!`) la parcourt pour retrouver l'identifiant qui
+;; alimente un `name-override`. Deux lecteurs, UN ecrivain : la derive entre « ce qui est
+;; dessine » et « ce qui est mesure » n'a plus de deuxieme endroit ou naitre.
+;;
+;; Les valeurs des carrousels HD LOOK y sont aussi. Leurs identifiants #x17b0-#x17b6 / #x17bc
+;; etaient des TAGS reserves que `carousell-option-string` resolvait vers un global anglais, pour
+;; survivre a un banc Android perime. Ils restent des tags — meme resolution, meme immunite — mais
+;; le tampon derriere est desormais rempli depuis le banc a cet identifiant-la : la robustesse est
+;; conservee (le defaut anglais tient tant que le banc n'a rien) ET la traduction devient possible.
+;; TAILLE DES TAMPONS : 128, pas 64. Un accent n'est pas un octet dans l'encodage de la police
+;; jak1, c'est un GROUPE de composition `~Y~-14H~-1V<glyphe>~Z` de quatorze octets. Mesure du
+;; 2026-09-05 sur les 23 bancs construits : le plus long libelle traduit fait 84 octets encodes
+;; (`0x1728` en cs-CZ, « Prohlizec sit »), 83 en lt-LT et hu-HU. Les tampons de 64 debordaient.
+(define *scl10n-label-ids* (new 'static 'boxed-array :type int32 :length 48))
+(define *scl10n-label-bufs* (new 'static 'boxed-array :type string :length 48))
+(define *scl10n-label-count* 0)
+(define *scl10n-registered?* #f)
+
+(defun scl10n-add-label! ((id int) (buf string))
+  "Une entree de la table. Ignoree si la table est pleine : mieux vaut un recensement qui rapporte
+   moins qu'une ecriture hors du tableau."
+  (when (and buf (< *scl10n-label-count* 48))
+    (set! (-> *scl10n-label-ids* *scl10n-label-count*) id)
+    (set! (-> *scl10n-label-bufs* *scl10n-label-count*) buf)
+    (set! *scl10n-label-count* (+ *scl10n-label-count* 1)))
+  (none))
+
+(defun scl10n-register-labels! ()
+  "Remplit la table une seule fois. Les entrees gardees par un drapeau de compilation sont absentes
+   du binaire ET de la table : le recensement ne juge jamais une rangee qui n'existe pas ici."
+  (when (not *scl10n-registered?*)
+    (set! *scl10n-registered?* #t)
+    ;; --- ecran RECHARGED SETTINGS, dans l'ordre des rangees ---
+    (scl10n-add-label! #x17bf *recharged-master-label*)
+    (#when FLAG_RECHARGED_HUD (scl10n-add-label! #x1707 *recharged-hud-label*))
+    (scl10n-add-label! #x17c0 *grass-settings-label*)
+    (scl10n-add-label! #x17c1 *load-custom-assets-label*)
+    (scl10n-add-label! #x17c2 *recharged-textures-label*)
+    (#when FLAG_PBR (scl10n-add-label! #x17c4 *pbr-materials-label*))
+    (#when FLAG_HD_MODELS
+      (scl10n-add-label! #x17c5 *enhanced-models-label*)
+      (scl10n-add-label! #x17c6 *hd-look-jak-label*)
+      (scl10n-add-label! #x17c7 *hd-look-daxter-label*)
+      (scl10n-add-label! #x17c8 *hd-look-keira-label*)
+      (scl10n-add-label! #x17c9 *hd-look-samos-label*))
+    (scl10n-add-label! #x17ca *foliage-wind-label*)
+    (scl10n-add-label! #x170e *ambient-occlusion-label*)
+    (scl10n-add-label! #x170f *ao-quality-label*)
+    (scl10n-add-label! #x1713 *ao-strength-label*)
+    (#when FLAG_PBR
+      (scl10n-add-label! #x17cb *realtime-lighting-label*)
+      (scl10n-add-label! #x17cc *ambient-model-label*)
+      (scl10n-add-label! #x17cd *ambient-strength-label*)
+      (scl10n-add-label! #x17ce *shadow-distance-label*)
+      (scl10n-add-label! #x17cf *shadow-quality-label*)
+      (scl10n-add-label! #x17d0 *texture-relief-label*)
+      (scl10n-add-label! #x17d1 *specular-intensity-label*)
+      (scl10n-add-label! #x17d2 *displacement-label*)
+      (scl10n-add-label! #x17d3 *mesh-subdiv-label*)
+      (scl10n-add-label! #x17d4 *modern-materials-label*))
+    (scl10n-add-label! #x17d5 *crisp-title-logo-label*)
+    (scl10n-add-label! #x17d6 *fixed-tick-label*)
+    (#when FLAG_PHYSICS (scl10n-add-label! #x17b7 *physics-label*))
+    (scl10n-add-label! #x17c3 *managed-assets-label*)
+    ;; --- ecran GRASS SETTINGS ---
+    (scl10n-add-label! #x17d7 *recharged-grass-label*)
+    (scl10n-add-label! #x17d8 *recharged-near-dist-label*)
+    (scl10n-add-label! #x17d9 *recharged-card-dist-label*)
+    (scl10n-add-label! #x17da *recharged-density-label*)
+    (#when FLAG_GRASS_OVERHANG (scl10n-add-label! #x17db *grass-overhang-label*))
+    ;; --- valeurs des carrousels HD LOOK (tags #x17b0-#x17b6, #x17bc) ---
+    (scl10n-add-label! #x17b0 *hd-look-original-label*)
+    (scl10n-add-label! #x17b1 *hd-look-hd-label*)
+    (scl10n-add-label! #x17b2 *hd-look-jak2-label*)
+    (scl10n-add-label! #x17b3 *hd-look-jak3-label*)
+    (scl10n-add-label! #x17b4 *hd-look-pants-label*)
+    (scl10n-add-label! #x17b5 *hd-look-young-label*)
+    (scl10n-add-label! #x17b6 *hd-look-jak3m-label*)
+    (scl10n-add-label! #x17bc *hd-look-jak2p-label*))
+  (none))
+
+(defun scl10n-id-of-buffer ((buf string))
+  "L'identifiant de banc qui alimente ce tampon, 0 si le tampon n'est dans aucune entree. Un 0 fait
+   compter la rangee comme INTRADUISIBLE par le recensement — c'est exactement ce qu'elle est."
+  (let ((found 0))
+    (dotimes (i *scl10n-label-count*)
+      (if (= (-> *scl10n-label-bufs* i) buf) (set! found (-> *scl10n-label-ids* i))))
+    found))
 
 ;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
 ;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
@@ -8117,6 +8231,7 @@
 ;; never bank pointers). A #f lookup (id absent AND fallback disabled) leaves the buffer as-is.
 (defun refresh-runtime-option-labels! ()
   (when *common-text*
+    ;; les libelles de l'ecran GRAPHISMES (hors menu Recharged, hors porte de cet item)
     (let ((s (lookup-text! *common-text* (the-as text-id #x1700) #t)))
       (if s (format (clear *fps-counter-label*) "~S" s)))
     (let ((s (lookup-text! *common-text* (the-as text-id #x1701) #t)))
@@ -8129,19 +8244,13 @@
       (if s (format (clear *min-target-fps-label*) "~S" s)))
     (let ((s (lookup-text! *common-text* (the-as text-id #x1705) #t)))
       (if s (format (clear *advanced-settings-label*) "~S" s)))
-    ;; Grecharged-hud-jak1
     (let ((s (lookup-text! *common-text* (the-as text-id #x1706) #t)))
       (if s (format (clear *recharged-settings-label*) "~S" s)))
-    (#when FLAG_RECHARGED_HUD
-    (let ((s (lookup-text! *common-text* (the-as text-id #x1707) #t)))
-      (if s (format (clear *recharged-hud-label*) "~S" s))))
-    ;; Grecharged-ambient-occlusion
-    (let ((s (lookup-text! *common-text* (the-as text-id #x170e) #t)))
-      (if s (format (clear *ambient-occlusion-label*) "~S" s)))
-    (let ((s (lookup-text! *common-text* (the-as text-id #x170f) #t)))
-      (if s (format (clear *ao-quality-label*) "~S" s)))
-    (let ((s (lookup-text! *common-text* (the-as text-id #x1713) #t)))
-      (if s (format (clear *ao-strength-label*) "~S" s))))
+    ;; LE MENU RECHARGED : la table, et rien d'autre.
+    (scl10n-register-labels!)
+    (dotimes (i *scl10n-label-count*)
+      (let ((s (lookup-text! *common-text* (the-as text-id (-> *scl10n-label-ids* i)) #t)))
+        (if s (format (clear (-> *scl10n-label-bufs* i)) "~S" s)))))
   (none))
 
 ;; Goptions-reorder: stable pointers to the Min Target FPS row (physical index 4) in each graphics
@@ -12343,6 +12452,77 @@
           (suspend))
         (none)))
 
+
+;; ─── Grecharged-settings-case-l10n — LE RECENSEMENT QUE LA PORTE LIT ────────────────────────
+;; Il ne tourne QUE quand le harnais a nomme cet item (`__pc-scl10n-wanted?`) : le binaire de
+;; l'owner ne fait rien de plus. C'est l'INSTRUMENT qui est sous drapeau, jamais le correctif —
+;; les libelles traduits, eux, sont dans le banc pour tout le monde.
+;;
+;; POURQUOI IL APPELLE `init-game-options`. `lib/proof_run.sh` lance `gk -boot` et PERSONNE
+;; n'ouvre le menu. Or `init-game-options` est le SEUL ecrivain des champs `name-override`
+;; (progress.gc:371 est son unique appelant, a la naissance du process `progress`). Sans cet
+;; appel, les trente-cinq rangees des deux ecrans ont `name-override` a 0 et un recensement
+;; mesurerait un menu sans libelles. L'appel est sur : le corps de `init-game-options` n'utilise
+;; JAMAIS son parametre `obj` (verifie : aucune occurrence de `obj` entre sa premiere et sa
+;; derniere ligne), et tout ce qu'il fait, l'ouverture du menu le refait a l'identique.
+;;
+;; IL ATTEND. Le recensement part apres 600 images, pas a la premiere : le seuil d'images de la
+;; preuve (300) est deja franchi quand on touche a l'etat du menu, donc un accident ici ne peut
+;; pas se lire « rien n'a ete dessine ».
+(define *scl10n-census-done?* #f)
+(define *scl10n-census-ticks* 0)
+
+(defun scl10n-scan-rows! ((who string) (arr (array game-option)))
+  "Une rangee, telle que `draw-options` la DESSINE : le tampon `name-override` s'il est pose,
+   sinon le `:name` resolu dans le banc. Meme test que progress-pc.gc (`nonzero?` sur le
+   POINTEUR, pas sur la longueur). Une rangee dont le tampon n'est dans aucune entree de la
+   table est rapportee INTRADUISIBLE."
+  (dotimes (i (length arr))
+    (let ((row (-> arr i)))
+      (cond
+        ((nonzero? (-> row name-override))
+         (let ((id (scl10n-id-of-buffer (-> row name-override))))
+           (if (nonzero? id)
+             (__pc-scl10n-label id (-> row name-override))
+             (__pc-scl10n-uncovered (string-format "~S:~D" who i)))))
+        ((nonzero? (-> row name))
+         (__pc-scl10n-label (the-as int (-> row name)) (lookup-text! *common-text* (-> row name) #f)))
+        (else (__pc-scl10n-uncovered (string-format "~S:~D" who i))))))
+  (none))
+
+(defun scl10n-scan-carousell! ((arr (array text-id)))
+  "Les VALEURS d'un carrousel, telles que `print-string-in-carousell` les dessine : par
+   `carousell-option-string`, le meme resolveur, tags reserves compris."
+  (dotimes (i (length arr))
+    (let ((id (-> arr i)))
+      (__pc-scl10n-label (the-as int id) (carousell-option-string id))))
+  (none))
+
+(defun scl10n-census! ()
+  "Une image de plus ; au bout de 600, le recensement, une seule fois."
+  (when (and (not *scl10n-census-done?*) (nonzero? (__pc-scl10n-wanted?)))
+    (set! *scl10n-census-ticks* (+ *scl10n-census-ticks* 1))
+    (when (and (> *scl10n-census-ticks* 600) *common-text*)
+      (set! *scl10n-census-done?* #t)
+      (init-game-options (the-as progress #f))
+      (__pc-scl10n-begin (the-as int (-> *pc-settings* text-language)))
+      (scl10n-scan-rows! "recharged" *recharged-options-pc*)
+      (scl10n-scan-rows! "grass" *grass-options-pc*)
+      (scl10n-scan-carousell! *carousell-ambient-occlusion*)
+      (scl10n-scan-carousell! *carousell-ao-quality*)
+      (scl10n-scan-carousell! *carousell-ao-strength*)
+      (scl10n-scan-carousell! *carousell-shadow-quality*)
+      (scl10n-scan-carousell! *carousell-grass-density*)
+      (scl10n-scan-carousell! *carousell-rt-ambient-model*)
+      (scl10n-scan-carousell! *carousell-pbr-displacement*)
+      (scl10n-scan-carousell! *carousell-mesh-subdiv*)
+      (#when FLAG_HD_MODELS
+        (scl10n-scan-carousell! *carousell-hd-look-jak*)
+        (scl10n-scan-carousell! *carousell-hd-look-daxter*)
+        (scl10n-scan-carousell! *carousell-hd-look-keira*)
+        (scl10n-scan-carousell! *carousell-hd-look-samos*))
+      (__pc-scl10n-end)))
+  (none))
 ) ;; end #unless FLAG_MENU_OVERHAUL
 
 ;; ------------------------------------------------------------------------------------------------

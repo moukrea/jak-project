@@ -430,6 +430,7 @@ add_library(android_kernel STATIC
     # Le publicateur de preuve moissonne par .autoport/lib/proof_run.sh (ligne FEATURE,
     # compteur d'images, cle=valeur). Sans lui, toute preuve APPAREIL sort avec frames=0.
     "${JAK_ROOT}/game/system/autoport_proof.cpp"
+    "${JAK_ROOT}/game/system/settings_case_l10n.cpp"
     "${JAK_ROOT}/game/system/npc_flicker.cpp"
     "${JAK_ROOT}/game/system/Deci2Server.cpp"
     # Phase Ginput-replay (autoport): host-side input record/replay harness,

@@ -361,6 +361,7 @@ set(RUNTIME_SOURCE
         system/iop_thread.cpp
         system/load_gate.cpp
         system/autoport_proof.cpp
+        system/settings_case_l10n.cpp
         system/npc_flicker.cpp
         system/SystemThread.cpp
         tools/filter_menu/filter_menu.cpp
