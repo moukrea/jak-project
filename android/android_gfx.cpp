@@ -28,6 +28,7 @@
 #include "game/mips2c/spart_prof.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/render_pace.h"
 #include "game/graphics/opengl_renderer/GpuCaps.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
@@ -1019,7 +1020,13 @@ u32 vsync() {
     SpartScopedNs _pace(g_spart_prof.goal_pace);
     using namespace std::chrono;
     static steady_clock::time_point s_next{};
-    double tfps = Gfx::g_global_settings.target_fps;
+    // anim-interp-low-fps — BALAYAGE DE CADENCE D'AFFICHAGE (`debug.opengoal.frame.limit`).
+    // Il deplace la cible du LIMITEUR seul : `Gfx::g_global_settings.target_fps` — donc
+    // `*ticks-per-frame*` et le budget de `render_pace` — n'est PAS touche, et c'est
+    // precisement l'ecart entre cadence AFFICHEE et cadence CIBLE qui fabrique le defaut que
+    // l'owner decrit a 45 img/s. Sans consigne, rend la cible telle quelle : le binaire de
+    // l'owner passe ici a chaque image et ne change pas de comportement.
+    double tfps = render_pace::stimulus_fps((double)Gfx::g_global_settings.target_fps);
     if (tfps < 1.0) {
       tfps = 60.0;
     }

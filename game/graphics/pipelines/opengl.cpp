@@ -26,6 +26,7 @@
 
 #include "game/graphics/display.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/render_pace.h"
 #include "game/graphics/opengl_renderer/GpuCaps.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/OpenGLRenderer.h"
@@ -81,46 +82,14 @@ constexpr bool run_dma_copy = false;
 // defaut), de sorte qu'UNE course couvre 60, 20, 45, 120... et que le maximum publie porte
 // sur les deux bouts a la fois.
 static double frame_limit_override(double target) {
-  struct Sweep {
-    std::vector<double> fps;
-    double seg = 15.0;
-  };
-  static const Sweep s_sweep = []() -> Sweep {
-    Sweep sw;
-    const char* e = std::getenv("OG_FRAME_LIMIT_FPS");
-    if (!e || !e[0]) {
-      return sw;
-    }
-    std::string v(e);
-    const auto at = v.find('@');
-    if (at != std::string::npos) {
-      const double s = std::atof(v.substr(at + 1).c_str());
-      if (s > 0.0) {
-        sw.seg = s;
-      }
-      v = v.substr(0, at);
-    }
-    size_t pos = 0;
-    while (pos <= v.size()) {
-      const auto comma = v.find(',', pos);
-      const std::string tok = v.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
-      const double f = std::atof(tok.c_str());
-      if (f > 0.0) {
-        sw.fps.push_back(f);
-      }
-      if (comma == std::string::npos) {
-        break;
-      }
-      pos = comma + 1;
-    }
-    return sw;
-  }();
-  if (s_sweep.fps.empty()) {
-    return target;
-  }
-  static Timer s_sweep_timer;
-  const size_t i = (size_t)(s_sweep_timer.getSeconds() / s_sweep.seg) % s_sweep.fps.size();
-  return s_sweep.fps[i];
+  // UNE SEULE IMPLEMENTATION, PARTAGEE AVEC L'APPAREIL. Ce corps vivait ici, et ce fichier
+  // n'est PAS compile dans `libgk.so` (android/CMakeLists.txt ne le liste pas) : la course
+  // appareil ne pouvait donc exercer aucune cadence imposee, alors que l'item est passe en
+  // `device: true`. Le parseur, les segments et l'horloge de balayage sont maintenant dans
+  // `game/graphics/render_pace.cpp`, qui est dans LES DEUX CMakeLists — et les deux
+  // plateformes ne peuvent plus deriver l'une de l'autre. Meme consigne, meme format :
+  // `OG_FRAME_LIMIT_FPS=<f1[,f2,...]>[@<secondes>]`.
+  return render_pace::stimulus_fps(target);
 }
 
 // fixed-tick-interpolation (essai 2) — PIC DE DUREE D'IMAGE ISOLE, opt-in au PRODUCTEUR

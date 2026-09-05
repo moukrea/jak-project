@@ -34,6 +34,7 @@
 #include "common/common_types.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/render_pace.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/kernel/common/kboot.h"
 
@@ -267,6 +268,11 @@ int android_renderer_run() {
     if (present_this_cycle) {
       SDL_GL_SwapWindow(window);
       android_gfx::post_swap_tick();
+      // anim-interp-low-fps — LA CADENCE QUE L'OEIL VOIT. `render_pace` chronometre la
+      // boucle EE ; l'ecran, lui, ne change qu'ici. Si les deux divergeaient, tout ce
+      // module corrigerait une horloge que personne ne regarde. Un compteur, pas une
+      // correction : rien du rendu n'en depend.
+      render_pace::note_present();
       // Gcamera-smooth: TRUE present-interval probe (debug.opengoal.pace.measure).
       // Raw wall-clock dt between successive SwapWindow calls = the actual on-screen
       // cadence. Compared against the EE-loop "PACE-EE" dt: if the game camera

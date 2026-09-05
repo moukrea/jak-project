@@ -99,4 +99,45 @@ bool skip();
 double last_k();
 double last_deficit();
 
+// ---------------------------------------------------------------------------------------
+// BALAYAGE DE CADENCE D'AFFICHAGE — LE STIMULUS DE MESURE, ET RIEN D'AUTRE.
+// ---------------------------------------------------------------------------------------
+// Le defaut de l'owner (2026-09-05) est nomme : « à 30 ça roule nickel, à 60 pareil [...]
+// mais sur des framerates autres qu'aux alentours de 30 et 60 ça jitter ». 30 et 60 sont
+// exactement les cadences ou les 60 ticks/s de la logique tombent en compte ENTIER par image.
+// Mesurer ce defaut demande donc de tenir l'affichage a 45, 50, 75, 90 — des cadences que le
+// jeu n'atteint pas tout seul et que NI le bureau NI l'appareil ne savaient imposer :
+// `frame_limit_override` vivait dans `game/graphics/pipelines/opengl.cpp`, qui n'est PAS
+// compile dans `libgk.so` (android/CMakeLists.txt ne le liste pas). L'item est passe en
+// `device: true` : sans ce module, la course appareil ne pouvait exercer aucune des cadences
+// que la porte nomme.
+//
+// `stimulus_fps` deplace la cible du LIMITEUR seul. `Gfx::g_global_settings.target_fps`, donc
+// `*ticks-per-frame*` et le budget de `render_pace`, n'est PAS touche : c'est precisement
+// l'ecart entre cadence AFFICHEE et cadence CIBLE qui fabrique le defaut.
+//
+// Consigne : `OG_FRAME_LIMIT_FPS=<f1[,f2,...]>[@<secondes>]` (bureau, environnement) ou
+// `debug.opengoal.frame.limit` (appareil, propriete). Absente => rend `target` tel quel, cout
+// nul : le binaire de l'owner passe par ici a chaque image et ne change pas de comportement.
+//
+// LE BALAYAGE NE DEMARRE QU'APRES L'AMORCAGE (kSweepStartFrames images dessinees). Sans cela
+// le premier segment tombe dans le chargement du niveau, ou aucun acteur n'anime : la cadence
+// serait exercee mais la mesure vide, et une mesure vide se lit comme un zero, c'est-a-dire
+// comme un vert.
+double stimulus_fps(double target);
+
+// Index du segment courant du balayage (0..n-1), -1 quand aucun balayage n'est demande ou
+// qu'il n'a pas encore demarre. Lu depuis un autre fil que celui qui l'ecrit sur bureau.
+int stimulus_segment();
+
+// Cadence NOMINALE du segment courant, en images/s. 0 si aucun balayage.
+double stimulus_segment_fps();
+
+// Un `SwapWindow` vient d'avoir lieu (fil GL, Android). Sert a UN SEUL recoupement : la
+// cadence REELLEMENT AFFICHEE est-elle celle de la boucle EE que `on_render_frame` mesure ?
+// Une phase precedente l'a affirme en commentaire (android_gfx.cpp, « present dt == EE dt ») ;
+// une affirmation n'est pas une trace, et si les deux divergeaient, tout ce module mesurerait
+// une horloge que l'oeil ne voit pas. No-op quand personne n'appelle (bureau).
+void note_present();
+
 }  // namespace render_pace
