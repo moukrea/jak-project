@@ -222,6 +222,7 @@ uint64_t g_hd_noanim_cover = 0;
 // ces differences pour les cles `npc_plat_*` du proof.
 PlatformCountersFn g_plat_host_fn = nullptr;
 PlatformCountersFn g_plat_render_fn = nullptr;
+PlatformCountersFn g_plat_loader_fn = nullptr;
 uint64_t g_plat_at_start[kPlatCounterCount] = {};
 uint64_t g_plat_total[kPlatCounterCount] = {};
 uint64_t g_scene_start_ms = 0;
@@ -236,10 +237,14 @@ void read_platform_counters(uint64_t out[kPlatCounterCount]) {
   if (g_plat_render_fn) {
     g_plat_render_fn(out, kPlatCounterCount);
   }
+  if (g_plat_loader_fn) {
+    g_plat_loader_fn(out, kPlatCounterCount);
+  }
 }
 
 uint32_t platform_sources_unlocked() {
-  return (g_plat_host_fn ? 1u : 0u) | (g_plat_render_fn ? 2u : 0u);
+  return (g_plat_host_fn ? 1u : 0u) | (g_plat_render_fn ? 2u : 0u) |
+         (g_plat_loader_fn ? 4u : 0u);
 }
 // Appels de `clone-anim-once` ou le clone n'a pas pu suivre sa source (generic-obs.gc:80).
 uint64_t g_clone_fails = 0;
@@ -752,10 +757,16 @@ int clone_hold_ms() {
 }
 
 bool should_hold_clone(uint32_t pid) {
-  // DESARME = ANCIEN COMPORTEMENT. C'est le bras d'ablation du harnais, et il passe par le meme
-  // interrupteur que le reste de l'item : `armed()` ne rend faux que si le harnais a nomme CET
-  // item et pose `armed=0`.
-  if (!autoport_proof::armed()) {
+  // DESARME = ANCIEN COMPORTEMENT. C'est le bras d'ablation du harnais, et il doit passer par le
+  // meme interrupteur que le reste de l'item.
+  //
+  // CE SITE LISAIT `armed()`, ET SON COMMENTAIRE AFFIRMAIT LE CONTRAIRE DE CE QUE FAIT `armed()`.
+  // `armed()` rend faux des que le harnais mesure le bras d'ablation de N'IMPORTE QUEL item : une
+  // course `foliage-wind armed=0` desarmait donc aussi ce correctif-ci, et le defaut PNJ
+  // reapparaissait dans une course qui ne le mesurait pas. `armed_for(id)` (autoport_proof.cpp:129)
+  // est la fonction qui a la semantique decrite : elle ne rend faux que si le harnais a nomme CET
+  // item. C'est celle qu'utilisent deja Loader.cpp, fixed_tick.cpp et foliage_wind.cpp.
+  if (!autoport_proof::armed_for("cutscene-npc-flicker")) {
     return false;
   }
   std::lock_guard<std::mutex> lock(g_mutex);
@@ -1279,7 +1290,9 @@ void reset_for_test() {
 
 const char* const kPlatCounterNames[kPlatCounterCount] = {
     "nullfg",    "bareret",   "dblee",     "kerncode",    "enterstate", "rftd",
-    "suspend",   "precopy",   "chainloop", "malformed",   "hd_failopen", "hd_gap"};
+    "suspend",   "precopy",   "chainloop", "malformed",   "hd_failopen", "hd_gap",
+    "evict_pression", "evictions", "evict_passe2", "evict_merc_vivant",
+    "merc_vecteur_vide", "merc_cle_absente"};
 
 void set_host_counters_fn(PlatformCountersFn fn) {
   std::lock_guard<std::mutex> lock(g_mutex);
@@ -1289,6 +1302,11 @@ void set_host_counters_fn(PlatformCountersFn fn) {
 void set_render_counters_fn(PlatformCountersFn fn) {
   std::lock_guard<std::mutex> lock(g_mutex);
   g_plat_render_fn = fn;
+}
+
+void set_loader_counters_fn(PlatformCountersFn fn) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_plat_loader_fn = fn;
 }
 
 uint32_t platform_sources() {

@@ -27,12 +27,35 @@ de 3577 a 4127 ms. La chaine, chaque maillon mesure :
      rend `nullopt` ; `Merc2.cpp` sort sans rien dessiner. Le maire disparait le temps du
      rechargement de beach (12,5 Mo compresses, ~3,8 s sur l'appareil), puis revient.
 
-DISCRIMINANT, SUR LA MESURE : dans cette scene, `modele_absent` vaut 0 pour les six autres PNJ
-suivis. `mayorgears-geo`, `hutlamp-lod0`, `medres-jungle2-lod0` sont dans village1, qui est
-AFFICHE — son fond dessine, son age retombe. `eichar-lod0`, `sidekick-lod0`, `crate-iron-lod0`
-sont dans GAME.fr3, charge dans `m_common_level`, un membre SEPARE de `m_loaded_tfrag3_levels`
-que l'eviction n'itere jamais. Le seul acteur touche est le seul dont le fr3 fournisseur n'est
-jamais dessine.
+DISCRIMINANT, MESURE SUR LES SEPT ACTEURS DE LA SCENE, SANS EXCEPTION (2026-09-05, essai 14).
+Quel fr3 fournit chaque acteur — les fr3 sont zstd apres 8 octets d'en-tete, donc :
+
+    for f in out/jak1/fr3/*.fr3; do tail -c +9 "$f" | zstd -dc | grep -aq -- "$nom" && echo "$f"; done
+
+    mayor-lod0           -> beach                                    modele_absent=8, noir_dans_frustum=1823
+    hutlamp-lod0         -> village1                                 modele_absent=0
+    mayorgears-geo       -> village1                                 modele_absent=0
+    medres-jungle2-lod0  -> village1                                 modele_absent=0
+    eichar-lod0          -> GAME                                     modele_absent=0
+    crate-iron-lod0      -> GAME                                     modele_absent=0
+    sidekick-lod0        -> GAME (+ beach, misty, swamp, ...)        modele_absent=0
+
+Correspondance EXACTE, sept acteurs sur sept : le seul touche est le seul dont l'unique
+fournisseur est un niveau A LA FOIS evincable ET jamais dessine en fond. `village1` est affiche,
+son age retombe a chaque image par `get_tfrag3_level`. `GAME.fr3` vit dans `m_common_level`, un
+membre SEPARE de `m_loaded_tfrag3_levels` que la boucle d'eviction n'itere jamais. `beach` n'est
+ni l'un ni l'autre. Ce n'est pas une correlation choisie apres coup : les six temoins sont tous
+les autres acteurs que le recensement a suivis dans cette scene.
+
+EMPREINTE TEMPORELLE, sur la meme capture, DEUX FOIS INDEPENDAMMENT :
+  * la premiere image noire du maire tombe a `image=184` dans les TROIS occurrences de la scene ;
+  * `dessine=1624` pour `modele_absent=8` episodes, donc 9 plages dessinees :
+    **1624 / 9 = 180,4 images par plage**.
+`kUnloadAgeFrames` vaut 180. Aucune autre constante du moteur ne vaut 180 images. La duree des
+plages OU LE MAIRE EST VISIBLE est donc le seuil d'age lui-meme : l'age court PENDANT que le
+niveau dessine, ce qui est exactement ce que le correctif supprime. Les plages noires, elles,
+valent 202 a 317 images — c'est le rechargement de beach.fr3, une autre grandeur, non bornee
+par 180 : les deux ne se confondent pas.
 
 CE BRAS ECHOUE SI l'un des quatre maillons du correctif disparait du code. C'est exactement la
 forme de regression qui s'est produite ici : le geste correct etait deja dans l'arbre, EN
@@ -121,6 +144,37 @@ def audit(loader_src, common_src):
         and bool(re.search(r's_npcf_evict_with_live_merc\s*\+\+', loader)),
         "une eviction qui emporte un modele dessine doit etre COMPTEE ;"
         " sans denominateur, un zero ne dit pas si la situation s'est presentee"))
+
+    # ------------------------------------------------------------------ ESSAI 14 : L'OCCASION
+    # `s_npcf_evictions` et `s_npcf_evict_with_live_merc` ne sont PAS le denominateur qu'ils
+    # pretendaient etre : ils ne comptent que ce qui arrive une fois la branche d'eviction
+    # atteinte. Or cette branche demande `m_loaded_tfrag3_levels.size() >= m_max_levels` (3 en
+    # jak1) et les courses du harnais n'ont jamais tenu que DEUX niveaux residents. Les deux
+    # compteurs valaient donc zero parce que le mecanisme n'avait pas tourne, pas parce qu'il
+    # etait repare — et treize verdicts verts sont sortis sur un defaut que l'owner voyait.
+    # C'est la meme faute que `[hd-flicker] blackouts=0` (BRAS 2), sous une autre forme : une
+    # clause qu'aucun chemin de code ne pouvait violer.
+    out.append((
+        "la branche d'eviction compte les images ou elle est ATTEINTE",
+        bool(update) and bool(re.search(r's_npcf_evict_pressure_frames\s*\+\+', update)),
+        "rien ne compte les images ou `size() >= m_max_levels` : un zero sur les evictions"
+        " redevient muet, on ne peut plus distinguer « repare » de « jamais exerce »"))
+
+    out.append((
+        "l'occasion est PUBLIEE a cote du verdict",
+        all(f'publish("{k}"' in loader for k in
+            ("npc_evict_pressure_frames", "npc_loaded_levels_max", "npc_level_age_max")),
+        "npc_evict_pressure_frames / npc_loaded_levels_max / npc_level_age_max doivent sortir"
+        " dans proof.txt : sans eux le lecteur du rapport ne peut pas voir que la course"
+        " n'a rien exerce"))
+
+    out.append((
+        "l'echec de get_merc_model separe CLE ABSENTE et VECTEUR VIDE",
+        bool(get_merc) and bool(re.search(r's_npcf_merc_key_missing\s*\+\+', get_merc))
+        and bool(re.search(r's_npcf_merc_vec_empty\s*\+\+', get_merc)),
+        "les deux echecs n'ont pas la meme cause : la cle absente = modele jamais charge,"
+        " le vecteur vide = niveau EVINCE (l'eviction fait `mercs.erase` et laisse la cle)."
+        " Les confondre a envoye les essais precedents chercher dans le chargement"))
 
     return out
 

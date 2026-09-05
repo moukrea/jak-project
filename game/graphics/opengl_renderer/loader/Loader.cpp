@@ -37,6 +37,7 @@
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/load_gate.h"
+#include "game/system/npc_flicker.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -81,19 +82,75 @@ static uint64_t s_npcf_evictable_while_drawing = 0;
 static uint64_t s_npcf_evictions = 0;
 static uint64_t s_npcf_evict_with_live_merc = 0;
 
+// ============================ L'OCCASION, SANS LAQUELLE LE ZERO NE VAUT RIEN ==================
+// Treize essais ont publie `npc_evict_with_live_merc = 0` / `npc_flicker_episodes = 0` pendant que
+// l'owner voyait le maire clignoter. La raison n'etait pas que le correctif marchait : c'est que
+// la BRANCHE D'EVICTION n'etait jamais atteinte. Elle demande
+// `m_loaded_tfrag3_levels.size() >= m_max_levels`, or `m_max_levels` vaut 3 en jak1
+// (common/goal_constants.h:46-48, identique x86 et arm64) et la course du harnais n'a jamais tenu
+// que DEUX niveaux residents. Un zero sur un mecanisme qui n'a pas tourne est un zero muet, pas un
+// verdict. Ces compteurs publient le DENOMINATEUR : si `npc_evict_pressure_frames` vaut 0, la
+// course n'a rien mesure et il faut le lire dans le rapport, pas conclure que c'est corrige.
+static uint64_t s_npcf_evict_pressure_frames = 0;  // images ou la branche d'eviction est ATTEINTE
+static uint64_t s_npcf_loaded_levels_max = 0;      // maximum de niveaux residents dans la course
+// Eviction choisie par la SECONDE passe de `get_most_unloadable_level` : un niveau que GOAL veut
+// encore (il est dans `m_desired_levels`). C'est celle qui emporte `beach` pendant que le maire
+// est a l'ecran ; la premiere passe ne touche que les niveaux dont GOAL s'est deja desinteresse.
+static uint64_t s_npcf_evict_pass2 = 0;
+// L'ECHEC DE `get_merc_model`, SEPARE EN SES DEUX CAS. Ils n'ont pas la meme cause et les
+// confondre a envoye les essais precedents chercher dans le chargement ce qui se passe dans
+// l'eviction : la cle ABSENTE = le modele n'a jamais ete charge ; le vecteur VIDE = le niveau qui
+// le portait a ete evince (Loader.cpp, boucle `mercs.erase(it)` : elle vide le vecteur et laisse
+// la cle en place). `mayor-lod0` n'existe que dans `beach.fr3` : son vecteur a UN element, donc
+// une eviction de `beach` le vide entierement.
+static uint64_t s_npcf_merc_vec_empty = 0;
+static uint64_t s_npcf_merc_key_missing = 0;
+// Age maximum atteint par un niveau resident. `kUnloadAgeFrames` = 180 : un maximum qui reste
+// sous 180 dit que rien n'etait evincable, un maximum au-dessus dit que la porte avait matiere.
+static uint64_t s_npcf_level_age_max = 0;
+// Tous ces compteurs sont ecrits depuis le thread graphique — `Loader::update` et
+// `Loader::get_merc_model` (appele par `Merc2::render`) y tournent tous les deux, une fois par
+// image. Pas d'atomique, comme les quatre compteurs au-dessus.
+
+// LA SOURCE 4 DE LA LIGNE `NPCPLAT` — voir le pave « troisieme source » de npc_flicker.h.
+// Ces six cases partent dans `<dossier settings>/npc_flicker.txt`, le SEUL canal par lequel une
+// mesure prise sur le Honor de l'owner nous revient. Sans elles, la chaine du maire n'etait
+// visible que dans proof.txt, c'est-a-dire seulement sur des courses qui ne la reproduisent pas.
+// npc_flicker publie la DIFFERENCE par scene : ces compteurs doivent donc rester monotones.
+static void npcf_loader_counters(uint64_t* out, int n) {
+  if (n < npc_flicker::kPlatCounterCount) {
+    return;
+  }
+  out[npc_flicker::kPlatEvictPressure] = s_npcf_evict_pressure_frames;
+  out[npc_flicker::kPlatEvictions] = s_npcf_evictions;
+  out[npc_flicker::kPlatEvictPass2] = s_npcf_evict_pass2;
+  out[npc_flicker::kPlatEvictLiveMerc] = s_npcf_evict_with_live_merc;
+  out[npc_flicker::kPlatMercVecEmpty] = s_npcf_merc_vec_empty;
+  out[npc_flicker::kPlatMercKeyMissing] = s_npcf_merc_key_missing;
+}
+
 static void publish_level_age_counters() {
   autoport_proof::publish("npc_merc_keepalive_frames", s_npcf_merc_keepalive_frames);
   autoport_proof::publish("npc_evictable_while_drawing", s_npcf_evictable_while_drawing);
   autoport_proof::publish("npc_level_evictions", s_npcf_evictions);
   autoport_proof::publish("npc_evict_with_live_merc", s_npcf_evict_with_live_merc);
+  autoport_proof::publish("npc_evict_pressure_frames", s_npcf_evict_pressure_frames);
+  autoport_proof::publish("npc_loaded_levels_max", s_npcf_loaded_levels_max);
+  autoport_proof::publish("npc_evict_pass2", s_npcf_evict_pass2);
+  autoport_proof::publish("npc_merc_vec_empty", s_npcf_merc_vec_empty);
+  autoport_proof::publish("npc_merc_key_missing", s_npcf_merc_key_missing);
+  autoport_proof::publish("npc_level_age_max", s_npcf_level_age_max);
   // La ligne que BRAS 2 de la garde (.autoport/lib/npcf_dead_counter_gate.py) inspecte : un
   // compteur imprime ici doit avoir un site d'ecriture ailleurs, sinon la garde mord.
   static uint64_t s_beat = 0;
   if (s_beat++ % 1800 == 0) {
     lg::info("[npc-flicker/loader] keepalive={} evincable_en_dessinant={} evictions={} "
-             "eviction_avec_merc_vivant={}",
+             "eviction_avec_merc_vivant={} pression={} niveaux_max={} passe2={} "
+             "vecteur_vide={} cle_absente={} age_max={}",
              s_npcf_merc_keepalive_frames, s_npcf_evictable_while_drawing, s_npcf_evictions,
-             s_npcf_evict_with_live_merc);
+             s_npcf_evict_with_live_merc, s_npcf_evict_pressure_frames, s_npcf_loaded_levels_max,
+             s_npcf_evict_pass2, s_npcf_merc_vec_empty, s_npcf_merc_key_missing,
+             s_npcf_level_age_max);
   }
 }
 
@@ -105,6 +162,10 @@ Loader::Loader(const fs::path& base_path, int max_levels)
   // as soon as a block is free.
   mallopt(M_DECAY_TIME, 0);
 #endif
+  // Enregistre le chargeur comme source 4 des compteurs de scene. Fait ici et pas plus tard :
+  // `platform_sources()` doit valoir 4 des la premiere scene, sinon un zero sur `evict_pression`
+  // se lirait « rien ne s'est passe » alors qu'il veut dire « personne ne compte ».
+  npc_flicker::set_loader_counters_fn(&npcf_loader_counters);
   m_loader_thread = std::thread(&Loader::loader_thread, this);
   m_loader_stages = make_loader_stages();
 }
@@ -1607,6 +1668,10 @@ const std::string* Loader::get_most_unloadable_level() {
   // Gcutscene-npc-flicker un niveau qui dessine un acteur ne peut plus atteindre cet age.
   for (const auto& [name, lev] : m_loaded_tfrag3_levels) {
     if (lev->frames_since_last_used > kUnloadAgeFrames) {
+      // LA PASSE QUI EMPORTE LE MAIRE. `beach` est le seul fr3 qui porte `mayor-lod0`, la scene
+      // le demande (`(0 display-level beach special)`, levels/beach/mayor.gc:147) — il est donc
+      // dans `m_desired_levels` et la premiere passe l'epargne. Celle-ci ne l'epargne pas.
+      s_npcf_evict_pass2++;
       return &name;
     }
   }
@@ -1666,6 +1731,15 @@ void Loader::update(TexturePool& texture_pool) {
       } else {
         lev->frames_since_last_used++;
       }
+      // L'age le plus haut atteint par un niveau resident, toutes causes. Lu a cote du verdict :
+      // un maximum reste sous `kUnloadAgeFrames` dit que rien n'etait evincable pendant la
+      // course, et donc qu'un zero sur les evictions ne prouve rien.
+      if ((uint64_t)lev->frames_since_last_used > s_npcf_level_age_max) {
+        s_npcf_level_age_max = (uint64_t)lev->frames_since_last_used;
+      }
+    }
+    if (m_loaded_tfrag3_levels.size() > s_npcf_loaded_levels_max) {
+      s_npcf_loaded_levels_max = m_loaded_tfrag3_levels.size();
     }
   }
   publish_level_age_counters();
@@ -1835,6 +1909,10 @@ void Loader::update(TexturePool& texture_pool) {
     // try to remove levels.
     Timer unload_timer;
     if ((int)m_loaded_tfrag3_levels.size() >= m_max_levels) {
+      // LA PRESSION : l'image ou l'eviction est possible. C'est le denominateur de tout ce qui
+      // suit. Il est reste a ZERO sur les courses x86 des essais precedents (deux niveaux
+      // residents pour un plafond de trois) — d'ou treize verdicts verts sur un defaut vivant.
+      s_npcf_evict_pressure_frames++;
       auto to_unload = get_most_unloadable_level();
       if (to_unload) {
         auto& lev = m_loaded_tfrag3_levels.at(*to_unload);
@@ -1845,6 +1923,10 @@ void Loader::update(TexturePool& texture_pool) {
         // DEUX : les evictions (le denominateur, sans lequel un zero ne prouve rien) et celles
         // qui emportent un modele vivant (qui doit rester a zero).
         s_npcf_evictions++;
+        // LE NOM, pas seulement le compte : `beach` evince pendant `mayor-introduction` est le
+        // defaut de l'owner ; `title` evince au demarrage ne l'est pas. Sans ce champ les deux se
+        // lisent pareil dans proof.txt.
+        autoport_proof::publish_text("npc_evicted_level_last", to_unload->c_str());
         if (lev->last_merc_use_frame.load(std::memory_order_relaxed) + kMercKeepaliveFrames >=
             s_level_age_frame) {
           s_npcf_evict_with_live_merc++;
@@ -2023,6 +2105,16 @@ std::optional<MercRef> Loader::get_merc_model(const char* model_name) {
     }
     return ref;
   } else {
+    // LES DEUX ECHECS QUE CETTE LIGNE CONFONDAIT. `it == end()` = le modele n'a jamais ete
+    // charge (mauvais nom, fr3 absent). Vecteur VIDE = la cle est la et le niveau qui portait le
+    // modele a ete EVINCE : la boucle `mercs.erase(it)` du bloc d'eviction vide le vecteur et ne
+    // retire jamais la cle. C'est le second cas qui produit le maire clignotant, et le publier a
+    // part evite d'envoyer l'essai suivant chercher un probleme de chargement.
+    if (it == m_all_merc_models.end()) {
+      s_npcf_merc_key_missing++;
+    } else {
+      s_npcf_merc_vec_empty++;
+    }
     return std::nullopt;
   }
 }

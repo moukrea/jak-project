@@ -283,7 +283,14 @@ Totals totals();
 // remplit les cases qu'ils connaissent. Les index sont fixes, les noms publies sont dans
 // `kPlatCounterNames`. Une case qu'aucune source ne remplit reste a 0 ET la ligne dit
 // `sources=` : un zero sans source se lit « pas cable », jamais « sain ».
-constexpr int kPlatCounterCount = 12;
+//
+// ESSAI 14 — LA TROISIEME SOURCE : LE CHARGEUR DE NIVEAUX. Le defaut du maire est une eviction de
+// niveau (`beach` est le seul fr3 qui porte `mayor-lod0`), et jusqu'ici AUCUN de ses compteurs
+// n'arrivait jusqu'au fichier que l'owner peut renvoyer : ils ne sortaient que dans proof.txt,
+// c'est-a-dire uniquement sur des courses qui ne reproduisent pas le defaut. Les six cases
+// ci-dessous rendent la ligne NPCPLAT REFUTABLE : si le maire est `modele-absent` chez lui avec
+// `merc_vecteur_vide=0`, l'hypothese de l'eviction est FAUSSE et il faut chercher ailleurs.
+constexpr int kPlatCounterCount = 18;
 enum PlatCounter {
   kPlatNullFg = 0,       // joint-eval sur frame-group nul, anim du canal sautee (nullfg)
   kPlatBareRet = 1,      // RET vers un offset GOAL nu, process deactive (bareret)
@@ -297,13 +304,21 @@ enum PlatCounter {
   kPlatBucketBad = 9,    // seau DMA malforme : seau SAUTE (malformed)
   kPlatHdFailOpen = 10,  // couverture HD : fail-open, le stock redessine (hd_failopen)
   kPlatHdGap = 11,       // couverture HD : trou de soumission du compagnon (hd_gap)
+  // --- chargeur de niveaux (Loader.cpp) : la chaine du maire, maillon par maillon -------------
+  kPlatEvictPressure = 12,  // images ou `size() >= m_max_levels` : l'eviction est POSSIBLE
+  kPlatEvictions = 13,      // evictions reellement executees
+  kPlatEvictPass2 = 14,     // ... dont celles qui emportent un niveau que GOAL VEUT ENCORE
+  kPlatEvictLiveMerc = 15,  // ... dont celles qui emportent un niveau dessinant un merc
+  kPlatMercVecEmpty = 16,   // get_merc_model : cle presente, vecteur VIDE (= niveau evince)
+  kPlatMercKeyMissing = 17, // get_merc_model : cle absente (= modele jamais charge)
 };
 extern const char* const kPlatCounterNames[kPlatCounterCount];
 // `out` a `n` cases, deja a zero ; la source n'ecrit que les index qu'elle connait et verifie
-// `n` avant d'ecrire. Sources : 1 = hote (Android), 2 = rendu (Merc2).
+// `n` avant d'ecrire. Sources : 1 = hote (Android), 2 = rendu (Merc2), 4 = chargeur (Loader).
 typedef void (*PlatformCountersFn)(uint64_t* out, int n);
 void set_host_counters_fn(PlatformCountersFn fn);
 void set_render_counters_fn(PlatformCountersFn fn);
+void set_loader_counters_fn(PlatformCountersFn fn);
 // Ce que la derniere lecture a donne : masque des sources cablees, et cumul des deltas par
 // scene depuis le debut (ce que publient `npc_plat_*`).
 uint32_t platform_sources();
