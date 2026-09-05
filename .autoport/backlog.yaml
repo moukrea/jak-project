@@ -2,7 +2,7 @@ version: 1
 items:
 - id: honor-boot-crash
   feature: Le jeu plante au demarrage sur le Honor de l'owner
-  status: open
+  status: to-test
   priority: 0
   game: jak1
   gate:
@@ -45,7 +45,7 @@ items:
   device_serial: AREE026206000788
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
-  status: open
+  status: blocked
   priority: 1
   owner_feedback:
   - date: '2026-08-31'
@@ -132,7 +132,13 @@ items:
     (210). Le moteur emet `npc_flicker_episodes` = somme des episodes longs toutes causes.'
   out_of_scope: 'Jak et Daxter ne sont pas concernes : l''owner parle des PNJ. Pas de refonte du culling
     general. Aucune capture d''ecran ne vaut preuve.'
-  block_reason: null
+  block_reason: 'EN ATTENTE DU REDMI. Le seul appareil branche est le Honor de l''owner (AREE026206000788),
+    prete pour lire le plantage au demarrage ; le Redmi eae4df44, que tout le harnais adresse en dur,
+    est debranche depuis. La preuve sur appareil est donc impossible, le worker retombe sur x86, et la
+    porte le refuse a juste titre — trois fois de suite avec la meme empreinte, d''ou le blocage. Rien
+    a corriger dans le code : rebrancher le Redmi et rouvrir. Les DEUX causes sont deja nommees : le niveau
+    du maire vieillissait pendant qu''il etait a l''ecran, et le chargeur jetait ce que le jeu demande
+    en gardant ce dont il n''a pas besoin.'
 - id: cutscene-skip
   feature: Passer une cinematique en maintenant Cercle, avec la cartouche « Skip »
   status: validated
@@ -261,7 +267,7 @@ items:
   notes: meme prompt ; -2 est « CAISSES, RETOUR 2 » ; l'owner ferme « les caisses » en un mot
 - id: anim-interp-low-fps
   feature: Les animations saccadees quand le jeu descend vers 20 images/s
-  status: open
+  status: blocked
   priority: 13
   owner_feedback:
   - date: '2026-09-01'
@@ -336,6 +342,13 @@ items:
     \ `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.\n  (4) `anim_step_bitexact_30`\
     \ = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne\
     \ change pas d'un bit.\nN est la somme des manquements ; zero."
+  block_reason: 'max_retries (6) epuise — mais la cause de fond est la meme : EN ATTENTE DU REDMI. Le
+    seul appareil branche est le Honor de l''owner (AREE026206000788), prete pour lire le plantage au
+    demarrage ; le Redmi eae4df44, que tout le harnais adresse en dur, est debranche depuis. La preuve
+    sur appareil est donc impossible, le worker retombe sur x86, et la porte le refuse a juste titre —
+    trois fois de suite avec la meme empreinte, d''ou le blocage. Rien a corriger dans le code : rebrancher
+    le Redmi et rouvrir. Acquis de la serie : le recensement affirmait « ces canaux ne bougent pas » sans
+    jamais le verifier.'
 - id: framerate-uncap
   feature: Debrider la cadence au-dela de 60 images/s
   status: open
@@ -3719,7 +3732,7 @@ items:
   notes: ids bloques presents dans state.json mais absents de milestones.yaml
 - id: lighting-census
   feature: Savoir quel chemin d'eclairage a dessine chaque pixel, et figer les deux references
-  status: open
+  status: in-progress
   priority: 14
   owner_feedback:
   - date: '2026-09-03'
