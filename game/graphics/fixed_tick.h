@@ -95,6 +95,51 @@ constexpr double kPhaseSlew = 0.02;       // glissement de phase max par image, 
 // `OG_TICK_LOCK=0` : c'est la valeur exacte du build que l'owner a teste.
 constexpr double kSnapLegacyTolerance = 0.10;
 
+// essai 3 (2026-09-05) — REFERENCE D'ALPHA UNIFIEE, ET POURQUOI IL EN FALLAIT UNE.
+//
+// LE DEFAUT. L'essai 2 a conditionne la SUBSTITUTION de la duree a la CONFORMITE de
+// l'image (`lock_hit`), mais l'alpha restait decide par l'ETAT (`if (s.locked)
+// alpha = 1.0`). Les deux se contredisent exactement sur les images que l'essai 2 a
+// carrees : les `kUnlockBadFrames - 1` images HORS grille qui ne font pas encore sortir
+// du verrou. Sur celles-la la duree reelle passe entiere dans l'accumulateur (correct)
+// et l'alpha est quand meme epingle a 1,0 — donc l'avance de la pose DESSINEE vaut
+//     k + alpha(n) - alpha(n-1) = k + 0
+// alors que le temps reel a avance de `dt/tick`. L'ecart, jusqu'a un tick entier, est un
+// SKIP de la pose, et aucune grandeur publiee ne le voyait : `tick_conserve_err` juge la
+// conservation du TEMPS, jamais la position de la POSE. Un vert de plus sur un defaut que
+// l'owner voit encore.
+//
+// LA CAUSE DE FOND. Les deux regimes n'avaient pas la meme REFERENCE. L'extraction par
+// plancher (`while (acc >= tick) acc -= tick`) laisse `acc` dans [0, tick) : le dernier
+// tick simule est TOUJOURS en retard sur le temps reel, donc la pose ne peut jamais
+// l'atteindre — alpha = acc/tick la place un tick entier en arriere (latence constante,
+// invisible), tandis que le regime verrouille (alpha = 1,0) la place PILE dessus. Deux
+// latences differentes : toute image qui passe de l'une a l'autre deplace la pose d'un
+// tick, et c'est pour ca qu'il fallait un glissement de phase a l'entree et un rebase a
+// la sortie — deux fabrications de temps de jeu (78 ms sur 173 s a l'essai 2).
+//
+// CE QUI REMPLACE. Extraction par PLAFOND, sur un reste SIGNE :
+//     acc += dt ; k = ceil(acc/tick - kAlphaCeilTol) borne a [0, kMaxCatchupTicks]
+//     acc -= k * tick                      // acc vit dans (-tick, kAlphaCeilTol*tick]
+//     alpha = 1 + acc/tick                 // dans (0, 1], JAMAIS borne en pratique
+// La simulation n'est plus jamais en retard sur le temps reel, la pose est dessinee PILE
+// a l'instant reel dans LES DEUX regimes, et l'identite
+//     avance de pose = k + alpha(n) - alpha(n-1) = dt/tick
+// devient exacte sans aucun cas particulier. A cadence verrouillee `acc` vaut exactement
+// zero, donc alpha vaut exactement 1,0 : la sortie 60 img/s reste identique au bit, par
+// CONSTRUCTION et non par un `if`. Le glissement de phase et le rebase de sortie
+// disparaissent avec le besoin qui les justifiait.
+//
+// `OG_TICK_ALPHA_UNIFIED=0` restaure le chemin de l'essai 2 sur LE MEME binaire : c'est
+// l'avant/apres que les directives exigent, et c'est ce qui a mesure le defaut ci-dessus.
+//
+// La tolerance du `ceil` n'est PAS un budget d'erreur : elle ne protege que le cas exact
+// (une image declaree `lock_n * tick` doit rendre k = lock_n et pas lock_n + 1 sur un ulp).
+// Tout ce qu'elle laisse passer est absorbe par l'alpha de l'image suivante, sauf quand
+// alpha serait borne au-dessus de 1 — d'ou une valeur au ras de l'epsilon, et pas les
+// 0,03 tick (0,5 ms, 3 % d'un tick) que `render_pace` s'accorde.
+constexpr double kAlphaCeilTol = 1e-6;
+
 // Gfixed-tick-anim-interp (2026-09-01) — CETTE CONSTANTE NE DESARME PLUS RIEN.
 // Elle valait 0.95 et servait a DESARMER l'horloge des que la cadence d'affichage
 // depassait ~63 Hz, parce que l'etape 1 ne savait pas dessiner une image sans tick.
@@ -196,7 +241,14 @@ bool fast_display();
 // Appelee UNE fois par image dessinee, au point de soumission de la chaine DMA
 // (`__send-gfx-dma-chain`) — le seul signal « une image vient d'etre produite » qui
 // existe sur les DEUX plateformes. Fait avancer l'accumulateur puis publie.
-void on_render_frame();
+//
+// `anim_interp_n` est la valeur courante du symbole GOAL `*anim-interp-n*` : le nombre
+// cumule de canaux d'animation REELLEMENT retimes (process-drawable-h.gc:176). Elle sert
+// a l'invariant de POSE DESSINEE, qui doit se juger au point de LECTURE : un alpha pousse
+// que personne ne lit se solde a 1,0 dans le chiffre publie, sinon une correction jamais
+// consommee rendrait un vert. Le parametre est OBLIGATOIRE — pas de surcharge sans lui —
+// parce qu'une plateforme qu'on oublierait de cabler mesurerait zero en silence.
+void on_render_frame(u64 anim_interp_n);
 
 // Alpha d'interpolation de rendu, convention ci-dessus, en micro-unites [0..1000000].
 // CONSOMMATEUR : `cam-render-interp!` (goal_src/jak1/engine/camera/cam-update.gc), qui

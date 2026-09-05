@@ -548,7 +548,7 @@ void send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
     anim_interp_n = g_pc_port_funcs.intern_from_c("*anim-interp-n*").value;
   }
   render_pace::on_render_frame(anim_interp_n);
-  fixed_tick::on_render_frame();
+  fixed_tick::on_render_frame(anim_interp_n);
   if (Gfx::GetCurrentRenderer()) {
     Gfx::GetCurrentRenderer()->send_chain(g_ee_main_mem, chain);
   }

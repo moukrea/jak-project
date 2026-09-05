@@ -68,6 +68,9 @@ constexpr u64 kCensusNoMeasurement = 999999;
 // zero, la porte serait verte sans avoir rien exerce. Le stimulus qui les produit est
 // `OG_FRAME_SPIKE_EVERY` (game/graphics/pipelines/opengl.cpp).
 constexpr u64 kMinConserveFrames = 600;
+// En dessous de ce nombre de pas de pose juges, il n'y a rien a juger : un maximum sur zero
+// echantillon vaut zero, c'est-a-dire un VERT obtenu en ne mesurant rien.
+constexpr u64 kMinPoseSteps = 300;
 constexpr u64 kMinLockTransients = 8;
 
 // Etat de l'horloge. Tout ceci ne vit QUE sur le fil GOAL/EE : `begin_render_frame`
@@ -141,6 +144,33 @@ struct State {
   u64 census_frames = 0;
   u64 census_locked = 0;
   u64 prev_ticks = 0;
+
+  // essai 3 — INVARIANT DE POSE DESSINEE. `tick_conserve_err` juge la conservation du
+  // TEMPS ; celui-ci juge la position de la POSE, et rien ne le faisait. L'avance de la
+  // pose entre deux images dessinees est une identite :
+  //     P(n) - P(n-1) = k(n) + alpha(n) - alpha(n-1)   [en ticks]
+  // et elle doit valoir le temps reel ADMIS de l'image. Un alpha epingle a 1,0 pendant que
+  // l'accumulateur bouge conserve parfaitement le temps ET deplace la pose d'un tick : la
+  // conservation ne peut pas le voir, celui-ci si.
+  //
+  // L'alpha jugé est celui REELLEMENT CONSOMME : si `*anim-interp-n*` n'a pas bouge pendant
+  // l'image, personne n'a retime et la pose a ete dessinee a l'etat courant, donc alpha = 1,0.
+  // Une correction poussee mais jamais lue ne peut pas rendre un chiffre vert. Un pas n'est
+  // JUGE que si ses deux images bornantes ont ete retimees ou portaient deja alpha = 1,0 :
+  // une image sans acteur anime a l'ecran ne prouve rien, ni dans un sens ni dans l'autre,
+  // et son compte est publie a part au lieu d'etre noye.
+  bool pose_pending = false;      // l'image dont on ne connait pas encore l'alpha consomme
+  double pose_pending_k = 0.0;
+  s32 pose_pending_alpha = 1000000;
+  double pose_pending_admitted = 0.0;  // temps reel admis de cette image, en ticks
+  bool pose_have_prev = false;
+  bool pose_prev_judged = false;
+  double pose_prev_alpha = 1.0;
+  u64 pose_prev_anim_n = 0;
+  double pose_err_max = 0.0;      // en TICKS, tolerance du verrou deja retranchee
+  u64 pose_steps_judged = 0;
+  u64 pose_frames_retimed = 0;
+  double last_admitted_ticks = 1.0;
 };
 
 State& state() {
@@ -209,6 +239,51 @@ bool read_bool_flag(const char* env_name, const char* prop_name, bool dflt) {
   (void)prop_name;
 #endif
   return dflt;
+}
+
+// essai 3 — REFERENCE D'ALPHA UNIFIEE (extraction par plafond). Voir fixed_tick.h pour le
+// defaut qu'elle corrige et l'identite qui la justifie. DEFAUT ARME : c'est le chemin livre.
+// `OG_TICK_ALPHA_UNIFIED=0` restaure le chemin de l'essai 2 sur LE MEME binaire.
+bool alpha_unified() {
+  static const bool s_on =
+      read_bool_flag("OG_TICK_ALPHA_UNIFIED", "debug.opengoal.tick_alphauni", true);
+  // (nom de propriete raccourci a 28 caracteres : `__system_property_get` a longtemps
+  //  refuse au-dela de 31, et un levier d'ablation qui ne repond pas sur l'appareil ne se
+  //  distingue pas d'un levier qui repond « defaut ».)
+  return s_on;
+}
+
+// essai 3 — SOLDE DE L'INVARIANT DE POSE pour l'image PRECEDENTE. On ne peut le faire
+// qu'ici : c'est seulement maintenant qu'on sait si son alpha a ete CONSOMME, l'arbre des
+// process ayant tourne entre les deux appels.
+void pose_settle(bool retimed) {
+  State& s = state();
+  if (!s.pose_pending) {
+    return;
+  }
+  s.pose_pending = false;
+  if (retimed) {
+    s.pose_frames_retimed++;
+  }
+  const double a_eff = retimed ? ((double)s.pose_pending_alpha / 1000000.0) : 1.0;
+  const bool judged = retimed || s.pose_pending_alpha >= 1000000;
+  if (s.pose_have_prev && judged && s.pose_prev_judged) {
+    // L'AVANCE DE LA POSE DESSINEE, contre le temps reel ADMIS de l'image.
+    const double advance = s.pose_pending_k + a_eff - s.pose_prev_alpha;
+    // La tolerance du verrou est retranchee pour la MEME raison que dans l'invariant de
+    // conservation : une image CONFORME est declaree a son pas nominal a kLockTolerance
+    // pres — c'est ce que « verrouille » veut dire, c'est borne, et cet ecart-la est publie
+    // a part (`tick_lock_err_pct_x100`). Le defaut vise vaut jusqu'a UN TICK, vingt fois
+    // cette tolerance : la retrancher ne rend pas la clause infalsifiable.
+    const double err = std::fabs(advance - s.pose_pending_admitted) - kLockTolerance;
+    if (err > s.pose_err_max) {
+      s.pose_err_max = err;
+    }
+    s.pose_steps_judged++;
+  }
+  s.pose_prev_alpha = a_eff;
+  s.pose_prev_judged = judged;
+  s.pose_have_prev = true;
 }
 
 // Une image gouvernee par l'horloge vient de passer : on solde sa duree REELLE contre les
@@ -296,6 +371,10 @@ void census_publish() {
   autoport_proof::publish("tick_lock_transients", s.lock_transients);
   autoport_proof::publish("tick_conserve_frames", s.conserve_frames);
   autoport_proof::publish("tick_time_fabricated_us", (u64)(s.fabricated_sec * 1e6 + 0.5));
+  autoport_proof::publish("tick_alpha_unified", alpha_unified() ? 1 : 0);
+  autoport_proof::publish("tick_pose_steps_judged", s.pose_steps_judged);
+  autoport_proof::publish("tick_pose_frames_retimed", s.pose_frames_retimed);
+  autoport_proof::publish("tick_pose_frames", s.render_frames);
   {
     // ERREUR DE CONSERVATION PAR IMAGE, en centiemes de pourcent d'un tick — la meme unite
     // que `tick_rate_dev_pct_x100` (une erreur relative x 10000).
@@ -315,12 +394,25 @@ void census_publish() {
     const u64 rate_x100 = s.windows >= kCensusMinWindows
                               ? (u64)(s.dev_max * 10000.0 + 0.5)
                               : kCensusNoMeasurement;
+    // essai 3 — L'ECART DE LA POSE DESSINEE, TROISIEME TERME DE LA PORTE. Les deux premiers
+    // jugent le TEMPS ; ils etaient tous les deux verts (46 et 0) sur un build ou l'alpha
+    // etait epingle a 1,0 pendant que l'accumulateur bougeait, c'est-a-dire ou la pose
+    // sautait d'un demi-tick a chaque excursion de cadence. C'est ce que l'owner voit ;
+    // aucune grandeur publiee ne le lisait.
+    const double pe = s.pose_err_max > 0.0 ? s.pose_err_max : 0.0;
+    const u64 pose_x100 = s.pose_steps_judged >= kMinPoseSteps
+                              ? (u64)(pe * 10000.0 + 0.5)
+                              : kCensusNoMeasurement;
+    autoport_proof::publish("tick_pose_err_pct_x100", pose_x100);
     u64 worst;
     if (s.windows < kCensusMinWindows || s.conserve_frames < kMinConserveFrames ||
-        s.lock_transients < kMinLockTransients) {
+        s.lock_transients < kMinLockTransients || s.pose_steps_judged < kMinPoseSteps) {
       worst = kCensusNoMeasurement;
     } else {
       worst = rate_x100 > conserve_x100 ? rate_x100 : conserve_x100;
+      if (pose_x100 > worst) {
+        worst = pose_x100;
+      }
     }
     autoport_proof::publish("tick_worst_dev_pct_x100", worst);
   }
@@ -494,9 +586,28 @@ void set_publisher(PublishFn fn) {
 // resultat vers GOAL. Publier MEME quand l'horloge n'est pas armee est deliberé — sinon
 // `*fixed-tick-armed*` garderait la valeur de la derniere image armee et le moteur
 // resterait sur le chemin a pas fixe apres un desarmement.
-void on_render_frame() {
+void on_render_frame(u64 anim_interp_n) {
   State& s = state();
+  // essai 3 — LE POINT DE LECTURE. `*anim-interp-n*` compte les canaux d'animation
+  // REELLEMENT retimes ; il a bouge (ou non) pendant que l'arbre des process tournait, donc
+  // c'est ici, et pas a l'image d'avant, qu'on sait si l'alpha pousse a ete consomme. On
+  // solde AVANT `begin_render_frame`, qui va ecraser `alpha_micro`.
+  const bool retimed = anim_interp_n > s.pose_prev_anim_n;
+  s.pose_prev_anim_n = anim_interp_n;
+  pose_settle(retimed);
   const int k = begin_render_frame();
+  if (s.clock_governs) {
+    // Cette image entre dans l'invariant de pose : son alpha se soldera au prochain appel.
+    s.pose_pending = true;
+    s.pose_pending_k = (double)k;
+    s.pose_pending_alpha = s.alpha_micro;
+    s.pose_pending_admitted = s.last_admitted_ticks;
+  } else {
+    // Horloge desarmee : aucune pose n'est gouvernee par ce module. On rompt la chaine au
+    // lieu de juger un pas a cheval sur le desarmement, qui ne decrirait ni l'un ni l'autre.
+    s.pose_have_prev = false;
+    s.pose_prev_judged = false;
+  }
   if (s.clock_governs) {
     s.armed_frames++;
     // PREUVE DE CABLAGE. `hits` ne monte que lorsque l'horloge a REELLEMENT gouverne une
@@ -538,6 +649,7 @@ int begin_render_frame() {
   if (s.deterministic) {
     s.accumulator = 0.0;
     s.alpha_micro = 1000000;
+    s.last_admitted_ticks = 1.0;  // le mode de rejeu POSE un tick, il n'en mesure pas
     s.have_last = false;  // la premiere frame apres le mode reel rebase la montre
     s.ticks++;
     return 1;
@@ -575,6 +687,11 @@ int begin_render_frame() {
     ceiling_hit = true;
     s.ceiling_clamps++;
   }
+  // LA REFERENCE DE L'INVARIANT DE POSE : le temps reel qu'on vient d'ADMETTRE, capture
+  // AVANT que le verrou ne substitue la duree declaree. Meme montre que celle dont
+  // l'horloge se sert (`s.timer`), donc la comparaison porte sur la meme grandeur ; le
+  // temps ecrete au-dela du plafond reste compte en entier dans `tick_time_dropped_ms`.
+  s.last_admitted_ticks = dt / kFixedTickSeconds;
 
   // ------------------------------------------------------------------------------
   // VERROU DE CADENCE HYSTERETIQUE (Gfixed-tick-anim-interp-2). Voir fixed_tick.h
@@ -665,12 +782,18 @@ int begin_render_frame() {
       // l'owner voit. Elle est comptee (`tick_time_fabricated_us`), l'image est exclue
       // de l'invariant par image, et son cumul reste juge par le recensement de
       // fenetre — qui, lui, n'exclut rien.
-      declared_transition = true;
-      const double rebase = kFixedTickSeconds * (1.0 - 1e-6);
-      if (rebase > s.accumulator) {
-        s.fabricated_sec += rebase - s.accumulator;
+      if (!alpha_unified()) {
+        declared_transition = true;
+        const double rebase = kFixedTickSeconds * (1.0 - 1e-6);
+        if (rebase > s.accumulator) {
+          s.fabricated_sec += rebase - s.accumulator;
+        }
+        s.accumulator = rebase;
       }
-      s.accumulator = rebase;
+      // REFERENCE UNIFIEE : rien a rebaser. Les deux regimes placent deja la pose au meme
+      // instant, donc alpha est continu de part et d'autre de la sortie par CONSTRUCTION —
+      // et l'image de transition redevient une image comme une autre pour les invariants,
+      // au lieu d'une exclusion de plus.
     } else {
       s.lock_transients++;
     }
@@ -681,7 +804,15 @@ int begin_render_frame() {
       s.lock_n = on_grid ? nearest : 0.0;
       s.good_run = on_grid ? 1 : 0;
     }
-    if (s.good_run >= kLockFrames) {
+    if (s.good_run >= kLockFrames && alpha_unified()) {
+      // REFERENCE UNIFIEE : l'encliquetage n'a plus rien a aligner. `acc` est deja le reste
+      // SIGNE qui place la pose pile sur le temps reel, et le verrou ne change que la duree
+      // DECLAREE. Ni glissement de phase, ni remise a zero, donc ni fabrication ni
+      // destruction de temps de jeu — les deux que l'essai 2 devait exclure de son invariant.
+      s.locked = true;
+      s.lock_events++;
+      s.bad_run = 0;
+    } else if (s.good_run >= kLockFrames) {
       // (l'encliquetage ci-dessous est une transition declaree : le glissement de phase
       //  a FABRIQUE kPhaseSlew par image depuis la sortie de verrou, et la remise a zero
       //  de l'accumulateur DETRUIT exactement ce que le glissement a fabrique. Les deux
@@ -732,16 +863,43 @@ int begin_render_frame() {
   s.accumulator += dt;
 
   int k = 0;
-  while (s.accumulator >= kFixedTickSeconds && k < kMaxCatchupTicks) {
-    s.accumulator -= kFixedTickSeconds;
-    k++;
-  }
-  if (s.accumulator >= kFixedTickSeconds) {
-    // Le plafond de rattrapage a mordu : on jette le retard au lieu de le porter,
-    // sinon la frame suivante hériterait d'un backlog qui ne se resorbe jamais.
-    s.accumulator = kFixedTickSeconds * 0.999;
-    s.catchup_clamps++;
-    declared_transition = true;
+  if (alpha_unified()) {
+    // EXTRACTION PAR PLAFOND, SUR UN RESTE SIGNE (voir fixed_tick.h). La simulation n'est
+    // alors jamais EN RETARD sur le temps reel, donc la pose peut etre dessinee pile a
+    // l'instant reel — ce qu'une extraction par plancher rend impossible : elle laisse
+    // toujours un reste positif que l'interpolation, bornee a la pose courante, ne peut pas
+    // rattraper.
+    double kf = std::ceil(s.accumulator / kFixedTickSeconds - kAlphaCeilTol);
+    if (!(kf >= 0.0)) {
+      kf = 0.0;
+    }
+    if (kf > (double)kMaxCatchupTicks) {
+      kf = (double)kMaxCatchupTicks;
+    }
+    k = (int)kf;
+    s.accumulator -= (double)k * kFixedTickSeconds;
+    if (s.accumulator > kAlphaCeilTol * kFixedTickSeconds) {
+      // Le plafond de rattrapage a mordu : on jette le retard au lieu de le porter, sinon
+      // l'image suivante heriterait d'un backlog qui ne se resorbe jamais. Avec `dt` deja
+      // ecrete a kMaxCatchupTicks et un reste d'entree dans (-tick, kAlphaCeilTol*tick],
+      // ce cas ne peut se produire que sur un ulp — mais un chemin non garde est un chemin
+      // qui finit par etre pris.
+      s.accumulator = 0.0;
+      s.catchup_clamps++;
+      declared_transition = true;
+    }
+  } else {
+    while (s.accumulator >= kFixedTickSeconds && k < kMaxCatchupTicks) {
+      s.accumulator -= kFixedTickSeconds;
+      k++;
+    }
+    if (s.accumulator >= kFixedTickSeconds) {
+      // Le plafond de rattrapage a mordu : on jette le retard au lieu de le porter,
+      // sinon la frame suivante hériterait d'un backlog qui ne se resorbe jamais.
+      s.accumulator = kFixedTickSeconds * 0.999;
+      s.catchup_clamps++;
+      declared_transition = true;
+    }
   }
 
   // INVARIANT DE CONSERVATION, JUGE ICI ET PAS DANS LE RECENSEMENT DE FENETRE : le temps
@@ -766,7 +924,24 @@ int begin_render_frame() {
   // Libre => acc/tick, ce qui fait avancer la pose dessinee exactement du temps reel
   // ecoule. Vrai AUSSI pour une image de rendu seul (k = 0, affichage plus rapide que
   // le tick) : c'est le meme calcul, il n'y a plus deux chemins.
-  if (s.locked) {
+  if (alpha_unified()) {
+    // UNE SEULE FORMULE POUR LES DEUX REGIMES, et c'est tout le correctif de l'essai 3.
+    // Le reste est SIGNE et vit dans (-tick, kAlphaCeilTol*tick] : alpha balaie (0, 1] sans
+    // jamais etre borne en pratique. A cadence verrouillee propre le reste vaut exactement
+    // zero, donc alpha vaut exactement 1,0 et les deux retimeurs sortent en identite : la
+    // sortie 60 img/s reste identique au bit, par CONSTRUCTION et non par un `if` sur l'etat.
+    // C'est ce `if` qui epinglait alpha a 1,0 sur les images HORS grille tenues sous verrou,
+    // pendant que l'accumulateur, lui, encaissait leur duree reelle : le temps etait
+    // conserve et la pose sautait.
+    double a = 1.0 + s.accumulator / kFixedTickSeconds;
+    if (!(a >= 0.0)) {
+      a = 0.0;
+    }
+    if (a > 1.0) {
+      a = 1.0;
+    }
+    s.alpha_micro = (s32)(a * 1000000.0 + 0.5);
+  } else if (s.locked) {
     s.alpha_micro = 1000000;
   } else {
     double a = s.accumulator / kFixedTickSeconds;

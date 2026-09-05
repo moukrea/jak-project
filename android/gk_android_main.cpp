@@ -889,7 +889,17 @@ void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
   // anim-interp-low-fps : AVANT `fixed_tick::on_render_frame()` — MEME ordre qu'au bureau,
   // parce que c'est le publieur de celui-ci qui ecrit `*render-pace-skip*` vers GOAL.
   a35_gfps_frame_tick();
-  fixed_tick::on_render_frame();
+  // essai 3 (fixed-tick-interpolation) : l'invariant de POSE DESSINEE se juge au point de
+  // LECTURE — `*anim-interp-n*` dit si l'alpha pousse a ete CONSOMME. `a35_gfps_frame_tick`
+  // l'interroge deja pour `render_pace`, mais dans SON corps : on le relit ici plutot que de
+  // le faire voyager par une variable de fichier, parce qu'un etat partage entre deux corps
+  // qui peuvent etre reordonnes est exactement le genre de cablage qui se perd en silence.
+  // Symbole JAK 1 ; ailleurs la mesure vaut zero et le module se comporte a l'identique.
+  u64 ft_anim_interp_n = 0;
+  if (g_game_version == GameVersion::Jak1) {
+    ft_anim_interp_n = jak1::intern_from_c("*anim-interp-n*")->value;
+  }
+  fixed_tick::on_render_frame(ft_anim_interp_n);
   // Gjak2-pcmenus: jak2 counterpart of the jak1 g_overlay_in_menu publisher in
   // a36_tree_scan_per_frame() (that one is g_syms.armed-gated => jak1-only, and
   // jak2's `syncv` binds jak2::sceGsSyncV (kmachine.cpp:646) which never calls
