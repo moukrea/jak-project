@@ -44,6 +44,14 @@ uniform float u_fw_amp;     // amplitude du fremissement en UNITES LOCALES du pr
 uniform float u_fw_time;    // horloge de brise, secondes (figee en pause)
 uniform float u_fw_phase;   // phase propre de l'instance, dans [0, 1)
 uniform float u_fw_height;  // hauteur LOCALE du prototype (plus haut sommet), unites locales
+// Essai 11 (owner 2026-09-04 : « ça twitch autant côté feuilles que le tronc »). La flexion de
+// couronne AJOUTEE par la brise n'est plus un cisaillement de la matrice d'instance (lineaire du
+// pied a la cime : le tronc bougeait autant, en proportion, que les palmes). Elle arrive ici, par
+// instance, en UNITES LOCALES du prototype (le CPU l'a calculee en monde par la loi partagee puis
+// ramenee dans le repere de l'instance), et elle est multipliee par le MEME poids de hauteur que les
+// deux autres chemins : 30 % du bas rigides, smoothstep^2 au-dessus. Le tronc ne bouge plus ; ce
+// qui reste sur lui est l'appui lent de ND (do_wind_math), qui est du stock. 0 = rien d'ajoute.
+uniform vec2 u_fw_bend;
 #ifdef OG_PBR
 uniform vec4 cam_trans;
 // Grecharged-lightprobes PLAYTEST#1 #4: the LOCAL probe SH is evaluated PER-PIXEL in the fragment
@@ -68,7 +76,7 @@ void main() {
   // position uses the fluttered vertex; v_world / v_fringe_rel below stay on the authored position
   // so nothing in the PBR/probe path shifts with the breeze.
   vec3 lpos = position_in;
-  if (u_fw_amp > 0.0 && u_fw_height > 0.0) {
+  if (u_fw_height > 0.0 && (u_fw_amp > 0.0 || u_fw_bend.x != 0.0 || u_fw_bend.y != 0.0)) {
     // le poids de hauteur de FoliageWindLaw.h : nul sous 30 % de la plante, smoothstep^2 au-dessus
     float h = position_in.y / u_fw_height;
     float w = 0.0;
@@ -77,6 +85,9 @@ void main() {
       float s = u * u * (3.0 - 2.0 * u);
       w = s * s;
     }
+    // la flexion de couronne de la brise, par le poids de hauteur : la cime plie, le tronc non
+    lpos.x += u_fw_bend.x * w;
+    lpos.z += u_fw_bend.y * w;
     // la portee depuis l'axe du tronc, plafonnee a 4 m (une vraie palme) : le tronc ne fremit pas,
     // et un prototype dont la geometrie s'etale loin de son origine (palm-01.mb, 23 m) ne projette
     // pas ses sommets a 3 m de cote.

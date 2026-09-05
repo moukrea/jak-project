@@ -13,6 +13,7 @@
 #include <cmath>
 #include <vector>
 
+#include "common/custom_data/FoliageWindLaw.h"
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
@@ -973,7 +974,7 @@ class ShrubLoadStage : public LoaderStage {
         GLuint& sway_out = data.lev_data->shrub_sway_data.emplace_back();
         glGenBuffers(1, &sway_out);
         glBindBuffer(GL_ARRAY_BUFFER, sway_out);
-        const size_t sway_want = in_tree.unpacked.vertices.size() * 2;
+        const size_t sway_want = in_tree.unpacked.vertices.size() * foliage_law::kSwayRecordBytes;
         if (in_tree.unpacked.sway.size() == sway_want) {
           glBufferData(GL_ARRAY_BUFFER, sway_want, in_tree.unpacked.sway.data(), GL_STATIC_DRAW);
         } else {
@@ -1111,7 +1112,7 @@ class TieLoadStage : public LoaderStage {
           // mur, et le cas est dit a voix haute.
           glGenBuffers(1, &tree_out.sway_buffer);
           glBindBuffer(GL_ARRAY_BUFFER, tree_out.sway_buffer);
-          const size_t sway_want = in_tree.unpacked.vertices.size() * 2;
+          const size_t sway_want = in_tree.unpacked.vertices.size() * foliage_law::kSwayRecordBytes;
           if (in_tree.unpacked.sway.size() == sway_want) {
             glBufferData(GL_ARRAY_BUFFER, sway_want, in_tree.unpacked.sway.data(), GL_STATIC_DRAW);
           } else {

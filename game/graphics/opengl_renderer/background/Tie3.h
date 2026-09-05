@@ -149,6 +149,10 @@ class Tie3 : public BucketRenderer {
     // du fremissement de feuille de chaque instance (poussee en uniforme au dessin).
     const std::vector<float>* wind_local_ymax = nullptr;
     std::vector<float> fw_inst_flutter_amp;
+    // Essai 11 : la flexion de couronne AJOUTEE de chaque instance du chemin vent, en unites LOCALES
+    // du prototype (x, z), poussee en uniforme par instance (tie_wind.vert, `u_fw_bend`) et
+    // multipliee la-bas par le poids de hauteur — plus un cisaillement de matrice.
+    std::vector<float> fw_inst_bend;
     GLuint wind_vertex_index_buffer;
     std::vector<u32> wind_vertex_index_offsets;
     bool has_proto_visibility = false;
@@ -247,6 +251,18 @@ class Tie3 : public BucketRenderer {
 #endif
   static_assert(sizeof(WindWork) == 84 * 16);
 };
+
+// foliage-wind (essai 11) : le ressort de vent de ND, transcrit de l'EE (tie_ee.asm), est defini dans
+// Tie3.cpp et sert AUSSI au vent natif des buissons (Shrub.cpp) — sur PS2 c'est le meme code.
+void do_wind_math(u16 wind_idx,
+                  float* wind_vector_data,
+                  const Tie3::WindWork& wind_work,
+                  float stiffness,
+                  float shear_boost,
+                  const float* shear_add,
+                  u32 wind_time_now,
+                  std::array<math::Vector4f, 4>& mat,
+                  float* audit_out);
 
 class Tie3AnotherCategory : public BucketRenderer {
  public:

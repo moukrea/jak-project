@@ -75,21 +75,9 @@ namespace {
 // « aucun tick de logique sur cette image » (pas fixe arme, image de rendu seul) — dans ce cas le
 // cisaillement DEJA calcule est reapplique tel quel, sans integrer.
 static int fw_wind_ticks(u32 now, u32& last, bool& seeded, bool paused) {
-  if (!seeded) {
-    seeded = true;
-    last = now;
-    return 1;  // premiere image apres un chargement : on ne rattrape pas l'historique du monde
-  }
-  if (paused) {
-    last = now;
-    return 0;  // en pause GOAL n'avance plus `wind-time` ; on n'integre pas non plus
-  }
-  const u32 d = now - last;  // arithmetique non signee : robuste au repliement de l'uint32
-  last = now;
-  if (d > 8) {
-    return 8;
-  }
-  return (int)d;
+  // Essai 11 : UNE definition, partagee avec Shrub.cpp (le vent natif des buissons integre le meme
+  // ressort au meme pas) — foliage_wind::wind_ticks_for porte exactement la regle ci-dessus.
+  return foliage_wind::wind_ticks_for(now, last, seeded, paused);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -159,6 +147,8 @@ static void fw_audit_accum(const std::string& level,
   if (saturated) {
     a.sat_hits++;
   }
+  // Essai 11 : le verdict (1) lit la meme grandeur, tous niveaux et les deux systemes confondus.
+  foliage_wind::note_native_sample(raw, saturated);
   a.samples++;
   if (have_delta) {
     a.dstock_peak = std::max(a.dstock_peak, dstock);
@@ -480,11 +470,17 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
         std::vector<foliage_wind::Instance> pop;
         pop.reserve(tree.sway_instances.size());
         for (const auto& si : tree.sway_instances) {
+          if (!si.valid) {
+            continue;
+          }
           foliage_wind::Instance in;
           in.anchor_x = si.x;
           in.anchor_z = si.z;
-          in.height_m = (si.ymax - si.ymin) / 4096.f;
+          in.height_m = (si.ymax - si.base_y) / 4096.f;
           in.peak_w = si.peak_w;
+          in.low_w = si.low_w;
+          in.base_w = si.base_w;
+          in.shrub = false;
           pop.push_back(in);
         }
         foliage_wind::set_tree(lev_data->level_name, foliage_wind::kSystemTieStatic, (int)l_tree,
@@ -500,6 +496,11 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
           in.anchor_z = m[3].z();
           in.height_m = h_loc * ys / 4096.f;
           in.peak_w = in.height_m > 0.f ? foliage_law::size_factor(in.height_m) : 0.f;
+          // le chemin vent applique la flexion ajoutee par le poids de hauteur de tie_wind.vert
+          // (nul sous 30 % de la plante) : ses 10 % du bas ne recoivent rien de la brise
+          in.low_w = 0.f;
+          in.base_w = 0.f;
+          in.shrub = false;
           wpop.push_back(in);
         }
         foliage_wind::set_tree(lev_data->level_name, foliage_wind::kSystemTieWind, (int)l_tree,
@@ -582,9 +583,15 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       // cet arbre declarent 0,1,2,3,4,5 (`grep "location = 7" shaders/*.vert` rendait ZERO avant
       // ce chunk), le VAO TIE ci-dessus active 0..6, et le VAO TFRAG (TFragment.cpp:443-494)
       // n'active ni 4 ni 7. Normalise : l'octet 0..255 arrive dans le shader en 0..1.
+      // Essai 11 : SwayRecord de 8 octets (FoliageWindLaw.h) — 7 = poids SIGNE (GL_SHORT normalise),
+      // 8 = phase (GL_UNSIGNED_BYTE normalise). L'attribut 9 (index d'instance) n'est lu que par shrub.
       glBindBuffer(GL_ARRAY_BUFFER, loader_data->tie_data[l_geo][l_tree].sway_buffer);
       glEnableVertexAttribArray(7);
-      glVertexAttribPointer(7, 2, GL_UNSIGNED_BYTE, GL_TRUE, 2 * sizeof(u8), (void*)0);
+      glVertexAttribPointer(7, 1, GL_SHORT, GL_TRUE, (GLsizei)foliage_law::kSwayRecordBytes,
+                            (void*)offsetof(foliage_law::SwayRecord, w));
+      glEnableVertexAttribArray(8);
+      glVertexAttribPointer(8, 1, GL_UNSIGNED_BYTE, GL_TRUE, (GLsizei)foliage_law::kSwayRecordBytes,
+                            (void*)offsetof(foliage_law::SwayRecord, ph));
 
       // allocate dynamic index buffer for the fallback "not multidraw" mode.
       glGenBuffers(1, &lod_tree[l_tree].single_draw_index_buffer);
@@ -835,6 +842,10 @@ void Tie3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfi
     // l'image comptee pour le recensement (une seule fois par frame_idx, quel que soit le renderer).
     foliage_wind::set_wind_state(m_wind_data.wind_normal.x(), m_wind_data.wind_normal.z(),
                                  m_wind_data.paused != 0);
+    // Essai 11 : la copie du vent du JEU pour le verdict (1) — slots de l'anneau, cadence.
+    foliage_wind::note_game_wind(m_wind_data.wind_force, m_wind_data.wind_time,
+                                 m_wind_data.paused != 0, render_state->frame_idx);
+    foliage_wind::set_game_wind_copy(&m_wind_data, sizeof(m_wind_data));
     foliage_wind::frame(render_state->frame_idx);
     // Gperf-particles: attribute per-tree TOD/cull/index-build setup vs draw
     // submission separately so A35-PERF can steer the batching work (mirrors
@@ -2124,6 +2135,9 @@ void Tie3::render_tree_wind(int idx,
   if (tree.fw_inst_flutter_amp.size() < tree.instance_info->size()) {
     tree.fw_inst_flutter_amp.assign(tree.instance_info->size(), 0.f);
   }
+  if (tree.fw_inst_bend.size() < tree.instance_info->size() * 2) {
+    tree.fw_inst_bend.assign(tree.instance_info->size() * 2, 0.f);
+  }
   {
     // Preuve de cablage de D1, une ligne par course : si `ticks` ne monte jamais au-dessus de 1
     // sur un appareil qui rend a 15 images/s, le correctif n'agit pas.
@@ -2150,27 +2164,39 @@ void Tie3::render_tree_wind(int idx,
     // c'est ce qui rend `wind_divergent_pairs` tenable entre un palm-02 (vent) et un palm-01
     // (statique) voisins. Le fremissement de feuille, lui, est par sommet (tie_wind.vert) : on lui
     // passe son amplitude en unites LOCALES du prototype, avec le gain de rafale de l'instant.
-    float rc_shear_add[2];
+    // Essai 11 (owner 2026-09-04 : « ça twitch autant côté feuilles que le tronc ») : la flexion de
+    // couronne AJOUTEE n'est plus un cisaillement de la matrice (lineaire du pied a la cime). Elle est
+    // calculee ici en MONDE par la loi partagee, ramenee dans le repere LOCAL de l'instance (les
+    // lignes 0 et 2 de la matrice NON cisaillee sont les axes locaux x et z en monde), et poussee par
+    // instance a tie_wind.vert, qui la multiplie par le poids de hauteur (tronc rigide). Le ressort
+    // de ND (do_wind_math) ne recoit plus AUCUN terme additif : `rc_add_ptr` reste nul, le chemin
+    // natif est le chemin stock au bit pres, option allumee ou non.
     const float* rc_add_ptr = nullptr;
     float rc_flut_local = 0.f;
+    float rc_bend_lx = 0.f, rc_bend_lz = 0.f;
     if (rc_bend_u > 0.0f && tree.wind_local_ymax && inst_id < tree.wind_local_ymax->size()) {
       const float h_loc = (*tree.wind_local_ymax)[inst_id];
       const float ys =
           std::sqrt(mat[1].x() * mat[1].x() + mat[1].y() * mat[1].y() + mat[1].z() * mat[1].z());
       const float h_u = h_loc * ys;  // hauteur monde de la plante
-      if (h_u > 1.f && ys > 1e-6f) {
+      const float xs2 = mat[0].x() * mat[0].x() + mat[0].y() * mat[0].y() + mat[0].z() * mat[0].z();
+      const float zs2 = mat[2].x() * mat[2].x() + mat[2].y() * mat[2].y() + mat[2].z() * mat[2].z();
+      if (h_u > 1.f && ys > 1e-6f && xs2 > 1e-12f && zs2 > 1e-12f) {
         const float w = foliage_law::size_factor(h_u / 4096.f);
         const float ph01 = (float)foliage_law::phase_u8((u64)inst_id) / 256.f;
         float ox = 0.f, oz = 0.f, gain = 0.f;
         foliage_wind::breeze_offset(mat[3].x(), mat[3].z(), rc_dir_x, rc_dir_z, ph01, rc_t, w,
                                     rc_bend_u, 0.f, &ox, &oz, &gain);
-        rc_shear_add[0] = ox / h_u;
-        rc_shear_add[1] = oz / h_u;
-        rc_add_ptr = rc_shear_add;
+        // monde -> local : composante le long de chaque axe local, divisee par son echelle au carre
+        // (le poids de hauteur du shader vaut 1 a la couronne, donc la couronne recoit `ox, oz`)
+        rc_bend_lx = (ox * mat[0].x() + oz * mat[0].z()) / xs2;
+        rc_bend_lz = (ox * mat[2].x() + oz * mat[2].z()) / zs2;
         rc_flut_local = rc_bend_u * w * rc_flutter * gain / ys;
       }
     }
     tree.fw_inst_flutter_amp[inst_id] = rc_flut_local;
+    tree.fw_inst_bend[inst_id * 2 + 0] = rc_bend_lx;
+    tree.fw_inst_bend[inst_id * 2 + 1] = rc_bend_lz;
     // Grecharged-foliage-wind2: [0]/[1] = stock/applied shear magnitude, [2..5] = the signed
     // components, which is what the frame-to-frame difference below needs.
     float rc_audit[8] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
@@ -2240,8 +2266,12 @@ void Tie3::render_tree_wind(int idx,
   const GLint fw_time_loc = glGetUniformLocation(fw_prog, "u_fw_time");
   const GLint fw_phase_loc = glGetUniformLocation(fw_prog, "u_fw_phase");
   const GLint fw_height_loc = glGetUniformLocation(fw_prog, "u_fw_height");
+  const GLint fw_bend_loc = glGetUniformLocation(fw_prog, "u_fw_bend");
   if (fw_amp_loc >= 0) {
     glUniform1f(fw_amp_loc, 0.f);  // par instance ci-dessous ; 0 = le bloc du shader est saute
+  }
+  if (fw_bend_loc >= 0) {
+    glUniform2f(fw_bend_loc, 0.f, 0.f);
   }
   if (fw_time_loc >= 0) {
     glUniform1f(fw_time_loc, rc_t);
@@ -2256,8 +2286,9 @@ void Tie3::render_tree_wind(int idx,
     if (!s_fw_uni_logged) {
       s_fw_uni_logged = true;
       lg::info("[foliage-wind] TIE flutter uniforms amp_loc={} time_loc={} phase_loc={} "
-               "height_loc={} (all >= 0 means the per-vertex flutter is live in the linked program)",
-               fw_amp_loc, fw_time_loc, fw_phase_loc, fw_height_loc);
+               "height_loc={} bend_loc={} (all >= 0 means the per-vertex flutter and the "
+               "per-instance crown bend are live in the linked program)",
+               fw_amp_loc, fw_time_loc, fw_phase_loc, fw_height_loc, fw_bend_loc);
     }
   }
   tree.fw_prev_valid = true;  // the previous-frame shears are now populated for every instance
@@ -2383,6 +2414,10 @@ void Tie3::render_tree_wind(int idx,
                              ? tree.fw_inst_flutter_amp[grp.instance_idx]
                              : 0.f;
         glUniform1f(fw_amp_loc, fa);
+        if (fw_bend_loc >= 0 && grp.instance_idx * 2 + 1 < tree.fw_inst_bend.size()) {
+          glUniform2f(fw_bend_loc, tree.fw_inst_bend[grp.instance_idx * 2 + 0],
+                      tree.fw_inst_bend[grp.instance_idx * 2 + 1]);
+        }
         if (fw_phase_loc >= 0) {
           glUniform1f(fw_phase_loc, (float)foliage_law::phase_u8((u64)grp.instance_idx) / 256.f);
         }

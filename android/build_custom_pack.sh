@@ -200,6 +200,7 @@ data_freshness_guard(){
     "${RHUD_SRC}"$'\t''physics_chains.txt'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''physics_mesh.txt'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''foliage_wind_protos.txt'$'\t''recharged_assets/'
+    "${RHUD_SRC}"$'\t''foliage_wind_shrub.txt'$'\t''recharged_assets/'
   )
   local n_cov=0 spec cdir cglob cpfx cbase want
   for spec in "${cov_specs[@]}"; do
@@ -374,6 +375,16 @@ if [ -f "$ROOT/$RHUD_SRC/foliage_wind_protos.txt" ]; then
   ln -s "$ROOT/$RHUD_SRC/foliage_wind_protos.txt" "$STAGE/recharged_assets/foliage_wind_protos.txt"
   MEMBERS+=("recharged_assets/foliage_wind_protos.txt")
   echo "[custom-pack] lexique de vegetation TIE: 1 (livraison inconditionnelle; sans lui, zero balancement statique)"
+fi
+# foliage-wind (essai 11) : le sidecar de vent NATIF des buissons (raideur par prototype et
+# wind-index par instance, extraits des DGO par decompiler/level_extractor/extract_shrub.cpp sous
+# SHRUB_WIND_DUMP_DIR). Meme regle que le lexique : donnee A NOUS, livraison inconditionnelle ; sans
+# lui le moteur publie `sidecar=0` sur la ligne `SHRUB ground` et aucun buisson ne recoit le vent de ND.
+if [ -f "$ROOT/$RHUD_SRC/foliage_wind_shrub.txt" ]; then
+  mkdir -p "$STAGE/recharged_assets"
+  ln -s "$ROOT/$RHUD_SRC/foliage_wind_shrub.txt" "$STAGE/recharged_assets/foliage_wind_shrub.txt"
+  MEMBERS+=("recharged_assets/foliage_wind_shrub.txt")
+  echo "[custom-pack] sidecar vent natif shrub: 1 (livraison inconditionnelle; sans lui, zero vent natif sur les buissons)"
 fi
 # (Gpbr-material-props) PER-TEXTURE MATERIAL PROPERTIES ARE DELIBERATELY NOT STAGED HERE.
 #    The previous phase shipped recharged_assets/materials.txt inside this pack. The owner

@@ -2125,6 +2125,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // par la spec mais qu'aucune mesure de cet arbre n'a jamais verifiee sur l'Adreno. Deux verrous
   // valent mieux qu'un : celui-ci tient meme si un uniforme etait optimise (loc -1).
   glVertexAttrib4f(7, 0.f, 0.f, 0.f, 1.f);
+  // Essai 11 : l'enregistrement de balancement fait 8 octets et trois attributs y pointent — 7 le
+  // poids (GL_SHORT), 8 la phase (GL_UNSIGNED_BYTE), 9 l'index d'instance (entier, shrub). Les trois
+  // sont mis a zero ici pour tout VAO qui ne les active pas.
+  glVertexAttrib4f(8, 0.f, 0.f, 0.f, 1.f);
+  glVertexAttribI4ui(9, 0u, 0u, 0u, 0u);
   glUniformMatrix4fv(glGetUniformLocation(id, "camera"), 1, GL_FALSE, settings.camera[0].data());
 
   auto newcam =

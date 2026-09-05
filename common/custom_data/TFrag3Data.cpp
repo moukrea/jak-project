@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <mutex>
 #include <sstream>
@@ -18,6 +19,8 @@
 #include "common/util/Assert.h"
 #include "common/util/FileUtil.h"
 #include "common/util/simd_util.h"
+
+#include "fmt/core.h"
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
@@ -407,9 +410,28 @@ const FwLexicon& fw_veg_protos() {
 // `ymin`/`ymax` celles de SON instance. foliage-wind (owner 2026-09-03) : la loi vit dans
 // common/custom_data/FoliageWindLaw.h et elle est la MEME pour le TIE statique, le shrub et le
 // recensement qui porte la porte — trois copies se seraient desynchronisees au premier reglage.
-u8 fw_sway_weight(float y, float ymin, float ymax) {
-  return foliage_law::sway_weight_u8(y, ymin, ymax);
+// Essai 11 : poids SIGNE sur 16 bits (SwayRecord), loi ARBRE (tronc rigide). Rend le poids tel que
+// le shader le RELIRA (quantifie puis dequantifie), pour que le recensement mesure ce qui est dessine.
+s16 fw_sway_weight_tie_q(float y, float ymin, float ymax) {
+  return foliage_law::quantize_weight(foliage_law::sway_weight_tie(y, ymin, ymax));
 }
+
+// Ecrit un enregistrement de balancement a l'emplacement du sommet `v` de `sway` (8 octets/sommet).
+inline void fw_write_record(std::vector<u8>& sway, size_t v, s16 w, u16 inst, u8 ph, u8 flags) {
+  foliage_law::SwayRecord rec;
+  rec.w = w;
+  rec.inst = inst;
+  rec.ph = ph;
+  rec.flags = flags;
+  memcpy(sway.data() + v * foliage_law::kSwayRecordBytes, &rec, sizeof(rec));
+}
+
+inline foliage_law::SwayRecord fw_read_record(const std::vector<u8>& sway, size_t v) {
+  foliage_law::SwayRecord rec;
+  memcpy(&rec, sway.data() + v * foliage_law::kSwayRecordBytes, sizeof(rec));
+  return rec;
+}
+
 
 }  // namespace
 
@@ -599,11 +621,14 @@ void TieTree::unpack() {
     }
 
     // --- passe 3 : le poids ET la phase d'instance ---------------------------------------------
-    // Deux octets par sommet : [2v+0] le poids, [2v+1] la phase de SON instance. La phase est
-    // l'angle d'or applique au `matrix_idx` : constante sur toute la plante (donc la plante ne se
-    // dechire pas) et decorrelee d'une plante a l'autre (donc le decor ne glisse pas en bloc).
-    unpacked.sway.assign(nverts * 2, 0);
-    std::vector<u8> inst_has_veg(n_mat, 0), inst_has_sway(n_mat, 0), inst_max_w(n_mat, 0);
+    // Un SwayRecord (8 octets) par sommet : poids SIGNE 16 bits, matrix_idx, phase de SON instance.
+    // La phase est l'angle d'or applique au `matrix_idx` : constante sur toute la plante (donc la
+    // plante ne se dechire pas) et decorrelee d'une plante a l'autre (donc le decor ne glisse pas en
+    // bloc). Essai 11 : on releve aussi, par instance, le plus grand poids des 10 % du bas
+    // (`low_w`, le « tronc ») — c'est la grandeur de `wind_base_to_crown_ratio`.
+    unpacked.sway.assign(nverts * foliage_law::kSwayRecordBytes, 0);
+    std::vector<u8> inst_has_veg(n_mat, 0), inst_has_sway(n_mat, 0);
+    std::vector<s16> inst_max_w(n_mat, 0), inst_low_w(n_mat, 0);
     {
       size_t vi = 0;
       for (const auto& grp : packed_vertices.matrix_groups) {
@@ -632,16 +657,21 @@ void TieTree::unpack() {
           if ((f & 1) && have_inst) {
             inst_has_veg[mi] = 1;
           }
-          u8 w = 0;
+          s16 w = 0;
           if ((f & 1) && !(f & 2) && have_anchor) {
-            w = fw_sway_weight(unpacked.vertices[v].y, mymin[mi], mymax[mi]);
+            w = fw_sway_weight_tie_q(unpacked.vertices[v].y, mymin[mi], mymax[mi]);
           }
-          unpacked.sway[v * 2 + 0] = w;
-          unpacked.sway[v * 2 + 1] = ph8;
-          if (w > 0) {
+          fw_write_record(unpacked.sway, v, w, (u16)(mi & 0xffffu), ph8,
+                          have_inst ? foliage_law::kSwayFlagInstance : 0);
+          if (w != 0) {
             sway_census.v_sway++;
             inst_has_sway[mi] = 1;
             inst_max_w[mi] = std::max(inst_max_w[mi], w);
+            // le « tronc » : les 10 % du bas de la plante, mesures depuis son pied
+            const float span = mymax[mi] - mymin[mi];
+            if (span > 0.f && unpacked.vertices[v].y <= mymin[mi] + 0.10f * span) {
+              inst_low_w[mi] = std::max(inst_low_w[mi], (s16)std::abs((int)w));
+            }
           } else {
             sway_census.v_neutre++;
           }
@@ -656,11 +686,17 @@ void TieTree::unpack() {
         // foliage-wind : une entree de recensement par instance VEGETALE posee. L'ancrage est la
         // translation de la matrice d'instance ; la hauteur, l'etendue en Y de ses sommets monde.
         SwayInstance si;
+        si.valid = true;
+        si.matrix_idx = (u32)mi;
         si.x = packed_vertices.matrices[mi][3].x();
         si.z = packed_vertices.matrices[mi][3].z();
         si.ymin = mymin[mi];
         si.ymax = mymax[mi];
-        si.peak_w = inst_max_w[mi] / 255.f;
+        si.base_y = mymin[mi];  // un arbre pivote a son pied ; ses 30 % du bas sont rigides
+        si.peak_w = foliage_law::dequantize_weight(inst_max_w[mi]);
+        si.low_w = foliage_law::dequantize_weight(inst_low_w[mi]);
+        si.base_w = 0.f;  // aucune arete ne traverse le pied : rien n'est dessine sous lui
+        si.ph8 = foliage_law::phase_u8((u64)mi);
         sway_instances.push_back(si);
       }
       if (inst_has_sway[mi]) {
@@ -729,6 +765,9 @@ void TieTree::unpack() {
   apply_baked_tangents(baked_tangents, unpacked.vertices, unpacked.tangents, "tie");
 }
 
+// definie apres ShrubTree::unpack, appelee par lui et par foliage_wind_finalize_level
+void shrub_sway_write_records(ShrubTree& tree);
+
 void ShrubTree::unpack() {
   unpacked.vertices.resize(packed_vertices.total_vertex_count);
   size_t i = 0;
@@ -785,36 +824,26 @@ void ShrubTree::unpack() {
         vi += n;
       }
     }
-    unpacked.sway.assign(nverts * 2, 0);
+    // Essai 11 : ici on ecrit des enregistrements PROVISOIRES, pivot = pied de l'instance (ymin).
+    // `foliage_wind_finalize_level` (Loader.cpp, apres tous les depaquetages) trouve le SOL sous
+    // chaque buisson et REECRIT poids et recensement avec ce pivot. Si personne ne l'appelle (un
+    // outil hors jeu), le buisson pivote a son pied : jamais un tableau de la mauvaise taille.
+    unpacked.sway.assign(nverts * foliage_law::kSwayRecordBytes, 0);
     // diagnostic : combien d'entrees de palette (color_index) sont partagees par plusieurs
     // instances — l'hypothese que l'ancien chemin faisait sans la verifier.
     std::unordered_map<u32, s32> slot_owner;  // color_index -> matrix_idx, ou -2 si partage
-    std::vector<u8> inst_max_w(n_mat, 0);
     {
       size_t vi = 0;
       for (const auto& grp : packed_vertices.instance_groups) {
         const size_t n = (size_t)(grp.end_vert - grp.start_vert);
         const bool have_inst = grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat;
         const size_t mi = have_inst ? (size_t)grp.matrix_idx : 0;
-        const bool have_anchor = have_inst && mymax[mi] >= mymin[mi];
-        const u8 ph8 = have_inst ? foliage_law::phase_u8((u64)mi) : 0;
         if (have_inst) {
           auto it = slot_owner.find(grp.color_index);
           if (it == slot_owner.end()) {
             slot_owner[grp.color_index] = (s32)mi;
           } else if (it->second != (s32)mi && it->second != -2) {
             it->second = -2;
-          }
-        }
-        for (size_t k = 0; k < n && vi + k < nverts; k++) {
-          const size_t v = vi + k;
-          const u8 w = have_anchor
-                           ? foliage_law::sway_weight_u8(unpacked.vertices[v].y, mymin[mi], mymax[mi])
-                           : 0;
-          unpacked.sway[v * 2 + 0] = w;
-          unpacked.sway[v * 2 + 1] = ph8;
-          if (have_inst) {
-            inst_max_w[mi] = std::max(inst_max_w[mi], w);
           }
         }
         vi += n;
@@ -826,19 +855,452 @@ void ShrubTree::unpack() {
         sway_shared_color_slots++;
       }
     }
-    sway_instances.clear();
+    // une entree PAR matrix_idx : le rendu (vent natif) et le recensement indexent directement
+    sway_instances.assign(n_mat, TieTree::SwayInstance{});
     for (size_t mi = 0; mi < n_mat; mi++) {
-      if (!mat_used[mi] || !(mymax[mi] >= mymin[mi])) {
-        continue;
-      }
-      TieTree::SwayInstance si;
+      auto& si = sway_instances[mi];
+      si.matrix_idx = (u32)mi;
       si.x = packed_vertices.matrices[mi][3].x();
       si.z = packed_vertices.matrices[mi][3].z();
+      si.ph8 = foliage_law::phase_u8((u64)mi);
+      if (!mat_used[mi] || !(mymax[mi] >= mymin[mi])) {
+        si.valid = false;
+        continue;
+      }
+      si.valid = true;
       si.ymin = mymin[mi];
       si.ymax = mymax[mi];
-      si.peak_w = inst_max_w[mi] / 255.f;
-      sway_instances.push_back(si);
+      si.base_y = mymin[mi];
     }
+    shrub_sway_write_records(*this);
+  }
+}
+
+// -------------------------------------------------------------------------------------------------
+// foliage-wind (essai 11) — LES POIDS D'UN ARBRE SHRUB, DEPUIS LE PIVOT DE CHAQUE INSTANCE.
+// Ecrit `unpacked.sway` (SwayRecord par sommet, loi BUISSON lineaire signee depuis `si.base_y`) et
+// remplit, par instance : `peak_w` (couronne), `low_w` (10 % du bas VISIBLES), `base_w` (|poids|
+// interpole a la ligne du pivot le long des aretes qui la traversent — ce que le GPU dessine a la
+// ligne de sol). Appelee au depaquetage (pivot = pied) et par `foliage_wind_finalize_level` (pivot =
+// sol). Les sommets sont parcourus comme `ShrubTree::unpack` les a produits : `instance_groups` dans
+// l'ordre, plages contigues.
+void shrub_sway_write_records(ShrubTree& tree) {
+  const size_t n_mat = tree.packed_vertices.matrices.size();
+  const size_t nverts = tree.unpacked.vertices.size();
+  if (tree.unpacked.sway.size() != nverts * foliage_law::kSwayRecordBytes) {
+    tree.unpacked.sway.assign(nverts * foliage_law::kSwayRecordBytes, 0);
+  }
+  std::vector<s16> inst_max_w(n_mat, 0), inst_low_w(n_mat, 0);
+  std::vector<u32> vert_inst(nverts, UINT32_MAX);
+  {
+    size_t vi = 0;
+    for (const auto& grp : tree.packed_vertices.instance_groups) {
+      const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+      const bool have_inst = grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat &&
+                             tree.sway_instances[(size_t)grp.matrix_idx].valid;
+      const size_t mi = have_inst ? (size_t)grp.matrix_idx : 0;
+      const auto* si = have_inst ? &tree.sway_instances[mi] : nullptr;
+      const float span = si ? (si->ymax - si->base_y) : 0.f;
+      for (size_t k = 0; k < n && vi + k < nverts; k++) {
+        const size_t v = vi + k;
+        s16 w = 0;
+        if (si && span > 0.f) {
+          const float y = tree.unpacked.vertices[v].y;
+          w = foliage_law::quantize_weight(foliage_law::sway_weight_shrub(y, si->base_y, si->ymax));
+          if (w > inst_max_w[mi]) {
+            inst_max_w[mi] = w;
+          }
+          if (y >= si->base_y && y <= si->base_y + 0.10f * span) {
+            inst_low_w[mi] = std::max(inst_low_w[mi], (s16)std::abs((int)w));
+          }
+          vert_inst[v] = (u32)mi;
+        }
+        fw_write_record(tree.unpacked.sway, v, w, (u16)(mi & 0xffffu), si ? si->ph8 : 0,
+                        si ? foliage_law::kSwayFlagInstance : 0);
+      }
+      vi += n;
+    }
+  }
+  // `base_w` : le long de chaque arete de bande dont les deux sommets sont de part et d'autre du
+  // pivot (et de la MEME instance), le poids interpole lineairement a y = base_y, sur les poids
+  // QUANTIFIES relus. C'est exactement ce que le rasteriseur fera : la loi est lineaire, donc la
+  // valeur attendue est 0 a l'erreur de quantification pres, et c'est CETTE valeur qu'on publie.
+  std::vector<float> inst_base_w(n_mat, 0.f);
+  {
+    const auto& idx = tree.indices;
+    auto edge = [&](u32 a, u32 b) {
+      if (a >= nverts || b >= nverts) {
+        return;
+      }
+      const u32 mi = vert_inst[a];
+      if (mi == UINT32_MAX || mi != vert_inst[b]) {
+        return;
+      }
+      const auto& si = tree.sway_instances[mi];
+      if (!(si.base_y > si.ymin)) {
+        return;  // non enfonce : la ligne du pivot est le pied, rien n'est dessine sous lui
+      }
+      const float ya = tree.unpacked.vertices[a].y, yb = tree.unpacked.vertices[b].y;
+      const float da = ya - si.base_y, db = yb - si.base_y;
+      if (!(da * db < 0.f)) {
+        return;  // l'arete ne traverse pas le pivot
+      }
+      const float wa = foliage_law::dequantize_weight(fw_read_record(tree.unpacked.sway, a).w);
+      const float wb = foliage_law::dequantize_weight(fw_read_record(tree.unpacked.sway, b).w);
+      const float t = da / (da - db);  // dans (0, 1)
+      const float wi = std::fabs(wa + t * (wb - wa));
+      if (wi > inst_base_w[mi]) {
+        inst_base_w[mi] = wi;
+      }
+    };
+    u32 p0 = UINT32_MAX, p1 = UINT32_MAX;
+    for (u32 vi2 : idx) {
+      if (vi2 == UINT32_MAX) {
+        p0 = p1 = UINT32_MAX;
+        continue;
+      }
+      if (p1 != UINT32_MAX) {
+        edge(p1, vi2);
+        if (p0 != UINT32_MAX) {
+          edge(p0, vi2);
+        }
+      }
+      p0 = p1;
+      p1 = vi2;
+    }
+  }
+  for (size_t mi = 0; mi < n_mat; mi++) {
+    auto& si = tree.sway_instances[mi];
+    if (!si.valid) {
+      continue;
+    }
+    si.peak_w = foliage_law::dequantize_weight(inst_max_w[mi]);
+    si.low_w = foliage_law::dequantize_weight(inst_low_w[mi]);
+    si.base_w = inst_base_w[mi];
+  }
+}
+
+// -------------------------------------------------------------------------------------------------
+// foliage-wind (essai 11) — LE SOL SOUS CHAQUE BUISSON, ET LE VENT NATIF DES BUISSONS.
+namespace {
+
+// Les triangles du TERRAIN d'un niveau, ranges dans une grille 2D (x, z) pour un lancer de rayon
+// vertical. Terrain = tfrag geo 0 (hors lowres, qui doublent le meme sol de plus loin) + TIE statique
+// geo 0 (a Sandover le sol est fait de `groundlarge.mb` / `groundsmall.mb`, des TIE). Les sommets du
+// chemin VENT du TIE sont LOCAUX au prototype et n'entrent pas dans `unpacked.indices` (statique
+// seulement, TieTree::unpack) : ils ne polluent donc pas la grille.
+struct GroundGrid {
+  static constexpr float kCell = 16.f * 4096.f;
+  std::vector<float> tris;  // 9 flottants par triangle
+  std::unordered_map<u64, std::vector<u32>> cells;
+
+  static u64 key(s64 cx, s64 cz) { return ((u64)(u32)(s32)cx << 32) | (u64)(u32)(s32)cz; }
+  static s64 cell(float v) { return (s64)std::floor(v / kCell); }
+
+  void add_tri(const PreloadedVertex& a, const PreloadedVertex& b, const PreloadedVertex& c) {
+    const u32 ti = (u32)(tris.size() / 9);
+    tris.insert(tris.end(), {a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z});
+    const s64 x0 = cell(std::min({a.x, b.x, c.x})), x1 = cell(std::max({a.x, b.x, c.x}));
+    const s64 z0 = cell(std::min({a.z, b.z, c.z})), z1 = cell(std::max({a.z, b.z, c.z}));
+    if (x1 - x0 > 64 || z1 - z0 > 64) {
+      tris.resize(tris.size() - 9);  // un triangle de plus d'un kilometre n'est pas du sol
+      return;
+    }
+    for (s64 cx = x0; cx <= x1; cx++) {
+      for (s64 cz = z0; cz <= z1; cz++) {
+        cells[key(cx, cz)].push_back(ti);
+      }
+    }
+  }
+
+  template <typename V>
+  void add_mesh(const std::vector<V>& verts, const std::vector<u32>& idx, bool strips) {
+    auto tri = [&](u32 i0, u32 i1, u32 i2) {
+      if (i0 < verts.size() && i1 < verts.size() && i2 < verts.size()) {
+        PreloadedVertex a, b, c;
+        a.x = verts[i0].x; a.y = verts[i0].y; a.z = verts[i0].z;
+        b.x = verts[i1].x; b.y = verts[i1].y; b.z = verts[i1].z;
+        c.x = verts[i2].x; c.y = verts[i2].y; c.z = verts[i2].z;
+        add_tri(a, b, c);
+      }
+    };
+    if (strips) {
+      u32 p0 = UINT32_MAX, p1 = UINT32_MAX;
+      for (u32 vi : idx) {
+        if (vi == UINT32_MAX) {
+          p0 = p1 = UINT32_MAX;
+          continue;
+        }
+        if (p0 != UINT32_MAX && p1 != UINT32_MAX) {
+          tri(p0, p1, vi);
+        }
+        p0 = p1;
+        p1 = vi;
+      }
+    } else {
+      for (size_t t = 0; t + 2 < idx.size(); t += 3) {
+        if (idx[t] != UINT32_MAX && idx[t + 1] != UINT32_MAX && idx[t + 2] != UINT32_MAX) {
+          tri(idx[t], idx[t + 1], idx[t + 2]);
+        }
+      }
+    }
+  }
+
+  // Le plus haut triangle contenant (x, z) en projection dont la hauteur ne depasse pas `y_max`.
+  bool ground_below(float x, float z, float y_max, float* out_y) const {
+    auto it = cells.find(key(cell(x), cell(z)));
+    if (it == cells.end()) {
+      return false;
+    }
+    bool found = false;
+    float best = -1e30f;
+    for (u32 ti : it->second) {
+      const float* t = &tris[(size_t)ti * 9];
+      const float ax = t[0], ay = t[1], az = t[2];
+      const float bx = t[3], by = t[4], bz = t[5];
+      const float cx = t[6], cy = t[7], cz = t[8];
+      const float det = (bx - ax) * (cz - az) - (cx - ax) * (bz - az);
+      if (std::fabs(det) < 1e-3f) {
+        continue;  // triangle vertical ou degenere en projection
+      }
+      const float l1 = ((x - ax) * (cz - az) - (cx - ax) * (z - az)) / det;
+      const float l2 = ((bx - ax) * (z - az) - (x - ax) * (bz - az)) / det;
+      const float l0 = 1.f - l1 - l2;
+      const float eps = -1e-4f;
+      if (l0 < eps || l1 < eps || l2 < eps) {
+        continue;
+      }
+      const float y = l0 * ay + l1 * by + l2 * cy;
+      if (y <= y_max && y > best) {
+        best = y;
+        found = true;
+      }
+    }
+    if (found) {
+      *out_y = best;
+    }
+    return found;
+  }
+};
+
+// Le sidecar de vent shrub, parse UNE fois pour tout le jeu.
+struct ShrubWindSidecar {
+  struct LevelData {
+    std::vector<std::string> proto_names;
+    std::vector<ShrubTree::WindProto> protos;
+    std::vector<u16> inst_wind;   // par matrix_idx
+    std::vector<u16> inst_proto;  // par matrix_idx
+  };
+  std::unordered_map<std::string, LevelData> levels;
+  bool loaded = false;
+  std::string path;
+};
+
+const ShrubWindSidecar& shrub_wind_sidecar() {
+  static const ShrubWindSidecar s = [] {
+    ShrubWindSidecar out;
+    auto path = file_util::get_recharged_assets_dir() / "foliage_wind_shrub.txt";
+    auto ext_dir = file_util::get_external_recharged_assets_dir();
+    if (ext_dir) {
+      auto ext_path = *ext_dir / "foliage_wind_shrub.txt";
+      if (file_util::file_exists(ext_path.string())) {
+        path = ext_path;
+      }
+    }
+    out.path = path.string();
+    if (!file_util::file_exists(out.path)) {
+      lg::warn(
+          "[foliage-wind] SIDECAR SHRUB ABSENT : {} — le vent NATIF des buissons (ressort de ND, "
+          "raideur par prototype) reste ETEINT sur tout le jeu. C'est un asset manquant.",
+          out.path);
+      return out;
+    }
+    std::string text = file_util::read_text_file(out.path);
+    std::stringstream ss(text);
+    std::string line;
+    ShrubWindSidecar::LevelData* cur = nullptr;
+    while (std::getline(ss, line)) {
+      std::stringstream ls(line);
+      std::string tag;
+      ls >> tag;
+      if (tag == "level") {
+        std::string name;
+        ls >> name;
+        cur = &out.levels[name];
+        // un dump ecrit en `append` peut porter le meme niveau deux fois : le dernier gagne
+        *cur = ShrubWindSidecar::LevelData{};
+      } else if (tag == "proto" && cur) {
+        // proto <idx> <name> stiffness <s> dists a b c d rdists e f g h
+        size_t idx = 0;
+        std::string name, kw;
+        float st = 0.f, d[4] = {0, 0, 0, 0}, r[4] = {0, 0, 0, 0};
+        ls >> idx >> name >> kw >> st >> kw >> d[0] >> d[1] >> d[2] >> d[3] >> kw >> r[0] >> r[1] >>
+            r[2] >> r[3];
+        if (cur->protos.size() <= idx) {
+          cur->protos.resize(idx + 1);
+          cur->proto_names.resize(idx + 1);
+        }
+        cur->proto_names[idx] = name;
+        cur->protos[idx].stiffness = st;
+        cur->protos[idx].near_stiff = d[1];
+        cur->protos[idx].rlength_stiff = r[1];
+      } else if (tag == "inst" && cur) {
+        // inst <matrix_idx> <proto_idx> <wind_index>
+        size_t mi = 0;
+        unsigned pi = 0, wi = 0;
+        ls >> mi >> pi >> wi;
+        if (cur->inst_wind.size() <= mi) {
+          cur->inst_wind.resize(mi + 1, 0);
+          cur->inst_proto.resize(mi + 1, 0xffff);
+        }
+        cur->inst_wind[mi] = (u16)wi;
+        cur->inst_proto[mi] = (u16)pi;
+      }
+    }
+    out.loaded = true;
+    lg::info("[foliage-wind] sidecar shrub charge : {} niveaux depuis {}", out.levels.size(),
+             out.path);
+    return out;
+  }();
+  return s;
+}
+
+}  // namespace
+
+void foliage_wind_finalize_level(Level& lev) {
+  if (lev.shrub_trees.empty()) {
+    return;
+  }
+  GroundGrid grid;
+  if (!lev.tfrag_trees.empty()) {
+    for (const auto& t : lev.tfrag_trees[0]) {
+      if (t.kind == TFragmentTreeKind::LOWRES || t.kind == TFragmentTreeKind::LOWRES_TRANS ||
+          t.kind == TFragmentTreeKind::INVALID) {
+        continue;
+      }
+      grid.add_mesh(t.unpacked.vertices, t.unpacked.indices, t.use_strips);
+    }
+  }
+  if (!lev.tie_trees.empty()) {
+    for (const auto& t : lev.tie_trees[0]) {
+      grid.add_mesh(t.unpacked.vertices, t.unpacked.indices, t.use_strips);
+    }
+  }
+  const u64 n_tris = grid.tris.size() / 9;
+
+  const auto& side = shrub_wind_sidecar();
+  const ShrubWindSidecar::LevelData* sd = nullptr;
+  if (side.loaded) {
+    auto it = side.levels.find(lev.level_name);
+    if (it != side.levels.end()) {
+      sd = &it->second;
+    }
+  }
+
+  for (size_t ti = 0; ti < lev.shrub_trees.size(); ti++) {
+    auto& tree = lev.shrub_trees[ti];
+    const size_t n_mat = tree.packed_vertices.matrices.size();
+    if (tree.sway_instances.size() != n_mat) {
+      lg::warn("[foliage-wind] SHRUB ground lev={} tree={} : recensement de taille {} pour {} "
+               "matrices — depaquetage non conforme, passe sautee",
+               lev.level_name, ti, tree.sway_instances.size(), n_mat);
+      continue;
+    }
+    u32 n_valid = 0, n_found = 0, n_sunk = 0, n_clamped = 0, max_sunk_mm = 0;
+    for (size_t mi = 0; mi < n_mat; mi++) {
+      auto& si = tree.sway_instances[mi];
+      if (!si.valid) {
+        continue;
+      }
+      n_valid++;
+      si.base_y = si.ymin;
+      si.ground_found = false;
+      si.sunk_mm = 0;
+      const float span = si.ymax - si.ymin;
+      float gy = 0.f;
+      if (span > 0.f && grid.ground_below(si.x, si.z, si.ymax, &gy)) {
+        si.ground_found = true;
+        n_found++;
+        if (gy > si.ymin + 41.f) {  // enfonce de plus d'un centimetre
+          // le pivot ne monte jamais au-dessus de 60 % du buisson : sur une pente, le point sous
+          // l'axe peut etre plus haut que la partie visible du cote aval — on ne laisse pas la
+          // moitie du buisson passer « sous le sol »
+          const float cap = si.ymin + 0.60f * span;
+          float base = gy;
+          if (base > cap) {
+            base = cap;
+            n_clamped++;
+          }
+          si.base_y = base;
+          si.sunk_mm = (u32)((base - si.ymin) / 4096.f * 1000.f + 0.5f);
+          n_sunk++;
+          max_sunk_mm = std::max(max_sunk_mm, si.sunk_mm);
+        }
+      }
+    }
+    shrub_sway_write_records(tree);
+    float max_base_w = 0.f;
+    for (const auto& si : tree.sway_instances) {
+      if (si.valid) {
+        max_base_w = std::max(max_base_w, si.base_w);
+      }
+    }
+
+    // --- le vent natif : sidecar verifie contre le fr3 -----------------------------------------
+    tree.wind_protos.clear();
+    tree.wind_index.clear();
+    tree.wind_proto_of_inst.clear();
+    tree.wind_sidecar_ok = false;
+    tree.wind_max_idx = 0;
+    tree.wind_instances_stiff = 0;
+    std::string why;
+    if (!sd) {
+      why = side.loaded ? "niveau absent du sidecar" : "sidecar absent";
+    } else if (sd->inst_wind.size() != n_mat) {
+      why = fmt::format("{} instances dans le sidecar pour {} matrices", sd->inst_wind.size(), n_mat);
+    } else if (!tree.proto_names.empty() && sd->proto_names.size() != tree.proto_names.size()) {
+      why = fmt::format("{} prototypes dans le sidecar pour {} dans le fr3", sd->proto_names.size(),
+                        tree.proto_names.size());
+    } else {
+      bool names_ok = true;
+      for (size_t pi = 0; pi < tree.proto_names.size(); pi++) {
+        if (tree.proto_names[pi] != sd->proto_names[pi]) {
+          names_ok = false;
+          why = fmt::format("prototype {} : '{}' dans le sidecar, '{}' dans le fr3", pi,
+                            sd->proto_names[pi], tree.proto_names[pi]);
+          break;
+        }
+      }
+      if (names_ok) {
+        for (size_t mi = 0; mi < n_mat; mi++) {
+          if (sd->inst_proto[mi] >= sd->protos.size()) {
+            names_ok = false;
+            why = fmt::format("instance {} : prototype {} hors table", mi, sd->inst_proto[mi]);
+            break;
+          }
+        }
+      }
+      if (names_ok) {
+        tree.wind_protos = sd->protos;
+        tree.wind_index = sd->inst_wind;
+        tree.wind_proto_of_inst = sd->inst_proto;
+        tree.wind_sidecar_ok = true;
+        for (size_t mi = 0; mi < n_mat; mi++) {
+          tree.wind_max_idx = std::max<u32>(tree.wind_max_idx, tree.wind_index[mi]);
+          if (tree.wind_protos[tree.wind_proto_of_inst[mi]].stiffness > 0.f &&
+              tree.sway_instances[mi].valid) {
+            tree.wind_instances_stiff++;
+          }
+        }
+      }
+    }
+    lg::info(
+        "[foliage-wind] SHRUB ground lev={} tree={} terrain_tris={} instances={} sol_trouve={} "
+        "enfonces={} pivot_borne={} enfoncement_max_mm={} base_w_max={:.6f} sidecar={} "
+        "raideur_instances={} wind_max_idx={}{}{}",
+        lev.level_name, ti, n_tris, n_valid, n_found, n_sunk, n_clamped, max_sunk_mm, max_base_w,
+        tree.wind_sidecar_ok ? 1 : 0, tree.wind_instances_stiff, tree.wind_max_idx,
+        why.empty() ? "" : " refus=", why);
   }
 }
 

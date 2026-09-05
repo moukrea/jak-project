@@ -560,6 +560,19 @@ struct TieTree {
     float ymax = 0.f;
     float peak_w = 0.f;  // le plus grand poids reellement ecrit dans `unpacked.sway` pour cette
                          // instance, relu apres quantification (0 = elle ne bougera jamais)
+    // foliage-wind (essai 11) — ce qu'il faut pour juger PIVOT et PROFIL, pas seulement l'amplitude :
+    bool valid = false;      // l'instance a des sommets (shrub : une entree PAR matrix_idx, meme vide)
+    float base_y = 0.f;      // le PIVOT : hauteur monde ou le poids vaut 0. TIE : ymin. SHRUB : le sol
+                             // trouve sous l'ancrage (foliage_wind_finalize_level), sinon ymin.
+    bool ground_found = false;  // shrub : un triangle de terrain trouve sous l'ancrage
+    u32 sunk_mm = 0;         // shrub : enfoncement max(0, base_y - ymin), en mm
+    float low_w = 0.f;       // plus grand |poids| relu (quantifie) parmi les sommets VISIBLES des 10 %
+                             // du bas (base_y <= y <= base_y + 0.10 x hauteur visible) : le « tronc »
+    float base_w = 0.f;      // |poids| INTERPOLE a la hauteur `base_y` le long des aretes qui la
+                             // traversent, sur les poids QUANTIFIES : ce que le GPU dessine a la ligne
+                             // de sol (0 quand aucune arete ne la traverse)
+    u8 ph8 = 0;              // phase d'instance ecrite dans les enregistrements
+    u32 matrix_idx = 0;
   };
   std::vector<SwayInstance> sway_instances;
   // La hauteur LOCALE (unites du prototype, avant la matrice d'instance) de chaque instance du
@@ -623,11 +636,33 @@ struct ShrubTree {
     // pied et sa propre hauteur.
     std::vector<u8> sway;
   } unpacked;
-  // Une entree par instance (matrix_idx), voir TieTree::SwayInstance. Pour le recensement.
+  // Une entree PAR matrix_idx (essai 11 : indexee directement, `valid` dit si l'instance a des
+  // sommets), voir TieTree::SwayInstance. Pour le recensement ET pour le vent natif (Shrub.cpp lit
+  // `base_y`, `ymax` par matrix_idx).
   std::vector<TieTree::SwayInstance> sway_instances;
   // Diagnostic publie au chargement : entrees de palette partagees par PLUSIEURS instances. Non nul
   // = l'hypothese de l'ancien chemin (« une entree par instance ») etait fausse sur ce niveau.
   u32 sway_shared_color_slots = 0;
+  // foliage-wind (essai 11) — LE VENT NATIF DE ND POUR LES BUISSONS. Sur PS2 chaque
+  // `instance-shrubbery` porte un `wind-index` (offset 62 : l'emplacement de son etat de ressort,
+  // unique par instance) et son prototype une raideur (`stiffness` = rdists.w), un seuil de distance
+  // (`dists.y` = near-stiff) et une pente (`rdists.y` = rlength-stiff) ; l'EE integre le MEME ressort
+  // que le TIE (docs/progress-notes/jak1/scratch/shrub_asm.md:957-1057). L'extracteur jetait tout
+  // cela. Il l'ecrit maintenant dans le sidecar texte `recharged_assets/foliage_wind_shrub.txt`
+  // (extract_shrub.cpp, SHRUB_WIND_DUMP_DIR), que `foliage_wind_finalize_level` relit et VERIFIE
+  // (nombre de prototypes et d'instances, noms des prototypes dans l'ordre) avant de remplir ceci.
+  // Vide / `wind_sidecar_ok == false` = pas de vent natif shrub, et la ligne de journal le dit.
+  struct WindProto {
+    float stiffness = 0.f;      // rdists.w
+    float near_stiff = 0.f;     // dists.y, unites monde
+    float rlength_stiff = 0.f;  // rdists.y ; raideur effective = stiffness * clamp01(1 - (d - near) * rlength)
+  };
+  std::vector<WindProto> wind_protos;   // par prototype (ordre de proto_names)
+  std::vector<u16> wind_index;          // par matrix_idx
+  std::vector<u16> wind_proto_of_inst;  // par matrix_idx : index dans wind_protos
+  bool wind_sidecar_ok = false;
+  u32 wind_max_idx = 0;
+  u32 wind_instances_stiff = 0;  // instances dont le prototype a une raideur > 0
 
   // jak 2 and later can toggle on and off visibility per proto by name
   bool has_per_proto_visibility_toggle = false;
@@ -837,6 +872,16 @@ u64 baked_tangent_expand_verts();
 // the inter-chunk seam LINES the per-tree weld left open), orients inward normals outward via the
 // walkable collision mesh, then averages across the welded seams with a crease-angle threshold.
 void reconstruct_level_global_weld(Level& lev);
+
+// foliage-wind (essai 11) — LA PASSE QUI FIXE LE PIVOT DES BUISSONS ET LEUR VENT NATIF. A appeler UNE
+// fois, apres que tfrag, tie et shrub sont depaquetes (Loader.cpp, juste apres `shrub_tree.unpack()`),
+// AVANT la soudure globale et AVANT le televersement des VBO (LoaderStages). Pour chaque instance
+// shrub : lancer de rayon vertical sur les triangles du terrain (tfrag geo 0 hors lowres + TIE
+// statique geo 0) -> `base_y` ; reecriture des poids SIGNES (SwayRecord) lineaires en (y - base_y) ;
+// `base_w` relu sur les aretes qui traversent le pivot ; puis lecture du sidecar
+// `foliage_wind_shrub.txt` (wind-index + raideur ND) dans `ShrubTree::wind_*`.
+// Publie une ligne de journal `[foliage-wind] SHRUB ground lev=...` par arbre.
+void foliage_wind_finalize_level(Level& lev);
 
 // ROUND 31 — RE-DERIVE EVERY PER-VERTEX TANGENT FRAME FROM THE VERTEX NORMALS AS THEY STAND NOW.
 //

@@ -8,6 +8,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/background/Tie3.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/mips2c/spart_prof.h"
 
@@ -179,19 +180,37 @@ void Shrub::update_load(const LevelData* loader_data) {
     {
       std::vector<foliage_wind::Instance> pop;
       pop.reserve(tree.sway_instances.size());
-      for (const auto& si : tree.sway_instances) {
+      u32 n_ground = 0, n_sunk = 0, n_stiff = 0;
+      for (size_t mi = 0; mi < tree.sway_instances.size(); mi++) {
+        const auto& si = tree.sway_instances[mi];
+        if (!si.valid) {
+          continue;
+        }
         foliage_wind::Instance in;
         in.anchor_x = si.x;
         in.anchor_z = si.z;
-        in.height_m = (si.ymax - si.ymin) / 4096.f;
+        in.height_m = (si.ymax - si.base_y) / 4096.f;  // hauteur VISIBLE : couronne - pivot
         in.peak_w = si.peak_w;
+        in.low_w = si.low_w;
+        in.base_w = si.base_w;
+        in.sunk_mm = si.sunk_mm;
+        in.ground_found = si.ground_found;
+        in.shrub = true;
+        in.native_stiff = tree.wind_sidecar_ok && foliage_wind::shrub_native_enabled() &&
+                          mi < tree.wind_proto_of_inst.size() &&
+                          tree.wind_proto_of_inst[mi] < tree.wind_protos.size() &&
+                          tree.wind_protos[tree.wind_proto_of_inst[mi]].stiffness > 0.f;
+        n_ground += si.ground_found ? 1 : 0;
+        n_sunk += si.sunk_mm > 0 ? 1 : 0;
+        n_stiff += in.native_stiff ? 1 : 0;
         pop.push_back(in);
       }
       lg::info(
           "[foliage-wind] SHRUB sway-cover lev={} tree={} instances={} verts={} sway_bytes={} "
-          "shared_color_slots={}",
+          "shared_color_slots={} sol_trouve={} enfonces={} natif_raideur={} sidecar={} natif_on={}",
           lev_data->level_name, l_tree, pop.size(), verts, tree.unpacked.sway.size(),
-          tree.sway_shared_color_slots);
+          tree.sway_shared_color_slots, n_ground, n_sunk, n_stiff, tree.wind_sidecar_ok ? 1 : 0,
+          foliage_wind::shrub_native_enabled() ? 1 : 0);
       foliage_wind::set_tree(lev_data->level_name, foliage_wind::kSystemShrub, (int)l_tree, 0,
                              std::move(pop));
     }
@@ -272,10 +291,45 @@ void Shrub::update_load(const LevelData* loader_data) {
     // foliage-wind (owner 2026-09-03) : poids + phase de balancement, DEUX octets par sommet, sur la
     // LOCATION 7 — la meme que le TIE, parce que c'est le meme chunk (tie_sway.glsl) qui les lit.
     // VBO parallele au VBO de sommets (LoaderStages, etape shrub). Normalise : 0..255 -> 0..1.
+    // Essai 11 : SwayRecord de 8 octets (FoliageWindLaw.h) — 7 = poids SIGNE (GL_SHORT normalise),
+    // 8 = phase (GL_UNSIGNED_BYTE normalise), 9 = matrix_idx (entier, index du texel de vent natif).
     glBindBuffer(GL_ARRAY_BUFFER, loader_data->shrub_sway_data.at(l_tree));
     glEnableVertexAttribArray(7);
-    glVertexAttribPointer(7, 2, GL_UNSIGNED_BYTE, GL_TRUE, 2 * sizeof(u8), (void*)0);
+    glVertexAttribPointer(7, 1, GL_SHORT, GL_TRUE, (GLsizei)foliage_law::kSwayRecordBytes,
+                          (void*)offsetof(foliage_law::SwayRecord, w));
+    glEnableVertexAttribArray(8);
+    glVertexAttribPointer(8, 1, GL_UNSIGNED_BYTE, GL_TRUE, (GLsizei)foliage_law::kSwayRecordBytes,
+                          (void*)offsetof(foliage_law::SwayRecord, ph));
+    glEnableVertexAttribArray(9);
+    glVertexAttribIPointer(9, 1, GL_UNSIGNED_SHORT, (GLsizei)foliage_law::kSwayRecordBytes,
+                           (void*)offsetof(foliage_law::SwayRecord, inst));
     glBindBuffer(GL_ARRAY_BUFFER, m_trees[l_tree].vertex_buffer);
+
+    // foliage-wind (essai 11) — le vent NATIF : un texel par matrice, l'etat du ressort par
+    // emplacement de vent. Cree meme quand le sidecar manque (texels a zero, `wind_active` faux) :
+    // c'est l'uniforme `u_shrub_native_on` qui rend le chemin inerte, pas l'absence de texture.
+    {
+      auto& t = m_trees[l_tree];
+      t.src = &tree;
+      const size_t n_mat = std::max<size_t>(tree.packed_vertices.matrices.size(), 1);
+      t.wind_texels.assign(n_mat * 4, 0.f);
+      t.wind_state.assign(((size_t)tree.wind_max_idx + 1) * 4, 0.f);
+      t.wind_last_time = 0;
+      t.wind_seeded = false;
+      t.wind_logged = false;
+      t.wind_active = tree.wind_sidecar_ok && tree.wind_instances_stiff > 0 &&
+                      foliage_wind::shrub_native_enabled() &&
+                      tree.sway_instances.size() == tree.packed_vertices.matrices.size();
+      glGenTextures(1, &t.wind_tex);
+      glBindTexture(GL_TEXTURE_2D, t.wind_tex);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)n_mat, 1, 0, GL_RGBA, GL_FLOAT,
+                   t.wind_texels.data());
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glBindTexture(GL_TEXTURE_2D, 0);
+    }
 
     glGenBuffers(1, &m_trees[l_tree].single_draw_index_buffer);
     glGenBuffers(1, &m_trees[l_tree].index_buffer);
@@ -440,9 +494,112 @@ void Shrub::discard_tree_cache() {
     }
     glDeleteBuffers(1, &tree.single_draw_index_buffer);
     glDeleteVertexArrays(1, &tree.vao);
+    if (tree.wind_tex) {
+      glDeleteTextures(1, &tree.wind_tex);
+      tree.wind_tex = 0;
+    }
   }
 
   m_trees.clear();
+}
+
+// foliage-wind (essai 11) — LE RESSORT DE ND PAR BUISSON, INTEGRE SUR CPU UNE FOIS PAR IMAGE.
+// Meme arithmetique que le TIE (do_wind_math, transcrit de l'EE ; sur PS2 le shrub execute le MEME
+// bloc, shrub_asm.md:957-1057) : ring slot `(wind-time + wind-index) & 63`, etat persistant par
+// wind-index, raideur du prototype attenuee par la distance camera comme l'EE le fait
+// (`stiffness * clamp01(1 - (d - near-stiff) * rlength-stiff)`), `rc_ticks` pas de 1/60 s par image
+// dessinee (la correction de cadence D1, la meme que Tie3). Le cisaillement `s` (sans dimension) part
+// dans le texel de l'instance ; shrub.vert l'applique en `s * (y - pivot)`, pivot = sol trouve.
+void Shrub::update_native_wind(Tree& tree,
+                               const TfragRenderSettings& settings,
+                               SharedRenderState* render_state) {
+  if (!tree.wind_active || !tree.src) {
+    return;
+  }
+  size_t n = 0;
+  const auto* ww = (const Tie3::WindWork*)foliage_wind::game_wind_bytes(&n);
+  if (!ww || n != sizeof(Tie3::WindWork)) {
+    return;  // aucun DMA de vent encore recu par Tie3 sur cette image : rien a integrer
+  }
+  const auto& src = *tree.src;
+  const size_t n_mat = src.packed_vertices.matrices.size();
+  if (tree.wind_texels.size() < n_mat * 4 || src.wind_index.size() != n_mat ||
+      src.wind_proto_of_inst.size() != n_mat) {
+    return;
+  }
+  const int ticks = foliage_wind::wind_ticks_for(ww->wind_time, tree.wind_last_time,
+                                                 tree.wind_seeded, ww->paused != 0);
+  const float cx = settings.camera.trans.x(), cy = settings.camera.trans.y(),
+              cz = settings.camera.trans.z();
+  float peak_s = 0.f;
+  u32 integrated = 0;
+  for (size_t mi = 0; mi < n_mat; mi++) {
+    float* tex = &tree.wind_texels[mi * 4];
+    const auto& si = src.sway_instances[mi];
+    const auto& proto = src.wind_protos[src.wind_proto_of_inst[mi]];
+    const float span_u = si.ymax - si.base_y;
+    if (!si.valid || !(proto.stiffness > 0.f) || !(span_u > 0.f)) {
+      tex[0] = tex[1] = tex[2] = tex[3] = 0.f;
+      continue;
+    }
+    // (y - pivot) = w * k, avec w = (y - pivot) / span * taille  =>  k = span / taille
+    tex[2] = span_u / foliage_law::size_factor(span_u / 4096.f);
+    tex[3] = 1.f;
+    const u16 widx = src.wind_index[mi];
+    if ((size_t)widx * 4 + 3 >= tree.wind_state.size()) {
+      tex[0] = tex[1] = 0.f;
+      continue;
+    }
+    // la raideur effective : attenuee par la distance, comme l'EE
+    const float dx = si.x - cx, dy = 0.5f * (si.ymin + si.ymax) - cy, dz = si.z - cz;
+    const float d = std::sqrt(dx * dx + dy * dy + dz * dz);
+    float fade = 1.f - (d - proto.near_stiff) * proto.rlength_stiff;
+    fade = std::min(std::max(fade, 0.f), 1.f);
+    const float eff = proto.stiffness * fade;
+    float* st = &tree.wind_state[(size_t)widx * 4];
+    if (ticks <= 0) {
+      // aucun tick de logique : on reapplique le cisaillement persiste (vf27 du dernier pas)
+      tex[0] = st[0];
+      tex[1] = st[1];
+    } else {
+      std::array<math::Vector4f, 4> scratch;
+      float audit[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+      for (int k = 0; k < ticks - 1; k++) {
+        for (auto& r : scratch) {
+          r = math::Vector4f(0, 0, 0, 0);
+        }
+        do_wind_math(widx, tree.wind_state.data(), *ww, eff, 1.0f, nullptr,
+                     ww->wind_time - (u32)(ticks - 1) + (u32)k, scratch, nullptr);
+      }
+      for (auto& r : scratch) {
+        r = math::Vector4f(0, 0, 0, 0);
+      }
+      do_wind_math(widx, tree.wind_state.data(), *ww, eff, 1.0f, nullptr, ww->wind_time, scratch,
+                   audit);
+      tex[0] = audit[4];  // vf27.x : le cisaillement stock, deja multiplie par la raideur
+      tex[1] = audit[5];  // vf27.z
+      foliage_wind::note_native_sample(audit[6], audit[7] > 0.5f);
+      integrated++;
+    }
+    const float mag = std::sqrt(tex[0] * tex[0] + tex[1] * tex[1]);
+    if (mag > peak_s) {
+      peak_s = mag;
+    }
+  }
+  foliage_wind::note_shrub_native_shear_peak(peak_s);
+  glActiveTexture(GL_TEXTURE18);
+  glBindTexture(GL_TEXTURE_2D, tree.wind_tex);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (GLsizei)n_mat, 1, GL_RGBA, GL_FLOAT,
+                  tree.wind_texels.data());
+  glActiveTexture(GL_TEXTURE0);
+  if (!tree.wind_logged) {
+    tree.wind_logged = true;
+    lg::info("[foliage-wind] SHRUB native ACTIVE lev={} matrices={} raideur_instances={} "
+             "integrees={} ticks={} wind_time={} peak_shear={:.4f} — le ressort de ND tourne sur les "
+             "buissons (frame {})",
+             m_level_name, n_mat, src.wind_instances_stiff, integrated, ticks, ww->wind_time,
+             peak_s, render_state->frame_idx);
+  }
 }
 
 void Shrub::render_all_trees(const TfragRenderSettings& settings,
@@ -586,6 +743,27 @@ void Shrub::render_tree(int idx,
     foliage_wind::push_uniforms(render_state->shaders[ShaderId::SHRUB].id(), render_state->frame_idx,
                                 "shrub");
     foliage_wind::mark_drawn(m_level_name, foliage_wind::kSystemShrub, idx, 0);
+    // foliage-wind (essai 11) : le vent NATIF des buissons — ressort integre, texel par instance,
+    // unite de texture 18 (l'ancienne LUT de vent occupait la meme, elle est retiree). Hors option
+    // Recharged : c'est du stock restaure ; `u_shrub_native_on` = 0 quand rien n'est pret.
+    {
+      update_native_wind(tree, settings, render_state);
+      const GLuint prog = render_state->shaders[ShaderId::SHRUB].id();
+      const GLint on_loc = glGetUniformLocation(prog, "u_shrub_native_on");
+      const GLint tex_loc = glGetUniformLocation(prog, "tex_T18");
+      const bool on = tree.wind_active && tree.wind_seeded;
+      if (on) {
+        glActiveTexture(GL_TEXTURE18);
+        glBindTexture(GL_TEXTURE_2D, tree.wind_tex);
+        glActiveTexture(GL_TEXTURE0);
+      }
+      if (tex_loc >= 0) {
+        glUniform1i(tex_loc, 18);
+      }
+      if (on_loc >= 0) {
+        glUniform1i(on_loc, on ? 1 : 0);
+      }
+    }
     glBindBuffer(GL_ARRAY_BUFFER, tree.vertex_buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
                  render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);

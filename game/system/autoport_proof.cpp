@@ -56,6 +56,7 @@ const std::string& feature_str() {
 uint64_t g_hits = 0;
 uint64_t g_frames = 0;
 std::map<std::string, uint64_t> g_keys;
+std::map<std::string, std::string> g_text_keys;
 
 // Cadence de publication. Assez souvent pour qu'une course coupee en plein vol porte quand meme
 // ses chiffres, assez rare pour ne pas noyer la trace : 60 images, c'est une seconde sur bureau
@@ -88,6 +89,9 @@ void emit_locked() {
     fmt::print("FEATURE {} armed={} hits={}\n", id, armed() ? 1 : 0, g_hits);
   }
   for (const auto& kv : g_keys) {
+    fmt::print("{}={}\n", kv.first, kv.second);
+  }
+  for (const auto& kv : g_text_keys) {
     fmt::print("{}={}\n", kv.first, kv.second);
   }
   std::fflush(stdout);
@@ -144,7 +148,23 @@ void publish(const char* key, uint64_t value) {
     return;
   }
   std::lock_guard<std::mutex> lock(g_mutex);
+  g_text_keys.erase(key);
   g_keys[key] = value;
+}
+
+void publish_text(const char* key, const char* value) {
+  if (!valid_key(key) || !value || !value[0]) {
+    return;
+  }
+  std::string v(value);
+  for (char& c : v) {
+    if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+      c = '_';
+    }
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_keys.erase(key);
+  g_text_keys[key] = v;
 }
 
 void frame_tick() {

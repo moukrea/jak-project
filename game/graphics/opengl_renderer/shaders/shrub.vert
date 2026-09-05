@@ -24,6 +24,19 @@ uniform mat4 pc_camera;
 // Inerte (retourne son entree) quand u_tie_sway_amp vaut 0 : `first_tfrag_draw_setup` l'y met a
 // chaque activation du programme, Shrub.cpp le releve juste apres si l'option est allumee.
 #include "tie_sway.glsl"
+// foliage-wind (essai 11) — LE VENT NATIF DES BUISSONS, celui de ND (owner 2026-09-03 : « avec
+// l'option off on devrait avoir le natif d'origine »). Sur PS2, chaque instance-shrubbery integre
+// le meme ressort que le TIE et l'applique en CISAILLEMENT de sa matrice (shrub_asm.md:957-1057) ;
+// le port PC l'avait perdu. Shrub.cpp integre le ressort par instance sur CPU (do_wind_math, raideur
+// du prototype attenuee par la distance, comme l'EE) et depose par instance un texel
+// (s.x, s.z, k, 1) dans tex_T18 ; ici le deplacement vaut `s * (y - pivot)`, ou `(y - pivot)` est
+// relu de l'attribut 7 : `w = (y - pivot) / span * taille`, donc `(y - pivot) = w * k` avec
+// `k = span / taille`. Lineaire et signe autour du MEME pivot que la brise ajoutee (le sol trouve
+// sous le buisson) : la ligne de sol reste exactement immobile pour les deux termes.
+// Independant de l'option Recharged : c'est du stock restaure. u_shrub_native_on = 0 => rien.
+layout (location = 9) in int shrub_inst_in;
+uniform sampler2D tex_T18;
+uniform int u_shrub_native_on;
 // Wx1 2D LUT instead of 1D — GLES has no sampler1D/glTexImage1D (the arm64
 // device BLR'd into the NULL glTexImage1D loader slot). texelFetch on a Wx1
 // sampler2D is texel-exact on desktop GL too; Shrub.cpp uploads it as a Wx1
@@ -62,6 +75,11 @@ void main() {
   // Step 3, the camera transform
   // foliage-wind : balancement par la loi partagee ; inerte quand u_tie_sway_amp vaut 0.
   vec3 wpos = tie_sway_apply(position_in, tie_sway_in);
+  if (u_shrub_native_on == 1 && tie_sway_in.x != 0.0) {
+    vec4 nw = texelFetch(tex_T18, ivec2(shrub_inst_in, 0), 0);
+    wpos.x += nw.x * (nw.z * tie_sway_in.x);
+    wpos.z += nw.y * (nw.z * tie_sway_in.x);
+  }
   vec3 vert = wpos - cam_trans.xyz;
 #ifdef OG_PBR
   v_fringe_rel = vert * (1.0 / 4096.0);

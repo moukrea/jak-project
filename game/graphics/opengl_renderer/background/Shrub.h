@@ -29,6 +29,10 @@ class Shrub : public BucketRenderer {
  private:
   void update_load(const LevelData* loader_data);
   void discard_tree_cache();
+  struct Tree;
+  void update_native_wind(Tree& tree,
+                          const TfragRenderSettings& settings,
+                          SharedRenderState* render_state);
 
   struct Tree {
     GLuint vertex_buffer;
@@ -58,6 +62,20 @@ class Shrub : public BucketRenderer {
     const std::vector<tfrag3::ShrubDraw>* draws = nullptr;
     const std::vector<tfrag3::TieWindInstance>* instance_info = nullptr;
     const tfrag3::PackedTimeOfDay* colors = nullptr;
+    // foliage-wind (essai 11) — LE VENT NATIF DES BUISSONS (ressort de ND par instance, shrub_asm.md
+    // :957-1057). `src` = l'arbre du fr3 (pivot, couronne, raideur et wind-index par instance, poses
+    // par foliage_wind_finalize_level). `wind_state` = 4 flottants par emplacement de ressort
+    // (position x/z, vitesse x/z, comme Tie3::m_wind_vectors). `wind_texels` = (s.x, s.z, k, on) par
+    // matrix_idx, televerse chaque image dans `wind_tex` (RGBA32F, largeur = nombre de matrices),
+    // que shrub.vert lit par l'attribut 9.
+    const tfrag3::ShrubTree* src = nullptr;
+    GLuint wind_tex = 0;
+    std::vector<float> wind_state;
+    std::vector<float> wind_texels;
+    u32 wind_last_time = 0;
+    bool wind_seeded = false;
+    bool wind_active = false;  // sidecar valide ET au moins une instance a raideur > 0
+    bool wind_logged = false;
     const u32* index_data = nullptr;
     std::vector<bool> proto_vis_mask;
     std::unordered_map<std::string, std::vector<u32>> proto_name_to_idx;

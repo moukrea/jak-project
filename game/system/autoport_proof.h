@@ -74,6 +74,12 @@ void note_hit(uint64_t n = 1);
 // plutot que d'ecrire une ligne que le moissonneur ignorerait.
 void publish(const char* key, uint64_t value);
 
+// La meme chose pour une valeur qui n'est pas un entier (un rapport, un coefficient de variation) :
+// publiee telle quelle, sans espace (tout caractere blanc est remplace par `_`, sinon le moissonneur
+// de proof_run.sh — `^cle=[^[:space:]]+$` — ignorerait la ligne). Une cle porte soit un entier soit
+// un texte : le dernier `publish*` gagne.
+void publish_text(const char* key, const char* value);
+
 // Une image de plus. A appeler une fois par image, du meme endroit que le reste du recensement.
 // Emet periodiquement le bloc complet (images, FEATURE, toutes les cles).
 void frame_tick();
