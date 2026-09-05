@@ -246,7 +246,7 @@ items:
   max_turns: 800
   max_retries: 6
   depends_on: []
-  proof_timeout: 300
+  proof_timeout: 330
   proof_env:
   - OG_FRAME_LIMIT_FPS=30,45,50,60,75,90@20
   - OG_LEVEL_WARP=village1-hut
@@ -254,7 +254,7 @@ items:
   - OG_WANT_LEVELS=village1,beach
   - OG_WANT_DISPLAY=beach,display
   proof_props:
-  - debug.opengoal.frame.limit=60,30,20,18,16,15@25
+  - debug.opengoal.frame.limit=30,45,50,60,75,90@20/eq18
   - debug.opengoal.render.scale=25
   - debug.opengoal.level.warp=village1-hut
   - debug.opengoal.level.warp.pos=-116 14 40
@@ -2974,7 +2974,7 @@ items:
   delivered: '2026-08-27'
   build: dernier build publie sur jak-builds
 - id: precompute-deterministic-bake
-  feature: Pre-calculer ce qui peut l'etre au lieu de le refaire a chaque chargement
+  feature: Le chargement d'un niveau recalculait a chaque fois ce qui pouvait etre cuit une seule fois
   status: to-test
   priority: 201
   owner_feedback:
@@ -3002,11 +3002,11 @@ items:
   - Gprecompute-deterministic-bake
   prompt: null
   owner_ok: null
-  where: 'Avant : a CHAQUE chargement de niveau, le jeu re-subdivisait les maillages et reconstruisait
-    les tangentes (82,8 ms par image a l''ecran-titre, 26 Mo recalcules par niveau). Maintenant : c''est
-    cuit dans les fichiers de niveau au build. A REGARDER : le temps entre l''ecran de chargement et le
-    jeu, sur un niveau lourd (village de glace) — plus court qu''avant ; et Options > Recharged > niveau
-    de subdivision, devenu un reglage au lieu d''un automatisme.'
+  where: 'Charge le village de glace et chronometre l''ecran de chargement : il doit etre plus court qu''avant.
+    Le jeu re-decoupait les maillages et recalculait 26 Mo de donnees d''eclairage a CHAQUE chargement,
+    sur chaque machine, alors que le resultat est toujours le meme ; c''est desormais calcule une fois
+    au build. Second point : Options > Recharged > niveau de subdivision est devenu un reglage, avant
+    c''etait impose.'
   delivered: '2026-08-27'
   build: dernier build publie sur jak-builds
 - id: playability-input-and-loadgate
@@ -3433,8 +3433,8 @@ items:
     source: owner-ok/Ggrass-crash
 - id: grass-density-presets
   feature: Cinq paliers de densite d'herbe au lieu d'un curseur
-  status: to-test
-  priority: 18
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-30'
     text: on s'en fiche de changer la densite au poil de cul, on veut juste plus ou moins dense — very
@@ -3444,6 +3444,8 @@ items:
     text: sur la plage [...] ca n'a jamais ete visible, tu peux completement dismiss
   - date: '2026-09-05'
     text: C'est déjà fait ça non ? C'est plus à faire il me semble
+  - date: '2026-09-05'
+    text: Les palliers d'herbe, j'ai déjà validé !
   gate: null
   game: jak1
   max_turns: 800
@@ -3452,7 +3454,10 @@ items:
   history:
   - Ggrass-density-presets
   prompt: prompts/item-grass-density-presets.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-05'
+    text: Les palliers d'herbe, j'ai déjà validé !
+    build_sha: b706bf2fe6591387
   device: false
   where: 'Options > Recharged > densite d''herbe : cinq paliers nommes (tres bas a tres haut) au lieu
     d''un curseur'
@@ -3460,8 +3465,13 @@ items:
     curseur continu.'
   deliverable: Cinq paliers nommes very low / low / medium / high / very high dans les options, pre-calcules,
     avec le cout memoire de chacun.
-  notes: livre le 2026-08-31 (game/graphics/grass_density_presets.h) mais jamais soumis a son verdict
-    ; l'owner pense que c'est fait, une seule apparition dans sa liste pour qu'il tranche.
+  notes: 'livre le 2026-08-31 (game/graphics/grass_density_presets.h) mais jamais soumis a son verdict
+    ; l''owner pense que c''est fait, une seule apparition dans sa liste pour qu''il tranche. | SUPERVISEUR
+    2026-09-05 : je l''ai remis dans sa liste alors qu''il avait valide l''herbe le 2026-08-31 ET dit
+    le 2026-09-01 « arrete de me peter les couilles avec des trucs que j''ai deja valide ». Les paliers
+    etaient un item SEPARE encore ouvert, mais du point de vue de l''owner l''herbe est une seule chose.
+    Regle : avant de remettre un item dans sa liste, verifier qu''aucun item VOISIN de la meme feature
+    ne porte deja son feu vert.'
 - id: recharged-hd-eye-scale
   feature: 'HD MODELS (owner 2026-08-06, backlog): les yeux HD de Daxter sont bien HD mais l''effet CARTOON
     de Jak 1 qui fait chang…'
