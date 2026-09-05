@@ -131,6 +131,17 @@ struct State {
   u64 rej_id = 0;    // l'ANIMATION (frame-group) a change entre les deux images
   u64 rej_rate = 0;  // le TAUX a change : le pas n'a plus de reference
   u64 rej_step = 0;  // pas negatif ou hors bande : bouclage d'animation
+  // LE CANAL N'A PAS BOUGE. `param 0 * speed > 0` dit qu'il est CENSE avancer ; son
+  // `frame-num` BRUT dit s'il avance. Une pose immobile que le retimeur deplace n'est pas une
+  // pose qui saute : c'est le correctif qui fabrique du mouvement, et cela se compte a part.
+  u64 rej_frozen = 0;
+  s32 prev_probe_raw_q = 0;
+  u64 rawstep_n = 0;      // pas ou le `frame-num` BRUT a avance
+  double rawstep_sum = 0.0;  // somme du pas BRUT, en ticks : doit valoir la somme des k
+  u32 prev_probe_clamped = 1;
+  u64 rej_clamped = 0;    // pas dont une extremite est une pose EPINGLEE par build-requests!
+  u64 jump_steps = 0;     // pas ou le JEU a avance l'animation autrement que par ses k ticks
+  double jump_max = 0.0;  // le plus gros de ces sauts, en ticks
   GoalReadout last_readout{};
 };
 
@@ -485,6 +496,13 @@ void publish() {
     autoport_proof::publish("anim_cen_static", g.cen_static);
     autoport_proof::publish("anim_cen_seekend", g.cen_seekend);
     autoport_proof::publish("anim_cen_other", g.cen_other);
+    // LES DEUX RETIMAGES ABANDONNES. `anim_cen_degen` : animation d'une seule frame, il n'y a
+    // rien entre quoi interpoler et son `frame-num` ne bouge pas — le retimeur y fabriquait du
+    // mouvement. `anim_cen_oob` : la cible sortait de l'animation et le bouclage ne l'y
+    // ramenait pas ; l'ancien code rendait 0.0, c'est-a-dire un SAUT vers la premiere frame.
+    // Les deux doivent etre lisibles pour que « ecarte » ne se confonde pas avec « corrige ».
+    autoport_proof::publish("anim_cen_degen", g.cen_degen);
+    autoport_proof::publish("anim_cen_oob", g.cen_oob);
     autoport_proof::publish("anim_djm_total", g.djm_total);
     autoport_proof::publish("anim_djm_shift", g.djm_shift);
     autoport_proof::publish("anim_djm_noroot", g.djm_noroot);
@@ -508,6 +526,22 @@ void publish() {
     autoport_proof::publish("anim_cpp_ksum_x1000", (u64)(state().sum_pose * 1000.0 + 0.5));
     autoport_proof::publish("anim_probe_rej_rate", state().rej_rate);
     autoport_proof::publish("anim_probe_rej_step", state().rej_step);
+    autoport_proof::publish("anim_probe_rej_frozen", state().rej_frozen);
+    autoport_proof::publish("anim_probe_rej_clamped", state().rej_clamped);
+    // Le pas BRUT moyen, x1000, en ticks. Il doit valoir le k moyen : c'est la preuve que le
+    // canal adopte suit REELLEMENT l'horloge de logique, et non un compteur fige.
+    autoport_proof::publish(
+        "anim_probe_rawstep_mean_x1000",
+        state().rawstep_n ? (u64)(state().rawstep_sum / (double)state().rawstep_n * 1000.0 + 0.5)
+                          : 0);
+    autoport_proof::publish("anim_probe_rawstep_n", state().rawstep_n);
+    // LE TERME SOUSTRAIT, RENDU VISIBLE. Si le jeu injectait en permanence de l'avance dans
+    // `frame-num`, la soustraction ci-dessus rendrait la porte verte sans rien corriger : ces
+    // deux lignes disent COMBIEN de pas ont ete corriges et de combien au maximum.
+    autoport_proof::publish("anim_probe_jump_steps", state().jump_steps);
+    autoport_proof::publish("anim_probe_jump_max_x1000",
+                            (u64)(state().jump_max * 1000.0 + 0.5));
+    autoport_proof::publish("anim_probe_raw_q", (u64)(s64)state().last_readout.probe_raw_q);
     autoport_proof::publish("anim_probe_n", g.probe_n);
   }
 }
@@ -725,15 +759,65 @@ void on_render_frame(const GoalReadout& g) {
       } else if (base_ok && g.probe_rate_q != s.prev_probe_rate_q) {
         s.rej_rate++;
       }
+      // LE PAS BRUT, EN TICKS. `frame-num` avant retimage avance d'exactement k ticks par
+      // image ; s'il n'avance pas du tout, le canal est IMMOBILE et son pas de pose dessinee
+      // n'est plus que l'alpha — un pas de -k tick par construction, qui ne decrit aucun
+      // defaut d'animation mais un mouvement fabrique par le retimeur.
+      const double raw_ticks =
+          (g.probe_rate_q > 0) ? ((double)g.probe_raw_q / (double)g.probe_rate_q) : 0.0;
+      const double prev_raw_ticks =
+          (s.prev_probe_rate_q > 0) ? ((double)s.prev_probe_raw_q / (double)s.prev_probe_rate_q)
+                                    : 0.0;
+      const bool raw_moved = base_ok && (g.probe_raw_q != s.prev_probe_raw_q);
+      // LES DEUX EXTREMITES DOIVENT ETRE DES POSES REELLEMENT DESSINEES. `build-requests!`
+      // epingle `base-frame` sur la derniere frame des que `frame-num` l'atteint : le
+      // `frame-num` continue de monter, la pose ne bouge plus, et le pas se lirait VERT sur une
+      // animation terminee. Le pas est ecarte ET COMPTE.
+      const bool in_range = (g.probe_clamped == 0) && (s.prev_probe_clamped == 0);
       const bool usable = base_ok && g.probe_id == s.prev_probe_id &&
-                          g.probe_rate_q == s.prev_probe_rate_q;
+                          g.probe_rate_q == s.prev_probe_rate_q && raw_moved && in_range;
+      if (base_ok && raw_moved && !in_range) {
+        s.rej_clamped++;
+      }
+      if (base_ok && g.probe_id == s.prev_probe_id && g.probe_rate_q == s.prev_probe_rate_q &&
+          !raw_moved) {
+        s.rej_frozen++;
+      }
       const double ticks = (rate > 0.0) ? (frame / rate) : 0.0;
       if (usable) {
+        const double raw_step = raw_ticks - prev_raw_ticks;
+        if (raw_step > 0.0 && raw_step < kMaxTicks * 3.0) {
+          s.rawstep_n++;
+          s.rawstep_sum += raw_step;
+        }
         const double step = ticks - s.prev_probe_ticks;
+        // L'AVANCE QUE LE JEU A LUI-MEME INJECTEE, ET QUI N'EST PAS DU RETIMAGE.
+        // La pose dessinee vaut `raw - (1 - alpha) * k`, donc son pas vaut
+        // `raw_step + delta_reste`. Quand le jeu avance l'animation d'EXACTEMENT les k ticks
+        // qu'il vient de simuler — le cas courant — ce pas doit valoir le temps reel de
+        // l'image, et `d = pas - inc` mesure l'ecart. Mais le jeu avance parfois `frame-num`
+        // de son propre chef : naissance d'acteur, `ja` qui repositionne, animation qui
+        // demarre. Mesure x86 essai 7 : UN seul pas sur 849 dans le seau 30 img/s, `raw` de
+        // 2,0 a 6,0 (4 ticks) pour k = 2 — la pose a suivi FIDELEMENT (pas dessine 4,0037), et
+        // ce pas-la portait a lui seul les 1145 us d'ecart type du seau (les 848 autres en
+        // rendent 30). Ce n'est pas un defaut d'interpolation : c'est un saut que le retimeur
+        // ne cause pas et ne peut pas corriger. On le SOUSTRAIT au lieu de jeter le pas — rien
+        // n'est exclu — et on le COMPTE, pour qu'un saut permanent ne puisse pas se cacher
+        // derriere cette soustraction.
+        const double jump = raw_step - s.pending_k;
         // Un pas negatif ou enorme est un BOUCLAGE d'animation ou un changement de groupe :
         // il ne decrit pas la fluidite. Il est ecarte ET COMPTE, jamais absorbe dans la moyenne.
-        if (step > 0.0 && step < kMaxTicks * 3.0) {
-          const double d = step - s.pending_inc_raw;
+        if (step > 0.0 && step < kMaxTicks * 3.0 && raw_step > 0.0 &&
+            raw_step < kMaxTicks * 3.0) {
+          // Compte APRES la bande : un pas rejete n'a rien fait soustraire, et le publier
+          // ferait lire « 960 ticks retranches » la ou rien ne l'a ete.
+          if (std::fabs(jump) > 0.05) {
+            s.jump_steps++;
+            if (std::fabs(jump) > s.jump_max) {
+              s.jump_max = std::fabs(jump);
+            }
+          }
+          const double d = step - s.pending_inc_raw - jump;
           const int bb = s.pending_bucket;
           if (bb >= 0 && bb < kMaxSegments && s.prev_bucket == bb) {
             Bucket& qd = buckets()[bb];
@@ -748,11 +832,26 @@ void on_render_frame(const GoalReadout& g) {
       } else if (fresh && s.have_prev_probe) {
         s.probe_rejected++;
       }
+      // TRACE DE DIAGNOSTIC, UNE LIGNE PAR IMAGE (OG_RENDER_PACE_PROBE=1, muette sinon).
+      // Elle publie les grandeurs BRUTES de l'appariement pose/temps : sans elles, un ecart
+      // type ne dit pas si le pas est mal aligne, mal quantifie, ou pris sur un autre acteur.
+      if (probe_enabled()) {
+        fmt::print(stderr,
+                   "RPROBE f={} b={} fresh={} usable={} id={} rq={} fq={} br={} ticks={:.6f} "
+                   "prev={:.6f} raw={:.6f} prevraw={:.6f} inc={:.6f} k={} klast={} alpha={} "
+                   "an={} pn={}\n",
+                   s.frames, s.pending_bucket, fresh ? 1 : 0, usable ? 1 : 0, g.probe_id,
+                   g.probe_rate_q, g.probe_frame_q, g.probe_br, ticks, s.prev_probe_ticks,
+                   raw_ticks, prev_raw_ticks, s.pending_inc_raw, s.pending_k, s.pending_k_last,
+                   s.pending_alpha, (u64)g.anim_interp_n, (u64)g.probe_n);
+      }
       if (fresh) {
         s.prev_probe_n = g.probe_n;
         s.prev_probe_id = g.probe_id;
         s.prev_probe_rate_q = g.probe_rate_q;
         s.prev_probe_ticks = ticks;
+        s.prev_probe_raw_q = g.probe_raw_q;
+        s.prev_probe_clamped = g.probe_clamped;
         s.have_prev_probe = true;
       }
     }

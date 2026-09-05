@@ -199,19 +199,44 @@
                    (set! br 2)
                    fn)
                   (else
-                   ;; PREUVE DE CABLAGE : ce compteur est le seul temoin qu'une pose a
-                   ;; REELLEMENT ete retimee. A 60 images/s il doit rester a 0.
-                   (+! *anim-interp-n* 1)
-                   (+! *anim-cen-done* 1)
-                   (set! br 3)
-                   (let ((f (- fn (* (- 1.0 *anim-interp-alpha*) delta))))
+                   (let ((len-1 (the float (+ (-> chan frame-group data 0 length) -1))))
                      (cond
-                       ((>= f 0.0) f)
-                       ;; Animation en BOUCLE : reculer avant 0 doit revenir par la FIN,
-                       ;; sinon la premiere image apres chaque bouclage saute au debut.
-                       ((= (-> chan num-func) num-func-loop!)
-                        (+ f (the float (+ (-> chan frame-group data 0 length) -1))))
-                       (else 0.0))))))))))
+                       ;; ANIMATION DEGENEREE — LE CORRECTIF FABRIQUAIT LA GIGUE ICI.
+                       ;; Moins de deux frames : il n'y a rien entre quoi interpoler, et la
+                       ;; duree de bouclage de `num-func-loop!` vaut 0, donc `frame-num` ne
+                       ;; bouge JAMAIS d'un tick a l'autre. Le `delta` nominal
+                       ;; (`param 0 * speed * ratio`), lui, vaut quand meme 1,0 : on reculait
+                       ;; donc une pose IMMOBILE de -(1 - alpha), une valeur qui change a
+                       ;; chaque image. Mesure x86 du 2026-09-05 (essai 7), un seul canal dans
+                       ;; ce cas : `frame-num` = 0,0 constant, sortie -0,2686, pas de pose de
+                       ;; -1 tick EXACTEMENT a chaque echantillon, 265 fois sur 2560 dans le
+                       ;; seau 45 img/s — a lui seul les 5072 us d'ecart type du seau, les
+                       ;; 2295 autres pas rendant 25 us. Et `build-requests!` (joint.gc:224)
+                       ;; convertissait ce numero NEGATIF en `frac-frame` negatif, c'est-a-dire
+                       ;; une extrapolation hors de l'animation.
+                       ((< len-1 1.0)
+                        (+! *anim-cen-degen* 1)
+                        (set! br 4)
+                        fn)
+                       (else
+                        ;; PREUVE DE CABLAGE : ce compteur est le seul temoin qu'une pose a
+                        ;; REELLEMENT ete retimee. A 60 images/s il doit rester a 0.
+                        (+! *anim-interp-n* 1)
+                        (+! *anim-cen-done* 1)
+                        (set! br 3)
+                        (let ((f (- fn (* (- 1.0 *anim-interp-alpha*) delta))))
+                          (cond
+                            ((>= f 0.0) f)
+                            ;; Animation en BOUCLE : reculer avant 0 doit revenir par la FIN,
+                            ;; sinon la premiere image apres chaque bouclage saute au debut.
+                            ;; Le bouclage n'est valable que s'il RAMENE dans l'animation.
+                            ((and (= (-> chan num-func) num-func-loop!) (>= (+ f len-1) 0.0))
+                             (+ f len-1))
+                            ;; La cible sort de l'animation et rien ne l'y ramene : on ne
+                            ;; retime PAS. L'ancien `0.0` epinglait la pose sur la premiere
+                            ;; frame — c'est un saut, pas une identite — et il masquait le cas
+                            ;; degenere ci-dessus des que le canal n'etait pas un `loop!`.
+                            (else (+! *anim-cen-oob* 1) fn)))))))))))))
     ;; SONDE DE POSE DESSINEE. `out` est exactement le flottant que `build-requests!`
     ;; (joint.gc:224) transforme en `base-frame` + `frac-frame` : c'est la pose DESSINEE, pas un
     ;; modele. On ne l'echantillonne que sur le canal 0 de l'acteur sonde, et seulement quand le
@@ -225,9 +250,16 @@
     ;; sur un canal dont `param 0` vaut 0 — une animation a l'arret — et les 15109 pas ont ete
     ;; jetes pour taux nul. Un canal immobile est une pose parfaitement lisse et ne dit rien du
     ;; defaut ; c'est une cadence NON exercee, pas un vert.
+    ;; ELIGIBILITE, DEUXIEME CLAUSE (essai 7) : l'animation doit avoir au moins DEUX frames.
+    ;; `param 0 * speed > 0` dit que le canal est CENSE avancer ; il ne dit pas qu'il avance.
+    ;; Une animation d'une seule frame boucle sur une duree nulle : `frame-num` reste a 0,0
+    ;; pour toujours et son « pas de pose » n'est que l'alpha. C'est une cadence NON exercee,
+    ;; pas une pose qui saute. Le canal reste recense (`*anim-cen-degen*`) : il n'est pas
+    ;; ecarte en silence.
     (when (and (zero? (-> chan group-sub-index))
                (or (= (-> chan num-func) num-func-+!)
                    (= (-> chan num-func) num-func-loop!))
+               (> (-> chan frame-group data 0 length) 1)
                (> (* (-> chan param 0) (-> chan frame-group speed)) 0.0))
       (cond
         ;; L'ACTEUR VERROUILLE, ou qu'il se trouve dans l'arbre. On ne s'arrete pas au premier
@@ -236,6 +268,12 @@
               (= (the-as int (-> chan parent)) *anim-probe-key*))
          (set! *anim-probe-seen* 1)
          (set! *anim-probe-frame-q* (the int (* 65536.0 out)))
+         (set! *anim-probe-raw-q* (the int (* 65536.0 fn)))
+         (set! *anim-probe-clamped*
+               (if (or (< out 0.0)
+                       (>= (the int out) (+ (the int (-> chan frame-group frames num-frames)) -1)))
+                   1
+                   0))
          (set! *anim-probe-rate-q* (the int (* 65536.0 (* (-> chan param 0) (-> chan frame-group speed)))))
          (set! *anim-probe-p0-q* (the int (* 65536.0 (-> chan param 0))))
          (set! *anim-probe-id* (the-as int (-> chan frame-group)))
@@ -248,6 +286,12 @@
          (set! *anim-probe-miss* 0)
          (set! *anim-probe-key* (the-as int (-> chan parent)))
          (set! *anim-probe-frame-q* (the int (* 65536.0 out)))
+         (set! *anim-probe-raw-q* (the int (* 65536.0 fn)))
+         (set! *anim-probe-clamped*
+               (if (or (< out 0.0)
+                       (>= (the int out) (+ (the int (-> chan frame-group frames num-frames)) -1)))
+                   1
+                   0))
          (set! *anim-probe-rate-q* (the int (* 65536.0 (* (-> chan param 0) (-> chan frame-group speed)))))
          (set! *anim-probe-p0-q* (the int (* 65536.0 (-> chan param 0))))
          (set! *anim-probe-id* (the-as int (-> chan frame-group)))

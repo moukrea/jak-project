@@ -79,6 +79,13 @@ struct GoalReadout {
   // `intern_from_c().value` rend zero (mesure du 2026-09-05, 15109 pas jetes pour cette seule
   // raison), un symbole ENTIER traverse sans probleme.
   s32 probe_frame_q = 0;
+  // Le MEME canal AVANT retimage. Sans lui, une pose IMMOBILE que le retimeur fait bouger se
+  // lit exactement comme une pose qui saute : c'etait 265 pas sur 2560 dans le seau 45 img/s,
+  // et a eux seuls tout l'ecart type de ce seau.
+  s32 probe_raw_q = 0;
+  // 1 quand `build-requests!` EPINGLE la pose (fin d'animation, ou numero negatif) : le pas de
+  // `frame-num` ne decrit alors plus la pose dessinee, il decrit un intermediaire.
+  u32 probe_clamped = 0;
   s32 probe_rate_q = 0;
   s32 probe_p0_q = 0;
   u32 probe_br = 0;
@@ -88,6 +95,8 @@ struct GoalReadout {
   // Audit PAR VALEUR de `num-func` du seau `cen_zero` : une pose statique n'a rien a
   // retimer, seul `cen_other` decrit une pose qui saute.
   u64 cen_static = 0, cen_seekend = 0, cen_other = 0;
+  // Retimages ABANDONNES : cible hors de l'animation, ou animation d'une seule frame.
+  u64 cen_oob = 0, cen_degen = 0;
   u64 djm_total = 0, djm_shift = 0, djm_noroot = 0, djm_rotv = 0;
 };
 

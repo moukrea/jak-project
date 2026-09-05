@@ -284,6 +284,22 @@
 ;; raison. On convertit donc cote GOAL. Resolution 1/65536 de frame, soit 0,25 us a un tick par
 ;; frame : trois ordres de grandeur sous le seuil de 500 us de la porte.
 (define *anim-probe-frame-q* 0) ;; frame-num DESSINE x65536
+;; LE MEME CANAL, AVANT RETIMAGE. Mesure x86 du 2026-09-05 (essai 7) : la sonde s'etait
+;; verrouillee sur un canal dont `param 0 * speed` vaut 1,0 — donc ELIGIBLE — mais dont
+;; `frame-num` reste a 0,0 image apres image. Son « pas de pose dessinee » n'etait alors que
+;; -(1 - alpha), c'est-a-dire l'alpha lui-meme : un pas de -1 tick EXACTEMENT a chaque
+;; echantillon, 265 fois sur 2560 dans le seau 45 img/s, qui portait a lui seul les 5072 us
+;; d'ecart type du seau (les 2295 autres pas rendent 25 us). Sans cette ligne, rien ne
+;; distingue « la pose dessinee saute » de « la pose ne bouge pas du tout et c'est le
+;; retimeur qui la fait bouger ».
+(define *anim-probe-raw-q* 0)   ;; frame-num AVANT retimage x65536
+;; LA POSE SONDEE EST-ELLE CELLE QUI SERA DESSINEE ? `build-requests!` (joint.gc:224) ne prend
+;; pas `frame-num` tel quel : des que `(the int frame-num)` atteint la derniere frame, il
+;; EPINGLE `base-frame` sur la fin et met `frac-frame` a 0. Un canal dont l'animation est
+;; terminee voit donc son `frame-num` continuer a monter pendant que la pose DESSINEE ne bouge
+;; plus : le pas de `frame-num` vaudrait le temps reel — un VERT — sur une pose figee. Sans ce
+;; drapeau, la sonde lit un intermediaire d'avant epinglage, pas la pose.
+(define *anim-probe-clamped* 0) ;; 1 = pose epinglee par build-requests! (fin d'anim, ou < 0)
 (define *anim-probe-rate-q* 0)  ;; pas d'UN tick a ratio 1 x65536 : param0 * speed
 (define *anim-probe-p0-q* 0)    ;; param0 seul x65536 : separe « flottant muet » de « speed nulle »
 ;; QUELLE BRANCHE le canal SONDE a-t-il prise ? 1 = sortie en identite (ablation, alpha>=1,
@@ -310,6 +326,14 @@
 (define *anim-cen-other* 0)     ;; delta nul SANS raison connue : c'est la seule part suspecte
 (define *anim-cen-blend* 0)     ;; canaux num-func-blend-in! : c'est frame-interp qui avance, jamais retime
 (define *anim-cen-done* 0)      ;; poses reellement retimees
+;; POSE RETIMEE HORS DE SON ANIMATION. `f = fn - (1 - alpha) * delta` peut sortir sous 0 ;
+;; le bouclage la ramene par la fin, MAIS une animation d'UNE SEULE frame a une duree de
+;; bouclage nulle et l'ancien code rendait alors `f` tel quel — un numero de frame NEGATIF,
+;; que `build-requests!` (joint.gc:224) convertit en `frac-frame` negatif, c'est-a-dire une
+;; EXTRAPOLATION hors de l'animation. Mesure x86 essai 7 : `frame-num` = 0,0 et sortie
+;; -0,2686 sur le meme canal, a chaque image. Le compteur doit valoir 0 apres correction.
+(define *anim-cen-oob* 0)       ;; retimage abandonne : la cible sortait de l'animation
+(define *anim-cen-degen* 0)     ;; animation d'une frame ou moins : rien a interpoler
 (define *djm-total* 0)          ;; appels a do-joint-math!
 (define *djm-shift* 0)          ;; racine decalee (trans seulement)
 (define *djm-noroot* 0)         ;; root absente ou pas un trsqv : racine NON decalee

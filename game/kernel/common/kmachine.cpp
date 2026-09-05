@@ -555,6 +555,8 @@ void send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
   g.anim_interp_n = rd("*anim-interp-n*");
   g.probe_n = rd("*anim-probe-n*");
   g.probe_frame_q = (s32)(u32)rd("*anim-probe-frame-q*");
+  g.probe_raw_q = (s32)(u32)rd("*anim-probe-raw-q*");
+  g.probe_clamped = (u32)rd("*anim-probe-clamped*");
   g.probe_rate_q = (s32)(u32)rd("*anim-probe-rate-q*");
 g.probe_p0_q = (s32)(u32)rd("*anim-probe-p0-q*");
 g.probe_br = (u32)rd("*anim-probe-br*");
@@ -568,6 +570,8 @@ g.goal_ksum_q = (s32)(u32)rd("*anim-goal-ksum-q*");
   g.cen_static = rd("*anim-cen-static*");
   g.cen_seekend = rd("*anim-cen-seekend*");
   g.cen_other = rd("*anim-cen-other*");
+  g.cen_oob = rd("*anim-cen-oob*");
+  g.cen_degen = rd("*anim-cen-degen*");
   g.djm_total = rd("*djm-total*");
   g.djm_shift = rd("*djm-shift*");
   g.djm_noroot = rd("*djm-noroot*");
