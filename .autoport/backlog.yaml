@@ -2,7 +2,7 @@ version: 1
 items:
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
-  status: open
+  status: blocked
   priority: 1
   owner_feedback:
   - date: '2026-08-31'
@@ -72,6 +72,13 @@ items:
     qui echoue si le symptome revient.
   out_of_scope: 'Jak et Daxter ne sont pas concernes : l''owner parle des PNJ. Pas de refonte du culling
     general. Aucune capture d''ecran ne vaut preuve.'
+  block_reason: 'Rien a tester : le defaut n''a JAMAIS ete reproduit chez nous. Mesure de l''essai 11
+    : la scene du maire est identique a la milliseconde sur Redmi 20 img/s, PC 60/100/110 img/s, pas fixe
+    arme ou non, HD actif ou non — un seul trou de 15 ms ecrit dans la scene elle-meme. Le maire n''est
+    pas un clone (le correctif du clone ne le touchait pas). Le defaut n''existe que sur le Honor (Snapdragon
+    8 Elite, 60-120 Hz). Le build en ligne ecrit sur le telephone un fichier de diagnostic qui nomme le
+    mecanisme : ON ATTEND CE FICHIER DE L''OWNER. Chemin sur le Honor : /storage/emulated/0/OpenGOAL/jak1/npc_flicker.txt
+    (et npc_flicker.txt.1), a envoyer apres avoir vu le maire clignoter une fois.'
 - id: cutscene-skip
   feature: Passer une cinematique en maintenant Cercle, avec la cartouche « Skip »
   status: validated
@@ -1845,6 +1852,9 @@ items:
   where: 'n''importe ou en jeu : la cadence doit flotter librement et la vitesse du jeu ne doit pas changer'
   delivered: '2026-06-30'
   build: build du 2026-06-30, remplace depuis
+  notes: '2026-09-05 (trouve par cutscene-npc-flicker) : srpc.cpp:491 `(s32)(1024/target_fps)` — a 120
+    Hz l''horloge de scene tourne a 93,75 % du reel (8x120=960/1024). Les cinematiques durent 6,7 % trop
+    longtemps sur un ecran 120 Hz. A traiter ici.'
 - id: res-picker
   feature: Le choix de la resolution de jeu dans les options
   status: to-test
