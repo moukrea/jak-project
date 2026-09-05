@@ -153,12 +153,42 @@ double last_deficit();
 // que la porte nomme.
 //
 // `stimulus_fps` deplace la cible du LIMITEUR seul. `Gfx::g_global_settings.target_fps`, donc
-// `*ticks-per-frame*` et le budget de `render_pace`, n'est PAS touche : c'est precisement
-// l'ecart entre cadence AFFICHEE et cadence CIBLE qui fabrique le defaut.
+// `*ticks-per-frame*` et l'horloge de scene, n'est JAMAIS touche : c'est precisement l'ecart
+// entre cadence AFFICHEE et cadence CIBLE qui fabrique le defaut.
 //
-// Consigne : `OG_FRAME_LIMIT_FPS=<f1[,f2,...]>[@<secondes>]` (bureau, environnement) ou
-// `debug.opengoal.frame.limit` (appareil, propriete). Absente => rend `target` tel quel, cout
-// nul : le binaire de l'owner passe par ici a chaque image et ne change pas de comportement.
+// Consigne : `OG_FRAME_LIMIT_FPS=<f1[,f2,...]>[@<secondes>][/eq<d>]` (bureau, environnement)
+// ou `debug.opengoal.frame.limit` (appareil, propriete). Absente => rend `target` tel quel,
+// cout nul : le binaire de l'owner passe par ici a chaque image et ne change pas de
+// comportement.
+//
+// ET LE REDMI N'A QU'UN SEUL MODE D'AFFICHAGE : 60,000 Hz (`dumpsys display` :
+// `supportedModes [{id=1, 1080x2400, fps=60.000004}]`), et son cout d'image dans village1 le
+// plafonne vers 30 img/s. 45, 50, 75 et 90 images par seconde ne peuvent PAS y etre affichees :
+// aucun reglage ne le fera, et un chiffre etiquete « 45 img/s appareil » serait une fiction.
+// C'est exactement l'erreur de l'essai 7 (le seau « 60 » a tourne a 30,45 img/s et son ecart
+// type a ete publie comme celui de 60 img/s).
+//
+// D'ou le suffixe `/eq<d>` : le REGIME EQUIVALENT. Rien dans la chaine ne lit des secondes —
+// `inc = dt_reel * budget`, `k = ceil(deficit)`, `alpha = 1 + deficit/k_last`, et GOAL execute
+// ces k. La suite des poses dessinees est donc fonction de la SEULE suite des `inc`. On produit
+// la meme suite a une cadence que l'appareil TIENT, en deplacant le budget de tick DU STIMULUS
+// (et de lui seul) :
+//     afficher a d img/s, budget B = target_fps * d / f   =>   inc = B/d = target_fps/f
+// Pour f = 45 et d = 18 : B = 24, inc = 1,3333 — le regime de 45 img/s, produit par une horloge
+// murale reelle, avec la gigue reelle de l'appareil, sur des poses reellement dessinees.
+// L'horloge virtuelle rendue a GOAL avance toujours en budgets de `target_fps` : GOAL execute
+// k ticks de 1/60 s, son `*ticks-per-frame*` ne change pas, l'horloge de scene ne derive pas.
+// La cadence d'affichage etant la MEME a tous les paliers, le limiteur ne se re-ancre pas aux
+// frontieres et n'y injecte aucune image longue.
+//
+// CE QUE LE REGIME EQUIVALENT NE REPRODUIT PAS, ET QUI EST PUBLIE. L'echelle de temps absolue
+// (un tick vaut 1/B seconde reelle au lieu de 1/target_fps) : `anim_step_jitter_<f>_us` est donc
+// exprime a la reference DECLAREE de `target_fps` ticks/s — celle de la machine de l'owner, la
+// seule comparable a ce qu'il ressent — et `anim_step_localus_<f>` donne la valeur a l'echelle
+// de la course. Et l'agitation RELATIVE, plus faible a 18 img/s qu'a 45 : chaque palier publie
+// `anim_step_eejit_<f>_us`, la dispersion d'`inc` reellement subie. Enfin `anim_sweep_host_<f>`
+// dit, palier par palier, sur quelle machine et dans quel regime il a tourne — etiquette
+// produite par le compilateur (`__ANDROID__`), pas par le rapport.
 //
 // LE BALAYAGE NE DEMARRE QU'APRES L'AMORCAGE (kSweepStartFrames images dessinees). Sans cela
 // le premier segment tombe dans le chargement du niveau, ou aucun acteur n'anime : la cadence
