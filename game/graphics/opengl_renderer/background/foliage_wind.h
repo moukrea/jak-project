@@ -16,11 +16,25 @@
 // Le moteur publie `wind_owner_defects_open` = somme de sept verdicts binaires, publies aussi un par
 // un. Chacun est LU sur une grandeur produite par le code — jamais sur une image :
 //   (1) `wind_native_stock_dev_pct` <= 1 : la brise NATIVE (ressort de ND, option eteinte ou non)
-//       tourne comme sur console. Trois composantes, le max est publie : slots MORTS de l'anneau de
-//       vent (48 sur 64 avec l'ancien code « high fps » : `wind_ring_dead_slots`), ecart entre pas de
-//       vent et ticks de logique (`wind_native_rate_dev_pct`, la brise avancait au quart de sa vitesse
-//       a 15 images/s), part du temps colle a la butee (`wind_native_sat_pct`, l'arbre « fige sur un
-//       plein appui »).
+//       tourne comme sur console. Deux composantes, le max est publie : slots MORTS de l'anneau de
+//       vent (48 sur 64 avec l'ancien code « high fps » : `wind_ring_dead_slots`) et CADENCE
+//       (`wind_native_rate_dev_pct`).
+//
+//       LA CADENCE SE MESURE AU POINT DE PRODUCTION, ET SA REFERENCE EST LE TEMPS DE JEU.
+//       Essai 11 comparait les pas de vent aux ticks de `fixed_tick`, avec la MONTRE MURALE en
+//       repli. Or `fixed_tick` est eteint par defaut (`armed_setting = false`) : la course de
+//       preuve tombait toujours sur le repli, et le mural mesure la derive de la cadence
+//       D'AFFICHAGE — 3,6 % sur 200 s, sur un vent parfaitement correct. Un chiffre rouge sur un
+//       instrument, pas sur le jeu. La reference est desormais `(-> *display* time-adjust-ratio)`,
+//       la croyance du moteur sur ce que vaut l'image en 1/60 s de TEMPS DE JEU — celle par
+//       laquelle il multiplie deja tous les autres deltas. `update-wind-ticks!` (wind.gc) rapporte
+//       par `__pc-wind-note-rate!`, a chaque image, le couple (ratio demande, pas executes).
+//       Le critere separe les deux implementations sur LE MEME BINAIRE : le chemin livre execute
+//       `int(acc + ratio)` en gardant le reste (ecart <= 1 pas sur toute la course, ~0 %) ; le
+//       chemin d'avant (`OG_WIND_NATIVE_RATE=0`, `update-wind-legacy`) execute UN pas par image
+//       quel que soit le ratio — a 15 images/s, ratio 4, il rend 75 % : « le vent d'origine
+//       tournait au quart de sa vitesse » (owner 2026-08-06), en chiffres.
+//       `wind_native_sat_pct` (part du temps colle a la butee) reste PUBLIE, hors verdict.
 //   (2) `wind_shrub_base_shift_mm` == 0 : deplacement DESSINE a la ligne de sol des buissons enfonces
 //       (poids interpole le long des aretes qui traversent le pivot, x flexion + cisaillement natif).
 //   (3) `wind_instances_still` == 0 : aucune instance vegetale dessinee immobile.
@@ -118,6 +132,14 @@ const void* game_wind_bytes(size_t* out_n);
 
 // Un echantillon du ressort natif (TIE ou shrub) : |etat| AVANT `stiffness` et « a tape la butee ».
 void note_native_sample(float raw_pre_stiffness, bool saturated);
+
+// LA CADENCE, RAPPORTEE PAR SON PRODUCTEUR. Appelee une fois par tour de `display-loop` depuis
+// `update-wind-ticks!` (wind.gc), via `__pc-wind-note-rate!` : `ratio` = ce que cette image vaut en
+// 1/60 s de temps de jeu (`(-> *display* time-adjust-ratio)`), `steps` = le nombre d'appels a
+// `update-wind` reellement faits. Les images dont le ratio depasse la borne de 8 pas (a-coup de
+// chargement, ecretees a la production) sortent des deux sommes et sont comptees a part dans
+// `wind_rate_hitch_frames` : un seau exclu qu'on ne publie pas se lit « correct ».
+void note_wind_rate(float ratio, int steps);
 
 // Le plus grand |cisaillement| natif applique a un buisson cette image (sans dimension) : entre dans
 // `wind_shrub_base_shift_mm` a cote de la flexion ajoutee.

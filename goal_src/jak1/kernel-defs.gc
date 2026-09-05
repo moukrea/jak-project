@@ -468,6 +468,12 @@
 ;; toute preuve APPAREIL sort avec `frames=0` et le validateur la refuse — panne d'instrument,
 ;; pas panne du jeu.
 (define-extern __pc-autoport-frame (function none))
+;; Grecharged-foliage-wind3 : LA CADENCE DU VENT NATIF, rapportee par le SEUL site qui la decide
+;; (`update-wind-ticks!`). Premier argument : ce que cette image vaut en 1/60 s de temps de JEU
+;; (`(-> *display* time-adjust-ratio)`) ; second : le nombre de pas de vent reellement executes.
+;; Sans ce rapport, le verdict (1) de foliage-wind n'a pas de reference et retombait sur la montre
+;; murale, qui derive avec la cadence d'AFFICHAGE et rendait 3,6 % sur un vent correct.
+(define-extern __pc-wind-note-rate! (function float int none))
 ;; Armement du correctif de couverture HD. ENTIER, pas un symbole : la veracite d'un symbole GOAL
 ;; est un piege connu du depot, on ne la met pas sur le chemin d'un verdict. 1 = corrige (defaut,
 ;; donc le binaire de l'owner), 0 = comportement d'avant, uniquement sous ablation du harnais.

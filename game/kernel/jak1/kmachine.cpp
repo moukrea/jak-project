@@ -121,6 +121,14 @@ void merc2_hd_ring(u32 ring_addr, u32 cam_addr, u32 stamp_addr);
 void merc2_hd_ring_slot(u32 companion_pid, int slot);
 #endif
 
+// Grecharged-foliage-wind3 : la cadence du vent natif, rapportee par `update-wind-ticks!` au
+// renderer. Declaration en avant plutot qu'un `#include` : foliage_wind.h tire
+// `pipelines/opengl.h`, que le noyau n'a aucune raison de connaitre ; un desaccord de signature
+// sort au LIEN, pas a l'execution. Au SCOPE GLOBAL : `foliage_wind` n'est pas dans `jak1`.
+namespace foliage_wind {
+void note_wind_rate(float ratio, int steps);
+}  // namespace foliage_wind
+
 namespace jak1 {
 
 /*!
@@ -766,6 +774,24 @@ void pc_npc_census_actor(u32 merc_name,
                          s32 is_npc) {
   const char* nm = merc_name ? Ptr<String>(merc_name).c()->data() : nullptr;
   npc_flicker::census_actor(nm, nm, pid, draw_status, level_active, in_fov, is_npc);
+}
+
+// Grecharged-foliage-wind3 — LA CADENCE DU VENT NATIF, RAPPORTEE PAR SON PRODUCTEUR.
+// `update-wind-ticks!` (engine/gfx/background/wind.gc) appelle ceci une fois par tour de
+// `display-loop` : `ratio` = `(-> *display* time-adjust-ratio)`, ce que l'image vaut en 1/60 s de
+// TEMPS DE JEU ; `steps` = le nombre d'appels a `update-wind` reellement faits. Le verdict (1) de
+// foliage-wind compare les deux sommes. Declaration en avant plutot qu'un `#include` :
+// foliage_wind.h tire `pipelines/opengl.h`, que le noyau n'a aucune raison de connaitre ; un
+// desaccord de signature sort au LIEN, pas a l'execution.
+// GOAL passe un `float` a une fonction C comme un MOTIF DE BITS dans un registre entier (meme
+// convention que `pc_set_axis_scale`, kernel/common/kmachine.cpp:951). Prendre un `float` en
+// parametre ferait lire xmm0, ou GOAL n'a rien mis : mesure du 2026-09-05, ratio lu = 0,000 et
+// `steps` = 1065353216 (= le motif de bits de 1,0f, decale d'un registre) — 9587 images
+// rapportees, aucune mesurable.
+void pc_wind_note_rate(u32 ratio_bits, u32 steps) {
+  float ratio;
+  std::memcpy(&ratio, &ratio_bits, sizeof(ratio));
+  ::foliage_wind::note_wind_rate(ratio, (int)steps);
 }
 
 // Une image de plus, publiee par le compteur que `lib/proof_run.sh` moissonne. Appelee du meme
@@ -4841,6 +4867,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-npc-clone-fail", (void*)pc_npc_clone_fail);
   make_function_symbol_from_c("__pc-npcf-clone-hold?", (void*)pc_npcf_clone_hold);
   make_function_symbol_from_c("__pc-autoport-frame", (void*)pc_autoport_frame);
+  make_function_symbol_from_c("__pc-wind-note-rate!", (void*)pc_wind_note_rate);
   make_function_symbol_from_c("__pc-npcf-fix-armed?", (void*)pc_npcf_fix_armed);
   make_function_symbol_from_c("__pc-npcf-note-cover", (void*)pc_npcf_note_cover);
   // Gloading-screen : instrument de cadence + tranches de travail GOAL

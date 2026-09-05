@@ -122,11 +122,21 @@
 
 ;; Grecharged-foliage-wind3 : le SEUL site qui fait avancer le vent. Appele depuis
 ;; `update-camera` (engine/camera/cam-update.gc), une fois par tour de `display-loop`.
+;;
+;; Le couple (ce que l'image VAUT, ce que le vent a AVANCE) est rapporte au moteur a chaque tour :
+;; c'est la seule mesure de cadence dont la reference soit le temps de JEU. Elle separe les deux
+;; chemins sur le meme binaire — le chemin livre execute `int(acc + ratio)` en gardant le reste
+;; (ecart <= 1 pas sur toute la course), le chemin d'avant execute UN pas quel que soit le ratio,
+;; donc le quart de la vitesse a 15 images/s.
 (defun update-wind-ticks! ()
   "Avance le vent de ce que cette image vaut en pas de 1/60 s."
-  (if (zero? *wind-native-rate*)
-      (update-wind-legacy *wind-work* *wind-scales*)
-      (let ((n (wind-ticks-this-frame)))
-        (dotimes (i n)
-          (update-wind *wind-work* *wind-scales*))))
+  (let ((ratio (-> *display* time-adjust-ratio)))
+    (if (zero? *wind-native-rate*)
+        (begin
+          (update-wind-legacy *wind-work* *wind-scales*)
+          (__pc-wind-note-rate! ratio 1))
+        (let ((n (wind-ticks-this-frame)))
+          (dotimes (i n)
+            (update-wind *wind-work* *wind-scales*))
+          (__pc-wind-note-rate! ratio n))))
   (none))

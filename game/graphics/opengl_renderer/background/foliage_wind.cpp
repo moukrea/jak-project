@@ -17,7 +17,6 @@
 
 #include "common/log/log.h"
 
-#include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
 #include "game/system/autoport_proof.h"
 
@@ -106,14 +105,18 @@ bool g_gw_seeded = false;
 u32 g_gw_first_time = 0;
 u32 g_gw_last_time = 0;
 u64 g_gw_last_frame = (u64)-1;
-u64 g_gw_last_ticks = 0;
 std::chrono::steady_clock::time_point g_gw_last_wall;
 float g_gw_force_prev[64];
 u32 g_gw_slot_last_change[64];
-double g_gw_sum_dwind = 0.0;   // pas de vent (hors pause)
-double g_gw_sum_dticks = 0.0;  // ticks de logique (fixed_tick), memes images
-double g_gw_sum_dwall = 0.0;   // secondes murales, memes images
+double g_gw_sum_dwind = 0.0;   // pas de vent VUS par le renderer (delta de `wind-time` du DMA)
+double g_gw_sum_dwall = 0.0;   // secondes murales, memes images (diagnostic, hors verdict)
 u64 g_gw_frames = 0;
+
+// --- la cadence, rapportee par son PRODUCTEUR (`update-wind-ticks!`, une fois par image) ---
+double g_rate_expected = 0.0;  // somme des `time-adjust-ratio` : le temps de JEU ecoule, en 1/60 s
+double g_rate_got = 0.0;       // somme des appels a `update-wind` reellement faits
+u64 g_rate_frames = 0;
+u64 g_rate_hitch = 0;          // images ecretees a la production (ratio > 8) : hors des deux sommes
 u64 g_native_samples = 0;
 u64 g_native_sat = 0;
 double g_native_raw_sq = 0.0;
@@ -368,12 +371,10 @@ void note_game_wind(const float* force64, u32 wind_time, bool paused_now, u64 fr
   }
   g_gw_last_frame = frame_idx;
   const auto now = std::chrono::steady_clock::now();
-  const u64 ticks = fixed_tick::total_ticks();
   if (!g_gw_seeded) {
     g_gw_seeded = true;
     g_gw_first_time = wind_time;
     g_gw_last_time = wind_time;
-    g_gw_last_ticks = ticks;
     g_gw_last_wall = now;
     for (int i = 0; i < 64; i++) {
       g_gw_force_prev[i] = force64[i];
@@ -391,16 +392,35 @@ void note_game_wind(const float* force64, u32 wind_time, bool paused_now, u64 fr
   // cadence : pas de vent contre ticks de logique, sur les images HORS pause
   const double dwall = std::chrono::duration<double>(now - g_gw_last_wall).count();
   const u32 dwind = wind_time - g_gw_last_time;
-  const u64 dticks = ticks - g_gw_last_ticks;
   if (!paused_now && !g_paused && dwall < 2.0) {
     g_gw_sum_dwind += (double)dwind;
-    g_gw_sum_dticks += (double)dticks;
     g_gw_sum_dwall += dwall;
     g_gw_frames++;
   }
   g_gw_last_time = wind_time;
-  g_gw_last_ticks = ticks;
   g_gw_last_wall = now;
+}
+
+// LA CADENCE AU POINT DE PRODUCTION. `update-wind-ticks!` appelle ceci une fois par tour de
+// `display-loop`, juste apres avoir execute ses pas : `ratio` est ce que le MOTEUR pense que
+// l'image vaut en 1/60 s de temps de jeu, `steps` ce que le vent a reellement avance. Comparer
+// les deux, c'est comparer la brise a l'horloge du JEU — pas a la montre murale, qui derive avec
+// la cadence d'affichage et rendait 3,6 % sur un vent correct (essai 11).
+void note_wind_rate(float ratio, int steps) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (!std::isfinite(ratio) || ratio < 0.f || steps < 0) {
+    return;  // rien de mesurable : une valeur non finie ne se moyenne pas
+  }
+  if (ratio > 8.f) {
+    // Ecretee a la production (`wind-ticks-this-frame` borne a 8) : un a-coup de chargement ne
+    // doit pas faire defiler la brise d'un huitieme de seconde. L'image sort des DEUX sommes et
+    // se compte ici, pour qu'aucun seau exclu ne se lise « correct ».
+    g_rate_hitch++;
+    return;
+  }
+  g_rate_expected += (double)ratio;
+  g_rate_got += (double)steps;
+  g_rate_frames++;
 }
 
 namespace {
@@ -750,20 +770,16 @@ void recompute_and_publish_locked() {
       }
     }
   }
+  // CADENCE : les pas de vent EXECUTES contre le temps de JEU ecoule sur les memes images, les
+  // deux rapportes par `update-wind-ticks!` lui-meme. La montre murale et les ticks de
+  // `fixed_tick` (eteint par defaut) ne sont plus des references : voir foliage_wind.h.
   double rate_dev_pct = 0.0;
   bool rate_ok = false;
-  double expected = 0.0;
-  const char* rate_ref = "aucune";
-  if (g_gw_sum_dticks > 0.0) {
-    expected = g_gw_sum_dticks;
-    rate_ref = "ticks";
-  } else if (g_gw_sum_dwall > 0.0) {
-    expected = g_gw_sum_dwall * 60.0;
-    rate_ref = "wall";
-  }
-  if (expected >= 600.0) {
+  const double expected = g_rate_expected;
+  const char* rate_ref = "game";
+  if (expected >= 600.0) {  // au moins 10 s de temps de jeu mesure
     rate_ok = true;
-    rate_dev_pct = std::fabs(g_gw_sum_dwind - expected) / expected * 100.0;
+    rate_dev_pct = std::fabs(g_rate_got - expected) / expected * 100.0;
   }
   // La part de temps sur la butee est PUBLIEE mais n'entre pas dans le verdict : mesuree ici meme
   // sur le chemin stock au bit pres (x86, 60 images/s, rate_ticks=1, ratio_peak=1.000), elle vaut
@@ -805,6 +821,22 @@ void recompute_and_publish_locked() {
   autoport_proof::publish("wind_ring_dead_slots", ring_ok ? dead_slots : kNoMeasurement);
   std::snprintf(buf, sizeof(buf), "%.3f", rate_ok ? rate_dev_pct : -1.0);
   autoport_proof::publish_text("wind_native_rate_dev_pct", buf);
+  autoport_proof::publish("wind_rate_frames", g_rate_frames);
+  autoport_proof::publish("wind_rate_hitch_frames", g_rate_hitch);
+  autoport_proof::publish("wind_rate_expected_steps", (u64)std::llround(g_rate_expected));
+  autoport_proof::publish("wind_rate_got_steps", (u64)std::llround(g_rate_got));
+  autoport_proof::publish("wind_native_steps_seen", (u64)std::llround(g_gw_sum_dwind));
+  // DIAGNOSTIC, HORS VERDICT : le meme ecart mesure contre la MONTRE MURALE — la reference de
+  // l'essai 11. Il ne juge rien parce qu'il ne mesure pas le vent : `time-adjust-ratio` est plafonne
+  // a 4,0 (display.gc `set-time-ratios`), donc sous 15 images/s le jeu tourne AU RALENTI et la
+  // brise doit ralentir avec lui. Ce chiffre dit de combien ; il reste publie pour que la valeur
+  // rouge de l'essai 11 (3,6 %) ne disparaisse pas en silence.
+  std::snprintf(buf, sizeof(buf), "%.3f",
+                g_gw_sum_dwall > 0.0
+                    ? std::fabs(g_gw_sum_dwind - g_gw_sum_dwall * 60.0) / (g_gw_sum_dwall * 60.0) *
+                          100.0
+                    : -1.0);
+  autoport_proof::publish_text("wind_native_wall_dev_pct", buf);
   std::snprintf(buf, sizeof(buf), "%.3f", sat_pct);
   autoport_proof::publish_text("wind_native_sat_pct", buf);
   autoport_proof::publish("wind_native_samples", g_native_samples);
@@ -842,7 +874,7 @@ void recompute_and_publish_locked() {
         "v3_still={} v4_divergent={} (pairs={}) v5_peak={}% ({:.3f} Hz, fenetre {:.0f} s) "
         "v6_base_to_crown={:.3f} v7_env_cv={:.3f} instances={} shrubs={} sol={} enfonces={} "
         "natif_raideur={} trees_drawn={} option_on={} bend_m={:.3f} native_shear_peak={:.4f}",
-        open, v1, dead_slots, rate_dev_pct, rate_ref, g_gw_sum_dwind, expected, sat_pct,
+        open, v1, dead_slots, rate_dev_pct, rate_ref, g_rate_got, expected, sat_pct,
         g_native_samples, v2, v3, v4, pairs, v5, sp.peak_hz, sp.window_s, base_to_crown,
         sp.env_cv, pop.size(), shrubs, shrubs_ground, shrubs_sunk, shrubs_native, trees_drawn,
         on ? 1 : 0, bend_m, g_shrub_native_shear_peak);
