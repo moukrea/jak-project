@@ -30,6 +30,7 @@
 #include "game/external/discord_jak1.h"
 #include "game/graphics/display.h"
 #include "game/graphics/fixed_tick.h"
+#include "game/graphics/render_pace.h"
 #include "game/graphics/gfx.h"
 #include "game/system/load_gate.h"
 #include "game/system/autoport_proof.h"
@@ -4847,9 +4848,15 @@ void InitMachine_PCPort() {
   init_common_pc_port_functions(
       make_function_symbol_from_c,
       [](const char* name) {
-        const auto result = intern_from_c(name);
+        auto result = intern_from_c(name);  // non-const : Ptr<T>::operator-> ne l'est pas
         InternFromCInfo info{};
         info.offset = result.offset;
+        // anim-interp-low-fps : `value` n'etait JAMAIS rempli — le champ existe dans
+        // `InternFromCInfo` (game/kernel/common/kmachine.h) et les trois jeux rendaient un zero
+        // silencieux. Tout code commun qui LIT un symbole GOAL par ce chemin recevait donc 0
+        // sans que rien ne le signale : c'est ce qui faisait sortir le compteur de retimage
+        // `*anim-interp-n*` a zero alors que le moteur en comptait 91 204 sur 5 903 images.
+        info.value = result->value;
         return info;
       },
       make_string_from_c);
@@ -5211,6 +5218,11 @@ static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro, int skip
   // que soit la cadence d'affichage, 0 = chemin « high fps » d'avant cette phase. Valeur de
   // symbole, pas symbole-fonction (cf. le commentaire ci-dessus).
   intern_from_c("*wind-native-rate*")->value = fixed_tick::wind_native_rate_enabled() ? 1 : 0;
+  // anim-interp-low-fps : `*render-pace-skip*` — 1 quand l'image DESSINEE qu'on vient de
+  // preparer ne porte aucun tick de logique (l'affichage va plus vite que la cadence cible).
+  // `display-frame-start` y met `time-ratio` a 0. Valeur de symbole, pas symbole-fonction, pour
+  // la meme raison que les six lignes du dessus.
+  intern_from_c("*render-pace-skip*")->value = render_pace::skip() ? 1 : 0;
 
   // SONDE DE CADENCE, une ligne par image DESSINEE (env OG_FIXED_TICK_PROBE=1, sinon
   // muette). Elle est posee ICI et pas ailleurs parce que ce point est atteint APRES

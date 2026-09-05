@@ -258,6 +258,20 @@
 (define *anim-interp-alpha* 1.0)
 (define *anim-interp-n* 0)
 
+;; anim-interp-low-fps — L'IMAGE DE RENDU SEUL, HORS HORLOGE A PAS FIXE.
+;; `*render-pace-skip*`  1 quand l'image DESSINEE qu'on prepare ne porte aucun tick de
+;;                       logique (l'affichage va plus vite que la cadence cible).
+;;                       `display-frame-start` y met `time-ratio` a 0. Sans ce cas, au moins
+;;                       un tick etait impose par image dessinee, la simulation passait
+;;                       devant le temps reel et l'alpha se collait a 0 : mesure du
+;;                       2026-09-05, 2444 images sur 2838 (86 %) a alpha nul.
+;; `*render-pace-ratio*` `time-adjust-ratio` de la DERNIERE image qui a porte un tick. C'est
+;;                       l'unite dans laquelle les retimeurs reculent. Sur une image de rendu
+;;                       seul `time-adjust-ratio` vaut 0 : le lire la rendrait le pas nul,
+;;                       donc AUCUN retimage, donc une image figee.
+(define *render-pace-skip* 0)
+(define *render-pace-ratio* 1.0)
+
 ;; Declaree ici (et pas seulement dans pc/pckernel-h.gc) parce que `display-frame-start`
 ;; en a besoin et qu'il est compile bien avant le pckernel. Le symbole est fourni par les
 ;; DEUX plateformes (game/kernel/common/kmachine.cpp cote bureau,

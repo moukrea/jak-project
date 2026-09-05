@@ -12,6 +12,8 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "common/dma/dma_copy.h"
 #include "common/global_profiler/GlobalProfiler.h"
@@ -66,7 +68,63 @@ constexpr bool run_dma_copy = false;
 // Le decalage est tire d'un generateur congruentiel indexe sur le NUMERO D'IMAGE, donc la
 // meme suite de durees est rejouee A L'IDENTIQUE dans les deux bras d'une ablation : la
 // seule difference qui reste entre eux est l'interpolation elle-meme.
-static double jittered_target_fps(double target) {
+// anim-interp-low-fps — BALAYAGE DE CADENCE D'AFFICHAGE, opt-in au PRODUCTEUR
+// (`OG_FRAME_LIMIT_FPS=<f1[,f2,...]>[@<secondes>]`, absent => aucun effet, cout nul).
+//
+// POURQUOI. Le defaut de l'owner est une cadence d'AFFICHAGE differente de la cadence CIBLE
+// du moteur : son telephone rend 20 images/s pendant que `*ticks-per-frame*` reste regle sur
+// 60. Sur bureau les deux sont le MEME reglage (`fps` de settings.ini pilote le limiteur ET
+// le budget), donc une course x86 se tient toujours a l'exacte frontiere 1 tick / image et
+// ne represente aucun des deux bouts que le livrable demande. Cette variable deplace la
+// cible du LIMITEUR seul ; `Gfx::g_global_settings.target_fps`, donc `*ticks-per-frame*`,
+// n'est pas touche. Le balayage passe d'une valeur a l'autre toutes les `@secondes` (15 par
+// defaut), de sorte qu'UNE course couvre 60, 20, 45, 120... et que le maximum publie porte
+// sur les deux bouts a la fois.
+static double frame_limit_override(double target) {
+  struct Sweep {
+    std::vector<double> fps;
+    double seg = 15.0;
+  };
+  static const Sweep s_sweep = []() -> Sweep {
+    Sweep sw;
+    const char* e = std::getenv("OG_FRAME_LIMIT_FPS");
+    if (!e || !e[0]) {
+      return sw;
+    }
+    std::string v(e);
+    const auto at = v.find('@');
+    if (at != std::string::npos) {
+      const double s = std::atof(v.substr(at + 1).c_str());
+      if (s > 0.0) {
+        sw.seg = s;
+      }
+      v = v.substr(0, at);
+    }
+    size_t pos = 0;
+    while (pos <= v.size()) {
+      const auto comma = v.find(',', pos);
+      const std::string tok = v.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+      const double f = std::atof(tok.c_str());
+      if (f > 0.0) {
+        sw.fps.push_back(f);
+      }
+      if (comma == std::string::npos) {
+        break;
+      }
+      pos = comma + 1;
+    }
+    return sw;
+  }();
+  if (s_sweep.fps.empty()) {
+    return target;
+  }
+  static Timer s_sweep_timer;
+  const size_t i = (size_t)(s_sweep_timer.getSeconds() / s_sweep.seg) % s_sweep.fps.size();
+  return s_sweep.fps[i];
+}
+
+static double jittered_target_fps(double target_in) {
+  const double target = frame_limit_override(target_in);
   static const double s_amp = []() -> double {
     const char* e = std::getenv("OG_FRAME_JITTER_PCT");
     return e ? std::atof(e) / 100.0 : 0.0;

@@ -30,6 +30,8 @@ set(RUNTIME_SOURCE
         graphics/display.cpp
         # Gfixed-tick-interpolation : horloge a pas fixe + alpha d'interpolation de rendu.
         graphics/fixed_tick.cpp
+        # anim-interp-low-fps : horloge de cadence a reste borne + alpha d'interpolation.
+        graphics/render_pace.cpp
         graphics/gfx_test.cpp
         graphics/gfx.cpp
         graphics/jak2_texture_remap.cpp

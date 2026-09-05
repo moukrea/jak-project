@@ -83,6 +83,7 @@ extern "C" void (*g_jak2_post_machine_scheme_hook)(void);
 #include "common/util/Timer.h"
 
 #include "game/graphics/fixed_tick.h"
+#include "game/graphics/render_pace.h"
 #include "game/graphics/gfx.h"
 #include "game/kernel/common/kmachine.h"
 
@@ -777,36 +778,32 @@ static void a35_gfps_frame_tick() {
   const u64 gap = raw - g_gfps_last_raw;  // real duration of the frame that ended
   g_gfps_last_raw = raw;
 
-  double tfps = Gfx::g_global_settings.target_fps;  // == engine target-fps
-  if (tfps < 1.0) {
-    tfps = 60.0;
-  }
-  const double budget_bus = 585900.0 / tfps;  // == *ticks-per-frame*
   const double real_dt_sec = (double)gap / 300000000.0;
 
-  // accumulate the game-frames real time demands (clamp a load/stall spike to the
-  // engine's own fmin-4.0 ceiling so a long hitch can't fast-forward afterwards).
-  double inc = real_dt_sec * tfps;
-  if (inc > 4.0) {
-    inc = 4.0;
+  // anim-interp-low-fps — LE CHOIX DE k ET L'ALPHA SONT PASSES DANS `render_pace`, PARTAGE
+  // AVEC LE BUREAU. Ce bloc calculait ici sa propre version, et elle portait deux defauts que
+  // l'owner voyait (« très jittery quelque soit le framerate, 60 FPS comme 15 fps comme 45 ») :
+  //   * `k = round(deficit)` autorise deficit > k, donc alpha > 1 : la borne [0,1] EPINGLAIT
+  //     ces images-la sur la pose courante et refabriquait un pas inegal. `render_pace` prend
+  //     `k = ceil(deficit - eps)`, ce qui rend alpha <= 1 SANS bornage.
+  //   * `alpha = (deficit - 0,5)/k` : ce demi-tick de retard est DIVISE PAR k, donc il ALTERNE
+  //     des que k alterne (0,50 tick a k=1, 0,25 a k=2) — c'est une gigue de 4 ms fabriquee par
+  //     le correctif lui-meme, et il interdisait `alpha == 1,0` a 60 img/s verrouillees.
+  // La formule exacte est `alpha = deficit/k` : voir l'identite dans render_pace.h.
+  // `*anim-interp-n*` est un symbole JAK 1 ; ce meme corps sert aussi a jak2, dont la table
+  // de symboles est une autre. On ne l'interroge donc que pour jak1 : ailleurs la mesure vaut
+  // simplement zero et le module se comporte a l'identique.
+  u64 anim_interp_n = 0;
+  if (g_game_version == GameVersion::Jak1) {
+    anim_interp_n = jak1::intern_from_c("*anim-interp-n*")->value;
   }
-  g_gfps_desired += inc;
-  double deficit = g_gfps_desired - g_gfps_emitted;
-  long k = (long)(deficit + 0.5);  // round to nearest integer time-ratio
-  if (k < 1) {
-    k = 1;  // engine needs time-ratio >= 1
-  }
-  if (k > 4) {
-    k = 4;  // engine fmin 4.0 clamp
-  }
+  render_pace::on_render_frame(anim_interp_n);
+  const long k = (long)render_pace::last_k();
+  const double deficit = render_pace::last_deficit();
+  g_gfps_virtual = render_pace::ee_timer();
+  g_gfps_desired += real_dt_sec * Gfx::g_global_settings.target_fps;
   g_gfps_emitted += (double)k;
 
-  // ----- Gcamera-interp: publish the render-interp alpha for update-camera ----
-  // deficit (pre-emit fractional demand, line ~525) and k (emitted integer ratio)
-  // locate real display time within this frame's k-tick camera step. GOAL renders the
-  // camera pose at cumulative real-time R = desired - 0.5 tick between the prev & curr
-  // logic poses, so on-screen camera motion advances EVENLY (== real frame time) and
-  // the integer-k dither is smoothed. Render-only; the game clock is untouched.
   {
     static unsigned s_caminterp_poll = 0;
     if ((s_caminterp_poll++ & 63) == 0) {
@@ -815,35 +812,8 @@ static void a35_gfps_frame_tick() {
       g_cam_interp_enabled =
           !(__system_property_get("debug.opengoal.caminterp", pv) > 0 && pv[0] == '0');
     }
-    // Render at cumulative real-time MINUS a half-tick (R = desired - 0.5). Because
-    // k == round(deficit), |deficit - k| <= 0.5, so alpha == (deficit-0.5)/k lands in
-    // [0,1] for EVERY k WITHOUT clamping => R advances perfectly evenly (== inc == real
-    // frame time) and NEVER extrapolates past the current pose. (Plain deficit/k would
-    // exceed 1 whenever the device runs a hair behind schedule; the [0,1] clamp then
-    // pinned those frames to the current pose, reintroducing an uneven step. The
-    // half-tick lag (~8ms) removes that residual dither.) The clamp below is now only a
-    // safety net for load-hitch frames (residual > 0.5).
-    double alpha = (k > 0) ? ((deficit - 0.5) / (double)k) : 1.0;
-    if (alpha < 0.0) alpha = 0.0;
-    if (alpha > 1.0) alpha = 1.0;
-    long micro = (long)(alpha * 1000000.0 + 0.5);
-    if (!g_cam_interp_enabled) micro = 1000000;  // disabled => no interp
-    g_cam_interp_alpha_micro = micro;
+    g_cam_interp_alpha_micro = g_cam_interp_enabled ? (long)render_pace::alpha_micro() : 1000000;
   }
-
-  // keep the carried residual bounded so it tracks the FRACTION, never a backlog.
-  if (g_gfps_desired - g_gfps_emitted > 4.0) {
-    g_gfps_desired = g_gfps_emitted + 4.0;
-  } else if (g_gfps_desired - g_gfps_emitted < -2.0) {
-    g_gfps_desired = g_gfps_emitted - 2.0;
-  }
-
-  // advance the clock by the MIDDLE of time-ratio k's band so the engine formula
-  // floor(tc/budget)+1 (snap <1.3 -> 1) resolves to exactly k:
-  //   k==1 -> 1.0 budget  (float_tr 1.0 < 1.3 -> snapped to 1)
-  //   k>=2 -> (k-0.5) budgets  (float_tr k-0.5 >= 1.5 -> floor+1 == k)
-  const double band_bus = (k == 1) ? budget_bus : ((double)k - 0.5) * budget_bus;
-  g_gfps_virtual += (u64)(band_bus * 512.0 + 0.5);  // bus-ticks -> EE ticks (<<9)
 
   // ----- state-anchored speed probe (debug.opengoal.gspeed.measure=1) --------
   // Once per real frame: real dt (=> fps), emitted integer time-ratio k, and
@@ -896,12 +866,9 @@ static void a35_gfps_frame_tick() {
 // the enclosing anonymous namespace; only these registered helpers need C ABI.
 extern "C" {
 u64 a35_read_ee_timer() {
-  if (!g_gfps_init && g_gfps_virtual == 0) {
-    // Pre-first-frame (boot/link, before any chain): seed once from the real
-    // clock. Held constant until the first frame tick, so the engine sees
-    // timer-count == 0 -> time-ratio 1 (the safe boot default).
-    g_gfps_virtual = (ee_clock_timer.getNs() * 3) / 10;
-  }
+  // anim-interp-low-fps : MEME horloge que le bureau (game/kernel/common/kmachine.cpp
+  // `read_ee_timer`). L'amorcage avant la premiere image est gere dans le module.
+  g_gfps_virtual = render_pace::ee_timer();
   return g_gfps_virtual;
 }
 
@@ -915,12 +882,14 @@ void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
   // pas fixe avance son accumulateur et publie vers GOAL. Android a son propre corps
   // pour ce symbole, donc les deux doivent etre cables ou la plateforme oubliee reste
   // silencieusement sur l'ancien chemin.
-  fixed_tick::on_render_frame();
   // Gframerate-variable: this is the once-per-frame signal (drawable.gc
   // display-sync calls __send-gfx-dma-chain exactly once per rendered frame).
   // Run the error-feedback game-clock tick here so the engine's per-frame
   // time-ratio tracks REAL wall-clock time (see a35_gfps_frame_tick).
+  // anim-interp-low-fps : AVANT `fixed_tick::on_render_frame()` — MEME ordre qu'au bureau,
+  // parce que c'est le publieur de celui-ci qui ecrit `*render-pace-skip*` vers GOAL.
   a35_gfps_frame_tick();
+  fixed_tick::on_render_frame();
   // Gjak2-pcmenus: jak2 counterpart of the jak1 g_overlay_in_menu publisher in
   // a36_tree_scan_per_frame() (that one is g_syms.armed-gated => jak1-only, and
   // jak2's `syncv` binds jak2::sceGsSyncV (kmachine.cpp:646) which never calls

@@ -732,6 +732,9 @@ add_library(gk SHARED
     # a35_send_gfx_dma_chain (gk_android_main.cpp) ; la liste de sources Android est
     # separee de celle du bureau, il faut donc la citer ici aussi ou libgk.so ne lie pas.
     "${JAK_ROOT}/game/graphics/fixed_tick.cpp"
+    # anim-interp-low-fps : MEME module que le bureau. Un .cpp neuf doit etre liste ICI ET
+    # dans game/CMakeLists.txt, sinon x86 passe sa preuve et l'arm64 meurt au LIEN.
+    "${JAK_ROOT}/game/graphics/render_pace.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
     # foliage-wind : la loi, le recensement et la porte `wind_divergent_pairs`. Un .cpp neuf doit
     # etre liste ICI ET dans game/CMakeLists.txt : sinon x86 passe et l'arm64 meurt au LIEN.

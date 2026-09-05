@@ -1082,6 +1082,16 @@
     (#when PC_PORT
       (if (nonzero? *fixed-tick-armed*)
           (set! time-ratio (if (nonzero? *fixed-tick-skip*) 0.0 1.0))))
+    ;; anim-interp-low-fps — IMAGE DE RENDU SEUL SUR LE CHEMIN D'ORIGINE. `render_pace`
+    ;; (game/graphics/render_pace.cpp) choisit le nombre de ticks sur un reste borne ; quand ce
+    ;; nombre vaut zero, l'horloge virtuelle n'avance pas, mais la formule ci-dessus rendrait
+    ;; quand meme 1 (elle ne sait pas produire 0). C'est ici, et seulement ici, que le zero se
+    ;; declare. Sans lui, au moins un tick etait impose par image dessinee : la simulation
+    ;; passait devant le temps reel, `alpha` se collait a 0 et la pose etait dessinee un tick
+    ;; entier en arriere, image apres image.
+    (#when PC_PORT
+      (if (and (zero? *fixed-tick-armed*) (nonzero? *render-pace-skip*))
+          (set! time-ratio 0.0)))
     ;; Gfixed-tick-anim-interp — L'ALPHA EFFECTIF DE L'IMAGE QUI VA ETRE CONSTRUITE.
     ;; Il se pose ICI et nulle part ailleurs : `display-frame-start` est appele en QUEUE
     ;; de `swap-display`, donc juste APRES que le natif a publie l'alpha de cette image
@@ -1098,6 +1108,13 @@
                1000000.0)))
     ;; inform display system of our speed. This will adjust the scaling used in all physics calculations
     (set-time-ratios *display* time-ratio)
+    ;; anim-interp-low-fps — LE PAS DU DERNIER TICK. `time-adjust-ratio` vaut 0 sur une image
+    ;; de rendu seul ; les retimeurs qui le lisent y trouveraient un pas nul, donc rien a
+    ;; retimer, donc une image FIGEE. On latche donc la derniere valeur non nulle, et c'est
+    ;; elle que `joint-channel-tick-delta-direct` lit.
+    (#when PC_PORT
+      (if (!= time-ratio 0.0)
+          (set! *render-pace-ratio* (-> *display* time-adjust-ratio))))
     ;; Gfixed-tick-interpolation : un seul chemin pour avancer les horloges, partage
     ;; avec les ticks de rattrapage de `display-loop`.
     (display-frame-advance-clocks! disp time-ratio))

@@ -62,19 +62,28 @@
       (('pal)
        (set! (-> this time-adjust-ratio) (* 1.2 ratio))
        (set! (-> this seconds-per-frame) (* 0.02 ratio))
-       (set! (-> this frames-per-second) (* 50.0 (/ 1.0 ratio)))
+       ;; anim-interp-low-fps : garde a ratio nul. `1/0` = +inf, multiplie par des deltas
+       ;; qui valent exactement 0 sur une image de rendu seul => NaN, propage jusqu'a la
+       ;; position de Jak (target-util.gc:531). On publie la valeur NOMINALE : tous ces
+       ;; produits rendent alors 0 et la logique GELE proprement.
+       (set! (-> this frames-per-second) (if (= ratio 0.0) 50.0 (* 50.0 (/ 1.0 ratio))))
        ;; 6 "ticks" per frame * 50 fps = 300 ticks per second.
        (set! (-> this time-factor) 6.0))
       (('ntsc)
        (set! (-> this time-adjust-ratio) ratio)
        (set! (-> this seconds-per-frame) (* 0.016666668 ratio))
-       (set! (-> this frames-per-second) (* 60.0 (/ 1.0 ratio)))
+       ;; anim-interp-low-fps : meme garde a ratio nul que la branche 'pal ci-dessus.
+       (set! (-> this frames-per-second) (if (= ratio 0.0) 60.0 (* 60.0 (/ 1.0 ratio))))
        ;; 5 "ticks" per frame * 60 fps = 300 ticks per second.
        (set! (-> this time-factor) 5.0))
       (('custom)
        (set! (-> this time-adjust-ratio) (* (/ 60.0 (-> *pc-settings* target-fps)) ratio))
        (set! (-> this seconds-per-frame) (/ ratio (-> *pc-settings* target-fps)))
-       (set! (-> this frames-per-second) (* (the float (-> *pc-settings* target-fps)) (/ 1.0 ratio)))
+       ;; anim-interp-low-fps : meme garde a ratio nul que les branches 'pal et 'ntsc.
+       (set! (-> this frames-per-second)
+             (if (= ratio 0.0)
+                 (the float (-> *pc-settings* target-fps))
+                 (* (the float (-> *pc-settings* target-fps)) (/ 1.0 ratio))))
        ;; x "ticks" per frame * y fps = 300 ticks per second.
        (set! (-> this time-factor) (/ 300.0 (-> *pc-settings* target-fps))))
       (else (format #t "Warning: Tried to set unsupported video-mode"))))

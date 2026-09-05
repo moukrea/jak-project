@@ -236,6 +236,29 @@
                             (the rgba -1))))))))
 
 (defmethod do-joint-math! ((obj process-drawable))
+  ;; anim-interp-low-fps — DECALAGE DE RENDU DE LA POSITION MONDE.
+  ;; Les os sont construits ici a partir de `(-> obj root trans)`, qui n'avance QUE sur un tick
+  ;; de logique. Retimer la pose du squelette (`joint-channel-render-frame`) et la camera
+  ;; (`cam-render-interp!`) sans retimer le corps, c'est le pire des trois etats : le monde
+  ;; glisse et les personnages saccadent dessus. On recule donc la position monde de
+  ;; (1 - alpha) fois le pas du dernier tick — `transv * *render-pace-ratio* / 60`, la meme
+  ;; grandeur que l'integrateur de collision utilise (collide-shape.gc:785) — puis on la
+  ;; RESTAURE avant de rendre la main. Aucun etat de jeu n'est touche : c'est du rendu seul,
+  ;; comme le scratch de `cam-render-interp!`.
+  (let ((rp-saved (new-stack-vector0))
+        (rp-shift #f))
+    (when (and (nonzero? *anim-interp-on*)
+               (< *anim-interp-alpha* 1.0)
+               (nonzero? (-> obj root))
+               (type-type? (-> obj root type) trsqv))
+      (let ((rp-root (the-as trsqv (-> obj root)))
+            (rp-step (new-stack-vector0)))
+        (set! (-> rp-saved quad) (-> rp-root trans quad))
+        (set! rp-shift #t)
+        (vector-float*! rp-step
+                        (-> rp-root transv)
+                        (* (- *anim-interp-alpha* 1.0) (* 0.016666668 *render-pace-ratio*)))
+        (vector+! (-> rp-root trans) (-> rp-root trans) rp-step)))
   (cond
     ((logtest? (-> obj draw status) (draw-status hidden no-anim)))
     ((zero? (-> obj skel))
@@ -276,6 +299,10 @@
                (-> (the-as (pointer uint128)
                            (+ (the-as uint (-> obj draw skeleton bones 0 transform vector 3)) (* (the-as uint 96) v1-54)))))
          (vector<-cspace! (-> obj draw origin) (-> obj node-list data v1-54))))))
+    ;; anim-interp-low-fps : la position monde revient a sa valeur de simulation AVANT tout ce
+    ;; qui suit (physique secondaire, debug) et avant que le process ne reprenne la main.
+    (when rp-shift
+      (set! (-> (the-as trsqv (-> obj root)) trans quad) (-> rp-saved quad))))
   (#when PC_PORT
     (when *debug-segment*
       (if *display-bones* (draw-bone-lines obj))

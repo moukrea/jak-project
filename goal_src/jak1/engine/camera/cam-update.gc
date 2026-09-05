@@ -274,9 +274,14 @@
           ;; interpolate position (lerp prev->curr) in place
           (vector-lerp! (-> mc trans) *cam-interp-prev-trans* raw-trans alpha)))
       ;; store the RAW current pose as next frame's prev (every frame, interp or not)
-      (quaternion-copy! *cam-interp-prev-quat* curr-quat)
-      (vector-copy! *cam-interp-prev-trans* raw-trans)
-      (set! *cam-interp-valid* #t)))
+      ;; anim-interp-low-fps : SAUF sur une image de rendu seul. La camera n'a pas bouge
+      ;; (time-adjust-ratio = 0), donc `raw-trans` y vaut deja la pose du dernier tick :
+      ;; l'ecrire dans `prev` collerait prev sur curr et l'interpolation deviendrait
+      ;; l'identite — la camera se figerait une image sur deux.
+      (when (zero? *render-pace-skip*)
+        (quaternion-copy! *cam-interp-prev-quat* curr-quat)
+        (vector-copy! *cam-interp-prev-trans* raw-trans)
+        (set! *cam-interp-valid* #t))))
   #f)
 
 (defun update-camera ()

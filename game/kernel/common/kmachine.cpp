@@ -14,6 +14,7 @@
 #include "game/graphics/display.h"
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/render_pace.h"
 #include "game/graphics/screenshot.h"
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kernel_types.h"
@@ -515,8 +516,12 @@ u64 pc_filter_debug_string(u32 str_ptr, u32 dist_ptr) {
 CommonPCPortFunctionWrappers g_pc_port_funcs;
 
 u64 read_ee_timer() {
-  u64 ns = ee_clock_timer.getNs();
-  return (ns * 3) / 10;
+  // anim-interp-low-fps : l'horloge que GOAL lit est desormais celle de `render_pace`. Elle
+  // avance par bandes entieres de ticks choisies sur un RESTE BORNE, de sorte que
+  // `display-frame-start` (drawable.gc:1057) retrouve exactement le k qu'on a decide et que
+  // l'alpha publie a cote (`pc_camera_interp_alpha`) place la pose dessinee au bon instant.
+  // Desarme, `render_pace::ee_timer()` rend la meme montre murale qu'avant, au bit pres.
+  return render_pace::ee_timer();
 }
 
 void pc_memmove(u32 dst, u32 src, u32 size) {
@@ -531,6 +536,18 @@ void send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
   // a35_send_gfx_dma_chain (android/gk_android_main.cpp) : la ce sont DEUX corps
   // distincts pour le meme symbole GOAL, et n'en cabler qu'un laisserait la
   // plateforme oubliee sur l'ancien chemin sans que rien ne le dise.
+  // anim-interp-low-fps : AVANT `fixed_tick::on_render_frame()`, parce que c'est le publieur de
+  // celui-ci (`fixed_tick_publish`) qui ecrit `*render-pace-skip*` vers GOAL : le publier avant
+  // de l'avoir calcule le rendrait vieux d'une image, et une image de rendu seul serait alors
+  // declaree un tick trop tard.
+  // On passe `*anim-interp-n*` — le nombre cumule de canaux d'animation REELLEMENT retimes
+  // (process-drawable-h.gc:176) — parce que la mesure d'erreur doit se faire au point de
+  // LECTURE : un alpha pousse que personne ne lit se solde a 1,0 dans le chiffre publie.
+  u64 anim_interp_n = 0;
+  if (g_pc_port_funcs.intern_from_c) {
+    anim_interp_n = g_pc_port_funcs.intern_from_c("*anim-interp-n*").value;
+  }
+  render_pace::on_render_frame(anim_interp_n);
   fixed_tick::on_render_frame();
   if (Gfx::GetCurrentRenderer()) {
     Gfx::GetCurrentRenderer()->send_chain(g_ee_main_mem, chain);
@@ -1127,11 +1144,15 @@ s32 pc_get_frame_busy_us() {
   return (s32)(Gfx::g_global_settings.measured_frame_busy_ms * 1000.f + 0.5f);
 }
 
-// Gcamera-interp: desktop/x86 stub. Returns alpha micro-units == 1e6 (alpha 1.0) so
-// GOAL update-camera skips interpolation (render-only feature is Android-frame-clock
-// driven; desktop runs the reference cadence). Keeps x86 render byte-identical.
+// anim-interp-low-fps : CE STUB ETAIT LE DEFAUT. Il rendait 1e6 en dur, donc
+// `*anim-interp-alpha*` valait 1,0 (drawable.gc:1096) et les DEUX retimeurs de rendu —
+// `cam-render-interp!` (cam-update.gc:246) et `joint-channel-render-frame`
+// (process-drawable-h.gc:155) — sortaient en identite a chaque appel : le bureau n'a JAMAIS
+// interpole quoi que ce soit, quelle que soit la cadence. Il rend maintenant l'alpha de
+// `render_pace`, qui vaut exactement 1e6 a cadence verrouillee (sortie inchangee au bit) et
+// place la pose au temps reel des que la duree d'image cesse d'etre un multiple du tick.
 s32 pc_camera_interp_alpha() {
-  return 1000000;
+  return render_pace::alpha_micro();
 }
 
 u32 pc_get_os() {

@@ -420,9 +420,15 @@ void InitMachine_PCPort() {
   init_common_pc_port_functions(
       make_function_symbol_from_c,
       [](const char* name) {
-        const auto result = intern_from_c(-1, 0, name);
+        auto result = intern_from_c(-1, 0, name);  // non-const : Ptr<T>::operator-> ne l'est pas
         InternFromCInfo info{};
         info.offset = result.offset;
+        // anim-interp-low-fps : `value` n'etait JAMAIS rempli — le champ existe dans
+        // `InternFromCInfo` (game/kernel/common/kmachine.h) et les trois jeux rendaient un zero
+        // silencieux. Tout code commun qui LIT un symbole GOAL par ce chemin recevait donc 0
+        // sans que rien ne le signale : c'est ce qui faisait sortir le compteur de retimage
+        // `*anim-interp-n*` a zero alors que le moteur en comptait 91 204 sur 5 903 images.
+        info.value = result->value();  // jak2-3 : Symbol4<u32>, accesseur
         return info;
       },
       make_string_from_c);

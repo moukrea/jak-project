@@ -118,7 +118,11 @@
          ;; Sous pas fixe, un tick vaut TOUJOURS 1.0 -- y compris sur une image de
          ;; RENDU SEUL, ou `time-adjust-ratio` vaut 0 et ou lire ce champ rendrait un
          ;; pas nul, donc aucune interpolation exactement la ou elle est necessaire.
-         (ratio (if (nonzero? *fixed-tick-armed*) 1.0 (-> *display* time-adjust-ratio)))
+         ;; anim-interp-low-fps : `*render-pace-ratio*` et non `time-adjust-ratio`. Les deux
+         ;; sont EGAUX sur toute image qui porte un tick ; sur une image de rendu seul le
+         ;; second vaut 0, et un pas nul fait sortir ce retimeur en identite — l'image se
+         ;; figerait au lieu de glisser.
+         (ratio (if (nonzero? *fixed-tick-armed*) 1.0 *render-pace-ratio*))
          (rate (* (-> chan frame-group speed) ratio)))
     (cond
       ((or (= nf num-func-+!) (= nf num-func-loop!)) (* (-> chan param 0) rate))
