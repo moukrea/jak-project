@@ -882,6 +882,135 @@ int main() {
     npc_flicker::set_render_counters_fn(nullptr);
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // ESSAI 13 — UN EPISODE N'EST UN DEFAUT QUE S'IL A ETE NOIR DANS LE CHAMP.
+  //
+  // POURQUOI CE BRAS EXISTE. La porte comptait 8 episodes sur la course x86 du 2026-09-05 alors
+  // que les SEPT acteurs de `mayor-introduction` portaient `noir_dans_frustum=0`. Cinq de ces
+  // episodes se reproduisent a moins de 1 % pres EN MILLISECONDES sur le Honor de l'owner, qui
+  // tourne trois fois moins vite (sidekick 6798/6856 ms, hutlamp 7450/7463, mayorgears
+  // 13749/13785, crate-iron 4601/4624, eichar 18849/18899) : ce sont les PLANS de la cinematique.
+  // `classify()` les reclassait en defaut sur l'unique image de bord ou `was-drawn` est encore
+  // pose et ou le rendu n'a pas encore repondu — le decalage d'une image que la ligne NPCSCENE
+  // publie (`ecart1=`) et dont le module se protege deja partout ailleurs.
+  //
+  // LES QUATRE PROPRIETES, DANS L'ORDRE OU ELLES PEUVENT TOMBER. La 1 est le controle POSITIF :
+  // c'est le cas de l'owner (`mayor-lod0`, `modele-absent`, `noir_dans_frustum=1823` sur
+  // `images_dans_frustum=3448`). Si elle tombe, la porte est devenue un seau d'excuse et le
+  // defaut peut revenir sans qu'aucun compteur ne monte — exactement la faute de 45b7140ca7.
+  // ---------------------------------------------------------------------------------------------
+  {
+    // 1. POSITIF — dans le champ, le modele n'est pas resident, 30 images : DEFAUT.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      Actor a = shown("mayor-lod0", 1300);
+      a.in_fov = 1;
+      run_frame("noir-1", {a});
+    }
+    for (int i = 0; i < 30; i++) {
+      run_frame("noir-1", {Actor{"mayor-lod0", 1300, kWasDrawn, true, false,
+                                 npc_flicker::Outcome::kMissing, 1, 1, 1}});
+    }
+    for (int i = 0; i < 5; i++) {
+      Actor a = shown("mayor-lod0", 1300);
+      a.in_fov = 1;
+      run_frame("noir-1", {a});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    {
+      auto t = npc_flicker::totals();
+      check(t.cycles + t.longues == 1 && t.hors_champ == 0,
+            "noir DANS le champ 30 images : l'episode est un DEFAUT",
+            "cycles=" + std::to_string(t.cycles) + " longues=" + std::to_string(t.longues) +
+                " hors_champ=" + std::to_string(t.hors_champ));
+    }
+
+    // 2. NEGATIF — meme trou, meme cause, mais la camera ne le regarde pas : PAS un defaut.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      Actor a = shown("mayor-lod0", 1301);
+      a.in_fov = 1;
+      run_frame("noir-2", {a});
+    }
+    for (int i = 0; i < 30; i++) {
+      run_frame("noir-2", {Actor{"mayor-lod0", 1301, kWasDrawn, true, false,
+                                 npc_flicker::Outcome::kDrawn, 1, 0, 1}});
+    }
+    for (int i = 0; i < 5; i++) {
+      Actor a = shown("mayor-lod0", 1301);
+      a.in_fov = 1;
+      run_frame("noir-2", {a});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    {
+      auto t = npc_flicker::totals();
+      check(t.cycles + t.longues == 0 && t.hors_champ == 1,
+            "meme trou HORS du champ : range dans hors_champ, publie",
+            "cycles=" + std::to_string(t.cycles) + " longues=" + std::to_string(t.longues) +
+                " hors_champ=" + std::to_string(t.hors_champ));
+    }
+
+    // 3. UN CONTROLE MUET N'EXCUSE PAS. `in_fov = -1` : GOAL n'a pas pu evaluer le frustum. On ne
+    //    SAIT pas que l'acteur etait dehors — l'episode reste un defaut. Sans cette propriete, un
+    //    acteur sans `root` verrait 100 % de ses disparitions excusees par construction.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      Actor a = shown("mayor-lod0", 1302);
+      a.in_fov = 1;
+      run_frame("noir-3", {a});
+    }
+    for (int i = 0; i < 30; i++) {
+      run_frame("noir-3", {Actor{"mayor-lod0", 1302, kWasDrawn, true, false,
+                                 npc_flicker::Outcome::kDrawn, 1, -1, 1}});
+    }
+    for (int i = 0; i < 5; i++) {
+      Actor a = shown("mayor-lod0", 1302);
+      a.in_fov = 1;
+      run_frame("noir-3", {a});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    {
+      auto t = npc_flicker::totals();
+      check(t.cycles + t.longues == 1 && t.hors_champ == 0,
+            "controle de frustum NON EVALUE : l'episode reste un defaut",
+            "cycles=" + std::to_string(t.cycles) + " longues=" + std::to_string(t.longues) +
+                " hors_champ=" + std::to_string(t.hors_champ));
+    }
+
+    // 4. LE CAS EXACT DU FAUX ROUGE — une SEULE image de bord dans le champ a la fin du trou.
+    //    C'est ce que produit le decalage d'une image entre les deux horloges quand la camera
+    //    revient sur l'acteur : `was-drawn` est deja pose, le rendu n'a pas encore repondu.
+    npc_flicker::reset_for_test();
+    g_frame = 0;
+    for (int i = 0; i < 10; i++) {
+      Actor a = shown("mayor-lod0", 1303);
+      a.in_fov = 1;
+      run_frame("noir-4", {a});
+    }
+    for (int i = 0; i < 30; i++) {
+      run_frame("noir-4", {Actor{"mayor-lod0", 1303, kWasDrawn, true, false,
+                                 npc_flicker::Outcome::kDrawn, 1, 0, 1}});
+    }
+    run_frame("noir-4", {Actor{"mayor-lod0", 1303, kWasDrawn, true, false,
+                               npc_flicker::Outcome::kDrawn, 1, 1, 1}});
+    for (int i = 0; i < 5; i++) {
+      Actor a = shown("mayor-lod0", 1303);
+      a.in_fov = 1;
+      run_frame("noir-4", {a});
+    }
+    npc_flicker::begin_census("hors-cinematique");
+    {
+      auto t = npc_flicker::totals();
+      check(t.cycles + t.longues == 0 && t.hors_champ == 1,
+            "UNE image de bord dans le champ ne fabrique pas un defaut",
+            "cycles=" + std::to_string(t.cycles) + " longues=" + std::to_string(t.longues) +
+                " hors_champ=" + std::to_string(t.hors_champ));
+    }
+  }
+
   printf("\n%s — %d echec(s)\n", g_fail ? "SELFTEST FAILED" : "SELFTEST PASS", g_fail);
   return g_fail ? 1 : 0;
 }

@@ -186,6 +186,10 @@ struct Totals {
   uint64_t actors = 0;
   uint64_t cycles = 0;   // episodes DEFECTUEUX (voir la note sur les causes gatees)
   uint64_t coupes = 0;   // episodes explicables : hors du frustum, ou masque volontairement
+  // ESSAI 13 : episodes de cause DEFECTUEUSE pendant lesquels l'acteur n'a jamais ete « dans le
+  // champ et rien a l'ecran » 3 images d'affilee — la composition de la scene, pas une panne.
+  // Publie a cote du verdict (`npc_episodes_hors_champ`), jamais fondu dedans.
+  uint64_t hors_champ = 0;
   uint64_t longues = 0;  // episodes de cause DEFECTUEUSE mais plus longs que la borne haute
   uint64_t blinks = 0;   // episodes de 1 a kMinEpisodeFrames-1 images (publies, non gates)
   uint64_t by_reason[11] = {};  // indexe par Reason

@@ -122,6 +122,11 @@ struct ActorRec {
   uint64_t by_reason[kReasonCount] = {};
   uint64_t coupes = 0;
   uint64_t longues = 0;
+  // ESSAI 13 — LE SEAU DES EPISODES SANS AUCUN NOIR DANS LE CHAMP. Un episode dont la cause est
+  // une panne (`nodraw`, `modele-absent`...) mais pendant lequel l'acteur n'a JAMAIS ete « dans le
+  // champ et rien a l'ecran » pendant kMinEpisodeFrames images d'affilee n'est pas ce que l'owner
+  // voit : c'est la composition de la scene. Publie a cote du verdict, jamais fondu dedans.
+  uint64_t hors_champ = 0;
   uint64_t max_gap = 0;
   // L'owner ne voit pas des images, il voit une DUREE. Un trou d'une image ne dure pas la meme
   // chose a 60 img/s sur bureau et a 15 sur son telephone : publier les deux est ce qui rend la
@@ -139,6 +144,15 @@ struct ActorRec {
   // l'ecran », sans qu'aucun bit de statut n'excuse.
   uint64_t in_fov_dark_frames = 0;
   uint64_t dark_run = 0;         // images NOIRES consecutives en cours (voir la regle des 3)
+  // ESSAI 13 — CE QUI S'EST PASSE PENDANT L'EPISODE EN COURS, ET C'EST LUI QUI DECIDE.
+  // `gap_dark` : images « dans le champ ET rien a l'ecran » accumulees pendant ce trou, comptees
+  // avec EXACTEMENT la meme regle des 3 images que `in_fov_dark_frames` (les deux horloges du
+  // recensement sont decalees d'au plus une image ; la ligne NPCSCENE publie l'histogramme).
+  // `gap_uneval` : images du trou ou le controle de frustum n'a PAS PU etre evalue. Un controle
+  // muet n'excuse rien — sans ce terme, un acteur sans `root` verrait toutes ses disparitions
+  // rangees hors champ sans qu'aucune mesure ne l'ait jamais montre dehors.
+  uint64_t gap_dark = 0;
+  uint64_t gap_uneval = 0;
   bool npc = false;  // GOAL a reconnu un `process-taskable`
   uint64_t open_gap_frames = 0;  // images de l'episode ENCORE OUVERT au flush (jetees avant)
 
@@ -198,6 +212,7 @@ constexpr int kMaxDarkLogs = 40;
 
 // Images de recensement ou un PNJ etait la mais ou le controle de frustum n'a PAS pu etre evalue.
 uint64_t g_fov_unevaluated = 0;
+uint64_t g_fov_unevaluated_all = 0;
 // Images ou le compagnon HD a ete MAINTENU alors que l'ancien code l'aurait eteint.
 uint64_t g_hd_noanim_cover = 0;
 
@@ -389,6 +404,12 @@ Reason classify(const std::string& key,
 }
 
 void close_gap(const std::string& name, ActorRec& rec) {
+  // Les deux grandeurs de l'episode se consomment ICI et se remettent a zero dans tous les cas,
+  // y compris quand aucun trou n'etait ouvert : elles decrivent le trou courant, pas l'acteur.
+  const uint64_t gap_dark = rec.gap_dark;
+  const uint64_t gap_uneval = rec.gap_uneval;
+  rec.gap_dark = 0;
+  rec.gap_uneval = 0;
   if (!rec.in_gap) {
     return;
   }
@@ -399,18 +420,53 @@ void close_gap(const std::string& name, ActorRec& rec) {
   if (ms > rec.max_gap_ms) {
     rec.max_gap_ms = ms;
   }
+  // ESSAI 13 — CE QU'UN EPISODE DOIT MONTRER POUR ETRE UN DEFAUT, ET POURQUOI CE N'EST PAS UN
+  // ASSOUPLISSEMENT. Le livrable, mot pour mot : « Zero PNJ ecarte du rendu PENDANT QU'IL EST DANS
+  // LE CHAMP de la camera ». La cause seule ne dit pas ca. `classify()` reclasse un episode en
+  // defaut des qu'UNE image porte `was-drawn` sans dessin — or ce decalage d'UNE image entre le
+  // recensement GOAL et le compteur d'images du rendu est mesure et publie a chaque scene
+  // (`ecart1=`), et le module s'en protege deja partout ailleurs par la regle des 3 images. La
+  // reclassification, elle, n'en avait aucune : une coupe de camera parfaitement legitime
+  // devenait un defaut sur son unique image de bord.
+  //
+  // CE QUE CA COUTAIT, SUR LA MESURE. Course x86 du 2026-09-05, `mayor-introduction` :
+  // 8 episodes publies, `noir_dans_frustum=0` pour LES SEPT acteurs. Cinq d'entre eux se
+  // reproduisent a moins de 1 % pres EN MILLISECONDES sur le Honor de l'owner, qui tourne trois
+  // fois moins vite : sidekick 6798/6856, hutlamp 7450/7463, mayorgears 13749/13785, crate-iron
+  // 4601/4624, eichar 18849/18899. Une duree qui se reproduit a la milliseconde sur deux
+  // plateformes est ECRITE DANS LA SCENE ; ce sont ses plans, pas une panne. La porte ne pouvait
+  // donc jamais atteindre zero, quel que soit le correctif — un faux rouge structurel.
+  //
+  // ET LE CONTROLE QUI EMPECHE QUE CE SOIT UN SEAU D'EXCUSE (owner, 2026-09-03 : « le seau qui
+  // excusait portait 478 des 479 episodes »). Excuser demande ici une DEMONSTRATION POSITIVE :
+  // le controle de frustum a repondu a chaque image du trou, et il n'a JAMAIS montre l'acteur
+  // dans le champ sans rien a l'ecran pendant 3 images d'affilee. Sur la capture du Honor
+  // (owner-honor/npc_flicker-honor-2026-09-05.txt), `mayor-lod0` porte `noir_dans_frustum=1823`
+  // sur `images_dans_frustum=3448` : ses 7 episodes `modele-absent` restent TOUS des defauts.
+  // Le bras 5 de la garde rejoue exactement ces deux cas a chaque lien de `gk`.
+  const bool noir_dans_le_champ = gap_dark >= (uint64_t)kMinEpisodeFrames || gap_uneval > 0;
   if (rec.gap_len >= (uint64_t)kMinEpisodeFrames) {
     rec.by_reason[rec.gap_reason]++;
-    if (reason_is_defect(rec.gap_reason) &&
-        (rec.gap_len > kMaxEpisodeFrames || ms > kMaxEpisodeMs)) {
+    if (reason_is_defect(rec.gap_reason) && !noir_dans_le_champ) {
+      rec.hors_champ++;
+      emit("NPCFLICK-OFF scene={} pnj={} images={} ms={} cause={} noir={} nonevalue={} hd={} "
+           "plateforme={}\n",
+           g_scene, name, rec.gap_len, ms, reason_name(rec.gap_reason), gap_dark, gap_uneval,
+           rec.hd ? 1 : 0, platform_tag());
+    } else if (reason_is_defect(rec.gap_reason) &&
+               (rec.gap_len > kMaxEpisodeFrames || ms > kMaxEpisodeMs)) {
       rec.longues++;
-      emit("NPCFLICK-LONG scene={} pnj={} images={} ms={} cause={} hd={} plateforme={}\n", g_scene,
-           name, rec.gap_len, ms, reason_name(rec.gap_reason), rec.hd ? 1 : 0, platform_tag());
+      emit("NPCFLICK-LONG scene={} pnj={} images={} ms={} cause={} noir={} nonevalue={} hd={} "
+           "plateforme={}\n",
+           g_scene, name, rec.gap_len, ms, reason_name(rec.gap_reason), gap_dark, gap_uneval,
+           rec.hd ? 1 : 0, platform_tag());
     } else if (reason_is_defect(rec.gap_reason)) {
       rec.cycles++;
       g_last_defect_reason = (int)rec.gap_reason;
-      emit("NPCFLICK-EV scene={} pnj={} images={} ms={} cause={} hd={} plateforme={}\n", g_scene,
-           name, rec.gap_len, ms, reason_name(rec.gap_reason), rec.hd ? 1 : 0, platform_tag());
+      emit("NPCFLICK-EV scene={} pnj={} images={} ms={} cause={} noir={} nonevalue={} hd={} "
+           "plateforme={}\n",
+           g_scene, name, rec.gap_len, ms, reason_name(rec.gap_reason), gap_dark, gap_uneval,
+           rec.hd ? 1 : 0, platform_tag());
     } else {
       rec.coupes++;
     }
@@ -432,13 +488,14 @@ void snapshot() {
       continue;
     }
     emit(
-        "NPCFLICK-P scene={} pnj={} cycles={} hd={} coupes={} longues={} blinks={} mort={} hidden={} "
+        "NPCFLICK-P scene={} pnj={} cycles={} hd={} coupes={} hors_champ={} longues={} blinks={} "
+        "mort={} hidden={} "
         "noanim={} culled={} supprime={} modele_absent={} niveau={} clone={} nodraw={} "
         "cull_aveugle={} matrice_invalide={} trou_max={} "
         "trou_max_ms={} "
         "images={} "
         "dessine={} inst={} plateforme={}\n",
-        g_scene, kv.first, r.cycles, r.hd ? 1 : 0, r.coupes, r.longues, r.blinks,
+        g_scene, kv.first, r.cycles, r.hd ? 1 : 0, r.coupes, r.hors_champ, r.longues, r.blinks,
         r.by_reason[kReasonDead], r.by_reason[kReasonHidden], r.by_reason[kReasonNoAnim],
         r.by_reason[kReasonCulled], r.by_reason[kReasonSuppressed], r.by_reason[kReasonMissing],
         r.by_reason[kReasonLevel], r.by_reason[kReasonRemap], r.by_reason[kReasonNodraw],
@@ -468,13 +525,14 @@ void flush_scene() {
     actors++;
     cycles += r.cycles;
     emit(
-        "NPCFLICK scene={} pnj={} cycles={} hd={} coupes={} longues={} blinks={} mort={} hidden={} "
+        "NPCFLICK scene={} pnj={} cycles={} hd={} coupes={} hors_champ={} longues={} blinks={} "
+        "mort={} hidden={} "
         "noanim={} culled={} supprime={} modele_absent={} niveau={} clone={} nodraw={} "
         "cull_aveugle={} matrice_invalide={} trou_max={} "
         "trou_max_ms={} "
         "images={} "
         "dessine={} inst={} plateforme={}\n",
-        g_scene, kv.first, r.cycles, r.hd ? 1 : 0, r.coupes, r.longues, r.blinks,
+        g_scene, kv.first, r.cycles, r.hd ? 1 : 0, r.coupes, r.hors_champ, r.longues, r.blinks,
         r.by_reason[kReasonDead], r.by_reason[kReasonHidden], r.by_reason[kReasonNoAnim],
         r.by_reason[kReasonCulled], r.by_reason[kReasonSuppressed], r.by_reason[kReasonMissing],
         r.by_reason[kReasonLevel], r.by_reason[kReasonRemap], r.by_reason[kReasonNodraw],
@@ -500,6 +558,7 @@ void flush_scene() {
       g_totals.in_fov_frames_npc += r.in_fov_frames;
     }
     g_totals.coupes += r.coupes;
+    g_totals.hors_champ += r.hors_champ;
     g_totals.longues += r.longues;
     g_totals.blinks += r.blinks;
     g_totals.frames += r.frames;
@@ -572,11 +631,13 @@ void publish_keys_locked() {
   // legitimes. Il se publie.
   uint64_t episodes = g_totals.cycles + g_totals.longues;
   uint64_t episodes_excused = g_totals.coupes;
+  uint64_t episodes_hors_champ = g_totals.hors_champ;
   for (const auto& kv : g_actors) {
     const ActorRec& r = kv.second;
     dark_all += r.in_fov_dark_frames;
     episodes += r.cycles + r.longues;
     episodes_excused += r.coupes;
+    episodes_hors_champ += r.hors_champ;
     if (r.npc) {
       dark_npc += r.in_fov_dark_frames;
       fov_npc += r.in_fov_frames;
@@ -585,6 +646,13 @@ void publish_keys_locked() {
   }
   autoport_proof::publish("npc_flicker_episodes", episodes);
   autoport_proof::publish("npc_flicker_episodes_excused", episodes_excused);
+  // ESSAI 13 — LE SEAU NEUF, PUBLIE A COTE DU VERDICT ET JAMAIS FONDU DEDANS. Un episode de
+  // cause defectueuse pendant lequel l'acteur n'a jamais ete « dans le champ ET rien a l'ecran »
+  // 3 images d'affilee. Sur la course x86 du 2026-09-05 il vaut 8 : les huit episodes que la
+  // porte comptait etaient les PLANS de la cinematique (cinq d'entre eux se reproduisent a moins
+  // de 1 % pres en millisecondes sur le Honor, qui tourne trois fois moins vite). Un seau qui ne
+  // se publie pas est un angle mort ; celui-ci se lit dans proof.txt a cote du verdict.
+  autoport_proof::publish("npc_episodes_hors_champ", episodes_hors_champ);
   // LA CLE DE LA PORTE (`gate: npc_culled_in_frustum == 0`, .autoport/backlog.yaml).
   autoport_proof::publish("npc_culled_in_frustum", dark_npc);
   // Le meme compte SANS la restriction aux PNJ : une exclusion qui ne se publie pas est un angle
@@ -600,6 +668,7 @@ void publish_keys_locked() {
   // LA SCENE QUE L'OWNER NOMME. Sans ces deux-la, un zero pourrait venir d'une course ou sa
   // cinematique n'a tout simplement pas ete jouee — la faute exacte du cycle precedent.
   autoport_proof::publish("npc_fov_unevaluated_frames", g_fov_unevaluated);
+  autoport_proof::publish("npc_fov_unevaluated_all", g_fov_unevaluated_all);
   // LES OCCASIONS ET LES SEAUX EXCUSES, PUBLIES A COTE DU VERDICT. Un zero au numerateur ne dit
   // rien si personne ne sait combien de fois la situation s'est presentee, ni ce qui a ete range
   // ailleurs. C'est la faute exacte des trois cycles precedents.
@@ -968,6 +1037,13 @@ void end_census() {
     // precedente. Le verdict « hors du champ » n'est plus une mesure a cet instant-la, c'est un
     // souvenir. Une absence sous sphere PERIMEE ne peut donc pas etre excusee par la camera :
     // c'est nous qui avons cesse de mettre le modele a jour, et c'est nous qui l'avons efface.
+    // LE DENOMINATEUR DU NOUVEAU SEAU, SUR TOUTE LA POPULATION. `g_fov_unevaluated` ne compte
+    // que les PNJ ; or les episodes rangés hors champ concernent aussi les caisses, les lampes et
+    // le joueur. Un zero de `npc_episodes_hors_champ` ne dirait rien si le controle etait muet
+    // pour eux.
+    if (in_tree && rec.frame_in_fov == -1) {
+      g_fov_unevaluated_all++;
+    }
     const bool sphere_perimee = (rec.frame_status & (0x2 | 0x4 | 0x10)) != 0;
     // UN ACTEUR QUI QUITTE L'ARBRE PENDANT QU'IL EST DANS LE CHAMP. C'est la disparition la plus
     // violente — le process n'existe plus — et elle etait invisible a ce compteur, qui exigeait
@@ -1001,11 +1077,15 @@ void end_census() {
         rec.dark_run++;
         if (rec.dark_run == (uint64_t)kMinEpisodeFrames) {
           rec.in_fov_dark_frames += rec.dark_run;
+          // ESSAI 13 : la MEME image, comptee une seconde fois dans l'episode en cours. C'est ce
+          // total-la que `close_gap` lit pour dire si le trou etait visible a l'ecran.
+          rec.gap_dark += rec.dark_run;
           if (g_scene == kOwnerScene) {
             g_owner_scene_dark += rec.dark_run;
           }
         } else if (rec.dark_run > (uint64_t)kMinEpisodeFrames) {
           rec.in_fov_dark_frames++;
+          rec.gap_dark++;
           if (g_scene == kOwnerScene) {
             g_owner_scene_dark++;
           }
@@ -1038,6 +1118,17 @@ void end_census() {
     }
     if (!rec.ever_shown) {
       continue;  // jamais vu a l'ecran dans cette scene : rien a compter
+    }
+    // ESSAI 13 — UN CONTROLE MUET N'EXCUSE RIEN. Si GOAL n'a pas pu evaluer le frustum a cette
+    // image (`in_fov == -1`, l'acteur n'a pas de `root`), on ne SAIT pas qu'il etait hors champ :
+    // l'episode reste un defaut. Sans ce terme, un acteur sans racine verrait 100 % de ses
+    // disparitions rangees « hors champ » par construction — la faute exacte que la version
+    // precedente du controle de frustum avait deja commise (voir le pave de `npc-census-visit`).
+    // Et l'acteur SORTI DE L'ARBRE tombe sous la meme regle : son `frame_in_fov` n'est alors plus
+    // une mesure, c'est le souvenir de sa derniere image recensee. S'il valait 0 — on l'a vu
+    // dehors — l'exclusion reste une demonstration positive ; s'il n'a jamais ete evalue, non.
+    if (rec.frame_in_fov == -1) {
+      rec.gap_uneval++;
     }
     const Reason now = classify(kv.first, in_tree, rec.frame_status, rec.frame_pid, rec.frame_level,
                                 rec.frame_in_fov);
@@ -1168,6 +1259,7 @@ void reset_for_test() {
   g_owner_scene_frames = 0;
   g_owner_scene_dark = 0;
   g_fov_unevaluated = 0;
+  g_fov_unevaluated_all = 0;
   g_hd_noanim_cover = 0;
   g_clone_fails = 0;
   g_clone_hold.clear();

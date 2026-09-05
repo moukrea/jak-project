@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # Gcutscene-npc-flicker — GARDE DE NON-REGRESSION. Deux bras, tous deux sans appareil.
 #
-#   BRAS 1  l'instrument fonctionne : 9 proprietes de game/system/npc_flicker.cpp, chacune avec
+#   BRAS 1  l'instrument fonctionne : les proprietes de game/system/npc_flicker.cpp, chacune avec
 #           son controle positif (le compteur MONTE) et son controle negatif (il ne monte pas).
+#           ESSAI 13 y ajoute la regle « un episode n'est un defaut que s'il a ete NOIR DANS LE
+#           CHAMP » et ses quatre controles : (+) le cas de l'owner — `mayor-lod0`,
+#           `modele-absent`, `noir_dans_frustum=1823` sur `images_dans_frustum=3448` — reste un
+#           defaut ; (-) le meme trou hors du champ part dans `hors_champ`, publie ; un controle
+#           de frustum NON EVALUE n'excuse pas ; UNE image de bord ne fabrique pas un defaut.
 #   BRAS 3  le seau FOURRE-TOUT de classify() n'est pas un seau EXCUSE. C'est le bras ajoute au
 #           cycle 2 : `culled` etait a la fois le repli de classify() et une cause declaree
 #           NON-DEFAUT, donc tout etat non prevu tombait dans un compteur qui ne fait jamais
