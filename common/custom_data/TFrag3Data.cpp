@@ -1046,8 +1046,11 @@ struct GroundGrid {
     }
   }
 
-  // Le plus haut triangle contenant (x, z) en projection dont la hauteur ne depasse pas `y_max`.
-  bool ground_below(float x, float z, float y_max, float* out_y) const {
+  // Le plus haut triangle de SOL contenant (x, z) en projection, de hauteur dans [y_min, y_max].
+  // « De sol » : pente sous 60 degres (|normale.y| >= 0,5). Une falaise (`cliffmed-8m`) ou un mur
+  // couvre le point en projection avec une hauteur quelconque : sans ce filtre, la premiere course
+  // rendait des « enfoncements » de 8 m qui etaient des faces de falaise.
+  bool ground_below(float x, float z, float y_min, float y_max, float* out_y) const {
     auto it = cells.find(key(cell(x), cell(z)));
     if (it == cells.end()) {
       return false;
@@ -1063,6 +1066,14 @@ struct GroundGrid {
       if (std::fabs(det) < 1e-3f) {
         continue;  // triangle vertical ou degenere en projection
       }
+      // pente : |normale.y| / |normale| = |det| / |(b-a) x (c-a)|
+      const float e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+      const float e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+      const float nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
+      const float nlen = std::sqrt(nx * nx + ny * ny + nz * nz);
+      if (!(nlen > 0.f) || std::fabs(ny) / nlen < 0.5f) {
+        continue;  // plus de 60 degres : une paroi, pas un sol
+      }
       const float l1 = ((x - ax) * (cz - az) - (cx - ax) * (z - az)) / det;
       const float l2 = ((bx - ax) * (z - az) - (x - ax) * (bz - az)) / det;
       const float l0 = 1.f - l1 - l2;
@@ -1071,7 +1082,7 @@ struct GroundGrid {
         continue;
       }
       const float y = l0 * ay + l1 * by + l2 * cy;
-      if (y <= y_max && y > best) {
+      if (y >= y_min && y <= y_max && y > best) {
         best = y;
         found = true;
       }
@@ -1206,7 +1217,7 @@ void foliage_wind_finalize_level(Level& lev) {
                lev.level_name, ti, tree.sway_instances.size(), n_mat);
       continue;
     }
-    u32 n_valid = 0, n_found = 0, n_sunk = 0, n_clamped = 0, max_sunk_mm = 0;
+    u32 n_valid = 0, n_found = 0, n_sunk = 0, n_rejected = 0, max_sunk_mm = 0;
     for (size_t mi = 0; mi < n_mat; mi++) {
       auto& si = tree.sway_instances[mi];
       if (!si.valid) {
@@ -1218,23 +1229,23 @@ void foliage_wind_finalize_level(Level& lev) {
       si.sunk_mm = 0;
       const float span = si.ymax - si.ymin;
       float gy = 0.f;
-      if (span > 0.f && grid.ground_below(si.x, si.z, si.ymax, &gy)) {
-        si.ground_found = true;
-        n_found++;
-        if (gy > si.ymin + 41.f) {  // enfonce de plus d'un centimetre
-          // le pivot ne monte jamais au-dessus de 60 % du buisson : sur une pente, le point sous
-          // l'axe peut etre plus haut que la partie visible du cote aval — on ne laisse pas la
-          // moitie du buisson passer « sous le sol »
-          const float cap = si.ymin + 0.60f * span;
-          float base = gy;
-          if (base > cap) {
-            base = cap;
-            n_clamped++;
+      // le sol est cherche du pied (moins 2 m : un buisson pose sur un rocher garde son pied) a la
+      // couronne ; un sol trouve au-dessus de 60 % du buisson n'est pas credible (une plante
+      // enfoncee aux deux tiers n'existe pas dans un decor ; c'est un rocher ou un toit bas) : on
+      // le REJETTE et le buisson pivote a son pied, plutot que de le faire basculer autour de sa
+      // taille comme une balancoire
+      if (span > 0.f && grid.ground_below(si.x, si.z, si.ymin - 2.f * 4096.f, si.ymax, &gy)) {
+        if (gy > si.ymin + 0.60f * span) {
+          n_rejected++;
+        } else {
+          si.ground_found = true;
+          n_found++;
+          if (gy > si.ymin + 41.f) {  // enfonce de plus d'un centimetre
+            si.base_y = gy;
+            si.sunk_mm = (u32)((gy - si.ymin) / 4096.f * 1000.f + 0.5f);
+            n_sunk++;
+            max_sunk_mm = std::max(max_sunk_mm, si.sunk_mm);
           }
-          si.base_y = base;
-          si.sunk_mm = (u32)((base - si.ymin) / 4096.f * 1000.f + 0.5f);
-          n_sunk++;
-          max_sunk_mm = std::max(max_sunk_mm, si.sunk_mm);
         }
       }
     }
@@ -1296,9 +1307,9 @@ void foliage_wind_finalize_level(Level& lev) {
     }
     lg::info(
         "[foliage-wind] SHRUB ground lev={} tree={} terrain_tris={} instances={} sol_trouve={} "
-        "enfonces={} pivot_borne={} enfoncement_max_mm={} base_w_max={:.6f} sidecar={} "
+        "enfonces={} pivot_rejete={} enfoncement_max_mm={} base_w_max={:.6f} sidecar={} "
         "raideur_instances={} wind_max_idx={}{}{}",
-        lev.level_name, ti, n_tris, n_valid, n_found, n_sunk, n_clamped, max_sunk_mm, max_base_w,
+        lev.level_name, ti, n_tris, n_valid, n_found, n_sunk, n_rejected, max_sunk_mm, max_base_w,
         tree.wind_sidecar_ok ? 1 : 0, tree.wind_instances_stiff, tree.wind_max_idx,
         why.empty() ? "" : " refus=", why);
   }

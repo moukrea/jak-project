@@ -125,6 +125,7 @@ struct Sample {
   float d;
 };
 constexpr size_t kSampleRing = 16384;
+constexpr double kPi = 3.14159265358979323846;  // kPi n'est pas garanti par <cmath> partout (Bionic)
 std::vector<Sample> g_samples;
 size_t g_sample_head = 0;
 size_t g_sample_count = 0;
@@ -498,7 +499,7 @@ void fft(std::vector<std::complex<double>>& a) {
     }
   }
   for (size_t len = 2; len <= n; len <<= 1) {
-    const double ang = -2.0 * M_PI / (double)len;
+    const double ang = -2.0 * kPi / (double)len;
     const std::complex<double> wl(std::cos(ang), std::sin(ang));
     for (size_t i = 0; i < n; i += len) {
       std::complex<double> w(1.0, 0.0);
@@ -596,7 +597,7 @@ SpectrumVerdict spectrum_locked() {
     mean /= (double)n;
     std::vector<std::complex<double>> a(n);
     for (size_t i = 0; i < n; i++) {
-      const double w = 0.5 - 0.5 * std::cos(2.0 * M_PI * (double)i / (double)(n - 1));
+      const double w = 0.5 - 0.5 * std::cos(2.0 * kPi * (double)i / (double)(n - 1));
       a[i] = std::complex<double>((d[i] - mean) * w, 0.0);
     }
     fft(a);
@@ -764,13 +765,16 @@ void recompute_and_publish_locked() {
     rate_ok = true;
     rate_dev_pct = std::fabs(g_gw_sum_dwind - expected) / expected * 100.0;
   }
+  // La part de temps sur la butee est PUBLIEE mais n'entre pas dans le verdict : mesuree ici meme
+  // sur le chemin stock au bit pres (x86, 60 images/s, rate_ticks=1, ratio_peak=1.000), elle vaut
+  // 3 a 7 % — c'est le ressort de ND qui tape sa butee dans les bouffees, sur console aussi. Le
+  // defaut du port etait la saturation PERMANENTE (anneau a moitie vide, commande x4), et celle-la
+  // se lit sur les deux autres composantes : slots morts et cadence.
   const double sat_pct =
       g_native_samples > 0 ? (double)g_native_sat / (double)g_native_samples * 100.0 : 0.0;
   const bool v1_measured = ring_ok && rate_ok && g_native_samples > 0;
   const double dead_pct = (double)dead_slots / 64.0 * 100.0;
-  const u64 v1 = v1_measured
-                     ? (u64)std::lround(std::max({dead_pct, rate_dev_pct, sat_pct}))
-                     : kNoMeasurement;
+  const u64 v1 = v1_measured ? (u64)std::lround(std::max(dead_pct, rate_dev_pct)) : kNoMeasurement;
 
   // (5) et (7)
   const SpectrumVerdict sp = on ? spectrum_locked() : SpectrumVerdict{};
