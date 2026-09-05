@@ -37,6 +37,10 @@ echo "===== BRAS 3 — le fourre-tout de classify() n'excuse pas ====="
 python3 .autoport/lib/npcf_catchall_gate.py || FAIL=1
 
 echo
+echo "===== BRAS 4 — un niveau qui DESSINE ne vieillit pas ====="
+python3 .autoport/lib/npcf_level_eviction_gate.py || FAIL=1
+
+echo
 if [ "$FAIL" = 0 ]; then
   echo "NPCGUARD nom=npc-flicker-selftest resultat=PASS"
 else

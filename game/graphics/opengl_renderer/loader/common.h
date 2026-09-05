@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "common/common_types.h"
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/util/Timer.h"
@@ -53,6 +55,37 @@ struct LevelData {
   GLuint hfrag_indices;
 
   int frames_since_last_used = 0;
+
+  // Gcutscene-npc-flicker — L'AGE DU NIVEAU NE VOYAIT QUE LE FOND.
+  //
+  // `frames_since_last_used` n'est remis a zero qu'a DEUX endroits : `Loader::get_tfrag3_level`
+  // (Loader.cpp:76), appelee par les renderers de FOND (TFragment, Tie3, Shrub, Hfrag), et la
+  // boucle de `Loader::update` pour les niveaux de `m_active_levels`. Or `set_active_levels`
+  // n'existe pas pour jak1 : il n'y a de `pc_set_active_levels` que dans kernel/jak2, jak3 et
+  // jakx. `m_active_levels` reste donc VIDE pour toute la partie, et le seul rafraichissement
+  // reel est le passage des renderers de fond.
+  //
+  // Un niveau qui ne fournit que de l'AVANT-PLAN — c'est-a-dire exactement un PNJ de
+  // cinematique — vieillit alors d'une image par image pendant qu'il est a l'ecran, franchit
+  // les 180 images de `get_most_unloadable_level` et se fait EVINCER. L'eviction efface ses
+  // modeles merc de `m_all_merc_models` (Loader.cpp:1824), `get_merc_model` rend `nullopt`, et
+  // Merc2.cpp:2330 sort sans rien dessiner : l'acteur disparait jusqu'a la fin du rechargement.
+  //
+  // `Loader::get_merc_model` avait le geste qu'il fallait, EN COMMENTAIRE :
+  //     // it->second.front().parent_level->frames_since_last_used = 0;
+  // On le retablit ici, par une marque separee — pour garder UN SEUL ecrivain de
+  // `frames_since_last_used` (la boucle de `Loader::update`) et une seule decision d'age.
+  //
+  // `mutable` : `MercRef::level` est un `const LevelData*` et la marque n'est pas un etat du
+  // niveau, c'est une trace de lecture.
+  mutable std::atomic<uint64_t> last_merc_use_frame{0};
+
+  // L'AGE CONTREFACTUEL : celui qu'aurait le niveau SANS le maintien ci-dessus. AUCUNE decision
+  // ne le lit. Il sert uniquement a chiffrer, sur le binaire LIVRE, combien de fois le correctif
+  // a empeche un niveau de devenir evincable pendant qu'il dessinait un acteur. Sans lui, le
+  // correctif publierait un zero qu'on ne pourrait pas distinguer d'une course ou la situation
+  // ne s'est jamais presentee.
+  int frames_since_last_used_no_merc = 0;
 };
 
 struct MercRef {

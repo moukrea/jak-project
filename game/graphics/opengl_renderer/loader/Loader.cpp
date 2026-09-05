@@ -35,9 +35,67 @@
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #endif
 #include "game/runtime.h"
+#include "game/system/autoport_proof.h"
 #include "game/system/load_gate.h"
 
 #include "third-party/imgui/imgui.h"
+
+// ============================================================================================
+// Gcutscene-npc-flicker — L'AGE D'UN NIVEAU, ET POURQUOI LE MAIRE DISPARAISSAIT
+//
+// Mesure prise sur le Honor de l'owner le 2026-09-05
+// (.autoport/reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt) :
+//   NPCFLICK scene=mayor-introduction pnj=mayor-lod0 cycles=4 modele_absent=8 trou_max=317
+//            images=3564 dessine=1624
+//   NPCCULL  scene=mayor-introduction pnj=mayor-lod0 npc=1 noir_dans_frustum=1823
+//            images_dans_frustum=3448 images=3564
+// Le maire est DANS le champ 3448 images sur 3564 et n'est dessine que 1624 fois. Les huit
+// episodes durent 3577, 3825, 3920, 3930, 3949, 4033, 4075 et 4127 ms — une periode, pas du
+// bruit. `cause=modele-absent` designe UN site : Merc2.cpp:2330, `!model_ref`, c'est-a-dire
+// `Loader::get_merc_model("mayor-lod0")` qui rend `nullopt` parce que le niveau qui porte ce
+// modele a ete EVINCE (Loader.cpp, `for (auto& model : lev->level->merc_data.models)` : les
+// entrees de `m_all_merc_models` partent avec le niveau).
+//
+// Les quatre correctifs precedents vivaient tous dans Merc2 (couverture HD, TTL par acteur,
+// clone, fail-open) — au point de CONSTAT. Le point de PRODUCTION est ici.
+// ============================================================================================
+
+// Le seuil d'age au-dela duquel `get_most_unloadable_level` accepte d'evincer. C'etait deux
+// litteraux `180` dans cette fonction ; la garde de non-regression a besoin d'UNE definition.
+static constexpr int kUnloadAgeFrames = 180;
+// Tolerance de la marque merc, en images. Voir le pave de la boucle d'age dans Loader::update.
+static constexpr uint64_t kMercKeepaliveFrames = 2;
+
+// L'horloge de la boucle d'age. Une image de `Loader::update` = un pas. Elle n'a pas besoin
+// d'etre l'horloge de rendu : les deux tournent sur le meme thread, une fois par image.
+static uint64_t s_level_age_frame = 0;
+// Images ou un niveau a ete garde resident parce qu'il fournissait un modele merc dessine.
+static uint64_t s_npcf_merc_keepalive_frames = 0;
+// L'EVENEMENT contrefactuel : le niveau vient de franchir kUnloadAgeFrames dans l'age SANS le
+// correctif, alors qu'un de ses modeles merc etait dessine. Une occurrence = une disparition de
+// PNJ que l'ancien code produisait et que celui-ci empeche.
+static uint64_t s_npcf_evictable_while_drawing = 0;
+// Evictions reellement executees, et parmi elles celles qui ont emporte un niveau dont un modele
+// merc venait d'etre dessine. LE SECOND DOIT RESTER A ZERO ; le premier est le DENOMINATEUR,
+// sans lequel un zero ne dit pas si la situation s'est presentee.
+static uint64_t s_npcf_evictions = 0;
+static uint64_t s_npcf_evict_with_live_merc = 0;
+
+static void publish_level_age_counters() {
+  autoport_proof::publish("npc_merc_keepalive_frames", s_npcf_merc_keepalive_frames);
+  autoport_proof::publish("npc_evictable_while_drawing", s_npcf_evictable_while_drawing);
+  autoport_proof::publish("npc_level_evictions", s_npcf_evictions);
+  autoport_proof::publish("npc_evict_with_live_merc", s_npcf_evict_with_live_merc);
+  // La ligne que BRAS 2 de la garde (.autoport/lib/npcf_dead_counter_gate.py) inspecte : un
+  // compteur imprime ici doit avoir un site d'ecriture ailleurs, sinon la garde mord.
+  static uint64_t s_beat = 0;
+  if (s_beat++ % 1800 == 0) {
+    lg::info("[npc-flicker/loader] keepalive={} evincable_en_dessinant={} evictions={} "
+             "eviction_avec_merc_vivant={}",
+             s_npcf_merc_keepalive_frames, s_npcf_evictable_while_drawing, s_npcf_evictions,
+             s_npcf_evict_with_live_merc);
+  }
+}
 
 Loader::Loader(const fs::path& base_path, int max_levels)
     : m_base_path(base_path), m_max_levels(max_levels) {
@@ -74,6 +132,11 @@ const LevelData* Loader::get_tfrag3_level(const std::string& level_name) {
     return nullptr;
   } else {
     existing->second->frames_since_last_used = 0;
+    // Gcutscene-npc-flicker : l'age CONTREFACTUEL suit le meme geste, sinon il compterait comme
+    // « sauve par le correctif » un niveau dont le FOND est dessine — ce que l'ancien code
+    // rafraichissait deja. Un instrument qui ne remet pas a zero la ou le vrai compteur le fait
+    // ne mesure pas la difference entre les deux, il mesure autre chose.
+    existing->second->frames_since_last_used_no_merc = 0;
     return existing->second.get();
   }
 }
@@ -1532,15 +1595,18 @@ void Loader::update_blocking(TexturePool& tex_pool, bool announce, float budget_
 
 const std::string* Loader::get_most_unloadable_level() {
   for (auto& [name, lev] : m_loaded_tfrag3_levels) {
-    if (lev->frames_since_last_used > 180 &&
+    if (lev->frames_since_last_used > kUnloadAgeFrames &&
         std::find(m_desired_levels.begin(), m_desired_levels.end(), name) ==
             m_desired_levels.end()) {
       return &name;
     }
   }
 
+  // Ce second passage evince un niveau que le jeu VEUT ENCORE (il est dans `m_desired_levels`).
+  // Il reste — sans lui, un tas plein de niveaux desires ne se libererait jamais — mais depuis
+  // Gcutscene-npc-flicker un niveau qui dessine un acteur ne peut plus atteindre cet age.
   for (const auto& [name, lev] : m_loaded_tfrag3_levels) {
-    if (lev->frames_since_last_used > 180) {
+    if (lev->frames_since_last_used > kUnloadAgeFrames) {
       return &name;
     }
   }
@@ -1563,15 +1629,46 @@ void Loader::update(TexturePool& texture_pool) {
     // lock because we're accessing m_active_levels
     std::unique_lock<std::mutex> lk(m_loader_mutex);
     // only main thread can touch this.
+    s_level_age_frame++;
+    const bool keepalive_armed = autoport_proof::armed_for("cutscene-npc-flicker");
     for (auto& [name, lev] : m_loaded_tfrag3_levels) {
-      if (std::find(m_active_levels.begin(), m_active_levels.end(), name) ==
-          m_active_levels.end()) {
-        lev->frames_since_last_used++;
+      const bool in_active_list =
+          std::find(m_active_levels.begin(), m_active_levels.end(), name) != m_active_levels.end();
+      // Gcutscene-npc-flicker — UN NIVEAU QUI DESSINE UN ACTEUR EST UN NIVEAU UTILISE.
+      // Voir le pave de `LevelData::last_merc_use_frame` (loader/common.h) : sans ce terme,
+      // l'age ne voit que le FOND, et un niveau qui ne fournit que des PNJ de cinematique
+      // franchit les 180 images de `get_most_unloadable_level` pendant qu'il est a l'ecran.
+      // La tolerance de 2 images absorbe une image ou GOAL n'a rien soumis (coupe de camera
+      // d'une image, hoquet de la chaine DMA) sans jamais prolonger un niveau reellement muet.
+      const bool merc_live =
+          lev->last_merc_use_frame.load(std::memory_order_relaxed) + kMercKeepaliveFrames >=
+          s_level_age_frame;
+
+      // L'age CONTREFACTUEL, celui d'avant le correctif. Aucune decision ne le lit.
+      if (in_active_list) {
+        lev->frames_since_last_used_no_merc = 0;
       } else {
+        lev->frames_since_last_used_no_merc++;
+        // L'EVENEMENT, pas le cumul : l'image EXACTE ou l'ancien code rendait ce niveau
+        // evincable alors qu'il fournissait un modele a l'ecran. Chacune de ces occurrences est
+        // une disparition de PNJ que le correctif vient d'empecher.
+        if (lev->frames_since_last_used_no_merc == kUnloadAgeFrames + 1 && merc_live) {
+          s_npcf_evictable_while_drawing++;
+        }
+      }
+
+      if (in_active_list) {
         lev->frames_since_last_used = 0;
+      } else if (merc_live && keepalive_armed) {
+        lev->frames_since_last_used = 0;
+        s_npcf_merc_keepalive_frames++;
+        autoport_proof::note_hit();
+      } else {
+        lev->frames_since_last_used++;
       }
     }
   }
+  publish_level_age_counters();
 
   bool did_gpu_stuff = false;
 
@@ -1741,6 +1838,21 @@ void Loader::update(TexturePool& texture_pool) {
       auto to_unload = get_most_unloadable_level();
       if (to_unload) {
         auto& lev = m_loaded_tfrag3_levels.at(*to_unload);
+        // Gcutscene-npc-flicker — LA MESURE AU POINT DE PRODUCTION. Cette eviction va effacer
+        // les modeles merc du niveau de `m_all_merc_models` quelques lignes plus bas. Si l'un
+        // d'eux vient d'etre dessine, l'acteur correspondant disparait de l'ecran jusqu'a la
+        // fin du rechargement — c'est exactement ce que l'owner voit sur le maire. Compte les
+        // DEUX : les evictions (le denominateur, sans lequel un zero ne prouve rien) et celles
+        // qui emportent un modele vivant (qui doit rester a zero).
+        s_npcf_evictions++;
+        if (lev->last_merc_use_frame.load(std::memory_order_relaxed) + kMercKeepaliveFrames >=
+            s_level_age_frame) {
+          s_npcf_evict_with_live_merc++;
+          lg::warn("[npc-flicker/loader] EVICTION d'un niveau qui dessinait : lev={} age={} "
+                   "age_sans_merc={} derniere_image_merc={} image={}",
+                   *to_unload, lev->frames_since_last_used, lev->frames_since_last_used_no_merc,
+                   lev->last_merc_use_frame.load(std::memory_order_relaxed), s_level_age_frame);
+        }
         std::unique_lock<std::mutex> lk(texture_pool.mutex());
         fmt::print("------------------------- PC unloading {}\n", *to_unload);
 #ifdef __ANDROID__
@@ -1896,8 +2008,20 @@ std::optional<MercRef> Loader::get_merc_model(const char* model_name) {
   // don't think we need to lock here...
   const auto& it = m_all_merc_models.find(model_name);
   if (it != m_all_merc_models.end() && !it->second.empty()) {
-    // it->second.front().parent_level->frames_since_last_used = 0;
-    return it->second.front();
+    const MercRef& ref = it->second.front();
+    // Gcutscene-npc-flicker — LE GESTE QUI MANQUAIT, ET QUI ETAIT DEJA ECRIT EN COMMENTAIRE :
+    //     // it->second.front().parent_level->frames_since_last_used = 0;
+    // On marque au lieu d'ecrire l'age : `frames_since_last_used` garde UN SEUL ecrivain, la
+    // boucle de `Loader::update`, qui lit cette marque et decide. Voir le pave de
+    // `LevelData::last_merc_use_frame` (loader/common.h) pour la chaine complete jusqu'au
+    // maire qui disparait 8 fois dans `mayor-introduction`.
+    //
+    // Cet appel a lieu pour un paquet merc que GOAL A SOUMIS : le niveau fournit un acteur que
+    // le jeu vient de demander a dessiner. C'est la definition meme d'un niveau en service.
+    if (ref.level) {
+      ref.level->last_merc_use_frame.store(s_level_age_frame, std::memory_order_relaxed);
+    }
+    return ref;
   } else {
     return std::nullopt;
   }

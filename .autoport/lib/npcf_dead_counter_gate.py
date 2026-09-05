@@ -21,6 +21,9 @@ FILES = [
     "game/graphics/opengl_renderer/foreground/Merc2.cpp",
     "game/system/npc_flicker.cpp",
     "game/system/load_gate.cpp",
+    # essai 12 : la cause du defaut vit dans le chargeur de niveaux, pas dans Merc2. Ses
+    # compteurs tombent donc sous la meme regle que les autres.
+    "game/graphics/opengl_renderer/loader/Loader.cpp",
 ]
 
 DECL = re.compile(r'^\s*static\s+(?:u64|uint64_t|int|u32|uint32_t)\s+(\w+)\s*=', re.M)

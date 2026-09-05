@@ -333,20 +333,51 @@ Reason classify(const std::string& key,
     return in_fov == 1 ? kReasonCullBlind : kReasonCulled;
   }
   // was-drawn present : GOAL a soumis, la perte est cote rendu.
+  //
+  // ESSAI 12 — LA CAUSE SE LIT SUR LES DEUX CLES, PAS SEULEMENT SUR LE PID.
+  // La presence, elle, se lit deja sur les deux (`census_actor`, plus bas : pid OU nom). La
+  // CAUSE ne se lisait que sur le pid, et c'est ce qui a envoye quatre correctifs sur de
+  // fausses pistes. Le pid ecrit par `note_draw` est `owner_pid`, lu a l'offset 120 du champ de
+  // nom du paquet merc (Merc2.cpp) et pose par `bones.gc` a `(-> dc process pid)` : en
+  // cinematique c'est le pid du CLONE, et il vaut 0 si `dc process` est nul. Le recensement,
+  // lui, classe sous `(-> proc pid)` de l'instance la moins bloquee. Les deux divergent des
+  // qu'un acteur a plusieurs instances ou un clone — et alors un `kMissing` REEL (le modele
+  // n'est pas resident) etait publie `soumis-mais-non-dessine`, un seau sans cause nommee.
+  //
+  // CE QUE CA COUTAIT, DANS LES CHIFFRES DE L'OWNER (npc_flicker-honor-2026-09-05.txt) : sur
+  // `sage-intro-sequence-e`, SEPT modeles sans rapport entre eux — sidekick, medres-jungle,
+  // medres-jungle1, medres-jungle2, ropebridge-32, fishermans-boat, reflector-middle —
+  // disparaissent pendant EXACTEMENT 328 images, 5483 a 5484 ms. Puis les memes pendant 322
+  // images, 5449 a 5451 ms. Puis cinq pendant 392 images. Aucun mecanisme par acteur ne
+  // synchronise sept objets sans rapport a la milliseconde : c'est UNE ressource partagee qui
+  // part et revient, le NIVEAU qui porte leurs modeles merc. Tous etaient publies
+  // `soumis-mais-non-dessine` ; c'etaient des `modele-absent`.
+  const RenderRec* by_pid = nullptr;
+  const RenderRec* by_name = nullptr;
   auto it = g_render.find(pid);
   if (it != g_render.end()) {
-    if (it->second.ever_suppressed &&
-        g_render_frame - it->second.last_suppressed <= draw_tolerance() + 1) {
+    by_pid = &it->second;
+  }
+  auto nit = g_render_by_name.find(key);
+  if (nit != g_render_by_name.end()) {
+    by_name = &nit->second;
+  }
+  auto recent = [&](bool ever, uint64_t when) {
+    return ever && g_render_frame - when <= draw_tolerance() + 1;
+  };
+  for (const RenderRec* r : {by_pid, by_name}) {
+    if (!r) {
+      continue;
+    }
+    if (recent(r->ever_suppressed, r->last_suppressed)) {
       return kReasonSuppressed;
     }
-    if (it->second.ever_missing &&
-        g_render_frame - it->second.last_missing <= draw_tolerance() + 1) {
+    if (recent(r->ever_missing, r->last_missing)) {
       return kReasonMissing;
     }
     // Cycle 3 : le rendu a DESSINE, mais avec des matrices d'os invalides — a l'ecran, rien.
     // Teste avant `nodraw` : ici le paquet EST passe, la cause est connue et nommee.
-    if (it->second.ever_garbage &&
-        g_render_frame - it->second.last_garbage <= draw_tolerance() + 1) {
+    if (recent(r->ever_garbage, r->last_garbage)) {
       return kReasonGarbage;
     }
   }
@@ -527,15 +558,33 @@ void publish_keys_locked() {
   uint64_t dark_all = g_totals.in_fov_dark_frames;
   uint64_t fov_npc = g_totals.in_fov_frames_npc;
   uint64_t actors_npc = 0;
+  // LA GRANDEUR DE LA PORTE (`gate: npc_flicker_episodes == 0`). Definition, mot pour mot du
+  // livrable : « zero cycle et zero episode long ». Un EPISODE est un trou d'au moins
+  // kMinEpisodeFrames images ferme par le retour de l'acteur ; `cycles` porte les courts,
+  // `longues` les longs. Les DEUX comptent, et sur TOUTES les causes que `reason_is_defect`
+  // reconnait comme des pannes.
+  //
+  // `coupes` — les trous dont la cause est `culled` ou `hidden`, c'est-a-dire « la camera l'a
+  // laisse hors du champ, et sa position racine le confirme » ou « le jeu a pose le bit
+  // hidden » — est publie A COTE, jamais fondu dedans et jamais tu. L'owner, 2026-09-03 : « le
+  // seau qui excusait portait 478 des 479 episodes ». Un seau d'exclusion qui ne se publie pas
+  // est un angle mort ; un seau qu'on supprime fabrique un faux rouge sur des coupes de camera
+  // legitimes. Il se publie.
+  uint64_t episodes = g_totals.cycles + g_totals.longues;
+  uint64_t episodes_excused = g_totals.coupes;
   for (const auto& kv : g_actors) {
     const ActorRec& r = kv.second;
     dark_all += r.in_fov_dark_frames;
+    episodes += r.cycles + r.longues;
+    episodes_excused += r.coupes;
     if (r.npc) {
       dark_npc += r.in_fov_dark_frames;
       fov_npc += r.in_fov_frames;
       actors_npc++;
     }
   }
+  autoport_proof::publish("npc_flicker_episodes", episodes);
+  autoport_proof::publish("npc_flicker_episodes_excused", episodes_excused);
   // LA CLE DE LA PORTE (`gate: npc_culled_in_frustum == 0`, .autoport/backlog.yaml).
   autoport_proof::publish("npc_culled_in_frustum", dark_npc);
   // Le meme compte SANS la restriction aux PNJ : une exclusion qui ne se publie pas est un angle
