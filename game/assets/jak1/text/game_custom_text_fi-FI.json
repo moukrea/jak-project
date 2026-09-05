@@ -292,5 +292,12 @@
   "17d7": "Recharged-ruoho",
   "17d8": "Lähiruohon etäisyys",
   "17d9": "Ruohokorttien etäisyys",
-  "17da": "Ruohon tiheys"
+  "17da": "Ruohon tiheys",
+  "1700": "FPS-laskuri",
+  "1701": "Renderöintiskaala",
+  "1702": "Pienin renderöintiskaala",
+  "1703": "Dynaaminen renderöintiskaala",
+  "1704": "Pienin tavoite-FPS",
+  "1705": "Lisäasetukset",
+  "1706": "Recharged-asetukset"
 }

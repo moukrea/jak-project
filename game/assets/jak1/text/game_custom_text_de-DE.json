@@ -422,5 +422,15 @@
   "17d7": "Recharged-Gras",
   "17d8": "Nahgras-Distanz",
   "17d9": "Grasbild-Distanz",
-  "17da": "Grasdichte"
+  "17da": "Grasdichte",
+  "111": "An",
+  "112": "Aus",
+  "13e": "Zurück",
+  "1700": "FPS-Zähler",
+  "1701": "Renderskalierung",
+  "1702": "Minimale Renderskalierung",
+  "1703": "Dynamische Renderskalierung",
+  "1704": "Minimale Ziel-FPS",
+  "1705": "Erweiterte Einstellungen",
+  "1706": "Recharged-Einstellungen"
 }

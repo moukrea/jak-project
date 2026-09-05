@@ -419,5 +419,12 @@
   "17d7": "Recharged Grass",
   "17d8": "Near Grass Distance",
   "17d9": "Grass Card Distance",
-  "17da": "Grass Density"
+  "17da": "Grass Density",
+  "1700": "FPS Counter",
+  "1701": "Render Scale",
+  "1702": "Min Render Scale",
+  "1703": "Dynamic Render Scale",
+  "1704": "Min Target FPS",
+  "1705": "Advanced Settings",
+  "1706": "Recharged Settings"
 }

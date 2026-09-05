@@ -292,5 +292,15 @@
   "17d7": "Recharged gräs",
   "17d8": "Närgräsavstånd",
   "17d9": "Gräskortsavstånd",
-  "17da": "Grästäthet"
+  "17da": "Grästäthet",
+  "111": "På",
+  "112": "Av",
+  "13e": "Tillbaka",
+  "1700": "FPS-räknare",
+  "1701": "Renderingsskala",
+  "1702": "Minsta renderingsskala",
+  "1703": "Dynamisk renderingsskala",
+  "1704": "Minsta mål-FPS",
+  "1705": "Avancerade inställningar",
+  "1706": "Recharged-inställningar"
 }

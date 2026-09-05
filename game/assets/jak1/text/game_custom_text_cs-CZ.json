@@ -292,5 +292,15 @@
   "17d7": "Tráva Recharged",
   "17d8": "Dosah blízké trávy",
   "17d9": "Dosah travních karet",
-  "17da": "Hustota trávy"
+  "17da": "Hustota trávy",
+  "111": "Zapnuto",
+  "112": "Vypnuto",
+  "13e": "Zpět",
+  "1700": "Počítadlo FPS",
+  "1701": "Měřítko vykreslení",
+  "1702": "Minimální měřítko vykreslení",
+  "1703": "Dynamické měřítko vykreslení",
+  "1704": "Minimální cílové FPS",
+  "1705": "Pokročilá nastavení",
+  "1706": "Nastavení Recharged"
 }

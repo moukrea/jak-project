@@ -292,5 +292,15 @@
   "17d7": "Recharged græs",
   "17d8": "Nærgræsafstand",
   "17d9": "Græskortafstand",
-  "17da": "Græstæthed"
+  "17da": "Græstæthed",
+  "111": "Til",
+  "112": "Fra",
+  "13e": "Tilbage",
+  "1700": "FPS-tæller",
+  "1701": "Gengivelsesskala",
+  "1702": "Mindste gengivelsesskala",
+  "1703": "Dynamisk gengivelsesskala",
+  "1704": "Mindste mål-FPS",
+  "1705": "Avancerede indstillinger",
+  "1706": "Recharged-indstillinger"
 }

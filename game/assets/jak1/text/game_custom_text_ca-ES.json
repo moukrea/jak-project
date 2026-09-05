@@ -292,5 +292,15 @@
   "17d7": "Herba Recharged",
   "17d8": "Distància d'herba 3D",
   "17d9": "Distància de cartes",
-  "17da": "Densitat d'herba"
+  "17da": "Densitat d'herba",
+  "111": "Activat",
+  "112": "Desactivat",
+  "13e": "Enrere",
+  "1700": "Comptador de FPS",
+  "1701": "Escala de renderitzat",
+  "1702": "Escala mínima de renderitzat",
+  "1703": "Escala dinàmica de renderitzat",
+  "1704": "FPS objectiu mínim",
+  "1705": "Opcions avançades",
+  "1706": "Opcions de Recharged"
 }

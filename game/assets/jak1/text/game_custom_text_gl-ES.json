@@ -292,5 +292,15 @@
   "17d7": "Herba Recharged",
   "17d8": "Distancia da herba 3D",
   "17d9": "Distancia das cartas",
-  "17da": "Densidade da herba"
+  "17da": "Densidade da herba",
+  "111": "Activado",
+  "112": "Desactivado",
+  "13e": "Volver",
+  "1700": "Contador de FPS",
+  "1701": "Escala de renderizado",
+  "1702": "Escala mínima de renderizado",
+  "1703": "Escala dinámica de renderizado",
+  "1704": "FPS obxectivo mínimo",
+  "1705": "Axustes avanzados",
+  "1706": "Axustes de Recharged"
 }

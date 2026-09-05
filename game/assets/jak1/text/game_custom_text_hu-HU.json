@@ -292,5 +292,12 @@
   "17d7": "Recharged fű",
   "17d8": "Közeli fű távolsága",
   "17d9": "Fűlapok távolsága",
-  "17da": "Fűsűrűség"
+  "17da": "Fűsűrűség",
+  "1700": "FPS-számláló",
+  "1701": "Renderelési méretarány",
+  "1702": "Legkisebb renderelési méretarány",
+  "1703": "Dinamikus renderelési méretarány",
+  "1704": "Legkisebb cél-FPS",
+  "1705": "Speciális beállítások",
+  "1706": "Recharged beállítások"
 }

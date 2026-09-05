@@ -292,5 +292,15 @@
   "17d7": "Relva Recharged",
   "17d8": "Distância relva próxima",
   "17d9": "Distância placas relva",
-  "17da": "Densidade da relva"
+  "17da": "Densidade da relva",
+  "111": "Ligado",
+  "112": "Desligado",
+  "13e": "Voltar",
+  "1700": "Contador de FPS",
+  "1701": "Escala de renderização",
+  "1702": "Escala mínima de renderização",
+  "1703": "Escala dinâmica de renderização",
+  "1704": "FPS alvo mínimo",
+  "1705": "Ajustes avançados",
+  "1706": "Ajustes do Recharged"
 }

@@ -419,5 +419,12 @@
   "17d7": "Erba Recharged",
   "17d8": "Distanza erba vicina",
   "17d9": "Distanza card erba",
-  "17da": "Densità erba"
+  "17da": "Densità erba",
+  "1700": "Contatore FPS",
+  "1701": "Scala di rendering",
+  "1702": "Scala minima di rendering",
+  "1703": "Scala dinamica di rendering",
+  "1704": "FPS minimo desiderato",
+  "1705": "Impostazioni avanzate",
+  "1706": "Impostazioni Recharged"
 }

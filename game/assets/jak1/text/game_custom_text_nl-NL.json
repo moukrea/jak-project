@@ -292,5 +292,15 @@
   "17d7": "Recharged gras",
   "17d8": "Afstand 3D-gras",
   "17d9": "Afstand graskaarten",
-  "17da": "Grasdichtheid"
+  "17da": "Grasdichtheid",
+  "111": "Aan",
+  "112": "Uit",
+  "13e": "Terug",
+  "1700": "FPS-teller",
+  "1701": "Renderschaal",
+  "1702": "Minimale renderschaal",
+  "1703": "Dynamische renderschaal",
+  "1704": "Minimale doel-FPS",
+  "1705": "Geavanceerde instellingen",
+  "1706": "Recharged-instellingen"
 }

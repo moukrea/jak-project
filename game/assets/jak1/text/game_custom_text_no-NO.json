@@ -292,5 +292,15 @@
   "17d7": "Recharged gress",
   "17d8": "Nærgressavstand",
   "17d9": "Gresskortavstand",
-  "17da": "Gresstetthet"
+  "17da": "Gresstetthet",
+  "111": "På",
+  "112": "Av",
+  "13e": "Tilbake",
+  "1700": "FPS-teller",
+  "1701": "Gjengivelsesskala",
+  "1702": "Minste gjengivelsesskala",
+  "1703": "Dynamisk gjengivelsesskala",
+  "1704": "Minste mål-FPS",
+  "1705": "Avanserte innstillinger",
+  "1706": "Recharged-innstillinger"
 }

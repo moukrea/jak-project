@@ -476,6 +476,16 @@ while true; do
     else
       say "reassemblage apres nettoyage ECHOUE"
     fi
+    # ET ON REND LE DEMON ICI AUSSI. Le `--stop` de la passe normale est plus haut ; ce
+    # reassemblage tourne APRES lui, donc il rallumait un demon qui survivait a la passe.
+    # Mesure du 2026-09-05 : demon ne a 14:05:43 par ce bloc, toujours vivant a 14:12 ;
+    # `busy_reason` (lib/proof_run.sh ET acquis/font-urbanist.sh) teste `pgrep -f '[g]radle'`
+    # et ne distingue pas un demon INACTIF d'un build en cours. La porte de fermeture de
+    # l'essai 3 de `recharged-settings-case-l10n` a donc rendu « un build ecrit encore
+    # out/jak1/iso apres 420s » sur un arbre ou plus rien ne batissait : l'acquis Urbanist
+    # n'a pas pu etre mesure et l'essai a ete brule. On ne relache pas la garde (elle empeche
+    # un gk de demarrer pendant que out/jak1/iso se reecrit) : on eteint la cause.
+    ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
   fi
   if [ "$_sz" -gt 700000000 ]; then
     say "APK toujours anormalement gros ($_sz octets) apres nettoyage — NON publie"

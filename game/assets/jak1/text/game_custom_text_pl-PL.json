@@ -292,5 +292,12 @@
   "17d7": "Trawa Recharged",
   "17d8": "Zasięg bliskiej trawy",
   "17d9": "Zasięg kart trawy",
-  "17da": "Gęstość trawy"
+  "17da": "Gęstość trawy",
+  "1700": "Licznik FPS",
+  "1701": "Skala renderowania",
+  "1702": "Minimalna skala renderowania",
+  "1703": "Dynamiczna skala renderowania",
+  "1704": "Minimalny docelowy FPS",
+  "1705": "Ustawienia zaawansowane",
+  "1706": "Ustawienia Recharged"
 }
