@@ -62,6 +62,14 @@ constexpr double kCensusWindowSeconds = 5.0;
 constexpr u64 kCensusMinWindows = 8;
 constexpr u64 kCensusNoMeasurement = 999999;
 
+// Memes planchers pour l'invariant par image. `kMinLockTransients` est le plus important
+// des trois : c'est le nombre d'images HORS GRILLE rencontrees PENDANT QUE LE VERROU TIENT,
+// c'est-a-dire le nombre de fois ou le defaut corrige avait l'occasion de se produire. A
+// zero, la porte serait verte sans avoir rien exerce. Le stimulus qui les produit est
+// `OG_FRAME_SPIKE_EVERY` (game/graphics/pipelines/opengl.cpp).
+constexpr u64 kMinConserveFrames = 600;
+constexpr u64 kMinLockTransients = 8;
+
 // Etat de l'horloge. Tout ceci ne vit QUE sur le fil GOAL/EE : `begin_render_frame`
 // est appelee depuis la soumission de la chaine DMA, sur le fil GOAL/EE. Aucune synchronisation necessaire, et
 // surtout aucune lecture depuis le fil graphique (ce serait une course).
@@ -102,6 +110,21 @@ struct State {
   u64 unlock_events = 0;
   u64 ceiling_clamps = 0;
   u64 catchup_clamps = 0;
+  // essai 2 — CONSERVATION DU TEMPS DE JEU, IMAGE PAR IMAGE. Sur une image gouvernee,
+  // le temps reel ADMIS doit se retrouver ENTIER quelque part : converti en ticks, ou
+  // garde dans l'accumulateur.
+  //     dt_admis  ==  k * kFixedTickSeconds + (accumulateur_apres - accumulateur_avant)
+  // Tout ecart est du temps de jeu DETRUIT (un skip) ou FABRIQUE (un fast-forward). Le
+  // recensement par fenetre de 5 s ne peut pas le voir : 23 ms detruites puis 16,7 ms
+  // refabriquees dans la meme seconde se compensent dans un cumul. C'est exactement ce
+  // qui est arrive a l'essai 1 (tick_drift_ms=1.0 pendant que le verrou reecrivait des
+  // durees de 137 %), et c'est pour ca que cette grandeur est mesuree PAR IMAGE.
+  double conserve_err_max = 0.0;  // en TICKS, tolerance du verrou deja retranchee
+  u64 conserve_frames = 0;        // images jugees par l'invariant (transitions exclues)
+  u64 lock_transients = 0;        // images HORS grille pendant que le verrou TIENT :
+                                  // c'est LA condition du defaut. Si elle vaut zero, la
+                                  // course n'a rien exerce et la porte doit echouer.
+  double fabricated_sec = 0.0;    // temps fabrique par le rebase de sortie de verrou
   // Recensement de conservation du temps de jeu — voir le bloc de commentaire ci-dessus.
   // Montre SEPAREE de `timer` : celle-ci mesure la duree que l'horloge s'accorde (elle est
   // ecretee, et REECRITE par le verrou) ; celle-la mesure la duree REELLE, qui est la
@@ -221,17 +244,12 @@ void census_frame() {
     admitted = ceiling;
   }
 
-  // ERREUR PROPRE DU VERROU. Verrouille, l'horloge ne convertit pas la duree mesuree : elle
-  // la REMPLACE par `lock_n / 60`. L'ecart entre les deux est du temps de jeu cree ou perdu
-  // qui ne vient d'aucun arrondi d'accumulateur — il se publie donc a part. Le bras
-  // d'ablation `OG_TICK_LOCK=0` n'a pas de `lock_n` : on ne le mesure pas la.
-  if (s.locked && tick_lock_enabled() && s.lock_n >= 1.0) {
-    const double declared = s.lock_n * kFixedTickSeconds;
-    const double e = std::fabs(admitted - declared) / declared;
-    if (e > s.lock_err_max) {
-      s.lock_err_max = e;
-    }
-  }
+  // (`lock_err_max` est mesure dans `advance()`, AU SITE DE LA SUBSTITUTION : il jugeait ici
+  //  toute image passee en etat verrouille, y compris celles dont la duree n'est PAS reecrite
+  //  depuis le correctif de l'essai 2. Il publiait donc 300 % sur un build ou plus rien n'est
+  //  reecrit — un chiffre rouge a cote d'une porte verte, c'est-a-dire le prochain faux
+  //  diagnostic. Et la duree jugee ici vient d'une AUTRE montre que celle que l'horloge a
+  //  utilisee : au site de la substitution, la comparaison porte sur la meme.)
 
   s.drift_sec += (double)dticks * kFixedTickSeconds - admitted;
 
@@ -272,6 +290,40 @@ void census_publish() {
   autoport_proof::publish("tick_ceiling_clamps", s.ceiling_clamps);
   autoport_proof::publish("tick_catchup_clamps", s.catchup_clamps);
   autoport_proof::publish("tick_lock_armed", tick_lock_enabled() ? 1 : 0);
+  autoport_proof::publish("tick_lock_strict", tick_lock_strict() ? 1 : 0);
+  autoport_proof::publish("tick_lock_events", s.lock_events);
+  autoport_proof::publish("tick_unlock_events", s.unlock_events);
+  autoport_proof::publish("tick_lock_transients", s.lock_transients);
+  autoport_proof::publish("tick_conserve_frames", s.conserve_frames);
+  autoport_proof::publish("tick_time_fabricated_us", (u64)(s.fabricated_sec * 1e6 + 0.5));
+  {
+    // ERREUR DE CONSERVATION PAR IMAGE, en centiemes de pourcent d'un tick — la meme unite
+    // que `tick_rate_dev_pct_x100` (une erreur relative x 10000).
+    const double e = s.conserve_err_max > 0.0 ? s.conserve_err_max : 0.0;
+    const u64 conserve_x100 = (u64)(e * 10000.0 + 0.5);
+    autoport_proof::publish("tick_conserve_err_pct_x100", conserve_x100);
+    // LA GRANDEUR DE LA PORTE. Le pire des deux ecarts entre le temps de jeu que l'horloge
+    // declare et le temps reel : celui du cumul par fenetre de 5 s, et celui de l'image
+    // isolee. Prendre le MAXIMUM et non l'un des deux est le point : l'essai 1 a publie un
+    // cumul propre (0,20 %) pendant que le verrou reecrivait la duree d'une image de 137 %,
+    // parce que la destruction et la refabrication se compensent dans un cumul.
+    //
+    // HORS BANDE SI LA CONDITION EST ABSENTE. Un maximum sur zero echantillon vaut zero,
+    // c'est-a-dire un VERT obtenu en ne mesurant rien. Il faut donc : assez de fenetres,
+    // assez d'images jugees, ET des images HORS GRILLE PENDANT QUE LE VERROU TIENT — la
+    // condition exacte du defaut corrige. Sans elles, la course n'a rien exerce.
+    const u64 rate_x100 = s.windows >= kCensusMinWindows
+                              ? (u64)(s.dev_max * 10000.0 + 0.5)
+                              : kCensusNoMeasurement;
+    u64 worst;
+    if (s.windows < kCensusMinWindows || s.conserve_frames < kMinConserveFrames ||
+        s.lock_transients < kMinLockTransients) {
+      worst = kCensusNoMeasurement;
+    } else {
+      worst = rate_x100 > conserve_x100 ? rate_x100 : conserve_x100;
+    }
+    autoport_proof::publish("tick_worst_dev_pct_x100", worst);
+  }
   // Signe : un drift NEGATIF est du temps de jeu PERDU (le monde ralentit), un positif est
   // du temps FABRIQUE (il accelere). Les deux cassent le gameplay, et pas de la meme facon.
   autoport_proof::publish_text("tick_drift_ms",
@@ -366,6 +418,19 @@ bool wind_native_rate_enabled() {
 // binaires — donc entre deux compilations, deux jeux de donnees et deux courses.
 bool tick_lock_enabled() {
   static const bool s_on = read_bool_flag("OG_TICK_LOCK", "debug.opengoal.ticklock", true);
+  return s_on;
+}
+
+// essai 2 — ABLATION DU CORRECTIF DE CET ESSAI, SUR LE MEME BINAIRE. A 0, le verrou
+// reprend le comportement de l'essai 1 : la duree d'une image est remplacee par
+// `lock_n / 60` DES QUE l'etat est verrouille, y compris sur les kUnlockBadFrames - 1
+// images HORS grille qui precedent une sortie de verrou, et le reste accumule est
+// detruit. C'est la substitution qui fabriquait le skip. Defaut ARME (1) : le correctif
+// est livre, l'interrupteur n'existe que pour mesurer l'avant/apres sur la MEME course,
+// le MEME binaire et la MEME suite de durees d'image.
+bool tick_lock_strict() {
+  static const bool s_on =
+      read_bool_flag("OG_TICK_LOCK_STRICT", "debug.opengoal.ticklockstrict", true);
   return s_on;
 }
 
@@ -565,12 +630,28 @@ int begin_render_frame() {
     return kl;
   }
 
+  // essai 2 — LA SUBSTITUTION EST CONDITIONNEE A LA CONFORMITE DE L'IMAGE, PLUS A L'ETAT.
+  // Le defaut corrige ici : `if (s.locked) { dt = lock_n/60; accumulator = 0; }` s'appliquait
+  // AUSSI aux kUnlockBadFrames - 1 images hors grille qui precedent une sortie de verrou.
+  // Sur la course de l'essai 1 une de ces images durait 2,38x la duree qu'on lui DECLARAIT
+  // (tick_lock_err_pct_x100=13763) : 23 ms de temps de jeu detruites, et l'avance de la pose
+  // dessinee vaut `k + alpha(n) - alpha(n-1)`, donc le reste detruit se retranche de
+  // l'avance. C'est le mecanisme exact d'un « skip ».
+  // `lock_hit` est vrai UNIQUEMENT quand l'image est sur la grille au pas verrouille : c'est
+  // le seul cas ou remplacer sa duree par `lock_n / 60` ne reecrit rien de plus que la
+  // tolerance qui a servi a l'accepter (kLockTolerance).
+  bool lock_hit = false;
+  bool declared_transition = ceiling_hit;
+  const double dt_real = dt;
+  const double acc_before = s.accumulator;
   if (s.locked) {
     if (on_grid && nearest == s.lock_n) {
       s.bad_run = 0;
+      lock_hit = true;
     } else if (++s.bad_run >= kUnlockBadFrames) {
       // SORTIE DE VERROU. Une image isolee hors grille (une image sautee sur un
       // panneau 60 Hz) ne casse rien : il en faut kUnlockBadFrames de suite.
+      s.lock_transients++;
       s.locked = false;
       s.unlock_events++;
       s.good_run = 0;
@@ -579,7 +660,19 @@ int begin_render_frame() {
       // acc/tick. On repart donc du HAUT de l'intervalle pour que la premiere image
       // libre publie 1,0 moins epsilon, et non 0 — sans quoi la pose reculerait d'un
       // tick entier sur l'image de transition.
-      s.accumulator = kFixedTickSeconds * (1.0 - 1e-6);
+      // C'est une FABRICATION assumee de temps de jeu (au plus un tick, une fois par
+      // sortie de verrou) : elle achete la continuite de la pose, qui est ce que
+      // l'owner voit. Elle est comptee (`tick_time_fabricated_us`), l'image est exclue
+      // de l'invariant par image, et son cumul reste juge par le recensement de
+      // fenetre — qui, lui, n'exclut rien.
+      declared_transition = true;
+      const double rebase = kFixedTickSeconds * (1.0 - 1e-6);
+      if (rebase > s.accumulator) {
+        s.fabricated_sec += rebase - s.accumulator;
+      }
+      s.accumulator = rebase;
+    } else {
+      s.lock_transients++;
     }
   } else {
     if (on_grid && nearest == s.lock_n) {
@@ -589,6 +682,11 @@ int begin_render_frame() {
       s.good_run = on_grid ? 1 : 0;
     }
     if (s.good_run >= kLockFrames) {
+      // (l'encliquetage ci-dessous est une transition declaree : le glissement de phase
+      //  a FABRIQUE kPhaseSlew par image depuis la sortie de verrou, et la remise a zero
+      //  de l'accumulateur DETRUIT exactement ce que le glissement a fabrique. Les deux
+      //  se soldent, mais pas sur la meme image : l'image d'encliquetage est donc exclue
+      //  de l'invariant par image, comme la sortie de verrou.)
       // ENTREE EN VERROU. La cadence est stable depuis kLockFrames images ; il reste a
       // aligner la PHASE. On ne la saute pas — un saut vaudrait jusqu'a un tick entier,
       // c'est-a-dire le defaut qu'on corrige. On la fait GLISSER de kPhaseSlew par
@@ -600,15 +698,35 @@ int begin_render_frame() {
         s.lock_events++;
         s.bad_run = 0;
         s.accumulator = 0.0;
+        declared_transition = true;
       }
     }
   }
 
-  if (s.locked) {
-    // La cadence EST un multiple entier du tick : on le declare exactement, et le reste
-    // sous-tick est nul PAR CONSTRUCTION, pas par remise a zero repetee.
+  const bool strict = tick_lock_strict();
+  if (s.locked && (lock_hit || !strict)) {
+    // La cadence EST un multiple entier du tick : on le declare exactement.
     dt = s.lock_n * kFixedTickSeconds;
-    s.accumulator = 0.0;
+    if (!strict) {
+      // BRAS DE COMPARAISON (OG_TICK_LOCK_STRICT=0) : le comportement de l'essai 1,
+      // substitution sur l'ETAT et destruction du reste. Il est la pour que l'avant/apres
+      // se mesure sur le MEME binaire et la MEME suite de durees d'image.
+      s.accumulator = 0.0;
+    }
+    // ERREUR PROPRE DU VERROU, mesuree LA OU LA SUBSTITUTION A LIEU et sur la duree que
+    // l'horloge a elle-meme mesuree : de combien la duree DECLAREE s'ecarte de la duree
+    // REELLE de l'image. Arme, elle est bornee par kLockTolerance / lock_n par construction
+    // — une image n'est substituee que si elle est sur la grille.
+    {
+      const double e = std::fabs(dt_real - dt) / dt;
+      if (e > s.lock_err_max) {
+        s.lock_err_max = e;
+      }
+    }
+    // ARME (defaut) : l'accumulateur N'EST PLUS remis a zero. A cadence verrouillee propre
+    // il vaut deja zero — la reference « identique au bit a 60 img/s » ne bouge pas — et
+    // le reste qu'une image hors grille a laisse est du temps REEL deja ecoule : le
+    // detruire, c'est fabriquer le skip que ce chantier corrige.
   }
 
   s.accumulator += dt;
@@ -623,6 +741,23 @@ int begin_render_frame() {
     // sinon la frame suivante hériterait d'un backlog qui ne se resorbe jamais.
     s.accumulator = kFixedTickSeconds * 0.999;
     s.catchup_clamps++;
+    declared_transition = true;
+  }
+
+  // INVARIANT DE CONSERVATION, JUGE ICI ET PAS DANS LE RECENSEMENT DE FENETRE : le temps
+  // reel admis de CETTE image doit se retrouver entier, en ticks ou dans l'accumulateur.
+  // La tolerance du verrou est retranchee parce qu'une image CONFORME est declaree a son
+  // pas nominal a kLockTolerance pres — c'est ce que « verrouille » veut dire, et c'est
+  // borne. Les transitions declarees (ecretage, encliquetage, sortie de verrou) sont
+  // exclues : elles sont comptees chacune par son propre compteur publie, et leur cumul
+  // reste juge par `tick_rate_dev_pct_x100`, qui n'exclut aucune fenetre.
+  if (!declared_transition) {
+    s.conserve_frames++;
+    const double conserved = (double)k * kFixedTickSeconds + (s.accumulator - acc_before);
+    const double err = std::fabs(dt_real - conserved) / kFixedTickSeconds - kLockTolerance;
+    if (err > s.conserve_err_max) {
+      s.conserve_err_max = err;
+    }
   }
 
   // ALPHA. Verrouille => 1,0, aucune interpolation, aucune latence ajoutee : c'est la

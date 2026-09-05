@@ -74,6 +74,45 @@ fi
 # ---- X. x86 ---------------------------------------------------------------------------------
 GK=build/game/gk; ISO=out/jak1/iso
 [ -x "$GK" ] || fail "ni appareil joignable ni $GK : impossible de prouver l'acquis"
+
+# ATTENDRE QU'AUCUN BUILD N'ECRIVE `out/jak1/iso`, PUIS TENIR LE VERROU PENDANT LA COURSE.
+# Le 2026-09-05 cette garde a rendu un ROUGE que le code ne meritait pas : `auto_build_apk.sh`
+# a lance `(make-group "iso")` (auto_build_apk.sh:366) pendant les 75 s de course, et le gk est
+# mort en SIGILL sur un CGO a moitie reecrit — « la grande police n'a jamais ete liee en 75 s ».
+# Un acquis qui rend rouge parce qu'un builder tournait ne garde rien : il coute un essai.
+# `lib/proof_run.sh::busy_reason` attend deja exactement ca ; cette garde ne le faisait pas.
+# Fail-closed reste fail-closed : si ca ecrit encore au bout du plafond, on ECHOUE.
+# Motifs entre crochets : un `pgrep -f gradle` se matche LUI-MEME et la boucle ne finit jamais.
+LOCK=.autoport/.deploy-in-progress
+busy_reason(){
+  local p pat age
+  if [ -f "$LOCK" ]; then
+    p=$(sed -n 's/.*pid=\([0-9]\{1,\}\).*/\1/p' "$LOCK" | head -1)
+    if [ -n "${p:-}" ] && kill -0 "$p" 2>/dev/null; then echo "deploy-in-progress pid=$p vivant"; return 0; fi
+  fi
+  for pat in '[g]radle' '[n]inja' '[g]oalc' '[c]c1plus'; do
+    if pgrep -f "$pat" >/dev/null 2>&1; then echo "processus $pat en cours"; return 0; fi
+  done
+  if [ -f "$ISO/GAME.CGO" ]; then
+    age=$(( $(date +%s) - $(stat -c %Y "$ISO/GAME.CGO" 2>/dev/null || echo 0) ))
+    if [ "$age" -lt 60 ]; then echo "GAME.CGO reecrit il y a ${age}s"; return 0; fi
+  fi
+  echo ""; return 0
+}
+waited=0
+while :; do
+  why=$(busy_reason)
+  [ -z "$why" ] && break
+  [ "$waited" -ge 420 ] && fail "un build ecrit encore $ISO apres ${waited}s ($why) : l'acquis n'a pas pu etre mesure"
+  [ "$waited" = 0 ] && echo "[acquis/font] attente d'un arbre calme : $why" >&2
+  sleep 15; waited=$((waited+15))
+done
+[ "$waited" -gt 0 ] && echo "[acquis/font] build fini apres ${waited}s, on mesure." >&2
+# Le PID est celui de CE script, qui vit pendant toute la course : un verrou qui nomme le
+# shell d'un appel d'outil est mort dans la seconde et ne protege rien.
+printf '%s pid=%s what=acquis-font-urbanist\n' "$0" "$$" > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
 export DISPLAY="${DISPLAY:-:0}"
 [ -n "${XAUTHORITY:-}" ] || for x in /run/user/1000/.mutter-Xwaylandauth.*; do [ -e "$x" ] && export XAUTHORITY="$x"; done
 export SDL_VIDEODRIVER=x11

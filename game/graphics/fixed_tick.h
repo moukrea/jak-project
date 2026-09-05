@@ -245,12 +245,35 @@ u64 total_armed_frames();
 //   tick_locked_pct          part des images en cadence VERROUILLEE. A 100, la course est
 //                            un temoin et pas un verdict : verrouillee, l'horloge declare
 //                            un entier de ticks et l'ecart ne peut pas se manifester.
-//   tick_lock_err_pct_x100   ecart max, en verrouille, entre la duree REELLE de l'image et
-//                            la duree DECLAREE (`lock_n / 60`). Publie a part parce que
-//                            c'est du temps cree/perdu par REMPLACEMENT de la mesure, pas
-//                            par arrondi d'accumulateur.
-//   tick_armed / tick_frames / tick_ticks / tick_lock_armed : preuve de cablage.
+//   tick_lock_err_pct_x100   ecart max, SUR LES IMAGES DONT LA DUREE EST REELLEMENT
+//                            REMPLACEE par `lock_n / 60`, entre cette duree declaree et la
+//                            duree reelle. Publie a part parce que c'est du temps
+//                            cree/perdu par REMPLACEMENT de la mesure, pas par arrondi
+//                            d'accumulateur. Depuis l'essai 2 il est borne par
+//                            kLockTolerance / lock_n : seule une image SUR la grille est
+//                            substituee.
+//   tick_conserve_err_pct_x100
+//                            LE DEFAUT DE L'ESSAI 2, mesure PAR IMAGE. Ecart max entre le
+//                            temps reel admis d'une image et ce que l'horloge en a fait
+//                            (ticks emis + variation de l'accumulateur), tolerance du
+//                            verrou retranchee, en centiemes de pourcent d'un tick.
+//                            Les transitions declarees (ecretage, encliquetage, sortie de
+//                            verrou) en sont exclues et comptees a part.
+//   tick_conserve_frames     images jugees par cet invariant.
+//   tick_lock_transients     images HORS GRILLE rencontrees pendant que le verrou TIENT.
+//                            C'est la CONDITION du defaut : sous 8, la course n'a rien
+//                            exerce et `tick_worst_dev_pct_x100` sort hors bande.
+//   tick_lock_events / tick_unlock_events   entrees et sorties de verrou.
+//   tick_time_fabricated_us  temps de jeu fabrique par le rebase de sortie de verrou.
+//   tick_worst_dev_pct_x100  LA PORTE. max(tick_rate_dev_pct_x100, tick_conserve_err_pct_x100),
+//                            999999 si l'une des trois conditions de mesure manque.
+//   tick_armed / tick_frames / tick_ticks / tick_lock_armed / tick_lock_strict : cablage.
 bool tick_lock_enabled();
+
+// essai 2 — a 0, le verrou reprend la substitution INCONDITIONNELLE de l'essai 1 (duree
+// d'image remplacee des que l'etat est verrouille, reste accumule detruit). Defaut 1 :
+// le correctif est livre. L'interrupteur n'existe que pour l'avant/apres sur le meme binaire.
+bool tick_lock_strict();
 int lock_state();
 double last_dev_ticks();
 u64 lock_events();

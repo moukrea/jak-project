@@ -3285,7 +3285,7 @@ items:
     text: Heuuuu ça va pas avec les animations saccadées chronologiquement ? Faut p'tetre reordonner en
       accord
   gate:
-    key: tick_rate_dev_pct_x100
+    key: tick_worst_dev_pct_x100
     op: <=
     value: 100
   game: jak1
@@ -3300,7 +3300,8 @@ items:
   proof_timeout: 180
   proof_env:
   - OG_FIXED_TICK=1
-  - OG_FRAME_JITTER_PCT=8
+  - OG_FRAME_JITTER_PCT=1
+  - OG_FRAME_SPIKE_EVERY=120:8
   - OG_FRAME_LIMIT_FPS=60,20,45,120,30
   - OG_LEVEL_WARP=village1-hut
   - OG_LEVEL_WARP_POS=-116 14 40
@@ -3309,11 +3310,23 @@ items:
   where: Options > Fixed timestep, puis joue autour de 20 images/s
   delivered: '2026-08-30'
   build: dernier build publie sur jak-builds
-  notes: 'owner 2026-09-03 : jittery a 60 comme a 15 comme a 45. Or 60 est la reference identique au bit
-    dans la porte du 02/09 : le tremblement qu''il voit n''est PAS celui du pas de temps. Le gain mesure
-    (22,7->16,8 a 30 img/s) portait sur un defaut qui n''est pas le sien. Mesurer d''abord a 60 avec le
-    pas de temps ETEINT et publier l''ecart image a image d''un joint ; il soupconne un lien avec le w
-    des modeles HD.'
+  notes: 'essai 2 (2026-09-05) : cause etablie et corrigee, porte tenue sur x86 (tick_worst_dev_pct_x100=46).
+    RESTE OUVERT, et c''est probablement ce que l''owner voit le 05/09 : sur SON build, `render_pace::armed()`
+    (render_pace.cpp:135-149) est LATCHE au premier appel, avant que GOAL ait pousse le reglage du menu
+    — donc cocher « Fixed timestep » en cours de partie n''eteint PAS l''horloge d''anim-interp-low-fps,
+    et les deux horloges retiment la meme image. Non prouve (aucun instrument ne publie l''ordre des deux
+    premiers appels). Cet item ne porte pas ce defaut : il est dans le fichier d''anim-interp-low-fps,
+    et c''est cette horloge-la qui tourne par defaut chez lui — d''ou sa question d''ordre du 05/09.'
+  known_cause: 'Le VERROU DE CADENCE remplacait la duree d''une image des que l''ETAT etait verrouille,
+    et pas seulement quand l''image etait CONFORME au pas verrouille : les kUnlockBadFrames-1 images hors
+    grille qui precedent une sortie de verrou voyaient leur duree reecrite en `lock_n/60` ET leur reste
+    accumule detruit (fixed_tick.cpp, `if (s.locked) { dt = ...; accumulator = 0; }`). L''avance de la
+    pose dessinee vaut `k + alpha(n) - alpha(n-1)`, donc le reste detruit se retranche de l''avance :
+    c''est le mecanisme exact d''un skip. Mesure sur la meme course et le meme binaire (OG_TICK_LOCK_STRICT=0
+    vs 1) : 233 ms de temps de jeu detruites en 173 s, ecart max de 198 %% d''un tick sur une image, contre
+    0 apres correctif. L''essai 1 ne pouvait pas le voir : son recensement jugeait un CUMUL sur 5 s (destruction
+    et refabrication s''y compensent) et son stimulus (gigue uniforme 8 %%) ne faisait JAMAIS tenir le
+    verrou (tick_locked_pct=0), donc la condition du defaut etait absente.'
 - id: grass-crash
   feature: L'herbe fait planter le jeu
   status: validated

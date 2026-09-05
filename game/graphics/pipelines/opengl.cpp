@@ -123,22 +123,77 @@ static double frame_limit_override(double target) {
   return s_sweep.fps[i];
 }
 
+// fixed-tick-interpolation (essai 2) — PIC DE DUREE D'IMAGE ISOLE, opt-in au PRODUCTEUR
+// (`OG_FRAME_SPIKE_EVERY=<n>[:<ms>]`, absent => aucun effet, cout nul).
+//
+// POURQUOI IL A FALLU L'AJOUTER. Le verrou de cadence ne se ferme qu'apres kLockFrames
+// images SUR la grille plus le glissement de phase. Sous la gigue UNIFORME du stimulus
+// precedent (`OG_FRAME_JITTER_PCT=8`) il ne tenait jamais : la course de l'essai 1 a publie
+// `tick_locked_pct=0`. Or le defaut a corriger est une image HORS grille PENDANT QUE LE
+// VERROU TIENT — la condition n'etait donc jamais reunie, et une porte verte sur une
+// condition absente ne prouve rien. La condition reelle de l'owner est justement celle-la :
+// une cadence propre a excursions RARES (un panneau qui laisse tomber une image).
+// Le pic est un AJOUT ABSOLU en millisecondes, pas un facteur : a 60, 30 et 20 images/s il
+// deplace l'image du meme nombre de ticks, donc les trois cadences verrouillables sont
+// exercees pareil, et il reste sous le plafond d'ecretage (4 ticks) a toutes.
+// Il est indexe sur le NUMERO D'IMAGE : la meme suite de durees est rejouee a l'identique
+// dans les deux bras d'une ablation.
+struct FrameSpike {
+  u32 every = 0;
+  double sec = 0.0;
+};
+static const FrameSpike& frame_spike() {
+  static const FrameSpike s_spike = []() -> FrameSpike {
+    FrameSpike sp;
+    const char* e = std::getenv("OG_FRAME_SPIKE_EVERY");
+    if (!e || !e[0]) {
+      return sp;
+    }
+    std::string v(e);
+    double ms = 8.0;
+    const auto colon = v.find(':');
+    if (colon != std::string::npos) {
+      ms = std::atof(v.substr(colon + 1).c_str());
+      v = v.substr(0, colon);
+    }
+    const long n = std::atol(v.c_str());
+    if (n > 0 && ms > 0.0) {
+      sp.every = (u32)n;
+      sp.sec = ms / 1000.0;
+    }
+    return sp;
+  }();
+  return s_spike;
+}
+
 static double jittered_target_fps(double target_in) {
   const double target = frame_limit_override(target_in);
   static const double s_amp = []() -> double {
     const char* e = std::getenv("OG_FRAME_JITTER_PCT");
     return e ? std::atof(e) / 100.0 : 0.0;
   }();
-  if (s_amp <= 0.0 || target <= 0.0) {
+  const FrameSpike& spike = frame_spike();
+  if (target <= 0.0 || (s_amp <= 0.0 && spike.every == 0)) {
+    // Aucun stimulus demande : on rend la cible TELLE QUELLE, sans aller-retour
+    // periode/frequence. Le binaire de l'owner passe par ici a chaque image.
     return target;
   }
-  static u32 s_n = 0;
-  u32 x = ++s_n * 2654435761u;
-  x ^= x >> 15;
-  x *= 2246822519u;
-  x ^= x >> 13;
-  const double u = ((double)(x >> 8) / 16777216.0) * 2.0 - 1.0;  // [-1, 1)
-  const double period = (1.0 / target) * (1.0 + s_amp * u);
+  double period = 1.0 / target;
+  if (s_amp > 0.0) {
+    static u32 s_n = 0;
+    u32 x = ++s_n * 2654435761u;
+    x ^= x >> 15;
+    x *= 2246822519u;
+    x ^= x >> 13;
+    const double u = ((double)(x >> 8) / 16777216.0) * 2.0 - 1.0;  // [-1, 1)
+    period *= (1.0 + s_amp * u);
+  }
+  if (spike.every != 0) {
+    static u32 s_frame = 0;
+    if ((++s_frame % spike.every) == 0) {
+      period += spike.sec;
+    }
+  }
   return 1.0 / period;
 }
 
