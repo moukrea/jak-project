@@ -205,6 +205,32 @@ def audit(loader_src, common_src):
         "le seuil du rescape est un litteral : une image de battement de m_desired_levels"
         " pendant un changement de statut pourrait jeter un niveau sur-le-champ"))
 
+    # ------------------------------------------------- ESSAI 17 : LA GARDE VAUT POUR TOUTE PASSE
+    # Le correctif de l'essai 15 (`last_merc_use_frame` remettant `frames_since_last_used` a
+    # zero) ne protege que les passes qui LISENT cet age. L'essai 16 a ajoute la passe RESCAPE,
+    # qui decide sur `frames_not_desired > 30` SEUL : elle etait invisible au correctif, et elle
+    # mord PLUS TOT (31 images au lieu de 181). Un correctif avait donc rouvert le defaut qu'un
+    # autre venait de fermer, sans qu'aucune porte ne bouge.
+    #
+    # Ce maillon lie le NOMBRE de gardes au NOMBRE de passes : ajouter une quatrieme passe sans
+    # la garder fait tomber la porte. C'est la seule forme qui resiste a la prochaine passe.
+    n_passes = (len(re.findall(r'frames_since_last_used\s*>\s*kUnloadAgeFrames', unload or ''))
+                + len(re.findall(r'frames_not_desired\s*>\s*\w+', unload or '')))
+    n_guards = len(re.findall(r'!\s*live_merc\s*\(', unload or ''))
+    out.append((
+        "CHAQUE passe de get_most_unloadable_level refuse un niveau qui dessine",
+        bool(unload) and n_passes >= 3 and n_guards == n_passes,
+        f"{n_passes} passe(s) de selection pour {n_guards} garde(s) `!live_merc(` :"
+        " une passe non gardee peut evincer le niveau qui fournit le modele du maire"
+        " PENDANT qu'il est dessine (c'est ce que la passe RESCAPE de l'essai 16 faisait)"))
+
+    out.append((
+        "le refus d'eviction est COMPTE et PUBLIE",
+        bool(unload) and bool(re.search(r's_npcf_evict_refused_live_merc\s*\+\+', unload))
+        and 'publish("npc_evict_refused_live_merc"' in loader,
+        "sans compteur de refus, un `npc_evict_with_live_merc = 0` ne distingue pas"
+        " « la garde a travaille » de « la branche n'a jamais tourne »"))
+
     return out
 
 

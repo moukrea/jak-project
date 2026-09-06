@@ -198,7 +198,11 @@ if [ "$MODE" = x86 ]; then
 
 # =========================================================================== appareil =======
 else
-  SERIAL="${ANDROID_SERIAL:-}"; [ -n "$SERIAL" ] || SERIAL="$ITEM_SERIAL"; [ -n "$SERIAL" ] || SERIAL=eae4df44
+  # L'appareil est CHOISI a l'execution : n'importe lequel branche en USB fait l'affaire, et la
+  # preuve dira lequel. Un numero de serie ecrit en dur a coute une nuit entiere le 2026-09-06,
+  # quand le Honor de l'owner occupait le port USB a la place du Redmi.
+  SERIAL="${ANDROID_SERIAL:-}"; [ -n "$SERIAL" ] || SERIAL="$ITEM_SERIAL"
+  [ -n "$SERIAL" ] || SERIAL=$(bash "$AP/lib/pick_device.sh") || { rm -f "$OUTFILE"; exit 3; }
   case "$SERIAL" in
     *[0-9].[0-9]*.[0-9]*|*:*)
       log "serial '$SERIAL' est une adresse reseau. La SHIELD (192.168.1.32) est INTERDITE."
@@ -228,7 +232,10 @@ else
               | tr -d '\r' | awk '{print $1}' | head -1)
     [ -n "$DEV_MD5" ] || DEV_MD5="absent-so-non-extrait-de-l-apk"
   fi
-  EXTRA="local_lib_md5=$LOCAL_MD5"$'\n'"device_lib_md5=$DEV_MD5"
+  # SUR QUOI la preuve a tourne : deux appareils aux cadences tres differentes rendent des
+  # chiffres incomparables, et rien ne le disait.
+  DEV_MODEL=$(timeout 10 "$ADB" -s "$SERIAL" shell getprop ro.product.model 2>/dev/null | tr -d '\r' | tr ' ' '_')
+  EXTRA="local_lib_md5=$LOCAL_MD5"$'\n'"device_lib_md5=$DEV_MD5"$'\n'"device_serial=$SERIAL"$'\n'"device_model=${DEV_MODEL:-inconnu}"
 
   # L'ECRAN DOIT ETRE ALLUME AVANT LE `am start`, SINON ON MESURE DU NOIR.
   # Mesure du 2026-09-03 02:16 : appareil `mWakefulness=Asleep`, l'activite est passee

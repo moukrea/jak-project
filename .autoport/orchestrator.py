@@ -68,6 +68,23 @@ from rich.panel import Panel
 _PROFILE_PATH = Path(__file__).resolve().parent / "model-profiles.json"
 
 
+
+def _pick_device() -> str:
+    """Le serial de l'appareil branche, decide a l'execution (lib/pick_device.sh).
+
+    L'owner, 2026-09-06 : bloquer parce que SON telephone occupe le port au lieu du Redmi est
+    absurde — le Honor est plus rapide, donc meilleur pour mesurer. On ne code plus aucun
+    numero de serie en dur ; s'il n'y a rien de branche on rend une chaine vide et l'appelant
+    echoue proprement, au lieu de prouver sur un appareil absent.
+    """
+    try:
+        import subprocess
+        out = subprocess.run(["bash", str(Path(__file__).resolve().parent / "lib" / "pick_device.sh")],
+                             capture_output=True, text=True, timeout=40)
+        return out.stdout.strip()
+    except Exception:
+        return ""
+
 def _load_model_profile() -> dict:
     fallback = {
         "manager_model": "claude-opus-5", "manager_effort": "high",
@@ -982,7 +999,7 @@ def close_gate(item: dict) -> tuple[str, str]:
     # The validator can pass while the phone still runs an old libgk, or a MIXED
     # build (fresh CGOs + stale libgk) — exactly the 2026-06-30 flicker incident.
     if item.get("device", False):
-        serial = item.get("device_serial") or os.environ.get("ANDROID_SERIAL", "eae4df44")
+        serial = item.get("device_serial") or os.environ.get("ANDROID_SERIAL") or _pick_device()
         # Game-aware deploy gate: a jak2/jak3 item must verify against ITS package +
         # APK, not the jak1 default (2026-07-09 Gjak2-polish stuck here twice).
         game = item.get("game") or ("jak2" if "jak2" in iid.lower()
@@ -1012,7 +1029,7 @@ def close_gate(item: dict) -> tuple[str, str]:
     if acquis_dir.is_dir():
         acq_serial = ""
         if item.get("device", False):
-            acq_serial = item.get("device_serial") or os.environ.get("ANDROID_SERIAL", "eae4df44")
+            acq_serial = item.get("device_serial") or os.environ.get("ANDROID_SERIAL") or _pick_device()
         for script in sorted(acquis_dir.glob("*.sh")):
             try:
                 r = subprocess.run(["bash", str(script), acq_serial], cwd=REPO_ROOT,
@@ -1158,7 +1175,7 @@ def _item_header(item: dict, seq: int) -> str:
                      f"{gate.get('value')}` lu dans `.autoport/reports/{item['id']}/proof.txt`")
     if item.get("device"):
         lines.append(f"- preuve exigée SUR APPAREIL "
-                     f"{item.get('device_serial') or 'eae4df44'} (jamais la SHIELD)")
+                     f"{item.get('device_serial') or _pick_device() or 'aucun appareil'} (jamais la SHIELD)")
     else:
         lines.append("- preuve sur x86 (`lib/proof_run.sh <id> x86`)")
     lines.append("- le validateur `.autoport/validators/generic.sh` est lancé par "

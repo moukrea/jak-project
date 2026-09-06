@@ -8,6 +8,8 @@
 
 #ifdef __ANDROID__
 #include <malloc.h>
+// Gcutscene-npc-flicker (essai 17) : `debug.opengoal.evict.maxlevels`, le levier de pression.
+#include <sys/system_properties.h>
 #endif
 #include <set>
 
@@ -85,6 +87,11 @@ static uint64_t s_npcf_evict_with_live_merc = 0;
 // AVANT qu'on touche a un niveau desire. Chacune est un sacrifice que l'ancien ordre faisait
 // porter a un niveau encore demande.
 static uint64_t s_npcf_evict_straggler = 0;
+// Gcutscene-npc-flicker (essai 17) — LES REFUS. Chaque occurrence est une eviction que l'une des
+// trois passes de `get_most_unloadable_level` avait RETENUE et que la garde merc a annulee :
+// autrement dit un clignotement de PNJ qui n'a pas eu lieu. C'est le pendant ACTIF de
+// `npc_evict_with_live_merc`, qui lui ne faisait que constater la faute une fois commise.
+static uint64_t s_npcf_evict_refused_live_merc = 0;
 // Delai de grace avant qu'un niveau lache par GOAL devienne evincable. `m_desired_levels` est
 // reecrit a chaque image depuis `level-update` ; une image de battement pendant un changement de
 // statut ne doit pas suffire a jeter un niveau. 30 images = un demi-quart de la fenetre de 180,
@@ -145,6 +152,7 @@ static void publish_level_age_counters() {
   autoport_proof::publish("npc_level_evictions", s_npcf_evictions);
   autoport_proof::publish("npc_evict_with_live_merc", s_npcf_evict_with_live_merc);
   autoport_proof::publish("npc_evict_straggler", s_npcf_evict_straggler);
+  autoport_proof::publish("npc_evict_refused_live_merc", s_npcf_evict_refused_live_merc);
   autoport_proof::publish("npc_evict_pressure_frames", s_npcf_evict_pressure_frames);
   autoport_proof::publish("npc_loaded_levels_max", s_npcf_loaded_levels_max);
   autoport_proof::publish("npc_evict_pass2", s_npcf_evict_pass2);
@@ -156,17 +164,62 @@ static void publish_level_age_counters() {
   static uint64_t s_beat = 0;
   if (s_beat++ % 1800 == 0) {
     lg::info("[npc-flicker/loader] keepalive={} evincable_en_dessinant={} evictions={} "
-             "eviction_avec_merc_vivant={} pression={} niveaux_max={} passe2={} "
-             "vecteur_vide={} cle_absente={} age_max={}",
+             "eviction_avec_merc_vivant={} refus_merc_vivant={} pression={} niveaux_max={} "
+             "passe2={} vecteur_vide={} cle_absente={} age_max={}",
              s_npcf_merc_keepalive_frames, s_npcf_evictable_while_drawing, s_npcf_evictions,
-             s_npcf_evict_with_live_merc, s_npcf_evict_pressure_frames, s_npcf_loaded_levels_max,
-             s_npcf_evict_pass2, s_npcf_merc_vec_empty, s_npcf_merc_key_missing,
-             s_npcf_level_age_max);
+             s_npcf_evict_with_live_merc, s_npcf_evict_refused_live_merc,
+             s_npcf_evict_pressure_frames, s_npcf_loaded_levels_max, s_npcf_evict_pass2,
+             s_npcf_merc_vec_empty, s_npcf_merc_key_missing, s_npcf_level_age_max);
   }
 }
 
+// ==============================================================================================
+// Gcutscene-npc-flicker (essai 17) — LE LEVIER QUI REND LA COURSE FALSIFIABLE.
+//
+// La branche d'eviction demande `m_loaded_tfrag3_levels.size() >= m_max_levels`, soit TROIS
+// niveaux residents en jak1. La course du harnais warpe directement sur `village1-hut` et n'en
+// tient que DEUX : la branche n'est jamais atteinte, `npc_evict_pressure_frames` vaut 1 sur
+// 24903 images, et le `npc_flicker_episodes = 0` qui en sort est un zero MUET — le mecanisme n'a
+// pas tourne, il n'a pas ete repare. Treize verdicts verts sont sortis de la pendant que l'owner
+// voyait le maire clignoter.
+//
+// Ce reglage abaisse le plafond pour la duree d'une course de preuve, ce qui met la pression a
+// CHAQUE image et fait passer les trois passes de `get_most_unloadable_level` sur des niveaux qui
+// dessinent reellement le maire. Il ne change RIEN au binaire livre : sans la propriete, la
+// valeur reste celle que `opengl.cpp` calcule (`fr3_level_count`).
+static int npcf_max_levels_override(int fallback) {
+  char buf[32] = {0};
+  bool have = false;
+#ifdef __ANDROID__
+  if (__system_property_get("debug.opengoal.evict.maxlevels", buf) > 0 && buf[0]) {
+    have = true;
+  }
+#else
+  const char* e = std::getenv("OG_EVICT_MAXLEVELS");
+  if (e && e[0]) {
+    std::strncpy(buf, e, sizeof(buf) - 1);
+    have = true;
+  }
+#endif
+  if (!have) {
+    return fallback;
+  }
+  const int v = std::atoi(buf);
+  // Un plafond sous 2 empecherait le niveau courant ET le niveau streame de coexister : ce
+  // n'est plus un test de pression, c'est un jeu casse. On refuse en le disant.
+  if (v < 2 || v > 16) {
+    lg::warn("[npc-flicker/loader] plafond de niveaux '{}' hors de [2,16] : ignore, on garde {}",
+             buf, fallback);
+    return fallback;
+  }
+  lg::warn("[npc-flicker/loader] PLAFOND DE NIVEAUX FORCE a {} (defaut {}) : la branche "
+           "d'eviction est armee pour cette course.",
+           v, fallback);
+  return v;
+}
+
 Loader::Loader(const fs::path& base_path, int max_levels)
-    : m_base_path(base_path), m_max_levels(max_levels) {
+    : m_base_path(base_path), m_max_levels(npcf_max_levels_override(max_levels)) {
 #ifdef __ANDROID__
   // autoport 2026-08-25: Android's Scudo allocator caches freed blocks rather
   // than returning them. Harmless with 8 GB, fatal with 3 GB. Decay 0 = release
@@ -1666,10 +1719,48 @@ void Loader::update_blocking(TexturePool& tex_pool, bool announce, float budget_
 }
 
 const std::string* Loader::get_most_unloadable_level() {
+  // ============================================================================================
+  // Gcutscene-npc-flicker (essai 17) — LA REGLE TIENT EN UNE LIGNE, ET ELLE VAUT POUR LES TROIS
+  // PASSES : le chargeur n'evince JAMAIS un niveau dont un modele merc vient d'etre dessine.
+  //
+  // POURQUOI ELLE EST ICI ET PAS DANS LA BOUCLE D'AGE. Le correctif 00e0d9182f tenait
+  // `frames_since_last_used` a zero quand un merc etait dessine. Cela protege les passes qui
+  // LISENT cet age — la 1re (:age > 180 et non desire) et la 3e (age > 180). Cela ne protege pas
+  // la passe RESCAPE ajoutee a l'essai 16, qui decide sur `frames_not_desired > 30` SEUL et ne
+  // regarde ni l'age ni la marque merc. Le correctif de l'essai 16 a donc ouvert un chemin
+  // d'eviction que le correctif de l'essai 15 ne couvrait pas, et ce chemin mord PLUS TOT que
+  // celui qu'il remplaçait : 31 images au lieu de 181. Un niveau que GOAL a lache peut tres bien
+  // dessiner encore — `m_desired_levels` ne porte que DEUX noms en jak1, donc des qu'un troisieme
+  // niveau a des acteurs a l'ecran il est « non desire » tout en etant visible.
+  //
+  // La grandeur `npc_evict_with_live_merc` mesurait deja exactement cette faute, au point de
+  // production, quelques lignes plus bas — mais elle ne faisait que la CONSTATER. On la rend
+  // impossible ici, la ou la victime est CHOISIE : c'est le seul endroit que les trois passes
+  // traversent.
+  //
+  // Le drapeau `armed_for` laisse le bras d'ablation du harnais retrouver l'ancien comportement.
+  // Il rend `true` par defaut (aucun item nomme) : le binaire de l'owner est TOUJOURS garde.
+  const bool guard_armed = autoport_proof::armed_for("cutscene-npc-flicker");
+  // A n'evaluer QUE sur un candidat deja retenu par sa passe : le compteur compte des refus
+  // reels, pas des tests. `npc_evictions` et `npc_evict_pressure_frames` restent les
+  // denominateurs independants — un zero de refus avec une pression a zero ne prouve rien.
+  auto live_merc = [&](const std::unique_ptr<LevelData>& lev) {
+    if (!guard_armed) {
+      return false;
+    }
+    if (lev->last_merc_use_frame.load(std::memory_order_relaxed) + kMercKeepaliveFrames >=
+        s_level_age_frame) {
+      s_npcf_evict_refused_live_merc++;
+      return true;
+    }
+    return false;
+  };
+
   for (auto& [name, lev] : m_loaded_tfrag3_levels) {
     if (lev->frames_since_last_used > kUnloadAgeFrames &&
         std::find(m_desired_levels.begin(), m_desired_levels.end(), name) ==
-            m_desired_levels.end()) {
+            m_desired_levels.end() &&
+        !live_merc(lev)) {
       return &name;
     }
   }
@@ -1701,7 +1792,9 @@ const std::string* Loader::get_most_unloadable_level() {
     int rescape_age = kNotDesiredGraceFrames;
     for (const auto& [name, lev] : m_loaded_tfrag3_levels) {
       // Le plus anciennement lache d'abord : c'est celui dont le retour est le moins probable.
-      if (lev->frames_not_desired > rescape_age) {
+      // `live_merc` en DERNIER : un rescape qui dessine encore n'est pas un rescape, c'est un
+      // niveau visible que GOAL a simplement cesse de nommer faute de slot.
+      if (lev->frames_not_desired > rescape_age && !live_merc(lev)) {
         rescape_age = lev->frames_not_desired;
         rescape = &name;
       }
@@ -1718,14 +1811,19 @@ const std::string* Loader::get_most_unloadable_level() {
   // depuis la passe RESCAPE ci-dessus il ne peut plus etre sacrifie tant qu'un niveau lache par
   // GOAL est encore resident. Y arriver signifie que TOUS les residents sont desires.
   for (const auto& [name, lev] : m_loaded_tfrag3_levels) {
-    if (lev->frames_since_last_used > kUnloadAgeFrames) {
-      // LA PASSE QUI EMPORTE LE MAIRE. `beach` est le seul fr3 qui porte `mayor-lod0`, la scene
-      // le demande (`(0 display-level beach special)`, levels/beach/mayor.gc:147) — il est donc
-      // dans `m_desired_levels` et la premiere passe l'epargne. Celle-ci ne l'epargne pas.
+    if (lev->frames_since_last_used > kUnloadAgeFrames && !live_merc(lev)) {
+      // LA PASSE QUI EMPORTAIT LE MAIRE avant l'essai 15. `beach` est le seul fr3 qui porte
+      // `mayor-lod0` ; l'empreinte de l'owner (premiere image noire a `image=184`, pour
+      // `kUnloadAgeFrames`=180) designe une passe qui lit l'age, donc celle-ci ou la premiere.
       s_npcf_evict_pass2++;
       return &name;
     }
   }
+  // Aucune victime : les trois passes ont ete traversees et tout ce qui restait dessinait. On
+  // rend `nullptr` — le chargement en attente patiente une image de plus. C'est le bon arbitrage :
+  // la marque merc expire en `kMercKeepaliveFrames` (2 images) des que la camera coupe, alors
+  // qu'une eviction coute 202 a 317 images de rechargement MESUREES sur l'appareil de l'owner,
+  // pendant lesquelles l'acteur n'a plus de modele. On ne bloque donc jamais durablement.
   return nullptr;
 }
 

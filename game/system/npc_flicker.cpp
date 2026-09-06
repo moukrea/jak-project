@@ -248,6 +248,10 @@ uint32_t platform_sources_unlocked() {
 }
 // Appels de `clone-anim-once` ou le clone n'a pas pu suivre sa source (generic-obs.gc:80).
 uint64_t g_clone_fails = 0;
+// ESSAI 17 — la part du seau `soumis-mais-non-dessine` qui porte `skip-bones` (bit 5). Le jeu a
+// pose `was-drawn` puis a saute `draw-bones` (drawable.gc:611) : aucun paquet merc n'est parti.
+// Ce compteur ne RETIRE aucun episode du verdict, il dit seulement de quoi le seau est fait.
+uint64_t g_nodraw_skip_bones = 0;
 
 // LE MAINTIEN DU CLONE — l'etat du correctif, et ses deux compteurs.
 // Voir le pave de `should_hold_clone` dans game/system/npc_flicker.h. Un `pid` par clone en cours
@@ -400,6 +404,28 @@ Reason classify(const std::string& key,
     if (recent(r->ever_garbage, r->last_garbage)) {
       return kReasonGarbage;
     }
+  }
+  // ============================================================================================
+  // ESSAI 17 — CE QUE LE SEAU `nodraw` CONTIENT REELLEMENT. On le MESURE ici, on ne l'excuse pas.
+  //
+  // Le seau reste un DEFAUT et l'episode reste compte : rien de ce qui suit ne retire un
+  // evenement du verdict. La ligne precedente de ce chantier a ete refusee par l'owner parce
+  // qu'un seau « qui excusait » portait 478 des 479 episodes ; on ne refait pas ce geste. Ce
+  // compteur separe seulement, DANS le seau, ce qui a une explication nommee.
+  //
+  // `skip-bones` (bit 5, art-h.gc:194) est pose par le JEU et lu par drawable.gc:611 :
+  //
+  //     610:  (logior! (-> arg1 status) (draw-status was-drawn))
+  //     611:  (if (logtest? (-> arg1 status) (draw-status skip-bones)) (return #f))
+  //     612:  (draw-bones arg1 arg3 cam-dist)
+  //
+  // L'acteur pose donc `was-drawn` PUIS sort sans emettre un seul paquet merc. Sur la capture du
+  // Honor du 2026-09-05, 87 des 139 images noires journalisees en `nodraw` portent `statut=169`
+  // (0xA9), soit `skip-bones` POSE : 63 % du seau. Savoir si le jeu a RAISON de le poser sur ces
+  // acteurs-la est une question ouverte — c'est peut-etre le defaut lui-meme — mais tant que la
+  // grandeur n'est pas publiee, personne ne peut la trancher.
+  if (status & 0x20) {
+    g_nodraw_skip_bones++;
   }
   // was-drawn POSE et rien de dessine, sans que la couverture ni le chargeur l'expliquent. Le
   // cycle 1 rendait `kReasonCulled` ici — c'est-a-dire qu'il classait « le jeu dit l'avoir
@@ -679,6 +705,7 @@ void publish_keys_locked() {
   // ailleurs. C'est la faute exacte des trois cycles precedents.
   autoport_proof::publish("npc_hd_noanim_covered", g_hd_noanim_cover);
   autoport_proof::publish("npc_clone_remap_fails", g_clone_fails);
+  autoport_proof::publish("npc_nodraw_skip_bones", g_nodraw_skip_bones);
   // L'OCCASION DU CORRECTIF ET SON PLAFOND. `holds` = images ou un modele est reste a l'ecran la
   // ou l'ancien code le faisait disparaitre ; `expired` = series qui ont depasse kCloneHoldMs et
   // sont retombees sur l'ancien comportement.
@@ -1273,6 +1300,7 @@ void reset_for_test() {
   g_fov_unevaluated_all = 0;
   g_hd_noanim_cover = 0;
   g_clone_fails = 0;
+  g_nodraw_skip_bones = 0;
   g_clone_hold.clear();
   g_clone_holds = 0;
   g_clone_hold_expired = 0;

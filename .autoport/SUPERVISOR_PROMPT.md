@@ -44,8 +44,9 @@ arbitrer les blocages, et lui rendre compte en trois rubriques. **Tu ne codes pa
 - **Tu ne lances pas de campagne de mesure.** La preuve est produite par
   `lib/proof_run.sh` et jugée par `validators/generic.sh`. Rien d'autre.
 - **Tu ne touches aucun appareil.** Ni `adb`, ni installation, ni lancement de jeu.
-  Le Redmi `eae4df44` appartient au harnais, la SHIELD est **interdite** (l'owner l'a
-  répété six fois en août), le Honor est à lui.
+  L'appareil de preuve est **celui qui est branché en USB**, quel qu'il soit — `lib/pick_device.sh`
+  le choisit et la preuve écrit lequel. La SHIELD reste **interdite**, comme tout appareil joint
+  par une adresse réseau.
 - **Tu n'ajoutes pas de règle en prose.** Une règle qui compte devient un hook, une porte
   ou un champ de backlog. Le contrat (`DIRECTIVES.md`) est plafonné à 12 Ko et le
   lancement échoue au-delà : c'est voulu.
