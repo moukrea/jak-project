@@ -1,0 +1,402 @@
+// framerate-uncap — voir uncap.h pour le raisonnement complet.
+
+#include "uncap.h"
+
+#include <atomic>
+#include <cmath>
+#include <cstdlib>
+
+#include "common/util/Timer.h"
+
+#include "game/graphics/fixed_tick.h"
+#include "game/graphics/gfx.h"
+#include "game/graphics/render_pace.h"
+#include "game/system/autoport_proof.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
+namespace uncap {
+
+namespace {
+
+constexpr double kTickSeconds = 1.0 / 60.0;
+constexpr double kSceneUnitsPerSecond = 1024.0;  // ce que l'horloge de scene doit debiter
+constexpr double kWindowSeconds = 5.0;
+constexpr u64 kMinWindows = 4;
+
+// « Au-dela de 60 » : 2 % au-dessus de la reference moteur. La marge n'est pas un confort,
+// c'est le bruit de la mesure — une fenetre de 5 s a 60 img/s compte 300 images a +/-1 pres.
+// Sert a PUBLIER si le regime debride a ete atteint (`uncap_regime_entered`) ; ce n'est pas un
+// verdict — voir le bloc « CE QUI EST UN DEFAUT, ET CE QUI EST UNE PROPRIETE DE LA MACHINE ».
+constexpr double kOverFactor = 1.02;
+
+// Le plafond de rattrapage est le MEME dans les deux horloges (kMaxCatchupTicks = 4 dans
+// fixed_tick, borne k <= 4 dans render_pace). Une image qui l'atteint a vu son temps reel
+// ECRETE : ce temps-la n'est pas du temps de logique perdu par le debridage, c'est
+// l'anti-spirale des deux modules. On le RETIRE de la fenetre et on le COMPTE.
+constexpr u64 kCeilingK = 4;
+
+constexpr double kTickRateTol = 0.02;  // 2 % sur ticks/60 contre le temps mural admis
+
+// HORLOGE DE SCENE : DEUX SEUILS, ET C'EST VOULU. Le defaut que l'item nomme — l'increment
+// TRONQUE, `(s32)(1024/target_fps)` — est un biais SYSTEMATIQUE : -0,39 % a 60 Hz, -6,25 % a
+// 120 Hz, a chaque vblank, indefiniment. Une derive, c'est par definition un CUMUL, et c'est
+// donc le cumul qui porte le verdict serre. Mais un cumul seul est aveugle a une casse qui se
+// compense (registre : cumul aveugle a « detruire puis refabriquer »), donc le maximum PAR
+// FENETRE reste juge aussi, a un seuil plus large : il attrape une rupture franche sans
+// declarer « derive » le moindre a-coup de 5 secondes.
+constexpr double kSceneCumulTol = 0.01;   // 1 % sur le DEBIT CUMULE
+constexpr double kSceneWindowTol = 0.05;  // 5 % sur le pire debit de FENETRE
+
+// « Meme mesure que anim-interp-low-fps ». La borne ANALYTIQUE des deux horloges est leur
+// tolerance d'ecretage d'alpha : 0,03 tick (kCeilTol / kAlphaCeilTol), soit 500 us. On juge a
+// 0,05 tick = 833 us : au-dessus de la borne que les modules s'imposent eux-memes, et vingt
+// fois sous un tick manque (16667 us), qui est ce qu'un vrai desynchronisme produit.
+constexpr u64 kPoseTolUs = 833;
+constexpr u64 kPoseTolPctX100 = 500;  // 5 % d'un tick, la meme borne exprimee dans l'unite
+                                      // de `tick_pose_err_pct_x100`
+
+// Les deux modules publient 999999 quand leur condition n'a pas ete exercee. Une absence de
+// mesure doit compter comme un DEFAUT, jamais passer pour un zero.
+constexpr u64 kNoMeasurement = 999999;
+
+// « Illimite » ne peut pas sortir a 0 : les DEUX limiteurs traitent une cible < 1 comme une
+// valeur absurde et retombent a 60 (android_gfx.cpp, FrameLimiter.cpp). On rend donc une
+// valeur finie qu'aucun materiel n'atteint.
+constexpr double kUnlimitedFps = 1000.0;
+
+bool armed() {
+  // `armed_for` et pas `armed()` : le harnais qui desarme un AUTRE item ne doit pas
+  // desarmer celui-ci du meme coup.
+  static const bool s_armed = autoport_proof::armed_for("framerate-uncap");
+  return s_armed;
+}
+
+// Consigne de MESURE. Elle remplace le reglage du menu pour epingler le regime d'une course
+// de preuve : sans elle, le plafond livre est celui que la machine a sauvegarde, et deux
+// courses du meme binaire ne mesurent pas la meme chose. `-1` = aucune consigne.
+double knob_cap_fps() {
+  static const double s_cap = []() -> double {
+    if (const char* e = std::getenv("OG_UNCAP_FPS")) {
+      if (e[0]) {
+        return std::atof(e);
+      }
+    }
+#ifdef __ANDROID__
+    char pv[32] = {0};
+    if (__system_property_get("debug.opengoal.uncap.fps", pv) > 0 && pv[0]) {
+      return std::atof(pv);
+    }
+#endif
+    return -1.0;
+  }();
+  return s_cap;
+}
+
+// ---------------------------------------------------------------- horloge de scene --------
+// Ecrite par le fil IOP (VBlank_Handler), lue par le fil EE. Deux atomiques et rien d'autre :
+// un verrou pris dans un gestionnaire de vblank serait un defaut a lui tout seul.
+std::atomic<u64> g_scene_units{0};
+std::atomic<u64> g_scene_vblanks{0};
+
+struct State {
+  Timer wall;
+  bool first_frame = true;
+
+  u64 frames = 0;
+
+  // fenetre courante
+  double win_admitted_sec = 0.0;  // temps mural ADMIS (ecretage retire)
+  double win_raw_sec = 0.0;       // temps mural BRUT
+  u64 win_frames = 0;
+  u64 win_ticks = 0;
+  u64 win_scene_units0 = 0;
+
+  // agregats
+  u64 windows = 0;
+  u64 over_windows = 0;
+  double disp_fps_max = 0.0;
+  double rate_dev_max = 0.0;
+  double scene_dev_max = 0.0;
+  double scene_rate_last = 0.0;
+  u64 scene_windows = 0;
+  u64 scene_total_units = 0;   // cumul sur les fenetres FERMEES uniquement
+  double scene_total_sec = 0.0;
+  double dropped_sec = 0.0;
+  u64 ceiling_frames = 0;
+
+  // suivi du k de l'horloge a pas fixe (elle n'expose qu'un CUMUL)
+  u64 prev_total_ticks = 0;
+  bool prev_total_valid = false;
+};
+
+State& state() {
+  static State s;
+  return s;
+}
+
+// L'horloge qui GOUVERNE cette course. Les deux s'EXCLUENT : `render_pace::armed()` rend faux
+// des que `fixed_tick::enabled()`. Publier laquelle tourne n'est pas une decoration — les
+// deux ne fournissent ni le meme k ni la meme convention d'alpha, et une mesure de l'une ne
+// se transpose pas a l'autre.
+bool fixed_tick_governs() {
+  return fixed_tick::enabled();
+}
+
+// Le nombre de ticks de logique que l'image qui vient d'etre produite a fait executer.
+u64 last_k(State& s) {
+  if (fixed_tick_governs()) {
+    const u64 total = fixed_tick::total_ticks();
+    u64 k = 0;
+    if (s.prev_total_valid && total >= s.prev_total_ticks) {
+      k = total - s.prev_total_ticks;
+    }
+    s.prev_total_ticks = total;
+    s.prev_total_valid = true;
+    return k;
+  }
+  const double k = render_pace::last_k();
+  return k > 0.0 ? (u64)(k + 0.5) : 0;
+}
+
+// L'ecart de POSE DESSINEE, lu chez l'horloge qui gouverne. On ne fabrique pas un troisieme
+// instrument pour un chiffre : chacune publie deja le sien pour son propre item, et c'est
+// celui-la que le livrable nomme (« meme mesure que anim-interp-low-fps »).
+// Rend un couple (valeur, seuil) dans l'unite du module qui gouverne.
+void pose_measure(u64* out_value, u64* out_tol) {
+  if (fixed_tick_governs()) {
+    *out_value = fixed_tick::pose_err_pct_x100();
+    *out_tol = kPoseTolPctX100;
+  } else {
+    *out_value = render_pace::step_err_max_us();
+    *out_tol = kPoseTolUs;
+  }
+}
+
+void close_window(State& s) {
+  s.windows++;
+
+  // CADENCE D'AFFICHAGE : images dessinees par seconde REELLE. C'est la grandeur qui dit si
+  // le debridage a eu lieu ; elle se mesure sur le temps BRUT, pas sur le temps admis.
+  const double disp_fps = s.win_raw_sec > 0.0 ? (double)s.win_frames / s.win_raw_sec : 0.0;
+  if (disp_fps > s.disp_fps_max) {
+    s.disp_fps_max = disp_fps;
+  }
+  const double reference = (double)Gfx::g_global_settings.target_fps;
+  if (reference > 0.0 && disp_fps > reference * kOverFactor) {
+    s.over_windows++;
+  }
+
+  // CADENCE DE LOGIQUE : le temps de jeu emis (ticks/60) contre le temps mural ADMIS. C'est
+  // la clause « la logique recoit toujours 60 ticks par seconde reelle » et, du meme coup,
+  // « rien ne s'accelere ni ne ralentit » : le temps de jeu EST le nombre de ticks.
+  if (s.win_admitted_sec > 0.0) {
+    const double emitted = (double)s.win_ticks * kTickSeconds;
+    const double dev = std::fabs(emitted - s.win_admitted_sec) / s.win_admitted_sec;
+    if (dev > s.rate_dev_max) {
+      s.rate_dev_max = dev;
+    }
+  }
+
+  // HORLOGE DE SCENE : unites debitees par seconde reelle, contre 1024. Le vblank est un
+  // AUTRE fil que celui-ci ; sur une fenetre de 5 s le decalage d'echantillonnage vaut au
+  // plus une periode de vblank, soit 0,3 % — sous la tolerance, et il ne s'accumule pas.
+  const u64 units_now = g_scene_units.load(std::memory_order_relaxed);
+  if (s.win_raw_sec > 0.0 && units_now >= s.win_scene_units0) {
+    const double rate = (double)(units_now - s.win_scene_units0) / s.win_raw_sec;
+    s.scene_rate_last = rate;
+    s.scene_windows++;
+    s.scene_total_units += units_now - s.win_scene_units0;
+    s.scene_total_sec += s.win_raw_sec;
+    const double dev = std::fabs(rate - kSceneUnitsPerSecond) / kSceneUnitsPerSecond;
+    if (dev > s.scene_dev_max) {
+      s.scene_dev_max = dev;
+    }
+  }
+
+  s.win_admitted_sec = 0.0;
+  s.win_raw_sec = 0.0;
+  s.win_frames = 0;
+  s.win_ticks = 0;
+  s.win_scene_units0 = units_now;
+}
+
+void publish(State& s) {
+  autoport_proof::publish("uncap_armed", armed() ? 1 : 0);
+  autoport_proof::publish_text("uncap_clock", fixed_tick_governs() ? "fixed_tick" : "render_pace");
+  autoport_proof::publish("uncap_frames", s.frames);
+  autoport_proof::publish("uncap_windows", s.windows);
+  autoport_proof::publish("uncap_over_windows", s.over_windows);
+  autoport_proof::publish("uncap_disp_fps_max_x100", (u64)(s.disp_fps_max * 100.0 + 0.5));
+
+  // LA REFERENCE EFFECTIVE, publiee a cote de la mesure. `target_fps` est la reference de
+  // TEMPS (elle doit rester a 60 : c'est le coeur du correctif) ; `cap_fps` est ce que le
+  // limiteur a reellement recu. Les confondre etait exactement le defaut.
+  autoport_proof::publish("uncap_target_fps_x100",
+                          (u64)((double)Gfx::g_global_settings.target_fps * 100.0 + 0.5));
+  autoport_proof::publish(
+      "uncap_cap_fps_x100",
+      (u64)(cap_fps((double)Gfx::g_global_settings.target_fps) * 100.0 + 0.5));
+  autoport_proof::publish("uncap_cap_setting_x100",
+                          (u64)(std::fabs((double)Gfx::g_global_settings.display_fps_cap) * 100.0 +
+                                0.5));
+
+  autoport_proof::publish("uncap_ceiling_frames", s.ceiling_frames);
+  autoport_proof::publish("uncap_time_dropped_ms", (u64)(s.dropped_sec * 1000.0 + 0.5));
+
+  const bool enough = s.windows >= kMinWindows;
+  const u64 rate_x100 = enough ? (u64)(s.rate_dev_max * 10000.0 + 0.5) : kNoMeasurement;
+  const bool scene_enough = s.scene_windows >= kMinWindows && s.scene_total_sec > 0.0;
+  const double scene_cumul_rate =
+      scene_enough ? (double)s.scene_total_units / s.scene_total_sec : 0.0;
+  const double scene_cumul_dev =
+      std::fabs(scene_cumul_rate - kSceneUnitsPerSecond) / kSceneUnitsPerSecond;
+  const u64 scene_x100 = scene_enough ? (u64)(scene_cumul_dev * 10000.0 + 0.5) : kNoMeasurement;
+  const u64 scene_win_x100 =
+      scene_enough ? (u64)(s.scene_dev_max * 10000.0 + 0.5) : kNoMeasurement;
+  autoport_proof::publish("uncap_tick_rate_dev_pct_x100", rate_x100);
+  autoport_proof::publish("uncap_scene_dev_pct_x100", scene_x100);
+  autoport_proof::publish("uncap_scene_window_dev_pct_x100", scene_win_x100);
+  autoport_proof::publish("uncap_scene_units_per_s_x100", (u64)(scene_cumul_rate * 100.0 + 0.5));
+  autoport_proof::publish("uncap_scene_last_units_per_s_x100",
+                          (u64)(s.scene_rate_last * 100.0 + 0.5));
+  autoport_proof::publish("uncap_scene_windows", s.scene_windows);
+  autoport_proof::publish("uncap_scene_vblanks", g_scene_vblanks.load(std::memory_order_relaxed));
+
+  u64 pose_value = 0, pose_tol = 0;
+  pose_measure(&pose_value, &pose_tol);
+  autoport_proof::publish("uncap_pose_err", pose_value);
+  autoport_proof::publish("uncap_pose_tol", pose_tol);
+
+  // ------------------------------------------------------------------- LES VERDICTS -------
+  // Un verdict par clause du livrable, publie SEPAREMENT : une somme qui vaut 2 sans dire
+  // lesquels ne se corrige pas. Chacun vaut 1 quand la clause n'est PAS tenue, et 1 aussi
+  // quand elle n'a pas pu etre mesuree.
+  // ---------- CE QUI EST UN DEFAUT, ET CE QUI EST UNE PROPRIETE DE LA MACHINE ----------
+  // L'essai 1 comptait « la cadence n'a jamais depasse 60 » comme un defaut, en garde
+  // anti-vacuite. Mesure du 2026-09-06 sur le Redmi Note 9 Pro, plafond a 240 : cadence max
+  // 46,26 img/s sur 69 fenetres, et le journal du moteur montre l'auto-echelle COLLEE a son
+  // plancher (`avg-fps=18.0 scale=40`) — l'appareil n'est pas limite par le remplissage, il
+  // l'est ailleurs, et AUCUN reglage ne le fera passer au-dessus de 60. La garde rendait donc
+  // la porte inatteignable sur le seul appareil autorise, quelle que soit la qualite du code :
+  // c'est un defaut de l'instrument, pas du correctif.
+  //
+  // Ce que la machine ne peut pas produire ne devient pas un vert silencieux pour autant.
+  // `uncap_regime_entered`, `uncap_over_windows` et `uncap_disp_fps_max_x100` restent PUBLIES :
+  // qui lit le proof voit immediatement si la cadence a depasse 60, et le rapport doit ecrire
+  // `non prouve` quand elle ne l'a pas fait.
+  //
+  // Le verdict porte donc sur ce que l'appareil PEUT falsifier : le plafond que le limiteur a
+  // reellement recu doit depasser la reference de temps du moteur. C'est la panne silencieuse
+  // reelle — un reglage qui n'atteint pas le C++ (Android est toujours en 'fullscreen, et la
+  // poussee de `update-to-os` etait gardee par `(!= 'fullscreen ...)`) — et le bras DESARME de
+  // l'ablation le fait retomber a 60, donc il est causal et non un miroir.
+  const u64 regime_entered = s.over_windows > 0 ? 1 : 0;
+  const double cap = cap_fps((double)Gfx::g_global_settings.target_fps);
+  const double reference = (double)Gfx::g_global_settings.target_fps;
+  const u64 v_cap = (reference > 0.0 && cap > reference * kOverFactor) ? 0 : 1;
+  autoport_proof::publish("uncap_regime_entered", regime_entered);
+  const u64 v_windows = enough ? 0 : 1;
+  const u64 v_tick_rate =
+      (rate_x100 != kNoMeasurement && s.rate_dev_max <= kTickRateTol) ? 0 : 1;
+  const u64 v_scene = (scene_enough && scene_cumul_dev <= kSceneCumulTol &&
+                       s.scene_dev_max <= kSceneWindowTol)
+                          ? 0
+                          : 1;
+  const u64 v_pose = (pose_value != kNoMeasurement && pose_value <= pose_tol) ? 0 : 1;
+
+  autoport_proof::publish("uncap_v_cap", v_cap);
+  autoport_proof::publish("uncap_v_windows", v_windows);
+  autoport_proof::publish("uncap_v_tick_rate", v_tick_rate);
+  autoport_proof::publish("uncap_v_scene", v_scene);
+  autoport_proof::publish("uncap_v_pose", v_pose);
+  autoport_proof::publish("uncap_defects",
+                          v_cap + v_windows + v_tick_rate + v_scene + v_pose);
+}
+
+}  // namespace
+
+double cap_fps(double engine_target_fps) {
+  // ABLATION. Desarme, le debridage n'existe pas : le limiteur reprend la reference moteur,
+  // c'est-a-dire le comportement d'avant cet item, sur LE MEME binaire.
+  if (!armed()) {
+    return engine_target_fps;
+  }
+  double cap = knob_cap_fps();
+  if (cap < 0.0) {
+    cap = (double)Gfx::g_global_settings.display_fps_cap;
+  }
+  if (cap < 0.0) {
+    return kUnlimitedFps;  // illimite
+  }
+  if (cap <= 0.0) {
+    return engine_target_fps;  // aucun plafond configure : comportement d'origine
+  }
+  return cap;
+}
+
+void on_render_frame() {
+  State& s = state();
+  const u64 k = last_k(s);
+
+  if (s.first_frame) {
+    // La premiere image porte la duree de tout l'amorcage : elle n'est pas une image.
+    s.first_frame = false;
+    s.wall.start();
+    s.win_scene_units0 = g_scene_units.load(std::memory_order_relaxed);
+    return;
+  }
+
+  const double dt = s.wall.getSeconds();
+  s.wall.start();
+  s.frames++;
+
+  // TEMPS ADMIS. Une image qui a consomme le plafond de rattrapage a vu son temps reel
+  // ecrete par l'horloge : compter ce temps-la dans la fenetre reviendrait a reprocher au
+  // debridage la lenteur de l'appareil. Ce qui est retire est compte, jamais efface.
+  double admitted = dt;
+  if (k >= kCeilingK) {
+    const double ceiling = (double)kCeilingK * kTickSeconds;
+    if (dt > ceiling) {
+      s.dropped_sec += dt - ceiling;
+      admitted = ceiling;
+      s.ceiling_frames++;
+    }
+  }
+
+  s.win_raw_sec += dt;
+  s.win_admitted_sec += admitted;
+  s.win_frames++;
+  s.win_ticks += k;
+
+  if (s.win_raw_sec >= kWindowSeconds) {
+    close_window(s);
+  }
+
+  if (armed()) {
+    autoport_proof::note_hit();
+  }
+  publish(s);
+}
+
+double scene_vblank_hz(double engine_target_fps) {
+#ifdef __ANDROID__
+  // Le pacer bat a `target_fps` sur sa propre montre, quoi que fasse le rendu.
+  const double hz = engine_target_fps;
+#else
+  // Un vblank par swap : la cadence des appels est celle que le limiteur tient.
+  const double hz = cap_fps(engine_target_fps);
+#endif
+  return hz > 0.0 ? hz : 60.0;
+}
+
+void on_scene_vblank(s32 units_added) {
+  if (units_added > 0) {
+    g_scene_units.fetch_add((u64)units_added, std::memory_order_relaxed);
+  }
+  g_scene_vblanks.fetch_add(1, std::memory_order_relaxed);
+}
+
+}  // namespace uncap

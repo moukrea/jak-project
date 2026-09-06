@@ -16,6 +16,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/screenshot.h"
+#include "game/graphics/uncap.h"
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kernel_types.h"
 #include "game/kernel/common/kprint.h"
@@ -584,6 +585,8 @@ g.goal_ksum_q = (s32)(u32)rd("*anim-goal-ksum-q*");
   g.djm_rotv = rd("*djm-rotv*");
   render_pace::on_render_frame(g);
   fixed_tick::on_render_frame(g.anim_interp_n);
+  // framerate-uncap : APRES les deux horloges — on lit le k qu'elles viennent de choisir.
+  uncap::on_render_frame();
   if (Gfx::GetCurrentRenderer()) {
     Gfx::GetCurrentRenderer()->send_chain(g_ee_main_mem, chain);
   }
@@ -1100,7 +1103,11 @@ void pc_set_msaa(int samples) {
 }
 
 void pc_set_frame_rate(int rate) {
-  Gfx::g_global_settings.target_fps = rate;
+  // framerate-uncap : ce reglage pilote desormais le PLAFOND D'AFFICHAGE, plus la reference
+  // de temps du moteur. `Gfx::g_global_settings.target_fps` reste a 60 : c'est ce qui garantit
+  // que la logique recoit 60 ticks par seconde reelle quelle que soit la cadence affichee.
+  // Voir game/graphics/uncap.h.
+  Gfx::g_global_settings.display_fps_cap = (float)rate;
 }
 
 void pc_set_game_resolution(int w, int h) {

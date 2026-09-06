@@ -32,6 +32,8 @@ set(RUNTIME_SOURCE
         graphics/fixed_tick.cpp
         # anim-interp-low-fps : horloge de cadence a reste borne + alpha d'interpolation.
         graphics/render_pace.cpp
+        # framerate-uncap : plafond de cadence d'affichage + son recensement.
+        graphics/uncap.cpp
         graphics/gfx_test.cpp
         graphics/gfx.cpp
         graphics/jak2_texture_remap.cpp

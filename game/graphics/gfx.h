@@ -98,6 +98,16 @@ struct GfxGlobalSettings {
   bool old_vsync = false;
   // target frame rate
   float target_fps = 60;
+  // framerate-uncap : PLAFOND DE LA CADENCE D'AFFICHAGE, en images/s, et lui seul. Distinct
+  // de `target_fps`, qui reste la REFERENCE DE TEMPS du moteur (60) : `*ticks-per-frame*`
+  // (video.gc), `time-factor` / `DISPLAY_FPS_RATIO` (display.gc) et l'increment de l'horloge
+  // de scene de l'overlord (srpc.cpp) en dependent, et les faire suivre la cadence AFFICHEE
+  // est precisement ce qui verrouillait le jeu a 60.
+  //    0 = aucun plafond configure -> le limiteur reprend `target_fps` (comportement d'origine)
+  //   >0 = ce plafond, en images/s
+  //   <0 = illimite
+  // Pose par GOAL (`pc-set-frame-rate`), lu par `uncap::cap_fps` (game/graphics/uncap.h).
+  float display_fps_cap = 0;
   // use custom frame limiter
   bool framelimiter = true;
 

@@ -741,6 +741,9 @@ add_library(gk SHARED
     # anim-interp-low-fps : MEME module que le bureau. Un .cpp neuf doit etre liste ICI ET
     # dans game/CMakeLists.txt, sinon x86 passe sa preuve et l'arm64 meurt au LIEN.
     "${JAK_ROOT}/game/graphics/render_pace.cpp"
+    # framerate-uncap : MEME module que le bureau. Absent d'ici, x86 passe sa preuve et
+    # l'arm64 meurt au LIEN.
+    "${JAK_ROOT}/game/graphics/uncap.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/background/background_common.cpp"
     # foliage-wind : la loi, le recensement et la porte `wind_divergent_pairs`. Un .cpp neuf doit
     # etre liste ICI ET dans game/CMakeLists.txt : sinon x86 passe et l'arm64 meurt au LIEN.

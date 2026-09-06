@@ -28,6 +28,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/render_pace.h"
+#include "game/graphics/uncap.h"
 #include "game/graphics/opengl_renderer/GpuCaps.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/OpenGLRenderer.h"
@@ -921,7 +922,7 @@ void GLDisplay::render() {
   if (Gfx::g_global_settings.framelimiter) {
     auto p = scoped_prof("frame-limiter");
     g_gfx_data->frame_limiter.run(
-        jittered_target_fps(Gfx::g_global_settings.target_fps),
+        jittered_target_fps(uncap::cap_fps(Gfx::g_global_settings.target_fps)),
         Gfx::g_global_settings.experimental_accurate_lag,
         Gfx::g_global_settings.sleep_in_frame_limiter, g_gfx_data->last_engine_time);
   }

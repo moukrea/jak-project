@@ -84,6 +84,7 @@ extern "C" void (*g_jak2_post_machine_scheme_hook)(void);
 
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/render_pace.h"
+#include "game/graphics/uncap.h"
 #include "game/graphics/gfx.h"
 #include "game/kernel/common/kmachine.h"
 
@@ -938,6 +939,8 @@ void a35_send_gfx_dma_chain(u32 /*bank*/, u32 chain) {
     ft_anim_interp_n = jak1::intern_from_c("*anim-interp-n*")->value;
   }
   fixed_tick::on_render_frame(ft_anim_interp_n);
+  // framerate-uncap : MEME point qu'au bureau, APRES les deux horloges.
+  uncap::on_render_frame();
   // Gjak2-pcmenus: jak2 counterpart of the jak1 g_overlay_in_menu publisher in
   // a36_tree_scan_per_frame() (that one is g_syms.armed-gated => jak1-only, and
   // jak2's `syncv` binds jak2::sceGsSyncV (kmachine.cpp:646) which never calls
@@ -1239,7 +1242,11 @@ void a35_pc_set_vsync(u32 sym_val) {
 }
 
 void a35_pc_set_frame_rate(s64 rate) {
-  Gfx::g_global_settings.target_fps = (float)rate;
+  // framerate-uncap : meme semantique qu'au bureau (game/kernel/common/kmachine.cpp) — ce
+  // reglage est le PLAFOND D'AFFICHAGE, jamais la reference de temps. Les deux plateformes
+  // ont leur propre corps pour ce symbole : la plateforme oubliee reste silencieusement sur
+  // l'ancien chemin.
+  Gfx::g_global_settings.display_fps_cap = (float)rate;
 }
 
 // autoport graphics-options batch 1: store the FPS-counter overlay toggle so the

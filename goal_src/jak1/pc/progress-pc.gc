@@ -7081,8 +7081,8 @@
   (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 15)
   (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 14))
 (#if FLAG_VULKAN_SUPPORT
-  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 12)
-  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 11))
+  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 13)
+  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 12))
 (define-options-array *graphic-options-pc*
        game-option
        ;; 0 Aspect Ratio
@@ -7197,10 +7197,12 @@
 ;; menu renderer has no per-item hide flag — only disable):
 ;;   - "Display mode" (windowed/fullscreen/borderless: Android is always fullscreen)
 ;;   - "Display" (monitor select: Android has exactly one display)
-;;   - "Frame rate (experimental)" (permanently greyed on the 60Hz panel)
+;;   - "Frame rate (experimental)" : REMPLACEE par la rangee MAX FRAME RATE (index 8, framerate-uncap),
+;;     qui plafonne la cadence d'AFFICHAGE seule (la reference de temps du moteur reste a 60).
 ;; Goptions-reorder order: 0 Aspect Ratio, 1 Game Resolution, 2 Dynamic Render Scale,
 ;;   3 Render Scale/Min Render Scale, 4 Min Target FPS (HIDDEN when Dynamic OFF), 5 FPS Counter,
-;;   6 V-Sync, 7 MSAA, 8 Advanced settings (renamed "PS2 Options"), 9 Back. Wired in init-game-options.
+;;   6 V-Sync, 7 MSAA, 8 Max Frame Rate, 9 Recharged Settings, 10 Advanced settings (renamed
+;;   "PS2 Options"), 11 Vulkan Renderer (flagged), 12 Back. Wired in init-game-options.
 (define-options-array *graphic-options-pc-android*
        game-option
        ;; 0 Aspect Ratio
@@ -7251,28 +7253,45 @@
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
        ;; 7 MSAA
        (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
-       ;; 8 RECHARGED SETTINGS submenu (Grecharged-hud-jak1). Inserted BEFORE Advanced per the phase
-       ;; spec; shifts Advanced->9, Vulkan->10, Back->11 (see the reindexed init-game-options wiring +
-       ;; the bumped MTF full-len 12 / graphic-options-set-mtf-visible! calls). label via name-override.
+       ;; 8 MAX FRAME RATE slider (framerate-uncap) : 60..240 par pas de 30 -> display-fps-cap.
+       ;; C'est le PLAFOND D'AFFICHAGE et lui seul : la reference de temps du moteur reste 60,
+       ;; donc la logique recoit toujours 60 ticks par seconde reelle et les images en trop sont
+       ;; interpolees par l'alpha de l'horloge armee. La rangee etait ABSENTE du tableau Android
+       ;; (« permanently greyed on the 60Hz panel ») : c'est litteralement le « ca lock a 60 max »
+       ;; de l'owner. Pas d'on-change : le code de slider ecrit directement `value-to-modify`, et
+       ;; `update-to-os` (pckernel-common.gc) pousse la valeur au C++ a chaque image. Etiquette par
+       ;; name-override, valeur cablee dans init-game-options.
+       (new 'static
+            'game-option
+            :option-type (game-option-type slider)
+            :name (text-id vsync)
+            :scale #t
+            :param1 60.0
+            :param2 240.0
+            :slider-step-size 30.0
+            :slider-show-decimal? #f)
+       ;; 9 RECHARGED SETTINGS submenu (Grecharged-hud-jak1). Inserted BEFORE Advanced per the phase
+       ;; spec; shifts Advanced->10, Vulkan->11, Back->12 (see the reindexed init-game-options wiring +
+       ;; the bumped MTF full-len 13 / graphic-options-set-mtf-visible! calls). label via name-override.
        (new 'static
             'game-option
             :option-type (game-option-type menu)
             :name (text-id ps2-options)
             :scale #t
             :param3 (game-option-menu recharged-settings))
-       ;; 9 Advanced settings (was "PS2 Options"; relabelled via name-override, submenu unchanged).
+       ;; 10 Advanced settings (was "PS2 Options"; relabelled via name-override, submenu unchanged).
        (new 'static
             'game-option
             :option-type (game-option-type menu)
             :name (text-id ps2-options)
             :scale #t
             :param3 (game-option-menu gfx-ps2-options))
-       ;; 10 VULKAN RENDERER toggle (Gvulkan-option). OFF = OpenGL/GLES (default), ON = Vulkan. label via
+       ;; 11 VULKAN RENDERER toggle (Gvulkan-option). OFF = OpenGL/GLES (default), ON = Vulkan. label via
        ;; name-override; value-to-modify = gfx-renderer-vulkan? (bound in init-game-options). on-change
        ;; maps the toggle to *pc-settings* gfx-renderer, persists it, and tells the C++ runtime (which
        ;; applies the new backend on the next launch). NOTE: on Android the Vulkan runtime is deferred —
        ;; the toggle persists the preference but the build keeps rendering with GLES for now.
-       ;; row present only with --vulkan-support (Back shifts to 10 otherwise).
+       ;; row present only with --vulkan-support (Back shifts to 11 otherwise).
        (flag-row FLAG_VULKAN_SUPPORT
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
@@ -7283,7 +7302,7 @@
               (pc-set-gfx-renderer! (-> *pc-settings* gfx-renderer))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; 11 Back
+       ;; 12 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; Grecharged-hud-jak1: the "Recharged Settings" submenu (reached from Graphics Options, row before
@@ -7883,6 +7902,11 @@
 (format (clear *min-render-scale-label*) "MIN RENDER SCALE")
 (define *min-target-fps-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *min-target-fps-label*) "MIN TARGET FPS")
+;; framerate-uncap : etiquette de la rangee MAX FRAME RATE, fournie a l'execution par
+;; name-override. Aucun text-id moteur n'est ajoute : la police du menu ne mappe que l'ASCII
+;; MAJUSCULE, et une entree de banc de texte aurait demande les 20 langues.
+(define *max-frame-rate-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *max-frame-rate-label*) "MAX FRAME RATE")
 ;; Goptions-reorder: "PS2 Options" is relabelled "ADVANCED SETTINGS" via name-override (the menu font
 ;; only maps uppercase ASCII; see the FPS-counter label note). Submenu (gfx-ps2-options) is unchanged.
 (define *advanced-settings-label* (new 'global 'string 128 (the-as string #f)))
@@ -10306,9 +10330,9 @@
         (= (-> *pc-settings* gfx-renderer) (pc-gfx-renderer vulkan)))
   (set! (-> *graphic-options-pc* 13 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
   (set! (-> *graphic-options-pc* 13 name-override) *vulkan-renderer-label*))
-  ;; android graphics-options (Goptions-reorder + Grecharged-hud-jak1 order): 0 Aspect, 1 GameRes,
-  ;; 2 Dynamic, 3 RenderScale, 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 RechargedSettings,
-  ;; 9 Advanced, 10 Vulkan, 11 Back.
+  ;; android graphics-options (Goptions-reorder + Grecharged-hud-jak1 + framerate-uncap order): 0 Aspect, 1 GameRes,
+  ;; 2 Dynamic, 3 RenderScale, 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 MaxFrameRate,
+  ;; 9 RechargedSettings, 10 Advanced, 11 Vulkan, 12 Back.
   (set! (-> *graphic-options-pc-android* 2 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
   (set! (-> *graphic-options-pc-android* 2 name-override) *dynamic-render-scale-label*)
   ;; index 3 (RENDER SCALE / MIN RENDER SCALE slider) wired by apply-dynamic-rs-menu-mode!
@@ -10318,15 +10342,20 @@
   (set! (-> *graphic-options-pc-android* 5 name-override) *fps-counter-label*)
   (set! (-> *graphic-options-pc-android* 6 value-to-modify) (&-> *pc-settings* vsync?))
   (set! (-> *graphic-options-pc-android* 7 value-to-modify) (&-> *progress-carousell* int-backup))
-  ;; Grecharged-hud-jak1: index 8 = RECHARGED SETTINGS submenu row on Android.
-  (set! (-> *graphic-options-pc-android* 8 name-override) *recharged-settings-label*)
-  (set! (-> *graphic-options-pc-android* 9 name-override) *advanced-settings-label*)
-  ;; Gvulkan-option: wire the VULKAN RENDERER row on Android (now index 10, after RECHARGED SETTINGS +
+  ;; framerate-uncap : index 8 = MAX FRAME RATE. La cible d'un slider DOIT etre un flottant —
+  ;; tout le code de slider caste en (pointer float) —, d'ou le champ miroir `display-fps-cap`
+  ;; a cote de `target-fps` (int16).
+  (set! (-> *graphic-options-pc-android* 8 value-to-modify) (&-> *pc-settings* display-fps-cap))
+  (set! (-> *graphic-options-pc-android* 8 name-override) *max-frame-rate-label*)
+  ;; Grecharged-hud-jak1: index 9 = RECHARGED SETTINGS submenu row on Android.
+  (set! (-> *graphic-options-pc-android* 9 name-override) *recharged-settings-label*)
+  (set! (-> *graphic-options-pc-android* 10 name-override) *advanced-settings-label*)
+  ;; Gvulkan-option: wire the VULKAN RENDERER row on Android (now index 11, after RECHARGED SETTINGS +
   ;; Advanced, before Back). Same gfx-renderer-vulkan? mirror field (derived just above for desktop). On
   ;; Android the Vulkan runtime is deferred, so the toggle persists the preference but keeps GLES for now.
   (#when FLAG_VULKAN_SUPPORT
-  (set! (-> *graphic-options-pc-android* 10 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
-  (set! (-> *graphic-options-pc-android* 10 name-override) *vulkan-renderer-label*))
+  (set! (-> *graphic-options-pc-android* 11 value-to-modify) (&-> *pc-settings* gfx-renderer-vulkan?))
+  (set! (-> *graphic-options-pc-android* 11 name-override) *vulkan-renderer-label*))
   ;; Grecharged-master-toggle: row 0 = the GLOBAL RECHARGED MASTER on/off (every later
   ;; *recharged-options-pc* index below shifted +1 for it).
   (set! (-> *recharged-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-master?))

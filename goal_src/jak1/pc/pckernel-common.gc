@@ -72,14 +72,23 @@
   (none))
 
 (defmethod set-frame-rate! ((obj pc-settings) (rate int) (call-handlers symbol))
-  "set the target framerate."
+  "set the DISPLAY frame-rate cap.
+   framerate-uncap : ce reglage est le PLAFOND D'AFFICHAGE, plus la reference de temps du
+   moteur. `pc-set-frame-rate` ecrit desormais `display_fps_cap` cote C++ et laisse
+   `Gfx::g_global_settings.target_fps` a 60 (voir game/graphics/uncap.h). Le `video-mode`
+   ne peut donc plus valoir 'custom : c'etait lui qui derivait `*ticks-per-frame*`
+   (585900/target-fps, video.gc:38), `seconds-per-frame`, `time-factor` et donc
+   `DISPLAY_FPS_RATIO` de la cadence AFFICHEE — c'est-a-dire le mode « high fps » amont, ou
+   la LOGIQUE accelerait avec l'ecran. On reste sur les constantes 60 Hz ('ntsc), et les
+   images en trop sont des images de RENDU SEUL interpolees par l'alpha de l'horloge armee
+   (fixed_tick ou render_pace, qui rendent deja k = 0 au-dessus de 60 img/s)."
   (if call-handlers (pc-set-frame-rate rate))
   (if (and (!= 'fullscreen (pc-get-display-mode)) (!= (pc-get-active-display-refresh-rate) rate)) (set! (-> obj vsync?) #f))
   (set! (-> obj target-fps) rate)
+  (set! (-> obj display-fps-cap) (the float rate))
   (case rate
     ((50) (set-game-setting! obj 'video-mode 'pal))
-    ((60) (set-game-setting! obj 'video-mode 'ntsc))
-    (else (set-game-setting! obj 'video-mode 'custom)))
+    (else (set-game-setting! obj 'video-mode 'ntsc)))
   rate)
 
 (defmethod commit-to-file ((obj pc-settings))
@@ -428,6 +437,12 @@
                      (or (= 'fullscreen (pc-get-display-mode)) (>= (pc-get-active-display-refresh-rate) (-> obj target-fps)))))
   (when (!= 'fullscreen (pc-get-display-mode))
     (pc-set-frame-rate (-> obj target-fps)))
+  ;; framerate-uncap : le plafond d'affichage se pousse SANS CONDITION. La ligne ci-dessus est
+  ;; gardee par `(!= 'fullscreen ...)` — or Android est TOUJOURS en 'fullscreen, donc un
+  ;; reglage change dans le menu n'atteignait jamais le C++ tant que le jeu tournait. La
+  ;; rangee slider ecrit directement dans `display-fps-cap` (le code de slider ecrit le
+  ;; pointeur puis notifie) : c'est ici, et seulement ici, que la valeur traverse.
+  (pc-set-frame-rate (the int (-> obj display-fps-cap)))
   ;; do game resolution
   ;; ORDER (batch 2 + 3): the "Game Resolution" picker sets the BASE game res
   ;; ((-> obj width)/(-> obj height) in fullscreen, framebuffer-scissor in windowed);
@@ -937,6 +952,7 @@
     (("min-render-scale") (set! (-> obj min-render-scale) (file-stream-read-float file)))
     (("dynamic-render-scale?") (set! (-> obj dynamic-render-scale?) (file-stream-read-symbol file)))
     (("dyn-target-fps") (set! (-> obj dyn-target-fps) (file-stream-read-float file)))
+    (("display-fps-cap") (set! (-> obj display-fps-cap) (file-stream-read-float file)))
     (("shrub-dist-mod") (set! (-> obj shrub-dist-mod) (file-stream-read-float file)))
     (("lod-dist-mod") (set! (-> obj lod-dist-mod) (file-stream-read-float file)))
     (("lod-force-tfrag") (set! (-> obj lod-force-tfrag) (file-stream-read-int file)))
@@ -1003,6 +1019,7 @@
   (format file "min-render-scale = ~f~%" (-> obj min-render-scale))
   (format file "dynamic-render-scale? = ~A~%" (-> obj dynamic-render-scale?))
   (format file "dyn-target-fps = ~f~%" (-> obj dyn-target-fps))
+  (format file "display-fps-cap = ~f~%" (-> obj display-fps-cap))
   (format file
           "aspect-state = ~A ~D ~D ~A~%"
           (get-game-setting obj 'aspect-ratio)

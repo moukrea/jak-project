@@ -263,6 +263,12 @@ u64 total_ticks();
 u64 total_render_frames();
 u64 total_armed_frames();
 
+// framerate-uncap : EXACTEMENT la grandeur publiee sous `tick_pose_err_pct_x100`, sentinelle
+// 999999 comprise, rendue lisible depuis un autre module. Sans elle il faudrait fabriquer un
+// SECOND instrument pour la meme mesure, et deux instruments qui divergent ne se departagent
+// pas. Aucun etat n'est modifie.
+u64 pose_err_pct_x100();
+
 // Gfixed-tick-anim-interp-2 — ETAT DU VERROU DE CADENCE, publie a cote des mesures.
 // Sans lui, « pas d'amelioration a 30 images/s » et « la condition ne se represente
 // pas a 30 images/s verrouillees » sont indistinguables — c'est exactement l'erreur

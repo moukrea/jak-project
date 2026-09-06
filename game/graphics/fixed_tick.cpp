@@ -546,6 +546,12 @@ u64 total_ticks() {
   return state().ticks;
 }
 
+u64 pose_err_pct_x100() {
+  State& s = state();
+  const double pe = s.pose_err_max > 0.0 ? s.pose_err_max : 0.0;
+  return s.pose_steps_judged >= kMinPoseSteps ? (u64)(pe * 10000.0 + 0.5) : kCensusNoMeasurement;
+}
+
 u64 total_render_frames() {
   return state().render_frames;
 }

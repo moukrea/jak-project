@@ -893,6 +893,12 @@ double last_deficit() {
   return state().last_deficit_pre;
 }
 
+u64 step_err_max_us() {
+  State& s = state();
+  const double us_per_tick = 1.0e6 / target_fps();
+  return s.steps_judged >= kMinJudgedSteps ? (u64)(s.err_max * us_per_tick + 0.5) : kNoMeasurement;
+}
+
 // -------------------------------------------------------------------------- stimulus ----
 // APPELE PAR LE LIMITEUR, ET PAR LUI SEUL : le fil principal sur bureau
 // (`GLDisplay::render`), le fil EE sur Android (`android_gfx::vsync`). Un seul fil de chaque

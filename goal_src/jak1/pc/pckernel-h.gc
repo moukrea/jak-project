@@ -218,6 +218,7 @@
    (min-render-scale                 float) ;; Gdynamic-renderscale: auto-scaler FLOOR (% of game res)
    (dynamic-render-scale?            symbol) ;; Gdynamic-renderscale: if on, auto-adjust render scale to hold dyn-target-fps
    (dyn-target-fps                   float) ;; Gdynamic-renderscale: minimum target framerate the auto-scaler holds
+   (display-fps-cap                  float) ;; framerate-uncap: PLAFOND de la cadence d'AFFICHAGE (img/s). Miroir flottant de `target-fps`, requis parce que le code de rangee slider ne lit que des flottants (progress-pc.gc caste systematiquement en (pointer float)).
    ;; ps2 settings
    (ps2-read-speed?                  symbol) ;; emulate DVD loads
    (ps2-parts?                       symbol) ;; if off, increase particle cap

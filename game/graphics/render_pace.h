@@ -155,6 +155,10 @@ s32 raw_alpha_micro();
 double last_k();
 double last_deficit();
 
+// framerate-uncap : EXACTEMENT la grandeur publiee sous `anim_render_step_err_max_us`,
+// sentinelle comprise. Meme raison que `fixed_tick::pose_err_pct_x100`. Aucun etat modifie.
+u64 step_err_max_us();
+
 // ---------------------------------------------------------------------------------------
 // BALAYAGE DE CADENCE D'AFFICHAGE — LE STIMULUS DE MESURE, ET RIEN D'AUTRE.
 // ---------------------------------------------------------------------------------------

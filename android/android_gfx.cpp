@@ -30,6 +30,7 @@
 #include "game/graphics/gfx.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/render_pace.h"
+#include "game/graphics/uncap.h"
 #include "game/graphics/opengl_renderer/GpuCaps.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
@@ -1084,7 +1085,7 @@ u32 vsync() {
     // precisement l'ecart entre cadence AFFICHEE et cadence CIBLE qui fabrique le defaut que
     // l'owner decrit a 45 img/s. Sans consigne, rend la cible telle quelle : le binaire de
     // l'owner passe ici a chaque image et ne change pas de comportement.
-    double tfps = render_pace::stimulus_fps((double)Gfx::g_global_settings.target_fps);
+    double tfps = render_pace::stimulus_fps(uncap::cap_fps((double)Gfx::g_global_settings.target_fps));
     if (tfps < 1.0) {
       tfps = 60.0;
     }

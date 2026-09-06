@@ -14,6 +14,7 @@
 #include "game/common/loader_rpc_types.h"
 #include "game/common/player_rpc_types.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/uncap.h"
 #include "game/overlord/common/iso.h"
 #include "game/overlord/common/sbank.h"
 #include "game/overlord/common/soundcommon.h"
@@ -487,8 +488,25 @@ s32 VBlank_Handler(void*) {
 
   gFrameNum++;
 
-  if (gFakeVAGClockRunning && !gFakeVAGClockPaused) {
-    gFakeVAGClock += (s32)(1024 / Gfx::g_global_settings.target_fps);
+  // framerate-uncap : l'increment etait TRONQUE a l'entier. A 60 Hz `(s32)(1024/60)` vaut 17,
+  // donc 1020 unites par seconde reelle au lieu de 1024 (-0,39 %) ; a 120 Hz il vaut 8, donc
+  // 960 (-6,25 %). On garde le RESTE : le debit long terme vaut exactement 1024 unites par
+  // seconde reelle a n'importe quelle cadence de vblank. L'accumulateur tourne MEME quand
+  // aucune scene n'est spoolee — c'est ce qui rend le debit mesurable en continu, et le
+  // reliquat vaut moins d'une unite quand une scene demarre (iso.cpp remet le compteur a 0).
+  {
+    // Le diviseur est la cadence a laquelle CE gestionnaire est appele, qui n'est pas la
+    // meme grandeur sur les deux plateformes : voir uncap::scene_vblank_hz.
+    const double step = 1024.0 / uncap::scene_vblank_hz(
+                                    (double)Gfx::g_global_settings.target_fps);
+    static double s_vag_frac = 0.0;
+    s_vag_frac += step;
+    const s32 units = (s32)s_vag_frac;
+    s_vag_frac -= (double)units;
+    if (gFakeVAGClockRunning && !gFakeVAGClockPaused) {
+      gFakeVAGClock += units;
+    }
+    uncap::on_scene_vblank(units);
   }
 
   // We don't need this, our DMA's are instant
