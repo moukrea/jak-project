@@ -3938,7 +3938,7 @@ items:
     value: 0
   game: jak1
   max_turns: 1000
-  max_retries: 8
+  max_retries: 6
   depends_on:
   - lighting-unify
   - refset-replay-stable
@@ -3954,26 +3954,18 @@ items:
     second etage. La preuve de lighting-unify montre que seuls C et E dessinent par defaut (A=0 B=0 C=304192
     E=3191131).'
   deliverable: 'La courbe de compression vers SDR doit PRESERVER LE DETAIL. Le moteur emet `hdr_tonemap_defects=N`,
-    somme de six verdicts publies aussi separement, mesures sur le jeu de reference ORIGINE-LUMIERE (la
-    config que l''owner joue) : (1) part de pixels satures <= celle de l''ORIGINE ; (2) contraste local
-    du decile le plus lumineux >= 95 % de la reference ; (3) courbe monotone sans coude ; (4) master eteint
-    => sortie identique au bit a ORIGINE-TOTAL ; (5) le jeu ORIGINE-LUMIERE existe et sert de base aux
-    verdicts 1-3 ; (6) `tonemap_sites` = 1 dans les TROIS configurations, pas seulement eclairage temps
-    reel allume. Zero. Detail et arbitrage C/E : SPEC §8 item 2 et §4.5.'
+    somme de cinq verdicts publies aussi separement, mesures sur le jeu de reference ORIGINE-LUMIERE (la
+    config que l''owner joue) : (1) part de pixels satures <= celle de l''ORIGINE ; (2) `hdr_defect_2_hl_contrast`
+    = 0, le contraste local du decile le plus lumineux >= 95 % de la reference — C''EST LE DEFAUT QUE
+    L''OWNER VOIT, il prime ; (3) courbe monotone sans coude ; (4) le jeu ORIGINE-LUMIERE existe et sert
+    de base aux verdicts 1-3 ; (5) `tonemap_sites` = 1 dans les TROIS configurations. Zero. L''identite
+    au bit maitre eteint est SORTIE de cet item : lighting-origin-bitexact.'
   out_of_scope: 'La sortie HDR vers un ecran compatible appartient a hdr-display-output. La regle des
     deux origines et la hierarchie des interrupteurs : SPEC §0.2, §1.1, §6.2.'
-  notes: 'Budget rendu le 2026-09-06 : les six essais ne se sont PAS perdus, ils ont porte quatre verdicts
-    sur six au vert (saturation <= origine, courbe monotone verifiee sur 8000 points, jeu ORIGINE-LUMIERE
-    capture et rejoue sur 13439 images, nouvel interrupteur d''eclairage propre dans les trois configurations
-    : hdr_cfg_bad_* tous a 0). Un blocage sert a arreter un chantier qui tourne en rond ; celui-ci avance.
-    Et il gele les dix chantiers d''eclairage qui en dependent, c''est-a-dire la priorite que l''owner
-    a posee. DEUX verdicts restent, isoles : hdr_defect_2_hl_contrast=1 (le contraste des hautes lumieres
-    n''atteint pas 95 % de la reference — c''est LE defaut que l''owner voit) et hdr_defect_4_master_off_bitexact=1
-    (maitre eteint, la sortie n''est pas identique au bit a ORIGINE-TOTAL — quelque chose fuit alors que
-    tout devrait etre desarme ; c''est l''exigence ajoutee apres sa question sur le gating, et elle sort
-    rouge du premier coup, donc son soupcon etait fonde). Ne pas repartir de zero : ces deux-la seulement.
-    | 2026-09-06 : budget porte a 8. Quatre verdicts acquis, deux restants nommes (hl_contrast, master_off_bitexact).
-    Le blocage gelait la chaine d''eclairage entiere.'
+  notes: 'Scinde le 2026-09-07 : l''exigence d''identite au bit sort dans lighting-origin-bitexact. Groupees,
+    une courbe a calibrer et une purete a garantir bloquaient l''une l''autre, et les essais 7-8 n''ont
+    plus rien produit. Il reste CINQ verdicts, dont quatre etaient deja verts au blocage : seul hdr_defect_2_hl_contrast
+    resiste.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: images passees par le tone map
   proof_props:
@@ -3985,7 +3977,37 @@ items:
   - debug.opengoal.want.display=beach,display
   - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
   proof_timeout: 780
-  block_reason: max_retries (6) épuisé
+  block_reason: max_retries (8) épuisé
+- id: lighting-origin-bitexact
+  feature: Maitre eteint, l'image doit etre identique au bit au jeu d'origine
+  status: open
+  priority: 26
+  game: jak1
+  gate:
+    key: origin_bitexact_defects
+    op: ==
+    value: 0
+  device: false
+  max_turns: 300
+  max_retries: 6
+  depends_on: []
+  history: []
+  prompt: prompts/item-lighting-origin-bitexact.md
+  owner_ok: null
+  owner_test: false
+  where: null
+  deliverable: 'Maitre Recharged ETEINT, la sortie doit etre identique AU BIT a la reference ORIGINE-TOTAL
+    figee par lighting-census. Le moteur emet `origin_bitexact_defects` = nombre d''images qui different.
+    Zero. Mesure le 2026-09-06 : `hdr_defect_4_master_off_bitexact=1` — quelque chose fuit alors que tout
+    devrait etre desarme. L''owner l''avait soupconne (« tu passe bien par ce parametre pour gate nos
+    effets ou tu les code en dur en remplacant le vanilla, alors que la SPEC stipule qu''on peut rester
+    au rendu d''origine ») : la reponse de lecture de code etait rassurante, la MESURE ne l''est pas.
+    Nommer ce qui fuit, ne pas ajouter de tolerance.'
+  known_cause: null
+  out_of_scope: 'Ne pas toucher a la courbe de compression : c''est lighting-hdr.'
+  notes: 'Sorti de lighting-hdr le 2026-09-07 : groupe avec la calibration de la courbe, il empechait
+    le defaut VISIBLE par l''owner de sortir. Deux natures differentes, deux items.'
+  owner_feedback: []
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
   status: open
