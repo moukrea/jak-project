@@ -20,6 +20,7 @@
 #include "third-party/fpng/fpng.h"
 
 #if defined(__ANDROID__)
+#include <dlfcn.h>
 #include <sys/system_properties.h>
 #endif
 
@@ -46,6 +47,17 @@ constexpr int64_t kAnchorSettle = 300;  // 5 s apres le premier warp : le niveau
 // `OG_REFSET_SETTLE` : c'est le seul curseur du compromis « la camera n'a pas encore diverge »
 // contre « l'heure et le lissage de la lumiere sont poses ». Le regler ne demande pas de rebatir.
 int64_t g_step_settle = 180;
+// L'INSTANT ABSOLU DU PREMIER TELEPORT (frames de LOGIQUE). Voir `warp_at_frame` dans refset.h :
+// le delai apres readiness de `level_warp_maybe` depend du disque, et son ecart d'UNE frame
+// entre la capture et le rejeu du 2026-09-06 a suffi a rendre `refpix_maxdiff_origine=232`.
+// LA VALEUR N'EST PAS LIBRE VERS LE HAUT. Essayee a 900, la course MEURT avant le teleport :
+// mesure du 2026-09-06 sur eae4df44, `signal 4` a la frame 782 avec `A36-TREE at-crash
+// viol-total=0` — donc PAS la corruption d'arbre du teleport repete, un autre defaut, atteint
+// en restant 300 images de plus sur l'ecran-titre. On ne repousse donc pas l'instant : on le
+// FIXE la ou il tombait deja. Mesure des deux courses precedentes : `warp1 lf=600` puis
+// `lf=599`, c'est-a-dire readiness atteinte des la premiere image et 600 ticks de delai. 600 en
+// frames de LOGIQUE reproduit cet instant sans heriter de la vitesse du disque.
+int64_t g_warp_at = 600;
 
 constexpr int kShotW = 320;
 constexpr int kShotH = 180;
@@ -92,6 +104,33 @@ bool g_rewarp_asked = false;      // une demande de teleport est en vol
 int64_t g_rewarp_asked_lf = -1;   // depuis quand : une demande perdue doit se re-poser
 int64_t g_step_anchor = -1;       // frame de logique du teleport de l'etape courante
 uint64_t g_rewarps = 0;
+// UN TELEPORT PAR ETAPE, OU UN SEUL POUR TOUT LE PLAN ? Sur arm64 le plan MEURT au troisieme
+// `(start 'play <continue>)` : mesure du 2026-09-06 sur eae4df44, les etapes 0 et 1 capturent
+// (`REFSET cap origine/h00`, `h03`) puis
+//     GK-DIAG A36-TREE VIOLATION frame=755 tree-self a=0x1dcbd8 b=0x2189d4
+//     Process exited due to signal 4
+// — une corruption de l'arbre de processus ANTERIEURE a cet item (le scanner d'integrite
+// nomme le premier maillon rompu ; il ne fait que LIRE). x86 encaisse les 24 teleports, arm64
+// non. Le defaut appartient au redemarrage repete de niveau, pas au jeu de references : on ne
+// le corrige pas ici, on cesse de le declencher 24 fois.
+// CE QUE LE TELEPORT ACHETAIT reste acquis : le premier re-teleport (etape 0) a toujours lieu,
+// et c'est LUI qui rend la pose de la camera independante du chemin de chargement (voir le
+// bloc `wants_rewarp` dans refset.h). Les 23 suivants ne faisaient que la re-poser a
+// l'identique. Ce qui reste a la charge du determinisme entre deux courses : le pas de temps
+// fixe et les graines de `pad_replay`, l'heure du jeu reposee a chaque image, et la
+// neutralisation de `render_pace` — tous deja mesures et publies.
+// Defaut : 1 sur bureau (le registre de `refset-replay-stable` a ete etabli comme ca, on ne
+// change pas la definition de l'instrument sous ses cinq rejeux), 0 sur appareil.
+int g_warp_per_step = 1;
+// L'ANCRE DU PLAN : la frame de logique du re-teleport de l'etape 0. Quand il n'y a pas de
+// teleport par etape, l'instant de chaque photo est CALCULE depuis elle
+// (`base + (k+1) * settle`) et jamais lu sur l'horloge au moment ou l'etape s'arme. La
+// difference n'est pas cosmetique : l'etape k+1 ne s'arme qu'apres que le fil GRAPHIQUE a
+// consomme la photo de l'etape k, donc une lecture d'horloge la ferait dependre de
+// l'entrelacement des deux fils — une frame de logique d'ecart, c'est une autre pose de Jak,
+// et `refset.h` chiffre deja ce que ca coute (27000 pixels sur 57600).
+int64_t g_plan_base = -1;
+uint64_t g_late_arms = 0;  // etapes armees APRES leur instant theorique : le plan a pris du retard
 
 // ── mesures ─────────────────────────────────────────────────────────────────────────────────
 uint64_t g_captured = 0;
@@ -265,6 +304,16 @@ void publish_state() {
   autoport_proof::publish("refset_step_anchor_set", g_step_anchor >= 0 ? 1 : 0);
   autoport_proof::publish("refset_rewarps", g_rewarps);
   autoport_proof::publish("refset_settle", (uint64_t)g_step_settle);
+  // La POLITIQUE DE TELEPORT est publiee : deux courses qui ne l'ont pas la meme ne
+  // photographient pas les memes poses, et rien d'autre dans la preuve ne le dirait.
+  autoport_proof::publish("refset_warp_per_step", (uint64_t)g_warp_per_step);
+  autoport_proof::publish("refset_late_arms", g_late_arms);
+  // L'instant DEMANDE et l'instant OBTENU pour le premier teleport. Publier le seul demande
+  // ne dirait pas si la readiness est arrivee apres : `warp1 != warp_at` = la course a rate
+  // son ancre, et tout ce qui suit est incomparable.
+  autoport_proof::publish("refset_warp_at", (uint64_t)g_warp_at);
+  autoport_proof::publish("refset_warp1_lf", (uint64_t)(g_warp1 < 0 ? 0 : g_warp1));
+  autoport_proof::publish("refset_plan_base_lf", (uint64_t)(g_plan_base < 0 ? 0 : g_plan_base));
   autoport_proof::publish("refset_captured", g_captured);
   autoport_proof::publish("refset_slip_max", (uint64_t)(g_frame_slip_max < 0 ? 0
                                                                              : g_frame_slip_max));
@@ -345,6 +394,15 @@ void publish_state() {
       if (ratio < worst_ratio) {
         worst_ratio = ratio;
       }
+      // PAR CRENEAU, et pas seulement le pire. Les verdicts 1 et 2 echouent DES QU'UN creneau
+      // echoue : un chiffre agrege dit qu'il y a un probleme, il ne dit pas ou corriger. Ces
+      // seize lignes nomment le creneau fautif — sans elles l'essai suivant recommence a
+      // l'aveugle, et c'est exactement ce que la revue reproche a un verdict sans denominateur.
+      char k[64];
+      std::snprintf(k, sizeof(k), "hdr_sat_excess_h%02d", kHours[i]);
+      autoport_proof::publish(k, r.sat_px > o.sat_px ? r.sat_px - o.sat_px : 0ull);
+      std::snprintf(k, sizeof(k), "hdr_hlc_pct_h%02d", kHours[i]);
+      autoport_proof::publish(k, ratio);
     }
     autoport_proof::publish("hdr_refset_hours_paired", meas);
     autoport_proof::publish("hdr_sat_px_recharged", sat_r);
@@ -538,12 +596,34 @@ uint64_t data_fingerprint() {
 
 // lighting-hdr : l'empreinte du binaire COURANT. Extraite de `publish_flaky` pour que le
 // verdict 4 puisse s'en servir aussi.
+//
+// SUR ANDROID, `/proc/self/exe` N'EST PAS NOTRE BINAIRE. Le processus est forke depuis zygote :
+// son executable est `/system/bin/app_process64`, IDENTIQUE pour tous nos builds (mesure du
+// 2026-09-06 sur eae4df44 : le lien pointe hors de l'APK). Le temoin de capture du verdict 4
+// valait donc la meme chose pour le binaire qui capture et pour celui qui rejoue, et
+// `verdict_master_off_bitexact()` rendait 1 QUOI QU'IL ARRIVE. Notre code vit dans `libgk.so` :
+// on l'atteint par `dladdr` sur une adresse de CE module — jamais par un chemin ecrit en dur,
+// qui changerait au premier renommage d'APK.
+//
+// Le resultat est CALCULE UNE FOIS. `verdict_master_off_bitexact()` est appele toutes les 30
+// images depuis `hdr::frame_end` ; relire et hacher 134 Mo a chaque appel arreterait le jeu.
 uint64_t self_fingerprint() {
-#if defined(__linux__)
-  return hash_file("/proc/self/exe");
-#else
-  return 0;
+  static uint64_t s_fp = 0;
+  static bool s_done = false;
+  if (s_done) {
+    return s_fp;
+  }
+  s_done = true;
+#if defined(__ANDROID__)
+  Dl_info info;
+  std::memset(&info, 0, sizeof(info));
+  if (dladdr((const void*)&refs_fingerprint, &info) && info.dli_fname && info.dli_fname[0]) {
+    s_fp = hash_file(info.dli_fname);
+  }
+#elif defined(__linux__)
+  s_fp = hash_file("/proc/self/exe");
 #endif
+  return s_fp;
 }
 
 // ── LE TEMOIN DE CAPTURE, ET POURQUOI IL EXISTE ─────────────────────────────────────────────
@@ -681,6 +761,26 @@ bool enabled() {
   if (read_knob("OG_REFSET_DIR", "debug.opengoal.refset.dir", d, sizeof(d))) {
     g_dir = d;
   }
+  // UN TELEPORT PAR ETAPE : voir `g_warp_per_step`. Sur appareil le defaut est 0 parce que le
+  // troisieme `(start 'play <continue>)` tue la course en SIGILL (mesure du 2026-09-06).
+#if defined(__ANDROID__)
+  g_warp_per_step = 0;
+#endif
+  {
+    char wv[32] = {0};
+    if (read_knob("OG_REFSET_WARP_PER_STEP", "debug.opengoal.refset.warpstep", wv, sizeof(wv))) {
+      g_warp_per_step = (std::atoi(wv) != 0) ? 1 : 0;
+    }
+  }
+  {
+    char av[32] = {0};
+    if (read_knob("OG_REFSET_WARP_AT", "debug.opengoal.refset.warpat", av, sizeof(av))) {
+      const long v = std::strtol(av, nullptr, 10);
+      if (v >= 60 && v <= 100000) {
+        g_warp_at = v;
+      }
+    }
+  }
   {
     char sv[32] = {0};
     if (read_knob("OG_REFSET_SETTLE", "debug.opengoal.refset.settle", sv, sizeof(sv))) {
@@ -735,6 +835,10 @@ int tod_override_x100() {
   return g_tod_x100;
 }
 
+int64_t warp_at_frame() {
+  return g_warp_at;
+}
+
 void set_logic_frame_provider(int64_t (*fn)()) {
   g_logic_fn = fn;
 }
@@ -761,6 +865,9 @@ void note_anchor() {
   if (g_cap == kCapWaitWarp) {
     g_step_anchor = lf;
     g_capture_frame = lf + g_step_settle;
+    if (g_plan_base < 0) {
+      g_plan_base = lf;
+    }
     g_cap = kCapArmed;
   }
 }
@@ -843,7 +950,21 @@ void tick() {
     char nm[64];
     std::snprintf(nm, sizeof(nm), "%s/h%02d", set_name(st.phase), st.hour);
     g_capture_name = nm;
-    g_cap = kCapWaitWarp;
+    if (g_warp_per_step || g_cur == 0 || g_plan_base < 0) {
+      g_cap = kCapWaitWarp;
+    } else {
+      // Pas de teleport pour cette etape : l'instant de la photo se DEDUIT de l'ancre du plan.
+      // Voir `g_plan_base`. Un retard reel (le plan n'a pas tenu la cadence) n'est pas absorbe
+      // en silence : il se compte, et le repli qui suit rend la course non comparable — c'est
+      // exactement ce que `refset_late_arms` doit rendre visible.
+      g_step_anchor = g_plan_base;
+      g_capture_frame = g_plan_base + (int64_t)(g_cur + 1) * g_step_settle;
+      if (g_capture_frame <= lf) {
+        g_late_arms++;
+        g_capture_frame = lf + g_step_settle;
+      }
+      g_cap = kCapArmed;
+    }
     if (g_cur == 0) {
       std::printf("REFSET start lf=%lld warp1=%lld settle=%lld\n", (long long)lf,
                   (long long)g_warp1, (long long)g_step_settle);
@@ -940,8 +1061,13 @@ bool consume_capture(int w, int h, const void* rgba) {
         g_maxdiff = md;
       }
       {
+        // Les phases valent 1..3. La borne haute etait `<= 2` : la phase 3 (ORIGINE-LUMIERE)
+        // n'entrait donc JAMAIS dans `g_compared_phase`, et `verdict_origine_lumiere_set()`,
+        // qui exige `g_compared_phase[3] == 8`, rendait 1 quoi qu'il arrive — le verdict 5
+        // etait rouge par construction, comme `refpix_maxdiff_origine_lumiere` etait mort.
+        // La case 0 n'existe pas (voir la declaration de g_maxdiff_phase).
         const int ph = g_steps[g_cur].phase;
-        if (ph >= 0 && ph <= 2) {
+        if (ph >= 1 && ph <= 3) {
           if (md > g_maxdiff_phase[ph]) {
             g_maxdiff_phase[ph] = md;
           }
@@ -962,9 +1088,22 @@ bool consume_capture(int w, int h, const void* rgba) {
       if (md != 0) {
         // L'image REELLE d'un ecart est ecrite a cote de la preuve pour que l'ecart soit
         // localisable hors ligne. Elle ne prouve rien : c'est le nombre qui prouve.
+        //
+        // SUR ANDROID CE CHEMIN DOIT ETRE ABSOLU, et c'est la meme mine que celle deja payee
+        // pour `g_dir` : `.autoport/reports/...` est relatif au CWD du processus, ce CWD est en
+        // LECTURE SEULE sur l'appareil, et `create_dir_if_needed` appelle
+        // `fs::create_directories` SANS `error_code` (FileUtil.cpp:530) — donc il LANCE.
+        // L'exception traverse le fil graphique et devient `std::terminate` : un SIGABRT dont la
+        // cause ne ressemble pas au symptome. Le declencheur n'est pas theorique : il suffit
+        // qu'UNE comparaison rende un ecart non nul, ce qui est le cas nominal des le moment ou
+        // la reference d'une phase vient d'un autre binaire.
+#if defined(__ANDROID__)
+        const std::string out = g_dir + "/actual";
+#else
         const char* fid = autoport_proof::feature_id();
         const std::string out = std::string(".autoport/reports/") +
                                 ((fid && fid[0]) ? fid : "lighting-census") + "/refset-actual";
+#endif
         file_util::create_dir_if_needed(out);
         file_util::write_rgba_png(out + "/" + set_name(g_steps[g_cur].phase) + "-h" +
                                       (g_steps[g_cur].hour < 10 ? "0" : "") +

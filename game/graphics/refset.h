@@ -71,10 +71,22 @@
 // n'a pas pu se mesurer. Un binaire rebati ou une reference recapturee change une empreinte et
 // perime le registre tout seul.
 //
-// PORTEE HONNETE. Le declenchement de la capture passe par `render_game_frame`
-// (game/graphics/pipelines/opengl.cpp), qui n'est PAS dans android/CMakeLists.txt : le jeu de
-// references est un instrument x86. C'est aussi la plateforme de la preuve de cet item. Sur
-// l'appareil, `refset_platform` vaut `device` et aucune etape ne se lance.
+// PORTEE. Le jeu de references tourne SUR LES DEUX plateformes depuis le 2026-09-06. Sur
+// bureau la capture part de `render_game_frame` (game/graphics/pipelines/opengl.cpp:655), sur
+// appareil de `refset_capture_if_step` (android/android_opengl_renderer.cpp:1725), qui relit le
+// FBO composite et le sous-echantillonne en 320x180 a bornes entieres. `refset_platform` dit
+// laquelle a produit la course, et les deux familles d'images vivent dans des dossiers de noms
+// DIFFERENTS : re-rendu en resolution interne d'un cote, sous-echantillonnage 4:3 de l'autre —
+// les comparer est faux par construction, et le melange est rendu impossible a la PRODUCTION.
+//
+// LES DEUX PLATEFORMES NE TELEPORTENT PAS PAREIL, et c'est mesure, pas esthetique. Le plan
+// re-lance `(start 'play <continue>)` a chaque etape ; sur arm64 le TROISIEME appel tue la
+// course en SIGILL (`GK-DIAG A36-TREE VIOLATION ... tree-self`, puis signal 4) — `start`
+// appelle `stop`, donc `kill-by-name 'target *active-pool*` suivi d'une vague de naissances
+// dans le dead-pool-heap, et l'arbre de processus ne survit pas a la repetition. Sur appareil,
+// le teleport par etape est donc ETEINT par defaut (`refset_warp_per_step=0`) : seul le
+// re-teleport de l'etape 0 a lieu, celui qui supprime la dependance au chemin de chargement.
+// Les instants des 23 autres photos se DEDUISENT de l'ancre du plan.
 
 #include <cstdint>
 
@@ -90,6 +102,12 @@ bool enabled();
 // depuis le fil GOAL seulement.
 void set_logic_frame_provider(int64_t (*fn)());
 int64_t current_logic_frame();
+
+// L'INSTANT ABSOLU DU PREMIER TELEPORT, en frames de LOGIQUE. Lu par `level_warp_maybe`
+// (kmachine.cpp) A LA PLACE de son delai apres readiness : ce delai depend de la vitesse de
+// chargement, et une frame de logique d'ecart entre deux courses suffit a rendre 30 % des
+// pixels differents. `OG_REFSET_WARP_AT` / `debug.opengoal.refset.warpat`, defaut 900.
+int64_t warp_at_frame();
 
 // L'ANCRE, prise AU POINT DE L'EVENEMENT et non par un sondage par image. Appelee par le warp
 // de niveau juste apres `(start 'play <continue>)`. Le PREMIER appel n'ancre rien : il arme le

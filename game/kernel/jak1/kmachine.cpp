@@ -5955,15 +5955,31 @@ void level_warp_maybe() {
   if (dead_pool == 0 || dead_pool == (u32)s7.offset) {
     return;
   }
-  // Settle margin after readiness — let the title attract fully come up before the
-  // warp fires. Tunable via OG_LEVEL_WARP_DELAY (kernel-dispatch ticks); default ~10s.
-  int delay = 600;
-  if (const char* d = std::getenv("OG_LEVEL_WARP_DELAY")) {
-    delay = atoi(d);
-  }
-  static int s_ticks = 0;
-  if (s_ticks++ < delay) {
-    return;
+  // SOUS `OG_REFSET`, LE PREMIER TELEPORT PART A UN INSTANT ABSOLU, PAS APRES UN DELAI.
+  // Le delai ci-dessous se compte a partir de la READINESS, qui depend de la vitesse a laquelle
+  // le niveau se charge. Mesure du 2026-09-06 sur eae4df44 : `REFSET warp1 lf=600` a la capture,
+  // `lf=599` au rejeu. UNE frame de logique d'ecart — et c'est exactement la sensibilite que
+  // refset.h chiffre : maxdiff 172-215, ~17000 pixels sur 57600. Les 24 photos du plan heritent
+  // de cet ecart, donc le rejeu a rendu `refpix_maxdiff_origine=232` alors que rien de
+  // l'eclairage n'avait bouge. Ancrer le teleport sur le COMPTEUR DE FRAMES DE LOGIQUE le rend
+  // identique d'une course a l'autre : le compteur avance d'une unite par image SIMULEE, il ne
+  // depend ni de la cadence ni du disque.
+  if (refset::enabled()) {
+    const int64_t lf = refset::current_logic_frame();
+    if (lf < 0 || lf < refset::warp_at_frame()) {
+      return;
+    }
+  } else {
+    // Settle margin after readiness — let the title attract fully come up before the
+    // warp fires. Tunable via OG_LEVEL_WARP_DELAY (kernel-dispatch ticks); default ~10s.
+    int delay = 600;
+    if (const char* d = std::getenv("OG_LEVEL_WARP_DELAY")) {
+      delay = atoi(d);
+    }
+    static int s_ticks = 0;
+    if (s_ticks++ < delay) {
+      return;
+    }
   }
   s_done = true;
 

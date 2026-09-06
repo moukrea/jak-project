@@ -67,6 +67,9 @@ uint64_t s_cfg_bad[4] = {0, 0, 0, 0};
 bool s_drew_this_frame = false;
 uint64_t s_sites_now = 0;  // le compte de la DERNIERE image, dans SA configuration
 int s_cfg_now = 0;
+// La PREMIERE image dont le recensement n'a pas rendu 1, avec ses trois termes separes.
+uint64_t s_bad_first_frame = 0, s_bad_first_cfg = 0, s_bad_first_sites = 0;
+uint64_t s_bad_first_draw = 0, s_bad_first_fmt8 = 0, s_bad_first_shader = 0;
 
 // ------------------------------------------------------------------------------------ sonde --
 constexpr int kProbeW = 96;
@@ -307,6 +310,27 @@ float half_to_float(uint16_t h) {
 // ---------------------------------------------------------------------------------- regime ----
 
 bool chain_active() {
+#if defined(AUTOPORT_ABLATE_LIGHTING_HDR)
+  // BINAIRE TEMOIN DU VERDICT 4 — la seule chose que cette macro fabrique.
+  //
+  // Le verdict 4 dit « master eteint => sortie identique au bit a ORIGINE-TOTAL ». Si la
+  // reference ORIGINE-TOTAL est capturee par LE BINAIRE QU'ON JUGE, l'affirmation se compare a
+  // elle-meme : elle mesure la stabilite de l'appareil, pas l'innocuite de l'item, et elle
+  // rendrait zero meme si tout avait ete casse. Sur bureau la reference vient de l'item 0 ; sur
+  // l'appareil aucun binaire d'avant l'item ne sait capturer (le port de capture arm64 date du
+  // 2026-09-06). On construit donc UNE FOIS un binaire ou la chaine de cet item ne peut
+  // PHYSIQUEMENT pas tourner, on capture ORIGINE-TOTAL avec lui, et le rejeu se fait avec le
+  // binaire normal. `refset::self_fingerprint()` les distingue, et le temoin de capture refuse
+  // l'egalite.
+  //
+  // CE QUE CE TEMOIN NE COUVRE PAS, ecrit ici pour que personne ne le lise plus large qu'il
+  // n'est : l'ablation est en C++. Les shaders, eux, sont les MEMES dans les deux binaires. Un
+  // eventuel debordement de l'item qui vivrait UNIQUEMENT dans du GLSL atteint sous master OFF
+  // ne serait pas vu par cette comparaison. Les chemins modifies (`pbr_fused`, `pbr_modern`,
+  // composites C/E de `shade.glsl`) sont tous gardes par `u_pbr_mode != 0`, que le mode ORIGINE
+  // laisse a zero — c'est un argument de lecture, pas une mesure.
+  return false;
+#else
   int ov = -1;
   const bool has_ov = env_or_prop_override("debug.opengoal.hdr", "OG_HDR", &ov);
   // L'override epingle LE SOUS-DRAPEAU de cet item, jamais la composition : les trois niveaux
@@ -323,6 +347,7 @@ bool chain_active() {
   // `hits` tombe a 0 parce que le geste n'a pas eu lieu — pas seulement parce que le compteur
   // s'est tu. Arme par defaut quand le harnais ne demande rien.
   return autoport_proof::armed_for(kItemId);
+#endif
 }
 
 GLenum scene_color_format() {
@@ -563,6 +588,18 @@ void frame_end() {
     s_cfg_frames[cfg]++;
     if (sites != 1) {
       s_cfg_bad[cfg]++;
+      // LA PREMIERE image fautive, nommee. Un compte de 1 sur 1263 ne dit pas SI c'est une image
+      // de transition de configuration ou un defaut permanent, et les deux se corrigent
+      // differemment. On retient donc l'image, sa configuration, son compte de sites et le
+      // detail des trois termes — jamais un simple total.
+      if (!s_bad_first_frame) {
+        s_bad_first_frame = s_frames;
+        s_bad_first_cfg = (uint64_t)cfg;
+        s_bad_first_sites = sites;
+        s_bad_first_draw = s_drew_this_frame ? 1 : 0;
+        s_bad_first_fmt8 = format_is_float(scene_color_format()) ? 0 : 1;
+        s_bad_first_shader = sh;
+      }
     }
     s_sites_now = sites;
     s_cfg_now = cfg;
@@ -625,6 +662,13 @@ void frame_end() {
   autoport_proof::publish("hdr_oetf_progs", oetf_progs);
   autoport_proof::publish("hdr_oetf_occurrences", oetf_total);
   autoport_proof::publish_text("hdr_format", format_name(scene_color_format()));
+  // QUEL BINAIRE A PRODUIT CETTE COURSE. `ablate` est le temoin du verdict 4 (voir
+  // `chain_active`) : il ne doit JAMAIS apparaitre dans un proof.txt qui passe une porte.
+#if defined(AUTOPORT_ABLATE_LIGHTING_HDR)
+  autoport_proof::publish_text("hdr_build_flavour", "ablate");
+#else
+  autoport_proof::publish_text("hdr_build_flavour", "normal");
+#endif
   autoport_proof::publish("hdr_fallback_used", (uint64_t)s_ladder_step);
   autoport_proof::publish("hdr_chain_frames", s_chain_frames);
   autoport_proof::publish("hdr_frames", s_frames);
@@ -671,6 +715,12 @@ void frame_end() {
   autoport_proof::publish("hdr_cfg_bad_origine_total", s_cfg_bad[1]);
   autoport_proof::publish("hdr_cfg_bad_recharged", s_cfg_bad[2]);
   autoport_proof::publish("hdr_cfg_bad_origine_lumiere", s_cfg_bad[3]);
+  autoport_proof::publish("hdr_cfg_bad_first_frame", s_bad_first_frame);
+  autoport_proof::publish("hdr_cfg_bad_first_cfg", s_bad_first_cfg);
+  autoport_proof::publish("hdr_cfg_bad_first_sites", s_bad_first_sites);
+  autoport_proof::publish("hdr_cfg_bad_first_draw", s_bad_first_draw);
+  autoport_proof::publish("hdr_cfg_bad_first_fmt8", s_bad_first_fmt8);
+  autoport_proof::publish("hdr_cfg_bad_first_shader", s_bad_first_shader);
   autoport_proof::publish("hdr_lighting_on", Gfx::recharged_lighting_active() ? 1 : 0);
 }
 
