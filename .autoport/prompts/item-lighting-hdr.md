@@ -1,18 +1,18 @@
 # Le rendu passe en HDR avec un seul tone map
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-06 : « J'ai l'impression que même avec le Real Time lighting à off on a quand même les blancs brûlés, est ce que tu passe bien par ce paramètre pour gate nos effets ou tu les code en dur en remplaçant le vanilla, alors que la SPEC stipule qu'on peut rester au rendu d'origine si on le veut »
 
 ## Cause connue
-LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. Framebuffer RGBA8, pow(1/2.2) dans six shaders, un genou maison par chemin : aucune marge au-dessus de 1, donc ni eclat, ni bloom, ni exposition possibles. SPEC 2.3 cause 6.
+Blancs brules signales par l'owner sur la config PAR DEFAUT (master ON, eclairage temps reel OFF). Mecanisme complet, verifie ligne a ligne : SPEC-refonte-lumiere.md §8 item 2. En un mot : les composites C et E gardent leur propre exposition et leur propre pow(1/2.2) (shade.glsl:679-703, 740-744), le RGBA16F a retire le plafond qui masquait le depassement, et tonemap.frag en rajoute un second etage. La preuve de lighting-unify montre que seuls C et E dessinent par defaut (A=0 B=0 C=304192 E=3191131).
 
 ## Livrable
-Monde en RGBA16F, exposition et tone map appliques UNE fois au resolve, repli declare et mesure. Le mode ORIGINE ne passe PAS par la chaine HDR. SPEC 4.5. PREUVE : `FEATURE lighting-hdr armed=1 hits=<images passees par le tone map>` + la ligne `tonemap_sites=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-hdr"), jamais armed(), et n'en ecris pas un second.
+La courbe de compression vers SDR doit PRESERVER LE DETAIL. Le moteur emet `hdr_tonemap_defects=N`, somme de six verdicts publies aussi separement, mesures sur le jeu de reference ORIGINE-LUMIERE (la config que l'owner joue) : (1) part de pixels satures <= celle de l'ORIGINE ; (2) contraste local du decile le plus lumineux >= 95 % de la reference ; (3) courbe monotone sans coude ; (4) master eteint => sortie identique au bit a ORIGINE-TOTAL ; (5) le jeu ORIGINE-LUMIERE existe et sert de base aux verdicts 1-3 ; (6) `tonemap_sites` = 1 dans les TROIS configurations, pas seulement eclairage temps reel allume. Zero. Detail et arbitrage C/E : SPEC §8 item 2 et §4.5.
 
 ## Preuve exigee
-`tonemap_sites == 1` dans `reports/lighting-hdr/proof.txt`.
+`hdr_tonemap_defects == 0` dans `reports/lighting-hdr/proof.txt`.
 Le proof se produit par `lib/proof_run.sh lighting-hdr device` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : Options > Recharged : le rendu general, et surtout les zones tres lumineuses.
 
 ## Hors perimetre
-Tout ce qui n'est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de bloom, pas d'exposition automatique : ils viennent apres.
+La sortie HDR vers un ecran compatible appartient a hdr-display-output. La regle des deux origines et la hierarchie des interrupteurs : SPEC §0.2, §1.1, §6.2.

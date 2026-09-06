@@ -3,6 +3,7 @@
 ## Defaut cite
 - 2026-09-03 : « Les acteurs je sais que leur lighting est faked, faut plus que ce soit le cas ! »
 - 2026-09-03 : « l'ombre que cast Jak, ennemies et PNJ est tres bizarre, on dirait une version ultra low poly projete sur le sol, c'est pas la bonne methode pour un truc modern »
+- 2026-09-05 : « Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe sur l'intégralité du realtime lighting ! »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. merc2.vert eclaire PAR SOMMET et merc2.frag ne fait que vtx_color*T0*2 : ni normale par pixel, ni ombre recue, ni AO. Et l'ombre projetee est un shadow-geo de 115 sommets extrude en stencil. SPEC 3.5.
@@ -16,4 +17,4 @@ Le proof se produit par `lib/proof_run.sh lighting-actors device` — jamais a l
 Ou l'owner regardera : Jak et les PNJ a Sandover, puis dans une hutte, puis la nuit sous un lampadaire.
 
 ## Hors perimetre
-Tout ce qui n'est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de mesure visuelle. Le reciblage des modeles HD n'est pas touche.
+Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle. Le reciblage des modeles HD n'est pas touche.

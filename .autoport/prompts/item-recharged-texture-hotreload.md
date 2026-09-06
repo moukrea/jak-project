@@ -10,7 +10,7 @@ Aucun cycle n'a tourne sur cet item.
 Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une garde de non-regression qui echoue si le symptome revient.
 
 ## Preuve exigee
-Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
+`hotreload_pixels_changed >= 1` dans `reports/recharged-texture-hotreload/proof.txt`.
 Le proof se produit par `lib/proof_run.sh recharged-texture-hotreload device` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : bascule les textures Recharged en pleine partie, sans redemarrer.
 

@@ -1,9 +1,9 @@
 # Le mouvement secondaire des personnages HD (physique de Keira)
 
 ## Defaut cite
-- 2026-08-27 : « la spec a 100%, pas de raccourcis »
 - 2026-08-28 : « le budget d'execution du chantier pre-specifie est de QUATRE lignes »
 - 2026-08-28 : « un terme de COM dans le tenseur valant x1,61 a x1,68 »
+- 2026-09-05 : « Je pense que la physique on peut mettre vraiment tout en bas de la pile, d'ailleurs cet item date d'avant la spec des seins de Keira je pense donc on peut reclasser après le moteur de physique, les seins de Keira, de Maïa, etc. Et mettre tout ce qui est lié à la physique tout en bas de la pile »
 
 ## Cause connue
 Le deficit et l'exces vivent dans DEUX canaux differents (angulaire 9/10 au-dessus, lineaire centre) : aucun operateur d'amplitude ne ferme les deux. Le plafond d'apex de §22 ne bornait que translation+rotation et laissait le tenseur libre a 0,59 B0. Les echelles de forme sont au niveau de l'ORGANE, appliquees par maillon.

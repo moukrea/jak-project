@@ -3,6 +3,7 @@
 ## Defaut cite
 - 2026-09-03 : « Il y a aussi des niveaux et/zones ou le ciel n'est pas visible (tunels, overcast) come le lava tube ou le niveau de swamp par example [...] Dans le cas de ciels overcast (ie. Swamp level) la lumiere est diffusee par le ciel, pas le soleil car il n'y est pas vraiment visible »
 - 2026-09-03 : « Pour l'ambiance qui vient du ciel attention avec l'artistic intent [...] faut etre super smart la dessus »
+- 2026-09-05 : « Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe sur l'intégralité du realtime lighting ! »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. pc-set-pbr-sky-sun! est pousse sans garde et ecrase la lumiere cle : dans 16 niveaux sur 20 la clef du monde suit un soleil que le joueur ne voit pas. SPEC 3.2, 3.3 et l'annexe A.
@@ -16,4 +17,4 @@ Le proof se produit par `lib/proof_run.sh lighting-regimes x86` — jamais a la 
 Ou l'owner regardera : swamp et lavatube : la lumiere ne doit plus venir d'un soleil invisible.
 
 ## Hors perimetre
-Tout ce qui n'est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de mesure visuelle. Les modeles d'ambiante analytiques sont deja retires par lighting-unify.
+Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle. Les modeles d'ambiante analytiques sont deja retires par lighting-unify.

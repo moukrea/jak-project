@@ -347,6 +347,16 @@ class Backlog:
                 problems.append("%s : max_retries %s au-dessus du defaut %d sans raison "
                                 "« %s » dans notes" % (iid, it.get("max_retries"),
                                                        DEFAULT_MAX_RETRIES, BUDGET_NOTE))
+            # Un prompt qui ne se REND PAS n'atteint jamais le worker, et le fichier sur
+            # disque reste celui d'avant. Le 2026-09-06, lighting-hdr a passe des heures avec
+            # un prompt du 3 septembre qui ignorait le retour de l'owner. Silencieux, donc lint.
+            if status in ("open", "in-progress"):
+                try:
+                    render_prompt(it)
+                except Exception as exc:
+                    problems.append("%s : PROMPT NON RENDU (%s) — le worker lit le vieux "
+                                    "fichier, ton travail ne lui parvient pas"
+                                    % (iid, str(exc)[:60]))
             if status == "to-test" and it.get("owner_test", True) and not (it.get("where") or "").strip():
                 problems.append("%s : a tester sans « ou regarder » — l'owner ne saurait pas "
                                 "quoi regarder" % iid)

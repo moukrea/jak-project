@@ -2,6 +2,7 @@
 
 ## Defaut cite
 - 2026-09-03 : « on a deja implemente du rela time lighting et un support de PBR qu'on a jamais finalise (et probablement tres bancal) »
+- 2026-09-05 : « Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe sur l'intégralité du realtime lighting ! »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. Cinq composites d'ombrage exclusifs choisis par quatre interrupteurs globaux : personne ne peut dire lequel a dessine un pixel, et aucun item suivant ne peut prouver qu'il n'a rien casse. SPEC 2.3.
@@ -12,7 +13,6 @@ Le moteur publie la repartition des draws monde entre les cinq chemins (la somme
 ## Preuve exigee
 `refset_replay_maxdiff == 0` dans `reports/lighting-census/proof.txt`.
 Le proof se produit par `lib/proof_run.sh lighting-census x86` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : rien de visible : cet item ne change aucun pixel, il pose l'instrument.
 
 ## Hors perimetre
-Tout ce qui n'est pas cet item. Le mode ORIGINE (master OFF) doit rester bit-identique : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de mesure visuelle.
+Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
