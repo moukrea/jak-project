@@ -279,6 +279,11 @@
 ;; `pc-refset-mood-flame` rend -1 hors du plan (chemin normal), sinon la phase FIXE a reposer
 ;; dans l'etat de flamme du mood : il avance sinon une fois par image DESSINEE.
 (define-extern pc-refset-mood-flame (function int))
+;; `pc-refset-text-mute?` rend 0 hors du plan (chemin normal), 1 pendant une course de jeu de
+;; references : `print-game-text` bascule alors en NO-DRAW. L'invite « Appuie sur (O) pour
+;; parler. » n'est presente que dans dix des vingt-quatre photos, et ses gradients decident a eux
+;; seuls le verdict du contraste des hautes lumieres.
+(define-extern pc-refset-text-mute? (function int))
 (define-extern pc-refset-active? (function int))
 ;; scratch vector reused each frame to hand the two distances to the bridge (avoids per-frame alloc).
 (define *grass-dist-scratch* (new 'static 'vector :x 30.0 :y 95.0 :z 150.0 :w 1.0))

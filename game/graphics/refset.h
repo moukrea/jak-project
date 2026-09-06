@@ -248,9 +248,28 @@ int particle_step_mode();
 //     serait vide.
 int mood_flame_pin();
 
+//   * `text_mute()` — LES INCRUSTATIONS DE TEXTE 2D NE SONT PAS DE LA SCENE. Le plan photographie
+//     le hall de la hutte, ou Jak se tient a portee du maire : `process-taskable.gc:615` y
+//     dessine l'invite « Appuie sur (O) pour parler. » — un texte blanc de 100 x 12 pixels sur
+//     une image de 320 x 180. Il n'est pas dessine a chaque photo : il s'efface pendant qu'un
+//     indice de niveau parle (`level-hint-displayed?`, meme fichier ligne 594), donc il est
+//     PRESENT dans une photo du couple et ABSENT dans l'autre. Mesure du 2026-09-07 sur les 24
+//     images de la course de 00:12 : dix etapes le portent (5, 8, 9, 13, 14, 17, 18, 19, 22, 23)
+//     et quatorze non, la MEME liste que la course de 21:49 — c'est un etat du plan, pas du bruit.
+//     Ses gradients valent 91 par pixel la ou le decor en vaut 13 : a lui seul il fait tomber
+//     `hdr_hlc_pct_h03` de 101 a 82 et `h06` de 104 a 86, les deux seuls creneaux sous le seuil.
+//     Sous refset, `print-game-text` est donc force en mode NO-DRAW : il calcule tout, il ne
+//     dessine rien. Hors refset la fonction rend 0 et le joueur garde son texte, a la ligne pres.
+//     Non-vacuite : `refset_text_steps_with` / `_without` comptent les photos ou le texte AURAIT
+//     ete dessine. Si `_with` valait 0 ou 24, l'invite ne serait pas asymetrique et retirer le
+//     texte n'expliquerait rien.
+int text_mute();
+
 int verdict_saturation();          // 1 — pixels satures RECHARGED <= ORIGINE-LUMIERE
 int verdict_highlight_contrast();  // 2 — contraste du decile le plus lumineux >= 95 %
-int verdict_master_off_bitexact(); // 4 — master OFF identique au bit a ORIGINE-TOTAL
-int verdict_origine_lumiere_set(); // 5 — le jeu ORIGINE-LUMIERE existe et sert de base
+int verdict_master_off_bitexact(); // lighting-origin-bitexact : master OFF identique au bit a
+                                   // ORIGINE-TOTAL. Sorti de lighting-hdr le 2026-09-07 ; publie
+                                   // sous `origin_bitexact_defects`, hors de la somme HDR.
+int verdict_origine_lumiere_set(); // 4 — le jeu ORIGINE-LUMIERE existe et sert de base
 
 }  // namespace refset

@@ -300,6 +300,16 @@
     (sv-200 int)
     (sv-208 symbol)
     (sv-212 symbol))
+  ;; LE TEXTE 2D N'EST PAS DE LA SCENE. Pendant une course de jeu de references seulement,
+  ;; `pc-refset-text-mute?` rend 1 et cette fonction bascule en NO-DRAW : elle calcule la mise en
+  ;; page a l'identique et rend la meme valeur, elle n'emet plus un seul glyphe. Raison : le plan
+  ;; photographie le hall de la hutte, ou l'invite « Appuie sur (O) pour parler. » est dessinee
+  ;; dans DIX des vingt-quatre photos et absente des quatorze autres — elle s'efface pendant qu'un
+  ;; indice de niveau parle. Un texte blanc de 100 x 12 pixels sur 320 x 180, dont les gradients
+  ;; valent 91 par pixel contre 13 pour le decor, decidait a lui seul le verdict du contraste des
+  ;; hautes lumieres. Hors refset la fonction rend 0 : le joueur garde son texte, a la ligne pres.
+  (if (nonzero? (pc-refset-text-mute?))
+      (set! no-draw #t))
   (let ((gp-0 (new 'stack
                    'font-context
                    *font-default-matrix*

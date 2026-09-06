@@ -3174,6 +3174,12 @@ u64 pc_refset_mood_flame() {
   return (u64)(s64)refset::mood_flame_pin();
 }
 
+// LE SILENCE DES INCRUSTATIONS DE TEXTE. Voir `refset::text_mute()`. Rend 0 hors du mode refset,
+// et `print-game-text` garde alors exactement son chemin d'origine.
+u64 pc_refset_text_mute() {
+  return (u64)(s64)refset::text_mute();
+}
+
 // LE SILENCE DES INCRUSTATIONS DE DEBUG PENDANT UNE MESURE. Le compteur FPS est dessine DANS le
 // tampon que le jeu d'images relit : mesure du 2026-09-06, ses chiffres a eux seuls font 57 a
 // 112 pixels d'ecart entre la reference et le rejeu (maxdiff 225 a 228), et c'est du temps
@@ -5174,6 +5180,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-refset-repin-parts?", (void*)pc_refset_repin_parts);
   make_function_symbol_from_c("pc-refset-part-step", (void*)pc_refset_part_step);
   make_function_symbol_from_c("pc-refset-mood-flame", (void*)pc_refset_mood_flame);
+  make_function_symbol_from_c("pc-refset-text-mute?", (void*)pc_refset_text_mute);
   make_function_symbol_from_c("pc-refset-active?", (void*)pc_refset_active);
   make_function_symbol_from_c("pc-set-jak-ledge!", (void*)pc_set_jak_ledge);
   // ROUND#21d: exact ground-actor world positions for the grass object-clip/trample

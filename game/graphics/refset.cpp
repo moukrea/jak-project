@@ -100,6 +100,14 @@ uint64_t g_mood_pins = 0;        // ... dont ceux qui ont reellement repose l'et
 uint64_t g_mood_last_photo = 0;  // valeur de `g_mood_calls` a la photo precedente
 uint64_t g_mood_span_min = ~0ull;  // images DESSINEES entre deux photos : le minimum
 uint64_t g_mood_span_max = 0;      // ... et le maximum. min != max => la fuite etait vivante.
+// L'INVITE 2D DU MAIRE. Contrat et mesure : refset.h. `g_text_last_lf` est la derniere frame
+// de LOGIQUE ou `print-game-text` a ete appele ; comparee a celle de la photo, elle dit si le
+// texte etait a l'ecran a cet instant precis, sans supposer quoi que ce soit de sa cadence.
+uint64_t g_text_calls = 0;          // appels a `text_mute()` depuis le debut de la course
+uint64_t g_text_muted = 0;          // ... dont ceux qui ont reellement force le mode no-draw
+int64_t g_text_last_lf = -1;        // frame de logique du dernier appel
+uint64_t g_text_steps_with = 0;     // photos ou le texte AURAIT ete dessine
+uint64_t g_text_steps_without = 0;  // ... et celles ou non
 
 // ── demande de capture, du fil GOAL vers le fil graphique ───────────────────────────────────
 // UN SEUL automate, et pas trois booleens. Avec trois booleens le fil graphique pouvait
@@ -355,6 +363,15 @@ void measure_step(int phase, int hour, int64_t cap_lf, const uint8_t* px, int w,
       g_mood_span_max = span;
     }
   }
+  // LE RECENSEMENT DE L'INVITE, ETAPE PAR ETAPE. `print-game-text` est appele a chaque image de
+  // logique ou le texte est visible : si le dernier appel porte la frame de la photo (ou celle
+  // d'avant, l'appel precedant l'incrementation du compteur), le texte etait a l'ecran. C'est ce
+  // partage — dix photos contre quatorze — qui rend la neutralisation non vacue.
+  if (cap_lf >= 0 && g_text_last_lf >= 0 && g_text_last_lf + 1 >= cap_lf) {
+    g_text_steps_with++;
+  } else {
+    g_text_steps_without++;
+  }
 }
 
 uint64_t read_capture_witness(int phase);  // defini plus bas, avec le temoin de capture
@@ -388,6 +405,13 @@ void publish_state() {
   autoport_proof::publish("refset_mood_span_min",
                           g_mood_span_min == ~0ull ? 0 : g_mood_span_min);
   autoport_proof::publish("refset_mood_span_max", g_mood_span_max);
+  // L'INVITE 2D, ET LE CONTROLE DE NON-VACUITE DE SA NEUTRALISATION. `refset_text_muted` dit que
+  // le geste a eu lieu ; `refset_text_steps_with/_without` disent que le texte etait bien present
+  // dans une partie seulement des photos. Un `_with` a 0 ou a 24 rendrait la clause vide.
+  autoport_proof::publish("refset_text_calls", g_text_calls);
+  autoport_proof::publish("refset_text_muted", g_text_muted);
+  autoport_proof::publish("refset_text_steps_with", g_text_steps_with);
+  autoport_proof::publish("refset_text_steps_without", g_text_steps_without);
   // La POLITIQUE DE TELEPORT est publiee : deux courses qui ne l'ont pas la meme ne
   // photographient pas les memes poses, et rien d'autre dans la preuve ne le dirait.
   autoport_proof::publish("refset_warp_per_step", (uint64_t)g_warp_per_step);
@@ -1095,6 +1119,21 @@ int mood_flame_pin() {
   }
   g_mood_pins++;
   return kMoodPinTime;
+}
+
+// LE SILENCE DES INCRUSTATIONS DE TEXTE. Contrat et mesure : refset.h. Rend 0 hors du mode
+// refset — le joueur ne rencontre jamais ce chemin — et 1 pendant une course, ou
+// `print-game-text` bascule alors en mode NO-DRAW : la mise en page est calculee a l'identique et
+// la valeur de retour ne change pas, seule l'emission des glyphes disparait.
+int text_mute() {
+  if (!enabled()) {
+    return 0;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_text_calls++;
+  g_text_last_lf = current_logic_frame();
+  g_text_muted++;
+  return 1;
 }
 
 bool wants_rewarp() {

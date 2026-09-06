@@ -57,7 +57,7 @@ std::map<std::string, ProgInfo> s_progs;
 uint64_t s_frames = 0;
 uint64_t s_chain_frames = 0;
 uint64_t s_tonemap_draws = 0;
-// lighting-hdr, verdict 6 : `tonemap_sites == 1` dans les TROIS configurations, pas seulement
+// lighting-hdr, verdict 5 : `tonemap_sites == 1` dans les TROIS configurations, pas seulement
 // eclairage allume. On compte donc PAR CONFIGURATION et PAR IMAGE, jamais globalement : un
 // recensement cumule sur toute la course melangerait les trois et rendrait 1 alors qu'une des
 // trois en porte zero ou deux.
@@ -187,7 +187,7 @@ int verdict_curve() {
   return (mono_bad == 0 && bound_bad == 0 && kink_max <= 0.05f) ? 0 : 1;
 }
 
-// lighting-hdr, verdict 6 — `tonemap_sites == 1` dans les TROIS configurations.
+// lighting-hdr, verdict 5 — `tonemap_sites == 1` dans les TROIS configurations.
 // Une configuration JAMAIS VISITEE est un defaut, pas une dispense : c'est exactement la faute
 // qui a produit ce bug (deux bras verts, la configuration livree absente des deux).
 int verdict_sites_three_configs() {
@@ -565,7 +565,7 @@ void frame_end() {
     return;  // bras desarme : AUCUNE cle `hdr_*` / `tonemap_*`, comme lighting-unify
   }
 
-  // ── verdict 6 : le recensement PAR IMAGE et PAR CONFIGURATION ────────────────────────────
+  // ── verdict 5 : le recensement PAR IMAGE et PAR CONFIGURATION ────────────────────────────
   // Un recensement CUMULE sur toute la course melangerait les trois configurations et rendrait
   // 1 alors qu'une des trois en porte 0 ou 2. On compte donc l'image courante, dans la
   // configuration courante — et la configuration se lit sur les maitres eux-memes, pas sur une
@@ -642,7 +642,7 @@ void frame_end() {
   const uint64_t explicit_sites = s_explicit_sites.size();
 
   // lighting-hdr : `tonemap_sites` est le compte de LA CONFIGURATION COURANTE, par image — le
-  // meme nombre que juge le verdict 6. Le cumul des trois configurations rendrait 2 dans les
+  // meme nombre que juge le verdict 5. Le cumul des trois configurations rendrait 2 dans les
   // phases d'origine d'une course qui a aussi visite RECHARGED, parce que `explicit_sites` est
   // un ensemble qui ne se vide jamais. Les trois termes cumules restent publies en dessous.
   autoport_proof::publish("tonemap_sites", s_sites_now);
@@ -683,27 +683,31 @@ void frame_end() {
                           (uint64_t)(Gfx::g_global_settings.recharged_hdr_knee * 1000.f + 0.5f));
 
   // ── LA GRANDEUR DE PORTE ─────────────────────────────────────────────────────────────────
-  // `hdr_tonemap_defects` est la SOMME de six verdicts, chacun publie A COTE : une somme sans
+  // `hdr_tonemap_defects` est la SOMME de CINQ verdicts, chacun publie A COTE : une somme sans
   // ses termes ne dit pas quoi corriger, et un zero sans son denominateur ne prouve rien.
   // Convention unique : 0 = tenu, 1 = defaut. « Pas mesurable » vaut 1 — une course qui n'irait
   // pas au bout doit etre ROUGE, jamais muette.
-  // Les verdicts 1, 2, 4 et 5 se lisent sur le jeu de references (trois configurations,
-  // ORIGINE-LUMIERE comprise) ; 3 et 6 se mesurent ici.
+  // Les verdicts 1, 2 et 4 se lisent sur le jeu de references (trois configurations,
+  // ORIGINE-LUMIERE comprise) ; 3 et 5 se mesurent ici.
+  // L'IDENTITE AU BIT MAITRE ETEINT N'EST PLUS DE CET ITEM. Elle a ete sortie le 2026-09-07 dans
+  // `lighting-origin-bitexact` : calibrer une courbe et garantir une purete sont deux natures
+  // differentes, et groupees elles se bloquaient l'une l'autre. La mesure ne disparait pas pour
+  // autant — elle est publiee sous le nom de porte de CET AUTRE item, `origin_bitexact_defects`,
+  // pour qu'il la trouve deja instrumentee et qu'aucune course ne soit refaite pour elle.
   const int v1 = refset::verdict_saturation();
   const int v2 = refset::verdict_highlight_contrast();
   const int v3 = verdict_curve();
-  const int v4 = refset::verdict_master_off_bitexact();
-  const int v5 = refset::verdict_origine_lumiere_set();
-  const int v6 = verdict_sites_three_configs();
+  const int v4 = refset::verdict_origine_lumiere_set();
+  const int v5 = verdict_sites_three_configs();
+  const int bitexact = refset::verdict_master_off_bitexact();
   autoport_proof::publish("hdr_defect_1_saturation", (uint64_t)v1);
   autoport_proof::publish("hdr_defect_2_hl_contrast", (uint64_t)v2);
   autoport_proof::publish("hdr_defect_3_curve", (uint64_t)v3);
-  autoport_proof::publish("hdr_defect_4_master_off_bitexact", (uint64_t)v4);
-  autoport_proof::publish("hdr_defect_5_origine_lumiere_set", (uint64_t)v5);
-  autoport_proof::publish("hdr_defect_6_sites_three_configs", (uint64_t)v6);
-  autoport_proof::publish("hdr_tonemap_defects",
-                          (uint64_t)(v1 + v2 + v3 + v4 + v5 + v6));
-  // Les denominateurs des verdicts 3 et 6, sans lesquels leur zero est une fausse constante.
+  autoport_proof::publish("hdr_defect_4_origine_lumiere_set", (uint64_t)v4);
+  autoport_proof::publish("hdr_defect_5_sites_three_configs", (uint64_t)v5);
+  autoport_proof::publish("origin_bitexact_defects", (uint64_t)bitexact);
+  autoport_proof::publish("hdr_tonemap_defects", (uint64_t)(v1 + v2 + v3 + v4 + v5));
+  // Les denominateurs des verdicts 3 et 5, sans lesquels leur zero est une fausse constante.
   autoport_proof::publish("hdr_curve_samples", s_curve_samples);
   autoport_proof::publish("hdr_curve_kink_max_x1000", s_curve_kink_max_x1000);
   autoport_proof::publish("hdr_curve_monotone_bad", (uint64_t)s_curve_mono_bad);
