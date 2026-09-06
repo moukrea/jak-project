@@ -28,6 +28,29 @@
 //     soit la tessellation. C'est d'ailleurs la forme du vent natif de ND (un cisaillement de la
 //     matrice d'instance), donc les deux termes qu'un buisson recoit sont de la meme famille.
 // Le poids est donc SIGNE : GL_SHORT normalise, x kSwayScale dans le shader.
+//
+// ESSAI 14 (owner 2026-09-06 : « Le feuilles de palmiers meriteraient de bouger plus a leur
+// extremites qu'a leur bases, de meme pour l'ensemble des shrubs ») — LA COORDONNEE D'ELEMENT.
+// La loi de hauteur ci-dessus repond « le tronc ne bouge pas, la cime oui ». Elle ne dit RIEN de
+// ce qui se passe LE LONG d'une palme : l'attache d'une frondaison et sa pointe sont a la meme
+// hauteur (souvent la pointe est PLUS BASSE, elle retombe), donc elles recevaient exactement le
+// meme poids et la palme se deplacait d'un bloc. C'est le defaut cite.
+//   * ARBRE (TIE statique ET chemin VENT) : le poids porte maintenant un second facteur,
+//     `tip_ramp(q)`, ou `q` est la coordonnee normalisee DE L'ELEMENT — la portee du sommet depuis
+//     l'axe du tronc, ramenee a l'etendue de portee de la COURONNE de SA plante (0 = l'attache,
+//     1 = la pointe). Le rapport pointe/attache est donc une propriete de la LOI (1 + k contre 1),
+//     pas de la geometrie d'un prototype.
+//   * BUISSON (SHRUB) : la loi reste LINEAIRE ET SIGNEE en (y - pivot), inchangee. Un facteur
+//     radial y detruirait la propriete qui rend la ligne de sol EXACTEMENT immobile (le GPU
+//     interpole lineairement : voir plus haut). Un buisson a deja sa base au sol a poids nul et sa
+//     couronne a poids 1 — « la base au sol immobile, les extremites qui bougent plus » y est
+//     porte par la hauteur, et le verdict (2) l'exige au millimetre.
+//   * NORMALISATION PAR INSTANCE : le poids ecrit est divise par le maximum de
+//     `hauteur x tip_ramp` de SA plante, de sorte que le poids de couronne reste EXACTEMENT le
+//     facteur de taille, comme avant l'essai 14. Sans cela deux prototypes voisins de meme taille
+//     mais de forme differente auraient vu leur amplitude s'ecarter d'un facteur 2, et
+//     `wind_divergent_pairs` (seuil 2,0) serait passe au rouge sur un changement qui ne concerne
+//     que l'INTERIEUR des plantes.
 // =================================================================================================
 
 #include <algorithm>
