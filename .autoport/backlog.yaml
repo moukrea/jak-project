@@ -1,3 +1,6 @@
+# La seule verite du travail. Une feature = un item.
+# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
+# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: honor-boot-crash
@@ -23,21 +26,13 @@ items:
   deliverable: Le jeu survit au moins 600 images apres le demarrage du rendu, sur le Redmi ET sur l'appareil
     de l'owner. Le moteur emet `boot_crash_frames_survived`. Le correctif doit expliquer POURQUOI le mutex
     du loader etait invalide, pas seulement le rendre non nul.
-  known_cause: "MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans\
-    \ reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour\
-    \ (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge,\
-    \ InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre.\
-    \ Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).\nPILE RESOLUE sur le libgk.so local\
-    \ :\n  TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV\nLe\
-    \ verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) :\
-    \ c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou\
-    \ le rendu attaque le niveau `title`.\nAUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive\
-    \ boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default.\
-    \ Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.\nCONTEXTE : l'owner venait\
-    \ de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A\
-    \ verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une\
-    \ regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120\
-    \ Hz)."
+  known_cause: |-
+    MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge, InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre. Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).
+    PILE RESOLUE sur le libgk.so local :
+      TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV
+    Le verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) : c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou le rendu attaque le niveau `title`.
+    AUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default. Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.
+    CONTEXTE : l'owner venait de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120 Hz).
   out_of_scope: 'Ne pas se contenter d''un garde-fou contre le pointeur nul : nommer la cause.'
   notes: Cree par le superviseur 2026-09-05 apres diagnostic direct sur l'appareil de l'owner, branche
     en USB a sa demande.
@@ -119,21 +114,15 @@ items:
     porte les chiffres : 6 cycles sur la scene du maire, mayor-lod0 210 images cause=modele-absent, sidekick-lod0
     390 images cause=soumis-mais-non-dessine. | budget porte a 8 essais le 2026-09-06 : les essais brules
     l''ont ete faute d''appareil, pas faute d''idees.'
-  known_cause: "LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05\
-    \ : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session\
-    \ de 14h44).\nSCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes\
-    \ DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en\
-    \ visait qu'un :\n  * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas\
-    \ la au moment de dessiner)\n  * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine\
-    \ (soumis au rendu, rien ne sort)\n  * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter\n\
-    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent\
-    \ 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le\
-    \ 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.\nDaxter recidive : 6 episodes longs a\
-    \ lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible.\
-    \ warp-gate-switch-lod0 : 4 episodes.\nNPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0\
-    \ enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des\
-    \ mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT\
-    \ et pourquoi une soumission ne DESSINE pas."
+  known_cause: |-
+    LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05 : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session de 14h44).
+    SCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en visait qu'un :
+      * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas la au moment de dessiner)
+      * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine (soumis au rendu, rien ne sort)
+      * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter
+    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.
+    Daxter recidive : 6 episodes longs a lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible. warp-gate-switch-lod0 : 4 episodes.
+    NPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT et pourquoi une soumission ne DESSINE pas.
   deliverable: 'Sur la scene du maire, sur un appareil : zero cycle et zero episode long. Les deux causes
     dominantes doivent tomber a zero et etre EXPLIQUEES : `modele-absent` (130 occurrences) et `soumis-mais-non-dessine`
     (210). Le moteur emet `npc_flicker_episodes` = somme des episodes longs toutes causes.'
@@ -345,15 +334,13 @@ items:
     — invisible aux ratios entiers, visible a 45. | 2026-09-05, essai 7 : le residu est concentre dans
     UN canal d''animation immobile (16 606 us). La porte precedente lisait un modele C++ au lieu de la
     pose dessinee.'
-  deliverable: "Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement,\
-    \ sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :\n  (1) chaque cadence\
-    \ demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue\
-    \ s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent\
-    \ la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.\n\
-    \  (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.\n  (3)\
-    \ `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.\n  (4) `anim_step_bitexact_30`\
-    \ = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne\
-    \ change pas d'un bit.\nN est la somme des manquements ; zero."
+  deliverable: |-
+    Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement, sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :
+      (1) chaque cadence demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.
+      (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.
+      (3) `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.
+      (4) `anim_step_bitexact_30` = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne change pas d'un bit.
+    N est la somme des manquements ; zero.
   block_reason: 'max_retries (6) epuise — mais la cause de fond est la meme : EN ATTENTE DU REDMI. Le
     seul appareil branche est le Honor de l''owner (AREE026206000788), prete pour lire le plantage au
     demarrage ; le Redmi eae4df44, que tout le harnais adresse en dur, est debranche depuis. La preuve
@@ -364,7 +351,7 @@ items:
 - id: framerate-uncap
   feature: Debrider la cadence au-dela de 60 images/s
   status: open
-  priority: 27
+  priority: 29
   game: jak1
   gate:
     key: uncap_defects
@@ -420,8 +407,8 @@ items:
     » ; livre par defaut ETEINT. Ce n''est ni une validation ni quelque chose a lui redemander'
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
-  status: in-progress
-  priority: 26
+  status: open
+  priority: 30
   owner_feedback:
   - date: '2026-08-06'
     text: le vent d'origine tournait au quart de sa vitesse
@@ -2916,7 +2903,7 @@ items:
 - id: recharged-menu-overhaul
   feature: La refonte des menus
   status: open
-  priority: 28
+  priority: 31
   owner_feedback:
   - date: '2026-08-04'
     text: l'idée c'était de réorganiser pour que ce soit sensé, logique, intuitif, agréable à parcourir,
@@ -2941,7 +2928,7 @@ items:
 - id: recharged-texture-hotreload
   feature: Basculer les textures Recharged sans redemarrer le jeu
   status: open
-  priority: 29
+  priority: 32
   owner_feedback: []
   gate:
     key: hotreload_pixels_changed
@@ -3879,10 +3866,42 @@ items:
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
   proof_timeout: 900
   owner_test: false
+- id: refset-replay-stable
+  feature: La garde de reference d'image doit rendre le meme chiffre deux fois de suite
+  status: open
+  priority: 16
+  game: jak1
+  gate:
+    key: refset_replay_flaky
+    op: ==
+    value: 0
+  device: false
+  max_turns: 300
+  max_retries: 6
+  depends_on: []
+  history: []
+  prompt: prompts/item-refset-replay-stable.md
+  owner_ok: null
+  owner_test: false
+  where: null
+  deliverable: 'Mesure du 2026-09-06 consignee dans .autoport/refset/README.md : trois rejeux du MEME
+    binaire (sha=fbf84cf9802b7c11) contre les MEMES references octet pour octet ont rendu maxdiff 188,
+    puis 0, puis 0. Tant que l''instrument est intermittent, toute porte a diff nul brule des essais pour
+    des raisons d''instrument. Le moteur emet `refset_replay_flaky` = nombre de paires de rejeux consecutifs,
+    meme binaire et memes references, dont les maxdiff different. Zero sur au moins cinq rejeux. La CAUSE
+    doit etre nommee, pas contournee par une tolerance : un seuil qui absorbe 188 absorbe aussi un vrai
+    defaut. Le sens de l''erreur est rassurant (l''instabilite fait monter maxdiff, donc faux ROUGE jamais
+    faux vert) mais le cout est reel.'
+  known_cause: null
+  out_of_scope: Ne pas relever la tolerance de comparaison pour faire taire le symptome.
+  notes: 'Signale par la session qui a ecrit SPEC-refonte-lumiere.md, verifie dans .autoport/refset/README.md
+    (« La garde est intermittente : rejoue deux fois avant de conclure »). Le rapport de lighting-unify
+    demandait explicitement d''ouvrir cet item ; il n''existait pas.'
+  owner_feedback: []
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
   status: open
-  priority: 16
+  priority: 17
   owner_feedback:
   - date: '2026-09-05'
     text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
@@ -3909,38 +3928,24 @@ items:
   max_retries: 6
   depends_on:
   - lighting-unify
+  - refset-replay-stable
   history: []
   prompt: prompts/item-lighting-hdr.md
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Owner 2026-09-06 : « les blancs sont brules ». Le chantier a livre le rendu interne en
-    haute precision et un site de compression unique, mais la COURBE de compression elle-meme n''a jamais
-    ete jugee : la porte ne regardait que la plomberie (un seul site, ablation propre), pas ce que la
-    courbe fait aux hautes lumieres. Une porte qui mesure l''existence d''un mecanisme et pas sa qualite.
-    | VERIFIE DANS LE CODE le 2026-09-06 : la chaine HDR n''est PAS codee en dur. hdr.cpp:224 `chain_active()`
-    la conditionne a `Gfx::recharged_active(g_global_settings.recharged_hdr)`, et `recharged_active` compose
-    avec le MASTER Recharged (gfx.h:543). Master eteint => `scene_color_format()` rend GL_RGBA8, la chaine
-    n''est pas montee, le tone map n''est pas tire : le mode ORIGINE est intact.
-
-    MAIS l''owner a bascule « Realtime Lighting » (`realtime-lighting?`, pckernel.gc:513), qui est un
-    reglage DIFFERENT et ne couvre pas le HDR — d''ou des blancs brules avec, de son point de vue, l''eclairage
-    eteint. Son attente est raisonnable : un interrupteur nomme « eclairage temps reel » devrait emporter
-    ce qui touche l''eclairage. A trancher dans lighting-presets (regroupement des reglages) ou en rattachant
-    recharged_hdr au groupe eclairage. En attendant, le seul retour garanti au rendu d''origine est le
-    MASTER Recharged.'
-  deliverable: "Le rendu interne reste en RGBA16F avec UN seul tone map, mais la compression vers SDR\
-    \ doit PRESERVER LE DETAIL au lieu de bruler. Le moteur emet `hdr_tonemap_defects=N`, somme de verdicts\
-    \ publies aussi separement, mesures sur les images de reference figees par lighting-census :\n  (1)\
-    \ `hdr_clip_pct_x1000` — part des pixels satures au maximum sur au moins un canal. Elle ne doit PAS\
-    \ depasser celle de la reference ORIGINE : bruler plus que le jeu d'origine est un defaut, pas un\
-    \ choix.\n  (2) `hdr_highlight_detail_x1000` — contraste local conserve dans le decile le plus lumineux,\
-    \ rapporte a la reference. >= 950, autrement dit au plus 5 % de detail perdu la ou l'owner regarde.\n\
-    \  (3) `hdr_rolloff_monotone` = 1 — la courbe de compression est monotone et sans coude brutal : pas\
-    \ de palier qui aplatit une plage entiere.\nN est la somme des manquements ; zero. La sortie HDR vers\
-    \ un ecran compatible n'est PAS dans ce chantier : c'est hdr-display-output.\n  (4) `hdr_origin_bitexact`\
-    \ = 1 — master Recharged ETEINT, la sortie est identique au bit a la reference ORIGINE figee par lighting-census.\
-    \ La SPEC promet qu'on peut rester au rendu d'origine : ca se prouve, ca ne se raconte pas."
+  known_cause: |-
+    Owner 2026-09-06 : « les blancs sont brules ». Le chantier a livre le rendu interne en haute precision et un site de compression unique, mais la COURBE de compression elle-meme n'a jamais ete jugee : la porte ne regardait que la plomberie (un seul site, ablation propre), pas ce que la courbe fait aux hautes lumieres. Une porte qui mesure l'existence d'un mecanisme et pas sa qualite. | VERIFIE DANS LE CODE le 2026-09-06 : la chaine HDR n'est PAS codee en dur. hdr.cpp:224 `chain_active()` la conditionne a `Gfx::recharged_active(g_global_settings.recharged_hdr)`, et `recharged_active` compose avec le MASTER Recharged (gfx.h:543). Master eteint => `scene_color_format()` rend GL_RGBA8, la chaine n'est pas montee, le tone map n'est pas tire : le mode ORIGINE est intact.
+    MAIS l'owner a bascule « Realtime Lighting » (`realtime-lighting?`, pckernel.gc:513), qui est un reglage DIFFERENT et ne couvre pas le HDR — d'ou des blancs brules avec, de son point de vue, l'eclairage eteint. Son attente est raisonnable : un interrupteur nomme « eclairage temps reel » devrait emporter ce qui touche l'eclairage. A trancher dans lighting-presets (regroupement des reglages) ou en rattachant recharged_hdr au groupe eclairage. En attendant, le seul retour garanti au rendu d'origine est le MASTER Recharged. | MECANISME CONFIRME DANS LE CODE le 2026-09-06 (signale par la session de la spec, verifie ligne a ligne) : les defauts livres sont master=true, pbr_enable=true, hdr=true, rt_light_enable=FALSE. Une installation neuve dessine donc par les composites C et E exclusivement — la preuve de lighting-unify le confirme : light_census_A=0 B=0 C=304192 E=3191131. Or shade.glsl:679,689,695,697,703 (C) et :740,744 (E) appliquent ENCORE `pow(max(lit * u_pbr_exposure), 1/2.2)` : une exposition et un encodage gamma qui leur sont propres. Le RGBA16F a retire le plafond a 1,0 qui masquait le depassement, puis tonemap.frag remultiplie par u_hdr_exposure et compresse au-dessus de 0,90. DEUX expositions et un etage de compression que le build precedent n'avait pas : voila les blancs brules. Le composite A, lui, a bien cede son pow au site unique (shade.glsl:388). A TRANCHER : soit C et E cedent exposition et gamma au site unique — ca bouge leurs pixels, donc ca se declare et on recapture la reference —, soit la chaine HDR ne s'engage pas sur une image produite par C ou E. Seule la premiere rend `tonemap_sites == 1` vrai partout.
+  deliverable: |-
+    Le rendu interne reste en RGBA16F avec UN seul tone map, mais la compression vers SDR doit PRESERVER LE DETAIL au lieu de bruler. Le moteur emet `hdr_tonemap_defects=N`, somme de verdicts publies aussi separement, mesures sur les images de reference figees par lighting-census :
+      (1) `hdr_clip_pct_x1000` — part des pixels satures au maximum sur au moins un canal. Elle ne doit PAS depasser celle de la reference ORIGINE : bruler plus que le jeu d'origine est un defaut, pas un choix.
+      (2) `hdr_highlight_detail_x1000` — contraste local conserve dans le decile le plus lumineux, rapporte a la reference. >= 950, autrement dit au plus 5 % de detail perdu la ou l'owner regarde.
+      (3) `hdr_rolloff_monotone` = 1 — la courbe de compression est monotone et sans coude brutal : pas de palier qui aplatit une plage entiere.
+    N est la somme des manquements ; zero. La sortie HDR vers un ecran compatible n'est PAS dans ce chantier : c'est hdr-display-output.
+      (4) `hdr_origin_bitexact` = 1 — master Recharged ETEINT, la sortie est identique au bit a la reference ORIGINE figee par lighting-census. La SPEC promet qu'on peut rester au rendu d'origine : ca se prouve, ca ne se raconte pas.
+      (5) UN TROISIEME JEU DE REFERENCE existe et est celui que l'owner joue : maitre ON + eclairage temps reel OFF (`recharged_rt_light_enable=false`, le defaut livre). Les deux jeux figes ne couvrent que ORIGINE (maitre OFF) et RECHARGED (temps reel ON) : AUCUN n'exerce la configuration par defaut, et c'est pour ca que rien n'a attrape les blancs brules avant l'owner. Les verdicts (1) a (3) se mesurent SUR CE JEU-LA.
+      (6) `tonemap_sites` = 1 dans les TROIS configurations. Aujourd'hui il vaut 1 avec l'eclairage temps reel allume et 3 sans lui : celui du composite C, celui du composite E, celui du resolve.
   out_of_scope: La sortie HDR vers un ecran compatible appartient a hdr-display-output.
   notes: 'budget : touche les six shaders monde et la chaine de FBO, avec un bras appareil pour le repli
     flottant. SPEC section 6.9.'
@@ -3953,7 +3958,7 @@ items:
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
   status: open
-  priority: 16.5
+  priority: 18
   game: jak1
   gate:
     key: hdr_out_defects
@@ -3970,15 +3975,14 @@ items:
   where: 'Options : une ligne « sortie HDR » qui n''apparait QUE si l''ecran le supporte. Sur ton Honor
     elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change
     de teinte.'
-  deliverable: "Par DEFAUT le jeu sort du SDR bien tonemappe (c'est lighting-hdr). Ce chantier ajoute\
-    \ la sortie HDR native quand l'ecran la supporte. Le moteur emet `hdr_out_defects=N` :\n  (1) la capacite\
-    \ de l'ecran est DETECTEE et publiee (`hdr_out_display_caps` : les modes reellement annonces par le\
-    \ systeme, Android comme bureau) ;\n  (2) l'option n'existe dans le menu que si un mode est annonce\
-    \ — jamais un reglage qui ne fait rien ;\n  (3) activee, la chaine sort dans l'espace annonce, sans\
-    \ double compression : `hdr_out_tonemaps_applied` = 1, jamais 2 ;\n  (4) desactivee, la sortie est\
-    \ identique au bit a celle de lighting-hdr ;\n  (5) la detection entre dans l'auto-configuration du\
-    \ premier demarrage, avec le mode retenu publie.\nZero. Preuve sur un ecran HDR reel — l'appareil\
-    \ de l'owner est le seul qu'on connaisse."
+  deliverable: |-
+    Par DEFAUT le jeu sort du SDR bien tonemappe (c'est lighting-hdr). Ce chantier ajoute la sortie HDR native quand l'ecran la supporte. Le moteur emet `hdr_out_defects=N` :
+      (1) la capacite de l'ecran est DETECTEE et publiee (`hdr_out_display_caps` : les modes reellement annonces par le systeme, Android comme bureau) ;
+      (2) l'option n'existe dans le menu que si un mode est annonce — jamais un reglage qui ne fait rien ;
+      (3) activee, la chaine sort dans l'espace annonce, sans double compression : `hdr_out_tonemaps_applied` = 1, jamais 2 ;
+      (4) desactivee, la sortie est identique au bit a celle de lighting-hdr ;
+      (5) la detection entre dans l'auto-configuration du premier demarrage, avec le mode retenu publie.
+    Zero. Preuve sur un ecran HDR reel — l'appareil de l'owner est le seul qu'on connaisse.
   known_cause: null
   out_of_scope: 'Ne touche pas a la courbe de compression SDR : c''est lighting-hdr.'
   notes: 'Ne du retour owner 2026-09-06 : « Mon Honor supporte le HDR, ca l''exploite pas ! [...] une
@@ -3996,7 +4000,7 @@ items:
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
-  priority: 17
+  priority: 19
   owner_feedback:
   - date: '2026-09-03'
     text: L'occlusion Ambiante screen... Je comprend pas ca, on l'a fait tout a la fin du rendu par dessus
@@ -4041,7 +4045,7 @@ items:
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
-  priority: 18
+  priority: 20
   owner_feedback:
   - date: '2026-07-19'
     text: moins beau que du baked
@@ -4088,7 +4092,7 @@ items:
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
   status: open
-  priority: 19
+  priority: 21
   owner_feedback:
   - date: '2026-09-03'
     text: Il y a aussi des niveaux et/zones ou le ciel n'est pas visible (tunels, overcast) come le lava
@@ -4137,7 +4141,7 @@ items:
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
   status: open
-  priority: 20
+  priority: 22
   owner_feedback:
   - date: '2026-09-03'
     text: quand les deux overlap... Bah ca doit etre pris en compte, ca l'est pour nous aussi quand on
@@ -4182,7 +4186,7 @@ items:
 - id: lighting-local-lights
   feature: Les lampes, torches et laves eclairent enfin
   status: open
-  priority: 21
+  priority: 23
   owner_feedback:
   - date: '2026-09-03'
     text: les sources de lumiere en sus du soleil/lune sont d'autant plus importantes a valoriser
@@ -4225,7 +4229,7 @@ items:
 - id: lighting-interiors
   feature: Les interieurs gardent leur lumiere, sans fuite par les murs
   status: open
-  priority: 22
+  priority: 24
   owner_feedback:
   - date: '2026-09-05'
     text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
@@ -4266,7 +4270,7 @@ items:
 - id: lighting-actors
   feature: Jak, les PNJ et les ennemis eclaires comme le sol sur lequel ils marchent
   status: open
-  priority: 23
+  priority: 25
   owner_feedback:
   - date: '2026-09-03'
     text: Les acteurs je sais que leur lighting est faked, faut plus que ce soit le cas !
@@ -4313,7 +4317,7 @@ items:
 - id: lighting-materials
   feature: Les matieres PBR eclairees par la lumiere temps reel, sans fusion
   status: open
-  priority: 24
+  priority: 26
   owner_feedback:
   - date: '2026-09-03'
     text: les materiaux, PBR et tesselation viendront apres car ils dependent du lightning pour etre au
@@ -4361,7 +4365,7 @@ items:
 - id: lighting-presets
   feature: 'Du Redmi au Snapdragon 8 Elite : des paliers, et chaque ajout debrayable'
   status: open
-  priority: 25
+  priority: 27
   owner_feedback:
   - date: '2026-09-05'
     text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
