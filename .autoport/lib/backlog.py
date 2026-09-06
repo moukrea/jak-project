@@ -352,7 +352,10 @@ class Backlog:
                                 "quoi regarder" % iid)
             if status == "blocked" and not (it.get("block_reason") or "").strip():
                 problems.append("%s : bloque sans block_reason" % iid)
-            if status == "validated" and not it.get("owner_ok"):
+            # `owner_test: false` : preuve MACHINE, l'owner n'a rien a regarder et ne peut
+            # donc pas la prononcer. Exiger sa parole gelait tout ce qui en depend.
+            if (status == "validated" and not it.get("owner_ok")
+                    and it.get("owner_test", True)):
                 problems.append("%s : valide sans owner_ok — seule la parole de l'owner "
                                 "valide" % iid)
             gate = it.get("gate")
