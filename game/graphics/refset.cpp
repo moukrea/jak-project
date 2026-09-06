@@ -1,10 +1,12 @@
 #include "game/graphics/refset.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include "common/util/FileUtil.h"
@@ -320,6 +322,66 @@ uint64_t refs_fingerprint() {
   return h ? h : 1;
 }
 
+// LE JEU DE DONNEES EST UNE ENTREE AU MEME TITRE QUE LE BINAIRE (item `refset-replay-stable`).
+// Le registre ne comparait que `bin` et `refs`. Or `out/jak1/iso` est REECRIT par le
+// constructeur, et pas rarement : mesure du 2026-09-06, les 28 `.CGO`/`.DGO` portent 15:58,
+// c'est-a-dire APRES le rejeu de 15:52 dont la ligne est deja au registre. Deux rejeux qui
+// encadrent une reconstruction n'ont pas lu la meme donnee : leur `maxdiff` a toutes les raisons
+// de differer, et le registre l'aurait compte comme une intermittence de l'INSTRUMENT. C'est
+// exactement le faux rouge que cet item doit supprimer. On ferme donc la porte au POINT DE
+// PRODUCTION — les donnees entrent dans la CLE du registre — au lieu de le detecter apres coup.
+// L'empreinte est le CONTENU, jamais une date : un `.CGO` rebati a l'identique ne coupe rien, et
+// une donnee qui bouge d'un octet perime les lignes d'avant sans qu'on ait rien a effacer.
+// Zero = un des repertoires est absent ou illisible ; `publish_flaky` en fait la sentinelle 255,
+// jamais un zero de porte.
+uint64_t data_fingerprint() {
+  std::vector<fs::path> files;
+  auto scan = [&files](const fs::path& dir, const char* ext) {
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(dir, ec)) {
+      std::error_code ec2;
+      if (!e.is_regular_file(ec2)) {
+        continue;
+      }
+      const std::string name = e.path().filename().string();
+      const size_t n = std::strlen(ext);
+      if (name.size() > n && name.compare(name.size() - n, n, ext) == 0) {
+        files.push_back(e.path());
+      }
+    }
+  };
+  const fs::path iso = file_util::get_iso_out_dir(GameVersion::Jak1);
+  const fs::path fr3 = file_util::get_fr3_dir(GameVersion::Jak1);
+  scan(iso, ".CGO");
+  scan(iso, ".DGO");
+  scan(fr3, ".fr3");
+  scan(fr3 / "enhanced", ".fr3");
+  if (files.empty()) {
+    return 0;
+  }
+  // Trie sur le NOM : l'ordre de `directory_iterator` est celui du systeme de fichiers, il n'est
+  // pas stable d'une course a l'autre.
+  std::sort(files.begin(), files.end());
+  uint64_t h = 1469598103934665603ull;
+  for (const auto& f : files) {
+    const uint64_t fh = hash_file(f.string());
+    if (!fh) {
+      return 0;
+    }
+    // Le nom entre dans l'empreinte : deux fichiers qui echangent leur contenu ne doivent pas
+    // rendre la meme valeur.
+    for (unsigned char c : f.filename().string()) {
+      h ^= c;
+      h *= 1099511628211ull;
+    }
+    for (int b = 0; b < 8; b++) {
+      h ^= (unsigned char)((fh >> (8 * b)) & 0xff);
+      h *= 1099511628211ull;
+    }
+  }
+  return h ? h : 1;
+}
+
 void publish_flaky() {
   g_flaky_done = true;
 #if defined(__linux__)
@@ -328,12 +390,15 @@ void publish_flaky() {
   const uint64_t bin = 0;
 #endif
   const uint64_t refs = refs_fingerprint();
+  const uint64_t data = data_fingerprint();
   char t[32];
   std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)bin);
   autoport_proof::publish_text("refset_bin_fp", t);
   std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)refs);
   autoport_proof::publish_text("refset_refs_fp", t);
-  if (!bin || !refs || g_missing || g_size_bad || g_decode_bad ||
+  std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)data);
+  autoport_proof::publish_text("refset_data_fp", t);
+  if (!bin || !refs || !data || g_missing || g_size_bad || g_decode_bad ||
       g_compared != g_steps.size()) {
     autoport_proof::publish("refset_replay_runs", 0);
     autoport_proof::publish("refset_replay_flaky", 255);
@@ -343,8 +408,8 @@ void publish_flaky() {
   // On ECRIT d'abord, on RELIT ensuite : le verdict porte sur ce qui est sur le disque, pas sur
   // ce que cette course croit avoir ajoute.
   if (FILE* f = std::fopen(path.c_str(), "a")) {
-    std::fprintf(f, "bin=%016llx refs=%016llx maxdiff=%llu diffpx=%llu\n",
-                 (unsigned long long)bin, (unsigned long long)refs,
+    std::fprintf(f, "bin=%016llx refs=%016llx data=%016llx maxdiff=%llu diffpx=%llu\n",
+                 (unsigned long long)bin, (unsigned long long)refs, (unsigned long long)data,
                  (unsigned long long)g_maxdiff, (unsigned long long)g_diffpx);
     std::fclose(f);
   }
@@ -352,9 +417,10 @@ void publish_flaky() {
   if (FILE* f = std::fopen(path.c_str(), "r")) {
     char line[256];
     while (std::fgets(line, sizeof(line), f)) {
-      unsigned long long b = 0, r = 0, m = 0, d = 0;
-      if (std::sscanf(line, "bin=%llx refs=%llx maxdiff=%llu diffpx=%llu", &b, &r, &m, &d) == 4 &&
-          b == bin && r == refs) {
+      unsigned long long b = 0, r = 0, dt = 0, m = 0, d = 0;
+      if (std::sscanf(line, "bin=%llx refs=%llx data=%llx maxdiff=%llu diffpx=%llu", &b, &r, &dt,
+                      &m, &d) == 5 &&
+          b == bin && r == refs && dt == data) {
         md.push_back((uint64_t)m);
       }
     }
@@ -368,9 +434,18 @@ void publish_flaky() {
   }
   autoport_proof::publish("refset_replay_runs", md.size());
   autoport_proof::publish("refset_replay_flaky", md.size() >= 5 ? flaky : 254);
-  std::printf("REFSET ledger runs=%d flaky=%llu (bin=%016llx refs=%016llx maxdiff=%llu)\n",
+  // LA LIGNE `FEATURE` DE CET ITEM, ET SON PROPRE DENOMINATEUR. `note_hit` alimente un compteur
+  // GLOBAL que le recensement d'eclairage domine de plusieurs millions : `hits` prouve que la
+  // course a tire, il ne dit pas combien de fois CE code a tire. La grandeur de cet item est
+  // `refset_replay_runs` — le nombre de rejeux sur lesquels le verdict est calcule — et elle est
+  // publiee juste au-dessus. Un seul hit par rejeu COMPLET : une course interrompue avant la
+  // derniere etape n'atteint jamais cette ligne, donc ne peut pas se compter.
+  autoport_proof::note_hit();
+  std::printf("REFSET ledger runs=%d flaky=%llu (bin=%016llx refs=%016llx data=%016llx "
+              "maxdiff=%llu)\n",
               (int)md.size(), (unsigned long long)flaky, (unsigned long long)bin,
-              (unsigned long long)refs, (unsigned long long)g_maxdiff);
+              (unsigned long long)refs, (unsigned long long)data,
+              (unsigned long long)g_maxdiff);
   std::fflush(stdout);
 }
 
