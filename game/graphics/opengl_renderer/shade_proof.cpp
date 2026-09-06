@@ -21,6 +21,7 @@ const char* const kGateTokens[4] = {"u_rt_light_on", "u_pbr_mode", "u_rt_probe_o
 
 struct ProgInfo {
   uint64_t model_fp = 0;   // empreinte des regions marquees ; 0 = aucune region
+  uint64_t model_lines = 0;  // lignes de ce modele-la
   uint64_t gate_outside = 0;
   bool reads_a_gate = false;
 };
@@ -101,6 +102,11 @@ void note_fragment_source(const std::string& name, const std::string& src) {
     const size_t body_end = line_start_of(src, e);
     if (body_end > body + 1) {
       h = fnv1a(src.data() + body + 1, body_end - (body + 1), h);
+      for (size_t k = body + 1; k < body_end; k++) {
+        if (src[k] == '\n') {
+          info.model_lines++;
+        }
+      }
       regions.emplace_back(body + 1, body_end);
       any = true;
     }
@@ -196,11 +202,18 @@ void frame_end() {
     }
   }
 
+  // `shade_model_lines` compte les lignes des modeles DISTINCTS, une fois chacun. C'est la
+  // grandeur qui dit « un modele au lieu de quatre » ; `shade_world_frag_lines` somme le texte
+  // EXPANSE de chaque programme et monte forcement quand un chunk partage est inline cinq fois —
+  // les deux ne mesurent pas la meme chose et se lisent ensemble.
   std::set<uint64_t> fps;
+  uint64_t model_lines = 0;
   uint64_t hosts = 0, missing = 0, outside = 0;
   for (const auto& [name, info] : s_progs) {
     if (info.model_fp != 0) {
-      fps.insert(info.model_fp);
+      if (fps.insert(info.model_fp).second) {
+        model_lines += info.model_lines;
+      }
       hosts++;
     } else if (info.reads_a_gate) {
       // Un programme qui lit une porte d'ombrage sans porter le modele partage : c'est
@@ -211,6 +224,7 @@ void frame_end() {
   }
 
   autoport_proof::publish("shade_variants", fps.size());
+  autoport_proof::publish("shade_model_lines", model_lines);
   autoport_proof::publish("shade_hosts", hosts);
   autoport_proof::publish("shade_hosts_missing", missing);
   autoport_proof::publish("shade_gate_reads_outside", outside);

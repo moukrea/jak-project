@@ -1,4 +1,9 @@
-        // REOPEN#7 FOUNDATION FIX: build the TBN from the per-vertex MikkTSpace tangent v_tangent
+// lighting-unify : ce chunk est desormais inclus DANS `shade()` (shade.glsl), pas dans le
+// `main()` de chaque hote. Les quatre varyings qu il lisait par leur nom global
+// (v_fringe_rel, tex_coord, v_tangent, fragment_color) sont lus sur `Surface s` — ce sont
+// des ENTREES du modele, et shrub n a jamais eu de varying `v_tangent` (il en fabriquait un
+// local). Renommage pur : aucune expression n a change.
+        // REOPEN#7 FOUNDATION FIX: build the TBN from the per-vertex MikkTSpace tangent s.T
         // (interpolated => CONTINUOUS across triangle edges / UV seams) instead of screen-space
         // derivatives, which were discontinuous there => the owner's incoherent relief + the hard
         // CONTRAST CRACKS that grew with relief. N is the reconstructed smooth normal; Gram-Schmidt
@@ -19,14 +24,14 @@
         // dP/dv is recovered by inverting the FULL 2x2 screen->UV Jacobian, so it is the true
         // geometric dP/dv at this fragment: every camera-dependent part cancels, which is what
         // separates it from the round-5 "camera-signed handedness" defect.
-        vec3 fdPx = dFdx(v_fringe_rel), fdPy = dFdy(v_fringe_rel);
-        vec2 fdUx = dFdx(tex_coord.xy), fdUy = dFdy(tex_coord.xy);
+        vec3 fdPx = dFdx(s.P_rel), fdPy = dFdy(s.P_rel);
+        vec2 fdUx = dFdx(s.uv.xy), fdUy = dFdy(s.uv.xy);
         float fdetJ = fdUx.x * fdUy.y - fdUx.y * fdUy.x;
         vec3 fdPdv = (fdUx.x * fdPy - fdUy.x * fdPx) / (abs(fdetJ) > 1e-9 ? fdetJ : 1.0);
         vec3 fdPdu = (fdUy.y * fdPx - fdUx.y * fdPy) / (abs(fdetJ) > 1e-9 ? fdetJ : 1.0);
-        float f_tan_fb = (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) ? 0.0 : 1.0;
-        if (dot(v_tangent.xyz, v_tangent.xyz) > 0.04) {
-          fTuv = normalize(v_tangent.xyz - N * dot(N, v_tangent.xyz));
+        float f_tan_fb = (dot(s.T.xyz, s.T.xyz) > 0.04) ? 0.0 : 1.0;
+        if (dot(s.T.xyz, s.T.xyz) > 0.04) {
+          fTuv = normalize(s.T.xyz - N * dot(N, s.T.xyz));
           // OWNER PLAYTEST #8: use the SIGN of the interpolated handedness, not its raw magnitude.
           // The interpolated .w can pass through 0 across a strip whose vertices carry opposite
           // handedness, which would SHRINK the bitangent mid-triangle (a per-triangle discontinuity
@@ -65,10 +70,10 @@
           float fhs = dot(cross(N, fTuv), fdPdv);
           float fhw = ((u_pbr_bisect2 & 1) == 0 && abs(fdetJ) > 1e-9 && abs(fhs) > 1e-9)
                           ? (fhs < 0.0 ? -1.0 : 1.0)
-                          : (v_tangent.w < 0.0 ? -1.0 : 1.0);
+                          : (s.T.w < 0.0 ? -1.0 : 1.0);
           fBuv = cross(N, fTuv) * fhw;
         } else {
-          // REOPEN#9 (owner playtest #9): v_tangent is degenerate/unbound here. The OLD code rebuilt the
+          // REOPEN#9 (owner playtest #9): s.T is degenerate/unbound here. The OLD code rebuilt the
           // TBN from screen-space derivatives (dFdx/dFdy) — a per-triangle-CONSTANT frame that JUMPS at
           // every edge => the hard triangular FACETS the owner saw scaling with relief. Derive a
           // CONTINUOUS basis from the smooth interpolated normal N instead (NEVER a screen derivative).
@@ -105,10 +110,10 @@
           stable_frame(N, fTn, fBn);
         }
         // ★ OWNER CHECKER VERDICT, BUG A: the SAME uv the base colour is sampled with (line ~600,
-        // `texture(tex_T0, tex_coord.xy)`), no multiplier. Every map below — height, normal,
+        // `texture(tex_T0, s.uv.xy)`), no multiplier. Every map below — height, normal,
         // roughness, metallic, AO, specular, emissive — rides this one variable, so the relief can
         // only ever line up with the pattern that drew it.
-        vec2 uv = tex_coord.xy;
+        vec2 uv = s.uv.xy;
         // ROUND 22 COVERAGE INSTRUMENTATION (owner defect A, "la plupart des endroits n'ont aucun
         // displacement"): u_pbr_debug 31 paints, per pixel, whether this fragment actually received
         // displacement. The tessellation tier moved this fragment's REAL geometry upstream, so it
@@ -196,7 +201,7 @@
           // strictly more truthful than re-deriving it from a lod-0 fetch here.
           float dz_tess_cm = 0.5 * clamp(tess_disp_w, 0.0, 1.0) * dz_amp_m * 100.0;
           f_disp_diag.r = clamp(dz_tess_cm * 0.1, 0.0, 1.0);
-          f_disp_diag.b = clamp(length(v_fringe_rel) * (1.0 / 40.0), 0.0, 1.0);
+          f_disp_diag.b = clamp(length(s.P_rel) * (1.0 / 40.0), 0.0, 1.0);
           // ROUND 24, mode 34 — the DECOMPOSITION of that amplitude, so a dead zone names its own
           // factor instead of being attributed by hand:
           //   R = tess_disp_w = falloff(20..30 m) * seam(mesh-consolidation pin weight). This is
@@ -356,7 +361,7 @@
         float fh0 = 1.0;
         float fh_ms_uv = 0.0;
         if ((u_pbr_mode & 16) != 0 && u_pbr_height_scale > 0.0 && (u_pbr_bisect & 524288) == 0 &&
-            length(v_fringe_rel) < 35.0) {
+            length(s.P_rel) < 35.0) {
           // PBR POLISH #17: normalised, so the shadow ray and the occluder heights it compares
           // against live in the SAME material-scaled space the march assumes. On the shipped maps
           // this alone strengthens the contact shadow a lot: a map that only spanned 0.18 of the
@@ -669,14 +674,14 @@
         // _ao = material micro-occlusion: full strength on the ambient/shadowed share,
         // relaxed where the direct sun dominates (AO never occludes the suns).
         float fao_mul = mix(ao, 1.0, 0.55 * fdirw);
-        vec3 fbase_disp = max(fragment_color.rgb * T0p.rgb, vec3(0.0)) * fmod * fdetail * fao_mul;
+        vec3 fbase_disp = max(s.baked.rgb * T0p.rgb, vec3(0.0)) * fmod * fdetail * fao_mul;
         vec3 fbase_lin = pow(fbase_disp, vec3(2.2));
         // REOPEN ENERGY CONSERVATION + SPECULAR OCCLUSION: kd = (1-F)(1-metal) on the baked
         // diffuse so the specular never ADDS free energy on top of the full baked; and the
         // BAKED-DETAIL luminance gates the specular — a crevice the baked lighting says is
         // dark cannot host a bright highlight (shiny pits read as plastic). _ao joins in.
-        // fragment_color is the TOD LUT x2 (lit ~0.5-1.0, crevices < ~0.2).
-        float fbklum = dot(fragment_color.rgb, vec3(0.299, 0.587, 0.114));
+        // s.baked is the TOD LUT x2 (lit ~0.5-1.0, crevices < ~0.2).
+        float fbklum = dot(s.baked.rgb, vec3(0.299, 0.587, 0.114));
         float fspecocc = ao * smoothstep(0.05, 0.45, fbklum);
         // REOPEN #3 fix: kd is the INDUSTRY constant (1 - F0)(1 - metal) (UE/Frostbite
         // diffuse). The old view-dependent (1 - Fenv) grayed rough surfaces seen edge-on
@@ -776,8 +781,8 @@
         }
         vec3 fdisp = pow(max(flit, vec3(0.0)), vec3(1.0 / 2.2));
         float ffar_rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
-        float ffar_t = smoothstep(ffar_rng * 0.82, ffar_rng * 1.05, length(v_fringe_rel));
-        vec3 fbaked = max(fragment_color.rgb * T0.rgb, vec3(0.0));
+        float ffar_t = smoothstep(ffar_rng * 0.82, ffar_rng * 1.05, length(s.P_rel));
+        vec3 fbaked = max(s.baked.rgb * s.tex0.rgb, vec3(0.0));
         color.rgb = mix(fdisp, fbaked, ffar_t);
         // Debug viz (default colored render untouched at u_pbr_debug==0).
         if (u_pbr_debug == 2) {
@@ -794,7 +799,7 @@
           color.rgb = pow(max(emissive, vec3(0.0)), vec3(1.0 / 2.2));
         } else if (u_pbr_debug == 20) {
           // REOPEN#9 tangent-fallback coverage viz: RED = fragment fell back to a normal-derived
-          // continuous basis (v_tangent degenerate/unbound), GREEN = per-vertex MikkTSpace tangent.
+          // continuous basis (s.T degenerate/unbound), GREEN = per-vertex MikkTSpace tangent.
           // The screen-space-derivative FACET source is gone in BOTH branches; this measures how much
           // of the visible ground actually carries a valid uploaded per-vertex tangent on THIS device
           // (offline grass_bake can't see a GL upload/bind gap — this can). Screenshot + red-fraction.
