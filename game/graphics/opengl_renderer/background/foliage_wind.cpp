@@ -125,7 +125,11 @@ float g_shrub_native_shear_peak = 0.f;
 // --- l'echantillon de la loi (verdicts 5 et 7) ---
 struct Sample {
   float t;
-  float d;
+  float d;   // projection sur le cap du vent : le signal des verdicts (5) et (7)
+  float rx;  // le deplacement dans le REPERE DU VENT (rx = le long, rz = en travers) : verdict (9)
+  float rz;
+  float gx;  // le cap du vent EFFECTIVEMENT pousse aux shaders, pour le diagnostic de derapage
+  float gz;
 };
 constexpr size_t kSampleRing = 16384;
 constexpr double kPi = 3.14159265358979323846;  // kPi n'est pas garanti par <cmath> partout (Bionic)
@@ -152,6 +156,14 @@ constexpr u64 kV1MaxDevPct = 1;
 constexpr u64 kV5MaxPeakPct = 40;
 constexpr double kV6MaxRatio = 0.15;
 constexpr double kV7MinCv = 0.30;
+constexpr double kV8MinGradient = 3.0;
+constexpr double kV9MinSpreadDeg = 20.0;
+// Sous ce nombre d'instances mesurables, (8) n'est pas mesure : un minimum pris sur trois plantes
+// ne dit rien du decor et se lirait « correct » par chance.
+constexpr u64 kTipMinInstances = 20;
+// La fenetre du lissage du cap, en echantillons de 10 Hz. 2,0 s : au-dessus des periodes du
+// balancement (0,45 s) et du fremissement (0,11 s), bien au-dessous de celles du lacet (26 a 68 s).
+constexpr size_t kDirSmoothSamples = 20;
 
 }  // namespace
 
@@ -231,14 +243,47 @@ float clock_seconds(u64 frame_idx, bool paused_now) {
   return s_t;
 }
 
+// LE CAP DU VENT, LISSE. `wind-normal` de ND (wind.gc:60-64) est une MARCHE ALEATOIRE sur l'angle :
+// `w += rand(-1024, 1024)` puis (cos w, sin w), un pas par 1/60 s — soit +/- 5,6 degres PAR PAS,
+// donc ~25 degres d'ecart-type en une seconde. Le ressort natif de ND integre cette marche et n'en
+// voit qu'une moyenne ; notre brise, elle, prenait le cap BRUT et le tournait a chaque image. C'est
+// un tremblement de direction, pas un vent — et il tombe exactement sous « un mouvement très
+// binaire [...] aucune variation ». Le cap pousse aux shaders est donc lisse a la constante de
+// temps `kDirTauSeconds` : la marche aleatoire devient une derive lente et coherente, sur laquelle
+// le LACET de breeze.glsl ajoute son virage voulu. Le ressort NATIF n'est pas touche (il lit
+// `m_wind_vectors`, pas ceci) : le chemin stock reste le chemin stock.
+constexpr float kDirTauSeconds = 3.0f;
+
 void set_wind_state(float x, float z, bool paused_now) {
   g_paused = paused_now;
   const float len = std::sqrt(x * x + z * z);
   if (!(len > 1e-4f)) {
     return;  // vecteur nul ou NaN : on garde le cap precedent
   }
-  g_dir_x = x / len;
-  g_dir_z = z / len;
+  const float tx = x / len;
+  const float tz = z / len;
+  static std::chrono::steady_clock::time_point s_last = std::chrono::steady_clock::now();
+  static bool s_seeded = false;
+  const auto now = std::chrono::steady_clock::now();
+  float dt = std::chrono::duration<float>(now - s_last).count();
+  s_last = now;
+  if (!(dt > 0.f) || dt > 0.5f) {
+    dt = 0.f;  // un a-coup de chargement ne fait pas tourner le vent d'un quart de tour
+  }
+  if (!s_seeded) {
+    s_seeded = true;
+    g_dir_x = tx;
+    g_dir_z = tz;
+    return;
+  }
+  const float a = 1.f - std::exp(-dt / kDirTauSeconds);
+  const float nx = g_dir_x + (tx - g_dir_x) * a;
+  const float nz = g_dir_z + (tz - g_dir_z) * a;
+  const float nl = std::sqrt(nx * nx + nz * nz);
+  if (nl > 1e-4f) {  // le lissage d'un vecteur unitaire peut passer pres de zero : on ne le suit pas
+    g_dir_x = nx / nl;
+    g_dir_z = nz / nl;
+  }
 }
 
 void direction(float* out_x, float* out_z) {
@@ -324,17 +369,26 @@ void breeze_offset(float anchor_x,
                               0.10f * std::sin(t * 1.3823f + pp * 0.4f));
   const float flut_gain = 0.25f + 0.75f * gust;
 
-  const float perp_x = -dir_z;
-  const float perp_z = dir_x;
-  float ox = (dir_x * along + perp_x * cross) * (bend_u * w);
-  float oz = (dir_z * along + perp_z * cross) * (bend_u * w);
+  // regle (6) de breeze.glsl : LE CAP TOURNE. Trois composantes lentes, +/- 0,66 rad.
+  const float ya = 0.34f * std::sin(t * 0.0917f + pp * 0.23f + 0.7f) +
+                   0.21f * std::sin(t * 0.1571f - travel * 0.7f + pp * 0.61f + 2.2f) +
+                   0.11f * std::sin(t * 0.2437f + pp * 1.07f + 4.4f);
+  const float cy = std::cos(ya);
+  const float sy = std::sin(ya);
+  const float wdir_x = dir_x * cy - dir_z * sy;
+  const float wdir_z = dir_x * sy + dir_z * cy;
+
+  const float perp_x = -wdir_z;
+  const float perp_z = wdir_x;
+  float ox = (wdir_x * along + perp_x * cross) * (bend_u * w);
+  float oz = (wdir_z * along + perp_z * cross) * (bend_u * w);
 
   if (flutter_f > 0.f) {
     const float lf1 = std::sin(t * 8.7965f + ph01 * 12.566f + w * 2.9f);
     const float lf2 = std::sin(t * 13.4035f + ph01 * 7.3f + w * 4.1f + 1.3f);
     const float lf_amp = bend_u * w * flutter_f * flut_gain;
-    ox += (dir_x * (0.62f * lf1 + 0.38f * lf2) + perp_x * (lf2 * 0.45f)) * lf_amp;
-    oz += (dir_z * (0.62f * lf1 + 0.38f * lf2) + perp_z * (lf2 * 0.45f)) * lf_amp;
+    ox += (wdir_x * (0.62f * lf1 + 0.38f * lf2) + perp_x * (lf2 * 0.45f)) * lf_amp;
+    oz += (wdir_z * (0.62f * lf1 + 0.38f * lf2) + perp_z * (lf2 * 0.45f)) * lf_amp;
   }
 
   *out_x = ox;
@@ -542,6 +596,9 @@ struct SpectrumVerdict {
   double env_cv = 0.0;
   double window_s = 0.0;
   size_t n = 0;
+  bool dir_ok = false;
+  double dir_spread_deg = 0.0;
+  double slew_deg_s = -1.0;
 };
 
 SpectrumVerdict spectrum_locked() {
@@ -570,7 +627,7 @@ SpectrumVerdict spectrum_locked() {
   out.n = n;
   out.window_s = (double)n / fs;
   // reechantillonnage uniforme par interpolation lineaire sur les `n / fs` dernieres secondes
-  std::vector<double> d(n, 0.0);
+  std::vector<double> d(n, 0.0), vx(n, 0.0), vz(n, 0.0), gx(n, 0.0), gz(n, 0.0);
   const double t0 = (double)t_end - (double)n / fs;
   size_t j = 0;
   for (size_t i = 0; i < n; i++) {
@@ -579,10 +636,19 @@ SpectrumVerdict spectrum_locked() {
       j++;
     }
     if (j + 1 < s.size() && (double)s[j + 1].t > (double)s[j].t) {
-      const double a = (t - (double)s[j].t) / ((double)s[j + 1].t - (double)s[j].t);
-      d[i] = (double)s[j].d + std::min(std::max(a, 0.0), 1.0) * ((double)s[j + 1].d - (double)s[j].d);
+      const double a =
+          std::min(std::max((t - (double)s[j].t) / ((double)s[j + 1].t - (double)s[j].t), 0.0), 1.0);
+      d[i] = (double)s[j].d + a * ((double)s[j + 1].d - (double)s[j].d);
+      vx[i] = (double)s[j].rx + a * ((double)s[j + 1].rx - (double)s[j].rx);
+      vz[i] = (double)s[j].rz + a * ((double)s[j + 1].rz - (double)s[j].rz);
+      gx[i] = (double)s[j].gx + a * ((double)s[j + 1].gx - (double)s[j].gx);
+      gz[i] = (double)s[j].gz + a * ((double)s[j + 1].gz - (double)s[j].gz);
     } else {
       d[i] = (double)s[j].d;
+      vx[i] = (double)s[j].rx;
+      vz[i] = (double)s[j].rz;
+      gx[i] = (double)s[j].gx;
+      gz[i] = (double)s[j].gz;
     }
   }
   // enveloppe : moyenne de |d| par seconde, puis ecart-type / moyenne
@@ -633,6 +699,85 @@ SpectrumVerdict spectrum_locked() {
     }
     out.peak_pct = total > 0.0 ? peak / total * 100.0 : 100.0;
     out.peak_hz = (double)peak_k * fs / (double)n;
+  }
+  // (9) LE CAP. Moyenne glissante de 2 s sur le VECTEUR : elle efface le balancement (>= 2,2 Hz) et
+  // le fremissement (>= 8,8 Hz) et ne garde que la flexion moyenne, donc le cap du LEAN. Sans elle
+  // la mesure est vide (voir foliage_wind.h). Les instants ou la flexion lissee tombe sous le quart
+  // de sa moyenne sont ecartes : leur cap est un rapport de deux quasi-zeros. C'est le sens
+  // CONSERVATEUR de l'exclusion — ce sont eux qui portent les plus grands ecarts de cap.
+  if (n > kDirSmoothSamples + 64) {
+    const size_t m = n - kDirSmoothSamples + 1;
+    std::vector<double> lx(m, 0.0), lz(m, 0.0);
+    double ax = 0.0, az = 0.0;
+    for (size_t k = 0; k < kDirSmoothSamples; k++) {
+      ax += vx[k];
+      az += vz[k];
+    }
+    lx[0] = ax / (double)kDirSmoothSamples;
+    lz[0] = az / (double)kDirSmoothSamples;
+    for (size_t i = 1; i < m; i++) {
+      ax += vx[i + kDirSmoothSamples - 1] - vx[i - 1];
+      az += vz[i + kDirSmoothSamples - 1] - vz[i - 1];
+      lx[i] = ax / (double)kDirSmoothSamples;
+      lz[i] = az / (double)kDirSmoothSamples;
+    }
+    double mean_mag = 0.0;
+    for (size_t i = 0; i < m; i++) {
+      mean_mag += std::sqrt(lx[i] * lx[i] + lz[i] * lz[i]);
+    }
+    mean_mag /= (double)m;
+    double sc = 0.0, ss = 0.0;
+    std::vector<double> angs;
+    angs.reserve(m);
+    for (size_t i = 0; i < m; i++) {
+      const double mag = std::sqrt(lx[i] * lx[i] + lz[i] * lz[i]);
+      if (!(mag > 0.25 * mean_mag)) {
+        continue;
+      }
+      const double a = std::atan2(lz[i], lx[i]);
+      sc += std::cos(a);
+      ss += std::sin(a);
+      angs.push_back(a);
+    }
+    if (angs.size() >= 64) {
+      const double mu = std::atan2(ss, sc);
+      std::vector<double> dev;
+      dev.reserve(angs.size());
+      for (double a : angs) {
+        double e = a - mu;
+        while (e > kPi) {
+          e -= 2.0 * kPi;
+        }
+        while (e < -kPi) {
+          e += 2.0 * kPi;
+        }
+        dev.push_back(e);
+      }
+      std::sort(dev.begin(), dev.end());
+      const double p5 = dev[(size_t)(0.05 * (double)dev.size())];
+      const double p95 = dev[(size_t)(0.95 * (double)dev.size())];
+      out.dir_spread_deg = (p95 - p5) * 180.0 / kPi;
+      out.dir_ok = true;
+    }
+  }
+  // DIAGNOSTIC, hors verdict : de combien de degres par seconde le cap POUSSE aux shaders tourne.
+  // Avant le lissage de `set_wind_state` il portait la marche aleatoire de ND (~25 deg/s) ; apres,
+  // il derive. Publie pour que le lissage se verifie au lieu de se croire.
+  {
+    double sl = 0.0;
+    size_t cnt = 0;
+    for (size_t i = 1; i < n; i++) {
+      const double la = std::sqrt(gx[i - 1] * gx[i - 1] + gz[i - 1] * gz[i - 1]);
+      const double lb = std::sqrt(gx[i] * gx[i] + gz[i] * gz[i]);
+      if (la < 1e-6 || lb < 1e-6) {
+        continue;
+      }
+      const double dot = (gx[i - 1] * gx[i] + gz[i - 1] * gz[i]) / (la * lb);
+      const double crs = (gx[i - 1] * gz[i] - gz[i - 1] * gx[i]) / (la * lb);
+      sl += std::fabs(std::atan2(crs, std::min(std::max(dot, -1.0), 1.0)));
+      cnt++;
+    }
+    out.slew_deg_s = cnt ? sl / (double)cnt * fs * 180.0 / kPi : -1.0;
   }
   out.ok = true;
   return out;
@@ -759,6 +904,24 @@ void recompute_and_publish_locked() {
     }
   }
 
+  // (8) LE GRADIENT D'EXTREMITE, instance par instance, sur les poids RELUS APRES QUANTIFICATION.
+  // Le MINIMUM est publie : une seule plante qui bouge d'un bloc ouvre le verdict. Une instance dont
+  // une bande manque de sommets est NON MESURABLE et se compte a part — un seau exclu qu'on ne
+  // publie pas se lit « correct ».
+  double tip_grad_min = 1e30;
+  u64 tip_measured = 0, tip_unmeasured = 0;
+  for (const auto& in : pop) {
+    if (!(in.att_w >= 0.f) || !(in.tip_w >= 0.f)) {
+      tip_unmeasured++;
+      continue;
+    }
+    tip_measured++;
+    // attache EXACTEMENT immobile : le rapport n'est pas infini, il est plafonne — une valeur
+    // infinie rendrait le minimum insensible a cette instance au lieu de la juger.
+    const double g = in.att_w > 1e-9f ? (double)in.tip_w / (double)in.att_w : 1e6;
+    tip_grad_min = std::min(tip_grad_min, g);
+  }
+
   // (1) le natif
   u64 dead_slots = 0;
   bool ring_ok = false;
@@ -810,10 +973,13 @@ void recompute_and_publish_locked() {
   const u64 v4 = measured ? divergent : kNoMeasurement;
   const bool v6_ok = measured && base_to_crown <= kV6MaxRatio;
   const bool v7_ok = measured && sp.ok && sp.env_cv >= kV7MinCv;
+  const bool v8_measured = measured && tip_measured >= kTipMinInstances;
+  const bool v8_ok = v8_measured && tip_grad_min >= kV8MinGradient;
+  const bool v9_ok = measured && sp.ok && sp.dir_ok && sp.dir_spread_deg >= kV9MinSpreadDeg;
 
   const u64 open = (v1 <= kV1MaxDevPct ? 0 : 1) + (v2 == 0 ? 0 : 1) + (v3 == 0 ? 0 : 1) +
                    (v4 == 0 ? 0 : 1) + (v5 <= kV5MaxPeakPct ? 0 : 1) + (v6_ok ? 0 : 1) +
-                   (v7_ok ? 0 : 1);
+                   (v7_ok ? 0 : 1) + (v8_ok ? 0 : 1) + (v9_ok ? 0 : 1);
 
   char buf[64];
   autoport_proof::publish("wind_owner_defects_open", open);
@@ -848,6 +1014,15 @@ void recompute_and_publish_locked() {
   autoport_proof::publish_text("wind_base_to_crown_ratio", buf);
   std::snprintf(buf, sizeof(buf), "%.3f", (measured && sp.ok) ? sp.env_cv : -1.0);
   autoport_proof::publish_text("wind_envelope_cv", buf);
+  std::snprintf(buf, sizeof(buf), "%.3f", v8_measured ? std::min(tip_grad_min, 999999.0) : -1.0);
+  autoport_proof::publish_text("wind_tip_gradient_min", buf);
+  autoport_proof::publish("wind_tip_instances", tip_measured);
+  autoport_proof::publish("wind_tip_unmeasured", tip_unmeasured);
+  std::snprintf(buf, sizeof(buf), "%.3f",
+                (measured && sp.ok && sp.dir_ok) ? sp.dir_spread_deg : -1.0);
+  autoport_proof::publish_text("wind_dir_variation_deg", buf);
+  std::snprintf(buf, sizeof(buf), "%.3f", sp.ok ? sp.slew_deg_s : -1.0);
+  autoport_proof::publish_text("wind_dir_slew_deg_s", buf);
   autoport_proof::publish("wind_pairs_examined", pairs);
   autoport_proof::publish("wind_instances_censused", (u64)pop.size());
   autoport_proof::publish("wind_trees_drawn", trees_drawn);
@@ -872,11 +1047,15 @@ void recompute_and_publish_locked() {
         "[foliage-wind] verdicts open={} v1_native_dev={} (dead_slots={} rate_dev={:.3f}% ref={} "
         "wind_steps={:.0f} expected={:.0f} sat={:.3f}% samples={}) v2_base_shift_mm={} "
         "v3_still={} v4_divergent={} (pairs={}) v5_peak={}% ({:.3f} Hz, fenetre {:.0f} s) "
-        "v6_base_to_crown={:.3f} v7_env_cv={:.3f} instances={} shrubs={} sol={} enfonces={} "
-        "natif_raideur={} trees_drawn={} option_on={} bend_m={:.3f} native_shear_peak={:.4f}",
+        "v6_base_to_crown={:.3f} v7_env_cv={:.3f} v8_tip_gradient_min={:.3f} (mesurees={} "
+        "non_mesurables={}) v9_dir_spread={:.1f} deg (ok={}) instances={} shrubs={} sol={} "
+        "enfonces={} natif_raideur={} trees_drawn={} option_on={} bend_m={:.3f} "
+        "native_shear_peak={:.4f}",
         open, v1, dead_slots, rate_dev_pct, rate_ref, g_rate_got, expected, sat_pct,
         g_native_samples, v2, v3, v4, pairs, v5, sp.peak_hz, sp.window_s, base_to_crown,
-        sp.env_cv, pop.size(), shrubs, shrubs_ground, shrubs_sunk, shrubs_native, trees_drawn,
+        sp.env_cv, v8_measured ? std::min(tip_grad_min, 999999.0) : -1.0, tip_measured,
+        tip_unmeasured, sp.dir_ok ? sp.dir_spread_deg : -1.0, sp.dir_ok ? 1 : 0, pop.size(),
+        shrubs, shrubs_ground, shrubs_sunk, shrubs_native, trees_drawn,
         on ? 1 : 0, bend_m, g_shrub_native_shear_peak);
   }
 }
@@ -903,7 +1082,14 @@ void frame(u64 frame_idx) {
       if (g_samples.empty()) {
         g_samples.resize(kSampleRing);
       }
-      g_samples[g_sample_head] = Sample{t, ox * g_dir_x + oz * g_dir_z};
+      // DANS LE REPERE DU VENT. Le verdict (9) doit juger le virage que NOTRE loi ajoute, pas la
+      // marche aleatoire de ND : mesure sur le cap ABSOLU, il rendait 320 degres (le tour complet)
+      // avec un lacet a ZERO — un vert impossible a mettre au rouge. Projetee dans le repere du
+      // cap instantane, la variation restante est exactement celle de `breeze_yaw` + le terme
+      // lateral : la meme loi sans lacet rend 18 degres, avec 56.
+      const float rx = ox * g_dir_x + oz * g_dir_z;
+      const float rz = -ox * g_dir_z + oz * g_dir_x;
+      g_samples[g_sample_head] = Sample{t, rx, rx, rz, g_dir_x, g_dir_z};
       g_sample_head = (g_sample_head + 1) % kSampleRing;
       if (g_sample_count < kSampleRing) {
         g_sample_count++;

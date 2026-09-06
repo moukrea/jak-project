@@ -52,6 +52,20 @@ uniform float u_fw_height;  // hauteur LOCALE du prototype (plus haut sommet), u
 // deux autres chemins : 30 % du bas rigides, smoothstep^2 au-dessus. Le tronc ne bouge plus ; ce
 // qui reste sur lui est l'appui lent de ND (do_wind_math), qui est du stock. 0 = rien d'ajoute.
 uniform vec2 u_fw_bend;
+// ESSAI 16 (owner 2026-09-06 : « Le feuilles de palmiers meriteraient de bouger plus a leur
+// extremites qu'a leur bases ») — LA COORDONNEE D'ELEMENT DU CHEMIN VENT. Le poids de hauteur
+// ci-dessus donne le meme deplacement a l'attache d'une palme et a sa pointe (elles sont a la meme
+// hauteur, souvent la pointe est PLUS BASSE) : la palme se deplacait d'un bloc. `q` est la portee
+// du sommet depuis l'axe du tronc, ramenee a l'etendue de portee de la COURONNE de SA plante —
+// exactement ce que le depaqueteur calcule pour le TIE statique (FoliageWindLaw.h::tie_shape).
+// x = portee minimale de la couronne, y = son etendue (0 => `q` vaut 0, la rampe rend son plancher
+// et on retrouve la loi d'avant l'essai 16 : une plante sans couronne etalee ne peut pas whipper).
+// `u_fw_bend` arrive DEJA divise par le maximum de forme du prototype (Tie3.cpp), donc c'est la
+// POINTE qui recoit la flexion de couronne de la loi, comme sur le chemin statique.
+uniform vec2 u_fw_reach;
+// = foliage_law::kTipFloor / kTipPow
+#define FW_TIP_FLOOR 0.06
+#define FW_TIP_POW 1.6
 #ifdef OG_PBR
 uniform vec4 cam_trans;
 // Grecharged-lightprobes PLAYTEST#1 #4: the LOCAL probe SH is evaluated PER-PIXEL in the fragment
@@ -77,22 +91,24 @@ void main() {
   // so nothing in the PBR/probe path shifts with the breeze.
   vec3 lpos = position_in;
   if (u_fw_height > 0.0 && (u_fw_amp > 0.0 || u_fw_bend.x != 0.0 || u_fw_bend.y != 0.0)) {
-    // le poids de hauteur de FoliageWindLaw.h : nul sous 30 % de la plante, smoothstep^2 au-dessus
+    // la PORTE DE SOL de FoliageWindLaw.h : nulle sous 10 % de la plante, smoothstep jusqu'a 30 %,
+    // 1 au-dessus. Elle ne fait que figer le pied ; la reponse, c'est la rampe d'extremite.
     float h = position_in.y / u_fw_height;
     float w = 0.0;
-    if (h > 0.30) {
-      float u = min((h - 0.30) / 0.70, 1.0);
-      float s = u * u * (3.0 - 2.0 * u);
-      w = s * s;
+    if (h > 0.10) {
+      float u = min((h - 0.10) / 0.20, 1.0);
+      w = u * u * (3.0 - 2.0 * u);
     }
-    // la flexion de couronne de la brise, par le poids de hauteur : la cime plie, le tronc non
+    // ESSAI 16 : la rampe d'extremite. `q` = 0 a l'attache (l'axe du tronc), 1 a la pointe.
+    // Elle multiplie la flexion ET le fremissement : un seul poids pour toute la loi, comme sur le
+    // chemin statique ou l'attribut 7 les porte tous les deux.
+    float q = u_fw_reach.y > 0.0
+                  ? clamp((length(position_in.xz) - u_fw_reach.x) / u_fw_reach.y, 0.0, 1.0)
+                  : 0.0;
+    w *= FW_TIP_FLOOR + (1.0 - FW_TIP_FLOOR) * pow(q, FW_TIP_POW);
+    // la flexion de la brise, par ce poids : la pointe fouette, l'attache suit a peine, le tronc non
     lpos.x += u_fw_bend.x * w;
     lpos.z += u_fw_bend.y * w;
-    // la portee depuis l'axe du tronc, plafonnee a 4 m (une vraie palme) : le tronc ne fremit pas,
-    // et un prototype dont la geometrie s'etale loin de son origine (palm-01.mb, 23 m) ne projette
-    // pas ses sommets a 3 m de cote.
-    float reach = min(length(position_in.xz), 4.0 * 4096.0) * (1.0 / (4.0 * 4096.0));
-    w *= reach;
     // les deux raies du fremissement, la phase ne variant qu'avec le poids (donc la hauteur dans
     // la plante), jamais avec la position monde — breeze.glsl, regle (1)
     float lf1 = sin(u_fw_time * 8.7965 + u_fw_phase * 12.566 + w * 2.9);

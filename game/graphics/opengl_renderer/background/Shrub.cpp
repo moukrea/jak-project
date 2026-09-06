@@ -194,6 +194,8 @@ void Shrub::update_load(const LevelData* loader_data) {
         in.peak_w = si.peak_w;
         in.low_w = si.low_w;
         in.base_w = si.base_w;
+        in.att_w = si.att_w;  // essai 16 : les bandes de `q` (hauteur au-dessus du pivot)
+        in.tip_w = si.tip_w;
         in.sunk_mm = si.sunk_mm;
         in.ground_found = si.ground_found;
         in.shrub = true;

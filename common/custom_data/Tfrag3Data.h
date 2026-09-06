@@ -573,6 +573,13 @@ struct TieTree {
                              // de sol (0 quand aucune arete ne la traverse)
     u8 ph8 = 0;              // phase d'instance ecrite dans les enregistrements
     u32 matrix_idx = 0;
+    // foliage-wind (essai 16) — LE GRADIENT D'EXTREMITE, mesure par SEGMENT le long de l'element.
+    // Moyenne de |poids| RELU APRES QUANTIFICATION dans la premiere et la derniere des
+    // `foliage_law::kTipBands` bandes de la coordonnee d'element `q` (TIE : portee depuis l'axe du
+    // tronc ; SHRUB : hauteur au-dessus du pivot). -1 = la bande n'avait pas assez de sommets pour
+    // rendre une moyenne : l'instance est NON MESUREE, jamais verte par defaut.
+    float att_w = -1.f;      // bande[0], l'attache
+    float tip_w = -1.f;      // bande[kTipBands - 1], la pointe
   };
   std::vector<SwayInstance> sway_instances;
   // La hauteur LOCALE (unites du prototype, avant la matrice d'instance) de chaque instance du
@@ -580,6 +587,20 @@ struct TieTree {
   // c'est cette hauteur qui convertit une flexion de couronne en cisaillement de matrice, et qui
   // donne au recensement la taille de la plante.
   std::vector<float> wind_inst_local_ymax;
+  // foliage-wind (essai 16) — le chemin VENT applique la rampe d'extremite DANS tie_wind.vert, sur
+  // `length(position_in.xz)`. Il lui faut donc, par instance et en unites LOCALES du prototype :
+  //   * `wind_inst_local_rmin` / `wind_inst_local_rspan` : la portee minimale de la COURONNE et son
+  //     etendue, pour normaliser `q` exactement comme le depaqueteur le fait pour le TIE statique ;
+  //   * `wind_inst_local_wmax` : le maximum de `tie_shape` sur la plante, par lequel le CPU divise
+  //     la flexion pour que la POINTE recoive exactement la flexion de couronne de la loi (donc
+  //     `peak_w = size_factor`, donc `wind_divergent_pairs` reste tenable entre les deux chemins) ;
+  //   * `wind_inst_att_w` / `wind_inst_tip_w` : les moyennes de bande du verdict (8), -1 = non
+  //     mesurable.
+  std::vector<float> wind_inst_local_rmin;
+  std::vector<float> wind_inst_local_rspan;
+  std::vector<float> wind_inst_local_wmax;
+  std::vector<float> wind_inst_att_w;
+  std::vector<float> wind_inst_tip_w;
 
   // Grecharged-foliage-wind3 — LE RECENSEMENT QUI PORTE LE VERDICT DE D2. Rempli par `unpack()`
   // (le seul point ou prototypes, instances et sommets coexistent) et IMPRIME par

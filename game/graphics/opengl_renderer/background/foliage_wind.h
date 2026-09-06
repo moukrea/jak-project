@@ -45,6 +45,29 @@
 //       les instances dessinees — le tronc ne bouge pas.
 //   (7) `wind_envelope_cv` >= 0.30 : ecart-type / moyenne de l'enveloppe (moyenne de |d| par
 //       seconde) — des rafales, ni sinusoide pure ni tilt binaire.
+//
+// ESSAI 16 — DEUX VERDICTS DE PLUS (owner 2026-09-06 : « Le feuilles de palmiers meriteraient de
+// bouger plus a leur extremites qu'a leur bases, de meme pour l'ensemble des shrubs [...] ça doit
+// varier en amplitude, distorsion, direction »).
+//   (8) `wind_tip_gradient_min` >= 3.0 : sur CHAQUE instance dessinee, la moyenne de |poids| de la
+//       DERNIERE bande de la coordonnee d'element divisee par celle de la PREMIERE. Cinq bandes,
+//       donc une mesure par SEGMENT le long de l'element et pas deux points ; poids relus APRES
+//       quantification, donc sur ce que le VBO porte. La valeur publiee est le MINIMUM sur les
+//       instances mesurables — une seule plante qui bouge d'un bloc ouvre le verdict. Les instances
+//       dont une bande n'a pas `kTipBandMinVerts` sommets sont NON MESURABLES : elles sont comptees
+//       a part (`wind_tip_unmeasured`) et, si moins de `kTipMinInstances` restent mesurables, le
+//       verdict compte OUVERT — un seau exclu qu'on ne publie pas se lit « correct ».
+//   (9) `wind_dir_variation_deg` >= 20 : l'ecart p5-p95 du CAP du deplacement, LISSE sur 2 s et
+//       mesure DANS LE REPERE DU VENT. Deux precautions, chacune payee par une mesure ratee :
+//         * le lissage : sur le cap instantane, |o| passe par zero a chaque accalmie et le cap fait
+//           un tour complet — 128 deg avec un cap PARFAITEMENT fige ;
+//         * le repere du vent : `wind-normal` de ND (wind.gc:60) est une MARCHE ALEATOIRE sur
+//           l'angle (+/- 5,6 deg par pas de 1/60 s). Mesure sur le cap ABSOLU, la premiere course
+//           x86 a rendu 319,9 deg — le tour complet, et un vert que RIEN n'aurait pu mettre au
+//           rouge. Dans le repere du vent, ce qui reste est exactement ce que NOTRE loi ajoute.
+//       Falsifiabilite mesuree hors moteur (notes/e16-law-tuning.cpp, meme arithmetique, pire des
+//       48 fenetres) : la loi SANS le lacet de breeze.glsl rend 18,2 deg (ROUGE), avec 55,9 (VERT).
+// wind_owner_defects_open somme les NEUF.
 // Un verdict qui n'a pas pu etre mesure (pas assez de temps, aucune paire) compte OUVERT.
 //
 // LA PORTE NE PEUT PAS ETRE VIDE. Si aucune paire n'a ete examinee, `wind_divergent_pairs` vaut
@@ -156,6 +179,11 @@ struct Instance {
                          // la flexion en metres est `bend_metres() * peak_w`, calculee a la lecture
   float low_w = 0.f;     // plus grand |poids| des 10 % du bas visibles (le « tronc »)
   float base_w = 0.f;    // |poids| interpole a la ligne du pivot (shrub enfonce ; 0 sinon)
+  // essai 16, verdict (8) : moyennes de |poids| de la premiere et de la derniere bande de la
+  // coordonnee d'element (TIE : portee depuis l'axe ; SHRUB : hauteur au-dessus du pivot).
+  // -1 = bande trop peu peuplee, l'instance ne se mesure pas et compte comme telle.
+  float att_w = -1.f;
+  float tip_w = -1.f;
   u32 sunk_mm = 0;       // shrub : enfoncement sous le sol trouve
   bool ground_found = false;
   bool shrub = false;

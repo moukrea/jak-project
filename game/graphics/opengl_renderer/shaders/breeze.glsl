@@ -22,6 +22,17 @@
 //     passage de la flexion ajoutee du cisaillement de matrice au sommet-shader (tie_wind.vert).
 //   * REGLE (4) : STRICTEMENT HORIZONTAL. Aucune composante verticale : une plante ne flotte pas.
 //   * REGLE (5) : LES FEUILLES NE FREMISSENT QUE DANS LA RAFALE (1,40 et 2,13 Hz, gain x enveloppe).
+//   * 2026-09-06 « ça doit varier en amplitude, distorsion, direction » : l'amplitude variait
+//     (`wind_envelope_cv` = 0,48), la direction NON — le cap moyen etait fige et `cross` ne lui
+//     ajoutait qu'un tremblement rapide. REGLE (6) : LE CAP LUI-MEME TOURNE, par trois composantes
+//     lentes incommensurables (0,0146 / 0,0250 / 0,0388 Hz), +/- 0,66 rad = 37 deg au plus. C'est
+//     une saute de vent, pas une girouette : la plus rapide met 26 s a faire un aller-retour.
+//     MESURE (verdict 9, `wind_dir_variation_deg`) : le cap du deplacement LISSE sur 2 s — le
+//     lissage efface le balancement (>= 2,2 Hz) et le fremissement (>= 8,8 Hz) et ne garde que la
+//     flexion moyenne. Sans lui la mesure serait VIDE : |o| passe par zero a chaque accalmie et le
+//     cap instantane fait un tour complet, ce qui rend 128 deg avec un cap PARFAITEMENT fige.
+//     Avec le lissage, la loi SANS lacet rend 18 deg (rouge) et avec 56 deg (vert) : la porte
+//     separe bien les deux lois.
 //
 // SPECTRE (Hz) du deplacement d'un sommet de couronne, mesure par le moteur (`wind_spectrum_peak_pct`,
 // FFT sur la course) : rafale 0,040 0,065 0,105 0,160 0,250 — balancement 0,350 0,5625 0,770 —
@@ -61,6 +72,17 @@ vec3 breeze_drive(vec3 wpos, vec2 dir, float ph01, float t) {
   return vec3(along, cross, 0.25 + 0.75 * gust);
 }
 
+// LE LACET — regle (6). L'angle dont le cap du vent a tourne a cet instant, en radians. Trois
+// composantes lentes incommensurables, la plus grande a 0,0146 Hz (68 s de periode) : une saute de
+// vent. `travel` n'entre que dans la deuxieme, pour que deux clairieres distantes ne virent pas
+// exactement ensemble sans pour autant qu'une plante et sa voisine divergent (120 m de longueur
+// d'onde, regle (1)). Amplitude totale bornee a 0,66 rad = 37,8 deg.
+float breeze_yaw(float travel, float pp, float t) {
+  return 0.34 * sin(t * 0.0917 + pp * 0.23 + 0.7)
+       + 0.21 * sin(t * 0.1571 - travel * 0.7 + pp * 0.61 + 2.2)
+       + 0.11 * sin(t * 0.2437 + pp * 1.07 + 4.4);
+}
+
 // Le deplacement HORIZONTAL d'un sommet, en unites monde.
 //   `w`          : poids de balancement du sommet — 0 au pied de SA plante, 1 a sa couronne. Il
 //                  porte AUSSI le facteur de taille de la plante (FoliageWindLaw.h) : c'est pour
@@ -73,10 +95,15 @@ vec3 breeze_drive(vec3 wpos, vec2 dir, float ph01, float t) {
 vec2 breeze_offset(vec3 wpos, vec2 dir, float ph01, float t, float w, float bend_u,
                    float flutter_f) {
   vec3 d = breeze_drive(wpos, dir, ph01, t);
-  vec2 perp = vec2(-dir.y, dir.x);
-  vec2 o = (dir * d.x + perp * d.y) * (bend_u * w);
+  // regle (6) : le cap du vent a CET instant, pas celui de la course
+  float travel = dot(wpos.xz, dir) * BREEZE_GUST_K;
+  float ya = breeze_yaw(travel, ph01 * 6.2831853, t);
+  float cy = cos(ya), sy = sin(ya);
+  vec2 wdir = vec2(dir.x * cy - dir.y * sy, dir.x * sy + dir.y * cy);
+  vec2 perp = vec2(-wdir.y, wdir.x);
+  vec2 o = (wdir * d.x + perp * d.y) * (bend_u * w);
   float lf1 = sin(t * 8.7965 + ph01 * 12.566 + w * 2.9);
   float lf2 = sin(t * 13.4035 + ph01 * 7.3 + w * 4.1 + 1.3);
-  o += (dir * (0.62 * lf1 + 0.38 * lf2) + perp * (lf2 * 0.45)) * (bend_u * w * flutter_f * d.z);
+  o += (wdir * (0.62 * lf1 + 0.38 * lf2) + perp * (lf2 * 0.45)) * (bend_u * w * flutter_f * d.z);
   return o;
 }

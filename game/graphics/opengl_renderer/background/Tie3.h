@@ -148,6 +148,12 @@ class Tie3 : public BucketRenderer {
     // (TieTree::wind_inst_local_ymax, calculee au depaquetage) et, par image, l'amplitude locale
     // du fremissement de feuille de chaque instance (poussee en uniforme au dessin).
     const std::vector<float>* wind_local_ymax = nullptr;
+    // ESSAI 16 : l'etendue de portee de la couronne (unites LOCALES) et le maximum de forme du
+    // prototype, par instance du chemin VENT. Le premier normalise `q` dans tie_wind.vert, le
+    // second divise la flexion pour que la POINTE recoive la flexion de couronne de la loi.
+    const std::vector<float>* wind_local_rmin = nullptr;
+    const std::vector<float>* wind_local_rspan = nullptr;
+    const std::vector<float>* wind_local_wmax = nullptr;
     std::vector<float> fw_inst_flutter_amp;
     // Essai 11 : la flexion de couronne AJOUTEE de chaque instance du chemin vent, en unites LOCALES
     // du prototype (x, z), poussee en uniforme par instance (tie_wind.vert, `u_fw_bend`) et

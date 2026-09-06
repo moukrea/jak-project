@@ -466,6 +466,9 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       // `wind_inst_local_ymax` reste pointe pour le rendu : c'est lui qui convertit la flexion de
       // couronne en cisaillement d'instance.
       lod_tree[l_tree].wind_local_ymax = &tree.wind_inst_local_ymax;
+      lod_tree[l_tree].wind_local_rmin = &tree.wind_inst_local_rmin;
+      lod_tree[l_tree].wind_local_rspan = &tree.wind_inst_local_rspan;
+      lod_tree[l_tree].wind_local_wmax = &tree.wind_inst_local_wmax;
       lod_tree[l_tree].fw_inst_flutter_amp.assign(tree.wind_instance_info.size(), 0.f);
       {
         std::vector<foliage_wind::Instance> pop;
@@ -481,6 +484,8 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
           in.peak_w = si.peak_w;
           in.low_w = si.low_w;
           in.base_w = si.base_w;
+          in.att_w = si.att_w;
+          in.tip_w = si.tip_w;
           in.shrub = false;
           pop.push_back(in);
         }
@@ -501,6 +506,10 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
           // (nul sous 30 % de la plante) : ses 10 % du bas ne recoivent rien de la brise
           in.low_w = 0.f;
           in.base_w = 0.f;
+          // ESSAI 16 : les moyennes de bande de `q` calculees au depaquetage sur la MEME forme que
+          // le shader evalue (hauteur x rampe d'extremite), ramenees a l'echelle du poids ecrit.
+          in.att_w = wi < tree.wind_inst_att_w.size() ? tree.wind_inst_att_w[wi] : -1.f;
+          in.tip_w = wi < tree.wind_inst_tip_w.size() ? tree.wind_inst_tip_w[wi] : -1.f;
           in.shrub = false;
           wpop.push_back(in);
         }
@@ -2205,6 +2214,19 @@ void Tie3::render_tree_wind(int idx,
         rc_bend_lx = (ox * mat[0].x() + oz * mat[0].z()) / xs2;
         rc_bend_lz = (ox * mat[2].x() + oz * mat[2].z()) / zs2;
         rc_flut_local = rc_bend_u * w * rc_flutter * gain / ys;
+        // ESSAI 16 : tie_wind.vert multiplie desormais par `hauteur x rampe d'extremite`, dont le
+        // maximum sur le prototype est < 1. Sans cette division la POINTE recevrait moins que la
+        // flexion de couronne de la loi, la plante bougerait moins qu'une voisine du chemin
+        // STATIQUE de meme taille, et `wind_divergent_pairs` virerait au rouge. Un maximum nul
+        // (prototype sans couronne) laisse la flexion telle quelle : la loi d'avant.
+        const float wmax = (tree.wind_local_wmax && inst_id < tree.wind_local_wmax->size())
+                               ? (*tree.wind_local_wmax)[inst_id]
+                               : 0.f;
+        if (wmax > 1e-4f) {
+          rc_bend_lx /= wmax;
+          rc_bend_lz /= wmax;
+          rc_flut_local /= wmax;
+        }
       }
     }
     tree.fw_inst_flutter_amp[inst_id] = rc_flut_local;
@@ -2280,11 +2302,15 @@ void Tie3::render_tree_wind(int idx,
   const GLint fw_phase_loc = glGetUniformLocation(fw_prog, "u_fw_phase");
   const GLint fw_height_loc = glGetUniformLocation(fw_prog, "u_fw_height");
   const GLint fw_bend_loc = glGetUniformLocation(fw_prog, "u_fw_bend");
+  const GLint fw_reach_loc = glGetUniformLocation(fw_prog, "u_fw_reach");
   if (fw_amp_loc >= 0) {
     glUniform1f(fw_amp_loc, 0.f);  // par instance ci-dessous ; 0 = le bloc du shader est saute
   }
   if (fw_bend_loc >= 0) {
     glUniform2f(fw_bend_loc, 0.f, 0.f);
+  }
+  if (fw_reach_loc >= 0) {
+    glUniform2f(fw_reach_loc, 0.f, 0.f);  // par instance ci-dessous ; 0 = `q` nul, rampe au plancher
   }
   if (fw_time_loc >= 0) {
     glUniform1f(fw_time_loc, rc_t);
@@ -2299,9 +2325,10 @@ void Tie3::render_tree_wind(int idx,
     if (!s_fw_uni_logged) {
       s_fw_uni_logged = true;
       lg::info("[foliage-wind] TIE flutter uniforms amp_loc={} time_loc={} phase_loc={} "
-               "height_loc={} bend_loc={} (all >= 0 means the per-vertex flutter and the "
-               "per-instance crown bend are live in the linked program)",
-               fw_amp_loc, fw_time_loc, fw_phase_loc, fw_height_loc, fw_bend_loc);
+               "height_loc={} bend_loc={} reach_loc={} (all >= 0 means the per-vertex flutter, "
+               "the per-instance crown bend and the essai-16 tip ramp are live in the linked "
+               "program)",
+               fw_amp_loc, fw_time_loc, fw_phase_loc, fw_height_loc, fw_bend_loc, fw_reach_loc);
     }
   }
   tree.fw_prev_valid = true;  // the previous-frame shears are now populated for every instance
@@ -2433,6 +2460,16 @@ void Tie3::render_tree_wind(int idx,
         }
         if (fw_phase_loc >= 0) {
           glUniform1f(fw_phase_loc, (float)foliage_law::phase_u8((u64)grp.instance_idx) / 256.f);
+        }
+        if (fw_reach_loc >= 0) {
+          const float r0 = (tree.wind_local_rmin && grp.instance_idx < tree.wind_local_rmin->size())
+                               ? (*tree.wind_local_rmin)[grp.instance_idx]
+                               : 0.f;
+          const float rs =
+              (tree.wind_local_rspan && grp.instance_idx < tree.wind_local_rspan->size())
+                  ? (*tree.wind_local_rspan)[grp.instance_idx]
+                  : 0.f;
+          glUniform2f(fw_reach_loc, r0, rs);
         }
         if (fw_height_loc >= 0) {
           const float hl = (tree.wind_local_ymax && grp.instance_idx < tree.wind_local_ymax->size())

@@ -410,11 +410,11 @@ const FwLexicon& fw_veg_protos() {
 // `ymin`/`ymax` celles de SON instance. foliage-wind (owner 2026-09-03) : la loi vit dans
 // common/custom_data/FoliageWindLaw.h et elle est la MEME pour le TIE statique, le shrub et le
 // recensement qui porte la porte — trois copies se seraient desynchronisees au premier reglage.
-// Essai 11 : poids SIGNE sur 16 bits (SwayRecord), loi ARBRE (tronc rigide). Rend le poids tel que
-// le shader le RELIRA (quantifie puis dequantifie), pour que le recensement mesure ce qui est dessine.
-s16 fw_sway_weight_tie_q(float y, float ymin, float ymax) {
-  return foliage_law::quantize_weight(foliage_law::sway_weight_tie(y, ymin, ymax));
-}
+// Essai 16 : le poids d'un sommet d'ARBRE n'est plus une fonction du seul `y`. Il vaut
+// `tie_shape(y, ymin, ymax, q) / max(tie_shape) sur SON instance x size_factor`, et cette
+// normalisation demande un balayage complet de l'instance avant de pouvoir quantifier quoi que ce
+// soit : la derivation vit donc dans `TieTree::unpack` (passes 3a et 3b) et il n'y a plus de
+// fonction par sommet a appeler ici.
 
 // Ecrit un enregistrement de balancement a l'emplacement du sommet `v` de `sway` (8 octets/sommet).
 inline void fw_write_record(std::vector<u8>& sway, size_t v, s16 w, u16 inst, u8 ph, u8 flags) {
@@ -629,6 +629,98 @@ void TieTree::unpack() {
     unpacked.sway.assign(nverts * foliage_law::kSwayRecordBytes, 0);
     std::vector<u8> inst_has_veg(n_mat, 0), inst_has_sway(n_mat, 0);
     std::vector<s16> inst_max_w(n_mat, 0), inst_low_w(n_mat, 0);
+
+    // --- passe 2b : L'ETENDUE DE PORTEE DE LA COURONNE, par instance (essai 16) ------------------
+    // `q` (FoliageWindLaw.h) est la portee du sommet depuis l'axe du tronc, ramenee a l'etendue de
+    // portee de la COURONNE de SA plante. L'axe est la translation de la matrice d'instance —
+    // l'origine authoree du prototype, c'est-a-dire le pied du tronc. On mesure `rmin` AUSSI, et
+    // pas seulement `rmax` : si l'origine d'un prototype n'est pas sur son axe, la portee brute
+    // n'atteint jamais 0 et toute la couronne recevrait le meme `q`. Seuls les sommets de COURONNE
+    // (au-dessus des 30 % rigides) et RECLAMES PAR UN PROTO VEGETAL comptent : un evasement de
+    // racines ou un rocher voisin ne doit pas fixer l'echelle des palmes.
+    std::vector<float> inst_rmin(n_mat, 1e30f), inst_rspan(n_mat, 0.f);
+    {
+      std::vector<float> rmax(n_mat, -1e30f);
+      size_t vi = 0;
+      for (const auto& grp : packed_vertices.matrix_groups) {
+        const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+        if (grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat) {
+          const size_t mi = (size_t)grp.matrix_idx;
+          const float span = mymax[mi] - mymin[mi];
+          if (span > 0.f) {
+            const float ax = packed_vertices.matrices[mi][3].x();
+            const float az = packed_vertices.matrices[mi][3].z();
+            for (size_t k = 0; k < n && vi + k < nverts; k++) {
+              const size_t v = vi + k;
+              if (!(vflag[v] & 1) || (vflag[v] & 2)) {
+                continue;
+              }
+              const auto& vt = unpacked.vertices[v];
+              if (!((vt.y - mymin[mi]) / span > 0.30f)) {
+                continue;  // le tronc rigide ne definit pas l'echelle de la couronne
+              }
+              const float dx = vt.x - ax;
+              const float dz = vt.z - az;
+              const float r = std::sqrt(dx * dx + dz * dz);
+              inst_rmin[mi] = std::min(inst_rmin[mi], r);
+              rmax[mi] = std::max(rmax[mi], r);
+            }
+          }
+        }
+        vi += n;
+      }
+      for (size_t mi = 0; mi < n_mat; mi++) {
+        if (rmax[mi] > inst_rmin[mi]) {
+          inst_rspan[mi] = rmax[mi] - inst_rmin[mi];
+        } else {
+          inst_rmin[mi] = 0.f;  // couronne sans etendue : `q` vaut 0 partout, la rampe rend son
+          inst_rspan[mi] = 0.f;  // plancher, et la normalisation ci-dessous rend la loi d'avant
+        }
+      }
+    }
+
+    // --- passe 3a : LA FORME BRUTE (hauteur x rampe d'extremite) et son maximum par instance -----
+    // Elle est calculee AVANT toute quantification parce que le poids ecrit est la forme DIVISEE
+    // par le maximum de SA plante : sans ce maximum, la quantification se ferait sur une echelle
+    // qu'on ne connaitrait pas encore.
+    std::vector<float> vshape(nverts, 0.f);
+    std::vector<float> inst_shape_max(n_mat, 0.f);
+    auto q_of = [&](size_t mi, const auto& vt) -> float {
+      if (!(inst_rspan[mi] > 0.f)) {
+        return 0.f;
+      }
+      const float dx = vt.x - packed_vertices.matrices[mi][3].x();
+      const float dz = vt.z - packed_vertices.matrices[mi][3].z();
+      return (std::sqrt(dx * dx + dz * dz) - inst_rmin[mi]) / inst_rspan[mi];
+    };
+    {
+      size_t vi = 0;
+      for (const auto& grp : packed_vertices.matrix_groups) {
+        const size_t n = (size_t)(grp.end_vert - grp.start_vert);
+        const bool have_inst = grp.matrix_idx >= 0 && (size_t)grp.matrix_idx < n_mat;
+        const size_t mi = have_inst ? (size_t)grp.matrix_idx : 0;
+        const bool have_anchor = have_inst && mymax[mi] >= mymin[mi];
+        for (size_t k = 0; k < n && vi + k < nverts; k++) {
+          const size_t v = vi + k;
+          if (have_anchor && (vflag[v] & 1) && !(vflag[v] & 2)) {
+            const float sh =
+                foliage_law::tie_shape(unpacked.vertices[v].y, mymin[mi], mymax[mi],
+                                       q_of(mi, unpacked.vertices[v]));
+            vshape[v] = sh;
+            inst_shape_max[mi] = std::max(inst_shape_max[mi], sh);
+          }
+        }
+        vi += n;
+      }
+    }
+
+    // --- passe 3b : le poids QUANTIFIE, la phase, et les bandes du verdict (8) -------------------
+    // Le poids ecrit vaut `forme / forme_max(instance) x facteur_de_taille` : la POINTE recoit
+    // exactement ce que la couronne recevait avant l'essai 16, tout le reste de la plante en
+    // recoit moins. `peak_w` reste donc EXACTEMENT le facteur de taille et les verdicts (3) et (4)
+    // ne bougent pas d'un pouce.
+    std::vector<double> band_sum(n_mat * (size_t)foliage_law::kTipBands, 0.0);
+    std::vector<u32> band_cnt(n_mat * (size_t)foliage_law::kTipBands, 0);
     {
       size_t vi = 0;
       for (const auto& grp : packed_vertices.matrix_groups) {
@@ -658,8 +750,10 @@ void TieTree::unpack() {
             inst_has_veg[mi] = 1;
           }
           s16 w = 0;
-          if ((f & 1) && !(f & 2) && have_anchor) {
-            w = fw_sway_weight_tie_q(unpacked.vertices[v].y, mymin[mi], mymax[mi]);
+          if ((f & 1) && !(f & 2) && have_anchor && inst_shape_max[mi] > 0.f) {
+            const float span_m = (mymax[mi] - mymin[mi]) / 4096.f;
+            w = foliage_law::quantize_weight(vshape[v] / inst_shape_max[mi] *
+                                             foliage_law::size_factor(span_m));
           }
           fw_write_record(unpacked.sway, v, w, (u16)(mi & 0xffffu), ph8,
                           have_inst ? foliage_law::kSwayFlagInstance : 0);
@@ -671,6 +765,19 @@ void TieTree::unpack() {
             const float span = mymax[mi] - mymin[mi];
             if (span > 0.f && unpacked.vertices[v].y <= mymin[mi] + 0.10f * span) {
               inst_low_w[mi] = std::max(inst_low_w[mi], (s16)std::abs((int)w));
+            }
+            // verdict (8) : la bande de `q` de ce sommet, sur le poids RELU APRES QUANTIFICATION.
+            // SEULEMENT dans la region LIBRE (au-dessus de `kFreeHeight`), la ou la porte de sol
+            // vaut 1 : plus bas la reponse porte la porte, pas la forme de l'element, et melanger
+            // les deux est exactement ce qui a rendu 0,003 a la premiere mesure. La region exclue
+            // n'est pas « correcte » par defaut : elle a son propre verdict, le (6).
+            if (unpacked.vertices[v].y - mymin[mi] >=
+                foliage_law::kFreeHeight * (mymax[mi] - mymin[mi])) {
+              const size_t b =
+                  mi * (size_t)foliage_law::kTipBands +
+                  (size_t)foliage_law::tip_band_of(q_of(mi, unpacked.vertices[v]));
+              band_sum[b] += std::fabs((double)foliage_law::dequantize_weight(w));
+              band_cnt[b]++;
             }
           } else {
             sway_census.v_neutre++;
@@ -697,6 +804,16 @@ void TieTree::unpack() {
         si.low_w = foliage_law::dequantize_weight(inst_low_w[mi]);
         si.base_w = 0.f;  // aucune arete ne traverse le pied : rien n'est dessine sous lui
         si.ph8 = foliage_law::phase_u8((u64)mi);
+        {  // verdict (8) : moyennes de bande, -1 quand la bande n'a pas assez de sommets
+          const size_t b0 = mi * (size_t)foliage_law::kTipBands;
+          const size_t b4 = b0 + (size_t)foliage_law::kTipBands - 1;
+          si.att_w = band_cnt[b0] >= (u32)foliage_law::kTipBandMinVerts
+                         ? (float)(band_sum[b0] / (double)band_cnt[b0])
+                         : -1.f;
+          si.tip_w = band_cnt[b4] >= (u32)foliage_law::kTipBandMinVerts
+                         ? (float)(band_sum[b4] / (double)band_cnt[b4])
+                         : -1.f;
+        }
         sway_instances.push_back(si);
       }
       if (inst_has_sway[mi]) {
@@ -711,24 +828,121 @@ void TieTree::unpack() {
     // par instance, le plus haut sommet local : c'est ce que `Tie3::render_tree_wind` multiplie par
     // le cisaillement pour obtenir la flexion de couronne, et ce que le recensement lit comme
     // taille de plante.
-    wind_inst_local_ymax.assign(wind_instance_info.size(), 0.f);
-    for (const auto& draw : instanced_wind_draws) {
-      size_t off = 0;
-      for (const auto& grp : draw.instance_groups) {
-        const size_t end = std::min(off + (size_t)grp.num, draw.vertex_index_stream.size());
-        if (grp.instance_idx < wind_inst_local_ymax.size()) {
-          float& ymax = wind_inst_local_ymax[grp.instance_idx];
-          for (size_t k = off; k < end; k++) {
-            const u32 vi2 = draw.vertex_index_stream[k];
-            if (vi2 != UINT32_MAX && vi2 < nverts) {
-              const float y = unpacked.vertices[vi2].y;
-              if (y > ymax) {
-                ymax = y;
+    const size_t n_wind = wind_instance_info.size();
+    wind_inst_local_ymax.assign(n_wind, 0.f);
+    // ESSAI 16 — le chemin VENT applique lui aussi la rampe d'extremite, mais DANS tie_wind.vert
+    // (ses sommets sont locaux au prototype, il n'a aucun attribut par sommet). Il lui faut donc
+    // par instance : l'etendue de portee de sa couronne (pour normaliser `q` comme le TIE
+    // statique), le maximum de `tie_shape` sur la plante (pour que la POINTE recoive la flexion de
+    // couronne de la loi, et pas moins), et les deux moyennes de bande du verdict (8).
+    // TROIS balayages du meme flux d'indices : le premier ne sait pas encore ou est la couronne,
+    // le deuxieme ne sait pas encore quel est le maximum de forme.
+    wind_inst_local_rmin.assign(n_wind, 0.f);
+    wind_inst_local_rspan.assign(n_wind, 0.f);
+    wind_inst_local_wmax.assign(n_wind, 0.f);
+    wind_inst_att_w.assign(n_wind, -1.f);
+    wind_inst_tip_w.assign(n_wind, -1.f);
+    {
+      std::vector<float> rmin(n_wind, 1e30f), rmax(n_wind, -1e30f);
+      std::vector<double> wsum(n_wind * (size_t)foliage_law::kTipBands, 0.0);
+      std::vector<u32> wcnt(n_wind * (size_t)foliage_law::kTipBands, 0);
+      // balayage 1 : le plus haut sommet local de chaque instance
+      for (const auto& draw : instanced_wind_draws) {
+        size_t off = 0;
+        for (const auto& grp : draw.instance_groups) {
+          const size_t end = std::min(off + (size_t)grp.num, draw.vertex_index_stream.size());
+          if (grp.instance_idx < n_wind) {
+            float& ymax = wind_inst_local_ymax[grp.instance_idx];
+            for (size_t k = off; k < end; k++) {
+              const u32 vi2 = draw.vertex_index_stream[k];
+              if (vi2 != UINT32_MAX && vi2 < nverts) {
+                const float y = unpacked.vertices[vi2].y;
+                if (y > ymax) {
+                  ymax = y;
+                }
               }
             }
           }
+          off = end;
         }
-        off = end;
+      }
+      // balayage 2 : l'etendue de portee de la COURONNE (au-dessus des 30 % rigides). L'axe du
+      // tronc est l'origine LOCALE du prototype : c'est exactement `length(position_in.xz)` que
+      // tie_wind.vert calcule.
+      for (const auto& draw : instanced_wind_draws) {
+        size_t off = 0;
+        for (const auto& grp : draw.instance_groups) {
+          const size_t end = std::min(off + (size_t)grp.num, draw.vertex_index_stream.size());
+          const size_t ii = grp.instance_idx;
+          if (ii < n_wind && wind_inst_local_ymax[ii] > 0.f) {
+            for (size_t k = off; k < end; k++) {
+              const u32 vi2 = draw.vertex_index_stream[k];
+              if (vi2 == UINT32_MAX || vi2 >= nverts) {
+                continue;
+              }
+              const auto& vt = unpacked.vertices[vi2];
+              if (!(vt.y / wind_inst_local_ymax[ii] > 0.30f)) {
+                continue;
+              }
+              const float r = std::sqrt(vt.x * vt.x + vt.z * vt.z);
+              rmin[ii] = std::min(rmin[ii], r);
+              rmax[ii] = std::max(rmax[ii], r);
+            }
+          }
+          off = end;
+        }
+      }
+      for (size_t ii = 0; ii < n_wind; ii++) {
+        if (rmax[ii] > rmin[ii]) {
+          wind_inst_local_rmin[ii] = rmin[ii];
+          wind_inst_local_rspan[ii] = rmax[ii] - rmin[ii];
+        }
+      }
+      // balayage 3 : la forme de chaque sommet, son maximum, et ses bandes
+      for (const auto& draw : instanced_wind_draws) {
+        size_t off = 0;
+        for (const auto& grp : draw.instance_groups) {
+          const size_t end = std::min(off + (size_t)grp.num, draw.vertex_index_stream.size());
+          const size_t ii = grp.instance_idx;
+          if (ii < n_wind && wind_inst_local_ymax[ii] > 0.f) {
+            for (size_t k = off; k < end; k++) {
+              const u32 vi2 = draw.vertex_index_stream[k];
+              if (vi2 == UINT32_MAX || vi2 >= nverts) {
+                continue;
+              }
+              const auto& vt = unpacked.vertices[vi2];
+              float q = 0.f;
+              if (wind_inst_local_rspan[ii] > 0.f) {
+                q = (std::sqrt(vt.x * vt.x + vt.z * vt.z) - wind_inst_local_rmin[ii]) /
+                    wind_inst_local_rspan[ii];
+              }
+              const float sh = foliage_law::tie_shape(vt.y, 0.f, wind_inst_local_ymax[ii], q);
+              wind_inst_local_wmax[ii] = std::max(wind_inst_local_wmax[ii], sh);
+              // region LIBRE seulement, comme sur le chemin statique
+              if (sh > 0.f && vt.y >= foliage_law::kFreeHeight * wind_inst_local_ymax[ii]) {
+                const size_t b = ii * (size_t)foliage_law::kTipBands +
+                                 (size_t)foliage_law::tip_band_of(q);
+                wsum[b] += (double)sh;
+                wcnt[b]++;
+              }
+            }
+          }
+          off = end;
+        }
+      }
+      // les moyennes de bande, ramenees a la meme echelle que le poids ecrit (forme / forme_max)
+      for (size_t ii = 0; ii < n_wind; ii++) {
+        if (!(wind_inst_local_wmax[ii] > 0.f)) {
+          continue;
+        }
+        const size_t b0 = ii * (size_t)foliage_law::kTipBands;
+        const size_t b4 = b0 + (size_t)foliage_law::kTipBands - 1;
+        if (wcnt[b0] >= (u32)foliage_law::kTipBandMinVerts) {
+          wind_inst_att_w[ii] = (float)(wsum[b0] / (double)wcnt[b0]) / wind_inst_local_wmax[ii];
+        }
+        if (wcnt[b4] >= (u32)foliage_law::kTipBandMinVerts) {
+          wind_inst_tip_w[ii] = (float)(wsum[b4] / (double)wcnt[b4]) / wind_inst_local_wmax[ii];
+        }
       }
     }
   }
@@ -892,6 +1106,13 @@ void shrub_sway_write_records(ShrubTree& tree) {
   }
   std::vector<s16> inst_max_w(n_mat, 0), inst_low_w(n_mat, 0);
   std::vector<u32> vert_inst(nverts, UINT32_MAX);
+  // ESSAI 16, verdict (8) : l'element souple d'un buisson est VERTICAL — sa base au sol est son
+  // attache, ses pointes sont sa couronne. `q` est donc la hauteur normalisee au-dessus du pivot,
+  // et les bandes se lisent sur le poids RELU APRES QUANTIFICATION, comme pour le TIE. Les sommets
+  // ENFONCES (q < 0) n'entrent dans aucune bande : ils ne sont pas dessines a l'endroit ou l'owner
+  // regarde, et leur poids est negatif par construction.
+  std::vector<double> band_sum(n_mat * (size_t)foliage_law::kTipBands, 0.0);
+  std::vector<u32> band_cnt(n_mat * (size_t)foliage_law::kTipBands, 0);
   {
     size_t vi = 0;
     for (const auto& grp : tree.packed_vertices.instance_groups) {
@@ -914,6 +1135,13 @@ void shrub_sway_write_records(ShrubTree& tree) {
             inst_low_w[mi] = std::max(inst_low_w[mi], (s16)std::abs((int)w));
           }
           vert_inst[v] = (u32)mi;
+          const float q = (y - si->base_y) / span;
+          if (q >= 0.f) {
+            const size_t b =
+                mi * (size_t)foliage_law::kTipBands + (size_t)foliage_law::tip_band_of(q);
+            band_sum[b] += std::fabs((double)foliage_law::dequantize_weight(w));
+            band_cnt[b]++;
+          }
         }
         fw_write_record(tree.unpacked.sway, v, w, (u16)(mi & 0xffffu), si ? si->ph8 : 0,
                         si ? foliage_law::kSwayFlagInstance : 0);
@@ -977,6 +1205,14 @@ void shrub_sway_write_records(ShrubTree& tree) {
     si.peak_w = foliage_law::dequantize_weight(inst_max_w[mi]);
     si.low_w = foliage_law::dequantize_weight(inst_low_w[mi]);
     si.base_w = inst_base_w[mi];
+    const size_t b0 = mi * (size_t)foliage_law::kTipBands;
+    const size_t b4 = b0 + (size_t)foliage_law::kTipBands - 1;
+    si.att_w = band_cnt[b0] >= (u32)foliage_law::kTipBandMinVerts
+                   ? (float)(band_sum[b0] / (double)band_cnt[b0])
+                   : -1.f;
+    si.tip_w = band_cnt[b4] >= (u32)foliage_law::kTipBandMinVerts
+                   ? (float)(band_sum[b4] / (double)band_cnt[b4])
+                   : -1.f;
   }
 }
 
