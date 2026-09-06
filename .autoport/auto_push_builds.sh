@@ -45,6 +45,16 @@ while true; do
   # settle: size must be stable across two reads, otherwise gradle is still writing
   s1=$(stat -c %s "$APK"); sleep 20; s2=$(stat -c %s "$APK")
   [ "$s1" = "$s2" ] || continue
+  # GARDE DE TAILLE, posee le 2026-09-06 : deux APK de 1,1 Go ont ete publies (22:50 et 23:01)
+  # alors qu'un build sain pese ~640 Mo. Le CONSTRUCTEUR sait refuser un APK obese
+  # (« anormalement gros [...] NON publie ») mais le PUBLIEUR ne regardait que le hash : il a
+  # donc mis en ligne, pour l'owner, 500 Mo d'espace mort a telecharger. Une garde du cote qui
+  # construit ne protege pas le cote qui livre.
+  APK_MAX=${APK_MAX:-838860800}   # 800 Mo : large au-dessus des ~640 Mo normaux, loin du 1,1 Go
+  if [ "$s2" -gt "$APK_MAX" ]; then
+    echo "$(date +%H:%M:%S) APK anormalement gros ($s2 o > $APK_MAX) — NON publie" >> "$LOG"
+    continue
+  fi
   h=$(md5sum "$APK" | cut -d' ' -f1)
   # NE JAMAIS PUBLIER DU TRAVAIL INACHEVE A L'OWNER (constate le 2026-08-30 17:32 : le build
   # publie embarquait le pas de temps fixe dont le validateur avait ECHOUE six minutes plus
