@@ -18,6 +18,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 
 namespace foliage_wind {
@@ -221,7 +222,28 @@ bool shrub_native_enabled() {
   return s_on;
 }
 
+// REFSET : L'HORLOGE DE LA BRISE DEVIENT UNE FONCTION DE LA FRAME DE LOGIQUE.
+// Ce compteur integrait un `dt` pris a la `steady_clock`, donc la phase du vent poussee aux
+// shaders dependait de la vitesse de la machine : deux rejeux du meme plan ne rendaient pas les
+// memes pixels. Sous `refset::enabled()` seulement, l'horloge vaut `lf / 60` — pure, sans
+// accumulation, donc reproductible au bit. Le joueur, lui, ne voit RIEN changer : hors refset le
+// chemin ci-dessous est celui d'avant, ligne pour ligne.
+// `refset_wind_clock_pinned` compte les frames de logique DISTINCTES ou l'epinglage a servi :
+// a zero, dire « l'horloge est neutralisee » serait une clause vide.
 float clock_seconds(u64 frame_idx, bool paused_now) {
+  if (refset::enabled()) {
+    const int64_t lf = refset::current_logic_frame();
+    if (lf >= 0) {
+      static int64_t s_pin_last_lf = -1;
+      static uint64_t s_pin_count = 0;
+      if (lf != s_pin_last_lf) {
+        s_pin_last_lf = lf;
+        s_pin_count++;
+        autoport_proof::publish("refset_wind_clock_pinned", s_pin_count);
+      }
+      return (float)lf / 60.f;
+    }
+  }
   static float s_t = 0.f;
   static u64 s_last_frame = (u64)-1;
   static std::chrono::steady_clock::time_point s_last = std::chrono::steady_clock::now();
@@ -266,9 +288,26 @@ void set_wind_state(float x, float z, bool paused_now) {
   static bool s_seeded = false;
   const auto now = std::chrono::steady_clock::now();
   float dt = std::chrono::duration<float>(now - s_last).count();
-  s_last = now;
+  s_last = now;  // tenu a jour DANS LES DEUX CAS : sortir du mode refset ne doit pas rendre un dt geant
   if (!(dt > 0.f) || dt > 0.5f) {
     dt = 0.f;  // un a-coup de chargement ne fait pas tourner le vent d'un quart de tour
+  }
+  if (refset::enabled()) {
+    // UN PAS PAR FRAME DE LOGIQUE, PAS PAR APPEL. Ce lissage est un ACCUMULATEUR : poser
+    // `dt = 1/60` ne suffit pas, parce que cette fonction est appelee une fois par image RENDUE
+    // et que la course en dessine plusieurs par image simulee (mesure du 2026-09-06 sur
+    // eae4df44 : `frames=16320` pour `refset_pump_logic=5223`, soit 3,1 appels par frame de
+    // logique, et ce rapport depend de la charge). On ne fait donc avancer le filtre que sur une
+    // frame de logique NEUVE ; les appels suivants de la meme frame rendent le cap deja calcule.
+    static int64_t s_lf_last = -1;
+    const int64_t lf = refset::current_logic_frame();
+    if (lf >= 0) {
+      if (lf == s_lf_last) {
+        return;
+      }
+      s_lf_last = lf;
+    }
+    dt = 1.f / 60.f;
   }
   if (!s_seeded) {
     s_seeded = true;

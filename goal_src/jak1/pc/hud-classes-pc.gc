@@ -1739,6 +1739,41 @@
 ;; the renderer. Defined HERE (not pckernel-impl.gc) because this file compiles after
 ;; target-h, so *target* and (-> *target* control trans) resolve. Overrides the base
 ;; pc-settings update-to-os, which the display loop calls once per frame.
+
+;; ── lighting-hdr essai 6 : LE RE-ANCRAGE DE LA PHASE DES PARTICULES ────────────────────────
+;; Contrat et chiffres : game/graphics/refset.h, section « LES DEUX GESTES ».
+;;
+;; LE DEFAUT. Le jeu d'images de reference compare, pixel a pixel, une course qui CAPTURE et une
+;; course qui REJOUE. Mesure du 2026-09-06 sur eae4df44, phase 1 (master OFF, ou notre chaine ne
+;; dessine RIEN) : le seul objet qui differe est le FEU de la hutte de Samos — 12132 px sur 57600
+;; a midi, ~25400 au crepuscule, ou sa lumiere repeint tout l'ecran. Sa phase est posee A LA
+;; NAISSANCE de l'acteur (`sparticle-launcher.gc:590` lit `real-actual-frame-counter`, `:604` lit
+;; `*particle-300hz-timer*`), donc a une frame de logique qui depend de la vitesse du chargement
+;; asynchrone. Le re-teleport de l'ancre du plan ne la remet pas a zero.
+;;
+;; LE GESTE. A l'ancre — une frame de logique FIXE, la meme dans les deux courses —
+;; `kill-and-free-particles` est appele sur chaque lanceur vivant : il remet `local-clock` a 0 et
+;; efface `particles-active`, si bien que `spawn-time` se repose sur l'instant courant a la
+;; prochaine image. La phase du feu cesse de dependre du chemin de chargement.
+;;
+;; POURQUOI PAS `reset-actors`. Il ferait le meme travail, mais il DESACTIVE tout l'arbre de
+;; processus, et c'est exactement le geste qui tue la course en SIGILL sur arm64 au troisieme
+;; `(start 'play)` (`GK-DIAG A36-TREE VIOLATION ... tree-self`). Ici on ne touche a aucun
+;; processus : on ne fait que vider des lanceurs.
+(defun refset-repin-particles ()
+  "Re-ancre la phase de TOUS les lanceurs de particules sur la frame de logique courante."
+  (let ((f (lambda ((arg0 process-drawable))
+             (when (and (nonzero? arg0)
+                        (type-type? (-> arg0 type) process-drawable)
+                        (nonzero? (-> arg0 part)))
+               (kill-and-free-particles (-> arg0 part)))
+             (none))))
+    (iterate-process-tree *entity-pool* (the-as (function object object) f) *null-kernel-context*)
+    (iterate-process-tree *active-pool* (the-as (function object object) f) *null-kernel-context*))
+  (format 0 "REFSET repin-particules fait~%")
+  0
+  (none))
+
 (defmethod update-to-os ((obj pc-settings-jak1))
   ((method-of-type pc-settings update-to-os) obj)
   ;; Grecharged-master-toggle: push the GLOBAL master FIRST each frame (the C++ side composes
@@ -1850,6 +1885,10 @@
   (let ((tod-h (pc-get-tod-hour)))
     (when (and (>= tod-h 0) *time-of-day-proc*)
       (set-time-of-day (* 0.01 (the float tod-h)))))
+  ;; lighting-hdr essai 6 — le re-ancrage de la phase des particules, une seule fois, a l'ancre
+  ;; du plan du jeu d'images. Hors de ce mode `pc-refset-repin-parts?` rend 0 a chaque image et
+  ;; il ne se passe rien : le joueur ne rencontre jamais ce chemin. Voir `refset-repin-particles`.
+  (if (nonzero? (pc-refset-repin-parts?)) (refset-repin-particles))
   ;; POLISH#4: while Jak hangs on a ledge, push the ledge grab point so the ledge-top grass parts
   ;; around his hands (else clear it by passing a null vector -> the renderer drops the effect).
   (if (and *target* (= (-> *target* next-state name) 'target-edge-grab))

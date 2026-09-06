@@ -178,6 +178,66 @@ bool consume_capture(int w, int h, const void* rgba);
 // interrompue rendrait quatre zeros et fermerait la porte sans avoir rien prouve.
 // Le jeu de reference des verdicts 1 et 2 est ORIGINE-LUMIERE (master ON, eclairage OFF) : la
 // configuration que l'owner joue, et celle qu'aucun des deux jeux d'origine n'exercait.
+// ── lighting-hdr essai 6 : LES DEUX GESTES QUI RENDENT LA PHOTO REPRODUCTIBLE ───────────────
+// LE DEFAUT MESURE (2026-09-06, eae4df44, images du plan relues pixel a pixel). Le seul objet
+// qui differe entre la reference et le rejeu de la phase 1 (master OFF, ou notre chaine ne
+// dessine RIEN) est le FEU de la hutte de Samos et la lumiere qu'il jette :
+//     h00..h12  12132..12140 px differents sur 57600, contenus dans une boite en bas a gauche
+//     h15/h18/h21  ~25400 px : aux heures ou le feu est la source dominante, sa phase repeint
+//                  tout l'ecran ; hors de la boite du feu et hors du compteur FPS il reste
+//                  4400 px de jour et 16400 px au crepuscule, c'est-a-dire son ECLAIRAGE.
+// Sa phase est posee A LA NAISSANCE de l'acteur (`sparticle-launcher.gc:590` prend
+// `real-actual-frame-counter`, `:604` prend `*particle-300hz-timer*`), donc a une frame de
+// logique qui depend de la vitesse du chargement asynchrone. Le re-teleport de l'ancre ne la
+// remet pas a zero : `reset-actors` n'est pas appele.
+//
+// LE MEME OBJET FAIT ECHOUER LES VERDICTS 1 ET 2, par un autre chemin. Ces deux verdicts
+// apparient RECHARGED et ORIGINE-LUMIERE au meme creneau, mais a 180 frames de logique d'ecart
+// (`refset_pair_gap_lf`), et le feu se decorrele en bien moins que 3 secondes. Mesure du
+// 2026-09-06, contraste du decile le plus lumineux decompose par region :
+//     h03  tout 83,8 %   |  DANS le feu 59,0 %  |  hors du feu  99,4 %
+//     h06  tout 87,4 %   |  DANS le feu 68,0 %  |  hors du feu  99,5 %
+//     h15  tout 92,4 %   |  DANS le feu 67,7 %  |  hors du feu 102,9 %
+//     h21  tout 99,2 %   |  DANS le feu 104,3 % |  hors du feu  98,5 %
+// Hors du feu la courbe preserve le detail partout ; le deficit est ENTIEREMENT la phase du
+// feu, et elle joue dans les deux sens (59 % a h03, 104 % a h21). Le plancher de bruit de
+// l'instrument le confirme : la MEME configuration photographiee dans DEUX courses rend des
+// rapports de 91 a 119 %, alors que le verdict 2 exige 95 %. On ne mesure pas une courbe avec
+// un instrument dont le bruit depasse son seuil.
+//
+// LES DEUX GESTES, ET POURQUOI CE SONT DES GESTES ET PAS UNE TOLERANCE.
+//   * `wants_particle_repin()` — a l'ancre du plan, une frame de logique FIXE, tous les
+//     lanceurs de particules sont re-ancres (`kill-and-free-particles` remet `local-clock` a 0
+//     et efface `particles-active`, si bien que `spawn-time` se repose sur l'instant courant).
+//     La phase du feu cesse de dependre du chemin de chargement. Rend vrai UNE seule fois.
+//   * `freeze_particles()` — a partir de l'instant de la PREMIERE photo, le temps des
+//     particules est fige (`*sp-frame-time*` a zero). Les 24 photos du plan voient alors
+//     EXACTEMENT le meme feu : l'appariement des verdicts 1 et 2 ne compare plus que la
+//     configuration d'eclairage, ce qu'il est cense mesurer. Le feu reste DESSINE et reste la
+//     haute lumiere dominante — on ne retire pas l'objet de la mesure, on retire son
+//     scintillement de l'ecart entre les deux photos.
+// Les deux sont sans effet hors `enabled()` : le joueur ne les rencontre jamais.
+// `refset_parts_repins`, `refset_parts_repin_lf` et `refset_parts_frozen_frames` sont publies :
+// a zero, ces deux clauses seraient invérifiables.
+//   * `particle_step_mode()` — LE PAS DES PARTICULES, UN PAR FRAME DE LOGIQUE, ET RIEN QUE UN.
+//     Rend 2 hors du plan (le moteur garde son chemin normal), 1 la premiere fois qu'on le
+//     consulte dans une frame de logique NEUVE (le GOAL pose alors un pas FIXE de 5 unites de
+//     1/300 s, soit 1/60 s — la duree d'un tick du plan), 0 sinon : appel repete dans la meme
+//     frame de logique, ou plan arrive a sa premiere photo (gel).
+//     POURQUOI CE N'EST PAS UN BOOLEEN DE GEL. Mesure du 2026-09-06 sur eae4df44 : deux rejeux
+//     du MEME binaire, memes references, memes donnees, rendent `diffpx=380759` puis `505224`,
+//     et l'ecart est ENTIEREMENT dans le feu — alors que le meme plan, meme politique de
+//     teleport, rend `diffpx=0` sur x86. Ce qui differe entre les deux plateformes, c'est le
+//     nombre d'images DESSINEES par image simulee. `process-particles` est appele depuis la
+//     boucle d'affichage ; si elle tourne plus d'une fois par frame de logique, les particules
+//     avancent d'autant de pas, et ce nombre-la depend de la charge de la machine. Le pas est
+//     donc epingle sur la frame de LOGIQUE, exactement comme le lissage du cap du vent
+//     (foliage_wind.cpp). `refset_parts_extra_calls` publie combien d'appels ont ete
+//     supprimes : a zero, cette hypothese est FAUSSE et la clause est vide — c'est la mesure
+//     qui tranche, pas ce commentaire.
+bool wants_particle_repin();
+int particle_step_mode();
+
 int verdict_saturation();          // 1 — pixels satures RECHARGED <= ORIGINE-LUMIERE
 int verdict_highlight_contrast();  // 2 — contraste du decile le plus lumineux >= 95 %
 int verdict_master_off_bitexact(); // 4 — master OFF identique au bit a ORIGINE-TOTAL

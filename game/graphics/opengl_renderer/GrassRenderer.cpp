@@ -24,6 +24,8 @@
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/refset.h"
+#include "game/system/autoport_proof.h"
 #include "game/graphics/opengl_renderer/loader/Loader.h"
 
 namespace {
@@ -1440,6 +1442,23 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   static const auto t0 = std::chrono::steady_clock::now();
   float u_time =
       std::chrono::duration<float>(std::chrono::steady_clock::now() - t0).count();
+  // REFSET : meme raison que foliage_wind::clock_seconds. `u_time` part d'une montre MURALE et
+  // atteint l'uniforme `u_time` du shader d'herbe (et le cycle du mode de debug) : deux rejeux du
+  // meme plan poussaient deux phases de brise differentes. Sous `refset::enabled()` seulement,
+  // l'horloge devient `lf / 60`, pure fonction de la frame de LOGIQUE. Hors refset : inchange.
+  if (refset::enabled()) {
+    const int64_t lf = refset::current_logic_frame();
+    if (lf >= 0) {
+      u_time = (float)lf / 60.f;
+      static int64_t s_pin_last_lf = -1;
+      static uint64_t s_pin_count = 0;
+      if (lf != s_pin_last_lf) {
+        s_pin_last_lf = lf;
+        s_pin_count++;
+        autoport_proof::publish("refset_grass_clock_pinned", s_pin_count);
+      }
+    }
+  }
 
   auto& shader = rs->shaders[ShaderId::GRASS];
   shader.activate();

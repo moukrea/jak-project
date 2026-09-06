@@ -265,6 +265,18 @@
 (define-extern pc-grass-occ-add! (function int vector int none))
 (define-extern pc-grass-occ-publish! (function none))
 (define-extern pc-get-tod-hour (function int)) ;; Grecharged-grass-precompute-mode verification aid: debug.opengoal.tod.hour prop (hour*100; -1 = unset)
+;; lighting-hdr essai 6 — les deux gestes du jeu d'images de reference (contrat : game/graphics/refset.h).
+;; `pc-refset-repin-parts?` rend 1 UNE seule fois, a l'ancre du plan : tous les lanceurs de
+;; particules sont alors re-ancres, ce qui retire au feu sa dependance a la vitesse du chargement.
+;; `pc-refset-part-step` rend 2 hors du plan (chemin normal), 1 pour AVANCER d'un pas fixe de
+;; 1/60 s dans une frame de logique neuve, 0 pour ne pas avancer du tout (appel repete dans la
+;; meme frame de logique, ou plan arrive a sa premiere photo : le feu est alors fige).
+;; `pc-refset-active?` rend 1 pendant toute une course de jeu d'images : sert a taire les
+;; incrustations de debug, qui sont dessinees DANS le tampon relu et portent du temps mural.
+;; Les trois rendent 0 hors de ce mode : le joueur ne rencontre jamais ce chemin.
+(define-extern pc-refset-repin-parts? (function int))
+(define-extern pc-refset-part-step (function int))
+(define-extern pc-refset-active? (function int))
 ;; scratch vector reused each frame to hand the two distances to the bridge (avoids per-frame alloc).
 (define *grass-dist-scratch* (new 'static 'vector :x 30.0 :y 95.0 :z 150.0 :w 1.0))
 

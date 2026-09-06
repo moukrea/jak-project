@@ -730,7 +730,12 @@
     (else "aucune")))
 
 (defun draw-pc-fps-counter ()
-  (when (-> *pc-settings* fps-counter?)
+  ;; lighting-hdr essai 6 — MUET PENDANT UNE MESURE. Ce compteur est dessine DANS le tampon que
+  ;; le jeu d'images de reference relit et compare bit a bit. Mesure du 2026-09-06 sur eae4df44 :
+  ;; ses seuls chiffres font 57 a 112 pixels d'ecart entre la reference et le rejeu, avec un
+  ;; maxdiff de 225 a 228 — et c'est du temps MURAL, donc il ne PEUT pas etre reproductible.
+  ;; On le tait a la production plutot que d'exclure sa zone au controle.
+  (when (and (-> *pc-settings* fps-counter?) (zero? (pc-refset-active?)))
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf))
       (draw-string-xy (string-format "FPS ~D" (pc-get-fps))
                       buf

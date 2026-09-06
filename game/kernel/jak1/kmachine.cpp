@@ -3155,6 +3155,28 @@ void pc_set_grass_dists(u32 vec) {
 // Grecharged-grass-precompute-mode verification aid: fixed time-of-day for A/B captures.
 // Android: prop debug.opengoal.tod.hour ("9.5" = 09:30). Desktop: env GRASS_TOD. Returns
 // hour*100 as int (950), or -1 when unset/invalid. Read at most once per second.
+// ── lighting-hdr essai 6 : les deux gestes du jeu d'images (contrat : refset.h) ──────────────
+// Ils passent par GOAL parce que les deux grandeurs a toucher vivent dans le tas GOAL : la
+// phase des lanceurs (`sparticle-launch-control`) et `*sp-frame-time*`. Les deux fonctions
+// rendent 0 hors du mode `refset` : appelees a chaque image, elles sont alors un simple test de
+// booleen, et le joueur ne rencontre jamais ce chemin.
+u64 pc_refset_repin_parts() {
+  return refset::wants_particle_repin() ? 1 : 0;
+}
+
+u64 pc_refset_part_step() {
+  return (u64)(s64)refset::particle_step_mode();
+}
+
+// LE SILENCE DES INCRUSTATIONS DE DEBUG PENDANT UNE MESURE. Le compteur FPS est dessine DANS le
+// tampon que le jeu d'images relit : mesure du 2026-09-06, ses chiffres a eux seuls font 57 a
+// 112 pixels d'ecart entre la reference et le rejeu (maxdiff 225 a 228), et c'est du temps
+// MURAL — il ne peut pas etre reproductible. Un texte qui change parce que la machine a ete
+// plus rapide n'a rien a faire dans une comparaison bit a bit.
+u64 pc_refset_active() {
+  return refset::enabled() ? 1 : 0;
+}
+
 u64 pc_get_tod_hour() {
   // lighting-census : quand un jeu d'images de reference est en cours, c'est LUI qui impose
   // l'heure, et il la change entre deux etapes. Le cache d'une seconde ci-dessous serait alors
@@ -5143,6 +5165,9 @@ void InitMachine_PCPort() {
   // POLISH#4: adjustable grass view-distances + ledge-grab trample point
   make_function_symbol_from_c("pc-set-grass-dists!", (void*)pc_set_grass_dists);
   make_function_symbol_from_c("pc-get-tod-hour", (void*)pc_get_tod_hour);
+  make_function_symbol_from_c("pc-refset-repin-parts?", (void*)pc_refset_repin_parts);
+  make_function_symbol_from_c("pc-refset-part-step", (void*)pc_refset_part_step);
+  make_function_symbol_from_c("pc-refset-active?", (void*)pc_refset_active);
   make_function_symbol_from_c("pc-set-jak-ledge!", (void*)pc_set_jak_ledge);
   // ROUND#21d: exact ground-actor world positions for the grass object-clip/trample
   make_function_symbol_from_c("pc-grass-occ-clear!", (void*)pc_grass_occ_clear);

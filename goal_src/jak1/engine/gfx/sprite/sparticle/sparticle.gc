@@ -440,6 +440,23 @@
     0
     0
     ;;(.mfc0 gp-0 Count)
+    ;; lighting-hdr essai 6 — LE GEL DU TEMPS DES PARTICULES PENDANT UNE MESURE.
+    ;; Le jeu d'images de reference photographie chaque creneau horaire dans TROIS
+    ;; configurations d'eclairage, a 180 frames de logique d'ecart ; le feu de la hutte se
+    ;; decorrele en bien moins que 3 secondes, et il pese ~30 % du decile le plus lumineux que
+    ;; les verdicts 1 et 2 mesurent. Mesure du 2026-09-06 : hors du feu le contraste du decile
+    ;; vaut 98,5 a 119,6 % de sa reference, DANS le feu il vaut 59 a 104 % selon la phase ou la
+    ;; photo tombe. On fige donc le temps des particules a partir de la premiere photo : le feu
+    ;; reste dessine et reste la haute lumiere dominante, mais il est LE MEME sur les 24 photos.
+    ;; ET LE PAS EST EPINGLE SUR LA FRAME DE LOGIQUE, pas sur l'image dessinee. Mesure du
+    ;; 2026-09-06 : le meme plan rend `diffpx=0` sur x86 et 380759 puis 505224 sur eae4df44,
+    ;; avec le MEME binaire — ce qui differe, c'est le nombre d'images dessinees par image
+    ;; simulee. Cette fonction est appelee depuis la boucle d'affichage : un pas par appel
+    ;; ferait avancer le feu d'autant de fois que la machine a eu le temps de dessiner.
+    ;; Hors de ce mode `pc-refset-part-step` rend 2 et rien ne change pour le joueur.
+    (let ((rs (pc-refset-part-step)))
+      (cond ((zero? rs) (set-particle-frame-time 0))
+            ((= rs 1) (set-particle-frame-time 5))))
     (set! *sp-launcher-lock* #t)
     ;; start a profile frame.
     (if *debug-segment*

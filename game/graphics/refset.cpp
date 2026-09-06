@@ -99,6 +99,16 @@ int64_t (*g_logic_fn)() = nullptr;
 // differents. Un `(start 'play <continue>)` juste avant chaque photo remet la camera a une pose
 // TELEPORTEE, et la photo est prise assez tot pour que la derive n'ait pas eu le temps de
 // s'installer.
+// lighting-hdr essai 6 : le re-ancrage des lanceurs de particules et le gel de leur temps.
+// Contrat, chiffres et raison : refset.h, section « LES DEUX GESTES ».
+bool g_repin_done = false;
+uint64_t g_repins = 0;
+int64_t g_repin_lf = -1;
+uint64_t g_frozen_frames = 0;
+int64_t g_frozen_first_lf = -1;
+int64_t g_part_step_lf = -1;
+uint64_t g_part_steps = 0;
+uint64_t g_part_extra = 0;
 int64_t g_warp1 = -1;             // premier warp : sert seulement a savoir que le niveau est la
 bool g_rewarp_asked = false;      // une demande de teleport est en vol
 int64_t g_rewarp_asked_lf = -1;   // depuis quand : une demande perdue doit se re-poser
@@ -325,6 +335,13 @@ void publish_state() {
   autoport_proof::publish("refset_step_done", g_cur);
   autoport_proof::publish("refset_step_anchor_set", g_step_anchor >= 0 ? 1 : 0);
   autoport_proof::publish("refset_rewarps", g_rewarps);
+  autoport_proof::publish("refset_parts_repins", g_repins);
+  autoport_proof::publish("refset_parts_repin_lf", (uint64_t)(g_repin_lf < 0 ? 0 : g_repin_lf));
+  autoport_proof::publish("refset_parts_frozen_frames", g_frozen_frames);
+  autoport_proof::publish("refset_parts_steps", g_part_steps);
+  autoport_proof::publish("refset_parts_extra_calls", g_part_extra);
+  autoport_proof::publish("refset_parts_frozen_first_lf",
+                          (uint64_t)(g_frozen_first_lf < 0 ? 0 : g_frozen_first_lf));
   autoport_proof::publish("refset_settle", (uint64_t)g_step_settle);
   // La POLITIQUE DE TELEPORT est publiee : deux courses qui ne l'ont pas la meme ne
   // photographient pas les memes poses, et rien d'autre dans la preuve ne le dirait.
@@ -456,6 +473,27 @@ void publish_state() {
     autoport_proof::publish("hdr_sat_px_recharged", sat_r);
     autoport_proof::publish("hdr_sat_px_origine_lumiere", sat_o);
     autoport_proof::publish("hdr_sat_denom_px", px_o);
+    // LA CLASSE DE DEFAUT QUE L'OWNER NOMME, PUBLIEE. `sat_white_px` (les TROIS canaux a 255 —
+    // le blanc entierement brule) etait compte par `measure_step` et lu par AUCUNE ligne. Il est
+    // publie pour les TROIS configurations, avec le total d'ORIGINE-TOTAL a cote de celui des
+    // deux autres : sans ces trois nombres, « est-ce que le master ON brule plus que le jeu
+    // d'origine ? » n'a pas de reponse machine, et c'est litteralement la question posee le
+    // 2026-09-06. Aucun verdict n'en depend — c'est une mesure, pas une porte.
+    {
+      uint64_t sw[4] = {0, 0, 0, 0}, sp[4] = {0, 0, 0, 0};
+      for (int ph = 1; ph <= 3; ph++) {
+        for (int i = 0; i < 8; i++) {
+          if (g_stats[ph][i].measured) {
+            sw[ph] += g_stats[ph][i].sat_white_px;
+            sp[ph] += g_stats[ph][i].sat_px;
+          }
+        }
+      }
+      autoport_proof::publish("hdr_sat_px_origine_total", sp[1]);
+      autoport_proof::publish("hdr_sat_white_px_origine_total", sw[1]);
+      autoport_proof::publish("hdr_sat_white_px_recharged", sw[2]);
+      autoport_proof::publish("hdr_sat_white_px_origine_lumiere", sw[3]);
+    }
     autoport_proof::publish("hdr_hl_contrast_worst_pct", meas ? worst_ratio : 0);
     // Le temoin de capture d'ORIGINE-TOTAL, publie pour que le verdict 4 soit LISIBLE : s'il
     // egale `refset_bin_fp`, la reference a ete capturee par ce binaire meme et le verdict est
@@ -945,6 +983,57 @@ void note_anchor() {
     }
     g_cap = kCapArmed;
   }
+}
+
+// LE RE-ANCRAGE DES LANCEURS DE PARTICULES. Rend vrai UNE seule fois, a la premiere frame de
+// logique ou l'ancre du plan existe — donc a un instant FIXE, le meme dans la course qui capture
+// et dans celle qui rejoue. C'est ce qui retire au feu sa dependance a la vitesse du chargement.
+bool wants_particle_repin() {
+  if (!enabled()) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (g_repin_done || g_plan_base < 0) {
+    return false;
+  }
+  g_repin_done = true;
+  g_repins++;
+  g_repin_lf = current_logic_frame();
+  std::printf("REFSET repin-particules lf=%lld (ancre=%lld)\n", (long long)g_repin_lf,
+              (long long)g_plan_base);
+  std::fflush(stdout);
+  return true;
+}
+
+// LE PAS DES PARTICULES. Contrat et mesure : refset.h. Deux choses en une fonction, parce que
+// ce sont deux faces du meme geste — le temps des particules ne doit avancer qu'a la cadence du
+// PLAN, puis plus du tout des la premiere photo.
+int particle_step_mode() {
+  if (!enabled()) {
+    return 2;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (g_plan_base < 0) {
+    return 2;  // avant l'ancre : le moteur garde son chemin normal
+  }
+  const int64_t lf = current_logic_frame();
+  if (lf < 0) {
+    return 2;
+  }
+  if (lf >= g_plan_base + g_step_settle) {
+    if (g_frozen_first_lf < 0) {
+      g_frozen_first_lf = lf;
+    }
+    g_frozen_frames++;
+    return 0;  // gel : les 24 photos voient le meme feu
+  }
+  if (lf == g_part_step_lf) {
+    g_part_extra++;
+    return 0;  // deja avance dans cette frame de logique : un deuxieme pas serait du hasard
+  }
+  g_part_step_lf = lf;
+  g_part_steps++;
+  return 1;
 }
 
 bool wants_rewarp() {
