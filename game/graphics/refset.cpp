@@ -105,6 +105,10 @@ uint64_t g_maxdiff_phase[3] = {0, 0, 0};
 uint64_t g_compared_phase[3] = {0, 0, 0};
 int64_t g_frame_slip_max = 0;
 int64_t g_frame_slip_min = 1 << 20;
+// LE REGISTRE DE REJEUX. `refset_replay_flaky` compare des COURSES, pas des images : il ne peut
+// donc pas se calculer dans une seule course. Le moteur tient un registre sur disque et publie
+// le verdict qu'il en lit. Tant qu'il n'a pas ete ecrit, `publish_state` publie la sentinelle.
+bool g_flaky_done = false;
 
 const char* set_name(int phase) {
   return phase == 1 ? "origine" : "recharged";
@@ -193,6 +197,12 @@ void publish_state() {
       gate = g_maxdiff;
     }
     autoport_proof::publish("refset_replay_maxdiff", gate);
+    // La grandeur de PORTE de cet item porte sur plusieurs COURSES (voir `publish_flaky`). Tant
+    // que le registre n'a pas parle, la preuve porte la sentinelle : une course interrompue est
+    // rouge, jamais muette — un `proof.txt` sans la cle se lit « le moteur ne l'emet pas ».
+    if (!g_flaky_done) {
+      autoport_proof::publish("refset_replay_flaky", 254);
+    }
     // Les deux jeux, separement, avec la MEME regle de sentinelle : une course qui n'est pas
     // allee au bout ne peut pas rendre un zero.
     for (int ph = 1; ph <= 2; ph++) {
@@ -251,6 +261,117 @@ void compare(const uint8_t* a, const uint8_t* b, int n_px, uint64_t* maxd, uint6
   }
   *maxd = md;
   *npx = np;
+}
+
+
+// ── le registre de rejeux ───────────────────────────────────────────────────────────────────
+// `refset_replay_flaky` est le NOMBRE DE PAIRES DE REJEUX CONSECUTIFS, meme binaire et memes
+// references, dont le `maxdiff` differe. C'est une grandeur qui porte sur des COURSES : aucune
+// course seule ne peut la calculer, et un chiffre recopie a la main ne prouverait rien. Le
+// moteur tient donc un registre sur disque, `<dir>/replay-ledger.txt`, une ligne par rejeu
+// COMPLET :
+//     bin=<empreinte du binaire> refs=<empreinte des 16 references> maxdiff=<n> diffpx=<n>
+// et ne compare QUE les lignes dont les deux empreintes valent celles de la course en cours.
+// Un binaire rebati ou une reference recapturee change l'empreinte : le registre se perime tout
+// seul, il n'y a rien a effacer — et effacer un registre pour se debloquer serait exactement le
+// geste que la non-destruction interdit.
+//
+// SENTINELLES, memes regles que `refset_replay_maxdiff` : 255 = la course n'a pas pu se mesurer
+// (reference manquante, illisible, plan incomplet) ; 254 = moins de CINQ rejeux au registre,
+// donc la question n'a pas encore de reponse. Ni l'une ni l'autre ne vaut zero : une porte
+// verte demande cinq rejeux qui se sont mis d'accord.
+uint64_t hash_file(const std::string& path) {
+  FILE* f = std::fopen(path.c_str(), "rb");
+  if (!f) {
+    return 0;
+  }
+  uint64_t h = 1469598103934665603ull;  // FNV-1a 64
+  unsigned char buf[1 << 16];
+  size_t n;
+  while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) {
+    for (size_t i = 0; i < n; i++) {
+      h ^= buf[i];
+      h *= 1099511628211ull;
+    }
+  }
+  std::fclose(f);
+  return h ? h : 1;  // 0 est reserve a « pas lisible »
+}
+
+// Les SEIZE references, dans l'ordre du plan. Une reference qui bouge d'un octet change
+// l'empreinte, donc coupe le registre : on ne compare jamais deux courses jugees sur des
+// references differentes.
+uint64_t refs_fingerprint() {
+  uint64_t h = 1469598103934665603ull;
+  for (int phase = 1; phase <= 2; phase++) {
+    for (int hr : kHours) {
+      char nm[64];
+      std::snprintf(nm, sizeof(nm), "%s/h%02d", set_name(phase), hr);
+      const uint64_t fh = hash_file(g_dir + "/" + nm + ".png");
+      if (!fh) {
+        return 0;
+      }
+      for (int b = 0; b < 8; b++) {
+        h ^= (unsigned char)((fh >> (8 * b)) & 0xff);
+        h *= 1099511628211ull;
+      }
+    }
+  }
+  return h ? h : 1;
+}
+
+void publish_flaky() {
+  g_flaky_done = true;
+#if defined(__linux__)
+  const uint64_t bin = hash_file("/proc/self/exe");
+#else
+  const uint64_t bin = 0;
+#endif
+  const uint64_t refs = refs_fingerprint();
+  char t[32];
+  std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)bin);
+  autoport_proof::publish_text("refset_bin_fp", t);
+  std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)refs);
+  autoport_proof::publish_text("refset_refs_fp", t);
+  if (!bin || !refs || g_missing || g_size_bad || g_decode_bad ||
+      g_compared != g_steps.size()) {
+    autoport_proof::publish("refset_replay_runs", 0);
+    autoport_proof::publish("refset_replay_flaky", 255);
+    return;
+  }
+  const std::string path = g_dir + "/replay-ledger.txt";
+  // On ECRIT d'abord, on RELIT ensuite : le verdict porte sur ce qui est sur le disque, pas sur
+  // ce que cette course croit avoir ajoute.
+  if (FILE* f = std::fopen(path.c_str(), "a")) {
+    std::fprintf(f, "bin=%016llx refs=%016llx maxdiff=%llu diffpx=%llu\n",
+                 (unsigned long long)bin, (unsigned long long)refs,
+                 (unsigned long long)g_maxdiff, (unsigned long long)g_diffpx);
+    std::fclose(f);
+  }
+  std::vector<uint64_t> md;
+  if (FILE* f = std::fopen(path.c_str(), "r")) {
+    char line[256];
+    while (std::fgets(line, sizeof(line), f)) {
+      unsigned long long b = 0, r = 0, m = 0, d = 0;
+      if (std::sscanf(line, "bin=%llx refs=%llx maxdiff=%llu diffpx=%llu", &b, &r, &m, &d) == 4 &&
+          b == bin && r == refs) {
+        md.push_back((uint64_t)m);
+      }
+    }
+    std::fclose(f);
+  }
+  uint64_t flaky = 0;
+  for (size_t i = 1; i < md.size(); i++) {
+    if (md[i] != md[i - 1]) {
+      flaky++;
+    }
+  }
+  autoport_proof::publish("refset_replay_runs", md.size());
+  autoport_proof::publish("refset_replay_flaky", md.size() >= 5 ? flaky : 254);
+  std::printf("REFSET ledger runs=%d flaky=%llu (bin=%016llx refs=%016llx maxdiff=%llu)\n",
+              (int)md.size(), (unsigned long long)flaky, (unsigned long long)bin,
+              (unsigned long long)refs, (unsigned long long)g_maxdiff);
+  std::fflush(stdout);
 }
 
 }  // namespace
@@ -391,6 +512,9 @@ void tick() {
       g_finished = true;
       lighting_census::set_phase(0);
       g_tod_x100 = -1;
+      if (g_mode == 2) {
+        publish_flaky();
+      }
       publish_state();
       std::printf("REFSET done steps=%d captured=%llu compared=%llu maxdiff=%llu diffpx=%llu "
                   "missing=%llu slip=%lld..%lld rewarps=%llu settle=%lld\n",
@@ -514,6 +638,9 @@ bool consume_capture(int w, int h, const void* rgba) {
         }
       }
       g_diffpx += np;
+      // Le validateur exige `FEATURE <id> armed=1 hits=>0` : une comparaison faite EST le chemin
+      // de code de cet item qui tire. `hits` est un compteur global du harnais, pas le notre.
+      autoport_proof::note_hit();
       char key[96];
       std::snprintf(key, sizeof(key), "refset_d_%s_h%02d",
                     set_name(g_steps[g_cur].phase), g_steps[g_cur].hour);

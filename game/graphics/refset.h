@@ -53,6 +53,24 @@
 //     recensement ARME : `maxdiff == 0` prouve alors, litteralement, que l'item 0 ne change
 //     aucun pixel.
 //
+// LA STABILITE DE L'INSTRUMENT, ET COMMENT ELLE SE PROUVE (item `refset-replay-stable`).
+// Un `maxdiff` juste ne suffit pas : il faut qu'il soit LE MEME deux fois. Mesure du 2026-09-06,
+// meme binaire et memes references octet pour octet, quatre rejeux : 188, 0, 0, 184. La cause
+// est NOMMEE, pas absorbee par une tolerance — `Loader::refresh_recharged_textures` amortissait
+// la re-resolution des 2761 textures Recharged sur une borne en MILLISECONDES REELLES ; le jeu
+// de references bascule `recharged-master?` a chaque etape, donc la photo tombait avant ou apres
+// la fin de la passe selon la charge de la machine. Sous `OG_REFSET` cette borne est retiree et
+// seule celle qui se compte en IMAGES reste (Loader.cpp), et `hotreload_rt_bound_hits` publie
+// combien de fois la borne retiree AURAIT coupe : a zero, la neutralisation serait une clause
+// vide.
+// La grandeur de porte est `refset_replay_flaky` : le nombre de paires de rejeux CONSECUTIFS,
+// meme binaire et memes references, dont le `maxdiff` differe. Elle porte sur des COURSES, donc
+// le moteur tient un registre `<dir>/replay-ledger.txt` (une ligne par rejeu complet, avec
+// l'empreinte du binaire et celle des 16 references) et publie le verdict qu'il en lit :
+// `refset_replay_runs` lignes retenues, 254 tant qu'il y en a moins de CINQ, 255 si la course
+// n'a pas pu se mesurer. Un binaire rebati ou une reference recapturee change une empreinte et
+// perime le registre tout seul.
+//
 // PORTEE HONNETE. Le declenchement de la capture passe par `render_game_frame`
 // (game/graphics/pipelines/opengl.cpp), qui n'est PAS dans android/CMakeLists.txt : le jeu de
 // references est un instrument x86. C'est aussi la plateforme de la preuve de cet item. Sur

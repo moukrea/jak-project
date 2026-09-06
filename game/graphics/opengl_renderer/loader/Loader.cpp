@@ -1855,6 +1855,12 @@ bool refset_deterministic() {
 u64 s_htr_passes = 0;          // passes de re-resolution commencees (une par niveau et bascule)
 u64 s_htr_reuploaded = 0;      // textures re-resolues ET re-liees dans le pool
 u64 s_htr_pixels_changed = 0;  // ... dont l'image envoyee au GPU differe de la precedente
+// LA CLAUSE DE NEUTRALISATION, MESUREE. Sous `OG_REFSET` la borne en MILLISECONDES REELLES est
+// retiree (voir le pave dans la boucle) ; ce compteur dit combien de fois elle AURAIT coupe la
+// passe pendant la meme course. A zero, la borne n'etait pas vivante et la neutralisation
+// n'expliquerait rien : c'est le meme controle que `refset_raw_alpha_min/max` pour l'alpha du
+// retimeur. Ce compteur ne change AUCUN comportement, il ne fait que lire l'horloge.
+u64 s_htr_rt_bound_hits = 0;
 }  // namespace
 
 void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
@@ -1927,7 +1933,11 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
       // en images : la passe dure alors exactement ceil(N/20) images, la meme valeur sur toute
       // machine. On ne draine PAS tout d'un coup — ce serait plusieurs secondes de verrou sur le
       // pool de textures pendant un chargement, donc un autre defaut a la place de celui-ci.
-      if (++tex_this_run > 20 || (!refset_deterministic() && budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET)) {
+      const bool rt_over = budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET;
+      if (rt_over && refset_deterministic()) {
+        s_htr_rt_bound_hits++;
+      }
+      if (++tex_this_run > 20 || (!refset_deterministic() && rt_over)) {
         break;
       }
     }
@@ -1935,7 +1945,11 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
       lev->tex_refresh_active = false;
       lev->tex_regime = regime;
     }
-    if (!refset_deterministic() && budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
+    const bool rt_over_outer = budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET;
+    if (rt_over_outer && refset_deterministic()) {
+      s_htr_rt_bound_hits++;
+    }
+    if (!refset_deterministic() && rt_over_outer) {
       break;
     }
   }
@@ -1943,6 +1957,7 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
   autoport_proof::publish("hotreload_passes", s_htr_passes);
   autoport_proof::publish("hotreload_reuploaded", s_htr_reuploaded);
   autoport_proof::publish("hotreload_pixels_changed", s_htr_pixels_changed);
+  autoport_proof::publish("hotreload_rt_bound_hits", s_htr_rt_bound_hits);
 }
 
 void Loader::update(TexturePool& texture_pool) {
