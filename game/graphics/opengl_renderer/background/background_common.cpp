@@ -27,7 +27,6 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
-#include "game/graphics/opengl_renderer/FollowProbe.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/graphics/opengl_renderer/Shader.h"
@@ -3136,24 +3135,56 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     glUniform3f(glGetUniformLocation(id, "u_rt_sun_glow"), sun_glow[0], sun_glow[1], sun_glow[2]);
     glUniform3fv(glGetUniformLocation(id, "u_rt_sh[0]"), 9, &shc[0][0]);
 
-    // === Grecharged-pbr-realtime-fusion: DYNAMIC FOLLOW-PROBE (replaces the deleted LightProbeGrid).
-    // Feeds the PBR ambient-specular / reflection term (u_rt_probe_cube, tfrag3.frag:767) from ONE
-    // amortized camera-centered cubemap re-rendered from THIS live procedural sky (env_* + sun_glow
-    // + surface->sun), tiered by the user setting recharged_follow_probe. The same call also
-    // re-homes the baked-modulation amplitude uniforms orphaned by the grid deletion, and forces the
-    // removed SH-volume grid off (see FollowProbe.cpp). Runs ~5x/frame; the capture is guarded on
-    // frame_idx internally so the 1-face/frame amortization is per-frame, not per-shader.
-    FollowProbeEnv fpe;
-    for (int i = 0; i < 3; i++) {
-      fpe.zenith[i] = env_zenith[i];
-      fpe.horizon[i] = env_horizon[i];
-      fpe.ground[i] = env_ground[i];
-      fpe.sun_glow[i] = sun_glow[i];
-      fpe.sun_dir[i] = sun_d[i];
+    // === SPEC-refonte-lumiere §2.4 — FollowProbe est SUPPRIMEE, ses uniformes sont RE-HEBERGES ICI.
+    // Ce que la classe faisait vraiment, mesure a l'appui :
+    //   * elle poussait `u_rt_probe_on = 0` en CONSTANTE INCONDITIONNELLE a chaque draw, ce qui
+    //     fermait le composite D dans les cinq shaders monde (light_census_D=0 sur 11004086 draws) ;
+    //   * elle liait une texture 1x1x1 NOIRE sur QUATRE unites (4-7) pour des `sampler3D` que
+    //     personne n'echantillonnait, plus un samplerCube sur l'unite 3 ;
+    //   * elle rasterisait au CPU une face de cube par image et appelait
+    //     `glGenerateMipmap(GL_TEXTURE_CUBE_MAP)` A CHAQUE IMAGE pour cette texture que le
+    //     tableau ci-dessus montre inutilisee ;
+    //   * et, dans le meme appel, elle poussait les HUIT amplitudes de la modulation bakee — le
+    //     chemin A, celui que l'owner a valide le 2026-07-19. C'etait son SEUL ecrivain dans tout
+    //     le depot. Les supprimer avec elle les ferait retomber au defaut GL 0 : ombres noires,
+    //     aucun gain a la lumiere. Elles sont donc reprises ici A L'IDENTIQUE, valeurs et
+    //     proprietes de debug Android comprises.
+    // `u_rt_probe_on` n'a plus d'ecrivain, et n'en a plus besoin : l'uniforme n'est plus declare
+    // dans aucun shader. Le recensement de l'item 0 continue de lire la porte a 0.
+    {
+      int dbg_litboost = 0, dbg_shadowmul = 0, dbg_tintlit = -1, dbg_tintshadow = -1;
+      // `u_rt_detail`, `u_rt_detail_norm` et `u_rt_sun_boost` ne sont plus pousses : apres le
+      // retrait du composite D ils n'ont plus AUCUN site de lecture dans les cinq shaders monde
+      // (mesure `grep -c`), et pousser une valeur que personne ne lit fabrique une fausse
+      // constante. SPEC-refonte-lumiere D.3.
+      int dbg_greenamp = -1;
+#ifdef __ANDROID__
+      {
+        char v[PROP_VALUE_MAX];
+        auto rd = [&](const char* name, int& dst) {
+          if (__system_property_get(name, v) > 0 && v[0]) {
+            dst = atoi(v);
+          }
+        };
+        rd("debug.opengoal.rt.litboost", dbg_litboost);
+        rd("debug.opengoal.rt.shadowmul", dbg_shadowmul);
+        rd("debug.opengoal.rt.tintlit", dbg_tintlit);
+        rd("debug.opengoal.rt.tintshadow", dbg_tintshadow);
+        rd("debug.opengoal.rt.greenamp", dbg_greenamp);
+      }
+#endif
+      glUniform1f(glGetUniformLocation(id, "u_rt_lit_boost"),
+                  (dbg_litboost > 0) ? (float)dbg_litboost / 100.f : 1.15f);
+      glUniform1f(glGetUniformLocation(id, "u_rt_shadow_mul"),
+                  (dbg_shadowmul > 0) ? (float)dbg_shadowmul / 100.f : 0.65f);
+      glUniform1f(glGetUniformLocation(id, "u_rt_tint_lit"),
+                  (dbg_tintlit >= 0) ? (float)dbg_tintlit / 100.f : 0.12f);
+      glUniform1f(glGetUniformLocation(id, "u_rt_tint_shadow"),
+                  (dbg_tintshadow >= 0) ? (float)dbg_tintshadow / 100.f : 0.12f);
+      glUniform1f(glGetUniformLocation(id, "u_rt_green_amp"),
+                  (dbg_greenamp >= 0) ? (float)dbg_greenamp / 100.f : 0.60f);
+      lighting_census::gate_probe(0);
     }
-    float fp_cam[3] = {settings.trans[0], settings.trans[1], settings.trans[2]};
-    FollowProbe::get().update_and_bind(id, fp_cam, render_state->frame_idx, fpe,
-                                       gs.recharged_follow_probe);
   }
 
   // u_pbr_ambient: when the light-group is valid, use its ambi color (not the mood-sun

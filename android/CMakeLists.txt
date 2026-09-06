@@ -728,7 +728,6 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendCPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"
-    "${JAK_ROOT}/game/graphics/opengl_renderer/FollowProbe.cpp"
     # lighting-census : le recensement des cinq chemins d'ombrage et les deux jeux de
     # references. Un .cpp neuf absent d'ICI compile sur x86 et meurt au lien en arm64.
     "${JAK_ROOT}/game/graphics/opengl_renderer/lighting_census.cpp"

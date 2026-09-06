@@ -729,10 +729,9 @@
         vec3 famb_base = clamp(rt_amb_eval(Nm), 0.0, 1.0);
         vec3 Rf = reflect(-Vv, Nm);
         vec3 fenv_sharp;
-        if (u_rt_probe_on != 0 && u_rt_probe_reflections != 0) {
-          fenv_sharp = textureLod(u_rt_probe_cube, Rf, rough * 3.0).rgb *
-                       clamp(u_rt_probe_strength, 0.0, 1.0);
-        } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 1) {
+        // (§2.4) la premiere branche lisait le cube de FollowProbe sous `u_rt_probe_on != 0`,
+        // porte ecrite a 0 inconditionnellement : jamais prise. Retiree avec la grille.
+        if (u_rt_ambient_on != 0 && u_rt_ambient_model == 1) {
           fenv_sharp = rt_sh_ambient(Rf);
         } else if (u_rt_ambient_on != 0 && u_rt_ambient_model == 2) {
           fenv_sharp = rt_ibl_ambient(Rf);

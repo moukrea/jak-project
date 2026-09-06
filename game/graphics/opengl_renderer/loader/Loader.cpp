@@ -28,7 +28,6 @@
 #endif
 
 #include "game/graphics/opengl_renderer/background/background_common.h"
-#include "game/graphics/refset.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 
 #include "game/graphics/gfx.h"
@@ -1839,6 +1838,19 @@ const std::string* Loader::get_most_unloadable_level() {
 
 // ===== Grecharged-texture-hotreload ============================================================
 namespace {
+// LE MEME BOUTON QUE `refset::enabled()`, LU SANS EFFET DE BORD. `refset::enabled()` construit
+// tout son etat au premier appel (repertoires, plan des 16 etapes) derriere une garde `static
+// int` qui n'est pas atomique ; l'appeler depuis ce chemin de chargement ajouterait un appelant
+// a une initialisation deja partagee entre deux fils. Ici on ne lit que le bouton, une seule
+// fois, par une initialisation de static locale — thread-safe depuis C++11 et sans ecriture.
+// Le jeu de references est un instrument x86 (refset.h, « portee honnete ») : pas de propriete.
+bool refset_deterministic() {
+  static const bool s_on = [] {
+    const char* e = std::getenv("OG_REFSET");
+    return e && (std::strcmp(e, "capture") == 0 || std::strcmp(e, "replay") == 0);
+  }();
+  return s_on;
+}
 // Compteurs de la passe. Publies a chaque image ; le harnais ne lit que la DERNIERE valeur.
 u64 s_htr_passes = 0;          // passes de re-resolution commencees (une par niveau et bascule)
 u64 s_htr_reuploaded = 0;      // textures re-resolues ET re-liees dans le pool
@@ -1897,25 +1909,25 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
         }
         lev->tex_upload_fp[i] = g_last_add_texture_fp;
       }
-      // LE JEU DE REFERENCES NE PEUT PAS ETRE ETALE SUR LA MONTRE MURALE. En regime normal
-      // cette passe est amortie (20 textures par image, 3 ms) pour ne pas faire de a-coup. Sous
-      // `OG_REFSET` la meme amortisation devient une entree de MONTRE MURALE dans l'image
-      // DESSINEE : le jeu de references bascule `recharged-master?` a chaque etape, donc
-      // `hotreload_regime()` passe de 6 a 0 et retour, et 2761 textures sont re-resolues en
-      // ~138 images au minimum contre 180 images de stabilisation. Selon la charge de la
-      // machine, la photo tombe avant ou apres la fin de la passe. Mesure du 2026-09-06, deux
-      // rejeux consecutifs du MEME binaire contre les MEMES references : maxdiff 211 / diffpx
-      // 291355 puis maxdiff 184 / diffpx 289129, les 16 images des DEUX jeux touchees, avec
-      // hotreload_reuploaded=2761 et hotreload_pixels_changed=62 dans les deux.
-      // C'est la MEME classe de defaut que `render_pace` (refset.h) : une grandeur reglee sur
-      // l'horloge reelle qui decide de ce qui est dessine. On la neutralise DE LA MEME FACON,
-      // et seulement dans ce mode : la passe est drainee en entier, tout de suite. Le regime
-      // permanent dessine est identique — c'est la DATE a laquelle il est atteint qui cesse de
-      // dependre de la machine.
-      if (refset::enabled()) {
-        continue;
-      }
-      if (++tex_this_run > 20 || budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
+      // LE JEU DE REFERENCES NE PEUT PAS DEPENDRE DE LA MONTRE MURALE. Cette passe est amortie
+      // sur deux bornes de nature differente : `tex_this_run > 20`, qui se compte en IMAGES, et
+      // `budget.getMs()`, qui se compte en MILLISECONDES REELLES. La seconde est une entree de
+      // montre murale dans l'image DESSINEE, exactement comme l'alpha de `render_pace` que
+      // `refset.h` neutralise deja : le jeu de references bascule `recharged-master?` a chaque
+      // etape, `hotreload_regime()` passe de 6 a 0 et retour, et 2761 textures sont re-resolues
+      // pendant les 180 images de stabilisation qui precedent la photo. Selon la charge de la
+      // machine, la photo tombe avant ou apres la fin de la passe.
+      //
+      // MESURE DU 2026-09-06, deux rejeux consecutifs du MEME binaire (sha 9c1250937fa915c8)
+      // contre les MEMES 16 references : maxdiff 211 / diffpx 291355, puis maxdiff 184 /
+      // diffpx 289129 — les 16 images des DEUX jeux touchees, avec hotreload_reuploaded=2761 et
+      // hotreload_pixels_changed=62 dans les deux courses.
+      //
+      // Sous `OG_REFSET` on retire LA SEULE BORNE EN TEMPS REEL et on garde celle qui se compte
+      // en images : la passe dure alors exactement ceil(N/20) images, la meme valeur sur toute
+      // machine. On ne draine PAS tout d'un coup — ce serait plusieurs secondes de verrou sur le
+      // pool de textures pendant un chargement, donc un autre defaut a la place de celui-ci.
+      if (++tex_this_run > 20 || (!refset_deterministic() && budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET)) {
         break;
       }
     }
@@ -1923,7 +1935,7 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
       lev->tex_refresh_active = false;
       lev->tex_regime = regime;
     }
-    if (!refset::enabled() && budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
+    if (!refset_deterministic() && budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
       break;
     }
   }
