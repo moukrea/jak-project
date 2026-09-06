@@ -395,7 +395,21 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
           color.rgb = vec3(dot(rt_mod, vec3(0.299, 0.587, 0.114)) * 0.5);
         }
       }
-    } else if (u_pbr_mode != 0 && gfx_hack_no_tex == 0) {
+    }
+// lighting-unify : COMPOSITES C ET E — RESERVES A LEUR HOTE D'ORIGINE.
+// Avant cet item ces deux branches n'existaient QUE dans tfrag3.frag (l. 692 et 1001 de
+// 21c2d4ca7d) ; etie_base, tie_wind et shrub n'avaient QUE `if (u_rt_light_on != 0)` et
+// retombaient sur le rendu d'origine quand elle etait fausse. Les laisser dans le texte commun
+// SANS garde les donnerait aux trois autres hotes, et ce n'est pas un no-op : avec le master
+// arme et les defauts de gfx.h (recharged_pbr_enable = true l. 422, recharged_rt_light_enable
+// = false l. 474) on a u_rt_light_on == 0, u_pbr_mode != 0 et u_pbr_shadow_on == 1 — donc C,
+// puis E. Cette configuration n'est couverte par AUCUN des deux jeux de reference : la porte
+// `refset_replay_maxdiff == 0` ne l'aurait pas vue, et l'owner aurait recu un changement de
+// pixels que personne n'a demande.
+// La garde est un #ifdef, pas une variable : le texte du modele reste OCTET POUR OCTET le meme
+// dans les cinq programmes, donc `shade_variants` vaut toujours 1.
+#ifdef SHADE_HOST_LEGACY_PBR
+    else if (u_pbr_mode != 0 && gfx_hack_no_tex == 0) {
       // Grecharged-pbr-materials: Cook-Torrance GGX lit by the mood/TOD sun.
       // Owner round-3 mandate: the baked per-vertex TOD color (s.baked.rgb) is
       // reintegrated as the INDIRECT/GI term — it carries the level's MACRO shading
@@ -740,6 +754,7 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
         color.rgb = vec3(texture(tex_PBR_SHADOW, clamp(sm_dbg_suv.xy, 0.0, 1.0)).r);
       }
     }
+#endif
   return color;
 }
 // ================= @shade-model-end =================

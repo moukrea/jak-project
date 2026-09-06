@@ -27,6 +27,9 @@ uniform vec4 u_fringe_fade;
 // lighting-unify : les uniformes du modele, les deux ambiantes analytiques, le disque de
 // Poisson, `Surface` et `shade()` vivent maintenant dans UN seul fichier, partage par les
 // cinq programmes monde. Ce bloc etait duplique a l'identique dans les quatre hotes.
+// tfrag3 est le SEUL hote qui portait les composites C (u_pbr_mode) et E (u_pbr_shadow_on)
+// avant l'unification. Ce jeton les lui rend, et a lui seul : voir la garde dans shade.glsl.
+#define SHADE_HOST_LEGACY_PBR 1
 #include "shade.glsl"
 #endif
 
