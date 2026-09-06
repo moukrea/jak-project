@@ -45,7 +45,7 @@ items:
   device_serial: AREE026206000788
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
-  status: blocked
+  status: open
   priority: 1
   owner_feedback:
   - date: '2026-08-31'
@@ -78,7 +78,7 @@ items:
     value: 0
   game: jak1
   max_turns: 800
-  max_retries: 6
+  max_retries: 8
   depends_on: []
   history:
   - Gcutscene-npc-flicker
@@ -101,17 +101,12 @@ items:
   - OG_WANT_DISPLAY=beach,display
   - OG_CINE_KICK=mayor
   where: la premiere cinematique avec le Maire
-  notes: 'owner 2026-09-04, QUATRIEME refus : « Bah c''est toujours pas corrigé, tu commence sérieusement
-    à me péter les couilles tu l''avais pourtant déjà réglé plusieurs fois déjà ce bug, ça devrait être
-    simple pour toi de le régler de nouveau ! ». Le build teste (d4cac6019b) CONTIENT le correctif du
-    clone (verifie par merge-base). Donc : la cause « clone masque aux frontieres streamees » n''est pas
-    SA cause, ou pas la seule. Les 3 preuves precedentes etaient a zero pendant qu''il voyait le defaut
-    : la preuve ne reproduit pas ses conditions (Honor 60 img/s vs Redmi 22 ; ou c''est Daxter, sans racine
-    exploitable, qui clignote et pas le maire). PROCHAINE ETAPE OBLIGATOIRE : reproduire sur le Redmi
-    AVANT de corriger — un compteur qui monte pendant la scene du maire. Sans reproduction, aucun correctif
-    ne sera accepte. | 2026-09-04 : 4e refus. Reproduction chiffree sur Redmi AVANT tout correctif (compteur
-    > 0 pendant mayor-introduction). Chercher aussi la REGRESSION : le bug avait ete valide en juillet
-    et est revenu.'
+  notes: 'Redmi rebranche le 2026-09-06 : la preuve sur appareil redevient possible. Les DEUX causes sont
+    deja nommees — le niveau du maire vieillissait pendant qu''il etait a l''ecran, et le chargeur jetait
+    ce que le jeu DEMANDE en gardant ce dont il n''a pas besoin. Le fichier de l''owner (reports/cutscene-npc-flicker/owner-honor/)
+    porte les chiffres : 6 cycles sur la scene du maire, mayor-lod0 210 images cause=modele-absent, sidekick-lod0
+    390 images cause=soumis-mais-non-dessine. | budget porte a 8 essais le 2026-09-06 : les essais brules
+    l''ont ete faute d''appareil, pas faute d''idees.'
   known_cause: "LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05\
     \ : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session\
     \ de 14h44).\nSCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes\
@@ -267,7 +262,7 @@ items:
   notes: meme prompt ; -2 est « CAISSES, RETOUR 2 » ; l'owner ferme « les caisses » en un mot
 - id: anim-interp-low-fps
   feature: Les animations saccadees quand le jeu descend vers 20 images/s
-  status: blocked
+  status: open
   priority: 13
   owner_feedback:
   - date: '2026-09-01'
@@ -295,7 +290,7 @@ items:
     value: 0
   game: jak1
   max_turns: 800
-  max_retries: 6
+  max_retries: 8
   depends_on: []
   proof_timeout: 330
   proof_env:
@@ -318,13 +313,11 @@ items:
   owner_ok: null
   device: true
   where: 'joue a 45 images/s (et 50, 75) : les animations doivent etre aussi lisses qu''a 30 et a 60'
-  notes: 'FAUX VERT : le balayage a mesure 15, 16, 18, 20, 30 et 60 img/s — PAS 45, 50, 75, 90, les seules
-    cadences ou l''owner voit le defaut. Pire, les cadences ATTEINTES ne sont pas celles demandees : le
-    seau « 60 » a tourne a 30,45 img/s et le seau « 30 » a 26,1 (le Redmi plafonne vers 30). Le pire jitter
-    rapporte (270 us) vient donc du seau « 60 » qui etait en fait du 30. Et anim_step_bitexact_30 = anim_step_bitexact_60
-    = 0 : l''exigence « identique au bit a 30 et a 60 » a ECHOUE en silence, parce que la porte ne lit
-    qu''une seule cle. L''owner a ete explicite : « à 30 ça roule nickel, à 60 pareil [...] mais sur des
-    framerates autres qu''aux alentours de 30 et 60 ça jitter ».'
+  notes: 'Redmi rebranche le 2026-09-06. Le balayage doit couvrir 30/45/50/60/75/90 avec les cadences
+    REELLEMENT atteintes ; les paliers que le Redmi ne peut pas tenir se mesurent la ou ils sont atteignables,
+    la preuve disant sur quelle machine. Acquis de la serie precedente : le residu vit dans UN canal d''animation
+    immobile, et le recensement affirmait « ces canaux ne bougent pas » sans jamais le verifier. | budget
+    porte a 8 essais le 2026-09-06 : les essais brules l''ont ete faute d''appareil, pas faute d''idees.'
   known_cause: 'Owner 2026-09-05 : propre a 30 et 60, jitter a 45. Ce sont exactement les cadences ou
     les 60 ticks/s de la logique tombent en compte ENTIER par image (2 ticks a 30, 1 a 60). A 45 il en
     faudrait 1,333 : la suite reelle est 1,2,1,1,2... et le reste doit etre absorbe par l''alpha d''interpolation.
@@ -3683,7 +3676,7 @@ items:
     ferme ; deux defauts neufs portes par recharged-settings-case-l10n'
 - id: recharged-settings-case-l10n
   feature: Les reglages Recharged sont tout en majuscules et pas tous traduits
-  status: in-progress
+  status: open
   priority: 26
   game: jak1
   gate:
