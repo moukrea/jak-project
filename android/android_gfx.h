@@ -39,6 +39,19 @@ bool render_frame_on_gl_thread(int win_w, int win_h);
 // After SDL_GL_SwapWindow: advance frame_idx and wake syncv waiters.
 void post_swap_tick();
 
+// lighting-hdr / refset : la frame de LOGIQUE (`*display* actual-frame-counter`) que porte la
+// chaine que le fil GL est EN TRAIN de rendre. -1 quand aucune n'a encore ete appariee.
+//
+// Pourquoi un accesseur et pas un compteur d'images : `frame_idx` compte les images RENDUES,
+// jamais les images SIMULEES. Le jeu de references capture la chaine d'une frame de logique
+// NOMMEE ; une image d'ecart, c'est une autre pose de Jak, donc ~30 % des pixels differents et
+// une porte qui ment. L'appariement est donc fait par le PRODUCTEUR de la chaine (send_chain,
+// fil GOAL, sous `dma_mutex`), exactement comme `logic_frame_of_input_data` du bureau
+// (game/graphics/pipelines/opengl.cpp:1036), puis fige au ramassage de la chaine.
+//
+// A n'appeler QUE depuis le fil GL, pendant le rendu de cette chaine.
+int64_t logic_frame_of_input_data();
+
 // game-thread side ----------------------------------------------------------
 // A42: desktop Gfx::vsync() (gfx.cpp:119) invokes a registered callback
 // before pacing so the IOP kernel gets a vblank every frame — runtime.cpp

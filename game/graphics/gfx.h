@@ -146,6 +146,23 @@ struct GfxGlobalSettings {
   // recharged_active_mode() below (single-helper rule; no per-feature drift copies).
   bool recharged_master = true;
 
+  // lighting-hdr (SPEC-refonte-lumiere §1.1 regle 1, §6.2) : LE MAITRE DE LA REFONTE LUMIERE,
+  // et ce n'est PAS le master. Trois gestes d'extinction distincts et tous legitimes :
+  //   recharged_master OFF   => tout le projet Recharged s'eteint (ORIGINE-TOTAL).
+  //   recharged_lighting OFF => toute la refonte lumiere s'eteint, et RIEN d'autre : les
+  //                             modeles HD, l'herbe, les textures, le HUD et les polices
+  //                             restent (ORIGINE-LUMIERE). C'est le retour a l'eclairage
+  //                             d'origine qu'un JOUEUR veut, sans payer le reste.
+  //   un sous-drapeau OFF    => cette couche seule.
+  // Defaut ON. Pourquoi ce drapeau existe (owner 2026-09-06) : il avait eteint « Realtime
+  // Lighting » et voyait toujours les blancs brules. C'est mecanique — `recharged_rt_light_enable`
+  // ne voulait pas dire « notre eclairage », il voulait dire « prendre le composite A/B plutot
+  // que C/E » : l'eteindre ACTIVE le composite C (shade.glsl, `u_rt_light_on == 0 &&
+  // u_pbr_mode != 0`). Il n'existait aucun interrupteur pour l'eclairage lui-meme.
+  // AUCUN consommateur d'eclairage ne lit ce drapeau ni son sous-drapeau directement : ils
+  // passent tous par Gfx::lighting_active(), qui compose les TROIS niveaux en un seul endroit.
+  bool recharged_lighting = true;
+
   // lighting-hdr (SPEC-refonte-lumiere §4.5) : la chaine HDR. ON => le tampon de scene est
   // RGBA16F (repli R11F_G11F_B10F puis RGBA8) et la compression de plage est appliquee UNE
   // seule fois, au resolve, par le programme `tonemap`. OFF => la chaine d'origine, RGBA8 et
@@ -566,7 +583,19 @@ const GfxRendererModule* GetCurrentRenderer();
 // des deux fils. Le jeu de references est un instrument x86 (refset.h, « portee honnete »).
 inline bool refset_pins_master() {
 #ifdef __ANDROID__
-  return false;
+  // lighting-hdr : ce bras rendait `false` tant que le jeu de references etait un instrument
+  // x86. Il tourne desormais aussi sur l'appareil, et sans ce bypass le cache de 0,25 s
+  // ramenerait EXACTEMENT la cause n°2 fermee par refset-replay-stable : deux lecteurs de la
+  // meme image lisent deux valeurs du master, le niveau reste fige sur un melange
+  // stock/recharged, et LEQUEL depend de la charge de la machine.
+  static const bool s_on = [] {
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.refset", buf) <= 0 || !buf[0]) {
+      return false;
+    }
+    return std::string(buf) == "capture" || std::string(buf) == "replay";
+  }();
+  return s_on;
 #else
   static const bool s_on = [] {
     const char* e = std::getenv("OG_REFSET");
@@ -577,6 +606,30 @@ inline bool refset_pins_master() {
 #endif
 }
 
+// lighting-hdr : lit une surcharge -1 (absente) / 0 / 1. La PROPRIETE Android d'abord, puis la
+// variable d'environnement — et la variable est lue sur les DEUX plateformes, pas seulement sur
+// le bureau. Pourquoi : le jeu de references bascule la configuration EN COURS DE PROCESSUS par
+// `setenv` (refset.cpp `put_env`). Un lecteur Android qui ne verrait que la propriete resterait
+// fige sur la valeur posee au lancement, et le plan ne changerait jamais de phase — le port du
+// rejeu sur l'appareil rendrait 16 fois la meme image sans que rien ne le signale.
+// La propriete garde la priorite : c'est le geste explicite du harnais, il doit pouvoir epingler.
+inline int read_override(const char* prop, const char* env) {
+#ifdef __ANDROID__
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get(prop, buf) > 0 && buf[0]) {
+    return (std::atoi(buf) != 0) ? 1 : 0;
+  }
+#else
+  (void)prop;
+#endif
+  if (const char* e = std::getenv(env)) {
+    if (e[0]) {
+      return (std::atoi(e) != 0) ? 1 : 0;
+    }
+  }
+  return -1;
+}
+
 inline bool recharged_master_active() {
   static int s_override = -1;  // -1 = no override; 0 = force vanilla; 1 = force recharged
   static double s_last_read_s = -1.0;
@@ -584,18 +637,7 @@ inline bool recharged_master_active() {
       std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
   if (s_last_read_s < 0.0 || refset_pins_master() || now - s_last_read_s >= 0.25) {
     s_last_read_s = now;
-    int ov = -1;
-#ifdef __ANDROID__
-    char buf[PROP_VALUE_MAX] = {0};
-    if (__system_property_get("debug.opengoal.recharged", buf) > 0 && buf[0]) {
-      ov = (std::atoi(buf) != 0) ? 1 : 0;
-    }
-#else
-    const char* e = std::getenv("OG_RECHARGED");
-    if (e && e[0]) {
-      ov = (std::atoi(e) != 0) ? 1 : 0;
-    }
-#endif
+    const int ov = read_override("debug.opengoal.recharged", "OG_RECHARGED");
     if (ov != s_override) {
       lg::info("[recharged-master] override -> {} (setting {})", ov,
                g_global_settings.recharged_master ? "ON" : "OFF");
@@ -618,6 +660,41 @@ inline bool recharged_active(bool feature_flag) {
 
 inline int recharged_active_mode(int feature_mode) {
   return recharged_master_active() ? feature_mode : 0;
+}
+
+// lighting-hdr (SPEC §1.1 regle 1, §4.5, §4.15) : le NIVEAU INTERMEDIAIRE de la hierarchie.
+// Meme patron d'override que le master, meme bypass de cache sous OG_REFSET, pour la meme
+// raison : le jeu de references bascule ce drapeau a chaque etape et deux lecteurs de la meme
+// image doivent lire la meme valeur. La propriete/variable epingle LE DRAPEAU, jamais la
+// composition : le master garde son droit de veto au-dessus.
+inline bool recharged_lighting_active() {
+  static int s_override = -1;  // -1 = pas d'override ; 0 = force l'eclairage d'origine ; 1 = force la refonte
+  static double s_last_read_s = -1.0;
+  const double now =
+      std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  if (s_last_read_s < 0.0 || refset_pins_master() || now - s_last_read_s >= 0.25) {
+    s_last_read_s = now;
+    const int ov = read_override("debug.opengoal.lighting", "OG_LIGHTING");
+    if (ov != s_override) {
+      lg::info("[recharged-lighting] override -> {} (setting {})", ov,
+               g_global_settings.recharged_lighting ? "ON" : "OFF");
+      s_override = ov;
+    }
+  }
+  const bool on = (s_override >= 0) ? (s_override != 0) : g_global_settings.recharged_lighting;
+  return on && recharged_master_active();
+}
+
+// LE seul composeur des trois niveaux (master > eclairage > sous-drapeau). Tout consommateur
+// d'une couche d'ECLAIRAGE passe par ici. Un sous-reglage d'eclairage qui ne consulterait que
+// `recharged_active()` laisserait la refonte tourner alors que le joueur l'a eteinte : c'est
+// exactement le defaut que l'owner a trouve le 2026-09-06 (SPEC §4.15 point 1).
+inline bool lighting_active(bool feature_flag) {
+  return feature_flag && recharged_lighting_active();
+}
+
+inline int lighting_active_mode(int feature_mode) {
+  return recharged_lighting_active() ? feature_mode : 0;
 }
 
 u32 Init(GameVersion version);

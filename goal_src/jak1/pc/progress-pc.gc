@@ -7466,7 +7466,17 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (zero? (-> *pc-settings* ambient-occlusion)))))
-       ;; Realtime Lighting On/Off (Grecharged-realtime-lighting)
+       ;; Glighting-hdr / SPEC-refonte-lumiere 6.2 : RECHARGED LIGHTING On/Off, REMPLACE SUR PLACE
+       ;; l'ancienne rangee REALTIME LIGHTING. Meme position, meme index : aucun bras fw-idx ne
+       ;; bouge (la renumerotation est la classe de bug Gmenu-flag-off, cf. la garde [RCH-MENU]).
+       ;; POURQUOI le remplacement : « Realtime Lighting » ne voulait pas dire « notre eclairage »
+       ;; mais « prendre le composite A/B plutot que C/E ». L'owner l'a eteint le 2026-09-06 et le
+       ;; HDR a continue de tourner. `recharged-lighting?` est LE maitre de la refonte lumiere :
+       ;; OFF = l'eclairage d'origine, ON = notre refonte, et le reste du Recharged (modeles HD,
+       ;; herbe, textures, HUD) n'est PAS touche — c'est ce qui le distingue du master du projet.
+       ;; Le champ `realtime-lighting?` SURVIT (lu/ecrit par pckernel.gc, pousse par
+       ;; pc-set-rt-light!) : une cle presente dans un settings.ini livre et privee de sa clause
+       ;; de lecture ferait repartir tout le reste du fichier au defaut. Seule la LIGNE part.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :option-disabled-func
@@ -7474,7 +7484,7 @@
               (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
-              (set! (-> *pc-settings* realtime-lighting?) (the-as symbol val))
+              (set! (-> *pc-settings* recharged-lighting?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
        ;; Gmenu-census-cleanup (2026-09-02) — ENV PROBE (carrousel Off/Low/Mid/High) est RETIREE :
@@ -7493,11 +7503,19 @@
        ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
        ;; disabled when Realtime Lighting off): Hemisphere = DC + vertical band, SH = full L1, IBL = + probe
        ;; cubemap env term. Carousell writes via respond-common; no on-change needed.
+       ;; Glighting-hdr : les QUATRE rangees qui suivent (AMBIENT MODEL, AMBIENT STRENGTH, SHADOW
+       ;; DISTANCE, SHADOW QUALITY) se grisaient sur `realtime-lighting?`. Cette valeur a pour defaut
+       ;; #f et vient de perdre sa SEULE ligne de menu (remplacee ci-dessus) : les livrer telles
+       ;; quelles, c'etait quatre reglages grises A VIE, sans aucun geste possible depuis le jeu pour
+       ;; les degriser — une regression que l'owner verrait. Elles se grisent DESORMAIS sur
+       ;; `recharged-lighting?`, ce que la SPEC-refonte-lumiere 6.2 dit deja : ces sous-options
+       ;; vivent SOUS « ECLAIRAGE RECHARGE ». Ni le nombre de rangees ni leur ordre ne change, donc
+       ;; aucun index fw-idx ne bouge et la garde [RCH-MENU] reste valable.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type rt-ambient-model) :name (text-id msaa) :scale #t
             :option-disabled-func
             (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))))
        ;; Ambient Strength slider (0.0 .. 0.5; disabled when Realtime Lighting off). Bound directly to
        ;; the *pc-settings* realtime-ambient-strength float (the ambient base level).
        (flag-row FLAG_PBR
@@ -7505,7 +7523,7 @@
             :param1 0.0 :param2 0.5 :slider-step-size 0.05 :slider-show-decimal? #t
             :option-disabled-func
             (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
@@ -7526,7 +7544,7 @@
             :param1 20.0 :param2 200.0 :slider-step-size 10.0 :slider-show-decimal? #f
             :option-disabled-func
             (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
@@ -7536,7 +7554,7 @@
        (new 'static 'game-option :option-type (game-option-type shadow-quality) :name (text-id msaa) :scale #t
             :option-disabled-func
             (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* realtime-lighting?))))))
+              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))))
        ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF slider (0.0 .. 3.0; disabled unless PBR MATERIALS on).
        ;; Multiplies the PBR normal-map strength + parallax height (1.0 = pre-slider look). Bound
        ;; directly to the *pc-settings* pbr-texture-relief float. Gated on pbr-materials? (this tunable
@@ -7940,8 +7958,13 @@
 ;; Grecharged-realtime-lighting: labels for the 4 realtime-lighting rows (English-only, uppercase ASCII
 ;; for the menu font; shown via name-override). Present only with --pbr, like *pbr-materials-label*.
 (#when FLAG_PBR
-(define *realtime-lighting-label* (new 'global 'string 128 (the-as string #f)))
-(format (clear *realtime-lighting-label*) "Realtime Lighting")
+;; Glighting-hdr : le libelle de la rangee remplacee. La convention de CE fichier est l'anglais
+;; ASCII pur (« Recharged Master », « Recharged Grass ») : aucun libelle du menu ne porte
+;; d'accent, la police jak1 n'en a pas. La SPEC 6.2 le nomme « ECLAIRAGE RECHARGE » en francais
+;; parce qu'elle est ecrite en francais ; on livre son equivalent dans la langue du menu.
+;; Longueur : 18 caracteres, sous « DYNAMIC RENDER SCALE » (20), tampon 128.
+(define *recharged-lighting-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *recharged-lighting-label*) "Recharged Lighting")
 (define *hemisphere-ambient-label* (new 'global 'string 64 (the-as string #f)))
 ;; OWNER FINAL ARCHITECTURE 2026-07-21: renamed AMBIENT -> BAKED AMBIENT (the probe
 ;; world-projection curiosity toggle, default OFF; existing valid text-id + name-override
@@ -8187,7 +8210,7 @@
     (scl10n-add-label! #x170f *ao-quality-label*)
     (scl10n-add-label! #x1713 *ao-strength-label*)
     (#when FLAG_PBR
-      (scl10n-add-label! #x17cb *realtime-lighting-label*)
+      (scl10n-add-label! #x17cb *recharged-lighting-label*)
       (scl10n-add-label! #x17cc *ambient-model-label*)
       (scl10n-add-label! #x17cd *ambient-strength-label*)
       (scl10n-add-label! #x17ce *shadow-distance-label*)
@@ -10401,8 +10424,10 @@
     ;; symbols; AMBIENT STRENGTH/CONTRAST + SHADOW DISTANCE bind floats; AMBIENT MODEL + SHADOW QUALITY are
     ;; carousells (int-backup scratch, mapped 1:1 to their pc-settings ints in respond-common).
     (#when FLAG_PBR
-      (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* realtime-lighting?))
-      (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *realtime-lighting-label*)
+      ;; Glighting-hdr : fw-idx+4 est DESORMAIS la rangee RECHARGED LIGHTING (remplacement sur
+      ;; place de REALTIME LIGHTING — meme slot, aucun decalage).
+      (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* recharged-lighting?))
+      (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *recharged-lighting-label*)
       ;; Gmenu-census-cleanup (2026-09-02) : ENV PROBE (ex-+5) et AMBIENT CONTRAST (ex-+8) sont
       ;; RETIREES du tableau — elles ne changeaient RIEN a l'ecran (voir leurs pierres tombales
       ;; dans le tableau plus haut). Tous les bras qui les suivaient RECULENT donc de deux crans

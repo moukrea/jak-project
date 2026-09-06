@@ -40,9 +40,15 @@
 #include "game/graphics/opengl_renderer/sprite/Sprite3.h"
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
 #include "game/graphics/pipelines/opengl.h"
+#include "game/graphics/refset.h"
 #include "game/kernel/common/kmachine.h"
+#include "game/system/autoport_proof.h"
+
+#include "android_gfx.h"
 
 #include <atomic>
+#include <cstdio>
+#include <vector>
 
 // cutscene-npc-flicker (essai 11) : un seau DMA malforme est SAUTE pour l'image — tous les modeles
 // merc de ce seau disparaissent une image. Cumul non plafonne (jak1 et jak2), lu par scene par le
@@ -1702,6 +1708,112 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
   vif_interrupt_callback(m_bucket_renderers.size());
 }
 
+// lighting-hdr / refset : LA CAPTURE, cote arm64. Le bureau la fait dans
+// game/graphics/opengl_renderer/OpenGLRenderer.cpp (chemin capture d'ecran) ; ce fichier-la
+// n'est pas dans le build Android, d'ou ce miroir.
+//
+// INERTE HORS REFSET : quand le module n'est pas arme, le cout total est l'appel a
+// `capture_for_chain` (un test de mode, pas de verrou GL, aucune relecture GPU).
+//
+// L'IMAGE EST APPARIEE A UNE FRAME DE LOGIQUE NOMMEE, jamais a « la prochaine image » :
+// `android_gfx::logic_frame_of_input_data()` rend la frame que la chaine EN COURS DE RENDU
+// decrit, figee au ramassage de la chaine (android_gfx.cpp), pas l'horloge courante du fil
+// GOAL — celui-ci simule deja l'image suivante (overlap ON par defaut).
+static void refset_capture_if_step(const Fbo& src) {
+  char name[96] = {0};
+  int rw = 0, rh = 0;
+  if (!refset::capture_for_chain(android_gfx::logic_frame_of_input_data(), name, sizeof(name),
+                                 &rw, &rh)) {
+    return;
+  }
+  if (rw <= 0 || rh <= 0 || src.width <= 0 || src.height <= 0 || src.width < rw ||
+      src.height < rh) {
+    static std::atomic<uint64_t> s_bad_size{0};
+    const uint64_t n = s_bad_size.fetch_add(1, std::memory_order_relaxed) + 1;
+    autoport_proof::publish("hdr_refset_bad_src_size", n);
+    std::printf("REFSET-ARM64 saut: source %dx%d incompatible avec la capture %dx%d (%s)\n",
+                src.width, src.height, rw, rh, name);
+    std::fflush(stdout);
+    return;
+  }
+  // Une cible FLOTTANTE ne se relit pas en octets : en GLES3 seul le couple rendu par
+  // GL_IMPLEMENTATION_COLOR_READ_{FORMAT,TYPE} est garanti, et convertir nous-memes
+  // reviendrait a inventer une compression de plage — c'est-a-dire a fabriquer le resultat que
+  // cet item mesure. On saute donc l'etape et on la COMPTE : elle n'aura pas d'image, la course
+  // le dira en rouge franc. Cas nominal sur : `hdr::chain_active()` force `begin_ui_pass()` en
+  // tete de do_pcrtc_effects et `ui_buffer` est RGBA8.
+  if (hdr::format_is_float(src.color_format)) {
+    static std::atomic<uint64_t> s_float_skips{0};
+    const uint64_t n = s_float_skips.fetch_add(1, std::memory_order_relaxed) + 1;
+    autoport_proof::publish("hdr_refset_float_src_skips", n);
+    std::printf("REFSET-ARM64 saut: source flottante (fmt=0x%x) pour %s — pas de conversion "
+                "inventee, etape sans image\n",
+                (unsigned)src.color_format, name);
+    std::fflush(stdout);
+    return;
+  }
+
+  const int sw = src.width;
+  const int sh = src.height;
+  std::vector<uint8_t> full((size_t)sw * (size_t)sh * 4u);
+
+  GLint old_read_fbo = 0, old_read_buf = 0, old_pack_align = 4;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &old_read_fbo);
+  glGetIntegerv(GL_READ_BUFFER, &old_read_buf);
+  glGetIntegerv(GL_PACK_ALIGNMENT, &old_pack_align);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo_id);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, sw, sh, GL_RGBA, GL_UNSIGNED_BYTE, full.data());
+  glPixelStorei(GL_PACK_ALIGNMENT, old_pack_align);
+  glReadBuffer((GLenum)old_read_buf);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)old_read_fbo);
+
+  // Sous-echantillonnage : moyenne de boite a bornes ENTIERES. Aucun flottant, donc aucun
+  // arrondi dependant du compilateur ou du jeu d'instructions : meme entree => meme sortie,
+  // bit pour bit, sur x86 comme sur arm64.
+  // Le retournement vertical est fait ICI : glReadPixels rend la premiere ligne du BAS, et
+  // `consume_capture` attend du RGBA deja remis a l'endroit (refset.h). Le bureau retourne
+  // l'image apres coup (OpenGLRenderer.cpp) ; l'ecrire dans l'indexation evite une seconde
+  // copie et donne exactement le meme resultat.
+  std::vector<uint8_t> small((size_t)rw * (size_t)rh * 4u);
+  for (int oy = 0; oy < rh; oy++) {
+    const int y0 = (int)(((int64_t)oy * sh) / rh);
+    int y1 = (int)((((int64_t)oy + 1) * sh) / rh);
+    if (y1 <= y0) {
+      y1 = y0 + 1;
+    }
+    uint8_t* out_row = &small[(size_t)(rh - 1 - oy) * (size_t)rw * 4u];
+    for (int ox = 0; ox < rw; ox++) {
+      const int x0 = (int)(((int64_t)ox * sw) / rw);
+      int x1 = (int)((((int64_t)ox + 1) * sw) / rw);
+      if (x1 <= x0) {
+        x1 = x0 + 1;
+      }
+      uint32_t r = 0, g = 0, b = 0;
+      uint32_t n = 0;
+      for (int y = y0; y < y1; y++) {
+        const uint8_t* srow = &full[((size_t)y * (size_t)sw + (size_t)x0) * 4u];
+        for (int x = x0; x < x1; x++) {
+          r += srow[0];
+          g += srow[1];
+          b += srow[2];
+          srow += 4;
+          n++;
+        }
+      }
+      out_row[ox * 4 + 0] = (uint8_t)(r / n);
+      out_row[ox * 4 + 1] = (uint8_t)(g / n);
+      out_row[ox * 4 + 2] = (uint8_t)(b / n);
+      // Alpha force a 255, comme le chemin bureau : nos rendus laissent l'alpha du tampon
+      // final dans un etat qui ne decrit rien, et une moyenne d'alpha ne vaudrait pas mieux.
+      out_row[ox * 4 + 3] = 0xff;
+    }
+  }
+
+  refset::consume_capture(rw, rh, small.data());
+}
+
 void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
                                              SharedRenderState* render_state,
                                              ScopedProfilerNode& prof) {
@@ -1746,6 +1858,11 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
       fflush(stdout);
     }
   }
+  // lighting-hdr / refset : la photo se prend ICI, sur l'image composite FINALE et AVANT le
+  // quad de fenetre — le quad ne fait que la recopier (et l'etire vers la draw-region). L'etat
+  // GL touche (binding de lecture, read-buffer, pack-alignment) est restaure par l'appel.
+  refset_capture_if_step(*window_blit_src);
+
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
   glViewport(render_state->draw_offset_x, render_state->draw_offset_y,

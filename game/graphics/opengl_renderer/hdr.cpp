@@ -11,6 +11,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/Shader.h"
+#include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 
 #ifdef __ANDROID__
@@ -56,6 +57,16 @@ std::map<std::string, ProgInfo> s_progs;
 uint64_t s_frames = 0;
 uint64_t s_chain_frames = 0;
 uint64_t s_tonemap_draws = 0;
+// lighting-hdr, verdict 6 : `tonemap_sites == 1` dans les TROIS configurations, pas seulement
+// eclairage allume. On compte donc PAR CONFIGURATION et PAR IMAGE, jamais globalement : un
+// recensement cumule sur toute la course melangerait les trois et rendrait 1 alors qu'une des
+// trois en porte zero ou deux.
+//   1 = ORIGINE-TOTAL (master OFF) · 2 = RECHARGED · 3 = ORIGINE-LUMIERE (master ON, lumiere OFF)
+uint64_t s_cfg_frames[4] = {0, 0, 0, 0};
+uint64_t s_cfg_bad[4] = {0, 0, 0, 0};
+bool s_drew_this_frame = false;
+uint64_t s_sites_now = 0;  // le compte de la DERNIERE image, dans SA configuration
+int s_cfg_now = 0;
 
 // ------------------------------------------------------------------------------------ sonde --
 constexpr int kProbeW = 96;
@@ -100,6 +111,89 @@ float shoulder(float x, float k) {
   }
   const float w = (1.f - k) > 1e-4f ? (1.f - k) : 1e-4f;
   return 1.f - w * std::exp(-(x - k) / w);
+}
+
+// lighting-hdr, verdict 3 : « courbe monotone sans coude ».
+// Miroir SCALAIRE de ce que `tonemap.frag` applique, evalue sur la diagonale grise (r=g=b) —
+// c'est la seule direction ou les deux courbes se reduisent a une fonction d'une variable, et
+// c'est la courbe de tonalite au sens ou l'entend la SPEC §4.5.
+// Pour `hdr_neutral` (Khronos) sur du gris, les etapes de desaturation s'annulent et il ne
+// reste que `newPeak` : le calcul ci-dessous est la reduction exacte, pas une approximation.
+float curve_eval(float x, float k, int curve) {
+  if (curve != 1) {
+    return shoulder(x, k);
+  }
+  const float kStart = 0.76f, kDesat = 0.15f;
+  const float offset = x < 0.08f ? x - 6.25f * x * x : 0.04f;
+  const float peak = x - offset;
+  if (peak < kStart) {
+    return peak;
+  }
+  const float d = 1.f - kStart;
+  (void)kDesat;
+  return 1.f - d * d / (peak + d - kStart);
+}
+
+// 0 = tenu, 1 = defaut — meme convention que les quatre verdicts de refset.h.
+// On juge la courbe REELLEMENT configuree, pas le defaut : c'est celle qui est livree.
+// Trois clauses, et chacune peut echouer seule :
+//   monotone  — f(x+h) >= f(x) partout ; une inversion rendrait un degrade non ordonne.
+//   sans coude — la derivee est continue. Echantillonnee au pas h, une derivee CONTINUE fait
+//                varier la difference finie de l'ordre de |f''|*h (ici <= ~0,01 au genou) ;
+//                une derivee DISCONTINUE la fait sauter de l'ordre de 1. La borne 0,05 separe
+//                les deux de deux ordres de grandeur, elle ne calibre rien.
+//   bornee    — f(x) <= 1 : au-dela, le tampon 8 bits final reprendrait un ecretage, et le
+//                site unique n'en serait plus un.
+uint64_t s_curve_kink_max_x1000 = 0;
+uint64_t s_curve_samples = 0;
+int s_curve_mono_bad = 0;
+int s_curve_bound_bad = 0;
+
+int verdict_curve() {
+  const float k = Gfx::g_global_settings.recharged_hdr_knee;
+  const int curve = Gfx::g_global_settings.recharged_hdr_curve;
+  const float h = 0.001f;
+  const int n = 8000;  // 0 .. 8,0 : bien au-dela du maximum mesure (hdr_probe_max_x1000)
+  float prev = curve_eval(0.f, k, curve);
+  float prev_d = 0.f;
+  float kink_max = 0.f;
+  int mono_bad = 0, bound_bad = 0;
+  for (int i = 1; i <= n; i++) {
+    const float x = (float)i * h;
+    const float f = curve_eval(x, k, curve);
+    if (f < prev - 1e-6f) {
+      mono_bad++;
+    }
+    if (f > 1.f + 1e-4f) {
+      bound_bad++;
+    }
+    const float d = (f - prev) / h;
+    if (i > 1) {
+      const float jump = std::fabs(d - prev_d);
+      if (jump > kink_max) {
+        kink_max = jump;
+      }
+    }
+    prev_d = d;
+    prev = f;
+  }
+  s_curve_kink_max_x1000 = (uint64_t)(kink_max * 1000.f + 0.5f);
+  s_curve_samples = (uint64_t)n;
+  s_curve_mono_bad = mono_bad;
+  s_curve_bound_bad = bound_bad;
+  return (mono_bad == 0 && bound_bad == 0 && kink_max <= 0.05f) ? 0 : 1;
+}
+
+// lighting-hdr, verdict 6 — `tonemap_sites == 1` dans les TROIS configurations.
+// Une configuration JAMAIS VISITEE est un defaut, pas une dispense : c'est exactement la faute
+// qui a produit ce bug (deux bras verts, la configuration livree absente des deux).
+int verdict_sites_three_configs() {
+  for (int c = 1; c <= 3; c++) {
+    if (s_cfg_frames[c] == 0 || s_cfg_bad[c] != 0) {
+      return 1;
+    }
+  }
+  return 0;
 }
 
 // Les jetons d'une COMPRESSION DE PLAGE dans un texte fragment. Ce sont des identifiants, pas
@@ -215,15 +309,14 @@ float half_to_float(uint16_t h) {
 bool chain_active() {
   int ov = -1;
   const bool has_ov = env_or_prop_override("debug.opengoal.hdr", "OG_HDR", &ov);
-  if (has_ov && ov == 0) {
-    return false;
-  }
-  // '1' epingle le REGLAGE de cet item, jamais le master : le mode ORIGINE reste ORIGINE meme
-  // avec la propriete posee. C'est la regle « epingler le regime de SA feature » — sans ca, une
-  // course appareil mesure le reglage laisse par quelqu'un d'autre.
-  const bool setting_on = has_ov ? Gfx::recharged_master_active()
-                                 : Gfx::recharged_active(Gfx::g_global_settings.recharged_hdr);
-  if (!setting_on) {
+  // L'override epingle LE SOUS-DRAPEAU de cet item, jamais la composition : les trois niveaux
+  // (master -> ECLAIRAGE RECHARGE -> HDR) restent toujours consultes, via Gfx::lighting_active().
+  // Sans ca, poser `debug.opengoal.hdr=1` — ce que font les proof_props de l'item — sauterait la
+  // garde d'eclairage pendant la course de preuve, exactement la ou elle doit mordre : la chaine
+  // HDR tournerait avec `recharged_lighting` OFF. C'est la regle « epingler le regime de SA
+  // feature » : on epingle SON reglage, pas les maitres qui sont au-dessus de lui.
+  const bool sub_on = has_ov ? (ov != 0) : Gfx::g_global_settings.recharged_hdr;
+  if (!Gfx::lighting_active(sub_on)) {
     return false;
   }
   // L'ablation du harnais est CAUSALE : `--off` eteint la chaine, le tone map n'est pas tire,
@@ -304,8 +397,16 @@ bool tonemap_draw(Shader& shader,
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   shader.activate();
   glUniform1i(glGetUniformLocation(shader.id(), "tex_T0"), 0);
+  // lighting-hdr : LE SITE UNIQUE PORTE L'EXPOSITION DES DEUX ETAGES.
+  // Les composites C et E poussent desormais `u_pbr_exposure = 1,0` (background_common.cpp) et
+  // rendent leur exposition ici. Le facteur repris est `E_pbr^(1/2,2)` et pas `E_pbr` : eux
+  // l'appliquaient en LINEAIRE avant leur `pow(1/2,2)`, ce site l'applique APRES, dans l'espace
+  // d'affichage du tampon. C'est l'egalite exacte, pas un reglage approche — sans l'exposant, le
+  // deplacement changerait la luminance de tout le decor.
+  const float e_pbr = Gfx::g_global_settings.recharged_pbr_exposure;
+  const float e_moved = (e_pbr > 0.f) ? std::pow(e_pbr, 1.f / 2.2f) : 1.f;
   glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_exposure"),
-              Gfx::g_global_settings.recharged_hdr_exposure);
+              e_moved * Gfx::g_global_settings.recharged_hdr_exposure);
   glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_knee"),
               Gfx::g_global_settings.recharged_hdr_knee);
   glUniform1i(glGetUniformLocation(shader.id(), "u_hdr_curve"),
@@ -318,6 +419,7 @@ bool tonemap_draw(Shader& shader,
   // AU SITE DU GESTE : le quad vient de partir. `hits` = images tone-mappees.
   s_explicit_sites.insert(site ? site : "?");
   s_tonemap_draws++;
+  s_drew_this_frame = true;
   autoport_proof::note_hit();
   return true;
 }
@@ -434,8 +536,39 @@ void frame_end() {
     s_chain_frames++;
   }
   if (!autoport_proof::armed_for(kItemId)) {
+    s_drew_this_frame = false;
     return;  // bras desarme : AUCUNE cle `hdr_*` / `tonemap_*`, comme lighting-unify
   }
+
+  // ── verdict 6 : le recensement PAR IMAGE et PAR CONFIGURATION ────────────────────────────
+  // Un recensement CUMULE sur toute la course melangerait les trois configurations et rendrait
+  // 1 alors qu'une des trois en porte 0 ou 2. On compte donc l'image courante, dans la
+  // configuration courante — et la configuration se lit sur les maitres eux-memes, pas sur une
+  // intention posee ailleurs.
+  // Le compte d'une image vaut : le tone map a-t-il ete tire (0 ou 1) + le tampon de scene
+  // ecrete-t-il par son format (RGBA8 = oui, flottant = non) + les programmes dont le texte
+  // porte une compression de plage. Sous ORIGINE-TOTAL et ORIGINE-LUMIERE, l'unique site est
+  // l'ecretage 8 bits du chemin d'origine ; sous RECHARGED, c'est le programme `tonemap`.
+  {
+    uint64_t sh = 0;
+    for (const auto& [name, info] : s_progs) {
+      if (info.has_compression) {
+        sh++;
+      }
+    }
+    const int cfg = !Gfx::recharged_master_active() ? 1
+                                                    : (Gfx::recharged_lighting_active() ? 2 : 3);
+    const uint64_t sites = (s_drew_this_frame ? 1ull : 0ull) +
+                           (format_is_float(scene_color_format()) ? 0ull : 1ull) + sh;
+    s_cfg_frames[cfg]++;
+    if (sites != 1) {
+      s_cfg_bad[cfg]++;
+    }
+    s_sites_now = sites;
+    s_cfg_now = cfg;
+  }
+  s_drew_this_frame = false;
+
   if ((s_frames % 30) != 0) {
     return;
   }
@@ -471,7 +604,14 @@ void frame_end() {
   }
   const uint64_t explicit_sites = s_explicit_sites.size();
 
-  autoport_proof::publish("tonemap_sites", explicit_sites + shader_sites + implicit_sites);
+  // lighting-hdr : `tonemap_sites` est le compte de LA CONFIGURATION COURANTE, par image — le
+  // meme nombre que juge le verdict 6. Le cumul des trois configurations rendrait 2 dans les
+  // phases d'origine d'une course qui a aussi visite RECHARGED, parce que `explicit_sites` est
+  // un ensemble qui ne se vide jamais. Les trois termes cumules restent publies en dessous.
+  autoport_proof::publish("tonemap_sites", s_sites_now);
+  autoport_proof::publish("tonemap_sites_cumulative",
+                          explicit_sites + shader_sites + implicit_sites);
+  autoport_proof::publish("tonemap_sites_config", (uint64_t)s_cfg_now);
   autoport_proof::publish("tonemap_sites_explicit", explicit_sites);
   autoport_proof::publish("tonemap_sites_shader", shader_sites);
   autoport_proof::publish("tonemap_sites_implicit", implicit_sites);
@@ -497,6 +637,41 @@ void frame_end() {
   autoport_proof::publish("ldr_ref_delta", s_ldr_ref_delta);
   autoport_proof::publish("hdr_knee_x1000",
                           (uint64_t)(Gfx::g_global_settings.recharged_hdr_knee * 1000.f + 0.5f));
+
+  // ── LA GRANDEUR DE PORTE ─────────────────────────────────────────────────────────────────
+  // `hdr_tonemap_defects` est la SOMME de six verdicts, chacun publie A COTE : une somme sans
+  // ses termes ne dit pas quoi corriger, et un zero sans son denominateur ne prouve rien.
+  // Convention unique : 0 = tenu, 1 = defaut. « Pas mesurable » vaut 1 — une course qui n'irait
+  // pas au bout doit etre ROUGE, jamais muette.
+  // Les verdicts 1, 2, 4 et 5 se lisent sur le jeu de references (trois configurations,
+  // ORIGINE-LUMIERE comprise) ; 3 et 6 se mesurent ici.
+  const int v1 = refset::verdict_saturation();
+  const int v2 = refset::verdict_highlight_contrast();
+  const int v3 = verdict_curve();
+  const int v4 = refset::verdict_master_off_bitexact();
+  const int v5 = refset::verdict_origine_lumiere_set();
+  const int v6 = verdict_sites_three_configs();
+  autoport_proof::publish("hdr_defect_1_saturation", (uint64_t)v1);
+  autoport_proof::publish("hdr_defect_2_hl_contrast", (uint64_t)v2);
+  autoport_proof::publish("hdr_defect_3_curve", (uint64_t)v3);
+  autoport_proof::publish("hdr_defect_4_master_off_bitexact", (uint64_t)v4);
+  autoport_proof::publish("hdr_defect_5_origine_lumiere_set", (uint64_t)v5);
+  autoport_proof::publish("hdr_defect_6_sites_three_configs", (uint64_t)v6);
+  autoport_proof::publish("hdr_tonemap_defects",
+                          (uint64_t)(v1 + v2 + v3 + v4 + v5 + v6));
+  // Les denominateurs des verdicts 3 et 6, sans lesquels leur zero est une fausse constante.
+  autoport_proof::publish("hdr_curve_samples", s_curve_samples);
+  autoport_proof::publish("hdr_curve_kink_max_x1000", s_curve_kink_max_x1000);
+  autoport_proof::publish("hdr_curve_monotone_bad", (uint64_t)s_curve_mono_bad);
+  autoport_proof::publish("hdr_curve_unbounded_bad", (uint64_t)s_curve_bound_bad);
+  autoport_proof::publish("hdr_curve_mode", (uint64_t)Gfx::g_global_settings.recharged_hdr_curve);
+  autoport_proof::publish("hdr_cfg_frames_origine_total", s_cfg_frames[1]);
+  autoport_proof::publish("hdr_cfg_frames_recharged", s_cfg_frames[2]);
+  autoport_proof::publish("hdr_cfg_frames_origine_lumiere", s_cfg_frames[3]);
+  autoport_proof::publish("hdr_cfg_bad_origine_total", s_cfg_bad[1]);
+  autoport_proof::publish("hdr_cfg_bad_recharged", s_cfg_bad[2]);
+  autoport_proof::publish("hdr_cfg_bad_origine_lumiere", s_cfg_bad[3]);
+  autoport_proof::publish("hdr_lighting_on", Gfx::recharged_lighting_active() ? 1 : 0);
 }
 
 }  // namespace hdr

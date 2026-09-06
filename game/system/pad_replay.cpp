@@ -10,6 +10,7 @@
 
 #ifdef __ANDROID__
 #include <android/log.h>
+#include <sys/system_properties.h>
 #define PR_LOG(...) __android_log_print(ANDROID_LOG_INFO, "GK_STDOUT", __VA_ARGS__)
 #else
 #define PR_LOG(...)        \
@@ -246,6 +247,17 @@ void init(Mode mode, const std::string& path) {
 void init_from_env() {
   const char* rec = std::getenv("OG_PAD_REPLAY_RECORD");
   const char* rep = std::getenv("OG_PAD_REPLAY_REPLAY");
+#if defined(__ANDROID__)
+  // lighting-hdr : le rejeu d'entree a une PROPRIETE sur l'appareil. Le jeu de references en
+  // depend — sans entree neutralisee, Jak derive et deux courses ne photographient pas la meme
+  // pose, ce qui rend `maxdiff` inexploitable. En mode device, `lib/proof_run.sh` ne pose que
+  // des proprietes, donc la variable d'environnement seule n'y arrive jamais.
+  // La valeur est un CHEMIN, et le canal de propriete plafonne a PROP_VALUE_MAX (92 octets).
+  char pbuf[PROP_VALUE_MAX] = {0};
+  if ((!rep || !rep[0]) && __system_property_get("debug.opengoal.padreplay", pbuf) > 0 && pbuf[0]) {
+    rep = pbuf;
+  }
+#endif
   if (rep && rep[0]) {
     init(Mode::Replay, rep);
   } else if (rec && rec[0]) {

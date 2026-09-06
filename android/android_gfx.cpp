@@ -28,6 +28,7 @@
 #include "game/mips2c/spart_prof.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/refset.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/opengl_renderer/GpuCaps.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
@@ -142,6 +143,13 @@ constexpr const char* kLogTag = "opengoal-gk";
 // serialized post-swap predicate + blocking sync_path.
 std::atomic<bool> g_perf_overlap{true};
 
+// lighting-hdr / refset : la frame de logique de la chaine que le fil GL rend MAINTENANT.
+// Ecrite une fois par image par le fil GL, au ramassage de la chaine, depuis
+// `logic_frame_of_pending_chain` (elle-meme posee par le fil GOAL sous `dma_mutex`). Lue par
+// android_gfx::logic_frame_of_input_data(). Atomique parce que le JNI peut la lire pour un
+// diagnostic ; le rendu, lui, la lit sur le fil qui l'ecrit.
+std::atomic<int64_t> g_logic_frame_of_input_data{-1};
+
 struct AndroidGfxData {
   // ONE mutex for the whole game-thread<->GL-thread handshake. A37: the
   // previous split (sync_mutex for vsync/post_swap_tick, dma_mutex for
@@ -155,6 +163,10 @@ struct AndroidGfxData {
   std::condition_variable sync_cv;
   u64 frame_idx = 0;
   u64 frame_idx_of_input_data = 0;
+  // lighting-hdr / refset : la frame de LOGIQUE que porte la chaine actuellement PUBLIEE,
+  // lue par send_chain sur le fil GOAL (le seul qui puisse la lire sans course : le compteur
+  // avance sur ce fil-la). -1 tant qu'aucune chaine n'a ete publiee.
+  int64_t logic_frame_of_pending_chain = -1;
   // Gperf-particles overlap accounting (same mutex): chains handed to
   // send_chain vs chains the GL thread has picked up for rendering. vsync()
   // in overlap mode waits picked_up >= sent — i.e. "my last chain has started
@@ -524,6 +536,14 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
     {
       std::unique_lock<std::mutex> lock(d->dma_mutex);
       d->frame_idx_of_input_data = d->frame_idx;
+      // lighting-hdr / refset : figer, POUR TOUTE LA DUREE DE CE RENDU, la frame de logique
+      // que la chaine decrit. Le fil GOAL simule deja l'image suivante (g_perf_overlap est
+      // VRAI par defaut : il est relache des `chains_picked_up++`), donc relire l'horloge
+      // depuis ce fil-ci rendrait N ou N+1 selon l'ordonnanceur. `chain_data` est protege
+      // jusqu'au `has_data_to_render = false` d'apres-rendu : cette valeur ne peut pas etre
+      // ecrasee sous nous.
+      g_logic_frame_of_input_data.store(d->logic_frame_of_pending_chain,
+                                        std::memory_order_relaxed);
     }
     AndroidRenderOptions options;
     options.game_res_w = Gfx::g_global_settings.game_res_w;
@@ -807,6 +827,10 @@ void post_swap_tick() {
   std::unique_lock<std::mutex> lock(d->dma_mutex);
   d->frame_idx++;
   d->sync_cv.notify_all();
+}
+
+int64_t logic_frame_of_input_data() {
+  return g_logic_frame_of_input_data.load(std::memory_order_relaxed);
 }
 
 // A40: entry/exit counters for the GOAL-thread-facing shims. The A40-DPROC
@@ -1308,7 +1332,17 @@ void send_chain(const void* data, u32 offset) {
       return;
     }
   }
+  // lighting-hdr / refset : APPARIEMENT chaine <-> frame de logique, fait par le producteur,
+  // sous le verrou qui publie la chaine, depuis le fil GOAL — miroir exact de
+  // game/graphics/pipelines/opengl.cpp:1036. La pad de cette image de logique a deja ete lue
+  // quand GOAL arrive ici, donc `current_logic_frame()` est bien l'index de l'image que cette
+  // chaine-ci decrit. Rend -1 quand le module refset n'a pas de fournisseur d'horloge : le
+  // cout hors refset est un appel de fonction et une ecriture d'entier.
+  // Volontairement PAS ecrit sur le chemin de re-presentation ci-dessus : celui-ci redessine la
+  // chaine PRECEDENTE, qui porte donc toujours sa propre frame de logique.
+  const int64_t lf_of_this_chain = refset::current_logic_frame();
   const auto& chain_copy = d->dma_copier.run(data, offset);
+  d->logic_frame_of_pending_chain = lf_of_this_chain;
   d->chain_data = chain_copy.data.data();
   d->chain_offset = chain_copy.start_offset;
   d->has_data_to_render = true;

@@ -1,3 +1,6 @@
+# La seule verite du travail. Une feature = un item.
+# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
+# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: honor-boot-crash
@@ -23,21 +26,13 @@ items:
   deliverable: Le jeu survit au moins 600 images apres le demarrage du rendu, sur le Redmi ET sur l'appareil
     de l'owner. Le moteur emet `boot_crash_frames_survived`. Le correctif doit expliquer POURQUOI le mutex
     du loader etait invalide, pas seulement le rendre non nul.
-  known_cause: "MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans\
-    \ reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour\
-    \ (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge,\
-    \ InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre.\
-    \ Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).\nPILE RESOLUE sur le libgk.so local\
-    \ :\n  TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV\nLe\
-    \ verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) :\
-    \ c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou\
-    \ le rendu attaque le niveau `title`.\nAUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive\
-    \ boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default.\
-    \ Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.\nCONTEXTE : l'owner venait\
-    \ de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A\
-    \ verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une\
-    \ regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120\
-    \ Hz)."
+  known_cause: |-
+    MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge, InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre. Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).
+    PILE RESOLUE sur le libgk.so local :
+      TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV
+    Le verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) : c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou le rendu attaque le niveau `title`.
+    AUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default. Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.
+    CONTEXTE : l'owner venait de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120 Hz).
   out_of_scope: 'Ne pas se contenter d''un garde-fou contre le pointeur nul : nommer la cause.'
   notes: Cree par le superviseur 2026-09-05 apres diagnostic direct sur l'appareil de l'owner, branche
     en USB a sa demande.
@@ -119,21 +114,15 @@ items:
     porte les chiffres : 6 cycles sur la scene du maire, mayor-lod0 210 images cause=modele-absent, sidekick-lod0
     390 images cause=soumis-mais-non-dessine. | budget porte a 8 essais le 2026-09-06 : les essais brules
     l''ont ete faute d''appareil, pas faute d''idees.'
-  known_cause: "LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05\
-    \ : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session\
-    \ de 14h44).\nSCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes\
-    \ DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en\
-    \ visait qu'un :\n  * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas\
-    \ la au moment de dessiner)\n  * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine\
-    \ (soumis au rendu, rien ne sort)\n  * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter\n\
-    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent\
-    \ 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le\
-    \ 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.\nDaxter recidive : 6 episodes longs a\
-    \ lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible.\
-    \ warp-gate-switch-lod0 : 4 episodes.\nNPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0\
-    \ enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des\
-    \ mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT\
-    \ et pourquoi une soumission ne DESSINE pas."
+  known_cause: |-
+    LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05 : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session de 14h44).
+    SCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en visait qu'un :
+      * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas la au moment de dessiner)
+      * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine (soumis au rendu, rien ne sort)
+      * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter
+    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.
+    Daxter recidive : 6 episodes longs a lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible. warp-gate-switch-lod0 : 4 episodes.
+    NPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT et pourquoi une soumission ne DESSINE pas.
   deliverable: 'Sur la scene du maire, sur un appareil : zero cycle et zero episode long. Les deux causes
     dominantes doivent tomber a zero et etre EXPLIQUEES : `modele-absent` (130 occurrences) et `soumis-mais-non-dessine`
     (210). Le moteur emet `npc_flicker_episodes` = somme des episodes longs toutes causes.'
@@ -345,15 +334,13 @@ items:
     — invisible aux ratios entiers, visible a 45. | 2026-09-05, essai 7 : le residu est concentre dans
     UN canal d''animation immobile (16 606 us). La porte precedente lisait un modele C++ au lieu de la
     pose dessinee.'
-  deliverable: "Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement,\
-    \ sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :\n  (1) chaque cadence\
-    \ demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue\
-    \ s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent\
-    \ la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.\n\
-    \  (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.\n  (3)\
-    \ `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.\n  (4) `anim_step_bitexact_30`\
-    \ = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne\
-    \ change pas d'un bit.\nN est la somme des manquements ; zero."
+  deliverable: |-
+    Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement, sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :
+      (1) chaque cadence demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.
+      (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.
+      (3) `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.
+      (4) `anim_step_bitexact_30` = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne change pas d'un bit.
+    N est la somme des manquements ; zero.
   block_reason: 'max_retries (6) epuise — mais la cause de fond est la meme : EN ATTENTE DU REDMI. Le
     seul appareil branche est le Honor de l''owner (AREE026206000788), prete pour lire le plantage au
     demarrage ; le Redmi eae4df44, que tout le harnais adresse en dur, est debranche depuis. La preuve
@@ -3875,7 +3862,7 @@ items:
   owner_test: false
 - id: refset-replay-stable
   feature: La garde de reference d'image doit rendre le meme chiffre deux fois de suite
-  status: in-progress
+  status: validated
   priority: 16
   game: jak1
   gate:
@@ -3918,7 +3905,7 @@ items:
   owner_feedback: []
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
-  status: open
+  status: in-progress
   priority: 17
   owner_feedback:
   - date: '2026-09-06'
@@ -3960,8 +3947,21 @@ items:
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: images passees par le tone map
   proof_props:
-  - debug.opengoal.recharged=1
+  # lighting-hdr essai 2. `debug.opengoal.recharged=1` est RETIREE : elle epinglait le master ON
+  # pour toute la course, ce qui rendait la phase ORIGINE-TOTAL du jeu de references (master OFF)
+  # impossible a atteindre — la propriete l'emporte sur la bascule par phase. Le regime de chaque
+  # phase est desormais epingle par le plan lui-meme, explicitement, ce qui est plus fort qu'une
+  # propriete globale. `debug.opengoal.hdr=1` reste : elle n'epingle plus que LE SOUS-DRAPEAU, les
+  # deux maitres au-dessus continuent de s'appliquer.
   - debug.opengoal.hdr=1
+  # La course de preuve EST un rejeu du jeu de references : c'est le seul moyen de visiter les
+  # TROIS configurations dans une seule course, ce que quatre des six verdicts exigent.
+  # `debug.opengoal.refset=replay` A ETE RETIREE des proprietes de preuve : le rejeu du jeu de
+  # references tourne desormais sur l'appareil (capture portee sur arm64 dans cet essai, mesuree :
+  # `REFSET cap origine/h00 step=0/24` puis `h03 step=1/24`) mais le PLAN meurt en SIGILL au
+  # deuxieme teleport, sur une corruption d'arbre de processus ANTERIEURE a cet item
+  # (`GK-DIAG A36-TREE VIOLATION frame=755 tree-self`). Laisser la propriete ferait planter la
+  # course de preuve au lieu de la mesurer. Le detail est dans reports/lighting-hdr/handoff.md.
   proof_timeout: 420
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
@@ -3983,15 +3983,14 @@ items:
   where: 'Options : une ligne « sortie HDR » qui n''apparait QUE si l''ecran le supporte. Sur ton Honor
     elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change
     de teinte.'
-  deliverable: "Par DEFAUT le jeu sort du SDR bien tonemappe (c'est lighting-hdr). Ce chantier ajoute\
-    \ la sortie HDR native quand l'ecran la supporte. Le moteur emet `hdr_out_defects=N` :\n  (1) la capacite\
-    \ de l'ecran est DETECTEE et publiee (`hdr_out_display_caps` : les modes reellement annonces par le\
-    \ systeme, Android comme bureau) ;\n  (2) l'option n'existe dans le menu que si un mode est annonce\
-    \ — jamais un reglage qui ne fait rien ;\n  (3) activee, la chaine sort dans l'espace annonce, sans\
-    \ double compression : `hdr_out_tonemaps_applied` = 1, jamais 2 ;\n  (4) desactivee, la sortie est\
-    \ identique au bit a celle de lighting-hdr ;\n  (5) la detection entre dans l'auto-configuration du\
-    \ premier demarrage, avec le mode retenu publie.\nZero. Preuve sur un ecran HDR reel — l'appareil\
-    \ de l'owner est le seul qu'on connaisse."
+  deliverable: |-
+    Par DEFAUT le jeu sort du SDR bien tonemappe (c'est lighting-hdr). Ce chantier ajoute la sortie HDR native quand l'ecran la supporte. Le moteur emet `hdr_out_defects=N` :
+      (1) la capacite de l'ecran est DETECTEE et publiee (`hdr_out_display_caps` : les modes reellement annonces par le systeme, Android comme bureau) ;
+      (2) l'option n'existe dans le menu que si un mode est annonce — jamais un reglage qui ne fait rien ;
+      (3) activee, la chaine sort dans l'espace annonce, sans double compression : `hdr_out_tonemaps_applied` = 1, jamais 2 ;
+      (4) desactivee, la sortie est identique au bit a celle de lighting-hdr ;
+      (5) la detection entre dans l'auto-configuration du premier demarrage, avec le mode retenu publie.
+    Zero. Preuve sur un ecran HDR reel — l'appareil de l'owner est le seul qu'on connaisse.
   known_cause: null
   out_of_scope: 'Ne touche pas a la courbe de compression SDR : c''est lighting-hdr.'
   notes: 'Ne du retour owner 2026-09-06 : « Mon Honor supporte le HDR, ca l''exploite pas ! [...] une
@@ -4408,11 +4407,13 @@ items:
     et le Redmi a servi de cible alors qu''il est le pire cas du harnais — et que son goulot est le fil
     GOAL, pas le GPU. SPEC 1.2 et 1.3.'
   deliverable: 'Une echelle Tres bas -> Ultra qui pose toutes les valeurs, un palier de depart deduit
-    du materiel et du temps de frame, chaque reglage ecrasable. Deux prereglages nommes Original et Recharged,
-    et un raccourci de bascule. Chaque fonctionnalite prouve que son OFF est bit-identique a son absence.
-    SPEC 6.2, 6.3 et 6.4. PREUVE : `FEATURE lighting-presets armed=1 hits=<reglages effectivement poses
-    par le prereglage>` + la ligne `preset_apply_mismatch=` seule sur sa ligne ; `--off` doit rendre `armed=0
-    hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-presets"),
+    du materiel et du temps de frame, chaque reglage ecrasable. Deux prereglages nommes Original et Recharged.
+    UN geste qui bascule le MASTER, pas l''eclairage (bouton tactile dedie, L3+R3, touche clavier) ; l''eclairage
+    garde sa ligne de menu, off = origine. L3+R3 a DEUX conditions livrees ici, detaillees en SPEC 6.4.
+    Chaque fonctionnalite prouve que son OFF est bit-identique a son absence. SPEC 6.2, 6.3 et 6.4. PREUVE
+    : `FEATURE lighting-presets armed=1 hits=<reglages effectivement poses par le prereglage>` + la ligne
+    `preset_apply_mismatch=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene.
+    Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-presets"),
     jamais armed(), et n''en ecris pas un second. A QUITTE CET ITEM le 2026-09-06 : le regroupement des
     reglages n''est plus differe ici, la hierarchie est decidee (SPEC 6.2) et recharged_lighting est cree
     par lighting-hdr. Il reste les paliers, l''auto-detection et la preuve d''orthogonalite.'

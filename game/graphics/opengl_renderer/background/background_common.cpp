@@ -27,6 +27,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/graphics/opengl_renderer/Shader.h"
@@ -1050,6 +1051,9 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     }
     // no u_pbr_mode in this program (non-PBR build): fall through to the normal path.
   }
+  // SPEC §6.2 : les matieres PBR sont SOUS l'eclairage recharge — une matiere sans lumiere n'a
+  // rien a reflechir. Cette porte est le seul endroit qui met `want` (donc u_pbr_mode, donc
+  // u_mm_flags qui en derive) a autre chose que 0 : eclairage OFF => u_pbr_mode = 0 partout.
   int want = 0;
   const custom_tex::PbrMaterialMaps* maps = nullptr;
   // ROUND 20: the matching entry itself, so the per-material measured UV density can be read.
@@ -1058,7 +1062,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   // coverage unification; alpha still comes from the legacy fragment_color*T0 product
   // in the shader, only rgb is relit. Decal draws keep the legacy path. PBR keys on
   // the texture, resolved once per level.
-  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) && !pbr_killswitch() &&
+  if (Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable) && !pbr_killswitch() &&
       tex_id >= 0 && !mode.get_decal() && m_draws &&
       !m_draws->empty()) {
     for (auto& e : *m_draws) {
@@ -1638,8 +1642,11 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // ROUND 2: shadows are driven by EITHER the pbr-materials toggle OR the sun-only realtime-
   // lighting toggle (they are independent — the dev state is pbr-materials OFF, realtime
   // lighting ON, so gating on pbr_enable alone would silently kill the sun's cast shadows).
-  if (!(Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
-        Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) ||
+  // SPEC §6.2 : les ombres portees sont SOUS l'eclairage recharge. Eteindre l'eclairage passe
+  // par ici, remet `read_valid` a faux, et pbr_shadow_bind_receiver pousse alors
+  // u_pbr_shadow_on = 0 — le composite E de shade.glsl s'eteint avec le reste.
+  if (!(Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable) ||
+        Gfx::lighting_active(Gfx::g_global_settings.recharged_rt_light_enable)) ||
       !pbr_shadowmap_enabled_for_frame(frame_idx)) {
     // Feature off: also invalidate the read side so receivers stop sampling a map that
     // will no longer be refreshed (stale-matrix shadows glued to the old camera pos).
@@ -2610,7 +2617,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // navigation. u_rt_sun_dir reuses the visible-sun-overridden light_dir[0] (== the
   // on-screen sun sprite direction), so the sun-only shading, the shadow-map slope bias and
   // the depth-pass MVP all agree on where the sun is. u_rt_sun_color carries tint AND intensity.
-  int rt_light_on = Gfx::recharged_active(gs.recharged_rt_light_enable) ? 1 : 0;
+  // SPEC §6.2 : sous l'eclairage recharge (lighting_active compose les trois niveaux).
+  int rt_light_on = Gfx::lighting_active(gs.recharged_rt_light_enable) ? 1 : 0;
   // ITEM A (owner playtest #2): I tried raising the sun intensity 1.5->1.75 to widen the sun-lit vs
   // ambient-only separation, but a device A/B measured NO contrast change (P90/std identical) — at the
   // owner vantage the sun-lit term is already tone-mapped/vantage-limited, so intensity does not move
@@ -2635,6 +2643,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     rt_intensity = atof(e);
   }
 #endif
+  // lighting-hdr : l'override epingle LE SOUS-DRAPEAU, jamais la composition. Sans cette
+  // ligne, poser la propriete rallumerait l'eclairage temps reel alors que l'ECLAIRAGE RECHARGE est
+  // eteint — la classe de defaut exacte que l'owner a signalee le 2026-09-06, et celle
+  // qui vient d'etre corrigee dans hdr.cpp. On recompose donc APRES l'override.
+  rt_light_on = Gfx::lighting_active(rt_light_on != 0) ? 1 : 0;
   // ROUND-5 cast-shadow Strength (0..1): how much a shadowed fragment darkens. The shader
   // wants the RESIDUAL brightness a fully-occluded fragment keeps = clamp(1 - strength, 0, 1)
   // (default strength 0.8 => residual 0.2). Overridable per-frame like rt.intensity.
@@ -2873,7 +2886,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // elevation (reusing rt_sun_elev) so night stays calm — NO mood night presets feed the brightness
   // (round-7 night-leak discipline). Golden rule: this only reshapes the ambient base; the direct-sun
   // term is untouched so sunlit surfaces are unchanged.
-  int rt_ambient_on = Gfx::recharged_active(gs.recharged_rt_ambient_enable) ? 1 : 0;
+  // SPEC §6.2 : l'ambiante est sous l'eclairage recharge.
+  int rt_ambient_on = Gfx::lighting_active(gs.recharged_rt_ambient_enable) ? 1 : 0;
   float rt_ambient_strength = gs.recharged_rt_ambient_strength;  // default ~0.2 (== old floor)
 #ifdef __ANDROID__
   {
@@ -2893,6 +2907,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     rt_ambient_strength = atof(e);
   }
 #endif
+  // lighting-hdr : l'override epingle LE SOUS-DRAPEAU, jamais la composition. Sans cette
+  // ligne, poser la propriete rallumerait l'ambiante directionnelle alors que l'ECLAIRAGE RECHARGE est
+  // eteint — la classe de defaut exacte que l'owner a signalee le 2026-09-06, et celle
+  // qui vient d'etre corrigee dans hdr.cpp. On recompose donc APRES l'override.
+  rt_ambient_on = Gfx::lighting_active(rt_ambient_on != 0) ? 1 : 0;
   if (!(rt_ambient_strength >= 0.0f && rt_ambient_strength <= 1.0f)) {
     rt_ambient_strength = 0.2f;
   }
@@ -3197,7 +3216,16 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0] * amb_scale,
                 gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
   }
-  glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"), exposure);
+  // lighting-hdr (SPEC §8 item 2) : LES COMPOSITES C ET E CEDENT LEUR EXPOSITION AU SITE UNIQUE.
+  // Quand la chaine HDR est active, ils poussent 1,0 et c'est `tonemap` qui expose, une fois,
+  // pour toute l'image. Ce n'est pas un changement d'apparence : C applique `pow(lit * E, 1/2,2)`,
+  // donc exposer en LINEAIRE avant l'encodage revient EXACTEMENT a multiplier la valeur encodee
+  // par `E^(1/2,2)` — c'est ce facteur que le site reprend (hdr.cpp, `u_hdr_exposure`). Le
+  // resultat est identique en dessous du genou, et il n'y a plus qu'un seul reglage d'exposition
+  // sur le chemin. Chaine inactive : rien ne change, le composite garde son exposition, sinon
+  // eteindre le HDR assombrirait le monde.
+  glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"),
+              hdr::chain_active() ? 1.0f : exposure);
   // Gpbr-per-texture-materials: memorise the three GLOBAL material values at the exact point they
   // are handed to the program — AFTER the relief multiply and AFTER the `displacement == 0` zeroing
   // of height_scale, so what PbrDrawBinder multiplies by a material factor is the value the shader

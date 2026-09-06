@@ -455,6 +455,14 @@
      ;; Grecharged-master-toggle: apply at settings-load (boot) like load-custom-assets? —
      ;; the C++ loader gates consult the master before the first per-frame update-to-os push.
      (pc-set-recharged-master! (if (-> obj recharged-master?) 1 0)))
+    ;; Glighting-hdr / SPEC-refonte-lumiere 6.2: ECLAIRAGE RECHARGE, le maitre de la refonte
+    ;; lumiere. Pousse DES le chargement des reglages comme recharged-master? ci-dessus : les
+    ;; portes d'eclairage cote C++ sont consultees avant la premiere image, donc avant le premier
+    ;; push par image d'update-to-os. Un settings.ini ecrit avant ce lot n'a pas la cle : le
+    ;; defaut #t (ON) reste, et il sera persiste au premier commit-to-file.
+    (("recharged-lighting?")
+     (set! (-> obj recharged-lighting?) (file-stream-read-symbol file))
+     (pc-set-recharged-lighting! (if (-> obj recharged-lighting?) 1 0)))
     (("recharged-hud?") (set! (-> obj recharged-hud?) (file-stream-read-symbol file)))
     (("recharged-grass?") (set! (-> obj recharged-grass?) (file-stream-read-symbol file)))
     (("recharged-grass-near-dist") (set! (-> obj recharged-grass-near-dist) (file-stream-read-float file)))
@@ -603,6 +611,10 @@
   (format file "money-starburst? = ~A~%" (-> obj money-starburst?))
   (format file "extra-hud? = ~A~%" (-> obj extra-hud?))
   (format file "recharged-master? = ~A~%" (-> obj recharged-master?))
+  ;; Glighting-hdr: sa clause de lecture existe juste au-dessus de celle de recharged-hud? — une
+  ;; cle ecrite SANS clause ferait lire sa VALEUR comme une CLE au tour suivant et ferait repartir
+  ;; tout le reste du fichier au defaut (piege documente sur la migration recharged-grass-density).
+  (format file "recharged-lighting? = ~A~%" (-> obj recharged-lighting?))
   (format file "recharged-hud? = ~A~%" (-> obj recharged-hud?))
   (format file "recharged-grass? = ~A~%" (-> obj recharged-grass?))
   (format file "recharged-grass-near-dist = ~f~%" (-> obj recharged-grass-near-dist))

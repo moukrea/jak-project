@@ -1054,6 +1054,22 @@ void pc_set_recharged_master(u32 on) {
   Gfx::g_global_settings.recharged_master = v;
 }
 
+// Glighting-hdr / SPEC-refonte-lumiere §6.2: push the ECLAIRAGE RECHARGE master from GOAL
+// (-> *pc-settings* recharged-lighting?). This is THE root of the lighting overhaul, and it is
+// NOT the project master: OFF restores Naughty Dog's lighting and keeps every other Recharged
+// layer (HD models, grass, textures, HUD) untouched. Every lighting gate composes it through the
+// single Gfx::lighting_active() helper, which ANDs it with recharged_master_active(). Replaces
+// pc-set-rt-light!'s role as "the lighting switch" — that one only ever picked the A/B composite,
+// which is exactly what misled the owner on 2026-09-06 (HDR kept running with it OFF).
+// Logs on CHANGE only (pushed every frame by update-to-os), so a device log proves the link.
+void pc_set_recharged_lighting(u32 on) {
+  bool v = (on != 0);
+  if (v != Gfx::g_global_settings.recharged_lighting) {
+    lg::info("[recharged-lighting] toggle -> {}", v ? "ON" : "OFF");
+  }
+  Gfx::g_global_settings.recharged_lighting = v;
+}
+
 // Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass-overhang?). 0 = off (walkable-top grass only, stock
 // alpha overhang texture at every distance).
@@ -4951,6 +4967,9 @@ void InitMachine_PCPort() {
   // Grecharged-master-toggle: GLOBAL Recharged ON/OFF master (single effective-flag helper
   // Gfx::recharged_active composes it at every feature gate)
   make_function_symbol_from_c("pc-set-recharged-master!", (void*)pc_set_recharged_master);
+  // Glighting-hdr: ECLAIRAGE RECHARGE master (root of the lighting overhaul; Gfx::lighting_active
+  // composes it with the project master at every lighting gate)
+  make_function_symbol_from_c("pc-set-recharged-lighting!", (void*)pc_set_recharged_lighting);
   // External-asset-root: runtime custom texture replacements toggle
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
   make_function_symbol_from_c("pc-set-recharged-textures!", (void*)pc_set_recharged_textures);
@@ -5699,6 +5718,21 @@ static bool level_warp_requested() {
       return true;
     }
   }
+#if defined(__ANDROID__)
+  // lighting-hdr : le point de reprise a une PROPRIETE, comme sa position juste en dessous
+  // (`debug.opengoal.level.warp.pos`, qui l'avait deja). Sans elle le jeu de references ne peut
+  // pas tourner sur l'appareil : `lib/proof_run.sh` ne transmet aucune variable d'environnement
+  // en mode device, il ne pose que des proprietes — le plan aurait photographie le point de
+  // depart du jeu au lieu du vantage nomme, dans les trois configurations, sans rien signaler.
+  {
+    char pbuf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.level.warp", pbuf) > 0 && pbuf[0]) {
+      std::strncpy(s_level_warp_name, pbuf, sizeof(s_level_warp_name) - 1);
+      s_level_warp_name[sizeof(s_level_warp_name) - 1] = 0;
+      return true;
+    }
+  }
+#endif
 #if defined(__ANDROID__)
   char buf[PROP_VALUE_MAX] = {0};
   if (__system_property_get("debug.opengoal.level.warp", buf) > 0 && buf[0]) {

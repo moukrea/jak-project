@@ -100,7 +100,9 @@ int AmbientOcclusionPass::effective_mode() {
   const int v = s_ov.read();
   // Grecharged-master-toggle: the master composes with the SETTINGS value; the explicit
   // debug force-prop keeps top precedence (it is a bisect tool, not a user path).
-  return (v >= 0) ? v : Gfx::recharged_active_mode(Gfx::g_global_settings.recharged_ao_mode);
+  // L'occlusion ambiante est SOUS l'eclairage recharge (SPEC §6.2) : lighting_active_mode compose
+  // master -> ECLAIRAGE RECHARGE -> mode, donc eteindre l'eclairage rend le mode 0 (AO off).
+  return (v >= 0) ? v : Gfx::lighting_active_mode(Gfx::g_global_settings.recharged_ao_mode);
 }
 
 int AmbientOcclusionPass::effective_quality() {

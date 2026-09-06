@@ -90,6 +90,7 @@
    ;; ca changerait le comportement de trois fonctions d'un coup, dont la physique en cours de
    ;; revue par l'owner — c'est sa decision, pas un effet de bord de nettoyage de menu.
    (recharged-master?   symbol) ;; Grecharged-master-toggle (owner 2026-07-21): GLOBAL Recharged ON/OFF. #f force l'etat stock cote C++ (Gfx::recharged_active compose a chaque porte) SANS reinitialiser les interrupteurs individuels — ils reviennent tels quels quand il repasse #t.
+   (recharged-lighting? symbol) ;; Glighting-hdr / SPEC-refonte-lumiere 6.2: ECLAIRAGE RECHARGE — LE maitre de la refonte lumiere (et pas le master du projet). #f = l'eclairage de Naughty Dog, TOUT le reste du Recharged conserve (modeles HD, herbe, textures, HUD). Compose cote C++ par Gfx::lighting_active(), qui l'ANDe avec le master.
    (recharged-hud?      symbol) ;; Grecharged-hud-jak1: optional "Recharged" HUD (heart/gauge/model). OFF = stock HUD.
    (recharged-grass?    symbol) ;; Grecharged-grass-poc: optional 3D grass on the training level. OFF = stock render.
    (recharged-grass-near-dist float) ;; Grecharged-grass-poc POLISH#4: near-blade view distance (m), slider-adjustable
@@ -165,6 +166,9 @@
 ;; Grecharged-master-toggle: pushes the GLOBAL Recharged master (0/1) to the runtime — C++
 ;; composes it with every individual feature flag via the single Gfx::recharged_active helper.
 (define-extern pc-set-recharged-master! (function int none))
+;; Glighting-hdr: pousse le maitre ECLAIRAGE RECHARGE (0/1) au runtime — le C++ le compose
+;; avec chaque porte d'eclairage via l'unique helper Gfx::lighting_active.
+(define-extern pc-set-recharged-lighting! (function int none))
 ;; Gload-custom-assets: pushes the "load custom assets" toggle (0/1) to the runtime.
 (define-extern pc-set-load-custom-assets! (function int none))
 ;; Grecharged-bundled-textures: pushes the bundled-textures toggle (0/1) to the runtime.
@@ -315,6 +319,7 @@
   (set! (-> obj money-starburst?) #f)
   (set! (-> obj extra-hud?) #f)
   (set! (-> obj recharged-master?) #t) ;; Grecharged-master-toggle: default ON (all shipped recharged defaults apply; OFF == pure vanilla)
+  (set! (-> obj recharged-lighting?) #t) ;; Glighting-hdr / SPEC 6.2: defaut ON (RECHARGED). #f == ORIGINE-LUMIERE : l'eclairage d'origine, le reste du Recharged intact.
   (set! (-> obj recharged-hud?) #f) ;; Grecharged-hud-jak1: default OFF so a fresh install matches stock exactly
   (set! (-> obj recharged-grass?) #t) ;; Grecharged-grass-poc: OWNER OVERRIDE 2026-07-10 — ships DEFAULT ON (toggle still exists; OFF == stock)
   (set! (-> obj recharged-grass-near-dist) 30.0) ;; POLISH#4 default near-blade view distance (m)

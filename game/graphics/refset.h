@@ -130,4 +130,15 @@ bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h)
 // Rend vrai si c'etait notre capture — l'appelant n'ecrit alors pas le PNG de capture d'ecran.
 bool consume_capture(int w, int h, const void* rgba);
 
+// ── lighting-hdr : quatre des six verdicts de `hdr_tonemap_defects` ─────────────────────────
+// Convention identique pour les quatre : 0 = tenu, 1 = defaut. Il n'y a PAS de valeur « pas
+// mesurable » : une grandeur qu'on n'a pas pu mesurer est un defaut. Sinon une course
+// interrompue rendrait quatre zeros et fermerait la porte sans avoir rien prouve.
+// Le jeu de reference des verdicts 1 et 2 est ORIGINE-LUMIERE (master ON, eclairage OFF) : la
+// configuration que l'owner joue, et celle qu'aucun des deux jeux d'origine n'exercait.
+int verdict_saturation();          // 1 — pixels satures RECHARGED <= ORIGINE-LUMIERE
+int verdict_highlight_contrast();  // 2 — contraste du decile le plus lumineux >= 95 %
+int verdict_master_off_bitexact(); // 4 — master OFF identique au bit a ORIGINE-TOTAL
+int verdict_origine_lumiere_set(); // 5 — le jeu ORIGINE-LUMIERE existe et sert de base
+
 }  // namespace refset

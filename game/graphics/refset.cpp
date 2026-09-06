@@ -27,13 +27,15 @@ namespace refset {
 namespace {
 
 // ── le plan ─────────────────────────────────────────────────────────────────────────────────
-// Deux jeux x huit creneaux horaires. Les huit heures sont les huit creneaux de
+// TROIS jeux x huit creneaux horaires. Les huit heures sont les huit creneaux de
 // `mood-lights-table` (SPEC §3.1) espaces de trois heures : c'est la grille sur laquelle la
 // donnee de Naughty Dog est art-dirigee.
 constexpr int kHours[8] = {0, 3, 6, 9, 12, 15, 18, 21};
 
 struct Step {
-  int phase;  // 1 = ORIGINE (master OFF), 2 = RECHARGED (master ON, prereglage fige)
+  // 1 = ORIGINE-TOTAL (master OFF) ; 2 = RECHARGED (master ON + eclairage ON, prereglage fige) ;
+  // 3 = ORIGINE-LUMIERE (master ON, eclairage OFF) — la configuration que le joueur LANCE.
+  int phase;
   int hour;
 };
 
@@ -51,8 +53,14 @@ constexpr int kShotH = 180;
 std::mutex g_mutex;
 
 int g_mode = 0;  // 0 = eteint, 1 = capture, 2 = replay
-std::string g_dir = ".autoport/refset";
+// lighting-hdr : le dossier par defaut DIFFERE par plateforme, et ce n'est pas une precaution
+// de style. Les references x86 sont re-rendues en 320x180 en resolution interne ; celles de
+// l'appareil sont un sous-echantillonnage d'un tampon 4:3. Comparer les unes aux autres est faux
+// PAR CONSTRUCTION. On rend donc le melange impossible au point de PRODUCTION plutot que
+// detectable au point de controle : les deux familles ne portent pas le meme nom.
+std::string g_dir = ".autoport/refset";  // Android : rendu ABSOLU a l'init, voir `enabled()`
 
+std::vector<int> g_phases;  // lighting-hdr : les phases que CE plan execute
 std::vector<Step> g_steps;
 size_t g_cur = 0;  // etape en cours
 bool g_finished = false;
@@ -103,8 +111,9 @@ uint64_t g_diffpx = 0;
 // RECHARGED et une derive de la camera qui touche les deux rendent le meme nombre. Les items
 // de la refonte doivent pouvoir citer les deux separement (SPEC §7.2, item 1 :
 // `refpix_maxdiff_origine` et `refpix_maxdiff_recharged` sont sa condition de sortie).
-uint64_t g_maxdiff_phase[3] = {0, 0, 0};
-uint64_t g_compared_phase[3] = {0, 0, 0};
+// lighting-hdr : TROIS jeux desormais (SPEC §7.3). Indices 1..3, la case 0 n'est pas utilisee.
+uint64_t g_maxdiff_phase[4] = {0, 0, 0, 0};
+uint64_t g_compared_phase[4] = {0, 0, 0, 0};
 int64_t g_frame_slip_max = 0;
 int64_t g_frame_slip_min = 1 << 20;
 // LE REGISTRE DE REJEUX. `refset_replay_flaky` compare des COURSES, pas des images : il ne peut
@@ -112,8 +121,15 @@ int64_t g_frame_slip_min = 1 << 20;
 // le verdict qu'il en lit. Tant qu'il n'a pas ete ecrit, `publish_state` publie la sentinelle.
 bool g_flaky_done = false;
 
+// lighting-hdr : le TROISIEME jeu, ORIGINE-LUMIERE (SPEC §0.2, §7.3). Il existe parce que ni
+// ORIGINE-TOTAL ni RECHARGED n'exercaient la configuration que le joueur LANCE : master ON,
+// eclairage de la refonte OFF. Deux bras verts, la condition absente — c'est exactement la ou
+// l'owner a trouve les blancs brules le 2026-09-06.
 const char* set_name(int phase) {
-  return phase == 1 ? "origine" : "recharged";
+  if (phase == 1) {
+    return "origine";
+  }
+  return phase == 2 ? "recharged" : "origine-lumiere";
 }
 
 // `setenv` n'existe pas sur MSVC ; le seul appelant est ce module.
@@ -143,6 +159,99 @@ bool read_knob(const char* env, const char* prop, char* out, size_t cap) {
 #endif
   return false;
 }
+
+// ── lighting-hdr : les grandeurs des verdicts 1, 2 et 5 ─────────────────────────────────────
+// Elles se mesurent SUR CE QUI EST DESSINE (le tampon relu), jamais sur une table source, et
+// elles sont ENTIERES de bout en bout : un arrondi flottant dont le mode depend du compilateur
+// rendrait deux courses du meme binaire non comparables, et c'est exactement la classe de
+// defaut que refset-replay-stable vient de fermer.
+// Le jeu de REFERENCE de ces trois verdicts est ORIGINE-LUMIERE (phase 3) : la configuration
+// que l'owner joue. Comparer RECHARGED a ORIGINE-TOTAL melangerait l'eclairage avec les
+// modeles HD, l'herbe et les textures.
+struct StepStats {
+  bool measured = false;
+  uint64_t px = 0;           // pixels examines
+  uint64_t sat_px = 0;       // au moins un canal a 255 — la part qui a perdu toute gradation
+  uint64_t sat_white_px = 0; // les TROIS canaux a 255 — le « blanc brule » que l'owner decrit
+  uint64_t contrast_x1000 = 0;  // contraste local moyen du decile le plus lumineux
+  uint64_t decile_px = 0;    // combien de pixels ce decile contenait
+};
+StepStats g_stats[4][8];  // [phase 1..3][index de creneau 0..7]
+
+int hour_index(int hour) {
+  for (int i = 0; i < 8; i++) {
+    if (kHours[i] == hour) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Luminance entiere en 0..255, ponderation Rec.601 en virgule fixe.
+inline uint32_t luma(const uint8_t* p) {
+  return (uint32_t)((77u * p[0] + 150u * p[1] + 29u * p[2]) >> 8);
+}
+
+void measure_step(int phase, int hour, const uint8_t* px, int w, int h) {
+  const int hi = hour_index(hour);
+  if (phase < 1 || phase > 3 || hi < 0 || w < 3 || h < 3) {
+    return;
+  }
+  StepStats st;
+  const int64_t n = (int64_t)w * h;
+  st.px = (uint64_t)n;
+
+  // Saturation, et histogramme de luminance pour trouver le decile.
+  uint64_t hist[256] = {0};
+  for (int64_t i = 0; i < n; i++) {
+    const uint8_t* p = px + i * 4;
+    if (p[0] == 255 || p[1] == 255 || p[2] == 255) {
+      st.sat_px++;
+      if (p[0] == 255 && p[1] == 255 && p[2] == 255) {
+        st.sat_white_px++;
+      }
+    }
+    hist[luma(p)]++;
+  }
+
+  // Le seuil du decile le plus lumineux : le plus petit T tel que #{L >= T} <= n/10. On garde
+  // le T juste EN DESSOUS, pour que le decile contienne au moins n/10 pixels.
+  const uint64_t want = (uint64_t)(n / 10);
+  uint64_t acc = 0;
+  int thr = 255;
+  for (int v = 255; v >= 0; v--) {
+    acc += hist[v];
+    if (acc >= want) {
+      thr = v;
+      break;
+    }
+  }
+
+  // Contraste local : gradient de Manhattan sur le voisin droit et le voisin bas, moyenne sur
+  // les seuls pixels du decile. Une zone ecrasee a blanc plat rend zero — c'est precisement le
+  // detail que la courbe doit preserver.
+  uint64_t gsum = 0, gn = 0;
+  for (int y = 0; y + 1 < h; y++) {
+    for (int x = 0; x + 1 < w; x++) {
+      const uint8_t* p = px + ((int64_t)y * w + x) * 4;
+      const uint32_t l = luma(p);
+      if ((int)l < thr) {
+        continue;
+      }
+      const uint32_t lr = luma(px + ((int64_t)y * w + (x + 1)) * 4);
+      const uint32_t lb = luma(px + ((int64_t)(y + 1) * w + x) * 4);
+      gsum += (uint64_t)(l > lr ? l - lr : lr - l);
+      gsum += (uint64_t)(l > lb ? l - lb : lb - l);
+      gn++;
+    }
+  }
+  st.decile_px = gn;
+  st.contrast_x1000 = gn ? (gsum * 1000ull) / gn : 0ull;
+  st.measured = true;
+  g_stats[phase][hi] = st;
+}
+
+uint64_t read_capture_witness(int phase);  // defini plus bas, avec le temoin de capture
 
 void publish_state() {
   autoport_proof::publish_text("refset_mode", g_mode == 1 ? "capture" : "replay");
@@ -207,12 +316,47 @@ void publish_state() {
     }
     // Les deux jeux, separement, avec la MEME regle de sentinelle : une course qui n'est pas
     // allee au bout ne peut pas rendre un zero.
-    for (int ph = 1; ph <= 2; ph++) {
-      const char* key = ph == 1 ? "refpix_maxdiff_origine" : "refpix_maxdiff_recharged";
-      const char* nkey = ph == 1 ? "refpix_images_origine" : "refpix_images_recharged";
+    for (int ph = 1; ph <= 3; ph++) {
+      static const char* const kMax[4] = {"", "refpix_maxdiff_origine", "refpix_maxdiff_recharged",
+                                          "refpix_maxdiff_origine_lumiere"};
+      static const char* const kImg[4] = {"", "refpix_images_origine", "refpix_images_recharged",
+                                          "refpix_images_origine_lumiere"};
+      const char* key = kMax[ph];
+      const char* nkey = kImg[ph];
       autoport_proof::publish(key, gate >= 254 ? gate : g_maxdiff_phase[ph]);
       autoport_proof::publish(nkey, g_compared_phase[ph]);
     }
+    // lighting-hdr : les grandeurs BRUTES des verdicts 1 et 2, publiees a cote du verdict pour
+    // qu'un zero soit lisible. Un verdict sans son denominateur est une fausse constante.
+    uint64_t sat_r = 0, sat_o = 0, px_o = 0, worst_ratio = 1u << 30, meas = 0;
+    for (int i = 0; i < 8; i++) {
+      const StepStats& r = g_stats[2][i];
+      const StepStats& o = g_stats[3][i];
+      if (!r.measured || !o.measured) {
+        continue;
+      }
+      meas++;
+      sat_r += r.sat_px;
+      sat_o += o.sat_px;
+      px_o += o.px;
+      const uint64_t ratio = o.contrast_x1000
+                                 ? (r.contrast_x1000 * 100ull) / o.contrast_x1000
+                                 : (r.contrast_x1000 ? 1000ull : 100ull);
+      if (ratio < worst_ratio) {
+        worst_ratio = ratio;
+      }
+    }
+    autoport_proof::publish("hdr_refset_hours_paired", meas);
+    autoport_proof::publish("hdr_sat_px_recharged", sat_r);
+    autoport_proof::publish("hdr_sat_px_origine_lumiere", sat_o);
+    autoport_proof::publish("hdr_sat_denom_px", px_o);
+    autoport_proof::publish("hdr_hl_contrast_worst_pct", meas ? worst_ratio : 0);
+    // Le temoin de capture d'ORIGINE-TOTAL, publie pour que le verdict 4 soit LISIBLE : s'il
+    // egale `refset_bin_fp`, la reference a ete capturee par ce binaire meme et le verdict est
+    // rouge par construction, quel que soit le maxdiff.
+    char wt[32];
+    std::snprintf(wt, sizeof(wt), "%016llx", (unsigned long long)read_capture_witness(1));
+    autoport_proof::publish_text("refset_witness_origine", wt);
   }
   // En mode capture on ne publie AUCUNE valeur de porte : une course qui fabrique ses propres
   // references ne doit pas pouvoir la franchir.
@@ -228,12 +372,22 @@ void apply_step_config(const Step& s) {
   // directement dans `g_global_settings` ne tiendrait pas : GOAL repousse `recharged-master?`
   // a chaque image (hud-classes-pc.gc:1747). Les deux variables sont posees a leur longueur
   // definitive des l'initialisation, donc chaque bascule n'est qu'un `strcpy` en place.
+  // lighting-hdr : `OG_LIGHTING` epingle le maitre de la refonte lumiere (gfx.h
+  // `recharged_lighting_active`). C'est LUI qui separe RECHARGED d'ORIGINE-LUMIERE ; le master
+  // les separe toutes les deux d'ORIGINE-TOTAL. `OG_RT_LIGHT` ne choisissait qu'un composite.
   if (s.phase == 1) {
-    put_env("OG_RECHARGED", "0");
+    put_env("OG_RECHARGED", "0");  // ORIGINE-TOTAL : le jeu de Naughty Dog entier
+    put_env("OG_LIGHTING", "0");
     put_env("OG_RT_LIGHT", "0");
-  } else {
-    put_env("OG_RECHARGED", "1");
+  } else if (s.phase == 2) {
+    put_env("OG_RECHARGED", "1");  // RECHARGED : master ON + refonte lumiere ON
+    put_env("OG_LIGHTING", "1");
     put_env("OG_RT_LIGHT", "1");
+  } else {
+    // ORIGINE-LUMIERE : tout le Recharged SAUF l'eclairage. La config que l'owner joue.
+    put_env("OG_RECHARGED", "1");
+    put_env("OG_LIGHTING", "0");
+    put_env("OG_RT_LIGHT", "0");
   }
   g_tod_x100 = s.hour * 100;
   lighting_census::set_phase(s.phase);
@@ -305,7 +459,7 @@ uint64_t hash_file(const std::string& path) {
 // references differentes.
 uint64_t refs_fingerprint() {
   uint64_t h = 1469598103934665603ull;
-  for (int phase = 1; phase <= 2; phase++) {
+  for (int phase : g_phases) {
     for (int hr : kHours) {
       char nm[64];
       std::snprintf(nm, sizeof(nm), "%s/h%02d", set_name(phase), hr);
@@ -382,13 +536,49 @@ uint64_t data_fingerprint() {
   return h ? h : 1;
 }
 
+// lighting-hdr : l'empreinte du binaire COURANT. Extraite de `publish_flaky` pour que le
+// verdict 4 puisse s'en servir aussi.
+uint64_t self_fingerprint() {
+#if defined(__linux__)
+  return hash_file("/proc/self/exe");
+#else
+  return 0;
+#endif
+}
+
+// ── LE TEMOIN DE CAPTURE, ET POURQUOI IL EXISTE ─────────────────────────────────────────────
+// Le verdict 4 affirme « master eteint, sortie identique au bit a ORIGINE-TOTAL ». Si la
+// reference a ete capturee par LE MEME binaire que le rejeu, cette affirmation se compare a
+// elle-meme : elle mesure la stabilite, pas l'identite avec le jeu d'origine, et elle rendrait
+// zero meme si le changement avait tout casse. C'est la faute « porte calculee sur ses propres
+// variables », et elle ne doit pas dependre de la discipline de celui qui lance la course.
+// On ecrit donc l'empreinte du binaire qui capture, a cote des images, et le verdict REFUSE de
+// passer au vert quand elle est celle du binaire qui rejoue.
+std::string witness_path(int phase) {
+  return g_dir + "/" + set_name(phase) + "/captured-by.txt";
+}
+
+void write_capture_witness(int phase) {
+  if (FILE* f = std::fopen(witness_path(phase).c_str(), "w")) {
+    std::fprintf(f, "%016llx\n", (unsigned long long)self_fingerprint());
+    std::fclose(f);
+  }
+}
+
+uint64_t read_capture_witness(int phase) {
+  uint64_t v = 0;
+  if (FILE* f = std::fopen(witness_path(phase).c_str(), "r")) {
+    if (std::fscanf(f, "%llx", (unsigned long long*)&v) != 1) {
+      v = 0;
+    }
+    std::fclose(f);
+  }
+  return v;
+}
+
 void publish_flaky() {
   g_flaky_done = true;
-#if defined(__linux__)
-  const uint64_t bin = hash_file("/proc/self/exe");
-#else
-  const uint64_t bin = 0;
-#endif
+  const uint64_t bin = self_fingerprint();
   const uint64_t refs = refs_fingerprint();
   const uint64_t data = data_fingerprint();
   char t[32];
@@ -468,6 +658,25 @@ bool enabled() {
   } else {
     return false;
   }
+  // lighting-hdr : SUR ANDROID, LE DEFAUT DOIT ETRE ABSOLU, et ce n'est pas une preference.
+  // `g_dir` est relatif au CWD du processus, et ce CWD n'est jamais change sur Android : il est
+  // en LECTURE SEULE (gk_android_main.cpp:9429-9433 le documente deja pour les sauvegardes,
+  // d'ou son `setenv("HOME", files_dir)`). Avec le defaut relatif, la premiere chose que fait
+  // refset est `create_directories`, qui LANCE sur un systeme de fichiers en lecture seule —
+  // exception non rattrapee, donc `std::terminate` sur le fil GOAL, a l'init. Ce n'etait pas un
+  // rouge propre, c'etait un SIGABRT dont la cause ne ressemble pas a son symptome.
+  // Le nom differe aussi de celui du x86 : les deux familles d'images ne sont pas comparables
+  // (re-rendu 320x180 en resolution interne d'un cote, sous-echantillonnage 4:3 de l'autre), et
+  // on rend le melange impossible au point de PRODUCTION plutot que detectable plus tard.
+  // La valeur reste ecrasable, mais attention : le canal Android est une propriete systeme,
+  // donc plafonnee a PROP_VALUE_MAX (92 octets) — un chemin plus long serait tronque en silence.
+#if defined(__ANDROID__)
+  if (const char* home = std::getenv("HOME")) {
+    if (home[0]) {
+      g_dir = std::string(home) + "/.autoport/refset-device";
+    }
+  }
+#endif
   char d[512] = {0};
   if (read_knob("OG_REFSET_DIR", "debug.opengoal.refset.dir", d, sizeof(d))) {
     g_dir = d;
@@ -482,7 +691,28 @@ bool enabled() {
     }
   }
   fpng::fpng_init();
-  for (int phase = 1; phase <= 2; phase++) {
+  // lighting-hdr : quelles phases ce plan execute. `OG_REFSET_PHASES=1,2` ou `=3`, defaut les
+  // trois. Ca existe pour une raison precise : la reference ORIGINE-TOTAL du verdict 4 doit
+  // etre capturee par un binaire d'AVANT le changement d'eclairage, sinon le verdict se compare
+  // a lui-meme. Les phases se capturent donc separement, puis se rejouent ensemble.
+  {
+    char pv[64] = {0};
+    if (read_knob("OG_REFSET_PHASES", "debug.opengoal.refset.phases", pv, sizeof(pv))) {
+      for (const char* c = pv; *c; c++) {
+        if (*c >= '1' && *c <= '3') {
+          const int ph = *c - '0';
+          if (std::find(g_phases.begin(), g_phases.end(), ph) == g_phases.end()) {
+            g_phases.push_back(ph);
+          }
+        }
+      }
+    }
+    if (g_phases.empty()) {
+      g_phases = {1, 2, 3};
+    }
+    std::sort(g_phases.begin(), g_phases.end());
+  }
+  for (int phase : g_phases) {
     for (int h : kHours) {
       g_steps.push_back(Step{phase, h});
     }
@@ -491,8 +721,10 @@ bool enabled() {
   // pour la premiere fois : ainsi chaque bascule ulterieure reecrit un unique octet en place.
   put_env("OG_RECHARGED", "0");
   put_env("OG_RT_LIGHT", "0");
+  put_env("OG_LIGHTING", "0");
   file_util::create_dir_if_needed(g_dir + "/origine");
   file_util::create_dir_if_needed(g_dir + "/recharged");
+  file_util::create_dir_if_needed(g_dir + "/origine-lumiere");
   std::printf("REFSET mode=%s dir=%s steps=%d res=%dx%d\n", g_mode == 1 ? "capture" : "replay",
               g_dir.c_str(), (int)g_steps.size(), kShotW, kShotH);
   std::fflush(stdout);
@@ -662,10 +894,14 @@ bool consume_capture(int w, int h, const void* rgba) {
   const std::string path = image_path(g_capture_name);
   const int n_px = w * h;
   const uint8_t* cur = (const uint8_t*)rgba;
+  // lighting-hdr : on mesure AVANT de comparer ou d'ecrire, dans les deux modes. Les
+  // verdicts 1 et 2 portent sur ce que le moteur vient de dessiner, pas sur la reference.
+  measure_step(g_steps[g_cur].phase, g_steps[g_cur].hour, cur, w, h);
 
   if (g_mode == 1) {
     file_util::write_rgba_png(path, const_cast<void*>(rgba), w, h);
     g_captured++;
+    write_capture_witness(g_steps[g_cur].phase);
     std::printf("REFSET cap %s step=%d/%d\n", g_capture_name.c_str(), (int)g_cur,
                 (int)g_steps.size());
     std::fflush(stdout);
@@ -741,6 +977,87 @@ bool consume_capture(int w, int h, const void* rgba) {
   g_cap = kCapDone;
   publish_state();
   return true;
+}
+
+
+// ── lighting-hdr : quatre des six verdicts de `hdr_tonemap_defects` ─────────────────────────
+// Convention, la meme partout : 0 = tenu, 1 = defaut. JAMAIS de troisieme valeur « pas
+// mesurable » — une grandeur qu'on n'a pas pu mesurer est un defaut, pas un silence. Sans cette
+// regle, une course qui n'irait pas au bout rendrait un zero et fermerait la porte pour rien.
+
+// Verdict 4 — master eteint, sortie identique au bit a ORIGINE-TOTAL.
+int verdict_master_off_bitexact() {
+  const bool clean = !g_missing && !g_size_bad && !g_decode_bad;
+  if (g_mode != 2 || !clean || g_compared_phase[1] != 8 || g_maxdiff_phase[1] != 0) {
+    return 1;
+  }
+  // La reference doit venir d'un AUTRE binaire que celui-ci — voir le temoin de capture.
+  const uint64_t w = read_capture_witness(1);
+  if (w == 0 || w == self_fingerprint()) {
+    return 1;
+  }
+  return 0;
+}
+
+// Verdict 5 — le jeu ORIGINE-LUMIERE existe ET sert de base aux verdicts 1-3. « Exister » ne
+// suffit pas : il faut que ses huit creneaux aient ete compares ET mesures, sinon les verdicts
+// 1 et 2 s'appuieraient sur un jeu partiel sans que rien ne le dise.
+int verdict_origine_lumiere_set() {
+  if (g_mode != 2 || g_compared_phase[3] != 8) {
+    return 1;
+  }
+  for (int i = 0; i < 8; i++) {
+    if (!g_stats[3][i].measured) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+// Verdict 1 — la part de pixels satures de RECHARGED ne depasse celle d'ORIGINE-LUMIERE sur
+// AUCUN creneau. Le maximum par creneau, pas la moyenne : une moyenne laisserait un creneau
+// brule se faire compenser par sept creneaux sombres.
+int verdict_saturation() {
+  if (g_mode != 2) {
+    return 1;
+  }
+  int paired = 0;
+  for (int i = 0; i < 8; i++) {
+    const StepStats& r = g_stats[2][i];
+    const StepStats& o = g_stats[3][i];
+    if (!r.measured || !o.measured || r.px != o.px) {
+      return 1;
+    }
+    paired++;
+    if (r.sat_px > o.sat_px) {
+      return 1;
+    }
+  }
+  return paired == 8 ? 0 : 1;
+}
+
+// Verdict 2 — le contraste local du decile le plus lumineux vaut au moins 95 % de celui
+// d'ORIGINE-LUMIERE, sur CHAQUE creneau. C'est la mesure de « la courbe preserve le detail » :
+// une zone ecrasee a blanc plat a un gradient local nul.
+int verdict_highlight_contrast() {
+  if (g_mode != 2) {
+    return 1;
+  }
+  for (int i = 0; i < 8; i++) {
+    const StepStats& r = g_stats[2][i];
+    const StepStats& o = g_stats[3][i];
+    if (!r.measured || !o.measured) {
+      return 1;
+    }
+    // o == 0 : la reference n'a aucun detail dans son decile ; on ne peut pas en perdre.
+    if (o.contrast_x1000 == 0) {
+      continue;
+    }
+    if (r.contrast_x1000 * 100ull < 95ull * o.contrast_x1000) {
+      return 1;
+    }
+  }
+  return 0;
 }
 
 }  // namespace refset

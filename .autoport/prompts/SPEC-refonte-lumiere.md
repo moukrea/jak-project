@@ -31,8 +31,10 @@ Un chiffre sans marqueur est une erreur de rédaction : signale-la.
 | **direct** | Lumière qui arrive d'une source identifiée, occultable par une ombre. |
 | **indirect** | Tout le reste : rebond, ciel, occlusion. Occultable par l'AO, jamais par une ombre. |
 | **régime** | Classe de comportement d'un créneau : clé dure, dôme couvert, ambiante dominante, source basse, ambiante seule. |
-| **ORIGINE** | Le rendu avec `recharged_master` = OFF. Doit rester bit-identique pour toujours. |
-| **RECHARGED** | Le rendu avec le master armé. |
+| **Éclairage Rechargé** | `recharged_lighting`. **LE maître de cette refonte**, et le seul. Toutes les sous-options d'éclairage vivent dessous. ON par défaut. |
+| **ORIGINE-LUMIÈRE** | `recharged_lighting` OFF, master ON. L'éclairage de Naughty Dog, **tout le reste du Recharged conservé** (modèles HD, herbe, textures, HUD). C'est le retour à l'original qu'un JOUEUR veut. |
+| **ORIGINE-TOTAL** | `recharged_master` OFF. Le jeu d'origine entier. C'est l'A/B global. |
+| **RECHARGED** | master ON + `recharged_lighting` ON. |
 | **palette A** | La palette `PackedTimeOfDay` d'origine, dans le fr3. Jamais réécrite. |
 | **palette B** | La palette dé-éclairée, dans le compagnon `.lightbake`. |
 | **compagnon** | Fichier `<niveau>.lightbake` posé à côté du `.fr3`, sur le patron de `.meshweld`. |
@@ -82,9 +84,19 @@ Cette spec cite ces fichiers ; les lire avant d'implémenter n'est pas optionnel
 
 **[C] Traduction en contraintes vérifiables :**
 
-1. `recharged_master` = OFF ⇒ chaque pixel est identique à un build sans aucune de nos couches.
-   Pas « proche » : **identique**. Porte : `refset_replay_maxdiff == 0` sur le jeu ORIGINE,
-   rejoué à chaque fermeture d'item (§7.3).
+1. **Deux gestes d'extinction, tous deux légitimes, et il ne faut pas les confondre** (owner,
+   2026-09-06) :
+
+   | Geste | Ce qui s'éteint | Ce qui reste |
+   |---|---|---|
+   | `recharged_lighting` OFF | **toute la refonte lumière** | modèles HD, herbe, textures, HUD, polices — tout le reste du Recharged |
+   | `recharged_master` OFF | **tout le projet Recharged** | rien : c'est le jeu de Naughty Dog |
+   | une sous-option OFF | cette couche seule | le reste de la refonte |
+
+   Le master n'est PAS l'interrupteur de cette refonte. L'éteindre pour retrouver l'éclairage
+   d'origine coûte au joueur ses modèles HD, son herbe et ses textures : ce n'est pas un choix
+   qu'on doit lui imposer. Chacun des trois gestes rend un pixel identique à un build sans la
+   couche concernée. Pas « proche » : **identique**. Portes en §7.3.
 2. **Aucune donnée d'origine n'est réécrite.** Le bake écrit un compagnon **à côté** ; la
    palette A reste dans le fr3, octet pour octet. Un item qui modifierait la palette A échoue.
 3. **Chaque ajout a son propre interrupteur**, et son OFF est bit-identique à son absence. Un
@@ -596,7 +608,7 @@ uniforme. Le constat de l'owner est exact au sens littéral.
 **[C]** Deux graphes, sélectionnés par `Gfx::recharged_master_active()` au sommet de la frame.
 
 ```
-                       ┌── master OFF ──►  GRAPHE ORIGINE  (inchangé, LDR, RGBA8)
+     ┌── master OFF, ou `recharged_lighting` OFF ──►  GRAPHE ORIGINE (inchangé, LDR, RGBA8)
                        │                   sky · tfrag · tie · shrub · merc · alpha ·
   début de frame ──────┤                   SHADOW(47) aplat stencil · sprite · UI
                        │                   AUCUNE de nos passes n'est créée
@@ -787,9 +799,16 @@ boot, mesuré, avec cache disque.
 
 ### 4.5 HDR, exposition, tone map
 
-**[C]** Décision structurante : **le mode ORIGINE ne passe pas par la chaîne HDR du tout.**
-Master OFF ⇒ FBO `RGBA8`, pas de tone map, exactement le chemin d'aujourd'hui. C'est ce qui rend
-l'équivalence bit-à-bit atteignable sans discuter de courbe.
+**[C]** Décision structurante : **ni ORIGINE-TOTAL ni ORIGINE-LUMIÈRE ne passent par la chaîne
+HDR.** `recharged_master` OFF **ou** `recharged_lighting` OFF ⇒ FBO `RGBA8`, pas de tone map,
+exactement le chemin d'aujourd'hui. C'est ce qui rend l'équivalence bit-à-bit atteignable sans
+discuter de courbe.
+
+**[C] Le HDR est gardé par l'éclairage, pas par le master.** La forme correcte est
+`recharged_active(recharged_hdr) && recharged_active(recharged_lighting)` — ou, mieux, un helper
+`lighting_active(sous_drapeau)` qui compose les trois niveaux une seule fois, sur le modèle de
+`Gfx::recharged_active()`. Un sous-réglage d'éclairage qui ne consulte que le master est un
+défaut : c'est celui que l'owner a trouvé le 2026-09-06.
 
 Master ON :
 
@@ -1056,14 +1075,16 @@ ses pièces (GGX, Smith height-correlated, Fresnel plafonné par la rugosité, s
 
 **[C]** Quatre mécanismes indépendants, pas un seul :
 
-1. **Graphe séparé.** Master OFF ⇒ aucune de nos passes n'est créée, le FBO est `RGBA8`, aucun
-   tone map. Le chemin est celui d'aujourd'hui, littéralement.
+1. **Graphe séparé, sur DEUX portes.** `recharged_master` OFF **ou** `recharged_lighting` OFF ⇒
+   aucune de nos passes n'est créée, le FBO est `RGBA8`, aucun tone map. Le chemin est celui
+   d'aujourd'hui, littéralement. Un sous-réglage d'éclairage qui ne consulte que le master laisse
+   la refonte tourner alors que le joueur l'a éteinte — c'est le défaut du 2026-09-06.
 2. **Palette A intacte.** Le compagnon ajoute la palette B ; le fr3 n'est jamais réécrit. Une
    porte compare les octets.
 3. **`Gfx::recharged_active()` unique.** Aucun consommateur ne lit un drapeau de fonctionnalité
    directement (règle déjà en place **[M]**).
-4. **Garde de non-régression rejouée** à chaque fermeture d'item, sur les deux jeux de référence
-   (§7.3).
+4. **Garde de non-régression rejouée** à chaque fermeture d'item, sur les **trois** jeux de
+   référence (§7.3), dont ORIGINE-LUMIÈRE.
 
 ---
 
@@ -1402,6 +1423,7 @@ consommateur                         Gfx::recharged_active(gs.recharged_rt_light
 
 | Nouveau | Type | Source GOAL |
 |---|---|---|
+| `pc-set-recharged-lighting!` | int 0/1 | **le maître de la refonte** — remplace `pc-set-rt-light!` |
 | `pc-set-light-preset!` | int 0..4 | l'échelle Très bas → Ultra |
 | `pc-set-light-tier!` | int 0..2 | palier de shader (déduit du préréglage, écrasable) |
 | `pc-set-flicker!` | 8 × int (%) | `(-> *time-of-day-context* moods 0 times i w)` par canal de vacillement |
@@ -1426,11 +1448,38 @@ la cause 3.
 **[C]** Un tableau, parce que « tweakables et desactivables individuellement » est une exigence
 et pas une intention.
 
+**[C] La hiérarchie, décidée le 2026-09-06.** Elle a UNE racine pour cette refonte, et ce n'est
+pas le master :
+
+```
+Recharged  (master, existant)              — TOUT le projet Recharged
+├── ÉCLAIRAGE RECHARGÉ  (recharged_lighting, NOUVEAU, ON par défaut)
+│   ├── Ombres portées            (cascades · contact · 2e astre)
+│   ├── Occlusion ambiante
+│   ├── Lumières locales          (+ vacillement)
+│   ├── Sondes d'irradiance
+│   ├── Source d'environnement
+│   ├── HDR + tone map
+│   └── Matières PBR              (+ relief · speculaire · displacement · matieres modernes)
+├── Modèles HD · Herbe · Textures rechargées · HUD · Polices · Menus
+```
+
+**[C] `recharged_rt_light_enable` (« Realtime Lighting ») est RETIRÉ.** Son sens réel est
+« prendre le composite A/B plutôt que C/E » — un artefact d'implémentation qui cesse d'exister
+dès qu'il n'y a qu'un modèle. Le garder perpétuerait la confusion à cinq chemins que cette
+refonte supprime, et c'est déjà ce qui a trompé l'owner sur le HDR le 2026-09-06 : il a éteint
+« Realtime Lighting » et le HDR a continué de tourner. Sa ligne de menu est **remplacée** par
+« Éclairage Rechargé ».
+
+**[C] Les matières PBR passent SOUS l'éclairage.** C'est la règle 4 appliquée à l'interface : une
+matière sans lumière n'a rien à réfléchir, donc « Matières PBR ON + Éclairage Rechargé OFF » est
+une combinaison qui n'a pas de sens et qui ne doit pas être proposée.
+
 | Rubrique | Réglage | Valeurs | Défaut | Interrupteur individuel |
 |---|---|---|---|---|
 | Master | **Rendu** | Original / Recharged | Recharged | c'est lui |
 | Master | Préréglage | Très bas · Bas · Moyen · Haut · Ultra · Personnalisé | auto | — |
-| Éclairage | Éclairage temps réel | on/off | on | oui |
+| Éclairage | **ÉCLAIRAGE RECHARGÉ** | on/off — **off = l'éclairage d'origine, on = notre refonte** | **on** | **c'est le maître de la refonte, et une LIGNE DE MENU, pas un raccourci (§6.4)** |
 | Éclairage | Intensité du soleil | 0..2 | 1,0 | — |
 | Éclairage | Intensité de la lune verte | 0..2 (× la valeur dérivée de la table) | 1,0 | — |
 | Éclairage | Dosage du direct (« Fidélité ») | 0..1 | 1,0 | **0 = le jeu d'origine, prouvé** |
@@ -1501,18 +1550,102 @@ palier_de_depart :
 
 **[O] 2026-09-03 :** « ce remake pourra à tout moment passer du rendu "original" au rendu
 "recharged" d'une simple combinaison de touches ».
+**[O] 2026-09-06 :** « sur mobile on peut simplement avoir un bouton dédié, à la manette on
+pourrait imaginer le combo L3+R3 » — puis, sur la cible : « le bouton de l'overlay tactile c'est
+pour le master toggle des settings rechargés, pas juste l'éclairage ! Et l'éclairage doit avoir
+son entrée, off c'est d'origine, on c'est notre refonte » — puis, sur la collision : « Et R3 pour
+le navigateur de mesh... On peut dégager on s'en fiche de ce raccourcis ».
 
-**[C]**
+#### La cible : `recharged_master`, et rien d'autre
 
-* Bureau : une touche par défaut (à choisir, hors conflit avec les raccourcis existants) ;
-  remappable.
-* Manette : une combinaison qui ne peut pas être jouée par accident (par exemple les deux
-  gâchettes plus une direction du pad), armée seulement hors menu.
-* Effet : bascule `recharged_master`, **persiste** dans les réglages, et affiche une cartouche
-  d'une seconde nommant le mode actif — parce qu'un joueur qui bascule par erreur doit savoir
-  pourquoi son image a changé.
+Le geste bascule le master. Il n'est pas remappable sur l'éclairage : c'est l'A/B du projet
+Recharged entier. **L'éclairage a sa propre entrée de réglages** (§6.2), OFF = l'éclairage
+d'origine, ON = notre refonte — une ligne de menu, pas un raccourci.
+
+| Mécanisme | Cible | Où |
+|---|---|---|
+| Le geste | `recharged_master` | en jeu, hors menu |
+| La ligne « ÉCLAIRAGE RECHARGÉ » | `recharged_lighting` | Options > Recharged |
+
+> **⚠ J'avais tranché cette cible à la place de l'owner, dans le mauvais sens.** En révision 3
+> j'avais écrit que le geste bascule `recharged_lighting`. Il n'avait répondu que sur le GESTE ;
+> j'ai comblé le silence au lieu de le laisser ouvert.
+
+#### Le geste
+
+| Plateforme | Geste | État |
+|---|---|---|
+| Mobile / tactile | **un bouton dédié** dans l'overlay | **aucun conflit.** L'overlay porte déjà des boutons ajoutés ; celui-ci est masquable comme les autres. |
+| Manette | **L3 + R3** | **retenu**, au prix nommé ci-dessous |
+| Bureau (clavier) | une touche par défaut, remappable | hors conflit avec les raccourcis existants |
+
+#### Le prix de L3+R3, mesuré
+
+**[M] Aucun bouton de la manette n'est libre en jak1** : `l3` 25 sites, `r3` 13, `x` 41, `up` 36,
+`down` 34, `circle` 30, `left`/`right` 32, `r1`/`r2` 25, `l1` 22, `triangle`/`square` 21,
+`start` 12, `select` 7. Un geste dédié est donc forcément un accord, et il coûte quelque chose.
+
+**Deux** conditions, et le chantier les livre ensemble :
+
+1. **Le raccourci R3/L3 du navigateur de mesh part.** `mesh-browser-pc.gc:1939` (R3 seul en jeu →
+   caméra libre), `:1946`, `:1621` (L3 dans le navigateur), et le bouton tactile « CAM » mappé sur
+   `RIGHT_STICK` (`TouchOverlayView.java:268`). **[O]** l'owner l'a autorisé le 2026-09-06.
+2. **L'accord s'écrit modificateur + touche, et il consomme R3.**
+   `(and (cpad-hold? 0 l3) (cpad-pressed? 0 r3))` puis `(cpad-clear! 0 r3)`. Deux raisons :
+   un appui simultané sur la même image n'est pas fiable ; et **[M]** `drawable.gc:1274` teste
+   `(cpad-pressed? 0 select r3 start) ;; push pause` — **R3 met le jeu en pause**.
+   **[M] L'ordonnancement le permet** : ce test vit dans `determine-pause-mode`, appelé depuis
+   `display-sync` (`drawable.gc:1348`) **après l'envoi de la chaîne DMA**, donc à la toute fin de
+   l'image. Un gestionnaire placé là où `pc-set-*` tourne déjà s'exécute avant lui. `cpad-clear!`
+   est le patron établi de l'arbre (60+ sites, dont `mesh-browser-pc.gc:1940` sur R3 précisément).
+> **[M] Il n'y a PAS de troisième condition — vérifié le 2026-09-06, signalé par le superviseur.**
+> J'avais mis « la bascule des infos d'acteur sur L3 se re-clave » en condition 3. Faux : le site
+> `pckernel-common.gc:1134` est enfermé dans `(when *debug-segment*` (ligne 1126, sous l'en-tête
+> `;;;; entity debugging`), une forme **enveloppante** qui conditionne l'installation même du
+> `defmethod update-pad` de `entity-debug-inspect`. Et `*debug-segment*` est **faux dans le build
+> livré, sur les deux plateformes** :
+>
+> | Plateforme | Lancement | Chaîne | `DebugSegment` |
+> |---|---|---|---|
+> | Android | `gk_android_main.cpp:9552` pousse **`-boot`** | `InitParms` : `-boot` ⇒ 0 | **0** |
+> | Bureau | `./gk --game jak1` — `game_args` ne porte que le passe-plat après `--`, donc vide | `arg_ptrs = {""}` ⇒ `argc == 1` ⇒ 0 | **0** |
+>
+> Le `defmethod` n'est donc jamais installé et la lecture de L3 n'existe pas. Reste une note, pas
+> une condition : un lancement de DÉVELOPPEMENT (`-debug`, ou le redémarrage après plantage qui
+> pousse `-boot -debug`, `main.cpp:712`) l'installe — un développeur qui utilise le raccourci
+> verrait l'overlay d'infos d'acteur clignoter. Ce n'est pas le build de l'owner.
+
+> **⚠ J'ai écrit « L3+R3 est impossible ». C'était faux, et c'est ma troisième erreur sur ce
+> point.** La collision avec la pause est réelle, mais elle se résout par l'ordre d'exécution et
+> `cpad-clear!`, deux mécanismes déjà en place dans l'arbre. Ce que je n'avais pas fait : lire
+> QUI appelle `determine-pause-mode`.
+
+#### Pourquoi pas L2+R2 (l'alternative que j'avais recommandée)
+
+**[M] Elle n'est pas plus propre, et sur un point elle est pire.** Mon recensement la donnait
+« jamais testée en paire » ; c'était faux, parce que GOAL écrit les deux touches en deux appels
+distincts joints par `and`, que mon motif ne voyait pas. Le superviseur a relevé l'erreur. Sites
+réels : `progress.gc:83/89/983/1034` et `progress-draw.gc:907` (derrière `*progress-cheat*`, à
+`#f` par défaut, `main.gc:1594`), `main.gc:1661` et `pckernel.gc:57` (quatre touches, debug et
+codes de triche) — et surtout **`hud.gc:43`, qui lit L2 maintenu SANS aucune garde** pour forcer
+le HUD à l'écran. Tenir L2+R2 ferait donc apparaître le HUD à chaque usage du raccourci : un
+effet de bord plus visible que l'overlay d'infos d'acteur du point 3.
+
+#### Dans les deux cas
+
+* Le geste **persiste** dans les réglages et affiche une **cartouche d'une seconde** nommant le
+  mode actif — un joueur qui bascule par erreur doit savoir pourquoi son image a changé.
+* Armé **hors menu seulement**, et jamais pendant une cinématique.
 * Le graphe de passes change à la frame suivante ; les FBO sont recréés paresseusement. La
   bascule ne doit **pas** recharger le niveau.
+
+#### Leçon de méthode, à appliquer aux prochains recensements de touches
+
+**Deux fois de suite mon motif de recherche a produit un `[M]` faux dans le même sens** —
+trop restrictif, donc « c'est libre ». GOAL écrit le symbole **nu** (`l3`, pas `'l3`) et répartit
+un accord sur **plusieurs appels** joints par `and`. La règle : chercher le symbole nu sans
+supposer la forme de l'expression, puis **lire les sites à la main**. C'est ce qui a sorti la
+pause, et c'est ce qui aurait dû sortir `hud.gc:43`.
 
 ---
 
@@ -1595,8 +1728,18 @@ suit la même logique pour ses interrupteurs (§1.1 règle 1 point 3, §6.2).
 
 | Jeu | Condition | Contenu | Règle |
 |---|---|---|---|
-| **ORIGINE** | `recharged_master` OFF | N vantages fixes × 8 heures canoniques × 4 niveaux | **ne bouge JAMAIS**, `maxdiff == 0` |
-| **RECHARGED** | master ON, préréglage figé | id. | ne bouge que si l'item le déclare, et seulement pour ce qu'il déclare |
+| **ORIGINE-TOTAL** | `recharged_master` OFF | N vantages fixes × 8 heures canoniques × 4 niveaux | **ne bouge JAMAIS**, `maxdiff == 0` |
+| **ORIGINE-LUMIÈRE** | master ON, `recharged_lighting` OFF | id. | **ne bouge JAMAIS**, `maxdiff == 0` |
+| **RECHARGED** | master ON + `recharged_lighting` ON, préréglage figé | id. | ne bouge que si l'item le déclare, et seulement pour ce qu'il déclare |
+
+**[C] Pourquoi le deuxième bras existe, et ce qu'il aurait attrapé.** À la révision 2 il n'y avait
+que deux jeux : master OFF, et master ON + éclairage temps réel ON. **Aucun** n'exerçait la
+configuration livrée (master ON + temps réel OFF), qui est celle qu'un joueur lance. C'est
+exactement là que l'owner a trouvé des blancs brûlés après `lighting-hdr` le 2026-09-06 : les
+composites hérités C et E appliquaient encore leur propre exposition et leur propre `pow(1/2.2)`,
+et la nouvelle chaîne HDR en ajoutait une seconde par-dessus. Deux bras verts, la condition
+absente. Le jeu ORIGINE-LUMIÈRE est le bras qui l'aurait vu, et c'est pour ça qu'il est
+obligatoire.
 
 **[C] Mécanique.** Une course déterministe : point de reprise nommé, heure forcée, entrée
 neutralisée, N images, écriture des images dans `reports/<id>/refset/`, comparaison par un script
@@ -1674,6 +1817,16 @@ condition de sortie, pas un bonus.
 
 **Fichiers.** `OpenGLRenderer.cpp` (`make_fbo`, `setup_frame`, `blit_display`, `do_pcrtc_effects`) ;
 nouveau `shaders/tonemap.{vert,frag}` ; retrait des six `pow(1/2.2)` et du genou `RT_KNEE`.
+
+**[C] AJOUT DU 2026-09-06 — cet item crée `recharged_lighting`.** C'est lui qui a exposé le
+problème et il touche déjà `gfx.h` et les menus. Il livre donc, en plus : le drapeau
+`recharged_lighting` (ON par défaut), son setter `pc-set-recharged-lighting!`, sa ligne de menu
+« ÉCLAIRAGE RECHARGÉ » **à la place** de « Realtime Lighting », le helper qui compose les trois
+niveaux, et le troisième jeu de référence ORIGINE-LUMIÈRE. Sa chaîne HDR se garde dessus.
+**Et les composites hérités C et E doivent céder leur `pow(1/2.2)` et leur `u_pbr_exposure` au
+site unique** : sans ça `tonemap_sites == 1` est vrai éclairage ON et vaut 3 éclairage OFF, ce qui
+est exactement le double traitement que l'owner voit. Ce changement bouge des pixels dans la
+configuration livrée : il se **déclare** et le jeu RECHARGED se recapture.
 
 **Porte.** `tonemap_sites == 1`. **`hits`** = images passées par le tone map.
 **Bras appareil.** Obligatoire : c'est là que le flottant rendu peut être refusé.
@@ -1791,6 +1944,10 @@ l'anti-fuite existe **dans la donnée**, pas seulement dans le shader).
 
 **Objet.** L'échelle de qualité, l'auto-détection, et la preuve que chaque OFF est propre.
 
+**[C] Ce qui a QUITTÉ cet item le 2026-09-06.** Le regroupement des réglages n'est plus différé
+ici : la hiérarchie est décidée (§6.2) et `recharged_lighting` est créé par l'item 2. Il ne reste
+à cet item que les paliers, l'auto-détection et la preuve d'orthogonalité de chaque OFF.
+
 **Fichiers.** `gfx.h` (les réglages) ; `kmachine.cpp` + `hud-classes-pc.gc` (les setters) ;
 `progress-pc.gc` (les lignes de menu) ; `GpuCaps.cpp` (les capacités ajoutées) ; le contrôleur
 d'échelle de rendu existant ; le raccourci de bascule.
@@ -1859,7 +2016,7 @@ volontairement pauvre et qu'un compagnon périmé qui passe est le pire des cas.
 
 | # | Risque | Gravité | Ce qui l'empêche |
 |---|---|---|---|
-| R1 | Perdre le rendu d'origine | **critique** | Graphe séparé, palette A intacte, `refset ORIGINE maxdiff == 0` rejoué à chaque item, `palette_a_bytes_changed == 0`. |
+| R1 | Perdre le rendu d'origine | **critique** | Graphe séparé sur DEUX portes (master, `recharged_lighting`), palette A intacte, `refset maxdiff == 0` sur ORIGINE-TOTAL **et** ORIGINE-LUMIÈRE rejoué à chaque item, `palette_a_bytes_changed == 0`. |
 | R2 | Dénaturer les teintes | **critique** | Résidu artistique mesuré et transporté ; `env_amb_tone_delta < ε` ; tone map « Fidélité » identité sous 1 ; `lighting_overrides.txt`. |
 | R3 | Un 26ᵉ round de calibration | haute | Les items 0-5 suppriment les quatre causes (5 chemins, pas de référence, prémisse fausse sur les astres, un seul régime étalon). Aucun réglage ne se discute avant `shade_variants == 1` et `tonemap_sites == 1`. |
 | R4 | Le bas de gamme décroche | haute | Budget mesuré par item sur trois classes ; paliers en programmes compilés ; le goulot du Redmi est le CPU, or ce plan déplace le travail vers le GPU. |
