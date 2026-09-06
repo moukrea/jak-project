@@ -79,6 +79,28 @@ bool g_finished = false;
 
 int g_tod_x100 = -1;
 
+// lighting-hdr essai 7 — LE FEU DE LA HUTTE A UNE SECONDE HORLOGE, ET ELLE BAT PAR IMAGE
+// DESSINEE. `update-mood-flames` (mood.gc:366) incremente un compteur prive de `flames-state`
+// une fois par appel, et son appelant `update-time-of-day` pend a `real-main-draw-hook`
+// (drawable.gc:839), DEHORS de la boucle de rattrapage : il tourne donc une fois par image
+// DESSINEE, pas par frame de logique. Le poids qu'il produit (`times[5].w`) part dans
+// `interp_time_of_day` et repeint tfrag, tie, shrub, hfrag et l'herbe autour du foyer — une
+// region large, douce, de signe alterne. C'est EXACTEMENT la classe de defaut deja fermee pour
+// les particules, le vent et l'herbe, et elle etait restee ouverte pour le mood.
+// Au passage : le rebouclage de l'etat consomme trois tirages de `rand-vu` (mood.gc:357-361),
+// donc un decalage d'images dessinees decale aussi le flux d'alea de TOUS les autres
+// consommateurs.
+// LE GESTE : sous refset, l'etat de flamme est repose a une valeur FIXE a chaque appel — meme
+// phase, meme hauteur, meme longueur pour les 24 photos. Le feu reste dessine et reste la haute
+// lumiere dominante ; on retire son scintillement de la comparaison, pas l'objet mesure. Hors
+// refset, `mood_flame_pin()` rend -1 et le chemin d'origine est intact.
+constexpr int kMoodPinTime = 3;  // 3/12 de periode : sin(45 deg) = 0,707, ni zero ni sommet
+uint64_t g_mood_calls = 0;       // appels a `mood_flame_pin()` depuis le debut de la course
+uint64_t g_mood_pins = 0;        // ... dont ceux qui ont reellement repose l'etat
+uint64_t g_mood_last_photo = 0;  // valeur de `g_mood_calls` a la photo precedente
+uint64_t g_mood_span_min = ~0ull;  // images DESSINEES entre deux photos : le minimum
+uint64_t g_mood_span_max = 0;      // ... et le maximum. min != max => la fuite etait vivante.
+
 // ── demande de capture, du fil GOAL vers le fil graphique ───────────────────────────────────
 // UN SEUL automate, et pas trois booleens. Avec trois booleens le fil graphique pouvait
 // re-armer la meme demande entre la fin d'une capture et le passage du fil GOAL a l'etape
@@ -320,6 +342,19 @@ void measure_step(int phase, int hour, int64_t cap_lf, const uint8_t* px, int w,
   st.measured = true;
   st.cap_lf = cap_lf;
   g_stats[phase][hi] = st;
+  // Les images DESSINEES depuis la photo precedente. C'est la grandeur qui variait sous le plan
+  // et que rien ne publiait : le plan compte des frames de LOGIQUE, le mood et la passe de
+  // textures comptent des images dessinees.
+  {
+    const uint64_t span = g_mood_calls - g_mood_last_photo;
+    g_mood_last_photo = g_mood_calls;
+    if (span < g_mood_span_min) {
+      g_mood_span_min = span;
+    }
+    if (span > g_mood_span_max) {
+      g_mood_span_max = span;
+    }
+  }
 }
 
 uint64_t read_capture_witness(int phase);  // defini plus bas, avec le temoin de capture
@@ -343,6 +378,16 @@ void publish_state() {
   autoport_proof::publish("refset_parts_frozen_first_lf",
                           (uint64_t)(g_frozen_first_lf < 0 ? 0 : g_frozen_first_lf));
   autoport_proof::publish("refset_settle", (uint64_t)g_step_settle);
+  // L'HORLOGE DU FEU, ET LE CONTROLE DE NON-VACUITE DE SA NEUTRALISATION. `refset_mood_pins`
+  // dit que le geste a bien eu lieu ; `refset_mood_span_min/max` disent combien d'images ont
+  // ete DESSINEES entre deux photos consecutives. Si ces deux bornes sont egales, la cadence
+  // d'affichage etait deja constante et epingler la flamme n'expliquerait rien : c'est la
+  // mesure qui tranche, pas ce commentaire.
+  autoport_proof::publish("refset_mood_pins", g_mood_pins);
+  autoport_proof::publish("refset_mood_calls", g_mood_calls);
+  autoport_proof::publish("refset_mood_span_min",
+                          g_mood_span_min == ~0ull ? 0 : g_mood_span_min);
+  autoport_proof::publish("refset_mood_span_max", g_mood_span_max);
   // La POLITIQUE DE TELEPORT est publiee : deux courses qui ne l'ont pas la meme ne
   // photographient pas les memes poses, et rien d'autre dans la preuve ne le dirait.
   autoport_proof::publish("refset_warp_per_step", (uint64_t)g_warp_per_step);
@@ -1034,6 +1079,22 @@ int particle_step_mode() {
   g_part_step_lf = lf;
   g_part_steps++;
   return 1;
+}
+
+// L'ETAT DE FLAMME, EPINGLE. Contrat et mesure : la declaration d'etat en haut de ce fichier.
+// Rend -1 hors du mode refset : le joueur ne rencontre jamais ce chemin, et `update-mood-flames`
+// garde son increment d'origine.
+int mood_flame_pin() {
+  if (!enabled()) {
+    return -1;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_mood_calls++;
+  if (g_plan_base < 0) {
+    return -1;  // avant l'ancre : le moteur garde son chemin normal
+  }
+  g_mood_pins++;
+  return kMoodPinTime;
 }
 
 bool wants_rewarp() {

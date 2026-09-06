@@ -1877,6 +1877,22 @@ u64 s_htr_pixels_changed = 0;  // ... dont l'image envoyee au GPU differe de la 
 // n'expliquerait rien : c'est le meme controle que `refset_raw_alpha_min/max` pour l'alpha du
 // retimeur. Ce compteur ne change AUCUN comportement, il ne fait que lire l'horloge.
 u64 s_htr_rt_bound_hits = 0;
+// LA MEME CLAUSE, POUR LA BORNE QUI SE COMPTE EN IMAGES. Elle a ete gardee a l'essai precedent
+// parce qu'on la croyait « la meme valeur sur toute machine » : ceil(N/20) IMAGES. C'est faux des
+// que le plan qui photographie se compte en frames de LOGIQUE. Mesure du 2026-09-06 sur eae4df44,
+// relue dans `proof-engine.log` : `hotreload_reuploaded` monte encore a CHAQUE photo des 24
+// etapes (911 -> 1123 -> 1311 entre `origine/h00` et `recharged/h00`, et ainsi de suite jusqu'a
+// 14270) — AUCUNE passe ne s'est terminee avant sa photo. L'appareil dessine ~22 images par
+// seconde la ou x86 en dessine 60 : le curseur de la passe est donc a une place differente au
+// meme instant du plan, et ce qui est photographie n'est pas le meme jeu de textures.
+// `s_htr_frame_bound_hits` dit combien de fois cette borne AURAIT coupe la passe sous `OG_REFSET`
+// pendant la course : a zero, la neutralisation serait une clause vide.
+u64 s_htr_frame_bound_hits = 0;
+// Nombre de couples (niveau, image) ou une passe etait active a la fin de l'appel sous
+// `OG_REFSET` : c'est-a-dire ou une photo prise a cette image aurait vu un jeu de textures a
+// moitie resolu. Sous la neutralisation, il vaut ZERO — la passe commence et finit dans le meme
+// appel, donc l'etat des textures est une fonction du REGIME et de rien d'autre.
+u64 s_htr_partial_frames = 0;
 }  // namespace
 
 void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
@@ -1953,13 +1969,25 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
       if (rt_over && refset_deterministic()) {
         s_htr_rt_bound_hits++;
       }
-      if (++tex_this_run > 20 || (!refset_deterministic() && rt_over)) {
+      // LES DEUX BORNES SONT DE LA MEME NATURE, ET LA SECONDE A SURVECU A TORT. `tex_this_run`
+      // se compte en IMAGES DESSINEES ; le plan du jeu de references se compte en frames de
+      // LOGIQUE. Tant que les deux ne sont pas dans le meme rapport sur toutes les machines, la
+      // photo tombe a une place differente de la passe. Sous `OG_REFSET` on draine donc le
+      // niveau ENTIER dans l'appel : le jeu de textures redevient une fonction du seul regime.
+      // Hors de ce mode rien ne change — c'est la meme borne qu'avant, au meme endroit.
+      const bool frame_over = (++tex_this_run > 20);
+      if (frame_over && refset_deterministic()) {
+        s_htr_frame_bound_hits++;
+      }
+      if (!refset_deterministic() && (frame_over || rt_over)) {
         break;
       }
     }
     if (lev->tex_refresh_cursor >= lev->textures.size()) {
       lev->tex_refresh_active = false;
       lev->tex_regime = regime;
+    } else if (refset_deterministic()) {
+      s_htr_partial_frames++;
     }
     const bool rt_over_outer = budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET;
     if (rt_over_outer && refset_deterministic()) {
@@ -1974,6 +2002,8 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
   autoport_proof::publish("hotreload_reuploaded", s_htr_reuploaded);
   autoport_proof::publish("hotreload_pixels_changed", s_htr_pixels_changed);
   autoport_proof::publish("hotreload_rt_bound_hits", s_htr_rt_bound_hits);
+  autoport_proof::publish("hotreload_frame_bound_hits", s_htr_frame_bound_hits);
+  autoport_proof::publish("hotreload_partial_frames", s_htr_partial_frames);
 }
 
 void Loader::update(TexturePool& texture_pool) {

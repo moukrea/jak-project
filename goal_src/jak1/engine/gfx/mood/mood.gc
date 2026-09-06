@@ -346,6 +346,22 @@
 
 
 (defun update-mood-flames ((arg0 mood-context) (arg1 int) (arg2 int) (arg3 int) (arg4 float) (arg5 float) (arg6 float))
+  ;; LE FEU AVANCE PAR IMAGE DESSINEE, PAS PAR FRAME DE LOGIQUE. Cette fonction pend a
+  ;; `update-time-of-day` <- `real-main-draw-hook` (drawable.gc:839), DEHORS de la boucle de
+  ;; rattrapage de `main.gc` : elle tourne une fois par image DESSINEE. Son compteur `time`
+  ;; n'est remis a zero par rien, et le poids qu'il produit (`times[5].w`) repeint, via
+  ;; `interp_time_of_day`, tout ce que le foyer eclaire. Le jeu de references compte des frames
+  ;; de LOGIQUE : sur eae4df44 (~22 images/s) et sur x86 (60 images/s) la flamme n'est donc pas
+  ;; a la meme phase au meme instant du plan. Sous refset seulement, l'etat est repose a une
+  ;; valeur FIXE : les 24 photos voient la meme flamme. Hors refset `pc-refset-mood-flame` rend
+  ;; -1 et tout ce qui suit est le chemin d'origine, a la ligne pres.
+  (let ((rmt (pc-refset-mood-flame)))
+    (when (>= rmt 0)
+      (let ((fs (the-as flames-state (&-> arg0 state arg3))))
+        (set! (-> fs index) (the-as uint 0))
+        (set! (-> fs length) (the-as uint 12))
+        (set! (-> fs height) (the-as uint 128))
+        (set! (-> fs time) (the-as uint rmt)))))
   (let* ((s5-0 (the-as flames-state (&-> arg0 state arg3)))
          (s4-0 (+ (-> s5-0 index) arg1))
          (a0-1 (-> s5-0 time))

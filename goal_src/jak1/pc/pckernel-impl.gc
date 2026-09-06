@@ -276,6 +276,9 @@
 ;; Les trois rendent 0 hors de ce mode : le joueur ne rencontre jamais ce chemin.
 (define-extern pc-refset-repin-parts? (function int))
 (define-extern pc-refset-part-step (function int))
+;; `pc-refset-mood-flame` rend -1 hors du plan (chemin normal), sinon la phase FIXE a reposer
+;; dans l'etat de flamme du mood : il avance sinon une fois par image DESSINEE.
+(define-extern pc-refset-mood-flame (function int))
 (define-extern pc-refset-active? (function int))
 ;; scratch vector reused each frame to hand the two distances to the bridge (avoids per-frame alloc).
 (define *grass-dist-scratch* (new 'static 'vector :x 30.0 :y 95.0 :z 150.0 :w 1.0))

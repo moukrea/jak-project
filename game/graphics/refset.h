@@ -238,6 +238,16 @@ bool consume_capture(int w, int h, const void* rgba);
 bool wants_particle_repin();
 int particle_step_mode();
 
+//   * `mood_flame_pin()` — L'AUTRE HORLOGE DU FEU. `update-mood-flames` (mood.gc:366) avance un
+//     compteur prive une fois par appel, et son appelant pend a `real-main-draw-hook`, hors de la
+//     boucle de rattrapage : une fois par image DESSINEE. Le poids qu'il produit repeint, via
+//     `interp_time_of_day`, tout ce que le foyer eclaire. Sous refset l'etat de flamme est repose
+//     a une valeur FIXE a chaque appel ; hors refset la fonction rend -1 et rien ne change.
+//     `refset_mood_pins` prouve que le geste a eu lieu, `refset_mood_span_min/max` prouvent que
+//     le nombre d'images dessinees entre deux photos variait VRAIMENT — sans quoi la clause
+//     serait vide.
+int mood_flame_pin();
+
 int verdict_saturation();          // 1 — pixels satures RECHARGED <= ORIGINE-LUMIERE
 int verdict_highlight_contrast();  // 2 — contraste du decile le plus lumineux >= 95 %
 int verdict_master_off_bitexact(); // 4 — master OFF identique au bit a ORIGINE-TOTAL
