@@ -1,75 +1,69 @@
-[refset] replay pendant 420s (census armed=1) -> .autoport/refset/refset-replay.log
-Terminated                 stdbuf -oL -eL env OG_REFSET="$MODE" OG_REFSET_DIR=.autoport/refset OG_LEVEL_WARP=village1-hut OG_LEVEL_WARP_POS="-116 14 40" OG_WANT_LEVELS=village1,beach OG_WANT_DISPLAY=beach,display OG_PAD_REPLAY_REPLAY="$DEMO" ${REFSET_TRACE:+OG_PAD_REPLAY_TRACE="$REFSET_TRACE"} ${REFSET_SETTLE:+OG_REFSET_SETTLE="$REFSET_SETTLE"} OG_PACE_MEASURE=1 AUTOPORT_FEATURE=lighting-census AUTOPORT_FEATURE_ARMED="$ARMED" timeout -k 5 "$TIMEOUT" "$BIN" --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso -- -boot -debug-mem > "$LOG" 2>&1
+[refset] replay pendant 240s (census armed=1) -> .autoport/refset/refset-replay.log
 --- REFSET ---
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp origine/h18 maxdiff=209 diffpx=12952
+REFSET cmp origine/h18 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp origine/h21 maxdiff=205 diffpx=15466
+REFSET cmp origine/h21 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp recharged/h00 maxdiff=255 diffpx=51764
+REFSET cmp recharged/h00 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp recharged/h03 maxdiff=221 diffpx=47656
+REFSET cmp recharged/h03 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp recharged/h06 maxdiff=221 diffpx=50559
+REFSET cmp recharged/h06 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp recharged/h09 maxdiff=201 diffpx=13429
+REFSET cmp recharged/h09 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp recharged/h12 maxdiff=240 diffpx=29087
+REFSET cmp recharged/h12 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp recharged/h15 maxdiff=219 diffpx=27135
+REFSET cmp recharged/h15 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp recharged/h18 maxdiff=219 diffpx=30314
+REFSET cmp recharged/h18 maxdiff=0 diffpx=0
 REFSET rewarp armed
 LEVEL-WARP-POS name=village1-hut x=-116.0 y=14.0 z=40.0
 LEVEL-WARP-SPAWN name=village1-hut target=#x1be2b4
-REFSET cmp recharged/h21 maxdiff=212 diffpx=50163
-REFSET done steps=16 captured=0 compared=16 maxdiff=255 diffpx=489140 missing=0 slip=0..0 rewarps=16 settle=45
+REFSET cmp recharged/h21 maxdiff=0 diffpx=0
+REFSET done steps=16 captured=0 compared=16 maxdiff=0 diffpx=0 missing=0 slip=0..0 rewarps=16 settle=180
 --- grandeurs ---
-refset_d_origine_h21=205
-refset_d_recharged_h00=255
-refset_d_recharged_h03=221
-refset_d_recharged_h06=221
-refset_d_recharged_h09=201
-refset_d_recharged_h12=240
-refset_d_recharged_h15=219
-refset_d_recharged_h18=219
-refset_d_recharged_h21=212
-refset_missing=0
-refset_mode=replay
-refset_platform=x86
-refset_replay_diffpx=116815
-refset_replay_diffpx=131412
-refset_replay_diffpx=160615
-refset_replay_diffpx=173567
-refset_replay_diffpx=189033
-refset_replay_diffpx=240797
-refset_replay_diffpx=339012
-refset_replay_diffpx=352441
-refset_replay_diffpx=381528
-refset_replay_diffpx=408663
-refset_replay_diffpx=489140
-refset_replay_diffpx=50165
-refset_replay_diffpx=64152
+refset_raw_alpha_n=2939
+refset_raw_alpha_n=2999
+refset_raw_alpha_n=3059
+refset_raw_alpha_n=3119
+refset_raw_alpha_n=3179
+refset_raw_alpha_n=3239
+refset_raw_alpha_n=3299
+refset_raw_alpha_n=3359
+refset_raw_alpha_n=3419
+refset_raw_alpha_n=3479
+refset_raw_alpha_n=3539
+refset_raw_alpha_n=3599
+refset_raw_alpha_n=3659
+refset_raw_alpha_n=3719
+refset_raw_alpha_n=3779
+refset_raw_alpha_n=3829
+refset_raw_alpha_n=959
+refset_replay_diffpx=0
+refset_replay_maxdiff=0
 refset_replay_maxdiff=254
-refset_replay_maxdiff=255
+refset_rewarps=1
 refset_rewarps=10
+refset_rewarps=11
 refset_rewarps=12
 refset_rewarps=13
 refset_rewarps=14
@@ -79,27 +73,32 @@ refset_rewarps=2
 refset_rewarps=3
 refset_rewarps=4
 refset_rewarps=5
+refset_rewarps=6
 refset_rewarps=7
 refset_rewarps=8
 refset_rewarps=9
 refset_roundtrip_bad=0
-refset_settle=45
+refset_settle=180
 refset_size_bad=0
 refset_slip_max=0
 refset_slip_min=0
 refset_step_anchor_set=1
+refset_step_done=0
 refset_step_done=1
+refset_step_done=10
 refset_step_done=11
 refset_step_done=12
 refset_step_done=13
 refset_step_done=14
+refset_step_done=15
 refset_step_done=16
 refset_step_done=2
 refset_step_done=3
 refset_step_done=4
+refset_step_done=5
 refset_step_done=6
 refset_step_done=7
 refset_step_done=8
 refset_step_done=9
 refset_steps=16
-[refset] refset_replay_maxdiff=255 (gk sorti en 143)
+[refset] refset_replay_maxdiff=0 (gk sorti en 124)

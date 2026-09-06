@@ -65,3 +65,31 @@ n'est pas dans `android/CMakeLists.txt` : **c'est un instrument x86**. Sur l'app
 `refset_platform=device` et aucune étape ne se lance. Un seul niveau (`village1`) et un seul
 vantage sont couverts : les trois autres régimes de la SPEC (`swamp`, `lavatube`, `snow`) et les
 vantages multiples ne le sont pas.
+
+## La garde est intermittente : rejoue deux fois avant de conclure
+
+**Mesuré le 2026-09-06.** Trois rejeux, **même binaire** (`sha=fbf84cf9802b7c11`) et **mêmes
+références octet pour octet** (vérifié par `git hash-object` sur les 16 PNG) :
+
+| Rejeu | Condition de lancement | `refset_replay_maxdiff` |
+|---|---|---|
+| 1 | juste après 45 s d'attente sur `deploy-in-progress` (constructeur) | **188** (diffpx 191192) |
+| 2 | machine au repos, course de preuve 900 s | 0 |
+| 3 | machine au repos, rejeu indépendant 240 s | 0 |
+
+Une reconstruction complète de `out/jak1/iso` (tous les `.DGO`, les 26 `.VIS`, les 24 bancs de
+texte) a eu lieu entre la capture et le rejeu 1. Elle est **hors de cause** : une recapture
+faite après cette reconstruction rend des octets identiques à ceux d'avant.
+
+**Ce qu'il faut en faire, à la fermeture de chaque item :**
+
+1. Ne rejoue pas pendant qu'un constructeur tourne, ni juste après. L'attente intégrée à
+   `proof_run` (verrou + `pgrep` + âge de `GAME.CGO`) n'a pas suffi dans le rejeu 1.
+2. **Un `maxdiff != 0` isolé ne prouve rien.** Rejoue une seconde fois, machine au repos, avant
+   de l'appeler régression.
+3. Un écart qui touche les 16 images des DEUX jeux à la fois accuse la caméra ou l'ordonnancement,
+   pas une couche d'ombrage : le bras ORIGINE est master OFF et n'a aucune raison de bouger.
+4. Le sens de l'erreur est rassurant : l'instabilité fait monter `maxdiff`, donc elle produit un
+   faux ROUGE, jamais un faux vert.
+
+Ce point n'est pas résolu : il est nommé et mesuré, pas corrigé.

@@ -112,10 +112,14 @@ int pass_of(const char* name) {
   if (!name) {
     return kPassOther;
   }
-  // `BucketRenderer::name_and_id()` rend « [11] tfrag-l0-tfrag » : sans sauter le prefixe entre
-  // crochets, AUCUN prefixe ne correspond et tout tombe dans `other`. Mesure du 2026-09-06 :
-  // gpu_ms_other=8,98 ms et les neuf autres passes a 0,0000 sur 7077 images — neuf fausses
-  // constantes.
+  // La borne de l'image entiere est posee sous un nom RESERVE, compare en entier : aucun
+  // bucket du jeu ne peut tomber dedans par accident (`renderer-buckets` porte le jeton
+  // « buckets » et polluerait le total si on le cherchait comme jeton).
+  if (std::strcmp(name, "__buckets") == 0) {
+    return kPassBuckets;
+  }
+  // `BucketRenderer::name_and_id()` rend « [26] l0-tfrag-tie » : il faut sauter le prefixe
+  // entre crochets, mais cela ne suffit pas.
   if (name[0] == '[') {
     const char* p = std::strchr(name, ']');
     if (p) {
@@ -125,23 +129,58 @@ int pass_of(const char* name) {
       }
     }
   }
+  // POURQUOI PAR JETONS, ET PAS PAR PREFIXE. Les 53 buckets de jak1 nomment le NIVEAU en
+  // premier et le renderer en DERNIER : `l0-tfrag-tie`, `l0-shrub-generic`, `common-pris-merc`.
+  // Un `strncmp` ancre au debut ne peut donc matcher que `sprite`, `ocean-*` et `sky` — et
+  // c'est exactement ce que la course du 2026-09-06 a mesure : gpu_ms_ocean=0,1008,
+  // gpu_ms_sprite=0,3503, et tfrag/tie/shrub/merc/generic a 0,0000 pile sur 14517 images,
+  // 7,9561 ms des 8,4333 ms de l'image entiere echoues dans `other`. Cinq fausses constantes
+  // sur un vantage ou tfrag et tie dessinent a coup sur.
   struct Entry {
-    const char* prefix;
+    const char* token;
     int pass;
   };
-  // L'ordre compte : "etie" avant "tie", "tfrag" avant "tie".
+  // Jetons compares EN ENTIER : « tie » ne peut plus etre mange par « etie », ni « tfrag »
+  // masquer « tie ». `tex` et `sky` sont listes vers `other` a dessein : ce sont de vraies
+  // passes, et les reconnaitre EMPECHE `l0-tfrag-tex` d'etre compte comme du tfrag.
   static const Entry table[] = {
-      {"__buckets", kPassBuckets}, {"hfrag", kPassHfrag},   {"tfrag", kPassTfrag},
-      {"etie", kPassEtie},         {"tie", kPassTie},       {"shrub", kPassShrub},
-      {"merc", kPassMerc},         {"generic", kPassGeneric}, {"sprite", kPassSprite},
-      {"ocean", kPassOcean},
+      {"hfrag", kPassHfrag},     {"tfrag", kPassTfrag},   {"etie", kPassEtie},
+      {"tie", kPassTie},         {"shrub", kPassShrub},   {"merc", kPassMerc},
+      {"gmerc", kPassMerc},      {"gmerc2", kPassMerc},   {"generic", kPassGeneric},
+      {"sprite", kPassSprite},   {"ocean", kPassOcean},   {"tex", kPassOther},
+      {"sky", kPassOther},
   };
-  for (const auto& e : table) {
-    if (std::strncmp(name, e.prefix, std::strlen(e.prefix)) == 0) {
-      return e.pass;
+  auto lookup = [](const char* tok, size_t len) -> int {
+    for (const auto& e : table) {
+      if (std::strlen(e.token) == len && std::strncmp(tok, e.token, len) == 0) {
+        return e.pass;
+      }
     }
+    return -1;
+  };
+  // Un nom de style « lcom » porte le renderer EN TETE (`merc-lcom-tfrag`, `tex-lcom-shrub`,
+  // `ocean-mid-far`) : le premier jeton gagne. Sinon c'est un nom de niveau et le DERNIER
+  // jeton connu est le renderer (`l0-alpha-tfrag-ice` -> tfrag, `ice` etant inconnu).
+  const char* first_end = std::strchr(name, '-');
+  const int head = lookup(name, first_end ? (size_t)(first_end - name) : std::strlen(name));
+  if (head >= 0) {
+    return head;
   }
-  return kPassOther;
+  int found = kPassOther;
+  const char* tok = name;
+  while (*tok) {
+    const char* end = std::strchr(tok, '-');
+    const size_t len = end ? (size_t)(end - tok) : std::strlen(tok);
+    const int p = lookup(tok, len);
+    if (p >= 0) {
+      found = p;
+    }
+    if (!end) {
+      break;
+    }
+    tok = end + 1;
+  }
+  return found;
 }
 
 void harvest(int slot) {
