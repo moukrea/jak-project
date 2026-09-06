@@ -66,30 +66,60 @@ n'est pas dans `android/CMakeLists.txt` : **c'est un instrument x86**. Sur l'app
 vantage sont couverts : les trois autres régimes de la SPEC (`swamp`, `lavatube`, `snow`) et les
 vantages multiples ne le sont pas.
 
-## La garde est intermittente : rejoue deux fois avant de conclure
+## L'intermittence est fermee : la cause etait une course d'amorcage
 
-**Mesuré le 2026-09-06.** Trois rejeux, **même binaire** (`sha=fbf84cf9802b7c11`) et **mêmes
-références octet pour octet** (vérifié par `git hash-object` sur les 16 PNG) :
+**Etabli par l'item `refset-replay-stable` le 2026-09-06.** L'ancienne consigne de ce paragraphe
+— « rejoue deux fois avant de conclure » — n'a plus lieu d'etre : elle demandait de vivre avec
+un instrument dont on ignorait la cause. La voici.
 
-| Rejeu | Condition de lancement | `refset_replay_maxdiff` |
-|---|---|---|
-| 1 | juste après 45 s d'attente sur `deploy-in-progress` (constructeur) | **188** (diffpx 191192) |
-| 2 | machine au repos, course de preuve 900 s | 0 |
-| 3 | machine au repos, rejeu indépendant 240 s | 0 |
+### Ce qui rendait le chiffre intermittent
 
-Une reconstruction complète de `out/jak1/iso` (tous les `.DGO`, les 26 `.VIS`, les 24 bancs de
-texte) a eu lieu entre la capture et le rejeu 1. Elle est **hors de cause** : une recapture
-faite après cette reconstruction rend des octets identiques à ceux d'avant.
+1. **Une course entre le fil de chargement et le fil GOAL.** `refset::enabled()` posait
+   `OG_RECHARGED=0` a sa PREMIERE image GOAL, alors que le fil de chargement avait deja choisi
+   le regime de modeles du premier niveau. Mesure a la capture : `HD-MODELS fr3-select GAME:
+   ENHANCED` est journalise **3,9 s AVANT** `[recharged-master] override -> 0`. `GAME.fr3` est le
+   niveau commun, jamais evince, dessine dans les 16 etapes des DEUX jeux : il partait en modeles
+   HD alors que l'etape 1 veut le master ETEINT, et ce choix ne se refait JAMAIS. Lequel des deux
+   fils gagne depend de la charge de la machine — d'ou un ecart bimodal (188 ou 0).
+   Ferme au POINT DE PRODUCTION : `OG_RECHARGED=0 OG_RT_LIGHT=0` sont poses par le LANCEUR
+   (`lib/refset.sh` et le `proof_env` du backlog), donc la variable existe avant le premier octet
+   execute. Verifie : override et `fr3-select GAME: STOCK` tombent dans la MEME milliseconde, et
+   `hd_fr3_enhanced=0` pour `hd_fr3_stock=4` niveaux choisis.
+2. **Le cache de 0,25 s de `recharged_master_active()`** — une entree de montre MURALE dans une
+   decision qui atteint le pixel. Sous `OG_REFSET`, la valeur est relue a chaque appel
+   (`gfx.h`, `refset_pins_master()`).
+3. **Le jeu de DONNEES n'etait pas dans la cle du registre.** `out/jak1/iso` est reecrit par le
+   constructeur ; deux rejeux qui encadrent une reconstruction n'ont pas lu la meme donnee. Effet
+   mesure : `refpix_maxdiff_origine` passe de 211 a 0 sur la seule reconstruction. `data=` est
+   desormais dans la cle (contenu, jamais une date) : une reconstruction perime les lignes d'avant
+   au lieu de les faire mentir, et il n'y a rien a effacer.
 
-**Ce qu'il faut en faire, à la fermeture de chaque item :**
+### La grandeur qui le dit, et ou la lire
 
-1. Ne rejoue pas pendant qu'un constructeur tourne, ni juste après. L'attente intégrée à
-   `proof_run` (verrou + `pgrep` + âge de `GAME.CGO`) n'a pas suffi dans le rejeu 1.
-2. **Un `maxdiff != 0` isolé ne prouve rien.** Rejoue une seconde fois, machine au repos, avant
-   de l'appeler régression.
-3. Un écart qui touche les 16 images des DEUX jeux à la fois accuse la caméra ou l'ordonnancement,
-   pas une couche d'ombrage : le bras ORIGINE est master OFF et n'a aucune raison de bouger.
-4. Le sens de l'erreur est rassurant : l'instabilité fait monter `maxdiff`, donc elle produit un
-   faux ROUGE, jamais un faux vert.
+Le moteur tient `<dir>/replay-ledger.txt`, une ligne par rejeu COMPLET :
 
-Ce point n'est pas résolu : il est nommé et mesuré, pas corrigé.
+    bin=<empreinte du binaire> refs=<empreinte des 16 references> data=<empreinte des 57 fichiers> maxdiff=<n> diffpx=<n>
+
+et publie `refset_replay_flaky` = nombre de paires de rejeux CONSECUTIFS, a cle identique, dont
+le `maxdiff` differe, plus `refset_replay_runs` = son denominateur. Sentinelles : **255** = la
+course n'a pas pu se mesurer ; **254** = moins de CINQ rejeux au registre. Ni l'une ni l'autre ne
+vaut zero.
+
+**Mesure de sortie :** cinq rejeux, meme binaire (`bin=e8f509128950aaf6`), memes references
+(`refs=285e8fce78144a9c`) et memes donnees (`data=d8d118f44998b750`) rendent le meme
+`maxdiff=122` **et le meme `diffpx=200508`** — a l'unite pres, donc les pixels rendus sont
+identiques, ce n'est pas un accord de seuil. `refset_replay_flaky=0` sur `refset_replay_runs=5`.
+
+### Ce qui reste vrai, et n'est PAS de l'intermittence
+
+* Le jeu **ORIGINE** est bit-identique sur ses huit creneaux (`refset_d_origine_h*=0`).
+* Le jeu **RECHARGED** est a 87..122, **de facon reproductible**. Cause : le regime de modeles
+  d'un niveau est choisi UNE fois au chargement et ne se refait jamais, alors que le plan bascule
+  le master entre l'etape 8 et l'etape 9 ; `GAME` reste donc STOCK pour les 16 etapes, tandis que
+  les references `recharged/` ont ete capturees avec `GAME` en ENHANCED. Le ramener a zero demande
+  de recharger le niveau au milieu du plan ou de recapturer `recharged/` — une decision de la
+  refonte de l'eclairage. **Ce n'est pas une tolerance a relever.**
+* Trou nomme, non ferme : `data_fingerprint()` est calculee a la FIN de la course. Une
+  reconstruction qui commence apres le demarrage du `gk` rendrait une cle qui ne decrit pas la
+  donnee chargee. L'attente de `proof_run` ne couvre que le DEBUT de la course. Ne rejoue donc
+  toujours pas pendant qu'un constructeur tourne.
