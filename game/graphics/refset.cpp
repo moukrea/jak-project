@@ -97,6 +97,12 @@ uint64_t g_decode_bad = 0;
 uint64_t g_roundtrip_bad = 0;
 uint64_t g_maxdiff = 0;
 uint64_t g_diffpx = 0;
+// Le maximum PAR JEU. `refset_replay_maxdiff` melange les deux : une regression du seul jeu
+// RECHARGED et une derive de la camera qui touche les deux rendent le meme nombre. Les items
+// de la refonte doivent pouvoir citer les deux separement (SPEC §7.2, item 1 :
+// `refpix_maxdiff_origine` et `refpix_maxdiff_recharged` sont sa condition de sortie).
+uint64_t g_maxdiff_phase[3] = {0, 0, 0};
+uint64_t g_compared_phase[3] = {0, 0, 0};
 int64_t g_frame_slip_max = 0;
 int64_t g_frame_slip_min = 1 << 20;
 
@@ -187,6 +193,14 @@ void publish_state() {
       gate = g_maxdiff;
     }
     autoport_proof::publish("refset_replay_maxdiff", gate);
+    // Les deux jeux, separement, avec la MEME regle de sentinelle : une course qui n'est pas
+    // allee au bout ne peut pas rendre un zero.
+    for (int ph = 1; ph <= 2; ph++) {
+      const char* key = ph == 1 ? "refpix_maxdiff_origine" : "refpix_maxdiff_recharged";
+      const char* nkey = ph == 1 ? "refpix_images_origine" : "refpix_images_recharged";
+      autoport_proof::publish(key, gate >= 254 ? gate : g_maxdiff_phase[ph]);
+      autoport_proof::publish(nkey, g_compared_phase[ph]);
+    }
   }
   // En mode capture on ne publie AUCUNE valeur de porte : une course qui fabrique ses propres
   // references ne doit pas pouvoir la franchir.
@@ -490,6 +504,15 @@ bool consume_capture(int w, int h, const void* rgba) {
       if (md > g_maxdiff) {
         g_maxdiff = md;
       }
+      {
+        const int ph = g_steps[g_cur].phase;
+        if (ph >= 0 && ph <= 2) {
+          if (md > g_maxdiff_phase[ph]) {
+            g_maxdiff_phase[ph] = md;
+          }
+          g_compared_phase[ph]++;
+        }
+      }
       g_diffpx += np;
       char key[96];
       std::snprintf(key, sizeof(key), "refset_d_%s_h%02d",
@@ -501,7 +524,9 @@ bool consume_capture(int w, int h, const void* rgba) {
       if (md != 0) {
         // L'image REELLE d'un ecart est ecrite a cote de la preuve pour que l'ecart soit
         // localisable hors ligne. Elle ne prouve rien : c'est le nombre qui prouve.
-        const std::string out = ".autoport/reports/lighting-census/refset-actual";
+        const char* fid = autoport_proof::feature_id();
+        const std::string out = std::string(".autoport/reports/") +
+                                ((fid && fid[0]) ? fid : "lighting-census") + "/refset-actual";
         file_util::create_dir_if_needed(out);
         file_util::write_rgba_png(out + "/" + set_name(g_steps[g_cur].phase) + "-h" +
                                       (g_steps[g_cur].hour < 10 ? "0" : "") +

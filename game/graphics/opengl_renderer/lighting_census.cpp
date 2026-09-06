@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "game/graphics/pipelines/opengl.h"
+#include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/system/autoport_proof.h"
 
 namespace lighting_census {
@@ -298,6 +299,13 @@ void set_phase(int phase) {
 }
 
 void note_world_draw(Kind k) {
+  // lighting-unify partage CE site, et le partage AVANT la garde de l'item 0 : les deux items
+  // s'arment separement (`armed_for`), et un `lighting-census` desarme ne doit pas rendre muet
+  // le compteur d'un autre item. Les passes de profondeur sont exclues : elles ne produisent
+  // aucune radiance, donc ne passent par aucun modele d'ombrage.
+  if (k != Kind::DepthOnly) {
+    shade_proof::note_world_draw();
+  }
   if (!active()) {
     return;
   }

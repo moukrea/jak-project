@@ -1,6 +1,7 @@
 #include "OpenGLRenderer.h"
 
 #include "game/graphics/opengl_renderer/lighting_census.h"
+#include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/graphics/refset.h"
 
 #include <cstring>
@@ -1205,6 +1206,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
 
   m_profiler.finish();
   lighting_census::frame_end();
+  shade_proof::frame_end();
   // Gloading-screen-window : ATTRIBUER LE GEL, AU LIEU DE LE SUPPOSER.
   // Mesure x86 du 2026-08-30, transition `save-geyser` : la derniere image de l'ecran de
   // chargement dure 253 ms quand les 60 precedentes tiennent a 17,3 ms de maximum. Le premier

@@ -28,6 +28,7 @@
 #endif
 
 #include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/refset.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 
 #include "game/graphics/gfx.h"
@@ -1896,6 +1897,24 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
         }
         lev->tex_upload_fp[i] = g_last_add_texture_fp;
       }
+      // LE JEU DE REFERENCES NE PEUT PAS ETRE ETALE SUR LA MONTRE MURALE. En regime normal
+      // cette passe est amortie (20 textures par image, 3 ms) pour ne pas faire de a-coup. Sous
+      // `OG_REFSET` la meme amortisation devient une entree de MONTRE MURALE dans l'image
+      // DESSINEE : le jeu de references bascule `recharged-master?` a chaque etape, donc
+      // `hotreload_regime()` passe de 6 a 0 et retour, et 2761 textures sont re-resolues en
+      // ~138 images au minimum contre 180 images de stabilisation. Selon la charge de la
+      // machine, la photo tombe avant ou apres la fin de la passe. Mesure du 2026-09-06, deux
+      // rejeux consecutifs du MEME binaire contre les MEMES references : maxdiff 211 / diffpx
+      // 291355 puis maxdiff 184 / diffpx 289129, les 16 images des DEUX jeux touchees, avec
+      // hotreload_reuploaded=2761 et hotreload_pixels_changed=62 dans les deux.
+      // C'est la MEME classe de defaut que `render_pace` (refset.h) : une grandeur reglee sur
+      // l'horloge reelle qui decide de ce qui est dessine. On la neutralise DE LA MEME FACON,
+      // et seulement dans ce mode : la passe est drainee en entier, tout de suite. Le regime
+      // permanent dessine est identique — c'est la DATE a laquelle il est atteint qui cesse de
+      // dependre de la machine.
+      if (refset::enabled()) {
+        continue;
+      }
       if (++tex_this_run > 20 || budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
         break;
       }
@@ -1904,7 +1923,7 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
       lev->tex_refresh_active = false;
       lev->tex_regime = regime;
     }
-    if (budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
+    if (!refset::enabled() && budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
       break;
     }
   }

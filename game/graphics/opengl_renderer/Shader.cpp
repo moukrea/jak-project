@@ -8,6 +8,7 @@
 #include "common/util/rss_census.h"
 
 #include "game/graphics/pipelines/opengl.h"
+#include "game/graphics/opengl_renderer/shade_proof.h"
 
 #ifdef __ANDROID__
 // Phase A35 (autoport): on Android the shader sources are the GLES 3.20
@@ -474,6 +475,10 @@ void Shader::build(const std::string& shader_name,
     m_is_okay = false;
     return;
   }
+  // lighting-unify : releve du texte fragment TEL QUE LE PILOTE LE RECOIT — apres
+  // `expand_includes`, apres `subst_tokens`, apres l'injection de `OG_PBR`. Mesurer plus tot
+  // decrirait un texte qui n'est pas celui qui est compile.
+  shade_proof::note_fragment_source(shader_name, frag_src);
   m_frag_shader = compile_stage(GL_FRAGMENT_SHADER, frag_src, "fragment");
   if (!m_frag_shader) {
     m_is_okay = false;
@@ -529,6 +534,7 @@ void Shader::build(const std::string& shader_name,
     m_is_okay = false;
     return;
   }
+  shade_proof::note_program_linked(shader_name, (unsigned)m_program);
   if (has_tess) {
     // OWNER PLAYTEST #8: log the LINK SUCCESS + any (usually empty) program InfoLog for the tess
     // program, so the supervisor's Honor logcat proves the program linked (isolating the fallback
@@ -566,6 +572,7 @@ void Shader::build(const std::string& shader_name,
 void Shader::activate() const {
   ASSERT(m_is_okay);
   glUseProgram(m_program);
+  shade_proof::note_program_bound((unsigned)m_program);
 }
 
 ShaderLibrary::ShaderLibrary(GameVersion version) {
