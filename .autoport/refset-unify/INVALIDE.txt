@@ -1,0 +1,10 @@
+CE JEU DE REFERENCES EST INVALIDE — NE PAS S'EN SERVIR COMME ORACLE.
+Capture posee par lighting-unify essai 2 (2026-09-06 12:24-12:31) : elle s'est terminee en
+`rc=124` (delai depasse, cf. rc-capture.txt), donc les 16 PNG ne decrivent pas un etat complet.
+Mesure : le rejeu contre elle (rc-replay.txt, refset-replay.log) rend
+    refset_replay_maxdiff=255   refset_replay_diffpx=888667
+    refset_d_recharged_h00..h21 = 245..255   (ecart maximal sur TOUTES les images)
+y compris cote ORIGINE, qui est master OFF et ne peut pas bouger pour une raison d'ombrage.
+Un jeu de references valide se recapture APRES avoir repare la garde §7.3 : essai 1 a mesure
+deux rejeux du MEME binaire non modifie a maxdiff 211 puis 184 — la garde est non deterministe
+a HEAD. Voir reports/lighting-unify/report.md, section « Ce qui n'est PAS prouve ».
