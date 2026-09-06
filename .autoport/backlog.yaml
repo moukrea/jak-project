@@ -3896,6 +3896,10 @@ items:
       en SDR (de la meilleure façon possible pour pas écraser les détails de trop) sauf quand on active
       le HDR (une option en plus?) qui apparaît si l'écran le supporte, idem sur PC/Linux/Android TV,
       etc. Et bien sûr ca pourrait faire partie de l'auto-detection au first start
+  - date: '2026-09-06'
+    text: J'ai l'impression que même avec le Real Time lighting à off on a quand même les blancs brûlés,
+      est ce que tu passe bien par ce paramètre pour gate nos effets ou tu les code en dur en remplaçant
+      le vanilla, alors que la SPEC stipule qu'on peut rester au rendu d'origine si on le veut
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -3913,7 +3917,18 @@ items:
   known_cause: 'Owner 2026-09-06 : « les blancs sont brules ». Le chantier a livre le rendu interne en
     haute precision et un site de compression unique, mais la COURBE de compression elle-meme n''a jamais
     ete jugee : la porte ne regardait que la plomberie (un seul site, ablation propre), pas ce que la
-    courbe fait aux hautes lumieres. Une porte qui mesure l''existence d''un mecanisme et pas sa qualite.'
+    courbe fait aux hautes lumieres. Une porte qui mesure l''existence d''un mecanisme et pas sa qualite.
+    | VERIFIE DANS LE CODE le 2026-09-06 : la chaine HDR n''est PAS codee en dur. hdr.cpp:224 `chain_active()`
+    la conditionne a `Gfx::recharged_active(g_global_settings.recharged_hdr)`, et `recharged_active` compose
+    avec le MASTER Recharged (gfx.h:543). Master eteint => `scene_color_format()` rend GL_RGBA8, la chaine
+    n''est pas montee, le tone map n''est pas tire : le mode ORIGINE est intact.
+
+    MAIS l''owner a bascule « Realtime Lighting » (`realtime-lighting?`, pckernel.gc:513), qui est un
+    reglage DIFFERENT et ne couvre pas le HDR — d''ou des blancs brules avec, de son point de vue, l''eclairage
+    eteint. Son attente est raisonnable : un interrupteur nomme « eclairage temps reel » devrait emporter
+    ce qui touche l''eclairage. A trancher dans lighting-presets (regroupement des reglages) ou en rattachant
+    recharged_hdr au groupe eclairage. En attendant, le seul retour garanti au rendu d''origine est le
+    MASTER Recharged.'
   deliverable: "Le rendu interne reste en RGBA16F avec UN seul tone map, mais la compression vers SDR\
     \ doit PRESERVER LE DETAIL au lieu de bruler. Le moteur emet `hdr_tonemap_defects=N`, somme de verdicts\
     \ publies aussi separement, mesures sur les images de reference figees par lighting-census :\n  (1)\
@@ -3923,7 +3938,9 @@ items:
     \ rapporte a la reference. >= 950, autrement dit au plus 5 % de detail perdu la ou l'owner regarde.\n\
     \  (3) `hdr_rolloff_monotone` = 1 — la courbe de compression est monotone et sans coude brutal : pas\
     \ de palier qui aplatit une plage entiere.\nN est la somme des manquements ; zero. La sortie HDR vers\
-    \ un ecran compatible n'est PAS dans ce chantier : c'est hdr-display-output."
+    \ un ecran compatible n'est PAS dans ce chantier : c'est hdr-display-output.\n  (4) `hdr_origin_bitexact`\
+    \ = 1 — master Recharged ETEINT, la sortie est identique au bit a la reference ORIGINE figee par lighting-census.\
+    \ La SPEC promet qu'on peut rester au rendu d'origine : ca se prouve, ca ne se raconte pas."
   out_of_scope: La sortie HDR vers un ecran compatible appartient a hdr-display-output.
   notes: 'budget : touche les six shaders monde et la chaine de FBO, avec un bras appareil pour le repli
     flottant. SPEC section 6.9.'
