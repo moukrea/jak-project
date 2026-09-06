@@ -1022,7 +1022,11 @@ void pc_set_load_custom_assets(u32 on) {
 // Grecharged-bundled-textures: 0/1 toggle for the package-bundled first-party replacement
 // textures (base albedo swaps only; the bundle's PBR maps follow the PBR path instead).
 void pc_set_recharged_textures(u32 on) {
-  Gfx::g_global_settings.recharged_textures = (on != 0);
+  // Grecharged-texture-hotreload : SEUL ecrivain de ce drapeau — la rangee du menu l'appelle au
+  // geste (progress-pc.gc), et `update-to-os` le rappelle a CHAQUE image avec la valeur du champ.
+  // C'est donc le seul point ou un stimulus de preuve peut tenir : pose plus bas, il serait
+  // efface a l'image suivante. Identite hors mesure (voir hotreload_stimulus).
+  Gfx::g_global_settings.recharged_textures = custom_tex::hotreload_stimulus(on != 0);
 }
 
 // Grecharged-managed-assets: 0/1 toggle for the DOWNLOADED texture pack. The

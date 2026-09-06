@@ -66,6 +66,12 @@ class Loader {
   void loader_thread();
   bool upload_textures(Timer& timer, LevelData& data, TexturePool& texture_pool);
 
+  // Grecharged-texture-hotreload : LA PASSE DE RE-RESOLUTION. Appelee une fois par image sur le
+  // thread GL depuis `update`. Ne fait rien tant qu'aucun niveau resident ne porte un regime de
+  // textures perime ; sinon elle reprend les textures de ce niveau sous le MEME budget par image
+  // qu'un chargement, en substituant l'objet GL dans le pool (les slots VRAM suivent).
+  void refresh_recharged_textures(TexturePool& texture_pool);
+
   // Gloading-screen : ECART REEL entre deux tranches de chargement bloquant, donc entre deux
   // frames reellement presentees pendant que l'ecran de chargement est affiche. Mesure prise sur
   // une VRAIE horloge (`Timer`, steady_clock) et pas sur celle de GOAL : sur l'appareil

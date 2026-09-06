@@ -26,6 +26,7 @@
 #include "game/graphics/opengl_renderer/GpuCaps.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/runtime.h"
+#include "game/system/autoport_proof.h"
 
 #include "third-party/json.hpp"
 #include "third-party/stb_image/stb_image.h"
@@ -2019,6 +2020,46 @@ std::string pbr_reach_section() {
   return out;
 }
 #endif
+
+// ===== Grecharged-texture-hotreload ===========================================================
+u32 hotreload_regime() {
+  u32 r = 0;
+  if (Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets)) {
+    r |= 1;
+  }
+  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_textures)) {
+    r |= 2;
+  }
+  if (Gfx::recharged_master_active()) {
+    r |= 4;
+  }
+  return r;
+}
+
+namespace {
+// Nombre d'appels au SEUL ecrivain de `recharged_textures`, donc d'images GOAL depuis l'amorcage
+// du pousseur `update-to-os`. Ces deux bornes ne sont pas des gouts : la premiere laisse le boot
+// (chargement de GAME.fr3 + du premier niveau) se terminer sous le reglage REEL, la seconde
+// laisse la passe de re-resolution declenchee par le premier basculement finir avant le second.
+// A 19-30 images/s sur le Redmi, elles tombent vers 30-47 s et 80-126 s d'une course de 300 s ;
+// a 60 images/s sur x86, vers 15 s et 40 s. DEUX transitions, pas une : la premiere peut tomber
+// avant que le niveau vise soit resident (il serait alors televerse sous le nouveau regime, donc
+// rien a re-resoudre), la seconde le trouve a coup sur.
+constexpr uint64_t kHotreloadStimOff = 900;
+constexpr uint64_t kHotreloadStimOn = 2400;
+uint64_t g_htr_stim_calls = 0;
+}  // namespace
+
+bool hotreload_stimulus(bool on) {
+  if (!autoport_proof::feature_is("recharged-texture-hotreload") || !autoport_proof::armed()) {
+    return on;
+  }
+  const uint64_t n = ++g_htr_stim_calls;
+  const bool forced = (n >= kHotreloadStimOff && n < kHotreloadStimOn);
+  autoport_proof::publish("hotreload_stim_frames", n);
+  autoport_proof::publish("hotreload_stim_forced", forced ? 1 : 0);
+  return forced ? !on : on;
+}
 
 void invalidate() {
   g_state.scanned = false;

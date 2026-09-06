@@ -1746,7 +1746,12 @@
   ;; stay the user's values, so re-enabling the master restores the config exactly).
   (pc-set-recharged-master! (if (-> obj recharged-master?) 1 0))
   ;; Grecharged-bundled-textures: push the bundled-textures toggle every frame (level texture
-  ;; uploads consult it; a flip applies on the next level load, same contract as custom assets).
+  ;; uploads consult it).
+  ;; Grecharged-texture-hotreload : la bascule s'applique DESORMAIS SANS REDEMARRER ni recharger
+  ;; de niveau. Le cote C++ compare le regime des portes a celui sous lequel chaque niveau
+  ;; resident a ete televerse et re-resout ses textures (Loader::refresh_recharged_textures).
+  ;; L'ancien contrat — « a flip applies on the next level load » — etait de surcroit faux pour
+  ;; GAME.fr3, qui n'est jamais evince.
   (pc-set-recharged-textures! (if (-> obj recharged-textures?) 1 0))
   (pc-set-managed-assets! (if (-> obj managed-assets?) 1 0))
   (pc-set-recharged-grass! (if (-> obj recharged-grass?) 1 0))

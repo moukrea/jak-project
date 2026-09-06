@@ -965,8 +965,13 @@ const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::strin
   }
   heap_purge("common-tampons-rendus");
   log_merc_models(name, *m_common_level.level);
+  // Grecharged-texture-hotreload : estampiller le regime AVANT la boucle. GAME.fr3 n'est jamais
+  // evince : sans cette estampille et la passe qu'elle autorise, ses textures restaient celles du
+  // reglage lu dans settings.ini au boot jusqu'a la fin de la partie, quoi que fasse le menu.
+  m_common_level.tex_regime = custom_tex::hotreload_regime();
   for (auto& tex : m_common_level.level->textures) {
     m_common_level.textures.push_back(add_texture(tex_pool, tex, true));
+    m_common_level.tex_upload_fp.push_back(g_last_add_texture_fp);
   }
   rss_census::mark("common-textures");
 
@@ -1001,7 +1006,11 @@ bool Loader::upload_textures(Timer& timer, LevelData& data, TexturePool& texture
     std::unique_lock<std::mutex> tpool_lock(texture_pool.mutex());
     while (data.textures.size() < data.level->textures.size()) {
       auto& tex = data.level->textures[data.textures.size()];
+      if (data.textures.empty()) {
+        data.tex_regime = custom_tex::hotreload_regime();
+      }
       data.textures.push_back(add_texture(texture_pool, tex, false));
+      data.tex_upload_fp.push_back(g_last_add_texture_fp);
       // real uploaded bytes (see LoaderStages.h g_last_add_texture_bytes)
       bytes_this_run += (int)g_last_add_texture_bytes;
       tex_this_run++;
@@ -1827,6 +1836,84 @@ const std::string* Loader::get_most_unloadable_level() {
   return nullptr;
 }
 
+// ===== Grecharged-texture-hotreload ============================================================
+namespace {
+// Compteurs de la passe. Publies a chaque image ; le harnais ne lit que la DERNIERE valeur.
+u64 s_htr_passes = 0;          // passes de re-resolution commencees (une par niveau et bascule)
+u64 s_htr_reuploaded = 0;      // textures re-resolues ET re-liees dans le pool
+u64 s_htr_pixels_changed = 0;  // ... dont l'image envoyee au GPU differe de la precedente
+}  // namespace
+
+void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
+  const u32 regime = custom_tex::hotreload_regime();
+  autoport_proof::publish("hotreload_regime", regime);
+
+  // Les niveaux RESIDENTS, GAME.fr3 compris. `m_initializing_tfrag3_levels` appartient au thread
+  // de chargement et n'est pas touche ici : un niveau dont la passe initiale se termine sous un
+  // regime perime porte son estampille de DEBUT de passe, donc il est repris ici a l'image qui
+  // suit son entree dans `m_loaded_tfrag3_levels`.
+  std::vector<LevelData*> levels;
+  levels.push_back(&m_common_level);
+  for (auto& [name, lev] : m_loaded_tfrag3_levels) {
+    levels.push_back(lev.get());
+  }
+
+  Timer budget;
+  for (auto* lev : levels) {
+    if (!lev->level || lev->tex_regime == UINT32_MAX || lev->tex_regime == regime) {
+      continue;
+    }
+    // Une passe initiale encore en cours : la laisser finir, elle televerse deja sous le regime
+    // courant pour ce qui lui reste, et son prefixe sera repris a l'image d'apres.
+    if (lev->textures.size() != lev->level->textures.size()) {
+      continue;
+    }
+    if (!lev->tex_refresh_active) {
+      lev->tex_refresh_active = true;
+      lev->tex_refresh_cursor = 0;
+      s_htr_passes++;
+    }
+    if (lev->tex_upload_fp.size() != lev->textures.size()) {
+      lev->tex_upload_fp.resize(lev->textures.size(), 0);
+    }
+    const bool is_common = (lev == &m_common_level);
+    std::unique_lock<std::mutex> tpool_lock(texture_pool.mutex());
+    int tex_this_run = 0;
+    while (lev->tex_refresh_cursor < lev->textures.size()) {
+      const size_t i = lev->tex_refresh_cursor++;
+      const auto& tex = lev->level->textures[i];
+      const GLuint old_gl = lev->textures[i];
+      const u64 old_fp = lev->tex_upload_fp[i];
+      const GLuint new_gl = (GLuint)add_texture(texture_pool, tex, is_common, old_gl);
+      if (g_last_add_texture_swapped && new_gl != old_gl) {
+        lev->textures[i] = new_gl;
+        // Differee : l'ancien objet peut encore etre lie par la frame en cours.
+        m_garbage_textures.push_back(old_gl);
+        s_htr_reuploaded++;
+        if (g_last_add_texture_fp != old_fp) {
+          s_htr_pixels_changed++;
+          autoport_proof::note_hit();
+        }
+        lev->tex_upload_fp[i] = g_last_add_texture_fp;
+      }
+      if (++tex_this_run > 20 || budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
+        break;
+      }
+    }
+    if (lev->tex_refresh_cursor >= lev->textures.size()) {
+      lev->tex_refresh_active = false;
+      lev->tex_regime = regime;
+    }
+    if (budget.getMs() > SHARED_TEXTURE_LOAD_BUDGET) {
+      break;
+    }
+  }
+
+  autoport_proof::publish("hotreload_passes", s_htr_passes);
+  autoport_proof::publish("hotreload_reuploaded", s_htr_reuploaded);
+  autoport_proof::publish("hotreload_pixels_changed", s_htr_pixels_changed);
+}
+
 void Loader::update(TexturePool& texture_pool) {
   Timer loader_timer;
 
@@ -2219,6 +2306,11 @@ void Loader::update(TexturePool& texture_pool) {
       }
     }
   }
+
+  // Grecharged-texture-hotreload : hors du verrou du chargeur (elle prend celui du pool), et
+  // apres le travail de chargement — un niveau qui arrive a l'image courante est repris a la
+  // suivante, pas a moitie.
+  refresh_recharged_textures(texture_pool);
 
   if (loader_timer.getMs() > 5) {
     fmt::print("Loader::update slow setup: {:.1f}ms\n", loader_timer.getMs());

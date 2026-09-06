@@ -406,6 +406,31 @@ u32 pbr_coverage_generation();
 std::string pbr_coverage_section();
 #endif
 
+// ===== Grecharged-texture-hotreload — BASCULER LES TEXTURES RECHARGED SANS REDEMARRER ========
+// Le contrat d'avant etait ecrit noir sur blanc dans le pousseur GOAL (hud-classes-pc.gc) :
+// « a flip applies on the next level load ». `add_texture` consulte la porte UNE FOIS, au
+// televersement, et rien ne repasse jamais dessus : GAME.fr3 n'est de surcroit JAMAIS evince
+// (Loader.cpp), donc ses textures ne pouvaient revenir par aucun rechargement. Basculer la
+// rangee du menu ne changeait donc rien tant que le jeu n'avait pas ete relance.
+//
+// `hotreload_regime()` est LE mot qui resume l'etat des portes qui decident la source de la
+// texture de BASE — exactement les trois booleens que `lookup()` et `base_source()` relisent a
+// chaque appel. Le chargeur le compare a celui sous lequel chaque niveau resident a ete
+// televerse ; une difference declenche une re-resolution budgetee de ce niveau.
+//   bit 0 : user_on    = recharged_active(load_custom_assets)
+//   bit 1 : bundled_on = recharged_active(recharged_textures)
+//   bit 2 : master     = recharged_master_active()
+u32 hotreload_regime();
+
+// LE STIMULUS DE PREUVE, pose sur le SEUL ecrivain de `recharged_textures` (kmachine.cpp
+// pc_set_recharged_textures, appele par la rangee du menu ET par `update-to-os` a chaque image).
+// Identite — donc rigoureusement aucun effet — sauf quand le harnais mesure l'item
+// `recharged-texture-hotreload` ET qu'il est arme. Il ne peut pas etre pose ailleurs : GOAL
+// repousse la valeur de son champ a CHAQUE image, donc un forcage ecrit en aval serait efface
+// a l'image suivante. Ce qui atterrit dans `g_global_settings` est bit pour bit ce qu'un geste
+// de l'owner sur la rangee y aurait mis ; tout ce qui suit est le chemin reel.
+bool hotreload_stimulus(bool on);
+
 // Force a rescan of the replacements directory on the next lookup().
 void invalidate();
 

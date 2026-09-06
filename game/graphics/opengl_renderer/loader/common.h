@@ -15,6 +15,25 @@ struct LevelData {
   std::vector<GLuint> textures;
   u64 load_id = UINT64_MAX;
 
+  // ===== Grecharged-texture-hotreload ==========================================================
+  // `add_texture` consulte les portes des textures Recharged UNE FOIS, au televersement. Le
+  // pousseur GOAL le disait lui-meme : « a flip applies on the next level load ». Et GAME.fr3
+  // n'est JAMAIS evince, donc pour ses textures il n'existait meme pas de « next level load ».
+  //
+  // `tex_regime` est le mot de custom_tex::hotreload_regime() sous lequel les textures de ce
+  // niveau ont ete resolues — estampille au DEBUT de la passe (voir TextureLoaderStage). Quand
+  // il differe du regime courant, `Loader::refresh_recharged_textures` reprend ce niveau texture
+  // par texture, sous le meme budget par image qu'un chargement.
+  // UINT32_MAX = aucune passe n'a encore commence ; le chargeur ignore un niveau dans cet etat
+  // (ses textures ne sont pas encore la).
+  u32 tex_regime = UINT32_MAX;
+  size_t tex_refresh_cursor = 0;
+  bool tex_refresh_active = false;
+  // Empreinte du bloc reellement televerse, par indice de texture (parallele a `textures`).
+  // C'est la comparaison avant/apres de CES valeurs qui distingue « re-resolue » de « l'image
+  // envoyee au GPU a change ».
+  std::vector<u64> tex_upload_fp;
+
   struct TieOpenGL {
     GLuint vertex_buffer;
     GLuint tangent_buffer;  // REOPEN#7 per-vertex tangent VBO (parallel to vertex_buffer), loc 5

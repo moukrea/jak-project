@@ -140,6 +140,22 @@ void TexturePool::update_gl_texture(GpuTexture* gpu_texture,
   }
 }
 
+bool TexturePool::swap_gl_texture(PcTextureId id, GLuint old_gl, GLuint new_gl) {
+  auto* tex = m_loaded_textures.lookup_existing(id);
+  if (!tex || tex->is_placeholder) {
+    return false;
+  }
+  for (auto& copy : tex->gpu_textures) {
+    if (copy.gl == old_gl) {
+      copy.gl = new_gl;
+      // refresh_links relie les slots VRAM ET les slots mt4hh a `gpu_textures.front()`.
+      refresh_links(*tex);
+      return true;
+    }
+  }
+  return false;
+}
+
 void TexturePool::refresh_links(GpuTexture& texture) {
   u64 tex_to_use =
       texture.is_placeholder ? m_placeholder_texture_id : texture.gpu_textures.front().gl;

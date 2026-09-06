@@ -317,6 +317,19 @@ class TexturePool {
   void unload_texture(PcTextureId tex_id, u64 gpu_id);
   void update_gl_texture(GpuTexture* texture, u32 new_w, u32 new_h, GLuint new_gl_texture);
 
+  // Grecharged-texture-hotreload : remplacer L'OBJET GL d'une texture deja donnee au pool, sans
+  // rien changer d'autre. `update_gl_texture` ne convient pas ici : il exige `gpu_textures.size()
+  // == 1` (une seule copie chargee) et n'a jamais relie les slots mt4hh. Une texture presente
+  // dans DEUX niveaux residents porte deux copies, et l'assertion tuerait le jeu au moment ou
+  // l'owner bascule la rangee du menu.
+  // Les dimensions LOGIQUES (w/h) ne bougent pas : elles decrivent `src_data`, qui pointe sur les
+  // pixels d'origine du fr3 et que le pool relit en w*h*4 (animation de textures). Un PNG de
+  // remplacement plus grand ne doit jamais les elargir — c'est la lecture hors-bornes que
+  // `add_texture` documente deja a son `in.w = tex.w`.
+  // Rend false quand ce couple (id, ancien objet GL) n'est plus dans le pool : l'appelant garde
+  // alors l'ancien objet et ne compte rien.
+  bool swap_gl_texture(PcTextureId id, GLuint old_gl, GLuint new_gl);
+
   /*!
    * Look up an OpenGL texture by vram address. Return std::nullopt if the game hasn't loaded
    * anything to this address.

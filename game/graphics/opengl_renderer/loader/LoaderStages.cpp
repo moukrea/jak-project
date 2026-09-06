@@ -135,11 +135,47 @@ static float measure_height_lambda_tiles(const custom_tex::ReplacementImage* hi)
  * Upload a texture to the GPU, and give it to the pool.
  */
 thread_local u64 g_last_add_texture_bytes = 0;
+// Grecharged-texture-hotreload (voir LoaderStages.h).
+thread_local u64 g_last_add_texture_fp = 0;
+thread_local bool g_last_add_texture_swapped = false;
 
-u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
+namespace {
+// Empreinte ECHANTILLONNEE du bloc reellement televerse. Hacher 16 Mo par texture (2048x2048
+// RGBA) coute plus cher que le televersement lui-meme ; 4096 octets repartis sur tout le bloc,
+// plus la longueur, les dimensions et le nom de la source, separent un PNG HD de la texture
+// d'origine dans tous les cas qui nous interessent (elles n'ont ni la meme taille, ni les memes
+// dimensions, ni la meme source). Ce n'est pas un condensat cryptographique et ne pretend pas
+// l'etre : c'est un temoin de CHANGEMENT.
+u64 upload_fingerprint(const char* tag, int w, int h, const u8* p, size_t n) {
+  u64 hsh = 1469598103934665603ull;
+  auto mix = [&hsh](u64 v) {
+    hsh ^= v;
+    hsh *= 1099511628211ull;
+  };
+  for (const char* c = tag; c && *c; ++c) {
+    mix((u8)*c);
+  }
+  mix((u64)w);
+  mix((u64)h);
+  mix((u64)n);
+  if (p && n) {
+    const size_t step = n > 4096 ? n / 4096 : 1;
+    for (size_t i = 0; i < n; i += step) {
+      mix(p[i]);
+    }
+  }
+  return hsh;
+}
+}  // namespace
+
+u64 add_texture(TexturePool& pool,
+                const tfrag3::Texture& tex,
+                bool is_common,
+                GLuint replacing_gl) {
   // External-asset-root: record every texture key (for the optional dump_keys
   // marker) and look up a replacement.
   custom_tex::dump_key(tex.debug_tpage_name, tex.debug_name);
+  g_last_add_texture_swapped = false;
   // Grecharged-managed-assets: precedence (owner) user > managed > bundled >
   // stock. base_source() decides without decoding pixels: a USER hit keeps
   // the PNG path; otherwise the managed pack outranks the bundled set.
@@ -192,6 +228,15 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   }
   Timer tex_call_timer;  // autoport 2026-08-26: attribuer les blocages a un appel GL
 
+  // Grecharged-texture-hotreload : CE QUI PART REELLEMENT VERS LE GPU, decrit sur la branche qui
+  // l'envoie. Le chemin d'en-dessous change d'avis en cours de route (le damier jette `managed`,
+  // un `upload_bound_texture` rate retombe sur le stock), donc une empreinte deduite APRES coup
+  // des variables `managed`/`rep` decrirait parfois une autre image que celle qui a ete envoyee.
+  const u8* fp_ptr = nullptr;
+  size_t fp_len = 0;
+  const char* fp_tag = "stock";
+  int fp_w = tex.w, fp_h = tex.h;
+
   GLuint gl_tex;
   glActiveTexture(GL_TEXTURE0);
   glGenTextures(1, &gl_tex);
@@ -232,10 +277,20 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
     pbr_testpattern::make_base_rgba(tp_base, tp_dim);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tp_dim, tp_dim, 0, GL_RGBA, kRgbaTexType,
                  tp_base.data());
+    fp_ptr = tp_base.data();
+    fp_len = tp_base.size();
+    fp_tag = "testpattern";
+    fp_w = tp_dim;
+    fp_h = tp_dim;
   } else
 #endif
       if (managed) {
     // Managed KTX2: offline mip chain uploaded compressed — NO glGenerateMipmap.
+    fp_ptr = managed->payload.data();
+    fp_len = managed->payload.size();
+    fp_tag = managed_is_baked ? "baked-ktx2" : "managed-ktx2";
+    fp_w = (int)managed->info.width;
+    fp_h = (int)managed->info.height;
     if (!managed_assets::upload_bound_texture(*managed)) {
       // glTexStorage2D may already have made the storage immutable — the
       // stock fallback needs a fresh texture object.
@@ -246,14 +301,30 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
       managed_is_baked = false;
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
                    tex.data.data());
+      fp_ptr = (const u8*)tex.data.data();
+      fp_len = tex.data.size() * sizeof(tex.data[0]);
+      fp_tag = "stock";
+      fp_w = tex.w;
+      fp_h = tex.h;
     }
   } else if (rep) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rep->w, rep->h, 0, GL_RGBA, kRgbaTexType,
                  rep->rgba.data());
+    fp_ptr = rep->rgba.data();
+    fp_len = rep->rgba.size();
+    fp_tag = rep->src;
+    fp_w = rep->w;
+    fp_h = rep->h;
   } else {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex.w, tex.h, 0, GL_RGBA, kRgbaTexType,
                  tex.data.data());
+    fp_ptr = (const u8*)tex.data.data();
+    fp_len = tex.data.size() * sizeof(tex.data[0]);
+    fp_tag = "stock";
+    fp_w = tex.w;
+    fp_h = tex.h;
   }
+  g_last_add_texture_fp = upload_fingerprint(fp_tag, fp_w, fp_h, fp_ptr, fp_len);
   const double t_upload_ms = tex_call_timer.getMs();
   // Grecharged-managed-assets: a KTX2 payload already carries its whole mip chain,
   // filtered offline. Regenerating it would both cost the stall this tier exists to
@@ -296,7 +367,25 @@ u64 add_texture(TexturePool& pool, const tfrag3::Texture& tex, bool is_common) {
   g_last_add_texture_bytes = managed ? managed->payload.size()
                              : rep   ? rep->rgba.size() * 4 / 3  // + generated mips
                                      : u64(tex.w) * tex.h * 4 * 4 / 3;
-  if (tex.load_to_pool) {
+  // Grecharged-texture-hotreload : RE-RESOLUTION D'UNE TEXTURE DEJA RESIDENTE. `replacing_gl`
+  // non nul veut dire « cet objet GL est deja donne au pool et deja lie a des slots VRAM ;
+  // remplace-le par celui qu'on vient de televerser ». Tout ce qui precede — resolution de la
+  // source, portes, televersement, mips, anisotropie — est le chemin du chargement, mot pour
+  // mot : c'est la seule facon que les deux ne divergent pas.
+  if (replacing_gl) {
+    bool swapped = true;
+    if (tex.load_to_pool) {
+      swapped = pool.swap_gl_texture(PcTextureId::from_combo_id(tex.combo_id), replacing_gl, gl_tex);
+    }
+    if (!swapped) {
+      // Le pool ne connait plus ce couple : on rend l'ancien objet et on ne compte rien. Jeter
+      // l'ancien ici le retirerait sous les slots qui le lient encore.
+      glDeleteTextures(1, &gl_tex);
+      gl_tex = replacing_gl;
+    }
+    g_last_add_texture_swapped = swapped;
+  } else if (tex.load_to_pool) {
+    g_last_add_texture_swapped = false;
     TextureInput in;
     in.debug_page_name = tex.debug_tpage_name;
     in.debug_name = tex.debug_name;
@@ -807,9 +896,17 @@ class TextureLoaderStage : public LoaderStage {
     int tex_this_run = 0;
     if (data.lev_data->textures.size() < data.lev_data->level->textures.size()) {
       std::unique_lock<std::mutex> tpool_lock(data.tex_pool->mutex());
+      // Grecharged-texture-hotreload : le regime est estampille au DEBUT de la passe, pas a sa
+      // fin. Une bascule qui tombe PENDANT le chargement d'un niveau laisserait sinon un prefixe
+      // de textures resolues sous l'ancien regime derriere une estampille neuve — et ce
+      // prefixe-la ne serait jamais rattrape.
+      if (data.lev_data->textures.empty()) {
+        data.lev_data->tex_regime = custom_tex::hotreload_regime();
+      }
       while (data.lev_data->textures.size() < data.lev_data->level->textures.size()) {
         auto& tex = data.lev_data->level->textures[data.lev_data->textures.size()];
         data.lev_data->textures.push_back(add_texture(*data.tex_pool, tex, false));
+        data.lev_data->tex_upload_fp.push_back(g_last_add_texture_fp);
         // real uploaded bytes: replacements/managed packs are far larger
         // than the baked tex.w*h*4 (the audited budget blindness)
         bytes_this_run += (int)g_last_add_texture_bytes;

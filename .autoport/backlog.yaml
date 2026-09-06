@@ -253,7 +253,7 @@ items:
   notes: meme prompt ; -2 est « CAISSES, RETOUR 2 » ; l'owner ferme « les caisses » en un mot
 - id: anim-interp-low-fps
   feature: Les animations saccadees quand le jeu descend vers 20 images/s
-  status: in-progress
+  status: to-test
   priority: 13
   owner_feedback:
   - date: '2026-09-01'
@@ -2900,10 +2900,20 @@ items:
     du menu et la fermeture du navigateur de mesh (memes fichiers).'
 - id: recharged-texture-hotreload
   feature: Basculer les textures Recharged sans redemarrer le jeu
-  status: open
+  status: in-progress
   priority: 29
   owner_feedback: []
-  gate: null
+  gate:
+    key: hotreload_pixels_changed
+    op: '>='
+    value: 1
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-warp
+  - OG_WANT_LEVELS=village1,beach
+  proof_props:
+  - debug.opengoal.level.warp=village1-warp
+  - debug.opengoal.want.levels=village1,beach
   game: jak1
   max_turns: 800
   max_retries: 6
@@ -3667,7 +3677,7 @@ items:
     ferme ; deux defauts neufs portes par recharged-settings-case-l10n'
 - id: recharged-settings-case-l10n
   feature: Les reglages Recharged sont tout en majuscules et pas tous traduits
-  status: open
+  status: to-test
   priority: 26
   game: jak1
   gate:
