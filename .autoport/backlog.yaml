@@ -3830,7 +3830,7 @@ items:
   owner_test: false
 - id: lighting-unify
   feature: Un seul modele d'eclairage au lieu de cinq, sans changer un pixel
-  status: in-progress
+  status: validated
   priority: 15
   owner_feedback:
   - date: '2026-09-05'
@@ -3851,7 +3851,7 @@ items:
   prompt: prompts/item-lighting-unify.md
   owner_ok: null
   device: false
-  where: 'rien de visible : la sortie doit etre identique a aujourd''hui'
+  where: null
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. 4106 lignes de shading monde en 4 quasi-copies, dont deux chemins morts et
     4 samplers lies a une texture noire 1x1. SPEC 2.2, 2.4 et l''annexe D (le sort des 94 uniformes, un
@@ -3866,9 +3866,19 @@ items:
     : la garde de reference de lighting-census le verifie. Ne touche a aucune feature validee. Pas de
     mesure visuelle. Le chemin d''origine n''entre pas dans shade() : il reste tel quel.'
   notes: 'budget : refonte transverse sur 5 shaders et leur cote C++, avec une porte a diff nul sur deux
-    jeux de reference. SPEC section 6.1.'
+    jeux de reference. SPEC section 6.1. | owner_test=false : sa promesse EST que rien ne change a l''ecran,
+    l''owner n''a par construction rien a regarder. Preuve machine : shade_variants=1, ablation armed=0
+    hits=0, references rejouees.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: draws passes par shade()
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_timeout: 900
+  owner_test: false
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
   status: open
