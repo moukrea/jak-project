@@ -150,6 +150,22 @@ class Backlog:
         p = it.get("priority")
         return p if isinstance(p, int) else 10 ** 6
 
+    def machine_proved_to_validated(self):
+        """`owner_test: false` + porte tenue = `validated`, sans passer par l'owner.
+
+        Un item dont la preuve est machine (empreinte, reproductibilite, instrument qui ne
+        change aucun pixel) ne peut PAS recevoir le feu vert de l'owner : il n'a rien a
+        regarder. Le laisser en `to-test` gele tout ce qui en depend — c'est arrive le
+        2026-09-06 : lighting-census bloquait les onze chantiers d'eclairage suivants.
+        """
+        promus = []
+        for it in self.items:
+            if it.get("status") == "to-test" and not it.get("owner_test", True):
+                it["status"] = "validated"
+                it.setdefault("notes", "")
+                promus.append(it["id"])
+        return promus
+
     def next_open(self):
         """Le premier `open` dont toutes les dependances sont `validated`, par priorite."""
         candidates = []

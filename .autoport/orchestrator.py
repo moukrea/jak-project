@@ -1046,7 +1046,12 @@ def close_gate(item: dict) -> tuple[str, str]:
 
     # GATE 4 — l'oeil de l'owner est la porte FINALE. Un item passe donc en
     # `to-test`, jamais directement en `validated` : seul `owner_ok` le ferme.
-    if item.get("owner_verify", True) and not owner_said_yes(item):
+    #
+    # SAUF `owner_test: false` : sa preuve est machine (empreinte, reproductibilite, instrument
+    # qui ne change aucun pixel) et l'owner n'a RIEN a regarder. L'attendre gele tout ce qui en
+    # depend — le 2026-09-06, lighting-census a bloque les onze chantiers d'eclairage suivants
+    # parce qu'il ne pouvait par construction jamais recevoir son feu vert.
+    if item.get("owner_test", True) and item.get("owner_verify", True) and not owner_said_yes(item):
         return ("awaiting-owner", "")
 
     return ("pass", "")
