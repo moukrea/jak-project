@@ -2,8 +2,8 @@ version: 1
 items:
 - id: honor-boot-crash
   feature: Le jeu plante au demarrage sur le Honor de l'owner
-  status: to-test
-  priority: 0
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: boot_crash_frames_survived
@@ -15,7 +15,10 @@ items:
   depends_on: []
   history: []
   prompt: prompts/item-honor-boot-crash.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-06'
+    text: Validé
+    build_sha: 89a09824599717f4
   where: 'lance le jeu : il doit atteindre l''ecran-titre et y rester'
   deliverable: Le jeu survit au moins 600 images apres le demarrage du rendu, sur le Redmi ET sur l'appareil
     de l'owner. Le moteur emet `boot_crash_frames_survived`. Le correctif doit expliquer POURQUOI le mutex
@@ -42,11 +45,13 @@ items:
   - date: '2026-09-05'
     text: Alors j'ai supprimé les assets sur le HONOR pour mettre ceux de la dernière release sortie et
       mis à jour l'APK... Instant crash au startup
+  - date: '2026-09-06'
+    text: Validé
   device_serial: AREE026206000788
 - id: cutscene-npc-flicker
   feature: Les PNJ clignotent pendant les cinematiques
-  status: to-test
-  priority: 1
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-31'
     text: le faire disparaitre a nouveau
@@ -72,6 +77,8 @@ items:
   - date: '2026-09-05'
     text: tu peux en profiter pour le soucis du maire qui disparaît et réaparaît dans la cinématique (ça
       doit toucher d'autres acteurs mais tu vois le problème dont je parle)
+  - date: '2026-09-06'
+    text: Validé
   gate:
     key: npc_flicker_episodes
     op: ==
@@ -84,7 +91,10 @@ items:
   - Gcutscene-npc-flicker
   - Gcutscene-npc-flicker-2
   prompt: prompts/item-cutscene-npc-flicker.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-06'
+    text: Validé
+    build_sha: 89a09824599717f4
   device: true
   device_serial: eae4df44
   proof_timeout: 420
@@ -264,8 +274,8 @@ items:
   notes: meme prompt ; -2 est « CAISSES, RETOUR 2 » ; l'owner ferme « les caisses » en un mot
 - id: anim-interp-low-fps
   feature: Les animations saccadees quand le jeu descend vers 20 images/s
-  status: to-test
-  priority: 13
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-09-01'
     text: Le pas de temps fixe a l'air bon, mais les animations sont quand même très jittery hein !
@@ -286,6 +296,8 @@ items:
       60 ça jitter! Par contre le pas de temps on valide, juste les animations qu'on valide pas... Enfin
       j'ai l'impression ! D'ailleurs on devrait pouvoir unlock le framerate, là ça lock à 60 max alors
       que ça pourrait ne pas être cap si le pas de temps fixe est bien fait !
+  - date: '2026-09-06'
+    text: Validé je pense
   gate:
     key: anim_sweep_defects
     op: ==
@@ -314,7 +326,10 @@ items:
   - Gfixed-tick-anim-interp
   - Gfixed-tick-anim-interp-2
   prompt: prompts/item-anim-interp-low-fps.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-06'
+    text: Validé je pense
+    build_sha: 89a09824599717f4
   device: true
   where: 'joue a 45 images/s (et 50, 75) : les animations doivent etre aussi lisses qu''a 30 et a 60'
   notes: 'Redmi rebranche le 2026-09-06. Le balayage doit couvrir 30/45/50/60/75/90 avec les cadences
@@ -405,8 +420,8 @@ items:
     » ; livre par defaut ETEINT. Ce n''est ni une validation ni quelque chose a lui redemander'
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
-  status: to-test
-  priority: 2
+  status: open
+  priority: 26
   owner_feedback:
   - date: '2026-08-06'
     text: le vent d'origine tournait au quart de sa vitesse
@@ -450,6 +465,11 @@ items:
       un effet sous-marin, mais juste un tilt c'est aussi pourri) et pour les arbres par example ça twitch
       autant côté feuilles que le tronc, nul ! Je pense d'ailleurs que tous les éléments qui devraient
       ne sont pas impactés... C'est mauvais, je tiens mon précédent feedback, nul !
+  - date: '2026-09-06'
+    text: Le feuilles de palmiers mériteraient de bouger plus à leur extrémités qu'à leur bases, de même
+      pour l'ensemble des shrubs (la base au sol immobile, les extrémités qui bougent plus). Et plus convaincant
+      les animations stp, ça doit varier en amplitude, distorsion, direction, comme de la brise/vent,
+      faut que ce soit vraiment convainquant !
   gate:
     key: wind_owner_defects_open
     op: ==
@@ -477,7 +497,9 @@ items:
   where: les palmiers et les buissons de Sandover, option de brise eteinte PUIS allumee
   notes: 'owner 2026-09-04, deuxieme refus complet (voir owner_feedback). Deux verdicts de plus : tronc
     immobile/cime mobile (ratio <= 0,15) et enveloppe qui varie (CV >= 0,30) — ni ondulation sous-marine
-    ni tilt binaire. Le natif est toujours soupconne bugge : comparaison au stock OBLIGATOIRE en premier.'
+    ni tilt binaire. Le natif est toujours soupconne bugge : comparaison au stock OBLIGATOIRE en premier.
+    | owner 2026-09-06 : « n''interromp pas le travail en cours pour autant [...] il sera repris le temps
+    voulu » — place APRES la chaine d''eclairage qu''il a demandee, pas en tete.'
   known_cause: 'L''anneau de vent a 48 slots morts sur 64 (index d''ecriture multiplie par `time-adjust-ratio`,
     index de lecture brut) : le ressort lit du vide trois images sur quatre. Le vent TIE est un affaissement
     lent VOULU ; le defaut du port est le pas de temps, qui avance par image RENDUE. La vegetation statique
@@ -492,7 +514,12 @@ items:
     frequence (« ondulation sous l''eau »). Preuve sur le Redmi ; (6) `wind_base_to_crown_ratio` <= 0.15
     — le tronc ne bouge pas, la cime oui (« ça twitch autant côté feuilles que le tronc ») ; (7) `wind_envelope_cv`
     >= 0.30 — l''amplitude varie dans le temps (rafales), ni sinusoide pure ni tilt binaire. wind_owner_defects_open
-    somme les SEPT.'
+    somme les SEPT ; (8) `wind_tip_gradient_min` >= 3.0 — le deplacement croit de la base vers l''EXTREMITE
+    le long de chaque element souple, pas seulement du tronc vers la cime : la pointe d''une palme bouge
+    au moins trois fois plus que son attache, et un buisson a sa base au sol IMMOBILE avec ses pointes
+    mobiles. Mesure par segment le long de l''element, pas deux points ; (9) `wind_dir_variation_deg`
+    >= 20 — la DIRECTION du vent varie dans le temps, ce n''est pas un balancement sur un axe fige. wind_owner_defects_open
+    somme les NEUF.'
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: to-test
@@ -2913,7 +2940,7 @@ items:
     du menu et la fermeture du navigateur de mesh (memes fichiers).'
 - id: recharged-texture-hotreload
   feature: Basculer les textures Recharged sans redemarrer le jeu
-  status: in-progress
+  status: open
   priority: 29
   owner_feedback: []
   gate:
@@ -3692,8 +3719,8 @@ items:
     ferme ; deux defauts neufs portes par recharged-settings-case-l10n'
 - id: recharged-settings-case-l10n
   feature: Les reglages Recharged sont tout en majuscules et pas tous traduits
-  status: to-test
-  priority: 26
+  status: validated
+  priority: null
   game: jak1
   gate:
     key: settings_case_l10n_defects
@@ -3705,7 +3732,10 @@ items:
   depends_on: []
   history: []
   prompt: prompts/item-recharged-settings-case-l10n.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-06'
+    text: Validé
+    build_sha: 89a09824599717f4
   where: 'Options > Recharged, dans chaque langue du jeu : casse normale comme le reste du menu, et rien
     qui reste en anglais'
   deliverable: 'Le moteur emet `settings_case_l10n_defects=N` = lignes du menu Recharged rendues en TOUT-MAJUSCULES
@@ -3723,6 +3753,8 @@ items:
       correctement.
   - date: '2026-09-05'
     text: Traduire celles qui restent en anglais dans toutes les langues supportées par le jeu !
+  - date: '2026-09-06'
+    text: Validé
 - id: audits-abandonnes
   feature: Audits de juin abandonnes (pixel-match du menu, images anglaises de reference)
   status: archived
@@ -3798,7 +3830,7 @@ items:
   owner_test: false
 - id: lighting-unify
   feature: Un seul modele d'eclairage au lieu de cinq, sans changer un pixel
-  status: open
+  status: in-progress
   priority: 15
   owner_feedback:
   - date: '2026-09-05'
