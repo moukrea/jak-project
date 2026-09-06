@@ -1,4 +1,6 @@
 #include "Sprite3.h"
+
+#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 
 namespace {
@@ -601,6 +603,10 @@ void Sprite3::distort_draw_instanced(SharedRenderState* render_state, ScopedProf
 void Sprite3::distort_draw_common(SharedRenderState* render_state, ScopedProfilerNode& /*prof*/) {
   // The distort effect needs to read the current framebuffer, so copy what's been rendered so far
   // to a texture that we can then pass to the shader
+  // lighting-hdr : lecture de la scene par un EFFET (hors chemin d'affichage). La cible est
+  // 8 bits : quand la scene est flottante, l'effet travaille sur une image ECRETEE.
+  hdr::note_aux_scene_read("Sprite3_Distort:scene-copy", render_state->render_fb_color_format,
+                           GL_RGBA8);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, render_state->render_fb);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_distort_ogl.fbo);
 

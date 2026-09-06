@@ -9,6 +9,7 @@
 
 #include "game/graphics/pipelines/opengl.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 
 #ifdef __ANDROID__
 // Phase A35 (autoport): on Android the shader sources are the GLES 3.20
@@ -479,6 +480,7 @@ void Shader::build(const std::string& shader_name,
   // `expand_includes`, apres `subst_tokens`, apres l'injection de `OG_PBR`. Mesurer plus tot
   // decrirait un texte qui n'est pas celui qui est compile.
   shade_proof::note_fragment_source(shader_name, frag_src);
+  hdr::note_fragment_source(shader_name, frag_src);
   m_frag_shader = compile_stage(GL_FRAGMENT_SHADER, frag_src, "fragment");
   if (!m_frag_shader) {
     m_is_okay = false;
@@ -600,6 +602,7 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::SPRITE_DISTORT) = {"sprite_distort", version};
   at(ShaderId::SPRITE_DISTORT_INSTANCED) = {"sprite_distort_instanced", version};
   at(ShaderId::POST_PROCESSING) = {"post_processing", version};
+  at(ShaderId::TONEMAP) = {"tonemap", version};
   at(ShaderId::DEPTH_CUE) = {"depth_cue", version};
   at(ShaderId::EMERC) = {"emerc", version};
   at(ShaderId::GLOW_PROBE) = {"glow_probe", version};

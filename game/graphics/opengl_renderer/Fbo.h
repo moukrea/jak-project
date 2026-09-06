@@ -26,10 +26,20 @@ struct Fbo {
   int width = 640;
   int height = 480;
 
+  // lighting-hdr : le format interne de l'attachement COULEUR. Sans ce champ, `matches()`
+  // declare identiques deux FBO de formats differents, et un basculement HDR -> LDR (ou le
+  // repli du §4.5) laisserait en place le tampon du regime precedent : le tone map lirait un
+  // tampon qui n'est pas celui qu'il croit. GL_RGBA8 = le format d'origine.
+  GLenum color_format = GL_RGBA8;
+
   // Does this fbo match the given format? MSAA = 1 will accept a normal buffer, or a multisample 1x
   bool matches(int w, int h, int msaa) const {
     int effective_msaa = multisampled ? multisample_count : 1;
     return valid && width == w && height == h && effective_msaa == msaa;
+  }
+
+  bool matches(int w, int h, int msaa, GLenum fmt) const {
+    return matches(w, h, msaa) && color_format == fmt;
   }
 
   bool matches(const Fbo& other) const {

@@ -1,5 +1,6 @@
 #include "OpenGLRenderer.h"
 
+#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/graphics/refset.h"
@@ -914,8 +915,19 @@ namespace {
 // a sampleable GL_TEXTURE_2D (DEPTH24_STENCIL8) instead of a renderbuffer, so the AO
 // pass can read scene depth. Only honored on the non-multisampled path; MSAA keeps the
 // renderbuffer (AO forces msaa=1 when it needs the texture). Default false == stock.
-Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil, bool zbuf_as_texture = false) {
+// lighting-hdr : `color_format` porte le format interne de l'attachement couleur. GL_RGBA8 est
+// le format d'origine et reste le defaut : un appelant qui ne le nomme pas obtient EXACTEMENT le
+// FBO d'avant. `out_complete` rend le verdict du pilote a l'appelant au lieu de l'assert, pour
+// que l'echelle de repli du §4.5 puisse descendre d'un cran au lieu de tuer le processus.
+Fbo make_fbo(int w,
+             int h,
+             int msaa,
+             bool make_zbuf_and_stencil,
+             bool zbuf_as_texture = false,
+             GLenum color_format = GL_RGBA8,
+             bool* out_complete = nullptr) {
   Fbo result;
+  result.color_format = color_format;
   bool use_multisample = msaa > 1;
 
   // make framebuffer object
@@ -930,10 +942,14 @@ Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil, bool zbuf_as_te
   glActiveTexture(GL_TEXTURE0);
   if (use_multisample) {
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, GL_RGBA8, w, h, GL_TRUE);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, msaa, color_format, w, h, GL_TRUE);
   } else {
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    // Le couple (format externe, type) doit rester coherent avec le format interne : un
+    // GL_UNSIGNED_BYTE sur un RGBA16F est refuse par GLES.
+    const bool is_float = hdr::format_is_float(color_format);
+    glTexImage2D(GL_TEXTURE_2D, 0, color_format, w, h, 0, GL_RGBA,
+                 is_float ? GL_HALF_FLOAT : GL_UNSIGNED_BYTE, nullptr);
   }
   // make depth and stencil buffers that will hold the... depth and stencil buffers
   if (make_zbuf_and_stencil) {
@@ -1004,7 +1020,15 @@ Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil, bool zbuf_as_te
         lg::print("GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS\n");
         break;
     }
-    ASSERT(false);
+    // lighting-hdr : quand l'appelant sait retomber sur un autre format, on lui rend la main.
+    // Sinon le comportement d'origine (assert) est conserve tel quel.
+    if (out_complete) {
+      *out_complete = false;
+    } else {
+      ASSERT(false);
+    }
+  } else if (out_complete) {
+    *out_complete = true;
   }
 
   result.multisample_count = msaa;
@@ -1014,6 +1038,26 @@ Fbo make_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil, bool zbuf_as_te
   result.height = h;
 
   return result;
+}
+
+// lighting-hdr : le tampon de SCENE, construit en descendant l'echelle de repli du §4.5
+// (RGBA16F -> R11F_G11F_B10F -> RGBA8) jusqu'a ce que le pilote accepte. Le repli n'est donc
+// jamais suppose : `hdr_fallback_used` publie le cran ou on s'est arrete.
+Fbo make_scene_fbo(int w, int h, int msaa, bool make_zbuf_and_stencil, bool zbuf_as_texture) {
+  for (int guard = 0; guard < 4; guard++) {
+    const GLenum fmt = hdr::scene_color_format();
+    bool complete = false;
+    Fbo f = make_fbo(w, h, msaa, make_zbuf_and_stencil, zbuf_as_texture, fmt, &complete);
+    if (complete) {
+      return f;
+    }
+    f.clear();
+    if (!hdr::note_scene_fbo_result(fmt, false)) {
+      // Plus aucun cran en dessous : on reprend le chemin d'origine, assert compris.
+      return make_fbo(w, h, msaa, make_zbuf_and_stencil, zbuf_as_texture);
+    }
+  }
+  return make_fbo(w, h, msaa, make_zbuf_and_stencil, zbuf_as_texture);
 }
 }  // namespace
 
@@ -1207,6 +1251,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   m_profiler.finish();
   lighting_census::frame_end();
   shade_proof::frame_end();
+  hdr::frame_end();
   // Gloading-screen-window : ATTRIBUER LE GEL, AU LIEU DE LE SUPPOSER.
   // Mesure x86 du 2026-08-30, transition `save-geyser` : la derniere image de l'ecran de
   // chargement dure 253 ms quand les 60 precedentes tiennent a 17,3 ms de maximum. Le premier
@@ -1343,10 +1388,15 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   const bool want_depth_tex =
       (AmbientOcclusionPass::effective_mode() != 0) && (settings.msaa_samples == 1);
 
+  // lighting-hdr : le format du tampon de scene fait partie de son identite. Sans ce terme,
+  // basculer la chaine HDR (menu, propriete, ou le bras `--off` du harnais) laisserait en place
+  // le tampon du regime precedent et le tone map lirait un tampon 8 bits en se croyant flottant.
+  const GLenum want_scene_fmt = hdr::scene_color_format();
+
   // see if the render FBO is still applicable
   if (settings.save_screenshot || window_resized || !m_fbo_state.render_fbo ||
       !m_fbo_state.render_fbo->matches(settings.game_res_w, settings.game_res_h,
-                                       settings.msaa_samples) ||
+                                       settings.msaa_samples, want_scene_fmt) ||
       m_fbo_state.resources.render_buffer.zbuf_is_texture != want_depth_tex) {
     // doesn't match, set up a new one for these settings
     lg::info("FBO Setup: requested {}x{}, msaa {}", settings.game_res_w, settings.game_res_h,
@@ -1360,7 +1410,7 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
     // window framebuffer.
 
     // create a fbo to render to, with the desired settings
-    m_fbo_state.resources.render_buffer = make_fbo(
+    m_fbo_state.resources.render_buffer = make_scene_fbo(
         settings.game_res_w, settings.game_res_h, settings.msaa_samples, true, want_depth_tex);
     m_fbo_state.render_fbo = &m_fbo_state.resources.render_buffer;
 
@@ -1370,8 +1420,11 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
 
       // we'll need a temporary fbo to do the msaa resolve step
       // non-multisampled, and doesn't need z/stencil
+      // Le resolve MSAA doit garder le format de la scene : un blit vers un 8 bits serait une
+      // compression de plage que personne n'a ecrite (et le recensement la compterait).
       m_fbo_state.resources.resolve_buffer =
-          make_fbo(settings.game_res_w, settings.game_res_h, 1, false);
+          make_fbo(settings.game_res_w, settings.game_res_h, 1, false, false,
+                   m_fbo_state.resources.render_buffer.color_format);
     } else {
       lg::info("FBO Setup: not using second temporary buffer");
     }
@@ -1418,6 +1471,7 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
       (settings.window_framebuffer_height - m_render_state.draw_region_h) / 2;
 
   m_render_state.render_fb = m_fbo_state.render_fbo->fbo_id;
+  m_render_state.render_fb_color_format = m_fbo_state.render_fbo->color_format;
 
   if (m_render_state.draw_region_w <= 0 || m_render_state.draw_region_h <= 0) {
     // trying to draw to 0 size region... opengl doesn't like this.
@@ -1446,8 +1500,13 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
   }
   const int native_ui_w = m_render_state.draw_region_w;
   const int native_ui_h = m_render_state.draw_region_h;
-  const bool split_active = (settings.game_res_w < native_ui_w ||
-                             settings.game_res_h < native_ui_h) &&
+  // lighting-hdr : la passe UI est la FRONTIERE ou la scene quitte le HDR. Quand la chaine est
+  // active on l'ouvre TOUJOURS, meme si le rendu remplit deja l'ecran : c'est ce qui garantit
+  // qu'il existe un et un seul endroit ou la compression de plage a lieu, et que la 2D (HUD,
+  // texte, menus) est dessinee APRES, donc jamais tone-mappee. Master OFF : rien ne change.
+  const bool hdr_chain = hdr::chain_active();
+  const bool split_active = ((settings.game_res_w < native_ui_w ||
+                              settings.game_res_h < native_ui_h) || hdr_chain) &&
                             native_ui_w > 0 && native_ui_h > 0;
   if (split_active) {
     if (!m_fbo_state.resources.ui_buffer.matches(native_ui_w, native_ui_h, 1)) {
@@ -1480,15 +1539,32 @@ void OpenGLRenderer::begin_ui_pass() {
     glBlitFramebuffer(0, 0, m_fbo_state.render_fbo->width, m_fbo_state.render_fbo->height, 0, 0,
                       m_fbo_state.resources.resolve_buffer.width,
                       m_fbo_state.resources.resolve_buffer.height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    hdr::note_display_copy("OpenGLRenderer.cpp:msaa-resolve-ui",
+                           m_fbo_state.render_fbo->color_format,
+                           m_fbo_state.resources.resolve_buffer.color_format);
     scene = &m_fbo_state.resources.resolve_buffer;
   }
 
-  // Upscale-blit the scaled 3D scene into the native UI FBO: this is the
-  // "upscale 3D" composite. The UI is then drawn on top at native resolution.
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, scene->fbo_id);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
-  glBlitFramebuffer(0, 0, scene->width, scene->height, 0, 0, ui.width, ui.height,
-                    GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  // lighting-hdr : SEUL endroit ou la couleur de la scene quitte le tampon de scene pour la
+  // chaine d'affichage. Chaine active => elle le fait par le programme `tonemap` (compression
+  // de plage appliquee une fois) ; chaine inactive => le blit d'origine, inchange.
+  hdr::probe_scene(scene->fbo_id, scene->width, scene->height, scene->color_format);
+  bool tonemapped = false;
+  if (hdr::chain_active()) {
+    tonemapped = hdr::tonemap_draw(m_render_state.shaders[ShaderId::TONEMAP],
+                                   "OpenGLRenderer.cpp:begin_ui_pass", *scene->tex_id, ui.fbo_id,
+                                   ui.width, ui.height, screen_vao, screen_vbo);
+  }
+  if (!tonemapped) {
+    // Upscale-blit the scaled 3D scene into the native UI FBO: this is the
+    // "upscale 3D" composite. The UI is then drawn on top at native resolution.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, scene->fbo_id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
+    glBlitFramebuffer(0, 0, scene->width, scene->height, 0, 0, ui.width, ui.height,
+                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    hdr::note_display_copy("OpenGLRenderer.cpp:ui-composite-blit", scene->color_format,
+                           ui.color_format);
+  }
 
   // Re-target the UI FBO for the 2D pass. Keep the composited color; clear depth so
   // the always-on-top HUD/menu (GEQUAL vs cleared 0) is not occluded by stale depth.
@@ -1501,6 +1577,7 @@ void OpenGLRenderer::begin_ui_pass() {
   glViewport(0, 0, ui.width, ui.height);
 
   m_render_state.render_fb = ui.fbo_id;
+  m_render_state.render_fb_color_format = ui.color_format;
   m_render_state.render_fb_x = 0;
   m_render_state.render_fb_y = 0;
   m_render_state.render_fb_w = ui.width;
@@ -1955,6 +2032,14 @@ void OpenGLRenderer::do_pcrtc_effects(float alp,
                                       int brightness_contrast_alpha,
                                       SharedRenderState* render_state,
                                       ScopedProfilerNode& prof) {
+  // lighting-hdr : la scene ne doit JAMAIS atteindre la fenetre en flottant — ce serait une
+  // seconde compression de plage, faite par la conversion de format et non par un shader.
+  // `begin_ui_pass()` est idempotent et porte le site unique ; si aucun bucket ne l'a ouvert
+  // (image sans 2D), on l'ouvre ici. La chaine active garantit que le rappel existe.
+  if (hdr::chain_active() && !m_ui_pass_active && m_render_state.begin_2d_ui_pass) {
+    begin_ui_pass();
+  }
+
   Fbo* window_blit_src = nullptr;
   if (m_ui_pass_active) {
     // Grender-split: the UI FBO already holds the composited image (upscaled 3D
@@ -1975,10 +2060,17 @@ void OpenGLRenderer::do_pcrtc_effects(float alp,
                       GL_COLOR_BUFFER_BIT,                          // mask
                       GL_LINEAR                                     // filter
     );
+    hdr::note_display_copy("OpenGLRenderer.cpp:msaa-resolve-pcrtc",
+                           m_fbo_state.render_fbo->color_format,
+                           m_fbo_state.resources.resolve_buffer.color_format);
     window_blit_src = &m_fbo_state.resources.resolve_buffer;
   } else {
     window_blit_src = &m_fbo_state.resources.render_buffer;
   }
+  // Le quad final ecrit dans le framebuffer par defaut, qui est 8 bits. Si la source est encore
+  // flottante ici, la conversion ECRETE : c'est un site de plus, et le recensement le dit.
+  hdr::note_display_copy("OpenGLRenderer.cpp:pcrtc-window-quad", window_blit_src->color_format,
+                         GL_RGBA8);
 
   // Gcine-vertical-frame (owner 2026-08-30, 5e signalement) -- LE VIEWPORT REELLEMENT SOUMIS AU GPU.
   // NATURE : deux RECTANGLES en pixels de fenetre hote -- la source qu'on blitte et la region ou

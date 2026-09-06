@@ -770,15 +770,14 @@
         // then the low-default slider trims what remains on genuinely smooth/metal texels.
         vec3 fspec_sum = (fspec_direct + famb_spec) * fspecocc * matte_gate * max(u_pbr_spec_intensity, 0.0);
         vec3 flit = fbase_lin + fspec_sum + emissive;
-        // Same C1 soft-shoulder tone map + far crossfade to baked as the rt composite —
-        // the added specular can never clip the baked base to white.
-        if ((u_pbr_bisect & 1024) == 0) {
-          const float RT_KNEE = 0.8;
-          vec3 fe = exp(-max(flit - vec3(RT_KNEE), vec3(0.0)) / (1.0 - RT_KNEE));
-          flit = mix(flit, vec3(1.0) - (1.0 - RT_KNEE) * fe, step(vec3(RT_KNEE), flit));
-        } else {
-          flit = min(flit, vec3(1.0));  // bisect: shoulder off, hard clamp
-        }
+        // lighting-hdr (SPEC-refonte-lumiere §4.5) : l'epaule C1 qui vivait ICI (constante
+        // RT_KNEE = 0,8) a ete DEPLACEE au site unique de tone map, tonemap.frag. Elle n'a
+        // pas ete supprimee : c'est la meme formule, appliquee une seule fois, sur l'image
+        // entiere et non par chemin d'ombrage. Ce que ce chemin produit au-dela de 1,0 est
+        // desormais CONSERVE par le tampon RGBA16F au lieu d'etre ecrase ici.
+        // Le bit `u_pbr_bisect & 1024` (« shoulder off, hard clamp ») n'a plus d'objet : il
+        // n'y a plus de genou local a court-circuiter. Il est retire, pas neutralise, pour
+        // que le recensement de hdr.cpp ne trouve aucune compression de plage dans ce texte.
         vec3 fdisp = pow(max(flit, vec3(0.0)), vec3(1.0 / 2.2));
         float ffar_rng = u_rt_shadow_range > 1.0 ? u_rt_shadow_range : 150.0;
         float ffar_t = smoothstep(ffar_rng * 0.82, ffar_rng * 1.05, length(s.P_rel));

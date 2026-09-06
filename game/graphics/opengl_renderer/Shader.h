@@ -110,14 +110,18 @@ enum class ShaderId {
   AO_GTAO = 47,
   AO_BLUR = 48,
   AO_COMPOSITE = 49,
+  // lighting-hdr : le site UNIQUE de tone map (SPEC-refonte-lumiere §4.5, passe P9). Ce
+  // programme est le seul de la chaine d'affichage autorise a compresser la plage ; le
+  // recensement de hdr.cpp le reconnait par le marqueur `@tonemap-site` de son texte.
+  TONEMAP = 50,
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials round-4 mandate B: depth-only sun shadow-map pass.
-  PBR_DEPTH = 50,
+  PBR_DEPTH = 51,
   // REOPEN #3 TESSELLATION displacement: TFRAG3 with a tess control+eval stage that
   // displaces the surface by the PBR height map (u_pbr_displacement == 2). vert =
   // tfrag3_tess.vert (pass-through), tesc = tfrag3.tesc, tese = tfrag3.tese, frag =
   // tfrag3.frag (reused unchanged). Only compiled/selected on a tess-capable context.
-  TFRAG3_TESS = 51,
+  TFRAG3_TESS = 52,
 #endif
   MAX_SHADERS
 };

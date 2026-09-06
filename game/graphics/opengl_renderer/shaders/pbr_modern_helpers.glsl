@@ -83,14 +83,10 @@ float mm_spec_occlusion(float NdV, float ao_in, float rough_in, vec3 Rf, vec3 Ng
   return so * ho * ho;
 }
 
-// ---- FILMIC TONE CURVE (opt-in, never the default) -------------------------------------------------
-// Narkowicz's ACES fit. The shipped default remains the C1 soft shoulder the owner's look was
-// calibrated against — this exists so a PBR surface pushed hard by a strong scattering or coat term
-// rolls off like a modern renderer instead of clipping, and it is reachable only through u_mm_flags
-// bit 64 (never set by any default material profile).
-vec3 mm_tonemap_aces(vec3 x) {
-  const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
-  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
+// ---- COURBE FILMIQUE : RETIREE D'ICI (lighting-hdr, SPEC-refonte-lumiere §4.5) ----------------
+// L'ajustement ACES de Narkowicz vivait ici et n'etait atteignable que par u_mm_flags bit 64. Une
+// courbe de tone map est une decision sur l'IMAGE, pas sur une matiere : elle vit maintenant au
+// site unique (tonemap.frag), ou l'option « Filmique » du §6.2 est la courbe Khronos PBR Neutral.
+// Le bit 64 de u_mm_flags n'a plus d'effet et n'est plus lu.
 
 #endif

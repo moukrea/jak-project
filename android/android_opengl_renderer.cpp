@@ -16,6 +16,7 @@
 
 #include "game/system/load_gate.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
@@ -61,8 +62,16 @@ constexpr const char* kLogTag = "opengoal-gk";
 
 // Identical to the desktop make_fbo (OpenGLRenderer.cpp), msaa stripped:
 // the Android skeleton always renders single-sampled.
-Fbo a35_make_fbo(int w, int h, bool zbuf_as_texture) {
+// lighting-hdr : meme contrat que le make_fbo du bureau — `color_format` par defaut a GL_RGBA8
+// (le FBO d'origine, a l'octet pres) et `out_complete` rend le verdict du pilote a l'appelant
+// pour que l'echelle de repli du §4.5 puisse descendre au lieu de tuer le processus.
+Fbo a35_make_fbo(int w,
+                 int h,
+                 bool zbuf_as_texture,
+                 GLenum color_format = GL_RGBA8,
+                 bool* out_complete = nullptr) {
   Fbo result;
+  result.color_format = color_format;
   glGenFramebuffers(1, &result.fbo_id);
   glBindFramebuffer(GL_FRAMEBUFFER, result.fbo_id);
   result.valid = true;
@@ -72,7 +81,8 @@ Fbo a35_make_fbo(int w, int h, bool zbuf_as_texture) {
   result.tex_id = tex;
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glTexImage2D(GL_TEXTURE_2D, 0, color_format, w, h, 0, GL_RGBA,
+               hdr::format_is_float(color_format) ? GL_HALF_FLOAT : GL_UNSIGNED_BYTE, nullptr);
 
   GLuint zbuf;
   if (zbuf_as_texture) {
@@ -103,8 +113,15 @@ Fbo a35_make_fbo(int w, int h, bool zbuf_as_texture) {
   auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if (status != GL_FRAMEBUFFER_COMPLETE) {
     __android_log_print(ANDROID_LOG_ERROR, kLogTag,
-                        "A35-RENDER fbo setup failed: %dx%d status=0x%x", w, h, (unsigned)status);
-    ASSERT(false);
+                        "A35-RENDER fbo setup failed: %dx%d fmt=0x%x status=0x%x", w, h,
+                        (unsigned)color_format, (unsigned)status);
+    if (out_complete) {
+      *out_complete = false;
+    } else {
+      ASSERT(false);
+    }
+  } else if (out_complete) {
+    *out_complete = true;
   }
 
   result.multisample_count = 1;
@@ -113,6 +130,25 @@ Fbo a35_make_fbo(int w, int h, bool zbuf_as_texture) {
   result.width = w;
   result.height = h;
   return result;
+}
+
+// lighting-hdr : le tampon de SCENE, en descendant l'echelle de repli du §4.5 jusqu'a ce que le
+// pilote accepte. C'est ici que le repli devient une MESURE (`hdr_fallback_used`) et pas une
+// hypothese : sur un Adreno qui refuserait RGBA16F en cible de rendu, la course le dirait.
+Fbo a35_make_scene_fbo(int w, int h, bool zbuf_as_texture) {
+  for (int guard = 0; guard < 4; guard++) {
+    const GLenum fmt = hdr::scene_color_format();
+    bool complete = false;
+    Fbo f = a35_make_fbo(w, h, zbuf_as_texture, fmt, &complete);
+    if (complete) {
+      return f;
+    }
+    f.clear();
+    if (!hdr::note_scene_fbo_result(fmt, false)) {
+      return a35_make_fbo(w, h, zbuf_as_texture);
+    }
+  }
+  return a35_make_fbo(w, h, zbuf_as_texture);
 }
 
 // True when the bucket carries content beyond the empty 4-tag shape
@@ -1046,6 +1082,12 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   }
   m_last_pmode_alp = settings.pmode_alp_register;
 
+  // lighting-hdr : le recensement publie ICI aussi. Le renderer Android est une COPIE separee
+  // du renderer bureau (deux CMakeLists, deux TU) : un `frame_end()` pose seulement cote x86
+  // rend une preuve appareil muette — c'est exactement ce qui est arrive a lighting-unify,
+  // dont aucune cle ne sort sur l'appareil.
+  hdr::frame_end();
+
   m_profiler.finish();
   m_stats.draw_calls = m_profiler.root()->stats().draw_calls;
   m_stats.triangles = m_profiler.root()->stats().triangles;
@@ -1149,8 +1191,10 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   // recreates it next frame. (Android render FBO is always single-sampled.)
   const bool want_depth_tex = AmbientOcclusionPass::effective_mode() != 0;
 
+  // lighting-hdr : le format du tampon de scene fait partie de son identite (voir Fbo.h).
+  const GLenum want_scene_fmt = hdr::scene_color_format();
   if (window_resized || !m_fbo_state.render_fbo ||
-      !m_fbo_state.render_fbo->matches(fbo_w, fbo_h, 1) ||
+      !m_fbo_state.render_fbo->matches(fbo_w, fbo_h, 1, want_scene_fmt) ||
       m_fbo_state.render_buffer.zbuf_is_texture != want_depth_tex) {
     lg::info("A35-RENDER FBO setup: {}x{} (game_res {}x{} scale {}% window {}x{})", fbo_w, fbo_h,
              settings.game_res_w, settings.game_res_h, scale, settings.window_fb_w,
@@ -1163,7 +1207,7 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
       glFinish();
     }
     m_fbo_state.render_buffer.clear();
-    m_fbo_state.render_buffer = a35_make_fbo(fbo_w, fbo_h, want_depth_tex);
+    m_fbo_state.render_buffer = a35_make_scene_fbo(fbo_w, fbo_h, want_depth_tex);
     m_fbo_state.render_fbo = &m_fbo_state.render_buffer;
     // fresh depth attachment: require 3 recreate-free frames before AO touches it. A
     // renderscale STORM (recreate every 1-2 frames) therefore holds AO off entirely,
@@ -1220,6 +1264,7 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   m_render_state.draw_offset_x = (settings.window_fb_w - m_render_state.draw_region_w) / 2;
   m_render_state.draw_offset_y = (settings.window_fb_h - m_render_state.draw_region_h) / 2;
   m_render_state.render_fb = m_fbo_state.render_fbo->fbo_id;
+  m_render_state.render_fb_color_format = m_fbo_state.render_fbo->color_format;
 
   if (m_render_state.draw_region_w <= 0 || m_render_state.draw_region_h <= 0) {
     m_render_state.draw_region_w = 320;
@@ -1249,8 +1294,13 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   }
   const int native_ui_w = m_render_state.draw_region_w;
   const int native_ui_h = m_render_state.draw_region_h;
+  // lighting-hdr : la passe UI est la FRONTIERE ou la scene quitte le HDR. Chaine active =>
+  // on l'ouvre TOUJOURS, pour qu'il existe un et un seul endroit ou la compression de plage a
+  // lieu et pour que la 2D (HUD, texte, menus) soit dessinee APRES, donc jamais tone-mappee.
+  const bool hdr_chain = hdr::chain_active();
   const bool split_active =
-      (fbo_w < native_ui_w || fbo_h < native_ui_h) && native_ui_w > 0 && native_ui_h > 0;
+      ((fbo_w < native_ui_w || fbo_h < native_ui_h) || hdr_chain) && native_ui_w > 0 &&
+      native_ui_h > 0;
   if (split_active) {
     if (!m_fbo_state.ui_buffer.matches(native_ui_w, native_ui_h, 1)) {
       if (m_fbo_state.ui_buffer.valid) {
@@ -1277,11 +1327,24 @@ void AndroidOpenGLRenderer::begin_ui_pass() {
   auto& ui = m_fbo_state.ui_buffer;
   Fbo& scene = m_fbo_state.render_buffer;  // always single-sample on Android
 
-  // Upscale-blit the scaled 3D scene into the native UI FBO ("upscale 3D").
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, scene.fbo_id);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
-  glBlitFramebuffer(0, 0, scene.width, scene.height, 0, 0, ui.width, ui.height,
-                    GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  // lighting-hdr : SEUL endroit ou la couleur de la scene quitte le tampon de scene pour la
+  // chaine d'affichage. Chaine active => programme `tonemap` ; sinon le blit d'origine.
+  hdr::probe_scene(scene.fbo_id, scene.width, scene.height, scene.color_format);
+  bool tonemapped = false;
+  if (hdr::chain_active()) {
+    tonemapped = hdr::tonemap_draw(m_render_state.shaders[ShaderId::TONEMAP],
+                                   "android_opengl_renderer.cpp:begin_ui_pass", *scene.tex_id,
+                                   ui.fbo_id, ui.width, ui.height, m_screen_vao, m_screen_vbo);
+  }
+  if (!tonemapped) {
+    // Upscale-blit the scaled 3D scene into the native UI FBO ("upscale 3D").
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, scene.fbo_id);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ui.fbo_id);
+    glBlitFramebuffer(0, 0, scene.width, scene.height, 0, 0, ui.width, ui.height,
+                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    hdr::note_display_copy("android_opengl_renderer.cpp:ui-composite-blit", scene.color_format,
+                           ui.color_format);
+  }
 
   // Re-target the UI FBO for the native 2D pass. Keep the composited color; clear
   // depth so the always-on-top HUD/menu (GEQUAL vs cleared 0) is not occluded.
@@ -1294,6 +1357,7 @@ void AndroidOpenGLRenderer::begin_ui_pass() {
   glViewport(0, 0, ui.width, ui.height);
 
   m_render_state.render_fb = ui.fbo_id;
+  m_render_state.render_fb_color_format = ui.color_format;
   m_render_state.render_fb_x = 0;
   m_render_state.render_fb_y = 0;
   m_render_state.render_fb_w = ui.width;
@@ -1645,8 +1709,18 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
   // brightness/contrast left at the neutral defaults.
   // Grender-split: when active, the UI FBO already holds the composited image
   // (upscaled 3D scene + native-resolution 2D UI); blit it straight to the window.
+  // lighting-hdr : la scene ne doit JAMAIS atteindre la fenetre en flottant. `begin_ui_pass()`
+  // est idempotent et porte le site unique ; si aucun bucket ne l'a ouvert, on l'ouvre ici.
+  if (hdr::chain_active() && !m_ui_pass_active && m_render_state.begin_2d_ui_pass) {
+    begin_ui_pass();
+  }
+
   Fbo* window_blit_src =
       m_ui_pass_active ? &m_fbo_state.ui_buffer : &m_fbo_state.render_buffer;
+  // Le quad final ecrit dans le framebuffer par defaut, 8 bits : une source encore flottante y
+  // serait ECRETEE, donc un site de plus. Le recensement le dit au lieu de le supposer.
+  hdr::note_display_copy("android_opengl_renderer.cpp:pcrtc-window-quad",
+                         window_blit_src->color_format, GL_RGBA8);
 
   // Gcine-vertical-frame (owner 2026-08-30, 5e signalement) -- LE VIEWPORT REELLEMENT SOUMIS AU GPU.
   // NATURE : deux RECTANGLES en pixels de fenetre hote -- la source qu'on blitte et la region ou

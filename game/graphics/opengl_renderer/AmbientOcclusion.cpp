@@ -1,5 +1,7 @@
 #include "AmbientOcclusion.h"
 
+#include "game/graphics/opengl_renderer/hdr.h"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -732,6 +734,10 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     const int sc_w = render_fbo->multisampled ? src_w : ao_w;
     const int sc_h = render_fbo->multisampled ? src_h : ao_h;
     ensure_scene_copy(sc_w, sc_h);
+    // lighting-hdr : `m_scene_fbo` est RGBA8. Quand la scene est flottante, cette copie ECRETE
+    // avant le composite d'AO. L'AO cesse de composer sur l'image avec l'item
+    // `lighting-ao-indirect` (SPEC §4.7) ; ici on MESURE le fait au lieu de le supposer.
+    hdr::note_aux_scene_read("AmbientOcclusion:scenecopy", render_fbo->color_format, GL_RGBA8);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, render_fbo->fbo_id);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_scene_fbo);
     glBlitFramebuffer(0, 0, src_w, src_h, 0, 0, sc_w, sc_h, GL_COLOR_BUFFER_BIT, GL_LINEAR);

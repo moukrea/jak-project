@@ -1,5 +1,7 @@
 #include "GlowRenderer.h"
 
+#include "game/graphics/opengl_renderer/hdr.h"
+
 #include "third-party/imgui/imgui.h"
 
 /*
@@ -559,6 +561,10 @@ void GlowRenderer::blit_depth(SharedRenderState* render_state) {
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 
+  // lighting-hdr : lecture de la scene par un EFFET (hors chemin d'affichage). La cible est
+  // 8 bits : quand la scene est flottante, l'effet travaille sur une image ECRETEE.
+  hdr::note_aux_scene_read("GlowRenderer:probe-copy", render_state->render_fb_color_format,
+                           GL_RGBA8);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, render_state->render_fb);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_ogl.probe_fbo);
 

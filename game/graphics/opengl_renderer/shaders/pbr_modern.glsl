@@ -209,18 +209,11 @@
           vec3 mm_lin = fbase_lin * mm_coat_atten + mm_spec_sum + mm_coat_sum + emissive + mm_trans;
           mm_lin *= max(u_mm_exposure, 0.0);
 
-          // Tone map. The DEFAULT branch is the accepted C1 soft shoulder, transcribed from the fused
-          // chunk verbatim so the composite lands on the same curve the owner's look was judged
-          // against; the filmic curve is opt-in only (bit 64).
-          if ((u_mm_flags & 64) != 0) {
-            mm_lin = mm_tonemap_aces(mm_lin);
-          } else if ((u_pbr_bisect & 1024) == 0) {
-            const float MM_KNEE = 0.8;
-            vec3 me = exp(-max(mm_lin - vec3(MM_KNEE), vec3(0.0)) / (1.0 - MM_KNEE));
-            mm_lin = mix(mm_lin, vec3(1.0) - (1.0 - MM_KNEE) * me, step(vec3(MM_KNEE), mm_lin));
-          } else {
-            mm_lin = min(mm_lin, vec3(1.0));
-          }
+          // lighting-hdr (SPEC-refonte-lumiere §4.5) : les TROIS compressions de plage qui
+          // vivaient ici (l'epaule C1 MM_KNEE, l'ecretage dur du bit de bisection, et la
+          // courbe ACES opt-in du bit 64) ont ete deplacees au site unique, tonemap.frag,
+          // qui porte la meme epaule et la courbe filmique en option. Un chemin d'ombrage
+          // ne decide plus de la plage de l'image : il produit une radiance, point.
           color.rgb = mix(pow(max(mm_lin, vec3(0.0)), vec3(1.0 / 2.2)), fbaked, ffar_t);
 
           // ---- PER-CHANNEL ISOLATION VIZ ----------------------------------------------------------

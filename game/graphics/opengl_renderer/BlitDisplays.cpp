@@ -1,5 +1,7 @@
 #include "BlitDisplays.h"
 
+#include "game/graphics/opengl_renderer/hdr.h"
+
 #include "common/log/log.h"
 
 #include "game/graphics/opengl_renderer/Fbo.h"
@@ -46,6 +48,11 @@ void BlitDisplays::render(DmaFollower& dma,
           u32 tbp = data.vifcode1().immediate;
           ASSERT_MSG(tbp == m_tbp, fmt::format("unexpected tbp {}", tbp));
           // copy buffer texture -> custom texture
+          // lighting-hdr : capture du fond de menu. La cible du pool de textures est 8 bits ;
+          // quand la scene est flottante, cette copie ECRETE. Hors chemin d'affichage, donc pas
+          // un site de tone map — publie sous `hdr_aux_clamped_reads` avec son denominateur.
+          hdr::note_aux_scene_read("BlitDisplays:capture-0x10",
+                                   render_state->render_fb_color_format, GL_RGBA8);
           m_copier->copy_now(render_state->render_fb_w, render_state->render_fb_h,
                              render_state->render_fb);
           m_gpu_tex->w = render_state->render_fb_w;
@@ -113,6 +120,8 @@ void BlitDisplays::do_copy_back(SharedRenderState* render_state, ScopedProfilerN
   if (m_copy_back_pending) {
     if (render_state->render_fb_w == m_copier->width() &&
         render_state->render_fb_h == m_copier->height()) {
+      hdr::note_aux_scene_read("BlitDisplays:copy-back", render_state->render_fb_color_format,
+                               GL_RGBA8);
       m_copier->copy_back_now(render_state->render_fb_w, render_state->render_fb_h,
                               render_state->render_fb);
     }

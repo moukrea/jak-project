@@ -1,0 +1,502 @@
+#include "game/graphics/opengl_renderer/hdr.h"
+
+#include <cmath>
+#include <cstring>
+#include <cstdlib>
+#include <map>
+#include <set>
+#include <vector>
+
+#include "common/log/log.h"
+
+#include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/Shader.h"
+#include "game/system/autoport_proof.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
+namespace hdr {
+namespace {
+
+constexpr const char* kItemId = "lighting-hdr";
+
+// L'echelle de repli du §4.5, dans l'ordre. On ne descend d'un cran que lorsque le pilote a
+// REFUSE le cran precedent (FBO incomplet) : le repli est mesure, jamais suppose.
+//
+// POURQUOI R11F_G11F_B10F N'Y EST PAS, alors que le §4.5 le nomme. Ce format n'a PAS de canal
+// alpha, et l'alpha du tampon de scene de ce moteur n'est pas decoratif : `GL_DST_ALPHA` est un
+// facteur de melange reellement utilise (background_common.cpp:221 `glBlendFunc(GL_DST_ALPHA,
+// GL_ONE)`, DirectRenderer.cpp:543, DirectRenderer2.cpp:282, CommonOceanRenderer.cpp:344 et 537,
+// Generic2_OpenGL.cpp:170). Sur une cible sans alpha, GL lit un alpha de destination de 1,0 :
+// ces six sites changeraient de resultat en silence. Le cran est donc RETIRE, pas oublie — et
+// il n'est pas necessaire : GLES 3.2 rend RGBA16F obligatoirement color-renderable.
+// Le dernier cran (RGBA8) est celui du §4.5 : « RGBA8 a exposition fixe ». La chaine reste
+// active, le site de tone map tire toujours, mais il n'y a plus de marge au-dessus de 1.
+constexpr GLenum kFormatLadder[] = {GL_RGBA16F, GL_RGBA8};
+constexpr int kLadderLen = 2;
+int s_ladder_step = 0;
+
+// ------------------------------------------------------------------------------ recensement --
+struct DisplaySite {
+  bool narrowed = false;
+  uint64_t count = 0;
+};
+std::map<std::string, DisplaySite> s_display_sites;  // chemin d'affichage
+std::map<std::string, DisplaySite> s_aux_sites;      // effets, hors chemin d'affichage
+std::set<std::string> s_explicit_sites;              // d'ou le tone map a REELLEMENT ete tire
+
+struct ProgInfo {
+  bool has_compression = false;
+  uint64_t oetf_occurrences = 0;
+};
+std::map<std::string, ProgInfo> s_progs;
+
+uint64_t s_frames = 0;
+uint64_t s_chain_frames = 0;
+uint64_t s_tonemap_draws = 0;
+
+// ------------------------------------------------------------------------------------ sonde --
+constexpr int kProbeW = 96;
+constexpr int kProbeH = 54;
+constexpr uint64_t kProbeEvery = 30;
+GLuint s_probe_fbo = 0;
+GLuint s_probe_tex = 0;
+int s_probe_state = 0;  // 0 = jamais tente, 1 = pret, -1 = impossible (dit pourquoi)
+uint64_t s_probe_px = 0;
+uint64_t s_probe_overbright = 0;
+uint64_t s_probe_frames = 0;
+uint64_t s_probe_max_x1000 = 0;   // le plus grand canal vu, x1000
+uint64_t s_ldr_ref_delta = 0;     // max |epaule - ecretage| sur 0..255
+
+bool env_or_prop_override(const char* prop, const char* env, int* out) {
+#ifdef __ANDROID__
+  (void)env;
+  char buf[PROP_VALUE_MAX] = {0};
+  if (__system_property_get(prop, buf) > 0 && buf[0]) {
+    *out = std::atoi(buf);
+    return true;
+  }
+#else
+  (void)prop;
+  const char* e = std::getenv(env);
+  if (e && e[0]) {
+    *out = std::atoi(e);
+    return true;
+  }
+#endif
+  return false;
+}
+
+// L'epaule C1, IDENTIQUE au texte de tonemap.frag. Sert au calcul de `ldr_ref_delta` : la
+// grandeur compare ce que le site UNIQUE produit a ce que l'ecretage d'aujourd'hui produirait,
+// sur les memes pixels mesures. Deux transcriptions de la meme formule, l'une en GLSL et
+// l'autre ici : un ecart entre elles se lirait comme un ecart de courbe, donc on garde la
+// forme litterale et pas une reecriture « equivalente ».
+float shoulder(float x, float k) {
+  if (x <= k) {
+    return x;
+  }
+  const float w = (1.f - k) > 1e-4f ? (1.f - k) : 1e-4f;
+  return 1.f - w * std::exp(-(x - k) / w);
+}
+
+// Les jetons d'une COMPRESSION DE PLAGE dans un texte fragment. Ce sont des identifiants, pas
+// des motifs generiques : `min(x, 1.0)` sur un facteur intermediaire n'est pas une compression
+// de l'image, et le compter rendrait le recensement inexploitable.
+const char* kCompressionTokens[] = {
+    "RT_KNEE",          // l'epaule de pbr_fused.glsl, deplacee au site unique par cet item
+    "MM_KNEE",          // l'epaule de pbr_modern.glsl, idem
+    "mm_tonemap_aces",  // la courbe ACES opt-in de pbr_modern, idem
+};
+
+// Le recensement lit le CODE, pas les commentaires. Les trois jetons ci-dessus apparaissent
+// justement dans les commentaires qui expliquent leur retrait : les compter la rendrait la
+// grandeur inexploitable — et pire, la rendrait sensible a une phrase. On retire donc `//...`
+// et les blocs avant de chercher. En cas de doute, l'erreur va vers le ROUGE (un commentaire
+// mal retire fait monter le compte), jamais vers un faux vert.
+std::string strip_comments(const std::string& src) {
+  std::string out;
+  out.reserve(src.size());
+  enum { kCode, kLine, kBlock } st = kCode;
+  for (size_t i = 0; i < src.size(); i++) {
+    const char c = src[i];
+    const char n = (i + 1 < src.size()) ? src[i + 1] : '\0';
+    if (st == kCode) {
+      if (c == '/' && n == '/') {
+        st = kLine;
+        i++;
+      } else if (c == '/' && n == '*') {
+        st = kBlock;
+        i++;
+      } else {
+        out.push_back(c);
+      }
+    } else if (st == kLine) {
+      if (c == '\n') {
+        st = kCode;
+        out.push_back(c);
+      }
+    } else {
+      if (c == '*' && n == '/') {
+        st = kCode;
+        i++;
+      }
+    }
+  }
+  return out;
+}
+
+uint64_t count_occurrences(const std::string& hay, const std::string& needle) {
+  uint64_t n = 0;
+  size_t at = 0;
+  while ((at = hay.find(needle, at)) != std::string::npos) {
+    n++;
+    at += needle.size();
+  }
+  return n;
+}
+
+void ensure_probe() {
+  if (s_probe_state != 0) {
+    return;
+  }
+  glGenFramebuffers(1, &s_probe_fbo);
+  glGenTextures(1, &s_probe_tex);
+  glBindTexture(GL_TEXTURE_2D, s_probe_tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, kProbeW, kProbeH, 0, GL_RGBA, GL_FLOAT, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glBindFramebuffer(GL_FRAMEBUFFER, s_probe_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_probe_tex, 0);
+  const GLenum st = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (st != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("[lighting-hdr] sonde de marge indisponible : FBO 0x{:x}", (unsigned)st);
+    s_probe_state = -1;
+    return;
+  }
+  s_probe_state = 1;
+}
+
+float half_to_float(uint16_t h) {
+  const uint32_t sign = (uint32_t)(h >> 15) << 31;
+  uint32_t exp = (h >> 10) & 0x1f;
+  uint32_t man = h & 0x3ff;
+  if (exp == 0) {
+    if (man == 0) {
+      float f;
+      uint32_t b = sign;
+      std::memcpy(&f, &b, 4);
+      return f;
+    }
+    while (!(man & 0x400)) {
+      man <<= 1;
+      exp--;
+    }
+    exp++;
+    man &= 0x3ff;
+  } else if (exp == 31) {
+    exp = 255;
+  }
+  if (exp != 255) {
+    exp = exp + 112;
+  }
+  const uint32_t bits = sign | (exp << 23) | (man << 13);
+  float f;
+  std::memcpy(&f, &bits, 4);
+  return f;
+}
+
+}  // namespace
+
+// ---------------------------------------------------------------------------------- regime ----
+
+bool chain_active() {
+  int ov = -1;
+  const bool has_ov = env_or_prop_override("debug.opengoal.hdr", "OG_HDR", &ov);
+  if (has_ov && ov == 0) {
+    return false;
+  }
+  // '1' epingle le REGLAGE de cet item, jamais le master : le mode ORIGINE reste ORIGINE meme
+  // avec la propriete posee. C'est la regle « epingler le regime de SA feature » — sans ca, une
+  // course appareil mesure le reglage laisse par quelqu'un d'autre.
+  const bool setting_on = has_ov ? Gfx::recharged_master_active()
+                                 : Gfx::recharged_active(Gfx::g_global_settings.recharged_hdr);
+  if (!setting_on) {
+    return false;
+  }
+  // L'ablation du harnais est CAUSALE : `--off` eteint la chaine, le tone map n'est pas tire,
+  // `hits` tombe a 0 parce que le geste n'a pas eu lieu — pas seulement parce que le compteur
+  // s'est tu. Arme par defaut quand le harnais ne demande rien.
+  return autoport_proof::armed_for(kItemId);
+}
+
+GLenum scene_color_format() {
+  if (!chain_active()) {
+    return GL_RGBA8;
+  }
+  return kFormatLadder[s_ladder_step];
+}
+
+bool note_scene_fbo_result(GLenum requested, bool complete) {
+  if (complete) {
+    return false;
+  }
+  for (int i = 0; i < kLadderLen; i++) {
+    if (kFormatLadder[i] == requested && i + 1 < kLadderLen) {
+      s_ladder_step = i + 1;
+      lg::error("[lighting-hdr] {} refuse par le pilote : repli sur {}", format_name(requested),
+                format_name(kFormatLadder[s_ladder_step]));
+      return true;
+    }
+  }
+  return false;
+}
+
+bool format_is_float(GLenum fmt) {
+  return fmt == GL_RGBA16F || fmt == GL_R11F_G11F_B10F || fmt == GL_RGBA32F;
+}
+
+const char* format_name(GLenum fmt) {
+  switch (fmt) {
+    case GL_RGBA16F:
+      return "RGBA16F";
+    case GL_R11F_G11F_B10F:
+      return "R11F_G11F_B10F";
+    case GL_RGBA32F:
+      return "RGBA32F";
+    case GL_RGBA8:
+      return "RGBA8";
+    default:
+      return "autre";
+  }
+}
+
+// ----------------------------------------------------------------------------- site unique ----
+
+bool tonemap_draw(Shader& shader,
+                  const char* site,
+                  GLuint src_tex,
+                  GLuint dst_fbo,
+                  int dst_w,
+                  int dst_h,
+                  GLuint vao,
+                  GLuint vbo) {
+  if (!shader.okay()) {
+    lg::error("[lighting-hdr] programme `tonemap` indisponible : le blit d'origine est repris");
+    return false;
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+  glViewport(0, 0, dst_w, dst_h);
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+  glDepthMask(GL_FALSE);
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, src_tex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  glBindVertexArray(vao);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  shader.activate();
+  glUniform1i(glGetUniformLocation(shader.id(), "tex_T0"), 0);
+  glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_exposure"),
+              Gfx::g_global_settings.recharged_hdr_exposure);
+  glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_knee"),
+              Gfx::g_global_settings.recharged_hdr_knee);
+  glUniform1i(glGetUniformLocation(shader.id(), "u_hdr_curve"),
+              Gfx::g_global_settings.recharged_hdr_curve);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+  glDepthMask(GL_TRUE);
+
+  // AU SITE DU GESTE : le quad vient de partir. `hits` = images tone-mappees.
+  s_explicit_sites.insert(site ? site : "?");
+  s_tonemap_draws++;
+  autoport_proof::note_hit();
+  return true;
+}
+
+// ------------------------------------------------------------------------------ recensement ----
+
+void note_fragment_source(const std::string& name, const std::string& src) {
+  const std::string code = strip_comments(src);
+  ProgInfo info;
+  if (name != "tonemap") {
+    for (const char* tok : kCompressionTokens) {
+      if (code.find(tok) != std::string::npos) {
+        info.has_compression = true;
+        break;
+      }
+    }
+  }
+  info.oetf_occurrences = count_occurrences(code, "1.0 / 2.2");
+  s_progs[name] = info;
+}
+
+void note_display_copy(const char* site, GLenum src_fmt, GLenum dst_fmt) {
+  auto& e = s_display_sites[site ? site : "?"];
+  e.count++;
+  if (format_is_float(src_fmt) && !format_is_float(dst_fmt)) {
+    e.narrowed = true;
+  }
+}
+
+void note_aux_scene_read(const char* site, GLenum src_fmt, GLenum dst_fmt) {
+  auto& e = s_aux_sites[site ? site : "?"];
+  e.count++;
+  if (format_is_float(src_fmt) && !format_is_float(dst_fmt)) {
+    e.narrowed = true;
+  }
+}
+
+void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt) {
+  if (!autoport_proof::feature_is(kItemId) || !format_is_float(fmt)) {
+    return;  // instrument : ne tourne que sous mesure, et seulement sur un tampon flottant
+  }
+  if ((s_frames % kProbeEvery) != 0) {
+    return;
+  }
+  ensure_probe();
+  if (s_probe_state != 1) {
+    return;
+  }
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, scene_fbo);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_probe_fbo);
+  // NEAREST : une moyenne diluerait exactement ce qu'on cherche a compter.
+  glBlitFramebuffer(0, 0, w, h, 0, 0, kProbeW, kProbeH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  glBindFramebuffer(GL_FRAMEBUFFER, s_probe_fbo);
+
+  GLint read_fmt = 0, read_type = 0;
+  glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &read_fmt);
+  glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &read_type);
+  std::vector<float> px;
+  bool ok = false;
+  if (read_fmt == GL_RGBA && read_type == GL_HALF_FLOAT) {
+    std::vector<uint16_t> raw((size_t)kProbeW * kProbeH * 4);
+    glReadPixels(0, 0, kProbeW, kProbeH, GL_RGBA, GL_HALF_FLOAT, raw.data());
+    px.resize(raw.size());
+    for (size_t i = 0; i < raw.size(); i++) {
+      px[i] = half_to_float(raw[i]);
+    }
+    ok = true;
+  } else {
+    px.resize((size_t)kProbeW * kProbeH * 4);
+    glReadPixels(0, 0, kProbeW, kProbeH, GL_RGBA, GL_FLOAT, px.data());
+    ok = (glGetError() == GL_NO_ERROR);
+  }
+  if (!ok) {
+    lg::error("[lighting-hdr] relecture de la sonde refusee (fmt=0x{:x} type=0x{:x})",
+              (unsigned)read_fmt, (unsigned)read_type);
+    s_probe_state = -1;
+    return;
+  }
+
+  const float k = Gfx::g_global_settings.recharged_hdr_knee;
+  s_probe_frames++;
+  for (size_t i = 0; i + 3 < px.size(); i += 4) {
+    s_probe_px++;
+    float mx = 0.f;
+    for (int c = 0; c < 3; c++) {
+      const float v = px[i + c];
+      if (!(v == v)) {
+        continue;  // NaN : ne compte ni comme marge ni comme ecart
+      }
+      if (v > mx) {
+        mx = v;
+      }
+      const float clamped = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
+      const float d = std::fabs(shoulder(v < 0.f ? 0.f : v, k) - clamped);
+      const uint64_t d255 = (uint64_t)(d * 255.f + 0.5f);
+      if (d255 > s_ldr_ref_delta) {
+        s_ldr_ref_delta = d255;
+      }
+    }
+    if (mx > 1.f) {
+      s_probe_overbright++;
+    }
+    const uint64_t mx1000 = (uint64_t)(mx * 1000.f + 0.5f);
+    if (mx1000 > s_probe_max_x1000) {
+      s_probe_max_x1000 = mx1000;
+    }
+  }
+}
+
+void frame_end() {
+  s_frames++;
+  const bool on = chain_active();
+  if (on) {
+    s_chain_frames++;
+  }
+  if (!autoport_proof::armed_for(kItemId)) {
+    return;  // bras desarme : AUCUNE cle `hdr_*` / `tonemap_*`, comme lighting-unify
+  }
+  if ((s_frames % 30) != 0) {
+    return;
+  }
+
+  uint64_t shader_sites = 0, oetf_progs = 0, oetf_total = 0;
+  for (const auto& [name, info] : s_progs) {
+    if (info.has_compression) {
+      shader_sites++;
+    }
+    if (info.oetf_occurrences) {
+      oetf_progs++;
+      oetf_total += info.oetf_occurrences;
+    }
+  }
+  uint64_t implicit_sites = 0;
+  for (const auto& [name, e] : s_display_sites) {
+    if (e.narrowed) {
+      implicit_sites++;
+    }
+  }
+  uint64_t aux_clamped = 0;
+  std::string aux_names;
+  for (const auto& [name, e] : s_aux_sites) {
+    if (e.narrowed) {
+      aux_clamped++;
+      // Nommer les sites : un compte d'exclus sans leur nom n'est pas actionnable, et le §7.4
+      // point 2 demande que le seau « exclu » soit publie a cote du seau « correct ».
+      if (!aux_names.empty()) {
+        aux_names += ",";
+      }
+      aux_names += name;
+    }
+  }
+  const uint64_t explicit_sites = s_explicit_sites.size();
+
+  autoport_proof::publish("tonemap_sites", explicit_sites + shader_sites + implicit_sites);
+  autoport_proof::publish("tonemap_sites_explicit", explicit_sites);
+  autoport_proof::publish("tonemap_sites_shader", shader_sites);
+  autoport_proof::publish("tonemap_sites_implicit", implicit_sites);
+  autoport_proof::publish("tonemap_draws", s_tonemap_draws);
+  autoport_proof::publish("hdr_progs_scanned", s_progs.size());
+  autoport_proof::publish("hdr_display_guards", s_display_sites.size());
+  autoport_proof::publish("hdr_aux_guards", s_aux_sites.size());
+  autoport_proof::publish("hdr_aux_clamped_reads", aux_clamped);
+  autoport_proof::publish_text("hdr_aux_clamped_sites",
+                               aux_names.empty() ? "aucun" : aux_names.c_str());
+  autoport_proof::publish("hdr_oetf_progs", oetf_progs);
+  autoport_proof::publish("hdr_oetf_occurrences", oetf_total);
+  autoport_proof::publish_text("hdr_format", format_name(scene_color_format()));
+  autoport_proof::publish("hdr_fallback_used", (uint64_t)s_ladder_step);
+  autoport_proof::publish("hdr_chain_frames", s_chain_frames);
+  autoport_proof::publish("hdr_frames", s_frames);
+  autoport_proof::publish("hdr_master_on", Gfx::recharged_master_active() ? 1 : 0);
+  autoport_proof::publish("hdr_overbright_px", s_probe_overbright);
+  autoport_proof::publish("hdr_probe_px", s_probe_px);
+  autoport_proof::publish("hdr_probe_frames", s_probe_frames);
+  autoport_proof::publish("hdr_probe_max_x1000", s_probe_max_x1000);
+  autoport_proof::publish("hdr_probe_state", (uint64_t)(s_probe_state + 1));  // 0 KO, 1 jamais, 2 OK
+  autoport_proof::publish("ldr_ref_delta", s_ldr_ref_delta);
+  autoport_proof::publish("hdr_knee_x1000",
+                          (uint64_t)(Gfx::g_global_settings.recharged_hdr_knee * 1000.f + 0.5f));
+}
+
+}  // namespace hdr

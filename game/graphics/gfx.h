@@ -145,6 +145,22 @@ struct GfxGlobalSettings {
   // recharged_active_mode() below (single-helper rule; no per-feature drift copies).
   bool recharged_master = true;
 
+  // lighting-hdr (SPEC-refonte-lumiere §4.5) : la chaine HDR. ON => le tampon de scene est
+  // RGBA16F (repli R11F_G11F_B10F puis RGBA8) et la compression de plage est appliquee UNE
+  // seule fois, au resolve, par le programme `tonemap`. OFF => la chaine d'origine, RGBA8 et
+  // blit direct, a l'octet pres. Le mode ORIGINE (master OFF) ne consulte jamais ce drapeau.
+  // Defaut ON : une correction livree derriere un drapeau eteint n'existe pas pour l'owner.
+  // La rangee de menu qui l'expose est livree par l'item `lighting-presets` (SPEC §6.2).
+  bool recharged_hdr = true;
+  // Le genou de la courbe « Fidelite » : identite STRICTE en dessous, epaule C1 au-dessus,
+  // asymptote 1,0. 1,0 == ecretage dur (le comportement d'aujourd'hui). 0,90 laisse 90 % de
+  // la plage intacte et rend une gradation aux zones qui s'ecrasaient a blanc plat.
+  float recharged_hdr_knee = 0.90f;
+  // 0 = Fidelite (epaule C1, defaut), 1 = Filmique (Khronos PBR Neutral). SPEC §6.2 « Image ».
+  int recharged_hdr_curve = 0;
+  // Exposition du site de tone map. 1,0 = identite : « direct = 0 reproduit l'original ».
+  float recharged_hdr_exposure = 1.0f;
+
   // Grecharged-grass-poc: optional procedural 3D grass on the jak1 training level.
   // Set from GOAL (-> *pc-settings* recharged-grass?) via pc-set-recharged-grass!.
   // OFF (default) == byte-identical stock rendering (the renderer hook is skipped).

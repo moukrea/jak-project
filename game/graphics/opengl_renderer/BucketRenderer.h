@@ -105,6 +105,10 @@ struct SharedRenderState {
   int render_fb_w = 0;
   int render_fb_h = 0;
   GLuint render_fb = -1;
+  // lighting-hdr : le format interne de l'attachement couleur de `render_fb`. Les renderers qui
+  // RECOPIENT la scene (fond de menu, zoom-blur, AO, glow, distorsion) ne voient qu'un GLuint ;
+  // sans ce champ ils ne peuvent pas dire s'ils viennent d'ecreter du flottant dans un 8 bits.
+  GLenum render_fb_color_format = GL_RGBA8;
 
   // the region within that framebuffer to draw to.
   int draw_region_w = 0;
