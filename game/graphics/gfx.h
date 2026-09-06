@@ -13,6 +13,7 @@
 #include <vector>
 #include <chrono>
 #include <cstdlib>
+#include <string>
 
 #include "common/common_types.h"
 #include "common/log/log.h"
@@ -553,12 +554,35 @@ const GfxRendererModule* GetCurrentRenderer();
 // linux_arm64_runtime_compat.cpp / android_arm64_runtime_compat.cpp), so an out-of-line
 // home TU shared by all three does not exist. Callers span the GL + loader threads;
 // the int cache race is benign (same as AoOverride).
+// LE JEU DE REFERENCES NE PEUT PAS DEPENDRE DE LA MONTRE MURALE (item `refset-replay-stable`).
+// Le cache de 0,25 s ci-dessous est une entree de temps REEL dans une decision qui atteint le
+// pixel : le plan de `refset` bascule le master a chaque etape, et pendant la fenetre de cache
+// deux lecteurs de la MEME image lisent deux valeurs differentes — celui qui estampille le
+// regime d'un niveau (`Loader.cpp`) et celui qui resout chaque texture. Le niveau reste alors
+// fige sur un melange stock/recharged, et LEQUEL depend de la charge de la machine.
+// Sous `OG_REFSET` on relit donc a chaque appel. Lecteur SANS EFFET DE BORD, sur le modele de
+// `Loader.cpp` `refset_deterministic()` : `refset::enabled()` construit tout son etat au premier
+// appel derriere une garde non atomique, et ce fichier est inline dans 51 unites de compilation
+// des deux fils. Le jeu de references est un instrument x86 (refset.h, « portee honnete »).
+inline bool refset_pins_master() {
+#ifdef __ANDROID__
+  return false;
+#else
+  static const bool s_on = [] {
+    const char* e = std::getenv("OG_REFSET");
+    return e && (e[0] == 'c' || e[0] == 'r') &&
+           (std::string(e) == "capture" || std::string(e) == "replay");
+  }();
+  return s_on;
+#endif
+}
+
 inline bool recharged_master_active() {
   static int s_override = -1;  // -1 = no override; 0 = force vanilla; 1 = force recharged
   static double s_last_read_s = -1.0;
   const double now =
       std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-  if (s_last_read_s < 0.0 || now - s_last_read_s >= 0.25) {
+  if (s_last_read_s < 0.0 || refset_pins_master() || now - s_last_read_s >= 0.25) {
     s_last_read_s = now;
     int ov = -1;
 #ifdef __ANDROID__

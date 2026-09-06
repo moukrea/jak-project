@@ -551,11 +551,27 @@ static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
     if (file_util::file_exists(enhanced.string())) {
       // lg (not raw stdout): on Android only lg::* routes to logcat.
       lg::info("HD-MODELS fr3-select {}: ENHANCED (external) {}", name, enhanced.string());
+      // TEMOIN DE LA COURSE D'AMORCAGE (item `refset-replay-stable`). Ce choix est pris UNE
+      // fois par niveau et ne se refait jamais. Mesure du 2026-09-06 : `GAME.fr3` — le niveau
+      // commun, jamais evince, dessine dans les 16 etapes des DEUX jeux — etait choisi ENHANCED
+      // 3,9 s AVANT que `[recharged-master] override -> 0` ne soit vu, parce que
+      // `refset::enabled()` ne pose `OG_RECHARGED=0` qu'a la premiere image GOAL, alors que le
+      // fil de chargement, lui, avait deja decide. La course est fermee au POINT DE PRODUCTION
+      // (l'environnement est pose par le lanceur, lib/refset.sh et `proof_env`), et ces deux
+      // compteurs le disent : sous `OG_REFSET` avec le master eteint, `hd_fr3_enhanced` doit
+      // valoir 0. Un compteur qui vaut 0 sans qu'aucun niveau n'ait ete choisi ne prouverait
+      // rien : `hd_fr3_stock` publie le denominateur.
+      static u64 s_hd_enh = 0;
+      autoport_proof::publish("hd_fr3_enhanced", ++s_hd_enh);
       return enhanced;
     }
   }
   lg::info("HD-MODELS fr3-select {}: STOCK (enhanced-toggle={})", name,
            Gfx::g_global_settings.recharged_enhanced_models);
+  {
+    static u64 s_hd_stock = 0;
+    autoport_proof::publish("hd_fr3_stock", ++s_hd_stock);
+  }
 #endif
   // OG_FEAT_HD_MODELS OFF (default): always the stock fr3 path.
   // Round 30 (delivery): the package copy wins for the stock fr3 too, file by file. The .fr3 are

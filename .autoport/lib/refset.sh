@@ -15,6 +15,17 @@
 # pour etre complet quand Jak apparait. NE PAS avancer OG_WANT_LEVELS_DELAY : a 600 le
 # niveau `title` est encore actif, le chargement de `beach` demarre par-dessus et gk tombe
 # en core dump (mesure du 2026-09-06).
+# LE MASTER EST POSE PAR LE LANCEUR, PAS PAR LE MOTEUR (item `refset-replay-stable`).
+# `refset::enabled()` posait `OG_RECHARGED=0` a sa premiere execution, c'est-a-dire a la premiere
+# image GOAL. Le fil de chargement, lui, avait deja choisi : mesure du 2026-09-06,
+# `HD-MODELS fr3-select GAME: ENHANCED (external)` est journalise 3,9 s AVANT
+# `[recharged-master] override -> 0`. Le niveau commun `GAME.fr3` — jamais evince, dessine dans
+# les 16 etapes des DEUX jeux — partait donc en modeles HD alors que l'etape 1 veut le master
+# ETEINT, et ce choix ne se refait jamais. Lequel des deux fils gagne depend de la charge de la
+# machine : c'est une decision BINAIRE, globale a la course, qui explique un ecart bimodal.
+# On la rend impossible au POINT DE PRODUCTION : la variable existe avant le premier octet
+# execute. La premiere etape du plan est ORIGINE (master OFF), donc la valeur posee ici est
+# exactement celle que le plan demande.
 #   capture : ecrit les references dans .autoport/refset/{origine,recharged}/hHH.png
 #   replay  : recompare et laisse le MOTEUR publier `refset_replay_maxdiff` / `refset_replay_diffpx`
 #
@@ -67,6 +78,7 @@ echo "[refset] $MODE pendant ${TIMEOUT}s (census armed=$ARMED) -> $LOG" >&2
 stdbuf -oL -eL env \
   OG_REFSET="$MODE" \
   OG_REFSET_DIR=.autoport/refset \
+  OG_RECHARGED=0 OG_RT_LIGHT=0 \
   OG_LEVEL_WARP=village1-hut \
   OG_LEVEL_WARP_POS="-116 14 40" \
   OG_WANT_LEVELS=village1,beach \
