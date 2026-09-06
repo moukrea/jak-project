@@ -9479,6 +9479,36 @@ int gk_sdl_main(int /*argc_ignored*/, char** /*argv_ignored*/) {
     }
   }
 
+  // lighting-hdr essai 4 — LE HARNAIS DE REJEU D'ENTREES N'ETAIT JAMAIS ARME SUR L'APPAREIL.
+  //
+  // `pad_replay::init_from_env()` — la seule fonction qui lit la propriete
+  // `debug.opengoal.padreplay` (pad_replay.cpp:257, ajoutee pour cet item precisement parce que
+  // `lib/proof_run.sh` en mode device ne transmet AUCUNE variable d'environnement) — n'avait
+  // qu'un appelant : `game/main.cpp:431`, c'est-a-dire l'entree x86. Le bloc ci-dessus ne lit
+  // que `debug.opengoal.pad_replay` (avec un souligne) et n'accepte qu'un chemin fixe. Les
+  // proof_props de `lighting-hdr` posent `debug.opengoal.padreplay=<chemin>/neutral.inputs`
+  // depuis le 2026-09-06 : sur l'appareil cette propriete n'a jamais ete lue par personne.
+  //
+  // CE QUE CA COUTAIT, mesure. `pad_replay` restait en `Mode::Off`, donc `on_cpad_read` sortait
+  // a sa premiere ligne, donc :
+  //   - `set_timestep_force_callback` n'etait jamais appele => `fixed_tick::set_deterministic`
+  //     restait FAUX => l'horloge lisait la montre et rendait de 1 a `kMaxCatchupTicks`=4 ticks
+  //     de logique par image dessinee. C'est exactement le `refset_slip_max=3` publie par le
+  //     jeu de references (14 photos sur 24 en slip non nul), et le `refset_plan_base_lf` a 906
+  //     dans une course contre 908 dans l'autre ;
+  //   - l'entree n'etait PAS neutralisee et les graines n'etaient pas refixees a l'ancre.
+  // `refset_fixed_tick_armed=1` ne contredisait rien : cette cle publie
+  // `fixed_tick::enabled()`, c'est-a-dire l'ARMEMENT de l'horloge, pas son mode DETERMINISTE.
+  //
+  // L'appel est place APRES le bloc ci-dessus pour qu'un `debug.opengoal.pad_replay` explicite
+  // continue de gagner, et il est garde sur `mode()` : `init()` reinitialise l'etat, donc le
+  // rappeler apres un armement reussi effacerait la trace deja ouverte.
+  if (pad_replay::mode() == pad_replay::Mode::Off) {
+    pad_replay::init_from_env();
+    __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "pad_replay: init_from_env -> mode=%d",
+                        (int)pad_replay::mode());
+  }
+
   // Gcollision-replay-diff (autoport) — TEMP per-logic-frame collision-state trace.
   //   debug.opengoal.pad_trace = 1        -> <files>/pad_trace.statedump.txt
   //   debug.opengoal.pad_trace = <name>   -> <files>/<name>

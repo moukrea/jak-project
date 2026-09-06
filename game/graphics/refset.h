@@ -135,6 +135,30 @@ bool wants_rewarp();
 // Une image de plus (appelee depuis `pc_autoport_frame`, fil GOAL). Fait avancer le plan.
 void tick();
 
+// LA CADENCE DU PLAN : UNE FOIS PAR FRAME DE LOGIQUE, JAMAIS PAR IMAGE RENDUE.
+//
+// LE DEFAUT QUE CETTE FONCTION FERME (essai 4, mesure du 2026-09-06 sur eae4df44). `note_anchor`
+// avait deja quitte le sondage par image (voir ci-dessus), mais les DEUX autres consommateurs du
+// plan — `wants_rewarp` et `tick` — restaient appeles depuis `pc_autoport_frame`, c'est-a-dire
+// une fois par image RENDUE. Deux courses au meme .so, aux memes proprietes et au meme
+// `refset_warp1_lf=600` ont alors rendu `REFSET start lf=902` a la capture et `lf=903` au rejeu,
+// puis une ancre de re-teleport `refset_plan_base_lf=906` contre `908`. Consequence mesuree sur
+// `origine/h00` : 18766 pixels differents sur 57600 (32,6 %), dont 10431 a 1-2 niveaux pres, et
+// un maxdiff de 118 — avec un meilleur recalage entier de dx=0 dy=0, donc PAS un deplacement de
+// camera : une autre PHASE d'animation. Le verdict 4 de `lighting-hdr` demande zero.
+//
+// CE QU'ELLE FAIT. Elle se de-duplique sur la frame de LOGIQUE : le premier appel d'une frame
+// donnee rend vrai, les suivants faux. Elle est donc appelable depuis les deux points sans
+// compter deux fois :
+//   - le chemin LOGIQUE, `pad_replay::on_cpad_read` (manette 0) via le rappel de pas de temps,
+//     qui tourne exactement une fois par image SIMULEE — c'est lui qui cadence le plan ;
+//   - le chemin RENDU, `pc_autoport_frame`, conserve en REPLI pour les courses sans harnais de
+//     rejeu d'entrees (sans lui, un plan lance sans `padreplay` ne demarrerait jamais).
+// `from_logic` ne change AUCUN comportement : il ne sert qu'a publier `refset_pump_logic` et
+// `refset_pump_render`, sans quoi « le plan est cadence par la logique » serait une affirmation
+// invérifiable dans la preuve.
+bool begin_logic_frame(bool from_logic);
+
 // L'heure du jeu que l'etape courante impose, en heure*100 ; -1 quand le module n'impose rien.
 // Consomme par `pc_get_tod_hour` (kmachine.cpp), donc applique par GOAL a chaque image.
 int tod_override_x100();

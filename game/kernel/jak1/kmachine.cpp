@@ -802,6 +802,23 @@ void pc_wind_note_rate(u32 ratio_bits, u32 steps) {
 // Defini plus bas, apres `level_warp_run` dont il reutilise le trampoline.
 static void refset_rewarp_maybe();
 
+// lighting-hdr essai 4 — LE PLAN DU JEU DE REFERENCES SE CADENCE SUR LA FRAME DE LOGIQUE.
+// `pc_autoport_frame` tourne une fois par image RENDUE. Le piege est deja nomme plus bas pour
+// l'ancre du premier warp (`level_warp_run`), mais il restait entier pour les deux autres
+// consommateurs du plan. Mesure du 2026-09-06 sur eae4df44, meme .so et memes proprietes dans
+// les deux courses : `REFSET start lf=902` a la capture contre `lf=903` au rejeu, puis une ancre
+// de re-teleport a 906 contre 908. Sur `origine/h00`, 18766 pixels sur 57600 differents (32,6 %)
+// pour un meilleur recalage entier de dx=0 dy=0 — donc pas la camera, la PHASE d'animation.
+// `refset::begin_logic_frame` de-double sur la frame de logique, donc cet appel-ci reste comme
+// REPLI (course sans harnais de rejeu d'entrees) sans jamais compter deux fois.
+static void refset_pump(bool from_logic) {
+  if (!refset::begin_logic_frame(from_logic)) {
+    return;
+  }
+  refset_rewarp_maybe();
+  refset::tick();
+}
+
 void pc_autoport_frame() {
   autoport_proof::frame_tick();
   // lighting-census : l'ancre du jeu d'images de reference est un ETAT, pas une duree. Elle se
@@ -810,8 +827,7 @@ void pc_autoport_frame() {
   // A cette ancre, et pas a celle du titre, on refixe TOUTES les sources d'alea : entre le
   // titre et le niveau il se consomme un nombre variable de tirages, et sans ce second forcage
   // l'etat du jeu au moment de la mesure differerait d'une course a l'autre.
-  refset_rewarp_maybe();
-  refset::tick();
+  refset_pump(false);
 }
 
 void pc_npc_census_end() {
@@ -5263,6 +5279,10 @@ static void pad_replay_force_timestep() {
   // variable entre deux legs de mesure.
   fixed_tick::set_deterministic(true);
   intern_from_c("*ticks-per-frame*")->value = 0x40000000;
+  // lighting-hdr essai 4 : LE SEUL POINT DU MOTEUR QUI TOURNE EXACTEMENT UNE FOIS PAR IMAGE
+  // SIMULEE, sur le fil GOAL, et deja filtre sur la manette 0 (`pad_replay::on_cpad_read`).
+  // C'est lui qui cadence desormais le plan du jeu de references — voir `refset_pump`.
+  refset_pump(true);
 }
 
 // Gfixed-tick-interpolation : publication de l'horloge vers GOAL. Trois symboles

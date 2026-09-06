@@ -131,6 +131,21 @@ int g_warp_per_step = 1;
 // et `refset.h` chiffre deja ce que ca coute (27000 pixels sur 57600).
 int64_t g_plan_base = -1;
 uint64_t g_late_arms = 0;  // etapes armees APRES leur instant theorique : le plan a pris du retard
+// LA CADENCE DU PLAN, ET SON DE-DOUBLONNAGE. Voir `begin_logic_frame` dans refset.h : le plan
+// s'avance une fois par frame de LOGIQUE, depuis la lecture de la manette 0, et l'appel depuis
+// l'image RENDUE n'est plus qu'un repli. Les deux compteurs disent lequel a reellement cadence.
+int64_t g_pumped_lf = -2;
+uint64_t g_pump_logic = 0;
+uint64_t g_pump_render = 0;
+// L'ORDRE DES ETAPES. Voir `enabled()` : par CRENEAU sur appareil (les trois configurations d'une
+// meme heure se suivent), par JEU sur bureau (l'instrument de `refset-replay-stable` ne se
+// redefinit pas sous ses cinq rejeux).
+int g_order_by_hour = 0;
+uint64_t g_slip_nonzero = 0;  // captures dont la chaine ne portait PAS la frame demandee
+// La frame de logique que porte la chaine EN VOL. Posee par `capture_for_chain` (fil
+// GRAPHIQUE, sous le verrou) : `consume_capture` tourne sur ce meme fil et ne peut donc pas
+// appeler `current_logic_frame()`, qui lit la memoire GOAL et n'est licite que du fil GOAL.
+int64_t g_inflight_lf = -1;
 
 // ── mesures ─────────────────────────────────────────────────────────────────────────────────
 uint64_t g_captured = 0;
@@ -214,6 +229,12 @@ struct StepStats {
   uint64_t sat_white_px = 0; // les TROIS canaux a 255 — le « blanc brule » que l'owner decrit
   uint64_t contrast_x1000 = 0;  // contraste local moyen du decile le plus lumineux
   uint64_t decile_px = 0;    // combien de pixels ce decile contenait
+  // LE DENOMINATEUR DES VERDICTS 1 ET 2 : la frame de LOGIQUE de la photo. Les deux verdicts
+  // apparient RECHARGED et ORIGINE-LUMIERE au meme creneau ; l'ecart de frames entre les deux
+  // photos est ce qui melange l'effet de la courbe et celui du temps qui passe. Sans lui,
+  // `hdr_hlc_pct_h21=92` ne dit pas si la courbe a ecrase le detail ou si 1440 images de logique
+  // ont deplace ce qui bouge dans le decor.
+  int64_t cap_lf = -1;
 };
 StepStats g_stats[4][8];  // [phase 1..3][index de creneau 0..7]
 
@@ -231,7 +252,7 @@ inline uint32_t luma(const uint8_t* p) {
   return (uint32_t)((77u * p[0] + 150u * p[1] + 29u * p[2]) >> 8);
 }
 
-void measure_step(int phase, int hour, const uint8_t* px, int w, int h) {
+void measure_step(int phase, int hour, int64_t cap_lf, const uint8_t* px, int w, int h) {
   const int hi = hour_index(hour);
   if (phase < 1 || phase > 3 || hi < 0 || w < 3 || h < 3) {
     return;
@@ -287,6 +308,7 @@ void measure_step(int phase, int hour, const uint8_t* px, int w, int h) {
   st.decile_px = gn;
   st.contrast_x1000 = gn ? (gsum * 1000ull) / gn : 0ull;
   st.measured = true;
+  st.cap_lf = cap_lf;
   g_stats[phase][hi] = st;
 }
 
@@ -320,6 +342,14 @@ void publish_state() {
   autoport_proof::publish("refset_slip_min",
                           (uint64_t)(g_frame_slip_min > (1 << 19) ? 0 : g_frame_slip_min));
   autoport_proof::publish("refset_roundtrip_bad", g_roundtrip_bad);
+  // QUI CADENCE LE PLAN, et combien de photos ont rate leur frame. Sans ces trois lignes,
+  // « le plan est cadence sur la frame de logique » est une affirmation que la preuve ne
+  // contredit pas : `refset_pump_logic` doit dominer, et `refset_slip_nonzero` doit valoir 0
+  // pour qu'une comparaison bit-a-bit ait un sens.
+  autoport_proof::publish("refset_pump_logic", g_pump_logic);
+  autoport_proof::publish("refset_pump_render", g_pump_render);
+  autoport_proof::publish("refset_slip_nonzero", g_slip_nonzero);
+  autoport_proof::publish("refset_order_by_hour", (uint64_t)g_order_by_hour);
   // LE RETIMEUR DE RENDU, LU SUR SON ETAT REELLEMENT LATCHE — pas sur notre intention.
   // `render_pace` est la seule entree de montre murale du chemin de dessin : son alpha
   // reecrit la pose DESSINEE de la camera (cam-update.gc:246) et celle des articulations
@@ -404,6 +434,24 @@ void publish_state() {
       std::snprintf(k, sizeof(k), "hdr_hlc_pct_h%02d", kHours[i]);
       autoport_proof::publish(k, ratio);
     }
+    // L'ECART D'APPARIEMENT DES VERDICTS 1 ET 2, EN FRAMES DE LOGIQUE. Le pire des huit
+    // creneaux. C'est le denominateur de `hdr_hlc_pct_h*` : a 1440 il melange la courbe et le
+    // temps, a 180 il ne reste que le settle d'une etape. 0 = pas mesurable (une des deux
+    // photos manque), ce qui se lit sur `hdr_refset_hours_paired`.
+    uint64_t gap_max = 0;
+    for (int i = 0; i < 8; i++) {
+      const StepStats& r = g_stats[2][i];
+      const StepStats& o = g_stats[3][i];
+      if (!r.measured || !o.measured || r.cap_lf < 0 || o.cap_lf < 0) {
+        continue;
+      }
+      const uint64_t gap = (uint64_t)(r.cap_lf > o.cap_lf ? r.cap_lf - o.cap_lf
+                                                          : o.cap_lf - r.cap_lf);
+      if (gap > gap_max) {
+        gap_max = gap;
+      }
+    }
+    autoport_proof::publish("refset_pair_gap_lf", gap_max);
     autoport_proof::publish("hdr_refset_hours_paired", meas);
     autoport_proof::publish("hdr_sat_px_recharged", sat_r);
     autoport_proof::publish("hdr_sat_px_origine_lumiere", sat_o);
@@ -812,9 +860,36 @@ bool enabled() {
     }
     std::sort(g_phases.begin(), g_phases.end());
   }
-  for (int phase : g_phases) {
+  // L'ORDRE DES ETAPES, ET CE QU'IL CHANGE POUR LES VERDICTS 1 ET 2.
+  // Par JEU (huit heures d'ORIGINE, puis huit de RECHARGED, puis huit d'ORIGINE-LUMIERE), les
+  // deux photos qu'apparient les verdicts 1 et 2 — RECHARGED et ORIGINE-LUMIERE au MEME creneau
+  // — sont separees de huit etapes, soit 1440 frames de logique. Ce que ces verdicts mesurent
+  // alors est la somme de l'effet de la courbe et de 24 s de decor qui bouge : mesure du
+  // 2026-09-06, `hdr_hlc_pct_h21=92` pour un seuil a 95 et `hdr_sat_excess_h06=62` sur 460800
+  // pixels — des ecarts du meme ordre que le bruit temporel, donc un verdict qu'on ne peut pas
+  // attribuer. Par CRENEAU, les trois configurations d'une meme heure se suivent : l'ecart tombe
+  // a UN settle (180 frames), et `refset_pair_gap_lf` le publie au lieu de le supposer.
+  // Pourquoi pas partout : sur bureau chaque etape est re-teleportee (`g_warp_per_step=1`), donc
+  // l'ordre n'a aucun effet sur les poses — et l'instrument de `refset-replay-stable` ne se
+  // redefinit pas sous les cinq rejeux qui l'ont valide (registre keye sur le binaire).
+  g_order_by_hour = g_warp_per_step ? 0 : 1;
+  {
+    char ov[32] = {0};
+    if (read_knob("OG_REFSET_ORDER_HOUR", "debug.opengoal.refset.orderhour", ov, sizeof(ov))) {
+      g_order_by_hour = (std::atoi(ov) != 0) ? 1 : 0;
+    }
+  }
+  if (g_order_by_hour) {
     for (int h : kHours) {
-      g_steps.push_back(Step{phase, h});
+      for (int phase : g_phases) {
+        g_steps.push_back(Step{phase, h});
+      }
+    }
+  } else {
+    for (int phase : g_phases) {
+      for (int h : kHours) {
+        g_steps.push_back(Step{phase, h});
+      }
     }
   }
   // Poser les deux variables a leur longueur definitive AVANT que le fil graphique ne les lise
@@ -891,6 +966,29 @@ bool wants_rewarp() {
   }
   g_rewarp_asked = true;
   g_rewarp_asked_lf = lf;
+  return true;
+}
+
+// LA CADENCE DU PLAN. Contrat et mesure : voir `begin_logic_frame` dans refset.h. Le
+// de-doublonnage porte sur la frame de LOGIQUE, pas sur un compteur maison : deux appels dans la
+// meme image simulee (manette lue deux fois, ou image rendue qui suit l'image simulee) rendent
+// faux au second, et une frame de logique qu'AUCUNE image rendue ne porte est quand meme
+// cadencee — c'est tout l'objet du changement.
+bool begin_logic_frame(bool from_logic) {
+  if (!enabled()) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  const int64_t lf = current_logic_frame();
+  if (lf == g_pumped_lf) {
+    return false;
+  }
+  g_pumped_lf = lf;
+  if (from_logic) {
+    g_pump_logic++;
+  } else {
+    g_pump_render++;
+  }
   return true;
 }
 
@@ -995,6 +1093,14 @@ bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h)
   if (slip < g_frame_slip_min) {
     g_frame_slip_min = slip;
   }
+  if (slip != 0) {
+    // Un slip non nul veut dire que la chaine portant la frame DEMANDEE n'a jamais ete rendue :
+    // la photo decrit une autre image de logique que celle du plan. On le COMPTE, parce que
+    // `slip_min..slip_max` ne dit pas combien de photos sont concernees, et c'est ce nombre qui
+    // rend une comparaison bit-a-bit impossible.
+    g_slip_nonzero++;
+  }
+  g_inflight_lf = lf;
   // Desarmer ICI, pas a la fin de la capture : entre les deux, le fil graphique dessine une ou
   // deux images de plus et re-prendrait la meme demande.
   g_cap = kCapInFlight;
@@ -1017,7 +1123,7 @@ bool consume_capture(int w, int h, const void* rgba) {
   const uint8_t* cur = (const uint8_t*)rgba;
   // lighting-hdr : on mesure AVANT de comparer ou d'ecrire, dans les deux modes. Les
   // verdicts 1 et 2 portent sur ce que le moteur vient de dessiner, pas sur la reference.
-  measure_step(g_steps[g_cur].phase, g_steps[g_cur].hour, cur, w, h);
+  measure_step(g_steps[g_cur].phase, g_steps[g_cur].hour, g_inflight_lf, cur, w, h);
 
   if (g_mode == 1) {
     file_util::write_rgba_png(path, const_cast<void*>(rgba), w, h);
