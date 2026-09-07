@@ -6,10 +6,10 @@
 - 2026-09-07 : « avec une distribution intelligente du niveau d'effort comme on fait pour Claude code avec Fable 5.1 et Opus 5 par example »
 
 ## Cause connue
-Essai35 : regression native OFF corrigee ; origine/h00 baseline33/candidat35 maxdiff0/diffpx0. Qualification globale absente : producteur v2 reste missing-state-and-baseline. Ne pas refaire diagnostic shrub ni acquis32/33/35.
+Essai37 : qualification stricte et lots livres ; gate254 signifie couverture incomplete, pas delta image. Binaire final1082eb1b117c91f6 :24comparaisons exactes,2254ressources egales,652manquants. Six essais epuises avec progres distincts. Sunkenb charge mais ciel final nul, pose admissible non resolue.
 
 ## Livrable
-Arbitrage superviseur : implementer la transition VERIFIABLE de qualification/adoption dans le producteur et les outils dedies, avec controles de provenance, etat rejouable et comparaison independante baseline/candidat. Pas de changement manuel v2 vers v1, ni gate fabriquee. Les campagnes necessaires sont autorisees VIA proof_run.sh : lots courts bornes et reprenables par cas/niveau, progression persistante, reutilisation seulement si empreintes identiques. La contrainte runs courts ne supprime pas la couverture ni les cinq rejeux. Ne pas rebâtir/retester les acquis sans modification pertinente.
+Reprise superviseur apres diagnostic37 : exploiter outils et binaire final existants. Priorite executable : achever cinq rejeux de la racine exterieure candidat (1/5) et baseline (0/5), puis autres lots bornes via refset_campaign.py/proof_run.sh et manifeste des paires. Reprendre recettes et chemins du handoff37 ; ne pas crediter les cinq rejeux du vieux binaire. Traiter Sunkenb separement : identifier pose fixe admissible commune aux bras ; aucun masque/exemption/override calibre cache. Si une nouvelle pose est necessaire, sa recette et provenance doivent etre explicites avant capture, puis qualification independante et rejeux. Ne pas bloquer les autres lots sur Sunkenb ; il reste manquant.
 References candidates NEUVES, qualification independante avant adoption,575 historiques intacts. ON/OFF peuvent differer ; chaque mode doit se rejouer exactement. Trois modes,tous21niveaux livres (>=20,manquants nommes),8heures fixes0/3/6/9/12/15/18/21,>=4interieurs,ciel>=15% par cas a ciel,sky_missing=0 ; Sunkenb reste manquant sans demonstration. Provenance et etat rejouable, puis cinq rejeux exacts et refset_replay_maxdiff=0 ; draws classes/temps GPU conserves. Aucun seuil assoupli. Suite : correction HDR/tonemap SDR.
 
 ## Preuve exigee

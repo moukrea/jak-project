@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-07T19:46:35.882952+00:00",
+  "reason": "Essai37 : qualification stricte et lots livres ; gate254 signifie couverture incomplete, pas delta image. Binaire final1082eb1b117c91f6 :24comparaisons exactes,2254ressources egales,652manquants. Six essais epuises avec progres distincts. Sunkenb charge mais ciel final nul, pose admissible non resolue.",
+  "previous": {
+    "retries": 6,
+    "attempt_seq": 37,
+    "fingerprints": [
+      "671b7db38c8b",
+      "671b7db38c8b",
+      "671b7db38c8b",
+      "023de7b7a9e5",
+      "98c56f75d2a6",
+      "6d8b8e3ab3f3",
+      "076e95175a8c",
+      "253c7bd1977b",
+      "4b345e706617",
+      "edf8ba4f2f81",
+      "b8ceee0c4742",
+      "e4f79d92f649",
+      "6dc255c1fb59",
+      "52ca6521d94f",
+      "4d5c4d8b7aff"
+    ]
+  },
+  "next": "Reprise superviseur apres diagnostic37 : exploiter outils et binaire final existants. Priorite executable : achever cinq rejeux de la racine exterieure candidat (1/5) et baseline (0/5), puis autres lots bornes via refset_campaign.py/proof_run.sh et manifeste des paires. Reprendre recettes et chemins du handoff37 ; ne pas crediter les cinq rejeux du vieux binaire. Traiter Sunkenb separement : identifier pose fixe admissible commune aux bras ; aucun masque/exemption/override calibre cache. Si une nouvelle pose est necessaire, sa recette et provenance doivent etre explicites avant capture, puis qualification independante et rejeux. Ne pas bloquer les autres lots sur Sunkenb ; il reste manquant.\nReferences candidates NEUVES, qualification independante avant adoption,575 historiques intacts. ON/OFF peuvent differer ; chaque mode doit se rejouer exactement. Trois modes,tous21niveaux livres (>=20,manquants nommes),8heures fixes0/3/6/9/12/15/18/21,>=4interieurs,ciel>=15% par cas a ciel,sky_missing=0 ; Sunkenb reste manquant sans demonstration. Provenance et etat rejouable, puis cinq rejeux exacts et refset_replay_maxdiff=0 ; draws classes/temps GPU conserves. Aucun seuil assoupli. Suite : correction HDR/tonemap SDR.",
+  "gate_unchanged": {
+    "key": "refset_replay_maxdiff",
+    "op": "==",
+    "value": 0
+  }
+}
