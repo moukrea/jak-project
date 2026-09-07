@@ -1,0 +1,93 @@
+diff --git a/game/graphics/opengl_renderer/background/Shrub.cpp b/game/graphics/opengl_renderer/background/Shrub.cpp
+index ca2c0b3c4e..883c11f32e 100644
+--- a/game/graphics/opengl_renderer/background/Shrub.cpp
++++ b/game/graphics/opengl_renderer/background/Shrub.cpp
+@@ -15,10 +15,6 @@
+ #include "game/graphics/opengl_renderer/background/foliage_wind.h"
+ #include "game/mips2c/spart_prof.h"
+ 
+-// lighting-origin-bitexact : LE DENOMINATEUR DE LA GARDE POSEE SUR `wind_active`. Nombre de
+-// preparations d'arbre ou le vent natif a ete refuse parce que le maitre etait eteint. Un zero
+-// rendrait la garde indistinguable d'un site mort. Publie par `hdr.cpp`.
+-static std::atomic<uint64_t> g_origin_shrub_native_suppressed{0};
+ static std::atomic<uint64_t> g_shrub_contact_uniform_batches{0};
+ static std::atomic<uint64_t> g_shrub_contact_binding_failures{0};
+ static std::atomic<uint64_t> g_shrub_contact_instances{0};
+@@ -37,10 +33,6 @@ uint64_t shrub_contact_uniform_batches() {
+   return g_shrub_contact_uniform_batches.load(std::memory_order_relaxed);
+ }
+ 
+-uint64_t shrub_origin_native_suppressed() {
+-  return g_origin_shrub_native_suppressed.load(std::memory_order_relaxed);
+-}
+-
+ #ifdef __ANDROID__
+ #include <sys/system_properties.h>
+ #endif
+@@ -348,21 +340,8 @@ void Shrub::update_load(const LevelData* loader_data) {
+       t.wind_last_time = 0;
+       t.wind_seeded = false;
+       t.wind_logged = false;
+-      // lighting-origin-bitexact : LE MAITRE, ET IL MANQUAIT.
+-      // `shrub_native_enabled()` (foliage_wind.cpp) vaut TRUE par defaut et ne consulte aucun
+-      // maitre ; `wind_active` arme `u_shrub_native_on` (l.766) et `shrub.vert:78-82` deplace
+-      // alors `wpos.x/z` par l'attribut 7. Ce chemin est INDEPENDANT de `u_tie_sway_amp` — le
+-      // seul terme que `foliage_wind::enabled()` gouverne — donc maitre eteint, des sommets
+-      // d'arbustes bougeaient quand meme. C'est du geste a nous : le binaire-temoin (couche
+-      // Recharged non compilee) ne le fait pas, et l'ecart mesure est reel.
+-      // Le maitre SEUL, pas l'option `recharged_foliage_wind` : l'option est deja a #f dans les
+-      // reglages mesures (`wind_option_on=0`) et ce vent tournait quand meme ; la lier ici
+-      // changerait le rendu d'un joueur maitre ALLUME, ce qui n'est pas ce que cet item corrige.
+-      const bool master_on = Gfx::recharged_master_active();
+-      if (!master_on) {
+-        g_origin_shrub_native_suppressed.fetch_add(1, std::memory_order_relaxed);
+-      }
+-      t.wind_active = master_on && tree.wind_sidecar_ok && tree.wind_instances_stiff > 0 &&
++      // Restore the historical native-wind condition from baseline a9ea15a690.
++      t.wind_active = tree.wind_sidecar_ok && tree.wind_instances_stiff > 0 &&
+                       foliage_wind::shrub_native_enabled() &&
+                       tree.sway_instances.size() == tree.packed_vertices.matrices.size();
+       // Row 0 is the native spring; row 1 is the immutable per-instance contact anchor.
+diff --git a/game/graphics/opengl_renderer/background/Shrub.h b/game/graphics/opengl_renderer/background/Shrub.h
+index d14f458f56..be281e079a 100644
+--- a/game/graphics/opengl_renderer/background/Shrub.h
++++ b/game/graphics/opengl_renderer/background/Shrub.h
+@@ -137,11 +137,6 @@ class Shrub : public BucketRenderer {
+ #endif
+ };
+ 
+-// lighting-origin-bitexact : nombre de preparations d'arbre ou le vent NATIF d'arbuste a ete
+-// refuse parce que le maitre Recharged etait ETEINT. Publie par `hdr.cpp` sous
+-// `origin_shrub_native_suppressed`. Meme role de denominateur que ci-dessus.
+-uint64_t shrub_origin_native_suppressed();
+-
+ // Successful linked contact-uniform upload batches, not a GPU displacement verdict.
+ uint64_t shrub_contact_uniform_batches();
+ 
+diff --git a/game/graphics/opengl_renderer/hdr.cpp b/game/graphics/opengl_renderer/hdr.cpp
+index 806698689c..b7f754d9fd 100644
+--- a/game/graphics/opengl_renderer/hdr.cpp
++++ b/game/graphics/opengl_renderer/hdr.cpp
+@@ -716,17 +716,16 @@ void frame_end() {
+   autoport_proof::publish("hdr_defect_4_origine_lumiere_set", (uint64_t)v4);
+   autoport_proof::publish("hdr_defect_5_sites_three_configs", (uint64_t)v5);
+   autoport_proof::publish("origin_bitexact_defects", (uint64_t)bitexact);
+-  // LES TROIS DENOMINATEURS DE `origin_bitexact_defects`, ET POURQUOI ILS SONT ICI.
++  // LES DIAGNOSTICS MIPMAP/POLICE DE `origin_bitexact_defects`, ET POURQUOI ILS SONT ICI.
+   // Un zero de porte ne dit rien sans les grandeurs qui prouvent que les gardes ont TIRE et que
+-  // la couverture est celle qu'on annonce. `origin_mipmap_suppressed` et
+-  // `origin_shrub_native_suppressed` comptent les deux sites que l'essai 2 a ramenes sous le
+-  // maitre : a zero, la porte serait verte parce que la condition est absente, pas parce que le
+-  // defaut est corrige. `origin_font_master_bypass` compte l'inverse — la page de police
++  // la couverture est celle qu'on annonce. `origin_mipmap_suppressed` compte le site mipmap
++  // que l'essai 2 a ramene sous le maitre : a zero, la porte serait verte parce que la
++  // condition est absente, pas parce que le defaut est corrige.
++  // `origin_font_master_bypass` compte l'inverse — la page de police
+   // resolue MAITRE ETEINT — et il est NON NUL par decision : le banc de texte et les chasses
+   // Urbanist vivent dans la donnee partagee par les deux binaires, la police n'est donc pas
+   // gatable et n'est PAS couverte par cette porte (voir `is_font_atlas` et `origin_ablate.h`).
+   autoport_proof::publish("origin_mipmap_suppressed", direct_renderer_origin_mipmap_suppressed());
+-  autoport_proof::publish("origin_shrub_native_suppressed", shrub_origin_native_suppressed());
+   autoport_proof::publish("origin_font_master_bypass", custom_tex::font_master_bypass_count());
+   autoport_proof::publish("hdr_tonemap_defects", (uint64_t)(v1 + v2 + v3 + v4 + v5));
+   // Les denominateurs des verdicts 3 et 5, sans lesquels leur zero est une fausse constante.

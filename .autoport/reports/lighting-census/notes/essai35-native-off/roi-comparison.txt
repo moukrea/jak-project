@@ -1,0 +1,3 @@
+ROI records baseline=426 candidate=426
+ROI first_divergent_row=None
+Limites : RGB du seul rectangle sélectionné ; pas de profondeur/poses/uniformes ; absence erreur GL non attestée.

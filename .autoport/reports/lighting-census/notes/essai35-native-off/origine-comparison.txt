@@ -1,0 +1,2 @@
+origine/h00.png              maxdiff=0    diffpx=0        bbox=None
+REFSET-COMPARE maxdiff=0 diffpx=0 images=1 manquantes=0

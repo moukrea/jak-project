@@ -1,0 +1,19 @@
+{
+  "historical-before.json": {
+    "count": 575,
+    "changed": []
+  },
+  "candidate-shaders-before.json": {
+    "count": 123,
+    "changed": []
+  },
+  "baseline-shaders-before.json": {
+    "root": "/home/emeric/code/jak-lighting-baseline",
+    "count": 118,
+    "changed": []
+  },
+  "producer-validator-refset": {
+    "count": 3,
+    "changed": []
+  }
+}

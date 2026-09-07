@@ -1,0 +1,32 @@
+Essai35 : écart origine mesuré supprimé face à la baseline essai33 ; capture fraîche non qualifiée.
+DIRECTIVES v6fca51fe40
+Périmètre testeur : aucune source/validateur/harnais modifié, aucun appareil, aucun generic.sh.
+Commande unique : bash .autoport/reports/lighting-census/notes/essai35-native-off/run-arm.sh /home/emeric/code/jak-project candidate candidate
+Runner rc=0 ; build cmake --build build --target gk -j 6 rc=0 ; proof_run75s rc=0.
+Garde build : [npc-flicker] garde OK — 47 proprietes tenues.
+Huit lignes recopiées de candidate/proof-produced.txt :
+source=x86
+sha=906a23b23b3899f6
+duration_s=75
+crash=0
+frames=3872
+FEATURE lighting-census armed=1 hits=2037821
+wind_native_samples=9764448
+refset_candidate_qualification=missing-state-and-baseline
+SHA256 gk : 906a23b23b3899f62405c5a7876f423aae50dccbc6fe3e06974078a16d8423aa.
+Comparaison : python3 .autoport/tools/refset_compare.py .autoport/refset-candidates/essai33-baseline-baseline .autoport/refset-candidates/essai35-candidate-candidate
+rc=0 : maxdiff=0 diffpx=0 images=1 manquantes=0 ; origine-comparison.txt.
+Avant/après : même outil, référence essai33-candidate-candidate, candidat essai35-candidate-candidate.
+rc=1 attendu : maxdiff=71 diffpx=190 bbox=[77,110,105,143] ; candidate-before-after-comparison.txt.
+ROI : python3 .autoport/reports/lighting-census/notes/essai35-native-off/compare-roi.py ; rc=0.
+Script essai33 copié, seuls chemins des bras adaptés : 426/426 lignes, first_divergent_row=None.
+Runtime : SHRUB native ACTIVE village1 frame16 et beach frame1803 ; master_active=0 à chain_lf2282.
+Natif : wind_native_samples=9764448, steps_seen=3598, stock_dev_pct=0, rate_dev_pct=0.000.
+Dernier verdict native_shear_peak=0.2456 ; wind_option_on=0, wind_bend_mm=0.
+Contact : jak_samples=0, object_samples=0, uploads=0 ; tie_jak_samples=0, tie_object_samples=0, tie_uploads=0.
+GPU : timer_supported=1, frames=3717, buckets=9.4862ms, shrub=1.1745ms ; FEATURE hits=2037821.
+Traces complètes demandées : native-off-gpu-feature-extract.log ; preuve archivée candidate/proof-produced.txt et candidate/proof-engine.log.gz.
+Intégrité après run : gk/CGO/bootstrap OK ; settings inchangés ; proof_env restauré ; builder2541075 Ss repris.
+CGO GAME/ENGINE/KERNEL, bootstrap et settings avant/après identiques aux deux bras essai33 : reused-inputs-comparison.json.
+À examiner par owner : ce résultat numérique limité au cas origine/h00 et à sa ROI ; aucune validation owner produite.
+Non prouvé : qualification refset, profondeur/poses/uniformes, absence erreur GL, autres heures/vues/niveaux, Android.

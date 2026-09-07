@@ -137,11 +137,6 @@ class Shrub : public BucketRenderer {
 #endif
 };
 
-// lighting-origin-bitexact : nombre de preparations d'arbre ou le vent NATIF d'arbuste a ete
-// refuse parce que le maitre Recharged etait ETEINT. Publie par `hdr.cpp` sous
-// `origin_shrub_native_suppressed`. Meme role de denominateur que ci-dessus.
-uint64_t shrub_origin_native_suppressed();
-
 // Successful linked contact-uniform upload batches, not a GPU displacement verdict.
 uint64_t shrub_contact_uniform_batches();
 

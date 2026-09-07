@@ -1,0 +1,32 @@
+Le delta neuf est localisé à la passe l0-shrub ; qualification et porte restent non obtenues.
+DIRECTIVES v6fca51fe40
+ROI existant configurable par OG_REFSET_TRACE_ROI_RECT ; valeur invalide signalée et diagnostic désactivé.
+Même lecteur passif et hooks portés sur baseline isolée a9ea15a690 ; renderer/shaders historiques conservés.
+Huit lignes du proof produit exclusivement par proof_run.sh :
+source=x86
+sha=ab925321f0b1a818
+crash=0
+frames=4139
+refset_bootstrap_records=5880
+refset_load_restores=1
+refset_loaded_ready=1
+refset_captured=1
+Deux runs75s : baseline134267b692aa9d12/4137frames ; candidatab925321f0b1a818/4139frames,crash0 chacun.
+426lignes ROI par bras ; première divergence ligne149 du relevé, bucket20 l0-shrub, au sample LF2282.
+RGB avant=c5ddf12460cb55a7 chaque bras ; après baseline=b9f86775a08143c6,candidat=843da685a56f1427.
+Passes océan/tfrag/tie précédentes identiques dans ce rectangle ; aucun draw Merc ne modifie son RGB.
+Comparateur existant, paire NEUVE : maxdiff71,diffpx190,bbox[77,110,105,143] ; aucune qualification/adoption.
+Chaque PNG neuf a le même SHA256 que son bras essai32 ; le diagnostic conserve ces deux sorties.
+Baseline trace SHRUB native ACTIVE village1/2067instances ; candidat origin_shrub_native_suppressed=2.
+Piste : garde master_on ajoutée à Shrub.cpp:361-367 ; contribution exacte aux190pixels non prouvée.
+Retirer cette garde touche la brise hors périmètre ; aucune modification de cette activation ni gel baseline.
+POSTLOAD LF2281/2282 :3449records par bras,0écart ;40options renderer identiques,master_active0.
+Builds gk incrémentaux : garde NPC47 tenue ; draws/temps GPU conservés,lc_orig_un680804,gpu_ms_buckets9.8097.
+575SHA historiques et123/118fichiers shaders intacts ; proof_run.sh/generic.sh inchangés.
+Builder actif a refusé le premier départ avant build/preuve ; attente fin puis deux bras,proof_env restaurés.
+Owner : aucune correction des blancs HDR à juger dans cet essai ; leur contrôle reste à faire après qualification.
+non prouvé : cause unique du delta,qualification indépendante,3modes/21niveaux/8heures/≥4intérieurs/ciel≥15%,5rejeux exacts,HDR/SDR/Android.
+Couverture limitée village1/beach ;19niveaux manquants nommés dans proof,Sunkenb toujours manquant,sky_missing16.
+refset_replay_maxdiff absent en capture ; missing-state-and-baseline conservé, aucun zéro fabriqué.
+Notes : notes/essai33-roi/ ; full-baseline.patch conserve adaptation complète et roi-baseline.patch ce delta.
+Validateur réservé à l’orchestrateur ; aucun owner-ok.

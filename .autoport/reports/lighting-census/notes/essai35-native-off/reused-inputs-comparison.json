@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "nonbinary_inputs_equal": true,
+    "nonbinary_inputs_differences": {},
+    "settings_before_equal": true,
+    "settings_before_differences": {},
+    "settings_after_equal": true,
+    "settings_after_differences": {}
+  },
+  "candidate": {
+    "nonbinary_inputs_equal": true,
+    "nonbinary_inputs_differences": {},
+    "settings_before_equal": true,
+    "settings_before_differences": {},
+    "settings_after_equal": true,
+    "settings_after_differences": {}
+  }
+}

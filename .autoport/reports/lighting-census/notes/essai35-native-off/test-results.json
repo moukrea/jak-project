@@ -1,0 +1,11 @@
+{
+  "proof_env_restored": true,
+  "builder": "2541075 Ss   bash .autoport/auto_build_apk.sh",
+  "builder_resumed": true,
+  "settings_unchanged": true,
+  "run_rc": 0,
+  "build_rc": 0,
+  "baseline_comparison_rc": 0,
+  "before_after_comparison_rc": 1,
+  "roi_comparison_rc": 0
+}
