@@ -1213,7 +1213,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
         read_buffer = GL_COLOR_ATTACHMENT0;
       } else {
         screenshot_src = m_fbo_state.render_fbo;
-        read_buffer = GL_FRONT;
+        read_buffer = GL_COLOR_ATTACHMENT0;
       }
       w = screenshot_src->width;
       h = screenshot_src->height;
@@ -2040,8 +2040,14 @@ void OpenGLRenderer::finish_screenshot(const std::string& output_name,
   glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &oldbuf);
   glGetIntegerv(GL_READ_BUFFER, &oldreadbuf);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+  GLint source_readbuf;
+  glGetIntegerv(GL_READ_BUFFER, &source_readbuf);
   glReadBuffer(read_buffer);
   glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer.data());
+  // Read-buffer selection belongs to its framebuffer. Restore both objects while bound.
+  glReadBuffer(source_readbuf);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, oldbuf);
+  glReadBuffer(oldreadbuf);
 
   // set alpha. our renderers mess this up in a way that isn't relevant to the final framebuffer.
   for (auto& px : buffer) {
@@ -2071,8 +2077,6 @@ void OpenGLRenderer::finish_screenshot(const std::string& output_name,
   if (!refset::consume_capture(width, height, buffer.data())) {
     file_util::write_rgba_png(output_name, buffer.data(), width, height);
   }
-  glReadBuffer(oldreadbuf);
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, oldbuf);
 }
 
 void OpenGLRenderer::do_pcrtc_effects(float alp,

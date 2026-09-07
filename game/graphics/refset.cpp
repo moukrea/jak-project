@@ -159,9 +159,9 @@ constexpr Vantage kVantages[] = {
     // `sunkenb` PORTE `:sky #t` DANS LA DONNEE ET N'EN MONTRE AUCUN. Mesure du 2026-09-07 :
     // ses DEUX points de reprise, sondes a huit placements de camera (pitch 0/12/20/30/45/60,
     // cap 0/90/180/270, hauteur 3/10/20/30/50 m), rendent 0 pour mille a chaque fois. Le
-    // niveau est le sous-niveau immerge du palais : son ciel n'est jamais a l'ecran. Le couple
-    // (sunkenb, chaque creneau) est donc compte MANQUANT par `refset_sky_missing`, avec sa
-    // valeur mesuree — on ne retire pas le niveau de la liste pour verdir la porte.
+    // resultat porte seulement sur ces placements : un cadrage donnant assez de ciel reste
+    // a trouver. Le couple (sunkenb, chaque creneau) reste compte MANQUANT par
+    // `refset_sky_missing`, avec sa valeur mesuree — on ne retire pas le niveau de la liste.
     {"sunkenb-start", "sunkenb-start", "", "sunkenb", kAllHours, 0, 0, 50, 25},
     {"sunkenb-helix", "sunkenb-helix", "", "sunkenb", kAllHours, 20, 0, 50, 30},
     // le Swamp, dehors et dans une de ses grottes
@@ -1453,6 +1453,41 @@ std::string witness_path(int phase) {
   return g_dir + "/" + set_name(phase) + "/captured-by.txt";
 }
 
+[[noreturn]] void capture_directory_error(const char* operation, const std::error_code& ec) {
+  std::fprintf(stderr, "REFSET capture refused dir=%s operation=%s error=%s; "
+                       "OG_REFSET_DIR must name a new directory\n",
+               g_dir.c_str(), operation, ec ? ec.message().c_str() : "already exists");
+  std::fflush(stderr);
+  std::exit(EXIT_FAILURE);
+}
+
+void reserve_capture_directory() {
+  // Reserve the root atomically before writing any reference or provenance. In particular,
+  // create_directory returns false for an existing directory, including a directory symlink.
+  fs::path root(g_dir);
+  while (root != root.root_path() && root.filename().empty()) {
+    root = root.parent_path();
+  }
+  std::error_code ec;
+  const fs::path parent = root.parent_path();
+  if (!parent.empty()) {
+    fs::create_directories(parent, ec);
+    if (ec) {
+      capture_directory_error("create-parent", ec);
+    }
+  }
+  if (!fs::create_directory(root, ec)) {
+    capture_directory_error("reserve-root", ec);
+  }
+  for (const char* set : {"origine", "recharged", "origine-lumiere"}) {
+    if (!fs::create_directory(root / set, ec)) {
+      capture_directory_error("create-set", ec);
+    }
+  }
+  std::printf("REFSET capture reserved dir=%s\n", g_dir.c_str());
+  std::fflush(stdout);
+}
+
 void write_capture_witness(int phase) {
   if (FILE* f = std::fopen(witness_path(phase).c_str(), "w")) {
     // Deux lignes, et les deux comptent. L'empreinte dit « pas le meme binaire » ; la saveur
@@ -1659,6 +1694,9 @@ bool enabled() {
   char d[512] = {0};
   if (read_knob("OG_REFSET_DIR", "debug.opengoal.refset.dir", d, sizeof(d))) {
     g_dir = d;
+  }
+  if (g_mode == 1) {
+    reserve_capture_directory();
   }
   // UN TELEPORT PAR ETAPE : voir `g_warp_per_step`. Sur appareil le defaut est 0 parce que le
   // troisieme `(start 'play <continue>)` tue la course en SIGILL (mesure du 2026-09-06).
@@ -1902,9 +1940,6 @@ bool enabled() {
   put_env("OG_RECHARGED", "0");
   put_env("OG_RT_LIGHT", "0");
   put_env("OG_LIGHTING", "0");
-  file_util::create_dir_if_needed(g_dir + "/origine");
-  file_util::create_dir_if_needed(g_dir + "/recharged");
-  file_util::create_dir_if_needed(g_dir + "/origine-lumiere");
   std::printf("REFSET mode=%s dir=%s steps=%d vues=%d res=%dx%d settle=%lld/%lld\n",
               g_mode == 1 ? "capture" : "replay", g_dir.c_str(), (int)g_steps.size(),
               (int)g_vants.size(), kShotW, kShotH, (long long)g_step_settle,

@@ -95,6 +95,9 @@ namespace refset {
 // Le harnais a-t-il demande un jeu de references ? (env `OG_REFSET=capture|replay`, propriete
 // `debug.opengoal.refset`). Faux par defaut : le joueur ne subit jamais ce mode, qui deplace
 // l'heure du jeu et bascule le master.
+// Capture exige un OG_REFSET_DIR neuf : un chemin existant (meme un lien symbolique) est
+// refuse avec un diagnostic et EXIT_FAILURE, avant toute ecriture de reference. Replay
+// utilise les jeux existants ; les captures partielles doivent donc rester separees.
 bool enabled();
 
 // L'HORLOGE. `fn` rend *display* actual-frame-counter : +1 par image de logique SIMULEE,
