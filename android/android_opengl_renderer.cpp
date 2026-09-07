@@ -94,7 +94,7 @@ struct RefsetChainCaptureScope {
 // object state or context-lifetime bookkeeping is changed by this diagnostic pass.
 bool refset_read_scene_depth(const Fbo& src, uint64_t& background) {
   if (!src.valid || !src.zbuf_stencil_id || !src.zbuf_is_texture || src.multisampled ||
-      src.width <= 0 || src.height <= 0 || (uint64_t)src.width * src.height > 1920 * 1080) {
+      src.width <= 0 || src.height <= 0 || src.width > 4096 || src.height > 2160) {
     lg::error("[refset] Android scene-depth probe skipped: invalid/unsupported scene depth");
     return false;
   }
