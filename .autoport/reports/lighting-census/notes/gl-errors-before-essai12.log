@@ -1,0 +1,13 @@
+[17:37:257] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniform4("u_hdr_curve"@3 has 1 components, not 4)
+[17:37:257] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniform(location=4)
+[17:37:257] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniformMatrix(non-matrix uniform)
+[17:37:263] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniform4("u_hdr_curve"@3 has 1 components, not 4)
+[17:37:263] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniform(location=4)
+[17:37:263] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniformMatrix(non-matrix uniform)
+[17:37:279] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniform4("u_hdr_curve"@3 has 1 components, not 4)
+[17:37:279] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniform(location=4)
+[17:37:279] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniformMatrix(non-matrix uniform)
+[17:37:296] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniform4("u_hdr_curve"@3 has 1 components, not 4)
+[17:37:296] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniform(location=4)
+[17:37:296] [error] [[66] sprite] OpenGL error 0x3 S8246 T824C: GL_INVALID_OPERATION in glUniformMatrix(non-matrix uniform)
+count=7290

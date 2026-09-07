@@ -1,0 +1,26 @@
+{
+  "png_count": 24,
+  "sha_equal": 24,
+  "outside_roi": 0,
+  "origine_h00": {
+    "image": "origine-h00.png",
+    "sha_equal": true,
+    "versus_essai11_maxdiff": 0,
+    "versus_essai11_diffpx": 0,
+    "versus_reference_maxdiff": 202,
+    "versus_reference_diffpx": 794,
+    "reference_bbox": [
+      287,
+      13,
+      314,
+      72
+    ],
+    "outside_roi": 0
+  },
+  "gl_invalid_operation_count": 0,
+  "gl_invalid_enum_count": 0,
+  "gl_invalid_value_count": 0,
+  "roi_capture1_lines": 218,
+  "roi_capture1_rgb_nonzero": 7,
+  "case_count": 672
+}
