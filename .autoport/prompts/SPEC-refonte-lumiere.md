@@ -826,21 +826,26 @@ Le contrat exécutable est porté par les livrables `lighting-hdr` et
 `hdr-display-output` du backlog et leurs portes de défauts. Cette séparation remplace
 l'assimilation du tone mapping à tout l'étalonnage ; elle ne demande pas une LUT obligatoire.
 
-`scène HDR → exposition / étalonnage artistique commun → adaptation de sortie SDR OU HDR`
+`scène HDR → étalonnage / adaptation propres à la sortie SDR OU HDR`
+
+La direction artistique est commune, pas nécessairement les paramètres. Le partage d’un
+profil de base est une possibilité, jamais un critère de réussite. Des profils/LUT et
+ajustements par niveau ET par sortie sont autorisés si les mesures les justifient.
 
 | Responsabilité | Exigence |
 |---|---|
-| Profil artistique par niveau | Commun aux deux sorties, transitions lissées. Domaine, encodage et plage déclarés ; conserve les valeurs au-delà de 1 avant adaptation écran. |
-| LUT éventuelle | Représentation du profil, pas intrinsèquement un tone map. Pas de compression SDR incorporée dans la LUT commune. Domaine HDR adapté (par exemple log déclaré), pas de clamp 0..1 de la radiance. |
-| Sortie SDR, chantier actuel | Courbe/exposition globales puis corrections résiduelles mesurées. Ajustements propres au SDR séparés du profil commun. Comparaison statistique, jamais identité ON/OFF imposée. |
-| Sortie HDR, chantier suivant | Part de la même scène étalonnée ; adapte luminance, gamut et encodage à l'écran détecté. Ne part jamais de l'image déjà comprimée SDR. Un écran HDR nécessite aussi une adaptation à ses limites. |
+| Profil artistique par niveau | Base partagée facultative ; profils SDR/HDR distincts autorisés, transitions lissées. Domaine, encodage et plage déclarés ; aucune perte prématurée de la plage HDR dans les intermédiaires. |
+| LUT éventuelle | Représentation du profil, pas intrinsèquement un tone map. Une LUT spécifique de sortie peut intégrer son adaptation ; elle ne doit pas être réutilisée comme base HDR si elle comprime vers SDR. Domaine HDR adapté (par exemple log déclaré), pas de clamp 0..1 de la radiance. |
+| Sortie SDR, chantier actuel | Courbe/exposition globales puis corrections résiduelles mesurées. Ajustements propres au SDR identifiés comme tels. Comparaison statistique, jamais identité ON/OFF imposée. |
+| Sortie HDR, chantier suivant | Part de la scène HDR ; étalonnage spécifique HDR permis, adapte luminance, gamut et encodage à l'écran détecté. Ne part jamais de l'image déjà comprimée SDR. Un écran HDR nécessite aussi une adaptation à ses limites. |
 | Organisation GPU | Séparation logique des paramètres et responsabilités ; fusion dans une passe ou LUT de sortie générée permise. Ne pas imposer plusieurs passes plein écran pour cette séparation. |
 | Options / coût | Sortie HDR et calcul HDR interne sont distincts. Les questions owner ne commandent pas un nouveau chemin LDR. Coût GPU à mesurer si instrumentation disponible, sinon explicitement non mesuré, sans retarder les corrections. |
 
-`hdr_tonemap_defects` doit couvrir l'écrêtage avant adaptation et la confusion du profil
-artistique avec la compression SDR, en plus des défauts d'image existants.
-`hdr_out_defects` doit couvrir la perte/changement du profil lors du toggle, le passage
-intermédiaire par SDR et la double adaptation. Profil identité et entrées supérieures à 1
+`hdr_tonemap_defects` doit couvrir l'écrêtage prématuré et une transformation de sortie
+incorrecte, en plus des défauts d'image existants.
+`hdr_out_defects` doit couvrir le profil incorrect pour le niveau/mode sélectionné, le passage
+intermédiaire par SDR et la double adaptation. Un changement de profil voulu au toggle
+n'est pas un défaut ; aucune égalité numérique des images ou réglages SDR/HDR n'est exigée. Profil identité et entrées supérieures à 1
 servent de contrôles programmatiques ; un compteur de passes seul ne prouve pas l'ordre.
 La preuve reste produite par `proof_run.sh` et jugée par `generic.sh`.
 

@@ -4168,6 +4168,10 @@ items:
     text: Je sais pas ce que ça change pour notre plan de refonte et sa spec... Ça doit bien changer des
       trucs non ? Tu peux y réfléchir un peu et pas juste consigner ça dans une footnote je sais pas trop
       où ?
+  - date: '2026-09-07'
+    text: Après on peut quand même avoir des adaptations différentes sur écran SDR et écran HDR, le fait
+      de partager les altérations c'était de la supposition, je suis pas expert ! Je compte sur toi mais
+      fais pas de la merde
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4190,14 +4194,13 @@ items:
     vues comparables sans frame exacte. Processus frais par niveau ; rejeter vues noires/non representatives.
     ImageMagick : blancs/quasi-blancs, luminosite, teinte/saturation, details ; tableau couverture, deltas
     ON/OFF et avant/apres. Iterer courbe/exposition globales sur ensemble puis residus par niveau, transitions
-    lissees. SPEC §4.5 : etalonnage artistique commun en domaine HDR declare, puis transformation sortie
-    SDR distincte. LUT facultative : domaine/encodage/plage explicites, sans compression SDR integree
-    ni ecretage a1 ; conserver nuances >1. Reglages specifiques SDR separes. Dans hdr_tonemap_defects,
-    compter perte de plage avant sortie ou melange etalonnage/sortie ; verification programmatique avec
-    valeurs >1 et profil identite, via proof_run.sh/generic. Ne pas attendre sortie ecran HDR pour corriger
-    SDR. Mesurer cout GPU HDR/resolve sur cas comparables si instrumentation disponible, sinon non mesure
-    ; aucun nouveau toggle impose. Priorite captures manquantes/corrections, pas outillage general ni
-    reparation parcours monolithique.'
+    lissees. SPEC §4.5 : Direction artistique commune, reglages/LUT SDR et HDR distincts autorises. Base
+    HDR sans ecretage premature ; domaine/encodage/plage des LUT declares. Ne pas reutiliser compression
+    SDR pour HDR. Separation logique, fusion GPU permise. Dans hdr_tonemap_defects, compter ecretage premature
+    ou transformation de sortie incorrecte ; verification programmatique avec valeurs >1 et profil identite,
+    via proof_run.sh/generic. Ne pas attendre sortie ecran HDR pour corriger SDR. Mesurer cout GPU HDR/resolve
+    sur cas comparables si instrumentation disponible, sinon non mesure ; aucun nouveau toggle impose.
+    Priorite captures manquantes/corrections, pas outillage general ni reparation parcours monolithique.'
   out_of_scope: Pas de census, baseline historique, cinq rejeux/frame exacte. Aucun changement textures/modeles
     HD/herbe/brise/cadence. Ne pas masquer brulures par assombrissement global excessif. Pas de validation
     owner ; sortie ecran HDR native ensuite.
@@ -4291,21 +4294,21 @@ items:
     elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change
     de teinte.'
   deliverable: 'SDR par defaut ; sortie HDR optionnelle si capacites reelles detectees, publiees et integrees
-    a auto-configuration. Option visible seulement sur ecran compatible. SPEC §4.5 : meme rendu HDR et
-    meme profil artistique par niveau avant adaptation ecran ; ne jamais repartir du SDR ni reutiliser
-    LUT avec compression SDR integree. Adapter luminance/gamut/encodage aux capacites ecran, sans double
-    compression. hdr_out_defects compte : detection/option incorrecte, profil artistique perdu ou change
-    au toggle, ecretage intermediaire SDR, transformation sortie multiple, mauvaise adaptation ecran,
-    regression SDR au retour OFF. Publier profil applique, domaine/plage avant sortie et mode sortie ;
-    verifier valeurs >1 preservees avant adaptation. Comparaison retour SDR dans conditions equivalentes,
-    sans campagne de frame exacte. Mesures via proof_run.sh/generic sur ecran HDR reel accessible, aucun
-    support deduit du nom appareil. Mesurer cout GPU si disponible, sinon non mesure. Zero defaut, aucune
-    validation visuelle inventee.'
+    a auto-configuration. Option visible seulement sur ecran compatible. SPEC §4.5 : base de rendu HDR,
+    direction artistique coherente ; profils/LUT par niveau et ajustements SDR/HDR distincts autorises
+    selon mesures. Ne jamais repartir du SDR ni reutiliser sa compression pour HDR. Adapter luminance/gamut/encodage
+    aux capacites ecran, sans double compression. hdr_out_defects compte : detection/option incorrecte,
+    profil incorrect pour le niveau/mode selectionne, ecretage intermediaire SDR, transformation sortie
+    multiple, mauvaise adaptation ecran, regression SDR au retour OFF. Publier profil applique, domaine/plage
+    avant sortie et mode sortie ; verifier valeurs >1 preservees avant adaptation. Comparaison retour
+    SDR dans conditions equivalentes, sans campagne de frame exacte. Mesures via proof_run.sh/generic
+    sur ecran HDR reel accessible, aucun support deduit du nom appareil. Mesurer cout GPU si disponible,
+    sinon non mesure. Zero defaut, aucune validation visuelle inventee.'
   known_cause: null
-  out_of_scope: Ne pas recalibrer la courbe SDR ni dupliquer les profils artistiques pour HDR. Aucun mode
-    nouveau de calcul LDR performant demande par les questions owner.
-  notes: Rendu HDR interne et sortie ecran HDR distincts. lighting-hdr reste en cours, non valide. Etalonnage
-    artistique commun ; transformations de sortie separees.
+  out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
+    SDR/HDR exigee. Pas de nouveau chemin LDR demande.
+  notes: Rendu HDR interne et sortie ecran distincts. Direction artistique coherente, partage des reglages
+    facultatif ; profils et ajustements par sortie autorises. SDR a corriger avant sortie HDR native.
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4327,6 +4330,10 @@ items:
     text: Je sais pas ce que ça change pour notre plan de refonte et sa spec... Ça doit bien changer des
       trucs non ? Tu peux y réfléchir un peu et pas juste consigner ça dans une footnote je sais pas trop
       où ?
+  - date: '2026-09-07'
+    text: Après on peut quand même avoir des adaptations différentes sur écran SDR et écran HDR, le fait
+      de partager les altérations c'était de la supposition, je suis pas expert ! Je compte sur toi mais
+      fais pas de la merde
   supervisor_recovery: true
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
