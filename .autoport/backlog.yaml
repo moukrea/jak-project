@@ -4010,6 +4010,8 @@ items:
   - date: '2026-09-07'
     text: Mais t'es con ou quoi ? L'orchestration, le harnais le framework doit être sous codex ! C'est
       n'importe quoi ! Il devrait pas être en pause là, tu te fous de ma gueule !
+  - date: '2026-09-07'
+    text: 'Sur la brise ? What the Fuck il était pas sensé bosser sur les blancs brûlés et compagnie ? Comment je retrouve la bonne session du superviseur sous codex du coup ? CTRL+B puis 7 c''est ça ?'
   gate:
     key: hdr_tonemap_defects
     op: ==
