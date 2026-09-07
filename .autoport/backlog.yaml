@@ -3995,6 +3995,13 @@ items:
   - date: '2026-09-07'
     text: le HDR brûle toujours les blanc de fou ! Je sais pas où tu teste mais le ciel est blanc, off
       le ciel est clairement coloré, c'est pas bon !
+  - date: '2026-09-07'
+    text: Du coup tu es sur les blancs brûlés du HDR hein ? C'est là que Claude Code était... Je crois
+      qu'il était en capture sur tous les niveaux a des heures différentes avec la refonte on/off pour
+      s'assurer que les blanc n'étaient pas brûlés et que ça reste proche du rendu à off (artistic, tout
+      en étant probablement plus riche car ça se fait en HDR maintenant, puis tonemappé pour le rendu
+      final... avant de passer sur le support des écrans qui supporte le HDR si je dis pas de bêtises)
+      et corriger en conséquence ?
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4012,22 +4019,11 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'LA PORTE MESURAIT UNE SCENE SANS CIEL. Mesure du 2026-09-07 sur les references elles-memes
-    : les huit images de chaque jeu sont prises au seul point `village1-hut`, en 320x180. Le quart superieur
-    y vaut RGB(137,94,57) et RGB(111,70,50) — du brun, pas du ciel — et il porte ZERO pixel sature. Les
-    cinq verdicts pouvaient donc etre verts pendant que le ciel brulait : le defaut de l''owner n''etait
-    pas dans le champ de la mesure. Voir aussi SPEC §8 item 2 pour le mecanisme (C/E gardent exposition
-    et pow).'
-  deliverable: "Les verdicts de courbe se mesurent LA OU L'OWNER VOIT LE DEFAUT : sur du CIEL. `hdr_sky_defects=N`,\
-    \ somme de verdicts publies un par un, sur des vues qui contiennent du ciel dans au moins trois niveaux\
-    \ exterieurs differents :\n  (1) `hdr_sky_frames` >= 3 vues de ciel, et `hdr_sky_pixels_pct` >= 15\
-    \ % de l'image — une vue sans ciel ne compte pas ;\n  (2) `hdr_sky_clip_pct_x1000` <= celui de la\
-    \ reference ORIGINE-LUMIERE : le ciel ne doit pas SATURER plus qu'avec l'eclairage eteint ;\n  (3)\
-    \ `hdr_sky_chroma_ratio_x1000` >= 900 — le ciel garde au moins 90 % de sa COULEUR : l'owner dit «\
-    \ off le ciel est clairement colore », donc un ciel qui blanchit est un defaut meme sans saturation\
-    \ franche ;\n  (4) les cinq verdicts deja tenus le restent (saturation, contraste, courbe, jeu ORIGINE-LUMIERE,\
-    \ un seul site de compression dans les trois configurations).\nZero. Les references DOIVENT etre recapturees\
-    \ avec du ciel avant toute conclusion."
+  known_cause: 'Les anciennes references ne montraient presque aucun ciel (village1-hut) : elles ont donne
+    un faux vert malgre les blancs brules. Detail conserve dans notes et SPEC §8 item 2.'
+  deliverable: |-
+    Comparer refonte ON/OFF sur tous les niveaux et vues interieures/exterieures de lighting-census, aux huit heures fixes appariees. Corriger les blancs brules en preservant couleurs et intention artistique du rendu OFF. Rendu interne HDR, un seul tone map vers SDR ; sortie ecran HDR ensuite.
+    Le moteur publie hdr_sky_defects=0 avec chaque verdict : au moins trois vues de ciel dans trois niveaux (minimum, pas couverture finale), hdr_sky_pixels_pct >= 15 %, hdr_sky_clip_pct_x1000 <= reference ORIGINE-LUMIERE, hdr_sky_chroma_ratio_x1000 >= 900. Conserver les cinq verdicts existants : saturation, contraste, courbe, ORIGINE-LUMIERE, compression unique dans les trois configurations. References recapturees avec ciel avant toute conclusion.
   out_of_scope: 'La sortie HDR vers un ecran compatible appartient a hdr-display-output. La regle des
     deux origines et la hierarchie des interrupteurs : SPEC §0.2, §1.1, §6.2.'
   notes: 'FAUX VERT : la porte mesurait une scene SANS CIEL. Les huit images de chaque jeu de reference
