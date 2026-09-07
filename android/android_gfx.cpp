@@ -312,6 +312,12 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
     const GatedEntry gated[] = {
         // liste glad 3.3 — ES 3.0 core (instanciation du renderer de sprites)
         {(void**)&glad_glVertexAttribDivisor, "glVertexAttribDivisor"},
+        // Refset scene-depth probe: sampler objects are ES 3.0 core, but glad
+        // places them in the desktop 3.3 list skipped by an ES 3.2 context.
+        {(void**)&glad_glGenSamplers, "glGenSamplers"},
+        {(void**)&glad_glDeleteSamplers, "glDeleteSamplers"},
+        {(void**)&glad_glBindSampler, "glBindSampler"},
+        {(void**)&glad_glSamplerParameteri, "glSamplerParameteri"},
         // liste glad 4.0 — ES 3.2 core (tessellation ; Shader.cpp tente en plus
         // les suffixes EXT/OES si le pilote n'exporte pas le nom nu)
         {(void**)&glad_glPatchParameteri, "glPatchParameteri"},

@@ -98,6 +98,74 @@ bool refset_read_scene_depth(const Fbo& src, uint64_t& background) {
     lg::error("[refset] Android scene-depth probe skipped: invalid/unsupported scene depth");
     return false;
   }
+  // Check every entry used below, including cleanup and shader-error paths, before
+  // touching GL. Desktop-profile glad can leave GLES-core entry points unresolved.
+  struct RequiredEntry {
+    const char* name;
+    bool available;
+  };
+#define REFSET_GL_ENTRY(name) \
+  {                           \
+    #name, name != nullptr    \
+  }
+  const RequiredEntry required[] = {
+      REFSET_GL_ENTRY(glActiveTexture),
+      REFSET_GL_ENTRY(glAttachShader),
+      REFSET_GL_ENTRY(glBindBuffer),
+      REFSET_GL_ENTRY(glBindFramebuffer),
+      REFSET_GL_ENTRY(glBindSampler),
+      REFSET_GL_ENTRY(glBindTexture),
+      REFSET_GL_ENTRY(glBindVertexArray),
+      REFSET_GL_ENTRY(glCheckFramebufferStatus),
+      REFSET_GL_ENTRY(glColorMask),
+      REFSET_GL_ENTRY(glCompileShader),
+      REFSET_GL_ENTRY(glCreateProgram),
+      REFSET_GL_ENTRY(glCreateShader),
+      REFSET_GL_ENTRY(glDeleteFramebuffers),
+      REFSET_GL_ENTRY(glDeleteProgram),
+      REFSET_GL_ENTRY(glDeleteSamplers),
+      REFSET_GL_ENTRY(glDeleteShader),
+      REFSET_GL_ENTRY(glDeleteTextures),
+      REFSET_GL_ENTRY(glDeleteVertexArrays),
+      REFSET_GL_ENTRY(glDisable),
+      REFSET_GL_ENTRY(glDrawArrays),
+      REFSET_GL_ENTRY(glEnable),
+      REFSET_GL_ENTRY(glFramebufferTexture2D),
+      REFSET_GL_ENTRY(glGenFramebuffers),
+      REFSET_GL_ENTRY(glGenSamplers),
+      REFSET_GL_ENTRY(glGenTextures),
+      REFSET_GL_ENTRY(glGenVertexArrays),
+      REFSET_GL_ENTRY(glGetBooleanv),
+      REFSET_GL_ENTRY(glGetError),
+      REFSET_GL_ENTRY(glGetIntegerv),
+      REFSET_GL_ENTRY(glGetProgramInfoLog),
+      REFSET_GL_ENTRY(glGetProgramiv),
+      REFSET_GL_ENTRY(glGetShaderInfoLog),
+      REFSET_GL_ENTRY(glGetShaderiv),
+      REFSET_GL_ENTRY(glGetUniformLocation),
+      REFSET_GL_ENTRY(glIsEnabled),
+      REFSET_GL_ENTRY(glLinkProgram),
+      REFSET_GL_ENTRY(glPixelStorei),
+      REFSET_GL_ENTRY(glReadPixels),
+      REFSET_GL_ENTRY(glSamplerParameteri),
+      REFSET_GL_ENTRY(glShaderSource),
+      REFSET_GL_ENTRY(glTexImage2D),
+      REFSET_GL_ENTRY(glTexParameteri),
+      REFSET_GL_ENTRY(glUniform1i),
+      REFSET_GL_ENTRY(glUseProgram),
+      REFSET_GL_ENTRY(glViewport),
+  };
+#undef REFSET_GL_ENTRY
+  bool available = true;
+  for (const auto& entry : required) {
+    if (!entry.available) {
+      lg::error("[refset] Android scene-depth probe skipped: missing GL entry {}", entry.name);
+      available = false;
+    }
+  }
+  if (!available) {
+    return false;
+  }
   auto gl_ok = [](const char* stage) {
     bool ok = true;
     for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) {
