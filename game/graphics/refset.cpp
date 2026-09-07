@@ -294,6 +294,10 @@ int g_mode = 0;  // 0 = eteint, 1 = capture, 2 = replay
 // PAR CONSTRUCTION. On rend donc le melange impossible au point de PRODUCTION plutot que
 // detectable au point de controle : les deux familles ne portent pas le meme nom.
 std::string g_dir = ".autoport/refset";  // Android : rendu ABSOLU a l'init, voir `enabled()`
+int g_provenance_version = 1;  // 0 = root marker unreadable/invalid, 1 = historical, 2 = candidate
+uint64_t g_data_fp = 0;
+uint64_t g_input_fp = 0;
+constexpr const char* kFormatMarker = "refset-format.txt";
 
 std::vector<int> g_phases;  // lighting-hdr : les phases que CE plan execute
 std::vector<int> g_vants;   // lighting-census : les vantages que CE plan parcourt
@@ -1348,14 +1352,26 @@ uint64_t hash_file(const std::string& path) {
 // references differentes.
 uint64_t refs_fingerprint() {
   uint64_t h = 1469598103934665603ull;
+  if (!g_provenance_version) {
+    return 0;
+  }
+  if (g_provenance_version == 2) {
+    const uint64_t marker = hash_file(g_dir + "/" + kFormatMarker);
+    if (!marker) {
+      return 0;
+    }
+    for (int b = 0; b < 8; b++) {
+      h = (h ^ ((marker >> (8 * b)) & 0xff)) * 1099511628211ull;
+    }
+  }
   // TOUTES les references du plan, dans l'ordre du plan — pas « les seize » : le plan en compte
   // autant qu'il a d'etapes, et une vue ajoutee doit perimer le registre comme n'importe quel
   // autre changement de reference.
   for (const Step& s : g_steps) {
     std::vector<std::string> paths = {image_path(s)};
-    if (s.supplemental) {
+    if (s.supplemental || g_provenance_version == 2) {
       paths.push_back(image_path(s) + ".provenance.txt");
-      paths.push_back(witness_path(s.phase, true));
+      paths.push_back(witness_path(s.phase, s.supplemental));
     }
     for (const auto& path : paths) {
       const uint64_t fh = hash_file(path);
@@ -1384,28 +1400,47 @@ uint64_t refs_fingerprint() {
 // Zero = un des repertoires est absent ou illisible ; `publish_flaky` en fait la sentinelle 255,
 // jamais un zero de porte.
 uint64_t data_fingerprint() {
-  std::vector<fs::path> files;
-  auto scan = [&files](const fs::path& dir, const char* ext) {
+  std::vector<std::pair<std::string, fs::path>> files;
+  auto scan = [&files](const fs::path& dir, const char* prefix, const char* ext,
+                       bool required_category) {
     std::error_code ec;
-    for (const auto& e : fs::directory_iterator(dir, ec)) {
+    fs::directory_iterator it(dir, ec), end;
+    if (ec) {
+      return false;
+    }
+    const size_t before = files.size();
+    for (; it != end; it.increment(ec)) {
+      if (ec) {
+        return false;
+      }
+      const auto& e = *it;
       std::error_code ec2;
-      if (!e.is_regular_file(ec2)) {
+      const bool regular = e.is_regular_file(ec2);
+      if (ec2) {
+        return false;
+      }
+      if (!regular) {
         continue;
       }
       const std::string name = e.path().filename().string();
       const size_t n = std::strlen(ext);
       if (name.size() > n && name.compare(name.size() - n, n, ext) == 0) {
-        files.push_back(e.path());
+        files.emplace_back(std::string(prefix) + name, e.path());
       }
     }
+    return !ec && (!required_category || files.size() > before);
   };
   const fs::path iso = file_util::get_iso_out_dir(GameVersion::Jak1);
   const fs::path fr3 = file_util::get_fr3_dir(GameVersion::Jak1);
-  scan(iso, ".CGO");
-  scan(iso, ".DGO");
-  scan(fr3, ".fr3");
-  scan(fr3 / "enhanced", ".fr3");
-  if (files.empty()) {
+  if (!scan(iso, "iso/", ".CGO", true) || !scan(iso, "iso/", ".DGO", true) ||
+      !scan(fr3, "fr3/", ".fr3", true)) {
+    return 0;
+  }
+  std::error_code ec;
+  const auto enhanced = fs::symlink_status(fr3 / "enhanced", ec);
+  const bool absent = enhanced.type() == fs::file_type::not_found &&
+                      (!ec || ec == std::errc::no_such_file_or_directory);
+  if (!absent && (ec || !scan(fr3 / "enhanced", "fr3/enhanced/", ".fr3", false))) {
     return 0;
   }
   // Trie sur le NOM : l'ordre de `directory_iterator` est celui du systeme de fichiers, il n'est
@@ -1413,16 +1448,17 @@ uint64_t data_fingerprint() {
   std::sort(files.begin(), files.end());
   uint64_t h = 1469598103934665603ull;
   for (const auto& f : files) {
-    const uint64_t fh = hash_file(f.string());
+    const uint64_t fh = hash_file(f.second.string());
     if (!fh) {
       return 0;
     }
     // Le nom entre dans l'empreinte : deux fichiers qui echangent leur contenu ne doivent pas
     // rendre la meme valeur.
-    for (unsigned char c : f.filename().string()) {
+    for (unsigned char c : f.first) {
       h ^= c;
       h *= 1099511628211ull;
     }
+    h = (h ^ 0xff) * 1099511628211ull;
     for (int b = 0; b < 8; b++) {
       h ^= (unsigned char)((fh >> (8 * b)) & 0xff);
       h *= 1099511628211ull;
@@ -1533,7 +1569,7 @@ bool write_capture_witness(int phase, bool supplemental) {
   return false;
 }
 
-// Supplemental metadata has a deliberately small, strict line format.
+// Metadata has a deliberately small, strict line format.
 bool read_metadata_lines(const std::string& path, std::vector<std::string>& lines) {
   FILE* f = std::fopen(path.c_str(), "rb");
   if (!f) {
@@ -1546,7 +1582,7 @@ bool read_metadata_lines(const std::string& path, std::vector<std::string>& line
     if (c == '\n') {
       lines.push_back(line);
       line.clear();
-      if (lines.size() > 7) {
+      if (lines.size() > 9) {
         valid = false;
         break;
       }
@@ -1562,14 +1598,74 @@ bool read_metadata_lines(const std::string& path, std::vector<std::string>& line
   return valid && closed;
 }
 
+void init_candidate_provenance() {
+  const std::string marker = g_dir + "/" + kFormatMarker;
+  if (g_mode == 1) {
+    // The root was exclusively reserved above. Existing reference roots are never rewritten.
+    g_provenance_version = 0;
+    if (FILE* f = std::fopen(marker.c_str(), "w")) {
+      const bool written = std::fprintf(f, "version=2\n") > 0;
+      const bool closed = std::fclose(f) == 0;
+      if (written && closed) {
+        g_provenance_version = 2;
+      }
+    }
+  } else {
+    std::error_code ec;
+    const auto status = fs::symlink_status(marker, ec);
+    const bool absent = status.type() == fs::file_type::not_found &&
+                        (!ec || ec == std::errc::no_such_file_or_directory);
+    if (!absent) {
+      std::vector<std::string> lines;
+      g_provenance_version = !ec && read_metadata_lines(marker, lines) &&
+                                     lines == std::vector<std::string>{"version=2"}
+                                 ? 2
+                                 : 0;
+    } else {
+      // Historical primary images have no sidecars. A candidate whose marker was lost
+      // must not silently fall back to the historical reader that skips those sidecars.
+      for (const Step& step : g_steps) {
+        if (step.supplemental) {
+          continue;
+        }
+        const auto sidecar = fs::symlink_status(image_path(step) + ".provenance.txt", ec);
+        const bool sidecar_absent = sidecar.type() == fs::file_type::not_found &&
+                                    (!ec || ec == std::errc::no_such_file_or_directory);
+        if (!sidecar_absent) {
+          g_provenance_version = 0;
+          break;
+        }
+      }
+    }
+  }
+  // Cache immutable run inputs once after configuration, before any reference frame.
+  g_data_fp = data_fingerprint();
+  const char* input = std::getenv("OG_PAD_REPLAY_REPLAY");
+#if defined(__ANDROID__)
+  char input_property[PROP_VALUE_MAX] = {0};
+  if ((!input || !input[0]) &&
+      __system_property_get("debug.opengoal.padreplay", input_property) > 0) {
+    input = input_property;
+  }
+#endif
+  g_input_fp = input && input[0] ? hash_file(input) : 0;
+  std::printf("REFSET provenance-init version=%d data=%016llx input=%016llx "
+              "actor_rng_state=not-restored-by-sidecars\n",
+              g_provenance_version, (unsigned long long)g_data_fp,
+              (unsigned long long)g_input_fp);
+  if (g_provenance_version == 2) {
+    autoport_proof::publish_text("refset_candidate_qualification", "missing-state-and-baseline");
+  }
+}
+
 bool parse_unsigned(const std::string& text, int base, uint64_t& value) {
   const auto result = std::from_chars(text.data(), text.data() + text.size(), value, base);
   return !text.empty() && result.ec == std::errc() && result.ptr == text.data() + text.size();
 }
 
-bool read_supplement_witness(int phase, uint64_t& bin, std::string& flavour) {
+bool read_strict_witness(int phase, bool supplemental, uint64_t& bin, std::string& flavour) {
   std::vector<std::string> lines;
-  if (!read_metadata_lines(witness_path(phase, true), lines) || lines.size() != 2 ||
+  if (!read_metadata_lines(witness_path(phase, supplemental), lines) || lines.size() != 2 ||
       lines[0].size() != 16 || !parse_unsigned(lines[0], 16, bin) || !bin ||
       (lines[1] != "flavour=normal" && lines[1] != "flavour=ablate")) {
     return false;
@@ -1582,9 +1678,9 @@ bool read_supplement_witness(int phase, uint64_t& bin, std::string& flavour) {
 // manquant) — et une saveur absente n'est jamais traitee comme `ablate`.
 std::string read_capture_flavour(int phase, bool supplemental) {
   std::string v;
-  if (supplemental) {
+  if (supplemental || g_provenance_version == 2) {
     uint64_t bin = 0;
-    return read_supplement_witness(phase, bin, v) ? v : "";
+    return read_strict_witness(phase, supplemental, bin, v) ? v : "";
   }
   if (FILE* f = std::fopen(witness_path(phase).c_str(), "r")) {
     char line[128];
@@ -1605,9 +1701,9 @@ std::string read_capture_flavour(int phase, bool supplemental) {
 
 uint64_t read_capture_witness(int phase, bool supplemental) {
   uint64_t v = 0;
-  if (supplemental) {
+  if (supplemental || g_provenance_version == 2) {
     std::string flavour;
-    return read_supplement_witness(phase, v, flavour) ? v : 0;
+    return read_strict_witness(phase, supplemental, v, flavour) ? v : 0;
   }
   if (FILE* f = std::fopen(witness_path(phase).c_str(), "r")) {
     if (std::fscanf(f, "%llx", (unsigned long long*)&v) != 1) {
@@ -1680,10 +1776,11 @@ void report_provenance(const Step& step, const char* cause) {
   std::fflush(stdout);
 }
 
-bool write_supplement_provenance(const Step& step, const std::string& path) {
+bool write_capture_provenance(const Step& step, const std::string& path) {
   const uint64_t bin = self_fingerprint();
   const uint64_t png = hash_file(path);
-  if (!bin || !png || g_inflight_lf < 0) {
+  if (g_provenance_version != 2 || !bin || !png || !g_data_fp || !g_input_fp ||
+      g_inflight_lf < 0) {
     return false;
   }
   FILE* f = std::fopen((path + ".provenance.txt").c_str(), "w");
@@ -1691,16 +1788,20 @@ bool write_supplement_provenance(const Step& step, const std::string& path) {
     return false;
   }
   const bool written = std::fprintf(
-      f, "version=1\ncase=%s\nconfig=%016llx\nbin=%016llx\nflavour=%s\npng=%016llx\n"
-         "capture_lf=%lld\n",
+      f, "version=2\ncase=%s\nconfig=%016llx\nbin=%016llx\nflavour=%s\npng=%016llx\n"
+         "capture_lf=%lld\ndata=%016llx\ninput=%016llx\n",
       step_image_name(step).c_str(), (unsigned long long)census_config_fingerprint(),
       (unsigned long long)bin, build_flavour(), (unsigned long long)png,
-      (long long)g_inflight_lf) > 0;
+      (long long)g_inflight_lf, (unsigned long long)g_data_fp,
+      (unsigned long long)g_input_fp) > 0;
   const bool closed = std::fclose(f) == 0;
   return written && closed;
 }
 
-const char* check_supplement_provenance(const Step& step, const std::string& path) {
+const char* check_capture_provenance(const Step& step, const std::string& path) {
+  if (!g_provenance_version) {
+    return "root-format";
+  }
   std::vector<std::string> lines;
   if (!read_metadata_lines(path + ".provenance.txt", lines)) {
     return "sidecar-read";
@@ -1718,8 +1819,21 @@ const char* check_supplement_provenance(const Step& step, const std::string& pat
       return "sidecar-fields";
     }
   }
-  if (fields.size() != 7 || fields.at("version") != "1") {
+  const bool candidate = g_provenance_version == 2;
+  if (fields.size() != (candidate ? 9 : 7) ||
+      fields.at("version") != (candidate ? "2" : "1")) {
     return "sidecar-version";
+  }
+  if (candidate) {
+    for (const auto& expected :
+         {std::make_pair("data", g_data_fp), std::make_pair("input", g_input_fp)}) {
+      uint64_t fp = 0;
+      const auto field = fields.find(expected.first);
+      if (field == fields.end() || field->second.size() != 16 ||
+          !parse_unsigned(field->second, 16, fp) || !fp || fp != expected.second) {
+        return expected.first;
+      }
+    }
   }
   if (fields.at("case") != step_image_name(step)) {
     return "case";
@@ -1730,12 +1844,12 @@ const char* check_supplement_provenance(const Step& step, const std::string& pat
     return "config";
   }
   if (fields.at("bin").size() != 16 || !parse_unsigned(fields.at("bin"), 16, bin) || !bin ||
-      bin != read_capture_witness(step.phase, true)) {
+      bin != read_capture_witness(step.phase, step.supplemental)) {
     return "bin-witness";
   }
   const std::string& flavour = fields.at("flavour");
   if ((flavour != "normal" && flavour != "ablate") ||
-      flavour != read_capture_flavour(step.phase, true)) {
+      flavour != read_capture_flavour(step.phase, step.supplemental)) {
     return "flavour-witness";
   }
   if (fields.at("png").size() != 16 || !parse_unsigned(fields.at("png"), 16, png) || !png ||
@@ -1754,7 +1868,7 @@ void publish_flaky() {
   g_flaky_done = true;
   const uint64_t bin = self_fingerprint();
   const uint64_t refs = refs_fingerprint();
-  const uint64_t data = data_fingerprint();
+  const uint64_t data = g_data_fp;
   char t[32];
   std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)bin);
   autoport_proof::publish_text("refset_bin_fp", t);
@@ -1772,7 +1886,8 @@ void publish_flaky() {
   publish_coverage();  // inclut la derniere photo, avant de qualifier la ligne du registre
   const uint64_t config = census_config_fingerprint();
   const bool census_ok = autoport_proof::feature_is("lighting-census") &&
-                         autoport_proof::armed_for("lighting-census") && !g_census_coverage_missing;
+                         autoport_proof::armed_for("lighting-census") && !g_census_coverage_missing &&
+                         g_provenance_version == 1;
 
   std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)config);
   autoport_proof::publish_text("refset_census_config_fp", t);
@@ -1828,7 +1943,11 @@ void publish_flaky() {
     }
   }
   g_census_replay_runs = census_runs;
-  g_census_replay_gate = !ledger_written ? 255 : (census_runs >= 5 ? census_maxdiff : 254);
+  // Candidate provenance records inputs, not restored actor/RNG state or an independent
+  // baseline qualification. Even five exact self-replays cannot supply those missing facts.
+  g_census_replay_gate = !ledger_written
+                            ? 255
+                            : (g_provenance_version == 2 || census_runs < 5 ? 254 : census_maxdiff);
   autoport_proof::publish("refset_replay_runs", md.size());
   autoport_proof::publish("refset_replay_flaky", md.size() >= 5 ? flaky : 254);
   // LA LIGNE `FEATURE` DE CET ITEM, ET SON PROPRE DENOMINATEUR. `note_hit` alimente un compteur
@@ -2145,6 +2264,7 @@ bool enabled() {
   put_env("OG_RECHARGED", "0");
   put_env("OG_RT_LIGHT", "0");
   put_env("OG_LIGHTING", "0");
+  init_candidate_provenance();
   std::printf("REFSET mode=%s dir=%s steps=%d vues=%d res=%dx%d settle=%lld/%lld\n",
               g_mode == 1 ? "capture" : "replay", g_dir.c_str(), (int)g_steps.size(),
               (int)g_vants.size(), kShotW, kShotH, (long long)g_step_settle,
@@ -2725,7 +2845,7 @@ bool consume_capture(int w, int h, const void* rgba) {
     } else {
       const Step& step = g_steps[g_cur];
       const bool witness_ok = write_capture_witness(step.phase, step.supplemental);
-      const bool provenance_ok = !step.supplemental || write_supplement_provenance(step, path);
+      const bool provenance_ok = write_capture_provenance(step, path);
       if (!witness_ok || !provenance_ok) {
         report_provenance(step, !witness_ok ? "witness-write" : "sidecar-write");
       } else {
@@ -2738,9 +2858,9 @@ bool consume_capture(int w, int h, const void* rgba) {
   } else {
     const Step& step = g_steps[g_cur];
     const char* provenance_error = nullptr;
-    if (step.supplemental) {
+    if (step.supplemental || g_provenance_version != 1) {
       g_provenance_checked++;
-      provenance_error = check_supplement_provenance(step, path);
+      provenance_error = check_capture_provenance(step, path);
       report_provenance(step, provenance_error);
     }
     std::vector<uint8_t> ref;

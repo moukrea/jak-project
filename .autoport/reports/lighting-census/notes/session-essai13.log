@@ -1,0 +1,10 @@
+Builder identity and idle child verified: ['2968580 2541075 S    sleep']
+build_start=2026-09-07T15:18:58+02:00
+build_rc=0
+eb489df0c9eb606051d90cc7ee0dc0a29f9318e63f3c445f97750845de5990a8  build/game/gk
+candidate_capture_rc=0
+proof_start=2026-09-07T15:19:48+02:00
+proof_run_rc=0
+refs_check_rc=0
+    PID    PPID STAT COMMAND
+2541075    1158 Ss   bash .autoport/auto_build_apk.sh

@@ -1,0 +1,17 @@
+{
+  "source": "x86",
+  "sha": "eb489df0c9eb6060",
+  "crash": "0",
+  "frames": "8510",
+  "refset_compared": "37",
+  "refset_provenance_bad": "0",
+  "light_census_residual": "0",
+  "refset_replay_maxdiff": "254",
+  "refset_census_coverage_missing": "244",
+  "refset_census_replay_runs": "0",
+  "light_census_total": "3487130",
+  "light_census_rb_mismatch": "0",
+  "gpu_ms_buckets": "7.1897",
+  "gl_invalid_operation": 0,
+  "historical_verified_files": 575
+}

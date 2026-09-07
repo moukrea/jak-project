@@ -1,0 +1,61 @@
+{
+  "oracle_head": "c4bc4d3ff4691902ff023319cb33df71c0040501",
+  "oracle_status": "",
+  "files": [
+    {
+      "path": "build/game/gk",
+      "bytes": 187522104,
+      "sha256": "1aed1e5494ac62faeb7d1564431ef091b10569f5abf43fcd13c05f6f9c77c3c1"
+    },
+    {
+      "path": "build/game/gk-origin-ablate",
+      "bytes": 183314888,
+      "sha256": "57cd788728f9c2b640cb347a9912eeaaa8f1328599537ab529c3c3f95064894c"
+    },
+    {
+      "path": "/home/emeric/code/jak-original-v033/build/Release/bin/game/gk",
+      "bytes": 61816352,
+      "sha256": "2801189bff17a731e2697971deccd224a590d902ee54c0b28eb9eb0955fde38a"
+    },
+    {
+      "path": "out/jak1/iso/GAME.CGO",
+      "bytes": 9755968,
+      "sha256": "af49c566ad93801887596513b55df934b4f732c4804a4227c6369e7223690940"
+    },
+    {
+      "path": "/home/emeric/code/jak-original-v033/out/jak1/iso/GAME.CGO",
+      "bytes": 8758112,
+      "sha256": "2a4b6c4fdcd507515ddcf20d55bb3cb6fc50701d03a43fc8d7a393eda1358a24"
+    },
+    {
+      "path": "out/jak1/iso/ENGINE.CGO",
+      "bytes": 6277008,
+      "sha256": "b2e1ba7d85b3025beecb8d0d768b4715ec6fe33ecc37574697a429235b7eaa1e"
+    },
+    {
+      "path": "/home/emeric/code/jak-original-v033/out/jak1/iso/ENGINE.CGO",
+      "bytes": 5321488,
+      "sha256": "3145d31da02c413e5d51f3017bd5a78c2b11a80166ae62afa10f8568d14d63b5"
+    },
+    {
+      "path": "out/jak1/iso/SUB.DGO",
+      "bytes": 4812512,
+      "sha256": "c878310a25870d817cd035ac2ffff056c25e0aaaa90029b874d6bbad5d167a36"
+    },
+    {
+      "path": "/home/emeric/code/jak-original-v033/out/jak1/iso/SUB.DGO",
+      "bytes": 4812512,
+      "sha256": "c878310a25870d817cd035ac2ffff056c25e0aaaa90029b874d6bbad5d167a36"
+    },
+    {
+      "path": "out/jak1/fr3/GAME.fr3",
+      "bytes": 1039218,
+      "sha256": "18b4171509a79e5d741dcd1abb80b4589922190083e71bad9104e8aae8f6a924"
+    },
+    {
+      "path": "/home/emeric/code/jak-original-v033/out/jak1/fr3/GAME.fr3",
+      "bytes": 1039222,
+      "sha256": "c13f632f00fc921ca77208fa9c5a2e993e5f6b70c7fac4993e46d682b9f32dc6"
+    }
+  ]
+}

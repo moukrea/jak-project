@@ -1,0 +1,9 @@
+version=2
+case=origine/h00
+config=1bc0c751a065de33
+bin=ee425b106b6988f6
+flavour=normal
+png=0e4d072f30ebb65b
+capture_lf=1081
+data=56f0364a8789c816
+input=f97b073c2df76fb4

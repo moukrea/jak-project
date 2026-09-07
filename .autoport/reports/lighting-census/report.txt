@@ -1,29 +1,30 @@
-Non validé : fuite GL du tonemapping corrigée ; divergence historique toujours présente.
 DIRECTIVES v6fca51fe40
-hdr.cpp restaure programme, VAO et array buffer de l'appelant après tonemapping.
-Les uniformes des sprites ne sont plus envoyés au programme HDR :
-GL_INVALID_OPERATION7290→0, avec2389 tonemappings (notes/test-essai12.md).
-Build incrémental gk réussi ; garde npc-flicker47 propriétés tenues.
-Huit lignes recopiées du producteur :
-sha=1aed1e5494ac62fa
+Non validé : provenance des candidats renforcée, mais état initial rejouable et qualification indépendante encore absents.
+Changement : refset.cpp écrit un format v2 dans un dossier neuf, avec sidecar pour chaque PNG ;
+les empreintes CGO/DGO/FR3 et entrée replay complètent binaire/config/PNG/frame.
+Les erreurs de lecture invalident la provenance ; cinq autorejeux ne peuvent qualifier ces candidats.
+Candidat PARTIEL : .autoport/refset-candidates/essai13-provenance-v2, origine/h00 seulement.
+Trace capture : REFSET done steps=1 captured=1 compared=0 maxdiff=0 diffpx=0 missing=0 slip=0..0 rewarps=1 settle=180
+Trace état : actor_rng_state=not-restored-by-sidecars ; aucune adoption.
+Build x86 incrémental rc=0, garde npc-flicker 47 ; neuf tests du correctif superviseur passent.
+Huit lignes recopiées de proof.txt (producteur unique proof_run.sh, run 150 s) :
+source=x86
+sha=eb489df0c9eb6060
 crash=0
-frames=8393
-FEATURE lighting-census armed=1 hits=4035233
-tonemap_draws=2389
+frames=8510
 refset_compared=37
+refset_provenance_bad=0
+light_census_residual=0
 refset_replay_maxdiff=254
-light_census_rb_mismatch=0
-Unique preuve150s ; aucune référence créée, remplacée ou masquée.
-575 fichiers référence inchangés ;24 PNG legacy identiques à l'essai11.
-Origine/h00 reste maxdiff202/diffpx794 : le correctif GL ne résout pas la lampe.
-37/672 comparaisons,244 manques de couverture,zéro rejeu complet crédité.
-Draws3427130,résidu0 ; GPU7.3219ms avec diagnostic (proof.txt).
-Sunkenb : DGO inspecté,9 adgifs dont8 textures ciel ; ressources présentes,
-visibilité non tranchée,8 manques conservés (notes/sunkenb-essai12.md).
-Owner : lors d'une livraison, regarder interface après HDR ON/OFF et blancs brûlés ;
-qualité HDR et correction des blancs non validées, aucun appareil touché ici.
-non prouvé : cause historique lampe, bit-identité564, état indépendant par cas,
-108 compléments établis avec provenance complète, cinq rejeux exacts,
-couverture tous niveaux/intérieurs/heures, visibilité ciel Sunkenb et rendu Android.
-Correctif source repris par le builder dans3c911bd6ca ; preuve x86 distincte.
-Handoff fourni ; generic.sh laissé à l'orchestrateur, aucun verdict owner.
+Log moteur : GL_INVALID_OPERATION absent (0 occurrence), comme essai12.
+Trace complémentaire : draws=3487130, rb_mismatch=0, GPU=7.1897 ms.
+Archives : 575 contrôles SHA256 OK, soit 572 PNG et trois témoins ; écarts essai12 conservés dans notes/essai12-avant13.
+Baseline indépendante retrouvée : clone pristine c4bc4d3ff4691902ff023319cb33df71c0040501,
+gk SHA256 2801189bff17a731e2697971deccd224a590d902ee54c0b28eb9eb0955fde38a.
+Ses GAME/ENGINE/FR3 diffèrent et ses crochets de restauration sont absents : identité de source seule insuffisante.
+Owner : rien à tester visuellement pour ce candidat partiel ; correction HDR/tonemap SDR non livrée.
+non prouvé : restauration RNG/horloges/acteurs, qualification origine baseline/candidat à données identiques,
+provenance complète sources/configuration/état, lecture v2 en rejeu, cinq rejeux exacts, couverture 21 niveaux et ≥4 intérieurs.
+non prouvé : visibilité ciel Sunkenb (huit créneaux toujours manquants), qualité HDR et Android.
+Aucun appareil touché ; builder PID2541075 repris. generic.sh inchangé, exécution laissée à l'orchestrateur.
+Détails et prochaine frontière d'état : notes/recovery-essai13.md ; reprise : handoff.md.

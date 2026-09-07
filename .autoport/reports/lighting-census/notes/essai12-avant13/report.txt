@@ -1,0 +1,29 @@
+Non validé : fuite GL du tonemapping corrigée ; divergence historique toujours présente.
+DIRECTIVES v6fca51fe40
+hdr.cpp restaure programme, VAO et array buffer de l'appelant après tonemapping.
+Les uniformes des sprites ne sont plus envoyés au programme HDR :
+GL_INVALID_OPERATION7290→0, avec2389 tonemappings (notes/test-essai12.md).
+Build incrémental gk réussi ; garde npc-flicker47 propriétés tenues.
+Huit lignes recopiées du producteur :
+sha=1aed1e5494ac62fa
+crash=0
+frames=8393
+FEATURE lighting-census armed=1 hits=4035233
+tonemap_draws=2389
+refset_compared=37
+refset_replay_maxdiff=254
+light_census_rb_mismatch=0
+Unique preuve150s ; aucune référence créée, remplacée ou masquée.
+575 fichiers référence inchangés ;24 PNG legacy identiques à l'essai11.
+Origine/h00 reste maxdiff202/diffpx794 : le correctif GL ne résout pas la lampe.
+37/672 comparaisons,244 manques de couverture,zéro rejeu complet crédité.
+Draws3427130,résidu0 ; GPU7.3219ms avec diagnostic (proof.txt).
+Sunkenb : DGO inspecté,9 adgifs dont8 textures ciel ; ressources présentes,
+visibilité non tranchée,8 manques conservés (notes/sunkenb-essai12.md).
+Owner : lors d'une livraison, regarder interface après HDR ON/OFF et blancs brûlés ;
+qualité HDR et correction des blancs non validées, aucun appareil touché ici.
+non prouvé : cause historique lampe, bit-identité564, état indépendant par cas,
+108 compléments établis avec provenance complète, cinq rejeux exacts,
+couverture tous niveaux/intérieurs/heures, visibilité ciel Sunkenb et rendu Android.
+Correctif source repris par le builder dans3c911bd6ca ; preuve x86 distincte.
+Handoff fourni ; generic.sh laissé à l'orchestrateur, aucun verdict owner.
