@@ -5,6 +5,7 @@
 // Android renderer is a true subset of the desktop one, not a rewrite.
 
 #include "android_opengl_renderer.h"
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 
 #include <cstring>
 
@@ -1040,6 +1041,9 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     auto prof = m_profiler.root()->make_scoped_child("buckets");
     m_render_state.version = g_game_version;
     m_render_state.frame_idx++;
+    if (g_game_version == GameVersion::Jak1) {
+      grass_occ::begin_contact_frame();
+    }
     if (g_game_version == GameVersion::Jak2) {
       dispatch_buckets_jak2(dma, prof);
     } else {
