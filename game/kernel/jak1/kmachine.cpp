@@ -465,7 +465,36 @@ void recharged_reset_risky_ini() {
 }
 // Boot-time crash-loop check. Runs from InitMachine (after the Android external game-root is set
 // by goal_main, before GOAL boots and loads settings.ini).
+// UNE COURSE DE REFERENCE NE MODIFIE PAS LES REGLAGES QU'ELLE MESURE.
+// `lighting-origin-bitexact`, 2026-09-07. Cette garde compte les demarrages « morts avant le
+// jeu » dans un fichier a cote de `settings.ini`, et au DEUXIEME elle REECRIT `settings.ini`
+// (pbr-displacement -> Off, pbr-test-preset -> defaut). Or une course `refset` est toujours
+// tuee au bout de son plan : elle n'atteint jamais les 60 s « saines » qui effacent le
+// sentinelle, donc trois courses successives suffisent a faire changer les reglages SOUS la
+// comparaison. Mesure : sentinelle a 2 et `settings.ini` reecrit a 01:31:38 entre deux rejeux
+// du meme plan ; l'ecart est passe de 1242 a 100172 pixels sans qu'une seule ligne du chemin de
+// dessin ait bouge. Un instrument bit-a-bit ne peut pas vivre avec ca : sous `OG_REFSET` la
+// garde ne lit rien et n'ecrit rien. Le joueur, lui, la garde entiere.
+bool refset_pins_settings() {
+  static const bool s_on = [] {
+#if defined(__ANDROID__)
+    char buf[PROP_VALUE_MAX] = {0};
+    if (__system_property_get("debug.opengoal.refset", buf) > 0 && buf[0]) {
+      return std::string(buf) == "capture" || std::string(buf) == "replay";
+    }
+    return false;
+#else
+    const char* e = std::getenv("OG_REFSET");
+    return e && (std::string(e) == "capture" || std::string(e) == "replay");
+#endif
+  }();
+  return s_on;
+}
+
 void recharged_crash_loop_guard_boot() {
+  if (refset_pins_settings()) {
+    return;
+  }
   s_recharged_boot_t =
       std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
   const auto guard = recharged_boot_guard_path();

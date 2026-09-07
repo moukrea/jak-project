@@ -1,4 +1,5 @@
 #include "AmbientOcclusion.h"
+#include "game/graphics/origin_ablate.h"
 
 #include "game/graphics/opengl_renderer/hdr.h"
 
@@ -96,6 +97,9 @@ struct AoOverride {
 }  // namespace
 
 int AmbientOcclusionPass::effective_mode() {
+#if AUTOPORT_ORIGIN_ABLATE
+  return 0;  // BINAIRE-TEMOIN : `AO_FORCE_MODE` allume l'AO meme maitre eteint.
+#else
   static AoOverride s_ov{"mode", "debug.opengoal.ao.force_mode", "AO_FORCE_MODE"};
   const int v = s_ov.read();
   // Grecharged-master-toggle: the master composes with the SETTINGS value; the explicit
@@ -103,6 +107,7 @@ int AmbientOcclusionPass::effective_mode() {
   // L'occlusion ambiante est SOUS l'eclairage recharge (SPEC §6.2) : lighting_active_mode compose
   // master -> ECLAIRAGE RECHARGE -> mode, donc eteindre l'eclairage rend le mode 0 (AO off).
   return (v >= 0) ? v : Gfx::lighting_active_mode(Gfx::g_global_settings.recharged_ao_mode);
+#endif
 }
 
 int AmbientOcclusionPass::effective_quality() {

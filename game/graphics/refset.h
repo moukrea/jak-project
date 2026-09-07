@@ -263,6 +263,11 @@ int mood_flame_pin();
 //     Non-vacuite : `refset_text_steps_with` / `_without` comptent les photos ou le texte AURAIT
 //     ete dessine. Si `_with` valait 0 ou 24, l'invite ne serait pas asymetrique et retirer le
 //     texte n'expliquerait rien.
+//     LA PHASE 1 EST EXEMPTEE (2026-09-07, `lighting-origin-bitexact`). L'atlas de police
+//     `gamefontnew` est le seul site du recensement qui remplace la texture d'origine SANS
+//     consulter le maitre : muettre l'invite retire de la scene le seul objet qui le dessine, et
+//     la porte « maitre eteint => identique au bit » passerait au vert sur un defaut present.
+//     Les phases 2 et 3, celles qu'apparient les verdicts de `lighting-hdr`, gardent le mute.
 int text_mute();
 
 int verdict_saturation();          // 1 — pixels satures RECHARGED <= ORIGINE-LUMIERE

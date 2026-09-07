@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
+#include "game/graphics/origin_ablate.h"
 
 #include <algorithm>
 #include <chrono>
@@ -180,9 +181,11 @@ bool enabled() {
     }
     return buf[0] != '0';
   }();
+#if !AUTOPORT_ORIGIN_ABLATE
   if (s_forced) {
     return true;
   }
+#endif
   // Le bras d'ablation du harnais (`proof_run.sh --off` sur CET item) eteint la brise ajoutee ;
   // sans item nomme, ou pour un autre item, `armed_for` rend vrai et rien ne change pour l'owner.
   if (!autoport_proof::armed_for("foliage-wind")) {
@@ -211,6 +214,11 @@ float flutter_fraction() {
 }
 
 bool shrub_native_enabled() {
+#if AUTOPORT_ORIGIN_ABLATE
+  // BINAIRE-TEMOIN : ce drapeau vaut TRUE par defaut et ne consulte aucun maitre. Il arme
+  // `Shrub.cpp:323` `wind_active`, donc il DEPLACE des sommets d'arbustes maitre eteint.
+  return false;
+#else
   static const bool s_on = [] {
     char buf[32] = {0};
     if (!read_knob_raw("debug.opengoal.wind.shrub_native", "OG_WIND_SHRUB_NATIVE", buf,
@@ -220,6 +228,7 @@ bool shrub_native_enabled() {
     return buf[0] != '0';
   }();
   return s_on;
+#endif
 }
 
 // REFSET : L'HORLOGE DE LA BRISE DEVIENT UNE FONCTION DE LA FRAME DE LOGIQUE.

@@ -1,4 +1,5 @@
 #include "Loader.h"
+#include "game/graphics/origin_ablate.h"
 
 #include <algorithm>
 #include <chrono>
@@ -736,10 +737,12 @@ void Loader::loader_thread() {
       // foliage-wind (essai 11) : le SOL sous chaque buisson (pivot du balancement) et son vent
       // NATIF (sidecar de raideur). Ici et pas plus tard : les sommets sont depaquetes, pas encore
       // soudes ni televerses — LoaderStages lit `unpacked.sway` a l'etape shrub.
+#if !AUTOPORT_ORIGIN_ABLATE
       {
         auto p = scoped_prof("foliage-wind-finalize");
         tfrag3::foliage_wind_finalize_level(*result);
       }
+#endif
 
       // OWNER REOPEN #13 (2026-07-24) + INSIGHT #2: after every tfrag/tie/shrub tree is unpacked, run
       // the GLOBAL cross-chunk/bucket/system weld — one spatial hash over the WHOLE level stitches
@@ -816,9 +819,11 @@ void Loader::loader_thread() {
         const auto& gs = Gfx::g_global_settings;
         bool want = Gfx::recharged_active(gs.recharged_pbr_enable) &&
                     gs.recharged_pbr_displacement == 2;
+#if !AUTOPORT_ORIGIN_ABLATE
         if (scfg.forced_max_edge_m >= 0.f) {
           want = scfg.forced_max_edge_m > 0.f;  // prop/env override, for the device A/B
         }
+#endif
         // Gprecompute-deterministic-bake (owner 2026-08-26: « ca devrait etre une option ajustable et
         // pas un truc qui se fait automatiquement »). The ROUND COUNT is a user setting now, not a
         // constant: 0 turns the refinement off outright, 1 is the shipped default, 2-3 for machines

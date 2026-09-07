@@ -20,6 +20,7 @@
 #include "common/util/FileUtil.h"
 #include "common/versions/versions.h"
 #include "game/graphics/grass_density_presets.h"
+#include "game/graphics/origin_ablate.h"
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
@@ -641,6 +642,13 @@ inline int read_override(const char* prop, const char* env) {
 }
 
 inline bool recharged_master_active() {
+#if AUTOPORT_ORIGIN_ABLATE
+  // BINAIRE-TEMOIN DE `lighting-origin-bitexact` (game/graphics/origin_ablate.h). La couche
+  // Recharged n'est pas ETEINTE ici, elle est ABSENTE : ce `return` constant supprime a la
+  // COMPILATION les ~50 sites qui passent par ce maitre. C'est ce qui fait de la reference
+  // « un build sans la couche » et non « le meme build avec le drapeau a zero ».
+  return false;
+#else
   static int s_override = -1;  // -1 = no override; 0 = force vanilla; 1 = force recharged
   static double s_last_read_s = -1.0;
   const double now =
@@ -662,6 +670,7 @@ inline bool recharged_master_active() {
   // flag is armed/disarmed by pc_mb_set_active, so a CLOSED browser changes nothing.
   return (s_override >= 0) ? (s_override != 0)
                            : (g_global_settings.mb_pbr_override || g_global_settings.recharged_master);
+#endif
 }
 
 inline bool recharged_active(bool feature_flag) {
@@ -678,6 +687,9 @@ inline int recharged_active_mode(int feature_mode) {
 // image doivent lire la meme valeur. La propriete/variable epingle LE DRAPEAU, jamais la
 // composition : le master garde son droit de veto au-dessus.
 inline bool recharged_lighting_active() {
+#if AUTOPORT_ORIGIN_ABLATE
+  return false;  // voir recharged_master_active() ci-dessus
+#else
   static int s_override = -1;  // -1 = pas d'override ; 0 = force l'eclairage d'origine ; 1 = force la refonte
   static double s_last_read_s = -1.0;
   const double now =
@@ -693,6 +705,7 @@ inline bool recharged_lighting_active() {
   }
   const bool on = (s_override >= 0) ? (s_override != 0) : g_global_settings.recharged_lighting;
   return on && recharged_master_active();
+#endif
 }
 
 // LE seul composeur des trois niveaux (master > eclairage > sous-drapeau). Tout consommateur

@@ -12,6 +12,7 @@
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/fixed_tick.h"
+#include "game/graphics/origin_ablate.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/render_pace.h"
 #include "game/system/autoport_proof.h"
@@ -376,8 +377,27 @@ void measure_step(int phase, int hour, int64_t cap_lf, const uint8_t* px, int w,
 
 uint64_t read_capture_witness(int phase);  // defini plus bas, avec le temoin de capture
 
+// Le temoin de capture est ecrit et relu plus bas (section « LE TEMOIN DE CAPTURE ») ;
+// `publish_state` le publie, d'ou cette declaration avant usage.
+std::string read_capture_flavour(int phase);
+
+// La SAVEUR du binaire courant : `ablate` = la couche Recharged n'est pas compilee dedans
+// (game/graphics/origin_ablate.h), `normal` = le binaire de l'owner.
+const char* build_flavour() {
+#if AUTOPORT_ORIGIN_ABLATE
+  return "ablate";
+#else
+  return "normal";
+#endif
+}
+
 void publish_state() {
   autoport_proof::publish_text("refset_mode", g_mode == 1 ? "capture" : "replay");
+  // QUEL BINAIRE A PRODUIT CETTE COURSE. `ablate` = la couche Recharged n'est pas compilee
+  // dedans ; il ne sert qu'a CAPTURER la reference ORIGINE-TOTAL et il ne peut pas passer la
+  // porte (voir `verdict_master_off_bitexact`). Publie hors du bras `g_mode == 2` : une course
+  // de capture doit dire elle aussi de quel binaire elle sort.
+  autoport_proof::publish_text("origin_build_flavour", build_flavour());
 #if defined(__ANDROID__)
   autoport_proof::publish_text("refset_platform", "device");
 #else
@@ -570,6 +590,14 @@ void publish_state() {
     char wt[32];
     std::snprintf(wt, sizeof(wt), "%016llx", (unsigned long long)read_capture_witness(1));
     autoport_proof::publish_text("refset_witness_origine", wt);
+    // La saveur du binaire qui a capture, et celle du binaire qui rejoue. Sans ces deux lignes,
+    // « la reference vient d'un build sans la couche » est une affirmation que la preuve ne
+    // contredit pas : la porte les EXIGE, le proof.txt doit donc les MONTRER.
+    {
+      const std::string wf = read_capture_flavour(1);
+      autoport_proof::publish_text("refset_witness_origine_flavour",
+                                   wf.empty() ? "absente" : wf.c_str());
+    }
   }
   // En mode capture on ne publie AUCUNE valeur de porte : une course qui fabrique ses propres
   // references ne doit pas pouvoir la franchir.
@@ -795,9 +823,35 @@ std::string witness_path(int phase) {
 
 void write_capture_witness(int phase) {
   if (FILE* f = std::fopen(witness_path(phase).c_str(), "w")) {
-    std::fprintf(f, "%016llx\n", (unsigned long long)self_fingerprint());
+    // Deux lignes, et les deux comptent. L'empreinte dit « pas le meme binaire » ; la saveur
+    // dit « et ce n'etait pas un binaire qui contient la couche qu'on juge ». Sans la seconde,
+    // n'importe quel binaire legerement different ferait une reference — la porte serait une
+    // mesure de stabilite deguisee, exactement ce que le temoin existe pour empecher.
+    std::fprintf(f, "%016llx\nflavour=%s\n", (unsigned long long)self_fingerprint(),
+                 build_flavour());
     std::fclose(f);
   }
+}
+
+// La saveur inscrite a cote de la reference. "" = absente (temoin d'avant ce champ, ou fichier
+// manquant) — et une saveur absente n'est jamais traitee comme `ablate`.
+std::string read_capture_flavour(int phase) {
+  std::string v;
+  if (FILE* f = std::fopen(witness_path(phase).c_str(), "r")) {
+    char line[128];
+    while (std::fgets(line, sizeof(line), f)) {
+      const char* p = std::strstr(line, "flavour=");
+      if (p) {
+        v = p + 8;
+        while (!v.empty() && (v.back() == '\n' || v.back() == '\r')) {
+          v.pop_back();
+        }
+        break;
+      }
+    }
+    std::fclose(f);
+  }
+  return v;
 }
 
 uint64_t read_capture_witness(int phase) {
@@ -1132,6 +1186,17 @@ int text_mute() {
   std::lock_guard<std::mutex> lock(g_mutex);
   g_text_calls++;
   g_text_last_lf = current_logic_frame();
+  // LA PHASE 1 GARDE SON TEXTE, ET CE N'EST PAS UN DETAIL DE CONFORT.
+  // `lighting-origin-bitexact` mesure « maitre eteint => identique au bit au jeu d'origine ».
+  // Or l'atlas de police (`gamefontnew`) est le SEUL site du recensement qui remplace la texture
+  // d'origine sans consulter le maitre (CustomTextureReplacements.cpp `is_font_atlas`). Muettre
+  // l'invite du maire retire de la scene le seul objet qui dessine cet atlas : la porte
+  // deviendrait verte sur un defaut PRESENT — « les DEUX bras au vert parce que la condition est
+  // absente ». On ne mute donc que les phases 2 et 3, celles qu'apparient les verdicts de
+  // `lighting-hdr` ; leur instrument est inchange, ligne pour ligne.
+  if (g_cur < g_steps.size() && g_steps[g_cur].phase == 1) {
+    return 0;
+  }
   g_text_muted++;
   return 1;
 }
@@ -1421,6 +1486,11 @@ bool consume_capture(int w, int h, const void* rgba) {
 
 // Verdict 4 — master eteint, sortie identique au bit a ORIGINE-TOTAL.
 int verdict_master_off_bitexact() {
+#if AUTOPORT_ORIGIN_ABLATE
+  // UN BINAIRE D'ABLATION NE JUGE RIEN. Il ne contient pas la couche dont on affirme
+  // l'innocuite : son zero ne voudrait rien dire, et il ne doit pas pouvoir fermer la porte.
+  return 1;
+#else
   const bool clean = !g_missing && !g_size_bad && !g_decode_bad;
   if (g_mode != 2 || !clean || g_compared_phase[1] != 8 || g_maxdiff_phase[1] != 0) {
     return 1;
@@ -1430,7 +1500,16 @@ int verdict_master_off_bitexact() {
   if (w == 0 || w == self_fingerprint()) {
     return 1;
   }
+  // ... et pas de n'importe quel autre binaire : d'un binaire ou la couche Recharged n'est pas
+  // COMPILEE. C'est la definition que la SPEC donne du jeu d'origine (§1.1 regle 1 point 3 :
+  // « son OFF est bit-identique a son ABSENCE »). Une reference capturee par un binaire normal
+  // avec le drapeau a zero ne verrait aucun site qui remplace le vanilla sans consulter le
+  // maitre — le defaut meme que cet item cherche.
+  if (read_capture_flavour(1) != "ablate") {
+    return 1;
+  }
   return 0;
+#endif
 }
 
 // Verdict 5 — le jeu ORIGINE-LUMIERE existe ET sert de base aux verdicts 1-3. « Exister » ne

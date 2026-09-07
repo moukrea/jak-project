@@ -1,4 +1,5 @@
 #include "CustomTextureReplacements.h"
+#include "game/graphics/origin_ablate.h"
 
 #include <atomic>
 #include <cctype>
@@ -369,7 +370,19 @@ void ensure_scanned() {
 }  // namespace
 
 bool is_font_atlas(const std::string& tpage_name) {
+#if AUTOPORT_ORIGIN_ABLATE
+  // BINAIRE-TEMOIN DE `lighting-origin-bitexact`. Ce predicat est le seul de tout le
+  // recensement qui SORT une page de texture de la porte du maitre : `lookup()` ligne 378 et
+  // son miroir `base_source()` ligne 445 testent `!font && !user_on && !bundled_on`, donc
+  // `gamefontnew` est resolu depuis le paquet livre (atlas Urbanist) MAITRE ETEINT, et
+  // `LoaderStages.cpp` lui fait sauter le pack managé. C'est litteralement « coder en dur en
+  // remplacant le vanilla ». Le temoin rend l'atlas de Naughty Dog, sinon l'ecart n'existe pas
+  // et la porte serait verte sur un defaut present.
+  (void)tpage_name;
+  return false;
+#else
   return tpage_name == "gamefontnew";
+#endif
 }
 
 std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std::string& tex_name) {

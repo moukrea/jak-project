@@ -1,4 +1,5 @@
 #include "DirectRenderer.h"
+#include "game/graphics/origin_ablate.h"
 
 #include "common/dma/gs.h"
 #include "common/log/log.h"
@@ -1001,7 +1002,11 @@ void DirectRenderer::handle_tex1_1(u64 val) {
   // MXL > 0 et MMIN >= 2 = le registre demande explicitement une chaine de mipmaps
   // (2..5 sont les quatre modes *_MIPMAP_* du GS). MXL == 0 = pas de mipmap : c'est ce que pose
   // tout le contenu d'origine, qui garde donc EXACTEMENT le comportement d'avant.
+#if AUTOPORT_ORIGIN_ABLATE
+  bool want_mipmap = false;  // BINAIRE-TEMOIN : le OU de `disable_mipmap` retombe sur l'origine.
+#else
   bool want_mipmap = reg.mxl() > 0 && reg.mmin() >= 2;
+#endif
   if (want_mipmap != m_tex_state_from_reg.enable_mipmap) {
     m_tex_state_from_reg.enable_mipmap = want_mipmap;
     m_current_tex_state_idx = -1;
