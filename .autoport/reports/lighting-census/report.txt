@@ -1,35 +1,24 @@
-NON VALIDÉ : lecture OpenGL et protection des références corrigées ; les références complètes et les cinq rejeux exacts restent à établir.
+NON VALIDÉ : le rejeu reste incomplet et les écarts aux références subsistent.
 DIRECTIVES v6fca51fe40
-
-Changements : capture interne sur GL_COLOR_ATTACHMENT0 ; restauration de chaque tampon
-avec son framebuffer lié. Capture refusée si le répertoire existe, avant toute écriture.
-Le lanceur prépare un candidat neuf, accepte REFSET_DIR et propage un échec de capture.
-Aucun shader, cadrage, seuil ni validateur changé ; aucune origine remplacée.
-
-Huit lignes recopiées de proof.txt, produit par lib/proof_run.sh (180 s demandées) :
-sha=bccef39f94505979
+Changement : l’empreinte de configuration inclut désormais les surcharges de caméra.
+Le README décrit le plan réel et retire les anciennes assurances et consignes de recapture erronées.
+Build x86 incrémental réussi ; une seule preuve de 150 s, durée mesurée 151 s.
+Preuve — huit lignes recopiées du fichier produit par proof_run.sh :
+sha=c5872fcb023087e0
 crash=0
-frames=9823
-FEATURE lighting-census armed=1 hits=4896959
+frames=8581
+FEATURE lighting-census armed=1 hits=4175273
+light_census_total=3517130
 light_census_residual=0
 light_census_rb_mismatch=0
-refset_census_replay_runs=0
 refset_replay_maxdiff=254
-
-Build incrémental gk réussi ; garde npc-flicker : 47 propriétés tenues dans le log de build.
-Preuve : 4 139 021 draws ; temps GPU buckets 7,3552 ms ; phase ORIGINE-LUMIÈRE active.
-44/672 comparaisons publiées ; 45 dans le journal, maximum réel 255 pour chacun des trois jeux.
-254 désigne le plan incomplet ; les comparaisons brutes sont déjà différentes.
-Zéro ligne glReadBuffer dans le journal neuf ; refus du répertoire existant exécuté, code 1.
-575 empreintes inchangées : 572 PNG et 3 témoins. Lanceur vérifié par bash -n seulement.
-Historique conservé : capture de 564 étapes, 21 niveaux, 13 intérieurs, huit manques ciel sunkenb.
-Le moteur énumère 21 jouables ; le 22e du contrat reste non identifié dans ce recensement.
-La preuve courte neuve couvre seulement deux niveaux et un intérieur ; elle ne revalide pas cet historique.
-Le plan ajoute 108 étapes : 100 PNG absents, huit anciens hors dernière capture, non qualifiés.
-Les écarts legacy sont déjà reproduits dans deux courses essai7 ; leur cause reste inconnue.
-À 60 frames/s, le plan actuel demande au moins 38 min par tour ; accélération exacte non établie.
-Owner : aucun verdict visuel demandé pour cet instrument ; qualité de l'éclairage non évaluée.
-non prouvé : couverture complète et ciel sunkenb ≥15 %, cinq rejeux exacts, bit-identité
-des deux origines, absence de régression tous niveaux, capture exécutée vers une destination neuve.
-Le constructeur a checkpointé le moteur dans cdfe2b997c ; PID 2541075 repris après la preuve.
-Rapport de tests et diagnostic dans notes/ ; handoff actualisé. Validateur laissé à l'orchestrateur.
+38/672 comparaisons, zéro tour qualifié ; GPU buckets=6.9000 ms, 8457 images mesurées.
+24/24 PNG legacy identiques entre essais 8 et 9 ; les différences aux références sont localisées
+dans x285..315/y13..72. L’objet responsable reste non identifié ; piste horloge hutlamp non prouvée.
+575 SHA de références conservés ; builder repris. Détails : notes/tests-essai9.md.
+7839 GL_INVALID_OPERATION sprite, signature déjà présente à l’essai8 (8784) ; aucun glReadBuffer.
+Owner : aucun nouveau rendu esthétique livré ; restent à examiner les extérieurs et intérieurs
+aux huit heures, notamment les ciels, une fois le jeu de références complet.
+non prouvé : cinq rejeux exacts, bit-identité aux deux origines, couverture de tous les niveaux,
+ciel sunkenb, 22e niveau jouable, non-régression globale et exécution du nouveau fingerprint en fin de tour.
+Le validateur reste à l’orchestrateur ; aucune validation owner fabriquée.

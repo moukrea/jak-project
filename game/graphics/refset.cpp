@@ -1554,6 +1554,26 @@ uint64_t census_config_fingerprint() {
                         int64_t(g_order_by_hour)}) {
     add(std::to_string(value));
   }
+  // Configuration de camera seulement : ni padding de CamTune, ni pose relevee au spawn.
+  auto add_cam_tune = [&add](const CamTune& tune) {
+    add(std::to_string(tune.set));
+    for (auto value : {tune.pitch_d, tune.yaw_d, tune.dist_dm, tune.height_dm}) {
+      add(std::to_string(value));
+    }
+  };
+  for (int value : {g_cam_armed, g_pitch_sweep, g_yaw_sweep, g_cam_hour_sweep}) {
+    add(std::to_string(value));
+  }
+  add(std::to_string(g_vants.size()));
+  for (int gi : g_vants) {
+    add(std::to_string(gi));
+    add_cam_tune(g_cam_tune[gi]);
+  }
+  for (int hi = 0; hi < 8; hi++) {
+    add(std::to_string(g_pitch_by_hour[hi]));
+    add(std::to_string(g_yaw_by_hour[hi]));
+    add_cam_tune(g_cam_by_hour[hi]);
+  }
   return h;
 }
 

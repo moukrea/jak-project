@@ -1,0 +1,28 @@
+DIRECTIVES v6fca51fe40
+Comparaison numérique des 24 PNG legacy archivés avant essai9 ; aucune inspection visuelle.
+Références : .autoport/refset/<jeu>/hHH.png ; réels : notes/essai8-avant9/refset-actual/<jeu>-hHH.png.
+Les nombres ci-dessous sont un diagnostic hors ligne, pas des champs de proof.txt.
+origine/h00 maxdiff=202 diffpx=794 bbox=(287, 13, 314, 72) hors_region_285_315_13_72=0
+origine/h03 maxdiff=198 diffpx=790 bbox=(287, 13, 314, 72) hors_region_285_315_13_72=0
+origine/h06 maxdiff=203 diffpx=780 bbox=(287, 13, 313, 72) hors_region_285_315_13_72=0
+origine/h09 maxdiff=201 diffpx=782 bbox=(286, 13, 313, 72) hors_region_285_315_13_72=0
+origine/h12 maxdiff=203 diffpx=762 bbox=(286, 13, 312, 72) hors_region_285_315_13_72=0
+origine/h15 maxdiff=205 diffpx=751 bbox=(286, 13, 312, 71) hors_region_285_315_13_72=0
+origine/h18 maxdiff=205 diffpx=730 bbox=(286, 13, 312, 71) hors_region_285_315_13_72=0
+origine/h21 maxdiff=198 diffpx=698 bbox=(286, 13, 311, 71) hors_region_285_315_13_72=0
+origine-lumiere/h00 maxdiff=200 diffpx=716 bbox=(286, 13, 312, 71) hors_region_285_315_13_72=0
+origine-lumiere/h03 maxdiff=205 diffpx=740 bbox=(286, 13, 312, 71) hors_region_285_315_13_72=0
+origine-lumiere/h06 maxdiff=203 diffpx=763 bbox=(286, 13, 312, 72) hors_region_285_315_13_72=0
+origine-lumiere/h09 maxdiff=201 diffpx=782 bbox=(286, 13, 313, 72) hors_region_285_315_13_72=0
+origine-lumiere/h12 maxdiff=210 diffpx=786 bbox=(287, 13, 313, 72) hors_region_285_315_13_72=0
+origine-lumiere/h15 maxdiff=209 diffpx=809 bbox=(287, 13, 314, 72) hors_region_285_315_13_72=0
+origine-lumiere/h18 maxdiff=203 diffpx=791 bbox=(287, 13, 314, 72) hors_region_285_315_13_72=0
+origine-lumiere/h21 maxdiff=201 diffpx=813 bbox=(288, 14, 315, 72) hors_region_285_315_13_72=0
+recharged/h00 maxdiff=199 diffpx=679 bbox=(285, 14, 311, 71) hors_region_285_315_13_72=0
+recharged/h03 maxdiff=204 diffpx=637 bbox=(285, 14, 311, 71) hors_region_285_315_13_72=0
+recharged/h06 maxdiff=162 diffpx=564 bbox=(285, 13, 311, 71) hors_region_285_315_13_72=0
+recharged/h09 maxdiff=158 diffpx=105 bbox=(285, 28, 311, 71) hors_region_285_315_13_72=0
+recharged/h12 maxdiff=160 diffpx=567 bbox=(285, 13, 311, 71) hors_region_285_315_13_72=0
+recharged/h15 maxdiff=198 diffpx=663 bbox=(285, 13, 311, 71) hors_region_285_315_13_72=0
+recharged/h18 maxdiff=203 diffpx=689 bbox=(285, 13, 311, 71) hors_region_285_315_13_72=0
+recharged/h21 maxdiff=198 diffpx=699 bbox=(286, 13, 311, 71) hors_region_285_315_13_72=0
