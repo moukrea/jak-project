@@ -4140,6 +4140,21 @@ items:
       Arrêtes de trouver des excuses pour bosser sur de la merde au lieu de faire du vrai taff... Si tu
       continues je retourne sous Claude Code et je cancel mon abonnement, Claude Code est bien moins teubé
       tu m'a fait perdre la journée avec tes conneries j'ai envie de te cogner très fort
+  - date: '2026-09-07'
+    text: Bah fais le bordel ! C'est pas possible j'ai l'impression de parler à un demeuré ! Claude Code
+      aurait déjà capturé tous les niveaux à ciel ouvert en étant sûr de voir le ciel sur les captures,
+      plus les niveaux intérieurs, plus l'intérieur d'une hutte de Sandover Village à 8 moments distincts
+      de la journée in game exact et fais les comparaisons via imagemagick, et serait déjà en train d'ajuster
+      le tone mapping pour arriver au plus proche possible tout en gardant les détails gagnés (vu qu'on
+      a une plus grosse Dynamic range) et se rapprochant au plus de l'artistic intent (grace aux comparaisons
+      de imagemagick et reportant les corrections nécessaires pour se rapprocher au mieux, un peu comme
+      une correction de teinte/saturation/luminosité automatique) lissée sur l'ensemble des captures et
+      reported back to the tonemapping pour se rapprocher au plus via plusieurs itérations ! Avec une
+      possibilité de variation sur les réglages fins du tonemapping par niveaux évidemment (des LUT maybe?
+      En supplément du tonemapping car le tonemapping et pour report back le HDR vers le SDR, les corrections
+      de teinte/saturation c'est du supplément je pense)... De sur Claude Code serait déjà leaps and bounds
+      plus loin que toi c'est abusé à quel point je suis déçu. C'est pas demain la veille qu'on passe
+      a l'item suivant, je suis encore loin d'avoir un rendu HDR sur écran HDR (ce qui devait venir après)
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4154,20 +4169,24 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: Owner constate ciel et elements clairs toujours brules. Les rejeux exacts ont retarde la
-    correction ; ils ne sont plus un prerequis.
-  deliverable: 'Corriger directement HDR/tonemap SDR. Premier lot court sur scenes claires : ON/OFF eclairage
-    seul, meme build et autres effets identiques, vues/heures comparables sans frame exacte. Mesurer programmatiquement
-    pixels ecretes/blancs et quasi-blancs, distributions luminosite/teinte/saturation et detail hautes
-    lumieres ; outils existants ou ImageMagick via preuve tracee proof_run.sh. Publier valeurs ON/OFF
-    et deltas AVANT, corriger exposition/courbe/chemin lineaire selon cause mesuree, puis APRES sur memes
-    vues. Differences HDR attendues, aucune egalite de pixels exigee. Adapter les verdicts HDR qui dependent
-    encore de bitexact/cinq rejeux/qualification historique : mesurer le defaut reel, jamais forcer un
-    succes. Etendre ensuite tous21niveaux/8heures/interieurs/exterieurs ; couverture explicite, aucun
-    succes global sur lot partiel. Pas attendre couverture exhaustive pour la premiere correction.'
-  out_of_scope: Aucun nouveau travail de frame exacte, cinq rejeux, baseline historique ou qualification
-    census. Aucun jugement visuel LLM. Textures/modeles HD/herbe/brise/cadence identiques ; pas de correction
-    de ces features. Pas de validation owner ; ecran HDR natif ulterieur.
+  known_cause: 'Essai12 : blancs reduits sur premiers cas ; contraste insuffisant et parcours monolithique
+    plante au marais. 10/21 niveaux en service ne prouvent pas leur visibilite. Reutiliser correction
+    et outils existants.'
+  deliverable: 'Executer le protocole owner : tous21niveaux, exterieurs avec ciel REELLEMENT visible,
+    interieurs et hutte Sandover obligatoire, heures in-game fixes0/3/6/9/12/15/18/21. Eclairage seul
+    ON/OFF, autres effets identiques, vues comparables sans frame exacte. Capturer par lots/niveaux en
+    processus frais pour eviter accumulation memoire ; ne pas attendre reparation du parcours monolithique.
+    Refuser prises noires/non representatives, distinguer ciel visible et simple niveau charge. ImageMagick
+    obligatoire : statistiques ecretage/quasi-blancs, luminosite, teinte/saturation et details, valeurs
+    ON/OFF et deltas par vue/heure. Ajuster courbe/exposition sur ensemble, iterer avant/apres en preservant
+    details HDR ; etalonnage couleur distinct, reglages fins par niveau ou LUT autorises si justifies
+    par residus mesures, transitions lissees. Corrections globales d abord, pas optimisation pixel-identique.
+    Publier tableau couverture et valeurs, comparaisons iteratives via proof_run.sh ; generic juge preuves,
+    jamais LLM visuel. Couverture incomplete reste explicite. Priorite aux captures manquantes et corrections,
+    pas nouvel outillage general.'
+  out_of_scope: Pas de census, baseline historique, cinq rejeux/frame exacte. Aucun changement textures/modeles
+    HD/herbe/brise/cadence. Ne pas masquer brulures par assombrissement global excessif. Pas de validation
+    owner ; sortie ecran HDR native ensuite.
   notes: 'FAUX VERT : la porte mesurait une scene SANS CIEL. Les huit images de chaque jeu de reference
     sont prises au seul point village1-hut, en 320x180 ; le quart superieur y est brun (RGB 137,94,57)
     et porte zero pixel sature. Les cinq verdicts etaient donc verts pendant que le ciel de l''owner brulait.
