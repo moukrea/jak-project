@@ -3882,6 +3882,14 @@ items:
     text: Attends attends... Le mouvement natif des buissons ? Qu'es-ce que ça vient foutre là ? On parlait
       du rendu (blancs brûlés, teinte/saturation) avec notre refonte de lighting en HDR vs OFF (donc éclairage
       par défaut) les textures, les modèles HD, l'herbe, la brise, etc. n'ont absolument rien à voir !
+  - date: '2026-09-07'
+    text: A voir tourner sur le laptop la capture, j'ai l'impression que c'est encore très brûlé niveau
+      ciel et éléments clairs, je sais pas à quel moment t'as estimé que "c'était pas trop mal à part
+      à un endroit"... Mais peut-être que j'ai pas compris ce que tu vérifies, ou alors c'est juste la
+      comparaison de l'état actuel avant correction ? Either way je trouve que c'est beaucoup trop long,
+      tu avances pas c'est dingue ! Et pour la comparaison des screens, tu fais ça de façon programmatique
+      où tu fais confiance à Astra pour qu'il juge (nan parce que visuellement les LLM c'est quand même
+      des tanches)
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -4088,6 +4096,14 @@ items:
     text: Attends attends... Le mouvement natif des buissons ? Qu'es-ce que ça vient foutre là ? On parlait
       du rendu (blancs brûlés, teinte/saturation) avec notre refonte de lighting en HDR vs OFF (donc éclairage
       par défaut) les textures, les modèles HD, l'herbe, la brise, etc. n'ont absolument rien à voir !
+  - date: '2026-09-07'
+    text: A voir tourner sur le laptop la capture, j'ai l'impression que c'est encore très brûlé niveau
+      ciel et éléments clairs, je sais pas à quel moment t'as estimé que "c'était pas trop mal à part
+      à un endroit"... Mais peut-être que j'ai pas compris ce que tu vérifies, ou alors c'est juste la
+      comparaison de l'état actuel avant correction ? Either way je trouve que c'est beaucoup trop long,
+      tu avances pas c'est dingue ! Et pour la comparaison des screens, tu fais ça de façon programmatique
+      où tu fais confiance à Astra pour qu'il juge (nan parce que visuellement les LLM c'est quand même
+      des tanches)
   gate:
     key: hdr_tonemap_defects
     op: ==
