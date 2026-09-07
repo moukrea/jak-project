@@ -3165,8 +3165,8 @@ items:
     build_sha: null
     source: owner-ok/Gplayability-input-and-loadgate
 - id: recharged-secondary-motion
-  feature: Le mouvement secondaire des personnages HD (physique de Keira)
-  status: to-test
+  feature: Ancien chantier de physique des personnages HD (a reclasser)
+  status: open
   priority: 900
   owner_feedback:
   - date: '2026-08-04'
@@ -3242,6 +3242,9 @@ items:
       date d'avant la spec des seins de Keira je pense donc on peut reclasser après le moteur de physique,
       les seins de Keira, de Maïa, etc. Et mettre tout ce qui est lié à la physique tout en bas de la
       pile
+  - date: '2026-09-07'
+    text: Je vois pas ce que c'est le mouvement secondaire des personnages HD et Keira mouvements brusques...
+      Je vois pas ce que ça fout là
   gate:
     key: secondary_motion_defects
     op: ==
@@ -3272,7 +3275,7 @@ items:
   - debug.opengoal.physics=1
   owner_ok: null
   device: true
-  where: les personnages HD en mouvement brusque
+  where: null
   known_cause: 'Le deficit et l''exces vivent dans DEUX canaux differents (angulaire 9/10 au-dessus, lineaire
     centre) : aucun operateur d''amplitude ne ferme les deux. Le plafond d''apex de §22 ne bornait que
     translation+rotation et laissait le tenseur libre a 0,59 B0. Les echelles de forme sont au niveau
@@ -3281,7 +3284,9 @@ items:
     de Keira, sangle de la veste).
   notes: 'owner 2026-09-05 : TOUTE la physique va en bas de pile. Cet item precede la spec des seins de
     Keira : quand la physique reprendra, l''ordre est moteur de physique, puis Keira, puis Maia, puis
-    le reste du casting.'
+    le reste du casting. | 2026-09-07 : retire de la demande de test courante ; le statut to-test contredisait
+    le report en bas de pile demande le 5 septembre. A reclasser lors de la reprise de la physique, avec
+    un perimetre et un test concret avant toute nouvelle demande a l''owner.'
 - id: firstperson-hd-hide
   feature: En vue premiere personne on se retrouve dans la tete de Jak
   status: validated
