@@ -3890,6 +3890,10 @@ items:
       tu avances pas c'est dingue ! Et pour la comparaison des screens, tu fais ça de façon programmatique
       où tu fais confiance à Astra pour qu'il juge (nan parce que visuellement les LLM c'est quand même
       des tanches)
+  - date: '2026-09-07'
+    text: Et j'ai pas non plus l'impression que tu couvres tous les niveaux non plus d'ailleurs
+  - date: '2026-09-07'
+    text: En gros du foutage de gueule et de la perte de temps j'ai l'impression
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -4104,6 +4108,10 @@ items:
       tu avances pas c'est dingue ! Et pour la comparaison des screens, tu fais ça de façon programmatique
       où tu fais confiance à Astra pour qu'il juge (nan parce que visuellement les LLM c'est quand même
       des tanches)
+  - date: '2026-09-07'
+    text: Et j'ai pas non plus l'impression que tu couvres tous les niveaux non plus d'ailleurs
+  - date: '2026-09-07'
+    text: En gros du foutage de gueule et de la perte de temps j'ai l'impression
   gate:
     key: hdr_tonemap_defects
     op: ==
