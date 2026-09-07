@@ -849,6 +849,19 @@ n'est pas un défaut ; aucune égalité numérique des images ou réglages SDR/H
 servent de contrôles programmatiques ; un compteur de passes seul ne prouve pas l'ordre.
 La preuve reste produite par `proof_run.sh` et jugée par `generic.sh`.
 
+**Arbitrage contraste, 8 septembre.** Le seuil de gradient ON >=95% OFF dans le
+décile lumineux de chaque image n'est plus un critère d'acceptation de `lighting-hdr`.
+Le tone mapping redistribue les tons et les déciles ne désignent pas forcément les mêmes
+surfaces. Conserver ces chiffres comme diagnostics, sans les assimiler à une perte de détails.
+Le worker doit retirer cette condition du verdict bloquant, conserver les contrôles de
+couverture et documenter le changement de critère, sans modifier `generic.sh` ni fabriquer
+une preuve verte. Priorité aux brûlures, ciels délavés et dérives teinte/saturation/luminosité :
+combiner écrêtage/quasi-blancs, couleur et aplats dans des régions comparables, sans frame
+exacte. Zéro pixel RGB255 seul n'est pas une preuve : un ciel peut être délavé sous ce seuil.
+Un blanc voulu dans la référence n'est pas automatiquement un défaut. Une baisse du gradient
+seul ne prouve ni perte ni gain de détail. Pas de nouveau seuil arbitraire pour le remplacer ;
+les limites des mesures et les cas non jugés restent explicites.
+
 Les comparaisons SDR guident la calibration actuelle ; elles ne prouvent pas à elles seules
 que le profil convient en sortie HDR. Le second chantier vérifie sur écran HDR réel.
 La sortie HDR reste après la correction SDR, sans rétablir de prérequis de rejeux exacts.
