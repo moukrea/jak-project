@@ -1,0 +1,9 @@
+baseline settings_unchanged=True
+candidate settings_unchanged=True
+settings_between_arms_equal=True
+historical-before.json count=575 changed=[]
+candidate-shaders-before.json count=123 changed=[]
+baseline-shaders-before.json count=118 changed=[]
+baseline pad_anchor=3 CAM_samples=4043
+candidate pad_anchor=3 CAM_samples=4062
+CAM lf2104..2283 expected180 observed180 differing=[]

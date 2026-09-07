@@ -1,0 +1,103 @@
+[0/2] Re-checking globbed directories...
+[1/20] cd /home/emeric/code/jak-lighting-baseline/build/third-party/discord-rpc && /usr/bin/clang-format -i -style=file -fallback-style=none /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/include/discord_register.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/include/discord_rpc.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/backoff.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection_unix.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection_win.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_register_linux.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_register_win.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_rpc.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/dllmain.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/msg_queue.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/rpc_connection.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/rpc_connection.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/serialization.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/serialization.h
+[2/20] Building CXX object game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o
+FAILED: [code=1] game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o 
+/usr/bin/c++ -DDISCORD_DYNAMIC_LIB -DFMT_SHARED -DHAVE_USLEEP=1 -DOG_FEAT_HD_MODELS=1 -DOG_FEAT_PBR=1 -DOG_FEAT_PHYSICS=1 -DOG_FEAT_RECHARGED_HUD=1 -DREPLXX_BUILDING_DLL -DSQLITE_ENABLE_JSON1 -DSQLITE_ENABLE_RTREE -DSQLITE_THREADSAFE=1 -I/home/emeric/code/jak-lighting-baseline/. -I/home/emeric/code/jak-lighting-baseline/third-party/tree-sitter/tree-sitter/lib/include -I/home/emeric/code/jak-lighting-baseline/third-party/glad/include -I/home/emeric/code/jak-lighting-baseline/third-party/SDL/include -I/home/emeric/code/jak-lighting-baseline/build/third-party/SDL/include-revision -isystem /home/emeric/code/jak-lighting-baseline/third-party/inja -isystem /home/emeric/code/jak-lighting-baseline/third-party/curl/include -isystem /home/emeric/code/jak-lighting-baseline/third-party/fmt/include -isystem /home/emeric/code/jak-lighting-baseline/third-party/lzokay -isystem /home/emeric/code/jak-lighting-baseline/third-party/replxx/include -Wall         -Winit-self         -ggdb         -Wextra         -Wno-cast-align         -Wcast-qual         -Wdisabled-optimization         -Wformat         -Wextra         -Woverloaded-virtual         -Wredundant-decls         -Wshadow         -Wsign-promo         -fdiagnostics-color=always         -mavx -O3 -O3 -DNDEBUG -std=gnu++20 -MD -MT game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o -MF game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o.d -o game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o -c /home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp: In constructor ‘GraphicsData::GraphicsData(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:211:28: warning: declaration of ‘version’ shadows a member of ‘GraphicsData’ [-Wshadow]
+  211 |   GraphicsData(GameVersion version)
+      |                ~~~~~~~~~~~~^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:209:15: note: shadowed declaration is here
+  209 |   GameVersion version;
+      |               ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp: In lambda function:
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:492:83: warning: declaration of ‘err’ shadows a previous local [-Wshadow]
+  492 |   auto compile_shader = [](GLenum type, const char* src, GLint& compile_ok, char* err) -> GLuint {
+      |                                                                             ~~~~~~^~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:490:8: note: shadowed declaration is here
+  490 |   char err[len];
+      |        ^~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:492:65: warning: declaration of ‘compile_ok’ shadows a previous local [-Wshadow]
+  492 |   auto compile_shader = [](GLenum type, const char* src, GLint& compile_ok, char* err) -> GLuint {
+      |                                                          ~~~~~~~^~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:489:9: note: shadowed declaration is here
+  489 |   GLint compile_ok;
+      |         ^~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp: In function ‘void render_game_frame(int, int, int, int, int, int, int, int, int, bool)’:
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:761:49: error: ‘const struct GfxGlobalSettings’ has no member named ‘display_fps_cap’; did you mean ‘display_fps’?
+  761 |       real("settings.display_fps_cap", settings.display_fps_cap);
+      |                                                 ^~~~~~~~~~~~~~~
+      |                                                 display_fps
+[3/20] Building CXX object game/CMakeFiles/runtime.dir/graphics/gfx.cpp.o
+[4/20] Building CXX object game/CMakeFiles/runtime.dir/graphics/render_pace.cpp.o
+[5/20] Building CXX object game/CMakeFiles/runtime.dir/graphics/refset.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp: In lambda function:
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:1857:23: warning: passing ‘bool’ chooses ‘int’ over ‘unsigned int’ [-Wsign-promo]
+ 1857 |     add(std::to_string(tune.set));
+      |         ~~~~~~~~~~~~~~^~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:1857:23: warning:   in call to ‘std::string std::__cxx11::to_string(int)’ [-Wsign-promo]
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp: In function ‘bool refset::enabled()’:
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2165:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 2165 |       const long v = std::strtol(av, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2092:8: note: shadowed declaration is here
+ 2092 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2174:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 2174 |       const long v = std::strtol(sv, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2092:8: note: shadowed declaration is here
+ 2092 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2309:34: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 2309 |         int a = 0, b = 0, c = 0, d = 0;
+      |                                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2144:8: note: shadowed declaration is here
+ 2144 |   char d[512] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2322:27: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 2322 |         int p = 0, y = 0, d = 0, h = 0;
+      |                           ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2144:8: note: shadowed declaration is here
+ 2144 |   char d[512] = {0};
+      |        ^
+[6/20] Building CXX object game/CMakeFiles/runtime.dir/kernel/common/kmachine.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘void pc_set_axis_scale(u32)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:1033:70: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1033 |     Display::GetMainDisplay()->get_input_manager()->set_axis_scale(*((float*)&val));
+      |                                                                     ~^~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘u32 pc_get_axis_scale()’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:1043:12: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1043 |   return *((u32*)&out);
+      |           ~^~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘u64 CPadGetData(u64)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:230:19: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  230 |       cpad->state = 41;
+      |       ~~~~~~~~~~~~^~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:231:5: note: here
+  231 |     case 41:  // controller mode - change to dualshock mode!
+      |     ^~~~
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:11:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘u64 pc_get_display_name(u32, u32)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:664:9: warning: ‘char* strcpy(char*, const char*)’ offset 0 is out of the bounds [0, 0] [-Warray-bounds=]
+  664 |   strcpy(Ptr<String>(str_dest_ptr).c()->data(), encoded_name.c_str());
+      |   ~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘u64 pc_get_controller_name(u32, u32)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:860:9: warning: ‘char* strcpy(char*, const char*)’ offset 0 is out of the bounds [0, 0] [-Warray-bounds=]
+  860 |   strcpy(Ptr<String>(str_dest_ptr).c()->data(), encoded_name.c_str());
+      |   ~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[7/20] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/OpenGLRenderer.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/graphics/opengl_renderer/OpenGLRenderer.cpp:12:
+/home/emeric/code/jak-lighting-baseline/./common/util/rss_census.h: In function ‘void rss_census::mark(const char*)’:
+/home/emeric/code/jak-lighting-baseline/./common/util/rss_census.h:115:34: warning: ‘mallinfo mallinfo()’ is deprecated [-Wdeprecated-declarations]
+  115 |     struct mallinfo mi = mallinfo();
+      |                          ~~~~~~~~^~
+In file included from /home/emeric/code/jak-lighting-baseline/./common/util/rss_census.h:30:
+/usr/include/malloc.h:114:24: note: declared here
+  114 | extern struct mallinfo mallinfo (void) __THROW __MALLOC_DEPRECATED;
+      |                        ^~~~~~~~
+ninja: build stopped: subcommand failed.

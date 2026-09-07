@@ -1279,13 +1279,15 @@ void pc_prof(u32 name, ProfNode::Kind kind) {
 
 std::mt19937 extra_random_generator;
 
-void boot_replay_native_rng(bool restore) {
-  if (!boot_replay::active()) {
+void boot_replay_native_rng(bool restore, void (*sink)(const char*, const void*, size_t)) {
+  const bool bootstrap_sink = !sink || sink == boot_replay::checkpoint;
+  if ((restore || bootstrap_sink) && !boot_replay::active()) {
     return;
   }
+  if (!sink) sink = boot_replay::checkpoint;
   // Serialize state, not a guessed seed: loading GAME can already consume pc-rand.
   // The fixed buffer allows a recorded state with a different decimal length to be restored.
-  auto transfer = [restore](const char* tag, std::mt19937& rng) {
+  auto transfer = [restore, sink](const char* tag, std::mt19937& rng) {
     std::ostringstream out;
     out.imbue(std::locale::classic());
     out << rng;
@@ -1311,7 +1313,7 @@ void boot_replay_native_rng(bool restore) {
       }
       rng = *restored;
     } else {
-      boot_replay::checkpoint(tag, state.data(), state.size());
+      sink(tag, state.data(), state.size());
     }
   };
   transfer("native-pc-rng", extra_random_generator);
@@ -1319,7 +1321,7 @@ void boot_replay_native_rng(bool restore) {
   if (restore) {
     boot_replay::input("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
   } else {
-    boot_replay::checkpoint("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
+    sink("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
   }
 }
 

@@ -1,0 +1,178 @@
+[0/2] Re-checking globbed directories...
+[1/15] cd /home/emeric/code/jak-lighting-baseline/build/third-party/discord-rpc && /usr/bin/clang-format -i -style=file -fallback-style=none /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/include/discord_register.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/include/discord_rpc.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/backoff.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection_unix.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection_win.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_register_linux.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_register_win.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_rpc.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/dllmain.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/msg_queue.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/rpc_connection.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/rpc_connection.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/serialization.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/serialization.h
+[2/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak1/klink.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak1/klink.cpp:13:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+[3/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak2/klink.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak2/klink.cpp:9:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+[4/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak2/kmachine.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine.cpp:29:
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:22:5: warning: redundant redeclaration of ‘u32 ReceiveToBuffer(char*)’ in same scope [-Wredundant-decls]
+   22 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:14:5: note: previous declaration of ‘u32 ReceiveToBuffer(char*)’
+   14 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine.cpp: In function ‘void jak2::initialize_sql_db()’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine.cpp:780:18: warning: declaration of ‘success’ shadows a previous local [-Wshadow]
+  780 |       const auto success = sql_db.run_query(file_util::read_text_file(level_info_fixture));
+      |                  ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine.cpp:771:14: note: shadowed declaration is here
+  771 |   const auto success = sql_db.run_query(file_util::read_text_file(schema_file));
+      |              ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine.cpp:786:18: warning: declaration of ‘success’ shadows a previous local [-Wshadow]
+  786 |       const auto success = sql_db.run_query(file_util::read_text_file(light_fixture));
+      |                  ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine.cpp:771:14: note: shadowed declaration is here
+  771 |   const auto success = sql_db.run_query(file_util::read_text_file(schema_file));
+      |              ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine.cpp:792:18: warning: declaration of ‘success’ shadows a previous local [-Wshadow]
+  792 |       const auto success = sql_db.run_query(file_util::read_text_file(region_fixture));
+      |                  ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine.cpp:771:14: note: shadowed declaration is here
+  771 |   const auto success = sql_db.run_query(file_util::read_text_file(schema_file));
+      |              ^~~~~~~
+[5/15] Building CXX object game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp: In constructor ‘GraphicsData::GraphicsData(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:211:28: warning: declaration of ‘version’ shadows a member of ‘GraphicsData’ [-Wshadow]
+  211 |   GraphicsData(GameVersion version)
+      |                ~~~~~~~~~~~~^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:209:15: note: shadowed declaration is here
+  209 |   GameVersion version;
+      |               ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp: In lambda function:
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:492:83: warning: declaration of ‘err’ shadows a previous local [-Wshadow]
+  492 |   auto compile_shader = [](GLenum type, const char* src, GLint& compile_ok, char* err) -> GLuint {
+      |                                                                             ~~~~~~^~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:490:8: note: shadowed declaration is here
+  490 |   char err[len];
+      |        ^~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:492:65: warning: declaration of ‘compile_ok’ shadows a previous local [-Wshadow]
+  492 |   auto compile_shader = [](GLenum type, const char* src, GLint& compile_ok, char* err) -> GLuint {
+      |                                                          ~~~~~~~^~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:489:9: note: shadowed declaration is here
+  489 |   GLint compile_ok;
+      |         ^~~~~~~~~~
+[6/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jakx/kmachine.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jakx/kmachine.cpp:18:
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:22:5: warning: redundant redeclaration of ‘u32 ReceiveToBuffer(char*)’ in same scope [-Wredundant-decls]
+   22 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:14:5: note: previous declaration of ‘u32 ReceiveToBuffer(char*)’
+   14 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jakx/kmachine.cpp: In function ‘int jakx::ShutdownMachine(int)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jakx/kmachine.cpp:325:25: warning: unused parameter ‘reasonIndex’ [-Wunused-parameter]
+  325 | int ShutdownMachine(int reasonIndex) {
+      |                     ~~~~^~~~~~~~~~~
+[7/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak3/kmachine.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine.cpp:19:
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:22:5: warning: redundant redeclaration of ‘u32 ReceiveToBuffer(char*)’ in same scope [-Wredundant-decls]
+   22 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:14:5: note: previous declaration of ‘u32 ReceiveToBuffer(char*)’
+   14 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine.cpp: In function ‘void jak3::initialize_sql_db()’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine.cpp:631:18: warning: declaration of ‘success’ shadows a previous local [-Wshadow]
+  631 |       const auto success = sql_db.run_query(file_util::read_text_file(level_info_fixture));
+      |                  ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine.cpp:622:14: note: shadowed declaration is here
+  622 |   const auto success = sql_db.run_query(file_util::read_text_file(schema_file));
+      |              ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine.cpp:637:18: warning: declaration of ‘success’ shadows a previous local [-Wshadow]
+  637 |       const auto success = sql_db.run_query(file_util::read_text_file(light_fixture));
+      |                  ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine.cpp:622:14: note: shadowed declaration is here
+  622 |   const auto success = sql_db.run_query(file_util::read_text_file(schema_file));
+      |              ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine.cpp:643:18: warning: declaration of ‘success’ shadows a previous local [-Wshadow]
+  643 |       const auto success = sql_db.run_query(file_util::read_text_file(region_fixture));
+      |                  ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine.cpp:622:14: note: shadowed declaration is here
+  622 |   const auto success = sql_db.run_query(file_util::read_text_file(schema_file));
+      |              ^~~~~~~
+[8/15] Building CXX object game/CMakeFiles/runtime.dir/runtime.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/runtime.cpp:68:
+/home/emeric/code/jak-lighting-baseline/./game/overlord/jak1/srpc.h:16:3: warning: declaration of ‘LOAD_MUSIC’ shadows a global declaration [-Wshadow]
+   16 |   LOAD_MUSIC = 1,
+      |   ^~~~~~~~~~
+In file included from /home/emeric/code/jak-lighting-baseline/./game/overlord/jak1/fake_iso.h:2,
+                 from /home/emeric/code/jak-lighting-baseline/game/runtime.cpp:63:
+/home/emeric/code/jak-lighting-baseline/./game/overlord/jak1/isocommon.h:29:15: note: shadowed declaration is here
+   29 | constexpr int LOAD_MUSIC = 0x380;           // Command to load music
+      |               ^~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/runtime.cpp: In function ‘void {anonymous}::ee_runner(SystemThreadInterface&)’:
+/home/emeric/code/jak-lighting-baseline/game/runtime.cpp:256:22: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  256 |       jakx::goal_main(g_argc, g_argv);
+      |       ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/runtime.cpp:257:5: note: here
+  257 |     default:
+      |     ^~~~~~~
+[9/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak1/kmachine.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:58:
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:22:5: warning: redundant redeclaration of ‘u32 ReceiveToBuffer(char*)’ in same scope [-Wredundant-decls]
+   22 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:14:5: note: previous declaration of ‘u32 ReceiveToBuffer(char*)’
+   14 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp: In function ‘u64 jak1::f1_warp_run()’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:6215:8: warning: unused variable ‘cont_buf’ [-Wunused-variable]
+ 6215 |   char cont_buf[128] = {0};
+      |        ^~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp: In function ‘bool jak1::want_prop_requested(const char*, const char*, char*, size_t)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:7009:62: warning: unused parameter ‘prop’ [-Wunused-parameter]
+ 7009 | static bool want_prop_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+      |                                                  ~~~~~~~~~~~~^~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp: In function ‘bool jak1::phys_room_requested(const char*, const char*, char*, size_t)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:7286:62: warning: unused parameter ‘prop’ [-Wunused-parameter]
+ 7286 | static bool phys_room_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+      |                                                  ~~~~~~~~~~~~^~~~
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:25:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+[10/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak2/kmachine_extras.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak2/kmachine_extras.cpp:8:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+[11/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak3/kmachine_extras.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine_extras.cpp: In function ‘u32 jak3::kmachine_extras::alloc_vagdir_names(u32)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine_extras.cpp:212:26: warning: comparison of integer expressions of different signedness: ‘size_t’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  212 |     for (size_t i = 0; i < g_VagDir.num_entries; ++i) {
+      |                        ~~^~~~~~~~~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine_extras.cpp:214:21: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  214 |       u64 packed = *(u64*)g_VagDir.entries[i].words;
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak3/kmachine_extras.cpp:8:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+[12/15] Building CXX object game/CMakeFiles/runtime.dir/kernel/jakx/kmachine_extras.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/kernel/jakx/kmachine_extras.cpp: In function ‘u32 jakx::kmachine_extras::alloc_vagdir_names(u32)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jakx/kmachine_extras.cpp:202:26: warning: comparison of integer expressions of different signedness: ‘size_t’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  202 |     for (size_t i = 0; i < g_VagDir.num_entries; ++i) {
+      |                        ~~^~~~~~~~~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jakx/kmachine_extras.cpp:204:21: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+  204 |       u64 packed = *(u64*)g_VagDir.entries[i].words;
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jakx/kmachine_extras.cpp:8:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+[13/15] Linking CXX static library game/libruntime.a
+[14/15] Linking CXX executable game/gk
+[npc-flicker] garde OK — 47 proprietes tenues

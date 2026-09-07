@@ -120,6 +120,8 @@ struct LoadRestoreRequest {
 bool take_load_restore(int64_t frame, LoadRestoreRequest& request);
 
 bool requires_loaded_state();
+// Passive trace window; remains available if the renderer has consumed the capture.
+bool wants_postload_trace(int64_t lf);
 void note_loaded_state(int64_t frame, bool target, bool spawn, bool sweep,
                        const std::vector<LoadedLevelState>& levels);
 

@@ -1,0 +1,53 @@
+REFSET provenance-init version=2 data=56f0364a8789c816 input=f97b073c2df76fb4 input_source=loaded-replay actor_rng_state=not-restored-by-sidecars
+BOOTREPLAY actors-sweep dispatch=10 target-pid=12
+BOOTREPLAY finish mode=replay tag=finish index=5880 count=5880 fingerprint=79fb964dc17507ec
+REFSET start lf=900 warp1=600 settle=180
+[19:44:683] [info] [WANT-LEVELS] armed *listener-function* for spec 'village1,beach'
+WANT-LEVELS lev1=village1 lev2=beach -> #x0
+[19:59:765] [info] [WANT-DISPLAY] armed *listener-function* for spec 'beach,display'
+WANT-DISPLAY lev=beach sym=display -> #x0
+WANT-LEVELS lev1=village1 lev2=beach -> #x0
+WANT-DISPLAY lev=beach sym=display -> #x0
+REFSET restore-load case=0 anchor_lf=2102 due_lf=2104 executed_lf=2104 levels=village1,beach display=beach,display
+REFSET render-config case=origine/h00 chain_lf=2282 options.game_res_w=320
+REFSET render-config case=origine/h00 chain_lf=2282 options.game_res_h=180
+REFSET render-config case=origine/h00 chain_lf=2282 options.window_framebuffer_width=320
+REFSET render-config case=origine/h00 chain_lf=2282 options.window_framebuffer_height=180
+REFSET render-config case=origine/h00 chain_lf=2282 options.draw_region_width=320
+REFSET render-config case=origine/h00 chain_lf=2282 options.draw_region_height=180
+REFSET render-config case=origine/h00 chain_lf=2282 options.msaa_samples=1
+REFSET render-config case=origine/h00 chain_lf=2282 options.brightness_contrast_color=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.brightness_contrast_alpha=128
+REFSET render-config case=origine/h00 chain_lf=2282 options.save_screenshot=1
+REFSET render-config case=origine/h00 chain_lf=2282 options.quick_screenshot=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.internal_res_screenshot=1
+REFSET render-config case=origine/h00 chain_lf=2282 options.gpu_sync=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.draw_render_debug_window=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.draw_profiler_window=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.draw_loader_window=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.draw_small_profiler_window=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.draw_subtitle_editor_window=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.draw_filters_window=0
+REFSET render-config case=origine/h00 chain_lf=2282 options.pmode_alp_register=0x1p+0
+REFSET render-config case=origine/h00 chain_lf=2282 master_active=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.lod_tfrag=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.lod_tie=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.hack_no_tex=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.collision_enable=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.load_custom_assets=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_master=1
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_lighting=1
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_grass=1
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_textures=1
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_managed_assets=1
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_enhanced_models=1
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_pbr_enable=1
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_modern_materials=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_rt_light_enable=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.recharged_ao_mode=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.mb_target_active=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.mb_isolate=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.mb_pbr_override=0
+REFSET render-config case=origine/h00 chain_lf=2282 settings.target_fps=0x1.ep+5
+REFSET sample case=origine/h00 layer=historical chain_lf=2282 anchor_lf=2102
+REFSET done steps=1 captured=1 compared=0 maxdiff=0 diffpx=0 missing=0 slip=0..0 rewarps=2 settle=180

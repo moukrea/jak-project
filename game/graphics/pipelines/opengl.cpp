@@ -645,6 +645,7 @@ void render_game_frame(int game_width,
     options.quick_screenshot = false;
     options.internal_res_screenshot = false;
     options.gpu_sync = g_gfx_data->debug_gui.should_gl_finish();
+    char refset_case[96] = {0};
 
     if (take_screenshot) {
       options.save_screenshot = true;
@@ -656,10 +657,9 @@ void render_game_frame(int game_width,
     // fils deciderait a une frame pres de quelle pose de Jak on garde la photo, et une frame
     // d'ecart suffit a faire mentir la porte.
     {
-      char refset_name[96] = {0};
       int rw = 0, rh = 0;
-      if (refset::capture_for_chain(chain_logic_frame, refset_name,
-                                    sizeof(refset_name), &rw, &rh)) {
+      if (refset::capture_for_chain(chain_logic_frame, refset_case,
+                                    sizeof(refset_case), &rw, &rh)) {
         options.save_screenshot = true;
         options.internal_res_screenshot = true;
         options.quick_screenshot = false;
@@ -674,7 +674,6 @@ void render_game_frame(int game_width,
         // et le PNG ordinaire n'est pas ecrit. S'il l'etait, ce serait le signe que la
         // machine a etats du jeu de references a decroche, et le fichier le dirait.
         options.screenshot_path = "refset-unconsumed.png";
-        (void)refset_name;
       }
     }
     // note : it's important we call get_screenshot_flag first because it modifies state
@@ -701,6 +700,65 @@ void render_game_frame(int game_width,
     glGetIntegerv(GL_MAX_SAMPLES, &msaa_max);
     if (options.msaa_samples > msaa_max) {
       options.msaa_samples = msaa_max;
+    }
+
+    if (refset_case[0] && refset::requires_loaded_state()) {
+      // Observe the values passed to render, after screenshot overrides and the
+      // hardware sample clamp. Never hash structure padding or native pointers.
+      const auto& settings = Gfx::g_global_settings;
+      const bool master = Gfx::recharged_master_active();
+      const auto integer = [&](const char* field, int value) {
+        std::fprintf(stderr, "REFSET render-config case=%s chain_lf=%lld %s=%d\n",
+                     refset_case, (long long)chain_logic_frame, field, value);
+      };
+      const auto real = [&](const char* field, float value) {
+        std::fprintf(stderr, "REFSET render-config case=%s chain_lf=%lld %s=%a\n",
+                     refset_case, (long long)chain_logic_frame, field, double(value));
+      };
+#define REFSET_OPTION(field) integer("options." #field, options.field)
+      REFSET_OPTION(game_res_w);
+      REFSET_OPTION(game_res_h);
+      REFSET_OPTION(window_framebuffer_width);
+      REFSET_OPTION(window_framebuffer_height);
+      REFSET_OPTION(draw_region_width);
+      REFSET_OPTION(draw_region_height);
+      REFSET_OPTION(msaa_samples);
+      REFSET_OPTION(brightness_contrast_color);
+      REFSET_OPTION(brightness_contrast_alpha);
+      REFSET_OPTION(save_screenshot);
+      REFSET_OPTION(quick_screenshot);
+      REFSET_OPTION(internal_res_screenshot);
+      REFSET_OPTION(gpu_sync);
+      REFSET_OPTION(draw_render_debug_window);
+      REFSET_OPTION(draw_profiler_window);
+      REFSET_OPTION(draw_loader_window);
+      REFSET_OPTION(draw_small_profiler_window);
+      REFSET_OPTION(draw_subtitle_editor_window);
+      REFSET_OPTION(draw_filters_window);
+#undef REFSET_OPTION
+      real("options.pmode_alp_register", options.pmode_alp_register);
+      integer("master_active", master);
+#define REFSET_SETTING(field) integer("settings." #field, settings.field)
+      REFSET_SETTING(lod_tfrag);
+      REFSET_SETTING(lod_tie);
+      REFSET_SETTING(hack_no_tex);
+      REFSET_SETTING(collision_enable);
+      REFSET_SETTING(load_custom_assets);
+      REFSET_SETTING(recharged_master);
+      REFSET_SETTING(recharged_lighting);
+      REFSET_SETTING(recharged_grass);
+      REFSET_SETTING(recharged_textures);
+      REFSET_SETTING(recharged_managed_assets);
+      REFSET_SETTING(recharged_enhanced_models);
+      REFSET_SETTING(recharged_pbr_enable);
+      REFSET_SETTING(recharged_modern_materials);
+      REFSET_SETTING(recharged_rt_light_enable);
+      REFSET_SETTING(recharged_ao_mode);
+      REFSET_SETTING(mb_target_active);
+      REFSET_SETTING(mb_isolate);
+      REFSET_SETTING(mb_pbr_override);
+#undef REFSET_SETTING
+      real("settings.target_fps", settings.target_fps);
     }
 
     if constexpr (run_dma_copy) {

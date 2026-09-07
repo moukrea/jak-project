@@ -5708,14 +5708,16 @@ static s64 s_boot_replay_spawn_frame = -1;
 static u64 boot_replay_start_run();
 Ptr<Function> make_function_from_c(void* func, bool arg3_is_pp);
 
-static void boot_replay_object_checkpoint(const char* name, u32 offset, size_t size) {
+static void boot_replay_object_checkpoint(
+    const char* name, u32 offset, size_t size,
+    void (*sink)(const char*, const void*, size_t) = boot_replay::checkpoint) {
   const u32 object = intern_from_c(name)->value;
   if (!object || object == s7.offset || object >= EE_MAIN_MEM_SIZE ||
       offset + size > EE_MAIN_MEM_SIZE - object) {
     std::fprintf(stderr, "BOOTREPLAY missing checkpoint object=%s\n", name);
     std::exit(EXIT_FAILURE);
   }
-  boot_replay::checkpoint(name, g_ee_main_mem + object + offset, size);
+  sink(name, g_ee_main_mem + object + offset, size);
 }
 
 // These readers only inspect GOAL memory on the host stack after dispatch.
@@ -5736,13 +5738,15 @@ static T boot_replay_read(u32 address) {
   return value;
 }
 
-static void boot_replay_symbol_checkpoint(const char* tag, u32 symbol) {
+static void boot_replay_symbol_checkpoint(
+    const char* tag, u32 symbol,
+    void (*sink)(const char*, const void*, size_t) = boot_replay::checkpoint) {
   if (!symbol) {
-    boot_replay::checkpoint(tag, "<null>", 6);
+    sink(tag, "<null>", 6);
     return;
   }
   if (symbol == s7.offset) {
-    boot_replay::checkpoint(tag, "#f", 2);
+    sink(tag, "#f", 2);
     return;
   }
   // Symbol metadata stores a GOAL string pointer, not the string inline.
@@ -5754,28 +5758,33 @@ static void boot_replay_symbol_checkpoint(const char* tag, u32 symbol) {
     std::exit(EXIT_FAILURE);
   }
   boot_replay_range(string, 4 + length + 1);
-  boot_replay::checkpoint(tag, g_ee_main_mem + string + 4, length);
+  sink(tag, g_ee_main_mem + string + 4, length);
 }
 
-static void boot_replay_process_checkpoint(u32 process) {
+static void boot_replay_process_checkpoint(
+    u32 process,
+    void (*sink)(const char*, const void*, size_t) = boot_replay::checkpoint) {
   const u8 present = process && process != s7.offset;
-  boot_replay::checkpoint("actor-present", &present, sizeof(present));
+  sink("actor-present", &present, sizeof(present));
   if (!present) {
     return;
   }
   boot_replay_range(process, 76);
   const u32 type = boot_replay_read<u32>(process - 4);
-  boot_replay_symbol_checkpoint("actor-type", boot_replay_read<u32>(type));
-  boot_replay::checkpoint("actor-pid", g_ee_main_mem + process + 36, 4);
-  boot_replay_symbol_checkpoint("actor-status", boot_replay_read<u32>(process + 32));
+  boot_replay_symbol_checkpoint("actor-type", boot_replay_read<u32>(type), sink);
+  sink("actor-pid", g_ee_main_mem + process + 36, 4);
+  boot_replay_symbol_checkpoint("actor-status", boot_replay_read<u32>(process + 32), sink);
   for (u32 offset : {52u, 72u}) {
     const u32 state = boot_replay_read<u32>(process + offset);
     boot_replay_symbol_checkpoint(offset == 52 ? "actor-state" : "actor-next-state",
-                                 !state || state == s7.offset ? state : boot_replay_read<u32>(state));
+                                 !state || state == s7.offset ? state : boot_replay_read<u32>(state),
+                                 sink);
   }
 }
 
-static void boot_replay_array_checkpoint(u32 array, bool links) {
+static void boot_replay_array_checkpoint(
+    u32 array, bool links,
+    void (*sink)(const char*, const void*, size_t) = boot_replay::checkpoint) {
   const s32 length = boot_replay_read<s32>(array);
   const s32 allocated = boot_replay_read<s32>(array + 4);
   const u32 stride = links ? 64 : 16;
@@ -5785,25 +5794,26 @@ static void boot_replay_array_checkpoint(u32 array, bool links) {
     std::exit(EXIT_FAILURE);
   }
   boot_replay_range(array, 12 + size_t(allocated) * stride);
-  boot_replay::checkpoint(links ? "entity-count" : "perm-count", &length, sizeof(length));
+  sink(links ? "entity-count" : "perm-count", &length, sizeof(length));
   for (s32 i = 0; i < length; ++i) {
     const u32 entry = array + 12 + i * stride;
     const u32 perm = entry + (links ? 48 : 0);
-    boot_replay::checkpoint("perm-status", g_ee_main_mem + perm + 8, 2);
-    boot_replay::checkpoint("perm-task", g_ee_main_mem + perm + 11, 1);
-    boot_replay::checkpoint("perm-aid", g_ee_main_mem + perm + 12, 4);
+    sink("perm-status", g_ee_main_mem + perm + 8, 2);
+    sink("perm-task", g_ee_main_mem + perm + 11, 1);
+    sink("perm-aid", g_ee_main_mem + perm + 12, 4);
     if (links) {
-      boot_replay::checkpoint("entity-trans", g_ee_main_mem + entry + 32, 16);
-      boot_replay_process_checkpoint(boot_replay_read<u32>(entry + 12));
+      sink("entity-trans", g_ee_main_mem + entry + 32, 16);
+      boot_replay_process_checkpoint(boot_replay_read<u32>(entry + 12), sink);
     }
   }
 }
 
-static void boot_replay_actors_checkpoint() {
+static void boot_replay_actors_checkpoint(
+    void (*sink)(const char*, const void*, size_t) = boot_replay::checkpoint) {
   const u32 gi = intern_from_c("*game-info*")->value;
-  boot_replay_symbol_checkpoint("game-mode", boot_replay_read<u32>(gi));
-  boot_replay_array_checkpoint(boot_replay_read<u32>(gi + 96), false);
-  boot_replay_array_checkpoint(boot_replay_read<u32>(gi + 100), false);
+  boot_replay_symbol_checkpoint("game-mode", boot_replay_read<u32>(gi), sink);
+  boot_replay_array_checkpoint(boot_replay_read<u32>(gi + 96), false, sink);
+  boot_replay_array_checkpoint(boot_replay_read<u32>(gi + 100), false, sink);
   const u32 group = intern_from_c("*level*")->value;
   const s32 count = boot_replay_read<s32>(group);
   if (count < 1 || count > 3) {
@@ -5811,32 +5821,33 @@ static void boot_replay_actors_checkpoint() {
     std::exit(EXIT_FAILURE);
   }
   boot_replay_range(group, 96 + size_t(count) * 2608);
-  boot_replay::checkpoint("level-count", &count, sizeof(count));
+  sink("level-count", &count, sizeof(count));
   for (s32 i = 0; i < count; ++i) {
     const u32 level = group + 96 + i * 2608;
-    boot_replay_symbol_checkpoint("level-name", boot_replay_read<u32>(level));
-    boot_replay_symbol_checkpoint("level-status", boot_replay_read<u32>(level + 16));
+    boot_replay_symbol_checkpoint("level-name", boot_replay_read<u32>(level), sink);
+    boot_replay_symbol_checkpoint("level-status", boot_replay_read<u32>(level + 16), sink);
     const u32 entities = boot_replay_read<u32>(level + 280);
     const u8 present = entities && entities != s7.offset;
-    boot_replay::checkpoint("level-entities", &present, sizeof(present));
+    sink("level-entities", &present, sizeof(present));
     if (present) {
-      boot_replay_array_checkpoint(entities, true);
+      boot_replay_array_checkpoint(entities, true, sink);
     }
   }
-  boot_replay_process_checkpoint(intern_from_c("*target*")->value);
+  boot_replay_process_checkpoint(intern_from_c("*target*")->value, sink);
 }
 
-static void boot_replay_state_checkpoint() {
+static void boot_replay_state_checkpoint(
+    void (*sink)(const char*, const void*, size_t) = boot_replay::checkpoint) {
   // Compare scalar state produced by GAME, never restore pointers between binaries.
   // In particular knuth-rand is seeded by DecodeTime during linking, before play.
   const u32 vu_r = intern_from_c("*_vu-reg-R_*")->value;
-  boot_replay::checkpoint("goal-vu-R", &vu_r, sizeof(vu_r));
-  boot_replay_object_checkpoint("*knuth-rand-state*", 0, 8);  // structure: int64 seed
-  boot_replay_object_checkpoint("*random-generator*", 0, 4);  // basic: uint32 seed
+  sink("goal-vu-R", &vu_r, sizeof(vu_r));
+  boot_replay_object_checkpoint("*knuth-rand-state*", 0, 8, sink);  // structure: int64 seed
+  boot_replay_object_checkpoint("*random-generator*", 0, 4, sink);  // basic: uint32 seed
   // display-h.gc / all-types.gc: 16 time-frame fields at 776, then 5 floats at 904.
   // Basic pointers start after their four-byte type tag. This range has no pointers.
-  boot_replay_object_checkpoint("*display*", 776 - 4, 16 * 8 + 5 * 4);
-  boot_replay_native_rng(false);
+  boot_replay_object_checkpoint("*display*", 776 - 4, 16 * 8 + 5 * 4, sink);
+  boot_replay_native_rng(false, sink);
 }
 
 static void boot_replay_seal(const char* boundary) {
@@ -5890,6 +5901,36 @@ static std::string refset_loaded_symbol(u32 symbol) {
 
 static void refset_load_restore_after_dispatch();
 
+static void postload_pc_settings_trace() {
+  // Offsets from the pc-settings deftype in goal_src/jak1/pc/pckernel-h.gc,
+  // relative to the basic pointer (type-tag adjustment already applied).
+  // These observations require the matching ISO layout on both compared runs.
+  const u32 settings = intern_from_c("*pc-settings*")->value;
+  if (!settings || settings == s7.offset) {
+    std::fprintf(stderr, "REFSET missing postload object=*pc-settings*\n");
+    std::exit(EXIT_FAILURE);
+  }
+  boot_replay_range(settings, 348);
+  const auto scalar = [](const char* tag, auto value) {
+    pad_replay::dump_state(tag, &value, sizeof(value));
+  };
+  boot_replay_symbol_checkpoint("pc-settings-aspect-ratio-auto?",
+                                boot_replay_read<u32>(settings + 92), pad_replay::dump_state);
+  scalar("pc-settings-aspect-ratio", boot_replay_read<float>(settings + 96));
+  scalar("pc-settings-aspect-ratio-scale", boot_replay_read<float>(settings + 100));
+  scalar("pc-settings-aspect-ratio-reciprocal", boot_replay_read<float>(settings + 104));
+  scalar("pc-settings-aspect-custom-x", boot_replay_read<int64_t>(settings + 108));
+  scalar("pc-settings-aspect-custom-y", boot_replay_read<int64_t>(settings + 116));
+  boot_replay_symbol_checkpoint("pc-settings-letterbox?", boot_replay_read<u32>(settings + 124),
+                                pad_replay::dump_state);
+  scalar("pc-settings-lod-dist-mod", boot_replay_read<float>(settings + 332));
+  scalar("pc-settings-lod-force-actor", boot_replay_read<int8_t>(settings + 339));
+  boot_replay_symbol_checkpoint("pc-settings-ps2-actor-vis?", boot_replay_read<u32>(settings + 340),
+                                pad_replay::dump_state);
+  boot_replay_symbol_checkpoint("pc-settings-use-vis?", boot_replay_read<u32>(settings + 344),
+                                pad_replay::dump_state);
+}
+
 static void refset_loaded_after_dispatch() {
   // Do not intern symbols or initialize refset during the recorded bootstrap.
   // fingerprint() is passive and remains zero until the stream has been sealed.
@@ -5913,9 +5954,22 @@ static void refset_loaded_after_dispatch() {
   const bool present = target && target != s7.offset;
   if (present) boot_replay_range(target, 4);
   const u32 goal_true = intern_from_c("#t").offset;
-  refset::note_loaded_state(refset::current_logic_frame(), present,
+  const int64_t frame = refset::current_logic_frame();
+  refset::note_loaded_state(frame, present,
                            intern_from_c("*spawn-actors*")->value == goal_true,
                            intern_from_c("*actors-sweep-complete*")->value == goal_true, levels);
+  static int64_t last_observed_frame = -1;
+  if (pad_replay::trace_active() && refset::wants_postload_trace(frame) &&
+      frame != last_observed_frame) {
+    // Passive observation in the existing pad trace, outside the sealed bootstrap stream.
+    pad_replay::dump_state("POSTLOAD-BEGIN", &frame, sizeof(frame));
+    boot_replay_state_checkpoint(pad_replay::dump_state);
+    boot_replay_object_checkpoint("*kernel-context*", 16 - 4, 4, pad_replay::dump_state);
+    boot_replay_actors_checkpoint(pad_replay::dump_state);
+    postload_pc_settings_trace();
+    pad_replay::dump_state("POSTLOAD-END", &frame, sizeof(frame));
+    last_observed_frame = frame;
+  }
   refset_load_restore_after_dispatch();
 }
 

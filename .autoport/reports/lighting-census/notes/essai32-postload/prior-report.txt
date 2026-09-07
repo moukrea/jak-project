@@ -1,0 +1,30 @@
+Le refus de chargement est corrigé sur origine/h00 dans les deux bras ; la qualification globale et la porte restent non obtenues.
+DIRECTIVES v6fca51fe40
+Trois fichiers C++ : rétablissement des demandes initiales niveaux puis display après le dernier retéléport, à ancre+2.
+Option REQUIRE_LOADED et premier vantage seulement ; retard/commande occupée refusés, gardes de capture conservées.
+Même delta appliqué à la baseline isolée a9ea15a69062a57335278db7680cd647df3c1e1d ; renderer et shaders historiques préservés.
+Patch complet reproductible : notes/essai31-postwarp/full-baseline.patch ; builds gk incrémentaux seuls, PNJ47 tenu dans les deux.
+Huit lignes du proof produit par proof_run.sh :
+source=x86
+sha=bfdc96edc613e5f6
+crash=0
+frames=4182
+refset_load_restore_lf=2104
+refset_load_restores=1
+refset_loaded_ready=1
+refset_captured=1
+Deux runs x86 de75s : baseline4150frames/b6059dcd2f155540, candidat4182frames/bfdc96edc613e5f6 ; crash0 chacun.
+Deux traces restore-load : ancre2102, échéance/exécution2104 ; sample origine/h00 chain2282 ; captured1, compared0, slip0..0.
+Bootstrap17 inchangé et rejoué :5880records/79fb964dc17507ec ; aucune recapture du flux ni modification de ses checkpoints.
+Au checkpoint2282 : mêmes4FR3,756plages ISO,486objets,787textures ; shaders106vs108, intentionnellement séparés.
+Trace CAM : caméra80octets et position Jak12octets identiques sur180frames LF2104..2283 ; ce n’est pas tout l’état des acteurs.
+Quatre fichiers de réglages identiques entre bras et inchangés après runs ; sidecars config/data/input/capture_lf concordants.
+Empreintes PNG différentes ; aucune attribution à une régression de rendu sans identité complète de l’état postload.
+refset_loaded_pending reste résiduel : publish_text ignore le vide ; ready1 et levels actifs sont actualisés, aucun proof retouché.
+575 empreintes historiques conservées ; deux prélèvements neufs NON qualifiés ; code v2 conserve missing-state-and-baseline.
+Draws/temps GPU conservés : classified0/residual0, lc_orig_un680804 ; GPU buckets9.9075ms sur4077frames candidat.
+19 niveaux absents du cas : training,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
+Les21niveaux restent sans comparaison qualifiée ; un cas seulement, ciel0‰ et sky_missing16, aucune couverture générale revendiquée.
+Owner : aucun nouveau rendu HDR livré à juger ; les blancs HDR restent à corriger après qualification.
+non prouvé : autres acteurs/RNG/config effective postload, qualification origine,3modes/8heures/≥4intérieurs/ciel,5rejeux exacts,HDR/SDR/Android.
+refset_replay_maxdiff absent en capture ; aucun faux zéro pris dans compared0. generic inchangé, réservé à l’orchestrateur.

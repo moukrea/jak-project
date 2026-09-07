@@ -2435,6 +2435,12 @@ bool requires_loaded_state() {
   return requested;
 }
 
+bool wants_postload_trace(int64_t lf) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  return g_require_loaded && g_capture_frame >= 0 &&
+         lf >= g_capture_frame - 1 && lf <= g_capture_frame;
+}
+
 void note_loaded_state(int64_t frame, bool target, bool spawn, bool sweep,
                        const std::vector<LoadedLevelState>& levels) {
   if (!requires_loaded_state() || !enabled()) return;

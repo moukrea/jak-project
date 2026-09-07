@@ -27,7 +27,10 @@ extern u32 vblank_interrupt_handler;
 
 void kmachine_init_globals_common();
 // Optional bootstrap replay, called by jak1 before GAME and at its pre-play boundary.
-void boot_replay_native_rng(bool restore);
+// A custom sink with restore=false passively observes both full native RNG states and R,
+// including after bootstrap sealing. It never draws from or restores the generators.
+void boot_replay_native_rng(bool restore,
+                            void (*sink)(const char*, const void*, size_t) = nullptr);
 
 /*!
  * Initialize the CD Drive

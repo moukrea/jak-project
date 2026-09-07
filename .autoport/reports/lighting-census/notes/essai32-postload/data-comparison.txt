@@ -1,0 +1,7 @@
+baseline origine/h00/chain-lf=2282 count=2139 sha256=598465d5b6e62adb2b3796108103fb3d7e8c48e382dbbed79c06eb701e089a87 verified=True
+candidate origine/h00/chain-lf=2282 count=2141 sha256=6ff7c4ecef24051062b698891ef57d8fe00d76cdcf4096b40e4881ac1ab8890d verified=True
+fr3 baseline=4 candidate=4 equal=True
+iso baseline=756 candidate=756 equal=True
+object baseline=486 candidate=486 equal=True
+shader baseline=106 candidate=108 equal=False
+texture-base baseline=787 candidate=787 equal=True
