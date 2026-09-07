@@ -1,29 +1,27 @@
-Non validé globalement : qualification/adoption vérifiable implémentée, mais refset_replay_maxdiff reste à 254.
 DIRECTIVES v6fca51fe40
-Producteur : références neuves v2, bootstrap rejoué, état observé canonique, reçus immuables et comparaison origine baseline/candidat.
-Adoption liée aux sources, binaire, CGO/DGO/FR3 courants et ressources consommées identiques capture/rejeux ; seuils conservés.
-Outils dédiés : scellement de provenance et lots courts reprenables via proof_run ; aucun validateur modifié.
-Écart extérieur découvert : maxdiff6/diffpx2429 malgré huit états identiques ; refus réel du producteur gate255, aucune adoption.
-Correction TEX1 native : retrait de la suppression des mipmaps sous maître OFF ; aucun changement shader, océan, shrub ou caméra.
-Après correction : extérieur et hutte, huit origines chacun, maxdiff0/diffpx0 et états identiques ; notes tex1-*-independent-*.
-Binaire final : extérieur, huit origines indépendantes exactes, puis 24 cas rejoués exactement ; 2254 ressources identiques.
-Huit lignes recopiées de la preuve finale produite par proof_run :
-sha=1082eb1b117c91f6
-crash=0
-frames=8291
-refset_compared=24
-refset_replay_run_maxdiff=0
-refset_qualification_state_bad=0
-refset_qualification_gate=254
-refset_replay_maxdiff=254
-Compteurs conservés : light_census_classified=755248, gpu_ms_frames=8157, gpu_timer_supported=1.
-Couverture finale du lot : trois modes/huit heures, ciel321..323‰ ; candidat1/5 rejeux, baseline extérieure0/5.
-Cinq rejeux exacts par bras du premier binaire d065f16c2f4a0165 archivés ; aucun crédit transféré au binaire final.
-Sunkenb h09 : chargé, état capturé, crash0 ; bucket ciel écrit57600RGB, puis géométrie ; fond final0/57600, toujours manquant.
-Tests isolés C++ stricts et26 tests Python réussis ; builds gk incrémentaux, garde NPC47. Détails : notes/essai37-qualification/test-results.json.
-Intégrité mesurée :575 fichiers historiques et123/118 shaders inchangés ; preuve/validateur inchangés (final-integrity.json).
-Owner : différences ON/OFF et blancs HDR restent à juger lors de la suite HDR/tonemap SDR ; aucun résultat Android livré ici.
-non prouvé : qualification globale des672 cas/21 niveaux/≥4 intérieurs, ciel Sunkenb, cinq rejeux par racine du binaire final.
-non prouvé : état exhaustif des animations/coroutines privées, correction des blancs HDR/SDR et comportement Android.
-Les autres lots et les cinq rejeux finaux ne sont pas achevés ; aucun seuil assoupli, aucune référence adoptée, aucun owner-ok.
-Notes : reports/lighting-census/notes/essai37-qualification/ ; reprise détaillée dans handoff.md. generic réservé à l’orchestrateur.
+Verdict : première paire x86 reproductible, tâche non validée ; porte à 254 et couverture incomplète.
+Producteur/qualification : phases 2/3 du même build, master ON dès bootstrap ; phase 1 refusée.
+Options effectives au readback, états complets et ressources consommées comparés entre bras.
+Aucune égalité d’image ON/OFF ; chaque image est comparée uniquement à son propre rejeu.
+Ancien manifeste/baseline/cinq rejeux retirés du contrat ; preuves historiques archivées sans crédit.
+Défaut fermé : deux racines aux textures externes différentes ne peuvent plus être appariées.
+Tests :26 tests Python OK, qualification C++17 stricte OK, gardeNPC 47 ; builds x86 incrémentaux OK.
+Huit constats lus dans la preuve originale proof.txt, produite uniquement par proof_run.sh :
+- Plateforme mesurée : x86.
+- Empreinte du binaire : f73702d7a009088a.
+- Crash compté : 0.
+- Images rendues : 4056.
+- Cas comparés lors du dernier rejeu : 8.
+- Écart maximal de ce rejeu : 0.
+- Pixels différents de ce rejeu : 0.
+- États invalides : 0.
+Les deux rejeux finaux totalisent16 comparaisons exactes ; voir notes/essai39-lighting-pair/final/run-audit.json.
+Couple :8 heures, états8/8 identiques, autres options8/8 identiques, ressources2461/2461 identiques.
+ON :3062 frames HDR dans la capture ; OFF :0 ; master actif dans les deux bras.
+Couverture :16/448 cas, village1-out uniquement ;432 cas manquants,20 niveaux non couverts et4 intérieurs à établir.
+Les 434 manques du producteur sont conservés dans notes/essai39-lighting-pair/final/missing.txt ; Sunkenb reste manquant.
+À regarder : blancs brûlés, teinte/saturation et détails des hautes lumières lors de la suite HDR ON/OFF.
+non prouvé : correction esthétique HDR, couverture globale, état privé exhaustif, Android et HDR écran natif.
+Les compteurs qualité acquis ne comparent pas ces racines mono-phase : aucun verdict qualité revendiqué.
+Constructeur extérieur : un rejeu refusé avant moteur ; entrées recontrôlées intactes, puis rejeu effectué.
+Le validateur générique est inchangé et laissé à l’orchestrateur ; aucun owner-ok écrit.

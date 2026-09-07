@@ -1,0 +1,18 @@
+test_asset_snapshot_mutation_invalidates_reuse (test_refset_campaign.CampaignTests.test_asset_snapshot_mutation_invalidates_reuse) ... ok
+test_bad_qualification_capture_fingerprint_is_failed (test_refset_campaign.CampaignTests.test_bad_qualification_capture_fingerprint_is_failed) ... ok
+test_cas_preserves_other_writer (test_refset_campaign.CampaignTests.test_cas_preserves_other_writer) ... ok
+test_changed_source_and_sidecar_force_new_attempt (test_refset_campaign.CampaignTests.test_changed_source_and_sidecar_force_new_attempt) ... ok
+test_failure_does_not_archive_stale_proof_or_reuse_older_success (test_refset_campaign.CampaignTests.test_failure_does_not_archive_stale_proof_or_reuse_older_success) ... ok
+test_five_names_five_processes_and_resume (test_refset_campaign.CampaignTests.test_five_names_five_processes_and_resume) ... ok
+test_lock_exclusion (test_refset_campaign.CampaignTests.test_lock_exclusion) ... ok
+test_partial_proof_not_reusable (test_refset_campaign.CampaignTests.test_partial_proof_not_reusable) ... ok
+test_replay_requires_exact_diff_and_archives_qualification (test_refset_campaign.CampaignTests.test_replay_requires_exact_diff_and_archives_qualification) ... ok
+test_selected_shared_producer_is_used_and_fingerprinted (test_refset_campaign.CampaignTests.test_selected_shared_producer_is_used_and_fingerprinted) ... ok
+test_settings_system_common_and_build_provenance_force_new_runs (test_refset_campaign.CampaignTests.test_settings_system_common_and_build_provenance_force_new_runs) ... ok
+test_sigterm_restores_and_records_failure (test_refset_campaign.CampaignTests.test_sigterm_restores_and_records_failure) ... ok
+test_status_read_only (test_refset_campaign.CampaignTests.test_status_read_only) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 4.412s
+
+OK

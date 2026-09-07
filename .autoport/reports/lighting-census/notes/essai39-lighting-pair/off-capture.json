@@ -1,0 +1,19 @@
+{
+  "OG_REFSET": "capture",
+  "OG_REFSET_VANTAGES": "village1-out",
+  "OG_REFSET_PHASES": "3",
+  "OG_REFSET_HOURS": "0,3,6,9,12,15,18,21",
+  "OG_REFSET_REQUIRE_LOADED": "1",
+  "OG_REFSET_QUALIFY_STATE": "1",
+  "OG_REFSET_LOAD_SETTLE": "1200",
+  "OG_REFSET_BUILD_PROVENANCE": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/source.json",
+  "OG_BOOT_REPLAY_BOUNDARY": "actors-sweep",
+  "OG_BOOT_REPLAY_CONTINUE": "village1-hut",
+  "OG_BOOT_REPLAY_REPLAY": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai17-rpc/fork-bootstrap.bin",
+  "OG_PAD_REPLAY_REPLAY": "/home/emeric/code/jak-project/.autoport/refset/neutral.inputs",
+  "OG_WANT_LEVELS": "village1,beach",
+  "OG_WANT_DISPLAY": "beach,display",
+  "OG_REFSET_QUALIFICATION": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/qualification-plan.json",
+  "OG_RECHARGED": "1",
+  "OG_HDR": "1"
+}

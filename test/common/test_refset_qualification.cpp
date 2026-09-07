@@ -29,38 +29,31 @@ std::string hex(uint64_t n) {
   return text;
 }
 struct Fixture {
-  fs::path root, baseline, candidate, manifest;
+  fs::path root, candidate, manifest;
   std::vector<Expected> expected;
   uint64_t current_bin;
   uint64_t current_data = 11;
-  explicit Fixture(const fs::path& dir) : root(dir), baseline(dir / "baseline"),
-      candidate(dir / "candidate"), manifest(dir / "manifest.json") {
+  explicit Fixture(const fs::path& dir) : root(dir), candidate(dir / "candidate"), manifest(dir / "manifest.json") {
     for (int view = 0; view < 28; ++view) {
       const auto vantage = "view" + std::to_string(view);
       const auto level = "level" + std::to_string(view < 21 ? view : view - 17);
-      for (int phase = 1; phase <= 3; ++phase) for (int hour = 0; hour < 24; hour += 3) {
+      for (int phase = 2; phase <= 3; ++phase) for (int hour = 0; hour < 24; hour += 3) {
         const auto key = (view >= 26 ? "supplement-v1/" : "") + vantage + "/p" +
                          std::to_string(phase) + "-h" + std::to_string(hour) + ".png";
         expected.push_back({key, vantage, level, phase, hour});
       }
     }
-    make_capture(baseline, true);
-    make_capture(candidate, false);
+    make_capture(candidate);
     current_bin = detail::json(candidate / "qualification-capture.json").at("bin").get<uint64_t>();
-    write(manifest, Json({{"version", 1}, {"pairs", {{{"baseline", baseline.string()},
-                                                   {"candidate", candidate.string()}}}}}).dump());
+    write(manifest, Json({{"version", 2}, {"roots", {candidate.string()}}}).dump());
   }
-  void make_capture(const fs::path& path, bool base) {
-    write(path / "binary", base ? "baseline-binary" : "candidate-binary");
-    write(path / "renderer.cpp", base ? "baseline-renderer" : "candidate-renderer");
+  void make_capture(const fs::path& path) {
+    write(path / "binary", "candidate-binary");
+    write(path / "renderer.cpp", "candidate-renderer");
     const uint64_t bin = hash_file((path / "binary").string());
-    Json source = {{"version", 1}, {"bin", bin}, {"role", base ? "baseline" : "candidate"},
+    Json source = {{"version", 1}, {"bin", bin}, {"role", "candidate"},
                    {"binary_path", (path / "binary").string()},
                    {"files", {{(path / "renderer.cpp").string(), hash_file((path / "renderer.cpp").string())}}}};
-    if (base) {
-      source["baseline_anchor"] = "a9ea15a69062a57335278db7680cd647df3c1e1d";
-      source["baseline_renderer_verified"] = true;
-    }
     write(path / "source.json", source.dump());
     // SHA256 fixture: empty asset payload and a structurally valid checkpoint.
     write(path / "assets.tsv", "version=1\nasset\ttest\t61\t0\t0\t"
@@ -69,17 +62,16 @@ struct Fixture {
           "c6ae71da4542799231ae28578897dc6eedb1b2371f328550b31aa1f119e4a93f\n");
     Json capture = {{"version", 1}, {"kind", "capture"}, {"execution", path.string() + "-capture"},
                     {"bin", bin}, {"data", uint64_t(11)}, {"input", uint64_t(12)},
-                    {"settings", uint64_t(13)}, {"config", uint64_t(base ? 14 : 15)},
+                    {"settings", uint64_t(13)}, {"config", uint64_t(15)},
                     {"bootstrap", uint64_t(16)}, {"source_path", (path / "source.json").string()},
                     {"source_fp", hash_file((path / "source.json").string())}, {"clean", true},
                     {"reconstructed", true}, {"calibrated", false},
                     {"assets_path", (path / "assets.tsv").string()},
                     {"assets_fp", hash_file((path / "assets.tsv").string())}, {"cases", Json::array()}};
     for (const auto& e : expected) {
-      if (base && e.phase != 1) continue;
       const auto png = path / e.key;
       write(png, "decoded-RGB-fixture:" + e.key);
-      write(png.string() + ".state.bin", "state-v1:" + e.key);
+      write(png.string() + ".state.bin", "state-v1:" + e.vantage + ":" + std::to_string(e.hour));
       write(png.string() + ".provenance.txt",
             "version=2\ncase=" + detail::case_name(e.key) + "\nconfig=" +
             hex(capture["config"].get<uint64_t>()) + "\nbin=" + hex(bin) +
@@ -91,7 +83,9 @@ struct Fixture {
           {"png", hash_file(png.string())}, {"sidecar", hash_file(png.string() + ".provenance.txt")},
           {"state", hash_file(png.string() + ".state.bin")}, {"bg", level < 4 ? 1 : 200},
           {"px", 1000}, {"level_ok", true}, {"has_sky", level < 4 ? 0 : 1},
-          {"maxdiff", 0}, {"diffpx", 0}});
+          {"maxdiff", 0}, {"diffpx", 0},
+          {"effective_options", {{"master", true}, {"lighting", e.phase == 2},
+                                  {"rt_light", e.phase == 2}, {"hdr", e.phase == 2}, {"others", {{"grass", true}}}}}});
     }
     for (const char* prefix : {"", "supplement-v1"})
       for (const char* set : {"origine", "recharged", "origine-lumiere"})
@@ -103,7 +97,7 @@ struct Fixture {
   void replays(const fs::path& path) {
     const auto capture_path = path / "qualification-capture.json";
     const auto capture = detail::json(capture_path);
-    for (int run = 0; run < 5; ++run) {
+    for (int run = 0; run < 1; ++run) {
       Json replay = capture;
       replay["kind"] = "replay";
       replay["execution"] = path.string() + "-replay-" + std::to_string(run);
@@ -111,9 +105,21 @@ struct Fixture {
       write(path / "qualification-replays" / (std::to_string(run) + ".json"), replay.dump());
     }
   }
+  template <typename F> void capture_mutation(F action, uint64_t gate) {
+    const auto path = candidate / "qualification-capture.json";
+    const auto before = detail::read(path);
+    auto capture = Json::parse(before);
+    action(capture);
+    write(path, capture.dump()); replays(candidate);
+    const auto result = evaluate();
+    if (result.gate != gate)
+      for (const auto& why : result.missing) std::fprintf(stderr, "%s\n", why.c_str());
+    assert(result.gate == gate);
+    write(path, before); replays(candidate);
+  }
   Result evaluate() {
     return refset_qualification::evaluate(manifest, current_bin, current_data, hash_file,
-        [](const std::string& a, const std::string& b) { return detail::read(a) == detail::read(b); }, expected);
+        [](const std::string&, const std::string&) { assert(false && "ON/OFF image comparison forbidden"); return false; }, expected);
   }
   template <typename F> void mutation(const fs::path& path, F action, uint64_t gate) {
     const auto before = detail::read(path);
@@ -138,7 +144,7 @@ int main() {
   assert(detail::permille(109, 10000) == 10);
   const auto valid = f.evaluate();
   if (valid.gate) for (const auto& why : valid.missing) std::fprintf(stderr, "%s\n", why.c_str());
-  assert(valid.gate == 0 && valid.replay_runs == 5 && valid.identity != 0);
+  assert(valid.gate == 0 && valid.replay_runs == 1 && valid.identity != 0);
   // Intact dataset-A receipts must not qualify a run over dataset B.
   f.current_data = 22;
   assert(f.evaluate().gate == 255);
@@ -149,7 +155,25 @@ int main() {
   const auto capture_path = f.candidate / "qualification-capture.json";
   const auto replay_path = f.candidate / "qualification-replays/0.json";
   const auto png = f.candidate / f.expected.front().key;
-  f.mutation(f.manifest, [&] { write(f.manifest, Json({{"version", 1}, {"pairs", Json::array()}}).dump()); }, 254);
+  f.mutation(f.manifest, [&] { write(f.manifest, Json({{"version", 1}, {"pairs", Json::array()}}).dump()); }, 255);
+  f.mutation(f.manifest, [&] {
+    write(f.manifest, Json({{"version", 2}, {"roots", Json::array()}}).dump());
+  }, 254);
+  f.capture_mutation([](Json& capture) { capture["cases"][0]["effective_options"]["master"] = false; }, 255);
+  f.capture_mutation([](Json& capture) { capture["cases"][0]["effective_options"]["others"]["grass"] = false; }, 255);
+  f.capture_mutation([](Json& capture) { capture["cases"][0]["effective_options"]["lighting"] = false; }, 255);
+  f.capture_mutation([](Json& capture) { capture["cases"][0]["effective_options"]["rt_light"] = false; }, 255);
+  f.capture_mutation([](Json& capture) { capture["cases"][0]["effective_options"]["hdr"] = false; }, 255);
+  f.capture_mutation([](Json& capture) { capture["cases"][0]["effective_options"]["master"] = 1; }, 255);
+  f.capture_mutation([](Json& capture) { capture["cases"][0]["effective_options"]["extra"] = true; }, 255);
+  f.capture_mutation([](Json& capture) { capture["cases"][0]["phase"] = 1; }, 255);
+  f.capture_mutation([](Json& capture) { capture["bin"] = capture["bin"].get<uint64_t>() ^ 1; }, 255);
+  f.capture_mutation([](Json& capture) {
+    for (auto& item : capture["cases"]) if (item["level"] == "level20") item["level_ok"] = false;
+  }, 254);
+  f.capture_mutation([](Json& capture) {
+    for (auto& item : capture["cases"]) if (item["vantage"] == "view0") item["bg"] = 11;
+  }, 254);
   f.mutation(capture_path, [&] {
     Json capture = detail::json(capture_path); capture["clean"] = false; write(capture_path, capture.dump());
   }, 255);
@@ -157,8 +181,8 @@ int main() {
   f.mutation(f.candidate / "source.json", [&] { write(f.candidate / "source.json", "{}"); }, 255);
   f.mutation(f.candidate / "renderer.cpp", [&] { write(f.candidate / "renderer.cpp", "stale"); }, 255);
   f.mutation(f.candidate / "binary", [&] { write(f.candidate / "binary", "stale"); }, 255);
-  f.mutation(f.candidate / "origine/captured-by.txt", [&] {
-    write(f.candidate / "origine/captured-by.txt", hex(f.current_bin) + "\nflavour=ablate\n");
+  f.mutation(f.candidate / "recharged/captured-by.txt", [&] {
+    write(f.candidate / "recharged/captured-by.txt", hex(f.current_bin) + "\nflavour=ablate\n");
   }, 255);
   f.mutation(png, [&] { write(png, "stale"); }, 255);
   f.mutation(png.string() + ".state.bin", [&] { write(png.string() + ".state.bin", "stale"); }, 255);
@@ -168,7 +192,7 @@ int main() {
     assert(f.evaluate().gate == 254); write(replay_path, receipt);
   }, 0);
   // Snapshot paths and checkpoint names may differ; the asset record set must match.
-  for (const auto& path : {f.baseline, f.candidate}) {
+  for (const auto& path : {f.candidate}) {
     const auto receipt_path = path / "qualification-replays/0.json";
     const auto snapshot_path = path / "replay-assets.tsv";
     const auto original_receipt = detail::read(receipt_path);
@@ -195,12 +219,17 @@ int main() {
     write(receipt_path, original_receipt);
   }
   f.mutation(replay_path, [&] {
+    Json replay = detail::json(replay_path);
+    replay["cases"][0]["effective_options"]["others"]["grass"] = false;
+    write(replay_path, replay.dump());
+  }, 255);
+  f.mutation(replay_path, [&] {
     Json replay = detail::json(replay_path); replay["cases"][0]["diffpx"] = 1; write(replay_path, replay.dump());
   }, 255);
   f.mutation(replay_path, [&] { write(replay_path, "{incomplete"); }, 255);
   f.mutation(replay_path, [&] {
     Json replay = detail::json(replay_path);
-    replay["execution"] = detail::json(f.candidate / "qualification-replays/1.json")["execution"];
+    replay["execution"] = detail::json(capture_path)["execution"];
     write(replay_path, replay.dump());
   }, 255);
   const auto before = detail::read(capture_path);
@@ -219,7 +248,7 @@ int main() {
         [](const std::string& why) { return why.find("sky:level20:") == 0; }));
   }
   write(capture_path, before); f.replays(f.candidate);
-  // Updating hashes and receipts cannot make a real phase-1 image/state difference pass.
+  // ON/OFF images intentionally differ; a valid refreshed receipt must still qualify.
   capture = detail::json(capture_path);
   const auto original_png = detail::read(png);
   write(png, "different-pixels");
@@ -232,7 +261,7 @@ int main() {
   write(sidecar, modified_sidecar);
   capture["cases"][0]["sidecar"] = hash_file(sidecar);
   write(capture_path, capture.dump()); f.replays(f.candidate);
-  assert(f.evaluate().gate == 255);
+  assert(f.evaluate().gate == 0);
   write(png, original_png); write(sidecar, original_sidecar);
   write(capture_path, before); f.replays(f.candidate);
   const auto state_path = png.string() + ".state.bin";
@@ -245,6 +274,60 @@ int main() {
   write(state_path, original_state);
   write(capture_path, before); f.replays(f.candidate);
   assert(f.evaluate().gate == 0);
+  // A collection may hold one arm per root, with the same immutable source receipt.
+  const auto off_root = f.root / "off";
+  fs::copy(f.candidate, off_root, fs::copy_options::recursive);
+  for (const auto& path : {f.candidate, off_root}) {
+    Json arm_capture = Json::parse(before);
+    arm_capture["execution"] = path.string() + "-capture";
+    auto& cases = arm_capture["cases"];
+    for (auto it = cases.begin(); it != cases.end();) {
+      if ((*it)["phase"] != (path == f.candidate ? 2 : 3)) it = cases.erase(it);
+      else ++it;
+    }
+    write(path / "qualification-capture.json", arm_capture.dump()); f.replays(path);
+  }
+  write(f.manifest, Json({{"version", 2}, {"roots", {f.candidate.string(), off_root.string()}}}).dump());
+  assert(f.evaluate().gate == 0 && f.evaluate().replay_runs == 1);
+  // Across arms, snapshot paths and checkpoints may differ, consumed assets may not.
+  const auto off_capture_path = off_root / "qualification-capture.json";
+  const auto original_off_capture = detail::read(off_capture_path);
+  const auto off_assets_path = off_root / "arm-assets.tsv";
+  auto off_assets = detail::read(f.candidate / "assets.tsv");
+  off_assets.replace(off_assets.find("checkpoint\t61"), std::string("checkpoint\t61").size(),
+                     "checkpoint\t62");
+  write(off_assets_path, off_assets);
+  auto off_capture = Json::parse(original_off_capture);
+  off_capture["assets_path"] = off_assets_path.string();
+  off_capture["assets_fp"] = hash_file(off_assets_path.string());
+  write(off_capture_path, off_capture.dump()); f.replays(off_root);
+  assert(f.evaluate().gate == 0);
+  // Change the consumed payload hash, then refresh capture and exact replay receipts.
+  const auto payload_hash = off_assets.find("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  assert(payload_hash != std::string::npos);
+  off_assets[payload_hash] = 'f';
+  write(off_assets_path, off_assets);
+  off_capture["assets_fp"] = hash_file(off_assets_path.string());
+  write(off_capture_path, off_capture.dump()); f.replays(off_root);
+  const auto mismatched_assets = f.evaluate();
+  assert(mismatched_assets.gate == 255);
+  assert(std::find(mismatched_assets.missing.begin(), mismatched_assets.missing.end(), "pair-assets") !=
+         mismatched_assets.missing.end());
+  write(off_capture_path, original_off_capture); f.replays(off_root);
+  assert(f.evaluate().gate == 0);
+  for (const char* field : {"settings", "bootstrap"}) {
+    f.capture_mutation([&](Json& receipt) { receipt[field] = receipt[field].get<uint64_t>() + 1; }, 255);
+  }
+  // Each root needs a replay even when its other arm has one.
+  const auto off_replay = off_root / "qualification-replays/0.json";
+  const auto off_receipt = detail::read(off_replay);
+  fs::remove(off_replay);
+  assert(f.evaluate().gate == 254);
+  write(off_replay, off_receipt);
+  f.mutation(f.manifest, [&] {
+    write(f.manifest, Json({{"version", 2}, {"roots", {f.candidate.string()}}}).dump());
+  }, 254);
+  assert(f.evaluate().gate == 0);
   fs::remove_all(f.root);  // Only this test's unique mkdtemp fixture.
-  std::puts("REFSET qualification tests passed: cases=672 levels=21 replays=5 gate=0; negative gates checked");
+  std::puts("REFSET qualification tests passed: cases=448 levels=21 replays=1 gate=0; negative gates checked");
 }

@@ -1,0 +1,36 @@
+[0/2] Re-checking globbed directories...
+[1/5] cd /home/emeric/code/jak-project/build/third-party/discord-rpc && /usr/bin/clang-format -i -style=file -fallback-style=none /home/emeric/code/jak-project/third-party/discord-rpc/include/discord_register.h /home/emeric/code/jak-project/third-party/discord-rpc/include/discord_rpc.h /home/emeric/code/jak-project/third-party/discord-rpc/src/backoff.h /home/emeric/code/jak-project/third-party/discord-rpc/src/connection.h /home/emeric/code/jak-project/third-party/discord-rpc/src/connection_unix.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/connection_win.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/discord_register_linux.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/discord_register_win.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/discord_rpc.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/dllmain.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/msg_queue.h /home/emeric/code/jak-project/third-party/discord-rpc/src/rpc_connection.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/rpc_connection.h /home/emeric/code/jak-project/third-party/discord-rpc/src/serialization.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/serialization.h
+[2/5] Building CXX object game/CMakeFiles/runtime.dir/graphics/refset.cpp.o
+/home/emeric/code/jak-project/game/graphics/refset.cpp: In lambda function:
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1886:23: warning: passing ‘bool’ chooses ‘int’ over ‘unsigned int’ [-Wsign-promo]
+ 1886 |     add(std::to_string(tune.set));
+      |         ~~~~~~~~~~~~~~^~~~~~~~~~
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1886:23: warning:   in call to ‘std::string std::__cxx11::to_string(int)’ [-Wsign-promo]
+/home/emeric/code/jak-project/game/graphics/refset.cpp: In function ‘bool refset::enabled()’:
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2463:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 2463 |       const long v = std::strtol(av, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2390:8: note: shadowed declaration is here
+ 2390 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2472:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 2472 |       const long v = std::strtol(sv, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2390:8: note: shadowed declaration is here
+ 2390 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2614:34: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 2614 |         int a = 0, b = 0, c = 0, d = 0;
+      |                                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2442:8: note: shadowed declaration is here
+ 2442 |   char d[512] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2627:27: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 2627 |         int p = 0, y = 0, d = 0, h = 0;
+      |                           ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:2442:8: note: shadowed declaration is here
+ 2442 |   char d[512] = {0};
+      |        ^
+[3/5] Linking CXX static library game/libruntime.a
+[4/5] Linking CXX executable game/gk
+[npc-flicker] garde OK — 47 proprietes tenues

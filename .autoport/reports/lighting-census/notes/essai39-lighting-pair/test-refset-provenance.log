@@ -1,0 +1,18 @@
+test_additional_shader_rejected (test_refset_provenance.ProvenanceTests.test_additional_shader_rejected) ... ok
+test_bad_anchor_and_main_tree (test_refset_provenance.ProvenanceTests.test_bad_anchor_and_main_tree) ... ok
+test_baseline_and_candidate (test_refset_provenance.ProvenanceTests.test_baseline_and_candidate) ... ok
+test_candidate_commit_preserves_certificate (test_refset_provenance.ProvenanceTests.test_candidate_commit_preserves_certificate) ... ok
+test_candidate_unrelated_commit_preserves_certificate (test_refset_provenance.ProvenanceTests.test_candidate_unrelated_commit_preserves_certificate) ... ok
+test_head_change_invalidates (test_refset_provenance.ProvenanceTests.test_head_change_invalidates) ... ok
+test_historical_fnv_offset (test_refset_provenance.ProvenanceTests.test_historical_fnv_offset) ... ok
+test_mutations (test_refset_provenance.ProvenanceTests.test_mutations) ... ok
+test_new_source_invalidates_inventory (test_refset_provenance.ProvenanceTests.test_new_source_invalidates_inventory) ... ok
+test_no_overwrite (test_refset_provenance.ProvenanceTests.test_no_overwrite) ... ok
+test_renderer_rejected (test_refset_provenance.ProvenanceTests.test_renderer_rejected) ... ok
+test_shader_rejected_at_seal (test_refset_provenance.ProvenanceTests.test_shader_rejected_at_seal) ... ok
+test_staged_unstaged_and_new_game_sources (test_refset_provenance.ProvenanceTests.test_staged_unstaged_and_new_game_sources) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.833s
+
+OK

@@ -1,0 +1,33 @@
+{
+  "kind": "premier binaire remplac\u00e9 ; ne pas cr\u00e9diter au binaire final",
+  "runs": [
+    {
+      "name": "on-capture",
+      "state": "complete",
+      "exit_code": 0,
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/campaign/attempt-1788812665141541088-63eb5e6b/captures",
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/campaign/attempt-1788812665141541088-63eb5e6b"
+    },
+    {
+      "name": "off-capture",
+      "state": "complete",
+      "exit_code": 0,
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/campaign/attempt-1788812791299136132-b8006af8/captures",
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/campaign/attempt-1788812791299136132-b8006af8"
+    },
+    {
+      "name": "on-replay",
+      "state": "complete",
+      "exit_code": 0,
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/campaign/attempt-1788812665141541088-63eb5e6b/captures",
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/campaign/attempt-1788812945588777985-3f6f0989"
+    },
+    {
+      "name": "off-replay",
+      "state": "complete",
+      "exit_code": 0,
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/campaign/attempt-1788812791299136132-b8006af8/captures",
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/campaign/attempt-1788813101550774225-3842d6fe"
+    }
+  ]
+}

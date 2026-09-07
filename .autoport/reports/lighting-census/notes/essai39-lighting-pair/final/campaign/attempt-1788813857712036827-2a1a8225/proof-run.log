@@ -1,0 +1,2 @@
+[proof_run lighting-census] attente : deploy-in-progress pid=2541075 vivant
+[proof_run lighting-census] un build ecrit encore apres 60s (deploy-in-progress pid=2541075 vivant) : ON N'A PAS MESURE. Relance quand il a fini.

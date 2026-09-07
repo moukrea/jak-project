@@ -1,0 +1,9 @@
+version=2
+case=origine-lumiere/village1-out-h03
+config=c87d73e06badb0b5
+bin=3633e054340490f4
+flavour=normal
+png=f5a140033055153b
+capture_lf=2465
+data=56f0364a8789c816
+input=f97b073c2df76fb4

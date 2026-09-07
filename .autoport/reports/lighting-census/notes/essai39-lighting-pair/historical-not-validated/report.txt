@@ -1,0 +1,29 @@
+Non validé globalement : qualification/adoption vérifiable implémentée, mais refset_replay_maxdiff reste à 254.
+DIRECTIVES v6fca51fe40
+Producteur : références neuves v2, bootstrap rejoué, état observé canonique, reçus immuables et comparaison origine baseline/candidat.
+Adoption liée aux sources, binaire, CGO/DGO/FR3 courants et ressources consommées identiques capture/rejeux ; seuils conservés.
+Outils dédiés : scellement de provenance et lots courts reprenables via proof_run ; aucun validateur modifié.
+Écart extérieur découvert : maxdiff6/diffpx2429 malgré huit états identiques ; refus réel du producteur gate255, aucune adoption.
+Correction TEX1 native : retrait de la suppression des mipmaps sous maître OFF ; aucun changement shader, océan, shrub ou caméra.
+Après correction : extérieur et hutte, huit origines chacun, maxdiff0/diffpx0 et états identiques ; notes tex1-*-independent-*.
+Binaire final : extérieur, huit origines indépendantes exactes, puis 24 cas rejoués exactement ; 2254 ressources identiques.
+Huit lignes recopiées de la preuve finale produite par proof_run :
+sha=1082eb1b117c91f6
+crash=0
+frames=8291
+refset_compared=24
+refset_replay_run_maxdiff=0
+refset_qualification_state_bad=0
+refset_qualification_gate=254
+refset_replay_maxdiff=254
+Compteurs conservés : light_census_classified=755248, gpu_ms_frames=8157, gpu_timer_supported=1.
+Couverture finale du lot : trois modes/huit heures, ciel321..323‰ ; candidat1/5 rejeux, baseline extérieure0/5.
+Cinq rejeux exacts par bras du premier binaire d065f16c2f4a0165 archivés ; aucun crédit transféré au binaire final.
+Sunkenb h09 : chargé, état capturé, crash0 ; bucket ciel écrit57600RGB, puis géométrie ; fond final0/57600, toujours manquant.
+Tests isolés C++ stricts et26 tests Python réussis ; builds gk incrémentaux, garde NPC47. Détails : notes/essai37-qualification/test-results.json.
+Intégrité mesurée :575 fichiers historiques et123/118 shaders inchangés ; preuve/validateur inchangés (final-integrity.json).
+Owner : différences ON/OFF et blancs HDR restent à juger lors de la suite HDR/tonemap SDR ; aucun résultat Android livré ici.
+non prouvé : qualification globale des672 cas/21 niveaux/≥4 intérieurs, ciel Sunkenb, cinq rejeux par racine du binaire final.
+non prouvé : état exhaustif des animations/coroutines privées, correction des blancs HDR/SDR et comportement Android.
+Les autres lots et les cinq rejeux finaux ne sont pas achevés ; aucun seuil assoupli, aucune référence adoptée, aucun owner-ok.
+Notes : reports/lighting-census/notes/essai37-qualification/ ; reprise détaillée dans handoff.md. generic réservé à l’orchestrateur.

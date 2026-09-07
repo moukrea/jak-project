@@ -1,0 +1,299 @@
+diff --git a/game/graphics/refset.cpp b/game/graphics/refset.cpp
+index 9842170c7a..3ab7f0ee8a 100644
+--- a/game/graphics/refset.cpp
++++ b/game/graphics/refset.cpp
+@@ -16,9 +16,13 @@
+ #include <utility>
+ #include <vector>
+ 
++#include "common/custom_data/MeshSubdivide.h"
+ #include "common/util/FileUtil.h"
+ 
+ #include "game/graphics/fixed_tick.h"
++#include "game/graphics/gfx.h"
++#include "game/graphics/opengl_renderer/hdr.h"
++#include "game/graphics/opengl_renderer/background/foliage_wind.h"
+ #include "game/graphics/refset_state.h"
+ #include "game/graphics/refset_qualification.h"
+ #include "game/graphics/origin_ablate.h"
+@@ -333,7 +337,7 @@ uint64_t g_case_bg = 0, g_case_px = 0, g_case_probes = 0;
+ uint64_t g_case_maxdiff = 255, g_case_diffpx = 0;
+ std::optional<refset_state::Sample> g_case_state;
+ void qualification_finish();
+-void qualification_sample(const Step& step); // defined below the metadata reader
++void qualification_sample(const Step& step, const QualificationJson& effective_options);
+ constexpr const char* kFormatMarker = "refset-format.txt";
+ 
+ std::vector<int> g_phases;  // lighting-hdr : les phases que CE plan execute
+@@ -570,7 +574,7 @@ int64_t g_frame_slip_min = 1 << 20;
+ // donc pas se calculer dans une seule course. Le moteur tient un registre sur disque et publie
+ // le verdict qu'il en lit. Tant qu'il n'a pas ete ecrit, `publish_state` publie la sentinelle.
+ bool g_flaky_done = false;
+-// La porte census exige aussi la couverture et cinq rejeux exacts. Les autres items
++// La porte census exige la couverture et une qualification courante avec rejeu exact. Les autres items
+ // conservent leurs comparaisons historiques, eventuellement sur un sous-plan.
+ uint64_t g_census_coverage_missing = 1;
+ uint64_t g_census_replay_gate = 254;
+@@ -982,15 +986,18 @@ void publish_sky_gate() {
+ void publish_coverage() {
+   g_census_coverage_missing = 0;
+   // Un sous-plan ou une camera de calibrage ne certifie pas le jeu de references livre.
+-  const bool full_plan = g_vants.size() == kNumVantages && g_steps.size() == kNumVantages * 8 * 3 &&
+-                         g_phases == std::vector<int>({1, 2, 3}) && g_hours_mask == kAllHours;
++  const bool census = autoport_proof::feature_is("lighting-census");
++  const std::vector<int> phases = census ? std::vector<int>{2, 3} : std::vector<int>{1, 2, 3};
++  const auto arms = phases.size();
++  const bool full_plan = g_vants.size() == kNumVantages && g_steps.size() == kNumVantages * 8 * arms &&
++                         g_phases == phases && g_hours_mask == kAllHours;
+   if (!full_plan || !g_cam_armed || g_cam_overrides || g_pitch_sweep || g_yaw_sweep ||
+       g_cam_hour_sweep || g_slip_nonzero || g_roundtrip_bad || g_provenance_bad) {
+     g_census_coverage_missing++;
+   }
+   for (const auto& vs : g_vstats) {
+     for (int hi = 0; hi < 8; hi++) {
+-      if (vs.shots_h[hi] != 3 || vs.level_ok_h[hi] != 3 || !vs.px_h[hi]) {
++      if (vs.shots_h[hi] != arms || vs.level_ok_h[hi] != arms || !vs.px_h[hi]) {
+         g_census_coverage_missing++;
+       }
+     }
+@@ -1227,7 +1234,9 @@ void publish_state() {
+     autoport_proof::publish("refset_replay_run_maxdiff", gate);
+     autoport_proof::publish("refset_replay_maxdiff",
+                             autoport_proof::feature_is("lighting-census") && gate == 0
+-                                ? (g_census_coverage_missing && !g_qualification_adopted ? 254 : g_census_replay_gate)
++                                ? std::max(g_census_replay_gate,
++                                    g_census_coverage_missing && !g_qualification_adopted
++                                        ? uint64_t(254) : uint64_t(0))
+                                 : gate);
+     // La grandeur de PORTE de cet item porte sur plusieurs COURSES (voir `publish_flaky`). Tant
+     // que le registre n'a pas parle, la preuve porte la sentinelle : une course interrompue est
+@@ -1841,6 +1850,9 @@ uint64_t census_config_fingerprint() {
+     }
+     h = (h ^ 0xff) * 1099511628211ull;
+   };
++  if (autoport_proof::feature_is("lighting-census")) {
++    add("lighting-census-two-arms-master-on-bootstrap-v2");
++  }
+   if (g_require_loaded) {
+     add("require-loaded-state-restore-plus2-v2");
+     for (const auto& level : g_initial_levels) add(level);
+@@ -2064,7 +2076,54 @@ void qualification_init() {
+   autoport_proof::publish_text("refset_candidate_qualification", "recording-reconstructed-state");
+ }
+ 
+-void qualification_sample(const Step& step) {
++// Called during readback while g_mutex holds the selected phase stable. These are
++// effective gates and clamped settings, never the phase's requested environment values.
++QualificationJson qualification_effective_options() {
++  const auto& gs = Gfx::g_global_settings;
++  int rt = Gfx::lighting_active(gs.recharged_rt_light_enable) ? 1 : 0;
++#ifdef __ANDROID__
++  char value[PROP_VALUE_MAX] = {0};
++  if (__system_property_get("debug.opengoal.rt.light", value) > 0 && value[0])
++    rt = std::atoi(value);
++#else
++  if (const char* value = std::getenv("OG_RT_LIGHT")) rt = std::atoi(value);
++#endif
++  auto subdiv = tfrag3::mesh_subdiv_config_from_env();
++  bool subdiv_on = Gfx::recharged_active(gs.recharged_pbr_enable) && gs.recharged_pbr_displacement == 2;
++#if !AUTOPORT_ORIGIN_ABLATE
++  if (subdiv.forced_max_edge_m >= 0.f) subdiv_on = subdiv.forced_max_edge_m > 0.f;
++#endif
++  if (subdiv.forced_max_rounds < 0)
++    subdiv.max_rounds = std::max(0, std::min(6, gs.recharged_mesh_subdiv_rounds));
++  subdiv_on = subdiv_on && subdiv.max_rounds > 0 && subdiv.max_edge_m > 0.f;
++  const float grass_near = std::min(80.f, std::max(8.f, gs.recharged_grass_near_dist));
++  const float grass_card = std::min(200.f, std::max(grass_near + 5.f, gs.recharged_grass_card_dist));
++  bool grass_overhang = false;
++#ifdef OG_FEAT_GRASS_OVERHANG
++  grass_overhang = Gfx::recharged_active(gs.recharged_grass_overhang);
++#endif
++  return {{"master", Gfx::recharged_master_active()},
++      {"lighting", Gfx::recharged_lighting_active()}, {"rt_light", Gfx::lighting_active(rt != 0)},
++      {"hdr", hdr::chain_active() && hdr::format_is_float(hdr::scene_color_format())},
++      {"others", {
++          {"textures", Gfx::recharged_active(gs.recharged_textures)},
++          {"managed_assets", Gfx::recharged_active(gs.recharged_managed_assets)},
++          {"enhanced_models", Gfx::recharged_active(gs.recharged_enhanced_models)},
++          {"grass", Gfx::recharged_active(gs.recharged_grass)},
++          {"grass_near_dist", grass_near}, {"grass_card_dist", grass_card},
++          {"grass_density_preset", grass_bake::clamp_density_preset(gs.recharged_grass_density_preset)},
++          {"grass_precomputed", gs.recharged_grass_precomputed}, {"grass_overhang", grass_overhang},
++          {"foliage_wind", foliage_wind::enabled()},
++          {"modern_materials", Gfx::recharged_active(gs.recharged_modern_materials)},
++          {"subdivision", subdiv_on}, {"subdivision_rounds", subdiv.max_rounds},
++          {"subdivision_max_edge_m", subdiv.max_edge_m},
++          {"load_custom_assets", gs.load_custom_assets},
++          {"lod_tfrag", gs.lod_tfrag}, {"lod_tie", gs.lod_tie}, {"hack_no_tex", gs.hack_no_tex},
++          {"crisp_title_logo", Gfx::recharged_active(gs.recharged_crisp_title_logo)}
++      }}};
++}
++
++void qualification_sample(const Step& step, const QualificationJson& effective_options) {
+   if (!refset_state::enabled()) return;
+   const auto receipt = refset_state::receipt();
+   const std::string path = image_path(step);
+@@ -2092,6 +2151,7 @@ void qualification_sample(const Step& step) {
+   g_qualification_cases.push_back({
+       {"key", key}, {"vantage", view.id[0] ? view.id : "legacy"}, {"level", view.level},
+       {"phase", step.phase}, {"hour", step.hour}, {"lf", g_inflight_lf},
++      {"effective_options", effective_options},
+       {"state_lf", g_case_state ? g_case_state->lf : -1},
+       {"png", hash_file(path)}, {"sidecar", hash_file(path + ".provenance.txt")},
+       {"state", state_ok ? hash_file(state_path) : 0},
+@@ -2174,7 +2234,8 @@ void qualification_finish() {
+     const std::string name = view.id[0] ? view.id : "legacy";
+     const bool expanded = name == "misty-bike" || name == "village2-dock" ||
+         name == "sunkenb-helix" || name == "swamp-start" || name == "swamp-cave1" || name == "snow-fort";
+-    for (int phase : {1, 2, 3}) {
++    for (int phase : (autoport_proof::feature_is("lighting-census")
++                          ? std::vector<int>{2, 3} : std::vector<int>{1, 2, 3})) {
+       for (int hour : kHours) {
+         char suffix[16];
+         std::snprintf(suffix, sizeof(suffix), "h%02d.png", hour);
+@@ -2200,6 +2261,8 @@ void qualification_finish() {
+   autoport_proof::publish("refset_qualification_missing", result.missing.size());
+   for (const auto& missing : result.missing) std::printf("REFSET qualification missing=%s\n", missing.c_str());
+   autoport_proof::publish("refset_qualification_gate", result.gate);
++  if (autoport_proof::feature_is("lighting-census") && result.gate != 0)
++    g_census_replay_gate = result.gate;
+   if (result.gate != 0) return;
+   // Adoption is a separate artifact. References and their version marker never change.
+   const std::string adoption = g_dir + "/qualification-adoption-" + execution + ".json";
+@@ -2234,9 +2297,8 @@ void publish_flaky() {
+   const std::string path = g_dir + "/replay-ledger.txt";
+   publish_coverage();  // inclut la derniere photo, avant de qualifier la ligne du registre
+   const uint64_t config = census_config_fingerprint();
+-  const bool census_ok = autoport_proof::feature_is("lighting-census") &&
+-                         autoport_proof::armed_for("lighting-census") && !g_census_coverage_missing &&
+-                         g_provenance_version == 1;
++  // Historical ledgers remain readable, but cannot adopt the current census contract.
++  const bool census_ok = false;
+ 
+   std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)config);
+   autoport_proof::publish_text("refset_census_config_fp", t);
+@@ -2295,11 +2357,13 @@ void publish_flaky() {
+   if (!g_qualification_adopted) g_census_replay_runs = census_runs;
+   // Candidate provenance records inputs, not restored actor/RNG state or an independent
+   // baseline qualification. Even five exact self-replays cannot supply those missing facts.
+-  if (!g_qualification_adopted) g_census_replay_gate = !ledger_written
++  if (!g_qualification_adopted && g_census_replay_gate != 255) g_census_replay_gate = !ledger_written
+                             ? 255
+-                            : (g_provenance_version == 2 || census_runs < 5 ? 254 : census_maxdiff);
++                            : (autoport_proof::feature_is("lighting-census") ||
++                               g_provenance_version == 2 || census_runs < 5 ? 254 : census_maxdiff);
+   autoport_proof::publish("refset_replay_runs", md.size());
+-  autoport_proof::publish("refset_replay_flaky", md.size() >= 5 ? flaky : 254);
++  autoport_proof::publish("refset_replay_flaky", autoport_proof::feature_is("lighting-census")
++      ? (g_qualification_adopted ? 0 : 254) : (md.size() >= 5 ? flaky : 254));
+   // LA LIGNE `FEATURE` DE CET ITEM, ET SON PROPRE DENOMINATEUR. `note_hit` alimente un compteur
+   // GLOBAL que le recensement d'eclairage domine de plusieurs millions : `hits` prouve que la
+   // course a tire, il ne dit pas combien de fois CE code a tire. La grandeur de cet item est
+@@ -2424,6 +2488,8 @@ bool enabled() {
+     }
+   }
+   fpng::fpng_init();
++  // lighting-census defaults to phases 2/3 with master ON throughout bootstrap and play.
++  // An explicit phase 1 is an error; single-arm plans keep the same scheduling rules.
+   // lighting-hdr : quelles phases ce plan execute. `OG_REFSET_PHASES=1,2` ou `=3`, defaut les
+   // trois. Ca existe pour une raison precise : la reference ORIGINE-TOTAL du verdict 4 doit
+   // etre capturee par un binaire d'AVANT le changement d'eclairage, sinon le verdict se compare
+@@ -2434,6 +2500,10 @@ bool enabled() {
+       for (const char* c = pv; *c; c++) {
+         if (*c >= '1' && *c <= '3') {
+           const int ph = *c - '0';
++          if (ph == 1 && autoport_proof::feature_is("lighting-census")) {
++            std::fprintf(stderr, "REFSET fatal: lighting-census requires phases 2/3; phase 1 is forbidden\n");
++            std::abort();
++          }
+           if (std::find(g_phases.begin(), g_phases.end(), ph) == g_phases.end()) {
+             g_phases.push_back(ph);
+           }
+@@ -2441,7 +2511,8 @@ bool enabled() {
+       }
+     }
+     if (g_phases.empty()) {
+-      g_phases = {1, 2, 3};
++      g_phases = autoport_proof::feature_is("lighting-census")
++                     ? std::vector<int>{2, 3} : std::vector<int>{1, 2, 3};
+     }
+     std::sort(g_phases.begin(), g_phases.end());
+   }
+@@ -2633,7 +2704,7 @@ bool enabled() {
+   }
+   // Poser les deux variables a leur longueur definitive AVANT que le fil graphique ne les lise
+   // pour la premiere fois : ainsi chaque bascule ulterieure reecrit un unique octet en place.
+-  put_env("OG_RECHARGED", "0");
++  put_env("OG_RECHARGED", autoport_proof::feature_is("lighting-census") ? "1" : "0");
+   put_env("OG_RT_LIGHT", "0");
+   put_env("OG_LIGHTING", "0");
+   init_candidate_provenance();
+@@ -3262,6 +3333,8 @@ bool consume_capture(int w, int h, const void* rgba) {
+   if (g_cap != kCapInFlight) {
+     return false;
+   }
++  const auto effective_options = refset_state::enabled()
++      ? qualification_effective_options() : QualificationJson::object();
+   const std::string path = image_path(g_steps[g_cur]);
+   if (asset_manifest::enabled()) {
+     asset_manifest::checkpoint(step_image_name(g_steps[g_cur]) + "/chain-lf=" +
+@@ -3428,7 +3501,7 @@ bool consume_capture(int w, int h, const void* rgba) {
+     }
+   }
+ 
+-  qualification_sample(g_steps[g_cur]);
++  qualification_sample(g_steps[g_cur], effective_options);
+   g_cap = kCapDone;
+   publish_state();
+   return true;
+diff --git a/game/graphics/refset_qualification.h b/game/graphics/refset_qualification.h
+index 462dc7da54..388e1d5476 100644
+--- a/game/graphics/refset_qualification.h
++++ b/game/graphics/refset_qualification.h
+@@ -153,6 +153,7 @@ struct Root {
+   fs::path path;
+   Json capture;
+   std::map<std::string, Json> cases;
++  std::set<std::string> assets;
+   size_t runs = 0;
+ };
+ }  // namespace detail
+@@ -249,7 +250,7 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
+         Json value = {{"fp", entry.value()}};
+         require(checked_hash(entry.key()) == number(value, "fp"), "source-file-stale:" + entry.key());
+       }
+-      detail::Root root{path, capture, {}, 0};
++      detail::Root root{path, capture, {}, capture_assets, 0};
+       require(capture.at("cases").is_array() && !capture.at("cases").empty() &&
+                   capture.at("cases").size() <= 8192, "capture-cases");
+       for (const auto& item : capture.at("cases")) {
+@@ -289,10 +290,11 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
+         const auto phase = item.at("phase").get<int>();
+         require(phase == 2 || phase == 3, "case-phase");
+         const auto& options = item.at("effective_options");
+-        require(options.is_object() && options.size() == 4 &&
++        require(options.is_object() && options.size() == 5 &&
+                     options.at("master").is_boolean() && options.at("master") == true &&
+                     options.at("lighting").is_boolean() && options.at("lighting") == (phase == 2) &&
+                     options.at("rt_light").is_boolean() && options.at("rt_light") == (phase == 2) &&
++                    options.at("hdr").is_boolean() && options.at("hdr") == (phase == 2) &&
+                     options.at("others").is_object(), "case-effective-options:" + key);
+         const auto prefix = key.compare(0, 14, "supplement-v1/") == 0 ? "supplement-v1/" : "";
+         const auto witness = path / prefix /
+@@ -342,7 +344,7 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
+     std::map<std::string, detail::Root*> case_roots;
+     std::map<std::pair<std::string, int>, std::map<int, std::string>> pairs;
+     for (const auto& root_path : manifest.at("roots")) {
+-      auto* root = load_root(fs::path(root_path.get<std::string>()));
++      detail::Root* root = load_root(fs::path(root_path.get<std::string>()));
+       if (!root) continue;
+       for (const auto& entry : root->cases) {
+         const auto& key = entry.first;
+@@ -365,6 +367,7 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
+       const auto& off = candidates.at(off_key);
+       const auto* on_root = case_roots.at(on_key);
+       const auto* off_root = case_roots.at(off_key);
++      require(on_root->assets == off_root->assets, "pair-assets");
+       for (const char* field : {"bin", "data", "input", "settings", "bootstrap", "source_fp"})
+         require(on_root->capture.at(field) == off_root->capture.at(field),
+                 std::string("pair-identity:") + field);

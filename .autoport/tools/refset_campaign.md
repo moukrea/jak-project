@@ -15,7 +15,7 @@ Aucune référence n'est copiée/assemblée pour fabriquer une racine qualifiée
 
 ```sh
 python3 .autoport/tools/refset_campaign.py run \
-  --campaign /chemin/campagne --name baseline-01 --root /chemin/worktree \
+  --campaign /chemin/campagne --name lighting-on-capture --root /chemin/worktree \
   --env-json /chemin/capture.json --timeout 90 \
   --data /chemin/overlay --input /chemin/autre-entree
 python3 .autoport/tools/refset_campaign.py status --campaign /chemin/campagne
@@ -28,7 +28,7 @@ strictement en lecture seule, même si la campagne n'existe pas.
 Le JSON est un dictionnaire de chaînes `OG_*`, par exemple :
 
 ```json
-{"OG_REFSET":"capture","OG_REFSET_VANTAGES":"legacy","OG_REFSET_PHASES":"1","OG_REFSET_HOURS":"0","OG_PAD_REPLAY_REPLAY":".autoport/refset/neutral.inputs"}
+{"OG_REFSET":"capture","OG_REFSET_VANTAGES":"legacy","OG_REFSET_PHASES":"2","OG_RECHARGED":"1","OG_REFSET_HOURS":"0","OG_PAD_REPLAY_REPLAY":".autoport/refset/neutral.inputs"}
 ```
 
 Pour rejouer, fournir `OG_REFSET=replay` et `OG_REFSET_DIR` pointant vers une racine
@@ -85,8 +85,8 @@ conservées intégralement, exclues de cette identité. Le JSON de l’UUID prop
 est empreinté séparément et archivé. Avec `OG_REFSET_QUALIFY_STATE=1`, le reçu doit
 aussi être présent, clean/reconstructed, avec zéro état invalide et son capture_fp
 égal au hash producteur du véritable qualification-capture.json. Ce contrôle de
-reprise ne remplace pas l’adoption du producteur, qui relit tous les échecs. Cinq noms distincts lancent
-cinq processus : une reprise ne crée jamais un nouveau run. Un échec reste au
+reprise ne remplace pas l’adoption du producteur, qui relit tous les échecs. Un nom distinct par capture/rejeu et bras identifie chaque processus : une reprise
+ne crée jamais un nouveau run. Le contrat courant exige un rejeu par racine. Un échec reste au
 registre, et empêche de reprendre silencieusement un succès plus ancien du même nom.
 
 Tests isolés, producteur factice uniquement en répertoires temporaires :
@@ -94,3 +94,8 @@ Tests isolés, producteur factice uniquement en répertoires temporaires :
 ```sh
 python3 -m unittest discover -s .autoport/tests/tools -p test_refset_campaign.py -v
 ```
+
+Le contrat actif est décrit dans `refset_qualification.md` : deux racines mono-phase
+2/3 du même build, master ON constant. `--proof-run` pour arbre historique reste
+une capacité archivée, sans crédit pour cette priorité. Aucune tournée automatique
+ni cinq rejeux par racine ne sont nécessaires pour commencer la première paire.

@@ -1,0 +1,110 @@
+{
+  "kind": "lecture des preuves originales produites par proof_run, pas nouvelle preuve",
+  "runs": [
+    {
+      "name": "on-capture",
+      "state": "complete",
+      "exit_code": 0,
+      "restored": true,
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813453064743467-bb30d7a2",
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813453064743467-bb30d7a2/captures",
+      "error": null,
+      "measured": {
+        "sha": "f73702d7a009088a",
+        "crash": "0",
+        "frames": "4079",
+        "refset_steps": "8",
+        "refset_compared": null,
+        "refset_replay_run_maxdiff": null,
+        "refset_replay_diffpx": null,
+        "refset_qualification_state_bad": "0",
+        "refset_qualification_gate": null,
+        "refset_qualification_missing": null,
+        "hdr_chain_frames": "3062",
+        "tonemap_draws": "3062",
+        "hdr_master_on": "1"
+      }
+    },
+    {
+      "name": "off-capture",
+      "state": "complete",
+      "exit_code": 0,
+      "restored": true,
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813597376096084-5e1e6972",
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813597376096084-5e1e6972/captures",
+      "error": null,
+      "measured": {
+        "sha": "f73702d7a009088a",
+        "crash": "0",
+        "frames": "4111",
+        "refset_steps": "8",
+        "refset_compared": null,
+        "refset_replay_run_maxdiff": null,
+        "refset_replay_diffpx": null,
+        "refset_qualification_state_bad": "0",
+        "refset_qualification_gate": null,
+        "refset_qualification_missing": null,
+        "hdr_chain_frames": "0",
+        "tonemap_draws": "0",
+        "hdr_master_on": "1"
+      }
+    },
+    {
+      "name": "on-replay",
+      "state": "complete",
+      "exit_code": 0,
+      "restored": true,
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813743495870912-65e79881",
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813453064743467-bb30d7a2/captures",
+      "error": null,
+      "measured": {
+        "sha": "f73702d7a009088a",
+        "crash": "0",
+        "frames": "4039",
+        "refset_steps": "8",
+        "refset_compared": "8",
+        "refset_replay_run_maxdiff": "0",
+        "refset_replay_diffpx": "0",
+        "refset_qualification_state_bad": "0",
+        "refset_qualification_gate": "254",
+        "refset_qualification_missing": "435",
+        "hdr_chain_frames": "3002",
+        "tonemap_draws": "3002",
+        "hdr_master_on": "1"
+      }
+    },
+    {
+      "name": "off-replay",
+      "state": "failed",
+      "exit_code": 3,
+      "restored": true,
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813857712036827-2a1a8225",
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813597376096084-5e1e6972/captures",
+      "error": null
+    },
+    {
+      "name": "off-replay",
+      "state": "complete",
+      "exit_code": 0,
+      "restored": true,
+      "attempt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788814031431440544-8f8cca7a",
+      "reference_root": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai39-lighting-pair/final/campaign/attempt-1788813597376096084-5e1e6972/captures",
+      "error": null,
+      "measured": {
+        "sha": "f73702d7a009088a",
+        "crash": "0",
+        "frames": "4056",
+        "refset_steps": "8",
+        "refset_compared": "8",
+        "refset_replay_run_maxdiff": "0",
+        "refset_replay_diffpx": "0",
+        "refset_qualification_state_bad": "0",
+        "refset_qualification_gate": "254",
+        "refset_qualification_missing": "434",
+        "hdr_chain_frames": "0",
+        "tonemap_draws": "0",
+        "hdr_master_on": "1"
+      }
+    }
+  ]
+}

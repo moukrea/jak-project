@@ -1,91 +1,73 @@
-# Qualification et adoption des références v2
+# Qualification des deux bras d’éclairage
 
 DIRECTIVES v6fca51fe40
 
-Les références historiques restent à leur place. Une capture qualifiable réserve
-une nouvelle racine v2 ; aucune conversion de version ni copie dans `.autoport/refset`
-n'est nécessaire. Le moteur produit les reçus ; `proof_run.sh` produit seul la preuve.
-Les tests autonomes utilisent des fixtures temporaires et ne constituent pas une preuve jeu.
+Le contrat actif compare la refonte lighting ON (phase2, HDR tonemappé SDR)
+à lighting OFF (phase3, éclairage par défaut) dans le même build. Recharged
+reste ON dès le démarrage. Textures, modèles HD, herbe, brise et autres options
+hors éclairage restent identiques. Les noms de répertoires acquis restent
+`recharged` et `origine-lumiere`. La phase1/master OFF et la baseline historique
+ne sont plus admissibles à la qualification de cette priorité.
+Les anciens fichiers restent archivés, sans crédit pour ce contrat ; copie du
+contrat précédent : `reports/lighting-census/notes/essai39-lighting-pair/historical-not-validated/`.
 
-## Provenance et état
+## Entrées et recette
 
-Après le build incrémental, `refset_provenance.py seal --root WORKTREE --role
-baseline|candidate --output NEW.json` archive le patch source et les empreintes.
-`verify NEW.json` revérifie les fichiers, le binaire et le patch courant. Le rôle
-baseline exige le worktree historique `a9ea15a69062a57335278db7680cd647df3c1e1d`,
-ses shaders inchangés et les adaptations renderer déjà acquises dans le patch33.
-Un autre binaire arbitraire ne devient donc pas la baseline. Le certificat décrit
-le binaire et les sources disponibles ; il ne démontre pas une compilation reproductible.
+Sceller une seule fois après le build incrémental :
+`python3 .autoport/tools/refset_provenance.py seal --root "$PWD" --role candidate --output /chemin/source.json`.
+Le certificat lie les sources et le binaire disponibles ; il ne démontre pas
+une compilation reproductible. Les outils baseline sont conservés pour archives.
 
-Les lots passent par `refset_campaign.py`, décrit dans `refset_campaign.md`. Ajouter
-aux entrées du lot :
+Utiliser `refset_campaign.py` (documentation `refset_campaign.md`) avec deux
+recettes mono-phase `OG_REFSET_PHASES=2` puis `=3`. Chaque bras est capturé une
+fois puis rejoué une fois. Garder les mêmes vue, heures, bootstrap, pad replay,
+réglages, données et calendrier de chargement. Une séquence `2,3` dans le même
+processus ne démontre pas un état ON/OFF identique à la même frame.
 
-- `OG_REFSET_BUILD_PROVENANCE` : chemin absolu du certificat scellé après build ;
-- `OG_REFSET_QUALIFY_STATE=1`, `OG_REFSET_REQUIRE_LOADED=1` ;
-- `OG_BOOT_REPLAY_REPLAY` : stream existant, frontière `actors-sweep` ;
-- le même pad replay, les réglages et le calendrier de chargement entre les bras.
+Les recettes essai39 dans `reports/lighting-census/notes/essai39-lighting-pair/final/`
+partent de village1-out aux huit heures, bootstrap essai17 déjà acquis et
+`OG_REFSET_LOAD_SETTLE=1200`. `OG_RECHARGED=1`, `OG_HDR=1`,
+`OG_REFSET_QUALIFY_STATE=1` et `OG_REFSET_REQUIRE_LOADED=1` sont communs.
+`OG_HDR=1` reste composé avec le maître lighting : le bras OFF doit rester LDR.
+Les références sont réservées dans une nouvelle racine par capture ; ne jamais
+copier les images entre racines. `--off` désarme le recensement, ce n’est pas
+le bras lighting OFF.
 
-Le stream doit avoir été **consommé en replay** et entièrement vérifié. Le mode
-capture d'un bootstrap ne peut pas attester sa propre reproduction. À chaque cas,
-le moteur associe la chaîne rendue au témoin postdispatch LF ou LF−1 : RNG,
-horloges, identités/états des acteurs observés, réglages PC et caméra/position cible.
-Le témoin canonique est écrit dans `image.png.state.bin`, puis comparé en entier
-au rejeu. C'est une reconstruction observée depuis le démarrage, pas un snapshot
-exhaustif des variables privées, animations et coroutines de tous les acteurs.
-La comparaison indépendante des images complète cette observation partielle.
+## Qualification produite par le moteur
 
-L'adoption exige aussi que chaque racine porte l'empreinte CGO/DGO/FR3 du run
-appelant, recalculée par le producteur. Un manifeste d'anciennes racines ne peut
-donc pas qualifier un autre jeu de ces données. Pour chaque racine, les ensembles
-de ressources consommées doivent être identiques entre capture et replays ; seuls
-les noms de snapshots et checkpoints peuvent varier. Les ressources des deux
-binaires indépendants ne sont pas supposées identiques.
-
-## Lots et cinq rejeux
-
-Un lot conserve son propre calendrier, son bootstrap et ses références : changer
-la sélection des cas change son identité. Les vues supplémentaires gardent leurs
-chemins `supplement-v1`. Les PNG ne se déplacent pas entre sous-plans.
-
-Un lot candidat peut couvrir les trois modes et les huit heures d'une vue ; la
-baseline ne doit couvrir que les cas origine correspondants, aux mêmes frames et
-états. Une recette de démarrage différente exige son propre bootstrap vérifié.
-Les options de caméra de calibrage empêchent la qualification.
-
-Une capture terminée écrit `qualification-capture.json`. Chaque replay écrit un
-reçu neuf `qualification-replays/<RUN_ID>.json`, lié au hash de cette capture.
-Les fichiers d'état, sidecars, témoins binaire, sources et snapshots immuables du
-manifeste des assets consommés restent associés aux reçus. Un identifiant ne peut
-pas être réutilisé pour écraser un run. Les échecs présents sont tous relus.
-
-Cinq noms de lots replay distincts produisent cinq exécutions effectives pour
-chaque racine baseline et candidat. Réutiliser une tentative identique ne crée
-aucun crédit supplémentaire. Une référence, une source ou une entrée modifiée
-invalide les reçus associés ; les tentatives précédentes restent archivées.
-
-## Transition du producteur
-
-`OG_REFSET_QUALIFICATION` désigne un JSON de **chemins**, pas un verdict :
+Le manifeste contient uniquement des chemins :
 
 ```json
-{"version":1,"pairs":[{"baseline":"/racine/baseline-vue","candidate":"/racine/candidat-vue"}]}
+{"version":2,"roots":["/racine/capture-on","/racine/capture-off"]}
 ```
 
-À la fin d'un replay exact, le moteur relit ce manifeste, toutes les pièces et
-tous les reçus. Il compare lui-même les PNG origine baseline/candidat, ainsi que
-leurs états complets enregistrés. Les modes ON et OFF ne sont jamais comparés
-entre eux. L'union doit couvrir les 672 cas de la table livrée : 28 vues, trois
-modes, huit heures, univers des 21 niveaux, au moins quatre intérieurs et ciel
-150..900‰ pour chaque niveau à ciel, mode et heure. Sunkenb reste exigé.
+Chaque capture écrit `qualification-capture.json` ; chaque rejeu écrit un reçu
+neuf dans `qualification-replays/`. Un seul rejeu exact par racine suffit ; tous
+les échecs présents sont relus. Reprendre un succès ne crée pas une exécution.
+Les états reconstruits, sidecars, ressources consommées et sources restent liés
+aux reçus et sont contrôlés par le producteur. Le témoin postdispatch couvre RNG,
+horloges, acteurs observés, réglages PC et caméra ; il n’est pas un snapshot
+exhaustif des variables privées et coroutines de tous les acteurs.
 
-Pièces manquantes : statut `incomplete`, sentinelle254, liste explicite en log.
-Pièce périmée, rejeu divergent ou provenance invalide : sentinelle255. Après
-qualification complète seulement, le moteur écrit un artefact distinct
-`qualification-adoption-*.json` et peut publier `refset_replay_maxdiff=0`.
-Chaque nouvelle exécution revérifie les pièces ; le fichier d'adoption seul ne
-donne aucun crédit. Le marqueur v2 et les références historiques ne sont pas modifiés.
-Les compteurs de couverture déjà existants décrivent le lot courant ; les nouveaux
-compteurs `refset_qualification_*` décrivent la qualification agrégée.
+Chaque paire vue/heure exige la même identité de build/données/entrées/réglages/
+bootstrap, les mêmes frames et les mêmes octets d’état observé. Les options
+`effective_options` sont lues au readback et comparées au rejeu : master ON,
+lighting/temps réel/HDR selon le bras, autres réglages identiques entre bras.
+Le schéma effectif porte exactement `master`, `lighting`, `rt_light`, `hdr`
+et `others` ; `hdr` compose l’activation de chaîne et son format flottant.
+Les ensembles de ressources consommées ON/OFF sont également exigés identiques ;
+les noms des snapshots et checkpoints restent libres. Une invalidité de qualification
+reste 255 dans la porte globale, même si la couverture est partielle.
+L’égalité d’images porte uniquement sur la capture et le rejeu du MÊME bras.
+Aucune égalité d’image n’est exigée entre lighting ON et OFF.
 
-La voie est x86 : aucun résultat Android, aucune validation owner et aucune
-correction du tonemap HDR/SDR ne se déduisent de ces reçus.
+La couverture agrégée reste 448 cas : 28 vues × 2 bras × 8 heures, 21 niveaux,
+au moins quatre intérieurs, ciel 150..900‰ pour chaque niveau à ciel/bras/heure.
+Sunkenb reste exigé. Un manque produit `incomplete`/254 et sa liste ; une pièce
+invalide produit 255. Seule une qualification complète produit une adoption et
+permet `refset_replay_maxdiff=0`. Un lot partiel exact garde la mesure distincte
+`refset_replay_run_maxdiff=0` sans fermer la priorité.
+
+Seul `lib/proof_run.sh` écrit `proof.txt`. Le validateur générique reste inchangé
+et l’orchestrateur le lance. Ni ces reçus x86 ni leurs tests ne valident la qualité
+HDR, Android ou le jugement de l’owner sur les blancs, teintes et hautes lumières.
