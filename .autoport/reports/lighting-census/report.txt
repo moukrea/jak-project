@@ -1,35 +1,35 @@
-NON VALIDÉ : le recensement est corrigé, mais le ciel de sunkenb et les cinq rejeux complets restent non prouvés.
+NON VALIDÉ : lecture OpenGL et protection des références corrigées ; les références complètes et les cinq rejeux exacts restent à établir.
 DIRECTIVES v6fca51fe40
 
-Changements : compteurs des trois jeux ; classification selon le shader (dont ETIE sans éclairage),
-C/E réservés aux hôtes legacy ; huit heures pour chacune des 28 vues, soit 672 étapes.
-La porte census exige couverture complète et cinq rejeux exacts armés de même configuration.
-Le runner reconnaît les compilateurs par nom de processus : le prompt Codex contenant goalc/
-ne bloque plus le lancement. Aucun validateur modifié ou lancé par le worker.
+Changements : capture interne sur GL_COLOR_ATTACHMENT0 ; restauration de chaque tampon
+avec son framebuffer lié. Capture refusée si le répertoire existe, avant toute écriture.
+Le lanceur prépare un candidat neuf, accepte REFSET_DIR et propage un échec de capture.
+Aucun shader, cadrage, seuil ni validateur changé ; aucune origine remplacée.
 
-Preuve fraîche x86, lib/proof_run.sh, course armée de 180 s :
-sha=5eeed592dba35c6b
+Huit lignes recopiées de proof.txt, produit par lib/proof_run.sh (180 s demandées) :
+sha=bccef39f94505979
 crash=0
-frames=10320
+frames=9823
+FEATURE lighting-census armed=1 hits=4896959
 light_census_residual=0
 light_census_rb_mismatch=0
-lc_orig_light_un=1282703
 refset_census_replay_runs=0
 refset_replay_maxdiff=254
 
-La preuve porte 4 374 701 draws, 12 720 relectures d’uniformes, gpu_ms_buckets=7.4994.
-47/672 étapes comparées ; 254 est la sentinelle de plan incomplet, pas un écart de couleur.
-Build incrémental final réussi ; cinq tests ciblés du runner réussis.
-Ablation 120 s : crash=0, frames=6836, FEATURE lighting-census armed=0 hits=0.
-572 empreintes de fichiers de référence vérifiées inchangées (notes/references-essai7.sha256).
-
-Historique explicitement distinct : dernière capture complète, 564 images, 21 niveaux,
-13 vues intérieures, refset_sky_missing=8 (sunkenb à chacune des huit heures).
-Le plan neuf demande 108 étapes supplémentaires à établir : 100 fichiers absents,
-8 fichiers déjà présents mais extérieurs à cette dernière capture, donc non qualifiés.
-Owner : aucun verdict visuel sollicité pour cet instrument ; qualité de l’éclairage non évaluée.
-non prouvé : ciel de sunkenb ≥15 %, références du plan complet, cinq rejeux exacts,
-bit-identité des deux origines à l’exécution, absence de régression sur tous les niveaux.
-Anomalies conservées : GL_INVALID_OPERATION sur glReadBuffer et clipboard non-Windows dans le log moteur.
-Le constructeur a enregistré les quatre fichiers moteur dans son checkpoint 0a589b258c après les preuves.
-La première course a été interrompue à 106 s pour corriger ETIE ; trace archivée dans notes/.
+Build incrémental gk réussi ; garde npc-flicker : 47 propriétés tenues dans le log de build.
+Preuve : 4 139 021 draws ; temps GPU buckets 7,3552 ms ; phase ORIGINE-LUMIÈRE active.
+44/672 comparaisons publiées ; 45 dans le journal, maximum réel 255 pour chacun des trois jeux.
+254 désigne le plan incomplet ; les comparaisons brutes sont déjà différentes.
+Zéro ligne glReadBuffer dans le journal neuf ; refus du répertoire existant exécuté, code 1.
+575 empreintes inchangées : 572 PNG et 3 témoins. Lanceur vérifié par bash -n seulement.
+Historique conservé : capture de 564 étapes, 21 niveaux, 13 intérieurs, huit manques ciel sunkenb.
+Le moteur énumère 21 jouables ; le 22e du contrat reste non identifié dans ce recensement.
+La preuve courte neuve couvre seulement deux niveaux et un intérieur ; elle ne revalide pas cet historique.
+Le plan ajoute 108 étapes : 100 PNG absents, huit anciens hors dernière capture, non qualifiés.
+Les écarts legacy sont déjà reproduits dans deux courses essai7 ; leur cause reste inconnue.
+À 60 frames/s, le plan actuel demande au moins 38 min par tour ; accélération exacte non établie.
+Owner : aucun verdict visuel demandé pour cet instrument ; qualité de l'éclairage non évaluée.
+non prouvé : couverture complète et ciel sunkenb ≥15 %, cinq rejeux exacts, bit-identité
+des deux origines, absence de régression tous niveaux, capture exécutée vers une destination neuve.
+Le constructeur a checkpointé le moteur dans cdfe2b997c ; PID 2541075 repris après la preuve.
+Rapport de tests et diagnostic dans notes/ ; handoff actualisé. Validateur laissé à l'orchestrateur.

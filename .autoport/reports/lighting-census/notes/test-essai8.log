@@ -1,0 +1,8 @@
+BUILD_RC=0
+bccef39f945059799541dc041f8c099530554fc9837007825fffd8ca17924ab4  build/game/gk
+CAPTURE_EXISTING_RC=1
+REFSET capture refused dir=.autoport/refset operation=reserve-root error=already exists; OG_REFSET_DIR must name a new directory
+PROOF_START=2026-09-07T10:12:38Z
+PROOF_RC=0
+REFERENCES_CHECK_RC=0
+REFERENCES_MANIFEST_CMP_RC=0

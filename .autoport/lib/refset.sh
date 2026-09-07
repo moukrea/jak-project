@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# refset.sh — LE JEU D'IMAGES DE REFERENCE A DEUX BRANCHES (SPEC-refonte-lumiere.md §7.3).
+# refset.sh — LES TROIS JEUX D'IMAGES DE REFERENCE (SPEC-refonte-lumiere.md §7.3).
 #
 # CE QUE C'EST. Une course x86 deterministe qui, depuis un point de reprise nomme, parcourt
-# DEUX jeux (ORIGINE = `recharged_master` OFF, RECHARGED = master ON + prereglage fige) x HUIT
+# TROIS jeux (ORIGINE-TOTAL, ORIGINE-LUMIERE, RECHARGED) x HUIT
 # creneaux horaires, et pour chacun relit le tampon de couleur a une resolution FIXE.
 # LE NIVEAU EST CHARGE AVANT LE WARP, PAS PENDANT. Les defauts des deux crochets valent 900
 # ticks tous les deux : le chargement de `village1` et le `(start 'play ...)` partaient donc
@@ -26,7 +26,7 @@
 # On la rend impossible au POINT DE PRODUCTION : la variable existe avant le premier octet
 # execute. La premiere etape du plan est ORIGINE (master OFF), donc la valeur posee ici est
 # exactement celle que le plan demande.
-#   capture : ecrit les references dans .autoport/refset/{origine,recharged}/hHH.png
+#   capture : prepare un nouveau candidat dans .autoport/refset-candidates/ ; jamais adopte ici
 #   replay  : recompare et laisse le MOTEUR publier `refset_replay_maxdiff` / `refset_replay_diffpx`
 #
 # QUAND LE REJOUER. A la fermeture de CHAQUE item de la refonte de l'eclairage :
@@ -49,11 +49,19 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 
 MODE="${1:-replay}"
 case "$MODE" in capture|replay) ;; *) echo "usage: $0 <capture|replay> [timeout_s]" >&2; exit 2 ;; esac
-# LA TOURNEE COMPLETE DURE ~15 MIN, PAS 6. 26 vantages x 3 jeux, 174 etapes, et 26 arrivees qui
-# paient chacune un chargement de niveau : 26*900 + 148*180 = 50040 frames de LOGIQUE, soit
-# ~850 s a 60 img/s. Le defaut de 360 s coupait la course au 7e vantage, et une course coupee
-# rend 254 — pas une mesure. `OG_REFSET_VANTAGES=legacy` (voir refset.cpp) restreint la tournee
-# au vantage historique pour les items qui ont ete valides sur lui.
+# Le moteur reserve lui-meme la destination de capture et refuse tout repertoire existant.
+# REFSET_DIR permet de choisir un candidat ou de rejouer celui-ci sans remplacer les origines.
+if [ "$MODE" = capture ]; then
+  mkdir -p .autoport/refset-candidates || exit 3
+  LOG=$(mktemp .autoport/refset-candidates/capture-XXXXXXXX.log) || exit 3
+  DIR="${REFSET_DIR:-${LOG%.log}}"
+else
+  DIR="${REFSET_DIR:-.autoport/refset}"
+  LOG=".autoport/refset/refset-replay.log"
+fi
+# Le plan complet compte 28 vues x 8 heures x 3 jeux : au moins 38 min a 60 frames/s
+# avec les attentes actuelles. Ce timeout est un plafond ; son expiration sans REFSET done
+# est un echec. `REFSET_VANTAGES=legacy` reserve le sous-plan historique aux items concernes.
 TIMEOUT="${2:-1500}"
 
 BIN=build/game/gk
@@ -91,7 +99,6 @@ open(sys.argv[1], 'wb').write(b'OGPADRP1' + struct.pack('<IIII', 2, 6, 0x0AD1234
 PY
 fi
 
-LOG=".autoport/refset/refset-$MODE.log"
 export DISPLAY="${DISPLAY:-:0}"
 if [ -z "${XAUTHORITY:-}" ]; then
   for x in /run/user/"$(id -u)"/.mutter-Xwaylandauth.*; do [ -e "$x" ] && export XAUTHORITY="$x"; done
@@ -111,10 +118,10 @@ ARMED=1; [ "$MODE" = capture ] && ARMED=0
 # timeout redevient ce qu'il doit etre : un filet, pas la duree de la course.
 # `kill` PAR PID EXACT, jamais par motif (DIRECTIVES) : le PID est celui du `timeout`, qui
 # transmet le signal a son `gk`.
-echo "[refset] $MODE (plafond ${TIMEOUT}s, census armed=$ARMED) -> $LOG" >&2
+echo "[refset] $MODE dir=$DIR (plafond ${TIMEOUT}s, census armed=$ARMED) -> $LOG" >&2
 stdbuf -oL -eL env \
   OG_REFSET="$MODE" \
-  OG_REFSET_DIR=.autoport/refset \
+  OG_REFSET_DIR="$DIR" \
   OG_RECHARGED=0 OG_RT_LIGHT=0 \
   OG_LEVEL_WARP=village1-hut \
   OG_LEVEL_WARP_POS="-116 14 40" \
@@ -167,4 +174,4 @@ if [ "$MODE" = replay ]; then
   echo "[refset] refset_replay_maxdiff=${MD:-absent} (gk sorti en $rc)" >&2
   [ "${MD:-1}" = 0 ] || exit 1
 fi
-exit 0
+exit "$rc"
