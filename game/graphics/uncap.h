@@ -102,23 +102,17 @@ void on_render_frame();
 //     EXACTEMENT l'entree de la liste a cet index. Un curseur, qui ne pousse rien, rend
 //     `choices_n = 0` : le defaut se voit sans avoir a regarder l'ecran.
 //
-// (b) `uncap_ceiling_hz` : LE PLAFOND REELLEMENT ATTEINT, et QUI le pose. L'owner mesure
-//     90 img/s constant avec la consigne a 240. Trois grandeurs suffisent a nommer le
-//     coupable, et aucune ne se deduit des deux autres :
-//       `uncap_panel_hz`      le rafraichissement du panneau, tel que SDL le declare ;
-//       `uncap_cap_fps_x100`  le plafond que le limiteur a recu ;
-//       `uncap_ceiling_hz`    la cadence de PRESENTATION soutenue la plus haute, comptee sur
-//                             les SWAPS (`note_present`) et pas sur la boucle EE — les deux
-//                             ne sont 1:1 que dans le mode serialise d'android_gfx.
-//     Ce qui plafonnait chez nous est nomme et retire : `SDL_GL_SetSwapInterval(1)` etait
-//     appele UNE fois a l'initialisation du renderer Android et plus jamais, et
-//     `Gfx::g_global_settings.vsync` n'etait relu par personne sur l'appareil (le seul
-//     pousseur, pipelines/opengl.cpp, n'est pas dans android/CMakeLists.txt). Un swap en FIFO
-//     sur un panneau 90 Hz rend 90 img/s quoi qu'on demande. `desired_swap_interval()` est
-//     desormais LE seul endroit qui decide de cet intervalle, sur les deux plateformes.
-//     Ce qui reste hors de notre code est PUBLIE, pas maquille : sur le Redmi le vote
-//     `PRIORITY_USER_SETTING_PEAK_REFRESH_RATE` du DisplayManager borne SurfaceFlinger a
-//     90 Hz et le panneau n'a qu'un mode 60 Hz.
+// (b) `uncap_ceiling_hz` : debit maximal des retours de swap sur une fenetre de 5 s.
+//     Il mesure les soumissions, pas les images retenues par la composition Android ni
+//     le balayage physique. La cause des 90 img/s observes sur l'Honor reste a mesurer.
+//     Le cap, le panneau et les intervalles voulu/applique sont memorises avec le maximum,
+//     ainsi que la moyenne des echantillons `measured_frame_busy_ms` de cette fenetre.
+//     `uncap_busy_hz_x100` derive de cette moyenne, pas de l'EMA d'une scene ulterieure.
+//     Une variation des parametres observee dans la fenetre interdit son attribution.
+//     Les metriques `uncap_ceiling_*` publient le contexte du maximum ; `uncap_panel_hz`
+//     et `uncap_swap_interval_*` restent le contexte courant.
+//     Android appliquait l'intervalle 1 seulement a l'initialisation. Le relire permet de
+//     demander l'intervalle 0 ; cette demande ne garantit pas une composition a 240 Hz.
 //
 // (c) LA CIBLE DE L'ECHELLE DE RENDU DYNAMIQUE SUIT LE PLAFOND. « aucun sens de pouvoir le
 //     definir a 60FPS [...] alors qu'on a defini le max fps a 240 ». La borne haute de cette
@@ -127,11 +121,10 @@ void on_render_frame();
 //     fonction alimente la borne de la rangee ET la valeur poussee ici. Le verdict compare
 //     cette valeur au plafond recu : une borne restee a 60 avec un plafond a 240 est rouge.
 //
-// POURQUOI UN VERDICT DE PLUS N'EST PAS UN VERDICT DE PLAFOND. `uncap_v_ceiling` ne dit PAS
-// « on a atteint 240 » — le Redmi ne depasse pas ~44 img/s et une porte qui l'exigerait
-// serait inatteignable ici (voir le bloc des verdicts plus bas). Il dit « la cadence de
-// presentation a ete MESUREE » : zero swap compte, c'est l'instrument qui est mort, et un
-// instrument mort ne doit jamais se lire comme un zero defaut.
+// `uncap_v_ceiling` exige un maximum mesure et une cause attribuee dans sa fenetre :
+// consigne atteinte, debit proche du panneau avec intervalle FIFO applique, ou debit a
+// +/-10 % de l'inverse du temps de travail moyen. Une cause indeterminee reste un defaut.
+// Cette attribution des soumissions ne mesure pas la composition physique.
 
 // LA LISTE CANONIQUE des choix de cadence, dans l'ordre du menu. La derniere entree est
 // negative : c'est « Illimite ». GOAL tient la meme liste dans le meme ordre, et le verdict
@@ -164,9 +157,9 @@ int desired_swap_interval();
 // Ce que la presentation a REELLEMENT applique (retour de SDL_GL_SetSwapInterval).
 void note_swap_interval_applied(int interval);
 
-// Une image vient d'etre PRESENTEE (swap). A appeler au site du swap, pas dans la boucle EE :
-// `uncap_ceiling_hz` est une cadence de presentation, et les deux ne coincident pas dans le
-// mode `overlap` d'android_gfx.
+// Un appel de swap vient de revenir. A appeler au site du swap, pas dans la boucle EE :
+// `uncap_ceiling_hz` compte ces soumissions, decouplees de l'EE en mode overlap.
+// Le retour ne prouve pas que le compositeur ou le panneau a affiche cette image.
 void note_present();
 
 // LE DIVISEUR DE L'HORLOGE DE SCENE : la cadence a laquelle le gestionnaire de VBlank de

@@ -537,6 +537,11 @@
   (let ((ovr (pc-get-frame-rate-cap-override)))
     (when (and (nonzero? ovr) (!= (the float (frame-rate-snap ovr)) (-> obj display-fps-cap)))
       (set-frame-rate! obj ovr #f)))
+  ;; Normalize saved settings and changes made outside the menu before the controller reads them.
+  (let ((mx (the float (dynscale-target-max obj))))
+    (cond
+      ((< (-> obj dyn-target-fps) 25.0) (set! (-> obj dyn-target-fps) 25.0))
+      ((> (-> obj dyn-target-fps) mx) (set! (-> obj dyn-target-fps) mx))))
   ;; framerate-uncap essai 2 : la synchro poussee est l'INTENTION de l'utilisateur, rien de
   ;; plus. La condition qui etait ici (`>= refresh target-fps`, contournee par 'fullscreen) est
   ;; devenue `uncap::desired_swap_interval()` : un seul ecrivain pour l'intervalle de swap, et

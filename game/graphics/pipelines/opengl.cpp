@@ -979,10 +979,12 @@ void GLDisplay::render() {
     static int s_applied_interval = -2;
     const int want = uncap::desired_swap_interval();
     if (want != s_applied_interval) {
-      s_applied_interval = want;
-      Gfx::g_global_settings.old_vsync = Gfx::g_global_settings.vsync;
-      SDL_GL_SetSwapInterval(want);
-      uncap::note_swap_interval_applied(want);
+      const bool ok = SDL_GL_SetSwapInterval(want);
+      s_applied_interval = ok ? want : -1;
+      if (ok) {
+        Gfx::g_global_settings.old_vsync = Gfx::g_global_settings.vsync;
+      }
+      uncap::note_swap_interval_applied(s_applied_interval);
     }
   }
 

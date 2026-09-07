@@ -132,14 +132,28 @@ struct State {
   u64 win_ticks = 0;
   u64 win_scene_units0 = 0;
   u64 win_presents0 = 0;
+  double win_busy_ms_sum = 0.0;
+  u64 win_busy_samples = 0;
+  double win_cap_fps = 0.0;
+  int win_panel_hz = 0;
+  int win_applied_interval = -1;
+  int win_wanted_interval = -1;
+  bool win_config_stable = true;
 
   // agregats
   u64 windows = 0;
   u64 over_windows = 0;
   double disp_fps_max = 0.0;
-  // LA CADENCE DE PRESENTATION soutenue la plus haute : `uncap_ceiling_hz`. Comptee sur les
-  // SWAPS, sur une fenetre de 5 s — un maximum instantane n'est pas un plafond.
+  // Debit maximal des retours de swap sur 5 s : soumissions, pas composition physique.
   double swap_fps_max = 0.0;
+  u64 swap_max_window = 0;
+  double swap_max_busy_ms = 0.0;
+  u64 swap_max_busy_samples = 0;
+  double swap_max_cap_fps = 0.0;
+  int swap_max_panel_hz = 0;
+  int swap_max_applied_interval = -1;
+  int swap_max_wanted_interval = -1;
+  bool swap_max_config_stable = false;
   u64 presents_total = 0;
   double rate_dev_max = 0.0;
   double scene_dev_max = 0.0;
@@ -202,6 +216,16 @@ void pose_measure(u64* out_value, u64* out_tol) {
   }
 }
 
+void begin_ceiling_window(State& s) {
+  s.win_busy_ms_sum = 0.0;
+  s.win_busy_samples = 0;
+  s.win_cap_fps = cap_fps((double)Gfx::g_global_settings.target_fps);
+  s.win_panel_hz = g_panel_hz.load(std::memory_order_relaxed);
+  s.win_applied_interval = g_swap_interval_applied.load(std::memory_order_relaxed);
+  s.win_wanted_interval = desired_swap_interval();
+  s.win_config_stable = true;
+}
+
 void close_window(State& s) {
   s.windows++;
 
@@ -216,14 +240,22 @@ void close_window(State& s) {
     s.over_windows++;
   }
 
-  // CADENCE DE PRESENTATION : swaps par seconde reelle. C'est `uncap_ceiling_hz` — le plafond
-  // que la machine atteint VRAIMENT, celui que l'owner lit a l'ecran. Distincte de la cadence
-  // de la boucle EE ci-dessus : le mode `overlap` d'android_gfx les decouple.
+  // Retours de swap par seconde reelle. Le mode overlap les decouple de la boucle EE ;
+  // ils ne mesurent ni les images retenues par le compositeur ni le balayage du panneau.
   const u64 presents_now = g_presents.load(std::memory_order_relaxed);
   if (s.win_raw_sec > 0.0 && presents_now >= s.win_presents0) {
     const double swap_fps = (double)(presents_now - s.win_presents0) / s.win_raw_sec;
     if (swap_fps > s.swap_fps_max) {
       s.swap_fps_max = swap_fps;
+      s.swap_max_window = s.windows;
+      s.swap_max_busy_ms =
+          s.win_busy_samples > 0 ? s.win_busy_ms_sum / (double)s.win_busy_samples : 0.0;
+      s.swap_max_busy_samples = s.win_busy_samples;
+      s.swap_max_cap_fps = s.win_cap_fps;
+      s.swap_max_panel_hz = s.win_panel_hz;
+      s.swap_max_applied_interval = s.win_applied_interval;
+      s.swap_max_wanted_interval = s.win_wanted_interval;
+      s.swap_max_config_stable = s.win_config_stable;
     }
   }
   s.presents_total = presents_now;
@@ -261,6 +293,7 @@ void close_window(State& s) {
   s.win_ticks = 0;
   s.win_scene_units0 = units_now;
   s.win_presents0 = presents_now;
+  begin_ceiling_window(s);
 }
 
 void publish(State& s) {
@@ -275,9 +308,10 @@ void publish(State& s) {
   const int panel_hz = g_panel_hz.load(std::memory_order_relaxed);
   const int applied_interval = g_swap_interval_applied.load(std::memory_order_relaxed);
   const int wanted_interval = desired_swap_interval();
-  const double busy_ms = (double)Gfx::g_global_settings.measured_frame_busy_ms;
+  // Moyenne des echantillons existants dans LA fenetre du maximum, jamais l'EMA courante
+  // d'une scene ulterieure. Ce signal mesure le travail CPU du renderer, pas le GPU seul.
+  const double busy_ms = s.swap_max_busy_ms;
   const double busy_hz = busy_ms > 0.0 ? 1000.0 / busy_ms : 0.0;
-  const double cap_now = cap_fps((double)Gfx::g_global_settings.target_fps);
   autoport_proof::publish("uncap_ceiling_hz", (u64)(s.swap_fps_max + 0.5));
   autoport_proof::publish("uncap_ceiling_hz_x100", (u64)(s.swap_fps_max * 100.0 + 0.5));
   autoport_proof::publish("uncap_presents", s.presents_total);
@@ -287,18 +321,36 @@ void publish(State& s) {
   autoport_proof::publish("uncap_swap_interval_wanted", (u64)wanted_interval);
   autoport_proof::publish("uncap_present_mismatch_frames", s.present_mismatch_frames);
   autoport_proof::publish("uncap_busy_hz_x100", (u64)(busy_hz * 100.0 + 0.5));
+  autoport_proof::publish("uncap_ceiling_window", s.swap_max_window);
+  autoport_proof::publish("uncap_ceiling_busy_ms_x100", (u64)(busy_ms * 100.0 + 0.5));
+  autoport_proof::publish("uncap_ceiling_busy_samples", s.swap_max_busy_samples);
+  autoport_proof::publish("uncap_ceiling_config_stable", s.swap_max_config_stable ? 1 : 0);
+  autoport_proof::publish("uncap_ceiling_cap_fps_x100",
+                          (u64)(s.swap_max_cap_fps * 100.0 + 0.5));
+  autoport_proof::publish("uncap_ceiling_panel_hz", (u64)s.swap_max_panel_hz);
+  autoport_proof::publish("uncap_ceiling_swap_interval_applied",
+                          (u64)(s.swap_max_applied_interval < 0 ? 999 : s.swap_max_applied_interval));
+  autoport_proof::publish("uncap_ceiling_swap_interval_wanted",
+                          (u64)(s.swap_max_wanted_interval < 0 ? 999 : s.swap_max_wanted_interval));
   // QUI plafonne. Chaque branche est une COMPARAISON de grandeurs publiees a cote : qui lit le
   // proof refait le raisonnement sans nous croire.
   const char* cause = "indetermine";
-  if (s.presents_total == 0) {
-    cause = "non-mesure-aucun-swap";
-  } else if (cap_now > 0.0 && s.swap_fps_max >= cap_now * 0.98) {
+  bool ceiling_attributed = false;
+  if (s.swap_max_window == 0) {
+    cause = "non-mesure-aucune-fenetre";
+  } else if (!s.swap_max_config_stable) {
+    // Un maximum obtenu pendant un changement de reglage ne permet pas d'attribution.
+  } else if (s.swap_max_cap_fps > 0.0 && s.swap_fps_max >= s.swap_max_cap_fps * 0.98) {
     cause = "la-consigne";  // 240 atteint : c'est le plafond demande qui borne
-  } else if (applied_interval != 0 && panel_hz > 0 &&
-             std::fabs(s.swap_fps_max - (double)panel_hz) <= (double)panel_hz * 0.05) {
+    ceiling_attributed = true;
+  } else if (s.swap_max_applied_interval == 1 && s.swap_max_panel_hz > 0 &&
+             std::fabs(s.swap_fps_max - (double)s.swap_max_panel_hz) <=
+                 (double)s.swap_max_panel_hz * 0.05) {
     cause = "presentation-fifo-sur-le-panneau";
-  } else if (busy_hz > 0.0 && s.swap_fps_max >= busy_hz * 0.90) {
+    ceiling_attributed = true;
+  } else if (busy_hz > 0.0 && std::fabs(s.swap_fps_max - busy_hz) <= busy_hz * 0.10) {
     cause = "temps-de-rendu";
+    ceiling_attributed = true;
   }
   autoport_proof::publish_text("uncap_ceiling_cause", cause);
 
@@ -431,12 +483,10 @@ void publish(State& s) {
   const u64 v_present =
       (s.frames >= 300 && s.present_mismatch_frames <= s.frames / 20) ? 0 : 1;
 
-  // uncap_v_ceiling   (b) LE PLAFOND A ETE MESURE. Ce verdict NE DIT PAS « 240 atteint » : le
-  //                   Redmi ne depasse pas ~44 img/s et une porte qui l'exigerait serait
-  //                   inatteignable sur le seul appareil autorise. Il dit que la cadence de
-  //                   PRESENTATION a ete comptee — zero swap, c'est l'instrument qui est mort,
-  //                   et un instrument mort ne se lit jamais comme un zero defaut.
-  const u64 v_ceiling = (s.presents_total > 0 && s.swap_fps_max > 0.0) ? 0 : 1;
+  // Le maximum doit etre mesure ET attribue avec les grandeurs de cette meme fenetre.
+  // Une cause indeterminee ou une fenetre de transition reste un defaut explicite.
+  const u64 v_ceiling =
+      (s.swap_max_window > 0 && s.swap_fps_max > 0.0 && ceiling_attributed) ? 0 : 1;
 
   autoport_proof::publish("uncap_v_cap", v_cap);
   autoport_proof::publish("uncap_v_windows", v_windows);
@@ -482,12 +532,25 @@ void on_render_frame() {
     s.wall.start();
     s.win_scene_units0 = g_scene_units.load(std::memory_order_relaxed);
     s.win_presents0 = g_presents.load(std::memory_order_relaxed);
+    begin_ceiling_window(s);
     return;
   }
 
   const double dt = s.wall.getSeconds();
   s.wall.start();
   s.frames++;
+
+  const double busy_ms = (double)Gfx::g_global_settings.measured_frame_busy_ms;
+  if (std::isfinite(busy_ms) && busy_ms > 0.0) {
+    s.win_busy_ms_sum += busy_ms;
+    s.win_busy_samples++;
+  }
+  if (s.win_cap_fps != cap_fps((double)Gfx::g_global_settings.target_fps) ||
+      s.win_panel_hz != g_panel_hz.load(std::memory_order_relaxed) ||
+      s.win_applied_interval != g_swap_interval_applied.load(std::memory_order_relaxed) ||
+      s.win_wanted_interval != desired_swap_interval()) {
+    s.win_config_stable = false;
+  }
 
   // TEMPS ADMIS. Une image qui a consomme le plafond de rattrapage a vu son temps reel
   // ecrete par l'horloge : compter ce temps-la dans la fenetre reviendrait a reprocher au
@@ -561,13 +624,13 @@ void set_panel_hz(int hz) {
 
 int desired_swap_interval() {
   // LE SEUL ENDROIT QUI DECIDE. Deux ecrivains pour un intervalle, c'est deux regimes
-  // differents selon la plateforme, et c'est exactement ce qui a produit le plafond a 90 :
-  // Android forcait 1 a l'initialisation et ne relisait plus rien.
+  // differents selon la plateforme. Android forcait 1 a l'initialisation et ne relisait
+  // plus rien ; cela ne prouve pas la cause des 90 Hz observes sur l'Honor de l'owner.
   const double cap = cap_fps((double)Gfx::g_global_settings.target_fps);
   const int panel = g_panel_hz.load(std::memory_order_relaxed);
   if (panel > 0 && cap > (double)panel * kOverFactor) {
     // Le plafond demande depasse ce que le balayage peut rendre : attendre le balayage
-    // PLAFONNERAIT a la cadence du panneau, ce qui est le defaut que l'owner voit.
+    // peut borner les soumissions a la cadence du panneau.
     return 0;
   }
   return Gfx::g_global_settings.vsync ? 1 : 0;
