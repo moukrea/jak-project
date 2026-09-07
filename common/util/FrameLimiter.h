@@ -7,6 +7,7 @@ class FrameLimiter {
   FrameLimiter();
   ~FrameLimiter();
 
+  // Negative target_fps means unlimited: reset the timer and skip all pacing.
   void run(double target_fps, bool experimental_accurate_lag, bool do_sleeps, double engine_time);
 
  private:

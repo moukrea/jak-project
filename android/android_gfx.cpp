@@ -1090,50 +1090,55 @@ u32 vsync() {
     // l'owner decrit a 45 img/s. Sans consigne, rend la cible telle quelle : le binaire de
     // l'owner passe ici a chaque image et ne change pas de comportement.
     double tfps = render_pace::stimulus_fps(uncap::cap_fps((double)Gfx::g_global_settings.target_fps));
-    if (tfps < 1.0) {
-      tfps = 60.0;
-    }
-    const auto period = nanoseconds((long long)(1000000000.0 / tfps));
-    auto now = steady_clock::now();
-    if (s_next.time_since_epoch().count() == 0 || now > s_next + period) {
-      // first call, or we fell behind (a heavy frame): re-anchor, no wait.
-      s_next = now + period;
+    if (tfps < 0) {
+      // Negative target_fps means unlimited; discard the previous deadline.
+      s_next = {};
     } else {
-      // Pace PRECISELY to the absolute deadline s_next, mirroring the smooth desktop
-      // build's FrameLimiter (common/util/FrameLimiter.cpp): coarse-sleep to a ~1.5ms
-      // margin, then BUSY-SPIN the final sliver to the exact deadline.
-      //
-      // Gcamera-smooth: the old code sleep_for()'d the WHOLE remaining time every
-      // frame. Android's sleep_for wakeup granularity (~1-2ms, and it OVERSHOOTS) then
-      // (a) left each present landing 1-2ms off the target -> UNEVEN present cadence
-      // (measured at a held ~60fps: present dt sd 2.85ms, 30% of frames >2ms off, mean
-      // pushed to ~18.5ms == only ~54fps), and (b) the overshoot nudged real_dt over
-      // the k=1 band often enough that ~11% of frames took a k=2 DOUBLE game-time step
-      // -> visible camera "jumps". Because the GL present is 1:1-slaved to this EE
-      // cadence (measured: present dt == EE dt), that jitter is exactly the camera-pan
-      // judder the owner sees "even when the fps is fine", while Jak's slow local
-      // motion hides it. The spin removes the wakeup jitter (present dt sd -> ~0, a
-      // clean 16.67ms / k=1), exactly as the smooth desktop reference does.
-      //
-      // Still a MAX-rate cap ONLY (no forced 30/60 grid, no fps quantization) and the
-      // game clock is still driven by REAL dt in a35_read_ee_timer, so constant
-      // real-time speed is unchanged (a clean 60fps/k=1 advances game-time at the same
-      // real rate the old jittery ~54fps/k-dither did -- the a35 error feedback holds
-      // it). EINTR-robust: the loop reaches the deadline even if the SIGILL
-      // crash-repair handler cuts a sleep short (it just re-computes and re-sleeps).
-      const auto spin_margin = microseconds(1500);
-      for (;;) {
-        now = steady_clock::now();
-        if (now >= s_next || MasterExit != RuntimeExitStatus::RUNNING) {
-          break;
-        }
-        const auto remain = s_next - now;
-        if (remain > spin_margin) {
-          std::this_thread::sleep_for(remain - spin_margin);
-        }
-        // else: re-loop without sleeping -> tight busy-spin for the final <=1.5ms.
+      if (tfps < 1.0) {
+        tfps = 60.0;
       }
-      s_next += period;
+      const auto period = nanoseconds((long long)(1000000000.0 / tfps));
+      auto now = steady_clock::now();
+      if (s_next.time_since_epoch().count() == 0 || now > s_next + period) {
+        // first call, or we fell behind (a heavy frame): re-anchor, no wait.
+        s_next = now + period;
+      } else {
+        // Pace PRECISELY to the absolute deadline s_next, mirroring the smooth desktop
+        // build's FrameLimiter (common/util/FrameLimiter.cpp): coarse-sleep to a ~1.5ms
+        // margin, then BUSY-SPIN the final sliver to the exact deadline.
+        //
+        // Gcamera-smooth: the old code sleep_for()'d the WHOLE remaining time every
+        // frame. Android's sleep_for wakeup granularity (~1-2ms, and it OVERSHOOTS) then
+        // (a) left each present landing 1-2ms off the target -> UNEVEN present cadence
+        // (measured at a held ~60fps: present dt sd 2.85ms, 30% of frames >2ms off, mean
+        // pushed to ~18.5ms == only ~54fps), and (b) the overshoot nudged real_dt over
+        // the k=1 band often enough that ~11% of frames took a k=2 DOUBLE game-time step
+        // -> visible camera "jumps". Because the GL present is 1:1-slaved to this EE
+        // cadence (measured: present dt == EE dt), that jitter is exactly the camera-pan
+        // judder the owner sees "even when the fps is fine", while Jak's slow local
+        // motion hides it. The spin removes the wakeup jitter (present dt sd -> ~0, a
+        // clean 16.67ms / k=1), exactly as the smooth desktop reference does.
+        //
+        // Still a MAX-rate cap ONLY (no forced 30/60 grid, no fps quantization) and the
+        // game clock is still driven by REAL dt in a35_read_ee_timer, so constant
+        // real-time speed is unchanged (a clean 60fps/k=1 advances game-time at the same
+        // real rate the old jittery ~54fps/k-dither did -- the a35 error feedback holds
+        // it). EINTR-robust: the loop reaches the deadline even if the SIGILL
+        // crash-repair handler cuts a sleep short (it just re-computes and re-sleeps).
+        const auto spin_margin = microseconds(1500);
+        for (;;) {
+          now = steady_clock::now();
+          if (now >= s_next || MasterExit != RuntimeExitStatus::RUNNING) {
+            break;
+          }
+          const auto remain = s_next - now;
+          if (remain > spin_margin) {
+            std::this_thread::sleep_for(remain - spin_margin);
+          }
+          // else: re-loop without sleeping -> tight busy-spin for the final <=1.5ms.
+        }
+        s_next += period;
+      }
     }
     // gated cadence diagnostic: prove the cap holds (debug.opengoal.gspeed.measure).
     // Log ONCE every 64 vsync() calls with the correct per-call interval.

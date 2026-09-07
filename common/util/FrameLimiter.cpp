@@ -23,6 +23,11 @@ void FrameLimiter::run(double target_fps,
                        bool experimental_accurate_lag,
                        bool do_sleeps,
                        double engine_time) {
+  if (target_fps < 0) {
+    m_timer.start();
+    return;
+  }
+
   double target_seconds;
   if (experimental_accurate_lag) {
     target_seconds = round_to_nearest_60fps(engine_time);
@@ -59,6 +64,11 @@ void FrameLimiter::run(double target_fps,
                        bool experimental_accurate_lag,
                        bool do_sleeps,
                        double engine_time) {
+  if (target_fps < 0) {
+    m_timer.start();
+    return;
+  }
+
   double target_seconds;
   if (experimental_accurate_lag) {
     target_seconds = round_to_nearest_60fps(engine_time);

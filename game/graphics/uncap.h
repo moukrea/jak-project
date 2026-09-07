@@ -75,10 +75,8 @@
 
 namespace uncap {
 
-// La cadence MAXIMALE que le limiteur d'images doit tenir, en images/s, telle qu'elle doit
-// etre passee au limiteur. Ne rend JAMAIS 0 : « illimite » sort a kUnlimitedFps, une valeur
-// finie assez haute pour qu'aucun limiteur ne morde, parce que les deux limiteurs traitent
-// deja 0 comme « valeur absurde, retombe a 60 ».
+// La cadence maximale a passer au limiteur. Une valeur negative signifie Illimite :
+// les limiteurs n'attendent pas, y compris avec experimental_accurate_lag.
 // `engine_target_fps` est la reference moteur (`Gfx::g_global_settings.target_fps`) : c'est
 // ce qui est rendu quand aucun plafond n'est configure, et c'est aussi ce que rend le bras
 // DESARME de l'ablation — desarme, le debridage n'existe pas.
@@ -162,20 +160,11 @@ void note_swap_interval_applied(int interval);
 // Le retour ne prouve pas que le compositeur ou le panneau a affiche cette image.
 void note_present();
 
-// LE DIVISEUR DE L'HORLOGE DE SCENE : la cadence a laquelle le gestionnaire de VBlank de
-// l'overlord est REELLEMENT appele. Ce n'est pas la meme grandeur sur les deux plateformes, et
-// c'est l'autre moitie — non citee par l'item — de ce qui casse quand on debride :
-//   * Android : un fil DEDIE bat la mesure a `target_fps`, decouple du rendu
-//     (android/android_gfx.cpp, pacer Gd1). Le diviseur est donc `target_fps`.
-//   * Bureau : `Gfx::vsync()` tire le vblank UNE FOIS PAR SWAP (game/graphics/gfx.cpp:145). Le
-//     diviseur est donc la cadence d'AFFICHAGE, c'est-a-dire le plafond du limiteur. Garder
-//     `target_fps` ici ferait avancer l'horloge de scene a 240/60 = QUATRE FOIS le temps reel
-//     des qu'on debride a 240 img/s.
-// Rien ici ne lit la montre : le debit reste une fonction du NOMBRE d'appels au gestionnaire,
-// donc un rejeu deterministe le reste. La faiblesse qui subsiste sur BUREAU est celle d'avant
-// cet item — l'horloge suit la cadence reellement obtenue, pas le temps mural — simplement
-// referencee au plafond au lieu de 60.
-double scene_vblank_hz(double engine_target_fps);
+// Duree de l'intervalle de scene : Android utilise la periode du pacer IOP
+// independant ; bureau utilise le temps monotone entre deux appels, independant
+// du plafond de rendu. A appeler meme hors lecture et pendant la pause.
+// reset=true oublie l'intervalle precedent lors du redemarrage du runtime.
+double scene_vblank_seconds(double engine_target_fps, bool reset = false);
 
 // Le VBlank de l'overlord vient de tirer et a ajoute `units_added` a l'horloge de scene
 // (`gFakeVAGClock`). Appele depuis le fil IOP, donc n'ecrit que des atomiques.

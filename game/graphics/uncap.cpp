@@ -3,6 +3,7 @@
 #include "uncap.h"
 
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 
@@ -61,11 +62,6 @@ constexpr u64 kPoseTolPctX100 = 500;  // 5 % d'un tick, la meme borne exprimee d
 // Les deux modules publient 999999 quand leur condition n'a pas ete exercee. Une absence de
 // mesure doit compter comme un DEFAUT, jamais passer pour un zero.
 constexpr u64 kNoMeasurement = 999999;
-
-// « Illimite » ne peut pas sortir a 0 : les DEUX limiteurs traitent une cible < 1 comme une
-// valeur absurde et retombent a 60 (android_gfx.cpp, FrameLimiter.cpp). On rend donc une
-// valeur finie qu'aucun materiel n'atteint.
-constexpr double kUnlimitedFps = 1000.0;
 
 bool armed() {
   // `armed_for` et pas `armed()` : le harnais qui desarme un AUTRE item ne doit pas
@@ -326,7 +322,7 @@ void publish(State& s) {
   autoport_proof::publish("uncap_ceiling_busy_samples", s.swap_max_busy_samples);
   autoport_proof::publish("uncap_ceiling_config_stable", s.swap_max_config_stable ? 1 : 0);
   autoport_proof::publish("uncap_ceiling_cap_fps_x100",
-                          (u64)(s.swap_max_cap_fps * 100.0 + 0.5));
+                          (u64)(s.swap_max_cap_fps > 0.0 ? s.swap_max_cap_fps * 100.0 + 0.5 : 0.0));
   autoport_proof::publish("uncap_ceiling_panel_hz", (u64)s.swap_max_panel_hz);
   autoport_proof::publish("uncap_ceiling_swap_interval_applied",
                           (u64)(s.swap_max_applied_interval < 0 ? 999 : s.swap_max_applied_interval));
@@ -374,9 +370,10 @@ void publish(State& s) {
   // limiteur a reellement recu. Les confondre etait exactement le defaut.
   autoport_proof::publish("uncap_target_fps_x100",
                           (u64)((double)Gfx::g_global_settings.target_fps * 100.0 + 0.5));
-  autoport_proof::publish(
-      "uncap_cap_fps_x100",
-      (u64)(cap_fps((double)Gfx::g_global_settings.target_fps) * 100.0 + 0.5));
+  // Les compteurs sont non signes : 0 signifie absence de plafond logiciel.
+  const double effective_cap = cap_fps((double)Gfx::g_global_settings.target_fps);
+  autoport_proof::publish("uncap_cap_fps_x100",
+                          (u64)(effective_cap > 0.0 ? effective_cap * 100.0 + 0.5 : 0.0));
   autoport_proof::publish("uncap_cap_setting_x100",
                           (u64)(std::fabs((double)Gfx::g_global_settings.display_fps_cap) * 100.0 +
                                 0.5));
@@ -434,7 +431,8 @@ void publish(State& s) {
   const u64 regime_entered = s.over_windows > 0 ? 1 : 0;
   const double cap = cap_fps((double)Gfx::g_global_settings.target_fps);
   const double reference = (double)Gfx::g_global_settings.target_fps;
-  const u64 v_cap = (reference > 0.0 && cap > reference * kOverFactor) ? 0 : 1;
+  const u64 v_cap =
+      (reference > 0.0 && (cap < 0.0 || cap > reference * kOverFactor)) ? 0 : 1;
   autoport_proof::publish("uncap_regime_entered", regime_entered);
   const u64 v_windows = enough ? 0 : 1;
   const u64 v_tick_rate =
@@ -514,7 +512,7 @@ double cap_fps(double engine_target_fps) {
     cap = (double)Gfx::g_global_settings.display_fps_cap;
   }
   if (cap < 0.0) {
-    return kUnlimitedFps;  // illimite
+    return -1.0;  // sentinelle : les limiteurs sautent toute attente
   }
   if (cap <= 0.0) {
     return engine_target_fps;  // aucun plafond configure : comportement d'origine
@@ -628,7 +626,7 @@ int desired_swap_interval() {
   // plus rien ; cela ne prouve pas la cause des 90 Hz observes sur l'Honor de l'owner.
   const double cap = cap_fps((double)Gfx::g_global_settings.target_fps);
   const int panel = g_panel_hz.load(std::memory_order_relaxed);
-  if (panel > 0 && cap > (double)panel * kOverFactor) {
+  if (cap < 0.0 || (panel > 0 && cap > (double)panel * kOverFactor)) {
     // Le plafond demande depasse ce que le balayage peut rendre : attendre le balayage
     // peut borner les soumissions a la cadence du panneau.
     return 0;
@@ -644,15 +642,27 @@ void note_present() {
   g_presents.fetch_add(1, std::memory_order_relaxed);
 }
 
-double scene_vblank_hz(double engine_target_fps) {
+double scene_vblank_seconds(double engine_target_fps, bool reset) {
 #ifdef __ANDROID__
-  // Le pacer bat a `target_fps` sur sa propre montre, quoi que fasse le rendu.
-  const double hz = engine_target_fps;
+  // Le pacer Android reste independant du rendu et bat a la reference moteur.
+  return reset ? 0.0 : 1.0 / (engine_target_fps > 0.0 ? engine_target_fps : 60.0);
 #else
-  // Un vblank par swap : la cadence des appels est celle que le limiteur tient.
-  const double hz = cap_fps(engine_target_fps);
+  // Le bureau appelle le vblank depuis la boucle de rendu. Une consigne, surtout
+  // Illimite, ne decrit pas le temps ecoule entre deux appels. Echantillonner meme
+  // hors lecture et pendant la pause evite d'accumuler ce temps a la reprise.
+  using Clock = std::chrono::steady_clock;
+  const auto now = Clock::now();
+  static Clock::time_point previous{};
+  if (reset) {
+    previous = {};
+    return 0.0;
+  }
+  const double elapsed = previous == Clock::time_point{}
+                             ? 0.0
+                             : std::chrono::duration<double>(now - previous).count();
+  previous = now;
+  return elapsed;
 #endif
-  return hz > 0.0 ? hz : 60.0;
 }
 
 void on_scene_vblank(s32 units_added) {
