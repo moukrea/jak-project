@@ -1002,6 +1002,18 @@ void measure_step(const Step& step, int64_t cap_lf, const uint8_t* px, int w, in
     g_stats[phase][hi] = st;
   }
   if (autoport_proof::feature_is("lighting-hdr")) {
+    // A loaded level is insufficient when the captured frame is a fade or an
+    // achromatic loading screen. Keep its raw statistics, but never let it supply
+    // a lighting comparison. This does not qualify other frames as representative.
+    const bool black = st.luma_quantiles[3] <= 2;
+    const bool achromatic = std::all_of(std::begin(st.hue_bins), std::end(st.hue_bins),
+                                      [](uint64_t count) { return count == 0; });
+    if (black || achromatic) {
+      st.measured = false;
+      std::printf("REFSET lighting sample rejected view=%s hour=%d phase=%d reason=%s\n",
+                  vantage_of(step).id[0] ? vantage_of(step).id : "legacy", hour, phase,
+                  black ? "black" : "achromatic");
+    }
     st.levels = g_frame_levels;
     g_hdr_stats[{step.vant, phase, hour}] = st;
     publish_hdr_step(step, st);

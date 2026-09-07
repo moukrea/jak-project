@@ -67,6 +67,215 @@ extern "C" unsigned long long gk_a37_malformed_buckets_total() {
 namespace {
 constexpr const char* kLogTag = "opengoal-gk";
 
+// One request belongs to one render() invocation, including failure/exception paths.
+// The GL thread carries it from arm (before buckets) to the final composite readback.
+struct RefsetChainCapture {
+  bool requested = false;
+  char name[96] = {};
+  int width = 0;
+  int height = 0;
+};
+thread_local RefsetChainCapture g_refset_chain_capture;
+
+struct RefsetChainCaptureScope {
+  RefsetChainCaptureScope() {
+    g_refset_chain_capture = {};
+    const int64_t logic_frame = android_gfx::logic_frame_of_input_data();
+    auto& capture = g_refset_chain_capture;
+    capture.requested = refset::capture_for_chain(logic_frame, capture.name, sizeof(capture.name),
+                                                  &capture.width, &capture.height);
+  }
+  ~RefsetChainCaptureScope() { g_refset_chain_capture = {}; }
+};
+
+// GLES cannot read GL_DEPTH_COMPONENT with glReadPixels. On requested refset frames only,
+// classify every scene-depth texel into an RGBA8 target, before DEPTH_CUE / the 2D UI.
+// Resources are local to the probe (including its VAO and sampler), so no renderer-owned
+// object state or context-lifetime bookkeeping is changed by this diagnostic pass.
+bool refset_read_scene_depth(const Fbo& src, uint64_t& background) {
+  if (!src.valid || !src.zbuf_stencil_id || !src.zbuf_is_texture || src.multisampled ||
+      src.width <= 0 || src.height <= 0 || (uint64_t)src.width * src.height > 1920 * 1080) {
+    lg::error("[refset] Android scene-depth probe skipped: invalid/unsupported scene depth");
+    return false;
+  }
+  auto gl_ok = [](const char* stage) {
+    bool ok = true;
+    for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) {
+      lg::error("[refset] Android scene-depth probe {}: GL error {}", stage, error);
+      ok = false;
+    }
+    return ok;
+  };
+  if (!gl_ok("before probe")) {
+    return false;
+  }
+  std::vector<uint8_t> pixels((size_t)src.width * src.height * 4);
+  struct ProbeState {
+    GLint read_fbo, draw_fbo, program, vao, active_texture, texture, sampler;
+    GLint pack_buffer, unpack_buffer, pack_alignment, pack_row_length, pack_rows, pack_pixels;
+    GLint viewport[4];
+    GLboolean color_mask[4];
+    const GLenum caps[10] = {
+        GL_BLEND,           GL_DEPTH_TEST,         GL_STENCIL_TEST, GL_SCISSOR_TEST,
+        GL_CULL_FACE,       GL_RASTERIZER_DISCARD, GL_DITHER,       GL_SAMPLE_ALPHA_TO_COVERAGE,
+        GL_SAMPLE_COVERAGE, GL_SAMPLE_MASK};
+    GLboolean enabled[10];
+    GLuint fbo = 0, color = 0, probe_vao = 0, probe_sampler = 0;
+    GLuint vertex = 0, fragment = 0, probe_program = 0;
+    ProbeState() {
+      glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fbo);
+      glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fbo);
+      glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+      glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+      glGetIntegerv(GL_ACTIVE_TEXTURE, &active_texture);
+      glActiveTexture(GL_TEXTURE0);
+      glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+      glGetIntegerv(GL_SAMPLER_BINDING, &sampler);
+      glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &pack_buffer);
+      glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &unpack_buffer);
+      glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
+      glGetIntegerv(GL_PACK_ROW_LENGTH, &pack_row_length);
+      glGetIntegerv(GL_PACK_SKIP_ROWS, &pack_rows);
+      glGetIntegerv(GL_PACK_SKIP_PIXELS, &pack_pixels);
+      glGetIntegerv(GL_VIEWPORT, viewport);
+      glGetBooleanv(GL_COLOR_WRITEMASK, color_mask);
+      for (int i = 0; i < 10; ++i) {
+        enabled[i] = glIsEnabled(caps[i]);
+      }
+    }
+    ~ProbeState() {
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_fbo);
+      glUseProgram(program);
+      glBindVertexArray(vao);
+      glBindTexture(GL_TEXTURE_2D, texture);
+      glBindSampler(0, sampler);
+      glActiveTexture(active_texture);
+      glBindBuffer(GL_PIXEL_PACK_BUFFER, pack_buffer);
+      glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpack_buffer);
+      glPixelStorei(GL_PACK_ALIGNMENT, pack_alignment);
+      glPixelStorei(GL_PACK_ROW_LENGTH, pack_row_length);
+      glPixelStorei(GL_PACK_SKIP_ROWS, pack_rows);
+      glPixelStorei(GL_PACK_SKIP_PIXELS, pack_pixels);
+      glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+      glColorMask(color_mask[0], color_mask[1], color_mask[2], color_mask[3]);
+      for (int i = 0; i < 10; ++i) {
+        if (enabled[i])
+          glEnable(caps[i]);
+        else
+          glDisable(caps[i]);
+      }
+      if (probe_program)
+        glDeleteProgram(probe_program);
+      if (vertex)
+        glDeleteShader(vertex);
+      if (fragment)
+        glDeleteShader(fragment);
+      glDeleteFramebuffers(1, &fbo);
+      glDeleteTextures(1, &color);
+      glDeleteVertexArrays(1, &probe_vao);
+      glDeleteSamplers(1, &probe_sampler);
+    }
+  };
+  {
+    ProbeState state;
+    auto compile = [](GLenum type, const char* source) {
+      GLuint shader = glCreateShader(type);
+      if (!shader)
+        return GLuint(0);
+      glShaderSource(shader, 1, &source, nullptr);
+      glCompileShader(shader);
+      GLint ok = GL_FALSE;
+      glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+      if (!ok) {
+        char log[1024] = {};
+        glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
+        lg::error("[refset] Android scene-depth shader compile failed: {}", log);
+        glDeleteShader(shader);
+        return GLuint(0);
+      }
+      return shader;
+    };
+    state.vertex = compile(GL_VERTEX_SHADER, R"(#version 300 es
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+})");
+    state.fragment = compile(GL_FRAGMENT_SHADER, R"(#version 300 es
+precision highp float;
+uniform highp sampler2D scene_depth;
+layout(location = 0) out vec4 mask;
+void main() {
+  float d = texelFetch(scene_depth, ivec2(gl_FragCoord.xy), 0).r;
+  // PS2 reverse Z: the far/sky threshold is identical to the desktop refset probe.
+  mask = vec4(d <= 1e-6 ? 1.0 : 0.0, 0.0, 0.0, 1.0);
+})");
+    if (!state.vertex || !state.fragment) {
+      lg::error("[refset] Android scene-depth probe skipped: shader unavailable");
+      return false;
+    }
+    state.probe_program = glCreateProgram();
+    glAttachShader(state.probe_program, state.vertex);
+    glAttachShader(state.probe_program, state.fragment);
+    glLinkProgram(state.probe_program);
+    GLint linked = GL_FALSE;
+    glGetProgramiv(state.probe_program, GL_LINK_STATUS, &linked);
+    if (!linked) {
+      char log[1024] = {};
+      glGetProgramInfoLog(state.probe_program, sizeof(log), nullptr, log);
+      lg::error("[refset] Android scene-depth program link failed: {}", log);
+      return false;
+    }
+    glGenTextures(1, &state.color);
+    glBindTexture(GL_TEXTURE_2D, state.color);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, src.width, src.height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenFramebuffers(1, &state.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, state.fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, state.color, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      lg::error("[refset] Android scene-depth probe skipped: mask FBO incomplete");
+      return false;
+    }
+    glGenSamplers(1, &state.probe_sampler);
+    glSamplerParameteri(state.probe_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glSamplerParameteri(state.probe_sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glSamplerParameteri(state.probe_sampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+    glBindSampler(0, state.probe_sampler);
+    glBindTexture(GL_TEXTURE_2D, *src.zbuf_stencil_id);
+    glGenVertexArrays(1, &state.probe_vao);
+    glBindVertexArray(state.probe_vao);
+    glUseProgram(state.probe_program);
+    glUniform1i(glGetUniformLocation(state.probe_program, "scene_depth"), 0);
+    glViewport(0, 0, src.width, src.height);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    for (GLenum cap : state.caps)
+      glDisable(cap);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+    glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    if (!gl_ok("mask draw"))
+      return false;
+    glReadPixels(0, 0, src.width, src.height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    if (!gl_ok("mask readback"))
+      return false;
+  }
+  if (!gl_ok("state restore"))
+    return false;
+  background = 0;
+  for (size_t i = 0; i < pixels.size(); i += 4) {
+    if (pixels[i] == 255)
+      ++background;
+  }
+  return true;
+}
+
 // Identical to the desktop make_fbo (OpenGLRenderer.cpp), msaa stripped:
 // the Android skeleton always renders single-sampled.
 // lighting-hdr : meme contrat que le make_fbo du bureau — `color_format` par defaut a GL_RGBA8
@@ -925,6 +1134,7 @@ u32 AndroidOpenGLRenderer::count_chain_bytes(DmaFollower dma) {
 }
 
 void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& settings) {
+  RefsetChainCaptureScope refset_capture_scope;
   m_profiler.clear();
   // Gloadgate-crash-regression (owner 2026-08-30) — LE CORRECTIF D'A-COUPS D1/D5 NE TOURNAIT PAS
   // SUR L'APPAREIL DE L'OWNER, ET C'EST CE QU'IL DECRIT PAR « l'animation freeze ».
@@ -1195,11 +1405,12 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   m_stats.fbo_h = fbo_h;
 
   // Grecharged-ambient-occlusion: AO samples scene depth, which requires the render
-  // FBO's depth attachment to be a TEXTURE. When AO is OFF this is false and
+  // FBO's depth attachment to be a TEXTURE. The refset probe also samples it.
+  // With both AO and refset OFF this is false and
   // a35_make_fbo takes the EXACT stock renderbuffer path -> OFF == stock at the GL
   // level. Live-toggling AO flips want_depth_tex, mismatches the current FBO, and
   // recreates it next frame. (Android render FBO is always single-sampled.)
-  const bool want_depth_tex = AmbientOcclusionPass::effective_mode() != 0;
+  const bool want_depth_tex = AmbientOcclusionPass::effective_mode() != 0 || refset::enabled();
 
   // lighting-hdr : le format du tampon de scene fait partie de son identite (voir Fbo.h).
   const GLenum want_scene_fmt = hdr::scene_color_format();
@@ -1496,6 +1707,27 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     if (bucket_id == (int)jak1::BucketId::DEBUG && m_render_state.begin_2d_ui_pass) {
       m_render_state.begin_2d_ui_pass();
     }
+    // Same census and pre-DEPTH_CUE depth threshold as the desktop refset probe.
+    // This reads the scene attachment, never the final composite / UI depth.
+    if (bucket_id == (int)jak1::BucketId::DEPTH_CUE && refset::wants_level_census()) {
+      auto p = prof.make_scoped_child("refset-scene-probe");
+      if (m_render_state.loader) {
+        for (auto* ld : m_render_state.loader->get_in_use_levels()) {
+          if (ld && ld->level) {
+            refset::note_level_in_use(ld->level->level_name.c_str());
+          }
+        }
+      }
+      if (g_refset_chain_capture.requested && refset::wants_scene_probe()) {
+        const Fbo* src = m_fbo_state.render_fbo;
+        uint64_t background = 0;
+        if (!src) {
+          lg::error("[refset] Android scene-depth probe skipped: no scene FBO");
+        } else if (refset_read_scene_depth(*src, background)) {
+          refset::note_scene_probe(background, (uint64_t)src->width * src->height);
+        }
+      }
+    }
     renderer->render(dma, &m_render_state, bucket_prof);
     {
       extern char gk_f1a_current_bucket[64];
@@ -1716,20 +1948,22 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
 // game/graphics/opengl_renderer/OpenGLRenderer.cpp (chemin capture d'ecran) ; ce fichier-la
 // n'est pas dans le build Android, d'ou ce miroir.
 //
-// INERTE HORS REFSET : quand le module n'est pas arme, le cout total est l'appel a
-// `capture_for_chain` (un test de mode, pas de verrou GL, aucune relecture GPU).
+// INERTE HORS REFSET : render() teste `capture_for_chain` avant les buckets ; ici,
+// seule sa requete pour CETTE chaine autorise la relecture, sans nouvel armement.
 //
 // L'IMAGE EST APPARIEE A UNE FRAME DE LOGIQUE NOMMEE, jamais a « la prochaine image » :
 // `android_gfx::logic_frame_of_input_data()` rend la frame que la chaine EN COURS DE RENDU
 // decrit, figee au ramassage de la chaine (android_gfx.cpp), pas l'horloge courante du fil
 // GOAL — celui-ci simule deja l'image suivante (overlap ON par defaut).
 static void refset_capture_if_step(const Fbo& src, SharedRenderState* render_state) {
-  char name[96] = {0};
-  int rw = 0, rh = 0;
-  if (!refset::capture_for_chain(android_gfx::logic_frame_of_input_data(), name, sizeof(name),
-                                 &rw, &rh)) {
+  const RefsetChainCapture capture = g_refset_chain_capture;
+  // Consume the local request before any possible failure: never retry it on another frame.
+  g_refset_chain_capture = {};
+  if (!capture.requested) {
     return;
   }
+  const char* name = capture.name;
+  const int rw = capture.width, rh = capture.height;
   if (rw <= 0 || rh <= 0 || src.width <= 0 || src.height <= 0 || src.width < rw ||
       src.height < rh) {
     static std::atomic<uint64_t> s_bad_size{0};

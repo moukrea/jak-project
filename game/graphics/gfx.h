@@ -182,9 +182,9 @@ struct GfxGlobalSettings {
   // La rangee de menu qui l'expose est livree par l'item `lighting-presets` (SPEC §6.2).
   bool recharged_hdr = true;
   // Le genou de la courbe « Fidelite » : identite STRICTE en dessous, epaule C1 au-dessus,
-  // asymptote 1,0. 1,0 == ecretage dur (le comportement d'aujourd'hui). 0,90 laisse 90 % de
-  // la plage intacte et rend une gradation aux zones qui s'ecrasaient a blanc plat.
-  float recharged_hdr_knee = 0.90f;
+  // asymptote 1,0. Le genou a 0,95 conserve davantage de contraste dans les valeurs SDR
+  // proches du blanc ; les valeurs HDR restent comprimees par l'epaule rationnelle.
+  float recharged_hdr_knee = 0.95f;
   // 0 = Fidelite (epaule C1, defaut), 1 = Filmique (Khronos PBR Neutral). SPEC §6.2 « Image ».
   int recharged_hdr_curve = 0;
   // Exposition du site de tone map. 1,0 = identite : « direct = 0 reproduit l'original ».
