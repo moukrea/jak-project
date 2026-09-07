@@ -4155,6 +4155,15 @@ items:
       de teinte/saturation c'est du supplément je pense)... De sur Claude Code serait déjà leaps and bounds
       plus loin que toi c'est abusé à quel point je suis déçu. C'est pas demain la veille qu'on passe
       a l'item suivant, je suis encore loin d'avoir un rendu HDR sur écran HDR (ce qui devait venir après)
+  - date: '2026-09-07'
+    text: Attention à distinguer les LUT par niveaux et tonemapping... Car là on tonemap vers SDR pour
+      rendu en mode SDR, mais après on veut aussi bénéficier des LUT quand on aura le rendu HDR possible
+      sur des écrans qui supportent le HDR! Enfin je sais pas si c'est clair c'est un peu au dessus de
+      mon domaine de compétences ! Peut-être que c'est deux choses distinctes , d'ailleurs peut-être que
+      c'est un tout autre chemin, d'ailleurs est-ce que c'est vraiment bénéfique le HDR pour des écrans
+      SDR via tonemapping, est-ce que le HDR est toggleable dans notre refonte parce que ça a probablement
+      un impact sur les perfs de tonemap non ? Bon ça c'est des questions hein, je suis un peu over m'y
+      head là
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4298,6 +4307,15 @@ items:
       en SDR (de la meilleure façon possible pour pas écraser les détails de trop) sauf quand on active
       le HDR (une option en plus?) qui apparaît si l'écran le supporte, idem sur PC/Linux/Android TV,
       etc. Et bien sûr ca pourrait faire partie de l'auto-detection au first start
+  - date: '2026-09-07'
+    text: Attention à distinguer les LUT par niveaux et tonemapping... Car là on tonemap vers SDR pour
+      rendu en mode SDR, mais après on veut aussi bénéficier des LUT quand on aura le rendu HDR possible
+      sur des écrans qui supportent le HDR! Enfin je sais pas si c'est clair c'est un peu au dessus de
+      mon domaine de compétences ! Peut-être que c'est deux choses distinctes , d'ailleurs peut-être que
+      c'est un tout autre chemin, d'ailleurs est-ce que c'est vraiment bénéfique le HDR pour des écrans
+      SDR via tonemapping, est-ce que le HDR est toggleable dans notre refonte parce que ça a probablement
+      un impact sur les perfs de tonemap non ? Bon ça c'est des questions hein, je suis un peu over m'y
+      head là
   supervisor_recovery: true
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
