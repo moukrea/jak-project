@@ -1,0 +1,68 @@
+[0/2] Re-checking globbed directories...
+[1/12] cd /home/emeric/code/jak-project/build/third-party/discord-rpc && /usr/bin/clang-format -i -style=file -fallback-style=none /home/emeric/code/jak-project/third-party/discord-rpc/include/discord_register.h /home/emeric/code/jak-project/third-party/discord-rpc/include/discord_rpc.h /home/emeric/code/jak-project/third-party/discord-rpc/src/backoff.h /home/emeric/code/jak-project/third-party/discord-rpc/src/connection.h /home/emeric/code/jak-project/third-party/discord-rpc/src/connection_unix.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/connection_win.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/discord_register_linux.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/discord_register_win.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/discord_rpc.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/dllmain.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/msg_queue.h /home/emeric/code/jak-project/third-party/discord-rpc/src/rpc_connection.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/rpc_connection.h /home/emeric/code/jak-project/third-party/discord-rpc/src/serialization.cpp /home/emeric/code/jak-project/third-party/discord-rpc/src/serialization.h
+[2/12] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Hfrag.cpp.o
+[3/12] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Shrub.cpp.o
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp: In lambda function:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:384:30: warning: declaration of ‘i’ shadows a previous local [-Wshadow]
+  384 |       auto edge_sq = [&](u32 i, u32 j) {
+      |                          ~~~~^
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Shrub.cpp:238:12: note: shadowed declaration is here
+  238 |     size_t i = 0;
+      |            ^
+[4/12] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/background_common.cpp.o
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/background_common.cpp: In function ‘void first_tfrag_draw_setup(const GoalBackgroundCameraData&, SharedRenderState*, ShaderId)’:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/background_common.cpp:3057:15: warning: declaration of ‘sd’ shadows a previous local [-Wshadow]
+ 3057 |         float sd = -uu / 0.45f;
+      |               ^~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/background_common.cpp:2247:9: note: shadowed declaration is here
+ 2247 |   float sd[3] = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1], -gs.recharged_pbr_shadow[2]};
+      |         ^~
+[5/12] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/TFragment.cpp.o
+[6/12] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/lighting_census.cpp.o
+[7/12] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/background/Tie3.cpp.o
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp: In member function ‘void Tie3::load_from_fr3_data(const LevelData*)’:
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:352:12: warning: declaration of ‘ul’ shadows a previous local [-Wshadow]
+  352 |       auto ul = scoped_prof("load-tree");
+      |            ^~
+/home/emeric/code/jak-project/game/graphics/opengl_renderer/background/Tie3.cpp:275:8: note: shadowed declaration is here
+  275 |   auto ul = scoped_prof("update-load");
+      |        ^~
+[8/12] Building CXX object game/CMakeFiles/runtime.dir/graphics/refset.cpp.o
+/home/emeric/code/jak-project/game/graphics/refset.cpp: In function ‘bool refset::enabled()’:
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1677:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 1677 |       const long v = std::strtol(av, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1629:8: note: shadowed declaration is here
+ 1629 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1686:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 1686 |       const long v = std::strtol(sv, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1629:8: note: shadowed declaration is here
+ 1629 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1821:34: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 1821 |         int a = 0, b = 0, c = 0, d = 0;
+      |                                  ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1659:8: note: shadowed declaration is here
+ 1659 |   char d[512] = {0};
+      |        ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1834:27: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 1834 |         int p = 0, y = 0, d = 0, h = 0;
+      |                           ^
+/home/emeric/code/jak-project/game/graphics/refset.cpp:1659:8: note: shadowed declaration is here
+ 1659 |   char d[512] = {0};
+      |        ^
+[9/12] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/OpenGLRenderer.cpp.o
+In file included from /home/emeric/code/jak-project/game/graphics/opengl_renderer/OpenGLRenderer.cpp:13:
+/home/emeric/code/jak-project/./common/util/rss_census.h: In function ‘void rss_census::mark(const char*)’:
+/home/emeric/code/jak-project/./common/util/rss_census.h:115:34: warning: ‘mallinfo mallinfo()’ is deprecated [-Wdeprecated-declarations]
+  115 |     struct mallinfo mi = mallinfo();
+      |                          ~~~~~~~~^~
+In file included from /home/emeric/code/jak-project/./common/util/rss_census.h:30:
+/usr/include/malloc.h:114:24: note: declared here
+  114 | extern struct mallinfo mallinfo (void) __THROW __MALLOC_DEPRECATED;
+      |                        ^~~~~~~~
+[10/12] Linking CXX static library game/libruntime.a
+[11/12] Linking CXX executable game/gk
+[npc-flicker] garde OK — 47 proprietes tenues

@@ -139,10 +139,13 @@ busy_reason(){
     if [ -n "${p:-}" ] && kill -0 "$p" 2>/dev/null; then echo "deploy-in-progress pid=$p vivant"; return 0; fi
     [ -n "${p:-}" ] && log "verrou $f ignore : pid=$p est mort"
   fi
-  # Motifs entre crochets : un `pgrep -f gradle` se matche LUI-MEME et la boucle ne finit jamais.
-  for pat in '[g]radle' '[n]inja' '[g]oalc' '[c]c1plus'; do
-    if pgrep -f "$pat" >/dev/null 2>&1; then echo "processus $pat en cours"; return 0; fi
+  # Les compilateurs se reconnaissent au nom du processus : le prompt d'un superviseur
+  # peut contenir « goalc/ » dans ses arguments sans qu'aucun compilateur tourne.
+  for pat in '[n]inja(-build)?' '[g]oalc' '[c]c1plus'; do
+    if pgrep -x "$pat" >/dev/null 2>&1; then echo "processus $pat en cours"; return 0; fi
   done
+  # Le lanceur Java porte le nom de l'outil dans ses arguments.
+  if pgrep -f '[g]radle' >/dev/null 2>&1; then echo "processus [g]radle en cours"; return 0; fi
   cgo=out/jak1/iso/GAME.CGO
   if [ -f "$cgo" ]; then
     age=$(( $(date +%s) - $(stat -c %Y "$cgo" 2>/dev/null || echo 0) ))
