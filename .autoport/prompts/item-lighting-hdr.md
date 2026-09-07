@@ -1,9 +1,9 @@
 # Le rendu passe en HDR avec un seul tone map
 
 ## Defaut cite
-- 2026-09-06 : « J'ai l'impression que même avec le Real Time lighting à off on a quand même les blancs brûlés, est ce que tu passe bien par ce paramètre pour gate nos effets ou tu les code en dur en remplaçant le vanilla, alors que la SPEC stipule qu'on peut rester au rendu d'origine si on le veut »
-- 2026-09-07 : « le HDR brûle toujours les blanc de fou ! Je sais pas où tu teste mais le ciel est blanc, off le ciel est clairement coloré, c'est pas bon ! »
-- 2026-09-07 : « Du coup tu es sur les blancs brûlés du HDR hein ? C'est là que Claude Code était... Je crois qu'il était en capture sur tous les niveaux a des heures différentes avec la refonte on/off pour s'assurer que les blanc n'étaient pas brûlés et que ça reste proche du rendu à off (artistic, tout en étant probablement plus riche car ça se fait en HDR maintenant, puis tonemappé pour le rendu final... avant… »
+- 2026-09-07 : « Mais t'es con ou quoi ? L'orchestration, le harnais le framework doit être sous codex ! C'est n'importe quoi ! Il devrait pas être en pause là, tu te fous de ma gueule ! »
+- 2026-09-07 : « Sur la brise ? What the Fuck il était pas sensé bosser sur les blancs brûlés et compagnie ? Comment je retrouve la bonne session du superviseur sous codex du coup ? CTRL+B puis 7 c'est ça ? »
+- 2026-09-07 : « demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte du lighting, commençant par reprendre le HDR/blancs brûlés ! »
 
 ## Cause connue
 Les anciennes references ne montraient presque aucun ciel (village1-hut) : elles ont donne un faux vert malgre les blancs brules. Detail conserve dans notes et SPEC §8 item 2.

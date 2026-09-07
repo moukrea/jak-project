@@ -364,7 +364,7 @@ items:
 - id: framerate-uncap
   feature: Debrider la cadence au-dela de 60 images/s
   status: open
-  priority: 29
+  priority: 991
   game: jak1
   gate:
     key: uncap_defects
@@ -382,25 +382,25 @@ items:
   max_retries: 4
   depends_on:
   - anim-interp-low-fps
+  - lighting-presets
+  - hdr-display-output
   history: []
   prompt: prompts/item-framerate-uncap.md
   owner_ok: null
   where: 'Options : un reglage de cadence qui monte au-dela de 60 (90, 120, illimite) et un jeu qui reste
     correct'
-  deliverable: "`uncap_defects` = 0, preuve sur appareil. Acquis a NE PAS CASSER : la logique recoit 60\
-    \ pas par seconde reelle quelle que soit la cadence affichee, l'horloge des scenes ne derive pas,\
-    \ rien ne s'accelere. TROIS exigences de l'owner s'ajoutent :\n  (a) le reglage devient une LISTE\
-    \ DE CHOIX — 30, 45, 60, 75, 90, 120, 240, Illimite — pas un curseur.\n  (b) `uncap_ceiling_hz` publie\
-    \ le plafond REELLEMENT atteint : l'owner mesure 90 img/s constant a l'ecran d'intro avec la consigne\
-    \ a 240 et tout le reste eteint. Nommer ce qui plafonne (vsync, presentation, composition Android)\
-    \ ou prouver que 240 est atteint.\n  (c) la cible de l'echelle de rendu dynamique s'ADAPTE au plafond\
-    \ choisi : `uncap_dynscale_target_max` suit la cadence maximale, il ne doit plus etre possible de\
-    \ viser 60 quand on a choisi 240."
+  deliverable: |-
+    `uncap_defects` = 0, preuve sur appareil. Acquis a NE PAS CASSER : la logique recoit 60 pas par seconde reelle quelle que soit la cadence affichee, l'horloge des scenes ne derive pas, rien ne s'accelere. TROIS exigences de l'owner s'ajoutent :
+      (a) le reglage devient une LISTE DE CHOIX — 30, 45, 60, 75, 90, 120, 240, Illimite — pas un curseur.
+      (b) `uncap_ceiling_hz` publie le plafond REELLEMENT atteint : l'owner mesure 90 img/s constant a l'ecran d'intro avec la consigne a 240 et tout le reste eteint. Nommer ce qui plafonne (vsync, presentation, composition Android) ou prouver que 240 est atteint.
+      (c) la cible de l'echelle de rendu dynamique s'ADAPTE au plafond choisi : `uncap_dynscale_target_max` suit la cadence maximale, il ne doit plus etre possible de viser 60 quand on a choisi 240.
   known_cause: 'srpc.cpp:491 : `(s32)(1024/target_fps)` — a 120 Hz l''horloge de scene tourne a 93,75
     % du reel. Trouve par cutscene-npc-flicker le 2026-09-05.'
   out_of_scope: Ne touche pas au pas de temps fixe lui-meme, valide par l'owner le 2026-09-05.
   notes: 'Ne du retour owner 2026-09-05 ; il le classe explicitement « un truc a faire plus tard ». Depend
-    des animations lisses aux cadences non entieres. | owner 2026-09-07 : a traiter APRES la chaine d''eclairage.'
+    des animations lisses aux cadences non entieres. | owner 2026-09-07 : a traiter APRES la chaine d''eclairage.
+    | Owner 2026-09-07 : reporte apres TOUTE la refonte lighting ; dependances explicites empechent la
+    selection quand le HDR bloque.'
   owner_feedback:
   - date: '2026-09-05'
     text: on devrait pouvoir unlock le framerate, là ça lock à 60 max alors que ça pourrait ne pas être
@@ -412,6 +412,10 @@ items:
       cible du Dynamic résolution scaling devrait ajuster les options de son slider en fonction du max
       fps, aucun sens de pouvoir le définir a 60FPS sinon a limité les fps à 30, dommage de mettre la
       target à un max de 60 alors qu'on a défini le max fps à 240 !
+  - date: '2026-09-07'
+    text: demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé
+      être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte
+      du lighting, commençant par reprendre le HDR/blancs brûlés !
 - id: grass-overhang
   feature: L'herbe qui retombe par-dessus le bord des plateformes
   status: archived
@@ -439,7 +443,7 @@ items:
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
   status: open
-  priority: 30
+  priority: 990
   owner_feedback:
   - date: '2026-08-06'
     text: le vent d'origine tournait au quart de sa vitesse
@@ -493,6 +497,10 @@ items:
       Village alors que c'est pour tout le jeu que je veux ça ! Et les shrubs/buissons/fleurs... Comme
       l'herbe rechargée ils devraient être influencés par le passage de Jak ! Et écrasés par les caisses/ennemis
       et compagnie, comme l'herbe rechargée !
+  - date: '2026-09-07'
+    text: demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé
+      être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte
+      du lighting, commençant par reprendre le HDR/blancs brûlés !
   gate:
     key: wind_owner_defects_open
     op: ==
@@ -500,7 +508,9 @@ items:
   game: jak1
   max_turns: 800
   max_retries: 6
-  depends_on: []
+  depends_on:
+  - lighting-presets
+  - hdr-display-output
   history:
   - Grecharged-foliage-wind
   - Grecharged-foliage-wind2
@@ -525,21 +535,18 @@ items:
     ni tilt binaire. Le natif est toujours soupconne bugge : comparaison au stock OBLIGATOIRE en premier.
     | owner 2026-09-06 : « n''interromp pas le travail en cours pour autant [...] il sera repris le temps
     voulu » — place APRES la chaine d''eclairage qu''il a demandee, pas en tete. | owner 2026-09-07 :
-    « on fini le lighting d''abord ! » — ne pas remonter cet item devant la chaine d''eclairage.'
+    « on fini le lighting d''abord ! » — ne pas remonter cet item devant la chaine d''eclairage. | Owner
+    2026-09-07 : reporte apres TOUTE la refonte lighting ; dependances explicites empechent la selection
+    quand le HDR bloque.'
   known_cause: 'Deux refus complets de l''owner. Le 03/09 : « on dirait une ondulation bizarre [...] sous
     l''eau ». Le 06/09 : « les feuilles de palmiers meriteraient de bouger plus a leur extremites qu''a
     leur bases [...] ca doit varier en amplitude, distorsion, direction ». Les deux extremes sont refuses
     : ni sinusoide pure, ni basculement sec. Le critere tronc/cime ne jugeait que DEUX points d''un arbre
     entier, d''ou les verdicts 8 et 9.'
-  deliverable: "`wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07\
-    \ (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero\
-    \ paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient\
-    \ pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par\
-    \ l'owner :\n  (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les\
-    \ niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent\
-    \ pas.\n  (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de\
-    \ Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee.\
-    \ Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second."
+  deliverable: |-
+    `wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07 (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par l'owner :
+      (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent pas.
+      (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee. Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second.
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: to-test
@@ -2949,6 +2956,8 @@ items:
   depends_on:
   - recharged-mesh-browser
   - menu-census-cleanup
+  - lighting-presets
+  - hdr-display-output
   history:
   - Grecharged-menu-overhaul
   prompt: prompts/item-recharged-menu-overhaul.md
@@ -3252,7 +3261,9 @@ items:
   game: jak1
   max_turns: 800
   max_retries: 6
-  depends_on: []
+  depends_on:
+  - lighting-presets
+  - hdr-display-output
   history:
   - Grecharged-secondary-motion
   prompt: prompts/item-recharged-secondary-motion.md
@@ -3819,9 +3830,9 @@ items:
   owner_ok: null
   notes: ids bloques presents dans state.json mais absents de milestones.yaml
 - id: lighting-census
-  feature: Savoir quel chemin d'eclairage a dessine chaque pixel, et figer les deux references
+  feature: Fiabiliser les comparaisons ON/OFF pour corriger les blancs HDR
   status: open
-  priority: 16
+  priority: 1
   owner_feedback:
   - date: '2026-09-03'
     text: on a deja implemente du rela time lighting et un support de PBR qu'on a jamais finalise (et
@@ -3840,6 +3851,10 @@ items:
     text: Assures toi de bien tester tous les niveaux qui ont un ciel avec ont bien le ciel visible à
       l'écran, aussi faut tester à différents moment de la journée (sunrise, sunset, noon, night, etc.)
       avec des heures fixes pour être sûr de bien calibrer
+  - date: '2026-09-07'
+    text: demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé
+      être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte
+      du lighting, commençant par reprendre le HDR/blancs brûlés !
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -3853,24 +3868,17 @@ items:
   owner_ok: null
   device: false
   where: null
-  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
-    ce prompt ne repete pas. Cinq composites d''ombrage exclusifs choisis par quatre interrupteurs globaux
-    : personne ne peut dire lequel a dessine un pixel, et aucun item suivant ne peut prouver qu''il n''a
-    rien casse. SPEC 2.3.'
-  deliverable: "L'instrument publie la repartition des draws monde entre les chemins d'ombrage (somme\
-    \ = total) et le temps GPU par passe. Plus TROIS jeux d'images rejouables — ORIGINE-TOTAL (maitre\
-    \ OFF), ORIGINE-LUMIERE (maitre ON, eclairage OFF), RECHARGED — couvrant TOUS les niveaux, exterieurs\
-    \ ET interieurs, aux HUIT HEURES FIXES deja en place (0, 3, 6, 9, 12, 15, 18, 21 h : nuit, lever,\
-    \ midi, coucher).\nPORTES, toutes publiees par le moteur :\n  * `refset_levels` >= 20 des 22 jouables,\
-    \ chaque manquant NOMME avec sa raison ;\n  * `refset_sky_levels` = liste des niveaux qui ONT un ciel,\
-    \ etablie par le moteur et non devinee ;\n  * `refset_sky_missing` = 0 — pour CHAQUE couple (niveau\
-    \ a ciel, heure fixe), le ciel occupe >= 15 % de l'image. Un point de vue qui regarde un mur ne compte\
-    \ pas : c'est ce qui a laisse passer le ciel blanc, les huit vues etaient prises au meme endroit devant\
-    \ une hutte ;\n  * `refset_interior_views` >= 4 ;\n  * `refset_replay_maxdiff` == 0 sur cinq rejeux."
-  out_of_scope: Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et
-    recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais
-    sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
-    Un niveau qui n'existe pas dans le jeu de l'owner (donneur absent) est declare, pas invente.
+  known_cause: 'Essais 7-9 : refset_replay_maxdiff=254 est une sentinelle de couverture/rejeux incomplets,
+    pas la cause. 24 PNG identiques entre essais 8/9 different des origines seulement en x285..315/y13..72.
+    Objet non attribue ; hutlamp reste une hypothese. Le passage 564->672 etapes decale le temps absolu
+    vent/herbe ; 108 references nouvelles restent a etablir. Voir handoff essai9 et notes/journal-essai7.md.'
+  deliverable: |-
+    Corriger le producteur avant de refaire une preuve identique : attribuer programmatiquement la region divergente aux draws/objets, puis corriger sa cause. Stabiliser le temps et l'etat de chaque cas pour que l'ajout d'heures ne decale pas les cas existants. Conserver les origines historiques ; etablir les 108 cas supplementaires separement avec provenance.
+    Livrer les trois jeux ORIGINE-TOTAL, ORIGINE-LUMIERE et RECHARGED, tous les niveaux livres, interieurs/exterieurs, heures 0/3/6/9/12/15/18/21. Garder draws classes et temps GPU. refset_levels>=20 (21 jouables identifies, manquants nommes), refset_interior_views>=4, cinq rejeux exacts, refset_replay_maxdiff=0. refset_sky_levels issu du moteur ; refset_sky_missing=0 avec ciel>=15% par couple niveau/heure. Sunkenb reste manquant tant que sa visibilite n'est pas tranchee par le chemin de rendu : ne pas le retirer sur ses seuls cadrages a zero.
+  out_of_scope: 'SPEC-refonte-lumiere.md §7.3 : deux origines bit-identiques, aucune tolerance ni masque
+    ni recapture pour effacer les ecarts. Preuve via lib/proof_run.sh, jugement generic.sh inchange. Pas
+    de brise, cadence ou nouvelle feature : seuls les correctifs necessaires aux comparaisons HDR. Aucun
+    verdict visuel.'
   notes: 'SPEC prompts/SPEC-refonte-lumiere.md sections 2 et 7.1. Point de vue : village1-hut. | owner
     2026-09-04 : « s''il n''y a rien a tester ne le met pas a tester ». Cet item ne change aucun pixel,
     il pose l''instrument et fige les references : owner_test=false. | promu ''validated'' le 2026-09-06
@@ -3892,6 +3900,7 @@ items:
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
   proof_timeout: 1500
   owner_test: false
+  block_reason: null
 - id: lighting-unify
   feature: Un seul modele d'eclairage au lieu de cinq, sans changer un pixel
   status: validated
@@ -3991,7 +4000,7 @@ items:
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
   status: open
-  priority: 17
+  priority: 2
   owner_feedback:
   - date: '2026-09-06'
     text: J'ai l'impression que même avec le Real Time lighting à off on a quand même les blancs brûlés,
@@ -4011,7 +4020,13 @@ items:
     text: Mais t'es con ou quoi ? L'orchestration, le harnais le framework doit être sous codex ! C'est
       n'importe quoi ! Il devrait pas être en pause là, tu te fous de ma gueule !
   - date: '2026-09-07'
-    text: 'Sur la brise ? What the Fuck il était pas sensé bosser sur les blancs brûlés et compagnie ? Comment je retrouve la bonne session du superviseur sous codex du coup ? CTRL+B puis 7 c''est ça ?'
+    text: Sur la brise ? What the Fuck il était pas sensé bosser sur les blancs brûlés et compagnie ?
+      Comment je retrouve la bonne session du superviseur sous codex du coup ? CTRL+B puis 7 c'est ça
+      ?
+  - date: '2026-09-07'
+    text: demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé
+      être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte
+      du lighting, commençant par reprendre le HDR/blancs brûlés !
   gate:
     key: hdr_tonemap_defects
     op: ==

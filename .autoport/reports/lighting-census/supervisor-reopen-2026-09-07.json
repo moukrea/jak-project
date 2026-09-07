@@ -1,0 +1,15 @@
+{
+  "date": "2026-09-07T11:48:54.530585+00:00",
+  "reason": "Reprise superviseur : diagnostic actuel et dependances de priorite corriges ; aucune porte assouplie.",
+  "previous": {
+    "retries": 6,
+    "fingerprints": [
+      "f7c0b3f7f936",
+      "f7c0b3f7f936",
+      "671b7db38c8b",
+      "671b7db38c8b",
+      "671b7db38c8b"
+    ],
+    "attempt_seq": 9
+  }
+}
