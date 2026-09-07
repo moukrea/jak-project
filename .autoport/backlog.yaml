@@ -3831,8 +3831,8 @@ items:
   notes: ids bloques presents dans state.json mais absents de milestones.yaml
 - id: lighting-census
   feature: Fiabiliser les comparaisons ON/OFF pour corriger les blancs HDR
-  status: open
-  priority: 1
+  status: blocked
+  priority: 900
   owner_feedback:
   - date: '2026-09-03'
     text: on a deja implemente du rela time lighting et un support de PBR qu'on a jamais finalise (et
@@ -3894,6 +3894,17 @@ items:
     text: Et j'ai pas non plus l'impression que tu couvres tous les niveaux non plus d'ailleurs
   - date: '2026-09-07'
     text: En gros du foutage de gueule et de la perte de temps j'ai l'impression
+  - date: '2026-09-07'
+    text: Oui mais du coup la comparaison tu peux faire vite, c'est facile de détecter des blanc brûlés
+      sur ON et OFF, et comparé le delta entre les deux, pas besoin d'un truc exact,.on sait qu'il y aura
+      un petit delta, le but et d'éviter que ce soit trop brûlé et trop différent niveau teinte/saturation/luminosité
+      ! Évidemment qu'il va y avoir une différence entre les deux (plus de détail car calcul en HDR, chemins
+      d'éclairage fusionnés, etc.), faut juste  s'assurer que ça reste dans le thème (artistic intent)
+      et c'est tout ! Imagemagick peut faire ce genre de comparaisons, arrêtes de perdre du temps a trouver
+      comment reproduire l'exact same frame c'est débile, faut bosser ea un moment donner et avancer !
+      Arrêtes de trouver des excuses pour bosser sur de la merde au lieu de faire du vrai taff... Si tu
+      continues je retourne sous Claude Code et je cancel mon abonnement, Claude Code est bien moins teubé
+      tu m'a fait perdre la journée avec tes conneries j'ai envie de te cogner très fort
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -3907,18 +3918,11 @@ items:
   owner_ok: null
   device: false
   where: null
-  known_cause: 'Correction owner : comparaison HDR egaree vers master OFF historique. Isoler la refonte
-    lumiere (phases2/3), master ON et tous les autres effets identiques. Baseline historique/master OFF
-    ne sont plus des prerequis.'
-  deliverable: 'Adapter producteur, qualification et recettes aux DEUX bras du meme build : refonte lighting
-    ON/HDR tonemappe SDR et lighting OFF/eclairage par defaut. Master Recharged ON constant ; textures,
-    modeles HD, herbe, brise et autres options identiques, meme scene/camera/heure/etat. Attester les
-    options effectives : seules les composantes de la refonte eclairage varient. Reutiliser outils acquis.
-    Retirer phase1/master OFF et egalite avec baseline historique des portes de cette priorite ; archiver
-    ces preuves sans les valider. Reproductibilite de chaque bras, aucune egalite imposee ENTRE ON/OFF.
-    Premiere paire exploitable puis poursuivre HDR/blancs, teinte/saturation et details des hautes lumieres.
-    Couvrir21niveaux,8heures,interieurs/exterieurs et vues de ciel ; cas manquants explicites. Preuve
-    via proof_run.sh ; aucun verdict fabrique.'
+  known_cause: Priorite remplacee par correction HDR directe sur instruction owner ; aucune validation
+    de cet item.
+  deliverable: Archive des outils et resultats disponibles ; ne pas reprendre ce chantier comme prerequis
+    du HDR. Owner demande des comparaisons statistiques rapides de vues comparables, pas la meme frame
+    exacte ni cinq rejeux.
   out_of_scope: Aucune correction de textures, modeles HD, herbe, brise ou cadence dans cette priorite.
     Aucun nouveau travail sur master OFF/historique. Ne pas annuler aveuglement les corrections deja commitees.
     Pas de masque ni validation owner. HDR ecran natif ulterieur.
@@ -3957,7 +3961,8 @@ items:
   - OG_WANT_LEVELS=village1,beach
   proof_timeout: 1500
   owner_test: false
-  block_reason: null
+  block_reason: 'Owner : abandon du prerequis de rejeux exacts/qualification exhaustive avant correction
+    HDR. Diagnostic pragmatique et correction poursuivis dans lighting-hdr ; aucun acquis valide.'
   supervisor_recovery: true
   reference_recovery:
     superseded_by_owner: '2026-09-07 : eclairage seul ON/OFF dans le meme build ; abandon du prerequis
@@ -4067,7 +4072,7 @@ items:
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
   status: open
-  priority: 2
+  priority: 1
   owner_feedback:
   - date: '2026-09-06'
     text: J'ai l'impression que même avec le Real Time lighting à off on a quand même les blancs brûlés,
@@ -4124,6 +4129,17 @@ items:
     text: Et j'ai pas non plus l'impression que tu couvres tous les niveaux non plus d'ailleurs
   - date: '2026-09-07'
     text: En gros du foutage de gueule et de la perte de temps j'ai l'impression
+  - date: '2026-09-07'
+    text: Oui mais du coup la comparaison tu peux faire vite, c'est facile de détecter des blanc brûlés
+      sur ON et OFF, et comparé le delta entre les deux, pas besoin d'un truc exact,.on sait qu'il y aura
+      un petit delta, le but et d'éviter que ce soit trop brûlé et trop différent niveau teinte/saturation/luminosité
+      ! Évidemment qu'il va y avoir une différence entre les deux (plus de détail car calcul en HDR, chemins
+      d'éclairage fusionnés, etc.), faut juste  s'assurer que ça reste dans le thème (artistic intent)
+      et c'est tout ! Imagemagick peut faire ce genre de comparaisons, arrêtes de perdre du temps a trouver
+      comment reproduire l'exact same frame c'est débile, faut bosser ea un moment donner et avancer !
+      Arrêtes de trouver des excuses pour bosser sur de la merde au lieu de faire du vrai taff... Si tu
+      continues je retourne sous Claude Code et je cancel mon abonnement, Claude Code est bien moins teubé
+      tu m'a fait perdre la journée avec tes conneries j'ai envie de te cogner très fort
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4133,25 +4149,25 @@ items:
   max_retries: 6
   depends_on:
   - lighting-unify
-  - refset-replay-stable
-  - lighting-origin-bitexact
-  - lighting-census
   history: []
   prompt: prompts/item-lighting-hdr.md
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Les anciennes references ne montraient presque aucun ciel (village1-hut) : elles ont donne
-    un faux vert malgre les blancs brules. Detail conserve dans notes et SPEC §8 item 2.'
-  deliverable: 'Comparer uniquement refonte lighting ON versus OFF dans le meme build, master ON constant,
-    textures/modeles HD/herbe/brise et autres options identiques. Scenes/cameras/heures/etats apparies.
-    Aucun prerequis master OFF ou egalite historique. ON/OFF peuvent differer : teinte/saturation coherentes
-    avec eclairage par defaut, contraste et details plus riches, pas de blancs brules. HDR interne puis
-    tonemap SDR unique ; ecran HDR natif plus tard. Mesurer clipping, teinte/saturation, contraste et
-    details sur tous niveaux interieurs/exterieurs et huit heures. Adapter les anciens verdicts trois
-    configurations au perimetre deux bras eclairage ; ne jamais transformer une absence de mesure en succes.'
-  out_of_scope: Textures, modeles HD, herbe, brise, cadence et comparaison master OFF historique. Sortie
-    ecran HDR native ulterieure. Aucun owner-ok sans parole owner.
+  known_cause: Owner constate ciel et elements clairs toujours brules. Les rejeux exacts ont retarde la
+    correction ; ils ne sont plus un prerequis.
+  deliverable: 'Corriger directement HDR/tonemap SDR. Premier lot court sur scenes claires : ON/OFF eclairage
+    seul, meme build et autres effets identiques, vues/heures comparables sans frame exacte. Mesurer programmatiquement
+    pixels ecretes/blancs et quasi-blancs, distributions luminosite/teinte/saturation et detail hautes
+    lumieres ; outils existants ou ImageMagick via preuve tracee proof_run.sh. Publier valeurs ON/OFF
+    et deltas AVANT, corriger exposition/courbe/chemin lineaire selon cause mesuree, puis APRES sur memes
+    vues. Differences HDR attendues, aucune egalite de pixels exigee. Adapter les verdicts HDR qui dependent
+    encore de bitexact/cinq rejeux/qualification historique : mesurer le defaut reel, jamais forcer un
+    succes. Etendre ensuite tous21niveaux/8heures/interieurs/exterieurs ; couverture explicite, aucun
+    succes global sur lot partiel. Pas attendre couverture exhaustive pour la premiere correction.'
+  out_of_scope: Aucun nouveau travail de frame exacte, cinq rejeux, baseline historique ou qualification
+    census. Aucun jugement visuel LLM. Textures/modeles HD/herbe/brise/cadence identiques ; pas de correction
+    de ces features. Pas de validation owner ; ecran HDR natif ulterieur.
   notes: 'FAUX VERT : la porte mesurait une scene SANS CIEL. Les huit images de chaque jeu de reference
     sont prises au seul point village1-hut, en 320x180 ; le quart superieur y est brun (RGB 137,94,57)
     et porte zero pixel sature. Les cinq verdicts etaient donc verts pendant que le ciel de l''owner brulait.

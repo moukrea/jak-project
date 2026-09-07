@@ -1,15 +1,15 @@
 # Fiabiliser les comparaisons ON/OFF pour corriger les blancs HDR
 
 ## Defaut cite
-- 2026-09-07 : « Heuuu le framework devrait utiliser astra pas spark, spark est bête ! »
-- 2026-09-07 : « avec une distribution intelligente du niveau d'effort comme on fait pour Claude code avec Fable 5.1 et Opus 5 par example »
-- 2026-09-07 : « Attends attends... Le mouvement natif des buissons ? Qu'es-ce que ça vient foutre là ? On parlait du rendu (blancs brûlés, teinte/saturation) avec notre refonte de lighting en HDR vs OFF (donc éclairage par défaut) les textures, les modèles HD, l'herbe, la brise, etc. n'ont absolument rien à voir ! »
+- 2026-09-07 : « Et j'ai pas non plus l'impression que tu couvres tous les niveaux non plus d'ailleurs »
+- 2026-09-07 : « En gros du foutage de gueule et de la perte de temps j'ai l'impression »
+- 2026-09-07 : « Oui mais du coup la comparaison tu peux faire vite, c'est facile de détecter des blanc brûlés sur ON et OFF, et comparé le delta entre les deux, pas besoin d'un truc exact,.on sait qu'il y aura un petit delta, le but et d'éviter que ce soit trop brûlé et trop différent niveau teinte/saturation/luminosité ! Évidemment qu'il va y avoir une différence entre les deux (plus de détail car calcul en HDR,… »
 
 ## Cause connue
-Correction owner : comparaison HDR egaree vers master OFF historique. Isoler la refonte lumiere (phases2/3), master ON et tous les autres effets identiques. Baseline historique/master OFF ne sont plus des prerequis.
+Priorite remplacee par correction HDR directe sur instruction owner ; aucune validation de cet item.
 
 ## Livrable
-Adapter producteur, qualification et recettes aux DEUX bras du meme build : refonte lighting ON/HDR tonemappe SDR et lighting OFF/eclairage par defaut. Master Recharged ON constant ; textures, modeles HD, herbe, brise et autres options identiques, meme scene/camera/heure/etat. Attester les options effectives : seules les composantes de la refonte eclairage varient. Reutiliser outils acquis. Retirer phase1/master OFF et egalite avec baseline historique des portes de cette priorite ; archiver ces preuves sans les valider. Reproductibilite de chaque bras, aucune egalite imposee ENTRE ON/OFF. Premiere paire exploitable puis poursuivre HDR/blancs, teinte/saturation et details des hautes lumieres. Couvrir21niveaux,8heures,interieurs/exterieurs et vues de ciel ; cas manquants explicites. Preuve via proof_run.sh ; aucun verdict fabrique.
+Archive des outils et resultats disponibles ; ne pas reprendre ce chantier comme prerequis du HDR. Owner demande des comparaisons statistiques rapides de vues comparables, pas la meme frame exacte ni cinq rejeux.
 
 ## Preuve exigee
 `refset_replay_maxdiff == 0` dans `reports/lighting-census/proof.txt`.
