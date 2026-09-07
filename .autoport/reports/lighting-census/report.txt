@@ -1,30 +1,33 @@
 DIRECTIVES v6fca51fe40
-Non validé : provenance des candidats renforcée, mais état initial rejouable et qualification indépendante encore absents.
-Changement : refset.cpp écrit un format v2 dans un dossier neuf, avec sidecar pour chaque PNG ;
-les empreintes CGO/DGO/FR3 et entrée replay complètent binaire/config/PNG/frame.
-Les erreurs de lecture invalident la provenance ; cinq autorejeux ne peuvent qualifier ces candidats.
-Candidat PARTIEL : .autoport/refset-candidates/essai13-provenance-v2, origine/h00 seulement.
-Trace capture : REFSET done steps=1 captured=1 compared=0 maxdiff=0 diffpx=0 missing=0 slip=0..0 rewarps=1 settle=180
-Trace état : actor_rng_state=not-restored-by-sidecars ; aucune adoption.
-Build x86 incrémental rc=0, garde npc-flicker 47 ; neuf tests du correctif superviseur passent.
-Huit lignes recopiées de proof.txt (producteur unique proof_run.sh, run 150 s) :
+Non validé : références non qualifiées, écart historique 202 ; compatibilité FR3 pristine et provenance des entrées renforcées.
+Changements : lecture FR3 v43/v44 explicite, tangentes v43 vidées, écriture v44 et footer contrôlé.
+pad_replay identifie les octets chargés ; fichier remplacé, lecture partielle/version inconnue ne donnent plus une provenance trompeuse.
+Le registre exige input ET configuration identiques ; anciennes lignes conservées sans crédit implicite.
+Build incrémental gk+goalc rc0 ; garde npc-flicker : 47 propriétés tenues (notes/build-essai14.log).
+Tests : fr3-compat PASS inputs=27 (fixture pristine indépendante +26 vrais FR3, GAME et sunkenb inclus).
+Tests : quatre versions/footer incohérents rejetés par SIGABRT ; réutilisation et roundtrip v44 exacts.
+Test entrée : INPUT FINGERPRINT loaded=ab9b39af35c0de41 stable/error/reset=PASS ; PAD DIFF 0/120.
+Preuve unique60s, LIMITÉE à legacy/origine/h00 ; aucune prétention à la couverture du plan complet.
+Huit lignes recopiées de proof.txt produit par lib/proof_run.sh :
 source=x86
-sha=eb489df0c9eb6060
+sha=483b75c9c4473b8c
 crash=0
-frames=8510
-refset_compared=37
-refset_provenance_bad=0
-light_census_residual=0
-refset_replay_maxdiff=254
-Log moteur : GL_INVALID_OPERATION absent (0 occurrence), comme essai12.
-Trace complémentaire : draws=3487130, rb_mismatch=0, GPU=7.1897 ms.
-Archives : 575 contrôles SHA256 OK, soit 572 PNG et trois témoins ; écarts essai12 conservés dans notes/essai12-avant13.
-Baseline indépendante retrouvée : clone pristine c4bc4d3ff4691902ff023319cb33df71c0040501,
-gk SHA256 2801189bff17a731e2697971deccd224a590d902ee54c0b28eb9eb0955fde38a.
-Ses GAME/ENGINE/FR3 diffèrent et ses crochets de restauration sont absents : identité de source seule insuffisante.
-Owner : rien à tester visuellement pour ce candidat partiel ; correction HDR/tonemap SDR non livrée.
-non prouvé : restauration RNG/horloges/acteurs, qualification origine baseline/candidat à données identiques,
-provenance complète sources/configuration/état, lecture v2 en rejeu, cinq rejeux exacts, couverture 21 niveaux et ≥4 intérieurs.
-non prouvé : visibilité ciel Sunkenb (huit créneaux toujours manquants), qualité HDR et Android.
-Aucun appareil touché ; builder PID2541075 repris. generic.sh inchangé, exécution laissée à l'orchestrateur.
-Détails et prochaine frontière d'état : notes/recovery-essai13.md ; reprise : handoff.md.
+frames=3353
+FEATURE lighting-census armed=1 hits=1372909
+refset_compared=1
+refset_census_replay_runs=0
+refset_replay_maxdiff=202
+Trace moteur : REFSET done steps=1 captured=0 compared=1 maxdiff=202 diffpx=794 missing=0 slip=0..0 rewarps=1 settle=180
+Mode origine : draws=1365858, classifiés=0, stock non classé=1365858 ; GPU buckets=7.9370ms.
+Le résiduel0 et rb_mismatch0 ne prouvent pas la classification des trois modes ; shade_gate_reads_outside=5 conservé.
+Archives : 575 SHA historiques OK ; preuves/écarts essai13 conservés dans notes/essai13-avant14/.
+Aucun nouveau candidat adopté ; essai13-provenance-v2 reste partiel et non qualifié.
+Frontière requise : avant play/premier dispatch, pas actors-update ; des ambiances/caméras naissent avant ce dernier.
+La graine Knuth initialisée depuis RTC manque aussi aux reseeds actuels (audit source, pas restore mesuré).
+Owner : aucun changement HDR/tonemap SDR livré à regarder ; rien à valider visuellement pour ces tests de données.
+non prouvé : état initial restauré RNG/horloges/acteurs/permanences, origine baseline/candidat à état identique,
+provenance complète sources/config/ressources chargées, lecture candidate v2 en jeu, cinq rejeux exacts,
+couverture rendue trois modes/21niveaux/8heures/≥4intérieurs ; Sunkenb reste manquant sans visibilité démontrée.
+non prouvé : correction des blancs HDR, tonemap SDR et Android. Aucun appareil touché.
+Builder PID2541075 repris ; generic.sh inchangé, exécution laissée à l’orchestrateur.
+Détails : notes/recovery-essai14.md ; reprise : handoff.md.

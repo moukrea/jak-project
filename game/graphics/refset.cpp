@@ -1638,19 +1638,12 @@ void init_candidate_provenance() {
       }
     }
   }
-  // Cache immutable run inputs once after configuration, before any reference frame.
+  // Assets are identified on disk at startup. Input instead comes from the replay
+  // reader: a later replacement of its path must not describe different loaded bytes.
   g_data_fp = data_fingerprint();
-  const char* input = std::getenv("OG_PAD_REPLAY_REPLAY");
-#if defined(__ANDROID__)
-  char input_property[PROP_VALUE_MAX] = {0};
-  if ((!input || !input[0]) &&
-      __system_property_get("debug.opengoal.padreplay", input_property) > 0) {
-    input = input_property;
-  }
-#endif
-  g_input_fp = input && input[0] ? hash_file(input) : 0;
+  g_input_fp = pad_replay::replay_input_fingerprint();
   std::printf("REFSET provenance-init version=%d data=%016llx input=%016llx "
-              "actor_rng_state=not-restored-by-sidecars\n",
+              "input_source=loaded-replay actor_rng_state=not-restored-by-sidecars\n",
               g_provenance_version, (unsigned long long)g_data_fp,
               (unsigned long long)g_input_fp);
   if (g_provenance_version == 2) {
@@ -1876,8 +1869,8 @@ void publish_flaky() {
   autoport_proof::publish_text("refset_refs_fp", t);
   std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)data);
   autoport_proof::publish_text("refset_data_fp", t);
-  if (!bin || !refs || !data || g_missing || g_size_bad || g_decode_bad || g_provenance_bad ||
-      g_compared != g_steps.size()) {
+  if (!bin || !refs || !data || !g_input_fp || g_missing || g_size_bad || g_decode_bad ||
+      g_provenance_bad || g_compared != g_steps.size()) {
     autoport_proof::publish("refset_replay_runs", 0);
     autoport_proof::publish("refset_replay_flaky", 255);
     return;
@@ -1897,10 +1890,11 @@ void publish_flaky() {
   if (FILE* f = std::fopen(path.c_str(), "a")) {
     std::fprintf(
         f,
-        "bin=%016llx refs=%016llx data=%016llx maxdiff=%llu diffpx=%llu config=%016llx census=%d\n",
+        "bin=%016llx refs=%016llx data=%016llx maxdiff=%llu diffpx=%llu config=%016llx "
+        "census=%d input=%016llx\n",
         (unsigned long long)bin, (unsigned long long)refs, (unsigned long long)data,
         (unsigned long long)g_maxdiff, (unsigned long long)g_diffpx, (unsigned long long)config,
-        census_ok ? 1 : 0);
+        census_ok ? 1 : 0, (unsigned long long)g_input_fp);
     const bool write_ok = !std::ferror(f);
     ledger_written = std::fclose(f) == 0 && write_ok;
   }
@@ -1915,17 +1909,17 @@ void publish_flaky() {
   if (FILE* f = std::fopen(path.c_str(), "r")) {
     char line[256];
     while (std::fgets(line, sizeof(line), f)) {
-      unsigned long long b = 0, r = 0, dt = 0, m = 0, d = 0;
-      if (std::sscanf(line, "bin=%llx refs=%llx data=%llx maxdiff=%llu diffpx=%llu", &b, &r, &dt,
-                      &m, &d) == 5 &&
-          b == bin && r == refs && dt == data) {
+      unsigned long long b = 0, r = 0, dt = 0, m = 0, d = 0, cfg = 0, input = 0;
+      int complete = 0;
+      // Keep old rows as history; they cannot identify the input consumed by the run.
+      // Both reproducibility and census credit require the same plan and loaded input.
+      if (std::sscanf(line,
+                      "bin=%llx refs=%llx data=%llx maxdiff=%llu diffpx=%llu config=%llx "
+                      "census=%d input=%llx",
+                      &b, &r, &dt, &m, &d, &cfg, &complete, &input) == 8 &&
+          b == bin && r == refs && dt == data && cfg == config && input == g_input_fp) {
         md.emplace_back((uint64_t)m, (uint64_t)d);
-        unsigned long long cfg = 0;
-        int complete = 0;
-        if (std::sscanf(
-                line, "bin=%llx refs=%llx data=%llx maxdiff=%llu diffpx=%llu config=%llx census=%d",
-                &b, &r, &dt, &m, &d, &cfg, &complete) == 7 &&
-            cfg == config && complete == 1) {
+        if (complete == 1) {
           census_runs++;
           census_maxdiff = std::max(census_maxdiff, uint64_t(m));
           if (d && !m) {

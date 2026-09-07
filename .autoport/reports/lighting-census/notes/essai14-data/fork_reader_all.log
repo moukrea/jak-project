@@ -1,0 +1,52 @@
+[39:22:459] [[38;2;255;105;180mdie[0m] Assertion failed: 'false'
+	Message: version mismatch when loading tfrag3 data. Got 42, expected 43 or 44, did you forget to re-decompile?
+	Source: /home/emeric/code/jak-project/common/custom_data/TFrag3Data.cpp:3910
+	Function: void tfrag3::Level::serialize(Serializer&)
+
+fr3-compat rejected offset=0 version=42 signal=6
+[39:22:608] [[38;2;255;105;180mdie[0m] Assertion failed: 'false'
+	Message: version mismatch when loading tfrag3 data. Got 45, expected 43 or 44, did you forget to re-decompile?
+	Source: /home/emeric/code/jak-project/common/custom_data/TFrag3Data.cpp:3910
+	Function: void tfrag3::Level::serialize(Serializer&)
+
+fr3-compat rejected offset=0 version=45 signal=6
+[39:22:757] [[38;2;255;105;180mdie[0m] Assertion failed: 'false'
+	Message: version mismatch when loading tfrag3 data (at end). Got 44, expected 43
+	Source: /home/emeric/code/jak-project/common/custom_data/TFrag3Data.cpp:3973
+	Function: void tfrag3::Level::serialize(Serializer&)
+
+fr3-compat rejected offset=1274 version=44 signal=6
+[39:22:917] [[38;2;255;105;180mdie[0m] Assertion failed: 'false'
+	Message: version mismatch when loading tfrag3 data (at end). Got 43, expected 44
+	Source: /home/emeric/code/jak-project/common/custom_data/TFrag3Data.cpp:3973
+	Function: void tfrag3::Level::serialize(Serializer&)
+
+fr3-compat rejected offset=1306 version=43 signal=6
+fr3-compat file=.autoport/reports/lighting-census/notes/essai14-data/legacy43-independent.fr3.raw name=legacy43-independent-sentinels v43_bytes=1276 v44_bytes=1308 tfrag=2 tie=2 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/GAME.fr3 name= v43_bytes=5720814 v44_bytes=5720814 tfrag=0 tie=0 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/beach.fr3 name=beach v43_bytes=39211726 v44_bytes=39211806 tfrag=6 tie=4 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/citadel.fr3 name=citadel v43_bytes=65187649 v44_bytes=65187801 tfrag=3 tie=16 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/darkcave.fr3 name=darkcave v43_bytes=21299437 v44_bytes=21299493 tfrag=3 tie=4 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/demo.fr3 name=demo v43_bytes=11097671 v44_bytes=11097695 tfrag=3 tie=0 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/finalboss.fr3 name=finalboss v43_bytes=19948989 v44_bytes=19949069 tfrag=6 tie=4 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/firecanyon.fr3 name=firecanyon v43_bytes=24128865 v44_bytes=24128953 tfrag=3 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/intro.fr3 name=intro v43_bytes=4983890 v44_bytes=4983946 tfrag=3 tie=4 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/jungle.fr3 name=jungle v43_bytes=41749760 v44_bytes=41749872 tfrag=6 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/jungleb.fr3 name=jungleb v43_bytes=10700841 v44_bytes=10700929 tfrag=3 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/lavatube.fr3 name=lavatube v43_bytes=30860460 v44_bytes=30860548 tfrag=3 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/maincave.fr3 name=maincave v43_bytes=27876179 v44_bytes=27876235 tfrag=3 tie=4 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/misty.fr3 name=misty v43_bytes=44034551 v44_bytes=44034687 tfrag=9 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/ogre.fr3 name=ogre v43_bytes=45864427 v44_bytes=45864515 tfrag=3 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/robocave.fr3 name=robocave v43_bytes=33155164 v44_bytes=33155220 tfrag=3 tie=4 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/rolling.fr3 name=rolling v43_bytes=39532889 v44_bytes=39532977 tfrag=3 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/snow.fr3 name=snow v43_bytes=38487227 v44_bytes=38487363 tfrag=9 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/sunken.fr3 name=sunken v43_bytes=34302573 v44_bytes=34302685 tfrag=6 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/sunkenb.fr3 name=sunkenb v43_bytes=17622337 v44_bytes=17622417 tfrag=6 tie=4 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/swamp.fr3 name=swamp v43_bytes=32987141 v44_bytes=32987229 tfrag=3 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/test-zone.fr3 name=test-zone v43_bytes=4484160 v44_bytes=4484168 tfrag=1 tie=0 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/title.fr3 name=title v43_bytes=3446727 v44_bytes=3446751 tfrag=3 tie=0 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/training.fr3 name=training v43_bytes=26044634 v44_bytes=26044746 tfrag=6 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/village1.fr3 name=village1 v43_bytes=36662927 v44_bytes=36663119 tfrag=12 tie=12 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/village2.fr3 name=village2 v43_bytes=38641861 v44_bytes=38641997 tfrag=9 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/village3.fr3 name=village3 v43_bytes=29667443 v44_bytes=29667555 tfrag=6 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat PASS inputs=27

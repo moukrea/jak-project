@@ -1,29 +1,26 @@
-# Handoff — lighting-census, essai 13
+# Handoff — lighting-census, essai 14
 DIRECTIVES v6fca51fe40
 ## ÉTABLI
-- Build incrémental rc0 ; gk sha256=eb489df0c9eb6060 ; garde npc-flicker47.
-- Preuve unique150s : crash0 frames8510 compared37 gate254 ; census_runs0 couverture_manquante244.
-- Draws3487130 residual0 rb_mismatch0 ; GPU7.1897ms.
-- 575 SHA historiques OK (572PNG+3témoins), preuves/écarts antérieurs archivés notes/essai12-avant13.
-- Capture candidate partielle1case origine/h00 : .autoport/refset-candidates/essai13-provenance-v2 ; rc0 captured1.
-- Sidecar v2 : binaire/config/PNG/frame + data56f0364a8789c816/inputf97b073c2df76fb4 ; état non restauré tracé.
-- Clone pristine propre /home/emeric/code/jak-original-v033 HEADc4bc4d3ff4691902ff023319cb33df71c0040501.
-- Son gk build/Release/bin/game/gk SHA256 2801189bff17a731e2697971deccd224a590d902ee54c0b28eb9eb0955fde38a.
-- GAME/ENGINE/FR3 fork≠pristine ; SUB.DGO identique (notes/baseline-identities-essai13.json).
-- 485f09d6c07bc24c historique=FNV64 binaire, PAS SHA source ; ancien gk exact non retrouvé.
+- Build incrémental gk+goalc rc0, sha gk=483b75c9c4473b8c ; garde npc-flicker47.
+- Preuve unique60s limitée legacy/origine/h00 : crash0 frames3353 compared1 maxdiff202 diffpx794 census_runs0.
+- Origine draws1365858 classifiés0 stock1365858, residual0 rb_mismatch0 GPU7.9370ms ; hors plan complet.
+- 575 SHA historiques OK ; preuves/écarts précédents archivés notes/essai13-avant14.
+- API input chargée : selftest PASS, PAD DIFF0/120, fingerprint ab9b39af35c0de41 stable/error/reset PASS.
+- Runtime input=f97b073c2df76fb4 source=loaded-replay ; ledger ajoute input et exige même config, archives intactes.
+- Lecteur fork FR3 v43/v44 testé : PASS inputs27 (fixture writer pristine indépendant +26FR3 pristine dont GAME/sunkenb).
+- V43 vide tangentes ; write44 header/footer ; réutilisation/roundtrip exacts ; quatre rejets SIGABRT6.
+- Aucun candidat nouveau adopté ; essai13-provenance-v2 reste candidat partiel non qualifié.
 ## TENTÉ
-- Patch refset.cpp : marqueur v2, sidecars chaque image, scans stricts ; archives jamais réécrites.
-- V2 non qualifié : census=0/gate254 ; aucun faux vert par cinq autorejeux. Lecture v2 non exécutée.
-- Empreinte data modifiée : invalide anciennes clés v1 du ledger, lignes conservées.
-- Audit : aucun checkpoint restore. start recrée Jak ; actors-update drawable.gc:928 porte naissances.
-- reset-actors entity.gc:966 altère permanences/quota ; ni cela ni reseed après start ne restaurent monde.
-- Arrêt harnais : correctif superviseur déjà présent, neuf tests forensics passent ; pas nouveau patch harnais.
+- Corrigé incompatibilité FR3 : deux vecteurs u16 baked_tangents seuls ajouts sérialisés44 ; ne pas renuméroter fichiers.
+- Audité frontière : actors-update trop tard (birth bsp-header crée déjà ambiances/caméras). Pas de restore implémenté.
+- Piste DMA non autonome : pointeurs EE embarqués, textures hors chaîne, état renderer/loader absent ; aucun outil replay existant.
+- Origine historique toujours différente sur le cas testé ; pas cinq autorejeux pour fabriquer qualification.
 ## RESTE
-- Implémenter frontière PC commune pré-naissance avec niveaux/permanences/acteurs/RNG/horloges/visibilité/caméra/pas.
-- Adapter cette frontière et capture au pristine (aucun hook REFSET/PAD_REPLAY/LEVEL_WARP), build incrémental existant.
-- Définir et vérifier données communes compatibles ; qualifier origine à état identique avant toute adoption.
-- Compléter provenance producteur sources/config/état : data/input actuels sont empreintes fichiers initiales seulement.
-- Produire candidat complet trois modes/21niveaux/8heures/≥4intérieurs ; Sunkenb8 manques conservés.
-- Puis cinq rejeux exacts seulement quand qualifiable ; ne pas répéter le run historique identique.
-- non prouvé : bit-identité, état, qualification, couverture complète, HDR/Android ; tonemap SDR non corrigé.
-- notes/recovery-essai13.md donne détails ; builder PID2541075 repris, aucun appareil ; generic.sh orchestrateur seul.
+- Frontière commune AVANT play dans InitMachineScheme (fork5777/pristine641), avant premier KernelDispatch.
+- Piste : session neuve par cas, (play #t #f), puis initialize! *game-info* game #f continue via contexte GOAL valide.
+- Enregistrer/rejouer RTC dès DecodeTime, RNG GOAL/natif dont *knuth-rand-state* oublié, horloges, niveaux/permanences/acteurs.
+- Adapter pristine au protocole ; mêmes CGO/FR3 pristine désormais lisibles ne qualifient PAS les CGO fork livrés.
+- Qualifier origine baseline/candidat à état identique ; compléter provenance producteur sources/config/ressources effectivement chargées.
+- Candidat complet trois modes/21niveaux/8heures/≥4intérieurs ; Sunkenb manque toujours ; ensuite cinq rejeux exacts.
+- non prouvé : état rejouable, qualification, couverture rendue, HDR/tonemap SDR/Android ; aucune correction HDR livrée.
+- notes/recovery-essai14.md + essai14-data/commands.txt/tests ; aucun appareil, builder2541075 repris, generic orchestrateur seul.

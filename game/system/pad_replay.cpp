@@ -51,6 +51,7 @@ struct State {
   std::string path;
   FILE* f = nullptr;  // record: append handle
   uint32_t seed = kDefaultSeed;
+  uint64_t input_fingerprint = 0;
 
   // ── determinism providers / rng reseed ──
   int64_t (*logic_frame_fn)() = nullptr;
@@ -85,6 +86,14 @@ struct State {
 };
 
 State g;
+
+uint64_t fingerprint_bytes(uint64_t hash, const void* data, size_t size) {
+  const auto* bytes = static_cast<const uint8_t*>(data);
+  for (size_t i = 0; i < size; ++i) {
+    hash = (hash ^ bytes[i]) * 1099511628211ull;
+  }
+  return hash;
+}
 
 bool is_neutral(const PadRecord& r) {
   return r.button0 == 0 && r.leftx == kNeutral && r.lefty == kNeutral &&
@@ -233,11 +242,25 @@ void init(Mode mode, const std::string& path) {
     }
     g.seed = h.seed;
     g.anchor_frame = h.anchor_frame;  // informational; replay uses its own anchor
+    // Keep the historical refset v2 byte identity (nonstandard FNV offset).
+    uint64_t hash = fingerprint_bytes(1469598103934665603ull, &h, sizeof(h));
     PadRecord r;
-    while (std::fread(&r, sizeof(r), 1, in) == 1) {
+    size_t bytes_read;
+    while ((bytes_read = std::fread(&r, 1, sizeof(r), in)) == sizeof(r)) {
       g.records.push_back(r);
+      hash = fingerprint_bytes(hash, &r, sizeof(r));
     }
-    std::fclose(in);
+    if (bytes_read == 0 && !std::ferror(in) && (h.version == 1 || h.version == 2)) {
+      g.input_fingerprint = hash;
+    } else {
+      // Preserve legacy replay of complete records, but never qualify an input
+      // whose final record or read failed as a validated provenance source.
+      PR_LOG("pad_replay: REPLAY input fingerprint unavailable: partial=%zu read_error=%d version=%u",
+             bytes_read, std::ferror(in), h.version);
+    }
+    if (std::fclose(in) != 0) {
+      g.input_fingerprint = 0;
+    }
     PR_LOG("pad_replay: REPLAY <- %s (v%u, %zu logic frames, seed=0x%08x, providers=%s)",
            path.c_str(), h.version, g.records.size(), g.seed,
            have_providers() ? "yes" : "no(legacy)");
@@ -271,6 +294,7 @@ void init_from_env() {
 }
 
 void shutdown() {
+  g.input_fingerprint = 0;
   if (g.f) {
     std::fflush(g.f);
     std::fclose(g.f);
@@ -306,6 +330,9 @@ int64_t current_frame() {
 }
 uint32_t replay_seed() {
   return g.seed;
+}
+uint64_t replay_input_fingerprint() {
+  return g.mode == Mode::Replay ? g.input_fingerprint : 0;
 }
 
 void reseed_now(uint32_t seed) {
@@ -536,6 +563,7 @@ int run_selftest(const std::string& out_path, int n_ticks) {
 
   // ---- REPLAY #1 through the real tap; dump per-tick state ------------------
   init(Mode::Replay, out_path);
+  const uint64_t loaded_fingerprint = replay_input_fingerprint();
   open_state_trace(out_path + ".statedump.txt");
   std::vector<PadRecord> replay1(n_ticks);
   for (int t = 0; t < n_ticks; ++t) {
@@ -550,6 +578,8 @@ int run_selftest(const std::string& out_path, int n_ticks) {
 
   // ---- REPLAY #2 (determinism) ----------------------------------------------
   init(Mode::Replay, out_path);
+  bool fingerprint_ok = loaded_fingerprint != 0 &&
+                        replay_input_fingerprint() == loaded_fingerprint;
   std::vector<PadRecord> replay2(n_ticks);
   for (int t = 0; t < n_ticks; ++t) {
     uint16_t b = 0;
@@ -560,6 +590,85 @@ int run_selftest(const std::string& out_path, int n_ticks) {
   shutdown();
 
   // ---- compare --------------------------------------------------------------
+  fingerprint_ok = fingerprint_ok && replay_input_fingerprint() == 0;
+  // Exercise disk replacement and malformed input on a disposable copy, leaving
+  // the recorded demo used by callers intact.
+  const std::string fingerprint_path = out_path + ".fingerprint-test";
+  bool copy_ok = false;
+  if (FILE* source = std::fopen(out_path.c_str(), "rb")) {
+    if (FILE* copy = std::fopen(fingerprint_path.c_str(), "wb")) {
+      copy_ok = true;
+      uint8_t bytes[4096];
+      size_t count;
+      while ((count = std::fread(bytes, 1, sizeof(bytes), source)) != 0) {
+        if (std::fwrite(bytes, 1, count, copy) != count) {
+          copy_ok = false;
+          break;
+        }
+      }
+      copy_ok = !std::ferror(source) && copy_ok;
+      copy_ok = (std::fclose(copy) == 0) && copy_ok;
+    }
+    std::fclose(source);
+  }
+  init(Mode::Replay, fingerprint_path);
+  fingerprint_ok = fingerprint_ok && copy_ok &&
+                   replay_input_fingerprint() == loaded_fingerprint;
+  const std::string moved_path = fingerprint_path + ".moved";
+  const bool moved = std::rename(fingerprint_path.c_str(), moved_path.c_str()) == 0;
+  bool replacement_ok = false;
+  if (moved) {
+    if (FILE* replacement = std::fopen(fingerprint_path.c_str(), "wb")) {
+      replacement_ok = std::fputc(0, replacement) != EOF;
+      replacement_ok = (std::fclose(replacement) == 0) && replacement_ok;
+    }
+  }
+  fingerprint_ok = fingerprint_ok && moved && replacement_ok &&
+                   replay_input_fingerprint() == loaded_fingerprint;
+  if (moved) {
+    std::remove(fingerprint_path.c_str());
+    const bool restored = std::rename(moved_path.c_str(), fingerprint_path.c_str()) == 0;
+    fingerprint_ok = fingerprint_ok && restored;
+  }
+  bool version_ok = false;
+  if (FILE* copy = std::fopen(fingerprint_path.c_str(), "r+b")) {
+    const uint32_t unknown_version = 3;
+    version_ok = std::fseek(copy, offsetof(Header, version), SEEK_SET) == 0 &&
+                 std::fwrite(&unknown_version, sizeof(unknown_version), 1, copy) == 1;
+    version_ok = (std::fclose(copy) == 0) && version_ok;
+  }
+  init(Mode::Replay, fingerprint_path);
+  fingerprint_ok = fingerprint_ok && version_ok && replay_input_fingerprint() == 0;
+  bool version_restored = false;
+  if (FILE* copy = std::fopen(fingerprint_path.c_str(), "r+b")) {
+    const uint32_t known_version = 2;
+    version_restored = std::fseek(copy, offsetof(Header, version), SEEK_SET) == 0 &&
+                       std::fwrite(&known_version, sizeof(known_version), 1, copy) == 1;
+    version_restored = (std::fclose(copy) == 0) && version_restored;
+  }
+  init(Mode::Replay, fingerprint_path);
+  fingerprint_ok = fingerprint_ok && version_restored &&
+                   replay_input_fingerprint() == loaded_fingerprint;
+  bool append_ok = false;
+  if (FILE* copy = std::fopen(fingerprint_path.c_str(), "ab")) {
+    append_ok = std::fputc(0, copy) != EOF;
+    append_ok = (std::fclose(copy) == 0) && append_ok;
+  }
+  fingerprint_ok = fingerprint_ok && append_ok &&
+                   replay_input_fingerprint() == loaded_fingerprint;
+  init(Mode::Replay, fingerprint_path);
+  fingerprint_ok = fingerprint_ok && replay_input_fingerprint() == 0;
+  bool replace_ok = false;
+  if (FILE* copy = std::fopen(fingerprint_path.c_str(), "wb")) {
+    replace_ok = std::fputc(0, copy) != EOF;
+    replace_ok = (std::fclose(copy) == 0) && replace_ok;
+  }
+  init(Mode::Replay, fingerprint_path);
+  fingerprint_ok = fingerprint_ok && replace_ok && replay_input_fingerprint() == 0;
+  const bool removed = std::remove(fingerprint_path.c_str()) == 0;
+  init(Mode::Replay, fingerprint_path);
+  fingerprint_ok = fingerprint_ok && removed && replay_input_fingerprint() == 0;
+  shutdown();
   int pad_diff = 0;
   int first_div = -1;
   for (int t = 0; t < n_ticks; ++t) {
@@ -582,6 +691,8 @@ int run_selftest(const std::string& out_path, int n_ticks) {
   PR_LOG("pad_replay: demo size %ld bytes (expected %ld)", actual, expect);
   PR_LOG("PAD DIFF: %d/%d", pad_diff, n_ticks);
   PR_LOG("DETERMINISM: 2 replays differ at %d/%d logic ticks", det_diff, n_ticks);
+  PR_LOG("INPUT FINGERPRINT: loaded=%016llx stable/error/reset=%s",
+         static_cast<unsigned long long>(loaded_fingerprint), fingerprint_ok ? "PASS" : "FAIL");
   if (first_div < 0) {
     PR_LOG("FIRST DIVERGENCE: none — all %d ticks bit-identical (record == replay)", n_ticks);
   } else {
@@ -589,7 +700,7 @@ int run_selftest(const std::string& out_path, int n_ticks) {
   }
 
   bool pass = (pad_diff == 0) && (det_diff == 0) && idle_ok &&
-              ((uint64_t)n_ticks == recorded_ticks) && (actual == expect);
+              ((uint64_t)n_ticks == recorded_ticks) && (actual == expect) && fingerprint_ok;
   PR_LOG("pad_replay: SELFTEST %s", pass ? "PASS" : "FAIL");
 
   g.logic_frame_fn = saved_lf;

@@ -400,7 +400,8 @@ struct TfragTree {
     std::vector<math::Vector4f> tangents;
   } unpacked;
   void unpack();
-  void serialize(Serializer& ser);
+  // version selects the read layout only; writes always use the current v44 layout.
+  void serialize(Serializer& ser, u16 version = TFRAG3_VERSION);
   void memory_usage(MemoryUsageTracker* tracker) const;
 };
 
@@ -630,7 +631,8 @@ struct TieTree {
     std::vector<std::string> noms_non_classes;  // tronquee a 12
   } sway_census;
 
-  void serialize(Serializer& ser);
+  // version selects the read layout only; writes always use the current v44 layout.
+  void serialize(Serializer& ser, u16 version = TFRAG3_VERSION);
   void memory_usage(MemoryUsageTracker* tracker) const;
   void unpack();
 };

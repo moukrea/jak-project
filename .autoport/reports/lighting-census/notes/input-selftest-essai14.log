@@ -1,0 +1,19 @@
+pad_replay: SELFTEST begin (120 logic ticks) -> .autoport/reports/lighting-census/notes/essai14-input.inputs
+pad_replay: RECORD -> .autoport/reports/lighting-census/notes/essai14-input.inputs (logic-frame anchored, providers=no(legacy))
+pad_replay: REPLAY <- .autoport/reports/lighting-census/notes/essai14-input.inputs (v2, 120 logic frames, seed=0x0ad12345, providers=no(legacy))
+pad_replay: REPLAY <- .autoport/reports/lighting-census/notes/essai14-input.inputs (v2, 120 logic frames, seed=0x0ad12345, providers=no(legacy))
+pad_replay: REPLAY <- .autoport/reports/lighting-census/notes/essai14-input.inputs.fingerprint-test (v2, 120 logic frames, seed=0x0ad12345, providers=no(legacy))
+pad_replay: REPLAY input fingerprint unavailable: partial=0 read_error=0 version=3
+pad_replay: REPLAY <- .autoport/reports/lighting-census/notes/essai14-input.inputs.fingerprint-test (v3, 120 logic frames, seed=0x0ad12345, providers=no(legacy))
+pad_replay: REPLAY <- .autoport/reports/lighting-census/notes/essai14-input.inputs.fingerprint-test (v2, 120 logic frames, seed=0x0ad12345, providers=no(legacy))
+pad_replay: REPLAY input fingerprint unavailable: partial=1 read_error=0 version=2
+pad_replay: REPLAY <- .autoport/reports/lighting-census/notes/essai14-input.inputs.fingerprint-test (v2, 120 logic frames, seed=0x0ad12345, providers=no(legacy))
+pad_replay: REPLAY bad/short header: .autoport/reports/lighting-census/notes/essai14-input.inputs.fingerprint-test
+pad_replay: REPLAY open failed: .autoport/reports/lighting-census/notes/essai14-input.inputs.fingerprint-test
+pad_replay: idle-until-first-input: 3 neutral ticks skipped (OK)
+pad_replay: demo size 784 bytes (expected 784)
+PAD DIFF: 0/120
+DETERMINISM: 2 replays differ at 0/120 logic ticks
+INPUT FINGERPRINT: loaded=ab9b39af35c0de41 stable/error/reset=PASS
+FIRST DIVERGENCE: none — all 120 ticks bit-identical (record == replay)
+pad_replay: SELFTEST PASS

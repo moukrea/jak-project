@@ -79,10 +79,13 @@ void TieWindInstance::serialize(Serializer& ser) {
   ser.from_ptr(&stiffness);
 }
 
-void TfragTree::serialize(Serializer& ser) {
-  ser.from_pod_vector(&baked_tangents);  // Gprecompute-deterministic-bake: per-vertex tangents,
-  // derived ONCE by the fr3 extractor (TangentDerive.cpp) instead of on every load on every machine.
-  // 4 bytes/vertex, 2-10-10-10 + handedness bit. fr3 version 44.
+void TfragTree::serialize(Serializer& ser, u16 version) {
+  ASSERT(version == 43 || version == TFRAG3_VERSION);
+  if (ser.is_saving() || version == TFRAG3_VERSION) {
+    ser.from_pod_vector(&baked_tangents);
+  } else {
+    baked_tangents.clear();
+  }
   ser.from_ptr(&kind);
 
   if (ser.is_saving()) {
@@ -3686,8 +3689,13 @@ void TfragTree::unpack() {
   apply_baked_tangents(baked_tangents, unpacked.vertices, unpacked.tangents, "tfrag");
 }
 
-void TieTree::serialize(Serializer& ser) {
-  ser.from_pod_vector(&baked_tangents);  // Gprecompute-deterministic-bake — see TfragTree::serialize
+void TieTree::serialize(Serializer& ser, u16 version) {
+  ASSERT(version == 43 || version == TFRAG3_VERSION);
+  if (ser.is_saving() || version == TFRAG3_VERSION) {
+    ser.from_pod_vector(&baked_tangents);
+  } else {
+    baked_tangents.clear();
+  }
   if (ser.is_saving()) {
     ser.save<size_t>(static_draws.size());
   } else {
@@ -3893,9 +3901,13 @@ void MercModelGroup::serialize(Serializer& ser) {
 }
 
 void Level::serialize(Serializer& ser) {
+  if (ser.is_saving()) {
+    version = TFRAG3_VERSION;
+    version2 = TFRAG3_VERSION;
+  }
   ser.from_ptr(&version);
-  if (ser.is_loading() && version != TFRAG3_VERSION) {
-    ASSERT_MSG(false, fmt::format("version mismatch when loading tfrag3 data. Got {}, expected {}, "
+  if (ser.is_loading() && version != 43 && version != TFRAG3_VERSION) {
+    ASSERT_MSG(false, fmt::format("version mismatch when loading tfrag3 data. Got {}, expected 43 or {}, "
                                   "did you forget to re-decompile?",
                                   version, TFRAG3_VERSION));
   }
@@ -3927,7 +3939,7 @@ void Level::serialize(Serializer& ser) {
       tfrag_trees[geom].resize(ser.load<size_t>());
     }
     for (auto& tree : tfrag_trees[geom]) {
-      tree.serialize(ser);
+      tree.serialize(ser, version);
     }
   }
 
@@ -3938,7 +3950,7 @@ void Level::serialize(Serializer& ser) {
       tie_trees[geom].resize(ser.load<size_t>());
     }
     for (auto& tree : tie_trees[geom]) {
-      tree.serialize(ser);
+      tree.serialize(ser, version);
     }
   }
 
@@ -3957,10 +3969,10 @@ void Level::serialize(Serializer& ser) {
   merc_data.serialize(ser);
 
   ser.from_ptr(&version2);
-  if (ser.is_loading() && version2 != TFRAG3_VERSION) {
+  if (ser.is_loading() && version2 != version) {
     ASSERT_MSG(false, fmt::format(
                           "version mismatch when loading tfrag3 data (at end). Got {}, expected {}",
-                          version2, TFRAG3_VERSION));
+                          version2, version));
   }
 }
 

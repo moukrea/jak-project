@@ -1,0 +1,27 @@
+[37:39:176] [[38;2;255;105;180mdie[0m] Assertion failed: 'false'
+	Message: version mismatch when loading tfrag3 data. Got 42, expected 43 or 44, did you forget to re-decompile?
+	Source: /home/emeric/code/jak-project/common/custom_data/TFrag3Data.cpp:3910
+	Function: void tfrag3::Level::serialize(Serializer&)
+
+fr3-compat rejected offset=0 version=42 signal=6
+[37:39:365] [[38;2;255;105;180mdie[0m] Assertion failed: 'false'
+	Message: version mismatch when loading tfrag3 data. Got 45, expected 43 or 44, did you forget to re-decompile?
+	Source: /home/emeric/code/jak-project/common/custom_data/TFrag3Data.cpp:3910
+	Function: void tfrag3::Level::serialize(Serializer&)
+
+fr3-compat rejected offset=0 version=45 signal=6
+[37:39:517] [[38;2;255;105;180mdie[0m] Assertion failed: 'false'
+	Message: version mismatch when loading tfrag3 data (at end). Got 44, expected 43
+	Source: /home/emeric/code/jak-project/common/custom_data/TFrag3Data.cpp:3973
+	Function: void tfrag3::Level::serialize(Serializer&)
+
+fr3-compat rejected offset=1274 version=44 signal=6
+[37:39:670] [[38;2;255;105;180mdie[0m] Assertion failed: 'false'
+	Message: version mismatch when loading tfrag3 data (at end). Got 43, expected 44
+	Source: /home/emeric/code/jak-project/common/custom_data/TFrag3Data.cpp:3973
+	Function: void tfrag3::Level::serialize(Serializer&)
+
+fr3-compat rejected offset=1306 version=43 signal=6
+fr3-compat file=.autoport/reports/lighting-census/notes/essai14-data/legacy43-independent.fr3.raw name=legacy43-independent-sentinels v43_bytes=1276 v44_bytes=1308 tfrag=2 tie=2 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/training.fr3 name=training v43_bytes=26044634 v44_bytes=26044746 tfrag=6 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat PASS inputs=2

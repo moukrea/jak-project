@@ -82,6 +82,10 @@ Mode mode();
 uint64_t current_tick();   // controller-read counter (legacy / self-test)
 int64_t current_frame();   // logic frame since the gameplay anchor (-1 pre-anchor)
 uint32_t replay_seed();    // rng seed from the demo header (Replay mode)
+// Historical refset FNV64 (offset 1469598103934665603, prime 1099511628211;
+// not the standard FNV-1a offset) of the validated header and records loaded by init, independent of
+// subsequent disk changes. Zero outside Replay or after an incomplete/failed read.
+uint64_t replay_input_fingerprint();
 
 // Force TOUTES les sources d'alea enregistrees a `seed`, tout de suite. Le harnais le fait deja
 // a son ancre ; ce point d'entree existe parce qu'un consommateur peut avoir une ancre PLUS

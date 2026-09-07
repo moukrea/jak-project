@@ -1,0 +1,51 @@
+Périmètre : lighting-census, reproductibilité des tests FR3 déjà exécutés.
+DIRECTIVES v6fca51fe40
+Rôle tester medium. Répertoire courant : /home/emeric/code/jak-project
+Aucun test relancé pour rédiger ce document.
+
+1. Compilation du writer indépendant, headers et libcommon du pristine existant (rc=0)
+c++ -std=c++17 -I /home/emeric/code/jak-original-v033 -I /home/emeric/code/jak-original-v033/third-party/fmt/include .autoport/reports/lighting-census/notes/essai14-data/pristine_writer.cpp -L /home/emeric/code/jak-original-v033/build/Release/bin/common -Wl,-rpath,/home/emeric/code/jak-original-v033/build/Release/bin/common -lcommon -o .autoport/reports/lighting-census/notes/essai14-data/pristine_writer
+
+2. Production de la fixture par ce writer (rc=0)
+.autoport/reports/lighting-census/notes/essai14-data/pristine_writer .autoport/reports/lighting-census/notes/essai14-data/legacy43-independent.fr3.raw > .autoport/reports/lighting-census/notes/essai14-data/pristine_writer.log
+Résultat : writer_version=43 bytes=1276 load_finished=1 tfrag=2 tie=2 tfrag_leaf=102 tie_leaf=202 tie_x=124.5 proto=sentinel-proto-1
+
+3. Compilation du reader pristine, même bibliothèque existante (rc=0)
+c++ -std=c++17 -I /home/emeric/code/jak-original-v033 -I /home/emeric/code/jak-original-v033/third-party/fmt/include .autoport/reports/lighting-census/notes/essai14-data/pristine_reader.cpp -L /home/emeric/code/jak-original-v033/build/Release/bin/common -Wl,-rpath,/home/emeric/code/jak-original-v033/build/Release/bin/common -lcommon -o .autoport/reports/lighting-census/notes/essai14-data/pristine_reader
+
+4. Lecture du vrai training.fr3 pristine (rc=0)
+.autoport/reports/lighting-census/notes/essai14-data/pristine_reader /home/emeric/code/jak-original-v033/out/jak1/fr3/training.fr3 > .autoport/reports/lighting-census/notes/essai14-data/pristine_reader.log
+Résultat : file=/home/emeric/code/jak-original-v033/out/jak1/fr3/training.fr3 version=43 version2=43 bytes=26044634 load_finished=1 tfrag=6 tie=8 vertices=156420 textures=334
+
+5. Première compilation du test fork, avant correction (échec compilation)
+c++ -std=c++17 -I . -I third-party/fmt/include test/common/test_tfrag3_legacy.cpp -L build/common -Wl,-rpath,/home/emeric/code/jak-project/build/common -lcommon -o .autoport/reports/lighting-census/notes/essai14-data/test_tfrag3_legacy
+Erreur : test/common/test_tfrag3_legacy.cpp:58, read_binary_file(const char*&) ambigu entre std::string et ghc::filesystem::path.
+Le même appel outil comportait ensuite la commande d'exécution ci-dessous ; faute de binaire, elle a retourné 127 (« No such file or directory »). Aucun test n'a alors été exécuté.
+.autoport/reports/lighting-census/notes/essai14-data/test_tfrag3_legacy --raw .autoport/reports/lighting-census/notes/essai14-data/legacy43-independent.fr3.raw /home/emeric/code/jak-original-v033/out/jak1/fr3/training.fr3 > .autoport/reports/lighting-census/notes/essai14-data/fork_reader.log 2>&1
+Correction du manager : read_binary_file(std::string(path)) ; rejet des versions exigeant SIGABRT.
+
+6. Compilation finale du test fork après build common du manager (rc=0)
+c++ -std=c++17 -I . -I third-party/fmt/include test/common/test_tfrag3_legacy.cpp -L build/common -Wl,-rpath,/home/emeric/code/jak-project/build/common -lcommon -o .autoport/reports/lighting-census/notes/essai14-data/test_tfrag3_legacy > .autoport/reports/lighting-census/notes/essai14-data/fork_reader_build.log 2>&1
+Bibliothèque : /home/emeric/code/jak-project/build/common/libcommon.so
+
+7. Exécution finale, séparée de la compilation (rc=0)
+.autoport/reports/lighting-census/notes/essai14-data/test_tfrag3_legacy --raw .autoport/reports/lighting-census/notes/essai14-data/legacy43-independent.fr3.raw /home/emeric/code/jak-original-v033/out/jak1/fr3/training.fr3 > .autoport/reports/lighting-census/notes/essai14-data/fork_reader.log 2>&1
+Résultats dans fork_reader.log :
+fr3-compat rejected offset=0 version=42 signal=6
+fr3-compat rejected offset=0 version=45 signal=6
+fr3-compat rejected offset=1274 version=44 signal=6
+fr3-compat rejected offset=1306 version=43 signal=6
+fr3-compat file=.autoport/reports/lighting-census/notes/essai14-data/legacy43-independent.fr3.raw name=legacy43-independent-sentinels v43_bytes=1276 v44_bytes=1308 tfrag=2 tie=2 reused_clear=1 roundtrip_exact=1
+fr3-compat file=/home/emeric/code/jak-original-v033/out/jak1/fr3/training.fr3 name=training v43_bytes=26044634 v44_bytes=26044746 tfrag=6 tie=8 reused_clear=1 roundtrip_exact=1
+fr3-compat PASS inputs=2
+
+Identités collectées dans artifacts.sha256 ; aucun CMake ni build pristine lancé par le tester.
+Non prouvé par ces tests : identité du rendu, état rejouable, qualification des références.
+
+8. Complément demandé explicitement par le manager : batch offline unique de tous FR3 pristine, sans jeu ni rebuild (rc=0, pas de timeout)
+timeout 60 .autoport/reports/lighting-census/notes/essai14-data/test_tfrag3_legacy --raw .autoport/reports/lighting-census/notes/essai14-data/legacy43-independent.fr3.raw /home/emeric/code/jak-original-v033/out/jak1/fr3/*.fr3 > .autoport/reports/lighting-census/notes/essai14-data/fork_reader_all.log 2>&1
+Résultat : fr3-compat PASS inputs=27 (fixture indépendante + 26 fichiers FR3 pristine).
+Tous les fichiers listés dans fork_reader_all.log portent reused_clear=1 roundtrip_exact=1.
+GAME.fr3 : v43_bytes=5720814 v44_bytes=5720814 tfrag=0 tie=0.
+sunkenb.fr3 : v43_bytes=17622337 v44_bytes=17622417 tfrag=6 tie=4.
+Ce batch ne prouve aucune couverture rendue, aucun état rejouable, ni qualification des références ; Sunkenb demeure manquant pour la couverture rendue.
