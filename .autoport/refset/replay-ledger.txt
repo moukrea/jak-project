@@ -13,3 +13,4 @@ bin=c6e6ae8e86113d24 refs=9b7cb8554381a421 data=56f0364a8789c816 maxdiff=202 dif
 bin=3b676726dbb22425 refs=9b7cb8554381a421 data=56f0364a8789c816 maxdiff=202 diffpx=794 config=ea73fcc511fc35e7 census=0 input=f97b073c2df76fb4
 bin=d27d963bc001739f refs=9b7cb8554381a421 data=56f0364a8789c816 maxdiff=202 diffpx=794 config=bda05ee920dd3f97 census=0 input=f97b073c2df76fb4
 bin=484c8824db366a78 refs=9b7cb8554381a421 data=56f0364a8789c816 maxdiff=195 diffpx=57581 config=6ab6da1dcc8defb1 census=0 input=f97b073c2df76fb4
+bin=696f8d7c9a8fcd04 refs=9b7cb8554381a421 data=56f0364a8789c816 maxdiff=195 diffpx=57581 config=6ab6da1dcc8defb1 census=0 input=f97b073c2df76fb4

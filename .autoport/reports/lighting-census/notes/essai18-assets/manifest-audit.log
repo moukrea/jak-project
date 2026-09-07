@@ -1,0 +1,24 @@
+checkpoint_1_label=origine/h00/chain-lf=1081 assets=2133 sha256=d11b3282507e3ffdc4440187d99133b88cc50f68e560cbac14dd430dbf4bf4ed valid=1
+checkpoint_1_kind_counts={'fr3': 4, 'iso': 749, 'object': 485, 'shader': 108, 'texture-base': 787}
+manifest_sha256=884904f7166cceebe5b88f46cb6aae63bc7e202bc01e0afb5e0a6eed36a79224 file_bytes=289094
+checkpoints_valid=1 final_unique_assets=2141 asset_payload_bytes=119209054
+kind=fr3 unique=4 payload_bytes=28508164
+examples=['GAME', 'title', 'village1', 'beach']
+kind=iso unique=756 payload_bytes=36670000
+examples=['VAGDIR  AYB\x00', 'SCREEN1 USA\x00', 'SCREEN1 USA\x00', 'SCREEN1 USA\x00', 'SCREEN1 USA\x00']
+kind=object unique=486 payload_bytes=34115882
+examples=['gcommon', 'gstring-h', 'gkernel-h', 'gkernel', 'pskernel']
+kind=shader unique=108 payload_bytes=1287040
+examples=['solid_color/vertex', 'solid_color/fragment', 'direct_basic/vertex', 'direct_basic/fragment', 'direct_basic_textured/vertex']
+kind=texture-base unique=787 payload_bytes=18627968
+examples=['effects/bigpuff/stock/64x64', 'effects/e-white/stock/8x8', 'effects/flare/stock/64x64', 'effects/harddot/stock/32x32', 'effects/middot/stock/32x32']
+corroboration kind=fr3 name=GAME disk=out/jak1/fr3/GAME.fr3 bytes=1039218 sha256=18b4171509a79e5d741dcd1abb80b4589922190083e71bad9104e8aae8f6a924 matches_consumed=1
+corroboration kind=fr3 name=title disk=out/jak1/fr3/title.fr3 bytes=497030 sha256=c02c6c224fba4301796f3e2279b8b822e432b8a2f69b5b976953c9c6f51e81f8 matches_consumed=1
+corroboration kind=fr3 name=village1 disk=out/jak1/fr3/village1.fr3 bytes=13912721 sha256=11ae79cfc980c1d5b84675dddfff672f12ed0b1522d3d27da91be44b3cd31ebd matches_consumed=1
+corroboration kind=fr3 name=beach disk=out/jak1/fr3/beach.fr3 bytes=13059195 sha256=729a5628770d41eb10f68d95c14db830d36eb6b1ce973335e6b808b464233513 matches_consumed=1
+corroboration kind=object name=gcommon disk=out/jak1/obj/gcommon.o bytes=20748 sha256=645921acf80e33495ea956ecb28f6ae9acd6f5d7f6e98804c359ab656e174cda matches_consumed=1
+corroboration kind=object name=gstring-h disk=out/jak1/obj/gstring-h.o bytes=95 sha256=9d614b95b7e6f117d6e9213a08b99b83a21fd093ac93e753eeef17e4ca1f3122 matches_consumed=1
+corroboration kind=object name=gkernel-h disk=out/jak1/obj/gkernel-h.o bytes=14758 sha256=575f4ddd3cdbc95aeb76aec9ca4a803e46a384a58347145557d535bf25bbafa4 matches_consumed=1
+corroboration kind=object name=gkernel disk=out/jak1/obj/gkernel.o bytes=34845 sha256=a3b530646984b238c64b3d1a98ee2ceb5ae8e112145b8c8b1116f05a7fc81ea7 matches_consumed=1
+corroboration kind=object name=pskernel disk=out/jak1/obj/pskernel.o bytes=5226 sha256=c63de90a7c0b869ff8d54d231b613062aaf37f34143fc6288bf6d5203347acf6 matches_consumed=1
+non_prouve=coverage_complete,PBR_texture_maps,independent_baseline,actor_state_after_bootstrap,visual_quality,Android

@@ -9,6 +9,7 @@
 #include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kprint.h"
 #include "game/sce/sif_ee.h"
+#include "game/system/asset_manifest.h"
 
 using namespace ee;
 
@@ -306,6 +307,7 @@ Ptr<u8> FileLoad(char* name, Ptr<kheapinfo> heap, Ptr<u8> memory, u32 malloc_fla
 
     s32 read_amount = sceRead(fd, memory.c(), size);
     if (read_amount == size) {
+      asset_manifest::record("file", name, initial_pos, memory.c(), size);
       sceClose(fd);
       if (size_out)
         *size_out = size;

@@ -1,0 +1,22 @@
+baseline_commit=a9ea15a69062a57335278db7680cd647df3c1e1d
+baseline_exports=163 current_exports=173
+added=10 removed=0
+added_export=pc-grass-occ-add-moving!
+added_export=pc-hd-phys-joint!
+added_export=pc-refset-active?
+added_export=pc-refset-camera
+added_export=pc-refset-mood-flame
+added_export=pc-refset-note-level
+added_export=pc-refset-part-step
+added_export=pc-refset-repin-parts?
+added_export=pc-refset-text-mute?
+added_export=pc-set-recharged-lighting!
+baseline_fr3:16:// - change the TFRAG3_VERSION
+baseline_fr3:21:constexpr int TFRAG3_VERSION = 44;  // 44: Gprecompute-deterministic-bake — baked per-vertex tangents
+baseline_fr3:388:std::vector<u16> baked_tangents;
+baseline_fr3:395:// EXPANDED at load from `baked_tangents` above (no longer re-derived) so the PBR shader builds
+baseline_fr3:506:std::vector<u16> baked_tangents;
+baseline_fr3:513:// EXPANDED at load from `baked_tangents` above.
+baseline_fr3:839:u16 version = TFRAG3_VERSION;
+baseline_fr3:849:u16 version2 = TFRAG3_VERSION;
+changed_goalc_mips2c=''

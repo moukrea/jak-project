@@ -1,0 +1,10 @@
+ASSET_MANIFEST error: exclusive create: File exists
+ASSET_MANIFEST error: exclusive create: File exists
+ASSET_MANIFEST error: OG_REFSET_ASSET_MANIFEST requires OG_REFSET=capture or replay
+ASSET_MANIFEST error: OG_REFSET_ASSET_MANIFEST requires OG_REFSET=capture or replay
+ASSET_MANIFEST error: invalid asset category
+ASSET_MANIFEST error: invalid asset category
+ASSET_MANIFEST error: empty logical name or checkpoint label
+ASSET_MANIFEST error: null payload with nonzero size
+ASSET_MANIFEST error: empty logical name or checkpoint label
+ASSET_MANIFEST_TEST PASS: full-buffer SHA256, canonical set, concurrent duplicates, empty checkpoint, encoding, exclusive files/symlinks, disabled no-op, invalid input, write error

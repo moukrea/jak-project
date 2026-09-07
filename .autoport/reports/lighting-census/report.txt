@@ -1,27 +1,31 @@
-Verdict : non validé ; le bootstrap du village se rejoue, mais la qualification indépendante des références reste à construire.
+Verdict : non validé ; provenance des buffers consommés ajoutée, mais les références ne sont pas encore qualifiées.
 DIRECTIVES v6fca51fe40
-Changé : frontière après reprise/start et balayage, identités/permanences comparées sans reset.
-Le point de reprise initial, les tranches de login, le pad et la disponibilité RPC sont rejoués.
-Un RPC enregistré prêt attend obligatoirement ses données réelles (plafond5s, sinon échec).
-Build incrémental rc0 ; garde PNJ47 ; test autonome bootstrap rc0.
-Preuve officielle finale, huit lignes de proof.txt :
-sha=1e505342c58a9875
+Changé : manifeste SHA256 complet et exclusif, séparé des références, avec checkpoint par image.
+Branches : lectures ISO/FR3, objets avant relocation, shaders, textures de base et cartes PBR.
+Le manifeste décrit un ensemble cumulé ; il ne certifie ni ordre, ni état acteur, ni liaison aux draws.
+Build incrémental gk terminé ; garde PNJ47 et tests du manifeste PASS (logs notes/essai18-assets).
+Preuve officielle de60s, huit lignes extraites de proof.txt :
+sha=14ab30c2a18899f6
 crash=0
-frames=3294
+frames=3287
 FEATURE lighting-census armed=1 hits=1690834
 refset_bootstrap_records=5880
 refset_bootstrap_fingerprint=79fb964dc17507ec
 refset_replay_maxdiff=195
 refset_replay_flaky=254
-Capture/rejeu : dispatch10, target-pid12 ;178entités/51processus,294aid comparés.
-Historique :575SHA inchangés ; compared1 diffpx57581, registre append-only, aucun candidat adopté.
-Draws1685650 stock/classifiés0 ; résiduel0 rb_mismatch0 GPU9,3062ms.
-Les essais titre (frontière insuffisante) et village sans RPC (échec2255) restent archivés.
-L'état initial changé explique que l'écart historique ne soit pas un score d'amélioration HDR.
-À regarder par l'owner : aucun nouveau rendu à tester ; les blancs HDR ne sont pas corrigés ici.
-non prouvé : images reproductibles après frontière (beach encore loading), état acteur exhaustif.
-non prouvé : origine contre pristine identifié, provenance des octets ouverts, adoption v2 et cinq rejeux.
-non prouvé : trois modes/21niveaux/8heures/≥4intérieurs ; Sunkenb et couverture ciel manquants.
-non prouvé : correction HDR/tonemap SDR et Android. Aucun appareil ni owner-ok.
-Blocage concret : ABI CGO fork/pristine incompatible ; aucun consommateur qualification indépendante v2.
-Voir notes/recovery-essai17.md ; generic.sh inchangé, lancé par l'orchestrateur uniquement.
+Checkpoint origine/h00/lf1081 :2133entrées ; SHA d11b3282507e3ffdc4440187d99133b88cc50f68e560cbac14dd430dbf4bf4ed.
+Contrôle hashlib :4FR3+749plagesISO+485objets+108shaders+787textures-base ; manifest-audit.log.
+Historique :575SHA conservés ; diffpx57581 inchangé ; une ligne ajoutée au registre, aucun candidat adopté.
+Draws1685650 stock/classifiés0 ; résiduel0 rb_mismatch0 ; GPU9,4578ms (proof.txt).
+Bootstrap17 réutilisé sans nouvelle capture ; binaire/3CGO/pad/bootstrap/12sources stables pendant la mesure.
+Piste baseline : fork pré-refonte a9ea15a69062a57335278db7680cd647df3c1e1d, dix exports à adapter.
+Ce fork contient déjà des changements de police ; il ne constitue pas une origine pristine qualifiée.
+À regarder par l’owner : aucun nouveau rendu à tester ; les blancs HDR restent à corriger.
+non prouvé : cartes PBR et FileLoad à l’exécution, configuration exhaustive, état après bootstrap.
+non prouvé : baseline indépendante exécutée, attestation qualification v2 et cinq rejeux exacts.
+non prouvé : trois modes, huit heures, ≥4intérieurs et ciel ; seul village1/origine/h00 a été comparé.
+Niveaux absents : training, beach, jungle, jungleb, misty, firecanyon, village2, sunken, sunkenb, swamp,
+rolling, ogre, village3, snow, maincave, darkcave, robocave, lavatube, citadel, finalboss.
+non prouvé : HDR/tonemap SDR et Android. Sunkenb reste manquant ; aucune sentinelle modifiée.
+Rapport détaillé notes/recovery-essai18.md ; reprise handoff.md ; generic.sh réservé à l’orchestrateur.
+Aucun appareil, aucune brise/cadence, aucun owner-ok ; commit WIP pour éviter un build Android inutile.

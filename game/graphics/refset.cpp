@@ -22,6 +22,7 @@
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/render_pace.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/asset_manifest.h"
 #include "game/system/pad_replay.h"
 
 #include "third-party/fpng/fpng.h"
@@ -2846,6 +2847,10 @@ bool consume_capture(int w, int h, const void* rgba) {
     return false;
   }
   const std::string path = image_path(g_steps[g_cur]);
+  if (asset_manifest::enabled()) {
+    asset_manifest::checkpoint(step_image_name(g_steps[g_cur]) + "/chain-lf=" +
+                               std::to_string(g_inflight_lf));
+  }
   std::printf("REFSET sample case=%s layer=%s chain_lf=%lld anchor_lf=%lld\n",
               g_capture_name.c_str(), g_steps[g_cur].supplemental ? "supplement-v1" : "historical",
               (long long)g_inflight_lf, (long long)g_step_anchor);

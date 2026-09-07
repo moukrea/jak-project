@@ -1,0 +1,340 @@
+diff --git a/android/CMakeLists.txt b/android/CMakeLists.txt
+index a4d84771c8..5f4ebb54d3 100644
+--- a/android/CMakeLists.txt
++++ b/android/CMakeLists.txt
+@@ -438,6 +438,7 @@ add_library(android_kernel STATIC
+     # also compiled into the desktop gk via game/CMakeLists.txt).
+     "${JAK_ROOT}/game/system/pad_replay.cpp"
+     "${JAK_ROOT}/game/system/boot_replay.cpp"
++    "${JAK_ROOT}/game/system/asset_manifest.cpp"
+     # NOTE: game/system/background_worker.cpp needs libcurl, which we
+     # don't ship on Android. android_runtime_compat.cpp owns a
+     # default-constructed BackgroundWorker so runtime.h's extern
+diff --git a/game/CMakeLists.txt b/game/CMakeLists.txt
+index 5f1b15f8ed..4707b1453e 100644
+--- a/game/CMakeLists.txt
++++ b/game/CMakeLists.txt
+@@ -355,6 +355,7 @@ set(RUNTIME_SOURCE
+         system/Deci2Server.cpp
+         system/pad_replay.cpp
+         system/boot_replay.cpp
++        system/asset_manifest.cpp
+         system/hid/devices/dualsense_effects.cpp
+         system/hid/devices/game_controller.cpp
+         system/hid/devices/keyboard.cpp
+diff --git a/game/graphics/opengl_renderer/Shader.cpp b/game/graphics/opengl_renderer/Shader.cpp
+index 7eb7891ada..56a394839e 100644
+--- a/game/graphics/opengl_renderer/Shader.cpp
++++ b/game/graphics/opengl_renderer/Shader.cpp
+@@ -10,6 +10,7 @@
+ #include "game/graphics/pipelines/opengl.h"
+ #include "game/graphics/opengl_renderer/shade_proof.h"
+ #include "game/graphics/opengl_renderer/hdr.h"
++#include "game/system/asset_manifest.h"
+ 
+ #ifdef __ANDROID__
+ // Phase A35 (autoport): on Android the shader sources are the GLES 3.20
+@@ -459,6 +460,9 @@ void Shader::build(const std::string& shader_name,
+   auto compile_stage = [&](GLenum type, const std::string& src, const char* label) -> u64 {
+     u64 sh = glCreateShader(type);
+     const char* csrc = src.c_str();
++    if (asset_manifest::enabled()) {
++      asset_manifest::record("shader", shader_name + "/" + label, 0, csrc, src.size());
++    }
+     glShaderSource(sh, 1, &csrc, nullptr);
+     glCompileShader(sh);
+     glGetShaderiv(sh, GL_COMPILE_STATUS, &compile_ok);
+diff --git a/game/graphics/opengl_renderer/loader/Loader.cpp b/game/graphics/opengl_renderer/loader/Loader.cpp
+index 091ac8de32..3a7ca5217c 100644
+--- a/game/graphics/opengl_renderer/loader/Loader.cpp
++++ b/game/graphics/opengl_renderer/loader/Loader.cpp
+@@ -39,6 +39,7 @@
+ #endif
+ #include "game/runtime.h"
+ #include "game/system/autoport_proof.h"
++#include "game/system/asset_manifest.h"
+ #include "game/system/load_gate.h"
+ #include "game/system/npc_flicker.h"
+ 
+@@ -663,6 +664,7 @@ void Loader::loader_thread() {
+       prof().begin_event("read-file");
+       Timer disk_timer;
+       auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, lev));
++      asset_manifest::record("fr3", lev, 0, data.data(), data.size());
+       double disk_load_time = disk_timer.getSeconds();
+       prof().end_event();
+ 
+@@ -962,6 +964,7 @@ const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::strin
+   }
+ #endif
+   auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, name));
++  asset_manifest::record("fr3", name, 0, data.data(), data.size());
+   rss_census::mark("common-lu");
+ 
+   auto decomp_data = compression::decompress_zstd(data.data(), data.size());
+diff --git a/game/graphics/opengl_renderer/loader/LoaderStages.cpp b/game/graphics/opengl_renderer/loader/LoaderStages.cpp
+index 60886d7bbd..ba4cc05d3d 100644
+--- a/game/graphics/opengl_renderer/loader/LoaderStages.cpp
++++ b/game/graphics/opengl_renderer/loader/LoaderStages.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include "common/global_profiler/GlobalProfiler.h"
+ #include "common/util/rss_census.h"
++#include "game/system/asset_manifest.h"
+ 
+ #ifdef OG_FEAT_PBR
+ // Grecharged-pbr-materials: add_texture reads the custom-assets toggle directly.
+@@ -327,6 +328,12 @@ u64 add_texture(TexturePool& pool,
+     fp_h = tex.h;
+   }
+   g_last_add_texture_fp = upload_fingerprint(fp_tag, fp_w, fp_h, fp_ptr, fp_len);
++  if (asset_manifest::enabled()) {
++    asset_manifest::record("texture-base",
++                           fmt::format("{}/{}/{}/{}x{}", tex.debug_tpage_name, tex.debug_name,
++                                       fp_tag, fp_w, fp_h),
++                           0, fp_ptr, fp_len);
++  }
+   const double t_upload_ms = tex_call_timer.getMs();
+   // Grecharged-managed-assets: a KTX2 payload already carries its whole mip chain,
+   // filtered offline. Regenerating it would both cost the stall this tier exists to
+@@ -434,6 +441,14 @@ u64 add_texture(TexturePool& pool,
+       }
+       *dst = managed_assets::create_map_texture(*t);
+       if (*dst) {
++        if (asset_manifest::enabled()) {
++          asset_manifest::record("texture-map",
++                                 fmt::format("{}/{}/{}/{}/{}x{}", tex.debug_tpage_name,
++                                             tex.debug_name, kind,
++                                             managed_is_baked ? "baked-ktx2" : "managed-ktx2",
++                                             t->info.width, t->info.height),
++                                 0, t->payload.data(), t->payload.size());
++        }
+         any = true;
+         return t;
+       }
+@@ -558,7 +573,7 @@ u64 add_texture(TexturePool& pool,
+     const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
+     const bool surf_authored = custom_tex::pbrmat_has_record(mat_key);
+     if (n || r || m || h || s || e || th || orm || tp_apply || surf_authored) {
+-      auto make_map = [&](const custom_tex::ReplacementImage* img) -> u32 {
++      auto make_map = [&](const char* kind, const custom_tex::ReplacementImage* img) -> u32 {
+         if (!img) {
+           return 0;
+         }
+@@ -567,6 +582,12 @@ u64 add_texture(TexturePool& pool,
+         glBindTexture(GL_TEXTURE_2D, id);
+         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img->w, img->h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                      img->rgba.data());
++        if (asset_manifest::enabled()) {
++          asset_manifest::record("texture-map",
++                                 fmt::format("{}/{}/{}/{}/rgba/{}x{}", tex.debug_tpage_name,
++                                             tex.debug_name, kind, img->src, img->w, img->h),
++                                 0, img->rgba.data(), img->rgba.size());
++        }
+         glGenerateMipmap(GL_TEXTURE_2D);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+@@ -582,7 +603,7 @@ u64 add_texture(TexturePool& pool,
+       // the whole trick — the packing is undone on the CPU, so no shader had to learn about it.
+       // GL_UNPACK_ALIGNMENT must drop to 1: a single-channel row of, say, 129 texels is not a
+       // multiple of 4 and the default alignment would skew every row after the first.
+-      auto make_channel = [&](const custom_tex::ReplacementImage* img, int chan) -> u32 {
++      auto make_channel = [&](const char* kind, const custom_tex::ReplacementImage* img, int chan) -> u32 {
+         if (!img || img->rgba.empty()) {
+           return 0;
+         }
+@@ -599,6 +620,12 @@ u64 add_texture(TexturePool& pool,
+         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+         glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, img->w, img->h, 0, GL_RED, GL_UNSIGNED_BYTE,
+                      plane.data());
++        if (asset_manifest::enabled()) {
++          asset_manifest::record("texture-map",
++                                 fmt::format("{}/{}/{}/{}/r8-channel{}/{}x{}", tex.debug_tpage_name,
++                                             tex.debug_name, kind, img->src, chan, img->w, img->h),
++                                 0, plane.data(), plane.size());
++        }
+         glPixelStorei(GL_UNPACK_ALIGNMENT, prev_align);
+         glGenerateMipmap(GL_TEXTURE_2D);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+@@ -616,15 +643,15 @@ u64 add_texture(TexturePool& pool,
+       // in this fork means the GL state too, not just the pixels — and because it keeps the whole
+       // memory story inside one switch the owner controls.
+       size_t mm_vram_saved = 0;
+-      auto make_scalar = [&](const custom_tex::ReplacementImage* img) -> u32 {
++      auto make_scalar = [&](const char* kind, const custom_tex::ReplacementImage* img) -> u32 {
+         if (!img) {
+           return 0;
+         }
+         if (!mm_on) {
+-          return make_map(img);
++          return make_map(kind, img);
+         }
+         mm_vram_saved += (size_t)img->w * (size_t)img->h * 3;
+-        return make_channel(img, 0);
++        return make_channel(kind, img, 0);
+       };
+       custom_tex::PbrMaterialMaps maps;
+       // Re-fetch each present map immediately before upload (thread-local buffer reuse).
+@@ -661,7 +688,7 @@ u64 add_texture(TexturePool& pool,
+                                           maps.normal_dc_y * maps.normal_dc_y)) *
+                       180.0 / 3.14159265358979));
+         }
+-        maps.normal_tex = make_map(ni);
++        maps.normal_tex = make_map("normal", ni);
+       }
+       if (r) {
+         const auto* ri =
+@@ -685,14 +712,14 @@ u64 add_texture(TexturePool& pool,
+               tex.debug_name, ri->src, ri->w, ri->h, mn / 255.f,
+               npx ? (float)(sum / (double)npx / 255.0) : 0.f, mx / 255.f);
+         }
+-        maps.rough_tex = make_scalar(ri);
++        maps.rough_tex = make_scalar("roughness", ri);
+       }
+       if (m) {
+-        maps.metal_tex = make_scalar(
++        maps.metal_tex = make_scalar("metallic",
+             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic", bsrc));
+       }
+       if (a) {
+-        maps.ao_tex = make_scalar(
++        maps.ao_tex = make_scalar("ao",
+             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao", bsrc));
+       }
+       if (h) {
+@@ -753,14 +780,14 @@ u64 add_texture(TexturePool& pool,
+                 maps.height_lambda_tiles);
+           }
+         }
+-        maps.height_tex = make_scalar(hi);
++        maps.height_tex = make_scalar("height", hi);
+       }
+       if (s) {
+-        maps.specular_tex = make_map(
++        maps.specular_tex = make_map("specular",
+             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_specular", bsrc));
+       }
+       if (e) {
+-        maps.emissive_tex = make_map(
++        maps.emissive_tex = make_map("emissive",
+             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive", bsrc));
+       }
+       // ===== Grecharged-materials-modern-parity: ORM UNPACK + THICKNESS ===========================
+@@ -780,15 +807,15 @@ u64 add_texture(TexturePool& pool,
+         if (oi && !oi->rgba.empty()) {
+           int used = 0;
+           if (!maps.ao_tex) {
+-            maps.ao_tex = make_channel(oi, 0);
++            maps.ao_tex = make_channel("ao-orm", oi, 0);
+             used++;
+           }
+           if (!maps.rough_tex) {
+-            maps.rough_tex = make_channel(oi, 1);
++            maps.rough_tex = make_channel("roughness-orm", oi, 1);
+             used++;
+           }
+           if (!maps.metal_tex) {
+-            maps.metal_tex = make_channel(oi, 2);
++            maps.metal_tex = make_channel("metallic-orm", oi, 2);
+             used++;
+           }
+           if (used) {
+@@ -804,7 +831,7 @@ u64 add_texture(TexturePool& pool,
+       if (th) {
+         // The capability BIT is derived from thickness_tex by mm_apply_params, not set here — see
+         // PbrMaterialMaps::orm_packed for why anything texture-derived must stay recomputable.
+-        maps.thickness_tex = make_map(
++        maps.thickness_tex = make_map("thickness",
+             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_thickness", bsrc));
+       }
+       if (tp_apply) {
+diff --git a/game/graphics/refset.cpp b/game/graphics/refset.cpp
+index 66bc93b1f6..a865247f07 100644
+--- a/game/graphics/refset.cpp
++++ b/game/graphics/refset.cpp
+@@ -22,6 +22,7 @@
+ #include "game/graphics/opengl_renderer/lighting_census.h"
+ #include "game/graphics/render_pace.h"
+ #include "game/system/autoport_proof.h"
++#include "game/system/asset_manifest.h"
+ #include "game/system/pad_replay.h"
+ 
+ #include "third-party/fpng/fpng.h"
+@@ -2846,6 +2847,10 @@ bool consume_capture(int w, int h, const void* rgba) {
+     return false;
+   }
+   const std::string path = image_path(g_steps[g_cur]);
++  if (asset_manifest::enabled()) {
++    asset_manifest::checkpoint(step_image_name(g_steps[g_cur]) + "/chain-lf=" +
++                               std::to_string(g_inflight_lf));
++  }
+   std::printf("REFSET sample case=%s layer=%s chain_lf=%lld anchor_lf=%lld\n",
+               g_capture_name.c_str(), g_steps[g_cur].supplemental ? "supplement-v1" : "historical",
+               (long long)g_inflight_lf, (long long)g_step_anchor);
+diff --git a/game/kernel/common/fileio.cpp b/game/kernel/common/fileio.cpp
+index 11976b7784..3f007ee3aa 100644
+--- a/game/kernel/common/fileio.cpp
++++ b/game/kernel/common/fileio.cpp
+@@ -9,6 +9,7 @@
+ #include "game/kernel/common/kmalloc.h"
+ #include "game/kernel/common/kprint.h"
+ #include "game/sce/sif_ee.h"
++#include "game/system/asset_manifest.h"
+ 
+ using namespace ee;
+ 
+@@ -306,6 +307,7 @@ Ptr<u8> FileLoad(char* name, Ptr<kheapinfo> heap, Ptr<u8> memory, u32 malloc_fla
+ 
+     s32 read_amount = sceRead(fd, memory.c(), size);
+     if (read_amount == size) {
++      asset_manifest::record("file", name, initial_pos, memory.c(), size);
+       sceClose(fd);
+       if (size_out)
+         *size_out = size;
+diff --git a/game/kernel/common/klink.cpp b/game/kernel/common/klink.cpp
+index 8608bc38a6..29699c098a 100644
+--- a/game/kernel/common/klink.cpp
++++ b/game/kernel/common/klink.cpp
+@@ -15,6 +15,7 @@
+ #include "game/kernel/jak2/kscheme.h"
+ #include "game/mips2c/mips2c_table.h"
+ #include "game/runtime.h"
++#include "game/system/asset_manifest.h"
+ 
+ #include "fmt/format.h"
+ 
+@@ -1145,6 +1146,10 @@ void link_control::jak1_jak2_begin(Ptr<uint8_t> object_file,
+                                    int32_t size,
+                                    Ptr<kheapinfo> heap,
+                                    uint32_t flags) {
++  if (asset_manifest::enabled()) {
++    ASSERT(size >= 0);
++    asset_manifest::record("object", name, 0, object_file.c(), size);
++  }
+   // A18 per-object re-walk: before each object's link begins, re-walk
+   // every loaded Type's method table and patch empty slots to the trap.
+   // This catches engine-CGO types created by the immediately-prior
+diff --git a/game/overlord/jak1/fake_iso.cpp b/game/overlord/jak1/fake_iso.cpp
+index 77f4865a82..4e2bc38e66 100644
+--- a/game/overlord/jak1/fake_iso.cpp
++++ b/game/overlord/jak1/fake_iso.cpp
+@@ -10,6 +10,7 @@
+ #include "game/overlord/common/soundcommon.h"
+ #include "game/overlord/jak1/isocommon.h"
+ #include "game/sound/sndshim.h"
++#include "game/system/asset_manifest.h"
+ 
+ namespace jak1 {
+ IsoFs fake_iso;
+@@ -155,6 +156,11 @@ void fs_read(LoadStackEntry* fd, void* buffer, int32_t len, s32 thread_to_wake)
+     if (fread(buffer, real_size, 1, fd->fp) != 1) {
+       ASSERT(false);
+     }
++    // Identify the bytes returned by this read, including overlay-selected data.
++    if (asset_manifest::enabled()) {
++      asset_manifest::record("iso", std::string(fd->fr->name, sizeof(fd->fr->name)),
++                             offset_into_file, buffer, real_size);
++    }
+   }
+ 
+   if (len < 0) {

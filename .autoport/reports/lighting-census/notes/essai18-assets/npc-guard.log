@@ -1,0 +1,1375 @@
+===== BRAS 1 — proprietes de l'instrument =====
+npc_flicker selftest — min_episode_frames=3
+
+NPCFLICK scene=scene-A pnj=keira-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=60 dessine=60 inst=1 plateforme=x86
+NPCCULL scene=scene-A pnj=keira-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=60 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-A images=60 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-A pnj_suivis=1 cycles=0 images=60 ecart0=60 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=60
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=60
+npc_fov_unevaluated_frames=60
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   acteur dessine 60 images : aucun cycle               cycles=0 blinks=0
+[ok]   la scene et l'acteur sont bien publies               scenes=1 pnj=1
+NPCDARK scene=scene-B pnj=keira-lod0 npc=1 image=12 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-B pnj=keira-lod0 npc=1 image=13 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-B pnj=keira-lod0 npc=1 image=14 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-B pnj=keira-lod0 npc=1 image=15 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-B pnj=keira-lod0 npc=1 image=16 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-B pnj=keira-lod0 npc=1 image=17 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-B pnj=keira-lod0 npc=1 image=18 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCFLICK-EV scene=scene-B pnj=keira-lod0 images=7 ms=0 cause=noanim noir=7 nonevalue=7 hd=0 plateforme=x86
+NPCFLICK scene=scene-B pnj=keira-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=1 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=7 trou_max_ms=0 images=28 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-B pnj=keira-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=7 images_dans_frustum=8 images=28 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-B images=28 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-B pnj_suivis=1 cycles=1 images=28 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=28
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=7
+npc_culled_in_frustum_all=7
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=28
+npc_fov_unevaluated_frames=28
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=8
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   8 images sans dessin, acteur vivant : UN cycle compte cycles=1
+[ok]   cause publiee = noanim                               noanim=1
+NPCFLICK-EV scene=scene-C pnj=sage-lod0 images=6 ms=0 cause=mort noir=0 nonevalue=6 hd=0 plateforme=x86
+NPCFLICK scene=scene-C pnj=sage-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=1 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=6 trou_max_ms=0 images=20 dessine=20 inst=1 plateforme=x86
+NPCCULL scene=scene-C pnj=sage-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=20 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-C images=26 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-C pnj_suivis=1 cycles=1 images=26 ecart0=20 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=26
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=20
+npc_fov_unevaluated_frames=20
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   acteur sorti de l'arbre puis revenu : cycle cause=mort cycles=1 mort=1
+NPCFLICK-EV scene=scene-D pnj=assistant-lod0 images=5 ms=0 cause=supprime noir=0 nonevalue=5 hd=0 plateforme=x86
+NPCFLICK scene=scene-D pnj=assistant-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=1 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=5 trou_max_ms=0 images=26 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-D pnj=assistant-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=26 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-D images=26 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-D pnj_suivis=1 cycles=1 images=26 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=26
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=26
+npc_fov_unevaluated_frames=26
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   paquet supprime par la couverture : cycle cause=supprime supprime=1
+NPCFLICK-EV scene=scene-E pnj=mayor-lod0 images=5 ms=0 cause=modele-absent noir=0 nonevalue=5 hd=0 plateforme=x86
+NPCFLICK scene=scene-E pnj=mayor-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=1 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=5 trou_max_ms=0 images=26 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-E pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=26 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-E images=26 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-E pnj_suivis=1 cycles=1 images=26 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=26
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=26
+npc_fov_unevaluated_frames=26
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   modele absent du chargeur : cycle cause=modele-absent modele_absent=1
+NPCPLAT scene=scene-F images=40 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-F pnj_suivis=0 cycles=0 images=40 ecart0=0 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=40
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=40
+npc_fov_unevaluated_frames=40
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   jamais dessine : ni cycle ni ligne                   cycles=0 pnj=0
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=12 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=13 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=14 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=15 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=16 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=17 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=18 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=19 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=20 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=21 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=22 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=23 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=24 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=25 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=26 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=27 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=28 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=29 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=scene-G pnj=oracle-lod0 npc=1 image=30 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCFLICK scene=scene-G pnj=oracle-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=30 dessine=11 inst=1 plateforme=x86
+NPCCULL scene=scene-G pnj=oracle-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=19 images_dans_frustum=20 images=30 ouvert=19 plateforme=x86
+NPCPLAT scene=scene-G images=30 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-G pnj_suivis=1 cycles=0 images=30 ecart0=10 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=30
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=19
+npc_culled_in_frustum_all=19
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=30
+npc_fov_unevaluated_frames=30
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=20
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   disparition non refermee : aucun cycle               cycles=0
+NPCDARK scene=scene-H pnj=keira-lod0 npc=1 image=12 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCFLICK scene=scene-H pnj=keira-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=1 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=1 trou_max_ms=0 images=22 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-H pnj=keira-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=2 images=22 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-H images=22 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-H pnj_suivis=1 cycles=0 images=22 ecart0=20 ecart1=1 ecart2=1 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=22
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=22
+npc_fov_unevaluated_frames=22
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=2
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   trou de 2 images : blink publie, pas de cycle        cycles=0 blinks=1
+NPCFLICK scene=scene-I pnj=harvester-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=30 dessine=30 inst=2 plateforme=x86
+NPCCULL scene=scene-I pnj=harvester-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=30 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-I images=30 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-I pnj_suivis=1 cycles=0 images=30 ecart0=30 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=30
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=30
+npc_fov_unevaluated_frames=30
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   instances fusionnees : aucun cycle fabrique          cycles=0
+NPCFLICK scene=scene-J pnj=sagesail-lod0 cycles=0 hd=0 coupes=1 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=1 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=299 trou_max_ms=0 images=320 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-J pnj=sagesail-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=320 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-J images=320 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-J pnj_suivis=1 cycles=0 images=320 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=320
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=1
+npc_fov_unevaluated_all=320
+npc_fov_unevaluated_frames=320
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   hors frustum 300 images, niveau actif : coupe, pas un cycle cycles=0 coupes=1
+NPCFLICK-EV scene=scene-K pnj=harvester-lod0 images=19 ms=0 cause=niveau-inactif noir=0 nonevalue=19 hd=0 plateforme=x86
+NPCFLICK scene=scene-K pnj=harvester-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=1 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=19 trou_max_ms=0 images=40 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-K pnj=harvester-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=40 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-K images=40 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-K pnj_suivis=1 cycles=1 images=40 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=40
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=40
+npc_fov_unevaluated_frames=40
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   niveau desactive sous l'acteur : cycle cause=niveau-inactif cycles=1 niveau=1
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=12 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=13 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=14 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=15 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=16 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=17 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=18 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=19 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=20 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=21 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=22 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=23 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=24 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=25 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=26 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=27 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=28 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=29 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCDARK scene=scene-L pnj=evilsis-lod0 npc=1 image=30 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCFLICK scene=scene-L pnj=evilsis-lod0 cycles=0 hd=0 coupes=1 hors_champ=0 longues=0 blinks=0 mort=0 hidden=1 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=19 trou_max_ms=0 images=40 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-L pnj=evilsis-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=19 images_dans_frustum=20 images=40 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-L images=40 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-L pnj_suivis=1 cycles=0 images=40 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=40
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=19
+npc_culled_in_frustum_all=19
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=1
+npc_fov_unevaluated_all=40
+npc_fov_unevaluated_frames=40
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=20
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   masque volontairement : coupe, pas un cycle          cycles=0 coupes=1
+NPCFLICK-LONG scene=scene-M pnj=crate-darkeco-lod0 images=260 ms=1 cause=mort noir=0 nonevalue=260 hd=0 plateforme=x86
+NPCFLICK scene=scene-M pnj=crate-darkeco-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=1 blinks=0 mort=1 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=260 trou_max_ms=1 images=20 dessine=20 inst=1 plateforme=x86
+NPCCULL scene=scene-M pnj=crate-darkeco-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=20 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-M images=280 ms=1 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-M pnj_suivis=1 cycles=0 images=280 ecart0=20 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=280
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=20
+npc_fov_unevaluated_frames=20
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   absence tres longue : `longues`, pas `cycles`        cycles=0 longues=1
+NPCDARK scene=scene-N pnj=sidekick-human-lod0 npc=1 image=12 statut=2 niveau=1 cause=clone-desynchronise hd=0 plateforme=x86
+NPCDARK scene=scene-N pnj=sidekick-human-lod0 npc=1 image=13 statut=2 niveau=1 cause=clone-desynchronise hd=0 plateforme=x86
+NPCDARK scene=scene-N pnj=sidekick-human-lod0 npc=1 image=14 statut=2 niveau=1 cause=clone-desynchronise hd=0 plateforme=x86
+NPCDARK scene=scene-N pnj=sidekick-human-lod0 npc=1 image=15 statut=2 niveau=1 cause=clone-desynchronise hd=0 plateforme=x86
+NPCDARK scene=scene-N pnj=sidekick-human-lod0 npc=1 image=16 statut=2 niveau=1 cause=clone-desynchronise hd=0 plateforme=x86
+NPCDARK scene=scene-N pnj=sidekick-human-lod0 npc=1 image=17 statut=2 niveau=1 cause=clone-desynchronise hd=0 plateforme=x86
+NPCDARK scene=scene-N pnj=sidekick-human-lod0 npc=1 image=18 statut=2 niveau=1 cause=clone-desynchronise hd=0 plateforme=x86
+NPCFLICK-EV scene=scene-N pnj=sidekick-human-lod0 images=7 ms=0 cause=clone-desynchronise noir=7 nonevalue=7 hd=0 plateforme=x86
+NPCFLICK scene=scene-N pnj=sidekick-human-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=1 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=7 trou_max_ms=0 images=28 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-N pnj=sidekick-human-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=7 images_dans_frustum=8 images=28 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-N images=28 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-N pnj_suivis=1 cycles=1 images=28 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=28
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=8
+npc_culled_in_frustum=7
+npc_culled_in_frustum_all=7
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=28
+npc_fov_unevaluated_frames=28
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=8
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   clone qui ne suit plus sa source : cycle cause=clone-desynchronise cycles=1 clone=1
+NPCDARK scene=scene-CA pnj=mayor-lod0 npc=1 image=12 statut=0 niveau=1 cause=cull-aveugle hd=0 plateforme=x86
+NPCDARK scene=scene-CA pnj=mayor-lod0 npc=1 image=13 statut=0 niveau=1 cause=cull-aveugle hd=0 plateforme=x86
+NPCDARK scene=scene-CA pnj=mayor-lod0 npc=1 image=14 statut=0 niveau=1 cause=cull-aveugle hd=0 plateforme=x86
+NPCDARK scene=scene-CA pnj=mayor-lod0 npc=1 image=15 statut=0 niveau=1 cause=cull-aveugle hd=0 plateforme=x86
+NPCDARK scene=scene-CA pnj=mayor-lod0 npc=1 image=16 statut=0 niveau=1 cause=cull-aveugle hd=0 plateforme=x86
+NPCDARK scene=scene-CA pnj=mayor-lod0 npc=1 image=17 statut=0 niveau=1 cause=cull-aveugle hd=0 plateforme=x86
+NPCDARK scene=scene-CA pnj=mayor-lod0 npc=1 image=18 statut=0 niveau=1 cause=cull-aveugle hd=0 plateforme=x86
+NPCFLICK-EV scene=scene-CA pnj=mayor-lod0 images=7 ms=0 cause=cull-aveugle noir=7 nonevalue=0 hd=0 plateforme=x86
+NPCFLICK scene=scene-CA pnj=mayor-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=1 matrice_invalide=0 trou_max=7 trou_max_ms=0 images=28 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-CA pnj=mayor-lod0 npc=1 dans_frustum_et_culled=8 noir_dans_frustum=7 images_dans_frustum=8 images=28 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-CA images=28 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-CA pnj_suivis=1 cycles=1 images=28 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=28
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=7
+npc_culled_in_frustum_all=7
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=20
+npc_fov_unevaluated_frames=20
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=8
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   was-drawn=0 mais racine DANS le champ : cycle cause=cull-aveugle cycles=1 cull_aveugle=1
+[ok]     ... et il ne retombe PAS dans le seau non gate `culled` culled=0
+NPCFLICK scene=scene-CB pnj=mayor-lod0 cycles=0 hd=0 coupes=1 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=1 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=7 trou_max_ms=0 images=28 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-CB pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=28 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-CB images=28 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-CB pnj_suivis=1 cycles=0 images=28 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=28
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=1
+npc_fov_unevaluated_all=20
+npc_fov_unevaluated_frames=20
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   was-drawn=0 et racine HORS du champ : coupe, pas un cycle cycles=0 culled=1
+NPCFLICK-EV scene=scene-CC pnj=farmer-lod0 images=7 ms=0 cause=soumis-mais-non-dessine noir=0 nonevalue=7 hd=0 plateforme=x86
+NPCFLICK scene=scene-CC pnj=farmer-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=1 cull_aveugle=0 matrice_invalide=0 trou_max=7 trou_max_ms=0 images=28 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-CC pnj=farmer-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=28 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-CC images=28 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-CC pnj_suivis=1 cycles=1 images=28 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=28
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=28
+npc_fov_unevaluated_frames=28
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   was-drawn=1 et rien de dessine : cycle cause=soumis-mais-non-dessine cycles=1 nodraw=1
+NPCDARK scene=flux-non-arme pnj=mayor-lod0 npc=1 image=12 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=flux-non-arme pnj=mayor-lod0 npc=1 image=13 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=flux-non-arme pnj=mayor-lod0 npc=1 image=14 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=flux-non-arme pnj=mayor-lod0 npc=1 image=15 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=flux-non-arme pnj=mayor-lod0 npc=1 image=16 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=flux-non-arme pnj=mayor-lod0 npc=1 image=17 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=flux-non-arme pnj=mayor-lod0 npc=1 image=18 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCFLICK-EV scene=mayor-introduction pnj=mayor-lod0 images=7 ms=0 cause=noanim noir=7 nonevalue=7 hd=0 plateforme=x86
+NPCFLICK scene=mayor-introduction pnj=mayor-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=1 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=7 trou_max_ms=0 images=28 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=mayor-introduction pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=7 images_dans_frustum=8 images=28 ouvert=0 plateforme=x86
+NPCPLAT scene=mayor-introduction images=28 ms=1 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=mayor-introduction pnj_suivis=1 cycles=1 images=28 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=28
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=7
+npc_culled_in_frustum_all=7
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=28
+npc_fov_unevaluated_frames=28
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=8
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=10
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   episode ouvert avant que le flux porte son nom : compte, sous UNE seule scene scenes=1 cycles=1
+NPCFLICK-EV scene=scene-G pnj=mayor-lod0 images=8 ms=0 cause=matrice-invalide noir=0 nonevalue=8 hd=0 plateforme=x86
+NPCFLICK scene=scene-G pnj=mayor-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=1 trou_max=8 trou_max_ms=0 images=28 dessine=20 inst=1 plateforme=x86
+NPCCULL scene=scene-G pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=28 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-G images=28 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-G pnj_suivis=1 cycles=1 images=28 ecart0=28 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=28
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=28
+npc_fov_unevaluated_frames=28
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   dessine avec des matrices INVALIDES : cycle cause=matrice-invalide cycles=1 matrice_invalide=1 nodraw=0
+[ok]   etat vivant : 0 cycle pendant l'episode, 1 cycle + cause apres la reprise mid=0 fin=1 cause=10
+[ok]   etat vivant hors cinematique : aucune scene          in_scene=0
+NPCFLICK scene=scene-H pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=1 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=1 trou_max_ms=0 images=31 dessine=30 inst=1 plateforme=x86
+NPCCULL scene=scene-H pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=31 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-H images=31 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-H pnj_suivis=1 cycles=0 images=31 ecart0=31 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=31
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=31
+npc_fov_unevaluated_frames=31
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   une seule image invalide : au plus un blink, jamais un cycle cycles=0 blinks=1
+NPCDARK scene=scene-F pnj=mayor-lod0 npc=1 image=12 statut=0 niveau=1 cause=cull-aveugle hd=0 plateforme=x86
+NPCFLICK scene=scene-F pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=1 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=1 trou_max_ms=0 images=22 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-F pnj=mayor-lod0 npc=1 dans_frustum_et_culled=2 noir_dans_frustum=0 images_dans_frustum=2 images=22 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-F images=22 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-F pnj_suivis=1 cycles=0 images=22 ecart0=20 ecart1=1 ecart2=1 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=22
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=20
+npc_fov_unevaluated_frames=20
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=2
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+NPCFLICK scene=scene-F pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=1 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=1 trou_max_ms=0 images=22 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-F pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=22 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-F images=22 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-F pnj_suivis=1 cycles=0 images=22 ecart0=20 ecart1=1 ecart2=1 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=22
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=20
+npc_fov_unevaluated_frames=20
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+NPCDARK scene=scene-F pnj=mayor-lod0 npc=1 image=12 statut=2 niveau=1 cause=hidden hd=0 plateforme=x86
+NPCFLICK scene=scene-F pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=1 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=1 trou_max_ms=0 images=22 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=scene-F pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=2 images=22 ouvert=0 plateforme=x86
+NPCPLAT scene=scene-F images=22 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=scene-F pnj_suivis=1 cycles=0 images=22 ecart0=20 ecart1=1 ecart2=1 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=22
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=20
+npc_fov_unevaluated_frames=20
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=2
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   dans le champ + was-drawn=0, 2 images : dans_frustum_et_culled=2 (sous le seuil, compte) dans_frustum_et_culled=2 images_dans_frustum=2
+[ok]   hors du champ + was-drawn=0 : dans_frustum_et_culled=0 dans_frustum_et_culled=0
+[ok]   hidden dans le champ : compte dans le champ, pas comme ecarte dans_frustum_et_culled=0 images_dans_frustum=2
+[ok]   plateforme publiee par le code (bureau = x86)        plateforme=x86
+
+NPCDARK scene=porte-a pnj=mayor-lod0 npc=1 image=12 statut=8 niveau=1 cause=soumis-mais-non-dessine hd=0 plateforme=x86
+NPCDARK scene=porte-a pnj=mayor-lod0 npc=1 image=13 statut=8 niveau=1 cause=soumis-mais-non-dessine hd=0 plateforme=x86
+NPCDARK scene=porte-a pnj=mayor-lod0 npc=1 image=14 statut=8 niveau=1 cause=soumis-mais-non-dessine hd=0 plateforme=x86
+NPCDARK scene=porte-a pnj=mayor-lod0 npc=1 image=15 statut=8 niveau=1 cause=soumis-mais-non-dessine hd=0 plateforme=x86
+NPCFLICK-EV scene=porte-a pnj=mayor-lod0 images=4 ms=0 cause=soumis-mais-non-dessine noir=4 nonevalue=0 hd=0 plateforme=x86
+NPCFLICK scene=porte-a pnj=mayor-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=1 cull_aveugle=0 matrice_invalide=0 trou_max=4 trou_max_ms=0 images=25 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=porte-a pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=4 images_dans_frustum=25 images=25 ouvert=0 plateforme=x86
+NPCPLAT scene=porte-a images=25 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=porte-a pnj_suivis=1 cycles=1 images=25 ecart0=20 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=25
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=4
+npc_culled_in_frustum_all=4
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=25
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   porte : PNJ dans le champ, rien de dessine 5 images -> 4 (tolerance 1) npc_culled_in_frustum=4
+NPCFLICK scene=porte-b pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=21 dessine=21 inst=1 plateforme=x86
+NPCCULL scene=porte-b pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=21 images=21 ouvert=0 plateforme=x86
+NPCPLAT scene=porte-b images=21 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=porte-b pnj_suivis=1 cycles=0 images=21 ecart0=20 ecart1=1 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=21
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=21
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   porte : une image noire isolee ne compte pas (regle des 3) npc_culled_in_frustum=0
+NPCFLICK scene=porte-c pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=30 dessine=11 inst=1 plateforme=x86
+NPCCULL scene=porte-c pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=10 images=30 ouvert=19 plateforme=x86
+NPCPLAT scene=porte-c images=30 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=porte-c pnj_suivis=1 cycles=0 images=30 ecart0=10 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=30
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=10
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   porte : hors du champ avec sphere a jour = coupe de camera, 0 npc_culled_in_frustum=0
+NPCDARK scene=porte-d pnj=mayor-lod0 npc=1 image=12 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=porte-d pnj=mayor-lod0 npc=1 image=13 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=porte-d pnj=mayor-lod0 npc=1 image=14 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=porte-d pnj=mayor-lod0 npc=1 image=15 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=porte-d pnj=mayor-lod0 npc=1 image=16 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCFLICK scene=porte-d pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=16 dessine=11 inst=1 plateforme=x86
+NPCCULL scene=porte-d pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=5 images_dans_frustum=16 images=16 ouvert=5 plateforme=x86
+NPCPLAT scene=porte-d images=16 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=porte-d pnj_suivis=1 cycles=0 images=16 ecart0=10 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=16
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=5
+npc_culled_in_frustum_all=5
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=16
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   porte : sphere perimee (no-anim) -> l'absence compte quand meme (6-1) npc_culled_in_frustum=5
+NPCFLICK scene=porte-e pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=18 dessine=18 inst=1 plateforme=x86
+NPCCULL scene=porte-e pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=18 images=18 ouvert=0 plateforme=x86
+NPCPLAT scene=porte-e images=18 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=porte-e pnj_suivis=1 cycles=0 images=18 ecart0=10 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=18
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=18
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   porte : dessine par un CLONE (autre pid, meme modele) -> 0 npc_culled_in_frustum=0
+[ok]   correctif : 5 images d'echec de suite -> le clone est MAINTENU 5 fois maintenus=5/5
+[ok]   correctif : au-dela du plafond, retour a l'ancien comportement premiere=1 apres_plafond=0 plafond_ms=400
+[ok]   correctif : une serie rompue repart avec un budget neuf serie=2
+NPCFLICK scene=porte-i1 pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=6 dessine=6 inst=1 plateforme=x86
+NPCCULL scene=porte-i1 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=6 images=6 ouvert=0 plateforme=x86
+NPCPLAT scene=porte-i1 images=6 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=porte-i1 pnj_suivis=1 cycles=0 images=6 ecart0=6 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=6
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=6
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+NPCDARK scene=porte-i2 pnj=mayor-lod0 npc=1 image=8 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=porte-i2 pnj=mayor-lod0 npc=1 image=9 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=porte-i2 pnj=mayor-lod0 npc=1 image=10 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=porte-i2 pnj=mayor-lod0 npc=1 image=11 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCDARK scene=porte-i2 pnj=mayor-lod0 npc=1 image=12 statut=4 niveau=1 cause=noanim hd=0 plateforme=x86
+NPCFLICK scene=porte-i2 pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=12 dessine=7 inst=1 plateforme=x86
+NPCCULL scene=porte-i2 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=5 images_dans_frustum=12 images=12 ouvert=5 plateforme=x86
+NPCPLAT scene=porte-i2 images=12 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=porte-i2 pnj_suivis=1 cycles=0 images=12 ecart0=6 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=2
+npc_census_frames=18
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=5
+npc_culled_in_frustum_all=5
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=18
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=2
+[ok]   porte : un modele deja reconnu PNJ le reste sous un clone (is_npc=0) npc_culled_in_frustum=5
+NPCFLICK scene=plat-0 pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=6 dessine=6 inst=1 plateforme=x86
+NPCCULL scene=plat-0 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=6 ouvert=0 plateforme=x86
+NPCPLAT scene=plat-0 images=6 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=plat-0 pnj_suivis=1 cycles=0 images=6 ecart0=6 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=6
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=6
+npc_fov_unevaluated_frames=6
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   plateforme : sans source, sources=0 et rien n'est compte sources=0
+NPCFLICK scene=plat-1 pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=12 dessine=12 inst=1 plateforme=x86
+NPCCULL scene=plat-1 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=12 ouvert=0 plateforme=x86
+NPCPLAT scene=plat-1 images=12 ms=0 sources=3 nullfg=2 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=3 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=plat-1 pnj_suivis=1 cycles=0 images=12 ecart0=12 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=2
+npc_census_frames=18
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=18
+npc_fov_unevaluated_frames=18
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=3
+npc_scenes=2
+[ok]   plateforme : hote ET rendu declares (sources=3)      sources=3
+[ok]   plateforme : la scene publie le DELTA (7-5=2), pas le cumul depuis le boot nullfg=2
+[ok]   plateforme : le rendu remplit sa case (fail-open=3)  hd_failopen=3
+NPCFLICK scene=plat-2 pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=0 trou_max_ms=0 images=6 dessine=6 inst=1 plateforme=x86
+NPCCULL scene=plat-2 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=0 images=6 ouvert=0 plateforme=x86
+NPCPLAT scene=plat-2 images=6 ms=0 sources=3 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=plat-2 pnj_suivis=1 cycles=0 images=6 ecart0=6 ecart1=0 ecart2=0 ecart3=0 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=3
+npc_census_frames=24
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=24
+npc_fov_unevaluated_frames=24
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=0
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=3
+npc_plat_hd_gap=0
+npc_plat_repairs=2
+npc_plat_sources=3
+npc_scenes=3
+[ok]   plateforme : une scene sans evenement n'ajoute rien  nullfg=2 hd_failopen=3
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=12 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=13 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=14 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=15 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=16 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=17 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=18 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=19 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=20 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=21 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=22 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=23 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=24 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=25 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=26 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=27 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=28 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=29 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=30 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=31 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=32 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=33 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=34 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=35 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=36 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=37 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=38 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=39 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCDARK scene=noir-1 pnj=mayor-lod0 npc=1 image=40 statut=8 niveau=1 cause=modele-absent hd=0 plateforme=x86
+NPCFLICK-EV scene=noir-1 pnj=mayor-lod0 images=29 ms=0 cause=modele-absent noir=29 nonevalue=0 hd=0 plateforme=x86
+NPCFLICK scene=noir-1 pnj=mayor-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=1 niveau=0 clone=0 nodraw=0 cull_aveugle=0 matrice_invalide=0 trou_max=29 trou_max_ms=0 images=45 dessine=16 inst=1 plateforme=x86
+NPCCULL scene=noir-1 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=29 images_dans_frustum=45 images=45 ouvert=0 plateforme=x86
+NPCPLAT scene=noir-1 images=45 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=noir-1 pnj_suivis=1 cycles=1 images=45 ecart0=15 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=45
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=29
+npc_culled_in_frustum_all=29
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=45
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   noir DANS le champ 30 images : l'episode est un DEFAUT cycles=1 longues=0 hors_champ=0
+NPCFLICK-OFF scene=noir-2 pnj=mayor-lod0 images=29 ms=0 cause=soumis-mais-non-dessine noir=0 nonevalue=0 hd=0 plateforme=x86
+NPCFLICK scene=noir-2 pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=1 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=1 cull_aveugle=0 matrice_invalide=0 trou_max=29 trou_max_ms=0 images=45 dessine=16 inst=1 plateforme=x86
+NPCCULL scene=noir-2 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=15 images=45 ouvert=0 plateforme=x86
+NPCPLAT scene=noir-2 images=45 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=noir-2 pnj_suivis=1 cycles=0 images=45 ecart0=15 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=45
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=1
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=15
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   meme trou HORS du champ : range dans hors_champ, publie cycles=0 longues=0 hors_champ=1
+NPCFLICK-EV scene=noir-3 pnj=mayor-lod0 images=29 ms=0 cause=soumis-mais-non-dessine noir=0 nonevalue=29 hd=0 plateforme=x86
+NPCFLICK scene=noir-3 pnj=mayor-lod0 cycles=1 hd=0 coupes=0 hors_champ=0 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=1 cull_aveugle=0 matrice_invalide=0 trou_max=29 trou_max_ms=0 images=45 dessine=16 inst=1 plateforme=x86
+NPCCULL scene=noir-3 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=15 images=45 ouvert=0 plateforme=x86
+NPCPLAT scene=noir-3 images=45 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=noir-3 pnj_suivis=1 cycles=1 images=45 ecart0=15 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=45
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=0
+npc_flicker_episodes=1
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=30
+npc_fov_unevaluated_frames=30
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=15
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   controle de frustum NON EVALUE : l'episode reste un defaut cycles=1 longues=0 hors_champ=0
+NPCDARK scene=noir-4 pnj=mayor-lod0 npc=1 image=41 statut=8 niveau=1 cause=soumis-mais-non-dessine hd=0 plateforme=x86
+NPCFLICK-OFF scene=noir-4 pnj=mayor-lod0 images=30 ms=0 cause=soumis-mais-non-dessine noir=0 nonevalue=0 hd=0 plateforme=x86
+NPCFLICK scene=noir-4 pnj=mayor-lod0 cycles=0 hd=0 coupes=0 hors_champ=1 longues=0 blinks=0 mort=0 hidden=0 noanim=0 culled=0 supprime=0 modele_absent=0 niveau=0 clone=0 nodraw=1 cull_aveugle=0 matrice_invalide=0 trou_max=30 trou_max_ms=0 images=46 dessine=16 inst=1 plateforme=x86
+NPCCULL scene=noir-4 pnj=mayor-lod0 npc=1 dans_frustum_et_culled=0 noir_dans_frustum=0 images_dans_frustum=16 images=46 ouvert=0 plateforme=x86
+NPCPLAT scene=noir-4 images=46 ms=0 sources=0 nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 evict_pression=0 evictions=0 evict_passe2=0 evict_merc_vivant=0 merc_vecteur_vide=0 merc_cle_absente=0 evict_rescape=0 plateforme=x86
+NPCSCENE scene=noir-4 pnj_suivis=1 cycles=0 images=46 ecart0=15 ecart1=1 ecart2=1 ecart3=1 tolerance=1 plateforme=x86
+AUTOPORT-FRAMES n=0
+npc_actors_followed=1
+npc_census_frames=46
+npc_clone_hold_expired=0
+npc_clone_hold_frames=0
+npc_clone_remap_fails=0
+npc_culled_in_frustum=0
+npc_culled_in_frustum_all=0
+npc_episodes_culled=0
+npc_episodes_dead=0
+npc_episodes_hidden=0
+npc_episodes_hors_champ=1
+npc_flicker_episodes=0
+npc_flicker_episodes_excused=0
+npc_fov_unevaluated_all=0
+npc_fov_unevaluated_frames=0
+npc_hd_noanim_covered=0
+npc_in_frustum_frames=16
+npc_mayor_intro_dark=0
+npc_mayor_intro_frames=0
+npc_nodraw_skip_bones=0
+npc_plat_chain_rejects=0
+npc_plat_hd_failopen=0
+npc_plat_hd_gap=0
+npc_plat_repairs=0
+npc_plat_sources=0
+npc_scenes=1
+[ok]   UNE image de bord dans le champ ne fabrique pas un defaut cycles=0 longues=0 hors_champ=1
+
+SELFTEST PASS — 0 echec(s)
+
+===== BRAS 2 — aucun compteur publie n'est mort =====
+  [ok]   controle positif : `declare, imprime, jamais ecrit` est bien detecte
+  [ok]   s_hd_render_call_idx         1 site(s) d'ecriture  (Merc2.cpp)
+  [ok]   s_hd_submit_gap_events       1 site(s) d'ecriture  (Merc2.cpp)
+  [ok]   s_hd_ttl_expiries            1 site(s) d'ecriture  (Merc2.cpp)
+  [ok]   s_hd_failopen_events         1 site(s) d'ecriture  (Merc2.cpp)
+  [ok]   s_npcf_garbage_packets       1 site(s) d'ecriture  (Merc2.cpp)
+  [ok]   s_npcf_partial_bad           1 site(s) d'ecriture  (Merc2.cpp)
+  [ok]   s_replay_frames              1 site(s) d'ecriture  (Merc2.cpp)
+  [ok]   s_period                     1 site(s) d'ecriture  (npc_flicker.cpp)
+  [ok]   s_len                        1 site(s) d'ecriture  (npc_flicker.cpp)
+  [ok]   s_level_age_frame            1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_merc_keepalive_frames 1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_evictable_while_drawing 1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_evictions             1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_evict_with_live_merc  1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_evict_refused_live_merc 1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_evict_pressure_frames 1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_loaded_levels_max     1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_evict_pass2           1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_merc_vec_empty        1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_merc_key_missing      1 site(s) d'ecriture  (Loader.cpp)
+  [ok]   s_npcf_level_age_max         1 site(s) d'ecriture  (Loader.cpp)
+
+  21 valeur(s) publiee(s) verifiee(s) dans 4 fichiers
+
+===== BRAS 3 — le fourre-tout de classify() n'excuse pas =====
+  [ok]   controle positif : `fourre-tout non-defaut` est bien detecte
+  [ok]   game/system/npc_flicker.cpp: fourre-tout = `kReasonNodraw`, compte comme un defaut (non-defauts : ['kReasonCulled', 'kReasonHidden'])
+
+===== BRAS 4 — un niveau qui DESSINE ne vieillit pas =====
+  [ok]   controle positif : les 13 maillons tombent sur le code d'avant
+  [ok]   le niveau porte une marque de derniere utilisation merc
+  [ok]   get_merc_model MARQUE le niveau qu'il vient de servir
+  [ok]   la boucle d'age de Loader::update LIT cette marque
+  [ok]   le seuil d'eviction est UNE constante nommee, pas un litteral
+  [ok]   l'eviction compte ce qu'elle emporte (numerateur ET denominateur)
+  [ok]   la branche d'eviction compte les images ou elle est ATTEINTE
+  [ok]   l'occasion est PUBLIEE a cote du verdict
+  [ok]   l'echec de get_merc_model separe CLE ABSENTE et VECTEUR VIDE
+  [ok]   un niveau LACHE par GOAL est evince avant tout niveau desire
+  [ok]   l'horloge de l'intention du jeu est tenue une fois par image
+  [ok]   le rescape porte un delai de grace NOMME
+  [ok]   CHAQUE passe de get_most_unloadable_level refuse un niveau qui dessine
+  [ok]   le refus d'eviction est COMPTE et PUBLIE
+
+NPCGUARD nom=npc-flicker-selftest resultat=PASS

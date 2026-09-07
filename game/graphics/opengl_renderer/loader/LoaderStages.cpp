@@ -8,6 +8,7 @@
 
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/util/rss_census.h"
+#include "game/system/asset_manifest.h"
 
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: add_texture reads the custom-assets toggle directly.
@@ -327,6 +328,12 @@ u64 add_texture(TexturePool& pool,
     fp_h = tex.h;
   }
   g_last_add_texture_fp = upload_fingerprint(fp_tag, fp_w, fp_h, fp_ptr, fp_len);
+  if (asset_manifest::enabled()) {
+    asset_manifest::record("texture-base",
+                           fmt::format("{}/{}/{}/{}x{}", tex.debug_tpage_name, tex.debug_name,
+                                       fp_tag, fp_w, fp_h),
+                           0, fp_ptr, fp_len);
+  }
   const double t_upload_ms = tex_call_timer.getMs();
   // Grecharged-managed-assets: a KTX2 payload already carries its whole mip chain,
   // filtered offline. Regenerating it would both cost the stall this tier exists to
@@ -434,6 +441,14 @@ u64 add_texture(TexturePool& pool,
       }
       *dst = managed_assets::create_map_texture(*t);
       if (*dst) {
+        if (asset_manifest::enabled()) {
+          asset_manifest::record("texture-map",
+                                 fmt::format("{}/{}/{}/{}/{}x{}", tex.debug_tpage_name,
+                                             tex.debug_name, kind,
+                                             managed_is_baked ? "baked-ktx2" : "managed-ktx2",
+                                             t->info.width, t->info.height),
+                                 0, t->payload.data(), t->payload.size());
+        }
         any = true;
         return t;
       }
@@ -558,7 +573,7 @@ u64 add_texture(TexturePool& pool,
     const auto mat_key = custom_tex::pbr_material_key(tex.debug_tpage_name, tex.debug_name);
     const bool surf_authored = custom_tex::pbrmat_has_record(mat_key);
     if (n || r || m || h || s || e || th || orm || tp_apply || surf_authored) {
-      auto make_map = [&](const custom_tex::ReplacementImage* img) -> u32 {
+      auto make_map = [&](const char* kind, const custom_tex::ReplacementImage* img) -> u32 {
         if (!img) {
           return 0;
         }
@@ -567,6 +582,12 @@ u64 add_texture(TexturePool& pool,
         glBindTexture(GL_TEXTURE_2D, id);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img->w, img->h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                      img->rgba.data());
+        if (asset_manifest::enabled()) {
+          asset_manifest::record("texture-map",
+                                 fmt::format("{}/{}/{}/{}/rgba/{}x{}", tex.debug_tpage_name,
+                                             tex.debug_name, kind, img->src, img->w, img->h),
+                                 0, img->rgba.data(), img->rgba.size());
+        }
         glGenerateMipmap(GL_TEXTURE_2D);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -582,7 +603,7 @@ u64 add_texture(TexturePool& pool,
       // the whole trick — the packing is undone on the CPU, so no shader had to learn about it.
       // GL_UNPACK_ALIGNMENT must drop to 1: a single-channel row of, say, 129 texels is not a
       // multiple of 4 and the default alignment would skew every row after the first.
-      auto make_channel = [&](const custom_tex::ReplacementImage* img, int chan) -> u32 {
+      auto make_channel = [&](const char* kind, const custom_tex::ReplacementImage* img, int chan) -> u32 {
         if (!img || img->rgba.empty()) {
           return 0;
         }
@@ -599,6 +620,12 @@ u64 add_texture(TexturePool& pool,
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, img->w, img->h, 0, GL_RED, GL_UNSIGNED_BYTE,
                      plane.data());
+        if (asset_manifest::enabled()) {
+          asset_manifest::record("texture-map",
+                                 fmt::format("{}/{}/{}/{}/r8-channel{}/{}x{}", tex.debug_tpage_name,
+                                             tex.debug_name, kind, img->src, chan, img->w, img->h),
+                                 0, plane.data(), plane.size());
+        }
         glPixelStorei(GL_UNPACK_ALIGNMENT, prev_align);
         glGenerateMipmap(GL_TEXTURE_2D);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -616,15 +643,15 @@ u64 add_texture(TexturePool& pool,
       // in this fork means the GL state too, not just the pixels — and because it keeps the whole
       // memory story inside one switch the owner controls.
       size_t mm_vram_saved = 0;
-      auto make_scalar = [&](const custom_tex::ReplacementImage* img) -> u32 {
+      auto make_scalar = [&](const char* kind, const custom_tex::ReplacementImage* img) -> u32 {
         if (!img) {
           return 0;
         }
         if (!mm_on) {
-          return make_map(img);
+          return make_map(kind, img);
         }
         mm_vram_saved += (size_t)img->w * (size_t)img->h * 3;
-        return make_channel(img, 0);
+        return make_channel(kind, img, 0);
       };
       custom_tex::PbrMaterialMaps maps;
       // Re-fetch each present map immediately before upload (thread-local buffer reuse).
@@ -661,7 +688,7 @@ u64 add_texture(TexturePool& pool,
                                           maps.normal_dc_y * maps.normal_dc_y)) *
                       180.0 / 3.14159265358979));
         }
-        maps.normal_tex = make_map(ni);
+        maps.normal_tex = make_map("normal", ni);
       }
       if (r) {
         const auto* ri =
@@ -685,14 +712,14 @@ u64 add_texture(TexturePool& pool,
               tex.debug_name, ri->src, ri->w, ri->h, mn / 255.f,
               npx ? (float)(sum / (double)npx / 255.0) : 0.f, mx / 255.f);
         }
-        maps.rough_tex = make_scalar(ri);
+        maps.rough_tex = make_scalar("roughness", ri);
       }
       if (m) {
-        maps.metal_tex = make_scalar(
+        maps.metal_tex = make_scalar("metallic",
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_metallic", bsrc));
       }
       if (a) {
-        maps.ao_tex = make_scalar(
+        maps.ao_tex = make_scalar("ao",
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_ao", bsrc));
       }
       if (h) {
@@ -753,14 +780,14 @@ u64 add_texture(TexturePool& pool,
                 maps.height_lambda_tiles);
           }
         }
-        maps.height_tex = make_scalar(hi);
+        maps.height_tex = make_scalar("height", hi);
       }
       if (s) {
-        maps.specular_tex = make_map(
+        maps.specular_tex = make_map("specular",
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_specular", bsrc));
       }
       if (e) {
-        maps.emissive_tex = make_map(
+        maps.emissive_tex = make_map("emissive",
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_emissive", bsrc));
       }
       // ===== Grecharged-materials-modern-parity: ORM UNPACK + THICKNESS ===========================
@@ -780,15 +807,15 @@ u64 add_texture(TexturePool& pool,
         if (oi && !oi->rgba.empty()) {
           int used = 0;
           if (!maps.ao_tex) {
-            maps.ao_tex = make_channel(oi, 0);
+            maps.ao_tex = make_channel("ao-orm", oi, 0);
             used++;
           }
           if (!maps.rough_tex) {
-            maps.rough_tex = make_channel(oi, 1);
+            maps.rough_tex = make_channel("roughness-orm", oi, 1);
             used++;
           }
           if (!maps.metal_tex) {
-            maps.metal_tex = make_channel(oi, 2);
+            maps.metal_tex = make_channel("metallic-orm", oi, 2);
             used++;
           }
           if (used) {
@@ -804,7 +831,7 @@ u64 add_texture(TexturePool& pool,
       if (th) {
         // The capability BIT is derived from thickness_tex by mm_apply_params, not set here — see
         // PbrMaterialMaps::orm_packed for why anything texture-derived must stay recomputable.
-        maps.thickness_tex = make_map(
+        maps.thickness_tex = make_map("thickness",
             custom_tex::lookup_suffixed(tex.debug_tpage_name, tex.debug_name, "_thickness", bsrc));
       }
       if (tp_apply) {

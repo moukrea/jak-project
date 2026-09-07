@@ -39,6 +39,7 @@
 #endif
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/asset_manifest.h"
 #include "game/system/load_gate.h"
 #include "game/system/npc_flicker.h"
 
@@ -663,6 +664,7 @@ void Loader::loader_thread() {
       prof().begin_event("read-file");
       Timer disk_timer;
       auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, lev));
+      asset_manifest::record("fr3", lev, 0, data.data(), data.size());
       double disk_load_time = disk_timer.getSeconds();
       prof().end_event();
 
@@ -962,6 +964,7 @@ const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::strin
   }
 #endif
   auto data = file_util::read_binary_file(hd_fr3_path(m_base_path, name));
+  asset_manifest::record("fr3", name, 0, data.data(), data.size());
   rss_census::mark("common-lu");
 
   auto decomp_data = compression::decompress_zstd(data.data(), data.size());

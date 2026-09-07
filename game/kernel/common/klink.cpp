@@ -15,6 +15,7 @@
 #include "game/kernel/jak2/kscheme.h"
 #include "game/mips2c/mips2c_table.h"
 #include "game/runtime.h"
+#include "game/system/asset_manifest.h"
 
 #include "fmt/format.h"
 
@@ -1145,6 +1146,10 @@ void link_control::jak1_jak2_begin(Ptr<uint8_t> object_file,
                                    int32_t size,
                                    Ptr<kheapinfo> heap,
                                    uint32_t flags) {
+  if (asset_manifest::enabled()) {
+    ASSERT(size >= 0);
+    asset_manifest::record("object", name, 0, object_file.c(), size);
+  }
   // A18 per-object re-walk: before each object's link begins, re-walk
   // every loaded Type's method table and patch empty slots to the trap.
   // This catches engine-CGO types created by the immediately-prior

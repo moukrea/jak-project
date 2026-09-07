@@ -10,6 +10,7 @@
 #include "game/overlord/common/soundcommon.h"
 #include "game/overlord/jak1/isocommon.h"
 #include "game/sound/sndshim.h"
+#include "game/system/asset_manifest.h"
 
 namespace jak1 {
 IsoFs fake_iso;
@@ -154,6 +155,11 @@ void fs_read(LoadStackEntry* fd, void* buffer, int32_t len, s32 thread_to_wake) 
 
     if (fread(buffer, real_size, 1, fd->fp) != 1) {
       ASSERT(false);
+    }
+    // Identify the bytes returned by this read, including overlay-selected data.
+    if (asset_manifest::enabled()) {
+      asset_manifest::record("iso", std::string(fd->fr->name, sizeof(fd->fr->name)),
+                             offset_into_file, buffer, real_size);
     }
   }
 

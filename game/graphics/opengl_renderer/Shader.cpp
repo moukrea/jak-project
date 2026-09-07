@@ -10,6 +10,7 @@
 #include "game/graphics/pipelines/opengl.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/system/asset_manifest.h"
 
 #ifdef __ANDROID__
 // Phase A35 (autoport): on Android the shader sources are the GLES 3.20
@@ -459,6 +460,9 @@ void Shader::build(const std::string& shader_name,
   auto compile_stage = [&](GLenum type, const std::string& src, const char* label) -> u64 {
     u64 sh = glCreateShader(type);
     const char* csrc = src.c_str();
+    if (asset_manifest::enabled()) {
+      asset_manifest::record("shader", shader_name + "/" + label, 0, csrc, src.size());
+    }
     glShaderSource(sh, 1, &csrc, nullptr);
     glCompileShader(sh);
     glGetShaderiv(sh, GL_COMPILE_STATUS, &compile_ok);

@@ -1,0 +1,12 @@
+android/CMakeLists.txt: OK
+game/CMakeLists.txt: OK
+game/graphics/opengl_renderer/Shader.cpp: OK
+game/graphics/opengl_renderer/loader/Loader.cpp: OK
+game/graphics/opengl_renderer/loader/LoaderStages.cpp: OK
+game/graphics/refset.cpp: OK
+game/kernel/common/fileio.cpp: OK
+game/kernel/common/klink.cpp: OK
+game/overlord/jak1/fake_iso.cpp: OK
+game/system/asset_manifest.cpp: OK
+game/system/asset_manifest.h: OK
+test/common/test_asset_manifest.cpp: OK

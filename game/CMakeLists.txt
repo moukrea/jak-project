@@ -355,6 +355,7 @@ set(RUNTIME_SOURCE
         system/Deci2Server.cpp
         system/pad_replay.cpp
         system/boot_replay.cpp
+        system/asset_manifest.cpp
         system/hid/devices/dualsense_effects.cpp
         system/hid/devices/game_controller.cpp
         system/hid/devices/keyboard.cpp
