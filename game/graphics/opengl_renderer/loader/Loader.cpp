@@ -2335,6 +2335,8 @@ void Loader::update(TexturePool& texture_pool) {
             // que le VBO de sommets ci-dessus. (Note en passant, PAS corrigee ici parce qu'elle
             // est anterieure et hors perimetre : `tangent_buffer` n'est collecte NULLE PART.)
             m_garbage_buffers.push_back(tie_tree.sway_buffer);
+            if (tie_tree.contact_buffer) m_garbage_buffers.push_back(tie_tree.contact_buffer);
+            if (tie_tree.contact_texture) m_garbage_textures.push_back(tie_tree.contact_texture);
             m_garbage_buffers.push_back(tie_tree.index_buffer);
           }
         }

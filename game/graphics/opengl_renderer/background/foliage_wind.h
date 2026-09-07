@@ -67,7 +67,9 @@
 //           rouge. Dans le repere du vent, ce qui reste est exactement ce que NOTRE loi ajoute.
 //       Falsifiabilite mesuree hors moteur (notes/e16-law-tuning.cpp, meme arithmetique, pire des
 //       48 fenetres) : la loi SANS le lacet de breeze.glsl rend 18,2 deg (ROUGE), avec 55,9 (VERT).
-// wind_owner_defects_open somme les NEUF.
+// wind_owner_defects_open somme les neuf acquis et les deux demandes du 2026-09-07 :
+// (10) niveaux végétalisés non observés au dessin ; (11) liaisons du contact partagé.
+// Les compteurs de contact attestent des sources/uniformes, pas du déplacement GPU.
 // Un verdict qui n'a pas pu etre mesure (pas assez de temps, aucune paire) compte OUVERT.
 //
 // LA PORTE NE PEUT PAS ETRE VIDE. Si aucune paire n'a ete examinee, `wind_divergent_pairs` vaut
@@ -91,6 +93,8 @@ namespace foliage_wind {
 // Recharged le force a OFF). `FOLIAGE_WIND_FORCE=1` / `debug.opengoal.foliage.force` l'allume sans
 // toucher au reglage livre : c'est le levier que la course de preuve utilise.
 bool enabled();
+// Exact SHRUB prototype inventory for shared grass contact; excludes rocks/props.
+bool shrub_contact_prototype(const std::string& name);
 
 // Flexion de couronne, en METRES, d'une plante de reference (8 m et plus). Bouton
 // `debug.opengoal.foliage.bend` / `FOLIAGE_WIND_BEND`, defaut 0,30 m, plafond 0,80 m.

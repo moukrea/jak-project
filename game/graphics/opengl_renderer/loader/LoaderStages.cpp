@@ -1,4 +1,6 @@
 #include "LoaderStages.h"
+#include "game/graphics/opengl_renderer/background/foliage_wind.h"
+#include <unordered_map>
 
 #include "CustomTextureReplacements.h"
 #include "Loader.h"
@@ -1207,6 +1209,88 @@ class TieLoadStage : public LoaderStage {
           // hors des bornes pour les sommets inventes. On complete donc a ZERO : un sommet que la
           // passe de classement n'a pas vu est FIGE, jamais aleatoire — la meme regle que pour un
           // mur, et le cas est dit a voix haute.
+          // Runtime-only compact contact indices: 0 is neutral, never inferred from color_index.
+          const size_t contact_nv = in_tree.unpacked.vertices.size();
+          std::vector<u8> contact_flags(contact_nv, 0);
+          bool contact_mapping_ok = true;
+          for (const auto& draw : in_tree.static_draws) {
+            if (!draw.plain_indices.empty()) {
+              contact_mapping_ok = false;  // no prototype-to-index tiling is available for these
+            }
+            size_t run_i = 0;
+            for (const auto& vg : draw.vis_groups) {
+              const bool plant = vg.tie_proto_idx < in_tree.proto_names.size() &&
+                  foliage_wind::shrub_contact_prototype(in_tree.proto_names[vg.tie_proto_idx]);
+              u32 remaining = vg.num_inds;
+              while (remaining && run_i < draw.runs.size()) {
+                const auto& run = draw.runs[run_i];
+                const u32 count = (u32)run.length + 1;
+                if (count > remaining) { contact_mapping_ok = false; break; }
+                for (size_t v = run.vertex0; v < (size_t)run.vertex0 + run.length; ++v) {
+                  if (v < contact_nv) contact_flags[v] |= plant ? 1 : 2;
+                  else contact_mapping_ok = false;
+                }
+                ++run_i;
+                remaining -= count;
+              }
+              if (remaining) contact_mapping_ok = false;
+            }
+            if (run_i != draw.runs.size()) contact_mapping_ok = false;
+          }
+          std::unordered_map<u32, const tfrag3::TieTree::SwayInstance*> contact_instances;
+          for (const auto& si : in_tree.sway_instances) {
+            if (si.valid && si.ymax > si.base_y) contact_instances[si.matrix_idx] = &si;
+          }
+          std::vector<u32> contact_indices(contact_nv, 0);
+          std::vector<std::array<float, 4>> contact_anchors(1, {0.f, 0.f, 0.f, 0.f});
+          std::unordered_map<u32, u32> contact_lut_index;
+          size_t contact_vi = 0, contact_verts = 0;
+          for (const auto& group : in_tree.packed_vertices.matrix_groups) {
+            const size_t count = (size_t)(group.end_vert - group.start_vert);
+            const auto si_it = contact_instances.find((u32)group.matrix_idx);
+            if (group.matrix_idx >= 0 && si_it != contact_instances.end()) {
+              for (size_t k = 0; k < count && contact_vi + k < contact_nv; ++k) {
+                if (contact_flags[contact_vi + k] != 1) continue;
+                auto inserted = contact_lut_index.emplace((u32)group.matrix_idx,
+                                                          (u32)contact_anchors.size());
+                if (inserted.second) {
+                  const auto& si = *si_it->second;
+                  contact_anchors.push_back({si.x, si.base_y, si.z, si.ymax - si.base_y});
+                }
+                contact_indices[contact_vi + k] = inserted.first->second;
+                ++contact_verts;
+              }
+            }
+            contact_vi += count;
+          }
+          contact_mapping_ok = contact_mapping_ok && contact_vi == contact_nv;
+          GLint contact_max_tex = 0;
+          glGetIntegerv(GL_MAX_TEXTURE_SIZE, &contact_max_tex);
+          if (contact_mapping_ok && contact_verts && contact_anchors.size() <= (size_t)contact_max_tex) {
+            glGenBuffers(1, &tree_out.contact_buffer);
+            glBindBuffer(GL_ARRAY_BUFFER, tree_out.contact_buffer);
+            glBufferData(GL_ARRAY_BUFFER, contact_indices.size() * sizeof(u32),
+                         contact_indices.data(), GL_STATIC_DRAW);
+            glGenTextures(1, &tree_out.contact_texture);
+            glBindTexture(GL_TEXTURE_2D, tree_out.contact_texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)contact_anchors.size(), 1, 0,
+                         GL_RGBA, GL_FLOAT, contact_anchors.data());
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glBindTexture(GL_TEXTURE_2D, 0);
+          }
+          tree_out.contact_mapping_ok = contact_mapping_ok &&
+              contact_anchors.size() <= (size_t)contact_max_tex;
+          tree_out.contact_instances = contact_anchors.size() - 1;
+          tree_out.contact_vertices = contact_verts;
+          if (contact_verts || !contact_mapping_ok) {
+            lg::info("[foliage-contact] TIE load lev={} geo={} plants={} vertices={} bytes={} mapping_ok={} active={}",
+                     data.lev_data->level->level_name, geo, contact_anchors.size() - 1,
+                     contact_verts, tree_out.contact_buffer ? contact_indices.size() * sizeof(u32) : 0,
+                     contact_mapping_ok, tree_out.contact_texture != 0);
+          }
           glGenBuffers(1, &tree_out.sway_buffer);
           glBindBuffer(GL_ARRAY_BUFFER, tree_out.sway_buffer);
           const size_t sway_want = in_tree.unpacked.vertices.size() * foliage_law::kSwayRecordBytes;

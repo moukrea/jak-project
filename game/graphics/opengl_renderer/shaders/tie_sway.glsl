@@ -59,3 +59,25 @@ vec3 tie_sway_apply(vec3 wpos, vec2 sw) {
   wpos.z += o.y;
   return wpos;
 }
+
+#ifdef TIE_CONTACT
+#include "vegetation_contact.glsl"
+layout (location = 10) in uint tie_contact_index;
+uniform int u_tie_contact_on;
+uniform sampler2D u_tie_contact_tex;
+vec3 tie_contact_apply(vec3 original, vec3 bent) {
+  if (u_tie_contact_on == 1 && tie_contact_index != 0u) {
+    vec4 anchor = texelFetch(u_tie_contact_tex, ivec2(int(tie_contact_index), 0), 0);
+    if (anchor.w > 0.0) {
+      float heightMul;
+      vec3 trample;
+      float debug_contact = 0.0;
+      vegetation_contact(anchor.xyz, anchor.w, 0, heightMul, trample, debug_contact);
+      float dy = original.y - anchor.y;
+      bent.y += dy * (heightMul - 1.0);
+      bent += trample * (dy / anchor.w);
+    }
+  }
+  return bent;
+}
+#endif

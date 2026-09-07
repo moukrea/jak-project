@@ -2136,6 +2136,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // Un programme qui ne declare pas l'uniforme rend -1, et glUniform sur -1 est un no-op
   // documente : la ligne est donc sans effet partout ailleurs.
   glUniform1f(glGetUniformLocation(id, "u_tie_sway_amp"), 0.0f);
+  glUniform1i(glGetUniformLocation(id, "u_tie_contact_on"), 0);
+  glVertexAttribI4ui(10, 0u, 0u, 0u, 0u);
   glUniform1f(glGetUniformLocation(id, "u_tie_sway_time"), 0.0f);
   glUniform2f(glGetUniformLocation(id, "u_tie_sway_dir"), 0.7071f, 0.7071f);
   glUniform1f(glGetUniformLocation(id, "u_tie_sway_flutter"), 0.0f);

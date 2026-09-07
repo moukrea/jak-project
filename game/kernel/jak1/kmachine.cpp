@@ -3448,6 +3448,13 @@ void pc_grass_occ_add(u32 kind, u32 vec, u32 r_units) {
   float* p = Ptr<float>(vec).c();
   grass_occ::goal_add((int)kind, p[0], p[1], p[2], (float)r_units);
 }
+void pc_grass_occ_add_moving(u32 actor_id, u32 vec, u32 r_units) {
+  if (!vec) {
+    return;
+  }
+  float* p = Ptr<float>(vec).c();
+  grass_occ::goal_add_moving(actor_id, p[0], p[1], p[2], (float)r_units);
+}
 void pc_grass_occ_publish() {
   grass_occ::goal_publish();
 }
@@ -5382,6 +5389,7 @@ void InitMachine_PCPort() {
   // ROUND#21d: exact ground-actor world positions for the grass object-clip/trample
   make_function_symbol_from_c("pc-grass-occ-clear!", (void*)pc_grass_occ_clear);
   make_function_symbol_from_c("pc-grass-occ-add!", (void*)pc_grass_occ_add);
+  make_function_symbol_from_c("pc-grass-occ-add-moving!", (void*)pc_grass_occ_add_moving);
   make_function_symbol_from_c("pc-grass-occ-publish!", (void*)pc_grass_occ_publish);
   make_function_symbol_from_c("pc-grass-tramp-break!", (void*)pc_grass_tramp_break);
 

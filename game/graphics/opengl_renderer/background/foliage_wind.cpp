@@ -10,6 +10,8 @@
 #include <cstring>
 #include <map>
 #include <mutex>
+#include <set>
+#include <unordered_set>
 #include <unordered_map>
 
 #if defined(__ANDROID__)
@@ -19,6 +21,8 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/background/Shrub.h"
+#include "game/graphics/opengl_renderer/background/Tie3.h"
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 
@@ -95,6 +99,13 @@ struct TreeEntry {
 
 std::mutex g_mutex;
 std::map<TreeKey, TreeEntry> g_trees;
+// Inventory of the shipped Jak1 TIE lexicon and SHRUB sidecar. These are expected
+// levels, not successful observations: a level enters g_levels_seen only at draw.
+const char* const kVegetatedLevels[] = {
+    "beach", "finalboss", "firecanyon", "intro", "jungle", "jungleb", "maincave",
+    "misty", "ogre", "robocave", "rolling", "snow", "sunken", "sunkenb", "swamp",
+    "training", "village1", "village2", "village3"};
+std::set<std::string> g_levels_seen;
 std::map<std::pair<std::string, int>, u32> g_unclassified;
 u64 g_frames = 0;
 u64 g_last_frame_idx = (u64)-1;
@@ -170,6 +181,167 @@ constexpr size_t kDirSmoothSamples = 20;
 }  // namespace
 
 // ------------------------------------------------------------------------------------- reglages --
+
+// SHRUB includes rocks and props as well as plants. Native stiffness is not a
+// vegetation classifier (flowers and whole levels of bushes have stiffness zero).
+bool shrub_contact_prototype(const std::string& name) {
+  static const std::unordered_set<std::string> plants = {
+      "bch-palmplant-base.mb",
+      "grass-clump-02.mb",
+      "grass-clump.mb",
+      "palmplant-base.mb",
+      "swp-thornbush-05.mb",
+      "swp-thornbush-06.mb",
+      "swp-thornbush-07.mb",
+      "swp-thornbush-07a.mb",
+      "swp-thornbush-08.mb",
+      "swp-thornbush-08a.mb",
+      "swp-thornbush-08c.mb",
+      "swp-thornbush-09a.mb",
+      "swp-thornbush-09b.mb",
+      "swp-thornbush-09c.mb",
+
+      "bamboo.mb",
+      "bch-bush.mb",
+      "bch-cattail-01.mb",
+      "bch-coral-leaf.mb",
+      "bch-exotic-plant.mb",
+      "bch-fullmoss.mb",
+      "bch-grass.mb",
+      "bch-kelp.mb",
+      "bch-palmplanttop.mb",
+      "bch-plantflower.mb",
+      "bch-shrub-grass.mb",
+      "bigleaves.mb",
+      "bushpalm.mb",
+      "cav-mushroom-01-geo.mb",
+      "cav-mushroom-02-geo.mb",
+      "cav-mushroom-03-geo.mb",
+      "cav-mushroom-04-geo.mb",
+      "cav-mushroom-05-geo.mb",
+      "exotic-plant-half.mb",
+      "fan-coralgroup.mb",
+      "fcn-bush.mb",
+      "fin-tree.mb",
+      "fire-burnt-grass.mb",
+      "fire-burnt-shrub-01.mb",
+      "grass-01.mb",
+      "grass-02.mb",
+      "grass.mb",
+      "jng-cattailplant.mb",
+      "jng-cattailplant2.mb",
+      "jng-clump-leaf-01.mb",
+      "jng-clump-leaf-02.mb",
+      "jng-curvedleafplant.mb",
+      "jng-flatgrass.mb",
+      "jng-fuzzystalk.mb",
+      "jng-grass.mb",
+      "jng-half-fern.mb",
+      "jng-lavanders.mb",
+      "jng-palm-leaf-01.mb",
+      "jng-tall-grass.mb",
+      "jng-vinebase-02.mb",
+      "jng-vinebase.mb",
+      "leafy-plant.mb",
+      "mis-shrub-01.mb",
+      "mis-shrub-02.mb",
+      "mis-shrub-03.mb",
+      "mis-shrub-04.mb",
+      "mis-shrub-05.mb",
+      "mis-shrub-06.mb",
+      "mis-twig-01.mb",
+      "mis-twig-02.mb",
+      "ogr-cave-mush-01-geo.mb",
+      "ogr-cave-mush-01grp-geo.mb",
+      "ogr-fuzzyplant.mb",
+      "ogr-grassstuff-01.mb",
+      "ogr-grassstuff-02.mb",
+      "ogr-grassstuff-03.mb",
+      "ogr-lavenders.mb",
+      "ogr-mushrooms01.mb",
+      "ogr-scrub.mb",
+      "palmplant-top.mb",
+      "plant_3.mb",
+      "plant_6.mb",
+      "plantflower.mb",
+      "rol-bonzai-lowrez-trunk.mb",
+      "rol-bonzaibranch-01.mb",
+      "rol-bonzaicanopy-01.mb",
+      "rol-bonzaicanopy.mb",
+      "rol-cattailplant.mb",
+      "rol-cattailplant2.mb",
+      "rol-flatgrass.mb",
+      "rol-flower-grass-group.mb",
+      "rol-fuzzystalk.mb",
+      "rol-grass.mb",
+      "rol-grassgroup.mb",
+      "rol-lavanders.mb",
+      "rol-mushroomgroup.mb",
+      "rol-mushrooms.mb",
+      "rol-tall-grass-flowers.mb",
+      "rol-tall-grass.mb",
+      "roofgrass.mb",
+      "roofgrass2.mb",
+      "root-06.mb",
+      "shrub-grass-03.mb",
+      "smallsingleleaf.mb",
+      "snow-grassclump.mb",
+      "sun-coral-fan.mb",
+      "sun-coral-leaf.mb",
+      "sun-coral-seaweed.mb",
+      "sun-coral-sponge.mb",
+      "sun-kelp.mb",
+      "sun-mushroom-ears.mb",
+      "sun-mushroom-group.mb",
+      "swp-branch-03.mb",
+      "swp-branch-03m.mb",
+      "swp-branch-04moss.mb",
+      "swp-cattail-02.mb",
+      "swp-grass-01.mb",
+      "swp-grass-02.mb",
+      "swp-leafy-plant.mb",
+      "swp-moss-01m.mb",
+      "swp-moss-03m.mb",
+      "swp-multithorns-05.mb",
+      "swp-multithorns-06.mb",
+      "swp-multithorns-07.mb",
+      "swp-multithorns-07a.mb",
+      "swp-multithorns-07b.mb",
+      "swp-multithorns-08.mb",
+      "swp-multithorns-08a.mb",
+      "swp-multithorns-08c.mb",
+      "swp-multithorns-09a.mb",
+      "swp-multithorns-09b.mb",
+      "swp-multithorns-09c.mb",
+      "swp-pad.mb",
+      "swp-scum.mb",
+      "swp-small-leaf.mb",
+      "swp-spanmoss-01.mb",
+      "tall-grass-01.mb",
+      "trunk01vine.mb",
+      "trunk02vine1.mb",
+      "trunk02vine2.mb",
+      "trunk02vine3.mb",
+      "v2-coral-fan.mb",
+      "v2-coral-leaf.mb",
+      "v2-coral-seaweed.mb",
+      "v2-kelp.mb",
+      "vil-cattail-01.mb",
+      "vil-riceplant-01.mb",
+      "vil2-bonzaibranch-01.mb",
+      "vil2-bonzaicanopy-01.mb",
+      "vil2-cattail.mb",
+      "vil2-grass-burned.mb",
+      "vil2-grass-long.mb",
+      "vil2-grass-whispy.mb",
+      "vil2-grass.mb",
+      "vil2-lil-shrubtree.mb",
+      "vil2-pine-shrub.mb",
+      "vil2-wheat.mb",
+      "vil3-mushroom-01-geo.mb",
+  };
+  return plants.count(name) != 0;
+}
 
 bool enabled() {
   // Le forcage est lu UNE fois : c'est un levier de mesure, il ne doit pas pouvoir basculer en
@@ -597,6 +769,13 @@ void mark_drawn(const std::string& level, int system, int tree, int geo) {
   auto it = g_trees.find(TreeKey{level, system, tree, geo});
   if (it != g_trees.end()) {
     it->second.drawn = true;
+    if (enabled() && std::any_of(it->second.instances.begin(), it->second.instances.end(),
+                               [](const Instance& in) { return in.peak_w > 0.f; })) {
+      if (g_levels_seen.insert(level).second) {
+        lg::info("[foliage-wind] level drawn lev={} system={} instances={}",
+                 level, system, it->second.instances.size());
+      }
+    }
   }
 }
 
@@ -1025,12 +1204,50 @@ void recompute_and_publish_locked() {
   const bool v8_ok = v8_measured && tip_grad_min >= kV8MinGradient;
   const bool v9_ok = measured && sp.ok && sp.dir_ok && sp.dir_spread_deg >= kV9MinSpreadDeg;
 
+  u64 levels_uncovered = 0;
+  std::string missing_levels;
+  for (const char* level : kVegetatedLevels) {
+    if (!g_levels_seen.count(level)) {
+      ++levels_uncovered;
+      if (!missing_levels.empty()) missing_levels += ",";
+      missing_levels += level;
+    }
+  }
+  const auto contacts = shrub_contact_stats();
+  const auto tie_contacts = tie_contact_stats();
+  // Linked uploads establish activity of the shared contact path, not geometric
+  // displacement on the GPU. Keep the contact verdict unmeasured until both
+  // a player and an actor source have reached a populated shrub draw.
+  const bool contact_measured = on && contacts.uploads > 0 && contacts.shrub_instances > 0 &&
+                                contacts.jak_samples > 0 && contacts.object_samples > 0 &&
+                                tie_contacts.uploads > 0 && tie_contacts.eligible_instances > 0 &&
+                                tie_contacts.jak_samples > 0 && tie_contacts.object_samples > 0;
+  const u64 contact_defects = contact_measured
+      ? contacts.binding_failures + tie_contacts.binding_failures + tie_contacts.mapping_failures
+      : kNoMeasurement;
   const u64 open = (v1 <= kV1MaxDevPct ? 0 : 1) + (v2 == 0 ? 0 : 1) + (v3 == 0 ? 0 : 1) +
                    (v4 == 0 ? 0 : 1) + (v5 <= kV5MaxPeakPct ? 0 : 1) + (v6_ok ? 0 : 1) +
-                   (v7_ok ? 0 : 1) + (v8_ok ? 0 : 1) + (v9_ok ? 0 : 1);
+                   (v7_ok ? 0 : 1) + (v8_ok ? 0 : 1) + (v9_ok ? 0 : 1) +
+                   (levels_uncovered == 0 ? 0 : 1) + (contact_defects == 0 ? 0 : 1);
 
   char buf[64];
   autoport_proof::publish("wind_owner_defects_open", open);
+  autoport_proof::publish("wind_levels_uncovered", levels_uncovered);
+  autoport_proof::publish("wind_levels_expected", std::size(kVegetatedLevels));
+  autoport_proof::publish_text("wind_levels_missing", missing_levels.c_str());
+  autoport_proof::publish("wind_contact_defects", contact_defects);
+  autoport_proof::publish("wind_contact_uploads", contacts.uploads);
+  autoport_proof::publish("wind_contact_binding_failures", contacts.binding_failures);
+  autoport_proof::publish("wind_contact_shrub_instances", contacts.shrub_instances);
+  autoport_proof::publish("wind_contact_jak_samples", contacts.jak_samples);
+  autoport_proof::publish("wind_contact_object_samples", contacts.object_samples);
+  autoport_proof::publish("wind_contact_tie_uploads", tie_contacts.uploads);
+  autoport_proof::publish("wind_contact_tie_binding_failures", tie_contacts.binding_failures);
+  autoport_proof::publish("wind_contact_tie_mapping_failures", tie_contacts.mapping_failures);
+  autoport_proof::publish("wind_contact_tie_instances", tie_contacts.eligible_instances);
+  autoport_proof::publish("wind_contact_tie_vertices", tie_contacts.eligible_vertices);
+  autoport_proof::publish("wind_contact_tie_jak_samples", tie_contacts.jak_samples);
+  autoport_proof::publish("wind_contact_tie_object_samples", tie_contacts.object_samples);
   autoport_proof::publish("wind_native_stock_dev_pct", v1);
   autoport_proof::publish("wind_ring_dead_slots", ring_ok ? dead_slots : kNoMeasurement);
   std::snprintf(buf, sizeof(buf), "%.3f", rate_ok ? rate_dev_pct : -1.0);

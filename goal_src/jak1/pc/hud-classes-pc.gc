@@ -1919,7 +1919,7 @@
   (if (and *target* (= (-> *target* next-state name) 'target-edge-grab))
       (pc-set-jak-ledge! (-> *edge-grab-info* center-hold))
       (pc-set-jak-ledge! (the-as vector 0)))
-  ;; ROUND#21d: every 30 frames push the ground actors' EXACT world positions to the grass renderer
+  ;; ROUND#21d: periodically push the ground actors' EXACT world positions to the grass renderer
   ;; over the pc-grass-occ channel (the pc-set-jak-pos! pattern — the Merc2 camera-space recovery is
   ;; dead). kind 0 = CULL (static unbreakable), kind 1 = TRAMPLE (breakable: crates, scarecrows — a
   ;; broken actor stops being pushed, so the renderer's ease-out springs the grass back at its spot).
@@ -1934,8 +1934,12 @@
   ;; levels' enemies for free); only the player pair, pickups, projectiles and manipy cutscene props
   ;; are excluded. Scarecrows are TRAINING-level types, matched by type-name symbol (no compile-time
   ;; level dependency).
+  ;; Foliage shares this contact list even when grass is disabled. Refresh every three
+  ;; frames while foliage wind is enabled so moving actors do not retain a 15-frame-old
+  ;; footprint; grass alone keeps its existing cadence.
   (+! *grass-occ-scan-timer* 1)
-  (when (and (-> obj recharged-grass?) (>= *grass-occ-scan-timer* 15))
+  (when (and (or (-> obj recharged-grass?) (-> obj recharged-foliage-wind?))
+             (>= *grass-occ-scan-timer* (if (-> obj recharged-foliage-wind?) 3 15)))
     (set! *grass-occ-scan-timer* 0)
     (+! *grass-occ-pub-count* 1)
     (pc-grass-occ-clear!)
@@ -2043,6 +2047,19 @@
                          (let ((etr (-> ent extra trans)))
                            (if etr (set! trans etr)))
                          (pc-grass-occ-add! 0 trans r))))
+                    ;; Physical, visible, entity-backed actors (including nav enemies) bend
+                    ;; vegetation at their live root position. Require a real collision primitive
+                    ;; with active collision, not the permissive breakable fallback above.
+                    ;; Keep this AFTER the exclusions and static allowlist: these contacts must
+                    ;; never become CULL discs or change the established machine footprints.
+                    ((and (not hid)
+                          (nonzero? (the-as int (-> proc entity)))
+                          (!= (the-as basic (-> proc entity)) #f)
+                          (type-type? (-> rt type) collide-shape)
+                          (nonzero? (the-as int (-> (the-as collide-shape rt) root-prim)))
+                          (!= (the-as basic (-> (the-as collide-shape rt) root-prim)) #f)
+                          (nonzero? (the-as int (-> (the-as collide-shape rt) root-prim collide-with))))
+                     (pc-grass-occ-add-moving! (the int (-> proc pid)) trans r1))
                     ;; everything else: NEVER published. Low-rate census names what the old
                     ;; catch-all would have culled (the offender detector's GOAL half).
                     (else

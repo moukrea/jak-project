@@ -6,9 +6,9 @@
 // (crates, the warp-gate button) that the grass renderer must hide grass under. These objects are
 // merc ACTORS — NOT TIE, NOT in the static level data — so the grass builder can't see them at level
 // load. Merc2 captures their root-bone world position each frame into g_building; the grass renderer
-// publishes (swaps building->published, clears building) once per frame and reads g_published to feed
-// the grass shader's occlusion uniforms. A 1-frame lag is invisible (crates/button are static). Only
-// active while the grass toggle is ON (OFF == stock, no capture).
+// publishes before vegetation drawing once per frame and reads g_published to feed
+// both vegetation shaders' contact uniforms. A 1-frame lag is invisible (crates/button are static). Only
+// publication also runs with grass OFF so foliage contact keeps the same live actor snapshot.
 //
 // OWNER Q&A 2026-07-12: TWO categories. STATIC unbreakable actors (warp-gate button, blue eco valve)
 // are CULLED (grass hidden under them). BREAKABLE actors (crates, scarecrows) are TRAMPLED (grass
@@ -27,6 +27,15 @@ extern std::vector<std::array<float, 4>> g_tramp_published;
 extern std::vector<float> g_tramp_strength;                  // ROUND#21: eased 0..1 per published entry
 void add(float x, float y, float z, float r_world);          // Merc2 -> CULL building (capped)
 void add_trample(float x, float y, float z, float r_world);  // Merc2 -> TRAMPLE building (capped)
+// Render thread: one snapshot/trail update before vegetation, independent of grass toggle.
+void begin_contact_frame();
+// Current program receives the same contact snapshot; returns whether all live uniforms exist.
+bool push_contact_uniforms(unsigned int program, bool include_static = false);
+struct ContactSources {
+  unsigned int jak_samples = 0;  // live Jak, positive trail strengths, active ledge
+  unsigned int object_samples = 0;  // uploaded actors with positive eased strength
+};
+ContactSources contact_sources(bool include_static = false);
 void publish(float dt);  // grass -> swap CULL, ease TRAMPLE strengths (dt = seconds since last call)
 
 // ROUND#21d: exact actor world positions from the GAME side (the pc-set-jak-pos! pattern), replacing
@@ -37,6 +46,7 @@ void publish(float dt);  // grass -> swap CULL, ease TRAMPLE strengths (dt = sec
 // the snapshot loses it on the next scan -> the eased spring-back plays). kind: 0 = CULL, 1 = TRAMPLE.
 void goal_clear();                                            // game thread: reset the stage
 void goal_add(int kind, float x, float y, float z, float r_world);  // game thread: stage one actor
+void goal_add_moving(unsigned int actor_id, float x, float y, float z, float r_world);
 void goal_publish();
 void goal_break_at(float x, float y, float z);  // R28: instant trample cancel at a break spot                                          // game thread: stage -> snapshot (locked)
 }  // namespace grass_occ

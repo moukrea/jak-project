@@ -24,6 +24,8 @@ uniform mat4 pc_camera;
 // Inerte (retourne son entree) quand u_tie_sway_amp vaut 0 : `first_tfrag_draw_setup` l'y met a
 // chaque activation du programme, Shrub.cpp le releve juste apres si l'option est allumee.
 #include "tie_sway.glsl"
+#include "vegetation_contact.glsl"
+uniform int u_shrub_contact_on;
 // foliage-wind (essai 11) — LE VENT NATIF DES BUISSONS, celui de ND (owner 2026-09-03 : « avec
 // l'option off on devrait avoir le natif d'origine »). Sur PS2, chaque instance-shrubbery integre
 // le meme ressort que le TIE et l'applique en CISAILLEMENT de sa matrice (shrub_asm.md:957-1057) ;
@@ -37,7 +39,7 @@ uniform mat4 pc_camera;
 layout (location = 9) in int shrub_inst_in;
 uniform sampler2D tex_T18;
 uniform int u_shrub_native_on;
-// Wx1 2D LUT instead of 1D — GLES has no sampler1D/glTexImage1D (the arm64
+// Wx2 2D LUT (native spring row 0, immutable contact anchor row 1) instead of 1D — GLES has no sampler1D/glTexImage1D (the arm64
 // device BLR'd into the NULL glTexImage1D loader slot). texelFetch on a Wx1
 // sampler2D is texel-exact on desktop GL too; Shrub.cpp uploads it as a Wx1
 // GL_TEXTURE_2D. Matches tfrag3.vert/the TIE shaders.
@@ -79,6 +81,19 @@ void main() {
     vec4 nw = texelFetch(tex_T18, ivec2(shrub_inst_in, 0), 0);
     wpos.x += nw.x * (nw.z * tie_sway_in.x);
     wpos.z += nw.y * (nw.z * tie_sway_in.x);
+  }
+  if (u_shrub_contact_on == 1) {
+    vec4 anchor = texelFetch(tex_T18, ivec2(shrub_inst_in, 1), 0);
+    if (anchor.w > 0.0) {
+      float heightMul;
+      vec3 trample;
+      float debug_contact = 0.0;
+      vegetation_contact(anchor.xyz, anchor.w, 0, heightMul, trample, debug_contact);
+      // Signed linear displacement: an edge crossing the buried pivot interpolates to zero.
+      float dy = position_in.y - anchor.y;
+      wpos.y += dy * (heightMul - 1.0);
+      wpos += trample * (dy / anchor.w);
+    }
   }
   vec3 vert = wpos - cam_trans.xyz;
 #ifdef OG_PBR

@@ -41,6 +41,11 @@ struct LevelData {
     // d'instance), VBO parallele a vertex_buffer, attribut 7 du VAO TIE. Meme cycle de vie que
     // vertex_buffer : cree par TieLoadStage, collecte par Loader::update.
     GLuint sway_buffer;
+    GLuint contact_buffer = 0;
+    GLuint contact_texture = 0;
+    bool contact_mapping_ok = true;
+    uint64_t contact_instances = 0;
+    uint64_t contact_vertices = 0;
     GLuint index_buffer;
     bool has_wind = false;
     GLuint wind_indices;

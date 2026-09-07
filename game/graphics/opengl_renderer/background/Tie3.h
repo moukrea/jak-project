@@ -116,6 +116,7 @@ class Tie3 : public BucketRenderer {
 
   struct Tree {
     GLuint vertex_buffer;
+    GLuint contact_texture = 0;
     GLuint index_buffer;
     GLuint single_draw_index_buffer;
     GLuint time_of_day_texture;
@@ -296,3 +297,15 @@ class Tie3WithEnvmapJak1 : public Tie3 {
  private:
   bool m_enable_envmap = true;
 };
+struct TieContactStats {
+  uint64_t uploads = 0;
+  uint64_t binding_failures = 0;
+  uint64_t mapped_trees = 0;
+  uint64_t mapping_failures = 0;
+  uint64_t eligible_instances = 0;
+  uint64_t eligible_vertices = 0;
+  uint64_t jak_samples = 0;
+  uint64_t object_samples = 0;
+};
+// Cumulative renderer preparations and linked source uploads, not GPU displacement.
+TieContactStats tie_contact_stats();

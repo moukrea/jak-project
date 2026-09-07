@@ -1,4 +1,5 @@
 #include "Shrub.h"
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 
 #include <atomic>
 #include <chrono>
@@ -18,6 +19,23 @@
 // preparations d'arbre ou le vent natif a ete refuse parce que le maitre etait eteint. Un zero
 // rendrait la garde indistinguable d'un site mort. Publie par `hdr.cpp`.
 static std::atomic<uint64_t> g_origin_shrub_native_suppressed{0};
+static std::atomic<uint64_t> g_shrub_contact_uniform_batches{0};
+static std::atomic<uint64_t> g_shrub_contact_binding_failures{0};
+static std::atomic<uint64_t> g_shrub_contact_instances{0};
+static std::atomic<uint64_t> g_shrub_contact_jak_samples{0};
+static std::atomic<uint64_t> g_shrub_contact_object_samples{0};
+
+ShrubContactStats shrub_contact_stats() {
+  return {g_shrub_contact_uniform_batches.load(std::memory_order_relaxed),
+          g_shrub_contact_binding_failures.load(std::memory_order_relaxed),
+          g_shrub_contact_instances.load(std::memory_order_relaxed),
+          g_shrub_contact_jak_samples.load(std::memory_order_relaxed),
+          g_shrub_contact_object_samples.load(std::memory_order_relaxed)};
+}
+
+uint64_t shrub_contact_uniform_batches() {
+  return g_shrub_contact_uniform_batches.load(std::memory_order_relaxed);
+}
 
 uint64_t shrub_origin_native_suppressed() {
   return g_origin_shrub_native_suppressed.load(std::memory_order_relaxed);
@@ -347,10 +365,35 @@ void Shrub::update_load(const LevelData* loader_data) {
       t.wind_active = master_on && tree.wind_sidecar_ok && tree.wind_instances_stiff > 0 &&
                       foliage_wind::shrub_native_enabled() &&
                       tree.sway_instances.size() == tree.packed_vertices.matrices.size();
+      // Row 0 is the native spring; row 1 is the immutable per-instance contact anchor.
+      std::vector<float> contact_lut(n_mat * 8, 0.f);
+      size_t contact_instances = 0;
+      for (size_t mi = 0; mi < tree.sway_instances.size() && mi < n_mat; ++mi) {
+        const auto& si = tree.sway_instances[mi];
+        if (!si.valid || mi >= tree.wind_proto_of_inst.size()) {
+          continue;
+        }
+        const size_t pi = tree.wind_proto_of_inst[mi];
+        if (pi >= tree.proto_names.size() ||
+            !foliage_wind::shrub_contact_prototype(tree.proto_names[pi]) ||
+            !(si.ymax > si.base_y)) {
+          continue;
+        }
+        float* anchor = &contact_lut[(n_mat + mi) * 4];
+        anchor[0] = si.x;
+        anchor[1] = si.base_y;
+        anchor[2] = si.z;
+        anchor[3] = si.ymax - si.base_y;
+        ++contact_instances;
+      }
+      t.contact_active = contact_instances > 0;
+      t.contact_instances = contact_instances;
+      lg::info("[foliage-contact] SHRUB anchors lev={} tree={} plants={} matrices={}",
+               lev_data->level_name, l_tree, contact_instances, n_mat);
       glGenTextures(1, &t.wind_tex);
       glBindTexture(GL_TEXTURE_2D, t.wind_tex);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)n_mat, 1, 0, GL_RGBA, GL_FLOAT,
-                   t.wind_texels.data());
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (GLsizei)n_mat, 2, 0, GL_RGBA, GL_FLOAT,
+                   contact_lut.data());
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -779,7 +822,26 @@ void Shrub::render_tree(int idx,
       const GLint on_loc = glGetUniformLocation(prog, "u_shrub_native_on");
       const GLint tex_loc = glGetUniformLocation(prog, "tex_T18");
       const bool on = tree.wind_active && tree.wind_seeded;
-      if (on) {
+      const bool contact_on = foliage_wind::enabled() && tree.contact_active;
+      const GLint contact_loc = glGetUniformLocation(prog, "u_shrub_contact_on");
+      glUniform1i(contact_loc, contact_on ? 1 : 0);
+      if (contact_on) {
+        const bool bound = grass_occ::push_contact_uniforms(prog, true);
+        if (bound && contact_loc >= 0 && tex_loc >= 0) {
+          const auto sources = grass_occ::contact_sources(true);
+          g_shrub_contact_instances.fetch_add(tree.contact_instances, std::memory_order_relaxed);
+          g_shrub_contact_jak_samples.fetch_add(sources.jak_samples, std::memory_order_relaxed);
+          g_shrub_contact_object_samples.fetch_add(sources.object_samples, std::memory_order_relaxed);
+          const auto batches = g_shrub_contact_uniform_batches.fetch_add(1, std::memory_order_relaxed) + 1;
+          if (batches == 1 || batches % 600 == 0) {
+            lg::info("[foliage-contact] SHRUB uniforms batches={} actors={} (bindings, not GPU effect)",
+                     batches, grass_occ::g_tramp_published.size());
+          }
+        } else {
+          g_shrub_contact_binding_failures.fetch_add(1, std::memory_order_relaxed);
+        }
+      }
+      if (on || contact_on) {
         glActiveTexture(GL_TEXTURE18);
         glBindTexture(GL_TEXTURE_2D, tree.wind_tex);
         glActiveTexture(GL_TEXTURE0);

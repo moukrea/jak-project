@@ -8,6 +8,7 @@ layout (location = 4) in vec4 proto_tint;
 // Grecharged-foliage-wind3 (defaut D2) : passe ADDITIVE de reflet du TIE envmappe. Elle dessine la
 // meme geometrie que etie_base.vert et doit donc appliquer EXACTEMENT le meme deplacement, sinon
 // le reflet se decollerait de l'objet des que le balancement s'allume.
+#define TIE_CONTACT
 #include "tie_sway.glsl"
 
 uniform vec4 hvdf_offset;
@@ -41,7 +42,7 @@ void main() {
 
   // transform the point
   // Grecharged-foliage-wind3 : inerte (retourne son entree) quand u_tie_sway_amp vaut 0.
-  vec3 position_sway = tie_sway_apply(position_in, tie_sway_in);
+  vec3 position_sway = tie_contact_apply(position_in, tie_sway_apply(position_in, tie_sway_in));
   vec4 vf17 = cam_no_persp[3];
   vf17 += cam_no_persp[0] * position_sway.x;
   vf17 += cam_no_persp[1] * position_sway.y;

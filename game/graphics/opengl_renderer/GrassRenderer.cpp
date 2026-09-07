@@ -191,6 +191,7 @@ struct TrampGhost {
   std::array<float, 4> e;  // x, y, z, r (GOAL units)
   float strength;          // eased 0..1
   bool seen;               // matched a Merc2 capture this frame
+  unsigned int actor_id = 0;  // 0: legacy static footprint; otherwise the GOAL process ID
 };
 static std::vector<TrampGhost> s_tramp_state;
 std::vector<float> g_tramp_strength;
@@ -204,12 +205,19 @@ static std::vector<std::array<float, 4>> s_goal_stage_cull;
 static std::vector<std::array<float, 4>> s_goal_stage_tramp;
 static std::vector<std::array<float, 4>> s_goal_cull;
 static std::vector<std::array<float, 4>> s_goal_tramp;
+struct MovingContact {
+  unsigned int actor_id;
+  std::array<float, 4> e;
+};
+static std::vector<MovingContact> s_goal_stage_moving;
+static std::vector<MovingContact> s_goal_moving;
 static double s_goal_snapshot_t = -1.0;  // R26: last goal_publish time (TTL fail-safe)
 static double s_goal_pub_interval = 0.3;  // R27: EMA of the real publish cadence (adaptive TTL)
 
 void goal_clear() {
   s_goal_stage_cull.clear();
   s_goal_stage_tramp.clear();
+  s_goal_stage_moving.clear();
 }
 void goal_add(int kind, float x, float y, float z, float r_world) {
   // ROUND#22: the radius arriving here is the actor's REAL draw-bounds ground footprint (GOAL glue
@@ -232,6 +240,14 @@ void goal_add(int kind, float x, float y, float z, float r_world) {
   auto& v = (kind == 1) ? s_goal_stage_tramp : s_goal_stage_cull;
   if (v.size() < 64) {
     v.push_back({x, y, z, r_world});
+  }
+}
+void goal_add_moving(unsigned int actor_id, float x, float y, float z, float r_world) {
+  if (!actor_id || (x == 0.f && z == 0.f)) {
+    return;
+  }
+  if (s_goal_stage_moving.size() < 64) {
+    s_goal_stage_moving.push_back({actor_id, {x, y, z, r_world}});
   }
 }
 // R28 (owner directive, literal: "trouve le moment où il est cassé et cancel le trample"): called
@@ -290,6 +306,7 @@ void goal_publish() {
     std::lock_guard<std::mutex> lk(s_goal_mutex);
     s_goal_cull = s_goal_stage_cull;
     s_goal_tramp = s_goal_stage_tramp;
+    s_goal_moving = s_goal_stage_moving;
     const double nowp = std::chrono::duration<double>(
                             std::chrono::steady_clock::now().time_since_epoch())
                             .count();
@@ -348,12 +365,14 @@ void goal_publish() {
       ent += fmt::format(" tr[{}]=({:.1f},{:.1f},{:.1f} r{:.2f})", i, e[0] / U, e[1] / U, e[2] / U,
                          e[3] / U);
     }
-    lg::info("[recharged-grass] R21OCC goal-publish #{} ncull={} ntr={}{}", s_pub_n,
-             (int)s_goal_stage_cull.size(), (int)s_goal_stage_tramp.size(), ent);
+    lg::info("[recharged-grass] R21OCC goal-publish #{} ncull={} ntr={} nmoving={}{}", s_pub_n,
+             (int)s_goal_stage_cull.size(), (int)s_goal_stage_tramp.size(),
+             (int)s_goal_stage_moving.size(), ent);
   }
 }
 
 void publish(float dt) {
+  std::vector<MovingContact> moving;
   // ROUND#21d: fold the GOAL actor snapshot into this frame's lists (Merc2 capture is DEAD/disabled;
   // the game side is the only actor source now). Jak's own trample stays on the u_jak_pos path.
   // R26 SNAPSHOT TTL (owner: dummy grass stays flat until the debris/message ends): if the GOAL scan
@@ -380,6 +399,9 @@ void publish(float dt) {
     if (snapshot_fresh)
     for (const auto& e : s_goal_tramp) {
       add_trample(e[0], e[1], e[2], e[3]);
+    }
+    if (snapshot_fresh) {
+      moving = s_goal_moving;
     }
     // ROUND#21f BISECT (prop debug.opengoal.grass.trtest=1): synthetic trample entry 2 m north of
     // Jak, injected through the SAME goal fold-in path. Renders a flat disc -> path OK, content bug;
@@ -478,6 +500,9 @@ void publish(float dt) {
   for (const auto& e : g_tramp_building) {
     TrampGhost* hit = nullptr;
     for (auto& g : s_tramp_state) {
+      if (g.actor_id != 0) {
+        continue;
+      }
       float dx = g.e[0] - e[0], dz = g.e[2] - e[2];
       if (dx * dx + dz * dz < MATCH_R * MATCH_R && std::fabs(g.e[1] - e[1]) < 2.f * 4096.f) {
         hit = &g;
@@ -492,6 +517,23 @@ void publish(float dt) {
     }
   }
   g_tramp_building.clear();
+  // Mobile actors share the same easing and published arrays, but only their process ID
+  // identifies a ghost. Static break tombstones never filter or suppress a moving contact.
+  for (const auto& contact : moving) {
+    TrampGhost* hit = nullptr;
+    for (auto& g : s_tramp_state) {
+      if (g.actor_id == contact.actor_id) {
+        hit = &g;
+        break;
+      }
+    }
+    if (hit) {
+      hit->e = contact.e;
+      hit->seen = true;
+    } else if (s_tramp_state.size() < 64) {
+      s_tramp_state.push_back({contact.e, 0.f, true, contact.actor_id});
+    }
+  }
   float dtc = std::min(std::max(dt, 0.f), 0.1f);  // clamp a hitch so a long frame can't teleport the ease
   g_tramp_published.clear();
   g_tramp_strength.clear();
@@ -502,7 +544,9 @@ void publish(float dt) {
       it->strength -= dtc / EASE_OUT_S;
     }
     if (it->strength <= 0.f) {
-      s_tombs.push_back({it->e[0], it->e[2], tnow});  // R27: spot released -> ban re-flatten 8 s
+      if (it->actor_id == 0) {
+        s_tombs.push_back({it->e[0], it->e[2], tnow});  // R27: static spot released -> ban 8 s
+      }
       it = s_tramp_state.erase(it);
       continue;
     }
@@ -531,6 +575,145 @@ void publish(float dt) {
     g_tramp_published.swap(pe);
     g_tramp_strength.swap(ps);
   }
+}
+
+namespace {
+float contact_trail[16] = {};
+std::array<float, 4> contact_jak{}, contact_ledge{};
+std::vector<std::array<float, 4>> contact_all_positions;
+std::vector<float> contact_all_strengths;
+}
+
+void begin_contact_frame() {
+  // OWNER ROUND#18: publish this frame's merc-captured object occluders (crates / warp-gate button)
+  // and clear the building list. Runs once before all Jak1 vegetation, regardless of its toggles,
+  // so the building list never accumulates while grass is OFF. ROUND#21: publish takes the frame
+  // dt so the per-object trample strengths ease in/out (broken-crate gradual spring-back).
+  static const auto s_pub_t0 = std::chrono::steady_clock::now();
+  static float s_pub_prev = -1.f;
+  float pub_now =
+      std::chrono::duration<float>(std::chrono::steady_clock::now() - s_pub_t0).count();
+  grass_occ::publish(s_pub_prev < 0.f ? 0.f : pub_now - s_pub_prev);
+  s_pub_prev = pub_now;
+  const float u_time = refset::enabled() && refset::current_logic_frame() >= 0
+      ? (float)refset::current_logic_frame() / 60.f : pub_now;
+  const auto& jp = Gfx::g_global_settings.recharged_jak_pos;
+  const auto& jl = Gfx::g_global_settings.recharged_jak_ledge;
+  for (int i = 0; i < 4; ++i) {
+    contact_jak[i] = jp[i];
+    contact_ledge[i] = jl[i];
+  }
+  // Shrubs flatten beneath both actor categories. Grass keeps its original CULL/TRAMPLE split.
+  struct ContactActor { std::array<float, 4> pos; float strength; };
+  std::vector<ContactActor> actors;
+  actors.reserve(g_tramp_published.size() + g_published.size());
+  for (size_t i = 0; i < g_tramp_published.size(); ++i) {
+    actors.push_back({g_tramp_published[i], g_tramp_strength[i]});
+  }
+  for (const auto& pos : g_published) {
+    actors.push_back({pos, 1.f});
+  }
+  std::stable_sort(actors.begin(), actors.end(), [&](const ContactActor& a, const ContactActor& b) {
+    const float ax = a.pos[0] - jp[0], az = a.pos[2] - jp[2];
+    const float bx = b.pos[0] - jp[0], bz = b.pos[2] - jp[2];
+    return ax * ax + az * az < bx * bx + bz * bz;
+  });
+  contact_all_positions.clear();
+  contact_all_strengths.clear();
+  for (size_t i = 0; i < std::min<size_t>(actors.size(), 16); ++i) {
+    contact_all_positions.push_back(actors[i].pos);
+    contact_all_strengths.push_back(actors[i].strength);
+  }
+  // OWNER ROUND#21 EASED TRAMPLE RELEASE: keep a short trail of Jak's recent positions (one sample
+  // every ~0.15 s, 4 samples) and upload them with an age-decayed strength (1 -> 0 over ~0.6 s).
+  // The shader max-combines them with the live position, so the flatten under a takeoff spot (jump)
+  // or behind a sprint eases back up over the decay window instead of snapping upright in one frame.
+  {
+    static std::array<std::array<float, 4>, 4> s_trail{};  // xyz + capture time (u_time seconds)
+    static float s_trail_last = -1.f;
+    if (jp[3] > 0.5f && (s_trail_last < 0.f || u_time - s_trail_last >= 0.15f)) {
+      for (int ti = 3; ti > 0; ti--) {
+        s_trail[ti] = s_trail[ti - 1];
+      }
+      s_trail[0] = {jp[0], jp[1], jp[2], u_time};
+      s_trail_last = u_time;
+    }
+
+    for (int ti = 0; ti < 4; ti++) {
+      float age = u_time - s_trail[ti][3];
+      float str = (jp[3] > 0.5f && s_trail[ti][3] > 0.f) ? std::max(0.f, 1.f - age / 0.6f) : 0.f;
+      contact_trail[ti * 4 + 0] = s_trail[ti][0];
+      contact_trail[ti * 4 + 1] = s_trail[ti][1];
+      contact_trail[ti * 4 + 2] = s_trail[ti][2];
+      contact_trail[ti * 4 + 3] = str;
+    }
+
+  }
+}
+
+ContactSources contact_sources(bool include_static) {
+  const auto& positions = include_static ? contact_all_positions : g_tramp_published;
+  const auto& strengths = include_static ? contact_all_strengths : g_tramp_strength;
+  ContactSources result;
+  result.jak_samples = (contact_jak[3] > 0.004f ? 1 : 0) + (contact_ledge[3] > 0.5f ? 1 : 0);
+  for (int i = 0; i < 4; ++i) {
+    result.jak_samples += contact_trail[i * 4 + 3] > 0.004f ? 1 : 0;
+  }
+  for (size_t i = 0; i < std::min<size_t>(positions.size(), include_static ? 16 : 8); ++i) {
+    result.object_samples += strengths[i] > 0.f && positions[i][3] > 0.f ? 1 : 0;
+  }
+  return result;
+}
+
+bool push_contact_uniforms(unsigned int id, bool include_static) {
+  const auto& positions = include_static ? contact_all_positions : g_tramp_published;
+  const auto& strengths = include_static ? contact_all_strengths : g_tramp_strength;
+  glUniform4fv(glGetUniformLocation(id, "u_jak_pos"), 1, contact_jak.data());
+  glUniform4fv(glGetUniformLocation(id, "u_jak_ledge"), 1, contact_ledge.data());
+  glUniform4fv(glGetUniformLocation(id, "u_jak_trail"), 4, contact_trail);
+  // OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) TRAMPLE the grass (flatten like Jak),
+  // they do NOT cull it -> when the object is broken the grass springs back. Upload up to 16 as
+  // u_trample (xyz = world pos, w = ground-contact radius). u_trample_count == 0 -> no flatten.
+  {
+    int ntr = (int)std::min<size_t>(positions.size(), include_static ? 16 : 8);  // literal-index shared contact cap
+    if (ntr > 0) {
+      glUniform4fv(glGetUniformLocation(id, "u_trample"), ntr, &positions[0][0]);
+      // ROUND#21: per-entry eased strength — the shader scales each entry's flatten by this, so a
+      // broken crate's grass springs back over ~0.6 s (uniforms default to 0 -> upload is mandatory).
+      // R21f: Adreno driver quirk — glGetUniformLocation on a float ARRAY can return -1 for the
+      // bare name (works for vec4 arrays, fails for float arrays) -> the upload silently no-ops and
+      // u_trample_str stays at its 0.0 default = flatten multiplied by ZERO (the "condition fires,
+      // cyan marks show, nothing flattens" forensic signature). Query "name[0]" as fallback + log.
+      int str_loc = glGetUniformLocation(id, "u_trample_str");
+      if (str_loc < 0) {
+        str_loc = glGetUniformLocation(id, "u_trample_str[0]");
+      }
+      static bool s_str_loc_logged = false;
+      if (!s_str_loc_logged) {
+        s_str_loc_logged = true;
+        lg::info("[recharged-grass] R21F u_trample_str loc={} (bare={}) str[0]={:.2f} ntr={}",
+                 str_loc, glGetUniformLocation(id, "u_trample_str"),
+                 strengths.empty() ? -1.f : strengths[0], ntr);
+      }
+      glUniform1fv(str_loc, ntr, strengths.data());
+      // R21f: repack strengths into a vec4 array (.x) — see grass.vert; float-array dynamic reads
+      // miscompile to 0 on the Adreno 618.
+      float str4[16][4];
+      for (int si = 0; si < ntr && si < 16; si++) {
+        str4[si][0] = strengths[si];
+        str4[si][1] = str4[si][2] = str4[si][3] = 0.f;
+      }
+      glUniform4fv(glGetUniformLocation(id, "u_trample2"), ntr, &str4[0][0]);
+    }
+    glUniform1i(glGetUniformLocation(id, "u_trample_count"), ntr);
+  }
+
+  return glGetUniformLocation(id, "u_jak_pos") >= 0 &&
+         glGetUniformLocation(id, "u_jak_trail") >= 0 &&
+         glGetUniformLocation(id, "u_jak_ledge") >= 0 &&
+         glGetUniformLocation(id, "u_trample") >= 0 &&
+         glGetUniformLocation(id, "u_trample2") >= 0 &&
+         glGetUniformLocation(id, "u_trample_count") >= 0;
 }
 }  // namespace grass_occ
 
@@ -1345,16 +1528,6 @@ void GrassRenderer::update_light(SharedRenderState* rs) {
 }
 
 void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
-  // OWNER ROUND#18: publish this frame's merc-captured object occluders (crates / warp-gate button)
-  // and clear the building list. Runs every frame the grass toggle is ON (before any early return),
-  // so the building list never accumulates across frames/levels. ROUND#21: publish takes the frame
-  // dt so the per-object trample strengths ease in/out (broken-crate gradual spring-back).
-  static const auto s_pub_t0 = std::chrono::steady_clock::now();
-  static float s_pub_prev = -1.f;
-  float pub_now =
-      std::chrono::duration<float>(std::chrono::steady_clock::now() - s_pub_t0).count();
-  grass_occ::publish(s_pub_prev < 0.f ? 0.f : pub_now - s_pub_prev);
-  s_pub_prev = pub_now;
   if (!rs->has_pc_data) {
     return;
   }
@@ -1473,32 +1646,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glUniform1f(glGetUniformLocation(id, "fog_constant"), rs->camera_fog.x());
   glUniform1f(glGetUniformLocation(id, "u_time"), u_time);
   const auto& jp = Gfx::g_global_settings.recharged_jak_pos;
-  glUniform4f(glGetUniformLocation(id, "u_jak_pos"), jp[0], jp[1], jp[2], jp[3]);
-  // OWNER ROUND#21 EASED TRAMPLE RELEASE: keep a short trail of Jak's recent positions (one sample
-  // every ~0.15 s, 4 samples) and upload them with an age-decayed strength (1 -> 0 over ~0.6 s).
-  // The shader max-combines them with the live position, so the flatten under a takeoff spot (jump)
-  // or behind a sprint eases back up over the decay window instead of snapping upright in one frame.
-  {
-    static std::array<std::array<float, 4>, 4> s_trail{};  // xyz + capture time (u_time seconds)
-    static float s_trail_last = -1.f;
-    if (jp[3] > 0.5f && (s_trail_last < 0.f || u_time - s_trail_last >= 0.15f)) {
-      for (int ti = 3; ti > 0; ti--) {
-        s_trail[ti] = s_trail[ti - 1];
-      }
-      s_trail[0] = {jp[0], jp[1], jp[2], u_time};
-      s_trail_last = u_time;
-    }
-    float trail[16];
-    for (int ti = 0; ti < 4; ti++) {
-      float age = u_time - s_trail[ti][3];
-      float str = (jp[3] > 0.5f && s_trail[ti][3] > 0.f) ? std::max(0.f, 1.f - age / 0.6f) : 0.f;
-      trail[ti * 4 + 0] = s_trail[ti][0];
-      trail[ti * 4 + 1] = s_trail[ti][1];
-      trail[ti * 4 + 2] = s_trail[ti][2];
-      trail[ti * 4 + 3] = str;
-    }
-    glUniform4fv(glGetUniformLocation(id, "u_jak_trail"), 4, trail);
-  }
+  grass_occ::push_contact_uniforms(id);
   // POLISH#4: adjustable LOD reach (Recharged Settings sliders), passed in WORLD units to
   // match cam_dist. Clamped to a sane range so a bad settings value can't break the LOD.
   float near_m = std::min(80.0f, std::max(8.0f, Gfx::g_global_settings.recharged_grass_near_dist));
@@ -1507,8 +1655,6 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   glUniform1f(glGetUniformLocation(id, "u_near_dist"), near_m * U);
   glUniform1f(glGetUniformLocation(id, "u_card_dist"), card_m * U);
   // POLISH#4: Jak's ledge-grab point (parts the ledge-top grass while he hangs).
-  const auto& jl = Gfx::g_global_settings.recharged_jak_ledge;
-  glUniform4f(glGetUniformLocation(id, "u_jak_ledge"), jl[0], jl[1], jl[2], jl[3]);
   // ROUND#14 DISCRIMINATOR (0 normal / 1 base-stubs magenta / 2 blades cyan / 3 cards yellow):
   // isolates every tier so ONE fixed-viewpoint capture at a rim discriminates the floating
   // mechanism (H-A blade geometry / H-B base-past-silhouette / H-C cards). Control (default OFF):
@@ -1552,43 +1698,6 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     }
     glUniform1i(glGetUniformLocation(id, "u_occ_count"), nocc);
   }
-  // OWNER Q&A 2026-07-12: breakable actors (crates, scarecrows) TRAMPLE the grass (flatten like Jak),
-  // they do NOT cull it -> when the object is broken the grass springs back. Upload up to 16 as
-  // u_trample (xyz = world pos, w = ground-contact radius). u_trample_count == 0 -> no flatten.
-  {
-    int ntr = (int)std::min<size_t>(grass_occ::g_tramp_published.size(), 8);  // R21f literal-unroll cap
-    if (ntr > 0) {
-      glUniform4fv(glGetUniformLocation(id, "u_trample"), ntr, &grass_occ::g_tramp_published[0][0]);
-      // ROUND#21: per-entry eased strength — the shader scales each entry's flatten by this, so a
-      // broken crate's grass springs back over ~0.6 s (uniforms default to 0 -> upload is mandatory).
-      // R21f: Adreno driver quirk — glGetUniformLocation on a float ARRAY can return -1 for the
-      // bare name (works for vec4 arrays, fails for float arrays) -> the upload silently no-ops and
-      // u_trample_str stays at its 0.0 default = flatten multiplied by ZERO (the "condition fires,
-      // cyan marks show, nothing flattens" forensic signature). Query "name[0]" as fallback + log.
-      int str_loc = glGetUniformLocation(id, "u_trample_str");
-      if (str_loc < 0) {
-        str_loc = glGetUniformLocation(id, "u_trample_str[0]");
-      }
-      static bool s_str_loc_logged = false;
-      if (!s_str_loc_logged) {
-        s_str_loc_logged = true;
-        lg::info("[recharged-grass] R21F u_trample_str loc={} (bare={}) str[0]={:.2f} ntr={}",
-                 str_loc, glGetUniformLocation(id, "u_trample_str"),
-                 grass_occ::g_tramp_strength.empty() ? -1.f : grass_occ::g_tramp_strength[0], ntr);
-      }
-      glUniform1fv(str_loc, ntr, grass_occ::g_tramp_strength.data());
-      // R21f: repack strengths into a vec4 array (.x) — see grass.vert; float-array dynamic reads
-      // miscompile to 0 on the Adreno 618.
-      float str4[16][4];
-      for (int si = 0; si < ntr && si < 16; si++) {
-        str4[si][0] = grass_occ::g_tramp_strength[si];
-        str4[si][1] = str4[si][2] = str4[si][3] = 0.f;
-      }
-      glUniform4fv(glGetUniformLocation(id, "u_trample2"), ntr, &str4[0][0]);
-    }
-    glUniform1i(glGetUniformLocation(id, "u_trample_count"), ntr);
-  }
-
   // ROUND#19 forensics (owner: registered radii have NO visual): prove what actually reaches the
   // shader — uniform locations (a -1 = the GLES link dropped it) once, then the published entries +
   // Jak pos every ~150 frames. Metres for readability. Removed noise cost: two ints per frame.

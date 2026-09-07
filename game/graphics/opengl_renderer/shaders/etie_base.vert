@@ -20,6 +20,7 @@ layout (location = 5) in vec4 tangent_in;
 // Grecharged-foliage-wind3 (defaut D2) : le balancement du TIE statique, meme chunk que
 // tfrag3.vert et etie.vert — les trois doivent deplacer un sommet DE FACON IDENTIQUE, sinon la
 // passe de base et la passe additive de reflet du meme objet se decolleraient.
+#define TIE_CONTACT
 #include "tie_sway.glsl"
 
 uniform vec4 hvdf_offset;
@@ -58,7 +59,7 @@ uniform vec4 cam_trans;
 
 void main() {
   // Grecharged-foliage-wind3 : inerte (retourne son entree) quand u_tie_sway_amp vaut 0.
-  vec3 position_sway = tie_sway_apply(position_in, tie_sway_in);
+  vec3 position_sway = tie_contact_apply(position_in, tie_sway_apply(position_in, tie_sway_in));
   float fog1 = camera[3].w + camera[0].w * position_sway.x + camera[1].w * position_sway.y + camera[2].w * position_sway.z;
   fogginess = 255.0 - clamp(fog1 + hvdf_offset.w, fog_min, fog_max);
   vec4 vf17 = cam_no_persp[3];

@@ -1,6 +1,8 @@
 #include "Tie3.h"
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 
 #include <chrono>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -22,6 +24,23 @@
 #include "game/mips2c/spart_prof.h"
 
 #include "third-party/imgui/imgui.h"
+
+namespace {
+std::atomic<uint64_t> contact_uploads{0}, contact_binding_failures{0};
+std::atomic<uint64_t> contact_mapped_trees{0}, contact_mapping_failures{0};
+std::atomic<uint64_t> contact_eligible_instances{0}, contact_eligible_vertices{0};
+std::atomic<uint64_t> contact_jak_samples{0}, contact_object_samples{0};
+}
+TieContactStats tie_contact_stats() {
+  return {contact_uploads.load(std::memory_order_relaxed),
+          contact_binding_failures.load(std::memory_order_relaxed),
+          contact_mapped_trees.load(std::memory_order_relaxed),
+          contact_mapping_failures.load(std::memory_order_relaxed),
+          contact_eligible_instances.load(std::memory_order_relaxed),
+          contact_eligible_vertices.load(std::memory_order_relaxed),
+          contact_jak_samples.load(std::memory_order_relaxed),
+          contact_object_samples.load(std::memory_order_relaxed)};
+}
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
@@ -375,6 +394,20 @@ void Tie3::load_from_fr3_data(const LevelData* loader_data) {
       glBindVertexArray(lod_tree[l_tree].vao);
       // openGL vertex buffer from loader
       lod_tree[l_tree].vertex_buffer = loader_data->tie_data[l_geo][l_tree].vertex_buffer;
+      lod_tree[l_tree].contact_texture = loader_data->tie_data[l_geo][l_tree].contact_texture;
+      const auto& contact_data = loader_data->tie_data[l_geo][l_tree];
+      contact_mapping_failures.fetch_add(!contact_data.contact_mapping_ok, std::memory_order_relaxed);
+      if (contact_data.contact_texture) {
+        contact_mapped_trees.fetch_add(1, std::memory_order_relaxed);
+        contact_eligible_instances.fetch_add(contact_data.contact_instances, std::memory_order_relaxed);
+        contact_eligible_vertices.fetch_add(contact_data.contact_vertices, std::memory_order_relaxed);
+      }
+      const GLuint contact_buffer = contact_data.contact_buffer;
+      if (contact_buffer) {
+        glBindBuffer(GL_ARRAY_BUFFER, contact_buffer);
+        glEnableVertexAttribArray(10);
+        glVertexAttribIPointer(10, 1, GL_UNSIGNED_INT, sizeof(u32), nullptr);
+      }
       // draw array from FR3 data
       lod_tree[l_tree].draws = &tree.static_draws;
       // base TOD colors from FR3
@@ -1100,6 +1133,31 @@ void init_etie_cam_uniforms(const EtieUniforms& uniforms, const GoalBackgroundCa
 // OFF == STOCK, ET C'EST LA SEULE CHOSE QUE CETTE FONCTION GARANTIT : quand l'option est eteinte
 // elle ecrit 0, le `if` du chunk saute le bloc et le sommet ressort a l'identique. Elle n'ecrit
 // RIEN d'autre sur le chemin statique.
+static void push_tie_contact(GLuint program, GLuint texture) {
+  const bool on = texture && foliage_wind::enabled();
+  glUniform1i(glGetUniformLocation(program, "u_tie_contact_on"), on ? 1 : 0);
+  if (on) {
+    const bool bound = grass_occ::push_contact_uniforms(program, true);
+    const GLint sampler = glGetUniformLocation(program, "u_tie_contact_tex");
+    glUniform1i(sampler, 18);
+    glActiveTexture(GL_TEXTURE18);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glActiveTexture(GL_TEXTURE0);
+    if (bound && sampler >= 0 && glGetUniformLocation(program, "u_tie_contact_on") >= 0) {
+      const auto sources = grass_occ::contact_sources(true);
+      contact_jak_samples.fetch_add(sources.jak_samples, std::memory_order_relaxed);
+      contact_object_samples.fetch_add(sources.object_samples, std::memory_order_relaxed);
+      const auto batches = contact_uploads.fetch_add(1, std::memory_order_relaxed) + 1;
+      if (batches == 1 || batches % 600 == 0) {
+        lg::info("[foliage-contact] TIE uniform_batches={} binding_failures={} (not GPU effect)",
+                 batches, contact_binding_failures.load(std::memory_order_relaxed));
+      }
+    } else {
+      contact_binding_failures.fetch_add(1, std::memory_order_relaxed);
+    }
+  }
+}
+
 void Tie3::push_tie_sway_uniforms(GLuint program, u64 frame_idx, const char* pass) {
   // foliage-wind (owner 2026-09-03) : une seule loi, une seule amplitude, une seule horloge pour
   // les quatre programmes (TIE statique x3 et shrub) — poussees d'un seul endroit.
@@ -1139,6 +1197,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
   // que la ligne de preuve puisse interroger l'etat REEL de l'attribut 7.
   push_tie_sway_uniforms(render_state->shaders[shader_id].id(), render_state->frame_idx,
                          use_envmap ? "etie_base" : "tfrag3");
+  push_tie_contact(render_state->shaders[shader_id].id(), tree.contact_texture);
   foliage_wind::mark_drawn(m_level_name, foliage_wind::kSystemTieStatic, idx, geom);
 
   glActiveTexture(GL_TEXTURE10);
@@ -1686,6 +1745,7 @@ void Tie3::envmap_second_pass_draw(const Tree& tree,
   // l'objet des que le balancement s'allume.
   push_tie_sway_uniforms(render_state->shaders[ShaderId::ETIE].id(), render_state->frame_idx,
                          "etie");
+  push_tie_contact(render_state->shaders[ShaderId::ETIE].id(), tree.contact_texture);
 
   init_etie_cam_uniforms(m_etie_uniforms, m_common_data.settings.camera);
   set_uniform(m_etie_uniforms.envmap_tod_tint, m_common_data.envmap_color);

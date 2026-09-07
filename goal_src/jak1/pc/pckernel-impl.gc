@@ -263,6 +263,7 @@
 ;; radius as a GOAL-units integer (meters * 4096 — ints only across the C bridge).
 (define-extern pc-grass-occ-clear! (function none))
 (define-extern pc-grass-occ-add! (function int vector int none))
+(define-extern pc-grass-occ-add-moving! (function int vector int none))
 (define-extern pc-grass-occ-publish! (function none))
 (define-extern pc-get-tod-hour (function int)) ;; Grecharged-grass-precompute-mode verification aid: debug.opengoal.tod.hour prop (hour*100; -1 = unset)
 ;; lighting-hdr essai 6 — les deux gestes du jeu d'images de reference (contrat : game/graphics/refset.h).

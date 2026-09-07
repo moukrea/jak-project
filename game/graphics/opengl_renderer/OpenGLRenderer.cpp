@@ -1,3 +1,4 @@
+#include "game/graphics/opengl_renderer/GrassOccluders.h"
 #include "OpenGLRenderer.h"
 
 #include "game/graphics/opengl_renderer/hdr.h"
@@ -1907,6 +1908,9 @@ void OpenGLRenderer::dispatch_buckets(DmaFollower dma,
 
   m_render_state.version = m_version;
   m_render_state.frame_idx++;
+  if (m_version == GameVersion::Jak1) {
+    grass_occ::begin_contact_frame();
+  }
   switch (m_version) {
     case GameVersion::Jak1:
       dispatch_buckets_jak1(dma, prof, sync_after_buckets);

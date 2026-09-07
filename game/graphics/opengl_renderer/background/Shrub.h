@@ -70,6 +70,8 @@ class Shrub : public BucketRenderer {
     // que shrub.vert lit par l'attribut 9.
     const tfrag3::ShrubTree* src = nullptr;
     GLuint wind_tex = 0;
+    bool contact_active = false;
+    uint64_t contact_instances = 0;
     std::vector<float> wind_state;
     std::vector<float> wind_texels;
     u32 wind_last_time = 0;
@@ -139,3 +141,16 @@ class Shrub : public BucketRenderer {
 // refuse parce que le maitre Recharged etait ETEINT. Publie par `hdr.cpp` sous
 // `origin_shrub_native_suppressed`. Meme role de denominateur que ci-dessus.
 uint64_t shrub_origin_native_suppressed();
+
+// Successful linked contact-uniform upload batches, not a GPU displacement verdict.
+uint64_t shrub_contact_uniform_batches();
+
+struct ShrubContactStats {
+  uint64_t uploads = 0;
+  uint64_t binding_failures = 0;
+  uint64_t shrub_instances = 0;
+  uint64_t jak_samples = 0;
+  uint64_t object_samples = 0;
+};
+// Cumulative linked batches and their eligible population/source counts; no overlap/GPU claim.
+ShrubContactStats shrub_contact_stats();
