@@ -1,26 +1,27 @@
-# Handoff — lighting-census, essai 14
+# Handoff — lighting-census, essai 15
 DIRECTIVES v6fca51fe40
 ## ÉTABLI
-- Build incrémental gk+goalc rc0, sha gk=483b75c9c4473b8c ; garde npc-flicker47.
-- Preuve unique60s limitée legacy/origine/h00 : crash0 frames3353 compared1 maxdiff202 diffpx794 census_runs0.
-- Origine draws1365858 classifiés0 stock1365858, residual0 rb_mismatch0 GPU7.9370ms ; hors plan complet.
-- 575 SHA historiques OK ; preuves/écarts précédents archivés notes/essai13-avant14.
-- API input chargée : selftest PASS, PAD DIFF0/120, fingerprint ab9b39af35c0de41 stable/error/reset PASS.
-- Runtime input=f97b073c2df76fb4 source=loaded-replay ; ledger ajoute input et exige même config, archives intactes.
-- Lecteur fork FR3 v43/v44 testé : PASS inputs27 (fixture writer pristine indépendant +26FR3 pristine dont GAME/sunkenb).
-- V43 vide tangentes ; write44 header/footer ; réutilisation/roundtrip exacts ; quatre rejets SIGABRT6.
-- Aucun candidat nouveau adopté ; essai13-provenance-v2 reste candidat partiel non qualifié.
+- gk final05f7ba1f7280c962 build rc0 ; garde npc-flicker47. Preuve finale60s crash0 frames3397.
+- legacy/origine/h00 : compared1 maxdiff202 diffpx794 census_runs0 ; 575 SHA historiques OK.
+- Origine draws1402218 classifiés0 stock1402218 ; residual0 rb_mismatch0 GPU8.2137ms ; hors plan complet.
+- Nouveau game/system/boot_replay : input RTC/RNG natifs avant GAME ; checkpoints RNG GOAL/natifs/display avant play.
+- Capture20s puis replay : 11 records scellés fingerprint8cafacae708f4b5a, Knuth inclus ; aucune horloge EE/unix lue avant frontière dans ce run.
+- Flux réutilisable : notes/essai15-data/fork-bootstrap.bin ; OG_BOOT_REPLAY_REPLAY=<chemin>, session OS neuve impérative.
+- Tests parser roundtrip/rejets rc0 ; capture O_EXCL, EOF/checkpoints stricts, buffers sur tas pour appels GOAL.
+- Registre/sidecars config inclut bootstrap scellé : 8a9493fa059e5429 ; ancien1bc0c751a065de33 conservé.
+- Pristine source c4bc4d3ff4691902ff023319cb33df71c0040501 + notes/essai15-data/pristine-bootstrap.patch.
+- /home/emeric/code/jak-original-v033/build/game/gk615f120e4e0de8f6 compile rc0, rejoue11 records même empreinte (12s).
+- Pristine utilise ses CGO DISTINCTS : compatibilité pré-play mesurée, PAS qualification de rendu/données identiques.
 ## TENTÉ
-- Corrigé incompatibilité FR3 : deux vecteurs u16 baked_tangents seuls ajouts sérialisés44 ; ne pas renuméroter fichiers.
-- Audité frontière : actors-update trop tard (birth bsp-header crée déjà ambiances/caméras). Pas de restore implémenté.
-- Piste DMA non autonome : pointeurs EE embarqués, textures hors chaîne, état renderer/loader absent ; aucun outil replay existant.
-- Origine historique toujours différente sur le cas testé ; pas cinq autorejeux pour fabriquer qualification.
+- Le bootstrap réparé ne réduit pas l’écart historique202/794 ; aucun nouveau candidat adopté, aucune sentinelle retirée.
+- Build pristine interrompu sur borne100 objets trop grossière (curl), repris incrémental : rc0 en142.5s/167objets.
+- Revue tardive a ajouté identité bootstrap au registre ; preuve initiale archivée notes/essai15-avant-ledger/, flux conservé.
 ## RESTE
-- Frontière commune AVANT play dans InitMachineScheme (fork5777/pristine641), avant premier KernelDispatch.
-- Piste : session neuve par cas, (play #t #f), puis initialize! *game-info* game #f continue via contexte GOAL valide.
-- Enregistrer/rejouer RTC dès DecodeTime, RNG GOAL/natif dont *knuth-rand-state* oublié, horloges, niveaux/permanences/acteurs.
-- Adapter pristine au protocole ; mêmes CGO/FR3 pristine désormais lisibles ne qualifient PAS les CGO fork livrés.
-- Qualifier origine baseline/candidat à état identique ; compléter provenance producteur sources/config/ressources effectivement chargées.
-- Candidat complet trois modes/21niveaux/8heures/≥4intérieurs ; Sunkenb manque toujours ; ensuite cinq rejeux exacts.
-- non prouvé : état rejouable, qualification, couverture rendue, HDR/tonemap SDR/Android ; aucune correction HDR livrée.
-- notes/recovery-essai14.md + essai14-data/commands.txt/tests ; aucun appareil, builder2541075 repris, generic orchestrateur seul.
+- Étendre frontière APRES initialisation commune sans gel du rendu ; RTC/RNG pré-GAME sont désormais traités, pas les acteurs.
+- Voie auditée : remplacer play automatique par premier ListenerFunction ; kernel-dispatcher le lance via reset-and-call AVANT arbre acteurs.
+- Ce listener fera (play #t #f), puis initialize! *game-info* game #f continue ; restart suspend ensuite avant start : encore à traiter.
+- Enregistrer/rejouer naissances, permanences, horloges/chargements et état courant ; ne pas réutiliser pointeurs entre binaires.
+- Qualifier baseline/candidat avec mêmes ressources effectivement chargées ; CGO pristine communs ne qualifient pas CGO fork livrés.
+- Candidat complet trois modes/21niveaux/8heures/≥4intérieurs, Sunkenb+ciel manquants ; puis cinq rejeux exacts.
+- non prouvé : acteurs/qualification/couverture/HDR/SDR/Android. Aucun HDR corrigé ; generic orchestrateur seul.
+- Notes recovery-essai15.md et essai15-data ; builder2541075 repris, aucun appareil ni owner-ok.

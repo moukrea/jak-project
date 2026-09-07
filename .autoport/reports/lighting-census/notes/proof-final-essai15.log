@@ -1,0 +1,2 @@
+[proof_run lighting-census] x86 : build/game/gk pendant 60s (armed=1)
+[proof_run lighting-census] ecrit .autoport/reports/lighting-census/proof.txt (frames=3397 crash=0 duree=60s) ; sortie moteur : .autoport/reports/lighting-census/proof-engine.log

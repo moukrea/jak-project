@@ -437,6 +437,7 @@ add_library(android_kernel STATIC
     # tapped from android_runtime_compat.cpp::CPadGetData (backend-agnostic core,
     # also compiled into the desktop gk via game/CMakeLists.txt).
     "${JAK_ROOT}/game/system/pad_replay.cpp"
+    "${JAK_ROOT}/game/system/boot_replay.cpp"
     # NOTE: game/system/background_worker.cpp needs libcurl, which we
     # don't ship on Android. android_runtime_compat.cpp owns a
     # default-constructed BackgroundWorker so runtime.h's extern

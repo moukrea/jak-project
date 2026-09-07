@@ -1,6 +1,7 @@
 #include "game/graphics/refset.h"
 
 #include <algorithm>
+#include <atomic>
 #include <charconv>
 #include <cmath>
 #include <cstdio>
@@ -32,6 +33,8 @@
 
 namespace refset {
 namespace {
+
+std::atomic<uint64_t> g_bootstrap_fingerprint{0};
 
 // ── le plan ─────────────────────────────────────────────────────────────────────────────────
 // TROIS jeux x huit creneaux horaires. Les huit heures sont les huit creneaux de
@@ -1715,6 +1718,12 @@ uint64_t census_config_fingerprint() {
     }
     h = (h ^ 0xff) * 1099511628211ull;
   };
+  // Preserve the historical identity when bootstrap replay is absent. A sealed
+  // stream instead separates both sidecars and ledger rows by the consumed state.
+  if (const uint64_t bootstrap = g_bootstrap_fingerprint.load()) {
+    add("bootstrap-before-play-v1");
+    add(std::to_string(bootstrap));
+  }
   for (const Step& step : g_steps) {
     const Vantage& v = vantage_of(step);
     add(step.supplemental ? "supplement-v1" : "historical");
@@ -2278,6 +2287,10 @@ int tod_override_x100() {
 
 int64_t warp_at_frame() {
   return g_warp_at;
+}
+
+void set_bootstrap_fingerprint(uint64_t fingerprint) {
+  g_bootstrap_fingerprint.store(fingerprint);
 }
 
 void set_logic_frame_provider(int64_t (*fn)()) {

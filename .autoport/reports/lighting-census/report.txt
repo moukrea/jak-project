@@ -1,33 +1,30 @@
 DIRECTIVES v6fca51fe40
-Non validé : références non qualifiées, écart historique 202 ; compatibilité FR3 pristine et provenance des entrées renforcées.
-Changements : lecture FR3 v43/v44 explicite, tangentes v43 vidées, écriture v44 et footer contrôlé.
-pad_replay identifie les octets chargés ; fichier remplacé, lecture partielle/version inconnue ne donnent plus une provenance trompeuse.
-Le registre exige input ET configuration identiques ; anciennes lignes conservées sans crédit implicite.
-Build incrémental gk+goalc rc0 ; garde npc-flicker : 47 propriétés tenues (notes/build-essai14.log).
-Tests : fr3-compat PASS inputs=27 (fixture pristine indépendante +26 vrais FR3, GAME et sunkenb inclus).
-Tests : quatre versions/footer incohérents rejetés par SIGABRT ; réutilisation et roundtrip v44 exacts.
-Test entrée : INPUT FINGERPRINT loaded=ab9b39af35c0de41 stable/error/reset=PASS ; PAD DIFF 0/120.
-Preuve unique60s, LIMITÉE à legacy/origine/h00 ; aucune prétention à la couverture du plan complet.
-Huit lignes recopiées de proof.txt produit par lib/proof_run.sh :
-source=x86
-sha=483b75c9c4473b8c
-crash=0
-frames=3353
-FEATURE lighting-census armed=1 hits=1372909
-refset_compared=1
-refset_census_replay_runs=0
-refset_replay_maxdiff=202
-Trace moteur : REFSET done steps=1 captured=0 compared=1 maxdiff=202 diffpx=794 missing=0 slip=0..0 rewarps=1 settle=180
-Mode origine : draws=1365858, classifiés=0, stock non classé=1365858 ; GPU buckets=7.9370ms.
-Le résiduel0 et rb_mismatch0 ne prouvent pas la classification des trois modes ; shade_gate_reads_outside=5 conservé.
-Archives : 575 SHA historiques OK ; preuves/écarts essai13 conservés dans notes/essai13-avant14/.
-Aucun nouveau candidat adopté ; essai13-provenance-v2 reste partiel et non qualifié.
-Frontière requise : avant play/premier dispatch, pas actors-update ; des ambiances/caméras naissent avant ce dernier.
-La graine Knuth initialisée depuis RTC manque aussi aux reseeds actuels (audit source, pas restore mesuré).
-Owner : aucun changement HDR/tonemap SDR livré à regarder ; rien à valider visuellement pour ces tests de données.
-non prouvé : état initial restauré RNG/horloges/acteurs/permanences, origine baseline/candidat à état identique,
-provenance complète sources/config/ressources chargées, lecture candidate v2 en jeu, cinq rejeux exacts,
-couverture rendue trois modes/21niveaux/8heures/≥4intérieurs ; Sunkenb reste manquant sans visibilité démontrée.
-non prouvé : correction des blancs HDR, tonemap SDR et Android. Aucun appareil touché.
-Builder PID2541075 repris ; generic.sh inchangé, exécution laissée à l’orchestrateur.
-Détails : notes/recovery-essai14.md ; reprise : handoff.md.
+Non validé : bootstrap pré-play rejouable, mais comparaison historique toujours en échec (écart maximal 202).
+Changements : flux bootstrap versionné et exclusif ; RTC et RNG natifs enregistrés/restaurés avant GAME.
+Les états RNG GOAL (dont Knuth), natifs et compteurs display sont comparés avant play, sans écraser les écarts.
+Le flux scellé entre dans la configuration des sidecars et du registre ; sentinelles de qualification conservées.
+Build final gk réussi, sha 05f7ba1f7280c962 ; garde npc-flicker : 47 propriétés tenues.
+Preuve officielle : proof.txt, produite uniquement par lib/proof_run.sh ; course finale60s, crash0, 3397frames.
+Huit traces du moteur (proof-engine.log) :
+BOOTREPLAY record mode=replay tag=native-pc-rng index=0 count=1
+BOOTREPLAY record mode=replay tag=native-mips-rng index=1 count=2
+BOOTREPLAY record mode=replay tag=native-mips-R index=2 count=3
+BOOTREPLAY record mode=replay tag=scf-time index=3 count=4
+BOOTREPLAY record mode=replay tag=goal-vu-R index=4 count=5
+BOOTREPLAY record mode=replay tag=*knuth-rand-state* index=5 count=6
+BOOTREPLAY record mode=replay tag=*display* index=7 count=8
+BOOTREPLAY finish mode=replay tag=finish index=11 count=11 fingerprint=8cafacae708f4b5a
+Test autonome : roundtrip et rejets format/ordre/taille/checkpoint/troncature/EOF/existant/symlink réussis.
+Pristine HEAD c4bc4d3ff4691902ff023319cb33df71c0040501, patch bootstrap seul, aucun renderer/GOAL modifié.
+Son gk 615f120e4e0de8f6 rejoue aussi les 11 records/empreinte identiques ; CGO DISTINCTS, aucune qualification du rendu.
+Plan final limité legacy/origine/h00 : 1 comparaison, 794 pixels différents, aucun rejeu census qualifié.
+Origine : 1402218 draws stock, aucun classifié ; GPU buckets 8.2137 ms, résiduel0, rb_mismatch0.
+Configuration avec bootstrap : 8a9493fa059e5429 ; ancienne 1bc0c751a065de33 conservée dans le registre.
+575 empreintes historiques vérifiées ; preuves/écarts antérieurs archivés, aucune image remplacée/adoptée.
+Owner : aucune correction des blancs HDR/tonemap SDR livrée à regarder ; aucun owner-ok.
+non prouvé : état après play, naissances/horloges des acteurs, permanences et chargements rejouables.
+non prouvé : origine baseline/candidat à données identiques, provenance complète des ressources effectivement chargées.
+non prouvé : références candidates complètes, trois modes/21 niveaux/8 heures/≥4 intérieurs/ciel≥15%, cinq rejeux exacts.
+Sunkenb demeure manquant ; non prouvé : correction HDR/tonemap SDR et Android. Aucun appareil touché.
+Builder2541075 repris ; generic.sh inchangé et laissé à l’orchestrateur.
+Détails : notes/recovery-essai15.md ; reprise obligatoire : handoff.md.

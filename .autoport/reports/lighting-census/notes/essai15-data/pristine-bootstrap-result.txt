@@ -1,0 +1,20 @@
+DIRECTIVES v6fca51fe40
+Bootstrap pristine transposé ; compilation interrompue par la borne de coût, binaire neuf non produit.
+HEAD initial/final : c4bc4d3ff4691902ff023319cb33df71c0040501
+Fichiers existants modifiés : game/CMakeLists.txt, game/kernel/common/kmachine.{cpp,h}, game/kernel/jak1/kmachine.cpp
+Fichiers ajoutés : game/system/boot_replay.{cpp,h}, identiques au fork stabilisé.
+Aucun renderer, GOAL, pad replay ni asset modifié. git diff --check rc0.
+EE timer pristine conservé (ns * 3) / 10 avant input ee-timer.
+Pre-play : même ordre/tags/tailles ; finish() journalise BOOTREPLAY, aucune dépendance autoport_proof.
+Patch complet : pristine-bootstrap.patch SHA256 b044a846a31e77b6cf731fc3729d236592fb44d127ac06f3d00fe91e3bd20658
+boot_replay.cpp SHA256 690a43dfd77e148f394e096a544156297d459f605f40bbf5c92eece513145598
+boot_replay.h SHA256 ae97e83a455110f523cfda17bdc8bb9649227c5ea9af4a2563ffca78e3b36728
+Build sélectionné : build/ (cache Unix Makefiles existant du 29 juin ; cache Ninja imbriqué plus ancien).
+Commande à sec : cmake --build build --target gk -j4 -- -n ; rc0 ; 99 objets annoncés.
+Commande build : cmake --build build --target gk -j4 ; RC -15 ; arrêt à 101 objets après régénération automatique.
+Aucun cmake -B exécuté. Régénération a déclenché compilation common et curl non annoncée à sec.
+PID 3006026 et descendants exacts terminés par SIGTERM ; contrôle ps : tous absents.
+Log build : ../build-pristine-essai15.log ; dry-run : ../build-pristine-essai15-dry.log
+Ancien build/game/gk reste daté 29 juin, SHA256 d57fb9fe2f73d68d662e83899a3fa559c396f1fd7ba89f3ac65cbf59c52ac9ad
+Non prouvé : compilation module dans pristine, exécution du jeu, équivalence runtime du bootstrap.
+Aucun jeu, proof_run ou appareil lancé ; aucun commit externe.

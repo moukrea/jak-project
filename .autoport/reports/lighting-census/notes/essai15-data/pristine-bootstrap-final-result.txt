@@ -1,0 +1,14 @@
+DIRECTIVES v6fca51fe40
+Build pristine terminé avec succès, aucune modification source pendant la reprise.
+Commande : cmake --build build --target gk -j4
+BUILD_RC 0 OBJECTS 167 ELAPSED_SECONDS 142.5
+Log : ../build-pristine-final-essai15.log
+Binaire : /home/emeric/code/jak-original-v033/build/game/gk
+SHA256 : 615f120e4e0de8f625d0111a173417ba89f45e9ded6ca544ce052ee53f976fe5
+MTIME_UTC : 2026-09-07T14:02:34.838405+00:00
+HEAD initial/final : c4bc4d3ff4691902ff023319cb33df71c0040501
+Patch identique octet pour octet : pristine-bootstrap.patch
+PATCH_SHA256 : b044a846a31e77b6cf731fc3729d236592fb44d127ac06f3d00fe91e3bd20658
+git diff --check : rc0
+Aucun renderer, GOAL, pad replay ni asset modifié ; aucun cmake -B, aucun runtime lancé.
+Non prouvé : équivalence runtime du bootstrap pristine/fork.

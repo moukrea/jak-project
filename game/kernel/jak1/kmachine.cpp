@@ -65,6 +65,7 @@
 #include "game/kernel/jak1/ksound.h"
 #include "game/sce/deci2.h"
 #include "game/system/pad_replay.h"
+#include "game/system/boot_replay.h"
 #include "game/sce/libcdvd_ee.h"
 #include "game/sce/libdma.h"
 #include "game/sce/libgraph.h"
@@ -5682,7 +5683,40 @@ static void pad_replay_dump_camera() {
  * If DiskBooting, will load the GAME CGO, containing the engine, and calls "play", the function
  * which should prepare the game engine.
  */
+static void boot_replay_pre_play() {
+  if (!boot_replay::active()) {
+    return;
+  }
+  // Compare scalar state produced by GAME, never restore pointers between binaries.
+  // In particular knuth-rand is seeded by DecodeTime during linking, before play.
+  auto object_checkpoint = [](const char* name, u32 offset, size_t size) {
+    const u32 object = intern_from_c(name)->value;
+    if (!object || object == s7.offset || object >= EE_MAIN_MEM_SIZE ||
+        offset + size > EE_MAIN_MEM_SIZE - object) {
+      std::fprintf(stderr, "BOOTREPLAY missing pre-play object=%s\n", name);
+      std::exit(EXIT_FAILURE);
+    }
+    boot_replay::checkpoint(name, g_ee_main_mem + object + offset, size);
+  };
+  const u32 vu_r = intern_from_c("*_vu-reg-R_*")->value;
+  boot_replay::checkpoint("goal-vu-R", &vu_r, sizeof(vu_r));
+  object_checkpoint("*knuth-rand-state*", 0, 8);  // structure: int64 seed
+  object_checkpoint("*random-generator*", 0, 4);  // basic: uint32 seed
+  // display-h.gc / all-types.gc: 16 time-frame fields at 776, then 5 floats at 904.
+  // Basic pointers start after their four-byte type tag. This range has no pointers.
+  object_checkpoint("*display*", 776 - 4, 16 * 8 + 5 * 4);
+  boot_replay_native_rng(false);
+  boot_replay::finish();
+  refset::set_bootstrap_fingerprint(boot_replay::fingerprint());
+  autoport_proof::publish("refset_bootstrap_records", boot_replay::records());
+  char fp[17];
+  std::snprintf(fp, sizeof(fp), "%016llx", (unsigned long long)boot_replay::fingerprint());
+  autoport_proof::publish_text("refset_bootstrap_fingerprint", fp);
+  autoport_proof::publish_text("refset_bootstrap_boundary", "before-play-actors-not-restored");
+}
+
 void InitMachineScheme() {
+  boot_replay_native_rng(true);
   make_function_symbol_from_c("put-display-env", (void*)PutDisplayEnv);       // used in drawable
   make_function_symbol_from_c("syncv", (void*)sceGsSyncV);                    // used in drawable
   make_function_symbol_from_c("sync-path", (void*)sceGsSyncPath);             // used
@@ -5769,6 +5803,7 @@ void InitMachineScheme() {
         new_pair(s7.offset + FIX_SYM_GLOBAL_HEAP, *((s7 + FIX_SYM_PAIR_TYPE).cast<u32>()),
                  make_string_from_c("common"), kernel_packages->value);
 
+    boot_replay_pre_play();
     lg::info("calling play");
     call_goal_function_by_name("play");
   }

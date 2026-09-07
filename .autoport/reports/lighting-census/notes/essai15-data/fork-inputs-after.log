@@ -1,0 +1,5 @@
+build/game/gk: OK
+out/jak1/iso/GAME.CGO: OK
+out/jak1/iso/ENGINE.CGO: OK
+out/jak1/iso/KERNEL.CGO: OK
+.autoport/refset/neutral.inputs: OK

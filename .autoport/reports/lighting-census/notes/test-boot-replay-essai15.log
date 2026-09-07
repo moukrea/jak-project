@@ -1,0 +1,64 @@
+BOOTREPLAY begin mode=capture tag=init index=0 count=0
+BOOTREPLAY record mode=capture tag=seed index=0 count=1
+BOOTREPLAY record mode=capture tag=check index=1 count=2
+BOOTREPLAY record mode=capture tag=large index=2 count=3
+BOOTREPLAY finish mode=capture tag=finish index=3 count=3 fingerprint=b6ede934ecf3e6a1
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY record mode=replay tag=seed index=0 count=1
+BOOTREPLAY record mode=replay tag=check index=1 count=2
+BOOTREPLAY record mode=replay tag=large index=2 count=3
+BOOTREPLAY finish mode=replay tag=finish index=3 count=3 fingerprint=b6ede934ecf3e6a1
+BOOTREPLAY error mode=capture tag=init index=0 count=0: open: File exists
+BOOTREPLAY error mode=capture tag=init index=0 count=0: open: File exists
+BOOTREPLAY error mode=off tag=init index=0 count=0: capture and replay modes are mutually exclusive
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY record mode=replay tag=seed index=0 count=1
+BOOTREPLAY record mode=replay tag=check index=1 count=2
+BOOTREPLAY record mode=replay tag=large index=2 count=3
+BOOTREPLAY finish mode=replay tag=finish index=3 count=3 fingerprint=b6ede934ecf3e6a1
+BOOTREPLAY error mode=replay tag=late index=3 count=3: record after finish
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY record mode=replay tag=seed index=0 count=1
+BOOTREPLAY record mode=replay tag=check index=1 count=2
+BOOTREPLAY record mode=replay tag=large index=2 count=3
+BOOTREPLAY finish mode=replay tag=finish index=3 count=3 fingerprint=b6ede934ecf3e6a1
+BOOTREPLAY error mode=replay tag=finish index=3 count=3: duplicate finish
+BOOTREPLAY error mode=replay tag=init index=0 count=0: stream format, tag, size, count or checkpoint mismatch
+BOOTREPLAY error mode=replay tag=init index=0 count=0: stream format, tag, size, count or checkpoint mismatch
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY error mode=replay tag=seed index=0 count=0: stream format, tag, size, count or checkpoint mismatch
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY error mode=replay tag=seed index=0 count=0: stream format, tag, size, count or checkpoint mismatch
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY error mode=replay tag=seed index=0 count=0: stream format, tag, size, count or checkpoint mismatch
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY error mode=replay tag=seed index=0 count=0: stream format, tag, size, count or checkpoint mismatch
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY record mode=replay tag=seed index=0 count=1
+BOOTREPLAY error mode=replay tag=check index=1 count=1: stream format, tag, size, count or checkpoint mismatch
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY record mode=replay tag=seed index=0 count=1
+BOOTREPLAY record mode=replay tag=check index=1 count=2
+BOOTREPLAY record mode=replay tag=large index=2 count=3
+BOOTREPLAY error mode=replay tag=finish index=3 count=3: stream format, tag, size, count or checkpoint mismatch
+BOOTREPLAY error mode=replay tag=init index=0 count=0: truncated stream
+BOOTREPLAY error mode=replay tag=init index=0 count=0: truncated stream
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY error mode=replay tag=seed index=0 count=0: truncated stream
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY record mode=replay tag=seed index=0 count=1
+BOOTREPLAY record mode=replay tag=check index=1 count=2
+BOOTREPLAY record mode=replay tag=large index=2 count=3
+BOOTREPLAY error mode=replay tag=finish index=3 count=3: truncated stream
+BOOTREPLAY begin mode=replay tag=init index=0 count=0
+BOOTREPLAY record mode=replay tag=seed index=0 count=1
+BOOTREPLAY record mode=replay tag=check index=1 count=2
+BOOTREPLAY record mode=replay tag=large index=2 count=3
+BOOTREPLAY error mode=replay tag=finish index=3 count=3: trailing bytes after final marker
+BOOTREPLAY begin mode=capture tag=init index=0 count=0
+BOOTREPLAY error mode=capture tag=invalid-tag index=0 count=0: tag must contain 1..63 bytes
+BOOTREPLAY begin mode=capture tag=init index=0 count=0
+BOOTREPLAY error mode=capture tag=big index=0 count=0: payload exceeds 16384 bytes or null payload
+BOOTREPLAY begin mode=capture tag=init index=0 count=0
+BOOTREPLAY error mode=replay tag=init index=0 count=0: open: No such file or directory
+BOOTREPLAY standalone tests passed: records=3 fingerprint=b6ede934ecf3e6a1

@@ -1,6 +1,8 @@
 #include "kmachine.h"
 
 #include <random>
+#include <array>
+#include <sstream>
 
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
@@ -28,6 +30,7 @@
 #include "game/sce/libscf.h"
 #include "game/sce/sif_ee.h"
 #include "game/system/pad_replay.h"
+#include "game/system/boot_replay.h"
 
 /*!
  * Where does OVERLORD load its data from?
@@ -452,6 +455,9 @@ void DecodeTime(u32 ptr) {
   Ptr<ee::sceCdCLOCK> clock(ptr);
   // in jak2, if this fails, they do a sceScfGetLocalTimefromRTC
   sceCdReadClock(clock.c());
+  if (boot_replay::active()) {
+    boot_replay::input("scf-time", clock.c(), sizeof(ee::sceCdCLOCK));
+  }
 }
 
 void vif_interrupt_callback(int bucket_id) {
@@ -522,7 +528,11 @@ u64 read_ee_timer() {
   // `display-frame-start` (drawable.gc:1057) retrouve exactement le k qu'on a decide et que
   // l'alpha publie a cote (`pc_camera_interp_alpha`) place la pose dessinee au bon instant.
   // Desarme, `render_pace::ee_timer()` rend la meme montre murale qu'avant, au bit pres.
-  return render_pace::ee_timer();
+  u64 ticks = render_pace::ee_timer();
+  if (boot_replay::active()) {
+    boot_replay::input("ee-timer", &ticks, sizeof(ticks));
+  }
+  return ticks;
 }
 
 void pc_memmove(u32 dst, u32 src, u32 size) {
@@ -1230,7 +1240,11 @@ u32 pc_get_os() {
 }
 
 time_t pc_get_unix_timestamp() {
-  return std::time(nullptr);
+  int64_t timestamp = std::time(nullptr);
+  if (boot_replay::active()) {
+    boot_replay::input("unix-time", &timestamp, sizeof(timestamp));
+  }
+  return static_cast<time_t>(timestamp);
 }
 
 u64 pc_filepath_exists(u32 filepath) {
@@ -1248,6 +1262,50 @@ void pc_prof(u32 name, ProfNode::Kind kind) {
 }
 
 std::mt19937 extra_random_generator;
+
+void boot_replay_native_rng(bool restore) {
+  if (!boot_replay::active()) {
+    return;
+  }
+  // Serialize state, not a guessed seed: loading GAME can already consume pc-rand.
+  // The fixed buffer allows a recorded state with a different decimal length to be restored.
+  auto transfer = [restore](const char* tag, std::mt19937& rng) {
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << rng;
+    std::array<char, 8192> state{};
+    if (!out || out.str().size() >= state.size()) {
+      std::fprintf(stderr, "BOOTREPLAY invalid native RNG serialization tag=%s\n", tag);
+      std::exit(EXIT_FAILURE);
+    }
+    std::memcpy(state.data(), out.str().data(), out.str().size());
+    if (restore) {
+      boot_replay::input(tag, state.data(), state.size());
+      if (state.back() != '\0') {
+        std::fprintf(stderr, "BOOTREPLAY unterminated native RNG tag=%s\n", tag);
+        std::exit(EXIT_FAILURE);
+      }
+      std::istringstream in(state.data());
+      in.imbue(std::locale::classic());
+      std::mt19937 restored;
+      if (!(in >> restored) || !(in >> std::ws).eof()) {
+        std::fprintf(stderr, "BOOTREPLAY malformed native RNG tag=%s\n", tag);
+        std::exit(EXIT_FAILURE);
+      }
+      rng = restored;
+    } else {
+      boot_replay::checkpoint(tag, state.data(), state.size());
+    }
+  };
+  transfer("native-pc-rng", extra_random_generator);
+  transfer("native-mips-rng", Mips2C::gRng.extra_random_generator);
+  if (restore) {
+    boot_replay::input("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
+  } else {
+    boot_replay::checkpoint("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
+  }
+}
+
 u32 pc_rand() {
   return (u32)extra_random_generator();
 }

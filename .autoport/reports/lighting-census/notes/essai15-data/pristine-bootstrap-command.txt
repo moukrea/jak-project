@@ -1,0 +1,4 @@
+Bootstrap seulement ; CGO pristine distincts, aucune qualification du rendu.
+OG_BOOT_REPLAY_REPLAY=/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai15-data/fork-bootstrap.bin
+['stdbuf', '-oL', '-eL', 'timeout', '-k', '5', '12', '/home/emeric/code/jak-original-v033/build/game/gk', '--game', 'jak1', '--portable', '--proj-path', '/home/emeric/code/jak-original-v033', '-fakeiso', '--verbose', '--disable-ansi', '-iso-data', '/home/emeric/code/jak-original-v033/out/jak1/iso', '--', '-boot', '-debug-mem']
+rc=124

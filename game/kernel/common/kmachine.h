@@ -26,6 +26,8 @@ extern const char* init_types[];
 extern u32 vblank_interrupt_handler;
 
 void kmachine_init_globals_common();
+// Optional bootstrap replay, called by jak1 before GAME and at its pre-play boundary.
+void boot_replay_native_rng(bool restore);
 
 /*!
  * Initialize the CD Drive

@@ -1,0 +1,721 @@
+diff --git a/android/CMakeLists.txt b/android/CMakeLists.txt
+index 925939dc35..a4d84771c8 100644
+--- a/android/CMakeLists.txt
++++ b/android/CMakeLists.txt
+@@ -437,6 +437,7 @@ add_library(android_kernel STATIC
+     # tapped from android_runtime_compat.cpp::CPadGetData (backend-agnostic core,
+     # also compiled into the desktop gk via game/CMakeLists.txt).
+     "${JAK_ROOT}/game/system/pad_replay.cpp"
++    "${JAK_ROOT}/game/system/boot_replay.cpp"
+     # NOTE: game/system/background_worker.cpp needs libcurl, which we
+     # don't ship on Android. android_runtime_compat.cpp owns a
+     # default-constructed BackgroundWorker so runtime.h's extern
+diff --git a/game/CMakeLists.txt b/game/CMakeLists.txt
+index fea1a88a8f..5f1b15f8ed 100644
+--- a/game/CMakeLists.txt
++++ b/game/CMakeLists.txt
+@@ -354,6 +354,7 @@ set(RUNTIME_SOURCE
+         system/background_worker.cpp
+         system/Deci2Server.cpp
+         system/pad_replay.cpp
++        system/boot_replay.cpp
+         system/hid/devices/dualsense_effects.cpp
+         system/hid/devices/game_controller.cpp
+         system/hid/devices/keyboard.cpp
+diff --git a/game/graphics/refset.cpp b/game/graphics/refset.cpp
+index b59296cb7f..7426251706 100644
+--- a/game/graphics/refset.cpp
++++ b/game/graphics/refset.cpp
+@@ -1,6 +1,7 @@
+ #include "game/graphics/refset.h"
+ 
+ #include <algorithm>
++#include <atomic>
+ #include <charconv>
+ #include <cmath>
+ #include <cstdio>
+@@ -33,6 +34,8 @@
+ namespace refset {
+ namespace {
+ 
++std::atomic<uint64_t> g_bootstrap_fingerprint{0};
++
+ // ── le plan ─────────────────────────────────────────────────────────────────────────────────
+ // TROIS jeux x huit creneaux horaires. Les huit heures sont les huit creneaux de
+ // `mood-lights-table` (SPEC §3.1) espaces de trois heures : c'est la grille sur laquelle la
+@@ -1715,6 +1718,12 @@ uint64_t census_config_fingerprint() {
+     }
+     h = (h ^ 0xff) * 1099511628211ull;
+   };
++  // Preserve the historical identity when bootstrap replay is absent. A sealed
++  // stream instead separates both sidecars and ledger rows by the consumed state.
++  if (const uint64_t bootstrap = g_bootstrap_fingerprint.load()) {
++    add("bootstrap-before-play-v1");
++    add(std::to_string(bootstrap));
++  }
+   for (const Step& step : g_steps) {
+     const Vantage& v = vantage_of(step);
+     add(step.supplemental ? "supplement-v1" : "historical");
+@@ -2280,6 +2289,10 @@ int64_t warp_at_frame() {
+   return g_warp_at;
+ }
+ 
++void set_bootstrap_fingerprint(uint64_t fingerprint) {
++  g_bootstrap_fingerprint.store(fingerprint);
++}
++
+ void set_logic_frame_provider(int64_t (*fn)()) {
+   g_logic_fn = fn;
+ }
+diff --git a/game/graphics/refset.h b/game/graphics/refset.h
+index 1d5b4ab018..7f8602a0e6 100644
+--- a/game/graphics/refset.h
++++ b/game/graphics/refset.h
+@@ -104,6 +104,9 @@ bool enabled();
+ // independamment de la cadence. Enregistree par le noyau jak1 (InitMachineScheme), appelee
+ // depuis le fil GOAL seulement.
+ void set_logic_frame_provider(int64_t (*fn)());
++// A sealed bootstrap is part of the input identity, not actor-state qualification.
++// GOAL thread before play; the renderer reads it when writing provenance/the ledger.
++void set_bootstrap_fingerprint(uint64_t fingerprint);
+ int64_t current_logic_frame();
+ // Renderer thread only: identity copied with the accepted DMA chain, never live GOAL memory.
+ void set_render_logic_frame(int64_t frame);
+diff --git a/game/kernel/common/kmachine.cpp b/game/kernel/common/kmachine.cpp
+index 91daa1c562..cdd7be0bbb 100644
+--- a/game/kernel/common/kmachine.cpp
++++ b/game/kernel/common/kmachine.cpp
+@@ -1,6 +1,8 @@
+ #include "kmachine.h"
+ 
+ #include <random>
++#include <array>
++#include <sstream>
+ 
+ #include "common/global_profiler/GlobalProfiler.h"
+ #include "common/log/log.h"
+@@ -28,6 +30,7 @@
+ #include "game/sce/libscf.h"
+ #include "game/sce/sif_ee.h"
+ #include "game/system/pad_replay.h"
++#include "game/system/boot_replay.h"
+ 
+ /*!
+  * Where does OVERLORD load its data from?
+@@ -452,6 +455,9 @@ void DecodeTime(u32 ptr) {
+   Ptr<ee::sceCdCLOCK> clock(ptr);
+   // in jak2, if this fails, they do a sceScfGetLocalTimefromRTC
+   sceCdReadClock(clock.c());
++  if (boot_replay::active()) {
++    boot_replay::input("scf-time", clock.c(), sizeof(ee::sceCdCLOCK));
++  }
+ }
+ 
+ void vif_interrupt_callback(int bucket_id) {
+@@ -522,7 +528,11 @@ u64 read_ee_timer() {
+   // `display-frame-start` (drawable.gc:1057) retrouve exactement le k qu'on a decide et que
+   // l'alpha publie a cote (`pc_camera_interp_alpha`) place la pose dessinee au bon instant.
+   // Desarme, `render_pace::ee_timer()` rend la meme montre murale qu'avant, au bit pres.
+-  return render_pace::ee_timer();
++  u64 ticks = render_pace::ee_timer();
++  if (boot_replay::active()) {
++    boot_replay::input("ee-timer", &ticks, sizeof(ticks));
++  }
++  return ticks;
+ }
+ 
+ void pc_memmove(u32 dst, u32 src, u32 size) {
+@@ -1230,7 +1240,11 @@ u32 pc_get_os() {
+ }
+ 
+ time_t pc_get_unix_timestamp() {
+-  return std::time(nullptr);
++  int64_t timestamp = std::time(nullptr);
++  if (boot_replay::active()) {
++    boot_replay::input("unix-time", &timestamp, sizeof(timestamp));
++  }
++  return static_cast<time_t>(timestamp);
+ }
+ 
+ u64 pc_filepath_exists(u32 filepath) {
+@@ -1248,6 +1262,50 @@ void pc_prof(u32 name, ProfNode::Kind kind) {
+ }
+ 
+ std::mt19937 extra_random_generator;
++
++void boot_replay_native_rng(bool restore) {
++  if (!boot_replay::active()) {
++    return;
++  }
++  // Serialize state, not a guessed seed: loading GAME can already consume pc-rand.
++  // The fixed buffer allows a recorded state with a different decimal length to be restored.
++  auto transfer = [restore](const char* tag, std::mt19937& rng) {
++    std::ostringstream out;
++    out.imbue(std::locale::classic());
++    out << rng;
++    std::array<char, 8192> state{};
++    if (!out || out.str().size() >= state.size()) {
++      std::fprintf(stderr, "BOOTREPLAY invalid native RNG serialization tag=%s\n", tag);
++      std::exit(EXIT_FAILURE);
++    }
++    std::memcpy(state.data(), out.str().data(), out.str().size());
++    if (restore) {
++      boot_replay::input(tag, state.data(), state.size());
++      if (state.back() != '\0') {
++        std::fprintf(stderr, "BOOTREPLAY unterminated native RNG tag=%s\n", tag);
++        std::exit(EXIT_FAILURE);
++      }
++      std::istringstream in(state.data());
++      in.imbue(std::locale::classic());
++      std::mt19937 restored;
++      if (!(in >> restored) || !(in >> std::ws).eof()) {
++        std::fprintf(stderr, "BOOTREPLAY malformed native RNG tag=%s\n", tag);
++        std::exit(EXIT_FAILURE);
++      }
++      rng = restored;
++    } else {
++      boot_replay::checkpoint(tag, state.data(), state.size());
++    }
++  };
++  transfer("native-pc-rng", extra_random_generator);
++  transfer("native-mips-rng", Mips2C::gRng.extra_random_generator);
++  if (restore) {
++    boot_replay::input("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
++  } else {
++    boot_replay::checkpoint("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
++  }
++}
++
+ u32 pc_rand() {
+   return (u32)extra_random_generator();
+ }
+diff --git a/game/kernel/common/kmachine.h b/game/kernel/common/kmachine.h
+index b5b1730d19..78c8366cfa 100644
+--- a/game/kernel/common/kmachine.h
++++ b/game/kernel/common/kmachine.h
+@@ -26,6 +26,8 @@ extern const char* init_types[];
+ extern u32 vblank_interrupt_handler;
+ 
+ void kmachine_init_globals_common();
++// Optional bootstrap replay, called by jak1 before GAME and at its pre-play boundary.
++void boot_replay_native_rng(bool restore);
+ 
+ /*!
+  * Initialize the CD Drive
+diff --git a/game/kernel/jak1/kmachine.cpp b/game/kernel/jak1/kmachine.cpp
+index 463609053a..823bccfb43 100644
+--- a/game/kernel/jak1/kmachine.cpp
++++ b/game/kernel/jak1/kmachine.cpp
+@@ -65,6 +65,7 @@
+ #include "game/kernel/jak1/ksound.h"
+ #include "game/sce/deci2.h"
+ #include "game/system/pad_replay.h"
++#include "game/system/boot_replay.h"
+ #include "game/sce/libcdvd_ee.h"
+ #include "game/sce/libdma.h"
+ #include "game/sce/libgraph.h"
+@@ -5682,7 +5683,40 @@ static void pad_replay_dump_camera() {
+  * If DiskBooting, will load the GAME CGO, containing the engine, and calls "play", the function
+  * which should prepare the game engine.
+  */
++static void boot_replay_pre_play() {
++  if (!boot_replay::active()) {
++    return;
++  }
++  // Compare scalar state produced by GAME, never restore pointers between binaries.
++  // In particular knuth-rand is seeded by DecodeTime during linking, before play.
++  auto object_checkpoint = [](const char* name, u32 offset, size_t size) {
++    const u32 object = intern_from_c(name)->value;
++    if (!object || object == s7.offset || object >= EE_MAIN_MEM_SIZE ||
++        offset + size > EE_MAIN_MEM_SIZE - object) {
++      std::fprintf(stderr, "BOOTREPLAY missing pre-play object=%s\n", name);
++      std::exit(EXIT_FAILURE);
++    }
++    boot_replay::checkpoint(name, g_ee_main_mem + object + offset, size);
++  };
++  const u32 vu_r = intern_from_c("*_vu-reg-R_*")->value;
++  boot_replay::checkpoint("goal-vu-R", &vu_r, sizeof(vu_r));
++  object_checkpoint("*knuth-rand-state*", 0, 8);  // structure: int64 seed
++  object_checkpoint("*random-generator*", 0, 4);  // basic: uint32 seed
++  // display-h.gc / all-types.gc: 16 time-frame fields at 776, then 5 floats at 904.
++  // Basic pointers start after their four-byte type tag. This range has no pointers.
++  object_checkpoint("*display*", 776 - 4, 16 * 8 + 5 * 4);
++  boot_replay_native_rng(false);
++  boot_replay::finish();
++  refset::set_bootstrap_fingerprint(boot_replay::fingerprint());
++  autoport_proof::publish("refset_bootstrap_records", boot_replay::records());
++  char fp[17];
++  std::snprintf(fp, sizeof(fp), "%016llx", (unsigned long long)boot_replay::fingerprint());
++  autoport_proof::publish_text("refset_bootstrap_fingerprint", fp);
++  autoport_proof::publish_text("refset_bootstrap_boundary", "before-play-actors-not-restored");
++}
++
+ void InitMachineScheme() {
++  boot_replay_native_rng(true);
+   make_function_symbol_from_c("put-display-env", (void*)PutDisplayEnv);       // used in drawable
+   make_function_symbol_from_c("syncv", (void*)sceGsSyncV);                    // used in drawable
+   make_function_symbol_from_c("sync-path", (void*)sceGsSyncPath);             // used
+@@ -5769,6 +5803,7 @@ void InitMachineScheme() {
+         new_pair(s7.offset + FIX_SYM_GLOBAL_HEAP, *((s7 + FIX_SYM_PAIR_TYPE).cast<u32>()),
+                  make_string_from_c("common"), kernel_packages->value);
+ 
++    boot_replay_pre_play();
+     lg::info("calling play");
+     call_goal_function_by_name("play");
+   }
+diff --git a/game/system/boot_replay.cpp b/game/system/boot_replay.cpp
+new file mode 100644
+index 0000000000..00ebc5cc7b
+--- /dev/null
++++ b/game/system/boot_replay.cpp
+@@ -0,0 +1,255 @@
++#include "boot_replay.h"
++
++#include <cerrno>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <vector>
++
++#include <fcntl.h>
++#ifdef _WIN32
++#include <io.h>
++#include <sys/stat.h>
++#else
++#include <unistd.h>
++#endif
++
++namespace boot_replay {
++namespace {
++enum class Mode { Off, Capture, Replay };
++struct State {
++  bool initialized = false;
++  bool finished = false;
++  Mode mode = Mode::Off;
++  int fd = -1;
++  uint64_t count = 0;
++  uint64_t hash = UINT64_C(14695981039346656037);
++  const char* tag = "init";
++};
++State state;
++constexpr size_t kMaxTag = 63;
++constexpr size_t kMaxSize = 16384;
++constexpr uint64_t kMaxRecords = 65536;
++// Magic followed by version 1, little-endian. Record: kind u8, tag length
++// u8, payload length u32 LE, tag bytes, payload bytes. End: 0xff, count u64 LE.
++constexpr unsigned char kHeader[] = {'O', 'G', 'B', 'O', 'O', 'T', 'R', 'P', 1, 0, 0, 0};
++
++int open_stream(const char* path, bool capture) {
++#ifdef _WIN32
++  const int flags = _O_BINARY | _O_NOINHERIT;
++  return capture ? ::_open(path, _O_WRONLY | _O_CREAT | _O_EXCL | flags, _S_IREAD | _S_IWRITE)
++                 : ::_open(path, _O_RDONLY | flags);
++#else
++  return capture ? ::open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600)
++                 : ::open(path, O_RDONLY | O_CLOEXEC);
++#endif
++}
++
++std::ptrdiff_t read_stream(void* bytes, size_t size) {
++#ifdef _WIN32
++  return ::_read(state.fd, bytes, static_cast<unsigned int>(size));
++#else
++  return ::read(state.fd, bytes, size);
++#endif
++}
++
++std::ptrdiff_t write_stream(const void* bytes, size_t size) {
++#ifdef _WIN32
++  return ::_write(state.fd, bytes, static_cast<unsigned int>(size));
++#else
++  return ::write(state.fd, bytes, size);
++#endif
++}
++
++int close_stream() {
++#ifdef _WIN32
++  return ::_close(state.fd);
++#else
++  return ::close(state.fd);
++#endif
++}
++
++const char* mode_name() {
++  return state.mode == Mode::Capture ? "capture" : state.mode == Mode::Replay ? "replay" : "off";
++}
++
++[[noreturn]] void fail(const char* reason) {
++  std::fprintf(stderr, "BOOTREPLAY error mode=%s tag=%s index=%llu count=%llu: %s\n",
++               mode_name(), state.tag, static_cast<unsigned long long>(state.count),
++               static_cast<unsigned long long>(state.count), reason);
++  std::fflush(stderr);
++  std::exit(EXIT_FAILURE);
++}
++
++[[noreturn]] void io_fail(const char* operation) {
++  char message[256];
++  std::snprintf(message, sizeof(message), "%s: %s", operation, std::strerror(errno));
++  fail(message);
++}
++
++void transfer(void* data, size_t size) {
++  auto* bytes = static_cast<unsigned char*>(data);
++  while (size) {
++    const std::ptrdiff_t n = state.mode == Mode::Capture ? write_stream(bytes, size)
++                                                       : read_stream(bytes, size);
++    if (n < 0) {
++      if (errno == EINTR) {
++        continue;
++      }
++      io_fail(state.mode == Mode::Capture ? "write" : "read");
++    }
++    if (!n) {
++      fail(state.mode == Mode::Capture ? "zero-length write" : "truncated stream");
++    }
++    for (std::ptrdiff_t i = 0; i < n; ++i) {
++      state.hash ^= bytes[i];
++      state.hash *= UINT64_C(1099511628211);
++    }
++    bytes += n;
++    size -= static_cast<size_t>(n);
++  }
++}
++
++void fixed(const void* expected, size_t size) {
++  if (size > kMaxSize) {
++    fail("internal fixed size limit");
++  }
++  std::vector<unsigned char> buffer(size);
++  std::memcpy(buffer.data(), expected, size);
++  transfer(buffer.data(), size);
++  if (std::memcmp(buffer.data(), expected, size)) {
++    fail("stream format, tag, size, count or checkpoint mismatch");
++  }
++}
++
++void encode_le(unsigned char* out, uint64_t value, size_t size) {
++  for (size_t i = 0; i < size; ++i) {
++    out[i] = static_cast<unsigned char>(value >> (8 * i));
++  }
++}
++
++void record(unsigned char kind, const char* tag, const void* bytes, size_t size,
++            void* replay_destination) {
++  if (!enabled()) {
++    return;
++  }
++  state.tag = "invalid-tag";
++  size_t tag_size = 0;
++  if (tag) {
++    while (tag_size <= kMaxTag && tag[tag_size]) {
++      ++tag_size;
++    }
++  }
++  if (!tag_size || tag_size > kMaxTag) {
++    fail("tag must contain 1..63 bytes");
++  }
++  state.tag = tag;
++  if (state.finished) {
++    fail("record after finish");
++  }
++  if (size > kMaxSize || (size && !bytes)) {
++    fail("payload exceeds 16384 bytes or null payload");
++  }
++  if (state.count >= kMaxRecords) {
++    fail("record limit exceeded");
++  }
++  unsigned char header[6] = {kind, static_cast<unsigned char>(tag_size), 0, 0, 0, 0};
++  encode_le(header + 2, size, 4);
++  fixed(header, sizeof(header));
++  fixed(tag, tag_size);
++  if (size) {
++    if (kind == 1 && state.mode == Mode::Replay) {
++      transfer(replay_destination, size);
++    } else {
++      fixed(bytes, size);
++    }
++  }
++  ++state.count;
++  std::fprintf(stderr, "BOOTREPLAY record mode=%s tag=%s index=%llu count=%llu\n",
++               mode_name(), state.tag, static_cast<unsigned long long>(state.count - 1),
++               static_cast<unsigned long long>(state.count));
++  state.tag = "idle";
++}
++}  // namespace
++
++bool enabled() {
++  if (!state.initialized) {
++    state.initialized = true;
++    const char* capture = std::getenv("OG_BOOT_REPLAY_CAPTURE");
++    const char* replay = std::getenv("OG_BOOT_REPLAY_REPLAY");
++    if (capture && replay) {
++      fail("capture and replay modes are mutually exclusive");
++    }
++    if (capture || replay) {
++      state.mode = capture ? Mode::Capture : Mode::Replay;
++      const char* path = capture ? capture : replay;
++      if (!*path) {
++        fail("empty stream path");
++      }
++      state.fd = open_stream(path, capture != nullptr);
++      if (state.fd < 0) {
++        io_fail("open");
++      }
++      fixed(kHeader, sizeof(kHeader));
++      std::fprintf(stderr, "BOOTREPLAY begin mode=%s tag=init index=0 count=0\n", mode_name());
++      state.tag = "idle";
++    }
++  }
++  return state.mode != Mode::Off;
++}
++
++bool active() {
++  return enabled() && !state.finished;
++}
++
++void input(const char* tag, void* bytes, size_t size) {
++  record(1, tag, bytes, size, bytes);
++}
++
++void checkpoint(const char* tag, const void* bytes, size_t size) {
++  record(2, tag, bytes, size, nullptr);
++}
++
++void finish() {
++  if (!enabled()) {
++    return;
++  }
++  state.tag = "finish";
++  if (state.finished) {
++    fail("duplicate finish");
++  }
++  unsigned char end[9] = {0xff};
++  encode_le(end + 1, state.count, 8);
++  fixed(end, sizeof(end));
++  if (state.mode == Mode::Replay) {
++    unsigned char extra;
++    std::ptrdiff_t n;
++    do {
++      n = read_stream(&extra, 1);
++    } while (n < 0 && errno == EINTR);
++    if (n < 0) {
++      io_fail("EOF read");
++    }
++    if (n != 0) {
++      fail("trailing bytes after final marker");
++    }
++  }
++  if (close_stream() != 0) {
++    io_fail("close");
++  }
++  state.fd = -1;
++  state.finished = true;
++  std::fprintf(stderr, "BOOTREPLAY finish mode=%s tag=finish index=%llu count=%llu fingerprint=%016llx\n",
++               mode_name(), static_cast<unsigned long long>(state.count),
++               static_cast<unsigned long long>(state.count),
++               static_cast<unsigned long long>(state.hash));
++}
++
++uint64_t fingerprint() {
++  return state.finished ? state.hash : 0;
++}
++
++uint64_t records() {
++  return state.count;
++}
++}  // namespace boot_replay
+diff --git a/game/system/boot_replay.h b/game/system/boot_replay.h
+new file mode 100644
+index 0000000000..ac7c9d5af9
+--- /dev/null
++++ b/game/system/boot_replay.h
+@@ -0,0 +1,22 @@
++#pragma once
++
++#include <cstddef>
++#include <cstdint>
++
++// Single GOAL thread only. Replays explicitly supplied bootstrap inputs, not a
++// snapshot of actors or game state. Payloads are opaque: callers must provide
++// the same byte representation on both hosts (no pointers or native padding).
++// Lazy initialization selects OG_BOOT_REPLAY_CAPTURE (exclusive new file) or
++// OG_BOOT_REPLAY_REPLAY (existing file). Neither variable means no-op calls.
++// Tags: 1..63 bytes; payloads: 0..16384 bytes; at most 65536 records.
++// Active input/checkpoint/finish calls after finish terminate with failure.
++namespace boot_replay {
++bool enabled();
++bool active();
++void input(const char* tag, void* bytes, size_t size);
++void checkpoint(const char* tag, const void* bytes, size_t size);
++void finish();
++// Zero until finish has verified the complete stream and closed it successfully.
++uint64_t fingerprint();
++uint64_t records();
++}  // namespace boot_replay
+diff --git a/test/common/test_boot_replay.cpp b/test/common/test_boot_replay.cpp
+new file mode 100644
+index 0000000000..bdfd4bbb25
+--- /dev/null
++++ b/test/common/test_boot_replay.cpp
+@@ -0,0 +1,161 @@
++// Standalone build: compile this file and game/system/boot_replay.cpp together
++// with c++ -std=c++17 -Wall -Wextra -Werror -I.
++#include "game/system/boot_replay.h"
++
++#include <cassert>
++#include <cstdlib>
++#include <cstring>
++#include <fstream>
++#include <iterator>
++#include <string>
++#include <vector>
++
++#include <fcntl.h>
++#include <sys/wait.h>
++#include <unistd.h>
++
++namespace {
++using Bytes = std::vector<unsigned char>;
++Bytes read_file(const std::string& path) {
++  std::ifstream file(path, std::ios::binary);
++  return Bytes(std::istreambuf_iterator<char>(file), {});
++}
++void write_file(const std::string& path, const Bytes& bytes) {
++  std::ofstream file(path, std::ios::binary);
++  file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
++  file.close();
++  assert(file);
++}
++enum class Action { Normal, Off, Conflict, BadTag, Big, After, Twice, Limit };
++uint64_t run(const std::string& path, bool capture, bool success,
++             Action action = Action::Normal) {
++  int pipefd[2];
++  assert(pipe(pipefd) == 0);
++  const pid_t pid = fork();
++  assert(pid >= 0);
++  if (!pid) {
++    close(pipefd[0]);
++    unsetenv("OG_BOOT_REPLAY_CAPTURE");
++    unsetenv("OG_BOOT_REPLAY_REPLAY");
++    if (action != Action::Off) {
++      setenv(capture ? "OG_BOOT_REPLAY_CAPTURE" : "OG_BOOT_REPLAY_REPLAY", path.c_str(), 1);
++    }
++    if (action == Action::Conflict) {
++      setenv("OG_BOOT_REPLAY_REPLAY", path.c_str(), 1);
++    }
++    if (action == Action::Off) {
++      assert(!boot_replay::enabled() && !boot_replay::active());
++      boot_replay::input(nullptr, nullptr, 100000);
++      boot_replay::checkpoint(nullptr, nullptr, 100000);
++      boot_replay::finish();
++      assert(boot_replay::fingerprint() == 0 && boot_replay::records() == 0);
++      _exit(0);
++    }
++    assert(boot_replay::enabled() && boot_replay::active());
++    assert(boot_replay::fingerprint() == 0);
++    if (action == Action::BadTag) {
++      boot_replay::input(std::string(64, 'x').c_str(), nullptr, 0);
++    }
++    if (action == Action::Big) {
++      boot_replay::input("big", nullptr, 16385);
++    }
++    if (action == Action::Limit) {
++      const int nullfd = open("/dev/null", O_WRONLY);
++      assert(nullfd >= 0 && dup2(nullfd, STDERR_FILENO) >= 0);
++      close(nullfd);
++      for (unsigned i = 0; i <= 65536; ++i) {
++        boot_replay::input("z", nullptr, 0);
++      }
++    }
++    unsigned char input[] = {1, 2, 3, 4};
++    if (!capture) {
++      std::memset(input, 0, sizeof(input));
++    }
++    boot_replay::input("seed", input, sizeof(input));
++    assert(input[0] == 1 && input[1] == 2 && input[2] == 3 && input[3] == 4);
++    const unsigned char expected[] = {9, 8};
++    boot_replay::checkpoint("check", expected, sizeof(expected));
++    assert(expected[0] == 9 && expected[1] == 8);
++    Bytes large(16384, capture ? 0x42 : 0);
++    boot_replay::input("large", large.data(), large.size());
++    assert(large == Bytes(16384, 0x42));
++    assert(boot_replay::records() == 3 && boot_replay::fingerprint() == 0);
++    boot_replay::finish();
++    assert(boot_replay::enabled() && !boot_replay::active());
++    if (action == Action::After) {
++      boot_replay::checkpoint("late", expected, sizeof(expected));
++    }
++    if (action == Action::Twice) {
++      boot_replay::finish();
++    }
++    const uint64_t hash = boot_replay::fingerprint();
++    assert(hash);
++    assert(write(pipefd[1], &hash, sizeof(hash)) == sizeof(hash));
++    _exit(0);
++  }
++  close(pipefd[1]);
++  uint64_t hash = 0;
++  const ssize_t n = read(pipefd[0], &hash, sizeof(hash));
++  assert(n == 0 || n == sizeof(hash));
++  close(pipefd[0]);
++  int status;
++  assert(waitpid(pid, &status, 0) == pid);
++  assert(WIFEXITED(status));
++  assert(WEXITSTATUS(status) == (success ? 0 : EXIT_FAILURE));
++  return hash;
++}
++}  // namespace
++
++int main() {
++  char temp[] = "/tmp/boot-replay-test-XXXXXX";
++  assert(mkdtemp(temp));
++  const std::string base = std::string(temp) + "/stream";
++  run(base, true, true, Action::Off);
++  assert(access(base.c_str(), F_OK) != 0);
++  const auto capture_hash = run(base, true, true);
++  assert(run(base, false, true) == capture_hash);
++  const Bytes original = read_file(base);
++  uint64_t independent_hash = UINT64_C(14695981039346656037);
++  for (auto byte : original) {
++    independent_hash = (independent_hash ^ byte) * UINT64_C(1099511628211);
++  }
++  assert(independent_hash == capture_hash);
++  run(base, true, false);
++  assert(read_file(base) == original);
++  const std::string link = base + "-link";
++  assert(symlink(base.c_str(), link.c_str()) == 0);
++  run(link, true, false);
++  assert(read_file(base) == original);
++  assert(unlink(link.c_str()) == 0);
++  run(base, true, false, Action::Conflict);
++  run(base, false, false, Action::After);
++  run(base, false, false, Action::Twice);
++  const std::string bad = base + "-bad";
++  // Magic/version, record kind/tag size/payload size/tag, checkpoint payload,
++  // terminal count. These offsets intentionally describe the public wire format.
++  for (size_t offset : {size_t(0), size_t(8), size_t(12), size_t(13), size_t(14),
++                        size_t(18), size_t(37), original.size() - 1}) {
++    Bytes modified = original;
++    modified[offset] ^= 0x80;
++    write_file(bad, modified);
++    run(bad, false, false);
++  }
++  for (size_t length : {size_t(0), size_t(11), size_t(25), original.size() - 1}) {
++    write_file(bad, Bytes(original.begin(), original.begin() + length));
++    run(bad, false, false);
++  }
++  Bytes trailing = original;
++  trailing.push_back(0);
++  write_file(bad, trailing);
++  run(bad, false, false);
++  assert(unlink(bad.c_str()) == 0);
++  for (Action action : {Action::BadTag, Action::Big, Action::Limit}) {
++    run(bad, true, false, action);
++    assert(unlink(bad.c_str()) == 0);
++  }
++  run(bad, false, false);  // Missing input file.
++  assert(unlink(base.c_str()) == 0);
++  assert(rmdir(temp) == 0);
++  std::printf("BOOTREPLAY standalone tests passed: records=3 fingerprint=%016llx\n",
++              static_cast<unsigned long long>(capture_hash));
++}

@@ -104,6 +104,9 @@ bool enabled();
 // independamment de la cadence. Enregistree par le noyau jak1 (InitMachineScheme), appelee
 // depuis le fil GOAL seulement.
 void set_logic_frame_provider(int64_t (*fn)());
+// A sealed bootstrap is part of the input identity, not actor-state qualification.
+// GOAL thread before play; the renderer reads it when writing provenance/the ledger.
+void set_bootstrap_fingerprint(uint64_t fingerprint);
 int64_t current_logic_frame();
 // Renderer thread only: identity copied with the accepted DMA chain, never live GOAL memory.
 void set_render_logic_frame(int64_t frame);
