@@ -1,0 +1,261 @@
+           PID: 3101110 (gk)
+           UID: 1000 (emeric)
+           GID: 1000 (emeric)
+        Signal: 11 (SEGV)
+     Timestamp: Mon 2026-09-07 18:29:24 CEST (1min 14s ago)
+  Command Line: build/game/gk --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso -- -boot -debug-mem
+    Executable: /home/emeric/code/jak-project/build/game/gk
+ Control Group: /user.slice/user-1000.slice/user@1000.service/app.slice/tmux-spawn-656d3015-ad49-4481-8991-d87602991017.scope
+          Unit: user@1000.service
+     User Unit: tmux-spawn-656d3015-ad49-4481-8991-d87602991017.scope
+         Slice: user-1000.slice
+     Owner UID: 1000 (emeric)
+       Boot ID: 1dc3f51b4e0c47a090143debad7efd3c
+    Machine ID: 955cfe232dad4fa48429935d8113c387
+      Hostname: fedora-server
+       Storage: /var/lib/systemd/coredump/core.gk.1000.1dc3f51b4e0c47a090143debad7efd3c.3101110.1788798564000000.zst (present)
+  Size on Disk: 87.7M
+       Message: Process 3101110 (gk) of user 1000 dumped core.
+                
+                Module libmpg123.so.0 from rpm mpg123-1.32.10-2.fc43.x86_64
+                Module libogg.so.0 from rpm libogg-1.3.6-2.fc43.x86_64
+                Module libopus.so.0 from rpm opus-1.5.2-3.fc43.x86_64
+                Module libvorbisenc.so.2 from rpm libvorbis-1.3.7-13.fc43.x86_64
+                Module libvorbis.so.0 from rpm libvorbis-1.3.7-13.fc43.x86_64
+                Module libFLAC.so.14 from rpm flac-1.5.0-5.fc43.x86_64
+                Module libgsm.so.1 from rpm gsm-1.0.23-1.fc43.x86_64
+                Module libsndfile.so.1 from rpm libsndfile-1.2.2-10.fc43.x86_64
+                Module libpulsecommon-17.0.so from rpm pulseaudio-17.0-9.fc43.x86_64
+                Module libpulse.so.0 from rpm pulseaudio-17.0-9.fc43.x86_64
+                Module libOpenGL.so.0 from rpm libglvnd-1.7.0-8.fc43.x86_64
+                Module libudev.so.1 from rpm systemd-258.7-1.fc43.x86_64
+                Module liblzma.so.5 from rpm xz-5.8.1-4.fc43.x86_64
+                Module libtinfo.so.6 from rpm ncurses-6.5-7.20250614.fc43.x86_64
+                Module libpciaccess.so.0 from rpm libpciaccess-0.16-16.fc43.x86_64
+                Module libxml2.so.2 from rpm libxml2-2.12.10-5.fc43.x86_64
+                Module libedit.so.0 from rpm libedit-3.1-58.20260512cvs.fc43.x86_64
+                Module libffi.so.8 from rpm libffi-3.5.2-1.fc43.x86_64
+                Module libdrm_intel.so.1 from rpm libdrm-2.4.133-1.fc43.x86_64
+                Module libelf.so.1 from rpm elfutils-0.195-1.fc43.x86_64
+                Module libdrm_amdgpu.so.1 from rpm libdrm-2.4.133-1.fc43.x86_64
+                Module libxshmfence.so.1 from rpm libxshmfence-1.3.2-7.fc43.x86_64
+                Module libxcb-sync.so.1 from rpm libxcb-1.17.0-6.fc43.x86_64
+                Module libxcb-randr.so.0 from rpm libxcb-1.17.0-6.fc43.x86_64
+                Module libsensors.so.4 from rpm lm_sensors-3.6.0-23.fc43.x86_64
+                Module libSPIRV-Tools.so from rpm spirv-tools-2026.1-2.fc43.x86_64
+                Module libzstd.so.1 from rpm zstd-1.5.7-2.fc43.x86_64
+                Module libxcb-xfixes.so.0 from rpm libxcb-1.17.0-6.fc43.x86_64
+                Module libxcb-present.so.0 from rpm libxcb-1.17.0-6.fc43.x86_64
+                Module libxcb-dri3.so.0 from rpm libxcb-1.17.0-6.fc43.x86_64
+                Module libexpat.so.1 from rpm expat-2.8.1-1.fc43.x86_64
+                Module libxcb-shm.so.0 from rpm libxcb-1.17.0-6.fc43.x86_64
+                Module libXxf86vm.so.1 from rpm libXxf86vm-1.1.6-3.fc43.x86_64
+                Module libX11-xcb.so.1 from rpm libX11-1.8.13-1.fc43.x86_64
+                Module libxcb-glx.so.0 from rpm libxcb-1.17.0-6.fc43.x86_64
+                Module libdrm.so.2 from rpm libdrm-2.4.133-1.fc43.x86_64
+                Module libgallium-25.3.6.so from rpm mesa-25.3.6-3.fc43.x86_64
+                Module libGLX_mesa.so.0 from rpm mesa-25.3.6-3.fc43.x86_64
+                Module libGLdispatch.so.0 from rpm libglvnd-1.7.0-8.fc43.x86_64
+                Module libGLX.so.0 from rpm libglvnd-1.7.0-8.fc43.x86_64
+                Module libGL.so.1 from rpm libglvnd-1.7.0-8.fc43.x86_64
+                Module libXrandr.so.2 from rpm libXrandr-1.5.4-6.fc43.x86_64
+                Module libXi.so.6 from rpm libXi-1.8.2-3.fc43.x86_64
+                Module libXfixes.so.3 from rpm libXfixes-6.0.1-6.fc43.x86_64
+                Module libXrender.so.1 from rpm libXrender-0.9.12-3.fc43.x86_64
+                Module libXcursor.so.1 from rpm libXcursor-1.2.3-3.fc43.x86_64
+                Module libXext.so.6 from rpm libXext-1.3.6-4.fc43.x86_64
+                Module libXau.so.6 from rpm libXau-1.0.12-3.fc43.x86_64
+                Module libxcb.so.1 from rpm libxcb-1.17.0-6.fc43.x86_64
+                Module libX11.so.6 from rpm libX11-1.8.13-1.fc43.x86_64
+                Module libcap.so.2 from rpm libcap-2.76-4.fc43.x86_64
+                Module libsystemd.so.0 from rpm systemd-258.7-1.fc43.x86_64
+                Module libdbus-1.so.3 from rpm dbus-1.16.0-4.fc43.x86_64
+                Module libidn2.so.0 from rpm libidn2-2.3.8-2.fc43.x86_64
+                Module libunistring.so.5 from rpm libunistring-1.1-10.fc43.x86_64
+                Module libz.so.1 from rpm zlib-ng-2.3.3-2.fc43.x86_64
+                Module libpsl.so.5 from rpm libpsl-0.21.5-6.fc43.x86_64
+                Module libcrypto.so.3 from rpm openssl-3.5.4-3.fc43.x86_64
+                Module libssl.so.3 from rpm openssl-3.5.4-3.fc43.x86_64
+                Module libstdbuf.so from rpm coreutils-9.7-8.fc43.x86_64
+                Stack trace of thread 3101110:
+                #0  0x000000000097a85b _ZNKSt10_HashtableImSt4pairIKm18TfragAlphaUniformsESaIS3_ENSt8__detail10_Select1stESt8equal_toImESt4hashImENS5_18_Mod_range_hashingENS5_20_Default_ranged_hashENS5_20_Prime_rehash_policyENS5_17_Hashtable_traitsILb0ELb0ELb1EEEE19_M_find_before_nodeEmRS1_m (/home/emeric/code/jak-project/build/game/gk + 0x57a85b)
+                #1  0x000000000097abcd _Z18setup_tfrag_shaderP17SharedRenderState8DrawMode8ShaderId (/home/emeric/code/jak-project/build/game/gk + 0x57abcd)
+                #2  0x00000000009988c4 _ZN9TFragment11render_treeEiRK19TfragRenderSettingsP17SharedRenderStateR18ScopedProfilerNode (/home/emeric/code/jak-project/build/game/gk + 0x5988c4)
+                #3  0x000000000099aec5 _ZN9TFragment21render_matching_treesEiRKSt6vectorIN6tfrag317TFragmentTreeKindESaIS2_EERK19TfragRenderSettingsP17SharedRenderStateR18ScopedProfilerNode (/home/emeric/code/jak-project/build/game/gk + 0x59aec5)
+                #4  0x000000000099ee0b _ZN9TFragment6renderER11DmaFollowerP17SharedRenderStateR18ScopedProfilerNode (/home/emeric/code/jak-project/build/game/gk + 0x59ee0b)
+                #5  0x00000000007bffaf _ZN14OpenGLRenderer21dispatch_buckets_jak1E11DmaFollowerR18ScopedProfilerNodeb (/home/emeric/code/jak-project/build/game/gk + 0x3bffaf)
+                #6  0x00000000007c1317 _ZN14OpenGLRenderer16dispatch_bucketsE11DmaFollowerR18ScopedProfilerNodeb (/home/emeric/code/jak-project/build/game/gk + 0x3c1317)
+                #7  0x00000000007c3811 _ZN14OpenGLRenderer6renderE11DmaFollowerRK13RenderOptions (/home/emeric/code/jak-project/build/game/gk + 0x3c3811)
+                #8  0x000000000050f783 _Z17render_game_frameiiiiiiiiib (/home/emeric/code/jak-project/build/game/gk + 0x10f783)
+                #9  0x0000000000510bce _ZN9GLDisplay6renderEv (/home/emeric/code/jak-project/build/game/gk + 0x110bce)
+                #10 0x000000000050d0f0 _ZN3Gfx4LoopESt8functionIFbvEE (/home/emeric/code/jak-project/build/game/gk + 0x10d0f0)
+                #11 0x00000000004f2455 _Z12exec_runtime17GameLaunchOptionsiPPKc (/home/emeric/code/jak-project/build/game/gk + 0xf2455)
+                #12 0x00000000004959fc _Z9goal_mainiPPc (/home/emeric/code/jak-project/build/game/gk + 0x959fc)
+                #13 0x00007f2b9751b5b5 __libc_start_call_main (libc.so.6 + 0x35b5)
+                #14 0x00007f2b9751b668 __libc_start_main@@GLIBC_2.34 (libc.so.6 + 0x3668)
+                #15 0x0000000000489065 _start (/home/emeric/code/jak-project/build/game/gk + 0x89065)
+                
+                Stack trace of thread 3101112:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b97844e00 _ZNSt18condition_variable4waitERSt11unique_lockISt5mutexE (libstdc++.so.6 + 0x44e00)
+                #5  0x0000000000603f13 _ZNSt18condition_variable4waitIZN2BS11thread_pool6workerEvEUlvE_EEvRSt11unique_lockISt5mutexET_ (/home/emeric/code/jak-project/build/game/gk + 0x203f13)
+                #6  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101111:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b97844e00 _ZNSt18condition_variable4waitERSt11unique_lockISt5mutexE (libstdc++.so.6 + 0x44e00)
+                #5  0x0000000000603f13 _ZNSt18condition_variable4waitIZN2BS11thread_pool6workerEvEUlvE_EEvRSt11unique_lockISt5mutexET_ (/home/emeric/code/jak-project/build/game/gk + 0x203f13)
+                #6  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101114:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b97844e00 _ZNSt18condition_variable4waitERSt11unique_lockISt5mutexE (libstdc++.so.6 + 0x44e00)
+                #5  0x0000000000603f13 _ZNSt18condition_variable4waitIZN2BS11thread_pool6workerEvEUlvE_EEvRSt11unique_lockISt5mutexET_ (/home/emeric/code/jak-project/build/game/gk + 0x203f13)
+                #6  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101127:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b82bc46ed cnd_wait (libgallium-25.3.6.so + 0x5c46ed)
+                #5  0x00007f2b82b7a17c util_queue_thread_func (libgallium-25.3.6.so + 0x57a17c)
+                #6  0x00007f2b82bc461c impl_thrd_routine (libgallium-25.3.6.so + 0x5c461c)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101113:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b97844e00 _ZNSt18condition_variable4waitERSt11unique_lockISt5mutexE (libstdc++.so.6 + 0x44e00)
+                #5  0x0000000000603f13 _ZNSt18condition_variable4waitIZN2BS11thread_pool6workerEvEUlvE_EEvRSt11unique_lockISt5mutexET_ (/home/emeric/code/jak-project/build/game/gk + 0x203f13)
+                #6  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101125:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b97589d12 pthread_cond_clockwait@GLIBC_2.30 (libc.so.6 + 0x71d12)
+                #4  0x00007f2b985b83e1 _ZNSt9__condvar10wait_untilERSt5mutexiR8timespec (libdiscord-rpc.so + 0x43e1)
+                #5  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #6  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #7  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101131:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b82bc46ed cnd_wait (libgallium-25.3.6.so + 0x5c46ed)
+                #5  0x00007f2b82b7a17c util_queue_thread_func (libgallium-25.3.6.so + 0x57a17c)
+                #6  0x00007f2b82bc461c impl_thrd_routine (libgallium-25.3.6.so + 0x5c461c)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101133:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b97844e00 _ZNSt18condition_variable4waitERSt11unique_lockISt5mutexE (libstdc++.so.6 + 0x44e00)
+                #5  0x000000000074fb7e wait<Loader::loader_thread()::<lambda()> > (/home/emeric/code/jak-project/build/game/gk + 0x34fb7e)
+                #6  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101132:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b82bc46ed cnd_wait (libgallium-25.3.6.so + 0x5c46ed)
+                #5  0x00007f2b82b7a17c util_queue_thread_func (libgallium-25.3.6.so + 0x57a17c)
+                #6  0x00007f2b82bc461c impl_thrd_routine (libgallium-25.3.6.so + 0x5c461c)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101147:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b975d6b22 clock_nanosleep@GLIBC_2.2.5 (libc.so.6 + 0xbeb22)
+                #3  0x00007f2b975e2af7 __nanosleep (libc.so.6 + 0xcaaf7)
+                #4  0x00000000004f28b0 _ZNSt11this_thread9sleep_forIlSt5ratioILl1ELl1000000EEEEvRKNSt6chrono8durationIT_T0_EE (/home/emeric/code/jak-project/build/game/gk + 0xf28b0)
+                #5  0x0000000000507815 _ZNKSt8functionIFvR21SystemThreadInterfaceEEclES1_ (/home/emeric/code/jak-project/build/game/gk + 0x107815)
+                #6  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101128:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b975898de pthread_cond_wait@@GLIBC_2.3.2 (libc.so.6 + 0x718de)
+                #4  0x00007f2b82bc46ed cnd_wait (libgallium-25.3.6.so + 0x5c46ed)
+                #5  0x00007f2b82b7a17c util_queue_thread_func (libgallium-25.3.6.so + 0x57a17c)
+                #6  0x00007f2b82bc461c impl_thrd_routine (libgallium-25.3.6.so + 0x5c461c)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101146:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b9758720c __futex_abstimed_wait_common (libc.so.6 + 0x6f20c)
+                #3  0x00007f2b97589d12 pthread_cond_clockwait@GLIBC_2.30 (libc.so.6 + 0x71d12)
+                #4  0x0000000000506cc3 _ZNSt9__condvar10wait_untilERSt5mutexiR8timespec (/home/emeric/code/jak-project/build/game/gk + 0x106cc3)
+                #5  0x00000000004f1e21 iop_runner (/home/emeric/code/jak-project/build/game/gk + 0xf1e21)
+                #6  0x0000000000507815 _ZNKSt8functionIFvR21SystemThreadInterfaceEEclES1_ (/home/emeric/code/jak-project/build/game/gk + 0x107815)
+                #7  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #8  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #9  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101157:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b97586be4 __syscall_cancel (libc.so.6 + 0x6ebe4)
+                #3  0x00007f2b9760ad81 __select (libc.so.6 + 0xf2d81)
+                #4  0x00007f2b980eee88 _Z24select_and_accept_socketiP8sockaddrPji (libcommon.so + 0xeee88)
+                #5  0x00000000004fc5ae _ZN11Deci2Server18accept_thread_funcEv (/home/emeric/code/jak-project/build/game/gk + 0xfc5ae)
+                #6  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101148:
+                #0  0x00007f2b97592902 __syscall_cancel_arch (libc.so.6 + 0x7a902)
+                #1  0x00007f2b97586b9c __internal_syscall_cancel (libc.so.6 + 0x6eb9c)
+                #2  0x00007f2b975d6b22 clock_nanosleep@GLIBC_2.2.5 (libc.so.6 + 0xbeb22)
+                #3  0x00007f2b975e2af7 __nanosleep (libc.so.6 + 0xcaaf7)
+                #4  0x00000000004f1a48 _ZNSt11this_thread9sleep_forIlSt5ratioILl1ELl1000EEEEvRKNSt6chrono8durationIT_T0_EE (/home/emeric/code/jak-project/build/game/gk + 0xf1a48)
+                #5  0x0000000000507815 _ZNKSt8functionIFvR21SystemThreadInterfaceEEclES1_ (/home/emeric/code/jak-project/build/game/gk + 0x107815)
+                #6  0x00007f2b9784e424 execute_native_thread_routine (libstdc++.so.6 + 0x4e424)
+                #7  0x00007f2b9758a3c4 start_thread (libc.so.6 + 0x723c4)
+                #8  0x00007f2b9760d56c __clone3 (libc.so.6 + 0xf556c)
+                
+                Stack trace of thread 3101149:
+                #0  0x00007f2b981397a0 ~FwLexicon (libcommon.so + 0x1397a0)
+                #1  0x00007f2b975349e1 __run_exit_handlers (libc.so.6 + 0x1c9e1)
+                #2  0x00007f2b97534abe exit (libc.so.6 + 0x1cabe)
+                #3  0x00000000006e5ea0 require_loaded_state (/home/emeric/code/jak-project/build/game/gk + 0x2e5ea0)
+                #4  0x00000000006f080d _ZN6refset4tickEv (/home/emeric/code/jak-project/build/game/gk + 0x2f080d)
+                #5  0x00000000004fe4d5 _ZN10pad_replay12on_cpad_readEiPtPhS1_S1_S1_ (/home/emeric/code/jak-project/build/game/gk + 0xfe4d5)
+                #6  0x000000000053b54c _Z11CPadGetDatam (/home/emeric/code/jak-project/build/game/gk + 0x13b54c)
+                #7  0x000000000080a26d _arg_call_systemv (/home/emeric/code/jak-project/build/game/gk + 0x40a26d)
+                ELF object binary architecture: AMD x86-64

@@ -1,0 +1,131 @@
+--- a/game/kernel/common/kmachine.cpp
++++ b/game/kernel/common/kmachine.cpp
+@@ -32,6 +32,7 @@
+ #include "game/sce/sif_ee.h"
+ #include "game/system/pad_replay.h"
+ #include "game/system/boot_replay.h"
++#include "game/system/baseline_pc_compat.h"
+ 
+ /*!
+  * Where does OVERLORD load its data from?
+@@ -1374,6 +1375,8 @@
+   // Returns the current refresh rate of the currently selected monitor's display mode.
+   make_func_symbol_func("pc-get-active-display-refresh-rate",
+                         (void*)pc_get_active_display_refresh_rate);
++  make_func_symbol_func("pc-set-uncap-menu", (void*)pc_set_uncap_menu);
++  make_func_symbol_func("pc-get-frame-rate-cap-override", (void*)pc_get_frame_rate_cap_override);
+   // Returns size of window. Called from game thread
+   make_func_symbol_func("pc-get-window-size", (void*)pc_get_window_size);
+   // Returns scale of window. This is for DPI stuff.
+--- a/game/CMakeLists.txt
++++ b/game/CMakeLists.txt
+@@ -351,6 +351,7 @@
+         system/background_worker.cpp
+         system/Deci2Server.cpp
+         system/pad_replay.cpp
++        system/baseline_pc_compat.cpp
+         system/boot_replay.cpp
+         system/asset_manifest.cpp
+         system/hid/devices/dualsense_effects.cpp
+--- a/android/CMakeLists.txt
++++ b/android/CMakeLists.txt
+@@ -437,6 +437,7 @@
+     # tapped from android_runtime_compat.cpp::CPadGetData (backend-agnostic core,
+     # also compiled into the desktop gk via game/CMakeLists.txt).
+     "${JAK_ROOT}/game/system/pad_replay.cpp"
++    "${JAK_ROOT}/game/system/baseline_pc_compat.cpp"
+     "${JAK_ROOT}/game/system/boot_replay.cpp"
+     "${JAK_ROOT}/game/system/asset_manifest.cpp"
+     # NOTE: game/system/background_worker.cpp needs libcurl, which we
+diff --git a/game/system/baseline_pc_compat.cpp b/game/system/baseline_pc_compat.cpp
+new file mode 100644
+index 0000000000..e435ca6fb4
+--- /dev/null
++++ b/game/system/baseline_pc_compat.cpp
+@@ -0,0 +1,73 @@
++// Isolated historical-baseline GOAL ABI adapter. No render/timing hooks.
++// Exact subset of donor game/graphics/uncap.cpp:66-93,105-107,600-618,
++// and game/kernel/common/kmachine.cpp:1143-1145,1151-1153.
++// Donor revision: 50e9dc5af6a7453fdb3122c4dde0b186c14ea602.
++#include "baseline_pc_compat.h"
++
++#include <atomic>
++#include <cstdlib>
++
++#include "game/system/autoport_proof.h"
++#ifdef __ANDROID__
++#include <sys/system_properties.h>
++#endif
++
++namespace uncap {
++namespace {
++bool armed() {
++  // `armed_for` et pas `armed()` : le harnais qui desarme un AUTRE item ne doit pas
++  // desarmer celui-ci du meme coup.
++  static const bool s_armed = autoport_proof::armed_for("framerate-uncap");
++  return s_armed;
++}
++
++double knob_cap_fps() {
++  static const double s_cap = []() -> double {
++    if (const char* e = std::getenv("OG_UNCAP_FPS")) {
++      if (e[0]) {
++        return std::atof(e);
++      }
++    }
++#ifdef __ANDROID__
++    char pv[32] = {0};
++    if (__system_property_get("debug.opengoal.uncap.fps", pv) > 0 && pv[0]) {
++      return std::atof(pv);
++    }
++#endif
++    return -1.0;
++  }();
++  return s_cap;
++}
++
++std::atomic<int> g_menu_choices_n{0};
++std::atomic<int> g_menu_choice_index{-1};
++std::atomic<int> g_menu_dynscale_max{0};
++}  // namespace
++
++void set_menu_state(int choices_n, int choice_index, int dynscale_target_max) {
++  g_menu_choices_n.store(choices_n, std::memory_order_relaxed);
++  g_menu_choice_index.store(choice_index, std::memory_order_relaxed);
++  g_menu_dynscale_max.store(dynscale_target_max, std::memory_order_relaxed);
++}
++
++int cap_override_fps() {
++  // DESARME, aucune consigne : le bras d'ablation doit voir le reglage que la machine a
++  // sauvegarde, pas celui que la preuve epingle.
++  if (!armed()) {
++    return 0;
++  }
++  const double k = knob_cap_fps();
++  if (k < 1.0) {
++    return 0;  // -1 = aucune consigne ; une consigne < 1 img/s n'a pas de sens
++  }
++  return (int)(k + 0.5);
++}
++}  // namespace uncap
++
++void pc_set_uncap_menu(int choices_n, int choice_index, int dynscale_target_max) {
++  uncap::set_menu_state(choices_n, choice_index, dynscale_target_max);
++}
++
++s64 pc_get_frame_rate_cap_override() {
++  return (s64)uncap::cap_override_fps();
++}
+diff --git a/game/system/baseline_pc_compat.h b/game/system/baseline_pc_compat.h
+new file mode 100644
+index 0000000000..67636398df
+--- /dev/null
++++ b/game/system/baseline_pc_compat.h
+@@ -0,0 +1,7 @@
++#pragma once
++
++#include "common/common_types.h"
++
++// Current GOAL ABI, independent of historical frame pacing and rendering.
++void pc_set_uncap_menu(int choices_n, int choice_index, int dynscale_target_max);
++s64 pc_get_frame_rate_cap_override();

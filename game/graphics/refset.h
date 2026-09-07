@@ -89,6 +89,8 @@
 // Les instants des 23 autres photos se DEDUISENT de l'ancre du plan.
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace refset {
 
@@ -99,6 +101,15 @@ namespace refset {
 // refuse avec un diagnostic et EXIT_FAILURE, avant toute ecriture de reference. Replay
 // utilise les jeux existants ; les captures partielles doivent donc rester separees.
 bool enabled();
+
+// Opt-in post-dispatch observer. These are measured GOAL states, not bootstrap checkpoints.
+struct LoadedLevelState {
+  std::string name;
+  std::string status;
+};
+bool requires_loaded_state();
+void note_loaded_state(int64_t frame, bool target, bool spawn, bool sweep,
+                       const std::vector<LoadedLevelState>& levels);
 
 // L'HORLOGE. `fn` rend *display* actual-frame-counter : +1 par image de logique SIMULEE,
 // independamment de la cadence. Enregistree par le noyau jak1 (InitMachineScheme), appelee

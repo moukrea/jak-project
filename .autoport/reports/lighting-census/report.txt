@@ -1,31 +1,26 @@
-Verdict : non validé ; provenance des buffers consommés ajoutée, mais les références ne sont pas encore qualifiées.
+Non validé : baseline isolée construite et bootstrap commun rejoué, mais le dernier retéléport désactive beach avant le prélèvement.
 DIRECTIVES v6fca51fe40
-Changé : manifeste SHA256 complet et exclusif, séparé des références, avec checkpoint par image.
-Branches : lectures ISO/FR3, objets avant relocation, shaders, textures de base et cartes PBR.
-Le manifeste décrit un ensemble cumulé ; il ne certifie ni ordre, ni état acteur, ni liaison aux draws.
-Build incrémental gk terminé ; garde PNJ47 et tests du manifeste PASS (logs notes/essai18-assets).
-Preuve officielle de60s, huit lignes extraites de proof.txt :
-sha=14ab30c2a18899f6
-crash=0
-frames=3287
-FEATURE lighting-census armed=1 hits=1690834
+Baseline a9ea15a69062a57335278db7680cd647df3c1e1d + adaptateur reproductible : notes/essai30-baseline/full-baseline.patch.
+31 fichiers adaptés dans /home/emeric/code/jak-lighting-baseline ; renderer pré-refonte et shaders historiques séparés de HEAD.
+Dix exports Jak1 réels et deux exports communs supplémentaires : ces derniers ont été identifiés dans le core du premier essai.
+Candidat : garde opt-in après bootstrap ; première attente fixe, état réel par frame, refus avant capture ; aucun seuil de rendu changé.
+Builds gk uniquement ; garde PNJ47 tenue. Le refus quitte désormais en code1 sans destruction concurrente des caches GL.
+Huit lignes du proof produit par proof_run.sh :
+source=x86
+sha=27a30abe4f7ccc99
+crash=1
+frames=2405
 refset_bootstrap_records=5880
 refset_bootstrap_fingerprint=79fb964dc17507ec
-refset_replay_maxdiff=195
-refset_replay_flaky=254
-Checkpoint origine/h00/lf1081 :2133entrées ; SHA d11b3282507e3ffdc4440187d99133b88cc50f68e560cbac14dd430dbf4bf4ed.
-Contrôle hashlib :4FR3+749plagesISO+485objets+108shaders+787textures-base ; manifest-audit.log.
-Historique :575SHA conservés ; diffpx57581 inchangé ; une ligne ajoutée au registre, aucun candidat adopté.
-Draws1685650 stock/classifiés0 ; résiduel0 rb_mismatch0 ; GPU9,4578ms (proof.txt).
-Bootstrap17 réutilisé sans nouvelle capture ; binaire/3CGO/pad/bootstrap/12sources stables pendant la mesure.
-Piste baseline : fork pré-refonte a9ea15a69062a57335278db7680cd647df3c1e1d, dix exports à adapter.
-Ce fork contient déjà des changements de police ; il ne constitue pas une origine pristine qualifiée.
-À regarder par l’owner : aucun nouveau rendu à tester ; les blancs HDR restent à corriger.
-non prouvé : cartes PBR et FileLoad à l’exécution, configuration exhaustive, état après bootstrap.
-non prouvé : baseline indépendante exécutée, attestation qualification v2 et cinq rejeux exacts.
-non prouvé : trois modes, huit heures, ≥4intérieurs et ciel ; seul village1/origine/h00 a été comparé.
-Niveaux absents : training, beach, jungle, jungleb, misty, firecanyon, village2, sunken, sunkenb, swamp,
-rolling, ogre, village3, snow, maincave, darkcave, robocave, lavatube, citadel, finalboss.
-non prouvé : HDR/tonemap SDR et Android. Sunkenb reste manquant ; aucune sentinelle modifiée.
-Rapport détaillé notes/recovery-essai18.md ; reprise handoff.md ; generic.sh réservé à l’orchestrateur.
-Aucun appareil, aucune brise/cadence, aucun owner-ok ; commit WIP pour éviter un build Android inutile.
+refset_captured=0
+refset_loaded_ready=0
+Deux bras corrigés : bootstrap5880/79fb964dc17507ec ; refus capture LF2282/snapshot2282, beach=loaded alors que active est requis.
+Baseline2392frames/46s et candidat2405frames/47s : arrêts explicites1, aucun SIGSEGV sur ces deux courses corrigées.
+Le délai1200 place la première échéance après WANT-DISPLAY ; beach devient active puis le dernier retéléport la remet loaded.
+Manifestes : 4FR3,486objets,787textures identiques ; une plage ISO et les shaders diffèrent. Aucun checkpoint de capture.
+575 empreintes historiques conservées ; zéro nouveau prélèvement accepté, aucune adoption ni rejeu de l’archive.
+21 niveaux non comparés : training,village1,beach,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
+Draws/temps GPU conservés : light_census_classified0, residual0, lc_orig_un639394 ; GPU buckets7,8260ms,2277frames.
+Owner : aucun nouveau rendu HDR à juger ; les blancs HDR restent à corriger après qualification des comparaisons.
+non prouvé : état complet/config effective après dernier retéléport, qualification origine, trois modes/8heures/intérieurs/ciel, cinq rejeux exacts, HDR/SDR/Android.
+La porte refset_replay_maxdiff==0 n’est pas obtenue ; aucun champ de proof écrit à la main, generic inchangé réservé à l’orchestrateur.

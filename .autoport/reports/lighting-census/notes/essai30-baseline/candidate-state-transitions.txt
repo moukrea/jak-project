@@ -1,0 +1,12 @@
+BOOTREPLAY finish mode=replay tag=finish index=5880 count=5880 fingerprint=79fb964dc17507ec
+refset_loaded_levels=village1=active;beach=loading;
+refset_loaded_levels=village1=active;beach=loaded;
+REFSET start lf=900 warp1=600 settle=180
+REFSET rewarp armed
+REFSET arrivee lf=901 vue=village1-hut attente=1200
+[38:11:244] [info] [WANT-DISPLAY] armed *listener-function* for spec 'beach,display'
+WANT-DISPLAY lev=beach sym=display -> #x0
+refset_loaded_levels=village1=active;beach=active;
+REFSET rewarp armed
+refset_loaded_levels=village1=active;beach=loaded;
+REFSET loaded-state refused point=capture case=0 lf=2282 snapshot_lf=2282 reason=beach=loaded(need active);beach=loaded(need active);

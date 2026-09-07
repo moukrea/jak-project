@@ -1,0 +1,304 @@
+diff --git a/game/graphics/refset.cpp b/game/graphics/refset.cpp
+index a865247f07..b55d63e58d 100644
+--- a/game/graphics/refset.cpp
++++ b/game/graphics/refset.cpp
+@@ -36,6 +36,18 @@ namespace refset {
+ namespace {
+ 
+ std::atomic<uint64_t> g_bootstrap_fingerprint{0};
++bool g_require_loaded = false;
++struct LoadedSnapshot {
++  int64_t frame;
++  bool target;
++  bool spawn;
++  bool sweep;
++  std::vector<LoadedLevelState> levels;
++};
++constexpr size_t kLoadedSnapshotWindow = 8;
++std::vector<LoadedSnapshot> g_loaded_snapshots;
++std::vector<std::string> g_initial_levels;
++std::string g_initial_display;
+ 
+ // ── le plan ─────────────────────────────────────────────────────────────────────────────────
+ // TROIS jeux x huit creneaux horaires. Les huit heures sont les huit creneaux de
+@@ -585,6 +597,68 @@ const Vantage& vantage_of(const Step& s) {
+   return kVantages[i < g_vants.size() ? g_vants[i] : 0];
+ }
+ 
++// Caller holds g_mutex. Rendering can trail GOAL dispatch: select the newest
++// sample at or before the observed frame, with the same maximum lag of one.
++std::string loaded_state_problem(int64_t frame, int64_t* selected_frame = nullptr) {
++  const LoadedSnapshot* snapshot = nullptr;
++  for (auto it = g_loaded_snapshots.rbegin(); it != g_loaded_snapshots.rend(); ++it) {
++    if (it->frame <= frame && (!snapshot || it->frame > snapshot->frame)) {
++      snapshot = &*it;
++    }
++  }
++  if (selected_frame) *selected_frame = snapshot ? snapshot->frame : -1;
++  if (!snapshot) return "missing-snapshot;";
++  std::string problem;
++  auto require_level = [&](const std::string& name, bool active) {
++    if (name.empty()) {
++      return;
++    }
++    std::string status = "missing";
++    for (const auto& level : snapshot->levels) {
++      if (level.name == name) {
++        status = level.status;
++        break;
++      }
++    }
++    if (status != "active" && (active || status != "loaded")) {
++      problem += name + "=" + status + (active ? "(need active);" : "(need loaded/active);");
++    }
++  };
++  if (snapshot->frame < 0 || frame - snapshot->frame > 1) {
++    problem += "stale-snapshot;";
++  }
++  if (!snapshot->target) problem += "*target*=absent;";
++  if (!snapshot->spawn) problem += "*spawn-actors*!=#t;";
++  if (!snapshot->sweep) problem += "*actors-sweep-complete*!=#t;";
++  if (g_cur < g_steps.size()) {
++    if (first_step_of_vant(g_cur) == 0) {
++      for (const auto& name : g_initial_levels) {
++        require_level(name, name == g_initial_display);
++      }
++      require_level(g_initial_display, true);
++    }
++    require_level(vantage_of(g_steps[g_cur]).level, true);
++  }
++  return problem;
++}
++
++void require_loaded_state(int64_t frame, const char* point) {
++  if (!g_require_loaded) return;
++  int64_t selected_frame = -1;
++  const std::string problem = loaded_state_problem(frame, &selected_frame);
++  if (problem.empty()) return;
++  autoport_proof::publish("refset_loaded_guard_failed", 1);
++  autoport_proof::publish_text("refset_loaded_guard_error", problem.c_str());
++  std::fprintf(stderr, "REFSET loaded-state refused point=%s case=%zu lf=%lld snapshot_lf=%lld "
++                       "reason=%s\n", point, g_cur, (long long)frame,
++                       (long long)selected_frame, problem.c_str());
++  std::fflush(stderr);
++  std::fflush(stdout);
++  // This can run on the GOAL thread while GL still renders. exit() destroys
++  // shared shader caches under that renderer; preserve the failure without teardown races.
++  std::_Exit(EXIT_FAILURE);
++}
++
+ // Le prefixe de fichier d'une etape : `<jeu>/hHH` pour le vantage historique, `<jeu>/<id>-hHH`
+ // pour les autres. Le vantage historique garde son nom NU parce que ses images sont
+ // l'instrument de `lighting-hdr` et de `lighting-origin-bitexact`.
+@@ -1746,6 +1820,11 @@ uint64_t census_config_fingerprint() {
+     }
+     h = (h ^ 0xff) * 1099511628211ull;
+   };
++  if (g_require_loaded) {
++    add("require-loaded-state-v1");
++    for (const auto& level : g_initial_levels) add(level);
++    add(g_initial_display);
++  }
+   // Preserve the historical identity when bootstrap replay is absent. A sealed
+   // stream instead separates both sidecars and ledger rows by the consumed state.
+   if (const uint64_t bootstrap = g_bootstrap_fingerprint.load()) {
+@@ -2015,6 +2094,26 @@ bool enabled() {
+   } else {
+     return false;
+   }
++  char loaded[32] = {};
++  g_require_loaded = read_knob("OG_REFSET_REQUIRE_LOADED", "debug.opengoal.refset.requireloaded",
++                              loaded, sizeof(loaded)) && std::strcmp(loaded, "1") == 0;
++  if (g_require_loaded) {
++    char requested[256] = {};
++    if (read_knob("OG_WANT_LEVELS", "debug.opengoal.want.levels", requested, sizeof(requested))) {
++      std::string names = requested;
++      size_t begin = 0;
++      do {
++        const size_t end = names.find(',', begin);
++        const auto name = names.substr(begin, end - begin);
++        if (!name.empty()) g_initial_levels.push_back(name);
++        if (end == std::string::npos) break;
++        begin = end + 1;
++      } while (begin < names.size());
++    }
++    if (read_knob("OG_WANT_DISPLAY", "debug.opengoal.want.display", requested, sizeof(requested))) {
++      g_initial_display = std::string(requested).substr(0, std::string(requested).find(','));
++    }
++  }
+   // lighting-hdr : SUR ANDROID, LE DEFAUT DOIT ETRE ABSOLU, et ce n'est pas une preference.
+   // `g_dir` est relatif au CWD du processus, et ce CWD n'est jamais change sur Android : il est
+   // en LECTURE SEULE (gk_android_main.cpp:9429-9433 le documente deja pour les sauvegardes,
+@@ -2317,6 +2416,40 @@ int64_t warp_at_frame() {
+   return g_warp_at;
+ }
+ 
++bool requires_loaded_state() {
++  // The host dispatch hook also runs without this option. Do not initialize refset
++  // earlier than its historical caller when the observer was not requested.
++  static const bool requested = [] {
++    char value[32] = {};
++    return read_knob("OG_REFSET_REQUIRE_LOADED", "debug.opengoal.refset.requireloaded",
++                     value, sizeof(value)) && std::strcmp(value, "1") == 0;
++  }();
++  return requested;
++}
++
++void note_loaded_state(int64_t frame, bool target, bool spawn, bool sweep,
++                       const std::vector<LoadedLevelState>& levels) {
++  if (!requires_loaded_state() || !enabled()) return;
++  std::lock_guard<std::mutex> lock(g_mutex);
++  // Replace a repeated dispatch frame rather than evicting useful older frames.
++  if (!g_loaded_snapshots.empty() && g_loaded_snapshots.back().frame == frame) {
++    g_loaded_snapshots.back() = {frame, target, spawn, sweep, levels};
++  } else {
++    if (g_loaded_snapshots.size() == kLoadedSnapshotWindow) {
++      g_loaded_snapshots.erase(g_loaded_snapshots.begin());
++    }
++    g_loaded_snapshots.push_back({frame, target, spawn, sweep, levels});
++  }
++  const std::string problem = loaded_state_problem(frame);
++  std::string states;
++  for (const auto& level : levels) states += level.name + "=" + level.status + ";";
++  autoport_proof::publish("refset_require_loaded", 1);
++  autoport_proof::publish("refset_loaded_snapshot_lf", frame < 0 ? 0 : frame);
++  autoport_proof::publish("refset_loaded_ready", problem.empty() ? 1 : 0);
++  autoport_proof::publish_text("refset_loaded_levels", states.c_str());
++  autoport_proof::publish_text("refset_loaded_pending", problem.c_str());
++}
++
+ void set_bootstrap_fingerprint(uint64_t fingerprint) {
+   g_bootstrap_fingerprint.store(fingerprint);
+ }
+@@ -2372,6 +2505,7 @@ void note_anchor() {
+     return;
+   }
+   if (g_cap == kCapWaitWarp) {
++    require_loaded_state(lf, "warp-arm");
+     g_step_anchor = lf;
+     g_capture_frame = lf + g_step_settle;
+     if (g_plan_base < 0) {
+@@ -2589,6 +2723,7 @@ void tick() {
+     if (lf < g_load_until) {
+       return;
+     }
++    require_loaded_state(lf, "arrival-deadline");
+     g_cap = kCapWaitWarp;
+   }
+ 
+@@ -2604,10 +2739,9 @@ void tick() {
+     // UNE ARRIVEE SUR UN NOUVEAU VANTAGE TELEPORTE TOUJOURS, meme quand la politique de l'etape
+     // est « pas de teleport » (l'appareil) : sans ce teleport-la, changer de vantage ne
+     // changerait que l'heure et le master, et les 25 autres niveaux ne seraient jamais atteints.
+-    if (step_is_arrival(g_cur) && g_cur != 0) {
+-      // Nouveau vantage : deux teleports, le premier pour charger. L'etape 0 en est dispensee —
+-      // son niveau est deja resident, `OG_WANT_LEVELS` l'a demande au lanceur et le premier
+-      // warp de `level_warp_maybe` a deja eu lieu 300 frames plus tot.
++    if (step_is_arrival(g_cur) && (g_cur != 0 || g_require_loaded)) {
++      // Two teleports, the first to load. The historical first case skipped this wait;
++      // the opt-in guard includes it without letting asynchronous readiness move the deadline.
+       g_cap = kCapPreWarp;
+     } else if (g_warp_per_step || g_cur == 0 || g_vant_base < 0) {
+       g_cap = kCapWaitWarp;
+@@ -2623,6 +2757,7 @@ void tick() {
+         g_late_arms++;
+         g_capture_frame = lf + g_step_settle;
+       }
++      require_loaded_state(lf, "arm");
+       g_cap = kCapArmed;
+     }
+     if (g_cur == 0) {
+@@ -2807,6 +2942,7 @@ bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h)
+   if (g_cap != kCapArmed || lf < g_capture_frame) {
+     return false;
+   }
++  require_loaded_state(lf, "capture");
+   // `lf > g_capture_frame` veut dire qu'une chaine a saute : on le MESURE au lieu de l'ignorer,
+   // parce qu'un decalage d'une frame de logique suffit a faire mentir la comparaison.
+   // Le decalage entre la frame de logique DEMANDEE et celle que porte la chaine rendue. Il est
+diff --git a/game/graphics/refset.h b/game/graphics/refset.h
+index 7f8602a0e6..b27dd70ccd 100644
+--- a/game/graphics/refset.h
++++ b/game/graphics/refset.h
+@@ -89,6 +89,8 @@
+ // Les instants des 23 autres photos se DEDUISENT de l'ancre du plan.
+ 
+ #include <cstdint>
++#include <string>
++#include <vector>
+ 
+ namespace refset {
+ 
+@@ -100,6 +102,15 @@ namespace refset {
+ // utilise les jeux existants ; les captures partielles doivent donc rester separees.
+ bool enabled();
+ 
++// Opt-in post-dispatch observer. These are measured GOAL states, not bootstrap checkpoints.
++struct LoadedLevelState {
++  std::string name;
++  std::string status;
++};
++bool requires_loaded_state();
++void note_loaded_state(int64_t frame, bool target, bool spawn, bool sweep,
++                       const std::vector<LoadedLevelState>& levels);
++
+ // L'HORLOGE. `fn` rend *display* actual-frame-counter : +1 par image de logique SIMULEE,
+ // independamment de la cadence. Enregistree par le noyau jak1 (InitMachineScheme), appelee
+ // depuis le fil GOAL seulement.
+diff --git a/game/kernel/jak1/kmachine.cpp b/game/kernel/jak1/kmachine.cpp
+index 73ed0c841c..7c5556b1de 100644
+--- a/game/kernel/jak1/kmachine.cpp
++++ b/game/kernel/jak1/kmachine.cpp
+@@ -5872,7 +5872,52 @@ static void boot_replay_pre_play() {
+   }
+ }
+ 
++// Independent of the sealed bootstrap stream: observe live state on the host stack.
++// Never append checkpoints here, including after the before-play boundary.
++static std::string refset_loaded_symbol(u32 symbol) {
++  if (!symbol) return "<null>";
++  if (symbol == s7.offset) return "#f";
++  boot_replay_range(symbol, 4);
++  const u32 string = boot_replay_read<u32>(symbol + jak1::SYM_INFO_OFFSET + 4);
++  const u32 length = boot_replay_read<u32>(string);
++  if (length > 255) {
++    std::fprintf(stderr, "REFSET loaded-state invalid symbol length=%u\n", length);
++    std::exit(EXIT_FAILURE);
++  }
++  boot_replay_range(string, 4 + length + 1);
++  return std::string(reinterpret_cast<const char*>(g_ee_main_mem + string + 4), length);
++}
++
++static void refset_loaded_after_dispatch() {
++  // Do not intern symbols or initialize refset during the recorded bootstrap.
++  // fingerprint() is passive and remains zero until the stream has been sealed.
++  if (!refset::requires_loaded_state() || !boot_replay::fingerprint()) return;
++  std::vector<refset::LoadedLevelState> levels;
++  const u32 group = intern_from_c("*level*")->value;
++  if (group && group != s7.offset) {
++    const s32 count = boot_replay_read<s32>(group);
++    if (count < 0 || count > 3) {
++      std::fprintf(stderr, "REFSET loaded-state invalid level count=%d\n", count);
++      std::exit(EXIT_FAILURE);
++    }
++    boot_replay_range(group, 96 + size_t(count) * 2608);
++    for (s32 i = 0; i < count; ++i) {
++      const u32 level = group + 96 + i * 2608;
++      levels.push_back({refset_loaded_symbol(boot_replay_read<u32>(level)),
++                        refset_loaded_symbol(boot_replay_read<u32>(level + 16))});
++    }
++  }
++  const u32 target = intern_from_c("*target*")->value;
++  const bool present = target && target != s7.offset;
++  if (present) boot_replay_range(target, 4);
++  const u32 goal_true = intern_from_c("#t").offset;
++  refset::note_loaded_state(refset::current_logic_frame(), present,
++                           intern_from_c("*spawn-actors*")->value == goal_true,
++                           intern_from_c("*actors-sweep-complete*")->value == goal_true, levels);
++}
++
+ void boot_replay_after_dispatch() {
++  refset_loaded_after_dispatch();
+   if (!s_boot_replay_first_dispatch || !boot_replay::active()) {
+     return;
+   }

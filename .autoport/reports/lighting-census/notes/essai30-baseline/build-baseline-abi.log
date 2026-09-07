@@ -1,0 +1,504 @@
+[0/2] Re-checking globbed directories...
+[1/2] Re-running CMake...
+-- Statically Link? OFF
+-- GOALC backend: x86
+-- GCC detected - Setting Defaults
+-- curl version=[8.3.0-DEV]
+-- Picky compiler options: -W -Wall -pedantic -Wbad-function-cast -Wconversion -Winline -Wmissing-declarations -Wmissing-prototypes -Wnested-externs -Wno-long-long -Wno-multichar -Wpointer-arith -Wshadow -Wsign-compare -Wundef -Wunused -Wwrite-strings -Wcast-align -Wdeclaration-after-statement -Wempty-body -Wendif-labels -Wfloat-equal -Wignored-qualifiers -Wno-format-nonliteral -Wno-sign-conversion -Wno-system-headers -Wstrict-prototypes -Wtype-limits -Wvla -Wmissing-parameter-type -Wold-style-declaration -Wstrict-aliasing=3 -Wformat=2 -Warray-bounds=2 -ftree-vrp -Wduplicated-cond -Wnull-dereference -fdelete-null-pointer-checks -Wshift-negative-value -Wshift-overflow=2 -Walloc-zero -Wduplicated-branches -Wformat-overflow=2 -Wformat-truncation=1 -Wrestrict -Warith-conversion -Wdouble-promotion -Wenum-conversion -Wunused-const-variable
+-- Enabled features: SSL IPv6 unixsockets AsynchDNS Largefile alt-svc HSTS NTLM HTTPS-proxy threadsafe PSL
+-- Enabled protocols: DICT FILE FTP FTPS GOPHER GOPHERS HTTP HTTPS IMAP IMAPS MQTT POP3 POP3S RTSP SMB SMBS SMTP SMTPS TELNET TFTP
+-- Enabled SSL backends: OpenSSL
+CMake Deprecation Warning at third-party/replxx/CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+-- {fmt} version: 11.1.4
+-- Build type: Release
+-- write_revision_h(): /home/emeric/code/jak-lighting-baseline
+-- Git found, using it to get revision info
+-- Dynamically Linking SDL
+-- dynamic libX11 -> libX11.so.6
+-- dynamic libXext -> libXext.so.6
+-- dynamic libXcursor -> libXcursor.so.1
+-- dynamic libXi -> libXi.so.6
+-- dynamic libXfixes -> libXfixes.so.3
+-- dynamic libXrandr -> libXrandr.so.2
+-- dynamic libXrender -> libXrender.so.1
+-- dynamic libXtst -> libXtst.so.6
+-- Checking for module 'fribidi'
+--   Found fribidi, version 1.0.16
+-- dynamic libfribidi -> libfribidi.so.0
+-- Checking for module 'libthai'
+--   Found libthai, version 0.1.29
+-- dynamic libthai -> libthai.so.0
+-- Checking for module 'libdrm'
+--   Found libdrm, version 2.4.133
+-- Checking for module 'gbm'
+--   Package 'gbm' not found
+-- Checking for modules 'wayland-client>=1.18;wayland-egl;wayland-cursor;egl;xkbcommon>=0.5.0'
+--   Found wayland-client, version 1.24.0
+--   Found wayland-egl, version 18.1.0
+--   Found wayland-cursor, version 1.24.0
+--   Found egl, version 1.5
+--   Found xkbcommon, version 1.11.0
+-- dynamic libwayland-client -> libwayland-client.so.0
+-- dynamic libwayland-egl -> libwayland-egl.so.1
+-- dynamic libwayland-cursor -> libwayland-cursor.so.0
+-- dynamic libxkbcommon -> libxkbcommon.so.0
+-- Checking for module 'libdecor-0'
+--   Package 'libdecor-0' not found
+-- dynamic libudev -> libudev.so.1
+-- Checking for one of the modules 'ibus-1.0;ibus'
+-- Checking for one of the modules 'liburing-ffi'
+-- Checking for modules 'libunwind;libunwind-generic'
+--   Package 'libunwind' not found
+--   Package 'libunwind-generic' not found
+-- Checking for module 'libusb-1.0>=1.0.16'
+--   Package 'libusb-1.0' not found
+-- Could NOT find LibUSB (missing: LibUSB_LIBRARY LibUSB_INCLUDE_PATH) (found version "LibUSB_VERSION-NOTFOUND")
+-- 
+-- SDL3 was configured with the following options:
+-- 
+-- Platform: Linux-6.19.8-200.fc43.x86_64
+-- 64-bit:   TRUE
+-- Compiler: /usr/bin/cc
+-- Revision: SDL-3.4.4--128-NOTFOUND
+-- Vendor:   
+-- 
+-- Subsystems:
+--   Audio:    OFF
+--   Video:    ON
+--   GPU:      ON
+--   Render:   OFF
+--   Camera:   OFF
+--   Joystick: ON
+--   Haptic:   ON
+--   Hidapi:   ON
+--   Power:    OFF
+--   Sensor:   OFF
+--   Dialog:   ON
+--   Tray:     ON
+-- 
+-- Options:
+--   SDL_ALSA                    (Wanted: OFF): OFF
+--   SDL_ALSA_SHARED             (Wanted: OFF): OFF
+--   SDL_ALTIVEC                 (Wanted: OFF): OFF
+--   SDL_ARMNEON                 (Wanted: OFF): OFF
+--   SDL_ASAN                    (Wanted: OFF): OFF
+--   SDL_ASSEMBLY                (Wanted: ON): ON
+--   SDL_ASSERTIONS              (Wanted: auto): auto
+--   SDL_AVX                     (Wanted: ON): ON
+--   SDL_AVX2                    (Wanted: ON): ON
+--   SDL_AVX512F                 (Wanted: ON): ON
+--   SDL_BACKGROUNDING_SIGNAL    (Wanted: OFF): OFF
+--   SDL_CCACHE                  (Wanted: OFF): OFF
+--   SDL_CLANG_TIDY              (Wanted: OFF): OFF
+--   SDL_CLOCK_GETTIME           (Wanted: ON): ON
+--   SDL_COCOA                   (Wanted: OFF): OFF
+--   SDL_DBUS                    (Wanted: ON): ON
+--   SDL_DEPS_SHARED             (Wanted: ON): OFF
+--   SDL_DIRECTX                 (Wanted: OFF): OFF
+--   SDL_DISKAUDIO               (Wanted: OFF): OFF
+--   SDL_DLOPEN_NOTES            (Wanted: ON): ON
+--   SDL_DUMMYAUDIO              (Wanted: OFF): OFF
+--   SDL_DUMMYCAMERA             (Wanted: OFF): OFF
+--   SDL_DUMMYVIDEO              (Wanted: ON): ON
+--   SDL_EXAMPLES                (Wanted: OFF): OFF
+--   SDL_EXAMPLES_LINK_SHARED    (Wanted: ON): OFF
+--   SDL_FOREGROUNDING_SIGNAL    (Wanted: OFF): OFF
+--   SDL_FRIBIDI                 (Wanted: ON): ON
+--   SDL_FRIBIDI_SHARED          (Wanted: ON): ON
+--   SDL_GCC_ATOMICS             (Wanted: ON): ON
+--   SDL_HIDAPI                  (Wanted: ON): ON
+--   SDL_HIDAPI_JOYSTICK         (Wanted: ON): ON
+--   SDL_HIDAPI_LIBUSB           (Wanted: ON): OFF
+--   SDL_HIDAPI_LIBUSB_SHARED    (Wanted: ON): OFF
+--   SDL_IBUS                    (Wanted: ON): OFF
+--   SDL_INSTALL                 (Wanted: OFF): OFF
+--   SDL_INSTALL_TESTS           (Wanted: OFF): OFF
+--   SDL_JACK                    (Wanted: OFF): OFF
+--   SDL_JACK_SHARED             (Wanted: OFF): OFF
+--   SDL_KMSDRM                  (Wanted: ON): OFF
+--   SDL_KMSDRM_SHARED           (Wanted: ON): OFF
+--   SDL_LASX                    (Wanted: OFF): OFF
+--   SDL_LIBC                    (Wanted: ON): ON
+--   SDL_LIBICONV                (Wanted: OFF): OFF
+--   SDL_LIBTHAI                 (Wanted: ON): ON
+--   SDL_LIBTHAI_SHARED          (Wanted: ON): ON
+--   SDL_LIBUDEV                 (Wanted: ON): ON
+--   SDL_LIBURING                (Wanted: ON): OFF
+--   SDL_LSX                     (Wanted: OFF): OFF
+--   SDL_METAL                   (Wanted: OFF): OFF
+--   SDL_MMX                     (Wanted: ON): ON
+--   SDL_OFFSCREEN               (Wanted: ON): ON
+--   SDL_OPENGL                  (Wanted: ON): ON
+--   SDL_OPENGLES                (Wanted: ON): ON
+--   SDL_OPENVR                  (Wanted: OFF): OFF
+--   SDL_OSS                     (Wanted: OFF): OFF
+--   SDL_PIPEWIRE                (Wanted: ON): OFF
+--   SDL_PIPEWIRE_SHARED         (Wanted: ON): OFF
+--   SDL_PTHREADS                (Wanted: ON): ON
+--   SDL_PTHREADS_SEM            (Wanted: ON): ON
+--   SDL_PULSEAUDIO              (Wanted: OFF): OFF
+--   SDL_PULSEAUDIO_SHARED       (Wanted: OFF): OFF
+--   SDL_RENDER_D3D              (Wanted: OFF): OFF
+--   SDL_RENDER_D3D11            (Wanted: OFF): OFF
+--   SDL_RENDER_D3D12            (Wanted: OFF): OFF
+--   SDL_RENDER_GPU              (Wanted: OFF): OFF
+--   SDL_RENDER_METAL            (Wanted: OFF): OFF
+--   SDL_RENDER_VULKAN           (Wanted: OFF): OFF
+--   SDL_ROCKCHIP                (Wanted: OFF): OFF
+--   SDL_RPATH                   (Wanted: ON): ON
+--   SDL_RPI                     (Wanted: OFF): OFF
+--   SDL_SNDIO                   (Wanted: OFF): OFF
+--   SDL_SNDIO_SHARED            (Wanted: OFF): OFF
+--   SDL_SSE                     (Wanted: ON): ON
+--   SDL_SSE2                    (Wanted: ON): ON
+--   SDL_SSE3                    (Wanted: ON): ON
+--   SDL_SSE4_1                  (Wanted: ON): ON
+--   SDL_SSE4_2                  (Wanted: ON): ON
+--   SDL_SYSTEM_ICONV            (Wanted: ON): ON
+--   SDL_TESTS                   (Wanted: OFF): OFF
+--   SDL_TESTS_LINK_SHARED       (Wanted: ON): OFF
+--   SDL_UNINSTALL               (Wanted: OFF): OFF
+--   SDL_VIRTUAL_JOYSTICK        (Wanted: ON): ON
+--   SDL_VIVANTE                 (Wanted: OFF): OFF
+--   SDL_VULKAN                  (Wanted: ON): ON
+--   SDL_WASAPI                  (Wanted: OFF): OFF
+--   SDL_WAYLAND                 (Wanted: ON): ON
+--   SDL_WAYLAND_LIBDECOR        (Wanted: ON): OFF
+--   SDL_WAYLAND_LIBDECOR_SHARED (Wanted: ON): OFF
+--   SDL_WAYLAND_SHARED          (Wanted: ON): ON
+--   SDL_X11                     (Wanted: ON): ON
+--   SDL_X11_SHARED              (Wanted: ON): ON
+--   SDL_X11_XCURSOR             (Wanted: ON): ON
+--   SDL_X11_XDBE                (Wanted: ON): ON
+--   SDL_X11_XFIXES              (Wanted: ON): ON
+--   SDL_X11_XINPUT              (Wanted: ON): ON
+--   SDL_X11_XRANDR              (Wanted: ON): ON
+--   SDL_X11_XSCRNSAVER          (Wanted: OFF): OFF
+--   SDL_X11_XSHAPE              (Wanted: ON): ON
+--   SDL_X11_XSYNC               (Wanted: ON): ON
+--   SDL_X11_XTEST               (Wanted: OFF): OFF
+--   SDL_XINPUT                  (Wanted: OFF): OFF
+-- 
+--  Build Shared Library: ON
+--  Build Static Library: OFF
+-- 
+-- Enabled backends:
+--   Video drivers: dummy offscreen wayland(dynamic) x11(dynamic)
+--   X11 libraries: xcursor xdbe xfixes xinput2 xrandr xshape xsync
+--   Render drivers: ogl ogl_es2
+--   GPU drivers: vulkan
+--   Audio drivers: dummy
+--   Joystick drivers: hidapi linux virtual
+--   Camera drivers: dummy
+-- 
+-- If something was not detected, although the libraries
+-- were installed, then make sure you have set the
+-- CMAKE_C_FLAGS and CMAKE_PREFIX_PATH CMake variables correctly.
+-- 
+-- Non-ARM64 architecture detected
+CMake Deprecation Warning at third-party/googletest/CMakeLists.txt:4 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Deprecation Warning at third-party/googletest/googlemock/CMakeLists.txt:39 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Deprecation Warning at third-party/googletest/googletest/CMakeLists.txt:49 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Warning (dev) at third-party/draco/CMakeLists.txt:40 (include):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning.
+
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+--- Running combined CXX flags test, flags: -Wno-deprecated-declarations
+--- Passed combined CXX flags test
+CMake Deprecation Warning at third-party/discord-rpc/CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+-- dynamically linking zydis
+Enabling CAPSTONE_ARM64_SUPPORT
+-- Configuring done (3.0s)
+-- Generating done (0.8s)
+-- Build files have been written to: /home/emeric/code/jak-lighting-baseline/build
+[0/4] Re-checking globbed directories...
+[1/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/amigaos.c.o
+[2/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/asyn-ares.c.o
+[3/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/base64.c.o
+[4/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/asyn-thread.c.o
+[5/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/altsvc.c.o
+[6/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/bufref.c.o
+[7/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/c-hyper.c.o
+[8/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/cf-h2-proxy.c.o
+[9/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/bufq.c.o
+[10/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/cf-haproxy.c.o
+[11/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/cf-https-connect.c.o
+[12/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/cf-h1-proxy.c.o
+[13/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/conncache.c.o
+[14/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/cfilters.c.o
+[15/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/cf-socket.c.o
+[16/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/content_encoding.c.o
+[17/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_addrinfo.c.o
+[18/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_des.c.o
+[19/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_endian.c.o
+[20/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/connect.c.o
+In file included from /home/emeric/code/jak-lighting-baseline/third-party/curl/lib/sendf.h:29,
+                 from /home/emeric/code/jak-lighting-baseline/third-party/curl/lib/connect.c:57:
+In function ‘is_connected’,
+    inlined from ‘cf_he_connect’ at /home/emeric/code/jak-lighting-baseline/third-party/curl/lib/connect.c:906:16:
+/home/emeric/code/jak-lighting-baseline/third-party/curl/lib/connect.c:695:27: warning: ‘%s’ directive argument is null [-Wformat-overflow=]
+  695 |     CURL_TRC_CF(data, cf, "%s assess started=%d, result=%d",
+      |                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/third-party/curl/lib/curl_trc.h:123:38: note: in definition of macro ‘CURL_TRC_CF’
+  123 |          Curl_trc_cf_infof(data, cf, __VA_ARGS__); } while(0)
+      |                                      ^~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/third-party/curl/lib/connect.c: In function ‘cf_he_connect’:
+/home/emeric/code/jak-lighting-baseline/third-party/curl/lib/connect.c:695:28: note: format string is defined here
+  695 |     CURL_TRC_CF(data, cf, "%s assess started=%d, result=%d",
+      |                            ^~
+[21/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_get_line.c.o
+[22/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_fnmatch.c.o
+[23/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_gethostname.c.o
+[24/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_gssapi.c.o
+[25/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_memrchr.c.o
+[26/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_multibyte.c.o
+[27/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_ntlm_wb.c.o
+[28/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/cookie.c.o
+[29/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_path.c.o
+[30/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_rtmp.c.o
+[31/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_range.c.o
+[32/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_sspi.c.o
+[33/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_threads.c.o
+[34/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_ntlm_core.c.o
+[35/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_sasl.c.o
+[36/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/curl_trc.c.o
+[37/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/dict.c.o
+[38/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/dynbuf.c.o
+[39/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/dynhds.c.o
+[40/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/easygetopt.c.o
+[41/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/easyoptions.c.o
+[42/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/easy.c.o
+[43/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/escape.c.o
+[44/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/doh.c.o
+[45/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/fileinfo.c.o
+[46/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/fopen.c.o
+[47/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/file.c.o
+[48/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/formdata.c.o
+[49/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/ftplistparser.c.o
+[50/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/getenv.c.o
+[51/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/gopher.c.o
+[52/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/getinfo.c.o
+[53/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/hash.c.o
+[54/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/headers.c.o
+[55/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/hmac.c.o
+[56/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/hostasyn.c.o
+[57/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/hostip4.c.o
+[58/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/hostip6.c.o
+[59/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/hostsyn.c.o
+[60/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/hostip.c.o
+[61/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/ftp.c.o
+[62/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/hsts.c.o
+[63/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http2.c.o
+[64/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http1.c.o
+[65/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http_chunks.c.o
+[66/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http_negotiate.c.o
+[67/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http_digest.c.o
+[68/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http_proxy.c.o
+[69/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http_ntlm.c.o
+[70/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/idn.c.o
+[71/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/if2ip.c.o
+[72/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http_aws_sigv4.c.o
+[73/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/inet_ntop.c.o
+[74/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/inet_pton.c.o
+[75/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/krb5.c.o
+[76/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/ldap.c.o
+[77/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/llist.c.o
+[78/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/macos.c.o
+[79/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/imap.c.o
+[80/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/md4.c.o
+[81/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/http.c.o
+[82/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/memdebug.c.o
+[83/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/md5.c.o
+[84/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/mqtt.c.o
+[85/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/mime.c.o
+[86/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/netrc.c.o
+[87/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/nonblock.c.o
+[88/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/noproxy.c.o
+[89/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/mprintf.c.o
+[90/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/openldap.c.o
+[91/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/parsedate.c.o
+[92/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/pingpong.c.o
+[93/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/multi.c.o
+[94/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/progress.c.o
+[95/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/psl.c.o
+[96/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/rename.c.o
+[97/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/rand.c.o
+[98/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/pop3.c.o
+[99/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/select.c.o
+[100/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/sendf.c.o
+[101/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/rtsp.c.o
+[102/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/sha256.c.o
+[103/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/share.c.o
+[104/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/slist.c.o
+[105/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/smb.c.o
+[106/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/socketpair.c.o
+[107/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/smtp.c.o
+[108/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/socks_gssapi.c.o
+[109/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/socks_sspi.c.o
+[110/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/speedcheck.c.o
+[111/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/splay.c.o
+[112/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/socks.c.o
+[113/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/strdup.c.o
+[114/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/strcase.c.o
+[115/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/strtok.c.o
+[116/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/strerror.c.o
+[117/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/setopt.c.o
+[118/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/strtoofft.c.o
+[119/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/system_win32.c.o
+[120/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/timediff.c.o
+[121/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/timeval.c.o
+[122/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/tftp.c.o
+[123/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/telnet.c.o
+[124/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/transfer.c.o
+[125/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/version.c.o
+[126/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/version_win32.c.o
+[127/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/warnless.c.o
+[128/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/ws.c.o
+[129/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/cleartext.c.o
+[130/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/cram.c.o
+[131/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/urlapi.c.o
+[132/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/digest_sspi.c.o
+[133/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/gsasl.c.o
+[134/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/krb5_gssapi.c.o
+[135/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/krb5_sspi.c.o
+[136/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/digest.c.o
+[137/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/ntlm_sspi.c.o
+[138/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/url.c.o
+[139/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/spnego_gssapi.c.o
+[140/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/oauth2.c.o
+[141/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/ntlm.c.o
+[142/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/spnego_sspi.c.o
+[143/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/gtls.c.o
+[144/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/bearssl.c.o
+[145/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vauth/vauth.c.o
+[146/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/mbedtls.c.o
+[147/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/hostcheck.c.o
+[148/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/mbedtls_threadlock.c.o
+[149/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/keylog.c.o
+[150/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/rustls.c.o
+[151/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/schannel.c.o
+[152/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/schannel_verify.c.o
+[153/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/sectransp.c.o
+[154/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/wolfssl.c.o
+[155/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/x509asn1.c.o
+[156/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vquic/curl_msh3.c.o
+[157/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vquic/curl_ngtcp2.c.o
+[158/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vquic/curl_quiche.c.o
+[159/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vquic/vquic.c.o
+[160/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vssh/libssh.c.o
+[161/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vssh/libssh2.c.o
+[162/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vssh/wolfssh.c.o
+[163/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/vtls.c.o
+[164/177] cd /home/emeric/code/jak-lighting-baseline/build/third-party/discord-rpc && /usr/bin/clang-format -i -style=file -fallback-style=none /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/include/discord_register.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/include/discord_rpc.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/backoff.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection_unix.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection_win.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_register_linux.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_register_win.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_rpc.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/dllmain.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/msg_queue.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/rpc_connection.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/rpc_connection.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/serialization.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/serialization.h
+[165/177] Building C object third-party/curl/lib/CMakeFiles/libcurl_shared.dir/vtls/openssl.c.o
+[166/177] Linking C shared library third-party/curl/lib/libcurl.so.4.8.0
+[167/177] Creating library symlink third-party/curl/lib/libcurl.so.4 third-party/curl/lib/libcurl.so
+[168/177] Building CXX object common/CMakeFiles/common.dir/versions/versions.cpp.o
+[169/177] Linking CXX shared library common/libcommon.so
+[170/177] Building CXX object game/CMakeFiles/runtime.dir/system/baseline_pc_compat.cpp.o
+[171/177] Building CXX object game/CMakeFiles/runtime.dir/graphics/refset.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp: In lambda function:
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:1851:23: warning: passing ‘bool’ chooses ‘int’ over ‘unsigned int’ [-Wsign-promo]
+ 1851 |     add(std::to_string(tune.set));
+      |         ~~~~~~~~~~~~~~^~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:1851:23: warning:   in call to ‘std::string std::__cxx11::to_string(int)’ [-Wsign-promo]
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp: In function ‘bool refset::enabled()’:
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2157:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 2157 |       const long v = std::strtol(av, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2086:8: note: shadowed declaration is here
+ 2086 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2166:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 2166 |       const long v = std::strtol(sv, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2086:8: note: shadowed declaration is here
+ 2086 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2301:34: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 2301 |         int a = 0, b = 0, c = 0, d = 0;
+      |                                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2136:8: note: shadowed declaration is here
+ 2136 |   char d[512] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2314:27: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 2314 |         int p = 0, y = 0, d = 0, h = 0;
+      |                           ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2136:8: note: shadowed declaration is here
+ 2136 |   char d[512] = {0};
+      |        ^
+[172/177] Building CXX object game/CMakeFiles/runtime.dir/kernel/common/kmachine.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘void pc_set_axis_scale(u32)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:1033:70: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1033 |     Display::GetMainDisplay()->get_input_manager()->set_axis_scale(*((float*)&val));
+      |                                                                     ~^~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘u32 pc_get_axis_scale()’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:1043:12: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+ 1043 |   return *((u32*)&out);
+      |           ~^~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘u64 CPadGetData(u64)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:230:19: warning: this statement may fall through [-Wimplicit-fallthrough=]
+  230 |       cpad->state = 41;
+      |       ~~~~~~~~~~~~^~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:231:5: note: here
+  231 |     case 41:  // controller mode - change to dualshock mode!
+      |     ^~~~
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:11:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘u64 pc_get_display_name(u32, u32)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:664:9: warning: ‘char* strcpy(char*, const char*)’ offset 0 is out of the bounds [0, 0] [-Warray-bounds=]
+  664 |   strcpy(Ptr<String>(str_dest_ptr).c()->data(), encoded_name.c_str());
+      |   ~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp: In function ‘u64 pc_get_controller_name(u32, u32)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/common/kmachine.cpp:860:9: warning: ‘char* strcpy(char*, const char*)’ offset 0 is out of the bounds [0, 0] [-Warray-bounds=]
+  860 |   strcpy(Ptr<String>(str_dest_ptr).c()->data(), encoded_name.c_str());
+      |   ~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[173/177] Linking CXX static library game/libruntime.a
+[174/177] Linking CXX executable game/gk
+[npc-flicker] garde OK — 47 proprietes tenues

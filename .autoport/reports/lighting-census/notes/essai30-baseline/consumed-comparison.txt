@@ -1,0 +1,8 @@
+baseline: consumed=2139 categories={'fr3': 4, 'iso': 756, 'object': 486, 'shader': 106, 'texture-base': 787} file_sha256=008a9a9d63a2622891e889576dc33ecc7570ffa879e4756291b9ef258e8d67f2 checkpoints=0
+candidate: consumed=2140 categories={'fr3': 4, 'iso': 755, 'object': 486, 'shader': 108, 'texture-base': 787} file_sha256=26c7dda2b10736e6b13f5b11236735307cc2b01ff3530fa6cd945465e35f25a2 checkpoints=0
+fr3: baseline=4 candidate=4 common=4 baseline_only=0 candidate_only=0
+iso: baseline=756 candidate=755 common=755 baseline_only=1 candidate_only=0
+object: baseline=486 candidate=486 common=486 baseline_only=0 candidate_only=0
+shader: baseline=106 candidate=108 common=95 baseline_only=11 candidate_only=13
+texture-base: baseline=787 candidate=787 common=787 baseline_only=0 candidate_only=0
+No capture checkpoint exists: final cumulative sets do not attest the same consumed frame/state.

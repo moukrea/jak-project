@@ -1,0 +1,4 @@
+[proof_run lighting-census] x86 : build/game/gk pendant 60s (armed=1)
+/home/emeric/code/jak-project/.autoport/lib/proof_run.sh: line 291: 3101109 Segmentation fault         stdbuf -oL -eL timeout -k 5 "$TIMEOUT" "$BIN" --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso -- -boot -debug-mem > "$RAWLOG" 2>&1
+[proof_run lighting-census] gk est sorti en 139
+[proof_run lighting-census] ecrit .autoport/reports/lighting-census/proof.txt (frames=1603 crash=1 duree=46s) ; sortie moteur : .autoport/reports/lighting-census/proof-engine.log

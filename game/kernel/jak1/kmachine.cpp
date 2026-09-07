@@ -5872,7 +5872,52 @@ static void boot_replay_pre_play() {
   }
 }
 
+// Independent of the sealed bootstrap stream: observe live state on the host stack.
+// Never append checkpoints here, including after the before-play boundary.
+static std::string refset_loaded_symbol(u32 symbol) {
+  if (!symbol) return "<null>";
+  if (symbol == s7.offset) return "#f";
+  boot_replay_range(symbol, 4);
+  const u32 string = boot_replay_read<u32>(symbol + jak1::SYM_INFO_OFFSET + 4);
+  const u32 length = boot_replay_read<u32>(string);
+  if (length > 255) {
+    std::fprintf(stderr, "REFSET loaded-state invalid symbol length=%u\n", length);
+    std::exit(EXIT_FAILURE);
+  }
+  boot_replay_range(string, 4 + length + 1);
+  return std::string(reinterpret_cast<const char*>(g_ee_main_mem + string + 4), length);
+}
+
+static void refset_loaded_after_dispatch() {
+  // Do not intern symbols or initialize refset during the recorded bootstrap.
+  // fingerprint() is passive and remains zero until the stream has been sealed.
+  if (!refset::requires_loaded_state() || !boot_replay::fingerprint()) return;
+  std::vector<refset::LoadedLevelState> levels;
+  const u32 group = intern_from_c("*level*")->value;
+  if (group && group != s7.offset) {
+    const s32 count = boot_replay_read<s32>(group);
+    if (count < 0 || count > 3) {
+      std::fprintf(stderr, "REFSET loaded-state invalid level count=%d\n", count);
+      std::exit(EXIT_FAILURE);
+    }
+    boot_replay_range(group, 96 + size_t(count) * 2608);
+    for (s32 i = 0; i < count; ++i) {
+      const u32 level = group + 96 + i * 2608;
+      levels.push_back({refset_loaded_symbol(boot_replay_read<u32>(level)),
+                        refset_loaded_symbol(boot_replay_read<u32>(level + 16))});
+    }
+  }
+  const u32 target = intern_from_c("*target*")->value;
+  const bool present = target && target != s7.offset;
+  if (present) boot_replay_range(target, 4);
+  const u32 goal_true = intern_from_c("#t").offset;
+  refset::note_loaded_state(refset::current_logic_frame(), present,
+                           intern_from_c("*spawn-actors*")->value == goal_true,
+                           intern_from_c("*actors-sweep-complete*")->value == goal_true, levels);
+}
+
 void boot_replay_after_dispatch() {
+  refset_loaded_after_dispatch();
   if (!s_boot_replay_first_dispatch || !boot_replay::active()) {
     return;
   }
