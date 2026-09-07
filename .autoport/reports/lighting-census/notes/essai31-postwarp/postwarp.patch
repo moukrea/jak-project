@@ -1,0 +1,234 @@
+diff --git a/game/graphics/refset.cpp b/game/graphics/refset.cpp
+index b55d63e58d..658480f690 100644
+--- a/game/graphics/refset.cpp
++++ b/game/graphics/refset.cpp
+@@ -48,6 +48,10 @@ constexpr size_t kLoadedSnapshotWindow = 8;
+ std::vector<LoadedSnapshot> g_loaded_snapshots;
+ std::vector<std::string> g_initial_levels;
+ std::string g_initial_display;
++std::string g_initial_levels_spec;
++std::string g_initial_display_spec;
++LoadRestoreRequest g_load_restore;
++bool g_load_restore_pending = false;
+ 
+ // ── le plan ─────────────────────────────────────────────────────────────────────────────────
+ // TROIS jeux x huit creneaux horaires. Les huit heures sont les huit creneaux de
+@@ -1821,9 +1825,11 @@ uint64_t census_config_fingerprint() {
+     h = (h ^ 0xff) * 1099511628211ull;
+   };
+   if (g_require_loaded) {
+-    add("require-loaded-state-v1");
++    add("require-loaded-state-restore-plus2-v2");
+     for (const auto& level : g_initial_levels) add(level);
+     add(g_initial_display);
++    add(g_initial_levels_spec);
++    add(g_initial_display_spec);
+   }
+   // Preserve the historical identity when bootstrap replay is absent. A sealed
+   // stream instead separates both sidecars and ledger rows by the consumed state.
+@@ -2100,6 +2106,7 @@ bool enabled() {
+   if (g_require_loaded) {
+     char requested[256] = {};
+     if (read_knob("OG_WANT_LEVELS", "debug.opengoal.want.levels", requested, sizeof(requested))) {
++      g_initial_levels_spec = requested;
+       std::string names = requested;
+       size_t begin = 0;
+       do {
+@@ -2111,7 +2118,8 @@ bool enabled() {
+       } while (begin < names.size());
+     }
+     if (read_knob("OG_WANT_DISPLAY", "debug.opengoal.want.display", requested, sizeof(requested))) {
+-      g_initial_display = std::string(requested).substr(0, std::string(requested).find(','));
++      g_initial_display_spec = requested;
++      g_initial_display = g_initial_display_spec.substr(0, g_initial_display_spec.find(','));
+     }
+   }
+   // lighting-hdr : SUR ANDROID, LE DEFAUT DOIT ETRE ABSOLU, et ce n'est pas une preference.
+@@ -2475,6 +2483,22 @@ int64_t render_logic_frame() {
+ #endif
+ }
+ 
++bool take_load_restore(int64_t frame, LoadRestoreRequest& request) {
++  std::lock_guard<std::mutex> lock(g_mutex);
++  if (!g_load_restore_pending || frame < g_load_restore.due_lf) return false;
++  if (frame > g_load_restore.due_lf) {
++    std::fprintf(stderr, "REFSET restore-load FAIL reason=missed-deadline case=%zu "
++                         "anchor_lf=%lld due_lf=%lld observed_lf=%lld\n",
++                 g_load_restore.case_index, (long long)g_load_restore.anchor_lf,
++                 (long long)g_load_restore.due_lf, (long long)frame);
++    std::fflush(nullptr);
++    std::_Exit(EXIT_FAILURE);
++  }
++  request = g_load_restore;
++  g_load_restore_pending = false;
++  return true;
++}
++
+ void note_anchor() {
+   if (!enabled()) {
+     return;
+@@ -2515,6 +2539,13 @@ void note_anchor() {
+       g_vant_base = lf;
+     }
+     g_cap = kCapArmed;
++    if (g_require_loaded && g_cur < g_steps.size() && first_step_of_vant(g_cur) == 0 &&
++        (!g_initial_levels_spec.empty() || !g_initial_display_spec.empty())) {
++      // target-death suspends before resetting *load-state*. Reapply only after
++      // that reset, on the fixed second frame following this final warp.
++      g_load_restore = {g_initial_levels_spec, g_initial_display_spec, lf, lf + 2, g_cur};
++      g_load_restore_pending = true;
++    }
+   }
+ }
+ 
+diff --git a/game/graphics/refset.h b/game/graphics/refset.h
+index b27dd70ccd..bccb7ff3a3 100644
+--- a/game/graphics/refset.h
++++ b/game/graphics/refset.h
+@@ -88,6 +88,7 @@
+ // re-teleport de l'etape 0 a lieu, celui qui supprime la dependance au chemin de chargement.
+ // Les instants des 23 autres photos se DEDUISENT de l'ancre du plan.
+ 
++#include <cstddef>
+ #include <cstdint>
+ #include <string>
+ #include <vector>
+@@ -107,6 +108,17 @@ struct LoadedLevelState {
+   std::string name;
+   std::string status;
+ };
++// GOAL thread: the final warp queues the initial load commands at anchor + 2.
++// take returns false before the fixed deadline, and fails if it was missed.
++struct LoadRestoreRequest {
++  std::string levels_spec;
++  std::string display_spec;
++  int64_t anchor_lf = -1;
++  int64_t due_lf = -1;
++  std::size_t case_index = 0;
++};
++bool take_load_restore(int64_t frame, LoadRestoreRequest& request);
++
+ bool requires_loaded_state();
+ void note_loaded_state(int64_t frame, bool target, bool spawn, bool sweep,
+                        const std::vector<LoadedLevelState>& levels);
+diff --git a/game/kernel/jak1/kmachine.cpp b/game/kernel/jak1/kmachine.cpp
+index 7c5556b1de..9ae70f23fd 100644
+--- a/game/kernel/jak1/kmachine.cpp
++++ b/game/kernel/jak1/kmachine.cpp
+@@ -5888,6 +5888,8 @@ static std::string refset_loaded_symbol(u32 symbol) {
+   return std::string(reinterpret_cast<const char*>(g_ee_main_mem + string + 4), length);
+ }
+ 
++static void refset_load_restore_after_dispatch();
++
+ static void refset_loaded_after_dispatch() {
+   // Do not intern symbols or initialize refset during the recorded bootstrap.
+   // fingerprint() is passive and remains zero until the stream has been sealed.
+@@ -5914,6 +5916,7 @@ static void refset_loaded_after_dispatch() {
+   refset::note_loaded_state(refset::current_logic_frame(), present,
+                            intern_from_c("*spawn-actors*")->value == goal_true,
+                            intern_from_c("*actors-sweep-complete*")->value == goal_true, levels);
++  refset_load_restore_after_dispatch();
+ }
+ 
+ void boot_replay_after_dispatch() {
+@@ -7059,6 +7062,99 @@ static u64 want_display_run() {
+   return 0;
+ }
+ 
++static refset::LoadRestoreRequest s_refset_load_restore;
++static bool s_refset_load_restore_armed = false;
++static u64 s_refset_load_restores = 0;
++static int64_t s_refset_load_restore_lf = 0;
++
++[[noreturn]] static void refset_load_restore_fail(const char* reason) {
++  std::fprintf(stderr, "REFSET restore-load FAIL reason=%s case=%zu anchor_lf=%lld "
++                       "due_lf=%lld observed_lf=%lld\n",
++               reason, s_refset_load_restore.case_index,
++               (long long)s_refset_load_restore.anchor_lf,
++               (long long)s_refset_load_restore.due_lf,
++               (long long)refset::current_logic_frame());
++  std::fflush(nullptr);
++  std::_Exit(EXIT_FAILURE);
++}
++
++static u64 refset_load_restore_run() {
++  const auto& request = s_refset_load_restore;
++  const int64_t lf = refset::current_logic_frame();
++  if (!s_refset_load_restore_armed || lf != request.due_lf) {
++    refset_load_restore_fail("execution-deadline");
++  }
++  const auto& levels = request.levels_spec;
++  const auto& display = request.display_spec;
++  // Validate BOTH commands before executing either: the existing debug helpers
++  // otherwise return normally for an unbound function or a malformed command.
++  if (levels.size() >= sizeof(s_want_levels_spec) ||
++      display.size() >= sizeof(s_want_display_spec)) {
++    refset_load_restore_fail("spec-too-long");
++  }
++  if (!levels.empty()) {
++    const size_t comma = levels.find(',');
++    if (comma == std::string::npos || comma == 0 || comma + 1 == levels.size() ||
++        levels.find(',', comma + 1) != std::string::npos) {
++      refset_load_restore_fail("need-two-levels");
++    }
++    const u32 fn = intern_from_c("load-state-want-levels")->value;
++    if (!fn || fn == s7.offset) refset_load_restore_fail("levels-function-unbound");
++  }
++  if (!display.empty()) {
++    const size_t comma = display.find(',');
++    if (comma != std::string::npos &&
++        (comma == 0 || comma + 1 == display.size() ||
++         display.find(',', comma + 1) != std::string::npos)) {
++      refset_load_restore_fail("invalid-display-spec");
++    }
++    const u32 fn = intern_from_c("load-state-want-display-level")->value;
++    if (!fn || fn == s7.offset) refset_load_restore_fail("display-function-unbound");
++  }
++  char saved_levels[sizeof(s_want_levels_spec)];
++  char saved_display[sizeof(s_want_display_spec)];
++  std::memcpy(saved_levels, s_want_levels_spec, sizeof(saved_levels));
++  std::memcpy(saved_display, s_want_display_spec, sizeof(saved_display));
++  if (!levels.empty()) {
++    std::memcpy(s_want_levels_spec, levels.c_str(), levels.size() + 1);
++    want_levels_run();
++  }
++  if (!display.empty()) {
++    std::memcpy(s_want_display_spec, display.c_str(), display.size() + 1);
++    want_display_run();
++  }
++  std::memcpy(s_want_levels_spec, saved_levels, sizeof(saved_levels));
++  std::memcpy(s_want_display_spec, saved_display, sizeof(saved_display));
++  s_refset_load_restore_armed = false;
++  ++s_refset_load_restores;
++  s_refset_load_restore_lf = lf;
++  autoport_proof::publish("refset_load_restores", s_refset_load_restores);
++  autoport_proof::publish("refset_load_restore_lf", (u64)lf);
++  std::printf("REFSET restore-load case=%zu anchor_lf=%lld due_lf=%lld executed_lf=%lld "
++              "levels=%s display=%s\n",
++              request.case_index, (long long)request.anchor_lf, (long long)request.due_lf,
++              (long long)lf, levels.c_str(), display.c_str());
++  std::fflush(stdout);
++  return 0;
++}
++
++static void refset_load_restore_after_dispatch() {
++  autoport_proof::publish("refset_load_restores", s_refset_load_restores);
++  autoport_proof::publish("refset_load_restore_lf", (u64)s_refset_load_restore_lf);
++  const int64_t lf = refset::current_logic_frame();
++  if (s_refset_load_restore_armed) {
++    // A displaced listener must fail even if its runner never gets called.
++    if (lf > s_refset_load_restore.due_lf) refset_load_restore_fail("listener-not-executed");
++    return;
++  }
++  if (!refset::take_load_restore(lf, s_refset_load_restore)) return;
++  if (ListenerFunction->value != s7.offset && ListenerFunction->value != 0) {
++    refset_load_restore_fail("listener-occupied");
++  }
++  s_refset_load_restore_armed = true;
++  ListenerFunction->value = make_function_from_c((void*)refset_load_restore_run, false).offset;
++}
++
+ static void want_hook_maybe(const char* env,
+                             const char* prop,
+                             char* spec,

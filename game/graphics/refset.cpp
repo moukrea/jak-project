@@ -48,6 +48,10 @@ constexpr size_t kLoadedSnapshotWindow = 8;
 std::vector<LoadedSnapshot> g_loaded_snapshots;
 std::vector<std::string> g_initial_levels;
 std::string g_initial_display;
+std::string g_initial_levels_spec;
+std::string g_initial_display_spec;
+LoadRestoreRequest g_load_restore;
+bool g_load_restore_pending = false;
 
 // ── le plan ─────────────────────────────────────────────────────────────────────────────────
 // TROIS jeux x huit creneaux horaires. Les huit heures sont les huit creneaux de
@@ -1821,9 +1825,11 @@ uint64_t census_config_fingerprint() {
     h = (h ^ 0xff) * 1099511628211ull;
   };
   if (g_require_loaded) {
-    add("require-loaded-state-v1");
+    add("require-loaded-state-restore-plus2-v2");
     for (const auto& level : g_initial_levels) add(level);
     add(g_initial_display);
+    add(g_initial_levels_spec);
+    add(g_initial_display_spec);
   }
   // Preserve the historical identity when bootstrap replay is absent. A sealed
   // stream instead separates both sidecars and ledger rows by the consumed state.
@@ -2100,6 +2106,7 @@ bool enabled() {
   if (g_require_loaded) {
     char requested[256] = {};
     if (read_knob("OG_WANT_LEVELS", "debug.opengoal.want.levels", requested, sizeof(requested))) {
+      g_initial_levels_spec = requested;
       std::string names = requested;
       size_t begin = 0;
       do {
@@ -2111,7 +2118,8 @@ bool enabled() {
       } while (begin < names.size());
     }
     if (read_knob("OG_WANT_DISPLAY", "debug.opengoal.want.display", requested, sizeof(requested))) {
-      g_initial_display = std::string(requested).substr(0, std::string(requested).find(','));
+      g_initial_display_spec = requested;
+      g_initial_display = g_initial_display_spec.substr(0, g_initial_display_spec.find(','));
     }
   }
   // lighting-hdr : SUR ANDROID, LE DEFAUT DOIT ETRE ABSOLU, et ce n'est pas une preference.
@@ -2475,6 +2483,22 @@ int64_t render_logic_frame() {
 #endif
 }
 
+bool take_load_restore(int64_t frame, LoadRestoreRequest& request) {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (!g_load_restore_pending || frame < g_load_restore.due_lf) return false;
+  if (frame > g_load_restore.due_lf) {
+    std::fprintf(stderr, "REFSET restore-load FAIL reason=missed-deadline case=%zu "
+                         "anchor_lf=%lld due_lf=%lld observed_lf=%lld\n",
+                 g_load_restore.case_index, (long long)g_load_restore.anchor_lf,
+                 (long long)g_load_restore.due_lf, (long long)frame);
+    std::fflush(nullptr);
+    std::_Exit(EXIT_FAILURE);
+  }
+  request = g_load_restore;
+  g_load_restore_pending = false;
+  return true;
+}
+
 void note_anchor() {
   if (!enabled()) {
     return;
@@ -2515,6 +2539,13 @@ void note_anchor() {
       g_vant_base = lf;
     }
     g_cap = kCapArmed;
+    if (g_require_loaded && g_cur < g_steps.size() && first_step_of_vant(g_cur) == 0 &&
+        (!g_initial_levels_spec.empty() || !g_initial_display_spec.empty())) {
+      // target-death suspends before resetting *load-state*. Reapply only after
+      // that reset, on the fixed second frame following this final warp.
+      g_load_restore = {g_initial_levels_spec, g_initial_display_spec, lf, lf + 2, g_cur};
+      g_load_restore_pending = true;
+    }
   }
 }
 

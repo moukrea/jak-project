@@ -1,0 +1,13 @@
+REFSET provenance-init version=2 data=56f0364a8789c816 input=f97b073c2df76fb4 input_source=loaded-replay actor_rng_state=not-restored-by-sidecars
+BOOTREPLAY actors-sweep dispatch=10 target-pid=12
+BOOTREPLAY finish mode=replay tag=finish index=5880 count=5880 fingerprint=79fb964dc17507ec
+REFSET start lf=900 warp1=600 settle=180
+[58:45:512] [info] [WANT-LEVELS] armed *listener-function* for spec 'village1,beach'
+WANT-LEVELS lev1=village1 lev2=beach -> #x0
+[59:00:512] [info] [WANT-DISPLAY] armed *listener-function* for spec 'beach,display'
+WANT-DISPLAY lev=beach sym=display -> #x0
+WANT-LEVELS lev1=village1 lev2=beach -> #x0
+WANT-DISPLAY lev=beach sym=display -> #x0
+REFSET restore-load case=0 anchor_lf=2102 due_lf=2104 executed_lf=2104 levels=village1,beach display=beach,display
+REFSET sample case=origine/h00 layer=historical chain_lf=2282 anchor_lf=2102
+REFSET done steps=1 captured=1 compared=0 maxdiff=0 diffpx=0 missing=0 slip=0..0 rewarps=2 settle=180

@@ -1,0 +1,93 @@
+[0/2] Re-checking globbed directories...
+[1/9] cd /home/emeric/code/jak-lighting-baseline/build/third-party/discord-rpc && /usr/bin/clang-format -i -style=file -fallback-style=none /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/include/discord_register.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/include/discord_rpc.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/backoff.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection_unix.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/connection_win.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_register_linux.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_register_win.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/discord_rpc.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/dllmain.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/msg_queue.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/rpc_connection.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/rpc_connection.h /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/serialization.cpp /home/emeric/code/jak-lighting-baseline/third-party/discord-rpc/src/serialization.h
+[2/9] Building CXX object game/CMakeFiles/runtime.dir/graphics/render_pace.cpp.o
+[3/9] Building CXX object game/CMakeFiles/runtime.dir/graphics/refset.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp: In lambda function:
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:1857:23: warning: passing ‘bool’ chooses ‘int’ over ‘unsigned int’ [-Wsign-promo]
+ 1857 |     add(std::to_string(tune.set));
+      |         ~~~~~~~~~~~~~~^~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:1857:23: warning:   in call to ‘std::string std::__cxx11::to_string(int)’ [-Wsign-promo]
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp: In function ‘bool refset::enabled()’:
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2165:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 2165 |       const long v = std::strtol(av, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2092:8: note: shadowed declaration is here
+ 2092 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2174:18: warning: declaration of ‘v’ shadows a previous local [-Wshadow]
+ 2174 |       const long v = std::strtol(sv, nullptr, 10);
+      |                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2092:8: note: shadowed declaration is here
+ 2092 |   char v[32] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2309:34: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 2309 |         int a = 0, b = 0, c = 0, d = 0;
+      |                                  ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2144:8: note: shadowed declaration is here
+ 2144 |   char d[512] = {0};
+      |        ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2322:27: warning: declaration of ‘d’ shadows a previous local [-Wshadow]
+ 2322 |         int p = 0, y = 0, d = 0, h = 0;
+      |                           ^
+/home/emeric/code/jak-lighting-baseline/game/graphics/refset.cpp:2144:8: note: shadowed declaration is here
+ 2144 |   char d[512] = {0};
+      |        ^
+[4/9] Building CXX object game/CMakeFiles/runtime.dir/graphics/pipelines/opengl.cpp.o
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp: In constructor ‘GraphicsData::GraphicsData(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:211:28: warning: declaration of ‘version’ shadows a member of ‘GraphicsData’ [-Wshadow]
+  211 |   GraphicsData(GameVersion version)
+      |                ~~~~~~~~~~~~^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:209:15: note: shadowed declaration is here
+  209 |   GameVersion version;
+      |               ^~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp: In lambda function:
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:492:83: warning: declaration of ‘err’ shadows a previous local [-Wshadow]
+  492 |   auto compile_shader = [](GLenum type, const char* src, GLint& compile_ok, char* err) -> GLuint {
+      |                                                                             ~~~~~~^~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:490:8: note: shadowed declaration is here
+  490 |   char err[len];
+      |        ^~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:492:65: warning: declaration of ‘compile_ok’ shadows a previous local [-Wshadow]
+  492 |   auto compile_shader = [](GLenum type, const char* src, GLint& compile_ok, char* err) -> GLuint {
+      |                                                          ~~~~~~~^~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/graphics/pipelines/opengl.cpp:489:9: note: shadowed declaration is here
+  489 |   GLint compile_ok;
+      |         ^~~~~~~~~~
+[5/9] Building CXX object game/CMakeFiles/runtime.dir/graphics/opengl_renderer/OpenGLRenderer.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/graphics/opengl_renderer/OpenGLRenderer.cpp:12:
+/home/emeric/code/jak-lighting-baseline/./common/util/rss_census.h: In function ‘void rss_census::mark(const char*)’:
+/home/emeric/code/jak-lighting-baseline/./common/util/rss_census.h:115:34: warning: ‘mallinfo mallinfo()’ is deprecated [-Wdeprecated-declarations]
+  115 |     struct mallinfo mi = mallinfo();
+      |                          ~~~~~~~~^~
+In file included from /home/emeric/code/jak-lighting-baseline/./common/util/rss_census.h:30:
+/usr/include/malloc.h:114:24: note: declared here
+  114 | extern struct mallinfo mallinfo (void) __THROW __MALLOC_DEPRECATED;
+      |                        ^~~~~~~~
+[6/9] Building CXX object game/CMakeFiles/runtime.dir/kernel/jak1/kmachine.cpp.o
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:58:
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:22:5: warning: redundant redeclaration of ‘u32 ReceiveToBuffer(char*)’ in same scope [-Wredundant-decls]
+   22 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/./game/kernel/common/ksocket.h:14:5: note: previous declaration of ‘u32 ReceiveToBuffer(char*)’
+   14 | u32 ReceiveToBuffer(char* buff);
+      |     ^~~~~~~~~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp: In function ‘u64 jak1::f1_warp_run()’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:6161:8: warning: unused variable ‘cont_buf’ [-Wunused-variable]
+ 6161 |   char cont_buf[128] = {0};
+      |        ^~~~~~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp: In function ‘bool jak1::want_prop_requested(const char*, const char*, char*, size_t)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:6955:62: warning: unused parameter ‘prop’ [-Wunused-parameter]
+ 6955 | static bool want_prop_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+      |                                                  ~~~~~~~~~~~~^~~~
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp: In function ‘bool jak1::phys_room_requested(const char*, const char*, char*, size_t)’:
+/home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:7232:62: warning: unused parameter ‘prop’ [-Wunused-parameter]
+ 7232 | static bool phys_room_requested(const char* env, const char* prop, char* out, size_t out_sz) {
+      |                                                  ~~~~~~~~~~~~^~~~
+In file included from /home/emeric/code/jak-lighting-baseline/game/kernel/jak1/kmachine.cpp:25:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h: In function ‘constexpr int true_symbol_offset(GameVersion)’:
+/home/emeric/code/jak-lighting-baseline/./common/symbols.h:514:1: warning: control reaches end of non-void function [-Wreturn-type]
+  514 | }
+      | ^
+[7/9] Linking CXX static library game/libruntime.a
+[8/9] Linking CXX executable game/gk
+[npc-flicker] garde OK — 47 proprietes tenues

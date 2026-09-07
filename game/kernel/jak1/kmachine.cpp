@@ -5888,6 +5888,8 @@ static std::string refset_loaded_symbol(u32 symbol) {
   return std::string(reinterpret_cast<const char*>(g_ee_main_mem + string + 4), length);
 }
 
+static void refset_load_restore_after_dispatch();
+
 static void refset_loaded_after_dispatch() {
   // Do not intern symbols or initialize refset during the recorded bootstrap.
   // fingerprint() is passive and remains zero until the stream has been sealed.
@@ -5914,6 +5916,7 @@ static void refset_loaded_after_dispatch() {
   refset::note_loaded_state(refset::current_logic_frame(), present,
                            intern_from_c("*spawn-actors*")->value == goal_true,
                            intern_from_c("*actors-sweep-complete*")->value == goal_true, levels);
+  refset_load_restore_after_dispatch();
 }
 
 void boot_replay_after_dispatch() {
@@ -7057,6 +7060,99 @@ static u64 want_display_run() {
   printf("WANT-DISPLAY lev=%s sym=%s -> #x%x\n", buf, sym, (u32)r);
   fflush(stdout);
   return 0;
+}
+
+static refset::LoadRestoreRequest s_refset_load_restore;
+static bool s_refset_load_restore_armed = false;
+static u64 s_refset_load_restores = 0;
+static int64_t s_refset_load_restore_lf = 0;
+
+[[noreturn]] static void refset_load_restore_fail(const char* reason) {
+  std::fprintf(stderr, "REFSET restore-load FAIL reason=%s case=%zu anchor_lf=%lld "
+                       "due_lf=%lld observed_lf=%lld\n",
+               reason, s_refset_load_restore.case_index,
+               (long long)s_refset_load_restore.anchor_lf,
+               (long long)s_refset_load_restore.due_lf,
+               (long long)refset::current_logic_frame());
+  std::fflush(nullptr);
+  std::_Exit(EXIT_FAILURE);
+}
+
+static u64 refset_load_restore_run() {
+  const auto& request = s_refset_load_restore;
+  const int64_t lf = refset::current_logic_frame();
+  if (!s_refset_load_restore_armed || lf != request.due_lf) {
+    refset_load_restore_fail("execution-deadline");
+  }
+  const auto& levels = request.levels_spec;
+  const auto& display = request.display_spec;
+  // Validate BOTH commands before executing either: the existing debug helpers
+  // otherwise return normally for an unbound function or a malformed command.
+  if (levels.size() >= sizeof(s_want_levels_spec) ||
+      display.size() >= sizeof(s_want_display_spec)) {
+    refset_load_restore_fail("spec-too-long");
+  }
+  if (!levels.empty()) {
+    const size_t comma = levels.find(',');
+    if (comma == std::string::npos || comma == 0 || comma + 1 == levels.size() ||
+        levels.find(',', comma + 1) != std::string::npos) {
+      refset_load_restore_fail("need-two-levels");
+    }
+    const u32 fn = intern_from_c("load-state-want-levels")->value;
+    if (!fn || fn == s7.offset) refset_load_restore_fail("levels-function-unbound");
+  }
+  if (!display.empty()) {
+    const size_t comma = display.find(',');
+    if (comma != std::string::npos &&
+        (comma == 0 || comma + 1 == display.size() ||
+         display.find(',', comma + 1) != std::string::npos)) {
+      refset_load_restore_fail("invalid-display-spec");
+    }
+    const u32 fn = intern_from_c("load-state-want-display-level")->value;
+    if (!fn || fn == s7.offset) refset_load_restore_fail("display-function-unbound");
+  }
+  char saved_levels[sizeof(s_want_levels_spec)];
+  char saved_display[sizeof(s_want_display_spec)];
+  std::memcpy(saved_levels, s_want_levels_spec, sizeof(saved_levels));
+  std::memcpy(saved_display, s_want_display_spec, sizeof(saved_display));
+  if (!levels.empty()) {
+    std::memcpy(s_want_levels_spec, levels.c_str(), levels.size() + 1);
+    want_levels_run();
+  }
+  if (!display.empty()) {
+    std::memcpy(s_want_display_spec, display.c_str(), display.size() + 1);
+    want_display_run();
+  }
+  std::memcpy(s_want_levels_spec, saved_levels, sizeof(saved_levels));
+  std::memcpy(s_want_display_spec, saved_display, sizeof(saved_display));
+  s_refset_load_restore_armed = false;
+  ++s_refset_load_restores;
+  s_refset_load_restore_lf = lf;
+  autoport_proof::publish("refset_load_restores", s_refset_load_restores);
+  autoport_proof::publish("refset_load_restore_lf", (u64)lf);
+  std::printf("REFSET restore-load case=%zu anchor_lf=%lld due_lf=%lld executed_lf=%lld "
+              "levels=%s display=%s\n",
+              request.case_index, (long long)request.anchor_lf, (long long)request.due_lf,
+              (long long)lf, levels.c_str(), display.c_str());
+  std::fflush(stdout);
+  return 0;
+}
+
+static void refset_load_restore_after_dispatch() {
+  autoport_proof::publish("refset_load_restores", s_refset_load_restores);
+  autoport_proof::publish("refset_load_restore_lf", (u64)s_refset_load_restore_lf);
+  const int64_t lf = refset::current_logic_frame();
+  if (s_refset_load_restore_armed) {
+    // A displaced listener must fail even if its runner never gets called.
+    if (lf > s_refset_load_restore.due_lf) refset_load_restore_fail("listener-not-executed");
+    return;
+  }
+  if (!refset::take_load_restore(lf, s_refset_load_restore)) return;
+  if (ListenerFunction->value != s7.offset && ListenerFunction->value != 0) {
+    refset_load_restore_fail("listener-occupied");
+  }
+  s_refset_load_restore_armed = true;
+  ListenerFunction->value = make_function_from_c((void*)refset_load_restore_run, false).offset;
 }
 
 static void want_hook_maybe(const char* env,

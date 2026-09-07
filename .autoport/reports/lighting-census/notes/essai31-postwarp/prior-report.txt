@@ -1,0 +1,26 @@
+Non validé : baseline isolée construite et bootstrap commun rejoué, mais le dernier retéléport désactive beach avant le prélèvement.
+DIRECTIVES v6fca51fe40
+Baseline a9ea15a69062a57335278db7680cd647df3c1e1d + adaptateur reproductible : notes/essai30-baseline/full-baseline.patch.
+31 fichiers adaptés dans /home/emeric/code/jak-lighting-baseline ; renderer pré-refonte et shaders historiques séparés de HEAD.
+Dix exports Jak1 réels et deux exports communs supplémentaires : ces derniers ont été identifiés dans le core du premier essai.
+Candidat : garde opt-in après bootstrap ; première attente fixe, état réel par frame, refus avant capture ; aucun seuil de rendu changé.
+Builds gk uniquement ; garde PNJ47 tenue. Le refus quitte désormais en code1 sans destruction concurrente des caches GL.
+Huit lignes du proof produit par proof_run.sh :
+source=x86
+sha=27a30abe4f7ccc99
+crash=1
+frames=2405
+refset_bootstrap_records=5880
+refset_bootstrap_fingerprint=79fb964dc17507ec
+refset_captured=0
+refset_loaded_ready=0
+Deux bras corrigés : bootstrap5880/79fb964dc17507ec ; refus capture LF2282/snapshot2282, beach=loaded alors que active est requis.
+Baseline2392frames/46s et candidat2405frames/47s : arrêts explicites1, aucun SIGSEGV sur ces deux courses corrigées.
+Le délai1200 place la première échéance après WANT-DISPLAY ; beach devient active puis le dernier retéléport la remet loaded.
+Manifestes : 4FR3,486objets,787textures identiques ; une plage ISO et les shaders diffèrent. Aucun checkpoint de capture.
+575 empreintes historiques conservées ; zéro nouveau prélèvement accepté, aucune adoption ni rejeu de l’archive.
+21 niveaux non comparés : training,village1,beach,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
+Draws/temps GPU conservés : light_census_classified0, residual0, lc_orig_un639394 ; GPU buckets7,8260ms,2277frames.
+Owner : aucun nouveau rendu HDR à juger ; les blancs HDR restent à corriger après qualification des comparaisons.
+non prouvé : état complet/config effective après dernier retéléport, qualification origine, trois modes/8heures/intérieurs/ciel, cinq rejeux exacts, HDR/SDR/Android.
+La porte refset_replay_maxdiff==0 n’est pas obtenue ; aucun champ de proof écrit à la main, generic inchangé réservé à l’orchestrateur.

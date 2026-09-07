@@ -88,6 +88,7 @@
 // re-teleport de l'etape 0 a lieu, celui qui supprime la dependance au chemin de chargement.
 // Les instants des 23 autres photos se DEDUISENT de l'ancre du plan.
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -107,6 +108,17 @@ struct LoadedLevelState {
   std::string name;
   std::string status;
 };
+// GOAL thread: the final warp queues the initial load commands at anchor + 2.
+// take returns false before the fixed deadline, and fails if it was missed.
+struct LoadRestoreRequest {
+  std::string levels_spec;
+  std::string display_spec;
+  int64_t anchor_lf = -1;
+  int64_t due_lf = -1;
+  std::size_t case_index = 0;
+};
+bool take_load_restore(int64_t frame, LoadRestoreRequest& request);
+
 bool requires_loaded_state();
 void note_loaded_state(int64_t frame, bool target, bool spawn, bool sweep,
                        const std::vector<LoadedLevelState>& levels);

@@ -1,26 +1,30 @@
-Non validé : baseline isolée construite et bootstrap commun rejoué, mais le dernier retéléport désactive beach avant le prélèvement.
+Le refus de chargement est corrigé sur origine/h00 dans les deux bras ; la qualification globale et la porte restent non obtenues.
 DIRECTIVES v6fca51fe40
-Baseline a9ea15a69062a57335278db7680cd647df3c1e1d + adaptateur reproductible : notes/essai30-baseline/full-baseline.patch.
-31 fichiers adaptés dans /home/emeric/code/jak-lighting-baseline ; renderer pré-refonte et shaders historiques séparés de HEAD.
-Dix exports Jak1 réels et deux exports communs supplémentaires : ces derniers ont été identifiés dans le core du premier essai.
-Candidat : garde opt-in après bootstrap ; première attente fixe, état réel par frame, refus avant capture ; aucun seuil de rendu changé.
-Builds gk uniquement ; garde PNJ47 tenue. Le refus quitte désormais en code1 sans destruction concurrente des caches GL.
+Trois fichiers C++ : rétablissement des demandes initiales niveaux puis display après le dernier retéléport, à ancre+2.
+Option REQUIRE_LOADED et premier vantage seulement ; retard/commande occupée refusés, gardes de capture conservées.
+Même delta appliqué à la baseline isolée a9ea15a69062a57335278db7680cd647df3c1e1d ; renderer et shaders historiques préservés.
+Patch complet reproductible : notes/essai31-postwarp/full-baseline.patch ; builds gk incrémentaux seuls, PNJ47 tenu dans les deux.
 Huit lignes du proof produit par proof_run.sh :
 source=x86
-sha=27a30abe4f7ccc99
-crash=1
-frames=2405
-refset_bootstrap_records=5880
-refset_bootstrap_fingerprint=79fb964dc17507ec
-refset_captured=0
-refset_loaded_ready=0
-Deux bras corrigés : bootstrap5880/79fb964dc17507ec ; refus capture LF2282/snapshot2282, beach=loaded alors que active est requis.
-Baseline2392frames/46s et candidat2405frames/47s : arrêts explicites1, aucun SIGSEGV sur ces deux courses corrigées.
-Le délai1200 place la première échéance après WANT-DISPLAY ; beach devient active puis le dernier retéléport la remet loaded.
-Manifestes : 4FR3,486objets,787textures identiques ; une plage ISO et les shaders diffèrent. Aucun checkpoint de capture.
-575 empreintes historiques conservées ; zéro nouveau prélèvement accepté, aucune adoption ni rejeu de l’archive.
-21 niveaux non comparés : training,village1,beach,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
-Draws/temps GPU conservés : light_census_classified0, residual0, lc_orig_un639394 ; GPU buckets7,8260ms,2277frames.
-Owner : aucun nouveau rendu HDR à juger ; les blancs HDR restent à corriger après qualification des comparaisons.
-non prouvé : état complet/config effective après dernier retéléport, qualification origine, trois modes/8heures/intérieurs/ciel, cinq rejeux exacts, HDR/SDR/Android.
-La porte refset_replay_maxdiff==0 n’est pas obtenue ; aucun champ de proof écrit à la main, generic inchangé réservé à l’orchestrateur.
+sha=bfdc96edc613e5f6
+crash=0
+frames=4182
+refset_load_restore_lf=2104
+refset_load_restores=1
+refset_loaded_ready=1
+refset_captured=1
+Deux runs x86 de75s : baseline4150frames/b6059dcd2f155540, candidat4182frames/bfdc96edc613e5f6 ; crash0 chacun.
+Deux traces restore-load : ancre2102, échéance/exécution2104 ; sample origine/h00 chain2282 ; captured1, compared0, slip0..0.
+Bootstrap17 inchangé et rejoué :5880records/79fb964dc17507ec ; aucune recapture du flux ni modification de ses checkpoints.
+Au checkpoint2282 : mêmes4FR3,756plages ISO,486objets,787textures ; shaders106vs108, intentionnellement séparés.
+Trace CAM : caméra80octets et position Jak12octets identiques sur180frames LF2104..2283 ; ce n’est pas tout l’état des acteurs.
+Quatre fichiers de réglages identiques entre bras et inchangés après runs ; sidecars config/data/input/capture_lf concordants.
+Empreintes PNG différentes ; aucune attribution à une régression de rendu sans identité complète de l’état postload.
+refset_loaded_pending reste résiduel : publish_text ignore le vide ; ready1 et levels actifs sont actualisés, aucun proof retouché.
+575 empreintes historiques conservées ; deux prélèvements neufs NON qualifiés ; code v2 conserve missing-state-and-baseline.
+Draws/temps GPU conservés : classified0/residual0, lc_orig_un680804 ; GPU buckets9.9075ms sur4077frames candidat.
+19 niveaux absents du cas : training,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
+Les21niveaux restent sans comparaison qualifiée ; un cas seulement, ciel0‰ et sky_missing16, aucune couverture générale revendiquée.
+Owner : aucun nouveau rendu HDR livré à juger ; les blancs HDR restent à corriger après qualification.
+non prouvé : autres acteurs/RNG/config effective postload, qualification origine,3modes/8heures/≥4intérieurs/ciel,5rejeux exacts,HDR/SDR/Android.
+refset_replay_maxdiff absent en capture ; aucun faux zéro pris dans compared0. generic inchangé, réservé à l’orchestrateur.

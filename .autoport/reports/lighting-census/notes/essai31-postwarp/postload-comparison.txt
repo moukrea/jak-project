@@ -1,0 +1,33 @@
+baseline-postwarp checkpoint origine/h00/chain-lf=2282 count=2139 sha256=598465d5b6e62adb2b3796108103fb3d7e8c48e382dbbed79c06eb701e089a87 digest_verified=True
+baseline-postwarp CAM pad_anchor=3 samples=4041 bytes_per_sample=92
+postwarp checkpoint origine/h00/chain-lf=2282 count=2141 sha256=6ff7c4ecef24051062b698891ef57d8fe00d76cdcf4096b40e4881ac1ab8890d digest_verified=True
+postwarp CAM pad_anchor=3 samples=4085 bytes_per_sample=92
+origine/h00/chain-lf=2282 fr3: baseline=4 candidate=4 equal=True only_baseline=0 only_candidate=0
+origine/h00/chain-lf=2282 iso: baseline=756 candidate=756 equal=True only_baseline=0 only_candidate=0
+origine/h00/chain-lf=2282 object: baseline=486 candidate=486 equal=True only_baseline=0 only_candidate=0
+origine/h00/chain-lf=2282 shader: baseline=106 candidate=108 equal=False only_baseline=11 only_candidate=13
+origine/h00/chain-lf=2282 texture-base: baseline=787 candidate=787 equal=True only_baseline=0 only_candidate=0
+CAM examined_lf=2104..2283 common=180 expected=180
+CAM camera differing_frames=0 first=[]
+CAM camera lf=2281 equal=True
+CAM camera lf=2282 equal=True
+CAM camera lf=2283 equal=True
+CAM jak_translation differing_frames=0 first=[]
+CAM jak_translation lf=2281 equal=True
+CAM jak_translation lf=2282 equal=True
+CAM jak_translation lf=2283 equal=True
+baseline-postwarp settings_unchanged=True
+postwarp settings_unchanged=True
+settings_between_arms_equal=True
+Limites : CAM ne décrit pas tous les acteurs/RNG ; manifestes cumulatifs sans ordre/multiplicité. Aucune comparaison de pixels ou qualification effectuée.
+sidecar bin: baseline=38ad7146554153c8 candidate=05a3fd4c5c4c4d23 equal=False
+sidecar capture_lf: baseline=2282 candidate=2282 equal=True
+sidecar case: baseline=origine/h00 candidate=origine/h00 equal=True
+sidecar config: baseline=8f2a7e6fadebd324 candidate=8f2a7e6fadebd324 equal=True
+sidecar data: baseline=56f0364a8789c816 candidate=56f0364a8789c816 equal=True
+sidecar flavour: baseline=normal candidate=normal equal=True
+sidecar input: baseline=f97b073c2df76fb4 candidate=f97b073c2df76fb4 equal=True
+sidecar png: baseline=f4525bdc01198cf3 candidate=f1a9e7bee7daebbc equal=False
+sidecar version: baseline=2 candidate=2 equal=True
+Les empreintes PNG diffèrent ; pas de verdict de régression sans identité complète de l’état postload.
+refset_loaded_pending reste ancien : autoport_proof.cpp:155 rejette une valeur vide ; ready=1 et levels actifs sont les témoins actualisés. Aucun champ de proof corrigé manuellement.
