@@ -3815,8 +3815,8 @@ items:
   notes: ids bloques presents dans state.json mais absents de milestones.yaml
 - id: lighting-census
   feature: Savoir quel chemin d'eclairage a dessine chaque pixel, et figer les deux references
-  status: validated
-  priority: 14
+  status: open
+  priority: 16
   owner_feedback:
   - date: '2026-09-03'
     text: on a deja implemente du rela time lighting et un support de PBR qu'on a jamais finalise (et
@@ -3849,7 +3849,13 @@ items:
     7.3. PREUVE : `FEATURE lighting-census armed=1 hits=<draws monde classes dans un des cinq chemins>`
     + la ligne `refset_replay_maxdiff=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans
     la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-census"),
-    jamais armed(), et n''en ecris pas un second.'
+    jamais armed(), et n''en ecris pas un second. CORRECTION 2026-09-07 : les jeux de reference sont INSUFFISANTS.
+    Huit vues d''un seul point (`village1-hut`), en 320x180, dont le quart superieur est du brun a zero
+    pixel sature — aucun CIEL. Un defaut de ciel ne pouvait donc etre vu par aucune porte qui s''appuie
+    dessus, et lighting-hdr est passe au vert pendant que l''owner voyait le ciel blanc. Les trois jeux
+    (ORIGINE-TOTAL, ORIGINE-LUMIERE, RECHARGED) doivent couvrir au moins trois niveaux EXTERIEURS avec
+    du ciel visible sur au moins 15 % de l''image, plus l''interieur actuel. `refset_sky_views` >= 3 et
+    `refset_levels` >= 3, publies par le moteur.'
   out_of_scope: Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
@@ -3857,7 +3863,8 @@ items:
     2026-09-04 : « s''il n''y a rien a tester ne le met pas a tester ». Cet item ne change aucun pixel,
     il pose l''instrument et fige les references : owner_test=false. | promu ''validated'' le 2026-09-06
     : preuve MACHINE, l''owner n''a rien a regarder, et le laisser en attente de sa parole gelait tout
-    ce qui en depend.'
+    ce qui en depend. | rouvert le 2026-09-07 : le jeu de references ne contenait pas de ciel, d''ou un
+    faux vert sur lighting-hdr.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: draws monde classes dans un des cinq chemins
   proof_env:
@@ -3967,13 +3974,16 @@ items:
   owner_feedback: []
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
-  status: to-test
+  status: open
   priority: 17
   owner_feedback:
   - date: '2026-09-06'
     text: J'ai l'impression que même avec le Real Time lighting à off on a quand même les blancs brûlés,
       est ce que tu passe bien par ce paramètre pour gate nos effets ou tu les code en dur en remplaçant
       le vanilla, alors que la SPEC stipule qu'on peut rester au rendu d'origine si on le veut
+  - date: '2026-09-07'
+    text: le HDR brûle toujours les blanc de fou ! Je sais pas où tu teste mais le ciel est blanc, off
+      le ciel est clairement coloré, c'est pas bon !
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -3985,31 +3995,35 @@ items:
   - lighting-unify
   - refset-replay-stable
   - lighting-origin-bitexact
+  - lighting-census
   history: []
   prompt: prompts/item-lighting-hdr.md
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Blancs brules signales par l''owner sur la config PAR DEFAUT (master ON, eclairage temps
-    reel OFF). Mecanisme complet, verifie ligne a ligne : SPEC-refonte-lumiere.md §8 item 2. En un mot
-    : les composites C et E gardent leur propre exposition et leur propre pow(1/2.2) (shade.glsl:679-703,
-    740-744), le RGBA16F a retire le plafond qui masquait le depassement, et tonemap.frag en rajoute un
-    second etage. La preuve de lighting-unify montre que seuls C et E dessinent par defaut (A=0 B=0 C=304192
-    E=3191131).'
-  deliverable: 'La courbe de compression vers SDR doit PRESERVER LE DETAIL. Le moteur emet `hdr_tonemap_defects=N`,
-    somme de cinq verdicts publies aussi separement, mesures sur le jeu de reference ORIGINE-LUMIERE (la
-    config que l''owner joue) : (1) part de pixels satures <= celle de l''ORIGINE ; (2) `hdr_defect_2_hl_contrast`
-    = 0, le contraste local du decile le plus lumineux >= 95 % de la reference — C''EST LE DEFAUT QUE
-    L''OWNER VOIT, il prime ; (3) courbe monotone sans coude ; (4) le jeu ORIGINE-LUMIERE existe et sert
-    de base aux verdicts 1-3 ; (5) `tonemap_sites` = 1 dans les TROIS configurations. Zero. L''identite
-    au bit maitre eteint est SORTIE de cet item : lighting-origin-bitexact.'
+  known_cause: 'LA PORTE MESURAIT UNE SCENE SANS CIEL. Mesure du 2026-09-07 sur les references elles-memes
+    : les huit images de chaque jeu sont prises au seul point `village1-hut`, en 320x180. Le quart superieur
+    y vaut RGB(137,94,57) et RGB(111,70,50) — du brun, pas du ciel — et il porte ZERO pixel sature. Les
+    cinq verdicts pouvaient donc etre verts pendant que le ciel brulait : le defaut de l''owner n''etait
+    pas dans le champ de la mesure. Voir aussi SPEC §8 item 2 pour le mecanisme (C/E gardent exposition
+    et pow).'
+  deliverable: "Les verdicts de courbe se mesurent LA OU L'OWNER VOIT LE DEFAUT : sur du CIEL. `hdr_sky_defects=N`,\
+    \ somme de verdicts publies un par un, sur des vues qui contiennent du ciel dans au moins trois niveaux\
+    \ exterieurs differents :\n  (1) `hdr_sky_frames` >= 3 vues de ciel, et `hdr_sky_pixels_pct` >= 15\
+    \ % de l'image — une vue sans ciel ne compte pas ;\n  (2) `hdr_sky_clip_pct_x1000` <= celui de la\
+    \ reference ORIGINE-LUMIERE : le ciel ne doit pas SATURER plus qu'avec l'eclairage eteint ;\n  (3)\
+    \ `hdr_sky_chroma_ratio_x1000` >= 900 — le ciel garde au moins 90 % de sa COULEUR : l'owner dit «\
+    \ off le ciel est clairement colore », donc un ciel qui blanchit est un defaut meme sans saturation\
+    \ franche ;\n  (4) les cinq verdicts deja tenus le restent (saturation, contraste, courbe, jeu ORIGINE-LUMIERE,\
+    \ un seul site de compression dans les trois configurations).\nZero. Les references DOIVENT etre recapturees\
+    \ avec du ciel avant toute conclusion."
   out_of_scope: 'La sortie HDR vers un ecran compatible appartient a hdr-display-output. La regle des
     deux origines et la hierarchie des interrupteurs : SPEC §0.2, §1.1, §6.2.'
-  notes: 'Quatrieme ouverture, et la premiere qui puisse servir : le compteur d''essais de state.json
-    (retries=10 pour un plafond de 6) survivait a chaque reouverture, donc l''item rebloquait au premier
-    essai suivant et mes trois tentatives precedentes n''ont produit que deux essais en tout. Corrige
-    dans l''outil. Le dernier essai a aussi releve crash=1 et une source editee APRES la preuve : ces
-    deux-la sont de vrais constats, a traiter.'
+  notes: 'FAUX VERT : la porte mesurait une scene SANS CIEL. Les huit images de chaque jeu de reference
+    sont prises au seul point village1-hut, en 320x180 ; le quart superieur y est brun (RGB 137,94,57)
+    et porte zero pixel sature. Les cinq verdicts etaient donc verts pendant que le ciel de l''owner brulait.
+    Recapturer avec du ciel, dans au moins trois niveaux exterieurs, et juger la SATURATION et la COULEUR
+    du ciel.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: images passees par le tone map
   proof_props:
