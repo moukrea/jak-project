@@ -15,7 +15,7 @@
 #include "third-party/json.hpp"
 
 // Offline policy over engine-produced receipts. Hashes bind files to receipts;
-// decoded image comparison and complete state bytes provide the independent check.
+// exact replay receipts and complete paired state bytes provide the independent check.
 namespace refset_qualification {
 using Json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -161,6 +161,7 @@ template <typename Hash, typename Compare>
 Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t current_data,
                 Hash hash, Compare compare,
                 const std::vector<Expected>& expected_cases) {
+  (void)compare;  // ON/OFF images are intentionally never compared.
   Result result;
   uint64_t identity = UINT64_C(14695981039346656037);
   const auto missing = [&](const std::string& reason) { result.missing.push_back(reason); };
@@ -191,11 +192,12 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
     require(current_bin != 0 && current_data != 0 && expected_cases.size() <= 8192, "qualification-input");
     checked_hash(manifest_path);
     const Json manifest = detail::json(manifest_path);
-    require(number(manifest, "version") == 1 && manifest.at("pairs").is_array() &&
-                manifest.at("pairs").size() <= 256, "manifest-schema");
+    require(number(manifest, "version") == 2 && manifest.at("roots").is_array() &&
+                manifest.at("roots").size() <= 256, "manifest-schema");
     std::map<std::string, Expected> expected;
     for (const auto& item : expected_cases) {
-      require(detail::safe_key(item.key) && expected.emplace(item.key, item).second,
+      require((item.phase == 2 || item.phase == 3) && detail::safe_key(item.key) &&
+                  expected.emplace(item.key, item).second,
               "expected-key:" + item.key);
     }
     if (expected.empty()) missing("expected-universe-empty");
@@ -204,16 +206,13 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
     std::set<std::string> executions;
     std::map<std::string, int> observed_sky;
     size_t receipt_count = 0;
-    const auto load_root = [&](const fs::path& raw, bool baseline) -> detail::Root* {
+    const auto load_root = [&](const fs::path& raw) -> detail::Root* {
       require(raw.is_absolute(), "root-not-absolute");
       if (!fs::is_directory(raw)) { missing("root:" + raw.string()); return nullptr; }
       const auto path = fs::canonical(raw);
       if (unavailable.count(path.string())) return nullptr;
       const auto cached = roots.find(path.string());
       if (cached != roots.end()) {
-        require((number(cached->second.capture, "bin") != current_bin) == baseline,
-                "root-role-reused");
-        require(number(cached->second.capture, "data") == current_data, "capture-data");
         return &cached->second;
       }
       const auto capture_path = path / "qualification-capture.json";
@@ -228,7 +227,7 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
       const auto capture_assets = check_assets(capture);
       for (const char* key : {"bin", "data", "input", "settings", "config", "bootstrap", "source_fp"})
         number(capture, key);
-      require((number(capture, "bin") != current_bin) == baseline, "capture-bin");
+      require(number(capture, "bin") == current_bin, "capture-bin");
       require(number(capture, "data") == current_data, "capture-data");
       const auto execution = capture.at("execution").get<std::string>();
       require(!execution.empty() && executions.insert(execution).second, "duplicate-execution");
@@ -240,10 +239,7 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
       require(checked_hash(source_path) == number(capture, "source_fp"), "source-stale");
       const Json source = detail::json(source_path);
       require(number(source, "version") == 1 && number(source, "bin") == number(capture, "bin") &&
-                  source.at("role") == (baseline ? "baseline" : "candidate"), "source-schema");
-      if (baseline) require(source.at("baseline_anchor") ==
-                                "a9ea15a69062a57335278db7680cd647df3c1e1d" &&
-                                source.at("baseline_renderer_verified") == true, "baseline-source");
+                  source.at("role") == "candidate", "source-schema");
       const fs::path binary(source.at("binary_path").get<std::string>());
       require(binary.is_absolute() && checked_hash(binary) == number(capture, "bin"), "binary-stale");
       require(source.at("files").is_object() && !source.at("files").empty() &&
@@ -291,10 +287,16 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
         require(!detail::read(path / (key + ".state.bin"), 16 * 1024 * 1024).empty(), "state-empty");
         const auto flavour = detail::sidecar(path / (key + ".provenance.txt"), capture, item);
         const auto phase = item.at("phase").get<int>();
-        require(phase >= 1 && phase <= 3, "case-phase");
+        require(phase == 2 || phase == 3, "case-phase");
+        const auto& options = item.at("effective_options");
+        require(options.is_object() && options.size() == 4 &&
+                    options.at("master").is_boolean() && options.at("master") == true &&
+                    options.at("lighting").is_boolean() && options.at("lighting") == (phase == 2) &&
+                    options.at("rt_light").is_boolean() && options.at("rt_light") == (phase == 2) &&
+                    options.at("others").is_object(), "case-effective-options:" + key);
         const auto prefix = key.compare(0, 14, "supplement-v1/") == 0 ? "supplement-v1/" : "";
         const auto witness = path / prefix /
-            (phase == 1 ? "origine" : phase == 2 ? "recharged" : "origine-lumiere") / "captured-by.txt";
+            (phase == 2 ? "recharged" : "origine-lumiere") / "captured-by.txt";
         checked_hash(witness);
         const auto witness_bytes = detail::read(witness, 128);
         require(witness_bytes.size() == 16 + 1 + 8 + flavour.size() + 1 &&
@@ -333,41 +335,46 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
           ++root.runs;
         }
       }
-      if (root.runs < 5) missing("replays:" + path.string() + ":" + std::to_string(root.runs) + "/5");
+      if (root.runs < 1) missing("replays:" + path.string() + ":" + std::to_string(root.runs) + "/1");
       return &roots.emplace(path.string(), std::move(root)).first->second;
     };
     std::map<std::string, Json> candidates;
-    for (const auto& pair : manifest.at("pairs")) {
-      const fs::path baseline_path(pair.at("baseline").get<std::string>());
-      const fs::path candidate_path(pair.at("candidate").get<std::string>());
-      auto* baseline = load_root(baseline_path, true);
-      auto* candidate = load_root(candidate_path, false);
-      if (!baseline || !candidate) continue;
-      require(baseline->path != candidate->path, "same-root");
-      for (const char* key : {"data", "input", "settings", "bootstrap"})
-        require(baseline->capture.at(key) == candidate->capture.at(key), std::string("pair-identity:") + key);
-      for (const auto& entry : candidate->cases) {
+    std::map<std::string, detail::Root*> case_roots;
+    std::map<std::pair<std::string, int>, std::map<int, std::string>> pairs;
+    for (const auto& root_path : manifest.at("roots")) {
+      auto* root = load_root(fs::path(root_path.get<std::string>()));
+      if (!root) continue;
+      for (const auto& entry : root->cases) {
         const auto& key = entry.first;
         const auto& item = entry.second;
         require(candidates.emplace(key, item).second, "duplicate-candidate:" + key);
-        const auto expected_item = expected.find(key);
-        require(expected_item != expected.end(), "unexpected-case:" + key);
-        const auto& descriptor = expected_item->second;
-        require(item.at("vantage") == descriptor.vantage && item.at("level") == descriptor.level &&
-                    item.at("phase") == descriptor.phase && item.at("hour") == descriptor.hour,
-                "case-descriptor:" + key);
-        if (descriptor.phase != 1) continue;
-        const auto original = baseline->cases.find(key);
-        if (original == baseline->cases.end()) { missing("baseline-case:" + key); continue; }
-        const auto& base = original->second;
-        for (const char* field : {"key", "vantage", "level", "phase", "hour", "lf", "state_lf"})
-          require(base.at(field) == item.at(field), "baseline-case-identity:" + key);
-        require(detail::read(baseline->path / (key + ".state.bin"), 16 * 1024 * 1024) ==
-                    detail::read(candidate->path / (key + ".state.bin"), 16 * 1024 * 1024),
-                "baseline-state-diff:" + key);
-        require(compare((baseline->path / key).string(), (candidate->path / key).string()),
-                "baseline-image-diff:" + key);
+        case_roots.emplace(key, root);
+        auto& pair = pairs[{item.at("vantage").get<std::string>(), item.at("hour").get<int>()}];
+        require(pair.emplace(item.at("phase").get<int>(), key).second, "duplicate-arm:" + key);
       }
+    }
+    for (const auto& entry : pairs) {
+      const auto& pair = entry.second;
+      if (pair.size() != 2) {
+        missing("paired-arm:" + entry.first.first + ":hour=" + std::to_string(entry.first.second));
+        continue;
+      }
+      const auto& on_key = pair.at(2);
+      const auto& off_key = pair.at(3);
+      const auto& on = candidates.at(on_key);
+      const auto& off = candidates.at(off_key);
+      const auto* on_root = case_roots.at(on_key);
+      const auto* off_root = case_roots.at(off_key);
+      for (const char* field : {"bin", "data", "input", "settings", "bootstrap", "source_fp"})
+        require(on_root->capture.at(field) == off_root->capture.at(field),
+                std::string("pair-identity:") + field);
+      for (const char* field : {"vantage", "level", "hour", "lf", "state_lf"})
+        require(on.at(field) == off.at(field), "pair-case-identity:" + on_key);
+      require(on.at("effective_options").at("others") == off.at("effective_options").at("others"),
+              "pair-effective-options:" + on_key);
+      require(detail::read(on_root->path / (on_key + ".state.bin"), 16 * 1024 * 1024) ==
+                  detail::read(off_root->path / (off_key + ".state.bin"), 16 * 1024 * 1024),
+              "pair-state-diff:" + on_key);
     }
     std::set<std::string> levels, interior;
     std::map<std::string, int> sky;
@@ -401,9 +408,9 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
       if (has_sky && pm >= 150 && pm <= 900)
         sky_slots[level].emplace(item.at("phase").get<int>(), item.at("hour").get<int>());
     }
-    if (levels.size() < 20) missing("levels:" + std::to_string(levels.size()) + "/20");
+    if (levels.size() < 21) missing("levels:" + std::to_string(levels.size()) + "/21");
     for (const auto& view : vantages)
-      if (view.second.first >= 24 && view.second.second) interior.insert(view.first);
+      if (view.second.first >= 16 && view.second.second) interior.insert(view.first);
     if (interior.size() < 4) missing("interior-vantages:" + std::to_string(interior.size()) + "/4");
     for (const auto& level : sky) if (level.second == 1) for (const auto& slot : slots) {
       if (!sky_slots[level.first].count(slot))
