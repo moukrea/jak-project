@@ -4002,6 +4002,9 @@ items:
       en étant probablement plus riche car ça se fait en HDR maintenant, puis tonemappé pour le rendu
       final... avant de passer sur le support des écrans qui supporte le HDR si je dis pas de bêtises)
       et corriger en conséquence ?
+  - date: '2026-09-07'
+    text: Mais t'es con ou quoi ? L'orchestration, le harnais le framework doit être sous codex ! C'est
+      n'importe quoi ! Il devrait pas être en pause là, tu te fous de ma gueule !
   gate:
     key: hdr_tonemap_defects
     op: ==
