@@ -370,14 +370,14 @@
   "Set the default graphics settings"
   (set-window-size! obj PC_BASE_WIDTH PC_BASE_HEIGHT)
   (set-aspect! obj 4 3)
-  ;; Gframerate-variable (Android): default target-fps to the panel REFRESH, not
-  ;; a hardcoded 60, so the engine's native variable-fps math (seconds-per-frame =
-  ;; time-ratio/target-fps; time-adjust-ratio) advances game-time at a CONSTANT
-  ;; real-time rate at whatever fps the Adreno actually sustains -- exactly like
-  ;; the desktop port at 60/120/144. Guarded: only on Android and only when the
-  ;; refresh is known (>0); otherwise 60 (which also keeps x86/desktop identical
-  ;; and avoids the 585900/target-fps divide-by-zero in the 'custom set-video-mode
-  ;; branch). On the 60 Hz Redmi this resolves to 60 ('ntsc, == previous behavior).
+  ;; framerate-uncap essai 2 : le DEFAUT DU PLAFOND D'AFFICHAGE est le rafraichissement du
+  ;; panneau -- ramene sur la liste de choix par `set-frame-rate!` (un panneau a 144 Hz donne
+  ;; donc 120, pas 144). Ce que cette ligne ne fait PLUS : deriver la reference de temps du
+  ;; moteur du panneau. Elle ecrivait `target-fps` <- refresh (le commentaire « native
+  ;; variable-fps math » d'avant), donc 90 sur un panneau 90 Hz : `*ticks-per-frame*`
+  ;; (585900/target-fps), `seconds-per-frame` et `time-factor` suivaient l'ECRAN, ce qui est le
+  ;; mode « high fps » que l'item corrige. `set-frame-rate!` epingle desormais `target-fps` a
+  ;; 60 et n'ecrit que `display-fps-cap`. Sur le Redmi 60 Hz : plafond 60, inchange.
   (let ((refresh (pc-get-active-display-refresh-rate)))
     (set-frame-rate! obj
                      (if (and (= (-> obj os) 'android) (> refresh 0))

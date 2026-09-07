@@ -631,6 +631,14 @@
 
 (define-extern pc-set-frame-rate (function int none))
 
+;; framerate-uncap essai 2 : CE QUE LE MENU OFFRE (nb de choix, index courant, borne haute de
+;; la cible de l'echelle de rendu dynamique). Pousse a chaque image par `update-to-os`.
+(define-extern pc-set-uncap-menu (function int int int none))
+
+;; framerate-uncap essai 2 : la CONSIGNE DE MESURE du plafond (0 = aucune). Elle epingle le
+;; regime d'une course de preuve ; en jeu normal elle rend toujours 0.
+(define-extern pc-get-frame-rate-cap-override (function int))
+
 (define-extern pc-set-vsync (function symbol none))
 
 (define-extern pc-renderer-tree-set-lod (function pc-renderer-tree-type int none))

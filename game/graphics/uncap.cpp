@@ -95,6 +95,24 @@ double knob_cap_fps() {
   return s_cap;
 }
 
+// LA LISTE CANONIQUE. Meme ordre que `*frame-rate-choices*` (pckernel-common.gc) et que
+// `*carousell-frame-rate*` (progress-pc.gc). -1 = « Illimite ».
+constexpr int kChoices[] = {30, 45, 60, 75, 90, 120, 240, -1};
+constexpr int kChoiceCount = (int)(sizeof(kChoices) / sizeof(kChoices[0]));
+// Le plus haut choix FINI de la liste : c'est ce que « Illimite » vaut quand une borne doit
+// etre un nombre (la cible de l'echelle dynamique, par exemple).
+constexpr int kHighestFiniteChoice = 240;
+
+// ------------------------------------------------------- ce que le menu GOAL a pousse -----
+// Ecrit par le fil EE (update-to-os), lu par le meme fil au moment de publier. Atomiques
+// quand meme : `set_panel_hz` et `note_swap_interval_applied` viennent du fil GL.
+std::atomic<int> g_menu_choices_n{0};
+std::atomic<int> g_menu_choice_index{-1};
+std::atomic<int> g_menu_dynscale_max{0};
+std::atomic<int> g_panel_hz{0};
+std::atomic<int> g_swap_interval_applied{-1};  // -1 = jamais applique
+std::atomic<u64> g_presents{0};
+
 // ---------------------------------------------------------------- horloge de scene --------
 // Ecrite par le fil IOP (VBlank_Handler), lue par le fil EE. Deux atomiques et rien d'autre :
 // un verrou pris dans un gestionnaire de vblank serait un defaut a lui tout seul.
@@ -113,11 +131,16 @@ struct State {
   u64 win_frames = 0;
   u64 win_ticks = 0;
   u64 win_scene_units0 = 0;
+  u64 win_presents0 = 0;
 
   // agregats
   u64 windows = 0;
   u64 over_windows = 0;
   double disp_fps_max = 0.0;
+  // LA CADENCE DE PRESENTATION soutenue la plus haute : `uncap_ceiling_hz`. Comptee sur les
+  // SWAPS, sur une fenetre de 5 s — un maximum instantane n'est pas un plafond.
+  double swap_fps_max = 0.0;
+  u64 presents_total = 0;
   double rate_dev_max = 0.0;
   double scene_dev_max = 0.0;
   double scene_rate_last = 0.0;
@@ -126,6 +149,10 @@ struct State {
   double scene_total_sec = 0.0;
   double dropped_sec = 0.0;
   u64 ceiling_frames = 0;
+  // Images ou l'intervalle de swap APPLIQUE n'etait pas celui que le plafond demande. Compte
+  // seulement quand la presentation est vivante (au moins un swap) : sinon un renderer qui
+  // n'applique jamais rien rendrait zero desaccord, donc un faux vert.
+  u64 present_mismatch_frames = 0;
 
   // suivi du k de l'horloge a pas fixe (elle n'expose qu'un CUMUL)
   u64 prev_total_ticks = 0;
@@ -189,6 +216,18 @@ void close_window(State& s) {
     s.over_windows++;
   }
 
+  // CADENCE DE PRESENTATION : swaps par seconde reelle. C'est `uncap_ceiling_hz` — le plafond
+  // que la machine atteint VRAIMENT, celui que l'owner lit a l'ecran. Distincte de la cadence
+  // de la boucle EE ci-dessus : le mode `overlap` d'android_gfx les decouple.
+  const u64 presents_now = g_presents.load(std::memory_order_relaxed);
+  if (s.win_raw_sec > 0.0 && presents_now >= s.win_presents0) {
+    const double swap_fps = (double)(presents_now - s.win_presents0) / s.win_raw_sec;
+    if (swap_fps > s.swap_fps_max) {
+      s.swap_fps_max = swap_fps;
+    }
+  }
+  s.presents_total = presents_now;
+
   // CADENCE DE LOGIQUE : le temps de jeu emis (ticks/60) contre le temps mural ADMIS. C'est
   // la clause « la logique recoit toujours 60 ticks par seconde reelle » et, du meme coup,
   // « rien ne s'accelere ni ne ralentit » : le temps de jeu EST le nombre de ticks.
@@ -221,6 +260,7 @@ void close_window(State& s) {
   s.win_frames = 0;
   s.win_ticks = 0;
   s.win_scene_units0 = units_now;
+  s.win_presents0 = presents_now;
 }
 
 void publish(State& s) {
@@ -230,6 +270,52 @@ void publish(State& s) {
   autoport_proof::publish("uncap_windows", s.windows);
   autoport_proof::publish("uncap_over_windows", s.over_windows);
   autoport_proof::publish("uncap_disp_fps_max_x100", (u64)(s.disp_fps_max * 100.0 + 0.5));
+
+  // ------------------------- (b) LE PLAFOND REELLEMENT ATTEINT, ET QUI LE POSE -------------
+  const int panel_hz = g_panel_hz.load(std::memory_order_relaxed);
+  const int applied_interval = g_swap_interval_applied.load(std::memory_order_relaxed);
+  const int wanted_interval = desired_swap_interval();
+  const double busy_ms = (double)Gfx::g_global_settings.measured_frame_busy_ms;
+  const double busy_hz = busy_ms > 0.0 ? 1000.0 / busy_ms : 0.0;
+  const double cap_now = cap_fps((double)Gfx::g_global_settings.target_fps);
+  autoport_proof::publish("uncap_ceiling_hz", (u64)(s.swap_fps_max + 0.5));
+  autoport_proof::publish("uncap_ceiling_hz_x100", (u64)(s.swap_fps_max * 100.0 + 0.5));
+  autoport_proof::publish("uncap_presents", s.presents_total);
+  autoport_proof::publish("uncap_panel_hz", (u64)(panel_hz > 0 ? panel_hz : 0));
+  autoport_proof::publish("uncap_swap_interval_applied",
+                          (u64)(applied_interval < 0 ? 999 : applied_interval));
+  autoport_proof::publish("uncap_swap_interval_wanted", (u64)wanted_interval);
+  autoport_proof::publish("uncap_present_mismatch_frames", s.present_mismatch_frames);
+  autoport_proof::publish("uncap_busy_hz_x100", (u64)(busy_hz * 100.0 + 0.5));
+  // QUI plafonne. Chaque branche est une COMPARAISON de grandeurs publiees a cote : qui lit le
+  // proof refait le raisonnement sans nous croire.
+  const char* cause = "indetermine";
+  if (s.presents_total == 0) {
+    cause = "non-mesure-aucun-swap";
+  } else if (cap_now > 0.0 && s.swap_fps_max >= cap_now * 0.98) {
+    cause = "la-consigne";  // 240 atteint : c'est le plafond demande qui borne
+  } else if (applied_interval != 0 && panel_hz > 0 &&
+             std::fabs(s.swap_fps_max - (double)panel_hz) <= (double)panel_hz * 0.05) {
+    cause = "presentation-fifo-sur-le-panneau";
+  } else if (busy_hz > 0.0 && s.swap_fps_max >= busy_hz * 0.90) {
+    cause = "temps-de-rendu";
+  }
+  autoport_proof::publish_text("uncap_ceiling_cause", cause);
+
+  // ------------------- (a) CE QUE LE MENU OFFRE, ET (c) LA BORNE QU'IL EN DERIVE -----------
+  const int choices_n = g_menu_choices_n.load(std::memory_order_relaxed);
+  const int choice_index = g_menu_choice_index.load(std::memory_order_relaxed);
+  const int dynscale_max = g_menu_dynscale_max.load(std::memory_order_relaxed);
+  const int chosen_fps = (choice_index >= 0 && choice_index < kChoiceCount)
+                             ? kChoices[choice_index]
+                             : 0;
+  autoport_proof::publish("uncap_choices_n", (u64)(choices_n < 0 ? 0 : choices_n));
+  autoport_proof::publish("uncap_choices_expected", (u64)kChoiceCount);
+  autoport_proof::publish("uncap_choice_index", (u64)(choice_index < 0 ? 999 : choice_index));
+  autoport_proof::publish("uncap_choice_fps",
+                          (u64)(chosen_fps < 0 ? kHighestFiniteChoice : chosen_fps));
+  autoport_proof::publish("uncap_choice_unlimited", (u64)(chosen_fps < 0 ? 1 : 0));
+  autoport_proof::publish("uncap_dynscale_target_max", (u64)(dynscale_max < 0 ? 0 : dynscale_max));
 
   // LA REFERENCE EFFECTIVE, publiee a cote de la mesure. `target_fps` est la reference de
   // TEMPS (elle doit rester a 60 : c'est le coeur du correctif) ; `cap_fps` est ce que le
@@ -307,13 +393,62 @@ void publish(State& s) {
                           : 1;
   const u64 v_pose = (pose_value != kNoMeasurement && pose_value <= pose_tol) ? 0 : 1;
 
+  // ---------------------- LES QUATRE VERDICTS DE L'ESSAI 2 -------------------------------
+  // uncap_v_choices   (a) LE REGLAGE EST UNE LISTE. Trois conditions, et il faut les trois :
+  //                   le menu offre exactement les 8 choix de la liste canonique, l'index
+  //                   courant est dans les bornes, et l'entree a cet index est EXACTEMENT le
+  //                   plafond que le reglage porte. La troisieme est celle qui compte : elle
+  //                   attache le libelle affiche a la valeur qui traverse. Un curseur ne
+  //                   pousse rien du tout et rend `choices_n = 0`.
+  const double setting_cap = (double)Gfx::g_global_settings.display_fps_cap;
+  bool choice_matches = false;
+  if (chosen_fps < 0) {
+    choice_matches = setting_cap < 0.0;  // « Illimite » s'ecrit negatif
+  } else if (chosen_fps > 0) {
+    choice_matches = std::fabs(setting_cap - (double)chosen_fps) < 0.5;
+  }
+  const u64 v_choices = (choices_n == kChoiceCount && choice_index >= 0 &&
+                         choice_index < kChoiceCount && choice_matches)
+                            ? 0
+                            : 1;
+
+  // uncap_v_dynscale  (c) LA CIBLE DE L'ECHELLE DYNAMIQUE SUIT LE PLAFOND. La borne haute de
+  //                   la rangee doit atteindre le plafond choisi. La constante 60 que l'owner
+  //                   denonce echoue des que le plafond depasse 60 — et la consigne de mesure
+  //                   garantit qu'il le depasse pendant la preuve, sinon la regle correcte et
+  //                   la constante fautive rendraient le meme chiffre.
+  const int chosen_finite = chosen_fps < 0 ? kHighestFiniteChoice : chosen_fps;
+  const u64 v_dynscale = (chosen_finite > 0 && dynscale_max >= chosen_finite) ? 0 : 1;
+
+  // uncap_v_present   (b) LA PRESENTATION N'IMPOSE PAS SON PROPRE PLAFOND. L'intervalle de
+  //                   swap applique doit etre celui que le plafond demande. C'etait la panne :
+  //                   `SDL_GL_SetSwapInterval(1)` une fois pour toutes, et un swap en FIFO
+  //                   rend le rafraichissement du panneau quoi qu'on demande. Falsifiable ici :
+  //                   sur le Redmi (panneau 60) une consigne a 240 exige l'intervalle 0.
+  //                   Tolerance de 5 % des images : le fil GL applique avec une image de
+  //                   retard quand le plafond change, et l'amorcage precede la premiere
+  //                   application.
+  const u64 v_present =
+      (s.frames >= 300 && s.present_mismatch_frames <= s.frames / 20) ? 0 : 1;
+
+  // uncap_v_ceiling   (b) LE PLAFOND A ETE MESURE. Ce verdict NE DIT PAS « 240 atteint » : le
+  //                   Redmi ne depasse pas ~44 img/s et une porte qui l'exigerait serait
+  //                   inatteignable sur le seul appareil autorise. Il dit que la cadence de
+  //                   PRESENTATION a ete comptee — zero swap, c'est l'instrument qui est mort,
+  //                   et un instrument mort ne se lit jamais comme un zero defaut.
+  const u64 v_ceiling = (s.presents_total > 0 && s.swap_fps_max > 0.0) ? 0 : 1;
+
   autoport_proof::publish("uncap_v_cap", v_cap);
   autoport_proof::publish("uncap_v_windows", v_windows);
   autoport_proof::publish("uncap_v_tick_rate", v_tick_rate);
   autoport_proof::publish("uncap_v_scene", v_scene);
   autoport_proof::publish("uncap_v_pose", v_pose);
-  autoport_proof::publish("uncap_defects",
-                          v_cap + v_windows + v_tick_rate + v_scene + v_pose);
+  autoport_proof::publish("uncap_v_choices", v_choices);
+  autoport_proof::publish("uncap_v_dynscale", v_dynscale);
+  autoport_proof::publish("uncap_v_present", v_present);
+  autoport_proof::publish("uncap_v_ceiling", v_ceiling);
+  autoport_proof::publish("uncap_defects", v_cap + v_windows + v_tick_rate + v_scene + v_pose +
+                                               v_choices + v_dynscale + v_present + v_ceiling);
 }
 
 }  // namespace
@@ -346,6 +481,7 @@ void on_render_frame() {
     s.first_frame = false;
     s.wall.start();
     s.win_scene_units0 = g_scene_units.load(std::memory_order_relaxed);
+    s.win_presents0 = g_presents.load(std::memory_order_relaxed);
     return;
   }
 
@@ -371,6 +507,14 @@ void on_render_frame() {
   s.win_frames++;
   s.win_ticks += k;
 
+  // L'intervalle de swap doit SUIVRE le plafond. On ne compte le desaccord que quand la
+  // presentation est vivante : un renderer qui n'a jamais rien applique doit rendre un
+  // desaccord, pas un silence.
+  if (g_presents.load(std::memory_order_relaxed) > 0 &&
+      g_swap_interval_applied.load(std::memory_order_relaxed) != desired_swap_interval()) {
+    s.present_mismatch_frames++;
+  }
+
   if (s.win_raw_sec >= kWindowSeconds) {
     close_window(s);
   }
@@ -379,6 +523,62 @@ void on_render_frame() {
     autoport_proof::note_hit();
   }
   publish(s);
+}
+
+int choice_count() {
+  return kChoiceCount;
+}
+
+int choice_fps(int index) {
+  if (index < 0 || index >= kChoiceCount) {
+    return 0;
+  }
+  return kChoices[index];
+}
+
+void set_menu_state(int choices_n, int choice_index, int dynscale_target_max) {
+  g_menu_choices_n.store(choices_n, std::memory_order_relaxed);
+  g_menu_choice_index.store(choice_index, std::memory_order_relaxed);
+  g_menu_dynscale_max.store(dynscale_target_max, std::memory_order_relaxed);
+}
+
+int cap_override_fps() {
+  // DESARME, aucune consigne : le bras d'ablation doit voir le reglage que la machine a
+  // sauvegarde, pas celui que la preuve epingle.
+  if (!armed()) {
+    return 0;
+  }
+  const double k = knob_cap_fps();
+  if (k < 1.0) {
+    return 0;  // -1 = aucune consigne ; une consigne < 1 img/s n'a pas de sens
+  }
+  return (int)(k + 0.5);
+}
+
+void set_panel_hz(int hz) {
+  g_panel_hz.store(hz > 0 ? hz : 0, std::memory_order_relaxed);
+}
+
+int desired_swap_interval() {
+  // LE SEUL ENDROIT QUI DECIDE. Deux ecrivains pour un intervalle, c'est deux regimes
+  // differents selon la plateforme, et c'est exactement ce qui a produit le plafond a 90 :
+  // Android forcait 1 a l'initialisation et ne relisait plus rien.
+  const double cap = cap_fps((double)Gfx::g_global_settings.target_fps);
+  const int panel = g_panel_hz.load(std::memory_order_relaxed);
+  if (panel > 0 && cap > (double)panel * kOverFactor) {
+    // Le plafond demande depasse ce que le balayage peut rendre : attendre le balayage
+    // PLAFONNERAIT a la cadence du panneau, ce qui est le defaut que l'owner voit.
+    return 0;
+  }
+  return Gfx::g_global_settings.vsync ? 1 : 0;
+}
+
+void note_swap_interval_applied(int interval) {
+  g_swap_interval_applied.store(interval, std::memory_order_relaxed);
+}
+
+void note_present() {
+  g_presents.fetch_add(1, std::memory_order_relaxed);
 }
 
 double scene_vblank_hz(double engine_target_fps) {

@@ -35,6 +35,82 @@
 ;; companion's per-frame spawn/despawn (defined later in pc/jak-hd.gc). PC->PC only.
 (#when FLAG_HD_MODELS (define-extern maybe-spawn-jak-hd! (function none)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; framerate-uncap essai 2 -- LA LISTE DES CADENCES, ET RIEN QU'ELLE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; owner 2026-09-07 : « plutot qu'un slider faudrait des choix comme 30, 45, 60, 75, 90, 120,
+;; 240, Illimite ». La liste vit ICI, une seule fois. Trois consommateurs la lisent et aucun
+;; n'en tient une copie :
+;;   * la rangee de menu (progress-pc.gc `*carousell-frame-rate*`, MEME ORDRE : ce sont les
+;;     libelles de ces entrees) ;
+;;   * `set-frame-rate!`, qui RAMENE toute valeur ecrite sur une entree de la liste — c'est ce
+;;     qui rend impossible un reglage hors liste, y compris celui qu'un settings.ini d'hier
+;;     ou un panneau a 144 Hz ferait entrer ;
+;;   * `pc-set-uncap-menu`, qui pousse au C++ ce que le menu OFFRE, pour que le verdict de la
+;;     preuve puisse casser si les deux divergent (game/graphics/uncap.h).
+;; L'entree negative est « Illimite » : le C++ traite un plafond negatif comme « aucune
+;; attente », jamais comme 0 — les limiteurs prennent 0 pour une valeur absurde.
+(define *frame-rate-choices* (new 'static 'boxed-array :type int32 30 45 60 75 90 120 240 -1))
+
+(defun frame-rate-choice-count ()
+  "combien de choix la rangee de cadence propose."
+  (the int (-> *frame-rate-choices* length)))
+
+(defun frame-rate-highest-finite ()
+  "le plus haut choix FINI de la liste. C'est ce que « Illimite » vaut quand une borne doit
+   etre un nombre -- la cible de l'echelle de rendu dynamique, par exemple."
+  (let ((best 60))
+    (dotimes (i (-> *frame-rate-choices* length))
+      (let ((c (the int (-> *frame-rate-choices* i))))
+        (if (> c best) (set! best c))))
+    best))
+
+(defun frame-rate-at ((idx int))
+  "l'entree de la liste a cet index. Hors bornes -> 60, la reference de temps du moteur."
+  (if (or (< idx 0) (>= idx (-> *frame-rate-choices* length)))
+      60
+      (the int (-> *frame-rate-choices* idx))))
+
+(defun frame-rate-snap ((rate int))
+  "ramene `rate` sur une entree de la liste : le plus grand choix qui ne le depasse pas, et le
+   plus petit choix si `rate` est sous tous. Negatif = Illimite, inchange. C'est le POINT DE
+   PRODUCTION : une valeur hors liste ne peut pas exister en aval."
+  (cond
+    ((< rate 0) -1)
+    (else
+     (let ((best (the int (-> *frame-rate-choices* 0))))
+       (dotimes (i (-> *frame-rate-choices* length))
+         (let ((c (the int (-> *frame-rate-choices* i))))
+           (if (and (> c 0) (<= c rate) (> c best)) (set! best c))))
+       best))))
+
+(defun frame-rate-index ((cap float))
+  "l'index de liste que porte ce plafond. Un plafond hors liste ne devrait pas exister
+   (`frame-rate-snap`) ; s'il en apparait un, on rend l'index de 60 plutot qu'un index faux."
+  (cond
+    ((< cap 0.0) (the int (+ (-> *frame-rate-choices* length) -1)))
+    (else
+     (let ((idx -1))
+       (dotimes (i (-> *frame-rate-choices* length))
+         (if (= (-> *frame-rate-choices* i) (the int cap)) (set! idx i)))
+       (if (< idx 0)
+           (dotimes (i (-> *frame-rate-choices* length))
+             (if (= (-> *frame-rate-choices* i) 60) (set! idx i))))
+       idx))))
+
+(defun dynscale-target-max ((obj pc-settings))
+  "LA BORNE HAUTE de la cible de l'echelle de rendu dynamique, en img/s.
+   owner 2026-09-07 : « aucun sens de pouvoir le definir a 60FPS [...] alors qu'on a defini le
+   max fps a 240 ». Cette borne etait la constante 60 (`:param2 60.0` sur la rangee). Elle
+   SUIT desormais le plafond choisi, et cette fonction est le seul endroit qui le dit : la
+   rangee y prend son `param2` (progress-pc.gc `apply-frame-rate-menu-bounds!`) et
+   `update-to-os` y prend la valeur qu'il pousse au C++. Un seul ecrivain, deux lecteurs."
+  (let ((cap (-> obj display-fps-cap)))
+    (cond
+      ((< cap 0.0) (frame-rate-highest-finite))  ;; Illimite : la borne est le plus haut choix
+      ((< cap 25.0) 25)                          ;; le plancher de la rangee elle-meme
+      (else (the int cap)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; updates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -72,24 +148,34 @@
   (none))
 
 (defmethod set-frame-rate! ((obj pc-settings) (rate int) (call-handlers symbol))
-  "set the DISPLAY frame-rate cap.
+  "set the DISPLAY frame-rate cap. `rate` negatif = Illimite.
+
    framerate-uncap : ce reglage est le PLAFOND D'AFFICHAGE, plus la reference de temps du
-   moteur. `pc-set-frame-rate` ecrit desormais `display_fps_cap` cote C++ et laisse
-   `Gfx::g_global_settings.target_fps` a 60 (voir game/graphics/uncap.h). Le `video-mode`
-   ne peut donc plus valoir 'custom : c'etait lui qui derivait `*ticks-per-frame*`
-   (585900/target-fps, video.gc:38), `seconds-per-frame`, `time-factor` et donc
-   `DISPLAY_FPS_RATIO` de la cadence AFFICHEE — c'est-a-dire le mode « high fps » amont, ou
-   la LOGIQUE accelerait avec l'ecran. On reste sur les constantes 60 Hz ('ntsc), et les
-   images en trop sont des images de RENDU SEUL interpolees par l'alpha de l'horloge armee
-   (fixed_tick ou render_pace, qui rendent deja k = 0 au-dessus de 60 img/s)."
-  (if call-handlers (pc-set-frame-rate rate))
-  (if (and (!= 'fullscreen (pc-get-display-mode)) (!= (pc-get-active-display-refresh-rate) rate)) (set! (-> obj vsync?) #f))
-  (set! (-> obj target-fps) rate)
-  (set! (-> obj display-fps-cap) (the float rate))
-  (case rate
-    ((50) (set-game-setting! obj 'video-mode 'pal))
-    (else (set-game-setting! obj 'video-mode 'ntsc)))
-  rate)
+   moteur. `target-fps` reste a 60 -- INVARIANT, ecrit ici et nulle part ailleurs : c'est lui
+   qui derive `*ticks-per-frame*` (585900/target-fps, video.gc:38), `seconds-per-frame`,
+   `time-adjust-ratio` et `time-factor` (display.gc:80-88), donc `DISPLAY_FPS_RATIO`, ainsi que
+   les seuils « high fps » de pad.gc. Le faire suivre la cadence AFFICHEE, c'est le mode ou la
+   LOGIQUE accelere avec l'ecran -- exactement ce que l'item corrige. Les images en trop sont
+   des images de RENDU SEUL, interpolees par l'alpha de l'horloge armee (fixed_tick ou
+   render_pace, qui rendent deja k = 0 au-dessus de 60 img/s).
+
+   essai 2 : la valeur est RAMENEE sur la liste de choix (`frame-rate-snap`). Le reglage etant
+   devenu une liste, une valeur hors liste n'a plus de libelle a afficher ; on rend donc
+   impossible d'en ecrire une, au point de production plutot qu'au point de controle. Un
+   settings.ini d'hier qui porte 150, ou un panneau a 144 Hz, entrent par ici.
+
+   essai 2 : la decision de synchro verticale a QUITTE cette methode. Elle valait
+   `(if (and (!= 'fullscreen (pc-get-display-mode)) (!= refresh rate)) (set! vsync? #f))` --
+   or Android est TOUJOURS en 'fullscreen, donc la synchro y restait armee et le swap en FIFO
+   plafonnait la cadence sur le rafraichissement du panneau : le « cap a 90FPS » de l'owner.
+   Elle vit maintenant dans `uncap::desired_swap_interval()` (game/graphics/uncap.h), le seul
+   endroit qui decide de l'intervalle de swap, sur les deux plateformes."
+  (let ((cap (frame-rate-snap rate)))
+    (set! (-> obj display-fps-cap) (the float cap))
+    (set! (-> obj target-fps) 60)
+    (set-game-setting! obj 'video-mode 'ntsc)
+    (if call-handlers (pc-set-frame-rate cap))
+    cap))
 
 (defmethod commit-to-file ((obj pc-settings))
   "commits the current settings to the file"
@@ -333,8 +419,18 @@
                          (cond ((< v 8.0) 8.0) ((> v 58.0) 58.0) (else v)))
                        (the float (pc-get-fps)))))
          (set! *dyn-rs-fps-ema* (+ (* 0.75 *dyn-rs-fps-ema*) (* 0.25 meas))))
-       (let ((cap-fps (the float (pc-get-active-display-refresh-rate))))     ;; presentation cap (vsync/refresh)
-         ;; sane default if the platform reports no / absurd refresh rate
+       ;; framerate-uncap essai 2 : LE PLAFOND DE PRESENTATION, c'est le plafond CHOISI, plus
+       ;; le rafraichissement du panneau. Cette ligne lisait
+       ;; `(pc-get-active-display-refresh-rate)`, donc 60 sur le Redmi et 90 sur un panneau
+       ;; 90 Hz, quelle que soit la consigne : le controleur croyait « capped? » des que la
+       ;; cible atteignait le panneau et cessait de sonder vers le haut. Le plafond que le
+       ;; limiteur applique est `display-fps-cap`, et au-dessus du panneau la presentation ne
+       ;; borne plus rien (`uncap::desired_swap_interval` rend 0). « Illimite » n'est pas un
+       ;; plafond de presentation : on prend le plus haut choix fini.
+       (let ((cap-fps (if (< (-> obj display-fps-cap) 0.0)
+                          (the float (frame-rate-highest-finite))
+                          (-> obj display-fps-cap))))
+         ;; sane default if the platform reports no / absurd cap
          (if (< cap-fps 20.0) (set! cap-fps 60.0))
          (cond
            ;; transition (load / cutscene / not in-game): HOLD scale, drop the lock, re-prime
@@ -433,16 +529,29 @@
   (cond
     ((-> obj letterbox?) (pc-set-letterbox (-> obj framebuffer-scissor-width) (-> obj framebuffer-scissor-height)))
     (else (pc-set-letterbox (-> obj framebuffer-width) (-> obj framebuffer-height))))
-  (pc-set-vsync (and (-> obj vsync?)
-                     (or (= 'fullscreen (pc-get-display-mode)) (>= (pc-get-active-display-refresh-rate) (-> obj target-fps)))))
-  (when (!= 'fullscreen (pc-get-display-mode))
-    (pc-set-frame-rate (-> obj target-fps)))
-  ;; framerate-uncap : le plafond d'affichage se pousse SANS CONDITION. La ligne ci-dessus est
-  ;; gardee par `(!= 'fullscreen ...)` — or Android est TOUJOURS en 'fullscreen, donc un
-  ;; reglage change dans le menu n'atteignait jamais le C++ tant que le jeu tournait. La
-  ;; rangee slider ecrit directement dans `display-fps-cap` (le code de slider ecrit le
-  ;; pointeur puis notifie) : c'est ici, et seulement ici, que la valeur traverse.
+  ;; framerate-uncap essai 2 : LA CONSIGNE DE MESURE, appliquee AVANT tout le reste. Sans
+  ;; elle, une course de preuve garde le plafond que la machine a sauvegarde (60 sur le Redmi)
+  ;; et les clauses « liste de choix » et « la cible suit le plafond » seraient jugees dans un
+  ;; regime ou la constante fautive et la regle correcte rendent le MEME chiffre : vertes sans
+  ;; rien prouver. En jeu normal `pc-get-frame-rate-cap-override` rend toujours 0.
+  (let ((ovr (pc-get-frame-rate-cap-override)))
+    (when (and (nonzero? ovr) (!= (the float (frame-rate-snap ovr)) (-> obj display-fps-cap)))
+      (set-frame-rate! obj ovr #f)))
+  ;; framerate-uncap essai 2 : la synchro poussee est l'INTENTION de l'utilisateur, rien de
+  ;; plus. La condition qui etait ici (`>= refresh target-fps`, contournee par 'fullscreen) est
+  ;; devenue `uncap::desired_swap_interval()` : un seul ecrivain pour l'intervalle de swap, et
+  ;; il vaut 0 des que le plafond demande depasse le panneau.
+  (pc-set-vsync (-> obj vsync?))
+  ;; framerate-uncap : le plafond d'affichage se pousse SANS CONDITION. La poussee etait gardee
+  ;; par `(!= 'fullscreen ...)` — or Android est TOUJOURS en 'fullscreen, donc un reglage change
+  ;; dans le menu n'atteignait jamais le C++ tant que le jeu tournait.
   (pc-set-frame-rate (the int (-> obj display-fps-cap)))
+  ;; framerate-uncap essai 2 : CE QUE LE MENU OFFRE. Le C++ ne peut pas le deviner sans
+  ;; recopier la regle du menu, et une regle recopiee des deux cotes se juge elle-meme.
+  (pc-set-uncap-menu (frame-rate-choice-count)
+                     (frame-rate-index (-> obj display-fps-cap))
+                     (dynscale-target-max obj))
+
   ;; do game resolution
   ;; ORDER (batch 2 + 3): the "Game Resolution" picker sets the BASE game res
   ;; ((-> obj width)/(-> obj height) in fullscreen, framebuffer-scissor in windowed);
@@ -952,7 +1061,10 @@
     (("min-render-scale") (set! (-> obj min-render-scale) (file-stream-read-float file)))
     (("dynamic-render-scale?") (set! (-> obj dynamic-render-scale?) (file-stream-read-symbol file)))
     (("dyn-target-fps") (set! (-> obj dyn-target-fps) (file-stream-read-float file)))
-    (("display-fps-cap") (set! (-> obj display-fps-cap) (file-stream-read-float file)))
+    ;; framerate-uncap essai 2 : par `set-frame-rate!` et pas par une affectation nue -- un
+    ;; settings.ini d'hier porte un plafond hors liste (150, 144, 90 d'un panneau), et une
+    ;; valeur hors liste n'a pas de libelle a afficher dans une rangee devenue liste.
+    (("display-fps-cap") (set-frame-rate! obj (the int (file-stream-read-float file)) #f))
     (("shrub-dist-mod") (set! (-> obj shrub-dist-mod) (file-stream-read-float file)))
     (("lod-dist-mod") (set! (-> obj lod-dist-mod) (file-stream-read-float file)))
     (("lod-force-tfrag") (set! (-> obj lod-force-tfrag) (file-stream-read-int file)))

@@ -6835,11 +6835,21 @@
 
 (def-progress-carousell *carousell-speaker* (speaker-always speaker-never speaker-auto))
 
-(def-progress-carousell *carousell-frame-rate-150fps* (60fps 100fps 150fps))
-
-(def-progress-carousell *carousell-frame-rate-100fps* (60fps 100fps))
-
-(define *carousell-frame-rate* *carousell-frame-rate-150fps*)
+;; framerate-uncap essai 2 : LA RANGEE DE CADENCE EST UNE LISTE DE CHOIX -- 30, 45, 60, 75,
+;; 90, 120, 240, ILLIMITE (owner 2026-09-07). MEME ORDRE que `*frame-rate-choices*`
+;; (pckernel-common.gc), qui porte les VALEURS : ici ce sont leurs libelles, et le verdict de
+;; la preuve casse si les deux listes divergent (game/graphics/uncap.h, `uncap_v_choices`).
+;; Les entrees sont des tags RESERVES #x17dc..#x17e3, jamais cherches dans une banque de texte
+;; (meme route que HD LOOK et PHYSICS DETAIL) : une COMMON.TXT Android perimee ne peut pas les
+;; transformer en « Unknown ID », et aucune des 20 langues n'est a regenerer.
+;; Ce qui disparait : les deux listes `*carousell-frame-rate-100fps*` / `-150fps*` et la
+;; bascule entre elles selon le rafraichissement du panneau. C'etait le « ca lock a 60 » --
+;; sur un panneau 60 Hz la liste tombait a (60) et la rangee etait grisee, alors que le plafond
+;; d'affichage n'a plus RIEN a voir avec le panneau depuis que la reference de temps en est
+;; separee : 30 et 45 sont sous le panneau, 120 et 240 au-dessus et la presentation cesse
+;; d'attendre le balayage (uncap::desired_swap_interval).
+(define *carousell-frame-rate*
+  (new 'static 'boxed-array :type text-id #x17dc #x17dd #x17de #x17df #x17e0 #x17e1 #x17e2 #x17e3))
 
 ;; Grecharged-ambient-occlusion: the AO mode carousell (Off/SSAO/HBAO/GTAO) and the AO quality carousell
 ;; (Low/Medium/High). The value strings live in game_custom_text_*.json (ids #x1708-#x170d) with matching
@@ -7148,7 +7158,12 @@
             :option-disabled-func
             (lambda ()
               (= (pc-get-display-mode) 'windowed)))
-       ;; 10 Frame rate (desktop only)
+       ;; 10 Frame rate -- MAX FRAME RATE (framerate-uncap essai 2). La clause
+       ;; `(<= (pc-get-active-display-refresh-rate) 60)` est RETIREE : elle grisait la rangee sur
+       ;; tout panneau 60 Hz, ce qui est litteralement le « ca lock a 60 max » de l'owner. Le
+       ;; plafond d'affichage ne depend plus du panneau -- 30 et 45 sont EN DESSOUS, 120 et 240
+       ;; au-dessus avec la presentation qui cesse d'attendre le balayage. Seul le mode
+       ;; speedrun garde la rangee grisee (il impose 60).
        (new 'static
             'game-option
             :option-type (game-option-type frame-rate)
@@ -7156,7 +7171,7 @@
             :scale #t
             :option-disabled-func
             (lambda ()
-              (or (-> *pc-settings* speedrunner-mode?) (<= (pc-get-active-display-refresh-rate) 60))))
+              (-> *pc-settings* speedrunner-mode?)))
        ;; 11 RECHARGED SETTINGS submenu (Grecharged-hud-jak1). Inserted BEFORE Advanced per the phase
        ;; spec; shifts Advanced->12, Vulkan->13, Back->14 (see the reindexed init-game-options wiring +
        ;; the bumped MTF full-len 15 / graphic-options-set-mtf-visible! calls). label via name-override.
@@ -7253,23 +7268,22 @@
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t)
        ;; 7 MSAA
        (new 'static 'game-option :option-type (game-option-type msaa) :name (text-id msaa) :scale #t)
-       ;; 8 MAX FRAME RATE slider (framerate-uncap) : 60..240 par pas de 30 -> display-fps-cap.
-       ;; C'est le PLAFOND D'AFFICHAGE et lui seul : la reference de temps du moteur reste 60,
-       ;; donc la logique recoit toujours 60 ticks par seconde reelle et les images en trop sont
-       ;; interpolees par l'alpha de l'horloge armee. La rangee etait ABSENTE du tableau Android
-       ;; (« permanently greyed on the 60Hz panel ») : c'est litteralement le « ca lock a 60 max »
-       ;; de l'owner. Pas d'on-change : le code de slider ecrit directement `value-to-modify`, et
-       ;; `update-to-os` (pckernel-common.gc) pousse la valeur au C++ a chaque image. Etiquette par
-       ;; name-override, valeur cablee dans init-game-options.
+       ;; 8 MAX FRAME RATE (framerate-uncap essai 2) -- LISTE DE CHOIX, plus un curseur.
+       ;; owner 2026-09-07 : « plutot qu'un slider faudrait des choix comme 30, 45, 60, 75, 90,
+       ;; 120, 240, Illimite ». C'est le PLAFOND D'AFFICHAGE et lui seul : la reference de temps
+       ;; du moteur reste 60, donc la logique recoit toujours 60 ticks par seconde reelle et les
+       ;; images en trop sont interpolees par l'alpha de l'horloge armee.
+       ;; Le type `frame-rate` est celui de la rangee desktop : la nav gauche/droite, le dessin
+       ;; selectionne et le dessin non selectionne sont DEJA cables pour lui (les grandes listes
+       ;; de types de `respond-common` / `draw-options`). Un type neuf aurait demande sept armes
+       ;; de plus pour le meme comportement. Etiquette par name-override -- elle porte la valeur
+       ;; courante (`apply-frame-rate-menu-bounds!`), parce qu'une rangee de liste NON selectionnee
+       ;; n'affiche que son nom, contrairement au curseur qui affichait « : 120 ».
        (new 'static
             'game-option
-            :option-type (game-option-type slider)
-            :name (text-id vsync)
-            :scale #t
-            :param1 60.0
-            :param2 240.0
-            :slider-step-size 30.0
-            :slider-show-decimal? #f)
+            :option-type (game-option-type frame-rate)
+            :name (text-id frame-rate)
+            :scale #t)
        ;; 9 RECHARGED SETTINGS submenu (Grecharged-hud-jak1). Inserted BEFORE Advanced per the phase
        ;; spec; shifts Advanced->10, Vulkan->11, Back->12 (see the reindexed init-game-options wiring +
        ;; the bumped MTF full-len 13 / graphic-options-set-mtf-visible! calls). label via name-override.
@@ -7907,6 +7921,28 @@
 ;; MAJUSCULE, et une entree de banc de texte aurait demande les 20 langues.
 (define *max-frame-rate-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *max-frame-rate-label*) "MAX FRAME RATE")
+;; framerate-uncap essai 2 : les HUIT libelles de la liste de cadence, resolus par
+;; `carousell-option-string` sur les tags reserves #x17dc..#x17e3. Chaines d'execution, donc
+;; aucune banque de texte a toucher et aucune des 20 langues a regenerer -- meme route que
+;; HD LOOK et PHYSICS DETAIL. MEME ORDRE que `*frame-rate-choices*` (pckernel-common.gc).
+(define *fps-choice-30-label* (new 'global 'string 32 (the-as string #f)))
+(define *fps-choice-45-label* (new 'global 'string 32 (the-as string #f)))
+(define *fps-choice-60-label* (new 'global 'string 32 (the-as string #f)))
+(define *fps-choice-75-label* (new 'global 'string 32 (the-as string #f)))
+(define *fps-choice-90-label* (new 'global 'string 32 (the-as string #f)))
+(define *fps-choice-120-label* (new 'global 'string 32 (the-as string #f)))
+(define *fps-choice-240-label* (new 'global 'string 32 (the-as string #f)))
+(define *fps-choice-unlimited-label* (new 'global 'string 32 (the-as string #f)))
+(format (clear *fps-choice-30-label*) "30")
+(format (clear *fps-choice-45-label*) "45")
+(format (clear *fps-choice-60-label*) "60")
+(format (clear *fps-choice-75-label*) "75")
+(format (clear *fps-choice-90-label*) "90")
+(format (clear *fps-choice-120-label*) "120")
+(format (clear *fps-choice-240-label*) "240")
+;; La police du menu ne mappe que l'ASCII MAJUSCULE : « UNLIMITED », pas « Illimite ».
+(format (clear *fps-choice-unlimited-label*) "UNLIMITED")
+
 ;; Goptions-reorder: "PS2 Options" is relabelled "ADVANCED SETTINGS" via name-override (the menu font
 ;; only maps uppercase ASCII; see the FPS-counter label note). Submenu (gfx-ps2-options) is unchanged.
 (define *advanced-settings-label* (new 'global 'string 128 (the-as string #f)))
@@ -8350,6 +8386,37 @@
     (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* GFX_OPTIONS_PC_FULL_LEN dyn?)
     (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* GFX_OPTIONS_ANDROID_FULL_LEN dyn?))
   (none))
+
+(defun apply-frame-rate-menu-bounds! ()
+  "framerate-uncap essai 2 (c) : LA CIBLE DE L'ECHELLE DE RENDU DYNAMIQUE SUIT LE PLAFOND.
+   owner 2026-09-07 : « le FPS cible du Dynamic resolution scaling devrait ajuster les options
+   de son slider en fonction du max fps [...] dommage de mettre la target a un max de 60 alors
+   qu'on a defini le max fps a 240 ». La borne haute de cette rangee etait la constante 60
+   (`:param2 60.0`) sur les DEUX tableaux. Elle vient maintenant de `dynscale-target-max`
+   (pckernel-common.gc), qui est aussi la valeur poussee au C++ par `update-to-os` : un seul
+   ecrivain de la regle, deux lecteurs, donc un verdict qui ne se juge pas lui-meme.
+   Appelee depuis `init-game-options` et depuis la confirmation de la rangee de cadence -- une
+   borne calculee UNE FOIS a l'ouverture du menu resterait a 60 apres un changement de plafond.
+   Rafraichit aussi l'etiquette de la rangee : une rangee de LISTE non selectionnee n'affiche
+   que son nom, alors que le curseur d'avant montrait sa valeur."
+  (let ((mx (the float (dynscale-target-max *pc-settings*))))
+    ;; Les POINTEURS STABLES, pas l'index 4 : `graphic-options-set-mtf-visible!` masque cette
+    ;; rangee en decalant le tableau et en raccourcissant sa longueur, donc l'index 4 designe
+    ;; une AUTRE rangee des que l'echelle dynamique est eteinte.
+    (set! (-> *graphic-options-mtf-pc* param2) mx)
+    (set! (-> *graphic-options-mtf-android* param2) mx)
+    ;; le reglage courant peut etre AU-DESSUS de la nouvelle borne (on vient de baisser le
+    ;; plafond) : on le ramene tout de suite, sinon le controleur viserait un inatteignable.
+    (if (> (-> *pc-settings* dyn-target-fps) mx) (set! (-> *pc-settings* dyn-target-fps) mx))
+    (let ((cap (-> *pc-settings* display-fps-cap)))
+      (if (< cap 0.0)
+          (format (clear *max-frame-rate-label*) "MAX FRAME RATE: UNLIMITED")
+          (format (clear *max-frame-rate-label*) "MAX FRAME RATE: ~D" (the int cap)))))
+  (none))
+;; Goptions-reorder: "PS2 Options" is relabelled "ADVANCED SETTINGS" via name-override (the menu font
+;; only maps uppercase ASCII; see the FPS-counter label note). Submenu (gfx-ps2-options) is unchanged.
+(define *advanced-settings-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *advanced-settings-label*) "ADVANCED SETTINGS")
 
 ;; label for the NATIVE (panel resolution) entry at the top of the Game Resolution
 ;; list (uppercase for the menu font; shown via name-override).
@@ -9554,6 +9621,15 @@
     ((= id (the-as text-id #x17b9)) *physics-light-label*)
     ((= id (the-as text-id #x17ba)) *physics-full-label*)
     ((= id (the-as text-id #x17bb)) *physics-max-label*)
+    ;; framerate-uncap essai 2 : les huit libelles de la liste de cadence, tags #x17dc..#x17e3.
+    ((= id (the-as text-id #x17dc)) *fps-choice-30-label*)
+    ((= id (the-as text-id #x17dd)) *fps-choice-45-label*)
+    ((= id (the-as text-id #x17de)) *fps-choice-60-label*)
+    ((= id (the-as text-id #x17df)) *fps-choice-75-label*)
+    ((= id (the-as text-id #x17e0)) *fps-choice-90-label*)
+    ((= id (the-as text-id #x17e1)) *fps-choice-120-label*)
+    ((= id (the-as text-id #x17e2)) *fps-choice-240-label*)
+    ((= id (the-as text-id #x17e3)) *fps-choice-unlimited-label*)
     (else (lookup-text! *common-text* id #f))))
 
 (defun print-string-in-carousell ((arg0 text-id) (arg1 font-context) (arg2 int) (arg3 symbol))
@@ -10213,10 +10289,12 @@
   ;; keeps Display mode / Display / Frame rate.
   (set! (-> *options-remap* (progress-screen graphic-settings))
         (#if PLATFORM_ANDROID *graphic-options-pc-android* *graphic-options-pc*))
-  (let ((max-refresh-rate (pc-get-active-display-refresh-rate)))
-    (cond
-      ((> max-refresh-rate 100) (set! *carousell-frame-rate* *carousell-frame-rate-150fps*))
-      ((> max-refresh-rate 60) (set! *carousell-frame-rate* *carousell-frame-rate-100fps*))))
+  ;; framerate-uncap essai 2 : la liste de cadence ne se choisit PLUS selon le rafraichissement
+  ;; du panneau (c'etait la bascule 100fps/150fps, et sur un panneau 60 Hz elle laissait une
+  ;; liste a un seul element : le « ca lock a 60 »). Une seule liste, huit choix, et c'est la
+  ;; presentation qui s'adapte. Ce qui se derive ici, c'est la borne haute de la cible de
+  ;; l'echelle de rendu dynamique -- elle SUIT le plafond choisi.
+  (apply-frame-rate-menu-bounds!)
   (set! (-> *options-remap* (progress-screen sound-settings)) *sound-options-pc*)
   (set! (-> *options-remap* (progress-screen memcard-no-space)) *ok-options*)
   (set! (-> *options-remap* (progress-screen memcard-not-inserted)) *ok-options*)
@@ -10342,10 +10420,11 @@
   (set! (-> *graphic-options-pc-android* 5 name-override) *fps-counter-label*)
   (set! (-> *graphic-options-pc-android* 6 value-to-modify) (&-> *pc-settings* vsync?))
   (set! (-> *graphic-options-pc-android* 7 value-to-modify) (&-> *progress-carousell* int-backup))
-  ;; framerate-uncap : index 8 = MAX FRAME RATE. La cible d'un slider DOIT etre un flottant —
-  ;; tout le code de slider caste en (pointer float) —, d'ou le champ miroir `display-fps-cap`
-  ;; a cote de `target-fps` (int16).
-  (set! (-> *graphic-options-pc-android* 8 value-to-modify) (&-> *pc-settings* display-fps-cap))
+  ;; framerate-uncap essai 2 : index 8 = MAX FRAME RATE, devenue une LISTE. Une rangee de
+  ;; carousell vise le tampon entier partage `int-backup` (l'INDEX en cours d'edition), jamais
+  ;; le champ de `pc-settings` : c'est la confirmation qui ecrit le reglage, via `set-frame-rate!`
+  ;; -- donc annuler l'edition ne laisse pas un plafond a moitie applique derriere elle.
+  (set! (-> *graphic-options-pc-android* 8 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *graphic-options-pc-android* 8 name-override) *max-frame-rate-label*)
   ;; Grecharged-hud-jak1: index 9 = RECHARGED SETTINGS submenu row on Android.
   (set! (-> *graphic-options-pc-android* 9 name-override) *recharged-settings-label*)
@@ -11334,11 +11413,12 @@
                     ((#t) (set! (-> *progress-carousell* int-backup) 0))
                     ((#f) (set! (-> *progress-carousell* int-backup) 1))
                     (('auto) (set! (-> *progress-carousell* int-backup) 2))))
+                 ;; framerate-uncap essai 2 : l'index courant se lit sur le PLAFOND
+                 ;; (`display-fps-cap`), plus sur `target-fps` -- qui est desormais epingle a 60
+                 ;; et aurait donc TOUJOURS rendu l'index de 60, quel que soit le choix affiche.
                  (((game-option-type frame-rate))
-                  (case (-> *pc-settings* target-fps)
-                    ((60) (set! (-> *progress-carousell* int-backup) 0))
-                    ((100) (set! (-> *progress-carousell* int-backup) 1))
-                    ((150) (set! (-> *progress-carousell* int-backup) 2))))
+                  (set! (-> *progress-carousell* int-backup)
+                        (frame-rate-index (-> *pc-settings* display-fps-cap))))
                  (((game-option-type language-subtitles))
                   (let ((cur-lang (get-language-name (-> *pc-settings* subtitle-language))))
                     (dotimes (i (-> *subtitle-languages* length))
@@ -11538,11 +11618,13 @@
                  ((0) (set! (-> *pc-settings* subtitle-speaker?) #t))
                  ((1) (set! (-> *pc-settings* subtitle-speaker?) #f))
                  ((2) (set! (-> *pc-settings* subtitle-speaker?) 'auto))))
+              ;; framerate-uncap essai 2 : la confirmation prend la VALEUR du choix dans la liste
+              ;; canonique (`*frame-rate-choices*`, pckernel-common.gc) -- une entree negative est
+              ;; « Illimite ». Puis on re-derive les bornes du menu : la cible de l'echelle de
+              ;; rendu dynamique doit suivre le plafond qu'on vient de choisir, immediatement.
               (((game-option-type frame-rate))
-               (case (-> *progress-carousell* int-backup)
-                 ((0) (set-frame-rate! *pc-settings* 60 #t))
-                 ((1) (set-frame-rate! *pc-settings* 100 #t))
-                 ((2) (set-frame-rate! *pc-settings* 150 #t)))
+               (set-frame-rate! *pc-settings* (frame-rate-at (-> *progress-carousell* int-backup)) #t)
+               (apply-frame-rate-menu-bounds!)
                (set-video-mode (-> *setting-control* default video-mode))))
             ;; if the option has a `on-confirm` function, run it
             (when (nonzero? (-> options (-> obj option-index) on-confirm))

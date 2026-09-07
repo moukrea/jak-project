@@ -91,6 +91,84 @@ double cap_fps(double engine_target_fps);
 // les DEUX doivent appeler, ou la plateforme oubliee mesure zero en silence.
 void on_render_frame();
 
+// ---------------------------------------------------------------------------------------
+// ESSAI 2 — LES TROIS EXIGENCES QUE L'OWNER A AJOUTEES LE 2026-09-07.
+// ---------------------------------------------------------------------------------------
+// (a) LISTE DE CHOIX. « plutot qu'un slider faudrait des choix comme 30, 45, 60, 75, 90,
+//     120, 240, Illimite ». La liste canonique vit ICI, en C++, et le menu GOAL en est le
+//     REFLET (progress-pc.gc `*carousell-frame-rate*` + pckernel-common.gc
+//     `*frame-rate-choices*`, meme ordre). GOAL pousse ce qu'il OFFRE — combien de choix et
+//     lequel est courant (`set_menu_state`) —, et le verdict verifie que le plafond recu est
+//     EXACTEMENT l'entree de la liste a cet index. Un curseur, qui ne pousse rien, rend
+//     `choices_n = 0` : le defaut se voit sans avoir a regarder l'ecran.
+//
+// (b) `uncap_ceiling_hz` : LE PLAFOND REELLEMENT ATTEINT, et QUI le pose. L'owner mesure
+//     90 img/s constant avec la consigne a 240. Trois grandeurs suffisent a nommer le
+//     coupable, et aucune ne se deduit des deux autres :
+//       `uncap_panel_hz`      le rafraichissement du panneau, tel que SDL le declare ;
+//       `uncap_cap_fps_x100`  le plafond que le limiteur a recu ;
+//       `uncap_ceiling_hz`    la cadence de PRESENTATION soutenue la plus haute, comptee sur
+//                             les SWAPS (`note_present`) et pas sur la boucle EE — les deux
+//                             ne sont 1:1 que dans le mode serialise d'android_gfx.
+//     Ce qui plafonnait chez nous est nomme et retire : `SDL_GL_SetSwapInterval(1)` etait
+//     appele UNE fois a l'initialisation du renderer Android et plus jamais, et
+//     `Gfx::g_global_settings.vsync` n'etait relu par personne sur l'appareil (le seul
+//     pousseur, pipelines/opengl.cpp, n'est pas dans android/CMakeLists.txt). Un swap en FIFO
+//     sur un panneau 90 Hz rend 90 img/s quoi qu'on demande. `desired_swap_interval()` est
+//     desormais LE seul endroit qui decide de cet intervalle, sur les deux plateformes.
+//     Ce qui reste hors de notre code est PUBLIE, pas maquille : sur le Redmi le vote
+//     `PRIORITY_USER_SETTING_PEAK_REFRESH_RATE` du DisplayManager borne SurfaceFlinger a
+//     90 Hz et le panneau n'a qu'un mode 60 Hz.
+//
+// (c) LA CIBLE DE L'ECHELLE DE RENDU DYNAMIQUE SUIT LE PLAFOND. « aucun sens de pouvoir le
+//     definir a 60FPS [...] alors qu'on a defini le max fps a 240 ». La borne haute de cette
+//     rangee etait la constante 60 (`:param2 60.0`). Elle vient maintenant d'UNE fonction,
+//     `dynscale-target-max` (pckernel-common.gc), qui lit le plafond choisi ; la meme
+//     fonction alimente la borne de la rangee ET la valeur poussee ici. Le verdict compare
+//     cette valeur au plafond recu : une borne restee a 60 avec un plafond a 240 est rouge.
+//
+// POURQUOI UN VERDICT DE PLUS N'EST PAS UN VERDICT DE PLAFOND. `uncap_v_ceiling` ne dit PAS
+// « on a atteint 240 » — le Redmi ne depasse pas ~44 img/s et une porte qui l'exigerait
+// serait inatteignable ici (voir le bloc des verdicts plus bas). Il dit « la cadence de
+// presentation a ete MESUREE » : zero swap compte, c'est l'instrument qui est mort, et un
+// instrument mort ne doit jamais se lire comme un zero defaut.
+
+// LA LISTE CANONIQUE des choix de cadence, dans l'ordre du menu. La derniere entree est
+// negative : c'est « Illimite ». GOAL tient la meme liste dans le meme ordre, et le verdict
+// `uncap_v_choices` casse si les deux divergent.
+int choice_count();
+int choice_fps(int index);  // rend l'entree, negative pour « illimite » ; 0 hors bornes
+
+// CE QUE LE MENU GOAL OFFRE, pousse par `update-to-os` (pc-set-uncap-menu) :
+//   choices_n           combien de choix la rangee de cadence propose (8 attendu)
+//   choice_index        lequel est courant
+//   dynscale_target_max la borne HAUTE de la rangee « MIN TARGET FPS », en img/s
+void set_menu_state(int choices_n, int choice_index, int dynscale_target_max);
+
+// LA CONSIGNE DE MESURE, rendue a GOAL (pc-get-frame-rate-cap-override). 0 = aucune. Sans
+// elle, le reglage GOAL reste celui que la machine a sauvegarde (60 sur le Redmi) et les
+// clauses (a) et (c) seraient jugees dans un regime ou la constante fautive et la regle
+// correcte donnent le MEME chiffre — vertes sans rien prouver.
+int cap_override_fps();
+
+// LE RAFRAICHISSEMENT DU PANNEAU, pose par la plateforme (android_gfx.cpp cote arm64,
+// pipelines/opengl.cpp cote bureau). 0 = inconnu.
+void set_panel_hz(int hz);
+
+// L'INTERVALLE DE SWAP QUE LA PRESENTATION DOIT APPLIQUER, et le SEUL endroit qui en decide.
+// 0 = pas d'attente du balayage (le plafond demande depasse le panneau, ou l'utilisateur a
+// coupe la synchro), 1 = FIFO sur le balayage. A relire a chaque image : le plafond change
+// depuis le menu pendant que le jeu tourne.
+int desired_swap_interval();
+
+// Ce que la presentation a REELLEMENT applique (retour de SDL_GL_SetSwapInterval).
+void note_swap_interval_applied(int interval);
+
+// Une image vient d'etre PRESENTEE (swap). A appeler au site du swap, pas dans la boucle EE :
+// `uncap_ceiling_hz` est une cadence de presentation, et les deux ne coincident pas dans le
+// mode `overlap` d'android_gfx.
+void note_present();
+
 // LE DIVISEUR DE L'HORLOGE DE SCENE : la cadence a laquelle le gestionnaire de VBlank de
 // l'overlord est REELLEMENT appele. Ce n'est pas la meme grandeur sur les deux plateformes, et
 // c'est l'autre moitie — non citee par l'item — de ce qui casse quand on debride :

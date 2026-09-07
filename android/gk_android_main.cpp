@@ -1227,6 +1227,17 @@ void a35_pc_set_rand_seed(u32 seed) {
   a35_rand_gen.seed(seed);
 }
 
+// framerate-uncap essai 2 : meme semantique qu'au bureau (game/kernel/common/kmachine.cpp).
+// Les deux plateformes ont leur propre corps pour ces symboles : la plateforme oubliee saute
+// dans le vide au premier appel, et le symptome ne ressemble pas a sa cause.
+void a35_pc_set_uncap_menu(s64 choices_n, s64 choice_index, s64 dynscale_target_max) {
+  uncap::set_menu_state((int)choices_n, (int)choice_index, (int)dynscale_target_max);
+}
+
+s64 a35_pc_get_frame_rate_cap_override() {
+  return (s64)uncap::cap_override_fps();
+}
+
 void a35_pc_set_game_resolution(s64 w, s64 h) {
   Gfx::g_global_settings.game_res_w = (int)w;
   Gfx::g_global_settings.game_res_h = (int)h;
@@ -1298,6 +1309,10 @@ void a17_bind_pc_helpers() {
   klink_mfsfc_for_game("pc-get-active-display-size", (void*)a35_pc_get_size);
   klink_mfsfc_for_game("pc-get-active-display-refresh-rate",
                                     (void*)a35_pc_get_active_display_refresh_rate);
+  // framerate-uncap essai 2 : les deux symboles neufs, cote arm64.
+  klink_mfsfc_for_game("pc-set-uncap-menu", (void*)a35_pc_set_uncap_menu);
+  klink_mfsfc_for_game("pc-get-frame-rate-cap-override",
+                                    (void*)a35_pc_get_frame_rate_cap_override);
   // Gcine-camfov: window-size path reports a 4:3 width during cutscenes so the
   // frozen f1c GOAL machinery renders the authored 4:3 framing (pillarboxed).
   klink_mfsfc_for_game("pc-get-window-size", (void*)a35_pc_get_window_size);

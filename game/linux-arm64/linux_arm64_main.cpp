@@ -189,6 +189,10 @@ void a17_bind_pc_helpers() {
   jak1::make_function_symbol_from_c("pc-get-display-count", d);
   jak1::make_function_symbol_from_c("pc-get-active-display-size", d);
   jak1::make_function_symbol_from_c("pc-get-active-display-refresh-rate", d);
+  // framerate-uncap essai 2 : les deux symboles neufs. Ce harnais qemu ne rend que le stub
+  // par defaut ; un symbole non lie serait un saut dans le vide au premier appel de GOAL.
+  jak1::make_function_symbol_from_c("pc-set-uncap-menu", d);
+  jak1::make_function_symbol_from_c("pc-get-frame-rate-cap-override", d);
   jak1::make_function_symbol_from_c("pc-get-window-size", d);
   jak1::make_function_symbol_from_c("pc-get-window-scale", d);
   jak1::make_function_symbol_from_c("pc-set-window-size!", d);
@@ -401,6 +405,10 @@ void a17_bind_pc_helpers_jak2() {
   jak2::make_function_symbol_from_c("pc-get-display-count", d);
   jak2::make_function_symbol_from_c("pc-get-active-display-size", d);
   jak2::make_function_symbol_from_c("pc-get-active-display-refresh-rate", d);
+  // framerate-uncap essai 2 : les deux symboles neufs. Ce harnais qemu ne rend que le stub
+  // par defaut ; un symbole non lie serait un saut dans le vide au premier appel de GOAL.
+  jak2::make_function_symbol_from_c("pc-set-uncap-menu", d);
+  jak2::make_function_symbol_from_c("pc-get-frame-rate-cap-override", d);
   jak2::make_function_symbol_from_c("pc-get-window-size", d);
   jak2::make_function_symbol_from_c("pc-get-window-scale", d);
   jak2::make_function_symbol_from_c("pc-get-touch-tap", d);

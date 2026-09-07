@@ -1110,6 +1110,22 @@ void pc_set_frame_rate(int rate) {
   Gfx::g_global_settings.display_fps_cap = (float)rate;
 }
 
+// framerate-uncap essai 2 : CE QUE LE MENU OFFRE. GOAL pousse combien de choix la rangee de
+// cadence propose, lequel est courant, et la borne HAUTE que la rangee « MIN TARGET FPS » en
+// derive. Aucune de ces trois valeurs n'est recalculable en C++ sans recopier la regle du
+// menu — et une regle recopiee des deux cotes se juge elle-meme. Voir game/graphics/uncap.h.
+void pc_set_uncap_menu(int choices_n, int choice_index, int dynscale_target_max) {
+  uncap::set_menu_state(choices_n, choice_index, dynscale_target_max);
+}
+
+// framerate-uncap essai 2 : LA CONSIGNE DE MESURE, rendue a GOAL. 0 = aucune. Elle epingle le
+// regime d'une course de preuve : sans elle le reglage reste celui que la machine a sauvegarde
+// (60), et les clauses « liste de choix » et « la cible suit le plafond » seraient jugees a un
+// plafond ou la constante fautive et la regle correcte rendent le meme chiffre.
+s64 pc_get_frame_rate_cap_override() {
+  return (s64)uncap::cap_override_fps();
+}
+
 void pc_set_game_resolution(int w, int h) {
   Gfx::g_global_settings.game_res_w = w;
   Gfx::g_global_settings.game_res_h = h;
@@ -1306,6 +1322,11 @@ void init_common_pc_port_functions(
   // Returns the current refresh rate of the currently selected monitor's display mode.
   make_func_symbol_func("pc-get-active-display-refresh-rate",
                         (void*)pc_get_active_display_refresh_rate);
+  // framerate-uncap essai 2 : les deux symboles neufs. Un `.cpp` / un symbole neuf doit etre
+  // enregistre sur LES DEUX plateformes (android/gk_android_main.cpp a son propre corps) :
+  // la plateforme oubliee saute dans le vide au premier appel.
+  make_func_symbol_func("pc-set-uncap-menu", (void*)pc_set_uncap_menu);
+  make_func_symbol_func("pc-get-frame-rate-cap-override", (void*)pc_get_frame_rate_cap_override);
   // Returns size of window. Called from game thread
   make_func_symbol_func("pc-get-window-size", (void*)pc_get_window_size);
   // Returns scale of window. This is for DPI stuff.

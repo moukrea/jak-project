@@ -35,6 +35,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/render_pace.h"
+#include "game/graphics/uncap.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/kernel/common/kboot.h"
 
@@ -146,12 +147,29 @@ int android_renderer_run() {
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
 
-  // Pace swaps to the display; if unsupported, fall back to a 16 ms sleep
-  // in the idle path below.
-  const bool vsync_ok = SDL_GL_SetSwapInterval(1);
-  __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                      "SDL_GL_SetSwapInterval(1): %s",
-                      vsync_ok ? "ok" : SDL_GetError());
+  // framerate-uncap essai 2 (b) : L'INTERVALLE DE SWAP SUIT LE PLAFOND, ET IL EST RELU.
+  // Cette ligne valait `SDL_GL_SetSwapInterval(1)`, appelee ICI et plus jamais : un swap en
+  // FIFO rend le rafraichissement du PANNEAU quoi qu'on demande au limiteur — c'est le
+  // « cap a 90FPS » que l'owner mesure avec la consigne a 240 sur un panneau 90 Hz. Et
+  // `Gfx::g_global_settings.vsync`, que le menu pousse, n'etait relu par PERSONNE sur
+  // l'appareil : son seul pousseur est pipelines/opengl.cpp, absent d'android/CMakeLists.txt.
+  // La decision vit dans `uncap::desired_swap_interval()` et nulle part ailleurs ; elle est
+  // re-appliquee dans la boucle des que le plafond change depuis le menu.
+  // `swap_paced` : la presentation nous CADENCE-t-elle ? C'etait `vsync_ok`, le simple succes
+  // de l'appel. Un intervalle 0 CHOISI (plafond au-dessus du panneau) est un succes qui ne
+  // cadence rien : la boucle doit alors dormir sur une iteration sans chaine, exactement comme
+  // quand la synchro etait indisponible. Le predicat est donc « intervalle >= 1 et applique ».
+  bool swap_paced = false;
+  {
+    const int want = uncap::desired_swap_interval();
+    const bool ok = SDL_GL_SetSwapInterval(want);
+    swap_paced = ok && want >= 1;
+    uncap::note_swap_interval_applied(ok ? want : -1);
+    __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                        "A38-UNCAP SDL_GL_SetSwapInterval(%d): %s",
+                        want,
+                        ok ? "ok" : SDL_GetError());
+  }
 
   g_renderer_frame_count.store(0, std::memory_order_relaxed);
 
@@ -265,9 +283,30 @@ int android_renderer_run() {
       present_this_cycle = false;
     }
 
+    // framerate-uncap essai 2 (b) : le plafond change depuis le menu PENDANT que le jeu
+    // tourne. On relit la decision a chaque image et on ne parle a SDL que sur transition.
+    {
+      static int s_applied_interval = -2;
+      const int want = uncap::desired_swap_interval();
+      if (want != s_applied_interval) {
+        const bool ok = SDL_GL_SetSwapInterval(want);
+        s_applied_interval = ok ? want : -2;
+        swap_paced = ok && want >= 1;
+        uncap::note_swap_interval_applied(ok ? want : -1);
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "A38-UNCAP swap interval -> %d: %s",
+                            want,
+                            ok ? "ok" : SDL_GetError());
+      }
+    }
+
     if (present_this_cycle) {
       SDL_GL_SwapWindow(window);
       android_gfx::post_swap_tick();
+      // framerate-uncap essai 2 (b) : `uncap_ceiling_hz` est une cadence de PRESENTATION.
+      // Elle se compte ici, au swap, et pas dans la boucle EE : le mode `overlap`
+      // d'android_gfx decouple les deux.
+      uncap::note_present();
       // anim-interp-low-fps — LA CADENCE QUE L'OEIL VOIT. `render_pace` chronometre la
       // boucle EE ; l'ecran, lui, ne change qu'ici. Si les deux divergeaient, tout ce
       // module corrigerait une horloge que personne ne regarde. Un compteur, pas une
@@ -423,7 +462,7 @@ int android_renderer_run() {
                           report, drew_game ? "flowing" : "none");
     }
 
-    if (!drew_game && !vsync_ok) {
+    if (!drew_game && !swap_paced) {
       SDL_Delay(16);
     }
   }

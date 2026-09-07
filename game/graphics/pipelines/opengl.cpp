@@ -930,6 +930,18 @@ void GLDisplay::render() {
   {
     auto p = scoped_prof("swap-buffers");
     SDL_GL_SwapWindow(m_window);
+    // framerate-uncap essai 2 (b) : `uncap_ceiling_hz` se compte au SWAP.
+    uncap::note_present();
+    {
+      // Le rafraichissement du panneau, relu ici parce que c'est le seul endroit du bureau
+      // qui tourne a chaque image et qui a un display sous la main.
+      static int s_last_panel = -1;
+      const int hz = get_display_manager()->get_active_display_refresh_rate();
+      if (hz != s_last_panel) {
+        s_last_panel = hz;
+        uncap::set_panel_hz(hz);
+      }
+    }
   }
 
   // Gcamera-smooth GOLDEN reference: present-interval probe (env OG_PACE_MEASURE=1).
@@ -958,11 +970,20 @@ void GLDisplay::render() {
   }
 
   // switch vsync modes, if requested
-  if (Gfx::g_global_settings.vsync != Gfx::g_global_settings.old_vsync) {
-    Gfx::g_global_settings.old_vsync = Gfx::g_global_settings.vsync;
-    // NOTE - -1 can be used for adaptive vsync, maybe useful for Jak 2+?
-    // https://wiki.libsdl.org/SDL3/SDL_GL_SetSwapInterval
-    SDL_GL_SetSwapInterval(Gfx::g_global_settings.vsync);
+  // framerate-uncap essai 2 (b) : la decision n'est plus `vsync` tout court mais
+  // `uncap::desired_swap_interval()` — la MEME fonction que la presentation Android. Un
+  // plafond au-dessus du rafraichissement du panneau exige de cesser d'attendre le balayage,
+  // sinon le swap plafonne a la cadence du panneau et le reglage ne sert a rien. Deux
+  // ecrivains pour un intervalle, c'etait deux regimes selon la plateforme.
+  {
+    static int s_applied_interval = -2;
+    const int want = uncap::desired_swap_interval();
+    if (want != s_applied_interval) {
+      s_applied_interval = want;
+      Gfx::g_global_settings.old_vsync = Gfx::g_global_settings.vsync;
+      SDL_GL_SetSwapInterval(want);
+      uncap::note_swap_interval_applied(want);
+    }
   }
 
   // Start timing for the next frame.

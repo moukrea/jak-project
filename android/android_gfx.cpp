@@ -389,6 +389,10 @@ bool init_renderer_on_gl_thread(int win_w, int win_h) {
     auto display = SDL_GetPrimaryDisplay();
     const SDL_DisplayMode* mode = display ? SDL_GetCurrentDisplayMode(display) : nullptr;
     g_refresh_rate.store(mode && mode->refresh_rate > 0 ? (int)mode->refresh_rate : 60);
+    // framerate-uncap essai 2 (b) : le rafraichissement du panneau est la grandeur qui NOMME
+    // le plafond de presentation. `uncap::desired_swap_interval()` la lit pour decider s'il
+    // faut cesser d'attendre le balayage, et le proof la publie a cote de la cadence obtenue.
+    uncap::set_panel_hz(g_refresh_rate.load());
   }
 
   auto* data = new AndroidGfxData();

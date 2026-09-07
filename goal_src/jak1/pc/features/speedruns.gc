@@ -159,7 +159,10 @@
   ;; ensure PS2 actor vis is enabled
   (set! (-> *pc-settings* ps2-actor-vis?) #t)
   ;; ensure FPS set to `60`
-  (when (!= (-> *pc-settings* target-fps) 60)
+  ;; framerate-uncap essai 2 : le test porte sur le PLAFOND D'AFFICHAGE. `target-fps` est
+  ;; desormais epingle a 60 (c'est la reference de temps du moteur, plus la cadence affichee) :
+  ;; le tester ici serait toujours faux, et le mode speedrun tournerait au plafond de l'ecran.
+  (when (!= (-> *pc-settings* display-fps-cap) 60.0)
     (set-frame-rate! *pc-settings* 60 #t))
   (none))
 

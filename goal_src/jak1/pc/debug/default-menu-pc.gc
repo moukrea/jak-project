@@ -452,7 +452,9 @@
   (let ((fps (/ bfps 8)))
     (when (= msg (debug-menu-msg press))
       (set-frame-rate! *pc-settings* fps #t))
-    (= (-> *pc-settings* target-fps) fps)))
+    ;; framerate-uncap essai 2 : la coche suit le PLAFOND D'AFFICHAGE. `target-fps` etant
+    ;; epingle a 60, le tester cocherait « 60 » quel que soit le choix reellement applique.
+    (= (-> *pc-settings* display-fps-cap) (the float fps))))
 
 (defun dm-msaa-pick-func ((bmsaa int) (msg debug-menu-msg))
   (let ((msaa (/ bmsaa 8)))
