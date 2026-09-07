@@ -217,6 +217,44 @@ def fingerprint_validator_output(output: str) -> tuple[str, list[str]]:
     return fp, key_lines
 
 
+def implementation_fingerprint(root: Path) -> str:
+    """Identify source contents, independently of commits, reports and build timestamps."""
+    listed = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard",
+         "--", "game", "common", "goal_src", "goalc", "android", ".autoport"],
+        cwd=root, capture_output=True, timeout=30)
+    if listed.returncode:
+        return ""
+    digest = hashlib.sha256()
+    suffixes = {".cpp", ".h", ".hpp", ".c", ".gc", ".vert", ".frag", ".glsl",
+                ".comp", ".py", ".sh", ".java", ".kt"}
+    for raw in sorted(set(listed.stdout.split(b"\0")) - {b""}):
+        rel = Path(os.fsdecode(raw))
+        if rel.suffix not in suffixes:
+            continue
+        if rel.parts[0] == ".autoport" and any(
+                part in {"reports", "logs", "archive", "tests", "tmp"} for part in rel.parts):
+            continue
+        digest.update(raw + b"\0")
+        try:
+            with (root / rel).open("rb") as source:
+                digest.update(b"present\0")
+                while chunk := source.read(1024 * 1024):
+                    digest.update(chunk)
+        except FileNotFoundError:
+            digest.update(b"deleted\0")
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def fingerprint_failure(output: str, root: Path) -> tuple[str, list[str]]:
+    failure, lines = fingerprint_validator_output(output)
+    implementation = implementation_fingerprint(root)
+    if implementation:
+        failure = hashlib.sha1(f"{failure}:{implementation}".encode()).hexdigest()[:12]
+    return failure, lines
+
+
 def check_stuck(state: dict, item_id: str, current_fp: str) -> tuple[bool, str]:
     """Stuck = the same fingerprint STUCK_REPEAT_THRESHOLD times in a row."""
     history = state.get("fingerprints", {}).get(item_id, [])
@@ -226,9 +264,9 @@ def check_stuck(state: dict, item_id: str, current_fp: str) -> tuple[bool, str]:
     recent = history[-STUCK_REPEAT_THRESHOLD:]
     if all(fp == current_fp for fp in recent):
         return True, (
-            f"Même empreinte d'échec '{current_fp}' {STUCK_REPEAT_THRESHOLD} essais "
-            f"de suite : le worker n'apprend plus du validateur. On arrête cet item "
-            f"au lieu de brûler du quota dessus."
+            f"Même échec et même empreinte de sources '{current_fp}' "
+            f"{STUCK_REPEAT_THRESHOLD} essais de suite : reprise à arbitrer par le "
+            f"superviseur à partir du handoff et du validateur."
         )
     return False, ""
 
@@ -1635,7 +1673,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         log(gate_reason, "yellow")
 
     failure_text = validator_log.read_text(errors="replace")
-    fp, key_lines = fingerprint_validator_output(failure_text)
+    fp, key_lines = fingerprint_failure(failure_text, REPO_ROOT)
     state.setdefault("fingerprints", {}).setdefault(iid, []).append(fp)
     save_state(state)
 

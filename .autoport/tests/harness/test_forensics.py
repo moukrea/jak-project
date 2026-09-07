@@ -13,6 +13,7 @@ attempt JSONL, tool outputs included. Two consequences, both measured:
 Only structured API error events count now.
 """
 import json
+import subprocess
 
 
 def _jsonl(tmp_path, events):
@@ -104,3 +105,41 @@ def test_no_quota_probing_machinery_survives(orch):
         assert not hasattr(orch, gone), f"{gone} is dead code and must be gone"
     assert hasattr(orch, "rate_reset_from_log")
     assert hasattr(orch, "sleep_until")
+
+
+def test_stuck_requires_same_failure_on_same_implementation(orch, tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    source = tmp_path / "game/hdr.cpp"
+    source.parent.mkdir()
+    source.write_text("int tonemap_state = 0;\n")
+    failure = "[lighting-census FAIL] refset_replay_maxdiff=254 attendu 0"
+    first, _ = orch.fingerprint_failure(failure, tmp_path)
+    state = {"fingerprints": {"lighting-census": [first, first]}}
+    source.write_text("int tonemap_state = 1;\n")
+    fixed, lines = orch.fingerprint_failure(failure, tmp_path)
+    assert fixed != first
+    assert "refset_replay_maxdiff=254" in lines[0]
+    state["fingerprints"]["lighting-census"].append(fixed)
+    assert not orch.check_stuck(state, "lighting-census", fixed)[0]
+    state["fingerprints"]["lighting-census"] += [fixed, fixed]
+    assert orch.check_stuck(state, "lighting-census", fixed)[0]
+
+
+def test_notes_commits_and_timestamps_do_not_reset_failure_streak(orch, tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    source = tmp_path / "game/hdr.cpp"
+    source.parent.mkdir()
+    source.write_text("int tonemap_state = 0;\n")
+    failure = "[demo FAIL] count=1 attendu 0"
+    before, _ = orch.fingerprint_failure(failure, tmp_path)
+    notes = tmp_path / ".autoport/reports/demo/notes/probe.py"
+    notes.parent.mkdir(parents=True)
+    notes.write_text("print('new diagnosis')\n")
+    source.touch()
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "-c", "user.name=test", "-c", "user.email=test@example.invalid",
+                    "-c", "commit.gpgsign=false", "commit", "-qm", "checkpoint"],
+                   cwd=tmp_path, check=True)
+    assert orch.fingerprint_failure(failure, tmp_path)[0] == before
+    source.unlink()
+    assert orch.fingerprint_failure(failure, tmp_path)[0] != before

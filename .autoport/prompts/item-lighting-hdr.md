@@ -1,9 +1,9 @@
 # Le rendu passe en HDR avec un seul tone map
 
 ## Defaut cite
-- 2026-09-07 : « demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte du lighting, commençant par reprendre le HDR/blancs brûlés ! »
 - 2026-09-07 : « Attention, on s'attend bien sûr a des différences entre on et off quand même hein ! C'est sensé être techniquement plus riche le rendu de base étant plus Riche (HDR) mais faut que le rendu final reste cohérent avec l'original, pas de blancs brûlés, une teinte/saturation similaire, le contraste est sensé être plus riche vu qu'on part du HDR mais voilà, faut éviter le brûlé, et avoir plus de richess… »
 - 2026-09-07 : « Enfin j'y entend pas grand chose mais j'espère m'être fait comprendre »
+- 2026-09-07 : « Mais putain mais c'est pas possible t'es con ou quoi ? S'il s'est arrêté faut comprendre pourquoi et corriger, ça sert a rien si le harnais s'arrête tout seul pour un rien, soit pas débile ! »
 
 ## Cause connue
 Les anciennes references ne montraient presque aucun ciel (village1-hut) : elles ont donne un faux vert malgre les blancs brules. Detail conserve dans notes et SPEC §8 item 2.

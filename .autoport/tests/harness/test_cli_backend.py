@@ -259,6 +259,25 @@ def test_watch_queues_each_change_once_to_exact_supervisor(tmp_path, monkeypatch
     assert not any('--last' in cmd for cmd in calls)
 
 
+def test_watch_escalates_blocked_priority_for_repair_without_repeat(tmp_path, monkeypatch):
+    w = load_watch()
+    (tmp_path / '.autoport').mkdir()
+    calls = []
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, '', '')
+    monkeypatch.setattr(w.subprocess, 'run', run)
+    report = 'Bloqué : références HDR'
+    assert w.notify_supervisor(tmp_path, report, 'supervisor-uuid')
+    assert w.notify_supervisor(tmp_path, report, 'supervisor-uuid', recovery=('lighting-census',))
+    assert len(calls) == 2  # escalation is not swallowed by an earlier status-only digest
+    prompt = calls[-1][-1]
+    assert 'Reprise superviseur requise pour : lighting-census' in prompt
+    assert 'corrige le harnais' in prompt
+    assert w.notify_supervisor(tmp_path, report, 'supervisor-uuid', recovery=('lighting-census',))
+    assert len(calls) == 2
+
+
 def test_failed_supervisor_queue_is_not_acknowledged(tmp_path, monkeypatch):
     w = load_watch()
     (tmp_path/'.autoport').mkdir()

@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-07T13:09:21.883437+00:00",
+  "reason": "Detection echec+sources corrigee ; arbitrage references neuves qualifiees ; veille sur thread courant.",
+  "previous": {
+    "retries": 3,
+    "fingerprints": [
+      "671b7db38c8b",
+      "671b7db38c8b",
+      "671b7db38c8b"
+    ],
+    "attempt_seq": 12
+  }
+}

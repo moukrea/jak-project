@@ -1,19 +1,19 @@
 # Fiabiliser les comparaisons ON/OFF pour corriger les blancs HDR
 
 ## Defaut cite
-- 2026-09-07 : « Attention, on s'attend bien sûr a des différences entre on et off quand même hein ! C'est sensé être techniquement plus riche le rendu de base étant plus Riche (HDR) mais faut que le rendu final reste cohérent avec l'original, pas de blancs brûlés, une teinte/saturation similaire, le contraste est s… »
 - 2026-09-07 : « Enfin j'y entend pas grand chose mais j'espère m'être fait comprendre »
+- 2026-09-07 : « Mais putain mais c'est pas possible t'es con ou quoi ? S'il s'est arrêté faut comprendre pourquoi et corriger, ça sert a rien si le harnais s'arrête tout seul pour un rien, soit pas débile ! »
 
 ## Cause connue
-Essais 10-11 : memes 24 images entre essais, differentes des references dans x285..315/y13..72 ; hutlamp ecrit du RGB dans cette zone, cause historique inconnue. 564 cas preserves, 108 complements separes. maxdiff=254 signale aussi couverture/rejeux incomplets. Voir handoff et notes/summary-essai11.json.
+Essai12 : fuite GL tonemapping corrigee (7290->0 erreurs), references encore divergentes. Phase/RNG/naissance de la lampe historiques non enregistres. Meme message sentinelle254 malgre sources corrigees : le harnais confondait echec global et absence de changement. Reprise : reconstruire un protocole reproductible, pas chercher encore une phase perdue.
 
 ## Livrable
-Corriger le producteur avant de refaire une preuve identique : attribuer programmatiquement la region divergente aux draws/objets, puis corriger sa cause. Stabiliser le temps et l'etat de chaque cas pour que l'ajout d'heures ne decale pas les cas existants. Conserver les origines historiques ; etablir les 108 cas supplementaires separement avec provenance.
-Livrer les trois jeux ORIGINE-TOTAL, ORIGINE-LUMIERE et RECHARGED, tous les niveaux livres, interieurs/exterieurs, heures 0/3/6/9/12/15/18/21. Garder draws classes et temps GPU. refset_levels>=20 (21 jouables identifies, manquants nommes), refset_interior_views>=4, cinq rejeux exacts, refset_replay_maxdiff=0. refset_sky_levels issu du moteur ; refset_sky_missing=0 avec ciel>=15% par couple niveau/heure. Sunkenb reste manquant tant que sa visibilite n'est pas tranchee par le chemin de rendu : ne pas le retirer sur ses seuls cadrages a zero.
+Arbitrage superviseur : etablir des references candidates NEUVES dans un dossier distinct, etat initial enregistre et rejouable (RNG/horloges/acteurs), rendu d'origine independamment identifie. Lire reference_recovery dans le backlog. Conserver les575 references historiques et leurs ecarts comme archive ; aucun ecrasement. Qualifier le candidat contre un binaire/source de reference identifie, donnees et etat identiques ; capturer puis rejouer le meme correctif ne prouve PAS l'absence de regression. L'adoption exige cette qualification, la provenance et cinq rejeux exacts.
+Trois modes compares chacun a SA reference, jamais egalite ON/OFF. Tous niveaux livres (21 identifies,>=20, manquants nommes), interieurs>=4, heures0/3/6/9/12/15/18/21. Ciel>=15% par cas a ciel, sky_missing=0 ; Sunkenb reste manquant sans demonstration. Conserver draws classes/temps GPU et refset_replay_maxdiff=0 ; aucune sentinelle supprimee pour verdir. Debloquer ensuite la correction HDR/tonemap SDR.
 
 ## Preuve exigee
 `refset_replay_maxdiff == 0` dans `reports/lighting-census/proof.txt`.
 Le proof se produit par `lib/proof_run.sh lighting-census x86` — jamais a la main, jamais recopie dans le rapport.
 
 ## Hors perimetre
-L'egalite exacte compare des rejeux d'un MEME mode a sa propre reference ; JAMAIS ON a OFF. Le rendu ON doit pouvoir enrichir contraste et details. SPEC §7.3 : deux origines conservees bit-identiques, aucun masque/tolerance ni recapture pour effacer un ecart. Preuve par proof_run.sh, generic.sh inchange. Brise/cadence hors perimetre.
+Aucun masque, tolerance ou gel du rendu livre pour effacer un ecart. Les origines historiques restent intactes ; le nouveau jeu a une provenance distincte et doit etre qualifie avant adoption. Preuve par proof_run.sh, generic.sh inchange. Ni brise ni cadence. Aucun owner-ok.

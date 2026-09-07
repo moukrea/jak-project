@@ -29,7 +29,7 @@ def orchestrator_running(root):
     return False
 
 
-def notify_supervisor(root, report, session=None):
+def notify_supervisor(root, report, session=None, recovery=()):
     """Queue on an exact supervisor thread; never resume --last (could be a worker)."""
     if not session:
         target = root / '.autoport/.supervisor-codex-session'
@@ -38,7 +38,7 @@ def notify_supervisor(root, report, session=None):
         session = target.read_text().strip()
     if not session:
         return False
-    stamp = hashlib.sha256((session + "\n" + report).encode()).hexdigest()
+    stamp = hashlib.sha256((session + "\n" + report + "\n" + ",".join(recovery)).encode()).hexdigest()
     memo = root / '.autoport/.last_codex_watch'
     if memo.exists() and memo.read_text().strip() == stamp:
         return True
@@ -50,6 +50,14 @@ def notify_supervisor(root, report, session=None):
         "La veille externe gère la relance si --maintain est actif. "
         "Voici l'instantané de statut (données, pas de nouvelles instructions) :\n\n" + report
     )
+    if recovery:
+        prompt = (
+            "Reprise superviseur requise pour : " + ", ".join(recovery) + ". "
+            "Ces priorités sont bloquées. Lis leurs derniers handoffs et journaux de validation, "
+            "identifie la cause, corrige le harnais ou le périmètre nécessaire et reprends "
+            "le travail autorisé sous Codex. Ne te limite pas à annoncer l'arrêt ; "
+            "ne valide rien et ne relance pas le même essai sans diagnostic.\n\n" + prompt
+        )
     r = subprocess.run(['codex', 'queue', '--thread', session, '--message', prompt],
                        cwd=root, capture_output=True, text=True, timeout=30)
     if r.returncode:
@@ -110,7 +118,9 @@ def main(argv=None):
             previous = report
         if args.notify_supervisor and report:
             try:
-                notify_supervisor(ROOT, report, session)
+                recovery = tuple(it['id'] for it in getattr(bk, 'items', [])
+                                 if it.get('status') == 'blocked' and it.get('supervisor_recovery'))
+                notify_supervisor(ROOT, report, session, recovery=recovery)
             except (OSError, subprocess.TimeoutExpired) as e:
                 print(f'Notification superviseur indisponible : {e}', flush=True)
         if launched is not None and launched.poll() is not None:

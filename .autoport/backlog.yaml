@@ -3866,6 +3866,9 @@ items:
       l'instant tonemap
   - date: '2026-09-07'
     text: Enfin j'y entend pas grand chose mais j'espère m'être fait comprendre
+  - date: '2026-09-07'
+    text: Mais putain mais c'est pas possible t'es con ou quoi ? S'il s'est arrêté faut comprendre pourquoi
+      et corriger, ça sert a rien si le harnais s'arrête tout seul pour un rien, soit pas débile !
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -3879,16 +3882,16 @@ items:
   owner_ok: null
   device: false
   where: null
-  known_cause: 'Essais 10-11 : memes 24 images entre essais, differentes des references dans x285..315/y13..72
-    ; hutlamp ecrit du RGB dans cette zone, cause historique inconnue. 564 cas preserves, 108 complements
-    separes. maxdiff=254 signale aussi couverture/rejeux incomplets. Voir handoff et notes/summary-essai11.json.'
+  known_cause: 'Essai12 : fuite GL tonemapping corrigee (7290->0 erreurs), references encore divergentes.
+    Phase/RNG/naissance de la lampe historiques non enregistres. Meme message sentinelle254 malgre sources
+    corrigees : le harnais confondait echec global et absence de changement. Reprise : reconstruire un
+    protocole reproductible, pas chercher encore une phase perdue.'
   deliverable: |-
-    Corriger le producteur avant de refaire une preuve identique : attribuer programmatiquement la region divergente aux draws/objets, puis corriger sa cause. Stabiliser le temps et l'etat de chaque cas pour que l'ajout d'heures ne decale pas les cas existants. Conserver les origines historiques ; etablir les 108 cas supplementaires separement avec provenance.
-    Livrer les trois jeux ORIGINE-TOTAL, ORIGINE-LUMIERE et RECHARGED, tous les niveaux livres, interieurs/exterieurs, heures 0/3/6/9/12/15/18/21. Garder draws classes et temps GPU. refset_levels>=20 (21 jouables identifies, manquants nommes), refset_interior_views>=4, cinq rejeux exacts, refset_replay_maxdiff=0. refset_sky_levels issu du moteur ; refset_sky_missing=0 avec ciel>=15% par couple niveau/heure. Sunkenb reste manquant tant que sa visibilite n'est pas tranchee par le chemin de rendu : ne pas le retirer sur ses seuls cadrages a zero.
-  out_of_scope: 'L''egalite exacte compare des rejeux d''un MEME mode a sa propre reference ; JAMAIS ON
-    a OFF. Le rendu ON doit pouvoir enrichir contraste et details. SPEC §7.3 : deux origines conservees
-    bit-identiques, aucun masque/tolerance ni recapture pour effacer un ecart. Preuve par proof_run.sh,
-    generic.sh inchange. Brise/cadence hors perimetre.'
+    Arbitrage superviseur : etablir des references candidates NEUVES dans un dossier distinct, etat initial enregistre et rejouable (RNG/horloges/acteurs), rendu d'origine independamment identifie. Lire reference_recovery dans le backlog. Conserver les575 references historiques et leurs ecarts comme archive ; aucun ecrasement. Qualifier le candidat contre un binaire/source de reference identifie, donnees et etat identiques ; capturer puis rejouer le meme correctif ne prouve PAS l'absence de regression. L'adoption exige cette qualification, la provenance et cinq rejeux exacts.
+    Trois modes compares chacun a SA reference, jamais egalite ON/OFF. Tous niveaux livres (21 identifies,>=20, manquants nommes), interieurs>=4, heures0/3/6/9/12/15/18/21. Ciel>=15% par cas a ciel, sky_missing=0 ; Sunkenb reste manquant sans demonstration. Conserver draws classes/temps GPU et refset_replay_maxdiff=0 ; aucune sentinelle supprimee pour verdir. Debloquer ensuite la correction HDR/tonemap SDR.
+  out_of_scope: Aucun masque, tolerance ou gel du rendu livre pour effacer un ecart. Les origines historiques
+    restent intactes ; le nouveau jeu a une provenance distincte et doit etre qualifie avant adoption.
+    Preuve par proof_run.sh, generic.sh inchange. Ni brise ni cadence. Aucun owner-ok.
   notes: 'SPEC prompts/SPEC-refonte-lumiere.md sections 2 et 7.1. Point de vue : village1-hut. | owner
     2026-09-04 : « s''il n''y a rien a tester ne le met pas a tester ». Cet item ne change aucun pixel,
     il pose l''instrument et fige les references : owner_test=false. | promu ''validated'' le 2026-09-06
@@ -3911,6 +3914,24 @@ items:
   proof_timeout: 1500
   owner_test: false
   block_reason: null
+  supervisor_recovery: true
+  reference_recovery:
+    decision_date: '2026-09-07'
+    reason: Etat aleatoire historique absent ; ne plus confondre qualification de nouvelles references
+      et ecrasement des anciennes.
+    legacy_directory: .autoport/refset
+    candidate_directory: .autoport/refset-candidates
+    legacy_producer_sha: 485f09d6c07bc24c
+    adoption_requires:
+    - Renderer/binaire baseline identifie independamment du candidat, source et donnees tracables ; ne
+      pas supposer que captured-by suffit.
+    - Enregistrer et rejouer le meme etat initial entre baseline et candidat ; aucune exclusion de pixels.
+    - Absence de regression du mode origine par comparaison baseline/candidat a etat identique ; qualifier
+      separement reproductibilite de chaque mode.
+    - Couverture complete et cinq rejeux exacts, provenance binaire/CGO/DGO/FR3/config/etat/PNG controlee
+      par le producteur.
+    - Toutes les divergences historiques restent archivees et signalees ; nouvelle baseline distincte,
+      aucune validation owner implicite.
 - id: lighting-unify
   feature: Un seul modele d'eclairage au lieu de cinq, sans changer un pixel
   status: validated
@@ -3963,6 +3984,7 @@ items:
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
   proof_timeout: 900
   owner_test: false
+  supervisor_recovery: true
 - id: refset-replay-stable
   feature: La garde de reference d'image doit rendre le meme chiffre deux fois de suite
   status: validated
@@ -4048,6 +4070,9 @@ items:
       l'instant tonemap
   - date: '2026-09-07'
     text: Enfin j'y entend pas grand chose mais j'espère m'être fait comprendre
+  - date: '2026-09-07'
+    text: Mais putain mais c'est pas possible t'es con ou quoi ? S'il s'est arrêté faut comprendre pourquoi
+      et corriger, ça sert a rien si le harnais s'arrête tout seul pour un rien, soit pas débile !
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4089,6 +4114,7 @@ items:
   - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
   proof_timeout: 780
   block_reason: max_retries (6) épuisé
+  supervisor_recovery: true
 - id: lighting-origin-bitexact
   feature: Maitre eteint, l'image doit etre identique au bit au jeu d'origine
   status: validated
@@ -4133,6 +4159,7 @@ items:
   notes: 'Sorti de lighting-hdr le 2026-09-07 : groupe avec la calibration de la courbe, il empechait
     le defaut VISIBLE par l''owner de sortir. Deux natures differentes, deux items.'
   owner_feedback: []
+  supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
   status: open
@@ -4153,15 +4180,14 @@ items:
   where: 'Options : une ligne « sortie HDR » qui n''apparait QUE si l''ecran le supporte. Sur ton Honor
     elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change
     de teinte.'
-  deliverable: "Par DEFAUT le jeu sort du SDR bien tonemappe (c'est lighting-hdr). Ce chantier ajoute\
-    \ la sortie HDR native quand l'ecran la supporte. Le moteur emet `hdr_out_defects=N` :\n  (1) la capacite\
-    \ de l'ecran est DETECTEE et publiee (`hdr_out_display_caps` : les modes reellement annonces par le\
-    \ systeme, Android comme bureau) ;\n  (2) l'option n'existe dans le menu que si un mode est annonce\
-    \ — jamais un reglage qui ne fait rien ;\n  (3) activee, la chaine sort dans l'espace annonce, sans\
-    \ double compression : `hdr_out_tonemaps_applied` = 1, jamais 2 ;\n  (4) desactivee, la sortie est\
-    \ identique au bit a celle de lighting-hdr ;\n  (5) la detection entre dans l'auto-configuration du\
-    \ premier demarrage, avec le mode retenu publie.\nZero. Preuve sur un ecran HDR reel — l'appareil\
-    \ de l'owner est le seul qu'on connaisse."
+  deliverable: |-
+    Par DEFAUT le jeu sort du SDR bien tonemappe (c'est lighting-hdr). Ce chantier ajoute la sortie HDR native quand l'ecran la supporte. Le moteur emet `hdr_out_defects=N` :
+      (1) la capacite de l'ecran est DETECTEE et publiee (`hdr_out_display_caps` : les modes reellement annonces par le systeme, Android comme bureau) ;
+      (2) l'option n'existe dans le menu que si un mode est annonce — jamais un reglage qui ne fait rien ;
+      (3) activee, la chaine sort dans l'espace annonce, sans double compression : `hdr_out_tonemaps_applied` = 1, jamais 2 ;
+      (4) desactivee, la sortie est identique au bit a celle de lighting-hdr ;
+      (5) la detection entre dans l'auto-configuration du premier demarrage, avec le mode retenu publie.
+    Zero. Preuve sur un ecran HDR reel — l'appareil de l'owner est le seul qu'on connaisse.
   known_cause: null
   out_of_scope: 'Ne touche pas a la courbe de compression SDR : c''est lighting-hdr.'
   notes: 'Ne du retour owner 2026-09-06 : « Mon Honor supporte le HDR, ca l''exploite pas ! [...] une
@@ -4176,6 +4202,7 @@ items:
       en SDR (de la meilleure façon possible pour pas écraser les détails de trop) sauf quand on active
       le HDR (une option en plus?) qui apparaît si l'écran le supporte, idem sur PC/Linux/Android TV,
       etc. Et bien sûr ca pourrait faire partie de l'auto-detection au first start
+  supervisor_recovery: true
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
@@ -4222,6 +4249,7 @@ items:
   notes: 'SPEC section 6.4. Point de vue : village1-hut. L''ablation se prend a la MEME vantage.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont le terme indirect a recu l'AO
+  supervisor_recovery: true
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -4270,6 +4298,7 @@ items:
     au chargement, sur quatre niveaux. SPEC section 6.3.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: index de couleur reconstruits et verifies
+  supervisor_recovery: true
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
   status: open
@@ -4320,6 +4349,7 @@ items:
     sections 4.2, 4.3, 6.5, 6.6. Points de vue : village1-hut et un continue swamp.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: images dont le regime a ete lu dans la table
+  supervisor_recovery: true
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
   status: open
@@ -4366,6 +4396,7 @@ items:
     SPEC sections 4.4 et 6.8.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels de sol ombres par un acteur
+  supervisor_recovery: true
 - id: lighting-local-lights
   feature: Les lampes, torches et laves eclairent enfin
   status: open
@@ -4410,6 +4441,7 @@ items:
     avec un bras appareil pour le budget. SPEC section 6.7.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels eclaires par au moins une lumiere locale
+  supervisor_recovery: true
 - id: lighting-interiors
   feature: Les interieurs gardent leur lumiere, sans fuite par les murs
   status: open
@@ -4451,6 +4483,7 @@ items:
     6.2 et 6.6.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: sondes echantillonnees par image
+  supervisor_recovery: true
 - id: lighting-actors
   feature: Jak, les PNJ et les ennemis eclaires comme le sol sur lequel ils marchent
   status: open
@@ -4499,6 +4532,7 @@ items:
     avec un bras appareil. SPEC section 5.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels merc ayant lu la carte d'ombre
+  supervisor_recovery: true
 - id: lighting-materials
   feature: Les matieres PBR eclairees par la lumiere temps reel, sans fusion
   status: open
@@ -4549,6 +4583,7 @@ items:
     SPEC section 11.1 : cet item remplace recharged-pbr-realtime-fusion et pbr-per-material.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: matieres atteintes au draw avec leur enregistrement
+  supervisor_recovery: true
 - id: lighting-presets
   feature: 'Du Redmi au Snapdragon 8 Elite : des paliers, et chaque ajout debrayable'
   status: open
@@ -4595,6 +4630,7 @@ items:
     dans la preuve.
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: reglages effectivement poses par le prereglage
+  supervisor_recovery: true
 - id: proof-kv-provenance
   feature: La preuve ne doit recopier que ce que le MOTEUR a dit
   status: archived
