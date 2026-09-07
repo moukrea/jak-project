@@ -1,16 +1,15 @@
 # Le rendu passe en HDR avec un seul tone map
 
 ## Defaut cite
-- 2026-09-07 : « Attention, on s'attend bien sûr a des différences entre on et off quand même hein ! C'est sensé être techniquement plus riche le rendu de base étant plus Riche (HDR) mais faut que le rendu final reste cohérent avec l'original, pas de blancs brûlés, une teinte/saturation similaire, le contraste est sensé être plus riche vu qu'on part du HDR mais voilà, faut éviter le brûlé, et avoir plus de richess… »
 - 2026-09-07 : « Enfin j'y entend pas grand chose mais j'espère m'être fait comprendre »
 - 2026-09-07 : « Mais putain mais c'est pas possible t'es con ou quoi ? S'il s'est arrêté faut comprendre pourquoi et corriger, ça sert a rien si le harnais s'arrête tout seul pour un rien, soit pas débile ! »
+- 2026-09-07 : « Attends attends... Le mouvement natif des buissons ? Qu'es-ce que ça vient foutre là ? On parlait du rendu (blancs brûlés, teinte/saturation) avec notre refonte de lighting en HDR vs OFF (donc éclairage par défaut) les textures, les modèles HD, l'herbe, la brise, etc. n'ont absolument rien à voir ! »
 
 ## Cause connue
 Les anciennes references ne montraient presque aucun ciel (village1-hut) : elles ont donne un faux vert malgre les blancs brules. Detail conserve dans notes et SPEC §8 item 2.
 
 ## Livrable
-ON et OFF doivent differer : ne pas chercher une identite pixel a pixel entre eux. Preserver teinte, saturation et intention artistique de l'original, avec contraste plus riche et details des hautes lumieres conserves, sans blancs brules. Rendu interne HDR puis un seul tone map vers SDR pour cette etape. La sortie native HDR, detectee et activable/desactivable, vient apres. Comparer tous les niveaux interieurs/exterieurs aux huit heures fixes appariees.
-Le moteur publie hdr_sky_defects=0 avec chaque verdict : au moins trois vues de ciel dans trois niveaux (minimum, pas couverture finale), hdr_sky_pixels_pct >= 15 %, hdr_sky_clip_pct_x1000 <= reference ORIGINE-LUMIERE, hdr_sky_chroma_ratio_x1000 >= 900. Conserver les cinq verdicts existants : saturation, contraste, courbe, ORIGINE-LUMIERE, compression unique dans les trois configurations. References recapturees avec ciel avant toute conclusion.
+Comparer uniquement refonte lighting ON versus OFF dans le meme build, master ON constant, textures/modeles HD/herbe/brise et autres options identiques. Scenes/cameras/heures/etats apparies. Aucun prerequis master OFF ou egalite historique. ON/OFF peuvent differer : teinte/saturation coherentes avec eclairage par defaut, contraste et details plus riches, pas de blancs brules. HDR interne puis tonemap SDR unique ; ecran HDR natif plus tard. Mesurer clipping, teinte/saturation, contraste et details sur tous niveaux interieurs/exterieurs et huit heures. Adapter les anciens verdicts trois configurations au perimetre deux bras eclairage ; ne jamais transformer une absence de mesure en succes.
 
 ## Preuve exigee
 `hdr_tonemap_defects == 0` dans `reports/lighting-hdr/proof.txt`.
@@ -18,4 +17,4 @@ Le proof se produit par `lib/proof_run.sh lighting-hdr device` — jamais a la m
 Ou l'owner regardera : Options > Recharged : le rendu general, et surtout les zones tres lumineuses.
 
 ## Hors perimetre
-La sortie HDR vers un ecran compatible appartient a hdr-display-output. La regle des deux origines et la hierarchie des interrupteurs : SPEC §0.2, §1.1, §6.2.
+Textures, modeles HD, herbe, brise, cadence et comparaison master OFF historique. Sortie ecran HDR native ulterieure. Aucun owner-ok sans parole owner.
