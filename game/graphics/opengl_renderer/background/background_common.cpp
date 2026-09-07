@@ -2100,6 +2100,14 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   sh.activate();
   auto id = sh.id();
 #ifdef OG_FEAT_PBR
+  const bool legacy_host = shader == ShaderId::TFRAG3 || shader == ShaderId::TFRAG3_TESS;
+  lighting_census::host_paths(legacy_host || shader == ShaderId::ETIE_BASE ||
+                                 shader == ShaderId::TIE_WIND || shader == ShaderId::SHRUB,
+                             legacy_host);
+#else
+  lighting_census::host_paths(false, false);
+#endif
+#ifdef OG_FEAT_PBR
   // ★ OWNER CHECKER VERDICT, BUG B (2026-07-26): "des chunks entiers (LA PLUPART) sont juste
   // PLATS alors que le damier est bien présent". The fragment POM was gated on the GLOBAL setting
   // (u_pbr_displacement != 2), so selecting Tessellation switched the parallax OFF on every draw
@@ -2113,6 +2121,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
               shader == ShaderId::TFRAG3_TESS ? 1 : 0);
 #endif
   glUniform1i(glGetUniformLocation(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
+  lighting_census::gate_no_tex(Gfx::g_global_settings.hack_no_tex);
   glUniform1i(glGetUniformLocation(id, "decal"), false);
   glUniform1i(glGetUniformLocation(id, "tex_T0"), 0);
   // -----------------------------------------------------------------------------------------

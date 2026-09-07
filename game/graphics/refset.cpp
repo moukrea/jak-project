@@ -97,20 +97,9 @@ struct Vantage {
   int16_t height_dm;  // hauteur au-dessus du point de reprise, en decimetres
 };
 
-// 0xff = les huit creneaux de `mood-lights-table` ; 0x88 = 9 h et 21 h, un plein jour et une
-// nuit. Le vantage historique garde ses huit creneaux : ses references sont l'instrument de
-// `lighting-hdr` et de `lighting-origin-bitexact`, et on ne le redefinit pas.
+// Toutes les vues, y compris les interieurs supplementaires, couvrent les huit heures.
 constexpr uint8_t kAllHours = 0xff;
-constexpr uint8_t kDayNight = 0x88;
 
-// LES HUIT CRENEAUX POUR CHAQUE NIVEAU, ET PAS SEULEMENT POUR LE PREMIER. L'owner demande les
-// trois jeux « couvrant TOUS les niveaux, exterieurs ET interieurs, aux HUIT HEURES FIXES ».
-// Chacun des 21 niveaux jouables a donc UNE vue a huit creneaux ; `village1` en a deux (sa
-// hutte et son exterieur) parce que sa vue historique ne montre aucun ciel et ne peut donc pas
-// repondre pour lui a la porte du ciel. Les quatre vues restantes — un second point de vue dans
-// un niveau deja couvert huit fois — gardent `kDayNight` : elles ajoutent de la couverture
-// spatiale, pas une reponse a une porte, et chaque creneau supplementaire coute 180 frames de
-// logique dans SEPT courses.
 // LE PITCH N'EST PAS UN GOUT : IL EST MESURE, VUE PAR VUE. Il vaut 0 partout ou le niveau n'a
 // pas de ciel a montrer — la vue garde alors le cadrage de la camera du jeu, a la pose pres —
 // et, sur la vue chargee de repondre pour un niveau a ciel, la plus PETITE valeur qui tienne la
@@ -157,11 +146,11 @@ constexpr Vantage kVantages[] = {
     {"jungle-start", "jungle-start", "", "jungle", kAllHours, 30, 0, 50, 30},
     {"jungle-tower", "jungle-tower", "", "jungleb", kAllHours, 0, 0, 50, 25},
     {"misty-start", "misty-start", "", "misty", kAllHours, 30, 0, 50, 30},
-    {"misty-bike", "misty-bike", "", "misty", kDayNight, 0, 0, 50, 25},
+    {"misty-bike", "misty-bike", "", "misty", kAllHours, 0, 0, 50, 25},
     {"firecanyon-start", "firecanyon-start", "", "firecanyon", kAllHours, 12, 0, 50, 30},
     // Rock Village
     {"village2-start", "village2-start", "", "village2", kAllHours, 30, 0, 50, 30},
-    {"village2-dock", "village2-dock", "", "village2", kDayNight, 0, 0, 50, 25},
+    {"village2-dock", "village2-dock", "", "village2", kAllHours, 0, 0, 50, 25},
     // la cite Precursor sous l'eau
     {"sunken-start", "sunken-start", "", "sunken", kAllHours, 0, 0, 50, 25},
     // `sunkenb` porte `:sky #t` dans la donnee mais `sunkenb-start` n'en montre RIEN : 0 pour
@@ -174,7 +163,7 @@ constexpr Vantage kVantages[] = {
     // (sunkenb, chaque creneau) est donc compte MANQUANT par `refset_sky_missing`, avec sa
     // valeur mesuree — on ne retire pas le niveau de la liste pour verdir la porte.
     {"sunkenb-start", "sunkenb-start", "", "sunkenb", kAllHours, 0, 0, 50, 25},
-    {"sunkenb-helix", "sunkenb-helix", "", "sunkenb", kDayNight, 20, 0, 50, 30},
+    {"sunkenb-helix", "sunkenb-helix", "", "sunkenb", kAllHours, 20, 0, 50, 30},
     // le Swamp, dehors et dans une de ses grottes
     // Le ciel du Swamp ne se voit pas depuis `swamp-start` : mesure du 2026-09-07, 40 pour
     // mille au mieux sur quatre pitchs et 57 sur quatre caps — la vue est sous la canopee.
@@ -183,15 +172,15 @@ constexpr Vantage kVantages[] = {
     // Tournee du 2026-09-07 09:28 : 20 deg a 10 m -> 274 pour mille, a 25 m -> 569, et
     // 45 deg au sol -> 402. On garde le plus SOBRE des trois qui passent.
     {"swamp-dock1", "swamp-dock1", "", "swamp", kAllHours, 20, 0, 50, 100},
-    {"swamp-start", "swamp-start", "", "swamp", kDayNight, 0, 0, 50, 25},
-    {"swamp-cave1", "swamp-cave1", "", "swamp", kDayNight, 0, 0, 50, 25},
+    {"swamp-start", "swamp-start", "", "swamp", kAllHours, 0, 0, 50, 25},
+    {"swamp-cave1", "swamp-cave1", "", "swamp", kAllHours, 0, 0, 50, 25},
     {"rolling-start", "rolling-start", "", "rolling", kAllHours, 30, 0, 50, 30},
     {"ogre-start", "ogre-start", "", "ogre", kAllHours, 12, 0, 50, 30},
     // le Volcan (Volcanic Crater)
     {"village3-start", "village3-start", "", "village3", kAllHours, 30, 0, 50, 30},
     // le niveau de neige
     {"snow-start", "snow-start", "", "snow", kAllHours, 0, 0, 50, 30},
-    {"snow-fort", "snow-fort", "", "snow", kDayNight, 0, 0, 50, 25},
+    {"snow-fort", "snow-fort", "", "snow", kAllHours, 0, 0, 50, 25},
     {"maincave-start", "maincave-start", "", "maincave", kAllHours, 0, 0, 50, 25},
     {"darkcave-start", "darkcave-start", "", "darkcave", kAllHours, 0, 0, 50, 25},
     {"robocave-start", "robocave-start", "", "robocave", kAllHours, 0, 0, 50, 25},
@@ -535,6 +524,11 @@ int64_t g_frame_slip_min = 1 << 20;
 // donc pas se calculer dans une seule course. Le moteur tient un registre sur disque et publie
 // le verdict qu'il en lit. Tant qu'il n'a pas ete ecrit, `publish_state` publie la sentinelle.
 bool g_flaky_done = false;
+// La porte census exige aussi la couverture et cinq rejeux exacts. Les autres items
+// conservent leurs comparaisons historiques, eventuellement sur un sous-plan.
+uint64_t g_census_coverage_missing = 1;
+uint64_t g_census_replay_gate = 254;
+uint64_t g_census_replay_runs = 0;
 
 // lighting-hdr : le TROISIEME jeu, ORIGINE-LUMIERE (SPEC §0.2, §7.3). Il existe parce que ni
 // ORIGINE-TOTAL ni RECHARGED n'exercaient la configuration que le joueur LANCE : master ON,
@@ -821,6 +815,7 @@ void publish_sky_gate() {
       unknown += unknown.empty() ? "" : "+";
       unknown += kPlayableLevels[i];
     }
+    g_census_coverage_missing += nunk;
     autoport_proof::publish("refset_sky_unknown_n", nunk);
     autoport_proof::publish_text("refset_sky_unknown", unknown.empty() ? "aucun" : unknown.c_str());
   }
@@ -868,6 +863,7 @@ void publish_sky_gate() {
       }
     }
   }
+  g_census_coverage_missing += missing;
   autoport_proof::publish("refset_sky_missing", missing);
   autoport_proof::publish("refset_sky_worst_pm", worst_pm);
   autoport_proof::publish_text("refset_sky_missing_list", miss_list.empty() ? "aucun"
@@ -875,6 +871,21 @@ void publish_sky_gate() {
 }
 
 void publish_coverage() {
+  g_census_coverage_missing = 0;
+  // Un sous-plan ou une camera de calibrage ne certifie pas le jeu de references livre.
+  const bool full_plan = g_vants.size() == kNumVantages && g_steps.size() == kNumVantages * 8 * 3 &&
+                         g_phases == std::vector<int>({1, 2, 3}) && g_hours_mask == kAllHours;
+  if (!full_plan || !g_cam_armed || g_cam_overrides || g_pitch_sweep || g_yaw_sweep ||
+      g_cam_hour_sweep || g_slip_nonzero || g_roundtrip_bad) {
+    g_census_coverage_missing++;
+  }
+  for (const auto& vs : g_vstats) {
+    for (int hi = 0; hi < 8; hi++) {
+      if (vs.shots_h[hi] != 3 || vs.level_ok_h[hi] != 3 || !vs.px_h[hi]) {
+        g_census_coverage_missing++;
+      }
+    }
+  }
   autoport_proof::publish("refset_views", g_vants.size());
   autoport_proof::publish("refset_probe_frames", g_probe_frames);
   autoport_proof::publish("refset_probe_px", g_probe_px);
@@ -972,7 +983,11 @@ void publish_coverage() {
     autoport_proof::publish_text("refset_levels_missing_list",
                                  missing.empty() ? "aucun" : missing.c_str());
   }
+  if (g_levels_seen.size() < 20 || inter < 4 || nolevel) {
+    g_census_coverage_missing++;
+  }
   publish_sky_gate();
+  autoport_proof::publish("refset_census_coverage_missing", g_census_coverage_missing);
 }
 
 void publish_state() {
@@ -1097,7 +1112,12 @@ void publish_state() {
     } else {
       gate = g_maxdiff;
     }
-    autoport_proof::publish("refset_replay_maxdiff", gate);
+    autoport_proof::publish("refset_census_replay_runs", g_census_replay_runs);
+    autoport_proof::publish("refset_replay_run_maxdiff", gate);
+    autoport_proof::publish("refset_replay_maxdiff",
+                            autoport_proof::feature_is("lighting-census") && gate == 0
+                                ? (g_census_coverage_missing ? 254 : g_census_replay_gate)
+                                : gate);
     // La grandeur de PORTE de cet item porte sur plusieurs COURSES (voir `publish_flaky`). Tant
     // que le registre n'a pas parle, la preuve porte la sentinelle : une course interrompue est
     // rouge, jamais muette — un `proof.txt` sans la cle se lit « le moteur ne l'emet pas ».
@@ -1477,6 +1497,31 @@ uint64_t read_capture_witness(int phase) {
   return v;
 }
 
+uint64_t census_config_fingerprint() {
+  uint64_t h = 1469598103934665603ull;
+  auto add = [&h](const std::string& value) {
+    for (unsigned char c : value) {
+      h = (h ^ c) * 1099511628211ull;
+    }
+    h = (h ^ 0xff) * 1099511628211ull;
+  };
+  for (const Step& step : g_steps) {
+    const Vantage& v = vantage_of(step);
+    add(step_image_name(step));
+    add(v.cont);
+    add(v.pos);
+    add(v.level);
+    for (auto value : {v.pitch_d, v.yaw_d, v.dist_dm, v.height_dm}) {
+      add(std::to_string(value));
+    }
+  }
+  for (int64_t value : {g_step_settle, g_load_settle, g_warp_at, int64_t(g_warp_per_step),
+                        int64_t(g_order_by_hour)}) {
+    add(std::to_string(value));
+  }
+  return h;
+}
+
 void publish_flaky() {
   g_flaky_done = true;
   const uint64_t bin = self_fingerprint();
@@ -1496,13 +1541,25 @@ void publish_flaky() {
     return;
   }
   const std::string path = g_dir + "/replay-ledger.txt";
+  publish_coverage();  // inclut la derniere photo, avant de qualifier la ligne du registre
+  const uint64_t config = census_config_fingerprint();
+  const bool census_ok = autoport_proof::feature_is("lighting-census") &&
+                         autoport_proof::armed_for("lighting-census") && !g_census_coverage_missing;
+
+  std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)config);
+  autoport_proof::publish_text("refset_census_config_fp", t);
+  bool ledger_written = false;
   // On ECRIT d'abord, on RELIT ensuite : le verdict porte sur ce qui est sur le disque, pas sur
   // ce que cette course croit avoir ajoute.
   if (FILE* f = std::fopen(path.c_str(), "a")) {
-    std::fprintf(f, "bin=%016llx refs=%016llx data=%016llx maxdiff=%llu diffpx=%llu\n",
-                 (unsigned long long)bin, (unsigned long long)refs, (unsigned long long)data,
-                 (unsigned long long)g_maxdiff, (unsigned long long)g_diffpx);
-    std::fclose(f);
+    std::fprintf(
+        f,
+        "bin=%016llx refs=%016llx data=%016llx maxdiff=%llu diffpx=%llu config=%016llx census=%d\n",
+        (unsigned long long)bin, (unsigned long long)refs, (unsigned long long)data,
+        (unsigned long long)g_maxdiff, (unsigned long long)g_diffpx, (unsigned long long)config,
+        census_ok ? 1 : 0);
+    const bool write_ok = !std::ferror(f);
+    ledger_written = std::fclose(f) == 0 && write_ok;
   }
   // LA COMPARAISON PORTE SUR LE COUPLE (maxdiff, diffpx), PAS SUR `maxdiff` SEUL.
   // Mesure du 2026-09-07 qui force ce changement : six rejeux a cle IDENTIQUE ont rendu
@@ -1511,6 +1568,7 @@ void publish_flaky() {
   // sur le NOMBRE de pixels ne certifie rien. Le nombre de pixels est la grandeur qui bouge ;
   // le maximum est celle qui sature.
   std::vector<std::pair<uint64_t, uint64_t>> md;
+  uint64_t census_runs = 0, census_maxdiff = 0;
   if (FILE* f = std::fopen(path.c_str(), "r")) {
     char line[256];
     while (std::fgets(line, sizeof(line), f)) {
@@ -1519,6 +1577,18 @@ void publish_flaky() {
                       &m, &d) == 5 &&
           b == bin && r == refs && dt == data) {
         md.emplace_back((uint64_t)m, (uint64_t)d);
+        unsigned long long cfg = 0;
+        int complete = 0;
+        if (std::sscanf(
+                line, "bin=%llx refs=%llx data=%llx maxdiff=%llu diffpx=%llu config=%llx census=%d",
+                &b, &r, &dt, &m, &d, &cfg, &complete) == 7 &&
+            cfg == config && complete == 1) {
+          census_runs++;
+          census_maxdiff = std::max(census_maxdiff, uint64_t(m));
+          if (d && !m) {
+            census_maxdiff = 255;  // registre incoherent, jamais un zero
+          }
+        }
       }
     }
     std::fclose(f);
@@ -1529,6 +1599,8 @@ void publish_flaky() {
       flaky++;
     }
   }
+  g_census_replay_runs = census_runs;
+  g_census_replay_gate = !ledger_written ? 255 : (census_runs >= 5 ? census_maxdiff : 254);
   autoport_proof::publish("refset_replay_runs", md.size());
   autoport_proof::publish("refset_replay_flaky", md.size() >= 5 ? flaky : 254);
   // LA LIGNE `FEATURE` DE CET ITEM, ET SON PROPRE DENOMINATEUR. `note_hit` alimente un compteur
@@ -1538,11 +1610,11 @@ void publish_flaky() {
   // publiee juste au-dessus. Un seul hit par rejeu COMPLET : une course interrompue avant la
   // derniere etape n'atteint jamais cette ligne, donc ne peut pas se compter.
   autoport_proof::note_hit();
-  std::printf("REFSET ledger runs=%d flaky=%llu (bin=%016llx refs=%016llx data=%016llx "
-              "maxdiff=%llu)\n",
-              (int)md.size(), (unsigned long long)flaky, (unsigned long long)bin,
-              (unsigned long long)refs, (unsigned long long)data,
-              (unsigned long long)g_maxdiff);
+  std::printf(
+      "REFSET ledger runs=%d flaky=%llu (bin=%016llx refs=%016llx data=%016llx "
+      "maxdiff=%llu)\n",
+      (int)md.size(), (unsigned long long)flaky, (unsigned long long)bin, (unsigned long long)refs,
+      (unsigned long long)data, (unsigned long long)g_maxdiff);
   std::fflush(stdout);
 }
 

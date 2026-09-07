@@ -8,8 +8,11 @@
 //     B · PBR fusionne  : u_rt_light_on != 0 && u_pbr_mode != 0
 //     A · modulation    : u_rt_light_on != 0 && u_pbr_mode == 0 && u_rt_probe_on == 0
 //     D · sondes        : u_rt_light_on != 0 && u_rt_probe_on != 0        (annonce MORT)
-//     C · PBR autonome  : u_rt_light_on == 0 && u_pbr_mode != 0
-//     E · relight legacy: sinon, u_pbr_shadow_on != 0
+//     C · PBR autonome  : hote legacy && u_rt_light_on == 0 && u_pbr_mode != 0
+//     E · relight legacy: sinon, hote legacy && u_pbr_shadow_on != 0
+//
+// C/E existent seulement dans tfrag3.frag (TFRAG3 et TFRAG3_TESS). Les hotes contournent
+// tous shade() quand gfx_hack_no_tex != 0 : ces draws sont non classes.
 //
 // Personne ne pouvait dire lequel avait dessine un pixel, donc aucun item de la refonte ne
 // pouvait prouver qu'il n'avait rien casse. Ce module compte, PAR DRAW, dans quel chemin le
@@ -31,9 +34,9 @@
 // un ecart non nul dit que le recensement ment, et ou.
 //
 // LE SEAU « NON CLASSE » EST DETAILLE. `hfrag.frag` ne declare AUCUN des quatre uniformes ; les
-// passes de profondeur et de projecteur d'ombre ne portent pas de couleur ; et un draw dont les
-// quatre portes sont a zero est le rendu d'ORIGINE, pas un chemin de la refonte. Les trois sont
-// comptes separement — un seau « exclu » n'est pas un seau « correct ».
+// passes de profondeur et de projecteur d'ombre ne portent pas de couleur ; et un draw sans
+// branche applicable a son hote, ou qui contourne shade(), reste hors des chemins de la refonte.
+// Les trois seaux sont comptes separement — un seau « exclu » n'est pas un seau « correct ».
 //
 // TEMPS GPU. Aucun timer GPU n'existait dans cet arbre (seulement du temps CPU mur dans
 // Profiler.h). Ici : une paire `glQueryCounter(GL_TIMESTAMP)` autour de chaque bucket, moissonnee
@@ -65,11 +68,16 @@ void gate_pbr_mode(int v);
 void gate_probe(int v);
 void gate_shadow(int v);
 
+// Programme courant et bypass, enregistres par first_tfrag_draw_setup.
+void host_paths(bool shade, bool legacy);
+void gate_no_tex(int v);
+
 // ── un draw monde vient de partir ───────────────────────────────────────────────────────────
 void note_world_draw(Kind k);
 
-// Phase de la course, posee par le jeu de references : 0 = libre, 1 = ORIGINE, 2 = RECHARGED.
-// Permet de publier la repartition SEPAREMENT pour les deux references.
+// Phase de la course, posee par le jeu de references :
+// 0 = libre, 1 = ORIGINE, 2 = RECHARGED, 3 = ORIGINE-LUMIERE.
+// Permet de publier la repartition SEPAREMENT pour les trois references.
 void set_phase(int phase);
 
 // ── temps GPU par passe ─────────────────────────────────────────────────────────────────────

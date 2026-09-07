@@ -25,17 +25,20 @@ int s_gate_rt_light = 0;
 int s_gate_pbr_mode = 0;
 int s_gate_probe = 0;
 int s_gate_shadow = 0;
+bool s_host_shade = false;
+bool s_host_legacy = false;
+int s_gate_no_tex = 0;
 
 // Compteurs. Le total est compte a part : `total - somme(A..E) - non-classes` doit rendre 0,
 // et ce residu est publie plutot que suppose.
 uint64_t s_count[kPathCount] = {};
-uint64_t s_count_phase[3][kPathCount] = {};
+uint64_t s_count_phase[4][kPathCount] = {};
 uint64_t s_total = 0;
 uint64_t s_un_hfrag = 0;
 uint64_t s_un_depth = 0;
 uint64_t s_un_stock = 0;
 
-int s_phase = 0;  // 0 libre, 1 ORIGINE, 2 RECHARGED
+int s_phase = 0;  // 0 libre, 1 ORIGINE, 2 RECHARGED, 3 ORIGINE-LUMIERE
 
 // ── relecture de l'etat REEL du programme lie ───────────────────────────────────────────────
 uint64_t s_rb_checks = 0;
@@ -236,10 +239,10 @@ void publish_locked() {
   autoport_proof::publish("light_census_un_hfrag", s_un_hfrag);
   autoport_proof::publish("light_census_un_depth", s_un_depth);
   autoport_proof::publish("light_census_un_stock", s_un_stock);
-  // Les deux references, separement.
-  static const char* kPhasePrefix[3] = {"lc_free_", "lc_orig_", "lc_rech_"};
+  // Les trois references, separement.
+  static const char* kPhasePrefix[4] = {"lc_free_", "lc_orig_", "lc_rech_", "lc_orig_light_"};
   static const char* kPathSuffix[kPathCount] = {"A", "B", "C", "D", "E", "un"};
-  for (int p = 1; p <= 2; p++) {
+  for (int p = 1; p <= 3; p++) {
     for (int i = 0; i < kPathCount; i++) {
       char key[64];
       std::snprintf(key, sizeof(key), "%s%s", kPhasePrefix[p], kPathSuffix[i]);
@@ -293,9 +296,16 @@ void gate_probe(int v) {
 void gate_shadow(int v) {
   s_gate_shadow = v;
 }
+void host_paths(bool shade, bool legacy) {
+  s_host_shade = shade;
+  s_host_legacy = legacy;
+}
+void gate_no_tex(int v) {
+  s_gate_no_tex = v;
+}
 
 void set_phase(int phase) {
-  s_phase = (phase >= 0 && phase <= 2) ? phase : 0;
+  s_phase = (phase >= 0 && phase <= 3) ? phase : 0;
 }
 
 void note_world_draw(Kind k) {
@@ -321,18 +331,22 @@ void note_world_draw(Kind k) {
   } else if (k == Kind::DepthOnly) {
     s_un_depth++;
     path = kUnaccounted;
+  } else if (!s_host_shade || s_gate_no_tex != 0) {
+    // ETIE envmap ne porte pas shade() ; les hotes le contournent aussi sans textures.
+    s_un_stock++;
+    path = kUnaccounted;
   } else if (s_gate_rt_light != 0 && s_gate_pbr_mode != 0) {
     path = kB;
   } else if (s_gate_rt_light != 0 && s_gate_probe == 0) {
     path = kA;
   } else if (s_gate_rt_light != 0) {
     path = kD;
-  } else if (s_gate_pbr_mode != 0) {
+  } else if (s_host_legacy && s_gate_pbr_mode != 0) {
     path = kC;
-  } else if (s_gate_shadow != 0) {
+  } else if (s_host_legacy && s_gate_shadow != 0) {
     path = kE;
   } else {
-    // Les quatre portes a zero : c'est le rendu d'ORIGINE, aucune de nos couches n'y touche.
+    // Aucune branche applicable a cet hote : le draw garde le rendu d'ORIGINE.
     s_un_stock++;
     path = kUnaccounted;
   }
