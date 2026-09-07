@@ -153,6 +153,7 @@ struct Root {
   fs::path path;
   Json capture;
   std::map<std::string, Json> cases;
+  std::set<std::string> assets;
   size_t runs = 0;
 };
 }  // namespace detail
@@ -249,7 +250,7 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
         Json value = {{"fp", entry.value()}};
         require(checked_hash(entry.key()) == number(value, "fp"), "source-file-stale:" + entry.key());
       }
-      detail::Root root{path, capture, {}, 0};
+      detail::Root root{path, capture, {}, capture_assets, 0};
       require(capture.at("cases").is_array() && !capture.at("cases").empty() &&
                   capture.at("cases").size() <= 8192, "capture-cases");
       for (const auto& item : capture.at("cases")) {
@@ -289,10 +290,11 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
         const auto phase = item.at("phase").get<int>();
         require(phase == 2 || phase == 3, "case-phase");
         const auto& options = item.at("effective_options");
-        require(options.is_object() && options.size() == 4 &&
+        require(options.is_object() && options.size() == 5 &&
                     options.at("master").is_boolean() && options.at("master") == true &&
                     options.at("lighting").is_boolean() && options.at("lighting") == (phase == 2) &&
                     options.at("rt_light").is_boolean() && options.at("rt_light") == (phase == 2) &&
+                    options.at("hdr").is_boolean() && options.at("hdr") == (phase == 2) &&
                     options.at("others").is_object(), "case-effective-options:" + key);
         const auto prefix = key.compare(0, 14, "supplement-v1/") == 0 ? "supplement-v1/" : "";
         const auto witness = path / prefix /
@@ -342,7 +344,7 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
     std::map<std::string, detail::Root*> case_roots;
     std::map<std::pair<std::string, int>, std::map<int, std::string>> pairs;
     for (const auto& root_path : manifest.at("roots")) {
-      auto* root = load_root(fs::path(root_path.get<std::string>()));
+      detail::Root* root = load_root(fs::path(root_path.get<std::string>()));
       if (!root) continue;
       for (const auto& entry : root->cases) {
         const auto& key = entry.first;
@@ -365,6 +367,7 @@ Result evaluate(const fs::path& manifest_path, uint64_t current_bin, uint64_t cu
       const auto& off = candidates.at(off_key);
       const auto* on_root = case_roots.at(on_key);
       const auto* off_root = case_roots.at(off_key);
+      require(on_root->assets == off_root->assets, "pair-assets");
       for (const char* field : {"bin", "data", "input", "settings", "bootstrap", "source_fp"})
         require(on_root->capture.at(field) == off_root->capture.at(field),
                 std::string("pair-identity:") + field);
