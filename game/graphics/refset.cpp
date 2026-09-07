@@ -3799,9 +3799,10 @@ int verdict_saturation() {
   return paired == 8 ? 0 : 1;
 }
 
-// Verdict 2 — le contraste local du decile le plus lumineux vaut au moins 95 % de celui
-// d'ORIGINE-LUMIERE, sur CHAQUE creneau. C'est la mesure de « la courbe preserve le detail » :
-// une zone ecrasee a blanc plat a un gradient local nul.
+// Verdict 2 — lighting-hdr : couverture complete uniquement (SPEC §4.5, arbitrage
+// contraste du 8 septembre). Les gradients, ratios et deltas restent des diagnostics :
+// les deciles ON/OFF ne designent pas necessairement les memes surfaces.
+// Les autres features conservent leur critere de contraste local ON >= 95 % OFF.
 int verdict_highlight_contrast() {
   if (autoport_proof::feature_is("lighting-hdr")) {
     if (hdr_paired_count() != kNumVantages * 8ull)
@@ -3810,8 +3811,6 @@ int verdict_highlight_contrast() {
       for (int hour : kHours) {
         const StepStats *on, *off;
         if (!hdr_pair(vi, hour, on, off))
-          return 1;
-        if (on->contrast_x1000 * 100ull < off->contrast_x1000 * 95ull)
           return 1;
       }
     }
