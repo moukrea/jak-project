@@ -1,9 +1,11 @@
 #include "game/graphics/refset.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <mutex>
 #include <set>
 #include <string>
@@ -61,12 +63,38 @@ constexpr int kHours[8] = {0, 3, 6, 9, 12, 15, 18, 21};
 // `interieur` / `ciel` NE SONT PAS DECLARES ICI. Ce sont des MESURES : la fraction de pixels
 // d'arriere-plan de l'image capturee (voir `sky_fraction`). Un champ « interior = true » serait
 // un commentaire, et la porte qui le lirait serait un miroir de sa propre table.
+// ── LA CAMERA EST EPINGLEE, ET C'EST CE QUI REND LE CIEL ATTEIGNABLE ────────────────────────
+// MESURE DU 2026-09-07 : aucun des 26 points de vue n'atteint 15 % de ciel — le meilleur,
+// `beach-start`, en montre 119 pour mille, et huit vues en montrent ZERO. La cause n'est pas le
+// choix des continue-points : `target-continue` (target-death.gc:149-167) recopie bien le
+// `camera-rot` du continue-point dans le combineur, puis passe la camera en `cam-fixed` PUIS en
+// `cam-string`. C'est `cam-string` qui decide la pose finale (cam-states.gc:1579) : elle se
+// replace derriere Jak, a hauteur d'epaule, a l'horizontale. Le `camera-rot` de la donnee n'est
+// qu'une pose de depart, jetee en quelques images. Un jeu de references bati sur cette camera
+// ne peut pas contenir de ciel, quel que soit le continue-point choisi.
+// LE GESTE : sous refset, la camera est POSEE, pas suivie. `*external-cam-mode*` a `'locked`
+// court-circuite tout le combineur (cam-update.gc:334 -> move-camera-from-pad:169, ou la valeur
+// `'locked` coupe aussi la lecture de la manette), et `*save-camera-inv-rot*` est recopie tel
+// quel dans `(-> *math-camera* inv-camera-rot)` (cam-update.gc:181-190). On calcule donc la
+// pose ICI, en dur, a partir de la SEULE donnee du point de reprise : sa position et le cap de
+// Jak. Rien de ce que la camera du jeu produit n'entre dans le calcul.
+// CE QUE CA ACHETE EN PLUS, ET CE N'EST PAS UN BONUS ACCESSOIRE : le point de repos de
+// `cam-string` etait la premiere source de non-determinisme du rejeu — refset.h le chiffre,
+// deux courses identiques le trouvaient a 0,02 m l'une de l'autre et ca suffisait a rendre
+// 27000 pixels sur 57600 differents. Une camera calculee de constantes n'a pas de point de
+// repos : elle vaut le meme flottant a chaque course.
 struct Vantage {
   const char* id;    // prefixe des fichiers ; "" = le vantage historique (hutte de Sandover)
   const char* cont;  // nom du continue-point, tel quel dans level-info.gc
   const char* pos;   // OG_LEVEL_WARP_POS en metres ; "" = la position de la donnee
   const char* level; // le niveau ATTENDU. Celui qui est DESSINE est mesure, pas lu ici.
   uint8_t hours;     // masque sur kHours : bit i = kHours[i]
+  // La camera epinglee, en unites entieres — un reglage flottant dont l'arrondi depend du
+  // compilateur rendrait deux binaires non comparables.
+  int16_t pitch_d;    // degres au-dessus de l'horizontale ; c'est LUI qui ramene du ciel
+  int16_t yaw_d;      // degres ajoutes au cap de Jak au point de reprise (positif = droite)
+  int16_t dist_dm;    // recul derriere le point de reprise, en decimetres
+  int16_t height_dm;  // hauteur au-dessus du point de reprise, en decimetres
 };
 
 // 0xff = les huit creneaux de `mood-lights-table` ; 0x88 = 9 h et 21 h, un plein jour et une
@@ -75,10 +103,37 @@ struct Vantage {
 constexpr uint8_t kAllHours = 0xff;
 constexpr uint8_t kDayNight = 0x88;
 
+// LES HUIT CRENEAUX POUR CHAQUE NIVEAU, ET PAS SEULEMENT POUR LE PREMIER. L'owner demande les
+// trois jeux « couvrant TOUS les niveaux, exterieurs ET interieurs, aux HUIT HEURES FIXES ».
+// Chacun des 21 niveaux jouables a donc UNE vue a huit creneaux ; `village1` en a deux (sa
+// hutte et son exterieur) parce que sa vue historique ne montre aucun ciel et ne peut donc pas
+// repondre pour lui a la porte du ciel. Les quatre vues restantes — un second point de vue dans
+// un niveau deja couvert huit fois — gardent `kDayNight` : elles ajoutent de la couverture
+// spatiale, pas une reponse a une porte, et chaque creneau supplementaire coute 180 frames de
+// logique dans SEPT courses.
+// LE PITCH N'EST PAS UN GOUT : IL EST MESURE, VUE PAR VUE. Il vaut 0 partout ou le niveau n'a
+// pas de ciel a montrer — la vue garde alors le cadrage de la camera du jeu, a la pose pres —
+// et, sur la vue chargee de repondre pour un niveau a ciel, la plus PETITE valeur qui tienne la
+// marge. La plus petite : un angle plus haut que necessaire sort le decor du cadre, et un jeu de
+// references doit montrer un niveau eclaire, pas une photo du ciel.
+// TOURNEE DE CALIBRAGE DU 2026-09-07 09:04 (`OG_REFSET_PITCH_BY_HOUR=0,0,12,0,20,0,30` : le
+// creneau porte l'angle, une seule tournee rend quatre angles par vue au lieu de quatre
+// tournees). Arriere-plan en pour mille, par angle 0 / 12 / 20 / 30 :
+//   beach-start      231  389  512  562      finalboss-start  491  823  995 1000
+//   firecanyon-start 121  335  504  692      ogre-start       206  406  558  691
+//   snow-start       362  508  620  611      training-start    81  211  374  583
+//   jungle-start      31   93  172  311      rolling-start     21   95  201  385
+//   misty-start        0   27  111  277      village3-start     0    5   92  251
+//   village2-start    46  113  193  268      swamp-start        8    7    8   40
+//   village1-out       4    8    9   19      sunkenb-start      0    0    0    0
+//   legacy, jungle-tower, sunken, maincave, darkcave, robocave, lavatube, citadel : 0 partout
+// `finalboss-start` montre pourquoi le plafond de `kSkyCeilPm` existe : a 20 degres il rend 995
+// pour mille, c'est-a-dire le VIDE. Son angle est donc 0, ou il rend 491 avec du decor.
+// Les vues que l'angle ne sauve pas se TOURNENT (`yaw_d`), pas se lever : voir plus bas.
 constexpr Vantage kVantages[] = {
     // le vantage HISTORIQUE — hall de la hutte de Samos, Sandover. Prefixe vide : ses fichiers
     // restent `<jeu>/hHH.png`, octet pour octet la ou les items precedents les ont laisses.
-    {"", "village1-hut", "-116 14 40", "village1", kAllHours},
+    {"", "village1-hut", "-116 14 40", "village1", kAllHours, 0, 0, 30, 15},
     // Sandover en EXTERIEUR (l'owner nomme les deux separement). LE POINT DE REPRISE EST
     // `village1-hut`, PAS `village1-warp`, ET C'EST MESURE : `village1-warp` porte le drapeau de
     // tache `sage-ecorocks` (level-info.gc:190), et y arriver DECLENCHE une cinematique — 1798
@@ -88,40 +143,109 @@ constexpr Vantage kVantages[] = {
     // vantage seraient prises a des instants differents de la scene. On garde donc le seul
     // continue-point de village1 SANS drapeau (`village1-hut`) et on pose la position du gate de
     // warp — le meme endroit, sans la tache.
-    {"village1-out", "village1-hut", "-126 46 212", "village1", kDayNight},
-    {"beach-start", "beach-start", "", "beach", kDayNight},
+    // LA CAMERA EST HAUTE ET REGARDE LEGEREMENT VERS LE BAS, et c'est mesure. Au niveau du
+    // sol de la porte de warp (-126, 46, 212) la vue est BOUCHEE : 0 a 81 pour mille sur
+    // huit angles et quatre reculs. La sonde a nomme la cause — a 20 m au-dessus du point
+    // l'image est encore couverte a 100 %, a 50 m elle est du ciel pur (1000 pour mille) :
+    // le point de reprise est sous une masse de relief. A 50 m et -8 degres on retrouve le
+    // village dessous et le ciel dessus : 300 pour mille. Tournee du 2026-09-07 09:33,
+    // hauteur 50 m : -25 deg -> 0, -15 deg -> 116, -8 deg -> 300.
+    {"village1-out", "village1-hut", "-126 46 212", "village1", kAllHours, -8, 0, 0, 500},
+    {"beach-start", "beach-start", "", "beach", kAllHours, 12, 0, 50, 30},
     // Geyser Rock
-    {"training-start", "training-start", "", "training", kDayNight},
-    {"jungle-start", "jungle-start", "", "jungle", kDayNight},
-    {"jungle-tower", "jungle-tower", "", "jungleb", kDayNight},
-    {"misty-start", "misty-start", "", "misty", kDayNight},
-    {"misty-bike", "misty-bike", "", "misty", kDayNight},
-    {"firecanyon-start", "firecanyon-start", "", "firecanyon", kDayNight},
+    {"training-start", "training-start", "", "training", kAllHours, 20, 0, 50, 30},
+    {"jungle-start", "jungle-start", "", "jungle", kAllHours, 30, 0, 50, 30},
+    {"jungle-tower", "jungle-tower", "", "jungleb", kAllHours, 0, 0, 50, 25},
+    {"misty-start", "misty-start", "", "misty", kAllHours, 30, 0, 50, 30},
+    {"misty-bike", "misty-bike", "", "misty", kDayNight, 0, 0, 50, 25},
+    {"firecanyon-start", "firecanyon-start", "", "firecanyon", kAllHours, 12, 0, 50, 30},
     // Rock Village
-    {"village2-start", "village2-start", "", "village2", kDayNight},
-    {"village2-dock", "village2-dock", "", "village2", kDayNight},
+    {"village2-start", "village2-start", "", "village2", kAllHours, 30, 0, 50, 30},
+    {"village2-dock", "village2-dock", "", "village2", kDayNight, 0, 0, 50, 25},
     // la cite Precursor sous l'eau
-    {"sunken-start", "sunken-start", "", "sunken", kDayNight},
-    {"sunkenb-start", "sunkenb-start", "", "sunkenb", kDayNight},
+    {"sunken-start", "sunken-start", "", "sunken", kAllHours, 0, 0, 50, 25},
+    // `sunkenb` porte `:sky #t` dans la donnee mais `sunkenb-start` n'en montre RIEN : 0 pour
+    // mille sur quatre pitchs ET quatre caps. Son autre point de reprise, `sunkenb-helix`
+    // (level-info.gc:926), donne sur le puits de la helice.
+    // `sunkenb` PORTE `:sky #t` DANS LA DONNEE ET N'EN MONTRE AUCUN. Mesure du 2026-09-07 :
+    // ses DEUX points de reprise, sondes a huit placements de camera (pitch 0/12/20/30/45/60,
+    // cap 0/90/180/270, hauteur 3/10/20/30/50 m), rendent 0 pour mille a chaque fois. Le
+    // niveau est le sous-niveau immerge du palais : son ciel n'est jamais a l'ecran. Le couple
+    // (sunkenb, chaque creneau) est donc compte MANQUANT par `refset_sky_missing`, avec sa
+    // valeur mesuree — on ne retire pas le niveau de la liste pour verdir la porte.
+    {"sunkenb-start", "sunkenb-start", "", "sunkenb", kAllHours, 0, 0, 50, 25},
+    {"sunkenb-helix", "sunkenb-helix", "", "sunkenb", kDayNight, 20, 0, 50, 30},
     // le Swamp, dehors et dans une de ses grottes
-    {"swamp-start", "swamp-start", "", "swamp", kDayNight},
-    {"swamp-cave1", "swamp-cave1", "", "swamp", kDayNight},
-    {"rolling-start", "rolling-start", "", "rolling", kDayNight},
-    {"ogre-start", "ogre-start", "", "ogre", kDayNight},
+    // Le ciel du Swamp ne se voit pas depuis `swamp-start` : mesure du 2026-09-07, 40 pour
+    // mille au mieux sur quatre pitchs et 57 sur quatre caps — la vue est sous la canopee.
+    // C'est le DOCK qui donne sur l'eau et sur le ciel ; `swamp-dock1` (level-info.gc:1026)
+    // est un continue-point sans drapeau de tache.
+    // Tournee du 2026-09-07 09:28 : 20 deg a 10 m -> 274 pour mille, a 25 m -> 569, et
+    // 45 deg au sol -> 402. On garde le plus SOBRE des trois qui passent.
+    {"swamp-dock1", "swamp-dock1", "", "swamp", kAllHours, 20, 0, 50, 100},
+    {"swamp-start", "swamp-start", "", "swamp", kDayNight, 0, 0, 50, 25},
+    {"swamp-cave1", "swamp-cave1", "", "swamp", kDayNight, 0, 0, 50, 25},
+    {"rolling-start", "rolling-start", "", "rolling", kAllHours, 30, 0, 50, 30},
+    {"ogre-start", "ogre-start", "", "ogre", kAllHours, 12, 0, 50, 30},
     // le Volcan (Volcanic Crater)
-    {"village3-start", "village3-start", "", "village3", kDayNight},
+    {"village3-start", "village3-start", "", "village3", kAllHours, 30, 0, 50, 30},
     // le niveau de neige
-    {"snow-start", "snow-start", "", "snow", kDayNight},
-    {"snow-fort", "snow-fort", "", "snow", kDayNight},
-    {"maincave-start", "maincave-start", "", "maincave", kDayNight},
-    {"darkcave-start", "darkcave-start", "", "darkcave", kDayNight},
-    {"robocave-start", "robocave-start", "", "robocave", kDayNight},
+    {"snow-start", "snow-start", "", "snow", kAllHours, 0, 0, 50, 30},
+    {"snow-fort", "snow-fort", "", "snow", kDayNight, 0, 0, 50, 25},
+    {"maincave-start", "maincave-start", "", "maincave", kAllHours, 0, 0, 50, 25},
+    {"darkcave-start", "darkcave-start", "", "darkcave", kAllHours, 0, 0, 50, 25},
+    {"robocave-start", "robocave-start", "", "robocave", kAllHours, 0, 0, 50, 25},
     // le tube de lave
-    {"lavatube-start", "lavatube-start", "", "lavatube", kDayNight},
-    {"citadel-start", "citadel-start", "", "citadel", kDayNight},
-    {"finalboss-start", "finalboss-start", "", "finalboss", kDayNight},
+    {"lavatube-start", "lavatube-start", "", "lavatube", kAllHours, 0, 0, 50, 25},
+    {"citadel-start", "citadel-start", "", "citadel", kAllHours, 0, 0, 50, 25},
+    {"finalboss-start", "finalboss-start", "", "finalboss", kAllHours, 0, 0, 50, 30},
 };
 constexpr int kNumVantages = (int)(sizeof(kVantages) / sizeof(kVantages[0]));
+
+// ── L'ETAT DE LA CAMERA EPINGLEE ────────────────────────────────────────────────────────────
+// `g_spawn_*` vient du POINT DE REPRISE lui-meme, releve par `level_warp_run` juste avant le
+// `(start 'play ...)` : la position que le jeu va donner a Jak, et le cap que son quaternion
+// porte. Deux constantes de la donnee de Naughty Dog, pas une lecture de l'etat du jeu — donc
+// la meme valeur a chaque course, quel que soit le temps qu'a mis le disque.
+struct CamTune {
+  int16_t pitch_d, yaw_d, dist_dm, height_dm;
+  bool set = false;
+};
+bool g_pose_known = false;
+float g_spawn_m[3] = {0.f, 0.f, 0.f};
+float g_spawn_yaw_deg = 0.f;
+uint64_t g_cam_pins = 0;   // images ou la pose a ete rendue au fil GOAL
+uint64_t g_cam_asks = 0;   // ... et images ou GOAL l'a demandee. Egaux = jamais un repli muet.
+int g_cam_armed = 1;       // `OG_REFSET_CAM_OFF=1` rend la camera du jeu : bras de controle
+// Surcharges d'etalonnage, une par vantage. `OG_REFSET_CAM=<id>:<pitch>:<yaw>:<dist>:<haut>,...`
+// existe pour trouver les angles SANS rebatir ; les valeurs retenues finissent dans `kVantages`
+// et la preuve tourne sans la variable. `refset_cam_overrides` publie combien en ont recu une :
+// une reference capturee sous une surcharge non declaree serait irreproductible.
+CamTune g_cam_tune[kNumVantages];
+uint64_t g_cam_overrides = 0;
+// Le masque d'heures REELLEMENT parcouru (voir `OG_REFSET_HOURS`). 0xff = le plan complet.
+uint8_t g_hours_mask = 0xff;
+// L'ETALONNAGE DES ANGLES, EN UNE SEULE TOURNEE. Trouver le pitch qui ramene 15 % de ciel dans
+// 26 niveaux demandait une course par angle, et une course paie 26 chargements de niveau — 26
+// minutes dont 20 de disque. `OG_REFSET_PITCH_BY_HOUR=0,10,20,30` fait porter au CRENEAU la
+// valeur du pitch : le plan garde sa structure, les quatre photos d'un vantage sont prises a
+// quatre angles, et une seule tournee rend la table complete. Vide = les angles de `kVantages`,
+// c'est-a-dire le plan que la porte exige. `refset_pitch_by_hour` publie ce qui a tourne.
+int g_pitch_by_hour[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+int g_pitch_sweep = 0;
+// LE MEME LEVIER SUR LE CAP. Mesure du 2026-09-07 : `village1-out` reste entre 4 et 19 pour
+// mille de ciel du pitch 0 au pitch 30 — l'angle n'y peut rien, la vue regarde un relief. Ce
+// qui manque a ce point de vue n'est pas de lever la tete, c'est de se TOURNER.
+// `OG_REFSET_YAW_BY_HOUR=0,90,180,270` balaie les caps de la meme facon.
+int g_yaw_by_hour[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+int g_yaw_sweep = 0;
+// ET LE MEME LEVIER SUR LES QUATRE REGLAGES A LA FOIS. Mesure du 2026-09-07 : `swamp-start` ne
+// depasse pas 57 pour mille sur les quatre caps, et `village1-out` 19 sur les quatre pitchs. Ce
+// qui manque a ces vues n'est ni de lever la tete ni de se tourner : c'est de se PLACER
+// ailleurs. `OG_REFSET_CAM_BY_HOUR="20:0:50:100,20:0:50:200,..."` (pitch:cap:recul:hauteur, un
+// jeu par creneau) balaie les quatre ensemble, et une seule tournee de trois minutes tranche.
+CamTune g_cam_by_hour[8];
+int g_cam_hour_sweep = 0;
 
 struct Step {
   // 1 = ORIGINE-TOTAL (master OFF) ; 2 = RECHARGED (master ON + eclairage ON, prereglage fige) ;
@@ -146,7 +270,15 @@ int64_t g_step_settle = 180;
 // camera qui se pose contre une geometrie incomplete trouve son point de repos ailleurs a
 // chaque course. `OG_REFSET_LOAD_SETTLE` le regle sans rebatir. `refset_load_steps` publie
 // combien d'etapes en ont beneficie : a zero, la clause serait vide.
-int64_t g_load_settle = 900;
+// LA VALEUR PAR DEFAUT COMPTE, ET PAS SEULEMENT POUR LE CONFORT. `lib/proof_run.sh` pose
+// l'environnement de `proof_env` (backlog.yaml), qui ne porte AUCUN reglage de settle : la
+// course de preuve tourne donc au defaut. Une capture faite sous `OG_REFSET_LOAD_SETTLE=600` et
+// rejouee au defaut de 900 photographierait d'autres instants de logique, et `maxdiff` ne
+// pourrait pas valoir 0 — un rouge dont la cause ne ressemble pas a son symptome. On regle donc
+// le DEFAUT, et plus aucun lanceur ne passe la variable. 600 est tenu par la mesure : tournee
+// du 2026-09-07, `refset_load_margin_min = 475` sur 600, c'est-a-dire que le pire niveau est
+// devenu dessinable 125 frames apres son teleport.
+int64_t g_load_settle = 600;
 // L'INSTANT ABSOLU DU PREMIER TELEPORT (frames de LOGIQUE). Voir `warp_at_frame` dans refset.h :
 // le delai apres readiness de `level_warp_maybe` depend du disque, et son ecart d'UNE frame
 // entre la capture et le rejeu du 2026-09-06 a suffi a rendre `refpix_maxdiff_origine=232`.
@@ -183,6 +315,15 @@ struct VantStat {
   uint64_t px = 0;             // le denominateur : pixels de l'image
   uint64_t maxdiff = 0;        // le pire ecart de rejeu de ce vantage
   uint64_t level_ok = 0;       // photos ou le niveau ATTENDU etait bien en service
+  // LE MEME TRIO, VENTILE PAR CRENEAU HORAIRE. La porte de l'owner porte sur un COUPLE
+  // (niveau a ciel, heure fixe) : « pour chaque couple le ciel occupe >= 15 % ». Un minimum
+  // agrege sur les huit heures ne peut pas repondre a cette question — il dirait « cette vue
+  // montre le ciel » alors que le creneau de 0 h n'en montre pas. Un agregat par vue etait
+  // exactement la faiblesse que le superviseur a nommee le 2026-09-07.
+  uint64_t shots_h[8] = {0};
+  uint64_t level_ok_h[8] = {0};
+  uint64_t bg_min_h[8] = {~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull};
+  uint64_t px_h[8] = {0};
 };
 std::vector<VantStat> g_vstats;  // indexe comme g_vants
 uint64_t g_load_steps = 0;       // etapes qui ont recu le settle de CHARGEMENT
@@ -190,6 +331,18 @@ uint64_t g_load_steps = 0;       // etapes qui ont recu le settle de CHARGEMENT
 // (`LevelData::level->level_name`), jamais de `kVantages[].level` : une porte qui compterait les
 // lignes de sa propre table ne mesurerait rien.
 std::set<std::string> g_levels_seen;
+// QUELS NIVEAUX ONT UN CIEL — LU DANS LA DONNEE DE NAUGHTY DOG, PAS DEVINE NI MESURE.
+// `level-load-info` porte un champ `sky` (`goal_src/jak1/engine/level/level-h.gc:108`) et c'est
+// LUI qui decide, cote jeu, si le ciel est dessine pour ce niveau : `sky-tng.gc:901` teste
+// exactement `(-> *level* level i info sky)` avant d'emettre le DMA du ciel. Le fil GOAL le
+// recopie ici a chaque image pour les niveaux ACTIFS (`pc-refset-note-level`).
+// POURQUOI PAS UNE MESURE DE PIXELS. La porte demande « pour chaque niveau a ciel, le ciel
+// occupe >= 15 % de l'image ». Si l'appartenance a la liste se decidait sur les memes pixels,
+// la porte serait un miroir de sa propre sortie : un point de vue qui regarde un mur sortirait
+// de la liste et la porte resterait verte. La liste vient donc de la DONNEE, la porte des
+// PIXELS, et les deux ne partagent aucune variable.
+// POURQUOI PAS `kVantages[].level` NON PLUS : ce serait compter les lignes de ma propre table.
+std::map<std::string, int> g_level_sky;
 // Les niveaux en service pour LA PHOTO EN COURS. Vide a chaque armement de capture. Sert a une
 // chose precise : un monde qui n'a pas fini de charger ne dessine RIEN, donc sa profondeur reste
 // a la valeur d'effacement et l'image se lit comme « 100 % de ciel ». Mesure du 2026-09-07 :
@@ -615,6 +768,112 @@ const char* build_flavour() {
 //   `refset_interior_views`  vues dont la photo la PLUS ciel porte <= 1 % d'arriere-plan.
 // `refset_bg_min_pm_<vue>` / `_max_pm_` publient la grandeur brute en pour-mille : sans elles,
 // les trois compteurs seraient des verdicts sans mesure derriere.
+// ── LA PORTE DU CIEL (owner 2026-09-07) ─────────────────────────────────────────────────────
+// « Assures toi de bien tester tous les niveaux qui ont un ciel avec ont bien le ciel visible a
+// l'ecran, aussi faut tester a differents moment de la journee [...] avec des heures fixes ».
+// Deux grandeurs, et elles ne partagent AUCUNE variable :
+//   `refset_sky_levels`   la liste, etablie par la DONNEE du jeu (`level-load-info.sky`, recopiee
+//                         par le fil GOAL dans `g_level_sky`). Ni ma table de vantages, ni les
+//                         pixels : une porte calculee sur ses propres sorties est un miroir.
+//   `refset_sky_missing`  le nombre de COUPLES (niveau a ciel, heure fixe) dont aucune vue ne
+//                         montre >= 150 pour mille d'arriere-plan. Le produit complet, pas une
+//                         moyenne : c'est un agregat par vue qui a laisse passer le ciel blanc.
+// Une vue dont le niveau attendu n'etait pas en service a la photo ne peut pas repondre pour ce
+// couple : un monde absent ne dessine rien, donc toute sa profondeur reste a l'effacement et il
+// se lirait « 100 % de ciel » (mesure du 2026-09-07 : `citadel-start` 934..1000 pour mille).
+// `refset_sky_missing_list` NOMME les couples manquants : un trou anonyme n'est pas un constat.
+constexpr uint64_t kSkyFloorPm = 150;  // 15 % de l'image, le seuil de l'owner
+// ET UN PLAFOND, PARCE QUE LA SONDE MESURE L'ARRIERE-PLAN, PAS LE CIEL. Un pixel qu'aucune
+// surface n'a couvert se lit « arriere-plan » — que ce soit du ciel ou le VIDE vu depuis une
+// camera posee dans un mur. Sans plafond, la facon la plus simple de rendre la porte verte
+// serait de mal placer la camera, et c'est exactement le genre de faux vert que cet item
+// existe pour fermer. Une vue qui ne montre presque aucun decor ne repond donc pour aucun
+// couple. Mesure du 2026-09-07 : la vue la plus ouverte du jeu, `firecanyon-start` a 30
+// degres, rend 692 pour mille — le plafond ne mord sur aucune vue reelle.
+constexpr uint64_t kSkyCeilPm = 900;
+
+void publish_sky_gate() {
+  std::string sky_list;
+  uint64_t nsky = 0;
+  // La liste ne retient que les 21 niveaux JOUABLES : `default-level` et les niveaux de
+  // service portent aussi un `:sky`, et ils ne sont le sujet d'aucune photo.
+  for (int i = 0; i < kNumPlayableLevels; i++) {
+    auto it = g_level_sky.find(kPlayableLevels[i]);
+    if (it == g_level_sky.end() || !it->second) {
+      continue;
+    }
+    nsky++;
+    sky_list += sky_list.empty() ? "" : "+";
+    sky_list += kPlayableLevels[i];
+  }
+  autoport_proof::publish("refset_sky_levels_n", nsky);
+  autoport_proof::publish_text("refset_sky_levels", sky_list.empty() ? "aucun" : sky_list.c_str());
+  // Les niveaux dont le fil GOAL n'a JAMAIS rendu compte : sans eux, un niveau jamais visite
+  // sortirait de la liste des niveaux a ciel et allegerait la porte en silence.
+  {
+    std::string unknown;
+    uint64_t nunk = 0;
+    for (int i = 0; i < kNumPlayableLevels; i++) {
+      if (g_level_sky.count(kPlayableLevels[i])) {
+        continue;
+      }
+      nunk++;
+      unknown += unknown.empty() ? "" : "+";
+      unknown += kPlayableLevels[i];
+    }
+    autoport_proof::publish("refset_sky_unknown_n", nunk);
+    autoport_proof::publish_text("refset_sky_unknown", unknown.empty() ? "aucun" : unknown.c_str());
+  }
+
+  uint64_t missing = 0;
+  std::string miss_list;
+  uint64_t worst_pm = 1000;  // le pire couple : la marge quand la porte est tenue
+  for (int li = 0; li < kNumPlayableLevels; li++) {
+    const char* lev = kPlayableLevels[li];
+    auto it = g_level_sky.find(lev);
+    if (it == g_level_sky.end() || !it->second) {
+      continue;
+    }
+    for (int hi = 0; hi < 8; hi++) {
+      uint64_t best_pm = 0;
+      bool answered = false;
+      for (size_t vi = 0; vi < g_vstats.size(); vi++) {
+        if (std::strcmp(kVantages[g_vants[vi]].level, lev) != 0) {
+          continue;
+        }
+        const VantStat& vs = g_vstats[vi];
+        if (!vs.shots_h[hi] || !vs.px_h[hi] || vs.level_ok_h[hi] != vs.shots_h[hi]) {
+          continue;
+        }
+        answered = true;
+        const uint64_t pm = vs.bg_min_h[hi] * 1000ull / vs.px_h[hi];
+        // La vue RETENUE pour un couple est celle qui montre le plus de ciel SANS depasser le
+        // plafond : une vue dans le vide ne doit pas evincer une vue correcte.
+        if (pm > best_pm && pm <= kSkyCeilPm) {
+          best_pm = pm;
+        }
+      }
+      if (answered && best_pm < worst_pm) {
+        worst_pm = best_pm;
+      }
+      if (answered && best_pm >= kSkyFloorPm && best_pm <= kSkyCeilPm) {
+        continue;
+      }
+      missing++;
+      if (miss_list.size() < 900) {
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "%s%s@h%02d:%llu", miss_list.empty() ? "" : "+", lev,
+                      kHours[hi], (unsigned long long)(answered ? best_pm : 9999));
+        miss_list += buf;
+      }
+    }
+  }
+  autoport_proof::publish("refset_sky_missing", missing);
+  autoport_proof::publish("refset_sky_worst_pm", worst_pm);
+  autoport_proof::publish_text("refset_sky_missing_list", miss_list.empty() ? "aucun"
+                                                                           : miss_list.c_str());
+}
+
 void publish_coverage() {
   autoport_proof::publish("refset_views", g_vants.size());
   autoport_proof::publish("refset_probe_frames", g_probe_frames);
@@ -653,6 +912,28 @@ void publish_coverage() {
       }
     }
     autoport_proof::publish(key, vs.maxdiff);
+    // LA GRANDEUR BRUTE, CRENEAU PAR CRENEAU. `refset_sky_missing` compte des couples ; sans
+    // cette table on ne saurait pas LEQUEL manque ni de combien, et l'etalonnage des angles se
+    // ferait a l'aveugle. Format : `h09:119` — pour mille de pixels d'arriere-plan.
+    {
+      std::string row;
+      char cell[32];
+      for (int hh = 0; hh < 8; hh++) {
+        if (!vs.shots_h[hh] || !vs.px_h[hh]) {
+          continue;
+        }
+        std::snprintf(cell, sizeof(cell), "%sh%02d:%llu", row.empty() ? "" : ",", kHours[hh],
+                      (unsigned long long)(vs.bg_min_h[hh] * 1000ull / vs.px_h[hh]));
+        row += cell;
+      }
+      std::snprintf(key, sizeof(key), "refset_bgh_%s", id[0] ? id : "legacy");
+      for (char* c = key; *c; c++) {
+        if (*c == '-') {
+          *c = '_';
+        }
+      }
+      autoport_proof::publish_text(key, row.empty() ? "aucune" : row.c_str());
+    }
     if (loaded && pm_min >= 150) {
       sky++;
     }
@@ -691,6 +972,7 @@ void publish_coverage() {
     autoport_proof::publish_text("refset_levels_missing_list",
                                  missing.empty() ? "aucun" : missing.c_str());
   }
+  publish_sky_gate();
 }
 
 void publish_state() {
@@ -747,6 +1029,17 @@ void publish_state() {
   // La POLITIQUE DE TELEPORT est publiee : deux courses qui ne l'ont pas la meme ne
   // photographient pas les memes poses, et rien d'autre dans la preuve ne le dirait.
   autoport_proof::publish("refset_warp_per_step", (uint64_t)g_warp_per_step);
+  // LA CAMERA EPINGLEE. `armed=1` et `pins == asks` disent que TOUTES les images ont recu la
+  // pose calculee : un seul repli sur la camera du jeu suffirait a rendre une photo
+  // irreproductible, et il serait muet.
+  autoport_proof::publish("refset_cam_armed", (uint64_t)g_cam_armed);
+  autoport_proof::publish("refset_cam_pins", g_cam_pins);
+  autoport_proof::publish("refset_cam_asks", g_cam_asks);
+  autoport_proof::publish("refset_cam_overrides", g_cam_overrides);
+  autoport_proof::publish("refset_hours_mask", (uint64_t)g_hours_mask);
+  autoport_proof::publish("refset_pitch_sweep", (uint64_t)g_pitch_sweep);
+  autoport_proof::publish("refset_yaw_sweep", (uint64_t)g_yaw_sweep);
+  autoport_proof::publish("refset_cam_hour_sweep", (uint64_t)g_cam_hour_sweep);
   autoport_proof::publish("refset_late_arms", g_late_arms);
   // L'instant DEMANDE et l'instant OBTENU pour le premier teleport. Publier le seul demande
   // ne dirait pas si la readiness est arrivee apres : `warp1 != warp_at` = la course a rate
@@ -1420,6 +1713,90 @@ bool enabled() {
     }
     g_vstats.assign(g_vants.size(), VantStat{});
   }
+  // LA CAMERA EPINGLEE : son bras de controle et ses surcharges d'etalonnage.
+  {
+    char cv[16] = {0};
+    if (read_knob("OG_REFSET_CAM_OFF", "debug.opengoal.refset.camoff", cv, sizeof(cv))) {
+      g_cam_armed = (std::atoi(cv) != 0) ? 0 : 1;
+    }
+    char sv2[128] = {0};
+    if (read_knob("OG_REFSET_PITCH_BY_HOUR", "debug.opengoal.refset.pitchbyhour", sv2,
+                  sizeof(sv2))) {
+      int n = 0;
+      char* save2 = nullptr;
+      for (char* tok = strtok_r(sv2, ",", &save2); tok && n < 8;
+           tok = strtok_r(nullptr, ",", &save2)) {
+        g_pitch_by_hour[n++] = std::atoi(tok);
+      }
+      g_pitch_sweep = n > 0 ? 1 : 0;
+    }
+    char sv3[128] = {0};
+    if (read_knob("OG_REFSET_YAW_BY_HOUR", "debug.opengoal.refset.yawbyhour", sv3, sizeof(sv3))) {
+      int n = 0;
+      char* save3 = nullptr;
+      for (char* tok = strtok_r(sv3, ",", &save3); tok && n < 8;
+           tok = strtok_r(nullptr, ",", &save3)) {
+        g_yaw_by_hour[n++] = std::atoi(tok);
+      }
+      g_yaw_sweep = n > 0 ? 1 : 0;
+    }
+    char sv4[256] = {0};
+    if (read_knob("OG_REFSET_CAM_BY_HOUR", "debug.opengoal.refset.cambyhour", sv4, sizeof(sv4))) {
+      int n = 0;
+      char* save4 = nullptr;
+      for (char* tok = strtok_r(sv4, ",", &save4); tok && n < 8;
+           tok = strtok_r(nullptr, ",", &save4)) {
+        int a = 0, b = 0, c = 0, d = 0;
+        if (std::sscanf(tok, "%d:%d:%d:%d", &a, &b, &c, &d) == 4) {
+          g_cam_by_hour[n] = CamTune{(int16_t)a, (int16_t)b, (int16_t)c, (int16_t)d, true};
+        }
+        n++;
+      }
+      g_cam_hour_sweep = n > 0 ? 1 : 0;
+    }
+    char tv[1024] = {0};
+    if (read_knob("OG_REFSET_CAM", "debug.opengoal.refset.cam", tv, sizeof(tv))) {
+      char* save = nullptr;
+      for (char* tok = strtok_r(tv, ",", &save); tok; tok = strtok_r(nullptr, ",", &save)) {
+        char id[64] = {0};
+        int p = 0, y = 0, d = 0, h = 0;
+        if (std::sscanf(tok, "%63[^:]:%d:%d:%d:%d", id, &p, &y, &d, &h) != 5) {
+          continue;
+        }
+        for (int i = 0; i < kNumVantages; i++) {
+          const bool hit = (std::strcmp(id, "legacy") == 0 && kVantages[i].id[0] == 0) ||
+                           std::strcmp(id, kVantages[i].id) == 0;
+          if (!hit) {
+            continue;
+          }
+          g_cam_tune[i] = CamTune{(int16_t)p, (int16_t)y, (int16_t)d, (int16_t)h, true};
+          g_cam_overrides++;
+        }
+      }
+    }
+  }
+  // L'ETALONNAGE NE PAIE PAS LES HUIT CRENEAUX. `OG_REFSET_HOURS=9` ou `=0,12` restreint le plan
+  // a ces heures : une tournee de reperage des angles n'a besoin que d'UNE heure, et elle passe
+  // ainsi de 51 minutes a 22. Vide = le masque `hours` de chaque vantage, c'est-a-dire le plan
+  // que la porte exige. `refset_hours_mask` publie ce qui a REELLEMENT tourne.
+  uint8_t hours_filter = 0xff;
+  {
+    char hv[64] = {0};
+    if (read_knob("OG_REFSET_HOURS", "debug.opengoal.refset.hours", hv, sizeof(hv))) {
+      uint8_t m = 0;
+      char* save = nullptr;
+      for (char* tok = strtok_r(hv, ",", &save); tok; tok = strtok_r(nullptr, ",", &save)) {
+        const int hi = hour_index(std::atoi(tok));
+        if (hi >= 0) {
+          m |= (uint8_t)(1u << hi);
+        }
+      }
+      if (m) {
+        hours_filter = m;
+      }
+    }
+  }
+  g_hours_mask = hours_filter;
   // L'ORDRE EST PAR VANTAGE D'ABORD, ET CE N'EST PAS UN GOUT. Un vantage = un chargement de
   // niveau ; les grouper met 26 chargements dans la course au lieu de 78, et surtout laisse le
   // regime de modeles du niveau (choisi UNE fois au chargement, jamais refait — Loader.cpp:546)
@@ -1430,7 +1807,7 @@ bool enabled() {
     const Vantage& van = kVantages[g_vants[vi]];
     if (g_order_by_hour) {
       for (int hi = 0; hi < 8; hi++) {
-        if (!(van.hours & (1u << hi))) {
+        if (!(van.hours & g_hours_mask & (1u << hi))) {
           continue;
         }
         for (int phase : g_phases) {
@@ -1440,7 +1817,7 @@ bool enabled() {
     } else {
       for (int phase : g_phases) {
         for (int hi = 0; hi < 8; hi++) {
-          if (!(van.hours & (1u << hi))) {
+          if (!(van.hours & g_hours_mask & (1u << hi))) {
             continue;
           }
           g_steps.push_back(Step{phase, kHours[hi], (int)vi});
@@ -1811,7 +2188,8 @@ void note_scene_probe(uint64_t bg_px, uint64_t total_px) {
   VantStat& vs = g_vstats[vi];
   vs.shots++;
   vs.px = total_px;
-  if (g_frame_levels.count(vantage_of(g_steps[g_cur]).level)) {
+  const bool level_here = g_frame_levels.count(vantage_of(g_steps[g_cur]).level) != 0;
+  if (level_here) {
     vs.level_ok++;
   }
   if (bg_px < vs.bg_px_min) {
@@ -1820,6 +2198,107 @@ void note_scene_probe(uint64_t bg_px, uint64_t total_px) {
   if (bg_px > vs.bg_px_max) {
     vs.bg_px_max = bg_px;
   }
+  // LE MEME RELEVE, RANGE PAR CRENEAU : c'est lui que lit `refset_sky_missing`.
+  const int hi = hour_index(g_steps[g_cur].hour);
+  if (hi >= 0) {
+    vs.shots_h[hi]++;
+    vs.px_h[hi] = total_px;
+    if (level_here) {
+      vs.level_ok_h[hi]++;
+    }
+    if (bg_px < vs.bg_min_h[hi]) {
+      vs.bg_min_h[hi] = bg_px;
+    }
+  }
+}
+
+// FIL GOAL, une fois par image et par niveau ACTIF. Voir `g_level_sky`.
+void note_level_sky(const char* level_name, int has_sky) {
+  if (!enabled() || !level_name || !level_name[0]) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_level_sky[level_name] = has_sky ? 1 : 0;
+}
+
+// FIL GOAL (kmachine, juste avant le `(start 'play <continue>)`). La position ou Jak va
+// apparaitre — celle de la donnee, ou celle qu'`OG_LEVEL_WARP_POS` vient d'y ecrire — et son
+// quaternion de cap. C'est la SEULE entree du calcul de la camera epinglee.
+void note_warp_pose(const float* trans_m, const float* quat) {
+  if (!enabled() || !trans_m || !quat) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_spawn_m[0] = trans_m[0];
+  g_spawn_m[1] = trans_m[1];
+  g_spawn_m[2] = trans_m[2];
+  // Le cap : l'avant de Jak, (0,0,1) tourne par son quaternion. Seule la composante horizontale
+  // compte — un point de reprise sur un plan incline ne doit pas incliner la camera.
+  const float x = quat[0], y = quat[1], z = quat[2], w = quat[3];
+  const float fx = 2.f * (x * z + w * y);
+  const float fz = 1.f - 2.f * (x * x + y * y);
+  g_spawn_yaw_deg = std::atan2(fx, fz) * 57.29577951308232f;
+  g_pose_known = true;
+  std::printf("REFSET pose x=%.2f y=%.2f z=%.2f cap=%.1f\n", (double)trans_m[0],
+              (double)trans_m[1], (double)trans_m[2], (double)g_spawn_yaw_deg);
+  std::fflush(stdout);
+}
+
+// FIL GOAL, une fois par image dessinee. Rend la pose a imposer a `*math-camera*`, en METRES et
+// en vecteur avant unitaire. Faux = la camera du jeu garde la main (hors refset, avant le
+// premier teleport, ou sous le bras de controle `OG_REFSET_CAM_OFF`).
+bool camera_pin(float* out_trans_m, float* out_fwd) {
+  if (!enabled() || !out_trans_m || !out_fwd) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_cam_asks++;
+  if (!g_cam_armed || !g_pose_known || g_steps.empty()) {
+    return false;
+  }
+  const size_t k = g_cur < g_steps.size() ? g_cur : g_steps.size() - 1;
+  const size_t vi = (size_t)g_steps[k].vant;
+  const int gi = vi < g_vants.size() ? g_vants[vi] : 0;
+  const Vantage& v = kVantages[gi];
+  const CamTune* tp = &g_cam_tune[gi];
+  if (g_cam_hour_sweep) {
+    const int hs = hour_index(g_steps[k].hour);
+    if (hs >= 0 && g_cam_by_hour[hs].set) {
+      tp = &g_cam_by_hour[hs];
+    }
+  }
+  const CamTune& t = *tp;
+  float pitch_d = (float)(t.set ? t.pitch_d : v.pitch_d);
+  if (g_pitch_sweep) {
+    const int hi = hour_index(g_steps[k].hour);
+    if (hi >= 0 && g_pitch_by_hour[hi] > -1000) {
+      pitch_d = (float)g_pitch_by_hour[hi];
+    }
+  }
+  float yaw_d = (float)(t.set ? t.yaw_d : v.yaw_d);
+  if (g_yaw_sweep) {
+    const int hi = hour_index(g_steps[k].hour);
+    if (hi >= 0) {
+      yaw_d = (float)g_yaw_by_hour[hi];
+    }
+  }
+  const float dist = 0.1f * (float)(t.set ? t.dist_dm : v.dist_dm);
+  const float height = 0.1f * (float)(t.set ? t.height_dm : v.height_dm);
+  const float kDeg = 0.017453292519943295f;
+  const float yaw = (g_spawn_yaw_deg + yaw_d) * kDeg;
+  const float pitch = pitch_d * kDeg;
+  const float sy = std::sin(yaw), cy = std::cos(yaw);
+  const float sp = std::sin(pitch), cp = std::cos(pitch);
+  // La camera RECULE a l'horizontale (le pitch ne doit pas la faire monter en plus de la
+  // hauteur demandee : les deux reglages resteraient impossibles a lire separement).
+  out_trans_m[0] = g_spawn_m[0] - sy * dist;
+  out_trans_m[1] = g_spawn_m[1] + height;
+  out_trans_m[2] = g_spawn_m[2] - cy * dist;
+  out_fwd[0] = sy * cp;
+  out_fwd[1] = sp;
+  out_fwd[2] = cy * cp;
+  g_cam_pins++;
+  return true;
 }
 
 void note_level_in_use(const char* level_name) {

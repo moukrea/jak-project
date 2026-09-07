@@ -59,6 +59,29 @@ TIMEOUT="${2:-1500}"
 BIN=build/game/gk
 [ -s "$BIN" ] || { echo "refset: $BIN absent — bâtis d'abord (cmake --build build --target gk -j)" >&2; exit 3; }
 
+# LE VERROU DE LIVRAISON, PRIS ICI ET PAS AILLEURS. Le 2026-09-07 a 08:33:17 une tournee de
+# capture est morte en SIGSEGV a son 23e niveau : `link finish: cave-trap` puis un saut dans du
+# code AArch64 execute par un `gk` x86. La cause est datee a la seconde — `build_arm64_full_
+# consistent.sh:30` fait son `(make-group "iso")` ARM64 *dans* `out/jak1/iso`, le repertoire
+# `-iso-data` de la course en cours, et ne restaure le x86 qu'a sa ligne 47. Le `ROB.DGO` lu par
+# le `gk` contenait 20 prologues `stp x29,x30,[sp,#-16]!` ; celui d'aujourd'hui, reconstruit en
+# x86, en contient zero. Ce n'etait pas un defaut de `robocave` : c'etait l'instrument reecrit
+# sous la mesure. On rend la perte impossible au POINT DE PRODUCTION — le constructeur lit ce
+# verrou (auto_build_apk.sh:331-349) et ne batit pas par-dessus — plutot que detectable apres
+# coup. PID et `trap` obligatoires : un `touch` nu laisserait un verrou eternel si la course
+# meurt, et le constructeur perime de toute facon un verrou dont le PID ne repond plus.
+LOCK=.autoport/.deploy-in-progress
+if [ -f "$LOCK" ]; then
+  holder=$(sed -n 's/.*pid=\([0-9]*\).*/\1/p' "$LOCK")
+  if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
+    echo "refset: livraison en cours ($(cat "$LOCK")) — on ne mesure pas sous un constructeur" >&2
+    exit 4
+  fi
+  echo "refset: verrou orphelin (pid=$holder mort) — on le remplace" >&2
+fi
+printf 'refset.sh %s pid=%s started=%s\n' "$MODE" "$$" "$(date -Is)" > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
 DEMO=.autoport/refset/neutral.inputs
 if [ ! -s "$DEMO" ]; then
   python3 - "$DEMO" <<'PY'
@@ -79,7 +102,16 @@ export SDL_VIDEODRIVER=x11 LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 # alors, litteralement, que l'instrument pose par cet item ne change aucun pixel.
 ARMED=1; [ "$MODE" = capture ] && ARMED=0
 
-echo "[refset] $MODE pendant ${TIMEOUT}s (census armed=$ARMED) -> $LOG" >&2
+# LE PLAN FINIT AVANT LE TIMEOUT, ET IL FAUT EN PROFITER. Le moteur imprime `REFSET done` des
+# que la derniere etape est consommee — apres avoir ecrit ses PNG, son registre de rejeux et
+# TOUTES ses grandeurs (`publish_flaky` puis `publish_state`, refset.cpp:2031-2045). Mais rien
+# n'arretait `gk` : mesure du 2026-09-07, la tournee de calibrage a fini son plan en 700 s et
+# est restee a tourner dans le vide jusqu'a son timeout de 2400 s. Sur les six courses d'une
+# sequence complete, c'etait deux heures de rien. On attend donc la LIGNE, pas l'horloge, et le
+# timeout redevient ce qu'il doit etre : un filet, pas la duree de la course.
+# `kill` PAR PID EXACT, jamais par motif (DIRECTIVES) : le PID est celui du `timeout`, qui
+# transmet le signal a son `gk`.
+echo "[refset] $MODE (plafond ${TIMEOUT}s, census armed=$ARMED) -> $LOG" >&2
 stdbuf -oL -eL env \
   OG_REFSET="$MODE" \
   OG_REFSET_DIR=.autoport/refset \
@@ -94,12 +126,30 @@ stdbuf -oL -eL env \
   ${REFSET_LOAD_SETTLE:+OG_REFSET_LOAD_SETTLE="$REFSET_LOAD_SETTLE"} \
   ${REFSET_VANTAGES:+OG_REFSET_VANTAGES="$REFSET_VANTAGES"} \
   ${REFSET_PHASES:+OG_REFSET_PHASES="$REFSET_PHASES"} \
+  ${REFSET_HOURS:+OG_REFSET_HOURS="$REFSET_HOURS"} \
+  ${REFSET_CAM:+OG_REFSET_CAM="$REFSET_CAM"} \
+  ${REFSET_CAM_OFF:+OG_REFSET_CAM_OFF="$REFSET_CAM_OFF"} \
+  ${REFSET_PITCH_BY_HOUR:+OG_REFSET_PITCH_BY_HOUR="$REFSET_PITCH_BY_HOUR"} \
+  ${REFSET_YAW_BY_HOUR:+OG_REFSET_YAW_BY_HOUR="$REFSET_YAW_BY_HOUR"} \
+  ${REFSET_CAM_BY_HOUR:+OG_REFSET_CAM_BY_HOUR="$REFSET_CAM_BY_HOUR"} \
   OG_PACE_MEASURE=1 \
   AUTOPORT_FEATURE=lighting-census \
   AUTOPORT_FEATURE_ARMED="$ARMED" \
   timeout -k 5 "$TIMEOUT" "$BIN" --game jak1 --portable -fakeiso --verbose --disable-ansi \
-      -iso-data out/jak1/iso -- -boot -debug-mem > "$LOG" 2>&1
-rc=$?
+      -iso-data out/jak1/iso -- -boot -debug-mem > "$LOG" 2>&1 &
+GKPID=$!
+while kill -0 "$GKPID" 2>/dev/null; do
+  if grep -aq '^REFSET done ' "$LOG" 2>/dev/null; then
+    sleep 5                      # le temps que le dernier octet parte du tampon
+    echo "[refset] plan termine — on arrete gk (pid=$GKPID)" >&2
+    kill "$GKPID" 2>/dev/null
+    break
+  fi
+  sleep 3
+done
+wait "$GKPID"; rc=$?
+# `REFSET done` present = le plan est alle au bout ; le code de sortie du `kill` ne dit rien.
+grep -aq '^REFSET done ' "$LOG" 2>/dev/null && rc=0
 
 echo "--- REFSET ---" >&2
 grep -aE '^(REFSET|TOD-PIN|LEVEL-WARP|pad_replay)' "$LOG" | tail -40 >&2
@@ -108,6 +158,9 @@ grep -aoE '^(refset|light_census|gpu_ms|gpu_timer)[A-Za-z0-9_]*=[^ ]*' "$LOG" | 
 echo "--- couverture ---" >&2
 grep -aoE '^refset_(levels|views|shot_views|sky_views|interior_views|levels_missing|levels_playable|probe_frames)[A-Za-z0-9_]*=[^ ]*' "$LOG" | sort -u >&2
 grep -aoE '^refset_levels(_list|_missing_list)=[^ ]*' "$LOG" | sort -u >&2
+echo "--- ciel par creneau ---" >&2
+grep -aoE '^refset_(bgh_[a-z0-9_]+|sky_[a-z_]*)=[^ ]*' "$LOG" | sort -u >&2
+grep -aoE '^refset_cam_[a-z]+=[0-9]+' "$LOG" | sort -u >&2
 
 if [ "$MODE" = replay ]; then
   MD=$(grep -aoE '^refset_replay_maxdiff=[0-9]+' "$LOG" | tail -1 | cut -d= -f2)

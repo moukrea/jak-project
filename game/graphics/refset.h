@@ -206,6 +206,27 @@ bool wants_scene_probe();
 void note_scene_probe(uint64_t bg_px, uint64_t total_px);
 void note_level_in_use(const char* level_name);
 
+// FIL GOAL. Quels niveaux ONT un ciel, lu dans `level-load-info.sky` — la donnee que
+// `sky-tng.gc:901` teste lui-meme avant d'emettre le DMA du ciel. Appele une fois par image et
+// par niveau ACTIF depuis `hud-classes-pc.gc`. C'est la SOURCE de `refset_sky_levels`, et elle
+// est deliberement disjointe de la mesure de pixels qui alimente `refset_sky_missing` : une
+// porte dont l'ensemble de depart se deduit de sa propre sortie ne peut pas echouer.
+void note_level_sky(const char* level_name, int has_sky);
+
+// ── LA CAMERA EPINGLEE ──────────────────────────────────────────────────────────────────────
+// `note_warp_pose` : fil GOAL, appele par `level_warp_run` juste avant le `(start 'play ...)`,
+// avec la position ou Jak va apparaitre (metres) et son quaternion de cap. C'est la seule
+// entree du calcul ; il ne lit AUCUN etat de la camera du jeu, donc il ne peut pas heriter du
+// point de repos de `cam-string` ni de la vitesse du chargement.
+// `camera_pin` : fil GOAL, une fois par image dessinee. Rend la pose a imposer — position en
+// metres et vecteur avant unitaire — ou faux si la camera du jeu doit garder la main.
+// Pourquoi la camera du jeu ne peut pas servir : `target-continue` (target-death.gc:166) laisse
+// la camera en `cam-string`, qui se replace derriere Jak, a l'horizontale. Mesure du
+// 2026-09-07 : sur 26 points de vue, le ciel occupe au mieux 119 pour mille de l'image et huit
+// vues n'en montrent aucun. La porte de l'owner en demande 150.
+void note_warp_pose(const float* trans_m, const float* quat);
+bool camera_pin(float* out_trans_m, float* out_fwd);
+
 // FIL GRAPHIQUE. Le tampon de couleur vient d'etre relu (RGBA, deja retourne a l'endroit).
 // Rend vrai si c'etait notre capture — l'appelant n'ecrit alors pas le PNG de capture d'ecran.
 bool consume_capture(int w, int h, const void* rgba);

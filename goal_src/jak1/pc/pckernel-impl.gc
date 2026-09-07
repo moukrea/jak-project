@@ -285,6 +285,20 @@
 ;; seuls le verdict du contraste des hautes lumieres.
 (define-extern pc-refset-text-mute? (function int))
 (define-extern pc-refset-active? (function int))
+;; lighting-census — QUELS NIVEAUX ONT UN CIEL. `level-load-info.sky` (level-h.gc:108) ne
+;; traverse pas jusqu'au C++ : le fr3 charge par le `Loader` ne porte que la geometrie. C'est
+;; pourtant ce champ-la que le jeu teste avant d'emettre le DMA du ciel (sky-tng.gc:901), donc
+;; c'est la seule definition non devinee. On l'annonce pour chaque niveau ACTIF, une fois par
+;; image ; hors du mode refset le pont sort immediatement et rien ne change pour le joueur.
+(define-extern pc-refset-note-level (function string int none))
+;; lighting-census — LA CAMERA EPINGLEE. Rend 1 et remplit les deux vecteurs (position en
+;; unites GOAL, avant unitaire) quand le jeu de references impose sa pose ; 0 le reste du temps,
+;; et la camera du jeu garde alors exactement son chemin. Voir game/graphics/refset.h.
+(define-extern pc-refset-camera (function vector vector int))
+;; les deux vecteurs de travail du pont — poses une fois, reecrits en place a chaque image.
+(define *refset-cam-trans* (new 'static 'vector :w 1.0))
+(define *refset-cam-fwd* (new 'static 'vector :z 1.0))
+(define *refset-cam-down* (new 'static 'vector :y -1.0))
 ;; scratch vector reused each frame to hand the two distances to the bridge (avoids per-frame alloc).
 (define *grass-dist-scratch* (new 'static 'vector :x 30.0 :y 95.0 :z 150.0 :w 1.0))
 

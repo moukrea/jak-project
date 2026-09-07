@@ -3347,6 +3347,39 @@ u64 pc_refset_active() {
   return refset::enabled() ? 1 : 0;
 }
 
+// QUELS NIVEAUX ONT UN CIEL. `level-load-info.sky` vit dans le tas GOAL et n'a aucun equivalent
+// cote C++ : le fr3 charge par `Loader` ne porte que la geometrie. C'est pourtant CE champ que
+// le jeu teste lui-meme avant d'emettre le DMA du ciel (`sky-tng.gc:901`), donc c'est la seule
+// definition non devinee de « ce niveau a un ciel ». Le fil GOAL l'annonce pour chaque niveau
+// ACTIF, une fois par image ; hors du mode refset `note_level_sky` sort immediatement.
+void pc_refset_note_level(u32 name, s32 has_sky) {
+  refset::note_level_sky(name ? Ptr<String>(name).c()->data() : nullptr, has_sky);
+}
+
+// LA CAMERA EPINGLEE DU JEU DE REFERENCES. Rend 1 et remplit les deux vecteurs GOAL (position
+// en METRES, avant unitaire) quand la pose est calculee ; 0 = la camera du jeu garde la main.
+// Les vecteurs GOAL sont quatre flottants ; on n'ecrit que les trois premiers et on laisse `w`.
+// Contrat et raison d'etre : game/graphics/refset.h, section « LA CAMERA EPINGLEE ».
+u64 pc_refset_camera(u32 trans_vec, u32 fwd_vec) {
+  if (!trans_vec || !fwd_vec) {
+    return 0;
+  }
+  float t[3] = {0.f, 0.f, 0.f}, f[3] = {0.f, 0.f, 1.f};
+  if (!refset::camera_pin(t, f)) {
+    return 0;
+  }
+  float* gt = (float*)(g_ee_main_mem + trans_vec);
+  float* gf = (float*)(g_ee_main_mem + fwd_vec);
+  // METER_LENGTH : la memoire GOAL porte les longueurs en metres x 4096.
+  gt[0] = t[0] * 4096.f;
+  gt[1] = t[1] * 4096.f;
+  gt[2] = t[2] * 4096.f;
+  gf[0] = f[0];
+  gf[1] = f[1];
+  gf[2] = f[2];
+  return 1;
+}
+
 u64 pc_get_tod_hour() {
   // lighting-census : quand un jeu d'images de reference est en cours, c'est LUI qui impose
   // l'heure, et il la change entre deux etapes. Le cache d'une seconde ci-dessous serait alors
@@ -5343,6 +5376,8 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-refset-mood-flame", (void*)pc_refset_mood_flame);
   make_function_symbol_from_c("pc-refset-text-mute?", (void*)pc_refset_text_mute);
   make_function_symbol_from_c("pc-refset-active?", (void*)pc_refset_active);
+  make_function_symbol_from_c("pc-refset-note-level", (void*)pc_refset_note_level);
+  make_function_symbol_from_c("pc-refset-camera", (void*)pc_refset_camera);
   make_function_symbol_from_c("pc-set-jak-ledge!", (void*)pc_set_jak_ledge);
   // ROUND#21d: exact ground-actor world positions for the grass object-clip/trample
   make_function_symbol_from_c("pc-grass-occ-clear!", (void*)pc_grass_occ_clear);
@@ -6019,6 +6054,18 @@ static u64 level_warp_run() {
       printf("LEVEL-WARP-POS name=%s x=%.1f y=%.1f z=%.1f\n", s_level_warp_name, mx, my, mz);
       fflush(stdout);
     }
+  }
+  // lighting-census — LA POSE QUE LE JEU DE REFERENCES EPINGLE. Relevee ICI, apres l'eventuelle
+  // surcharge de position et AVANT le `(start 'play ...)` : c'est exactement la pose que Jak va
+  // recevoir. La camera du jeu (`cam-string`) n'entre pas dans le calcul — c'est tout l'objet du
+  // geste, voir game/graphics/refset.h. Hors mode refset, `note_warp_pose` sort a sa premiere
+  // ligne. Disposition du `continue-point` : game-info-h.gc:96 (trans @16, quat @32) ; adresse
+  // C++ = pointeur basic + offset du deftype - 4, comme le bloc ci-dessus.
+  {
+    const float* trans = (const float*)(g_ee_main_mem + (u32)cont + 16 - 4);
+    const float* quat = (const float*)(g_ee_main_mem + (u32)cont + 32 - 4);
+    const float tm[3] = {trans[0] / 4096.f, trans[1] / 4096.f, trans[2] / 4096.f};
+    refset::note_warp_pose(tm, quat);
   }
   // Ghd-skin-origin-stretch (cycle 4) — BRAS DE L'ABLATION SUR L'APPAREIL. Le filet de finitude
   // du reciblage HD (goal_src/jak1/pc/jak-hd.gc, `*hd-finite-arm*`) se desarme ici, depuis la

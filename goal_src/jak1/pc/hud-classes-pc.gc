@@ -1889,6 +1889,31 @@
   ;; du plan du jeu d'images. Hors de ce mode `pc-refset-repin-parts?` rend 0 a chaque image et
   ;; il ne se passe rien : le joueur ne rencontre jamais ce chemin. Voir `refset-repin-particles`.
   (if (nonzero? (pc-refset-repin-parts?)) (refset-repin-particles))
+  ;; lighting-census — la liste des niveaux qui ONT un ciel, etablie par la DONNEE du jeu.
+  ;; `refset_sky_missing` exige, pour chaque couple (niveau a ciel, heure fixe), que le ciel
+  ;; occupe au moins 15 % de l'image. L'ensemble de depart de cette porte ne doit RIEN devoir
+  ;; aux pixels qu'elle juge, sinon un point de vue qui regarde un mur sort de la liste et la
+  ;; porte reste verte sans rien avoir vu. On recopie donc `info sky` — le meme champ que
+  ;; `sky-draw` teste (sky-tng.gc:901) — pour les niveaux ACTIFS. Hors refset le pont C++ sort
+  ;; a sa premiere ligne.
+  ;; lighting-census — LA CAMERA EPINGLEE DU JEU DE REFERENCES. `cam-string` (l'etat ou
+  ;; `target-continue` laisse la camera, target-death.gc:166) se replace derriere Jak a
+  ;; l'horizontale : mesure du 2026-09-07, le ciel n'occupe alors au mieux que 119 pour mille de
+  ;; l'image et huit vues sur 26 n'en montrent aucun, quand la porte en demande 150. On impose
+  ;; donc la pose. `'locked` coupe la lecture de la manette ET tout le combineur
+  ;; (cam-update.gc:334 -> move-camera-from-pad:169-190), et `*save-camera-inv-rot*` est recopie
+  ;; tel quel dans `(-> *math-camera* inv-camera-rot)`. Hors du mode refset le pont C++ rend 0 a
+  ;; sa premiere ligne et le joueur ne rencontre jamais ce chemin.
+  (when (nonzero? (pc-refset-camera *refset-cam-trans* *refset-cam-fwd*))
+    (set! *external-cam-mode* 'locked)
+    (set! (-> *math-camera* trans quad) (-> *refset-cam-trans* quad))
+    (forward-down->inv-matrix *save-camera-inv-rot* *refset-cam-fwd* *refset-cam-down*))
+  (when (nonzero? (pc-refset-active?))
+    (dotimes (li (-> *level* length))
+      (let ((lv (-> *level* level li)))
+        (when (and (= (-> lv status) 'active) (-> lv info))
+          (pc-refset-note-level (symbol->string (-> lv info name))
+                                (if (-> lv info sky) 1 0))))))
   ;; POLISH#4: while Jak hangs on a ledge, push the ledge grab point so the ledge-top grass parts
   ;; around his hands (else clear it by passing a null vector -> the renderer drops the effect).
   (if (and *target* (= (-> *target* next-state name) 'target-edge-grab))

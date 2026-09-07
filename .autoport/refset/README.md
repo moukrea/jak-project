@@ -10,13 +10,38 @@ chaque item suivant de la refonte.**
 | `origine/` | `recharged_master` **OFF** (`OG_RECHARGED=0`) + `OG_RT_LIGHT=0` | **ne bouge JAMAIS**, `maxdiff == 0` |
 | `recharged/` | master **ON** + lumière temps réel **ON** (le préréglage figé) | ne bouge que si l'item le **déclare**, et seulement pour ce qu'il déclare |
 
-**26 VUES, 21 NIVEAUX, 174 IMAGES PAR COURSE** (owner 2026-09-07 : « Faut quand même mesurer
-aussi les intérieurs, mais faut mesurer aussi les extérieurs […] Tous les niveaux ! »).
+**TROIS JEUX, 26 VUES, 21 NIVEAUX, 552 IMAGES PAR COURSE** (owner 2026-09-07 : « Faut quand même
+mesurer aussi les intérieurs, mais faut mesurer aussi les extérieurs […] Tous les niveaux ! » et
+« Assures toi de bien tester tous les niveaux qui ont un ciel avec ont bien le ciel visible à
+l'écran […] avec des heures fixes pour être sûr de bien calibrer »).
 
 | | |
 |---|---|
 | vue 0 (`<jeu>/hHH.png`) | hutte de Sandover, **huit** créneaux — le vantage historique |
-| vues 1 à 25 (`<jeu>/<continue>-hHH.png`) | un point de reprise nommé par niveau, **9 h et 21 h** |
+| 21 vues (`<jeu>/<continue>-hHH.png`) | une par niveau jouable, **huit** créneaux |
+| `village1-out` | le deuxième point de vue de Sandover — l'extérieur, **huit** créneaux, parce que la hutte ne montre aucun ciel et ne peut donc pas répondre pour `village1` |
+| 4 vues | un second point de vue dans un niveau déjà couvert huit fois — **9 h et 21 h** |
+
+## LA CAMÉRA EST POSÉE, PAS SUIVIE
+
+Jusqu'au 2026-09-07 les vues étaient cadrées par la caméra du jeu, et **aucune ne montrait de
+ciel** : au mieux 119 ‰ (`beach-start`), huit vues sur 26 à zéro, pour une porte à 150 ‰.
+Ce n'était pas un mauvais choix de points de reprise. `target-continue`
+(`target-death.gc:149-167`) recopie bien le `camera-rot` du continue-point dans le combineur,
+puis passe la caméra en `cam-fixed` **puis en `cam-string`** — et `cam-string`
+(`cam-states.gc:1579`) se replace derrière Jak, à hauteur d'épaule, à l'horizontale. Le
+`camera-rot` de la donnée n'est qu'une pose de départ, jetée en quelques images.
+
+Sous `refset`, la caméra est donc **imposée** : `*external-cam-mode*` à `'locked` court-circuite
+le combineur (`cam-update.gc:334` → `move-camera-from-pad:169-190`, où `'locked` coupe aussi la
+lecture de la manette) et `*save-camera-inv-rot*` est recopié tel quel dans
+`(-> *math-camera* inv-camera-rot)`. La pose est **calculée en C++** à partir de la seule donnée
+du point de reprise — sa position et le quaternion de cap de Jak, relevés par `level_warp_run`
+juste avant le `(start 'play ...)`. Aucun état de la caméra du jeu n'entre dans le calcul.
+
+Ce que ça achète en plus n'est pas accessoire : le point de repos de `cam-string` était la
+**première source de non-déterminisme du rejeu** (`refset.h` : 0,02 m d'écart entre deux courses
+identiques, 27 000 px sur 57 600). Une caméra calculée de constantes n'a pas de point de repos.
 
 La table est dans `game/graphics/refset.cpp` (`kVantages`) ; chaque `cont` est un
 `continue-point` vérifié dans `goal_src/jak1/engine/level/level-info.gc`. Les images sont
@@ -27,6 +52,21 @@ n'entre donc pas dans la comparaison.
 `kernel`/`engine`/`game` et `dem`/`int`/`tit`. Les deux candidats restants n'existent pas dans le
 jeu de l'owner : `halfpipe` (`level-info.gc:2359`, `:nickname 'none`) et `test-zone` (`:2476`)
 n'ont **aucun DGO**. Les 21 sont couverts.
+
+## LA PORTE DU CIEL — deux grandeurs qui ne partagent AUCUNE variable
+
+| grandeur | d'où elle vient |
+|---|---|
+| `refset_sky_levels` | de la **donnée du jeu** : `level-load-info.sky` (`level-h.gc:108`), le champ que `sky-draw` teste lui-même (`sky-tng.gc:901`) avant d'émettre le DMA du ciel. Le fil GOAL le recopie pour chaque niveau ACTIF (`pc-refset-note-level`). Ni la table des vues, ni les pixels. |
+| `refset_sky_missing` | des **pixels** : le nombre de couples (niveau à ciel, créneau) dont aucune vue ne montre ≥ 150 ‰ d'arrière-plan. `refset_sky_missing_list` nomme chaque couple manquant **avec sa valeur mesurée**. |
+
+Si l'ensemble de départ se déduisait des pixels qu'il juge, la porte serait un miroir de sa
+propre sortie : une vue qui regarde un mur sortirait de la liste et la porte resterait verte
+sans avoir rien vu. C'est exactement le faux vert que le superviseur a nommé le 2026-09-07.
+`refset_sky_unknown` nomme les niveaux dont le fil GOAL n'a jamais rendu compte — sans lui, un
+niveau jamais visité allégerait la porte en silence.
+`refset_bgh_<vue>` publie la grandeur brute créneau par créneau (`h09:119`) : sans elle, on ne
+saurait pas lequel manque ni de combien.
 
 **LA COUVERTURE EST MESURÉE, PAS DÉCLARÉE.** `refset_levels` compte les niveaux nommés par le
 CHARGEUR au moment d'une photo. `refset_sky_views` et `refset_interior_views` se lisent sur la
