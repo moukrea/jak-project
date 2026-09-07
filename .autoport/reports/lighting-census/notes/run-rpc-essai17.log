@@ -1,0 +1,7 @@
+bootstrap_capture_rc=124
+BOOTREPLAY actors-sweep dispatch=10 target-pid=12
+BOOTREPLAY finish mode=capture tag=finish index=5880 count=5880 fingerprint=79fb964dc17507ec
+proof_run_rc=0
+BOOTREPLAY actors-sweep dispatch=10 target-pid=12
+BOOTREPLAY finish mode=replay tag=finish index=5880 count=5880 fingerprint=79fb964dc17507ec
+REFSET done steps=1 captured=0 compared=1 maxdiff=195 diffpx=57581 missing=0 slip=0..0 rewarps=1 settle=180

@@ -162,6 +162,18 @@ u64 CPadOpen(u64 cpad_info, s32 pad_number) {
 /*!
  * Not checked super carefully for jak 2, but looks the same
  */
+static void boot_replay_pad_input(CPadInfo* cpad) {
+  const char* boundary = std::getenv("OG_BOOT_REPLAY_BOUNDARY");
+  if (!boundary || std::strcmp(boundary, "actors-sweep") || !boot_replay::active()) {
+    return;
+  }
+  boot_replay::checkpoint("cpad-number", &cpad->number, sizeof(cpad->number));
+  // The consumed pad packet only: valid/status/buttons/sticks/pressure bytes.
+  // Never copy file handles, derived GOAL fields, rumble state or padding.
+  boot_replay::input("cpad-packet", &cpad->valid, 20);
+  boot_replay::input("cpad-state", &cpad->state, sizeof(cpad->state));
+}
+
 u64 CPadGetData(u64 cpad_info) {
   using namespace ee;
   auto cpad = Ptr<CPadInfo>(cpad_info).c();
@@ -212,6 +224,7 @@ u64 CPadGetData(u64 cpad_info) {
       if (scePadInfoMode(cpad->number, 0, InfoModeIdTable, -1) == 0) {
         // no controller modes
         cpad->state = 90;
+        boot_replay_pad_input(cpad);
         return cpad_info;
       }
       cpad->state = 41;
@@ -277,6 +290,7 @@ u64 CPadGetData(u64 cpad_info) {
   // captures controller 0's absolute state this logic tick; Replay overwrites it
   // from the recorded demo. goal_src is untouched. No-op unless the harness is
   // armed (--pad-replay-* / OG_PAD_REPLAY_*).
+  boot_replay_pad_input(cpad);
   pad_replay::on_cpad_read(cpad->number, &cpad->button0, &cpad->leftx,
                            &cpad->lefty, &cpad->rightx, &cpad->righty);
   return cpad_info;

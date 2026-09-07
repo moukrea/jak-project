@@ -1,0 +1,8 @@
+source=x86
+binary=build/game/gk
+sha=c456d782bdc4fbb5
+started_at=2026-09-07T14:41:33Z
+duration_s=6
+crash=1
+frames=97
+# FEATURE lighting-census absente de la sortie du moteur : le moteur n'emet pas encore cette ligne.

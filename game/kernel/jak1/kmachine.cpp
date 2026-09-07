@@ -1055,7 +1055,21 @@ void pc_goal_slice_begin(s32 slot) {
 }
 
 s32 pc_goal_slice_expired(s32 slot) {
-  return load_gate::goal_slice_expired(slot);
+  const char* boundary = std::getenv("OG_BOOT_REPLAY_BOUNDARY");
+  if (!boundary || std::strcmp(boundary, "actors-sweep") || !boot_replay::active()) {
+    return load_gate::goal_slice_expired(slot);
+  }
+
+  boot_replay::checkpoint("goal-slice-slot", &slot, sizeof(slot));
+  s32 expired = load_gate::goal_slice_expired(slot);
+  boot_replay::input("goal-slice-expired", &expired, sizeof(expired));
+  if (expired != 0 && expired != 1) {
+    std::fprintf(stderr, "[boot-replay] invalid goal-slice-expired=%d for slot=%d\n", expired,
+                 slot);
+    std::fflush(stderr);
+    std::abort();
+  }
+  return expired;
 }
 
 // Grecharged-grass-poc: push the "recharged grass" on/off toggle from GOAL
@@ -5685,6 +5699,12 @@ static void pad_replay_dump_camera() {
  */
 static bool s_boot_replay_first_dispatch = false;
 static bool s_boot_replay_listener_ran = false;
+static bool s_boot_replay_actors_sweep = false;
+static u32 s_boot_replay_dispatches = 0;
+static u32 s_boot_replay_spawn_dispatch = 0;
+static u32 s_boot_replay_target_pid = 0;
+static bool s_boot_replay_spawn_disabled = false;
+static s64 s_boot_replay_spawn_frame = -1;
 static u64 boot_replay_start_run();
 Ptr<Function> make_function_from_c(void* func, bool arg3_is_pp);
 
@@ -5696,6 +5716,114 @@ static void boot_replay_object_checkpoint(const char* name, u32 offset, size_t s
     std::exit(EXIT_FAILURE);
   }
   boot_replay::checkpoint(name, g_ee_main_mem + object + offset, size);
+}
+
+// These readers only inspect GOAL memory on the host stack after dispatch.
+// No native/GOAL pointers or user-object unions enter the portable checkpoint.
+static void boot_replay_range(u32 address, size_t size) {
+  if (!address || address == s7.offset || address >= EE_MAIN_MEM_SIZE ||
+      size > EE_MAIN_MEM_SIZE - address) {
+    std::fprintf(stderr, "BOOTREPLAY invalid state address=%08x size=%zu\n", address, size);
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+template <typename T>
+static T boot_replay_read(u32 address) {
+  boot_replay_range(address, sizeof(T));
+  T value;
+  std::memcpy(&value, g_ee_main_mem + address, sizeof(T));
+  return value;
+}
+
+static void boot_replay_symbol_checkpoint(const char* tag, u32 symbol) {
+  if (!symbol) {
+    boot_replay::checkpoint(tag, "<null>", 6);
+    return;
+  }
+  if (symbol == s7.offset) {
+    boot_replay::checkpoint(tag, "#f", 2);
+    return;
+  }
+  // Symbol metadata stores a GOAL string pointer, not the string inline.
+  boot_replay_range(symbol, 4);
+  const u32 string = boot_replay_read<u32>(symbol + jak1::SYM_INFO_OFFSET + 4);
+  const u32 length = boot_replay_read<u32>(string);
+  if (length > 255) {
+    std::fprintf(stderr, "BOOTREPLAY overlong symbol tag=%s length=%u\n", tag, length);
+    std::exit(EXIT_FAILURE);
+  }
+  boot_replay_range(string, 4 + length + 1);
+  boot_replay::checkpoint(tag, g_ee_main_mem + string + 4, length);
+}
+
+static void boot_replay_process_checkpoint(u32 process) {
+  const u8 present = process && process != s7.offset;
+  boot_replay::checkpoint("actor-present", &present, sizeof(present));
+  if (!present) {
+    return;
+  }
+  boot_replay_range(process, 76);
+  const u32 type = boot_replay_read<u32>(process - 4);
+  boot_replay_symbol_checkpoint("actor-type", boot_replay_read<u32>(type));
+  boot_replay::checkpoint("actor-pid", g_ee_main_mem + process + 36, 4);
+  boot_replay_symbol_checkpoint("actor-status", boot_replay_read<u32>(process + 32));
+  for (u32 offset : {52u, 72u}) {
+    const u32 state = boot_replay_read<u32>(process + offset);
+    boot_replay_symbol_checkpoint(offset == 52 ? "actor-state" : "actor-next-state",
+                                 !state || state == s7.offset ? state : boot_replay_read<u32>(state));
+  }
+}
+
+static void boot_replay_array_checkpoint(u32 array, bool links) {
+  const s32 length = boot_replay_read<s32>(array);
+  const s32 allocated = boot_replay_read<s32>(array + 4);
+  const u32 stride = links ? 64 : 16;
+  if (length < 0 || allocated < length || u64(allocated) * stride > EE_MAIN_MEM_SIZE) {
+    std::fprintf(stderr, "BOOTREPLAY invalid actor array length=%d allocated=%d\n", length,
+                 allocated);
+    std::exit(EXIT_FAILURE);
+  }
+  boot_replay_range(array, 12 + size_t(allocated) * stride);
+  boot_replay::checkpoint(links ? "entity-count" : "perm-count", &length, sizeof(length));
+  for (s32 i = 0; i < length; ++i) {
+    const u32 entry = array + 12 + i * stride;
+    const u32 perm = entry + (links ? 48 : 0);
+    boot_replay::checkpoint("perm-status", g_ee_main_mem + perm + 8, 2);
+    boot_replay::checkpoint("perm-task", g_ee_main_mem + perm + 11, 1);
+    boot_replay::checkpoint("perm-aid", g_ee_main_mem + perm + 12, 4);
+    if (links) {
+      boot_replay::checkpoint("entity-trans", g_ee_main_mem + entry + 32, 16);
+      boot_replay_process_checkpoint(boot_replay_read<u32>(entry + 12));
+    }
+  }
+}
+
+static void boot_replay_actors_checkpoint() {
+  const u32 gi = intern_from_c("*game-info*")->value;
+  boot_replay_symbol_checkpoint("game-mode", boot_replay_read<u32>(gi));
+  boot_replay_array_checkpoint(boot_replay_read<u32>(gi + 96), false);
+  boot_replay_array_checkpoint(boot_replay_read<u32>(gi + 100), false);
+  const u32 group = intern_from_c("*level*")->value;
+  const s32 count = boot_replay_read<s32>(group);
+  if (count < 1 || count > 3) {
+    std::fprintf(stderr, "BOOTREPLAY invalid level count=%d\n", count);
+    std::exit(EXIT_FAILURE);
+  }
+  boot_replay_range(group, 96 + size_t(count) * 2608);
+  boot_replay::checkpoint("level-count", &count, sizeof(count));
+  for (s32 i = 0; i < count; ++i) {
+    const u32 level = group + 96 + i * 2608;
+    boot_replay_symbol_checkpoint("level-name", boot_replay_read<u32>(level));
+    boot_replay_symbol_checkpoint("level-status", boot_replay_read<u32>(level + 16));
+    const u32 entities = boot_replay_read<u32>(level + 280);
+    const u8 present = entities && entities != s7.offset;
+    boot_replay::checkpoint("level-entities", &present, sizeof(present));
+    if (present) {
+      boot_replay_array_checkpoint(entities, true);
+    }
+  }
+  boot_replay_process_checkpoint(intern_from_c("*target*")->value);
 }
 
 static void boot_replay_state_checkpoint() {
@@ -5727,11 +5855,13 @@ static void boot_replay_pre_play() {
   }
   const char* boundary = std::getenv("OG_BOOT_REPLAY_BOUNDARY");
   if (boundary && std::strcmp(boundary, "before-play") &&
-      std::strcmp(boundary, "first-dispatch")) {
+      std::strcmp(boundary, "first-dispatch") && std::strcmp(boundary, "actors-sweep")) {
     std::fprintf(stderr, "BOOTREPLAY invalid OG_BOOT_REPLAY_BOUNDARY\n");
     std::exit(EXIT_FAILURE);
   }
-  s_boot_replay_first_dispatch = boundary && !std::strcmp(boundary, "first-dispatch");
+  s_boot_replay_actors_sweep = boundary && !std::strcmp(boundary, "actors-sweep");
+  s_boot_replay_first_dispatch = s_boot_replay_actors_sweep ||
+                                 (boundary && !std::strcmp(boundary, "first-dispatch"));
   boot_replay_state_checkpoint();
   if (s_boot_replay_first_dispatch) {
     // The extended stream cannot be confused with a historical pre-play stream.
@@ -5749,6 +5879,50 @@ void boot_replay_after_dispatch() {
   if (!s_boot_replay_listener_ran) {
     std::fprintf(stderr, "BOOTREPLAY first listener was displaced\n");
     std::exit(EXIT_FAILURE);
+  }
+  if (s_boot_replay_actors_sweep) {
+    ++s_boot_replay_dispatches;
+    const u32 target = intern_from_c("*target*")->value;
+    const bool present = target && target != s7.offset;
+    const u32 pid = present ? boot_replay_read<u32>(target + 36) : 0;
+    const bool spawn = intern_from_c("*spawn-actors*")->value == intern_from_c("#t").offset;
+    const bool sweep = intern_from_c("*actors-sweep-complete*")->value == intern_from_c("#t").offset;
+    bool active_level = false;
+    if (present) {
+      const u32 level = boot_replay_read<u32>(target + 472);
+      active_level = level && level != s7.offset &&
+                     boot_replay_read<u32>(level + 16) == intern_from_c("active").offset;
+    }
+    s_boot_replay_spawn_disabled |= !spawn;
+    if (!spawn || !present || pid != s_boot_replay_target_pid) {
+      s_boot_replay_spawn_dispatch = 0;
+    }
+    s_boot_replay_target_pid = pid;
+    if (spawn && present && !s_boot_replay_spawn_dispatch) {
+      s_boot_replay_spawn_dispatch = s_boot_replay_dispatches;
+      s_boot_replay_spawn_frame = pad_replay_logic_frame();
+    }
+    const u32 progress[] = {s_boot_replay_dispatches, pid, u32(spawn), u32(sweep),
+                            u32(active_level)};
+    // Observe readiness; never replay it as an input or wait for a recorded success.
+    boot_replay::checkpoint("actors-progress", progress, sizeof(progress));
+    if (!s_boot_replay_spawn_disabled || !s_boot_replay_spawn_dispatch ||
+        s_boot_replay_dispatches <= s_boot_replay_spawn_dispatch ||
+        pad_replay_logic_frame() <= s_boot_replay_spawn_frame || !sweep || !active_level) {
+      if (s_boot_replay_dispatches >= 600) {
+        std::fprintf(stderr, "BOOTREPLAY actors-sweep not reached after 600 dispatches\n");
+        std::exit(EXIT_FAILURE);
+      }
+      return;
+    }
+    boot_replay_state_checkpoint();
+    boot_replay_object_checkpoint("*kernel-context*", 16 - 4, 4);
+    boot_replay_actors_checkpoint();
+    boot_replay::checkpoint("after-actors-sweep", nullptr, 0);
+    std::fprintf(stderr, "BOOTREPLAY actors-sweep dispatch=%u target-pid=%u\n",
+                 s_boot_replay_dispatches, pid);
+    boot_replay_seal("actors-sweep-identities-compared");
+    return;
   }
   // Host stack, after the first tree traversal. This verifies scalar state but
   // does not restore or certify actors: restart can still be suspended before start.
@@ -5917,6 +6091,20 @@ static u64 boot_replay_start_run() {
   args[1] = intern_from_c("game").offset;
   args[2] = s7.offset;
   args[3] = s7.offset;
+  if (s_boot_replay_actors_sweep) {
+    const char* cont = std::getenv("OG_BOOT_REPLAY_CONTINUE");
+    // Choose the initial continue before restart/start and every actor birth.
+    // A later warp is not a substitute for recording the initial scene's actors.
+    const size_t length = cont ? std::strlen(cont) : 0;
+    if (length > 255) {
+      std::fprintf(stderr, "BOOTREPLAY initial continue name too long\n");
+      std::exit(EXIT_FAILURE);
+    }
+    boot_replay::checkpoint("initial-continue", cont ? cont : "", length);
+    if (length) {
+      args[3] = make_string_from_c(cont);
+    }
+  }
   _call_goal8_asm_systemv(g_ee_main_mem + init, args, 0, lp, s7.offset, g_ee_main_mem);
   boot_replay::checkpoint("initialize-returned", nullptr, 0);
   s_boot_replay_listener_ran = true;

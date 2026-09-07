@@ -1,26 +1,27 @@
-Non validé : le bootstrap passe le premier dispatch, mais l’écart historique reste 202/794 et aucun correctif HDR n’est livré.
+Verdict : non validé ; le bootstrap du village se rejoue, mais la qualification indépendante des références reste à construire.
 DIRECTIVES v6fca51fe40
-Changements : frontière opt-in first-dispatch, play/initialize via listener, RNG/display/next-pid comparés sans restauration d’acteurs.
-Ancien flux pré-play conservé ; temporaires RNG déplacés sur le tas.
-Provenance : priorités overlay ISO et custom FR3 intégrées, enhanced externe conservé ; aucun refus d’adoption retiré.
-Build incrémental final rc0 en22,797s ; garde npc-flicker47 ; tests bootstrap rc0 et provenance18 contrôles rc0.
-Preuve produite exclusivement par lib/proof_run.sh lighting-census x86 --timeout60 :
-```
-sha=2ea43efcd6b1a2cd
+Changé : frontière après reprise/start et balayage, identités/permanences comparées sans reset.
+Le point de reprise initial, les tranches de login, le pad et la disponibilité RPC sont rejoués.
+Un RPC enregistré prêt attend obligatoirement ses données réelles (plafond5s, sinon échec).
+Build incrémental rc0 ; garde PNJ47 ; test autonome bootstrap rc0.
+Preuve officielle finale, huit lignes de proof.txt :
+sha=1e505342c58a9875
 crash=0
-frames=3398
-refset_bootstrap_records=29
-refset_bootstrap_fingerprint=5364e1590a9215b3
-refset_bootstrap_boundary=first-dispatch-actors-not-restored
-refset_replay_maxdiff=202
-refset_replay_diffpx=794
-```
-Capture20s/replay60s :29 records identiques, dont6 lectures EE ; ce succès couvre cette frontière scalaire seulement.
-Origine :1402218 draws stock, classifiés0, résiduel0, rb_mismatch0, GPU8,3035ms ; census_runs0.
-575 SHA historiques intacts avant/après ; registre append-only, aucune candidate capturée/adoptée.
-Owner : les blancs brûlés, la teinte/saturation et les détails après tonemap SDR restent à examiner sur le futur correctif HDR.
-non prouvé : acteurs après restart, permanences, chargements, qualification indépendante avec les données fork livrées.
-non prouvé : trois modes face à leurs références,21 niveaux/8 heures/≥4 intérieurs,ciel≥15%,Sunkenb,cinq rejeux exacts.
-Niveaux non couverts : training,beach,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
-non prouvé : correction HDR/SDR, Android et absence de régression de rendu globale. Aucun owner-ok, aucun appareil touché.
-generic.sh inchangé et non lancé : jugement laissé à l’orchestrateur. Handoff et notes recovery-essai16.md conservés.
+frames=3294
+FEATURE lighting-census armed=1 hits=1690834
+refset_bootstrap_records=5880
+refset_bootstrap_fingerprint=79fb964dc17507ec
+refset_replay_maxdiff=195
+refset_replay_flaky=254
+Capture/rejeu : dispatch10, target-pid12 ;178entités/51processus,294aid comparés.
+Historique :575SHA inchangés ; compared1 diffpx57581, registre append-only, aucun candidat adopté.
+Draws1685650 stock/classifiés0 ; résiduel0 rb_mismatch0 GPU9,3062ms.
+Les essais titre (frontière insuffisante) et village sans RPC (échec2255) restent archivés.
+L'état initial changé explique que l'écart historique ne soit pas un score d'amélioration HDR.
+À regarder par l'owner : aucun nouveau rendu à tester ; les blancs HDR ne sont pas corrigés ici.
+non prouvé : images reproductibles après frontière (beach encore loading), état acteur exhaustif.
+non prouvé : origine contre pristine identifié, provenance des octets ouverts, adoption v2 et cinq rejeux.
+non prouvé : trois modes/21niveaux/8heures/≥4intérieurs ; Sunkenb et couverture ciel manquants.
+non prouvé : correction HDR/tonemap SDR et Android. Aucun appareil ni owner-ok.
+Blocage concret : ABI CGO fork/pristine incompatible ; aucun consommateur qualification indépendante v2.
+Voir notes/recovery-essai17.md ; generic.sh inchangé, lancé par l'orchestrateur uniquement.
