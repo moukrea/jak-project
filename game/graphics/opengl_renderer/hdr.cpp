@@ -408,6 +408,12 @@ bool tonemap_draw(Shader& shader,
     lg::error("[lighting-hdr] programme `tonemap` indisponible : le blit d'origine est repris");
     return false;
   }
+  // L'appelant reprend son programme et ses liaisons ; framebuffer et viewport restent
+  // volontairement sur la destination pour la suite du rendu UI.
+  GLint saved_program = 0, saved_vao = 0, saved_array_buffer = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &saved_program);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &saved_vao);
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &saved_array_buffer);
   glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
   glViewport(0, 0, dst_w, dst_h);
   glDisable(GL_DEPTH_TEST);
@@ -440,8 +446,9 @@ bool tonemap_draw(Shader& shader,
   glUniform1i(glGetUniformLocation(shader.id(), "u_hdr_curve"),
               Gfx::g_global_settings.recharged_hdr_curve);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
+  glUseProgram(saved_program);
+  glBindVertexArray(saved_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, saved_array_buffer);
   glDepthMask(GL_TRUE);
 
   // AU SITE DU GESTE : le quad vient de partir. `hits` = images tone-mappees.
