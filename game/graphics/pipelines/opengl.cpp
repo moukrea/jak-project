@@ -611,15 +611,20 @@ void render_game_frame(int game_width,
                        bool take_screenshot) {
   // wait for a copied chain.
   bool got_chain = false;
+  int64_t chain_logic_frame = -1;
   {
     auto p = scoped_prof("wait-for-dma");
     std::unique_lock<std::mutex> lock(g_gfx_data->dma_mutex);
     // there's a timeout here, so imgui can still be responsive even if we don't render anything
     got_chain = g_gfx_data->dma_cv.wait_for(lock, std::chrono::milliseconds(40),
                                             [=] { return g_gfx_data->has_data_to_render; });
+    if (got_chain) {
+      chain_logic_frame = g_gfx_data->logic_frame_of_input_data;
+    }
   }
   // render that chain.
   if (got_chain) {
+    refset::set_render_logic_frame(chain_logic_frame);
     g_gfx_data->frame_idx_of_input_data = g_gfx_data->frame_idx;
     RenderOptions options;
     options.game_res_w = game_width;
@@ -653,7 +658,7 @@ void render_game_frame(int game_width,
     {
       char refset_name[96] = {0};
       int rw = 0, rh = 0;
-      if (refset::capture_for_chain(g_gfx_data->logic_frame_of_input_data, refset_name,
+      if (refset::capture_for_chain(chain_logic_frame, refset_name,
                                     sizeof(refset_name), &rw, &rh)) {
         options.save_screenshot = true;
         options.internal_res_screenshot = true;
@@ -1057,13 +1062,14 @@ void gl_send_chain(const void* data, u32 offset) {
     std::unique_lock<std::mutex> lock(g_gfx_data->dma_mutex);
     // Appele depuis le fil GOAL, apres que la pad ait ete lue pour cette frame de logique :
     // `pad_replay::current_frame()` est donc l'index de la frame que cette chaine decrit.
-    g_gfx_data->logic_frame_of_input_data = refset::current_logic_frame();
     if (g_gfx_data->has_data_to_render) {
       lg::error(
           "Gfx::send_chain called when the graphics renderer has pending data. Was this called "
           "multiple times per frame?");
       return;
     }
+
+    g_gfx_data->logic_frame_of_input_data = refset::current_logic_frame();
 
     // we copy the dma data and give a copy of it to the render.
     // the copy has a few advantages:

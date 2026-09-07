@@ -1,12 +1,15 @@
 #include "game/graphics/opengl_renderer/lighting_census.h"
 
+#include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <unordered_map>
 #include <vector>
 
 #include "game/graphics/pipelines/opengl.h"
+#include "game/graphics/refset.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/system/autoport_proof.h"
 
@@ -275,6 +278,169 @@ void publish_locked() {
 }
 
 }  // namespace
+
+namespace {
+unsigned s_roi_capture = 0;
+bool s_roi_frame = false;
+
+// Read the current draw target without changing its read-buffer selection or pack state.
+// Renderer color attachments are 2D textures or renderbuffers; reject other targets.
+bool roi_read(RoiSnapshot& out) {
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &out.framebuffer);
+  glGetIntegerv(GL_VIEWPORT, out.viewport);
+  int samples = 0;
+  glGetIntegerv(GL_SAMPLES, &samples);
+  if (!out.framebuffer || samples > 0 || out.viewport[2] <= 0 || out.viewport[3] <= 0 ||
+      glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    return false;
+  }
+  int kind = 0, object = 0;
+  glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &kind);
+  glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &object);
+  if (kind == GL_RENDERBUFFER) {
+    int old = 0;
+    glGetIntegerv(GL_RENDERBUFFER_BINDING, &old);
+    glBindRenderbuffer(GL_RENDERBUFFER, object);
+    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &out.width);
+    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &out.height);
+    glBindRenderbuffer(GL_RENDERBUFFER, old);
+  } else if (kind == GL_TEXTURE && glGetTexLevelParameteriv) {
+    int old = 0, level = 0, face = 0, layer = 0;
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                          GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL, &level);
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                          GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE, &face);
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                          GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LAYER, &layer);
+    if (face || layer)
+      return false;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &old);
+    glBindTexture(GL_TEXTURE_2D, object);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &out.width);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_HEIGHT, &out.height);
+    glBindTexture(GL_TEXTURE_2D, old);
+  } else {
+    return false;
+  }
+  if (out.width <= 0 || out.height <= 0 || out.viewport[0] < 0 || out.viewport[1] < 0 ||
+      out.viewport[0] + out.viewport[2] > out.width ||
+      out.viewport[1] + out.viewport[3] > out.height)
+    return false;
+  // Inclusive capture ROI (285..315,13..72), capture origin at top left.
+  out.x = out.viewport[0] + out.viewport[2] * 285 / 320;
+  out.y = out.viewport[1] + out.viewport[3] * (180 - 73) / 180;
+  out.w = out.viewport[0] + (out.viewport[2] * 316 + 319) / 320 - out.x;
+  out.h = out.viewport[1] + (out.viewport[3] * (180 - 13) + 179) / 180 - out.y;
+  int old_read = 0, old_buffer = 0, pack[4] = {}, pbo = 0;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &old_read);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, out.framebuffer);
+  glGetIntegerv(GL_READ_BUFFER, &old_buffer);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  // Preserve HDR differences rather than clamping them to 8-bit color.
+  int component = 0;
+  glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                        GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE, &component);
+  unsigned pixel_type = GL_UNSIGNED_BYTE;
+#ifndef __ANDROID__
+  if (component == GL_FLOAT) {
+    pixel_type = GL_FLOAT;
+    out.bytes_per_pixel = 4 * sizeof(float);
+  }
+#endif
+  if (component != GL_UNSIGNED_NORMALIZED && pixel_type != GL_FLOAT) {
+    glReadBuffer(old_buffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, old_read);
+    return false;
+  }
+  const unsigned keys[] = {GL_PACK_ALIGNMENT, GL_PACK_ROW_LENGTH, GL_PACK_SKIP_PIXELS,
+                           GL_PACK_SKIP_ROWS};
+  for (int i = 0; i < 4; ++i) {
+    glGetIntegerv(keys[i], &pack[i]);
+    glPixelStorei(keys[i], i == 0 ? 1 : 0);
+  }
+  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &pbo);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+  out.rgba.resize(size_t(out.w) * out.h * out.bytes_per_pixel);
+  glReadPixels(out.x, out.y, out.w, out.h, GL_RGBA, pixel_type, out.rgba.data());
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+  for (int i = 0; i < 4; ++i)
+    glPixelStorei(keys[i], pack[i]);
+  glReadBuffer(old_buffer);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, old_read);
+  return true;
+}
+}  // namespace
+
+void roi_frame_begin() {
+  const char* env = std::getenv("OG_REFSET_TRACE_ROI");
+  s_roi_frame =
+      env && std::strcmp(env, "1") == 0 && refset::wants_scene_probe() && s_roi_capture < 24;
+  if (s_roi_frame)
+    ++s_roi_capture;
+}
+
+bool roi_active() {
+  return s_roi_frame && refset::wants_scene_probe();
+}
+
+void roi_model(uint64_t hash, const char* name) {
+  if (roi_active()) {
+    std::printf("REFSET-ROI type=model capture=%u hash=%016llx name=%s\n", s_roi_capture,
+                (unsigned long long)hash, name);
+  }
+}
+
+RoiSnapshot roi_before() {
+  RoiSnapshot out;
+  if (roi_active())
+    roi_read(out);
+  return out;
+}
+
+void roi_after(const RoiSnapshot& before,
+               const char* type,
+               int id,
+               const char* name,
+               uint64_t hash,
+               uint32_t first_index,
+               int texture) {
+  if (before.rgba.empty())
+    return;
+  RoiSnapshot after;
+  if (!roi_read(after) || before.framebuffer != after.framebuffer || before.width != after.width ||
+      before.height != after.height || before.bytes_per_pixel != after.bytes_per_pixel ||
+      std::memcmp(before.viewport, after.viewport, sizeof(before.viewport)) != 0) {
+    std::printf("REFSET-ROI type=%s capture=%u id=%d name=%s status=target-changed-or-invalid\n",
+                type, s_roi_capture, id, name);
+    return;
+  }
+  unsigned changed = 0;
+  int min_x = 320, min_y = 180, max_x = -1, max_y = -1;
+  for (int y = 0; y < before.h; ++y) {
+    for (int x = 0; x < before.w; ++x) {
+      const size_t offset = (size_t(y) * before.w + x) * before.bytes_per_pixel;
+      if (std::memcmp(before.rgba.data() + offset, after.rgba.data() + offset,
+                      before.bytes_per_pixel) == 0)
+        continue;
+      ++changed;
+      const int cx = (before.x + x - before.viewport[0]) * 320 / before.viewport[2];
+      const int cy = 179 - (before.y + y - before.viewport[1]) * 180 / before.viewport[3];
+      min_x = std::min(min_x, cx);
+      max_x = std::max(max_x, cx);
+      min_y = std::min(min_y, cy);
+      max_y = std::max(max_y, cy);
+    }
+  }
+  std::printf(
+      "REFSET-ROI type=%s capture=%u id=%d name=%s hash=%016llx first_index=%u "
+      "texture=%d fbo=%d dims=%dx%d bpp=%d viewport=%d,%d,%d,%d changed=%u bbox=%d,%d,%d,%d\n",
+      type, s_roi_capture, id, name, (unsigned long long)hash, first_index, texture,
+      before.framebuffer, before.width, before.height, before.bytes_per_pixel, before.viewport[0],
+      before.viewport[1], before.viewport[2], before.viewport[3], changed, changed ? min_x : -1,
+      changed ? min_y : -1, max_x, max_y);
+}
 
 bool active() {
   static int s_cached = -1;

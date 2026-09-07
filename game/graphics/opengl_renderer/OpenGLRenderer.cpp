@@ -1641,6 +1641,8 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
   // opaque buckets, consume + clear at the composite) must run all-or-nothing.
   const bool ao_frame_on = AmbientOcclusionPass::effective_mode() != 0;
 
+  lighting_census::roi_frame_begin();
+
   // loop over the buckets!
   for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
     auto& renderer = m_bucket_renderers[bucket_id];
@@ -1717,7 +1719,9 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     // lighting-census : temps GPU de CE bucket. Une paire de `glQueryCounter`, moissonnee
     // trois images plus tard : aucune synchronisation, aucune image perdue.
     lighting_census::pass_begin(renderer->name_and_id().c_str());
+    const auto roi = lighting_census::roi_before();
     renderer->render(dma, &m_render_state, bucket_prof);
+    lighting_census::roi_after(roi, "bucket", (int)bucket_id, renderer->name_and_id().c_str());
     lighting_census::pass_end();
     if (sync_after_buckets) {
       auto pp = scoped_prof("finish");

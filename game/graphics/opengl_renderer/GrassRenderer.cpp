@@ -595,8 +595,8 @@ void begin_contact_frame() {
       std::chrono::duration<float>(std::chrono::steady_clock::now() - s_pub_t0).count();
   grass_occ::publish(s_pub_prev < 0.f ? 0.f : pub_now - s_pub_prev);
   s_pub_prev = pub_now;
-  const float u_time = refset::enabled() && refset::current_logic_frame() >= 0
-      ? (float)refset::current_logic_frame() / 60.f : pub_now;
+  const float u_time = refset::enabled() && refset::render_logic_frame() >= 0
+      ? (float)refset::render_logic_frame() / 60.f : pub_now;
   const auto& jp = Gfx::g_global_settings.recharged_jak_pos;
   const auto& jl = Gfx::g_global_settings.recharged_jak_ledge;
   for (int i = 0; i < 4; ++i) {
@@ -1620,7 +1620,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // meme plan poussaient deux phases de brise differentes. Sous `refset::enabled()` seulement,
   // l'horloge devient `lf / 60`, pure fonction de la frame de LOGIQUE. Hors refset : inchange.
   if (refset::enabled()) {
-    const int64_t lf = refset::current_logic_frame();
+    const int64_t lf = refset::render_logic_frame();
     if (lf >= 0) {
       u_time = (float)lf / 60.f;
       static int64_t s_pin_last_lf = -1;

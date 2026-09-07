@@ -45,6 +45,7 @@
 // `gpu_timer_supported=0` le dit : une cle sans site d'ecriture est une fausse constante.
 
 #include <cstdint>
+#include <vector>
 
 namespace lighting_census {
 
@@ -86,6 +87,23 @@ void pass_end();
 
 // Fin d'image : moissonne les requetes de temps, publie periodiquement.
 void frame_end();
+
+// Diagnostic only: local snapshots allow a bucket to contain Merc snapshots.
+// Enabled only by OG_REFSET_TRACE_ROI=1 during the first 24 capture frames.
+struct RoiSnapshot {
+  int framebuffer = 0;
+  int width = 0, height = 0;
+  int viewport[4] = {};
+  int x = 0, y = 0, w = 0, h = 0;
+  int bytes_per_pixel = 4;
+  std::vector<uint8_t> rgba;
+};
+void roi_frame_begin();
+bool roi_active();
+RoiSnapshot roi_before();
+void roi_after(const RoiSnapshot& before, const char* type, int id, const char* name,
+               uint64_t hash = 0, uint32_t first_index = 0, int texture = -1);
+void roi_model(uint64_t hash, const char* name);
 
 // Publie tout de suite (fin de course).
 void publish();

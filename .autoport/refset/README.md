@@ -16,8 +16,11 @@ candidat sous `.autoport/refset-candidates/`, sans l’adopter.
 ## Plan et état des références
 
 Le plan est défini par `kVantages` dans `game/graphics/refset.cpp` : 28 vues × huit
-heures fixes (0, 3, 6, 9, 12, 15, 18, 21) × trois jeux = 672 étapes. Les intérieurs
-supplémentaires suivent désormais les huit heures également.
+heures fixes (0, 3, 6, 9, 12, 15, 18, 21) × trois jeux = 672 étapes.
+Le producteur construit deux blocs : les 564 étapes historiques, dans leur ordre
+initial, puis les 108 heures complémentaires des six vues auparavant à h09/h21.
+Chaque ligne `REFSET case` nomme l'index, le bloc et le cas ; `REFSET sample` donne
+la frame de chaîne effectivement capturée et son ancre de téléport.
 
 **Les références présentes ne couvrent pas encore ce plan.** La dernière capture
 complète journalisée contient 564 étapes (`refset-capture.log`, ligne `REFSET done`).
@@ -26,9 +29,17 @@ Les différences de couverture sont listées dans
 `references-hors-derniere-capture-essai7.txt`. Un fichier présent ne suffit pas à
 établir sa provenance dans cette capture.
 
-L’ajout d’étapes intermédiaires décale aussi les instants des vues suivantes.
-Les horloges vent/herbe utilisent la frame logique absolue : conserver le même nom
-de PNG n’établit donc pas la compatibilité entre les deux plans.
+Les compléments se lisent exclusivement sous `supplement-v1/<jeu>/` : les huit
+anciens PNG hors capture complète ne servent pas de repli. Aucune référence
+supplémentaire n'est encore établie. Une future capture neuve réserve aussi ces
+trois répertoires et y écrit leurs propres témoins de binaire ; cela ne constitue
+pas encore un contrôle complet de leur provenance.
+
+Le suffixe évite d'insérer des heures au milieu du parcours historique. Sur x86,
+les horloges utilisées par le renderer lisent désormais l'identité transportée
+avec la chaîne DMA, sous verrou à son acquisition. Ces corrections ne prouvent
+ni la bit-identité avec les origines, ni l'indépendance complète par cas : les
+acteurs, particules et filtres conservent encore des états accumulés.
 
 Le log historique publie 21 niveaux et 13 vues intérieures, avec huit couples
 ciel/heure manquants pour `sunkenb` (`refset-capture.log:1232952`, `:1232954`,
@@ -84,3 +95,17 @@ Les références x86 et Android restent séparées. La sonde de couverture de sc
 est actuellement dans le renderer x86. Le régime de modèles dépend du choix pris
 au chargement : les compteurs `hd_fr3_stock` et `hd_fr3_enhanced` doivent être lus ;
 la bascule du master seule ne prouve pas la substitution des modèles déjà chargés.
+
+## Attribution ciblée des écarts
+
+`OG_REFSET_TRACE_ROI=1` active des lectures avant/après buckets Jak1 et draws Merc2
+sur les 24 premières captures du parcours. La région examinée est x285..315,
+y13..72 en coordonnées 320×180 depuis le haut. Les lignes `REFSET-ROI` rapportent
+les pixels écrits dans cette région et la correspondance modèle/hash ; elles ne
+changent ni les pixels comparés ni les seuils. Un draw qui écrit dans la région
+n'est pas à lui seul la preuve qu'il produit l'écart avec l'origine.
+
+Les cibles multisample, invalides ou le framebuffer par défaut sont ignorés ;
+les changements de cible sont signalés. Le HDR float est lu sur x86. Les temps
+GPU d'une course portant ce diagnostic incluent le coût de ses synchronisations
+ponctuelles : ne pas les présenter comme une mesure de performance normale.

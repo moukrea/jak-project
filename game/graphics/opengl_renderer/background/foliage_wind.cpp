@@ -413,7 +413,7 @@ bool shrub_native_enabled() {
 // a zero, dire « l'horloge est neutralisee » serait une clause vide.
 float clock_seconds(u64 frame_idx, bool paused_now) {
   if (refset::enabled()) {
-    const int64_t lf = refset::current_logic_frame();
+    const int64_t lf = refset::render_logic_frame();
     if (lf >= 0) {
       static int64_t s_pin_last_lf = -1;
       static uint64_t s_pin_count = 0;
@@ -481,7 +481,7 @@ void set_wind_state(float x, float z, bool paused_now) {
     // logique, et ce rapport depend de la charge). On ne fait donc avancer le filtre que sur une
     // frame de logique NEUVE ; les appels suivants de la meme frame rendent le cap deja calcule.
     static int64_t s_lf_last = -1;
-    const int64_t lf = refset::current_logic_frame();
+    const int64_t lf = refset::render_logic_frame();
     if (lf >= 0) {
       if (lf == s_lf_last) {
         return;

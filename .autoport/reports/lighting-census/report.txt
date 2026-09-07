@@ -1,24 +1,27 @@
-NON VALIDÉ : le rejeu reste incomplet et les écarts aux références subsistent.
+Non validé : la zone de la lampe est localisée, mais l'écart historique persiste.
 DIRECTIVES v6fca51fe40
-Changement : l’empreinte de configuration inclut désormais les surcharges de caméra.
-Le README décrit le plan réel et retire les anciennes assurances et consignes de recapture erronées.
-Build x86 incrémental réussi ; une seule preuve de 150 s, durée mesurée 151 s.
-Preuve — huit lignes recopiées du fichier produit par proof_run.sh :
-sha=c5872fcb023087e0
+Le producteur conserve le préfixe564 et sépare les108 compléments sous supplement-v1.
+L'identité DMA est transférée sous verrou aux horloges du renderer x86.
+Diagnostic limité aux24 captures : hutlamp-lod0, hash b872b73f9b7e5d2e,
+indices34395/34488/34583, textures429/430/431, bucket52 (proof-engine.log, capture1).
+Le diagnostic compte RGBA ; attribution RGB stricte à compléter, aucune tolérance ajoutée.
+Build incrémental réussi ; une seule course150s via proof_run.sh, aucun appareil touché.
+Huit lignes du producteur :
+sha=43ce233c4be6e229
 crash=0
-frames=8581
-FEATURE lighting-census armed=1 hits=4175273
-light_census_total=3517130
-light_census_residual=0
-light_census_rb_mismatch=0
+frames=8363
+FEATURE lighting-census armed=1 hits=4035234
+refset_steps=672
+refset_compared=37
 refset_replay_maxdiff=254
-38/672 comparaisons, zéro tour qualifié ; GPU buckets=6.9000 ms, 8457 images mesurées.
-24/24 PNG legacy identiques entre essais 8 et 9 ; les différences aux références sont localisées
-dans x285..315/y13..72. L’objet responsable reste non identifié ; piste horloge hutlamp non prouvée.
-575 SHA de références conservés ; builder repris. Détails : notes/tests-essai9.md.
-7839 GL_INVALID_OPERATION sprite, signature déjà présente à l’essai8 (8784) ; aucun glReadBuffer.
-Owner : aucun nouveau rendu esthétique livré ; restent à examiner les extérieurs et intérieurs
-aux huit heures, notamment les ciels, une fois le jeu de références complet.
-non prouvé : cinq rejeux exacts, bit-identité aux deux origines, couverture de tous les niveaux,
-ciel sunkenb, 22e niveau jouable, non-régression globale et exécution du nouveau fingerprint en fin de tour.
-Le validateur reste à l’orchestrateur ; aucune validation owner fabriquée.
+light_census_rb_mismatch=0
+Le contrôle du log confirme564 cas historiques dans leur ordre, puis108 cas distincts.
+575 SHA de références conservés ;24 PNG legacy identiques essai9 (notes/tests-essai10.md).
+Origine/h00 reste202/794 ; réinitialiser arbitrairement la lampe ne corrigerait pas l'origine.
+Le GPU reste mesuré, mais cette course inclut les lectures diagnostiques ponctuelles.
+À regarder par l'owner lorsque livré : blancs HDR, hutte/extérieurs, ciel aux huit heures.
+non prouvé : correction de phase lampe, état indépendant par cas, bit-identité des origines,
+108 références supplémentaires, cinq rejeux exacts, couverture complète et ciel sunkenb.
+Les8 manques sunkenb restent conservés ; aucun cadrage nouveau ni verdict owner.
+non prouvé : non-régression globale et amélioration qualitative HDR.
+Handoff détaillé conservé ; generic.sh reste à l'orchestrateur, tâche non fermée.

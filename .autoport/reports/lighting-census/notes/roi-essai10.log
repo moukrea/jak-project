@@ -1,0 +1,594 @@
+REFSET-ROI type=bucket capture=1 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=1 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=1 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=1 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=1 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=1 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=1 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=1 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=1 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=1 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=1 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=1 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=1 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=1 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=1 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=1 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=1 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=1 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=1 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=590 bbox=288,43,314,67
+REFSET-ROI type=merc capture=1 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=117 bbox=292,38,310,72
+REFSET-ROI type=merc capture=1 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=1 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=765 bbox=288,13,314,72
+REFSET-ROI type=model capture=1 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=1 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=2 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=2 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=2 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=2 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=2 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=2 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=2 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=2 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=2 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=2 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=2 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=2 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=2 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=2 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=2 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=2 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=2 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=2 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=2 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=596 bbox=288,43,314,67
+REFSET-ROI type=merc capture=2 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=117 bbox=291,38,310,72
+REFSET-ROI type=merc capture=2 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=60 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=2 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=773 bbox=288,13,314,72
+REFSET-ROI type=model capture=2 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=2 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=3 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=3 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=3 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=3 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=3 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=3 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=3 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=3 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=3 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=3 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=3 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=3 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=3 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=3 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=3 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=3 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=3 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=3 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=3 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=587 bbox=288,43,313,67
+REFSET-ROI type=merc capture=3 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=113 bbox=291,38,309,72
+REFSET-ROI type=merc capture=3 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=3 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=758 bbox=288,13,313,72
+REFSET-ROI type=model capture=3 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=3 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=4 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=4 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=4 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=4 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=4 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=4 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=4 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=4 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=4 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=4 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=4 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=4 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=4 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=4 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=4 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=4 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=4 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=4 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=4 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=591 bbox=287,43,313,67
+REFSET-ROI type=merc capture=4 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=117 bbox=290,38,310,72
+REFSET-ROI type=merc capture=4 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=4 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=766 bbox=287,13,313,72
+REFSET-ROI type=model capture=4 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=4 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=5 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=model capture=5 hash=322b562182377d3c name=crate-wood-lod0
+REFSET-ROI type=model capture=5 hash=322b562182377d3c name=crate-wood-lod0
+REFSET-ROI type=bucket capture=5 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=5 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=5 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=5 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=5 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=5 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=5 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=5 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=5 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=5 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=5 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=5 hash=a1438ab0da03d9b2 name=lurkercrab-lod0
+REFSET-ROI type=model capture=5 hash=a1438ab0da03d9b2 name=lurkercrab-lod0
+REFSET-ROI type=model capture=5 hash=a1438ab0da03d9b2 name=lurkercrab-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=fff98face757907a name=seagull-lod0
+REFSET-ROI type=model capture=5 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=5 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=5 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=582 bbox=287,43,312,67
+REFSET-ROI type=merc capture=5 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=116 bbox=290,38,310,72
+REFSET-ROI type=merc capture=5 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=5 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=756 bbox=287,13,312,72
+REFSET-ROI type=model capture=5 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=5 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=6 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=6 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=6 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=6 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=6 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=6 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=6 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=6 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=6 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=6 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=6 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=6 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=6 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=6 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=6 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=6 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=6 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=6 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=6 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=579 bbox=287,43,312,67
+REFSET-ROI type=merc capture=6 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=111 bbox=290,38,309,71
+REFSET-ROI type=merc capture=6 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=6 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=747 bbox=287,13,312,71
+REFSET-ROI type=model capture=6 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=6 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=7 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=7 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=7 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=7 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=7 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=7 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=7 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=7 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=7 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=7 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=7 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=7 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=7 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=7 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=7 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=7 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=7 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=7 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=7 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=583 bbox=286,43,312,67
+REFSET-ROI type=merc capture=7 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=116 bbox=289,38,309,71
+REFSET-ROI type=merc capture=7 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=7 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=757 bbox=286,13,312,71
+REFSET-ROI type=model capture=7 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=7 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=8 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=8 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=8 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=8 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=8 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=8 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=8 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=8 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=8 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=8 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=8 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=8 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=8 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=8 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=8 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=8 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=8 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=8 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=8 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=574 bbox=286,43,311,67
+REFSET-ROI type=merc capture=8 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=117 bbox=288,38,309,71
+REFSET-ROI type=merc capture=8 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=8 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=748 bbox=286,13,311,71
+REFSET-ROI type=model capture=8 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=8 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=9 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=9 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=9 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=9 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=9 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=9 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=9 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=9 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=9 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=9 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=9 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=9 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=9 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=9 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=9 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=9 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=9 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=9 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=9 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=573 bbox=286,43,311,68
+REFSET-ROI type=merc capture=9 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=118 bbox=288,38,309,71
+REFSET-ROI type=merc capture=9 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=9 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=748 bbox=286,13,311,71
+REFSET-ROI type=model capture=9 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=9 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=10 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=10 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=10 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=10 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=10 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=10 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=10 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=10 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=10 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=10 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=10 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=10 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=10 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=10 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=10 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=10 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=10 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=10 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=10 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=572 bbox=286,43,311,68
+REFSET-ROI type=merc capture=10 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=114 bbox=288,38,308,71
+REFSET-ROI type=merc capture=10 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=10 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=742 bbox=286,13,311,71
+REFSET-ROI type=model capture=10 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=10 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=11 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=11 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=11 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=11 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=11 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=11 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=11 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=11 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=11 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=11 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=11 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=11 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=11 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=11 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=11 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=11 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=11 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=11 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=11 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=572 bbox=286,43,311,68
+REFSET-ROI type=merc capture=11 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=116 bbox=288,38,308,71
+REFSET-ROI type=merc capture=11 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=11 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=744 bbox=286,13,311,71
+REFSET-ROI type=model capture=11 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=11 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=12 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=12 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=12 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=12 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=12 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=12 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=12 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=12 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=12 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=12 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=12 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=12 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=12 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=12 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=12 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=12 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=12 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=12 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=12 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=577 bbox=285,43,311,68
+REFSET-ROI type=merc capture=12 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=114 bbox=288,38,308,71
+REFSET-ROI type=merc capture=12 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=12 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=746 bbox=285,13,311,71
+REFSET-ROI type=model capture=12 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=12 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=13 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=13 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=13 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=13 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=13 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=13 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=13 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=13 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=13 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=13 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=13 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=13 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=13 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=13 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=13 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=13 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=13 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=13 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=13 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=578 bbox=285,43,311,68
+REFSET-ROI type=merc capture=13 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=114 bbox=288,38,308,71
+REFSET-ROI type=merc capture=13 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=59 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=13 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=748 bbox=285,13,311,71
+REFSET-ROI type=model capture=13 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=13 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=14 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=14 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=14 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=14 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=14 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=14 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=14 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=14 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=14 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=14 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=14 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=14 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=14 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=14 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=14 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=14 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=14 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=14 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=14 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=578 bbox=285,43,311,68
+REFSET-ROI type=merc capture=14 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=114 bbox=288,38,308,71
+REFSET-ROI type=merc capture=14 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=59 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=14 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=748 bbox=285,13,311,71
+REFSET-ROI type=model capture=14 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=14 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=15 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=15 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=15 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=15 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=15 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=15 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=15 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=15 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=15 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=15 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=15 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=15 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=15 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=15 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=15 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=15 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=15 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=15 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=15 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=574 bbox=285,43,311,68
+REFSET-ROI type=merc capture=15 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=114 bbox=288,38,308,71
+REFSET-ROI type=merc capture=15 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=15 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=744 bbox=285,13,311,71
+REFSET-ROI type=model capture=15 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=15 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=16 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=16 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=16 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=16 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=16 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=16 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=16 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=16 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=16 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=16 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=16 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=16 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=16 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=16 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=16 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=16 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=16 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=16 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=16 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=573 bbox=286,43,311,68
+REFSET-ROI type=merc capture=16 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=115 bbox=288,38,308,71
+REFSET-ROI type=merc capture=16 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=16 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=16 viewport=0,0,320,180 changed=744 bbox=286,13,311,71
+REFSET-ROI type=model capture=16 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=16 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=17 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=17 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=17 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=17 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=17 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=17 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=17 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=17 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=17 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=17 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=17 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=17 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=17 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=17 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=17 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=17 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=17 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=17 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=17 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=573 bbox=286,43,311,68
+REFSET-ROI type=merc capture=17 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=116 bbox=288,38,308,71
+REFSET-ROI type=merc capture=17 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=17 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=745 bbox=286,13,311,71
+REFSET-ROI type=model capture=17 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=17 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=18 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=18 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=18 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=18 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=18 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=18 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=18 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=18 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=18 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=18 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=18 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=18 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=18 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=18 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=18 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=18 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=18 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=18 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=18 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=574 bbox=286,43,311,68
+REFSET-ROI type=merc capture=18 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=118 bbox=288,38,309,71
+REFSET-ROI type=merc capture=18 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=18 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=749 bbox=286,13,311,71
+REFSET-ROI type=model capture=18 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=18 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=19 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=19 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=19 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=19 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=19 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=19 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=19 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=19 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=19 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=19 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=19 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=19 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=19 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=19 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=19 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=19 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=19 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=19 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=19 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=578 bbox=286,43,312,68
+REFSET-ROI type=merc capture=19 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=118 bbox=288,38,309,71
+REFSET-ROI type=merc capture=19 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=59 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=19 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=755 bbox=286,13,312,71
+REFSET-ROI type=model capture=19 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=19 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=20 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=20 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=20 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=20 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=20 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=20 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=20 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=20 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=20 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=20 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=20 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=20 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=20 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=20 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=20 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=20 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=20 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=20 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=20 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=584 bbox=286,43,312,67
+REFSET-ROI type=merc capture=20 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=114 bbox=290,38,309,71
+REFSET-ROI type=merc capture=20 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=20 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=756 bbox=286,13,312,71
+REFSET-ROI type=model capture=20 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=20 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=21 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=21 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=21 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=21 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=21 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=21 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=21 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=21 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=21 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=21 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=21 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=21 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=21 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=21 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=21 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=21 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=21 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=21 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=21 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=581 bbox=287,43,312,67
+REFSET-ROI type=merc capture=21 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=116 bbox=290,38,309,72
+REFSET-ROI type=merc capture=21 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=57 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=21 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=754 bbox=287,13,312,72
+REFSET-ROI type=model capture=21 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=21 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=22 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=22 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=22 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=22 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=22 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=22 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=22 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=22 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=22 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=22 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=22 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=22 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=22 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=22 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=22 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=22 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=22 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=22 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=22 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=588 bbox=287,43,313,67
+REFSET-ROI type=merc capture=22 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=117 bbox=290,38,310,72
+REFSET-ROI type=merc capture=22 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=59 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=22 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=764 bbox=287,13,313,72
+REFSET-ROI type=model capture=22 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=22 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=23 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=23 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=23 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=23 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=23 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=23 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=23 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=23 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=23 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=23 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=23 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=23 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=23 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=23 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=23 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=23 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=23 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=23 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=23 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=590 bbox=287,43,313,67
+REFSET-ROI type=merc capture=23 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=115 bbox=291,38,309,72
+REFSET-ROI type=merc capture=23 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=58 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=23 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=763 bbox=287,13,313,72
+REFSET-ROI type=model capture=23 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=23 hash=4ec5ff1820e02f66 name=sidekick-lod0
+REFSET-ROI type=bucket capture=24 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=24 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1860 bbox=285,13,315,72
+REFSET-ROI type=bucket capture=24 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=168 bbox=285,13,308,28
+REFSET-ROI type=model capture=24 hash=fb55245547fb9393 name=medres-beach-lod0
+REFSET-ROI type=model capture=24 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=24 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=24 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=24 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=24 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=24 hash=4e742372fc11694f name=money-lod0
+REFSET-ROI type=model capture=24 hash=680b753c02d2fa94 name=medres-beach1-lod0
+REFSET-ROI type=model capture=24 hash=d426c8cbcca7a223 name=medres-beach2-lod0
+REFSET-ROI type=model capture=24 hash=9dcb096624adaba6 name=medres-jungle1-lod0
+REFSET-ROI type=model capture=24 hash=280ddf470e348a76 name=medres-beach3-lod0
+REFSET-ROI type=model capture=24 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=24 hash=74c2480326cf53a9 name=crate-iron-lod0
+REFSET-ROI type=model capture=24 hash=b872b73f9b7e5d2e name=hutlamp-lod0
+REFSET-ROI type=model capture=24 hash=ee514f62ea926d60 name=farmer-lod0
+REFSET-ROI type=merc capture=24 id=0 name=base hash=b872b73f9b7e5d2e first_index=34395 texture=429 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=590 bbox=288,43,313,67
+REFSET-ROI type=merc capture=24 id=1 name=base hash=b872b73f9b7e5d2e first_index=34488 texture=430 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=116 bbox=291,38,310,72
+REFSET-ROI type=merc capture=24 id=2 name=base hash=b872b73f9b7e5d2e first_index=34583 texture=431 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=59 bbox=300,13,308,37
+REFSET-ROI type=bucket capture=24 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=765 bbox=288,13,313,72
+REFSET-ROI type=model capture=24 hash=de04343ceef2f80b name=eichar-lod0
+REFSET-ROI type=model capture=24 hash=4ec5ff1820e02f66 name=sidekick-lod0

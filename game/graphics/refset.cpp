@@ -241,7 +241,8 @@ struct Step {
   // 3 = ORIGINE-LUMIERE (master ON, eclairage OFF) — la configuration que le joueur LANCE.
   int phase;
   int hour;
-  int vant;  // index dans kVantages
+  int vant;  // index dans g_vants
+  bool supplemental = false;
 };
 
 // Frames de LOGIQUE. Elles ne dependent pas de la cadence : `pad_replay` force un pas de
@@ -434,6 +435,7 @@ std::string g_capture_name;        // <jeu>/h<hh>
 // Chaque instant du plan est ancre sur un EVENEMENT (un teleport), jamais sur « l'image ou j'ai
 // remarque que... » : une image de logique non rendue ne decale donc rien.
 int64_t (*g_logic_fn)() = nullptr;
+thread_local int64_t g_render_logic_frame = -1;
 // UN TELEPORT PAR ETAPE. Le point de repos de la camera depend du chemin : deux courses
 // identiques le trouvent a ~0,02 m l'une de l'autre, ce qui suffit a rendre la moitie des pixels
 // differents. Un `(start 'play <continue>)` juste avant chaque photo remet la camera a une pose
@@ -1228,8 +1230,11 @@ void publish_state() {
   // references ne doit pas pouvoir la franchir.
 }
 
-std::string image_path(const std::string& name) {
-  return g_dir + "/" + name + ".png";
+std::string image_path(const Step& step) {
+  // The eight old files outside the 564-case capture have no provenance for the extension.
+  // Never fall back to them merely because their names match.
+  return g_dir + (step.supplemental ? "/supplement-v1/" : "/") +
+         step_image_name(step) + ".png";
 }
 
 void apply_step_config(const Step& s) {
@@ -1337,7 +1342,7 @@ uint64_t refs_fingerprint() {
   // autant qu'il a d'etapes, et une vue ajoutee doit perimer le registre comme n'importe quel
   // autre changement de reference.
   for (const Step& s : g_steps) {
-    const uint64_t fh = hash_file(g_dir + "/" + step_image_name(s) + ".png");
+    const uint64_t fh = hash_file(image_path(s));
     if (!fh) {
       return 0;
     }
@@ -1449,8 +1454,9 @@ uint64_t self_fingerprint() {
 // variables », et elle ne doit pas dependre de la discipline de celui qui lance la course.
 // On ecrit donc l'empreinte du binaire qui capture, a cote des images, et le verdict REFUSE de
 // passer au vert quand elle est celle du binaire qui rejoue.
-std::string witness_path(int phase) {
-  return g_dir + "/" + set_name(phase) + "/captured-by.txt";
+std::string witness_path(int phase, bool supplemental = false) {
+  return g_dir + (supplemental ? "/supplement-v1/" : "/") + set_name(phase) +
+         "/captured-by.txt";
 }
 
 [[noreturn]] void capture_directory_error(const char* operation, const std::error_code& ec) {
@@ -1484,12 +1490,20 @@ void reserve_capture_directory() {
       capture_directory_error("create-set", ec);
     }
   }
+  if (!fs::create_directory(root / "supplement-v1", ec)) {
+    capture_directory_error("create-supplement", ec);
+  }
+  for (const char* set : {"origine", "recharged", "origine-lumiere"}) {
+    if (!fs::create_directory(root / "supplement-v1" / set, ec)) {
+      capture_directory_error("create-supplement-set", ec);
+    }
+  }
   std::printf("REFSET capture reserved dir=%s\n", g_dir.c_str());
   std::fflush(stdout);
 }
 
-void write_capture_witness(int phase) {
-  if (FILE* f = std::fopen(witness_path(phase).c_str(), "w")) {
+void write_capture_witness(int phase, bool supplemental) {
+  if (FILE* f = std::fopen(witness_path(phase, supplemental).c_str(), "w")) {
     // Deux lignes, et les deux comptent. L'empreinte dit « pas le meme binaire » ; la saveur
     // dit « et ce n'etait pas un binaire qui contient la couche qu'on juge ». Sans la seconde,
     // n'importe quel binaire legerement different ferait une reference — la porte serait une
@@ -1542,6 +1556,7 @@ uint64_t census_config_fingerprint() {
   };
   for (const Step& step : g_steps) {
     const Vantage& v = vantage_of(step);
+    add(step.supplemental ? "supplement-v1" : "historical");
     add(step_image_name(step));
     add(v.cont);
     add(v.pos);
@@ -1927,33 +1942,45 @@ bool enabled() {
     }
   }
   g_hours_mask = hours_filter;
-  // L'ORDRE EST PAR VANTAGE D'ABORD, ET CE N'EST PAS UN GOUT. Un vantage = un chargement de
-  // niveau ; les grouper met 26 chargements dans la course au lieu de 78, et surtout laisse le
-  // regime de modeles du niveau (choisi UNE fois au chargement, jamais refait — Loader.cpp:546)
-  // decide par la phase 1, la premiere de chaque bloc, exactement comme le lanceur le pose pour
-  // l'etape 0. A l'INTERIEUR d'un vantage l'ordre historique est conserve, si bien qu'un plan
-  // restreint a `legacy` reproduit le plan d'avant, etape pour etape.
-  for (size_t vi = 0; vi < g_vants.size(); vi++) {
-    const Vantage& van = kVantages[g_vants[vi]];
-    if (g_order_by_hour) {
-      for (int hi = 0; hi < 8; hi++) {
-        if (!(van.hours & g_hours_mask & (1u << hi))) {
-          continue;
+  // Preserve the complete historical itinerary before visiting new hours. Inserting
+  // hours inside it changes absolute simulation time and retained actor/effect state.
+  // This preserves the schedule, not a claim of restored per-case state or bit identity.
+  for (bool supplemental : {false, true}) {
+    for (size_t vi = 0; vi < g_vants.size(); vi++) {
+      const Vantage& van = kVantages[g_vants[vi]];
+      const bool expanded = std::strcmp(van.id, "misty-bike") == 0 ||
+                            std::strcmp(van.id, "village2-dock") == 0 ||
+                            std::strcmp(van.id, "sunkenb-helix") == 0 ||
+                            std::strcmp(van.id, "swamp-start") == 0 ||
+                            std::strcmp(van.id, "swamp-cave1") == 0 ||
+                            std::strcmp(van.id, "snow-fort") == 0;
+      const uint8_t historical = expanded ? (1u << 3) | (1u << 7) : kAllHours;
+      const uint8_t mask = van.hours & g_hours_mask &
+                           (supplemental ? uint8_t(~historical) : historical);
+      const auto append = [&](int phase, int hi) {
+        if (mask & (1u << hi)) {
+          g_steps.push_back(Step{phase, kHours[hi], (int)vi, supplemental});
         }
-        for (int phase : g_phases) {
-          g_steps.push_back(Step{phase, kHours[hi], (int)vi});
-        }
-      }
-    } else {
-      for (int phase : g_phases) {
+      };
+      if (g_order_by_hour) {
         for (int hi = 0; hi < 8; hi++) {
-          if (!(van.hours & g_hours_mask & (1u << hi))) {
-            continue;
+          for (int phase : g_phases) {
+            append(phase, hi);
           }
-          g_steps.push_back(Step{phase, kHours[hi], (int)vi});
+        }
+      } else {
+        for (int phase : g_phases) {
+          for (int hi = 0; hi < 8; hi++) {
+            append(phase, hi);
+          }
         }
       }
     }
+  }
+  for (size_t i = 0; i < g_steps.size(); ++i) {
+    std::printf("REFSET case index=%zu layer=%s name=%s\n", i,
+                g_steps[i].supplemental ? "supplement-v1" : "historical",
+                step_image_name(g_steps[i]).c_str());
   }
   // Poser les deux variables a leur longueur definitive AVANT que le fil graphique ne les lise
   // pour la premiere fois : ainsi chaque bascule ulterieure reecrit un unique octet en place.
@@ -1987,6 +2014,19 @@ void set_logic_frame_provider(int64_t (*fn)()) {
 
 int64_t current_logic_frame() {
   return g_logic_fn ? g_logic_fn() : -1;
+}
+
+void set_render_logic_frame(int64_t frame) {
+  g_render_logic_frame = frame;
+}
+
+int64_t render_logic_frame() {
+#if defined(__ANDROID__)
+  // The Android renderer has its own handoff; this correction is scoped to x86 replay.
+  return current_logic_frame();
+#else
+  return g_render_logic_frame;
+#endif
 }
 
 void note_anchor() {
@@ -2493,7 +2533,10 @@ bool consume_capture(int w, int h, const void* rgba) {
   if (g_cap != kCapInFlight) {
     return false;
   }
-  const std::string path = image_path(g_capture_name);
+  const std::string path = image_path(g_steps[g_cur]);
+  std::printf("REFSET sample case=%s layer=%s chain_lf=%lld anchor_lf=%lld\n",
+              g_capture_name.c_str(), g_steps[g_cur].supplemental ? "supplement-v1" : "historical",
+              (long long)g_inflight_lf, (long long)g_step_anchor);
   const int n_px = w * h;
   const uint8_t* cur = (const uint8_t*)rgba;
   // lighting-hdr : on mesure AVANT de comparer ou d'ecrire, dans les deux modes. Les
@@ -2508,7 +2551,7 @@ bool consume_capture(int w, int h, const void* rgba) {
   if (g_mode == 1) {
     file_util::write_rgba_png(path, const_cast<void*>(rgba), w, h);
     g_captured++;
-    write_capture_witness(g_steps[g_cur].phase);
+    write_capture_witness(g_steps[g_cur].phase, g_steps[g_cur].supplemental);
     std::printf("REFSET cap %s step=%d/%d\n", g_capture_name.c_str(), (int)g_cur,
                 (int)g_steps.size());
     std::fflush(stdout);

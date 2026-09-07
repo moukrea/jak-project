@@ -1,5 +1,7 @@
 #include "Merc2.h"
 
+#include "game/graphics/opengl_renderer/lighting_census.h"
+
 #include "game/system/npc_flicker.h"
 
 // cutscene-npc-flicker (essai 11) : defini plus bas, aupres des compteurs de couverture HD qu'il
@@ -3676,6 +3678,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   stats->num_lights++;
 
   u64 hash = fnv64(model->name);
+  lighting_census::roi_model(hash, model->name.c_str());
 
   DrawArgs args;
   args.lev_bucket = lev_bucket;
@@ -5103,8 +5106,11 @@ void Merc2::do_draws(const Draw* draw_array,
       set_uniform(uniforms.light_direction[1], l1_dir_f);
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
       if (!f1a_nodraw) {
+        const auto roi = lighting_census::roi_before();
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
+                                   draw.first_index, draw.texture);
       }
       // draw a
       setup_opengl_from_draw_mode(draw.mode, GL_TEXTURE0, use_mipmaps_for_filtering);
@@ -5112,8 +5118,11 @@ void Merc2::do_draws(const Draw* draw_array,
       set_uniform(uniforms.light_direction[1], l1_dir_f_off);
       glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
       if (!f1a_nodraw) {
+        const auto roi = lighting_census::roi_before();
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
+                                   draw.first_index, draw.texture);
       }
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -5139,8 +5148,11 @@ void Merc2::do_draws(const Draw* draw_array,
         last_first_bone = draw.first_bone;
       }
       if (!f1a_nodraw) {
+        const auto roi = lighting_census::roi_before();
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
+                                   draw.first_index, draw.texture);
       }
     }
   }

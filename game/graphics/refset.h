@@ -105,6 +105,9 @@ bool enabled();
 // depuis le fil GOAL seulement.
 void set_logic_frame_provider(int64_t (*fn)());
 int64_t current_logic_frame();
+// Renderer thread only: identity copied with the accepted DMA chain, never live GOAL memory.
+void set_render_logic_frame(int64_t frame);
+int64_t render_logic_frame();
 
 // L'INSTANT ABSOLU DU PREMIER TELEPORT, en frames de LOGIQUE. Lu par `level_warp_maybe`
 // (kmachine.cpp) A LA PLACE de son delai apres readiness : ce delai depend de la vitesse de

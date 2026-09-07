@@ -1,0 +1,22 @@
+# Vérifications — essai 10
+DIRECTIVES v6fca51fe40
+- Commande build : cmake --build build --target gk -j 6 ; code0, build-essai10.log.
+- Commande unique : OG_REFSET_TRACE_ROI=1 bash .autoport/lib/proof_run.sh lighting-census x86 --timeout 150.
+- Runner code0, durée150s, crash0, frames8363, hits4035234 ; proof-run-essai10.log.
+- SHA256 gk43ce233c4be6e2293a40b5880e342c3fb88e846ec2c761ec58c1e6e7c645351d.
+- Archives proof/log/24 PNG essai9 dans essai9-avant10/ avant course.
+- 575/575 SHA références vérifiés : refs-before-essai10.sha256 et refs-check-essai10.log.
+- Daemon2541075 identité bash auto_build_apk.sh, enfant sleep vérifiés avant STOP.
+- Reprise automatique par trap EXIT ; état final Ss dans session-essai10.log.
+- Assertions Python depuis logs moteur :672 index0..671, historique564, supplément108.
+- Noms/ordre préfixe exactement égaux aux564 REFSET cap historiques ;672 noms uniques.
+- Plan extrait du producteur : plan-essai10.tsv ; aucune phase/heure fabriquée.
+- SHA des24 PNG legacy égaux essai9 ; comparaison RGB aux origines dans ecarts-legacy-essai10.txt.
+- Tous les24 écarts restent dans ROI ; origine/h00=202/794, identique essai9.
+- Sous-ensemble littéral du journal ROI : roi-essai10.log (modèles et changements non nuls).
+- Census total3427130, residual0, rb_mismatch0 ; GPU7.5422ms avec synchronisations diagnostic.
+- 37 comparaisons, missing0, decode_bad0 ; couverture244 manques, gate254, cinq rejeux absents.
+- Diagnostic RGBA inclut alpha ; capture PNG alpha255, attribution RGB stricte non prouvée.
+- Avertissement build -Wreturn-type common/symbols.h:514, déjà extérieur au diff.
+- GL_INVALID_OPERATION7185 occurrences pendant la course ; absence de régression GL non prouvée.
+- Aucun generic.sh, appareil, ablation, capture de références ni deuxième course.
