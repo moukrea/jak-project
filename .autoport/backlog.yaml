@@ -3891,12 +3891,11 @@ items:
   owner_ok: null
   device: false
   where: null
-  known_cause: 'Essai18 : budget6 atteint apres corrections distinctes. Bootstrap17 rejoue (5880records)
-    et manifeste des buffers consommes livres. Blocage : aucune baseline adaptee/construite, etat apres
-    chargement incomplet (beach encore loading). Source pre-refonte a9ea15a69062a57335278db7680cd647df3c1e1d
-    identifiee : FR3v44, dix exports reels manquants, aucun delta goalc/mips2c. Voir handoff18 et reference_recovery.'
+  known_cause: 'Essai33 : delta71/190pixels localise au bucket shrub. Baseline vent NATIF actif, candidat
+    le supprime quand master OFF ; causalite unique encore a prouver. Baseline construite, chargements
+    et etats observes apparies : reutiliser acquis32/33.'
   deliverable: |-
-    Prochain livrable : construire une baseline ISOLEE au commit de reference_recovery, adapter les dix exports reels et reutiliser bootstrap17/manifeste18. Garder renderer ET shaders historiques separes de HEAD ; pas de stubs. Etablir meme etat APRES chargements et memes donnees/config effectives, puis comparer les modes origine baseline/candidat. Ne pas refaire les audits FR3, bootstrap et inventaires acquis ni rejouer l'archive pour retrouver encore maxdiff195.
+    Arbitrage superviseur : autorise dans lighting-census le diagnostic causal cible et la correction minimale du mouvement NATIF historique supprime en mode origine/OFF. C est une regression OFF bloquant la reference HDR, pas la reprise du chantier foliage-wind. Prouver la causalite et retablir le comportement historique dans le candidat ; ne pas figer ni modifier le renderer/shaders de reference pour obtenir egalite. Brise enrichie/interactions/nouveaux effets restent differes. Reutiliser baseline et traces33 ; ne pas refaire bootstrap/FR3/exports/chargements/etats observes.
     References candidates NEUVES, qualification independante avant adoption,575 historiques intacts. ON/OFF peuvent differer ; chaque mode doit se rejouer exactement. Trois modes,tous21niveaux livres (>=20,manquants nommes),8heures fixes0/3/6/9/12/15/18/21,>=4interieurs,ciel>=15% par cas a ciel,sky_missing=0 ; Sunkenb reste manquant sans demonstration. Provenance et etat rejouable, puis cinq rejeux exacts et refset_replay_maxdiff=0 ; draws classes/temps GPU conserves. Aucun seuil assoupli. Suite : correction HDR/tonemap SDR.
   out_of_scope: Aucun masque, tolerance ou gel du rendu livre pour effacer un ecart. Les origines historiques
     restent intactes ; le nouveau jeu a une provenance distincte et doit etre qualifie avant adoption.
@@ -3946,9 +3945,9 @@ items:
     baseline_commit: a9ea15a69062a57335278db7680cd647df3c1e1d
     baseline_scope: Fork avant refonte, pas moteur pristine ; preserve renderer ET shaders historiques
       dans une source et un build isoles. Aucun stub pour les dix exports manquants.
-    next_step: Construire cette baseline avec les dix exports reels et le protocole bootstrap deja implemente.
-      Apparier les donnees effectivement consommees, les configurations et l etat apres chargement avant
-      la qualification des origines.
+    next_step: Lire handoff33 et notes/essai33-roi/shrub-research.md. Diagnostic causal du vent natif
+      OFF puis correction minimale de regression autorisee par superviseur ; baseline historique intacte,
+      aucune adoption sans qualification.
     reuse:
     - reports/lighting-census/notes/essai18-assets/baseline-audit.txt
     - reports/lighting-census/notes/essai18-assets/consumed.tsv

@@ -1,14 +1,15 @@
 # Fiabiliser les comparaisons ON/OFF pour corriger les blancs HDR
 
 ## Defaut cite
-- 2026-09-07 : « Enfin j'y entend pas grand chose mais j'espère m'être fait comprendre »
-- 2026-09-07 : « Mais putain mais c'est pas possible t'es con ou quoi ? S'il s'est arrêté faut comprendre pourquoi et corriger, ça sert a rien si le harnais s'arrête tout seul pour un rien, soit pas débile ! »
+- 2026-09-07 : « Tu devrais pouvoir continuer »
+- 2026-09-07 : « Heuuu le framework devrait utiliser astra pas spark, spark est bête ! »
+- 2026-09-07 : « avec une distribution intelligente du niveau d'effort comme on fait pour Claude code avec Fable 5.1 et Opus 5 par example »
 
 ## Cause connue
-Essai18 : budget6 atteint apres corrections distinctes. Bootstrap17 rejoue (5880records) et manifeste des buffers consommes livres. Blocage : aucune baseline adaptee/construite, etat apres chargement incomplet (beach encore loading). Source pre-refonte a9ea15a69062a57335278db7680cd647df3c1e1d identifiee : FR3v44, dix exports reels manquants, aucun delta goalc/mips2c. Voir handoff18 et reference_recovery.
+Essai33 : delta71/190pixels localise au bucket shrub. Baseline vent NATIF actif, candidat le supprime quand master OFF ; causalite unique encore a prouver. Baseline construite, chargements et etats observes apparies : reutiliser acquis32/33.
 
 ## Livrable
-Prochain livrable : construire une baseline ISOLEE au commit de reference_recovery, adapter les dix exports reels et reutiliser bootstrap17/manifeste18. Garder renderer ET shaders historiques separes de HEAD ; pas de stubs. Etablir meme etat APRES chargements et memes donnees/config effectives, puis comparer les modes origine baseline/candidat. Ne pas refaire les audits FR3, bootstrap et inventaires acquis ni rejouer l'archive pour retrouver encore maxdiff195.
+Arbitrage superviseur : autorise dans lighting-census le diagnostic causal cible et la correction minimale du mouvement NATIF historique supprime en mode origine/OFF. C est une regression OFF bloquant la reference HDR, pas la reprise du chantier foliage-wind. Prouver la causalite et retablir le comportement historique dans le candidat ; ne pas figer ni modifier le renderer/shaders de reference pour obtenir egalite. Brise enrichie/interactions/nouveaux effets restent differes. Reutiliser baseline et traces33 ; ne pas refaire bootstrap/FR3/exports/chargements/etats observes.
 References candidates NEUVES, qualification independante avant adoption,575 historiques intacts. ON/OFF peuvent differer ; chaque mode doit se rejouer exactement. Trois modes,tous21niveaux livres (>=20,manquants nommes),8heures fixes0/3/6/9/12/15/18/21,>=4interieurs,ciel>=15% par cas a ciel,sky_missing=0 ; Sunkenb reste manquant sans demonstration. Provenance et etat rejouable, puis cinq rejeux exacts et refset_replay_maxdiff=0 ; draws classes/temps GPU conserves. Aucun seuil assoupli. Suite : correction HDR/tonemap SDR.
 
 ## Preuve exigee
