@@ -3855,6 +3855,17 @@ items:
     text: demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé
       être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte
       du lighting, commençant par reprendre le HDR/blancs brûlés !
+  - date: '2026-09-07'
+    text: Attention, on s'attend bien sûr a des différences entre on et off quand même hein ! C'est sensé
+      être techniquement plus riche le rendu de base étant plus Riche (HDR) mais faut que le rendu final
+      reste cohérent avec l'original, pas de blancs brûlés, une teinte/saturation similaire, le contraste
+      est sensé être plus riche vu qu'on part du HDR mais voilà, faut éviter le brûlé, et avoir plus de
+      richesse de détail vu qu'on rend en HDR des le début, par contre tant qu'on tourne pas dur un écran
+      qui supporte le HDR (truc qu'on ça gérer après, activable/désactivable et détecté) faut tonemap
+      et éviter les brûlures du coup, après on pourra sortir du HDR et ça sera encore mieux, mais pour
+      l'instant tonemap
+  - date: '2026-09-07'
+    text: Enfin j'y entend pas grand chose mais j'espère m'être fait comprendre
   gate:
     key: refset_replay_maxdiff
     op: ==
@@ -3868,17 +3879,16 @@ items:
   owner_ok: null
   device: false
   where: null
-  known_cause: 'Essais 7-9 : refset_replay_maxdiff=254 est une sentinelle de couverture/rejeux incomplets,
-    pas la cause. 24 PNG identiques entre essais 8/9 different des origines seulement en x285..315/y13..72.
-    Objet non attribue ; hutlamp reste une hypothese. Le passage 564->672 etapes decale le temps absolu
-    vent/herbe ; 108 references nouvelles restent a etablir. Voir handoff essai9 et notes/journal-essai7.md.'
+  known_cause: 'Essais 10-11 : memes 24 images entre essais, differentes des references dans x285..315/y13..72
+    ; hutlamp ecrit du RGB dans cette zone, cause historique inconnue. 564 cas preserves, 108 complements
+    separes. maxdiff=254 signale aussi couverture/rejeux incomplets. Voir handoff et notes/summary-essai11.json.'
   deliverable: |-
     Corriger le producteur avant de refaire une preuve identique : attribuer programmatiquement la region divergente aux draws/objets, puis corriger sa cause. Stabiliser le temps et l'etat de chaque cas pour que l'ajout d'heures ne decale pas les cas existants. Conserver les origines historiques ; etablir les 108 cas supplementaires separement avec provenance.
     Livrer les trois jeux ORIGINE-TOTAL, ORIGINE-LUMIERE et RECHARGED, tous les niveaux livres, interieurs/exterieurs, heures 0/3/6/9/12/15/18/21. Garder draws classes et temps GPU. refset_levels>=20 (21 jouables identifies, manquants nommes), refset_interior_views>=4, cinq rejeux exacts, refset_replay_maxdiff=0. refset_sky_levels issu du moteur ; refset_sky_missing=0 avec ciel>=15% par couple niveau/heure. Sunkenb reste manquant tant que sa visibilite n'est pas tranchee par le chemin de rendu : ne pas le retirer sur ses seuls cadrages a zero.
-  out_of_scope: 'SPEC-refonte-lumiere.md §7.3 : deux origines bit-identiques, aucune tolerance ni masque
-    ni recapture pour effacer les ecarts. Preuve via lib/proof_run.sh, jugement generic.sh inchange. Pas
-    de brise, cadence ou nouvelle feature : seuls les correctifs necessaires aux comparaisons HDR. Aucun
-    verdict visuel.'
+  out_of_scope: 'L''egalite exacte compare des rejeux d''un MEME mode a sa propre reference ; JAMAIS ON
+    a OFF. Le rendu ON doit pouvoir enrichir contraste et details. SPEC §7.3 : deux origines conservees
+    bit-identiques, aucun masque/tolerance ni recapture pour effacer un ecart. Preuve par proof_run.sh,
+    generic.sh inchange. Brise/cadence hors perimetre.'
   notes: 'SPEC prompts/SPEC-refonte-lumiere.md sections 2 et 7.1. Point de vue : village1-hut. | owner
     2026-09-04 : « s''il n''y a rien a tester ne le met pas a tester ». Cet item ne change aucun pixel,
     il pose l''instrument et fige les references : owner_test=false. | promu ''validated'' le 2026-09-06
@@ -4027,6 +4037,17 @@ items:
     text: demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé
       être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte
       du lighting, commençant par reprendre le HDR/blancs brûlés !
+  - date: '2026-09-07'
+    text: Attention, on s'attend bien sûr a des différences entre on et off quand même hein ! C'est sensé
+      être techniquement plus riche le rendu de base étant plus Riche (HDR) mais faut que le rendu final
+      reste cohérent avec l'original, pas de blancs brûlés, une teinte/saturation similaire, le contraste
+      est sensé être plus riche vu qu'on part du HDR mais voilà, faut éviter le brûlé, et avoir plus de
+      richesse de détail vu qu'on rend en HDR des le début, par contre tant qu'on tourne pas dur un écran
+      qui supporte le HDR (truc qu'on ça gérer après, activable/désactivable et détecté) faut tonemap
+      et éviter les brûlures du coup, après on pourra sortir du HDR et ça sera encore mieux, mais pour
+      l'instant tonemap
+  - date: '2026-09-07'
+    text: Enfin j'y entend pas grand chose mais j'espère m'être fait comprendre
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4047,7 +4068,7 @@ items:
   known_cause: 'Les anciennes references ne montraient presque aucun ciel (village1-hut) : elles ont donne
     un faux vert malgre les blancs brules. Detail conserve dans notes et SPEC §8 item 2.'
   deliverable: |-
-    Comparer refonte ON/OFF sur tous les niveaux et vues interieures/exterieures de lighting-census, aux huit heures fixes appariees. Corriger les blancs brules en preservant couleurs et intention artistique du rendu OFF. Rendu interne HDR, un seul tone map vers SDR ; sortie ecran HDR ensuite.
+    ON et OFF doivent differer : ne pas chercher une identite pixel a pixel entre eux. Preserver teinte, saturation et intention artistique de l'original, avec contraste plus riche et details des hautes lumieres conserves, sans blancs brules. Rendu interne HDR puis un seul tone map vers SDR pour cette etape. La sortie native HDR, detectee et activable/desactivable, vient apres. Comparer tous les niveaux interieurs/exterieurs aux huit heures fixes appariees.
     Le moteur publie hdr_sky_defects=0 avec chaque verdict : au moins trois vues de ciel dans trois niveaux (minimum, pas couverture finale), hdr_sky_pixels_pct >= 15 %, hdr_sky_clip_pct_x1000 <= reference ORIGINE-LUMIERE, hdr_sky_chroma_ratio_x1000 >= 900. Conserver les cinq verdicts existants : saturation, contraste, courbe, ORIGINE-LUMIERE, compression unique dans les trois configurations. References recapturees avec ciel avant toute conclusion.
   out_of_scope: 'La sortie HDR vers un ecran compatible appartient a hdr-display-output. La regle des
     deux origines et la hierarchie des interrupteurs : SPEC §0.2, §1.1, §6.2.'
