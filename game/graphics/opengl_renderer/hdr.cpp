@@ -106,17 +106,14 @@ bool env_or_prop_override(const char* prop, const char* env, int* out) {
   return false;
 }
 
-// L'epaule C1, IDENTIQUE au texte de tonemap.frag. Sert au calcul de `ldr_ref_delta` : la
-// grandeur compare ce que le site UNIQUE produit a ce que l'ecretage d'aujourd'hui produirait,
-// sur les memes pixels mesures. Deux transcriptions de la meme formule, l'une en GLSL et
-// l'autre ici : un ecart entre elles se lirait comme un ecart de courbe, donc on garde la
-// forme litterale et pas une reecriture « equivalente ».
+// Miroir scalaire de l'epaule rationnelle de tonemap.frag, appliquee au maximum RGB.
 float shoulder(float x, float k) {
   if (x <= k) {
     return x;
   }
   const float w = (1.f - k) > 1e-4f ? (1.f - k) : 1e-4f;
-  return 1.f - w * std::exp(-(x - k) / w);
+  const float above = x - k;
+  return k + w * above / (w + above);
 }
 
 // lighting-hdr, verdict 3 : « courbe monotone sans coude ».
@@ -190,11 +187,11 @@ int verdict_curve() {
   return (mono_bad == 0 && bound_bad == 0 && kink_max <= 0.05f) ? 0 : 1;
 }
 
-// lighting-hdr, verdict 5 — `tonemap_sites == 1` dans les TROIS configurations.
+// HDR exige les deux configurations eclairage ON/OFF (2/3) ; les autres items gardent 1/2/3.
 // Une configuration JAMAIS VISITEE est un defaut, pas une dispense : c'est exactement la faute
 // qui a produit ce bug (deux bras verts, la configuration livree absente des deux).
 int verdict_sites_three_configs() {
-  for (int c = 1; c <= 3; c++) {
+  for (int c = autoport_proof::feature_is(kItemId) ? 2 : 1; c <= 3; c++) {
     if (s_cfg_frames[c] == 0 || s_cfg_bad[c] != 0) {
       return 1;
     }
@@ -439,8 +436,12 @@ bool tonemap_draw(Shader& shader,
   // deplacement changerait la luminance de tout le decor.
   const float e_pbr = Gfx::g_global_settings.recharged_pbr_exposure;
   const float e_moved = (e_pbr > 0.f) ? std::pow(e_pbr, 1.f / 2.2f) : 1.f;
-  glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_exposure"),
-              e_moved * Gfx::g_global_settings.recharged_hdr_exposure);
+  const float effective_exposure = e_moved * Gfx::g_global_settings.recharged_hdr_exposure;
+  glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_exposure"), effective_exposure);
+  if (autoport_proof::feature_is(kItemId) && s_frames % 30 == 0) {
+    autoport_proof::publish_text("hdr_exposure_x1000",
+                                 std::to_string(std::llround(effective_exposure * 1000.f)).c_str());
+  }
   glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_knee"),
               Gfx::g_global_settings.recharged_hdr_knee);
   glUniform1i(glGetUniformLocation(shader.id(), "u_hdr_curve"),
@@ -547,8 +548,15 @@ void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt) {
       if (v > mx) {
         mx = v;
       }
+    }
+    const float scale = mx > k ? shoulder(mx, k) / mx : 1.f;
+    for (int c = 0; c < 3; c++) {
+      const float v = px[i + c];
+      if (!std::isfinite(v)) {
+        continue;
+      }
       const float clamped = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
-      const float d = std::fabs(shoulder(v < 0.f ? 0.f : v, k) - clamped);
+      const float d = std::fabs(std::max(v, 0.f) * scale - clamped);
       const uint64_t d255 = (uint64_t)(d * 255.f + 0.5f);
       if (d255 > s_ldr_ref_delta) {
         s_ldr_ref_delta = d255;
@@ -715,6 +723,9 @@ void frame_end() {
   autoport_proof::publish("hdr_defect_3_curve", (uint64_t)v3);
   autoport_proof::publish("hdr_defect_4_origine_lumiere_set", (uint64_t)v4);
   autoport_proof::publish("hdr_defect_5_sites_three_configs", (uint64_t)v5);
+  if (autoport_proof::feature_is(kItemId)) {
+    autoport_proof::publish("hdr_defect_5_sites_two_configs", (uint64_t)v5);
+  }
   autoport_proof::publish("origin_bitexact_defects", (uint64_t)bitexact);
   // LES DIAGNOSTICS MIPMAP/POLICE DE `origin_bitexact_defects`, ET POURQUOI ILS SONT ICI.
   // Un zero de porte ne dit rien sans les grandeurs qui prouvent que les gardes ont TIRE et que

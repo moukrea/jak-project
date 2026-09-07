@@ -1723,7 +1723,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak2(DmaFollower dma, ScopedProfile
 // `android_gfx::logic_frame_of_input_data()` rend la frame que la chaine EN COURS DE RENDU
 // decrit, figee au ramassage de la chaine (android_gfx.cpp), pas l'horloge courante du fil
 // GOAL — celui-ci simule deja l'image suivante (overlap ON par defaut).
-static void refset_capture_if_step(const Fbo& src) {
+static void refset_capture_if_step(const Fbo& src, SharedRenderState* render_state) {
   char name[96] = {0};
   int rw = 0, rh = 0;
   if (!refset::capture_for_chain(android_gfx::logic_frame_of_input_data(), name, sizeof(name),
@@ -1815,6 +1815,14 @@ static void refset_capture_if_step(const Fbo& src) {
     }
   }
 
+  // Same loaded-level witness as the desktop renderer, for this captured frame.
+  if (render_state->loader) {
+    for (auto* ld : render_state->loader->get_in_use_levels()) {
+      if (ld && ld->level) {
+        refset::note_level_in_use(ld->level->level_name.c_str());
+      }
+    }
+  }
   refset::consume_capture(rw, rh, small.data());
 }
 
@@ -1865,7 +1873,7 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
   // lighting-hdr / refset : la photo se prend ICI, sur l'image composite FINALE et AVANT le
   // quad de fenetre — le quad ne fait que la recopier (et l'etire vers la draw-region). L'etat
   // GL touche (binding de lecture, read-buffer, pack-alignment) est restaure par l'appel.
-  refset_capture_if_step(*window_blit_src);
+  refset_capture_if_step(*window_blit_src, render_state);
 
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);

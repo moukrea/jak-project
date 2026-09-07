@@ -13,6 +13,7 @@
 #include <set>
 #include <string>
 #include <system_error>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -21,15 +22,15 @@
 
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
-#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
-#include "game/graphics/refset_state.h"
-#include "game/graphics/refset_qualification.h"
-#include "game/graphics/origin_ablate.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
+#include "game/graphics/origin_ablate.h"
+#include "game/graphics/refset_qualification.h"
+#include "game/graphics/refset_state.h"
 #include "game/graphics/render_pace.h"
-#include "game/system/autoport_proof.h"
 #include "game/system/asset_manifest.h"
+#include "game/system/autoport_proof.h"
 #include "game/system/pad_replay.h"
 
 #include "third-party/fpng/fpng.h"
@@ -739,6 +740,13 @@ struct StepStats {
   uint64_t px = 0;           // pixels examines
   uint64_t sat_px = 0;       // au moins un canal a 255 — la part qui a perdu toute gradation
   uint64_t sat_white_px = 0; // les TROIS canaux a 255 — le « blanc brule » que l'owner decrit
+  uint64_t near_white_px = 0;  // RGB >= 245
+  uint64_t luma_mean_x1000 = 0;
+  uint64_t luma_quantiles[4] = {};     // p10, p50, p90, p99, 0..255
+  uint64_t saturation_mean_x1000 = 0;  // HSV S, 0..1000
+  uint64_t hue_bins[12] = {};          // seuls les pixels de chroma > 0
+  uint64_t saturation_bins[8] = {};    // HSV S, tous les pixels
+  std::set<std::string> levels;        // niveaux effectivement dessines lors de la prise
   uint64_t contrast_x1000 = 0;  // contraste local moyen du decile le plus lumineux
   uint64_t decile_px = 0;    // combien de pixels ce decile contenait
   // LE DENOMINATEUR DES VERDICTS 1 ET 2 : la frame de LOGIQUE de la photo. Les deux verdicts
@@ -748,7 +756,141 @@ struct StepStats {
   // ont deplace ce qui bouge dans le decor.
   int64_t cap_lf = -1;
 };
+// Step.vant est local au plan ; aucune autre vue ne peut ecraser cette clef.
+std::map<std::tuple<int, int, int>, StepStats> g_hdr_stats;
 StepStats g_stats[4][8];  // [phase 1..3][index de creneau 0..7]
+
+// Les petits ecarts de mouvement sont toleres jusqu'a 0,1 % des pixels OU 5 % du
+// compte OFF (le plus grand des deux). Cette marge ne depend jamais du compte ON.
+uint64_t hdr_motion_tolerance(const StepStats& off, uint64_t count) {
+  return std::max(off.px / 1000, count / 20);
+}
+
+const StepStats* hdr_stats(int vant, int phase, int hour) {
+  auto it = g_hdr_stats.find({vant, phase, hour});
+  return it == g_hdr_stats.end() ? nullptr : &it->second;
+}
+
+bool hdr_pair(int vant, int hour, const StepStats*& on, const StepStats*& off) {
+  on = hdr_stats(vant, 2, hour);
+  off = hdr_stats(vant, 3, hour);
+  if (vant < 0 || vant >= int(g_vants.size()))
+    return false;
+  const char* expected_level = kVantages[g_vants[vant]].level;
+  return on && off && on->measured && off->measured && on->px == off->px &&
+         on->levels.count(expected_level) && off->levels.count(expected_level);
+}
+
+uint64_t hdr_paired_count() {
+  uint64_t paired = 0;
+  for (int global = 0; global < kNumVantages; ++global) {
+    auto it = std::find(g_vants.begin(), g_vants.end(), global);
+    if (it == g_vants.end())
+      continue;
+    for (int hour : kHours) {
+      const StepStats *on, *off;
+      if (hdr_pair(int(it - g_vants.begin()), hour, on, off))
+        ++paired;
+    }
+  }
+  return paired;
+}
+
+void publish_hdr_coverage() {
+  const uint64_t paired = hdr_paired_count();
+  const uint64_t expected = kNumVantages * 8ull;
+  autoport_proof::publish("hdr_paired", paired);
+  autoport_proof::publish("hdr_expected", expected);
+  autoport_proof::publish("hdr_missing", expected - paired);
+  std::set<std::string> levels;
+  for (int vi = 0; vi < int(g_vants.size()); ++vi) {
+    for (int hour : kHours) {
+      const StepStats *on, *off;
+      if (!hdr_pair(vi, hour, on, off))
+        continue;
+      levels.insert(kVantages[g_vants[vi]].level);
+    }
+  }
+  std::string names;
+  for (const auto& level : levels) {
+    if (!names.empty())
+      names += ",";
+    names += level;
+  }
+  autoport_proof::publish("hdr_paired_levels", levels.size());
+  autoport_proof::publish_text("hdr_paired_levels_list", names.empty() ? "aucun" : names.c_str());
+}
+
+void publish_hdr_step(const Step& step, const StepStats& st) {
+  std::string view = vantage_of(step).id;
+  if (view.empty())
+    view = "legacy";
+  for (char& c : view) {
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+      c = '_';
+  }
+  const std::string base = "hdr_" + view + "_h" + std::to_string(step.hour);
+  const std::string phase = base + "_p" + std::to_string(step.phase) + "_";
+  auto number = [&](const std::string& key, uint64_t value) {
+    autoport_proof::publish((phase + key).c_str(), value);
+  };
+  std::string level_names;
+  for (const auto& level : st.levels) {
+    if (!level_names.empty())
+      level_names += ",";
+    level_names += level;
+  }
+  autoport_proof::publish_text((phase + "levels").c_str(),
+                               level_names.empty() ? "aucun" : level_names.c_str());
+  number("pixels", st.px);
+  number("sat", st.sat_px);
+  number("white", st.sat_white_px);
+  number("nearwhite", st.near_white_px);
+  number("luma_mean_x1000", st.luma_mean_x1000);
+  number("saturation_mean_x1000", st.saturation_mean_x1000);
+  number("hl_contrast_x1000", st.contrast_x1000);
+  number("decile_pixels", st.decile_px);
+  autoport_proof::publish_text((phase + "cap_lf").c_str(), std::to_string(st.cap_lf).c_str());
+  const int quantiles[] = {10, 50, 90, 99};
+  for (int q = 0; q < 4; ++q)
+    number("luma_p" + std::to_string(quantiles[q]), st.luma_quantiles[q]);
+  for (int i = 0; i < 12; ++i)
+    number("hue_bin" + std::to_string(i), st.hue_bins[i]);
+  for (int i = 0; i < 8; ++i)
+    number("saturation_bin" + std::to_string(i), st.saturation_bins[i]);
+  const StepStats *on, *off;
+  if (!hdr_pair(step.vant, step.hour, on, off))
+    return;
+  auto delta = [&](const std::string& key, uint64_t a, uint64_t b) {
+    autoport_proof::publish_text((base + "_delta_" + key).c_str(),
+                                 std::to_string(int64_t(a) - int64_t(b)).c_str());
+  };
+  delta("sat", on->sat_px, off->sat_px);
+  delta("white", on->sat_white_px, off->sat_white_px);
+  delta("nearwhite", on->near_white_px, off->near_white_px);
+  delta("luma_mean_x1000", on->luma_mean_x1000, off->luma_mean_x1000);
+  delta("saturation_mean_x1000", on->saturation_mean_x1000, off->saturation_mean_x1000);
+  delta("hl_contrast_x1000", on->contrast_x1000, off->contrast_x1000);
+  for (int q = 0; q < 4; ++q)
+    delta("luma_p" + std::to_string(quantiles[q]), on->luma_quantiles[q], off->luma_quantiles[q]);
+  for (int i = 0; i < 12; ++i)
+    delta("hue_bin" + std::to_string(i), on->hue_bins[i], off->hue_bins[i]);
+  for (int i = 0; i < 8; ++i)
+    delta("saturation_bin" + std::to_string(i), on->saturation_bins[i], off->saturation_bins[i]);
+  autoport_proof::publish((base + "_hl_contrast_ratio_defined").c_str(), off->contrast_x1000 != 0);
+  autoport_proof::publish(
+      (base + "_hl_contrast_ratio_x1000").c_str(),
+      off->contrast_x1000 ? on->contrast_x1000 * 1000 / off->contrast_x1000 : 0);
+  auto excess = [&](const char* key, uint64_t a, uint64_t b) {
+    const uint64_t tolerance = hdr_motion_tolerance(*off, b);
+    autoport_proof::publish((base + "_" + key + "_tolerance").c_str(), tolerance);
+    autoport_proof::publish((base + "_" + key + "_excess").c_str(),
+                            a > b + tolerance ? a - b - tolerance : 0);
+  };
+  excess("sat", on->sat_px, off->sat_px);
+  excess("white", on->sat_white_px, off->sat_white_px);
+  excess("nearwhite", on->near_white_px, off->near_white_px);
+}
 
 int hour_index(int hour) {
   for (int i = 0; i < 8; i++) {
@@ -764,7 +906,8 @@ inline uint32_t luma(const uint8_t* p) {
   return (uint32_t)((77u * p[0] + 150u * p[1] + 29u * p[2]) >> 8);
 }
 
-void measure_step(int phase, int hour, int64_t cap_lf, const uint8_t* px, int w, int h) {
+void measure_step(const Step& step, int64_t cap_lf, const uint8_t* px, int w, int h) {
+  const int phase = step.phase, hour = step.hour;
   const int hi = hour_index(hour);
   if (phase < 1 || phase > 3 || hi < 0 || w < 3 || h < 3) {
     return;
@@ -783,7 +926,41 @@ void measure_step(int phase, int hour, int64_t cap_lf, const uint8_t* px, int w,
         st.sat_white_px++;
       }
     }
-    hist[luma(p)]++;
+    if (p[0] >= 245 && p[1] >= 245 && p[2] >= 245) {
+      st.near_white_px++;
+    }
+    const int mx = std::max({int(p[0]), int(p[1]), int(p[2])});
+    const int mn = std::min({int(p[0]), int(p[1]), int(p[2])});
+    const int chroma = mx - mn;
+    const uint64_t saturation = mx ? (1000ull * chroma) / mx : 0;
+    st.saturation_mean_x1000 += saturation;
+    st.saturation_bins[std::min<uint64_t>(7, saturation * 8 / 1000)]++;
+    if (chroma > 0) {
+      // Hue en six secteurs, deux bins par secteur, sans arrondi flottant.
+      int hue = mx == p[0]   ? int(p[1]) - p[2]
+                : mx == p[1] ? 2 * chroma + p[2] - p[0]
+                             : 4 * chroma + p[0] - p[1];
+      if (hue < 0)
+        hue += 6 * chroma;
+      st.hue_bins[(2 * hue) / chroma]++;
+    }
+    const uint32_t lum = luma(p);
+    st.luma_mean_x1000 += lum * 1000ull;
+    hist[lum]++;
+  }
+
+  st.luma_mean_x1000 /= st.px;
+  st.saturation_mean_x1000 /= st.px;
+  const int percentiles[] = {10, 50, 90, 99};
+  for (int q = 0; q < 4; ++q) {
+    uint64_t cumulative = 0;
+    for (int lum = 0; lum < 256; ++lum) {
+      cumulative += hist[lum];
+      if (cumulative * 100 >= st.px * percentiles[q]) {
+        st.luma_quantiles[q] = lum;
+        break;
+      }
+    }
   }
 
   // Le seuil du decile le plus lumineux : le plus petit T tel que #{L >= T} <= n/10. On garde
@@ -821,7 +998,14 @@ void measure_step(int phase, int hour, int64_t cap_lf, const uint8_t* px, int w,
   st.contrast_x1000 = gn ? (gsum * 1000ull) / gn : 0ull;
   st.measured = true;
   st.cap_lf = cap_lf;
-  g_stats[phase][hi] = st;
+  if (vantage_of(step).id[0] == 0) {
+    g_stats[phase][hi] = st;
+  }
+  if (autoport_proof::feature_is("lighting-hdr")) {
+    st.levels = g_frame_levels;
+    g_hdr_stats[{step.vant, phase, hour}] = st;
+    publish_hdr_step(step, st);
+  }
   // Les images DESSINEES depuis la photo precedente. C'est la grandeur qui variait sous le plan
   // et que rien ne publiait : le plan compte des frames de LOGIQUE, le mood et la passe de
   // textures comptent des images dessinees.
@@ -1107,6 +1291,8 @@ void publish_coverage() {
 }
 
 void publish_state() {
+  if (autoport_proof::feature_is("lighting-hdr"))
+    publish_hdr_coverage();
   autoport_proof::publish_text("refset_mode", g_mode == 1 ? "capture" : "replay");
   // QUEL BINAIRE A PRODUIT CETTE COURSE. `ablate` = la couche Recharged n'est pas compilee
   // dedans ; il ne sert qu'a CAPTURER la reference ORIGINE-TOTAL et il ne peut pas passer la
@@ -1256,79 +1442,80 @@ void publish_state() {
       autoport_proof::publish(key, gate >= 254 ? gate : g_maxdiff_phase[ph]);
       autoport_proof::publish(nkey, g_compared_phase[ph]);
     }
-    // lighting-hdr : les grandeurs BRUTES des verdicts 1 et 2, publiees a cote du verdict pour
-    // qu'un zero soit lisible. Un verdict sans son denominateur est une fausse constante.
-    uint64_t sat_r = 0, sat_o = 0, px_o = 0, worst_ratio = 1u << 30, meas = 0;
-    for (int i = 0; i < 8; i++) {
-      const StepStats& r = g_stats[2][i];
-      const StepStats& o = g_stats[3][i];
-      if (!r.measured || !o.measured) {
-        continue;
+    if (!autoport_proof::feature_is("lighting-hdr")) {
+      // lighting-hdr : les grandeurs BRUTES des verdicts 1 et 2, publiees a cote du verdict pour
+      // qu'un zero soit lisible. Un verdict sans son denominateur est une fausse constante.
+      uint64_t sat_r = 0, sat_o = 0, px_o = 0, worst_ratio = 1u << 30, meas = 0;
+      for (int i = 0; i < 8; i++) {
+        const StepStats& r = g_stats[2][i];
+        const StepStats& o = g_stats[3][i];
+        if (!r.measured || !o.measured) {
+          continue;
+        }
+        meas++;
+        sat_r += r.sat_px;
+        sat_o += o.sat_px;
+        px_o += o.px;
+        const uint64_t ratio = o.contrast_x1000 ? (r.contrast_x1000 * 100ull) / o.contrast_x1000
+                                                : (r.contrast_x1000 ? 1000ull : 100ull);
+        if (ratio < worst_ratio) {
+          worst_ratio = ratio;
+        }
+        // PAR CRENEAU, et pas seulement le pire. Les verdicts 1 et 2 echouent DES QU'UN creneau
+        // echoue : un chiffre agrege dit qu'il y a un probleme, il ne dit pas ou corriger. Ces
+        // seize lignes nomment le creneau fautif — sans elles l'essai suivant recommence a
+        // l'aveugle, et c'est exactement ce que la revue reproche a un verdict sans denominateur.
+        char k[64];
+        std::snprintf(k, sizeof(k), "hdr_sat_excess_h%02d", kHours[i]);
+        autoport_proof::publish(k, r.sat_px > o.sat_px ? r.sat_px - o.sat_px : 0ull);
+        std::snprintf(k, sizeof(k), "hdr_hlc_pct_h%02d", kHours[i]);
+        autoport_proof::publish(k, ratio);
       }
-      meas++;
-      sat_r += r.sat_px;
-      sat_o += o.sat_px;
-      px_o += o.px;
-      const uint64_t ratio = o.contrast_x1000
-                                 ? (r.contrast_x1000 * 100ull) / o.contrast_x1000
-                                 : (r.contrast_x1000 ? 1000ull : 100ull);
-      if (ratio < worst_ratio) {
-        worst_ratio = ratio;
-      }
-      // PAR CRENEAU, et pas seulement le pire. Les verdicts 1 et 2 echouent DES QU'UN creneau
-      // echoue : un chiffre agrege dit qu'il y a un probleme, il ne dit pas ou corriger. Ces
-      // seize lignes nomment le creneau fautif — sans elles l'essai suivant recommence a
-      // l'aveugle, et c'est exactement ce que la revue reproche a un verdict sans denominateur.
-      char k[64];
-      std::snprintf(k, sizeof(k), "hdr_sat_excess_h%02d", kHours[i]);
-      autoport_proof::publish(k, r.sat_px > o.sat_px ? r.sat_px - o.sat_px : 0ull);
-      std::snprintf(k, sizeof(k), "hdr_hlc_pct_h%02d", kHours[i]);
-      autoport_proof::publish(k, ratio);
-    }
-    // L'ECART D'APPARIEMENT DES VERDICTS 1 ET 2, EN FRAMES DE LOGIQUE. Le pire des huit
-    // creneaux. C'est le denominateur de `hdr_hlc_pct_h*` : a 1440 il melange la courbe et le
-    // temps, a 180 il ne reste que le settle d'une etape. 0 = pas mesurable (une des deux
-    // photos manque), ce qui se lit sur `hdr_refset_hours_paired`.
-    uint64_t gap_max = 0;
-    for (int i = 0; i < 8; i++) {
-      const StepStats& r = g_stats[2][i];
-      const StepStats& o = g_stats[3][i];
-      if (!r.measured || !o.measured || r.cap_lf < 0 || o.cap_lf < 0) {
-        continue;
-      }
-      const uint64_t gap = (uint64_t)(r.cap_lf > o.cap_lf ? r.cap_lf - o.cap_lf
-                                                          : o.cap_lf - r.cap_lf);
-      if (gap > gap_max) {
-        gap_max = gap;
-      }
-    }
-    autoport_proof::publish("refset_pair_gap_lf", gap_max);
-    autoport_proof::publish("hdr_refset_hours_paired", meas);
-    autoport_proof::publish("hdr_sat_px_recharged", sat_r);
-    autoport_proof::publish("hdr_sat_px_origine_lumiere", sat_o);
-    autoport_proof::publish("hdr_sat_denom_px", px_o);
-    // LA CLASSE DE DEFAUT QUE L'OWNER NOMME, PUBLIEE. `sat_white_px` (les TROIS canaux a 255 —
-    // le blanc entierement brule) etait compte par `measure_step` et lu par AUCUNE ligne. Il est
-    // publie pour les TROIS configurations, avec le total d'ORIGINE-TOTAL a cote de celui des
-    // deux autres : sans ces trois nombres, « est-ce que le master ON brule plus que le jeu
-    // d'origine ? » n'a pas de reponse machine, et c'est litteralement la question posee le
-    // 2026-09-06. Aucun verdict n'en depend — c'est une mesure, pas une porte.
-    {
-      uint64_t sw[4] = {0, 0, 0, 0}, sp[4] = {0, 0, 0, 0};
-      for (int ph = 1; ph <= 3; ph++) {
-        for (int i = 0; i < 8; i++) {
-          if (g_stats[ph][i].measured) {
-            sw[ph] += g_stats[ph][i].sat_white_px;
-            sp[ph] += g_stats[ph][i].sat_px;
-          }
+      // L'ECART D'APPARIEMENT DES VERDICTS 1 ET 2, EN FRAMES DE LOGIQUE. Le pire des huit
+      // creneaux. C'est le denominateur de `hdr_hlc_pct_h*` : a 1440 il melange la courbe et le
+      // temps, a 180 il ne reste que le settle d'une etape. 0 = pas mesurable (une des deux
+      // photos manque), ce qui se lit sur `hdr_refset_hours_paired`.
+      uint64_t gap_max = 0;
+      for (int i = 0; i < 8; i++) {
+        const StepStats& r = g_stats[2][i];
+        const StepStats& o = g_stats[3][i];
+        if (!r.measured || !o.measured || r.cap_lf < 0 || o.cap_lf < 0) {
+          continue;
+        }
+        const uint64_t gap =
+            (uint64_t)(r.cap_lf > o.cap_lf ? r.cap_lf - o.cap_lf : o.cap_lf - r.cap_lf);
+        if (gap > gap_max) {
+          gap_max = gap;
         }
       }
-      autoport_proof::publish("hdr_sat_px_origine_total", sp[1]);
-      autoport_proof::publish("hdr_sat_white_px_origine_total", sw[1]);
-      autoport_proof::publish("hdr_sat_white_px_recharged", sw[2]);
-      autoport_proof::publish("hdr_sat_white_px_origine_lumiere", sw[3]);
+      autoport_proof::publish("refset_pair_gap_lf", gap_max);
+      autoport_proof::publish("hdr_refset_hours_paired", meas);
+      autoport_proof::publish("hdr_sat_px_recharged", sat_r);
+      autoport_proof::publish("hdr_sat_px_origine_lumiere", sat_o);
+      autoport_proof::publish("hdr_sat_denom_px", px_o);
+      // LA CLASSE DE DEFAUT QUE L'OWNER NOMME, PUBLIEE. `sat_white_px` (les TROIS canaux a 255 —
+      // le blanc entierement brule) etait compte par `measure_step` et lu par AUCUNE ligne. Il est
+      // publie pour les TROIS configurations, avec le total d'ORIGINE-TOTAL a cote de celui des
+      // deux autres : sans ces trois nombres, « est-ce que le master ON brule plus que le jeu
+      // d'origine ? » n'a pas de reponse machine, et c'est litteralement la question posee le
+      // 2026-09-06. Aucun verdict n'en depend — c'est une mesure, pas une porte.
+      {
+        uint64_t sw[4] = {0, 0, 0, 0}, sp[4] = {0, 0, 0, 0};
+        for (int ph = 1; ph <= 3; ph++) {
+          for (int i = 0; i < 8; i++) {
+            if (g_stats[ph][i].measured) {
+              sw[ph] += g_stats[ph][i].sat_white_px;
+              sp[ph] += g_stats[ph][i].sat_px;
+            }
+          }
+        }
+        autoport_proof::publish("hdr_sat_px_origine_total", sp[1]);
+        autoport_proof::publish("hdr_sat_white_px_origine_total", sw[1]);
+        autoport_proof::publish("hdr_sat_white_px_recharged", sw[2]);
+        autoport_proof::publish("hdr_sat_white_px_origine_lumiere", sw[3]);
+      }
+      autoport_proof::publish("hdr_hl_contrast_worst_pct", meas ? worst_ratio : 0);
     }
-    autoport_proof::publish("hdr_hl_contrast_worst_pct", meas ? worst_ratio : 0);
     // Le temoin de capture d'ORIGINE-TOTAL, publie pour que le verdict 4 soit LISIBLE : s'il
     // egale `refset_bin_fp`, la reference a ete capturee par ce binaire meme et le verdict est
     // rouge par construction, quel que soit le maxdiff.
@@ -1344,8 +1531,7 @@ void publish_state() {
                                    wf.empty() ? "absente" : wf.c_str());
     }
   }
-  // En mode capture on ne publie AUCUNE valeur de porte : une course qui fabrique ses propres
-  // references ne doit pas pouvoir la franchir.
+  // Les portes historiques restent propres au replay ; HDR mesure ses deux phases en capture.
 }
 
 std::string image_path(const Step& step) {
@@ -2500,7 +2686,8 @@ bool enabled() {
       for (const char* c = pv; *c; c++) {
         if (*c >= '1' && *c <= '3') {
           const int ph = *c - '0';
-          if (ph == 1 && autoport_proof::feature_is("lighting-census")) {
+          if (ph == 1 && (autoport_proof::feature_is("lighting-census") ||
+                          autoport_proof::feature_is("lighting-hdr"))) {
             std::fprintf(stderr, "REFSET fatal: lighting-census requires phases 2/3; phase 1 is forbidden\n");
             std::abort();
           }
@@ -2511,8 +2698,10 @@ bool enabled() {
       }
     }
     if (g_phases.empty()) {
-      g_phases = autoport_proof::feature_is("lighting-census")
-                     ? std::vector<int>{2, 3} : std::vector<int>{1, 2, 3};
+      g_phases = (autoport_proof::feature_is("lighting-census") ||
+                  autoport_proof::feature_is("lighting-hdr"))
+                     ? std::vector<int>{2, 3}
+                     : std::vector<int>{1, 2, 3};
     }
     std::sort(g_phases.begin(), g_phases.end());
   }
@@ -2704,7 +2893,10 @@ bool enabled() {
   }
   // Poser les deux variables a leur longueur definitive AVANT que le fil graphique ne les lise
   // pour la premiere fois : ainsi chaque bascule ulterieure reecrit un unique octet en place.
-  put_env("OG_RECHARGED", autoport_proof::feature_is("lighting-census") ? "1" : "0");
+  put_env("OG_RECHARGED", (autoport_proof::feature_is("lighting-census") ||
+                           autoport_proof::feature_is("lighting-hdr"))
+                              ? "1"
+                              : "0");
   put_env("OG_RT_LIGHT", "0");
   put_env("OG_LIGHTING", "0");
   init_candidate_provenance();
@@ -3083,7 +3275,8 @@ void tick() {
     // UNE ARRIVEE SUR UN NOUVEAU VANTAGE TELEPORTE TOUJOURS, meme quand la politique de l'etape
     // est « pas de teleport » (l'appareil) : sans ce teleport-la, changer de vantage ne
     // changerait que l'heure et le master, et les 25 autres niveaux ne seraient jamais atteints.
-    if (step_is_arrival(g_cur) && (g_cur != 0 || g_require_loaded)) {
+    if (step_is_arrival(g_cur) &&
+        (g_cur != 0 || g_require_loaded || autoport_proof::feature_is("lighting-hdr"))) {
       // Two teleports, the first to load. The historical first case skipped this wait;
       // the opt-in guard includes it without letting asynchronous readiness move the deadline.
       g_cap = kCapPreWarp;
@@ -3347,11 +3540,8 @@ bool consume_capture(int w, int h, const void* rgba) {
   const uint8_t* cur = (const uint8_t*)rgba;
   // lighting-hdr : on mesure AVANT de comparer ou d'ecrire, dans les deux modes. Les
   // verdicts 1 et 2 portent sur ce que le moteur vient de dessiner, pas sur la reference.
-  // Les grandeurs de `lighting-hdr` se mesurent au vantage HISTORIQUE seulement : `g_stats` est
-  // indexe [phase][creneau], donc deux vantages a la meme heure s'ecraseraient l'un l'autre et
-  // les verdicts appariraient deux photos de scenes differentes.
-  if (vantage_of(g_steps[g_cur]).id[0] == 0) {
-    measure_step(g_steps[g_cur].phase, g_steps[g_cur].hour, g_inflight_lf, cur, w, h);
+  if (autoport_proof::feature_is("lighting-hdr") || vantage_of(g_steps[g_cur]).id[0] == 0) {
+    measure_step(g_steps[g_cur], g_inflight_lf, cur, w, h);
   }
 
   if (g_mode == 1) {
@@ -3545,6 +3735,9 @@ int verdict_master_off_bitexact() {
 // suffit pas : il faut que ses huit creneaux aient ete compares ET mesures, sinon les verdicts
 // 1 et 2 s'appuieraient sur un jeu partiel sans que rien ne le dise.
 int verdict_origine_lumiere_set() {
+  if (autoport_proof::feature_is("lighting-hdr")) {
+    return hdr_paired_count() == kNumVantages * 8ull ? 0 : 1;
+  }
   if (g_mode != 2 || g_compared_phase[3] != 8) {
     return 1;
   }
@@ -3560,6 +3753,22 @@ int verdict_origine_lumiere_set() {
 // AUCUN creneau. Le maximum par creneau, pas la moyenne : une moyenne laisserait un creneau
 // brule se faire compenser par sept creneaux sombres.
 int verdict_saturation() {
+  if (autoport_proof::feature_is("lighting-hdr")) {
+    if (hdr_paired_count() != kNumVantages * 8ull)
+      return 1;
+    for (int vi = 0; vi < int(g_vants.size()); ++vi) {
+      for (int hour : kHours) {
+        const StepStats *on, *off;
+        if (!hdr_pair(vi, hour, on, off))
+          return 1;
+        if (on->sat_px > off->sat_px + hdr_motion_tolerance(*off, off->sat_px) ||
+            on->sat_white_px > off->sat_white_px + hdr_motion_tolerance(*off, off->sat_white_px) ||
+            on->near_white_px > off->near_white_px + hdr_motion_tolerance(*off, off->near_white_px))
+          return 1;
+      }
+    }
+    return 0;
+  }
   if (g_mode != 2) {
     return 1;
   }
@@ -3582,6 +3791,20 @@ int verdict_saturation() {
 // d'ORIGINE-LUMIERE, sur CHAQUE creneau. C'est la mesure de « la courbe preserve le detail » :
 // une zone ecrasee a blanc plat a un gradient local nul.
 int verdict_highlight_contrast() {
+  if (autoport_proof::feature_is("lighting-hdr")) {
+    if (hdr_paired_count() != kNumVantages * 8ull)
+      return 1;
+    for (int vi = 0; vi < int(g_vants.size()); ++vi) {
+      for (int hour : kHours) {
+        const StepStats *on, *off;
+        if (!hdr_pair(vi, hour, on, off))
+          return 1;
+        if (on->contrast_x1000 * 100ull < off->contrast_x1000 * 95ull)
+          return 1;
+      }
+    }
+    return 0;
+  }
   if (g_mode != 2) {
     return 1;
   }

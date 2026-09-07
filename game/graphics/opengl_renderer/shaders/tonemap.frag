@@ -11,13 +11,11 @@
 // donc pas une OETF : il ne linearise rien et ne re-encode rien. Il fait UNE chose, la
 // compression de plage, et il est le seul endroit de la chaine d'affichage a la faire.
 //
-// La courbe « Fidelite » (defaut) est l'epaule C1 deja acceptee par l'owner, transcrite
-// telle quelle depuis pbr_fused.glsl (constante RT_KNEE), avec un genou remonte a 0,90 :
-//     f(x) = x                                      pour x <= k
-//     f(x) = 1 - (1-k) * exp(-(x-k)/(1-k))          pour x >  k
-// f(k) = k, f'(k) = 1, f(+inf) = 1. Donc : identite stricte sous le genou, et la zone qui
-// AUTREFOIS s'ecrasait a blanc plat garde une gradation. C'est exactement ce que l'item
-// livre, et c'est la seule difference visible attendue.
+// L'epaule rationnelle conserve une pente plus longue que l'exponentielle :
+// f(x) = x sous k, sinon k + (1-k)*(x-k)/(1-k+x-k).
+// f(k)=k, f'(k)=1 et f(+inf)=1. On comprime le maximum RGB puis on applique
+// le MEME facteur aux trois canaux : une haute lumiere coloree garde leurs rapports.
+// La compression independante des canaux les rapprochait tous du blanc.
 //
 // La courbe « Filmique » (Khronos PBR Neutral) est optionnelle et jamais le defaut. Elle est
 // definie pour une entree LINEAIRE ; tant que le tampon reste en encodage d'affichage elle
@@ -35,9 +33,14 @@ out vec4 color;
 in vec2 tex_coord;
 
 vec3 hdr_shoulder(vec3 x, float k) {
+  float peak = max(x.r, max(x.g, x.b));
+  if (peak <= k) {
+    return x;
+  }
   float w = max(1.0 - k, 1e-4);
-  vec3 e = exp(-max(x - vec3(k), vec3(0.0)) / w);
-  return mix(x, vec3(1.0) - w * e, step(vec3(k), x));
+  float above = peak - k;
+  float mapped = k + w * above / (w + above);
+  return x * (mapped / peak);
 }
 
 vec3 hdr_neutral(vec3 c) {

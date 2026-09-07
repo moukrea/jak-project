@@ -4177,13 +4177,19 @@ items:
   hits_means: images passees par le tone map
   proof_props:
   - debug.opengoal.hdr=1
-  - debug.opengoal.refset=replay
+  - debug.opengoal.refset=capture
+  - debug.opengoal.refset.dir=/data/data/org.opengoal.gk.jak1/files/hdr12-full
+  - debug.opengoal.refset.phases=2,3
+  - debug.opengoal.refset.hours=0,3,6,9,12,15,18,21
+  - debug.opengoal.refset.orderhour=1
+  - debug.opengoal.refset.settle=12
+  - debug.opengoal.refset.loadsettle=240
+  - debug.opengoal.refset.warpat=300
   - debug.opengoal.level.warp=village1-hut
-  - debug.opengoal.level.warp.pos=-116 14 40
   - debug.opengoal.want.levels=village1,beach
   - debug.opengoal.want.display=beach,display
   - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
-  proof_timeout: 780
+  proof_timeout: 720
   block_reason: max_retries (6) épuisé
   supervisor_recovery: true
 - id: lighting-origin-bitexact

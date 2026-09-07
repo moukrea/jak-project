@@ -44,6 +44,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <locale>
+#include <memory>
+#include <sstream>
 #include <mutex>  // supervisor-diag: jak2 breadcrumb serialization
 #include <string>
 #include <vector>  // external-asset-root: argv assembly for --game-root / --iso-overlay
@@ -65,7 +68,9 @@
 #include "game/kernel/common/ksocket.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/kernel/jak2/kscheme.h"  // Gjak2-render: jak2::make_function_symbol_from_c for a17_bind_pc_helpers_jak2
+#include "game/mips2c/mips2c_table.h"
 #include "game/runtime.h"
+#include "game/system/boot_replay.h"
 #include "game/system/pad_replay.h"
 #include "game/system/npc_flicker.h"  // cutscene-npc-flicker (essai 11) : compteurs de plateforme par scene
 
@@ -1867,6 +1872,55 @@ void a_install_jak2_pc_hook_once() {
                       "Gjak2-pcmenus: + post-InitMachineScheme a35 re-upgrade hook)");
 }
 }  // namespace
+
+// Android does not compile common/kmachine.cpp. Mirror its native RNG transfer
+// using the generator actually bound to pc-rand on this platform.
+extern "C++" void boot_replay_native_rng(bool restore,
+                                       void (*sink)(const char*, const void*, size_t)) {
+  const bool bootstrap_sink = !sink || sink == boot_replay::checkpoint;
+  if ((restore || bootstrap_sink) && !boot_replay::active()) {
+    return;
+  }
+  if (!sink) sink = boot_replay::checkpoint;
+  // Serialize state, not a guessed seed: loading GAME can already consume pc-rand.
+  // The fixed buffer allows a recorded state with a different decimal length to be restored.
+  auto transfer = [restore, sink](const char* tag, std::mt19937& rng) {
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << rng;
+    // This also runs on the small GOAL listener stack during bootstrap replay.
+    std::vector<char> state(8192, 0);
+    if (!out || out.str().size() >= state.size()) {
+      std::fprintf(stderr, "BOOTREPLAY invalid native RNG serialization tag=%s\n", tag);
+      std::exit(EXIT_FAILURE);
+    }
+    std::memcpy(state.data(), out.str().data(), out.str().size());
+    if (restore) {
+      boot_replay::input(tag, state.data(), state.size());
+      if (state.back() != '\0') {
+        std::fprintf(stderr, "BOOTREPLAY unterminated native RNG tag=%s\n", tag);
+        std::exit(EXIT_FAILURE);
+      }
+      std::istringstream in(state.data());
+      in.imbue(std::locale::classic());
+      auto restored = std::make_unique<std::mt19937>();
+      if (!(in >> *restored) || !(in >> std::ws).eof()) {
+        std::fprintf(stderr, "BOOTREPLAY malformed native RNG tag=%s\n", tag);
+        std::exit(EXIT_FAILURE);
+      }
+      rng = *restored;
+    } else {
+      sink(tag, state.data(), state.size());
+    }
+  };
+  transfer("native-pc-rng", a35_rand_gen);
+  transfer("native-mips-rng", Mips2C::gRng.extra_random_generator);
+  if (restore) {
+    boot_replay::input("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
+  } else {
+    sink("native-mips-R", &Mips2C::gRng.R, sizeof(Mips2C::gRng.R));
+  }
+}
 
 // Boot the runtime for a specific game. Phase 13 only validates APK
 // structure, so this stays light: it logs intent, initializes the kernel
