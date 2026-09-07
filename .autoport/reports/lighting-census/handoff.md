@@ -1,29 +1,30 @@
-# Handoff — lighting-census, essai 10
+# Handoff — lighting-census, essai 11
 DIRECTIVES v6fca51fe40
 ## ÉTABLI
-- Build incrémental gk code0 ; sha43ce233c4be6e229 ; unique preuve150s crash0 frames8363.
+- Build incrémental gk code0 ; sha82b403292cbf2cec ; preuve unique150s crash0 frames8399.
 - 37/672 comparaisons ; refset_replay_maxdiff254, census_replay_runs0, coverage_missing244.
-- Runtime REFSET case : préfixe564 noms/ordre identique capture historique ; suffixe108 disjoint.
-- 575 SHA références inchangés ;24/24 PNG legacy identiques essai9, origine/h00=202/794.
-- Comparaison RGB24 PNG : zéro écart hors x285..315/y13..72 (notes/ecarts-legacy-essai10.txt).
-- ROI capture1 : hutlamp-lod0 hash b872b73f9b7e5d2e ; bucket52 l1-pris-merc écrit765 pixels.
-- Draw34395/tex429=590px bbox288,43,314,67 ;34488/430=117px bbox292,38,310,72.
-- Draw34583/tex431=58px bbox300,13,308,37 ; aucun autre Merc ne change la ROI capture1.
-- Draws total3427130/residual0/rb_mismatch0 ; GPU7.5422ms inclut diagnostic ; builder2541075 repris Ss.
+- 575 SHA références inchangés ;24/24 PNG identiques essai10 ; origine/h00 maxdiff202/diffpx794.
+- Tous écarts legacy RGB dans ROI285..315/13..72 ; aucune correction divergence.
+- Capture1 Merc id0/1/2 first_index34395/34488/34583 tex429/430/431 : RGB590/117/58.
+- RGB maxdiff168/128/151, alpha_only0 ; bucket52 RGB765, bbox288,13,314,72.
+- b872b73f9b7e5d2e est hash du NOM hutlamp-lod0, PAS mesh/pose/texture.
+- Capture historique/essai10 premier HDSKINMODEL hutlamp frame607 ; aucune phase enregistrée.
+- Sidecars futurs compléments : version/case/config/bin/flavour/png/capture_lf, contrôlés au rejeu.
+- CPU vrais helpers : roundtrip1 accepté,32 rejets ; aucun suffixe runtime (provenance_checked0).
+- Draws3427130, residual0, rb_mismatch0 ; GPU7.4360ms diagnostic inclus ; GL_INVALID_OPERATION7290.
+- Builder2541075 repris Ss ; aucun appareil, nouveau jeu de référence ou generic.sh lancé.
 ## TENTÉ
-- Producteur :564 avant108, namespace supplement-v1 sans repli vers8 anciens fichiers non qualifiés.
-- Frame DMA copiée sous mutex, horloges renderer x86 latchées ; aucun effet sur24 PNG legacy.
-- Diagnostic RGBA avant/après buckets/Merc, premières24 captures ; pas de masque/tolérance.
-- Limite trouvée en revue : PNG force alpha255, diagnostic RGBA peut compter alpha seul.
-- clock hutlamp rand-vu à naissance (village-obs.gc:765–766), accumule time-adjust-ratio (:727–730).
-- Présence de lampe attribuée à région ; cause/phase historique non mesurée, aucun gel arbitraire.
-- Sunkenb : chemin sky actif conditionnel, poids forcé1 si seul ciel ; occulteur non identifié.
+- Séparation RGB/alpha du diagnostic existant : confirme écriture RGB, pas cause historique.
+- Provenance invalide interdit comparaison créditée/registre ; empreinte suffixe inclut sidecar+témoin.
+- Audit89db5b7d8a..HEAD : aucun delta causal Merc/shader/RNG trouvé ; source hutlamp inchangée depuis2025.
+- init clock=rand-vu puis accumulation float ; reseed après start ne restaure pas acteur existant.
+- OG_LIGHTING diffère au lancement, mais logs montrent0 avant village et FR3 STOCK dans les deux runs.
+- Aucune phase historique/empreinte mesh/matrice/texture retrouvée ; aucun gel arbitraire appliqué.
 ## RESTE
-- Distinguer RGB/alpha dans ROI avant attribution stricte ; conserver traces capture1 des3 draws.
-- Retrouver état/phase historique hutlamp et corriger sa production sans figer ni recapturer origines.
-- Restaurer état par cas : préfixe préserve ordre mais acteurs/filtres/particules gardent historique.
-- Établir108 compléments séparément ; témoins supplement-v1 écrits mais provenance pas encore contrôlée.
-- Sunkenb conserve8 manques ; conditions drawable.gc:819–839 puis paquets ciel à mesurer si requis.
-- 21 jouables connus ; intro=index22, halfpipe/test-zone sans DGO livré (ne pas refaire recherche).
-- non prouvé : bit-identité564, cinq rejeux, couverture complète, ciel sunkenb, qualité HDR globale.
-- Prochaine preuve via proof_run.sh seulement ; pas de campagne longue ; generic.sh orchestrateur.
+- Attribuer cause historique (état/pose/ressources non archivés), pas seulement présence RGB de lampe.
+- Restaurer état complet par cas ; capture_lf contrôle agenda seulement, pas acteurs/RNG/filtres.
+- Établir108 références séparées ; supplement-v1 reste absent ; provenance runtime non prouvée.
+- Sidecars ne portent pas données CGO/DGO/FR3 producteur ; ne pas prétendre provenance état complète.
+- Sunkenb conserve8 manques : attribuer visibilité au chemin rendu, pas aux cadrages à zéro.
+- non prouvé : bit-identité564, cinq rejeux, couverture globale, non-régression GL et qualité HDR.
+- Notes diagnostic/tests/roi/provenance-test-essai11 ; prochaine preuve via proof_run.sh seulement.

@@ -1,27 +1,29 @@
-Non validé : la zone de la lampe est localisée, mais l'écart historique persiste.
+Non validé : attribution RGB confirmée, comparaison historique toujours divergente.
 DIRECTIVES v6fca51fe40
-Le producteur conserve le préfixe564 et sépare les108 compléments sous supplement-v1.
-L'identité DMA est transférée sous verrou aux horloges du renderer x86.
-Diagnostic limité aux24 captures : hutlamp-lod0, hash b872b73f9b7e5d2e,
-indices34395/34488/34583, textures429/430/431, bucket52 (proof-engine.log, capture1).
-Le diagnostic compte RGBA ; attribution RGB stricte à compléter, aucune tolérance ajoutée.
-Build incrémental réussi ; une seule course150s via proof_run.sh, aucun appareil touché.
-Huit lignes du producteur :
-sha=43ce233c4be6e229
+Diagnostic existant séparé en RGB/alpha, avec bbox et amplitude RGB par draw.
+Futurs compléments : provenance par cas vérifiée avant créditer la comparaison ;
+témoin du suffixe et empreinte PNG/configuration/binaire contrôlés, erreurs bloquantes.
+Aucune référence créée ou remplacée ; restauration d'état par cas non résolue.
+Build incrémental gk réussi ; test CPU réel : un aller-retour accepté,32 rejets attendus.
+Huit lignes recopiées du producteur :
+sha=82b403292cbf2cec
 crash=0
-frames=8363
+frames=8399
 FEATURE lighting-census armed=1 hits=4035234
-refset_steps=672
 refset_compared=37
 refset_replay_maxdiff=254
+refset_provenance_checked=0
 light_census_rb_mismatch=0
-Le contrôle du log confirme564 cas historiques dans leur ordre, puis108 cas distincts.
-575 SHA de références conservés ;24 PNG legacy identiques essai9 (notes/tests-essai10.md).
-Origine/h00 reste202/794 ; réinitialiser arbitrairement la lampe ne corrigerait pas l'origine.
-Le GPU reste mesuré, mais cette course inclut les lectures diagnostiques ponctuelles.
-À regarder par l'owner lorsque livré : blancs HDR, hutte/extérieurs, ciel aux huit heures.
-non prouvé : correction de phase lampe, état indépendant par cas, bit-identité des origines,
-108 références supplémentaires, cinq rejeux exacts, couverture complète et ciel sunkenb.
-Les8 manques sunkenb restent conservés ; aucun cadrage nouveau ni verdict owner.
-non prouvé : non-régression globale et amélioration qualitative HDR.
-Handoff détaillé conservé ; generic.sh reste à l'orchestrateur, tâche non fermée.
+Capture1 : Merc first_index34395/34488/34583 :590/117/58 pixels RGB, alpha_only0.
+Bucket52 :765 pixels RGB ; voir notes/roi-essai11.log et proof-engine.log.
+Le hash b872b73f9b7e5d2e identifie le nom hutlamp-lod0, pas son état ou ses ressources.
+575 SHA références conservés ;24 PNG identiques essai10 (notes/tests-essai11.md).
+Origine/h00 : maxdiff202,794 pixels divergents ; aucune phase historique retrouvée, cause inconnue.
+37/672 cas comparés ;244 manques de couverture ; zéro rejeu complet crédité.
+Provenance des compléments : test CPU seulement, aucun supplément atteint par la course.
+GPU7.4360ms avec diagnostic ; classification total3427130, résidu0.
+Owner : aucun nouveau changement HDR à tester à ce stade ; blancs non corrigés.
+non prouvé : cause historique, bit-identité564, état indépendant par cas,
+108 compléments établis, cinq rejeux exacts, couverture complète et ciel sunkenb.
+Les8 manques sunkenb sont conservés ; non prouvé : non-régression globale, qualité HDR.
+Handoff fourni ; generic.sh laissé à l'orchestrateur, aucun verdict owner.

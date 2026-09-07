@@ -1,6 +1,7 @@
 #include "game/graphics/refset.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -511,6 +512,8 @@ uint64_t g_missing = 0;
 uint64_t g_size_bad = 0;
 uint64_t g_decode_bad = 0;
 uint64_t g_roundtrip_bad = 0;
+uint64_t g_provenance_checked = 0;
+uint64_t g_provenance_bad = 0;
 uint64_t g_maxdiff = 0;
 uint64_t g_diffpx = 0;
 // Le maximum PAR JEU. `refset_replay_maxdiff` melange les deux : une regression du seul jeu
@@ -736,11 +739,12 @@ void measure_step(int phase, int hour, int64_t cap_lf, const uint8_t* px, int w,
   }
 }
 
-uint64_t read_capture_witness(int phase);  // defini plus bas, avec le temoin de capture
+uint64_t read_capture_witness(int phase, bool supplemental = false);
 
 // Le temoin de capture est ecrit et relu plus bas (section « LE TEMOIN DE CAPTURE ») ;
 // `publish_state` le publie, d'ou cette declaration avant usage.
-std::string read_capture_flavour(int phase);
+std::string read_capture_flavour(int phase, bool supplemental = false);
+std::string witness_path(int phase, bool supplemental = false);
 
 // La SAVEUR du binaire courant : `ablate` = la couche Recharged n'est pas compilee dedans
 // (game/graphics/origin_ablate.h), `normal` = le binaire de l'owner.
@@ -878,7 +882,7 @@ void publish_coverage() {
   const bool full_plan = g_vants.size() == kNumVantages && g_steps.size() == kNumVantages * 8 * 3 &&
                          g_phases == std::vector<int>({1, 2, 3}) && g_hours_mask == kAllHours;
   if (!full_plan || !g_cam_armed || g_cam_overrides || g_pitch_sweep || g_yaw_sweep ||
-      g_cam_hour_sweep || g_slip_nonzero || g_roundtrip_bad) {
+      g_cam_hour_sweep || g_slip_nonzero || g_roundtrip_bad || g_provenance_bad) {
     g_census_coverage_missing++;
   }
   for (const auto& vs : g_vstats) {
@@ -1070,6 +1074,8 @@ void publish_state() {
   autoport_proof::publish("refset_slip_min",
                           (uint64_t)(g_frame_slip_min > (1 << 19) ? 0 : g_frame_slip_min));
   autoport_proof::publish("refset_roundtrip_bad", g_roundtrip_bad);
+  autoport_proof::publish("refset_provenance_checked", g_provenance_checked);
+  autoport_proof::publish("refset_provenance_bad", g_provenance_bad);
   // QUI CADENCE LE PLAN, et combien de photos ont rate leur frame. Sans ces trois lignes,
   // « le plan est cadence sur la frame de logique » est une affirmation que la preuve ne
   // contredit pas : `refset_pump_logic` doit dominer, et `refset_slip_nonzero` doit valoir 0
@@ -1107,7 +1113,7 @@ void publish_state() {
     // 254 = le plan n'est pas alle au bout ; 255 = une reference manque ou ne se decode pas.
     // La vraie mesure ne remplace ces deux valeurs QUE lorsque tout a ete compare.
     uint64_t gate;
-    if (g_missing || g_size_bad || g_decode_bad) {
+    if (g_missing || g_size_bad || g_decode_bad || g_provenance_bad) {
       gate = 255;
     } else if (!g_finished) {
       gate = 254;
@@ -1329,7 +1335,11 @@ uint64_t hash_file(const std::string& path) {
       h *= 1099511628211ull;
     }
   }
-  std::fclose(f);
+  const bool readable = !std::ferror(f);
+  const bool closed = std::fclose(f) == 0;
+  if (!readable || !closed) {
+    return 0;
+  }
   return h ? h : 1;  // 0 est reserve a « pas lisible »
 }
 
@@ -1342,13 +1352,20 @@ uint64_t refs_fingerprint() {
   // autant qu'il a d'etapes, et une vue ajoutee doit perimer le registre comme n'importe quel
   // autre changement de reference.
   for (const Step& s : g_steps) {
-    const uint64_t fh = hash_file(image_path(s));
-    if (!fh) {
-      return 0;
+    std::vector<std::string> paths = {image_path(s)};
+    if (s.supplemental) {
+      paths.push_back(image_path(s) + ".provenance.txt");
+      paths.push_back(witness_path(s.phase, true));
     }
-    for (int b = 0; b < 8; b++) {
-      h ^= (unsigned char)((fh >> (8 * b)) & 0xff);
-      h *= 1099511628211ull;
+    for (const auto& path : paths) {
+      const uint64_t fh = hash_file(path);
+      if (!fh) {
+        return 0;
+      }
+      for (int b = 0; b < 8; b++) {
+        h ^= (unsigned char)((fh >> (8 * b)) & 0xff);
+        h *= 1099511628211ull;
+      }
     }
   }
   return h ? h : 1;
@@ -1454,7 +1471,7 @@ uint64_t self_fingerprint() {
 // variables », et elle ne doit pas dependre de la discipline de celui qui lance la course.
 // On ecrit donc l'empreinte du binaire qui capture, a cote des images, et le verdict REFUSE de
 // passer au vert quand elle est celle du binaire qui rejoue.
-std::string witness_path(int phase, bool supplemental = false) {
+std::string witness_path(int phase, bool supplemental) {
   return g_dir + (supplemental ? "/supplement-v1/" : "/") + set_name(phase) +
          "/captured-by.txt";
 }
@@ -1502,22 +1519,73 @@ void reserve_capture_directory() {
   std::fflush(stdout);
 }
 
-void write_capture_witness(int phase, bool supplemental) {
+bool write_capture_witness(int phase, bool supplemental) {
   if (FILE* f = std::fopen(witness_path(phase, supplemental).c_str(), "w")) {
     // Deux lignes, et les deux comptent. L'empreinte dit « pas le meme binaire » ; la saveur
     // dit « et ce n'etait pas un binaire qui contient la couche qu'on juge ». Sans la seconde,
     // n'importe quel binaire legerement different ferait une reference — la porte serait une
     // mesure de stabilite deguisee, exactement ce que le temoin existe pour empecher.
-    std::fprintf(f, "%016llx\nflavour=%s\n", (unsigned long long)self_fingerprint(),
-                 build_flavour());
-    std::fclose(f);
+    const bool written = std::fprintf(f, "%016llx\nflavour=%s\n",
+                                     (unsigned long long)self_fingerprint(), build_flavour()) > 0;
+    const bool closed = std::fclose(f) == 0;
+    return written && closed;
   }
+  return false;
+}
+
+// Supplemental metadata has a deliberately small, strict line format.
+bool read_metadata_lines(const std::string& path, std::vector<std::string>& lines) {
+  FILE* f = std::fopen(path.c_str(), "rb");
+  if (!f) {
+    return false;
+  }
+  std::string line;
+  bool valid = true;
+  int c;
+  while ((c = std::fgetc(f)) != EOF) {
+    if (c == '\n') {
+      lines.push_back(line);
+      line.clear();
+      if (lines.size() > 7) {
+        valid = false;
+        break;
+      }
+    } else if (c < 32 || c > 126 || line.size() >= 256) {
+      valid = false;
+      break;
+    } else {
+      line.push_back(static_cast<char>(c));
+    }
+  }
+  valid = valid && line.empty() && !std::ferror(f);
+  const bool closed = std::fclose(f) == 0;
+  return valid && closed;
+}
+
+bool parse_unsigned(const std::string& text, int base, uint64_t& value) {
+  const auto result = std::from_chars(text.data(), text.data() + text.size(), value, base);
+  return !text.empty() && result.ec == std::errc() && result.ptr == text.data() + text.size();
+}
+
+bool read_supplement_witness(int phase, uint64_t& bin, std::string& flavour) {
+  std::vector<std::string> lines;
+  if (!read_metadata_lines(witness_path(phase, true), lines) || lines.size() != 2 ||
+      lines[0].size() != 16 || !parse_unsigned(lines[0], 16, bin) || !bin ||
+      (lines[1] != "flavour=normal" && lines[1] != "flavour=ablate")) {
+    return false;
+  }
+  flavour = lines[1].substr(8);
+  return true;
 }
 
 // La saveur inscrite a cote de la reference. "" = absente (temoin d'avant ce champ, ou fichier
 // manquant) — et une saveur absente n'est jamais traitee comme `ablate`.
-std::string read_capture_flavour(int phase) {
+std::string read_capture_flavour(int phase, bool supplemental) {
   std::string v;
+  if (supplemental) {
+    uint64_t bin = 0;
+    return read_supplement_witness(phase, bin, v) ? v : "";
+  }
   if (FILE* f = std::fopen(witness_path(phase).c_str(), "r")) {
     char line[128];
     while (std::fgets(line, sizeof(line), f)) {
@@ -1535,8 +1603,12 @@ std::string read_capture_flavour(int phase) {
   return v;
 }
 
-uint64_t read_capture_witness(int phase) {
+uint64_t read_capture_witness(int phase, bool supplemental) {
   uint64_t v = 0;
+  if (supplemental) {
+    std::string flavour;
+    return read_supplement_witness(phase, v, flavour) ? v : 0;
+  }
   if (FILE* f = std::fopen(witness_path(phase).c_str(), "r")) {
     if (std::fscanf(f, "%llx", (unsigned long long*)&v) != 1) {
       v = 0;
@@ -1592,6 +1664,92 @@ uint64_t census_config_fingerprint() {
   return h;
 }
 
+void report_provenance(const Step& step, const char* cause) {
+  if (cause) {
+    g_provenance_bad++;
+  }
+  std::string key = "refset_provenance_" + step_image_name(step);
+  for (char& c : key) {
+    if (c == '/' || c == '-') {
+      c = '_';
+    }
+  }
+  autoport_proof::publish_text(key.c_str(), cause ? cause : "ok");
+  std::printf("REFSET provenance case=%s cause=%s\n", step_image_name(step).c_str(),
+              cause ? cause : "ok");
+  std::fflush(stdout);
+}
+
+bool write_supplement_provenance(const Step& step, const std::string& path) {
+  const uint64_t bin = self_fingerprint();
+  const uint64_t png = hash_file(path);
+  if (!bin || !png || g_inflight_lf < 0) {
+    return false;
+  }
+  FILE* f = std::fopen((path + ".provenance.txt").c_str(), "w");
+  if (!f) {
+    return false;
+  }
+  const bool written = std::fprintf(
+      f, "version=1\ncase=%s\nconfig=%016llx\nbin=%016llx\nflavour=%s\npng=%016llx\n"
+         "capture_lf=%lld\n",
+      step_image_name(step).c_str(), (unsigned long long)census_config_fingerprint(),
+      (unsigned long long)bin, build_flavour(), (unsigned long long)png,
+      (long long)g_inflight_lf) > 0;
+  const bool closed = std::fclose(f) == 0;
+  return written && closed;
+}
+
+const char* check_supplement_provenance(const Step& step, const std::string& path) {
+  std::vector<std::string> lines;
+  if (!read_metadata_lines(path + ".provenance.txt", lines)) {
+    return "sidecar-read";
+  }
+  std::map<std::string, std::string> fields;
+  for (const auto& line : lines) {
+    const auto equal = line.find('=');
+    if (equal == std::string::npos ||
+        !fields.emplace(line.substr(0, equal), line.substr(equal + 1)).second) {
+      return "sidecar-fields";
+    }
+  }
+  for (const char* key : {"version", "case", "config", "bin", "flavour", "png", "capture_lf"}) {
+    if (!fields.count(key)) {
+      return "sidecar-fields";
+    }
+  }
+  if (fields.size() != 7 || fields.at("version") != "1") {
+    return "sidecar-version";
+  }
+  if (fields.at("case") != step_image_name(step)) {
+    return "case";
+  }
+  uint64_t config = 0, bin = 0, png = 0, lf = 0;
+  if (fields.at("config").size() != 16 || !parse_unsigned(fields.at("config"), 16, config) ||
+      config != census_config_fingerprint()) {
+    return "config";
+  }
+  if (fields.at("bin").size() != 16 || !parse_unsigned(fields.at("bin"), 16, bin) || !bin ||
+      bin != read_capture_witness(step.phase, true)) {
+    return "bin-witness";
+  }
+  const std::string& flavour = fields.at("flavour");
+  if ((flavour != "normal" && flavour != "ablate") ||
+      flavour != read_capture_flavour(step.phase, true)) {
+    return "flavour-witness";
+  }
+  if (fields.at("png").size() != 16 || !parse_unsigned(fields.at("png"), 16, png) || !png ||
+      png != hash_file(path)) {
+    return "png";
+  }
+  // This checks the recorded schedule; it does not restore simulation state.
+  if (!parse_unsigned(fields.at("capture_lf"), 10, lf) || g_inflight_lf < 0 ||
+      lf != static_cast<uint64_t>(g_inflight_lf)) {
+    return "capture-lf";
+  }
+  return nullptr;
+}
+
 void publish_flaky() {
   g_flaky_done = true;
   const uint64_t bin = self_fingerprint();
@@ -1604,7 +1762,7 @@ void publish_flaky() {
   autoport_proof::publish_text("refset_refs_fp", t);
   std::snprintf(t, sizeof(t), "%016llx", (unsigned long long)data);
   autoport_proof::publish_text("refset_data_fp", t);
-  if (!bin || !refs || !data || g_missing || g_size_bad || g_decode_bad ||
+  if (!bin || !refs || !data || g_missing || g_size_bad || g_decode_bad || g_provenance_bad ||
       g_compared != g_steps.size()) {
     autoport_proof::publish("refset_replay_runs", 0);
     autoport_proof::publish("refset_replay_flaky", 255);
@@ -2550,27 +2708,41 @@ bool consume_capture(int w, int h, const void* rgba) {
 
   if (g_mode == 1) {
     file_util::write_rgba_png(path, const_cast<void*>(rgba), w, h);
-    g_captured++;
-    write_capture_witness(g_steps[g_cur].phase, g_steps[g_cur].supplemental);
-    std::printf("REFSET cap %s step=%d/%d\n", g_capture_name.c_str(), (int)g_cur,
-                (int)g_steps.size());
-    std::fflush(stdout);
     // Un chemin n'est pas une preuve : on relit tout de suite ce qu'on vient d'ecrire et on
     // verifie que l'aller-retour PNG est exact. Sinon la reference ne vaut rien et personne ne
     // le saurait avant l'item suivant.
     std::vector<uint8_t> back;
     uint32_t bw = 0, bh = 0, bc = 0;
-    if (fpng::fpng_decode_file(path.c_str(), back, bw, bh, bc, 4) != 0 || (int)bw != w ||
-        (int)bh != h) {
-      g_roundtrip_bad++;
-    } else {
+    bool roundtrip_ok = false;
+    if (fpng::fpng_decode_file(path.c_str(), back, bw, bh, bc, 4) == 0 && (int)bw == w &&
+        (int)bh == h) {
       uint64_t md = 0, np = 0;
       compare(cur, back.data(), n_px, &md, &np);
-      if (md != 0) {
-        g_roundtrip_bad++;
+      roundtrip_ok = md == 0;
+    }
+    if (!roundtrip_ok) {
+      g_roundtrip_bad++;
+    } else {
+      const Step& step = g_steps[g_cur];
+      const bool witness_ok = write_capture_witness(step.phase, step.supplemental);
+      const bool provenance_ok = !step.supplemental || write_supplement_provenance(step, path);
+      if (!witness_ok || !provenance_ok) {
+        report_provenance(step, !witness_ok ? "witness-write" : "sidecar-write");
+      } else {
+        g_captured++;
+        std::printf("REFSET cap %s step=%d/%d\n", g_capture_name.c_str(), (int)g_cur,
+                    (int)g_steps.size());
+        std::fflush(stdout);
       }
     }
   } else {
+    const Step& step = g_steps[g_cur];
+    const char* provenance_error = nullptr;
+    if (step.supplemental) {
+      g_provenance_checked++;
+      provenance_error = check_supplement_provenance(step, path);
+      report_provenance(step, provenance_error);
+    }
     std::vector<uint8_t> ref;
     uint32_t rw = 0, rh = 0, rc = 0;
     const int rc_dec = fpng::fpng_decode_file(path.c_str(), ref, rw, rh, rc, 4);
@@ -2582,7 +2754,7 @@ bool consume_capture(int w, int h, const void* rgba) {
       g_decode_bad++;
     } else if ((int)rw != w || (int)rh != h) {
       g_size_bad++;
-    } else {
+    } else if (!provenance_error) {
       uint64_t md = 0, np = 0;
       compare(cur, ref.data(), n_px, &md, &np);
       g_compared++;
@@ -2697,7 +2869,7 @@ int verdict_master_off_bitexact() {
   // l'innocuite : son zero ne voudrait rien dire, et il ne doit pas pouvoir fermer la porte.
   return 1;
 #else
-  const bool clean = !g_missing && !g_size_bad && !g_decode_bad;
+  const bool clean = !g_missing && !g_size_bad && !g_decode_bad && !g_provenance_bad;
   if (g_mode != 2 || !clean || g_compared_phase[1] != 8 || g_maxdiff_phase[1] != 0) {
     return 1;
   }

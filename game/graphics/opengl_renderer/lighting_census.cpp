@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <unordered_map>
 #include <vector>
 
@@ -416,15 +418,47 @@ void roi_after(const RoiSnapshot& before,
                 type, s_roi_capture, id, name);
     return;
   }
-  unsigned changed = 0;
+  unsigned changed = 0, rgb_changed = 0, alpha_changed = 0, alpha_only = 0;
+  double rgb_maxdiff = 0;
+  const bool hdr = before.bytes_per_pixel == 4 * sizeof(float);
+  const size_t rgb_bytes = 3 * (before.bytes_per_pixel / 4);
+  // FNV-1a of RGB readback bytes only, in readback row order (bottom to top).
+  uint64_t rgb_before_hash = 14695981039346656037ull;
+  uint64_t rgb_after_hash = 14695981039346656037ull;
   int min_x = 320, min_y = 180, max_x = -1, max_y = -1;
   for (int y = 0; y < before.h; ++y) {
     for (int x = 0; x < before.w; ++x) {
       const size_t offset = (size_t(y) * before.w + x) * before.bytes_per_pixel;
-      if (std::memcmp(before.rgba.data() + offset, after.rgba.data() + offset,
-                      before.bytes_per_pixel) == 0)
+      const auto* before_pixel = before.rgba.data() + offset;
+      const auto* after_pixel = after.rgba.data() + offset;
+      for (size_t i = 0; i < rgb_bytes; ++i) {
+        rgb_before_hash = (rgb_before_hash ^ before_pixel[i]) * 1099511628211ull;
+        rgb_after_hash = (rgb_after_hash ^ after_pixel[i]) * 1099511628211ull;
+      }
+      const bool rgb_diff = std::memcmp(before_pixel, after_pixel, rgb_bytes) != 0;
+      const bool alpha_diff = std::memcmp(before_pixel + rgb_bytes, after_pixel + rgb_bytes,
+                                          before.bytes_per_pixel - rgb_bytes) != 0;
+      changed += rgb_diff || alpha_diff;
+      alpha_changed += alpha_diff;
+      alpha_only += alpha_diff && !rgb_diff;
+      if (!rgb_diff)
         continue;
-      ++changed;
+      ++rgb_changed;
+      for (int channel = 0; channel < 3; ++channel) {
+        double delta;
+        if (hdr) {
+          float a, b;
+          std::memcpy(&a, before_pixel + channel * sizeof(float), sizeof(float));
+          std::memcpy(&b, after_pixel + channel * sizeof(float), sizeof(float));
+          delta = a == b ? 0 : std::abs(double(a) - double(b));
+          // A non-finite difference must not silently report zero amplitude.
+          if (std::isnan(delta))
+            delta = std::numeric_limits<double>::infinity();
+        } else {
+          delta = std::abs(int(before_pixel[channel]) - int(after_pixel[channel]));
+        }
+        rgb_maxdiff = std::max(rgb_maxdiff, delta);
+      }
       const int cx = (before.x + x - before.viewport[0]) * 320 / before.viewport[2];
       const int cy = 179 - (before.y + y - before.viewport[1]) * 180 / before.viewport[3];
       min_x = std::min(min_x, cx);
@@ -435,11 +469,15 @@ void roi_after(const RoiSnapshot& before,
   }
   std::printf(
       "REFSET-ROI type=%s capture=%u id=%d name=%s hash=%016llx first_index=%u "
-      "texture=%d fbo=%d dims=%dx%d bpp=%d viewport=%d,%d,%d,%d changed=%u bbox=%d,%d,%d,%d\n",
+      "texture=%d fbo=%d dims=%dx%d bpp=%d viewport=%d,%d,%d,%d changed=%u "
+      "rgb_changed=%u rgb_maxdiff=%.9g rgb_units=%s alpha_changed=%u alpha_only=%u "
+      "rgb_bbox=%d,%d,%d,%d rgb_before_hash=%016llx rgb_after_hash=%016llx\n",
       type, s_roi_capture, id, name, (unsigned long long)hash, first_index, texture,
       before.framebuffer, before.width, before.height, before.bytes_per_pixel, before.viewport[0],
-      before.viewport[1], before.viewport[2], before.viewport[3], changed, changed ? min_x : -1,
-      changed ? min_y : -1, max_x, max_y);
+      before.viewport[1], before.viewport[2], before.viewport[3], changed, rgb_changed, rgb_maxdiff,
+      hdr ? "hdr_float" : "rgba8_code_value", alpha_changed, alpha_only,
+      rgb_changed ? min_x : -1, rgb_changed ? min_y : -1, max_x, max_y,
+      (unsigned long long)rgb_before_hash, (unsigned long long)rgb_after_hash);
 }
 
 bool active() {

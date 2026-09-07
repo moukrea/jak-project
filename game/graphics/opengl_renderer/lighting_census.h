@@ -90,6 +90,10 @@ void frame_end();
 
 // Diagnostic only: local snapshots allow a bucket to contain Merc snapshots.
 // Enabled only by OG_REFSET_TRACE_ROI=1 during the first 24 capture frames.
+// Counts use exact readback bytes per pixel: changed includes RGBA, rgb_changed
+// excludes alpha, and alpha_only counts alpha changes with identical RGB bytes.
+// rgb_bbox uses capture coordinates; RGB hashes exclude alpha. rgb_maxdiff is
+// measured in native HDR float values or RGBA8 code values, not final PNG values.
 struct RoiSnapshot {
   int framebuffer = 0;
   int width = 0, height = 0;

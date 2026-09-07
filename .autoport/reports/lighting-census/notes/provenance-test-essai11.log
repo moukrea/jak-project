@@ -1,0 +1,33 @@
+version: sidecar-fields
+duplicate: sidecar-read
+case: sidecar-fields
+duplicate: sidecar-read
+config: sidecar-fields
+duplicate: sidecar-read
+bin: sidecar-fields
+duplicate: sidecar-read
+flavour: sidecar-fields
+duplicate: sidecar-read
+png: sidecar-fields
+duplicate: sidecar-read
+capture_lf: sidecar-fields
+duplicate: sidecar-read
+invalid frame: capture-lf
+invalid frame: capture-lf
+invalid frame: capture-lf
+invalid frame: capture-lf
+invalid frame: capture-lf
+version: sidecar-version
+case: case
+config: config
+bin: bin-witness
+bin: bin-witness
+flavour: flavour-witness
+flavour: flavour-witness
+png: png
+wrong frame: capture-lf
+wrong config: config
+changed PNG: png
+duplicate witness: bin-witness
+missing sidecar: sidecar-read
+valid roundtrip=1 rejected=32
