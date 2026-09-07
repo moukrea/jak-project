@@ -99,6 +99,8 @@ _new-all-types.gc
 .autoport/state.json
 .autoport/state.json.bak*
 .autoport/.orchestrator.lock
+.autoport/.supervisor-watch.lock
+.autoport/.supervisor-codex-session*
 .autoport/.phase-claim.*
 .autoport/.scope_stamp
 .autoport/.directives_issued

@@ -893,7 +893,7 @@ def build(args):
     write_yaml(doc, args.out)
     sys.path.insert(0, AP)
     from lib import backlog as bl
-    written = [bl.write_prompt(it, AP) for it in items if it["status"] == "open"]
+    written = [bl.write_prompt(it, os.path.dirname(os.path.abspath(args.out))) for it in items if it["status"] == "open"]
     print("%d prompts d'item ecrits (prompts/item-*.md)" % len(written))
     summarise(items)
     print("\n%d items ecrits dans %s (%d phases couvertes)" %

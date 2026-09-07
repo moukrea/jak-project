@@ -14,6 +14,29 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# CLI selection is per process; it never rewrites the other provider's profile.
+BACKEND="${AUTOPORT_BACKEND:-claude}"
+ARGS=()
+WATCH=0
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --backend) BACKEND="${2:?--backend exige claude ou codex}"; shift ;;
+        --backend=*) BACKEND="${1#*=}" ;;
+        --watch) WATCH=1 ;;
+        *) ARGS+=("$1") ;;
+    esac
+    shift
+done
+case "$BACKEND" in claude|codex) ;; *) echo "Backend inconnu: $BACKEND" >&2; exit 2 ;; esac
+export AUTOPORT_BACKEND="$BACKEND"
+if [ "$WATCH" = 1 ]; then
+    exec python3 .autoport/watch.py --backend "$BACKEND" "${ARGS[@]}"
+fi
+if [ "$BACKEND" = codex ]; then
+    exec python3 .autoport/codex/supervisor.py "${ARGS[@]}"
+fi
+set -- "${ARGS[@]}"
+
 PROMPT_FILE=".autoport/SUPERVISOR_PROMPT.md"
 
 if ! [ -f "$PROMPT_FILE" ]; then

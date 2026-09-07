@@ -71,12 +71,12 @@ proc_starttime() { proc_tail "$1" | awk 'NF{print $20}'; }
 proc_ppid()      { proc_tail "$1" | awk 'NF{print $2}'; }
 proc_comm()      { cat "/proc/$1/comm" 2>/dev/null; }
 
-# Le worker est le premier ancetre dont le NOM de programme est `claude`. Le hook tourne dans
+# Le worker est le premier ancetre dont le NOM est `claude` ou `codex`. Le hook tourne dans
 # un bash lance par lui, donc on remonte la chaine des parents plutot que de supposer $PPID.
 find_worker_pid() {
     local pid="${PPID:-$$}" hops=0 ppid
     while [ "$hops" -lt 12 ] && [ "${pid:-0}" -gt 1 ] 2>/dev/null; do
-        if [ "$(proc_comm "$pid")" = "claude" ]; then printf '%s' "$pid"; return 0; fi
+        case "$(proc_comm "$pid")" in claude|codex) printf '%s' "$pid"; return 0 ;; esac
         ppid=$(proc_ppid "$pid")
         [ -n "${ppid:-}" ] || return 1
         pid="$ppid"; hops=$((hops + 1))
@@ -96,7 +96,7 @@ claim_is_live() {
     now_st=$(proc_starttime "$pid") || return 1
     [ "$now_st" = "$st" ] || return 1          # pid recycle : le jeton est perime
     comm=$(proc_comm "$pid")
-    [ "$comm" = "claude" ] || return 1         # ce n'est plus un worker
+    case "$comm" in claude|codex) ;; *) return 1 ;; esac # ce n'est plus un worker
     return 0
 }
 
@@ -108,7 +108,13 @@ case "$cmd" in
       echo "libre"; exit 1 ;;
 
   claim)
-      wpid=$(find_worker_pid) || wpid="$$"
+      if ! wpid=$(find_worker_pid); then
+          if [ "${AUTOPORT_BACKEND:-claude}" = codex ]; then
+              echo "identite du processus Codex introuvable : refus de poser un jeton ephemere" >&2
+              exit 2
+          fi
+          wpid="$$"
+      fi
       wst=$(proc_starttime "$wpid" || echo 0)
       # flock sur un fichier SEPARE : le jeton lui-meme est reecrit, donc le verrouiller
       # directement ouvrirait une fenetre entre la troncature et l'ecriture.
@@ -132,7 +138,13 @@ case "$cmd" in
       exit 0 ;;
 
   release)
-      wpid=$(find_worker_pid) || wpid="$$"
+      if ! wpid=$(find_worker_pid); then
+          if [ "${AUTOPORT_BACKEND:-claude}" = codex ]; then
+              echo "identite du processus Codex introuvable : refus de poser un jeton ephemere" >&2
+              exit 2
+          fi
+          wpid="$$"
+      fi
       exec 9>"$LOCK"
       flock -x 9
       holder=$(claim_holder "$CLAIM")

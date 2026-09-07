@@ -98,7 +98,7 @@ if ! is_text "$FIRST"; then
     && IPFOUND=${BASH_REMATCH[2]}
   if [ -n "$IPFOUND" ] && [[ $CLEAN =~ (adb|connect|scrcpy) ]]; then
     refuse "la commande vise un appareil par une adresse reseau ($IPFOUND) : seul l'appareil USB est autorise." \
-           "l'appareil de preuve est celui branche en USB, quel qu'il soit : adb -s $(.autoport/lib/pick_device.sh) ..." ;
+           "l'appareil de preuve est celui branche en USB, quel qu'il soit : adb -s \$(.autoport/lib/pick_device.sh) ..." ;
   fi
   # `until ! pgrep -f x` ne finit jamais quand le motif se matche lui-meme : 4 incidents,
   # 24 minutes perdues une fois. La regle porte sur la BOUCLE, pas sur le motif.
@@ -158,7 +158,7 @@ while IFS= read -r seg; do
         case "$seg" in
           *devices*|*start-server*|*kill-server*|*" version"*|*" help"*) ;;
           *) refuse "\`adb\` sans -s : la commande vise n'importe quel appareil branche." \
-                    "nomme l'appareil : adb -s $(.autoport/lib/pick_device.sh) <commande> (jamais une adresse reseau)" ;;
+                    "nomme l'appareil : adb -s \$(.autoport/lib/pick_device.sh) <commande> (jamais une adresse reseau)" ;;
         esac
       fi ;;
   esac

@@ -1,0 +1,17 @@
+{
+  "_doc": "Codex uniquement. Modèles vides = configuration de la CLI installée ; sous-agents héritent. Comme le mode Claude autonome, danger-full-access permet les builds, appareils et commits sans interaction. workspace-write est disponible pour limiter les accès. Aucun effet sur les profils Claude.",
+  "active": "codex-local",
+  "profiles": {
+    "codex-local": {
+      "manager_model": "",
+      "manager_effort": "high",
+      "worker_model": "",
+      "worker_efforts": {
+        "autoport-researcher": "high",
+        "autoport-implementer": "medium",
+        "autoport-tester": "medium"
+      },
+      "sandbox": "danger-full-access"
+    }
+  }
+}

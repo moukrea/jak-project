@@ -57,6 +57,10 @@ from typing import Any
 from rich.console import Console
 from rich.panel import Panel
 
+from lib import cli_backend
+
+BACKEND = "claude"
+
 # ============================================================
 # Configuration
 # ============================================================
@@ -454,6 +458,8 @@ class PrettyState:
     tool_use_names: dict[str, str] = field(default_factory=dict)  # id -> name
     init_printed: bool = False
     dirty_since_tick: bool = False           # gate periodic tick on activity
+    cli_failed: bool = False
+    cli_error: str = ""
     result_seen: bool = False                # at least one result/* event arrived
     # The ONE piece of quota behaviour we keep (owner policy): when the API
     # REFUSES us, it tells us when the window resets. We sleep until then
@@ -525,6 +531,11 @@ def _maybe_emit_tick(state: PrettyState) -> None:
 def pretty_print_event(ev: dict, state: PrettyState) -> None:
     """Render one stream-json event compactly. Never raises."""
     try:
+        if BACKEND == "codex":
+            line = cli_backend.update_codex(ev, state)
+            if line and (not QUIET or cli_backend.codex_error(ev)):
+                console.print(line, markup=False)
+            return
         t = ev.get("type")
 
         if t == "system":
@@ -677,6 +688,9 @@ def count_api_529(path: Path) -> int:
 def fatal_config_reason(path: Path) -> str:
     """A model/auth/request error that will repeat forever, not a rate limit."""
     for ev in _iter_events(path):
+        error = cli_backend.codex_error(ev)
+        if error and cli_backend.error_kind(error) == "config":
+            return error
         for st in _api_error_statuses(ev):
             if st in (401, 403, 404):
                 return (f"erreur API {st} (modèle / authentification / requête). "
@@ -741,6 +755,7 @@ _HARNESS_STATE_FILES = {
     ".autoport/backlog.yaml",
     ".autoport/milestones.yaml",
     ".autoport/.orchestrator.lock",
+    ".autoport/.supervisor-watch.lock",
     ".autoport/.scope_stamp",
     ".autoport/.directives_issued",
     ".autoport/.last_apk_build_sha",
@@ -1197,7 +1212,7 @@ def _item_header(item: dict, seq: int) -> str:
 
 def _delegation_preamble(effort: str) -> str:
     we = WORKER_EFFORTS
-    return (
+    text = (
         "## WORK ECONOMY (mandatory — manager/worker delegation)\n"
         f"You are the MANAGER ({MODEL}, effort={effort}): plan, decide, judge,\n"
         "synthesize, review. Delegate bulk execution to subagents via the Task\n"
@@ -1244,6 +1259,24 @@ def _delegation_preamble(effort: str) -> str:
         "TENTÉ et pourquoi ça a échoué, ce qui RESTE à faire. C'est le seul contexte\n"
         "que l'essai suivant recevra.\n\n"
     )
+    if BACKEND == "codex":
+        start = text.index("## BUILD & DELIVERY")
+        text = (
+            "## DÉLÉGATION CODEX\n"
+            "Tu es le manager. Délègue les sous-tâches indépendantes aux outils natifs "
+            "Codex spawn_agent / wait_agent / send_message, puis vérifie leurs résultats. "
+            "Ne lance jamais claude, ni une autre CLI pour les sous-tâches.\n"
+            f"Modèle des sous-agents : {SUBAGENT_MODEL or 'hérité de la CLI'}. "
+            f"Trois rôles : researcher = lecture seule ({we.get('autoport-researcher', 'high')}), "
+            f"implementer = spec exacte ({we.get('autoport-implementer', 'medium')}), "
+            f"tester = builds et mesures ({we.get('autoport-tester', 'medium')}). "
+            "Lis .autoport/codex/roles.md. Passe explicitement le rôle et son effort au spawn. "
+            "Chaque prompt commence par le périmètre et DIRECTIVES <version>. "
+            "Ne délègue pas la compréhension ; donne fichiers, questions et critères précis. "
+            "Attends tous les agents avant de terminer. Relance-les si le périmètre change.\n\n"
+        ) + text[start:]
+    return text
+
 
 
 def build_instructions(item: dict, seq: int) -> str:
@@ -1343,27 +1376,27 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     console.print(Panel.fit(
         f"[bold cyan]{iid}[/bold cyan] · essai {seq} · "
         f"{item.get('feature', '')[:70]}\n"
-        f"modèle={MODEL} · effort={effort} · sous-agents={SUBAGENT_MODEL}",
+        f"CLI={BACKEND} · modèle={MODEL or 'défaut CLI'} · effort={effort} · sous-agents={SUBAGENT_MODEL or 'hérités'}",
         border_style="cyan"))
 
     env = os.environ.copy()
-    env["CLAUDE_EFFORT"] = effort
-    env["CLAUDE_CODE_SUBAGENT_MODEL"] = SUBAGENT_MODEL
+    env["AUTOPORT_BACKEND"] = BACKEND
+    env["CLAUDE_PROJECT_DIR"] = str(REPO_ROOT)
+    if BACKEND == "claude":
+        env["CLAUDE_EFFORT"] = effort
+        env["CLAUDE_CODE_SUBAGENT_MODEL"] = SUBAGENT_MODEL
+    else:
+        for key in ("CLAUDE_EFFORT", "CLAUDE_CODE_SUBAGENT_MODEL", "CLAUDECODE"):
+            env.pop(key, None)
     env["AUTOPORT_PHASE_ID"] = iid                       # = l'id d'item
     env["AUTOPORT_PHASE_VALIDATOR"] = str(GENERIC_VALIDATOR)
 
     # 2026-08-17 : le prompt passe par STDIN, plus jamais en argv. Un argument
     # unique est plafonne a MAX_ARG_STRLEN (~128 Ko) sur Linux ; le contrat a
     # depasse cette taille et l'exec mourait en OSError E2BIG AVANT tout travail.
-    cmd = [
-        "claude", "-p",
-        "--model", MODEL,
-        "--effort", effort,
-        "--max-turns", str(min(item.get("max_turns", 300), 300)),
-        "--output-format", "stream-json",
-        "--verbose",
-        "--dangerously-skip-permissions",
-    ]
+    profile = dict(_PROFILE, manager_model=MODEL, worker_model=SUBAGENT_MODEL)
+    cmd = cli_backend.worker_command(REPO_ROOT, BACKEND, profile, effort,
+                                     item.get("max_turns", 300))
 
     pstate = PrettyState(t0=time.monotonic())
     stderr_tail: list[str] = []
@@ -1372,21 +1405,30 @@ def run_attempt(item: dict, state: dict) -> Outcome:
 
     with attempt_log.open("x") as f:
         f.write(json.dumps({
-            "event": "attempt_start", "item_id": iid, "attempt": seq,
+            "event": "attempt_start", "item_id": iid, "attempt": seq, "backend": BACKEND,
             "model": MODEL, "effort": effort, "subagent_model": SUBAGENT_MODEL,
             "cmd": cmd, "started_at": datetime.now(timezone.utc).isoformat(),
         }) + "\n")
         f.flush()
 
-        proc = subprocess.Popen(cmd, cwd=REPO_ROOT, env=env,
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, bufsize=1, text=True,
-                                start_new_session=True)
+        try:
+            proc = subprocess.Popen(cmd, cwd=REPO_ROOT, env=env,
+                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, bufsize=1, text=True,
+                                    start_new_session=True)
+        except OSError as e:
+            f.write(json.dumps({"event": "attempt_end", "launch_error": str(e)}) + "\n")
+            return Outcome("no-start", f"CLI {BACKEND} impossible à lancer : {e}", stderr_tail=[str(e)])
+        _CURRENT_CHILD = proc
         try:
             proc.stdin.write(instructions)
-        finally:
-            proc.stdin.close()          # EOF, sans quoi claude attend indefiniment
-        _CURRENT_CHILD = proc
+            proc.stdin.close()          # EOF, sans quoi la CLI attend indefiniment
+        except BrokenPipeError:
+            # A CLI may reject config before consuming stdin. Still drain its diagnostic.
+            try:
+                proc.stdin.close()
+            except BrokenPipeError:
+                pass
 
         last_event_at = time.monotonic()
         last_progress_at = time.monotonic()
@@ -1409,6 +1451,13 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                 except (OSError, ValueError):
                     break                          # stdout closed underneath us
 
+                # Continuous JSON traffic must not hide a scope cancellation.
+                if _scope_changed(scope_seen) != scope_seen:
+                    _kill("scope")
+                    break
+                if BACKEND == "codex" and pstate.tool_calls >= min(item.get("max_turns", 300), 300):
+                    _kill("tool-budget")
+                    break
                 if not ready:
                     idle = time.monotonic() - last_event_at
                     if proc.poll() is not None:
@@ -1416,7 +1465,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                     # claude said `result` but won't exit (TaskCreate re-engagements
                     # keep the process open in -p mode). Force the issue.
                     if pstate.result_seen and idle >= STALL_POST_RESULT_SEC:
-                        log(f"· claude a émis result sans sortir ({idle:.0f}s) — "
+                        log(f"· {BACKEND} a émis son résultat sans sortir ({idle:.0f}s) — "
                             f"fermeture forcée", "yellow")
                         _kill("post-result")
                         break
@@ -1438,7 +1487,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                             _kill("no-progress")
                             break
                     if idle >= STALL_HARD_SEC:
-                        log(f"· aucune sortie de claude depuis {idle:.0f}s — on tue", "red")
+                        log(f"· aucune sortie de {BACKEND} depuis {idle:.0f}s — on tue", "red")
                         _kill("hard-silence")
                         break
                     _maybe_emit_tick(pstate)
@@ -1465,9 +1514,15 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                     # never be recovered. It is printed whatever the verbosity.
                     stderr_tail.append(line)
                     del stderr_tail[:-40]
-                    console.print(f"[magenta]claude:[/magenta] [dim]{_truncate(line, 300)}[/dim]")
+                    console.print(f"[magenta]{BACKEND}:[/magenta] [dim]{_truncate(line, 300)}[/dim]")
                     continue
 
+                if not isinstance(ev, dict):
+                    continue
+                error = cli_backend.codex_error(ev) if BACKEND == "codex" else ""
+                if error:
+                    stderr_tail.append(error)
+                    del stderr_tail[:-40]
                 pretty_print_event(ev, pstate)
         except KeyboardInterrupt:
             _kill("signal")
@@ -1491,6 +1546,9 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             "tokens_in": pstate.tokens_in, "tokens_out": pstate.tokens_out,
             "cache_read": pstate.cache_read,
         }) + "\n")
+
+    if BACKEND == "codex" and (pstate.cli_failed or not pstate.result_seen) and rc == 0:
+        rc = 1
 
     touched = worker_paths()          # ce que l'essai a laissé dans l'arbre
     did_work = (pstate.tokens_in + pstate.tokens_out) > 0 or pstate.tool_calls > 0
@@ -1520,8 +1578,10 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         _checkpoint(f"essai {seq} annulé — changement de périmètre (non compté)")
         return Outcome("interrupted", "périmètre changé pendant l'essai")
 
-    fatal = fatal_config_reason(attempt_log) if (rc != 0 and not did_work) else ""
+    fatal = fatal_config_reason(attempt_log) if (rc != 0 and (not did_work or BACKEND == "codex")) else ""
     if fatal:
+        if did_work:
+            _checkpoint(f"essai {seq} — configuration CLI refusée (non compté)")
         return Outcome("blocked", fatal, stderr_tail=stderr_tail)
 
     if rc != 0 and not abort_reason and (not did_work or pstate.rate_rejected):
@@ -1531,9 +1591,15 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         # window reopens — we sleep until then instead of guessing five minutes.
         reset = pstate.rate_reset_at or rate_reset_from_log(attempt_log)
         why = ("l'API nous a refusés en cours de session"
-               if did_work else f"claude est sorti en {rc} sans rien faire")
+               if did_work else f"{BACKEND} est sorti en {rc} sans rien faire")
         _checkpoint(f"essai {seq} — session refusée par l'API (non compté)")
         return Outcome("no-start", why, resume_at=reset, stderr_tail=stderr_tail)
+
+    if (BACKEND == "codex" and rc != 0 and not abort_reason
+            and cli_backend.error_kind(pstate.cli_error) == "infra"):
+        _checkpoint(f"essai {seq} — API Codex indisponible (non compté)")
+        return Outcome("infra", pstate.cli_error,
+                       resume_at=int(time.time()) + API_529_SLEEP, stderr_tail=stderr_tail)
 
     if rc != 0 and not abort_reason:
         # An Anthropic outage, counted from structured API errors only, and only
@@ -1545,7 +1611,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                            resume_at=int(time.time()) + API_529_SLEEP)
 
     # ---- COUNTED OUTCOMES ------------------------------------------------
-    log(f"Claude Code est sorti en {rc}. Validateur…", "dim")
+    log(f"{BACKEND} est sorti en {rc}. Validateur…", "dim")
     with validator_log.open("w") as f:
         v = subprocess.run(["bash", str(GENERIC_VALIDATOR)], cwd=REPO_ROOT,
                            env={**os.environ, "AUTOPORT_PHASE_ID": iid},
@@ -1709,10 +1775,16 @@ def release_stale_in_progress(bk) -> list[str]:
 def _startup_refusals() -> str:
     """'' when we may start, otherwise the reason and what to do about it."""
     import shutil
-    if shutil.which("claude") is None:
+    if BACKEND == "codex":
+        if shutil.which("codex") is None:
+            return "`codex` absent du PATH : installe la CLI Codex."
+        reason = cli_backend.auth_error()
+        if reason:
+            return reason
+    if BACKEND == "claude" and shutil.which("claude") is None:
         return ("`claude` n'est pas dans le PATH : aucun worker ne peut démarrer.\n"
                 "  → installe la CLI Claude Code, ou corrige le PATH du service.")
-    if not CREDENTIALS_PATH.exists():
+    if BACKEND == "claude" and not CREDENTIALS_PATH.exists():
         return (f"aucun identifiant Claude Code dans {CREDENTIALS_PATH}.\n"
                 f"  → lance `claude` une fois en interactif pour finir l'OAuth.")
     reason = backlog_missing_reason()
@@ -1736,12 +1808,36 @@ def _startup_refusals() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    global QUIET
+    global QUIET, BACKEND, _PROFILE, MODEL, EFFORT, SUBAGENT_MODEL, WORKER_EFFORTS, PROFILE_NAME
     parser = argparse.ArgumentParser(description="Autoport orchestrator")
     parser.add_argument("--quiet", action="store_true",
                         help="Supprime le rendu des événements (le stderr de claude "
                              "reste imprimé : c'est la seule trace d'un non-démarrage)")
+    parser.add_argument("--backend", choices=cli_backend.BACKENDS,
+                        default=os.environ.get("AUTOPORT_BACKEND", "claude"))
+    parser.add_argument("--check", action="store_true",
+                        help="Vérifie la CLI et affiche la commande sans lancer de worker")
     args = parser.parse_args(argv)
+    BACKEND = cli_backend.selected(args.backend)
+    os.environ["AUTOPORT_BACKEND"] = BACKEND
+    try:
+        _PROFILE = (cli_backend.codex_profile(REPO_ROOT) if BACKEND == "codex"
+                    else _load_model_profile())
+    except (ValueError, KeyError, OSError) as e:
+        parser.error(str(e))
+    MODEL, EFFORT = _PROFILE["manager_model"], _PROFILE["manager_effort"]
+    SUBAGENT_MODEL, WORKER_EFFORTS = _PROFILE["worker_model"], _PROFILE["worker_efforts"]
+    PROFILE_NAME = _PROFILE["_active_name"]
+    if args.check:
+        import shutil
+        error = (cli_backend.auth_error() if BACKEND == "codex" else
+                 ("identifiants Claude absents" if not CREDENTIALS_PATH.exists() else ""))
+        if not shutil.which(BACKEND):
+            error = f"CLI {BACKEND} absente du PATH"
+        print(json.dumps({"backend": BACKEND, "profile": PROFILE_NAME, "error": error,
+                          "command": cli_backend.worker_command(REPO_ROOT, BACKEND, _PROFILE, EFFORT, 300)},
+                         ensure_ascii=False, indent=2))
+        return int(bool(error))
     QUIET = bool(args.quiet)
 
     lock = acquire_single_instance_lock()
@@ -1819,7 +1915,7 @@ def main(argv: list[str] | None = None) -> int:
                 + "\n".join(f"  {ln}" for ln in out.key_lines[-8:]),
                 border_style="red"))
             if out.stderr_tail:
-                log("Ce que claude a dit :", "yellow")
+                log(f"Ce que {BACKEND} a dit :", "yellow")
                 for ln in out.stderr_tail[-10:]:
                     log(f"  {ln}", "dim")
             no_start_streak = 0
@@ -1839,13 +1935,13 @@ def main(argv: list[str] | None = None) -> int:
             log(f"⏳ {iid} : {out.reason} (non compté, {no_start_streak}/"
                 f"{MAX_NO_START_ITERATIONS})", "yellow")
             for ln in out.stderr_tail[-10:]:
-                log(f"    claude: {ln}", "dim")
+                log(f"    {BACKEND}: {ln}", "dim")
             if no_start_streak >= MAX_NO_START_ITERATIONS:
                 console.print(Panel.fit(
                     f"[bold red]{MAX_NO_START_ITERATIONS} sessions de suite refusées au "
                     f"démarrage[/bold red]\n\nOn s'arrête au lieu de boucler : la boucle "
                     f"précédente a tourné 230 fois en 19,7 h sans que personne puisse dire "
-                    f"pourquoi.\nDernières lignes de claude :\n"
+                    f"pourquoi.\nDernières lignes de {BACKEND} :\n"
                     + "\n".join(f"  {ln}" for ln in out.stderr_tail[-10:]),
                     border_style="red"))
                 return 1

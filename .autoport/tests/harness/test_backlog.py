@@ -401,7 +401,8 @@ def test_migration_is_replayable_and_byte_identical(tmp_path):
 
 
 def test_migration_does_not_touch_its_sources(tmp_path):
-    sources = [AUTOPORT / "milestones.yaml", AUTOPORT / "state.json"]
+    sources = [AUTOPORT / "milestones.yaml", AUTOPORT / "state.json",
+               *sorted((AUTOPORT / "prompts").glob("item-*.md"))]
     before = [p.read_bytes() for p in sources]
     subprocess.run([sys.executable, str(AUTOPORT / "tools" / "migrate_backlog.py"),
                     "--out", str(tmp_path / "b.yaml")], capture_output=True, timeout=600)

@@ -1,0 +1,306 @@
+"""Both CLIs through the same attempt lifecycle, with no real model/device calls."""
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
+
+import pytest
+
+from lib import cli_backend as cb
+from test_attempt import item_repo, ITEM
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+@pytest.fixture
+def codex_repo(orch, item_repo, monkeypatch):
+    monkeypatch.setattr(orch, 'BACKEND', 'codex')
+    profile = cb.codex_profile(ROOT)
+    monkeypatch.setattr(orch, '_PROFILE', profile)
+    monkeypatch.setattr(orch, 'MODEL', '')
+    monkeypatch.setattr(orch, 'SUBAGENT_MODEL', '')
+    bindir = orch.AUTOPORT_DIR / 'fakebin'
+    bindir.mkdir()
+    monkeypatch.setenv('PATH', str(bindir) + os.pathsep + os.environ['PATH'])
+    return bindir
+
+
+def fake_codex(bindir, events, rc=0, tail=''):
+    exe = bindir / 'codex'
+    exe.write_text('#!/usr/bin/env python3\nimport sys,json\n'
+                   'sys.stdin.read()\n'
+                   'assert "exec" in sys.argv and "--json" in sys.argv and sys.argv[-1] == "-"\n'
+                   'assert "--max-turns" not in sys.argv and "--effort" not in sys.argv\n'
+                   + ''.join('print(' + repr(json.dumps(e)) + ', flush=True)\n' for e in events)
+                   + tail + '\nsys.exit(' + str(rc) + ')\n')
+    exe.chmod(0o755)
+
+
+WORK = [{'type': 'thread.started', 'thread_id': 'thread-demo'},
+        {'type': 'item.started', 'item': {'id': 'one', 'type': 'command_execution', 'command': 'true'}},
+        {'type': 'item.completed', 'item': {'id': 'one', 'type': 'command_execution', 'command': 'true'}},
+        {'type': 'turn.completed', 'usage': {'input_tokens': 100, 'output_tokens': 20, 'cached_input_tokens': 70}}]
+
+
+def test_codex_attempt_runs_same_validator_and_handoff(orch, codex_repo):
+    fake_codex(codex_repo, WORK)
+    orch.GENERIC_VALIDATOR.write_text('echo "FAIL counter=4 expected=0"\nexit 1\n')
+    state = orch.load_state()
+    out = orch.run_attempt(dict(ITEM), state)
+    assert out.kind == 'fail'
+    assert state['retries']['demo'] == 1
+    assert 'counter=4' in orch.handoff_path('demo').read_text()
+    records = [json.loads(l) for l in (orch.LOG_ROOT/'demo/attempt-001.jsonl').read_text().splitlines()]
+    assert records[0]['backend'] == 'codex'
+    assert records[-1]['tool_calls'] == 1
+    assert records[-1]['tokens_in'] == 100
+    assert records[-1]['cache_read'] == 70
+
+
+@pytest.mark.parametrize('events', [[], WORK[:2]])
+def test_codex_rate_refusal_never_burns_retry(orch, codex_repo, events):
+    fake_codex(codex_repo, events + [{'type':'turn.failed','error': {'message':'429 usage limit reached','resets_at':2000000000}}], rc=1)
+    state = orch.load_state()
+    out = orch.run_attempt(dict(ITEM), state)
+    assert out.kind == 'no-start'
+    assert out.resume_at == 2000000000
+    assert not state['retries'].get('demo')
+    assert not list(orch.LOG_ROOT.rglob('validator-*'))
+    assert out.stderr_tail
+
+
+def test_codex_auth_error_is_blocked_not_retried(orch, codex_repo):
+    fake_codex(codex_repo, [{'type': 'error', 'message': '401 Unauthorized authentication failed'}], rc=1)
+    out = orch.run_attempt(dict(ITEM), orch.load_state())
+    assert out.kind == 'blocked'
+    assert '401' in out.reason
+
+
+def test_codex_tools_containing_error_words_are_not_api_failures(orch, codex_repo):
+    fake_codex(codex_repo, WORK[:2] + [{'type':'item.completed', 'item':{'id':'one','type':'command_execution','aggregated_output':'429 quota exceeded 401'}}] + WORK[-1:])
+    out = orch.run_attempt(dict(ITEM), orch.load_state())
+    assert out.kind == 'fail'
+
+
+def test_codex_scope_change_even_under_continuous_output(orch, codex_repo):
+    fake_codex(codex_repo, WORK[:2], tail='import time\nfor i in range(100):\n print(json.dumps({"type":"turn.started"}),flush=True)\n time.sleep(.05)')
+    orch.SCOPE_STAMP.write_text('before')
+    threading.Timer(.2, lambda: orch.SCOPE_STAMP.write_text('after')).start()
+    state = orch.load_state()
+    out = orch.run_attempt(dict(ITEM), state)
+    assert out.kind == 'interrupted'
+    assert not state['retries'].get('demo')
+
+
+def test_cli_options_are_isolated_and_toml_valid(tmp_path):
+    import tomllib
+    p = cb.codex_profile(ROOT)
+    cmd = cb.worker_command(ROOT, 'codex', p, 'high', 30)
+    assert cmd[:2] == ['codex', 'exec']
+    assert '--model' not in cmd
+    for i, token in enumerate(cmd):
+        if token == '-c':
+            tomllib.loads(cmd[i+1])
+    assert 'hooks.PreToolUse=' in ' '.join(cmd)
+    claude = cb.worker_command(tmp_path, 'claude', {'manager_model':'claude-existing'}, 'medium', 22)
+    assert claude[:2] == ['claude','-p']
+    assert claude[claude.index('--max-turns')+1] == '22'
+    assert '--settings' in claude
+    assert 'codex' not in claude
+
+
+def test_backend_default_environment_and_explicit(monkeypatch):
+    monkeypatch.delenv('AUTOPORT_BACKEND', raising=False)
+    assert cb.selected() == 'claude'
+    monkeypatch.setenv('AUTOPORT_BACKEND','codex')
+    assert cb.selected() == 'codex'
+    assert cb.selected('claude') == 'claude'
+    with pytest.raises(ValueError):
+        cb.selected('typo')
+
+
+@pytest.mark.parametrize('name,args', [
+    ('Bash', {'command':'adb shell true'}),
+    ('exec_command', {'cmd':'cmake -B build'}),
+    ('apply_patch', {'command':'*** Begin Patch\n*** Add File: .autoport/reports/demo/proof.png\n+x\n*** End Patch'}),
+])
+def test_codex_hook_denies_same_rules_without_executing_tools(name,args):
+    env = dict(os.environ)
+    env.pop('AUTOPORT_PHASE_ID',None)
+    r = subprocess.run([sys.executable,str(ROOT/'.autoport/codex/hook.py'),'PreToolUse'],
+                       input=json.dumps({'tool_name':name,'tool_input':args,'cwd':str(ROOT)}),
+                       text=True,capture_output=True,env=env)
+    assert r.returncode == 2, r.stderr
+
+
+def test_codex_patch_can_quote_forbidden_commands():
+    env = dict(os.environ)
+    env.pop('AUTOPORT_PHASE_ID',None)
+    r = subprocess.run([sys.executable,str(ROOT/'.autoport/codex/hook.py'),'PreToolUse'],
+                      input=json.dumps({'tool_name':'apply_patch','tool_input':{'command':'*** Add File: notes.md\n+adb shell cmake -B build'}}),
+                      text=True,capture_output=True,env=env)
+    assert r.returncode == 0
+
+
+def test_phase_claim_excludes_other_cli_and_recovers_dead_holder(tmp_path):
+    (tmp_path/'.autoport').mkdir()
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(tmp_path))
+    script = ROOT/'.autoport/phase_claim.sh'
+    # Use real PID/starttime/comm identities, no process-name pattern matching.
+    body = 'import ctypes,subprocess,sys,time\nctypes.CDLL(None).prctl(15,sys.argv[1].encode(),0,0,0)\nr=subprocess.run(["bash",sys.argv[2],"claim","demo"])\nprint(r.returncode,flush=True)\ntime.sleep(30) if r.returncode==0 else None\n'
+    first = subprocess.Popen([sys.executable,'-c',body,'claude',str(script)],env=env,stdout=subprocess.PIPE,text=True)
+    try:
+        assert first.stdout.readline().strip() == '0'
+        second = subprocess.run([sys.executable,'-c',body,'codex',str(script)],env=env,capture_output=True,text=True,timeout=5)
+        assert second.stdout.strip().endswith('3')
+    finally:
+        first.terminate(); first.wait(timeout=5)
+    third = subprocess.Popen([sys.executable,'-c',body,'codex',str(script)],env=env,stdout=subprocess.PIPE,text=True)
+    try:
+        assert third.stdout.readline().strip() == '0'
+        r = subprocess.run(['bash',str(script),'status','demo'],env=env,capture_output=True,text=True)
+        assert r.returncode == 0
+        assert f'pid={third.pid}' in r.stdout
+    finally:
+        third.terminate(); third.wait(timeout=5)
+
+
+def test_codex_success_still_waits_for_owner(orch, codex_repo, monkeypatch):
+    fake_codex(codex_repo, WORK)
+    orch.GENERIC_VALIDATOR.write_text('exit 0\n')
+    monkeypatch.setattr(orch, 'close_gate', lambda item: ('awaiting-owner',''))
+    monkeypatch.setattr(orch, 'git_push', lambda: None)
+    assert orch.run_attempt(dict(ITEM), orch.load_state()).kind == 'awaiting-owner'
+
+
+def test_codex_midrun_transport_failure_is_infra(orch, codex_repo):
+    fake_codex(codex_repo, WORK[:2] + [{'type':'turn.failed','error':{'message':'stream disconnected before completion: connection reset'}}], rc=1)
+    state = orch.load_state()
+    out = orch.run_attempt(dict(ITEM), state)
+    assert out.kind == 'infra'
+    assert not state['retries'].get('demo')
+
+
+def test_missing_cli_is_logged_without_burning_retry(orch, codex_repo):
+    state = orch.load_state()
+    # Point at an explicitly missing executable, independently of the real PATH.
+    original = cb.worker_command
+    cb.worker_command = lambda *a: [str(codex_repo / 'absent')]
+    try:
+        out = orch.run_attempt(dict(ITEM), state)
+    finally:
+        cb.worker_command = original
+    assert out.kind == 'no-start'
+    assert not state['retries'].get('demo')
+    assert 'launch_error' in (orch.LOG_ROOT/'demo/attempt-001.jsonl').read_text()
+
+
+def load_watch():
+    spec = importlib.util.spec_from_file_location('autoport_watch_test', ROOT/'.autoport/watch.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_watch_never_consumes_the_interactive_digest_cursor(tmp_path, monkeypatch, capsys):
+    w = load_watch()
+    (tmp_path/'.autoport').mkdir()
+    monkeypatch.setattr(w, 'ROOT', tmp_path)
+    class B:
+        def status_report(self, changed_only=False):
+            assert not changed_only
+            return 'En cours : essai local'
+        def next_open(self):
+            return None
+    monkeypatch.setattr(w.backlog, 'load', lambda: B())
+    monkeypatch.setattr(w.subprocess, 'Popen', lambda *a,**k: pytest.fail('Observation must not launch'))
+    assert w.main(['--backend','codex','--once']) == 0
+    assert 'essai local' in capsys.readouterr().out
+
+
+def test_watch_recognizes_any_existing_orchestrator_lock(tmp_path):
+    import fcntl
+    w = load_watch()
+    (tmp_path/'.autoport').mkdir()
+    with (tmp_path/'.autoport/.orchestrator.lock').open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        assert w.orchestrator_running(tmp_path)
+    assert not w.orchestrator_running(tmp_path)
+
+
+def test_supervisor_resume_targets_exact_codex_thread():
+    r = subprocess.run(['bash',str(ROOT/'.autoport/supervisor.sh'),'--backend','codex','--check','--resume','test-thread-id'],text=True,capture_output=True)
+    assert r.returncode == 0, r.stderr
+    cmd = json.loads(r.stdout)['command']
+    assert cmd[0] == 'codex'
+    assert cmd[-2:] == ['resume','test-thread-id']
+    assert '--last' not in cmd
+    assert '--model' not in cmd
+
+
+def test_watch_queues_each_change_once_to_exact_supervisor(tmp_path, monkeypatch):
+    w = load_watch()
+    (tmp_path/'.autoport').mkdir()
+    (tmp_path/'.autoport/.supervisor-codex-session').write_text('supervisor-uuid\n')
+    calls = []
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, '', '')
+    monkeypatch.setattr(w.subprocess, 'run', run)
+    assert w.notify_supervisor(tmp_path, 'A tester : une feature')
+    assert w.notify_supervisor(tmp_path, 'A tester : une feature')
+    assert len(calls) == 1
+    assert calls[0][:4] == ['codex','queue','--thread','supervisor-uuid']
+    assert w.notify_supervisor(tmp_path, 'A tester : autre feature')
+    assert len(calls) == 2
+    assert not any('--last' in cmd for cmd in calls)
+
+
+def test_failed_supervisor_queue_is_not_acknowledged(tmp_path, monkeypatch):
+    w = load_watch()
+    (tmp_path/'.autoport').mkdir()
+    monkeypatch.setattr(w.subprocess, 'run', lambda cmd,**kw: subprocess.CompletedProcess(cmd, 1, '', 'offline'))
+    assert not w.notify_supervisor(tmp_path, 'A tester', 'uuid')
+    assert not (tmp_path/'.autoport/.last_codex_watch').exists()
+
+
+def test_guard_explanation_never_probes_devices(tmp_path):
+    lib = tmp_path/'.autoport/lib'
+    lib.mkdir(parents=True)
+    picker = lib/'pick_device.sh'
+    picker.write_text('#!/bin/bash\ntouch picker-was-run\n')
+    picker.chmod(0o755)
+    r = subprocess.run(['bash',str(ROOT/'.autoport/hooks/pre-tool.sh')],
+                       cwd=tmp_path, input=json.dumps({'tool_name':'Bash','tool_input':{'command':'adb shell true'}}),
+                       text=True,capture_output=True)
+    assert r.returncode == 2
+    assert not (tmp_path/'picker-was-run').exists()
+
+
+def test_claude_existing_settings_symlink_is_not_registered_twice(tmp_path):
+    (tmp_path/'.claude').mkdir()
+    (tmp_path/'.autoport').mkdir()
+    (tmp_path/'.autoport/settings.json').write_text('{}')
+    (tmp_path/'.claude/settings.local.json').symlink_to('../.autoport/settings.json')
+    cmd = cb.worker_command(tmp_path,'claude',{'manager_model':'original'},'high',100)
+    assert '--settings' not in cmd
+
+
+def test_watch_restarts_for_an_abandoned_in_progress_item(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    w = load_watch()
+    (tmp_path/'.autoport').mkdir()
+    monkeypatch.setattr(w, 'ROOT', tmp_path)
+    b = SimpleNamespace(items=[{'status':'in-progress'}], next_open=lambda:None,
+                        status_report=lambda:'En cours : à reprendre')
+    monkeypatch.setattr(w.backlog, 'load', lambda:b)
+    calls=[]
+    def spawn(cmd,**kw):
+        calls.append(cmd)
+        return SimpleNamespace(pid=123)
+    monkeypatch.setattr(w.subprocess,'Popen',spawn)
+    assert w.main(['--backend','codex','--once','--maintain']) == 0
+    assert calls[0][-3:] == ['--backend','codex','--quiet']

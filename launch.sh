@@ -14,25 +14,27 @@ VENV="$HOME/.venv/autoport"
 # new smart-compact live view; --quiet brings back the pre-2026-05 black-box
 # behavior (only orchestrator status lines shown, claude's work silent).
 ORCH_ARGS=()
-VERBOSE_LABEL="live"
 for arg in "$@"; do
-    case "$arg" in
-        --quiet|-q)
-            ORCH_ARGS+=("--quiet")
-            VERBOSE_LABEL="silent"
-            ;;
-        --help|-h)
-            cat <<USAGE
-Usage: ./launch.sh [--quiet|-q]
-
-  --quiet, -q   suppress live event rendering from claude (silent mode).
-                Default is the live smart-compact view; raw JSONL is always
-                preserved in .autoport/logs/{phase}/attempt-NN.jsonl.
-USAGE
-            exit 0
-            ;;
-    esac
+    if [ "$arg" = -q ]; then ORCH_ARGS+=(--quiet); else ORCH_ARGS+=("$arg"); fi
 done
+BACKEND="${AUTOPORT_BACKEND:-claude}"
+VERBOSE_LABEL="live"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --backend) BACKEND="${2:?--backend exige claude ou codex}"; shift ;;
+        --backend=*) BACKEND="${1#*=}" ;;
+        --quiet|-q) VERBOSE_LABEL="silent" ;;
+        --check) ;;
+        --help|-h)
+            echo "Usage: ./launch.sh [--backend claude|codex] [--quiet] [--check]"
+            echo "Défaut: AUTOPORT_BACKEND ou claude. --check ne lance aucun worker."
+            exit 0 ;;
+        *) echo "Argument inconnu: $1" >&2; exit 2 ;;
+    esac
+    shift
+done
+case "$BACKEND" in claude|codex) ;; *) echo "Backend inconnu: $BACKEND" >&2; exit 2 ;; esac
+export AUTOPORT_BACKEND="$BACKEND"
 
 if ! [ -x "$VENV/bin/python" ]; then
     echo "ERROR: Python venv not found at $VENV" >&2
@@ -40,12 +42,17 @@ if ! [ -x "$VENV/bin/python" ]; then
     exit 1
 fi
 
-if [ ! -f "$HOME/.claude/.credentials.json" ]; then
+if [ "$BACKEND" = claude ] && [ ! -f "$HOME/.claude/.credentials.json" ]; then
     echo "ERROR: Claude Code is not authenticated." >&2
     echo "       Run 'claude' once interactively, sign in, then /quit." >&2
     exit 1
 fi
 
+for arg in "${ORCH_ARGS[@]}"; do
+    if [ "$arg" = --check ]; then
+        exec "$VENV/bin/python" "$REPO_ROOT/.autoport/orchestrator.py" "${ORCH_ARGS[@]}"
+    fi
+done
 mkdir -p "$REPO_ROOT/.autoport/logs"
 LOG="$REPO_ROOT/.autoport/logs/orchestrator.log"
 STAMP=$(date +%Y%m%dT%H%M%S)
@@ -57,7 +64,7 @@ cat <<EOF
 ================================================================
   Profil:    $(jq -r '.active' "$REPO_ROOT/.autoport/model-profiles.json" 2>/dev/null)
              (modele et effort: .autoport/model-profiles.json, source unique)
-  Perms:     --dangerously-skip-permissions
+  CLI:       $BACKEND (permissions définies par ce backend)
   Verbose:   $VERBOSE_LABEL (--quiet pour le mode silencieux)
   Backlog:   ./.autoport/autoport status
 
@@ -98,6 +105,7 @@ source "$VENV/bin/activate"
 cd "$REPO_ROOT"
 
 # python -u for unbuffered output so tee captures live progress.
+set +e
 python -u .autoport/orchestrator.py "${ORCH_ARGS[@]}" 2>&1 | tee -a "$LOG" "$RUN_LOG"
 EXIT_CODE=${PIPESTATUS[0]}
 

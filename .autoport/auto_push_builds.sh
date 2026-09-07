@@ -116,7 +116,7 @@ while true; do
   # DAEMON (runs for hours), and the worker's own `claude -p` whose PROMPT TEXT
   # contains the literal words "cmake --build" — ps sees the prompt, so the watcher
   # thought a build was running forever and never uploaded anything.
-  if ps -eo comm,args | grep -vE '^claude ' \
+  if ps -eo comm,args | grep -vE '^(claude|codex) ' \
        | grep -qE '^(cmake|ninja|cc1plus|java)[^\n]*(--build|assemble|GradleWrapperMain)'; then continue; fi
   UP=()
   # On n'envoie que ce qui a CHANGE : re-televerser un APK de 581 Mo identique pour un correctif
