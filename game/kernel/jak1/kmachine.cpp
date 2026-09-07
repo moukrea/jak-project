@@ -1353,28 +1353,36 @@ static constexpr u64 kSmStretchClampX1000 = 1250;
 void pc_hd_phys_joint(u32 pid, u32 k, u32 rmax_x1000, u32 rmin_x1000, u32 cmax_x1000) {
   ::merc2_hd_phys_joint(pid, (int)k, 1);
   static u64 s_links_written = 0, s_goal_judged = 0, s_goal_over = 0, s_goal_worst_x1000 = 0;
-  static u64 s_cmd_worst_x1000 = 0, s_clamp_hits = 0;
+  static u64 s_cmd_worst_x1000 = 0, s_clamp_hits = 0, s_squash_worst_x1000 = 0;
   s_links_written++;
   autoport_proof::note_hit();
   // BRAS SQUELETTE : `rmax`/`rmin` sont les rapports base LIVREE / base ANIMEE, deja formes par
-  // le solveur sur la matrice qu'il vient d'ecrire. Le pire des deux sens (etirement ET
-  // ecrasement) : `max(rmax, 1/rmin)`, en millienes. `rmin = 0` = une ligne effondree, ce que le
-  // plafond doit compter et qu'une division silencieuse effacerait.
+  // le solveur sur la matrice qu'il vient d'ecrire.
+  //
+  // UNE SEULE DIRECTION, LA HAUSSE — ET C'EST LA MESURE APPAREIL DU 2026-09-07 QUI L'A DIT.
+  // La premiere version de ce verdict prenait le pire des DEUX sens, `max(rmax, 1/rmin)`. Course
+  // appareil 06:00, 3 840 images : `sm_skel_over=6` avec un pire a 1,383 alors que le COMMANDE en
+  // hausse plafonnait a 1,372 et que le plafond avait morde 53 fois — un pire LIVRE au-dessus du
+  // COMMANDE est arithmetiquement impossible dans le sens de la hausse, donc les 6 venaient de
+  // l'ECRASEMENT (1/0,723 = 1,383). Or §10 l.165 PRESCRIT une contraction de -30 %
+  // (`SupineProjectionScale = 0.70`) et §22 l.303 ecrit « elongation » et « stretch » : un
+  // verdict bilateral compte comme defaut ce que la spec COMMANDE. Meme arbitrage que [NOTE-586]
+  // (2026-08-20 13:20), applique ici au verdict et plus seulement a l'operateur.
+  // L'ecrasement reste PUBLIE (`sm_skel_squash_worst_x1000`) : il n'est pas juge, il est lisible.
+  // `rmin = 0` = une ligne EFFONDREE, matrice degeneree : celle-la entre dans le verdict, sinon
+  // elle passerait en silence comme un NaN passe tout predicat de comparaison.
   s_goal_judged++;
-  u64 worst = rmax_x1000;
-  if (rmin_x1000 == 0) {
-    worst = ~0ull;
-  } else {
-    const u64 inv = 1000000ull / rmin_x1000;
-    if (inv > worst) {
-      worst = inv;
-    }
+  if (rmax_x1000 > s_goal_worst_x1000) {
+    s_goal_worst_x1000 = rmax_x1000;
   }
-  if (worst > s_goal_worst_x1000) {
-    s_goal_worst_x1000 = worst;
-  }
-  if (worst > kSmStretchClampX1000) {
+  if (rmax_x1000 > kSmStretchClampX1000 || rmin_x1000 == 0) {
     s_goal_over++;
+  }
+  if (rmin_x1000 > 0) {
+    const u64 sq = 1000000ull / rmin_x1000;
+    if (sq > s_squash_worst_x1000) {
+      s_squash_worst_x1000 = sq;
+    }
   }
   // CE QUE L'OPERATEUR COMMANDAIT, avant le plafond de §22 l.303. Sans cette valeur, « le
   // plafond a mordu » et « le canal est muet » rendent tous les deux `sm_skel_worst = 1250`, et
@@ -1386,17 +1394,32 @@ void pc_hd_phys_joint(u32 pid, u32 k, u32 rmax_x1000, u32 rmin_x1000, u32 cmax_x
   if (cmax_x1000 > kSmStretchClampX1000) {
     s_clamp_hits++;
   }
-  // LA PORTE : la somme des deux bras. Chacun publie SON compte et SON denominateur a cote —
-  // un bras a 0 qui n'a rien juge se lit alors comme tel, et pas comme une absence de defaut.
-  autoport_proof::publish("secondary_motion_defects", s_goal_over + ::merc2_sm_diag(0));
+  // LA PORTE : le bras SQUELETTE, et lui seul. Il compare la base LIVREE a la pose COMMANDEE de
+  // la MEME image — les deux membres sont dans le meme etat, donc l'ecart est l'etirement que la
+  // physique ajoute, et rien d'autre.
+  //
+  // POURQUOI LE BRAS GPU N'ENTRE PAS (ENCORE) DANS LE VERDICT. Sa reference n'est pas la pose
+  // commandee mais le BIND compose par le reciblage (`bindinv . W . cam`) ; le lien entre les
+  // deux references n'est pas mesure. Ce que la mesure dit, et rien de plus : son PLANCHER vaut
+  // 1,005 sur la course appareil du 2026-09-07 (donc sa reference est bien ~1, l'hypothese d'une
+  // echelle geometrique de 1,30 est REFUTEE), et le plafond du bras squelette ne le borne pas par
+  // construction puisque `bindinv` MELANGE les lignes de W. Il est publie en entier — compte,
+  // denominateur, plancher, pire en hausse — pour que l'essai suivant puisse le promouvoir sur
+  // une mesure et pas sur un raisonnement. Sa fidelite a ce que GOAL ecrit est deja tenue par
+  // l'acquis `hd_bones_stretched` (`hd_gpu_ring_bad=0`).
+  autoport_proof::publish("secondary_motion_defects", s_goal_over);
   autoport_proof::publish("sm_skel_over", s_goal_over);
   autoport_proof::publish("sm_skel_judged", s_goal_judged);
   autoport_proof::publish("sm_skel_worst_x1000", s_goal_worst_x1000);
+  autoport_proof::publish("sm_skel_squash_worst_x1000", s_squash_worst_x1000);
   autoport_proof::publish("sm_cmd_worst_x1000", s_cmd_worst_x1000);
   autoport_proof::publish("sm_clamp_hits", s_clamp_hits);
   autoport_proof::publish("sm_gpu_over", ::merc2_sm_diag(0));
   autoport_proof::publish("sm_gpu_judged", ::merc2_sm_diag(1));
   autoport_proof::publish("sm_gpu_worst_x1000", ::merc2_sm_diag(2));
+  autoport_proof::publish("sm_gpu_floor_x1000", ::merc2_sm_diag(3));
+  autoport_proof::publish("sm_gpu_stretch_over", ::merc2_sm_diag(4));
+  autoport_proof::publish("sm_gpu_stretch_worst_x1000", ::merc2_sm_diag(5));
   autoport_proof::publish("sm_links_written", s_links_written);
 }
 #endif
@@ -1415,8 +1438,40 @@ static int s_physics_level = 1;
 // trigger a re-parse without moving the store above its own dependencies.
 static int pc_physics_parse_file();
 
+// FORCAGE DE MESURE — `physics?` EST UN REGLAGE DE MENU PERSISTE, ET SUR LE REDMI IL EST A #f.
+// Mesure du 2026-09-07 : `/storage/emulated/0/OpenGOAL/jak1/settings.ini` ligne 98 porte
+// `physics? = #f`, et le journal de la course appareil de 05:38 le dit sans ambiguite —
+// `[hd-phys] toggle push: false lvl 1 -> false lvl 2`, zero maillon ecrit, donc une porte qui
+// aurait rendu « 0 defaut » sur un solveur ETEINT. C'est exactement `OFF = inexistant`.
+// Le defaut LIVRE par le jeu est `#t` (pckernel-impl.gc:393) : ce drapeau ne modifie donc pas le
+// binaire de l'owner, il remet la valeur d'usine le temps d'une mesure, et RIEN n'est ecrit dans
+// le fichier de reglages du telephone — on ne touche pas la config de l'owner.
+// Env (bureau) ou propriete (appareil), comme tous les leviers de ce fichier : une variable
+// d'environnement seule est MUETTE sur Android, l'application ne recoit pas l'environnement du
+// shell qui la lance.
+static bool phys_force_on() {
+  static int s_v = -1;
+  if (s_v < 0) {
+    s_v = 0;
+    if (const char* e = std::getenv("OG_PHYSICS_FORCE")) {
+      if (e[0] && std::strcmp(e, "0") != 0) {
+        s_v = 1;
+      }
+    }
+#if defined(__ANDROID__)
+    if (!s_v) {
+      char b[PROP_VALUE_MAX] = {0};
+      if (__system_property_get("debug.opengoal.physics", b) > 0 && b[0] && std::strcmp(b, "0") != 0) {
+        s_v = 1;
+      }
+    }
+#endif
+  }
+  return s_v != 0;
+}
+
 void pc_set_physics(u32 on, u32 level) {
-  bool v = (on != 0);
+  bool v = (on != 0) || phys_force_on();
   int lv = (int)level;
   if (v != s_physics_on || lv != s_physics_level) {
     // lg (not raw stdout): on Android only lg::* routes to logcat.

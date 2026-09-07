@@ -1955,8 +1955,11 @@ struct HdLenStats {
   // recharged-secondary-motion : echelle recue par la chair sur les joints de chaine.
   // `sm_judged` est LE denominateur de `sm_over` (une porte a 0 sans son denominateur ne
   // distingue pas « aucun defaut » de « rien mesure ») ; `sm_worst` = pire max(rmax, 1/rmin).
-  u64 sm_judged = 0, sm_over = 0;
-  float sm_worst = 0.f;
+  // `sm_stretch_*` = la HAUSSE seule, la grandeur que §22 nomme. `sm_over`/`sm_worst` sont
+  // BILATERAUX (max(rmax, 1/rmin)) : ils voient aussi l'ECRASEMENT, que §10 l.165 PRESCRIT
+  // (`SupineProjectionScale = 0.70`) — ils restent publies en diagnostic, jamais en verdict.
+  u64 sm_judged = 0, sm_over = 0, sm_stretch_over = 0;
+  float sm_worst = 0.f, sm_floor = 0.f, sm_stretch_worst = 0.f;
   int ev_logs = 0;      // cap des lignes HDLENEV
   int ev_logs_cmd = 0;  // cap des lignes HDCMDEV (separe : l'un ne doit pas etouffer l'autre)
   u64 next_hb = 300;
@@ -2163,12 +2166,16 @@ void merc2_hd_phys_joint(u32 companion_pid, int k, int on) {
   }
 }
 
-// 0 = le compte de la porte, 1 = son denominateur, 2 = la pire echelle livree x1000.
+// 0/2 = compte et pire echelle BILATERAUX (diagnostic), 1 = le denominateur, 3 = le plancher,
+// 4/5 = compte et pire echelle en HAUSSE SEULE — la grandeur que §22 nomme.
 u64 merc2_sm_diag(int which) {
   switch (which) {
     case 0: return s_hdlen.sm_over;
     case 1: return s_hdlen.sm_judged;
     case 2: return (u64)std::llround((double)s_hdlen.sm_worst * 1000.0);
+    case 3: return (u64)std::llround((double)s_hdlen.sm_floor * 1000.0);
+    case 4: return s_hdlen.sm_stretch_over;
+    case 5: return (u64)std::llround((double)s_hdlen.sm_stretch_worst * 1000.0);
     default: return 0;
   }
 }
@@ -3186,6 +3193,22 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
           } else {
             if (smw > s_hdlen.sm_worst) {
               s_hdlen.sm_worst = smw;
+            }
+            const float smx = std::max(rows[0], std::max(rows[1], rows[2]));
+            if (smx > s_hdlen.sm_stretch_worst) {
+              s_hdlen.sm_stretch_worst = smx;
+            }
+            if (smx > SM_STRETCH_CLAMP) {
+              s_hdlen.sm_stretch_over++;
+            }
+            // LE PLANCHER DE CE BRAS, ET IL EST LA POUR LE DISQUALIFIER COMME VERDICT. La
+            // reference de `rows` est le BIND compose par le reciblage (`bindinv . W . cam`),
+            // pas la pose COMMANDEE : si le plancher observe sur ces memes joints vaut deja
+            // ~1,30 sans qu'aucune deformation ne soit en cours, ce bras mesure la geometrie
+            // du modele et pas l'etirement de la chair — et il ne peut pas juger un plafond
+            // a 1,25. Le chiffre est publie pour que ca se LISE au lieu de se supposer.
+            if (s_hdlen.sm_floor == 0.f || smw < s_hdlen.sm_floor) {
+              s_hdlen.sm_floor = smw;
             }
             if (smw > SM_STRETCH_CLAMP) {
               s_hdlen.sm_over++;

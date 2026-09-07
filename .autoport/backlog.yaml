@@ -3166,7 +3166,7 @@ items:
     source: owner-ok/Gplayability-input-and-loadgate
 - id: recharged-secondary-motion
   feature: Le mouvement secondaire des personnages HD (physique de Keira)
-  status: in-progress
+  status: to-test
   priority: 900
   owner_feedback:
   - date: '2026-08-04'
@@ -3260,12 +3260,16 @@ items:
   - OG_LEVEL_WARP_POS=-156 34 188
   - OG_WANT_LEVELS=village1,beach
   - OG_WANT_DISPLAY=beach,display
+  - OG_CINE_KICK=assistant
+  - OG_PHYSICS_FORCE=1
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.level.warp=village1-hut
   - debug.opengoal.level.warp.pos=-156 34 188
   - debug.opengoal.want.levels=village1,beach
   - debug.opengoal.want.display=beach,display
+  - debug.opengoal.cine.kick=assistant
+  - debug.opengoal.physics=1
   owner_ok: null
   device: true
   where: les personnages HD en mouvement brusque
