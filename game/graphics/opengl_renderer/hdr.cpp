@@ -10,7 +10,10 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/Shader.h"
+#include "game/graphics/opengl_renderer/background/Shrub.h"
+#include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
 
@@ -706,6 +709,18 @@ void frame_end() {
   autoport_proof::publish("hdr_defect_4_origine_lumiere_set", (uint64_t)v4);
   autoport_proof::publish("hdr_defect_5_sites_three_configs", (uint64_t)v5);
   autoport_proof::publish("origin_bitexact_defects", (uint64_t)bitexact);
+  // LES TROIS DENOMINATEURS DE `origin_bitexact_defects`, ET POURQUOI ILS SONT ICI.
+  // Un zero de porte ne dit rien sans les grandeurs qui prouvent que les gardes ont TIRE et que
+  // la couverture est celle qu'on annonce. `origin_mipmap_suppressed` et
+  // `origin_shrub_native_suppressed` comptent les deux sites que l'essai 2 a ramenes sous le
+  // maitre : a zero, la porte serait verte parce que la condition est absente, pas parce que le
+  // defaut est corrige. `origin_font_master_bypass` compte l'inverse — la page de police
+  // resolue MAITRE ETEINT — et il est NON NUL par decision : le banc de texte et les chasses
+  // Urbanist vivent dans la donnee partagee par les deux binaires, la police n'est donc pas
+  // gatable et n'est PAS couverte par cette porte (voir `is_font_atlas` et `origin_ablate.h`).
+  autoport_proof::publish("origin_mipmap_suppressed", direct_renderer_origin_mipmap_suppressed());
+  autoport_proof::publish("origin_shrub_native_suppressed", shrub_origin_native_suppressed());
+  autoport_proof::publish("origin_font_master_bypass", custom_tex::font_master_bypass_count());
   autoport_proof::publish("hdr_tonemap_defects", (uint64_t)(v1 + v2 + v3 + v4 + v5));
   // Les denominateurs des verdicts 3 et 5, sans lesquels leur zero est une fausse constante.
   autoport_proof::publish("hdr_curve_samples", s_curve_samples);

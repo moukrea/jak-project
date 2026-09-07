@@ -55,6 +55,11 @@ BaseSource base_source(const std::string& tpage_name, const std::string& tex_nam
 // resout donc SANS AUCUNE porte, depuis le paquet livre uniquement, et rien ne peut la masquer.
 bool is_font_atlas(const std::string& tpage_name);  // tpage_name == "gamefontnew"
 
+// lighting-origin-bitexact : nombre de fois ou la page de police a ete resolue MAITRE
+// ETEINT. Publie sous `origin_font_master_bypass`. Non nul = la porte bit-a-bit ne couvre
+// pas la police (banc de texte et chasses vivent dans la donnee partagee, voir le .cpp).
+uint64_t font_master_bypass_count();
+
 // Registre des atlas de police REELLEMENT TELEVERSES (add_texture) et REELLEMENT LIES au dessin
 // (DirectRenderer::update_gl_texture) — la preuve se prend au point de LECTURE, pas au chargement.
 struct FontAtlasRec {

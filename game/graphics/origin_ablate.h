@@ -41,10 +41,36 @@
 //
 // PORTEE HONNETE — ce que ce temoin NE couvre PAS :
 //   * le GOAL. Les deux binaires bootent sur les MEMES `.CGO` : une fuite qui vivrait dans
-//     `goal_src/` ne serait pas vue.
+//     `goal_src/` ne serait pas vue. Deux sont NOMMEES et non corrigees a ce jour :
+//     `*anim-interp-on*` (`kmachine.cpp:5389`, defaut 1, consomme sans garde par
+//     `process-drawable.gc:256`) et `*wind-native-rate*` (`kmachine.cpp:5394`, defaut 1,
+//     consomme par `wind.gc:134`). Les deux binaires les posent a 1 : l'ecart est nul PAR
+//     CONSTRUCTION, la porte ne peut donc pas les voir. Les gater serait un changement
+//     qu'aucune mesure de cet instrument ne pourrait juger.
 //   * les SHADERS. Sur x86 ils sont lus du DISQUE a l'execution : les deux binaires lisent les
 //     memes fichiers `.glsl`. Une fuite qui vivrait uniquement dans du GLSL atteint sous maitre
 //     eteint ne serait pas vue.
+//   * LA POLICE ET LE TEXTE. C'est l'exclusion la plus importante, et elle est MESUREE, pas
+//     supposee. Le systeme est un trio dont deux tiers vivent dans la donnee que les deux
+//     binaires PARTAGENT :
+//       - le banc de texte : un seul `<lang>COMMON.TXT` ecrit dans `out/jak1/iso` par
+//         `goalc/data_compiler/game_text_common.cpp:75`, empile depuis les trois couches de
+//         `game/assets/jak1/game_text.gp` (dont nos JSON de casse mixte). `text.gc:157` le
+//         charge par ce nom unique et `fake_iso.cpp:60-64` ne scanne que `get_iso_out_dir()` :
+//         les bancs purs de ND (`iso_data/jak1/TEXT/`) ne sont JAMAIS atteignables.
+//       - les chasses : `*font12-table*` / `*font24-table*` (`font.gc`) portent les avances
+//         Urbanist (a = 13,5756 en 12 et 14,5671 en 24, contre 14,25 et 24,0 en stock) ;
+//         `font.o` est dans `GAME.CGO` et `ENGINE.CGO`. `grep -ci recharged font.gc` = 0.
+//     Ablater le seul tiers gatable (l'atlas, `is_font_atlas`) ne fabrique donc PAS le jeu de
+//     Naughty Dog : ca fabrique une chimere — glyphes ND positionnes par des chasses Urbanist
+//     sur nos chaines — qu'aucun binaire livrable ne peut egaler. C'est ce que l'essai 1 a
+//     mesure comme « 994 px de fuite » (bande y=128..141 du creneau h12 : encre 776 px cote
+//     temoin contre 530 cote juge, 29 composantes contre 26, Jaccard 0,38 : pas les memes
+//     formes). Et gater cette page rouvrirait le defaut que l'owner a rapporte le 2026-09-02
+//     (« ca utilise des glyphs chinois de la font par defaut du jeu »), dont la correction fut
+//     precisement de lui retirer toute porte. `is_font_atlas` n'est donc PAS ablate ici ; la
+//     fuite reste NOMMEE dans chaque preuve par le compteur `origin_font_master_bypass`, non
+//     nul par construction.
 //   * ce qui n'est pas sous `#if !AUTOPORT_ORIGIN_ABLATE`. La liste des sites ablates est dans
 //     le rapport de l'item ; ce qui n'y est pas n'est pas prouve.
 

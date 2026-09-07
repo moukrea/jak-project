@@ -7,6 +7,7 @@
 #include <mutex>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include "common/util/FileUtil.h"
@@ -892,7 +893,13 @@ void publish_flaky() {
                  (unsigned long long)g_maxdiff, (unsigned long long)g_diffpx);
     std::fclose(f);
   }
-  std::vector<uint64_t> md;
+  // LA COMPARAISON PORTE SUR LE COUPLE (maxdiff, diffpx), PAS SUR `maxdiff` SEUL.
+  // Mesure du 2026-09-07 qui force ce changement : six rejeux a cle IDENTIQUE ont rendu
+  // 1242, 1242, 100238, 1242, 1242, 1242 px — et `refset_replay_flaky` a publie 0, parce que
+  // l'atlas de police fixait `maxdiff=242` sur les six. Un instrument aveugle a un facteur 80
+  // sur le NOMBRE de pixels ne certifie rien. Le nombre de pixels est la grandeur qui bouge ;
+  // le maximum est celle qui sature.
+  std::vector<std::pair<uint64_t, uint64_t>> md;
   if (FILE* f = std::fopen(path.c_str(), "r")) {
     char line[256];
     while (std::fgets(line, sizeof(line), f)) {
@@ -900,7 +907,7 @@ void publish_flaky() {
       if (std::sscanf(line, "bin=%llx refs=%llx data=%llx maxdiff=%llu diffpx=%llu", &b, &r, &dt,
                       &m, &d) == 5 &&
           b == bin && r == refs && dt == data) {
-        md.push_back((uint64_t)m);
+        md.emplace_back((uint64_t)m, (uint64_t)d);
       }
     }
     std::fclose(f);
@@ -1188,12 +1195,15 @@ int text_mute() {
   g_text_last_lf = current_logic_frame();
   // LA PHASE 1 GARDE SON TEXTE, ET CE N'EST PAS UN DETAIL DE CONFORT.
   // `lighting-origin-bitexact` mesure « maitre eteint => identique au bit au jeu d'origine ».
-  // Or l'atlas de police (`gamefontnew`) est le SEUL site du recensement qui remplace la texture
-  // d'origine sans consulter le maitre (CustomTextureReplacements.cpp `is_font_atlas`). Muettre
-  // l'invite du maire retire de la scene le seul objet qui dessine cet atlas : la porte
-  // deviendrait verte sur un defaut PRESENT — « les DEUX bras au vert parce que la condition est
-  // absente ». On ne mute donc que les phases 2 et 3, celles qu'apparient les verdicts de
-  // `lighting-hdr` ; leur instrument est inchange, ligne pour ligne.
+  // L'invite du maire est le SEUL objet du plan qui dessine l'atlas de police et qui exerce la
+  // mise en page de `font.gc`. La muter retirerait de la comparaison tout un sous-systeme, et la
+  // porte passerait au vert sur une scene ou la question ne se pose plus — « les DEUX bras au
+  // vert parce que la condition est absente ». Depuis l'essai 2 la police n'est plus ablatee
+  // dans le binaire-temoin (voir `origin_ablate.h` : banc de texte et chasses vivent dans la
+  // donnee partagee), donc ces pixels DOIVENT etre identiques des deux cotes : ce creneau est
+  // devenu le controle que le chemin de texte, lui, ne fuit pas ailleurs.
+  // On ne mute donc que les phases 2 et 3, celles qu'apparient les verdicts de `lighting-hdr` ;
+  // leur instrument est inchange, ligne pour ligne.
   if (g_cur < g_steps.size() && g_steps[g_cur].phase == 1) {
     return 0;
   }

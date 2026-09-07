@@ -1,5 +1,6 @@
 #include "Shrub.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -12,6 +13,15 @@
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/mips2c/spart_prof.h"
+
+// lighting-origin-bitexact : LE DENOMINATEUR DE LA GARDE POSEE SUR `wind_active`. Nombre de
+// preparations d'arbre ou le vent natif a ete refuse parce que le maitre etait eteint. Un zero
+// rendrait la garde indistinguable d'un site mort. Publie par `hdr.cpp`.
+static std::atomic<uint64_t> g_origin_shrub_native_suppressed{0};
+
+uint64_t shrub_origin_native_suppressed() {
+  return g_origin_shrub_native_suppressed.load(std::memory_order_relaxed);
+}
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
@@ -320,7 +330,21 @@ void Shrub::update_load(const LevelData* loader_data) {
       t.wind_last_time = 0;
       t.wind_seeded = false;
       t.wind_logged = false;
-      t.wind_active = tree.wind_sidecar_ok && tree.wind_instances_stiff > 0 &&
+      // lighting-origin-bitexact : LE MAITRE, ET IL MANQUAIT.
+      // `shrub_native_enabled()` (foliage_wind.cpp) vaut TRUE par defaut et ne consulte aucun
+      // maitre ; `wind_active` arme `u_shrub_native_on` (l.766) et `shrub.vert:78-82` deplace
+      // alors `wpos.x/z` par l'attribut 7. Ce chemin est INDEPENDANT de `u_tie_sway_amp` — le
+      // seul terme que `foliage_wind::enabled()` gouverne — donc maitre eteint, des sommets
+      // d'arbustes bougeaient quand meme. C'est du geste a nous : le binaire-temoin (couche
+      // Recharged non compilee) ne le fait pas, et l'ecart mesure est reel.
+      // Le maitre SEUL, pas l'option `recharged_foliage_wind` : l'option est deja a #f dans les
+      // reglages mesures (`wind_option_on=0`) et ce vent tournait quand meme ; la lier ici
+      // changerait le rendu d'un joueur maitre ALLUME, ce qui n'est pas ce que cet item corrige.
+      const bool master_on = Gfx::recharged_master_active();
+      if (!master_on) {
+        g_origin_shrub_native_suppressed.fetch_add(1, std::memory_order_relaxed);
+      }
+      t.wind_active = master_on && tree.wind_sidecar_ok && tree.wind_instances_stiff > 0 &&
                       foliage_wind::shrub_native_enabled() &&
                       tree.sway_instances.size() == tree.packed_vertices.matrices.size();
       glGenTextures(1, &t.wind_tex);

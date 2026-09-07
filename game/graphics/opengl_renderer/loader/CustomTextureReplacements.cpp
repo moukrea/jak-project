@@ -369,20 +369,62 @@ void ensure_scanned() {
 }
 }  // namespace
 
+// lighting-origin-bitexact : COMBIEN DE FOIS LA PAGE DE POLICE EST SORTIE DE LA PORTE, MAITRE
+// ETEINT. Publie par `hdr.cpp` sous `origin_font_master_bypass`, a cote de
+// `origin_bitexact_defects`. Ce compteur n'est pas decoratif : il est la SEULE trace machine que
+// la porte bit-a-bit ne couvre pas la police. Le jour ou on croira que « maitre eteint = le jeu
+// d'origine » sans reserve, il sera non nul et dira le contraire.
+static std::atomic<uint64_t> g_font_master_bypass{0};
+
+uint64_t font_master_bypass_count() {
+  return g_font_master_bypass.load(std::memory_order_relaxed);
+}
+
 bool is_font_atlas(const std::string& tpage_name) {
-#if AUTOPORT_ORIGIN_ABLATE
-  // BINAIRE-TEMOIN DE `lighting-origin-bitexact`. Ce predicat est le seul de tout le
-  // recensement qui SORT une page de texture de la porte du maitre : `lookup()` ligne 378 et
-  // son miroir `base_source()` ligne 445 testent `!font && !user_on && !bundled_on`, donc
-  // `gamefontnew` est resolu depuis le paquet livre (atlas Urbanist) MAITRE ETEINT, et
-  // `LoaderStages.cpp` lui fait sauter le pack managé. C'est litteralement « coder en dur en
-  // remplacant le vanilla ». Le temoin rend l'atlas de Naughty Dog, sinon l'ecart n'existe pas
-  // et la porte serait verte sur un defaut present.
-  (void)tpage_name;
-  return false;
-#else
-  return tpage_name == "gamefontnew";
-#endif
+  if (tpage_name != "gamefontnew") {
+    return false;
+  }
+  // CE PREDICAT N'EST PAS ABLATE DANS LE BINAIRE-TEMOIN, ET C'EST UNE DECISION MESUREE.
+  //
+  // L'essai 1 de `lighting-origin-bitexact` l'ablatait (le temoin rendait l'atlas de Naughty
+  // Dog) et mesurait 994 px d'ecart au creneau h12. Le raisonnement etait « la page sort de la
+  // porte du maitre, donc c'est une fuite de la couche Recharged ». Trois mesures du 2026-09-07
+  // le refutent :
+  //
+  //  1. LE BANC DE TEXTE EST DANS LA DONNEE PARTAGEE. `goalc/data_compiler/game_text_common.cpp`
+  //     ecrit UN seul `<lang>COMMON.TXT` dans `out/jak1/iso`, empile depuis les trois couches de
+  //     `game/assets/jak1/game_text.gp` (dont nos JSON de casse mixte). `text.gc:157` le charge
+  //     par ce nom unique et `fake_iso.cpp:60-64` ne scanne que `get_iso_out_dir()` : les bancs
+  //     purs de ND (`iso_data/jak1/TEXT/`) ne sont JAMAIS atteignables. Les deux binaires lisent
+  //     donc le meme banc, et aucun drapeau ne peut en choisir un autre.
+  //  2. LES CHASSES SONT DANS LA DONNEE PARTAGEE. `*font12-table*` / `*font24-table*`
+  //     (`goal_src/jak1/engine/gfx/font.gc`) portent les avances Urbanist ecrites par
+  //     `recharged_assets/font/patch_font_tables.py` (a=13,5756 en 12 et 14,5671 en 24 contre
+  //     14,25 et 24,0 en stock) ; `font.o` est liste dans `game.gd:179` et `engine.gd:183`, et
+  //     ces flottants se retrouvent dans `GAME.CGO` et `ENGINE.CGO`. `grep -ci recharged
+  //     font.gc` rend 0 : aucune garde, aucun selecteur.
+  //  3. DONC LE TEMOIN ABLATE NE DESSINAIT PAS LE JEU DE NAUGHTY DOG. Il dessinait les glyphes
+  //     ND positionnes par des chasses Urbanist, sur nos chaines : une chimere qu'aucun binaire
+  //     livrable ne peut egaler. Mesure de la bande y=128..141 du creneau h12 (seuil d'Otsu sur
+  //     un chapeau haut-de-forme, pas un reglage a la main) : encre 776 px cote temoin contre
+  //     530 cote juge, 29 composantes contre 26, Jaccard des masques d'encre 0,38. Ce ne sont
+  //     pas les memes formes.
+  //
+  // Et surtout : gater cette page REOUVRE UN DEFAUT DEJA RAPPORTE PAR L'OWNER le 2026-09-02
+  // (« t'as completement nique la font (Urbanist) ca utilise des glyphs chinois de la font par
+  // defaut du jeu », voir l'en-tete de CustomTextureReplacements.h). La reponse a ce retour
+  // fut precisement de retirer toute porte de cette page, parce que le texte et l'atlas sont
+  // UNE unite dont les deux autres tiers ne sont pas gatables. Un vert obtenu en la gatant
+  // serait un faux vert au sens des DIRECTIVES regle 3.
+  //
+  // Ce qui est donc VRAI et ce qui ne l'est pas : la porte `origin_bitexact_defects` mesure la
+  // couche que le MAITRE gouverne. La police/texte n'en fait pas partie — par decision de
+  // l'owner et par construction de la donnee. Elle est declaree non couverte dans
+  // `origin_ablate.h`, et `origin_font_master_bypass` la compte a chaque course.
+  if (!Gfx::recharged_master_active()) {
+    g_font_master_bypass.fetch_add(1, std::memory_order_relaxed);
+  }
+  return true;
 }
 
 std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std::string& tex_name) {

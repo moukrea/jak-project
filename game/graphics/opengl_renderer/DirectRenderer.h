@@ -335,3 +335,9 @@ class DirectRenderer : public BucketRenderer {
     bool do_first_draw = true;
   } m_sprite_mode;
 };
+
+// lighting-origin-bitexact : combien de fois le registre TEX1 a demande une chaine de mipmaps
+// alors que le maitre Recharged etait ETEINT — donc combien de fois `handle_tex0_1` fuyait avant
+// la garde. Publie par `hdr.cpp` sous `origin_mipmap_suppressed`. Un zero rendrait la garde
+// indistinguable d'un site mort : c'est le denominateur de la porte, pas un ornement.
+uint64_t direct_renderer_origin_mipmap_suppressed();
