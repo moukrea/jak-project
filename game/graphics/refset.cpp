@@ -347,9 +347,9 @@ std::vector<Step> g_steps;
 // Les grandeurs de COUVERTURE, une entree par vantage retenu, remplies a la photo.
 struct VantStat {
   uint64_t shots = 0;          // photos prises a ce vantage (tous jeux, tous creneaux)
-  uint64_t bg_px_min = ~0ull;  // pixels d'arriere-plan : le minimum sur ses photos
-  uint64_t bg_px_max = 0;      // ... et le maximum
-  uint64_t px = 0;             // le denominateur : pixels de l'image
+  uint64_t bg_ppm_min = ~0ull;  // fraction d'arriere-plan en ppm : minimum sur ses photos
+  uint64_t bg_ppm_max = 0;      // ... et le maximum
+  uint64_t px = 0;             // surface de la derniere sonde, pour verifier sa presence
   uint64_t maxdiff = 0;        // le pire ecart de rejeu de ce vantage
   uint64_t level_ok = 0;       // photos ou le niveau ATTENDU etait bien en service
   // LE MEME TRIO, VENTILE PAR CRENEAU HORAIRE. La porte de l'owner porte sur un COUPLE
@@ -359,7 +359,7 @@ struct VantStat {
   // exactement la faiblesse que le superviseur a nommee le 2026-09-07.
   uint64_t shots_h[8] = {0};
   uint64_t level_ok_h[8] = {0};
-  uint64_t bg_min_h[8] = {~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull};
+  uint64_t bg_ppm_min_h[8] = {~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull, ~0ull};
   uint64_t px_h[8] = {0};
 };
 std::vector<VantStat> g_vstats;  // indexe comme g_vants
@@ -1150,7 +1150,7 @@ void publish_sky_gate() {
           continue;
         }
         answered = true;
-        const uint64_t pm = vs.bg_min_h[hi] * 1000ull / vs.px_h[hi];
+        const uint64_t pm = vs.bg_ppm_min_h[hi] / 1000ull;
         // La vue RETENUE pour un couple est celle qui montre le plus de ciel SANS depasser le
         // plafond : une vue dans le vide ne doit pas evincer une vue correcte.
         if (pm > best_pm && pm <= kSkyCeilPm) {
@@ -1208,8 +1208,8 @@ void publish_coverage() {
       continue;
     }
     shot++;
-    const uint64_t pm_min = vs.bg_px_min * 1000ull / vs.px;
-    const uint64_t pm_max = vs.bg_px_max * 1000ull / vs.px;
+    const uint64_t pm_min = vs.bg_ppm_min / 1000ull;
+    const uint64_t pm_max = vs.bg_ppm_max / 1000ull;
     // UNE VUE DONT LE NIVEAU N'ETAIT PAS LA NE COMPTE NI COMME CIEL NI COMME INTERIEUR.
     const bool loaded = vs.level_ok == vs.shots;
     const char* id = kVantages[g_vants[i]].id;
@@ -1246,7 +1246,7 @@ void publish_coverage() {
           continue;
         }
         std::snprintf(cell, sizeof(cell), "%sh%02d:%llu", row.empty() ? "" : ",", kHours[hh],
-                      (unsigned long long)(vs.bg_min_h[hh] * 1000ull / vs.px_h[hh]));
+                      (unsigned long long)(vs.bg_ppm_min_h[hh] / 1000ull));
         row += cell;
       }
       std::snprintf(key, sizeof(key), "refset_bgh_%s", id[0] ? id : "legacy");
@@ -3359,11 +3359,14 @@ void note_scene_probe(uint64_t bg_px, uint64_t total_px) {
   if (level_here) {
     vs.level_ok++;
   }
-  if (bg_px < vs.bg_px_min) {
-    vs.bg_px_min = bg_px;
+  // La resolution dynamique peut changer la surface entre deux sondes : normaliser
+  // chacune AVANT les extrema, jamais avec la surface de la derniere image.
+  const uint64_t bg_ppm = bg_px * 1000000ull / total_px;
+  if (bg_ppm < vs.bg_ppm_min) {
+    vs.bg_ppm_min = bg_ppm;
   }
-  if (bg_px > vs.bg_px_max) {
-    vs.bg_px_max = bg_px;
+  if (bg_ppm > vs.bg_ppm_max) {
+    vs.bg_ppm_max = bg_ppm;
   }
   // LE MEME RELEVE, RANGE PAR CRENEAU : c'est lui que lit `refset_sky_missing`.
   const int hi = hour_index(g_steps[g_cur].hour);
@@ -3373,8 +3376,8 @@ void note_scene_probe(uint64_t bg_px, uint64_t total_px) {
     if (level_here) {
       vs.level_ok_h[hi]++;
     }
-    if (bg_px < vs.bg_min_h[hi]) {
-      vs.bg_min_h[hi] = bg_px;
+    if (bg_ppm < vs.bg_ppm_min_h[hi]) {
+      vs.bg_ppm_min_h[hi] = bg_ppm;
     }
   }
 }
