@@ -49,7 +49,12 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 
 MODE="${1:-replay}"
 case "$MODE" in capture|replay) ;; *) echo "usage: $0 <capture|replay> [timeout_s]" >&2; exit 2 ;; esac
-TIMEOUT="${2:-360}"
+# LA TOURNEE COMPLETE DURE ~15 MIN, PAS 6. 26 vantages x 3 jeux, 174 etapes, et 26 arrivees qui
+# paient chacune un chargement de niveau : 26*900 + 148*180 = 50040 frames de LOGIQUE, soit
+# ~850 s a 60 img/s. Le defaut de 360 s coupait la course au 7e vantage, et une course coupee
+# rend 254 — pas une mesure. `OG_REFSET_VANTAGES=legacy` (voir refset.cpp) restreint la tournee
+# au vantage historique pour les items qui ont ete valides sur lui.
+TIMEOUT="${2:-1500}"
 
 BIN=build/game/gk
 [ -s "$BIN" ] || { echo "refset: $BIN absent — bâtis d'abord (cmake --build build --target gk -j)" >&2; exit 3; }
@@ -86,6 +91,9 @@ stdbuf -oL -eL env \
   OG_PAD_REPLAY_REPLAY="$DEMO" \
   ${REFSET_TRACE:+OG_PAD_REPLAY_TRACE="$REFSET_TRACE"} \
   ${REFSET_SETTLE:+OG_REFSET_SETTLE="$REFSET_SETTLE"} \
+  ${REFSET_LOAD_SETTLE:+OG_REFSET_LOAD_SETTLE="$REFSET_LOAD_SETTLE"} \
+  ${REFSET_VANTAGES:+OG_REFSET_VANTAGES="$REFSET_VANTAGES"} \
+  ${REFSET_PHASES:+OG_REFSET_PHASES="$REFSET_PHASES"} \
   OG_PACE_MEASURE=1 \
   AUTOPORT_FEATURE=lighting-census \
   AUTOPORT_FEATURE_ARMED="$ARMED" \
@@ -96,7 +104,10 @@ rc=$?
 echo "--- REFSET ---" >&2
 grep -aE '^(REFSET|TOD-PIN|LEVEL-WARP|pad_replay)' "$LOG" | tail -40 >&2
 echo "--- grandeurs ---" >&2
-grep -aoE '^(refset|light_census|gpu_ms|gpu_timer)[A-Za-z0-9_]*=[^ ]*' "$LOG" | sort -u | tail -60 >&2
+grep -aoE '^(refset|light_census|gpu_ms|gpu_timer)[A-Za-z0-9_]*=[^ ]*' "$LOG" | sort -u | tail -80 >&2
+echo "--- couverture ---" >&2
+grep -aoE '^refset_(levels|views|shot_views|sky_views|interior_views|levels_missing|levels_playable|probe_frames)[A-Za-z0-9_]*=[^ ]*' "$LOG" | sort -u >&2
+grep -aoE '^refset_levels(_list|_missing_list)=[^ ]*' "$LOG" | sort -u >&2
 
 if [ "$MODE" = replay ]; then
   MD=$(grep -aoE '^refset_replay_maxdiff=[0-9]+' "$LOG" | tail -1 | cut -d= -f2)

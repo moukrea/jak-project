@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <set>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -35,11 +36,99 @@ namespace {
 // donnee de Naughty Dog est art-dirigee.
 constexpr int kHours[8] = {0, 3, 6, 9, 12, 15, 18, 21};
 
+// ── LES VANTAGES : TOUS LES NIVEAUX, EXTERIEURS ET INTERIEURS ────────────────────────────────
+// [O] owner 2026-09-07 : « Faut quand meme mesurer aussi les interieurs, mais faut mesurer aussi
+// les exterieurs, et je pense que plus que juste Sandover Village histoire d'etre carre ! Geyser
+// Rock, Sandover Village en exterieur et interieur de Hutte, Rock Village, le Volcan, le Swamp,
+// la cite Precursor sous l'eau, le niveau de neige, lava tube, etc... Tous les niveaux ! »
+//
+// POURQUOI CE CHAMP EXISTE. Jusqu'au 2026-09-07 le plan tenait 24 etapes A UN SEUL POINT — la
+// hutte de Sandover, camera dans le hall, ZERO pixel de ciel. C'est ce qui a laisse passer le
+// ciel blanc de `lighting-hdr` : la garde ne pouvait pas voir un defaut qu'aucune de ses 24
+// images ne contenait. Le nombre d'images ne servait a rien, c'etait la COUVERTURE qui manquait.
+//
+// LE JEU EN COMPTE 21 NIVEAUX JOUABLES, PAS 22, et c'est verifiable : `goal_src/jak1/dgos/`
+// porte 27 `.gd`, moins `kernel`/`engine`/`game` et `dem`/`int`/`tit` = 21, et
+// `level-info.gc` aligne exactement 21 `level-load-info` d'index 1..21 avant `intro`. Les deux
+// candidats restants n'existent pas dans le jeu de l'owner : `halfpipe` (level-info.gc:2359,
+// `:nickname 'none`) et `test-zone` (:2476) n'ont AUCUN DGO. Ils sont declares ici, pas inventes.
+//
+// CHAQUE `cont` EST UN `continue-point` VERIFIE dans `goal_src/jak1/engine/level/level-info.gc`
+// (une occurrence exacte de la chaine, controlee le 2026-09-07). `pos` surcharge la position de
+// depart en METRES (kmachine.cpp:6009, optionnel) ; vide = la position de la donnee de Naughty
+// Dog, qui est le choix par defaut parce qu'elle ne se discute pas.
+//
+// `interieur` / `ciel` NE SONT PAS DECLARES ICI. Ce sont des MESURES : la fraction de pixels
+// d'arriere-plan de l'image capturee (voir `sky_fraction`). Un champ « interior = true » serait
+// un commentaire, et la porte qui le lirait serait un miroir de sa propre table.
+struct Vantage {
+  const char* id;    // prefixe des fichiers ; "" = le vantage historique (hutte de Sandover)
+  const char* cont;  // nom du continue-point, tel quel dans level-info.gc
+  const char* pos;   // OG_LEVEL_WARP_POS en metres ; "" = la position de la donnee
+  const char* level; // le niveau ATTENDU. Celui qui est DESSINE est mesure, pas lu ici.
+  uint8_t hours;     // masque sur kHours : bit i = kHours[i]
+};
+
+// 0xff = les huit creneaux de `mood-lights-table` ; 0x88 = 9 h et 21 h, un plein jour et une
+// nuit. Le vantage historique garde ses huit creneaux : ses references sont l'instrument de
+// `lighting-hdr` et de `lighting-origin-bitexact`, et on ne le redefinit pas.
+constexpr uint8_t kAllHours = 0xff;
+constexpr uint8_t kDayNight = 0x88;
+
+constexpr Vantage kVantages[] = {
+    // le vantage HISTORIQUE — hall de la hutte de Samos, Sandover. Prefixe vide : ses fichiers
+    // restent `<jeu>/hHH.png`, octet pour octet la ou les items precedents les ont laisses.
+    {"", "village1-hut", "-116 14 40", "village1", kAllHours},
+    // Sandover en EXTERIEUR (l'owner nomme les deux separement). LE POINT DE REPRISE EST
+    // `village1-hut`, PAS `village1-warp`, ET C'EST MESURE : `village1-warp` porte le drapeau de
+    // tache `sage-ecorocks` (level-info.gc:190), et y arriver DECLENCHE une cinematique — 1798
+    // lignes `CINELIVE scene=sage-intro-sequence-d1` dans la tournee d'essai du 2026-09-07. Une
+    // scene est cadencee par son FLUX AUDIO, pas par l'image : le nombre de frames de logique
+    // pour atteindre un instant donne de la scene depend de la machine, et les deux photos de ce
+    // vantage seraient prises a des instants differents de la scene. On garde donc le seul
+    // continue-point de village1 SANS drapeau (`village1-hut`) et on pose la position du gate de
+    // warp — le meme endroit, sans la tache.
+    {"village1-out", "village1-hut", "-126 46 212", "village1", kDayNight},
+    {"beach-start", "beach-start", "", "beach", kDayNight},
+    // Geyser Rock
+    {"training-start", "training-start", "", "training", kDayNight},
+    {"jungle-start", "jungle-start", "", "jungle", kDayNight},
+    {"jungle-tower", "jungle-tower", "", "jungleb", kDayNight},
+    {"misty-start", "misty-start", "", "misty", kDayNight},
+    {"misty-bike", "misty-bike", "", "misty", kDayNight},
+    {"firecanyon-start", "firecanyon-start", "", "firecanyon", kDayNight},
+    // Rock Village
+    {"village2-start", "village2-start", "", "village2", kDayNight},
+    {"village2-dock", "village2-dock", "", "village2", kDayNight},
+    // la cite Precursor sous l'eau
+    {"sunken-start", "sunken-start", "", "sunken", kDayNight},
+    {"sunkenb-start", "sunkenb-start", "", "sunkenb", kDayNight},
+    // le Swamp, dehors et dans une de ses grottes
+    {"swamp-start", "swamp-start", "", "swamp", kDayNight},
+    {"swamp-cave1", "swamp-cave1", "", "swamp", kDayNight},
+    {"rolling-start", "rolling-start", "", "rolling", kDayNight},
+    {"ogre-start", "ogre-start", "", "ogre", kDayNight},
+    // le Volcan (Volcanic Crater)
+    {"village3-start", "village3-start", "", "village3", kDayNight},
+    // le niveau de neige
+    {"snow-start", "snow-start", "", "snow", kDayNight},
+    {"snow-fort", "snow-fort", "", "snow", kDayNight},
+    {"maincave-start", "maincave-start", "", "maincave", kDayNight},
+    {"darkcave-start", "darkcave-start", "", "darkcave", kDayNight},
+    {"robocave-start", "robocave-start", "", "robocave", kDayNight},
+    // le tube de lave
+    {"lavatube-start", "lavatube-start", "", "lavatube", kDayNight},
+    {"citadel-start", "citadel-start", "", "citadel", kDayNight},
+    {"finalboss-start", "finalboss-start", "", "finalboss", kDayNight},
+};
+constexpr int kNumVantages = (int)(sizeof(kVantages) / sizeof(kVantages[0]));
+
 struct Step {
   // 1 = ORIGINE-TOTAL (master OFF) ; 2 = RECHARGED (master ON + eclairage ON, prereglage fige) ;
   // 3 = ORIGINE-LUMIERE (master ON, eclairage OFF) — la configuration que le joueur LANCE.
   int phase;
   int hour;
+  int vant;  // index dans kVantages
 };
 
 // Frames de LOGIQUE. Elles ne dependent pas de la cadence : `pad_replay` force un pas de
@@ -49,6 +138,15 @@ constexpr int64_t kAnchorSettle = 300;  // 5 s apres le premier warp : le niveau
 // `OG_REFSET_SETTLE` : c'est le seul curseur du compromis « la camera n'a pas encore diverge »
 // contre « l'heure et le lissage de la lumiere sont poses ». Le regler ne demande pas de rebatir.
 int64_t g_step_settle = 180;
+// Frames de logique entre le teleport d'une etape qui CHANGE DE VANTAGE et sa photo. Un
+// `(start 'play <continue>)` vers un autre niveau rend la main avant que ce niveau soit
+// resident : le chargement est asynchrone, et sa duree depend du disque. Le settle ordinaire
+// (180 = 3 s) suffit pour un re-teleport dans un niveau deja charge, pas pour une arrivee.
+// C'est la meme mine que celle deja payee a l'etape 0 (refset.h, bloc `wants_rewarp`) : une
+// camera qui se pose contre une geometrie incomplete trouve son point de repos ailleurs a
+// chaque course. `OG_REFSET_LOAD_SETTLE` le regle sans rebatir. `refset_load_steps` publie
+// combien d'etapes en ont beneficie : a zero, la clause serait vide.
+int64_t g_load_settle = 900;
 // L'INSTANT ABSOLU DU PREMIER TELEPORT (frames de LOGIQUE). Voir `warp_at_frame` dans refset.h :
 // le delai apres readiness de `level_warp_maybe` depend du disque, et son ecart d'UNE frame
 // entre la capture et le rejeu du 2026-09-06 a suffi a rendre `refpix_maxdiff_origine=232`.
@@ -75,7 +173,53 @@ int g_mode = 0;  // 0 = eteint, 1 = capture, 2 = replay
 std::string g_dir = ".autoport/refset";  // Android : rendu ABSOLU a l'init, voir `enabled()`
 
 std::vector<int> g_phases;  // lighting-hdr : les phases que CE plan execute
+std::vector<int> g_vants;   // lighting-census : les vantages que CE plan parcourt
 std::vector<Step> g_steps;
+// Les grandeurs de COUVERTURE, une entree par vantage retenu, remplies a la photo.
+struct VantStat {
+  uint64_t shots = 0;          // photos prises a ce vantage (tous jeux, tous creneaux)
+  uint64_t bg_px_min = ~0ull;  // pixels d'arriere-plan : le minimum sur ses photos
+  uint64_t bg_px_max = 0;      // ... et le maximum
+  uint64_t px = 0;             // le denominateur : pixels de l'image
+  uint64_t maxdiff = 0;        // le pire ecart de rejeu de ce vantage
+  uint64_t level_ok = 0;       // photos ou le niveau ATTENDU etait bien en service
+};
+std::vector<VantStat> g_vstats;  // indexe comme g_vants
+uint64_t g_load_steps = 0;       // etapes qui ont recu le settle de CHARGEMENT
+// LES NIVEAUX REELLEMENT EN SERVICE AU MOMENT D'UNE PHOTO. Le nom vient du chargeur
+// (`LevelData::level->level_name`), jamais de `kVantages[].level` : une porte qui compterait les
+// lignes de sa propre table ne mesurerait rien.
+std::set<std::string> g_levels_seen;
+// Les niveaux en service pour LA PHOTO EN COURS. Vide a chaque armement de capture. Sert a une
+// chose precise : un monde qui n'a pas fini de charger ne dessine RIEN, donc sa profondeur reste
+// a la valeur d'effacement et l'image se lit comme « 100 % de ciel ». Mesure du 2026-09-07 :
+// `citadel-start` (un niveau a `:sky #f`) rendait 934 a 1000 pour mille d'arriere-plan. Sans ce
+// filtre, `refset_sky_views` compterait les vantages RATES comme des vues de ciel — un faux vert
+// fabrique par l'instrument lui-meme.
+std::set<std::string> g_frame_levels;
+// LA MARGE DE L'ATTENTE DE CHARGEMENT, MESUREE ET PAS SUPPOSEE. `g_load_settle` est une duree
+// FIXE : c'est ce qui rend la course rejouable, mais c'est aussi un pari sur la duree du pire
+// chargement. Le fil GRAPHIQUE leve `g_vant_level_seen` la premiere fois que le niveau ATTENDU
+// devient dessinable (il ne peut pas lire l'horloge de logique, qui vit dans la memoire GOAL) ;
+// le fil GOAL date l'evenement et publie `refset_load_margin_min` = le plus petit nombre de
+// frames restant avant le second teleport. Une marge large dit que le pari est tenu ; une marge
+// de quelques frames dit que la prochaine course a une chance de photographier un monde absent.
+bool g_vant_level_seen = false;
+int64_t g_load_margin_seen_lf = -1;
+int64_t g_load_margin_min = -1;
+uint64_t g_load_margin_measured = 0;  // arrivees ou le niveau est apparu avant le second warp
+uint64_t g_probe_frames = 0;  // images ou la sonde de profondeur a tourne
+uint64_t g_probe_px = 0;      // pixels de profondeur relus au total : le denominateur
+
+// LES 21 NIVEAUX JOUABLES, pour pouvoir NOMMER ceux qui manquent au lieu de publier un trou.
+// Source : `goal_src/jak1/dgos/*.gd` (27 `.gd` moins kernel/engine/game et dem/int/tit) et les
+// 21 `level-load-info` d'index 1..21 de `level-info.gc`.
+constexpr const char* kPlayableLevels[] = {
+    "training", "village1", "beach",    "jungle",  "jungleb",  "misty",    "firecanyon",
+    "village2", "sunken",   "sunkenb",  "swamp",   "rolling",  "ogre",     "village3",
+    "snow",     "maincave", "darkcave", "robocave", "lavatube", "citadel", "finalboss",
+};
+constexpr int kNumPlayableLevels = (int)(sizeof(kPlayableLevels) / sizeof(kPlayableLevels[0]));
 size_t g_cur = 0;  // etape en cours
 bool g_finished = false;
 
@@ -117,9 +261,31 @@ uint64_t g_text_steps_without = 0;  // ... et celles ou non
 // suivante : mesure du 2026-09-06, 16 captures annoncees pour 10 fichiers ecrits, les heures
 // 03, 15 et 21 SAUTEES dans les deux jeux. Une etape sautee est une reference manquante, et
 // une reference manquante rend la porte inoperante sur ce creneau.
-enum CapState { kCapIdle = 0, kCapWaitWarp, kCapArmed, kCapInFlight, kCapDone };
+// L'ARRIVEE SUR UN NOUVEAU VANTAGE SE FAIT EN DEUX TELEPORTS, PAS UN.
+// MESURE DU 2026-09-07 (tournee d'essai, 26 vantages, settle d'arrivee de 300 frames de
+// logique) : `refset_levels=14` sur 21, et sept vantages photographies sur un monde ABSENT —
+// `citadel-start` 934..1000 pour mille de pixels d'arriere-plan, `finalboss-start` 750..1000,
+// `sunkenb-start` 1000. Un `(start 'play <continue>)` vers un AUTRE niveau rend la main avant
+// que ce niveau soit resident : la photo tombait pendant le chargement.
+// C'est le meme defaut que celui deja ferme a l'etape 0 (refset.h, bloc `wants_rewarp`) et il
+// se ferme du meme geste : un PREMIER teleport lance le chargement, on attend `g_load_settle`
+// frames de LOGIQUE, puis un SECOND teleport repart d'un monde complet — c'est lui qui pose
+// l'ancre, et la photo tombe `g_step_settle` frames apres. Le point de repos de la camera ne
+// depend donc plus de la vitesse du disque.
+enum CapState {
+  kCapIdle = 0,
+  kCapPreWarp,   // arrivee : on demande le teleport qui LANCE le chargement
+  kCapWaitLoad,  // ... et on attend `g_load_settle` frames de logique
+  kCapWaitWarp,
+  kCapArmed,
+  kCapInFlight,
+  kCapDone
+};
 int g_cap = kCapIdle;
 int64_t g_capture_frame = -1;      // la chaine attendue porte cette frame de logique
+int64_t g_load_until = -1;         // fin de l'attente de chargement d'une arrivee
+int64_t g_vant_base = -1;          // ancre du vantage courant (son teleport d'arrivee)
+uint64_t g_prewarps = 0;           // teleports d'arrivee (ceux qui lancent un chargement)
 std::string g_capture_name;        // <jeu>/h<hh>
 
 // ── horloge de logique ──────────────────────────────────────────────────────────────────────
@@ -226,6 +392,51 @@ const char* set_name(int phase) {
     return "origine";
   }
   return phase == 2 ? "recharged" : "origine-lumiere";
+}
+
+// UNE ETAPE QUI ARRIVE SUR UN NOUVEAU VANTAGE. C'est la seule qui paie un chargement de niveau,
+// donc la seule qui a besoin du settle long.
+bool step_is_arrival(size_t k) {
+  if (k >= g_steps.size()) {
+    return false;
+  }
+  return k == 0 || g_steps[k].vant != g_steps[k - 1].vant;
+}
+
+// LA PREMIERE ETAPE DU VANTAGE DE L'ETAPE k. Quand une etape ne teleporte pas (politique de
+// l'appareil), son instant se calcule depuis l'ancre de SON vantage — pas depuis celle du plan :
+// avec 26 vantages, une grille unique partant du debut de la course accumulerait toutes les
+// attentes de chargement et n'aurait plus aucun rapport avec l'horloge.
+size_t first_step_of_vant(size_t k) {
+  if (k >= g_steps.size()) {
+    return 0;
+  }
+  size_t i = k;
+  while (i > 0 && g_steps[i - 1].vant == g_steps[k].vant) {
+    i--;
+  }
+  return i;
+}
+
+// Le vantage d'une etape. `Step::vant` indexe `g_vants`, qui indexe `kVantages` : le plan peut
+// etre restreint sans renumeroter la table.
+const Vantage& vantage_of(const Step& s) {
+  const size_t i = (size_t)s.vant;
+  return kVantages[i < g_vants.size() ? g_vants[i] : 0];
+}
+
+// Le prefixe de fichier d'une etape : `<jeu>/hHH` pour le vantage historique, `<jeu>/<id>-hHH`
+// pour les autres. Le vantage historique garde son nom NU parce que ses images sont
+// l'instrument de `lighting-hdr` et de `lighting-origin-bitexact`.
+std::string step_image_name(const Step& s) {
+  const Vantage& v = vantage_of(s);
+  char nm[128];
+  if (v.id[0]) {
+    std::snprintf(nm, sizeof(nm), "%s/%s-h%02d", set_name(s.phase), v.id, s.hour);
+  } else {
+    std::snprintf(nm, sizeof(nm), "%s/h%02d", set_name(s.phase), s.hour);
+  }
+  return nm;
 }
 
 // `setenv` n'existe pas sur MSVC ; le seul appelant est ce module.
@@ -392,6 +603,96 @@ const char* build_flavour() {
 #endif
 }
 
+// ── LA COUVERTURE (owner 2026-09-07 : « Tous les niveaux ! ») ────────────────────────────────
+// Trois portes, trois grandeurs, aucune lue dans `kVantages` :
+//   `refset_levels`          niveaux distincts en service au moment d'une photo, nommes par le
+//                            CHARGEUR. `refset_levels_missing` compte ceux des 21 jouables qui
+//                            n'ont jamais ete vus, et `refset_levels_missing_list` les NOMME :
+//                            un trou anonyme n'est pas un constat.
+//   `refset_sky_views`       vues dont la photo la MOINS ciel porte >= 15 % d'arriere-plan. Le
+//                            minimum, pas la moyenne : une vue qui ne montre le ciel qu'a une
+//                            heure sur deux ne garde pas le ciel de l'autre.
+//   `refset_interior_views`  vues dont la photo la PLUS ciel porte <= 1 % d'arriere-plan.
+// `refset_bg_min_pm_<vue>` / `_max_pm_` publient la grandeur brute en pour-mille : sans elles,
+// les trois compteurs seraient des verdicts sans mesure derriere.
+void publish_coverage() {
+  autoport_proof::publish("refset_views", g_vants.size());
+  autoport_proof::publish("refset_probe_frames", g_probe_frames);
+  autoport_proof::publish("refset_probe_px", g_probe_px);
+  uint64_t shot = 0, sky = 0, inter = 0, nolevel = 0;
+  for (size_t i = 0; i < g_vstats.size(); i++) {
+    const VantStat& vs = g_vstats[i];
+    if (!vs.shots || !vs.px) {
+      continue;
+    }
+    shot++;
+    const uint64_t pm_min = vs.bg_px_min * 1000ull / vs.px;
+    const uint64_t pm_max = vs.bg_px_max * 1000ull / vs.px;
+    // UNE VUE DONT LE NIVEAU N'ETAIT PAS LA NE COMPTE NI COMME CIEL NI COMME INTERIEUR.
+    const bool loaded = vs.level_ok == vs.shots;
+    const char* id = kVantages[g_vants[i]].id;
+    char key[128];
+    std::snprintf(key, sizeof(key), "refset_bg_min_pm_%s", id[0] ? id : "legacy");
+    for (char* c = key; *c; c++) {
+      if (*c == '-') {
+        *c = '_';
+      }
+    }
+    autoport_proof::publish(key, pm_min);
+    std::snprintf(key, sizeof(key), "refset_bg_max_pm_%s", id[0] ? id : "legacy");
+    for (char* c = key; *c; c++) {
+      if (*c == '-') {
+        *c = '_';
+      }
+    }
+    autoport_proof::publish(key, pm_max);
+    std::snprintf(key, sizeof(key), "refset_dv_%s", id[0] ? id : "legacy");
+    for (char* c = key; *c; c++) {
+      if (*c == '-') {
+        *c = '_';
+      }
+    }
+    autoport_proof::publish(key, vs.maxdiff);
+    if (loaded && pm_min >= 150) {
+      sky++;
+    }
+    if (loaded && pm_max <= 10) {
+      inter++;
+    }
+    if (!loaded) {
+      nolevel++;
+    }
+  }
+  autoport_proof::publish("refset_shot_views", shot);
+  // Les vues photographiees SANS leur niveau : elles ne comptent ni en ciel ni en interieur, et
+  // ce compteur est ce qui empeche de lire leur absence comme un resultat.
+  autoport_proof::publish("refset_views_without_level", nolevel);
+  autoport_proof::publish("refset_sky_views", sky);
+  autoport_proof::publish("refset_interior_views", inter);
+  autoport_proof::publish("refset_levels", g_levels_seen.size());
+  {
+    std::string seen, missing;
+    uint64_t nmiss = 0;
+    for (const auto& s : g_levels_seen) {
+      seen += seen.empty() ? "" : "+";
+      seen += s;
+    }
+    for (int i = 0; i < kNumPlayableLevels; i++) {
+      if (g_levels_seen.count(kPlayableLevels[i])) {
+        continue;
+      }
+      nmiss++;
+      missing += missing.empty() ? "" : "+";
+      missing += kPlayableLevels[i];
+    }
+    autoport_proof::publish("refset_levels_playable", (uint64_t)kNumPlayableLevels);
+    autoport_proof::publish("refset_levels_missing", nmiss);
+    autoport_proof::publish_text("refset_levels_list", seen.empty() ? "aucun" : seen.c_str());
+    autoport_proof::publish_text("refset_levels_missing_list",
+                                 missing.empty() ? "aucun" : missing.c_str());
+  }
+}
+
 void publish_state() {
   autoport_proof::publish_text("refset_mode", g_mode == 1 ? "capture" : "replay");
   // QUEL BINAIRE A PRODUIT CETTE COURSE. `ablate` = la couche Recharged n'est pas compilee
@@ -416,6 +717,16 @@ void publish_state() {
   autoport_proof::publish("refset_parts_frozen_first_lf",
                           (uint64_t)(g_frozen_first_lf < 0 ? 0 : g_frozen_first_lf));
   autoport_proof::publish("refset_settle", (uint64_t)g_step_settle);
+  autoport_proof::publish("refset_load_settle", (uint64_t)g_load_settle);
+  autoport_proof::publish("refset_load_steps", g_load_steps);
+  // Les teleports d'ARRIVEE, comptes a part des teleports de photo : `refset_prewarps` doit
+  // valoir le nombre de vantages, sinon un vantage a ete photographie sans avoir charge.
+  autoport_proof::publish("refset_prewarps", g_prewarps);
+  autoport_proof::publish("refset_load_margin_min",
+                          (uint64_t)(g_load_margin_min < 0 ? 0 : g_load_margin_min));
+  autoport_proof::publish("refset_load_margin_n", g_load_margin_measured);
+  autoport_proof::publish("refset_vant_base_lf", (uint64_t)(g_vant_base < 0 ? 0 : g_vant_base));
+  publish_coverage();
   // L'HORLOGE DU FEU, ET LE CONTROLE DE NON-VACUITE DE SA NEUTRALISATION. `refset_mood_pins`
   // dit que le geste a bien eu lieu ; `refset_mood_span_min/max` disent combien d'images ont
   // ete DESSINEES entre deux photos consecutives. Si ces deux bornes sont egales, la cadence
@@ -631,6 +942,14 @@ void apply_step_config(const Step& s) {
     put_env("OG_LIGHTING", "0");
     put_env("OG_RT_LIGHT", "0");
   }
+  // LE VANTAGE. `level_warp_run` (kmachine.cpp) relit `OG_LEVEL_WARP` a chaque armement, donc
+  // poser la variable ICI suffit a diriger le teleport suivant vers un autre point de reprise.
+  // `OG_LEVEL_WARP_POS` est vide pour tous les vantages sauf l'historique : une chaine vide
+  // laisse la position de la donnee de Naughty Dog intacte (kmachine.cpp:6009, la surcharge est
+  // gardee par `posbuf[0]`).
+  const Vantage& v = vantage_of(s);
+  put_env("OG_LEVEL_WARP", v.cont);
+  put_env("OG_LEVEL_WARP_POS", v.pos);
   g_tod_x100 = s.hour * 100;
   lighting_census::set_phase(s.phase);
 }
@@ -701,18 +1020,17 @@ uint64_t hash_file(const std::string& path) {
 // references differentes.
 uint64_t refs_fingerprint() {
   uint64_t h = 1469598103934665603ull;
-  for (int phase : g_phases) {
-    for (int hr : kHours) {
-      char nm[64];
-      std::snprintf(nm, sizeof(nm), "%s/h%02d", set_name(phase), hr);
-      const uint64_t fh = hash_file(g_dir + "/" + nm + ".png");
-      if (!fh) {
-        return 0;
-      }
-      for (int b = 0; b < 8; b++) {
-        h ^= (unsigned char)((fh >> (8 * b)) & 0xff);
-        h *= 1099511628211ull;
-      }
+  // TOUTES les references du plan, dans l'ordre du plan — pas « les seize » : le plan en compte
+  // autant qu'il a d'etapes, et une vue ajoutee doit perimer le registre comme n'importe quel
+  // autre changement de reference.
+  for (const Step& s : g_steps) {
+    const uint64_t fh = hash_file(g_dir + "/" + step_image_name(s) + ".png");
+    if (!fh) {
+      return 0;
+    }
+    for (int b = 0; b < 8; b++) {
+      h ^= (unsigned char)((fh >> (8 * b)) & 0xff);
+      h *= 1099511628211ull;
     }
   }
   return h ? h : 1;
@@ -1006,6 +1324,18 @@ bool enabled() {
       }
     }
   }
+  {
+    char sv[32] = {0};
+    if (read_knob("OG_REFSET_LOAD_SETTLE", "debug.opengoal.refset.loadsettle", sv, sizeof(sv))) {
+      const long ls = std::strtol(sv, nullptr, 10);
+      if (ls >= 2 && ls <= 7200) {
+        g_load_settle = ls;
+      }
+    }
+    if (g_load_settle < g_step_settle) {
+      g_load_settle = g_step_settle;
+    }
+  }
   fpng::fpng_init();
   // lighting-hdr : quelles phases ce plan execute. `OG_REFSET_PHASES=1,2` ou `=3`, defaut les
   // trois. Ca existe pour une raison precise : la reference ORIGINE-TOTAL du verdict 4 doit
@@ -1047,16 +1377,74 @@ bool enabled() {
       g_order_by_hour = (std::atoi(ov) != 0) ? 1 : 0;
     }
   }
-  if (g_order_by_hour) {
-    for (int h : kHours) {
-      for (int phase : g_phases) {
-        g_steps.push_back(Step{phase, h});
+  // LES VANTAGES QUE CE PLAN PARCOURT. `OG_REFSET_VANTAGES=legacy` (ou une liste de noms de
+  // continue-points separes par des virgules) restreint le parcours ; vide = les 26. `legacy`
+  // nomme le vantage historique, dont le prefixe de fichier est vide et qui n'a donc pas de nom
+  // typable. Cette restriction existe pour une raison NOMMEE : `lighting-origin-bitexact` et
+  // `refset-replay-stable` sont valides sur un instrument de 8 et 24 etapes a la hutte de
+  // Sandover. Etendre le plan sous eux, c'est redefinir leur mesure ; leur `proof_env` epingle
+  // donc `legacy` et leurs references restent valables octet pour octet.
+  {
+    char vv[512] = {0};
+    if (read_knob("OG_REFSET_VANTAGES", "debug.opengoal.refset.vantages", vv, sizeof(vv))) {
+      const std::string want = vv;
+      size_t p = 0;
+      while (p <= want.size()) {
+        const size_t c = want.find(',', p);
+        std::string tok = want.substr(p, c == std::string::npos ? std::string::npos : c - p);
+        while (!tok.empty() && (tok.front() == ' ' || tok.front() == '\t')) {
+          tok.erase(tok.begin());
+        }
+        while (!tok.empty() && (tok.back() == ' ' || tok.back() == '\t')) {
+          tok.pop_back();
+        }
+        if (!tok.empty()) {
+          for (int i = 0; i < kNumVantages; i++) {
+            const bool hit = (tok == "legacy" && kVantages[i].id[0] == 0) ||
+                             tok == kVantages[i].id || tok == kVantages[i].cont;
+            if (hit && std::find(g_vants.begin(), g_vants.end(), i) == g_vants.end()) {
+              g_vants.push_back(i);
+            }
+          }
+        }
+        if (c == std::string::npos) {
+          break;
+        }
+        p = c + 1;
       }
     }
-  } else {
-    for (int phase : g_phases) {
-      for (int h : kHours) {
-        g_steps.push_back(Step{phase, h});
+    if (g_vants.empty()) {
+      for (int i = 0; i < kNumVantages; i++) {
+        g_vants.push_back(i);
+      }
+    }
+    g_vstats.assign(g_vants.size(), VantStat{});
+  }
+  // L'ORDRE EST PAR VANTAGE D'ABORD, ET CE N'EST PAS UN GOUT. Un vantage = un chargement de
+  // niveau ; les grouper met 26 chargements dans la course au lieu de 78, et surtout laisse le
+  // regime de modeles du niveau (choisi UNE fois au chargement, jamais refait — Loader.cpp:546)
+  // decide par la phase 1, la premiere de chaque bloc, exactement comme le lanceur le pose pour
+  // l'etape 0. A l'INTERIEUR d'un vantage l'ordre historique est conserve, si bien qu'un plan
+  // restreint a `legacy` reproduit le plan d'avant, etape pour etape.
+  for (size_t vi = 0; vi < g_vants.size(); vi++) {
+    const Vantage& van = kVantages[g_vants[vi]];
+    if (g_order_by_hour) {
+      for (int hi = 0; hi < 8; hi++) {
+        if (!(van.hours & (1u << hi))) {
+          continue;
+        }
+        for (int phase : g_phases) {
+          g_steps.push_back(Step{phase, kHours[hi], (int)vi});
+        }
+      }
+    } else {
+      for (int phase : g_phases) {
+        for (int hi = 0; hi < 8; hi++) {
+          if (!(van.hours & (1u << hi))) {
+            continue;
+          }
+          g_steps.push_back(Step{phase, kHours[hi], (int)vi});
+        }
       }
     }
   }
@@ -1068,8 +1456,15 @@ bool enabled() {
   file_util::create_dir_if_needed(g_dir + "/origine");
   file_util::create_dir_if_needed(g_dir + "/recharged");
   file_util::create_dir_if_needed(g_dir + "/origine-lumiere");
-  std::printf("REFSET mode=%s dir=%s steps=%d res=%dx%d\n", g_mode == 1 ? "capture" : "replay",
-              g_dir.c_str(), (int)g_steps.size(), kShotW, kShotH);
+  std::printf("REFSET mode=%s dir=%s steps=%d vues=%d res=%dx%d settle=%lld/%lld\n",
+              g_mode == 1 ? "capture" : "replay", g_dir.c_str(), (int)g_steps.size(),
+              (int)g_vants.size(), kShotW, kShotH, (long long)g_step_settle,
+              (long long)g_load_settle);
+  for (size_t i = 0; i < g_vants.size(); i++) {
+    const Vantage& van = kVantages[g_vants[i]];
+    std::printf("REFSET vue %2d id=%s cont=%s niveau=%s heures=%02x\n", (int)i,
+                van.id[0] ? van.id : "legacy", van.cont, van.level, (unsigned)van.hours);
+  }
   std::fflush(stdout);
   return true;
 }
@@ -1105,11 +1500,28 @@ void note_anchor() {
   }
   g_rewarps++;
   g_rewarp_asked = false;
+  if (g_cap == kCapPreWarp) {
+    // Teleport d'ARRIVEE : il lance le chargement du niveau du vantage. On ne photographie
+    // rien maintenant — on attend que le monde soit la.
+    g_prewarps++;
+    g_load_until = lf + g_load_settle;
+    g_vant_level_seen = false;
+    g_load_margin_seen_lf = -1;
+    g_cap = kCapWaitLoad;
+    std::printf("REFSET arrivee lf=%lld vue=%s attente=%lld\n", (long long)lf,
+                g_cur < g_steps.size() ? vantage_of(g_steps[g_cur]).cont : "?",
+                (long long)g_load_settle);
+    std::fflush(stdout);
+    return;
+  }
   if (g_cap == kCapWaitWarp) {
     g_step_anchor = lf;
     g_capture_frame = lf + g_step_settle;
     if (g_plan_base < 0) {
       g_plan_base = lf;
+    }
+    if (g_cur < g_steps.size() && step_is_arrival(g_cur)) {
+      g_vant_base = lf;
     }
     g_cap = kCapArmed;
   }
@@ -1216,7 +1628,7 @@ bool wants_rewarp() {
     return false;
   }
   std::lock_guard<std::mutex> lock(g_mutex);
-  if (g_cap != kCapWaitWarp || g_warp1 < 0) {
+  if ((g_cap != kCapWaitWarp && g_cap != kCapPreWarp) || g_warp1 < 0) {
     return false;
   }
   const int64_t lf = current_logic_frame();
@@ -1304,23 +1716,52 @@ void tick() {
     }
   }
 
+  // L'ATTENTE DE CHARGEMENT D'UNE ARRIVEE. Duree FIXE en frames de logique : c'est ce qui rend
+  // l'instant du second teleport identique dans la course qui capture et dans celle qui rejoue.
+  if (g_cap == kCapWaitLoad) {
+    if (g_vant_level_seen && g_load_margin_seen_lf < 0) {
+      g_load_margin_seen_lf = lf;
+      const int64_t marge = g_load_until - lf;
+      g_load_margin_measured++;
+      if (g_load_margin_min < 0 || marge < g_load_margin_min) {
+        g_load_margin_min = marge;
+      }
+      std::printf("REFSET niveau-la lf=%lld marge=%lld\n", (long long)lf, (long long)marge);
+      std::fflush(stdout);
+    }
+    if (lf < g_load_until) {
+      return;
+    }
+    g_cap = kCapWaitWarp;
+  }
+
   if (g_cap == kCapIdle) {
     // La configuration est posee AVANT le teleport : l'heure et le master sont donc deja ceux de
     // l'etape quand la camera se repose.
     const Step& st = g_steps[g_cur];
     apply_step_config(st);
-    char nm[64];
-    std::snprintf(nm, sizeof(nm), "%s/h%02d", set_name(st.phase), st.hour);
-    g_capture_name = nm;
-    if (g_warp_per_step || g_cur == 0 || g_plan_base < 0) {
+    g_capture_name = step_image_name(st);
+    if (step_is_arrival(g_cur)) {
+      g_load_steps++;
+    }
+    // UNE ARRIVEE SUR UN NOUVEAU VANTAGE TELEPORTE TOUJOURS, meme quand la politique de l'etape
+    // est « pas de teleport » (l'appareil) : sans ce teleport-la, changer de vantage ne
+    // changerait que l'heure et le master, et les 25 autres niveaux ne seraient jamais atteints.
+    if (step_is_arrival(g_cur) && g_cur != 0) {
+      // Nouveau vantage : deux teleports, le premier pour charger. L'etape 0 en est dispensee —
+      // son niveau est deja resident, `OG_WANT_LEVELS` l'a demande au lanceur et le premier
+      // warp de `level_warp_maybe` a deja eu lieu 300 frames plus tot.
+      g_cap = kCapPreWarp;
+    } else if (g_warp_per_step || g_cur == 0 || g_vant_base < 0) {
       g_cap = kCapWaitWarp;
     } else {
       // Pas de teleport pour cette etape : l'instant de la photo se DEDUIT de l'ancre du plan.
       // Voir `g_plan_base`. Un retard reel (le plan n'a pas tenu la cadence) n'est pas absorbe
       // en silence : il se compte, et le repli qui suit rend la course non comparable — c'est
       // exactement ce que `refset_late_arms` doit rendre visible.
-      g_step_anchor = g_plan_base;
-      g_capture_frame = g_plan_base + (int64_t)(g_cur + 1) * g_step_settle;
+      g_step_anchor = g_vant_base;
+      g_capture_frame = g_vant_base + (int64_t)(g_cur - first_step_of_vant(g_cur) + 1) *
+                                          g_step_settle;
       if (g_capture_frame <= lf) {
         g_late_arms++;
         g_capture_frame = lf + g_step_settle;
@@ -1334,6 +1775,69 @@ void tick() {
     }
   }
   publish_state();
+}
+
+// ── LA SONDE DE SCENE : CIEL ET NIVEAUX (contrat et convention : refset.h) ───────────────────
+// Elle ne tourne QUE sur l'image que le plan photographie. `kCapInFlight` est pose par
+// `capture_for_chain`, qui est appele avant `render_loop` dans la meme iteration du fil
+// graphique (pipelines/opengl.cpp:654) : la sonde et la photo decrivent donc la meme image, et
+// c'est le point qui rend la mesure attribuable a une vue.
+bool wants_level_census() {
+  return enabled();
+}
+
+bool wants_scene_probe() {
+  if (!enabled()) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  return g_cap == kCapInFlight && g_cur < g_steps.size();
+}
+
+void note_scene_probe(uint64_t bg_px, uint64_t total_px) {
+  if (!enabled() || !total_px) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (g_cap != kCapInFlight || g_cur >= g_steps.size()) {
+    return;
+  }
+  g_probe_frames++;
+  g_probe_px += total_px;
+  const size_t vi = (size_t)g_steps[g_cur].vant;
+  if (vi >= g_vstats.size()) {
+    return;
+  }
+  VantStat& vs = g_vstats[vi];
+  vs.shots++;
+  vs.px = total_px;
+  if (g_frame_levels.count(vantage_of(g_steps[g_cur]).level)) {
+    vs.level_ok++;
+  }
+  if (bg_px < vs.bg_px_min) {
+    vs.bg_px_min = bg_px;
+  }
+  if (bg_px > vs.bg_px_max) {
+    vs.bg_px_max = bg_px;
+  }
+}
+
+void note_level_in_use(const char* level_name) {
+  if (!enabled() || !level_name || !level_name[0]) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  // Le niveau ATTENDU du vantage courant est-il devenu dessinable ? Releve a CHAQUE image, pas
+  // seulement sur les photos : c'est l'instant d'apparition qui donne la marge.
+  if (!g_vant_level_seen && g_cur < g_steps.size() &&
+      std::strcmp(level_name, vantage_of(g_steps[g_cur]).level) == 0) {
+    g_vant_level_seen = true;
+  }
+  if (g_cap != kCapInFlight) {
+    return;
+  }
+  g_levels_seen.insert(level_name);
+  g_frame_levels.insert(level_name);
 }
 
 bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h) {
@@ -1365,6 +1869,7 @@ bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h)
     g_slip_nonzero++;
   }
   g_inflight_lf = lf;
+  g_frame_levels.clear();
   // Desarmer ICI, pas a la fin de la capture : entre les deux, le fil graphique dessine une ou
   // deux images de plus et re-prendrait la meme demande.
   g_cap = kCapInFlight;
@@ -1387,7 +1892,12 @@ bool consume_capture(int w, int h, const void* rgba) {
   const uint8_t* cur = (const uint8_t*)rgba;
   // lighting-hdr : on mesure AVANT de comparer ou d'ecrire, dans les deux modes. Les
   // verdicts 1 et 2 portent sur ce que le moteur vient de dessiner, pas sur la reference.
-  measure_step(g_steps[g_cur].phase, g_steps[g_cur].hour, g_inflight_lf, cur, w, h);
+  // Les grandeurs de `lighting-hdr` se mesurent au vantage HISTORIQUE seulement : `g_stats` est
+  // indexe [phase][creneau], donc deux vantages a la meme heure s'ecraseraient l'un l'autre et
+  // les verdicts appariraient deux photos de scenes differentes.
+  if (vantage_of(g_steps[g_cur]).id[0] == 0) {
+    measure_step(g_steps[g_cur].phase, g_steps[g_cur].hour, g_inflight_lf, cur, w, h);
+  }
 
   if (g_mode == 1) {
     file_util::write_rgba_png(path, const_cast<void*>(rgba), w, h);
@@ -1431,6 +1941,19 @@ bool consume_capture(int w, int h, const void* rgba) {
         g_maxdiff = md;
       }
       {
+        const size_t vi = (size_t)g_steps[g_cur].vant;
+        if (vi < g_vstats.size() && md > g_vstats[vi].maxdiff) {
+          g_vstats[vi].maxdiff = md;
+        }
+      }
+      // LES GRANDEURS PAR JEU RESTENT CELLES DU VANTAGE HISTORIQUE, ET C'EST DELIBERE.
+      // `refpix_maxdiff_origine` (lighting-unify), `verdict_master_off_bitexact`
+      // (lighting-origin-bitexact) et les verdicts 1, 2 et 5 de `lighting-hdr` sont juges sur
+      // huit creneaux a la hutte de Sandover. Les etendre aux 25 vantages neufs redefinirait
+      // sous eux une mesure qu'ils ont deja passee. La couverture neuve vit dans ses PROPRES
+      // grandeurs (`refset_dv_<vue>`, `refset_sky_views`, ...) et dans `refset_replay_maxdiff`,
+      // qui lui porte sur TOUT le plan — c'est la porte de cet item.
+      if (vantage_of(g_steps[g_cur]).id[0] == 0) {
         // Les phases valent 1..3. La borne haute etait `<= 2` : la phase 3 (ORIGINE-LUMIERE)
         // n'entrait donc JAMAIS dans `g_compared_phase`, et `verdict_origine_lumiere_set()`,
         // qui exige `g_compared_phase[3] == 8`, rendait 1 quoi qu'il arrive — le verdict 5
@@ -1448,9 +1971,28 @@ bool consume_capture(int w, int h, const void* rgba) {
       // Le validateur exige `FEATURE <id> armed=1 hits=>0` : une comparaison faite EST le chemin
       // de code de cet item qui tire. `hits` est un compteur global du harnais, pas le notre.
       autoport_proof::note_hit();
-      char key[96];
-      std::snprintf(key, sizeof(key), "refset_d_%s_h%02d",
-                    set_name(g_steps[g_cur].phase), g_steps[g_cur].hour);
+      // Une cle par PHOTO. Le vantage historique garde la cle nue `refset_d_<jeu>_hHH` — c'est
+      // celle que les rapports des items precedents citent ; les vues neuves portent leur nom,
+      // sans quoi 26 vantages ecriraient 26 fois la meme cle et seule la derniere survivrait.
+      char key[160];
+      const Vantage& kv = vantage_of(g_steps[g_cur]);
+      if (kv.id[0]) {
+        std::snprintf(key, sizeof(key), "refset_d_%s_%s_h%02d", set_name(g_steps[g_cur].phase),
+                      kv.id, g_steps[g_cur].hour);
+      } else {
+        std::snprintf(key, sizeof(key), "refset_d_%s_h%02d", set_name(g_steps[g_cur].phase),
+                      g_steps[g_cur].hour);
+      }
+      // LE TIRET EST FATAL A UNE CLE, EN SILENCE. `autoport_proof::publish` refuse une cle qui
+      // ne respecte pas `[A-Za-z_][A-Za-z0-9_]*` sans rien dire (autoport_proof.h:74). Le jeu
+      // ORIGINE-LUMIERE porte un tiret dans son nom : ses huit cles `refset_d_origine-lumiere_*`
+      // etaient donc ecrites depuis lighting-hdr et n'ont JAMAIS atteint un proof.txt — un
+      // compteur publie sans site d'ecriture lisible. Les 26 noms de vues en portent aussi.
+      for (char* c = key; *c; c++) {
+        if (*c == '-') {
+          *c = '_';
+        }
+      }
       autoport_proof::publish(key, md);
       std::printf("REFSET cmp %s maxdiff=%llu diffpx=%llu\n", g_capture_name.c_str(),
                   (unsigned long long)md, (unsigned long long)np);
@@ -1475,10 +2017,15 @@ bool consume_capture(int w, int h, const void* rgba) {
                                 ((fid && fid[0]) ? fid : "lighting-census") + "/refset-actual";
 #endif
         file_util::create_dir_if_needed(out);
-        file_util::write_rgba_png(out + "/" + set_name(g_steps[g_cur].phase) + "-h" +
-                                      (g_steps[g_cur].hour < 10 ? "0" : "") +
-                                      std::to_string(g_steps[g_cur].hour) + ".png",
-                                  const_cast<void*>(rgba), w, h);
+        // Le nom porte la VUE : sans elle, 26 vantages ecriraient tous dans le meme fichier et
+        // l'ecart ne serait plus localisable.
+        std::string leaf = step_image_name(g_steps[g_cur]);
+        for (char& c : leaf) {
+          if (c == '/') {
+            c = '-';
+          }
+        }
+        file_util::write_rgba_png(out + "/" + leaf + ".png", const_cast<void*>(rgba), w, h);
       }
     }
   }

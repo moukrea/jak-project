@@ -168,6 +168,44 @@ int tod_override_x100();
 // et la resolution de capture.
 bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h);
 
+// ── LA COUVERTURE, MESUREE ET PAS DECLAREE (lighting-census, owner 2026-09-07) ───────────────
+// L'owner demande TOUS les niveaux, exterieurs ET interieurs. Trois grandeurs le disent, et
+// aucune ne se lit dans la table de vantages — une porte qui lirait sa propre table serait un
+// miroir :
+//   `refset_levels`          niveaux DISTINCTS dont la geometrie etait en service au moment
+//                            d'une photo (le nom vient du chargeur, pas de la table).
+//   `refset_sky_views`       vues dont TOUTES les photos portent au moins 15 % de pixels
+//                            d'arriere-plan, c'est-a-dire de ciel.
+//   `refset_interior_views`  vues dont AUCUNE photo ne porte plus de 1 % d'arriere-plan : la
+//                            geometrie enferme la camera.
+//
+// COMMENT « PIXEL DE CIEL » SE MESURE. Le decor de jak1 teste la profondeur en GEQUAL avec la
+// convention PS2 inversee (`background_common.cpp:164-180`), et la profondeur est effacee a
+// **0,0** (`OpenGLRenderer.cpp:1450`) : 0 est donc le PLUS LOIN. Le ciel est dessine au bucket 3
+// (`buckets.h:10`), avant tout le decor, par un `DirectRenderer` dont le paquet GS n'a pas de
+// `zmsk` (`sky-tng.gc:716`) et qui porte le z du fond. Un pixel encore a 0 apres le dernier
+// bucket 3D est donc un pixel que rien n'a couvert : le ciel, ou le vide dans un niveau a
+// `:sky #f`. Ce n'est pas une deduction de ce commentaire, c'est la convention DEJA en service
+// dans cet arbre : `ao_ssao.frag:67` teste `d <= 0.000001` et l'appelle « sky / far ».
+//
+// LE POINT DE LECTURE EST CHOISI, PAS PRIS AU HASARD. La sonde tourne au bucket
+// `DEPTH_CUE` (64), AVANT son rendu : les 64 premiers buckets — ciel, ocean lointain, tfrag,
+// tie, shrub, alpha, ombres, eau, `OCEAN_NEAR` — ont tous ecrit, et aucun `DirectRenderer` 2D
+// n'a encore touche la profondeur. Lire a `finish_screenshot` mesurerait le HUD : sous refset
+// `game_res == draw_region`, donc `split_active` est FAUX et la 2D ecrit dans le MEME FBO.
+//
+// PORTEE HONNETE : un pixel couvert seulement par une surface qui n'ecrit PAS la profondeur
+// (certains alphas) compte comme arriere-plan. La mesure est donc un MAJORANT du ciel ; c'est
+// pour ca que `refset_sky_views` prend le MINIMUM sur les photos d'une vue et que le
+// denominateur (`refset_bg_px`) est publie a cote.
+// Le releve des niveaux tourne a CHAQUE image d'une course de reference (il date l'instant ou le
+// niveau attendu devient dessinable, d'ou `refset_load_margin_min`) ; la relecture de profondeur,
+// elle, ne tourne que sur les 174 images photographiees.
+bool wants_level_census();
+bool wants_scene_probe();
+void note_scene_probe(uint64_t bg_px, uint64_t total_px);
+void note_level_in_use(const char* level_name);
+
 // FIL GRAPHIQUE. Le tampon de couleur vient d'etre relu (RGBA, deja retourne a l'endroit).
 // Rend vrai si c'etait notre capture — l'appelant n'ecrit alors pas le PNG de capture d'ecran.
 bool consume_capture(int w, int h, const void* rgba);

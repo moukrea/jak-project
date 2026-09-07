@@ -6220,6 +6220,14 @@ static void refset_rewarp_maybe() {
   if (!refset::wants_rewarp()) {
     return;
   }
+  // lighting-census (owner 2026-09-07 : « Tous les niveaux ! ») — LE VANTAGE PEUT CHANGER ENTRE
+  // DEUX TELEPORTS. `level_warp_run` relit `s_level_warp_name` a chaque execution, mais ce
+  // tampon n'etait rempli qu'une fois : `level_warp_requested()` n'est consulte que par
+  // `level_warp_maybe`, verrouille par son `static bool s_done`. Le plan de references pose donc
+  // `OG_LEVEL_WARP` (et `OG_LEVEL_WARP_POS`) a chaque etape, et cette ligne-ci est ce qui les
+  // fait entrer : sans elle, les 25 vantages neufs teleporteraient tous a la hutte de Sandover
+  // et la couverture annoncee serait une fiction.
+  (void)level_warp_requested();
   Ptr<Function> warp_fn = make_function_from_c((void*)level_warp_run, false);
   ListenerFunction->value = warp_fn.offset;
   lg::info("[LEVEL-WARP] second warp arme pour le jeu d'images de reference");

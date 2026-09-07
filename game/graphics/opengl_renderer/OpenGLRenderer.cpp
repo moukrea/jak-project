@@ -1664,6 +1664,54 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     if (bucket_id == (int)jak1::BucketId::DEBUG && m_render_state.begin_2d_ui_pass) {
       m_render_state.begin_2d_ui_pass();
     }
+    // lighting-census : LA SONDE DE SCENE DU JEU DE REFERENCES — ciel et niveaux dessines.
+    // Contrat, convention de profondeur et choix du point de lecture : `refset.h`, section
+    // « LA COUVERTURE, MESUREE ET PAS DECLAREE ». Ici, AVANT le rendu du bucket `DEPTH_CUE`,
+    // les 64 premiers buckets ont ecrit (ciel, ocean lointain et proche, tfrag, tie, shrub,
+    // alpha, ombres, eau) et aucun `DirectRenderer` 2D n'a encore touche la profondeur.
+    // Ne tourne QUE sur l'image qu'une etape photographie : une relecture de profondeur par
+    // image couterait une synchronisation a chaque frame pour rien.
+    if (bucket_id == (int)jak1::BucketId::DEPTH_CUE && refset::wants_level_census()) {
+      auto p = prof.make_scoped_child("refset-scene-probe");
+      // QUELS NIVEAUX SONT EN SERVICE A CET INSTANT — releve AVANT la sonde, qui le consulte.
+      // Le nom vient du chargeur, pas d'une table ecrite a la main : `frames_since_last_used < 5`
+      // est remis a zero par `Loader::get_tfrag3_level`, que chaque renderer de decor appelle
+      // quand il se prepare pour un niveau. C'est donc « un renderer de decor a travaille pour ce
+      // niveau », la grandeur la plus proche de « sa geometrie est a l'ecran » disponible sans
+      // toucher aux 32 sites de draw — lesquels sont de toute facon muets des qu'un AUTRE item
+      // est mesure (`lighting_census::active()` memoise `armed_for("lighting-census")`).
+      if (m_render_state.loader) {
+        for (auto* ld : m_render_state.loader->get_in_use_levels()) {
+          if (ld && ld->level) {
+            refset::note_level_in_use(ld->level->level_name.c_str());
+          }
+        }
+      }
+      // La RELECTURE DE PROFONDEUR, elle, ne se fait que sur l'image photographiee : elle coute
+      // une synchronisation avec le GPU, et 174 fois dans la course c'est gratuit, une fois par
+      // image ce serait une taxe permanente sur un instrument cense ne rien changer.
+      Fbo* src = refset::wants_scene_probe() ? m_fbo_state.render_fbo : nullptr;
+      if (src && src->valid && src->zbuf_stencil_id && src->width > 0 && src->height > 0 &&
+          src->width * src->height <= 1920 * 1080) {
+        const int nw = src->width, nh = src->height;
+        std::vector<float> depth((size_t)nw * nh, 0.f);
+        GLint oldread = 0;
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &oldread);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, src->fbo_id);
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadPixels(0, 0, nw, nh, GL_DEPTH_COMPONENT, GL_FLOAT, depth.data());
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, oldread);
+        uint64_t bg = 0;
+        // 0,0 = le PLUS LOIN (profondeur effacee a 0, test GEQUAL — convention PS2 inversee).
+        // Le seuil est celui deja en service dans `ao_ssao.frag:67` pour « sky / far ».
+        for (float d : depth) {
+          if (d <= 1e-6f) {
+            bg++;
+          }
+        }
+        refset::note_scene_probe(bg, (uint64_t)nw * nh);
+      }
+    }
     // lg::info("Render: {} start", g_current_renderer);
     // lighting-census : temps GPU de CE bucket. Une paire de `glQueryCounter`, moissonnee
     // trois images plus tard : aucune synchronisation, aucune image perdue.

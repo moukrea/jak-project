@@ -10,15 +10,48 @@ chaque item suivant de la refonte.**
 | `origine/` | `recharged_master` **OFF** (`OG_RECHARGED=0`) + `OG_RT_LIGHT=0` | **ne bouge JAMAIS**, `maxdiff == 0` |
 | `recharged/` | master **ON** + lumière temps réel **ON** (le préréglage figé) | ne bouge que si l'item le **déclare**, et seulement pour ce qu'il déclare |
 
-Huit images par jeu, une par créneau horaire de `mood-lights-table` (0, 3, 6, 9, 12, 15, 18,
-21 h), au point de reprise `village1-hut`, rendues à **320×180, msaa 1** dans le FBO interne —
-la taille de la fenêtre de la machine n'entre donc pas dans la comparaison.
+**26 VUES, 21 NIVEAUX, 174 IMAGES PAR COURSE** (owner 2026-09-07 : « Faut quand même mesurer
+aussi les intérieurs, mais faut mesurer aussi les extérieurs […] Tous les niveaux ! »).
+
+| | |
+|---|---|
+| vue 0 (`<jeu>/hHH.png`) | hutte de Sandover, **huit** créneaux — le vantage historique |
+| vues 1 à 25 (`<jeu>/<continue>-hHH.png`) | un point de reprise nommé par niveau, **9 h et 21 h** |
+
+La table est dans `game/graphics/refset.cpp` (`kVantages`) ; chaque `cont` est un
+`continue-point` vérifié dans `goal_src/jak1/engine/level/level-info.gc`. Les images sont
+rendues à **320×180, msaa 1** dans le FBO interne — la taille de la fenêtre de la machine
+n'entre donc pas dans la comparaison.
+
+**Le jeu compte 21 niveaux jouables, pas 22.** 27 `.gd` dans `goal_src/jak1/dgos/`, moins
+`kernel`/`engine`/`game` et `dem`/`int`/`tit`. Les deux candidats restants n'existent pas dans le
+jeu de l'owner : `halfpipe` (`level-info.gc:2359`, `:nickname 'none`) et `test-zone` (`:2476`)
+n'ont **aucun DGO**. Les 21 sont couverts.
+
+**LA COUVERTURE EST MESURÉE, PAS DÉCLARÉE.** `refset_levels` compte les niveaux nommés par le
+CHARGEUR au moment d'une photo. `refset_sky_views` et `refset_interior_views` se lisent sur la
+fraction de pixels d'arrière-plan du tampon de PROFONDEUR, relue au bucket `DEPTH_CUE` (tout le
+3D a écrit, aucun 2D encore) : la profondeur est effacée à 0 et le décor teste en GEQUAL, donc
+un pixel resté à 0 est un pixel que rien n'a couvert. Convention déjà en service :
+`ao_ssao.frag:67`. Une vue dont le niveau attendu n'était pas en service ne compte ni comme
+ciel ni comme intérieur (`refset_views_without_level`) — sans ce filtre, un monde pas encore
+chargé se lirait comme « 100 % de ciel », ce qu'il a fait dans la tournée d'essai du 2026-09-07
+(`citadel-start` 934 à 1000 ‰).
+
+**UNE ARRIVÉE SUR UN VANTAGE COÛTE DEUX TÉLÉPORTS.** Le premier lance le chargement du niveau,
+on attend `OG_REFSET_LOAD_SETTLE` frames de LOGIQUE, le second repart d'un monde complet et
+c'est lui qui pose l'ancre. Mesure du 2026-09-07 : avec 300 frames d'attente, sept vantages
+étaient photographiés sur un monde ABSENT et `refset_levels` valait 14 sur 21.
 
 ## Comment on s'en sert
 
 ```bash
-bash .autoport/lib/refset.sh replay      # doit finir sur refset_replay_maxdiff=0
+bash .autoport/lib/refset.sh replay 1500   # doit finir sur refset_replay_maxdiff=0
 ```
+
+La tournée complète dure ~25 min : 26 arrivées à 1200 + 180 frames de logique et 148 étapes à
+180. Le défaut de 360 s coupait la course au 7e vantage, et une course coupée rend 254 — pas une
+mesure.
 
 La grandeur est publiée **par le moteur**, pas par le script : `refset_replay_maxdiff`,
 `refset_replay_diffpx`, et une ligne `refset_d_<jeu>_h<hh>=<maxdiff>` par image. Quand un écart
@@ -60,11 +93,24 @@ Quatre leviers, tous préexistants dans l'arbre :
 
 ## Portée honnête
 
-Le déclenchement passe par `render_game_frame` (`game/graphics/pipelines/opengl.cpp`), qui
-n'est pas dans `android/CMakeLists.txt` : **c'est un instrument x86**. Sur l'appareil,
-`refset_platform=device` et aucune étape ne se lance. Un seul niveau (`village1`) et un seul
-vantage sont couverts : les trois autres régimes de la SPEC (`swamp`, `lavatube`, `snow`) et les
-vantages multiples ne le sont pas.
+Le déclenchement x86 passe par `render_game_frame` (`game/graphics/pipelines/opengl.cpp`) ; sur
+l'appareil c'est `refset_capture_if_step` (`android/android_opengl_renderer.cpp`) et les deux
+familles d'images vivent dans des dossiers de noms différents (re-rendu en résolution interne
+d'un côté, sous-échantillonnage 4:3 de l'autre). **La sonde de scène — ciel et niveaux — est
+x86 seule** : elle vit dans `OpenGLRenderer.cpp`, que `android/CMakeLists.txt` ne compile pas.
+Sur appareil, `refset_sky_views` et `refset_levels` valent donc 0 et ne prouvent rien.
+
+**Le régime de modèles est STOCK pour toute la course, y compris dans le jeu RECHARGED.** Le
+choix `enhanced`/`stock` d'un niveau est pris UNE fois à son chargement (`Loader.cpp:546`) et ne
+se refait jamais ; le maître est posé à 0 par le LANCEUR (sans quoi le fil de chargement gagne
+la course, voir plus bas), et les 26 chargements ont tous lieu pendant une étape de phase 1.
+`hd_fr3_enhanced=0` / `hd_fr3_stock` le publient. Cette garde protège donc l'ÉCLAIRAGE, pas la
+substitution de modèles HD — laquelle a ses propres items.
+
+**Les items validés sur le vantage historique ne sont pas redéfinis.** `OG_REFSET_VANTAGES=legacy`
+restreint la tournée aux 8 (ou 24) étapes de la hutte de Sandover ; c'est ce que le `proof_env`
+de `lighting-origin-bitexact` et de `refset-replay-stable` épingle. Les grandeurs par jeu
+(`refpix_maxdiff_*`, les verdicts de `lighting-hdr`) ne comptent que les photos de ce vantage.
 
 ## L'intermittence est fermee : la cause etait une course d'amorcage
 
