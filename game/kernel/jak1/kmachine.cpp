@@ -122,6 +122,11 @@ void merc2_hd_skel_forget(u32 companion_pid);
 // et l'emplacement d'un compagnon dedans — sonde HDRING de Merc2.
 void merc2_hd_ring(u32 ring_addr, u32 cam_addr, u32 stamp_addr);
 void merc2_hd_ring_slot(u32 companion_pid, int slot);
+// recharged-secondary-motion : les joints que le solveur de chaines ECRIT, et la grandeur que
+// la porte lit (echelle recue par la chair sur la t-mtx CONSOMMEE). Meme regle de portee que
+// les prototypes ci-dessus : DEHORS de `namespace jak1`.
+void merc2_hd_phys_joint(u32 companion_pid, int k, int on);
+u64 merc2_sm_diag(int which);
 #endif
 
 // Grecharged-foliage-wind3 : la cadence du vent natif, rapportee par `update-wind-ticks!` au
@@ -1324,6 +1329,75 @@ void pc_hd_ring(u32 ring_addr, u32 cam_addr, u32 stamp_addr) {
 }
 void pc_hd_ring_slot(u32 pid, u32 slot) {
   ::merc2_hd_ring_slot(pid, (int)slot);
+}
+
+// ─── recharged-secondary-motion — LA PORTE, ASSEMBLEE LA OU LE SOLVEUR ECRIT ────────────
+// Appele par `jak-hd-physics.gc` a chaque maillon ECRIT, donc 4 fois par image quand les deux
+// chaines de keira-hd sont resolues. Trois roles, et un seul appel pour les trois :
+//   1. dire a Merc2 quel joint juger (il ne peut pas le deviner : ces joints n'existent pas
+//      dans le modele stock) ;
+//   2. remplir `hits=` de la ligne FEATURE avec CE QUI A REELLEMENT TOURNE — un maillon ecrit,
+//      pas une image dessinee. `note_hit` est un compteur PARTAGE avec les autres items du
+//      binaire : `sm_links_written` publie SON denominateur a cote, sinon un `hits` non nul
+//      venu d'ailleurs se lirait comme « la physique a tourne » ;
+//   3. publier la grandeur de la porte. Publier ici plutot que dans le battement de
+//      `hd-len-scan!` la rend independante de `*hd-stretch-arm*`, qui appartient a un AUTRE item.
+// LE PLAFOND, RECOPIE DU DOCUMENT. `SPEC-breast-softbody.md` §22 « Dynamic Soft Limits »
+// (l.298-306), verbatim :
+//     Local tissue elongation: common 5-15%, large 15-21%, exceptional 21-25%
+//     Absolute stretch clamp:  25%
+// Owner, 2026-08-28, en jeu : « ils s'allongent enormement sur des mouvements brusques ».
+// AUCUN NOMBRE CHOISI ICI : 1250 est le « 25% » que la ligne ci-dessus ecrit, en millienes.
+static constexpr u64 kSmStretchClampX1000 = 1250;
+
+void pc_hd_phys_joint(u32 pid, u32 k, u32 rmax_x1000, u32 rmin_x1000, u32 cmax_x1000) {
+  ::merc2_hd_phys_joint(pid, (int)k, 1);
+  static u64 s_links_written = 0, s_goal_judged = 0, s_goal_over = 0, s_goal_worst_x1000 = 0;
+  static u64 s_cmd_worst_x1000 = 0, s_clamp_hits = 0;
+  s_links_written++;
+  autoport_proof::note_hit();
+  // BRAS SQUELETTE : `rmax`/`rmin` sont les rapports base LIVREE / base ANIMEE, deja formes par
+  // le solveur sur la matrice qu'il vient d'ecrire. Le pire des deux sens (etirement ET
+  // ecrasement) : `max(rmax, 1/rmin)`, en millienes. `rmin = 0` = une ligne effondree, ce que le
+  // plafond doit compter et qu'une division silencieuse effacerait.
+  s_goal_judged++;
+  u64 worst = rmax_x1000;
+  if (rmin_x1000 == 0) {
+    worst = ~0ull;
+  } else {
+    const u64 inv = 1000000ull / rmin_x1000;
+    if (inv > worst) {
+      worst = inv;
+    }
+  }
+  if (worst > s_goal_worst_x1000) {
+    s_goal_worst_x1000 = worst;
+  }
+  if (worst > kSmStretchClampX1000) {
+    s_goal_over++;
+  }
+  // CE QUE L'OPERATEUR COMMANDAIT, avant le plafond de §22 l.303. Sans cette valeur, « le
+  // plafond a mordu » et « le canal est muet » rendent tous les deux `sm_skel_worst = 1250`, et
+  // la porte serait un miroir d'elle-meme. `sm_clamp_hits` est le canal PROUVE LU : il compte les
+  // maillons ou le plafond a effectivement retranche, pas les fois ou on le lui a demande.
+  if (cmax_x1000 > s_cmd_worst_x1000) {
+    s_cmd_worst_x1000 = cmax_x1000;
+  }
+  if (cmax_x1000 > kSmStretchClampX1000) {
+    s_clamp_hits++;
+  }
+  // LA PORTE : la somme des deux bras. Chacun publie SON compte et SON denominateur a cote —
+  // un bras a 0 qui n'a rien juge se lit alors comme tel, et pas comme une absence de defaut.
+  autoport_proof::publish("secondary_motion_defects", s_goal_over + ::merc2_sm_diag(0));
+  autoport_proof::publish("sm_skel_over", s_goal_over);
+  autoport_proof::publish("sm_skel_judged", s_goal_judged);
+  autoport_proof::publish("sm_skel_worst_x1000", s_goal_worst_x1000);
+  autoport_proof::publish("sm_cmd_worst_x1000", s_cmd_worst_x1000);
+  autoport_proof::publish("sm_clamp_hits", s_clamp_hits);
+  autoport_proof::publish("sm_gpu_over", ::merc2_sm_diag(0));
+  autoport_proof::publish("sm_gpu_judged", ::merc2_sm_diag(1));
+  autoport_proof::publish("sm_gpu_worst_x1000", ::merc2_sm_diag(2));
+  autoport_proof::publish("sm_links_written", s_links_written);
 }
 #endif
 
@@ -5155,6 +5229,9 @@ void InitMachine_PCPort() {
   // -> sonde HDRING (ce que GOAL a ecrit contre ce que le GPU consomme)
   make_function_symbol_from_c("pc-hd-ring!", (void*)pc_hd_ring);
   make_function_symbol_from_c("pc-hd-ring-slot!", (void*)pc_hd_ring_slot);
+  // recharged-secondary-motion: le maillon que le solveur vient d'ecrire -> sonde d'etirement
+  // de la chair au point de consommation GPU + la grandeur de la porte.
+  make_function_symbol_from_c("pc-hd-phys-joint!", (void*)pc_hd_phys_joint);
 #endif
 #ifdef OG_FEAT_PHYSICS
   // Grecharged-secondary-motion: chain-physics toggle + the data-driven parameter queries.

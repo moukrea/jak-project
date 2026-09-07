@@ -3914,6 +3914,54 @@
                                     (set! dwy (+ dwy (* aw (-> *phys-c2* 1))))
                                     (set! dwz (+ dwz (* aw (-> *phys-c2* 2))))))
                                 (matrix-copy! bm tmp))
+                              ;; [NOTE-590] SPEC 22 l.303 — `Absolute stretch clamp: 25%` EST POSE
+                              ;; SUR LE RECU, ET C'EST LE TROISIEME ETAGE DE LA MEME FAUTE.
+                              ;; Le c145 a borne `dfb`, le c146-147 a borne l'apex ; la peau, elle,
+                              ;; recoit le PRODUIT `bm . (I + w.(D - I))` — deux facteurs bornes
+                              ;; separement et un poids de gradient `grw` normalise qui peut passer
+                              ;; 1. Un produit de facteurs conformes n'est pas conforme : MESURE sur
+                              ;; la course x86 du 2026-09-07 (240 s, 14 010 images, keira-hd au
+                              ;; village1-hut), l'echelle LIVREE a la chair monte a 1,3600 sur la
+                              ;; matrice de squelette et 1,3510 sur la t-mtx que le GPU consomme,
+                              ;; contre le plafond de 1,25 : x1,44. C'est mot pour mot ce que
+                              ;; l'owner voit (2026-08-28, en jeu) : « ils s'allongent enormement
+                              ;; sur des mouvements brusques ».
+                              ;;
+                              ;; L'OPERATEUR, ET POURQUOI CELUI-LA. Par LIGNE et pas en bloc : la
+                              ;; ligne i de la base est l'image de l'axe local i, donc sa norme EST
+                              ;; l'elongation locale que §22 nomme, axe par axe. Un facteur commun
+                              ;; sur les trois ecraserait aussi les axes qui CONTRACTENT, et §10
+                              ;; l.165 en PRESCRIT une (`SupineProjectionScale = 0.70`) : un
+                              ;; plafond qui interdit ce que la spec commande perd (arbitrage
+                              ;; 2026-08-20 13:20). UNE SEULE DIRECTION, LA HAUSSE, comme le
+                              ;; [NOTE-586] un etage plus bas. AUCUN NOMBRE NEUF : 1,25 est le
+                              ;; « 25% » que §22 l.303 ECRIT. INERTE PAR ALGEBRE A LA POSE
+                              ;; D'AUTEUR : debout la base livree vaut la base animee, r = 1.
+                              ;; REFERENCE : `pre`, la pose COMMANDEE de cette image (copiee de
+                              ;; `bm` avant que le solveur n'ecrive, jamais reecrite depuis) — pas
+                              ;; la longueur de bind, qui n'est pas une reference d'etirement.
+                              ;; LA SONDE EST AU MEME ENDROIT ET ENCADRE LE PLAFOND : `c*` est ce
+                              ;; que l'operateur COMMANDE (avant), `q*` ce que la chair RECOIT
+                              ;; (apres). Sans les deux, un plafond applique et un canal muet
+                              ;; rendraient le meme 1,000 — et la porte serait un miroir d'elle-
+                              ;; meme. Aucun flottant ne traverse la frontiere FFI : entiers x1000.
+                              (let* ((p0 (fmax 0.000001 (vector-length (-> pre vector 0))))
+                                     (p1 (fmax 0.000001 (vector-length (-> pre vector 1))))
+                                     (p2 (fmax 0.000001 (vector-length (-> pre vector 2))))
+                                     (c0 (/ (vector-length (-> bm vector 0)) p0))
+                                     (c1 (/ (vector-length (-> bm vector 1)) p1))
+                                     (c2 (/ (vector-length (-> bm vector 2)) p2)))
+                                (dotimes (gi 3)
+                                  (let ((ri (/ (vector-length (-> bm vector gi)) (fmax 0.000001 (vector-length (-> pre vector gi))))))
+                                    (when (> ri 1.25)
+                                      (let ((gg (/ 1.25 ri))) (dotimes (gj 3) (set! (-> bm vector gi data gj) (* gg (-> bm vector gi data gj))))))))
+                                (let ((q0 (/ (vector-length (-> bm vector 0)) p0))
+                                      (q1 (/ (vector-length (-> bm vector 1)) p1))
+                                      (q2 (/ (vector-length (-> bm vector 2)) p2)))
+                                  (pc-hd-phys-joint! (the int (-> obj pid)) k
+                                                     (the int (* 1000.0 (fmax q0 (fmax q1 q2))))
+                                                     (the int (* 1000.0 (fmin q0 (fmin q1 q2))))
+                                                     (the int (* 1000.0 (fmax c0 (fmax c1 c2)))))))
                               ;; [NOTE-580] SPEC 10 — LE MUR MEDIAN. `mw = medw * max(0, sx-1)` : la penetration que l'elargissement lateral ferait franchir au bord medial de la chair, rendue en glissement SORTANT. Unilaterale (`fmax 0.0`) parce qu'un sternum resiste et ne tire pas. -> jak-hd-physics-NOTES.md
                               (set! (-> *phys-mww* sc) (if (nonzero? (-> *phys-dfon* sc)) (* (-> *phys-medw* sc) (fmax 0.0 (- (-> *phys-dfs* (* sc 3)) 1.0))) 0.0))
                               ;; [NOTE-582] SPEC 10/31 — LE MUR MEDIAN EST GRADUE PAR LE POIDS DE §31, ET LES DEUX OPERATEURS DU CHEMIN D'ECRITURE SONT RETENUS PAR MAILLON. Le mur du c137 etait un GLISSEMENT RIGIDE : le meme `mw` a la racine et au distal, c'est-a-dire le cas degenere que §10 l.173 interdit en gras (« shall not simply scale uniformly from its center ») et que §31 l.390 chiffre (« little deformation at the root ; largest displacement in distal tissue »). Il porte desormais le MEME poids `*phys-grw*` que le tenseur depuis le c138 ; ce poids etant normalise par la masse de peau (SOMME comw.grw = SOMME comw), la REDISTRIBUTION ne change pas le COM livre — prediction ecrite avant la course. `PHYSDFMA` ne publie que la 3x3 et `*phys-ldb*` est ecrit 500 lignes plus haut : le mur median et le point fixe de §31 sont INVISIBLES AU BIT dans les colonnes qui rendent le verdict de §10 (controle c132 : 20 632 enregistrements changent, `PHYSDFMA`/`PHYSORICOML`/`PHYSROW` identiques). Sans ces deux cases, les deux canaux ne sont mesurables que par leurs EFFETS. -> jak-hd-physics-NOTES.md

@@ -77,6 +77,13 @@
 ;; HD a chaque image (repere monde) + la matrice camera de l'image + l'estampille d'image, dans
 ;; un anneau STATIQUE de 4 images par emplacement de compagnon, lu par Merc2 au point de
 ;; consommation GPU pour departager « GOAL l'a ecrit » de « corrompu entre l'ecriture et le rendu ».
+;; recharged-secondary-motion : le maillon que le solveur de chaines vient d'ECRIRE dans le
+;; squelette. pid du compagnon, index de joint HD, puis les rapports d'echelle base / base
+;; ANIMEE (x1000, aucun flottant ne traverse la frontiere FFI) : le max et le min de ce que la
+;; chair RECOIT, puis le max de ce que l'operateur COMMANDAIT avant le plafond de §22 l.303.
+;; Deux bras jugent ce meme plafond absolu (25 %) : celui-ci sur la matrice de SQUELETTE, et
+;; Merc2 sur la t-mtx que le GPU CONSOMME pour ces joints-la.
+(define-extern pc-hd-phys-joint! (function int int int int int none))
 (define-extern pc-hd-ring! (function int int int none))
 (define-extern pc-hd-ring-slot! (function int int none))
 (defglobalconstant HD_RING_SLOTS 11)

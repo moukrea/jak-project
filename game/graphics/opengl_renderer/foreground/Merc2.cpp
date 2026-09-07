@@ -1788,6 +1788,10 @@ struct HdRig {
   u8 mode[128];        // mode de reciblage : 0 monde, 1 local, 2 colle, 3 orientation
   float bp[128][3];    // position de bind du joint k, unites moteur (4096 u = 1 m)
   bool have[128];
+  // recharged-secondary-motion : joints que le solveur de chaines ECRIT a cette image
+  // (poses par `pc-hd-phys-joint!` depuis jak-hd-physics.gc:3842). Hors du memset du
+  // constructeur : un std::bitset naît a zero.
+  std::bitset<128> phys;
   u64 last_seen = 0;   // derniere image ou un paquet de ce compagnon a ete juge (purge par age)
   HdRig() {
     std::memset(parent, 255, sizeof(parent));
@@ -1904,6 +1908,22 @@ constexpr float HD_SCL_MIN_ROW = 0.2f;
 // correspondante de la t-mtx stock du pilote : ratio hors [0,5 ; 2] = scl_bad. Une ligne stock
 // sous 1e-6 (nulle) rend le ratio indefini : non juge. L'absolu reste un diagnostic
 // (scl_abs_bones).
+// ─── recharged-secondary-motion — LE PLAFOND ABSOLU D'ETIREMENT DE LA CHAIR ────────────
+// `SPEC-breast-softbody.md` §22 « Dynamic Soft Limits » (l.298-306), recopie VERBATIM :
+//     Local tissue elongation: common 5-15%, large 15-21%, exceptional 21-25%
+//     Absolute stretch clamp:  25%
+// Owner, 2026-08-28, en jeu : « ils s'allongent enormement sur des mouvements brusques ».
+// AUCUN NOMBRE CHOISI ICI : 1,25 est le « 25% » que la ligne ci-dessus ecrit.
+//
+// POURQUOI LA MESURE EST ICI ET PAS DANS LE SOLVEUR. Le tenseur de deformation entre dans
+// la matrice d'os a `jak-hd-physics.gc:3906` (`matrix*! tmp bm (-> *phys-dfm* sc)` puis
+// `matrix-copy! bm tmp`) : il voyage donc jusqu'au sommet. Lire `*phys-dfs*`, la variable du
+// solveur, rendrait une porte calculee sur ses propres variables — un miroir. Le defaut ferme
+// au cycle 145 etait exactement de cette forme : un plafond pose sur la moitie COMMANDEE de
+// l'operateur pendant que la chair en recevait +53 %. La grandeur jugee ici est donc l'echelle
+// portee par la t-mtx que le GPU CONSOMME (`skel_matrix_buffer`), sur les seuls joints que le
+// solveur ecrit, et rien d'autre ne la borne sur ce chemin.
+constexpr float SM_STRETCH_CLAMP = 1.25f;
 constexpr float HD_SCL_REL_MAX = 2.0f;
 constexpr float HD_SCL_REL_MIN = 0.5f;
 constexpr float HD_SCL_STOCK_ROW_EPS = 1e-6f;
@@ -1932,6 +1952,11 @@ struct HdLenStats {
   u64 ring_ok = 0, ring_bad = 0, ring_nostamp = 0, ring_judged = 0, ring_far = 0;
   bool cur_hd = false, cur_hd_stretch = false, cur_hd_bad = false, cur_cmd = false,
        cur_scl = false;
+  // recharged-secondary-motion : echelle recue par la chair sur les joints de chaine.
+  // `sm_judged` est LE denominateur de `sm_over` (une porte a 0 sans son denominateur ne
+  // distingue pas « aucun defaut » de « rien mesure ») ; `sm_worst` = pire max(rmax, 1/rmin).
+  u64 sm_judged = 0, sm_over = 0;
+  float sm_worst = 0.f;
   int ev_logs = 0;      // cap des lignes HDLENEV
   int ev_logs_cmd = 0;  // cap des lignes HDCMDEV (separe : l'un ne doit pas etouffer l'autre)
   u64 next_hb = 300;
@@ -2119,6 +2144,33 @@ void merc2_hd_skel_joint(u32 companion_pid,
   rig.bp[k][2] = bz;
   rig.have[k] = true;
   rig.n = std::max(rig.n, k + 1);
+}
+
+// ─── recharged-secondary-motion — QUELS JOINTS LE SOLVEUR ECRIT ────────────────────────
+// Appele par `jak-hd-physics.gc` a l'endroit meme ou il ecrit le maillon dans le squelette.
+// Merc2 ne peut pas le deviner : les joints de chaine de keira-hd (lBoob/lBooc/rBoob/rBooc)
+// n'ont aucun correspondant dans le modele stock, donc ni `mode` ni `e` ne les distinguent.
+void merc2_hd_phys_joint(u32 companion_pid, int k, int on) {
+  if (k < 0 || k >= 128) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(s_hd_rigs_mutex);
+  HdRig& rig = s_hd_rigs[companion_pid];
+  if (on) {
+    rig.phys.set(k);
+  } else {
+    rig.phys.reset(k);
+  }
+}
+
+// 0 = le compte de la porte, 1 = son denominateur, 2 = la pire echelle livree x1000.
+u64 merc2_sm_diag(int which) {
+  switch (which) {
+    case 0: return s_hdlen.sm_over;
+    case 1: return s_hdlen.sm_judged;
+    case 2: return (u64)std::llround((double)s_hdlen.sm_worst * 1000.0);
+    default: return 0;
+  }
 }
 
 void merc2_hd_skel_forget(u32 companion_pid) {
@@ -3120,6 +3172,26 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
         // comme la longueur (len_ok) : pas sur un joint dont le parent est une racine du rig —
         // mesure x86 c6ring3 : 248 « echelles » et 952 « longueurs GOAL » toutes sur k=2
         // (main -> prejoint, matrice model-space), a chaque image, jamais lues par un sommet
+        // recharged-secondary-motion — L'ETIREMENT DE LA CHAIR, AU POINT DE CONSOMMATION.
+        // `rows` sont les normes de lignes de la t-mtx CONSOMMEE (`bindinv . W . cam`, la camera
+        // etant rigide) : c'est l'echelle que le sommet subit par rapport au modele SCULPTE, donc
+        // la « local tissue elongation » de §22 telle qu'elle est livree. Jugee uniquement sur
+        // les joints que le solveur de chaines ecrit (4 sur les 107 de keira-hd : lBoob, lBooc,
+        // rBoob, rBooc) et jamais sous une racine du rig (`len_ok`, meme regle que l'echelle).
+        if (rig.phys.test(k) && len_ok) {
+          s_hdlen.sm_judged++;
+          const float smw = hdlen_row_worst(rows);
+          if (!std::isfinite(smw)) {
+            s_hdlen.sm_over++;  // un NaN passe SILENCIEUSEMENT tout predicat de comparaison
+          } else {
+            if (smw > s_hdlen.sm_worst) {
+              s_hdlen.sm_worst = smw;
+            }
+            if (smw > SM_STRETCH_CLAMP) {
+              s_hdlen.sm_over++;
+            }
+          }
+        }
         const bool scl_abs_bad = len_ok && (!std::isfinite(rmax) || !std::isfinite(rmin) ||
                                             rmax > HD_SCL_MAX_ROW || rmin < HD_SCL_MIN_ROW);
         if (scl_abs_bad) {
