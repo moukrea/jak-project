@@ -99,6 +99,24 @@ def cmd_set(args):
         print(str(exc), file=sys.stderr)
         return 1
     if it["status"] == "open":
+        # ROUVRIR REMET LE COMPTEUR D'ESSAIS A ZERO. Sans ca, `retries[<id>]` dans state.json
+        # survit a la reouverture et l'item se rebloque au premier essai suivant : mesure le
+        # 2026-09-07, lighting-hdr portait retries=10 pour un plafond de 6, et mes trois
+        # reouvertures n'ont produit que deux essais en tout. Un chantier rouvert doit repartir
+        # avec son budget, sinon « rouvrir » ne veut rien dire.
+        try:
+            import json as _json
+            _sp = os.path.join(os.path.dirname(os.path.abspath(b.path)), "state.json")
+            _st = _json.load(open(_sp, encoding="utf-8"))
+            _n = 0
+            for _k in ("retries", "attempt_seq"):
+                if isinstance(_st.get(_k), dict) and it["id"] in _st[_k]:
+                    _n = max(_n, int(_st[_k].pop(it["id"]) or 0))
+            if _n:
+                _json.dump(_st, open(_sp, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+                print("compteur d'essais remis a zero (etait %d)" % _n)
+        except Exception as _exc:
+            print("compteur d'essais NON remis : %s" % _exc, file=sys.stderr)
         # rouvrir = regenerer le prompt depuis l'item. C'est ce qui remplace les clones `-2`
         # qui reutilisaient le prompt de la phase precedente.
         if not it.get("prompt"):

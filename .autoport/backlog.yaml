@@ -2929,7 +2929,7 @@ items:
     du menu et la fermeture du navigateur de mesh (memes fichiers).'
 - id: recharged-texture-hotreload
   feature: Basculer les textures Recharged sans redemarrer le jeu
-  status: in-progress
+  status: to-test
   priority: 32
   owner_feedback: []
   gate:
@@ -3916,7 +3916,7 @@ items:
   owner_feedback: []
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
-  status: blocked
+  status: open
   priority: 17
   owner_feedback:
   - date: '2026-09-06'
@@ -3954,14 +3954,11 @@ items:
     au bit maitre eteint est SORTIE de cet item : lighting-origin-bitexact.'
   out_of_scope: 'La sortie HDR vers un ecran compatible appartient a hdr-display-output. La regle des
     deux origines et la hierarchie des interrupteurs : SPEC §0.2, §1.1, §6.2.'
-  notes: 'Rouvert le 2026-09-07 sur une base SAINE, pas par entetement. lighting-origin-bitexact est valide
-    : la reference ORIGINE-TOTAL venait d''un binaire ou une couche n''etait pas compilee, deux fuites
-    sous le maitre sont fermees et l''atlas de police est declare hors perimetre. Les neuf essais precedents
-    se mesuraient donc contre un etalon FAUX — c''est la meme classe de panne que la garde d''image intermittente.
-    Le verdict de contraste des hautes lumieres se remesure contre les references corrigees avant toute
-    conclusion. Et il gele hdr-display-output et les huit chantiers d''eclairage suivants. | 2026-09-07
-    03:15 : troisieme ouverture. Les neuf essais precedents comparaient a une reference fausse (binaire
-    incomplet, fuites sous le maitre). Recapturer AVANT de conclure.'
+  notes: 'Quatrieme ouverture, et la premiere qui puisse servir : le compteur d''essais de state.json
+    (retries=10 pour un plafond de 6) survivait a chaque reouverture, donc l''item rebloquait au premier
+    essai suivant et mes trois tentatives precedentes n''ont produit que deux essais en tout. Corrige
+    dans l''outil. Le dernier essai a aussi releve crash=1 et une source editee APRES la preuve : ces
+    deux-la sont de vrais constats, a traiter.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: images passees par le tone map
   proof_props:
