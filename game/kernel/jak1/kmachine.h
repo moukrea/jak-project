@@ -22,6 +22,8 @@ int InitMachine();
 int ShutdownMachine();
 
 void InitMachineScheme();
+// Optional bootstrap boundary, called on the host stack after a kernel dispatch.
+void boot_replay_after_dispatch();
 
 /*!
  * PHYS-ROOM (Grecharged-secondary-motion, SPEC §6 étape 1) — env OG_PHYS_ROOM / prop

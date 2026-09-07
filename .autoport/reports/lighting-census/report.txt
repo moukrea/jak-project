@@ -1,30 +1,26 @@
+Non validé : le bootstrap passe le premier dispatch, mais l’écart historique reste 202/794 et aucun correctif HDR n’est livré.
 DIRECTIVES v6fca51fe40
-Non validé : bootstrap pré-play rejouable, mais comparaison historique toujours en échec (écart maximal 202).
-Changements : flux bootstrap versionné et exclusif ; RTC et RNG natifs enregistrés/restaurés avant GAME.
-Les états RNG GOAL (dont Knuth), natifs et compteurs display sont comparés avant play, sans écraser les écarts.
-Le flux scellé entre dans la configuration des sidecars et du registre ; sentinelles de qualification conservées.
-Build final gk réussi, sha 05f7ba1f7280c962 ; garde npc-flicker : 47 propriétés tenues.
-Preuve officielle : proof.txt, produite uniquement par lib/proof_run.sh ; course finale60s, crash0, 3397frames.
-Huit traces du moteur (proof-engine.log) :
-BOOTREPLAY record mode=replay tag=native-pc-rng index=0 count=1
-BOOTREPLAY record mode=replay tag=native-mips-rng index=1 count=2
-BOOTREPLAY record mode=replay tag=native-mips-R index=2 count=3
-BOOTREPLAY record mode=replay tag=scf-time index=3 count=4
-BOOTREPLAY record mode=replay tag=goal-vu-R index=4 count=5
-BOOTREPLAY record mode=replay tag=*knuth-rand-state* index=5 count=6
-BOOTREPLAY record mode=replay tag=*display* index=7 count=8
-BOOTREPLAY finish mode=replay tag=finish index=11 count=11 fingerprint=8cafacae708f4b5a
-Test autonome : roundtrip et rejets format/ordre/taille/checkpoint/troncature/EOF/existant/symlink réussis.
-Pristine HEAD c4bc4d3ff4691902ff023319cb33df71c0040501, patch bootstrap seul, aucun renderer/GOAL modifié.
-Son gk 615f120e4e0de8f6 rejoue aussi les 11 records/empreinte identiques ; CGO DISTINCTS, aucune qualification du rendu.
-Plan final limité legacy/origine/h00 : 1 comparaison, 794 pixels différents, aucun rejeu census qualifié.
-Origine : 1402218 draws stock, aucun classifié ; GPU buckets 8.2137 ms, résiduel0, rb_mismatch0.
-Configuration avec bootstrap : 8a9493fa059e5429 ; ancienne 1bc0c751a065de33 conservée dans le registre.
-575 empreintes historiques vérifiées ; preuves/écarts antérieurs archivés, aucune image remplacée/adoptée.
-Owner : aucune correction des blancs HDR/tonemap SDR livrée à regarder ; aucun owner-ok.
-non prouvé : état après play, naissances/horloges des acteurs, permanences et chargements rejouables.
-non prouvé : origine baseline/candidat à données identiques, provenance complète des ressources effectivement chargées.
-non prouvé : références candidates complètes, trois modes/21 niveaux/8 heures/≥4 intérieurs/ciel≥15%, cinq rejeux exacts.
-Sunkenb demeure manquant ; non prouvé : correction HDR/tonemap SDR et Android. Aucun appareil touché.
-Builder2541075 repris ; generic.sh inchangé et laissé à l’orchestrateur.
-Détails : notes/recovery-essai15.md ; reprise obligatoire : handoff.md.
+Changements : frontière opt-in first-dispatch, play/initialize via listener, RNG/display/next-pid comparés sans restauration d’acteurs.
+Ancien flux pré-play conservé ; temporaires RNG déplacés sur le tas.
+Provenance : priorités overlay ISO et custom FR3 intégrées, enhanced externe conservé ; aucun refus d’adoption retiré.
+Build incrémental final rc0 en22,797s ; garde npc-flicker47 ; tests bootstrap rc0 et provenance18 contrôles rc0.
+Preuve produite exclusivement par lib/proof_run.sh lighting-census x86 --timeout60 :
+```
+sha=2ea43efcd6b1a2cd
+crash=0
+frames=3398
+refset_bootstrap_records=29
+refset_bootstrap_fingerprint=5364e1590a9215b3
+refset_bootstrap_boundary=first-dispatch-actors-not-restored
+refset_replay_maxdiff=202
+refset_replay_diffpx=794
+```
+Capture20s/replay60s :29 records identiques, dont6 lectures EE ; ce succès couvre cette frontière scalaire seulement.
+Origine :1402218 draws stock, classifiés0, résiduel0, rb_mismatch0, GPU8,3035ms ; census_runs0.
+575 SHA historiques intacts avant/après ; registre append-only, aucune candidate capturée/adoptée.
+Owner : les blancs brûlés, la teinte/saturation et les détails après tonemap SDR restent à examiner sur le futur correctif HDR.
+non prouvé : acteurs après restart, permanences, chargements, qualification indépendante avec les données fork livrées.
+non prouvé : trois modes face à leurs références,21 niveaux/8 heures/≥4 intérieurs,ciel≥15%,Sunkenb,cinq rejeux exacts.
+Niveaux non couverts : training,beach,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
+non prouvé : correction HDR/SDR, Android et absence de régression de rendu globale. Aucun owner-ok, aucun appareil touché.
+generic.sh inchangé et non lancé : jugement laissé à l’orchestrateur. Handoff et notes recovery-essai16.md conservés.

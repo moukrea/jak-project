@@ -5683,36 +5683,79 @@ static void pad_replay_dump_camera() {
  * If DiskBooting, will load the GAME CGO, containing the engine, and calls "play", the function
  * which should prepare the game engine.
  */
-static void boot_replay_pre_play() {
-  if (!boot_replay::active()) {
-    return;
+static bool s_boot_replay_first_dispatch = false;
+static bool s_boot_replay_listener_ran = false;
+static u64 boot_replay_start_run();
+Ptr<Function> make_function_from_c(void* func, bool arg3_is_pp);
+
+static void boot_replay_object_checkpoint(const char* name, u32 offset, size_t size) {
+  const u32 object = intern_from_c(name)->value;
+  if (!object || object == s7.offset || object >= EE_MAIN_MEM_SIZE ||
+      offset + size > EE_MAIN_MEM_SIZE - object) {
+    std::fprintf(stderr, "BOOTREPLAY missing checkpoint object=%s\n", name);
+    std::exit(EXIT_FAILURE);
   }
+  boot_replay::checkpoint(name, g_ee_main_mem + object + offset, size);
+}
+
+static void boot_replay_state_checkpoint() {
   // Compare scalar state produced by GAME, never restore pointers between binaries.
   // In particular knuth-rand is seeded by DecodeTime during linking, before play.
-  auto object_checkpoint = [](const char* name, u32 offset, size_t size) {
-    const u32 object = intern_from_c(name)->value;
-    if (!object || object == s7.offset || object >= EE_MAIN_MEM_SIZE ||
-        offset + size > EE_MAIN_MEM_SIZE - object) {
-      std::fprintf(stderr, "BOOTREPLAY missing pre-play object=%s\n", name);
-      std::exit(EXIT_FAILURE);
-    }
-    boot_replay::checkpoint(name, g_ee_main_mem + object + offset, size);
-  };
   const u32 vu_r = intern_from_c("*_vu-reg-R_*")->value;
   boot_replay::checkpoint("goal-vu-R", &vu_r, sizeof(vu_r));
-  object_checkpoint("*knuth-rand-state*", 0, 8);  // structure: int64 seed
-  object_checkpoint("*random-generator*", 0, 4);  // basic: uint32 seed
+  boot_replay_object_checkpoint("*knuth-rand-state*", 0, 8);  // structure: int64 seed
+  boot_replay_object_checkpoint("*random-generator*", 0, 4);  // basic: uint32 seed
   // display-h.gc / all-types.gc: 16 time-frame fields at 776, then 5 floats at 904.
   // Basic pointers start after their four-byte type tag. This range has no pointers.
-  object_checkpoint("*display*", 776 - 4, 16 * 8 + 5 * 4);
+  boot_replay_object_checkpoint("*display*", 776 - 4, 16 * 8 + 5 * 4);
   boot_replay_native_rng(false);
+}
+
+static void boot_replay_seal(const char* boundary) {
   boot_replay::finish();
   refset::set_bootstrap_fingerprint(boot_replay::fingerprint());
   autoport_proof::publish("refset_bootstrap_records", boot_replay::records());
   char fp[17];
   std::snprintf(fp, sizeof(fp), "%016llx", (unsigned long long)boot_replay::fingerprint());
   autoport_proof::publish_text("refset_bootstrap_fingerprint", fp);
-  autoport_proof::publish_text("refset_bootstrap_boundary", "before-play-actors-not-restored");
+  autoport_proof::publish_text("refset_bootstrap_boundary", boundary);
+}
+
+static void boot_replay_pre_play() {
+  if (!boot_replay::active()) {
+    return;
+  }
+  const char* boundary = std::getenv("OG_BOOT_REPLAY_BOUNDARY");
+  if (boundary && std::strcmp(boundary, "before-play") &&
+      std::strcmp(boundary, "first-dispatch")) {
+    std::fprintf(stderr, "BOOTREPLAY invalid OG_BOOT_REPLAY_BOUNDARY\n");
+    std::exit(EXIT_FAILURE);
+  }
+  s_boot_replay_first_dispatch = boundary && !std::strcmp(boundary, "first-dispatch");
+  boot_replay_state_checkpoint();
+  if (s_boot_replay_first_dispatch) {
+    // The extended stream cannot be confused with a historical pre-play stream.
+    // Keep collecting the real RTC/EE/unix inputs through play and the dispatcher.
+    boot_replay::checkpoint("boundary", boundary, std::strlen(boundary));
+  } else {
+    boot_replay_seal("before-play-actors-not-restored");
+  }
+}
+
+void boot_replay_after_dispatch() {
+  if (!s_boot_replay_first_dispatch || !boot_replay::active()) {
+    return;
+  }
+  if (!s_boot_replay_listener_ran) {
+    std::fprintf(stderr, "BOOTREPLAY first listener was displaced\n");
+    std::exit(EXIT_FAILURE);
+  }
+  // Host stack, after the first tree traversal. This verifies scalar state but
+  // does not restore or certify actors: restart can still be suspended before start.
+  boot_replay::checkpoint("after-first-dispatch", nullptr, 0);
+  boot_replay_state_checkpoint();
+  boot_replay_object_checkpoint("*kernel-context*", 16 - 4, 4);  // next-pid
+  boot_replay_seal("first-dispatch-actors-not-restored");
 }
 
 void InitMachineScheme() {
@@ -5804,8 +5847,16 @@ void InitMachineScheme() {
                  make_string_from_c("common"), kernel_packages->value);
 
     boot_replay_pre_play();
-    lg::info("calling play");
-    call_goal_function_by_name("play");
+    if (s_boot_replay_first_dispatch) {
+      if (ListenerFunction->value != s7.offset) {
+        std::fprintf(stderr, "BOOTREPLAY listener occupied before first dispatch\n");
+        std::exit(EXIT_FAILURE);
+      }
+      ListenerFunction->value = make_function_from_c((void*)boot_replay_start_run, false).offset;
+    } else {
+      lg::info("calling play");
+      call_goal_function_by_name("play");
+    }
   }
 }
 
@@ -5846,9 +5897,31 @@ extern "C" u64 _call_goal8_asm_systemv(void* func, u64* arg_array, u64 zero, u64
 }
 #endif
 
-// Builds a GOAL-callable trampoline around a C function (jak1/kscheme.cpp). Not
-// declared in any header, so forward-declare it here.
-Ptr<Function> make_function_from_c(void* func, bool arg3_is_pp);
+static u64 boot_replay_start_run() {
+  const u32 lp = intern_from_c("*listener-process*")->value;
+  const u32 play = intern_from_c("play")->value;
+  u64 args[8] = {intern_from_c("#t").offset, s7.offset, 0, 0, 0, 0, 0, 0};
+  _call_goal8_asm_systemv(g_ee_main_mem + play, args, 0, lp, s7.offset, g_ee_main_mem);
+  boot_replay::checkpoint("play-returned", nullptr, 0);
+
+  const u32 gi = intern_from_c("*game-info*")->value;
+  if (!gi || gi == s7.offset || (gi & OFFSET_MASK) != 4 || gi >= EE_MAIN_MEM_SIZE) {
+    std::fprintf(stderr, "BOOTREPLAY game-info missing after play\n");
+    std::exit(EXIT_FAILURE);
+  }
+  Ptr<Type> type(*Ptr<u32>(gi - 4));
+  const u32 init = type->get_method(9).offset;
+  // Same default continue selection as normal play. This queues the original
+  // restart process; no manual start, actor reset, or late RNG reseed is added.
+  args[0] = gi;
+  args[1] = intern_from_c("game").offset;
+  args[2] = s7.offset;
+  args[3] = s7.offset;
+  _call_goal8_asm_systemv(g_ee_main_mem + init, args, 0, lp, s7.offset, g_ee_main_mem);
+  boot_replay::checkpoint("initialize-returned", nullptr, 0);
+  s_boot_replay_listener_ran = true;
+  return 0;
+}
 
 static bool f1_warp_requested() {
   if (std::getenv("OG_F1_WARP")) {

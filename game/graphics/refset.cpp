@@ -1403,15 +1403,26 @@ uint64_t refs_fingerprint() {
 // Zero = un des repertoires est absent ou illisible ; `publish_flaky` en fait la sentinelle 255,
 // jamais un zero de porte.
 uint64_t data_fingerprint() {
-  std::vector<std::pair<std::string, fs::path>> files;
+  // Inventaire des ressources selectionnables, pas une trace des fichiers ouverts. Les
+  // overlays remplacent un basename, comme fake_iso et resolve_fr3_asset. Les noms logiques
+  // restent ceux du registre historique : sans override, l'empreinte reste identique.
+  std::map<std::string, fs::path> files;
   auto scan = [&files](const fs::path& dir, const char* prefix, const char* ext,
-                       bool required_category) {
+                       bool optional) {
     std::error_code ec;
+    const auto status = fs::symlink_status(dir, ec);
+    const bool absent = status.type() == fs::file_type::not_found &&
+                        (!ec || ec == std::errc::no_such_file_or_directory);
+    if (optional && absent) {
+      return true;
+    }
+    if (ec) {
+      return false;
+    }
     fs::directory_iterator it(dir, ec), end;
     if (ec) {
       return false;
     }
-    const size_t before = files.size();
     for (; it != end; it.increment(ec)) {
       if (ec) {
         return false;
@@ -1428,27 +1439,43 @@ uint64_t data_fingerprint() {
       const std::string name = e.path().filename().string();
       const size_t n = std::strlen(ext);
       if (name.size() > n && name.compare(name.size() - n, n, ext) == 0) {
-        files.emplace_back(std::string(prefix) + name, e.path());
+        files[std::string(prefix) + name] = e.path();
       }
     }
-    return !ec && (!required_category || files.size() > before);
+    return !ec;
   };
   const fs::path iso = file_util::get_iso_out_dir(GameVersion::Jak1);
   const fs::path fr3 = file_util::get_fr3_dir(GameVersion::Jak1);
-  if (!scan(iso, "iso/", ".CGO", true) || !scan(iso, "iso/", ".DGO", true) ||
-      !scan(fr3, "fr3/", ".fr3", true)) {
+  if (!scan(iso, "iso/", ".CGO", false) || !scan(iso, "iso/", ".DGO", false) ||
+      !scan(fr3, "fr3/", ".fr3", false)) {
     return 0;
   }
-  std::error_code ec;
-  const auto enhanced = fs::symlink_status(fr3 / "enhanced", ec);
-  const bool absent = enhanced.type() == fs::file_type::not_found &&
-                      (!ec || ec == std::errc::no_such_file_or_directory);
-  if (!absent && (ec || !scan(fr3 / "enhanced", "fr3/enhanced/", ".fr3", false))) {
+  if (const auto overlay = file_util::get_iso_overlay_dir(); overlay &&
+      (!scan(*overlay, "iso/", ".CGO", true) || !scan(*overlay, "iso/", ".DGO", true))) {
     return 0;
   }
-  // Trie sur le NOM : l'ordre de `directory_iterator` est celui du systeme de fichiers, il n'est
-  // pas stable d'une course a l'autre.
-  std::sort(files.begin(), files.end());
+  if (const auto custom = file_util::get_custom_fr3_dir(); custom &&
+      !scan(*custom, "fr3/", ".fr3", true)) {
+    return 0;
+  }
+  // Les categories obligatoires se jugent apres l'union, y compris les fichiers qui
+  // existent exclusivement dans un overlay.
+  auto has_category = [&files](const char* prefix, const char* ext) {
+    const size_t n = std::strlen(ext);
+    return std::any_of(files.begin(), files.end(), [=](const auto& f) {
+      return f.first.compare(0, std::strlen(prefix), prefix) == 0 && f.first.size() > n &&
+             f.first.compare(f.first.size() - n, n, ext) == 0;
+    });
+  };
+  if (!has_category("iso/", ".CGO") || !has_category("iso/", ".DGO") ||
+      !has_category("fr3/", ".fr3")) {
+    return 0;
+  }
+  // hd_fr3_path consulte enhanced uniquement dans le pack de base, jamais dans custom.
+  if (!scan(fr3 / "enhanced", "fr3/enhanced/", ".fr3", true)) {
+    return 0;
+  }
+  // La map trie les noms logiques, independamment de l'ordre du systeme de fichiers.
   uint64_t h = 1469598103934665603ull;
   for (const auto& f : files) {
     const uint64_t fh = hash_file(f.second.string());

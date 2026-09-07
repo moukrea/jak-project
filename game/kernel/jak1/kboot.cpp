@@ -152,6 +152,7 @@ void KernelCheckAndDispatch() {
       // use the GOAL kernel.
       call_goal_on_stack(Ptr<Function>(kernel_dispatcher->value), goal_stack, s7.offset,
                          g_ee_main_mem);
+      boot_replay_after_dispatch();
     } else {
       // use a hack to just run the listener function if there's no GOAL kernel.
       if (ListenerFunction->value != s7.offset) {

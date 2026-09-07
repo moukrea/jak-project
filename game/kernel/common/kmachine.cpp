@@ -3,6 +3,8 @@
 #include <random>
 #include <array>
 #include <sstream>
+#include <memory>
+#include <vector>
 
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
@@ -1273,7 +1275,8 @@ void boot_replay_native_rng(bool restore) {
     std::ostringstream out;
     out.imbue(std::locale::classic());
     out << rng;
-    std::array<char, 8192> state{};
+    // This also runs on the small GOAL listener stack during bootstrap replay.
+    std::vector<char> state(8192, 0);
     if (!out || out.str().size() >= state.size()) {
       std::fprintf(stderr, "BOOTREPLAY invalid native RNG serialization tag=%s\n", tag);
       std::exit(EXIT_FAILURE);
@@ -1287,12 +1290,12 @@ void boot_replay_native_rng(bool restore) {
       }
       std::istringstream in(state.data());
       in.imbue(std::locale::classic());
-      std::mt19937 restored;
-      if (!(in >> restored) || !(in >> std::ws).eof()) {
+      auto restored = std::make_unique<std::mt19937>();
+      if (!(in >> *restored) || !(in >> std::ws).eof()) {
         std::fprintf(stderr, "BOOTREPLAY malformed native RNG tag=%s\n", tag);
         std::exit(EXIT_FAILURE);
       }
-      rng = restored;
+      rng = *restored;
     } else {
       boot_replay::checkpoint(tag, state.data(), state.size());
     }
