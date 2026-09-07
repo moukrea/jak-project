@@ -3963,7 +3963,7 @@ items:
   owner_test: false
   block_reason: 'Owner : abandon du prerequis de rejeux exacts/qualification exhaustive avant correction
     HDR. Diagnostic pragmatique et correction poursuivis dans lighting-hdr ; aucun acquis valide.'
-  supervisor_recovery: true
+  supervisor_recovery: false
   reference_recovery:
     superseded_by_owner: '2026-09-07 : eclairage seul ON/OFF dans le meme build ; abandon du prerequis
       baseline historique/master OFF'
