@@ -414,7 +414,7 @@ items:
     » ; livre par defaut ETEINT. Ce n''est ni une validation ni quelque chose a lui redemander'
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
-  status: open
+  status: in-progress
   priority: 30
   owner_feedback:
   - date: '2026-08-06'
@@ -484,10 +484,12 @@ items:
   - FOLIAGE_WIND_FORCE=1
   - OG_LEVEL_WARP=village1-warp
   - OG_WANT_LEVELS=village1,beach
+  - OG_RECHARGED=1
   proof_props:
   - debug.opengoal.foliage.force=1
   - debug.opengoal.level.warp=village1-warp
   - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.recharged=1
   where: les palmiers et les buissons de Sandover, option de brise eteinte PUIS allumee
   notes: 'owner 2026-09-04, deuxieme refus complet (voir owner_feedback). Deux verdicts de plus : tronc
     immobile/cime mobile (ratio <= 0,15) et enveloppe qui varie (CV >= 0,30) — ni ondulation sous-marine
@@ -3967,7 +3969,7 @@ items:
   block_reason: max_retries (6) épuisé
 - id: lighting-origin-bitexact
   feature: Maitre eteint, l'image doit etre identique au bit au jeu d'origine
-  status: in-progress
+  status: validated
   priority: 26
   game: jak1
   gate:
