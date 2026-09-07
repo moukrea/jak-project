@@ -3869,6 +3869,15 @@ items:
   - date: '2026-09-07'
     text: Mais putain mais c'est pas possible t'es con ou quoi ? S'il s'est arrêté faut comprendre pourquoi
       et corriger, ça sert a rien si le harnais s'arrête tout seul pour un rien, soit pas débile !
+  - date: '2026-09-07'
+    text: continue
+  - date: '2026-09-07'
+    text: Tu devrais pouvoir continuer
+  - date: '2026-09-07'
+    text: Heuuu le framework devrait utiliser astra pas spark, spark est bête !
+  - date: '2026-09-07'
+    text: avec une distribution intelligente du niveau d'effort comme on fait pour Claude code avec Fable
+      5.1 et Opus 5 par example
   gate:
     key: refset_replay_maxdiff
     op: ==
