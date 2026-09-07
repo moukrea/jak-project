@@ -1,19 +1,14 @@
 # Sortir un vrai signal HDR sur les ecrans qui le supportent
 
 ## Defaut cite
-- 2026-09-06 : « Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça l'exploite pas ! Et quand ça supporte par le HDR ça devrait être... Tonemappé je crois qu'on dit ? Vers du SDR pour les écrans qui ne sont pas HDR, en gros par défaut ça devrait être tonemappé en SDR (de la meilleure façon possible pour pas écraser les détails de trop) sauf quand on active le HDR (une opt… »
+- 2026-09-07 : « Attention à distinguer les LUT par niveaux et tonemapping... Car là on tonemap vers SDR pour rendu en mode SDR, mais après on veut aussi bénéficier des LUT quand on aura le rendu HDR possible sur des écrans qui supportent le HDR! Enfin je sais pas si c'est clair c'est un peu au dessus de mon domaine… »
+- 2026-09-07 : « Je sais pas ce que ça change pour notre plan de refonte et sa spec... Ça doit bien changer des trucs non ? Tu peux y réfléchir un peu et pas juste consigner ça dans une footnote je sais pas trop où ? »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.
 
 ## Livrable
-Par DEFAUT le jeu sort du SDR bien tonemappe (c'est lighting-hdr). Ce chantier ajoute la sortie HDR native quand l'ecran la supporte. Le moteur emet `hdr_out_defects=N` :
-  (1) la capacite de l'ecran est DETECTEE et publiee (`hdr_out_display_caps` : les modes reellement annonces par le systeme, Android comme bureau) ;
-  (2) l'option n'existe dans le menu que si un mode est annonce — jamais un reglage qui ne fait rien ;
-  (3) activee, la chaine sort dans l'espace annonce, sans double compression : `hdr_out_tonemaps_applied` = 1, jamais 2 ;
-  (4) desactivee, la sortie est identique au bit a celle de lighting-hdr ;
-  (5) la detection entre dans l'auto-configuration du premier demarrage, avec le mode retenu publie.
-Zero. Preuve sur un ecran HDR reel — l'appareil de l'owner est le seul qu'on connaisse.
+SDR par defaut ; sortie HDR optionnelle si capacites reelles detectees, publiees et integrees a auto-configuration. Option visible seulement sur ecran compatible. SPEC §4.5 : meme rendu HDR et meme profil artistique par niveau avant adaptation ecran ; ne jamais repartir du SDR ni reutiliser LUT avec compression SDR integree. Adapter luminance/gamut/encodage aux capacites ecran, sans double compression. hdr_out_defects compte : detection/option incorrecte, profil artistique perdu ou change au toggle, ecretage intermediaire SDR, transformation sortie multiple, mauvaise adaptation ecran, regression SDR au retour OFF. Publier profil applique, domaine/plage avant sortie et mode sortie ; verifier valeurs >1 preservees avant adaptation. Comparaison retour SDR dans conditions equivalentes, sans campagne de frame exacte. Mesures via proof_run.sh/generic sur ecran HDR reel accessible, aucun support deduit du nom appareil. Mesurer cout GPU si disponible, sinon non mesure. Zero defaut, aucune validation visuelle inventee.
 
 ## Preuve exigee
 `hdr_out_defects == 0` dans `reports/hdr-display-output/proof.txt`.
@@ -21,4 +16,4 @@ Le proof se produit par `lib/proof_run.sh hdr-display-output device` — jamais 
 Ou l'owner regardera : Options : une ligne « sortie HDR » qui n'apparait QUE si l'ecran le supporte. Sur ton Honor elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change de teinte..
 
 ## Hors perimetre
-Ne touche pas a la courbe de compression SDR : c'est lighting-hdr.
+Ne pas recalibrer la courbe SDR ni dupliquer les profils artistiques pour HDR. Aucun mode nouveau de calcul LDR performant demande par les questions owner.

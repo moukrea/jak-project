@@ -816,9 +816,37 @@ Master ON :
 |---|---|
 | Format de la scène | `RGBA16F`. Repli déclaré : `R11F_G11F_B10F`, puis `RGBA8` à exposition fixe. |
 | Exposition | `ub_frame.exposure`, défaut **1,0**. Calibrée pour que « direct = 0 » reproduise l'original. |
-| Courbe « Fidélité » (défaut) | **Épaule seule** : identité pour `L ≤ 1`, asymptote lisse au-delà. C'est ce qui garantit que la porte de l'item 4 est atteignable : la région qu'occupe l'original n'est pas touchée. |
+| Courbe « Fidélité » (défaut SDR) | Courbe monotone calibrée sur les comparaisons statistiques ON/OFF : réserver une marge aux hautes lumières, préserver teinte et détails. Pas d’identité imposée jusqu’à 1 : elle ne laisse aucune marge SDR au-delà. |
 | Courbe « Filmique » (option) | Khronos PBR Neutral. Préserve mieux la teinte des hautes lumières que ACES sur du contenu stylisé, ce qui est la règle 3. |
 | Site d'application | **un seul**, en P9. `tonemap_sites == 1` est la porte de l'item 2. |
+
+#### Séparation artistique / sortie — arbitrage du 7 septembre 2026
+
+Le contrat exécutable est porté par les livrables `lighting-hdr` et
+`hdr-display-output` du backlog et leurs portes de défauts. Cette séparation remplace
+l'assimilation du tone mapping à tout l'étalonnage ; elle ne demande pas une LUT obligatoire.
+
+`scène HDR → exposition / étalonnage artistique commun → adaptation de sortie SDR OU HDR`
+
+| Responsabilité | Exigence |
+|---|---|
+| Profil artistique par niveau | Commun aux deux sorties, transitions lissées. Domaine, encodage et plage déclarés ; conserve les valeurs au-delà de 1 avant adaptation écran. |
+| LUT éventuelle | Représentation du profil, pas intrinsèquement un tone map. Pas de compression SDR incorporée dans la LUT commune. Domaine HDR adapté (par exemple log déclaré), pas de clamp 0..1 de la radiance. |
+| Sortie SDR, chantier actuel | Courbe/exposition globales puis corrections résiduelles mesurées. Ajustements propres au SDR séparés du profil commun. Comparaison statistique, jamais identité ON/OFF imposée. |
+| Sortie HDR, chantier suivant | Part de la même scène étalonnée ; adapte luminance, gamut et encodage à l'écran détecté. Ne part jamais de l'image déjà comprimée SDR. Un écran HDR nécessite aussi une adaptation à ses limites. |
+| Organisation GPU | Séparation logique des paramètres et responsabilités ; fusion dans une passe ou LUT de sortie générée permise. Ne pas imposer plusieurs passes plein écran pour cette séparation. |
+| Options / coût | Sortie HDR et calcul HDR interne sont distincts. Les questions owner ne commandent pas un nouveau chemin LDR. Coût GPU à mesurer si instrumentation disponible, sinon explicitement non mesuré, sans retarder les corrections. |
+
+`hdr_tonemap_defects` doit couvrir l'écrêtage avant adaptation et la confusion du profil
+artistique avec la compression SDR, en plus des défauts d'image existants.
+`hdr_out_defects` doit couvrir la perte/changement du profil lors du toggle, le passage
+intermédiaire par SDR et la double adaptation. Profil identité et entrées supérieures à 1
+servent de contrôles programmatiques ; un compteur de passes seul ne prouve pas l'ordre.
+La preuve reste produite par `proof_run.sh` et jugée par `generic.sh`.
+
+Les comparaisons SDR guident la calibration actuelle ; elles ne prouvent pas à elles seules
+que le profil convient en sortie HDR. Le second chantier vérifie sur écran HDR réel.
+La sortie HDR reste après la correction SDR, sans rétablir de prérequis de rejeux exacts.
 
 **[C]** Le moteur publie `hdr_overbright_px` : le nombre de pixels dont la luminance linéaire
 dépasse 1,0 avant tone map. Dans le build actuel il vaut **0 par construction** (RGBA8 clampe) :

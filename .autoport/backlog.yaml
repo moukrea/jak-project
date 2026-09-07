@@ -4164,6 +4164,10 @@ items:
       SDR via tonemapping, est-ce que le HDR est toggleable dans notre refonte parce que ça a probablement
       un impact sur les perfs de tonemap non ? Bon ça c'est des questions hein, je suis un peu over m'y
       head là
+  - date: '2026-09-07'
+    text: Je sais pas ce que ça change pour notre plan de refonte et sa spec... Ça doit bien changer des
+      trucs non ? Tu peux y réfléchir un peu et pas juste consigner ça dans une footnote je sais pas trop
+      où ?
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4181,18 +4185,19 @@ items:
   known_cause: 'Essai12 : blancs reduits sur premiers cas ; contraste insuffisant et parcours monolithique
     plante au marais. 10/21 niveaux en service ne prouvent pas leur visibilite. Reutiliser correction
     et outils existants.'
-  deliverable: 'Executer le protocole owner : tous21niveaux, exterieurs avec ciel REELLEMENT visible,
-    interieurs et hutte Sandover obligatoire, heures in-game fixes0/3/6/9/12/15/18/21. Eclairage seul
-    ON/OFF, autres effets identiques, vues comparables sans frame exacte. Capturer par lots/niveaux en
-    processus frais pour eviter accumulation memoire ; ne pas attendre reparation du parcours monolithique.
-    Refuser prises noires/non representatives, distinguer ciel visible et simple niveau charge. ImageMagick
-    obligatoire : statistiques ecretage/quasi-blancs, luminosite, teinte/saturation et details, valeurs
-    ON/OFF et deltas par vue/heure. Ajuster courbe/exposition sur ensemble, iterer avant/apres en preservant
-    details HDR ; etalonnage couleur distinct, reglages fins par niveau ou LUT autorises si justifies
-    par residus mesures, transitions lissees. Corrections globales d abord, pas optimisation pixel-identique.
-    Publier tableau couverture et valeurs, comparaisons iteratives via proof_run.sh ; generic juge preuves,
-    jamais LLM visuel. Couverture incomplete reste explicite. Priorite aux captures manquantes et corrections,
-    pas nouvel outillage general.'
+  deliverable: 'Corriger blancs HDR et coherence artistique SDR. Tous21niveaux, ciel visible en exterieur,
+    interieurs et hutte Sandover, heures0/3/6/9/12/15/18/21. Eclairage seul ON/OFF, autres effets identiques,
+    vues comparables sans frame exacte. Processus frais par niveau ; rejeter vues noires/non representatives.
+    ImageMagick : blancs/quasi-blancs, luminosite, teinte/saturation, details ; tableau couverture, deltas
+    ON/OFF et avant/apres. Iterer courbe/exposition globales sur ensemble puis residus par niveau, transitions
+    lissees. SPEC §4.5 : etalonnage artistique commun en domaine HDR declare, puis transformation sortie
+    SDR distincte. LUT facultative : domaine/encodage/plage explicites, sans compression SDR integree
+    ni ecretage a1 ; conserver nuances >1. Reglages specifiques SDR separes. Dans hdr_tonemap_defects,
+    compter perte de plage avant sortie ou melange etalonnage/sortie ; verification programmatique avec
+    valeurs >1 et profil identite, via proof_run.sh/generic. Ne pas attendre sortie ecran HDR pour corriger
+    SDR. Mesurer cout GPU HDR/resolve sur cas comparables si instrumentation disponible, sinon non mesure
+    ; aucun nouveau toggle impose. Priorite captures manquantes/corrections, pas outillage general ni
+    reparation parcours monolithique.'
   out_of_scope: Pas de census, baseline historique, cinq rejeux/frame exacte. Aucun changement textures/modeles
     HD/herbe/brise/cadence. Ne pas masquer brulures par assombrissement global excessif. Pas de validation
     owner ; sortie ecran HDR native ensuite.
@@ -4285,20 +4290,22 @@ items:
   where: 'Options : une ligne « sortie HDR » qui n''apparait QUE si l''ecran le supporte. Sur ton Honor
     elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change
     de teinte.'
-  deliverable: |-
-    Par DEFAUT le jeu sort du SDR bien tonemappe (c'est lighting-hdr). Ce chantier ajoute la sortie HDR native quand l'ecran la supporte. Le moteur emet `hdr_out_defects=N` :
-      (1) la capacite de l'ecran est DETECTEE et publiee (`hdr_out_display_caps` : les modes reellement annonces par le systeme, Android comme bureau) ;
-      (2) l'option n'existe dans le menu que si un mode est annonce — jamais un reglage qui ne fait rien ;
-      (3) activee, la chaine sort dans l'espace annonce, sans double compression : `hdr_out_tonemaps_applied` = 1, jamais 2 ;
-      (4) desactivee, la sortie est identique au bit a celle de lighting-hdr ;
-      (5) la detection entre dans l'auto-configuration du premier demarrage, avec le mode retenu publie.
-    Zero. Preuve sur un ecran HDR reel — l'appareil de l'owner est le seul qu'on connaisse.
+  deliverable: 'SDR par defaut ; sortie HDR optionnelle si capacites reelles detectees, publiees et integrees
+    a auto-configuration. Option visible seulement sur ecran compatible. SPEC §4.5 : meme rendu HDR et
+    meme profil artistique par niveau avant adaptation ecran ; ne jamais repartir du SDR ni reutiliser
+    LUT avec compression SDR integree. Adapter luminance/gamut/encodage aux capacites ecran, sans double
+    compression. hdr_out_defects compte : detection/option incorrecte, profil artistique perdu ou change
+    au toggle, ecretage intermediaire SDR, transformation sortie multiple, mauvaise adaptation ecran,
+    regression SDR au retour OFF. Publier profil applique, domaine/plage avant sortie et mode sortie ;
+    verifier valeurs >1 preservees avant adaptation. Comparaison retour SDR dans conditions equivalentes,
+    sans campagne de frame exacte. Mesures via proof_run.sh/generic sur ecran HDR reel accessible, aucun
+    support deduit du nom appareil. Mesurer cout GPU si disponible, sinon non mesure. Zero defaut, aucune
+    validation visuelle inventee.'
   known_cause: null
-  out_of_scope: 'Ne touche pas a la courbe de compression SDR : c''est lighting-hdr.'
-  notes: 'Ne du retour owner 2026-09-06 : « Mon Honor supporte le HDR, ca l''exploite pas ! [...] une
-    option en plus qui apparait si l''ecran le supporte, idem sur PC/Linux/Android TV [...] ca pourrait
-    faire partie de l''auto-detection au first start ». Deux choses portent le nom HDR : le rendu interne
-    (lighting-hdr, fait) et la SORTIE vers un ecran HDR (ici).'
+  out_of_scope: Ne pas recalibrer la courbe SDR ni dupliquer les profils artistiques pour HDR. Aucun mode
+    nouveau de calcul LDR performant demande par les questions owner.
+  notes: Rendu HDR interne et sortie ecran HDR distincts. lighting-hdr reste en cours, non valide. Etalonnage
+    artistique commun ; transformations de sortie separees.
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4316,6 +4323,10 @@ items:
       SDR via tonemapping, est-ce que le HDR est toggleable dans notre refonte parce que ça a probablement
       un impact sur les perfs de tonemap non ? Bon ça c'est des questions hein, je suis un peu over m'y
       head là
+  - date: '2026-09-07'
+    text: Je sais pas ce que ça change pour notre plan de refonte et sa spec... Ça doit bien changer des
+      trucs non ? Tu peux y réfléchir un peu et pas juste consigner ça dans une footnote je sais pas trop
+      où ?
   supervisor_recovery: true
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
