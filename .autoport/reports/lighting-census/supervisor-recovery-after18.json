@@ -1,0 +1,20 @@
+{
+  "date": "2026-09-07T15:09:17.764145+00:00",
+  "reason": "Reprise apres revue des six essais distincts : baseline pre-refonte identifiee, adapter/construire puis qualifier. Aucun changement de gate.",
+  "previous": {
+    "retries": 6,
+    "fingerprints": [
+      "671b7db38c8b",
+      "671b7db38c8b",
+      "671b7db38c8b",
+      "023de7b7a9e5",
+      "98c56f75d2a6",
+      "6d8b8e3ab3f3",
+      "076e95175a8c",
+      "253c7bd1977b",
+      "4b345e706617"
+    ],
+    "attempt_seq": 18
+  },
+  "baseline_commit": "a9ea15a69062a57335278db7680cd647df3c1e1d"
+}

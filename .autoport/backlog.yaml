@@ -3882,13 +3882,13 @@ items:
   owner_ok: null
   device: false
   where: null
-  known_cause: 'Essai12 : fuite GL tonemapping corrigee (7290->0 erreurs), references encore divergentes.
-    Phase/RNG/naissance de la lampe historiques non enregistres. Meme message sentinelle254 malgre sources
-    corrigees : le harnais confondait echec global et absence de changement. Reprise : reconstruire un
-    protocole reproductible, pas chercher encore une phase perdue.'
+  known_cause: 'Essai18 : budget6 atteint apres corrections distinctes. Bootstrap17 rejoue (5880records)
+    et manifeste des buffers consommes livres. Blocage : aucune baseline adaptee/construite, etat apres
+    chargement incomplet (beach encore loading). Source pre-refonte a9ea15a69062a57335278db7680cd647df3c1e1d
+    identifiee : FR3v44, dix exports reels manquants, aucun delta goalc/mips2c. Voir handoff18 et reference_recovery.'
   deliverable: |-
-    Arbitrage superviseur : etablir des references candidates NEUVES dans un dossier distinct, etat initial enregistre et rejouable (RNG/horloges/acteurs), rendu d'origine independamment identifie. Lire reference_recovery dans le backlog. Conserver les575 references historiques et leurs ecarts comme archive ; aucun ecrasement. Qualifier le candidat contre un binaire/source de reference identifie, donnees et etat identiques ; capturer puis rejouer le meme correctif ne prouve PAS l'absence de regression. L'adoption exige cette qualification, la provenance et cinq rejeux exacts.
-    Trois modes compares chacun a SA reference, jamais egalite ON/OFF. Tous niveaux livres (21 identifies,>=20, manquants nommes), interieurs>=4, heures0/3/6/9/12/15/18/21. Ciel>=15% par cas a ciel, sky_missing=0 ; Sunkenb reste manquant sans demonstration. Conserver draws classes/temps GPU et refset_replay_maxdiff=0 ; aucune sentinelle supprimee pour verdir. Debloquer ensuite la correction HDR/tonemap SDR.
+    Prochain livrable : construire une baseline ISOLEE au commit de reference_recovery, adapter les dix exports reels et reutiliser bootstrap17/manifeste18. Garder renderer ET shaders historiques separes de HEAD ; pas de stubs. Etablir meme etat APRES chargements et memes donnees/config effectives, puis comparer les modes origine baseline/candidat. Ne pas refaire les audits FR3, bootstrap et inventaires acquis ni rejouer l'archive pour retrouver encore maxdiff195.
+    References candidates NEUVES, qualification independante avant adoption,575 historiques intacts. ON/OFF peuvent differer ; chaque mode doit se rejouer exactement. Trois modes,tous21niveaux livres (>=20,manquants nommes),8heures fixes0/3/6/9/12/15/18/21,>=4interieurs,ciel>=15% par cas a ciel,sky_missing=0 ; Sunkenb reste manquant sans demonstration. Provenance et etat rejouable, puis cinq rejeux exacts et refset_replay_maxdiff=0 ; draws classes/temps GPU conserves. Aucun seuil assoupli. Suite : correction HDR/tonemap SDR.
   out_of_scope: Aucun masque, tolerance ou gel du rendu livre pour effacer un ecart. Les origines historiques
     restent intactes ; le nouveau jeu a une provenance distincte et doit etre qualifie avant adoption.
     Preuve par proof_run.sh, generic.sh inchange. Ni brise ni cadence. Aucun owner-ok.
@@ -3897,7 +3897,9 @@ items:
     il pose l''instrument et fige les references : owner_test=false. | promu ''validated'' le 2026-09-06
     : preuve MACHINE, l''owner n''a rien a regarder, et le laisser en attente de sa parole gelait tout
     ce qui en depend. | rouvert le 2026-09-07 : le jeu de references ne contenait pas de ciel, d''ou un
-    faux vert sur lighting-hdr.'
+    faux vert sur lighting-hdr. | Revue superviseur apres essai18 : plafond6 atteint mais changements
+    reels a chaque essai ; reprise bornee avec baseline pre-refonte identifiee et livrable adaptation/construction.
+    Historique et criteres conserves.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: draws monde classes dans un des cinq chemins
   proof_env:
@@ -3921,7 +3923,6 @@ items:
       et ecrasement des anciennes.
     legacy_directory: .autoport/refset
     candidate_directory: .autoport/refset-candidates
-    legacy_producer_sha: 485f09d6c07bc24c
     adoption_requires:
     - Renderer/binaire baseline identifie independamment du candidat, source et donnees tracables ; ne
       pas supposer que captured-by suffit.
@@ -3932,6 +3933,18 @@ items:
       par le producteur.
     - Toutes les divergences historiques restent archivees et signalees ; nouvelle baseline distincte,
       aucune validation owner implicite.
+    legacy_producer_fnv: 485f09d6c07bc24c
+    baseline_commit: a9ea15a69062a57335278db7680cd647df3c1e1d
+    baseline_scope: Fork avant refonte, pas moteur pristine ; preserve renderer ET shaders historiques
+      dans une source et un build isoles. Aucun stub pour les dix exports manquants.
+    next_step: Construire cette baseline avec les dix exports reels et le protocole bootstrap deja implemente.
+      Apparier les donnees effectivement consommees, les configurations et l etat apres chargement avant
+      la qualification des origines.
+    reuse:
+    - reports/lighting-census/notes/essai18-assets/baseline-audit.txt
+    - reports/lighting-census/notes/essai18-assets/consumed.tsv
+    - reports/lighting-census/notes/essai18-assets/run.sh
+    - reports/lighting-census/notes/recovery-essai17.md
 - id: lighting-unify
   feature: Un seul modele d'eclairage au lieu de cinq, sans changer un pixel
   status: validated
