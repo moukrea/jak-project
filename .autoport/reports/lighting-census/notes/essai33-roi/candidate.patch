@@ -1,0 +1,99 @@
+diff --git a/game/graphics/opengl_renderer/lighting_census.cpp b/game/graphics/opengl_renderer/lighting_census.cpp
+index 5dc04e8443..7607db6a11 100644
+--- a/game/graphics/opengl_renderer/lighting_census.cpp
++++ b/game/graphics/opengl_renderer/lighting_census.cpp
+@@ -285,6 +285,49 @@ namespace {
+ unsigned s_roi_capture = 0;
+ bool s_roi_frame = false;
+ 
++struct RoiConfig {
++  bool enabled = false;
++  int rect[4] = {285, 13, 315, 72};
++};
++
++const RoiConfig& roi_config() {
++  static const RoiConfig config = [] {
++    RoiConfig out;
++    const char* enabled = std::getenv("OG_REFSET_TRACE_ROI");
++    out.enabled = enabled && std::strcmp(enabled, "1") == 0;
++    const char* rect = std::getenv("OG_REFSET_TRACE_ROI_RECT");
++    if (!rect)
++      return out;
++    const char* cursor = rect;
++    bool valid = true;
++    for (int i = 0; i < 4 && valid; ++i) {
++      const int limit = i % 2 == 0 ? 319 : 179;
++      int value = 0;
++      valid = *cursor >= '0' && *cursor <= '9';
++      while (valid && *cursor >= '0' && *cursor <= '9') {
++        value = value * 10 + (*cursor++ - '0');
++        valid = value <= limit;
++      }
++      out.rect[i] = value;
++      if (valid) {
++        valid = *cursor == (i < 3 ? ',' : '\0');
++        if (valid && i < 3)
++          ++cursor;
++      }
++    }
++    valid = valid && out.rect[0] <= out.rect[2] && out.rect[1] <= out.rect[3];
++    if (!valid) {
++      std::fprintf(stderr,
++                   "REFSET-ROI status=disabled invalid OG_REFSET_TRACE_ROI_RECT='%s': "
++                   "expected x0,y0,x1,y1 (inclusive, 0<=x0<=x1<320, 0<=y0<=y1<180)\n",
++                   rect);
++      out.enabled = false;
++    }
++    return out;
++  }();
++  return config;
++}
++
+ // Read the current draw target without changing its read-buffer selection or pack state.
+ // Renderer color attachments are 2D textures or renderbuffers; reject other targets.
+ bool roi_read(RoiSnapshot& out) {
+@@ -330,11 +373,12 @@ bool roi_read(RoiSnapshot& out) {
+       out.viewport[0] + out.viewport[2] > out.width ||
+       out.viewport[1] + out.viewport[3] > out.height)
+     return false;
+-  // Inclusive capture ROI (285..315,13..72), capture origin at top left.
+-  out.x = out.viewport[0] + out.viewport[2] * 285 / 320;
+-  out.y = out.viewport[1] + out.viewport[3] * (180 - 73) / 180;
+-  out.w = out.viewport[0] + (out.viewport[2] * 316 + 319) / 320 - out.x;
+-  out.h = out.viewport[1] + (out.viewport[3] * (180 - 13) + 179) / 180 - out.y;
++  // Inclusive capture ROI, capture origin at top left.
++  const auto& rect = roi_config().rect;
++  out.x = out.viewport[0] + out.viewport[2] * rect[0] / 320;
++  out.y = out.viewport[1] + out.viewport[3] * (180 - (rect[3] + 1)) / 180;
++  out.w = out.viewport[0] + (out.viewport[2] * (rect[2] + 1) + 319) / 320 - out.x;
++  out.h = out.viewport[1] + (out.viewport[3] * (180 - rect[1]) + 179) / 180 - out.y;
+   int old_read = 0, old_buffer = 0, pack[4] = {}, pbo = 0;
+   glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &old_read);
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, out.framebuffer);
+@@ -376,9 +420,7 @@ bool roi_read(RoiSnapshot& out) {
+ }  // namespace
+ 
+ void roi_frame_begin() {
+-  const char* env = std::getenv("OG_REFSET_TRACE_ROI");
+-  s_roi_frame =
+-      env && std::strcmp(env, "1") == 0 && refset::wants_scene_probe() && s_roi_capture < 24;
++  s_roi_frame = roi_config().enabled && refset::wants_scene_probe() && s_roi_capture < 24;
+   if (s_roi_frame)
+     ++s_roi_capture;
+ }
+diff --git a/game/graphics/opengl_renderer/lighting_census.h b/game/graphics/opengl_renderer/lighting_census.h
+index 5ea79261a9..50534985aa 100644
+--- a/game/graphics/opengl_renderer/lighting_census.h
++++ b/game/graphics/opengl_renderer/lighting_census.h
+@@ -90,6 +90,11 @@ void frame_end();
+ 
+ // Diagnostic only: local snapshots allow a bucket to contain Merc snapshots.
+ // Enabled only by OG_REFSET_TRACE_ROI=1 during the first 24 capture frames.
++// OG_REFSET_TRACE_ROI_RECT=x0,y0,x1,y1 selects inclusive 320x180 capture coordinates
++// with top-left origin; defaults to 285,13,315,72. Only unsigned decimal integers
++// separated by commas are accepted (no whitespace), with 0<=x0<=x1<320 and
++// 0<=y0<=y1<180. Invalid values emit a diagnostic and disable ROI tracing.
++// Both environment variables are read once, on the first roi_frame_begin().
+ // Counts use exact readback bytes per pixel: changed includes RGBA, rgb_changed
+ // excludes alpha, and alpha_only counts alpha changes with identical RGB bytes.
+ // rgb_bbox uses capture coordinates; RGB hashes exclude alpha. rgb_maxdiff is

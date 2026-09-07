@@ -1,0 +1,33 @@
+DIRECTIVES v6fca51fe40
+Verdict : deux mesures75s terminées sans crash ; comparaison neuve différente (190 pixels, maxdiff71).
+Aucune édition des sources ; aucune reconfiguration CMake ; aucun appareil touché.
+Premier essai pré-build interrompu par garde idle (builder actif), sans mesure ; reprise après idle.
+Commandes séquentielles : bash .autoport/reports/lighting-census/notes/essai33-roi/run-arm.sh /home/emeric/code/jak-lighting-baseline baseline baseline
+puis bash .autoport/reports/lighting-census/notes/essai33-roi/run-arm.sh /home/emeric/code/jak-project candidate candidate
+Chaque runner : exit0 ; cmake --build build --target gk -j6 ; proof_run.sh --timeout75.
+Deux builds : [npc-flicker] garde OK — 47 proprietes tenues.
+baseline — lignes de proof-produced.txt (copie du proof.txt produit par proof_run.sh) :
+sha=134267b692aa9d12
+duration_s=75
+crash=0
+frames=4137
+candidate — lignes de proof-produced.txt (copie du proof.txt produit par proof_run.sh) :
+sha=ab925321f0b1a818
+duration_s=75
+crash=0
+frames=4139
+Deux bras : REFSET sample case=origine/h00 layer=historical chain_lf=2282 anchor_lf=2102
+Deux bras : 426 lignes REFSET-ROI ; refset_loaded_ready=1 ; refset_captured=1 ; refset_step_done=1.
+Deux bras : refset_bootstrap_fingerprint=79fb964dc17507ec.
+CGO GAME/ENGINE/KERNEL SHA identiques entre arbres avant lancement ; arm-inputs-after.log : tout OK.
+Bootstrap17 SHA256=fcf905b46d5c48bd2a45569c95c5113a8ea212d13f4a498adc38211f5ddd3b82 (deux arbres, inchangé).
+proof_env comparé programmatiquement au before : restauré dans les deux arbres ; settings-before/after identiques.
+Builder2541075 rétabli étatS, enfant3146179 sleep240 ; verrou .deploy-in-progress absent au contrôle final.
+Baseline notes et référence neuve copiées dans HEAD, sans écrasement.
+Comparaison : python3 .autoport/tools/refset_compare.py .autoport/refset-candidates/essai33-baseline-baseline .autoport/refset-candidates/essai33-candidate-candidate
+Comparaison exit1 ; sortie origine-comparison.txt :
+origine/h00.png              maxdiff=71   diffpx=190      bbox=[77, 110, 105, 143]
+REFSET-COMPARE maxdiff=71 diffpx=190 images=1 manquantes=0
+Artefacts : baseline/ et candidate/ : build-gk.log, proof-produced.txt, proof-engine.log.gz, runtime-extract.log, arm-inputs.sha256, arm-inputs-after.log, consumed.tsv, pad-state.trace.
+Owner : prendre connaissance de l’écart numérique ; aucune validation owner produite.
+Non prouvé : causalité de l’écart RGB, parité globale, résultat Android. Aucune extension exécutée.

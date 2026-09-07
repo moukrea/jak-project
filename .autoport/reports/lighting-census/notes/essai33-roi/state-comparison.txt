@@ -1,0 +1,70 @@
+POSTLOAD lf=2281 records_baseline=3449 records_candidate=3449
+POSTLOAD lf=2281 differing_records=0 by_tag={}
+RNG lf=2281 goal-vu-R_equal=True *knuth-rand-state*_equal=True *random-generator*_equal=True native-pc-rng_equal=True native-mips-rng_equal=True native-mips-R_equal=True
+GOALCONFIG lf=2281 pc-settings-aspect-ratio-auto?=2374
+GOALCONFIG lf=2281 pc-settings-aspect-ratio=e4380e40
+GOALCONFIG lf=2281 pc-settings-aspect-ratio-scale=5655d53f
+GOALCONFIG lf=2281 pc-settings-aspect-ratio-reciprocal=9999193f
+GOALCONFIG lf=2281 pc-settings-aspect-custom-x=0400000000000000
+GOALCONFIG lf=2281 pc-settings-aspect-custom-y=0300000000000000
+GOALCONFIG lf=2281 pc-settings-letterbox?=2374
+GOALCONFIG lf=2281 pc-settings-lod-dist-mod=0000803f
+GOALCONFIG lf=2281 pc-settings-lod-force-actor=00
+GOALCONFIG lf=2281 pc-settings-ps2-actor-vis?=2374
+GOALCONFIG lf=2281 pc-settings-use-vis?=2366
+POSTLOAD lf=2282 records_baseline=3449 records_candidate=3449
+POSTLOAD lf=2282 differing_records=0 by_tag={}
+RNG lf=2282 goal-vu-R_equal=True *knuth-rand-state*_equal=True *random-generator*_equal=True native-pc-rng_equal=True native-mips-rng_equal=True native-mips-R_equal=True
+GOALCONFIG lf=2282 pc-settings-aspect-ratio-auto?=2374
+GOALCONFIG lf=2282 pc-settings-aspect-ratio=e4380e40
+GOALCONFIG lf=2282 pc-settings-aspect-ratio-scale=5655d53f
+GOALCONFIG lf=2282 pc-settings-aspect-ratio-reciprocal=9999193f
+GOALCONFIG lf=2282 pc-settings-aspect-custom-x=0400000000000000
+GOALCONFIG lf=2282 pc-settings-aspect-custom-y=0300000000000000
+GOALCONFIG lf=2282 pc-settings-letterbox?=2374
+GOALCONFIG lf=2282 pc-settings-lod-dist-mod=0000803f
+GOALCONFIG lf=2282 pc-settings-lod-force-actor=00
+GOALCONFIG lf=2282 pc-settings-ps2-actor-vis?=2374
+GOALCONFIG lf=2282 pc-settings-use-vis?=2366
+RENDERCONFIG baseline_fields=40 candidate_fields=40 differing_fields=0
+RENDERCONFIG ('origine/h00', 2282, 'master_active') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.brightness_contrast_alpha') baseline=128 candidate=128
+RENDERCONFIG ('origine/h00', 2282, 'options.brightness_contrast_color') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.draw_filters_window') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.draw_loader_window') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.draw_profiler_window') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.draw_region_height') baseline=180 candidate=180
+RENDERCONFIG ('origine/h00', 2282, 'options.draw_region_width') baseline=320 candidate=320
+RENDERCONFIG ('origine/h00', 2282, 'options.draw_render_debug_window') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.draw_small_profiler_window') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.draw_subtitle_editor_window') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.game_res_h') baseline=180 candidate=180
+RENDERCONFIG ('origine/h00', 2282, 'options.game_res_w') baseline=320 candidate=320
+RENDERCONFIG ('origine/h00', 2282, 'options.gpu_sync') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.internal_res_screenshot') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'options.msaa_samples') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'options.pmode_alp_register') baseline=0x1p+0 candidate=0x1p+0
+RENDERCONFIG ('origine/h00', 2282, 'options.quick_screenshot') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'options.save_screenshot') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'options.window_framebuffer_height') baseline=180 candidate=180
+RENDERCONFIG ('origine/h00', 2282, 'options.window_framebuffer_width') baseline=320 candidate=320
+RENDERCONFIG ('origine/h00', 2282, 'settings.collision_enable') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.hack_no_tex') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.load_custom_assets') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.lod_tfrag') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.lod_tie') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.mb_isolate') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.mb_pbr_override') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.mb_target_active') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_ao_mode') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_enhanced_models') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_grass') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_lighting') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_managed_assets') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_master') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_modern_materials') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_pbr_enable') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_rt_light_enable') baseline=0 candidate=0
+RENDERCONFIG ('origine/h00', 2282, 'settings.recharged_textures') baseline=1 candidate=1
+RENDERCONFIG ('origine/h00', 2282, 'settings.target_fps') baseline=0x1.ep+5 candidate=0x1.ep+5
+Limites : observations CPU après dispatch ; contrôles/poses articulées/états privés non exhaustifs. Aucune qualification pixel.

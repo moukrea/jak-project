@@ -1,32 +1,32 @@
-L’état postload observé concorde entre bras, mais origine/h00 diffère encore sur190pixels : qualification et porte non obtenues.
+Le delta neuf est localisé à la passe l0-shrub ; qualification et porte restent non obtenues.
 DIRECTIVES v6fca51fe40
-Six fichiers C++ : lecteurs acteurs/RNG réutilisés dans la trace pad après dispatch, sans modifier le bootstrap scellé.
-Observations aux LF2281/2282 : acteurs, RNG,11réglages GOAL ;40options C++/renderer relevées après overrides de capture.
-Même delta appliqué à la baseline isolée a9ea15a69062a57335278db7680cd647df3c1e1d ; renderer/shaders historiques conservés.
+ROI existant configurable par OG_REFSET_TRACE_ROI_RECT ; valeur invalide signalée et diagnostic désactivé.
+Même lecteur passif et hooks portés sur baseline isolée a9ea15a690 ; renderer/shaders historiques conservés.
 Huit lignes du proof produit exclusivement par proof_run.sh :
 source=x86
-sha=5e7dd4684802aebe
+sha=ab925321f0b1a818
 crash=0
-frames=4161
+frames=4139
 refset_bootstrap_records=5880
 refset_load_restores=1
 refset_loaded_ready=1
 refset_captured=1
-Deux runs75s : baseline707b0ed69313e8b2/4152frames et candidat5e7dd4684802aebe/4161frames ; crash0 chacun.
-Bootstrap17 :5880records/79fb964dc17507ec ; restore ancre2102/exécuté2104 ; sample origine/h00 LF2282/slip0 chaque bras.
-POSTLOAD :3449enregistrements comparés par frame, aucun écart à LF2281 et2282 ;94processus présents relevés par bloc.
-Six témoins RNG concordants, dont les deux mt19937 complets ;11champs pc-settings et40options renderer identiques.
-CAM/Jak92octets identiques sur180frames LF2104..2283 ; ancre pad3 dans les deux bras.
-Manifestes au sample : mêmes4FR3/756plages ISO/486objets/787textures ; shaders historiques106 vs candidat108.
-Comparateur existant hors ligne, paire NEUVE : maxdiff71,190pixels différents ; diagnostic, pas champ de porte ni qualification.
-Cause du delta non identifiée : la trace ne couvre pas toutes les poses articulées/états privés ni tous uniformes consommés.
-575empreintes historiques intactes ; aucun candidat adopté, masque, tolérance ou gel ajouté.
-Builds gk incrémentaux seuls ; garde de build exacte : [npc-flicker] garde OK — 47 proprietes tenues.
-Draws/temps GPU conservés : light_census_classified0/residual0,lc_orig_un680804 ; gpu_ms_buckets9.6832 sur4017frames.
-Couverture mesurée : village1/beach seulement ; ciel0‰,sky_missing16 ; Sunkenb toujours manquant.
-Niveaux manquants : training,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
-Owner : aucune correction des blancs HDR livrée à juger ; leur contrôle reste nécessaire après qualification.
-non prouvé : état privé/poses complets,qualification indépendante,3modes/21niveaux/8heures/≥4intérieurs/ciel≥15%,5rejeux exacts,HDR/SDR/Android.
-refset_replay_maxdiff absent en capture ; missing-state-and-baseline conservé, aucun faux zéro.
-Notes, traces, comparaison et patch baseline complet : notes/essai32-postload/ ; proof_env restaurés et builder2541075 repris.
-generic.sh et proof_run.sh inchangés ; validateur réservé à l’orchestrateur, aucun owner-ok.
+Deux runs75s : baseline134267b692aa9d12/4137frames ; candidatab925321f0b1a818/4139frames,crash0 chacun.
+426lignes ROI par bras ; première divergence ligne149 du relevé, bucket20 l0-shrub, au sample LF2282.
+RGB avant=c5ddf12460cb55a7 chaque bras ; après baseline=b9f86775a08143c6,candidat=843da685a56f1427.
+Passes océan/tfrag/tie précédentes identiques dans ce rectangle ; aucun draw Merc ne modifie son RGB.
+Comparateur existant, paire NEUVE : maxdiff71,diffpx190,bbox[77,110,105,143] ; aucune qualification/adoption.
+Chaque PNG neuf a le même SHA256 que son bras essai32 ; le diagnostic conserve ces deux sorties.
+Baseline trace SHRUB native ACTIVE village1/2067instances ; candidat origin_shrub_native_suppressed=2.
+Piste : garde master_on ajoutée à Shrub.cpp:361-367 ; contribution exacte aux190pixels non prouvée.
+Retirer cette garde touche la brise hors périmètre ; aucune modification de cette activation ni gel baseline.
+POSTLOAD LF2281/2282 :3449records par bras,0écart ;40options renderer identiques,master_active0.
+Builds gk incrémentaux : garde NPC47 tenue ; draws/temps GPU conservés,lc_orig_un680804,gpu_ms_buckets9.8097.
+575SHA historiques et123/118fichiers shaders intacts ; proof_run.sh/generic.sh inchangés.
+Builder actif a refusé le premier départ avant build/preuve ; attente fin puis deux bras,proof_env restaurés.
+Owner : aucune correction des blancs HDR à juger dans cet essai ; leur contrôle reste à faire après qualification.
+non prouvé : cause unique du delta,qualification indépendante,3modes/21niveaux/8heures/≥4intérieurs/ciel≥15%,5rejeux exacts,HDR/SDR/Android.
+Couverture limitée village1/beach ;19niveaux manquants nommés dans proof,Sunkenb toujours manquant,sky_missing16.
+refset_replay_maxdiff absent en capture ; missing-state-and-baseline conservé, aucun zéro fabriqué.
+Notes : notes/essai33-roi/ ; full-baseline.patch conserve adaptation complète et roi-baseline.patch ce delta.
+Validateur réservé à l’orchestrateur ; aucun owner-ok.

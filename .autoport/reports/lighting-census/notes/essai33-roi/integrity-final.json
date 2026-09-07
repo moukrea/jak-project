@@ -1,0 +1,22 @@
+{
+  "historical-before.json": {
+    "count": 575,
+    "changed": []
+  },
+  "candidate-shaders-before.json": {
+    "count": 123,
+    "changed": []
+  },
+  "baseline-shaders-before.json": {
+    "count": 118,
+    "changed": []
+  },
+  "baseline_settings_equal": true,
+  "baseline_png_sha_equal_essai32": true,
+  "candidate_settings_equal": true,
+  "candidate_png_sha_equal_essai32": true,
+  "producer_validator_sha256_check": [
+    ".autoport/validators/generic.sh: OK",
+    ".autoport/lib/proof_run.sh: OK"
+  ]
+}

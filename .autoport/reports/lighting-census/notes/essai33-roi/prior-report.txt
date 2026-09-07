@@ -1,0 +1,32 @@
+L’état postload observé concorde entre bras, mais origine/h00 diffère encore sur190pixels : qualification et porte non obtenues.
+DIRECTIVES v6fca51fe40
+Six fichiers C++ : lecteurs acteurs/RNG réutilisés dans la trace pad après dispatch, sans modifier le bootstrap scellé.
+Observations aux LF2281/2282 : acteurs, RNG,11réglages GOAL ;40options C++/renderer relevées après overrides de capture.
+Même delta appliqué à la baseline isolée a9ea15a69062a57335278db7680cd647df3c1e1d ; renderer/shaders historiques conservés.
+Huit lignes du proof produit exclusivement par proof_run.sh :
+source=x86
+sha=5e7dd4684802aebe
+crash=0
+frames=4161
+refset_bootstrap_records=5880
+refset_load_restores=1
+refset_loaded_ready=1
+refset_captured=1
+Deux runs75s : baseline707b0ed69313e8b2/4152frames et candidat5e7dd4684802aebe/4161frames ; crash0 chacun.
+Bootstrap17 :5880records/79fb964dc17507ec ; restore ancre2102/exécuté2104 ; sample origine/h00 LF2282/slip0 chaque bras.
+POSTLOAD :3449enregistrements comparés par frame, aucun écart à LF2281 et2282 ;94processus présents relevés par bloc.
+Six témoins RNG concordants, dont les deux mt19937 complets ;11champs pc-settings et40options renderer identiques.
+CAM/Jak92octets identiques sur180frames LF2104..2283 ; ancre pad3 dans les deux bras.
+Manifestes au sample : mêmes4FR3/756plages ISO/486objets/787textures ; shaders historiques106 vs candidat108.
+Comparateur existant hors ligne, paire NEUVE : maxdiff71,190pixels différents ; diagnostic, pas champ de porte ni qualification.
+Cause du delta non identifiée : la trace ne couvre pas toutes les poses articulées/états privés ni tous uniformes consommés.
+575empreintes historiques intactes ; aucun candidat adopté, masque, tolérance ou gel ajouté.
+Builds gk incrémentaux seuls ; garde de build exacte : [npc-flicker] garde OK — 47 proprietes tenues.
+Draws/temps GPU conservés : light_census_classified0/residual0,lc_orig_un680804 ; gpu_ms_buckets9.6832 sur4017frames.
+Couverture mesurée : village1/beach seulement ; ciel0‰,sky_missing16 ; Sunkenb toujours manquant.
+Niveaux manquants : training,jungle,jungleb,misty,firecanyon,village2,sunken,sunkenb,swamp,rolling,ogre,village3,snow,maincave,darkcave,robocave,lavatube,citadel,finalboss.
+Owner : aucune correction des blancs HDR livrée à juger ; leur contrôle reste nécessaire après qualification.
+non prouvé : état privé/poses complets,qualification indépendante,3modes/21niveaux/8heures/≥4intérieurs/ciel≥15%,5rejeux exacts,HDR/SDR/Android.
+refset_replay_maxdiff absent en capture ; missing-state-and-baseline conservé, aucun faux zéro.
+Notes, traces, comparaison et patch baseline complet : notes/essai32-postload/ ; proof_env restaurés et builder2541075 repris.
+generic.sh et proof_run.sh inchangés ; validateur réservé à l’orchestrateur, aucun owner-ok.

@@ -1,0 +1,385 @@
+--- a/game/graphics/opengl_renderer/lighting_census.cpp
++++ b/game/graphics/opengl_renderer/lighting_census.cpp
+@@ -1,12 +1,17 @@
+ #include "game/graphics/opengl_renderer/lighting_census.h"
+ 
++#include <algorithm>
+ #include <array>
++#include <cmath>
++#include <cstdlib>
+ #include <cstdio>
+ #include <cstring>
++#include <limits>
+ #include <unordered_map>
+ #include <vector>
+ 
+ #include "game/graphics/pipelines/opengl.h"
++#include "game/graphics/refset.h"
+ #include "game/graphics/opengl_renderer/shade_proof.h"
+ #include "game/system/autoport_proof.h"
+ 
+@@ -273,6 +278,247 @@
+ 
+ }  // namespace
+ 
++namespace {
++unsigned s_roi_capture = 0;
++bool s_roi_frame = false;
++
++struct RoiConfig {
++  bool enabled = false;
++  int rect[4] = {285, 13, 315, 72};
++};
++
++const RoiConfig& roi_config() {
++  static const RoiConfig config = [] {
++    RoiConfig out;
++    const char* enabled = std::getenv("OG_REFSET_TRACE_ROI");
++    out.enabled = enabled && std::strcmp(enabled, "1") == 0;
++    const char* rect = std::getenv("OG_REFSET_TRACE_ROI_RECT");
++    if (!rect)
++      return out;
++    const char* cursor = rect;
++    bool valid = true;
++    for (int i = 0; i < 4 && valid; ++i) {
++      const int limit = i % 2 == 0 ? 319 : 179;
++      int value = 0;
++      valid = *cursor >= '0' && *cursor <= '9';
++      while (valid && *cursor >= '0' && *cursor <= '9') {
++        value = value * 10 + (*cursor++ - '0');
++        valid = value <= limit;
++      }
++      out.rect[i] = value;
++      if (valid) {
++        valid = *cursor == (i < 3 ? ',' : '\0');
++        if (valid && i < 3)
++          ++cursor;
++      }
++    }
++    valid = valid && out.rect[0] <= out.rect[2] && out.rect[1] <= out.rect[3];
++    if (!valid) {
++      std::fprintf(stderr,
++                   "REFSET-ROI status=disabled invalid OG_REFSET_TRACE_ROI_RECT='%s': "
++                   "expected x0,y0,x1,y1 (inclusive, 0<=x0<=x1<320, 0<=y0<=y1<180)\n",
++                   rect);
++      out.enabled = false;
++    }
++    return out;
++  }();
++  return config;
++}
++
++// Read the current draw target without changing its read-buffer selection or pack state.
++// Renderer color attachments are 2D textures or renderbuffers; reject other targets.
++bool roi_read(RoiSnapshot& out) {
++  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &out.framebuffer);
++  glGetIntegerv(GL_VIEWPORT, out.viewport);
++  int samples = 0;
++  glGetIntegerv(GL_SAMPLES, &samples);
++  if (!out.framebuffer || samples > 0 || out.viewport[2] <= 0 || out.viewport[3] <= 0 ||
++      glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
++    return false;
++  }
++  int kind = 0, object = 0;
++  glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                                        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &kind);
++  glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                                        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &object);
++  if (kind == GL_RENDERBUFFER) {
++    int old = 0;
++    glGetIntegerv(GL_RENDERBUFFER_BINDING, &old);
++    glBindRenderbuffer(GL_RENDERBUFFER, object);
++    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &out.width);
++    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &out.height);
++    glBindRenderbuffer(GL_RENDERBUFFER, old);
++  } else if (kind == GL_TEXTURE && glGetTexLevelParameteriv) {
++    int old = 0, level = 0, face = 0, layer = 0;
++    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                                          GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL, &level);
++    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                                          GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE, &face);
++    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                                          GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LAYER, &layer);
++    if (face || layer)
++      return false;
++    glGetIntegerv(GL_TEXTURE_BINDING_2D, &old);
++    glBindTexture(GL_TEXTURE_2D, object);
++    glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &out.width);
++    glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_HEIGHT, &out.height);
++    glBindTexture(GL_TEXTURE_2D, old);
++  } else {
++    return false;
++  }
++  if (out.width <= 0 || out.height <= 0 || out.viewport[0] < 0 || out.viewport[1] < 0 ||
++      out.viewport[0] + out.viewport[2] > out.width ||
++      out.viewport[1] + out.viewport[3] > out.height)
++    return false;
++  // Inclusive capture ROI, capture origin at top left.
++  const auto& rect = roi_config().rect;
++  out.x = out.viewport[0] + out.viewport[2] * rect[0] / 320;
++  out.y = out.viewport[1] + out.viewport[3] * (180 - (rect[3] + 1)) / 180;
++  out.w = out.viewport[0] + (out.viewport[2] * (rect[2] + 1) + 319) / 320 - out.x;
++  out.h = out.viewport[1] + (out.viewport[3] * (180 - rect[1]) + 179) / 180 - out.y;
++  int old_read = 0, old_buffer = 0, pack[4] = {}, pbo = 0;
++  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &old_read);
++  glBindFramebuffer(GL_READ_FRAMEBUFFER, out.framebuffer);
++  glGetIntegerv(GL_READ_BUFFER, &old_buffer);
++  glReadBuffer(GL_COLOR_ATTACHMENT0);
++  // Preserve HDR differences rather than clamping them to 8-bit color.
++  int component = 0;
++  glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                                        GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE, &component);
++  unsigned pixel_type = GL_UNSIGNED_BYTE;
++#ifndef __ANDROID__
++  if (component == GL_FLOAT) {
++    pixel_type = GL_FLOAT;
++    out.bytes_per_pixel = 4 * sizeof(float);
++  }
++#endif
++  if (component != GL_UNSIGNED_NORMALIZED && pixel_type != GL_FLOAT) {
++    glReadBuffer(old_buffer);
++    glBindFramebuffer(GL_READ_FRAMEBUFFER, old_read);
++    return false;
++  }
++  const unsigned keys[] = {GL_PACK_ALIGNMENT, GL_PACK_ROW_LENGTH, GL_PACK_SKIP_PIXELS,
++                           GL_PACK_SKIP_ROWS};
++  for (int i = 0; i < 4; ++i) {
++    glGetIntegerv(keys[i], &pack[i]);
++    glPixelStorei(keys[i], i == 0 ? 1 : 0);
++  }
++  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &pbo);
++  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
++  out.rgba.resize(size_t(out.w) * out.h * out.bytes_per_pixel);
++  glReadPixels(out.x, out.y, out.w, out.h, GL_RGBA, pixel_type, out.rgba.data());
++  glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
++  for (int i = 0; i < 4; ++i)
++    glPixelStorei(keys[i], pack[i]);
++  glReadBuffer(old_buffer);
++  glBindFramebuffer(GL_READ_FRAMEBUFFER, old_read);
++  return true;
++}
++}  // namespace
++
++void roi_frame_begin() {
++  s_roi_frame = roi_config().enabled && refset::wants_scene_probe() && s_roi_capture < 24;
++  if (s_roi_frame)
++    ++s_roi_capture;
++}
++
++bool roi_active() {
++  return s_roi_frame && refset::wants_scene_probe();
++}
++
++void roi_model(uint64_t hash, const char* name) {
++  if (roi_active()) {
++    std::printf("REFSET-ROI type=model capture=%u hash=%016llx name=%s\n", s_roi_capture,
++                (unsigned long long)hash, name);
++  }
++}
++
++RoiSnapshot roi_before() {
++  RoiSnapshot out;
++  if (roi_active())
++    roi_read(out);
++  return out;
++}
++
++void roi_after(const RoiSnapshot& before,
++               const char* type,
++               int id,
++               const char* name,
++               uint64_t hash,
++               uint32_t first_index,
++               int texture) {
++  if (before.rgba.empty())
++    return;
++  RoiSnapshot after;
++  if (!roi_read(after) || before.framebuffer != after.framebuffer || before.width != after.width ||
++      before.height != after.height || before.bytes_per_pixel != after.bytes_per_pixel ||
++      std::memcmp(before.viewport, after.viewport, sizeof(before.viewport)) != 0) {
++    std::printf("REFSET-ROI type=%s capture=%u id=%d name=%s status=target-changed-or-invalid\n",
++                type, s_roi_capture, id, name);
++    return;
++  }
++  unsigned changed = 0, rgb_changed = 0, alpha_changed = 0, alpha_only = 0;
++  double rgb_maxdiff = 0;
++  const bool hdr = before.bytes_per_pixel == 4 * sizeof(float);
++  const size_t rgb_bytes = 3 * (before.bytes_per_pixel / 4);
++  // FNV-1a of RGB readback bytes only, in readback row order (bottom to top).
++  uint64_t rgb_before_hash = 14695981039346656037ull;
++  uint64_t rgb_after_hash = 14695981039346656037ull;
++  int min_x = 320, min_y = 180, max_x = -1, max_y = -1;
++  for (int y = 0; y < before.h; ++y) {
++    for (int x = 0; x < before.w; ++x) {
++      const size_t offset = (size_t(y) * before.w + x) * before.bytes_per_pixel;
++      const auto* before_pixel = before.rgba.data() + offset;
++      const auto* after_pixel = after.rgba.data() + offset;
++      for (size_t i = 0; i < rgb_bytes; ++i) {
++        rgb_before_hash = (rgb_before_hash ^ before_pixel[i]) * 1099511628211ull;
++        rgb_after_hash = (rgb_after_hash ^ after_pixel[i]) * 1099511628211ull;
++      }
++      const bool rgb_diff = std::memcmp(before_pixel, after_pixel, rgb_bytes) != 0;
++      const bool alpha_diff = std::memcmp(before_pixel + rgb_bytes, after_pixel + rgb_bytes,
++                                          before.bytes_per_pixel - rgb_bytes) != 0;
++      changed += rgb_diff || alpha_diff;
++      alpha_changed += alpha_diff;
++      alpha_only += alpha_diff && !rgb_diff;
++      if (!rgb_diff)
++        continue;
++      ++rgb_changed;
++      for (int channel = 0; channel < 3; ++channel) {
++        double delta;
++        if (hdr) {
++          float a, b;
++          std::memcpy(&a, before_pixel + channel * sizeof(float), sizeof(float));
++          std::memcpy(&b, after_pixel + channel * sizeof(float), sizeof(float));
++          delta = a == b ? 0 : std::abs(double(a) - double(b));
++          // A non-finite difference must not silently report zero amplitude.
++          if (std::isnan(delta))
++            delta = std::numeric_limits<double>::infinity();
++        } else {
++          delta = std::abs(int(before_pixel[channel]) - int(after_pixel[channel]));
++        }
++        rgb_maxdiff = std::max(rgb_maxdiff, delta);
++      }
++      const int cx = (before.x + x - before.viewport[0]) * 320 / before.viewport[2];
++      const int cy = 179 - (before.y + y - before.viewport[1]) * 180 / before.viewport[3];
++      min_x = std::min(min_x, cx);
++      max_x = std::max(max_x, cx);
++      min_y = std::min(min_y, cy);
++      max_y = std::max(max_y, cy);
++    }
++  }
++  std::printf(
++      "REFSET-ROI type=%s capture=%u id=%d name=%s hash=%016llx first_index=%u "
++      "texture=%d fbo=%d dims=%dx%d bpp=%d viewport=%d,%d,%d,%d changed=%u "
++      "rgb_changed=%u rgb_maxdiff=%.9g rgb_units=%s alpha_changed=%u alpha_only=%u "
++      "rgb_bbox=%d,%d,%d,%d rgb_before_hash=%016llx rgb_after_hash=%016llx\n",
++      type, s_roi_capture, id, name, (unsigned long long)hash, first_index, texture,
++      before.framebuffer, before.width, before.height, before.bytes_per_pixel, before.viewport[0],
++      before.viewport[1], before.viewport[2], before.viewport[3], changed, rgb_changed, rgb_maxdiff,
++      hdr ? "hdr_float" : "rgba8_code_value", alpha_changed, alpha_only,
++      rgb_changed ? min_x : -1, rgb_changed ? min_y : -1, max_x, max_y,
++      (unsigned long long)rgb_before_hash, (unsigned long long)rgb_after_hash);
++}
++
+ bool active() {
+   static int s_cached = -1;
+   if (s_cached < 0) {
+--- a/game/graphics/opengl_renderer/lighting_census.h
++++ b/game/graphics/opengl_renderer/lighting_census.h
+@@ -42,6 +42,7 @@
+ // `gpu_timer_supported=0` le dit : une cle sans site d'ecriture est une fausse constante.
+ 
+ #include <cstdint>
++#include <vector>
+ 
+ namespace lighting_census {
+ 
+@@ -79,6 +80,32 @@
+ // Fin d'image : moissonne les requetes de temps, publie periodiquement.
+ void frame_end();
+ 
++// Diagnostic only: local snapshots allow a bucket to contain Merc snapshots.
++// Enabled only by OG_REFSET_TRACE_ROI=1 during the first 24 capture frames.
++// OG_REFSET_TRACE_ROI_RECT=x0,y0,x1,y1 selects inclusive 320x180 capture coordinates
++// with top-left origin; defaults to 285,13,315,72. Only unsigned decimal integers
++// separated by commas are accepted (no whitespace), with 0<=x0<=x1<320 and
++// 0<=y0<=y1<180. Invalid values emit a diagnostic and disable ROI tracing.
++// Both environment variables are read once, on the first roi_frame_begin().
++// Counts use exact readback bytes per pixel: changed includes RGBA, rgb_changed
++// excludes alpha, and alpha_only counts alpha changes with identical RGB bytes.
++// rgb_bbox uses capture coordinates; RGB hashes exclude alpha. rgb_maxdiff is
++// measured in native HDR float values or RGBA8 code values, not final PNG values.
++struct RoiSnapshot {
++  int framebuffer = 0;
++  int width = 0, height = 0;
++  int viewport[4] = {};
++  int x = 0, y = 0, w = 0, h = 0;
++  int bytes_per_pixel = 4;
++  std::vector<uint8_t> rgba;
++};
++void roi_frame_begin();
++bool roi_active();
++RoiSnapshot roi_before();
++void roi_after(const RoiSnapshot& before, const char* type, int id, const char* name,
++               uint64_t hash = 0, uint32_t first_index = 0, int texture = -1);
++void roi_model(uint64_t hash, const char* name);
++
+ // Publie tout de suite (fin de course).
+ void publish();
+ 
+--- a/game/graphics/opengl_renderer/OpenGLRenderer.cpp
++++ b/game/graphics/opengl_renderer/OpenGLRenderer.cpp
+@@ -1563,6 +1563,8 @@
+   // opaque buckets, consume + clear at the composite) must run all-or-nothing.
+   const bool ao_frame_on = AmbientOcclusionPass::effective_mode() != 0;
+ 
++  lighting_census::roi_frame_begin();
++
+   // loop over the buckets!
+   for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
+     auto& renderer = m_bucket_renderers[bucket_id];
+@@ -1639,7 +1641,9 @@
+     // lighting-census : temps GPU de CE bucket. Une paire de `glQueryCounter`, moissonnee
+     // trois images plus tard : aucune synchronisation, aucune image perdue.
+     lighting_census::pass_begin(renderer->name_and_id().c_str());
++    const auto roi = lighting_census::roi_before();
+     renderer->render(dma, &m_render_state, bucket_prof);
++    lighting_census::roi_after(roi, "bucket", (int)bucket_id, renderer->name_and_id().c_str());
+     lighting_census::pass_end();
+     if (sync_after_buckets) {
+       auto pp = scoped_prof("finish");
+--- a/game/graphics/opengl_renderer/foreground/Merc2.cpp
++++ b/game/graphics/opengl_renderer/foreground/Merc2.cpp
+@@ -1,4 +1,6 @@
+ #include "Merc2.h"
++
++#include "game/graphics/opengl_renderer/lighting_census.h"
+ 
+ #include "game/system/npc_flicker.h"
+ 
+@@ -3676,6 +3678,7 @@
+   stats->num_lights++;
+ 
+   u64 hash = fnv64(model->name);
++  lighting_census::roi_model(hash, model->name.c_str());
+ 
+   DrawArgs args;
+   args.lev_bucket = lev_bucket;
+@@ -5103,8 +5106,11 @@
+       set_uniform(uniforms.light_direction[1], l1_dir_f);
+       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+       if (!f1a_nodraw) {
++        const auto roi = lighting_census::roi_before();
+         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
+                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
++        lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
++                                   draw.first_index, draw.texture);
+       }
+       // draw a
+       setup_opengl_from_draw_mode(draw.mode, GL_TEXTURE0, use_mipmaps_for_filtering);
+@@ -5112,8 +5118,11 @@
+       set_uniform(uniforms.light_direction[1], l1_dir_f_off);
+       glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
+       if (!f1a_nodraw) {
++        const auto roi = lighting_census::roi_before();
+         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
+                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
++        lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
++                                   draw.first_index, draw.texture);
+       }
+       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+ 
+@@ -5139,8 +5148,11 @@
+         last_first_bone = draw.first_bone;
+       }
+       if (!f1a_nodraw) {
++        const auto roi = lighting_census::roi_before();
+         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
+                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
++        lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,
++                                   draw.first_index, draw.texture);
+       }
+     }
+   }

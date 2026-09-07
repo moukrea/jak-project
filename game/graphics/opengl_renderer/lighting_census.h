@@ -90,6 +90,11 @@ void frame_end();
 
 // Diagnostic only: local snapshots allow a bucket to contain Merc snapshots.
 // Enabled only by OG_REFSET_TRACE_ROI=1 during the first 24 capture frames.
+// OG_REFSET_TRACE_ROI_RECT=x0,y0,x1,y1 selects inclusive 320x180 capture coordinates
+// with top-left origin; defaults to 285,13,315,72. Only unsigned decimal integers
+// separated by commas are accepted (no whitespace), with 0<=x0<=x1<320 and
+// 0<=y0<=y1<180. Invalid values emit a diagnostic and disable ROI tracing.
+// Both environment variables are read once, on the first roi_frame_begin().
 // Counts use exact readback bytes per pixel: changed includes RGBA, rgb_changed
 // excludes alpha, and alpha_only counts alpha changes with identical RGB bytes.
 // rgb_bbox uses capture coordinates; RGB hashes exclude alpha. rgb_maxdiff is

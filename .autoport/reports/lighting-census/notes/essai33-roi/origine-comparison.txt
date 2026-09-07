@@ -1,0 +1,2 @@
+origine/h00.png              maxdiff=71   diffpx=190      bbox=[77, 110, 105, 143]
+REFSET-COMPARE maxdiff=71 diffpx=190 images=1 manquantes=0
