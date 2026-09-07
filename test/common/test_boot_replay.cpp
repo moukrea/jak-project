@@ -1,6 +1,7 @@
 // Standalone build: compile this file and game/system/boot_replay.cpp together
 // with c++ -std=c++17 -Wall -Wextra -Werror -I.
 #include "game/system/boot_replay.h"
+#include "game/graphics/refset_state.h"
 
 #include <cassert>
 #include <cstdlib>
@@ -49,10 +50,12 @@ uint64_t run(const std::string& path, bool capture, bool success,
       boot_replay::checkpoint(nullptr, nullptr, 100000);
       boot_replay::finish();
       assert(boot_replay::fingerprint() == 0 && boot_replay::records() == 0);
+      assert(!boot_replay::replay_verified());
       _exit(0);
     }
     assert(boot_replay::enabled() && boot_replay::active());
     assert(boot_replay::fingerprint() == 0);
+    assert(!boot_replay::replay_verified());
     if (action == Action::BadTag) {
       boot_replay::input(std::string(64, 'x').c_str(), nullptr, 0);
     }
@@ -82,6 +85,7 @@ uint64_t run(const std::string& path, bool capture, bool success,
     assert(boot_replay::records() == 3 && boot_replay::fingerprint() == 0);
     boot_replay::finish();
     assert(boot_replay::enabled() && !boot_replay::active());
+    assert(boot_replay::replay_verified() == !capture);
     if (action == Action::After) {
       boot_replay::checkpoint("late", expected, sizeof(expected));
     }
@@ -107,6 +111,49 @@ uint64_t run(const std::string& path, bool capture, bool success,
 }  // namespace
 
 int main() {
+  unsetenv("OG_REFSET_QUALIFY_STATE");
+  assert(!refset_state::enabled());
+  setenv("OG_REFSET_QUALIFY_STATE", "true", 1);
+  assert(!refset_state::enabled());
+  setenv("OG_REFSET_QUALIFY_STATE", "1", 1);
+  assert(refset_state::enabled());
+  unsetenv("OG_REFSET_QUALIFY_STATE");
+  refset_state::bootstrap(42, true, "actors-sweep-identities-compared");
+  const auto receipt = refset_state::receipt();
+  assert(receipt.bootstrap_fp == 42 && receipt.replay_verified && receipt.actors_sweep);
+  assert(!refset_state::snapshot(10));
+  refset_state::begin(10);
+  refset_state::end();
+  assert(!refset_state::snapshot(10));  // Header alone is not a witness.
+  refset_state::begin(10);
+  refset_state::record("ab", "c", 1);
+  assert(!refset_state::snapshot(10));  // Incomplete records stay private.
+  refset_state::end();
+  const Bytes canonical = {'O', 'G', 'S', 'T', 'A', 'T', 'E', 0, 1, 0, 0, 0,
+                           2, 0, 0, 0, 0, 0, 0, 0, 'a', 'b',
+                           1, 0, 0, 0, 0, 0, 0, 0, 'c'};
+  assert(refset_state::snapshot(10)->bytes == canonical);
+  assert(!refset_state::snapshot(9));
+  assert(refset_state::snapshot(11)->lf == 10);
+  assert(!refset_state::snapshot(12));
+  refset_state::begin(10);
+  refset_state::record("a", "bc", 2);
+  refset_state::end();
+  assert(refset_state::snapshot(10)->bytes != canonical);  // Framing is unambiguous.
+  for (int64_t frame = 20; frame < 28; ++frame) {
+    refset_state::begin(frame);
+    refset_state::record("empty", nullptr, 0);
+    refset_state::end();
+  }
+  assert(!refset_state::snapshot(10));  // Eight completed samples evict old entries.
+  assert(refset_state::snapshot(20)->lf == 20);
+  assert(refset_state::snapshot(28)->lf == 27);
+  assert(!refset_state::snapshot(29));
+  assert(!refset_state::snapshot(std::numeric_limits<int64_t>::min()));
+  refset_state::bootstrap(43, false, "actors-sweep-identities-compared-extra");
+  assert(!refset_state::receipt().actors_sweep && !refset_state::receipt().replay_verified);
+  assert(!refset_state::snapshot(27));
+
   char temp[] = "/tmp/boot-replay-test-XXXXXX";
   assert(mkdtemp(temp));
   const std::string base = std::string(temp) + "/stream";

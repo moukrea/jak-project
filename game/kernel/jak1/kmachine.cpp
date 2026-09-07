@@ -33,6 +33,7 @@
 #include "game/graphics/render_pace.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/refset.h"
+#include "game/graphics/refset_state.h"
 #include "game/system/load_gate.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/settings_case_l10n.h"
@@ -5670,7 +5671,7 @@ static void fixed_tick_publish(int armed, int catchup, s32 alpha_micro, int skip
 //   [ 0..15] *math-camera* trans      (4 floats @ mc+844,  deftype offset 848)
 //   [16..79] *math-camera* camera-rot (4x4 matrix @ mc+364, deftype offset 368)
 //   [80..91] *target* control trans   (3 floats @ ctrl+12), zero if no live target
-static void pad_replay_dump_camera() {
+static void replay_camera_checkpoint(void (*sink)(const char*, const void*, size_t)) {
   u8 buf[92];
   std::memset(buf, 0, sizeof(buf));
   u32 mc = intern_from_c("*math-camera*")->value;
@@ -5686,7 +5687,11 @@ static void pad_replay_dump_camera() {
       std::memcpy(buf + 80, g_ee_main_mem + ctrl + 12, 12);  // Jak trans (control offset 12)
     }
   }
-  pad_replay::dump_state("CAM", buf, sizeof(buf));
+  sink("CAM", buf, sizeof(buf));
+}
+
+static void pad_replay_dump_camera() {
+  replay_camera_checkpoint(pad_replay::dump_state);
 }
 
 
@@ -5852,6 +5857,7 @@ static void boot_replay_state_checkpoint(
 
 static void boot_replay_seal(const char* boundary) {
   boot_replay::finish();
+  refset_state::bootstrap(boot_replay::fingerprint(), boot_replay::replay_verified(), boundary);
   refset::set_bootstrap_fingerprint(boot_replay::fingerprint());
   autoport_proof::publish("refset_bootstrap_records", boot_replay::records());
   char fp[17];
@@ -5901,7 +5907,7 @@ static std::string refset_loaded_symbol(u32 symbol) {
 
 static void refset_load_restore_after_dispatch();
 
-static void postload_pc_settings_trace() {
+static void postload_pc_settings_trace(void (*sink)(const char*, const void*, size_t)) {
   // Offsets from the pc-settings deftype in goal_src/jak1/pc/pckernel-h.gc,
   // relative to the basic pointer (type-tag adjustment already applied).
   // These observations require the matching ISO layout on both compared runs.
@@ -5911,24 +5917,24 @@ static void postload_pc_settings_trace() {
     std::exit(EXIT_FAILURE);
   }
   boot_replay_range(settings, 348);
-  const auto scalar = [](const char* tag, auto value) {
-    pad_replay::dump_state(tag, &value, sizeof(value));
+  const auto scalar = [sink](const char* tag, auto value) {
+    sink(tag, &value, sizeof(value));
   };
   boot_replay_symbol_checkpoint("pc-settings-aspect-ratio-auto?",
-                                boot_replay_read<u32>(settings + 92), pad_replay::dump_state);
+                                boot_replay_read<u32>(settings + 92), sink);
   scalar("pc-settings-aspect-ratio", boot_replay_read<float>(settings + 96));
   scalar("pc-settings-aspect-ratio-scale", boot_replay_read<float>(settings + 100));
   scalar("pc-settings-aspect-ratio-reciprocal", boot_replay_read<float>(settings + 104));
   scalar("pc-settings-aspect-custom-x", boot_replay_read<int64_t>(settings + 108));
   scalar("pc-settings-aspect-custom-y", boot_replay_read<int64_t>(settings + 116));
   boot_replay_symbol_checkpoint("pc-settings-letterbox?", boot_replay_read<u32>(settings + 124),
-                                pad_replay::dump_state);
+                                sink);
   scalar("pc-settings-lod-dist-mod", boot_replay_read<float>(settings + 332));
   scalar("pc-settings-lod-force-actor", boot_replay_read<int8_t>(settings + 339));
   boot_replay_symbol_checkpoint("pc-settings-ps2-actor-vis?", boot_replay_read<u32>(settings + 340),
-                                pad_replay::dump_state);
+                                sink);
   boot_replay_symbol_checkpoint("pc-settings-use-vis?", boot_replay_read<u32>(settings + 344),
-                                pad_replay::dump_state);
+                                sink);
 }
 
 static void refset_loaded_after_dispatch() {
@@ -5959,15 +5965,24 @@ static void refset_loaded_after_dispatch() {
                            intern_from_c("*spawn-actors*")->value == goal_true,
                            intern_from_c("*actors-sweep-complete*")->value == goal_true, levels);
   static int64_t last_observed_frame = -1;
-  if (pad_replay::trace_active() && refset::wants_postload_trace(frame) &&
+  const bool qualify_state = refset_state::enabled();
+  if ((pad_replay::trace_active() || qualify_state) && refset::wants_postload_trace(frame) &&
       frame != last_observed_frame) {
-    // Passive observation in the existing pad trace, outside the sealed bootstrap stream.
-    pad_replay::dump_state("POSTLOAD-BEGIN", &frame, sizeof(frame));
-    boot_replay_state_checkpoint(pad_replay::dump_state);
-    boot_replay_object_checkpoint("*kernel-context*", 16 - 4, 4, pad_replay::dump_state);
-    boot_replay_actors_checkpoint(pad_replay::dump_state);
-    postload_pc_settings_trace();
-    pad_replay::dump_state("POSTLOAD-END", &frame, sizeof(frame));
+    // One traversal supplies both observers, after the bootstrap was sealed.
+    // Without qualification the existing pad trace retains its exact record layout.
+    const auto sink = +[](const char* tag, const void* data, size_t size) {
+      refset_state::record(tag, data, size);
+      if (pad_replay::trace_active()) pad_replay::dump_state(tag, data, size);
+    };
+    if (qualify_state) refset_state::begin(frame);
+    sink("POSTLOAD-BEGIN", &frame, sizeof(frame));
+    boot_replay_state_checkpoint(sink);
+    boot_replay_object_checkpoint("*kernel-context*", 16 - 4, 4, sink);
+    boot_replay_actors_checkpoint(sink);
+    postload_pc_settings_trace(sink);
+    if (qualify_state) replay_camera_checkpoint(sink);
+    sink("POSTLOAD-END", &frame, sizeof(frame));
+    if (qualify_state) refset_state::end();
     last_observed_frame = frame;
   }
   refset_load_restore_after_dispatch();

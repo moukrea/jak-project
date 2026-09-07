@@ -1,0 +1,118 @@
+{
+  "directives": "DIRECTIVES v6fca51fe40",
+  "kind": "archived proof audit, not proof producer",
+  "arms": {
+    "campaign": [
+      {
+        "name": "candidate-legacy-capture",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788805102370866500-8d00f027/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788805102370866500-8d00f027/proof-original.txt",
+        "proof_sha256": "4e467226bc031961a94b42e873a7e897db586919f4c4e935de7459d573702896",
+        "compared": null,
+        "state_cases": "24",
+        "runs": null
+      },
+      {
+        "name": "candidate-legacy-replay-1",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788805270212079610-1cffa470/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788805270212079610-1cffa470/proof-original.txt",
+        "proof_sha256": "4d58bfe7cae4e32b301f81d3e7b2780934a47643dc42b40f7d19ceeb8c470171",
+        "compared": "24",
+        "state_cases": "24",
+        "runs": "1"
+      },
+      {
+        "name": "candidate-legacy-replay-2",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788806141554286012-6ba8c727/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788806141554286012-6ba8c727/proof-original.txt",
+        "proof_sha256": "37343e2dc9c33ce0b19386a2bd1b550e33fe35e5ad53ab7214135b9b8a0ee42c",
+        "compared": "24",
+        "state_cases": "24",
+        "runs": "2"
+      },
+      {
+        "name": "candidate-legacy-replay-3",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788806424654653998-50b55392/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788806424654653998-50b55392/proof-original.txt",
+        "proof_sha256": "2721f358a4ae92ca08e4fdbf74da0b12ed7d089778ec958ae5d963969ff511ea",
+        "compared": "24",
+        "state_cases": "24",
+        "runs": "3"
+      },
+      {
+        "name": "candidate-legacy-replay-4",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788806712294162448-1a74d2be/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788806712294162448-1a74d2be/proof-original.txt",
+        "proof_sha256": "ea042dd64fa6568cab1b2fbec4716f59187b6d99ecddef3b8f4f935c9d24baa6",
+        "compared": "24",
+        "state_cases": "24",
+        "runs": "4"
+      },
+      {
+        "name": "candidate-legacy-replay-5",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788807004989400371-87eb12a2/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788807004989400371-87eb12a2/proof-original.txt",
+        "proof_sha256": "b3a647e74370958d4a1c33257ac010f41d0e829a5730ae073970d5a74c2a2cb2",
+        "compared": "24",
+        "state_cases": "24",
+        "runs": "5"
+      }
+    ],
+    "baseline-campaign": [
+      {
+        "name": "baseline-legacy-capture",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788805717972196356-cdee0e0b/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788805717972196356-cdee0e0b/proof-original.txt",
+        "proof_sha256": "2d050704ef8b2b60c1a3569aa35cc030f9ca479b36884037d83a138febb8d40e",
+        "compared": null,
+        "state_cases": "8",
+        "runs": null
+      },
+      {
+        "name": "baseline-legacy-replay-1",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788805833992601948-606af6ee/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788805833992601948-606af6ee/proof-original.txt",
+        "proof_sha256": "a2e5835f1bb0fb08b16c0dd3d0be93628abe5d38a0af35708f72f322767d815e",
+        "compared": "8",
+        "state_cases": "8",
+        "runs": "1"
+      },
+      {
+        "name": "baseline-legacy-replay-2",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788806308086286862-cfbe77d6/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788806308086286862-cfbe77d6/proof-original.txt",
+        "proof_sha256": "2c0c34caba3f1473e40bb73b892af9ffcc6a75f5b3ce4f7189958006986619bf",
+        "compared": "8",
+        "state_cases": "8",
+        "runs": "2"
+      },
+      {
+        "name": "baseline-legacy-replay-3",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788806593625937076-c88df457/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788806593625937076-c88df457/proof-original.txt",
+        "proof_sha256": "827e94f9f28dbdb34aed5b9c022c3fbc5415f810b3c063bb52a151747948a1f6",
+        "compared": "8",
+        "state_cases": "8",
+        "runs": "3"
+      },
+      {
+        "name": "baseline-legacy-replay-4",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788806886068342214-c6e862fe/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788806886068342214-c6e862fe/proof-original.txt",
+        "proof_sha256": "71a3b6112e5b07cb498417fcc9371d791c3700840f11cc0b83c335e700289aae",
+        "compared": "8",
+        "state_cases": "8",
+        "runs": "4"
+      },
+      {
+        "name": "baseline-legacy-replay-5",
+        "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788807173468994548-2a7dd8d5/receipt.json",
+        "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788807173468994548-2a7dd8d5/proof-original.txt",
+        "proof_sha256": "766a72627cc747569fb840e16d27e3fefb4b77715c11074c6a8039cdeff3b435",
+        "compared": "8",
+        "state_cases": "8",
+        "runs": "5"
+      }
+    ]
+  }
+}

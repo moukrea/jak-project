@@ -1,0 +1,201 @@
+{
+  "DIRECTIVES": "v6fca51fe40",
+  "kind": "offline independent witness comparison, not proof",
+  "baseline": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788807511476790639-74728d96/captures",
+  "candidate": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788808223246728774-56c93925/captures",
+  "image_compare_exit_code": 0,
+  "identity": {
+    "data": {
+      "baseline": 6264566775401793558,
+      "candidate": 6264566775401793558,
+      "equal": true
+    },
+    "input": {
+      "baseline": 17976970292630089652,
+      "candidate": 17976970292630089652,
+      "equal": true
+    },
+    "bootstrap": {
+      "baseline": 8789784358445975532,
+      "candidate": 8789784358445975532,
+      "equal": true
+    },
+    "settings": {
+      "baseline": 5069416612279691353,
+      "candidate": 5069416612279691353,
+      "equal": true
+    }
+  },
+  "cases": [
+    {
+      "key": "origine/village1-out-h00.png",
+      "bytes_equal": true,
+      "baseline_size": 118399,
+      "candidate_size": 118399,
+      "baseline_sha256": "3d74a4f65ee1373d5216052c08dbbd789d9610fdff49702954ca2fa5de586d15",
+      "candidate_sha256": "3d74a4f65ee1373d5216052c08dbbd789d9610fdff49702954ca2fa5de586d15",
+      "lf": {
+        "baseline": 2282,
+        "candidate": 2282,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 2282,
+        "candidate": 2282,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/village1-out-h03.png",
+      "bytes_equal": true,
+      "baseline_size": 118399,
+      "candidate_size": 118399,
+      "baseline_sha256": "081eaf486330586bcedbd700efe42e176c638cc1df57c2f28cfdb1e0a0e78e37",
+      "candidate_sha256": "081eaf486330586bcedbd700efe42e176c638cc1df57c2f28cfdb1e0a0e78e37",
+      "lf": {
+        "baseline": 2465,
+        "candidate": 2465,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 2465,
+        "candidate": 2465,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/village1-out-h06.png",
+      "bytes_equal": true,
+      "baseline_size": 118399,
+      "candidate_size": 118399,
+      "baseline_sha256": "628380cf35cf0332da3f15fbfd27aca1c5d5e7a529c9b019af0e327b3539aeb1",
+      "candidate_sha256": "628380cf35cf0332da3f15fbfd27aca1c5d5e7a529c9b019af0e327b3539aeb1",
+      "lf": {
+        "baseline": 2648,
+        "candidate": 2648,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 2648,
+        "candidate": 2648,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/village1-out-h09.png",
+      "bytes_equal": true,
+      "baseline_size": 118399,
+      "candidate_size": 118399,
+      "baseline_sha256": "1fcbc85a60fe0849b5e52b33725e99f6921834aa61129862c3a70a7f9ee3aeff",
+      "candidate_sha256": "1fcbc85a60fe0849b5e52b33725e99f6921834aa61129862c3a70a7f9ee3aeff",
+      "lf": {
+        "baseline": 2831,
+        "candidate": 2831,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 2831,
+        "candidate": 2831,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/village1-out-h12.png",
+      "bytes_equal": true,
+      "baseline_size": 118399,
+      "candidate_size": 118399,
+      "baseline_sha256": "df50eace3ed3e85fd9fbecf7cf0b266ebbc3546d9cd2352ca550477bfe7dcef0",
+      "candidate_sha256": "df50eace3ed3e85fd9fbecf7cf0b266ebbc3546d9cd2352ca550477bfe7dcef0",
+      "lf": {
+        "baseline": 3014,
+        "candidate": 3014,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 3014,
+        "candidate": 3014,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/village1-out-h15.png",
+      "bytes_equal": true,
+      "baseline_size": 118399,
+      "candidate_size": 118399,
+      "baseline_sha256": "f12a72916d8fc4c2fb3cbf0108a3abc75bb1b7fde348644d415e27199cf4f4e4",
+      "candidate_sha256": "f12a72916d8fc4c2fb3cbf0108a3abc75bb1b7fde348644d415e27199cf4f4e4",
+      "lf": {
+        "baseline": 3197,
+        "candidate": 3197,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 3197,
+        "candidate": 3197,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/village1-out-h18.png",
+      "bytes_equal": true,
+      "baseline_size": 118399,
+      "candidate_size": 118399,
+      "baseline_sha256": "d7573d3c1260c4a2d99293add83ba959c52f4542ca3bec7ed80ecc2792bdedf4",
+      "candidate_sha256": "d7573d3c1260c4a2d99293add83ba959c52f4542ca3bec7ed80ecc2792bdedf4",
+      "lf": {
+        "baseline": 3380,
+        "candidate": 3380,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 3380,
+        "candidate": 3380,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/village1-out-h21.png",
+      "bytes_equal": true,
+      "baseline_size": 118399,
+      "candidate_size": 118399,
+      "baseline_sha256": "ee364009584efc55d0437ef780f9b237dc8eacc94f2a991d5e3ca9b93fb1c3e6",
+      "candidate_sha256": "ee364009584efc55d0437ef780f9b237dc8eacc94f2a991d5e3ca9b93fb1c3e6",
+      "lf": {
+        "baseline": 3563,
+        "candidate": 3563,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 3563,
+        "candidate": 3563,
+        "equal": true
+      }
+    }
+  ],
+  "summary": {
+    "count": 8,
+    "state_bytes_equal": 8,
+    "lf_equal": 8,
+    "state_lf_equal": 8,
+    "identity_equal": true
+  },
+  "capture": {
+    "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788808223246728774-56c93925/receipt.json",
+    "clean": true,
+    "reconstructed": true,
+    "cases": 24,
+    "exit_code": 0,
+    "restored": true,
+    "level_ok": 24,
+    "has_sky": [
+      1
+    ],
+    "bg_permille_min": 321.31944444444446,
+    "bg_permille_max": 323.35069444444446
+  },
+  "proof_metrics": [
+    "origin_mipmap_suppressed=0",
+    "refset_provenance_bad=0",
+    "refset_qualification_state_bad=0"
+  ]
+}

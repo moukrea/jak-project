@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "pairs": [
+    {
+      "baseline": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788807511476790639-74728d96/captures",
+      "candidate": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788809303428033159-a64e874d/captures"
+    }
+  ]
+}

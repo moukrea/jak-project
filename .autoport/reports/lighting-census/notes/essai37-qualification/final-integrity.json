@@ -1,0 +1,23 @@
+{
+  "directives": "DIRECTIVES v6fca51fe40",
+  "kind": "final read-only integrity audit, not game proof",
+  "checked_at": "2026-09-07T19:29:16.315158+00:00",
+  "inventories": {
+    "historical-before.json": {
+      "count": 575,
+      "changed": []
+    },
+    "candidate-shaders-before.json": {
+      "count": 123,
+      "changed": []
+    },
+    "baseline-shaders-before.json": {
+      "count": 118,
+      "changed": []
+    }
+  },
+  "protected": {
+    ".autoport/validators/generic.sh": "5ad59a6b2e7e6e699ef0fd61d531e355e4f58b3c2dc0184ba68f9e97f5d78ab0",
+    ".autoport/lib/proof_run.sh": "face230b56f33ea873aa56c24d4d54f39a6994f0d03ea687836a151f145af653"
+  }
+}

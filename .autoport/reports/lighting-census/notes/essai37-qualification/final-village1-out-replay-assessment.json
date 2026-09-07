@@ -1,0 +1,88 @@
+{
+  "DIRECTIVES": "v6fca51fe40",
+  "kind": "read-only final capture/replay assessment, not proof",
+  "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788809533742803846-7365c806/receipt.json",
+  "state": "complete",
+  "exit_code": 0,
+  "restored": true,
+  "proof": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788809533742803846-7365c806/proof-original.txt",
+  "proof_lines": [
+    "refset_candidate_qualification=incomplete",
+    "refset_compared=24",
+    "refset_replay_diffpx=0",
+    "refset_replay_maxdiff=254",
+    "refset_replay_run_maxdiff=0",
+    "refset_qualification_state_bad=0",
+    "refset_qualification_gate=254",
+    "refset_qualification_missing=652",
+    "refset_replay_runs=1"
+  ],
+  "qualification_receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788809303428033159-a64e874d/captures/qualification-replays/3f15c09a461f4a5dabbfa05894d58fec.json",
+  "clean": true,
+  "reconstructed": true,
+  "cases": 24,
+  "case_records_equal_capture": true,
+  "maxdiff": 0,
+  "diffpx": 0,
+  "assets": {
+    "capture_path": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788809303428033159-a64e874d/captures/qualification-assets-1788809424008052108.tsv",
+    "replay_path": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788809303428033159-a64e874d/captures/qualification-assets-1788809656065127936.tsv",
+    "capture_records": 2254,
+    "replay_records": 2254,
+    "record_sets_equal": true,
+    "missing_from_replay": [],
+    "extra_in_replay": []
+  },
+  "engine_log": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788809533742803846-7365c806/proof-engine.log",
+  "qualification_missing_count": 652,
+  "qualification_missing_examples": [
+    {
+      "line": 71513,
+      "text": "REFSET qualification missing=replays:/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788807511476790639-74728d96/captures:0/5"
+    },
+    {
+      "line": 71514,
+      "text": "REFSET qualification missing=replays:/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788809303428033159-a64e874d/captures:1/5"
+    },
+    {
+      "line": 71515,
+      "text": "REFSET qualification missing=case:origine-lumiere/beach-start-h00.png"
+    },
+    {
+      "line": 71516,
+      "text": "REFSET qualification missing=case:origine-lumiere/beach-start-h03.png"
+    },
+    {
+      "line": 71517,
+      "text": "REFSET qualification missing=case:origine-lumiere/beach-start-h06.png"
+    },
+    {
+      "line": 72160,
+      "text": "REFSET qualification missing=case:supplement-v1/recharged/village2-dock-h12.png"
+    },
+    {
+      "line": 72161,
+      "text": "REFSET qualification missing=case:supplement-v1/recharged/village2-dock-h15.png"
+    },
+    {
+      "line": 72162,
+      "text": "REFSET qualification missing=case:supplement-v1/recharged/village2-dock-h18.png"
+    },
+    {
+      "line": 72163,
+      "text": "REFSET qualification missing=levels:1/20"
+    },
+    {
+      "line": 72164,
+      "text": "REFSET qualification missing=interior-vantages:0/4"
+    }
+  ],
+  "adoption_artifacts": [],
+  "restored_checks": {
+    "env": true,
+    "host_env": true,
+    "settings": true
+  },
+  "builder": "2541075 Ss   bash .autoport/auto_build_apk.sh",
+  "deploy_lock_exists": false
+}

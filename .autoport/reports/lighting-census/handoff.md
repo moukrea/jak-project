@@ -1,25 +1,27 @@
-# Handoff — lighting-census, essai35
+# Handoff — lighting-census, essai37
 DIRECTIVES v6fca51fe40
 ## ÉTABLI
-- Régression native OFF corrigée : condition historique a9ea15a690 rétablie,Shrub.cpp ; diagnostic suppression retiré,Shrub.h/hdr.cpp.
-- Un build incrémental gk et UN run75s candidat via proof_run : sha906a23b23b3899f6,3872frames,crash0,NPC47tenue.
-- Baseline33 réutilisée SANS run/build ; baseline33→candidat35 : maxdiff0,diffpx0,1image,aucune manquante.
-- Candidat33→35 : maxdiff71,diffpx190,bbox[77,110,105,143] ; élimination exacte du delta antérieur.
-- ROI426/426 : first_divergent_row=None ; sample origine/h00 LF2282,ancre2102,master_active0.
-- Trace native ACTIVE village1/2067instances ; native_shear_peak0.2401,option_on0 ; contact_shrub_instances0.
-- GAME/ENGINE/KERNEL,bootstrap17 et settings avant/après égaux aux DEUX bras33 ; état acquis32/33 réutilisé.
--575historiques,shaders123/118,producteur/validateur/refset inchangés ; compteurs census/GPU conservés.
-- Candidat NEUF essai35-candidate-candidate non qualifié/non adopté ; proof_env restauré,builder2541075 repris.
-- Notes/essai35-native-off : patch,runner,proof/logs,comparaisons,manifestes,intégrité,recherche et test-results.json.
+- Source livrée : qualification stricte v2 + état observé/reconstruit, provenance et runner lots ; docs .autoport/tools/refset_qualification.md et refset_campaign.md.
+- Binaire final1082eb1b117c91f6 ; certificat notes/essai37-qualification/candidate-final-source.json. Baseline existante/scellée inchangée.
+- Preuve finale :24comparaisons, maxdiff0/diffpx0, state_bad0, ressources2254/2254 égales ; gate254/incomplete, missing652, aucune adoption.
+- Racine finale + baseline extérieure : chemins dans notes/essai37-qualification/qualification-final-plan.json ; env candidate-final-village1-out-replay.json.
+- Capture finale attempt-1788809303428033159-a64e874d ; rejeu attempt-1788809533742803846-7365c806, sous notes/essai37-qualification/campaign/.
+- Origine extérieure finale8/8 exactes ; TEX1 natif corrigé, hutte8/8 aussi exacte sur e46f852aaeb8c5a1 (diff final ultérieur : qualification uniquement).
+- Cinq rejeux par bras d065f16c2f4a0165 archivés dans legacy-five-replays-audit.json ; NE PAS les créditer au binaire final.
+- Sunkenb chargé h09 : LF=stateLF2282, bg0/57600 ; sky écrit57600RGB puis ocean28480/tie40035/tfrag50971. final-sunkenb-attribution.json cite les traces.
+-575historiques, shaders123/118 intacts ; tests26Python+C++ stricts, NPC47 ; final-integrity.json/test-results.json. Aucun appareil touché.
 ## TENTÉ
-- Seule garde maître retirée ; aucune édition shader/intégration native/brise/contact/cadence ni baseline.
-- Égalité numérique du cas origine/h00 obtenue ; ce n’est pas une qualification globale ni une preuve HDR.
-- Lecture refset.cpp1759/2005/2065 : candidatversion2=missing-state-and-baseline,porte254 même après5rejeux.
-- Aucun outil d’adoption/qualification indépendante trouvé ; ne jamais changer version2 en1 pour passer.
-- Pas de campagne complète :672étapes/34arrivées,>39min/tour estimées ; cinq tours>3h contre ordre runs courts.
+- Qualification a refusé village1-out malgré selfreplay exact : baseline-image-diff, gate255 ; huit images maxdiff6/diffpx2429.
+- Seule garde TEX1 maîtreOFF supprimée : écart extérieur éliminé, legacy reste exact. Ne pas refaire diagnostic shrub/bootstrap/ROI acquis.
+- Audit a fermé datasetA adopté sous runB et assets changés avec snapshot réempreinté ; tests négatifs255, sans changer validateur.
+- Sunkenb : sonde unique caméra livrée, pas calibration ; ciel exécuté mais aucun pixel final de fond. Cause/pose admissible non résolue.
+- Pas de qualification globale : autres vues et cinq rejeux du binaire final non achevés ; état observé non exhaustif, HDR/Android non prouvés.
 ## RESTE
-- Qualifier indépendamment baseline/candidat et état rejouable avec chemin vérifiable ; transition absente du producteur actuel.
-- Ne PAS refaire diagnostic shrub,bootstrap,FR3,exports,chargements,états observés ou baseline : acquis32/33/35 à réutiliser.
--3modes/21niveaux/8heures/≥4intérieurs/ciel≥15%,sky_missing0 ; Sunkenb reste manquant,puis5rejeux exacts.
-- Conciliation requise entre qualification complète et interdiction de campagne/instrument neuf ; aucun seuil à assouplir.
-- refset_replay_maxdiff absent ; generic réservé orchestrateur ; aucun owner-ok,aucun résultat Android/HDR/SDR.
+- Résoudre couverture Sunkenb sans masque/tolérance/exemption ni campagne visuelle ; sa présence sky ne démontre pas une pose admissible.
+- Achever672cas/28vues/21niveaux/3modes/8heures/≥4intérieurs et ciel150..900‰ ; conserver Sunkenb manquant tant que non démontré.
+- Recettes autres niveaux : bootstrap17 actors-sweep/CONTINUE=village1-hut inchangés, WANT_LEVELS="" et WANT_DISPLAY="", LOAD_SETTLE1200 ; exemple candidate-final-sunkenb-attribution.json.
+- Ne changer aucune surcharge caméra pour qualifier : elles rendent calibrated=true. Aucun réglage testé n’est une preuve de couverture globale.
+- Cinq rejeux par racine requis : finale extérieure candidat1/5, baseline0/5 ; noms distincts runner, puis manifeste des paires complètes.
+- Réutiliser seulement si sources/binaire/données/entrées identiques ; source modifiée invalide les anciens reçus, un commit sans changement source ne les invalide pas.
+- Pas de rebuild sans modification pertinente ; baseline déjà bâtie, acquisitions32/33/35 conservées. Aucun changement manuel version2→1.
+- Produire uniquement par proof_run ; generic orchestrateur, aucune adoption forcée/owner-ok. Suite après qualification : HDR/tonemap SDR.

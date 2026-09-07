@@ -1,0 +1,88 @@
+{
+  "DIRECTIVES": "v6fca51fe40",
+  "checked_at": "2026-09-07T18:18:48.502804+00:00",
+  "kind": "read-only integrity measurements, not proof",
+  "historical-before.json": {
+    "inventory": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai32-postload/historical-before.json",
+    "root": "/home/emeric/code/jak-project",
+    "count": 575,
+    "changed": []
+  },
+  "candidate-shaders-before.json": {
+    "inventory": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai32-postload/candidate-shaders-before.json",
+    "root": "/home/emeric/code/jak-project",
+    "count": 123,
+    "changed": [],
+    "extra": [],
+    "missing": []
+  },
+  "baseline-shaders-before.json": {
+    "inventory": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai32-postload/baseline-shaders-before.json",
+    "root": "/home/emeric/code/jak-lighting-baseline",
+    "count": 118,
+    "changed": [],
+    "extra": [],
+    "missing": []
+  },
+  "protected": {
+    "inventory": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/protected.json",
+    "count": 2,
+    "files": {
+      ".autoport/validators/generic.sh": {
+        "expected": "5ad59a6b2e7e6e699ef0fd61d531e355e4f58b3c2dc0184ba68f9e97f5d78ab0",
+        "actual": "5ad59a6b2e7e6e699ef0fd61d531e355e4f58b3c2dc0184ba68f9e97f5d78ab0"
+      },
+      ".autoport/lib/proof_run.sh": {
+        "expected": "face230b56f33ea873aa56c24d4d54f39a6994f0d03ea687836a151f145af653",
+        "actual": "face230b56f33ea873aa56c24d4d54f39a6994f0d03ea687836a151f145af653"
+      }
+    },
+    "changed": []
+  },
+  "baseline_renderer": {
+    "status": "pass",
+    "root": "/home/emeric/code/jak-lighting-baseline",
+    "anchor": "a9ea15a69062a57335278db7680cd647df3c1e1d",
+    "acquired_patch": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai33-roi/full-baseline.patch",
+    "method": "refset_provenance.baseline_check(base, BASELINE_PATCH, diff(base)); no seal or run"
+  },
+  "limitations": [
+    "No build, game run, replay, device access or proof production performed by this check.",
+    "Historical inventory verifies 575 listed files; no claim about unlisted historical additions.",
+    "Runtime qualification and legacy behavior not proven by static review."
+  ],
+  "static_review": {
+    "scope": "Current working diff: refset.cpp qualification_finish/publish_flaky/publish_state, refset_state.h and kernel observer wiring",
+    "precise_bug_found": false,
+    "observations": [
+      {
+        "location": "game/graphics/refset.cpp:2110",
+        "finding": "Qualification finish is opt-in; clean/fresh/reconstructed/calibration and artifact publication checks precede evaluation."
+      },
+      {
+        "location": "game/graphics/refset.cpp:2173",
+        "finding": "Expected qualification universe is constructed from all vantages, phases and hours, independently of the selected shard."
+      },
+      {
+        "location": "game/graphics/refset.cpp:2202",
+        "finding": "Only evaluate gate zero plus successful adoption artifact publication sets adopted and census gate zero."
+      },
+      {
+        "location": "game/graphics/refset.cpp:2294",
+        "finding": "publish_flaky preserves adopted aggregate result; otherwise legacy/candidate sentinels remain unchanged."
+      },
+      {
+        "location": "game/graphics/refset.cpp:1218",
+        "finding": "publish_state still requires current run complete, provenance valid and maxdiff zero before aggregate adopted gate is used; coverage_missing remains published separately."
+      },
+      {
+        "location": "game/kernel/jak1/kmachine.cpp:5968",
+        "finding": "Observer traversal records state without new game-state writes or image masks in reviewed diff. Legacy pad record layout remains the same with qualification disabled."
+      }
+    ],
+    "limits": [
+      "Static review only: no execution or complete qualification verdict established.",
+      "State header explicitly describes witness as non-exhaustive snapshot."
+    ]
+  }
+}

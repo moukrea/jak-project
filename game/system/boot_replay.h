@@ -16,6 +16,8 @@ bool active();
 void input(const char* tag, void* bytes, size_t size);
 void checkpoint(const char* tag, const void* bytes, size_t size);
 void finish();
+// Passive receipt: true only after successful completion of a replay stream.
+bool replay_verified();
 // Zero until finish has verified the complete stream and closed it successfully.
 uint64_t fingerprint();
 uint64_t records();

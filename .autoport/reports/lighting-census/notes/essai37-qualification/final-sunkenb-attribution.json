@@ -1,0 +1,181 @@
+{
+  "DIRECTIVES": "v6fca51fe40",
+  "kind": "single programmed ROI attribution note, not proof",
+  "receipt_path": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788808983036498643-8691b7b1/receipt.json",
+  "state": "complete",
+  "exit_code": 0,
+  "restored": true,
+  "proof_env_restored": true,
+  "source_cert_sha16": "671dc9f4ed7487d8",
+  "qreceipt_path": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788808983036498643-8691b7b1/captures/qualification-capture.json",
+  "clean": true,
+  "reconstructed": true,
+  "cases": [
+    {
+      "bg": 0,
+      "diffpx": 0,
+      "has_sky": 1,
+      "hour": 9,
+      "key": "origine/sunkenb-start-h09.png",
+      "level": "sunkenb",
+      "level_ok": true,
+      "lf": 2282,
+      "maxdiff": 0,
+      "phase": 1,
+      "png": 14186828231247908267,
+      "px": 57600,
+      "sidecar": 10694284727966328425,
+      "state": 15016605487112515168,
+      "state_lf": 2282,
+      "vantage": "sunkenb-start"
+    }
+  ],
+  "proof_path": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788808983036498643-8691b7b1/proof-original.txt",
+  "proof_lines": [
+    {
+      "line": 6,
+      "text": "crash=0"
+    },
+    {
+      "line": 7,
+      "text": "frames=5365"
+    },
+    {
+      "line": 201,
+      "text": "origin_mipmap_suppressed=0"
+    },
+    {
+      "line": 205,
+      "text": "refset_loaded_ready=1"
+    },
+    {
+      "line": 207,
+      "text": "refset_require_loaded=1"
+    },
+    {
+      "line": 323,
+      "text": "refset_loaded_levels=sunken=active;sunkenb=active;"
+    },
+    {
+      "line": 324,
+      "text": "refset_loaded_pending=sunkenb=login(need_active);"
+    },
+    {
+      "line": 385,
+      "text": "refset_census_coverage_missing=44"
+    },
+    {
+      "line": 414,
+      "text": "refset_probe_frames=1"
+    },
+    {
+      "line": 415,
+      "text": "refset_probe_px=57600"
+    },
+    {
+      "line": 416,
+      "text": "refset_provenance_bad=0"
+    },
+    {
+      "line": 430,
+      "text": "refset_sky_views=0"
+    },
+    {
+      "line": 431,
+      "text": "refset_sky_worst_pm=0"
+    },
+    {
+      "line": 436,
+      "text": "refset_step_done=1"
+    },
+    {
+      "line": 437,
+      "text": "refset_steps=1"
+    },
+    {
+      "line": 461,
+      "text": "refset_qualification_state_bad=0"
+    },
+    {
+      "line": 462,
+      "text": "refset_qualification_state_cases=1"
+    }
+  ],
+  "engine_log": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788808983036498643-8691b7b1/proof-engine.log",
+  "roi_bucket_lines": [
+    {
+      "line": 26811,
+      "text": "REFSET-ROI type=bucket capture=1 id=3 name=[ 3] sky hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=57600 rgb_changed=57600 rgb_maxdiff=255 rgb_units=rgba8_code_value alpha_changed=57600 alpha_only=0 rgb_bbox=0,0,319,179 rgb_before_hash=90a471bd4f135f25 rgb_after_hash=a78168a802286fde"
+    },
+    {
+      "line": 26816,
+      "text": "REFSET-ROI type=bucket capture=1 id=4 name=[ 4] ocean-mid-far hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=29138 rgb_changed=28480 rgb_maxdiff=241 rgb_units=rgba8_code_value alpha_changed=29138 alpha_only=658 rgb_bbox=0,0,319,88 rgb_before_hash=a78168a802286fde rgb_after_hash=4d41f8938bf6ef25"
+    },
+    {
+      "line": 26826,
+      "text": "REFSET-ROI type=bucket capture=1 id=6 name=[ 6] l0-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=5353 rgb_changed=5235 rgb_maxdiff=60 rgb_units=rgba8_code_value alpha_changed=5107 alpha_only=118 rgb_bbox=0,0,319,179 rgb_before_hash=4d41f8938bf6ef25 rgb_after_hash=ea54148bf4de6297"
+    },
+    {
+      "line": 26841,
+      "text": "REFSET-ROI type=bucket capture=1 id=9 name=[ 9] l0-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=40043 rgb_changed=40035 rgb_maxdiff=196 rgb_units=rgba8_code_value alpha_changed=14308 alpha_only=8 rgb_bbox=0,0,319,179 rgb_before_hash=ea54148bf4de6297 rgb_after_hash=9a519884d4e569cd"
+    },
+    {
+      "line": 27730,
+      "text": "REFSET-ROI type=bucket capture=1 id=10 name=[10] l0-tfrag-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=9671 rgb_changed=9671 rgb_maxdiff=212 rgb_units=rgba8_code_value alpha_changed=4658 alpha_only=0 rgb_bbox=119,24,206,158 rgb_before_hash=9a519884d4e569cd rgb_after_hash=82965ead2916089c"
+    },
+    {
+      "line": 27745,
+      "text": "REFSET-ROI type=bucket capture=1 id=13 name=[13] l1-tfrag-tfrag hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=50988 rgb_changed=50971 rgb_maxdiff=198 rgb_units=rgba8_code_value alpha_changed=30038 alpha_only=17 rgb_bbox=0,0,319,179 rgb_before_hash=82965ead2916089c rgb_after_hash=34c14651d35a7aea"
+    },
+    {
+      "line": 27760,
+      "text": "REFSET-ROI type=bucket capture=1 id=16 name=[16] l1-tfrag-tie hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=870 rgb_changed=870 rgb_maxdiff=234 rgb_units=rgba8_code_value alpha_changed=785 alpha_only=0 rgb_bbox=73,0,237,118 rgb_before_hash=34c14651d35a7aea rgb_after_hash=ca1c1f794a51927c"
+    },
+    {
+      "line": 28783,
+      "text": "REFSET-ROI type=bucket capture=1 id=17 name=[17] l1-tfrag-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=758 rgb_changed=758 rgb_maxdiff=176 rgb_units=rgba8_code_value alpha_changed=744 alpha_only=0 rgb_bbox=40,41,264,118 rgb_before_hash=ca1c1f794a51927c rgb_after_hash=08e691fca1c31751"
+    },
+    {
+      "line": 28828,
+      "text": "REFSET-ROI type=bucket capture=1 id=26 name=[26] l1-shrub hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=2 rgb_changed=2 rgb_maxdiff=50 rgb_units=rgba8_code_value alpha_changed=0 alpha_only=0 rgb_bbox=76,72,77,74 rgb_before_hash=08e691fca1c31751 rgb_after_hash=3868300e8c0301d9"
+    },
+    {
+      "line": 28858,
+      "text": "REFSET-ROI type=bucket capture=1 id=32 name=[32] l0-alpha-sky-blend-and-tfrag-trans hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=0 rgb_changed=0 rgb_maxdiff=0 rgb_units=rgba8_code_value alpha_changed=0 alpha_only=0 rgb_bbox=-1,-1,-1,-1 rgb_before_hash=3868300e8c0301d9 rgb_after_hash=3868300e8c0301d9"
+    },
+    {
+      "line": 28893,
+      "text": "REFSET-ROI type=bucket capture=1 id=39 name=[39] l1-alpha-sky-blend-and-tfrag-trans hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=2768 rgb_changed=2768 rgb_maxdiff=123 rgb_units=rgba8_code_value alpha_changed=2673 alpha_only=0 rgb_bbox=0,0,319,92 rgb_before_hash=3868300e8c0301d9 rgb_after_hash=644ed76a238d881a"
+    },
+    {
+      "line": 28933,
+      "text": "REFSET-ROI type=bucket capture=1 id=47 name=[47] shadow hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1739 rgb_changed=1739 rgb_maxdiff=51 rgb_units=rgba8_code_value alpha_changed=0 alpha_only=0 rgb_bbox=62,99,250,179 rgb_before_hash=644ed76a238d881a rgb_after_hash=49cdd354ad39422c"
+    },
+    {
+      "line": 29313,
+      "text": "REFSET-ROI type=bucket capture=1 id=52 name=[52] l1-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=6129 rgb_changed=6129 rgb_maxdiff=245 rgb_units=rgba8_code_value alpha_changed=2987 alpha_only=0 rgb_bbox=41,4,255,167 rgb_before_hash=49cdd354ad39422c rgb_after_hash=d7b292155e2e0546"
+    },
+    {
+      "line": 29510,
+      "text": "REFSET-ROI type=bucket capture=1 id=55 name=[55] common-pris-merc hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=2744 rgb_changed=2744 rgb_maxdiff=187 rgb_units=rgba8_code_value alpha_changed=520 alpha_only=0 rgb_bbox=140,50,177,179 rgb_before_hash=d7b292155e2e0546 rgb_after_hash=d0078d041918c36b"
+    },
+    {
+      "line": 29567,
+      "text": "REFSET-ROI type=bucket capture=1 id=66 name=[66] sprite hash=0000000000000000 first_index=0 texture=-1 fbo=63 dims=320x180 bpp=4 viewport=0,0,320,180 changed=1098 rgb_changed=1097 rgb_maxdiff=243 rgb_units=rgba8_code_value alpha_changed=1098 alpha_only=1 rgb_bbox=84,41,138,112 rgb_before_hash=d0078d041918c36b rgb_after_hash=a25ea18ddf77d8c6"
+    }
+  ],
+  "observations": [
+    "Single native-load Sunkenb capture completed: crash=0, state_lf=lf=2282, level_ok=true, has_sky=1, bg=0/57600.",
+    "Sky bucket changed RGB of all 57600 samples; its before/after hashes differ. Subsequent ocean-mid-far and geometry buckets changed RGB again, including l1-tfrag-tfrag at 50971 samples.",
+    "The measured zero final background coexists with sky writes; this sample is not a failure to execute the sky bucket."
+  ],
+  "unknowns": [
+    "No replay was run: first-load replayability is not established.",
+    "Per-bucket changed counts/hashes do not identify which final pixels retain sky contribution; no exact causal attribution of bg=0 to a single subsequent bucket is established.",
+    "No independent baseline or historical comparison performed."
+  ],
+  "cleanup": {
+    "deploy_lock_exists": false,
+    "builder": "2541075 Ss   bash .autoport/auto_build_apk.sh"
+  }
+}

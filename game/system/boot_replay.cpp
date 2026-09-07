@@ -249,6 +249,10 @@ uint64_t fingerprint() {
   return state.finished ? state.hash : 0;
 }
 
+bool replay_verified() {
+  return state.mode == Mode::Replay && state.finished;
+}
+
 uint64_t records() {
   return state.count;
 }

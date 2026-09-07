@@ -17,12 +17,8 @@
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
 
-// lighting-origin-bitexact : LE DENOMINATEUR DE LA GARDE POSEE DANS `handle_tex0_1`.
-// Une garde qui ne se declenche jamais est une garde qu'on ne peut pas distinguer d'un site
-// mort. Ce compteur dit combien de fois le registre a DEMANDE une chaine de mipmaps alors que
-// le maitre Recharged etait eteint — c'est-a-dire combien de fois le site fuyait avant. Il est
-// publie par `hdr.cpp` a cote de `origin_bitexact_defects`. Un zero ici rendrait la porte
-// VACUEUSE, et c'est cette lecture-la qu'il faut faire, pas « le chiffre est vert ».
+// Compatibility counter for existing consumers. Native TEX1 mipmaps are no longer
+// suppressed by the Recharged master switch, so this counter remains zero.
 static std::atomic<uint64_t> g_origin_mipmap_suppressed{0};
 
 uint64_t direct_renderer_origin_mipmap_suppressed() {
@@ -1014,27 +1010,8 @@ void DirectRenderer::handle_tex1_1(u64 val) {
     m_current_tex_state_idx = -1;
   }
 
-  // MXL > 0 et MMIN >= 2 = le registre demande explicitement une chaine de mipmaps
-  // (2..5 sont les quatre modes *_MIPMAP_* du GS).
-  //
-  // LE COMMENTAIRE QUI ETAIT ICI ETAIT FAUX, ET LA MESURE L'A DIT.
-  // Il affirmait « MXL == 0 = pas de mipmap : c'est ce que pose tout le contenu d'origine, qui
-  // garde donc EXACTEMENT le comportement d'avant ». Faux : `lighting-origin-bitexact` essai 2
-  // mesure 26 a 47 px d'ecart |d| <= 4 sur les lignes y=80-82, SUR LES HUIT CRENEAUX, entre le
-  // binaire-temoin (couche Recharged non COMPILEE) et le binaire normal MAITRE ETEINT. Du
-  // contenu d'origine pose donc bien MXL > 0 et MMIN >= 2, et ce terme changeait le filtre de
-  // minification (GL_LINEAR -> GL_LINEAR_MIPMAP_LINEAR, l.481) sans consulter le maitre. C'est
-  // exactement « coder en dur en remplacant le vanilla » — le defaut que l'owner soupconnait.
-  //
-  // Le maitre n'est consulte QUE si le registre demande la chaine : `recharged_master_active()`
-  // relit une variable d'environnement a chaque appel sous `OG_REFSET` (refset_pins_master), et
-  // ce site est sur le chemin le plus chaud du moteur (un appel par ecriture de TEX0). L'ordre
-  // des deux termes n'est donc pas cosmetique.
+  // Preserve native TEX1 mipmap requests independently of the Recharged master switch.
   bool want_mipmap = reg.mxl() > 0 && reg.mmin() >= 2;
-  if (want_mipmap && !Gfx::recharged_master_active()) {
-    want_mipmap = false;
-    g_origin_mipmap_suppressed.fetch_add(1, std::memory_order_relaxed);
-  }
   if (want_mipmap != m_tex_state_from_reg.enable_mipmap) {
     m_tex_state_from_reg.enable_mipmap = want_mipmap;
     m_current_tex_state_idx = -1;

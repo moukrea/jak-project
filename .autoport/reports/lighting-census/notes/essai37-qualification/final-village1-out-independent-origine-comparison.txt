@@ -1,0 +1,59 @@
+origine/village1-out-h00.png maxdiff=0    diffpx=0        bbox=None
+origine/village1-out-h03.png maxdiff=0    diffpx=0        bbox=None
+origine/village1-out-h06.png maxdiff=0    diffpx=0        bbox=None
+origine/village1-out-h09.png maxdiff=0    diffpx=0        bbox=None
+origine/village1-out-h12.png maxdiff=0    diffpx=0        bbox=None
+origine/village1-out-h15.png maxdiff=0    diffpx=0        bbox=None
+origine/village1-out-h18.png maxdiff=0    diffpx=0        bbox=None
+origine/village1-out-h21.png maxdiff=0    diffpx=0        bbox=None
+REFSET-COMPARE maxdiff=0 diffpx=0 images=8 manquantes=0
+[
+  {
+    "image": "origine/village1-out-h00.png",
+    "maxdiff": 0,
+    "diffpx": 0,
+    "bbox": null
+  },
+  {
+    "image": "origine/village1-out-h03.png",
+    "maxdiff": 0,
+    "diffpx": 0,
+    "bbox": null
+  },
+  {
+    "image": "origine/village1-out-h06.png",
+    "maxdiff": 0,
+    "diffpx": 0,
+    "bbox": null
+  },
+  {
+    "image": "origine/village1-out-h09.png",
+    "maxdiff": 0,
+    "diffpx": 0,
+    "bbox": null
+  },
+  {
+    "image": "origine/village1-out-h12.png",
+    "maxdiff": 0,
+    "diffpx": 0,
+    "bbox": null
+  },
+  {
+    "image": "origine/village1-out-h15.png",
+    "maxdiff": 0,
+    "diffpx": 0,
+    "bbox": null
+  },
+  {
+    "image": "origine/village1-out-h18.png",
+    "maxdiff": 0,
+    "diffpx": 0,
+    "bbox": null
+  },
+  {
+    "image": "origine/village1-out-h21.png",
+    "maxdiff": 0,
+    "diffpx": 0,
+    "bbox": null
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "OG_REFSET": "capture",
+  "OG_REFSET_VANTAGES": "sunkenb-start",
+  "OG_REFSET_PHASES": "1",
+  "OG_REFSET_HOURS": "9",
+  "OG_REFSET_REQUIRE_LOADED": "1",
+  "OG_REFSET_QUALIFY_STATE": "1",
+  "OG_REFSET_LOAD_SETTLE": "1200",
+  "OG_REFSET_BUILD_PROVENANCE": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/candidate-source.json",
+  "OG_BOOT_REPLAY_BOUNDARY": "actors-sweep",
+  "OG_BOOT_REPLAY_CONTINUE": "village1-hut",
+  "OG_BOOT_REPLAY_REPLAY": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai17-rpc/fork-bootstrap.bin",
+  "OG_PAD_REPLAY_REPLAY": "/home/emeric/code/jak-project/.autoport/refset/neutral.inputs",
+  "OG_WANT_LEVELS": "",
+  "OG_WANT_DISPLAY": "",
+  "OG_REFSET_TRACE_ROI": "1",
+  "OG_REFSET_TRACE_ROI_RECT": "0,0,319,179"
+}

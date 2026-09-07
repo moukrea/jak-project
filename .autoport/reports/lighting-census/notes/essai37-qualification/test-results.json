@@ -1,0 +1,73 @@
+{
+  "directives": "DIRECTIVES v6fca51fe40",
+  "kind": "test and build results; not game proof",
+  "tests": [
+    {
+      "command": "c++ -std=c++17 -Wall -Wextra -Werror -pthread -I. test/common/test_boot_replay.cpp game/system/boot_replay.cpp -o /tmp/test_boot_replay_state && /tmp/test_boot_replay_state",
+      "exit_code": 0,
+      "reported_by": "state_impl",
+      "result": "records=3 fingerprint=b6ede934ecf3e6a1"
+    },
+    {
+      "command": "c++ -std=c++17 -Wall -Wextra -Werror -I. test/common/test_refset_qualification.cpp -o /tmp/test-qualification && /tmp/test-qualification",
+      "exit_code": 0,
+      "reported_by": "state_impl",
+      "fixture_cases": 672,
+      "fixture_levels": 21,
+      "fixture_replays": 5,
+      "note": "synthetic positive and negative gates, not runtime coverage"
+    },
+    {
+      "command": "python3 -m unittest discover -s .autoport/tests/tools -p test_refset_campaign.py -v",
+      "exit_code": 0,
+      "reported_by": "campaign_impl",
+      "tests": 13
+    },
+    {
+      "command": "python3 -m unittest discover -s .autoport/tools -p test_refset_provenance.py -v",
+      "exit_code": 0,
+      "reported_by": "provenance_impl",
+      "tests": 13
+    },
+    {
+      "command": "c++ -std=c++17 -Wall -Wextra -Werror on temporary copies of final qualification patch; standalone test",
+      "exit_code": 0,
+      "reported_by": "provenance_impl",
+      "result": "672 cases/21 levels/5 replays positive; stale current_data, zero current_data and refreshed-but-changed replay assets rejected; checkpoint rename accepted"
+    }
+  ],
+  "builds": [
+    {
+      "command": "cmake --build build --target gk -j 6",
+      "exit_code": 0,
+      "log": "build-gk.log",
+      "npc_properties": 47
+    },
+    {
+      "command": "cmake --build /home/emeric/code/jak-lighting-baseline/build --target gk -j 6",
+      "exit_code": 0,
+      "log": "build-baseline-gk.log",
+      "npc_properties": 47
+    },
+    {
+      "command": "cmake --build build --target gk -j 6",
+      "exit_code": 0,
+      "log": "build-tex1-gk.log",
+      "npc_properties": 47,
+      "reason": "single native TEX1 mipmap condition"
+    },
+    {
+      "command": "cmake --build build --target gk -j 6",
+      "exit_code": 0,
+      "log": "build-final-gk.log",
+      "npc_properties": 47,
+      "reason": "aggregate dataset freshness and replay asset identity"
+    }
+  ],
+  "not_run": [
+    "generic.sh (orchestrator only)",
+    "Android build",
+    "device tests",
+    "new GOAL build"
+  ]
+}

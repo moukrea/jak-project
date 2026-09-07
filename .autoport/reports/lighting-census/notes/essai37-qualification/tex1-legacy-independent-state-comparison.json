@@ -1,0 +1,201 @@
+{
+  "DIRECTIVES": "v6fca51fe40",
+  "kind": "offline independent witness comparison, not proof",
+  "baseline": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/baseline-campaign/attempt-1788805717972196356-cdee0e0b/captures",
+  "candidate": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788808462799809785-c2bb2c71/captures",
+  "image_compare_exit_code": 0,
+  "identity": {
+    "data": {
+      "baseline": 6264566775401793558,
+      "candidate": 6264566775401793558,
+      "equal": true
+    },
+    "input": {
+      "baseline": 17976970292630089652,
+      "candidate": 17976970292630089652,
+      "equal": true
+    },
+    "bootstrap": {
+      "baseline": 8789784358445975532,
+      "candidate": 8789784358445975532,
+      "equal": true
+    },
+    "settings": {
+      "baseline": 5069416612279691353,
+      "candidate": 5069416612279691353,
+      "equal": true
+    }
+  },
+  "cases": [
+    {
+      "key": "origine/h00.png",
+      "bytes_equal": true,
+      "baseline_size": 126473,
+      "candidate_size": 126473,
+      "baseline_sha256": "ee599e18165dc69b8cbaab2e1408ce40508c47267ff14d0b7bb5e35e41cdefef",
+      "candidate_sha256": "ee599e18165dc69b8cbaab2e1408ce40508c47267ff14d0b7bb5e35e41cdefef",
+      "lf": {
+        "baseline": 2282,
+        "candidate": 2282,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 2282,
+        "candidate": 2282,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/h03.png",
+      "bytes_equal": true,
+      "baseline_size": 126473,
+      "candidate_size": 126473,
+      "baseline_sha256": "32145d30760ad1153d761e45b0d405c41486f304d274e2c80ddf256b09d278ab",
+      "candidate_sha256": "32145d30760ad1153d761e45b0d405c41486f304d274e2c80ddf256b09d278ab",
+      "lf": {
+        "baseline": 2465,
+        "candidate": 2465,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 2465,
+        "candidate": 2465,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/h06.png",
+      "bytes_equal": true,
+      "baseline_size": 126473,
+      "candidate_size": 126473,
+      "baseline_sha256": "ac225fb70f4b54ff9620f31e51447c4aee815fcf086a25ad40fa5a564130bb40",
+      "candidate_sha256": "ac225fb70f4b54ff9620f31e51447c4aee815fcf086a25ad40fa5a564130bb40",
+      "lf": {
+        "baseline": 2648,
+        "candidate": 2648,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 2648,
+        "candidate": 2648,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/h09.png",
+      "bytes_equal": true,
+      "baseline_size": 126473,
+      "candidate_size": 126473,
+      "baseline_sha256": "a48a55c8405231daab769776f14d3276fb4a39d4322382ebab69584bcb022cd3",
+      "candidate_sha256": "a48a55c8405231daab769776f14d3276fb4a39d4322382ebab69584bcb022cd3",
+      "lf": {
+        "baseline": 2831,
+        "candidate": 2831,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 2831,
+        "candidate": 2831,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/h12.png",
+      "bytes_equal": true,
+      "baseline_size": 126473,
+      "candidate_size": 126473,
+      "baseline_sha256": "891a32c736017814803f9742fafbd8ac3ccb453dda9a5d5ac355bde5b4a732bd",
+      "candidate_sha256": "891a32c736017814803f9742fafbd8ac3ccb453dda9a5d5ac355bde5b4a732bd",
+      "lf": {
+        "baseline": 3014,
+        "candidate": 3014,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 3014,
+        "candidate": 3014,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/h15.png",
+      "bytes_equal": true,
+      "baseline_size": 126473,
+      "candidate_size": 126473,
+      "baseline_sha256": "2e517d15ab486716ea8322baf4566fd508c7b0237c17b4f1fc172e58c1e7ecb5",
+      "candidate_sha256": "2e517d15ab486716ea8322baf4566fd508c7b0237c17b4f1fc172e58c1e7ecb5",
+      "lf": {
+        "baseline": 3197,
+        "candidate": 3197,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 3197,
+        "candidate": 3197,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/h18.png",
+      "bytes_equal": true,
+      "baseline_size": 126473,
+      "candidate_size": 126473,
+      "baseline_sha256": "6be088db27746f8c2133ed7b87227065509461df66f01a152b9fb7bc5a0ded38",
+      "candidate_sha256": "6be088db27746f8c2133ed7b87227065509461df66f01a152b9fb7bc5a0ded38",
+      "lf": {
+        "baseline": 3380,
+        "candidate": 3380,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 3380,
+        "candidate": 3380,
+        "equal": true
+      }
+    },
+    {
+      "key": "origine/h21.png",
+      "bytes_equal": true,
+      "baseline_size": 126473,
+      "candidate_size": 126473,
+      "baseline_sha256": "3c8ea9d9c3f742d08cf0a84f9adc1806c64e105564060134c638fe1526474685",
+      "candidate_sha256": "3c8ea9d9c3f742d08cf0a84f9adc1806c64e105564060134c638fe1526474685",
+      "lf": {
+        "baseline": 3563,
+        "candidate": 3563,
+        "equal": true
+      },
+      "state_lf": {
+        "baseline": 3563,
+        "candidate": 3563,
+        "equal": true
+      }
+    }
+  ],
+  "summary": {
+    "count": 8,
+    "state_bytes_equal": 8,
+    "lf_equal": 8,
+    "state_lf_equal": 8,
+    "identity_equal": true
+  },
+  "capture": {
+    "receipt": "/home/emeric/code/jak-project/.autoport/reports/lighting-census/notes/essai37-qualification/campaign/attempt-1788808462799809785-c2bb2c71/receipt.json",
+    "clean": true,
+    "reconstructed": true,
+    "cases": 24,
+    "exit_code": 0,
+    "restored": true,
+    "level_ok": 24,
+    "has_sky": [
+      1
+    ],
+    "bg_permille_min": 0.0,
+    "bg_permille_max": 0.0
+  },
+  "proof_metrics": [
+    "origin_mipmap_suppressed=0",
+    "refset_provenance_bad=0",
+    "refset_qualification_state_bad=0"
+  ]
+}

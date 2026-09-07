@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -18,6 +19,8 @@
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/fixed_tick.h"
+#include "game/graphics/refset_state.h"
+#include "game/graphics/refset_qualification.h"
 #include "game/graphics/origin_ablate.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/render_pace.h"
@@ -317,6 +320,20 @@ std::string g_dir = ".autoport/refset";  // Android : rendu ABSOLU a l'init, voi
 int g_provenance_version = 1;  // 0 = root marker unreadable/invalid, 1 = historical, 2 = candidate
 uint64_t g_data_fp = 0;
 uint64_t g_input_fp = 0;
+using QualificationJson = nlohmann::json;
+QualificationJson g_qualification_cases = QualificationJson::array();
+uint64_t g_qualification_bad = 0;
+uint64_t g_qualification_source_fp = 0;
+uint64_t g_qualification_settings_fp = 0;
+uint64_t g_qualification_capture_fp = 0;
+std::string g_qualification_source;
+bool g_qualification_adopted = false;
+bool g_qualification_written = false;
+uint64_t g_case_bg = 0, g_case_px = 0, g_case_probes = 0;
+uint64_t g_case_maxdiff = 255, g_case_diffpx = 0;
+std::optional<refset_state::Sample> g_case_state;
+void qualification_finish();
+void qualification_sample(const Step& step); // defined below the metadata reader
 constexpr const char* kFormatMarker = "refset-format.txt";
 
 std::vector<int> g_phases;  // lighting-hdr : les phases que CE plan execute
@@ -1210,7 +1227,7 @@ void publish_state() {
     autoport_proof::publish("refset_replay_run_maxdiff", gate);
     autoport_proof::publish("refset_replay_maxdiff",
                             autoport_proof::feature_is("lighting-census") && gate == 0
-                                ? (g_census_coverage_missing ? 254 : g_census_replay_gate)
+                                ? (g_census_coverage_missing && !g_qualification_adopted ? 254 : g_census_replay_gate)
                                 : gate);
     // La grandeur de PORTE de cet item porte sur plusieurs COURSES (voir `publish_flaky`). Tant
     // que le registre n'a pas parle, la preuve porte la sentinelle : une course interrompue est
@@ -1979,6 +1996,223 @@ const char* check_capture_provenance(const Step& step, const std::string& path) 
   return nullptr;
 }
 
+// Qualification is opt-in and produces separate immutable artifacts. The v2 image
+// format stays unchanged; a short shard never becomes a historical full-plan run.
+uint64_t qualification_settings_fingerprint() {
+#if defined(__linux__) && !defined(__ANDROID__)
+  std::error_code ec;
+  const fs::path executable = fs::read_symlink("/proc/self/exe", ec);
+  if (ec) return 0;
+  uint64_t result = 1469598103934665603ull;
+  for (const char* name : {"misc/debug-settings.json", "settings/display-settings.json",
+                           "settings/input-settings.json", "settings/settings.ini"}) {
+    const auto value = hash_file((executable.parent_path() / "OpenGOAL/jak1" / name).string());
+    if (!value) return 0;
+    for (int b = 0; b < 8; ++b) result = (result ^ ((value >> (8 * b)) & 255)) * 1099511628211ull;
+  }
+  return result;
+#else
+  return 0; // This qualification contract is x86; no inferred device qualification.
+#endif
+}
+
+bool qualification_write(const std::string& path, const void* bytes, size_t size) {
+  // Publish a closed file atomically, without replacing an earlier run or reference.
+  const std::string temporary = path + ".pending";
+  FILE* file = std::fopen(temporary.c_str(), "wx");
+  if (!file) return false;
+  const bool written = std::fwrite(bytes, 1, size, file) == size;
+  const bool closed = std::fclose(file) == 0;
+  std::error_code ec;
+  if (written && closed) fs::create_hard_link(temporary, path, ec);
+  const bool published = written && closed && !ec;
+  fs::remove(temporary, ec);
+  return published;
+}
+
+bool qualification_write_json(const std::string& path, const QualificationJson& json) {
+  const auto bytes = json.dump(2) + "\n";
+  return qualification_write(path, bytes.data(), bytes.size());
+}
+
+bool qualification_source_current() {
+  if (!g_qualification_source_fp || hash_file(g_qualification_source) != g_qualification_source_fp)
+    return false;
+  try {
+    const auto source = refset_qualification::detail::json(g_qualification_source);
+    if (source.at("version") != 1 || source.at("bin") != self_fingerprint() ||
+        !source.at("files").is_object() || source.at("files").empty()) return false;
+    for (const auto& file : source.at("files").items()) {
+      if (!fs::path(file.key()).is_absolute() || !file.value().is_number_unsigned() ||
+          !file.value().get<uint64_t>() || hash_file(file.key()) != file.value().get<uint64_t>())
+        return false;
+    }
+    return true;
+  } catch (const std::exception&) {
+    return false;
+  }
+}
+
+void qualification_init() {
+  if (!refset_state::enabled()) return;
+  if (const char* path = std::getenv("OG_REFSET_BUILD_PROVENANCE")) {
+    g_qualification_source = fs::absolute(path).string();
+    g_qualification_source_fp = hash_file(g_qualification_source);
+  }
+  g_qualification_settings_fp = qualification_settings_fingerprint();
+  if (g_mode == 2) g_qualification_capture_fp = hash_file(g_dir + "/qualification-capture.json");
+  autoport_proof::publish_text("refset_candidate_qualification", "recording-reconstructed-state");
+}
+
+void qualification_sample(const Step& step) {
+  if (!refset_state::enabled()) return;
+  const auto receipt = refset_state::receipt();
+  const std::string path = image_path(step);
+  const std::string state_path = path + ".state.bin";
+  bool state_ok = g_case_state && receipt.bootstrap_fp && receipt.replay_verified &&
+                  receipt.actors_sweep && g_require_loaded;
+  if (state_ok && g_mode == 1) {
+    state_ok = qualification_write(state_path, g_case_state->bytes.data(), g_case_state->bytes.size());
+  } else if (state_ok) {
+    FILE* file = std::fopen(state_path.c_str(), "rb");
+    if (!file) {
+      state_ok = false;
+    } else {
+      std::vector<uint8_t> bytes(g_case_state->bytes.size());
+      state_ok = std::fread(bytes.data(), 1, bytes.size(), file) == bytes.size() &&
+                 std::fgetc(file) == EOF && !std::ferror(file) && bytes == g_case_state->bytes;
+      state_ok = std::fclose(file) == 0 && state_ok;
+    }
+  }
+  if (!state_ok || g_case_probes != 1) ++g_qualification_bad;
+  const auto& view = vantage_of(step);
+  const auto sky = g_level_sky.find(view.level);
+  const std::string key = (step.supplemental ? "supplement-v1/" : "") +
+                          step_image_name(step) + ".png";
+  g_qualification_cases.push_back({
+      {"key", key}, {"vantage", view.id[0] ? view.id : "legacy"}, {"level", view.level},
+      {"phase", step.phase}, {"hour", step.hour}, {"lf", g_inflight_lf},
+      {"state_lf", g_case_state ? g_case_state->lf : -1},
+      {"png", hash_file(path)}, {"sidecar", hash_file(path + ".provenance.txt")},
+      {"state", state_ok ? hash_file(state_path) : 0},
+      {"bg", g_case_bg}, {"px", g_case_px},
+      {"level_ok", g_frame_levels.count(view.level) != 0},
+      {"has_sky", sky == g_level_sky.end() ? -1 : sky->second},
+      {"maxdiff", g_mode == 1 ? 0 : g_case_maxdiff}, {"diffpx", g_case_diffpx}});
+  std::printf("REFSET qualification-state case=%s lf=%lld state_lf=%lld verified=%d\n",
+              key.c_str(), (long long)g_inflight_lf,
+              (long long)(g_case_state ? g_case_state->lf : -1), state_ok ? 1 : 0);
+  autoport_proof::publish("refset_qualification_state_cases", g_qualification_cases.size());
+  autoport_proof::publish("refset_qualification_state_bad", g_qualification_bad);
+}
+
+void qualification_finish() {
+  if (!refset_state::enabled() || g_qualification_written) return;
+  g_qualification_written = true;
+  const auto receipt = refset_state::receipt();
+  const bool clean = g_provenance_version == 2 && !g_provenance_bad && !g_qualification_bad &&
+      !g_missing && !g_size_bad && !g_decode_bad && !g_slip_nonzero && !g_roundtrip_bad &&
+      g_qualification_cases.size() == g_steps.size() && !g_steps.empty() &&
+      (g_mode == 1 ? g_captured : g_compared) == g_steps.size();
+  const bool fresh = g_qualification_settings_fp && qualification_source_current() &&
+      qualification_settings_fingerprint() == g_qualification_settings_fp &&
+      data_fingerprint() == g_data_fp;
+  const bool reconstructed = receipt.bootstrap_fp && receipt.replay_verified &&
+                             receipt.actors_sweep && g_require_loaded && !g_qualification_bad;
+  const bool calibrated = !g_cam_armed || g_cam_overrides || g_pitch_sweep || g_yaw_sweep ||
+                          g_cam_hour_sweep;
+  const std::string execution = std::to_string(
+      std::chrono::system_clock::now().time_since_epoch().count());
+  std::string assets_path;
+  uint64_t assets_fp = 0;
+  if (const char* manifest = std::getenv("OG_REFSET_ASSET_MANIFEST")) {
+    try {
+      asset_manifest::checkpoint("qualification/" + execution);
+      const auto bytes = refset_qualification::detail::read(manifest);
+      assets_path = fs::absolute(g_dir + "/qualification-assets-" + execution + ".tsv").string();
+      if (qualification_write(assets_path, bytes.data(), bytes.size())) assets_fp = hash_file(assets_path);
+    } catch (const std::exception&) {
+      assets_fp = 0;
+    }
+  }
+  QualificationJson run = {{"version", 1}, {"kind", g_mode == 1 ? "capture" : "replay"},
+      {"execution", execution}, {"bin", self_fingerprint()}, {"data", g_data_fp},
+      {"input", g_input_fp}, {"config", census_config_fingerprint()},
+      {"bootstrap", receipt.bootstrap_fp}, {"settings", g_qualification_settings_fp},
+      {"source_path", g_qualification_source}, {"source_fp", g_qualification_source_fp},
+      {"assets_path", assets_path}, {"assets_fp", assets_fp},
+      {"clean", clean && fresh && assets_fp != 0}, {"reconstructed", reconstructed}, {"calibrated", calibrated},
+      {"cases", g_qualification_cases}};
+  std::string path = g_dir + "/qualification-capture.json";
+  if (g_mode == 2) {
+    run["capture_fp"] = g_qualification_capture_fp;
+    const char* id = std::getenv("OG_REFSET_RUN_ID");
+    if (!id || !*id || std::strlen(id) > 100 ||
+        std::strspn(id, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") != std::strlen(id)) {
+      autoport_proof::publish_text("refset_candidate_qualification", "invalid-execution-id");
+      return;
+    }
+    std::error_code ec;
+    fs::create_directories(g_dir + "/qualification-replays", ec);
+    if (ec) return;
+    path = g_dir + "/qualification-replays/" + id + ".json";
+  }
+  if (!qualification_write_json(path, run)) {
+    autoport_proof::publish_text("refset_candidate_qualification", "receipt-write-failed");
+    return;
+  }
+  autoport_proof::publish("refset_qualification_receipt_written", 1);
+  autoport_proof::publish_text("refset_candidate_qualification",
+      !clean ? "state-or-run-invalid" : !fresh ? "provenance-missing-or-stale" :
+      !reconstructed ? "state-not-reconstructed" : "awaiting-independent-qualification");
+  const char* manifest = std::getenv("OG_REFSET_QUALIFICATION");
+  if (g_mode != 2 || !clean || !fresh || !assets_fp || !reconstructed || calibrated || !manifest || !*manifest) return;
+  std::vector<refset_qualification::Expected> expected;
+  // This universe is independent of the currently selected short shard.
+  for (int vi = 0; vi < kNumVantages; ++vi) {
+    const auto& view = kVantages[vi];
+    const std::string name = view.id[0] ? view.id : "legacy";
+    const bool expanded = name == "misty-bike" || name == "village2-dock" ||
+        name == "sunkenb-helix" || name == "swamp-start" || name == "swamp-cave1" || name == "snow-fort";
+    for (int phase : {1, 2, 3}) {
+      for (int hour : kHours) {
+        char suffix[16];
+        std::snprintf(suffix, sizeof(suffix), "h%02d.png", hour);
+        const std::string key = std::string(expanded && hour != 9 && hour != 21 ? "supplement-v1/" : "") +
+            set_name(phase) + "/" + (view.id[0] ? name + "-" : "") + suffix;
+        expected.push_back({key, name, view.level, phase, hour});
+      }
+    }
+  }
+  const auto equal_images = [](const std::string& a, const std::string& b) {
+    std::vector<uint8_t> aa, bb;
+    uint32_t aw = 0, ah = 0, ac = 0, bw = 0, bh = 0, bc = 0;
+    if (fpng::fpng_decode_file(a.c_str(), aa, aw, ah, ac, 4) ||
+        fpng::fpng_decode_file(b.c_str(), bb, bw, bh, bc, 4) ||
+        aw != kShotW || ah != kShotH || aw != bw || ah != bh) return false;
+    uint64_t md = 0, px = 0;
+    compare(aa.data(), bb.data(), aw * ah, &md, &px);
+    return md == 0 && px == 0;
+  };
+  const auto result = refset_qualification::evaluate(manifest, self_fingerprint(), g_data_fp, hash_file,
+                                                    equal_images, expected);
+  autoport_proof::publish_text("refset_candidate_qualification", result.status.c_str());
+  autoport_proof::publish("refset_qualification_missing", result.missing.size());
+  for (const auto& missing : result.missing) std::printf("REFSET qualification missing=%s\n", missing.c_str());
+  autoport_proof::publish("refset_qualification_gate", result.gate);
+  if (result.gate != 0) return;
+  // Adoption is a separate artifact. References and their version marker never change.
+  const std::string adoption = g_dir + "/qualification-adoption-" + execution + ".json";
+  if (qualification_write_json(adoption, {{"version", 1}, {"manifest", fs::absolute(manifest).string()},
+      {"identity", result.identity}, {"bin", self_fingerprint()}, {"data", g_data_fp},
+      {"replay_runs", result.replay_runs}})) {
+    g_qualification_adopted = true;
+    g_census_replay_gate = 0;
+    g_census_replay_runs = result.replay_runs;
+    autoport_proof::publish("refset_qualification_adopted", 1);
+  }
+}
+
 void publish_flaky() {
   g_flaky_done = true;
   const uint64_t bin = self_fingerprint();
@@ -2058,10 +2292,10 @@ void publish_flaky() {
       flaky++;
     }
   }
-  g_census_replay_runs = census_runs;
+  if (!g_qualification_adopted) g_census_replay_runs = census_runs;
   // Candidate provenance records inputs, not restored actor/RNG state or an independent
   // baseline qualification. Even five exact self-replays cannot supply those missing facts.
-  g_census_replay_gate = !ledger_written
+  if (!g_qualification_adopted) g_census_replay_gate = !ledger_written
                             ? 255
                             : (g_provenance_version == 2 || census_runs < 5 ? 254 : census_maxdiff);
   autoport_proof::publish("refset_replay_runs", md.size());
@@ -2403,6 +2637,7 @@ bool enabled() {
   put_env("OG_RT_LIGHT", "0");
   put_env("OG_LIGHTING", "0");
   init_candidate_provenance();
+  qualification_init();
   std::printf("REFSET mode=%s dir=%s steps=%d vues=%d res=%dx%d settle=%lld/%lld\n",
               g_mode == 1 ? "capture" : "replay", g_dir.c_str(), (int)g_steps.size(),
               (int)g_vants.size(), kShotW, kShotH, (long long)g_step_settle,
@@ -2728,6 +2963,7 @@ void tick() {
       g_finished = true;
       lighting_census::set_phase(0);
       g_tod_x100 = -1;
+      qualification_finish();
       if (g_mode == 2) {
         publish_flaky();
       }
@@ -2833,6 +3069,9 @@ void note_scene_probe(uint64_t bg_px, uint64_t total_px) {
   }
   g_probe_frames++;
   g_probe_px += total_px;
+  ++g_case_probes;
+  g_case_bg = bg_px;
+  g_case_px = total_px;
   const size_t vi = (size_t)g_steps[g_cur].vant;
   if (vi >= g_vstats.size()) {
     return;
@@ -3001,6 +3240,10 @@ bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h)
     g_slip_nonzero++;
   }
   g_inflight_lf = lf;
+  g_case_bg = g_case_px = g_case_probes = 0;
+  g_case_maxdiff = 255;
+  g_case_diffpx = 0;
+  if (refset_state::enabled()) g_case_state = refset_state::snapshot(lf);
   g_frame_levels.clear();
   // Desarmer ICI, pas a la fin de la capture : entre les deux, le fil graphique dessine une ou
   // deux images de plus et re-prendrait la meme demande.
@@ -3090,6 +3333,8 @@ bool consume_capture(int w, int h, const void* rgba) {
       uint64_t md = 0, np = 0;
       compare(cur, ref.data(), n_px, &md, &np);
       g_compared++;
+      g_case_maxdiff = md;
+      g_case_diffpx = np;
       if (md > g_maxdiff) {
         g_maxdiff = md;
       }
@@ -3183,6 +3428,7 @@ bool consume_capture(int w, int h, const void* rgba) {
     }
   }
 
+  qualification_sample(g_steps[g_cur]);
   g_cap = kCapDone;
   publish_state();
   return true;
