@@ -1,25 +1,25 @@
-# Handoff — lighting-hdr, essai45 hors appareil
+# Handoff — lighting-hdr, essai46 bloqué hors appareil
 DIRECTIVES v3909a9767c
 ## ÉTABLI
-Correction43 shade.glsl non-PBR et garde44 de remplacement portail conservées ; aucun changement rendu/harnais45.
-Acquis43 : pièce luma ON/OFF64.223/91.365→91.299/91.099 ; détail15.767/20.222→20.191/20.216 (notes/essai43-rendu/portal-comparison.json).
-Preuve historique inchangée du8septembre18:26:35Z : defects4, missing338, owner required5/measured0/missing5/failed1/passed0. crash0 ne vaut que pour ce lot.
-Empreinte et mtime proof préservés : notes/essai45/proof-preservation.json ; pas de nouveau replay.
-Tests acquis44 :294 succès/82,90s ; intégrité acquis44 :5sources/37fichiers conformes, lib0f1a5b25e21ebb4a. Non rejoués45.
-Revue45 statique : tfrag3/etie_base/tie_wind/shrub appellent shade une fois ; aucune modulation froide locale non-PBR supplémentaire trouvée.
-Trace43 ground/composition :120événements/12samples/unjoined0, seulement ciel/sprites. owner-regions status=diagnostic_only, unattributed_cases contient sage-hut-ground.
+Contrat contradictoire : backlog.yaml4215 device:true ; prompt46 « preuve exigée SUR APPAREIL aucun appareil ». Restriction prompt appliquée.
+Preuve historique08sept18:26:35Z inchangée : defects4, missing338, owner required5/measured0/missing5/failed1/passed0 ; crash0 seulement pour ce lot.
+SHA2562b7076b33fb7943da70645d4d87d12a46971106b0913241cbcb20123289b4006 et mtime1788892154000000000 conservés (notes/essai46/proof-preservation.json).
+Acquis43 conservé : shade.glsl non-PBR ; pièce luma ON/OFF64.223/91.365→91.299/91.099, détail15.767/20.222→20.191/20.216 (notes/essai43-rendu/portal-comparison.json).
+Garde44 remplacement portail conservée ; tests44 294succès/82,90s, intégrité5sources/37fichiers/lib0f1a5b25e21ebb4a hérités, non rejoués46.
+Revue45 héritée : quatre appelants non-PBR appellent shade une fois ; branche PBR distincte sans activation prouvée sur les zones owner.
+Trace43 sol/composition :120événements/12samples/unjoined0, ciel/sprites seulement ; sage-hut-ground reste unattributed_cases/diagnostic_only.
 ## TENTÉ
-Deux researchers Codex high, vérification manager ; notes/essai45/diagnostic.md. Aucun défaut nouveau attribué aux petites zones owner.
-PBR pbr_fused.glsl559–577/677 conserve fshd_mul/FUS_COOL ; branche distincte explicitement conservée43. Activation sur zones owner non prouvée : ne pas appliquer automatiquement le patch non-PBR au PBR.
-Chemin[0,137,35,152]/entrée[82,119,153,148] : violet270–330 absent dans mesures43 avant/après ; ces rectangles ne localisent pas le défaut.
-Le helper associe ciel/sprites0/10012/10013/1395 ; aucune ROI sol ni séparation terrain/TIE/décal/ombre. Nouvelle paire identique insuffisante.
-Restriction « aucun appareil » appliquée comme44 ; aucun appareil, build, déploiement, nouvelle mesure image, preuve ou validateur. Aucun patch spéculatif.
+Essai46 limité au delta de contrat et à la transmission ; aucune nouvelle revue shader ni campagne identique aux essais44/45.
+Diff backlog préexistant : statut in-progress, capture remplacée par hdr/recharged/lighting=1, swamp-start, neutral.inputs, timeout180s ; device:true inchangé.
+Ce diff n’apporte aucune mesure ni autorisation explicite levant « aucun appareil » ; backlog et composants de supervision non modifiés.
+Aucun appareil/build/déploiement/mesure image/proof_run/validateur ; aucune correction spéculative, aucun owner-ok.
 ## RESTE
-Superviseur : résoudre le cadrage appareil avant nouvel essai de collecte ; les mêmes données ne combleront pas attribution et couverture. Pas de nouvelle boucle hors appareil identique.
-Minimum sol : localisation reproductible des petites zones owner et contribution/matériau, ROI comparable ON/OFF rattachée aux case/frame/options/hash ; les instruments actuels ne fournissent pas cette association.
-Quand collecte autorisée : sol vraie hutte/pièce/portail prioritaires, puis nuages/soleil et éco ; pas de chantier HD/cache/allocateur/menu autonome.
-Portail :10s animées tracées après chaque reset ; surplus du groupeSprite3 et alphas différents43 n’isolent pas les contributions, pas de blend/gain inventé.
-Ne pas rejouer diagnostics négatifs nuages/soleil41, éco30 et portail44. Petites zones violettes encore sans attribution ; cinq cas tous non validés.
-Final :21niveaux×8h/ciels/intérieurs/vraie hutte par lots compatibles, cinq cas, menuOFF/persistance, crash0 courant. Aucun mélange de lots incompatibles.
-Préférence restaurée43 realtime-lighting?=#f ; tests43 forçaient RT=1. État appareil actuel inconnu45.
-Rapport≤40lignes avec8lignes proof ; validateur orchestrateur, aucun owner-ok. Handoff44 complet dans notes/essai45/previous-handoff.md.
+Superviseur : aligner le prochain prompt avec l’autorisation appareil avant toute nouvelle reprise de collecte ; ne pas relancer le même essai hors appareil.
+Sol : localisation reproductible des petites zones owner, contribution/matériau et ROI ON/OFF reliée case/frame/options/hash ; témoins actuels ciel/sprites insuffisants.
+Rectangles chemin[0,137,35,152]/entrée[82,119,153,148] sans violet270–330 dans43 : ils ne localisent pas le défaut ; nouvelle paire identique inutile.
+Quand collecte autorisée : sol vraie hutte/pièce/portail prioritaires puis nuages/soleil/éco ; portail animé10s tracées après chaque reset.
+Ne pas rejouer pistes négatives nuages/soleil41, éco30, portail44 ; surplus groupeSprite3/alphas43 n’isole pas les contributions. Pas de gain/blend/PBR inventé.
+Final inchangé : cinqcas,21niveaux×8h/ciels/intérieurs/vraie hutte compatibles, menuOFF/persistance et crash0 courant ; absence reste échec.
+Pas de chantier HD/cache/allocateur/menu autonome ; préférence43 realtime-lighting?=#f restaurée, tests43 forçaient RT=1, état actuel inconnu.
+non prouvé : cinqcas corrigés et couverture finale, détails pleine résolution, activation/fraîcheur et crash0 actuels.
+Rapport≤40lignes/8lignes proof ; validateur orchestrateur. Acquis détaillés préservés dans notes/essai46/previous-handoff.md et notes/essai45/diagnostic.md.
