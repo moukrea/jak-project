@@ -4225,9 +4225,10 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Essai42 : crash hd-mtxarea=FFFFFFFF via hd-mtx-check-all dans menus, avant LightingOFF;
-    cause inconnue, cache compagnons suspect seulement. Rendu41 inchange42. Prompt36 obsolete : menuON/retourON
-    et portail10s deja observes. Deficit piece/portail precede courbe; sol vraie hutte non couvert.'
+  known_cause: 'Essais44-46 : aucune collecte car en-tete SUR APPAREIL aucun appareil interprete comme
+    interdiction. Corrige dans generateur : worker autorise USB via proof_run, disponibilite verifiee
+    lors du test. Correction modulation piece43-rendu mesuree localement ; cinqcas non valides. Voir handoff46
+    pour pistes deja epuisees.'
   deliverable: 'Reprise42 selon proof_plan.recovery_attempt_42. Owner : refonte lumiere HDR uniquement.
     Pas poursuite autonome HD/cache/allocateur/menu ; signaler blocages annexes et poursuivre vues exploitables
     sans declarer couverture absente validee. Navigation OFF ne bloque plus travail visuel : ne pas repeter
@@ -4350,6 +4351,17 @@ items:
     scope_owner_2026_09_08: Uniquement refonte lumiere HDR inclus. Pas chantier HD/cache/allocateur/menu
       autonome. Crash annexe documente et rapporte sans devenir priorite; continuer vues exploitables,
       absence reste non validee.
+    recovery_attempt_46:
+      cause: '44-46 sans collecte : en-tete SUR APPAREIL aucun appareil interprete comme interdiction;
+        meme preuve ancienne reevaluee trois fois.'
+      correction: En-tete autorise explicitement proof_run device et selection USB au moment de preuve;
+        aucune detection appareil pendant generation prompt.
+      availability: Absence USB reellement constatee par worker = indisponibilite, pas autorisation manquante
+        ; pas nouvel essai identique sans changement.
+      next: Continuer correction lumiere uniquement depuis notes43-rendu et garde44; localiser sol et
+        verifier contribution, pas refaire revue44-46 ni ablationB43.
+      validation: Aucune preuve ni validation creee par superviseur; cinqcas et couverture finale restent
+        requis.
   harness_edit_allowlist:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py

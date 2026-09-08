@@ -1233,8 +1233,14 @@ def _item_header(item: dict, seq: int) -> str:
         lines.append(f"- critère machine : `{gate.get('key')} {gate.get('op')} "
                      f"{gate.get('value')}` lu dans `.autoport/reports/{item['id']}/proof.txt`")
     if item.get("device"):
-        lines.append(f"- preuve exigée SUR APPAREIL "
-                     f"{item.get('device_serial') or _pick_device() or 'aucun appareil'} (jamais la SHIELD)")
+        lines.append("- preuve exigée SUR APPAREIL USB : le worker est autorisé à lancer "
+                     "`lib/proof_run.sh <id> device` ; `lib/pick_device.sh` choisit "
+                     "l'appareil USB disponible au moment du test. SHIELD et adresses réseau interdites.")
+        if item.get('device_serial'):
+            lines.append(f"- appareil demandé par l'item : {item['device_serial']}")
+        lines.append("- Si aucun appareil USB n'est disponible, signaler cette indisponibilité "
+                     "factuelle ; ce n'est pas une interdiction de tester. Ne pas réutiliser "
+                     "une ancienne preuve comme résultat de cet essai.")
     else:
         lines.append("- preuve sur x86 (`lib/proof_run.sh <id> x86`)")
     lines.append("- le validateur `.autoport/validators/generic.sh` est lancé par "

@@ -266,3 +266,14 @@ def test_closed_output_cannot_wait_forever(orch, item_repo, monkeypatch):
     logs = list((orch.AUTOPORT_DIR / 'logs' / 'demo').glob('attempt-*.jsonl'))
     assert logs
     assert 'exit-stall' in logs[-1].read_text()
+
+
+def test_device_header_authorizes_runtime_usb_selection(orch, monkeypatch):
+    def forbidden_probe():
+        raise AssertionError('Prompt generation must not probe the device')
+    monkeypatch.setattr(orch, '_pick_device', forbidden_probe)
+    text = orch._item_header(dict(ITEM, device=True), 1)
+    assert 'worker est autorisé' in text
+    assert 'moment du test' in text
+    assert "ce n'est pas une interdiction" in text
+    assert 'SUR APPAREIL aucun appareil' not in text
