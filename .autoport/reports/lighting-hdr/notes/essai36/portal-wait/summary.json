@@ -1,0 +1,15 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "batch": ".autoport/reports/lighting-hdr/batches/essai36-portal-wait/20260908T121810-4074478",
+  "sealed_files": 11,
+  "hash_failures": [],
+  "images": 0,
+  "composition_samples": 0,
+  "composition_events": 0,
+  "repin_count": 0,
+  "capture_count": 0,
+  "harddot_binding": 1,
+  "maturation_seconds": null,
+  "particle_ages": [],
+  "roi_measured": false
+}

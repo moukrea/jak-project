@@ -1,0 +1,44 @@
+{
+  "GAME.CGO": {
+    "before_count": 352,
+    "after_count": 352,
+    "changed": {
+      "pckernel": {
+        "before": {
+          "size": 123580,
+          "sha256": "e1606989e4a8da10d00130ec9e897d6c291826f20a27a1c47b053869e907b0d4"
+        },
+        "after": {
+          "size": 123842,
+          "sha256": "122df4c6529038b017df9b9e43921707f7c592d6ba586be84f342a92a53a00e9"
+        }
+      },
+      "hud-classes-pc": {
+        "before": {
+          "size": 73501,
+          "sha256": "bb8e2dbb63094108f4022ba2b27b78c1fe1a4875fcb2e69037c0ceacecdacad0"
+        },
+        "after": {
+          "size": 73501,
+          "sha256": "15d59a482f03f3cc878706859dd8786cae248d3255637e90fd386f832f6ff594"
+        }
+      }
+    }
+  },
+  "ENGINE.CGO": {
+    "before_count": 312,
+    "after_count": 312,
+    "changed": {
+      "pckernel": {
+        "before": {
+          "size": 123580,
+          "sha256": "e1606989e4a8da10d00130ec9e897d6c291826f20a27a1c47b053869e907b0d4"
+        },
+        "after": {
+          "size": 123842,
+          "sha256": "122df4c6529038b017df9b9e43921707f7c592d6ba586be84f342a92a53a00e9"
+        }
+      }
+    }
+  }
+}

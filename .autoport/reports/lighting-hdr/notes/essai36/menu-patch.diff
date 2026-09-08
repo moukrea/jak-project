@@ -1,0 +1,57 @@
+--- a/goal_src/jak1/pc/hud-classes-pc.gc
++++ b/goal_src/jak1/pc/hud-classes-pc.gc
+@@ -1816,10 +1816,10 @@
+     ;; Extern is (function pointer none) (light-group unresolvable in the early pc context);
+     ;; pass the address of group 0 as a raw pointer — the renderer reads it as a float block.
+     (pc-set-pbr-lights! (the-as pointer (-> *time-of-day-context* light-group 0)))
+-    ;; Grecharged-realtime-lighting (2026-07-19 REWRITE): push the SUN-ONLY lighting master
+-    ;; toggle + the baked sub-option every frame. The sun DIRECTION already reaches the
+-    ;; renderer via pc-set-pbr-sky-sun! above (the visible-sun dome vector).
+-    (pc-set-rt-light! (if (-> obj realtime-lighting?) 1 0))
++    ;; Glighting-hdr: recharged-lighting? is the sole lighting master, including the RT
++    ;; composite. Push it and the baked sub-option every frame. The sun direction already
++    ;; reaches the renderer via pc-set-pbr-sky-sun! above (the visible-sun dome vector).
++    (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0))
+     (pc-set-rt-ambient! (if (-> obj realtime-ambient?) 1 0))
+     ;; Grecharged-directional-ambient: send strength (0..0.5 float) as an int PERCENT 0..50 (int-FFI).
+     (pc-set-rt-ambient-strength! (the int (* 100.0 (-> obj realtime-ambient-strength))))
+--- a/goal_src/jak1/pc/pckernel.gc
++++ b/goal_src/jak1/pc/pckernel.gc
+@@ -21,6 +21,10 @@
+ (defmethod initialize ((obj pc-settings-jak1))
+   "initial initialize method to be run after allocating"
+   ((method-of-type pc-settings initialize) obj)
++  ;; Glighting-hdr: the parent has completed reset and settings-file reading. Apply the
++  ;; sole lighting master to RT even when the file or key is absent, or reading failed.
++  (#when FLAG_PBR
++    (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0)))
+   (set! (-> *setting-control* default sfx-volume) (-> obj memcard-volume-sfx))
+   (set! (-> *setting-control* default music-volume) (-> obj memcard-volume-music))
+   (set! (-> *setting-control* default dialog-volume) (-> obj memcard-volume-dialog))
+@@ -462,7 +466,9 @@
+     ;; defaut #t (ON) reste, et il sera persiste au premier commit-to-file.
+     (("recharged-lighting?")
+      (set! (-> obj recharged-lighting?) (file-stream-read-symbol file))
+-     (pc-set-recharged-lighting! (if (-> obj recharged-lighting?) 1 0)))
++     (pc-set-recharged-lighting! (if (-> obj recharged-lighting?) 1 0))
++     (#when FLAG_PBR
++       (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0))))
+     (("recharged-hud?") (set! (-> obj recharged-hud?) (file-stream-read-symbol file)))
+     (("recharged-grass?") (set! (-> obj recharged-grass?) (file-stream-read-symbol file)))
+     (("recharged-grass-near-dist") (set! (-> obj recharged-grass-near-dist) (file-stream-read-float file)))
+--- a/goal_src/jak1/pc/progress-pc.gc
++++ b/goal_src/jak1/pc/progress-pc.gc
+@@ -7507,9 +7507,10 @@
+        ;; HDR a continue de tourner. `recharged-lighting?` est LE maitre de la refonte lumiere :
+        ;; OFF = l'eclairage d'origine, ON = notre refonte, et le reste du Recharged (modeles HD,
+        ;; herbe, textures, HUD) n'est PAS touche — c'est ce qui le distingue du master du projet.
+-       ;; Le champ `realtime-lighting?` SURVIT (lu/ecrit par pckernel.gc, pousse par
+-       ;; pc-set-rt-light!) : une cle presente dans un settings.ini livre et privee de sa clause
+-       ;; de lecture ferait repartir tout le reste du fichier au defaut. Seule la LIGNE part.
++       ;; Le champ legacy `realtime-lighting?` SURVIT uniquement pour la persistance
++       ;; (lu/ecrit par pckernel.gc) : une cle presente dans un settings.ini livre et privee
++       ;; de sa clause de lecture ferait repartir tout le reste du fichier au defaut.
++       ;; `pc-set-rt-light!` suit desormais le maitre unique `recharged-lighting?`.
+        (flag-row FLAG_PBR
+        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+             :option-disabled-func

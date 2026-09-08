@@ -1,0 +1,26 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "lib_sha256": "dbc383605d0125ed543accfca9f8f471ecbee83839edf76e8492026700fef8b5",
+  "apk_sha256": "9767b7e77eac6c8eb5b676d9f6df5b4d326d3e3f104afe97ddb9e61ecaeb7e11",
+  "pack_version": "cb8d34d987e4a",
+  "pack_sha256": "5f2e13e247aeb67573559fc139ed3f4c62c219d378a10e102338da565ea4d96f",
+  "sources": {
+    "goal_src/jak1/pc/hud-classes-pc.gc": "bbcb49abf34adac9391c0f94e4574955a5799f87dcf29f11a36e2fab61382d6a",
+    "goal_src/jak1/pc/progress-pc.gc": "b6bb550395969a7b4c275f0fbc200753e2ea150cf6f923f76f9f0c59e2aae518",
+    "goal_src/jak1/pc/pckernel.gc": "3862c5d62a50703e960fe815cdec0ef4d9a461a61cc8f6f01099cbb6867a768e"
+  },
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "duration_s": 104.226,
+  "cgos": {
+    "GAME.CGO": {
+      "stage": "acd302f537ffe49869a701c5dfc360e503d859c37b77e9a03a62eeb03b932434",
+      "device": "acd302f537ffe49869a701c5dfc360e503d859c37b77e9a03a62eeb03b932434",
+      "before": "ca2b90bad9e55bfd9a7bd87e3d9689a273dc3772384ad8797aae0e46ade5adc1"
+    },
+    "ENGINE.CGO": {
+      "stage": "f844dda8d08a0b2c9e1c4011db54d3cdc290ee294a5ff8cc2fad3088a7e1a96d",
+      "device": "f844dda8d08a0b2c9e1c4011db54d3cdc290ee294a5ff8cc2fad3088a7e1a96d",
+      "before": "2080b539a7f10be3634c0ac907f70d604885f15d2aeeeddc491489c782492cd1"
+    }
+  }
+}

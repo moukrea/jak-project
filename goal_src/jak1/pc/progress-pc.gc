@@ -7507,9 +7507,10 @@
        ;; HDR a continue de tourner. `recharged-lighting?` est LE maitre de la refonte lumiere :
        ;; OFF = l'eclairage d'origine, ON = notre refonte, et le reste du Recharged (modeles HD,
        ;; herbe, textures, HUD) n'est PAS touche — c'est ce qui le distingue du master du projet.
-       ;; Le champ `realtime-lighting?` SURVIT (lu/ecrit par pckernel.gc, pousse par
-       ;; pc-set-rt-light!) : une cle presente dans un settings.ini livre et privee de sa clause
-       ;; de lecture ferait repartir tout le reste du fichier au defaut. Seule la LIGNE part.
+       ;; Le champ legacy `realtime-lighting?` SURVIT uniquement pour la persistance
+       ;; (lu/ecrit par pckernel.gc) : une cle presente dans un settings.ini livre et privee
+       ;; de sa clause de lecture ferait repartir tout le reste du fichier au defaut.
+       ;; `pc-set-rt-light!` suit desormais le maitre unique `recharged-lighting?`.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :option-disabled-func

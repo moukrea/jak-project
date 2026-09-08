@@ -1,0 +1,17 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "pids": [
+    "8462",
+    "8462"
+  ],
+  "stable_seconds": 12,
+  "lib_device": "dbc383605d0125ed543accfca9f8f471ecbee83839edf76e8492026700fef8b5",
+  "apk_device": "9767b7e77eac6c8eb5b676d9f6df5b4d326d3e3f104afe97ddb9e61ecaeb7e11",
+  "cgos": {
+    "GAME.CGO": "acd302f537ffe49869a701c5dfc360e503d859c37b77e9a03a62eeb03b932434",
+    "ENGINE.CGO": "f844dda8d08a0b2c9e1c4011db54d3cdc290ee294a5ff8cc2fad3088a7e1a96d"
+  },
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "nonempty_debug_props": [],
+  "lock_absent": true
+}
