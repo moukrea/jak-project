@@ -1202,6 +1202,8 @@ u32 AndroidOpenGLRenderer::count_chain_bytes(DmaFollower dma) {
 }
 
 void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& settings) {
+  Gfx::RechargedFrameScope recharged_frame_scope;
+  hdr::FrameScope hdr_frame_scope;
   RefsetChainCaptureScope refset_capture_scope;
   m_profiler.clear();
   // Gloadgate-crash-regression (owner 2026-08-30) — LE CORRECTIF D'A-COUPS D1/D5 NE TOURNAIT PAS
@@ -1374,7 +1376,7 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   // du renderer bureau (deux CMakeLists, deux TU) : un `frame_end()` pose seulement cote x86
   // rend une preuve appareil muette — c'est exactement ce qui est arrive a lighting-unify,
   // dont aucune cle ne sort sur l'appareil.
-  hdr::frame_end();
+  hdr::frame_end(m_fbo_state.render_fbo->color_format);
 
   m_profiler.finish();
   m_stats.draw_calls = m_profiler.root()->stats().draw_calls;

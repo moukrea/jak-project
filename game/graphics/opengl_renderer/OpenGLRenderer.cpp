@@ -1072,6 +1072,8 @@ void OpenGLRenderer::blit_display(ScopedProfilerNode& prof) {
  * Main render function. This is called from the gfx loop with the chain passed from the game.
  */
 void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
+  Gfx::RechargedFrameScope recharged_frame_scope;
+  hdr::FrameScope hdr_frame_scope;
   m_profiler.clear();
   // Fige, pour TOUTE la duree de cette image, la reponse a « l'ecran de chargement couvre-t-il ? ».
   // Une fois par image et en tete : deux appelants de la meme image ne peuvent pas obtenir deux
@@ -1252,7 +1254,7 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   m_profiler.finish();
   lighting_census::frame_end();
   shade_proof::frame_end();
-  hdr::frame_end();
+  hdr::frame_end(m_fbo_state.render_fbo->color_format);
   // Gloading-screen-window : ATTRIBUER LE GEL, AU LIEU DE LE SUPPOSER.
   // Mesure x86 du 2026-08-30, transition `save-geyser` : la derniere image de l'ecran de
   // chargement dure 253 ms quand les 60 precedentes tiennent a 17,3 ms de maximum. Le premier

@@ -26,6 +26,9 @@ namespace {
 
 constexpr const char* kItemId = "lighting-hdr";
 
+thread_local bool s_frame_active = false;
+thread_local bool s_frame_chain = false;
+
 // L'echelle de repli du §4.5, dans l'ordre. On ne descend d'un cran que lorsque le pilote a
 // REFUSE le cran precedent (FBO incomplet) : le repli est mesure, jamais suppose.
 //
@@ -309,7 +312,22 @@ float half_to_float(uint16_t h) {
 
 // ---------------------------------------------------------------------------------- regime ----
 
+FrameScope::FrameScope()
+    : m_previous_active(s_frame_active), m_previous_chain(s_frame_chain) {
+  const bool chain = chain_active();
+  s_frame_chain = chain;
+  s_frame_active = true;
+}
+
+FrameScope::~FrameScope() {
+  s_frame_active = m_previous_active;
+  s_frame_chain = m_previous_chain;
+}
+
 bool chain_active() {
+  if (s_frame_active) {
+    return s_frame_chain;
+  }
 #if defined(AUTOPORT_ABLATE_LIGHTING_HDR)
   // BINAIRE TEMOIN DU VERDICT 4 — la seule chose que cette macro fabrique.
   //
@@ -572,7 +590,7 @@ void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt) {
   }
 }
 
-void frame_end() {
+void frame_end(GLenum scene_format) {
   s_frames++;
   const bool on = chain_active();
   if (on) {
@@ -586,8 +604,8 @@ void frame_end() {
   // ── verdict 5 : le recensement PAR IMAGE et PAR CONFIGURATION ────────────────────────────
   // Un recensement CUMULE sur toute la course melangerait les trois configurations et rendrait
   // 1 alors qu'une des trois en porte 0 ou 2. On compte donc l'image courante, dans la
-  // configuration courante — et la configuration se lit sur les maitres eux-memes, pas sur une
-  // intention posee ailleurs.
+  // configuration figee au debut du render — les getters des maitres gardent ce regime,
+  // et scene_format vient du FBO effectivement retenu, apres repli eventuel.
   // Le compte d'une image vaut : le tone map a-t-il ete tire (0 ou 1) + le tampon de scene
   // ecrete-t-il par son format (RGBA8 = oui, flottant = non) + les programmes dont le texte
   // porte une compression de plage. Sous ORIGINE-TOTAL et ORIGINE-LUMIERE, l'unique site est
@@ -602,7 +620,7 @@ void frame_end() {
     const int cfg = !Gfx::recharged_master_active() ? 1
                                                     : (Gfx::recharged_lighting_active() ? 2 : 3);
     const uint64_t sites = (s_drew_this_frame ? 1ull : 0ull) +
-                           (format_is_float(scene_color_format()) ? 0ull : 1ull) + sh;
+                           (format_is_float(scene_format) ? 0ull : 1ull) + sh;
     s_cfg_frames[cfg]++;
     if (sites != 1) {
       s_cfg_bad[cfg]++;
@@ -615,7 +633,7 @@ void frame_end() {
         s_bad_first_cfg = (uint64_t)cfg;
         s_bad_first_sites = sites;
         s_bad_first_draw = s_drew_this_frame ? 1 : 0;
-        s_bad_first_fmt8 = format_is_float(scene_color_format()) ? 0 : 1;
+        s_bad_first_fmt8 = format_is_float(scene_format) ? 0 : 1;
         s_bad_first_shader = sh;
       }
     }
@@ -679,7 +697,7 @@ void frame_end() {
                                aux_names.empty() ? "aucun" : aux_names.c_str());
   autoport_proof::publish("hdr_oetf_progs", oetf_progs);
   autoport_proof::publish("hdr_oetf_occurrences", oetf_total);
-  autoport_proof::publish_text("hdr_format", format_name(scene_color_format()));
+  autoport_proof::publish_text("hdr_format", format_name(scene_format));
   // QUEL BINAIRE A PRODUIT CETTE COURSE. `ablate` est le temoin du verdict 4 (voir
   // `chain_active`) : il ne doit JAMAIS apparaitre dans un proof.txt qui passe une porte.
 #if defined(AUTOPORT_ABLATE_LIGHTING_HDR)

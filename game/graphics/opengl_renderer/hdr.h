@@ -57,6 +57,20 @@ namespace hdr {
 // Le mode ORIGINE (master OFF) ne passe JAMAIS par ici.
 bool chain_active();
 
+// Fige le regime HDR pour un render ; l'echelle de repli des formats reste mutable.
+class FrameScope {
+ public:
+  FrameScope();
+  ~FrameScope();
+
+  FrameScope(const FrameScope&) = delete;
+  FrameScope& operator=(const FrameScope&) = delete;
+
+ private:
+  bool m_previous_active;
+  bool m_previous_chain;
+};
+
 // Le format d'attachement couleur demande pour le tampon de scene, apres l'echelle de repli.
 // GL_RGBA16F -> GL_R11F_G11F_B10F -> GL_RGBA8 (§4.5).
 GLenum scene_color_format();
@@ -99,7 +113,8 @@ void note_aux_scene_read(const char* site, GLenum src_fmt, GLenum dst_fmt);
 // depasse 1,0. Ne tourne QUE lorsque le harnais mesure cet item, et une image sur N.
 void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt);
 
-// Fin d'image : publication. A appeler depuis LES DEUX renderers (bureau et Android).
-void frame_end();
+// Fin d'image : publication avec le format du FBO de scene effectivement retenu.
+// A appeler depuis LES DEUX renderers (bureau et Android).
+void frame_end(GLenum scene_format);
 
 }  // namespace hdr

@@ -641,7 +641,16 @@ inline int read_override(const char* prop, const char* env) {
   return -1;
 }
 
-inline bool recharged_master_active() {
+namespace detail {
+struct RechargedFrameState {
+  bool active = false;
+  bool master = false;
+  bool lighting = false;
+};
+inline thread_local RechargedFrameState recharged_frame_state;
+}  // namespace detail
+
+inline bool read_recharged_master_active() {
 #if AUTOPORT_ORIGIN_ABLATE
   // BINAIRE-TEMOIN DE `lighting-origin-bitexact` (game/graphics/origin_ablate.h). La couche
   // Recharged n'est pas ETEINTE ici, elle est ABSENTE : ce `return` constant supprime a la
@@ -673,6 +682,15 @@ inline bool recharged_master_active() {
 #endif
 }
 
+inline bool recharged_master_active() {
+#if AUTOPORT_ORIGIN_ABLATE
+  return false;
+#else
+  return detail::recharged_frame_state.active ? detail::recharged_frame_state.master
+                                            : read_recharged_master_active();
+#endif
+}
+
 inline bool recharged_active(bool feature_flag) {
   return feature_flag && recharged_master_active();
 }
@@ -686,7 +704,7 @@ inline int recharged_active_mode(int feature_mode) {
 // raison : le jeu de references bascule ce drapeau a chaque etape et deux lecteurs de la meme
 // image doivent lire la meme valeur. La propriete/variable epingle LE DRAPEAU, jamais la
 // composition : le master garde son droit de veto au-dessus.
-inline bool recharged_lighting_active() {
+inline bool read_recharged_lighting_active() {
 #if AUTOPORT_ORIGIN_ABLATE
   return false;  // voir recharged_master_active() ci-dessus
 #else
@@ -707,6 +725,32 @@ inline bool recharged_lighting_active() {
   return on && recharged_master_active();
 #endif
 }
+
+inline bool recharged_lighting_active() {
+#if AUTOPORT_ORIGIN_ABLATE
+  return false;
+#else
+  return detail::recharged_frame_state.active ? detail::recharged_frame_state.lighting
+                                            : read_recharged_lighting_active();
+#endif
+}
+
+// Chaque render conserve les memes maitres jusqu'a son retour, y compris au recensement HDR.
+class RechargedFrameScope {
+ public:
+  RechargedFrameScope() : m_previous(detail::recharged_frame_state) {
+    const bool master = read_recharged_master_active();
+    detail::recharged_frame_state = {true, master, false};
+    detail::recharged_frame_state.lighting = read_recharged_lighting_active();
+  }
+  ~RechargedFrameScope() { detail::recharged_frame_state = m_previous; }
+
+  RechargedFrameScope(const RechargedFrameScope&) = delete;
+  RechargedFrameScope& operator=(const RechargedFrameScope&) = delete;
+
+ private:
+  detail::RechargedFrameState m_previous;
+};
 
 // LE seul composeur des trois niveaux (master > eclairage > sous-drapeau). Tout consommateur
 // d'une couche d'ECLAIRAGE passe par ici. Un sous-reglage d'eclairage qui ne consulterait que
