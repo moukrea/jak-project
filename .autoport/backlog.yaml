@@ -4071,7 +4071,7 @@ items:
   owner_feedback: []
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
-  status: open
+  status: blocked
   priority: 1
   owner_feedback:
   - date: '2026-09-06'
@@ -4262,8 +4262,10 @@ items:
   - debug.opengoal.want.display=beach,display
   - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
   proof_timeout: 720
-  block_reason: ''
-  supervisor_recovery: true
+  block_reason: 'Aucun appareil USB disponible : selection officielle essai50 du 2026-09-08 23:13 UTC,
+    retour3 et aucune preuve. Rebrancher un telephone USB avec debogage autorise ; reprendre sous Codex
+    apres changement materiel, sans accord supplementaire. Pas de nouvel essai identique.'
+  supervisor_recovery: false
   proof_plan:
     mode: multi_process_batches
     owner_authorized: true
