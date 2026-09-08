@@ -13,7 +13,10 @@ Exception bornée à la restriction `.autoport/lib/` des rôles implementer :
 - `.autoport/lib/hdr_batches.py`
 - `.autoport/tests/harness/test_hdr_batches.py`
 
-Ces fichiers peuvent être créés/modifiés pour brancher le cumul à proof_run et le tester.
+Ces fichiers peuvent être modifiés pour exploiter les séquences/régions déjà produites,
+implémenter leur jugement dans owner_regressions et tester les erreurs et régressions.
+Le cumul est livré : ne pas le reconstruire. Le jugement doit distinguer présence de
+mesures et réussite ; les cas absents restent en échec. Les critères finaux restent inchangés.
 Le superviseur autorise cette implémentation, pas seulement une proposition.
 Aucun accès aux autres composants harnais, aucun changement de generic/owner-ok.
 L'entrée officielle reste proof_run.sh ; le helper n'écrit pas de preuve à la main.
