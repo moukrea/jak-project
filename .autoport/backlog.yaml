@@ -4214,21 +4214,18 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Essai36 : deux crashes AVANT captures : spawn-bird/default-dead-pool0 et intern_from_c/symbol_slot0.
-    Causes profondes non etablies, concurrence non prouvee. Patch menu livre mais retourON/ombres non
-    verifies. Portail10s non mesure car crash.'
-  deliverable: 'Reprise36 prioritaire : diagnostiquer et corriger les deux crashes de chargement documentes
-    dans handoff36 et proof_plan.recovery_attempt_36. Correction moteur bornee autorisee ; etablir cause
-    avant patch, ne pas masquer via skip oiseaux/portail, retry identique, hausse settle ou suppression
-    captures. Sources crash conservees ; tests ciblant cause. Puis verifier bouton Lighting en mode normal
-    sans override rt.light : OFF et retourON effectifs, persistance, ombres ; restaurer reglages owner.
-    Mesurer portail apres10secondes animees devant lui et apres chaque purge/warp, temps mural trace.
-    Anciennes captures settle12 non concluantes. Reprendre nuages/soleil puis sol/portail sans prealable
-    eco ; les5cas restent requis. Comparaisons ImageMagick regions ON/OFF et avant/apres, courbe/composition
-    a isoler ; blancs voulus, nuances/eclat conserves sans exces brulures/violet/aplats. Pas nouveau bloom
-    ni compteur255 seul. Pas nouveaux outils generaux/frame exacte ni diagnostics eco negatifs repetes.
-    Final21niveaux8h/ciels/interieurs/vraie hutte par lots compatibles ; aucun ancien binaire comme preuve
-    sans compatibilite. Profils SDR/HDR distincts permis, HDR natif ensuite. Porte finale inchangee ;
+  known_cause: 'Essai42 : crash hd-mtxarea=FFFFFFFF via hd-mtx-check-all dans menus, avant LightingOFF;
+    cause inconnue, cache compagnons suspect seulement. Rendu41 inchange42. Prompt36 obsolete : menuON/retourON
+    et portail10s deja observes. Deficit piece/portail precede courbe; sol vraie hutte non couvert.'
+  deliverable: 'Reprise42 selon proof_plan.recovery_attempt_42. Corriger cause bornee crash hd-mtxarea/cache/compaction
+    sans garde speculative ni supprimer modeles. Navigation OFF ne bloque plus travail visuel : ne pas
+    repeter taps aveugles. Priorite sol vraie hutte et assombrissement piece/portail : vues jouables,
+    captures detaillees via proof_run, contribution responsable avant nouveau reglage global. Etendre
+    aux autres niveaux sans attendre perfection plage. Nuages/soleil et eco restent obligatoires; reutiliser
+    diagnostics existants sans rejouer pistes negatives. Portail:10s animees apres chaque reset, tracees.
+    Comparaisons regionales couleur/eclat/details et ensemble image, pas compteur blancs seul. Final:
+    cinqcas,21niveaux8h/ciels/interieurs/vraie hutte par lots compatibles, menuOFF/persistance et crash0.
+    Pas egalite pixel/rejeu exact comme prealable. Aucun ancien binaire comme preuve sans compatibilite;
     aucun owner-ok.'
   out_of_scope: Pas de census, baseline historique, cinq rejeux/frame exacte. Aucun changement textures/modeles
     HD/herbe/brise/cadence. Ne pas masquer brulures par assombrissement global excessif. Pas de validation
@@ -4326,6 +4323,19 @@ items:
       after: verifier menu normal sans rt.light force puis portail anime10s tracees et reprendre cinq
         cas
       final_gate: inchangee crash0 et hdr_tonemap_defects0 ; aucun owner-ok
+    recovery_attempt_42:
+      diagnosis: Essai42 sans changement rendu; crash hd-mtxarea FFFFFFFF pendant navigation avant LightingOFF.
+        Cause profonde non etablie; cache compagnon suspect non prouve. Prompt36 obsolete.
+      menu_off_prerequisite_for_visual_fixes: false
+      authorized_scope: Correction causale bornee hd-mtxarea/cache compagnons/compaction; pas garde speculative
+        ni suppression modeles/effets.
+      next_visual_work: 'Sol vraie hutte et assombrissement ensemble piece portail: identifier contribution
+        responsable avant courbe; cadrages jouables et captures detaillees via proof_run. Nuages/soleil
+        et eco restent requis, couverture autres niveaux commence sans attendre perfection plage.'
+      retained_evidence: MenuON/retourON39 et attente portail10s41 etablis sur leurs binaires; ne pas
+        requalifier comme preuve nouveau build.
+      final_gate: crash0 et cinqcas couverts et hdr_tonemap_defects0; menuOFF/persistance encore requis
+        avant livraison; aucun owner-ok
   harness_edit_allowlist:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py
