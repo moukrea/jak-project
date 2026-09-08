@@ -4203,20 +4203,21 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Essai24 : eco10012 h12 blancs moyens OFF89.33/ON0, ROI projetee et sequence disponibles.
-    Aucun correctif rendu essai24. owner_regressions() impose encore measured=[] : porte inachevee, pas
-    preuve de correction. Transition deux vues SIGILL ; lots une vue fonctionnent.'
-  deliverable: 'Reprise apres essai24 : commencer par corriger la perte lumineuse eco deja reproduite,
-    avec les sequences essai24-projected comme AVANT. Tracer les domaines couleur et la composition jusqu
-    au tone map, modifier le rendu puis mesurer APRES par proof_run, meme vue/heures/config hors correction.
-    Ne pas attendre les5ROIs pour cette correction. Aucun nouveau systeme general de capture. Ensuite
-    traiter nuages, soleil, sol devant vraie hutte Sage vert et portail ; ROI portail actuelle trop large,
-    legacy n est pas la hutte. Brancher owner_regressions sur observations reelles : distinguer mesure
-    et reussite ; absence reste echec, aucun cas valide par simple presence ou zero blanc. Mesures ImageMagick
-    temporelles/regions comparables, pas frame exacte ; conserver blancs voulus OFF et nuances sans exces
-    de brulure ni derive violette. Pas nouveau bloom/particules pour masquer. Puis verifier21niveaux/8h/ciels/interieurs/vraie
-    hutte par lots compatibles. Profils SDR/HDR distincts permis ; HDR natif ensuite. Porte finale inchangee,
-    aucun owner-ok.'
+  known_cause: 'Essais25-30 : eco monopolise six cycles sans correction demontree. Ablation29 : ecart
+    persiste HDR0, populations/fond differents ; cause tone map non etablie. Quatre autres cas sans mesure.
+    Prerequis eco-first supprime ; gate finale conserve les5cas.'
+  deliverable: 'Reprise30 : traiter maintenant nuages blancs et soleil couchant, puis sol vraie hutte
+    et portail, sans attendre eco. Exploiter reperes notes30 : nuages SKY_DRAW+PRIM.tme, soleil groupe35/1950-1952.
+    Produire vues comparables eclairage seul ON/OFF et mesures ImageMagick, isoler courbe/composition
+    puis corriger rendu et comparer avant/apres. Utiliser les outils existants ; attribution bornee des
+    regions autorisee, aucun nouveau systeme general ni frame exacte. Preserver blancs voulus, nuances
+    et eclat ; eviter exces brulures/violet/aplats sans nouveau bloom ni assombrissement global. Ne pas
+    optimiser compteur255 seul. Eco reste obligation finale : exploiter ablation29 et traces30, pas repetition
+    clamps/quantification/nommage ou campagnes ORB deja negatives ; absence de temoin ne prouve pas absence
+    effet. Aucun prealable eco pour les autres corrections. Completer owner_regressions pour cas effectivement
+    mesures, absence/echec restent rouges. Ensuite bilan equilibre21niveaux8h/ciels/interieurs/vraie hutte
+    par lots compatibles ; anciens binaires diagnostic uniquement. Profils SDR/HDR distincts permis ;
+    HDR natif ensuite. Aucune validation owner ni porte abaissee.'
   out_of_scope: Pas de census, baseline historique, cinq rejeux/frame exacte. Aucun changement textures/modeles
     HD/herbe/brise/cadence. Ne pas masquer brulures par assombrissement global excessif. Pas de validation
     owner ; sortie ecran HDR native ensuite.
@@ -4279,12 +4280,20 @@ items:
     - soleil couchant jaune/orange plat sans eclat ON
     - petites zones au sol devant hutte Sage vert violettes ON
     - warp gate violet ecrase ON
-    recovery_attempt_24:
-      first_deliverable: correction rendu eco + comparaison avant/apres avec sequences existantes
-      capture_process: une vue par processus (SIGILL transition essai24)
-      regional_gate: implementer jugement sur observations ; non mesure reste defaut ; mesure ne vaut
-        pas reussite
-      full_campaign: apres corrections ciblees, couverture finale21niveaux8heures maintenue
+    recovery_attempt_30:
+      diagnosis: eco-first a bloque4autrescas ; ablationHDR0 conserve ecart eco
+      work_order:
+      - nuages et soleil couchant
+      - sol vraie hutte et portail
+      - eco avec traces existantes
+      - equilibre21niveaux8heures
+      eco_prerequisite_for_other_cases: false
+      final_required_cases: les5cas inchanges
+      reuse_negative_diagnostics:
+      - ablation29HDR0
+      - quantification28
+      - nommage30
+      - ORB30
   harness_edit_allowlist:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py
