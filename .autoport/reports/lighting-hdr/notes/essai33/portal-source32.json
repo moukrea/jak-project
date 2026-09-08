@@ -1,0 +1,100 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "source": ".autoport/reports/lighting-hdr/notes/essai32/hut-portal/portal-witnesses.json",
+  "sha256": "f4d2de48654f34d0df08182dbf4e9c60fc97fdb434bfb9a4154ecdb7af308891",
+  "limitation": "texture maxima times alpha, not sampled contribution; statistics per visible sprite (not balanced per temporal frame)",
+  "groups": [
+    {
+      "case": "origine-lumiere/village1-out-h12",
+      "roi_unique": [
+        [
+          147,
+          42,
+          173,
+          79
+        ]
+      ],
+      "source_rgb_mean": [
+        0.09542483960588773,
+        0.1660130750387907,
+        0.6810457706451416
+      ],
+      "source_times_alpha_mean": [
+        0.052533643342059025,
+        0.06336024860575401,
+        0.3152428690486653
+      ],
+      "visible_sprite_events": 6,
+      "temporal_frames": 6
+    },
+    {
+      "case": "origine-lumiere/village1-out-h18",
+      "roi_unique": [
+        [
+          147,
+          42,
+          173,
+          79
+        ]
+      ],
+      "source_rgb_mean": [
+        0.17385621120532355,
+        0.17647059013446173,
+        0.7228758335113525
+      ],
+      "source_times_alpha_mean": [
+        0.09864924028288567,
+        0.09848520046034855,
+        0.4010970294795618
+      ],
+      "visible_sprite_events": 6,
+      "temporal_frames": 6
+    },
+    {
+      "case": "recharged/village1-out-h12",
+      "roi_unique": [
+        [
+          147,
+          42,
+          173,
+          79
+        ]
+      ],
+      "source_rgb_mean": [
+        0.1346405247847239,
+        0.0836601333382229,
+        0.7490196228027344
+      ],
+      "source_times_alpha_mean": [
+        0.05831603467372785,
+        0.035494042904027086,
+        0.3167807425383453
+      ],
+      "visible_sprite_events": 6,
+      "temporal_frames": 6
+    },
+    {
+      "case": "recharged/village1-out-h18",
+      "roi_unique": [
+        [
+          147,
+          42,
+          173,
+          79
+        ]
+      ],
+      "source_rgb_mean": [
+        0.10308123539601054,
+        0.10868347662367991,
+        0.7596638798713684
+      ],
+      "source_times_alpha_mean": [
+        0.046083376896520874,
+        0.069933544701843,
+        0.41084858697119536
+      ],
+      "visible_sprite_events": 7,
+      "temporal_frames": 6
+    }
+  ]
+}

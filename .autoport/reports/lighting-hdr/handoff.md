@@ -1,28 +1,29 @@
 DIRECTIVES ve7fcbe0116
 ## ÉTABLI
-- Aucun code/build/réglage permanent32 ; lib locale/APK/Redmi243591e44243b0843b14d2bf70c353900936a51cdb94bc483a9bf97ec6cd2a73 inchangée31.
-- Preuve officielle par proof_run aggregate-only : essai32-compatible/20260908T100652-3955392 ;2lots/5paires/5cellules/errors0/missing336/defects4/ownerfailed2missing5measured0.
-- Copies octet-identiques de deux lots officiels, originaux préservés ;146sources scellées SHAOK, notes/essai32/aggregate-lineage.json. Aucun generic/owner-ok.
-- Ciel essai32-sky-before/20260908T100132-3950103 :146s/crash0/frames2160/36captures/432compositions/85SHAOK ; warpat900, h9cam7:-35:0:30 puis h12/18cam7:-35:0:5000, temporal6.
-- Ciel mesuré162pmh9 et583pmh12/18 : pas plein cadre pur. Nuages ROI[0,0,320,106]h12 blancsON92.33/OFF105.17, nearwhite270.83/262.83, luma154.36/155.54, detail3.7736/3.7920,flat.20536/.19938.
-- Soleil h18 :36/36queries=3composants sur12samples, résiduassociation0m ; ROI[142,67,178,112], W/N0deuxbras, luma192.002/193.183,detail8.2635/8.0405,flat.13669/.13139. Cas toujours nonjugé faute blancsOFF.
-- Nuages natifs h12ON pixelsmoy290400/OFF244800 : dimensions variables, sommes brutes non comparables ; finales320x180 comparées. Aucun nouveau genou.
-- IMPORTANT gardeABE31 insuffisante : gradient8064 etcloud8096 ont prim_abe=true,12/96vertices. Source sky-tng.gc721 gradientALPHA b=DEST ;776cloud b=ZERO,d=DEST,texture base+32à780 ; ne pas prétendre gradient exclu.
-- Hutte/portail essai32-hut-portal/20260908T100652-3955392 :131s/crash0/frames1740/24captures/288compositions/61SHAOK,2824témoins1395 ; harddot visible24/24samples.
-- Cam existante village1-out:-10:-108:152:33,h12/18,warp village1-hut,warpat900,loadsettle240,settle12,temporal6,want.levels=beach,village1,want.display=village1,display.
-- Capspawn163°,cam(-138.451,49.300,203.282)à6.3cm camera-start15 JSON6794 ; sage23 transJSON6975(-132.6594,46.1975,213.4677) ; sol nonattribué.
-- Disque ROI[147,42,173,79] : W/N0tousbras ; lumaON/OFFh12=85.980/106.348,h18=80.734/95.916 ; saturation.52062/.48738 et.60209/.55220.
-- Région portail entière h18 luma52.372/62.762,detail16.348/17.799,flat.02487/.01503 ; détails et couleurs dans hut-portal/image-region-summary.json.
-- Composition native avant/après1395 enfin lisible ; mais rectangles/résolution/populations variables (h12candidatesON156.67/OFF106.17), pas attribution causale au tone map.
-- Borne analytique courbe actuelle/exposure1 : max(clamp(x)-f(x))*255=3.1875àx1, contre écart final portail20.368h12/15.183h18 ; courbe seule sur même entrée insuffisante (notes/essai32/curve-bound.json).
-- Crash31 : spawn-bird PC0x268920c ; relocation BEA.DGO seagull identifie valeur symbole*default-dead-pool*=0 avant get-process, LDURtype àee_base-4. Pas un retourget-processnul. Gkernel déjàlié : cause initiale inconnue.
-- App normale restaurée PID10576stable12s/debugvides/verrouabsent/lib243591 ; hut-portal/normal-restoration.json. Notes32/diagnostic.md et deux tester-result.md.
+- Deux corrections d’attribution seulement33 : DirectRenderer garde ALPHA(0,2,0,1,0), Sprite3 ajoute ROI disque1395/harddot/mode3 sans lectureGPU nouvelle, union conservée ; aucun shader/courbe/exposition modifié.
+- Build incrémental gk+repack rc0 ; lib locale/APK/Redmi dbc383605d0125ed543accfca9f8f471ecbee83839edf76e8492026700fef8b5 ; APKc03d2cd01b9ba4eb940110d25ae4042dca609ea492a0c0d4de713f26d534967e.
+- Preuve officielle essai33-compatible/20260908T102706-3974235 :2lots/5paires/5cellules/errors0/missing336/defects4/ownerfailed2missing5measured0. Copies identiques146sources, originals33 et avant32 conservés.
+- Ciel33/20260908T102415-3970238 :36captures/360compositions/crash0/frames2040 ;36témoins clouds TBP8096seul ALPHA(0,2,0,1,0), gradient8064exclu (sky/attribution-check.json).
+- Cams identiques32 : warpat900,h9cam7:-35:0:30,puis h12/18cam7:-35:0:5000 ; temporal6. Nuages h12ROI[0,0,320,106] W_ON92.5/OFF105.17,N270.67/262.83,luma154.365/155.539.
+- Nuages natifs h12pixelsON313200/OFF244800 : seules proportions/moyennes normalisées comparables ; delta luma encodée/pixelON.14224/OFF.13811. Pas ciel plein cadre àh9.
+- Soleil h18 trois composants visibles, blanc/nearwhiteOFF0 ; ROI33[142,68,178,111]diffère32, lumaON193.020/OFF194.237,détail8.558/8.367 ; aucun avant/après interlots surROI différente.
+- Source soleil32lf1749 middotRGB(1,.50196,0),rayons(.24706,.12549,0),deltaB0 ; weather-part.gc470-478 current-sun.sun-color. Helper attend blancsOFF, éclat reste nonjugé.
+- Portail33/20260908T102706-3974235 :24captures/286compositions/crash0/frames1800,61SHAOK ; vraie caméra32 village1-out:-10:-108:152:33,h12/18,warp village1-hut,warpat900,loadsettle240,settle12,temporal6.
+- ROI disque[147,42,173,79], native7020pixels,23/24samples ; ONh12-t03lf1489 deux harddot alpha0 passedfalse → ROI absente conservée. Union1395 reste24/24.
+- ROI disque avant/après même fenêtre, luma encodéeRec709 h12ON.287784/.335942(n5),OFF.364923/.399655(n6) ; h18ON.260116/.306414,OFF.319271/.364290(n6).
+- Delta groupe dans ROI disque h12ON.048157/OFF.034732,h18.046298/.045019 : inclut halos superposés, pas contribution isoléeharddot. L’écart de fond précède sprites/tone map.
+- Disque final33W/N0 ; lumaON/OFFh12=85.959/104.012,h18=79.760/95.554 ; saturation.51215/.47884 et.59515/.56523 (hut-portal/image-region-summary.json).
+- Sources couleur32harddot1973 variables ND : G*alpha h12ON.035494/OFF.063360,B*.316781/.315243 ; moyennes événements, h18ON7sprites/6frames. Ne pas compenser hasard par teinte.
+- Candidat hutte assetGLB SHA479edc590f5362289efdb4aa3ad5e6c0fa56619d48d9b9d2b326a92d2877f028 : mesh0/prim6/material7 vil1-jng-leafyground,tri1104–1135,x[-127.485,-118.610],y[47.187,47.375],z[200.328,209.203].
+- Candidat non attribué runtime/ROI ; normales winding-Y,doubleSided. COLOR_0B>R>G ne désigne aucuneheure12/18. Sable vil-beach-01 le plus proche y≈34m sous plateforme. Détails notes/essai33/diagnostic.md.
+- Éco acquis29/30 conservés : HDR0déficit10012h18=543.67/1148.33 ;13284PRE/POSTsaines,0bigpuff/starflash/4188témoins. RNGacteur nonrestauré parsidecars ; aprèsORBPOST sparticle.cpp907-963 peut libérer, puis Sprite3culling/TBP/filtre association restent nonreliés.
+- Crash31 spawn-bird : symbole*default-dead-pool*=0 avant get-process, LDURtypeee_base-4 PC0x268920c ; pas correction prouvée parwarpat900, seulement contrôle conservé32/33 sans crash.
+- App normale restaurée PID16091 stable12s/debugvides/verrouabsent/SHAdbc383 ; notes/essai33/restoration-summary.json. Aucun generic/owner-ok.
 ## TENTÉ
-- Retardwarp300→900 : deux runs sans crash, ne prouve pas correction du pool nul. Aucun changementND/skip/abort ni relance supplémentaire.
-- Cadrage500m prévu31 atteint32 et soleil réellement visible ; gardes chargement intactes. Cam hutte dérivée apporte portail, pas preuve matériau/ROI du sol.
-- Aucun genou/gamma/clamp/bloom retouché : nuages quasi-blancs présents, écart portail excède capacité de la seulecourbe ; ne pas optimiser255 seul ni compenser par effet nouveau.
+- Exclusion gradient et ROI disque bornée validées techniquement sur appareil ; aucune correction photométrique déduite artificiellement de compteurs blancs ou couleurs aléatoires.
+- Attribution sol parGLB trouve candidat précis, mais ni relation défautowner ni FR3chargé/projection/occlusion prouvés. Aucune nouvelle campagneéco, aucun clamp/quantification/genou/effet artistique.
 ## RESTE
-- Isoler composition/éclairage et variations d’échantillonnage du portail avec traces32, puis corriger causalement ; sources32 constituent avant exploitable, pas correctif prouvé.
-- Nuages : attribution finale reste partielle, gradient n’est pas exclu parABE ; exploiter ALPHA source, pas autre cadrage aveugle. Soleil visible mais W/N_OFF0 : garder explicitement nonjugé, diagnostiquer éclat/détails sans inventer blancs.
-- Sol vraie hutte : caméra native maintenant disponible, attribuer matériaux/ROI signalés ; vue seule n’est pas preuve sol. Éco29/30 inchangé :13284PRE/POSTsaines mais0bigpuff/starflash sur4188témoins ; slot→DMA→soumission/culling/TBP reste nonrésolu, pas refaireORB/clamps/quantification/nommage.
-- non prouvé : correction5cas, bilan21niveaux×8h/ciels/intérieurs/vraie hutte/acquis et HDRnatif. Les cinq obligations et défauts restent rouges ; aucune validationowner.
+- Corriger causalement nuages/soleil : attribution nuages maintenant additive seule ; région inclut fond/décor, soleil coloréOFF sans blancs ne prouve ni absence ni préservationéclat.
+- Portail : poursuivre terme éclairage du fond identifié en ROI fixe, conserver absence alpha0 et populations ; ne pas retoucher courbe pour compenser l’écart préexistant. Attribuer sol candidat en jeu.
+- Éco : liaison slotvecdata→état vivant aprèsORBPOST→soumission/culling/TBP nonrésolue ; aucune absence témoin ne vaut absence effet, pas refaire diagnostics négatifs29/30.
+- non prouvé : correction5cas, bilan21niveaux×8h/ciels/intérieurs/vraie hutte/acquis/HDRnatif. Bilan final non exécuté car correctifs ciblés non établis ; cinq obligations restent rouges, aucune validationowner.

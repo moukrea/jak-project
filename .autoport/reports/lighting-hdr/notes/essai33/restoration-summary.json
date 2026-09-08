@@ -1,0 +1,11 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "pids": [
+    "16091",
+    "16091"
+  ],
+  "stable_seconds": 12,
+  "sha256sum": "dbc383605d0125ed543accfca9f8f471ecbee83839edf76e8492026700fef8b5  /data/app/~~Dsxsh8TcMAnC_vgbk0irmw==/org.opengoal.gk.jak1-C-BPm1E32gnnC8qCBZB4Yw==/lib/arm64/libgk.so",
+  "nonempty_debug_props": [],
+  "lock_absent": true
+}

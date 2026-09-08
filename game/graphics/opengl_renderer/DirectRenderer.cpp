@@ -299,13 +299,17 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
   int draw_count = 0;
   int num_tris = 0;
 
-  // The textured, alpha-blended SKY_DRAW primitives are the cloud roof.
-  // The opaque sky gradient, untextured horizon and offscreen sky-texture
-  // blends are separate draws. Attribute
-  // only submitted geometry, on the existing requested capture frames.
+  // The cloud roof uses textured SKY_DRAW primitives with additive Cs * As + Cd.
+  // The textured sky gradient also enables alpha blending, but subtracts DEST
+  // in ALPHA.b. Exclude it, the untextured horizon and offscreen sky-texture blends.
+  // Attribute only submitted geometry, on the existing requested capture frames.
   const bool cloud_probe = render_state->version == GameVersion::Jak1 &&
       m_my_id == int(jak1::BucketId::SKY_DRAW) && !m_offscreen_mode &&
       m_prim_gl_state.texture_enable && m_blend_state.alpha_blend_enable &&
+      m_blend_state.a == GsAlpha::BlendMode::SOURCE &&
+      m_blend_state.b == GsAlpha::BlendMode::ZERO_OR_FIXED &&
+      m_blend_state.c == GsAlpha::BlendMode::SOURCE &&
+      m_blend_state.d == GsAlpha::BlendMode::DEST && m_blend_state.fix == 0 &&
       autoport_proof::feature_is("lighting-hdr") &&
       refset::wants_scene_probe();
   nlohmann::json cloud_event;
@@ -329,6 +333,9 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
         {"case", "clouds"}, {"layer", "clouds"},
         {"association", "sky_draw_textured_triangles"}, {"bucket", m_my_id},
         {"prim_tme", true}, {"prim_abe", true},
+        {"alpha_a", int(m_blend_state.a)}, {"alpha_b", int(m_blend_state.b)},
+        {"alpha_c", int(m_blend_state.c)}, {"alpha_d", int(m_blend_state.d)},
+        {"alpha_fix", int(m_blend_state.fix)},
         {"vertices", m_prim_buffer.vert_count}, {"tbps", tbps},
         {"roi", nullptr}, {"supported", false}, {"passed", nullptr},
         {"reason", "invalid_projection"}};

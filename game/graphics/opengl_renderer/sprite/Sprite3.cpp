@@ -83,7 +83,7 @@ struct OwnerCompositionRoi {
 struct OwnerComposition {
   bool collecting = false;
   int64_t lf = -1;
-  std::array<OwnerCompositionRoi, 4> rois{};
+  std::array<OwnerCompositionRoi, 5> rois{};
   OwnerCompositionImage before;
 } owner_composition, owner_cloud_composition;
 
@@ -227,21 +227,8 @@ OwnerCompositionImage owner_composition_read() {
   return image;
 }
 
-void owner_composition_roi(OwnerComposition& composition, const nlohmann::json& event) {
-  if (!composition.collecting || composition.lf != owner_sprite_lf())
-    return;
-  const int actor = event.at("actor").get<int>();
-  const auto case_name = event.value("case", std::string{});
-  const int index = actor == 10012             ? 0
-                    : actor == 10013           ? 1
-                    : actor == 1395            ? 2
-                    : case_name == "sunset-sun" ? 3
-                    : case_name == "clouds"     ? 0
-                                               : -1;
-  if (index < 0)
-    return;
-  auto& roi = composition.rois[index];
-  roi.actor = actor;
+void owner_composition_accumulate(OwnerCompositionRoi& roi, const nlohmann::json& event) {
+  roi.actor = event.at("actor").get<int>();
   ++roi.candidates;
   if (event.at("passed").is_null())
     ++roi.passed_unknown;
@@ -257,6 +244,35 @@ void owner_composition_roi(OwnerComposition& composition, const nlohmann::json& 
   for (int k = 0; k < 2; ++k) {
     roi.bounds[k] = std::min(roi.bounds[k], b[k]);
     roi.bounds[k + 2] = std::max(roi.bounds[k + 2], b[k + 2]);
+  }
+}
+
+void owner_composition_roi(OwnerComposition& composition, const nlohmann::json& event) {
+  if (!composition.collecting || composition.lf != owner_sprite_lf())
+    return;
+  const int actor = event.at("actor").get<int>();
+  const auto case_name = event.value("case", std::string{});
+  const int index = actor == 10012             ? 0
+                    : actor == 10013           ? 1
+                    : actor == 1395            ? 2
+                    : case_name == "sunset-sun" ? 3
+                    : case_name == "clouds"     ? 0
+                                               : -1;
+  if (index < 0)
+    return;
+  owner_composition_accumulate(composition.rois[index], event);
+  if (actor == 1395 && event.value("layer", std::string{}) == "portal_disc" &&
+      event.value("texture", std::string{}) == "effects/harddot" &&
+      event.value("render_mode", -1) == 3 && event.value("supported", false) &&
+      event.at("passed") == true) {
+    auto& disc = composition.rois[4];
+    disc.case_name = "warp-gate";
+    disc.layer = "portal_disc";
+    disc.attribution = {{"association", "actor_layer_texture_render_mode_passed_supported"},
+                        {"actor", actor}, {"layer", "portal_disc"},
+                        {"texture", "effects/harddot"}, {"render_mode", 3},
+                        {"passed", true}, {"supported", true}};
+    owner_composition_accumulate(disc, event);
   }
 }
 

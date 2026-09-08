@@ -1,0 +1,815 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "rows": [
+    {
+      "lf": 1453,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h09",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5045624479320252,
+      "after_luma_encoded": 0.6445231633069406,
+      "delta_luma_per_pixel": 0.13996071537491545
+    },
+    {
+      "lf": 1465,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h09-t01",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5045624479320252,
+      "after_luma_encoded": 0.6441337128180211,
+      "delta_luma_per_pixel": 0.13957126488599592
+    },
+    {
+      "lf": 1477,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h09-t02",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5045624479320252,
+      "after_luma_encoded": 0.6438616523040572,
+      "delta_luma_per_pixel": 0.139299204372032
+    },
+    {
+      "lf": 1489,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h09-t03",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5045624479320252,
+      "after_luma_encoded": 0.6436866299207101,
+      "delta_luma_per_pixel": 0.13912418198868495
+    },
+    {
+      "lf": 1501,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h09-t04",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5045624479320252,
+      "after_luma_encoded": 0.6435926509180007,
+      "delta_luma_per_pixel": 0.13903020298597546
+    },
+    {
+      "lf": 1513,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h09-t05",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5045624479320252,
+      "after_luma_encoded": 0.6435647362668904,
+      "delta_luma_per_pixel": 0.1390022883348652
+    },
+    {
+      "lf": 1527,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h09",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5047253993696105,
+      "after_luma_encoded": 0.6404363280582465,
+      "delta_luma_per_pixel": 0.13571092868863605
+    },
+    {
+      "lf": 1539,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h09-t01",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5047253993696105,
+      "after_luma_encoded": 0.6405720731558918,
+      "delta_luma_per_pixel": 0.13584667378628146
+    },
+    {
+      "lf": 1551,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h09-t02",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5047253993696105,
+      "after_luma_encoded": 0.6407728846513026,
+      "delta_luma_per_pixel": 0.1360474852816921
+    },
+    {
+      "lf": 1563,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h09-t03",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5047253993696105,
+      "after_luma_encoded": 0.6410586602738672,
+      "delta_luma_per_pixel": 0.13633326090425674
+    },
+    {
+      "lf": 1575,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h09-t04",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5047253993696105,
+      "after_luma_encoded": 0.6414115512134696,
+      "delta_luma_per_pixel": 0.13668615184385918
+    },
+    {
+      "lf": 1587,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h09-t05",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5047253993696105,
+      "after_luma_encoded": 0.6418306272990403,
+      "delta_luma_per_pixel": 0.13710522792942983
+    },
+    {
+      "lf": 1601,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h12",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.490405567594042,
+      "after_luma_encoded": 0.6308440109661826,
+      "delta_luma_per_pixel": 0.1404384433721405
+    },
+    {
+      "lf": 1613,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h12-t01",
+      "pixels": 381600,
+      "roi_native": [
+        0,
+        0,
+        1200,
+        318
+      ],
+      "before_luma_encoded": 0.49324762423693264,
+      "after_luma_encoded": 0.6345866421952477,
+      "delta_luma_per_pixel": 0.14133901795831516
+    },
+    {
+      "lf": 1625,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h12-t02",
+      "pixels": 381600,
+      "roi_native": [
+        0,
+        0,
+        1200,
+        318
+      ],
+      "before_luma_encoded": 0.49324762423693264,
+      "after_luma_encoded": 0.6352075198349542,
+      "delta_luma_per_pixel": 0.1419598955980217
+    },
+    {
+      "lf": 1637,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h12-t03",
+      "pixels": 381600,
+      "roi_native": [
+        0,
+        0,
+        1200,
+        318
+      ],
+      "before_luma_encoded": 0.49324762423693264,
+      "after_luma_encoded": 0.6358946635229082,
+      "delta_luma_per_pixel": 0.14264703928597566
+    },
+    {
+      "lf": 1649,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h12-t04",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.490405567594042,
+      "after_luma_encoded": 0.6335058386197557,
+      "delta_luma_per_pixel": 0.14310027102571374
+    },
+    {
+      "lf": 1661,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h12-t05",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.490405567594042,
+      "after_luma_encoded": 0.6343579959764667,
+      "delta_luma_per_pixel": 0.14395242838242472
+    },
+    {
+      "lf": 1675,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h12",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.4905068051834157,
+      "after_luma_encoded": 0.6266705490133251,
+      "delta_luma_per_pixel": 0.1361637438299093
+    },
+    {
+      "lf": 1687,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h12-t01",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.4905068051834157,
+      "after_luma_encoded": 0.627508329906883,
+      "delta_luma_per_pixel": 0.1370015247234673
+    },
+    {
+      "lf": 1699,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h12-t02",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.4905068051834157,
+      "after_luma_encoded": 0.6283232939764147,
+      "delta_luma_per_pixel": 0.13781648879299904
+    },
+    {
+      "lf": 1711,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h12-t03",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.4905068051834157,
+      "after_luma_encoded": 0.6290807058674461,
+      "delta_luma_per_pixel": 0.13857390068403042
+    },
+    {
+      "lf": 1723,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h12-t04",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.4905068051834157,
+      "after_luma_encoded": 0.6297556164146637,
+      "delta_luma_per_pixel": 0.13924881123124808
+    },
+    {
+      "lf": 1735,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h12-t05",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.4905068051834157,
+      "after_luma_encoded": 0.6303381527368862,
+      "delta_luma_per_pixel": 0.13983134755347063
+    },
+    {
+      "lf": 1749,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h18",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5537200635635275,
+      "after_luma_encoded": 0.703364653456345,
+      "delta_luma_per_pixel": 0.14964458989281748
+    },
+    {
+      "lf": 1749,
+      "case": "sunset-sun",
+      "refset_case": "recharged/beach-start-h18",
+      "pixels": 11232,
+      "roi_native": [
+        426,
+        163,
+        534,
+        267
+      ],
+      "before_luma_encoded": 0.7169464483668662,
+      "after_luma_encoded": 0.8019471535055046,
+      "delta_luma_per_pixel": 0.08500070513863849
+    },
+    {
+      "lf": 1761,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h18-t01",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5537200635635275,
+      "after_luma_encoded": 0.7038185303414538,
+      "delta_luma_per_pixel": 0.15009846677792615
+    },
+    {
+      "lf": 1761,
+      "case": "sunset-sun",
+      "refset_case": "recharged/beach-start-h18-t01",
+      "pixels": 10920,
+      "roi_native": [
+        426,
+        163,
+        531,
+        267
+      ],
+      "before_luma_encoded": 0.7175571376300295,
+      "after_luma_encoded": 0.8049862994138837,
+      "delta_luma_per_pixel": 0.08742916178385417
+    },
+    {
+      "lf": 1773,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h18-t02",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5537200635635275,
+      "after_luma_encoded": 0.704200322479248,
+      "delta_luma_per_pixel": 0.1504802589157204
+    },
+    {
+      "lf": 1773,
+      "case": "sunset-sun",
+      "refset_case": "recharged/beach-start-h18-t02",
+      "pixels": 10920,
+      "roi_native": [
+        426,
+        163,
+        531,
+        267
+      ],
+      "before_luma_encoded": 0.7181995296402816,
+      "after_luma_encoded": 0.805629328479138,
+      "delta_luma_per_pixel": 0.08742979883885645
+    },
+    {
+      "lf": 1785,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h18-t03",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5537200635635275,
+      "after_luma_encoded": 0.7045059423064188,
+      "delta_luma_per_pixel": 0.15078587874289118
+    },
+    {
+      "lf": 1785,
+      "case": "sunset-sun",
+      "refset_case": "recharged/beach-start-h18-t03",
+      "pixels": 10608,
+      "roi_native": [
+        429,
+        163,
+        531,
+        267
+      ],
+      "before_luma_encoded": 0.7182142068117812,
+      "after_luma_encoded": 0.8082134462658637,
+      "delta_luma_per_pixel": 0.08999923945408242
+    },
+    {
+      "lf": 1797,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h18-t04",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5537200635635275,
+      "after_luma_encoded": 0.7047249777457043,
+      "delta_luma_per_pixel": 0.1510049141821768
+    },
+    {
+      "lf": 1797,
+      "case": "sunset-sun",
+      "refset_case": "recharged/beach-start-h18-t04",
+      "pixels": 10608,
+      "roi_native": [
+        429,
+        163,
+        531,
+        267
+      ],
+      "before_luma_encoded": 0.718916888855809,
+      "after_luma_encoded": 0.8089197965319879,
+      "delta_luma_per_pixel": 0.09000290767617894
+    },
+    {
+      "lf": 1809,
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h18-t05",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5537200635635275,
+      "after_luma_encoded": 0.7048519873796849,
+      "delta_luma_per_pixel": 0.15113192381615734
+    },
+    {
+      "lf": 1809,
+      "case": "sunset-sun",
+      "refset_case": "recharged/beach-start-h18-t05",
+      "pixels": 10098,
+      "roi_native": [
+        429,
+        165,
+        531,
+        264
+      ],
+      "before_luma_encoded": 0.7237126898291277,
+      "after_luma_encoded": 0.8182564565887118,
+      "delta_luma_per_pixel": 0.0945437667595842
+    },
+    {
+      "lf": 1823,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h18",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5539934347206658,
+      "after_luma_encoded": 0.7016039394938872,
+      "delta_luma_per_pixel": 0.1476105047732214
+    },
+    {
+      "lf": 1823,
+      "case": "sunset-sun",
+      "refset_case": "origine-lumiere/beach-start-h18",
+      "pixels": 9504,
+      "roi_native": [
+        432,
+        165,
+        528,
+        264
+      ],
+      "before_luma_encoded": 0.718922694617444,
+      "after_luma_encoded": 0.7569683349687474,
+      "delta_luma_per_pixel": 0.03804564035130344
+    },
+    {
+      "lf": 1835,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h18-t01",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5539934347206658,
+      "after_luma_encoded": 0.7014689678845314,
+      "delta_luma_per_pixel": 0.1474755331638656
+    },
+    {
+      "lf": 1835,
+      "case": "sunset-sun",
+      "refset_case": "origine-lumiere/beach-start-h18-t01",
+      "pixels": 9024,
+      "roi_native": [
+        432,
+        168,
+        528,
+        262
+      ],
+      "before_luma_encoded": 0.7217839910215381,
+      "after_luma_encoded": 0.7619386035113239,
+      "delta_luma_per_pixel": 0.04015461248978576
+    },
+    {
+      "lf": 1847,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h18-t02",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5539934347206658,
+      "after_luma_encoded": 0.7012268666598368,
+      "delta_luma_per_pixel": 0.14723343193917096
+    },
+    {
+      "lf": 1847,
+      "case": "sunset-sun",
+      "refset_case": "origine-lumiere/beach-start-h18-t02",
+      "pixels": 8742,
+      "roi_native": [
+        432,
+        168,
+        525,
+        262
+      ],
+      "before_luma_encoded": 0.722398745717755,
+      "after_luma_encoded": 0.7639104141941621,
+      "delta_luma_per_pixel": 0.04151166847640714
+    },
+    {
+      "lf": 1859,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h18-t03",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5539934347206658,
+      "after_luma_encoded": 0.7008841317772204,
+      "delta_luma_per_pixel": 0.14689069705655458
+    },
+    {
+      "lf": 1859,
+      "case": "sunset-sun",
+      "refset_case": "origine-lumiere/beach-start-h18-t03",
+      "pixels": 8100,
+      "roi_native": [
+        435,
+        170,
+        525,
+        260
+      ],
+      "before_luma_encoded": 0.7253455500720055,
+      "after_luma_encoded": 0.7702104504237506,
+      "delta_luma_per_pixel": 0.044864900351745104
+    },
+    {
+      "lf": 1871,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h18-t04",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5539934347206658,
+      "after_luma_encoded": 0.7004664242055958,
+      "delta_luma_per_pixel": 0.14647298948492996
+    },
+    {
+      "lf": 1871,
+      "case": "sunset-sun",
+      "refset_case": "origine-lumiere/beach-start-h18-t04",
+      "pixels": 7395,
+      "roi_native": [
+        435,
+        172,
+        522,
+        257
+      ],
+      "before_luma_encoded": 0.7314207334844924,
+      "after_luma_encoded": 0.7805765737448607,
+      "delta_luma_per_pixel": 0.04915584026036832
+    },
+    {
+      "lf": 1883,
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h18-t05",
+      "pixels": 244800,
+      "roi_native": [
+        0,
+        0,
+        960,
+        255
+      ],
+      "before_luma_encoded": 0.5539934347206658,
+      "after_luma_encoded": 0.6999823888189398,
+      "delta_luma_per_pixel": 0.14598895409827398
+    },
+    {
+      "lf": 1883,
+      "case": "sunset-sun",
+      "refset_case": "origine-lumiere/beach-start-h18-t05",
+      "pixels": 7140,
+      "roi_native": [
+        438,
+        172,
+        522,
+        257
+      ],
+      "before_luma_encoded": 0.7312128751749852,
+      "after_luma_encoded": 0.7821264933848732,
+      "delta_luma_per_pixel": 0.05091361820988795
+    }
+  ],
+  "summary": [
+    {
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h09",
+      "samples": 6,
+      "mean": {
+        "pixels": 244800,
+        "before_luma_encoded": 0.5045624479320252,
+        "after_luma_encoded": 0.6438937575891034,
+        "delta_luma_per_pixel": 0.13933130965707816
+      }
+    },
+    {
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h09",
+      "samples": 6,
+      "mean": {
+        "pixels": 244800,
+        "before_luma_encoded": 0.5047253993696105,
+        "after_luma_encoded": 0.6410136874419696,
+        "delta_luma_per_pixel": 0.13628828807235924
+      }
+    },
+    {
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h12",
+      "samples": 6,
+      "mean": {
+        "pixels": 313200,
+        "before_luma_encoded": 0.49182659591548733,
+        "after_luma_encoded": 0.6340661118525859,
+        "delta_luma_per_pixel": 0.14223951593709858
+      }
+    },
+    {
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h12",
+      "samples": 6,
+      "mean": {
+        "pixels": 244800,
+        "before_luma_encoded": 0.4905068051834157,
+        "after_luma_encoded": 0.6286127746526031,
+        "delta_luma_per_pixel": 0.13810596946918746
+      }
+    },
+    {
+      "case": "clouds",
+      "refset_case": "recharged/beach-start-h18",
+      "samples": 6,
+      "mean": {
+        "pixels": 244800,
+        "before_luma_encoded": 0.5537200635635275,
+        "after_luma_encoded": 0.7042444022848091,
+        "delta_luma_per_pixel": 0.15052433872128157
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "refset_case": "recharged/beach-start-h18",
+      "samples": 6,
+      "mean": {
+        "pixels": 10731,
+        "before_luma_encoded": 0.7189244835223159,
+        "after_luma_encoded": 0.8079920801308482,
+        "delta_luma_per_pixel": 0.08906759660853245
+      }
+    },
+    {
+      "case": "clouds",
+      "refset_case": "origine-lumiere/beach-start-h18",
+      "samples": 6,
+      "mean": {
+        "pixels": 244800,
+        "before_luma_encoded": 0.5539934347206658,
+        "after_luma_encoded": 0.7009387864733352,
+        "delta_luma_per_pixel": 0.14694535175266943
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "refset_case": "origine-lumiere/beach-start-h18",
+      "samples": 6,
+      "mean": {
+        "pixels": 8317.5,
+        "before_luma_encoded": 0.7251807650147034,
+        "after_luma_encoded": 0.7692884783712863,
+        "delta_luma_per_pixel": 0.04410771335658295
+      }
+    }
+  ]
+}

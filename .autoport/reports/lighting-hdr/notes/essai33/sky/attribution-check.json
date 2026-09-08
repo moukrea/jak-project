@@ -1,0 +1,19 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "sky_witnesses": 36,
+  "attributions": [
+    {
+      "tbps": "[8096]",
+      "alpha": [
+        0,
+        2,
+        0,
+        1,
+        0
+      ],
+      "count": 36
+    }
+  ],
+  "all_clouds_exact": true,
+  "gradient_8064_count": 0
+}
