@@ -40,8 +40,9 @@ point de contrôle.
 La preuve est produite par `lib/proof_run.sh` et jugée par `validators/generic.sh`.
 Tu n'écris jamais toi-même un champ de `proof.txt`.
 Un run court par bras : l'état livré, et l'ablation si le validateur la demande. Un contrôle
-positif ne se fait QUE si le validateur le réclame. Pas de campagne multi-jambes, pas
-d'instrument neuf pour un chiffre. Ce que tu n'as pas prouvé s'écrit `non prouvé : X`
+positif ne se fait QUE si le validateur le réclame, sauf campagne explicitement demandée
+par l'owner et inscrite dans `proof_plan` du backlog/périmètre de l'item. Hors cette
+autorisation, pas de campagne multi-jambes ni d'instrument neuf pour un chiffre. Ce que tu n'as pas prouvé s'écrit `non prouvé : X`
 dans le rapport : c'est une sortie acceptable, mesurer des heures ne l'est pas.
 
 ## Verrou

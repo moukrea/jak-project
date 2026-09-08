@@ -16,7 +16,8 @@ environ 400 mots sauf demande contraire. « Non trouvé » est une réponse util
 
 Appliquer la spec exacte du manager. Rapporter une contradiction au manager.
 Ne jamais modifier `goalc/emitter/IGenX86_64.{cpp,h}`, les sources ND traduites
-sous `goal_src/` hors ajouts PC, les validateurs, `.autoport/lib/`, l'orchestrateur,
+sous `goal_src/` hors ajouts PC, les validateurs, `.autoport/lib/` (sauf fichiers explicitement
+autorisés par `harness_edit_allowlist` et le SCOPE de l'item), l'orchestrateur,
 le superviseur, ses hooks/configurations ou les prompts d'autres items.
 Pas de résultat codé en dur, de marqueur fabriqué, de stub ou d'esquive d'abort.
 Compiler la cible touchée selon les instructions reçues. Résultat : chemins
