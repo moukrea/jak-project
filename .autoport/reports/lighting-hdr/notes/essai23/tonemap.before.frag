@@ -13,8 +13,9 @@
 //
 // L'epaule rationnelle conserve une pente plus longue que l'exponentielle :
 // f(x) = x sous k, sinon k + (1-k)*(x-k)/(1-k+x-k).
-// f(k)=k, f'(k)=1 et f(+inf)=1. Chaque canal est comprime independamment :
-// un canal au-dessus du genou ne reduit pas la contribution des autres canaux.
+// f(k)=k, f'(k)=1 et f(+inf)=1. On comprime le maximum RGB puis on applique
+// le MEME facteur aux trois canaux : une haute lumiere coloree garde leurs rapports.
+// La compression independante des canaux les rapprochait tous du blanc.
 //
 // La courbe « Filmique » (Khronos PBR Neutral) est optionnelle et jamais le defaut. Elle est
 // definie pour une entree LINEAIRE ; tant que le tampon reste en encodage d'affichage elle
@@ -32,15 +33,14 @@ out vec4 color;
 in vec2 tex_coord;
 
 vec3 hdr_shoulder(vec3 x, float k) {
-  float w = max(1.0 - k, 1e-4);
-  for (int c = 0; c < 3; c++) {
-    if (x[c] <= k) {
-      continue;
-    }
-    float above = x[c] - k;
-    x[c] = k + w * above / (w + above);
+  float peak = max(x.r, max(x.g, x.b));
+  if (peak <= k) {
+    return x;
   }
-  return x;
+  float w = max(1.0 - k, 1e-4);
+  float above = peak - k;
+  float mapped = k + w * above / (w + above);
+  return x * (mapped / peak);
 }
 
 vec3 hdr_neutral(vec3 c) {

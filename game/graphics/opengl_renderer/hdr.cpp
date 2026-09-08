@@ -109,7 +109,7 @@ bool env_or_prop_override(const char* prop, const char* env, int* out) {
   return false;
 }
 
-// Miroir scalaire de l'epaule rationnelle de tonemap.frag, appliquee au maximum RGB.
+// Miroir scalaire de l'epaule rationnelle de tonemap.frag, appliquee a chaque canal.
 float shoulder(float x, float k) {
   if (x <= k) {
     return x;
@@ -567,14 +567,13 @@ void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt) {
         mx = v;
       }
     }
-    const float scale = mx > k ? shoulder(mx, k) / mx : 1.f;
     for (int c = 0; c < 3; c++) {
       const float v = px[i + c];
       if (!std::isfinite(v)) {
         continue;
       }
       const float clamped = v < 0.f ? 0.f : (v > 1.f ? 1.f : v);
-      const float d = std::fabs(std::max(v, 0.f) * scale - clamped);
+      const float d = std::fabs(shoulder(std::max(v, 0.f), k) - clamped);
       const uint64_t d255 = (uint64_t)(d * 255.f + 0.5f);
       if (d255 > s_ldr_ref_delta) {
         s_ldr_ref_delta = d255;

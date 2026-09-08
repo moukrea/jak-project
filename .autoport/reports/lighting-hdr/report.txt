@@ -1,11 +1,11 @@
 DIRECTIVES va841fb32b6
-Correction alpha partielle livrée sur Redmi ; critère non atteint (hdr_tonemap_defects=4), cinq régressions owner non validées.
-Dix-neuf shaders bornent leur alpha après les tests ; trois mélanges soustractifs restaurent l’alpha zéro du chemin normalisé. RGB HDR et courbe inchangés.
-La garde du producteur officiel compte désormais les cinq cas régionaux absents, en mode ordinaire et par lots ; aucun validateur modifié.
-Build incrémental gk + repack réussi ; MD5 build/APK/Redmi b5fcc76756a9d12bd1cc40875bd3b0a4 (notes/essai22/build-deploy.log).
-Test GPU Mesa des shaders réels : alpha2,00781→1, RGB2,5/3/4 conservé, RGBA8 identique dans les cas testés, failures=0 (notes/essai22/alpha_gpu.log).
-Tests harnais : 120 passed ; bash -n et diff --check des sources réussis. Ces tests hors appareil ne prouvent pas les cinq cas jeu.
-Huit lignes exactes de proof.txt, run officiel 157 s :
+Correctif de courbe livré sur Redmi ; tâche non validée, hdr_tonemap_defects=4 et cinq cas owner non prouvés.
+L'épaule C1 s'applique désormais par canal : un canal lumineux n'atténue plus ses voisins ; exposition, genou, Filmique et alpha inchangés.
+Le diagnostic de différence au clamp suit cette épaule ; aucun seuil, cumul par lots ou validateur modifié.
+Test GPU GLSL réel : (2,1,2) passe de (.997727,.498864,.997727) à (.997727,.975,.997727) ; 27 cas, failures=0 (notes/essai23/curve_gpu.log).
+Cette exécution Mesa isole le mécanisme ; elle ne prouve pas les cinq scènes sur appareil.
+Build incrémental gk/repack/install réussi ; MD5 build/APK/Redmi 78ed373e74b40a8aa56ccfe28464d083 (notes/essai23/build-deploy.log).
+Huit lignes exactes de proof.txt, run officiel 120 secondes :
 ```text
 serial=eae4df44
 crash=0
@@ -16,13 +16,14 @@ hdr_batch_pairs=4
 hdr_owner_regressions_missing=5
 hdr_tonemap_defects=4
 ```
-Lot APRÈS : batches/essai22-alpha/20260908T052020-3705704 ; zéro erreur de lot, quatre paires, deux cellules niveau/heure.
-A42 : huit lectures float alpha∈[0,1], sans attribution matière ; aucun LOADSCREEN-SHOW dans le run (notes/essai22/after-analysis.json).
-Lot AVANT conservé : essai22-before/20260908T051058-3695478, captures noires/achromatiques pendant chargement ; deux paires refusées.
-L’ancien parcours legacy puis extérieur produit les captures APRÈS ; l’arrivée directe en extérieur reste non corrigée.
-Comparaison diagnostique avec les quatre paires essai21 correspondantes conservée dans notes/essai22/after-analysis.json, sans identité de frame exigée.
-À regarder dans Options > Recharged : blancs des nuages, éclairs éco bleue, éclat du soleil couchant, sol devant la hutte, couleur/blancs du warp gate.
-non prouvé : correction de ces cinq régions, blancs attendus préservés, attribution du violet, séquence éco ; aucun zéro qualité revendiqué.
-non prouvé : équilibre21niveaux/8h du nouveau binaire, tous acquis, alpha après tous les modes accumulatifs, sortie HDR native.
-Les anciens lots restent diagnostiques, incompatibles avec la nouvelle bibliothèque ; la campagne complète n’a pas été relancée avant résolution des cinq cas prioritaires.
-Redmi relancé sans propriétés debug persistantes ni verrou ; generic reste à l’orchestrateur, aucun owner-ok écrit.
+Lot APRÈS : batches/essai23-channel/20260908T053521-3717470 ; quatre paires, deux cellules niveau/heure, zéro erreur de lot, aucun LOADSCREEN-SHOW.
+Comparaison ImageMagick AVANT/APRÈS avec hashes vérifiés : notes/essai23/after-analysis.json ; sources AVANT essai22-alpha et binaires conservés.
+Extérieur village1 h12 : quasi-blancs ON 0→1264, OFF1340 ; blancs exacts ON toujours0, OFF768. Luma ON123,474→128,986, OFF133,197.
+Ces statistiques portent sur l'image entière : ni les nuages, ni le soleil, ni les petites régions du sol ou du portail ne sont identifiés par ces chiffres.
+Les données donnent des ancres portail/éco ; aucune présence effectivement rendue dans une ROI n'est mesurée. Le refset actuel fige les particules et ne produit aucune séquence éco.
+À regarder dans Options > Recharged : nuages blancs, éclairs éco bleue, éclat du soleil couchant, sol devant la hutte du Sage vert, blancs et couleur du portail.
+La courbe rapproche certaines hautes lumières colorées du blanc ; leur couleur attendue reste à juger localement (contre-exemple GPU dans diagnostic.md).
+non prouvé : correction des cinq régressions, blancs voulus conservés par région, séquence électrique, tous acquis et alpha des autres mélanges accumulatifs.
+non prouvé : équilibre21niveaux/8h du nouveau binaire ; campagne complète non reprise avant qualification des cinq cas prioritaires. Sortie HDR native hors essai.
+La garde des cas absents reste rouge ; anciens lots conservés pour diagnostic, aucune réutilisation incompatible comme preuve.
+Redmi relancé, PID24706, propriétés debug vides et verrou absent (notes/essai23/device-restored.json). Aucun owner-ok ; generic réservé à l'orchestrateur.

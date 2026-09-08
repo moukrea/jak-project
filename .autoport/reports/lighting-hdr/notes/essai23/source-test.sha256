@@ -1,0 +1,5 @@
+2602d4f3d1a5f68da01c7008bb2d00f02e2644234941ef59b2cc878c0d9545af  game/graphics/opengl_renderer/shaders/tonemap.frag
+611781ed31d45b8d38c906e4e5aaa7347822300cee27be95e787a16563842e66  game/graphics/opengl_renderer/hdr.cpp
+6cd4029c8dd73153fe776478c1b2375130df941238cd5745b1a9bd99b3fe8a04  .autoport/reports/lighting-hdr/notes/essai23/tonemap.before.frag
+3fea0a2fb69bad58d82812f7225f4e30c3821adba9d218ee3bf504c3d8db7ef3  .autoport/reports/lighting-hdr/notes/essai23/curve_gpu.cpp
+7987b95e0d495cb0c61cd0adbaa2e2c0b548de18e70d6ab43bbccd36574c0e45  .autoport/reports/lighting-hdr/notes/essai23/curve_gpu.log
