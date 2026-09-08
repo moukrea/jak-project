@@ -1,0 +1,24 @@
+--- a/android/android_opengl_renderer.cpp
++++ b/android/android_opengl_renderer.cpp
+@@ -1620,0 +1621,6 @@
++  // Full-screen copy must be independent of world draw tests/masks; UI renderers restore theirs.
++  glDisable(GL_SCISSOR_TEST);
++  glDisable(GL_STENCIL_TEST);
++  glDisable(GL_CULL_FACE);
++  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
++
+--- a/goal_src/jak1/pc/hud-classes-pc.gc
++++ b/goal_src/jak1/pc/hud-classes-pc.gc
+@@ -1822 +1822 @@
+-    (pc-set-rt-light! (if (-> obj realtime-lighting?) 1 0))
++    (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0))
+--- a/goal_src/jak1/pc/progress-pc.gc
++++ b/goal_src/jak1/pc/progress-pc.gc
+@@ -7510,3 +7510,4 @@
+-       ;; Le champ `realtime-lighting?` SURVIT (lu/ecrit par pckernel.gc, pousse par
+-       ;; pc-set-rt-light!) : une cle presente dans un settings.ini livre et privee de sa clause
+-       ;; de lecture ferait repartir tout le reste du fichier au defaut. Seule la LIGNE part.
++       ;; Le champ `realtime-lighting?` SURVIT, lu/ecrit par pckernel.gc pour la compatibilite
++       ;; de persistance : une cle presente dans un settings.ini livre et privee de sa clause
++       ;; de lecture ferait repartir tout le reste du fichier au defaut. Il ne pilote plus RT :
++       ;; pc-set-rt-light! recoit `recharged-lighting?`, le maitre expose dans cette ligne.

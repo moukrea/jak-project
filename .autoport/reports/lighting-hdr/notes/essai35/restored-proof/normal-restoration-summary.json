@@ -1,0 +1,13 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "pids": [
+    "4776",
+    "4776"
+  ],
+  "stable_seconds": 12,
+  "sha256sum": "dbc383605d0125ed543accfca9f8f471ecbee83839edf76e8492026700fef8b5  /data/app/~~oJVKf9WD_rYdROOVDPJeuA==/org.opengoal.gk.jak1-GQVi8O6i7Em5Txa4GVN-DA==/lib/arm64/libgk.so",
+  "nonempty_debug_props": [],
+  "lock_absent": true,
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "settings_check": "adb -s eae4df44 shell sha256sum /storage/emulated/0/OpenGOAL/jak1/settings.ini apr\u00e8s restauration normale"
+}

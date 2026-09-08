@@ -1,0 +1,12 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "images": 24,
+  "achromatic_images": 24,
+  "rejections": [
+    "REFSET lighting sample rejected view=beach-start hour=12 phase=2 reason=achromatic",
+    "REFSET lighting sample rejected view=beach-start hour=12 phase=3 reason=achromatic",
+    "REFSET lighting sample rejected view=beach-start hour=18 phase=2 reason=achromatic",
+    "REFSET lighting sample rejected view=beach-start hour=18 phase=3 reason=achromatic"
+  ],
+  "batch": ".autoport/reports/lighting-hdr/batches/essai35-sky-normal/20260908T113546-4038961"
+}

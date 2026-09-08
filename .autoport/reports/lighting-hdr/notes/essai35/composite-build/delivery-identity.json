@@ -1,0 +1,27 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "candidate": "begin_ui_pass explicit fullscreen-copy GL state",
+  "lib_sha256": "83dae28ad662d5a21180b6f9792c7e672ca304fe60780a74b9a4e8e9b0223bf2",
+  "apk_sha256": "8e2f8293ea275c57e1206d2bbd479f12af93cc38bba129efdebe2d907e9d334d",
+  "pack_sha256": "e52794fb7a73fe2b7fb51cc1edb1847bb135de6474f20b39f94d916b96f5aa81",
+  "pack_version": "c4251f531cd32",
+  "inputs": {
+    "android/android_opengl_renderer.cpp": "c98c6104fe20599a51f1797baebc98a25311395b7579276d84913bef7dba54aa",
+    "game/graphics/opengl_renderer/shaders/tonemap.frag": "fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3",
+    "android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip": "e52794fb7a73fe2b7fb51cc1edb1847bb135de6474f20b39f94d916b96f5aa81",
+    "android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties": "c0de7b896a5205b96767766a85358ba2c30c9a8a73d9007ab20eb1e1663c879e",
+    "build-android/CMakeCache.txt": "1224bdf71367443ff17b95373380dd6a044fd23210b3e42e19caf0d2e7cb77dd",
+    "goal_src/jak1/pc/hud-classes-pc.gc": "089de43e77df85ebbb3efb6a145f72bc975064b83d565a85d0157c71372e947b",
+    "goal_src/jak1/pc/progress-pc.gc": "59b7f67e64ef610172201f0c1e49165b0513122549bf3c16bf73cebb58fad65a"
+  },
+  "cgos": {
+    "GAME.CGO": {
+      "apk": "c303f9cc2e52859c0f99831677ad3b20fa352aa89c892110585347ae1a3467a4",
+      "device": "c303f9cc2e52859c0f99831677ad3b20fa352aa89c892110585347ae1a3467a4"
+    },
+    "ENGINE.CGO": {
+      "apk": "2080b539a7f10be3634c0ac907f70d604885f15d2aeeeddc491489c782492cd1",
+      "device": "2080b539a7f10be3634c0ac907f70d604885f15d2aeeeddc491489c782492cd1"
+    }
+  }
+}

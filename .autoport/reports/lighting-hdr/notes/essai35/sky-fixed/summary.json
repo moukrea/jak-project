@@ -1,0 +1,22 @@
+{
+  "samples": 24,
+  "composition_events": 240,
+  "viewports": {
+    "[0, 0, 960, 432]": 72
+  },
+  "final_images": 24,
+  "achromatic_images": 24,
+  "source_hash_failures": [],
+  "shadow_frame_lines": [
+    "PBR-SHADOW-DBG frame=1260 cast_idx=1523337 write=1 read_valid=1 legacy=0.35",
+    "PBR-SHADOW-DBG frame=1320 cast_idx=1523337 write=1 read_valid=1 legacy=0.35",
+    "PBR-SHADOW-DBG frame=1380 cast_idx=1523337 write=1 read_valid=1 legacy=0.35",
+    "PBR-SHADOW-DBG frame=1440 cast_idx=1523337 write=1 read_valid=1 legacy=0.35",
+    "PBR-SHADOW-DBG frame=1500 cast_idx=1523337 write=1 read_valid=1 legacy=0.35",
+    "PBR-SHADOW-DBG frame=1620 cast_idx=1523337 write=1 read_valid=1 legacy=0.35"
+  ],
+  "shadow_receiver_on_counts": {
+    "0": 1,
+    "1": 30
+  }
+}

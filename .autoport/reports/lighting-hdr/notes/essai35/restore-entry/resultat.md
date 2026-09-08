@@ -1,0 +1,9 @@
+DIRECTIVES ve7fcbe0116
+État d’entrée essai35 restauré sans build ; deux candidats retirés, aucune validation.
+lib locale/APK/device dbc383605d0125ed543accfca9f8f471ecbee83839edf76e8492026700fef8b5.
+APK local/device c03d2cd01b9ba4eb940110d25ae4042dca609ea492a0c0d4de713f26d534967e (pas APKb2GOAL35).
+GAME stage/APK/device ca2b90bad9e55bfd9a7bd87e3d9689a273dc3772384ad8797aae0e46ade5adc1 ; ENGINE2080b539a7f10be3634c0ac907f70d604885f15d2aeeeddc491489c782492cd1.
+28CGO/DGO stage et bundlezip/manifest anciens restaurés ; pack5b851c64dd4e80caf52e9026cfdddb4995b5f6be45f13818e55ea8d1e0204ab7/versionc7f49154551ee,stamp appareil attesté aprèsLoader.
+Arrêtinitial pré-mutation :settings44ab993e différaient uniquement d’une lignevidefinale ; observé conservé. Stopapp/restaurationoctets entrée avantinstallation, puissettings aprèsidentiquesSHA78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6.
+Installation/relanceLoader rc0,PID3704,debugvides,verrouabsent ; aucunrunmesure/test effectué par cet agent aprèsrestauration.
+Artefacts rejetés sauvegardés dans rejected-state/,identité avant/après conservée ; manager reprendappareil pourpreuveofficielle.
