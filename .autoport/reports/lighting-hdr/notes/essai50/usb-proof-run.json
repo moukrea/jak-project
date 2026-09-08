@@ -1,0 +1,24 @@
+{
+  "command": [
+    "bash",
+    "-c",
+    "pkill(){ printf \"%s\\n\" \"DIRECTIVES: fallback kill par motif omis; nettoyage PID conserve\" >&2; return 1; }; export -f pkill; exec bash \"$@\"",
+    "_",
+    ".autoport/lib/proof_run.sh",
+    "lighting-hdr",
+    "device",
+    "--timeout",
+    "30"
+  ],
+  "environment": {
+    "ANDROID_SERIAL": null,
+    "AUTOPORT_BACKEND": "codex",
+    "AUTOPORT_PROOF_WAIT_MAX": "0"
+  },
+  "directives": "v0ba5e280ac",
+  "started_at_utc": "2026-09-08T23:13:07.664834+00:00",
+  "ended_at_utc": "2026-09-08T23:13:08.343100+00:00",
+  "duration_s": 0.678,
+  "returncode": 3,
+  "proof_exists_after": false
+}

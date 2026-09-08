@@ -1,26 +1,25 @@
-# Handoff — lighting-hdr, essai49 : Redmi toujours absent
-DIRECTIVES v3909a9767c
+# Handoff — lighting-hdr, essai50 : aucun USB disponible
+DIRECTIVES v0ba5e280ac
 ## ÉTABLI
-Le contrat autorise USB ; aucune clarification nécessaire. Redmi eae4df44 seul autorisé.
-Run officiel49 à2026-09-08T23:04:55Z, retour3 en0,630s : « appareil eae4df44 absent : aucune preuve APPAREIL possible. »
-notes/essai49/usb-proof-run.json et usb-proof.stderr.log : proof_exists_after=false ; teardown absent, rien à effacer.
-Aucune preuve actuelle ; copie historique diagnostic notes/essai47/historical-proof.txt, hash2b7076b33fb7943da70645d4d87d12a46971106b0913241cbcb20123289b4006.
-Correction43 shade.glsl non-PBR et garde44 portail conservées ; aucun nouveau changement rendu/harnais/build.
-Mesures43 historiques : pièce lumaON/OFF64.223/91.365→91.299/91.099, détail15.767/20.222→20.191/20.216 ; notes/essai43-rendu/portal-comparison.json.
-Sol43 :120événements/12samples/unjoined0, ciel/sprites seulement ; sage-hut-ground diagnostic_only/non attribué. Rien de nouveau mesuré49.
+Règle actuelle : USB choisi par pick_device, Honor autorisé ; toutes restrictions historiques Redmi-only sont obsolètes.
+2026-09-08T23:12:53Z : adb devices -l liste vide, rc0 ; pick_device rc3, « AUCUN appareil joint par USB » (notes/essai50/).
+Run officiel50 UTC23:13:07.664834→23:13:08.343100, rc3 en0,678s ; usb-proof-run.json : proof_exists_after=false.
+Aucune preuve actuelle, aucun appareil sélectionné/contacté ; absence de tout USB constatée cette fois, pas seulement du Redmi.
+Aucun changement rendu/harnais/build ; correction43 non-PBR shade.glsl et garde44 portail conservées.
+Revue researcher et vérification manager : aucune correction exacte supplémentaire justifiée sans nouvelle mesure ; notes/essai50/reprise.md.
 ## TENTÉ
-ANDROID_SERIAL=eae4df44 AUTOPORT_BACKEND=codex AUTOPORT_PROOF_WAIT_MAX=0 bash .autoport/lib/proof_run.sh lighting-hdr device --timeout 30
-Enveloppe existante neutralisant fallback kill par motif ; argv exact dans notes/essai49/usb-proof-run.json.
-Échec matériel effectif ; aucun fallback Honor/réseau, aucune boucle de relance, aucun diagnostic négatif répété.
-Rapport sans huit valeurs actuelles : fichier absent, anciennes valeurs non recyclées. Validateur orchestrateur non lancé ; aucun owner-ok.
+AUTOPORT_BACKEND=codex AUTOPORT_PROOF_WAIT_MAX=0 bash .autoport/lib/proof_run.sh lighting-hdr device --timeout 30
+ANDROID_SERIAL absent ; enveloppe historique neutralisant fallback kill par motif, argv complet dans notes/essai50/usb-proof-run.json.
+Échec matériel en sélection USB ; aucun rejeu, ancienne preuve, test synthétique ou mesure HDR produit50 ; validateur réservé orchestrateur.
 ## RESTE
-Superviseur : éviter une nouvelle relance identique sans changement matériel. Reprendre dès disponibilité du Redmi, sans accord supplémentaire.
-Sol : nouveau cadrage jouable localisant petites zones owner, contribution/matériau puis ROI couleur/luma/détail reliée case/frame/options/hash avant réglage.
-notes/essai47/next-collection.md référence commandes43 et limites ; ne pas rejouer la même paire hutte en espérant une attribution nouvelle.
-Rectangles chemin[0,137,35,152]/entrée[82,119,153,148] sans violet270–330 en43 : ils ne localisent pas le défaut.
-Portail :10s animées tracées après chaque reset/bras ; garde44 et résidu sprite3 conservés, aucune cause exacte de composition établie.
-Attention timing.py43 : attente seule, pas vérification d’animation ; sortie historique fixe à ne pas écraser (notes/essai48/reprise.md).
-Ne pas rejouer pistes négatives nuages/soleil41, éco30, portail44 ou ablationB43 ; pas de gain/blend/PBR inventé, pas de census/instrument nouveau.
-Cinqcas puis21niveaux×8h/ciels/intérieurs/vraie hutte par lots compatibles ; menuOFF/persistance et crash0 requis, absence reste échec.
-Pas de chantier HD/cache/allocateur/menu ; préférence43 realtime-lighting?=#f restaurée historiquement, tests43 forçaientRT=1, état actuel inconnu.
-non prouvé : cinqcas corrigés, couverture finale, détails pleine résolution, activation/fraîcheur et crash0 actuels.
+Ne pas répéter identiquement sans changement USB. Dès disponibilité, sélection USB/Honor autorisée sans accord supplémentaire, campagne neuve.
+Sol : nouveau cadrage jouable localisant petites zones owner via refset.cam, contribution/matériau puis ROI couleur/luma/détail reliée case/frame/options/hash.
+Repère historique : notes/essai43/coverage-view-plan.md5–10 et notes/essai43-rendu/ground/command.json ; pas localisation owner, ne pas rejouer paire43.
+Aucun instrument Android existant identifié séparant terrain/TIE/décal/ombre dans la ROI ; pas de census/instrument neuf ni attribution inventée.
+Portail : notes/essai43-rendu/portal/command.json ; ≥10s animées après chaque reset par bras, délai réel et animation à tracer.
+portal/timing.py7–17 ne prouve que l'attente/extrait les témoins et écrase sortie historique ; ne pas le relancer inchangé.
+Résidu composition Sprite3 sans cause exacte établie ; pas de gain/blend/PBR inventé ni rejeu ablationB43, nuages/soleil41, éco30, portail44.
+Étendre vues exploitables aux autres niveaux ; cinqcas puis21niveaux×8h/ciels/intérieurs/vraie hutte par lots compatibles, absences restent échec.
+MenuOFF/persistance et crash0 requis avant livraison ; pas de chantier HD/cache/allocateur/menu ; aucun owner-ok.
+Préférence43 realtime-lighting?=#f restaurée historiquement, tests43 forçaientRT=1 ; état actuel inconnu.
+non prouvé : cinqcas corrigés, couverture finale, détails pleine résolution, animation portail≥10s, activation/fraîcheur et crash0 actuels.

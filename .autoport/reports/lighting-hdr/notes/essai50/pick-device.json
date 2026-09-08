@@ -1,0 +1,14 @@
+{
+  "command": [
+    "bash",
+    ".autoport/lib/pick_device.sh"
+  ],
+  "environment": {
+    "AUTOPORT_BACKEND": "codex",
+    "ANDROID_SERIAL": null
+  },
+  "started_at_utc": "2026-09-08T23:12:53.799942+00:00",
+  "ended_at_utc": "2026-09-08T23:12:53.804357+00:00",
+  "duration_s": 0.004,
+  "returncode": 3
+}
