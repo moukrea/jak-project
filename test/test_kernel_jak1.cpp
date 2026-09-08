@@ -1,3 +1,4 @@
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -393,4 +394,36 @@ TEST(Kernel, HashTable) {
   EXPECT_EQ(7941, crc32s.size());
 
   delete[] mem;
+}
+
+TEST(Kernel, SymbolCandidateSurvivesOtherLookups) {
+  constexpr int size = 32 * 1024 * 1024;
+  auto mem = std::make_unique<u8[]>(size);
+  setup_hack_heaps(mem.get(), size);
+
+  const auto pending = find_symbol_with_slot("lurkerworm-strike");
+  ASSERT_EQ(pending.symbol.offset, 0u);
+  ASSERT_NE(pending.slot.offset, 0u);
+  const auto candidate = pending.slot.offset;
+
+  // These searches reset/replace the old shared scratch without inserting.
+  EXPECT_EQ(find_symbol_from_c("#f").offset, s7.offset);
+  EXPECT_EQ(find_symbol_from_c("global").offset, s7.offset + FIX_SYM_GLOBAL_HEAP);
+  const auto other = find_symbol_with_slot("another-pending-symbol");
+  EXPECT_EQ(other.symbol.offset, 0u);
+  EXPECT_NE(other.slot.offset, candidate);
+  EXPECT_EQ(pending.slot.offset, candidate);
+  EXPECT_EQ(intern_from_c("lurkerworm-strike").offset, candidate);
+  EXPECT_EQ(find_symbol_from_c("lurkerworm-strike").offset, candidate);
+
+  // These real names collide in the low hash bits used for table placement.
+  // Insertion must retain both identities and preserve a prior symbol's value.
+  auto pool = intern_from_c("*default-dead-pool*");
+  pool->value = 0x1dcb44;
+  auto wind = intern_from_c("*windspinner-sg*");
+  EXPECT_NE(pool.offset, wind.offset);
+  EXPECT_EQ(intern_from_c("*default-dead-pool*").offset, pool.offset);
+  EXPECT_EQ(pool->value, 0x1dcb44u);
+  EXPECT_EQ(intern_from_c("*windspinner-sg*").offset, wind.offset);
+  EXPECT_EQ(find_symbol_from_c("_empty_").offset, s7.offset + FIX_SYM_EMPTY_PAIR);
 }

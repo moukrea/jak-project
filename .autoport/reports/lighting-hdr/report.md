@@ -1,24 +1,23 @@
-HDR non validé : les crashes ne sont pas reproduits ni corrigés ; la dernière preuve reste à cinq défauts.
+HDR non validé : le débordement de pile est corrigé et les deux parcours de chargement passent sans crash, mais quatre défauts restent signalés.
 DIRECTIVES v708c60642a
-Ajout borné de traces dans kscheme.cpp et klink.cpp : candidat d’insertion, identité/relocation des pools et état après top-level ; aucun changement de rendu.
-Build C++ incrémental réussi, repack isolé52s, aucun rebuild GOAL ; APK diagnostic gardé hors publication. APK normal9767b7e77eac… restauré.
-Diagnostic officiel37 : crash0/2700frames,320 événements symboles, aucune anomalie scratch ; alias default=nk=0x1dcb44 après gkernel et seagull.
-Le symbole du crash36 est désormais identifié : lurkerworm-strike (engine.log18227–18228). La différence de cellule default entre runs ne prouve pas une corruption.
-Portail : repin14:46:20.446→échantillon14:47:15.488,55,042s murales et659pas animés. Une seule captureON sur4 ; OFF absent, aucune comparaison validée.
-Le timeout240 ne couvre pas tout le protocole660/660 à cette cadence ; aucun retry identique ni substitution des absences.
-Dernier run normal sans lighting/rt.light/refset forcés : ombresON attestées frame900,cast_idx2502208,read_valid1 (menu/proof-engine.log24676).
-Appuis START reçus, mais aucune bascule Lighting OFF/retourON attestée ; ne pas confondre appui transmis et option modifiée.
+Le tampon de hachage de 64 Kio quitte la pile GOAL de 32 Kio ; le candidat d’internement reste local. Aucun effet supprimé, aucun réglage artistique ajouté.
+Tests : 5 cas de hachage sur pile 32768, 2 cas noyau passent ; build Android incrémental : 3 actions en 21 s, repack en 38 s, lib b58734a565c15f3b installée sur Redmi.
+Le producteur attend désormais les derniers compteurs avant arrêt ; scénario de coupure prématurée couvert, 256 tests harnais passent.
+Menu normal : OFF à 15:42:53 puis ON à 15:43:40 sans override ; ombres ON cast_idx=886502/read_valid=1 ; persistance ON confirmée après redémarrage (notes/essai39/menu/verdict.md).
+Portail : 4 captures sans crash ; ON 56.013/111.704 s et OFF 42.171/84.822 s après purge, âges 659/1319. Lot conservé diagnostic : ancien arrêt prématuré avait laissé compteur à 3.
+Disque portail ON/OFF : luma 103.693/130.777, nearwhite 40/56 ; écart présent avant sprites, amplification bleue différente après (notes/essai39/portal/verdict.md).
+Ciel neuf : 36 captures, 3 paires acceptées, 85 fichiers scellés, 0 erreur SHA ; nuages toujours signalés en échec (notes/essai39/sky/verdict.md).
 Huit lignes de la dernière preuve officielle :
 source=device
 serial=eae4df44
+sha=b58734a565c15f3b
 crash=0
-frames=1020
-tonemap_draws=1020
-tonemap_sites=1
-hdr_owner_regressions_missing=5
-hdr_tonemap_defects=5
-Tests hors appareil :249 tests HDR passés76,16s ; Kernel.HashTable baseline1test passé43ms, aucune preuve jeu déduite.
-Réglages owner restaurés octet pour octet SHA78108670e266… ; PID15556 identique sur12s, propriétés debug vides, verrou absent.
-Zones owner visées : nuages, soleil, éclairs éco, sol devant la hutte et portail ; aucun nouveau rendu corrigé à valider.
-non prouvé : causes/corrections des deux crashes, gestes OFF/retourON/persistance, extinction des ombresOFF, cinq corrections,21niveaux×8h/ciels/intérieurs/vraie hutte/acquis.
-HDR natif reste ultérieur. Aucun owner-ok ; validateur laissé à l’orchestrateur. Détails et sources dans notes/essai37/.
+frames=1920
+FEATURE lighting-hdr armed=1 hits=399863
+hdr_batch_errors=0
+hdr_tonemap_defects=4
+Soleil : disque et deux rayons observés, blancs OFF=0 ; helper refuse de juger sans blancs OFF. Limite du jugement à arbitrer, pas une preuve de soleil défectueux.
+Non prouvé : correction des 5 régressions, ombres OFF/persistance OFF, 21 niveaux × 8 h/ciels/intérieurs/vraie hutte ; campagne finale non exécutée, aucune validation owner.
+À regarder : Options > Recharged, Lighting OFF/ON ; nuages, soleil couchant, éclairs éco bleue, sol devant Samos et portail après 10 s animées.
+Réglages owner restaurés exactement SHA 78108670… ; propriétés debug vides ; dernier PID 30275 stable 20 s. APK livré sur Redmi, APK du publieur inchangé.
+Validateur non exécuté par le worker : contrôle laissé à l’orchestrateur ; aucun owner-ok.

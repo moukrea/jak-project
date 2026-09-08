@@ -1,0 +1,6 @@
+hash=1cd489ce4e72a924 expected=1cd489ce4e72a924 path=/tmp/refset-file-oW8Uc0/chunks
+hash=14650fb0739d0383 expected=14650fb0739d0383 path=/tmp/refset-file-oW8Uc0/empty
+hash=0000000000000000 expected=0000000000000000 path=/tmp/refset-file-oW8Uc0/absent
+hash=0000000000000000 expected=0000000000000000 path=/tmp/refset-file-oW8Uc0
+hash=bd7fe2546a6a4b1e expected=bd7fe2546a6a4b1e path=/tmp/refset-file-oW8Uc0/modified
+PASS cases=5 stack=32768 guard=4096 bytes=196625

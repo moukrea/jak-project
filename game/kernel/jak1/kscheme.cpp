@@ -59,9 +59,6 @@ using namespace jak1_symbols;
 extern "C" void (*g_jak1_pre_kernel_version_check_hook)(void) = nullptr;
 
 namespace jak1 {
-// where to put a new symbol for the most recently searched for symbol that wasn't found
-u32 symbol_slot;
-
 // Shared with klink.cpp; sampled once so disabled lookups only test a cached bool.
 bool hdr_load_diag_enabled() {
   static const bool enabled = [] {
@@ -138,12 +135,12 @@ void hdr_lookup_log(const char* reason, const char* name, const HdrLookup& c, u3
   const auto writer_after = hdr_writer_id.load(std::memory_order_relaxed);
   std::fprintf(stderr,
                "HDR-LOAD lookup reason=%s name=%s id=%llu tid=%llu depth=%u hash=%08x "
-               "candidate=%08x consumed=%08x global=%08x writer_id_before=%llu "
+               "candidate=%08x consumed=%08x writer_id_before=%llu "
                "writer_id_after=%llu writer_tid=%llu writer=%s writer_slot=%08x "
                "areas=%u range0=[%08x,%08x)/%u range1=[%08x,%08x)/%u fixed_probes=%u "
                "SymbolTable2=%08x s7=%08x LastSymbol=%08x NumSymbols=%d\n",
                reason, name, (unsigned long long)c.id, (unsigned long long)c.tid, c.depth, c.hash,
-               c.candidate, consumed, symbol_slot, (unsigned long long)writer_before,
+               c.candidate, consumed, (unsigned long long)writer_before,
                (unsigned long long)writer_after, (unsigned long long)writer_tid,
                writer_slot ? "candidate" : "reset", writer_slot, c.areas, c.start[0], c.end[0],
                c.probes[0], c.start[1], c.end[1], c.probes[1], c.fixed_probes, SymbolTable2.offset,
@@ -153,7 +150,6 @@ void hdr_lookup_log(const char* reason, const char* name, const HdrLookup& c, u3
 }  // namespace
 
 void kscheme_init_globals() {
-  symbol_slot = 0;
   hdr_scratch_write(0);
 }
 
@@ -1299,7 +1295,8 @@ Ptr<Symbol> find_symbol_in_fixed_area(u32 hash, const char* name) {
  * wrap around. If we run into a blank space, mark that as the slot. Also search the fixed area for
  * the symbol. If we fail to find it without wrapping, and it's not in the fixed area, return 0.
  */
-Ptr<Symbol> find_symbol_in_area(u32 hash, const char* name, u32 start, u32 end) {
+static Ptr<Symbol> find_symbol_in_area(u32 hash, const char* name, u32 start, u32 end,
+                                     Ptr<Symbol>& slot) {
   HdrLookup* diag = hdr_load_diag_enabled() ? hdr_lookup : nullptr;
   const u32 area = diag ? diag->areas++ : 0;
   if (diag && area < 2) {
@@ -1322,7 +1319,7 @@ Ptr<Symbol> find_symbol_in_area(u32 hash, const char* name, u32 start, u32 end) 
     if (!info(sym)->hash) {
       // open slot!
       // means we don't need to wrap.
-      symbol_slot = i;
+      slot = sym;
       if (diag) {
         diag->candidate = i;
       }
@@ -1339,13 +1336,14 @@ Ptr<Symbol> find_symbol_in_area(u32 hash, const char* name, u32 start, u32 end) 
 
 /*!
  * Searches the table for a symbol.  If the symbol is found, returns it.
- * If not, returns 0, but symbol_slot will contain the slot for the symbol.
+ * If not, returns 0, but slot will contain the slot for the symbol.
  * If both are 0, the symbol table is full and you are sad.
  * Also allows you to find the empty pair by searching for _empty_
  */
-static Ptr<Symbol> find_symbol_from_c_diag(const char* name, HdrLookupScope& diag) {
+static Ptr<Symbol> find_symbol_from_c_diag(const char* name, HdrLookupScope& diag,
+                                         Ptr<Symbol>& slot) {
   JAK1_ON_JAK2_GUARD_LOG();
-  symbol_slot = 0;  // nowhere to put the symbol yet, clear any old symbol_slot result.
+  slot = Ptr<Symbol>(0);
   hdr_scratch_write(0);
   u32 hash = crc32((const u8*)name, (int)strlen(name));
   if (diag.enabled) {
@@ -1367,17 +1365,17 @@ static Ptr<Symbol> find_symbol_from_c_diag(const char* name, HdrLookupScope& dia
 
   if (sh2 > 0) {
     // upper table first.
-    auto probe = find_symbol_in_area(hash, name, s7.offset + sh2, LastSymbol.offset);
+    auto probe = find_symbol_in_area(hash, name, s7.offset + sh2, LastSymbol.offset, slot);
     if (probe.offset != 1) {
       return probe;
     }
 
     // overflow!
-    probe = find_symbol_in_area(hash, name, SymbolTable2.offset, s7.offset - 0x10);
+    probe = find_symbol_in_area(hash, name, SymbolTable2.offset, s7.offset - 0x10, slot);
     if (probe.offset == 1) {
       // uh oh, both overflowed!
       if (diag.enabled) {
-        hdr_lookup_log("double-overflow", name, diag.local, symbol_slot);
+        hdr_lookup_log("double-overflow", name, diag.local, slot.offset);
       }
       printf("[BIG WARNING] symbol table probe double overflow!\n");
       return find_symbol_in_fixed_area(hash, name);
@@ -1387,17 +1385,17 @@ static Ptr<Symbol> find_symbol_from_c_diag(const char* name, HdrLookupScope& dia
 
   } else {
     // lower table first
-    auto probe = find_symbol_in_area(hash, name, s7.offset + sh2, s7.offset - 0x10);
+    auto probe = find_symbol_in_area(hash, name, s7.offset + sh2, s7.offset - 0x10, slot);
     if (probe.offset != 1) {
       return probe;
     }
 
     // overflow!
     probe =
-        find_symbol_in_area(hash, name, s7.offset + FIX_FIXED_SYM_END_OFFSET, LastSymbol.offset);
+        find_symbol_in_area(hash, name, s7.offset + FIX_FIXED_SYM_END_OFFSET, LastSymbol.offset, slot);
     if (probe.offset == 1) {
       if (diag.enabled) {
-        hdr_lookup_log("double-overflow", name, diag.local, symbol_slot);
+        hdr_lookup_log("double-overflow", name, diag.local, slot.offset);
       }
       printf("[BIG WARNING] symbol table probe double overflow!\n");
       return find_symbol_in_fixed_area(hash, name);
@@ -1408,8 +1406,14 @@ static Ptr<Symbol> find_symbol_from_c_diag(const char* name, HdrLookupScope& dia
 }
 
 Ptr<Symbol> find_symbol_from_c(const char* name) {
+  return find_symbol_with_slot(name).symbol;
+}
+
+SymbolLookupResult find_symbol_with_slot(const char* name) {
   HdrLookupScope diag;
-  return find_symbol_from_c_diag(name, diag);
+  SymbolLookupResult result;
+  result.symbol = find_symbol_from_c_diag(name, diag, result.slot);
+  return result;
 }
 
 /*!
@@ -1419,14 +1423,15 @@ Ptr<Symbol> find_symbol_from_c(const char* name) {
 Ptr<Symbol> intern_from_c(const char* name) {
   JAK1_ON_JAK2_GUARD_LOG();
   HdrLookupScope diag;
-  auto symbol = find_symbol_from_c_diag(name, diag);
+  Ptr<Symbol> slot;
+  auto symbol = find_symbol_from_c_diag(name, diag, slot);
   if (symbol.offset) {
     // already exists, return it!
     return symbol;
   }
 
   // otherwise, a new symbol!
-  symbol = Ptr<Symbol>(symbol_slot);
+  symbol = slot;
   if (hdr_load_diag_enabled() && (!symbol.offset || diag.local.candidate != symbol.offset)) {
     hdr_lookup_log("new-symbol-slot", name, diag.local, symbol.offset);
   }

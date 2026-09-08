@@ -14,6 +14,12 @@ hdr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hdr)
 
 
+# Synthetic publication immediately before the final capture in the temporal run.
+PENDING_FINAL_CAPTURE = ('hdr_paired=1\nrefset_captured=3\nrefset_temporal_captured=3\n'
+                         'refset_steps=4\nrefset_temporal_samples=2\n'
+                         'REFSET done steps=4 captured=4 compared=0 missing=0')
+
+
 @pytest.mark.parametrize('state,pid0,hdr_batch,trace,crash,elapsed,calls', [
     ('stable', '123', 'batch', '', 0, 23, 3),
     ('absent', '123', 'batch', '', 1, 13, 1),
@@ -23,11 +29,21 @@ spec.loader.exec_module(hdr)
     ('absent', '', 'batch', '', 0, 23, 0),
     ('absent', '123', '', '', 0, 23, 0),
     ('stable', '123', 'batch', 'GK-DIAG A36-TREE at-crash frame=1', 1, 13, 0),
-    ('stable', '123', 'batch', 'REFSET done steps=4 captured=4 compared=0 missing=0\nhdr_paired=2', 0, 13, 1),
-    ('stable', '123', 'batch', 'REFSET done steps=24 captured=24 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=2', 0, 13, 1),
+    ('stable', '123', 'batch', 'REFSET done steps=4 captured=4 compared=0 missing=0\nhdr_paired=2\nrefset_captured=4\nrefset_steps=4', 0, 13, 1),
+    ('stable', '123', 'batch', 'REFSET done steps=24 captured=24 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=2\nrefset_captured=24\nrefset_steps=24\nrefset_temporal_captured=24', 0, 13, 1),
     ('stable', '123', 'batch', 'REFSET done steps=24 captured=23 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=2', 0, 23, 3),
     ('stable', '123', 'batch', 'REFSET done steps=24 captured=24 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=1', 0, 23, 3),
     ('stable', '123', 'batch', 'REFSET done steps=25 captured=25 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=2', 0, 23, 3),
+    ('stable', '123', 'batch', PENDING_FINAL_CAPTURE, 0, 23, 3),
+    ('stable', '123', 'batch', 'REFSET done steps=4 captured=4 compared=0 missing=0\nhdr_paired=2', 0, 23, 3),
+    ('stable', '123', 'batch', [PENDING_FINAL_CAPTURE,
+     'refset_captured=4\nrefset_temporal_captured=4'], 0, 18, 2),
+    ('stable', '123', 'batch', [PENDING_FINAL_CAPTURE, 'refset_captured=4'], 0, 23, 3),
+    ('stable', '123', 'batch', [PENDING_FINAL_CAPTURE, 'refset_temporal_captured=4'], 0, 23, 3),
+    ('stable', '123', 'batch', [PENDING_FINAL_CAPTURE,
+     'refset_captured=4\nrefset_temporal_captured=4\nrefset_steps=5'], 0, 23, 3),
+    ('stable', '123', 'batch', [PENDING_FINAL_CAPTURE,
+     'refset_captured=4\nrefset_temporal_captured=4\nrefset_captured=3'], 0, 23, 3),
 ])
 def test_hdr_wait_process_liveness(tmp_path, state, pid0, hdr_batch, trace, crash, elapsed, calls):
     """Execute the production wait loop, with local fake adb and no real sleeps."""
@@ -51,13 +67,19 @@ pidof() {
 eval "$4"
 ''')
     fake_adb.chmod(0o755)
+    initial, final = trace if isinstance(trace, list) else (trace, '')
     rawlog = tmp_path / 'engine.log'
-    rawlog.write_text(trace + '\n')
+    rawlog.write_text(initial + '\n')
     call_log = tmp_path / 'calls'
     env = dict(os.environ, ADB=str(fake_adb), SERIAL='eae4df44', PKG='org.opengoal.jak',
-               PID0=pid0, HDR_BATCH=hdr_batch, RAWLOG=str(rawlog), STATE=state, CALLS=str(call_log))
+               PID0=pid0, HDR_BATCH=hdr_batch, RAWLOG=str(rawlog), STATE=state, CALLS=str(call_log),
+               FINAL_TRACE=final)
     run = subprocess.run(['bash', '-c', '''set -uo pipefail
-sleep() { :; }
+sleep() {
+  if [[ "$elapsed" == 13 && -n "$FINAL_TRACE" ]]; then
+    printf '%s\n' "$FINAL_TRACE" >> "$RAWLOG"
+  fi
+}
 log() { echo "$*" >&2; }
 CRASH=0; TIMEOUT=23; elapsed=8
 ''' + loop + '\nprintf "%s %s\\n" "$CRASH" "$elapsed"\n'], env=env,
@@ -65,7 +87,7 @@ CRASH=0; TIMEOUT=23; elapsed=8
     assert run.returncode == 0, run.stderr
     assert run.stdout.strip() == f'{crash} {elapsed}'
     assert (len(call_log.read_text().splitlines()) if call_log.exists() else 0) == calls
-    assert rawlog.read_text() == trace + '\n'
+    assert rawlog.read_text() == initial + '\n' + (final + '\n' if final else '')
 
 
 @pytest.fixture

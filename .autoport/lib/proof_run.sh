@@ -397,7 +397,15 @@ else
       complete_captures=$(sed -nE 's/.*REFSET done steps=([1-9][0-9]*) captured=\1 .*missing=0.*/\1/p' "$RAWLOG" | tail -1)
       temporal_samples=$(sed -nE 's/.*refset_temporal_samples=([1-9][0-9]*)$/\1/p' "$RAWLOG" | tail -1)
       temporal_samples=${temporal_samples:-1}
+      # Pairing can be published before the final capture. Wait for the last
+      # capture's counters too, before stopping their producer.
+      published_captures=$(sed -nE 's/.*refset_captured=([0-9]+)$/\1/p' "$RAWLOG" | tail -1)
+      published_steps=$(sed -nE 's/.*refset_steps=([0-9]+)$/\1/p' "$RAWLOG" | tail -1)
+      published_temporal=$(sed -nE 's/.*refset_temporal_captured=([0-9]+)$/\1/p' "$RAWLOG" | tail -1)
       if [ -n "$complete_captures" ] && [ "$temporal_samples" -le 16 ] && \
+          [ "$published_captures" = "$complete_captures" ] && \
+          [ "$published_steps" = "$complete_captures" ] && \
+          { [ "$temporal_samples" -eq 1 ] || [ "$published_temporal" = "$complete_captures" ]; } && \
           [ "$((complete_captures % (2 * temporal_samples)))" -eq 0 ] && \
           grep -qaE "hdr_paired=$((complete_captures / (2 * temporal_samples)))$" "$RAWLOG"; then
         log "HDR captures and paired measurements published after ${elapsed}s"; break

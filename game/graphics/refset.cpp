@@ -27,6 +27,7 @@
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/origin_ablate.h"
+#include "game/graphics/refset_file.h"
 #include "game/graphics/refset_qualification.h"
 #include "game/graphics/refset_state.h"
 #include "game/graphics/render_pace.h"
@@ -1652,27 +1653,7 @@ void compare(const uint8_t* a, const uint8_t* b, int n_px, uint64_t* maxd, uint6
 // (reference manquante, illisible, plan incomplet) ; 254 = moins de CINQ rejeux au registre,
 // donc la question n'a pas encore de reponse. Ni l'une ni l'autre ne vaut zero : une porte
 // verte demande cinq rejeux qui se sont mis d'accord.
-uint64_t hash_file(const std::string& path) {
-  FILE* f = std::fopen(path.c_str(), "rb");
-  if (!f) {
-    return 0;
-  }
-  uint64_t h = 1469598103934665603ull;  // FNV-1a 64
-  unsigned char buf[1 << 16];
-  size_t n;
-  while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) {
-    for (size_t i = 0; i < n; i++) {
-      h ^= buf[i];
-      h *= 1099511628211ull;
-    }
-  }
-  const bool readable = !std::ferror(f);
-  const bool closed = std::fclose(f) == 0;
-  if (!readable || !closed) {
-    return 0;
-  }
-  return h ? h : 1;  // 0 est reserve a « pas lisible »
-}
+using refset_file::hash_file;
 
 // Les SEIZE references, dans l'ordre du plan. Une reference qui bouge d'un octet change
 // l'empreinte, donc coupe le registre : on ne compare jamais deux courses jugees sur des

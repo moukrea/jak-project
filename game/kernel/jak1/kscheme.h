@@ -16,6 +16,13 @@ struct Symbol {
   u32 value;
 };
 
+// A lookup owns its candidate. Another lookup must not replace the slot that
+// intern_from_c will consume. This does not reserve the slot against insertion.
+struct SymbolLookupResult {
+  Ptr<Symbol> symbol;
+  Ptr<Symbol> slot;
+};
+
 inline Ptr<SymInfo> info(Ptr<Symbol> s) {
   return s.cast<SymInfo>() + jak1::SYM_INFO_OFFSET;
 }
@@ -63,6 +70,7 @@ u64 new_pair(u32 heap, u32 type, u32 car, u32 cdr);
 u64 inspect_object(u32 obj);
 u64 print_object(u32 obj);
 Ptr<Symbol> find_symbol_from_c(const char* name);
+SymbolLookupResult find_symbol_with_slot(const char* name);
 u64 call_method_of_type(u64 arg, Ptr<Type> type, u32 method_id);
 Ptr<Type> intern_type_from_c(const char* name, u64 methods);
 u64 call_method_of_type_arg2(u32 arg, Ptr<Type> type, u32 method_id, u32 a1, u32 a2);
