@@ -4189,6 +4189,9 @@ items:
       pour qu'ils n'apparaissent pas, c'est mieux qu'avant mais c'est loin d'être bon, faut pas éliminer
       les blancs c'est normal qu'il y en ait, il y en a d'origine, faut juste pas qu'il y en ait plus
       que quand c'est désactivé !
+  - date: '2026-09-08'
+    text: T'es sûr ? Parce que je vois littéralement aucune différence entre lighting à off ou on sur
+      le Redmi c'est un peu étrange !
   gate:
     key: hdr_tonemap_defects
     op: ==
