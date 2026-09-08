@@ -4198,6 +4198,8 @@ items:
       sera toujours violet/translucide
   - date: '2026-09-08'
     text: tu rames vraiment du cul
+  - date: '2026-09-08'
+    text: tu pourrais regarder un peu les captures on vs off histoire de te faire une idee aussi
   gate:
     key: hdr_tonemap_defects
     op: ==
