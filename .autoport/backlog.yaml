@@ -4192,6 +4192,10 @@ items:
   - date: '2026-09-08'
     text: T'es sûr ? Parce que je vois littéralement aucune différence entre lighting à off ou on sur
       le Redmi c'est un peu étrange !
+  - date: '2026-09-08'
+    text: Aussi, le warp gate n'est pas instantané avec du blanc et tout son panel de couleurs, même en
+      rendu original, donc dans les mesures faut que tu attendes au moins 10 secondes devant ! Sinon ça
+      sera toujours violet/translucide
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4297,6 +4301,16 @@ items:
       - quantification28
       - nommage30
       - ORB30
+    warp_gate_capture:
+      minimum_wait_seconds: 10
+      start: presence devant portail actif apres dernier warp/reset/purge des effets
+      arms:
+      - 'ON'
+      - 'OFF'
+      simulation: effet anime pendant attente ; pas attente sur particules figees
+      reset_policy: toute reinitialisation de effet recommence attente
+      evidence: tracer debut attente et premiere capture ; ancien lot sans attente demontree non concluant
+        pour couleurs/blancs du portail
   harness_edit_allowlist:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py
