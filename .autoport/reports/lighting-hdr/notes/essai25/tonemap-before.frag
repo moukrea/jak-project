@@ -11,11 +11,9 @@
 // donc pas une OETF : il ne linearise rien et ne re-encode rien. Il fait UNE chose, la
 // compression de plage, et il est le seul endroit de la chaine d'affichage a la faire.
 //
-// Epaule SDR a blanc fini : avec w=1-k et a=x-k, f=k+a-a*a/(4*w)
-// entre k et k+2*w, puis 1. La pente rejoint 1 au genou et 0 au blanc.
-// L'asymptote rationnelle exigeait x>2.2 pour retrouver du blanc 8 bits a k=.95,
-// meme pour les effets additifs dont le blanc de reference du jeu est 1.
-// Chaque canal est comprime independamment :
+// L'epaule rationnelle conserve une pente plus longue que l'exponentielle :
+// f(x) = x sous k, sinon k + (1-k)*(x-k)/(1-k+x-k).
+// f(k)=k, f'(k)=1 et f(+inf)=1. Chaque canal est comprime independamment :
 // un canal au-dessus du genou ne reduit pas la contribution des autres canaux.
 //
 // La courbe « Filmique » (Khronos PBR Neutral) est optionnelle et jamais le defaut. Elle est
@@ -40,7 +38,7 @@ vec3 hdr_shoulder(vec3 x, float k) {
       continue;
     }
     float above = x[c] - k;
-    x[c] = above >= 2.0 * w ? 1.0 : k + above - above * above / (4.0 * w);
+    x[c] = k + w * above / (w + above);
   }
   return x;
 }

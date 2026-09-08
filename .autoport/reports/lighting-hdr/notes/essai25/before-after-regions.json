@@ -1,0 +1,3335 @@
+{
+  "purpose": "diagnostic AVANT/APRES, old binary not campaign proof",
+  "before": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175",
+  "after": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137",
+  "regions": [
+    {
+      "actor": 10012,
+      "view_hour": "village1-eco-blue-h12",
+      "common_roi": [
+        128,
+        14,
+        202,
+        110
+      ],
+      "arms": {
+        "before_origine-lumiere": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12.png",
+              "sha256": "11a0791c7f6efc93263e26a665b2a7d4154129b6131fe9fe3b0e33a8a01374fa",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 52,
+                "nearwhite": 198,
+                "clipped": 2134,
+                "black": 0,
+                "luma": 166.21734234234233,
+                "luma_p99": 254.0,
+                "detail": 18.936265320836338,
+                "flat": 0.007642393655371305,
+                "saturation": 0.5595754271666952,
+                "hue_bins": [
+                  54,
+                  48,
+                  1295,
+                  641,
+                  194,
+                  432,
+                  3315,
+                  1034,
+                  3,
+                  3,
+                  4,
+                  29
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t01.png",
+              "sha256": "742718e44015dbd42640a995fb1144fc9c75bc724b34dee9f44316b06a93f641",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 123,
+                "nearwhite": 260,
+                "clipped": 2191,
+                "black": 0,
+                "luma": 165.32798423423424,
+                "luma_p99": 255.0,
+                "detail": 17.231867339581832,
+                "flat": 0.018601297764960344,
+                "saturation": 0.5531054665617781,
+                "hue_bins": [
+                  52,
+                  37,
+                  1277,
+                  646,
+                  196,
+                  394,
+                  3295,
+                  1037,
+                  3,
+                  2,
+                  4,
+                  38
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t02.png",
+              "sha256": "1396e7d454645750cfa7f9ef8698741b36aa25867c2c831922920ffca9f96c5a",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 90,
+                "nearwhite": 188,
+                "clipped": 2150,
+                "black": 0,
+                "luma": 164.76590653153153,
+                "luma_p99": 255.0,
+                "detail": 16.820187454938715,
+                "flat": 0.014275414563806777,
+                "saturation": 0.5476567692664053,
+                "hue_bins": [
+                  40,
+                  37,
+                  1235,
+                  608,
+                  209,
+                  438,
+                  3353,
+                  1034,
+                  5,
+                  4,
+                  15,
+                  36
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t03.png",
+              "sha256": "dfc8b5bcf85f79067f9cdaf8ca2425b3a1f717a5d7d2623e2edf8e0fe9557c69",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 76,
+                "nearwhite": 211,
+                "clipped": 2109,
+                "black": 0,
+                "luma": 164.80419481981983,
+                "luma_p99": 255.0,
+                "detail": 16.598702235039653,
+                "flat": 0.012833453496755588,
+                "saturation": 0.5370821231794853,
+                "hue_bins": [
+                  35,
+                  32,
+                  1218,
+                  569,
+                  260,
+                  437,
+                  3375,
+                  1039,
+                  5,
+                  13,
+                  16,
+                  29
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t04.png",
+              "sha256": "2597b60e9e091590c984ee34439ad0237b90406ada162efd6e334015f903adc3",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 102,
+                "nearwhite": 218,
+                "clipped": 2152,
+                "black": 0,
+                "luma": 164.61908783783784,
+                "luma_p99": 255.0,
+                "detail": 16.440230713770728,
+                "flat": 0.013554434030281183,
+                "saturation": 0.5355283835850041,
+                "hue_bins": [
+                  34,
+                  21,
+                  1216,
+                  607,
+                  260,
+                  424,
+                  3338,
+                  1032,
+                  8,
+                  15,
+                  12,
+                  35
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t05.png",
+              "sha256": "4d9e4f395e7c2f229b01f828c089e08b3b755cd407617002359af18e306f6c56",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 93,
+                "nearwhite": 232,
+                "clipped": 2181,
+                "black": 0,
+                "luma": 164.20059121621622,
+                "luma_p99": 255.0,
+                "detail": 16.1465032444124,
+                "flat": 0.015861571737563085,
+                "saturation": 0.5309100206581037,
+                "hue_bins": [
+                  26,
+                  20,
+                  1208,
+                  599,
+                  276,
+                  442,
+                  3321,
+                  1045,
+                  8,
+                  18,
+                  8,
+                  40
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 89.33333333333333,
+            "nearwhite": 217.83333333333334,
+            "clipped": 2152.8333333333335,
+            "luma": 164.989184496997,
+            "detail": 17.02895938476328,
+            "flat": 0.013794760874789714,
+            "saturation": 0.5439763650695786
+          }
+        },
+        "before_recharged": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12.png",
+              "sha256": "3dab96163dfcd01bc8b89d9f36fa5c732037520b167738fb98928ea0158413b5",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 0,
+                "nearwhite": 39,
+                "clipped": 111,
+                "black": 0,
+                "luma": 106.33248873873873,
+                "luma_p99": 235.0,
+                "detail": 9.89834174477289,
+                "flat": 0.12458543619322278,
+                "saturation": 0.7774310560274169,
+                "hue_bins": [
+                  40,
+                  3,
+                  80,
+                  2,
+                  4,
+                  8,
+                  4535,
+                  2417,
+                  5,
+                  3,
+                  5,
+                  2
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t01.png",
+              "sha256": "dacd8e8b28fe8fcae8737cbf96193f68589b7ab56b632bb106d6491e57671c7e",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 0,
+                "nearwhite": 214,
+                "clipped": 684,
+                "black": 0,
+                "luma": 154.64203265765767,
+                "luma_p99": 253.0,
+                "detail": 19.271377072819035,
+                "flat": 0.011391492429704398,
+                "saturation": 0.581143146035713,
+                "hue_bins": [
+                  30,
+                  15,
+                  1352,
+                  541,
+                  198,
+                  334,
+                  3479,
+                  1069,
+                  13,
+                  16,
+                  16,
+                  41
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t02.png",
+              "sha256": "2a8dba5b11fb2ec2577b660db09e256fd12dd608b75c81bb8036abf0f634f79a",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 0,
+                "nearwhite": 173,
+                "clipped": 545,
+                "black": 0,
+                "luma": 153.02111486486487,
+                "luma_p99": 253.0,
+                "detail": 19.323143475126173,
+                "flat": 0.011247296322999279,
+                "saturation": 0.590350548104754,
+                "hue_bins": [
+                  40,
+                  16,
+                  1398,
+                  514,
+                  198,
+                  379,
+                  3390,
+                  1097,
+                  13,
+                  11,
+                  16,
+                  32
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t03.png",
+              "sha256": "4d7b8bfbe0173d994dd2fc4042922e78c6a5a5a8d2e155646b9226e0efd25d19",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 0,
+                "nearwhite": 150,
+                "clipped": 554,
+                "black": 0,
+                "luma": 152.38020833333334,
+                "luma_p99": 253.0,
+                "detail": 19.121845710165825,
+                "flat": 0.009228550829127614,
+                "saturation": 0.5842878878248814,
+                "hue_bins": [
+                  43,
+                  30,
+                  1367,
+                  578,
+                  177,
+                  356,
+                  3403,
+                  1093,
+                  9,
+                  8,
+                  9,
+                  31
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t04.png",
+              "sha256": "3279f74088db1d03c5ed5e5f5e2aaecfbc9d41ad0fbf7092405045aa3da6cf13",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 0,
+                "nearwhite": 149,
+                "clipped": 567,
+                "black": 0,
+                "luma": 151.51407657657657,
+                "luma_p99": 253.0,
+                "detail": 18.74708002883922,
+                "flat": 0.007209805335255948,
+                "saturation": 0.5795966729489846,
+                "hue_bins": [
+                  60,
+                  36,
+                  1282,
+                  645,
+                  168,
+                  372,
+                  3418,
+                  1079,
+                  7,
+                  4,
+                  11,
+                  22
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t05.png",
+              "sha256": "c555a41f2865270d8db39241a78c3a3b423f8baca0066c2146a8b049cb7e3465",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 0,
+                "nearwhite": 153,
+                "clipped": 641,
+                "black": 0,
+                "luma": 151.88640202702703,
+                "luma_p99": 253.0,
+                "detail": 18.809805335255948,
+                "flat": 0.006777217015140591,
+                "saturation": 0.5671562806512166,
+                "hue_bins": [
+                  57,
+                  40,
+                  1161,
+                  702,
+                  211,
+                  348,
+                  3445,
+                  1094,
+                  9,
+                  4,
+                  14,
+                  19
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 0.0,
+            "nearwhite": 146.33333333333334,
+            "clipped": 517.0,
+            "luma": 144.96272053303304,
+            "detail": 17.528598894496515,
+            "flat": 0.028406633020908432,
+            "saturation": 0.6133275985988278
+          }
+        },
+        "after_origine-lumiere": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12.png",
+              "sha256": "36a7a969af68a0b6a9a9386dc1d64c387eefc50426171fceeb46fbb2209da082",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 52,
+                "nearwhite": 194,
+                "clipped": 2136,
+                "black": 0,
+                "luma": 166.2371903153153,
+                "luma_p99": 254.0,
+                "detail": 18.946935832732517,
+                "flat": 0.007209805335255948,
+                "saturation": 0.5594163372573764,
+                "hue_bins": [
+                  60,
+                  48,
+                  1291,
+                  648,
+                  191,
+                  426,
+                  3318,
+                  1034,
+                  3,
+                  3,
+                  4,
+                  26
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t01.png",
+              "sha256": "f28dcac689e9f16fc0e1ee4a3b9d5ef458d1579ce4dd687a8324fbfc0ba3138a",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 123,
+                "nearwhite": 264,
+                "clipped": 2200,
+                "black": 0,
+                "luma": 165.3704954954955,
+                "luma_p99": 255.0,
+                "detail": 17.232588320115358,
+                "flat": 0.01788031723143475,
+                "saturation": 0.5528265233074686,
+                "hue_bins": [
+                  50,
+                  42,
+                  1273,
+                  650,
+                  198,
+                  390,
+                  3294,
+                  1038,
+                  3,
+                  2,
+                  4,
+                  37
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t02.png",
+              "sha256": "dd8ae5e79837e801255e862328c0f4d1e56e5bd62716add4b0bc018568469774",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 87,
+                "nearwhite": 187,
+                "clipped": 2149,
+                "black": 0,
+                "luma": 164.75844594594594,
+                "luma_p99": 255.0,
+                "detail": 16.850901225666906,
+                "flat": 0.013410237923576063,
+                "saturation": 0.5475935766391249,
+                "hue_bins": [
+                  42,
+                  38,
+                  1236,
+                  605,
+                  206,
+                  439,
+                  3357,
+                  1034,
+                  5,
+                  4,
+                  14,
+                  37
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t03.png",
+              "sha256": "e5a213773e897ab247e995ba67ce34070e8c65906ffe68d281592429c9b9b796",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 78,
+                "nearwhite": 209,
+                "clipped": 2112,
+                "black": 0,
+                "luma": 164.80194256756758,
+                "luma_p99": 255.0,
+                "detail": 16.59379956741168,
+                "flat": 0.012256669069935111,
+                "saturation": 0.5370698583969641,
+                "hue_bins": [
+                  36,
+                  30,
+                  1221,
+                  567,
+                  258,
+                  428,
+                  3383,
+                  1038,
+                  5,
+                  14,
+                  15,
+                  31
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t04.png",
+              "sha256": "97351ed36fc4207499cb59a10eada0c98697af4f4ddcdaa656e07328c629157d",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 96,
+                "nearwhite": 217,
+                "clipped": 2153,
+                "black": 0,
+                "luma": 164.6138795045045,
+                "luma_p99": 255.0,
+                "detail": 16.419899062725307,
+                "flat": 0.012833453496755588,
+                "saturation": 0.5354154187089355,
+                "hue_bins": [
+                  34,
+                  21,
+                  1222,
+                  605,
+                  260,
+                  416,
+                  3351,
+                  1032,
+                  9,
+                  14,
+                  11,
+                  33
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t05.png",
+              "sha256": "55ebec9d9428a661b005cf10727e31f7c31d1a08b651cc0a85e3cbcbeb7fc15e",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 96,
+                "nearwhite": 232,
+                "clipped": 2176,
+                "black": 0,
+                "luma": 164.20199887387386,
+                "luma_p99": 255.0,
+                "detail": 16.18846431146359,
+                "flat": 0.016005767844268205,
+                "saturation": 0.5308902960525185,
+                "hue_bins": [
+                  27,
+                  17,
+                  1206,
+                  606,
+                  272,
+                  438,
+                  3321,
+                  1047,
+                  8,
+                  20,
+                  6,
+                  40
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 88.66666666666667,
+            "nearwhite": 217.16666666666666,
+            "clipped": 2154.3333333333335,
+            "luma": 164.99732545045046,
+            "detail": 17.038764720019227,
+            "flat": 0.013266041816870943,
+            "saturation": 0.5438686683937314
+          }
+        },
+        "after_recharged": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12.png",
+              "sha256": "f961939b17dce593c9bcc2e60a603e3149a856980f1e526e4c4c97b58e51536f",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 24,
+                "nearwhite": 40,
+                "clipped": 924,
+                "black": 0,
+                "luma": 106.45298423423424,
+                "luma_p99": 236.0,
+                "detail": 9.943907714491708,
+                "flat": 0.1247296322999279,
+                "saturation": 0.7778858431846816,
+                "hue_bins": [
+                  40,
+                  3,
+                  78,
+                  3,
+                  5,
+                  8,
+                  4504,
+                  2424,
+                  5,
+                  3,
+                  5,
+                  2
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t01.png",
+              "sha256": "1b8a8cacac488f92a6cdbd1f8d7bd3f1f86caf1493f20b6754080e736fde4b75",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 94,
+                "nearwhite": 224,
+                "clipped": 2492,
+                "black": 0,
+                "luma": 155.11148648648648,
+                "luma_p99": 255.0,
+                "detail": 19.43013698630137,
+                "flat": 0.010958904109589041,
+                "saturation": 0.5816522118364644,
+                "hue_bins": [
+                  29,
+                  14,
+                  1356,
+                  532,
+                  208,
+                  324,
+                  3423,
+                  1039,
+                  10,
+                  16,
+                  17,
+                  42
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t02.png",
+              "sha256": "b715a2aac843902aa33b65812e1ed685675d438b3589f978b9a9a59963494aae",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 70,
+                "nearwhite": 187,
+                "clipped": 2367,
+                "black": 0,
+                "luma": 153.55996621621622,
+                "luma_p99": 254.0,
+                "detail": 19.59942321557318,
+                "flat": 0.009084354722422494,
+                "saturation": 0.5909029723818578,
+                "hue_bins": [
+                  36,
+                  19,
+                  1387,
+                  519,
+                  205,
+                  384,
+                  3348,
+                  1065,
+                  10,
+                  12,
+                  15,
+                  34
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t03.png",
+              "sha256": "dc54337930618df2c73cb16f81ee47aa44725cd56b80e73f5f060ea3750f0285",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 58,
+                "nearwhite": 159,
+                "clipped": 2272,
+                "black": 0,
+                "luma": 152.87105855855856,
+                "luma_p99": 254.0,
+                "detail": 19.284931506849315,
+                "flat": 0.008795962509012257,
+                "saturation": 0.5848568921118418,
+                "hue_bins": [
+                  48,
+                  29,
+                  1364,
+                  587,
+                  173,
+                  362,
+                  3368,
+                  1063,
+                  7,
+                  7,
+                  9,
+                  29
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t04.png",
+              "sha256": "1a0ac6a935834bc5ba8bb7651bf177e280d488527b2090b706b405d5d2a1edde",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 50,
+                "nearwhite": 162,
+                "clipped": 2182,
+                "black": 0,
+                "luma": 152.0682713963964,
+                "luma_p99": 254.0,
+                "detail": 18.893583273251622,
+                "flat": 0.007786589762076424,
+                "saturation": 0.5801690323305682,
+                "hue_bins": [
+                  61,
+                  36,
+                  1280,
+                  652,
+                  172,
+                  361,
+                  3387,
+                  1064,
+                  6,
+                  4,
+                  11,
+                  20
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t05.png",
+              "sha256": "835b0802818056149e966d2f5eff6f25a1feb3710afc5ddc27f4d8f310859847",
+              "stats": {
+                "pixels": 7104,
+                "width": 74,
+                "height": 96,
+                "white": 44,
+                "nearwhite": 163,
+                "clipped": 2156,
+                "black": 0,
+                "luma": 152.4473536036036,
+                "luma_p99": 254.0,
+                "detail": 19.081759192501803,
+                "flat": 0.00692141312184571,
+                "saturation": 0.5676812799295061,
+                "hue_bins": [
+                  56,
+                  39,
+                  1172,
+                  706,
+                  204,
+                  340,
+                  3410,
+                  1089,
+                  8,
+                  3,
+                  14,
+                  19
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 56.666666666666664,
+            "nearwhite": 155.83333333333334,
+            "clipped": 2065.5,
+            "luma": 145.4185200825826,
+            "detail": 17.7056236481615,
+            "flat": 0.028046142754145634,
+            "saturation": 0.6138580386291533
+          }
+        }
+      }
+    },
+    {
+      "actor": 10012,
+      "view_hour": "village1-eco-blue-h18",
+      "common_roi": [
+        116,
+        18,
+        204,
+        105
+      ],
+      "arms": {
+        "before_origine-lumiere": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18.png",
+              "sha256": "686961467fddfe41ce0ecf486939a3a82a8207598ac363cc4153598881fc55b6",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 30,
+                "nearwhite": 83,
+                "clipped": 1370,
+                "black": 0,
+                "luma": 101.97831765935214,
+                "luma_p99": 252.0,
+                "detail": 15.434776797647688,
+                "flat": 0.010558674151296445,
+                "saturation": 0.5282951315668105,
+                "hue_bins": [
+                  259,
+                  108,
+                  1041,
+                  569,
+                  264,
+                  364,
+                  2905,
+                  1098,
+                  179,
+                  157,
+                  273,
+                  409
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t01.png",
+              "sha256": "bed15ce603bd928e1bc5cb643cb1fcd5a5f9fa7b95da7e77bd3bcd6cb7f49dca",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 5,
+                "nearwhite": 61,
+                "clipped": 1437,
+                "black": 0,
+                "luma": 103.97805642633229,
+                "luma_p99": 250.0,
+                "detail": 15.527399091152098,
+                "flat": 0.008286554397219995,
+                "saturation": 0.530729563414191,
+                "hue_bins": [
+                  332,
+                  110,
+                  1035,
+                  569,
+                  235,
+                  345,
+                  2900,
+                  1184,
+                  146,
+                  122,
+                  251,
+                  421
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t02.png",
+              "sha256": "d811f40de36ff1a1317a9fd80afdc561c771d5aa522dc0fec7e8ec823f742745",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 6,
+                "nearwhite": 45,
+                "clipped": 1390,
+                "black": 0,
+                "luma": 103.74869383490073,
+                "luma_p99": 248.0,
+                "detail": 15.917802726543705,
+                "flat": 0.008687516706762898,
+                "saturation": 0.5410490848612884,
+                "hue_bins": [
+                  420,
+                  115,
+                  1110,
+                  526,
+                  180,
+                  358,
+                  2919,
+                  1156,
+                  128,
+                  85,
+                  167,
+                  486
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t03.png",
+              "sha256": "51feb617e1c0317c393c5ba9e352c167428ab83ad912385b3e515f5e5c5a1672",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 1,
+                "nearwhite": 58,
+                "clipped": 1331,
+                "black": 0,
+                "luma": 102.59600313479623,
+                "luma_p99": 250.0,
+                "detail": 15.787890938251804,
+                "flat": 0.009623095429029671,
+                "saturation": 0.544449060418153,
+                "hue_bins": [
+                  508,
+                  115,
+                  1142,
+                  507,
+                  194,
+                  388,
+                  3019,
+                  1014,
+                  91,
+                  94,
+                  151,
+                  432
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t04.png",
+              "sha256": "a7ef0fb47be5c675cbb8dde63ca07c48830d5be70161d0beb10270298677875d",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 64,
+                "nearwhite": 130,
+                "clipped": 1321,
+                "black": 0,
+                "luma": 100.71630094043887,
+                "luma_p99": 254.0,
+                "detail": 14.605586741512964,
+                "flat": 0.014300989040363539,
+                "saturation": 0.551775690943101,
+                "hue_bins": [
+                  491,
+                  129,
+                  1125,
+                  432,
+                  220,
+                  502,
+                  2936,
+                  1000,
+                  83,
+                  73,
+                  167,
+                  434
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t05.png",
+              "sha256": "0b15fa8b080b482a72ad1815b95d9d8d38b29541c490c8aee93d22a3100e33b4",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 44,
+                "nearwhite": 159,
+                "clipped": 1483,
+                "black": 0,
+                "luma": 104.49529780564264,
+                "luma_p99": 254.0,
+                "detail": 16.85177759957231,
+                "flat": 0.009623095429029671,
+                "saturation": 0.5291652107215914,
+                "hue_bins": [
+                  489,
+                  116,
+                  996,
+                  435,
+                  244,
+                  556,
+                  3003,
+                  1004,
+                  74,
+                  76,
+                  178,
+                  441
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 25.0,
+            "nearwhite": 89.33333333333333,
+            "clipped": 1388.6666666666667,
+            "luma": 102.91877830024383,
+            "detail": 15.68753898244676,
+            "flat": 0.010179987525617036,
+            "saturation": 0.5375772903208559
+          }
+        },
+        "before_recharged": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18.png",
+              "sha256": "06dfa3f135f3484039e9d7669af901ad3fce6096600cb52b4ca15be8479ca207",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 0,
+                "nearwhite": 85,
+                "clipped": 389,
+                "black": 0,
+                "luma": 103.75156739811912,
+                "luma_p99": 251.0,
+                "detail": 15.531141406041165,
+                "flat": 0.009222133119486768,
+                "saturation": 0.5201562810048537,
+                "hue_bins": [
+                  410,
+                  95,
+                  800,
+                  376,
+                  153,
+                  394,
+                  3467,
+                  1081,
+                  177,
+                  107,
+                  211,
+                  384
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t01.png",
+              "sha256": "2099c821620b224012dfa2a578a85fd5a5217fa9fb6a2f0551012c12c7c814e2",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 0,
+                "nearwhite": 126,
+                "clipped": 398,
+                "black": 0,
+                "luma": 102.44122257053291,
+                "luma_p99": 253.0,
+                "detail": 14.65891472868217,
+                "flat": 0.01309810211173483,
+                "saturation": 0.5264774524034513,
+                "hue_bins": [
+                  378,
+                  88,
+                  900,
+                  376,
+                  145,
+                  385,
+                  3392,
+                  1068,
+                  203,
+                  120,
+                  237,
+                  364
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t02.png",
+              "sha256": "e6073b01637f62d4a970448f010c400fffbb2fc4bb4632f53f13beb5c465980e",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 0,
+                "nearwhite": 104,
+                "clipped": 411,
+                "black": 0,
+                "luma": 101.9907262277952,
+                "luma_p99": 253.0,
+                "detail": 15.403902699812884,
+                "flat": 0.011895215183106121,
+                "saturation": 0.5283917022810165,
+                "hue_bins": [
+                  394,
+                  94,
+                  961,
+                  402,
+                  150,
+                  357,
+                  3325,
+                  1056,
+                  260,
+                  101,
+                  201,
+                  355
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t03.png",
+              "sha256": "a4988ecbf83d40ecf2d8c025b6a051a673e41050cd2bf57826db000fc6a25e8e",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 0,
+                "nearwhite": 135,
+                "clipped": 415,
+                "black": 0,
+                "luma": 101.1385841170324,
+                "luma_p99": 253.0,
+                "detail": 14.39922480620155,
+                "flat": 0.01309810211173483,
+                "saturation": 0.5283512347809394,
+                "hue_bins": [
+                  394,
+                  96,
+                  966,
+                  413,
+                  164,
+                  382,
+                  3208,
+                  1135,
+                  253,
+                  107,
+                  192,
+                  346
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t04.png",
+              "sha256": "929a1327f4558775b02024937f0b800457a3ab3cc424268b4031f0dfb68567f2",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 0,
+                "nearwhite": 126,
+                "clipped": 408,
+                "black": 0,
+                "luma": 100.73628526645768,
+                "luma_p99": 253.0,
+                "detail": 14.828789093825181,
+                "flat": 0.012028869286287089,
+                "saturation": 0.5235342330256736,
+                "hue_bins": [
+                  327,
+                  100,
+                  988,
+                  514,
+                  206,
+                  347,
+                  3189,
+                  1029,
+                  200,
+                  166,
+                  239,
+                  351
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t05.png",
+              "sha256": "ea9f5ae6414b6217c28b8acb9e51c9001457ab0b5a6b08b7b4c2353f01404ad2",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 0,
+                "nearwhite": 82,
+                "clipped": 361,
+                "black": 0,
+                "luma": 100.98798328108673,
+                "luma_p99": 251.0,
+                "detail": 15.102913659449346,
+                "flat": 0.013231756214915798,
+                "saturation": 0.5247732054126637,
+                "hue_bins": [
+                  254,
+                  94,
+                  966,
+                  605,
+                  228,
+                  356,
+                  2992,
+                  1136,
+                  134,
+                  216,
+                  270,
+                  404
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 0.0,
+            "nearwhite": 109.66666666666667,
+            "clipped": 397.0,
+            "luma": 101.84106147683734,
+            "detail": 14.987481065668716,
+            "flat": 0.012095696337877571,
+            "saturation": 0.5252806848180996
+          }
+        },
+        "after_origine-lumiere": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18.png",
+              "sha256": "1ea1abe1dfc5b47528bc5ac9f9c4af3560644302abdb0212c7565d40c0a57967",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 30,
+                "nearwhite": 83,
+                "clipped": 1364,
+                "black": 0,
+                "luma": 101.96760710553814,
+                "luma_p99": 252.0,
+                "detail": 15.428361400695001,
+                "flat": 0.01029136594493451,
+                "saturation": 0.5283699697346788,
+                "hue_bins": [
+                  259,
+                  108,
+                  1046,
+                  565,
+                  269,
+                  366,
+                  2900,
+                  1096,
+                  177,
+                  159,
+                  270,
+                  411
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t01.png",
+              "sha256": "3c14557d81b2a7f6fcb7f589449d61d53c68d285751acde693a8bcfa89d10755",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 6,
+                "nearwhite": 61,
+                "clipped": 1434,
+                "black": 0,
+                "luma": 103.99190177638454,
+                "luma_p99": 250.0,
+                "detail": 15.539695268644747,
+                "flat": 0.00801924619085806,
+                "saturation": 0.5306449870565387,
+                "hue_bins": [
+                  335,
+                  103,
+                  1046,
+                  566,
+                  233,
+                  342,
+                  2901,
+                  1184,
+                  146,
+                  120,
+                  253,
+                  421
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t02.png",
+              "sha256": "c83e3af24cda2415b96fd8ad030a4a43f8896cabfd1751ef0c48ffd8c824ea0c",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 6,
+                "nearwhite": 45,
+                "clipped": 1391,
+                "black": 0,
+                "luma": 103.75130616509927,
+                "luma_p99": 248.0,
+                "detail": 15.912055600106923,
+                "flat": 0.008821170809943865,
+                "saturation": 0.5409870980744533,
+                "hue_bins": [
+                  419,
+                  119,
+                  1103,
+                  530,
+                  182,
+                  356,
+                  2914,
+                  1161,
+                  128,
+                  85,
+                  166,
+                  487
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t03.png",
+              "sha256": "7fd76ca7ba9f05b90bfa66d3182fd73a330657ecff7380a0d9cf872901f1807d",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 1,
+                "nearwhite": 58,
+                "clipped": 1330,
+                "black": 0,
+                "luma": 102.60632183908046,
+                "luma_p99": 250.0,
+                "detail": 15.804998663458969,
+                "flat": 0.009756749532210639,
+                "saturation": 0.5444139543037737,
+                "hue_bins": [
+                  509,
+                  117,
+                  1132,
+                  512,
+                  196,
+                  394,
+                  3013,
+                  1014,
+                  90,
+                  93,
+                  153,
+                  432
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t04.png",
+              "sha256": "191b909d64de11d6043a8cfa62385c6f390224798950575db29c68b85fed4320",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 65,
+                "nearwhite": 131,
+                "clipped": 1322,
+                "black": 0,
+                "luma": 100.7091170323929,
+                "luma_p99": 254.0,
+                "detail": 14.635792568831864,
+                "flat": 0.014434643143544507,
+                "saturation": 0.5517852218525457,
+                "hue_bins": [
+                  492,
+                  127,
+                  1130,
+                  430,
+                  218,
+                  506,
+                  2929,
+                  1000,
+                  86,
+                  74,
+                  166,
+                  433
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t05.png",
+              "sha256": "4d034ed8b995a6f921b8dae4983784766157c4154d52fd169adbe519a3f0769a",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 45,
+                "nearwhite": 159,
+                "clipped": 1484,
+                "black": 0,
+                "luma": 104.4966039707419,
+                "luma_p99": 254.0,
+                "detail": 16.87129109863673,
+                "flat": 0.009489441325848703,
+                "saturation": 0.5292180791665799,
+                "hue_bins": [
+                  488,
+                  119,
+                  992,
+                  439,
+                  241,
+                  555,
+                  3004,
+                  1004,
+                  75,
+                  75,
+                  179,
+                  440
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 25.5,
+            "nearwhite": 89.5,
+            "clipped": 1387.5,
+            "luma": 102.92047631487287,
+            "detail": 15.698699100062372,
+            "flat": 0.010135436157890048,
+            "saturation": 0.5375698850314284
+          }
+        },
+        "after_recharged": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18.png",
+              "sha256": "a681f851b7cef79641ce3be500dfd40379f37cd392b5495f0099c31f7008d061",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 17,
+                "nearwhite": 96,
+                "clipped": 1551,
+                "black": 0,
+                "luma": 103.95350052246604,
+                "luma_p99": 252.0,
+                "detail": 15.585672280139,
+                "flat": 0.00855386260358193,
+                "saturation": 0.5203683686535046,
+                "hue_bins": [
+                  408,
+                  96,
+                  800,
+                  375,
+                  153,
+                  393,
+                  3443,
+                  1088,
+                  177,
+                  107,
+                  212,
+                  386
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t01.png",
+              "sha256": "48184300e57b7791af225f878fa87a75ebf0ba238fbbfad99a1d9094f043d143",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 45,
+                "nearwhite": 136,
+                "clipped": 1468,
+                "black": 0,
+                "luma": 102.63009404388714,
+                "luma_p99": 254.0,
+                "detail": 14.715851376637263,
+                "flat": 0.012028869286287089,
+                "saturation": 0.5266459155130121,
+                "hue_bins": [
+                  378,
+                  91,
+                  898,
+                  373,
+                  148,
+                  382,
+                  3371,
+                  1053,
+                  196,
+                  118,
+                  241,
+                  362
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t02.png",
+              "sha256": "bb8b60fa5362519e54bc79a35585cf3275b030c44be3f39af2a8db8c24e7e856",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 46,
+                "nearwhite": 116,
+                "clipped": 1438,
+                "black": 0,
+                "luma": 102.16993207941483,
+                "luma_p99": 254.0,
+                "detail": 15.468056669339749,
+                "flat": 0.012429831595829992,
+                "saturation": 0.5285411175232487,
+                "hue_bins": [
+                  393,
+                  95,
+                  957,
+                  405,
+                  150,
+                  360,
+                  3296,
+                  1048,
+                  250,
+                  100,
+                  202,
+                  354
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t03.png",
+              "sha256": "bb94ae7beeb4781342bf9cfa9223bc98e417dd5ece2f31e1a749438e17ec42b9",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 57,
+                "nearwhite": 148,
+                "clipped": 1418,
+                "black": 0,
+                "luma": 101.30995297805643,
+                "luma_p99": 254.0,
+                "detail": 14.477679764768778,
+                "flat": 0.011895215183106121,
+                "saturation": 0.5284348425016218,
+                "hue_bins": [
+                  397,
+                  98,
+                  960,
+                  418,
+                  168,
+                  375,
+                  3179,
+                  1109,
+                  251,
+                  109,
+                  190,
+                  344
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t04.png",
+              "sha256": "37417d0014ab37157b95772897bf2a2c386a50d7cf7b3ca81533adfe53cdbe0a",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 46,
+                "nearwhite": 140,
+                "clipped": 1425,
+                "black": 0,
+                "luma": 100.90269070010449,
+                "luma_p99": 254.0,
+                "detail": 14.917669072440525,
+                "flat": 0.012964448008553862,
+                "saturation": 0.5236121026685031,
+                "hue_bins": [
+                  328,
+                  99,
+                  986,
+                  533,
+                  191,
+                  344,
+                  3168,
+                  1010,
+                  195,
+                  164,
+                  240,
+                  352
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t05.png",
+              "sha256": "cff293a95f826b44f550063501cc429fe8b3fe33f8ec413a34242142a09c7f0b",
+              "stats": {
+                "pixels": 7656,
+                "width": 88,
+                "height": 87,
+                "white": 39,
+                "nearwhite": 91,
+                "clipped": 1497,
+                "black": 0,
+                "luma": 101.17711598746081,
+                "luma_p99": 252.0,
+                "detail": 15.152232023523123,
+                "flat": 0.014434643143544507,
+                "saturation": 0.5249248369600616,
+                "hue_bins": [
+                  253,
+                  98,
+                  967,
+                  605,
+                  231,
+                  355,
+                  2957,
+                  1130,
+                  130,
+                  215,
+                  272,
+                  404
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 41.666666666666664,
+            "nearwhite": 121.16666666666667,
+            "clipped": 1466.1666666666667,
+            "luma": 102.02388105189829,
+            "detail": 15.052860197808073,
+            "flat": 0.012051144970150585,
+            "saturation": 0.5254211973033253
+          }
+        }
+      }
+    },
+    {
+      "actor": 10013,
+      "view_hour": "village1-eco-blue-h12",
+      "common_roi": [
+        174,
+        22,
+        208,
+        63
+      ],
+      "arms": {
+        "before_origine-lumiere": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12.png",
+              "sha256": "11a0791c7f6efc93263e26a665b2a7d4154129b6131fe9fe3b0e33a8a01374fa",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 8,
+                "nearwhite": 24,
+                "clipped": 642,
+                "black": 0,
+                "luma": 166.3715925394548,
+                "luma_p99": 254.0,
+                "detail": 16.14242424242424,
+                "flat": 0.004545454545454545,
+                "saturation": 0.5563555632325001,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  34,
+                  1018,
+                  313,
+                  6,
+                  2,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t01.png",
+              "sha256": "742718e44015dbd42640a995fb1144fc9c75bc724b34dee9f44316b06a93f641",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 14,
+                "nearwhite": 43,
+                "clipped": 632,
+                "black": 0,
+                "luma": 163.09397417503587,
+                "luma_p99": 254.06999999999994,
+                "detail": 15.038636363636364,
+                "flat": 0.012121212121212121,
+                "saturation": 0.5577330019257674,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  42,
+                  995,
+                  322,
+                  6,
+                  1,
+                  6,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t02.png",
+              "sha256": "1396e7d454645750cfa7f9ef8698741b36aa25867c2c831922920ffca9f96c5a",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 25,
+                "nearwhite": 44,
+                "clipped": 609,
+                "black": 0,
+                "luma": 161.70014347202294,
+                "luma_p99": 255.0,
+                "detail": 13.778030303030302,
+                "flat": 0.015909090909090907,
+                "saturation": 0.5603625123268049,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  45,
+                  974,
+                  329,
+                  7,
+                  1,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t03.png",
+              "sha256": "dfc8b5bcf85f79067f9cdaf8ca2425b3a1f717a5d7d2623e2edf8e0fe9557c69",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 29,
+                "nearwhite": 53,
+                "clipped": 602,
+                "black": 0,
+                "luma": 162.21233859397418,
+                "luma_p99": 255.0,
+                "detail": 13.637121212121212,
+                "flat": 0.019696969696969695,
+                "saturation": 0.5504166621513535,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  46,
+                  971,
+                  327,
+                  6,
+                  1,
+                  6,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t04.png",
+              "sha256": "2597b60e9e091590c984ee34439ad0237b90406ada162efd6e334015f903adc3",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 15,
+                "nearwhite": 33,
+                "clipped": 601,
+                "black": 0,
+                "luma": 162.41535150645623,
+                "luma_p99": 255.0,
+                "detail": 13.86969696969697,
+                "flat": 0.015151515151515152,
+                "saturation": 0.5484850932819911,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  48,
+                  984,
+                  326,
+                  6,
+                  2,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h12-t05.png",
+              "sha256": "4d9e4f395e7c2f229b01f828c089e08b3b755cd407617002359af18e306f6c56",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 2,
+                "nearwhite": 30,
+                "clipped": 584,
+                "black": 0,
+                "luma": 160.6341463414634,
+                "luma_p99": 254.0,
+                "detail": 13.058333333333334,
+                "flat": 0.010606060606060607,
+                "saturation": 0.5470123130674038,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  52,
+                  988,
+                  331,
+                  7,
+                  1,
+                  5,
+                  8
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 15.5,
+            "nearwhite": 37.833333333333336,
+            "clipped": 611.6666666666666,
+            "luma": 162.7379244380679,
+            "detail": 14.254040404040403,
+            "flat": 0.013005050505050506,
+            "saturation": 0.5533941909976369
+          }
+        },
+        "before_recharged": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12.png",
+              "sha256": "3dab96163dfcd01bc8b89d9f36fa5c732037520b167738fb98928ea0158413b5",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 39,
+                "clipped": 111,
+                "black": 0,
+                "luma": 138.5573888091822,
+                "luma_p99": 254.0,
+                "detail": 17.36969696969697,
+                "flat": 0.059848484848484845,
+                "saturation": 0.5965858759472169,
+                "hue_bins": [
+                  166,
+                  0,
+                  2,
+                  2,
+                  4,
+                  5,
+                  802,
+                  393,
+                  7,
+                  5,
+                  6,
+                  2
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t01.png",
+              "sha256": "dacd8e8b28fe8fcae8737cbf96193f68589b7ab56b632bb106d6491e57671c7e",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 52,
+                "clipped": 141,
+                "black": 0,
+                "luma": 162.43687230989957,
+                "luma_p99": 254.0,
+                "detail": 14.796969696969697,
+                "flat": 0.025757575757575757,
+                "saturation": 0.5868649923557117,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  31,
+                  1032,
+                  311,
+                  7,
+                  4,
+                  4,
+                  5
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t02.png",
+              "sha256": "2a8dba5b11fb2ec2577b660db09e256fd12dd608b75c81bb8036abf0f634f79a",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 45,
+                "clipped": 131,
+                "black": 0,
+                "luma": 166.06025824964132,
+                "luma_p99": 254.0,
+                "detail": 14.973484848484848,
+                "flat": 0.024242424242424242,
+                "saturation": 0.5771506545999985,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  28,
+                  1035,
+                  312,
+                  5,
+                  1,
+                  6,
+                  7
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t03.png",
+              "sha256": "4d7b8bfbe0173d994dd2fc4042922e78c6a5a5a8d2e155646b9226e0efd25d19",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 51,
+                "clipped": 136,
+                "black": 0,
+                "luma": 168.76040172166427,
+                "luma_p99": 254.0,
+                "detail": 15.461363636363636,
+                "flat": 0.016666666666666666,
+                "saturation": 0.5635146059160563,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  30,
+                  1026,
+                  317,
+                  7,
+                  1,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t04.png",
+              "sha256": "3279f74088db1d03c5ed5e5f5e2aaecfbc9d41ad0fbf7092405045aa3da6cf13",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 41,
+                "clipped": 151,
+                "black": 0,
+                "luma": 168.89813486370159,
+                "luma_p99": 253.06999999999994,
+                "detail": 16.01212121212121,
+                "flat": 0.008333333333333333,
+                "saturation": 0.5582904488046132,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  27,
+                  1030,
+                  316,
+                  7,
+                  1,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h12-t05.png",
+              "sha256": "c555a41f2865270d8db39241a78c3a3b423f8baca0066c2146a8b049cb7e3465",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 36,
+                "clipped": 170,
+                "black": 0,
+                "luma": 168.90459110473458,
+                "luma_p99": 254.0,
+                "detail": 16.830303030303032,
+                "flat": 0.006060606060606061,
+                "saturation": 0.5417982483649914,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  32,
+                  1020,
+                  321,
+                  7,
+                  0,
+                  6,
+                  8
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 0.0,
+            "nearwhite": 44.0,
+            "clipped": 140.0,
+            "luma": 162.26960784313727,
+            "detail": 15.90732323232323,
+            "flat": 0.023484848484848483,
+            "saturation": 0.5707008043314313
+          }
+        },
+        "after_origine-lumiere": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12.png",
+              "sha256": "36a7a969af68a0b6a9a9386dc1d64c387eefc50426171fceeb46fbb2209da082",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 8,
+                "nearwhite": 24,
+                "clipped": 642,
+                "black": 0,
+                "luma": 166.36154949784793,
+                "luma_p99": 254.0,
+                "detail": 16.081818181818182,
+                "flat": 0.004545454545454545,
+                "saturation": 0.5562870289885293,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  34,
+                  1018,
+                  313,
+                  6,
+                  2,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t01.png",
+              "sha256": "f28dcac689e9f16fc0e1ee4a3b9d5ef458d1579ce4dd687a8324fbfc0ba3138a",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 14,
+                "nearwhite": 43,
+                "clipped": 628,
+                "black": 0,
+                "luma": 163.0832137733142,
+                "luma_p99": 254.06999999999994,
+                "detail": 15.014393939393939,
+                "flat": 0.011363636363636364,
+                "saturation": 0.5577816578456604,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  42,
+                  995,
+                  322,
+                  6,
+                  1,
+                  6,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t02.png",
+              "sha256": "dd8ae5e79837e801255e862328c0f4d1e56e5bd62716add4b0bc018568469774",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 25,
+                "nearwhite": 44,
+                "clipped": 612,
+                "black": 0,
+                "luma": 161.67431850789097,
+                "luma_p99": 255.0,
+                "detail": 13.820454545454545,
+                "flat": 0.015909090909090907,
+                "saturation": 0.5603649642786735,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  48,
+                  971,
+                  329,
+                  7,
+                  1,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t03.png",
+              "sha256": "e5a213773e897ab247e995ba67ce34070e8c65906ffe68d281592429c9b9b796",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 29,
+                "nearwhite": 53,
+                "clipped": 603,
+                "black": 0,
+                "luma": 162.21090387374463,
+                "luma_p99": 255.0,
+                "detail": 13.620454545454546,
+                "flat": 0.019696969696969695,
+                "saturation": 0.5503698451953619,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  46,
+                  971,
+                  327,
+                  6,
+                  1,
+                  6,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t04.png",
+              "sha256": "97351ed36fc4207499cb59a10eada0c98697af4f4ddcdaa656e07328c629157d",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 15,
+                "nearwhite": 33,
+                "clipped": 602,
+                "black": 0,
+                "luma": 162.37733142037303,
+                "luma_p99": 255.0,
+                "detail": 13.871212121212121,
+                "flat": 0.015151515151515152,
+                "saturation": 0.5484161211894725,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  48,
+                  984,
+                  326,
+                  6,
+                  2,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h12-t05.png",
+              "sha256": "55ebec9d9428a661b005cf10727e31f7c31d1a08b651cc0a85e3cbcbeb7fc15e",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 2,
+                "nearwhite": 30,
+                "clipped": 582,
+                "black": 0,
+                "luma": 160.59827833572453,
+                "luma_p99": 254.0,
+                "detail": 13.093939393939394,
+                "flat": 0.010606060606060607,
+                "saturation": 0.5469535866309077,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  54,
+                  986,
+                  331,
+                  7,
+                  1,
+                  5,
+                  8
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 15.5,
+            "nearwhite": 37.833333333333336,
+            "clipped": 611.5,
+            "luma": 162.71759923481588,
+            "detail": 14.250378787878788,
+            "flat": 0.012878787878787878,
+            "saturation": 0.5533622006881008
+          }
+        },
+        "after_recharged": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12.png",
+              "sha256": "f961939b17dce593c9bcc2e60a603e3149a856980f1e526e4c4c97b58e51536f",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 24,
+                "nearwhite": 40,
+                "clipped": 480,
+                "black": 0,
+                "luma": 138.9519368723099,
+                "luma_p99": 255.0,
+                "detail": 17.4780303030303,
+                "flat": 0.06136363636363636,
+                "saturation": 0.5970056194577267,
+                "hue_bins": [
+                  166,
+                  0,
+                  2,
+                  2,
+                  4,
+                  5,
+                  781,
+                  390,
+                  7,
+                  5,
+                  6,
+                  2
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t01.png",
+              "sha256": "1b8a8cacac488f92a6cdbd1f8d7bd3f1f86caf1493f20b6754080e736fde4b75",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 37,
+                "nearwhite": 52,
+                "clipped": 627,
+                "black": 0,
+                "luma": 162.94978479196556,
+                "luma_p99": 255.0,
+                "detail": 14.968939393939394,
+                "flat": 0.025757575757575757,
+                "saturation": 0.5873818616203746,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  31,
+                  998,
+                  308,
+                  7,
+                  4,
+                  4,
+                  5
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t02.png",
+              "sha256": "b715a2aac843902aa33b65812e1ed685675d438b3589f978b9a9a59963494aae",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 30,
+                "nearwhite": 47,
+                "clipped": 670,
+                "black": 0,
+                "luma": 166.6413199426112,
+                "luma_p99": 255.0,
+                "detail": 15.13030303030303,
+                "flat": 0.022727272727272728,
+                "saturation": 0.5776896242701203,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  29,
+                  1002,
+                  314,
+                  5,
+                  1,
+                  6,
+                  7
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t03.png",
+              "sha256": "dc54337930618df2c73cb16f81ee47aa44725cd56b80e73f5f060ea3750f0285",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 28,
+                "nearwhite": 51,
+                "clipped": 694,
+                "black": 0,
+                "luma": 169.31779053084648,
+                "luma_p99": 255.0,
+                "detail": 15.586363636363636,
+                "flat": 0.015151515151515152,
+                "saturation": 0.5641443744288128,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  30,
+                  998,
+                  317,
+                  7,
+                  1,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t04.png",
+              "sha256": "1a0ac6a935834bc5ba8bb7651bf177e280d488527b2090b706b405d5d2a1edde",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 21,
+                "nearwhite": 44,
+                "clipped": 698,
+                "black": 0,
+                "luma": 169.49784791965567,
+                "luma_p99": 255.0,
+                "detail": 16.133333333333333,
+                "flat": 0.015151515151515152,
+                "saturation": 0.5589819539626333,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  26,
+                  1009,
+                  317,
+                  7,
+                  1,
+                  5,
+                  8
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h12-t05.png",
+              "sha256": "835b0802818056149e966d2f5eff6f25a1feb3710afc5ddc27f4d8f310859847",
+              "stats": {
+                "pixels": 1394,
+                "width": 34,
+                "height": 41,
+                "white": 19,
+                "nearwhite": 39,
+                "clipped": 708,
+                "black": 0,
+                "luma": 169.49569583931134,
+                "luma_p99": 255.0,
+                "detail": 16.979545454545455,
+                "flat": 0.011363636363636364,
+                "saturation": 0.5423744351616904,
+                "hue_bins": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  28,
+                  1004,
+                  322,
+                  7,
+                  0,
+                  6,
+                  8
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 26.5,
+            "nearwhite": 45.5,
+            "clipped": 646.1666666666666,
+            "luma": 162.80906264945003,
+            "detail": 16.046085858585858,
+            "flat": 0.025252525252525252,
+            "saturation": 0.5712629781502264
+          }
+        }
+      }
+    },
+    {
+      "actor": 10013,
+      "view_hour": "village1-eco-blue-h18",
+      "common_roi": [
+        174,
+        21,
+        211,
+        62
+      ],
+      "arms": {
+        "before_origine-lumiere": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18.png",
+              "sha256": "686961467fddfe41ce0ecf486939a3a82a8207598ac363cc4153598881fc55b6",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 27,
+                "nearwhite": 52,
+                "clipped": 297,
+                "black": 0,
+                "luma": 122.27554383651945,
+                "luma_p99": 255.0,
+                "detail": 16.63125,
+                "flat": 0.017361111111111112,
+                "saturation": 0.45930953479145004,
+                "hue_bins": [
+                  100,
+                  0,
+                  0,
+                  0,
+                  0,
+                  94,
+                  792,
+                  256,
+                  87,
+                  29,
+                  50,
+                  82
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t01.png",
+              "sha256": "bed15ce603bd928e1bc5cb643cb1fcd5a5f9fa7b95da7e77bd3bcd6cb7f49dca",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 12,
+                "clipped": 352,
+                "black": 0,
+                "luma": 130.75807514831905,
+                "luma_p99": 250.83999999999992,
+                "detail": 17.190277777777776,
+                "flat": 0.006944444444444444,
+                "saturation": 0.4687781954310546,
+                "hue_bins": [
+                  96,
+                  0,
+                  0,
+                  0,
+                  0,
+                  28,
+                  862,
+                  289,
+                  84,
+                  33,
+                  46,
+                  79
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t02.png",
+              "sha256": "d811f40de36ff1a1317a9fd80afdc561c771d5aa522dc0fec7e8ec823f742745",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 4,
+                "nearwhite": 19,
+                "clipped": 363,
+                "black": 0,
+                "luma": 133.7883981542518,
+                "luma_p99": 252.0,
+                "detail": 17.90138888888889,
+                "flat": 0.00625,
+                "saturation": 0.4610157187539968,
+                "hue_bins": [
+                  106,
+                  0,
+                  0,
+                  0,
+                  0,
+                  24,
+                  863,
+                  282,
+                  85,
+                  26,
+                  43,
+                  84
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t03.png",
+              "sha256": "51feb617e1c0317c393c5ba9e352c167428ab83ad912385b3e515f5e5c5a1672",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 16,
+                "clipped": 345,
+                "black": 0,
+                "luma": 132.98088332234673,
+                "luma_p99": 251.0,
+                "detail": 19.118055555555557,
+                "flat": 0.009722222222222222,
+                "saturation": 0.469116730461348,
+                "hue_bins": [
+                  133,
+                  0,
+                  0,
+                  0,
+                  0,
+                  20,
+                  864,
+                  270,
+                  65,
+                  30,
+                  47,
+                  88
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t04.png",
+              "sha256": "a7ef0fb47be5c675cbb8dde63ca07c48830d5be70161d0beb10270298677875d",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 13,
+                "nearwhite": 28,
+                "clipped": 323,
+                "black": 0,
+                "luma": 130.5161502966381,
+                "luma_p99": 254.0,
+                "detail": 16.740972222222222,
+                "flat": 0.0125,
+                "saturation": 0.4774590097357489,
+                "hue_bins": [
+                  162,
+                  0,
+                  0,
+                  0,
+                  0,
+                  17,
+                  803,
+                  301,
+                  34,
+                  30,
+                  53,
+                  104
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/origine-lumiere/village1-eco-blue-h18-t05.png",
+              "sha256": "0b15fa8b080b482a72ad1815b95d9d8d38b29541c490c8aee93d22a3100e33b4",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 16,
+                "nearwhite": 29,
+                "clipped": 304,
+                "black": 0,
+                "luma": 128.64733025708637,
+                "luma_p99": 254.83999999999992,
+                "detail": 15.040972222222223,
+                "flat": 0.013194444444444444,
+                "saturation": 0.48716395889438774,
+                "hue_bins": [
+                  188,
+                  0,
+                  0,
+                  0,
+                  0,
+                  18,
+                  805,
+                  284,
+                  30,
+                  25,
+                  34,
+                  117
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 10.0,
+            "nearwhite": 26.0,
+            "clipped": 330.6666666666667,
+            "luma": 129.8277301691936,
+            "detail": 17.103819444444444,
+            "flat": 0.01099537037037037,
+            "saturation": 0.470473858011331
+          }
+        },
+        "before_recharged": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18.png",
+              "sha256": "06dfa3f135f3484039e9d7669af901ad3fce6096600cb52b4ca15be8479ca207",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 11,
+                "clipped": 113,
+                "black": 0,
+                "luma": 123.20369149637442,
+                "luma_p99": 250.0,
+                "detail": 14.83125,
+                "flat": 0.002777777777777778,
+                "saturation": 0.472916397911234,
+                "hue_bins": [
+                  157,
+                  0,
+                  0,
+                  0,
+                  0,
+                  47,
+                  794,
+                  293,
+                  47,
+                  26,
+                  34,
+                  119
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t01.png",
+              "sha256": "2099c821620b224012dfa2a578a85fd5a5217fa9fb6a2f0551012c12c7c814e2",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 17,
+                "clipped": 71,
+                "black": 0,
+                "luma": 121.14897824653922,
+                "luma_p99": 251.0,
+                "detail": 14.810416666666667,
+                "flat": 0.009722222222222222,
+                "saturation": 0.46853952300418256,
+                "hue_bins": [
+                  129,
+                  0,
+                  0,
+                  0,
+                  0,
+                  59,
+                  812,
+                  273,
+                  51,
+                  29,
+                  42,
+                  122
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t02.png",
+              "sha256": "e6073b01637f62d4a970448f010c400fffbb2fc4bb4632f53f13beb5c465980e",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 30,
+                "clipped": 84,
+                "black": 0,
+                "luma": 120.4502307185234,
+                "luma_p99": 253.0,
+                "detail": 15.35625,
+                "flat": 0.015277777777777777,
+                "saturation": 0.4594676170512579,
+                "hue_bins": [
+                  121,
+                  0,
+                  0,
+                  0,
+                  0,
+                  58,
+                  825,
+                  270,
+                  60,
+                  26,
+                  47,
+                  110
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t03.png",
+              "sha256": "a4988ecbf83d40ecf2d8c025b6a051a673e41050cd2bf57826db000fc6a25e8e",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 40,
+                "clipped": 109,
+                "black": 0,
+                "luma": 120.36651285431773,
+                "luma_p99": 253.0,
+                "detail": 15.686805555555555,
+                "flat": 0.018055555555555554,
+                "saturation": 0.45580224307621875,
+                "hue_bins": [
+                  125,
+                  0,
+                  0,
+                  0,
+                  0,
+                  61,
+                  770,
+                  335,
+                  60,
+                  18,
+                  41,
+                  107
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t04.png",
+              "sha256": "929a1327f4558775b02024937f0b800457a3ab3cc424268b4031f0dfb68567f2",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 47,
+                "clipped": 85,
+                "black": 0,
+                "luma": 120.39683586025049,
+                "luma_p99": 253.0,
+                "detail": 14.51736111111111,
+                "flat": 0.013194444444444444,
+                "saturation": 0.4614743041642092,
+                "hue_bins": [
+                  127,
+                  0,
+                  0,
+                  0,
+                  0,
+                  57,
+                  808,
+                  302,
+                  53,
+                  23,
+                  50,
+                  97
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175/captures/recharged/village1-eco-blue-h18-t05.png",
+              "sha256": "ea9f5ae6414b6217c28b8acb9e51c9001457ab0b5a6b08b7b4c2353f01404ad2",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 41,
+                "clipped": 84,
+                "black": 0,
+                "luma": 123.65326301911668,
+                "luma_p99": 253.0,
+                "detail": 17.256944444444443,
+                "flat": 0.014583333333333334,
+                "saturation": 0.4651466488064694,
+                "hue_bins": [
+                  88,
+                  1,
+                  1,
+                  2,
+                  11,
+                  77,
+                  802,
+                  305,
+                  56,
+                  18,
+                  52,
+                  104
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 0.0,
+            "nearwhite": 31.0,
+            "clipped": 91.0,
+            "luma": 121.53658536585367,
+            "detail": 15.409837962962962,
+            "flat": 0.012268518518518519,
+            "saturation": 0.46389112233559526
+          }
+        },
+        "after_origine-lumiere": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18.png",
+              "sha256": "1ea1abe1dfc5b47528bc5ac9f9c4af3560644302abdb0212c7565d40c0a57967",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 27,
+                "nearwhite": 52,
+                "clipped": 295,
+                "black": 0,
+                "luma": 122.2775214238629,
+                "luma_p99": 255.0,
+                "detail": 16.634722222222223,
+                "flat": 0.016666666666666666,
+                "saturation": 0.45935535209187156,
+                "hue_bins": [
+                  100,
+                  0,
+                  0,
+                  0,
+                  0,
+                  95,
+                  793,
+                  254,
+                  87,
+                  29,
+                  50,
+                  82
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t01.png",
+              "sha256": "3c14557d81b2a7f6fcb7f589449d61d53c68d285751acde693a8bcfa89d10755",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 12,
+                "clipped": 352,
+                "black": 0,
+                "luma": 130.75939353988136,
+                "luma_p99": 250.83999999999992,
+                "detail": 17.191666666666666,
+                "flat": 0.006944444444444444,
+                "saturation": 0.46875146951069885,
+                "hue_bins": [
+                  96,
+                  0,
+                  0,
+                  0,
+                  0,
+                  28,
+                  861,
+                  290,
+                  84,
+                  33,
+                  46,
+                  79
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t02.png",
+              "sha256": "c83e3af24cda2415b96fd8ad030a4a43f8896cabfd1751ef0c48ffd8c824ea0c",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 4,
+                "nearwhite": 19,
+                "clipped": 363,
+                "black": 0,
+                "luma": 133.78510217534608,
+                "luma_p99": 252.0,
+                "detail": 17.886805555555554,
+                "flat": 0.007638888888888889,
+                "saturation": 0.4610160506905311,
+                "hue_bins": [
+                  106,
+                  0,
+                  0,
+                  0,
+                  0,
+                  24,
+                  863,
+                  282,
+                  85,
+                  26,
+                  43,
+                  84
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t03.png",
+              "sha256": "7fd76ca7ba9f05b90bfa66d3182fd73a330657ecff7380a0d9cf872901f1807d",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 16,
+                "clipped": 343,
+                "black": 0,
+                "luma": 132.97297297297297,
+                "luma_p99": 251.0,
+                "detail": 19.115277777777777,
+                "flat": 0.009722222222222222,
+                "saturation": 0.46917216386258254,
+                "hue_bins": [
+                  133,
+                  0,
+                  0,
+                  0,
+                  0,
+                  20,
+                  864,
+                  270,
+                  65,
+                  30,
+                  47,
+                  88
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t04.png",
+              "sha256": "191b909d64de11d6043a8cfa62385c6f390224798950575db29c68b85fed4320",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 13,
+                "nearwhite": 28,
+                "clipped": 324,
+                "black": 0,
+                "luma": 130.51549110085696,
+                "luma_p99": 254.0,
+                "detail": 16.752777777777776,
+                "flat": 0.0125,
+                "saturation": 0.47744634585402973,
+                "hue_bins": [
+                  162,
+                  0,
+                  0,
+                  0,
+                  0,
+                  17,
+                  801,
+                  303,
+                  34,
+                  30,
+                  53,
+                  104
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/origine-lumiere/village1-eco-blue-h18-t05.png",
+              "sha256": "4d034ed8b995a6f921b8dae4983784766157c4154d52fd169adbe519a3f0769a",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 16,
+                "nearwhite": 29,
+                "clipped": 304,
+                "black": 0,
+                "luma": 128.6354647330257,
+                "luma_p99": 254.83999999999992,
+                "detail": 15.063194444444445,
+                "flat": 0.013194444444444444,
+                "saturation": 0.48715789350862393,
+                "hue_bins": [
+                  188,
+                  0,
+                  0,
+                  0,
+                  0,
+                  18,
+                  805,
+                  284,
+                  30,
+                  25,
+                  34,
+                  117
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 10.0,
+            "nearwhite": 26.0,
+            "clipped": 330.1666666666667,
+            "luma": 129.82432432432432,
+            "detail": 17.107407407407408,
+            "flat": 0.011111111111111112,
+            "saturation": 0.4704832125863896
+          }
+        },
+        "after_recharged": {
+          "samples": [
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18.png",
+              "sha256": "a681f851b7cef79641ce3be500dfd40379f37cd392b5495f0099c31f7008d061",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 0,
+                "nearwhite": 15,
+                "clipped": 319,
+                "black": 0,
+                "luma": 123.40342781806197,
+                "luma_p99": 251.0,
+                "detail": 14.916666666666666,
+                "flat": 0.002777777777777778,
+                "saturation": 0.47325224727320425,
+                "hue_bins": [
+                  157,
+                  0,
+                  0,
+                  0,
+                  0,
+                  47,
+                  790,
+                  297,
+                  47,
+                  26,
+                  34,
+                  119
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t01.png",
+              "sha256": "48184300e57b7791af225f878fa87a75ebf0ba238fbbfad99a1d9094f043d143",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 3,
+                "nearwhite": 21,
+                "clipped": 287,
+                "black": 0,
+                "luma": 121.35662491760053,
+                "luma_p99": 252.0,
+                "detail": 14.896527777777777,
+                "flat": 0.009027777777777777,
+                "saturation": 0.46882583335307354,
+                "hue_bins": [
+                  129,
+                  0,
+                  0,
+                  0,
+                  0,
+                  59,
+                  813,
+                  269,
+                  51,
+                  29,
+                  42,
+                  122
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t02.png",
+              "sha256": "bb8b60fa5362519e54bc79a35585cf3275b030c44be3f39af2a8db8c24e7e856",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 9,
+                "nearwhite": 33,
+                "clipped": 295,
+                "black": 0,
+                "luma": 120.67963085036256,
+                "luma_p99": 254.0,
+                "detail": 15.441666666666666,
+                "flat": 0.011111111111111112,
+                "saturation": 0.4597169919166916,
+                "hue_bins": [
+                  121,
+                  0,
+                  0,
+                  0,
+                  0,
+                  59,
+                  820,
+                  265,
+                  60,
+                  26,
+                  47,
+                  110
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t03.png",
+              "sha256": "bb94ae7beeb4781342bf9cfa9223bc98e417dd5ece2f31e1a749438e17ec42b9",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 25,
+                "nearwhite": 42,
+                "clipped": 296,
+                "black": 0,
+                "luma": 120.58800263678313,
+                "luma_p99": 255.0,
+                "detail": 15.761111111111111,
+                "flat": 0.020833333333333332,
+                "saturation": 0.45597199340814276,
+                "hue_bins": [
+                  125,
+                  0,
+                  0,
+                  0,
+                  0,
+                  61,
+                  763,
+                  318,
+                  59,
+                  18,
+                  41,
+                  107
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t04.png",
+              "sha256": "37417d0014ab37157b95772897bf2a2c386a50d7cf7b3ca81533adfe53cdbe0a",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 24,
+                "nearwhite": 50,
+                "clipped": 308,
+                "black": 0,
+                "luma": 120.59854976928148,
+                "luma_p99": 255.0,
+                "detail": 14.614583333333334,
+                "flat": 0.018055555555555554,
+                "saturation": 0.46176910404143295,
+                "hue_bins": [
+                  127,
+                  0,
+                  0,
+                  0,
+                  0,
+                  57,
+                  796,
+                  290,
+                  53,
+                  23,
+                  50,
+                  97
+                ]
+              }
+            },
+            {
+              "image": ".autoport/reports/lighting-hdr/batches/essai25-finite-white/20260908T063147-3766137/captures/recharged/village1-eco-blue-h18-t05.png",
+              "sha256": "cff293a95f826b44f550063501cc429fe8b3fe33f8ec413a34242142a09c7f0b",
+              "stats": {
+                "pixels": 1517,
+                "width": 37,
+                "height": 41,
+                "white": 32,
+                "nearwhite": 44,
+                "clipped": 347,
+                "black": 0,
+                "luma": 123.89584706657877,
+                "luma_p99": 255.0,
+                "detail": 17.356944444444444,
+                "flat": 0.020833333333333332,
+                "saturation": 0.46551493742065897,
+                "hue_bins": [
+                  88,
+                  1,
+                  1,
+                  2,
+                  11,
+                  77,
+                  780,
+                  295,
+                  56,
+                  18,
+                  52,
+                  104
+                ]
+              }
+            }
+          ],
+          "mean": {
+            "white": 15.5,
+            "nearwhite": 34.166666666666664,
+            "clipped": 308.6666666666667,
+            "luma": 121.75368050977806,
+            "detail": 15.497916666666667,
+            "flat": 0.013773148148148147,
+            "saturation": 0.4641751845688673
+          }
+        }
+      }
+    }
+  ]
+}

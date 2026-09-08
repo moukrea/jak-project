@@ -934,3 +934,207 @@ def test_replacing_empty_crash_does_not_erase_raw_config_incompatibility(tmp_pat
     rehash(path)
     batch(tmp_path, plan, complete_requests(plan), '002', replaces=['001:swamp-start:0=swamp-dock1'])
     assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
+
+
+def temporal_owner_row(actor=10012, on_white=(9, 11)):
+    row = {'actor': actor, 'view_hour': 'village1-eco-blue-h12',
+           'roi_exclusive': [10, 20, 30, 40], 'samples': []}
+    for arm, whites in (('recharged', on_white), ('origine-lumiere', (8, 12))):
+        for i, white in enumerate(whites):
+            row['samples'].append({'arm': arm, 'image': f'{arm}/{i}', 'visible_sprites': 1,
+                'stats': {'white': white, 'nearwhite': white + 20, 'clipped': 40,
+                          'detail': 8, 'flat': .1, 'hue_bins': [1] * 12}})
+    return row
+
+
+def test_owner_temporal_success_judges_reported_brightness_with_attribution_limit():
+    judgment = hdr.owner_sequence_judgment(temporal_owner_row(), 2)
+    assert judgment['measured'] and judgment['photometric_passed']
+    assert judgment['status'] == 'passed'
+    assert 'background' in judgment['limitation']
+    assert judgment['bounds']['white']['on_mean'] == 10
+
+
+@pytest.mark.parametrize('on_white', [(0, 0), (0, 9), (15, 16)])
+def test_owner_temporal_mean_detects_loss_and_excess_despite_overlap(on_white):
+    judgment = hdr.owner_sequence_judgment(temporal_owner_row(on_white=on_white), 2)
+    assert judgment['measured'] and not judgment['photometric_passed']
+    assert judgment['status'] == 'failed'
+    assert any('white' in failure for failure in judgment['failures'])
+
+
+@pytest.mark.parametrize('fault', ['absent', 'duplicate', 'invisible', 'nan', 'no_off_white', 'no_roi'])
+def test_owner_temporal_unqualified_stays_unjudged(fault):
+    row = temporal_owner_row()
+    if fault == 'absent':
+        row['samples'].pop()
+    elif fault == 'duplicate':
+        row['samples'][0]['image'] = row['samples'][1]['image']
+    elif fault == 'invisible':
+        row['samples'][0]['visible_sprites'] = 0
+    elif fault == 'nan':
+        row['samples'][0]['stats']['detail'] = float('nan')
+    elif fault == 'no_off_white':
+        for sample in row['samples'][2:]:
+            sample['stats']['white'] = 0
+    elif fault == 'no_roi':
+        row.pop('roi_exclusive')
+    judgment = hdr.owner_sequence_judgment(row, 2)
+    assert judgment['status'] == 'not_judged' and not judgment.get('measured')
+
+
+def test_owner_measured_failure_is_distinct_from_missing_and_passed():
+    expected = hdr.contract(ROOT)
+    observation = {'batch': 'synthetic', 'selected': [('village1-eco-blue', 12)], 'temporal': 2,
+                   'diagnostic': {'schema': 1, 'errors': [], 'regions': [
+                       temporal_owner_row(actor, (0, 0)) for actor in (10012, 10013)]}}
+    metrics, diagnostic = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == 1
+    assert metrics['hdr_owner_regressions_failed'] == 1
+    assert metrics['hdr_owner_regressions_missing'] == 4
+    assert metrics['hdr_owner_regressions_passed'] == 0
+    assert metrics['hdr_defect_7_owner_regressions'] == 1
+    assert len(diagnostic['failed']) == 1
+    observation['selected'] = [('another-view', 12)]
+    metrics, _ = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == 0
+    observation['selected'] = [('village1-eco-blue', 12)]
+    observation['diagnostic']['errors'] = ['incompatible provenance']
+    metrics, _ = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == 0
+
+
+@pytest.mark.parametrize('metric,value', [('clipped', 41), ('detail', 7), ('flat', .2)])
+def test_owner_temporal_preserves_detail_and_limits_excess(metric, value):
+    row = temporal_owner_row()
+    for sample in row['samples'][:2]:
+        sample['stats'][metric] = value
+    judgment = hdr.owner_sequence_judgment(row, 2)
+    assert judgment['measured'] and judgment['status'] == 'failed'
+    assert any(metric in failure for failure in judgment['failures'])
+
+
+def test_owner_temporal_cannot_combine_partial_actor_cells():
+    expected = hdr.contract(ROOT)
+    rows = [temporal_owner_row(actor) for actor in (10012, 10013)]
+    rows[1]['view_hour'] = 'village1-eco-blue-h18'
+    observation = {'batch': 'synthetic', 'selected': [('village1-eco-blue', 12), ('village1-eco-blue', 18)],
+                   'temporal': 2, 'diagnostic': {'schema': 1, 'errors': [], 'regions': rows}}
+    metrics, _ = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == 0
+    assert metrics['hdr_owner_regressions_missing'] == 5
+
+
+@pytest.mark.parametrize('failed_actor,failed_hour', [(None, None), (10012, 12), (10013, 18)])
+def test_owner_eco_success_requires_every_actor_and_hour(failed_actor, failed_hour):
+    expected = hdr.contract(ROOT)
+    rows = []
+    for hour in (12, 18):
+        for actor in (10012, 10013):
+            fail = (actor, hour) == (failed_actor, failed_hour)
+            row = temporal_owner_row(actor, (0, 0) if fail else (9, 11))
+            row['view_hour'] = f'village1-eco-blue-h{hour}'
+            rows.append(row)
+    observation = {'batch': 'synthetic', 'selected': [('village1-eco-blue', 12), ('village1-eco-blue', 18)],
+                   'temporal': 2, 'diagnostic': {'schema': 1, 'errors': [], 'regions': rows}}
+    metrics, diagnostics = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == 1
+    assert metrics['hdr_owner_regressions_missing'] == 4
+    assert metrics['hdr_owner_regressions_failed'] == int(failed_actor is not None)
+    assert metrics['hdr_owner_regressions_passed'] == int(failed_actor is None)
+    assert len(diagnostics['passed']) == int(failed_actor is None)
+    assert metrics['hdr_defect_7_owner_regressions'] == 1  # four unrelated cases absent
+    # The eco-only synthetic contract can pass; no unconditional missing guard.
+    expected['plan']['owner_regression_cases'] = [expected['plan']['owner_regression_cases'][1]]
+    metrics, _ = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_defect_7_owner_regressions'] == int(failed_actor is not None)
+
+
+@pytest.mark.parametrize('view', ['village1-eco-blue', 'explicit-eco-replacement'])
+def test_owner_absent_entire_selected_hour_blocks_success(view):
+    expected = hdr.contract(ROOT)
+    rows = [temporal_owner_row(actor) for actor in (10012, 10013)]
+    for row in rows:
+        row['view_hour'] = view + '-h12'
+    observation = {'batch': 'synthetic', 'selected': [(view, 12), (view, 18)], 'temporal': 2,
+                   'diagnostic': {'schema': 1, 'errors': [], 'regions': rows}}
+    metrics, diagnostic = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_passed'] == 0
+    assert metrics['hdr_owner_regressions_measured'] == 0
+    finding = next(row for row in diagnostic['findings'] if 'observations' in row)
+    assert ['synthetic', view + '-h18'] in [list(cell) for cell in finding['expected_cells']]
+
+
+def inject_synthetic_owner_regions(monkeypatch, regions):
+    """Aggregation fixture only: raw-source reconstruction has separate tests."""
+    original = hdr.read_batch
+    def read(path, expected, measurer):
+        record = original(path, expected, measurer)
+        record['values']['refset_temporal_samples'] = '2'
+        record['owner_regions'] = {'schema': 1, 'errors': [], 'regions': regions.get(record['id'], [])}
+        return record
+    monkeypatch.setattr(hdr, 'read_batch', read)
+
+
+@pytest.mark.parametrize('kind', ['absent_target', 'failed_source', 'incompatible'])
+def test_eco_replacement_cannot_erase_region_or_failure(tmp_path, monkeypatch, kind):
+    plan = hdr.contract(ROOT)
+    view = 'village1-eco-blue'
+    target = 'village1-out' if kind == 'absent_target' else view
+    old = batch(tmp_path, plan, [(view, 12)], name='001')
+    new = batch(tmp_path, plan, [(target, 12)], name='002', replaces=[f'001:{view}:12={target}'])
+    rows_old = [temporal_owner_row(actor, (0, 0) if kind == 'failed_source' else (9, 11))
+                for actor in (10012, 10013)]
+    rows_new = [] if kind == 'absent_target' else [temporal_owner_row(actor) for actor in (10012, 10013)]
+    if kind == 'incompatible':
+        for suffix in ('start', 'end'):
+            (new / f'props-{suffix}.txt').write_text((new / f'props-{suffix}.txt').read_text().replace(
+                '[debug.opengoal.rt.intensity]: [1]', '[debug.opengoal.rt.intensity]: [2]'))
+        rehash(new)
+    inject_synthetic_owner_regions(monkeypatch, {'001': rows_old, '002': rows_new})
+    metrics = result(tmp_path, plan, '002')
+    diagnostic = json.loads((tmp_path / 'measurements.json').read_text())
+    reason = {'absent_target': 'loses measurable eco actors', 'failed_source': 'cannot erase measured eco defect',
+              'incompatible': 'eco replacement binary/config incompatible'}[kind]
+    assert any(reason in error for error in diagnostic['errors'])
+    assert metrics['hdr_owner_regressions_passed'] == int(kind == 'absent_target')
+    owner = diagnostic['owner_regressions']
+    assert any(row['batch'] == '001' for row in owner['regional_observations'] + owner['unselected_regional_observations'])
+
+
+def test_duplicate_eco_cells_cannot_increment_passed(tmp_path, monkeypatch):
+    plan = hdr.contract(ROOT)
+    view = 'village1-eco-blue'
+    for name in ('001', '002'):
+        batch(tmp_path, plan, [(view, 12)], name=name)
+    inject_synthetic_owner_regions(monkeypatch, {
+        name: [temporal_owner_row(actor) for actor in (10012, 10013)] for name in ('001', '002')})
+    metrics = result(tmp_path, plan, '002')
+    diagnostic = json.loads((tmp_path / 'measurements.json').read_text())
+    assert any('duplicate view/hour' in error for error in diagnostic['errors'])
+    assert metrics['hdr_owner_regressions_passed'] == metrics['hdr_owner_regressions_measured'] == 0
+
+
+def test_eco_early_crash_can_be_explicitly_replaced(tmp_path, monkeypatch):
+    plan = hdr.contract(ROOT)
+    view = 'village1-eco-blue'
+    path = batch(tmp_path, plan, [(view, 12), (view, 18)], crash=1)
+    for p in (path / 'captures').rglob('*'):
+        if p.is_file():
+            p.unlink()
+    (path / 'engine.log').write_text('process aborted before first capture\n')
+    rehash(path)
+    batch(tmp_path, plan, [(view, 12), (view, 18)], name='002',
+          replaces=[f'001:{view}:{hour}={view}' for hour in (12, 18)])
+    rows = []
+    for hour in (12, 18):
+        for actor in (10012, 10013):
+            row = temporal_owner_row(actor)
+            row['view_hour'] = f'{view}-h{hour}'
+            rows.append(row)
+    inject_synthetic_owner_regions(monkeypatch, {'002': rows})
+    metrics = result(tmp_path, plan, '002')
+    diagnostic = json.loads((tmp_path / 'measurements.json').read_text())
+    assert diagnostic['errors'] == []
+    assert metrics['hdr_owner_regressions_passed'] == 1
+    assert metrics['hdr_owner_regressions_missing'] == 4

@@ -1,32 +1,27 @@
-DIRECTIVES va841fb32b6
-Diagnostic régional livré ; rendu non corrigé dans cet essai, tâche non validée : hdr_tonemap_defects=4.
-La capture éco devient une séquence de six images par bras ; le gel des particules est levé uniquement dans ce mode de diagnostic.
-Les instances éco/portail sont associées par texture et proximité des ancres, puis leurs fragments et coins projetés sont relevés sur le GPU.
-Correction du diagnostic de projection : le w intermédiaire est signé ; les traces appareil confirment camera_w négatif et des régions désormais exploitables.
-Le helper mesure les régions avec ImageMagick et conserve les cellules/séquences absentes pour remplacement explicite. Aucun validateur ou seuil qualité modifié.
-La courbe de rendu livrée à l’essai23 reste inchangée ; aucune correction artistique des cinq cas n’est revendiquée.
-Build incrémental/repack/install rc0 ; MD5 bibliothèque build/APK/Redmi ba3d5711227381380fc9857c70f071b8 (notes/essai24/projection-build/build-deploy.log).
-Tests hors appareil : 133 passed, 52.88s (notes/essai24/harness-tests.log) ; ils ne constituent pas une preuve jeu.
-Huit lignes exactes de proof.txt :
+DIRECTIVES v6133a247b4
+Non validé : les blancs éco reviennent partiellement, mais le cas mesuré échoue et quatre cas restent non jugés.
+Épaule SDR quadratique C1 à blanc fini dans tonemap.frag et miroir hdr.cpp ; exposition/alpha inchangés.
+Ce correctif reste expérimental : son plateau peut aplatir les hautes lumières ; aucun effet artistique ajouté.
+owner_regressions juge maintenant les séquences éco : mesure, échec et réussite distincts ; absences/doublons/remplacements protégés.
+Preuve officielle, lot essai25-finite-white/20260908T063147-3766137, huit lignes recopiées :
 ```text
-serial=eae4df44
 crash=0
 frames=1140
-FEATURE lighting-hdr armed=1 hits=253744
+FEATURE lighting-hdr armed=1 hits=271323
+tonemap_draws=388
 tonemap_sites=1
-hdr_batch_pairs=4
-hdr_owner_regressions_missing=5
+hdr_owner_regressions_measured=1
+hdr_owner_regressions_failed=1
 hdr_tonemap_defects=4
 ```
-Deux lots officiels : essai24-projected/20260908T060523-3743175 et 20260908T060731-3746070 ; 24 captures chacun, crash=0, quatre paires cumulées, zéro erreur.
-Éco10012/10013 : éclairs avec fragments visibles dans 6/6 images de chaque bras à 12h et 18h ; 2867 témoins (notes/essai24/analysis-projected.json).
-ROI éco10012 : blancs moyens OFF→ON à midi 89,33→0, à 18h 25→0 ; quasi-blancs 217,83→146,33 et 89,33→109,67.
-ROI éco10013 : blancs moyens OFF→ON à midi 15,5→0, à 18h 10→0. Les régions incluent du décor ; conservation des détails lumineux non qualifiée.
-Portail : 4707 témoins, 686 requêtes avec fragments visibles ; rectangles [0,0,281,180] et [0,0,277,180], trop étendus pour qualifier localement le violet.
-Le lot précédent a planté à la transition vers l’éco : SIGILL frame1143, 24/48 captures. Il reste conservé en diagnostic, sans réutilisation incompatible comme preuve.
-AVANT/APRÈS conservés : notes/essai24/before-after-regional.json ; AVANT figé et APRÈS animé, comparaison diagnostique seulement. Binaires précédents préservés.
-À regarder après correction dans Options > Recharged : blancs des nuages, éclairs éco, éclat du soleil couchant, petites zones devant la hutte et couleur du portail.
-non prouvé : correction des cinq régressions ; nuages, soleil et sol de la hutte toujours sans région sémantique qualifiée ; détail/couleur du portail non qualifiés.
-non prouvé : équilibre21niveaux/8h, tous acquis, alpha destination des autres mélanges ; aucune campagne complète reprise avant les cinq cas. HDR natif hors essai.
-Redmi relancé normalement, PID31713 stable après12s, 58 propriétés debug vides et aucun verrou (notes/essai24/device-restored.json).
-Handoff écrit ; aucun owner-ok, aucun generic exécuté : le validateur reste réservé à l’orchestrateur.
+Comparaison ImageMagick, rectangles AVANT/APRÈS identiques : notes/essai25/before-after-regions.json.
+Éco10012 à12h : blancs ON0→56,67, OFF88,67 ; quasi-blancs ON146,33→155,83, OFF217,17.
+À18h : blancs ON41,67/OFF25,5 ; excès global clipped75 après tolérance existante, donc aucun succès qualité.
+Le lot précédent a planté avant captures dans intern_from_c ; ses deux cellules sont remplacées explicitement, sources conservées.
+158 tests harnais passent ; GPU hors appareil8001échantillons de courbe et27cas, zéro échec ; ces tests ne valent pas preuve jeu.
+Build incrémental/repack/install réussis, bibliothèque build/APK/Redmi MD5 4040690090e5b5aa4a3989dc2c78d124.
+Redmi restauré normal : PID6459 stable12s, swap1200,58propriétés debug vides, aucun verrou (device-restored.json).
+À regarder par l'owner, Options > Recharged : éclairs éco midi/soir, nuages, éclat du soleil, petites zones devant vraie hutte et portail.
+non prouvé : correction complète éco, nuages/soleil/sol/portail, tous acquis, équilibre21niveaux×8h et sortie HDR native.
+Campagne complète non lancée : le scope la place après les corrections ciblées encore en échec ; aucun owner-ok ni appel generic.
+Reprise technique détaillée dans handoff.md ; notes/essai25/diagnostic.md conserve les limites et le transitoire des particules.

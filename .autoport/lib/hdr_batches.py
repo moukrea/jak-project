@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import io
 import json
+import math
 import re
 import subprocess
 import sys
@@ -599,7 +600,19 @@ def read_batch(path, expected, measurer):
     m['pairs'] = pairs
     m['values'] = values
     m['identity'] = (provenance, fingerprints)
-    m['owner_regions'] = json.loads((base / 'owner-regions.json').read_text()) if 'owner-regions.json' in files else None
+    m['owner_regions'] = None
+    if 'owner-regions.json' in files:
+        # Reconstruct regional observations from sealed raw captures and queries.
+        # Historical summaries never become a verdict by being present in JSON.
+        images = {}
+        for rel, digest in files.items():
+            if rel.startswith('captures/') and rel.endswith('.png'):
+                cache = cached_pixels.get('images', {}).get(rel)
+                stats = (cache['stats'] if measurer is measure
+                         and cached_pixels.get('helper_sha256') == sha(__file__)
+                         and cache and cache.get('sha256') == digest else measurer(base / rel))
+                images[rel] = {'sha256': digest, 'stats': stats}
+        m['owner_regions'] = owner_regions(base, images, measurer)
     return m
 
 
@@ -665,21 +678,135 @@ def chain_measurements(values, required):
     return defects, findings
 
 
-def owner_regressions(expected):
+def owner_sequence_judgment(row, temporal):
+    """Compare temporal populations, never demand matching lightning frames.
+
+    OFF's observed envelope supplies the bounds: no invented artistic tolerance.
+    These constraints judge the reported eco brightness loss. The projected
+    rectangle also contains background; no local colour attribution is claimed.
+    """
+    samples = row.get('samples', [])
+    arms = {arm: [s for s in samples if s.get('arm') == arm]
+            for arm in ('recharged', 'origine-lumiere')}
+    rect = row.get('roi_exclusive', [])
+    if (temporal < 2 or len(rect) != 4
+            or any(type(x) is not int for x in rect)
+            or not 0 <= rect[0] < rect[2] <= 320
+            or not 0 <= rect[1] < rect[3] <= 180):
+        return {'status': 'not_judged', 'reason': 'no comparable temporal projected ROI'}
+    if (len(samples) != 2 * temporal or any(len(v) != temporal for v in arms.values())
+            or len({s.get('image') for s in samples}) != len(samples)
+            or any(s.get('visible_sprites', 0) <= 0 for s in samples)):
+        return {'status': 'not_judged', 'reason': 'incomplete, duplicate or invisible temporal samples'}
+    bounds, failures = {}, []
+    for key in ('white', 'nearwhite', 'clipped', 'detail', 'flat'):
+        values = {arm: [s.get('stats', {}).get(key) for s in seq] for arm, seq in arms.items()}
+        if any(not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0
+               for seq in values.values() for v in seq):
+            return {'status': 'not_judged', 'reason': 'invalid regional measurement: ' + key}
+        off = values['origine-lumiere']
+        on = values['recharged']
+        mean = sum(on) / len(on)
+        bounds[key] = {'off_min': min(off), 'off_max': max(off),
+                       'off_mean': sum(off) / len(off), 'on_mean': mean}
+        if key in ('white', 'nearwhite') and not min(off) <= mean <= max(off):
+            failures.append(key + ': ON mean outside observed OFF temporal envelope')
+        if key in ('clipped', 'flat') and mean > max(off):
+            failures.append(key + ': ON excess beyond observed OFF temporal envelope')
+        if key == 'detail' and mean < min(off):
+            failures.append('detail: ON loss beyond observed OFF temporal envelope')
+    if bounds['white']['off_mean'] <= 0:
+        return {'status': 'not_judged', 'reason': 'expected OFF whites not observed', 'bounds': bounds}
+    if bounds['white']['on_mean'] <= 0:
+        failures.append('white: expected whites suppressed entirely ON')
+    return {'status': 'failed' if failures else 'passed', 'measured': True,
+            'photometric_passed': not failures, 'bounds': bounds, 'failures': failures,
+            'limitation': 'projected bounds include background; local colour and non-lightning3 sprites not attributed'}
+
+
+def owner_regressions(expected, observations=()):
     owner_required = list(expected['plan'].get('owner_regression_cases', []))
-    # Regional manifests contain neither semantic ROIs nor comparable sequences.
-    # Whole-image statistics and engine verdicts cannot measure these cases.
-    owner_measured = []
-    owner_missing = [case for case in owner_required if case not in owner_measured]
-    owner_metrics = {'hdr_owner_regressions_required': len(owner_required),
-                     'hdr_owner_regressions_measured': len(owner_measured),
-                     'hdr_owner_regressions_missing': len(owner_missing),
-                     'hdr_defect_7_owner_regressions': int(bool(owner_missing))}
-    owner_diagnostics = {'required': owner_required, 'measured': owner_measured,
-                         'missing': owner_missing,
-                         'findings': [{'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'}
-                                      for case in owner_missing]}
-    return owner_metrics, owner_diagnostics
+    measured, failed, passed, findings = [], [], [], []
+    for case in owner_required:
+        if not case.startswith('eclairs des orbes eco bleue'):
+            findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
+            continue
+        rows, cells = [], set()
+        eco_views = {'village1-eco-blue'}
+        for observation in observations:
+            for row in (observation.get('diagnostic') or {}).get('regions', []):
+                match = re.fullmatch(r'(.+)-h(\d+)', row.get('view_hour', ''))
+                if row.get('actor') in (10012, 10013) and match:
+                    eco_views.add(match[1])
+        for observation in observations:
+            cells.update((observation['batch'], f'{view}-h{hour:02}')
+                         for view, hour in observation['selected'] if view in eco_views)
+            diagnostic = observation.get('diagnostic') or {}
+            if diagnostic.get('schema') != 1 or diagnostic.get('errors'):
+                continue
+            for row in diagnostic.get('regions', []):
+                if row.get('actor') not in (10012, 10013):
+                    continue
+                match = re.fullmatch(r'(.+)-h(\d+)', row.get('view_hour', ''))
+                if not match or (match[1], int(match[2])) not in observation.get('eligible', observation['selected']):
+                    continue
+                rows.append({'batch': observation['batch'], 'actor': row['actor'],
+                             'view_hour': row['view_hour'],
+                             **owner_sequence_judgment(row, observation['temporal'])})
+        qualified = [row for row in rows if row.get('measured')]
+        complete = bool(cells) and len(qualified) == len(rows) and all(
+            {row['actor'] for row in qualified
+             if (row['batch'], row['view_hour']) == cell} == {10012, 10013}
+            and sum((row['batch'], row['view_hour']) == cell for row in qualified) == 2
+            for cell in cells)
+        if complete:
+            measured.append(case)
+        if any(row['status'] == 'failed' for row in qualified):
+            failed.append(case)
+        if complete and all(row['status'] == 'passed' for row in qualified):
+            passed.append(case)
+        if rows:
+            findings.append({'case': case, 'status': ('failed' if case in failed else 'passed' if case in passed else 'not_judged'),
+                             'observations': rows, 'expected_cells': sorted(cells)})
+        else:
+            findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
+    missing = [case for case in owner_required if case not in measured]
+    metrics = {'hdr_owner_regressions_required': len(owner_required),
+               'hdr_owner_regressions_measured': len(measured),
+               'hdr_owner_regressions_missing': len(missing),
+               'hdr_owner_regressions_failed': len(failed),
+               'hdr_owner_regressions_passed': len(passed),
+               'hdr_defect_7_owner_regressions': int(len(passed) != len(owner_required))}
+    return metrics, {'required': owner_required, 'measured': measured, 'missing': missing,
+                     'failed': failed, 'passed': passed, 'findings': findings}
+
+
+def check_owner_replacement(previous, key, current, new_key):
+    """A replacement may repair collection, never erase a measured eco loss."""
+    def regions(batch, cell):
+        stem = f'{cell[0]}-h{cell[1]:02}'
+        return [row for row in (batch.get('owner_regions') or {}).get('regions', [])
+                if row.get('actor') in (10012, 10013) and row.get('view_hour') == stem]
+    old_rows = regions(previous, key)
+    if key[0] != 'village1-eco-blue' and not old_rows:
+        return
+    if (previous['identity'][0] != current['identity'][0]
+            or (previous['identity'][1] is not None and previous['identity'][1] != current['identity'][1])):
+        raise ValueError('eco replacement binary/config incompatible')
+    old_pair = previous['pairs'].get(key) or previous.get('unqualified', {}).get(key)
+    if old_pair and old_pair.get('options') is not None and old_pair['options'] != current['pairs'][new_key]['options']:
+        raise ValueError('eco replacement effective settings incompatible')
+    old_judgments = [owner_sequence_judgment(row, int(previous['values'].get('refset_temporal_samples', '1')))
+                     for row in old_rows]
+    if any(row.get('measured') and row['status'] == 'failed' for row in old_judgments):
+        raise ValueError('replacement cannot erase measured eco defect')
+    diagnostic = current.get('owner_regions') or {}
+    new_rows = regions(current, new_key)
+    if (diagnostic.get('schema') != 1 or diagnostic.get('errors')
+            or len(new_rows) != 2 or {row['actor'] for row in new_rows} != {10012, 10013}
+            or not all(owner_sequence_judgment(row, int(current['values'].get('refset_temporal_samples', '1'))).get('measured')
+                       for row in new_rows)):
+        raise ValueError('replacement loses measurable eco actors')
 
 
 def aggregate(campaign, current, expected, measurer=measure):
@@ -701,9 +828,6 @@ def aggregate(campaign, current, expected, measurer=measure):
                 'hdr_batch_errors': max(1, len(errors)),
                 'hdr_batch_error_detail': '|'.join(errors).replace(' ', '_') or 'current_batch_missing'}
     active = batches[current]
-    owner_diagnostics['regional_observations'] = [
-        {'batch': name, 'diagnostic': m.get('owner_regions')}
-        for name, m in batches.items() if m['identity'] == active['identity']]
     for name, m in batches.items():
         if m['identity'][0] != active['identity'][0] or (m['identity'][1] is not None and m['identity'][1] != active['identity'][1]):
             errors.append(name + ': incompatible binary/APK/data/config')
@@ -749,10 +873,11 @@ def aggregate(campaign, current, expected, measurer=measure):
                         on, off = image_record['on'], image_record['off']
                         if on[metric] > off[metric] + max(off['pixels'] // 1000, off[metric] // 20):
                             raise ValueError('replacement cannot erase measured image defect')
+                check_owner_replacement(previous, key, m, new_key)
                 replaced.add((old_batch, key))
             except Exception as exc:
                 errors.append('invalid replacement ' + mapping + ': ' + str(exc))
-    pairs, seen = [], set()
+    pairs, seen, duplicates = [], set(), set()
     hdr_above_one = False
     chain_defects = dict.fromkeys(CHAIN, 0)
     chain_evidence = []
@@ -771,6 +896,7 @@ def aggregate(campaign, current, expected, measurer=measure):
         for key in remaining:
             if key in seen:
                 errors.append('duplicate view/hour: ' + str(key))
+                duplicates.add(key)
             seen.add(key)
             if key not in m['pairs']:
                 errors.append(name + ': unqualified/absent pair ' + str(key) + ': ' + '; '.join(m.get('unqualified', {}).get(key, {}).get('reasons', [])))
@@ -803,6 +929,20 @@ def aggregate(campaign, current, expected, measurer=measure):
             quality_bad.append({'batch': name, 'view': view, 'hour': hour, 'excess': excess})
         diagnostics.append({'batch': name, 'view': view, 'hour': hour, 'level': level,
                             'on': on, 'off': off, 'sky_pm': p['sky_pm']})
+    observations = []
+    for name, m in batches.items():
+        selected = set(map(tuple, m['requested'])) - {key for batch_name, key in replaced if batch_name == name}
+        eligible = {key for batch_name, key, pair in pairs if batch_name == name
+                    and pair['options'] == baseline_options and key not in duplicates}
+        if m['identity'] == active['identity'] and selected:
+            observations.append({'batch': name, 'diagnostic': m.get('owner_regions'),
+                                 'selected': sorted(selected), 'eligible': sorted(eligible),
+                                 'temporal': int(m['values'].get('refset_temporal_samples', '1'))})
+    owner_metrics, owner_diagnostics = owner_regressions(expected, observations)
+    owner_diagnostics['regional_observations'] = observations
+    owner_diagnostics['unselected_regional_observations'] = [
+        {'batch': name, 'diagnostic': m.get('owner_regions')} for name, m in batches.items()
+        if name not in {row['batch'] for row in observations}]
     required = {(level, hour) for level in expected['sky'] for hour in expected['hours']}
     sky_required = {x for x in required if expected['sky'][x[0]]}
     interior_required = required - sky_required

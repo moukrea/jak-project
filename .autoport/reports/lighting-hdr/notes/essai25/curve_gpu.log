@@ -1,0 +1,8 @@
+renderer=Mesa Intel(R) UHD Graphics (CML GT2) version=OpenGL ES 3.2 Mesa 25.3.6
+input=2,1,2,0.5 before=0.997727,0.975,0.997727,0.5 after=1,0.9875,1,0.5 
+input=0.2,0.1,2,0.5 before=0.2,0.1,0.997727,0.5 after=0.2,0.1,1,0.5 
+input=2,1,0.1,0.5 before=0.997727,0.975,0.1,0.5 after=1,0.9875,0.1,0.5 
+input=1,1,1,0.5 before=0.975,0.975,0.975,0.5 after=0.9875,0.9875,0.9875,0.5 
+input=8,2,8,1 before=0.999648,0.997727,0.999648,1 after=1,1,1,1 
+curve_samples=8001 max_slope_jump=0.0100732
+samples=27 failures=0

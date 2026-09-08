@@ -1,0 +1,11 @@
+{
+  "directives": "DIRECTIVES v6133a247b4",
+  "head": "0d340cb15762c57efb152aeffdd2b9f192df6144",
+  "sha256": {
+    "game/graphics/opengl_renderer/hdr.cpp": "42006a58acf72d8cdff0de0738ac6787e0ed20466ce0dce440109bd6bcc7f72a",
+    "game/graphics/opengl_renderer/shaders/tonemap.frag": "fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3",
+    ".autoport/lib/hdr_batches.py": "f6b8216a8393c2b84805358d302cd11558d8cbea45229215167958737c5db137",
+    ".autoport/tests/harness/test_hdr_batches.py": "1ff076074ae13f8102a79d519cb41c1ad085a61f321b9e367e72360168856459",
+    ".autoport/lib/proof_run.sh": "92ca2c3a841a4e905e7fc0fc763c2f544b9422b6c5cf3809b2a27b79996d9998"
+  }
+}

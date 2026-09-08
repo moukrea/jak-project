@@ -1,0 +1,38 @@
+{
+  "directives": "v6133a247b4",
+  "serial": "eae4df44",
+  "teardown": {
+    "exit": 0,
+    "output": "[teardown] eae4df44: 0 propriete(s) effacee(s), marqueurs fichier retires.\n"
+  },
+  "props_before": {
+    "count": 58,
+    "nonempty": []
+  },
+  "force_stop": {
+    "exit": 0,
+    "output": ""
+  },
+  "start": {
+    "exit": 0,
+    "output": "Starting: Intent { cmp=org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity }\n"
+  },
+  "pid_initial": "6459",
+  "pid_after_12s": "6459",
+  "pid_stable": true,
+  "props_after": {
+    "count": 58,
+    "nonempty": []
+  },
+  "lock_exists": false,
+  "crash_signatures": [],
+  "device_lib_md5": "4040690090e5b5aa4a3989dc2c78d124",
+  "expected_lib_md5": "4040690090e5b5aa4a3989dc2c78d124",
+  "restored": true,
+  "pid_query_immediate_after_am_start": "",
+  "boot_trace": [
+    "09-08 08:39:57.691  6459  6551 I opengoal-gk: android_renderer: sustained swap 1080 (game_frames=flowing)",
+    "09-08 08:40:00.370  6459  6551 I opengoal-gk: android_renderer: sustained swap 1140 (game_frames=flowing)",
+    "09-08 08:40:02.972  6459  6551 I opengoal-gk: android_renderer: sustained swap 1200 (game_frames=flowing)"
+  ]
+}

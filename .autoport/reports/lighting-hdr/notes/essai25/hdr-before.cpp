@@ -109,14 +109,14 @@ bool env_or_prop_override(const char* prop, const char* env, int* out) {
   return false;
 }
 
-// Miroir scalaire de l'epaule SDR a blanc fini de tonemap.frag, par canal.
+// Miroir scalaire de l'epaule rationnelle de tonemap.frag, appliquee a chaque canal.
 float shoulder(float x, float k) {
   if (x <= k) {
     return x;
   }
   const float w = (1.f - k) > 1e-4f ? (1.f - k) : 1e-4f;
   const float above = x - k;
-  return above >= 2.f * w ? 1.f : k + above - above * above / (4.f * w);
+  return k + w * above / (w + above);
 }
 
 // lighting-hdr, verdict 3 : « courbe monotone sans coude ».
