@@ -1,0 +1,14 @@
+{
+  "command": [
+    "bash",
+    ".autoport/lib/proof_run.sh",
+    "lighting-hdr",
+    "device",
+    "--hdr-campaign",
+    "essai43-rendu-ground",
+    "--hdr-aggregate-only",
+    "20260908T182641-144544"
+  ],
+  "AUTOPORT_BACKEND": "codex",
+  "exit_code": 0
+}

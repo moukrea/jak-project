@@ -1,32 +1,27 @@
 DIRECTIVES v3909a9767c
-Correction partielle mesurée de l’assombrissement pièce/sol ; HDR reste non validé, hdr_tonemap_defects=4.
-Recentrage owner appliqué : seul shade.glsl change dans le jeu ; aucun nouveau chantier HD/cache/allocateur/menu.
-Composition non-PBR : terme sombre/froid remplacé par1 ; le baked est conservé, l’occlusion retire le supplément solaire existant, amplitude d’ombre réduite.
-Gain/teinte éclairés, directions, PCF, poids astraux, produit des facteurs, PBR, alpha, portes et tone map restent inchangés.
-Build gk incrémental12.27s, repack28.68s, install22.74s ; aucun iso/GOAL ni NDK complet. 28CGO et bundle inchangés.
-APK5d3d6a416c12f690 ; lib0f1a5b25e21ebb4a vérifiées appareil ; aucun échec GLSL recherché, hdr_cfg_bad*=0 et fallback=0.
-Huit lignes de la dernière preuve officielle proof_run.sh, vue extérieure :
-source=device
-serial=eae4df44
-sha=0f1a5b25e21ebb4a
-duration_s=164
+Essai 44 : défaut de conservation du jugement portail corrigé ; rendu HDR toujours non validé, hdr_tonemap_defects=4.
+Hors appareil conformément à la mention « aucun appareil » du prompt ; aucune nouvelle correction du rendu ni livraison APK.
+hdr_batches.py protège désormais actor=1395/portal_disc lors des remplacements : échec régional conservé, identité/réglages compatibles et région cible mesurable exigés.
+Une collecte incomplète reste remplaçable ; aucun seuil, critère final, cumul, validateur ou owner-ok modifié.
+Tests synthétiques : ancien code : 19 échecs / 2 succès ; patch : 294 tests réussis en 82,90 s, exit 0 (notes/essai44/portal-replacement-after.log).
+Revue indépendante tester et manager ; bash -n et git diff --check réussis. Ces tests ne prouvent pas le jeu.
+Intégrité hors appareil : lib 0f1a5b25e21ebb4a identique au manifest, 5/5 sources contrôlées et 37/37 fichiers scellés conformes (offline-integrity.json).
+proof_run.sh --hdr-aggregate-only a recalculé le lot essai43-rendu-ground ; exit 0, sans appareil ni rafraîchissement.
+Preuve du 8 septembre : started_at=18:26:35Z, mtime=18:29:14Z ; durée 159 s du manifest contre 164 s ancienne proof, écart conservé dans offline-replay-verification.json.
+Huit lignes recopiées de proof.txt, issues exclusivement de ce recalcul officiel historique :
 crash=0
-frames=1620
-FEATURE lighting-hdr armed=1 hits=220312
+hdr_batch_missing=338
+hdr_owner_regressions_required=5
+hdr_owner_regressions_measured=0
+hdr_owner_regressions_missing=5
+hdr_owner_regressions_failed=1
+hdr_owner_regressions_passed=0
 hdr_tonemap_defects=4
-Portail/pièce :401s/crash0/4620frames,4captures/21SHA conformes ; extérieur h0/12/18 :164s/crash0,12captures/37SHA conformes.
-Attentes animées après purge portail : ON55.171/110.809s, OFF42.753/84.917s (portal/timing-and-witnesses.json).
-Pièce, luma ON/OFF avant41 :64.223/91.365 ; après :91.299/91.099. Détail15.767/20.222→20.191/20.216.
-Avant sprites portail, ratios RGB ON/OFF .706/.692/.690→1.0046/1.0001/1.0033 (portal-comparison.json).
-Extérieur midi : delta luma ON−OFF image −9.933→+3.874 ; rectangle chemin gauche −51.697→+5.763 (ground-comparison.json).
-Ces rectangles ne montrent pas de violet270..330 avant/après : aucune correction des petites zones exactes owner n’est prouvée.
-Échec portail conservé : disque clipped403/329.5, détail26.714/27.543 ; image clipped1627/1370.5, excès officiel207 au-delà tolérance.
-Le surplus apparaît dans le groupe Sprite3 additif ; sources animées et couches superposées diffèrent. Aucun blend fautif ni correctif supplémentaire démontré.
-Deux campagnes distinctes, configurations temporelles/caméras différentes ; aucun cumul artificiel ni ancien lot requalifié sur le nouveau binaire.
-Extérieur quality_bad0 mais owner_passed0/missing5/failed1 ; portail quality_bad1 et failed2. Ces absences/échecs restent rouges.
-Owner : comparer LightingON/OFF avec sous-option temps réel active ; pièce, chemin/sol devant hutte, puis portail après dix secondes animées.
-Le fichier restauré porte realtime-lighting?=#f ; les tests activent explicitement cette sous-option. Préférence conservée, visibilité hors test à distinguer.
-non prouvé : cinq cas owner, petites zones violettes précises, ombres perçues, détails pleine résolution (PNG320×180), menuOFF/persistance.
-non prouvé : couverture21niveaux×8h/ciels/intérieurs/vraie hutte et crash0 global sur nouveau binaire ; crash Swamp43 documenté, non rejoué.
-Réglages restaurés exactement SHA78108670…52fd6, props vides, PID8310 stable12s, aucun verrou (final-audit.json).
-Notes et sources avant/après : notes/essai43-rendu/ ; captures brutes et défauts conservés. Handoff à jour ; validateur orchestrateur, aucun owner-ok.
+Portail : revue des traces 43 LF 2521/3181, bleu maximal 15,3359 / 17,2344 après groupe Sprite3, canaux négatifs 0 / nonfinis 0 ; contribution individuelle non isolée.
+Les alphas et positions des effets varient entre bras ; aucune faute de blend ou arithmétique nouvelle démontrée. Pas de réglage spéculatif de courbe/gain.
+Correction 43 de shade.glsl conservée ; anciennes comparaisons pièce/sol dans notes/essai43-rendu/.
+Nuages/soleil et éco : diagnostics négatifs 41/30 conservés, pas rejoués. Petites zones violettes du sol toujours sans attribution sémantique.
+Owner : Options > Recharged, comparer Lighting ON/OFF, sous-option temps réel active ; pièce et sol de la vraie hutte, portail après 10 s animées, nuages, soleil couchant et éclairs éco.
+non prouvé : correction visuelle des cinq cas, 21 niveaux × 8 h/ciels/intérieurs/vraie hutte, détails pleine résolution, menu OFF/persistance et crash 0 global actuel.
+Aucune campagne ni navigation nouvelle possible dans la restriction appareil de cet essai ; aucune absence transformée en succès.
+Rapport de diagnostic : notes/essai44/diagnostic.md ; handoff à jour. Validateur laissé à l’orchestrateur.

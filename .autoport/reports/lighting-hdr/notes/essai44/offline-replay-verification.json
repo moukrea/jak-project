@@ -1,0 +1,34 @@
+{
+  "DIRECTIVES": "v3909a9767c",
+  "started_at": "2026-09-08T18:26:35Z",
+  "started_at_matches_manifest": true,
+  "duration_s": "159",
+  "duration_matches_manifest": true,
+  "previous_started_at": "2026-09-08T18:26:35Z",
+  "previous_duration_s": "164",
+  "duration_delta_from_previous_s": -5,
+  "mtime": 1788892154.0,
+  "expected_mtime": 1788892154.0,
+  "mtime_matches_original_end": true,
+  "mtime_utc": "2026-09-08T18:29:14+00:00",
+  "binary_sha256": "0f1a5b25e21ebb4ac4e790abe7f10d6624989ba7c6fb21b07ac26b23e801ec7c",
+  "binary_matches_manifest": true,
+  "proof_sha_matches_binary": true,
+  "proof_excerpt": [
+    "crash=0",
+    "hdr_batch_missing=338",
+    "hdr_owner_regressions_required=5",
+    "hdr_owner_regressions_measured=0",
+    "hdr_owner_regressions_missing=5",
+    "hdr_owner_regressions_failed=1",
+    "hdr_owner_regressions_passed=0",
+    "hdr_tonemap_defects=4"
+  ],
+  "tests": {
+    "command": "python -m pytest .autoport/tests/harness/test_hdr_batches.py -q",
+    "executed_by": "implementer",
+    "result": "294 passed in 82.90s",
+    "exit_code": 0,
+    "log": ".autoport/reports/lighting-hdr/notes/essai44/portal-replacement-after.log"
+  }
+}

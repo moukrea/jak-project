@@ -1007,7 +1007,7 @@ def owner_regressions(expected, observations=()):
 
 
 def check_owner_replacement(previous, key, current, new_key):
-    """A replacement may repair collection, never erase a measured eco loss."""
+    """A replacement may repair collection, never erase a measured owner defect."""
     def sky_regions(batch, cell):
         return [r for r in (batch.get('owner_regions') or {}).get('regions', [])
                 if r.get('actor') == 0 and r.get('layer') in ('clouds', 'sunset-sun')
@@ -1030,6 +1030,28 @@ def check_owner_replacement(previous, key, current, new_key):
             if (diagnostic.get('schema') != 1 or diagnostic.get('errors') or len(replacements) != 1
                     or not sky_sequence_judgment(replacements[0], int(current['values'].get('refset_temporal_samples', '1'))).get('measured')):
                 raise ValueError('replacement loses measurable sky layer')
+    def portal_regions(batch, cell):
+        return [r for r in (batch.get('owner_regions') or {}).get('regions', [])
+                if r.get('actor') == 1395 and r.get('layer') == 'portal_disc'
+                and r.get('view_hour') == f'{cell[0]}-h{cell[1]:02}']
+    old_portal = portal_regions(previous, key)
+    if old_portal:
+        if previous['identity'] != current['identity']:
+            raise ValueError('portal replacement binary/config incompatible')
+        old_pair = previous['pairs'].get(key) or previous.get('unqualified', {}).get(key)
+        if old_pair and old_pair.get('options') is not None and old_pair['options'] != current['pairs'][new_key]['options']:
+            raise ValueError('portal replacement effective settings incompatible')
+        for row in old_portal:
+            judgment = owner_sequence_judgment(
+                row, int(previous['values'].get('refset_temporal_samples', '1')), require_expected_white=False)
+            if judgment.get('measured') and judgment['status'] == 'failed':
+                raise ValueError('replacement cannot erase measured portal defect')
+        diagnostic = current.get('owner_regions') or {}
+        new_portal = portal_regions(current, new_key)
+        if (diagnostic.get('schema') != 1 or diagnostic.get('errors') or len(new_portal) != 1
+                or not owner_sequence_judgment(new_portal[0], int(current['values'].get('refset_temporal_samples', '1')),
+                                               require_expected_white=False).get('measured')):
+            raise ValueError('replacement loses measurable portal region')
     def regions(batch, cell):
         stem = f'{cell[0]}-h{cell[1]:02}'
         return [row for row in (batch.get('owner_regions') or {}).get('regions', [])

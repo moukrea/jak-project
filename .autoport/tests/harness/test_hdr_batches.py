@@ -1432,6 +1432,103 @@ def test_portal_no_off_whites_preserves_partial_flat_judgment_and_eco_guard(exce
     assert all(row['status'] == 'not_judged' for row in details['findings'][0]['observations'])
 
 
+def portal_replacement_batch():
+    key = ('village1-warp', 18)
+    row = temporal_owner_row(1395)
+    row.update(layer='portal_disc', view_hour='village1-warp-h18')
+    # No OFF whites: portal photometry must still be preserved and measurable.
+    for sample in row['samples']:
+        sample['stats'].update(white=0, nearwhite=20)
+    return key, dict(owner_regions={'schema': 1, 'errors': [], 'regions': [row]},
+                     identity=('same', 'same'), pairs={key: {'options': {}}},
+                     values={'refset_temporal_samples': '2'})
+
+
+@pytest.mark.parametrize('fault', ['absent', 'actor', 'layer', 'cell', 'duplicate', 'schema',
+                                  'errors', 'sample', 'measurement', 'invisible', 'temporal',
+                                  'binary', 'config', 'options'])
+def test_portal_replacement_rejects_loss_of_region_measurement_or_compatibility(fault):
+    key, old = portal_replacement_batch()
+    new = copy.deepcopy(old)
+    diagnostic = new['owner_regions']
+    row = diagnostic['regions'][0]
+    if fault == 'absent': diagnostic['regions'] = []
+    if fault == 'actor': row['actor'] = 1396
+    if fault == 'layer': row['layer'] = 'halo'
+    if fault == 'cell': row['view_hour'] = 'village1-warp-h12'
+    if fault == 'duplicate': diagnostic['regions'].append(copy.deepcopy(row))
+    if fault == 'schema': diagnostic['schema'] = 2
+    if fault == 'errors': diagnostic['errors'] = ['invalid provenance']
+    if fault == 'sample': row['samples'].pop()
+    if fault == 'measurement': row['samples'][0]['stats'].pop('detail')
+    if fault == 'invisible': row['samples'][0]['visible_sprites'] = 0
+    if fault == 'temporal': new['values']['refset_temporal_samples'] = '1'
+    if fault == 'binary': new['identity'] = ('different', 'same')
+    if fault == 'config': new['identity'] = ('same', 'different')
+    if fault == 'options': new['pairs'][key]['options'] = {'hdr': False}
+    reason = ('portal replacement binary/config incompatible' if fault in ('binary', 'config') else
+              'portal replacement effective settings incompatible' if fault == 'options' else
+              'replacement loses measurable portal region')
+    with pytest.raises(ValueError, match=reason):
+        hdr.check_owner_replacement(old, key, new, key)
+
+
+@pytest.mark.parametrize('metric,value', [('detail', 7), ('clipped', 41), ('flat', .2), ('white', 0)])
+def test_portal_replacement_cannot_erase_partial_defect_without_off_whites(metric, value):
+    key, old = portal_replacement_batch()
+    if metric == 'white':
+        for sample in old['owner_regions']['regions'][0]['samples']:
+            sample['stats']['white'] = 10
+    new = copy.deepcopy(old)
+    for sample in old['owner_regions']['regions'][0]['samples'][:2]:
+        sample['stats'][metric] = value
+    with pytest.raises(ValueError, match='replacement cannot erase measured portal defect'):
+        hdr.check_owner_replacement(old, key, new, key)
+
+
+@pytest.mark.parametrize('repair_collection', [False, True])
+def test_portal_replacement_accepts_measurable_no_off_white_region(repair_collection):
+    key, old = portal_replacement_batch()
+    new = copy.deepcopy(old)
+    new_key = ('explicit-portal-replacement', 18)
+    new['pairs'][new_key] = new['pairs'].pop(key)
+    new['owner_regions']['regions'][0]['view_hour'] = 'explicit-portal-replacement-h18'
+    if repair_collection:
+        old['owner_regions']['regions'][0]['samples'].pop()
+        old['unqualified'] = {key: old['pairs'].pop(key)}
+    hdr.check_owner_replacement(old, key, new, new_key)
+
+
+def test_portal_partial_defect_survives_aggregate_replacement_with_acceptable_whole_image(tmp_path, monkeypatch):
+    plan = hdr.contract(ROOT)
+    key, old = portal_replacement_batch()
+    key = ('village1-out', 18)
+    view, hour = key
+    target = 'village1-eco-blue'
+    old['owner_regions']['regions'][0]['view_hour'] = f'{view}-h{hour}'
+    batch(tmp_path, plan, [key], name='001')
+    batch(tmp_path, plan, [(target, hour)], name='002', replaces=[f'001:{view}:{hour}={target}'])
+    for name, cell in (('001', key), ('002', (target, hour))):
+        record = hdr.read_batch(tmp_path / name / 'manifest.json', plan, stats)
+        pair = record['pairs'][cell]
+        assert all(pair['on'][metric] <= pair['off'][metric] + max(
+            pair['off']['pixels'] // 1000, pair['off'][metric] // 20) for metric in hdr.QUALITY)
+    clean = copy.deepcopy(old['owner_regions']['regions'])
+    clean[0]['view_hour'] = f'{target}-h{hour}'
+    for sample in old['owner_regions']['regions'][0]['samples'][:2]:
+        sample['stats']['detail'] = 7
+    inject_synthetic_owner_regions(monkeypatch, {'001': old['owner_regions']['regions'], '002': clean})
+    metrics = result(tmp_path, plan, '002')
+    diagnostic = json.loads((tmp_path / 'measurements.json').read_text())
+    assert diagnostic['quality_bad'] == []
+    assert any('cannot erase measured portal defect' in error for error in diagnostic['errors'])
+    assert metrics['hdr_owner_regressions_failed'] == 1
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
+    owner = diagnostic['owner_regressions']
+    finding = next(row for row in owner['findings'] if row['case'].startswith('warp gate'))
+    assert any(row['batch'] == '001' and row['status'] == 'failed' for row in finding['observations'])
+
+
 def sky_region_sources(root, mutate=lambda w: None):
     images = portal_region_sources(root)
     lines = [line for line in (root / 'engine.log').read_text().splitlines() if line.startswith('REFSET')]

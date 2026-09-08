@@ -1,0 +1,113 @@
+{
+  "DIRECTIVES": "v3909a9767c",
+  "binary": {
+    "path": "build-android/lib/arm64-v8a/libgk.so",
+    "sha256": "0f1a5b25e21ebb4ac4e790abe7f10d6624989ba7c6fb21b07ac26b23e801ec7c",
+    "manifest_sha256": "0f1a5b25e21ebb4ac4e790abe7f10d6624989ba7c6fb21b07ac26b23e801ec7c",
+    "matches": true
+  },
+  "manifest_sha256": "35770ae37451699c8bdafe92f1ccd876a23ffd33a227a5d1d6ba49422d29773a",
+  "provenance": {
+    "apk_sha256": "5d3d6a416c12f690c51537f7102caf433a1131d1617c252f754d28bf74bc37c8",
+    "binary_fnv": "b23abbba97348355",
+    "binary_sha256": "0f1a5b25e21ebb4ac4e790abe7f10d6624989ba7c6fb21b07ac26b23e801ec7c",
+    "config_files": {
+      "settings.ini": "27769a8a3dfcd0b905bea34af5dd4b773d23681886d3828b52dfad3de6ccd9b3"
+    },
+    "installed_sha256": "0f1a5b25e21ebb4ac4e790abe7f10d6624989ba7c6fb21b07ac26b23e801ec7c",
+    "serial": "eae4df44"
+  },
+  "sources": {
+    "game/graphics/opengl_renderer/shaders/shade.glsl": {
+      "expected": "27699c6d5f62fd40645ab574b0e2b2a8b4599922ec8f2a25d4cc3ab0497e3384",
+      "actual": "27699c6d5f62fd40645ab574b0e2b2a8b4599922ec8f2a25d4cc3ab0497e3384",
+      "matches": true
+    },
+    "game/graphics/opengl_renderer/shaders/pbr_fused.glsl": {
+      "expected": "de0c134a794a461fdeb6d345527d548e57c703ceff44f3ba633cd29da90dbd4b",
+      "actual": "de0c134a794a461fdeb6d345527d548e57c703ceff44f3ba633cd29da90dbd4b",
+      "matches": true
+    },
+    "game/graphics/opengl_renderer/shaders/tonemap.frag": {
+      "expected": "fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3",
+      "actual": "fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3",
+      "matches": true
+    },
+    "game/graphics/opengl_renderer/background/background_common.cpp": {
+      "expected": "8d381df6462e8c2abbbc2e0e05cb8a5c13e30277191627cd76f08457ad35e869",
+      "actual": "8d381df6462e8c2abbbc2e0e05cb8a5c13e30277191627cd76f08457ad35e869",
+      "matches": true
+    },
+    "goal_src/jak1/pc/jak-hd.gc": {
+      "expected": "612ab9fa8f81f1ed7c44e12bd9bf8fd5c79707ff97105220033888132c87d3cb",
+      "actual": "612ab9fa8f81f1ed7c44e12bd9bf8fd5c79707ff97105220033888132c87d3cb",
+      "matches": true
+    }
+  },
+  "sealed_files": {
+    "captures/origine-lumiere/captured-by.txt": true,
+    "captures/origine-lumiere/village1-out-h00-t01.png": true,
+    "captures/origine-lumiere/village1-out-h00-t01.png.provenance.txt": true,
+    "captures/origine-lumiere/village1-out-h00.png": true,
+    "captures/origine-lumiere/village1-out-h00.png.provenance.txt": true,
+    "captures/origine-lumiere/village1-out-h12-t01.png": true,
+    "captures/origine-lumiere/village1-out-h12-t01.png.provenance.txt": true,
+    "captures/origine-lumiere/village1-out-h12.png": true,
+    "captures/origine-lumiere/village1-out-h12.png.provenance.txt": true,
+    "captures/origine-lumiere/village1-out-h18-t01.png": true,
+    "captures/origine-lumiere/village1-out-h18-t01.png.provenance.txt": true,
+    "captures/origine-lumiere/village1-out-h18.png": true,
+    "captures/origine-lumiere/village1-out-h18.png.provenance.txt": true,
+    "captures/recharged/captured-by.txt": true,
+    "captures/recharged/village1-out-h00-t01.png": true,
+    "captures/recharged/village1-out-h00-t01.png.provenance.txt": true,
+    "captures/recharged/village1-out-h00.png": true,
+    "captures/recharged/village1-out-h00.png.provenance.txt": true,
+    "captures/recharged/village1-out-h12-t01.png": true,
+    "captures/recharged/village1-out-h12-t01.png.provenance.txt": true,
+    "captures/recharged/village1-out-h12.png": true,
+    "captures/recharged/village1-out-h12.png.provenance.txt": true,
+    "captures/recharged/village1-out-h18-t01.png": true,
+    "captures/recharged/village1-out-h18-t01.png.provenance.txt": true,
+    "captures/recharged/village1-out-h18.png": true,
+    "captures/recharged/village1-out-h18.png.provenance.txt": true,
+    "captures/refset-format.txt": true,
+    "config-paths-end.txt": true,
+    "config-paths-start.txt": true,
+    "engine.log": true,
+    "owner-regions.json": true,
+    "pixels.json": true,
+    "props-end.txt": true,
+    "props-start.txt": true,
+    "settings-end.ini": true,
+    "settings-start.ini": true,
+    "start.json": true
+  },
+  "unregistered": [],
+  "missing": [],
+  "run": {
+    "duration_s": 159,
+    "started_at": "2026-09-08T18:26:35Z"
+  },
+  "expected_original_end": "2026-09-08T18:29:14+00:00",
+  "backups": {
+    "proof.txt": {
+      "original_sha256": "553fdfc1bb086e9706521be569d2b0379b7515f276591445c1fe9de27318bb52",
+      "backup_sha256": "553fdfc1bb086e9706521be569d2b0379b7515f276591445c1fe9de27318bb52",
+      "original_mtime_ns": 1788892161428344211,
+      "backup_mtime_ns": 1788892161428344211
+    },
+    "report.md": {
+      "original_sha256": "3de0177bb83dcb217c1656dfa97b98aa59390a0c1c1da060d5b14081c6bb7a87",
+      "backup_sha256": "3de0177bb83dcb217c1656dfa97b98aa59390a0c1c1da060d5b14081c6bb7a87",
+      "original_mtime_ns": 1788892647364607768,
+      "backup_mtime_ns": 1788892647364607768
+    },
+    "handoff.md": {
+      "original_sha256": "6d4a37afa58cd177863f7b4f1661b9410bdf4381b96809594098537129cd0fe5",
+      "backup_sha256": "6d4a37afa58cd177863f7b4f1661b9410bdf4381b96809594098537129cd0fe5",
+      "original_mtime_ns": 1788892647364721842,
+      "backup_mtime_ns": 1788892647364721842
+    }
+  }
+}
