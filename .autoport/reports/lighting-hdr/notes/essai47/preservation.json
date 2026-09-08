@@ -1,0 +1,51 @@
+{
+  "recorded_at_utc": "2026-09-08T22:57:45.536472+00:00",
+  "directives": "v3909a9767c",
+  "records": [
+    {
+      "source": ".autoport/reports/lighting-hdr/proof.txt",
+      "exists": true,
+      "diagnostic_only": true,
+      "copy": ".autoport/reports/lighting-hdr/notes/essai47/historical-proof.txt",
+      "sha256": "2b7076b33fb7943da70645d4d87d12a46971106b0913241cbcb20123289b4006",
+      "copy_sha256": "2b7076b33fb7943da70645d4d87d12a46971106b0913241cbcb20123289b4006",
+      "size": 24192
+    },
+    {
+      "source": ".autoport/reports/lighting-hdr/handoff.md",
+      "exists": true,
+      "diagnostic_only": true,
+      "copy": ".autoport/reports/lighting-hdr/notes/essai47/previous-handoff.md",
+      "sha256": "5583c949624358eb2d116907dfd22f18f1420d1dd9452145ce9cf5d1962454fa",
+      "copy_sha256": "5583c949624358eb2d116907dfd22f18f1420d1dd9452145ce9cf5d1962454fa",
+      "size": 3097
+    },
+    {
+      "source": ".autoport/reports/lighting-hdr/proof-engine.log",
+      "exists": true,
+      "diagnostic_only": true,
+      "copy": ".autoport/reports/lighting-hdr/notes/essai47/historical-proof-engine.log",
+      "sha256": "3523953950b956e4be6e97a0de4e2d3d57b290b11fcf27113b9a8f5ddb987139",
+      "copy_sha256": "3523953950b956e4be6e97a0de4e2d3d57b290b11fcf27113b9a8f5ddb987139",
+      "size": 3735095
+    },
+    {
+      "source": ".autoport/reports/lighting-hdr/report.md",
+      "exists": true,
+      "diagnostic_only": true,
+      "copy": ".autoport/reports/lighting-hdr/notes/essai47/previous-report.md",
+      "sha256": "408d17cebc52aa653ee42bdcd55f89ae07a3e0aa615b600357438282e261c1c3",
+      "copy_sha256": "408d17cebc52aa653ee42bdcd55f89ae07a3e0aa615b600357438282e261c1c3",
+      "size": 1895
+    },
+    {
+      "source": ".autoport/reports/lighting-hdr/report.txt",
+      "exists": true,
+      "diagnostic_only": true,
+      "copy": ".autoport/reports/lighting-hdr/notes/essai47/previous-report.txt",
+      "sha256": "408d17cebc52aa653ee42bdcd55f89ae07a3e0aa615b600357438282e261c1c3",
+      "copy_sha256": "408d17cebc52aa653ee42bdcd55f89ae07a3e0aa615b600357438282e261c1c3",
+      "size": 1895
+    }
+  ]
+}

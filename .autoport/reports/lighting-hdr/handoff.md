@@ -1,25 +1,25 @@
-# Handoff — lighting-hdr, essai46 bloqué hors appareil
+# Handoff — lighting-hdr, essai47 : Redmi absent constaté
 DIRECTIVES v3909a9767c
 ## ÉTABLI
-Contrat contradictoire : backlog.yaml4215 device:true ; prompt46 « preuve exigée SUR APPAREIL aucun appareil ». Restriction prompt appliquée.
-Preuve historique08sept18:26:35Z inchangée : defects4, missing338, owner required5/measured0/missing5/failed1/passed0 ; crash0 seulement pour ce lot.
-SHA2562b7076b33fb7943da70645d4d87d12a46971106b0913241cbcb20123289b4006 et mtime1788892154000000000 conservés (notes/essai46/proof-preservation.json).
-Acquis43 conservé : shade.glsl non-PBR ; pièce luma ON/OFF64.223/91.365→91.299/91.099, détail15.767/20.222→20.191/20.216 (notes/essai43-rendu/portal-comparison.json).
-Garde44 remplacement portail conservée ; tests44 294succès/82,90s, intégrité5sources/37fichiers/lib0f1a5b25e21ebb4a hérités, non rejoués46.
-Revue45 héritée : quatre appelants non-PBR appellent shade une fois ; branche PBR distincte sans activation prouvée sur les zones owner.
-Trace43 sol/composition :120événements/12samples/unjoined0, ciel/sprites seulement ; sage-hut-ground reste unattributed_cases/diagnostic_only.
+Le contrat autorise bien USB ; aucune nouvelle clarification nécessaire. Redmi eae4df44 seul autorisé.
+Run officiel47 exécuté à2026-09-08T22:57:58Z, retour3 : « appareil eae4df44 absent : aucune preuve APPAREIL possible. »
+notes/essai47/usb-proof-run.json et usb-proof.stderr.log : proof_exists_after=false ; teardown absent, rien à effacer.
+proof.txt retiré PAR proof_run ; copie historique diagnostic dans notes/essai47/historical-proof.txt, hash2b7076b33fb7943da70645d4d87d12a46971106b0913241cbcb20123289b4006.
+Correction43 shade.glsl non-PBR et garde44 portail conservées ; aucun nouveau changement rendu/harnais/build.
+Mesures43 historiques : pièce lumaON/OFF64.223/91.365→91.299/91.099, détail15.767/20.222→20.191/20.216 ; notes/essai43-rendu/portal-comparison.json.
+Sol43 :120événements/12samples/unjoined0, ciel/sprites seulement ; sage-hut-ground diagnostic_only/non attribué. Rien de nouveau mesuré47.
 ## TENTÉ
-Essai46 limité au delta de contrat et à la transmission ; aucune nouvelle revue shader ni campagne identique aux essais44/45.
-Diff backlog préexistant : statut in-progress, capture remplacée par hdr/recharged/lighting=1, swamp-start, neutral.inputs, timeout180s ; device:true inchangé.
-Ce diff n’apporte aucune mesure ni autorisation explicite levant « aucun appareil » ; backlog et composants de supervision non modifiés.
-Aucun appareil/build/déploiement/mesure image/proof_run/validateur ; aucune correction spéculative, aucun owner-ok.
+ANDROID_SERIAL=eae4df44 AUTOPORT_BACKEND=codex AUTOPORT_PROOF_WAIT_MAX=0 bash .autoport/lib/proof_run.sh lighting-hdr device --timeout 30
+Échec matériel effectif en0,68s, pas une interdiction ; aucun fallback Honor/réseau, aucune boucle de relance.
+Recherche bornée des commandes existantes43, vérifiées ; aucune revue shader45 ni campagne négative répétée.
+Rapport sans huit valeurs actuelles : fichier absent, anciennes valeurs non recyclées. Validateur orchestrateur non lancé ; aucun owner-ok.
 ## RESTE
-Superviseur : aligner le prochain prompt avec l’autorisation appareil avant toute nouvelle reprise de collecte ; ne pas relancer le même essai hors appareil.
-Sol : localisation reproductible des petites zones owner, contribution/matériau et ROI ON/OFF reliée case/frame/options/hash ; témoins actuels ciel/sprites insuffisants.
-Rectangles chemin[0,137,35,152]/entrée[82,119,153,148] sans violet270–330 dans43 : ils ne localisent pas le défaut ; nouvelle paire identique inutile.
-Quand collecte autorisée : sol vraie hutte/pièce/portail prioritaires puis nuages/soleil/éco ; portail animé10s tracées après chaque reset.
-Ne pas rejouer pistes négatives nuages/soleil41, éco30, portail44 ; surplus groupeSprite3/alphas43 n’isole pas les contributions. Pas de gain/blend/PBR inventé.
-Final inchangé : cinqcas,21niveaux×8h/ciels/intérieurs/vraie hutte compatibles, menuOFF/persistance et crash0 courant ; absence reste échec.
-Pas de chantier HD/cache/allocateur/menu autonome ; préférence43 realtime-lighting?=#f restaurée, tests43 forçaient RT=1, état actuel inconnu.
-non prouvé : cinqcas corrigés et couverture finale, détails pleine résolution, activation/fraîcheur et crash0 actuels.
-Rapport≤40lignes/8lignes proof ; validateur orchestrateur. Acquis détaillés préservés dans notes/essai46/previous-handoff.md et notes/essai45/diagnostic.md.
+Reprendre à la disponibilité du Redmi ; inutile de relancer un essai identique sans changement matériel. Aucun accord supplémentaire requis.
+Sol : nouveau cadrage jouable localisant petites zones owner, contribution/matériau puis ROI couleur/luma/détail reliée case/frame/options/hash avant réglage.
+notes/essai47/next-collection.md référence commandes43 et limites ; ne pas rejouer la même paire hutte en espérant une attribution nouvelle.
+Rectangles chemin[0,137,35,152]/entrée[82,119,153,148] sans violet270–330 en43 : ils ne localisent pas le défaut.
+Portail :10s animées tracées après chaque reset/bras ; garde44 et résidu sprite3 conservés, aucune cause exacte de composition établie.
+Ne pas rejouer pistes négatives nuages/soleil41, éco30, portail44 ou ablationB43 ; pas de gain/blend/PBR inventé, pas de census/instrument nouveau.
+Cinqcas puis21niveaux×8h/ciels/intérieurs/vraie hutte par lots compatibles ; menuOFF/persistance et crash0 requis, absence reste échec.
+Pas de chantier HD/cache/allocateur/menu ; préférence43 realtime-lighting?=#f restaurée historiquement, tests43 forçaientRT=1, état actuel inconnu.
+non prouvé : cinqcas corrigés, couverture finale, détails pleine résolution, activation/fraîcheur et crash0 actuels.

@@ -1,0 +1,1 @@
+1567615    1158 adb             adb -L tcp:5037 fork-server server --reply-fd 4
