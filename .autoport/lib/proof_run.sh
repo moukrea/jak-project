@@ -379,7 +379,12 @@ else
   sleep 8
   PID0=$(timeout 15 "$ADB" -s "$SERIAL" shell pidof "$PKG" 2>/dev/null | tr -d '\r' | awk '{print $1}')
   elapsed=8
-  while [ "$elapsed" -lt "$TIMEOUT" ]; do sleep 5; elapsed=$((elapsed+5)); done
+  while [ "$elapsed" -lt "$TIMEOUT" ]; do
+    sleep 5; elapsed=$((elapsed+5))
+    if [ -n "$HDR_BATCH" ] && grep -qaE 'REFSET done steps=([1-9][0-9]*) captured=\1 .*missing=0' "$RAWLOG"; then
+      log "HDR plan captured completely after ${elapsed}s"; break
+    fi
+  done
 
   PID1=$(timeout 15 "$ADB" -s "$SERIAL" shell pidof "$PKG" 2>/dev/null | tr -d '\r' | awk '{print $1}')
   if [ -z "$PID1" ] || { [ -n "$PID0" ] && [ "$PID0" != "$PID1" ]; }; then
