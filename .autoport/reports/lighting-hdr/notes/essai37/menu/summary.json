@@ -1,0 +1,37 @@
+{
+  "DIRECTIVES": "v708c60642a",
+  "proof_sha256": "352d2f1526861f962088cfc8d27d33c0fdcf0e8eb0d480c8b014b33008a6c960",
+  "shadow_traces": [
+    {
+      "line": 13362,
+      "trace": "09-08 14:51:42.055 I/opengoal-gk(14940): PBR-SHADOW-DBG frame=600 cast_idx=886502 write=0 read_valid=1 legacy=0.35"
+    },
+    {
+      "line": 22626,
+      "trace": "09-08 14:53:17.670 I/opengoal-gk(14940): PBR-SHADOW-DBG frame=780 cast_idx=2502208 write=0 read_valid=1 legacy=0.35"
+    },
+    {
+      "line": 23629,
+      "trace": "09-08 14:53:32.012 I/opengoal-gk(14940): PBR-SHADOW-DBG frame=840 cast_idx=2502208 write=0 read_valid=1 legacy=0.35"
+    },
+    {
+      "line": 24676,
+      "trace": "09-08 14:53:41.597 I/opengoal-gk(14940): PBR-SHADOW-DBG frame=900 cast_idx=2502208 write=0 read_valid=1 legacy=0.35"
+    },
+    {
+      "line": 25612,
+      "trace": "09-08 14:53:49.849 I/opengoal-gk(14940): PBR-SHADOW-DBG frame=960 cast_idx=2502208 write=0 read_valid=1 legacy=0.35"
+    },
+    {
+      "line": 26466,
+      "trace": "09-08 14:53:58.120 I/opengoal-gk(14940): PBR-SHADOW-DBG frame=1020 cast_idx=2502208 write=0 read_valid=1 legacy=0.35"
+    }
+  ],
+  "menu_off_and_return_on_proven": false,
+  "navigation_image_denied_by_hook": true,
+  "properties": {
+    "lighting": "\n",
+    "rt.light": "\n",
+    "refset": "\n"
+  }
+}

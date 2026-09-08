@@ -1,6 +1,17 @@
 #include "kscheme.h"
 
+#include <cstdlib>
 #include <cstring>
+#include <functional>
+#include <thread>
+#ifdef __linux__
+#include <unistd.h>
+
+#include <sys/syscall.h>
+#endif
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #include "common/common_types.h"
 #include "common/log/log.h"
@@ -51,8 +62,99 @@ namespace jak1 {
 // where to put a new symbol for the most recently searched for symbol that wasn't found
 u32 symbol_slot;
 
+// Shared with klink.cpp; sampled once so disabled lookups only test a cached bool.
+bool hdr_load_diag_enabled() {
+  static const bool enabled = [] {
+    const char* env = std::getenv("OG_HDR_LOAD_DIAG");
+    bool on = env && !std::strcmp(env, "1");
+#ifdef __ANDROID__
+    char prop[PROP_VALUE_MAX] = {};
+    __system_property_get("debug.opengoal.hdr.load_diag", prop);
+    on = on || !std::strcmp(prop, "1");
+#endif
+    if (on) {
+      std::fprintf(stderr, "HDR-LOAD-DIAG armed env/property=1\n");
+      std::fflush(stderr);
+    }
+    return on;
+  }();
+  return enabled;
+}
+
+namespace {
+struct HdrLookup {
+  u64 id = 0, tid = 0;
+  u32 depth = 0, hash = 0, candidate = 0;
+  u32 start[2] = {}, end[2] = {}, probes[2] = {};
+  u32 areas = 0, fixed_probes = 0;
+};
+thread_local HdrLookup* hdr_lookup = nullptr;
+std::atomic<u64> hdr_lookup_id{0};
+// Independent relaxed fields deliberately do not serialize symbol-table accesses.
+// writer_id_before/after in logs expose some (not all) overlapping snapshots.
+std::atomic<u64> hdr_writer_id{0}, hdr_writer_tid{0};
+std::atomic<u32> hdr_writer_slot{0};
+
+u64 hdr_tid() {
+#ifdef __linux__
+  return static_cast<u64>(syscall(SYS_gettid));
+#else
+  return std::hash<std::thread::id>{}(std::this_thread::get_id());
+#endif
+}
+
+struct HdrLookupScope {
+  HdrLookup local;
+  HdrLookup* previous = nullptr;
+  bool enabled;
+  HdrLookupScope() : enabled(hdr_load_diag_enabled()) {
+    if (enabled) {
+      previous = hdr_lookup;
+      local.id = hdr_lookup_id.fetch_add(1, std::memory_order_relaxed) + 1;
+      local.tid = hdr_tid();
+      local.depth = previous ? previous->depth + 1 : 1;
+      hdr_lookup = &local;
+    }
+  }
+  ~HdrLookupScope() {
+    if (enabled) {
+      hdr_lookup = previous;
+    }
+  }
+};
+
+void hdr_scratch_write(u32 slot) {
+  if (hdr_load_diag_enabled()) {
+    hdr_writer_tid.store(hdr_lookup ? hdr_lookup->tid : hdr_tid(), std::memory_order_relaxed);
+    hdr_writer_slot.store(slot, std::memory_order_relaxed);
+    hdr_writer_id.store(hdr_lookup ? hdr_lookup->id : 0, std::memory_order_relaxed);
+  }
+}
+
+void hdr_lookup_log(const char* reason, const char* name, const HdrLookup& c, u32 consumed) {
+  const auto writer_before = hdr_writer_id.load(std::memory_order_relaxed);
+  const auto writer_tid = hdr_writer_tid.load(std::memory_order_relaxed);
+  const auto writer_slot = hdr_writer_slot.load(std::memory_order_relaxed);
+  const auto writer_after = hdr_writer_id.load(std::memory_order_relaxed);
+  std::fprintf(stderr,
+               "HDR-LOAD lookup reason=%s name=%s id=%llu tid=%llu depth=%u hash=%08x "
+               "candidate=%08x consumed=%08x global=%08x writer_id_before=%llu "
+               "writer_id_after=%llu writer_tid=%llu writer=%s writer_slot=%08x "
+               "areas=%u range0=[%08x,%08x)/%u range1=[%08x,%08x)/%u fixed_probes=%u "
+               "SymbolTable2=%08x s7=%08x LastSymbol=%08x NumSymbols=%d\n",
+               reason, name, (unsigned long long)c.id, (unsigned long long)c.tid, c.depth, c.hash,
+               c.candidate, consumed, symbol_slot, (unsigned long long)writer_before,
+               (unsigned long long)writer_after, (unsigned long long)writer_tid,
+               writer_slot ? "candidate" : "reset", writer_slot, c.areas, c.start[0], c.end[0],
+               c.probes[0], c.start[1], c.end[1], c.probes[1], c.fixed_probes, SymbolTable2.offset,
+               s7.offset, LastSymbol.offset, NumSymbols);
+  std::fflush(stderr);
+}
+}  // namespace
+
 void kscheme_init_globals() {
   symbol_slot = 0;
+  hdr_scratch_write(0);
 }
 
 // Gjak2-render JAK1-ON-JAK2 enumerator. Fires ONLY when the running game is
@@ -1176,7 +1278,11 @@ Ptr<Symbol> set_fixed_symbol(u32 offset, const char* name, u32 value) {
  * Returns null if we didn't find it.
  */
 Ptr<Symbol> find_symbol_in_fixed_area(u32 hash, const char* name) {
+  HdrLookup* diag = hdr_load_diag_enabled() ? hdr_lookup : nullptr;
   for (u32 i = s7.offset; i < s7.offset + FIX_FIXED_SYM_END_OFFSET; i += 8) {
+    if (diag) {
+      ++diag->fixed_probes;
+    }
     auto sym = Ptr<Symbol>(i);
     if (info(sym)->hash == hash) {
       if (!strcmp(info(sym)->str->data(), name)) {
@@ -1194,7 +1300,16 @@ Ptr<Symbol> find_symbol_in_fixed_area(u32 hash, const char* name) {
  * the symbol. If we fail to find it without wrapping, and it's not in the fixed area, return 0.
  */
 Ptr<Symbol> find_symbol_in_area(u32 hash, const char* name, u32 start, u32 end) {
+  HdrLookup* diag = hdr_load_diag_enabled() ? hdr_lookup : nullptr;
+  const u32 area = diag ? diag->areas++ : 0;
+  if (diag && area < 2) {
+    diag->start[area] = start;
+    diag->end[area] = end;
+  }
   for (u32 i = start; i < end; i += 8) {
+    if (diag && area < 2) {
+      ++diag->probes[area];
+    }
     auto sym = Ptr<Symbol>(i);
 
     // note - this may break if any symbols hash to zero!
@@ -1208,6 +1323,10 @@ Ptr<Symbol> find_symbol_in_area(u32 hash, const char* name, u32 start, u32 end) 
       // open slot!
       // means we don't need to wrap.
       symbol_slot = i;
+      if (diag) {
+        diag->candidate = i;
+      }
+      hdr_scratch_write(i);
 
       // check the fixed area, in case it's not dynamically placed.
       return find_symbol_in_fixed_area(hash, name);
@@ -1224,10 +1343,14 @@ Ptr<Symbol> find_symbol_in_area(u32 hash, const char* name, u32 start, u32 end) 
  * If both are 0, the symbol table is full and you are sad.
  * Also allows you to find the empty pair by searching for _empty_
  */
-Ptr<Symbol> find_symbol_from_c(const char* name) {
+static Ptr<Symbol> find_symbol_from_c_diag(const char* name, HdrLookupScope& diag) {
   JAK1_ON_JAK2_GUARD_LOG();
   symbol_slot = 0;  // nowhere to put the symbol yet, clear any old symbol_slot result.
+  hdr_scratch_write(0);
   u32 hash = crc32((const u8*)name, (int)strlen(name));
+  if (diag.enabled) {
+    diag.local.hash = hash;
+  }
 
   // check if we've got the empty pair.
   if (hash == EMPTY_HASH) {
@@ -1253,6 +1376,9 @@ Ptr<Symbol> find_symbol_from_c(const char* name) {
     probe = find_symbol_in_area(hash, name, SymbolTable2.offset, s7.offset - 0x10);
     if (probe.offset == 1) {
       // uh oh, both overflowed!
+      if (diag.enabled) {
+        hdr_lookup_log("double-overflow", name, diag.local, symbol_slot);
+      }
       printf("[BIG WARNING] symbol table probe double overflow!\n");
       return find_symbol_in_fixed_area(hash, name);
     } else {
@@ -1270,6 +1396,9 @@ Ptr<Symbol> find_symbol_from_c(const char* name) {
     probe =
         find_symbol_in_area(hash, name, s7.offset + FIX_FIXED_SYM_END_OFFSET, LastSymbol.offset);
     if (probe.offset == 1) {
+      if (diag.enabled) {
+        hdr_lookup_log("double-overflow", name, diag.local, symbol_slot);
+      }
       printf("[BIG WARNING] symbol table probe double overflow!\n");
       return find_symbol_in_fixed_area(hash, name);
     } else {
@@ -1278,13 +1407,19 @@ Ptr<Symbol> find_symbol_from_c(const char* name) {
   }
 }
 
+Ptr<Symbol> find_symbol_from_c(const char* name) {
+  HdrLookupScope diag;
+  return find_symbol_from_c_diag(name, diag);
+}
+
 /*!
  * Returns a symbol with the given name.  If this is the first time, make a new symbol, otherwise it
  * returns the old one. Basically a LISP symbol intern
  */
 Ptr<Symbol> intern_from_c(const char* name) {
   JAK1_ON_JAK2_GUARD_LOG();
-  auto symbol = find_symbol_from_c(name);
+  HdrLookupScope diag;
+  auto symbol = find_symbol_from_c_diag(name, diag);
   if (symbol.offset) {
     // already exists, return it!
     return symbol;
@@ -1292,6 +1427,9 @@ Ptr<Symbol> intern_from_c(const char* name) {
 
   // otherwise, a new symbol!
   symbol = Ptr<Symbol>(symbol_slot);
+  if (hdr_load_diag_enabled() && (!symbol.offset || diag.local.candidate != symbol.offset)) {
+    hdr_lookup_log("new-symbol-slot", name, diag.local, symbol.offset);
+  }
   // set type tag
   symbol.cast<u32>().c()[-1] = *(s7 + FIX_SYM_SYMBOL_TYPE);
 

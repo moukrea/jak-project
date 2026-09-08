@@ -1,0 +1,13 @@
+{
+  "hdr_load_lines": 321,
+  "valid0_lines": [],
+  "stages": {
+    "symlink": 316,
+    "post-top-level": 4
+  },
+  "captures": [
+    "09-08 14:47:16.215 I/GK_STDOUT(11398): REFSET cap recharged/village1-out-h12 step=0/4"
+  ],
+  "refset_done": [],
+  "fatal_signals": []
+}

@@ -1,0 +1,7 @@
+gradle.beforeProject { p ->
+    if (p.path == ':app') {
+        def isolated = System.getenv('ESSAI37_GRADLE_APP')
+        if (!isolated) throw new GradleException('ESSAI37_GRADLE_APP required')
+        p.layout.buildDirectory.set(new File(isolated))
+    }
+}

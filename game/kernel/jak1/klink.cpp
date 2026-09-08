@@ -1,5 +1,6 @@
 #include "klink.h"
 
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -23,6 +24,10 @@
 #include "game/mips2c/mips2c_table.h"
 
 #include "fmt/format.h"
+
+namespace jak1 {
+bool hdr_load_diag_enabled();  // shared cached gate, implemented in kscheme.cpp
+}
 
 static constexpr bool link_debug_printfs = false;
 /*!
@@ -54,6 +59,64 @@ uint32_t link_control::jak1_work() {
   return rv;
 }
 namespace {
+std::atomic<u32> hdr_pool_slots[2]{};
+constexpr const char* hdr_pool_names[2] = {"*default-dead-pool*", "*nk-dead-pool*"};
+
+// Read only bounded, mapped GOAL memory; never intern while diagnosing a symbol.
+void hdr_symbol_log(const char* stage,
+                    const char* object,
+                    const char* requested,
+                    u32 slot,
+                    u32 data,
+                    u32 offset,
+                    u32 before,
+                    u32 after,
+                    uintptr_t target,
+                    int checkpoint = -1,
+                    bool force = true) {
+  u32 value = 0, hash = 0, str = 0;
+  const char* actual = "<invalid>";
+  int name_len = 9;
+  const u64 info_offset = u64(slot) + jak1::SYM_INFO_OFFSET;
+  const bool valid = g_ee_main_mem && slot && slot >= SymbolTable2.offset &&
+                     slot < LastSymbol.offset && slot <= EE_MAIN_MEM_SIZE - sizeof(jak1::Symbol) &&
+                     info_offset <= EE_MAIN_MEM_SIZE - sizeof(jak1::SymInfo);
+  if (valid) {
+    auto sym = Ptr<jak1::Symbol>(slot);
+    value = sym->value;
+    hash = jak1::info(sym)->hash;
+    str = jak1::info(sym)->str.offset;
+    if (str && str <= EE_MAIN_MEM_SIZE - sizeof(String)) {
+      const u32 available = EE_MAIN_MEM_SIZE - str - sizeof(String);
+      const u32 limit = available < 255 ? available : 255;
+      const char* text = Ptr<String>(str)->data();
+      const char* end = static_cast<const char*>(std::memchr(text, 0, limit));
+      if (end) {
+        actual = text;
+        name_len = int(end - text);
+      }
+    }
+  }
+  if (checkpoint >= 0) {
+    static std::atomic<u64> previous[2][2]{};
+    const u64 cell = (u64(slot) << 32) | value;
+    const u64 identity = (u64(hash) << 32) | str;
+    const auto old_cell = previous[checkpoint][0].exchange(cell, std::memory_order_relaxed);
+    const auto old_identity = previous[checkpoint][1].exchange(identity, std::memory_order_relaxed);
+    if (!force && old_cell == cell && old_identity == identity) {
+      return;
+    }
+  }
+  std::fprintf(
+      stderr,
+      "HDR-LOAD symbol stage=%s obj=%s requested=%s sym=%08x valid=%d value=%08x "
+      "hash=%08x str=%08x actual=%.*s data=%08x reloc=%08x slot=%08x before=%08x after=%08x "
+      "target_host=%llx expected_sym=%08x expected_s7_offset=%08x\n",
+      stage, object, requested, slot, valid, value, hash, str, name_len, actual, data, offset,
+      data + offset, before, after, (unsigned long long)target, slot, slot - s7.offset);
+  std::fflush(stderr);
+}
+
 /*!
  * Link a single relative offset (used for RIP)
  */
@@ -185,7 +248,7 @@ uint32_t typelink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
  * Link symbols (both offsets and pointers) in "v3 equivalent" link data.
  * Returns a pointer to the link table data after the linking data for this symbol.
  */
-uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
+uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data, const char* object) {
   // get the symbol name
   uint32_t seek = 0;
   char sym_name[256];
@@ -201,6 +264,17 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
   auto sym = jak1::intern_from_c(sym_name);
   int32_t sym_offset = sym.cast<u32>() - s7;
   uint32_t sym_addr = sym.cast<u32>().offset;
+  const bool hdr_trace =
+      jak1::hdr_load_diag_enabled() &&
+      (!std::strcmp(sym_name, hdr_pool_names[0]) || !std::strcmp(sym_name, hdr_pool_names[1]) ||
+       !std::strcmp(sym_name, "lurkerworm-strike") || !std::strcmp(sym_name, "spawn-bird"));
+  if (hdr_trace) {
+    for (int pool = 0; pool < 2; ++pool) {
+      if (!std::strcmp(sym_name, hdr_pool_names[pool])) {
+        hdr_pool_slots[pool].store(sym_addr, std::memory_order_relaxed);
+      }
+    }
+  }
 
   // prepare to read locations of symbol links
   Ptr<uint32_t> offsets = link.cast<uint32_t>() + seek;
@@ -238,6 +312,11 @@ uint32_t symlink_v3(Ptr<uint8_t> link, Ptr<uint8_t> data) {
         // otherwise store the offset to st.  Eventually this should become an s16 instead.
         *(data + offset).cast<int32_t>() = sym_offset;
       }
+    }
+
+    if (hdr_trace) {
+      hdr_symbol_log("symlink", object, sym_name, sym_addr, data.offset, offset,
+                     static_cast<u32>(pre), static_cast<u32>(*data_ptr), target_host);
     }
 
     if (s_klink_trace) {
@@ -372,7 +451,8 @@ uint32_t link_control::jak1_work_v3() {
               break;
             case LINK_SYMBOL_OFFSET:
               lp = lp + 1;
-              lp = lp + symlink_v3(lp, Ptr<u8>(ofh->code_infos[m_segment_process].offset));
+              lp = lp + symlink_v3(lp, Ptr<u8>(ofh->code_infos[m_segment_process].offset),
+                                   m_object_name);
               break;
             case LINK_TYPE_PTR:
               lp = lp + 1;  // seek past id
@@ -794,6 +874,16 @@ void link_control::jak1_finish(bool jump_from_c_to_goal) {
         call_goal_on_stack(m_entry.cast<Function>(), goal_stack, s7.offset, g_ee_main_mem);
       } else {
         call_goal(m_entry.cast<Function>(), 0, 0, 0, s7.offset, g_ee_main_mem);
+      }
+      if (jak1::hdr_load_diag_enabled()) {
+        const bool force =
+            !std::strcmp(m_object_name, "gkernel") || !std::strcmp(m_object_name, "seagull");
+        for (int pool = 0; pool < 2; ++pool) {
+          const u32 slot = hdr_pool_slots[pool].load(std::memory_order_relaxed);
+          hdr_symbol_log("post-top-level", m_object_name, hdr_pool_names[pool], slot,
+                         m_object_data.offset, 0, 0, 0,
+                         reinterpret_cast<uintptr_t>(Ptr<u8>(slot).c()), pool, force);
+        }
       }
     }
 
