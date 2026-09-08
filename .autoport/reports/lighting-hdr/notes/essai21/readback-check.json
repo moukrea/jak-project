@@ -1,0 +1,8 @@
+{
+  "batch": "20260908T031039-3623650",
+  "a42_records": 21,
+  "float_read_attempts": 13,
+  "a42_preexisting_errors": [],
+  "before_probe_errors": [],
+  "float_example": "09-08 05:11:48.366 I/GK_STDERR(21365): A42-TFGL err=0x0 fb=65 vp=960x432 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.049041748,0.0397033691,0.101074219,2.0078125) px_byte@L=cdcdcdcd draw0tex=59 mode=0xf93e7e5d drawn=0/5"
+}

@@ -1,0 +1,156 @@
+[
+  {
+    "batch": "20260908T031529-3628144",
+    "a42_records": 21,
+    "float_attempts": 13,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T032102-3631467",
+    "a42_records": 10,
+    "float_attempts": 6,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T032228-3633357",
+    "a42_records": 5,
+    "float_attempts": 3,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T032334-3635041",
+    "a42_records": 17,
+    "float_attempts": 10,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T032532-3637139",
+    "a42_records": 17,
+    "float_attempts": 8,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T032704-3639215",
+    "a42_records": 16,
+    "float_attempts": 7,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T032826-3640977",
+    "a42_records": 9,
+    "float_attempts": 5,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T032933-3642700",
+    "a42_records": 12,
+    "float_attempts": 6,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T033115-3644756",
+    "a42_records": 14,
+    "float_attempts": 5,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T033244-3646562",
+    "a42_records": 14,
+    "float_attempts": 5,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T033408-3648360",
+    "a42_records": 6,
+    "float_attempts": 2,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T033534-3650209",
+    "a42_records": 14,
+    "float_attempts": 6,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T033704-3652077",
+    "a42_records": 9,
+    "float_attempts": 2,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T033845-3653965",
+    "a42_records": 6,
+    "float_attempts": 3,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T033959-3655717",
+    "a42_records": 6,
+    "float_attempts": 2,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T034140-3657702",
+    "a42_records": 6,
+    "float_attempts": 2,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T034253-3659441",
+    "a42_records": 8,
+    "float_attempts": 2,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T034436-3661446",
+    "a42_records": 2,
+    "float_attempts": 1,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T034633-3663552",
+    "a42_records": 8,
+    "float_attempts": 3,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T034801-3665415",
+    "a42_records": 9,
+    "float_attempts": 3,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T034954-3667412",
+    "a42_records": 10,
+    "float_attempts": 6,
+    "a42_errors": [],
+    "before_probe_errors": []
+  },
+  {
+    "batch": "20260908T035912-3673185",
+    "a42_records": 6,
+    "float_attempts": 3,
+    "a42_errors": [],
+    "before_probe_errors": []
+  }
+]

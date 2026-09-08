@@ -3,6 +3,7 @@
 #include <bit>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 
 #include "game/graphics/opengl_renderer/background/MeshBrowserGizmos.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
@@ -1450,16 +1451,46 @@ void TFragment::render_tree(int geom,
   // should be (left third, mid height) right after this tree's draws.
   if (a42_log_this_frame) {
     GLenum err = glGetError();
-    GLint cur_fb = -1, vp[4] = {0, 0, 0, 0};
+    GLint cur_fb = -1, old_read_fb = 0, old_read_buffer = 0, component = 0;
+    GLint vp[4] = {0, 0, 0, 0};
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &cur_fb);
     glGetIntegerv(GL_VIEWPORT, vp);
-    u8 px[4] = {0, 0, 0, 0};
-    glReadPixels(vp[2] / 6, vp[3] / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &old_read_fb);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, cur_fb);
+    glGetIntegerv(GL_READ_BUFFER, &old_read_buffer);
+    const GLenum attachment = cur_fb ? GL_COLOR_ATTACHMENT0 : GL_BACK;
+    glReadBuffer(attachment);
+    glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, attachment,
+                                          GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE, &component);
+    const GLfloat unset = std::numeric_limits<GLfloat>::quiet_NaN();
+    GLfloat px_float[4] = {unset, unset, unset, unset};
+    u8 px_byte[4] = {0xcd, 0xcd, 0xcd, 0xcd};
+    const char* read = "not-measured-unsupported-component";
+    const char* pixel_type = "none";
+    if (component == GL_FLOAT) {
+      pixel_type = "float";
+      read = "attempted";
+      glReadPixels(vp[0] + vp[2] / 6, vp[1] + vp[3] / 2, 1, 1, GL_RGBA, GL_FLOAT,
+                   px_float);
+    } else if (component == GL_UNSIGNED_NORMALIZED) {
+      pixel_type = "unsigned-byte";
+      read = "attempted";
+      glReadPixels(vp[0] + vp[2] / 6, vp[1] + vp[3] / 2, 1, 1, GL_RGBA,
+                   GL_UNSIGNED_BYTE, px_byte);
+    }
+    glReadBuffer(old_read_buffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, old_read_fb);
+    // These are diagnostic attempts, not validated pixels. Leave any readback error
+    // pending for the official probe; never turn an unsuccessful read into a zero.
     const auto& d0 = tree.draws->empty() ? tfrag3::StripDraw() : tree.draws->front();
     fprintf(stderr,
-            "A42-TFGL err=0x%x fb=%d vp=%dx%d px@L=%02x%02x%02x%02x draw0tex=%d mode=0x%llx "
+            "A42-TFGL err=0x%x fb=%d vp=%dx%d source=draw-fbo attachment=0x%x component=0x%x "
+            "read=%s type=%s px_float@L=(%.9g,%.9g,%.9g,%.9g) "
+            "px_byte@L=%02x%02x%02x%02x draw0tex=%d mode=0x%llx "
             "drawn=%d/%d\n",
-            err, cur_fb, vp[2], vp[3], px[0], px[1], px[2], px[3], (int)d0.tree_tex_id,
+            err, cur_fb, vp[2], vp[3], attachment, component, read, pixel_type,
+            px_float[0], px_float[1], px_float[2], px_float[3],
+            px_byte[0], px_byte[1], px_byte[2], px_byte[3], (int)d0.tree_tex_id,
             (unsigned long long)d0.mode.as_int(), tree.draws_this_frame, (int)tree.draws->size());
   }
 #endif

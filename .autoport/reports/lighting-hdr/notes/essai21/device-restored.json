@@ -1,0 +1,31 @@
+{
+  "at": "2026-09-08T04:06:42.627618+00:00",
+  "start": {
+    "command": [
+      "/home/emeric/.local/bin/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "am",
+      "start",
+      "-n",
+      "org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity"
+    ],
+    "exit": 0,
+    "output": "Starting: Intent { cmp=org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity }\n"
+  },
+  "pid": {
+    "command": [
+      "/home/emeric/.local/bin/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "pidof",
+      "org.opengoal.gk.jak1"
+    ],
+    "exit": 0,
+    "output": "15275\n"
+  },
+  "debug_properties": [],
+  "deploy_lock_exists": false
+}

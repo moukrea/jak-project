@@ -1,0 +1,524 @@
+[
+  {
+    "view": "training-start",
+    "source_batch": "20260908T005901-3462807",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=training-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=training,display",
+      "debug.opengoal.want.levels=training"
+    ]
+  },
+  {
+    "view": "legacy",
+    "source_batch": "20260908T011228-3476492",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=village1-hut",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=village1,display",
+      "debug.opengoal.want.levels=village1"
+    ]
+  },
+  {
+    "view": "village1-out",
+    "source_batch": "20260908T011228-3476492",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=village1-hut",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=village1,display",
+      "debug.opengoal.want.levels=village1"
+    ]
+  },
+  {
+    "view": "beach-start",
+    "source_batch": "20260908T011431-3479245",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18
+    ],
+    "props": [
+      "debug.opengoal.level.warp=beach-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=beach,display",
+      "debug.opengoal.want.levels=beach"
+    ]
+  },
+  {
+    "view": "jungle-start",
+    "source_batch": "20260908T011600-3481461",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=jungle-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=jungle,display",
+      "debug.opengoal.want.levels=jungle"
+    ]
+  },
+  {
+    "view": "jungle-tower",
+    "source_batch": "20260908T011729-3483231",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=jungle-tower",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=jungleb,display",
+      "debug.opengoal.want.levels=jungleb"
+    ]
+  },
+  {
+    "view": "misty-start",
+    "source_batch": "20260908T011837-3485054",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=misty-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=misty,display",
+      "debug.opengoal.want.levels=misty"
+    ]
+  },
+  {
+    "view": "misty-bike",
+    "source_batch": "20260908T011837-3485054",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=misty-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=misty,display",
+      "debug.opengoal.want.levels=misty"
+    ]
+  },
+  {
+    "view": "firecanyon-start",
+    "source_batch": "20260908T012017-3486966",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18
+    ],
+    "props": [
+      "debug.opengoal.level.warp=firecanyon-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=firecanyon,display",
+      "debug.opengoal.want.levels=firecanyon"
+    ]
+  },
+  {
+    "view": "sunken-start",
+    "source_batch": "20260908T012346-3491643",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18
+    ],
+    "props": [
+      "debug.opengoal.level.warp=sunken-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=sunken,display",
+      "debug.opengoal.want.levels=sunken"
+    ]
+  },
+  {
+    "view": "village3-start",
+    "source_batch": "20260908T012839-3498496",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=village3-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=village3,display",
+      "debug.opengoal.want.levels=village3"
+    ]
+  },
+  {
+    "view": "snow-fort",
+    "source_batch": "20260908T013009-3501315",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=snow-fort",
+      "debug.opengoal.refset.cam=snow-fort:20:0:50:25",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=snow,display",
+      "debug.opengoal.want.levels=snow"
+    ]
+  },
+  {
+    "view": "maincave-start",
+    "source_batch": "20260908T015005-3536997",
+    "selected_hours": [
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=maincave-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=maincave,display",
+      "debug.opengoal.want.levels=maincave"
+    ]
+  },
+  {
+    "view": "darkcave-start",
+    "source_batch": "20260908T013325-3507791",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=darkcave-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=darkcave,display",
+      "debug.opengoal.want.levels=darkcave"
+    ]
+  },
+  {
+    "view": "robocave-start",
+    "source_batch": "20260908T014548-3531126",
+    "selected_hours": [
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=robocave-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=robocave,display",
+      "debug.opengoal.want.levels=robocave"
+    ]
+  },
+  {
+    "view": "finalboss-start",
+    "source_batch": "20260908T014016-3521030",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=finalboss-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=finalboss,display",
+      "debug.opengoal.want.levels=finalboss"
+    ]
+  },
+  {
+    "view": "lavatube-start",
+    "source_batch": "20260908T014152-3524616",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=lavatube-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=lavatube,display",
+      "debug.opengoal.want.levels=lavatube"
+    ]
+  },
+  {
+    "view": "citadel-start",
+    "source_batch": "20260908T014343-3527897",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=citadel-start",
+      "debug.opengoal.refset.loadsettle=12",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=citadel,display",
+      "debug.opengoal.want.levels=citadel"
+    ]
+  },
+  {
+    "view": "village2-start",
+    "source_batch": "20260908T015617-3548377",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=village2-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=village2,display",
+      "debug.opengoal.want.levels=village2"
+    ]
+  },
+  {
+    "view": "village2-dock",
+    "source_batch": "20260908T015753-3551097",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=village2-dock",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=village2,display",
+      "debug.opengoal.want.levels=village2"
+    ]
+  },
+  {
+    "view": "rolling-start",
+    "source_batch": "20260908T015956-3554246",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=rolling-start",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=rolling,display",
+      "debug.opengoal.want.levels=rolling"
+    ]
+  },
+  {
+    "view": "ogre-start",
+    "source_batch": "20260908T021549-3571369",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=ogre-start",
+      "debug.opengoal.refset.loadsettle=12",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=ogre,display",
+      "debug.opengoal.want.levels=ogre"
+    ]
+  },
+  {
+    "view": "swamp-start",
+    "source_batch": "20260908T030348-3616431",
+    "selected_hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "props": [
+      "debug.opengoal.level.warp=swamp-start",
+      "debug.opengoal.refset.cam=swamp-start:60:0:50:25",
+      "debug.opengoal.refset.loadsettle=240",
+      "debug.opengoal.refset.orderhour=1",
+      "debug.opengoal.refset.settle=12",
+      "debug.opengoal.refset.warpat=300",
+      "debug.opengoal.want.display=swamp,display",
+      "debug.opengoal.want.levels=swamp,village2"
+    ]
+  }
+]
