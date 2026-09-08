@@ -1,0 +1,9 @@
+renderer=Mesa Intel(R) UHD Graphics (CML GT2) version=OpenGL ES 3.2 Mesa 25.3.6
+input=2,1,2,0.5 knee_095=1,0.9875,1,0.5 knee_098=1,0.995,1,0.5 
+input=0.2,0.1,2,0.5 knee_095=0.2,0.1,1,0.5 knee_098=0.2,0.1,1,0.5 
+input=2,1,0.1,0.5 knee_095=1,0.9875,0.1,0.5 knee_098=1,0.995,0.1,0.5 
+input=1,1,1,0.5 knee_095=0.9875,0.9875,0.9875,0.5 knee_098=0.995,0.995,0.995,0.5 
+input=8,2,8,1 knee_095=1,1,1,1 knee_098=1,1,1,1 
+knee=0.95 curve_samples=8001 step=0.001 slope_guard=0.05 max_slope_jump=0.0100732 f(1)=0.9875
+knee=0.98 curve_samples=8001 step=0.001 slope_guard=0.05 max_slope_jump=0.0250936 f(1)=0.995
+samples=20 neutral_unchanged_checks=80 failures=0

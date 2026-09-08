@@ -1,0 +1,584 @@
+{
+  "DIRECTIVES": "v708c60642a",
+  "purpose": "diagnostic before/after from sealed measured summaries; old binaries are not current proof",
+  "comparisons": [
+    {
+      "case": "sky96",
+      "sources": [
+        {
+          "path": "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/notes/essai39/sky/image-region-summary.json",
+          "sha256": "f517c436f8c8527faa5ac50085b7e1612fcaa8872862721cc4680043461dfa8c"
+        },
+        {
+          "path": "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/notes/essai41/sky96/image-region-summary.json",
+          "sha256": "92a891cb576e6a0405dc8dd683109d7efe1f5877ef66107ab28a1e3d5643744e"
+        }
+      ],
+      "regions": [
+        {
+          "layer": "clouds",
+          "hour": 9,
+          "roi": [
+            0,
+            0,
+            320,
+            106
+          ],
+          "before": {
+            "samples": {
+              "recharged": 6,
+              "origine-lumiere": 6
+            },
+            "on": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 2740.3333333333335,
+              "luma": 87.84426100628932,
+              "detail": 11.321943573667712,
+              "flat": 0.051619644723092994,
+              "saturation": 0.501728609658385
+            },
+            "off": {
+              "white": 0,
+              "nearwhite": 0.8333333333333334,
+              "clipped": 4438.833333333333,
+              "luma": 98.46924135220127,
+              "detail": 12.360820022888987,
+              "flat": 0.04860426929392447,
+              "saturation": 0.5045317496369984
+            },
+            "on_minus_off": {
+              "white": 0,
+              "nearwhite": -0.8333333333333334,
+              "clipped": -1698.4999999999995,
+              "luma": -10.62498034591195,
+              "detail": -1.0388764492212754,
+              "flat": 0.003015375429168528,
+              "saturation": -0.002803139978613478
+            }
+          },
+          "after": {
+            "samples": {
+              "recharged": 6,
+              "origine-lumiere": 6
+            },
+            "on": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 3028.1666666666665,
+              "luma": 87.8423791273585,
+              "detail": 11.334915659053589,
+              "flat": 0.051674379260586156,
+              "saturation": 0.5018229797960714
+            },
+            "off": {
+              "white": 0,
+              "nearwhite": 0.8333333333333334,
+              "clipped": 4434.5,
+              "luma": 98.46312893081762,
+              "detail": 12.367253818977957,
+              "flat": 0.048609245160969296,
+              "saturation": 0.5045477456684531
+            },
+            "on_minus_off": {
+              "white": 0,
+              "nearwhite": -0.8333333333333334,
+              "clipped": -1406.3333333333335,
+              "luma": -10.62074980345912,
+              "detail": -1.0323381599243682,
+              "flat": 0.0030651340996168605,
+              "saturation": -0.0027247658723816848
+            }
+          }
+        },
+        {
+          "layer": "clouds",
+          "hour": 12,
+          "roi": [
+            0,
+            0,
+            320,
+            106
+          ],
+          "before": {
+            "samples": {
+              "recharged": 6,
+              "origine-lumiere": 6
+            },
+            "on": {
+              "white": 91.5,
+              "nearwhite": 270.3333333333333,
+              "clipped": 28503,
+              "luma": 154.3478871855346,
+              "detail": 3.766805990943922,
+              "flat": 0.20535900880728467,
+              "saturation": 0.6809198041231028
+            },
+            "off": {
+              "white": 105.16666666666667,
+              "nearwhite": 262.8333333333333,
+              "clipped": 32271,
+              "luma": 155.5389445754717,
+              "detail": 3.791983878190775,
+              "flat": 0.19937801661939591,
+              "saturation": 0.6760126946934832
+            },
+            "on_minus_off": {
+              "white": -13.666666666666671,
+              "nearwhite": 7.5,
+              "clipped": -3768,
+              "luma": -1.1910573899371002,
+              "detail": -0.02517788724685266,
+              "flat": 0.005980992187888751,
+              "saturation": 0.004907109429619583
+            }
+          },
+          "after": {
+            "samples": {
+              "recharged": 6,
+              "origine-lumiere": 6
+            },
+            "on": {
+              "white": 106.66666666666667,
+              "nearwhite": 272.8333333333333,
+              "clipped": 29544.5,
+              "luma": 154.36505994496855,
+              "detail": 3.7711797780763296,
+              "flat": 0.2056874160322436,
+              "saturation": 0.680987370580222
+            },
+            "off": {
+              "white": 105.16666666666667,
+              "nearwhite": 262.8333333333333,
+              "clipped": 32271,
+              "luma": 155.5389445754717,
+              "detail": 3.791983878190775,
+              "flat": 0.19937801661939591,
+              "saturation": 0.6760126946934832
+            },
+            "on_minus_off": {
+              "white": 1.5,
+              "nearwhite": 10.0,
+              "clipped": -2726.5,
+              "luma": -1.173884630503153,
+              "detail": -0.020804100114445223,
+              "flat": 0.006309399412847694,
+              "saturation": 0.004974675886738722
+            }
+          }
+        },
+        {
+          "layer": "clouds",
+          "hour": 18,
+          "roi": [
+            0,
+            0,
+            320,
+            106
+          ],
+          "before": {
+            "samples": {
+              "recharged": 6,
+              "origine-lumiere": 6
+            },
+            "on": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 11800.5,
+              "luma": 184.0896521226415,
+              "detail": 3.8167537443399513,
+              "flat": 0.16343732895457033,
+              "saturation": 0.3311054490333074
+            },
+            "off": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 16604.666666666668,
+              "luma": 184.1846157625786,
+              "detail": 3.869662138627656,
+              "flat": 0.1405732198835647,
+              "saturation": 0.3307202697691905
+            },
+            "on_minus_off": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": -4804.166666666668,
+              "luma": -0.09496363993710588,
+              "detail": -0.05290839428770466,
+              "flat": 0.02286410907100564,
+              "saturation": 0.0003851792641169083
+            }
+          },
+          "after": {
+            "samples": {
+              "recharged": 6,
+              "origine-lumiere": 6
+            },
+            "on": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 13092.166666666666,
+              "luma": 184.1209021226415,
+              "detail": 3.81574364332985,
+              "flat": 0.16413892620789172,
+              "saturation": 0.3316047298229426
+            },
+            "off": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 16604,
+              "luma": 184.18459610849055,
+              "detail": 3.869572573020849,
+              "flat": 0.14054336468129572,
+              "saturation": 0.33072004589222814
+            },
+            "on_minus_off": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": -3511.833333333334,
+              "luma": -0.06369398584905639,
+              "detail": -0.05382892969099862,
+              "flat": 0.023595561526596004,
+              "saturation": 0.0008846839307144472
+            }
+          }
+        },
+        {
+          "layer": "sunset-sun",
+          "hour": 18,
+          "roi": [
+            142,
+            67,
+            178,
+            112
+          ],
+          "before": {
+            "samples": {
+              "recharged": 6,
+              "origine-lumiere": 6
+            },
+            "on": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 462.3333333333333,
+              "luma": 191.99670781893005,
+              "detail": 8.243939393939394,
+              "flat": 0.13084415584415585,
+              "saturation": 0.3003754629904355
+            },
+            "off": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 615.1666666666666,
+              "luma": 193.18024691358025,
+              "detail": 8.0495670995671,
+              "flat": 0.13192640692640692,
+              "saturation": 0.3005725100243296
+            },
+            "on_minus_off": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": -152.83333333333331,
+              "luma": -1.1835390946502002,
+              "detail": 0.19437229437229497,
+              "flat": -0.0010822510822510734,
+              "saturation": -0.00019704703389411549
+            }
+          },
+          "after": {
+            "samples": {
+              "recharged": 6,
+              "origine-lumiere": 6
+            },
+            "on": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 482.8333333333333,
+              "luma": 192.0253086419753,
+              "detail": 8.250324675324675,
+              "flat": 0.13106060606060604,
+              "saturation": 0.30065572506884614
+            },
+            "off": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": 614.5,
+              "luma": 193.1798353909465,
+              "detail": 8.047619047619047,
+              "flat": 0.13127705627705627,
+              "saturation": 0.30056782242768526
+            },
+            "on_minus_off": {
+              "white": 0,
+              "nearwhite": 0,
+              "clipped": -131.66666666666669,
+              "luma": -1.1545267489711932,
+              "detail": 0.20270562770562783,
+              "flat": -0.00021645021645022577,
+              "saturation": 8.79026411608752e-05
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "portal96",
+      "sources": [
+        {
+          "path": "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/notes/essai40/portal-final/image-region-summary.json",
+          "sha256": "dba59dfe80e8d8eac449be3c9138d2a82f69c5cc99eacfed522e038158128cd6"
+        },
+        {
+          "path": "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/notes/essai41/portal96/image-region-summary.json",
+          "sha256": "348a21f376346a7c5ea148f62f2397274f82ce5097ecb410f6c757747ba8f8a5"
+        }
+      ],
+      "regions": [
+        {
+          "layer": "actor-1395",
+          "hour": 12,
+          "roi": [
+            105,
+            10,
+            197,
+            90
+          ],
+          "before": {
+            "samples": {
+              "recharged": 2,
+              "origine-lumiere": 2
+            },
+            "on": {
+              "white": 27.5,
+              "nearwhite": 41.5,
+              "clipped": 445,
+              "luma": 55.84775815217391,
+              "detail": 15.745722631798582,
+              "flat": 0.028446237306996802,
+              "saturation": 0.48883950473693116
+            },
+            "off": {
+              "white": 29.5,
+              "nearwhite": 48.5,
+              "clipped": 460,
+              "luma": 76.05577445652173,
+              "detail": 19.939699540965364,
+              "flat": 0.014396995409653637,
+              "saturation": 0.48189867843601664
+            },
+            "on_minus_off": {
+              "white": -2.0,
+              "nearwhite": -7.0,
+              "clipped": -15,
+              "luma": -20.208016304347822,
+              "detail": -4.193976909166782,
+              "flat": 0.014049241897343166,
+              "saturation": 0.006940826300914527
+            }
+          },
+          "after": {
+            "status": "noncomparable_or_absent_roi"
+          }
+        },
+        {
+          "layer": "actor-1395",
+          "hour": 12,
+          "roi": [
+            106,
+            13,
+            194,
+            92
+          ],
+          "before": {
+            "status": "noncomparable_or_absent_roi"
+          },
+          "after": {
+            "samples": {
+              "recharged": 2,
+              "origine-lumiere": 2
+            },
+            "on": {
+              "white": 28,
+              "nearwhite": 41.5,
+              "clipped": 409,
+              "luma": 55.999136939010356,
+              "detail": 15.831786030061892,
+              "flat": 0.02659888004715591,
+              "saturation": 0.4918456660558668
+            },
+            "off": {
+              "white": 27,
+              "nearwhite": 48,
+              "clipped": 422.5,
+              "luma": 76.43145857307249,
+              "detail": 20.03890362511052,
+              "flat": 0.012894193928676688,
+              "saturation": 0.4845862160198132
+            },
+            "on_minus_off": {
+              "white": 1,
+              "nearwhite": -6.5,
+              "clipped": -13.5,
+              "luma": -20.432321634062134,
+              "detail": -4.207117595048629,
+              "flat": 0.013704686118479222,
+              "saturation": 0.007259450036053605
+            }
+          }
+        },
+        {
+          "layer": "clouds",
+          "hour": 12,
+          "roi": [
+            0,
+            0,
+            320,
+            70
+          ],
+          "before": {
+            "samples": {
+              "recharged": 2,
+              "origine-lumiere": 2
+            },
+            "on": {
+              "white": 29,
+              "nearwhite": 45,
+              "clipped": 1227,
+              "luma": 71.74618303571428,
+              "detail": 18.469447094634504,
+              "flat": 0.039957294080232617,
+              "saturation": 0.4892189376723452
+            },
+            "off": {
+              "white": 29.5,
+              "nearwhite": 54.5,
+              "clipped": 1350.5,
+              "luma": 95.00218749999999,
+              "detail": 20.897210485666257,
+              "flat": 0.019194947980555176,
+              "saturation": 0.4848554762858451
+            },
+            "on_minus_off": {
+              "white": -0.5,
+              "nearwhite": -9.5,
+              "clipped": -123.5,
+              "luma": -23.25600446428571,
+              "detail": -2.4277633910317533,
+              "flat": 0.02076234609967744,
+              "saturation": 0.004363461386500123
+            }
+          },
+          "after": {
+            "samples": {
+              "recharged": 2,
+              "origine-lumiere": 2
+            },
+            "on": {
+              "white": 29.5,
+              "nearwhite": 45,
+              "clipped": 1225,
+              "luma": 71.55939732142858,
+              "detail": 18.42151651447004,
+              "flat": 0.039525691699604744,
+              "saturation": 0.49187616929067346
+            },
+            "off": {
+              "white": 27,
+              "nearwhite": 54,
+              "clipped": 1309,
+              "luma": 94.77729910714285,
+              "detail": 20.938598882376994,
+              "flat": 0.018876925173776746,
+              "saturation": 0.4851505278667887
+            },
+            "on_minus_off": {
+              "white": 2.5,
+              "nearwhite": -9,
+              "clipped": -84,
+              "luma": -23.217901785714275,
+              "detail": -2.517082367906955,
+              "flat": 0.020648766525827998,
+              "saturation": 0.006725641423884765
+            }
+          }
+        },
+        {
+          "layer": "portal_disc",
+          "hour": 12,
+          "roi": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "before": {
+            "samples": {
+              "recharged": 2,
+              "origine-lumiere": 2
+            },
+            "on": {
+              "white": 27.5,
+              "nearwhite": 41.5,
+              "clipped": 311.5,
+              "luma": 102.02234927234927,
+              "detail": 25.018333333333334,
+              "flat": 0.030555555555555558,
+              "saturation": 0.4888999894836471
+            },
+            "off": {
+              "white": 29.5,
+              "nearwhite": 48.5,
+              "clipped": 336.5,
+              "luma": 127.01611226611226,
+              "detail": 26.754444444444445,
+              "flat": 0.024444444444444442,
+              "saturation": 0.4262631162951602
+            },
+            "on_minus_off": {
+              "white": -2.0,
+              "nearwhite": -7.0,
+              "clipped": -25.0,
+              "luma": -24.993762993762985,
+              "detail": -1.7361111111111107,
+              "flat": 0.006111111111111116,
+              "saturation": 0.06263687318848687
+            }
+          },
+          "after": {
+            "samples": {
+              "recharged": 2,
+              "origine-lumiere": 2
+            },
+            "on": {
+              "white": 28,
+              "nearwhite": 41.5,
+              "clipped": 287,
+              "luma": 102.59199584199584,
+              "detail": 25.224444444444444,
+              "flat": 0.028333333333333335,
+              "saturation": 0.479870534654238
+            },
+            "off": {
+              "white": 27,
+              "nearwhite": 48,
+              "clipped": 322,
+              "luma": 126.81288981288981,
+              "detail": 27.481666666666666,
+              "flat": 0.018333333333333333,
+              "saturation": 0.4290815543962717
+            },
+            "on_minus_off": {
+              "white": 1,
+              "nearwhite": -6.5,
+              "clipped": -35,
+              "luma": -24.220893970893968,
+              "detail": -2.2572222222222216,
+              "flat": 0.010000000000000002,
+              "saturation": 0.0507889802579663
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

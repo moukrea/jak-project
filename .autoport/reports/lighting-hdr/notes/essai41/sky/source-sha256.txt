@@ -1,0 +1,5 @@
+0ff30003c97a5034e56391e2c08c49ea2bea33ee1f185be767fd3274e60d377a  game/graphics/gfx.h
+bbcb49abf34adac9391c0f94e4574955a5799f87dcf29f11a36e2fab61382d6a  goal_src/jak1/pc/hud-classes-pc.gc
+b6bb550395969a7b4c275f0fbc200753e2ea150cf6f923f76f9f0c59e2aae518  goal_src/jak1/pc/progress-pc.gc
+fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3  game/graphics/opengl_renderer/shaders/tonemap.frag
+3862c5d62a50703e960fe815cdec0ef4d9a461a61cc8f6f01099cbb6867a768e  goal_src/jak1/pc/pckernel.gc

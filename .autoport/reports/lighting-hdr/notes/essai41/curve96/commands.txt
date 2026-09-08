@@ -1,0 +1,12 @@
+DIRECTIVES v708c60642a
+Depuis la racine du dépôt :
+g++ -std=c++17 -O2 .autoport/reports/lighting-hdr/notes/essai41/curve96/curve_gpu.cpp -lEGL -lGLESv2 -o .autoport/reports/lighting-hdr/notes/essai41/curve96/curve_gpu
+Compilation : exit 0.
+.autoport/reports/lighting-hdr/notes/essai41/curve96/curve_gpu game/graphics/opengl_renderer/shaders/tonemap.frag > .autoport/reports/lighting-hdr/notes/essai41/curve96/curve_gpu.log 2>&1
+Exécution : exit 0, enregistré dans curve_gpu.exit.
+git diff --check
+Résultat : exit 0.
+Copie de curve/curve_gpu.cpp ; seuls genou candidat et libellé passent de .98 à .96. Grilles, pas .001 et garde .05 inchangés. Dossier curve original conservé.
+Shader inchangé SHA256 fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3.
+Mesures : curve_gpu.log. Non prouvé : amélioration en jeu, comportement Android, C1 analytique et validation owner.
+Aucun build Android, appareil, commit, validateur ou harnais modifié.

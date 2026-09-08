@@ -1,0 +1,170 @@
+[
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      106
+    ],
+    "arm": "recharged",
+    "hour": 9,
+    "samples": 6,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 3028.1666666666665,
+      "luma": 87.8423791273585,
+      "detail": 11.334915659053589,
+      "flat": 0.051674379260586156,
+      "saturation": 0.5018229797960714
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      106
+    ],
+    "arm": "origine-lumiere",
+    "hour": 9,
+    "samples": 6,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0.8333333333333334,
+      "clipped": 4434.5,
+      "luma": 98.46312893081762,
+      "detail": 12.367253818977957,
+      "flat": 0.048609245160969296,
+      "saturation": 0.5045477456684531
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      106
+    ],
+    "arm": "recharged",
+    "hour": 12,
+    "samples": 6,
+    "mean": {
+      "white": 106.66666666666667,
+      "nearwhite": 272.8333333333333,
+      "clipped": 29544.5,
+      "luma": 154.36505994496855,
+      "detail": 3.7711797780763296,
+      "flat": 0.2056874160322436,
+      "saturation": 0.680987370580222
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      106
+    ],
+    "arm": "origine-lumiere",
+    "hour": 12,
+    "samples": 6,
+    "mean": {
+      "white": 105.16666666666667,
+      "nearwhite": 262.8333333333333,
+      "clipped": 32271,
+      "luma": 155.5389445754717,
+      "detail": 3.791983878190775,
+      "flat": 0.19937801661939591,
+      "saturation": 0.6760126946934832
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      106
+    ],
+    "arm": "recharged",
+    "hour": 18,
+    "samples": 6,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 13092.166666666666,
+      "luma": 184.1209021226415,
+      "detail": 3.81574364332985,
+      "flat": 0.16413892620789172,
+      "saturation": 0.3316047298229426
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      106
+    ],
+    "arm": "origine-lumiere",
+    "hour": 18,
+    "samples": 6,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 16604,
+      "luma": 184.18459610849055,
+      "detail": 3.869572573020849,
+      "flat": 0.14054336468129572,
+      "saturation": 0.33072004589222814
+    }
+  },
+  {
+    "layer": "sunset-sun",
+    "roi": [
+      142,
+      67,
+      178,
+      112
+    ],
+    "arm": "recharged",
+    "hour": 18,
+    "samples": 6,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 482.8333333333333,
+      "luma": 192.0253086419753,
+      "detail": 8.250324675324675,
+      "flat": 0.13106060606060604,
+      "saturation": 0.30065572506884614
+    }
+  },
+  {
+    "layer": "sunset-sun",
+    "roi": [
+      142,
+      67,
+      178,
+      112
+    ],
+    "arm": "origine-lumiere",
+    "hour": 18,
+    "samples": 6,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 614.5,
+      "luma": 193.1798353909465,
+      "detail": 8.047619047619047,
+      "flat": 0.13127705627705627,
+      "saturation": 0.30056782242768526
+    }
+  }
+]
