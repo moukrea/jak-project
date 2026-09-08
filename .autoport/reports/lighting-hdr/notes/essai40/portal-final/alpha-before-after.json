@@ -1,0 +1,180 @@
+{
+  "DIRECTIVES": "v708c60642a",
+  "purpose": "diagnostic before/after across two binaries; no proof aggregation",
+  "runs": [
+    {
+      "label": "before",
+      "events_source": ".autoport/reports/lighting-hdr/notes/essai39/portal/composition/composition-events.json",
+      "sha256": "c8fbae41bb21c78cbe7cba2c09ad7c280995b653f56d00ca3b42916a7e29dbc3",
+      "groups": [
+        {
+          "arm": "origine-lumiere",
+          "stage": "after_world_sprites",
+          "samples": 2,
+          "roi_exclusive": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "alpha_max": 1.0,
+          "alpha_above_one": 0,
+          "alpha_negative": 0,
+          "mean_rgba": [
+            0.5157248319212899,
+            0.48562986431397936,
+            0.6532101600187462,
+            0.5349910679504148
+          ]
+        },
+        {
+          "arm": "origine-lumiere",
+          "stage": "before_world_sprites",
+          "samples": 2,
+          "roi_exclusive": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "alpha_max": 1.0,
+          "alpha_above_one": 0,
+          "alpha_negative": 0,
+          "mean_rgba": [
+            0.37339060317202233,
+            0.3508323625833237,
+            0.4554061383436808,
+            0.9424979075383491
+          ]
+        },
+        {
+          "arm": "recharged",
+          "stage": "after_world_sprites",
+          "samples": 2,
+          "roi_exclusive": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "alpha_max": 2.0,
+          "alpha_above_one": 87,
+          "alpha_negative": 0,
+          "mean_rgba": [
+            0.4359899249171939,
+            0.40837139227451424,
+            1.3469249497112046,
+            0.5416551254413746
+          ]
+        },
+        {
+          "arm": "recharged",
+          "stage": "before_world_sprites",
+          "samples": 2,
+          "roi_exclusive": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "alpha_max": 2.0,
+          "alpha_above_one": 87,
+          "alpha_negative": 0,
+          "mean_rgba": [
+            0.26352805710925675,
+            0.24237397783502213,
+            0.3135070909462084,
+            0.9362541270731521
+          ]
+        }
+      ]
+    },
+    {
+      "label": "after",
+      "events_source": ".autoport/reports/lighting-hdr/notes/essai40/portal-final/composition/composition-events.json",
+      "sha256": "2f0697b3d01b7b3977c2a18c586f1b5c7f4f2902f49243484d17324b967f6aa2",
+      "groups": [
+        {
+          "arm": "origine-lumiere",
+          "stage": "after_world_sprites",
+          "samples": 2,
+          "roi_exclusive": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "alpha_max": 1.0,
+          "alpha_above_one": 0,
+          "alpha_negative": 0,
+          "mean_rgba": [
+            0.49963802046705025,
+            0.4700980491771036,
+            0.6477730338946264,
+            0.5173906555252701
+          ]
+        },
+        {
+          "arm": "origine-lumiere",
+          "stage": "before_world_sprites",
+          "samples": 2,
+          "roi_exclusive": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "alpha_max": 1.0,
+          "alpha_above_one": 0,
+          "alpha_negative": 0,
+          "mean_rgba": [
+            0.37385985075729633,
+            0.3509569366491052,
+            0.45528435743326967,
+            0.9250491625777288
+          ]
+        },
+        {
+          "arm": "recharged",
+          "stage": "after_world_sprites",
+          "samples": 2,
+          "roi_exclusive": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "alpha_max": 1.0,
+          "alpha_above_one": 0,
+          "alpha_negative": 0,
+          "mean_rgba": [
+            0.4276338910105561,
+            0.4071873493683644,
+            1.3318643988367498,
+            0.5441324869791666
+          ]
+        },
+        {
+          "arm": "recharged",
+          "stage": "before_world_sprites",
+          "samples": 2,
+          "roi_exclusive": [
+            147,
+            42,
+            173,
+            79
+          ],
+          "alpha_max": 1.0,
+          "alpha_above_one": 0,
+          "alpha_negative": 0,
+          "mean_rgba": [
+            0.2631625076304813,
+            0.24245807941143327,
+            0.31412102897622307,
+            0.9568179736449847
+          ]
+        }
+      ]
+    }
+  ]
+}

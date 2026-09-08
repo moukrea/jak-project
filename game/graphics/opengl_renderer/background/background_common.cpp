@@ -221,7 +221,12 @@ DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap)
         glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
         break;
       case DrawMode::AlphaBlend::SRC_0_DST_DST:
-        glBlendFunc(GL_DST_ALPHA, GL_ONE);
+        if (hdr::chain_active()) {
+          // In RGBA16F, alpha must remain a bounded weight, following DirectRenderer's convention.
+          glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE, GL_ONE, GL_ZERO);
+        } else {
+          glBlendFunc(GL_DST_ALPHA, GL_ONE);
+        }
         glBlendEquation(GL_FUNC_ADD);
         double_draw.color_mult = 0.5f;
         break;

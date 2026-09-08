@@ -1,0 +1,73 @@
+{
+  "reference": {
+    "lib": "b58734a565c15f3bd907733dc2b799e54ed97eca20a4b0ab4f9a7b60e1647cec",
+    "apk": "01d0d925b28d8a7e0f33bcd541c67642ce7b57c4443c7d0dc027fc6fc0a35b05",
+    "seconds": 37.91648545791395,
+    "packs_unchanged": true,
+    "publisher_unchanged": true,
+    "device_apk": "/data/app/~~_E0qhGXrhzrXgi4Twlt1YA==/org.opengoal.gk.jak1-aesWs6N2M6ZAFOpA4v0BYQ==/base.apk",
+    "serial": "eae4df44",
+    "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6"
+  },
+  "local": {
+    "build-android/lib/arm64-v8a/libgk.so": {
+      "sha256": "b58734a565c15f3bd907733dc2b799e54ed97eca20a4b0ab4f9a7b60e1647cec",
+      "matches_essai39_device": true
+    },
+    "android/app/src/main/jniLibs/arm64-v8a/libgk.so": {
+      "sha256": "b58734a565c15f3bd907733dc2b799e54ed97eca20a4b0ab4f9a7b60e1647cec",
+      "matches_essai39_device": true
+    },
+    "android/app/build/outputs/apk/jak1/debug/app-jak1-debug.apk": {
+      "sha256": "9767b7e77eac6c8eb5b676d9f6df5b4d326d3e3f104afe97ddb9e61ecaeb7e11",
+      "matches_essai39_device": false
+    },
+    ".autoport/reports/lighting-hdr/notes/essai39/build/gradle-app/outputs/apk/jak1/debug/app-jak1-debug.apk": {
+      "sha256": "01d0d925b28d8a7e0f33bcd541c67642ce7b57c4443c7d0dc027fc6fc0a35b05",
+      "matches_essai39_device": true
+    }
+  },
+  "packs": {
+    "android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties": {
+      "sha256": "bdc8f064637c9f8f7f2fd7193dff0b5cffdd4654578ea27559d7dd3812b495d3",
+      "matches_essai39": true
+    },
+    "android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties": {
+      "sha256": "3cc9d69e7ca2433cd1cdc5705adfa0faeb0afe2d0b35c76c039aaf35110a3f3c",
+      "matches_essai39": true
+    },
+    "android/app/src/jak1/assets-slim/bundle/jak1_custom.zip": {
+      "sha256": "12ac0c7835586f9e681470596e501d3a0810927f801da9ec0f71c9cff7772bf4",
+      "matches_essai39": true
+    },
+    "android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip": {
+      "sha256": "5f2e13e247aeb67573559fc139ed3f4c62c219d378a10e102338da565ea4d96f",
+      "matches_essai39": true
+    },
+    "out/jak1-arm64-full/iso/GAME.CGO": {
+      "sha256": "acd302f537ffe49869a701c5dfc360e503d859c37b77e9a03a62eeb03b932434",
+      "matches_essai39": true
+    },
+    "out/jak1-arm64-full/iso/ENGINE.CGO": {
+      "sha256": "f844dda8d08a0b2c9e1c4011db54d3cdc290ee294a5ff8cc2fad3088a7e1a96d",
+      "matches_essai39": true
+    },
+    "out/jak1-arm64-full/iso/KERNEL.CGO": {
+      "sha256": "956ed7a1cae46591cbb788cc454b52ea172890b14511b7800611ac0e2ad58b42",
+      "matches_essai39": true
+    }
+  },
+  "pick_device": "eae4df44",
+  "device_apk": {
+    "sha256": "01d0d925b28d8a7e0f33bcd541c67642ce7b57c4443c7d0dc027fc6fc0a35b05",
+    "matches_essai39": true
+  },
+  "device_lib": {
+    "sha256": "b58734a565c15f3bd907733dc2b799e54ed97eca20a4b0ab4f9a7b60e1647cec",
+    "matches_essai39": true
+  },
+  "device_settings": {
+    "sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+    "matches_essai39": true
+  }
+}

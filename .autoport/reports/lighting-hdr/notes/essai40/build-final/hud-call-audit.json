@@ -1,0 +1,9 @@
+{
+  "calls": [
+    "first.mode, first.fix, render_state, hud",
+    "first.mode, first.fix, render_state, true",
+    "d.mode, d.fix, render_state, true"
+  ],
+  "hdr_and_not_hud_guards": 3,
+  "bool_no_default": true
+}

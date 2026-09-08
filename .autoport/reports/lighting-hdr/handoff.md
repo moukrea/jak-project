@@ -1,23 +1,23 @@
-# Handoff — lighting-hdr essai39
+# Handoff — lighting-hdr essai40
 DIRECTIVES v708c60642a
 ## ÉTABLI
-Lib b58734a565c15f3b/APK01d0d925… installés Redmi ; identité notes/essai39/build/device-identity.json ; APK publieur inchangé.
-Tamponhash64KiB/pileGOAL32KiB corrigé sur tas ; candidat symboles local conservé. Tests hash5/kernel2 PASS ; aucun autre patch moteur39.
-Menu preuve313s/3720frames/crash0 : OFF15:42:53/ON15:43:40 sans override ; ombresON cast886502/read_valid1 ; persistanceON au restart horsfenêtre.
-Portail4captures/crash0/385s : waits ON56.013/111.704s,OFF42.171/84.822s ; âges659/1319. default sym1490e4/value1dcb44 reste sain.
-Ciel beach9/12/18 :36captures/3paires/85fichiers scellés/crash0/1920frames/220s ; hdr_batch_errors0, hdr_tonemap_defects4.
-Producteur corrigé attend captured/steps/temporal complets avant stop ;20tests boucle et256suite PASS ; preuve ciel confirme publication finale.
-RéglagesSHA78108670… exacts,propsvides,PID30275 stable20s ; aucune garantie stabilité hors parcours exécutés.
+Lib32d5e7e2e9f427d8/APK883014b77b6fe30e… installés Redmi ; identité notes/essai40/build-final/device-identity.json, publieur inchangé.
+Correctif4branches alpha HDR background/Generic ; source alpha séparée selon DirectRenderer, OFF conservé, HUD exclu explicitement par bool uses_hud aux3appels.
+Tests GPU hôte8cas PASS dont HUD HDR ; build final17.7s/repack69.9s. Ce test ne lie pas les fonctions C++ et ne prouve pas image entière.
+Portail officiel398s/4560frames/crash0/hits1029885 ;4captures/21fichiers scellés/0hash divergent ; hdr_batch_errors0,hdr_tonemap_defects4.
+Attentes aprèspurge ON54.494/109.762s,OFF42.632/84.271s ; âges659/1319,notes/essai40/portal-final/timing-and-witnesses.json.
+ROI disque natif7020pixels : alpha maxON2→1,alpha>1 occurrences87→0 sur2samples avant/après ;OFF max1/0. alpha-before-after.json conserve sources/hashes39/40.
+RéglagesSHA78108670… exacts,propsvides,PID3726 identique aux lectures séparées de12s ; CGO/packs inchangés. Crashes/menu ON acquis39 conservés, pas refaits.
 ## TENTÉ
-Portail lot essai39-portal-stackfix/20260908T134702-4150835 rejeté : ancien prédicat stop paired1/done4 avant télémétrie finale (compteur3).
-Ne pas réécrire/agréger ce lot forcé. Ses4PNG et timings restent diagnostic (notes/essai39/portal/verdict.md).
-DisqueON/OFF luma103.693/130.777,nearwhite40/56,saturation.4817/.4125 ; écartRG avant sprites,excèsB différent après. Courbe seule nonisolée.
-Ciel lot essai39-sky-stackfix/20260908T135803-4161313 complet : nuagesh12 blancs91.5/105.167,nearwhite270.333/262.833 ; helper signaleéchec.
-Soleilh18 disque+2rayons présents chaque sample ; blancs0/0,luma191.997/193.180,détail8.244/8.050. Helper nonjugé car exige blancsOFF>0 : limite à arbitrer.
-Aucun réglage artistique arbitraire. Anciennes mesures éco29/30 conservées, pas répétées.
+Premier candidat cf1aa0ff… appliquait aussi alpha au HUD HDR/RGBA8 ; revue a imposé bool uses_hud. Lot arrêtéSIGTERM PID4176807 avant capture,exit-15.
+Trace portal/interrupted-engine.log conservée,réglages restaurés ; ne jamais agréger ce lot incomplet. Seul portal-final porte preuve complète.
+Courbe/exposition inchangées : imposer f(1)=1 ne résout pas composition et nécessite plateau/expansion. Aucun bloom/assombrissement ajouté.
+Alpha corrigé ne résout pas rendu : disque ON/OFF blancs27.5/29.5,nearwhite41.5/48.5,luma102.022/127.016,détail25.018/26.754,saturation.4889/.4263.
+RG amont reste ON(.26316,.24246) contreOFF(.37386,.35096),B aprèssprites1.33186/.64777 ; voir portal-final/native-summary.json.
 ## RESTE
-Corriger causes rendu : nuages/soleil puis sol/portail, indépendamment de l’éco ;5cas inchangés. Mesures/composition dans notes/essai39/{portal,sky}.
-Le helper laisse nuages et portal_disc partiels ; sol sans ROI. Pas de nouveau verdict global depuis observationsabsentes.
-OmbresOFF/persistanceOFF nonprouvés ; absence logOFF ne vaut rien (retour avant trace). ON et retourON déjà établis, ne pas refaire navigation.
-Couverture21niveaux×8h/ciels/intérieurs/vraie hutte non exécutée :338éléments manquants ; pas de réutilisation ancien binaire commepreuve.
-Le dernier proof est neuf et rouge4défauts. Validateur laissé à orchestrateur, aucun owner-ok. Rapport≤40lignes mis à jour.
+Corriger rendu nuages/soleil puis sol/portail indépendamment éco ; cinqcas inchangés,0passé,2échecs partiels dans lot40. Éco29/30 conservé sans répétition négative.
+Nuages39 : f(1)=.9875,1537.5blancs→1117 après courbe sur mêmes pixels ; sourcefichier notes/essai39/sky/composition. Pas réutilisés comme preuve40.
+Soleil39 disque+2rayons avecblancsOFF0 : helper nonjugé malgré photométrie partielle passée ; aucune garde changée40.
+Helper nuages/portal_disc partiel,sol sansROI,HUT_VIEWS vide : résoudre couverture sémantique sans fabriquer réussite ;21niveaux×8h/ciels/intérieurs/vraie hutte non exécutés,343éléments manquants40.
+non prouvé : ombresOFF/persistanceOFF,imageOFF et HUD entières,correction des5cas,stabilité horsparcours. MenuON/retourON établi39, ne pas refaire navigation.
+Validateur à l’orchestrateur,aucun owner-ok ; dernier proof neuf rouge4,rapport≤40lignes mis à jour.

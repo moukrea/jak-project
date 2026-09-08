@@ -106,7 +106,8 @@ class Generic2 {
   void opengl_bind_and_setup_proj(SharedRenderState* render_state);
   void setup_opengl_for_draw_mode(const DrawMode& draw_mode,
                                   u8 fix,
-                                  SharedRenderState* render_state);
+                                  SharedRenderState* render_state,
+                                  bool uses_hud);
 
   void setup_opengl_tex(u16 unit,
                         u16 tbp,

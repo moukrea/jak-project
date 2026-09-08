@@ -1,0 +1,17 @@
+[
+  {
+    "file": "game/graphics/opengl_renderer/background/background_common.cpp",
+    "guards": 1,
+    "OFF_restored_source_equals_HEAD_ignoring_whitespace": true
+  },
+  {
+    "file": "game/graphics/opengl_renderer/foreground/Generic2_OpenGL.cpp",
+    "guards": 3,
+    "OFF_restored_source_equals_HEAD_ignoring_whitespace": true
+  },
+  {
+    "shader": "game/graphics/opengl_renderer/shaders/direct_basic.frag",
+    "sha256": "58ac09aa5041225bd93f50c5b9b367213f45cc593cb9078f0355408a63fe99b7",
+    "unchanged_HEAD": true
+  }
+]

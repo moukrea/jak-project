@@ -1,23 +1,24 @@
-HDR non validé : le débordement de pile est corrigé et les deux parcours de chargement passent sans crash, mais quatre défauts restent signalés.
+HDR non validé : le dépassement alpha mesuré est corrigé sur Redmi, mais la preuve conserve quatre défauts.
 DIRECTIVES v708c60642a
-Le tampon de hachage de 64 Kio quitte la pile GOAL de 32 Kio ; le candidat d’internement reste local. Aucun effet supprimé, aucun réglage artistique ajouté.
-Tests : 5 cas de hachage sur pile 32768, 2 cas noyau passent ; build Android incrémental : 3 actions en 21 s, repack en 38 s, lib b58734a565c15f3b installée sur Redmi.
-Le producteur attend désormais les derniers compteurs avant arrêt ; scénario de coupure prématurée couvert, 256 tests harnais passent.
-Menu normal : OFF à 15:42:53 puis ON à 15:43:40 sans override ; ombres ON cast_idx=886502/read_valid=1 ; persistance ON confirmée après redémarrage (notes/essai39/menu/verdict.md).
-Portail : 4 captures sans crash ; ON 56.013/111.704 s et OFF 42.171/84.822 s après purge, âges 659/1319. Lot conservé diagnostic : ancien arrêt prématuré avait laissé compteur à 3.
-Disque portail ON/OFF : luma 103.693/130.777, nearwhite 40/56 ; écart présent avant sprites, amplification bleue différente après (notes/essai39/portal/verdict.md).
-Ciel neuf : 36 captures, 3 paires acceptées, 85 fichiers scellés, 0 erreur SHA ; nuages toujours signalés en échec (notes/essai39/sky/verdict.md).
-Huit lignes de la dernière preuve officielle :
+Quatre branches de mélange HDR séparent l’alpha des couleurs ; Generic limite ce changement au monde et conserve le HUD. Courbe et exposition inchangées.
+Huit cas GPU hôte passent, dont le HUD avec HDR actif. Build final incrémental : 17,7 s ; repack isolé : 69,9 s ; identité build/APK/Redmi concordante.
+Lib 32d5e7e2e9f427d8 et APK 883014b77b6fe30e… installés ; packs, CGO et APK du publieur inchangés (notes/essai40/build-final/device-identity.json).
+Le premier lot a été interrompu avant capture pour corriger le risque HUD trouvé en revue ; ses traces restent diagnostiques, sans réagrégation.
+Lot final : 398 s, 4 captures, 21 fichiers scellés, aucune divergence SHA. Attentes ON : 54,494/109,762 s ; OFF : 42,632/84,271 s après purge ; âges 659/1319.
+Disque portail : alpha maximum ON de 2 à 1 ; occurrences alpha>1 sur deux samples de 87 à 0 avant et après sprites ; OFF reste à 1/0 (portal-final/alpha-before-after.json).
+Le rendu reste insuffisant : disque ON/OFF, luma 102,022/127,016 et quasi-blancs 41,5/48,5. Déficit rouge/vert avant sprites et surplus bleu après sprites demeurent.
+Huit lignes de la preuve officielle produite par proof_run.sh :
 source=device
 serial=eae4df44
-sha=b58734a565c15f3b
+sha=32d5e7e2e9f427d8
 crash=0
-frames=1920
-FEATURE lighting-hdr armed=1 hits=399863
+frames=4560
+FEATURE lighting-hdr armed=1 hits=1029885
 hdr_batch_errors=0
 hdr_tonemap_defects=4
-Soleil : disque et deux rayons observés, blancs OFF=0 ; helper refuse de juger sans blancs OFF. Limite du jugement à arbitrer, pas une preuve de soleil défectueux.
-Non prouvé : correction des 5 régressions, ombres OFF/persistance OFF, 21 niveaux × 8 h/ciels/intérieurs/vraie hutte ; campagne finale non exécutée, aucune validation owner.
-À regarder : Options > Recharged, Lighting OFF/ON ; nuages, soleil couchant, éclairs éco bleue, sol devant Samos et portail après 10 s animées.
-Réglages owner restaurés exactement SHA 78108670… ; propriétés debug vides ; dernier PID 30275 stable 20 s. APK livré sur Redmi, APK du publieur inchangé.
-Validateur non exécuté par le worker : contrôle laissé à l’orchestrateur ; aucun owner-ok.
+Les observations du ciel39 restent diagnostiques : perte de blancs due en partie à la courbe ; disque solaire et deux rayons présents, blancs OFF=0 ne démontrant pas un défaut.
+Le jugement solaire refuse toujours blancs OFF=0 ; nuages/portail restent partiels, sol sans ROI, HUT_VIEWS vide. Aucun critère ni validateur assoupli.
+non prouvé : correction des cinq cas, ombres OFF/persistance OFF, image OFF/HUD entière, couverture 21 niveaux × 8 h/ciels/intérieurs/vraie hutte ; 343 éléments manquants dans ce lot.
+À regarder : Options > Recharged, Lighting OFF/ON ; nuages, soleil couchant, éclairs éco bleue, sol devant Samos et portail après dix secondes animées.
+Réglages owner restaurés exactement (SHA 78108670…) ; propriétés debug vides ; PID 3726 identique aux deux lectures espacées de 12 s (notes/essai40/portal-final/restoration.json).
+Validateur laissé à l’orchestrateur ; aucun owner-ok. Les cinq cas et la couverture finale restent obligatoires.

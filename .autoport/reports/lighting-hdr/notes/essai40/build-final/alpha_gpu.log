@@ -1,0 +1,91 @@
+vendor=Intel renderer=Mesa Intel(R) UHD Graphics (CML GT2) version=OpenGL ES 3.2 Mesa 25.3.6 EGL=1.5
+check framebuffer_complete PASS
+format=RGBA8 mode=0 before RGBA=0.2,0.298039,0.4,1 gl_error=0
+format=RGBA8 mode=0 after RGBA=0.2,0.298039,0.4,1 gl_error=0
+check normalized_before_after_same_factors PASS
+format=RGBA8 mode=1 before RGBA=0.2,0.298039,0.4,1 gl_error=0
+format=RGBA8 mode=1 after RGBA=0.2,0.298039,0.4,1 gl_error=0
+check normalized_before_after_same_factors PASS
+format=RGBA8 mode=2 before RGBA=0,0,0,0 gl_error=0
+format=RGBA8 mode=2 after RGBA=0,0,0,0 gl_error=0
+check normalized_before_after_same_factors PASS
+format=RGBA8 mode=3 before RGBA=0,0,0,0 gl_error=0
+format=RGBA8 mode=3 after RGBA=0,0,0,0 gl_error=0
+check normalized_before_after_same_factors PASS
+format=RGBA8 HDR_RGB_no_blend_after RGBA=1,1,1,1 gl_error=0
+essai40 format=RGBA8 mode=4 legacy RGBA=1,0.898039,0.501961,1 gl_error=0
+essai40 format=RGBA8 mode=4 guarded RGBA=1,0.898039,0.501961,1 gl_error=0
+check essai40_single_draw_RGB_unchanged_same_destination PASS
+check essai40_alpha_bounded PASS
+check essai40_OFF_identical_RGBA PASS
+essai40 format=RGBA8 mode=5 legacy RGBA=0.980392,0.870588,0.462745,1 gl_error=0
+essai40 format=RGBA8 mode=5 guarded RGBA=0.980392,0.870588,0.462745,1 gl_error=0
+check essai40_single_draw_RGB_unchanged_same_destination PASS
+check essai40_alpha_bounded PASS
+check essai40_OFF_identical_RGBA PASS
+essai40 format=RGBA8 mode=6 legacy RGBA=0.6,0.301961,0,0 gl_error=0
+essai40 format=RGBA8 mode=6 guarded RGBA=0.6,0.301961,0,0 gl_error=0
+check essai40_single_draw_RGB_unchanged_same_destination PASS
+check essai40_alpha_bounded PASS
+check essai40_OFF_identical_RGBA PASS
+essai40_final HDR_chain=1 HUD=1 RGBA8 mode=4 legacy RGBA=0.878431,0.721569,0.262745,1 gl_error=0
+essai40_final HDR_chain=1 HUD=1 RGBA8 mode=4 guarded RGBA=0.878431,0.721569,0.262745,1 gl_error=0
+check essai40_final_HDR_HUD_RGBA_unchanged PASS
+check essai40_final_HDR_HUD_legacy_blend_state PASS
+essai40_final HDR_chain=1 HUD=1 RGBA8 mode=5 legacy RGBA=0.980392,0.870588,0.462745,1 gl_error=0
+essai40_final HDR_chain=1 HUD=1 RGBA8 mode=5 guarded RGBA=0.980392,0.870588,0.462745,1 gl_error=0
+check essai40_final_HDR_HUD_RGBA_unchanged PASS
+check essai40_final_HDR_HUD_legacy_blend_state PASS
+format=RGBA8 sprite_arm=0 raw_alpha_window_1.5_to_3 RGBA=0.2,0.298039,0.4,1 gl_error=0
+check raw_alpha_pass_before_clamp PASS
+format=RGBA8 sprite_arm=0 raw_alpha_window_0_to_1 RGBA=0.8,0.6,0.101961,0.501961 gl_error=0
+check raw_alpha_discard_before_clamp PASS
+format=RGBA8 sprite_arm=1 raw_alpha_window_1.5_to_3 RGBA=0.2,0.298039,0.4,1 gl_error=0
+check raw_alpha_pass_before_clamp PASS
+format=RGBA8 sprite_arm=1 raw_alpha_window_0_to_1 RGBA=0.8,0.6,0.101961,0.501961 gl_error=0
+check raw_alpha_discard_before_clamp PASS
+check framebuffer_complete PASS
+format=RGBA16F mode=0 before RGBA=0.199951,0.299805,0.399902,2.00781 gl_error=0
+format=RGBA16F mode=0 after RGBA=0.199951,0.299805,0.399902,1 gl_error=0
+check HDR_alpha_bounded PASS
+format=RGBA16F mode=1 before RGBA=-0.404297,-0.00197411,0.702148,2.00781 gl_error=0
+format=RGBA16F mode=1 after RGBA=0.199951,0.299805,0.399902,1 gl_error=0
+check HDR_alpha_bounded PASS
+check old_source_over_negative_destination_contribution PASS
+check corrected_source_over_equals_source PASS
+format=RGBA16F mode=2 before RGBA=-1.20703,-1.20605,-0.903809,-2.00781 gl_error=0
+format=RGBA16F mode=2 after RGBA=-0.199951,-0.299805,-0.399902,-1 gl_error=0
+check old_reverse_factors_still_negative_after_shader_clamp PASS
+format=RGBA16F mode=3 before RGBA=-1.20703,-1.20605,-0.903809,0 gl_error=0
+format=RGBA16F mode=3 after RGBA=-0.199951,-0.299805,-0.399902,0 gl_error=0
+check HDR_alpha_bounded PASS
+check reverse_corrected_alpha_zero PASS
+format=RGBA16F HDR_RGB_no_blend_after RGBA=1,1,1,1 gl_error=0
+check current_shader_source_RGB_clamp_preserved PASS
+essai40 format=RGBA16F mode=4 legacy RGBA=0.999512,0.899414,0.499756,1.89941 gl_error=0
+essai40 format=RGBA16F mode=4 guarded RGBA=0.999512,0.899414,0.499756,1 gl_error=0
+check essai40_single_draw_RGB_unchanged_same_destination PASS
+check essai40_alpha_bounded PASS
+check essai40_legacy_alpha_outside_unit_interval PASS
+check essai40_corrected_alpha_exact PASS
+essai40 format=RGBA16F mode=5 legacy RGBA=0.979492,0.869141,0.459717,1.7998 gl_error=0
+essai40 format=RGBA16F mode=5 guarded RGBA=0.979492,0.869141,0.459717,1 gl_error=0
+check essai40_single_draw_RGB_unchanged_same_destination PASS
+check essai40_alpha_bounded PASS
+check essai40_legacy_alpha_outside_unit_interval PASS
+check essai40_corrected_alpha_exact PASS
+essai40 format=RGBA16F mode=6 legacy RGBA=0.599609,0.299561,-0.299805,-0.100098 gl_error=0
+essai40 format=RGBA16F mode=6 guarded RGBA=0.599609,0.299561,-0.299805,0 gl_error=0
+check essai40_single_draw_RGB_unchanged_same_destination PASS
+check essai40_alpha_bounded PASS
+check essai40_legacy_alpha_outside_unit_interval PASS
+check essai40_corrected_alpha_exact PASS
+format=RGBA16F sprite_arm=0 raw_alpha_window_1.5_to_3 RGBA=0.199951,0.299805,0.399902,2.00781 gl_error=0
+check raw_alpha_pass_before_clamp PASS
+format=RGBA16F sprite_arm=0 raw_alpha_window_0_to_1 RGBA=0.799805,0.599609,0.0999756,0.5 gl_error=0
+check raw_alpha_discard_before_clamp PASS
+format=RGBA16F sprite_arm=1 raw_alpha_window_1.5_to_3 RGBA=0.199951,0.299805,0.399902,1 gl_error=0
+check raw_alpha_pass_before_clamp PASS
+format=RGBA16F sprite_arm=1 raw_alpha_window_0_to_1 RGBA=0.799805,0.599609,0.0999756,0.5 gl_error=0
+check raw_alpha_discard_before_clamp PASS
+failures=0 EGL_error=12288

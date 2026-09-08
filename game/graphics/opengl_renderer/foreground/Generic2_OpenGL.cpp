@@ -4,6 +4,7 @@
 #include "game/graphics/gfx.h"
 // ROUND 22 coverage instrumentation: pbr_push_debug_tag().
 #include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 
 void Generic2::opengl_setup(ShaderLibrary& shaders) {
   // create OpenGL objects
@@ -111,7 +112,8 @@ void Generic2::opengl_bind_and_setup_proj(SharedRenderState* render_state) {
 
 void Generic2::setup_opengl_for_draw_mode(const DrawMode& draw_mode,
                                           u8 fix,
-                                          SharedRenderState* render_state) {
+                                          SharedRenderState* render_state,
+                                          bool uses_hud) {
   // compute alpha_reject:
   float alpha_reject = 0.f;
   if (draw_mode.get_at_enable()) {
@@ -146,13 +148,22 @@ void Generic2::setup_opengl_for_draw_mode(const DrawMode& draw_mode,
       // Cs * As + (1) * Cd
       // s, d
       // fix is ignored. it's usually 0, except for lightning, which sets it to 0x80.
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+      if (hdr::chain_active() && !uses_hud) {
+        // HDR world alpha must remain a bounded RGBA16F weight, following DirectRenderer's convention.
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ZERO);
+      } else {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+      }
       glBlendEquation(GL_FUNC_ADD);
     } else if (draw_mode.get_alpha_blend() == DrawMode::AlphaBlend::ZERO_SRC_SRC_DST) {
       // (0 - Cs) * As + Cd
       // Cd - Cs * As
       // s, d
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+      if (hdr::chain_active() && !uses_hud) {
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ZERO);
+      } else {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+      }
       glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
     } else if (draw_mode.get_alpha_blend() == DrawMode::AlphaBlend::SRC_DST_FIX_DST) {
       // (Cs - Cd) * fix + Cd
@@ -167,7 +178,11 @@ void Generic2::setup_opengl_for_draw_mode(const DrawMode& draw_mode,
       glBlendEquation(GL_FUNC_ADD);
     } else if (draw_mode.get_alpha_blend() == DrawMode::AlphaBlend::SRC_0_DST_DST) {
       // (Cs - 0) * Ad + Cd
-      glBlendFunc(GL_DST_ALPHA, GL_ONE);
+      if (hdr::chain_active() && !uses_hud) {
+        glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE, GL_ONE, GL_ZERO);
+      } else {
+        glBlendFunc(GL_DST_ALPHA, GL_ONE);
+      }
       glBlendEquation(GL_FUNC_ADD);
       color_mult = 1.0f;
     } else if (draw_mode.get_alpha_blend() == DrawMode::AlphaBlend::SRC_0_FIX_DST) {
@@ -278,7 +293,7 @@ void Generic2::do_draws_for_alpha(SharedRenderState* render_state,
     auto& bucket = m_buckets[i];
     auto& first = m_adgifs[bucket.start];
     if (first.mode.get_alpha_blend() == alpha && first.uses_hud == hud) {
-      setup_opengl_for_draw_mode(first.mode, first.fix, render_state);
+      setup_opengl_for_draw_mode(first.mode, first.fix, render_state, hud);
       setup_opengl_tex(0, first.tbp, first.mode.get_filt_enable(), first.mode.get_clamp_s_enable(),
                        first.mode.get_clamp_t_enable(), render_state);
       glDrawElements(GL_TRIANGLE_STRIP, bucket.idx_count, GL_UNSIGNED_INT,
@@ -294,7 +309,7 @@ void Generic2::do_hud_draws(SharedRenderState* render_state, ScopedProfilerNode&
     auto& bucket = m_buckets[i];
     auto& first = m_adgifs[bucket.start];
     if (first.uses_hud) {
-      setup_opengl_for_draw_mode(first.mode, first.fix, render_state);
+      setup_opengl_for_draw_mode(first.mode, first.fix, render_state, true);
       setup_opengl_tex(0, first.tbp, first.mode.get_filt_enable(), first.mode.get_clamp_s_enable(),
                        first.mode.get_clamp_t_enable(), render_state);
       glDrawElements(GL_TRIANGLE_STRIP, bucket.idx_count, GL_UNSIGNED_INT,
@@ -438,7 +453,7 @@ void Generic2::draw_deferred_hud_draws(SharedRenderState* render_state) {
     glUniform1f(m_ogl.mat_33, m_drawing_config.hud_mat_33);
     glUniform1i(m_ogl.gfx_hack_no_tex, false);
     for (auto& d : batch.draws) {
-      setup_opengl_for_draw_mode(d.mode, d.fix, render_state);
+      setup_opengl_for_draw_mode(d.mode, d.fix, render_state, true);
       setup_opengl_tex(0, d.tbp, d.mode.get_filt_enable(), d.mode.get_clamp_s_enable(),
                        d.mode.get_clamp_t_enable(), render_state);
       glDrawElements(GL_TRIANGLE_STRIP, d.idx_count, GL_UNSIGNED_INT,
