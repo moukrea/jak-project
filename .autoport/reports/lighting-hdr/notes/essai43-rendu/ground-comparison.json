@@ -1,0 +1,1231 @@
+{
+  "DIRECTIVES": "v3909a9767c",
+  "purpose": "before/after rendering diagnostic, not proof.txt or owner-case qualification",
+  "limitation": "rectangles locate visible ground/path/entrance for comparison; the particular small owner-reported patches are not identified",
+  "runs": {
+    "before43": {
+      "manifest": "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/batches/essai43-coverage/20260908T161000-76323/manifest.json",
+      "manifest_sha256": "2c7d2c8785aff8ab31f4ec4d614e36c8dcfb0c206db4df82dff6c039d893d541",
+      "regions": [
+        {
+          "hour": 0,
+          "region": "whole_image",
+          "roi_exclusive": null,
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h00.png",
+                  "sha256": "c7998e4149a4e6fee70160f48db3609f38caa8b4e44e7a3d57bd0cf9b516e8bf"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h00-t01.png",
+                  "sha256": "7b41dcf46565c22d6412c92d5f5a3dcac1f63ba30618730d86f380e4cf931007"
+                }
+              ],
+              "mean": {
+                "luma": 37.13299479166666,
+                "detail": 7.825537206003398,
+                "flat": 0.05942978231554613,
+                "saturation": 0.5457053575591498,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.022994791666666667
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00.png",
+                  "sha256": "421525d9d7ce734c331f3a7ea25e0b68ea8092a516c9c5c041b43da5c35686bf"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00-t01.png",
+                  "sha256": "5e7464d3f29d72430c208f0b44a4b5e57830cdf565828e7a01aceef24254a05b"
+                }
+              ],
+              "mean": {
+                "luma": 42.280156250000005,
+                "detail": 9.086889896849442,
+                "flat": 0.04682930246405492,
+                "saturation": 0.5474847155464002,
+                "white": 1,
+                "nearwhite": 5,
+                "clipped": 5,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.023463541666666664
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -5.147161458333343,
+            "detail": -1.261352690846044,
+            "flat": 0.012600479851491209,
+            "saturation": -0.001779357987250374,
+            "white": -1,
+            "nearwhite": -5,
+            "clipped": -5,
+            "pixels": 0,
+            "violet_270_330_fraction": -0.00046874999999999695
+          }
+        },
+        {
+          "hour": 0,
+          "region": "left_path_diagnostic",
+          "roi_exclusive": [
+            0,
+            137,
+            35,
+            152
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h00.png",
+                  "sha256": "c7998e4149a4e6fee70160f48db3609f38caa8b4e44e7a3d57bd0cf9b516e8bf"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h00-t01.png",
+                  "sha256": "7b41dcf46565c22d6412c92d5f5a3dcac1f63ba30618730d86f380e4cf931007"
+                }
+              ],
+              "mean": {
+                "luma": 51.537142857142854,
+                "detail": 2.777310924369748,
+                "flat": 0.07773109243697479,
+                "saturation": 0.3939439703248355,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00.png",
+                  "sha256": "421525d9d7ce734c331f3a7ea25e0b68ea8092a516c9c5c041b43da5c35686bf"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00-t01.png",
+                  "sha256": "5e7464d3f29d72430c208f0b44a4b5e57830cdf565828e7a01aceef24254a05b"
+                }
+              ],
+              "mean": {
+                "luma": 63.674285714285716,
+                "detail": 3.4096638655462184,
+                "flat": 0.04201680672268908,
+                "saturation": 0.4037468310281311,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -12.137142857142862,
+            "detail": -0.6323529411764706,
+            "flat": 0.03571428571428571,
+            "saturation": -0.009802860703295557,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 0,
+          "region": "entrance_lower_diagnostic",
+          "roi_exclusive": [
+            82,
+            119,
+            153,
+            148
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h00.png",
+                  "sha256": "c7998e4149a4e6fee70160f48db3609f38caa8b4e44e7a3d57bd0cf9b516e8bf"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h00-t01.png",
+                  "sha256": "7b41dcf46565c22d6412c92d5f5a3dcac1f63ba30618730d86f380e4cf931007"
+                }
+              ],
+              "mean": {
+                "luma": 48.0925206410879,
+                "detail": 9.50204081632653,
+                "flat": 0.01403061224489796,
+                "saturation": 0.7295492997024194,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00.png",
+                  "sha256": "421525d9d7ce734c331f3a7ea25e0b68ea8092a516c9c5c041b43da5c35686bf"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00-t01.png",
+                  "sha256": "5e7464d3f29d72430c208f0b44a4b5e57830cdf565828e7a01aceef24254a05b"
+                }
+              ],
+              "mean": {
+                "luma": 59.52574065080136,
+                "detail": 11.758673469387755,
+                "flat": 0.00739795918367347,
+                "saturation": 0.7334958874935049,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -11.433220009713459,
+            "detail": -2.2566326530612244,
+            "flat": 0.0066326530612244895,
+            "saturation": -0.003946587791085476,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 12,
+          "region": "whole_image",
+          "roi_exclusive": null,
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "bdbc391d30e4eda8e511a5a2fb28cd91a33cf265387f07275c2ec55faaaaf7cc"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "45a1d446c2990eca0ee0c749c43c9c13cd39c0a3a46c6631a7473a1cdc1380d6"
+                }
+              ],
+              "mean": {
+                "luma": 88.55296875,
+                "detail": 15.545165583790126,
+                "flat": 0.045174340204199574,
+                "saturation": 0.6467603333513474,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 9187.5,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.004105902777777778
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "3ab6592998f1be25b554b4aed8d844a6e1cad0760ecd4fad12ff78ec1a93e093"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "ba9068f4b782eded0622caf51c830908d20b9e8308dac1998d2a63047306edb1"
+                }
+              ],
+              "mean": {
+                "luma": 98.48546875,
+                "detail": 17.04665417418259,
+                "flat": 0.04062976130015236,
+                "saturation": 0.650746407507015,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 10738,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.00047743055555555554
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -9.93249999999999,
+            "detail": -1.5014885903924622,
+            "flat": 0.004544578904047213,
+            "saturation": -0.0039860741556675405,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": -1550.5,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.003628472222222222
+          }
+        },
+        {
+          "hour": 12,
+          "region": "left_path_diagnostic",
+          "roi_exclusive": [
+            0,
+            137,
+            35,
+            152
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "bdbc391d30e4eda8e511a5a2fb28cd91a33cf265387f07275c2ec55faaaaf7cc"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "45a1d446c2990eca0ee0c749c43c9c13cd39c0a3a46c6631a7473a1cdc1380d6"
+                }
+              ],
+              "mean": {
+                "luma": 138.00190476190477,
+                "detail": 6.463235294117647,
+                "flat": 0.014705882352941176,
+                "saturation": 0.5685059019716836,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "3ab6592998f1be25b554b4aed8d844a6e1cad0760ecd4fad12ff78ec1a93e093"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "ba9068f4b782eded0622caf51c830908d20b9e8308dac1998d2a63047306edb1"
+                }
+              ],
+              "mean": {
+                "luma": 189.69904761904763,
+                "detail": 13.474789915966387,
+                "flat": 0.0063025210084033615,
+                "saturation": 0.5753081123499983,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -51.697142857142865,
+            "detail": -7.01155462184874,
+            "flat": 0.008403361344537815,
+            "saturation": -0.006802210378314744,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 12,
+          "region": "entrance_lower_diagnostic",
+          "roi_exclusive": [
+            82,
+            119,
+            153,
+            148
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "bdbc391d30e4eda8e511a5a2fb28cd91a33cf265387f07275c2ec55faaaaf7cc"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "45a1d446c2990eca0ee0c749c43c9c13cd39c0a3a46c6631a7473a1cdc1380d6"
+                }
+              ],
+              "mean": {
+                "luma": 118.04929577464789,
+                "detail": 25.536989795918366,
+                "flat": 0.0022959183673469385,
+                "saturation": 0.8161241358115201,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 13,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "3ab6592998f1be25b554b4aed8d844a6e1cad0760ecd4fad12ff78ec1a93e093"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "ba9068f4b782eded0622caf51c830908d20b9e8308dac1998d2a63047306edb1"
+                }
+              ],
+              "mean": {
+                "luma": 122.67508499271491,
+                "detail": 23.81683673469388,
+                "flat": 0.0017857142857142857,
+                "saturation": 0.813697288055317,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 1,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -4.625789218067027,
+            "detail": 1.7201530612244866,
+            "flat": 0.0005102040816326529,
+            "saturation": 0.0024268477562030544,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 12,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 18,
+          "region": "whole_image",
+          "roi_exclusive": null,
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h18.png",
+                  "sha256": "a34a39f806d376ee94891c482580de0e7b9a373cd190b5ff1a6ddcacc8bdced2"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h18-t01.png",
+                  "sha256": "14451a60086b1e4c764a6ea9ee4465937a80b8f5eaf50b8632e991182ee587d0"
+                }
+              ],
+              "mean": {
+                "luma": 86.88528645833333,
+                "detail": 16.428512635505506,
+                "flat": 0.042346018458520866,
+                "saturation": 0.6236218454091538,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 3708.5,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.04481770833333333
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18.png",
+                  "sha256": "4ee112a8924d0b86c391244476f11c333128aae512b7acc4e48e2f145dda4476"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18-t01.png",
+                  "sha256": "0af4c32492ce0f15301a712a85f3d176bbd389a956b409b4663a3b8e08bdd137"
+                }
+              ],
+              "mean": {
+                "luma": 90.28855034722223,
+                "detail": 15.79741160399993,
+                "flat": 0.04041085094831964,
+                "saturation": 0.6210329335257665,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 3938,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.044696180555555555
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -3.403263888888901,
+            "detail": 0.6311010315055761,
+            "flat": 0.001935167510201223,
+            "saturation": 0.0025889118833872793,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": -229.5,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.00012152777777777596
+          }
+        },
+        {
+          "hour": 18,
+          "region": "left_path_diagnostic",
+          "roi_exclusive": [
+            0,
+            137,
+            35,
+            152
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h18.png",
+                  "sha256": "a34a39f806d376ee94891c482580de0e7b9a373cd190b5ff1a6ddcacc8bdced2"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h18-t01.png",
+                  "sha256": "14451a60086b1e4c764a6ea9ee4465937a80b8f5eaf50b8632e991182ee587d0"
+                }
+              ],
+              "mean": {
+                "luma": 50.66285714285715,
+                "detail": 2.616596638655462,
+                "flat": 0.11659663865546219,
+                "saturation": 0.6332046489153378,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18.png",
+                  "sha256": "4ee112a8924d0b86c391244476f11c333128aae512b7acc4e48e2f145dda4476"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18-t01.png",
+                  "sha256": "0af4c32492ce0f15301a712a85f3d176bbd389a956b409b4663a3b8e08bdd137"
+                }
+              ],
+              "mean": {
+                "luma": 70.59809523809524,
+                "detail": 4.5966386554621845,
+                "flat": 0.0546218487394958,
+                "saturation": 0.6421183591465119,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -19.93523809523809,
+            "detail": -1.9800420168067223,
+            "flat": 0.06197478991596639,
+            "saturation": -0.008913710231174155,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 18,
+          "region": "entrance_lower_diagnostic",
+          "roi_exclusive": [
+            82,
+            119,
+            153,
+            148
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h18.png",
+                  "sha256": "a34a39f806d376ee94891c482580de0e7b9a373cd190b5ff1a6ddcacc8bdced2"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h18-t01.png",
+                  "sha256": "14451a60086b1e4c764a6ea9ee4465937a80b8f5eaf50b8632e991182ee587d0"
+                }
+              ],
+              "mean": {
+                "luma": 59.34361340456532,
+                "detail": 14.089540816326531,
+                "flat": 0.008418367346938776,
+                "saturation": 0.8365761978600835,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18.png",
+                  "sha256": "4ee112a8924d0b86c391244476f11c333128aae512b7acc4e48e2f145dda4476"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18-t01.png",
+                  "sha256": "0af4c32492ce0f15301a712a85f3d176bbd389a956b409b4663a3b8e08bdd137"
+                }
+              ],
+              "mean": {
+                "luma": 65.81107333657116,
+                "detail": 12.543877551020408,
+                "flat": 0.0066326530612244895,
+                "saturation": 0.8342777993496427,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -6.467459932005838,
+            "detail": 1.545663265306123,
+            "flat": 0.0017857142857142863,
+            "saturation": 0.00229839851044078,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        }
+      ]
+    },
+    "after43_render": {
+      "manifest": ".autoport/reports/lighting-hdr/batches/essai43-rendu-ground/20260908T182641-144544/manifest.json",
+      "manifest_sha256": "35770ae37451699c8bdafe92f1ccd876a23ffd33a227a5d1d6ba49422d29773a",
+      "regions": [
+        {
+          "hour": 0,
+          "region": "whole_image",
+          "roi_exclusive": null,
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h00.png",
+                  "sha256": "6ccf6572cb21e9becd62ddd16ca71a29e90ab92a9db4cfc00f4521cca27533c5"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h00-t01.png",
+                  "sha256": "fca1a44cf4fe3b2d114a07c2ee4e9acdfc4f621ebcacea39fc02bef4af3a2fb2"
+                }
+              ],
+              "mean": {
+                "luma": 43.026015625,
+                "detail": 8.901884380308577,
+                "flat": 0.05853662808006865,
+                "saturation": 0.5459545053321804,
+                "white": 1,
+                "nearwhite": 6,
+                "clipped": 6,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.023151041666666667
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00.png",
+                  "sha256": "3143df8c68730666584f4f2d267650f166d4b4cb9833d7c3b8ccb169873353b2"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00-t01.png",
+                  "sha256": "15ccf505a5700208851c6d42c840b5ab54bd7f047c7258e82bcd0787b3f2824b"
+                }
+              ],
+              "mean": {
+                "luma": 43.011744791666665,
+                "detail": 8.907593562284374,
+                "flat": 0.05449116477820003,
+                "saturation": 0.5461605120620449,
+                "white": 1,
+                "nearwhite": 5,
+                "clipped": 5,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.02357638888888889
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": 0.014270833333334565,
+            "detail": -0.005709181975797506,
+            "flat": 0.0040454633018686265,
+            "saturation": -0.00020600672986448298,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 1,
+            "pixels": 0,
+            "violet_270_330_fraction": -0.0004253472222222228
+          }
+        },
+        {
+          "hour": 0,
+          "region": "left_path_diagnostic",
+          "roi_exclusive": [
+            0,
+            137,
+            35,
+            152
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h00.png",
+                  "sha256": "6ccf6572cb21e9becd62ddd16ca71a29e90ab92a9db4cfc00f4521cca27533c5"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h00-t01.png",
+                  "sha256": "fca1a44cf4fe3b2d114a07c2ee4e9acdfc4f621ebcacea39fc02bef4af3a2fb2"
+                }
+              ],
+              "mean": {
+                "luma": 63.65714285714286,
+                "detail": 3.3676470588235294,
+                "flat": 0.052521008403361345,
+                "saturation": 0.4038515224507442,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00.png",
+                  "sha256": "3143df8c68730666584f4f2d267650f166d4b4cb9833d7c3b8ccb169873353b2"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00-t01.png",
+                  "sha256": "15ccf505a5700208851c6d42c840b5ab54bd7f047c7258e82bcd0787b3f2824b"
+                }
+              ],
+              "mean": {
+                "luma": 63.674285714285716,
+                "detail": 3.4096638655462184,
+                "flat": 0.04201680672268908,
+                "saturation": 0.4037468310281311,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -0.017142857142857792,
+            "detail": -0.042016806722688926,
+            "flat": 0.010504201680672266,
+            "saturation": 0.00010469142261310127,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 0,
+          "region": "entrance_lower_diagnostic",
+          "roi_exclusive": [
+            82,
+            119,
+            153,
+            148
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h00.png",
+                  "sha256": "6ccf6572cb21e9becd62ddd16ca71a29e90ab92a9db4cfc00f4521cca27533c5"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h00-t01.png",
+                  "sha256": "fca1a44cf4fe3b2d114a07c2ee4e9acdfc4f621ebcacea39fc02bef4af3a2fb2"
+                }
+              ],
+              "mean": {
+                "luma": 59.32370082564351,
+                "detail": 11.729081632653061,
+                "flat": 0.006377551020408163,
+                "saturation": 0.7299852489945924,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00.png",
+                  "sha256": "3143df8c68730666584f4f2d267650f166d4b4cb9833d7c3b8ccb169873353b2"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h00-t01.png",
+                  "sha256": "15ccf505a5700208851c6d42c840b5ab54bd7f047c7258e82bcd0787b3f2824b"
+                }
+              ],
+              "mean": {
+                "luma": 59.33195726080622,
+                "detail": 11.804336734693877,
+                "flat": 0.007908163265306124,
+                "saturation": 0.730543815162332,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": -0.008256435162707021,
+            "detail": -0.0752551020408152,
+            "flat": -0.0015306122448979602,
+            "saturation": -0.0005585661677396381,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 12,
+          "region": "whole_image",
+          "roi_exclusive": null,
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "cbcf5ec4b169ecb07f3b4021d201dd9e9dcd2a8587156045394b575b64215646"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "7c19fb9158b30e64ef34c8e56e980a1391600948fc5b29b0a0ecc14cf38e617a"
+                }
+              ],
+              "mean": {
+                "luma": 104.011796875,
+                "detail": 17.701467574998688,
+                "flat": 0.04508677606346649,
+                "saturation": 0.6468864693007552,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 11076.5,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.0003993055555555555
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "e0fb453abf7394cbfbaebc1c4c415e88380055ed29e28d777b61ec80d58b91c8"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "8009a6d77e42d65fac914e365d042a5e53d252456e064798fb1dc0eb02377406"
+                }
+              ],
+              "mean": {
+                "luma": 100.13767361111111,
+                "detail": 16.996830178105462,
+                "flat": 0.044832840055340537,
+                "saturation": 0.6441336906222714,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 11149,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.0005381944444444444
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": 3.8741232638888903,
+            "detail": 0.7046373968932258,
+            "flat": 0.0002539360081259545,
+            "saturation": 0.0027527786784837804,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": -72.5,
+            "pixels": 0,
+            "violet_270_330_fraction": -0.00013888888888888892
+          }
+        },
+        {
+          "hour": 12,
+          "region": "left_path_diagnostic",
+          "roi_exclusive": [
+            0,
+            137,
+            35,
+            152
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "cbcf5ec4b169ecb07f3b4021d201dd9e9dcd2a8587156045394b575b64215646"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "7c19fb9158b30e64ef34c8e56e980a1391600948fc5b29b0a0ecc14cf38e617a"
+                }
+              ],
+              "mean": {
+                "luma": 195.46190476190475,
+                "detail": 12.565126050420169,
+                "flat": 0.007352941176470588,
+                "saturation": 0.578334136248533,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0.5,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "e0fb453abf7394cbfbaebc1c4c415e88380055ed29e28d777b61ec80d58b91c8"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "8009a6d77e42d65fac914e365d042a5e53d252456e064798fb1dc0eb02377406"
+                }
+              ],
+              "mean": {
+                "luma": 189.69904761904763,
+                "detail": 13.474789915966387,
+                "flat": 0.0063025210084033615,
+                "saturation": 0.5753081123499983,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": 5.762857142857115,
+            "detail": -0.9096638655462179,
+            "flat": 0.0010504201680672266,
+            "saturation": 0.00302602389853468,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0.5,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 12,
+          "region": "entrance_lower_diagnostic",
+          "roi_exclusive": [
+            82,
+            119,
+            153,
+            148
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "cbcf5ec4b169ecb07f3b4021d201dd9e9dcd2a8587156045394b575b64215646"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "7c19fb9158b30e64ef34c8e56e980a1391600948fc5b29b0a0ecc14cf38e617a"
+                }
+              ],
+              "mean": {
+                "luma": 133.41864983001457,
+                "detail": 25.15841836734694,
+                "flat": 0.0012755102040816328,
+                "saturation": 0.8169806790324032,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 24.5,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "e0fb453abf7394cbfbaebc1c4c415e88380055ed29e28d777b61ec80d58b91c8"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "8009a6d77e42d65fac914e365d042a5e53d252456e064798fb1dc0eb02377406"
+                }
+              ],
+              "mean": {
+                "luma": 122.74915007285091,
+                "detail": 23.730867346938773,
+                "flat": 0.0022959183673469385,
+                "saturation": 0.8138941805729234,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 1,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": 10.669499757163663,
+            "detail": 1.427551020408167,
+            "flat": -0.0010204081632653058,
+            "saturation": 0.003086498459479836,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 23.5,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 18,
+          "region": "whole_image",
+          "roi_exclusive": null,
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h18.png",
+                  "sha256": "1ab84b250c71bdd3434702b4e3f9c08e4dea1f047cf23f66fed1efd159377c73"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h18-t01.png",
+                  "sha256": "56562d1598bfffb9be99816adf931dd62292ca4716632ffe09e7cf5b70a3dfbc"
+                }
+              ],
+              "mean": {
+                "luma": 95.97290798611111,
+                "detail": 16.74569622248297,
+                "flat": 0.04319539062363181,
+                "saturation": 0.6195421400672244,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 8938,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.044279513888888886
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18.png",
+                  "sha256": "af41e54f18cc2cc426e59df932bcae39737630e62e4786a1b06f10f06a909905"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18-t01.png",
+                  "sha256": "974e955a438388a2a338b2c71502381802c87bb93ec956405702f65bfe034b31"
+                }
+              ],
+              "mean": {
+                "luma": 92.32473958333333,
+                "detail": 15.784635995866973,
+                "flat": 0.041733069473389256,
+                "saturation": 0.6155711032007918,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 8854.5,
+                "pixels": 57600,
+                "violet_270_330_fraction": 0.04345486111111111
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": 3.6481684027777845,
+            "detail": 0.9610602266159969,
+            "flat": 0.001462321150242557,
+            "saturation": 0.003971036866432631,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 83.5,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0008246527777777748
+          }
+        },
+        {
+          "hour": 18,
+          "region": "left_path_diagnostic",
+          "roi_exclusive": [
+            0,
+            137,
+            35,
+            152
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h18.png",
+                  "sha256": "1ab84b250c71bdd3434702b4e3f9c08e4dea1f047cf23f66fed1efd159377c73"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h18-t01.png",
+                  "sha256": "56562d1598bfffb9be99816adf931dd62292ca4716632ffe09e7cf5b70a3dfbc"
+                }
+              ],
+              "mean": {
+                "luma": 71.23714285714286,
+                "detail": 4.366596638655462,
+                "flat": 0.04831932773109244,
+                "saturation": 0.6429916111710572,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18.png",
+                  "sha256": "af41e54f18cc2cc426e59df932bcae39737630e62e4786a1b06f10f06a909905"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18-t01.png",
+                  "sha256": "974e955a438388a2a338b2c71502381802c87bb93ec956405702f65bfe034b31"
+                }
+              ],
+              "mean": {
+                "luma": 70.59809523809524,
+                "detail": 4.5966386554621845,
+                "flat": 0.0546218487394958,
+                "saturation": 0.6421183591465119,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 525,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": 0.6390476190476164,
+            "detail": -0.23004201680672232,
+            "flat": -0.00630252100840336,
+            "saturation": 0.0008732520245452458,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        },
+        {
+          "hour": 18,
+          "region": "entrance_lower_diagnostic",
+          "roi_exclusive": [
+            82,
+            119,
+            153,
+            148
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h18.png",
+                  "sha256": "1ab84b250c71bdd3434702b4e3f9c08e4dea1f047cf23f66fed1efd159377c73"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h18-t01.png",
+                  "sha256": "56562d1598bfffb9be99816adf931dd62292ca4716632ffe09e7cf5b70a3dfbc"
+                }
+              ],
+              "mean": {
+                "luma": 70.20835356969403,
+                "detail": 13.81045918367347,
+                "flat": 0.007142857142857143,
+                "saturation": 0.8379136892954109,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18.png",
+                  "sha256": "af41e54f18cc2cc426e59df932bcae39737630e62e4786a1b06f10f06a909905"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h18-t01.png",
+                  "sha256": "974e955a438388a2a338b2c71502381802c87bb93ec956405702f65bfe034b31"
+                }
+              ],
+              "mean": {
+                "luma": 65.85526954832443,
+                "detail": 12.540816326530614,
+                "flat": 0.004846938775510204,
+                "saturation": 0.8341563089293107,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0,
+                "pixels": 2059,
+                "violet_270_330_fraction": 0.0
+              }
+            }
+          },
+          "on_minus_off": {
+            "luma": 4.353084021369597,
+            "detail": 1.2696428571428555,
+            "flat": 0.0022959183673469385,
+            "saturation": 0.0037573803661001826,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "pixels": 0,
+            "violet_270_330_fraction": 0.0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "contract": {
+    "hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "plan": {
+      "exact_frame_required": false,
+      "failure_policy": "absent/incompatible/illisible/crash non remplace ou region non couverte = defaut, doublons detectes, pas de somme des verdicts per-processus ni zero force",
+      "hours": [
+        0,
+        3,
+        6,
+        9,
+        12,
+        15,
+        18,
+        21
+      ],
+      "mode": "multi_process_batches",
+      "owner_authorized": true,
+      "owner_regression_cases": [
+        "nuages blancs presents OFF mais attenues ON",
+        "eclairs des orbes eco bleue disparus ON, sequence courte comparable",
+        "soleil couchant jaune/orange plat sans eclat ON",
+        "petites zones au sol devant hutte Sage vert violettes ON",
+        "warp gate violet ecrase ON"
+      ],
+      "quality_policy": "Blancs voulus OFF a preserver, pas objectif zero blanc. Exces brulures ET suppression details lumineux/couleurs juges par regions comparables. Pas egalite pixel ni contraste95%. Statistiques globales seules insuffisantes.",
+      "recovery_attempt_30": {
+        "diagnosis": "eco-first a bloque4autrescas ; ablationHDR0 conserve ecart eco",
+        "eco_prerequisite_for_other_cases": false,
+        "final_required_cases": "les5cas inchanges",
+        "reuse_negative_diagnostics": [
+          "ablation29HDR0",
+          "quantification28",
+          "nommage30",
+          "ORB30"
+        ],
+        "work_order": [
+          "nuages et soleil couchant",
+          "sol vraie hutte et portail",
+          "eco avec traces existantes",
+          "equilibre21niveaux8heures"
+        ]
+      },
+      "recovery_attempt_36": {
+        "after": "verifier menu normal sans rt.light force puis portail anime10s tracees et reprendre cinq cas",
+        "authorized_scope": "diagnostic causal et correction bornee des deux signatures dans chargement/pools/symboles ; tests ciblant cause ; pas refonte generale ni masquage par skip effets",
+        "final_gate": "inchangee crash0 et hdr_tonemap_defects0 ; aucun owner-ok",
+        "priority": "corriger crashes chargement avant captures",
+        "signatures": [
+          "spawn-bird default-dead-pool nul PC_GOAL0x268920c",
+          "intern_from_c symbol_slot nul offsetlib0x721584"
+        ]
+      },
+      "recovery_attempt_42": {
+        "authorized_scope": "Supplante par scope_owner_2026_09_08 : aucune poursuite autonome HD/cache/compaction; seulement refonte lumiere HDR.",
+        "diagnosis": "Essai42 sans changement rendu; crash hd-mtxarea FFFFFFFF pendant navigation avant LightingOFF. Cause profonde non etablie; cache compagnon suspect non prouve. Prompt36 obsolete.",
+        "final_gate": "crash0 et cinqcas couverts et hdr_tonemap_defects0; menuOFF/persistance encore requis avant livraison; aucun owner-ok",
+        "menu_off_prerequisite_for_visual_fixes": false,
+        "next_visual_work": "Sol vraie hutte et assombrissement ensemble piece portail: identifier contribution responsable avant courbe; cadrages jouables et captures detaillees via proof_run. Nuages/soleil et eco restent requis, couverture autres niveaux commence sans attendre perfection plage.",
+        "retained_evidence": "MenuON/retourON39 et attente portail10s41 etablis sur leurs binaires; ne pas requalifier comme preuve nouveau build."
+      },
+      "replacement_views": "autorisees avec correspondance explicite vue originale/remplacement et meme couverture, jamais effacement silencieux",
+      "required_levels": 21,
+      "required_views": [
+        "ciel visible pour chaque niveau exterieur",
+        "interieurs representatifs",
+        "hutte Sandover"
+      ],
+      "scope_owner_2026_09_08": "Uniquement refonte lumiere HDR inclus. Pas chantier HD/cache/allocateur/menu autonome. Crash annexe documente et rapporte sans devenir priorite; continuer vues exploitables, absence reste non validee.",
+      "single_process_224_pairs_required": false,
+      "source_policy": "manifestes de lots proof_run, hashes sources brutes et captures, version schema/config/rendu compatibles ; donnees anciennes conservees pour diagnostic, reutilisation comme preuve seulement si compatibilite demontree",
+      "warp_gate_capture": {
+        "arms": [
+          "ON",
+          "OFF"
+        ],
+        "evidence": "tracer debut attente et premiere capture ; ancien lot sans attente demontree non concluant pour couleurs/blancs du portail",
+        "minimum_wait_seconds": 10,
+        "reset_policy": "toute reinitialisation de effet recommence attente",
+        "simulation": "effet anime pendant attente ; pas attente sur particules figees",
+        "start": "presence devant portail actif apres dernier warp/reset/purge des effets"
+      }
+    },
+    "sky": {
+      "beach": true,
+      "citadel": false,
+      "darkcave": false,
+      "finalboss": true,
+      "firecanyon": true,
+      "jungle": true,
+      "jungleb": false,
+      "lavatube": false,
+      "maincave": false,
+      "misty": true,
+      "ogre": true,
+      "robocave": false,
+      "rolling": true,
+      "snow": true,
+      "sunken": false,
+      "sunkenb": true,
+      "swamp": true,
+      "training": true,
+      "village1": true,
+      "village2": true,
+      "village3": true
+    },
+    "views": {
+      "beach-start": "beach",
+      "citadel-start": "citadel",
+      "darkcave-start": "darkcave",
+      "finalboss-start": "finalboss",
+      "firecanyon-start": "firecanyon",
+      "jungle-start": "jungle",
+      "jungle-tower": "jungleb",
+      "lavatube-start": "lavatube",
+      "legacy": "village1",
+      "maincave-start": "maincave",
+      "misty-bike": "misty",
+      "misty-start": "misty",
+      "ogre-start": "ogre",
+      "robocave-start": "robocave",
+      "rolling-start": "rolling",
+      "snow-fort": "snow",
+      "snow-start": "snow",
+      "sunken-start": "sunken",
+      "sunkenb-helix": "sunkenb",
+      "sunkenb-start": "sunkenb",
+      "swamp-cave1": "swamp",
+      "swamp-dock1": "swamp",
+      "swamp-start": "swamp",
+      "training-start": "training",
+      "village1-eco-blue": "village1",
+      "village1-out": "village1",
+      "village2-dock": "village2",
+      "village2-start": "village2",
+      "village3-start": "village3"
+    }
+  },
+  "crash": 0,
+  "errors": [],
+  "files": {
+    "captures/origine-lumiere/captured-by.txt": "bfd264527b6acd6a59917bfacc20b163035ef1e9ed9d65ff100cc26d0aa3547a",
+    "captures/origine-lumiere/village1-out-h12-t01.png": "2114a6006b350a1e5a2c7737c8f3322111f0362cec219531bc5192995c0daee3",
+    "captures/origine-lumiere/village1-out-h12-t01.png.provenance.txt": "280fc3efef328b2c9f823c29c85e586f292a9ded27bf4510443254af64f0b659",
+    "captures/origine-lumiere/village1-out-h12.png": "16328e383469b62bd3e7d22a9a45cf960372a7bb92f7b7d38b895eb8570b0160",
+    "captures/origine-lumiere/village1-out-h12.png.provenance.txt": "2a116596a2e99848c5b0496e741c7dc5b4d13bff34aeb13774dfb52b37ca513b",
+    "captures/recharged/captured-by.txt": "bfd264527b6acd6a59917bfacc20b163035ef1e9ed9d65ff100cc26d0aa3547a",
+    "captures/recharged/village1-out-h12-t01.png": "34396a94ccf07ee767fbd9e24cb9c9d3281a2eeab60b0e104dbdb8d1fc39b9f5",
+    "captures/recharged/village1-out-h12-t01.png.provenance.txt": "24abd3b57b09e02cb9f4b63eae7d8bdfac942150172f90f59d66953d4294dc64",
+    "captures/recharged/village1-out-h12.png": "b678c47d9fd40b32207134a64ce9d057791c1804b4bda9d6dbe5fc9fb4927236",
+    "captures/recharged/village1-out-h12.png.provenance.txt": "04accd48032b0766fb622fe49ad8c2ff6c22c2986c274c0fa9dfa7544ff9e871",
+    "captures/refset-format.txt": "362c63e6ecaaaf76b2b84688235e3f01dc3823953c5850ce020101c2db0d9d86",
+    "config-paths-end.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "config-paths-start.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "engine.log": "871cb7b3ec9f801210259977b01f2a86dc2084c175657151f1f051b9b14a7d1f",
+    "owner-regions.json": "a55ba6765ef0554a54ec4d2db7900d04b5d98b4b8397ac9160f560ed80b0e015",
+    "pixels.json": "cf83e19146b9bb2a21cf322037e49447b70660aa1cbf0d9b7d61ef8f12910b6c",
+    "props-end.txt": "807c67843b9ca315a112423f6ad452a7a512063cd943400714c4b17e10374655",
+    "props-start.txt": "9c3ef7630257f3d710faefa7bffa63a5edd5ba9766ff76ed55eb6287b08b127d",
+    "settings-end.ini": "27769a8a3dfcd0b905bea34af5dd4b773d23681886d3828b52dfad3de6ccd9b3",
+    "settings-start.ini": "27769a8a3dfcd0b905bea34af5dd4b773d23681886d3828b52dfad3de6ccd9b3",
+    "start.json": "a154a481a48e9605ac7defeb7ceca8f419e3cbce6c41315379ab041c5be1d412"
+  },
+  "id": "20260908T181809-138177",
+  "producer": "proof_run.sh",
+  "provenance": {
+    "apk_sha256": "5d3d6a416c12f690c51537f7102caf433a1131d1617c252f754d28bf74bc37c8",
+    "binary_fnv": "b23abbba97348355",
+    "binary_sha256": "0f1a5b25e21ebb4ac4e790abe7f10d6624989ba7c6fb21b07ac26b23e801ec7c",
+    "config_files": {
+      "settings.ini": "27769a8a3dfcd0b905bea34af5dd4b773d23681886d3828b52dfad3de6ccd9b3"
+    },
+    "installed_sha256": "0f1a5b25e21ebb4ac4e790abe7f10d6624989ba7c6fb21b07ac26b23e801ec7c",
+    "serial": "eae4df44"
+  },
+  "replacements": [],
+  "requested": [
+    [
+      "village1-out",
+      12
+    ]
+  ],
+  "run": {
+    "duration_s": 396,
+    "started_at": "2026-09-08T18:18:03Z"
+  },
+  "schema": 1
+}

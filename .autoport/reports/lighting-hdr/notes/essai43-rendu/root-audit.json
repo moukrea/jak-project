@@ -1,0 +1,23 @@
+{
+  "DIRECTIVES": "v3909a9767c",
+  "runs": [
+    {
+      "run": "portal",
+      "manifest": ".autoport/reports/lighting-hdr/batches/essai43-rendu-portal/20260908T181809-138177/manifest.json",
+      "manifest_sha256": "98d58e3fdb12294b0a871410c9b03c90079c8a63f8c112eb2a2734c5f75bdb7f",
+      "sealed_files": 21,
+      "hash_failures": [],
+      "crash": 0,
+      "restored_pid": "7082"
+    },
+    {
+      "run": "ground",
+      "manifest": ".autoport/reports/lighting-hdr/batches/essai43-rendu-ground/20260908T182641-144544/manifest.json",
+      "manifest_sha256": "35770ae37451699c8bdafe92f1ccd876a23ffd33a227a5d1d6ba49422d29773a",
+      "sealed_files": 37,
+      "hash_failures": [],
+      "crash": 0,
+      "restored_pid": "8310"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "DIRECTIVES": "v3909a9767c",
+  "files": {
+    "game/graphics/opengl_renderer/shaders/shade.glsl": "27699c6d5f62fd40645ab574b0e2b2a8b4599922ec8f2a25d4cc3ab0497e3384",
+    "game/graphics/opengl_renderer/shaders/pbr_fused.glsl": "de0c134a794a461fdeb6d345527d548e57c703ceff44f3ba633cd29da90dbd4b",
+    "game/graphics/opengl_renderer/shaders/tonemap.frag": "fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3",
+    "game/graphics/opengl_renderer/background/background_common.cpp": "8d381df6462e8c2abbbc2e0e05cb8a5c13e30277191627cd76f08457ad35e869",
+    "goal_src/jak1/pc/jak-hd.gc": "612ab9fa8f81f1ed7c44e12bd9bf8fd5c79707ff97105220033888132c87d3cb"
+  }
+}

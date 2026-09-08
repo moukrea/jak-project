@@ -1,0 +1,9 @@
+{
+  "android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties": "2453d34b0d0a7d2cfa8e9996ecc5c45f73080df8bf708d83f69ec2909dafda97",
+  "android/app/src/jak1/assets-slim/bundle/jak1_custom.manifest.properties": "3cc9d69e7ca2433cd1cdc5705adfa0faeb0afe2d0b35c76c039aaf35110a3f3c",
+  "android/app/src/jak1/assets-slim/bundle/jak1_custom.zip": "12ac0c7835586f9e681470596e501d3a0810927f801da9ec0f71c9cff7772bf4",
+  "android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip": "f0fbfd3f2530f15afb69763709692651f18f2eb6d1a8cbe1d3f1b5980898cbcb",
+  "out/jak1-arm64-full/iso/GAME.CGO": "da341b2779164381aea1e60341db43b38520b93a3c3c517285245ca7484b3199",
+  "out/jak1-arm64-full/iso/ENGINE.CGO": "4c5d2bb45f810a7719bc90a05f928f794415909c2d6e19436627dc60e1d343b9",
+  "out/jak1-arm64-full/iso/KERNEL.CGO": "956ed7a1cae46591cbb788cc454b52ea172890b14511b7800611ac0e2ad58b42"
+}

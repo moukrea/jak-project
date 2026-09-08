@@ -1,0 +1,5 @@
+{"time": 1788891559.397526, "args": ["/home/emeric/Android/platform-tools/adb", "-s", "eae4df44", "shell", "pidof", "org.opengoal.gk.jak1"], "rc": 0, "pid": "5997", "samples": 0, "views": {}}
+{"time": 1788891642.674386, "args": ["/home/emeric/Android/platform-tools/adb", "-s", "eae4df44", "shell", "pidof", "org.opengoal.gk.jak1"], "rc": 0, "pid": "5997", "samples": 0, "views": {}}
+{"time": 1788891759.6487558, "args": ["/home/emeric/Android/platform-tools/adb", "-s", "eae4df44", "shell", "pidof", "org.opengoal.gk.jak1"], "rc": 0, "pid": "5997", "samples": 1, "views": {"village1-out": 1}}
+{"time": 1788891847.9131052, "args": ["/home/emeric/Android/platform-tools/adb", "-s", "eae4df44", "shell", "pidof", "org.opengoal.gk.jak1"], "rc": 0, "pid": "5997", "samples": 3, "views": {"village1-out": 3}}
+{"time": 1788891935.361369, "args": ["/home/emeric/Android/platform-tools/adb", "-s", "eae4df44", "shell", "pidof", "org.opengoal.gk.jak1"], "rc": 0, "pid": "7082", "samples": 4, "views": {"village1-out": 4}}

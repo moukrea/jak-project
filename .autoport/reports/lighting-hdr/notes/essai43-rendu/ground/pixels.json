@@ -1,0 +1,377 @@
+{
+  "helper_sha256": "764953bd2a7483b86de2b2788a20e2701a2b995adaf16ff3f7305124924b205b",
+  "images": {
+    "captures/origine-lumiere/village1-out-h00-t01.png": {
+      "sha256": "15ccf505a5700208851c6d42c840b5ab54bd7f047c7258e82bcd0787b3f2824b",
+      "stats": {
+        "black": 0,
+        "clipped": 5,
+        "detail": 8.911087371499624,
+        "flat": 0.053869459378995115,
+        "height": 180,
+        "hue_bins": [
+          10389,
+          2926,
+          13191,
+          4636,
+          1533,
+          785,
+          3303,
+          15415,
+          2552,
+          447,
+          914,
+          1232
+        ],
+        "luma": 43.027743055555554,
+        "luma_p99": 114.0,
+        "nearwhite": 5,
+        "pixels": 57600,
+        "saturation": 0.5462077759551723,
+        "white": 1,
+        "width": 320
+      }
+    },
+    "captures/origine-lumiere/village1-out-h00.png": {
+      "sha256": "3143df8c68730666584f4f2d267650f166d4b4cb9833d7c3b8ccb169873353b2",
+      "stats": {
+        "black": 0,
+        "clipped": 5,
+        "detail": 8.904099753069124,
+        "flat": 0.055112870177404946,
+        "height": 180,
+        "hue_bins": [
+          10405,
+          2928,
+          13147,
+          4644,
+          1579,
+          796,
+          3274,
+          15406,
+          2550,
+          434,
+          921,
+          1234
+        ],
+        "luma": 42.995746527777776,
+        "luma_p99": 114.0,
+        "nearwhite": 5,
+        "pixels": 57600,
+        "saturation": 0.5461132481689174,
+        "white": 1,
+        "width": 320
+      }
+    },
+    "captures/origine-lumiere/village1-out-h12-t01.png": {
+      "sha256": "8009a6d77e42d65fac914e365d042a5e53d252456e064798fb1dc0eb02377406",
+      "stats": {
+        "black": 0,
+        "clipped": 11160,
+        "detail": 16.963783471392794,
+        "flat": 0.04544578904047215,
+        "height": 180,
+        "hue_bins": [
+          17621,
+          6869,
+          16369,
+          1911,
+          565,
+          244,
+          11491,
+          2047,
+          67,
+          11,
+          24,
+          379
+        ],
+        "luma": 100.16541666666667,
+        "luma_p99": 216.0,
+        "nearwhite": 0,
+        "pixels": 57600,
+        "saturation": 0.6440872365699415,
+        "white": 0,
+        "width": 320
+      }
+    },
+    "captures/origine-lumiere/village1-out-h12.png": {
+      "sha256": "e0fb453abf7394cbfbaebc1c4c415e88380055ed29e28d777b61ec80d58b91c8",
+      "stats": {
+        "black": 0,
+        "clipped": 11138,
+        "detail": 17.02987688481813,
+        "flat": 0.044219891070208926,
+        "height": 180,
+        "hue_bins": [
+          17615,
+          6915,
+          16397,
+          1872,
+          562,
+          246,
+          11530,
+          2014,
+          52,
+          6,
+          21,
+          368
+        ],
+        "luma": 100.10993055555555,
+        "luma_p99": 216.0,
+        "nearwhite": 0,
+        "pixels": 57600,
+        "saturation": 0.6441801446746014,
+        "white": 0,
+        "width": 320
+      }
+    },
+    "captures/origine-lumiere/village1-out-h18-t01.png": {
+      "sha256": "974e955a438388a2a338b2c71502381802c87bb93ec956405702f65bfe034b31",
+      "stats": {
+        "black": 0,
+        "clipped": 8846,
+        "detail": 15.787691984378558,
+        "flat": 0.04126022311343059,
+        "height": 180,
+        "hue_bins": [
+          16875,
+          7847,
+          16203,
+          393,
+          117,
+          116,
+          466,
+          582,
+          10588,
+          1299,
+          1198,
+          1910
+        ],
+        "luma": 92.35017361111112,
+        "luma_p99": 209.0,
+        "nearwhite": 0,
+        "pixels": 57600,
+        "saturation": 0.6155439931376787,
+        "white": 0,
+        "width": 320
+      }
+    },
+    "captures/origine-lumiere/village1-out-h18.png": {
+      "sha256": "af41e54f18cc2cc426e59df932bcae39737630e62e4786a1b06f10f06a909905",
+      "stats": {
+        "black": 0,
+        "clipped": 8863,
+        "detail": 15.781580007355387,
+        "flat": 0.04220591583334793,
+        "height": 180,
+        "hue_bins": [
+          16885,
+          7846,
+          16214,
+          405,
+          120,
+          122,
+          469,
+          580,
+          10564,
+          1295,
+          1214,
+          1883
+        ],
+        "luma": 92.29930555555555,
+        "luma_p99": 209.0,
+        "nearwhite": 0,
+        "pixels": 57600,
+        "saturation": 0.6155982132639047,
+        "white": 0,
+        "width": 320
+      }
+    },
+    "captures/recharged/village1-out-h00-t01.png": {
+      "sha256": "fca1a44cf4fe3b2d114a07c2ee4e9acdfc4f621ebcacea39fc02bef4af3a2fb2",
+      "stats": {
+        "black": 0,
+        "clipped": 6,
+        "detail": 8.89329433810266,
+        "flat": 0.0590882821666871,
+        "height": 180,
+        "hue_bins": [
+          10418,
+          2928,
+          13192,
+          4635,
+          1587,
+          808,
+          3303,
+          15367,
+          2532,
+          417,
+          916,
+          1225
+        ],
+        "luma": 43.02274305555556,
+        "luma_p99": 114.0,
+        "nearwhite": 6,
+        "pixels": 57600,
+        "saturation": 0.5459669928282597,
+        "white": 1,
+        "width": 320
+      }
+    },
+    "captures/recharged/village1-out-h00.png": {
+      "sha256": "6ccf6572cb21e9becd62ddd16ca71a29e90ab92a9db4cfc00f4521cca27533c5",
+      "stats": {
+        "black": 0,
+        "clipped": 6,
+        "detail": 8.910474422514492,
+        "flat": 0.0579849739934502,
+        "height": 180,
+        "hue_bins": [
+          10426,
+          2924,
+          13171,
+          4614,
+          1570,
+          806,
+          3275,
+          15433,
+          2532,
+          424,
+          910,
+          1238
+        ],
+        "luma": 43.02928819444445,
+        "luma_p99": 115.0,
+        "nearwhite": 6,
+        "pixels": 57600,
+        "saturation": 0.5459420178361012,
+        "white": 1,
+        "width": 320
+      }
+    },
+    "captures/recharged/village1-out-h12-t01.png": {
+      "sha256": "7c19fb9158b30e64ef34c8e56e980a1391600948fc5b29b0a0ecc14cf38e617a",
+      "stats": {
+        "black": 0,
+        "clipped": 11092,
+        "detail": 17.726046829302465,
+        "flat": 0.045568378837498466,
+        "height": 180,
+        "hue_bins": [
+          17411,
+          7106,
+          16309,
+          1958,
+          557,
+          215,
+          11544,
+          2081,
+          50,
+          3,
+          22,
+          343
+        ],
+        "luma": 104.1640451388889,
+        "luma_p99": 218.0,
+        "nearwhite": 0,
+        "pixels": 57600,
+        "saturation": 0.6466040739469154,
+        "white": 0,
+        "width": 320
+      }
+    },
+    "captures/recharged/village1-out-h12.png": {
+      "sha256": "cbcf5ec4b169ecb07f3b4021d201dd9e9dcd2a8587156045394b575b64215646",
+      "stats": {
+        "black": 0,
+        "clipped": 11061,
+        "detail": 17.67688832069491,
+        "flat": 0.04460517328943451,
+        "height": 180,
+        "hue_bins": [
+          17212,
+          7336,
+          16377,
+          1926,
+          561,
+          215,
+          11530,
+          2089,
+          51,
+          7,
+          14,
+          281
+        ],
+        "luma": 103.85954861111111,
+        "luma_p99": 219.0,
+        "nearwhite": 0,
+        "pixels": 57600,
+        "saturation": 0.6471688646545951,
+        "white": 0,
+        "width": 320
+      }
+    },
+    "captures/recharged/village1-out-h18-t01.png": {
+      "sha256": "56562d1598bfffb9be99816adf931dd62292ca4716632ffe09e7cf5b70a3dfbc",
+      "stats": {
+        "black": 0,
+        "clipped": 8953,
+        "detail": 16.754347559587398,
+        "flat": 0.04260871088072013,
+        "height": 180,
+        "hue_bins": [
+          17190,
+          7921,
+          16008,
+          363,
+          113,
+          98,
+          429,
+          635,
+          10463,
+          1301,
+          1229,
+          1847
+        ],
+        "luma": 95.95772569444445,
+        "luma_p99": 210.0,
+        "nearwhite": 0,
+        "pixels": 57600,
+        "saturation": 0.6196963523520086,
+        "white": 0,
+        "width": 320
+      }
+    },
+    "captures/recharged/village1-out-h18.png": {
+      "sha256": "1ab84b250c71bdd3434702b4e3f9c08e4dea1f047cf23f66fed1efd159377c73",
+      "stats": {
+        "black": 0,
+        "clipped": 8923,
+        "detail": 16.73704488537854,
+        "flat": 0.043782070366543496,
+        "height": 180,
+        "hue_bins": [
+          17020,
+          7992,
+          16042,
+          376,
+          105,
+          105,
+          433,
+          642,
+          10493,
+          1305,
+          1266,
+          1820
+        ],
+        "luma": 95.98809027777777,
+        "luma_p99": 210.0,
+        "nearwhite": 0,
+        "pixels": 57600,
+        "saturation": 0.6193879277824402,
+        "white": 0,
+        "width": 320
+      }
+    }
+  }
+}

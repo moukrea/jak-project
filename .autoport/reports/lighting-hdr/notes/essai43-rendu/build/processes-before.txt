@@ -1,0 +1,432 @@
+    PID    PPID COMMAND         COMMAND
+      1       0 systemd         /usr/lib/systemd/systemd --switched-root --system --deserialize=60 rhgb
+      2       0 kthreadd        [kthreadd]
+      3       2 pool_workqueue_ [pool_workqueue_release]
+      4       2 kworker/R-rcu_g [kworker/R-rcu_gp]
+      5       2 kworker/R-sync_ [kworker/R-sync_wq]
+      6       2 kworker/R-kvfre [kworker/R-kvfree_rcu_reclaim]
+      7       2 kworker/R-slub_ [kworker/R-slub_flushwq]
+      8       2 kworker/R-netns [kworker/R-netns]
+     13       2 kworker/R-mm_pe [kworker/R-mm_percpu_wq]
+     15       2 ksoftirqd/0     [ksoftirqd/0]
+     16       2 rcu_preempt     [rcu_preempt]
+     17       2 rcu_exp_par_gp_ [rcu_exp_par_gp_kthread_worker/0]
+     18       2 rcu_exp_gp_kthr [rcu_exp_gp_kthread_worker]
+     19       2 migration/0     [migration/0]
+     20       2 idle_inject/0   [idle_inject/0]
+     21       2 cpuhp/0         [cpuhp/0]
+     22       2 cpuhp/1         [cpuhp/1]
+     23       2 idle_inject/1   [idle_inject/1]
+     24       2 migration/1     [migration/1]
+     25       2 ksoftirqd/1     [ksoftirqd/1]
+     28       2 cpuhp/2         [cpuhp/2]
+     29       2 idle_inject/2   [idle_inject/2]
+     30       2 migration/2     [migration/2]
+     31       2 ksoftirqd/2     [ksoftirqd/2]
+     33       2 kworker/2:0H-kb [kworker/2:0H-kblockd]
+     34       2 cpuhp/3         [cpuhp/3]
+     35       2 idle_inject/3   [idle_inject/3]
+     36       2 migration/3     [migration/3]
+     37       2 ksoftirqd/3     [ksoftirqd/3]
+     40       2 cpuhp/4         [cpuhp/4]
+     41       2 idle_inject/4   [idle_inject/4]
+     42       2 migration/4     [migration/4]
+     43       2 ksoftirqd/4     [ksoftirqd/4]
+     46       2 cpuhp/5         [cpuhp/5]
+     47       2 idle_inject/5   [idle_inject/5]
+     48       2 migration/5     [migration/5]
+     49       2 ksoftirqd/5     [ksoftirqd/5]
+     51       2 kworker/5:0H-ev [kworker/5:0H-events_highpri]
+     52       2 cpuhp/6         [cpuhp/6]
+     53       2 idle_inject/6   [idle_inject/6]
+     54       2 migration/6     [migration/6]
+     55       2 ksoftirqd/6     [ksoftirqd/6]
+     57       2 kworker/6:0H-ev [kworker/6:0H-events_highpri]
+     58       2 cpuhp/7         [cpuhp/7]
+     59       2 idle_inject/7   [idle_inject/7]
+     60       2 migration/7     [migration/7]
+     61       2 ksoftirqd/7     [ksoftirqd/7]
+     63       2 kworker/7:0H-ev [kworker/7:0H-events_highpri]
+     64       2 kdevtmpfs       [kdevtmpfs]
+     65       2 kworker/R-inet_ [kworker/R-inet_frag_wq]
+     66       2 rcu_tasks_kthre [rcu_tasks_kthread]
+     67       2 rcu_tasks_rude_ [rcu_tasks_rude_kthread]
+     68       2 rcu_tasks_trace [rcu_tasks_trace_kthread]
+     69       2 kauditd         [kauditd]
+     70       2 oom_reaper      [oom_reaper]
+     72       2 kworker/R-write [kworker/R-writeback]
+     73       2 kcompactd0      [kcompactd0]
+     74       2 ksmd            [ksmd]
+     75       2 khugepaged      [khugepaged]
+     76       2 kworker/R-kbloc [kworker/R-kblockd]
+     77       2 kworker/R-blkcg [kworker/R-blkcg_punt_bio]
+     78       2 kworker/R-kinte [kworker/R-kintegrityd]
+     80       2 irq/9-acpi      [irq/9-acpi]
+     83       2 kworker/R-tpm_d [kworker/R-tpm_dev_wq]
+     84       2 kworker/R-ata_s [kworker/R-ata_sff]
+     85       2 kworker/R-md_bi [kworker/R-md_bitmap]
+     86       2 kworker/R-md    [kworker/R-md]
+     87       2 kworker/R-edac- [kworker/R-edac-poller]
+     88       2 kworker/R-devfr [kworker/R-devfreq_wq]
+     89       2 watchdogd       [watchdogd]
+     90       2 kworker/R-quota [kworker/R-quota_events_unbound]
+     91       2 kworker/4:1H-kb [kworker/4:1H-kblockd]
+     93       2 kswapd0         [kswapd0]
+     94       2 kworker/R-crypt [kworker/R-cryptd]
+     98       2 kworker/R-kthro [kworker/R-kthrotld]
+     99       2 irq/121-aerdrv  [irq/121-aerdrv]
+    100       2 irq/121-pcie-dp [irq/121-pcie-dpc]
+    101       2 irq/122-aerdrv  [irq/122-aerdrv]
+    102       2 irq/122-pcie-dp [irq/122-pcie-dpc]
+    103       2 irq/123-aerdrv  [irq/123-aerdrv]
+    104       2 irq/123-pcie-dp [irq/123-pcie-dpc]
+    105       2 kworker/R-acpi_ [kworker/R-acpi_thermal_pm]
+    108       2 hwrng           [hwrng]
+    113       2 scsi_eh_0       [scsi_eh_0]
+    114       2 kworker/R-scsi_ [kworker/R-scsi_tmf_0]
+    115       2 scsi_eh_1       [scsi_eh_1]
+    116       2 kworker/R-scsi_ [kworker/R-scsi_tmf_1]
+    117       2 scsi_eh_2       [scsi_eh_2]
+    118       2 kworker/R-scsi_ [kworker/R-scsi_tmf_2]
+    119       2 scsi_eh_3       [scsi_eh_3]
+    120       2 kworker/R-scsi_ [kworker/R-scsi_tmf_3]
+    121       2 scsi_eh_4       [scsi_eh_4]
+    122       2 kworker/R-scsi_ [kworker/R-scsi_tmf_4]
+    123       2 scsi_eh_5       [scsi_eh_5]
+    124       2 kworker/R-scsi_ [kworker/R-scsi_tmf_5]
+    125       2 scsi_eh_6       [scsi_eh_6]
+    126       2 kworker/R-scsi_ [kworker/R-scsi_tmf_6]
+    127       2 scsi_eh_7       [scsi_eh_7]
+    128       2 kworker/R-scsi_ [kworker/R-scsi_tmf_7]
+    129       2 scsi_eh_8       [scsi_eh_8]
+    130       2 kworker/R-scsi_ [kworker/R-scsi_tmf_8]
+    131       2 scsi_eh_9       [scsi_eh_9]
+    132       2 kworker/R-scsi_ [kworker/R-scsi_tmf_9]
+    133       2 scsi_eh_10      [scsi_eh_10]
+    134       2 kworker/R-scsi_ [kworker/R-scsi_tmf_10]
+    135       2 scsi_eh_11      [scsi_eh_11]
+    136       2 kworker/R-scsi_ [kworker/R-scsi_tmf_11]
+    137       2 scsi_eh_12      [scsi_eh_12]
+    138       2 kworker/R-scsi_ [kworker/R-scsi_tmf_12]
+    139       2 scsi_eh_13      [scsi_eh_13]
+    140       2 kworker/R-scsi_ [kworker/R-scsi_tmf_13]
+    141       2 scsi_eh_14      [scsi_eh_14]
+    142       2 kworker/R-scsi_ [kworker/R-scsi_tmf_14]
+    143       2 scsi_eh_15      [scsi_eh_15]
+    144       2 kworker/R-scsi_ [kworker/R-scsi_tmf_15]
+    149       2 kworker/R-dm_bu [kworker/R-dm_bufio_cache]
+    150       2 kworker/R-mld   [kworker/R-mld]
+    151       2 kworker/R-ipv6_ [kworker/R-ipv6_addrconf]
+    152       2 kworker/3:1H-i9 [kworker/3:1H-i915_cleanup]
+    153       2 kworker/R-kstrp [kworker/R-kstrp]
+    230       2 kworker/0:1H-kb [kworker/0:1H-kblockd]
+    231       2 kworker/7:1H-kb [kworker/7:1H-kblockd]
+    269       2 kworker/1:1H-kb [kworker/1:1H-kblockd]
+    270       2 kworker/6:1H-kb [kworker/6:1H-kblockd]
+    282       2 kworker/5:1H-kb [kworker/5:1H-kblockd]
+    433       2 irq/109-ASUE140 [irq/109-ASUE1407:00]
+    441       2 kworker/R-nvme- [kworker/R-nvme-wq]
+    442       2 kworker/R-nvme- [kworker/R-nvme-reset-wq]
+    443       2 kworker/R-nvme- [kworker/R-nvme-delete-wq]
+    444       2 kworker/R-nvme- [kworker/R-nvme-auth-wq]
+    456       2 kworker/R-btrfs [kworker/R-btrfs-worker]
+    457       2 kworker/R-btrfs [kworker/R-btrfs-delalloc]
+    458       2 kworker/R-btrfs [kworker/R-btrfs-flush_delalloc]
+    459       2 kworker/R-btrfs [kworker/R-btrfs-cache]
+    460       2 kworker/R-btrfs [kworker/R-btrfs-fixup]
+    461       2 kworker/R-btrfs [kworker/R-btrfs-endio]
+    462       2 kworker/R-btrfs [kworker/R-btrfs-endio-meta]
+    463       2 kworker/R-btrfs [kworker/R-btrfs-rmw]
+    464       2 kworker/R-btrfs [kworker/R-btrfs-endio-write]
+    465       2 kworker/R-btrfs [kworker/R-btrfs-freespace-write]
+    466       2 kworker/R-btrfs [kworker/R-btrfs-delayed-meta]
+    467       2 kworker/R-btrfs [kworker/R-btrfs-qgroup-rescan]
+    468       2 btrfs-cleaner   [btrfs-cleaner]
+    469       2 btrfs-transacti [btrfs-transaction]
+    497       2 kworker/R-ttm   [kworker/R-ttm]
+    498       2 kworker/R-ttm   [kworker/R-ttm]
+    499       2 card2-crtc0     [card2-crtc0]
+    500       2 card2-crtc1     [card2-crtc1]
+    501       2 card2-crtc2     [card2-crtc2]
+    562       2 psimon          [psimon]
+    573       1 systemd-journal /usr/lib/systemd/systemd-journald
+    605       1 systemd-userdbd /usr/lib/systemd/systemd-userdbd
+    609       2 psimon          [psimon]
+    613       1 systemd-udevd   /usr/lib/systemd/systemd-udevd
+    620       2 psimon          [psimon]
+    662       2 kworker/R-kmems [kworker/R-kmemstick]
+    715       2 kworker/R-cfg80 [kworker/R-cfg80211]
+    718       2 irq/154-iwlwifi [irq/154-iwlwifi:default_queue]
+    719       2 irq/155-iwlwifi [irq/155-iwlwifi:queue_1]
+    720       2 irq/156-iwlwifi [irq/156-iwlwifi:queue_2]
+    721       2 irq/157-iwlwifi [irq/157-iwlwifi:queue_3]
+    722       2 irq/158-iwlwifi [irq/158-iwlwifi:queue_4]
+    723       2 irq/159-iwlwifi [irq/159-iwlwifi:queue_5]
+    724       2 irq/160-iwlwifi [irq/160-iwlwifi:queue_6]
+    725       2 irq/161-iwlwifi [irq/161-iwlwifi:queue_7]
+    726       2 irq/162-iwlwifi [irq/162-iwlwifi:queue_8]
+    727       2 irq/163-iwlwifi [irq/163-iwlwifi:exception]
+    738       2 jbd2/nvme0n1p2- [jbd2/nvme0n1p2-8]
+    739       2 kworker/R-ext4- [kworker/R-ext4-rsv-conversion]
+    743       2 kworker/R-led_w [kworker/R-led_workqueue]
+    796       1 systemd-resolve /usr/lib/systemd/systemd-resolved
+    800       1 auditd          /usr/bin/auditd
+    842       2 kworker/R-rpcio [kworker/R-rpciod]
+    843       2 kworker/R-xprti [kworker/R-xprtiod]
+    845       1 dbus-broker-lau /usr/bin/dbus-broker-launch --scope system --audit
+    848     845 dbus-broker     dbus-broker --log 10 --controller 9 --machine-id 955cfe232dad4fa48429935d8113c387 --max-bytes 536870912 --max-fds 4096 --max-matches 131072 --audit
+    849       1 earlyoom        /usr/bin/earlyoom -r 0 -m 4 -M 409600 --prefer ^(Web Content|Isolated Web Co)$ --avoid ^(claude|ptyxis|dnf|packagekitd|gnome-shell|gnome-session-c|gnome-session-b|lightdm|sddm|sddm-helper|gdm|gdm-wayland-ses|gdm-session-wor|gdm-x-session|Xorg|Xwayland|systemd|systemd-logind|dbus-daemon|dbus-broker|cinnamon|cinnamon-sessio|kwin_x11|kwin_wayland|plasmashell|ksmserver|plasma_session|startplasma-way|sway|i3|xfce4-session|mate-session|marco|lxqt-session|openbox|cryptsetup)$
+    852       1 avahi-daemon    avahi-daemon: running [fedora-server.local]
+    853       1 bluetoothd      /usr/libexec/bluetooth/bluetoothd
+    857       1 irqbalance      /usr/sbin/irqbalance
+    858       1 chronyd         /usr/sbin/chronyd -n -F 2
+    860       1 low-memory-moni /usr/libexec/low-memory-monitor
+    863       1 mcelog          /usr/sbin/mcelog --daemon --foreground
+    864       1 polkitd         /usr/lib/polkit-1/polkitd --no-debug --log-level=notice
+    865       1 rtkit-daemon    /usr/libexec/rtkit-daemon
+    866       1 smartd          /usr/bin/smartd -n -q never --capabilities=mail
+    867       1 switcheroo-cont /usr/libexec/switcheroo-control
+    868       1 systemd-machine /usr/lib/systemd/systemd-machined
+    869       1 thermald        /usr/bin/thermald --systemd --dbus-enable --adaptive
+    870       1 udisksd         /usr/libexec/udisks2/udisksd
+    871       1 upowerd         /usr/libexec/upowerd
+    880       1 accounts-daemon /usr/libexec/accounts-daemon
+    884       1 systemd-logind  /usr/lib/systemd/systemd-logind
+    889     852 avahi-daemon    avahi-daemon: chroot helper
+    902       2 psimon          [psimon]
+    922       1 abrtd           /usr/sbin/abrtd -d -s
+    933       1 uresourced      /usr/libexec/uresourced
+    969       1 ModemManager    /usr/bin/ModemManager
+    970       1 firewalld       /usr/bin/python3 -sP /usr/bin/firewalld --nofork --nopid
+    997       1 alsactl         /usr/sbin/alsactl -s -n 19 -c -E ALSA_CONFIG_PATH=/etc/alsa/alsactl.conf --initfile=/lib/alsa/init/00main rdaemon
+   1042       1 NetworkManager  /usr/bin/NetworkManager --no-daemon
+   1062       1 abrt-dump-journ /usr/bin/abrt-dump-journal-core -D -T -f -e
+   1063       1 abrt-dump-journ /usr/bin/abrt-dump-journal-oops -fxtD
+   1064       1 abrt-dump-journ /usr/bin/abrt-dump-journal-xorg -fxtD
+   1071       1 wpa_supplicant  /usr/sbin/wpa_supplicant -c /etc/wpa_supplicant/wpa_supplicant.conf -u -s
+   1089       1 cupsd           /usr/bin/cupsd -l
+   1090       1 gssproxy        /usr/bin/gssproxy -i
+   1091       1 python3         /usr/bin/python3 -m proton.vpn.daemon
+   1092       1 tuned           /usr/bin/python3 -Es /usr/sbin/tuned -l -P
+   1098       1 containerd      /usr/bin/containerd
+   1118       1 tuned-ppd       /usr/bin/python3 -Es /usr/sbin/tuned-ppd -l
+   1141       1 dockerd         /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+   1143       1 rsyslogd        /usr/sbin/rsyslogd -n
+   1150       1 atd             /usr/sbin/atd -f
+   1152       1 crond           /usr/sbin/crond -n
+   1154       1 gdm             /usr/bin/gdm
+   1158       1 systemd         /usr/lib/systemd/systemd --user
+   1203    1158 (sd-pam)        (sd-pam)
+   1341    1158 tmux: server    /usr/bin/tmux -L sshx new-session -d -s main
+   1343    1158 dbus-broker-lau /usr/bin/dbus-broker-launch --scope user
+   1357    1343 dbus-broker     dbus-broker --log 10 --controller 9 --machine-id 955cfe232dad4fa48429935d8113c387 --max-bytes 100000000000000 --max-fds 25000000000000 --max-matches 5000000000
+   1376    1158 python3         python3 /home/emeric/.local/bin/sshx-tmux-bridge
+   1725       2 krfcommd        [krfcommd]
+   1997       1 colord          /usr/libexec/colord
+   2338       1 pcscd           /usr/bin/pcscd --foreground --auto-exit
+   3688       1 containerd-shim /usr/bin/containerd-shim-runc-v2 -namespace moby -id 5d1b193a289e785ac073005584e2da7903467e5cc4d1b02bd09882b238a18791 -address /run/containerd/containerd.sock
+   3689       1 containerd-shim /usr/bin/containerd-shim-runc-v2 -namespace moby -id c7e6e45db2123f1cb6baef37f38e5c5cd2e81d29bf4e7d5004cb36b178665f1e -address /run/containerd/containerd.sock
+   3737    3688 unbound         /opt/unbound/sbin/unbound -d -c /opt/unbound/etc/unbound/unbound.conf
+   3738    3689 AdGuardHome     /opt/adguardhome/AdGuardHome --no-check-update -c /opt/adguardhome/conf/AdGuardHome.yaml -w /opt/adguardhome/work
+   3983    1154 gdm-session-wor gdm-session-worker [pam/gdm-password]
+   4092       1 gnome-keyring-d /usr/bin/gnome-keyring-daemon --daemonize --login
+   4171    3983 gdm-wayland-ses /usr/libexec/gdm-wayland-session /usr/bin/gnome-session
+   4176    4171 gnome-session-i /usr/libexec/gnome-session-init-worker gnome
+   4511    1158 gnome-session-c /usr/libexec/gnome-session-ctl --monitor
+   4512    1158 uresourced      /usr/libexec/uresourced --user
+   4520    1158 gnome-session-s /usr/libexec/gnome-session-service --session=gnome
+   4521    1158 gvfsd           /usr/libexec/gvfsd
+   4530    1158 gvfsd-fuse      /usr/libexec/gvfsd-fuse /run/user/1000/gvfs -f
+   4543    1158 pipewire        /usr/bin/pipewire
+   4544    1158 wireplumber     /usr/bin/wireplumber
+   4545    1158 gnome-shell     /usr/bin/gnome-shell
+   4607    1158 at-spi-bus-laun /usr/libexec/at-spi-bus-launcher
+   4613    4607 dbus-broker-lau /usr/bin/dbus-broker-launch --config-file=/usr/share/defaults/at-spi2/accessibility.conf --scope user
+   4614    4613 dbus-broker     dbus-broker --log 10 --controller 9 --machine-id 955cfe232dad4fa48429935d8113c387 --max-bytes 100000000000000 --max-fds 6400000 --max-matches 5000000000
+   4615    1158 at-spi2-registr /usr/libexec/at-spi2-registryd --use-gnome-session
+   4621    1158 xdg-permission- /usr/libexec/xdg-permission-store
+   4627    1158 gnome-shell-cal /usr/libexec/gnome-shell-calendar-server
+   4646    1158 dconf-service   /usr/libexec/dconf-service
+   4647    1158 evolution-sourc /usr/libexec/evolution-source-registry
+   4664    1158 gjs             /usr/bin/gjs -m /usr/share/gnome-shell/org.gnome.Shell.Notifications
+   4682    1158 ibus-daemon     /usr/bin/ibus-daemon --panel disable
+   4683    1158 gsd-a11y-settin /usr/libexec/gsd-a11y-settings
+   4689    1158 gsd-color       /usr/libexec/gsd-color
+   4692    1158 gsd-datetime    /usr/libexec/gsd-datetime
+   4694    1158 gsd-disk-utilit /usr/libexec/gsd-disk-utility-notify
+   4696    1158 gsd-housekeepin /usr/libexec/gsd-housekeeping
+   4704    1158 gsd-keyboard    /usr/libexec/gsd-keyboard
+   4712    1158 gsd-media-keys  /usr/libexec/gsd-media-keys
+   4722    1158 gsd-power       /usr/libexec/gsd-power
+   4730    1158 gsd-print-notif /usr/libexec/gsd-print-notifications
+   4739    1158 gsd-rfkill      /usr/libexec/gsd-rfkill
+   4751    1158 gsd-screensaver /usr/libexec/gsd-screensaver-proxy
+   4754    1158 gsd-sharing     /usr/libexec/gsd-sharing
+   4755    1158 gsd-smartcard   /usr/libexec/gsd-smartcard
+   4765    1158 gsd-sound       /usr/libexec/gsd-sound
+   4770    1158 gsd-usb-protect /usr/libexec/gsd-usb-protection
+   4776    1158 gsd-wwan        /usr/libexec/gsd-wwan
+   4860    4682 ibus-dconf      /usr/libexec/ibus-dconf
+   4863    4682 ibus-extension- /usr/libexec/ibus-extension-gtk3
+   4889    1158 ibus-portal     /usr/libexec/ibus-portal
+   4892    1158 abrt-applet     /usr/bin/abrt-applet --gapplication-service
+   4895    1158 gjs             /usr/bin/gjs -m /usr/share/gnome-shell/org.gnome.ScreenSaver
+   4898    1158 gvfs-udisks2-vo /usr/libexec/gvfs-udisks2-volume-monitor
+   4900    1158 localsearch-3   /usr/libexec/localsearch-3
+   4903    1158 evolution-alarm /usr/libexec/evolution-data-server/evolution-alarm-notify
+   4904    1158 gnome-software  /usr/bin/gnome-software --gapplication-service
+   4913    1158 pipewire-pulse  /usr/bin/pipewire-pulse
+   4938    1158 gvfs-afc-volume /usr/libexec/gvfs-afc-volume-monitor
+   4963    1158 gvfs-goa-volume /usr/libexec/gvfs-goa-volume-monitor
+   4977    1158 goa-daemon      /usr/libexec/goa-daemon
+   4988    1158 xdg-desktop-por /usr/libexec/xdg-desktop-portal
+   5001    1158 xdg-document-po /usr/libexec/xdg-document-portal
+   5008    5001 fusermount3     fusermount3 -o rw,nosuid,nodev,fsname=portal,auto_unmount,subtype=portal -- /run/user/1000/doc
+   5024    1158 evolution-calen /usr/libexec/evolution-calendar-factory
+   5025    1158 xdg-desktop-por /usr/libexec/xdg-desktop-portal-gnome
+   5062    1158 goa-identity-se /usr/libexec/goa-identity-service
+   5067    1158 gvfs-gphoto2-vo /usr/libexec/gvfs-gphoto2-volume-monitor
+   5076       1 abrt-dbus       /usr/sbin/abrt-dbus -t133
+   5085    1158 gvfs-mtp-volume /usr/libexec/gvfs-mtp-volume-monitor
+   5112    1158 evolution-addre /usr/libexec/evolution-addressbook-factory
+   5181    1158 gvfsd-metadata  /usr/libexec/gvfsd-metadata
+   5185    4682 ibus-engine-sim /usr/libexec/ibus-engine-simple
+   5236    1158 gsd-printer     /usr/libexec/gsd-printer
+   5593    1158 xdg-desktop-por /usr/libexec/xdg-desktop-portal-gtk
+   5603    1158 gnome-keyring-d /usr/bin/gnome-keyring-daemon --start --foreground --components=secrets
+   5764    1158 ptyxis          /usr/bin/ptyxis --gapplication-service
+   5775    5764 ptyxis-agent    /usr/libexec/ptyxis-agent --socket-fd=3 --rlimit-nofile=1024
+   5794    1158 catatonit       catatonit -P
+   5819    5775 bash            /usr/bin/bash
+   6206    4904 bwrap           bwrap --unshare-all --die-with-parent --chdir / --ro-bind /usr /usr --dev /dev --ro-bind-try /etc/ld.so.cache /etc/ld.so.cache --ro-bind-try /nix/store /nix/store --tmpfs /tmp-home --tmpfs /tmp-run --clearenv --setenv HOME /tmp-home --setenv XDG_RUNTIME_DIR /tmp-run --setenv XDG_RUNTIME_DIR /run/user/1000 --symlink /usr/lib /lib --symlink /usr/lib64 /lib64 --seccomp 52 /usr/libexec/glycin-loaders/2+/glycin-image-rs --dbus-fd 51
+   6207    6206 bwrap           bwrap --unshare-all --die-with-parent --chdir / --ro-bind /usr /usr --dev /dev --ro-bind-try /etc/ld.so.cache /etc/ld.so.cache --ro-bind-try /nix/store /nix/store --tmpfs /tmp-home --tmpfs /tmp-run --clearenv --setenv HOME /tmp-home --setenv XDG_RUNTIME_DIR /tmp-run --setenv XDG_RUNTIME_DIR /run/user/1000 --symlink /usr/lib /lib --symlink /usr/lib64 /lib64 --seccomp 52 /usr/libexec/glycin-loaders/2+/glycin-image-rs --dbus-fd 51
+   6208    6207 glycin-image-rs /usr/libexec/glycin-loaders/2+/glycin-image-rs --dbus-fd 51
+   6394    1341 claude          /home/emeric/.local/bin/claude --dangerously-skip-permissions --resume
+   6445    5819 tmux: client    tmux -L sshx attach-session -t hx1
+   7010    4682 ibus-engine-tb  /usr/bin/python3 /usr/share/ibus-typing-booster/engine/main.py --ibus
+  30435       2 kworker/u32:5-b [kworker/u32:5-btrfs-endio]
+  38015 4098574 python3         python3 /home/emeric/.local/bin/sshx-da-filter tmux -L sshx attach-session -t sx1
+  38051   38015 tmux: client    tmux -L sshx attach-session -t sx1
+  38055 4098574 python3         python3 /home/emeric/.local/bin/sshx-da-filter tmux -L sshx attach-session -t sx5
+  38105   38055 tmux: client    tmux -L sshx attach-session -t sx5
+  38110 4098574 python3         python3 /home/emeric/.local/bin/sshx-da-filter tmux -L sshx attach-session -t sx7
+  38163   38110 tmux: client    tmux -L sshx attach-session -t sx7
+  38166 4098574 python3         python3 /home/emeric/.local/bin/sshx-da-filter tmux -L sshx attach-session -t sx9
+  38222   38166 tmux: client    tmux -L sshx attach-session -t sx9
+  38225 4098574 python3         python3 /home/emeric/.local/bin/sshx-da-filter tmux -L sshx attach-session -t sx15
+  38286   38225 tmux: client    tmux -L sshx attach-session -t sx15
+  38288 4098574 python3         python3 /home/emeric/.local/bin/sshx-da-filter tmux -L sshx attach-session -t sx19
+  38350   38288 tmux: client    tmux -L sshx attach-session -t sx19
+  38353 4098574 python3         python3 /home/emeric/.local/bin/sshx-da-filter tmux -L sshx attach-session -t sx21
+  38419   38353 tmux: client    tmux -L sshx attach-session -t sx21
+  47421    1158 bash            bash ./launch.sh --backend codex --quiet
+  47422    1158 python3         python3 .autoport/watch.py --backend codex --maintain --notify-supervisor --interval 60 --session 01a07b25-7100-7e93-bde9-ed118bfd1b25
+  47440   47421 python          python -u .autoport/orchestrator.py --backend codex --quiet
+  47441   47421 tee             tee -a /home/emeric/code/jak-project/.autoport/logs/orchestrator.log /home/emeric/code/jak-project/.autoport/logs/orchestrator-20260908T173610.log
+  47659   47440 codex           codex exec --sandbox danger-full-access -c approval_policy="never" -c model_reasoning_effort="high" -c features.hooks=true --model gpt-6-astra -c agents.default_subagent_model="gpt-6-astra" -c agents.enabled=true -c agents.max_concurrent_threads_per_session=3 --dangerously-bypass-hook-trust -c hooks.SessionStart=[{"hooks" = [{"type" = "command", "command" = "python3 /home/emeric/code/jak-project/.autoport/codex/hook.py SessionStart", "timeout" = 30}]}] -c hooks.SubagentStart=[{"hooks" = [{"type" = "command", "command" = "python3 /home/emeric/code/jak-project/.autoport/codex/hook.py SubagentStart", "timeout" = 30}]}] -c hooks.PreToolUse=[{"hooks" = [{"type" = "command", "command" = "python3 /home/emeric/code/jak-project/.autoport/codex/hook.py PreToolUse", "timeout" = 10}]}] -c hooks.SessionEnd=[{"hooks" = [{"type" = "command", "command" = "python3 /home/emeric/code/jak-project/.autoport/codex/hook.py SessionEnd", "timeout" = 3}]}] --json --color never -
+  48229   47659 codex-code-mode /home/emeric/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex-code-mode-host
+  58897       2 kworker/u32:0-b [kworker/u32:0-btrfs-endio]
+  71269    1158 python          /usr/bin/python -u tools/texture_remake/chatgpt_images.py run --auto --restart-browser --cdp http://127.0.0.1:9222
+  71293    1158 bwrap           /usr/bin/bwrap --args 42 -- chrome --ozone-platform=wayland --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --remote-debugging-port=9222 --no-first-run https://chatgpt.com/images/
+  71304    1158 bwrap           /usr/bin/bwrap --args 42 -- /usr/bin/xdg-dbus-proxy --args=44
+  71305   71304 xdg-dbus-proxy  /usr/bin/xdg-dbus-proxy --args=44
+  71308   71293 bwrap           /usr/bin/bwrap --args 42 -- chrome --ozone-platform=wayland --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --remote-debugging-port=9222 --no-first-run https://chatgpt.com/images/
+  71309   71308 chrome          /app/extra/chrome --disable-features=WebAssemblyTrapHandler,DesktopPWAsRunOnOsLogin --ozone-platform=wayland --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --remote-debugging-port=9222 --no-first-run https://chatgpt.com/images/
+  71326   71308 chrome_crashpad /app/extra/chrome_crashpad_handler --monitor-self --monitor-self-annotation=ptype=crashpad-handler --database=/home/emeric/.var/app/com.google.Chrome/config/google-chrome/Crash Reports --url=https://clients2.google.com/cr/report --annotation=channel= --annotation=lsb-release=Freedesktop SDK 25.08 (Flatpak runtime) --annotation=plat=Linux --annotation=prod=Chrome_Linux --annotation=ver=152.0.7977.82 --initial-client-fd=10 --shared-client-connection
+  71328   71308 chrome_crashpad /app/extra/chrome_crashpad_handler --no-periodic-tasks --monitor-self-annotation=ptype=crashpad-handler --database=/home/emeric/.var/app/com.google.Chrome/config/google-chrome/Crash Reports --url=https://clients2.google.com/cr/report --annotation=channel= --annotation=lsb-release=Freedesktop SDK 25.08 (Flatpak runtime) --annotation=plat=Linux --annotation=prod=Chrome_Linux --annotation=ver=152.0.7977.82 --initial-client-fd=4 --shared-client-connection
+  71335   71309 chrome          /app/extra/chrome --type=zygote --no-zygote-sandbox --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable
+  71337   71309 zypak-sandbox   [zypak-sandbox] <defunct>
+  71339   71308 cat             cat
+  71340   71308 cat             cat
+  71342 2776949 bwrap           /usr/bin/bwrap --args 43 -- /app/bin/zypak-helper child - /app/extra/chrome --type=zygote --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable
+  71355   71308 bwrap           /usr/bin/bwrap --args 43 -- /app/bin/zypak-helper child - /app/extra/chrome --type=zygote --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable
+  71356   71355 chrome          /app/extra/chrome --type=zygote --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable
+  71384   71335 chrome          /app/extra/chrome --type=gpu-process --ozone-platform=wayland --render-node-override=/dev/dri/renderD129 --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable --gpu-preferences=YAAAAAAAAAAgAQAEAAAAAAAAAAAAAGAASAAAAAAAAAABAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAMAAAAAQAAAAAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --metrics-shmem-handle=4,i,9493664016914889093,2170669311384825538,262144 --field-trial-handle=3,i,18185364737216084071,10855610500090041034,262144 --disable-features=DesktopPWAsRunOnOsLogin,EyeDropper,WebAssemblyTrapHandler --variations-seed-version=20260908-010037.377000-production --pseudonymization-salt-handle=7,i,14936376685862208006,5488850732468498007,4 --trace-process-track-uuid=3190708988185955192
+  71389   71309 chrome          /app/extra/chrome --type=utility --utility-sub-type=network.mojom.NetworkService --lang=fr --service-sandbox-type=none --render-node-override=/dev/dri/renderD129 --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,2102996315823524491,4141971985540481299,524288 --field-trial-handle=3,i,18185364737216084071,10855610500090041034,262144 --disable-features=DesktopPWAsRunOnOsLogin,EyeDropper,WebAssemblyTrapHandler --variations-seed-version=20260908-010037.377000-production --pseudonymization-salt-handle=7,i,14936376685862208006,5488850732468498007,4 --trace-process-track-uuid=3190708989122997041
+  71401   71356 chrome          /app/extra/chrome --type=zygote --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable
+  71430   71356 chrome          /app/extra/chrome --type=zygote --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable
+  71449   71356 chrome          /app/extra/chrome --type=zygote --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable
+  71480 2000376 p11-kit-remote  p11-kit-remote --provider p11-kit-trust.so pkcs11:model=p11-kit-trust?write-protected=yes
+  71482   71356 chrome          /app/extra/chrome --type=zygote --crashpad-handler-pid=18 --enable-crash-reporter=, --user-data-dir=/home/emeric/.var/app/com.google.Chrome/config/chrome-auto --change-stack-guard-on-fork=enable
+  79785       2 scsi_eh_16      [scsi_eh_16]
+  79786       2 kworker/R-scsi_ [kworker/R-scsi_tmf_16]
+  79788       2 usb-storage     [usb-storage]
+  79813       2 kworker/R-uas   [kworker/R-uas]
+  91431       2 kworker/3:2H-kb [kworker/3:2H-kblockd]
+  92189    1341 bash            bash -i
+  93002   92189 claude          /home/emeric/.local/bin/claude --dangerously-skip-permissions
+  96126       2 kworker/4:0H-kb [kworker/4:0H-kblockd]
+  98249       2 kworker/u32:10- [kworker/u32:10-btrfs-endio-write]
+  99146       2 kworker/2:1H-kb [kworker/2:1H-kblockd]
+  99338       2 kworker/0:2H-kb [kworker/0:2H-kblockd]
+ 100690       2 kworker/1:2H    [kworker/1:2H]
+ 118890       2 kworker/u32:11- [kworker/u32:11-btrfs-endio-write]
+ 118892       2 kworker/u32:13- [kworker/u32:13-events_unbound]
+ 119710       2 kworker/u32:14- [kworker/u32:14-btrfs-endio]
+ 124554       2 kworker/u33:1-r [kworker/u33:1-rb_allocator]
+ 127788       2 kworker/u32:3-b [kworker/u32:3-btrfs-endio-write]
+ 128023       2 kworker/u32:6-b [kworker/u32:6-btrfs-endio]
+ 128896       2 kworker/7:0-eve [kworker/7:0-events]
+ 129318       2 kworker/u32:2-b [kworker/u32:2-btrfs-endio]
+ 129887       2 kworker/5:2-eve [kworker/5:2-events]
+ 129964       2 kworker/1:0-eve [kworker/1:0-events]
+ 130063       2 kworker/0:2-eve [kworker/0:2-events]
+ 130146       2 kworker/6:1-mm_ [kworker/6:1-mm_percpu_wq]
+ 130375       2 kworker/u32:4-b [kworker/u32:4-btrfs-endio-meta]
+ 130457       2 kworker/4:3-eve [kworker/4:3-events]
+ 130466       2 kworker/2:0-mm_ [kworker/2:0-mm_percpu_wq]
+ 130517       2 kworker/3:2-eve [kworker/3:2-events]
+ 130784       2 kworker/u32:7-b [kworker/u32:7-btrfs-endio-write]
+ 131054       2 kworker/u33:2-r [kworker/u33:2-rb_allocator]
+ 131338       2 kworker/4:0-eve [kworker/4:0-events]
+ 131499       2 kworker/3:0-eve [kworker/3:0-events]
+ 131629       2 kworker/2:2-eve [kworker/2:2-events]
+ 131712       2 kworker/4:1     [kworker/4:1]
+ 132629       2 kworker/5:1-eve [kworker/5:1-events]
+ 132631       2 kworker/1:1-eve [kworker/1:1-events]
+ 132859       2 kworker/0:0-eve [kworker/0:0-events]
+ 133204       2 kworker/6:0-eve [kworker/6:0-events]
+ 133208       2 kworker/7:1-eve [kworker/7:1-events]
+ 134012 2331032 sleep           sleep 300
+ 134343   71269 node            /home/emeric/.local/lib/python3.14/site-packages/playwright/driver/node /home/emeric/.local/lib/python3.14/site-packages/playwright/driver/package/cli.js run-driver
+ 135147       2 kworker/2:1-eve [kworker/2:1-events]
+ 135460       2 kworker/3:1-eve [kworker/3:1-events]
+ 135840     605 systemd-userwor systemd-userwork: waiting...
+ 135841     605 systemd-userwor systemd-userwork: waiting...
+ 135929     605 systemd-userwor systemd-userwork: waiting...
+ 135947       2 kworker/u32:1-b [kworker/u32:1-btrfs-endio-write]
+ 135954       2 kworker/1:2-mm_ [kworker/1:2-mm_percpu_wq]
+ 136022       2 kworker/5:0-eve [kworker/5:0-events]
+ 136155       2 kworker/7:2     [kworker/7:2]
+ 136180       2 kworker/u33:0   [kworker/u33:0]
+ 136277   47659 python3         python3 .autoport/reports/lighting-hdr/notes/essai43-rendu/build/run.py
+ 136279  136277 ps              ps -eo pid,ppid,comm,args
+ 507067    4545 Xwayland        /usr/bin/Xwayland :0 -rootless -noreset -accessx -core -auth /run/user/1000/.mutter-Xwaylandauth.2UGBV3 -listenfd 4 -listenfd 5 -displayfd 6 -initfd 7 -byteswappedclients -enable-ei-portal
+ 507133    1158 gsd-xsettings   /usr/libexec/gsd-xsettings
+ 507144    4545 mutter-x11-fram /usr/libexec/mutter-x11-frames
+ 507149    1158 ibus-x11        /usr/libexec/ibus-x11
+1271964       1 passimd         /usr/libexec/passimd
+1567615    1158 adb             adb -L tcp:5037 fork-server server --reply-fd 4
+1709179       1 sssd_kcm        /usr/libexec/sssd/sssd_kcm --logger=files
+1709431       2 irq/153-mei_me  [irq/153-mei_me]
+1710843    4521 gvfsd-mtp       /usr/libexec/gvfsd-mtp --spawner :1.9 /org/gtk/gvfs/exec_spaw/9
+2000371    1158 flatpak-session /usr/libexec/flatpak-session-helper
+2000376    1158 p11-kit-server  server --sh -n /run/user/1000/.flatpak-helper/pkcs11-flatpak-2000371 --provider p11-kit-trust.so pkcs11:model=p11-kit-trust?write-protected=yes
+2331032    1158 bash            bash .autoport/auto_push_builds.sh
+2727800    1341 bash            bash -i
+2728865 2727800 codex           codex
+2730623 2728865 codex-code-mode /home/emeric/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex-code-mode-host
+2746884    1341 bash            bash -i
+2750535 2746884 bash            bash ./run-codex.sh
+2750541 2750535 codex           codex --sandbox danger-full-access -c approval_policy="never" -c model_reasoning_effort="high" -c features.hooks=true -c agents.enabled=true -c agents.max_concurrent_threads_per_session=3 --dangerously-bypass-hook-trust -c hooks.SessionStart=[{"hooks" = [{"type" = "command", "command" = "python3 /home/emeric/code/jak-project/.autoport/codex/hook.py SessionStart", "timeout" = 30}]}] -c hooks.SubagentStart=[{"hooks" = [{"type" = "command", "command" = "python3 /home/emeric/code/jak-project/.autoport/codex/hook.py SubagentStart", "timeout" = 30}]}] -c hooks.PreToolUse=[{"hooks" = [{"type" = "command", "command" = "python3 /home/emeric/code/jak-project/.autoport/codex/hook.py PreToolUse", "timeout" = 10}]}] -c hooks.SessionEnd=[{"hooks" = [{"type" = "command", "command" = "python3 /home/emeric/code/jak-project/.autoport/codex/hook.py SessionEnd", "timeout" = 3}]}] -c developer_instructions="# Superviseur autoport — contrat de rôle\n\nTu es le **superviseur** du harnais autoport, dans `/home/emeric/code/jak-project`.\nTu es le seul interlocuteur de l'owner. Il te parle en français, en direct, souvent\njuste après avoir joué sur son téléphone. Le harnais, lui, ne lui parle jamais.\n\nVersion de ce contrat : 2026-09-03 (remise d'équerre). Il remplace les 434 lignes\nprécédentes, qui dataient du 20 mai et parlaient encore d'Opus 4.7 et d'atteindre\nGeyser Rock — objectif atteint depuis des mois.\n\n## Ton travail, en une phrase\n\nTraduire ce que dit l'owner en items de backlog exploitables, poser ses validations,\narbitrer les blocages, et lui rendre compte en trois rubriques. **Tu ne codes pas le jeu.**\n\n## Ce que tu fais\n\n1. **Tu traduis.** Chaque message de l'owner devient, le jour même, soit un nouvel item\n   dans `.autoport/backlog.yaml`, soit un `owner_feedback` daté ajouté à un item existant,\n   soit une validation. Ses mots sont recopiés **verbatim**, jamais reformulés : c'est le\n   seul contenu du backlog qu'on ne peut pas reconstruire.\n2. **Tu poses ses validations.** `./.autoport/autoport ok <id> \"sa phrase\"`. Tu ne poses\n   JAMAIS un jeton en son nom : s'il n'a pas dit oui, l'item reste `to-test`. Le harnais a\n   déjà inventé des validations qui n'avaient pas eu lieu, et il l'a payé cher.\n3. **Tu rends compte.** `./.autoport/autoport status` produit trois rubriques :\n   **En cours / À tester / Bloqué**. Tu les lui donnes telles quelles, en français simple,\n   sans liste de commits, sans jargon, sans détail technique qu'il n'a pas demandé.\n   Un item qu'il a déjà validé n'y apparaît jamais — le re-lister est la chose qui\n   l'agace le plus.\n4. **Tu arbitres les blocages.** Un item `blocked` doit dire pourquoi et ce qu'on attend.\n   Si l'arbitrage est à lui, tu poses UNE question courte, pas un dossier.\n5. **Tu entretiens les acquis.** Quand l'owner valide une feature, tu vérifies qu'il existe\n   un `acquis/<feature>.sh` qui la protège. Sinon tu l'ajoutes au backlog. C'est ce qui\n   empêche une régression de revenir trois semaines plus tard.\n6. **Tu commites ton propre travail**, sur-le-champ, sous `[autoport/supervisor]`.\n   Ne laisse jamais tes écritures être ramassées par le commit d'un worker.\n\n## Ce que tu ne fais pas\n\n- **Tu n'édites pas le moteur** (`game/`, `goal_src/`, `android/`, `common/`, `goalc/`).\n  C'est le travail du framework. Si un item n'avance pas, tu corriges l'item ou tu le\n  débloques, tu ne fais pas le travail à sa place. L'owner l'a répété : « laisse le\n  framework travailler au lieu de faire les trucs de ton côté ».\n- **Tu ne lances pas de campagne de mesure.** La preuve est produite par\n  `lib/proof_run.sh` et jugée par `validators/generic.sh`. Rien d'autre.\n- **Tu ne touches aucun appareil.** Ni `adb`, ni installation, ni lancement de jeu.\n  L'appareil de preuve est **celui qui est branché en USB**, quel qu'il soit — `lib/pick_device.sh`\n  le choisit et la preuve écrit lequel. La SHIELD reste **interdite**, comme tout appareil joint\n  par une adresse réseau.\n- **Tu n'ajoutes pas de règle en prose.** Une règle qui compte devient un hook, une porte\n  ou un champ de backlog. Le contrat (`DIRECTIVES.md`) est plafonné à 12 Ko et le\n  lancement échoue au-delà : c'est voulu.\n- **Tu n'inventes pas de preuve visuelle.** Tu es mauvais en vision, l'owner te l'a dit\n  et il a raison. L'œil, c'est lui ; le reste est programmatique.\n\n## Le cycle\n\n- L'orchestrateur tourne seul (`./launch.sh`), prend le premier item `open` du backlog et\n  travaille. Tu ne le relances que s'il est arrêté, et jamais pendant que tu modifies\n  le backlog.\n- Ton cron : `./.autoport/autoport status --changed`. S'il ne sort rien, **tu ne dis rien**\n  et tu ne consommes pas de tour. Ne remets jamais de contexte figé dans le prompt du cron :\n  l'ancien citait encore une phase du 26 août à chaque tour, des semaines après.\n- Quand l'owner signale un défaut sur une feature déjà validée : l'item repasse `open`\n  avec son retour daté, et son prompt est **régénéré**. On ne crée plus de clone `-2`.\n\n## Le ton\n\nL'owner travaille sur son temps libre, pas dans un studio. Il veut des réponses courtes,\nconcrètes, en français, qui répondent à ce qu'il a demandé. Quand il s'énerve, il a\ngénéralement repéré un vrai défaut avant toi : cherche le défaut, ne te défends pas.\nQuand tu ne sais pas, dis-le. Un « pas prouvé : X » vaut mieux qu'une mesure inventée.\n\nCLI active : Codex. Toute relance utilise ./launch.sh --backend codex.\nLa veille est .autoport/supervisor.sh --backend codex --watch --maintain --notify-supervisor.\nLis .autoport/codex/HANDOFF.md puis autoport status au démarrage.\n" Reprends le rôle superviseur. Lis le handoff et donne autoport status.
+2751087 2750541 codex-code-mode /home/emeric/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex-code-mode-host
+2773933    1341 bash            bash -i
+2774508 2773933 codex           codex --yolo
+2775264 2774508 codex-code-mode /home/emeric/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex-code-mode-host
+2776949    1158 flatpak-portal  /usr/libexec/flatpak-portal
+3739839    1341 bash            bash -i
+3740744 3739839 claude          /home/emeric/.local/bin/claude --dangerously-skip-permissions
+4098573    1158 python3         /usr/bin/python3 /home/emeric/.local/bin/sshx_spawn.py
+4098574 4098573 sshx            /usr/local/bin/sshx -q --shell /home/emeric/.local/bin/sshx-tmux-shell
+4190270    1341 bash            bash -i
+4192802 4190270 claude          /home/emeric/.local/bin/claude --dangerously-skip-permissions

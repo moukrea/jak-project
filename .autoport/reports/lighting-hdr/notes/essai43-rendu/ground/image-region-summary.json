@@ -1,0 +1,128 @@
+[
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      113
+    ],
+    "arm": "recharged",
+    "hour": 0,
+    "samples": 2,
+    "mean": {
+      "white": 1,
+      "nearwhite": 6,
+      "clipped": 6,
+      "luma": 40.139449668141594,
+      "detail": 8.41692789968652,
+      "flat": 0.07600481415136587,
+      "saturation": 0.4772576575308337
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      113
+    ],
+    "arm": "origine-lumiere",
+    "hour": 0,
+    "samples": 2,
+    "mean": {
+      "white": 1,
+      "nearwhite": 5,
+      "clipped": 5,
+      "luma": 40.13629701327433,
+      "detail": 8.395278213166144,
+      "flat": 0.07036497984773847,
+      "saturation": 0.4773170936576483
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      113
+    ],
+    "arm": "recharged",
+    "hour": 12,
+    "samples": 2,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 10792.5,
+      "luma": 88.2204092920354,
+      "detail": 13.90277933273623,
+      "flat": 0.06804187192118227,
+      "saturation": 0.6021444996036704
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      113
+    ],
+    "arm": "origine-lumiere",
+    "hour": 12,
+    "samples": 2,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 11000,
+      "luma": 87.43704369469026,
+      "detail": 13.585353224361846,
+      "flat": 0.06785994178235558,
+      "saturation": 0.6000438397269311
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      113
+    ],
+    "arm": "recharged",
+    "hour": 18,
+    "samples": 2,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 8425,
+      "luma": 109.72130807522123,
+      "detail": 17.81272391401702,
+      "flat": 0.06336766681594268,
+      "saturation": 0.5313810442352969
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      113
+    ],
+    "arm": "origine-lumiere",
+    "hour": 18,
+    "samples": 2,
+    "mean": {
+      "white": 0,
+      "nearwhite": 0,
+      "clipped": 8720,
+      "luma": 106.37938329646018,
+      "detail": 16.945672861621137,
+      "flat": 0.06034482758620689,
+      "saturation": 0.5268418297727824
+    }
+  }
+]

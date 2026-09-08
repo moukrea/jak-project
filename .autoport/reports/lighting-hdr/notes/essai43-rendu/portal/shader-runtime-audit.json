@@ -1,0 +1,25 @@
+{
+  "shader_error_lines": [],
+  "hdr_formats": {
+    "RGBA8": 81,
+    "RGBA16F": 60
+  },
+  "proof_cfg": {
+    "hdr_cfg_bad_first_cfg": "0",
+    "hdr_cfg_bad_first_draw": "0",
+    "hdr_cfg_bad_first_fmt8": "0",
+    "hdr_cfg_bad_first_frame": "0",
+    "hdr_cfg_bad_first_shader": "0",
+    "hdr_cfg_bad_first_sites": "0",
+    "hdr_cfg_bad_origine_lumiere": "0",
+    "hdr_cfg_bad_origine_total": "0",
+    "hdr_cfg_bad_recharged": "0",
+    "hdr_cfg_frames_origine_lumiere": "2636",
+    "hdr_cfg_frames_origine_total": "0",
+    "hdr_cfg_frames_recharged": "1984",
+    "hdr_chain_frames": "1984",
+    "hdr_fallback_used": "0",
+    "hdr_frames": "4620",
+    "hdr_progs_scanned": "53"
+  }
+}

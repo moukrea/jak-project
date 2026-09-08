@@ -1,0 +1,128 @@
+[
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      70
+    ],
+    "arm": "recharged",
+    "hour": 12,
+    "samples": 2,
+    "mean": {
+      "white": 38,
+      "nearwhite": 61,
+      "clipped": 1550.5,
+      "luma": 94.94995535714285,
+      "detail": 21.054177456726183,
+      "flat": 0.020853209758756985,
+      "saturation": 0.4854822096153637
+    }
+  },
+  {
+    "layer": "clouds",
+    "roi": [
+      0,
+      0,
+      320,
+      70
+    ],
+    "arm": "origine-lumiere",
+    "hour": 12,
+    "samples": 2,
+    "mean": {
+      "white": 33,
+      "nearwhite": 58.5,
+      "clipped": 1317.5,
+      "luma": 94.58167410714286,
+      "detail": 20.92060787787924,
+      "flat": 0.019422107128254054,
+      "saturation": 0.483978462980523
+    }
+  },
+  {
+    "layer": "actor-1395",
+    "roi": [
+      105,
+      14,
+      196,
+      91
+    ],
+    "arm": "recharged",
+    "hour": 12,
+    "samples": 2,
+    "mean": {
+      "white": 36.5,
+      "nearwhite": 54.5,
+      "clipped": 545.5,
+      "luma": 77.1158127586699,
+      "detail": 19.9921783625731,
+      "flat": 0.016593567251461987,
+      "saturation": 0.48627268490591247
+    }
+  },
+  {
+    "layer": "actor-1395",
+    "roi": [
+      105,
+      14,
+      196,
+      91
+    ],
+    "arm": "origine-lumiere",
+    "hour": 12,
+    "samples": 2,
+    "mean": {
+      "white": 33,
+      "nearwhite": 52.5,
+      "clipped": 433.5,
+      "luma": 76.22349079491937,
+      "detail": 20.00687134502924,
+      "flat": 0.014035087719298244,
+      "saturation": 0.4855888381311002
+    }
+  },
+  {
+    "layer": "portal_disc",
+    "roi": [
+      147,
+      42,
+      173,
+      79
+    ],
+    "arm": "recharged",
+    "hour": 12,
+    "samples": 2,
+    "mean": {
+      "white": 36.5,
+      "nearwhite": 54.5,
+      "clipped": 403,
+      "luma": 128.25987525987526,
+      "detail": 26.714444444444446,
+      "flat": 0.03222222222222222,
+      "saturation": 0.4267431965303332
+    }
+  },
+  {
+    "layer": "portal_disc",
+    "roi": [
+      147,
+      42,
+      173,
+      79
+    ],
+    "arm": "origine-lumiere",
+    "hour": 12,
+    "samples": 2,
+    "mean": {
+      "white": 33,
+      "nearwhite": 52.5,
+      "clipped": 329.5,
+      "luma": 128.43762993762994,
+      "detail": 27.54277777777778,
+      "flat": 0.024444444444444442,
+      "saturation": 0.4245643763382376
+    }
+  }
+]

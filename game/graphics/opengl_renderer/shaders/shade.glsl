@@ -319,16 +319,17 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
       float moon_occ = (u_rt_shadow_light == 1) ? occ : 1.0;   // green-sun cast shadow (night)
       float sun_scalar = ndl * sun_occ * u_rt_sun_elev;  // N.L * cast-shadow occlusion * night-fade
       // ===================================================================================
-      // OWNER FINAL ARCHITECTURE (2026-07-21, "voilà le plan") — BAKED-MODULATION.
-      // The baked (s.baked * s.tex0, already sitting in `color`) is NEVER removed: it is
-      // the base and the realtime layer only INFLUENCES it, MULTIPLICATIVELY (a x-k shift
-      // preserves the baked's own ratios => contrast preserved BY CONSTRUCTION, never the
-      // additive/flattening wash):
+      // BAKED-MODULATION — preserve the authored lighting as the non-PBR base.
+      // The baked (s.baked * s.tex0, already sitting in `color`) already contains shading
+      // and ambient light. Keep it as the base without darkening or cooling it a second
+      // time. The non-PBR realtime layer modulates the existing lit supplement:
       //   sun-LIT  (N.L toward the sun AND not cast-shadowed): x lit_boost (>1) + hue/sat
       //            pushed slightly TOWARD THE SUN's tint (warm yellow by day; the green sun
       //            uses its own green chroma at night);
-      //   SHADOWED (faces away from the sun OR under a cast shadow): x shadow_mul (<1) +
-      //            slightly COOL hue.
+      //   SHADOWED (faces away from the sun OR under a cast shadow): x1, back to baked.
+      // Each sun contributes 1 + w_i * lit_i * (lit_mul_i - 1); the two factors multiply.
+      // Occlusion only removes the existing lit supplement down to the baked base,
+      // reducing shadow amplitude. This does not fully separate baked light components.
       // Both suns run the same model; each amplitude SCALES with its sun's elevation weight
       // (w_y = u_rt_sun_elev -> 0 at night = no yellow ghost shadows; the green sun's night
       // weight is already folded into u_rt_moon_color C++-side -> 0 by day), green at a
@@ -354,8 +355,8 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
       //   _emissive (bit 64): UNLIT self-illumination ADDED on top — independent of
       //     suns/ambient/shadows => glows at night by construction.
       //   _ao: multiplies the AMBIENT term ONLY (contact occlusion, never the suns).
-      // rt ON + pbr OFF (u_pbr_mode==0) falls through to the accepted BAKED-MODULATION
-      // path below, byte-identical — no regression to the directional-ambient look.
+      // rt ON + pbr OFF (u_pbr_mode==0) falls through to the BAKED-MODULATION
+      // path below, with a neutral shadow factor that preserves the baked base.
       if (u_pbr_mode != 0) {
         // ROUND 23 adapter (same idiom as s.T in shrub.frag): the shared chunk reads a
         // plain `tess_disp_w`, so each including program supplies it. Only this one has a
@@ -374,14 +375,15 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
         float lit_g = term_g * moon_occ;
         float w_y = clamp(u_rt_sun_elev, 0.0, 1.0);
         float w_g = clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0) * clamp(u_rt_green_amp, 0.0, 2.0);
-        // luma-neutral chromas: the tint shifts hue/saturation only; lit_boost / shadow_mul
-        // alone set the energy (guarded divisions; a zero-color sun also has weight ~0).
+        // luma-neutral chromas: the tint shifts hue/saturation only; lit_boost sets
+        // the lit energy (guarded divisions; a zero-color sun also has weight ~0).
         vec3 sun_ch = u_rt_sun_color / max(dot(u_rt_sun_color, vec3(0.299, 0.587, 0.114)), 1e-3);
         vec3 moon_ch = u_rt_moon_color / max(dot(u_rt_moon_color, vec3(0.299, 0.587, 0.114)), 1e-3);
-        const vec3 RT_COOL = vec3(0.896, 1.001, 1.265);  // luma-normalized cool (blue-shifted) chroma
         vec3 lit_mul_y = u_rt_lit_boost * mix(vec3(1.0), sun_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
         vec3 lit_mul_g = u_rt_lit_boost * mix(vec3(1.0), moon_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
-        vec3 shd_mul = u_rt_shadow_mul * mix(vec3(1.0), RT_COOL, clamp(u_rt_tint_shadow, 0.0, 1.0));
+        // Baked already includes shading/ambient: occlusion removes only the lit
+        // supplement, with reduced shadow amplitude and no second darkening/cooling.
+        vec3 shd_mul = vec3(1.0);
         vec3 mod_y = mix(shd_mul, lit_mul_y, lit_y);
         vec3 mod_g = mix(shd_mul, lit_mul_g, lit_g);
         vec3 rt_mod = mix(vec3(1.0), mod_y, w_y) * mix(vec3(1.0), mod_g, w_g);

@@ -1,0 +1,2 @@
+{"time": 1788892120.1619618, "args": ["/home/emeric/Android/platform-tools/adb", "-s", "eae4df44", "shell", "pidof", "org.opengoal.gk.jak1"], "rc": 0, "pid": "7696", "samples": 0, "views": {}}
+{"time": 1788892241.0007796, "args": ["/home/emeric/Android/platform-tools/adb", "-s", "eae4df44", "shell", "pidof", "org.opengoal.gk.jak1"], "rc": 0, "pid": "8310", "samples": 12, "views": {"village1-out": 12}}

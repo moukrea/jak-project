@@ -1,25 +1,24 @@
-# Handoff — lighting-hdr essai43
-DIRECTIVES v8aed688f73
+# Handoff — lighting-hdr, recentrage rendu après essai43
+DIRECTIVES v3909a9767c
 ## ÉTABLI
-jak-hd.gc : deux caches rawrefs→handles, écriture process->handle et résolution nil-safe avant tous usages ; aucun modèle/effet/calcul matrice retiré.
-Build GOAL ARM64 et restauration x86 passés, repack seul après ENOSPC ; aucun rebuild C++/NDK. APK7a4e6c292353b66e9 ; libab2f8019a399c9c1 inchangée41.
-28CGO appareil=APK=stage ; seuls GAME/ENGINE changés. Manifeste bundle versionc06459d173222 (notes/essai43/build/).
-Menu officiel313s/crash0/frames3840 ; snapshot graphics2 : compagnons PID22/23, pilotes12/21, quatre handles résolus avec PID concordants.
-Cache42 : processus PID167/suspended cohérent dans l'étendue ancien compagnon ; identité de cet ancien objet/dernier écrivain toujours absents (crash-review.md).
-Ablation unique BAKED-MODULATION par quatre props existantes : portail avant sprites RGB ON/OFF .706/.692/.690→1.005/.9996/1.001 ; image luma64.223/91.365→91.448/91.246.
-Attente portail43 ON55/110s, OFF41/83s après purge ; crash0/4captures/21SHA conformes. Sources41 et ablation43 conservées (hut-neutral/, modulation-comparison.json).
-Couverture standard après déploiement : b1 trois niveaux24paires/96PNG/crash0 ; b2 six niveaux48paires/192PNG/crash0 ; agrégat72paires/0erreur.
-Défaut ajouté b2 firecanyon h12 : clipped ON176/OFF61, tolérance57, excès58 ; ne pas effacer par remplacement.
-B3 SIGSEGV pendant entrée swamp : PID29178/status11,178s/frames1500,8PNG sunkenb09/21 ;29SHA conformes, lot incomplet maintenu en échec.
-B3 : échecs kmalloc locaux puis4effect=0 récupérés ; pile libsigchain pc01e752dc près du site0x1e752e0, aucune signature hd-mtx-check-all (crash-b3-review.md).
-B4 fini : maincave,darkcave,robocave,lavatube,citadel,finalboss,192PNG/397SHA conformes/698s/crash0 ; agrégat120paires=15niveaux×8h,1erreurB3,104manques,defects4.
+Owner : refonte lumière/HDR uniquement ; aucune poursuite HD/cache/allocateur/menu. Crash Swamp43 documenté dans essai43/crash-b3-review.md, pas rejoué.
+Correction livrée : shade.glsl non-PBR shd_mul=vec3(1), RT_COOL retiré ; lit_mul/occlusions/poids/produit conservés, PBR/defaults/tone map inchangés.
+Le supplément solaire reste occultable, mais ombre limitée au baked et amplitude réduite ; aucune nouvelle teinte/gain ni décomposition physique complète.
+Build gk12.27s/repack28.68s/install22.74s ; APK5d3d6a416c12f690/lib0f1a5b25e21ebb4a,28CGO/bundle inchangés, empreintes device vérifiées.
+Portail officiel401s/crash0/4620frames,4PNG/21SHA ; extérieur164s/crash0/1620frames,3pairesh0/12/18,12PNG/37SHA. Aucun échec GLSL recherché,cfg_bad0,fallback0.
+Attente portail après purge :ON55.171/110.809s,OFF42.753/84.917s, animées. Notes essai43-rendu/portal/.
+Pièce luma ON/OFF64.223/91.365→91.299/91.099 ; détail15.767/20.222→20.191/20.216 ; ratios RGB avant sprites .706/.692/.690→1.0046/1.0001/1.0033.
+Extérieur midi delta luma image −9.933→+3.874, chemin gauche −51.697→+5.763 ; ground-comparison.json conserve h0/12/18,couleur,détail et rectangles.
+Portail reste rouge : clipped disque403/329.5, détail26.714/27.543 ; excès image207. Dernière proof extérieure defects4/ownerpassed0/missing5,quality_bad0 ne vaut pas validation.
+SettingsSHA78108670…52fd6 exacts restaurés,propsvides,PID8310stable12s,verrou absent. realtime-lighting?=#f dans fichierowner ; tests forcentRT=1, préférence non changée.
 ## TENTÉ
-Menu réel27→28→5→67, Lighting14 hors écran ; finaliseur borné expiré avant OFF. Ne pas répéter taps aveugles. Lecture/calibration fiable dans menu-navigation.md.
-Aucun réglage rendu livré : neutraliser B retire aussi sa modulation d'ombre ; candidat deux paramètres non mesuré, réduit amplitude et touche PBR partagé. Ne plus rejouer ablation quatre props.
-Cadrage village1-out corrigé près de l'entrée jouable ; correspondance géométrique dans coverage-view-plan.md, pas ROI sol. HUT_VIEWS reste vide.
-B3 compteur defects2 et ownerfailed0 : agrégat non qualifié temporal_capture_accounting_inconsistent, aucune amélioration. Sources/manifeste/crash conservés.
+Cause assombrissement B attribuée par ablation43 puis correction mesurée ; ne pas rejouer ablationquatreprops ni neutraliser toute refonte.
+Sol précis non attribué : traces distinguent ciel/sprites, pas terrain/TIE/shadow-geo ; rectangles chemin/entrée sans violet avant/après. Pas ROI owner fabriquée.
+Résidu portail : groupeSprite3 entier, maxbleu15.3/17.2 ; middot/harddot superposés, blend Cs*As+Cd, sourcebornée/destinationHDR. Pas doublealpha/double dessin démontré.
+Les sources/alphas des sprites diffèrent entrebras ; witnesses.json filtre harddot, engine.log contient aussi middot. portal-residual-review.md donne compteurs et limites ; aucun patch blend justifié.
+PNG fixes320×180 ; compteurs natifs conservés, aucun instrument nouveau ni campagne21niveaux dans ce cycle. Anciennes captures restent diagnostic, pas preuve nouveau binaire.
 ## RESTE
-Dernière proof officielle B4 conservée,1028SHA conformes sur4lots ; settingsSHA78108670…52fd6 restauré,propsvides,PID31673stable12s. Validateur orchestrateur,aucun owner-ok.
-Corriger cause allocation/effect puis compléter Sunkenb/Swamp/Rolling/Ogre/Village3/Snow :48cellules+48ciels manquants,8hutte ; ne pas effacer crash/erreurs. Crash0 global non acquis43.
-Correction visuelle des cinq cas toujours absente : nuages/soleil échouent partiellement ; éco29/30 seulement diagnostic ; sol extérieur sans attribution ; pièce/portail déficit attribué à B mais non corrigé.
-Finir menuOFF/persistance/ombresOFF et ciels/intérieurs/vraie hutte. Ne pas confondre collecte21niveaux et réussite des régions/cinqcas.
+Poursuivre corrections rendu sur vues exploitables : résidu portail puis nuages/soleil/éco et petites zones sol ; pas de détour crashs/allocateur/menu.
+Préserver comparaisons couleur/éclat/détail et sources ; ne pas remplacer déficit pièce désormais mesuré par nouveau réglage global spéculatif.
+La couverture21niveaux×8h/ciels/intérieurs/vraie hutte et les cinqcas restent requises et non acquises sur cette lib. Pas de somme de flags entre campagnes temporellement incompatibles.
+MenuOFF/persistance/ombres perçues et crash0 global non prouvés ; rapport≤40lignes/8lignes proof livré. Validateur orchestrateur, aucun owner-ok.
