@@ -1,0 +1,20 @@
+{
+  "props-start.txt": {
+    "candidate_sha": "bce447d3554e9506d0e44c1f1f5f322a3b408305cb23074a51aa3e5e644cf1c6",
+    "restored_sha": "742ea7d4d328f5c0ccb7c5d8ac9a4107fafa8033829fa301edbc158c1791b0cc"
+  },
+  "props-end.txt": {
+    "candidate_sha": "b548970ac95b2ffb8ba5635f5fcae9367e7f8b95cdbf130347a34ab884675e0a",
+    "restored_sha": "5130b6c4e0063deeadba89fdbcf2aea86a0fa1897c6fde23da4b81b0a2592867"
+  },
+  "settings-start.ini": {
+    "candidate_sha": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+    "restored_sha": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6"
+  },
+  "settings-end.ini": {
+    "candidate_sha": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+    "restored_sha": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6"
+  },
+  "settings_equal": true,
+  "debug_props_except_directory_equal": true
+}

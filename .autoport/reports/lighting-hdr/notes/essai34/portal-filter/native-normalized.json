@@ -1,0 +1,1776 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "caveat": "Rendu inchang\u00e9 ; delta de tout le groupe world sprites dans ROI attribu\u00e9e harddot, pas contribution isol\u00e9e harddot. Luminance pond\u00e9r\u00e9e des valeurs encod\u00e9es (0.2126 R + 0.7152 G + 0.0722 B), normalis\u00e9e par pixels ; aucun d\u00e9sencodage OETF ; dimensions ON/OFF peuvent varier.",
+  "rows": [
+    {
+      "lf": 1453,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        43,
+        0,
+        192,
+        117
+      ],
+      "native_roi": [
+        129,
+        0,
+        576,
+        281
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 125607,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2398513078049347,
+      "after_luma_encoded": 0.2424118446408427,
+      "delta_luma_per_pixel": 0.0025605368359080116,
+      "delta_luma_sum_div_pixels": 0.0025605368359080337,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.31808066406249996
+      ]
+    },
+    {
+      "lf": 1453,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2975805260761857,
+      "after_luma_encoded": 0.30966552391742863,
+      "delta_luma_per_pixel": 0.01208499784124295,
+      "delta_luma_sum_div_pixels": 0.012084997841242957,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.1015650390625
+      ]
+    },
+    {
+      "lf": 1465,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        43,
+        0,
+        191,
+        121
+      ],
+      "native_roi": [
+        129,
+        0,
+        573,
+        291
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 129204,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24237539851728346,
+      "after_luma_encoded": 0.2533727269877941,
+      "delta_luma_per_pixel": 0.010997328470510659,
+      "delta_luma_sum_div_pixels": 0.010997328470510645,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.221396630859375
+      ]
+    },
+    {
+      "lf": 1465,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2966617459530745,
+      "after_luma_encoded": 0.3508267218430022,
+      "delta_luma_per_pixel": 0.05416497588992769,
+      "delta_luma_sum_div_pixels": 0.05416497588992767,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.221396630859375
+      ]
+    },
+    {
+      "lf": 1477,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        43,
+        0,
+        272,
+        121
+      ],
+      "native_roi": [
+        129,
+        0,
+        816,
+        291
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 199917,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.25122285395383337,
+      "after_luma_encoded": 0.25570710169875205,
+      "delta_luma_per_pixel": 0.004484247744918679,
+      "delta_luma_sum_div_pixels": 0.004484247744918633,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2925606201171875
+      ]
+    },
+    {
+      "lf": 1477,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2973931995660386,
+      "after_luma_encoded": 0.3283437872309711,
+      "delta_luma_per_pixel": 0.030950587664932472,
+      "delta_luma_sum_div_pixels": 0.03095058766493245,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2593848388671875
+      ]
+    },
+    {
+      "lf": 1489,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        43,
+        0,
+        238,
+        116
+      ],
+      "native_roi": [
+        129,
+        0,
+        714,
+        279
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 163215,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2375987614949758,
+      "after_luma_encoded": 0.24423307118778867,
+      "delta_luma_per_pixel": 0.0066343096928128675,
+      "delta_luma_sum_div_pixels": 0.0066343096928128615,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.42411850585937494
+      ]
+    },
+    {
+      "lf": 1489,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.29797413953840407,
+      "after_luma_encoded": 0.3362775324542854,
+      "delta_luma_per_pixel": 0.03830339291588131,
+      "delta_luma_sum_div_pixels": 0.03830339291588132,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.308352490234375
+      ]
+    },
+    {
+      "lf": 1501,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        52,
+        0,
+        274,
+        108
+      ],
+      "native_roi": [
+        156,
+        0,
+        822,
+        260
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 173160,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24479561549999768,
+      "after_luma_encoded": 0.2581254991401169,
+      "delta_luma_per_pixel": 0.013329883640119222,
+      "delta_luma_sum_div_pixels": 0.013329883640119236,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.5324568359375
+      ]
+    },
+    {
+      "lf": 1501,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.29772818141980234,
+      "after_luma_encoded": 0.37937920842617545,
+      "delta_luma_per_pixel": 0.08165102700637311,
+      "delta_luma_sum_div_pixels": 0.08165102700637308,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.500416015625
+      ]
+    },
+    {
+      "lf": 1513,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        46,
+        0,
+        273,
+        98
+      ],
+      "native_roi": [
+        138,
+        0,
+        819,
+        236
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 160716,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24303989191245146,
+      "after_luma_encoded": 0.2607585143555411,
+      "delta_luma_per_pixel": 0.017718622443089638,
+      "delta_luma_sum_div_pixels": 0.017718622443089665,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.7033962890625
+      ]
+    },
+    {
+      "lf": 1513,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2977649467106947,
+      "after_luma_encoded": 0.39569277294811017,
+      "delta_luma_per_pixel": 0.09792782623741547,
+      "delta_luma_sum_div_pixels": 0.09792782623741547,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.7033962890625
+      ]
+    },
+    {
+      "lf": 1527,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        45,
+        0,
+        273,
+        112
+      ],
+      "native_roi": [
+        135,
+        0,
+        819,
+        269
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 183996,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2905589919876026,
+      "after_luma_encoded": 0.2956702362570975,
+      "delta_luma_per_pixel": 0.005111244269494886,
+      "delta_luma_sum_div_pixels": 0.005111244269494839,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.14764236545562745
+      ]
+    },
+    {
+      "lf": 1527,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.3822745653962249,
+      "after_luma_encoded": 0.41457333396920826,
+      "delta_luma_per_pixel": 0.03229876857298336,
+      "delta_luma_sum_div_pixels": 0.03229876857298336,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.1252046984195709
+      ]
+    },
+    {
+      "lf": 1539,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        45,
+        0,
+        231,
+        117
+      ],
+      "native_roi": [
+        135,
+        0,
+        693,
+        281
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 156798,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.28572808735542216,
+      "after_luma_encoded": 0.29426800032255007,
+      "delta_luma_per_pixel": 0.008539912967127916,
+      "delta_luma_sum_div_pixels": 0.008539912967127921,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2701529548764229
+      ]
+    },
+    {
+      "lf": 1539,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.38265931236336465,
+      "after_luma_encoded": 0.43250782187634573,
+      "delta_luma_per_pixel": 0.04984850951298109,
+      "delta_luma_sum_div_pixels": 0.04984850951298112,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2084494291424751
+      ]
+    },
+    {
+      "lf": 1551,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        45,
+        0,
+        241,
+        116
+      ],
+      "native_roi": [
+        135,
+        0,
+        723,
+        279
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 164052,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.28225015966365363,
+      "after_luma_encoded": 0.28900324654097875,
+      "delta_luma_per_pixel": 0.006753086877325121,
+      "delta_luma_sum_div_pixels": 0.0067530868773250895,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.31866197266876695
+      ]
+    },
+    {
+      "lf": 1551,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.38280900664633677,
+      "after_luma_encoded": 0.422984723794729,
+      "delta_luma_per_pixel": 0.04017571714839224,
+      "delta_luma_sum_div_pixels": 0.04017571714839226,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.23452080121338367
+      ]
+    },
+    {
+      "lf": 1563,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        44,
+        0,
+        273,
+        113
+      ],
+      "native_roi": [
+        132,
+        0,
+        819,
+        272
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 186864,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.289187443162096,
+      "after_luma_encoded": 0.29851496751303896,
+      "delta_luma_per_pixel": 0.009327524350942973,
+      "delta_luma_sum_div_pixels": 0.009327524350942992,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.47579451286047697
+      ]
+    },
+    {
+      "lf": 1563,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.38285765204785854,
+      "after_luma_encoded": 0.4429085114711194,
+      "delta_luma_per_pixel": 0.06005085942326088,
+      "delta_luma_sum_div_pixels": 0.06005085942326089,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.30751216994971037
+      ]
+    },
+    {
+      "lf": 1575,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        45,
+        0,
+        233,
+        106
+      ],
+      "native_roi": [
+        135,
+        0,
+        699,
+        255
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 143820,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.28422514082801165,
+      "after_luma_encoded": 0.29725150378447274,
+      "delta_luma_per_pixel": 0.01302636295646109,
+      "delta_luma_sum_div_pixels": 0.013026362956461075,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.48291372650861736
+      ]
+    },
+    {
+      "lf": 1575,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.38258396006805034,
+      "after_luma_encoded": 0.44685202567642907,
+      "delta_luma_per_pixel": 0.06426806560837872,
+      "delta_luma_sum_div_pixels": 0.06426806560837867,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.33706902931928634
+      ]
+    },
+    {
+      "lf": 1587,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        46,
+        0,
+        270,
+        104
+      ],
+      "native_roi": [
+        138,
+        0,
+        810,
+        250
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 168000,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.28877394878565826,
+      "after_luma_encoded": 0.30621440644907316,
+      "delta_luma_per_pixel": 0.0174404576634149,
+      "delta_luma_sum_div_pixels": 0.017440457663414892,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.5132776481501757
+      ]
+    },
+    {
+      "lf": 1587,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.38312453006505437,
+      "after_luma_encoded": 0.48386634023202535,
+      "delta_luma_per_pixel": 0.10074181016697098,
+      "delta_luma_sum_div_pixels": 0.10074181016697095,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.5132776481501757
+      ]
+    },
+    {
+      "lf": 1601,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        47,
+        0,
+        234,
+        105
+      ],
+      "native_roi": [
+        141,
+        0,
+        702,
+        252
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 141372,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.19927691197573724,
+      "after_luma_encoded": 0.20107801228493127,
+      "delta_luma_per_pixel": 0.0018011003091940314,
+      "delta_luma_sum_div_pixels": 0.00180110030919402,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.116312109375
+      ]
+    },
+    {
+      "lf": 1601,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2672193979051081,
+      "after_luma_encoded": 0.27637180066714107,
+      "delta_luma_per_pixel": 0.00915240276203294,
+      "delta_luma_sum_div_pixels": 0.009152402762032889,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.070913671875
+      ]
+    },
+    {
+      "lf": 1613,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        47,
+        0,
+        272,
+        65
+      ],
+      "native_roi": [
+        141,
+        0,
+        816,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 105300,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2232853743102701,
+      "after_luma_encoded": 0.2390560106872696,
+      "delta_luma_per_pixel": 0.01577063637699949,
+      "delta_luma_sum_div_pixels": 0.015770636376999495,
+      "delta_luma_component_bounds": [
+        -0.00547373046875,
+        0.2925680419921875
+      ]
+    },
+    {
+      "lf": 1613,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.27013913877836937,
+      "after_luma_encoded": 0.33249437495928913,
+      "delta_luma_per_pixel": 0.06235523618091976,
+      "delta_luma_sum_div_pixels": 0.06235523618091978,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2363438232421875
+      ]
+    },
+    {
+      "lf": 1625,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        48,
+        0,
+        220,
+        121
+      ],
+      "native_roi": [
+        144,
+        0,
+        660,
+        291
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 150156,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.20520357072031228,
+      "after_luma_encoded": 0.21408542999802005,
+      "delta_luma_per_pixel": 0.008881859277707765,
+      "delta_luma_sum_div_pixels": 0.008881859277707793,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.4255836669921875
+      ]
+    },
+    {
+      "lf": 1625,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2708744947117803,
+      "after_luma_encoded": 0.31965343455696255,
+      "delta_luma_per_pixel": 0.04877893984518222,
+      "delta_luma_sum_div_pixels": 0.04877893984518221,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2802213623046875
+      ]
+    },
+    {
+      "lf": 1637,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        48,
+        0,
+        206,
+        118
+      ],
+      "native_roi": [
+        144,
+        0,
+        618,
+        284
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 134616,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.20682817507930734,
+      "after_luma_encoded": 0.21668626780428885,
+      "delta_luma_per_pixel": 0.009858092724981504,
+      "delta_luma_sum_div_pixels": 0.009858092724981529,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.5006517089843749
+      ]
+    },
+    {
+      "lf": 1637,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2705570539201204,
+      "after_luma_encoded": 0.3179218080100924,
+      "delta_luma_per_pixel": 0.04736475408997198,
+      "delta_luma_sum_div_pixels": 0.04736475408997198,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.412386669921875
+      ]
+    },
+    {
+      "lf": 1649,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        45,
+        0,
+        194,
+        112
+      ],
+      "native_roi": [
+        135,
+        0,
+        582,
+        269
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 120243,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.20798167984781363,
+      "after_luma_encoded": 0.22376332254843428,
+      "delta_luma_per_pixel": 0.015781642700620657,
+      "delta_luma_sum_div_pixels": 0.01578164270062068,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.569430029296875
+      ]
+    },
+    {
+      "lf": 1649,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2698165439476629,
+      "after_luma_encoded": 0.33594756826649735,
+      "delta_luma_per_pixel": 0.06613102431883444,
+      "delta_luma_sum_div_pixels": 0.06613102431883437,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.486839794921875
+      ]
+    },
+    {
+      "lf": 1661,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        49,
+        0,
+        219,
+        116
+      ],
+      "native_roi": [
+        147,
+        0,
+        657,
+        279
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 142290,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2050713501391119,
+      "after_luma_encoded": 0.22237312679297247,
+      "delta_luma_per_pixel": 0.017301776653860568,
+      "delta_luma_sum_div_pixels": 0.017301776653860568,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.6224480224609374
+      ]
+    },
+    {
+      "lf": 1661,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.2702521183055116,
+      "after_luma_encoded": 0.3531292073547849,
+      "delta_luma_per_pixel": 0.08287708904927332,
+      "delta_luma_sum_div_pixels": 0.08287708904927334,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.6159001708984375
+      ]
+    },
+    {
+      "lf": 1675,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        47,
+        0,
+        216,
+        124
+      ],
+      "native_roi": [
+        141,
+        0,
+        648,
+        298
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 151086,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24394843794243,
+      "after_luma_encoded": 0.2513005981624416,
+      "delta_luma_per_pixel": 0.007352160220011589,
+      "delta_luma_sum_div_pixels": 0.00735216022001158,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2027090373277664
+      ]
+    },
+    {
+      "lf": 1675,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.3355748787454292,
+      "after_luma_encoded": 0.3772888916763629,
+      "delta_luma_per_pixel": 0.04171401293093374,
+      "delta_luma_sum_div_pixels": 0.04171401293093369,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.13820078139603137
+      ]
+    },
+    {
+      "lf": 1687,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        47,
+        0,
+        270,
+        120
+      ],
+      "native_roi": [
+        141,
+        0,
+        810,
+        288
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 192672,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24363790660996,
+      "after_luma_encoded": 0.24874362285800872,
+      "delta_luma_per_pixel": 0.005105716248048731,
+      "delta_luma_sum_div_pixels": 0.005105716248048698,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.3246956839740276
+      ]
+    },
+    {
+      "lf": 1687,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.3367318242634721,
+      "after_luma_encoded": 0.3704398950194019,
+      "delta_luma_per_pixel": 0.0337080707559298,
+      "delta_luma_sum_div_pixels": 0.03370807075592981,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.21531215042471885
+      ]
+    },
+    {
+      "lf": 1699,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        47,
+        0,
+        211,
+        116
+      ],
+      "native_roi": [
+        141,
+        0,
+        633,
+        279
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 137268,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24416336786537374,
+      "after_luma_encoded": 0.25346993445684163,
+      "delta_luma_per_pixel": 0.00930656659146789,
+      "delta_luma_sum_div_pixels": 0.0093065665914679,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.36102903105914597
+      ]
+    },
+    {
+      "lf": 1699,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.3367111170278413,
+      "after_luma_encoded": 0.3830494323704788,
+      "delta_luma_per_pixel": 0.04633831534263749,
+      "delta_luma_sum_div_pixels": 0.04633831534263747,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.30493491675555706
+      ]
+    },
+    {
+      "lf": 1711,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        46,
+        0,
+        274,
+        102
+      ],
+      "native_roi": [
+        138,
+        0,
+        822,
+        245
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 167580,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24464791088172744,
+      "after_luma_encoded": 0.2516484417001311,
+      "delta_luma_per_pixel": 0.007000530818403683,
+      "delta_luma_sum_div_pixels": 0.00700053081840366,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.37977725997567174
+      ]
+    },
+    {
+      "lf": 1711,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.3363642224009988,
+      "after_luma_encoded": 0.37425903613925565,
+      "delta_luma_per_pixel": 0.03789481373825687,
+      "delta_luma_sum_div_pixels": 0.03789481373825687,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2788078542292118
+      ]
+    },
+    {
+      "lf": 1723,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        49,
+        0,
+        224,
+        113
+      ],
+      "native_roi": [
+        147,
+        0,
+        672,
+        272
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 142800,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24088241995810633,
+      "after_luma_encoded": 0.2536081755934814,
+      "delta_luma_per_pixel": 0.012725755635375091,
+      "delta_luma_sum_div_pixels": 0.012725755635375079,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.3962596108585596
+      ]
+    },
+    {
+      "lf": 1723,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.33592916153187624,
+      "after_luma_encoded": 0.3973942161463154,
+      "delta_luma_per_pixel": 0.061465054614439185,
+      "delta_luma_sum_div_pixels": 0.061465054614439185,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2868760879665613
+      ]
+    },
+    {
+      "lf": 1735,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        49,
+        0,
+        220,
+        112
+      ],
+      "native_roi": [
+        147,
+        0,
+        660,
+        269
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 137997,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.24149180956645008,
+      "after_luma_encoded": 0.25524898474839386,
+      "delta_luma_per_pixel": 0.013757175181943776,
+      "delta_luma_sum_div_pixels": 0.013757175181943783,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.5469733337014914
+      ]
+    },
+    {
+      "lf": 1735,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        133,
+        0,
+        188,
+        65
+      ],
+      "native_roi": [
+        399,
+        0,
+        564,
+        156
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 25740,
+      "paired_window_equal": true,
+      "before_luma_encoded": 0.3351429489715072,
+      "after_luma_encoded": 0.39594303623156657,
+      "delta_luma_per_pixel": 0.060800087260059366,
+      "delta_luma_sum_div_pixels": 0.06080008726005932,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.37869099079072477
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12",
+      "samples": 6,
+      "means": {
+        "pixels": 167255,
+        "before_luma_encoded": 0.28678729529707403,
+        "after_luma_encoded": 0.29682039347786854,
+        "delta_luma_per_pixel": 0.01003309818079448
+      }
+    },
+    {
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18",
+      "samples": 6,
+      "means": {
+        "pixels": 154900.5,
+        "before_luma_encoded": 0.24312864213734126,
+        "after_luma_encoded": 0.2523366262532164,
+        "delta_luma_per_pixel": 0.009207984115875126
+      }
+    },
+    {
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12",
+      "samples": 6,
+      "means": {
+        "pixels": 158636.5,
+        "before_luma_encoded": 0.24314730486391273,
+        "after_luma_encoded": 0.25243479300180593,
+        "delta_luma_per_pixel": 0.00928748813789318
+      }
+    },
+    {
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18",
+      "samples": 6,
+      "means": {
+        "pixels": 132329.5,
+        "before_luma_encoded": 0.20794117701209208,
+        "after_luma_encoded": 0.21950702835265276,
+        "delta_luma_per_pixel": 0.01156585134056067
+      }
+    },
+    {
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12",
+      "samples": 6,
+      "means": {
+        "pixels": 25740,
+        "before_luma_encoded": 0.3827181710978149,
+        "after_luma_encoded": 0.4406154595033095,
+        "delta_luma_per_pixel": 0.057897288405494546
+      }
+    },
+    {
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18",
+      "samples": 6,
+      "means": {
+        "pixels": 25740,
+        "before_luma_encoded": 0.3360756921568541,
+        "after_luma_encoded": 0.38306241793056356,
+        "delta_luma_per_pixel": 0.04698672577370941
+      }
+    },
+    {
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12",
+      "samples": 6,
+      "means": {
+        "pixels": 25740,
+        "before_luma_encoded": 0.2975171232107,
+        "after_luma_encoded": 0.3500309244699955,
+        "delta_luma_per_pixel": 0.0525138012592955
+      }
+    },
+    {
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18",
+      "samples": 6,
+      "means": {
+        "pixels": 25740,
+        "before_luma_encoded": 0.26980979126142546,
+        "after_luma_encoded": 0.32258636563579457,
+        "delta_luma_per_pixel": 0.05277657437436911
+      }
+    }
+  ]
+}

@@ -1,0 +1,2415 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "runs": {
+    "candidat34": {
+      "native": [
+        {
+          "case": "clouds",
+          "refset_case": "origine-lumiere/beach-start-h09",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1527,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1539,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1551,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1563,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1575,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1587,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "origine-lumiere/beach-start-h12",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1675,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1687,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1699,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1711,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1723,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1735,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "origine-lumiere/beach-start-h18",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1823,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1835,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1847,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1859,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1871,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1883,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "recharged/beach-start-h09",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1453,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1465,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1477,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1489,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1501,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1513,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "recharged/beach-start-h12",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1601,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1613,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1625,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1637,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1649,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1661,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "recharged/beach-start-h18",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1749,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1761,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1773,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1785,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1797,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1809,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "origine-lumiere/beach-start-h09",
+          "samples": 6,
+          "status": {
+            "no_visible_roi": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1527,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1539,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1551,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1563,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1575,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1587,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "origine-lumiere/beach-start-h12",
+          "samples": 6,
+          "status": {
+            "no_visible_roi": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1675,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1687,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1699,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1711,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1723,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1735,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "origine-lumiere/beach-start-h18",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1823,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                160,
+                534,
+                269
+              ],
+              "pixels": 11772
+            },
+            {
+              "lf": 1835,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                160,
+                534,
+                269
+              ],
+              "pixels": 11772
+            },
+            {
+              "lf": 1847,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                163,
+                534,
+                267
+              ],
+              "pixels": 11232
+            },
+            {
+              "lf": 1859,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                163,
+                531,
+                267
+              ],
+              "pixels": 10920
+            },
+            {
+              "lf": 1871,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                429,
+                163,
+                531,
+                267
+              ],
+              "pixels": 10608
+            },
+            {
+              "lf": 1883,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                429,
+                163,
+                531,
+                267
+              ],
+              "pixels": 10608
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "recharged/beach-start-h09",
+          "samples": 6,
+          "status": {
+            "no_visible_roi": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1453,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1465,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1477,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1489,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1501,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1513,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "recharged/beach-start-h12",
+          "samples": 6,
+          "status": {
+            "no_visible_roi": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1601,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1613,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1625,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1637,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1649,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1661,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "recharged/beach-start-h18",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1749,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                163,
+                534,
+                267
+              ],
+              "pixels": 11232
+            },
+            {
+              "lf": 1761,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                160,
+                534,
+                269
+              ],
+              "pixels": 11772
+            },
+            {
+              "lf": 1773,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                160,
+                534,
+                269
+              ],
+              "pixels": 11772
+            },
+            {
+              "lf": 1785,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                160,
+                534,
+                269
+              ],
+              "pixels": 11772
+            },
+            {
+              "lf": 1797,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                163,
+                534,
+                267
+              ],
+              "pixels": 11232
+            },
+            {
+              "lf": 1809,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                426,
+                160,
+                534,
+                269
+              ],
+              "pixels": 11772
+            }
+          ]
+        }
+      ],
+      "sun_populations": [
+        {
+          "case": "origine-lumiere/beach-start-h18",
+          "witnesses": 18,
+          "textures": {
+            "effects/starflash2": 12,
+            "effects/middot": 6
+          },
+          "passed": 18,
+          "rgb_bounds": [
+            {
+              "min": 0.4941176474094391,
+              "max": 2.0
+            },
+            {
+              "min": 0.250980406999588,
+              "max": 1.003921627998352
+            },
+            {
+              "min": 0.0,
+              "max": 0.0
+            }
+          ]
+        },
+        {
+          "case": "recharged/beach-start-h18",
+          "witnesses": 18,
+          "textures": {
+            "effects/starflash2": 12,
+            "effects/middot": 6
+          },
+          "passed": 18,
+          "rgb_bounds": [
+            {
+              "min": 0.4941176474094391,
+              "max": 2.0
+            },
+            {
+              "min": 0.250980406999588,
+              "max": 1.003921627998352
+            },
+            {
+              "min": 0.0,
+              "max": 0.0
+            }
+          ]
+        }
+      ],
+      "sky_witnesses": 36
+    },
+    "restaure34": {
+      "native": [
+        {
+          "case": "clouds",
+          "refset_case": "origine-lumiere/beach-start-h09",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1527,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1539,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1551,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1563,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1575,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1587,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "origine-lumiere/beach-start-h12",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1675,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1687,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1699,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1711,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1723,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1735,
+              "viewport": [
+                0,
+                0,
+                1680,
+                756
+              ],
+              "roi": [
+                0,
+                0,
+                1680,
+                446
+              ],
+              "pixels": 749280
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "origine-lumiere/beach-start-h18",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1823,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1835,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1847,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1859,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1871,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1883,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "recharged/beach-start-h09",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1453,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1465,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1477,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1489,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1501,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1513,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "recharged/beach-start-h12",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1601,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": [
+                0,
+                0,
+                960,
+                255
+              ],
+              "pixels": 244800
+            },
+            {
+              "lf": 1613,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1625,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1637,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1649,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1661,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            }
+          ]
+        },
+        {
+          "case": "clouds",
+          "refset_case": "recharged/beach-start-h18",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1749,
+              "viewport": [
+                0,
+                0,
+                1680,
+                756
+              ],
+              "roi": [
+                0,
+                0,
+                1680,
+                446
+              ],
+              "pixels": 749280
+            },
+            {
+              "lf": 1761,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1773,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1785,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                0,
+                0,
+                1440,
+                382
+              ],
+              "pixels": 550080
+            },
+            {
+              "lf": 1797,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            },
+            {
+              "lf": 1809,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                0,
+                0,
+                1200,
+                318
+              ],
+              "pixels": 381600
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "origine-lumiere/beach-start-h09",
+          "samples": 6,
+          "status": {
+            "no_visible_roi": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1527,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1539,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1551,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1563,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1575,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1587,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "origine-lumiere/beach-start-h12",
+          "samples": 6,
+          "status": {
+            "no_visible_roi": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1675,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1687,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1699,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1711,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1723,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1735,
+              "viewport": [
+                0,
+                0,
+                1680,
+                756
+              ],
+              "roi": null,
+              "pixels": 0
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "origine-lumiere/beach-start-h18",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1823,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                532,
+                201,
+                668,
+                336
+              ],
+              "pixels": 18360
+            },
+            {
+              "lf": 1835,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                532,
+                204,
+                668,
+                333
+              ],
+              "pixels": 17544
+            },
+            {
+              "lf": 1847,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                532,
+                204,
+                664,
+                333
+              ],
+              "pixels": 17028
+            },
+            {
+              "lf": 1859,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                639,
+                244,
+                797,
+                400
+              ],
+              "pixels": 24648
+            },
+            {
+              "lf": 1871,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                643,
+                244,
+                797,
+                400
+              ],
+              "pixels": 24024
+            },
+            {
+              "lf": 1883,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                643,
+                244,
+                797,
+                400
+              ],
+              "pixels": 24024
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "recharged/beach-start-h09",
+          "samples": 6,
+          "status": {
+            "no_visible_roi": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1453,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1465,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1477,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1489,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1501,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1513,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "recharged/beach-start-h12",
+          "samples": 6,
+          "status": {
+            "no_visible_roi": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1601,
+              "viewport": [
+                0,
+                0,
+                960,
+                432
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1613,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1625,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1637,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1649,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": null,
+              "pixels": 0
+            },
+            {
+              "lf": 1661,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": null,
+              "pixels": 0
+            }
+          ]
+        },
+        {
+          "case": "sunset-sun",
+          "refset_case": "recharged/beach-start-h18",
+          "samples": 6,
+          "status": {
+            "ok": 6
+          },
+          "native_dimensions_by_sample": [
+            {
+              "lf": 1749,
+              "viewport": [
+                0,
+                0,
+                1680,
+                756
+              ],
+              "roi": [
+                745,
+                281,
+                935,
+                471
+              ],
+              "pixels": 36100
+            },
+            {
+              "lf": 1761,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                639,
+                241,
+                801,
+                404
+              ],
+              "pixels": 26406
+            },
+            {
+              "lf": 1773,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                639,
+                241,
+                801,
+                404
+              ],
+              "pixels": 26406
+            },
+            {
+              "lf": 1785,
+              "viewport": [
+                0,
+                0,
+                1440,
+                648
+              ],
+              "roi": [
+                639,
+                244,
+                801,
+                400
+              ],
+              "pixels": 25272
+            },
+            {
+              "lf": 1797,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                532,
+                201,
+                668,
+                336
+              ],
+              "pixels": 18360
+            },
+            {
+              "lf": 1809,
+              "viewport": [
+                0,
+                0,
+                1200,
+                540
+              ],
+              "roi": [
+                532,
+                201,
+                668,
+                336
+              ],
+              "pixels": 18360
+            }
+          ]
+        }
+      ],
+      "sun_populations": [
+        {
+          "case": "origine-lumiere/beach-start-h18",
+          "witnesses": 18,
+          "textures": {
+            "effects/starflash2": 12,
+            "effects/middot": 6
+          },
+          "passed": 18,
+          "rgb_bounds": [
+            {
+              "min": 0.4941176474094391,
+              "max": 2.0
+            },
+            {
+              "min": 0.250980406999588,
+              "max": 1.003921627998352
+            },
+            {
+              "min": 0.0,
+              "max": 0.0
+            }
+          ]
+        },
+        {
+          "case": "recharged/beach-start-h18",
+          "witnesses": 18,
+          "textures": {
+            "effects/starflash2": 12,
+            "effects/middot": 6
+          },
+          "passed": 18,
+          "rgb_bounds": [
+            {
+              "min": 0.4941176474094391,
+              "max": 2.0
+            },
+            {
+              "min": 0.250980406999588,
+              "max": 1.003921627998352
+            },
+            {
+              "min": 0.0,
+              "max": 0.0
+            }
+          ]
+        }
+      ],
+      "sky_witnesses": 36
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "source": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/settings-start.ini",
+  "source_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "settings": {
+    "recharged-master? ": "#t",
+    "recharged-lighting? ": "#t",
+    "pbr-materials? ": "#f",
+    "realtime-lighting? ": "#f"
+  },
+  "caveat": "Lecture configuration livree ; pas preuve que le geste menu fonctionne ou echoue. Les campagnes epinglent debug.opengoal.rt.light=1."
+}

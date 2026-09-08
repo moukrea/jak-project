@@ -141,10 +141,14 @@ def sun_components_complete(witnesses):
 
 def sky_sequence_judgment(row, temporal):
     judgment = owner_sequence_judgment(row, temporal)
+    partial = (owner_sequence_judgment(row, temporal, require_expected_white=False)
+               if judgment.get('reason') == 'expected OFF whites not observed' else judgment)
     if row.get('layer') == 'sunset-sun' and any(
             s.get('sun_components_complete') is not True for s in row.get('samples', [])):
         return {'status': 'not_judged', 'reason': 'incomplete visible sun disc and two distinct rays',
-                'partial_photometry': judgment}
+                'partial_photometry': partial}
+    if partial is not judgment:
+        judgment['partial_photometry'] = partial
     judgment['limitation'] = ('textured sky bounds mix cloud and background; cloud visibility not qualified'
                              if row.get('layer') == 'clouds' else
                              'sun bounds include background; photometric preservation only')
@@ -184,6 +188,10 @@ def owner_regions(batch, images, region_measurer=measure):
                         if (marker != 'HDR-OWNER-SKY ' or witness.get('association') != 'sky_draw_textured_triangles'
                                 or type(witness.get('bucket')) is not int or witness['bucket'] != 3
                                 or witness.get('prim_tme') is not True
+                                or witness.get('prim_abe') is not True
+                                or any(type(witness.get(k)) is not int or witness[k] != value
+                                       for k, value in (('alpha_a', 0), ('alpha_b', 2),
+                                                        ('alpha_c', 0), ('alpha_d', 1), ('alpha_fix', 0)))
                                 or type(witness.get('vertices')) is not int or witness['vertices'] <= 0
                                 or not isinstance(witness.get('tbps'), list) or not witness['tbps']
                                 or any(type(v) is not int or v < 0 for v in witness['tbps'])):

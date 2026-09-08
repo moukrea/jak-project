@@ -1,0 +1,18 @@
+{
+  "old_count": 99,
+  "candidate_count": 99,
+  "old_only": [
+    {
+      "sha": "50c02da96b39e9dd740b790e960c43ddcfbeba671d0cb311e79f8928843a0db5",
+      "bytes": 3128,
+      "tonemap": true
+    }
+  ],
+  "candidate_only": [
+    {
+      "sha": "319a488c7333fe94be5cfbed4459bd032fe44d86c1479a3e274bfaf98a741ce9",
+      "bytes": 3891,
+      "tonemap": true
+    }
+  ]
+}

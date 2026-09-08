@@ -1,0 +1,6 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "caveat": "Rendu inchang\u00e9 ; delta de tout le groupe world sprites dans ROI attribu\u00e9e harddot, pas contribution isol\u00e9e harddot. Luminance pond\u00e9r\u00e9e des valeurs encod\u00e9es (0.2126 R + 0.7152 G + 0.0722 B), normalis\u00e9e par pixels ; aucun d\u00e9sencodage OETF ; dimensions ON/OFF peuvent varier.",
+  "rows": [],
+  "summary": []
+}

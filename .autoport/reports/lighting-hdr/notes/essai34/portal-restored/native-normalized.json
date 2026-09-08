@@ -1,0 +1,2616 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "caveat": "Rendu inchang\u00e9 ; delta de tout le groupe world sprites dans ROI attribu\u00e9e harddot, pas contribution isol\u00e9e harddot. Luminance pond\u00e9r\u00e9e des valeurs encod\u00e9es (0.2126 R + 0.7152 G + 0.0722 B), normalis\u00e9e par pixels ; aucun d\u00e9sencodage OETF ; dimensions ON/OFF peuvent varier.",
+  "rows": [
+    {
+      "lf": 1453,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        102,
+        13,
+        213,
+        103
+      ],
+      "native_roi": [
+        306,
+        31,
+        639,
+        248
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 72261,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.26973510406574935,
+        0.25109651835667757,
+        0.19288638067229646
+      ],
+      "after_rgb_encoded": [
+        0.273221011285433,
+        0.2527610378926846,
+        0.20671808093489705
+      ],
+      "delta_rgb_per_pixel": [
+        0.0034859072196836705,
+        0.0016645195360070475,
+        0.013831700262600582
+      ],
+      "before_luma_encoded": 0.2508563097376139,
+      "after_luma_encoded": 0.25378652674363067,
+      "delta_luma_per_pixel": 0.0029302170060167554,
+      "delta_luma_sum_div_pixels": 0.0029302170060167636,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.471229443359375
+      ]
+    },
+    {
+      "lf": 1453,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3051607949781282,
+        0.276694740664925,
+        0.3507630090088586
+      ],
+      "after_rgb_encoded": [
+        0.33212531407674156,
+        0.2800974767092626,
+        0.4930072317096243
+      ],
+      "delta_rgb_per_pixel": [
+        0.02696451909861336,
+        0.0034027360443376065,
+        0.1422442227007657
+      ],
+      "before_luma_encoded": 0.288094352786344,
+      "after_luma_encoded": 0.30653067924461475,
+      "delta_luma_per_pixel": 0.018436326458270758,
+      "delta_luma_sum_div_pixels": 0.018436326458270737,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.1111583984375
+      ]
+    },
+    {
+      "lf": 1465,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        102,
+        13,
+        184,
+        99
+      ],
+      "native_roi": [
+        306,
+        31,
+        552,
+        238
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 50922,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2631531558039239,
+        0.24614694108573842,
+        0.18247189488219362
+      ],
+      "after_rgb_encoded": [
+        0.26945759469970904,
+        0.25705287664956644,
+        0.2053892596140384
+      ],
+      "delta_rgb_per_pixel": [
+        0.006304438895785136,
+        0.010905935563828018,
+        0.022917364731844775
+      ],
+      "before_luma_encoded": 0.24516512399892873,
+      "after_luma_encoded": 0.25596000655706164,
+      "delta_luma_per_pixel": 0.010794882558132907,
+      "delta_luma_sum_div_pixels": 0.010794882558132912,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.7080895507812499
+      ]
+    },
+    {
+      "lf": 1465,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.30390182071261934,
+        0.27582423979060944,
+        0.35102080048998535
+      ],
+      "after_rgb_encoded": [
+        0.3296696203726309,
+        0.3138820246074274,
+        0.5169337612271648
+      ],
+      "delta_rgb_per_pixel": [
+        0.02576779966001158,
+        0.038057784816817986,
+        0.16591296073717948
+      ],
+      "before_luma_encoded": 0.28722272517712366,
+      "after_luma_encoded": 0.3318988028510547,
+      "delta_luma_per_pixel": 0.04467607767393106,
+      "delta_luma_sum_div_pixels": 0.044676077673931065,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.20690681152343748
+      ]
+    },
+    {
+      "lf": 1477,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        102,
+        13,
+        214,
+        103
+      ],
+      "native_roi": [
+        306,
+        31,
+        642,
+        248
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 72912,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.26997469679757197,
+        0.2517599247678843,
+        0.19386747455895142
+      ],
+      "after_rgb_encoded": [
+        0.27504622422130925,
+        0.26055003009411176,
+        0.21407371083843046
+      ],
+      "delta_rgb_per_pixel": [
+        0.005071527423737288,
+        0.008790105326227482,
+        0.02020623627947904
+      ],
+      "before_luma_encoded": 0.2514525503963109,
+      "after_luma_encoded": 0.2602763307152937,
+      "delta_luma_per_pixel": 0.008823780318982788,
+      "delta_luma_sum_div_pixels": 0.008823780318982826,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.9263423706054686
+      ]
+    },
+    {
+      "lf": 1477,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3041088375950131,
+        0.2766614821561721,
+        0.3526190472464276
+      ],
+      "after_rgb_encoded": [
+        0.32286654523974473,
+        0.29857139043998177,
+        0.561858065787204
+      ],
+      "delta_rgb_per_pixel": [
+        0.018757707644731614,
+        0.021909908283809676,
+        0.20923901854077637
+      ],
+      "before_luma_encoded": 0.2879809261219861,
+      "after_luma_encoded": 0.32274583831048076,
+      "delta_luma_per_pixel": 0.034764912188494645,
+      "delta_luma_sum_div_pixels": 0.034764912188494645,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2473889892578125
+      ]
+    },
+    {
+      "lf": 1489,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        102,
+        17,
+        187,
+        103
+      ],
+      "native_roi": [
+        306,
+        40,
+        561,
+        248
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 53040,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.26811356228940625,
+        0.249388071660902,
+        0.18247204980789086
+      ],
+      "after_rgb_encoded": [
+        0.2819682700331934,
+        0.27028305133633307,
+        0.21849359203337904
+      ],
+      "delta_rgb_per_pixel": [
+        0.013854707743787165,
+        0.02089497967543108,
+        0.03602154222548817
+      ],
+      "before_luma_encoded": 0.24853777419073458,
+      "after_luma_encoded": 0.2690281298696123,
+      "delta_luma_per_pixel": 0.020490355678877692,
+      "delta_luma_sum_div_pixels": 0.020490355678877678,
+      "delta_luma_component_bounds": [
+        0.0,
+        1.1710060424804687
+      ]
+    },
+    {
+      "lf": 1489,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3043634724413228,
+        0.27576657047978154,
+        0.3503356061430059
+      ],
+      "after_rgb_encoded": [
+        0.36413427064901066,
+        0.3349235132548884,
+        0.6214176968631582
+      ],
+      "delta_rgb_per_pixel": [
+        0.05977079820768788,
+        0.05915694277510686,
+        0.27108209072015227
+      ],
+      "before_luma_encoded": 0.28723015621169,
+      "after_luma_encoded": 0.36181860033339586,
+      "delta_luma_per_pixel": 0.07458844412170584,
+      "delta_luma_sum_div_pixels": 0.07458844412170584,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.4381185302734375
+      ]
+    },
+    {
+      "lf": 1501,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        102,
+        22,
+        213,
+        102
+      ],
+      "native_roi": [
+        306,
+        52,
+        639,
+        245
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 64269,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.27174700372655236,
+        0.25841728976442496,
+        0.20138433613700962
+      ],
+      "after_rgb_encoded": [
+        0.2831083458726675,
+        0.2788077112759168,
+        0.23566607438168943
+      ],
+      "delta_rgb_per_pixel": [
+        0.011361342146115117,
+        0.02039042151149184,
+        0.03428173824467981
+      ],
+      "before_luma_encoded": 0.25713340770087384,
+      "after_luma_encoded": 0.2766072000074228,
+      "delta_luma_per_pixel": 0.019473792306548943,
+      "delta_luma_sum_div_pixels": 0.01947379230654893,
+      "delta_luma_component_bounds": [
+        -0.021155859375,
+        1.2462850952148437
+      ]
+    },
+    {
+      "lf": 1501,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.30496560773278913,
+        0.2761946110304265,
+        0.35065407603554577
+      ],
+      "after_rgb_encoded": [
+        0.34657986415417447,
+        0.3244756106297854,
+        0.6657918468160168
+      ],
+      "delta_rgb_per_pixel": [
+        0.04161425642138533,
+        0.04828099959935894,
+        0.315137770780471
+      ],
+      "before_luma_encoded": 0.2876872983027184,
+      "after_luma_encoded": 0.3538180071817164,
+      "delta_luma_per_pixel": 0.06613070887899802,
+      "delta_luma_sum_div_pixels": 0.06613070887899807,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.5995765380859375
+      ]
+    },
+    {
+      "lf": 1513,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        108,
+        18,
+        198,
+        100
+      ],
+      "native_roi": [
+        324,
+        43,
+        594,
+        240
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 53190,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.26460354433491795,
+        0.24083708922964758,
+        0.19142672495524626
+      ],
+      "after_rgb_encoded": [
+        0.2874613434597388,
+        0.274825524346993,
+        0.24820220308950194
+      ],
+      "delta_rgb_per_pixel": [
+        0.022857799124820832,
+        0.033988435117345395,
+        0.05677547813425568
+      ],
+      "before_luma_encoded": 0.24232240928441628,
+      "after_luma_encoded": 0.27558969569557185,
+      "delta_luma_per_pixel": 0.03326728641115556,
+      "delta_luma_sum_div_pixels": 0.03326728641115559,
+      "delta_luma_component_bounds": [
+        0.0,
+        1.4345143432617187
+      ]
+    },
+    {
+      "lf": 1513,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3044900698539538,
+        0.2759020009271779,
+        0.3504918470681563
+      ],
+      "after_rgb_encoded": [
+        0.4015028423733181,
+        0.3604096263222545,
+        0.7783589170189664
+      ],
+      "delta_rgb_per_pixel": [
+        0.0970127725193643,
+        0.08450762539507656,
+        0.42786706995081014
+      ],
+      "before_luma_encoded": 0.2873652112723891,
+      "after_luma_encoded": 0.39932198284301323,
+      "delta_luma_per_pixel": 0.11195677157062411,
+      "delta_luma_sum_div_pixels": 0.11195677157062411,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.766817529296875
+      ]
+    },
+    {
+      "lf": 1527,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        109,
+        18,
+        197,
+        79
+      ],
+      "native_roi": [
+        327,
+        43,
+        591,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 38808,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.31001431686153397,
+        0.27431882491075227,
+        0.24591968805908876
+      ],
+      "after_rgb_encoded": [
+        0.3110245189034124,
+        0.2761210609264424,
+        0.24989410589336172
+      ],
+      "delta_rgb_per_pixel": [
+        0.0010102020418784052,
+        0.0018022360156901285,
+        0.003974417834272964
+      ],
+      "before_luma_encoded": 0.27985726881879835,
+      "after_luma_encoded": 0.28164794993895775,
+      "delta_luma_per_pixel": 0.0017906811201593986,
+      "delta_luma_sum_div_pixels": 0.001790681120159438,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.12519687659740447
+      ]
+    },
+    {
+      "lf": 1527,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.374692485373775,
+        0.3527160562481996,
+        0.4589369466786997
+      ],
+      "after_rgb_encoded": [
+        0.377861023276641,
+        0.3575794714227043,
+        0.4807117066480103
+      ],
+      "delta_rgb_per_pixel": [
+        0.003168537902866031,
+        0.0048634151745046705,
+        0.021774759969310553
+      ],
+      "before_luma_encoded": 0.36505739336937904,
+      "after_luma_encoded": 0.3707814767301183,
+      "delta_luma_per_pixel": 0.005724083360739263,
+      "delta_luma_sum_div_pixels": 0.005724083360739243,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.10275920956134796
+      ]
+    },
+    {
+      "lf": 1539,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        109,
+        18,
+        198,
+        97
+      ],
+      "native_roi": [
+        327,
+        43,
+        594,
+        233
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 50730,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.30424771678113344,
+        0.27028900306426223,
+        0.23236063929381523
+      ],
+      "after_rgb_encoded": [
+        0.30783858416342613,
+        0.2739690778757176,
+        0.23992996975783573
+      ],
+      "delta_rgb_per_pixel": [
+        0.003590867382292695,
+        0.0036800748114553805,
+        0.007569330464020502
+      ],
+      "before_luma_encoded": 0.2747701977362428,
+      "after_luma_encoded": 0.27871211130637336,
+      "delta_luma_per_pixel": 0.003941913570130573,
+      "delta_luma_sum_div_pixels": 0.0039419135701306025,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.34951607358455655
+      ]
+    },
+    {
+      "lf": 1539,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3755399241006039,
+        0.3535718743514238,
+        0.45881907622412144
+      ],
+      "after_rgb_encoded": [
+        0.387892305964811,
+        0.3616501935932817,
+        0.5132037442639216
+      ],
+      "delta_rgb_per_pixel": [
+        0.012352381864207118,
+        0.008078319241857923,
+        0.05438466803980013
+      ],
+      "before_luma_encoded": 0.3658411297033082,
+      "after_luma_encoded": 0.37817143304188905,
+      "delta_luma_per_pixel": 0.012330303338580872,
+      "delta_luma_sum_div_pixels": 0.01233030333858079,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.150689402782917
+      ]
+    },
+    {
+      "lf": 1551,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        108,
+        23,
+        214,
+        103
+      ],
+      "native_roi": [
+        324,
+        55,
+        642,
+        248
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 61374,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3095821456226825,
+        0.28637432292209747,
+        0.2395542149129074
+      ],
+      "after_rgb_encoded": [
+        0.3159233374184428,
+        0.29497942304474245,
+        0.2574507875622279
+      ],
+      "delta_rgb_per_pixel": [
+        0.006341191795760315,
+        0.008605100122644982,
+        0.017896572649320486
+      ],
+      "before_luma_encoded": 0.2879278942299783,
+      "after_luma_encoded": 0.29672253175875357,
+      "delta_luma_per_pixel": 0.008794637528775295,
+      "delta_luma_sum_div_pixels": 0.008794637528775297,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.6178094047427177
+      ]
+    },
+    {
+      "lf": 1551,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3745081381226208,
+        0.35213564170519174,
+        0.45768841298501356
+      ],
+      "after_rgb_encoded": [
+        0.4020395594748517,
+        0.3899927450083939,
+        0.6133936717107287
+      ],
+      "delta_rgb_per_pixel": [
+        0.02753142135223091,
+        0.03785710330320219,
+        0.1557052587257151
+      ],
+      "before_luma_encoded": 0.36451294452994026,
+      "after_luma_encoded": 0.40868344467187145,
+      "delta_luma_per_pixel": 0.04417050014193119,
+      "delta_luma_sum_div_pixels": 0.044170500141931135,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.3189278539299965
+      ]
+    },
+    {
+      "lf": 1563,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        106,
+        20,
+        195,
+        99
+      ],
+      "native_roi": [
+        318,
+        48,
+        585,
+        238
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 50730,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3052509518770827,
+        0.2750196996745546,
+        0.22968403146325553
+      ],
+      "after_rgb_encoded": [
+        0.3137075636797215,
+        0.28595139115896256,
+        0.24454502092473165
+      ],
+      "delta_rgb_per_pixel": [
+        0.008456611802638847,
+        0.01093169148440798,
+        0.014860989461476126
+      ],
+      "before_luma_encoded": 0.27817362864795625,
+      "after_luma_encoded": 0.28886281350596443,
+      "delta_luma_per_pixel": 0.010689184858008183,
+      "delta_luma_sum_div_pixels": 0.010689184858008152,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.833794509062171
+      ]
+    },
+    {
+      "lf": 1563,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3733852958793558,
+        0.35138149389299295,
+        0.45799118943420897
+      ],
+      "after_rgb_encoded": [
+        0.3982084891420558,
+        0.37655103782343113,
+        0.5644204329210399
+      ],
+      "delta_rgb_per_pixel": [
+        0.024823193262699994,
+        0.025169543930438187,
+        0.10642924348683097
+      ],
+      "before_luma_encoded": 0.3637567222133695,
+      "after_luma_encoded": 0.3947195822998181,
+      "delta_luma_per_pixel": 0.03096286008644855,
+      "delta_luma_sum_div_pixels": 0.030962860086448593,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.32130197143554684
+      ]
+    },
+    {
+      "lf": 1575,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        106,
+        22,
+        213,
+        96
+      ],
+      "native_roi": [
+        318,
+        52,
+        639,
+        231
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 57459,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3069959937113569,
+        0.28304609371510553,
+        0.24250670082775536
+      ],
+      "after_rgb_encoded": [
+        0.31676937340768285,
+        0.2958331827373044,
+        0.25836987805112444
+      ],
+      "delta_rgb_per_pixel": [
+        0.009773379696325968,
+        0.012787089022198883,
+        0.01586317722336908
+      ],
+      "before_luma_encoded": 0.28521089828784185,
+      "after_luma_encoded": 0.29757936627548465,
+      "delta_luma_per_pixel": 0.012368467987642795,
+      "delta_luma_sum_div_pixels": 0.01236846798764276,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.8268572545737028
+      ]
+    },
+    {
+      "lf": 1575,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3747667829005281,
+        0.35206748912073776,
+        0.4570783912760744
+      ],
+      "after_rgb_encoded": [
+        0.4109837532129027,
+        0.38946875356392474,
+        0.5853773614170794
+      ],
+      "delta_rgb_per_pixel": [
+        0.036216970312374586,
+        0.03740126444318698,
+        0.128298970141005
+      ],
+      "before_luma_encoded": 0.3644751461139365,
+      "after_luma_encoded": 0.4081874439762952,
+      "delta_luma_per_pixel": 0.043712297862358696,
+      "delta_luma_sum_div_pixels": 0.0437122978623587,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.39744157474040986
+      ]
+    },
+    {
+      "lf": 1587,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        109,
+        9,
+        190,
+        97
+      ],
+      "native_roi": [
+        327,
+        21,
+        570,
+        233
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 51516,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.31094242993183463,
+        0.27597792488402245,
+        0.23546159551980958
+      ],
+      "after_rgb_encoded": [
+        0.32465102091864123,
+        0.29635301540127623,
+        0.26207278197395245
+      ],
+      "delta_rgb_per_pixel": [
+        0.013708590986806601,
+        0.02037509051725378,
+        0.02661118645414287
+      ],
+      "before_luma_encoded": 0.28048609967709115,
+      "after_luma_encoded": 0.29989413852081526,
+      "delta_luma_per_pixel": 0.019408038843724107,
+      "delta_luma_sum_div_pixels": 0.019408038843724114,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.8012792168825865
+      ]
+    },
+    {
+      "lf": 1587,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.37463494677148346,
+        0.35220993927791394,
+        0.45805040408367625
+      ],
+      "after_rgb_encoded": [
+        0.42697392308366805,
+        0.4212407230788263,
+        0.6507251035794218
+      ],
+      "delta_rgb_per_pixel": [
+        0.05233897631218459,
+        0.06903078380091238,
+        0.19267469949574556
+      ],
+      "before_luma_encoded": 0.3646191774300228,
+      "after_luma_encoded": 0.43902837367199865,
+      "delta_luma_per_pixel": 0.07440919624197584,
+      "delta_luma_sum_div_pixels": 0.07440919624197581,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.5191450968980789
+      ]
+    },
+    {
+      "lf": 1601,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        108,
+        9,
+        213,
+        102
+      ],
+      "native_roi": [
+        324,
+        21,
+        639,
+        245
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 70560,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.22851704551654609,
+        0.19980566869584881,
+        0.18357601741544244
+      ],
+      "after_rgb_encoded": [
+        0.23360591676094636,
+        0.2030536520271615,
+        0.19535815107579135
+      ],
+      "delta_rgb_per_pixel": [
+        0.005088871244400273,
+        0.0032479833313126816,
+        0.011782133660348915
+      ],
+      "before_luma_encoded": 0.2047379265854837,
+      "after_luma_encoded": 0.20899344834087522,
+      "delta_luma_per_pixel": 0.0042555217553915115,
+      "delta_luma_sum_div_pixels": 0.004255521755391508,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.243921240234375
+      ]
+    },
+    {
+      "lf": 1601,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2869933386473914,
+        0.2408504127437233,
+        0.35536061392890084
+      ],
+      "after_rgb_encoded": [
+        0.3331587310530182,
+        0.26329229197271187,
+        0.4737638525134138
+      ],
+      "delta_rgb_per_pixel": [
+        0.04616539240562678,
+        0.022441879228988576,
+        0.11840323858451296
+      ],
+      "before_luma_encoded": 0.25892803531641295,
+      "after_luma_encoded": 0.29334194359222365,
+      "delta_luma_per_pixel": 0.0344139082758107,
+      "delta_luma_sum_div_pixels": 0.03441390827581074,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.133306201171875
+      ]
+    },
+    {
+      "lf": 1613,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        108,
+        9,
+        184,
+        102
+      ],
+      "native_roi": [
+        324,
+        21,
+        552,
+        245
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 51072,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.22304700033034297,
+        0.19961253548727223,
+        0.18031166401460655
+      ],
+      "after_rgb_encoded": [
+        0.228335741673944,
+        0.2059096894238639,
+        0.1973153095888464
+      ],
+      "delta_rgb_per_pixel": [
+        0.005288741343601022,
+        0.006297153936591665,
+        0.017003645574239862
+      ],
+      "before_luma_encoded": 0.2032011797925826,
+      "after_luma_encoded": 0.21005695390814266,
+      "delta_luma_per_pixel": 0.0068557741155600704,
+      "delta_luma_sum_div_pixels": 0.006855774115560049,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.4265591796875
+      ]
+    },
+    {
+      "lf": 1613,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2883163408676104,
+        0.24226006184548055,
+        0.35825878779093423
+      ],
+      "after_rgb_encoded": [
+        0.314622241071826,
+        0.2656905454108518,
+        0.48170629512210855
+      ],
+      "delta_rgb_per_pixel": [
+        0.026305900204215638,
+        0.023430483565371252,
+        0.12344750733117432
+      ],
+      "before_luma_encoded": 0.2604267347788471,
+      "after_luma_encoded": 0.29168976103752764,
+      "delta_luma_per_pixel": 0.03126302625868055,
+      "delta_luma_sum_div_pixels": 0.031263026258680555,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.19620283203125
+      ]
+    },
+    {
+      "lf": 1625,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        108,
+        11,
+        214,
+        102
+      ],
+      "native_roi": [
+        324,
+        26,
+        642,
+        245
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 69642,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2322194920255542,
+        0.20213535538711444,
+        0.1850954460954273
+      ],
+      "after_rgb_encoded": [
+        0.2365208662671274,
+        0.20834130222322692,
+        0.2076668672894614
+      ],
+      "delta_rgb_per_pixel": [
+        0.004301374241573203,
+        0.006205946836112475,
+        0.022571421194034103
+      ],
+      "before_luma_encoded": 0.2073009613855869,
+      "after_luma_encoded": 0.21428358333674227,
+      "delta_luma_per_pixel": 0.006982621951155371,
+      "delta_luma_sum_div_pixels": 0.006982621951155384,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.6279537109375
+      ]
+    },
+    {
+      "lf": 1625,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2868372479734937,
+        0.24250173976278713,
+        0.3604205090775449
+      ],
+      "after_rgb_encoded": [
+        0.3063504178299863,
+        0.2625331998211027,
+        0.5835765691903921
+      ],
+      "delta_rgb_per_pixel": [
+        0.019513169856492596,
+        0.020031460058315548,
+        0.22315606011284722
+      ],
+      "before_luma_encoded": 0.2604412039529088,
+      "after_luma_encoded": 0.295028071638254,
+      "delta_luma_per_pixel": 0.03458686768534519,
+      "delta_luma_sum_div_pixels": 0.03458686768534516,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.28153144531249996
+      ]
+    },
+    {
+      "lf": 1637,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        107,
+        14,
+        185,
+        101
+      ],
+      "native_roi": [
+        321,
+        33,
+        555,
+        243
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 49140,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.22408329762964166,
+        0.20089625219867926,
+        0.18034189545894766
+      ],
+      "after_rgb_encoded": [
+        0.23231167384507842,
+        0.21264979628998426,
+        0.20087173166413785
+      ],
+      "delta_rgb_per_pixel": [
+        0.008228376215436761,
+        0.011753544091304996,
+        0.020529836205190194
+      ],
+      "before_luma_encoded": 0.20434179350069323,
+      "after_luma_encoded": 0.21597953519221116,
+      "delta_luma_per_pixel": 0.011637741691517933,
+      "delta_luma_sum_div_pixels": 0.011637741691517937,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.7382802612304687
+      ]
+    },
+    {
+      "lf": 1637,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.28681316864796175,
+        0.2421245781444756,
+        0.3602853720683997
+      ],
+      "after_rgb_encoded": [
+        0.3109429133923305,
+        0.26411247579460473,
+        0.5029510590425583
+      ],
+      "delta_rgb_per_pixel": [
+        0.024129744744368742,
+        0.021987897650129123,
+        0.1426656869741586
+      ],
+      "before_luma_encoded": 0.26015658180682405,
+      "after_luma_encoded": 0.29131277253838345,
+      "delta_luma_per_pixel": 0.031156190731559397,
+      "delta_luma_sum_div_pixels": 0.031156190731559386,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.2822416015625
+      ]
+    },
+    {
+      "lf": 1649,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        107,
+        20,
+        213,
+        101
+      ],
+      "native_roi": [
+        321,
+        48,
+        639,
+        243
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 62010,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.23132131424974461,
+        0.20494446950542447,
+        0.1894349703383511
+      ],
+      "after_rgb_encoded": [
+        0.24232925542457087,
+        0.22154781711887803,
+        0.22539351595119014
+      ],
+      "delta_rgb_per_pixel": [
+        0.011007941174826258,
+        0.016603347613453556,
+        0.03595854561283904
+      ],
+      "before_luma_encoded": 0.20943240085820422,
+      "after_luma_encoded": 0.22624361035836127,
+      "delta_luma_per_pixel": 0.01681120950015705,
+      "delta_luma_sum_div_pixels": 0.016811209500157014,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.7844430541992188
+      ]
+    },
+    {
+      "lf": 1649,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2864689427563268,
+        0.2418679946508163,
+        0.36049075221743676
+      ],
+      "after_rgb_encoded": [
+        0.3364742724644153,
+        0.30694423469043525,
+        0.6767941988431491
+      ],
+      "delta_rgb_per_pixel": [
+        0.05000532970808852,
+        0.06507624003961895,
+        0.3163034466257123
+      ],
+      "before_luma_encoded": 0.25991471931435783,
+      "after_luma_encoded": 0.3399254881330093,
+      "delta_luma_per_pixel": 0.08001076881865149,
+      "delta_luma_sum_div_pixels": 0.0800107688186515,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.532687060546875
+      ]
+    },
+    {
+      "lf": 1661,
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        106,
+        12,
+        193,
+        101
+      ],
+      "native_roi": [
+        318,
+        28,
+        579,
+        243
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 56115,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.22232198654027968,
+        0.1979118568740256,
+        0.17741133084029934
+      ],
+      "after_rgb_encoded": [
+        0.2355774734828133,
+        0.21810445879419826,
+        0.22071040391624586
+      ],
+      "delta_rgb_per_pixel": [
+        0.013255486942533617,
+        0.020192601920172665,
+        0.04329907307594652
+      ],
+      "before_luma_encoded": 0.20162131246143616,
+      "after_luma_encoded": 0.22200737095480963,
+      "delta_luma_per_pixel": 0.020386058493373466,
+      "delta_luma_sum_div_pixels": 0.020386058493373462,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.76645927734375
+      ]
+    },
+    {
+      "lf": 1661,
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.28796109256581365,
+        0.24265323867145766,
+        0.359381769457434
+      ],
+      "after_rgb_encoded": [
+        0.3362740443303035,
+        0.30672151179734797,
+        0.7033963681625844
+      ],
+      "delta_rgb_per_pixel": [
+        0.04831295176448985,
+        0.06406827312589031,
+        0.34401459870515044
+      ],
+      "before_luma_encoded": 0.26071348833214525,
+      "after_luma_encoded": 0.34164430484342434,
+      "delta_luma_per_pixel": 0.08093081651127909,
+      "delta_luma_sum_div_pixels": 0.08093081651127915,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.58167890625
+      ]
+    },
+    {
+      "lf": 1675,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        108,
+        12,
+        214,
+        96
+      ],
+      "native_roi": [
+        324,
+        28,
+        642,
+        231
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 64554,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.26906174986613446,
+        0.23330873657104595,
+        0.23280932172962598
+      ],
+      "after_rgb_encoded": [
+        0.27155554300166557,
+        0.23920688410774046,
+        0.2444032624605956
+      ],
+      "delta_rgb_per_pixel": [
+        0.0024937931355311083,
+        0.005898147536694515,
+        0.011593940730969615
+      ],
+      "before_luma_encoded": 0.24087376944603126,
+      "after_luma_encoded": 0.24645938750566507,
+      "delta_luma_per_pixel": 0.005585618059633812,
+      "delta_luma_sum_div_pixels": 0.005585618059633828,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.21042981902956961
+      ]
+    },
+    {
+      "lf": 1675,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.32449361172576363,
+        0.3018317497288941,
+        0.4704988697938425
+      ],
+      "after_rgb_encoded": [
+        0.342085926074195,
+        0.3451354749626785,
+        0.5770744737998538
+      ],
+      "delta_rgb_per_pixel": [
+        0.017592314348431393,
+        0.043303725233784396,
+        0.10657560400601129
+      ],
+      "before_luma_encoded": 0.31882742765811783,
+      "after_luma_encoded": 0.3612331365850309,
+      "delta_luma_per_pixel": 0.04240570892691309,
+      "delta_luma_sum_div_pixels": 0.042405708926913144,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.12075609254837036
+      ]
+    },
+    {
+      "lf": 1687,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        108,
+        12,
+        193,
+        104
+      ],
+      "native_roi": [
+        324,
+        28,
+        579,
+        250
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 56610,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.26249627458151925,
+        0.23089006589653227,
+        0.22481312398606115
+      ],
+      "after_rgb_encoded": [
+        0.26777151538478794,
+        0.23687570545106082,
+        0.24048935293055962
+      ],
+      "delta_rgb_per_pixel": [
+        0.005275240803268688,
+        0.005985639554528549,
+        0.015676228944498466
+      ],
+      "before_luma_encoded": 0.23717079065702448,
+      "after_luma_encoded": 0.243705059990991,
+      "delta_luma_per_pixel": 0.00653426933396653,
+      "delta_luma_sum_div_pixels": 0.00653426933396653,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.3847262728929519
+      ]
+    },
+    {
+      "lf": 1687,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t01",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3270403968504606,
+        0.30345847444354085,
+        0.4712893284517645
+      ],
+      "after_rgb_encoded": [
+        0.35931792440810945,
+        0.32924362508569477,
+        0.5974364636460601
+      ],
+      "delta_rgb_per_pixel": [
+        0.032277527557648844,
+        0.02578515064215392,
+        0.12614713519429555
+      ],
+      "before_luma_encoded": 0.32058937880664573,
+      "after_luma_encoded": 0.3550009440656985,
+      "delta_luma_per_pixel": 0.03441156525905276,
+      "delta_luma_sum_div_pixels": 0.034411565259052736,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.16126038254499436
+      ]
+    },
+    {
+      "lf": 1699,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        107,
+        22,
+        212,
+        103
+      ],
+      "native_roi": [
+        321,
+        52,
+        636,
+        248
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 61740,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2660217804422362,
+        0.23679370812586456,
+        0.2326174977315369
+      ],
+      "after_rgb_encoded": [
+        0.2695574805633686,
+        0.24223626616119326,
+        0.2415369379989049
+      ],
+      "delta_rgb_per_pixel": [
+        0.0035357001211324124,
+        0.005442558035328698,
+        0.008919440267368017
+      ],
+      "before_luma_encoded": 0.24270607390985469,
+      "after_luma_encoded": 0.2479942648497785,
+      "delta_luma_per_pixel": 0.005288190939923804,
+      "delta_luma_sum_div_pixels": 0.005288190939923804,
+      "delta_luma_component_bounds": [
+        -0.02184156732559204,
+        0.5823176565542817
+      ]
+    },
+    {
+      "lf": 1699,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t02",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3249483348857452,
+        0.3027735964893934,
+        0.4721920712979675
+      ],
+      "after_rgb_encoded": [
+        0.3392955789292109,
+        0.31449361210105214,
+        0.5522663640737947
+      ],
+      "delta_rgb_per_pixel": [
+        0.014347244043465712,
+        0.011720015611658752,
+        0.08007429277582723
+      ],
+      "before_luma_encoded": 0.3197199597536368,
+      "after_luma_encoded": 0.3369337029411507,
+      "delta_luma_per_pixel": 0.017213743187513897,
+      "delta_luma_sum_div_pixels": 0.017213743187513873,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.19686273868381976
+      ]
+    },
+    {
+      "lf": 1711,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        106,
+        22,
+        182,
+        101
+      ],
+      "native_roi": [
+        318,
+        52,
+        546,
+        243
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 43548,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2609211086163208,
+        0.23879380047829796,
+        0.23164081953535787
+      ],
+      "after_rgb_encoded": [
+        0.2739344705916757,
+        0.2542556662380143,
+        0.2598583178049555
+      ],
+      "delta_rgb_per_pixel": [
+        0.013013361975354909,
+        0.015461865759716364,
+        0.02821749826959763
+      ],
+      "before_luma_encoded": 0.24298162096436132,
+      "after_luma_encoded": 0.25884389148673587,
+      "delta_luma_per_pixel": 0.015862270522374544,
+      "delta_luma_sum_div_pixels": 0.015862270522374537,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.777800786909461
+      ]
+    },
+    {
+      "lf": 1711,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t03",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.325834877697215,
+        0.30202950391430206,
+        0.4702631286508603
+      ],
+      "after_rgb_encoded": [
+        0.3865588601896184,
+        0.3447857733789375,
+        0.6445539401495229
+      ],
+      "delta_rgb_per_pixel": [
+        0.060723982492403406,
+        0.042756269464635455,
+        0.17429081149866266
+      ],
+      "before_luma_encoded": 0.31923699408652884,
+      "after_luma_encoded": 0.3753099932757245,
+      "delta_luma_per_pixel": 0.05607299918919567,
+      "delta_luma_sum_div_pixels": 0.05607299918919568,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.28417256505191324
+      ]
+    },
+    {
+      "lf": 1723,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        108,
+        23,
+        213,
+        100
+      ],
+      "native_roi": [
+        324,
+        55,
+        639,
+        240
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 58275,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.2655020129118564,
+        0.23670959003032346,
+        0.2380841409789853
+      ],
+      "after_rgb_encoded": [
+        0.2760068372384685,
+        0.24962078696399678,
+        0.2579399620126877
+      ],
+      "delta_rgb_per_pixel": [
+        0.01050482432661215,
+        0.012911196933673319,
+        0.019855821033702398
+      ],
+      "before_luma_encoded": 0.24293010171343074,
+      "after_luma_encoded": 0.255831105690865,
+      "delta_luma_per_pixel": 0.012901003977434239,
+      "delta_luma_sum_div_pixels": 0.012901003977434208,
+      "delta_luma_component_bounds": [
+        -0.04760470304489136,
+        0.7994713643491268
+      ]
+    },
+    {
+      "lf": 1723,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t04",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.3241640212611319,
+        0.30187029496811735,
+        0.4716926577950077
+      ],
+      "after_rgb_encoded": [
+        0.3792871998439933,
+        0.33973801119672264,
+        0.6400536332731175
+      ],
+      "delta_rgb_per_pixel": [
+        0.055123178582861365,
+        0.0378677162286053,
+        0.1683609754781098
+      ],
+      "before_luma_encoded": 0.3188711157741137,
+      "after_luma_encoded": 0.36982895661704807,
+      "delta_luma_per_pixel": 0.050957840842934365,
+      "delta_luma_sum_div_pixels": 0.050957840842934386,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.403174126586318
+      ]
+    },
+    {
+      "lf": 1735,
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        106,
+        22,
+        197,
+        107
+      ],
+      "native_roi": [
+        318,
+        52,
+        591,
+        257
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 55965,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.26121936113619626,
+        0.23276488213934438,
+        0.22531400687783226
+      ],
+      "after_rgb_encoded": [
+        0.27243498458598503,
+        0.2490481686662461,
+        0.24334376183104073
+      ],
+      "delta_rgb_per_pixel": [
+        0.01121562344978877,
+        0.016283286526901725,
+        0.018029754953208466
+      ],
+      "before_luma_encoded": 0.2382763511801939,
+      "after_luma_encoded": 0.25360834755728073,
+      "delta_luma_per_pixel": 0.01533199637708682,
+      "delta_luma_sum_div_pixels": 0.01533199637708685,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.8254423542812466
+      ]
+    },
+    {
+      "lf": 1735,
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18-t05",
+      "before_status": "ok",
+      "after_status": "ok",
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "native_roi": [
+        441,
+        100,
+        519,
+        190
+      ],
+      "viewport": [
+        0,
+        0,
+        960,
+        432
+      ],
+      "pixels": 7020,
+      "paired_window_equal": true,
+      "before_rgb_encoded": [
+        0.32394559766494924,
+        0.3009250964531595,
+        0.46998660788298224
+      ],
+      "after_rgb_encoded": [
+        0.37005810718041476,
+        0.35002682344627134,
+        0.6117295189072084
+      ],
+      "delta_rgb_per_pixel": [
+        0.04611250951546553,
+        0.04910172699311183,
+        0.14174291102422615
+      ],
+      "before_luma_encoded": 0.3180254961360192,
+      "after_luma_encoded": 0.37318040898042987,
+      "delta_luma_per_pixel": 0.05515491284441065,
+      "delta_luma_sum_div_pixels": 0.055154912844410646,
+      "delta_luma_component_bounds": [
+        0.0,
+        0.4463537286877632
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h12",
+      "samples": 6,
+      "means": {
+        "pixels": 51769.5,
+        "before_luma_encoded": 0.28107099789965145,
+        "after_luma_encoded": 0.2905698185510582,
+        "delta_luma_per_pixel": 0.009498820651406725
+      },
+      "before_rgb_encoded": [
+        0.307838925797604,
+        0.2775043115284658,
+        0.23758114501277197
+      ],
+      "after_rgb_encoded": [
+        0.3149857330818878,
+        0.2872011918574076,
+        0.25204375736053897
+      ],
+      "delta_rgb_per_pixel": [
+        0.0071468072842838055,
+        0.009696880328941856,
+        0.014462612347767004
+      ]
+    },
+    {
+      "layer": "all_portal_sprites",
+      "case": "origine-lumiere/village1-out-h18",
+      "samples": 6,
+      "means": {
+        "pixels": 56782,
+        "before_luma_encoded": 0.24082311797848274,
+        "after_luma_encoded": 0.25107367618021936,
+        "delta_luma_per_pixel": 0.010250558201736626
+      },
+      "before_rgb_encoded": [
+        0.26420371459237724,
+        0.23487679720690144,
+        0.23087981847323324
+      ],
+      "after_rgb_encoded": [
+        0.27187680522765856,
+        0.24520724626470863,
+        0.24792859917312401
+      ],
+      "delta_rgb_per_pixel": [
+        0.007673090635281339,
+        0.010330449057807195,
+        0.017048780699890766
+      ]
+    },
+    {
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h12",
+      "samples": 6,
+      "means": {
+        "pixels": 61099,
+        "before_luma_encoded": 0.24924459588481304,
+        "after_luma_encoded": 0.26520798159809883,
+        "delta_luma_per_pixel": 0.015963385713285774
+      },
+      "before_rgb_encoded": [
+        0.2678878445030203,
+        0.24960763914421247,
+        0.19075147683559804
+      ],
+      "after_rgb_encoded": [
+        0.27837713159534183,
+        0.2657133719326009,
+        0.22142382014865605
+      ],
+      "delta_rgb_per_pixel": [
+        0.010489287092321534,
+        0.016105732788388477,
+        0.03067234331305801
+      ]
+    },
+    {
+      "layer": "all_portal_sprites",
+      "case": "recharged/village1-out-h18",
+      "samples": 6,
+      "means": {
+        "pixels": 59756.5,
+        "before_luma_encoded": 0.20510592909733114,
+        "after_luma_encoded": 0.2162607503485237,
+        "delta_luma_per_pixel": 0.011154821251192567
+      },
+      "before_rgb_encoded": [
+        0.22691835604868488,
+        0.2008843563580608,
+        0.18269522069384572
+      ],
+      "after_rgb_encoded": [
+        0.23478015457574672,
+        0.21160111931288547,
+        0.2078859965809455
+      ],
+      "delta_rgb_per_pixel": [
+        0.007861798527061856,
+        0.010716762954824674,
+        0.02519077588709977
+      ]
+    },
+    {
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h12",
+      "samples": 6,
+      "means": {
+        "pixels": 7020,
+        "before_luma_encoded": 0.36471041889332606,
+        "after_luma_encoded": 0.39992862573199844,
+        "delta_luma_per_pixel": 0.035218206838672404
+      },
+      "before_rgb_encoded": [
+        0.3745879288580612,
+        0.3523470824327433,
+        0.4580940701136324
+      ],
+      "after_rgb_encoded": [
+        0.400659842359155,
+        0.38274715408176035,
+        0.567972003423367
+      ],
+      "delta_rgb_per_pixel": [
+        0.026071913501093873,
+        0.030400071649017053,
+        0.10987793330973455
+      ]
+    },
+    {
+      "layer": "portal_disc",
+      "case": "origine-lumiere/village1-out-h18",
+      "samples": 6,
+      "means": {
+        "pixels": 7020,
+        "before_luma_encoded": 0.31921172870251036,
+        "after_luma_encoded": 0.3619145237441804,
+        "delta_luma_per_pixel": 0.04270279504167007
+      },
+      "before_rgb_encoded": [
+        0.32507114001421095,
+        0.3021481193329012,
+        0.4709871106454041
+      ],
+      "after_rgb_encoded": [
+        0.36276726610425697,
+        0.3372372200285595,
+        0.6038523989749263
+      ],
+      "delta_rgb_per_pixel": [
+        0.037696126090046043,
+        0.03508910069565827,
+        0.1328652883295221
+      ]
+    },
+    {
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h12",
+      "samples": 6,
+      "means": {
+        "pixels": 7020,
+        "before_luma_encoded": 0.2875967783120419,
+        "after_luma_encoded": 0.34602231846071263,
+        "delta_luma_per_pixel": 0.05842554014867074
+      },
+      "before_rgb_encoded": [
+        0.30449843388563774,
+        0.2761739408415154,
+        0.3509807309986632
+      ],
+      "after_rgb_encoded": [
+        0.34947974281093674,
+        0.31872660699393335,
+        0.6062279199036891
+      ],
+      "delta_rgb_per_pixel": [
+        0.04498130892529901,
+        0.042552666152417935,
+        0.25524718890502585
+      ]
+    },
+    {
+      "layer": "portal_disc",
+      "case": "recharged/village1-out-h18",
+      "samples": 6,
+      "means": {
+        "pixels": 7020,
+        "before_luma_encoded": 0.260096793916916,
+        "after_luma_encoded": 0.3088237236304704,
+        "delta_luma_per_pixel": 0.048726929713554405
+      },
+      "before_rgb_encoded": [
+        0.28723168857643294,
+        0.24204300430312342,
+        0.35903296742344176
+      ],
+      "after_rgb_encoded": [
+        0.3229704366903133,
+        0.27821570991450906,
+        0.5703647238123677
+      ],
+      "delta_rgb_per_pixel": [
+        0.03573874811388036,
+        0.03617270561138563,
+        0.21133175638892598
+      ]
+    }
+  ]
+}

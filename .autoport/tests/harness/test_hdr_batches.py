@@ -1414,6 +1414,7 @@ def sky_region_sources(root, mutate=lambda w: None):
     for frame in (100, 112, 200, 212):
         cloud = dict(actor=0, lf=frame, case='clouds', layer='clouds',
                      association='sky_draw_textured_triangles', bucket=3, prim_tme=True,
+                     prim_abe=True, alpha_a=0, alpha_b=2, alpha_c=0, alpha_d=1, alpha_fix=0,
                      vertices=18, tbps=[8096], roi=[0, 0, 320, 90], supported=True, passed=True,
                      reason='textured triangles')
         mutate(cloud)
@@ -1549,3 +1550,75 @@ def test_partial_sun_loss_survives_replacement(tmp_path):
                values={'refset_temporal_samples': '2'})
     with pytest.raises(ValueError, match='cannot erase measured sky defect'):
         hdr.check_owner_replacement(old, key, copy.deepcopy(old), key)
+
+
+@pytest.mark.parametrize('layer', ['clouds', 'sunset-sun'])
+@pytest.mark.parametrize('components_complete', [False, True])
+@pytest.mark.parametrize('failure', [None, 'flat', 'detail', 'clipped'])
+def test_sky_no_off_whites_keeps_partial_failures(layer, components_complete, failure):
+    row = temporal_owner_row(0, (0, 0))
+    row.update(layer=layer, view_hour='village1-warp-h18')
+    for sample in row['samples']:
+        sample['sun_components_complete'] = components_complete
+        sample['stats'].update(white=0, nearwhite=20, flat=.05, detail=10, clipped=20)
+        if sample['arm'] == 'recharged' and failure:
+            sample['stats'][failure] = {'flat': .06, 'detail': 9, 'clipped': 21}[failure]
+    judgment = hdr.sky_sequence_judgment(row, 2)
+    assert judgment['status'] == 'not_judged'
+    assert not judgment.get('measured')
+    assert judgment['reason'] == ('incomplete visible sun disc and two distinct rays'
+        if layer == 'sunset-sun' and not components_complete else 'expected OFF whites not observed')
+    partial = judgment['partial_photometry']
+    assert partial['status'] == ('failed' if failure else 'passed')
+    assert len(partial['failures']) == int(failure is not None)
+    if failure:
+        assert partial['failures'][0].startswith(failure + ':')
+    diagnostic = {'schema': 1, 'errors': [], 'regions': [row]}
+    metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    assert metrics['hdr_owner_regressions_failed'] == int(failure is not None)
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
+    assert details['passed'] == []
+
+
+@pytest.mark.parametrize('fault', ['population', 'duplicate', 'invisible', 'invalid_measurement'])
+def test_sky_no_off_whites_does_not_bypass_sequence_guards(fault):
+    row = temporal_owner_row(0, (0, 0))
+    row['layer'] = 'sunset-sun'
+    for sample in row['samples']:
+        sample['sun_components_complete'] = True
+        sample['stats']['white'] = 0
+    if fault == 'population': row['samples'].pop()
+    if fault == 'duplicate': row['samples'][0]['image'] = row['samples'][1]['image']
+    if fault == 'invisible': row['samples'][0]['visible_sprites'] = 0
+    if fault == 'invalid_measurement': row['samples'][0]['stats']['detail'] = float('nan')
+    judgment = hdr.sky_sequence_judgment(row, 2)
+    assert judgment['status'] == 'not_judged'
+    assert not judgment.get('measured')
+    assert 'partial_photometry' not in judgment
+
+
+@pytest.mark.parametrize('field', ['prim_abe', 'alpha_a', 'alpha_b', 'alpha_c', 'alpha_d', 'alpha_fix'])
+@pytest.mark.parametrize('fault', ['absent', 'wrong', 'wrong_type'])
+def test_clouds_require_explicit_additive_alpha_provenance(tmp_path, field, fault):
+    def mutate(w):
+        if w.get('layer') != 'clouds': return
+        if fault == 'absent': w.pop(field)
+        elif fault == 'wrong': w[field] = False if field == 'prim_abe' else int(w[field] != 1)
+        else: w[field] = 1 if field == 'prim_abe' else float(w[field])
+    diagnostic = hdr.owner_regions(tmp_path, sky_region_sources(tmp_path, mutate), portal_fake_measure)
+    assert diagnostic['errors'] == ['invalid sprite witness: invalid clouds provenance'] * 4
+    assert all(row['layer'] != 'clouds' for row in diagnostic['regions'])
+    metrics, _ = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
+
+
+def test_clouds_additive_provenance_does_not_depend_on_tbp(tmp_path):
+    def mutate(w):
+        if w.get('layer') == 'clouds': w['tbps'] = [123, 456]
+    diagnostic = hdr.owner_regions(tmp_path, sky_region_sources(tmp_path, mutate), portal_fake_measure)
+    assert diagnostic['errors'] == []
+    clouds = next(row for row in diagnostic['regions'] if row['layer'] == 'clouds')
+    assert len(clouds['witnesses']) == 4
+    _, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    finding = next(row for row in details['findings'] if row['case'].startswith('nuages'))
+    assert finding['status'] == 'not_judged'

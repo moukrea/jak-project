@@ -1,0 +1,1118 @@
+{
+  "props-start.txt": {
+    "reference_sha": "738abc7c709fae2ed7cdd05eabaadf61b0e4a9691522211f2fb157930fd9cb7c",
+    "current_sha": "8e19797cce5c58cdc895bb4e2ac71db7dd534edbc5408526b7a35a880493ad9b",
+    "modulation_overrides": {
+      "debug.opengoal.rt.litboost": "",
+      "debug.opengoal.rt.shadowmul": "",
+      "debug.opengoal.rt.tintlit": "",
+      "debug.opengoal.rt.tintshadow": ""
+    }
+  },
+  "props-end.txt": {
+    "reference_sha": "3919207db2283a75a080bb0172f859845713e0fe0e4750480fc72e2ba02d3cef",
+    "current_sha": "23df69800520fa9f1de816fe575be4bc5aea6c869c9df4d0542c6c24bfa8656b",
+    "modulation_overrides": {
+      "debug.opengoal.rt.litboost": "",
+      "debug.opengoal.rt.shadowmul": "",
+      "debug.opengoal.rt.tintlit": "",
+      "debug.opengoal.rt.tintshadow": ""
+    }
+  },
+  "settings-start.ini": {
+    "reference_sha": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+    "current_sha": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6"
+  },
+  "settings-end.ini": {
+    "reference_sha": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+    "current_sha": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6"
+  },
+  "settings_equal": true,
+  "debug_differences": {
+    "props-start.txt": {},
+    "props-end.txt": {}
+  },
+  "effective_records": [
+    {
+      "case": "recharged/village1-out-h12",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 11,
+          "particle_repin_lf": 1442,
+          "particle_step": "once-per-logic-frame",
+          "sample": 0,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h12-t01",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 23,
+          "particle_repin_lf": 1442,
+          "particle_step": "once-per-logic-frame",
+          "sample": 1,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h12-t02",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 35,
+          "particle_repin_lf": 1442,
+          "particle_step": "once-per-logic-frame",
+          "sample": 2,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h12-t03",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 47,
+          "particle_repin_lf": 1442,
+          "particle_step": "once-per-logic-frame",
+          "sample": 3,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h12-t04",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 59,
+          "particle_repin_lf": 1442,
+          "particle_step": "once-per-logic-frame",
+          "sample": 4,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h12-t05",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 71,
+          "particle_repin_lf": 1442,
+          "particle_step": "once-per-logic-frame",
+          "sample": 5,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h12",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 11,
+          "particle_repin_lf": 1516,
+          "particle_step": "once-per-logic-frame",
+          "sample": 0,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h12-t01",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 23,
+          "particle_repin_lf": 1516,
+          "particle_step": "once-per-logic-frame",
+          "sample": 1,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h12-t02",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 35,
+          "particle_repin_lf": 1516,
+          "particle_step": "once-per-logic-frame",
+          "sample": 2,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h12-t03",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 47,
+          "particle_repin_lf": 1516,
+          "particle_step": "once-per-logic-frame",
+          "sample": 3,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h12-t04",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 59,
+          "particle_repin_lf": 1516,
+          "particle_step": "once-per-logic-frame",
+          "sample": 4,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h12-t05",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 71,
+          "particle_repin_lf": 1516,
+          "particle_step": "once-per-logic-frame",
+          "sample": 5,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h18",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 11,
+          "particle_repin_lf": 1590,
+          "particle_step": "once-per-logic-frame",
+          "sample": 0,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h18-t01",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 23,
+          "particle_repin_lf": 1590,
+          "particle_step": "once-per-logic-frame",
+          "sample": 1,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h18-t02",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 35,
+          "particle_repin_lf": 1590,
+          "particle_step": "once-per-logic-frame",
+          "sample": 2,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h18-t03",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 47,
+          "particle_repin_lf": 1590,
+          "particle_step": "once-per-logic-frame",
+          "sample": 3,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h18-t04",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 59,
+          "particle_repin_lf": 1590,
+          "particle_step": "once-per-logic-frame",
+          "sample": 4,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "recharged/village1-out-h18-t05",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 71,
+          "particle_repin_lf": 1590,
+          "particle_step": "once-per-logic-frame",
+          "sample": 5,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h18",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 11,
+          "particle_repin_lf": 1664,
+          "particle_step": "once-per-logic-frame",
+          "sample": 0,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h18-t01",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 23,
+          "particle_repin_lf": 1664,
+          "particle_step": "once-per-logic-frame",
+          "sample": 1,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h18-t02",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 35,
+          "particle_repin_lf": 1664,
+          "particle_step": "once-per-logic-frame",
+          "sample": 2,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h18-t03",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 47,
+          "particle_repin_lf": 1664,
+          "particle_step": "once-per-logic-frame",
+          "sample": 3,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h18-t04",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 59,
+          "particle_repin_lf": 1664,
+          "particle_step": "once-per-logic-frame",
+          "sample": 4,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    },
+    {
+      "case": "origine-lumiere/village1-out-h18-t05",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.949999988079071,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 71,
+          "particle_repin_lf": 1664,
+          "particle_step": "once-per-logic-frame",
+          "sample": 5,
+          "samples": 6,
+          "spacing_lf": 12
+        }
+      }
+    }
+  ],
+  "nonlighting_others_equal": true
+}

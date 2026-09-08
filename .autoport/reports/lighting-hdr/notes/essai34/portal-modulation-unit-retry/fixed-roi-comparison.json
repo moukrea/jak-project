@@ -1,0 +1,3990 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "purpose": "Comparaison diagnostique ROI fixe33, s\u00e9quences6 sans \u00e9galit\u00e9 frame ; aucun manifeste modifi\u00e9.",
+  "rows": [
+    {
+      "run": "normal34",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        70
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12.png",
+          "sha256": "3f3081eeafade21f4dad2b12f4ceb67d5b9522435f2ad6aa7df3a0492087c6f5",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 5,
+            "nearwhite": 21,
+            "clipped": 793,
+            "black": 0,
+            "luma": 81.42099056603773,
+            "luma_p99": 229.0,
+            "detail": 20.47613076578594,
+            "flat": 0.018151962979549185,
+            "saturation": 0.4916459972598539,
+            "hue_bins": [
+              8610,
+              7853,
+              5837,
+              3381,
+              3465,
+              346,
+              826,
+              1286,
+              750,
+              274,
+              509,
+              770
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t01.png",
+          "sha256": "48ef76d0ff7d7d41d47a05f3e483c8dbd661ad7b0601b46ba5fec5e05a26bc2e",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 3,
+            "nearwhite": 19,
+            "clipped": 806,
+            "black": 0,
+            "luma": 82.0294516509434,
+            "luma_p99": 229.0,
+            "detail": 20.698253470667265,
+            "flat": 0.017316017316017316,
+            "saturation": 0.4951148934171716,
+            "hue_bins": [
+              8537,
+              7874,
+              5856,
+              3450,
+              3466,
+              340,
+              804,
+              1268,
+              778,
+              287,
+              496,
+              757
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t02.png",
+          "sha256": "fa45455e572d8b38840eca85ea86da345ffc0aa64f705dd70f388021df6ea556",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 3,
+            "nearwhite": 13,
+            "clipped": 869,
+            "black": 0,
+            "luma": 82.52959905660377,
+            "luma_p99": 229.0,
+            "detail": 20.854157336915957,
+            "flat": 0.017525003731900284,
+            "saturation": 0.49791925422250255,
+            "hue_bins": [
+              8550,
+              7938,
+              5812,
+              3418,
+              3504,
+              324,
+              778,
+              1248,
+              791,
+              308,
+              483,
+              759
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t03.png",
+          "sha256": "bd48ff5cf54384ba455858ed10c9f55b41cc7eee02f33090e629641e308a9d50",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 8,
+            "clipped": 910,
+            "black": 0,
+            "luma": 82.43741155660378,
+            "luma_p99": 229.0,
+            "detail": 20.86006866696522,
+            "flat": 0.017047320495596357,
+            "saturation": 0.49682300281356206,
+            "hue_bins": [
+              8509,
+              8093,
+              5669,
+              3451,
+              3461,
+              361,
+              736,
+              1215,
+              843,
+              288,
+              507,
+              784
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t04.png",
+          "sha256": "08162cfab0646c2a8fc0cf6eb18837621df748d559b5c2eddee99798ec1044af",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 7,
+            "clipped": 961,
+            "black": 0,
+            "luma": 82.38832547169811,
+            "luma_p99": 229.0,
+            "detail": 20.614748469920883,
+            "flat": 0.017107030900134348,
+            "saturation": 0.4957988259910087,
+            "hue_bins": [
+              8514,
+              7923,
+              5943,
+              3333,
+              3485,
+              323,
+              781,
+              1230,
+              815,
+              298,
+              491,
+              777
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t05.png",
+          "sha256": "3bf00e50613a7b93fbce26fecd408bf661dc34c94f13398ffe4a038be2df4735",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 8,
+            "clipped": 1144,
+            "black": 0,
+            "luma": 82.55159198113208,
+            "luma_p99": 229.0,
+            "detail": 20.51974921630094,
+            "flat": 0.01788326615912823,
+            "saturation": 0.49547619349663374,
+            "hue_bins": [
+              8467,
+              8231,
+              5616,
+              3376,
+              3456,
+              330,
+              781,
+              1207,
+              878,
+              282,
+              512,
+              778
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 1.8333333333333333,
+          "min": 0,
+          "max": 5
+        },
+        "nearwhite": {
+          "mean": 12.666666666666666,
+          "min": 7,
+          "max": 21
+        },
+        "clipped": {
+          "mean": 913.8333333333334,
+          "min": 793,
+          "max": 1144
+        },
+        "luma": {
+          "mean": 82.22622838050314,
+          "min": 81.42099056603773,
+          "max": 82.55159198113208
+        },
+        "detail": {
+          "mean": 20.670517987759368,
+          "min": 20.47613076578594,
+          "max": 20.86006866696522
+        },
+        "flat": {
+          "mean": 0.017505100263720954,
+          "min": 0.017047320495596357,
+          "max": 0.018151962979549185
+        },
+        "saturation": {
+          "mean": 0.49546302786678875,
+          "min": 0.4916459972598539,
+          "max": 0.49791925422250255
+        }
+      }
+    },
+    {
+      "run": "normal34",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 12,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        70
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12.png",
+          "sha256": "f2ac00bd320b915843bf9125e9c91ea1a530591f84ed08768cb54d84f9a3e072",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 2,
+            "nearwhite": 5,
+            "clipped": 655,
+            "black": 0,
+            "luma": 73.8263266509434,
+            "luma_p99": 224.0,
+            "detail": 21.070637408568444,
+            "flat": 0.020809075981489775,
+            "saturation": 0.49609189368060563,
+            "hue_bins": [
+              9663,
+              7430,
+              5276,
+              4396,
+              2579,
+              319,
+              743,
+              946,
+              918,
+              365,
+              429,
+              849
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t01.png",
+          "sha256": "6b1c6c6f57da30d6ec511e71d65fd78cf0ae889299e105fa76f63db0b79ee63e",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 1,
+            "nearwhite": 2,
+            "clipped": 676,
+            "black": 0,
+            "luma": 74.47334905660378,
+            "luma_p99": 225.0,
+            "detail": 21.05529183460218,
+            "flat": 0.020600089565606806,
+            "saturation": 0.49598529870615005,
+            "hue_bins": [
+              8706,
+              8238,
+              5334,
+              4469,
+              2596,
+              308,
+              756,
+              1233,
+              671,
+              342,
+              431,
+              831
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t02.png",
+          "sha256": "bde5b54556d940648713114831fa627cbe16dac82b3f85f58bc4c3c8b4aca4eb",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 2,
+            "clipped": 758,
+            "black": 0,
+            "luma": 75.59705188679246,
+            "luma_p99": 226.0,
+            "detail": 21.287445887445887,
+            "flat": 0.020361247947454843,
+            "saturation": 0.5018321244877072,
+            "hue_bins": [
+              8545,
+              7442,
+              6212,
+              4569,
+              2642,
+              325,
+              758,
+              1228,
+              665,
+              294,
+              415,
+              820
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t03.png",
+          "sha256": "46f4c7053f43cbf51a92335c98937fde37ccb699d21f397ae3696dba54dddd9b",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 3,
+            "nearwhite": 9,
+            "clipped": 838,
+            "black": 0,
+            "luma": 75.16553655660377,
+            "luma_p99": 227.0,
+            "detail": 21.616778623675174,
+            "flat": 0.0200029855202269,
+            "saturation": 0.5003300820640275,
+            "hue_bins": [
+              8776,
+              8069,
+              5421,
+              4488,
+              2593,
+              316,
+              756,
+              1177,
+              714,
+              339,
+              443,
+              820
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t04.png",
+          "sha256": "2043c72aad9ce0751041a0cf21fd3772fed85c12d3f34237b120eb8128848162",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 8,
+            "nearwhite": 14,
+            "clipped": 863,
+            "black": 0,
+            "luma": 75.20908018867925,
+            "luma_p99": 227.0,
+            "detail": 21.573040752351098,
+            "flat": 0.01961486789072996,
+            "saturation": 0.501123700104078,
+            "hue_bins": [
+              8713,
+              7544,
+              6025,
+              4463,
+              2596,
+              356,
+              766,
+              1190,
+              728,
+              300,
+              419,
+              809
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t05.png",
+          "sha256": "2de2f4d2bb1613a91e2e0ab41c5c40ea830fc6e64040a1775847579906558713",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 8,
+            "nearwhite": 15,
+            "clipped": 965,
+            "black": 0,
+            "luma": 74.9387087264151,
+            "luma_p99": 227.0,
+            "detail": 21.22824302134647,
+            "flat": 0.020182116733840873,
+            "saturation": 0.49866127049711306,
+            "hue_bins": [
+              9701,
+              7282,
+              5367,
+              4438,
+              2537,
+              285,
+              753,
+              1096,
+              797,
+              384,
+              432,
+              833
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 3.6666666666666665,
+          "min": 0,
+          "max": 8
+        },
+        "nearwhite": {
+          "mean": 7.833333333333333,
+          "min": 2,
+          "max": 15
+        },
+        "clipped": {
+          "mean": 792.5,
+          "min": 655,
+          "max": 965
+        },
+        "luma": {
+          "mean": 74.86834217767296,
+          "min": 73.8263266509434,
+          "max": 75.59705188679246
+        },
+        "detail": {
+          "mean": 21.30523958799821,
+          "min": 21.05529183460218,
+          "max": 21.616778623675174
+        },
+        "flat": {
+          "mean": 0.02026173060655819,
+          "min": 0.01961486789072996,
+          "max": 0.020809075981489775
+        },
+        "saturation": {
+          "mean": 0.4990040615899469,
+          "min": 0.49598529870615005,
+          "max": 0.5018321244877072
+        }
+      }
+    },
+    {
+      "run": "normal34",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        70
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18.png",
+          "sha256": "be6f5e2c22c87e830a2b1597f7f08dae2d3a5967e7914fef9e4f8b721b678232",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 719,
+            "black": 0,
+            "luma": 74.06338443396227,
+            "luma_p99": 224.0,
+            "detail": 19.85176892073444,
+            "flat": 0.022092849679056576,
+            "saturation": 0.48945592185005565,
+            "hue_bins": [
+              8403,
+              5968,
+              4604,
+              1483,
+              557,
+              3193,
+              2216,
+              2431,
+              1876,
+              705,
+              972,
+              1509
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t01.png",
+          "sha256": "2c566c89090f238b0149a7357255c7a9c2b2353acdc89c619cba26b7a92eb519",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 734,
+            "black": 0,
+            "luma": 73.91400353773585,
+            "luma_p99": 224.0,
+            "detail": 19.895596357665323,
+            "flat": 0.02212270488132557,
+            "saturation": 0.48932821031466694,
+            "hue_bins": [
+              8525,
+              5787,
+              4615,
+              1497,
+              556,
+              3205,
+              2190,
+              2391,
+              1925,
+              737,
+              982,
+              1507
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t02.png",
+          "sha256": "5d1f99b272e5a63d6c0b7a9bb2b5ed20f75688f74e5257987b651c5d14138d14",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 746,
+            "black": 0,
+            "luma": 73.38599646226415,
+            "luma_p99": 224.0,
+            "detail": 19.74978354978355,
+            "flat": 0.022182415285863562,
+            "saturation": 0.488080976462239,
+            "hue_bins": [
+              9131,
+              5207,
+              4554,
+              1471,
+              550,
+              3150,
+              2107,
+              2431,
+              2053,
+              769,
+              977,
+              1517
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t03.png",
+          "sha256": "63c17fbc98dd7f23fee87da6b3ff3bd2106d58eda0023c54fded9952e61ad793",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 953,
+            "black": 0,
+            "luma": 74.09991155660377,
+            "luma_p99": 224.0,
+            "detail": 19.46717420510524,
+            "flat": 0.02263024331989849,
+            "saturation": 0.4873819243210096,
+            "hue_bins": [
+              8285,
+              5740,
+              4833,
+              1536,
+              564,
+              3129,
+              2131,
+              2406,
+              2139,
+              707,
+              940,
+              1506
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t04.png",
+          "sha256": "6f00e3c0a75b810533dedf2e1c58af2eb6298e8fb42180e4c49ce79fdf877f2b",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 967,
+            "black": 0,
+            "luma": 74.35188679245283,
+            "luma_p99": 225.0,
+            "detail": 19.572891476339752,
+            "flat": 0.02328705776981639,
+            "saturation": 0.48778318126494413,
+            "hue_bins": [
+              8303,
+              5853,
+              4681,
+              1562,
+              564,
+              3148,
+              2155,
+              2301,
+              2179,
+              695,
+              956,
+              1520
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t05.png",
+          "sha256": "3d1eb6cf1a53fff4c65953e6772e3a4217e93053248dd80814d6b2a9ebaf323c",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 955,
+            "black": 0,
+            "luma": 74.69118514150944,
+            "luma_p99": 225.0,
+            "detail": 19.886908493805045,
+            "flat": 0.02227198089267055,
+            "saturation": 0.4920457130065887,
+            "hue_bins": [
+              9076,
+              5184,
+              4719,
+              1555,
+              577,
+              3099,
+              2197,
+              2352,
+              1926,
+              738,
+              970,
+              1524
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 845.6666666666666,
+          "min": 719,
+          "max": 967
+        },
+        "luma": {
+          "mean": 74.08439465408804,
+          "min": 73.38599646226415,
+          "max": 74.69118514150944
+        },
+        "detail": {
+          "mean": 19.73735383390556,
+          "min": 19.46717420510524,
+          "max": 19.895596357665323
+        },
+        "flat": {
+          "mean": 0.02243120863810519,
+          "min": 0.022092849679056576,
+          "max": 0.02328705776981639
+        },
+        "saturation": {
+          "mean": 0.489012654536584,
+          "min": 0.4873819243210096,
+          "max": 0.4920457130065887
+        }
+      }
+    },
+    {
+      "run": "normal34",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 18,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        70
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18.png",
+          "sha256": "e5565d02058d7a3a913a7e7b391a9c7931ddccfe7323b0462f5b0bd577519df5",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 728,
+            "black": 0,
+            "luma": 62.765035377358494,
+            "luma_p99": 226.0,
+            "detail": 18.975130616509926,
+            "flat": 0.03731900283624422,
+            "saturation": 0.49338216985090777,
+            "hue_bins": [
+              9131,
+              5176,
+              4575,
+              1555,
+              419,
+              2840,
+              2500,
+              2208,
+              2372,
+              617,
+              1018,
+              1505
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t01.png",
+          "sha256": "c6d97dc2aeb089ce5a19c60a32034b611da85ab2f7b3fe07973951fdaf628325",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 776,
+            "black": 0,
+            "luma": 64.22889150943396,
+            "luma_p99": 226.0,
+            "detail": 19.175429168532617,
+            "flat": 0.036662188386326316,
+            "saturation": 0.49862458496540085,
+            "hue_bins": [
+              8426,
+              5283,
+              5231,
+              1630,
+              435,
+              2874,
+              2457,
+              2524,
+              1985,
+              554,
+              1009,
+              1507
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t02.png",
+          "sha256": "f00ff3ea47e8ac2fb827db9218dee3a48ed92bcb42f920cb1d9faace8205b923",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 821,
+            "black": 0,
+            "luma": 63.51276533018868,
+            "luma_p99": 226.0,
+            "detail": 19.20420958351993,
+            "flat": 0.03669204358859531,
+            "saturation": 0.49856525292188686,
+            "hue_bins": [
+              9328,
+              4930,
+              4663,
+              1563,
+              428,
+              2822,
+              2455,
+              2500,
+              2051,
+              638,
+              1012,
+              1526
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t03.png",
+          "sha256": "63fa60836709fab838257bb3e54874a6076a292e2c349b097d0521a444b664d9",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 797,
+            "black": 0,
+            "luma": 63.58349056603774,
+            "luma_p99": 226.0,
+            "detail": 19.02400358262427,
+            "flat": 0.0360949395432154,
+            "saturation": 0.4964006243603087,
+            "hue_bins": [
+              8566,
+              5623,
+              4732,
+              1562,
+              437,
+              2794,
+              2378,
+              2541,
+              2192,
+              577,
+              1014,
+              1499
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t04.png",
+          "sha256": "9284aedfe75d3cd823280301b21dc09415140b912db25b355ab56d9c4b1fc914",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 919,
+            "black": 0,
+            "luma": 63.698909198113206,
+            "luma_p99": 226.0,
+            "detail": 18.875921779370056,
+            "flat": 0.03642334676817435,
+            "saturation": 0.4954231769427542,
+            "hue_bins": [
+              8632,
+              5661,
+              4621,
+              1566,
+              427,
+              2802,
+              2365,
+              2569,
+              2189,
+              584,
+              1007,
+              1492
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t05.png",
+          "sha256": "59b6a36bf4f1632bd70de5e8bb7fe4d1a7d364febab42067f341afefcc5d8d0a",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 988,
+            "black": 0,
+            "luma": 63.80350825471698,
+            "luma_p99": 226.0,
+            "detail": 18.937960889685026,
+            "flat": 0.03597551873413942,
+            "saturation": 0.4961012141898827,
+            "hue_bins": [
+              9395,
+              4923,
+              4593,
+              1579,
+              445,
+              2797,
+              2411,
+              2467,
+              2144,
+              612,
+              1021,
+              1528
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 838.1666666666666,
+          "min": 728,
+          "max": 988
+        },
+        "luma": {
+          "mean": 63.598766705974846,
+          "min": 62.765035377358494,
+          "max": 64.22889150943396
+        },
+        "detail": {
+          "mean": 19.032109270040305,
+          "min": 18.875921779370056,
+          "max": 19.20420958351993
+        },
+        "flat": {
+          "mean": 0.03652783997611583,
+          "min": 0.03597551873413942,
+          "max": 0.03731900283624422
+        },
+        "saturation": {
+          "mean": 0.4964161705385235,
+          "min": 0.49338216985090777,
+          "max": 0.49862458496540085
+        }
+      }
+    },
+    {
+      "run": "normal34",
+      "layer": "portal_disc",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "roi_fixed": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "roi_generated": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12.png",
+          "sha256": "3f3081eeafade21f4dad2b12f4ceb67d5b9522435f2ad6aa7df3a0492087c6f5",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 95.57692307692308,
+            "luma_p99": 155.39,
+            "detail": 18.166666666666668,
+            "flat": 0.028888888888888888,
+            "saturation": 0.44995431017404014,
+            "hue_bins": [
+              250,
+              18,
+              3,
+              0,
+              0,
+              0,
+              1,
+              567,
+              54,
+              14,
+              23,
+              32
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t01.png",
+          "sha256": "48ef76d0ff7d7d41d47a05f3e483c8dbd661ad7b0601b46ba5fec5e05a26bc2e",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2,
+            "black": 0,
+            "luma": 97.91995841995842,
+            "luma_p99": 155.0,
+            "detail": 18.59,
+            "flat": 0.02,
+            "saturation": 0.4613532119368695,
+            "hue_bins": [
+              242,
+              23,
+              2,
+              1,
+              0,
+              0,
+              0,
+              560,
+              69,
+              15,
+              17,
+              33
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t02.png",
+          "sha256": "fa45455e572d8b38840eca85ea86da345ffc0aa64f705dd70f388021df6ea556",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 61,
+            "black": 0,
+            "luma": 106.22869022869023,
+            "luma_p99": 156.39,
+            "detail": 20.006666666666668,
+            "flat": 0.014444444444444444,
+            "saturation": 0.5047173535843712,
+            "hue_bins": [
+              246,
+              17,
+              2,
+              0,
+              0,
+              0,
+              0,
+              564,
+              63,
+              18,
+              17,
+              35
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t03.png",
+          "sha256": "bd48ff5cf54384ba455858ed10c9f55b41cc7eee02f33090e629641e308a9d50",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 68,
+            "black": 0,
+            "luma": 102.48024948024948,
+            "luma_p99": 160.77999999999997,
+            "detail": 20.913333333333334,
+            "flat": 0.011111111111111112,
+            "saturation": 0.47780173962366684,
+            "hue_bins": [
+              247,
+              20,
+              2,
+              0,
+              0,
+              0,
+              0,
+              538,
+              86,
+              15,
+              24,
+              30
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t04.png",
+          "sha256": "08162cfab0646c2a8fc0cf6eb18837621df748d559b5c2eddee99798ec1044af",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 125,
+            "black": 0,
+            "luma": 106.05301455301455,
+            "luma_p99": 171.55999999999995,
+            "detail": 22.176666666666666,
+            "flat": 0.0033333333333333335,
+            "saturation": 0.48047898418692647,
+            "hue_bins": [
+              250,
+              19,
+              2,
+              0,
+              0,
+              0,
+              0,
+              529,
+              93,
+              18,
+              16,
+              35
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h12-t05.png",
+          "sha256": "3bf00e50613a7b93fbce26fecd408bf661dc34c94f13398ffe4a038be2df4735",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 297,
+            "black": 0,
+            "luma": 113.99168399168398,
+            "luma_p99": 198.0,
+            "detail": 23.54,
+            "flat": 0.0077777777777777776,
+            "saturation": 0.4988109066158963,
+            "hue_bins": [
+              241,
+              18,
+              2,
+              0,
+              0,
+              0,
+              13,
+              533,
+              91,
+              11,
+              16,
+              37
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 92.16666666666667,
+          "min": 0,
+          "max": 297
+        },
+        "luma": {
+          "mean": 103.70841995841995,
+          "min": 95.57692307692308,
+          "max": 113.99168399168398
+        },
+        "detail": {
+          "mean": 20.565555555555555,
+          "min": 18.166666666666668,
+          "max": 23.54
+        },
+        "flat": {
+          "mean": 0.01425925925925926,
+          "min": 0.0033333333333333335,
+          "max": 0.028888888888888888
+        },
+        "saturation": {
+          "mean": 0.47885275102029506,
+          "min": 0.44995431017404014,
+          "max": 0.5047173535843712
+        }
+      }
+    },
+    {
+      "run": "normal34",
+      "layer": "portal_disc",
+      "arm": "recharged",
+      "hour": 12,
+      "roi_fixed": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "roi_generated": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12.png",
+          "sha256": "f2ac00bd320b915843bf9125e9c91ea1a530591f84ed08768cb54d84f9a3e072",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 80.5893970893971,
+            "luma_p99": 161.77999999999997,
+            "detail": 19.124444444444446,
+            "flat": 0.021111111111111112,
+            "saturation": 0.5273729563498389,
+            "hue_bins": [
+              253,
+              19,
+              1,
+              0,
+              0,
+              0,
+              1,
+              277,
+              342,
+              18,
+              16,
+              35
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t01.png",
+          "sha256": "6b1c6c6f57da30d6ec511e71d65fd78cf0ae889299e105fa76f63db0b79ee63e",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 1,
+            "black": 0,
+            "luma": 86.21101871101871,
+            "luma_p99": 161.77999999999997,
+            "detail": 19.623333333333335,
+            "flat": 0.015555555555555555,
+            "saturation": 0.5338293784391289,
+            "hue_bins": [
+              246,
+              18,
+              1,
+              0,
+              0,
+              0,
+              1,
+              561,
+              66,
+              15,
+              18,
+              36
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t02.png",
+          "sha256": "bde5b54556d940648713114831fa627cbe16dac82b3f85f58bc4c3c8b4aca4eb",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 25,
+            "black": 0,
+            "luma": 84.47713097713098,
+            "luma_p99": 160.39,
+            "detail": 20.354444444444443,
+            "flat": 0.01888888888888889,
+            "saturation": 0.5591582286020372,
+            "hue_bins": [
+              244,
+              18,
+              1,
+              0,
+              0,
+              0,
+              1,
+              546,
+              84,
+              14,
+              17,
+              37
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t03.png",
+          "sha256": "46f4c7053f43cbf51a92335c98937fde37ccb699d21f397ae3696dba54dddd9b",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 99,
+            "black": 0,
+            "luma": 93.84095634095634,
+            "luma_p99": 163.0,
+            "detail": 22.03,
+            "flat": 0.01,
+            "saturation": 0.5242142277848388,
+            "hue_bins": [
+              248,
+              17,
+              1,
+              0,
+              0,
+              0,
+              2,
+              497,
+              128,
+              12,
+              22,
+              35
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t04.png",
+          "sha256": "2043c72aad9ce0751041a0cf21fd3772fed85c12d3f34237b120eb8128848162",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 128,
+            "black": 0,
+            "luma": 91.0893970893971,
+            "luma_p99": 163.39,
+            "detail": 23.391111111111112,
+            "flat": 0.0044444444444444444,
+            "saturation": 0.5497116251064522,
+            "hue_bins": [
+              247,
+              18,
+              0,
+              0,
+              0,
+              0,
+              0,
+              509,
+              118,
+              14,
+              23,
+              33
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h12-t05.png",
+          "sha256": "2de2f4d2bb1613a91e2e0ab41c5c40ea830fc6e64040a1775847579906558713",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 232,
+            "black": 0,
+            "luma": 101.73804573804574,
+            "luma_p99": 199.0,
+            "detail": 25.02111111111111,
+            "flat": 0.0044444444444444444,
+            "saturation": 0.5064642419414679,
+            "hue_bins": [
+              243,
+              16,
+              1,
+              0,
+              0,
+              0,
+              0,
+              416,
+              208,
+              25,
+              18,
+              35
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 80.83333333333333,
+          "min": 0,
+          "max": 232
+        },
+        "luma": {
+          "mean": 89.65765765765767,
+          "min": 80.5893970893971,
+          "max": 101.73804573804574
+        },
+        "detail": {
+          "mean": 21.590740740740742,
+          "min": 19.124444444444446,
+          "max": 25.02111111111111
+        },
+        "flat": {
+          "mean": 0.012407407407407407,
+          "min": 0.0044444444444444444,
+          "max": 0.021111111111111112
+        },
+        "saturation": {
+          "mean": 0.533458443037294,
+          "min": 0.5064642419414679,
+          "max": 0.5591582286020372
+        }
+      }
+    },
+    {
+      "run": "normal34",
+      "layer": "portal_disc",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "roi_fixed": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "roi_generated": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18.png",
+          "sha256": "be6f5e2c22c87e830a2b1597f7f08dae2d3a5967e7914fef9e4f8b721b678232",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 93.82640332640332,
+            "luma_p99": 166.39,
+            "detail": 17.88111111111111,
+            "flat": 0.008888888888888889,
+            "saturation": 0.5675331475285698,
+            "hue_bins": [
+              210,
+              24,
+              0,
+              0,
+              1,
+              1,
+              0,
+              574,
+              67,
+              19,
+              23,
+              43
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t01.png",
+          "sha256": "2c566c89090f238b0149a7357255c7a9c2b2353acdc89c619cba26b7a92eb519",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 7,
+            "black": 0,
+            "luma": 93.36382536382537,
+            "luma_p99": 165.0,
+            "detail": 17.894444444444446,
+            "flat": 0.011111111111111112,
+            "saturation": 0.5630969120783723,
+            "hue_bins": [
+              211,
+              26,
+              0,
+              0,
+              1,
+              2,
+              0,
+              541,
+              97,
+              22,
+              22,
+              40
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t02.png",
+          "sha256": "5d1f99b272e5a63d6c0b7a9bb2b5ed20f75688f74e5257987b651c5d14138d14",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 22,
+            "black": 0,
+            "luma": 88.27754677754677,
+            "luma_p99": 166.77999999999997,
+            "detail": 18.77,
+            "flat": 0.0077777777777777776,
+            "saturation": 0.5626585720886476,
+            "hue_bins": [
+              206,
+              29,
+              1,
+              0,
+              1,
+              1,
+              0,
+              553,
+              89,
+              24,
+              22,
+              36
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t03.png",
+          "sha256": "63c17fbc98dd7f23fee87da6b3ff3bd2106d58eda0023c54fded9952e61ad793",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 208,
+            "black": 0,
+            "luma": 99.22453222453223,
+            "luma_p99": 166.77999999999997,
+            "detail": 19.38,
+            "flat": 0.005555555555555556,
+            "saturation": 0.5538121144896151,
+            "hue_bins": [
+              202,
+              27,
+              0,
+              0,
+              1,
+              1,
+              0,
+              487,
+              150,
+              28,
+              21,
+              45
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t04.png",
+          "sha256": "6f00e3c0a75b810533dedf2e1c58af2eb6298e8fb42180e4c49ce79fdf877f2b",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 203,
+            "black": 0,
+            "luma": 97.78170478170478,
+            "luma_p99": 164.39,
+            "detail": 20.716666666666665,
+            "flat": 0.006666666666666667,
+            "saturation": 0.5577631701458665,
+            "hue_bins": [
+              206,
+              23,
+              0,
+              0,
+              1,
+              1,
+              0,
+              459,
+              181,
+              28,
+              21,
+              42
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/origine-lumiere/village1-out-h18-t05.png",
+          "sha256": "3d1eb6cf1a53fff4c65953e6772e3a4217e93053248dd80814d6b2a9ebaf323c",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 172,
+            "black": 0,
+            "luma": 97.79002079002079,
+            "luma_p99": 181.39,
+            "detail": 22.637777777777778,
+            "flat": 0.0033333333333333335,
+            "saturation": 0.554537552500473,
+            "hue_bins": [
+              205,
+              24,
+              0,
+              1,
+              0,
+              1,
+              0,
+              529,
+              111,
+              24,
+              20,
+              47
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 102,
+          "min": 0,
+          "max": 208
+        },
+        "luma": {
+          "mean": 95.04400554400554,
+          "min": 88.27754677754677,
+          "max": 99.22453222453223
+        },
+        "detail": {
+          "mean": 19.546666666666667,
+          "min": 17.88111111111111,
+          "max": 22.637777777777778
+        },
+        "flat": {
+          "mean": 0.007222222222222223,
+          "min": 0.0033333333333333335,
+          "max": 0.011111111111111112
+        },
+        "saturation": {
+          "mean": 0.5599002448052574,
+          "min": 0.5538121144896151,
+          "max": 0.5675331475285698
+        }
+      }
+    },
+    {
+      "run": "normal34",
+      "layer": "portal_disc",
+      "arm": "recharged",
+      "hour": 18,
+      "roi_fixed": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "roi_generated": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18.png",
+          "sha256": "e5565d02058d7a3a913a7e7b391a9c7931ddccfe7323b0462f5b0bd577519df5",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 77.39397089397089,
+            "luma_p99": 176.16999999999996,
+            "detail": 17.67,
+            "flat": 0.024444444444444446,
+            "saturation": 0.5603127909147594,
+            "hue_bins": [
+              226,
+              22,
+              0,
+              0,
+              1,
+              1,
+              0,
+              263,
+              361,
+              24,
+              21,
+              43
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t01.png",
+          "sha256": "c6d97dc2aeb089ce5a19c60a32034b611da85ab2f7b3fe07973951fdaf628325",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 76.55405405405405,
+            "luma_p99": 169.1199999999999,
+            "detail": 17.963333333333335,
+            "flat": 0.014444444444444444,
+            "saturation": 0.585500915462005,
+            "hue_bins": [
+              222,
+              23,
+              1,
+              0,
+              0,
+              2,
+              0,
+              549,
+              77,
+              22,
+              23,
+              43
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t02.png",
+          "sha256": "f00ff3ea47e8ac2fb827db9218dee3a48ed92bcb42f920cb1d9faace8205b923",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 45,
+            "black": 0,
+            "luma": 77.91580041580042,
+            "luma_p99": 171.39,
+            "detail": 18.297777777777778,
+            "flat": 0.008888888888888889,
+            "saturation": 0.6300373052948013,
+            "hue_bins": [
+              213,
+              20,
+              0,
+              0,
+              1,
+              1,
+              0,
+              544,
+              91,
+              25,
+              20,
+              47
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t03.png",
+          "sha256": "63fa60836709fab838257bb3e54874a6076a292e2c349b097d0521a444b664d9",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 32,
+            "black": 0,
+            "luma": 76.25883575883576,
+            "luma_p99": 159.4599999999998,
+            "detail": 20.055555555555557,
+            "flat": 0.013333333333333334,
+            "saturation": 0.5925590537629907,
+            "hue_bins": [
+              226,
+              21,
+              0,
+              1,
+              1,
+              1,
+              0,
+              512,
+              117,
+              21,
+              24,
+              38
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t04.png",
+          "sha256": "9284aedfe75d3cd823280301b21dc09415140b912db25b355ab56d9c4b1fc914",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 145,
+            "black": 0,
+            "luma": 87.74740124740124,
+            "luma_p99": 170.77999999999997,
+            "detail": 21.344444444444445,
+            "flat": 0.013333333333333334,
+            "saturation": 0.6024640306627032,
+            "hue_bins": [
+              218,
+              19,
+              0,
+              1,
+              0,
+              1,
+              0,
+              531,
+              103,
+              23,
+              29,
+              37
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-restored/20260908T105825-4009021/captures/recharged/village1-out-h18-t05.png",
+          "sha256": "59b6a36bf4f1632bd70de5e8bb7fe4d1a7d364febab42067f341afefcc5d8d0a",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 185,
+            "black": 0,
+            "luma": 87.6923076923077,
+            "luma_p99": 167.77999999999997,
+            "detail": 22.02111111111111,
+            "flat": 0.0077777777777777776,
+            "saturation": 0.6039223775776762,
+            "hue_bins": [
+              216,
+              19,
+              0,
+              0,
+              1,
+              1,
+              0,
+              535,
+              95,
+              25,
+              21,
+              49
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 67.83333333333333,
+          "min": 0,
+          "max": 185
+        },
+        "luma": {
+          "mean": 80.59372834372834,
+          "min": 76.25883575883576,
+          "max": 87.74740124740124
+        },
+        "detail": {
+          "mean": 19.558703703703706,
+          "min": 17.67,
+          "max": 22.02111111111111
+        },
+        "flat": {
+          "mean": 0.013703703703703704,
+          "min": 0.0077777777777777776,
+          "max": 0.024444444444444446
+        },
+        "saturation": {
+          "mean": 0.5957994122791559,
+          "min": 0.5603127909147594,
+          "max": 0.6300373052948013
+        }
+      }
+    },
+    {
+      "run": "modulation34",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        57
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12.png",
+          "sha256": "74611d1d9cf02ff7f79ae8a661f977178da707b33967bd24342b5920a2b9d791",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 19,
+            "nearwhite": 53,
+            "clipped": 1659,
+            "black": 0,
+            "luma": 80.19439858490566,
+            "luma_p99": 231.0,
+            "detail": 20.11356918943126,
+            "flat": 0.015972533213912524,
+            "saturation": 0.546552131332674,
+            "hue_bins": [
+              10219,
+              7160,
+              7419,
+              1425,
+              988,
+              253,
+              848,
+              3016,
+              1375,
+              356,
+              338,
+              500
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t01.png",
+          "sha256": "f21f3e3cfab10f8956f91caa08e3a53b621e6b44c31dc545e8f3eaab1890ad4a",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 20,
+            "nearwhite": 47,
+            "clipped": 1701,
+            "black": 0,
+            "luma": 80.32104952830188,
+            "luma_p99": 231.0,
+            "detail": 20.267502612330198,
+            "flat": 0.015763546798029555,
+            "saturation": 0.5445491512349011,
+            "hue_bins": [
+              11209,
+              6004,
+              7526,
+              1493,
+              978,
+              259,
+              813,
+              3024,
+              1351,
+              377,
+              367,
+              497
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t02.png",
+          "sha256": "e5465b2ab921195edc3982fb51df9d2a2c62e396f741363f4fcf99228e82f189",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 14,
+            "nearwhite": 32,
+            "clipped": 1728,
+            "black": 0,
+            "luma": 82.14510613207547,
+            "luma_p99": 232.0,
+            "detail": 20.34891774891775,
+            "flat": 0.015405284370801612,
+            "saturation": 0.5450877641178342,
+            "hue_bins": [
+              9893,
+              6750,
+              7933,
+              1535,
+              1064,
+              356,
+              864,
+              2911,
+              1401,
+              377,
+              331,
+              487
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t03.png",
+          "sha256": "fa4f8be9de654346153c629033692e06d282a25acac322d788cb2205428c87f2",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 4,
+            "nearwhite": 16,
+            "clipped": 2365,
+            "black": 0,
+            "luma": 83.53720518867925,
+            "luma_p99": 232.0,
+            "detail": 20.284609643230333,
+            "flat": 0.015256008359456636,
+            "saturation": 0.5464274873465281,
+            "hue_bins": [
+              9795,
+              6616,
+              8096,
+              1561,
+              1189,
+              373,
+              796,
+              2806,
+              1500,
+              387,
+              327,
+              466
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t04.png",
+          "sha256": "f01098dff774672389b15900ef640ad16945fe22398957898d149e2201c0651c",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 3,
+            "nearwhite": 18,
+            "clipped": 2636,
+            "black": 0,
+            "luma": 82.8590212264151,
+            "luma_p99": 232.0,
+            "detail": 20.274070756829378,
+            "flat": 0.016151664427526496,
+            "saturation": 0.5479530552952404,
+            "hue_bins": [
+              9844,
+              7016,
+              7769,
+              1543,
+              1133,
+              294,
+              771,
+              2933,
+              1424,
+              367,
+              329,
+              491
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t05.png",
+          "sha256": "d4a3edf2aa96f86891a1099fed1620c81f13e0786230c37b194f83983ddf399f",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 1,
+            "nearwhite": 16,
+            "clipped": 2647,
+            "black": 0,
+            "luma": 82.63912146226416,
+            "luma_p99": 231.0,
+            "detail": 20.072070458277356,
+            "flat": 0.014330497089117778,
+            "saturation": 0.549699306848134,
+            "hue_bins": [
+              12106,
+              4832,
+              7696,
+              1570,
+              1051,
+              254,
+              802,
+              2987,
+              1366,
+              387,
+              355,
+              508
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 10.166666666666666,
+          "min": 1,
+          "max": 20
+        },
+        "nearwhite": {
+          "mean": 30.333333333333332,
+          "min": 16,
+          "max": 53
+        },
+        "clipped": {
+          "mean": 2122.6666666666665,
+          "min": 1659,
+          "max": 2647
+        },
+        "luma": {
+          "mean": 81.94931702044025,
+          "min": 80.19439858490566,
+          "max": 83.53720518867925
+        },
+        "detail": {
+          "mean": 20.22679006816938,
+          "min": 20.072070458277356,
+          "max": 20.34891774891775
+        },
+        "flat": {
+          "mean": 0.0154799223764741,
+          "min": 0.014330497089117778,
+          "max": 0.016151664427526496
+        },
+        "saturation": {
+          "mean": 0.5467114826958853,
+          "min": 0.5445491512349011,
+          "max": 0.549699306848134
+        }
+      }
+    },
+    {
+      "run": "modulation34",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 12,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        57
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12.png",
+          "sha256": "8788ee7ac1a69100cfa6c5310c77d8b3a36d6d885c9778d7e4fbe73df591adca",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 5,
+            "nearwhite": 24,
+            "clipped": 1765,
+            "black": 0,
+            "luma": 82.09920400943396,
+            "luma_p99": 231.0,
+            "detail": 20.047141364382743,
+            "flat": 0.016480071652485447,
+            "saturation": 0.5478788065681451,
+            "hue_bins": [
+              9785,
+              6700,
+              8196,
+              1509,
+              1170,
+              266,
+              787,
+              3007,
+              1330,
+              371,
+              329,
+              463
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t01.png",
+          "sha256": "a31cb7734be19cc5de696b29de4b51d46c176d7b39da89cfa1814cd5ada8f907",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 4,
+            "nearwhite": 21,
+            "clipped": 2178,
+            "black": 0,
+            "luma": 81.79189268867924,
+            "luma_p99": 231.0,
+            "detail": 20.09267054784296,
+            "flat": 0.01782355575459024,
+            "saturation": 0.5498106761150241,
+            "hue_bins": [
+              12067,
+              4966,
+              7635,
+              1492,
+              1096,
+              258,
+              790,
+              3055,
+              1320,
+              381,
+              334,
+              520
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t02.png",
+          "sha256": "d639d354380d60ee3285e096f3ecbc997ca08780296fdd4be512ee84cd5e7088",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 5,
+            "nearwhite": 22,
+            "clipped": 1960,
+            "black": 0,
+            "luma": 82.60592570754717,
+            "luma_p99": 232.0,
+            "detail": 20.213494551425587,
+            "flat": 0.015524705179877593,
+            "saturation": 0.5467750669021738,
+            "hue_bins": [
+              9766,
+              7078,
+              7781,
+              1571,
+              1110,
+              279,
+              796,
+              3018,
+              1326,
+              364,
+              323,
+              501
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t03.png",
+          "sha256": "4efacd22d8ff06de48258c97bbd5a7be3b539720eadb41d33e4d1e1ca52d7cb5",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 13,
+            "nearwhite": 31,
+            "clipped": 2284,
+            "black": 0,
+            "luma": 82.59398584905661,
+            "luma_p99": 232.0,
+            "detail": 20.586415882967607,
+            "flat": 0.015554560382146589,
+            "saturation": 0.5475726252067527,
+            "hue_bins": [
+              10048,
+              6674,
+              7721,
+              1585,
+              1090,
+              342,
+              850,
+              3021,
+              1346,
+              381,
+              354,
+              494
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t04.png",
+          "sha256": "a0472598ff5e2c2cd787b6c25ad06b00bfdfc87cd15becb6b3422fd81a95b561",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 21,
+            "nearwhite": 52,
+            "clipped": 2589,
+            "black": 0,
+            "luma": 83.34719929245283,
+            "luma_p99": 232.0,
+            "detail": 20.455978504254368,
+            "flat": 0.014927601134497686,
+            "saturation": 0.5469470826837453,
+            "hue_bins": [
+              9901,
+              6374,
+              8153,
+              1683,
+              1002,
+              374,
+              860,
+              2724,
+              1639,
+              365,
+              324,
+              499
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t05.png",
+          "sha256": "7761ab8cf1b235a7d5cee3a56d32b5e1508c7035ba5da5aafcad951ba124b3cf",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 26,
+            "nearwhite": 56,
+            "clipped": 2681,
+            "black": 0,
+            "luma": 82.9630896226415,
+            "luma_p99": 232.0,
+            "detail": 20.39379011792805,
+            "flat": 0.01534557396626362,
+            "saturation": 0.5484018009964429,
+            "hue_bins": [
+              10056,
+              6862,
+              7612,
+              1702,
+              958,
+              249,
+              847,
+              3008,
+              1377,
+              374,
+              324,
+              523
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 12.333333333333334,
+          "min": 4,
+          "max": 26
+        },
+        "nearwhite": {
+          "mean": 34.333333333333336,
+          "min": 21,
+          "max": 56
+        },
+        "clipped": {
+          "mean": 2242.8333333333335,
+          "min": 1765,
+          "max": 2681
+        },
+        "luma": {
+          "mean": 82.56688286163522,
+          "min": 81.79189268867924,
+          "max": 83.34719929245283
+        },
+        "detail": {
+          "mean": 20.29824849480022,
+          "min": 20.047141364382743,
+          "max": 20.586415882967607
+        },
+        "flat": {
+          "mean": 0.015942678011643528,
+          "min": 0.014927601134497686,
+          "max": 0.01782355575459024
+        },
+        "saturation": {
+          "mean": 0.5478976764120473,
+          "min": 0.5467750669021738,
+          "max": 0.5498106761150241
+        }
+      }
+    },
+    {
+      "run": "modulation34",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        57
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18.png",
+          "sha256": "6f0c7de4e378e982e8abbca15dcf86bbaec0baf9ba9a21ebb3244d6ad217ffcf",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 1547,
+            "black": 0,
+            "luma": 74.03063089622641,
+            "luma_p99": 227.0,
+            "detail": 19.074667860874758,
+            "flat": 0.01898790864308106,
+            "saturation": 0.5305128457392061,
+            "hue_bins": [
+              10367,
+              4182,
+              6778,
+              1535,
+              353,
+              414,
+              1153,
+              3167,
+              2496,
+              849,
+              964,
+              1661
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t01.png",
+          "sha256": "e1b3639f807746b6a6e2124cf370c7b9f83a050be9d059bcc338895ff0745917",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 1685,
+            "black": 0,
+            "luma": 74.31615566037736,
+            "luma_p99": 227.0,
+            "detail": 19.093387072697418,
+            "flat": 0.018629646215853113,
+            "saturation": 0.5304525667546219,
+            "hue_bins": [
+              10646,
+              3708,
+              6865,
+              1541,
+              371,
+              419,
+              1213,
+              2255,
+              3408,
+              854,
+              930,
+              1708
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t02.png",
+          "sha256": "1c71b8b55b0ce252b3a5956bccc90f49b75864031bc39135f317c2aea600187f",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 1809,
+            "black": 0,
+            "luma": 74.83496462264151,
+            "luma_p99": 227.0,
+            "detail": 19.045350052246604,
+            "flat": 0.018092252575011195,
+            "saturation": 0.531291951063885,
+            "hue_bins": [
+              9546,
+              4890,
+              6973,
+              1524,
+              405,
+              371,
+              1166,
+              3024,
+              2618,
+              843,
+              934,
+              1622
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t03.png",
+          "sha256": "543f5a98f7e82dd7975f203288374de24f3979a43b5430cd134ed0a2bf1c2d4d",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2123,
+            "black": 0,
+            "luma": 76.32311320754717,
+            "luma_p99": 227.0,
+            "detail": 18.828690849380504,
+            "flat": 0.018599791013584117,
+            "saturation": 0.5363866681133947,
+            "hue_bins": [
+              8580,
+              4364,
+              8561,
+              1714,
+              436,
+              274,
+              1147,
+              2473,
+              3067,
+              817,
+              887,
+              1599
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t04.png",
+          "sha256": "15ec00c396db0f28906e31bc5b74bb0af0d26fb0b2aab5f01a9a81f2d0d7c720",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2505,
+            "black": 0,
+            "luma": 75.89330778301887,
+            "luma_p99": 227.0,
+            "detail": 19.05977011494253,
+            "flat": 0.019316315868040005,
+            "saturation": 0.5342159147999556,
+            "hue_bins": [
+              9465,
+              5101,
+              7055,
+              1596,
+              374,
+              266,
+              1094,
+              2984,
+              2628,
+              849,
+              913,
+              1592
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t05.png",
+          "sha256": "cdecf1dbd1592209da310f2e1fca0d8f2f38de106eba232f8a21dfe2b58433a0",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2297,
+            "black": 0,
+            "luma": 76.79637382075472,
+            "luma_p99": 227.0,
+            "detail": 19.17913121361397,
+            "flat": 0.01883863263173608,
+            "saturation": 0.5363671930669338,
+            "hue_bins": [
+              8691,
+              5125,
+              7642,
+              1684,
+              432,
+              316,
+              1123,
+              2989,
+              2623,
+              820,
+              881,
+              1593
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 1994.3333333333333,
+          "min": 1547,
+          "max": 2505
+        },
+        "luma": {
+          "mean": 75.36575766509434,
+          "min": 74.03063089622641,
+          "max": 76.79637382075472
+        },
+        "detail": {
+          "mean": 19.046832860625965,
+          "min": 18.828690849380504,
+          "max": 19.17913121361397
+        },
+        "flat": {
+          "mean": 0.018744091157884262,
+          "min": 0.018092252575011195,
+          "max": 0.019316315868040005
+        },
+        "saturation": {
+          "mean": 0.5332045232563328,
+          "min": 0.5304525667546219,
+          "max": 0.5363866681133947
+        }
+      }
+    },
+    {
+      "run": "modulation34",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 18,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        57
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18.png",
+          "sha256": "39e528ff20fdd854a897c8b7f4d684e28c8d11df8e5b5350465f9cbfa2168a91",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 1761,
+            "black": 0,
+            "luma": 73.85790094339623,
+            "luma_p99": 227.0,
+            "detail": 19.02015226153157,
+            "flat": 0.020361247947454843,
+            "saturation": 0.5321271584858156,
+            "hue_bins": [
+              10904,
+              3736,
+              6737,
+              1541,
+              317,
+              374,
+              1085,
+              2284,
+              3322,
+              873,
+              942,
+              1803
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t01.png",
+          "sha256": "72a72f86df7d1861711efc4560753de5440ca7a9c9589949cddcffdf4323bcc1",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 1801,
+            "black": 0,
+            "luma": 75.60857900943397,
+            "luma_p99": 227.0,
+            "detail": 19.137483206448724,
+            "flat": 0.019525302283922973,
+            "saturation": 0.5332073343892288,
+            "hue_bins": [
+              8678,
+              4553,
+              8064,
+              1712,
+              423,
+              393,
+              1204,
+              3162,
+              2389,
+              834,
+              908,
+              1598
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t02.png",
+          "sha256": "96edc0214a80ed87953a4709483e6b7b2a0efc2687d5f1fd5f74d802b5d0e973",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 1983,
+            "black": 0,
+            "luma": 75.95869693396226,
+            "luma_p99": 227.0,
+            "detail": 19.19313330347813,
+            "flat": 0.019137184654426032,
+            "saturation": 0.5335395271646578,
+            "hue_bins": [
+              8709,
+              5296,
+              7259,
+              1652,
+              447,
+              380,
+              1224,
+              3220,
+              2414,
+              819,
+              901,
+              1598
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t03.png",
+          "sha256": "ca7eee481b4da5d60ada3094666929d09c91305c6fbaf12a7fda8a54ac914334",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2126,
+            "black": 0,
+            "luma": 75.19761202830189,
+            "luma_p99": 227.0,
+            "detail": 19.191491267353335,
+            "flat": 0.020420958351992834,
+            "saturation": 0.5338431511103818,
+            "hue_bins": [
+              9422,
+              5008,
+              7002,
+              1569,
+              423,
+              342,
+              1131,
+              3155,
+              2487,
+              842,
+              915,
+              1622
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t04.png",
+          "sha256": "04e15dc8f34c10806b509a2ca6e2e73a6a4ffaedb06fcb69cb6452edbe289b05",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2491,
+            "black": 0,
+            "luma": 77.4522995283019,
+            "luma_p99": 227.0,
+            "detail": 18.846484549932825,
+            "flat": 0.019704433497536946,
+            "saturation": 0.5403815713661575,
+            "hue_bins": [
+              8558,
+              4108,
+              8794,
+              1812,
+              445,
+              297,
+              1105,
+              2949,
+              2546,
+              851,
+              881,
+              1573
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t05.png",
+          "sha256": "e0225a7d3e1ef58396c9718389e6606b718cac7902f9f5735bab0e6b9bb76252",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2533,
+            "black": 0,
+            "luma": 76.76925117924529,
+            "luma_p99": 227.0,
+            "detail": 19.059053590088073,
+            "flat": 0.019853709508881923,
+            "saturation": 0.5354386455962606,
+            "hue_bins": [
+              8823,
+              5683,
+              7135,
+              1602,
+              416,
+              263,
+              1095,
+              3070,
+              2508,
+              834,
+              887,
+              1602
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 2115.8333333333335,
+          "min": 1761,
+          "max": 2533
+        },
+        "luma": {
+          "mean": 75.80738993710692,
+          "min": 73.85790094339623,
+          "max": 77.4522995283019
+        },
+        "detail": {
+          "mean": 19.074633029805444,
+          "min": 18.846484549932825,
+          "max": 19.19313330347813
+        },
+        "flat": {
+          "mean": 0.019833806040702593,
+          "min": 0.019137184654426032,
+          "max": 0.020420958351992834
+        },
+        "saturation": {
+          "mean": 0.5347562313520837,
+          "min": 0.5321271584858156,
+          "max": 0.5403815713661575
+        }
+      }
+    },
+    {
+      "run": "modulation34",
+      "layer": "portal_disc",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "roi_fixed": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "roi_generated": [
+        140,
+        15,
+        181,
+        72
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12.png",
+          "sha256": "74611d1d9cf02ff7f79ae8a661f977178da707b33967bd24342b5920a2b9d791",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 99.5997920997921,
+            "luma_p99": 173.16999999999996,
+            "detail": 18.485555555555557,
+            "flat": 0.043333333333333335,
+            "saturation": 0.5059402959837841,
+            "hue_bins": [
+              178,
+              50,
+              6,
+              0,
+              5,
+              1,
+              6,
+              574,
+              105,
+              14,
+              8,
+              15
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t01.png",
+          "sha256": "f21f3e3cfab10f8956f91caa08e3a53b621e6b44c31dc545e8f3eaab1890ad4a",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 97.74532224532224,
+            "luma_p99": 175.77999999999997,
+            "detail": 19.113333333333333,
+            "flat": 0.043333333333333335,
+            "saturation": 0.45606456501398135,
+            "hue_bins": [
+              183,
+              50,
+              7,
+              0,
+              6,
+              1,
+              9,
+              581,
+              93,
+              4,
+              11,
+              17
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t02.png",
+          "sha256": "e5465b2ab921195edc3982fb51df9d2a2c62e396f741363f4fcf99228e82f189",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 46,
+            "black": 0,
+            "luma": 104.13201663201663,
+            "luma_p99": 174.39,
+            "detail": 19.25111111111111,
+            "flat": 0.03666666666666667,
+            "saturation": 0.47361916558529055,
+            "hue_bins": [
+              192,
+              43,
+              6,
+              0,
+              2,
+              6,
+              8,
+              560,
+              106,
+              15,
+              10,
+              14
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t03.png",
+          "sha256": "fa4f8be9de654346153c629033692e06d282a25acac322d788cb2205428c87f2",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 246,
+            "black": 0,
+            "luma": 114.9948024948025,
+            "luma_p99": 181.77999999999997,
+            "detail": 20.215555555555557,
+            "flat": 0.022222222222222223,
+            "saturation": 0.4849980973807936,
+            "hue_bins": [
+              186,
+              44,
+              6,
+              2,
+              2,
+              3,
+              11,
+              504,
+              160,
+              19,
+              8,
+              17
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t04.png",
+          "sha256": "f01098dff774672389b15900ef640ad16945fe22398957898d149e2201c0651c",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 428,
+            "black": 0,
+            "luma": 112.97713097713098,
+            "luma_p99": 185.16999999999996,
+            "detail": 21.49222222222222,
+            "flat": 0.04111111111111111,
+            "saturation": 0.5079180999757791,
+            "hue_bins": [
+              182,
+              51,
+              4,
+              2,
+              2,
+              3,
+              9,
+              534,
+              133,
+              20,
+              9,
+              13
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h12-t05.png",
+          "sha256": "d4a3edf2aa96f86891a1099fed1620c81f13e0786230c37b194f83983ddf399f",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 426,
+            "black": 0,
+            "luma": 114.79002079002079,
+            "luma_p99": 194.0,
+            "detail": 21.523333333333333,
+            "flat": 0.01888888888888889,
+            "saturation": 0.4914905415477629,
+            "hue_bins": [
+              179,
+              45,
+              4,
+              1,
+              2,
+              4,
+              9,
+              551,
+              122,
+              14,
+              10,
+              21
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 191,
+          "min": 0,
+          "max": 428
+        },
+        "luma": {
+          "mean": 107.37318087318087,
+          "min": 97.74532224532224,
+          "max": 114.9948024948025
+        },
+        "detail": {
+          "mean": 20.01351851851852,
+          "min": 18.485555555555557,
+          "max": 21.523333333333333
+        },
+        "flat": {
+          "mean": 0.03425925925925926,
+          "min": 0.01888888888888889,
+          "max": 0.043333333333333335
+        },
+        "saturation": {
+          "mean": 0.4866717942478986,
+          "min": 0.45606456501398135,
+          "max": 0.5079180999757791
+        }
+      }
+    },
+    {
+      "run": "modulation34",
+      "layer": "portal_disc",
+      "arm": "recharged",
+      "hour": 12,
+      "roi_fixed": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "roi_generated": [
+        140,
+        15,
+        181,
+        72
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12.png",
+          "sha256": "8788ee7ac1a69100cfa6c5310c77d8b3a36d6d885c9778d7e4fbe73df591adca",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 100.0966735966736,
+            "luma_p99": 193.39,
+            "detail": 19.16111111111111,
+            "flat": 0.04,
+            "saturation": 0.49589794030169393,
+            "hue_bins": [
+              175,
+              47,
+              10,
+              2,
+              2,
+              3,
+              5,
+              582,
+              95,
+              10,
+              14,
+              17
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t01.png",
+          "sha256": "a31cb7734be19cc5de696b29de4b51d46c176d7b39da89cfa1814cd5ada8f907",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 107,
+            "black": 0,
+            "luma": 109.32016632016632,
+            "luma_p99": 191.55999999999995,
+            "detail": 18.878888888888888,
+            "flat": 0.06111111111111111,
+            "saturation": 0.5219414741959946,
+            "hue_bins": [
+              177,
+              40,
+              10,
+              2,
+              2,
+              2,
+              8,
+              591,
+              90,
+              7,
+              15,
+              18
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t02.png",
+          "sha256": "d639d354380d60ee3285e096f3ecbc997ca08780296fdd4be512ee84cd5e7088",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 17,
+            "black": 0,
+            "luma": 100.37941787941789,
+            "luma_p99": 185.94999999999993,
+            "detail": 20.108888888888888,
+            "flat": 0.03,
+            "saturation": 0.4557701547172822,
+            "hue_bins": [
+              180,
+              52,
+              10,
+              2,
+              2,
+              3,
+              7,
+              572,
+              92,
+              11,
+              9,
+              22
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t03.png",
+          "sha256": "4efacd22d8ff06de48258c97bbd5a7be3b539720eadb41d33e4d1e1ca52d7cb5",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 88,
+            "black": 0,
+            "luma": 105.1891891891892,
+            "luma_p99": 187.0,
+            "detail": 21.037777777777777,
+            "flat": 0.034444444444444444,
+            "saturation": 0.4883307502442315,
+            "hue_bins": [
+              190,
+              45,
+              9,
+              0,
+              2,
+              3,
+              5,
+              572,
+              98,
+              15,
+              10,
+              13
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t04.png",
+          "sha256": "a0472598ff5e2c2cd787b6c25ad06b00bfdfc87cd15becb6b3422fd81a95b561",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 228,
+            "black": 0,
+            "luma": 113.96049896049897,
+            "luma_p99": 188.16999999999996,
+            "detail": 21.656666666666666,
+            "flat": 0.027777777777777776,
+            "saturation": 0.48057074452130527,
+            "hue_bins": [
+              188,
+              39,
+              10,
+              1,
+              3,
+              3,
+              5,
+              464,
+              209,
+              16,
+              6,
+              18
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h12-t05.png",
+          "sha256": "7761ab8cf1b235a7d5cee3a56d32b5e1508c7035ba5da5aafcad951ba124b3cf",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 307,
+            "black": 0,
+            "luma": 118.93035343035343,
+            "luma_p99": 197.0,
+            "detail": 23.73777777777778,
+            "flat": 0.017777777777777778,
+            "saturation": 0.47723848820209547,
+            "hue_bins": [
+              181,
+              40,
+              7,
+              1,
+              4,
+              2,
+              10,
+              586,
+              85,
+              12,
+              11,
+              23
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 124.5,
+          "min": 0,
+          "max": 307
+        },
+        "luma": {
+          "mean": 107.97938322938323,
+          "min": 100.0966735966736,
+          "max": 118.93035343035343
+        },
+        "detail": {
+          "mean": 20.763518518518516,
+          "min": 18.878888888888888,
+          "max": 23.73777777777778
+        },
+        "flat": {
+          "mean": 0.03518518518518519,
+          "min": 0.017777777777777778,
+          "max": 0.06111111111111111
+        },
+        "saturation": {
+          "mean": 0.48662492536376717,
+          "min": 0.4557701547172822,
+          "max": 0.5219414741959946
+        }
+      }
+    },
+    {
+      "run": "modulation34",
+      "layer": "portal_disc",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "roi_fixed": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "roi_generated": [
+        140,
+        15,
+        181,
+        72
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18.png",
+          "sha256": "6f0c7de4e378e982e8abbca15dcf86bbaec0baf9ba9a21ebb3244d6ad217ffcf",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 0,
+            "black": 0,
+            "luma": 92.60810810810811,
+            "luma_p99": 197.0,
+            "detail": 20.464444444444446,
+            "flat": 0.021111111111111112,
+            "saturation": 0.5913735134151705,
+            "hue_bins": [
+              144,
+              81,
+              4,
+              2,
+              0,
+              3,
+              6,
+              586,
+              86,
+              13,
+              12,
+              25
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t01.png",
+          "sha256": "e1b3639f807746b6a6e2124cf370c7b9f83a050be9d059bcc338895ff0745917",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 1,
+            "black": 0,
+            "luma": 94.67463617463618,
+            "luma_p99": 195.39,
+            "detail": 20.09777777777778,
+            "flat": 0.023333333333333334,
+            "saturation": 0.5792583734675747,
+            "hue_bins": [
+              145,
+              77,
+              4,
+              0,
+              3,
+              3,
+              6,
+              146,
+              520,
+              21,
+              7,
+              30
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t02.png",
+          "sha256": "1c71b8b55b0ce252b3a5956bccc90f49b75864031bc39135f317c2aea600187f",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 29,
+            "black": 0,
+            "luma": 96.98024948024948,
+            "luma_p99": 189.94999999999993,
+            "detail": 20.384444444444444,
+            "flat": 0.014444444444444444,
+            "saturation": 0.5790233654962424,
+            "hue_bins": [
+              145,
+              86,
+              4,
+              0,
+              3,
+              3,
+              5,
+              511,
+              152,
+              15,
+              9,
+              29
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t03.png",
+          "sha256": "543f5a98f7e82dd7975f203288374de24f3979a43b5430cd134ed0a2bf1c2d4d",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 134,
+            "black": 0,
+            "luma": 97.68191268191268,
+            "luma_p99": 193.77999999999997,
+            "detail": 21.49,
+            "flat": 0.021111111111111112,
+            "saturation": 0.5801405733426791,
+            "hue_bins": [
+              145,
+              75,
+              5,
+              2,
+              0,
+              3,
+              5,
+              238,
+              435,
+              17,
+              8,
+              29
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t04.png",
+          "sha256": "15ec00c396db0f28906e31bc5b74bb0af0d26fb0b2aab5f01a9a81f2d0d7c720",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 290,
+            "black": 0,
+            "luma": 103.98232848232848,
+            "luma_p99": 199.55999999999995,
+            "detail": 22.322222222222223,
+            "flat": 0.022222222222222223,
+            "saturation": 0.5761556686711184,
+            "hue_bins": [
+              147,
+              81,
+              4,
+              0,
+              0,
+              3,
+              6,
+              460,
+              209,
+              20,
+              7,
+              25
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/origine-lumiere/village1-out-h18-t05.png",
+          "sha256": "cdecf1dbd1592209da310f2e1fca0d8f2f38de106eba232f8a21dfe2b58433a0",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 164,
+            "black": 0,
+            "luma": 94.84615384615384,
+            "luma_p99": 195.16999999999996,
+            "detail": 22.407777777777778,
+            "flat": 0.012222222222222223,
+            "saturation": 0.5936148924246888,
+            "hue_bins": [
+              160,
+              74,
+              5,
+              0,
+              0,
+              3,
+              5,
+              552,
+              119,
+              15,
+              7,
+              22
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 103,
+          "min": 0,
+          "max": 290
+        },
+        "luma": {
+          "mean": 96.7955647955648,
+          "min": 92.60810810810811,
+          "max": 103.98232848232848
+        },
+        "detail": {
+          "mean": 21.194444444444443,
+          "min": 20.09777777777778,
+          "max": 22.407777777777778
+        },
+        "flat": {
+          "mean": 0.019074074074074073,
+          "min": 0.012222222222222223,
+          "max": 0.023333333333333334
+        },
+        "saturation": {
+          "mean": 0.583261064469579,
+          "min": 0.5761556686711184,
+          "max": 0.5936148924246888
+        }
+      }
+    },
+    {
+      "run": "modulation34",
+      "layer": "portal_disc",
+      "arm": "recharged",
+      "hour": 18,
+      "roi_fixed": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "roi_generated": [
+        140,
+        15,
+        181,
+        72
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18.png",
+          "sha256": "39e528ff20fdd854a897c8b7f4d684e28c8d11df8e5b5350465f9cbfa2168a91",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 10,
+            "black": 0,
+            "luma": 95.71101871101871,
+            "luma_p99": 203.16999999999996,
+            "detail": 21.264444444444443,
+            "flat": 0.024444444444444446,
+            "saturation": 0.5876328482645717,
+            "hue_bins": [
+              156,
+              69,
+              2,
+              1,
+              2,
+              3,
+              5,
+              170,
+              494,
+              22,
+              11,
+              27
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t01.png",
+          "sha256": "72a72f86df7d1861711efc4560753de5440ca7a9c9589949cddcffdf4323bcc1",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 6,
+            "black": 0,
+            "luma": 87.38565488565489,
+            "luma_p99": 200.94999999999993,
+            "detail": 21.476666666666667,
+            "flat": 0.02666666666666667,
+            "saturation": 0.5692838585720252,
+            "hue_bins": [
+              163,
+              77,
+              1,
+              1,
+              2,
+              4,
+              5,
+              570,
+              87,
+              15,
+              10,
+              27
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t02.png",
+          "sha256": "96edc0214a80ed87953a4709483e6b7b2a0efc2687d5f1fd5f74d802b5d0e973",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 19,
+            "black": 0,
+            "luma": 94.4054054054054,
+            "luma_p99": 202.16999999999996,
+            "detail": 21.62,
+            "flat": 0.024444444444444446,
+            "saturation": 0.5895021736175318,
+            "hue_bins": [
+              162,
+              71,
+              1,
+              1,
+              2,
+              3,
+              5,
+              577,
+              91,
+              15,
+              7,
+              27
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t03.png",
+          "sha256": "ca7eee481b4da5d60ada3094666929d09c91305c6fbaf12a7fda8a54ac914334",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 91,
+            "black": 0,
+            "luma": 94.65176715176715,
+            "luma_p99": 206.7299999999999,
+            "detail": 22.90222222222222,
+            "flat": 0.025555555555555557,
+            "saturation": 0.5812115917174284,
+            "hue_bins": [
+              155,
+              72,
+              3,
+              0,
+              1,
+              3,
+              5,
+              564,
+              106,
+              17,
+              11,
+              25
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t04.png",
+          "sha256": "04e15dc8f34c10806b509a2ca6e2e73a6a4ffaedb06fcb69cb6452edbe289b05",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 214,
+            "black": 0,
+            "luma": 101.07796257796258,
+            "luma_p99": 206.77999999999997,
+            "detail": 23.175555555555555,
+            "flat": 0.014444444444444444,
+            "saturation": 0.5785648017508854,
+            "hue_bins": [
+              163,
+              69,
+              3,
+              0,
+              0,
+              3,
+              5,
+              503,
+              158,
+              24,
+              10,
+              24
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-portal-modulation-unit-retry/20260908T110110-4012960/captures/recharged/village1-out-h18-t05.png",
+          "sha256": "e0225a7d3e1ef58396c9718389e6606b718cac7902f9f5735bab0e6b9bb76252",
+          "stats": {
+            "pixels": 962,
+            "width": 26,
+            "height": 37,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 282,
+            "black": 0,
+            "luma": 104.9043659043659,
+            "luma_p99": 207.77999999999997,
+            "detail": 24.525555555555556,
+            "flat": 0.015555555555555555,
+            "saturation": 0.5757403758319299,
+            "hue_bins": [
+              164,
+              71,
+              3,
+              0,
+              0,
+              3,
+              5,
+              546,
+              126,
+              11,
+              11,
+              22
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 103.66666666666667,
+          "min": 6,
+          "max": 282
+        },
+        "luma": {
+          "mean": 96.3560291060291,
+          "min": 87.38565488565489,
+          "max": 104.9043659043659
+        },
+        "detail": {
+          "mean": 22.494074074074074,
+          "min": 21.264444444444443,
+          "max": 24.525555555555556
+        },
+        "flat": {
+          "mean": 0.02185185185185185,
+          "min": 0.014444444444444444,
+          "max": 0.02666666666666667
+        },
+        "saturation": {
+          "mean": 0.5803226082923955,
+          "min": 0.5692838585720252,
+          "max": 0.5895021736175318
+        }
+      }
+    }
+  ]
+}

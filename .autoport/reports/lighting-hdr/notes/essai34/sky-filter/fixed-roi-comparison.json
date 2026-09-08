@@ -1,0 +1,3990 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "purpose": "Comparaison diagnostique ROI fixe33, s\u00e9quences6 sans \u00e9galit\u00e9 frame ; aucun manifeste modifi\u00e9.",
+  "rows": [
+    {
+      "run": "essai33",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 9,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h09.png",
+          "sha256": "be5bb239e641cf49d81c25679f104648194b682224859f4f4a85ed58644ad78d",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4188,
+            "black": 0,
+            "luma": 98.3299233490566,
+            "luma_p99": 223.80999999999767,
+            "detail": 12.400119420809077,
+            "flat": 0.045230631437527986,
+            "saturation": 0.5047105023457148,
+            "hue_bins": [
+              23603,
+              160,
+              41,
+              85,
+              84,
+              102,
+              142,
+              8878,
+              303,
+              136,
+              101,
+              284
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h09-t01.png",
+          "sha256": "1e0f73900895604a52be545eb12474c9436f6a4f4b7eb10d1c10b150ef3319d7",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4305,
+            "black": 0,
+            "luma": 98.378125,
+            "luma_p99": 224.0,
+            "detail": 12.390416480071652,
+            "flat": 0.046424839528287805,
+            "saturation": 0.5046956648363037,
+            "hue_bins": [
+              23600,
+              161,
+              40,
+              86,
+              86,
+              97,
+              151,
+              8870,
+              305,
+              133,
+              100,
+              290
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h09-t02.png",
+          "sha256": "a3e6a90bf55fea4f1a0e5f14044d9ade3be4be9aaf608f66aef7c243cb14d9ae",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 4395,
+            "black": 0,
+            "luma": 98.42016509433962,
+            "luma_p99": 224.0,
+            "detail": 12.384385729213315,
+            "flat": 0.048753545305269444,
+            "saturation": 0.5046304284690163,
+            "hue_bins": [
+              23605,
+              160,
+              40,
+              89,
+              83,
+              86,
+              170,
+              8866,
+              302,
+              128,
+              108,
+              282
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h09-t03.png",
+          "sha256": "fcfa4bfdf3de6c13fb0ba4ea4cafc31ec50efed9b97170962d6a375ac3cfca58",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4493,
+            "black": 0,
+            "luma": 98.47370283018869,
+            "luma_p99": 224.0,
+            "detail": 12.386744290192565,
+            "flat": 0.049947753396029256,
+            "saturation": 0.5045308638009935,
+            "hue_bins": [
+              23604,
+              160,
+              41,
+              85,
+              86,
+              68,
+              185,
+              8870,
+              300,
+              130,
+              104,
+              286
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h09-t04.png",
+          "sha256": "78142396b395be2958a24c92d3d174850c9089f57ae8f887ec8d77c44baecb64",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4590,
+            "black": 0,
+            "luma": 98.5373820754717,
+            "luma_p99": 223.0,
+            "detail": 12.384117032392895,
+            "flat": 0.04973876698014629,
+            "saturation": 0.5044266458510576,
+            "hue_bins": [
+              23603,
+              160,
+              41,
+              85,
+              86,
+              49,
+              214,
+              8860,
+              304,
+              124,
+              107,
+              286
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h09-t05.png",
+          "sha256": "14efaf610d3a2d53dd118c92e5b7e926e634cc4641981d8790f8cccb9d249f2c",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4716,
+            "black": 0,
+            "luma": 98.6064858490566,
+            "luma_p99": 224.0,
+            "detail": 12.373518435587401,
+            "flat": 0.051619644723093,
+            "saturation": 0.5042825268184506,
+            "hue_bins": [
+              23605,
+              159,
+              42,
+              82,
+              87,
+              43,
+              224,
+              8857,
+              305,
+              121,
+              108,
+              286
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0.8333333333333334,
+          "min": 0,
+          "max": 1
+        },
+        "clipped": {
+          "mean": 4447.833333333333,
+          "min": 4188,
+          "max": 4716
+        },
+        "luma": {
+          "mean": 98.45763069968554,
+          "min": 98.3299233490566,
+          "max": 98.6064858490566
+        },
+        "detail": {
+          "mean": 12.386550231377818,
+          "min": 12.373518435587401,
+          "max": 12.400119420809077
+        },
+        "flat": {
+          "mean": 0.04861919689505896,
+          "min": 0.045230631437527986,
+          "max": 0.051619644723093
+        },
+        "saturation": {
+          "mean": 0.5045461053535895,
+          "min": 0.5042825268184506,
+          "max": 0.5047105023457148
+        }
+      }
+    },
+    {
+      "run": "essai33",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 9,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h09.png",
+          "sha256": "e9de1dc001b73145cf6d1bc937efc3e5af0c17962e2aae6a87f89ca8da3fa5af",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2609,
+            "black": 0,
+            "luma": 83.16866155660378,
+            "luma_p99": 223.0,
+            "detail": 10.763546798029557,
+            "flat": 0.05212718316166592,
+            "saturation": 0.4983931422212818,
+            "hue_bins": [
+              23506,
+              135,
+              37,
+              87,
+              83,
+              112,
+              143,
+              8898,
+              360,
+              120,
+              143,
+              293
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h09-t01.png",
+          "sha256": "1c907a850be0b0b7f86a51a50bb59819855996bd12b24e7c349aad7af285f21e",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2639,
+            "black": 0,
+            "luma": 83.16981132075472,
+            "luma_p99": 223.0,
+            "detail": 10.753515450067175,
+            "flat": 0.05144051350947903,
+            "saturation": 0.4984487251878947,
+            "hue_bins": [
+              23504,
+              137,
+              38,
+              86,
+              82,
+              111,
+              150,
+              8891,
+              361,
+              121,
+              145,
+              291
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h09-t02.png",
+          "sha256": "f432b478a3d4cc48cbb2cf64d541ad699febc8a860b02f9b11e1c92592ce7302",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2712,
+            "black": 0,
+            "luma": 83.18039504716981,
+            "luma_p99": 223.0,
+            "detail": 10.74025974025974,
+            "flat": 0.051798775936706974,
+            "saturation": 0.49848041464952464,
+            "hue_bins": [
+              23503,
+              135,
+              36,
+              86,
+              84,
+              107,
+              152,
+              8892,
+              358,
+              128,
+              142,
+              294
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h09-t03.png",
+          "sha256": "c30d17a22e5accfc4fe5987b61828de79878fe8913779ef29ed382908b4ebeea",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2766,
+            "black": 0,
+            "luma": 83.20182783018868,
+            "luma_p99": 223.0,
+            "detail": 10.730974772354083,
+            "flat": 0.04911180773249739,
+            "saturation": 0.4984894139635884,
+            "hue_bins": [
+              23502,
+              134,
+              38,
+              87,
+              80,
+              110,
+              147,
+              8901,
+              358,
+              128,
+              139,
+              293
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h09-t04.png",
+          "sha256": "dd842f696ceff2a7fcf8ae2e52803d0d8f3d5e1f986140454f53bf12617dfc34",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2839,
+            "black": 0,
+            "luma": 83.22709316037736,
+            "luma_p99": 223.0,
+            "detail": 10.708404239438723,
+            "flat": 0.049470070159725335,
+            "saturation": 0.4984920393070964,
+            "hue_bins": [
+              23505,
+              134,
+              37,
+              86,
+              82,
+              108,
+              148,
+              8899,
+              360,
+              135,
+              134,
+              289
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h09-t05.png",
+          "sha256": "d2dce6041a8b4743dd26863293fdf7c52671394ebc1608626c6021512d4bdc25",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2890,
+            "black": 0,
+            "luma": 83.25368514150944,
+            "luma_p99": 223.0,
+            "detail": 10.696312882519779,
+            "flat": 0.04997760859829825,
+            "saturation": 0.49849030107417747,
+            "hue_bins": [
+              23502,
+              134,
+              38,
+              87,
+              82,
+              109,
+              148,
+              8894,
+              358,
+              140,
+              131,
+              294
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 2742.5,
+          "min": 2609,
+          "max": 2890
+        },
+        "luma": {
+          "mean": 83.20024567610064,
+          "min": 83.16866155660378,
+          "max": 83.25368514150944
+        },
+        "detail": {
+          "mean": 10.732168980444843,
+          "min": 10.696312882519779,
+          "max": 10.763546798029557
+        },
+        "flat": {
+          "mean": 0.05065432651639548,
+          "min": 0.04911180773249739,
+          "max": 0.05212718316166592
+        },
+        "saturation": {
+          "mean": 0.4984656727339272,
+          "min": 0.4983931422212818,
+          "max": 0.4984920393070964
+        }
+      }
+    },
+    {
+      "run": "essai33",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h12.png",
+          "sha256": "b255d250cf0bb2f7a4eabb27eb2e0bdfd3c1d60b9f3d0ad464ac6b3bfa9062fb",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 114,
+            "nearwhite": 265,
+            "clipped": 32263,
+            "black": 0,
+            "luma": 155.0694870283019,
+            "luma_p99": 246.0,
+            "detail": 3.8029258098223617,
+            "flat": 0.19949246156142708,
+            "saturation": 0.6780884453755806,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26345,
+              7458,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h12-t01.png",
+          "sha256": "1dd5ecbb8f1f35e6249c2b5759c97381652af026dd3d17cc7784d80e08e4afe4",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 110,
+            "nearwhite": 265,
+            "clipped": 32261,
+            "black": 0,
+            "luma": 155.27420400943396,
+            "luma_p99": 245.0,
+            "detail": 3.799283475145544,
+            "flat": 0.20041797283176593,
+            "saturation": 0.6771773837003416,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26583,
+              7225,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h12-t02.png",
+          "sha256": "44bfbe62226ac898df39ba86c01bb2bbb1a7c334d3dfd565b475fb9c21b04496",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 105,
+            "nearwhite": 261,
+            "clipped": 32263,
+            "black": 0,
+            "luma": 155.46827830188678,
+            "luma_p99": 245.0,
+            "detail": 3.7899985072398867,
+            "flat": 0.20155247051798775,
+            "saturation": 0.6763048110184533,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26871,
+              6942,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h12-t03.png",
+          "sha256": "2cd9ed61d17878e04ff8c1480a4cb15b9bc39ab18b9f610881ec7b04e8b44681",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 103,
+            "nearwhite": 261,
+            "clipped": 32259,
+            "black": 0,
+            "luma": 155.65076650943396,
+            "luma_p99": 245.0,
+            "detail": 3.792148081803254,
+            "flat": 0.19856695029108823,
+            "saturation": 0.6755079216456423,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              27083,
+              6732,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h12-t04.png",
+          "sha256": "39ae322346361bde0692d5ffd5a182eb9b7fe9ade8061abc814aa36aa7ca2978",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 100,
+            "nearwhite": 264,
+            "clipped": 32280,
+            "black": 0,
+            "luma": 155.81686320754716,
+            "luma_p99": 245.0,
+            "detail": 3.786117330944917,
+            "flat": 0.19985072398865503,
+            "saturation": 0.674796273163843,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              27310,
+              6508,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h12-t05.png",
+          "sha256": "78c701ec57eddf7264ec60e7336a8ab9586d2015aa11a50d2a842320609a7b5c",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 99,
+            "nearwhite": 261,
+            "clipped": 32300,
+            "black": 0,
+            "luma": 155.9540683962264,
+            "luma_p99": 245.0,
+            "detail": 3.781430064188685,
+            "flat": 0.19638752052545155,
+            "saturation": 0.6742013332570382,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              27509,
+              6310,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 105.16666666666667,
+          "min": 99,
+          "max": 114
+        },
+        "nearwhite": {
+          "mean": 262.8333333333333,
+          "min": 261,
+          "max": 265
+        },
+        "clipped": {
+          "mean": 32271,
+          "min": 32259,
+          "max": 32300
+        },
+        "luma": {
+          "mean": 155.5389445754717,
+          "min": 155.0694870283019,
+          "max": 155.9540683962264
+        },
+        "detail": {
+          "mean": 3.791983878190775,
+          "min": 3.781430064188685,
+          "max": 3.8029258098223617
+        },
+        "flat": {
+          "mean": 0.19937801661939591,
+          "min": 0.19638752052545155,
+          "max": 0.20155247051798775
+        },
+        "saturation": {
+          "mean": 0.6760126946934832,
+          "min": 0.6742013332570382,
+          "max": 0.6780884453755806
+        }
+      }
+    },
+    {
+      "run": "essai33",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 12,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h12.png",
+          "sha256": "e39822354c2595aecd89fbfc888c6a7c8555c383ff43bd26ae87e075a700c08a",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 95,
+            "nearwhite": 274,
+            "clipped": 27772,
+            "black": 0,
+            "luma": 153.96936910377357,
+            "luma_p99": 247.0,
+            "detail": 3.798955067920585,
+            "flat": 0.19453649798477385,
+            "saturation": 0.6824487990537966,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25470,
+              8345,
+              10,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h12-t01.png",
+          "sha256": "c6d4ac3a9555445e4df4c458e00376a3f9deb744adfbe5abf50cd021a2264fd5",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 95,
+            "nearwhite": 278,
+            "clipped": 27966,
+            "black": 0,
+            "luma": 154.13422759433962,
+            "luma_p99": 246.0,
+            "detail": 3.8022391401701747,
+            "flat": 0.19722346618898343,
+            "saturation": 0.6817997449512072,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25724,
+              8093,
+              8,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h12-t02.png",
+          "sha256": "8e5fbf7f9257122f1ffd175e59311a5ad7f3add7499b97273b6d48c284f17432",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 93,
+            "nearwhite": 272,
+            "clipped": 28255,
+            "black": 0,
+            "luma": 154.28007075471697,
+            "luma_p99": 246.0,
+            "detail": 3.793133303478131,
+            "flat": 0.20113449768622182,
+            "saturation": 0.6812272284289974,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25975,
+              7844,
+              8,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h12-t03.png",
+          "sha256": "1aa94d0c7cc8dd41f7eb326acf796c3d2420c6d4fc844c011c9cabd0a81dfce9",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 93,
+            "nearwhite": 270,
+            "clipped": 28656,
+            "black": 0,
+            "luma": 154.43944575471698,
+            "luma_p99": 246.0,
+            "detail": 3.7778772951186745,
+            "flat": 0.20812061501716675,
+            "saturation": 0.6805732628287348,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26160,
+              7657,
+              9,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h12-t04.png",
+          "sha256": "0e9d37ce98988194ced7b72b7db8f99a4d3bf42ca0f096b82e994eae1d77f9d6",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 89,
+            "nearwhite": 266,
+            "clipped": 29028,
+            "black": 0,
+            "luma": 154.58770636792454,
+            "luma_p99": 245.0,
+            "detail": 3.748051948051948,
+            "flat": 0.21340498581877893,
+            "saturation": 0.6799540178012325,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26280,
+              7536,
+              15,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h12-t05.png",
+          "sha256": "ed95ab3238f7a005ce3f91f76400bd5e6bc35eae92a3cc956f5a2eebd156537c",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 90,
+            "nearwhite": 264,
+            "clipped": 29420,
+            "black": 0,
+            "luma": 154.77909787735848,
+            "luma_p99": 245.0,
+            "detail": 3.743991640543365,
+            "flat": 0.21725630691147932,
+            "saturation": 0.6791349547123746,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26469,
+              7348,
+              13,
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 92.5,
+          "min": 89,
+          "max": 95
+        },
+        "nearwhite": {
+          "mean": 270.6666666666667,
+          "min": 264,
+          "max": 278
+        },
+        "clipped": {
+          "mean": 28516.166666666668,
+          "min": 27772,
+          "max": 29420
+        },
+        "luma": {
+          "mean": 154.36498624213837,
+          "min": 153.96936910377357,
+          "max": 154.77909787735848
+        },
+        "detail": {
+          "mean": 3.7773747325471465,
+          "min": 3.743991640543365,
+          "max": 3.8022391401701747
+        },
+        "flat": {
+          "mean": 0.20527939493456734,
+          "min": 0.19453649798477385,
+          "max": 0.21725630691147932
+        },
+        "saturation": {
+          "mean": 0.6808563346293905,
+          "min": 0.6791349547123746,
+          "max": 0.6824487990537966
+        }
+      }
+    },
+    {
+      "run": "essai33",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18.png",
+          "sha256": "66f6431a22a59bf587d5e3cdb0d1e7963ef7469c8f28f20df59a408c032e4b1d",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16722,
+            "black": 0,
+            "luma": 184.3594044811321,
+            "luma_p99": 229.0,
+            "detail": 3.845379907448873,
+            "flat": 0.1497536945812808,
+            "saturation": 0.3312122730580375,
+            "hue_bins": [
+              3030,
+              1042,
+              70,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23677,
+              2532,
+              1535,
+              2034
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t01.png",
+          "sha256": "3b487571d85d2bf02d0abdc2b26c77618144047f15a6d83da82f4805e2a60658",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16695,
+            "black": 0,
+            "luma": 184.32750589622643,
+            "luma_p99": 228.80999999999767,
+            "detail": 3.857829526795044,
+            "flat": 0.1444096133751306,
+            "saturation": 0.3309730757437694,
+            "hue_bins": [
+              3042,
+              1039,
+              70,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23708,
+              2508,
+              1544,
+              2009
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t02.png",
+          "sha256": "85915d756afcac717822f7d82f134a7c92e5821d93d8b7aebb8e5fd4d508f7a5",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16647,
+            "black": 0,
+            "luma": 184.26471108490566,
+            "luma_p99": 229.0,
+            "detail": 3.8545753097477236,
+            "flat": 0.1426780116435289,
+            "saturation": 0.3307757152306631,
+            "hue_bins": [
+              3041,
+              1035,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23710,
+              2507,
+              1558,
+              1998
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t03.png",
+          "sha256": "82be5ee7b7298b52a121a43b7694d8dac88d7285e018db39d16b43735ca9ce12",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16575,
+            "black": 0,
+            "luma": 184.16916273584906,
+            "luma_p99": 229.0,
+            "detail": 3.874817136886102,
+            "flat": 0.1374832064487237,
+            "saturation": 0.3305862190518965,
+            "hue_bins": [
+              3037,
+              1028,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23719,
+              2494,
+              1549,
+              2021
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t04.png",
+          "sha256": "bfcd2dc6e682f702b9d59f794bad16c7dd5f17a42e4e35233418d81d53fededf",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16528,
+            "black": 0,
+            "luma": 184.05686910377358,
+            "luma_p99": 229.0,
+            "detail": 3.892371995820272,
+            "flat": 0.13509479026720406,
+            "saturation": 0.3304363481957647,
+            "hue_bins": [
+              3033,
+              1028,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23696,
+              2525,
+              1537,
+              2030
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t05.png",
+          "sha256": "06f325912b49c7711267abbbf3256400f49c3fba8b736e532e52d8c119120b65",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16456,
+            "black": 0,
+            "luma": 183.92809551886793,
+            "luma_p99": 229.0,
+            "detail": 3.8940140319450665,
+            "flat": 0.13372145096283028,
+            "saturation": 0.3303358068963581,
+            "hue_bins": [
+              3035,
+              1028,
+              70,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23700,
+              2510,
+              1536,
+              2041
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 16603.833333333332,
+          "min": 16456,
+          "max": 16722
+        },
+        "luma": {
+          "mean": 184.1842914701258,
+          "min": 183.92809551886793,
+          "max": 184.3594044811321
+        },
+        "detail": {
+          "mean": 3.86983131810718,
+          "min": 3.845379907448873,
+          "max": 3.8940140319450665
+        },
+        "flat": {
+          "mean": 0.14052346121311637,
+          "min": 0.13372145096283028,
+          "max": 0.1497536945812808
+        },
+        "saturation": {
+          "mean": 0.33071990636274823,
+          "min": 0.3303358068963581,
+          "max": 0.3312122730580375
+        }
+      }
+    },
+    {
+      "run": "essai33",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 18,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18.png",
+          "sha256": "43ef1f43133a9ac3dd4e0c8ef6d6a2754c8126077610a4c32ccebd69469d7af6",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11529,
+            "black": 0,
+            "luma": 183.88947523584906,
+            "luma_p99": 229.0,
+            "detail": 3.8269293924466337,
+            "flat": 0.1728019107329452,
+            "saturation": 0.3318522482225399,
+            "hue_bins": [
+              3026,
+              1036,
+              74,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23612,
+              2530,
+              1691,
+              1951
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t01.png",
+          "sha256": "9fabea80e40c1ea21151f25c6040cc8e75821fe49c5cedb1bfedd19d6cd47d4e",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11670,
+            "black": 0,
+            "luma": 183.9938974056604,
+            "luma_p99": 229.0,
+            "detail": 3.825018659501418,
+            "flat": 0.16635318704284222,
+            "saturation": 0.331534731909062,
+            "hue_bins": [
+              3025,
+              1038,
+              74,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23623,
+              2525,
+              1672,
+              1963
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t02.png",
+          "sha256": "3d310129e0d9c38639f131348688d0614f6c35309a28807c0167718137b00883",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11836,
+            "black": 0,
+            "luma": 184.08272405660378,
+            "luma_p99": 229.0,
+            "detail": 3.8226600985221677,
+            "flat": 0.16271085236602478,
+            "saturation": 0.3312373114395159,
+            "hue_bins": [
+              3030,
+              1039,
+              73,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23626,
+              2531,
+              1652,
+              1969
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t03.png",
+          "sha256": "da7af402e9d5f678058ef7582835e09e7d04f9db566752b52f8af23da123f219",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11907,
+            "black": 0,
+            "luma": 184.15114976415094,
+            "luma_p99": 229.0,
+            "detail": 3.8145096283027318,
+            "flat": 0.1605612778026571,
+            "saturation": 0.3309341049575986,
+            "hue_bins": [
+              3025,
+              1036,
+              74,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23634,
+              2529,
+              1634,
+              1988
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t04.png",
+          "sha256": "ad5b83a9d637e70a2a3762b975497e7093540e22f87a3e78bc1bdd3a72e89b3b",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11951,
+            "black": 0,
+            "luma": 184.19846698113207,
+            "luma_p99": 229.0,
+            "detail": 3.8099119271533066,
+            "flat": 0.1592476489028213,
+            "saturation": 0.33066600097384224,
+            "hue_bins": [
+              3015,
+              1040,
+              74,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23647,
+              2546,
+              1602,
+              1996
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t05.png",
+          "sha256": "314ecf8346233d708d71d99e7754548be47e1c21e345d6a389d53ea54d472377",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11908,
+            "black": 0,
+            "luma": 184.2228478773585,
+            "luma_p99": 229.0,
+            "detail": 3.800119420809076,
+            "flat": 0.1586804000597104,
+            "saturation": 0.3304143836614743,
+            "hue_bins": [
+              3013,
+              1040,
+              76,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23650,
+              2549,
+              1583,
+              2009
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 11800.166666666666,
+          "min": 11529,
+          "max": 11951
+        },
+        "luma": {
+          "mean": 184.08976022012578,
+          "min": 183.88947523584906,
+          "max": 184.2228478773585
+        },
+        "detail": {
+          "mean": 3.816524854455889,
+          "min": 3.800119420809076,
+          "max": 3.8269293924466337
+        },
+        "flat": {
+          "mean": 0.16339254615116683,
+          "min": 0.1586804000597104,
+          "max": 0.1728019107329452
+        },
+        "saturation": {
+          "mean": 0.33110646352733886,
+          "min": 0.3304143836614743,
+          "max": 0.3318522482225399
+        }
+      }
+    },
+    {
+      "run": "essai33",
+      "layer": "sunset-sun",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "roi_fixed": [
+        142,
+        68,
+        178,
+        111
+      ],
+      "roi_generated": [
+        142,
+        68,
+        178,
+        111
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18.png",
+          "sha256": "66f6431a22a59bf587d5e3cdb0d1e7963ef7469c8f28f20df59a408c032e4b1d",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 568,
+            "black": 0,
+            "luma": 193.85852713178295,
+            "luma_p99": 247.0,
+            "detail": 8.4578231292517,
+            "flat": 0.11836734693877551,
+            "saturation": 0.3020402436002302,
+            "hue_bins": [
+              167,
+              317,
+              70,
+              0,
+              0,
+              0,
+              0,
+              0,
+              578,
+              187,
+              91,
+              138
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t01.png",
+          "sha256": "3b487571d85d2bf02d0abdc2b26c77618144047f15a6d83da82f4805e2a60658",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 577,
+            "black": 0,
+            "luma": 194.0077519379845,
+            "luma_p99": 247.52999999999997,
+            "detail": 8.452380952380953,
+            "flat": 0.11292517006802721,
+            "saturation": 0.3019120599304985,
+            "hue_bins": [
+              169,
+              315,
+              70,
+              0,
+              0,
+              0,
+              0,
+              0,
+              582,
+              184,
+              94,
+              134
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t02.png",
+          "sha256": "85915d756afcac717822f7d82f134a7c92e5821d93d8b7aebb8e5fd4d508f7a5",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 583,
+            "black": 0,
+            "luma": 194.16795865633074,
+            "luma_p99": 248.0,
+            "detail": 8.361224489795918,
+            "flat": 0.1251700680272109,
+            "saturation": 0.3017873657270145,
+            "hue_bins": [
+              174,
+              311,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              588,
+              180,
+              90,
+              134
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t03.png",
+          "sha256": "82be5ee7b7298b52a121a43b7694d8dac88d7285e018db39d16b43735ca9ce12",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 589,
+            "black": 0,
+            "luma": 194.31589147286823,
+            "luma_p99": 248.0,
+            "detail": 8.358503401360544,
+            "flat": 0.12312925170068027,
+            "saturation": 0.3015979586819596,
+            "hue_bins": [
+              174,
+              307,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              587,
+              181,
+              92,
+              135
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t04.png",
+          "sha256": "bfcd2dc6e682f702b9d59f794bad16c7dd5f17a42e4e35233418d81d53fededf",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 593,
+            "black": 0,
+            "luma": 194.46899224806202,
+            "luma_p99": 247.52999999999997,
+            "detail": 8.305442176870748,
+            "flat": 0.12108843537414966,
+            "saturation": 0.30153471457053244,
+            "hue_bins": [
+              178,
+              306,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              584,
+              189,
+              90,
+              130
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/origine-lumiere/beach-start-h18-t05.png",
+          "sha256": "06f325912b49c7711267abbbf3256400f49c3fba8b736e532e52d8c119120b65",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 605,
+            "black": 0,
+            "luma": 194.60400516795866,
+            "luma_p99": 248.0,
+            "detail": 8.264625850340137,
+            "flat": 0.12244897959183673,
+            "saturation": 0.30135047272410403,
+            "hue_bins": [
+              180,
+              307,
+              70,
+              0,
+              0,
+              0,
+              0,
+              0,
+              596,
+              179,
+              90,
+              126
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 585.8333333333334,
+          "min": 568,
+          "max": 605
+        },
+        "luma": {
+          "mean": 194.2371877691645,
+          "min": 193.85852713178295,
+          "max": 194.60400516795866
+        },
+        "detail": {
+          "mean": 8.366666666666667,
+          "min": 8.264625850340137,
+          "max": 8.4578231292517
+        },
+        "flat": {
+          "mean": 0.12052154195011339,
+          "min": 0.11292517006802721,
+          "max": 0.1251700680272109
+        },
+        "saturation": {
+          "mean": 0.30170380253905654,
+          "min": 0.30135047272410403,
+          "max": 0.3020402436002302
+        }
+      }
+    },
+    {
+      "run": "essai33",
+      "layer": "sunset-sun",
+      "arm": "recharged",
+      "hour": 18,
+      "roi_fixed": [
+        142,
+        68,
+        178,
+        111
+      ],
+      "roi_generated": [
+        142,
+        68,
+        178,
+        111
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18.png",
+          "sha256": "43ef1f43133a9ac3dd4e0c8ef6d6a2754c8126077610a4c32ccebd69469d7af6",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 437,
+            "black": 0,
+            "luma": 192.5394056847545,
+            "luma_p99": 248.0,
+            "detail": 8.756462585034013,
+            "flat": 0.11292517006802721,
+            "saturation": 0.30145385555462895,
+            "hue_bins": [
+              161,
+              312,
+              74,
+              0,
+              0,
+              0,
+              0,
+              0,
+              559,
+              196,
+              98,
+              148
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t01.png",
+          "sha256": "9fabea80e40c1ea21151f25c6040cc8e75821fe49c5cedb1bfedd19d6cd47d4e",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 439,
+            "black": 0,
+            "luma": 192.74095607235142,
+            "luma_p99": 248.0,
+            "detail": 8.661224489795918,
+            "flat": 0.1292517006802721,
+            "saturation": 0.30154881043701326,
+            "hue_bins": [
+              159,
+              313,
+              74,
+              0,
+              0,
+              0,
+              0,
+              0,
+              564,
+              192,
+              98,
+              148
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t02.png",
+          "sha256": "3d310129e0d9c38639f131348688d0614f6c35309a28807c0167718137b00883",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 445,
+            "black": 0,
+            "luma": 192.91989664082686,
+            "luma_p99": 248.0,
+            "detail": 8.52312925170068,
+            "flat": 0.13197278911564625,
+            "saturation": 0.30160993523984364,
+            "hue_bins": [
+              163,
+              312,
+              73,
+              0,
+              0,
+              0,
+              0,
+              0,
+              568,
+              191,
+              98,
+              143
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t03.png",
+          "sha256": "da7af402e9d5f678058ef7582835e09e7d04f9db566752b52f8af23da123f219",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 452,
+            "black": 0,
+            "luma": 193.12855297157623,
+            "luma_p99": 248.0,
+            "detail": 8.482993197278912,
+            "flat": 0.12448979591836734,
+            "saturation": 0.30162744171457784,
+            "hue_bins": [
+              160,
+              315,
+              74,
+              0,
+              0,
+              0,
+              0,
+              0,
+              574,
+              184,
+              94,
+              147
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t04.png",
+          "sha256": "ad5b83a9d637e70a2a3762b975497e7093540e22f87a3e78bc1bdd3a72e89b3b",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 457,
+            "black": 0,
+            "luma": 193.30684754521963,
+            "luma_p99": 247.52999999999997,
+            "detail": 8.474829931972788,
+            "flat": 0.12448979591836734,
+            "saturation": 0.3016819523031364,
+            "hue_bins": [
+              163,
+              313,
+              74,
+              0,
+              0,
+              0,
+              0,
+              0,
+              579,
+              183,
+              95,
+              141
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai33-sky/20260908T102415-3970238/captures/recharged/beach-start-h18-t05.png",
+          "sha256": "314ecf8346233d708d71d99e7754548be47e1c21e345d6a389d53ea54d472377",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 459,
+            "black": 0,
+            "luma": 193.48514211886305,
+            "luma_p99": 247.0,
+            "detail": 8.451020408163265,
+            "flat": 0.1346938775510204,
+            "saturation": 0.30169331771156466,
+            "hue_bins": [
+              167,
+              311,
+              76,
+              0,
+              0,
+              0,
+              0,
+              0,
+              579,
+              184,
+              94,
+              137
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 448.1666666666667,
+          "min": 437,
+          "max": 459
+        },
+        "luma": {
+          "mean": 193.0201335055986,
+          "min": 192.5394056847545,
+          "max": 193.48514211886305
+        },
+        "detail": {
+          "mean": 8.55827664399093,
+          "min": 8.451020408163265,
+          "max": 8.756462585034013
+        },
+        "flat": {
+          "mean": 0.12630385487528345,
+          "min": 0.11292517006802721,
+          "max": 0.1346938775510204
+        },
+        "saturation": {
+          "mean": 0.30160255216012744,
+          "min": 0.30145385555462895,
+          "max": 0.30169331771156466
+        }
+      }
+    },
+    {
+      "run": "essai34",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 9,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h09.png",
+          "sha256": "01682a09750d728f45059a5b87cc09dd702c91654651e85618791f97c8bd3ba5",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4181,
+            "black": 0,
+            "luma": 98.32653301886792,
+            "luma_p99": 223.80999999999767,
+            "detail": 12.404836542767578,
+            "flat": 0.045230631437527986,
+            "saturation": 0.5047520237997556,
+            "hue_bins": [
+              23604,
+              161,
+              41,
+              88,
+              80,
+              105,
+              135,
+              8882,
+              302,
+              136,
+              102,
+              283
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h09-t01.png",
+          "sha256": "0920d4857f6afc084bc7ad674020e97ac3e774abe4be0059beb4695edae07ac3",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4302,
+            "black": 0,
+            "luma": 98.36860259433962,
+            "luma_p99": 224.0,
+            "detail": 12.395282878041499,
+            "flat": 0.04639498432601881,
+            "saturation": 0.5047073101871246,
+            "hue_bins": [
+              23600,
+              162,
+              41,
+              88,
+              81,
+              98,
+              146,
+              8876,
+              304,
+              133,
+              102,
+              288
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h09-t02.png",
+          "sha256": "3e1d4dcc3c8d3c78c5997a94eefdfaf2e8c6ed6ac59e6c8be048df65226585f8",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 4391,
+            "black": 0,
+            "luma": 98.41429834905661,
+            "luma_p99": 224.0,
+            "detail": 12.390506045678459,
+            "flat": 0.04878340050753844,
+            "saturation": 0.5046290222277883,
+            "hue_bins": [
+              23603,
+              162,
+              40,
+              89,
+              81,
+              92,
+              162,
+              8870,
+              301,
+              128,
+              108,
+              283
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h09-t03.png",
+          "sha256": "c9c9fd7dd1b6be05c5417687d559529f0dfe3078a68e3708838d52cbd893e191",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4492,
+            "black": 0,
+            "luma": 98.4692216981132,
+            "luma_p99": 224.0,
+            "detail": 12.388147484699209,
+            "flat": 0.04991789819376026,
+            "saturation": 0.5045516510693552,
+            "hue_bins": [
+              23604,
+              162,
+              40,
+              89,
+              80,
+              72,
+              181,
+              8873,
+              300,
+              129,
+              105,
+              284
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h09-t04.png",
+          "sha256": "7ec730bdfb14a0459cab5e049888d0e237467829fefb0cd9b3d33db2d43c526a",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4587,
+            "black": 0,
+            "luma": 98.52927476415094,
+            "luma_p99": 223.0,
+            "detail": 12.388057919092402,
+            "flat": 0.04973876698014629,
+            "saturation": 0.5044419368125342,
+            "hue_bins": [
+              23602,
+              162,
+              41,
+              89,
+              79,
+              53,
+              210,
+              8860,
+              305,
+              124,
+              108,
+              286
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h09-t05.png",
+          "sha256": "3a6c7a98544ddcfba7d94b38be44c6ea089aef58f1b008d8605abbe1f4c98aa7",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 1,
+            "clipped": 4710,
+            "black": 0,
+            "luma": 98.60173938679246,
+            "luma_p99": 224.0,
+            "detail": 12.384146887595163,
+            "flat": 0.051619644723093,
+            "saturation": 0.5043098455060021,
+            "hue_bins": [
+              23602,
+              163,
+              40,
+              91,
+              78,
+              42,
+              222,
+              8858,
+              307,
+              120,
+              109,
+              287
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0.8333333333333334,
+          "min": 0,
+          "max": 1
+        },
+        "clipped": {
+          "mean": 4443.833333333333,
+          "min": 4181,
+          "max": 4710
+        },
+        "luma": {
+          "mean": 98.45161163522013,
+          "min": 98.32653301886792,
+          "max": 98.60173938679246
+        },
+        "detail": {
+          "mean": 12.391829626312385,
+          "min": 12.384146887595163,
+          "max": 12.404836542767578
+        },
+        "flat": {
+          "mean": 0.04861422102801413,
+          "min": 0.045230631437527986,
+          "max": 0.051619644723093
+        },
+        "saturation": {
+          "mean": 0.5045652982670933,
+          "min": 0.5043098455060021,
+          "max": 0.5047520237997556
+        }
+      }
+    },
+    {
+      "run": "essai34",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 9,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h09.png",
+          "sha256": "72f4118eaab8b27d935c04bfc1eb1973df9038ec86836d6c4182eb7c4afe064b",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2569,
+            "black": 0,
+            "luma": 83.18163325471698,
+            "luma_p99": 223.0,
+            "detail": 10.761009105836692,
+            "flat": 0.05209732795939692,
+            "saturation": 0.49824387551805105,
+            "hue_bins": [
+              23508,
+              135,
+              38,
+              88,
+              85,
+              109,
+              145,
+              8900,
+              350,
+              119,
+              149,
+              291
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h09-t01.png",
+          "sha256": "5c6d279aedcc66dd9162fdc7f52055f905cec7d537e372a969b02b9491052a8c",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2599,
+            "black": 0,
+            "luma": 83.18369693396227,
+            "luma_p99": 223.0,
+            "detail": 10.756053142260038,
+            "flat": 0.051261382295865056,
+            "saturation": 0.49830862064560055,
+            "hue_bins": [
+              23511,
+              133,
+              39,
+              85,
+              86,
+              108,
+              149,
+              8892,
+              355,
+              121,
+              147,
+              291
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h09-t02.png",
+          "sha256": "f18557ef89f789ab6de5ab396aea48dc9b3de2788d09a2c02bb59990700a5b6e",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2669,
+            "black": 0,
+            "luma": 83.19622641509434,
+            "luma_p99": 223.0,
+            "detail": 10.742528735632185,
+            "flat": 0.05176892073443798,
+            "saturation": 0.4983323535529769,
+            "hue_bins": [
+              23505,
+              135,
+              38,
+              88,
+              85,
+              105,
+              151,
+              8899,
+              346,
+              129,
+              140,
+              296
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h09-t03.png",
+          "sha256": "62018d9bd19c8fe9e57c18e2a80bd3ec4ad730eb3344c5d58b0444f1c0781683",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2727,
+            "black": 0,
+            "luma": 83.21724646226416,
+            "luma_p99": 223.0,
+            "detail": 10.729750709061054,
+            "flat": 0.04884311091207643,
+            "saturation": 0.49834327868876066,
+            "hue_bins": [
+              23506,
+              132,
+              39,
+              88,
+              84,
+              110,
+              145,
+              8901,
+              349,
+              130,
+              137,
+              296
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h09-t04.png",
+          "sha256": "1994181804b24a2a1d262e2f51e2cdf75053554e89fd03fbd05de3ae5acae1c1",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2804,
+            "black": 0,
+            "luma": 83.23811910377358,
+            "luma_p99": 223.0,
+            "detail": 10.717838483355724,
+            "flat": 0.04979847738468428,
+            "saturation": 0.49836421350898474,
+            "hue_bins": [
+              23509,
+              136,
+              39,
+              87,
+              84,
+              107,
+              150,
+              8894,
+              354,
+              136,
+              133,
+              288
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h09-t05.png",
+          "sha256": "8bd6a47cd17692a416834be298feed1fe157ece2b3ae5e926b1335a209a72847",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 2857,
+            "black": 0,
+            "luma": 83.2621462264151,
+            "luma_p99": 223.0,
+            "detail": 10.701865950141812,
+            "flat": 0.049888042991491265,
+            "saturation": 0.4983684353816411,
+            "hue_bins": [
+              23505,
+              135,
+              38,
+              89,
+              82,
+              106,
+              154,
+              8897,
+              344,
+              140,
+              132,
+              295
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 2704.1666666666665,
+          "min": 2569,
+          "max": 2857
+        },
+        "luma": {
+          "mean": 83.21317806603774,
+          "min": 83.18163325471698,
+          "max": 83.2621462264151
+        },
+        "detail": {
+          "mean": 10.734841021047917,
+          "min": 10.701865950141812,
+          "max": 10.761009105836692
+        },
+        "flat": {
+          "mean": 0.05060954371299199,
+          "min": 0.04884311091207643,
+          "max": 0.05209732795939692
+        },
+        "saturation": {
+          "mean": 0.4983267962160025,
+          "min": 0.49824387551805105,
+          "max": 0.4983684353816411
+        }
+      }
+    },
+    {
+      "run": "essai34",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h12.png",
+          "sha256": "4ee7067d0b93aaf6e7d3762ff6594f2e85734b832588814e29ece237d232b5f7",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 114,
+            "nearwhite": 265,
+            "clipped": 32263,
+            "black": 0,
+            "luma": 155.0694870283019,
+            "luma_p99": 246.0,
+            "detail": 3.8029258098223617,
+            "flat": 0.19949246156142708,
+            "saturation": 0.6780884453755806,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26345,
+              7458,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h12-t01.png",
+          "sha256": "d3a6e980be32a95b91de3a4bd92b31f6fb61027ebe8a6a8a451c49eddde3201c",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 110,
+            "nearwhite": 265,
+            "clipped": 32261,
+            "black": 0,
+            "luma": 155.27420400943396,
+            "luma_p99": 245.0,
+            "detail": 3.799283475145544,
+            "flat": 0.20041797283176593,
+            "saturation": 0.6771773837003416,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26583,
+              7225,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h12-t02.png",
+          "sha256": "efc53d502a7d174355c910e95822fa9690bdc28fe3677d3ff813593ab64d6fed",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 105,
+            "nearwhite": 261,
+            "clipped": 32263,
+            "black": 0,
+            "luma": 155.46827830188678,
+            "luma_p99": 245.0,
+            "detail": 3.7899985072398867,
+            "flat": 0.20155247051798775,
+            "saturation": 0.6763048110184533,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26871,
+              6942,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h12-t03.png",
+          "sha256": "5206d64323964103f0a7e003d4790c6ab2cb275a19c80174c074074e0b61a2f8",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 103,
+            "nearwhite": 261,
+            "clipped": 32259,
+            "black": 0,
+            "luma": 155.65076650943396,
+            "luma_p99": 245.0,
+            "detail": 3.792148081803254,
+            "flat": 0.19856695029108823,
+            "saturation": 0.6755079216456423,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              27083,
+              6732,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h12-t04.png",
+          "sha256": "24fd2d332470c7479f7aaf63704781027e1c4a010f9fd436a799a2f25a5481db",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 100,
+            "nearwhite": 264,
+            "clipped": 32280,
+            "black": 0,
+            "luma": 155.81686320754716,
+            "luma_p99": 245.0,
+            "detail": 3.786117330944917,
+            "flat": 0.19985072398865503,
+            "saturation": 0.674796273163843,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              27310,
+              6508,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h12-t05.png",
+          "sha256": "44e4aad105b6c6038039faed098fe1fdddb307024100ae1aff3a2e074abdeece",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 99,
+            "nearwhite": 261,
+            "clipped": 32300,
+            "black": 0,
+            "luma": 155.9540683962264,
+            "luma_p99": 245.0,
+            "detail": 3.781430064188685,
+            "flat": 0.19638752052545155,
+            "saturation": 0.6742013332570382,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              27509,
+              6310,
+              2,
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 105.16666666666667,
+          "min": 99,
+          "max": 114
+        },
+        "nearwhite": {
+          "mean": 262.8333333333333,
+          "min": 261,
+          "max": 265
+        },
+        "clipped": {
+          "mean": 32271,
+          "min": 32259,
+          "max": 32300
+        },
+        "luma": {
+          "mean": 155.5389445754717,
+          "min": 155.0694870283019,
+          "max": 155.9540683962264
+        },
+        "detail": {
+          "mean": 3.791983878190775,
+          "min": 3.781430064188685,
+          "max": 3.8029258098223617
+        },
+        "flat": {
+          "mean": 0.19937801661939591,
+          "min": 0.19638752052545155,
+          "max": 0.20155247051798775
+        },
+        "saturation": {
+          "mean": 0.6760126946934832,
+          "min": 0.6742013332570382,
+          "max": 0.6780884453755806
+        }
+      }
+    },
+    {
+      "run": "essai34",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 12,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h12.png",
+          "sha256": "77454371186c877e67dea5896520db4d310f302a8e9d60087d9d89137ce1db3c",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 89,
+            "nearwhite": 270,
+            "clipped": 27653,
+            "black": 0,
+            "luma": 153.9870283018868,
+            "luma_p99": 246.0,
+            "detail": 3.7931631586804,
+            "flat": 0.1941782355575459,
+            "saturation": 0.6823331003993258,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25499,
+              8324,
+              8,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h12-t01.png",
+          "sha256": "878ca51969a16f22f980f236c77f02c6b3e28c9e7af706e0824d30719fd3e159",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 74,
+            "nearwhite": 271,
+            "clipped": 27823,
+            "black": 0,
+            "luma": 154.1381191037736,
+            "luma_p99": 246.0,
+            "detail": 3.7971339005821765,
+            "flat": 0.19650694133452754,
+            "saturation": 0.681726315856715,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25759,
+              8069,
+              18,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h12-t02.png",
+          "sha256": "eba018f34d9e2d1b325bc2d5b6e3fc1c863e7a86f065b569e7cb56ad5ee5f8dc",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 76,
+            "nearwhite": 271,
+            "clipped": 28101,
+            "black": 0,
+            "luma": 154.2847287735849,
+            "luma_p99": 246.0,
+            "detail": 3.78752052545156,
+            "flat": 0.20095536647260784,
+            "saturation": 0.6811498041878818,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              25988,
+              7843,
+              13,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h12-t03.png",
+          "sha256": "ec5924ea2ecead628f62b0951e859df31864978d364306e5fa21a161a8a102d6",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 77,
+            "nearwhite": 266,
+            "clipped": 28503,
+            "black": 0,
+            "luma": 154.4428066037736,
+            "luma_p99": 246.0,
+            "detail": 3.774802209284968,
+            "flat": 0.2071652485445589,
+            "saturation": 0.6804954503642732,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26180,
+              7651,
+              11,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h12-t04.png",
+          "sha256": "64b0f32df787c546587f5704e1db1616b4ea6a1ed147d2fd010a5ec143a01aa0",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 84,
+            "nearwhite": 263,
+            "clipped": 28924,
+            "black": 0,
+            "luma": 154.60651533018867,
+            "luma_p99": 245.0,
+            "detail": 3.742498880429915,
+            "flat": 0.21277802657113,
+            "saturation": 0.6798349020615514,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26329,
+              7496,
+              10,
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h12-t05.png",
+          "sha256": "41ac0573ff706bcad705fa04a4cd446e19999ea0c4bcd9d17e78c752a561b59d",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 87,
+            "nearwhite": 258,
+            "clipped": 29292,
+            "black": 0,
+            "luma": 154.79849646226415,
+            "luma_p99": 245.0,
+            "detail": 3.7380803104941034,
+            "flat": 0.21645021645021645,
+            "saturation": 0.6789994085329601,
+            "hue_bins": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              26542,
+              7279,
+              12,
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 81.16666666666667,
+          "min": 74,
+          "max": 89
+        },
+        "nearwhite": {
+          "mean": 266.5,
+          "min": 258,
+          "max": 271
+        },
+        "clipped": {
+          "mean": 28382.666666666668,
+          "min": 27653,
+          "max": 29292
+        },
+        "luma": {
+          "mean": 154.3762824292453,
+          "min": 153.9870283018868,
+          "max": 154.79849646226415
+        },
+        "detail": {
+          "mean": 3.7721998308205205,
+          "min": 3.7380803104941034,
+          "max": 3.7971339005821765
+        },
+        "flat": {
+          "mean": 0.20467233915509778,
+          "min": 0.1941782355575459,
+          "max": 0.21645021645021645
+        },
+        "saturation": {
+          "mean": 0.6807564969004513,
+          "min": 0.6789994085329601,
+          "max": 0.6823331003993258
+        }
+      }
+    },
+    {
+      "run": "essai34",
+      "layer": "clouds",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18.png",
+          "sha256": "fc6895617194d3f68693a13893dece81391bd25878674d3941836339b8ff839a",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16725,
+            "black": 0,
+            "luma": 184.3594929245283,
+            "luma_p99": 229.0,
+            "detail": 3.8416778623675176,
+            "flat": 0.14990297059262578,
+            "saturation": 0.33119924665777034,
+            "hue_bins": [
+              3029,
+              1041,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23682,
+              2522,
+              1538,
+              2036
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t01.png",
+          "sha256": "95814b97eed409b26d1ad4ee64919ffeeb2fe42de876b9d874422a0e11c674fd",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16693,
+            "black": 0,
+            "luma": 184.32744693396228,
+            "luma_p99": 228.0,
+            "detail": 3.8558590834452904,
+            "flat": 0.14461859979101357,
+            "saturation": 0.3309624996940998,
+            "hue_bins": [
+              3042,
+              1036,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23712,
+              2498,
+              1550,
+              2010
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t02.png",
+          "sha256": "c016bcfe261c006e059629b53495c2aa543c92a2e26a2e3796ae09baaf9eb430",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16642,
+            "black": 0,
+            "luma": 184.26541863207547,
+            "luma_p99": 229.0,
+            "detail": 3.8552918346021796,
+            "flat": 0.1427078668457979,
+            "saturation": 0.33076398215846065,
+            "hue_bins": [
+              3037,
+              1034,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23709,
+              2500,
+              1566,
+              2002
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t03.png",
+          "sha256": "aa5ce40d1f0c119a1839935586f1e46bddf6ad3ac72631742cf4fdc97becbdee",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16571,
+            "black": 0,
+            "luma": 184.16981132075472,
+            "luma_p99": 229.0,
+            "detail": 3.8751156889087923,
+            "flat": 0.1375130616509927,
+            "saturation": 0.33057764979753,
+            "hue_bins": [
+              3032,
+              1029,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23721,
+              2485,
+              1556,
+              2025
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t04.png",
+          "sha256": "7915d7d695ee69d48cc5d5e24948e7b99896b6f8e69cbca57a894a6fe73e7898",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16530,
+            "black": 0,
+            "luma": 184.058195754717,
+            "luma_p99": 229.0,
+            "detail": 3.891715181370354,
+            "flat": 0.13512464546947306,
+            "saturation": 0.3304309679510157,
+            "hue_bins": [
+              3024,
+              1030,
+              73,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23696,
+              2517,
+              1546,
+              2034
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t05.png",
+          "sha256": "3ae6906dd713fe04f3c1f97f5d798a4d7fe227450c3f3ed262cb99749f9674ba",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 16456,
+            "black": 0,
+            "luma": 183.9298054245283,
+            "luma_p99": 229.0,
+            "detail": 3.89479026720406,
+            "flat": 0.13372145096283028,
+            "saturation": 0.33033248787915426,
+            "hue_bins": [
+              3025,
+              1028,
+              73,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23699,
+              2506,
+              1539,
+              2050
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 16602.833333333332,
+          "min": 16456,
+          "max": 16725
+        },
+        "luma": {
+          "mean": 184.18502849842767,
+          "min": 183.9298054245283,
+          "max": 184.3594929245283
+        },
+        "detail": {
+          "mean": 3.869074986316366,
+          "min": 3.8416778623675176,
+          "max": 3.89479026720406
+        },
+        "flat": {
+          "mean": 0.14059809921878888,
+          "min": 0.13372145096283028,
+          "max": 0.14990297059262578
+        },
+        "saturation": {
+          "mean": 0.33071113902300514,
+          "min": 0.33033248787915426,
+          "max": 0.33119924665777034
+        }
+      }
+    },
+    {
+      "run": "essai34",
+      "layer": "clouds",
+      "arm": "recharged",
+      "hour": 18,
+      "roi_fixed": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "roi_generated": [
+        0,
+        0,
+        320,
+        106
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18.png",
+          "sha256": "2068a7ab156193abd0b3d1b6a9a58b5bd52db93b5bb462c80c36c4cc00635870",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11382,
+            "black": 0,
+            "luma": 183.92323113207547,
+            "luma_p99": 229.0,
+            "detail": 3.8238244514106583,
+            "flat": 0.17265263472160025,
+            "saturation": 0.3315976218418503,
+            "hue_bins": [
+              3030,
+              1041,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23605,
+              2541,
+              1687,
+              1945
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t01.png",
+          "sha256": "b01fb450aa4de9444b2bda48ca805a6e29d053ea98f34e32031ae53bf1aa219f",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11501,
+            "black": 0,
+            "luma": 184.02626768867924,
+            "luma_p99": 229.0,
+            "detail": 3.825347066726377,
+            "flat": 0.16692043588595312,
+            "saturation": 0.3312779331870771,
+            "hue_bins": [
+              3029,
+              1043,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23621,
+              2532,
+              1668,
+              1956
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t02.png",
+          "sha256": "fc7e19aee7b1e45e63d0fa78bca4210161802f3ae4680fb5973b21d59f90e0a8",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11634,
+            "black": 0,
+            "luma": 184.11556603773585,
+            "luma_p99": 229.0,
+            "detail": 3.8247499626809973,
+            "flat": 0.16303925959098373,
+            "saturation": 0.33097922928623763,
+            "hue_bins": [
+              3026,
+              1049,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23630,
+              2523,
+              1658,
+              1963
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t03.png",
+          "sha256": "820bd28ae3c9aaf7b09e7d668d80f37e42c25b0452ecbf70c14bbb4f5c7b986d",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11721,
+            "black": 0,
+            "luma": 184.18313679245284,
+            "luma_p99": 229.0,
+            "detail": 3.8163009404388717,
+            "flat": 0.1605314226003881,
+            "saturation": 0.3306780201527054,
+            "hue_bins": [
+              3027,
+              1040,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23635,
+              2529,
+              1638,
+              1980
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t04.png",
+          "sha256": "9e78709ca30099137052816bbc401d66475dcb9e1f8697602ba48d5ee344d942",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11758,
+            "black": 0,
+            "luma": 184.2289799528302,
+            "luma_p99": 229.0,
+            "detail": 3.8034930586654725,
+            "flat": 0.15903866248693835,
+            "saturation": 0.33040425521577843,
+            "hue_bins": [
+              3026,
+              1047,
+              69,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23647,
+              2541,
+              1603,
+              1987
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t05.png",
+          "sha256": "91499b43e195cc532cee866978076512a324516398d0f9183e1c1425d5fcf89a",
+          "stats": {
+            "pixels": 33920,
+            "width": 320,
+            "height": 106,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 11731,
+            "black": 0,
+            "luma": 184.25557193396227,
+            "luma_p99": 229.0,
+            "detail": 3.7990744887296612,
+            "flat": 0.15838184803702046,
+            "saturation": 0.3301485829263061,
+            "hue_bins": [
+              3010,
+              1053,
+              69,
+              0,
+              0,
+              0,
+              0,
+              0,
+              23648,
+              2542,
+              1592,
+              2006
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 11621.166666666666,
+          "min": 11382,
+          "max": 11758
+        },
+        "luma": {
+          "mean": 184.12212558962264,
+          "min": 183.92323113207547,
+          "max": 184.25557193396227
+        },
+        "detail": {
+          "mean": 3.81546499477534,
+          "min": 3.7990744887296612,
+          "max": 3.825347066726377
+        },
+        "flat": {
+          "mean": 0.16342737722048067,
+          "min": 0.15838184803702046,
+          "max": 0.17265263472160025
+        },
+        "saturation": {
+          "mean": 0.33084760710165917,
+          "min": 0.3301485829263061,
+          "max": 0.3315976218418503
+        }
+      }
+    },
+    {
+      "run": "essai34",
+      "layer": "sunset-sun",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "roi_fixed": [
+        142,
+        68,
+        178,
+        111
+      ],
+      "roi_generated": [
+        142,
+        67,
+        178,
+        112
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18.png",
+          "sha256": "fc6895617194d3f68693a13893dece81391bd25878674d3941836339b8ff839a",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 571,
+            "black": 0,
+            "luma": 193.86046511627907,
+            "luma_p99": 247.0,
+            "detail": 8.373469387755103,
+            "flat": 0.12176870748299319,
+            "saturation": 0.3017548072326186,
+            "hue_bins": [
+              166,
+              316,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              583,
+              177,
+              94,
+              140
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t01.png",
+          "sha256": "95814b97eed409b26d1ad4ee64919ffeeb2fe42de876b9d874422a0e11c674fd",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 575,
+            "black": 0,
+            "luma": 194.0064599483204,
+            "luma_p99": 247.52999999999997,
+            "detail": 8.407482993197279,
+            "flat": 0.11768707482993197,
+            "saturation": 0.30168031599975476,
+            "hue_bins": [
+              169,
+              312,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              586,
+              174,
+              100,
+              135
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t02.png",
+          "sha256": "c016bcfe261c006e059629b53495c2aa543c92a2e26a2e3796ae09baaf9eb430",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 578,
+            "black": 0,
+            "luma": 194.18346253229973,
+            "luma_p99": 248.0,
+            "detail": 8.377551020408163,
+            "flat": 0.12585034013605442,
+            "saturation": 0.30153026895110385,
+            "hue_bins": [
+              170,
+              310,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              587,
+              173,
+              98,
+              138
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t03.png",
+          "sha256": "aa5ce40d1f0c119a1839935586f1e46bddf6ad3ac72631742cf4fdc97becbdee",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 585,
+            "black": 0,
+            "luma": 194.33010335917314,
+            "luma_p99": 248.0,
+            "detail": 8.36530612244898,
+            "flat": 0.12380952380952381,
+            "saturation": 0.30141018794028634,
+            "hue_bins": [
+              169,
+              308,
+              72,
+              0,
+              0,
+              0,
+              0,
+              0,
+              589,
+              172,
+              99,
+              139
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t04.png",
+          "sha256": "7915d7d695ee69d48cc5d5e24948e7b99896b6f8e69cbca57a894a6fe73e7898",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 595,
+            "black": 0,
+            "luma": 194.49806201550388,
+            "luma_p99": 248.0,
+            "detail": 8.290476190476191,
+            "flat": 0.12176870748299319,
+            "saturation": 0.3014168218690567,
+            "hue_bins": [
+              169,
+              308,
+              73,
+              0,
+              0,
+              0,
+              0,
+              0,
+              584,
+              181,
+              99,
+              134
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/origine-lumiere/beach-start-h18-t05.png",
+          "sha256": "3ae6906dd713fe04f3c1f97f5d798a4d7fe227450c3f3ed262cb99749f9674ba",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 605,
+            "black": 0,
+            "luma": 194.64147286821705,
+            "luma_p99": 248.0,
+            "detail": 8.282312925170068,
+            "flat": 0.12244897959183673,
+            "saturation": 0.30127774593886253,
+            "hue_bins": [
+              170,
+              307,
+              73,
+              0,
+              0,
+              0,
+              0,
+              0,
+              595,
+              175,
+              93,
+              135
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 584.8333333333334,
+          "min": 571,
+          "max": 605
+        },
+        "luma": {
+          "mean": 194.25333763996554,
+          "min": 193.86046511627907,
+          "max": 194.64147286821705
+        },
+        "detail": {
+          "mean": 8.349433106575963,
+          "min": 8.282312925170068,
+          "max": 8.407482993197279
+        },
+        "flat": {
+          "mean": 0.12222222222222222,
+          "min": 0.11768707482993197,
+          "max": 0.12585034013605442
+        },
+        "saturation": {
+          "mean": 0.3015116913219471,
+          "min": 0.30127774593886253,
+          "max": 0.3017548072326186
+        }
+      }
+    },
+    {
+      "run": "essai34",
+      "layer": "sunset-sun",
+      "arm": "recharged",
+      "hour": 18,
+      "roi_fixed": [
+        142,
+        68,
+        178,
+        111
+      ],
+      "roi_generated": [
+        142,
+        67,
+        178,
+        112
+      ],
+      "samples": [
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18.png",
+          "sha256": "2068a7ab156193abd0b3d1b6a9a58b5bd52db93b5bb462c80c36c4cc00635870",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 429,
+            "black": 0,
+            "luma": 192.5613695090439,
+            "luma_p99": 248.0,
+            "detail": 8.623809523809523,
+            "flat": 0.12585034013605442,
+            "saturation": 0.30091472316211093,
+            "hue_bins": [
+              163,
+              316,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              558,
+              198,
+              94,
+              148
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t01.png",
+          "sha256": "b01fb450aa4de9444b2bda48ca805a6e29d053ea98f34e32031ae53bf1aa219f",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 431,
+            "black": 0,
+            "luma": 192.74612403100775,
+            "luma_p99": 248.0,
+            "detail": 8.621768707482993,
+            "flat": 0.1360544217687075,
+            "saturation": 0.30096861274396447,
+            "hue_bins": [
+              160,
+              318,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              566,
+              191,
+              95,
+              147
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t02.png",
+          "sha256": "fc7e19aee7b1e45e63d0fa78bca4210161802f3ae4680fb5973b21d59f90e0a8",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 434,
+            "black": 0,
+            "luma": 192.92571059431523,
+            "luma_p99": 248.0,
+            "detail": 8.545578231292517,
+            "flat": 0.1401360544217687,
+            "saturation": 0.300979199429699,
+            "hue_bins": [
+              163,
+              317,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              570,
+              187,
+              99,
+              141
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t03.png",
+          "sha256": "820bd28ae3c9aaf7b09e7d668d80f37e42c25b0452ecbf70c14bbb4f5c7b986d",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 439,
+            "black": 0,
+            "luma": 193.10852713178295,
+            "luma_p99": 248.0,
+            "detail": 8.487074829931974,
+            "flat": 0.1326530612244898,
+            "saturation": 0.3010475397390076,
+            "hue_bins": [
+              163,
+              316,
+              71,
+              0,
+              0,
+              0,
+              0,
+              0,
+              575,
+              183,
+              96,
+              144
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t04.png",
+          "sha256": "9e78709ca30099137052816bbc401d66475dcb9e1f8697602ba48d5ee344d942",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 443,
+            "black": 0,
+            "luma": 193.29005167958655,
+            "luma_p99": 247.0,
+            "detail": 8.406802721088436,
+            "flat": 0.13129251700680272,
+            "saturation": 0.3010001855134316,
+            "hue_bins": [
+              165,
+              318,
+              69,
+              0,
+              0,
+              0,
+              0,
+              0,
+              580,
+              178,
+              95,
+              143
+            ]
+          }
+        },
+        {
+          "image": ".autoport/reports/lighting-hdr/batches/essai34-sky-filter/20260908T104853-3996574/captures/recharged/beach-start-h18-t05.png",
+          "sha256": "91499b43e195cc532cee866978076512a324516398d0f9183e1c1425d5fcf89a",
+          "stats": {
+            "pixels": 1548,
+            "width": 36,
+            "height": 43,
+            "white": 0,
+            "nearwhite": 0,
+            "clipped": 451,
+            "black": 0,
+            "luma": 193.46834625322998,
+            "luma_p99": 247.0,
+            "detail": 8.369387755102041,
+            "flat": 0.13401360544217686,
+            "saturation": 0.30102941225756835,
+            "hue_bins": [
+              165,
+              319,
+              69,
+              0,
+              0,
+              0,
+              0,
+              0,
+              580,
+              176,
+              99,
+              140
+            ]
+          }
+        }
+      ],
+      "stats": {
+        "white": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "nearwhite": {
+          "mean": 0,
+          "min": 0,
+          "max": 0
+        },
+        "clipped": {
+          "mean": 437.8333333333333,
+          "min": 429,
+          "max": 451
+        },
+        "luma": {
+          "mean": 193.01668819982774,
+          "min": 192.5613695090439,
+          "max": 193.46834625322998
+        },
+        "detail": {
+          "mean": 8.50907029478458,
+          "min": 8.369387755102041,
+          "max": 8.623809523809523
+        },
+        "flat": {
+          "mean": 0.13333333333333333,
+          "min": 0.12585034013605442,
+          "max": 0.1401360544217687
+        },
+        "saturation": {
+          "mean": 0.30098994547429697,
+          "min": 0.30091472316211093,
+          "max": 0.3010475397390076
+        }
+      }
+    }
+  ]
+}
