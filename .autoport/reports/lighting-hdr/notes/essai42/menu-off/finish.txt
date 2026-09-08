@@ -1,0 +1,1 @@
+No OFF restart: confirmed crash before Lighting navigation. Restore after producer exits.

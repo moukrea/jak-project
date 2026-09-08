@@ -1,0 +1,1 @@
+{"wall_time": 1788880916.7339773, "command": ["-s", "eae4df44", "shell", "am", "start", "-n", "org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity"], "properties": {"debug.opengoal.padreplay": "", "debug.opengoal.lighting": "", "debug.opengoal.rt.light": "", "debug.opengoal.level.warp": "", "debug.opengoal.refset": "", "debug.opengoal.recharged": "", "debug.opengoal.hdr": ""}}

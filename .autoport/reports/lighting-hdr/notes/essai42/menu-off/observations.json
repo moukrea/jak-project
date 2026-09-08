@@ -1,0 +1,110 @@
+{
+  "DIRECTIVES": "v708c60642a",
+  "installed_lib_sha256": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5",
+  "navigation": [
+    {
+      "snapshot": "boot.json",
+      "wall_time": 1788880922.4459004,
+      "pid": "12983",
+      "menu_header": [
+        0,
+        4294967295,
+        4294967295
+      ]
+    },
+    {
+      "snapshot": "start.json",
+      "wall_time": 1788880932.1335196,
+      "pid": "12983",
+      "menu_header": [
+        0,
+        4294967295,
+        4294967295
+      ]
+    },
+    {
+      "snapshot": "start2.json",
+      "wall_time": 1788880954.6858091,
+      "pid": "12983",
+      "menu_header": [
+        0,
+        4294967295,
+        4294967295
+      ]
+    },
+    {
+      "snapshot": "start3.json",
+      "wall_time": 1788880982.8617415,
+      "pid": "12983",
+      "menu_header": [
+        6,
+        27,
+        0
+      ]
+    },
+    {
+      "snapshot": "options.json",
+      "wall_time": 1788880992.890974,
+      "pid": "12983",
+      "menu_header": [
+        3,
+        51,
+        0
+      ]
+    },
+    {
+      "snapshot": "options2.json",
+      "wall_time": 1788881003.9468858,
+      "pid": "12983",
+      "menu_header": [
+        6,
+        27,
+        0
+      ]
+    },
+    {
+      "snapshot": "options3.json",
+      "wall_time": 1788881014.2246914,
+      "pid": "12983",
+      "menu_header": [
+        6,
+        18,
+        0
+      ]
+    },
+    {
+      "snapshot": "options4.json",
+      "wall_time": 1788881028.3825867,
+      "pid": "12983",
+      "menu_header": [
+        1,
+        11,
+        0
+      ]
+    },
+    {
+      "snapshot": "options5.json",
+      "wall_time": 1788881041.4335952,
+      "pid": "12983",
+      "menu_header": [
+        1,
+        11,
+        0
+      ]
+    },
+    {
+      "snapshot": "back1.json",
+      "wall_time": 1788881060.3927443,
+      "pid": "12983",
+      "menu_header": [
+        1,
+        11,
+        0
+      ]
+    }
+  ],
+  "settings_before_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "settings_failed_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "settings_equal_at_crash": true,
+  "historical_reference": "guards.json copied from essai39 only for symbol-slot cache, not a current runtime snapshot"
+}

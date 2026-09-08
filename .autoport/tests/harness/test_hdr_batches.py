@@ -988,7 +988,8 @@ def temporal_owner_row(actor=10012, on_white=(9, 11)):
         for i, white in enumerate(whites):
             row['samples'].append({'arm': arm, 'image': f'{arm}/{i}', 'visible_sprites': 1,
                 'stats': {'white': white, 'nearwhite': white + 20, 'clipped': 40,
-                          'detail': 8, 'flat': .1, 'hue_bins': [1] * 12}})
+                          'detail': 8, 'flat': .1, 'hue_bins': [1] * 12, 'pixels': 400,
+                          'luma': 120, 'luma_p99': 200, 'saturation': .2}})
     return row
 
 
@@ -1312,7 +1313,8 @@ def portal_region_sources(root, mutate=lambda witness: None):
 
 
 def portal_fake_measure(path, rect):
-    return dict(white=10, nearwhite=30, clipped=40, luma=120, detail=8, flat=.1, saturation=.2)
+    return dict(white=10, nearwhite=30, clipped=40, luma=120, luma_p99=200, detail=8,
+                flat=.1, saturation=.2, pixels=(rect[2]-rect[0])*(rect[3]-rect[1]), hue_bins=[1]*12)
 
 
 def test_portal_disc_separate_common_roi_and_global_witnesses_retained(tmp_path):
@@ -1586,11 +1588,11 @@ def test_sky_no_off_whites_keeps_partial_failures(layer, components_complete, fa
         if sample['arm'] == 'recharged' and failure:
             sample['stats'][failure] = {'flat': .06, 'detail': 9, 'clipped': 21}[failure]
     judgment = hdr.sky_sequence_judgment(row, 2)
-    assert judgment['status'] == 'not_judged'
-    assert not judgment.get('measured')
-    assert judgment['reason'] == ('incomplete visible sun disc and two distinct rays'
-        if layer == 'sunset-sun' and not components_complete else 'expected OFF whites not observed')
-    partial = judgment['partial_photometry']
+    qualified = layer == 'sunset-sun' and components_complete
+    expected_status = ('failed' if failure else 'passed') if qualified else 'not_judged'
+    assert judgment['status'] == expected_status
+    assert bool(judgment.get('measured')) == qualified
+    partial = judgment if qualified else judgment['partial_photometry']
     assert partial['status'] == ('failed' if failure else 'passed')
     assert len(partial['failures']) == int(failure is not None)
     if failure:
@@ -1598,8 +1600,9 @@ def test_sky_no_off_whites_keeps_partial_failures(layer, components_complete, fa
     diagnostic = {'schema': 1, 'errors': [], 'regions': [row]}
     metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
     assert metrics['hdr_owner_regressions_failed'] == int(failure is not None)
-    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
-    assert details['passed'] == []
+    assert metrics['hdr_owner_regressions_measured'] == int(qualified)
+    assert metrics['hdr_owner_regressions_passed'] == int(qualified and not failure)
+    assert metrics['hdr_defect_7_owner_regressions'] == 1
 
 
 @pytest.mark.parametrize('fault', ['population', 'duplicate', 'invisible', 'invalid_measurement'])
@@ -1644,3 +1647,51 @@ def test_clouds_additive_provenance_does_not_depend_on_tbp(tmp_path):
     _, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
     finding = next(row for row in details['findings'] if row['case'].startswith('nuages'))
     assert finding['status'] == 'not_judged'
+
+
+@pytest.mark.parametrize('key,value', [('luma', 119), ('luma_p99', 199),
+                                      ('saturation', .21), ('violet_fraction', 3)])
+def test_orange_sun_brightness_and_colour_loss_cannot_pass(key, value):
+    row = temporal_owner_row(0, (0, 0))
+    row.update(layer='sunset-sun', view_hour='village1-warp-h18')
+    for sample in row['samples']:
+        sample['sun_components_complete'] = True
+        sample['stats'].update(white=0, nearwhite=0)
+        if sample['arm'] == 'recharged':
+            if key == 'violet_fraction': sample['stats']['hue_bins'][9] = value
+            else: sample['stats'][key] = value
+    result = hdr.sky_sequence_judgment(row, 2)
+    assert result['status'] == 'failed' and result['measured']
+    assert any(f.startswith(key + ':') for f in result['failures'])
+    expected = hdr.contract(ROOT)
+    metrics, _ = hdr.owner_regressions(expected, [sky_observation(
+        {'schema': 1, 'errors': [], 'regions': [row]})])
+    assert metrics['hdr_owner_regressions_measured'] == 1
+    assert metrics['hdr_owner_regressions_failed'] == 1
+    assert metrics['hdr_owner_regressions_passed'] == 0
+
+
+@pytest.mark.parametrize('key,value', [('luma', None), ('luma', float('nan')),
+    ('luma_p99', float('inf')), ('luma_p99', -1), ('saturation', 1.1),
+    ('pixels', 0), ('pixels', True), ('pixels', 4000), ('hue_bins', [1]*11),
+    ('hue_bins', [40]*12), ('hue_bins', [-1]*12), ('hue_bins', [float('nan')]*12)])
+def test_sun_absent_or_invalid_radiometry_keeps_other_failures(key, value):
+    row = temporal_owner_row(0, (0, 0))  # Suppresses expected OFF whites.
+    row['layer'] = 'sunset-sun'
+    for sample in row['samples']: sample['sun_components_complete'] = True
+    row['samples'][0]['stats'][key] = value
+    result = hdr.sky_sequence_judgment(row, 2)
+    assert result['status'] == 'not_judged' and not result.get('measured')
+    assert result['partial_photometry']['status'] == 'failed'
+    assert any(f.startswith('white:') for f in result['partial_photometry']['failures'])
+
+
+def test_sun_black_roi_cannot_establish_expected_brightness():
+    row = temporal_owner_row(0, (0, 0))
+    row['layer'] = 'sunset-sun'
+    for sample in row['samples']:
+        sample['sun_components_complete'] = True
+        sample['stats'].update(white=0, nearwhite=0, luma=0, luma_p99=0)
+    result = hdr.sky_sequence_judgment(row, 2)
+    assert result['status'] == 'not_judged' and not result.get('measured')
+    assert result['reason'] == 'expected OFF sun brightness not observed'

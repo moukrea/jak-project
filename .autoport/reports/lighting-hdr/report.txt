@@ -1,29 +1,26 @@
-HDR non validé : le genou à0,96 rapproche les blancs mesurés des nuages de la référence, mais quatre défauts restent présents.
 DIRECTIVES v708c60642a
-Seul réglage moteur changé : gfx.h, genou SDR0,95→0,96 ; formule quadratique, exposition, effets et shaders conservés.
-Candidat0,98 écarté : nuages à midi129,33blancsON contre105,17OFF ; son lot portail a été interrompu avant capture, sources conservées.
-À0,96, nuages à midi106,67blancsON contre105,17OFF, dans l’enveloppeOFF99..114 ; auparavant91,5ON (before-after.json, références39 diagnostiques).
-Le contrôle blanc passe dans cette ROI ; quasi-blancs272,83/262,83, détail3,77118/3,79198 et aplats0,205687/0,199378 restent en échec.
-Soleil couchant : lumaON192,025/OFF193,180, blancs et quasi-blancs0/0 ; éclat et couleur locale restent non qualifiés.
-GPU hôte :8001points par genou,0échec ; saut de pente0,0126362 sous0,05, f(1)=0,99 ; test du shader réel, pas preuve d’image entière.
-Build final incrémental115,2s/repack36,4s ; libab2f8019a399c9c1/APKb7c0612fd139116f… installés Redmi, identité et CGO/packs contrôlés.
-Ciel96 :234s,36captures,85fichiers scellés sans divergenceSHA,crash0 ; portail96 :385s,4captures,21fichiers scellés sans divergenceSHA,crash0.
-Portail après purge : attentesON54,936/110,334s etOFF42,587/85,096s ; âges659/1319, traces dans portal96/timing-and-witnesses.json.
-Disque portailON/OFF : blancs28/27,quasi-blancs41,5/48,luma102,592/126,813,détail25,2244/27,4817 ; déficit persistant, pas de correction revendiquée.
-Sources avant/après conservées ; les rectangles acteur total ont changé et restent explicitement non comparables, le rectangle disque est commun.
-Huit lignes de la preuve officielle produite par proof_run.sh :
+Échec : nouveau crash menu ; le rendu HDR reste non validé, sans modification de courbe ni nouveau build.
+Jugement soleil corrigé : orange sans blanc admissible, mais éclat/couleur mesurés doivent être conservés.
+Disque et deux rayons, blancs attendus, détail/aplats, provenance et absences restent contrôlés.
+271 tests passés puis 62 tests soleil/ciel après les derniers gardes ; aucun test synthétique ne prouve le jeu.
+Preuve officielle du run menu unique, recopiée sans modification :
 source=device
 serial=eae4df44
 sha=ab2f8019a399c9c1
-crash=0
-frames=4560
-FEATURE lighting-hdr armed=1 hits=1029884
-hdr_knee_x1000=960
-hdr_tonemap_defects=4
-La preuve finale porte batch_errors0, owner_regressions_passed0, deux échecs partiels et343éléments de couverture manquants.
-Ciel et portail restent en campagnes séparées : le helper juge leurs options temporelles6×12 et2×660 incompatibles ; aucune agrégation artificielle.
-Acquis crashes/menuON39 et alpha40 conservés sans rejeu dédié ; diagnostics éco29/30 conservés sans répétition négative.
-non prouvé : correction des cinq cas, attribution du sol devant Samos et vraie hutte, couverture21niveaux×8heures/ciels/intérieurs, ombresOFF/persistanceOFF, imageOFF/HUD entière.
-À regarder : Options > Recharged, LightingOFF/ON ; nuages, soleil couchant, éclairs éco bleue, sol devant Samos et portail après dix secondes animées.
-Réglages owner restaurés exactement SHA78108670… ; propriétésdebug vides ; PID12161 identique aux deux lectures espacées de12s (portal96/restoration.json).
-Validation finale laissée à l’orchestrateur ; aucun owner-ok. Handoff41 à jour ; les cinq cas et la couverture complète restent obligatoires.
+duration_s=312
+crash=1
+frames=1680
+FEATURE lighting-hdr armed=1 hits=943585
+hdr_tonemap_defects=5
+Crash : vector-matrix*!+0x18 depuis hd-mtx-check-all+0x51c, hd-mtxarea0xffffffff, faute0x8000000a7f.
+Cause immédiate établie ; dernier écrivain ou pointeur compagnon invalidé non établi. Aucun masquage ajouté.
+Nuages : fenêtres ON/OFF successives avec contribution rouge croissante ; format et dérive UV restent confondus.
+Portail : baisse amont sur trois canaux ; modulation éclairage et composition non séparées. Acquis attente10s41 conservé.
+Soleil41 relu hors preuve : luma192.025<minOFF192.807, violet.176440>maxOFF.173457 ; cas en échec.
+Libab2f8019a399c9c1 inchangée ; réglagesSHA78108670…52fd6 exacts restaurés, PID14537 stable20s.
+Owner : aucun correctif visuel nouveau à valider ; les cinq zones Options > Recharged restent à vérifier après correction.
+non prouvé : persistanceOFF/ombresOFF (bouton non atteint), cause profonde crash, correction des cinq cas.
+non prouvé : couverture21niveaux×8h, ciels/intérieurs/vraie hutte, ROI sol, attribution fine nuages/portail.
+Aucune campagne supplémentaire : nouveau crash non corrigé et régressions prioritaires non résolues.
+Notes : notes/essai42/diagnostic.md, sun-judgment.json, menu-off/ ; reprise détaillée dans handoff.md.
+Validateur laissé à l’orchestrateur ; aucun owner-ok.

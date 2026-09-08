@@ -140,9 +140,13 @@ def sun_components_complete(witnesses):
 
 
 def sky_sequence_judgment(row, temporal):
-    judgment = owner_sequence_judgment(row, temporal)
+    sun = row.get('layer') == 'sunset-sun'
+    judgment = owner_sequence_judgment(row, temporal, require_expected_white=not sun)
+    if sun and judgment.get('measured'):
+        judgment = sun_radiometry(row, judgment)
     partial = (owner_sequence_judgment(row, temporal, require_expected_white=False)
-               if judgment.get('reason') == 'expected OFF whites not observed' else judgment)
+               if judgment.get('reason') == 'expected OFF whites not observed' else
+               judgment.get('partial_photometry', judgment))
     if row.get('layer') == 'sunset-sun' and any(
             s.get('sun_components_complete') is not True for s in row.get('samples', [])):
         return {'status': 'not_judged', 'reason': 'incomplete visible sun disc and two distinct rays',
@@ -153,6 +157,51 @@ def sky_sequence_judgment(row, temporal):
                              if row.get('layer') == 'clouds' else
                              'sun bounds include background; photometric preservation only')
     return judgment
+
+
+def sun_radiometry(row, photometry):
+    """Judge the existing ROI statistics; an orange sun need not contain white.
+
+    Retain the white/detail constraints and add brightness and colour checks.
+    The rectangle still includes background: these are preservation bounds,
+    not an attribution of individual pixels to the disc or either ray.
+    """
+    values = {arm: {k: [] for k in ('luma', 'luma_p99', 'saturation', 'violet_fraction')}
+              for arm in ('recharged', 'origine-lumiere')}
+    left, top, right, bottom = row['roi_exclusive']
+    expected_pixels = (right - left) * (bottom - top)
+    for sample in row['samples']:
+        stats = sample.get('stats', {})
+        pixels, hues = stats.get('pixels'), stats.get('hue_bins')
+        valid = (type(pixels) is int and pixels == expected_pixels and isinstance(hues, list)
+                 and len(hues) == 12 and all(type(v) is int and v >= 0 for v in hues)
+                 and sum(hues) <= pixels)
+        for key, ceiling in (('luma', 255), ('luma_p99', 255), ('saturation', 1)):
+            v = stats.get(key)
+            valid &= type(v) in (int, float) and math.isfinite(v) and 0 <= v <= ceiling
+        if not valid:
+            return {'status': 'not_judged', 'reason': 'invalid or absent sun radiometry',
+                    'partial_photometry': photometry}
+        for key in ('luma', 'luma_p99', 'saturation'):
+            values[sample['arm']][key].append(stats[key])
+        # HSB bins span 30 degrees: 270..330 covers violet/magenta, not blue.
+        values[sample['arm']]['violet_fraction'].append(sum(hues[9:11]) / pixels)
+    if min(values['origine-lumiere']['luma_p99']) <= 2:
+        return {'status': 'not_judged', 'reason': 'expected OFF sun brightness not observed',
+                'partial_photometry': photometry}
+    bounds, failures = {}, list(photometry['failures'])
+    for key in values['recharged']:
+        on, off = values['recharged'][key], values['origine-lumiere'][key]
+        mean = sum(on) / len(on)
+        bounds[key] = {'off_min': min(off), 'off_max': max(off),
+                       'off_mean': sum(off) / len(off), 'on_mean': mean}
+        if key in ('luma', 'luma_p99') and mean < min(off):
+            failures.append(key + ': ON loss beyond observed OFF temporal envelope')
+        if key in ('saturation', 'violet_fraction') and mean > max(off):
+            failures.append(key + ': ON excess beyond observed OFF temporal envelope')
+    return {**photometry, 'status': 'failed' if failures else 'passed',
+            'photometric_passed': not failures, 'failures': failures,
+            'radiometric_bounds': bounds}
 
 
 def owner_regions(batch, images, region_measurer=measure):

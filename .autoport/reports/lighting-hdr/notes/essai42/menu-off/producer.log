@@ -1,0 +1,9 @@
+[proof_run lighting-hdr] ecran : mWakefulness=Awake
+[proof_run lighting-hdr] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 300s (armed=1)
+[proof_run lighting-hdr] le processus a change ou disparu (avant=12983 apres=)
+[proof_run lighting-hdr] files/gk_crash.txt present
+[proof_run lighting-hdr] ecrit .autoport/reports/lighting-hdr/proof.txt (frames=1680 crash=1 duree=312s) ; sortie moteur : .autoport/reports/lighting-hdr/proof-engine.log
+[teardown] eae4df44: debug.opengoal.feature etait 'lighting-hdr' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.pbr.shadowdbg etait '1' -> vide
+[teardown] eae4df44: 3 propriete(s) effacee(s), marqueurs fichier retires.

@@ -1,0 +1,11 @@
+{
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "pids": [
+    "14537",
+    "14537"
+  ],
+  "stable": true,
+  "settings_exact": true,
+  "properties_exact_values": true,
+  "property_diff": {}
+}

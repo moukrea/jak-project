@@ -1,26 +1,28 @@
-# Handoff — lighting-hdr essai41
+# Handoff — lighting-hdr essai42
 DIRECTIVES v708c60642a
 ## ÉTABLI
-Genou SDR gfx.h0,95→0,96 seul changement rendu ; shader/formule/exposition conservés. Libab2f8019a399c9c1/APKb7c0612fd139116f… installés Redmi.
-Identité/packs/CGO/publieur inchangés : notes/essai41/build96/device-identity.json. Build final115,2s/repack36,4s ; premier cycle117,8s/96,8s.
-GPU réel8001points/genou : failures0,sautpente0,0126362<0,05,f(1)=0,99 ; notes/essai41/curve96. Ce test ne prouve pas image entière.
-Ciel96 officiel234s/36captures/85fichiers scellés/SHAok/crash0/frames1980/hits404636 ; knee960,curve0,sites1,defects4.
-Nuagesh12 blancsON106,667/OFF105,167,enveloppeOFF99..114 (ancien39ON91,5) ; blancpartiel passe, nearwhite/detail/flat échouent encore.
-Snapshot nuages sourceblancs1537,5 inchangé39→41,simulationaprèscourbe1117→1214 ; ROI finale detail3,77118/3,79198,aplats.205687/.199378.
-Soleilh18 luma192,0253/193,1798,W/N0/0 ; composants présents mais éclat/couleur nonqualifiés ; sky96/image-region-summary.json.
-Portail96 officiel385s/4captures/21fichiers scellés/SHAok/crash0/frames4560/hits1029884 ; proof neufab2f8019… defects4,batcherrors0,ownerpassed0.
-AttentesON54,936/110,334s,OFF42,587/85,096s après purge ; âges659/1319,portal96/timing-and-witnesses.json.
-DisqueON/OFF W28/27,N41,5/48,luma102,592/126,813,détail25,2244/27,4817,sat.479871/.429082 ; déficit reste, pas correctif composition revendiqué.
-RéglagesSHA78108670… exacts,propsvides,PID12161 stable12s,verrouabsent ; acquiscrashes/menuON39 etalpha40 conservés sans rejeu dédié.
+Rendu inchangé essai41 : genouSDR.96/libab2f8019a399c9c1 ; aucun build, aucune campagne image42.
+Helper soleil modifié : blancOFF non obligatoire si orange ; luma/p99,saturation,violet270..330° contre enveloppeOFF, aireROI/mesures/noir contrôlés.
+Disque+2rayons,blancsattendus/détail/aplats toujours exigés,absent nonjugé ; autrescas et porte inchangés. Tests271passés puis62soleil/ciel après derniersgardes.
+Sources41soleil relues diagnostic seulement : luma192.025<minOFF192.807,violet.176440>maxOFF.173457 ; notes/essai42/sun-judgment.json.
+Nouveau run officiel menu312s/crash1/frames1680/hits943585/defects5 ; notes/essai42/menu-off/proof.txt intact, même lib locale/appareil.
+Menu27→51→27→18(save-game-title)→11(memcard-data-exists),crash après acquittement ; LightingOFF jamais atteint.
+PCvector-matrix*!+0x18/LRhd-mtx-check-all+0x51c ; objet0x1eb6c4,champ+0x1dfc déduitFFFFFFFF,k20,p19.
+Adresses X2=FFFFFFFF+128*21=100000a7f,X3=1000009ff,fauteee_base+X2=8000000a7f ; logs/mémoire/code conservés menu-off/proof-engine.log.
+Seul writer normal hd-draw-check3094 reçoit DMA align64 ; init implicite activate gkernel1763..1766 efface champs : init manquante non démontrée.
+Piste cache hd-scan-companions rawrefs face compaction/spawns ; deux spawns17:24:26.515/.527,crash17:24:27.067,aucun déplacement objet tracé.
+RéglagesSHA78108670…52fd6 exacts restaurés,props identiques,PID14537 stable20s ; acquiscrashes39/menuONretourON39/alpha40 non rejoués.
 ## TENTÉ
-Candidat.98 rejeté : nuagesh12 blancs129,333/OFF105,167 ; garder sky/curve/build98 en diagnostic, pas preuve96. Dossiers sans suffixe=98.
-Portail98 interrompu avantcapture SIGTERM PIDexact11984,exit-15 ; sources portal/interrupted-engine.log,restaurationexactePID7611. Jamais réagréger lotincomplet.
-Candidat.96 réduit perteblancs mais ne corrige ni détail/aplats nuages ni déficitportail. Avant/après notes/essai41/before-after.json ; acteur totalROI différente noncomparé.
-Ciel6×12 etportail2×660 : helper compare options temporelles complètes ; campagnes séparées, aucune normalisation ou agrégation artificielle. campaign-compatibility.md.
-Aucun patch de composition justifié : déficitRG précède courbe, dessin responsable nonattribué ; Badditif et sourcesparticulaires ON/OFF différentes, diagnostic.md.
+Navigation menu historique n’atteint pas Options : ne pas répéter les taps aveugles. PersistanceOFF/ombresOFF nonprouvées,absence log ombres insuffisante.
+Diagnostic crash : A16x16-clobber faux signal,ADDobjet+LDR légitime ; pas dernier écrivain trouvé,pas garde-1 ni init spéculative.
+Nuages41h12 : deltaR ONLF1601..1661 33743.8→34577.9,OFF1675..1735 34756.2→35716.8 ; UV sky-tng155..167 dérivent,pas repinnés.
+Donc différence moyenne ne sépare pas format/animation ; ni gamma/doublealpha/multiplicateur erroné trouvé,aucun correctif rendu justifié.
+Portail41ROI7020px ratiosRGBavant(.706,.692,.690),déficit troiscanaux ; shade.glsl371..388 module volontairement éclairage. Pas attribution dessin.
 ## RESTE
-Finir nuages/soleil puis sol/portail sans préalableéco ; cinqcas toujours obligatoires,0passé,2échecs partiels dans lotportail96. Éco29/30 conservé, pas répétition négative.
-Helper soleilwhiteOFF>0,nuages/portal_disc partiels,sol sansROI,HUT_VIEWSvide ; régler attribution/jugement sans transformer absence en succès, critères finaux inchangés.
-Couverture21niveaux×8h/ciels/intérieurs/vraiehutte non exécutée ;343éléments manquants dans dernier lot. Ne pas confondre anciennes sources et preuve compatible96.
-non prouvé : ombresOFF/persistanceOFF,imageOFF/HUD entière,correction5cas,stabilitéhorsparcours. MenuON/retourON acquis39 : ne pas refaire navigation.
-Validateur à l’orchestrateur,aucun owner-ok ; rapport≤40lignes et preuve officielle neufs,rouge4.
+Priorité : établir origine FFFFFFFF dans hd-mtxarea ou invalidation cachecompagnon, corriger cause mémoire bornée sans toucher modèles/effets.
+Finir persistanceOFF/ombresOFF par navigation runtime réelle après stabilité ; ne pas refaire menuON/retourON acquis39.
+Nuages/soleil puis sol/portail indépendantséco ; comparabilité UVnuages nonprouvée,soleil ROIinclut fond,pas attribution esthétique.
+Sol vraiehutte : caméraessai32(-138.451,49.300,203.282),ancragesage(-132.659,46.198,213.468),aucuneROIsol établie,HUT_VIEWSvide.
+Portail10s animé aprèspurge acquis41 mais déficitnoncorrigé ; éco29/30 conservé,aucune nouvelle répétition négative.
+Cinqcas restent requis,0passé officiel ; couverture21niveaux8h/ciels/intérieurs/vraiehutte nonexécutée. Binaire41 preuves42menu crash rouge5.
+Validateur orchestrateur,aucun owner-ok ; rapport≤40lignes,preuve officielle neuve ; notes42diagnostic.md contient détails/recherche.

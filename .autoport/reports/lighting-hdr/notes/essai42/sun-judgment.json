@@ -1,0 +1,75 @@
+{
+  "DIRECTIVES": "v708c60642a",
+  "purpose": "diagnostic on preserved device sources, not a new execution proof",
+  "helper_sha256": "764953bd2a7483b86de2b2788a20e2701a2b995adaf16ff3f7305124924b205b",
+  "source": ".autoport/reports/lighting-hdr/batches/essai41-sky-knee96/20260908T150104-17178/owner-regions.json",
+  "source_sha256": "bc5933106a136ed986968d9d49154b48818ffdea6fbf436329b86c7599c58d23",
+  "judgment": {
+    "status": "failed",
+    "measured": true,
+    "photometric_passed": false,
+    "bounds": {
+      "white": {
+        "off_min": 0,
+        "off_max": 0,
+        "off_mean": 0.0,
+        "on_mean": 0.0
+      },
+      "nearwhite": {
+        "off_min": 0,
+        "off_max": 0,
+        "off_mean": 0.0,
+        "on_mean": 0.0
+      },
+      "clipped": {
+        "off_min": 595,
+        "off_max": 633,
+        "off_mean": 614.5,
+        "on_mean": 482.8333333333333
+      },
+      "detail": {
+        "off_min": 7.96038961038961,
+        "off_max": 8.125324675324675,
+        "off_mean": 8.047619047619047,
+        "on_mean": 8.250324675324675
+      },
+      "flat": {
+        "off_min": 0.12597402597402596,
+        "off_max": 0.1344155844155844,
+        "off_mean": 0.13127705627705627,
+        "on_mean": 0.13106060606060604
+      }
+    },
+    "failures": [
+      "luma: ON loss beyond observed OFF temporal envelope",
+      "violet_fraction: ON excess beyond observed OFF temporal envelope"
+    ],
+    "limitation": "sun bounds include background; photometric preservation only",
+    "radiometric_bounds": {
+      "luma": {
+        "off_min": 192.80679012345678,
+        "off_max": 193.55185185185186,
+        "off_mean": 193.17983539094652,
+        "on_mean": 192.02530864197533
+      },
+      "luma_p99": {
+        "off_min": 247.0,
+        "off_max": 248.0,
+        "off_mean": 247.43666666666664,
+        "on_mean": 247.66666666666666
+      },
+      "saturation": {
+        "off_min": 0.30024276915454656,
+        "off_max": 0.30083203113594,
+        "off_mean": 0.30056782242768526,
+        "on_mean": 0.30065572506884614
+      },
+      "violet_fraction": {
+        "off_min": 0.1654320987654321,
+        "off_max": 0.1734567901234568,
+        "off_mean": 0.16893004115226337,
+        "on_mean": 0.176440329218107
+      }
+    }
+  }
+}
