@@ -1,15 +1,18 @@
 DIRECTIVES v6133a247b4
-Non abouti : la perte lumineuse éco demeure ; aucun correctif de rendu retenu, porte à 4 défauts.
-Livré : diagnostic avant/après groupe Sprite3, sur les projections existantes ; deux lectures natives par capture.
-Les fragments JSON bornés à 800 octets empêchent la troncature constatée ; aucune grandeur proof écrite manuellement.
-Candidat quantification additive testé puis retiré : h18 blancs ON14,67→14,5 contre OFF65,33 ; aucun bénéfice établi.
-Shaders et header Sprite3 identiques à HEAD avant essai ; courbe, exposition et effets artistiques inchangés.
-Lib finale build/APK/Redmi : 4da80ef748d4b54c5e916a1205bc00259b3d8941339900d2dc072ad99e8dfdda.
-Lot final 20260908T082212-3861448 : 24 captures, 144 compositions complètes, 61 fichiers scellés vérifiés.
-Éco10012 h18 : blancs natifs avant courbe ON553,83/OFF1149,67 ; simulation courbe ON478,33.
-RGB et alpha non négatifs avant/après groupe ; ces boîtes incluent fond et autres couches, sans attribution par particule.
-ImageMagick, ROI commune essai27/final : blancs ON14,67→14,5/OFF64,83 ; défaut conservé.
-Preuve officielle, huit lignes de proof.txt :
+Non abouti : perte éco reproduite sans chaîne HDR ; aucun correctif rendu livré, porte à 4 défauts.
+Aucun changement jeu/harnais ni build ; diagnostic uniquement, une ablation appareil par proof_run.
+Binaire build/APK/Redmi inchangé : 4da80ef748d4b54c5e916a1205bc00259b3d8941339900d2dc072ad99e8dfdda.
+Lot diagnostic29 20260908T083423-3872799 : HDRfalse24/24, hdr_chain_frames0, crash0, frames1200.
+Source : notes/essai29/hdr-disabled-analysis.json, proof-hdr-disabled.txt ; rejet HDR conservé, lot séparé.
+Éco10012 h18 natif après sprites : état28 ON553,83/OFF1149,67 ; ablation29 ON543,67/OFF1148,33.
+ROI finale commune : blancs HDR ON14,5/OFF64,83 ; ablation ON8,67/OFF65,67. Le déficit persiste sans tone map.
+compare-ablation.py : 61+61 fichiers scellés intacts, 4188 événements sprites par run identiques horslf sur24cas.
+Identité limitée aux champs journalisés entre état et ablation ; aucune identité ON/OFF/pixels requise.
+Les populations ON/OFF diffèrent : éco10012 h18 sprites visibles239/265 ; fond et recouvrements restent mélangés.
+Aucune cause locale corrigible établie ; clamps/quantification/courbe ne sont pas retouchés sans cette attribution.
+Distort : piste alpha retirée après vérification du swizzle GL_ONE déjà présent ; aucun correctif redondant.
+Preuve livrée réémise par proof_run aggregate-only du lot28 compatible ; timestamp original, pas nouveau run livré.
+Huit lignes recopiées du proof.txt produit officiellement :
 ```
 crash=0
 frames=1140
@@ -20,11 +23,8 @@ hdr_batch_pairs=2
 hdr_owner_regressions_passed=0
 hdr_tonemap_defects=4
 ```
-Premier lot : SIGSEGV GOAL pendant warp initial, signature identique au crash26 ; remplacement explicite conservant le lot échoué.
-Banc GPU candidat : 1724 contrôles passés avec véritable référence HEAD ; première comparaison à elle-même invalidée et archivée.
-Redmi normal restauré : PID24537 stable12s, A35-RENDER frame300/draws37, propriétés debug vides, verrou absent.
-Owner : Options > Recharged ; nuages blancs, éclairs éco, soleil couchant, sol devant vraie hutte Sage vert et portail restent à vérifier.
-non prouvé : correction des cinq régressions, attribution des couches éco manquantes, acquis complets, couverture21niveaux×8h/ciels/intérieurs/hutte, HDR natif.
-Campagne complète non lancée : le périmètre la place après les corrections ciblées, qui ne sont pas acquises.
-Notes : notes/essai28/ ; sources avant24/26/27 et tous lots28 conservés, binaires incompatibles séparés.
-Aucun validateur exécuté, aucun owner-ok créé. Reprise détaillée : handoff.md.
+Redmi normal restauré PID25963 stable12s, propriétés debug vides, verrou absent : normal-restoration.json.
+Owner : Options > Recharged ; vérifier nuages blancs, éclairs éco, soleil couchant, sol vraie hutte Sage vert, portail.
+non prouvé : correction des cinq régressions, contribution individuelle des effets, acquis complets, HDR natif.
+non prouvé : couverture21niveaux×8h/ciels/intérieurs/vraie hutte ; campagne complète conditionnée aux corrections non acquises.
+Notes : notes/essai29/ ; sources24/27/28/29 conservées. Aucun generic exécuté, aucun owner-ok créé.
