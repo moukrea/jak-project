@@ -1,0 +1,7 @@
+DIRECTIVES va841fb32b6
+Ancien lot essai24-owner-regions/20260908T055814-3737806 conservé, crash=1.
+Binaire changé : anciennes données seulement diagnostic.
+ancien:village1-out:h12/18 -> nouveau essai24-projected:village1-out:h12/18
+ancien:village1-eco-blue:h12/18 (non atteint) -> nouveau essai24-projected:village1-eco-blue:h12/18
+Deux processus distincts, aucun crash effacé.
+Nouveau éco : 20260908T060523-3743175 ; nouveau portail : 20260908T060731-3746070.

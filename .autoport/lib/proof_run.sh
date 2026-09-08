@@ -395,7 +395,11 @@ else
         fi
       fi
       complete_captures=$(sed -nE 's/.*REFSET done steps=([1-9][0-9]*) captured=\1 .*missing=0.*/\1/p' "$RAWLOG" | tail -1)
-      if [ -n "$complete_captures" ] && grep -qaE "hdr_paired=$((complete_captures / 2))$" "$RAWLOG"; then
+      temporal_samples=$(sed -nE 's/.*refset_temporal_samples=([1-9][0-9]*)$/\1/p' "$RAWLOG" | tail -1)
+      temporal_samples=${temporal_samples:-1}
+      if [ -n "$complete_captures" ] && [ "$temporal_samples" -le 16 ] && \
+          [ "$((complete_captures % (2 * temporal_samples)))" -eq 0 ] && \
+          grep -qaE "hdr_paired=$((complete_captures / (2 * temporal_samples)))$" "$RAWLOG"; then
         log "HDR captures and paired measurements published after ${elapsed}s"; break
       fi
     fi

@@ -1,0 +1,348 @@
+[
+  {
+    "tag": "eco",
+    "batch": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060523-3743175",
+    "captures": 24,
+    "manifest_crash": 0,
+    "manifest_errors": [],
+    "owner_errors": [],
+    "bad_hashes": [],
+    "actors": {
+      "10012": {
+        "candidates": 1498,
+        "querypassed": 708,
+        "supported": 1498,
+        "supported_passed": 708,
+        "roi_nonnull": 1498,
+        "reasons": {
+          "ok": 1498
+        },
+        "camera_w": {
+          "min": -1.2486932277679443,
+          "max": -1.1033340692520142
+        },
+        "pfog0": {
+          "min": -0.04654684290289879,
+          "max": -0.04654684290289879
+        },
+        "quad_w": {
+          "min": 263.07110595703125,
+          "max": 263.2164611816406
+        }
+      },
+      "10013": {
+        "candidates": 1369,
+        "querypassed": 752,
+        "supported": 1369,
+        "supported_passed": 752,
+        "roi_nonnull": 1369,
+        "reasons": {
+          "ok": 1369
+        },
+        "camera_w": {
+          "min": -2.542088747024536,
+          "max": -2.391162395477295
+        },
+        "pfog0": {
+          "min": -0.04654684290289879,
+          "max": -0.04654684290289879
+        },
+        "quad_w": {
+          "min": 261.7777099609375,
+          "max": 261.9286193847656
+        }
+      }
+    },
+    "regions": [
+      {
+        "actor": 10012,
+        "reason": "projected sprite bounds include background; expected white/detail and local colour preservation not yet qualified",
+        "roi_exclusive": [
+          128,
+          14,
+          202,
+          110
+        ],
+        "status": "not_judged",
+        "view_hour": "village1-eco-blue-h12",
+        "arms": {
+          "origine-lumiere": {
+            "clipped": 2152.83333,
+            "detail": 17.02896,
+            "flat": 0.01379,
+            "luma": 164.98918,
+            "nearwhite": 217.83333,
+            "samples": 6,
+            "saturation": 0.54398,
+            "visible_frames": 6,
+            "white": 89.33333
+          },
+          "recharged": {
+            "clipped": 517.0,
+            "detail": 17.5286,
+            "flat": 0.02841,
+            "luma": 144.96272,
+            "nearwhite": 146.33333,
+            "samples": 6,
+            "saturation": 0.61333,
+            "visible_frames": 6,
+            "white": 0.0
+          }
+        }
+      },
+      {
+        "actor": 10012,
+        "reason": "projected sprite bounds include background; expected white/detail and local colour preservation not yet qualified",
+        "roi_exclusive": [
+          116,
+          18,
+          204,
+          105
+        ],
+        "status": "not_judged",
+        "view_hour": "village1-eco-blue-h18",
+        "arms": {
+          "origine-lumiere": {
+            "clipped": 1388.66667,
+            "detail": 15.68754,
+            "flat": 0.01018,
+            "luma": 102.91878,
+            "nearwhite": 89.33333,
+            "samples": 6,
+            "saturation": 0.53758,
+            "visible_frames": 6,
+            "white": 25.0
+          },
+          "recharged": {
+            "clipped": 397.0,
+            "detail": 14.98748,
+            "flat": 0.0121,
+            "luma": 101.84106,
+            "nearwhite": 109.66667,
+            "samples": 6,
+            "saturation": 0.52528,
+            "visible_frames": 6,
+            "white": 0.0
+          }
+        }
+      },
+      {
+        "actor": 10013,
+        "reason": "projected sprite bounds include background; expected white/detail and local colour preservation not yet qualified",
+        "roi_exclusive": [
+          174,
+          22,
+          208,
+          63
+        ],
+        "status": "not_judged",
+        "view_hour": "village1-eco-blue-h12",
+        "arms": {
+          "origine-lumiere": {
+            "clipped": 611.66667,
+            "detail": 14.25404,
+            "flat": 0.01301,
+            "luma": 162.73792,
+            "nearwhite": 37.83333,
+            "samples": 6,
+            "saturation": 0.55339,
+            "visible_frames": 6,
+            "white": 15.5
+          },
+          "recharged": {
+            "clipped": 140.0,
+            "detail": 15.90732,
+            "flat": 0.02348,
+            "luma": 162.26961,
+            "nearwhite": 44.0,
+            "samples": 6,
+            "saturation": 0.5707,
+            "visible_frames": 6,
+            "white": 0.0
+          }
+        }
+      },
+      {
+        "actor": 10013,
+        "reason": "projected sprite bounds include background; expected white/detail and local colour preservation not yet qualified",
+        "roi_exclusive": [
+          174,
+          21,
+          211,
+          62
+        ],
+        "status": "not_judged",
+        "view_hour": "village1-eco-blue-h18",
+        "arms": {
+          "origine-lumiere": {
+            "clipped": 330.66667,
+            "detail": 17.10382,
+            "flat": 0.011,
+            "luma": 129.82773,
+            "nearwhite": 26.0,
+            "samples": 6,
+            "saturation": 0.47047,
+            "visible_frames": 6,
+            "white": 10.0
+          },
+          "recharged": {
+            "clipped": 91.0,
+            "detail": 15.40984,
+            "flat": 0.01227,
+            "luma": 121.53659,
+            "nearwhite": 31.0,
+            "samples": 6,
+            "saturation": 0.46389,
+            "visible_frames": 6,
+            "white": 0.0
+          }
+        }
+      }
+    ],
+    "proof_counters": {
+      "duration_s": "101",
+      "crash": "0",
+      "frames": "1260",
+      "hdr_defect_5_sites_two_configs": "0",
+      "hdr_expected": "232",
+      "hdr_missing": "230",
+      "hdr_paired": "2",
+      "hdr_batch_errors": "0",
+      "hdr_batch_count": "1",
+      "hdr_defect_1_saturation": "1",
+      "hdr_defect_2_hl_contrast": "1",
+      "hdr_defect_4_origine_lumiere_set": "1",
+      "hdr_defect_3_curve": "0",
+      "hdr_defect_5_sites_three_configs": "0",
+      "hdr_defect_6_intermediate_narrowing": "0",
+      "hdr_defect_7_owner_regressions": "1",
+      "hdr_tonemap_defects": "4"
+    }
+  },
+  {
+    "tag": "portal",
+    "batch": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060731-3746070",
+    "captures": 24,
+    "manifest_crash": 0,
+    "manifest_errors": [],
+    "owner_errors": [],
+    "bad_hashes": [],
+    "actors": {
+      "1395": {
+        "candidates": 4707,
+        "querypassed": 686,
+        "supported": 4707,
+        "supported_passed": 686,
+        "roi_nonnull": 4707,
+        "reasons": {
+          "ok": 4707
+        },
+        "camera_w": {
+          "min": -1.8109612464904785,
+          "max": -0.7400956153869629
+        },
+        "pfog0": {
+          "min": -0.04654684290289879,
+          "max": -0.04654684290289879
+        },
+        "quad_w": {
+          "min": 262.5088195800781,
+          "max": 263.5797119140625
+        }
+      }
+    },
+    "regions": [
+      {
+        "actor": 1395,
+        "reason": "projected sprite bounds include background; expected white/detail and local colour preservation not yet qualified",
+        "roi_exclusive": [
+          0,
+          0,
+          281,
+          180
+        ],
+        "status": "not_judged",
+        "view_hour": "village1-out-h12",
+        "arms": {
+          "origine-lumiere": {
+            "clipped": 5024.66667,
+            "detail": 13.17911,
+            "flat": 0.02835,
+            "luma": 79.6484,
+            "nearwhite": 384.5,
+            "samples": 6,
+            "saturation": 0.46591,
+            "visible_frames": 6,
+            "white": 285.33333
+          },
+          "recharged": {
+            "clipped": 22.83333,
+            "detail": 11.87655,
+            "flat": 0.04008,
+            "luma": 61.55166,
+            "nearwhite": 4.66667,
+            "samples": 6,
+            "saturation": 0.4836,
+            "visible_frames": 6,
+            "white": 0.0
+          }
+        }
+      },
+      {
+        "actor": 1395,
+        "reason": "projected sprite bounds include background; expected white/detail and local colour preservation not yet qualified",
+        "roi_exclusive": [
+          0,
+          0,
+          277,
+          180
+        ],
+        "status": "not_judged",
+        "view_hour": "village1-out-h18",
+        "arms": {
+          "origine-lumiere": {
+            "clipped": 5101.33333,
+            "detail": 11.81079,
+            "flat": 0.04023,
+            "luma": 69.30688,
+            "nearwhite": 616.0,
+            "samples": 6,
+            "saturation": 0.46853,
+            "visible_frames": 6,
+            "white": 501.0
+          },
+          "recharged": {
+            "clipped": 1959.66667,
+            "detail": 11.1205,
+            "flat": 0.05528,
+            "luma": 60.14534,
+            "nearwhite": 466.33333,
+            "samples": 6,
+            "saturation": 0.48215,
+            "visible_frames": 6,
+            "white": 68.66667
+          }
+        }
+      }
+    ],
+    "proof_counters": {
+      "duration_s": "83",
+      "crash": "0",
+      "frames": "1140",
+      "hdr_defect_5_sites_two_configs": "0",
+      "hdr_expected": "224",
+      "hdr_missing": "222",
+      "hdr_paired": "2",
+      "hdr_batch_errors": "0",
+      "hdr_batch_count": "2",
+      "hdr_defect_1_saturation": "1",
+      "hdr_defect_2_hl_contrast": "1",
+      "hdr_defect_4_origine_lumiere_set": "1",
+      "hdr_defect_3_curve": "0",
+      "hdr_defect_5_sites_three_configs": "0",
+      "hdr_defect_6_intermediate_narrowing": "0",
+      "hdr_defect_7_owner_regressions": "1",
+      "hdr_tonemap_defects": "4"
+    }
+  }
+]

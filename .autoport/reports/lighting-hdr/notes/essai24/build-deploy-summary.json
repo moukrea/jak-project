@@ -1,0 +1,18 @@
+{
+  "directives": "va841fb32b6",
+  "exit_code": 0,
+  "lock_exists": false,
+  "script_sha256": "4c2d6de2e18a16ef531f3afe861347614eaf4e959688a824e29463c4581011c8",
+  "before": {
+    "libgk.so": {
+      "md5": "78ed373e74b40a8aa56ccfe28464d083",
+      "size": 138496272
+    },
+    "app-jak1-debug.apk": {
+      "md5": "f20bf0da84e957a4ecba40828c2c74c6",
+      "size": 709389066
+    }
+  },
+  "delivered_lib_md5": "b46e36b11c076331c3a93a4a14462421",
+  "delivered_apk_md5": "d50b9a75e38365f0cf8af6a7a18319d5"
+}

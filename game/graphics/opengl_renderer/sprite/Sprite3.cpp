@@ -1,5 +1,8 @@
 #include "Sprite3.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -12,6 +15,9 @@
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 #include "game/mips2c/spart_prof.h"
+#include "game/graphics/refset.h"
+#include "game/system/autoport_proof.h"
+#include "third-party/json.hpp"
 
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
@@ -46,6 +52,15 @@ static bool geco_spr3_dump_armed() {
 }
 
 namespace {
+
+// Diagnostic only: no proof publication or artistic changes.
+bool owner_sprite_probe() {
+  return autoport_proof::feature_is("lighting-hdr") && refset::wants_scene_probe();
+}
+
+int64_t owner_sprite_lf() {
+  return refset::capture_logic_frame();
+}
 
 /*!
  * Does the next DMA transfer look like it could be the start of a 2D group?
@@ -530,6 +545,11 @@ void Sprite3::render_2d_group1(DmaFollower& dma,
 }
 
 void Sprite3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfilerNode& prof) {
+  if (owner_sprite_probe()) {
+    lg::info("HDR-OWNER-PATH lf={} renderer={} instanced={} supported_2d={} supported_3d=false",
+             owner_sprite_lf(), m_name, render_state->perf_sprite_instance,
+             render_state->perf_sprite_instance && render_state->version == GameVersion::Jak1);
+  }
   switch (render_state->version) {
     case GameVersion::Jak1:
       render_jak1(dma, render_state, prof);
@@ -745,6 +765,11 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
     return;
   }
 
+  if (owner_sprite_probe()) {
+    lg::info("HDR-OWNER-FRAME lf={} instanced=false candidates=unknown supported=false reason=non_instanced",
+             owner_sprite_lf());
+  }
+
   // Gperf-particles: refresh cached SPRITE3 uniform locations on program change.
   {
     GLuint sprite_prog = render_state->shaders[ShaderId::SPRITE3].id();
@@ -891,6 +916,20 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
   // its own cache) by render_2d_group0 / render_2d_group1; make it active.
   glUseProgram(inst_prog);
 
+  const bool probe = owner_sprite_probe();
+  u32 candidate_count = 0;
+  GLint query_busy = 0;
+  if (probe) {
+    GLint active = 0;
+    glGetQueryiv(GL_ANY_SAMPLES_PASSED, GL_CURRENT_QUERY, &query_busy);
+    glGetQueryiv(GL_ANY_SAMPLES_PASSED_CONSERVATIVE, GL_CURRENT_QUERY, &active);
+    query_busy |= active;
+#ifndef __ANDROID__
+    glGetQueryiv(GL_SAMPLES_PASSED, GL_CURRENT_QUERY, &active);
+    query_busy |= active;
+#endif
+  }
+
   for (const auto bucket : m_bucket_list) {
     u32 tbp = bucket->key >> 32;
     DrawMode mode;
@@ -914,24 +953,166 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
     glUniform1f(su.alpha_max, 10.f);
     glUniform1i(su.tex_T0, 0);
 
-    // rebase all 5 instance attributes to this bucket's first record. Portable
-    // to GL 4.1 (desktop) and GLES 3.2 — plain glVertexAttribPointer, 5 calls.
-    const u8* base = (const u8*)(uintptr_t)(bucket->instance_offset * sizeof(SpriteVertex3D));
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
-                          base + offsetof(SpriteVertex3D, xyz_sx));
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
-                          base + offsetof(SpriteVertex3D, quat_sy));
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
-                          base + offsetof(SpriteVertex3D, rgba));
-    glVertexAttribIPointer(3, 2, GL_UNSIGNED_SHORT, sizeof(SpriteVertex3D),
-                           base + offsetof(SpriteVertex3D, flags_matrix));
-    glVertexAttribIPointer(4, 4, GL_UNSIGNED_SHORT, sizeof(SpriteVertex3D),
-                           base + offsetof(SpriteVertex3D, info));
+    auto draw_range = [&](u32 offset, u32 count) {
+      const u8* base = (const u8*)(uintptr_t)(offset * sizeof(SpriteVertex3D));
+      glVertexAttribPointer(0, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                            base + offsetof(SpriteVertex3D, xyz_sx));
+      glVertexAttribPointer(1, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                            base + offsetof(SpriteVertex3D, quat_sy));
+      glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(SpriteVertex3D),
+                            base + offsetof(SpriteVertex3D, rgba));
+      glVertexAttribIPointer(3, 2, GL_UNSIGNED_SHORT, sizeof(SpriteVertex3D),
+                             base + offsetof(SpriteVertex3D, flags_matrix));
+      glVertexAttribIPointer(4, 4, GL_UNSIGNED_SHORT, sizeof(SpriteVertex3D),
+                             base + offsetof(SpriteVertex3D, info));
 
-    prof.add_draw_call();
-    prof.add_tri(2 * bucket->instance_count);
+      prof.add_draw_call();
+      prof.add_tri(2 * count);
+      glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);
+    };
 
-    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, bucket->instance_count);
+    if (!probe) {
+      draw_range(bucket->instance_offset, bucket->instance_count);
+    } else {
+      const auto texture = render_state->texture_pool->get_debug_texture_name_from_tbp(tbp);
+      // Debug names may include the tpage; delimit tokens to avoid matching unrelated names.
+      auto has_texture = [&](const std::string& name) {
+        auto pos = texture.find(name);
+        while (pos != std::string::npos) {
+          auto word = [](char c) {
+            return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+          };
+          if ((!pos || !word(texture[pos - 1])) &&
+              (pos + name.size() == texture.size() || !word(texture[pos + name.size()])))
+            return true;
+          pos = texture.find(name, pos + 1);
+        }
+        return false;
+      };
+      const bool eco = has_texture("lightning") || has_texture("lightning2");
+      const bool portal = has_texture("bigpuff") || has_texture("middot") || has_texture("hotdot");
+      u32 pending = bucket->instance_offset;
+      const u32 end = pending + bucket->instance_count;
+      for (u32 i = pending; i < end && (eco || portal); ++i) {
+        const auto& v = m_instance_scratch[i];
+        if (v.info[3] != 1 && v.info[3] != 3)
+          continue;  // HUD has no world anchor.
+        const math::Vector4f world = v.xyz_sx / 4096.f;
+        int actor = 0;
+        float distance2 = 0.f;
+        const float anchors[3][4] = {{9.3109f, 19.2490f, 11.2525f, 10012.f},
+                                     {6.6918f, 19.3725f, 20.4516f, 10013.f},
+                                     {-123.10158f, 50.40380f, 214.22531f, 1395.f}};
+        for (int a = 0; a < 3; ++a) {
+          if ((a < 2 && !eco) || (a == 2 && !portal))
+            continue;
+          float d2 = 0;
+          for (int k = 0; k < 3; ++k) {
+            const float delta = world[k] - anchors[a][k];
+            d2 += delta * delta;
+          }
+          const float radius = a < 2 ? 1.73205f : 8.f;
+          if (std::isfinite(d2) && d2 <= radius * radius) {
+            actor = int(anchors[a][3]);
+            distance2 = d2;
+            break;
+          }
+        }
+        if (!actor)
+          continue;
+        ++candidate_count;
+        nlohmann::json event = {{"lf", owner_sprite_lf()},
+                                {"actor", actor},
+                                {"association", "texture_and_anchor_distance"},
+                                {"texture", texture},
+                                {"position_m", {world[0], world[1], world[2]}},
+                                {"mode_bits", mode.as_int()},
+                                {"render_mode", v.info[3]},
+                                {"distance_m", std::sqrt(distance2)},
+                                {"group_1m", actor != 1395 && distance2 <= 1.f},
+                                {"roi", nullptr},
+                                {"roi_bounds", "exclusive_top_left_320x180"},
+                                {"passed", nullptr},
+                                {"supported", false},
+                                {"reason", "unsupported_3d"}};
+        bool projected = false;
+        if (v.info[3] == 1) {
+          // Mirror sprite3_3d_inst.vert's 2D branch, including its PS2 viewport conversion.
+          auto pos = v.xyz_sx;
+          pos[3] = 1.f;
+          auto transformed = m_3d_matrix_data.camera * pos;
+          event["camera_w"] = transformed[3];
+          event["pfog0"] = m_frame_data.pfog0;
+          // The sprite shader divides by the signed camera w, then adds hvdf
+          // and clamps the final w. Its input w is not a clip-space near-plane test.
+          if (std::isfinite(transformed[3]) && transformed[3] != 0.f &&
+              (v.flags_matrix[0] & 15u) + 3u < 8u) {
+            const float q = m_frame_data.pfog0 / transformed[3];
+            const float sx =
+                std::clamp(v.xyz_sx[3] * q, m_frame_data.min_scale, m_frame_data.max_scale);
+            const float sy =
+                std::clamp(v.quat_sy[3] * q, m_frame_data.min_scale, m_frame_data.max_scale);
+            for (int k = 0; k < 3; ++k)
+              transformed[k] *= q;
+            transformed += m_3d_matrix_data.hvdf_offset;
+            transformed[3] = std::max(transformed[3], m_frame_data.fog_min);
+            event["quad_w"] = transformed[3];
+            const float angle = v.quat_sy[2] * m_frame_data.deg_to_rad;
+            const auto bx =
+                (m_frame_data.basis_x * std::cos(angle) - m_frame_data.basis_y * std::sin(angle)) *
+                sx;
+            const auto by =
+                (m_frame_data.basis_x * std::sin(angle) + m_frame_data.basis_y * std::cos(angle)) *
+                sy;
+            float lo_x = INFINITY, lo_y = INFINITY, hi_x = -INFINITY, hi_y = -INFINITY;
+            projected = true;
+            for (int corner : {0, 1, 3, 2}) {
+              const auto& xy = m_frame_data.xy_array[corner + (v.flags_matrix[0] & 15u)];
+              const auto p = transformed + bx * xy[0] + by * xy[1];
+              const float x = ((p[0] - 2048.f) / 256.f + 1.f) * 160.f;
+              const float y = (1.f + (p[1] - 2048.f) / 128.f * (512.f / 448.f)) * 90.f;
+              if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(p[2]) ||
+                  !std::isfinite(p[3]) || p[3] <= 0.f) {
+                projected = false;
+                break;
+              }
+              lo_x = std::min(lo_x, x);
+              lo_y = std::min(lo_y, y);
+              hi_x = std::max(hi_x, x);
+              hi_y = std::max(hi_y, y);
+            }
+            if (projected)
+              event["roi"] = {int(std::floor(std::clamp(lo_x, 0.f, 320.f))),
+                              int(std::floor(std::clamp(lo_y, 0.f, 180.f))),
+                              int(std::ceil(std::clamp(hi_x, 0.f, 320.f))),
+                              int(std::ceil(std::clamp(hi_y, 0.f, 180.f)))};
+          }
+          event["reason"] = projected ? "ok" : "invalid_projection";
+        }
+        if (double_draw)
+          event["reason"] = "double_draw";
+        else if (query_busy)
+          event["reason"] = "query_busy";
+        else {
+          // Preserve every instance's order; only candidate draws acquire a query.
+          if (i > pending)
+            draw_range(pending, i - pending);
+          GLuint query = 0, passed = 0;
+          glGenQueries(1, &query);
+          glBeginQuery(GL_ANY_SAMPLES_PASSED, query);
+          draw_range(i, 1);
+          glEndQuery(GL_ANY_SAMPLES_PASSED);
+          glGetQueryObjectuiv(query, GL_QUERY_RESULT, &passed);
+          glDeleteQueries(1, &query);
+          event["passed"] = passed != 0;
+          event["supported"] = projected;
+          pending = i + 1;
+        }
+        lg::info("HDR-OWNER-SPRITE {}", event.dump());
+      }
+      if (pending < end)
+        draw_range(pending, end - pending);
+    }
 
     if (double_draw) {
       switch (settings.kind) {
@@ -949,6 +1130,11 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
           ASSERT(false);
       }
     }
+  }
+
+  if (probe) {
+    lg::info("HDR-OWNER-FRAME lf={} instanced=true candidates={} double_draw={}", owner_sprite_lf(),
+             candidate_count, double_draw);
   }
 
   // restore the SPRITE3 program so later passes (that assume it active) are

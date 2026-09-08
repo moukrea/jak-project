@@ -1,24 +1,26 @@
 DIRECTIVES va841fb32b6
 ## ÉTABLI
-- Essai22 alpha conservé ; nouvelle correction : tonemap.frag épaule C1 indépendante par canal, miroir probe_scene hdr.cpp actualisé. Genou0.95/exposition1/Filmique/alpha inchangés.
-- Shader réel Mesa : (2,1,2) vert0.498864→0.975 ; gris/Filmique/alpha inchangés, 27cas failures0 (notes/essai23/curve_gpu.log). Ce test ne vaut pas preuve jeu.
-- Build incrémental/repack/install exit0 ; lib SHA256 f66f7e91a3e9c0217bcbdca549d93449062659559628133cba5e27dfb4fc7d98 ; MD5 build/APK/Redmi78ed373e74b40a8aa56ccfe28464d083.
-- Proof officiel lot essai23-channel/20260908T053521-3717470 :120s, crash0, frames1200, hits672253, tonemap_sites1, quatre paires/deux cellules, erreurs0.
-- hdr_tonemap_defects4 : groupes1/2/4=1 couverture incomplète ; groupe7=1 cas owner manquants5 ; groupes3/5/6=0. Aucun validateur modifié/exécuté.
-- ImageMagick hashes/relecture vérifiés : village1-out h12 quasi-blancs ON0→1264, OFF1340 ; blancs ON0/OFF768 ; luma ON123.474→128.986/OFF133.197 (notes/essai23/after-analysis.json).
-- Statistiques image entière seulement ; aucun LOADSCREEN-SHOW. Pas de preuve régionale ni séquence éco, pas de validation artistique.
+- Courbe essai23 par canal et alpha essai22 conservés ; cet essai ne corrige PAS le rendu. hdr_tonemap_defects=4, owner missing5 maintenu.
+- Refset option capture lighting-hdr `debug.opengoal.refset.temporal=6` : 6 images par bras, cadence12lf, particules animées une fois/lf ; sample0 seul alimente mesures historiques, suffixes-t01..t05 + provenance.
+- Vue explicite village1-eco-blue : spawn(9.3109,19.2490,3.2525)m, caméra(-14,-163,0,20) ; évite de collecter aid10012. Parcours par défaut préservé.
+- Sprite3.cpp relève texture+distance aux ancres10012/10013/1395, query fragments et4coins2D. camera_w négatif est NORMAL (pfog0=-0.04654684) ; garde >0 corrigée en !=0. Jointure par capture_logic_frame().
+- Helper/proof gèrent séquences et mesures ImageMagick rectangles communs ON/OFF/temps ; cellules incomplètes conservées, aucun verdict artistique fabriqué. Tests133passed52.88s, notes/essai24/harness-tests.log.
+- Build/repack/install rc0 ; MD5 lib build/APK/Redmi ba3d5711227381380fc9857c70f071b8. Logs/provenance notes/essai24/projection-build/, sources-final.json.
+- Lots officiels essai24-projected/20260908T060523-3743175(éco) et20260908T060731-3746070(portail) :24captures chacun, crash0, aggregate4paires/errors0, dernières frames1140, tonemap_sites1.
+- Éco :2867témoins,1460queries passed, chaque acteur à12/18h visible6/6frames de chaque bras ; ROIs réellement projetées, contexte inclus (analysis-projected.json).
+- Éco10012 blancs moyens OFF→ON h12:89.33→0,h18:25→0 ; quasi-blancs217.83→146.33/89.33→109.67. Éco10013 blancs15.5→0/10→0. Non-validation persistante.
+- Portail :4707témoins,686passed, ROIs[0,0,281,180]/[0,0,277,180] presque écran entier ; ne qualifient pas violet local. Tous les cas restent not_judged.
 ## TENTÉ
-- Remplacement maxRGB par même épaule par canal après diagnostic numérique ; restaure contributions faibles, mais blanc unitaire reste0.975, et (8,2,8) devient presque blanc.
-- Parcours inchangé legacy,village1-out h12/18 ; warp village1-hut/loadsettle240/orderhour1/settle12/warpat300/want.display=village1,display/want.levels=village1. Commande et manifeste dans notes/essai23/after-channel.log et lot.
-- AVANT réutilisé seulement en diagnostic : essai22-alpha/20260908T052020-3705704 ; shaders/proof/binaires AVANT conservés notes/essai23. Pas de cumul avec nouveau binaire.
-- Recherche lecture seule trouve ancres sémantiques, pas des régions effectivement rendues ; les chiffres globaux ne lèvent donc aucun des cinq cas.
-- Revue : ldr_ref_delta compare épaule Fidélité exposition1 au clamp du même pixel ; sa baisse est mathématique, jamais preuve ON/OFF. Limite préexistante Filmique/exposition documentée.
+- Premier lot deux vues essai24-owner-regions/20260908T055814-3737806 :SIGILL frame1143 à transition éco (A18 type-method-zero),24/48captures ; ne pas refaire deux vues en un processus. Captures/logs conservés.
+- Première projection avait688passed mais0supported car garde camera_w>0 injustifiée ; nouveau build corrige diagnostic, pas shader. Ancien binaire dans projection-build/before-build/.
+- Lot AVANT essai24-portal-before/20260908T054523-3726435 récupéré par agrégation officielle après édition concurrente de proof_run(rc3). Ne JAMAIS éditer un script shell pendant son exécution ; offsets de lecture déplacés.
+- AVANT portail figé vs APRÈS animé : notes/essai24/before-after-regional.json, diagnostic seulement. Aucun AVANT éco équivalent. Sources shader identiques, courbe non retouchée pour obtenir un chiffre.
 ## RESTE
-- Priorité régions : calculer cadrages/ROIs projetés et présence réellement rendue, conserver cas absents/non jugés ; ne pas appeler tout le quart supérieur « nuages ».
-- Portail decompiler_out/jak1/entities/village1-actors.json : aid22318=(-123.1058,46.1975,214.2314)m ; émetteur aid1395 group-village1-sagehut-warpgate=(-123.1016,50.4038,214.2253)m, groupe140 village1-part2.gc.
-- Éco bleue : aid10012=(9.3109,19.2490,11.2525)m et aid10013=(6.6918,19.3725,20.4516)m, eco-info[3,1]. refset.cpp particle_step_mode gèle après g_plan_base+g_step_settle : ajouter une courte fenêtre temporelle à la capture existante, pas exact-frame.
-- Soleil : direction *sky-parms* upload-data sun0 pos déjà transmise hud-classes-pc.gc ; projection/cadrage absent. Petites zones sol hutte non identifiées.
-- ATTENTION legacy=(-116,14,40)m est à~178m des entités sagehut : commentaire « hutte » insuffisant pour qualifier le sol demandé.
-- Brancher jugement régional et séquence dans helper/proof autorisés, puis équilibre21niveaux/8h par lots compatibles. Ne pas refaire cumul ni census, garder garde missing5 tant que régions absentes.
-- non prouvé : cinq corrections artistiques, tous acquis, alpha destination tous mélanges, HDR natif. Pas de campagne21niveaux tant que cinq cas prioritaires non qualifiés.
-- Redmi relancé sans debug/verrou, PID24706 (notes/essai23/device-restored.json). Handoff précédent remplacé, détails préservés notes/essai22.
+- Priorité correction concrète : perte des blancs éco reste mesurée, ne pas déclarer les5cas réglés. Identifier domaine/composition avant nouveau réglage ; une simple épaule àk=.95 transforme1→.975 mais n’explique pas seule toutes différences ON/OFF.
+- Resserrer attribution portail (textures hotdot/middot/bigpuff partagées, très grandes billboards) ; distinguer effets voisins/fond. Queries prouvent fragments, pas couleur ni silhouette. 3D/double_draw/non-instancié restent unsupported.
+- Nuages/soleil/sol hutte toujours sans ROI qualifiée. Soleil direction *sky-parms* upload-data sun0pos ; petites zones sol non identifiées. Ne pas appeler le quart supérieur « nuages ».
+- Ne pas utiliser legacy(-116,14,40)m comme hutte : vraie région près(-123,46,214)m. Acteurs et bornes dans entities/village1-actors.json, collectables-part.gc groupe42, village1-part2.gc groupe140.
+- Brancher jugement régional défendable dans owner_regressions() : actuellement garde missing5 inconditionnelle, observations diagnostics conservées. Pas seuil arbitraire, pas zéro blanc comme succès.
+- Après cinq cas seulement, équilibre21niveaux/8h par lots compatibles. Aucun cumul ancien binaire/config non compatible. Commandes exactes/projected-correspondence.txt dans notes/essai24.
+- non prouvé : cinq corrections artistiques, tous acquis, alpha destination tous mélanges, HDR natif. Generic/owner-ok jamais touchés/exécutés.
+- Redmi restauré normal PID31713 stable12s,58props debug vides, aucun verrou (notes/essai24/device-restored.json).

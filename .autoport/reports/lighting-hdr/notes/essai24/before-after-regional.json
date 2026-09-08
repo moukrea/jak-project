@@ -1,0 +1,316 @@
+[
+  {
+    "actor": 1395,
+    "case": "village1-out-h12",
+    "roi_exclusive": [
+      0,
+      0,
+      281,
+      180
+    ],
+    "before_batch": ".autoport/reports/lighting-hdr/batches/essai24-portal-before/20260908T054523-3726435",
+    "after_batch": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060731-3746070",
+    "after_sequence": {
+      "origine-lumiere": {
+        "clipped": {
+          "max": 5464,
+          "mean": 5024.666666666667,
+          "min": 4170
+        },
+        "detail": {
+          "max": 13.393974461292897,
+          "mean": 13.179106810321892,
+          "min": 13.002394253790902
+        },
+        "flat": {
+          "max": 0.03483639265762171,
+          "mean": 0.028348629954775207,
+          "min": 0.022545889864325618
+        },
+        "luma": {
+          "max": 81.50086990905496,
+          "mean": 79.64839857651246,
+          "min": 77.04717279557137
+        },
+        "nearwhite": {
+          "max": 741,
+          "mean": 384.5,
+          "min": 3
+        },
+        "samples": 6,
+        "saturation": {
+          "max": 0.47352663599838574,
+          "mean": 0.46590941895054466,
+          "min": 0.4591640617271783
+        },
+        "visible_frames": 6,
+        "white": {
+          "max": 609,
+          "mean": 285.3333333333333,
+          "min": 0
+        }
+      },
+      "recharged": {
+        "clipped": {
+          "max": 119,
+          "mean": 22.833333333333332,
+          "min": 0
+        },
+        "detail": {
+          "max": 12.088228252194734,
+          "mean": 11.876546288906624,
+          "min": 11.793595371109337
+        },
+        "flat": {
+          "max": 0.043355945730247404,
+          "mean": 0.040077148177706835,
+          "min": 0.035375099760574624
+        },
+        "luma": {
+          "max": 63.14337682878608,
+          "mean": 61.55166403057862,
+          "min": 60.0987149070779
+        },
+        "nearwhite": {
+          "max": 6,
+          "mean": 4.666666666666667,
+          "min": 3
+        },
+        "samples": 6,
+        "saturation": {
+          "max": 0.4883281792653303,
+          "mean": 0.48359993300269705,
+          "min": 0.4751296384839652
+        },
+        "visible_frames": 6,
+        "white": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0
+        }
+      }
+    },
+    "before_single_sample": {
+      "recharged": {
+        "sha256": "a67b5723b4c1e5e94700352a0aebd0af2d03cf4e4edaae8062afe5c09320c724",
+        "stats": {
+          "pixels": 50580,
+          "width": 281,
+          "height": 180,
+          "white": 0,
+          "nearwhite": 4,
+          "clipped": 0,
+          "black": 0,
+          "luma": 60.813325425069195,
+          "luma_p99": 193.0,
+          "detail": 11.856504389465284,
+          "flat": 0.04405426975259377,
+          "saturation": 0.4889858497460586,
+          "hue_bins": [
+            21739,
+            3409,
+            4431,
+            559,
+            239,
+            477,
+            799,
+            11489,
+            3441,
+            1412,
+            965,
+            1612
+          ]
+        }
+      },
+      "origine-lumiere": {
+        "sha256": "12551a86e77a71728612a645cb67e38bb590e5a53a1dbab1539b8aaf089255af",
+        "stats": {
+          "pixels": 50580,
+          "width": 281,
+          "height": 180,
+          "white": 0,
+          "nearwhite": 3,
+          "clipped": 2423,
+          "black": 0,
+          "luma": 73.87920126532227,
+          "luma_p99": 192.0,
+          "detail": 12.64732641660016,
+          "flat": 0.03276137270550678,
+          "saturation": 0.483933495281695,
+          "hue_bins": [
+            21739,
+            3499,
+            4414,
+            495,
+            239,
+            497,
+            770,
+            11478,
+            3934,
+            1030,
+            902,
+            1579
+          ]
+        }
+      }
+    },
+    "limitation": "Un \u00e9chantillon AVANT fig\u00e9, six APR\u00c8S anim\u00e9s ; fond inclus dans le rectangle. Diagnostic seulement, aucune correction du rendu revendiqu\u00e9e."
+  },
+  {
+    "actor": 1395,
+    "case": "village1-out-h18",
+    "roi_exclusive": [
+      0,
+      0,
+      277,
+      180
+    ],
+    "before_batch": ".autoport/reports/lighting-hdr/batches/essai24-portal-before/20260908T054523-3726435",
+    "after_batch": ".autoport/reports/lighting-hdr/batches/essai24-projected/20260908T060731-3746070",
+    "after_sequence": {
+      "origine-lumiere": {
+        "clipped": {
+          "max": 5406,
+          "mean": 5101.333333333333,
+          "min": 4824
+        },
+        "detail": {
+          "max": 11.95441664642539,
+          "mean": 11.810787925404151,
+          "min": 11.714699214638491
+        },
+        "flat": {
+          "max": 0.041838717512752005,
+          "mean": 0.040226162523952176,
+          "min": 0.0393895231155372
+        },
+        "luma": {
+          "max": 70.76004813477738,
+          "mean": 69.30687591924054,
+          "min": 68.78367428800642
+        },
+        "nearwhite": {
+          "max": 668,
+          "mean": 616.0,
+          "min": 554
+        },
+        "samples": 6,
+        "saturation": {
+          "max": 0.47019323197805,
+          "mean": 0.46852818761533593,
+          "min": 0.46645886975941264
+        },
+        "visible_frames": 6,
+        "white": {
+          "max": 545,
+          "mean": 501.0,
+          "min": 453
+        }
+      },
+      "recharged": {
+        "clipped": {
+          "max": 2165,
+          "mean": 1959.6666666666667,
+          "min": 1800
+        },
+        "detail": {
+          "max": 11.248077078779046,
+          "mean": 11.120499689633768,
+          "min": 11.04084689498826
+        },
+        "flat": {
+          "max": 0.05681726176018136,
+          "mean": 0.05528229832942002,
+          "min": 0.05450975629503684
+        },
+        "luma": {
+          "max": 60.75756117127958,
+          "mean": 60.14534362882738,
+          "min": 59.54709185720016
+        },
+        "nearwhite": {
+          "max": 541,
+          "mean": 466.3333333333333,
+          "min": 408
+        },
+        "samples": 6,
+        "saturation": {
+          "max": 0.48389550832358835,
+          "mean": 0.4821514818435237,
+          "min": 0.47851168776503405
+        },
+        "visible_frames": 6,
+        "white": {
+          "max": 106,
+          "mean": 68.66666666666667,
+          "min": 0
+        }
+      }
+    },
+    "before_single_sample": {
+      "recharged": {
+        "sha256": "8763b2e6a0bebd1c4add63ddff0df27f76cea5a0d9fca36c01795634ffa0675d",
+        "stats": {
+          "pixels": 49860,
+          "width": 277,
+          "height": 180,
+          "white": 0,
+          "nearwhite": 0,
+          "clipped": 0,
+          "black": 0,
+          "luma": 52.838367428800645,
+          "luma_p99": 188.0,
+          "detail": 10.500789409764392,
+          "flat": 0.06278843818314307,
+          "saturation": 0.5013853009835949,
+          "hue_bins": [
+            16233,
+            1444,
+            3821,
+            654,
+            206,
+            198,
+            710,
+            11626,
+            6579,
+            1873,
+            2275,
+            4241
+          ]
+        }
+      },
+      "origine-lumiere": {
+        "sha256": "754a2339dd35f67f70dd07560339e74f6d3478b4ab5b0c969094d9dfd0f4265c",
+        "stats": {
+          "pixels": 49860,
+          "width": 277,
+          "height": 180,
+          "white": 0,
+          "nearwhite": 0,
+          "clipped": 3093,
+          "black": 0,
+          "luma": 62.881809065383074,
+          "luma_p99": 183.0,
+          "detail": 11.190065581734272,
+          "flat": 0.040583758400129545,
+          "saturation": 0.48675021394305523,
+          "hue_bins": [
+            16095,
+            1426,
+            3745,
+            683,
+            186,
+            236,
+            760,
+            11638,
+            6111,
+            2329,
+            2399,
+            4249
+          ]
+        }
+      }
+    },
+    "limitation": "Un \u00e9chantillon AVANT fig\u00e9, six APR\u00c8S anim\u00e9s ; fond inclus dans le rectangle. Diagnostic seulement, aucune correction du rendu revendiqu\u00e9e."
+  }
+]

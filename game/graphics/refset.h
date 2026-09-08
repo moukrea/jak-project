@@ -265,6 +265,10 @@ bool camera_pin(float* out_trans_m, float* out_fwd);
 // Rend vrai si c'etait notre capture — l'appelant n'ecrit alors pas le PNG de capture d'ecran.
 bool consume_capture(int w, int h, const void* rgba);
 
+// Frame carried by the in-flight capture, rather than the concurrently advancing logic clock.
+// Returns -1 outside a capture.
+int64_t capture_logic_frame();
+
 // ── lighting-hdr : quatre des six verdicts de `hdr_tonemap_defects` ─────────────────────────
 // Convention identique pour les quatre : 0 = tenu, 1 = defaut. Il n'y a PAS de valeur « pas
 // mesurable » : une grandeur qu'on n'a pas pu mesurer est un defaut. Sinon une course
@@ -317,6 +321,9 @@ bool consume_capture(int w, int h, const void* rgba);
 //     consulte dans une frame de logique NEUVE (le GOAL pose alors un pas FIXE de 5 unites de
 //     1/300 s, soit 1/60 s — la duree d'un tick du plan), 0 sinon : appel repete dans la meme
 //     frame de logique, ou plan arrive a sa premiere photo (gel).
+//     Exception opt-in capture lighting-hdr : OG_REFSET_TEMPORAL_SAMPLES (2..16),
+//     ou debug.opengoal.refset.temporal, maintient un pas par frame apres la premiere photo.
+//     Le re-ancrage reste unique ; aucune restauration d'etat entre samples n'est promise.
 //     POURQUOI CE N'EST PAS UN BOOLEEN DE GEL. Mesure du 2026-09-06 sur eae4df44 : deux rejeux
 //     du MEME binaire, memes references, memes donnees, rendent `diffpx=380759` puis `505224`,
 //     et l'ecart est ENTIEREMENT dans le feu — alors que le meme plan, meme politique de

@@ -76,17 +76,27 @@ def contract(root):
     return {'views': views, 'sky': sky, 'hours': plan['hours'], 'plan': plan}
 
 
-def measure(path):
+def measure(path, rect=None):
     """Decode with ImageMagick; calculate masks and diagnostics from decoded pixels."""
     import numpy as np
     size = subprocess.check_output(['magick', 'identify', '-format', '%w %h', str(path)], text=True)
     w, h = map(int, size.split())
     if min(w, h) < 2 or w * h > 16000000:
         raise ValueError('invalid capture dimensions')
+    command = ['magick', str(path)]
+    if rect is not None:
+        if (len(rect) != 4 or any(type(x) is not int for x in rect)
+                or not 0 <= rect[0] < rect[2] <= w or not 0 <= rect[1] < rect[3] <= h):
+            raise ValueError('invalid regional bounds')
+        x, y, right, bottom = rect
+        w, h = right - x, bottom - y
+        if min(w, h) < 2:
+            raise ValueError('regional bounds too small for detail measurement')
+        command += ['-crop', f'{w}x{h}+{x}+{y}', '+repage']
     rgb = np.frombuffer(subprocess.check_output(
-        ['magick', str(path), '-alpha', 'off', '-depth', '8', 'rgb:-']), np.uint8).reshape(h, w, 3)
+        command + ['-alpha', 'off', '-depth', '8', 'rgb:-']), np.uint8).reshape(h, w, 3)
     hsv = np.frombuffer(subprocess.check_output(
-        ['magick', str(path), '-alpha', 'off', '-colorspace', 'HSB', '-set', 'colorspace', 'RGB',
+        command + ['-alpha', 'off', '-colorspace', 'HSB', '-set', 'colorspace', 'RGB',
          '-depth', '16', '-endian', 'LSB', 'rgb:-']), np.dtype('<u2')).reshape(h, w, 3) / 65535
     lo, hi = rgb.min(2), rgb.max(2)
     lum = (rgb.astype(np.int64) * [77, 150, 29]).sum(2) // 256
@@ -112,6 +122,98 @@ def archive_extract(data, target):
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(archive.extractfile(member).read())
+
+
+def owner_regions(batch, images, region_measurer=measure):
+    """Bounded diagnostic of the two actor effects, never an artistic verdict.
+
+    Bounds come from submitted sprite corners and a GPU visibility query. Their
+    union is shared across both arms and all temporal samples. Background pixels
+    inside that rectangle remain mixed with the effect; keep this limitation.
+    """
+    raw = normalized((batch / 'engine.log').read_text(errors='replace'))
+    samples, witnesses, errors = {}, [], []
+    for line in raw.splitlines():
+        match = re.match(r'REFSET sample case=(\S+) layer=(\S+) chain_lf=(\d+) ', line)
+        if match:
+            case, layer, frame = match.groups()
+            rel = 'captures/' + ('supplement-v1/' if layer == 'supplement-v1' else '') + case + '.png'
+            if frame in samples:
+                errors.append('duplicate capture frame: ' + frame)
+            samples[frame] = (case, rel)
+        if 'HDR-OWNER-SPRITE ' in line:
+            try:
+                witness = json.loads(line.split('HDR-OWNER-SPRITE ', 1)[1])
+                if type(witness.get('lf')) is not int or witness.get('actor') not in (10012, 10013, 1395):
+                    raise ValueError('unknown actor or frame')
+                witnesses.append(witness)
+            except (ValueError, TypeError) as exc:
+                errors.append('invalid sprite witness: ' + str(exc))
+    groups = {}
+    for witness in witnesses:
+        entry = samples.get(str(witness['lf']))
+        if entry is None:
+            errors.append('sprite has no matching capture frame: ' + str(witness['lf']))
+            continue
+        case, rel = entry
+        if rel not in images:
+            errors.append('sprite capture missing: ' + rel)
+            continue
+        arm, stem = case.split('/', 1)
+        stem = re.sub(r'-t\d+$', '', stem)
+        group = groups.setdefault((witness['actor'], stem), {'witnesses': [], 'bounds': []})
+        group['witnesses'].append({'image': rel, **witness})
+        rect = witness.get('roi')
+        if witness.get('supported') is not True or witness.get('passed') is not True:
+            continue
+        if (not isinstance(rect, list) or len(rect) != 4 or any(type(x) is not int for x in rect)
+                or not 0 <= rect[0] < rect[2] <= 320 or not 0 <= rect[1] < rect[3] <= 180):
+            errors.append('invalid sprite bounds: ' + rel)
+            continue
+        group['bounds'].append(rect)
+    records = []
+    for (actor, stem), group in sorted(groups.items()):
+        bounds = group.pop('bounds')
+        row = {'actor': actor, 'view_hour': stem, **group, 'status': 'not_judged', 'samples': []}
+        if not bounds:
+            row['reason'] = 'no supported sprite with fragments passing depth/alpha'
+            records.append(row)
+            continue
+        rect = [min(r[0] for r in bounds), min(r[1] for r in bounds),
+                max(r[2] for r in bounds), max(r[3] for r in bounds)]
+        row['roi_exclusive'] = rect
+        for frame, (case, rel) in samples.items():
+            arm, sample_stem = case.split('/', 1)
+            if re.sub(r'-t\d+$', '', sample_stem) != stem or rel not in images:
+                continue
+            try:
+                sidecar = kv((batch / (rel + '.provenance.txt')).read_text())
+                if sidecar.get('case') != case or sidecar.get('capture_lf') != frame or sidecar.get('png') != fnv(batch / rel):
+                    raise ValueError('regional capture provenance mismatch')
+                if images[rel]['stats']['width'] != 320 or images[rel]['stats']['height'] != 180:
+                    raise ValueError('regional projection/capture resolution mismatch')
+                stats = region_measurer(batch / rel, rect)
+                matched = [w for w in group['witnesses'] if str(w['lf']) == frame]
+                row['samples'].append({'arm': arm, 'case': case, 'frame': int(frame),
+                    'image': rel, 'sha256': images[rel]['sha256'], 'stats': stats,
+                    'visible_sprites': sum(w.get('passed') is True and w.get('supported') is True for w in matched)})
+            except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+                errors.append(rel + ': ' + str(exc))
+        row['summary'] = {}
+        for arm in ('recharged', 'origine-lumiere'):
+            arm_samples = [s for s in row['samples'] if s['arm'] == arm]
+            summary = {'samples': len(arm_samples),
+                       'visible_frames': sum(s['visible_sprites'] > 0 for s in arm_samples)}
+            for key in ('white', 'nearwhite', 'clipped', 'luma', 'detail', 'flat', 'saturation'):
+                values = [s['stats'][key] for s in arm_samples]
+                if values:
+                    summary[key] = {'min': min(values), 'max': max(values), 'mean': sum(values) / len(values)}
+            row['summary'][arm] = summary
+        row['reason'] = 'projected sprite bounds include background; expected white/detail and local colour preservation not yet qualified'
+        records.append(row)
+    return {'schema': 1, 'status': 'diagnostic_only', 'engine_sha256': sha(batch / 'engine.log'),
+            'errors': errors, 'regions': records, 'unattributed_cases': ['clouds', 'sunset-sun', 'sage-hut-ground'],
+            'witness_count': len(witnesses)}
 
 
 def adb(args, *command):
@@ -217,6 +319,7 @@ def finish(args):
         except Exception as exc:
             errors.append('image measurement: ' + str(exc))
     dump(batch / 'pixels.json', {'helper_sha256': sha(__file__), 'images': pixel_records})
+    dump(batch / 'owner-regions.json', owner_regions(batch, pixel_records))
     manifest = {**start, 'id': batch.name, 'producer': 'proof_run.sh', 'crash': args.crash,
                 'errors': errors, 'files': {},
                 'run': {'started_at': args.started_at, 'duration_s': args.duration_s}}
@@ -339,6 +442,62 @@ def read_batch(path, expected, measurer):
     requested = [tuple(x) for x in m['requested']]
     if len(set(requested)) != len(requested) or not requested:
         raise ValueError('duplicate/empty requested views')
+    temporal = int(values.get('refset_temporal_samples', '1'))
+    if temporal < 1 or temporal > 16:
+        raise ValueError('invalid temporal sample count')
+    requested_temporal = re.findall(r'^\[debug\.opengoal\.refset\.temporal\]: \[([^\]]*)\]$',
+                                   (base / 'props-start.txt').read_text(), re.M)
+    if requested_temporal and requested_temporal != [''] and requested_temporal != [str(temporal)]:
+        raise ValueError('requested/effective temporal count differs')
+    temporal_failures = {}
+    if temporal > 1:
+        expected_count = 2 * temporal * len(requested)
+        actual_count = sum(name.startswith('captures/') and name.endswith('.png') for name in files)
+        if (actual_count > expected_count or any(values.get(k) != str(actual_count) for k in
+                ('refset_temporal_captured', 'refset_captured'))
+                or int(values.get('refset_probe_frames', '0')) < actual_count):
+            raise ValueError('temporal capture accounting inconsistent')
+        temporal_configs = set()
+        for view, hour in requested:
+            stem = ('' if view == 'legacy' else view + '-') + f'h{hour:02}'
+            for arm in ('recharged', 'origine-lumiere'):
+                frames = []
+                spacing = None
+                base_options = None
+                for sample in range(temporal):
+                    case = arm + '/' + stem + (f'-t{sample:02}' if sample else '')
+                    candidates = [prefix + case + '.png' for prefix in
+                                  ('captures/', 'captures/supplement-v1/')]
+                    present = [p for p in candidates if p in files]
+                    if not present:
+                        temporal_failures.setdefault((view, hour), []).append('temporal capture absent: ' + case)
+                        continue
+                    if len(present) != 1:
+                        raise ValueError('temporal capture duplicate: ' + case)
+                    rel = present[0]
+                    sidecar = kv((base / (rel + '.provenance.txt')).read_text())
+                    if (sidecar.get('case') != case or sidecar.get('png') != fnv(base / rel)
+                            or sidecar.get('bin') != fingerprints[0] or sidecar.get('data') != fingerprints[1]
+                            or sidecar.get('input') != input_fp or sidecar.get('version') != '2'):
+                        raise ValueError('temporal provenance mismatch: ' + case)
+                    temporal_configs.add(sidecar.get('config'))
+                    if len(temporal_configs) != 1 or not re.fullmatch('[0-9a-f]{16}', sidecar.get('config', '')):
+                        raise ValueError('temporal configuration changed or absent')
+                    invariant = {k: v for k, v in effective.get(case, {}).items() if k != 'temporal'}
+                    if base_options is not None and invariant != base_options:
+                        raise ValueError('rendering settings changed within temporal arm')
+                    base_options = invariant
+                    options = effective.get(case, {}).get('temporal', {})
+                    if (options.get('samples') != temporal or options.get('sample') != sample
+                            or options.get('particle_step') != 'once-per-logic-frame'
+                            or type(options.get('spacing_lf')) is not int or options['spacing_lf'] <= 0):
+                        raise ValueError('temporal effective settings absent/incompatible: ' + case)
+                    if spacing is not None and spacing != options['spacing_lf']:
+                        raise ValueError('temporal spacing changed')
+                    spacing = options['spacing_lf']
+                    frames.append(int(sidecar['capture_lf']))
+                if any(b - a != spacing for a, b in zip(frames, frames[1:])):
+                    temporal_failures.setdefault((view, hour), []).append('temporal cadence incomplete')
     cached_pixels = json.loads((base / 'pixels.json').read_text()) if 'pixels.json' in files else {}
     pairs = {}
     unqualified = {}
@@ -351,6 +510,7 @@ def read_batch(path, expected, measurer):
         stem = ('' if view == 'legacy' else view + '-') + f'h{hour:02}'
         pair = []
         reasons = [] if probes_complete else ['sky probes do not account for captures']
+        reasons += temporal_failures.get((view, hour), [])
         for phase, arm in ((2, 'recharged'), (3, 'origine-lumiere')):
             case = arm + '/' + stem
             rel = 'captures/' + case + '.png'
@@ -439,6 +599,7 @@ def read_batch(path, expected, measurer):
     m['pairs'] = pairs
     m['values'] = values
     m['identity'] = (provenance, fingerprints)
+    m['owner_regions'] = json.loads((base / 'owner-regions.json').read_text()) if 'owner-regions.json' in files else None
     return m
 
 
@@ -540,6 +701,9 @@ def aggregate(campaign, current, expected, measurer=measure):
                 'hdr_batch_errors': max(1, len(errors)),
                 'hdr_batch_error_detail': '|'.join(errors).replace(' ', '_') or 'current_batch_missing'}
     active = batches[current]
+    owner_diagnostics['regional_observations'] = [
+        {'batch': name, 'diagnostic': m.get('owner_regions')}
+        for name, m in batches.items() if m['identity'] == active['identity']]
     for name, m in batches.items():
         if m['identity'][0] != active['identity'][0] or (m['identity'][1] is not None and m['identity'][1] != active['identity'][1]):
             errors.append(name + ': incompatible binary/APK/data/config')

@@ -22,6 +22,11 @@ spec.loader.exec_module(hdr)
     ('absent', '', 'batch', '', 0, 23, 0),
     ('absent', '123', '', '', 0, 23, 0),
     ('stable', '123', 'batch', 'GK-DIAG A36-TREE at-crash frame=1', 1, 13, 0),
+    ('stable', '123', 'batch', 'REFSET done steps=4 captured=4 compared=0 missing=0\nhdr_paired=2', 0, 13, 1),
+    ('stable', '123', 'batch', 'REFSET done steps=24 captured=24 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=2', 0, 13, 1),
+    ('stable', '123', 'batch', 'REFSET done steps=24 captured=23 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=2', 0, 23, 3),
+    ('stable', '123', 'batch', 'REFSET done steps=24 captured=24 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=1', 0, 23, 3),
+    ('stable', '123', 'batch', 'REFSET done steps=25 captured=25 compared=0 missing=0\nrefset_temporal_samples=6\nhdr_paired=2', 0, 23, 3),
 ])
 def test_hdr_wait_process_liveness(tmp_path, state, pid0, hdr_batch, trace, crash, elapsed, calls):
     """Execute the production wait loop, with local fake adb and no real sleeps."""
@@ -230,8 +235,116 @@ def result(root, plan, current='001'):
 def test_real_contract(plan):
     assert len(plan['sky']) == 21
     assert len(plan['hours']) == 8
-    assert len(plan['views']) == 28
+    assert len(plan['views']) == 29
+    assert plan['views']['village1-eco-blue'] == 'village1'
     assert plan['sky']['sunkenb'] and plan['sky']['swamp']
+
+
+def test_owner_regions_use_shared_projected_bounds_and_preserve_absence(tmp_path):
+    """Synthetic byte sources and fake regional pixels, never a game verdict."""
+    lines, images, measured = [], {}, []
+    for frame, arm, rect, passed in ((100, 'recharged', [10, 20, 30, 40], True),
+                                     (200, 'origine-lumiere', [12, 22, 32, 42], True),
+                                     (212, 'origine-lumiere', None, False)):
+        case = arm + '/village1-eco-blue-h12' + ('-t01' if frame == 212 else '')
+        rel = 'captures/' + case + '.png'
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b'synthetic image source ' + str(frame).encode())
+        (tmp_path / (rel + '.provenance.txt')).write_text(
+            f'case={case}\ncapture_lf={frame}\npng={hdr.fnv(target)}\n')
+        images[rel] = {'sha256': hdr.sha(target), 'stats': {'width': 320, 'height': 180}}
+        lines.append(f'REFSET sample case={case} layer=historical chain_lf={frame} anchor_lf=88')
+        # lg::info has its own prefix, inside logcat's already-normalized line.
+        lines.append('[45:00:123] [info] HDR-OWNER-SPRITE ' + json.dumps(
+            {'lf': frame, 'actor': 10012, 'roi': rect, 'passed': passed, 'supported': rect is not None}))
+    (tmp_path / 'engine.log').write_text('\n'.join(lines))
+    def regional(path, rect):
+        measured.append((path, rect))
+        return dict(white=1, nearwhite=2, clipped=3, luma=120, detail=4, flat=.1, saturation=.2)
+    result = hdr.owner_regions(tmp_path, images, regional)
+    assert result['errors'] == []
+    assert result['status'] == 'diagnostic_only'
+    row, = result['regions']
+    assert row['status'] == 'not_judged'
+    assert all(rect == [10, 20, 32, 42] for _, rect in measured)
+    assert len(measured) == 3  # invisible temporal frame is retained, not silently discarded
+    assert row['summary']['origine-lumiere']['samples'] == 2
+    assert row['summary']['origine-lumiere']['visible_frames'] == 1
+    first = next(iter(images))
+    (tmp_path / first).write_bytes(b'modified after provenance')
+    bad = hdr.owner_regions(tmp_path, images, regional)
+    assert any('provenance mismatch' in error for error in bad['errors'])
+
+
+def test_owner_regions_reject_unmatched_frame_and_unknown_actor(tmp_path):
+    (tmp_path / 'engine.log').write_text('\n'.join('HDR-OWNER-SPRITE ' + json.dumps(w) for w in
+        ({'lf': 100, 'actor': 10012}, {'lf': 100, 'actor': 99999})))
+    result = hdr.owner_regions(tmp_path, {})
+    assert len(result['errors']) == 2
+    assert result['regions'] == []
+
+
+def test_regional_measure_rejects_bounds_and_measures_crop(tmp_path):
+    image = tmp_path / 'synthetic.ppm'
+    image.write_bytes(b'P6\n4 2\n255\n' + bytes([255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0]) * 2)
+    assert hdr.measure(image, [0, 0, 2, 2])['white'] == 4
+    assert hdr.measure(image, [2, 0, 4, 2])['white'] == 0
+    with pytest.raises(ValueError, match='bounds'):
+        hdr.measure(image, [3, 0, 5, 2])
+
+
+@pytest.mark.parametrize('change', ['missing_count', 'requested_mismatch', 'missing_capture'])
+def test_temporal_incomplete_sources_never_pass(tmp_path, plan, change):
+    path = batch(tmp_path, plan, [('village1-eco-blue', 12)])
+    engine = path / 'engine.log'
+    text = engine.read_text() + 'refset_temporal_samples=2\n'
+    if change != 'missing_count':
+        text += 'refset_temporal_captured=4\nrefset_captured=4\nrefset_probe_frames=4\n'
+    if change == 'requested_mismatch':
+        props = path / 'props-start.txt'
+        props.write_text(props.read_text() + '[debug.opengoal.refset.temporal]: [6]\n')
+    engine.write_text(text)
+    rehash(path)
+    r = result(tmp_path, plan)
+    assert r['hdr_batch_errors'] > 0
+    assert r['hdr_tonemap_defects'] > 0
+
+
+@pytest.mark.parametrize('crashed', [False, True])
+def test_temporal_complete_cell_survives_later_crash_for_explicit_replacement(tmp_path, plan, crashed):
+    path = batch(tmp_path, plan, [('village1-eco-blue', 12)], crash=int(crashed))
+    engine = path / 'engine.log'
+    lines = []
+    for line in engine.read_text().splitlines():
+        if not line.startswith('REFSET effective '):
+            lines.append(line)
+            continue
+        prefix, encoded = line.split(' options=', 1)
+        case = prefix.split('case=', 1)[1]
+        options = json.loads(encoded)
+        options['temporal'] = {'samples': 2, 'sample': 0, 'spacing_lf': 12,
+                               'particle_step': 'once-per-logic-frame'}
+        lines.append(prefix + ' options=' + json.dumps(options))
+        extra_case = case + '-t01'
+        source = path / 'captures' / (case + '.png')
+        extra = path / 'captures' / (extra_case + '.png')
+        extra.write_bytes(source.read_bytes())
+        sidecar = source.with_suffix('.png.provenance.txt').read_text()
+        extra.with_suffix('.png.provenance.txt').write_text(
+            sidecar.replace('case=' + case, 'case=' + extra_case).replace('capture_lf=100', 'capture_lf=112'))
+        options['temporal']['sample'] = 1
+        lines.append('REFSET effective case=' + extra_case + ' options=' + json.dumps(options))
+    lines += ['refset_temporal_samples=2', 'refset_temporal_captured=4', 'refset_captured=4', 'refset_probe_frames=4']
+    engine.write_text('\n'.join(lines) + '\n')
+    if crashed:
+        edit_manifest(path, requested=[['village1-eco-blue', 12], ['village1-eco-blue', 18]])
+    rehash(path)
+    parsed = hdr.read_batch(path / 'manifest.json', plan, stats)
+    assert ('village1-eco-blue', 12) in parsed['pairs']
+    if crashed:
+        assert ('village1-eco-blue', 18) in parsed['unqualified']
+        assert result(tmp_path, plan)['hdr_tonemap_defects'] > 0
 
 
 def test_complete_synthetic_multiple_processes(tmp_path, plan):

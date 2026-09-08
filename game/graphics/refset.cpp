@@ -217,8 +217,14 @@ constexpr Vantage kVantages[] = {
     {"lavatube-start", "lavatube-start", "", "lavatube", kAllHours, 0, 0, 50, 25},
     {"citadel-start", "citadel-start", "", "citadel", kAllHours, 0, 0, 50, 25},
     {"finalboss-start", "finalboss-start", "", "finalboss", kAllHours, 0, 0, 50, 30},
+    // Dedicated opt-in view. Actor aid10012 is at 9.3109 19.2490 11.2525;
+    // spawn 8 m before it to avoid collecting it, camera 2 m above, looking toward +Z.
+    {"village1-eco-blue", "village1-hut", "9.3109 19.2490 3.2525", "village1", kAllHours,
+     -14, -163, 0, 20},
 };
-constexpr int kNumVantages = (int)(sizeof(kVantages) / sizeof(kVantages[0]));
+constexpr int kNumSelectableVantages = (int)(sizeof(kVantages) / sizeof(kVantages[0]));
+// The explicitly selected diagnostic view does not extend the historical coverage universe.
+constexpr int kNumVantages = kNumSelectableVantages - 1;
 
 // ── L'ETAT DE LA CAMERA EPINGLEE ────────────────────────────────────────────────────────────
 // `g_spawn_*` vient du POINT DE REPRISE lui-meme, releve par `level_warp_run` juste avant le
@@ -239,7 +245,7 @@ int g_cam_armed = 1;       // `OG_REFSET_CAM_OFF=1` rend la camera du jeu : bras
 // existe pour trouver les angles SANS rebatir ; les valeurs retenues finissent dans `kVantages`
 // et la preuve tourne sans la variable. `refset_cam_overrides` publie combien en ont recu une :
 // une reference capturee sous une surcharge non declaree serait irreproductible.
-CamTune g_cam_tune[kNumVantages];
+CamTune g_cam_tune[kNumSelectableVantages];
 uint64_t g_cam_overrides = 0;
 // Le masque d'heures REELLEMENT parcouru (voir `OG_REFSET_HOURS`). 0xff = le plan complet.
 uint8_t g_hours_mask = 0xff;
@@ -272,7 +278,9 @@ struct Step {
   int hour;
   int vant;  // index dans g_vants
   bool supplemental = false;
+  int sample = 0;
 };
+int g_temporal_samples = 1;
 
 // Frames de LOGIQUE. Elles ne dependent pas de la cadence : `pad_replay` force un pas de
 // 1/60 s par image des l'ancre.
@@ -548,6 +556,7 @@ int64_t g_inflight_lf = -1;
 
 // ── mesures ─────────────────────────────────────────────────────────────────────────────────
 uint64_t g_captured = 0;
+uint64_t g_temporal_captured = 0;
 // L'alpha BRUT du retimeur de rendu, echantillonne une fois par image dessinee. Voir
 // `publish_state` : c'est la mesure de ce que la course de reference supprime.
 int64_t g_raw_alpha_min = 1 << 30;
@@ -696,6 +705,11 @@ std::string step_image_name(const Step& s) {
   } else {
     std::snprintf(nm, sizeof(nm), "%s/h%02d", set_name(s.phase), s.hour);
   }
+  if (s.sample > 0) {
+    char suffix[16];
+    std::snprintf(suffix, sizeof(suffix), "-t%02d", s.sample);
+    return std::string(nm) + suffix;
+  }
   return nm;
 }
 
@@ -783,7 +797,7 @@ bool hdr_pair(int vant, int hour, const StepStats*& on, const StepStats*& off) {
 
 uint64_t hdr_paired_count() {
   uint64_t paired = 0;
-  for (int global = 0; global < kNumVantages; ++global) {
+  for (int global = 0; global < kNumSelectableVantages; ++global) {
     auto it = std::find(g_vants.begin(), g_vants.end(), global);
     if (it == g_vants.end())
       continue;
@@ -798,7 +812,10 @@ uint64_t hdr_paired_count() {
 
 void publish_hdr_coverage() {
   const uint64_t paired = hdr_paired_count();
-  const uint64_t expected = kNumVantages * 8ull;
+  uint64_t expected = kNumVantages * 8ull;
+  for (int global : g_vants) {
+    if (global >= kNumVantages) expected += 8;
+  }
   autoport_proof::publish("hdr_paired", paired);
   autoport_proof::publish("hdr_expected", expected);
   autoport_proof::publish("hdr_missing", expected - paired);
@@ -1377,6 +1394,8 @@ void publish_state() {
   autoport_proof::publish("refset_warp1_lf", (uint64_t)(g_warp1 < 0 ? 0 : g_warp1));
   autoport_proof::publish("refset_plan_base_lf", (uint64_t)(g_plan_base < 0 ? 0 : g_plan_base));
   autoport_proof::publish("refset_captured", g_captured);
+  autoport_proof::publish("refset_temporal_samples", g_temporal_samples);
+  autoport_proof::publish("refset_temporal_captured", g_temporal_captured);
   autoport_proof::publish("refset_slip_max", (uint64_t)(g_frame_slip_max < 0 ? 0
                                                                              : g_frame_slip_max));
   autoport_proof::publish("refset_slip_min",
@@ -2051,6 +2070,10 @@ uint64_t census_config_fingerprint() {
   if (autoport_proof::feature_is("lighting-census")) {
     add("lighting-census-two-arms-master-on-bootstrap-v2");
   }
+  if (g_temporal_samples > 1) {
+    add("lighting-hdr-temporal-particles-v1");
+    add(std::to_string(g_temporal_samples));
+  }
   if (g_require_loaded) {
     add("require-loaded-state-restore-plus2-v2");
     for (const auto& level : g_initial_levels) add(level);
@@ -2596,6 +2619,30 @@ bool enabled() {
   } else {
     return false;
   }
+  char temporal[128] = {};
+  const char* temporal_env = std::getenv("OG_REFSET_TEMPORAL_SAMPLES");
+  const bool temporal_knob = read_knob("OG_REFSET_TEMPORAL_SAMPLES",
+                                      "debug.opengoal.refset.temporal", temporal,
+                                      sizeof(temporal));
+  if (temporal_env || temporal_knob) {
+    int samples = 0;
+    bool valid = temporal[0] != 0 &&
+                 (!temporal_env || (temporal_env[0] && std::strlen(temporal_env) < sizeof(temporal)));
+    for (const char* c = temporal; *c; ++c) {
+      if (*c < '0' || *c > '9' || samples > 16) {
+        valid = false;
+        break;
+      }
+      samples = samples * 10 + (*c - '0');
+    }
+    if (!valid || samples < 2 || samples > 16 || g_mode != 1 ||
+        !autoport_proof::feature_is("lighting-hdr")) {
+      std::fprintf(stderr, "REFSET fatal: temporal samples require lighting-hdr capture and "
+                           "an integer in 2..16\n");
+      std::abort();
+    }
+    g_temporal_samples = samples;
+  }
   char loaded[32] = {};
   g_require_loaded = read_knob("OG_REFSET_REQUIRE_LOADED", "debug.opengoal.refset.requireloaded",
                               loaded, sizeof(loaded)) && std::strcmp(loaded, "1") == 0;
@@ -2758,9 +2805,11 @@ bool enabled() {
           tok.pop_back();
         }
         if (!tok.empty()) {
-          for (int i = 0; i < kNumVantages; i++) {
+          for (int i = 0; i < kNumSelectableVantages; i++) {
             const bool hit = (tok == "legacy" && kVantages[i].id[0] == 0) ||
-                             tok == kVantages[i].id || tok == kVantages[i].cont;
+                             tok == kVantages[i].id ||
+                             (tok == kVantages[i].cont &&
+                              std::strcmp(kVantages[i].id, "village1-eco-blue") != 0);
             if (hit && std::find(g_vants.begin(), g_vants.end(), i) == g_vants.end()) {
               g_vants.push_back(i);
             }
@@ -2829,7 +2878,7 @@ bool enabled() {
         if (std::sscanf(tok, "%63[^:]:%d:%d:%d:%d", id, &p, &y, &d, &h) != 5) {
           continue;
         }
-        for (int i = 0; i < kNumVantages; i++) {
+        for (int i = 0; i < kNumSelectableVantages; i++) {
           const bool hit = (std::strcmp(id, "legacy") == 0 && kVantages[i].id[0] == 0) ||
                            std::strcmp(id, kVantages[i].id) == 0;
           if (!hit) {
@@ -2880,7 +2929,9 @@ bool enabled() {
                            (supplemental ? uint8_t(~historical) : historical);
       const auto append = [&](int phase, int hi) {
         if (mask & (1u << hi)) {
-          g_steps.push_back(Step{phase, kHours[hi], (int)vi, supplemental});
+          for (int sample = 0; sample < g_temporal_samples; ++sample) {
+            g_steps.push_back(Step{phase, kHours[hi], (int)vi, supplemental, sample});
+          }
         }
       };
       if (g_order_by_hour) {
@@ -3100,7 +3151,7 @@ int particle_step_mode() {
   if (lf < 0) {
     return 2;
   }
-  if (lf >= g_plan_base + g_step_settle) {
+  if (g_temporal_samples == 1 && lf >= g_plan_base + g_step_settle) {
     if (g_frozen_first_lf < 0) {
       g_frozen_first_lf = lf;
     }
@@ -3279,7 +3330,7 @@ void tick() {
     // La configuration est posee AVANT le teleport : l'heure et le master sont donc deja ceux de
     // l'etape quand la camera se repose.
     const Step& st = g_steps[g_cur];
-    apply_step_config(st);
+    if (st.sample == 0) apply_step_config(st);
     g_capture_name = step_image_name(st);
     if (step_is_arrival(g_cur)) {
       g_load_steps++;
@@ -3287,7 +3338,12 @@ void tick() {
     // UNE ARRIVEE SUR UN NOUVEAU VANTAGE TELEPORTE TOUJOURS, meme quand la politique de l'etape
     // est « pas de teleport » (l'appareil) : sans ce teleport-la, changer de vantage ne
     // changerait que l'heure et le master, et les 25 autres niveaux ne seraient jamais atteints.
-    if (step_is_arrival(g_cur) &&
+    if (st.sample > 0) {
+      // Keep the case anchor and requested cadence; no arrival or warp between samples.
+      g_capture_frame += g_step_settle;
+      require_loaded_state(lf, "temporal-arm");
+      g_cap = kCapArmed;
+    } else if (step_is_arrival(g_cur) &&
         (g_cur != 0 || g_require_loaded || autoport_proof::feature_is("lighting-hdr"))) {
       // Two teleports, the first to load. The historical first case skipped this wait;
       // the opt-in guard includes it without letting asynchronous readiness move the deadline.
@@ -3333,6 +3389,11 @@ bool wants_scene_probe() {
   }
   std::lock_guard<std::mutex> lock(g_mutex);
   return g_cap == kCapInFlight && g_cur < g_steps.size();
+}
+
+int64_t capture_logic_frame() {
+  std::lock_guard<std::mutex> lock(g_mutex);
+  return g_cap == kCapInFlight ? g_inflight_lf : -1;
 }
 
 void note_scene_probe(uint64_t bg_px, uint64_t total_px) {
@@ -3550,6 +3611,11 @@ bool consume_capture(int w, int h, const void* rgba) {
         {"exposure", settings.recharged_hdr_exposure},
         {"pbr_exposure", settings.recharged_pbr_exposure},
         {"knee", settings.recharged_hdr_knee}};
+    if (g_temporal_samples > 1) {
+      effective_options["temporal"] = {
+          {"samples", g_temporal_samples}, {"sample", g_steps[g_cur].sample},
+          {"spacing_lf", g_step_settle}, {"particle_step", "once-per-logic-frame"}};
+    }
     std::printf("REFSET effective case=%s options=%s\n", g_capture_name.c_str(),
                 effective_options.dump().c_str());
     std::fflush(stdout);
@@ -3559,14 +3625,16 @@ bool consume_capture(int w, int h, const void* rgba) {
     asset_manifest::checkpoint(step_image_name(g_steps[g_cur]) + "/chain-lf=" +
                                std::to_string(g_inflight_lf));
   }
-  std::printf("REFSET sample case=%s layer=%s chain_lf=%lld anchor_lf=%lld\n",
+  std::printf("REFSET sample case=%s layer=%s chain_lf=%lld anchor_lf=%lld sample=%d samples=%d\n",
               g_capture_name.c_str(), g_steps[g_cur].supplemental ? "supplement-v1" : "historical",
-              (long long)g_inflight_lf, (long long)g_step_anchor);
+              (long long)g_inflight_lf, (long long)g_step_anchor,
+              g_steps[g_cur].sample, g_temporal_samples);
   const int n_px = w * h;
   const uint8_t* cur = (const uint8_t*)rgba;
   // lighting-hdr : on mesure AVANT de comparer ou d'ecrire, dans les deux modes. Les
   // verdicts 1 et 2 portent sur ce que le moteur vient de dessiner, pas sur la reference.
-  if (autoport_proof::feature_is("lighting-hdr") || vantage_of(g_steps[g_cur]).id[0] == 0) {
+  if (g_steps[g_cur].sample == 0 &&
+      (autoport_proof::feature_is("lighting-hdr") || vantage_of(g_steps[g_cur]).id[0] == 0)) {
     measure_step(g_steps[g_cur], g_inflight_lf, cur, w, h);
   }
 
@@ -3594,6 +3662,7 @@ bool consume_capture(int w, int h, const void* rgba) {
         report_provenance(step, !witness_ok ? "witness-write" : "sidecar-write");
       } else {
         g_captured++;
+        if (g_temporal_samples > 1) ++g_temporal_captured;
         std::printf("REFSET cap %s step=%d/%d\n", g_capture_name.c_str(), (int)g_cur,
                     (int)g_steps.size());
         std::fflush(stdout);

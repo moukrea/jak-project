@@ -1,0 +1,11 @@
+{
+  "game/graphics/refset.cpp": "794520b8e915fae5085f69c64f611495be165db6820c799d21f6450e87a2ab3b",
+  "game/graphics/refset.h": "441ab0673affae1f98fd8219ff7d21d81fafc0674bcdf5546d581197d0a47745",
+  "game/graphics/opengl_renderer/sprite/Sprite3.cpp": "fe7df8f2c50a9b670f37090ed4833955f4cca60b014ca7dfd2c9cf5c296031ba",
+  "game/graphics/opengl_renderer/shaders/sprite3_3d_inst.vert": "59e89ce31e76c051b1102c650357751fecfe839dfdae0f2129213863f83c8a10",
+  "game/graphics/opengl_renderer/shaders/tonemap.frag": "2602d4f3d1a5f68da01c7008bb2d00f02e2644234941ef59b2cc878c0d9545af",
+  ".autoport/lib/proof_run.sh": "92ca2c3a841a4e905e7fc0fc763c2f544b9422b6c5cf3809b2a27b79996d9998",
+  ".autoport/lib/hdr_batches.py": "1dcc55bb4ea53091902ecac0fab470d70be0fc623d9c0ee494bdcc3dfe7508eb",
+  ".autoport/tests/harness/test_hdr_batches.py": "88e6d608f990ec18a072cb7205d799b4a72a2764f8978ba6f0cf99f4b177d87d",
+  "decompiler_out/jak1/entities/village1-actors.json": "d3991eeeafb8fefd6ff85b1acfd63b5ddd11cb5a4c6331556c628876b9d745e7"
+}
