@@ -1,29 +1,28 @@
 DIRECTIVES v6133a247b4
 ## ÉTABLI
-- Livré libSHA256008b1f81b596f3593cdd0db00fbbc56de1734f9b62ecc47112801d9ef2f3a480, build/APK/Redmi identiques ; notes/essai26/build-source-color/.
-- Rendu : sprite3_3d{,_inst}.frag borne RGB SOURCE après texture avant blend, alpha brut testé avant bornage. Courbe finie essai25 inchangée ; aucun bloom/gain.
-- Test GPU adapté essai22 :48PASS/failures0, SDR avant/après exact cas testés, somme additiveHDR>1, alpha conservé ; notes/essai26/source-color/. Pas preuve jeu.
-- refset temporel : pas second warp après loadsettle240, ancre par séquence au tick après readback, purge àancre+1 puis samples à+12,+24... ; single-sample/replay conservés.
-- Lot officiel essai26-source-color/20260908T070411-3795215 :24captures/crash0/frames1260/draws389/site1 ; probe max5.652 et5587px>1.
-- Quatre purges842/916/990/1064 ; chaque bras âges11/23/35/47/59/71, slip0 ; retard interséquences2 explicitement loggé. Première ON12 n'a plus saut global64→109 observé essai25.
-- Helper valide repin/date/âge/présence uniforme et exclut seulement timestamp repin des options comparées ; legacy ne couvre PLUS la hutte.171tests passent ; aucun critère qualité changé.
-- Aggregate-only officiel : errors0/pairs2/quality_bad1/defects4 ; owner measured1/failed1/missing4/passed0 ;62fichiers du lot inchangés.
-- Avant24 et après26 ROI communes/hashes : notes/essai26/before24-after26-regions.json. Avant source ON12 partiel→après : before-source-after-source-regions.json.
-- ROI10012h12 avant/après source clipped2269.5→2095.67, blancs62.5→59.67 ; aprèsOFF clipped1648.33/blancs40.33. Réduction observée insuffisante, pas validation.
-- H18 après10012 blancsON14.83/OFF65.5, nearwhite58.67/OFF134.17 ; quatre observations éco échouent. Source avantOFF absente, anciensOFF âges différents : pas attribution de tous deltas au shader.
-- Témoins avant source1326/510passed : lightning3 nouvellement attribué aux2acteurs ; hotdot10013lf889 passed borneRGB(.251,.251,1.506). Bigpuff/starflash AUCUN événement, pas preuve d'absence rendu.
+- Lib livrée d3a7658defe4286424968852bb7e4ac87e68eb9c20d6c1960687f0bf7a66047f identique build/APK/Redmi ; notes/essai27/build-deploy/final/.
+- Quatre shaders Direct bornent RGB SOURCE après modulation/fog/tests, comme Sprite3 essai26. Alpha/destination HDR/courbe/exposition inchangés ; aucune causalité éco démontrée.
+- GPU162PASS/failures0,48comparaisonsSDR exactes, HDRadditif>1 ; helper189passed. Notes direct-source-color/ et portal-regions/. Pas preuve jeu.
+- Sprite3 mode 3 projeté selon vrai GLSL ; harddot+ancre1395+mode 3 porte layer=portal_disc.816rotations/12viewports/4 cas W invalides sans échec ; boîte conservative, pas empreinte exacte.
+- Lots officiels campagneessai27-direct-source : éco20260908T073326-3821099 et portail20260908T073655-3825740, chacun 24 captures/crash0 ; 389 draws/site1 chacun.
+- Éco : paramètres/configfiles/propriétés identiques avant26/après27,61 fichiers scellés par lot vérifiés ; before-after-compatibility.json et before26-after27-regions.json. Avant24 aussi conservé/comparé, protocole différent.
+- Éco10012h18 blancsON14.83→14.67/OFF65.5→65.83 ; nearwhiteON58.67→58.83/OFF134.17→134.67. H12clippedON2095.67→2098.67/OFF1648.33→1647.83 : défaut persiste.
+- Éco26 analyse4188témoins tous additifs : populationsh18diffèrent mais sample4 mêmes45dessins blancs2ON/23OFF ; sample5 mêmes43 blancs0/138. Fond et chevauchements non attribués ; eco-populations/.
+- Bigpuff/starflash y0..16 est ANGLE orbiteur, pas une hauteur ; rayons.3..45m/.2..3m autour rootsphère+.8Y. Ne pas élargir rayon 1.732 ; collectables-part.gc et sparticle_launcher.cpp561-597.
+- Portail caméra avant24 reprise : village1-out:0:-115:80:44.185 harddotmode 3,23 passed/24 captures ; ROI[110,28,192,152], distincte grand halo. H12sample4ON invisible : nonjugé.
+- Portailh18 tous samples visibles, OFFwhite0 ; flatONmean.06060758>OFFmax.04978420. Helper juge partie photométrique sans exiger blanc OFF ; éco garde exigence blanc OFF. Warp reste missing, défaut partiel failed.
+- Aggregate-only officiel : errors0/pairs4/defects4 ; ownermeasured1/failed2/missing4/passed0.122 sources scellées+mtime+started_at intacts ; aggregate-preservation-check.json.
+- Redmi normal restauré PID 17645 stable 12s, A35-RENDER frame360/draws88, props debug vides/verrou absent ; normal-restoration.json. Aucun generic/owner-ok.
 ## TENTÉ
-- Cycle1 premier lot20260908T065403-3786348 SIGSEGV GOAL avant mesures, processwarp-gate-switch-3/LRenter-state/lecture typeà-4 ; pas intern_from_c. Source conservée.
-- Retry identique20260908T065654-3789494 :6ON12 puis exit1. Nouvelle échéance purgeOFF914 déjà dépassée quand logique915 ; corrigé en ancrant CHAQUE séquence après readback, sans augmenter settle ni enlever sample0.
-- Premier agrégat livré rejetait h18 car comparait particle_repin_lf comme réglage ; corrigé/testé, proof_run aggregate-only recalcule sans nouveaux pixels ni changement date source.
-- Clamp source ne suffit pas : h12 excès clipped global181, régional10012 manque détail ; h18 manque blancs10012 et excès blancs/aplats10013. Courbe actuelle garde risque plateau>1.05.
+- Correctif Direct cohérent avec UNORM mais effet éco quasi inchangé : ne pas le présenter comme correction des blancs. Pas réglage de courbe supplémentaire sans cause.
+- Dette négative avant éco non établie : groupes 42/140 additifs ; ombres Jak1 bucket47 multiplicatives ; faux shadows soustractifs après particules monde. Sonde pré-tone-map ne mesure pas minimum.
+- Premier build supersédé après garde label portal_disc réservée mode 3 ; second incrément final livré, aucun run intermédiaire. Pas reconfiguration manuelle.
+- Wrappernotes faux SIGILL sur commentaire «pckernel top-level doesn't SIGILL» ; signatures fatales corrigées et mêmes logs relus. Proof_run exit0/crash0 inchangés, aucun retry appareil.
 ## RESTE
-- Diagnostiquer contributions de fond éclairé et couches non attribuées avant autre réglage ; nearwhiteh12 dépendait aussi du transitoire et des populations OFF anciennes. Ne pas régler sur compteur255 seul.
-- Bigpuff/starflash : PNG extraits directement extracted_textures/jak1/effects/, gris max255/alpha128 ; source bleue>1 possible, mais rayon1.732m actuel ne les attribue pas. Ne pas élargir aveuglément ROI.
-- Soleil = groupe35 Sprite3, centreGOAL camera_pos+4096*gs.recharged_pbr_sky_sun brut ; middot1200²m, starflash2 2800×2200m/inverse. Projection/query existants réutilisables ; aucune attribution ni visibilité mesurée.
-- Nuages : DirectRenderer vertices projetées/texture8096, mais18quads puis4triangles horizon même état ; aucune ROI actuelle. Ne pas appeler quart haut ou texture entière nuages sans qualification.
-- Vraie hutte confirmée acteurs autour(-123,46,214)m, sage(-132.659,46.198,213.468)m. Legacy(-116,14,40)m fausse ; village1-out caméra+50m ne qualifie pas sol. HUT_VIEWS vide reste rouge.
-- Portail ancienROI trop large, hotdot centre ne couvre pas portail entier ; harddot3D toujours non attribué. Les4autres cas restent manquants, aucun jugement artistique inventé.
-- Après corrections ciblées : couverture21niveaux×8h/ciels/intérieurs/vraie hutte, lots compatibles seulement. Pas nouveau système général de capture ni campagne frame exacte.
-- non prouvé : cinq régressions corrigées, tous acquis, alpha destination tous mélanges, HDR natif. Aucun generic/owner-ok lancé/écrit ; voir notes/essai26/ pour commandes, logs, état final Redmi.
-- Redmi restauré normal PID14441 stable12s, A35-RENDER frame360/draws70 ; propsdebug vides/verrou absent ; notes/essai26/normal-restoration.json.
+- Corriger éco : diagnostiquer contribution du fond éclairé/couches non attribuées. ON/OFF coupe aussi RT/éclairage ; f(1)=.9875 seul n’explique pas perte>=245 avec des sources positives identiques. Courbe plateau>=1.05 persiste.
+- Bigpuff/starflash toujours sans témoin attribué ; lien déterministe CPU cpuinfo.key.proc et user-sprite/binding disponible. Dump SPART-ORBPRE/POST existant expose cpu/centre/rayon, pas key.proc ; ne pas conclure absence de rendu.
+- Portail : corriger aplats/couleur locale, qualifier halos ; conserver h12 non jugé et h18 failed partiel. Disque seul ne valide jamais warp entier. Sources notes/essai27/portal-events.json.
+- Soleil groupe35 : centre math-camera-pos+4096*sun brut, middot1200m et starflash2 dimensions 2800/2200 ; projection/query existantes réutilisables, visibilité non mesurée.
+- Nuages SKY_DRAW :18 quads puis4 triangles horizon texture8096 commune ; besoin d’attribution des primitives, pas quart d’écran arbitraire.
+- Vraie hutte : legacy(-116,14,40) incorrect ; village1-out caméra haute ne qualifie pas sol. Trace(-132.6594,46.1975,213.4677) attribuée logo/logo-slave/jak-hd, pas explicitement sage ; matériaux des petites zones inconnus. HUT_VIEWS vide reste rouge.
+- Après corrections ciblées : couverture21niveaux×8h/ciels/intérieurs/vraie hutte, lots compatibles seulement. non prouvé : cinq cas corrigés, acquis complets, HDR natif.

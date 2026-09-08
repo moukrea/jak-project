@@ -166,8 +166,17 @@ def owner_regions(batch, images, region_measurer=measure):
             continue
         arm, stem = case.split('/', 1)
         stem = re.sub(r'-t\d+$', '', stem)
-        group = groups.setdefault((witness['actor'], stem), {'witnesses': [], 'bounds': []})
-        group['witnesses'].append({'image': rel, **witness})
+        group_keys = [(witness['actor'], stem, '')]
+        if witness.get('layer') == 'portal_disc':
+            if (witness['actor'] != 1395 or witness.get('texture') != 'effects/harddot'
+                    or type(witness.get('render_mode')) is not int or witness['render_mode'] != 3):
+                errors.append('invalid portal_disc provenance: ' + rel)
+            else:
+                group_keys.append((1395, stem, 'portal_disc'))
+        witness_groups = [groups.setdefault(key, {'witnesses': [], 'bounds': []})
+                          for key in group_keys]
+        for group in witness_groups:
+            group['witnesses'].append({'image': rel, **witness})
         rect = witness.get('roi')
         if witness.get('supported') is not True or witness.get('passed') is not True:
             continue
@@ -175,11 +184,14 @@ def owner_regions(batch, images, region_measurer=measure):
                 or not 0 <= rect[0] < rect[2] <= 320 or not 0 <= rect[1] < rect[3] <= 180):
             errors.append('invalid sprite bounds: ' + rel)
             continue
-        group['bounds'].append(rect)
+        for group in witness_groups:
+            group['bounds'].append(rect)
     records = []
-    for (actor, stem), group in sorted(groups.items()):
+    for (actor, stem, layer), group in sorted(groups.items()):
         bounds = group.pop('bounds')
         row = {'actor': actor, 'view_hour': stem, **group, 'status': 'not_judged', 'samples': []}
+        if layer:
+            row['layer'] = layer
         if not bounds:
             row['reason'] = 'no supported sprite with fragments passing depth/alpha'
             records.append(row)
@@ -716,7 +728,7 @@ def chain_measurements(values, required):
     return defects, findings
 
 
-def owner_sequence_judgment(row, temporal):
+def owner_sequence_judgment(row, temporal, require_expected_white=True):
     """Compare temporal populations, never demand matching lightning frames.
 
     OFF's observed envelope supplies the bounds: no invented artistic tolerance.
@@ -753,9 +765,9 @@ def owner_sequence_judgment(row, temporal):
             failures.append(key + ': ON excess beyond observed OFF temporal envelope')
         if key == 'detail' and mean < min(off):
             failures.append('detail: ON loss beyond observed OFF temporal envelope')
-    if bounds['white']['off_mean'] <= 0:
+    if require_expected_white and bounds['white']['off_mean'] <= 0:
         return {'status': 'not_judged', 'reason': 'expected OFF whites not observed', 'bounds': bounds}
-    if bounds['white']['on_mean'] <= 0:
+    if bounds['white']['off_mean'] > 0 and bounds['white']['on_mean'] <= 0:
         failures.append('white: expected whites suppressed entirely ON')
     return {'status': 'failed' if failures else 'passed', 'measured': True,
             'photometric_passed': not failures, 'bounds': bounds, 'failures': failures,
@@ -766,6 +778,31 @@ def owner_regressions(expected, observations=()):
     owner_required = list(expected['plan'].get('owner_regression_cases', []))
     measured, failed, passed, findings = [], [], [], []
     for case in owner_required:
+        if case.startswith('warp gate'):
+            rows = []
+            for observation in observations:
+                diagnostic = observation.get('diagnostic') or {}
+                if diagnostic.get('schema') != 1 or diagnostic.get('errors'):
+                    continue
+                for row in diagnostic.get('regions', []):
+                    if row.get('actor') != 1395 or row.get('layer') != 'portal_disc':
+                        continue
+                    match = re.fullmatch(r'(.+)-h(\d+)', row.get('view_hour', ''))
+                    if not match or (match[1], int(match[2])) not in observation.get('eligible', observation['selected']):
+                        continue
+                    judgment = owner_sequence_judgment(row, observation['temporal'], require_expected_white=False)
+                    judgment['limitation'] = 'portal disc bounds include background; halos and local colour not qualified'
+                    rows.append({'batch': observation['batch'], 'actor': 1395,
+                                 'layer': 'portal_disc', 'view_hour': row['view_hour'], **judgment})
+            if rows:
+                if any(row.get('measured') and row['status'] == 'failed' for row in rows):
+                    failed.append(case)
+                findings.append({'case': case, 'status': 'failed' if case in failed else 'not_judged',
+                                 'observations': rows,
+                                 'reason': 'partial portal disc observation only; halos and local colour not qualified'})
+            else:
+                findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
+            continue
         if not case.startswith('eclairs des orbes eco bleue'):
             findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
             continue

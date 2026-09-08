@@ -1259,3 +1259,149 @@ def test_old_temporal_metadata_cannot_match_new(tmp_path, plan):
     result(tmp_path, plan, '002')
     assert any('effective rendering configuration incompatible' in error
                for error in json.loads((tmp_path / 'measurements.json').read_text())['errors'])
+
+
+def portal_region_sources(root, mutate=lambda witness: None):
+    """Sealed synthetic bytes, with broad halo and separate projected disc."""
+    images, lines = {}, []
+    for arm, start in (('recharged', 100), ('origine-lumiere', 200)):
+        for sample in range(2):
+            frame = start + 12 * sample
+            case = f'{arm}/village1-warp-h18' + (f'-t{sample:02}' if sample else '')
+            rel = 'captures/' + case + '.png'
+            path = root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(f'synthetic portal frame {frame}'.encode())
+            (root / (rel + '.provenance.txt')).write_text(
+                f'case={case}\ncapture_lf={frame}\npng={hdr.fnv(path)}\n')
+            images[rel] = {'sha256': hdr.sha(path), 'stats': {'width': 320, 'height': 180}}
+            lines.append(f'REFSET sample case={case} layer=historical chain_lf={frame} anchor_lf=88')
+            for disc in (False, True):
+                w = {'actor': 1395, 'lf': frame, 'texture': 'effects/harddot' if disc else 'effects/bigpuff',
+                     'render_mode': 3 if disc else 1, 'supported': True, 'passed': True,
+                     'roi': [20 + sample, 30, 40 + sample, 50] if disc else [1, 2, 300, 170]}
+                if disc:
+                    w['layer'] = 'portal_disc'
+                    mutate(w)
+                lines.append('HDR-OWNER-SPRITE ' + json.dumps(w))
+    (root / 'engine.log').write_text('\n'.join(lines))
+    return images
+
+
+def portal_fake_measure(path, rect):
+    return dict(white=10, nearwhite=30, clipped=40, luma=120, detail=8, flat=.1, saturation=.2)
+
+
+def test_portal_disc_separate_common_roi_and_global_witnesses_retained(tmp_path):
+    images = portal_region_sources(tmp_path)
+    diagnostic = hdr.owner_regions(tmp_path, images, portal_fake_measure)
+    assert diagnostic['errors'] == []
+    global_row, disc = diagnostic['regions']
+    assert global_row['roi_exclusive'] == [1, 2, 300, 170]
+    assert len(global_row['witnesses']) == 8
+    assert disc['layer'] == 'portal_disc'
+    assert disc['roi_exclusive'] == [20, 30, 41, 50]
+    assert len(disc['witnesses']) == len(disc['samples']) == 4
+    assert {s['sha256'] for s in disc['samples']} == {i['sha256'] for i in images.values()}
+    assert hdr.owner_sequence_judgment(disc, 2)['status'] == 'passed'
+
+
+@pytest.mark.parametrize('change', [dict(actor=10012), dict(texture='effects/harddot3D'),
+                                    dict(texture='other/harddot'), dict(texture=None),
+                                    dict(render_mode=1), dict(render_mode='3')])
+def test_portal_disc_wrong_attribution_explicit_error(tmp_path, change):
+    images = portal_region_sources(tmp_path, lambda w: w.update(change))
+    diagnostic = hdr.owner_regions(tmp_path, images, portal_fake_measure)
+    assert any('invalid portal_disc provenance' in e for e in diagnostic['errors'])
+    assert not any(r.get('layer') == 'portal_disc' for r in diagnostic['regions'])
+
+
+@pytest.mark.parametrize('change', ['sidecar_missing', 'sidecar_wrong', 'invisible', 'unsupported', 'layer_absent'])
+def test_portal_disc_missing_invalid_or_invisible_not_judged(tmp_path, change):
+    def mutate(w):
+        if change == 'invisible':
+            w['passed'] = False
+        if change == 'unsupported':
+            w['supported'] = False
+        if change == 'layer_absent':
+            w.pop('layer')
+    images = portal_region_sources(tmp_path, mutate)
+    sidecar = tmp_path / (next(iter(images)) + '.provenance.txt')
+    if change == 'sidecar_missing':
+        sidecar.unlink()
+    if change == 'sidecar_wrong':
+        sidecar.write_text(sidecar.read_text().replace('capture_lf=100', 'capture_lf=999'))
+    diagnostic = hdr.owner_regions(tmp_path, images, portal_fake_measure)
+    rows = [r for r in diagnostic['regions'] if r.get('layer') == 'portal_disc']
+    assert not rows or hdr.owner_sequence_judgment(rows[0], 2)['status'] == 'not_judged'
+    if change.startswith('sidecar'):
+        assert diagnostic['errors']
+
+
+@pytest.mark.parametrize('white', [(9, 11), (0, 0)])
+def test_portal_disc_photometry_is_partial_and_eco_judgment_unchanged(white):
+    expected = hdr.contract(ROOT)
+    eco = [temporal_owner_row(actor) for actor in (10012, 10013)]
+    observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-eco-blue', 12)],
+                   'diagnostic': {'schema': 1, 'errors': [], 'regions': eco}}
+    before, _ = hdr.owner_regressions(expected, [observation])
+    disc = temporal_owner_row(1395, white)
+    disc.update(layer='portal_disc', view_hour='village1-warp-h18')
+    observation['selected'].append(('village1-warp', 18))
+    observation['diagnostic']['regions'].append(disc)
+    after, details = hdr.owner_regressions(expected, [observation])
+    assert after == {**before, 'hdr_owner_regressions_failed': before['hdr_owner_regressions_failed'] + int(white == (0, 0))}
+    finding = next(f for f in details['findings'] if f['case'].startswith('warp gate'))
+    assert finding['status'] == ('failed' if white == (0, 0) else 'not_judged')
+    assert finding['case'] in details['missing']
+    assert finding['case'] not in details['passed']
+    assert finding['observations'][0]['status'] == ('passed' if white == (9, 11) else 'failed')
+
+
+@pytest.mark.parametrize('white', [(9, 11), (0, 0)])
+def test_portal_partial_failure_stays_missing_and_preserves_defect(white):
+    case = 'warp gate violet ecrase ON'
+    expected = {'plan': {'owner_regression_cases': [case]}}
+    disc = temporal_owner_row(1395, white)
+    disc.update(layer='portal_disc', view_hour='village1-warp-h18')
+    observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-warp', 18)],
+                   'diagnostic': {'schema': 1, 'errors': [], 'regions': [disc]}}
+    metrics, details = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_failed'] == int(white == (0, 0))
+    assert metrics['hdr_owner_regressions_missing'] == 1
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
+    assert metrics['hdr_defect_7_owner_regressions'] == 1
+    assert details['failed'] == ([case] if white == (0, 0) else [])
+
+
+@pytest.mark.parametrize('excess_flat', [False, True])
+def test_portal_no_off_whites_preserves_partial_flat_judgment_and_eco_guard(excess_flat):
+    case = 'warp gate violet ecrase ON'
+    expected = {'plan': {'owner_regression_cases': [case]}}
+    disc = temporal_owner_row(1395, (0, 0))
+    disc.update(layer='portal_disc', view_hour='village1-warp-h18')
+    for sample in disc['samples']:
+        sample['stats']['white'] = 0
+        sample['stats']['nearwhite'] = 20
+        sample['stats']['flat'] = .06 if excess_flat and sample['arm'] == 'recharged' else .05
+    assert hdr.owner_sequence_judgment(disc, 2)['status'] == 'not_judged'
+    assert hdr.owner_sequence_judgment(disc, 2)['reason'] == 'expected OFF whites not observed'
+    observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-warp', 18)],
+                   'diagnostic': {'schema': 1, 'errors': [], 'regions': [disc]}}
+    metrics, details = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_failed'] == int(excess_flat)
+    assert metrics['hdr_owner_regressions_missing'] == 1
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
+    assert metrics['hdr_defect_7_owner_regressions'] == 1
+    partial = details['findings'][0]['observations'][0]
+    assert partial['measured'] is True
+    assert partial['status'] == ('failed' if excess_flat else 'passed')
+    assert partial['failures'] == (['flat: ON excess beyond observed OFF temporal envelope'] if excess_flat else [])
+    eco = {**disc, 'actor': 10012, 'view_hour': 'village1-eco-blue-h12'}
+    observation['selected'] = [('village1-eco-blue', 12)]
+    observation['diagnostic']['regions'] = [eco, {**eco, 'actor': 10013}]
+    expected['plan']['owner_regression_cases'] = ['eclairs des orbes eco bleue']
+    metrics, details = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_failed'] == 0
+    assert metrics['hdr_owner_regressions_missing'] == 1
+    assert all(row['status'] == 'not_judged' for row in details['findings'][0]['observations'])

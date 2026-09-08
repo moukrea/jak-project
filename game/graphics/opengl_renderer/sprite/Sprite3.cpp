@@ -992,7 +992,9 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
       const bool eco = has_texture("lightning") || has_texture("lightning2") ||
                        has_texture("lightning3") || has_texture("starflash") ||
                        has_texture("bigpuff") || has_texture("hotdot");
-      const bool portal = has_texture("bigpuff") || has_texture("middot") || has_texture("hotdot");
+      const bool portal_disc = has_texture("harddot");
+      const bool portal = has_texture("bigpuff") || has_texture("middot") ||
+                          has_texture("hotdot") || portal_disc;
       u32 pending = bucket->instance_offset;
       const u32 end = pending + bucket->instance_count;
       for (u32 i = pending; i < end && (eco || portal); ++i) {
@@ -1042,6 +1044,8 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
                                 {"passed", nullptr},
                                 {"supported", false},
                                 {"reason", "unsupported_3d"}};
+        if (actor == 1395 && portal_disc && v.info[3] == 3)
+          event["layer"] = "portal_disc";
         bool projected = false;
         if (v.info[3] == 1) {
           // Mirror sprite3_3d_inst.vert's 2D branch, including its PS2 viewport conversion.
@@ -1094,6 +1098,57 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
                               int(std::ceil(std::clamp(hi_x, 0.f, 320.f))),
                               int(std::ceil(std::clamp(hi_y, 0.f, 180.f)))};
           }
+          event["reason"] = projected ? "ok" : "invalid_projection";
+        } else if (v.info[3] == 3) {
+          // Mirror sprite_quat_to_rot / sprite_transform2, including the negated camera
+          // transform. Unlike mode 1, mode 3 neither adds hvdf.w nor clamps scale or w.
+          const float qx = v.quat_sy[0], qy = v.quat_sy[1], qz = v.quat_sy[2];
+          const float qr = std::sqrt(std::abs(1.f - (qx * qx + qy * qy + qz * qz)));
+          // GLSL mat3 indexing is column first; these are its three columns.
+          const float rot[3][3] = {
+              {1.f - 2.f * (qy * qy + qz * qz), 2.f * (qx * qy + qz * qr),
+               2.f * (qx * qz - qy * qr)},
+              {2.f * (qx * qy - qz * qr), 1.f - 2.f * (qx * qx + qz * qz),
+               2.f * (qy * qz + qx * qr)},
+              {2.f * (qx * qz + qy * qr), 2.f * (qy * qz - qx * qr),
+               1.f - 2.f * (qx * qx + qy * qy)}};
+          float lo_x = INFINITY, lo_y = INFINITY, hi_x = -INFINITY, hi_y = -INFINITY;
+          projected = true;
+          event["corner_w"] = nlohmann::json::array();
+          for (int corner : {0, 1, 3, 2}) {
+            const auto& off = m_frame_data.xyz_array[corner];
+            auto pos = v.xyz_sx;
+            pos[3] = 1.f;
+            for (int k = 0; k < 3; ++k)
+              pos[k] += rot[0][k] * off[0] * v.xyz_sx[3] + rot[1][k] * off[1] +
+                        rot[2][k] * off[2] * v.quat_sy[3];
+            auto p = (m_3d_matrix_data.camera * pos) * -1.f;
+            event["corner_w"].push_back(p[3]);
+            // A quad crossing w=0 needs polygon clipping; leave it explicitly unsupported.
+            if (!std::isfinite(p[3]) || p[3] <= 0.f) {
+              projected = false;
+              break;
+            }
+            const float q = m_frame_data.pfog0 / p[3];
+            for (int k = 0; k < 3; ++k)
+              p[k] = p[k] * q + m_3d_matrix_data.hvdf_offset[k];
+            // The final shader multiplies xyz by w; perspective division cancels it.
+            const float x = ((p[0] - 2048.f) / 256.f + 1.f) * 160.f;
+            const float y = (1.f + (p[1] - 2048.f) / 128.f * (512.f / 448.f)) * 90.f;
+            if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(p[2])) {
+              projected = false;
+              break;
+            }
+            lo_x = std::min(lo_x, x);
+            lo_y = std::min(lo_y, y);
+            hi_x = std::max(hi_x, x);
+            hi_y = std::max(hi_y, y);
+          }
+          if (projected)
+            event["roi"] = {int(std::floor(std::clamp(lo_x, 0.f, 320.f))),
+                            int(std::floor(std::clamp(lo_y, 0.f, 180.f))),
+                            int(std::ceil(std::clamp(hi_x, 0.f, 320.f))),
+                            int(std::ceil(std::clamp(hi_y, 0.f, 180.f)))};
           event["reason"] = projected ? "ok" : "invalid_projection";
         }
         if (double_draw)

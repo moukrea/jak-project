@@ -103,6 +103,9 @@ void main() {
     color.xyz = mix(color.xyz, fog_color.rgb, clamp(fog_color.a * fog, 0.0, 1.0));
   }
 
+  // Match the legacy normalized source range after modulation and fog.
+  // Floating-point destination colors and additive accumulation remain HDR.
+  color.rgb = clamp(color.rgb, 0.0, 1.0);
   // Alpha is a blend weight, even when RGB has floating-point HDR headroom.
   // Keep the original alpha tests above, then match the normalized target range.
   color.a = clamp(color.a, 0.0, 1.0);
