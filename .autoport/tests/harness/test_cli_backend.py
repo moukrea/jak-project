@@ -323,3 +323,23 @@ def test_watch_restarts_for_an_abandoned_in_progress_item(tmp_path, monkeypatch)
     monkeypatch.setattr(w.subprocess,'Popen',spawn)
     assert w.main(['--backend','codex','--once','--maintain']) == 0
     assert calls[0][-3:] == ['--backend','codex','--quiet']
+
+
+def test_watch_reports_unchanged_status_after_thirty_minutes(tmp_path, monkeypatch):
+    w = load_watch()
+    (tmp_path / '.autoport').mkdir()
+    calls = []
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, '', '')
+    monkeypatch.setattr(w.subprocess, 'run', run)
+    assert w.notify_supervisor(tmp_path, 'En cours HDR', 'supervisor-uuid')
+    memo = tmp_path / '.autoport/.last_codex_watch'
+    sent = memo.stat().st_mtime
+    monkeypatch.setattr(w.time, 'time', lambda: sent + 1799)
+    assert w.notify_supervisor(tmp_path, 'En cours HDR', 'supervisor-uuid')
+    assert len(calls) == 1
+    monkeypatch.setattr(w.time, 'time', lambda: sent + 1800)
+    assert w.notify_supervisor(tmp_path, 'En cours HDR', 'supervisor-uuid')
+    assert len(calls) == 2
+    assert 'Point périodique' in calls[-1][-1]
