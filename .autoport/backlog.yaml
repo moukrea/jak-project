@@ -4210,21 +4210,22 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Essais25-30 : eco monopolise six cycles sans correction demontree. Ablation29 : ecart
-    persiste HDR0, populations/fond differents ; cause tone map non etablie. Quatre autres cas sans mesure.
-    Prerequis eco-first supprime ; gate finale conserve les5cas.'
-  deliverable: 'Reprise30 : traiter maintenant nuages blancs et soleil couchant, puis sol vraie hutte
-    et portail, sans attendre eco. Exploiter reperes notes30 : nuages SKY_DRAW+PRIM.tme, soleil groupe35/1950-1952.
-    Produire vues comparables eclairage seul ON/OFF et mesures ImageMagick, isoler courbe/composition
-    puis corriger rendu et comparer avant/apres. Utiliser les outils existants ; attribution bornee des
-    regions autorisee, aucun nouveau systeme general ni frame exacte. Preserver blancs voulus, nuances
-    et eclat ; eviter exces brulures/violet/aplats sans nouveau bloom ni assombrissement global. Ne pas
-    optimiser compteur255 seul. Eco reste obligation finale : exploiter ablation29 et traces30, pas repetition
-    clamps/quantification/nommage ou campagnes ORB deja negatives ; absence de temoin ne prouve pas absence
-    effet. Aucun prealable eco pour les autres corrections. Completer owner_regressions pour cas effectivement
-    mesures, absence/echec restent rouges. Ensuite bilan equilibre21niveaux8h/ciels/interieurs/vraie hutte
-    par lots compatibles ; anciens binaires diagnostic uniquement. Profils SDR/HDR distincts permis ;
-    HDR natif ensuite. Aucune validation owner ni porte abaissee.'
+  known_cause: 'Essai36 : deux crashes AVANT captures : spawn-bird/default-dead-pool0 et intern_from_c/symbol_slot0.
+    Causes profondes non etablies, concurrence non prouvee. Patch menu livre mais retourON/ombres non
+    verifies. Portail10s non mesure car crash.'
+  deliverable: 'Reprise36 prioritaire : diagnostiquer et corriger les deux crashes de chargement documentes
+    dans handoff36 et proof_plan.recovery_attempt_36. Correction moteur bornee autorisee ; etablir cause
+    avant patch, ne pas masquer via skip oiseaux/portail, retry identique, hausse settle ou suppression
+    captures. Sources crash conservees ; tests ciblant cause. Puis verifier bouton Lighting en mode normal
+    sans override rt.light : OFF et retourON effectifs, persistance, ombres ; restaurer reglages owner.
+    Mesurer portail apres10secondes animees devant lui et apres chaque purge/warp, temps mural trace.
+    Anciennes captures settle12 non concluantes. Reprendre nuages/soleil puis sol/portail sans prealable
+    eco ; les5cas restent requis. Comparaisons ImageMagick regions ON/OFF et avant/apres, courbe/composition
+    a isoler ; blancs voulus, nuances/eclat conserves sans exces brulures/violet/aplats. Pas nouveau bloom
+    ni compteur255 seul. Pas nouveaux outils generaux/frame exacte ni diagnostics eco negatifs repetes.
+    Final21niveaux8h/ciels/interieurs/vraie hutte par lots compatibles ; aucun ancien binaire comme preuve
+    sans compatibilite. Profils SDR/HDR distincts permis, HDR natif ensuite. Porte finale inchangee ;
+    aucun owner-ok.'
   out_of_scope: Pas de census, baseline historique, cinq rejeux/frame exacte. Aucun changement textures/modeles
     HD/herbe/brise/cadence. Ne pas masquer brulures par assombrissement global excessif. Pas de validation
     owner ; sortie ecran HDR native ensuite.
@@ -4311,6 +4312,16 @@ items:
       reset_policy: toute reinitialisation de effet recommence attente
       evidence: tracer debut attente et premiere capture ; ancien lot sans attente demontree non concluant
         pour couleurs/blancs du portail
+    recovery_attempt_36:
+      priority: corriger crashes chargement avant captures
+      signatures:
+      - spawn-bird default-dead-pool nul PC_GOAL0x268920c
+      - intern_from_c symbol_slot nul offsetlib0x721584
+      authorized_scope: diagnostic causal et correction bornee des deux signatures dans chargement/pools/symboles
+        ; tests ciblant cause ; pas refonte generale ni masquage par skip effets
+      after: verifier menu normal sans rt.light force puis portail anime10s tracees et reprendre cinq
+        cas
+      final_gate: inchangee crash0 et hdr_tonemap_defects0 ; aucun owner-ok
   harness_edit_allowlist:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py

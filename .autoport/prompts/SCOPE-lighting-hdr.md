@@ -5,8 +5,11 @@ le contrat de couverture : plusieurs processus, tous niveaux/heures, vues compar
 Cette autorisation remplace ici la restriction générale aux seuls runs courts.
 Le raccordement des lots est livré. Le retour owner du 8 septembre refuse le rendu :
 priorité aux cinq régressions de proof_plan, avant toute nouvelle infrastructure.
-La reprise30 remplace eco-first : nuages/soleil puis sol/portail se corrigent sans
-attendre l’éco. Les cinq cas restent obligatoires pour la clôture finale.
+La reprise36 traite d’abord les deux crashes de chargement de proof_plan, puis
+vérifie le menu sans override et le portail après dix secondes animées.
+Le worker est autorisé à corriger leur cause dans le moteur (pools/symboles/chargement),
+sans refonte générale ni suppression des effets pour contourner le crash.
+Nuages/soleil puis sol/portail restent indépendants de l’éco. Les cinq cas restent obligatoires.
 
 ## Autorisation de modification du harnais
 
