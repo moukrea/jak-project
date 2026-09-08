@@ -4225,10 +4225,8 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Essais44-46 : aucune collecte car en-tete SUR APPAREIL aucun appareil interprete comme
-    interdiction. Corrige dans generateur : worker autorise USB via proof_run, disponibilite verifiee
-    lors du test. Correction modulation piece43-rendu mesuree localement ; cinqcas non valides. Voir handoff46
-    pour pistes deja epuisees.'
+  known_cause: 'Reprise49 : restriction Redmi-only obsolete corrigee dans consignes et proof_run ; disponibilite
+    USB a constater par worker. Cinq defauts et couverture restent non valides.'
   deliverable: 'Reprise42 selon proof_plan.recovery_attempt_42. Owner : refonte lumiere HDR uniquement.
     Pas poursuite autonome HD/cache/allocateur/menu ; signaler blocages annexes et poursuivre vues exploitables
     sans declarer couverture absente validee. Navigation OFF ne bloque plus travail visuel : ne pas repeter
@@ -4264,7 +4262,7 @@ items:
   - debug.opengoal.want.display=beach,display
   - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
   proof_timeout: 720
-  block_reason: null
+  block_reason: ''
   supervisor_recovery: true
   proof_plan:
     mode: multi_process_batches
@@ -4362,6 +4360,17 @@ items:
         verifier contribution, pas refaire revue44-46 ni ablationB43.
       validation: Aucune preuve ni validation creee par superviseur; cinqcas et couverture finale restent
         requis.
+    recovery_attempt_49:
+      cause: '47-49 sans preuve : consignes Redmi-only obsoletes et garde HDR refuse Honor. Absence du
+        Redmi prouvee, absence de tout USB non prouvee.'
+      correction: DIRECTIVES et CLAUDE alignes sur autorisation USB owner6septembre ; proof_run passe
+        toujours par pick_device, repli USB si serial absent, garde Redmi-only supprimee. Tests simules
+        Honor et refus reseau passent.
+      next: 'Worker Codex : ne pas imposer eae4df44. Lancer preuve officielle sur USB choisi ; reprendre
+        corrections43-rendu et cinqcas uniquement. Handoff49 Redmi seul autorise est obsolete. Si aucun
+        USB disponible apres selection, signaler blocage materiel explicitement sans recycler preuve ni
+        retenter identiquement.'
+      validation: Aucun acquis ni owner-ok ; tous criteres image et couverture restent inchanges.
   harness_edit_allowlist:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py

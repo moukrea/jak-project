@@ -288,16 +288,12 @@ else
   # L'appareil est CHOISI a l'execution : n'importe lequel branche en USB fait l'affaire, et la
   # preuve dira lequel. Un numero de serie ecrit en dur a coute une nuit entiere le 2026-09-06,
   # quand le Honor de l'owner occupait le port USB a la place du Redmi.
-  SERIAL="${ANDROID_SERIAL:-}"; [ -n "$SERIAL" ] || SERIAL="$ITEM_SERIAL"
-  [ -n "$SERIAL" ] || SERIAL=$(bash "$AP/lib/pick_device.sh") || { rm -f "$OUTFILE"; exit 3; }
+  SERIAL=$(ANDROID_SERIAL="${ANDROID_SERIAL:-$ITEM_SERIAL}" bash "$AP/lib/pick_device.sh") || { rm -f "$OUTFILE"; exit 3; }
   case "$SERIAL" in
     *[0-9].[0-9]*.[0-9]*|*:*)
       log "serial '$SERIAL' est une adresse reseau. La SHIELD (192.168.1.32) est INTERDITE."
       rm -f "$OUTFILE"; exit 3 ;;
   esac
-  if [ -n "$HDR_CAMPAIGN" ] && [ "$SERIAL" != eae4df44 ]; then
-    log "HDR campaign restricted to authorized Redmi eae4df44"; exit 3
-  fi
   ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"; [ -x "$ADB" ] || ADB=adb
   PKG="${AUTOPORT_PKG:-org.opengoal.gk.jak1}"
   PIDDIR="$AP/.logcat"; mkdir -p "$PIDDIR"

@@ -21,9 +21,9 @@ rapports. Il est en cours de remise d'équerre — lis
 
 ## Appareils
 
-* **Redmi `eae4df44`** — le seul qu'on touche. Tout `adb` porte `-s eae4df44`.
-* **Honor de l'owner** — invisible, il prend les builds publiés. Rien ne s'en déduit.
-* **La SHIELD (192.168.1.32) est interdite.** Aucune commande vers elle.
+* L'appareil de preuve est celui branché en USB, Honor compris (owner du 6 septembre).
+  `lib/pick_device.sh` le choisit à l'exécution ; la preuve consigne son identité.
+* La SHIELD et tout appareil joint par une adresse réseau sont interdits.
 
 ## Preuve
 

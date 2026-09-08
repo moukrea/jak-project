@@ -31,9 +31,9 @@ point de contrôle.
 
 ## Deux appareils
 
-* **Redmi `eae4df44`** — le seul appareil qu'on touche. Tout `adb` porte `-s eae4df44`.
-* **Honor de l'owner** — invisible. Aucune décision ne se déduit de son activité.
-* **La SHIELD (192.168.1.32) est interdite** : aucune commande vers elle sans son ordre.
+* L'appareil de preuve est celui branché en USB, Honor compris (owner du 6 septembre).
+  `lib/pick_device.sh` le choisit à l'exécution ; la preuve consigne son identité.
+* La SHIELD et tout appareil joint par une adresse réseau sont interdits.
 
 ## Preuve
 
