@@ -1,0 +1,472 @@
+{
+  "contract": {
+    "hours": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21
+    ],
+    "plan": {
+      "exact_frame_required": false,
+      "failure_policy": "absent/incompatible/illisible/crash non remplace ou region non couverte = defaut, doublons detectes, pas de somme des verdicts per-processus ni zero force",
+      "hours": [
+        0,
+        3,
+        6,
+        9,
+        12,
+        15,
+        18,
+        21
+      ],
+      "mode": "multi_process_batches",
+      "owner_authorized": true,
+      "owner_regression_cases": [
+        "nuages blancs presents OFF mais attenues ON",
+        "eclairs des orbes eco bleue disparus ON, sequence courte comparable",
+        "soleil couchant jaune/orange plat sans eclat ON",
+        "petites zones au sol devant hutte Sage vert violettes ON",
+        "warp gate violet ecrase ON"
+      ],
+      "quality_policy": "Blancs voulus OFF a preserver, pas objectif zero blanc. Exces brulures ET suppression details lumineux/couleurs juges par regions comparables. Pas egalite pixel ni contraste95%. Statistiques globales seules insuffisantes.",
+      "recovery_attempt_30": {
+        "diagnosis": "eco-first a bloque4autrescas ; ablationHDR0 conserve ecart eco",
+        "eco_prerequisite_for_other_cases": false,
+        "final_required_cases": "les5cas inchanges",
+        "reuse_negative_diagnostics": [
+          "ablation29HDR0",
+          "quantification28",
+          "nommage30",
+          "ORB30"
+        ],
+        "work_order": [
+          "nuages et soleil couchant",
+          "sol vraie hutte et portail",
+          "eco avec traces existantes",
+          "equilibre21niveaux8heures"
+        ]
+      },
+      "recovery_attempt_36": {
+        "after": "verifier menu normal sans rt.light force puis portail anime10s tracees et reprendre cinq cas",
+        "authorized_scope": "diagnostic causal et correction bornee des deux signatures dans chargement/pools/symboles ; tests ciblant cause ; pas refonte generale ni masquage par skip effets",
+        "final_gate": "inchangee crash0 et hdr_tonemap_defects0 ; aucun owner-ok",
+        "priority": "corriger crashes chargement avant captures",
+        "signatures": [
+          "spawn-bird default-dead-pool nul PC_GOAL0x268920c",
+          "intern_from_c symbol_slot nul offsetlib0x721584"
+        ]
+      },
+      "recovery_attempt_42": {
+        "authorized_scope": "Correction causale bornee hd-mtxarea/cache compagnons/compaction; pas garde speculative ni suppression modeles/effets.",
+        "diagnosis": "Essai42 sans changement rendu; crash hd-mtxarea FFFFFFFF pendant navigation avant LightingOFF. Cause profonde non etablie; cache compagnon suspect non prouve. Prompt36 obsolete.",
+        "final_gate": "crash0 et cinqcas couverts et hdr_tonemap_defects0; menuOFF/persistance encore requis avant livraison; aucun owner-ok",
+        "menu_off_prerequisite_for_visual_fixes": false,
+        "next_visual_work": "Sol vraie hutte et assombrissement ensemble piece portail: identifier contribution responsable avant courbe; cadrages jouables et captures detaillees via proof_run. Nuages/soleil et eco restent requis, couverture autres niveaux commence sans attendre perfection plage.",
+        "retained_evidence": "MenuON/retourON39 et attente portail10s41 etablis sur leurs binaires; ne pas requalifier comme preuve nouveau build."
+      },
+      "replacement_views": "autorisees avec correspondance explicite vue originale/remplacement et meme couverture, jamais effacement silencieux",
+      "required_levels": 21,
+      "required_views": [
+        "ciel visible pour chaque niveau exterieur",
+        "interieurs representatifs",
+        "hutte Sandover"
+      ],
+      "single_process_224_pairs_required": false,
+      "source_policy": "manifestes de lots proof_run, hashes sources brutes et captures, version schema/config/rendu compatibles ; donnees anciennes conservees pour diagnostic, reutilisation comme preuve seulement si compatibilite demontree",
+      "warp_gate_capture": {
+        "arms": [
+          "ON",
+          "OFF"
+        ],
+        "evidence": "tracer debut attente et premiere capture ; ancien lot sans attente demontree non concluant pour couleurs/blancs du portail",
+        "minimum_wait_seconds": 10,
+        "reset_policy": "toute reinitialisation de effet recommence attente",
+        "simulation": "effet anime pendant attente ; pas attente sur particules figees",
+        "start": "presence devant portail actif apres dernier warp/reset/purge des effets"
+      }
+    },
+    "sky": {
+      "beach": true,
+      "citadel": false,
+      "darkcave": false,
+      "finalboss": true,
+      "firecanyon": true,
+      "jungle": true,
+      "jungleb": false,
+      "lavatube": false,
+      "maincave": false,
+      "misty": true,
+      "ogre": true,
+      "robocave": false,
+      "rolling": true,
+      "snow": true,
+      "sunken": false,
+      "sunkenb": true,
+      "swamp": true,
+      "training": true,
+      "village1": true,
+      "village2": true,
+      "village3": true
+    },
+    "views": {
+      "beach-start": "beach",
+      "citadel-start": "citadel",
+      "darkcave-start": "darkcave",
+      "finalboss-start": "finalboss",
+      "firecanyon-start": "firecanyon",
+      "jungle-start": "jungle",
+      "jungle-tower": "jungleb",
+      "lavatube-start": "lavatube",
+      "legacy": "village1",
+      "maincave-start": "maincave",
+      "misty-bike": "misty",
+      "misty-start": "misty",
+      "ogre-start": "ogre",
+      "robocave-start": "robocave",
+      "rolling-start": "rolling",
+      "snow-fort": "snow",
+      "snow-start": "snow",
+      "sunken-start": "sunken",
+      "sunkenb-helix": "sunkenb",
+      "sunkenb-start": "sunkenb",
+      "swamp-cave1": "swamp",
+      "swamp-dock1": "swamp",
+      "swamp-start": "swamp",
+      "training-start": "training",
+      "village1-eco-blue": "village1",
+      "village1-out": "village1",
+      "village2-dock": "village2",
+      "village2-start": "village2",
+      "village3-start": "village3"
+    }
+  },
+  "crash": 0,
+  "errors": [],
+  "files": {
+    "captures/origine-lumiere/captured-by.txt": "22d22f851cd512f1d4952a19ccd5f991468963836b43ee9da62e3fd5cd535be8",
+    "captures/origine-lumiere/jungle-tower-h00-t01.png": "809b8b189b40e34296742a13e622911a6037c714fb6755ed7effa3c08fde0688",
+    "captures/origine-lumiere/jungle-tower-h00-t01.png.provenance.txt": "cfc1af1aed242504f834ac22d26ca50b9315e8d01a6999152a340752036fd575",
+    "captures/origine-lumiere/jungle-tower-h00.png": "45884b23bf1ff0c918da457cc2ea36d8283b671a3d69045f23ed94f5b33c9e18",
+    "captures/origine-lumiere/jungle-tower-h00.png.provenance.txt": "6fa26c39402c876a89de539b67ea2e86417903df475fecea0630f1872b99562e",
+    "captures/origine-lumiere/jungle-tower-h03-t01.png": "a065386705a8d86b53c2f6ecfc76dffdf81ada8274ed099844d5749bf889aba0",
+    "captures/origine-lumiere/jungle-tower-h03-t01.png.provenance.txt": "f64ca8fbf31f018c4198ee78f7f79241fc6ead1f28eefc51b2ac37982766e520",
+    "captures/origine-lumiere/jungle-tower-h03.png": "6ff0d633d71bdca12f5443c52ee395e16fd38765c24a0664e6309e882ba6d87e",
+    "captures/origine-lumiere/jungle-tower-h03.png.provenance.txt": "8c8b3c731634ff8e408a4008c707e8bf3a59e0083d497024dbd86df06bb7a410",
+    "captures/origine-lumiere/jungle-tower-h06-t01.png": "c309be470fec97c80643613414c2b298398e9e456efd5fc03844531c54dee489",
+    "captures/origine-lumiere/jungle-tower-h06-t01.png.provenance.txt": "eb090d3d3c0051c7e846f696d4ec3f6c3940afc44f68859d1a6a86731ceb027c",
+    "captures/origine-lumiere/jungle-tower-h06.png": "c723bbed9437e7cf91135b01d09dc9b07fe7fb5b4f5eb26621d520082dbed6df",
+    "captures/origine-lumiere/jungle-tower-h06.png.provenance.txt": "274e628490af5462a6c8b8cc6c76903a9d2ccd2b06faf1004daaeac702483744",
+    "captures/origine-lumiere/jungle-tower-h09-t01.png": "cede74a72d0f2dbd90f77fd4eeaabaf2ab95858d815db831787c320759a31b00",
+    "captures/origine-lumiere/jungle-tower-h09-t01.png.provenance.txt": "c628507c9352a116553c7b7221e531f1b989c77bbd9efb5ad58ba67acfa51696",
+    "captures/origine-lumiere/jungle-tower-h09.png": "44e0697025b2246a8fdc7a531ddb1a94973cb356b6570226e42499d8d4d50b68",
+    "captures/origine-lumiere/jungle-tower-h09.png.provenance.txt": "59dbf0e9780e1c9e8e9a1549549c5732a39ac9d4100ed317d144f8163501dd9f",
+    "captures/origine-lumiere/jungle-tower-h12-t01.png": "7cbed909eaac31643c1a74ea781119bb777507849084f974772bd36e1f552a01",
+    "captures/origine-lumiere/jungle-tower-h12-t01.png.provenance.txt": "42ce305f75ff163904dba1085ef39d824903e169639a3e0cf66cad4021492434",
+    "captures/origine-lumiere/jungle-tower-h12.png": "975c25d068121c9587dcab75b729bbe9826a1dd5b7e4f68afebb951650aeab56",
+    "captures/origine-lumiere/jungle-tower-h12.png.provenance.txt": "ab5166f7c1a1bc532fcff2bf2424ed7ad5e14a1459a83ddb6b9b61a47272e1ea",
+    "captures/origine-lumiere/jungle-tower-h15-t01.png": "56e1a5e95c01dffeb67d71a6ecf124e5aafd57ba24484ba85c7a314bafc2d3bf",
+    "captures/origine-lumiere/jungle-tower-h15-t01.png.provenance.txt": "c942a7c11cf47bb945bd0eeafa0e713e719413e651760fb1e63c2432b9f15f19",
+    "captures/origine-lumiere/jungle-tower-h15.png": "daf3683b3f1471246e6530401d146eb688b283909c2c1eb5061a625d4358fa31",
+    "captures/origine-lumiere/jungle-tower-h15.png.provenance.txt": "9fff16dab56ae39ad8bb2028afc97a4336f41eef288e58f90e75744ef5d61a07",
+    "captures/origine-lumiere/jungle-tower-h18-t01.png": "95423b20e3b8d1198cd2e1da0d3bab4dd3036249d136d902985c9a41f241c5c9",
+    "captures/origine-lumiere/jungle-tower-h18-t01.png.provenance.txt": "0cc9f10f20922d1f5eb87d3325b96a4ed9e1b699e44d83eb5fd2713bb16d51c1",
+    "captures/origine-lumiere/jungle-tower-h18.png": "4d29ab7184f3eacf53d17c7a13cd321a5e21262a87733fe3323b095799261091",
+    "captures/origine-lumiere/jungle-tower-h18.png.provenance.txt": "4aa3add5b220989de47b94c6b3a4864ca5d532946c4010f340856f81ea1030e7",
+    "captures/origine-lumiere/jungle-tower-h21-t01.png": "80a865f07cced058acf0af4cf43d5bec68e703c5771cb028cc84504d791685e3",
+    "captures/origine-lumiere/jungle-tower-h21-t01.png.provenance.txt": "765f020b70f71bf64e4d65ace209359bb704b630529640c5d27da8deaa5b98db",
+    "captures/origine-lumiere/jungle-tower-h21.png": "ddba76e6163185a2a7ba555339dc60fc6473b3f184f7223f3deba4fffbfca475",
+    "captures/origine-lumiere/jungle-tower-h21.png.provenance.txt": "c8c009cea2f18d45f73eb69be9a678faea24c712eec06e3ca2f399f9b416bee0",
+    "captures/origine-lumiere/training-start-h00-t01.png": "adef61b557cc8bb28de46f0ff89f2190da101e117381ea15f0ce818569c43306",
+    "captures/origine-lumiere/training-start-h00-t01.png.provenance.txt": "84f72bb624296be8eff32b4ab083a03aa8fa938b53806640a8770e17dbe97174",
+    "captures/origine-lumiere/training-start-h00.png": "7b00aac42021d2bd42fb35b2fcdf1729a1f0c8c176a05626433bad57204d1f2f",
+    "captures/origine-lumiere/training-start-h00.png.provenance.txt": "590bc007528ac9bf534900ad522d96b6ad4af9e62fdae66a075f02850e35d3e7",
+    "captures/origine-lumiere/training-start-h03-t01.png": "fac7826e585c659cd8d2a944ba4cd44bc146d26bd8c8e70580c0115b141be241",
+    "captures/origine-lumiere/training-start-h03-t01.png.provenance.txt": "8300ae2ae8fedb4028c646d5a9dc0fb3a02e4b1eae6952c699abf35a4d5d709f",
+    "captures/origine-lumiere/training-start-h03.png": "042607d14d874bc7646dacf8a0c01516a000bac6da726e03c4439a6319588e36",
+    "captures/origine-lumiere/training-start-h03.png.provenance.txt": "9e4a192eb42f71767ef81822383e56b40f4a334c2efdbe599e0f5c8e3737dc43",
+    "captures/origine-lumiere/training-start-h06-t01.png": "8b3d4b9e17cbd5419be560b1e35d81b0b25c557835fc537899d0292c8f43505d",
+    "captures/origine-lumiere/training-start-h06-t01.png.provenance.txt": "2ab64b6dbf329924a606a81a9a97b1693d692b98e4a8df15a23ee880e3162691",
+    "captures/origine-lumiere/training-start-h06.png": "a802cbfccf4f4faa95419147770fa89fbeb66b68feaf3ab8e1014c080b0f0ec2",
+    "captures/origine-lumiere/training-start-h06.png.provenance.txt": "8703f3a07e6f7ed4811294c1ce3911003a473eb6862dccf43edc51612d421aa9",
+    "captures/origine-lumiere/training-start-h09-t01.png": "21cfb433681be2c32539e03d32f07952a5d67e49744fb665ee53647af9a4fc67",
+    "captures/origine-lumiere/training-start-h09-t01.png.provenance.txt": "8437f283ee8a8964868a419ac5ec7f08893af3c6670df316a7aede413bbaa670",
+    "captures/origine-lumiere/training-start-h09.png": "d292a211c69ae6f3943d224d5d137503243f76a2400890c5c90654a999887c2f",
+    "captures/origine-lumiere/training-start-h09.png.provenance.txt": "6c05924540e1dc7b064c381c57ac70d43b7997cac1098c8a774db763608679eb",
+    "captures/origine-lumiere/training-start-h12-t01.png": "4d880d418ec88237f93ee70ab403940ecd07cccae275c718c519f52d03a11056",
+    "captures/origine-lumiere/training-start-h12-t01.png.provenance.txt": "c5b09a00ec14179d6a6cb6e8e04e64210f3c1cbba000339d57c764d13befac1a",
+    "captures/origine-lumiere/training-start-h12.png": "29374a1fe215ff381ed9ed984d8222f00b7e7ea7a556243e044d00323c620912",
+    "captures/origine-lumiere/training-start-h12.png.provenance.txt": "0432da98a9fc56ec678bceaf166d5319fd7691a60cc60eef202169bf44453751",
+    "captures/origine-lumiere/training-start-h15-t01.png": "708c32f49759552eb89e3e7983007809fea4c7294a2ac07b99cf2e8ce79347d1",
+    "captures/origine-lumiere/training-start-h15-t01.png.provenance.txt": "cb8a2fb6a6331d790ac188f4cccb5c935ace7b926d874a308d08bbd29b015a15",
+    "captures/origine-lumiere/training-start-h15.png": "e2f1cc681e6350e4a7f457fdc4a4e822424e6f9d8d517db0d7798d22439f703d",
+    "captures/origine-lumiere/training-start-h15.png.provenance.txt": "0acafe1039e927fcf868332f4bda200deda5d808e90e4e901da4700023aad6dc",
+    "captures/origine-lumiere/training-start-h18-t01.png": "2bc65a7df61427baaad01266af5b9bc33a03cea641f119c1101c2b94a35e84de",
+    "captures/origine-lumiere/training-start-h18-t01.png.provenance.txt": "4cafdff4a28e812fd2b4fb7573def918ea8d7351536a88c188ba2aa9d4b885b3",
+    "captures/origine-lumiere/training-start-h18.png": "c07565988fe8d9b4c5d1a0de9d112ce4de39dbeb41873db55a1780aff15b3b3a",
+    "captures/origine-lumiere/training-start-h18.png.provenance.txt": "1ab082723384986d9b5fa2a856c5ddbbfccfff1e5b3e54b7e02c70aaf710ed4f",
+    "captures/origine-lumiere/training-start-h21-t01.png": "c51b6631ffb1cde6b3fa0c7209c12a61736fe2e711831ea36ff0b453989a57ce",
+    "captures/origine-lumiere/training-start-h21-t01.png.provenance.txt": "89b9e64b20aacd09739b10dd06489069bbf3db63af8304a47766ce3d0b883528",
+    "captures/origine-lumiere/training-start-h21.png": "500093e3a3f7d70fa49878ed2aa584af12f883f8bc8080c02cdc218347011b76",
+    "captures/origine-lumiere/training-start-h21.png.provenance.txt": "940c462188dae493a3347dea1e2d4fba6b8bb529a98ad9dc62852e8a5cc82dfa",
+    "captures/origine-lumiere/village1-out-h00-t01.png": "5e7464d3f29d72430c208f0b44a4b5e57830cdf565828e7a01aceef24254a05b",
+    "captures/origine-lumiere/village1-out-h00-t01.png.provenance.txt": "370c60039e3c9e1c34c40a3be0dc20b680555158e4827d582f473b7117ad78cf",
+    "captures/origine-lumiere/village1-out-h00.png": "421525d9d7ce734c331f3a7ea25e0b68ea8092a516c9c5c041b43da5c35686bf",
+    "captures/origine-lumiere/village1-out-h00.png.provenance.txt": "282e72580874e2e36ac3042d52f6e52a7f0e3c2dcd8e7074f477e78a98bd8c25",
+    "captures/origine-lumiere/village1-out-h03-t01.png": "11adc0fbcc347b42aebc3f53b91511698e849f3385831d0a3cb0f6b04abf81db",
+    "captures/origine-lumiere/village1-out-h03-t01.png.provenance.txt": "f49f076ed6f0008838fa56edc242d0dbf91de35082ba8feaa1e5d0e9e6e42c93",
+    "captures/origine-lumiere/village1-out-h03.png": "a4a37983e65fc87fec693e575c69f8dca3817712216447c82f41ba45217adba7",
+    "captures/origine-lumiere/village1-out-h03.png.provenance.txt": "4b2ce4460ebf5f60e8d109f7ce60fae9cd817058e6e8c93feaf5411b54bf65ab",
+    "captures/origine-lumiere/village1-out-h06-t01.png": "04e2cc547b5217ea409223ab5557d06cac06372d887588149c1acaacedec4826",
+    "captures/origine-lumiere/village1-out-h06-t01.png.provenance.txt": "3ca94589cb06b0d6a40f5a7224d18f48247931e2a5e8bd034c53b18857ea98ff",
+    "captures/origine-lumiere/village1-out-h06.png": "ee9dc6abc66a2da7d5c8a82696597642f576d24e864bba6e7d02ec992b7124f7",
+    "captures/origine-lumiere/village1-out-h06.png.provenance.txt": "e6d5385bd7f228026c657f2ae05391a88c77d0914c7ec9cde3247aa341fedfe8",
+    "captures/origine-lumiere/village1-out-h09-t01.png": "416f4ce92de907e42cc2b5131f6f2d3ee2593cabb6a5bb48ceb44b987fb65180",
+    "captures/origine-lumiere/village1-out-h09-t01.png.provenance.txt": "425ff1c0ae6414449a3b5b8067ac2ffa786cb802f4b67768a053799f0a283120",
+    "captures/origine-lumiere/village1-out-h09.png": "c84e65265511aacee34f0b7bc41d79bace07c6446d2d4b2b44c6b357a77d27c0",
+    "captures/origine-lumiere/village1-out-h09.png.provenance.txt": "edf4e91052c41fb756924a887d9f99ea18431eb710689f62c8eaf41ca3fdaf13",
+    "captures/origine-lumiere/village1-out-h12-t01.png": "ba9068f4b782eded0622caf51c830908d20b9e8308dac1998d2a63047306edb1",
+    "captures/origine-lumiere/village1-out-h12-t01.png.provenance.txt": "9f9814c75a099406f57b3062da290c049d6474e5da152c890c953abed37fd9a9",
+    "captures/origine-lumiere/village1-out-h12.png": "3ab6592998f1be25b554b4aed8d844a6e1cad0760ecd4fad12ff78ec1a93e093",
+    "captures/origine-lumiere/village1-out-h12.png.provenance.txt": "8cd5efe80e8e16ca41dec205402eed7f946a355ca2ee4171ecafa72212e12d0a",
+    "captures/origine-lumiere/village1-out-h15-t01.png": "4f5ca12dcca80aa954cdc95019ff030241d8d43f8d10208f6c7ea24080e52f78",
+    "captures/origine-lumiere/village1-out-h15-t01.png.provenance.txt": "557a9a338062b7296a2ce8af5476f61b484d1322ae91974c9f8be881a090f728",
+    "captures/origine-lumiere/village1-out-h15.png": "6ec090d8a3983bf6078db12a76f23f48a5fe3b03973e0d095cbc08540e24626c",
+    "captures/origine-lumiere/village1-out-h15.png.provenance.txt": "f4512077544bd185ac77c5856e4b2d74207220ef63d41ea9ec5a0430e0a1efb2",
+    "captures/origine-lumiere/village1-out-h18-t01.png": "0af4c32492ce0f15301a712a85f3d176bbd389a956b409b4663a3b8e08bdd137",
+    "captures/origine-lumiere/village1-out-h18-t01.png.provenance.txt": "67ce7d79255d2ccad19944a212c879ae6c6459930edb843524e853bf2bf90441",
+    "captures/origine-lumiere/village1-out-h18.png": "4ee112a8924d0b86c391244476f11c333128aae512b7acc4e48e2f145dda4476",
+    "captures/origine-lumiere/village1-out-h18.png.provenance.txt": "8a7a4ed2d975d863fabb51e03ee289aa7b31c00401bee334c0887e453d7b331c",
+    "captures/origine-lumiere/village1-out-h21-t01.png": "f1e5d5f2369f41e225e9bf5178786a603f1f32e4fe396df7ce59eeb750f37f66",
+    "captures/origine-lumiere/village1-out-h21-t01.png.provenance.txt": "a789151fd2430ba1ba0b31eff1ff4151f771168c7cf2d3ab1309a8cabc3accb7",
+    "captures/origine-lumiere/village1-out-h21.png": "7ccd191a4bdfb4c26ae64e75c3ccfce4f95680264f88f54f50e6ce1e2c6d734e",
+    "captures/origine-lumiere/village1-out-h21.png.provenance.txt": "e480d37d0460f3ea8ceadbcfd0906764fb6afe3b4a5d62e3cc4d13477984237d",
+    "captures/recharged/captured-by.txt": "22d22f851cd512f1d4952a19ccd5f991468963836b43ee9da62e3fd5cd535be8",
+    "captures/recharged/jungle-tower-h00-t01.png": "84e8707544d28ac79bbb64984a82c935f080ba5f7efc00556601be18fd8edf86",
+    "captures/recharged/jungle-tower-h00-t01.png.provenance.txt": "0a2eec6dd7484da9a09b7bcb74c2e1b4149206306402026ec73a394be3b11ac0",
+    "captures/recharged/jungle-tower-h00.png": "b78ac3d08037424c23ccb2129886759d2e34af171281abf4c35a422e0ac3c3d6",
+    "captures/recharged/jungle-tower-h00.png.provenance.txt": "09d45b1392e7096ab5d7a54c57092a078ec4b7f1b63b5977730b79c604ff0b40",
+    "captures/recharged/jungle-tower-h03-t01.png": "c193f8f928af8259df140f264c6d12db554147383e5dbacfb5e56d7c773a1530",
+    "captures/recharged/jungle-tower-h03-t01.png.provenance.txt": "ba9ee2bd234030711e110e4715b02cd8edcf04b0887cc0645eb723daf152828a",
+    "captures/recharged/jungle-tower-h03.png": "e0cd9b7218cff1e65ea83a391c587b594b6bb4974d4b4ce0e1ed8de2346e771f",
+    "captures/recharged/jungle-tower-h03.png.provenance.txt": "cb86f5fd0a2ef1564e571275c30e65ac7f5ac91f79326cc10c2ccc5690bde744",
+    "captures/recharged/jungle-tower-h06-t01.png": "aa6529d80f518674a400bf2c468774220a6e2322a9e9b3e379c6785538ec2637",
+    "captures/recharged/jungle-tower-h06-t01.png.provenance.txt": "a439af543f7508733ef222b07f0d61768cd0d27f4ffa353887a04296fbbedd29",
+    "captures/recharged/jungle-tower-h06.png": "ecdc4da874562924c2f6333f20c7229b310530e8d132193089e46fc1b2502639",
+    "captures/recharged/jungle-tower-h06.png.provenance.txt": "9676cdfdc5903f9eecf35fb176545677a8c7f3226394a01321f1670f189e7184",
+    "captures/recharged/jungle-tower-h09-t01.png": "e032caa54d134f004c14e1f32d32248a49f117308a67e2772018ad443e40697b",
+    "captures/recharged/jungle-tower-h09-t01.png.provenance.txt": "59fd5b7dfd2d74c4f05f3ff0e322357302df6b4883f9475e566dd1b36299f4a0",
+    "captures/recharged/jungle-tower-h09.png": "9a1a2ab79b046c023a9f1f77d50a61f0b55e95a6c3d235d4a0321e66c083d6b0",
+    "captures/recharged/jungle-tower-h09.png.provenance.txt": "ddfc93143519cbdf065b315127759e8a00e8585dcf4e62afefe8da09c8487c25",
+    "captures/recharged/jungle-tower-h12-t01.png": "357bb07a8d01c43768d1f7ef41a1c54aafc629b64a2e58bae29bca722f257f48",
+    "captures/recharged/jungle-tower-h12-t01.png.provenance.txt": "775f77e67613cc222e70c0648a7c5c9dfa4d59bb3e8756c18ff8e9449f2d39f7",
+    "captures/recharged/jungle-tower-h12.png": "01dcde4bad2852903512eb03b85bcdd08b93d3901167daa643e55e201ab6de9d",
+    "captures/recharged/jungle-tower-h12.png.provenance.txt": "05e476fe08ca03b42ffb1092bb9ac0956ae1bd5ad19a3d57ca88d5a988e0ccb5",
+    "captures/recharged/jungle-tower-h15-t01.png": "a10d04915236c08fea31cffa657d732947656c33ea9fbe915b00f9496919c08b",
+    "captures/recharged/jungle-tower-h15-t01.png.provenance.txt": "0645b04b58236a464d3cc0f02906affb9a2be38214a3e662664efc151e9148e6",
+    "captures/recharged/jungle-tower-h15.png": "cb42ecfd99de9c8388f6ce1151cb52ae2b116b015827c60372d3384e5d2f0bcd",
+    "captures/recharged/jungle-tower-h15.png.provenance.txt": "1d117b8574030c0241177515aad82140f080b603c83bc03bc217ec0daab8a7d0",
+    "captures/recharged/jungle-tower-h18-t01.png": "862e986b26105655f6ce8a80da7bdee3a8487bb2df9abdf08548db7831fc8a38",
+    "captures/recharged/jungle-tower-h18-t01.png.provenance.txt": "5495b7331baf545db10a125b1e8581473237cc01bdfb1f2fcfe8b2a5719eb34c",
+    "captures/recharged/jungle-tower-h18.png": "6552c8f406b41222b6abdf3cd45a3985deef01d6e83c4958ad3d4ffc0593b226",
+    "captures/recharged/jungle-tower-h18.png.provenance.txt": "9ce75683feac4cb5a1ab628397c19374fce9cb2159a7e599252a26721ef5d4ce",
+    "captures/recharged/jungle-tower-h21-t01.png": "e7716a899dd739d917d20508a8c936fcceccdd22fa573cb6af5df0bc91fef048",
+    "captures/recharged/jungle-tower-h21-t01.png.provenance.txt": "aa241ced1d340693c83c4eede05b5cc36abbf5474f4782dd15339f3c141e64a0",
+    "captures/recharged/jungle-tower-h21.png": "a4b16e43a2d76ce87c0efa7763206604cb84c0f8808a386c3f1c00eaf6831e06",
+    "captures/recharged/jungle-tower-h21.png.provenance.txt": "e2a7d437595cf0b4beceb5cb70d1b26812d17a085d552cd418cffe3e68e2136b",
+    "captures/recharged/training-start-h00-t01.png": "187e9702856592481448fe922f7e5d259e7fb1d9a876ab77a81fa9a69f7cbc2a",
+    "captures/recharged/training-start-h00-t01.png.provenance.txt": "3eb6bf57d922afd4906c536f91de1307e1ccb90c92c24504c4d122dee0844459",
+    "captures/recharged/training-start-h00.png": "f97ae54c190e5938d0f719445133dd763ce939930bb3b2b152025fc9e3b7333e",
+    "captures/recharged/training-start-h00.png.provenance.txt": "57ed99be820ecd8c40cac5bcddb9d73251d88b0aea5986f5729c7faa13ea7778",
+    "captures/recharged/training-start-h03-t01.png": "96794ced8597aa6667cb370bd499b5c218e1825c1ccd6d76f3cae805a7975259",
+    "captures/recharged/training-start-h03-t01.png.provenance.txt": "3df601735bdab535fb8922b79e1f9425c6966a2319021f15f885b509d9610c5d",
+    "captures/recharged/training-start-h03.png": "499b274cbb3f2ac6ec871e8b0b1f783da02acbd545a47f5a9a6929ba42428ef3",
+    "captures/recharged/training-start-h03.png.provenance.txt": "63aa752ec4c2b2cb86867af73208f63dc5f27e06281aba1d7cef8b965cb38b5d",
+    "captures/recharged/training-start-h06-t01.png": "38d68c51839f35eefc860774a0f591e85b05ce0264c27c5d47b0754e40ca40ff",
+    "captures/recharged/training-start-h06-t01.png.provenance.txt": "e8e67fdfaf0b4ff081e8abd10035fbb009c98a0432036d03830efac6b8a6ef2d",
+    "captures/recharged/training-start-h06.png": "563716c116a2603143e1903c6f4cd0c7ff2c9704033ee78d32a47ce44649ee89",
+    "captures/recharged/training-start-h06.png.provenance.txt": "f9e9776321c72ac443b6f5e4e3bdf8902b5c9e0125186782e87359353fe1a477",
+    "captures/recharged/training-start-h09-t01.png": "35e1cca09f72cfd6846a52d0b9cc892cdbd9f6684f2e77c340a1bc19bb23f1e1",
+    "captures/recharged/training-start-h09-t01.png.provenance.txt": "597d7cbd5ccfd3a4315596fb58eb22f2c81114e8e349f3adbb90f91030249546",
+    "captures/recharged/training-start-h09.png": "bf37753ab69a236d5888bdd8151ef3c5e1e1a15ad65181aac52d5ccb724111e6",
+    "captures/recharged/training-start-h09.png.provenance.txt": "fe2c517d9a8cc2b97165ce5b59cbc90f9fbdf07343c421b1cb4eefedb6561a4c",
+    "captures/recharged/training-start-h12-t01.png": "85568bd6a1ab107fc91cf3b35ab66a536e71cb24c42a701967c1a82d7f486671",
+    "captures/recharged/training-start-h12-t01.png.provenance.txt": "24c738be7b3d73d3e5ddce9f9d3fffde2b22b3d331480dcc99ad541847c1d875",
+    "captures/recharged/training-start-h12.png": "79e6c99c5450d1cedd3435e06e71e6a796f3be79bd325672a6250339d82524a4",
+    "captures/recharged/training-start-h12.png.provenance.txt": "50fac6413108eb7de1189f93c3feec634c4aec955c7ee9aced61dbd4c4a58d55",
+    "captures/recharged/training-start-h15-t01.png": "ecc3a54a7914b7ff6e3ba1ebf6213d14952462dd6d1d4d139f03dc317041f5b9",
+    "captures/recharged/training-start-h15-t01.png.provenance.txt": "7912be2c02f45b988e61e7e4b22720617c0a1088bb16c32a9b2ef50436048131",
+    "captures/recharged/training-start-h15.png": "97a11ee69f63a691f62fcce6f1fe31e4382c5e69381ac528ee948f8880d1045b",
+    "captures/recharged/training-start-h15.png.provenance.txt": "7c34cf434bdbb13e6653b78262e34665296c07ef44237173a4981163fedeb51d",
+    "captures/recharged/training-start-h18-t01.png": "4e4646a8b2b105df9dbd737a3930b8f1ea46195e6595d1630978d18c54f0ab39",
+    "captures/recharged/training-start-h18-t01.png.provenance.txt": "e4d6c160e956d11d418cc7a53a683d9097f78e14daf8b9818fb7016137240416",
+    "captures/recharged/training-start-h18.png": "31acd60d5aadcc9352e0bcf9b457a1891b780476ecce1141a7e5a64654124951",
+    "captures/recharged/training-start-h18.png.provenance.txt": "d94fb803efe1a48dc59ec67fc68954d51f0c2436bb33cf8daf8e6338d5ac0505",
+    "captures/recharged/training-start-h21-t01.png": "90523b125d867db7d67b21c3d09de4aa86c56a1e82a273aa0e154ade722ae873",
+    "captures/recharged/training-start-h21-t01.png.provenance.txt": "eb1dd946e875ade522a08e7caf38d28b6b20da7e1111a41d25a1ae759bb8ec7f",
+    "captures/recharged/training-start-h21.png": "daf58ee483b479b697fbfc5c5230a9d3ff5d45bdfe6365a68021122a9885c529",
+    "captures/recharged/training-start-h21.png.provenance.txt": "bfa53be15d23cd7bebfae729610a7085cb4f9239b7a396f472f7a4ef1d96d7c4",
+    "captures/recharged/village1-out-h00-t01.png": "7b41dcf46565c22d6412c92d5f5a3dcac1f63ba30618730d86f380e4cf931007",
+    "captures/recharged/village1-out-h00-t01.png.provenance.txt": "b8ab349de59d0996285b1179c19e0cf5e2c8d20ab1960f3c70d03126f16b08b0",
+    "captures/recharged/village1-out-h00.png": "c7998e4149a4e6fee70160f48db3609f38caa8b4e44e7a3d57bd0cf9b516e8bf",
+    "captures/recharged/village1-out-h00.png.provenance.txt": "9ec7e041261d846fee8aead2735cec1b75e4b530894344afcfb9daa497953a62",
+    "captures/recharged/village1-out-h03-t01.png": "e95b7f6d5ba64e6bdda79abf1d5b46e9beb24e06ab3c4211addd8a7041de8ade",
+    "captures/recharged/village1-out-h03-t01.png.provenance.txt": "41e9d474a0b64b87c1d5648cf537dac2871fcc6d77da06dd0f1a33a92d4c2b22",
+    "captures/recharged/village1-out-h03.png": "d5e4eb0939a0a7358a1aa0b04ca32b01c030c0a745691132c232d5b1996feec5",
+    "captures/recharged/village1-out-h03.png.provenance.txt": "b9233fcc39f569e06d79050666cf51a4f7f83351f19c07c8b15d29d0de64c325",
+    "captures/recharged/village1-out-h06-t01.png": "8c3184196cc642802d8b6315e3a3ff7a8f5f855583ad9c861a1cbd7ab3b9ad2b",
+    "captures/recharged/village1-out-h06-t01.png.provenance.txt": "eb38630a12bfe4fa947038fae9d263f0641e81cb3872818b869494a79106483e",
+    "captures/recharged/village1-out-h06.png": "11a5e64cac8a7588ae987ef7fa2989406c1b6a62980201c0da329af5e8c360c3",
+    "captures/recharged/village1-out-h06.png.provenance.txt": "1cd370d9d354c346f5b2d85751609235d9e282caa4bd384f2d4056387a877096",
+    "captures/recharged/village1-out-h09-t01.png": "ccd6e82b8baad7eff7b84134467403781c9da212118e14ee8954e2738d87b59f",
+    "captures/recharged/village1-out-h09-t01.png.provenance.txt": "4de878d7438504a1adc6c1d5838f82b9097ef532f3b86398c43f44ffafbcad22",
+    "captures/recharged/village1-out-h09.png": "5383a019d75d132542c2f525cbe820c3d321218eac80e88e0d3cd144782d4b38",
+    "captures/recharged/village1-out-h09.png.provenance.txt": "2f4127c93385a2bfe6d1f8ba0eb6e449785e3dbe9ede3e6cbd20f5065e63b339",
+    "captures/recharged/village1-out-h12-t01.png": "45a1d446c2990eca0ee0c749c43c9c13cd39c0a3a46c6631a7473a1cdc1380d6",
+    "captures/recharged/village1-out-h12-t01.png.provenance.txt": "f824c65ab615ae77c40fac726ad3b0f687940718d85aea79d05de36032f995aa",
+    "captures/recharged/village1-out-h12.png": "bdbc391d30e4eda8e511a5a2fb28cd91a33cf265387f07275c2ec55faaaaf7cc",
+    "captures/recharged/village1-out-h12.png.provenance.txt": "606e5130ed65c64bf2213996ab58487c56a8c3d28aa3cce9dfa9f4a13d352cca",
+    "captures/recharged/village1-out-h15-t01.png": "8408ceaebd33adf4fb48ef35ee13700239903f4ed2228e6d2e62116b0ca046b4",
+    "captures/recharged/village1-out-h15-t01.png.provenance.txt": "62b84b9cac7c37be3270822a88640bcd0303ff739949fdf4d9c074ff75c5010e",
+    "captures/recharged/village1-out-h15.png": "2ac1b1acd42657c4e6a0dc0af05a6624a4288521876c6e694b751e512c6d6515",
+    "captures/recharged/village1-out-h15.png.provenance.txt": "fa1a55704eba75d70695e1782fe182fba5b840e8b03b9f68f261aef1439aa2d2",
+    "captures/recharged/village1-out-h18-t01.png": "14451a60086b1e4c764a6ea9ee4465937a80b8f5eaf50b8632e991182ee587d0",
+    "captures/recharged/village1-out-h18-t01.png.provenance.txt": "39b01ace12942ae8f811708be90409f0983944110d877b8570d671f798e8bede",
+    "captures/recharged/village1-out-h18.png": "a34a39f806d376ee94891c482580de0e7b9a373cd190b5ff1a6ddcacc8bdced2",
+    "captures/recharged/village1-out-h18.png.provenance.txt": "8b5009b41f90fc94c1018e1195be539a1100fdc0f9e1b0835c4e6649dc63eb0c",
+    "captures/recharged/village1-out-h21-t01.png": "e63df2674ac6319346b3aad8b70611eff28a67c8367c165969a80a6e1211c615",
+    "captures/recharged/village1-out-h21-t01.png.provenance.txt": "404ede566ebb36e11a90de7b30ae4b5257175ddeed2503b443c9c93f05e369ab",
+    "captures/recharged/village1-out-h21.png": "1081f3359077cab21b9e6d197b31826ce49f11590bd1db3d7015a14270453426",
+    "captures/recharged/village1-out-h21.png.provenance.txt": "5a8fba7054b7e07c44448fbc99f6a83df9c38573f6dac579ffe5eb5c06dc7851",
+    "captures/refset-format.txt": "362c63e6ecaaaf76b2b84688235e3f01dc3823953c5850ce020101c2db0d9d86",
+    "config-paths-end.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "config-paths-start.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "engine.log": "a69825437f3f808bbc2628740d0cad69826c65cef2f77c9edb95780a1d74c557",
+    "owner-regions.json": "5163d0d78255fc673e857895003afa8b50432d36fe1399a0617bffc38e5aaa48",
+    "pixels.json": "1f1aa242cb095340483ec3578e15c474adb9d8e49d2d6e7cfe474e650d360df6",
+    "props-end.txt": "2cd5f1e3f2d76934d726bdd7039f709c7067d45358cb6c7c1956cb2b2d43ce7a",
+    "props-start.txt": "6a4f45fd2bafbf9b5c9cc63d3c1f6bfb00cdbfd8a25227c4bdf0df54a6fab1c4",
+    "settings-end.ini": "27769a8a3dfcd0b905bea34af5dd4b773d23681886d3828b52dfad3de6ccd9b3",
+    "settings-start.ini": "27769a8a3dfcd0b905bea34af5dd4b773d23681886d3828b52dfad3de6ccd9b3",
+    "start.json": "416e262d300e20ec0fd9d0b588c3040550ab5e31be6603a16d78428cda93ca42"
+  },
+  "id": "20260908T161000-76323",
+  "producer": "proof_run.sh",
+  "provenance": {
+    "apk_sha256": "7a4e6c292353b66e9f82e7958e5cc0c8f55a44acba65e1066b7f9624c75a961a",
+    "binary_fnv": "a82801927bc19926",
+    "binary_sha256": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5",
+    "config_files": {
+      "settings.ini": "27769a8a3dfcd0b905bea34af5dd4b773d23681886d3828b52dfad3de6ccd9b3"
+    },
+    "installed_sha256": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5",
+    "serial": "eae4df44"
+  },
+  "replacements": [],
+  "requested": [
+    [
+      "training-start",
+      0
+    ],
+    [
+      "training-start",
+      3
+    ],
+    [
+      "training-start",
+      6
+    ],
+    [
+      "training-start",
+      9
+    ],
+    [
+      "training-start",
+      12
+    ],
+    [
+      "training-start",
+      15
+    ],
+    [
+      "training-start",
+      18
+    ],
+    [
+      "training-start",
+      21
+    ],
+    [
+      "jungle-tower",
+      0
+    ],
+    [
+      "jungle-tower",
+      3
+    ],
+    [
+      "jungle-tower",
+      6
+    ],
+    [
+      "jungle-tower",
+      9
+    ],
+    [
+      "jungle-tower",
+      12
+    ],
+    [
+      "jungle-tower",
+      15
+    ],
+    [
+      "jungle-tower",
+      18
+    ],
+    [
+      "jungle-tower",
+      21
+    ],
+    [
+      "village1-out",
+      0
+    ],
+    [
+      "village1-out",
+      3
+    ],
+    [
+      "village1-out",
+      6
+    ],
+    [
+      "village1-out",
+      9
+    ],
+    [
+      "village1-out",
+      12
+    ],
+    [
+      "village1-out",
+      15
+    ],
+    [
+      "village1-out",
+      18
+    ],
+    [
+      "village1-out",
+      21
+    ]
+  ],
+  "run": {
+    "duration_s": 381,
+    "started_at": "2026-09-08T16:09:55Z"
+  },
+  "schema": 1
+}

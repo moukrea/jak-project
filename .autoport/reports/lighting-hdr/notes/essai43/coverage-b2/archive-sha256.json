@@ -1,0 +1,21 @@
+{
+  "run.py": "f713c6726c434d09c35d45c20fbdca9a6355af81dfc42b3dc93063ec5e9c76f8",
+  "props-original.json": "4152093036a8ace5440b9f182e43a3c7247ada359aa1bb05aa9ff8f499966eba",
+  "settings-original.ini": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "settings-fixed.ini": "27769a8a3dfcd0b905bea34af5dd4b773d23681886d3828b52dfad3de6ccd9b3",
+  "source-sha256.txt": "36790fe8727d654ffdf61fa78e5631dd878347cef4301b6669b493a0e82b72d8",
+  "command.json": "3e283918850a692d02ce7fd0119fddacc4cfe035af0803a7cac05843c1e61a1e",
+  "run-started": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "run.log": "e76c362ec658c6ad6817edf38173396a86d58f17108d0ec2bdc192ed5ea8dc77",
+  "exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "proof-coverage.txt": "56e40fe509e92d7f313976f741d682cc51aed303c7f6d8279d3556f293bc9ac0",
+  "manifest.json": "0b99e92ea29b3aea89cbc85ec0de47023afaad794171f0474f660e79fd2356c7",
+  "engine.log": "6bc1203c268ae559f9388bd0b721399ead9abc3c5485888451a720800349429c",
+  "batch-path.txt": "4f68c13ca0070a7bdbd7290f93fa4ab0e911641511e3b96e694fbaa85a3bbe4c",
+  "composition.log": "7b9f45ef0522b39bbc502f7b821fe5dc6b8b77ae01175cf389dbbadd27d6442b",
+  "restoration.json": "0da5dba6df1ae6bc09556ed7c21542dc952ff31ac7efbb65db617e79edf45aa0",
+  "audit.json": "989e8b693a51afcf7e993216c67d924c89f525261b0c415a1ca0c1ad7c0d0144",
+  "verdict.md": "b9f85de27e0e17d4f950b9f0f0c1b2e51ad4e3215f5c8997a084f6159385d40d",
+  "composition/composition-events.json": "6bfded8aebde2ea6ee237d760aa4fee1e0db333cd6a1071abe4731b3b15156fe",
+  "composition/composition-summary.json": "7b9f45ef0522b39bbc502f7b821fe5dc6b8b77ae01175cf389dbbadd27d6442b"
+}

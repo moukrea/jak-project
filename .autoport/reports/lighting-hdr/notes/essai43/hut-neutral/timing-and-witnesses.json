@@ -1,0 +1,641 @@
+{
+  "engine_sha256": "2a4e01040c6a223bf72edab8b8249e7ae43ad7855ade1113e533edd38ebb52f6",
+  "samples": [
+    {
+      "fields": {
+        "case": "recharged/village1-out-h12",
+        "layer": "historical",
+        "chain_lf": "2521",
+        "anchor_lf": "1861",
+        "sample": "0",
+        "samples": "2",
+        "particle_repin_lf": "1862",
+        "particle_age": "659"
+      },
+      "sample_line": 45301,
+      "repin_line": 33856,
+      "wall_seconds": 55.034,
+      "minimum10s_observed": true,
+      "raw": "09-08 17:43:59.060 I/GK_STDOUT(15478): REFSET sample case=recharged/village1-out-h12 layer=historical chain_lf=2521 anchor_lf=1861 sample=0 samples=2 particle_repin_lf=1862 particle_age=659",
+      "repin_raw": "09-08 17:43:04.026 I/GK_STDOUT(15478): REFSET repin-particules case=recharged/village1-out-h12 due_lf=1862 lf=1862"
+    },
+    {
+      "fields": {
+        "case": "recharged/village1-out-h12-t01",
+        "layer": "historical",
+        "chain_lf": "3181",
+        "anchor_lf": "1861",
+        "sample": "1",
+        "samples": "2",
+        "particle_repin_lf": "1862",
+        "particle_age": "1319"
+      },
+      "sample_line": 58279,
+      "repin_line": 33856,
+      "wall_seconds": 110.595,
+      "minimum10s_observed": true,
+      "raw": "09-08 17:44:54.621 I/GK_STDOUT(15478): REFSET sample case=recharged/village1-out-h12-t01 layer=historical chain_lf=3181 anchor_lf=1861 sample=1 samples=2 particle_repin_lf=1862 particle_age=1319",
+      "repin_raw": "09-08 17:43:04.026 I/GK_STDOUT(15478): REFSET repin-particules case=recharged/village1-out-h12 due_lf=1862 lf=1862"
+    },
+    {
+      "fields": {
+        "case": "origine-lumiere/village1-out-h12",
+        "layer": "historical",
+        "chain_lf": "3843",
+        "anchor_lf": "3183",
+        "sample": "0",
+        "samples": "2",
+        "particle_repin_lf": "3184",
+        "particle_age": "659"
+      },
+      "sample_line": 70099,
+      "repin_line": 58287,
+      "wall_seconds": 41.502,
+      "minimum10s_observed": true,
+      "raw": "09-08 17:45:36.199 I/GK_STDOUT(15478): REFSET sample case=origine-lumiere/village1-out-h12 layer=historical chain_lf=3843 anchor_lf=3183 sample=0 samples=2 particle_repin_lf=3184 particle_age=659",
+      "repin_raw": "09-08 17:44:54.697 I/GK_STDOUT(15478): REFSET repin-particules case=origine-lumiere/village1-out-h12 due_lf=3184 lf=3184"
+    },
+    {
+      "fields": {
+        "case": "origine-lumiere/village1-out-h12-t01",
+        "layer": "historical",
+        "chain_lf": "4503",
+        "anchor_lf": "3183",
+        "sample": "1",
+        "samples": "2",
+        "particle_repin_lf": "3184",
+        "particle_age": "1319"
+      },
+      "sample_line": 83323,
+      "repin_line": 58287,
+      "wall_seconds": 83.652,
+      "minimum10s_observed": true,
+      "raw": "09-08 17:46:18.349 I/GK_STDOUT(15478): REFSET sample case=origine-lumiere/village1-out-h12-t01 layer=historical chain_lf=4503 anchor_lf=3183 sample=1 samples=2 particle_repin_lf=3184 particle_age=1319",
+      "repin_raw": "09-08 17:44:54.697 I/GK_STDOUT(15478): REFSET repin-particules case=origine-lumiere/village1-out-h12 due_lf=3184 lf=3184"
+    }
+  ],
+  "effective": [
+    {
+      "line": 45300,
+      "raw": "09-08 17:43:59.060 I/GK_STDOUT(15478): REFSET effective case=recharged/village1-out-h12 options={\"hdr\":true,\"lighting\":true,\"master\":true,\"others\":{\"crisp_title_logo\":true,\"enhanced_models\":true,\"foliage_wind\":true,\"grass\":false,\"grass_card_dist\":95.0,\"grass_density_preset\":2,\"grass_near_dist\":30.0,\"grass_overhang\":false,\"grass_precomputed\":true,\"hack_no_tex\":false,\"load_custom_assets\":false,\"lod_tfrag\":0,\"lod_tie\":0,\"managed_assets\":true,\"modern_materials\":true,\"subdivision\":false,\"subdivision_max_edge_m\":1.600000023841858,\"subdivision_rounds\":1,\"textures\":true},\"output\":{\"curve\":0,\"exposure\":1.0,\"knee\":0.9599999785423279,\"pbr_exposure\":1.0,\"profile\":\"sdr\"},\"rt_light\":true,\"temporal\":{\"particle_age\":659,\"particle_repin_lf\":1862,\"particle_step\":\"once-per-logic-frame\",\"sample\":0,\"samples\":2,\"spacing_lf\":660}}",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.9599999785423279,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 659,
+          "particle_repin_lf": 1862,
+          "particle_step": "once-per-logic-frame",
+          "sample": 0,
+          "samples": 2,
+          "spacing_lf": 660
+        }
+      }
+    },
+    {
+      "line": 58278,
+      "raw": "09-08 17:44:54.620 I/GK_STDOUT(15478): REFSET effective case=recharged/village1-out-h12-t01 options={\"hdr\":true,\"lighting\":true,\"master\":true,\"others\":{\"crisp_title_logo\":true,\"enhanced_models\":true,\"foliage_wind\":true,\"grass\":false,\"grass_card_dist\":95.0,\"grass_density_preset\":2,\"grass_near_dist\":30.0,\"grass_overhang\":false,\"grass_precomputed\":true,\"hack_no_tex\":false,\"load_custom_assets\":false,\"lod_tfrag\":0,\"lod_tie\":0,\"managed_assets\":true,\"modern_materials\":true,\"subdivision\":false,\"subdivision_max_edge_m\":1.600000023841858,\"subdivision_rounds\":1,\"textures\":true},\"output\":{\"curve\":0,\"exposure\":1.0,\"knee\":0.9599999785423279,\"pbr_exposure\":1.0,\"profile\":\"sdr\"},\"rt_light\":true,\"temporal\":{\"particle_age\":1319,\"particle_repin_lf\":1862,\"particle_step\":\"once-per-logic-frame\",\"sample\":1,\"samples\":2,\"spacing_lf\":660}}",
+      "options": {
+        "hdr": true,
+        "lighting": true,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.9599999785423279,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": true,
+        "temporal": {
+          "particle_age": 1319,
+          "particle_repin_lf": 1862,
+          "particle_step": "once-per-logic-frame",
+          "sample": 1,
+          "samples": 2,
+          "spacing_lf": 660
+        }
+      }
+    },
+    {
+      "line": 70098,
+      "raw": "09-08 17:45:36.199 I/GK_STDOUT(15478): REFSET effective case=origine-lumiere/village1-out-h12 options={\"hdr\":false,\"lighting\":false,\"master\":true,\"others\":{\"crisp_title_logo\":true,\"enhanced_models\":true,\"foliage_wind\":true,\"grass\":false,\"grass_card_dist\":95.0,\"grass_density_preset\":2,\"grass_near_dist\":30.0,\"grass_overhang\":false,\"grass_precomputed\":true,\"hack_no_tex\":false,\"load_custom_assets\":false,\"lod_tfrag\":0,\"lod_tie\":0,\"managed_assets\":true,\"modern_materials\":true,\"subdivision\":false,\"subdivision_max_edge_m\":1.600000023841858,\"subdivision_rounds\":1,\"textures\":true},\"output\":{\"curve\":0,\"exposure\":1.0,\"knee\":0.9599999785423279,\"pbr_exposure\":1.0,\"profile\":\"sdr\"},\"rt_light\":false,\"temporal\":{\"particle_age\":659,\"particle_repin_lf\":3184,\"particle_step\":\"once-per-logic-frame\",\"sample\":0,\"samples\":2,\"spacing_lf\":660}}",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.9599999785423279,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 659,
+          "particle_repin_lf": 3184,
+          "particle_step": "once-per-logic-frame",
+          "sample": 0,
+          "samples": 2,
+          "spacing_lf": 660
+        }
+      }
+    },
+    {
+      "line": 83322,
+      "raw": "09-08 17:46:18.349 I/GK_STDOUT(15478): REFSET effective case=origine-lumiere/village1-out-h12-t01 options={\"hdr\":false,\"lighting\":false,\"master\":true,\"others\":{\"crisp_title_logo\":true,\"enhanced_models\":true,\"foliage_wind\":true,\"grass\":false,\"grass_card_dist\":95.0,\"grass_density_preset\":2,\"grass_near_dist\":30.0,\"grass_overhang\":false,\"grass_precomputed\":true,\"hack_no_tex\":false,\"load_custom_assets\":false,\"lod_tfrag\":0,\"lod_tie\":0,\"managed_assets\":true,\"modern_materials\":true,\"subdivision\":false,\"subdivision_max_edge_m\":1.600000023841858,\"subdivision_rounds\":1,\"textures\":true},\"output\":{\"curve\":0,\"exposure\":1.0,\"knee\":0.9599999785423279,\"pbr_exposure\":1.0,\"profile\":\"sdr\"},\"rt_light\":false,\"temporal\":{\"particle_age\":1319,\"particle_repin_lf\":3184,\"particle_step\":\"once-per-logic-frame\",\"sample\":1,\"samples\":2,\"spacing_lf\":660}}",
+      "options": {
+        "hdr": false,
+        "lighting": false,
+        "master": true,
+        "others": {
+          "crisp_title_logo": true,
+          "enhanced_models": true,
+          "foliage_wind": true,
+          "grass": false,
+          "grass_card_dist": 95.0,
+          "grass_density_preset": 2,
+          "grass_near_dist": 30.0,
+          "grass_overhang": false,
+          "grass_precomputed": true,
+          "hack_no_tex": false,
+          "load_custom_assets": false,
+          "lod_tfrag": 0,
+          "lod_tie": 0,
+          "managed_assets": true,
+          "modern_materials": true,
+          "subdivision": false,
+          "subdivision_max_edge_m": 1.600000023841858,
+          "subdivision_rounds": 1,
+          "textures": true
+        },
+        "output": {
+          "curve": 0,
+          "exposure": 1.0,
+          "knee": 0.9599999785423279,
+          "pbr_exposure": 1.0,
+          "profile": "sdr"
+        },
+        "rt_light": false,
+        "temporal": {
+          "particle_age": 1319,
+          "particle_repin_lf": 3184,
+          "particle_step": "once-per-logic-frame",
+          "sample": 1,
+          "samples": 2,
+          "spacing_lf": 660
+        }
+      }
+    }
+  ],
+  "portal_witnesses": [
+    {
+      "line": 45037,
+      "event": {
+        "actor": 1395,
+        "alpha_modulate_max": 0.8941176533699036,
+        "association": "texture_and_anchor_distance",
+        "corner_w": [
+          2.489440441131592,
+          2.7350380420684814,
+          2.6158742904663086,
+          2.8614730834960938
+        ],
+        "distance_m": 3.814697265625e-06,
+        "group_1m": false,
+        "layer": "portal_disc",
+        "lf": 2521,
+        "mode_bits": 4206765820,
+        "passed": true,
+        "position_m": [
+          -123.10157775878906,
+          50.403804779052734,
+          214.22531127929688
+        ],
+        "reason": "ok",
+        "render_mode": 3,
+        "rgb_modulate_max": [
+          0.1882352977991104,
+          0.11764705926179886,
+          0.6196078658103943
+        ],
+        "rgba_vertex": [
+          0.0941176488995552,
+          0.05882352963089943,
+          0.30980393290519714,
+          0.2235294133424759
+        ],
+        "roi": [
+          147,
+          42,
+          173,
+          79
+        ],
+        "roi_bounds": "exclusive_top_left_320x180",
+        "supported": true,
+        "texture": "effects/harddot"
+      }
+    },
+    {
+      "line": 45038,
+      "event": {
+        "actor": 1395,
+        "alpha_modulate_max": 0.0,
+        "association": "texture_and_anchor_distance",
+        "corner_w": [
+          2.489440441131592,
+          2.7350380420684814,
+          2.6158742904663086,
+          2.8614730834960938
+        ],
+        "distance_m": 3.814697265625e-06,
+        "group_1m": false,
+        "layer": "portal_disc",
+        "lf": 2521,
+        "mode_bits": 4206765820,
+        "passed": false,
+        "position_m": [
+          -123.10157775878906,
+          50.403804779052734,
+          214.22531127929688
+        ],
+        "reason": "ok",
+        "render_mode": 3,
+        "rgb_modulate_max": [
+          0.13333334028720856,
+          0.24313725531101227,
+          0.5176470875740051
+        ],
+        "rgba_vertex": [
+          0.06666667014360428,
+          0.12156862765550613,
+          0.25882354378700256,
+          0.0
+        ],
+        "roi": [
+          147,
+          42,
+          173,
+          79
+        ],
+        "roi_bounds": "exclusive_top_left_320x180",
+        "supported": true,
+        "texture": "effects/harddot"
+      }
+    },
+    {
+      "line": 58017,
+      "event": {
+        "actor": 1395,
+        "alpha_modulate_max": 0.6117647290229797,
+        "association": "texture_and_anchor_distance",
+        "corner_w": [
+          2.489440441131592,
+          2.7350380420684814,
+          2.6158742904663086,
+          2.8614730834960938
+        ],
+        "distance_m": 3.814697265625e-06,
+        "group_1m": false,
+        "layer": "portal_disc",
+        "lf": 3181,
+        "mode_bits": 4206765820,
+        "passed": true,
+        "position_m": [
+          -123.10157775878906,
+          50.403804779052734,
+          214.22531127929688
+        ],
+        "reason": "ok",
+        "render_mode": 3,
+        "rgb_modulate_max": [
+          0.0470588244497776,
+          0.13333334028720856,
+          0.800000011920929
+        ],
+        "rgba_vertex": [
+          0.0235294122248888,
+          0.06666667014360428,
+          0.4000000059604645,
+          0.15294118225574493
+        ],
+        "roi": [
+          147,
+          42,
+          173,
+          79
+        ],
+        "roi_bounds": "exclusive_top_left_320x180",
+        "supported": true,
+        "texture": "effects/harddot"
+      }
+    },
+    {
+      "line": 58018,
+      "event": {
+        "actor": 1395,
+        "alpha_modulate_max": 0.0,
+        "association": "texture_and_anchor_distance",
+        "corner_w": [
+          2.489440441131592,
+          2.7350380420684814,
+          2.6158742904663086,
+          2.8614730834960938
+        ],
+        "distance_m": 3.814697265625e-06,
+        "group_1m": false,
+        "layer": "portal_disc",
+        "lf": 3181,
+        "mode_bits": 4206765820,
+        "passed": false,
+        "position_m": [
+          -123.10157775878906,
+          50.403804779052734,
+          214.22531127929688
+        ],
+        "reason": "ok",
+        "render_mode": 3,
+        "rgb_modulate_max": [
+          0.1411764770746231,
+          0.0235294122248888,
+          0.6352941393852234
+        ],
+        "rgba_vertex": [
+          0.07058823853731155,
+          0.0117647061124444,
+          0.3176470696926117,
+          0.0
+        ],
+        "roi": [
+          147,
+          42,
+          173,
+          79
+        ],
+        "roi_bounds": "exclusive_top_left_320x180",
+        "supported": true,
+        "texture": "effects/harddot"
+      }
+    },
+    {
+      "line": 69843,
+      "event": {
+        "actor": 1395,
+        "alpha_modulate_max": 0.0,
+        "association": "texture_and_anchor_distance",
+        "corner_w": [
+          2.489440441131592,
+          2.7350380420684814,
+          2.6158742904663086,
+          2.8614730834960938
+        ],
+        "distance_m": 3.814697265625e-06,
+        "group_1m": false,
+        "layer": "portal_disc",
+        "lf": 3843,
+        "mode_bits": 4206765820,
+        "passed": true,
+        "position_m": [
+          -123.10157775878906,
+          50.403804779052734,
+          214.22531127929688
+        ],
+        "reason": "ok",
+        "render_mode": 3,
+        "rgb_modulate_max": [
+          0.20392157137393951,
+          0.1411764770746231,
+          0.9725490212440491
+        ],
+        "rgba_vertex": [
+          0.10196078568696976,
+          0.07058823853731155,
+          0.48627451062202454,
+          0.0
+        ],
+        "roi": [
+          147,
+          42,
+          173,
+          79
+        ],
+        "roi_bounds": "exclusive_top_left_320x180",
+        "supported": true,
+        "texture": "effects/harddot"
+      }
+    },
+    {
+      "line": 69844,
+      "event": {
+        "actor": 1395,
+        "alpha_modulate_max": 0.23529411852359772,
+        "association": "texture_and_anchor_distance",
+        "corner_w": [
+          2.489440441131592,
+          2.7350380420684814,
+          2.6158742904663086,
+          2.8614730834960938
+        ],
+        "distance_m": 3.814697265625e-06,
+        "group_1m": false,
+        "layer": "portal_disc",
+        "lf": 3843,
+        "mode_bits": 4206765820,
+        "passed": true,
+        "position_m": [
+          -123.10157775878906,
+          50.403804779052734,
+          214.22531127929688
+        ],
+        "reason": "ok",
+        "render_mode": 3,
+        "rgb_modulate_max": [
+          0.0,
+          0.1882352977991104,
+          0.7686274647712708
+        ],
+        "rgba_vertex": [
+          0.0,
+          0.0941176488995552,
+          0.3843137323856354,
+          0.05882352963089943
+        ],
+        "roi": [
+          147,
+          42,
+          173,
+          79
+        ],
+        "roi_bounds": "exclusive_top_left_320x180",
+        "supported": true,
+        "texture": "effects/harddot"
+      }
+    },
+    {
+      "line": 83063,
+      "event": {
+        "actor": 1395,
+        "alpha_modulate_max": 0.0,
+        "association": "texture_and_anchor_distance",
+        "corner_w": [
+          2.489440441131592,
+          2.7350380420684814,
+          2.6158742904663086,
+          2.8614730834960938
+        ],
+        "distance_m": 3.814697265625e-06,
+        "group_1m": false,
+        "layer": "portal_disc",
+        "lf": 4503,
+        "mode_bits": 4206765820,
+        "passed": false,
+        "position_m": [
+          -123.10157775878906,
+          50.403804779052734,
+          214.22531127929688
+        ],
+        "reason": "ok",
+        "render_mode": 3,
+        "rgb_modulate_max": [
+          0.10980392247438431,
+          0.10196078568696976,
+          0.6431372761726379
+        ],
+        "rgba_vertex": [
+          0.054901961237192154,
+          0.05098039284348488,
+          0.32156863808631897,
+          0.0
+        ],
+        "roi": [
+          147,
+          42,
+          173,
+          79
+        ],
+        "roi_bounds": "exclusive_top_left_320x180",
+        "supported": true,
+        "texture": "effects/harddot"
+      }
+    },
+    {
+      "line": 83064,
+      "event": {
+        "actor": 1395,
+        "alpha_modulate_max": 0.250980406999588,
+        "association": "texture_and_anchor_distance",
+        "corner_w": [
+          2.489440441131592,
+          2.7350380420684814,
+          2.6158742904663086,
+          2.8614730834960938
+        ],
+        "distance_m": 3.814697265625e-06,
+        "group_1m": false,
+        "layer": "portal_disc",
+        "lf": 4503,
+        "mode_bits": 4206765820,
+        "passed": true,
+        "position_m": [
+          -123.10157775878906,
+          50.403804779052734,
+          214.22531127929688
+        ],
+        "reason": "ok",
+        "render_mode": 3,
+        "rgb_modulate_max": [
+          0.07058823853731155,
+          0.1725490242242813,
+          0.9882352948188782
+        ],
+        "rgba_vertex": [
+          0.03529411926865578,
+          0.08627451211214066,
+          0.4941176474094391,
+          0.062745101749897
+        ],
+        "roi": [
+          147,
+          42,
+          173,
+          79
+        ],
+        "roi_bounds": "exclusive_top_left_320x180",
+        "supported": true,
+        "texture": "effects/harddot"
+      }
+    }
+  ]
+}

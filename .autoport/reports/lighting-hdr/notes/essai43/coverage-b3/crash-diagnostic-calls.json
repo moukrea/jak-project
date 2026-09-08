@@ -1,0 +1,34 @@
+[
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "logcat",
+      "-b",
+      "crash",
+      "-d",
+      "--pid=29178"
+    ],
+    "rc": 0,
+    "file": "logcat-crash-pid29178.txt",
+    "bytes": 0
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "run-as",
+      "org.opengoal.gk.jak1",
+      "ls",
+      "-l",
+      "files/crash.txt",
+      "files/logs/crash.txt"
+    ],
+    "rc": 1,
+    "file": "private-crash-files.txt",
+    "bytes": 99
+  }
+]

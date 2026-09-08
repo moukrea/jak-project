@@ -1,0 +1,60 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "reference": ".autoport/reports/lighting-hdr/notes/essai43/coverage/source-sha256.txt",
+  "files": [
+    {
+      "path": "goal_src/jak1/pc/jak-hd.gc",
+      "expected_sha256": "612ab9fa8f81f1ed7c44e12bd9bf8fd5c79707ff97105220033888132c87d3cb",
+      "actual_sha256": "612ab9fa8f81f1ed7c44e12bd9bf8fd5c79707ff97105220033888132c87d3cb",
+      "match": true
+    },
+    {
+      "path": "game/graphics/gfx.h",
+      "expected_sha256": "d742f3ad18d6e7260a384950446af58be3b97645addf67e4083197eeb94bab04",
+      "actual_sha256": "d742f3ad18d6e7260a384950446af58be3b97645addf67e4083197eeb94bab04",
+      "match": true
+    },
+    {
+      "path": "game/graphics/opengl_renderer/foreground/Generic2.h",
+      "expected_sha256": "9dbf40b377a97725257edf1f049d709e8000943641891c4b29915ec99d53a1f5",
+      "actual_sha256": "9dbf40b377a97725257edf1f049d709e8000943641891c4b29915ec99d53a1f5",
+      "match": true
+    },
+    {
+      "path": "game/graphics/opengl_renderer/background/background_common.cpp",
+      "expected_sha256": "8d381df6462e8c2abbbc2e0e05cb8a5c13e30277191627cd76f08457ad35e869",
+      "actual_sha256": "8d381df6462e8c2abbbc2e0e05cb8a5c13e30277191627cd76f08457ad35e869",
+      "match": true
+    },
+    {
+      "path": "game/graphics/opengl_renderer/foreground/Generic2_OpenGL.cpp",
+      "expected_sha256": "c9e3e62cc714cd429ff4c6fd0d7413a7ef4b16b75c8729243bdfc25641eecc8a",
+      "actual_sha256": "c9e3e62cc714cd429ff4c6fd0d7413a7ef4b16b75c8729243bdfc25641eecc8a",
+      "match": true
+    },
+    {
+      "path": "goal_src/jak1/pc/hud-classes-pc.gc",
+      "expected_sha256": "bbcb49abf34adac9391c0f94e4574955a5799f87dcf29f11a36e2fab61382d6a",
+      "actual_sha256": "bbcb49abf34adac9391c0f94e4574955a5799f87dcf29f11a36e2fab61382d6a",
+      "match": true
+    },
+    {
+      "path": "goal_src/jak1/pc/progress-pc.gc",
+      "expected_sha256": "b6bb550395969a7b4c275f0fbc200753e2ea150cf6f923f76f9f0c59e2aae518",
+      "actual_sha256": "b6bb550395969a7b4c275f0fbc200753e2ea150cf6f923f76f9f0c59e2aae518",
+      "match": true
+    },
+    {
+      "path": "game/graphics/opengl_renderer/shaders/tonemap.frag",
+      "expected_sha256": "fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3",
+      "actual_sha256": "fa9aa99adec7be401c49b4f32f9529b8a8220f76f462ffe0f08f2843910335d3",
+      "match": true
+    },
+    {
+      "path": "goal_src/jak1/pc/pckernel.gc",
+      "expected_sha256": "3862c5d62a50703e960fe815cdec0ef4d9a461a61cc8f6f01099cbb6867a768e",
+      "actual_sha256": "3862c5d62a50703e960fe815cdec0ef4d9a461a61cc8f6f01099cbb6867a768e",
+      "match": true
+    }
+  ]
+}

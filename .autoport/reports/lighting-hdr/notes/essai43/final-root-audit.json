@@ -1,0 +1,476 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "batches": [
+    {
+      "batch": "20260908T161000-76323",
+      "manifest_sha256": "2c7d2c8785aff8ab31f4ec4d614e36c8dcfb0c206db4df82dff6c039d893d541",
+      "sealed_files": 205,
+      "hash_failures": [],
+      "crash": 0,
+      "manifest_errors": []
+    },
+    {
+      "batch": "20260908T162138-84202",
+      "manifest_sha256": "0b99e92ea29b3aea89cbc85ec0de47023afaad794171f0474f660e79fd2356c7",
+      "sealed_files": 397,
+      "hash_failures": [],
+      "crash": 0,
+      "manifest_errors": []
+    },
+    {
+      "batch": "20260908T163511-98380",
+      "manifest_sha256": "04245b3da58466678573f9511c9a42b4f10476e24c5cbc8335d3266a7fe696ff",
+      "sealed_files": 29,
+      "hash_failures": [],
+      "crash": 1,
+      "manifest_errors": []
+    },
+    {
+      "batch": "20260908T164214-104834",
+      "manifest_sha256": "e8df3d3fca317553ee7b6939161a7bad02491c0bfd8053cdb30f68271abd2ce7",
+      "sealed_files": 397,
+      "hash_failures": [],
+      "crash": 0,
+      "manifest_errors": []
+    }
+  ],
+  "official_measurements_sha256": "e51bb889974fe788d6131ac7d8aca08d14a19b557d63f8f7c1afbf51d5b69c43",
+  "qualified_pairs": 120,
+  "qualified_levels": [
+    "beach",
+    "citadel",
+    "darkcave",
+    "finalboss",
+    "firecanyon",
+    "jungle",
+    "jungleb",
+    "lavatube",
+    "maincave",
+    "misty",
+    "robocave",
+    "sunken",
+    "training",
+    "village1",
+    "village2"
+  ],
+  "errors": [
+    "20260908T163511-98380: temporal capture accounting inconsistent"
+  ],
+  "missing": [
+    [
+      "ogre",
+      0
+    ],
+    [
+      "ogre",
+      3
+    ],
+    [
+      "ogre",
+      6
+    ],
+    [
+      "ogre",
+      9
+    ],
+    [
+      "ogre",
+      12
+    ],
+    [
+      "ogre",
+      15
+    ],
+    [
+      "ogre",
+      18
+    ],
+    [
+      "ogre",
+      21
+    ],
+    [
+      "rolling",
+      0
+    ],
+    [
+      "rolling",
+      3
+    ],
+    [
+      "rolling",
+      6
+    ],
+    [
+      "rolling",
+      9
+    ],
+    [
+      "rolling",
+      12
+    ],
+    [
+      "rolling",
+      15
+    ],
+    [
+      "rolling",
+      18
+    ],
+    [
+      "rolling",
+      21
+    ],
+    [
+      "snow",
+      0
+    ],
+    [
+      "snow",
+      3
+    ],
+    [
+      "snow",
+      6
+    ],
+    [
+      "snow",
+      9
+    ],
+    [
+      "snow",
+      12
+    ],
+    [
+      "snow",
+      15
+    ],
+    [
+      "snow",
+      18
+    ],
+    [
+      "snow",
+      21
+    ],
+    [
+      "sunkenb",
+      0
+    ],
+    [
+      "sunkenb",
+      3
+    ],
+    [
+      "sunkenb",
+      6
+    ],
+    [
+      "sunkenb",
+      9
+    ],
+    [
+      "sunkenb",
+      12
+    ],
+    [
+      "sunkenb",
+      15
+    ],
+    [
+      "sunkenb",
+      18
+    ],
+    [
+      "sunkenb",
+      21
+    ],
+    [
+      "swamp",
+      0
+    ],
+    [
+      "swamp",
+      3
+    ],
+    [
+      "swamp",
+      6
+    ],
+    [
+      "swamp",
+      9
+    ],
+    [
+      "swamp",
+      12
+    ],
+    [
+      "swamp",
+      15
+    ],
+    [
+      "swamp",
+      18
+    ],
+    [
+      "swamp",
+      21
+    ],
+    [
+      "village3",
+      0
+    ],
+    [
+      "village3",
+      3
+    ],
+    [
+      "village3",
+      6
+    ],
+    [
+      "village3",
+      9
+    ],
+    [
+      "village3",
+      12
+    ],
+    [
+      "village3",
+      15
+    ],
+    [
+      "village3",
+      18
+    ],
+    [
+      "village3",
+      21
+    ]
+  ],
+  "sky_missing": [
+    [
+      "ogre",
+      0
+    ],
+    [
+      "ogre",
+      3
+    ],
+    [
+      "ogre",
+      6
+    ],
+    [
+      "ogre",
+      9
+    ],
+    [
+      "ogre",
+      12
+    ],
+    [
+      "ogre",
+      15
+    ],
+    [
+      "ogre",
+      18
+    ],
+    [
+      "ogre",
+      21
+    ],
+    [
+      "rolling",
+      0
+    ],
+    [
+      "rolling",
+      3
+    ],
+    [
+      "rolling",
+      6
+    ],
+    [
+      "rolling",
+      9
+    ],
+    [
+      "rolling",
+      12
+    ],
+    [
+      "rolling",
+      15
+    ],
+    [
+      "rolling",
+      18
+    ],
+    [
+      "rolling",
+      21
+    ],
+    [
+      "snow",
+      0
+    ],
+    [
+      "snow",
+      3
+    ],
+    [
+      "snow",
+      6
+    ],
+    [
+      "snow",
+      9
+    ],
+    [
+      "snow",
+      12
+    ],
+    [
+      "snow",
+      15
+    ],
+    [
+      "snow",
+      18
+    ],
+    [
+      "snow",
+      21
+    ],
+    [
+      "sunkenb",
+      0
+    ],
+    [
+      "sunkenb",
+      3
+    ],
+    [
+      "sunkenb",
+      6
+    ],
+    [
+      "sunkenb",
+      9
+    ],
+    [
+      "sunkenb",
+      12
+    ],
+    [
+      "sunkenb",
+      15
+    ],
+    [
+      "sunkenb",
+      18
+    ],
+    [
+      "sunkenb",
+      21
+    ],
+    [
+      "swamp",
+      0
+    ],
+    [
+      "swamp",
+      3
+    ],
+    [
+      "swamp",
+      6
+    ],
+    [
+      "swamp",
+      9
+    ],
+    [
+      "swamp",
+      12
+    ],
+    [
+      "swamp",
+      15
+    ],
+    [
+      "swamp",
+      18
+    ],
+    [
+      "swamp",
+      21
+    ],
+    [
+      "village3",
+      0
+    ],
+    [
+      "village3",
+      3
+    ],
+    [
+      "village3",
+      6
+    ],
+    [
+      "village3",
+      9
+    ],
+    [
+      "village3",
+      12
+    ],
+    [
+      "village3",
+      15
+    ],
+    [
+      "village3",
+      18
+    ],
+    [
+      "village3",
+      21
+    ]
+  ],
+  "interior_missing": [],
+  "hut_missing": [
+    0,
+    3,
+    6,
+    9,
+    12,
+    15,
+    18,
+    21
+  ],
+  "quality_bad": [
+    {
+      "batch": "20260908T162138-84202",
+      "excess": {
+        "clipped": 58,
+        "nearwhite": -55,
+        "white": -57
+      },
+      "hour": 12,
+      "view": "firecanyon-start"
+    }
+  ],
+  "balanced_deltas": {
+    "detail": -0.6446216645359394,
+    "flat": 0.019801025084207512,
+    "luma": -5.605890335648149,
+    "saturation": 1.7580106331678094e-07
+  }
+}

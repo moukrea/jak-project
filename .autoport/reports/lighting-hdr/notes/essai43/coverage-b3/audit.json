@@ -1,0 +1,663 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "batch": ".autoport/reports/lighting-hdr/batches/essai43-coverage/20260908T163511-98380",
+  "manifest_sha256": "04245b3da58466678573f9511c9a42b4f10476e24c5cbc8335d3266a7fe696ff",
+  "sealed_files": 29,
+  "errors": [],
+  "producer_exit": 0,
+  "manifest_errors": [],
+  "manifest_crash": 1,
+  "pngs": 8,
+  "requested_views": [
+    "sunkenb-helix",
+    "swamp-dock1",
+    "rolling-start",
+    "ogre-start",
+    "village3-start",
+    "snow-start"
+  ],
+  "counts": [
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hours": {}
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hours": {}
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hours": {}
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hours": {}
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hours": {}
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hours": {}
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "origine-lumiere",
+      "hours": {
+        "9": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "recharged",
+      "hours": {
+        "9": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hours": {}
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hours": {}
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hours": {}
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hours": {}
+    }
+  ],
+  "missing_local_samples": [
+    {
+      "view": "sunkenb-helix",
+      "arm": "recharged",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "recharged",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "recharged",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "recharged",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "recharged",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "recharged",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "origine-lumiere",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "origine-lumiere",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "origine-lumiere",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "origine-lumiere",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "sunkenb-helix",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "recharged",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "swamp-dock1",
+      "arm": "origine-lumiere",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "recharged",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "rolling-start",
+      "arm": "origine-lumiere",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "recharged",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "ogre-start",
+      "arm": "origine-lumiere",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "recharged",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "village3-start",
+      "arm": "origine-lumiere",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "recharged",
+      "hour": 21,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hour": 0,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hour": 3,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hour": 6,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hour": 9,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hour": 15,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "observed": 0
+    },
+    {
+      "view": "snow-start",
+      "arm": "origine-lumiere",
+      "hour": 21,
+      "observed": 0
+    }
+  ],
+  "proof_fields": {
+    "source": "device",
+    "serial": "eae4df44",
+    "duration_s": "178",
+    "crash": "1",
+    "frames": "1500",
+    "hdr_batch_errors": "1",
+    "hdr_batch_pairs": "absent",
+    "hdr_batch_cells": "absent",
+    "hdr_batch_missing": "absent",
+    "hdr_batch_quality_bad": "absent",
+    "hdr_batch_count": "absent",
+    "hdr_owner_regressions_passed": "0",
+    "hdr_owner_regressions_missing": "5",
+    "hdr_owner_regressions_failed": "0",
+    "hdr_tonemap_defects": "2"
+  },
+  "restored": true,
+  "restored_pid": "29849",
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "apk_sha256": "7a4e6c292353b66e9f82e7958e5cc0c8f55a44acba65e1066b7f9624c75a961a",
+  "binary_sha256": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5"
+}

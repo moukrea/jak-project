@@ -1,29 +1,32 @@
-HDR non validé : le genou à0,96 rapproche les blancs mesurés des nuages de la référence, mais quatre défauts restent présents.
-DIRECTIVES v708c60642a
-Seul réglage moteur changé : gfx.h, genou SDR0,95→0,96 ; formule quadratique, exposition, effets et shaders conservés.
-Candidat0,98 écarté : nuages à midi129,33blancsON contre105,17OFF ; son lot portail a été interrompu avant capture, sources conservées.
-À0,96, nuages à midi106,67blancsON contre105,17OFF, dans l’enveloppeOFF99..114 ; auparavant91,5ON (before-after.json, références39 diagnostiques).
-Le contrôle blanc passe dans cette ROI ; quasi-blancs272,83/262,83, détail3,77118/3,79198 et aplats0,205687/0,199378 restent en échec.
-Soleil couchant : lumaON192,025/OFF193,180, blancs et quasi-blancs0/0 ; éclat et couleur locale restent non qualifiés.
-GPU hôte :8001points par genou,0échec ; saut de pente0,0126362 sous0,05, f(1)=0,99 ; test du shader réel, pas preuve d’image entière.
-Build final incrémental115,2s/repack36,4s ; libab2f8019a399c9c1/APKb7c0612fd139116f… installés Redmi, identité et CGO/packs contrôlés.
-Ciel96 :234s,36captures,85fichiers scellés sans divergenceSHA,crash0 ; portail96 :385s,4captures,21fichiers scellés sans divergenceSHA,crash0.
-Portail après purge : attentesON54,936/110,334s etOFF42,587/85,096s ; âges659/1319, traces dans portal96/timing-and-witnesses.json.
-Disque portailON/OFF : blancs28/27,quasi-blancs41,5/48,luma102,592/126,813,détail25,2244/27,4817 ; déficit persistant, pas de correction revendiquée.
-Sources avant/après conservées ; les rectangles acteur total ont changé et restent explicitement non comparables, le rectangle disque est commun.
-Huit lignes de la preuve officielle produite par proof_run.sh :
+DIRECTIVES v8aed688f73
+Échec : HDR non validé, hdr_tonemap_defects=4 ; correctif des caches HD déployé, mais un SIGSEGV subsiste pendant la campagne.
+jak-hd.gc : caches compagnons et pilotes convertis en handles, résolus avant usage ; aucun modèle, effet ou calcul matrice supprimé.
+Runtime menu/graphics2 : compagnons PID22/23 et pilotes12/21, quatre handles dont les PID concordent ; ancien dernier écrivain du crash42 non établi.
+Build GOAL ARM64/x86 réussi, repack seul après ENOSPC, aucun rebuild C++/NDK ; 28CGO appareil=APK=stage, seuls GAME/ENGINE changés.
+APK7a4e6c292353b66e9 ; libab2f8019a399c9c1/rendu41 inchangés, manifeste bundle c06459d173222 (notes/essai43/build/).
+Menu : preuve313s/crash0 ; troisième lot : preuve178s/crash1, PID29178/SIGSEGV à entrée Swamp, huit captures seulement.
+B3 : échecs kmalloc puis effect=0 ; pile partielle pc01e752dc, aucune signature hd-mtx-check-all ; cause exacte et lien au cache non établis.
+Huit lignes de la dernière preuve officielle proof_run.sh ; crash=0 concerne ce dernier lot uniquement :
 source=device
 serial=eae4df44
 sha=ab2f8019a399c9c1
+duration_s=698
 crash=0
-frames=4560
-FEATURE lighting-hdr armed=1 hits=1029884
-hdr_knee_x1000=960
+frames=5220
+FEATURE lighting-hdr armed=1 hits=700742
 hdr_tonemap_defects=4
-La preuve finale porte batch_errors0, owner_regressions_passed0, deux échecs partiels et343éléments de couverture manquants.
-Ciel et portail restent en campagnes séparées : le helper juge leurs options temporelles6×12 et2×660 incompatibles ; aucune agrégation artificielle.
-Acquis crashes/menuON39 et alpha40 conservés sans rejeu dédié ; diagnostics éco29/30 conservés sans répétition négative.
-non prouvé : correction des cinq cas, attribution du sol devant Samos et vraie hutte, couverture21niveaux×8heures/ciels/intérieurs, ombresOFF/persistanceOFF, imageOFF/HUD entière.
-À regarder : Options > Recharged, LightingOFF/ON ; nuages, soleil couchant, éclairs éco bleue, sol devant Samos et portail après dix secondes animées.
-Réglages owner restaurés exactement SHA78108670… ; propriétésdebug vides ; PID12161 identique aux deux lectures espacées de12s (portal96/restoration.json).
-Validation finale laissée à l’orchestrateur ; aucun owner-ok. Handoff41 à jour ; les cinq cas et la couverture complète restent obligatoires.
+Agrégat officiel : 120paires/cellules = 15niveaux×8h, 3lots qualifiés sur4 ; 1028fichiers scellés vérifiés, aucune divergence SHA.
+B3 exclu avec erreur temporal_capture_accounting_inconsistent ;104manques =48cellules niveaux+48ciels+8hutte ; intérieurs généraux manquants0.
+Firecanyon midi : clipped ON176/OFF61, tolérance57, excès58 ; défaut conservé. Owner : mesurés0, manquants5, échecs partiels2, passés0.
+Diagnostic pièce : neutraliser BAKED-MODULATION ramène RGB portail avant sprites de(.706,.692,.690) à(1.005,.9996,1.001).
+Image entière luma ON/OFF64.223/91.365→91.448/91.246 ; détail15.767/20.222→20.139/20.181 (modulation-comparison.json, sources41/43 diagnostiques).
+Portail43 : attentes animées après purge ON55/110s etOFF41/83s, quatre captures/21SHA conformes/crash0 ; ablation retirée, aucun réglage visuel nouveau livré.
+La neutralisation retire aussi la modulation d’ombre ; le candidat global à deux paramètres et son effet PBR ne sont pas mesurés.
+Vue extérieure de la vraie hutte rapprochée de l’entrée jouable ; correspondance conservée, aucune attribution instrumentée du sol ni couverture de sa pièce.
+Menu réel27→28→5→67 ; Lighting14 non atteint avant délai du finaliseur. PersistanceOFF non exécutée, aucune répétition de taps aveugles.
+Owner : Options > Recharged, comparer LightingOFF/ON ; nuages, soleil couchant, éclairs éco bleue, sol devant Samos et pièce/portail après dix secondes animées.
+non prouvé : correction des cinq cas, suppression globale des crashes, LightingOFF/persistance/ombresOFF, cadrages détaillés et ROI sol.
+non prouvé : Sunkenb/Swamp/Rolling/Ogre/Village3/Snow aux huit heures, leurs ciels et la vraie hutte ; les huit captures Sunkenb du lot crash restent diagnostiques.
+Réglages exacts restaurés SHA78108670…52fd6, propriétés debug vides, PID31673 stable12s (coverage-b4/restoration.json).
+Notes : notes/essai43/diagnostic.md, crash-b3-review.md, final-root-audit.json ; sources brutes, captures et lots interrompus conservés.
+Validateur laissé à l’orchestrateur ; aucun owner-ok. Handoff43 à jour.

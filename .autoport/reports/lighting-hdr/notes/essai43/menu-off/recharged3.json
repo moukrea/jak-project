@@ -1,0 +1,440 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "pid": "17962",
+  "wall_time": 1788883618.0834599,
+  "base": 545460846592,
+  "s7": 1375524,
+  "symbols": {
+    "*menu-touch*": {
+      "slot": 1349004,
+      "value": 33977988,
+      "crc": 704426765,
+      "verified_name": "*menu-touch*"
+    },
+    "*progress-process*": {
+      "slot": 1324244,
+      "value": 1953172,
+      "crc": 3776767734,
+      "verified_name": "*progress-process*"
+    },
+    "*pc-settings*": {
+      "slot": 1343820,
+      "value": 30799300,
+      "crc": 3810881669,
+      "verified_name": "*pc-settings*"
+    },
+    "*options-remap*": {
+      "slot": 1400916,
+      "value": 33542596,
+      "crc": 2699136102,
+      "verified_name": "*options-remap*"
+    },
+    "*recharged-lighting-label*": {
+      "slot": 1396572,
+      "value": 34031620,
+      "crc": 1539754565,
+      "verified_name": "*recharged-lighting-label*"
+    },
+    "*recharged-settings-label*": {
+      "slot": 1415908,
+      "value": 34030612,
+      "crc": 3945567160,
+      "verified_name": "*recharged-settings-label*"
+    },
+    "#t": {
+      "slot": 1375532,
+      "value": 1375532,
+      "crc": 4294958219,
+      "verified_name": "#t"
+    }
+  },
+  "screen": 67,
+  "rows": [
+    {
+      "idx": 0,
+      "oy": 40.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.19120000302791595,
+      "half_h": 0.05975000187754631
+    },
+    {
+      "idx": 1,
+      "oy": 65.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.310699999332428,
+      "half_h": 0.05975000187754631
+    },
+    {
+      "idx": 2,
+      "oy": 90.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.4302000105381012,
+      "half_h": 0.05975000187754631
+    },
+    {
+      "idx": 3,
+      "oy": 115.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.5497000217437744,
+      "half_h": 0.05975000187754631
+    },
+    {
+      "idx": 4,
+      "oy": 140.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.6692000031471252,
+      "half_h": 0.05975000187754631
+    },
+    {
+      "idx": 5,
+      "oy": 165.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.7886999845504761,
+      "half_h": 0.05975000187754631
+    }
+  ],
+  "progress": {
+    "display": 67,
+    "next": 67,
+    "option_index": 0
+  },
+  "remap_header": [
+    0,
+    72,
+    1580548
+  ],
+  "options_array": {
+    "ptr": 33987812,
+    "length": 30,
+    "allocated": 30,
+    "type": 22719108
+  },
+  "options": [
+    {
+      "index": 0,
+      "ptr": 33984932,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799756,
+      "name_override": 34030756,
+      "label": "Interrupteur Recharged",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 1,
+      "ptr": 33985028,
+      "option_type": 6,
+      "name": 4128,
+      "param3": 68,
+      "value_to_modify": 0,
+      "name_override": 34037108,
+      "label": "Re~Y~-14H~-1V\u0012~Zglages herbe"
+    },
+    {
+      "index": 2,
+      "ptr": 33985124,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799908,
+      "name_override": 34030900,
+      "label": "Textures utilisateur",
+      "current_value": 1375524,
+      "is_false": true
+    },
+    {
+      "index": 3,
+      "ptr": 33985220,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799912,
+      "name_override": 34031044,
+      "label": "Textures inte~Y~-14H~-1V\u0012~Zgre~Y~-14H~-1V\u0012~Zes",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 4,
+      "ptr": 33985316,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799792,
+      "name_override": 34031332,
+      "label": "Mate~Y~-14H~-1V\u0012~Zriaux PBR",
+      "current_value": 1375524,
+      "is_false": true
+    },
+    {
+      "index": 5,
+      "ptr": 33985412,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799876,
+      "name_override": 34033572,
+      "label": "Mode~Y~-12H~-1V\u0011~Zles ame~Y~-14H~-1V\u0012~Zliore~Y~-14H~-1V\u0012~Zs",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 6,
+      "ptr": 33985508,
+      "option_type": 37,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34033716,
+      "label": "Apparence de Jak"
+    },
+    {
+      "index": 7,
+      "ptr": 33985604,
+      "option_type": 38,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34033860,
+      "label": "Apparence de Daxter"
+    },
+    {
+      "index": 8,
+      "ptr": 33985700,
+      "option_type": 39,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34034004,
+      "label": "Apparence de Keira"
+    },
+    {
+      "index": 9,
+      "ptr": 33985796,
+      "option_type": 40,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34034148,
+      "label": "Apparence de Samos"
+    },
+    {
+      "index": 10,
+      "ptr": 33985892,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799856,
+      "name_override": 34036676,
+      "label": "Vent du feuillage",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 11,
+      "ptr": 33985988,
+      "option_type": 28,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34037252,
+      "label": "Occlusion ambiante"
+    },
+    {
+      "index": 12,
+      "ptr": 33986084,
+      "option_type": 29,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34037396,
+      "label": "Qualite~Y~-14H~-1V\u0012~Z AO"
+    },
+    {
+      "index": 13,
+      "ptr": 33986180,
+      "option_type": 30,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34037540,
+      "label": "Force AO"
+    },
+    {
+      "index": 14,
+      "ptr": 33986276,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799760,
+      "name_override": 34031620,
+      "label": "E~Y~-12H~-4V\u0012~Zclairage temps re~Y~-14H~-1V\u0012~Zel",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 15,
+      "ptr": 33986372,
+      "option_type": 32,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34032852,
+      "label": "Mode~Y~-12H~-1V\u0011~Zle d\u0012ambiance"
+    },
+    {
+      "index": 16,
+      "ptr": 33986468,
+      "option_type": 0,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799832,
+      "name_override": 34031844,
+      "label": "Force de l\u0012ambiance"
+    },
+    {
+      "index": 17,
+      "ptr": 33986564,
+      "option_type": 0,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799844,
+      "name_override": 34031988,
+      "label": "Distance des ombres"
+    },
+    {
+      "index": 18,
+      "ptr": 33986660,
+      "option_type": 31,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34032132,
+      "label": "Qualite~Y~-14H~-1V\u0012~Z des ombres"
+    },
+    {
+      "index": 19,
+      "ptr": 33986756,
+      "option_type": 0,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799796,
+      "name_override": 34032276,
+      "label": "Relief des textures"
+    },
+    {
+      "index": 20,
+      "ptr": 33986852,
+      "option_type": 0,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799800,
+      "name_override": 34032420,
+      "label": "Intensite~Y~-14H~-1V\u0012~Z des reflets"
+    },
+    {
+      "index": 21,
+      "ptr": 33986948,
+      "option_type": 33,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34032564,
+      "label": "Profondeur de surface"
+    },
+    {
+      "index": 22,
+      "ptr": 33987044,
+      "option_type": 43,
+      "name": 4176,
+      "param3": 0,
+      "value_to_modify": 33978672,
+      "name_override": 34032708,
+      "label": "Subdivision du maillage"
+    },
+    {
+      "index": 23,
+      "ptr": 33987140,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799820,
+      "name_override": 34031476,
+      "label": "Mate~Y~-14H~-1V\u0012~Zriaux avance~Y~-14H~-1V\u0012~Zs",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 24,
+      "ptr": 33987236,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799860,
+      "name_override": 34036820,
+      "label": "Logo titre net",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 25,
+      "ptr": 33987332,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799920,
+      "name_override": 34036964,
+      "label": "Pas fixe de simulation",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 26,
+      "ptr": 33987428,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799896,
+      "name_override": 34035444,
+      "label": "Physique",
+      "current_value": 1375524,
+      "is_false": true
+    },
+    {
+      "index": 27,
+      "ptr": 33987524,
+      "option_type": 2,
+      "name": 4155,
+      "param3": 0,
+      "value_to_modify": 30799916,
+      "name_override": 34031188,
+      "label": "Textures te~Y~-14H~-1V\u0012~Zle~Y~-14H~-1V\u0012~Zcharge~Y~-14H~-1V\u0012~Zes",
+      "current_value": 1375532,
+      "is_false": false
+    },
+    {
+      "index": 28,
+      "ptr": 33987620,
+      "option_type": 8,
+      "name": 5928,
+      "param3": 0,
+      "value_to_modify": 0,
+      "name_override": 0,
+      "label": null
+    },
+    {
+      "index": 29,
+      "ptr": 33987716,
+      "option_type": 8,
+      "name": 318,
+      "param3": 0,
+      "value_to_modify": 0,
+      "name_override": 0,
+      "label": null
+    }
+  ],
+  "*recharged-lighting-label*": "E~Y~-12H~-4V\u0012~Zclairage temps re~Y~-14H~-1V\u0012~Zel",
+  "*recharged-settings-label*": "Re~Y~-14H~-1V\u0012~Zglages recharge~Y~-14H~-1V\u0012~Zs"
+}

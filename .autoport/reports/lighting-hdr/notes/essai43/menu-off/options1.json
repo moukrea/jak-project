@@ -1,0 +1,142 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "pid": "17962",
+  "wall_time": 1788883377.86133,
+  "base": 545460846592,
+  "s7": 1375524,
+  "symbols": {
+    "*menu-touch*": {
+      "slot": 1349004,
+      "value": 33977988,
+      "crc": 704426765,
+      "verified_name": "*menu-touch*"
+    },
+    "*progress-process*": {
+      "slot": 1324244,
+      "value": 1953172,
+      "crc": 3776767734,
+      "verified_name": "*progress-process*"
+    },
+    "*pc-settings*": {
+      "slot": 1343820,
+      "value": 30799300,
+      "crc": 3810881669,
+      "verified_name": "*pc-settings*"
+    },
+    "*options-remap*": {
+      "slot": 1400916,
+      "value": 33542596,
+      "crc": 2699136102,
+      "verified_name": "*options-remap*"
+    },
+    "*recharged-lighting-label*": {
+      "slot": 1396572,
+      "value": 34031620,
+      "crc": 1539754565,
+      "verified_name": "*recharged-lighting-label*"
+    },
+    "*recharged-settings-label*": {
+      "slot": 1415908,
+      "value": 34030612,
+      "crc": 3945567160,
+      "verified_name": "*recharged-settings-label*"
+    },
+    "#t": {
+      "slot": 1375532,
+      "value": 1375532,
+      "crc": 4294958219,
+      "verified_name": "#t"
+    }
+  },
+  "screen": 28,
+  "rows": [
+    {
+      "idx": 0,
+      "oy": 65.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.310699999332428,
+      "half_h": 0.05975000187754631
+    },
+    {
+      "idx": 1,
+      "oy": 90.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.4302000105381012,
+      "half_h": 0.05975000187754631
+    },
+    {
+      "idx": 2,
+      "oy": 115.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.5497000217437744,
+      "half_h": 0.05975000187754631
+    },
+    {
+      "idx": 3,
+      "oy": 140.0,
+      "cx": 0.5568749904632568,
+      "cy": 0.6692000031471252,
+      "half_h": 0.05975000187754631
+    }
+  ],
+  "progress": {
+    "display": 28,
+    "next": 28,
+    "option_index": 0
+  },
+  "remap_header": [
+    0,
+    72,
+    1580548
+  ],
+  "options_array": {
+    "ptr": 33537476,
+    "length": 4,
+    "allocated": 4,
+    "type": 22719108
+  },
+  "options": [
+    {
+      "index": 0,
+      "ptr": 33537092,
+      "option_type": 6,
+      "name": 295,
+      "param3": 4,
+      "value_to_modify": 0,
+      "name_override": 0,
+      "label": null
+    },
+    {
+      "index": 1,
+      "ptr": 33537188,
+      "option_type": 6,
+      "name": 296,
+      "param3": 5,
+      "value_to_modify": 0,
+      "name_override": 0,
+      "label": null
+    },
+    {
+      "index": 2,
+      "ptr": 33537284,
+      "option_type": 6,
+      "name": 297,
+      "param3": 6,
+      "value_to_modify": 0,
+      "name_override": 0,
+      "label": null
+    },
+    {
+      "index": 3,
+      "ptr": 33537380,
+      "option_type": 8,
+      "name": 318,
+      "param3": 0,
+      "value_to_modify": 0,
+      "name_override": 0,
+      "label": null
+    }
+  ],
+  "*recharged-lighting-label*": "E~Y~-12H~-4V\u0012~Zclairage temps re~Y~-14H~-1V\u0012~Zel",
+  "*recharged-settings-label*": "Re~Y~-14H~-1V\u0012~Zglages recharge~Y~-14H~-1V\u0012~Zs"
+}

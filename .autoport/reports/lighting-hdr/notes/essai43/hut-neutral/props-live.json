@@ -1,0 +1,26 @@
+{
+  "rt.litboost": {
+    "rc": 0,
+    "value": "100"
+  },
+  "rt.shadowmul": {
+    "rc": 0,
+    "value": "100"
+  },
+  "rt.tintlit": {
+    "rc": 0,
+    "value": "0"
+  },
+  "rt.tintshadow": {
+    "rc": 0,
+    "value": "0"
+  },
+  "rt.light": {
+    "rc": 0,
+    "value": "1"
+  },
+  "hdr": {
+    "rc": 0,
+    "value": "1"
+  }
+}

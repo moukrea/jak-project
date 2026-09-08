@@ -1,0 +1,209 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "batch": ".autoport/reports/lighting-hdr/batches/essai43-coverage/20260908T162138-84202",
+  "manifest_sha256": "0b99e92ea29b3aea89cbc85ec0de47023afaad794171f0474f660e79fd2356c7",
+  "sealed_files": 397,
+  "errors": [],
+  "producer_exit": 0,
+  "manifest_errors": [],
+  "manifest_crash": 0,
+  "pngs": 192,
+  "requested_views": [
+    "beach-start",
+    "jungle-start",
+    "misty-start",
+    "firecanyon-start",
+    "village2-start",
+    "sunken-start"
+  ],
+  "counts": [
+    {
+      "view": "beach-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "beach-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "firecanyon-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "firecanyon-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "jungle-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "jungle-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "misty-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "misty-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "sunken-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "sunken-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "village2-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "village2-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    }
+  ],
+  "missing_local_samples": [],
+  "proof_fields": {
+    "duration_s": "745",
+    "crash": "0",
+    "frames": "5160",
+    "hdr_batch_errors": "0",
+    "hdr_batch_pairs": "72",
+    "hdr_batch_cells": "72",
+    "hdr_batch_missing": "200",
+    "hdr_batch_quality_bad": "1",
+    "hdr_batch_count": "2",
+    "hdr_owner_regressions_missing": "5",
+    "hdr_owner_regressions_failed": "2",
+    "hdr_tonemap_defects": "4"
+  },
+  "restored": true,
+  "restored_pid": "28509",
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "apk_sha256": "7a4e6c292353b66e9f82e7958e5cc0c8f55a44acba65e1066b7f9624c75a961a",
+  "binary_sha256": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5"
+}

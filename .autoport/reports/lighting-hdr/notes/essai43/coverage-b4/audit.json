@@ -1,0 +1,212 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "batch": ".autoport/reports/lighting-hdr/batches/essai43-coverage/20260908T164214-104834",
+  "manifest_sha256": "e8df3d3fca317553ee7b6939161a7bad02491c0bfd8053cdb30f68271abd2ce7",
+  "sealed_files": 397,
+  "errors": [],
+  "producer_exit": 0,
+  "manifest_errors": [],
+  "manifest_crash": 0,
+  "pngs": 192,
+  "requested_views": [
+    "maincave-start",
+    "darkcave-start",
+    "robocave-start",
+    "lavatube-start",
+    "citadel-start",
+    "finalboss-start"
+  ],
+  "counts": [
+    {
+      "view": "citadel-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "citadel-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "darkcave-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "darkcave-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "finalboss-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "finalboss-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "lavatube-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "lavatube-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "maincave-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "maincave-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "robocave-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "robocave-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    }
+  ],
+  "missing_local_samples": [],
+  "proof_fields": {
+    "source": "device",
+    "serial": "eae4df44",
+    "duration_s": "698",
+    "crash": "0",
+    "frames": "5220",
+    "hdr_batch_errors": "1",
+    "hdr_batch_pairs": "120",
+    "hdr_batch_cells": "120",
+    "hdr_batch_missing": "104",
+    "hdr_batch_quality_bad": "1",
+    "hdr_batch_count": "3",
+    "hdr_owner_regressions_passed": "0",
+    "hdr_owner_regressions_missing": "5",
+    "hdr_owner_regressions_failed": "2",
+    "hdr_tonemap_defects": "4"
+  },
+  "restored": true,
+  "restored_pid": "31673",
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "apk_sha256": "7a4e6c292353b66e9f82e7958e5cc0c8f55a44acba65e1066b7f9624c75a961a",
+  "binary_sha256": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5"
+}

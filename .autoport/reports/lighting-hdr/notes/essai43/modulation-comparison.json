@@ -1,0 +1,257 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "purpose": "diagnostic BAKED-MODULATION, not delivered settings or game validation",
+  "limitation": "lower-image rectangle is not semantic attribution of the outdoor ground reported by the owner",
+  "runs": {
+    "delivered41": {
+      "manifest": "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/batches/essai41-portal-knee96/20260908T150638-22119/manifest.json",
+      "manifest_sha256": "beae70ea0671e78cc9383488519963bc9dc9486a485701d31753e6e107e2e5bf",
+      "native_summary_sha256": "798770c9dc79cfb7f6f729926e4242040a7f5ddd1796e2366ee9f694c1c39311",
+      "before_sprites_rgb": {
+        "origine-lumiere": [
+          0.3743285396172827,
+          0.35183426187409517,
+          0.45612090285685036,
+          0.9256865569735955
+        ],
+        "recharged": [
+          0.26425626502077804,
+          0.24343196944973067,
+          0.3145482359448729,
+          0.9554502954510202
+        ]
+      },
+      "before_sprites_on_off_ratio": [
+        0.7059474153131801,
+        0.6918938711456233,
+        0.6896159197588697
+      ],
+      "regions": {
+        "whole_image": {
+          "roi_exclusive": null,
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "5697b6082fe98964264d0612fba79358530bcdc822276aacd8a02d5bec47ef16"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "ad75ac345580602da2acdb13fb773f6978c44121593261ddaf4141f60cec6155"
+                }
+              ],
+              "mean": {
+                "luma": 64.22314236111112,
+                "detail": 15.767473424283288,
+                "flat": 0.0315055778357647,
+                "saturation": 0.5511558268005645,
+                "white": 29.5,
+                "nearwhite": 45,
+                "clipped": 1269
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "7069ca4a6efcb68a20f0d2ab13bfafe3954a43b8b1cfc05a965c5d0577093a7b"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "f592f45d75767110477ac19db3f729d69cc8ba04ece9cb9d09f9f29d8c04ce42"
+                }
+              ],
+              "mean": {
+                "luma": 91.36538194444444,
+                "detail": 20.221817481305056,
+                "flat": 0.01561268629270941,
+                "saturation": 0.5548513881206395,
+                "white": 27,
+                "nearwhite": 54,
+                "clipped": 1375.5
+              }
+            }
+          }
+        },
+        "lower_image": {
+          "roi_exclusive": [
+            0,
+            120,
+            320,
+            180
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "5697b6082fe98964264d0612fba79358530bcdc822276aacd8a02d5bec47ef16"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "ad75ac345580602da2acdb13fb773f6978c44121593261ddaf4141f60cec6155"
+                }
+              ],
+              "mean": {
+                "luma": 66.96078125,
+                "detail": 12.813931247011316,
+                "flat": 0.029275808936825885,
+                "saturation": 0.618441246407772,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "7069ca4a6efcb68a20f0d2ab13bfafe3954a43b8b1cfc05a965c5d0577093a7b"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "f592f45d75767110477ac19db3f729d69cc8ba04ece9cb9d09f9f29d8c04ce42"
+                }
+              ],
+              "mean": {
+                "luma": 103.82640625,
+                "detail": 19.729769937835396,
+                "flat": 0.017055416821635406,
+                "saturation": 0.6287245277650619,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "neutral43": {
+      "manifest": "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/batches/essai43-hut-neutral/20260908T154011-53009/manifest.json",
+      "manifest_sha256": "f79d5ed0454e82203b1f0084201f72c0d865174c9441b3d593360df3bbe4c01f",
+      "native_summary_sha256": "1e707248e28c6d8d63084a26959327b64cdad4c90163c8860347ab2352265983",
+      "before_sprites_rgb": {
+        "origine-lumiere": [
+          0.3742827321282665,
+          0.351799906256935,
+          0.4563161434075713,
+          0.9376194092991663
+        ],
+        "recharged": [
+          0.37628353002064585,
+          0.3516597014207107,
+          0.4568497375205711,
+          0.9544621089924434
+        ]
+      },
+      "before_sprites_on_off_ratio": [
+        1.0053456858161804,
+        0.9996014642592829,
+        1.0011693518204619
+      ],
+      "regions": {
+        "whole_image": {
+          "roi_exclusive": null,
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "990e12f632e266bf1a439c55cdfea5abc03b6ce5a02c70e821a47547b6b81a9c"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "6a54e4ffc5b56735d00de31888d365c71d5c3a81da44bcaf5674f1305ae45ce8"
+                }
+              ],
+              "mean": {
+                "luma": 91.44762152777778,
+                "detail": 20.138587765538254,
+                "flat": 0.01669848163779969,
+                "saturation": 0.5538922275946696,
+                "white": 33.5,
+                "nearwhite": 57,
+                "clipped": 1621.5
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "fe4130ec3644965c11124c8eb9508e768139b6bc389f6a534722c280394d897e"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "d3bc95e551257dbafe63ac09ce1d841edc0c3ff782f63dfca0d200b166bbe321"
+                }
+              ],
+              "mean": {
+                "luma": 91.24608506944445,
+                "detail": 20.181108912278244,
+                "flat": 0.015936673613421833,
+                "saturation": 0.5546981700565008,
+                "white": 29.5,
+                "nearwhite": 56,
+                "clipped": 1431.5
+              }
+            }
+          }
+        },
+        "lower_image": {
+          "roi_exclusive": [
+            0,
+            120,
+            320,
+            180
+          ],
+          "arms": {
+            "recharged": {
+              "images": [
+                {
+                  "path": "captures/recharged/village1-out-h12-t01.png",
+                  "sha256": "990e12f632e266bf1a439c55cdfea5abc03b6ce5a02c70e821a47547b6b81a9c"
+                },
+                {
+                  "path": "captures/recharged/village1-out-h12.png",
+                  "sha256": "6a54e4ffc5b56735d00de31888d365c71d5c3a81da44bcaf5674f1305ae45ce8"
+                }
+              ],
+              "mean": {
+                "luma": 103.78796875,
+                "detail": 19.72743212369162,
+                "flat": 0.017161681100897934,
+                "saturation": 0.6287519550621806,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0
+              }
+            },
+            "origine-lumiere": {
+              "images": [
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12-t01.png",
+                  "sha256": "fe4130ec3644965c11124c8eb9508e768139b6bc389f6a534722c280394d897e"
+                },
+                {
+                  "path": "captures/origine-lumiere/village1-out-h12.png",
+                  "sha256": "d3bc95e551257dbafe63ac09ce1d841edc0c3ff782f63dfca0d200b166bbe321"
+                }
+              ],
+              "mean": {
+                "luma": 103.82640625,
+                "detail": 19.729769937835396,
+                "flat": 0.017055416821635406,
+                "saturation": 0.6287245277650619,
+                "white": 0,
+                "nearwhite": 0,
+                "clipped": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

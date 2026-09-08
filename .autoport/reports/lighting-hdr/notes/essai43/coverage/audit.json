@@ -1,0 +1,172 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "producer_exit": 0,
+  "batch": ".autoport/reports/lighting-hdr/batches/essai43-coverage/20260908T161000-76323",
+  "sealed_files": 205,
+  "hash_failures": [],
+  "pngs": 96,
+  "counts": [
+    {
+      "view": "jungle-tower",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "jungle-tower",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "training-start",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "training-start",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "village1-out",
+      "arm": "origine-lumiere",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    },
+    {
+      "view": "village1-out",
+      "arm": "recharged",
+      "hours": {
+        "0": 2,
+        "3": 2,
+        "6": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "18": 2,
+        "21": 2
+      }
+    }
+  ],
+  "manifest_errors": [],
+  "crash": 0,
+  "proof_fields": {
+    "duration_s": "393",
+    "frames": "3180",
+    "crash": "0",
+    "hdr_batch_errors": "0",
+    "hdr_batch_pairs": "24",
+    "hdr_batch_cells": "24",
+    "hdr_batch_missing": "296",
+    "hdr_batch_quality_bad": "0",
+    "hdr_owner_regressions_missing": "5",
+    "hdr_owner_regressions_failed": "1",
+    "hdr_tonemap_defects": "4"
+  },
+  "restoration": {
+    "DIRECTIVES": "v8aed688f73",
+    "original_settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+    "restored_settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+    "pids": [
+      "25268",
+      "25268"
+    ],
+    "nonempty_debug_props": []
+  },
+  "image_summary": [
+    {
+      "view": "jungle-tower",
+      "mean_on_minus_off": {
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 9.8125,
+        "luma": -11.216490885416668,
+        "detail": -0.8983194252289803,
+        "flat": 0.02919716817568869,
+        "saturation": -0.012198362830797602
+      },
+      "luma_delta_range": [
+        -19.70604166666667,
+        -0.8013975694444468
+      ]
+    },
+    {
+      "view": "training-start",
+      "mean_on_minus_off": {
+        "white": 1.0,
+        "nearwhite": 0.625,
+        "clipped": -861.0,
+        "luma": -5.074811197916665,
+        "detail": -0.1644585909178473,
+        "flat": 0.012193306597082364,
+        "saturation": 0.0004891927017104669
+      },
+      "luma_delta_range": [
+        -10.339114583333327,
+        -0.14116319444443803
+      ]
+    },
+    {
+      "view": "village1-out",
+      "mean_on_minus_off": {
+        "white": -0.125,
+        "nearwhite": -1.25,
+        "clipped": -604.625,
+        "luma": -4.617237413194446,
+        "detail": -0.5242213358785313,
+        "flat": 0.007172597677798987,
+        "saturation": -0.00019648201064641213
+      },
+      "luma_delta_range": [
+        -9.93249999999999,
+        -1.1026302083333306
+      ]
+    }
+  ],
+  "manifest_sha256": "2c7d2c8785aff8ab31f4ec4d614e36c8dcfb0c206db4df82dff6c039d893d541",
+  "binary_sha256": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5",
+  "apk_sha256": "7a4e6c292353b66e9f82e7958e5cc0c8f55a44acba65e1066b7f9624c75a961a"
+}

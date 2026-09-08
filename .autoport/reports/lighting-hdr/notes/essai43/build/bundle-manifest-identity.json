@@ -1,0 +1,12 @@
+[
+  {
+    "file": "android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties",
+    "sha256": "2453d34b0d0a7d2cfa8e9996ecc5c45f73080df8bf708d83f69ec2909dafda97",
+    "apk_entry_matches": true
+  },
+  {
+    "file": "android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip",
+    "sha256": "f0fbfd3f2530f15afb69763709692651f18f2eb6d1a8cbe1d3f1b5980898cbcb",
+    "apk_entry_matches": true
+  }
+]

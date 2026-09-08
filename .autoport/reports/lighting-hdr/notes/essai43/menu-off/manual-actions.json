@@ -1,0 +1,146 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "serial": "eae4df44",
+  "actions": [
+    {
+      "action": [
+        "input",
+        "keyevent",
+        "108"
+      ],
+      "before": "start2-partial.json",
+      "after": "title1-partial.json",
+      "effect": "menu still closed"
+    },
+    {
+      "action": [
+        "input",
+        "tap",
+        "1149",
+        "467"
+      ],
+      "runtime_guard": "target-title-wait in engine log; title anytap mechanism TouchOverlayView.java:721",
+      "after": "title2.json"
+    },
+    {
+      "action": [
+        "input",
+        "swipe",
+        "372",
+        "870",
+        "372",
+        "870",
+        "350"
+      ],
+      "before": "graphics2.json",
+      "after": "graphics-scroll1.json",
+      "geometry": "runtime overlay leftstick plus CINEVP2400x1080 and TouchOverlayView cx=w*.155,cy=h*.68,r=h*.165; downward zone",
+      "limitation": "final action overlapped finalizer restore; no OFF action"
+    },
+    {
+      "action": [
+        "input",
+        "swipe",
+        "372",
+        "870",
+        "372",
+        "870",
+        "350"
+      ],
+      "before": "graphics-scroll1.json",
+      "after": "graphics-scroll2.json",
+      "geometry": "runtime overlay leftstick plus CINEVP2400x1080 and TouchOverlayView cx=w*.155,cy=h*.68,r=h*.165; downward zone",
+      "limitation": "final action overlapped finalizer restore; no OFF action"
+    },
+    {
+      "action": [
+        "input",
+        "swipe",
+        "372",
+        "870",
+        "372",
+        "870",
+        "350"
+      ],
+      "before": "graphics-scroll2.json",
+      "after": "graphics-scroll3.json",
+      "geometry": "runtime overlay leftstick plus CINEVP2400x1080 and TouchOverlayView cx=w*.155,cy=h*.68,r=h*.165; downward zone",
+      "limitation": "final action overlapped finalizer restore; no OFF action"
+    },
+    {
+      "action": [
+        "input",
+        "swipe",
+        "372",
+        "870",
+        "372",
+        "870",
+        "650"
+      ],
+      "before": "recharged1.json",
+      "after": "graphics-scroll5.json",
+      "geometry": "runtime overlay leftstick plus CINEVP2400x1080 and TouchOverlayView cx=w*.155,cy=h*.68,r=h*.165; downward zone",
+      "limitation": "final action overlapped finalizer restore; no OFF action"
+    },
+    {
+      "action": [
+        "input",
+        "swipe",
+        "372",
+        "870",
+        "372",
+        "870",
+        "350"
+      ],
+      "before": "graphics-scroll6.json",
+      "after": "graphics-scroll7.json",
+      "geometry": "runtime overlay leftstick plus CINEVP2400x1080 and TouchOverlayView cx=w*.155,cy=h*.68,r=h*.165; downward zone",
+      "limitation": "final action overlapped finalizer restore; no OFF action"
+    },
+    {
+      "action": [
+        "input",
+        "swipe",
+        "372",
+        "870",
+        "372",
+        "870",
+        "1800"
+      ],
+      "before": "recharged3.json",
+      "after": "recharge-scroll1.json",
+      "geometry": "runtime overlay leftstick plus CINEVP2400x1080 and TouchOverlayView cx=w*.155,cy=h*.68,r=h*.165; downward zone",
+      "limitation": "final action overlapped finalizer restore; no OFF action"
+    },
+    {
+      "action": [
+        "input",
+        "swipe",
+        "372",
+        "870",
+        "372",
+        "870",
+        "4500"
+      ],
+      "before": "recharge-scroll1.json",
+      "after": "recharge-scroll2.json",
+      "geometry": "runtime overlay leftstick plus CINEVP2400x1080 and TouchOverlayView cx=w*.155,cy=h*.68,r=h*.165; downward zone",
+      "limitation": "final action overlapped finalizer restore; no OFF action"
+    },
+    {
+      "action": [
+        "input",
+        "swipe",
+        "372",
+        "870",
+        "372",
+        "870",
+        "6000"
+      ],
+      "before": "recharge-scroll2.json",
+      "after": "recharge-scroll3-partial.json",
+      "geometry": "runtime overlay leftstick plus CINEVP2400x1080 and TouchOverlayView cx=w*.155,cy=h*.68,r=h*.165; downward zone",
+      "limitation": "final action overlapped finalizer restore; no OFF action"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+[
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "run-as",
+      "org.opengoal.gk.jak1",
+      "stat",
+      "files/gk_crash.txt"
+    ],
+    "rc": 1,
+    "file": "gk_crash-stat.txt",
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "exec-out",
+      "run-as",
+      "org.opengoal.gk.jak1",
+      "cat",
+      "files/gk_crash.txt"
+    ],
+    "rc": 0,
+    "file": "gk-crash-read-result.txt",
+    "stdout_sha256": "66be638fa47bb4e9798ee86311272ecf191549bb3e033387e79d76cda643de50",
+    "interpretation": "adb exec-out returned0 but cat reports missing file; no crash dump recovered"
+  }
+]

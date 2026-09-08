@@ -1,0 +1,19 @@
+{
+  "lib": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5",
+  "apk": "7a4e6c292353b66e9f82e7958e5cc0c8f55a44acba65e1066b7f9624c75a961a",
+  "changed_packs": [
+    "android/app/src/jak1/assets-slim/bundle/jak1_cgo.manifest.properties",
+    "android/app/src/jak1/assets-slim/bundle/jak1_cgo.zip",
+    "out/jak1-arm64-full/iso/GAME.CGO",
+    "out/jak1-arm64-full/iso/ENGINE.CGO"
+  ],
+  "publisher_unchanged": true,
+  "serial": "eae4df44",
+  "device_apk": "/data/app/~~O-Oilo-jpAO39x6qFG33Sw==/org.opengoal.gk.jak1-Qq6IqVIVT2OUL7kwiXBKGA==/base.apk",
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "device_cgos_match_stage": true,
+  "stable_pids": [
+    "17032",
+    "17032"
+  ]
+}

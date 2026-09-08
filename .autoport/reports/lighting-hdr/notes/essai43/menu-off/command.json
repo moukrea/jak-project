@@ -1,0 +1,11 @@
+[
+  "bash",
+  "-c",
+  "pkill(){ return 1; }; export -f pkill; exec bash \"$@\"",
+  "_",
+  ".autoport/lib/proof_run.sh",
+  "lighting-hdr",
+  "device",
+  "--timeout",
+  "300"
+]

@@ -1,0 +1,2 @@
+ls: files/crash.txt: No such file or directory
+ls: files/logs/crash.txt: No such file or directory

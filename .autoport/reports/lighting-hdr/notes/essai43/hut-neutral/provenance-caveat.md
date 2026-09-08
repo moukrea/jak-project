@@ -1,0 +1,2 @@
+DIRECTIVES v8aed688f73
+Diagnostic causal, pas validation. Lib et CGO réellement déployés sont ceux essai41 avant correction GOAL (hashes preflight). jak-hd.gc sur disque a été modifié pendant ce run ; cette source locale ne décrit donc pas les CGO exécutés. Aucun build ni déploiement pendant le diagnostic. Les PNG entiers refset font 320x180 ; HDR-OWNER-COMPOSITION mesure les ROI natives viewport960x432. HUT_VIEWS vide : vraie hutte non qualifiée pour couverture officielle.

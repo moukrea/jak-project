@@ -3076,10 +3076,11 @@
 ;; replacement table), then reconciles with the enhanced-models toggle. Two-phase (collect THEN
 ;; spawn) so the tree is never mutated mid-walk.
 ;; ------------------------------------------------------------------------------------------------
-(define *hd-scan-drivers* (new 'static 'array process-drawable 16))
+;; Handles keep cached processes identifiable across deactivation and memory reuse.
+(define *hd-scan-drivers* (new 'static 'array handle 16))
 (define *hd-scan-driver-entries* (new 'static 'array int32 16))
 (define *hd-scan-driver-count* 0)
-(define *hd-scan-companions* (new 'static 'array jak-hd 16))
+(define *hd-scan-companions* (new 'static 'array handle 16))
 (define *hd-scan-companion-count* 0)
 
 (defun hd-draw-check ((dc draw-control) (mtxarea pointer))
@@ -3117,7 +3118,7 @@
    les matrices merc PRODUITES (position = [bp,1].tmat, espace camera) contre la longueur du
    squelette MAINTENANT, et le squelette maintenant contre le :post (hd-cmd)."
   (dotimes (i *hd-scan-companion-count*)
-    (let ((obj (-> *hd-scan-companions* i)))
+    (let ((obj (the-as jak-hd (handle->process (-> *hd-scan-companions* i)))))
       (when (and obj (nonzero? (-> obj hd-mtxarea)) (nonzero? (-> obj draw)) (nonzero? (-> obj draw skeleton)))
         (let* ((skel (-> obj draw skeleton))
                (nbones (-> skel length))
@@ -3183,7 +3184,7 @@
   (cond
     ((= (-> proc type) jak-hd)
      (when (< *hd-scan-companion-count* 16)
-       (set! (-> *hd-scan-companions* *hd-scan-companion-count*) (the-as jak-hd proc))
+       (set! (-> *hd-scan-companions* *hd-scan-companion-count*) (process->handle proc))
        (set! *hd-scan-companion-count* (+ *hd-scan-companion-count* 1))))
     ((and (type-type? (-> proc type) process-drawable)
           (nonzero? (-> (the-as process-drawable proc) draw))
@@ -3192,7 +3193,7 @@
      ;; non-replaced model) means this driver is not a candidate at all — it keeps its stock mesh.
      (let ((entry (hd-desired-entry-for-mgeo (-> (the-as process-drawable proc) draw mgeo name))))
        (when (and (>= entry 0) (< *hd-scan-driver-count* 16))
-         (set! (-> *hd-scan-drivers* *hd-scan-driver-count*) (the-as process-drawable proc))
+         (set! (-> *hd-scan-drivers* *hd-scan-driver-count*) (process->handle proc))
          (set! (-> *hd-scan-driver-entries* *hd-scan-driver-count*) entry)
          (set! *hd-scan-driver-count* (+ *hd-scan-driver-count* 1))))))
   #t)
@@ -3397,7 +3398,9 @@
       ((not want?)
        ;; toggle OFF: despawn every companion, clear the asset latches (re-toggle retries the load).
        (dotimes (i *hd-scan-companion-count*)
-         (deactivate (-> *hd-scan-companions* i)))
+         (let ((comp (the-as jak-hd (handle->process (-> *hd-scan-companions* i)))))
+           (when comp
+             (deactivate comp))))
        (dotimes (e 11)
          (set! (-> *hd-asset-missing* e) 0)))
       (else
@@ -3409,19 +3412,20 @@
        ;; A driver whose look merely changed gets a fresh companion on the NEXT scan pass — the
        ;; one-frame gap shows the stock model, which is exactly what an unsuppressed actor is.
        (dotimes (j *hd-scan-companion-count*)
-         (let* ((comp (-> *hd-scan-companions* j))
-                (drv (the-as process-drawable (handle->process (-> comp driver)))))
-           (when (and drv (nonzero? (-> drv draw)) (nonzero? (-> drv draw mgeo)))
-             (let ((want (hd-desired-entry-for-mgeo (-> drv draw mgeo name))))
-               (when (!= want (-> comp entry))
-                 (format 0 "[HD-COMP] look-switch drv=~S entry ~D -> ~D (despawn)~%"
-                         (-> drv draw mgeo name)
-                         (-> comp entry)
-                         want)
-                 (deactivate comp))))))
+         (let ((comp (the-as jak-hd (handle->process (-> *hd-scan-companions* j)))))
+           (when comp
+             (let ((drv (the-as process-drawable (handle->process (-> comp driver)))))
+               (when (and drv (nonzero? (-> drv draw)) (nonzero? (-> drv draw mgeo)))
+                 (let ((want (hd-desired-entry-for-mgeo (-> drv draw mgeo name))))
+                   (when (!= want (-> comp entry))
+                     (format 0 "[HD-COMP] look-switch drv=~S entry ~D -> ~D (despawn)~%"
+                             (-> drv draw mgeo name)
+                             (-> comp entry)
+                             want)
+                     (deactivate comp))))))))
        ;; toggle ON: spawn a companion for every uncovered driver instance (per-actor coverage).
        (dotimes (i *hd-scan-driver-count*)
-         (let* ((drv (-> *hd-scan-drivers* i))
+         (let* ((drv (the-as process-drawable (handle->process (-> *hd-scan-drivers* i))))
                 (entry (-> *hd-scan-driver-entries* i))
                 (covered #f))
            ;; already covered? a live companion whose driver handle points at this process AND that
@@ -3429,10 +3433,12 @@
            ;; count as coverage (it was just deactivated by the reconcile pass above); requiring
            ;; entry equality here is what lets the new look spawn on the following pass.
            (dotimes (j *hd-scan-companion-count*)
-             (when (and (= (the-as process-drawable (handle->process (-> (-> *hd-scan-companions* j) driver))) drv)
-                        (= (-> (-> *hd-scan-companions* j) entry) entry))
-               (set! covered #t)))
-           (when (and (not covered) (zero? (-> *hd-asset-missing* entry)))
+             (let ((comp (the-as jak-hd (handle->process (-> *hd-scan-companions* j)))))
+               (when (and comp drv
+                          (= (the-as process-drawable (handle->process (-> comp driver))) drv)
+                          (= (-> comp entry) entry))
+                 (set! covered #t))))
+           (when (and drv (not covered) (zero? (-> *hd-asset-missing* entry)))
              ;; Spawn as a CHILD of the driver (its :post runs after the driver's, so the driver
              ;; bones are valid) from the DYNAMIC heap pool *default-dead-pool* — *16k-dead-pool*
              ;; is exhausted in-game. Mirrors target-handler.gc's 'sidekick spawn.

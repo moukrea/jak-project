@@ -1,0 +1,11 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "settings_sha256": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6",
+  "pids": [
+    "23597",
+    "23597"
+  ],
+  "stable": true,
+  "settings_exact": true,
+  "props_nonempty_restored": true
+}

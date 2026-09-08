@@ -1,0 +1,13 @@
+{
+  "args": [
+    "/home/emeric/Android/platform-tools/adb",
+    "-s",
+    "eae4df44",
+    "shell",
+    "dumpsys",
+    "activity",
+    "exit-info",
+    "org.opengoal.gk.jak1"
+  ],
+  "rc": 0
+}

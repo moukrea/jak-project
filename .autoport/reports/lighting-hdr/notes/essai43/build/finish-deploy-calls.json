@@ -1,0 +1,145 @@
+[
+  {
+    "args": [
+      "bash",
+      ".autoport/lib/pick_device.sh"
+    ],
+    "rc": 0,
+    "stdout": "eae4df44\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "run-as",
+      "org.opengoal.gk.jak1",
+      "sha256sum",
+      "files/cgo/jak1/BEA.DGO",
+      "files/cgo/jak1/CIT.DGO",
+      "files/cgo/jak1/DAR.DGO",
+      "files/cgo/jak1/DEM.DGO",
+      "files/cgo/jak1/ENGINE.CGO",
+      "files/cgo/jak1/FIC.DGO",
+      "files/cgo/jak1/FIN.DGO",
+      "files/cgo/jak1/GAME.CGO",
+      "files/cgo/jak1/INT.DGO",
+      "files/cgo/jak1/JUB.DGO",
+      "files/cgo/jak1/JUN.DGO",
+      "files/cgo/jak1/KERNEL.CGO",
+      "files/cgo/jak1/LAV.DGO",
+      "files/cgo/jak1/MAI.DGO",
+      "files/cgo/jak1/MIS.DGO",
+      "files/cgo/jak1/OGR.DGO",
+      "files/cgo/jak1/ROB.DGO",
+      "files/cgo/jak1/ROL.DGO",
+      "files/cgo/jak1/SNO.DGO",
+      "files/cgo/jak1/SUB.DGO",
+      "files/cgo/jak1/SUN.DGO",
+      "files/cgo/jak1/SWA.DGO",
+      "files/cgo/jak1/TIT.DGO",
+      "files/cgo/jak1/TRA.DGO",
+      "files/cgo/jak1/TSZ.DGO",
+      "files/cgo/jak1/VI1.DGO",
+      "files/cgo/jak1/VI2.DGO",
+      "files/cgo/jak1/VI3.DGO"
+    ],
+    "rc": 0,
+    "stdout": "1b515011e4ae3a55dbdbcbffcd7da87829ea77ca9a2d916bfd95f5b6f45fe411  files/cgo/jak1/BEA.DGO\nd3e1ef17d7dd375d4df08b12ed9361811bca29657704b131d3d81c3a4b710114  files/cgo/jak1/CIT.DGO\nd5fc8d6b55d2cf2567439cbf177317748176f83630d78a31ab9f95ef2e0cc688  files/cgo/jak1/DAR.DGO\n21358d28e041cc0eef363cc704c191e439bd7ef776c1e41b9de78a6f7708a6ce  files/cgo/jak1/DEM.DGO\n4c5d2bb45f810a7719bc90a05f928f794415909c2d6e19436627dc60e1d343b9  files/cgo/jak1/ENGINE.CGO\nc19e9c67e5c3b6e933fdee69867c567872d07778a6a29d429cfb15064d218aec  files/cgo/jak1/FIC.DGO\nb8f75fb303688329d2e82008932c6ac091588487667702c745c10e31edad9d60  files/cgo/jak1/FIN.DGO\nda341b2779164381aea1e60341db43b38520b93a3c3c517285245ca7484b3199  files/cgo/jak1/GAME.CGO\n6580fa65b0d36e33463d8c86985be4d29fbb1143178c082ab32df8af08b378c1  files/cgo/jak1/INT.DGO\n31c1a9534382aaf2272d1ac644ac7f315c5f1ebb5213bd0d74f7513954d81a75  files/cgo/jak1/JUB.DGO\n219baa6578d1af2ad15291b66fdc97c5ce6fc1c4b86edc366ce153d9315be8f6  files/cgo/jak1/JUN.DGO\n956ed7a1cae46591cbb788cc454b52ea172890b14511b7800611ac0e2ad58b42  files/cgo/jak1/KERNEL.CGO\nfac87db48bb3724da886b963d7b341fb3a2dc4a0d7d770b7ef6c2c1b5f3884ee  files/cgo/jak1/LAV.DGO\n1dfa75fdec0791a6702b3ec54508a7ecb5b41403868127c4138e221125e259a8  files/cgo/jak1/MAI.DGO\n6dbbe35e726a4c4f634760858babffc82c503e9a05782c6515cbe8374da1ce93  files/cgo/jak1/MIS.DGO\nae157f386683fee746281116cb7632b787bba1d63f65bfbc7a1fb71bbc1e8ac9  files/cgo/jak1/OGR.DGO\nb25d1f60f4e333a82f62ede012f92e37c4d0bc628f70344327a8f85b205fb432  files/cgo/jak1/ROB.DGO\nc20875601c3bd559ffd809fa4369a5ee02ebb2b844214917ca4718258db477bc  files/cgo/jak1/ROL.DGO\n16ba0c6f7d2f22f4dfcea34b614c5343b7c68dc50b70a4f0f736263ade75166c  files/cgo/jak1/SNO.DGO\nc878310a25870d817cd035ac2ffff056c25e0aaaa90029b874d6bbad5d167a36  files/cgo/jak1/SUB.DGO\n6c7eb53a93f19063f90e190d2251fd24354a138097c3ffb5a635810d87bf33ab  files/cgo/jak1/SUN.DGO\nb7ccabc4989ebf3a59062db9f367be942fad0376847e189ab7d06eae6b66ac5d  files/cgo/jak1/SWA.DGO\n179ca56c3d8ad6731d68cb23bd88a6048dbdc011edba94b728cc1e45599a9674  files/cgo/jak1/TIT.DGO\nbc8c64f229d5396945b271467644e619035795d8bb0f20a9ae88fad584c6d058  files/cgo/jak1/TRA.DGO\ne7545a20d8ec83847ecdebe62f59afb7bc8a50016c788f3ef4e4c34bce777d5e  files/cgo/jak1/TSZ.DGO\n3e5cbff8d5b4036c6fc0335a2dc9fe3cc833c5258dd6c0ac5c91e41c0c2816a2  files/cgo/jak1/VI1.DGO\n72208a226bd091a999c6be5276eb5763b66a1157877f5c23f2dfa749a8e784ed  files/cgo/jak1/VI2.DGO\n4f978f926e9165192e59e826ddbc036cbed25d7d3a1ca1561e4206e5fa7cac97  files/cgo/jak1/VI3.DGO\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "pm",
+      "path",
+      "org.opengoal.gk.jak1"
+    ],
+    "rc": 0,
+    "stdout": "package:/data/app/~~O-Oilo-jpAO39x6qFG33Sw==/org.opengoal.gk.jak1-Qq6IqVIVT2OUL7kwiXBKGA==/base.apk\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "sha256sum",
+      "/data/app/~~O-Oilo-jpAO39x6qFG33Sw==/org.opengoal.gk.jak1-Qq6IqVIVT2OUL7kwiXBKGA==/base.apk"
+    ],
+    "rc": 0,
+    "stdout": "7a4e6c292353b66e9f82e7958e5cc0c8f55a44acba65e1066b7f9624c75a961a  /data/app/~~O-Oilo-jpAO39x6qFG33Sw==/org.opengoal.gk.jak1-Qq6IqVIVT2OUL7kwiXBKGA==/base.apk\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "sha256sum",
+      "/data/app/~~O-Oilo-jpAO39x6qFG33Sw==/org.opengoal.gk.jak1-Qq6IqVIVT2OUL7kwiXBKGA==/lib/arm64/libgk.so"
+    ],
+    "rc": 0,
+    "stdout": "ab2f8019a399c9c1b251714c3f118f8faae1d80e09efd8a52254ac8759e1f6e5  /data/app/~~O-Oilo-jpAO39x6qFG33Sw==/org.opengoal.gk.jak1-Qq6IqVIVT2OUL7kwiXBKGA==/lib/arm64/libgk.so\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "pidof",
+      "org.opengoal.gk.jak1"
+    ],
+    "rc": 0,
+    "stdout": "17032\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "pidof",
+      "org.opengoal.gk.jak1"
+    ],
+    "rc": 0,
+    "stdout": "17032\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "push",
+      "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/notes/essai43/build/settings-original.ini",
+      "/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": "/home/emeric/code/jak-project/.autoport/reports/lighting-hdr/notes/essai43/build/settings-original.ini: 1 file pushed, 0 skipped. 54.4 MB/s (2841 bytes in 0.000s)\n"
+  },
+  {
+    "args": [
+      "/home/emeric/Android/platform-tools/adb",
+      "-s",
+      "eae4df44",
+      "shell",
+      "sha256sum",
+      "/storage/emulated/0/OpenGOAL/jak1/settings.ini"
+    ],
+    "rc": 0,
+    "stdout": "78108670e26658496f33a2a0dc50c45fe16a0f2e59c774ea70499c7fefb52fd6  /storage/emulated/0/OpenGOAL/jak1/settings.ini\n",
+    "stderr": ""
+  }
+]

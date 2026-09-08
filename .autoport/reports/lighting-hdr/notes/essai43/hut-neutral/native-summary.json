@@ -1,0 +1,308 @@
+{
+  "DIRECTIVES": "v8aed688f73",
+  "batch": ".autoport/reports/lighting-hdr/batches/essai43-hut-neutral/20260908T154011-53009",
+  "sealed_files": 21,
+  "hash_failures": [],
+  "groups": [
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "after_cloud_draw",
+      "samples": 2,
+      "statuses": {
+        "ok": 2
+      },
+      "mean": {
+        "pixels": 161280,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 155294.5,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.3395883277693804,
+        0.7118093655622076,
+        0.9934768786326804,
+        0.96291107455847
+      ],
+      "delta_sum_rgba": [
+        23676.87902469188,
+        23649.78104919195,
+        8174.252453953028,
+        -5021.701895209961
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "before_cloud_draw",
+      "samples": 2,
+      "statuses": {
+        "ok": 2
+      },
+      "mean": {
+        "pixels": 161280,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 12106,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.19278228222937618,
+        0.5651713382234679,
+        0.9427932696671979,
+        0.9940476190476191
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "after_cloud_draw",
+      "samples": 2,
+      "statuses": {
+        "ok": 2
+      },
+      "mean": {
+        "pixels": 161280,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 150499,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 141110,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.3337418900595771,
+        0.706087315271771,
+        1.1170721826099215,
+        0.9629205591621853
+      ],
+      "delta_sum_rgba": [
+        22758.56982421875,
+        22757.944091796875,
+        28161.416748046875,
+        -5020.172218322754
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "before_cloud_draw",
+      "samples": 2,
+      "statuses": {
+        "ok": 2
+      },
+      "mean": {
+        "pixels": 161280,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 12106,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.19262972597091918,
+        0.5649790309724354,
+        0.9424602236066546,
+        0.9940476190476191
+      ]
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "after_world_sprites",
+      "samples": 2,
+      "statuses": {
+        "no_visible_roi": 2
+      },
+      "mean": {
+        "pixels": 0,
+        "passed": 0
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "before_world_sprites",
+      "samples": 2,
+      "statuses": {
+        "no_visible_roi": 2
+      },
+      "mean": {
+        "pixels": 0,
+        "passed": 0
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "after_world_sprites",
+      "samples": 2,
+      "statuses": {
+        "no_visible_roi": 2
+      },
+      "mean": {
+        "pixels": 0,
+        "passed": 0
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "before_world_sprites",
+      "samples": 2,
+      "statuses": {
+        "no_visible_roi": 2
+      },
+      "mean": {
+        "pixels": 0,
+        "passed": 0
+      }
+    },
+    {
+      "case": "warp-gate",
+      "tbps": "None",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "after_world_sprites",
+      "samples": 2,
+      "statuses": {
+        "ok": 2
+      },
+      "mean": {
+        "pixels": 7020,
+        "white": 373.5,
+        "nearwhite": 400,
+        "clipped": 3371.5,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 400,
+        "tonemap_clipped": 0,
+        "passed": 1.5
+      },
+      "mean_rgba": [
+        0.4935232781754021,
+        0.4780034741407998,
+        0.6519010153766907,
+        0.5344173571401332
+      ],
+      "delta_sum_rgba": [
+        837.0686332508922,
+        885.9490465447307,
+        1373.0058012232184,
+        -2830.4784061564133
+      ]
+    },
+    {
+      "case": "warp-gate",
+      "tbps": "None",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "before_world_sprites",
+      "samples": 2,
+      "statuses": {
+        "ok": 2
+      },
+      "mean": {
+        "pixels": 7020,
+        "white": 3,
+        "nearwhite": 4,
+        "clipped": 106.5,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 4,
+        "tonemap_clipped": 0,
+        "passed": 1.5
+      },
+      "mean_rgba": [
+        0.3742827321282665,
+        0.351799906256935,
+        0.4563161434075713,
+        0.9376194092991663
+      ]
+    },
+    {
+      "case": "warp-gate",
+      "tbps": "None",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "after_world_sprites",
+      "samples": 2,
+      "statuses": {
+        "ok": 2
+      },
+      "mean": {
+        "pixels": 7020,
+        "white": 346,
+        "nearwhite": 389,
+        "clipped": 3465.5,
+        "tonemap_white": 321.5,
+        "tonemap_nearwhite": 389,
+        "tonemap_clipped": 3422,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.542562314791557,
+        0.5212961457733415,
+        1.536736510350154,
+        0.5466221822972311
+      ],
+      "delta_sum_rgba": [
+        1167.2770690917969,
+        1190.8478393554688,
+        7580.805145263672,
+        -2863.0362854003906
+      ]
+    },
+    {
+      "case": "warp-gate",
+      "tbps": "None",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "before_world_sprites",
+      "samples": 2,
+      "statuses": {
+        "ok": 2
+      },
+      "mean": {
+        "pixels": 7020,
+        "white": 1.5,
+        "nearwhite": 2.5,
+        "clipped": 104.5,
+        "tonemap_white": 1.5,
+        "tonemap_nearwhite": 2.5,
+        "tonemap_clipped": 95.5,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.37628353002064585,
+        0.3516597014207107,
+        0.4568497375205711,
+        0.9544621089924434
+      ]
+    }
+  ]
+}
