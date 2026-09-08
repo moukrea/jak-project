@@ -1,25 +1,30 @@
 DIRECTIVES v6133a247b4
-Verdict : correctif livré sur Redmi, mais lighting-hdr reste non validé (hdr_tonemap_defects=4).
-Quatre shaders Direct bornent maintenant les couleurs source legacy après texture/brouillard, avant blend ; destination HDR, alpha, courbe et exposition inchangés.
-La sonde existante projette le disque 3D harddot du portail ; le helper sépare sa région et conserve les défauts partiels sans valider le portail entier.
-GPU synthétique : 162 PASS/0 FAIL, dont 48 comparaisons SDR exactes ; helper : 189 tests passés. Ce ne sont pas des preuves jeu.
-Build/APK/Redmi : lib SHA256 d3a7658defe4286424968852bb7e4ac87e68eb9c20d6c1960687f0bf7a66047f.
-Deux lots officiels : 48 captures, aucun crash ; agrégat 4 paires, errors=0, aucun des cinq cas owner réussi.
-Preuve produite par proof_run.sh, huit lignes recopiées :
+Non abouti : la perte lumineuse éco demeure ; aucun correctif de rendu retenu, porte à 4 défauts.
+Livré : diagnostic avant/après groupe Sprite3, sur les projections existantes ; deux lectures natives par capture.
+Les fragments JSON bornés à 800 octets empêchent la troncature constatée ; aucune grandeur proof écrite manuellement.
+Candidat quantification additive testé puis retiré : h18 blancs ON14,67→14,5 contre OFF65,33 ; aucun bénéfice établi.
+Shaders et header Sprite3 identiques à HEAD avant essai ; courbe, exposition et effets artistiques inchangés.
+Lib finale build/APK/Redmi : 4da80ef748d4b54c5e916a1205bc00259b3d8941339900d2dc072ad99e8dfdda.
+Lot final 20260908T082212-3861448 : 24 captures, 144 compositions complètes, 61 fichiers scellés vérifiés.
+Éco10012 h18 : blancs natifs avant courbe ON553,83/OFF1149,67 ; simulation courbe ON478,33.
+RGB et alpha non négatifs avant/après groupe ; ces boîtes incluent fond et autres couches, sans attribution par particule.
+ImageMagick, ROI commune essai27/final : blancs ON14,67→14,5/OFF64,83 ; défaut conservé.
+Preuve officielle, huit lignes de proof.txt :
 ```
-source=device
-sha=d3a7658defe42864
 crash=0
 frames=1140
-FEATURE lighting-hdr armed=1 hits=253928
+tonemap_draws=390
 tonemap_sites=1
-hdr_owner_regressions_failed=2
+hdr_batch_errors=0
+hdr_batch_pairs=2
+hdr_owner_regressions_passed=0
 hdr_tonemap_defects=4
 ```
-Éco10012 à18h : blancs ON14,67/OFF65,83 ; avant26 ON14,83/OFF65,5. Le correctif Direct ne résout pas la perte lumineuse.
-Portail : disque visible23/24 captures ; à18h aplats ON0,06061 > OFFmax0,04978. Défaut partiel conservé malgré blancs OFF=0 ; couleur/halos non qualifiés.
-Agrégation seule après jugement : 122 fichiers scellés et date originale intacts ; sources avant24/26 et après27 conservées sous notes/essai27/.
-Redmi restauré : PID17645 stable12s, A35-RENDER frame360/draws88, propriétés debug vides et verrou absent (normal-restoration.json).
-Owner : Options > Recharged ; vérifier éclairs éco, nuages blancs, soleil couchant, sol devant vraie hutte Sage vert et portail.
-non prouvé : correction des cinq régressions, acquis complets, couverture21niveaux×8heures/ciels/intérieurs/vraie hutte, HDR natif. Campagne complète reste après corrections ciblées.
-Le validateur est laissé à l’orchestrateur ; aucun owner-ok écrit. Reprise détaillée dans handoff.md.
+Premier lot : SIGSEGV GOAL pendant warp initial, signature identique au crash26 ; remplacement explicite conservant le lot échoué.
+Banc GPU candidat : 1724 contrôles passés avec véritable référence HEAD ; première comparaison à elle-même invalidée et archivée.
+Redmi normal restauré : PID24537 stable12s, A35-RENDER frame300/draws37, propriétés debug vides, verrou absent.
+Owner : Options > Recharged ; nuages blancs, éclairs éco, soleil couchant, sol devant vraie hutte Sage vert et portail restent à vérifier.
+non prouvé : correction des cinq régressions, attribution des couches éco manquantes, acquis complets, couverture21niveaux×8h/ciels/intérieurs/hutte, HDR natif.
+Campagne complète non lancée : le périmètre la place après les corrections ciblées, qui ne sont pas acquises.
+Notes : notes/essai28/ ; sources avant24/26/27 et tous lots28 conservés, binaires incompatibles séparés.
+Aucun validateur exécuté, aucun owner-ok créé. Reprise détaillée : handoff.md.

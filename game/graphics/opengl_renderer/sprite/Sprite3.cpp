@@ -1,6 +1,7 @@
 #include "Sprite3.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cctype>
 #include <cstdio>
@@ -16,6 +17,7 @@
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 #include "game/mips2c/spart_prof.h"
 #include "game/graphics/refset.h"
+#include "game/graphics/gfx.h"
 #include "game/system/autoport_proof.h"
 #include "third-party/json.hpp"
 
@@ -60,6 +62,394 @@ bool owner_sprite_probe() {
 
 int64_t owner_sprite_lf() {
   return refset::capture_logic_frame();
+}
+
+// Two native-resolution snapshots around the complete world-sprite group. This is
+// diagnostic memory only; it neither changes the scene nor publishes proof keys.
+struct OwnerCompositionImage {
+  std::array<GLint, 4> viewport{};
+  GLint framebuffer = 0;
+  GLenum error = GL_NO_ERROR;
+  std::string status = "not_captured", format = "unknown";
+  std::vector<float> rgba;
+};
+struct OwnerCompositionRoi {
+  int actor = 0;
+  std::array<int, 4> bounds{320, 180, 0, 0};
+  int candidates = 0, projected = 0, visible = 0, passed = 0, passed_unknown = 0;
+};
+struct OwnerComposition {
+  bool collecting = false;
+  int64_t lf = -1;
+  std::array<OwnerCompositionRoi, 3> rois{};
+  OwnerCompositionImage before;
+} owner_composition;
+
+float owner_half_float(uint16_t h) {
+  const int exponent = (h >> 10) & 31;
+  const int fraction = h & 1023;
+  const float value = exponent == 0    ? std::ldexp(float(fraction), -24)
+                      : exponent == 31 ? (fraction ? NAN : INFINITY)
+                                       : std::ldexp(float(1024 + fraction), exponent - 25);
+  return (h & 0x8000) ? -value : value;
+}
+
+OwnerCompositionImage owner_composition_read() {
+  OwnerCompositionImage image;
+  image.error = glGetError();
+  if (image.error != GL_NO_ERROR) {
+    image.status = "preexisting_gl_error";
+    return image;
+  }
+  glGetIntegerv(GL_VIEWPORT, image.viewport.data());
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &image.framebuffer);
+  GLint samples = 0, draw_buffer = 0;
+  glGetIntegerv(GL_SAMPLES, &samples);
+  glGetIntegerv(GL_DRAW_BUFFER0, &draw_buffer);
+  const auto& v = image.viewport;
+  if (samples > 0 || !image.framebuffer || draw_buffer == GL_NONE || v[0] < 0 || v[1] < 0 ||
+      v[2] <= 0 || v[3] <= 0 || int64_t(v[2]) * v[3] > 1920 * 1080) {
+    image.status = samples > 0 ? "multisample_not_measured" : "unsupported_framebuffer_or_size";
+    return image;
+  }
+  // Restore both FBOs' read selectors: GL_READ_BUFFER belongs to its FBO.
+  GLint saved_read = 0, saved_selector = 0, target_selector = 0, pack_buffer = 0;
+  const GLenum pack_names[] = {GL_PACK_ALIGNMENT, GL_PACK_ROW_LENGTH, GL_PACK_SKIP_ROWS,
+                               GL_PACK_SKIP_PIXELS};
+  GLint pack[4] = {};
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &saved_read);
+  glGetIntegerv(GL_READ_BUFFER, &saved_selector);
+  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &pack_buffer);
+  for (int i = 0; i < 4; ++i)
+    glGetIntegerv(pack_names[i], &pack[i]);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, image.framebuffer);
+  glGetIntegerv(GL_READ_BUFFER, &target_selector);
+  glReadBuffer(draw_buffer);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  for (int i = 1; i < 4; ++i)
+    glPixelStorei(pack_names[i], 0);
+  auto read = [&]() {
+    if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      image.status = "incomplete_framebuffer";
+      return;
+    }
+    GLint object_type = 0, object = 0, width = 0, height = 0, component = 0, bits[4] = {};
+    glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, draw_buffer,
+                                          GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &object_type);
+    glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, draw_buffer,
+                                          GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &object);
+    if (object_type == GL_RENDERBUFFER) {
+      GLint saved = 0;
+      glGetIntegerv(GL_RENDERBUFFER_BINDING, &saved);
+      glBindRenderbuffer(GL_RENDERBUFFER, object);
+      glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &width);
+      glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &height);
+      glBindRenderbuffer(GL_RENDERBUFFER, saved);
+    } else if (object_type == GL_TEXTURE) {
+      GLint saved = 0, level = 0;
+      glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, draw_buffer,
+                                            GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL, &level);
+      glGetIntegerv(GL_TEXTURE_BINDING_2D, &saved);
+      glBindTexture(GL_TEXTURE_2D, object);
+      // Other texture targets fail closed at the GL error check below.
+      glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_WIDTH, &width);
+      glGetTexLevelParameteriv(GL_TEXTURE_2D, level, GL_TEXTURE_HEIGHT, &height);
+      glBindTexture(GL_TEXTURE_2D, saved);
+    }
+    glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, draw_buffer,
+                                          GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE, &component);
+    const GLenum bit_names[] = {
+        GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE, GL_FRAMEBUFFER_ATTACHMENT_GREEN_SIZE,
+        GL_FRAMEBUFFER_ATTACHMENT_BLUE_SIZE, GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE};
+    for (int i = 0; i < 4; ++i)
+      glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, draw_buffer, bit_names[i],
+                                            &bits[i]);
+    GLint type = GL_FLOAT, format = GL_RGBA;
+#ifdef __ANDROID__
+    glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &type);
+    glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &format);
+#endif
+    if (component == GL_UNSIGNED_NORMALIZED && bits[0] == 8 && bits[1] == 8 && bits[2] == 8 &&
+        bits[3] == 8) {
+      type = GL_UNSIGNED_BYTE;
+      format = GL_RGBA;
+      image.format = "RGBA8/UNSIGNED_BYTE";
+    } else if (component == GL_FLOAT && format == GL_RGBA &&
+               (type == GL_FLOAT || type == GL_HALF_FLOAT)) {
+      image.format = type == GL_FLOAT ? "RGBA/FLOAT" : "RGBA/HALF_FLOAT";
+    } else {
+      image.status = "unsupported_read_format";
+      return;
+    }
+    image.error = glGetError();
+    if (image.error != GL_NO_ERROR) {
+      image.status = "query_gl_error";
+      return;
+    }
+    if (int64_t(v[0]) + v[2] > width || int64_t(v[1]) + v[3] > height) {
+      image.status = "viewport_outside_attachment";
+      return;
+    }
+    const size_t count = size_t(v[2]) * v[3] * 4;
+    image.rgba.resize(count);
+    if (type == GL_FLOAT) {
+      glReadPixels(v[0], v[1], v[2], v[3], GL_RGBA, GL_FLOAT, image.rgba.data());
+    } else if (type == GL_HALF_FLOAT) {
+      std::vector<uint16_t> raw(count);
+      glReadPixels(v[0], v[1], v[2], v[3], GL_RGBA, GL_HALF_FLOAT, raw.data());
+      std::transform(raw.begin(), raw.end(), image.rgba.begin(), owner_half_float);
+    } else {
+      std::vector<uint8_t> raw(count);
+      glReadPixels(v[0], v[1], v[2], v[3], GL_RGBA, GL_UNSIGNED_BYTE, raw.data());
+      std::transform(raw.begin(), raw.end(), image.rgba.begin(),
+                     [](uint8_t value) { return float(value) / 255.f; });
+    }
+    image.error = glGetError();
+    image.status = image.error == GL_NO_ERROR ? "ok" : "read_gl_error";
+  };
+  read();
+  glReadBuffer(target_selector);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, saved_read);
+  glReadBuffer(saved_selector);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, pack_buffer);
+  for (int i = 0; i < 4; ++i)
+    glPixelStorei(pack_names[i], pack[i]);
+  const GLenum error = glGetError();
+  if (error != GL_NO_ERROR) {
+    image.error = error;
+    image.status = "gl_error";
+  }
+  if (image.status != "ok")
+    image.rgba.clear();
+  return image;
+}
+
+void owner_composition_roi(const nlohmann::json& event) {
+  if (!owner_composition.collecting || owner_composition.lf != owner_sprite_lf())
+    return;
+  const int actor = event.at("actor").get<int>();
+  auto& roi = owner_composition.rois[actor == 10012 ? 0 : actor == 10013 ? 1 : 2];
+  roi.actor = actor;
+  ++roi.candidates;
+  if (event.at("passed").is_null())
+    ++roi.passed_unknown;
+  else if (event.at("passed").get<bool>())
+    ++roi.passed;
+  if (event.at("roi").is_null())
+    return;
+  ++roi.projected;
+  const auto b = event.at("roi").get<std::array<int, 4>>();
+  if (b[0] >= b[2] || b[1] >= b[3])
+    return;
+  ++roi.visible;
+  for (int k = 0; k < 2; ++k) {
+    roi.bounds[k] = std::min(roi.bounds[k], b[k]);
+    roi.bounds[k + 2] = std::max(roi.bounds[k + 2], b[k + 2]);
+  }
+}
+
+// Keep Android log records below its truncation boundary. Event fields live in a
+// separate object so their names cannot collide with the transport envelope.
+void owner_composition_log(const nlohmann::json& event) {
+  static uint64_t next_event_id = 0;  // Distinguishes repeated lf/actor/stage in this process.
+  constexpr size_t max_bytes = 800;
+  nlohmann::json envelope = {{"event_id", next_event_id++},       {"lf", event.at("lf")},
+                             {"actor", event.at("actor")},        {"stage", event.at("stage")},
+                             {"part_index", event.size()},        {"part_count", event.size()},
+                             {"fields", nlohmann::json::object()}};
+  std::vector<nlohmann::json> parts;
+  auto fields = nlohmann::json::object();
+  for (auto it = event.begin(); it != event.end(); ++it) {
+    envelope["fields"] = fields;
+    envelope["fields"][it.key()] = it.value();
+    if (envelope.dump().size() > max_bytes && !fields.empty()) {
+      parts.push_back(std::move(fields));
+      fields = nlohmann::json::object();
+      envelope["fields"] = {{it.key(), it.value()}};
+    }
+    if (envelope.dump().size() > max_bytes) {
+      envelope["fields"] = nlohmann::json::object();
+      envelope["part_index"] = 0;
+      envelope["part_count"] = 1;
+      envelope["status"] = "field_exceeds_chunk_limit_not_emitted";
+      lg::info("HDR-OWNER-COMPOSITION {}", envelope.dump());
+      return;  // Emit no partial measurement on a field that cannot fit.
+    }
+    fields[it.key()] = it.value();
+  }
+  if (!fields.empty())
+    parts.push_back(std::move(fields));
+  for (size_t i = 0; i < parts.size(); ++i) {
+    envelope["part_index"] = i;
+    envelope["part_count"] = parts.size();
+    envelope["fields"] = std::move(parts[i]);
+    lg::info("HDR-OWNER-COMPOSITION {}", envelope.dump());
+  }
+}
+
+void owner_composition_report(const OwnerCompositionImage& after) {
+  const float e = Gfx::g_global_settings.recharged_pbr_exposure;
+  const float exposure =
+      (e > 0.f ? std::pow(e, 1.f / 2.2f) : 1.f) * Gfx::g_global_settings.recharged_hdr_exposure;
+  const float knee = Gfx::g_global_settings.recharged_hdr_knee;
+  const bool shoulder = Gfx::g_global_settings.recharged_hdr_curve == 0 && std::isfinite(knee) &&
+                        std::isfinite(exposure);
+  for (const auto& roi : owner_composition.rois) {
+    if (!roi.actor)
+      continue;
+    for (int stage = 0; stage < 2; ++stage) {
+      const auto& image = stage ? after : owner_composition.before;
+      nlohmann::json event = {
+          {"lf", owner_composition.lf},
+          {"actor", roi.actor},
+          {"stage", stage ? "after_world_sprites" : "before_world_sprites"},
+          {"roi_exclusive", roi.visible ? nlohmann::json(roi.bounds) : nlohmann::json(nullptr)},
+          {"roi_space", "top_left_320x180"},
+          {"viewport_native", image.viewport},
+          {"framebuffer", image.framebuffer},
+          {"format", image.format},
+          {"status", image.status},
+          {"error", image.error},
+          {"pixels", 0},
+          {"candidates", roi.candidates},
+          {"projected", roi.projected},
+          {"visible_roi", roi.visible},
+          {"passed", roi.passed},
+          {"passed_unknown", roi.passed_unknown},
+          {"caveat", "bounding_union_includes_background_and_all_layers_not_actor_coverage"},
+          {"effective_exposure", exposure},
+          {"knee", Gfx::g_global_settings.recharged_hdr_knee},
+          {"curve", Gfx::g_global_settings.recharged_hdr_curve},
+          {"tonemap_stats",
+           shoulder ? "not_measured" : "curve_or_parameters_not_supported"},
+          {"quantization",
+           "round(clamp(rgb,0,1)*255); white=all255; nearwhite=all>=245; clipped=any255"}};
+      if (image.status == "ok" && roi.visible) {
+        const auto& v = image.viewport;
+        const int x0 = int(std::floor(double(roi.bounds[0]) * v[2] / 320));
+        const int x1 = int(std::ceil(double(roi.bounds[2]) * v[2] / 320));
+        const int y0 = int(std::floor(double(roi.bounds[1]) * v[3] / 180));
+        const int y1 = int(std::ceil(double(roi.bounds[3]) * v[3] / 180));
+        std::array<double, 4> lo{INFINITY, INFINITY, INFINITY, INFINITY};
+        std::array<double, 4> hi{-INFINITY, -INFINITY, -INFINITY, -INFINITY}, sum{};
+        std::array<int, 4> negative{}, above_one{};
+        int pixels = 0, nonfinite = 0, white = 0, nearwhite = 0, clipped = 0;
+        int tone_white = 0, tone_nearwhite = 0, tone_clipped = 0, tone_nonfinite = 0;
+        const auto& before = owner_composition.before;
+        const bool paired = stage && before.status == "ok" &&
+                            before.framebuffer == image.framebuffer &&
+                            before.viewport == image.viewport && before.format == image.format;
+        std::array<double, 4> delta_lo{INFINITY, INFINITY, INFINITY, INFINITY};
+        std::array<double, 4> delta_hi{-INFINITY, -INFINITY, -INFINITY, -INFINITY}, delta_sum{};
+        std::array<int, 4> delta_negative{}, delta_positive{};
+        int delta_nonfinite = 0;
+        for (int y = y0; y < y1; ++y) {
+          for (int x = x0; x < x1; ++x) {
+            const float* p = &image.rgba[(size_t(v[3] - 1 - y) * v[2] + x) * 4];
+            if (!std::all_of(p, p + 4, [](float c) { return std::isfinite(c); })) {
+              ++nonfinite;
+              continue;
+            }
+            ++pixels;
+            for (int c = 0; c < 4; ++c) {
+              lo[c] = std::min(lo[c], double(p[c]));
+              hi[c] = std::max(hi[c], double(p[c]));
+              sum[c] += p[c];
+              negative[c] += p[c] < 0.f;
+              above_one[c] += p[c] > 1.f;
+            }
+            int q[3];
+            for (int c = 0; c < 3; ++c)
+              q[c] = int(std::lround(std::clamp(p[c], 0.f, 1.f) * 255.f));
+            white += q[0] == 255 && q[1] == 255 && q[2] == 255;
+            nearwhite += q[0] >= 245 && q[1] >= 245 && q[2] >= 245;
+            clipped += q[0] == 255 || q[1] == 255 || q[2] == 255;
+            if (shoulder) {
+              bool finite = true;
+              for (int c = 0; c < 3; ++c) {
+                // Mirror tonemap.frag main + hdr_shoulder, in display encoding.
+                float value = std::max(p[c] * exposure, 0.f);
+                const float w = std::max(1.f - knee, 1e-4f);
+                if (value > knee) {
+                  const float above = value - knee;
+                  value = above >= 2.f * w ? 1.f : knee + above - above * above / (4.f * w);
+                }
+                value = std::min(value, 1.f);
+                finite &= std::isfinite(value);
+                q[c] = std::isfinite(value) ? int(std::lround(std::clamp(value, 0.f, 1.f) * 255.f))
+                                            : 0;
+              }
+              tone_nonfinite += !finite;
+              tone_white += finite && q[0] == 255 && q[1] == 255 && q[2] == 255;
+              tone_nearwhite += finite && q[0] >= 245 && q[1] >= 245 && q[2] >= 245;
+              tone_clipped += finite && (q[0] == 255 || q[1] == 255 || q[2] == 255);
+            }
+            if (paired) {
+              const float* pre = &before.rgba[(size_t(v[3] - 1 - y) * v[2] + x) * 4];
+              if (!std::all_of(pre, pre + 4, [](float c) { return std::isfinite(c); })) {
+                ++delta_nonfinite;
+              } else {
+                for (int c = 0; c < 4; ++c) {
+                  const double d = double(p[c]) - pre[c];
+                  delta_lo[c] = std::min(delta_lo[c], d);
+                  delta_hi[c] = std::max(delta_hi[c], d);
+                  delta_sum[c] += d;
+                  delta_negative[c] += d < 0;
+                  delta_positive[c] += d > 0;
+                }
+              }
+            }
+          }
+        }
+        event["roi_native_exclusive_top_left"] = {x0, y0, x1, y1};
+        event["pixels"] = pixels;
+        event["nonfinite_pixels"] = nonfinite;
+        if (nonfinite) {
+          event["status"] = "nonfinite_not_measured";
+          event["tonemap_stats"] = "nonfinite_not_measured";
+          if (stage)
+            event["delta_status"] = "nonfinite_not_measured";
+        } else if (pixels) {
+          for (auto& c : sum)
+            c /= pixels;
+          event["min_rgba"] = lo;
+          event["max_rgba"] = hi;
+          event["mean_rgba"] = sum;
+          event["negative_channels"] = negative;
+          event["above_one_channels"] = above_one;
+          event["white"] = white;
+          event["nearwhite"] = nearwhite;
+          event["clipped"] = clipped;
+          if (shoulder) {
+            event["tonemap_stats"] =
+                tone_nonfinite ? "nonfinite_not_measured" : "simulated_shoulder";
+            if (!tone_nonfinite) {
+              event["tonemap_white"] = tone_white;
+              event["tonemap_nearwhite"] = tone_nearwhite;
+              event["tonemap_clipped"] = tone_clipped;
+            }
+          }
+          if (stage) {
+            event["delta_status"] = !paired           ? "incompatible_snapshots"
+                                    : delta_nonfinite ? "nonfinite_not_measured"
+                                                      : "ok";
+            event["delta_nonfinite_pixels"] = delta_nonfinite;
+            if (paired && !delta_nonfinite) {
+              event["delta_min_rgba"] = delta_lo;
+              event["delta_max_rgba"] = delta_hi;
+              event["delta_sum_rgba"] = delta_sum;
+              event["delta_negative_channels"] = delta_negative;
+              event["delta_positive_channels"] = delta_positive;
+            }
+          }
+        }
+      } else if (image.status == "ok") {
+        event["status"] = "no_visible_roi";
+      }
+      owner_composition_log(event);
+    }
+  }
 }
 
 /*!
@@ -643,6 +1033,7 @@ void Sprite3::render_jak1(DmaFollower& dma,
                           SharedRenderState* render_state,
                           ScopedProfilerNode& prof) {
   m_debug_stats = {};
+  owner_composition = {};
   // First thing should be a NEXT with two nops. this is a jump from buckets to sprite data
   auto data0 = dma.read_and_advance();
   ASSERT(data0.vif1() == 0);
@@ -678,12 +1069,34 @@ void Sprite3::render_jak1(DmaFollower& dma,
   // 3d sprites
   render_3d(dma);
 
+  if (owner_sprite_probe()) {
+    owner_composition.lf = owner_sprite_lf();
+    owner_composition.rois[0].actor = 10012;
+    owner_composition.rois[1].actor = 10013;
+    owner_composition.rois[2].actor = 1395;
+    owner_composition.before = owner_composition_read();
+    owner_composition.collecting = true;
+  }
+
   // 2d draw
   // m_sprite_renderer.reset_state();
   {
     auto child = prof.make_scoped_child("2d-group0");
     render_2d_group0(dma, render_state, child);
     flush_sprites(render_state, prof, false);
+  }
+
+  if (owner_composition.collecting) {
+    owner_composition.collecting = false;
+    auto after = owner_composition_read();
+    if (owner_composition.lf != owner_sprite_lf() ||
+        after.framebuffer != owner_composition.before.framebuffer ||
+        after.viewport != owner_composition.before.viewport) {
+      after.status = "frame_or_target_changed_not_comparable";
+      after.rgba.clear();
+    }
+    owner_composition_report(after);
+    owner_composition.before.rgba.clear();
   }
 
   // shadow draw
@@ -764,6 +1177,7 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
     flush_sprites_instanced(render_state, prof, double_draw);
     return;
   }
+
 
   if (owner_sprite_probe()) {
     lg::info("HDR-OWNER-FRAME lf={} instanced=false candidates=unknown supported=false reason=non_instanced",
@@ -1170,6 +1584,7 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
           event["supported"] = projected;
           pending = i + 1;
         }
+        owner_composition_roi(event);
         lg::info("HDR-OWNER-SPRITE {}", event.dump());
       }
       if (pending < end)
