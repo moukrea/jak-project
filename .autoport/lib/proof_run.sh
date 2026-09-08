@@ -10,6 +10,8 @@
 # binaire present sur le disque, et le validateur le recalcule.
 #
 # Usage : lib/proof_run.sh <item-id> <x86|device> [--timeout N] [--off]
+#   HDR device: --hdr-campaign NOM --hdr-vantages vue[,vue] --hdr-hours 0,3,...
+#   --hdr-prop debug.opengoal.KEY=VALUE (repeatable); --hdr-replace LOT:VUE:HEURE=VUE
 #   --off   meme course, feature DESARMEE, ecrit proof-off.txt (controle d'ablation).
 #
 # Sorties : 0 = une preuve a ete ecrite (VERTE OU ROUGE : c'est le validateur qui juge).
@@ -29,10 +31,23 @@ set -uo pipefail
 
 # ---------------------------------------------------------------------------- arguments ----
 ID=""; MODE=""; TIMEOUT=""; OFF=0
+HDR_CAMPAIGN=""; HDR_VANTAGES="legacy"; HDR_HOURS="0,3,6,9,12,15,18,21"
+HDR_AGGREGATE=""; HDR_PROPS=(); HDR_REPLACE=(); HDR_BATCH=""; HDR_REMOTE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --timeout) TIMEOUT="${2:-}"; shift 2 ;;
     --off)     OFF=1; shift ;;
+    --hdr-campaign|--hdr-vantages|--hdr-hours|--hdr-prop|--hdr-replace|--hdr-aggregate-only)
+      [ $# -ge 2 ] && [ -n "$2" ] || { echo "proof_run: $1 needs a value" >&2; exit 2; }
+      case "$1" in
+        --hdr-campaign) HDR_CAMPAIGN=$2 ;;
+        --hdr-aggregate-only) HDR_AGGREGATE=$2 ;;
+        --hdr-vantages) HDR_VANTAGES=$2 ;;
+        --hdr-hours) HDR_HOURS=$2 ;;
+        --hdr-prop) HDR_PROPS+=("$2") ;;
+        --hdr-replace) HDR_REPLACE+=(--replace "$2") ;;
+      esac
+      shift 2 ;;
     -h|--help) sed -n '1,30p' "$0"; exit 0 ;;
     -*)        echo "proof_run: option inconnue '$1'" >&2; exit 2 ;;
     *)         if [ -z "$ID" ]; then ID="$1"; elif [ -z "$MODE" ]; then MODE="$1";
@@ -42,6 +57,22 @@ done
 [ -n "$ID" ] && [ -n "$MODE" ] || { echo "usage: lib/proof_run.sh <item-id> <x86|device> [--timeout N] [--off]" >&2; exit 2; }
 case "$ID" in *[!a-z0-9-]*|"") echo "proof_run: item-id '$ID' invalide (kebab-case minuscule)" >&2; exit 2 ;; esac
 case "$MODE" in x86|device) ;; *) echo "proof_run: mode '$MODE' inconnu (x86|device)" >&2; exit 2 ;; esac
+
+if [ -n "$HDR_CAMPAIGN" ]; then
+  [ "$ID" = lighting-hdr ] && [ "$MODE" = device ] && [ "$OFF" = 0 ] || {
+    echo "proof_run: HDR batches require lighting-hdr device without --off" >&2; exit 2; }
+  case "$HDR_CAMPAIGN" in *[!a-zA-Z0-9_-]*) echo "invalid HDR campaign name" >&2; exit 2 ;; esac
+fi
+if [ -n "$HDR_AGGREGATE" ]; then
+  [ -n "$HDR_CAMPAIGN" ] || { echo "aggregate-only needs --hdr-campaign" >&2; exit 2; }
+  case "$HDR_AGGREGATE" in *[!a-zA-Z0-9_-]*) echo "invalid HDR batch name" >&2; exit 2 ;; esac
+fi
+for kvp in "${HDR_PROPS[@]}"; do
+  [[ "$kvp" =~ ^debug\.opengoal\.[a-zA-Z0-9_.]+=[a-zA-Z0-9_.,:/+\ -]*$ ]] || {
+    echo "proof_run: invalid HDR property" >&2; exit 2; }
+  case "${kvp%%=*}" in debug.opengoal.feature*|debug.opengoal.refset|debug.opengoal.refset.dir|debug.opengoal.refset.phases|debug.opengoal.refset.vantages|debug.opengoal.refset.hours|debug.opengoal.lighting|debug.opengoal.rt.light)
+    echo "proof_run: property reserved by HDR campaign" >&2; exit 2 ;; esac
+done
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "proof_run: pas dans un depot git" >&2; exit 3; }
 cd "$ROOT" || exit 3
@@ -120,6 +151,59 @@ if [ ! -s "$BIN" ]; then
   log "binaire absent : $BIN — rien a juger, aucune preuve ecrite."
   rm -f "$OUTFILE"; exit 3
 fi
+# Recompute from an immutable existing run, preserving its original execution
+# timestamp and counters. This path performs no device action and never freshens a run.
+if [ -n "$HDR_AGGREGATE" ]; then
+  rm -f "$OUTFILE"
+  HDR_BATCH="$D/batches/$HDR_CAMPAIGN/$HDR_AGGREGATE"
+  TMP="$D/.proof$SUF.tmp.$$"
+  if ! python3 - "$HDR_BATCH" "$BIN" > "$TMP" <<'HDR_REPLAY'
+import datetime, hashlib, json, os, re, sys
+from pathlib import Path
+sys.path.insert(0, '.autoport/lib')
+import hdr_batches as hdr
+batch, binary = Path(sys.argv[1]), Path(sys.argv[2])
+m = json.loads((batch / 'manifest.json').read_text())
+if hdr.sha(binary) != m['provenance']['binary_sha256']:
+    raise SystemExit('HDR aggregate: current binary differs from original run')
+run = m['run']
+if not re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ', run['started_at'] or ''):
+    raise SystemExit('HDR aggregate: original timestamp unavailable')
+raw = hdr.normalized((batch / 'engine.log').read_text(errors='replace'))
+values = hdr.kv(raw)
+measures = hdr.aggregate(batch.parent, batch.name, hdr.contract(Path('.')))
+print('source=device')
+print('serial=' + m['provenance']['serial'])
+print('binary=' + str(binary))
+print('sha=' + hdr.sha(binary)[:16])
+print('started_at=' + run['started_at'])
+print('duration_s=' + str(run['duration_s']))
+print('crash=' + str(m['crash']))
+frames = re.findall(r'^(?:A35-RENDER frame|PACE-SWAP n|AUTOPORT-FRAMES n)=(\d+)', raw, re.M)
+print('frames=' + str(max(map(int, frames), default=0)))
+feature = re.findall(r'^FEATURE lighting-hdr armed=[01] hits=\d+.*$', raw, re.M)
+if feature:
+    print(feature[-1])
+reserved = {'source', 'serial', 'binary', 'sha', 'started_at', 'duration_s', 'crash', 'frames',
+            'local_lib_md5', 'device_lib_md5', 'device_serial', 'device_model'}
+for key, value in values.items():
+    if key not in reserved and key not in measures:
+        print(key + '=' + value)
+for key, value in measures.items():
+    print(key + '=' + str(value))
+print('hdr_batch_manifest=' + str(batch / 'manifest.json'))
+sys.stdout.flush()
+original_end = datetime.datetime.fromisoformat(run['started_at'].replace('Z', '+00:00')).timestamp() + run['duration_s']
+os.utime(sys.stdout.fileno(), (original_end, original_end))
+HDR_REPLAY
+  then
+    rm -f "$TMP"; log "HDR aggregate failed; no proof emitted"; exit 3
+  fi
+  mv -f "$TMP" "$OUTFILE"
+  log "recomputed $OUTFILE from $HDR_BATCH with original timestamp"
+  exit 0
+fi
+
 [ -n "$TIMEOUT" ] || TIMEOUT="$ITEM_TIMEOUT"
 if [ -z "$TIMEOUT" ]; then if [ "$MODE" = x86 ]; then TIMEOUT=120; else TIMEOUT=180; fi; fi
 case "$TIMEOUT" in *[!0-9]*|"") echo "proof_run: --timeout '$TIMEOUT' n'est pas un entier" >&2; exit 2 ;; esac
@@ -211,6 +295,9 @@ else
       log "serial '$SERIAL' est une adresse reseau. La SHIELD (192.168.1.32) est INTERDITE."
       rm -f "$OUTFILE"; exit 3 ;;
   esac
+  if [ -n "$HDR_CAMPAIGN" ] && [ "$SERIAL" != eae4df44 ]; then
+    log "HDR campaign restricted to authorized Redmi eae4df44"; exit 3
+  fi
   ADB="${ADB:-/home/emeric/Android/platform-tools/adb}"; [ -x "$ADB" ] || ADB=adb
   PKG="${AUTOPORT_PKG:-org.opengoal.gk.jak1}"
   PIDDIR="$AP/.logcat"; mkdir -p "$PIDDIR"
@@ -263,6 +350,23 @@ else
     timeout 15 "$ADB" -s "$SERIAL" shell "setprop ${kvp%%=*} '${kvp#*=}'" >/dev/null 2>&1
   done
 
+  if [ -n "$HDR_CAMPAIGN" ]; then
+    HDR_BATCH="$D/batches/$HDR_CAMPAIGN/$(date -u +%Y%m%dT%H%M%S)-$$"
+    HDR_REMOTE="/data/data/$PKG/files/hdr-$(date +%s)-$$"
+    for kvp in "debug.opengoal.lighting=" "debug.opengoal.rt.light=1" "${HDR_PROPS[@]}" \
+        "debug.opengoal.refset=capture" "debug.opengoal.refset.dir=$HDR_REMOTE" \
+        "debug.opengoal.refset.phases=2,3" "debug.opengoal.refset.vantages=$HDR_VANTAGES" \
+        "debug.opengoal.refset.hours=$HDR_HOURS"; do
+      timeout 15 "$ADB" -s "$SERIAL" shell "setprop ${kvp%%=*} '${kvp#*=}'" || exit 3
+      effective=$(timeout 15 "$ADB" -s "$SERIAL" shell getprop "${kvp%%=*}" | tr -d '\r')
+      [ "$effective" = "${kvp#*=}" ] || { log "HDR property did not apply: ${kvp%%=*}"; exit 3; }
+    done
+    python3 "$AP/lib/hdr_batches.py" prepare --batch "$HDR_BATCH" --adb "$ADB" \
+      --serial "$SERIAL" --pkg "$PKG" --binary "$BIN" --vantages "$HDR_VANTAGES" \
+      --hours "$HDR_HOURS" "${HDR_REPLACE[@]}" || exit 3
+    log "HDR batch: $HDR_BATCH ; refset=$HDR_REMOTE"
+  fi
+
   timeout 15 "$ADB" -s "$SERIAL" logcat -c >/dev/null 2>&1
   stdbuf -oL "$ADB" -s "$SERIAL" logcat -v time > "$RAWLOG" 2>&1 &
   LPID=$!; echo "$LPID" > "$PIDDIR/$ID$SUF.pid"
@@ -287,7 +391,15 @@ else
   # Le moteur peut publier ses cle=valeur dans logcat ET dans files/<id>.txt : on lit les deux.
   timeout 30 "$ADB" -s "$SERIAL" exec-out run-as "$PKG" sh -c "cat files/$ID.txt 2>/dev/null" \
     >> "$RAWLOG" 2>/dev/null
-  kill "$LPID" 2>/dev/null; rm -f "$PIDDIR/$ID$SUF.pid"
+  kill "$LPID" 2>/dev/null; wait "$LPID" 2>/dev/null; rm -f "$PIDDIR/$ID$SUF.pid"
+  if [ -n "$HDR_BATCH" ]; then
+    # Stop writes before collecting immutable raw captures/configuration.
+    timeout 20 "$ADB" -s "$SERIAL" shell am force-stop "$PKG" >/dev/null 2>&1
+    cp "$RAWLOG" "$HDR_BATCH/engine.log" || exit 3
+    python3 "$AP/lib/hdr_batches.py" finish --batch "$HDR_BATCH" --adb "$ADB" \
+      --serial "$SERIAL" --pkg "$PKG" --binary "$BIN" --remote "$HDR_REMOTE" \
+      --crash "$CRASH" --started-at "$STARTED" --duration-s "$(( $(date +%s) - T0 ))" || { log "HDR batch collection failed"; exit 3; }
+  fi
 fi
 
 # ============================================== recopie de ce que le MOTEUR a dit ===========
@@ -321,6 +433,16 @@ KVLINES=$(grep -aE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+$' "$NORM" \
                     k!="duration_s" && k!="crash" && k!="frames" && k!="local_lib_md5" &&
                     k!="device_lib_md5") printf "%s=%s\n", k, v[k]}}')
 rm -f "$NORM"
+
+if [ -n "$HDR_BATCH" ]; then
+  HDR_MEASURES=$(python3 "$AP/lib/hdr_batches.py" aggregate --batch "$HDR_BATCH") || {
+    log "HDR aggregate failed: no proof emitted"; exit 3; }
+  # Only these three process-local coverage/image verdicts are replaced. The
+  # aggregate returns retained chain controls as well, and never writes proof.txt.
+  KVLINES=$(printf '%s\n' "$KVLINES" | sed -E '/^(hdr_tonemap_defects|hdr_defect_1_saturation|hdr_defect_2_hl_contrast|hdr_defect_3_curve|hdr_defect_4_origine_lumiere_set|hdr_defect_5_sites_three_configs|hdr_defect_6_intermediate_narrowing)=/d')
+  KVLINES+=$'\n'"$HDR_MEASURES"
+  EXTRA+=$'\n'"hdr_campaign=$HDR_CAMPAIGN"$'\n'"hdr_batch_manifest=$HDR_BATCH/manifest.json"
+fi
 
 TMP="$D/.proof$SUF.tmp.$$"
 {

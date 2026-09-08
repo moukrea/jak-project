@@ -3541,8 +3541,19 @@ bool consume_capture(int w, int h, const void* rgba) {
   if (g_cap != kCapInFlight) {
     return false;
   }
-  const auto effective_options = refset_state::enabled()
+  auto effective_options = (refset_state::enabled() || autoport_proof::feature_is("lighting-hdr"))
       ? qualification_effective_options() : QualificationJson::object();
+  if (autoport_proof::feature_is("lighting-hdr")) {
+    const auto& settings = Gfx::g_global_settings;
+    effective_options["output"] = {
+        {"profile", "sdr"}, {"curve", settings.recharged_hdr_curve},
+        {"exposure", settings.recharged_hdr_exposure},
+        {"pbr_exposure", settings.recharged_pbr_exposure},
+        {"knee", settings.recharged_hdr_knee}};
+    std::printf("REFSET effective case=%s options=%s\n", g_capture_name.c_str(),
+                effective_options.dump().c_str());
+    std::fflush(stdout);
+  }
   const std::string path = image_path(g_steps[g_cur]);
   if (asset_manifest::enabled()) {
     asset_manifest::checkpoint(step_image_name(g_steps[g_cur]) + "/chain-lf=" +
