@@ -1,0 +1,8 @@
+{
+  "command": "ANDROID_SERIAL=eae4df44 AUTOPORT_BACKEND=codex AUTOPORT_PROOF_WAIT_MAX=0 bash .autoport/lib/proof_run.sh lighting-hdr device --timeout 30",
+  "started_at_utc": "2026-09-08T23:01:42.538739+00:00",
+  "ended_at_utc": "2026-09-08T23:01:43.212820+00:00",
+  "duration_s": 0.674,
+  "returncode": 3,
+  "proof_exists_after": false
+}
