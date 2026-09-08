@@ -20,6 +20,10 @@ void main() {
   if (color.a < alpha_min || color.a > alpha_max) {
     discard;
   }
+  // Legacy texture modulation supplies normalized source colors. RGBA8 used
+  // to bound these before blending; floating targets must preserve that source
+  // range explicitly. The destination and additive accumulation remain HDR.
+  color.rgb = clamp(color.rgb, 0.0, 1.0);
   // Alpha is a blend weight, even when RGB has floating-point HDR headroom.
   // Keep the original alpha tests above, then match the normalized target range.
   color.a = clamp(color.a, 0.0, 1.0);

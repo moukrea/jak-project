@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "common/custom_data/MeshSubdivide.h"
+#include "common/log/log.h"
 #include "common/util/FileUtil.h"
 
 #include "game/graphics/fixed_tick.h"
@@ -501,6 +502,7 @@ thread_local int64_t g_render_logic_frame = -1;
 bool g_repin_done = false;
 uint64_t g_repins = 0;
 int64_t g_repin_lf = -1;
+int64_t g_temporal_repin_case = -1;
 uint64_t g_frozen_frames = 0;
 int64_t g_frozen_first_lf = -1;
 int64_t g_part_step_lf = -1;
@@ -3124,6 +3126,30 @@ bool wants_particle_repin() {
     return false;
   }
   std::lock_guard<std::mutex> lock(g_mutex);
+  if (g_temporal_samples > 1) {
+    if (g_cap != kCapArmed || g_cur >= g_steps.size() || g_steps[g_cur].sample != 0 ||
+        g_temporal_repin_case == (int64_t)g_cur) {
+      return false;
+    }
+    const int64_t due = g_capture_frame - g_step_settle + 1;
+    const int64_t lf = current_logic_frame();
+    if (lf < due) return false;
+    if (lf != due) {
+      lg::error("REFSET fatal: temporal particle repin missed case={} due_lf={} lf={}",
+                g_capture_name, due, lf);
+      std::fprintf(stderr, "REFSET fatal: temporal particle repin missed case=%s due_lf=%lld lf=%lld\n",
+                   g_capture_name.c_str(), (long long)due, (long long)lf);
+      std::fflush(nullptr);
+      std::_Exit(EXIT_FAILURE);
+    }
+    g_temporal_repin_case = (int64_t)g_cur;
+    g_repin_lf = lf;
+    ++g_repins;
+    std::printf("REFSET repin-particules case=%s due_lf=%lld lf=%lld\n",
+                g_capture_name.c_str(), (long long)due, (long long)lf);
+    std::fflush(stdout);
+    return true;
+  }
   if (g_repin_done || g_plan_base < 0) {
     return false;
   }
@@ -3323,7 +3349,26 @@ void tick() {
       return;
     }
     require_loaded_state(lf, "arrival-deadline");
-    g_cap = kCapWaitWarp;
+    if (g_temporal_samples > 1) {
+      // The arrival already pinned the camera. A second warp would restart
+      // target-continue and its blackout after this fixed loading deadline.
+      g_step_anchor = g_vant_base = g_load_until;
+      if (g_plan_base < 0) g_plan_base = g_load_until;
+      g_capture_frame = g_step_anchor + g_step_settle;
+      g_cap = kCapArmed;
+      if (g_require_loaded && g_cur < g_steps.size() && first_step_of_vant(g_cur) == 0 &&
+          (!g_initial_levels_spec.empty() || !g_initial_display_spec.empty())) {
+        g_load_restore = {g_initial_levels_spec, g_initial_display_spec,
+                          g_step_anchor, g_step_anchor + 2, g_cur};
+        g_load_restore_pending = true;
+      }
+      std::printf("REFSET temporal-prepare case=%s anchor_lf=%lld observed_lf=%lld "
+                  "capture_lf=%lld rewarp=0\n", g_capture_name.c_str(),
+                  (long long)g_step_anchor, (long long)lf, (long long)g_capture_frame);
+      std::fflush(stdout);
+    } else {
+      g_cap = kCapWaitWarp;
+    }
   }
 
   if (g_cap == kCapIdle) {
@@ -3350,6 +3395,20 @@ void tick() {
       g_cap = kCapPreWarp;
     } else if (g_warp_per_step || g_cur == 0 || g_vant_base < 0) {
       g_cap = kCapWaitWarp;
+    } else if (g_temporal_samples > 1) {
+      // Each arm/hour starts an independent sequence after its preceding readback.
+      // The logic thread may already be ahead: a new purge cannot inherit a
+      // deadline from the previous sequence's last capture.
+      const int64_t previous_capture_lf = g_capture_frame;
+      g_step_anchor = lf;
+      g_capture_frame = lf + g_step_settle;
+      require_loaded_state(lf, "temporal-sequence-arm");
+      g_cap = kCapArmed;
+      std::printf("REFSET temporal-arm case=%s anchor_lf=%lld capture_lf=%lld "
+                  "previous_capture_lf=%lld lag_lf=%lld\n", g_capture_name.c_str(),
+                  (long long)g_step_anchor, (long long)g_capture_frame,
+                  (long long)previous_capture_lf, (long long)(lf - previous_capture_lf));
+      std::fflush(stdout);
     } else {
       // Pas de teleport pour cette etape : l'instant de la photo se DEDUIT de l'ancre du plan.
       // Voir `g_plan_base`. Un retard reel (le plan n'a pas tenu la cadence) n'est pas absorbe
@@ -3602,6 +3661,27 @@ bool consume_capture(int w, int h, const void* rgba) {
   if (g_cap != kCapInFlight) {
     return false;
   }
+  int64_t particle_age = -1;
+  if (g_temporal_samples > 1) {
+    const int sample = g_steps[g_cur].sample;
+    const int64_t expected_age = (int64_t)(sample + 1) * g_step_settle - 1;
+    const int64_t expected_repin = g_capture_frame - expected_age;
+    particle_age = g_inflight_lf - g_repin_lf;
+    if (g_temporal_repin_case != (int64_t)g_cur - sample ||
+        g_repin_lf != expected_repin || particle_age != expected_age) {
+      lg::error("REFSET fatal: temporal particle age case={} chain_lf={} "
+                "particle_repin_lf={} particle_age={} expected_repin_lf={} expected_age={}",
+                g_capture_name, g_inflight_lf, g_repin_lf, particle_age,
+                expected_repin, expected_age);
+      std::fprintf(stderr, "REFSET fatal: temporal particle age case=%s chain_lf=%lld "
+                           "particle_repin_lf=%lld particle_age=%lld expected_repin_lf=%lld "
+                           "expected_age=%lld\n", g_capture_name.c_str(),
+                   (long long)g_inflight_lf, (long long)g_repin_lf, (long long)particle_age,
+                   (long long)expected_repin, (long long)expected_age);
+      std::fflush(nullptr);
+      std::_Exit(EXIT_FAILURE);
+    }
+  }
   auto effective_options = (refset_state::enabled() || autoport_proof::feature_is("lighting-hdr"))
       ? qualification_effective_options() : QualificationJson::object();
   if (autoport_proof::feature_is("lighting-hdr")) {
@@ -3614,7 +3694,8 @@ bool consume_capture(int w, int h, const void* rgba) {
     if (g_temporal_samples > 1) {
       effective_options["temporal"] = {
           {"samples", g_temporal_samples}, {"sample", g_steps[g_cur].sample},
-          {"spacing_lf", g_step_settle}, {"particle_step", "once-per-logic-frame"}};
+          {"spacing_lf", g_step_settle}, {"particle_step", "once-per-logic-frame"},
+          {"particle_repin_lf", g_repin_lf}, {"particle_age", particle_age}};
     }
     std::printf("REFSET effective case=%s options=%s\n", g_capture_name.c_str(),
                 effective_options.dump().c_str());
@@ -3625,10 +3706,15 @@ bool consume_capture(int w, int h, const void* rgba) {
     asset_manifest::checkpoint(step_image_name(g_steps[g_cur]) + "/chain-lf=" +
                                std::to_string(g_inflight_lf));
   }
-  std::printf("REFSET sample case=%s layer=%s chain_lf=%lld anchor_lf=%lld sample=%d samples=%d\n",
+  std::printf("REFSET sample case=%s layer=%s chain_lf=%lld anchor_lf=%lld sample=%d samples=%d",
               g_capture_name.c_str(), g_steps[g_cur].supplemental ? "supplement-v1" : "historical",
               (long long)g_inflight_lf, (long long)g_step_anchor,
               g_steps[g_cur].sample, g_temporal_samples);
+  if (g_temporal_samples > 1) {
+    std::printf(" particle_repin_lf=%lld particle_age=%lld",
+                (long long)g_repin_lf, (long long)particle_age);
+  }
+  std::printf("\n");
   const int n_px = w * h;
   const uint8_t* cur = (const uint8_t*)rgba;
   // lighting-hdr : on mesure AVANT de comparer ou d'ecrire, dans les deux modes. Les

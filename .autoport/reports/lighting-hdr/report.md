@@ -1,27 +1,29 @@
 DIRECTIVES v6133a247b4
-Non validé : les blancs éco reviennent partiellement, mais le cas mesuré échoue et quatre cas restent non jugés.
-Épaule SDR quadratique C1 à blanc fini dans tonemap.frag et miroir hdr.cpp ; exposition/alpha inchangés.
-Ce correctif reste expérimental : son plateau peut aplatir les hautes lumières ; aucun effet artistique ajouté.
-owner_regressions juge maintenant les séquences éco : mesure, échec et réussite distincts ; absences/doublons/remplacements protégés.
-Preuve officielle, lot essai25-finite-white/20260908T063147-3766137, huit lignes recopiées :
-```text
+Verdict : correctif partiel livré sur le Redmi ; HDR NON VALIDÉ, hdr_tonemap_defects=4.
+Les shaders Sprite3 bornent la couleur source après texture et avant mélange ; accumulation HDR et tone map unique conservés.
+Préparation temporelle : second téléport supprimé, purge par bras/heure, ancre explicite par séquence, âge contrôlé avant écriture.
+Attribution étendue à lightning3/hotdot/bigpuff/starflash ; ces deux dernières couches restent sans témoin attribué.
+Le helper vérifie âges/dates de purge, distingue date et réglage, et retire le faux rattachement legacy=hutte ; critères qualité inchangés.
+Build incrémental/repack/install réussis ; lib build/APK/Redmi SHA256 008b1f81b596f3593cdd0db00fbbc56de1734f9b62ecc47112801d9ef2f3a480.
+Tests hors jeu : 171 tests harnais passent ; 48 contrôles GPU passent (SDR identique sur cas testés, accumulation >1, alpha conservé).
+Huit lignes recopiées de proof.txt, produit exclusivement par proof_run.sh :
+```
+source=device
+sha=008b1f81b596f359
 crash=0
-frames=1140
-FEATURE lighting-hdr armed=1 hits=271323
-tonemap_draws=388
+frames=1260
+tonemap_draws=389
 tonemap_sites=1
-hdr_owner_regressions_measured=1
 hdr_owner_regressions_failed=1
 hdr_tonemap_defects=4
 ```
-Comparaison ImageMagick, rectangles AVANT/APRÈS identiques : notes/essai25/before-after-regions.json.
-Éco10012 à12h : blancs ON0→56,67, OFF88,67 ; quasi-blancs ON146,33→155,83, OFF217,17.
-À18h : blancs ON41,67/OFF25,5 ; excès global clipped75 après tolérance existante, donc aucun succès qualité.
-Le lot précédent a planté avant captures dans intern_from_c ; ses deux cellules sont remplacées explicitement, sources conservées.
-158 tests harnais passent ; GPU hors appareil8001échantillons de courbe et27cas, zéro échec ; ces tests ne valent pas preuve jeu.
-Build incrémental/repack/install réussis, bibliothèque build/APK/Redmi MD5 4040690090e5b5aa4a3989dc2c78d124.
-Redmi restauré normal : PID6459 stable12s, swap1200,58propriétés debug vides, aucun verrou (device-restored.json).
-À regarder par l'owner, Options > Recharged : éclairs éco midi/soir, nuages, éclat du soleil, petites zones devant vraie hutte et portail.
-non prouvé : correction complète éco, nuages/soleil/sol/portail, tous acquis, équilibre21niveaux×8h et sortie HDR native.
-Campagne complète non lancée : le scope la place après les corrections ciblées encore en échec ; aucun owner-ok ni appel generic.
-Reprise technique détaillée dans handoff.md ; notes/essai25/diagnostic.md conserve les limites et le transitoire des particules.
+Lot livré : essai26-source-color/20260908T070411-3795215 ; 24 captures, quatre purges, âges11/23/35/47/59/71, slip0.
+Recalcul officiel sans nouveau run : errors0/pairs2/quality_bad1 ; owner measured1/failed1/missing4/passed0 ; sources brutes inchangées.
+Comparaison premier bras ON12 avant/après source, ROI10012 commune : clipped moyen2269.5→2095.67 ; blancs62.5→59.67. Ce progrès ne valide pas le rendu.
+Échec restant : clipped à12h (excès global181 après tolérance), pertes de blancs10012 à18h (ON14.83/OFF65.5). Quatre observations éco échouent.
+Les deux runs échoués du cycle précédent restent conservés : SIGSEGV GOAL avant capture puis erreur introduite de purge interséquence, corrigée sur le lot livré.
+À regarder par l'owner, Options > Recharged : éclairs éco, blancs des nuages, éclat du soleil couchant, sol devant vraie hutte Sage vert et portail.
+non prouvé : correction complète des cinq régressions, attribution bigpuff/starflash, régions nuages/soleil/sol/portail, couverture21niveaux×8h/vraie hutte, tous acquis et HDR natif.
+Pas de nouvelle variante de courbe sans diagnostic ; campagne complète non lancée car corrections ciblées encore rouges. Aucun owner-ok ni validateur touché/lancé.
+Notes et sources avant/après : notes/essai26/ ; suite détaillée dans handoff.md.
+Redmi restauré normal : PID14441 stable12s, A35-RENDER frame360/draws70 ; propriétés debug vides et verrou absent (notes/essai26/normal-restoration.json).

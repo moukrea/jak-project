@@ -68,10 +68,14 @@ CRASH=0; TIMEOUT=23; elapsed=8
 
 
 @pytest.fixture
-def plan():
+def plan(monkeypatch):
     contract = hdr.contract(ROOT)
     # Existing synthetic fixtures measure regional coverage, without owner cases.
     contract['plan'].pop('owner_regression_cases', None)
+    # Test-only semantic attribution: this view does not exist in the game and
+    # certifies no execution. Legacy remains a separate historical interior.
+    contract['views']['synthetic-sage-hut'] = 'village1'
+    monkeypatch.setattr(hdr, 'HUT_VIEWS', frozenset({'synthetic-sage-hut'}))
     return contract
 
 
@@ -154,7 +158,7 @@ def complete_requests(plan):
         views.setdefault(level, view)
     # village1 needs both its sky and Samos' hut.
     views['village1'] = 'village1-out'
-    return [(v, h) for v in [*views.values(), 'legacy'] for h in plan['hours']]
+    return [(v, h) for v in [*views.values(), 'legacy', 'synthetic-sage-hut'] for h in plan['hours']]
 
 
 def batch(root, plan, requests, name='001', crash=0, replaces=(), bad=None):
@@ -174,7 +178,7 @@ def batch(root, plan, requests, name='001', crash=0, replaces=(), bad=None):
         level = plan['views'][view]
         stem = ('' if view == 'legacy' else view + '-') + f'h{hour:02}'
         bg_key = 'refset_bgh_' + view.replace('-', '_')
-        bg = 0 if view == 'legacy' or not plan['sky'][level] else 300
+        bg = 0 if view in ('legacy', 'synthetic-sage-hut') or not plan['sky'][level] else 300
         values['refset_bg_max_pm_' + view.replace('-', '_')] = str(bg)
         values[bg_key] = values.get(bg_key, '') + f'h{hour:02}:{bg},'
         for phase, arm in ((2, 'recharged'), (3, 'origine-lumiere')):
@@ -232,12 +236,14 @@ def result(root, plan, current='001'):
     return hdr.aggregate(root, current, plan, stats)
 
 
-def test_real_contract(plan):
+def test_real_contract():
+    plan = hdr.contract(ROOT)
     assert len(plan['sky']) == 21
     assert len(plan['hours']) == 8
     assert len(plan['views']) == 29
     assert plan['views']['village1-eco-blue'] == 'village1'
     assert plan['sky']['sunkenb'] and plan['sky']['swamp']
+    assert hdr.HUT_VIEWS == frozenset()
 
 
 def test_owner_regions_use_shared_projected_bounds_and_preserve_absence(tmp_path):
@@ -354,7 +360,7 @@ def test_complete_synthetic_multiple_processes(tmp_path, plan):
     r = result(tmp_path, plan, '002')
     assert r['hdr_tonemap_defects'] == 0
     assert r['hdr_batch_cells'] == 21 * 8
-    assert r['hdr_batch_pairs'] == 22 * 8
+    assert r['hdr_batch_pairs'] == 23 * 8
     assert r['hdr_owner_regressions_required'] == 0
     assert r['hdr_owner_regressions_measured'] == 0
     assert r['hdr_owner_regressions_missing'] == 0
@@ -363,9 +369,9 @@ def test_complete_synthetic_multiple_processes(tmp_path, plan):
 
 
 @pytest.mark.parametrize('forged_engine_verdict', [False, True])
-def test_owner_cases_not_measured_by_complete_regional_set(tmp_path, forged_engine_verdict):
-    plan = hdr.contract(ROOT)
-    cases = plan['plan']['owner_regression_cases']
+def test_owner_cases_not_measured_by_complete_regional_set(tmp_path, plan, forged_engine_verdict):
+    cases = hdr.contract(ROOT)['plan']['owner_regression_cases']
+    plan['plan']['owner_regression_cases'] = cases
     assert len(cases) == 5
     path = batch(tmp_path, plan, complete_requests(plan))
     if forged_engine_verdict:
@@ -378,7 +384,7 @@ def test_owner_cases_not_measured_by_complete_regional_set(tmp_path, forged_engi
     assert r['hdr_batch_missing'] == 0
     assert r['hdr_batch_errors'] == 0
     assert r['hdr_batch_cells'] == 21 * 8
-    assert r['hdr_batch_pairs'] == 22 * 8
+    assert r['hdr_batch_pairs'] == 23 * 8
     assert r['hdr_owner_regressions_required'] == len(cases)
     assert r['hdr_owner_regressions_measured'] == 0
     assert r['hdr_owner_regressions_missing'] == len(cases)
@@ -413,6 +419,22 @@ def test_current_missing_reports_owner_cases(tmp_path, plan, owner_cases):
 def test_partial_red(tmp_path, plan):
     batch(tmp_path, plan, [('legacy', 0)])
     assert result(tmp_path, plan)['hdr_tonemap_defects'] > 0
+
+
+def test_legacy_interior_cannot_cover_sage_hut(tmp_path, plan):
+    requests = [(view, hour) for view, hour in complete_requests(plan)
+                if view != 'synthetic-sage-hut']
+    batch(tmp_path, plan, requests)
+    r = result(tmp_path, plan)
+    measured = json.loads((tmp_path / 'measurements.json').read_text())
+    assert measured['errors'] == []
+    assert measured['missing'] == measured['sky_missing'] == measured['interior_missing'] == []
+    assert measured['hut_missing'] == sorted(plan['hours'])
+    legacy = [row for row in measured['pairs'] if row['view'] == 'legacy']
+    assert {row['hour'] for row in legacy} == set(plan['hours'])
+    assert all(row['sky_pm'] == 0 and row['on'] == row['off'] for row in legacy)
+    assert r['hdr_batch_missing'] == len(plan['hours'])
+    assert r['hdr_tonemap_defects'] > 0
 
 
 @pytest.mark.parametrize('change', ['missing', 'modified', 'unreadable', 'schema', 'raw_missing',
@@ -455,7 +477,7 @@ def test_negative_inputs(tmp_path, plan, change):
         rehash(path)
     elif change in ('sky_missing', 'hut_missing', 'interior_missing'):
         view, before, after = {'sky_missing': ('sunkenb_start', ':300', ':0'),
-                              'hut_missing': ('legacy', ':0', ':300'),
+                              'hut_missing': ('synthetic_sage_hut', ':0', ':300'),
                               'interior_missing': ('maincave_start', ':0', ':300')}[change]
         log.write_text('\n'.join(x.replace(before, after) if x.startswith('refset_bgh_' + view + '=') else x
                                  for x in log.read_text().splitlines()))
@@ -549,7 +571,7 @@ def test_sidecar_fields_bound_to_capture(tmp_path, plan, field):
     assert result(tmp_path, plan)['hdr_tonemap_defects'] > 0
 
 
-@pytest.mark.parametrize('view', ['legacy', 'training_start'])
+@pytest.mark.parametrize('view', ['synthetic_sage_hut', 'training_start'])
 def test_sky_min_does_not_hide_other_arm_void(tmp_path, plan, view):
     path = batch(tmp_path, plan, complete_requests(plan))
     log = path / 'engine.log'
@@ -1138,3 +1160,102 @@ def test_eco_early_crash_can_be_explicitly_replaced(tmp_path, monkeypatch):
     assert diagnostic['errors'] == []
     assert metrics['hdr_owner_regressions_passed'] == 1
     assert metrics['hdr_owner_regressions_missing'] == 4
+
+
+def temporal_particle_batch(root, plan, mutate=lambda case, sample, options: None, *, name='001', hours=(12, 18), modern=True):
+    """Synthetic temporal dates, never an execution proof."""
+    path = batch(root, plan, [('village1-eco-blue', hour) for hour in hours], name=name)
+    lines, count = [], 0
+    capture_frames = {}
+    for line in (path / 'engine.log').read_text().splitlines():
+        if not line.startswith('REFSET effective '):
+            lines.append(line)
+            continue
+        prefix, encoded = line.split(' options=', 1)
+        case = prefix.split('case=', 1)[1]
+        source = path / 'captures' / (case + '.png')
+        sidecar = source.with_suffix('.png.provenance.txt').read_text()
+        repin = 200 + count * 100
+        for sample in range(2):
+            sample_case = case + (f'-t{sample:02}' if sample else '')
+            target = path / 'captures' / (sample_case + '.png')
+            target.write_bytes(source.read_bytes())
+            age = (sample + 1) * 12 - 1
+            if sample == 0:
+                arm, stem = case.split('/')
+                hour = int(stem.rsplit('-h', 1)[1])
+                phase = 2 if arm == 'recharged' else 3
+                capture_frames[f'hdr_village1_eco_blue_h{hour}_p{phase}_cap_lf'] = repin + age
+            target.with_suffix('.png.provenance.txt').write_text(
+                sidecar.replace('case=' + case, 'case=' + sample_case)
+                .replace('capture_lf=100', 'capture_lf=' + str(repin + age)))
+            options = json.loads(encoded)
+            options['temporal'] = dict(samples=2, sample=sample, spacing_lf=12,
+                                       particle_step='once-per-logic-frame')
+            if modern:
+                options['temporal'].update(particle_repin_lf=repin, particle_age=age)
+            mutate(case, sample, options)
+            lines.append('REFSET effective case=' + sample_case + ' options=' + json.dumps(options))
+            count += 1
+    lines += ['refset_temporal_samples=2', f'refset_temporal_captured={count}',
+              f'refset_captured={count}', f'refset_probe_frames={count}']
+    lines += [f'{key}={frame}' for key, frame in capture_frames.items()]
+    (path / 'engine.log').write_text('\n'.join(lines) + '\n')
+    rehash(path)
+    return path
+
+
+def test_temporal_particle_dates_are_not_configuration(tmp_path, plan):
+    path = temporal_particle_batch(tmp_path, plan)
+    before = hdr.sha(path / 'engine.log')
+    parsed = hdr.read_batch(path / 'manifest.json', plan, stats)
+    first, second = [parsed['pairs'][('village1-eco-blue', hour)]['options'] for hour in (12, 18)]
+    assert first == second
+    assert first[0]['temporal'] == dict(samples=2, sample=0, spacing_lf=12,
+        particle_step='once-per-logic-frame', particle_age=11)
+    assert hdr.sha(path / 'engine.log') == before
+    result(tmp_path, plan)
+    assert json.loads((tmp_path / 'measurements.json').read_text())['errors'] == []
+
+
+@pytest.mark.parametrize('fault', ['age', 'repin', 'partial', 'mixed', 'bool', 'float', 'negative', 'unknown_in_sequence'])
+def test_temporal_particle_metadata_invalid(tmp_path, plan, fault):
+    def mutate(case, sample, options):
+        if sample != 1:
+            return
+        temporal = options['temporal']
+        if fault == 'age': temporal['particle_age'] += 1
+        elif fault == 'repin': temporal['particle_repin_lf'] += 1
+        elif fault == 'partial': temporal.pop('particle_age')
+        elif fault == 'mixed':
+            temporal.pop('particle_age'); temporal.pop('particle_repin_lf')
+        elif fault == 'bool': temporal['particle_age'] = True
+        elif fault == 'float': temporal['particle_repin_lf'] = float(temporal['particle_repin_lf'])
+        elif fault == 'negative': temporal['particle_repin_lf'] = -1
+        elif fault == 'unknown_in_sequence': temporal['unknown_setting'] = 1
+    path = temporal_particle_batch(tmp_path, plan, mutate)
+    with pytest.raises(ValueError, match='temporal'):
+        hdr.read_batch(path / 'manifest.json', plan, stats)
+
+
+@pytest.mark.parametrize('change', ['render', 'unknown_temporal'])
+def test_temporal_real_configuration_difference_kept(tmp_path, plan, change):
+    def mutate(case, sample, options):
+        if case.endswith('h18'):
+            if change == 'render': options['output']['exposure'] = 2
+            else: options['temporal']['unknown_setting'] = 2
+    temporal_particle_batch(tmp_path, plan, mutate)
+    result(tmp_path, plan)
+    assert any('effective rendering configuration incompatible' in error
+               for error in json.loads((tmp_path / 'measurements.json').read_text())['errors'])
+
+
+def test_old_temporal_metadata_cannot_match_new(tmp_path, plan):
+    old = temporal_particle_batch(tmp_path, plan, name='001', hours=(12,), modern=False)
+    new = temporal_particle_batch(tmp_path, plan, name='002', hours=(18,))
+    a = hdr.read_batch(old / 'manifest.json', plan, stats)
+    b = hdr.read_batch(new / 'manifest.json', plan, stats)
+    assert a['pairs'][('village1-eco-blue', 12)]['options'] != b['pairs'][('village1-eco-blue', 18)]['options']
+    result(tmp_path, plan, '002')
+    assert any('effective rendering configuration incompatible' in error
+               for error in json.loads((tmp_path / 'measurements.json').read_text())['errors'])

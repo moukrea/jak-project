@@ -21,6 +21,10 @@ SCHEMA = 1
 CHAIN = ('hdr_defect_3_curve', 'hdr_defect_5_sites_three_configs',
          'hdr_defect_6_intermediate_narrowing')
 QUALITY = ('clipped', 'white', 'nearwhite')
+# Only semantically established interior views of the Green Sage's hut belong
+# here. None is established in kVantages: legacy is at (-116, 14, 40) m,
+# not the hut at (-123, 46, 214) m. Keep its measurements as diagnostics.
+HUT_VIEWS = frozenset()
 
 
 def sha(path):
@@ -459,12 +463,15 @@ def read_batch(path, expected, measurer):
                 or int(values.get('refset_probe_frames', '0')) < actual_count):
             raise ValueError('temporal capture accounting inconsistent')
         temporal_configs = set()
+        particle_metadata_modes = set()
         for view, hour in requested:
             stem = ('' if view == 'legacy' else view + '-') + f'h{hour:02}'
             for arm in ('recharged', 'origine-lumiere'):
                 frames = []
                 spacing = None
                 base_options = None
+                sequence_repin = None
+                sequence_temporal = None
                 for sample in range(temporal):
                     case = arm + '/' + stem + (f'-t{sample:02}' if sample else '')
                     candidates = [prefix + case + '.png' for prefix in
@@ -489,14 +496,39 @@ def read_batch(path, expected, measurer):
                         raise ValueError('rendering settings changed within temporal arm')
                     base_options = invariant
                     options = effective.get(case, {}).get('temporal', {})
-                    if (options.get('samples') != temporal or options.get('sample') != sample
+                    if (type(options.get('samples')) is not int or type(options.get('sample')) is not int
+                            or options.get('samples') != temporal or options.get('sample') != sample
                             or options.get('particle_step') != 'once-per-logic-frame'
                             or type(options.get('spacing_lf')) is not int or options['spacing_lf'] <= 0):
                         raise ValueError('temporal effective settings absent/incompatible: ' + case)
                     if spacing is not None and spacing != options['spacing_lf']:
                         raise ValueError('temporal spacing changed')
                     spacing = options['spacing_lf']
-                    frames.append(int(sidecar['capture_lf']))
+                    frame = int(sidecar['capture_lf'])
+                    fields = {'particle_repin_lf', 'particle_age'} & options.keys()
+                    if fields and len(fields) != 2:
+                        raise ValueError('partial temporal particle metadata: ' + case)
+                    particle_metadata_modes.add(bool(fields))
+                    if len(particle_metadata_modes) != 1:
+                        raise ValueError('mixed temporal particle metadata')
+                    if fields:
+                        repin, age = options['particle_repin_lf'], options['particle_age']
+                        if (type(repin) is not int or type(age) is not int or repin <= 0
+                                or not re.fullmatch('[0-9]+', sidecar['capture_lf'])
+                                or frame <= 0 or age != (sample + 1) * spacing - 1
+                                or frame - repin != age):
+                            raise ValueError('invalid temporal particle age/date: ' + case)
+                        if sequence_repin is not None and sequence_repin != repin:
+                            raise ValueError('temporal particle repin changed within sequence')
+                        sequence_repin = repin
+                    # Sample and age vary by the validated cadence within a sequence;
+                    # preserve every unknown temporal setting in its invariant.
+                    temporal_invariant = {k: v for k, v in options.items()
+                                          if k not in ('sample', 'particle_age', 'particle_repin_lf')}
+                    if sequence_temporal is not None and sequence_temporal != temporal_invariant:
+                        raise ValueError('temporal settings changed within sequence')
+                    sequence_temporal = temporal_invariant
+                    frames.append(frame)
                 if any(b - a != spacing for a, b in zip(frames, frames[1:])):
                     temporal_failures.setdefault((view, hour), []).append('temporal cadence incomplete')
     cached_pixels = json.loads((base / 'pixels.json').read_text()) if 'pixels.json' in files else {}
@@ -570,6 +602,12 @@ def read_batch(path, expected, measurer):
                 raise ValueError('capture dimensions disagree with engine')
             if stats['black'] >= .99 * stats['pixels'] or stats['luma_p99'] <= 2 or sum(stats['hue_bins']) == 0:
                 reasons.append('black or achromatic capture: ' + case)
+            # The purge timestamp is execution evidence, not a rendering option.
+            # Its source remains sealed; normalize only this copied comparison value
+            # after the full temporal sequence metadata has been checked above.
+            if temporal > 1 and options is not None and 'particle_repin_lf' in options.get('temporal', {}):
+                options = {**options, 'temporal': {k: v for k, v in options['temporal'].items()
+                                                 if k != 'particle_repin_lf'}}
             pair.append((stats, options))
         if len(pair) != 2:
             unqualified[(view, hour)] = {'reasons': reasons, 'measured_arms': [{'stats': st, 'options': opt} for st, opt in pair]}
@@ -921,7 +959,7 @@ def aggregate(campaign, current, expected, measurer=measure):
             sky.add((level, hour))
         if p['sky_max_pm'] <= 10:
             interior.add((level, hour))
-            if view == 'legacy':
+            if view in HUT_VIEWS:
                 hut.add(hour)
         on, off = p['on'], p['off']
         excess = {k: on[k] - off[k] - max(off['pixels'] // 1000, off[k] // 20) for k in QUALITY}

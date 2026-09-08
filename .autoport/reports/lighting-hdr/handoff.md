@@ -1,25 +1,29 @@
 DIRECTIVES v6133a247b4
 ## ÉTABLI
-- Correctif expérimental livré : épaule quadratique C1 par canal (k=.95, blanc fini1.05), shader tonemap.frag + miroir hdr.cpp ; expo/alpha/Filmique conservés. Ce n'est PAS une correction complète.
-- Build incrémental/repack/install rc0 ; MD5 lib build/APK/Redmi4040690090e5b5aa4a3989dc2c78d124 ; notes/essai25/build/. GPU shader réel8001points, max_slope_jump.0100732 ;27cas/0échec.
-- APRÈS officiel essai25-finite-white/20260908T063147-3766137 :24captures, crash0, frames1140, hits271323, tonemap_draws388/sites1, agrégat errors0/pairs2, hdr_tonemap_defects4.
-- Avant essai24-projected conservé et non réutilisé comme preuve du nouveau binaire ; vue/heures12,18/temporal6/config identiques. Comparaison ROI communes/hashes : notes/essai25/before-after-regions.json.
-- Éco10012h12 blancs ON0→56.67, OFF88.67 ; quasi-blancs ON146.33→155.83, OFF217.17. h18 blancsON41.67/OFF25.5. Excès global clipped75 après tolérance : quality_bad1.
-- owner_regressions branché aux mesures reconstruites scellées : measured1/failed1/missing4/passed0. Midi échoue nearwhite/aplats et clipped acteur10013 ; deux cellules soir satisfont les contraintes régionales.
-- Qualification impose2acteurs par cellule sélectionnée, chaque sample visible ; moyenne ON dans enveloppe OFF, détail/aplats/clipped directionnels. Absence heure entière, doublons, remplacement effaçant défaut mesuré échouent.158tests passent (harness-tests-regional-final.log).
-- Redmi restauré normal PID6459 stable12s, swap1200,58props debug vides/verrou absent ; notes/essai25/device-restored.json. Aucun generic/owner-ok touché.
+- Livré libSHA256008b1f81b596f3593cdd0db00fbbc56de1734f9b62ecc47112801d9ef2f3a480, build/APK/Redmi identiques ; notes/essai26/build-source-color/.
+- Rendu : sprite3_3d{,_inst}.frag borne RGB SOURCE après texture avant blend, alpha brut testé avant bornage. Courbe finie essai25 inchangée ; aucun bloom/gain.
+- Test GPU adapté essai22 :48PASS/failures0, SDR avant/après exact cas testés, somme additiveHDR>1, alpha conservé ; notes/essai26/source-color/. Pas preuve jeu.
+- refset temporel : pas second warp après loadsettle240, ancre par séquence au tick après readback, purge àancre+1 puis samples à+12,+24... ; single-sample/replay conservés.
+- Lot officiel essai26-source-color/20260908T070411-3795215 :24captures/crash0/frames1260/draws389/site1 ; probe max5.652 et5587px>1.
+- Quatre purges842/916/990/1064 ; chaque bras âges11/23/35/47/59/71, slip0 ; retard interséquences2 explicitement loggé. Première ON12 n'a plus saut global64→109 observé essai25.
+- Helper valide repin/date/âge/présence uniforme et exclut seulement timestamp repin des options comparées ; legacy ne couvre PLUS la hutte.171tests passent ; aucun critère qualité changé.
+- Aggregate-only officiel : errors0/pairs2/quality_bad1/defects4 ; owner measured1/failed1/missing4/passed0 ;62fichiers du lot inchangés.
+- Avant24 et après26 ROI communes/hashes : notes/essai26/before24-after26-regions.json. Avant source ON12 partiel→après : before-source-after-source-regions.json.
+- ROI10012h12 avant/après source clipped2269.5→2095.67, blancs62.5→59.67 ; aprèsOFF clipped1648.33/blancs40.33. Réduction observée insuffisante, pas validation.
+- H18 après10012 blancsON14.83/OFF65.5, nearwhite58.67/OFF134.17 ; quatre observations éco échouent. Source avantOFF absente, anciensOFF âges différents : pas attribution de tous deltas au shader.
+- Témoins avant source1326/510passed : lightning3 nouvellement attribué aux2acteurs ; hotdot10013lf889 passed borneRGB(.251,.251,1.506). Bigpuff/starflash AUCUN événement, pas preuve d'absence rendu.
 ## TENTÉ
-- Premier APRÈS20260908T062547-3759803 :SIGSEGV frame385 avant toute capture, tonemap_draws0 ; PC libgk+0x7100b8 intern_from_c/kscheme.cpp:1296, écriture tag sur symbol_slot nul, pile jak1_work_v3. Source conservée.
-- Unique retry IDENTIQUE avec --hdr-replace deux cellules : réussi, ancien crash conservé dans campagne ; aucune hausse arbitraire settle. Commandes notes/essai25/command-eco*.txt.
-- L'épaule finie réduit le seuil blanc8bits rationnel~2.225 à~1.03, mais crée un plateau et ne suffit pas aux autres métriques. Ne pas déclarer « blancs revenus » égal à succès ; ne pas poursuivre réglages sur le seul compteur255.
-- Clamp RGB sprites envisagé puis NON appliqué : lightning64/64/128→(.502,.502,1.004), ne rétablit pas blanc ; couchesbigpuff/starflash plus bleues non attribuées, causalité non prouvée.
-- Transitoire conservé : éco10012h12 ON0 luma106.45/flat.125 puisON1 155.11/.011 ; identique AVANT106.33/.125→154.64/.011. Aucun sample retiré.
+- Cycle1 premier lot20260908T065403-3786348 SIGSEGV GOAL avant mesures, processwarp-gate-switch-3/LRenter-state/lecture typeà-4 ; pas intern_from_c. Source conservée.
+- Retry identique20260908T065654-3789494 :6ON12 puis exit1. Nouvelle échéance purgeOFF914 déjà dépassée quand logique915 ; corrigé en ancrant CHAQUE séquence après readback, sans augmenter settle ni enlever sample0.
+- Premier agrégat livré rejetait h18 car comparait particle_repin_lf comme réglage ; corrigé/testé, proof_run aggregate-only recalcule sans nouveaux pixels ni changement date source.
+- Clamp source ne suffit pas : h12 excès clipped global181, régional10012 manque détail ; h18 manque blancs10012 et excès blancs/aplats10013. Courbe actuelle garde risque plateau>1.05.
 ## RESTE
-- Diagnostiquer transitoire avant nouveau réglage : config phase2/h12 dèslf600, ancre842, repin-particules843 tue lanceurs/remet local-clock0 ; ON0lf854 âge11,ON1lf866 âge23,OFF0lf926 âge83, pas nouveau repin OFF. Asymétrie établie, causalité couleur non prouvée.
-- Ne pas augmenter settle ni retirer sample0 pour fabriquer vert. La préparation introduit population initiale différente ; vérifier ce point et les couches eco bigpuff/starflash/lightning3 hors attribution actuelle avant correction source.
-- Corriger pertes h12/excès clippedh18 sans nouveau bloom ni assombrissement global ; la courbe finie actuelle est un essai rouge, risque d'aplats soleil à garder explicite.
-- Portail : ROIs anciennes presque écran entier ;338hotdot/348middot passed, centrehotdot[151,87,158,93] seulement10frames, harddot3D non couvert. Ne pas appeler ce centre portail entier ; pas de nouveau lot portail cet essai.
-- Nuages/soleil/sol hutte toujours sans ROI qualifiée : vraie hutte(-123,46,214)m, legacy(-116,14,40)m n'est PAS hutte. Le cumul historique compte encore legacy comme hutte : ne pas utiliser ce faux rattachement pour fermer couverture.
-- Soleil18h direction calculée(-.033783,.126079,-.991445), caméra candidate village1-out:7:19:0:500 ; aucune visibilité prouvée. Nuages sky-tng.gc2couches9quads, aucune attribution capturée.
-- Couverture21niveaux×8h/ciels/interieurs/vraie hutte après corrections ciblées ; non lancée car éco encore rouge, autres4non jugés. Données anciennes incompatibles restent diagnostic.
-- non prouvé : cinq corrections artistiques, tous acquis, alpha destination tous mélanges et HDR natif. Pas de validation propriétaire fabriquée.
+- Diagnostiquer contributions de fond éclairé et couches non attribuées avant autre réglage ; nearwhiteh12 dépendait aussi du transitoire et des populations OFF anciennes. Ne pas régler sur compteur255 seul.
+- Bigpuff/starflash : PNG extraits directement extracted_textures/jak1/effects/, gris max255/alpha128 ; source bleue>1 possible, mais rayon1.732m actuel ne les attribue pas. Ne pas élargir aveuglément ROI.
+- Soleil = groupe35 Sprite3, centreGOAL camera_pos+4096*gs.recharged_pbr_sky_sun brut ; middot1200²m, starflash2 2800×2200m/inverse. Projection/query existants réutilisables ; aucune attribution ni visibilité mesurée.
+- Nuages : DirectRenderer vertices projetées/texture8096, mais18quads puis4triangles horizon même état ; aucune ROI actuelle. Ne pas appeler quart haut ou texture entière nuages sans qualification.
+- Vraie hutte confirmée acteurs autour(-123,46,214)m, sage(-132.659,46.198,213.468)m. Legacy(-116,14,40)m fausse ; village1-out caméra+50m ne qualifie pas sol. HUT_VIEWS vide reste rouge.
+- Portail ancienROI trop large, hotdot centre ne couvre pas portail entier ; harddot3D toujours non attribué. Les4autres cas restent manquants, aucun jugement artistique inventé.
+- Après corrections ciblées : couverture21niveaux×8h/ciels/intérieurs/vraie hutte, lots compatibles seulement. Pas nouveau système général de capture ni campagne frame exacte.
+- non prouvé : cinq régressions corrigées, tous acquis, alpha destination tous mélanges, HDR natif. Aucun generic/owner-ok lancé/écrit ; voir notes/essai26/ pour commandes, logs, état final Redmi.
+- Redmi restauré normal PID14441 stable12s, A35-RENDER frame360/draws70 ; propsdebug vides/verrou absent ; notes/essai26/normal-restoration.json.

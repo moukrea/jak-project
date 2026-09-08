@@ -989,7 +989,9 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
         }
         return false;
       };
-      const bool eco = has_texture("lightning") || has_texture("lightning2");
+      const bool eco = has_texture("lightning") || has_texture("lightning2") ||
+                       has_texture("lightning3") || has_texture("starflash") ||
+                       has_texture("bigpuff") || has_texture("hotdot");
       const bool portal = has_texture("bigpuff") || has_texture("middot") || has_texture("hotdot");
       u32 pending = bucket->instance_offset;
       const u32 end = pending + bucket->instance_count;
@@ -1027,6 +1029,11 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
                                 {"texture", texture},
                                 {"position_m", {world[0], world[1], world[2]}},
                                 {"mode_bits", mode.as_int()},
+                                // Vertex modulation bounds, before texture and area fade.
+                                {"rgba_vertex", {v.rgba[0], v.rgba[1], v.rgba[2], v.rgba[3]}},
+                                {"rgb_modulate_max", {2.f * v.rgba[0], 2.f * v.rgba[1],
+                                                      2.f * v.rgba[2]}},
+                                {"alpha_modulate_max", 4.f * v.rgba[3]},
                                 {"render_mode", v.info[3]},
                                 {"distance_m", std::sqrt(distance2)},
                                 {"group_1m", actor != 1395 && distance2 <= 1.f},
