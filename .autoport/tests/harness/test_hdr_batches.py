@@ -85,11 +85,12 @@ def batch(root, plan, requests, name='001', crash=0, replaces=(), bad=None):
              '[debug.opengoal.refset.vantages]: [synthetic]\n')
     for suffix in ('start', 'end'):
         (path / ('props-' + suffix + '.txt')).write_text(props)
+        (path / ('settings-' + suffix + '.ini')).write_text('synthetic-render-setting=1\n')
     manifest = {'schema': hdr.SCHEMA, 'producer': 'proof_run.sh', 'contract': plan,
                 'id': name, 'crash': crash, 'errors': [], 'requested': requests,
                 'replacements': list(replaces), 'provenance': {
                     'binary_sha256': 'a' * 64, 'installed_sha256': 'a' * 64,
-                    'apk_sha256': 'b' * 64, 'binary_fnv': '1234567890abcdef', 'serial': 'eae4df44', 'config_files': {}}, 'files': {}}
+                    'apk_sha256': 'b' * 64, 'binary_fnv': '1234567890abcdef', 'serial': 'eae4df44', 'config_files': {'settings.ini': hdr.sha(path / 'settings-start.ini')}}, 'files': {}}
     hdr.dump(path / 'manifest.json', manifest)
     rehash(path)
     return path
@@ -587,4 +588,70 @@ def test_present_invalid_effective_record_is_fatal_even_after_replacement(tmp_pa
         hdr.read_batch(path / 'manifest.json', plan, stats)
     batch(tmp_path, plan, complete_requests(plan), name='002',
           replaces=['001:swamp-start:0=swamp-dock1'])
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
+
+
+@pytest.mark.parametrize('scope', ['within', 'between'])
+def test_raw_settings_change_rejected_with_unchanged_effective_settings(tmp_path, plan, scope):
+    requests = complete_requests(plan)
+    if scope == 'between':
+        batch(tmp_path, plan, requests[:80])
+        path = batch(tmp_path, plan, requests[80:], name='002')
+        suffixes = ('start', 'end')
+    else:
+        path = batch(tmp_path, plan, requests)
+        suffixes = ('end',)
+    for suffix in suffixes:
+        (path / ('settings-' + suffix + '.ini')).write_text('synthetic-render-setting=9\n')
+    m = json.loads((path / 'manifest.json').read_text())
+    m['provenance']['config_files']['settings.ini'] = hdr.sha(path / 'settings-start.ini')
+    hdr.dump(path / 'manifest.json', m)
+    rehash(path)
+    assert result(tmp_path, plan, path.name)['hdr_tonemap_defects'] > 0
+
+
+@pytest.mark.parametrize('suffix', ['start', 'end'])
+def test_raw_settings_snapshot_required_even_with_recorded_hash(tmp_path, plan, suffix):
+    path = batch(tmp_path, plan, complete_requests(plan))
+    (path / ('settings-' + suffix + '.ini')).unlink()
+    rehash(path)
+    assert result(tmp_path, plan)['hdr_tonemap_defects'] > 0
+
+
+def test_raw_settings_hash_must_match_provenance(tmp_path, plan):
+    path = batch(tmp_path, plan, complete_requests(plan))
+    m = json.loads((path / 'manifest.json').read_text())
+    m['provenance']['config_files']['settings.ini'] = 'f' * 64
+    hdr.dump(path / 'manifest.json', m)
+    assert result(tmp_path, plan)['hdr_tonemap_defects'] > 0
+
+
+def test_other_raw_config_files_participate_in_compatibility(tmp_path, plan):
+    requests = complete_requests(plan)
+    batch(tmp_path, plan, requests[:80])
+    path = batch(tmp_path, plan, requests[80:], name='002')
+    for suffix in ('start', 'end'):
+        config = path / ('config-' + suffix) / 'files/display-settings.json'
+        config.parent.mkdir(parents=True)
+        config.write_text('{"setting":9}')
+    m = json.loads((path / 'manifest.json').read_text())
+    m['provenance']['config_files']['files/display-settings.json'] = hdr.sha(config)
+    hdr.dump(path / 'manifest.json', m)
+    rehash(path)
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
+
+
+def test_replacing_empty_crash_does_not_erase_raw_config_incompatibility(tmp_path, plan):
+    path = batch(tmp_path, plan, [('swamp-start', 0)], crash=1)
+    for p in (path / 'captures').rglob('*'):
+        if p.is_file():
+            p.unlink()
+    (path / 'engine.log').write_text('early crash\n')
+    for suffix in ('start', 'end'):
+        (path / ('settings-' + suffix + '.ini')).write_text('different-config=1\n')
+    m = json.loads((path / 'manifest.json').read_text())
+    m['provenance']['config_files']['settings.ini'] = hdr.sha(path / 'settings-start.ini')
+    hdr.dump(path / 'manifest.json', m)
+    rehash(path)
+    batch(tmp_path, plan, complete_requests(plan), '002', replaces=['001:swamp-start:0=swamp-dock1'])
     assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0

@@ -199,7 +199,7 @@ def finish(args):
     errors = []
     try:
         end = snapshot(args, 'end')
-        if {k: v for k, v in end.items() if k not in ('config_files', 'binary_fnv')} != {k: v for k, v in start['provenance'].items() if k not in ('config_files', 'binary_fnv')}:
+        if {k: v for k, v in end.items() if k != 'binary_fnv'} != {k: v for k, v in start['provenance'].items() if k != 'binary_fnv'}:
             errors.append('binary/APK/config changed during batch')
     except Exception as exc:
         errors.append('end provenance: ' + str(exc))
@@ -257,6 +257,17 @@ def rendering_properties(path):
     return {key: value for key, value in properties.items() if value and not plan_control(key)}
 
 
+def raw_configuration(files, suffix):
+    """Reconstruct configuration identity from sealed raw snapshot files."""
+    settings = 'settings-' + suffix + '.ini'
+    if settings not in files:
+        raise ValueError('missing sealed raw settings snapshot: ' + settings)
+    prefix = 'config-' + suffix + '/'
+    config = {name[len(prefix):]: digest for name, digest in files.items() if name.startswith(prefix)}
+    config['settings.ini'] = files[settings]
+    return config
+
+
 def read_batch(path, expected, measurer):
     m = json.loads(path.read_text())
     if m['schema'] != SCHEMA or m['producer'] != 'proof_run.sh' or m['contract'] != expected:
@@ -286,6 +297,12 @@ def read_batch(path, expected, measurer):
     values = kv(raw)
     provenance = dict(m['provenance'])
     provenance['rendering_properties'] = props_start
+    config_start = raw_configuration(files, 'start')
+    config_end = raw_configuration(files, 'end')
+    if config_start != config_end:
+        raise ValueError('raw configuration changed during batch')
+    if provenance.get('config_files') != config_start:
+        raise ValueError('raw configuration hashes disagree with provenance')
     if provenance['binary_sha256'] != provenance['installed_sha256'] or any(
             not re.fullmatch('[0-9a-f]{64}', provenance[k]) for k in
             ('binary_sha256', 'installed_sha256', 'apk_sha256')):
@@ -294,7 +311,7 @@ def read_batch(path, expected, measurer):
         requested = [tuple(x) for x in m['requested']]
         if not requested or len(requested) != len(set(requested)) or any(v not in expected['views'] or h not in expected['hours'] for v, h in requested):
             raise ValueError('invalid crashed batch requests')
-        m.update(pairs={}, values=values, identity=({k: v for k, v in provenance.items() if k != 'config_files'}, None))
+        m.update(pairs={}, values=values, identity=(provenance, None))
         return m
     probes_complete = int(values.get('refset_probe_frames', '0')) > 0 and values.get('refset_probe_frames') == values.get('refset_captured')
     init = re.findall(r'REFSET provenance-init version=2 data=([0-9a-f]{16}) input=([0-9a-f]{16}) ', raw)
@@ -421,7 +438,7 @@ def read_batch(path, expected, measurer):
     m['unqualified'] = unqualified
     m['pairs'] = pairs
     m['values'] = values
-    m['identity'] = ({k: v for k, v in provenance.items() if k != 'config_files'}, fingerprints)
+    m['identity'] = (provenance, fingerprints)
     return m
 
 
