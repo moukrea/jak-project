@@ -4196,6 +4196,8 @@ items:
     text: Aussi, le warp gate n'est pas instantané avec du blanc et tout son panel de couleurs, même en
       rendu original, donc dans les mesures faut que tu attendes au moins 10 secondes devant ! Sinon ça
       sera toujours violet/translucide
+  - date: '2026-09-08'
+    text: tu rames vraiment du cul
   gate:
     key: hdr_tonemap_defects
     op: ==
