@@ -10,7 +10,7 @@ def test_hdr_falls_back_from_missing_redmi_to_usb_honor(tmp_path):
     adb = tmp_path / 'adb'
     adb.write_text('''#!/bin/bash
 if [ "$1" = devices ]; then
-  printf 'List of devices attached\\n192.168.1.32:5555 device\\nAREE026206000788 device\\n'
+  printf 'List of devices attached\\n192.0.2.1:5555 device\\nAREE026206000788 device\\n'
 else
   exit 1
 fi
@@ -33,7 +33,7 @@ def test_proof_rejects_network_override(tmp_path):
     start = source.index('  SERIAL=$(ANDROID_SERIAL=')
     end = source.index('  ADB=', start)
     result = subprocess.run(['bash', '-c', source[start:end]],
-        env=dict(os.environ, AP=str(ROOT / '.autoport'), ANDROID_SERIAL='192.168.1.32:5555',
+        env=dict(os.environ, AP=str(ROOT / '.autoport'), ANDROID_SERIAL='192.0.2.1:5555',
                  ITEM_SERIAL='', OUTFILE=str(tmp_path / 'proof.txt')),
         text=True, capture_output=True)
     assert result.returncode == 3
