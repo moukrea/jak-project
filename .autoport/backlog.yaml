@@ -4206,6 +4206,11 @@ items:
   - date: '2026-09-09'
     text: Comment ça se fait, encore une fois, que j'ai pas de rapports toutes les trentes minutes ? J'ai
       l'impression que tu fous plus rien depuis 19h
+  - date: '2026-09-09'
+    text: Justement c'est assi ton but de voir quand ça coince et corriger en conséquence, là tu vois
+      le workers ne bougeait plus du coup ça perd du temps de fou pour rien, si tu check toutes les trentes
+      minutes tu peux identifier et corriger, sinon t'es juste un reporteur qui peut aussi ajouter des
+      trucs au backlog, alors que tu sers à bien plus que ça, tu es le superviseur !
   gate:
     key: hdr_tonemap_defects
     op: ==

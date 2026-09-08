@@ -129,6 +129,7 @@ LIVE_TICK_INTERVAL = 15.0  # seconds
 # then blocked on EOF that never arrived. We force-close in those cases.
 STALL_POST_RESULT_SEC = 45.0   # idle gap after a result event before we force-close
 STALL_HARD_SEC = 1800.0        # absolute max idle, regardless of session state
+EXIT_WAIT_SEC = 30.0          # EOF must not bypass all progress watchdogs
 READ_POLL_SEC = 5.0            # select timeout slice (drives ticks + stall checks)
 
 # Stuck detection: how many identical validator-failure fingerprints in a
@@ -1567,8 +1568,11 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             raise
         finally:
             try:
-                rc = proc.wait(timeout=None if not abort_reason else 30)
+                rc = proc.wait(timeout=EXIT_WAIT_SEC)
             except subprocess.TimeoutExpired:
+                if not abort_reason:
+                    abort_reason = "exit-stall"
+                    log("· flux CLI fermé mais processus encore vivant — arrêt borné", "red")
                 try:
                     os.killpg(proc.pid, signal.SIGKILL)
                 except (ProcessLookupError, PermissionError):

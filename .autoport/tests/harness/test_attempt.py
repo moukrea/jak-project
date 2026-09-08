@@ -254,3 +254,15 @@ def test_our_own_watchdog_kill_is_never_relabelled_an_infra_outage(orch, item_re
 
     assert out.kind == "fail", "a tool output full of 529s is not an Anthropic outage"
     assert state["retries"]["demo"] == 1
+
+
+def test_closed_output_cannot_wait_forever(orch, item_repo, monkeypatch):
+    import time
+    monkeypatch.setattr(orch, 'EXIT_WAIT_SEC', 0.2)
+    _fake_claude(orch, _WORKS_THEN_EXITS.replace('exit 0', '') + "\nexec 1>&- 2>&-\nsleep 60\n")
+    started = time.monotonic()
+    orch.run_attempt(dict(ITEM), orch.load_state())
+    assert time.monotonic() - started < 10
+    logs = list((orch.AUTOPORT_DIR / 'logs' / 'demo').glob('attempt-*.jsonl'))
+    assert logs
+    assert 'exit-stall' in logs[-1].read_text()
