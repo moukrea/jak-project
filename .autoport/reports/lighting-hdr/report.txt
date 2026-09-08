@@ -1,30 +1,26 @@
 DIRECTIVES v6133a247b4
-Non abouti : perte éco reproduite sans chaîne HDR ; aucun correctif rendu livré, porte à 4 défauts.
-Aucun changement jeu/harnais ni build ; diagnostic uniquement, une ablation appareil par proof_run.
-Binaire build/APK/Redmi inchangé : 4da80ef748d4b54c5e916a1205bc00259b3d8941339900d2dc072ad99e8dfdda.
-Lot diagnostic29 20260908T083423-3872799 : HDRfalse24/24, hdr_chain_frames0, crash0, frames1200.
-Source : notes/essai29/hdr-disabled-analysis.json, proof-hdr-disabled.txt ; rejet HDR conservé, lot séparé.
-Éco10012 h18 natif après sprites : état28 ON553,83/OFF1149,67 ; ablation29 ON543,67/OFF1148,33.
-ROI finale commune : blancs HDR ON14,5/OFF64,83 ; ablation ON8,67/OFF65,67. Le déficit persiste sans tone map.
-compare-ablation.py : 61+61 fichiers scellés intacts, 4188 événements sprites par run identiques horslf sur24cas.
-Identité limitée aux champs journalisés entre état et ablation ; aucune identité ON/OFF/pixels requise.
-Les populations ON/OFF diffèrent : éco10012 h18 sprites visibles239/265 ; fond et recouvrements restent mélangés.
-Aucune cause locale corrigible établie ; clamps/quantification/courbe ne sont pas retouchés sans cette attribution.
-Distort : piste alpha retirée après vérification du swizzle GL_ONE déjà présent ; aucun correctif redondant.
-Preuve livrée réémise par proof_run aggregate-only du lot28 compatible ; timestamp original, pas nouveau run livré.
-Huit lignes recopiées du proof.txt produit officiellement :
-```
+Non validé : le déficit éco persiste et les quatre autres régressions restent non jugées.
+TexturePool.cpp265 : noms fallback GOAL uniformisés en page/name ; aucun réglage couleur.
+Ce défaut statique pouvait cacher des témoins ; le run final ne confirme pas cette cause.
+Un objet C++ recompilé, repack et livraison Redmi ; empreintes libbuild/APK/appareil concordantes.
+Lot livré : essai30-texture-name-final/20260908T090324-3899190, 24captures/144compositions complètes.
+Preuve officielle (8 lignes recopiées de proof.txt) :
+sha=04bbe8aadcbdf269
 crash=0
-frames=1140
-tonemap_draws=390
-tonemap_sites=1
-hdr_batch_errors=0
-hdr_batch_pairs=2
-hdr_owner_regressions_passed=0
+frames=1260
+hdr_chain_frames=388
 hdr_tonemap_defects=4
-```
-Redmi normal restauré PID25963 stable12s, propriétés debug vides, verrou absent : normal-restoration.json.
-Owner : Options > Recharged ; vérifier nuages blancs, éclairs éco, soleil couchant, sol vraie hutte Sage vert, portail.
-non prouvé : correction des cinq régressions, contribution individuelle des effets, acquis complets, HDR natif.
-non prouvé : couverture21niveaux×8h/ciels/intérieurs/vraie hutte ; campagne complète conditionnée aux corrections non acquises.
-Notes : notes/essai29/ ; sources24/27/28/29 conservées. Aucun generic exécuté, aucun owner-ok créé.
+hdr_owner_regressions_measured=1
+hdr_owner_regressions_failed=1
+hdr_owner_regressions_missing=4
+Éco10012h18, ROI[119,14,205,118] : blancs moyens ON14,83/OFF66 (owner-regions.json du lot).
+Bigpuff/starflash toujours absents des4188témoins finaux : name-fix/witness-summary.json.
+Diagnostic différé antérieur :13284paires ORB bleues finies, alpha32..63, position saine (notes30/orbits.json).
+Ce lot diagnostique est rejeté pour journal incomplet ; il ne valide aucun défaut ni le nouveau binaire.
+App normale restaurée PID30506 stable12s, debugvides/verrouabsent : name-fix/normal-restoration.json.
+À regarder par l'owner : Options > Recharged, nuages blancs, éclairs éco, éclat du soleil couchant,
+petites zones au sol devant la vraie hutte Sage vert et couleurs/halos du portail.
+non prouvé : correction rendu éco, cause entre état CPU et soumission/identification des halos,
+quatre autres régressions, couverture21niveaux×8heures/ciels/intérieurs/vraie hutte, acquis complets, HDR natif.
+Reprise précise : handoff.md ; sources et diagnostics conservés sous notes/essai30/.
+Aucun generic lancé, aucun owner-ok ; la porte reste à l'orchestrateur.

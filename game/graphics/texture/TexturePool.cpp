@@ -262,8 +262,8 @@ void TexturePool::handle_upload_now(const u8* tpage,
         if (has_segment[tex.segment_of_mip(mip_idx)]) {
           PcTextureId current_id(texture_page.id, tex_idx);
           if (!m_id_to_name.lookup_existing(current_id)) {
-            auto name = std::string(goal_string(texture_page.name_ptr, memory_base)) +
-                        goal_string(tex.name_ptr, memory_base);
+            auto name = fmt::format("{}/{}", goal_string(texture_page.name_ptr, memory_base),
+                                    goal_string(tex.name_ptr, memory_base));
             *m_id_to_name.lookup_or_insert(current_id).first = name;
             m_name_to_id[name] = current_id;
           }
