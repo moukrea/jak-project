@@ -4179,6 +4179,16 @@ items:
   - date: '2026-09-08'
     text: Faut trouver l'équilibre, et n'oublie pas les autres niveaux j'ai l'impression que tu retombes
       dans tes travers
+  - date: '2026-09-08'
+    text: Alors attends, c'est pas mal dans la mesure où il y a moins de blancs brûlés, mais par example
+      dans le ciel, à Off on voit quand même plus de nuages blancs que a off (ils sont attendus), les
+      orbes d'eco bleue à on on voit même plus les parricules "éclairs" électriques... Le soleil couchant
+      est jaune plat (on dirait just un rond jaune/orange plat collé dans le ciel), alors qu'il est sensé
+      briller le sale au sol juste devant la hutte du Sage vert par dessus l'herbe (petites zones) est
+      on dirait violet c'est bizarre... Le warp gate est écrasé violet on dirait que t'as clip les blancs
+      pour qu'ils n'apparaissent pas, c'est mieux qu'avant mais c'est loin d'être bon, faut pas éliminer
+      les blancs c'est normal qu'il y en ait, il y en a d'origine, faut juste pas qu'il y en ait plus
+      que quand c'est désactivé !
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4193,21 +4203,23 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Essais16-18 : trois verdicts rouges de couverture224/processus ; campagne owner refusee
-    par DIRECTIVES. Perimetre corrige : proof_plan et SCOPE-lighting-hdr, integration lots autorisee.
-    Ne pas repeter essai17 inchangé.'
-  deliverable: 'Reprendre calibration HDR/SDR selon SPEC §4.5 et proof_plan du backlog. D abord IMPLEMENTER
-    cumul par lots dans les fichiers autorises du SCOPE, tests negatifs inclus ; pas un nouveau rapport
-    demandant arbitrage. Ensuite completer ciel swamp/sunkenb avec vues representatives alternatives,
-    sans rejouer les200paires historiques par principe ni reparer parcours monolithique. Les anciennes
-    captures ne prouvent pas automatiquement le build courant : etablir compatibilite rendu/config ou
-    recapturer seulement ce qui est invalide. Couvrir21niveaux/8heures, ciel exterieur/interieurs/hutte
-    ; aucun prerequis224paires dans un processus. Mesures ImageMagick ON/OFF eclairage seul, autres effets
-    identiques. Equilibre niveau/heure, pires derives explicites ; iterer courbe/exposition puis residus
-    locaux si mesures le justifient. Pas de recherche frame exacte. Couleur/luma/aplats/brulures, contraste95%
-    diagnostic. LUT/profils SDR/HDR distincts permis, pas de compressionSDR reutilisee avant HDR natif.
-    Cumul via proof_run/generic, couverture incomplete rouge. Conserver controles HDR>1/ordre, sans zero
-    fabrique ; travail non prouve explicite. Ne pas clore sur audits seuls.'
+  known_cause: 'Retour owner : nuages/eclairs eco/soleil ecrases, sol hutte et portail violets. Porte
+    actuelle ne compte que exces clipped/white/nearwhite, ignore suppression voulue et derive locale.
+    Cause moteur a isoler, pas attribuee sans preuve.'
+  deliverable: 'Corriger les5cas owner de proof_plan : nuages blancs, eclairs eco bleue, soleil couchant,
+    sol devant hutte Sage vert, warp gate violet. Le build a tester est REFUSE artistiquement ; cumul
+    par lots deja implemente, ne pas le refaire. Reproduire d abord ces cas eclairage seul ON/OFF, autres
+    effets identiques, vues/horaires comparables ; sequence courte pour eclairs, aucune frame exacte.
+    Mesures ImageMagick par regions : presence/nuances des blancs voulus, couleur, luminance, aplats ;
+    chiffres image entiere seuls insuffisants. Isoler courbe/domaines couleur/composition additive et
+    transparence avant ajustement ; pas nouveau bloom ou nouvelles particules pour masquer defaut. Corriger
+    rendu et etendre diagnostic/porte hdr_tonemap_defects aux regressions ciblees (absence ou cas non
+    exerce non valide), sans generic modifie ni seuil arbitraire. Blancs attendus OFF conserves ; pas
+    minimisation du nombre de blancs, pas zero blanc comme succes. Comparer AVANT/APRES et publier limites.
+    Puis verifier equilibre21niveaux/8h/ciels/interieurs/hutte par lots ; reutiliser preuves compatibles,
+    autres donnees historiques pour diagnostic. Ajustements locaux permis si justifies, profils SDR/HDR
+    distincts autorises ; sortie HDR native ensuite. Priorite correction concrete des5cas, pas nouveaux
+    outils generaux, pas reprise census.'
   out_of_scope: Pas de census, baseline historique, cinq rejeux/frame exacte. Aucun changement textures/modeles
     HD/herbe/brise/cadence. Ne pas masquer brulures par assombrissement global excessif. Pas de validation
     owner ; sortie ecran HDR native ensuite.
@@ -4261,8 +4273,15 @@ items:
       si compatibilite demontree
     failure_policy: absent/incompatible/illisible/crash non remplace ou region non couverte = defaut,
       doublons detectes, pas de somme des verdicts per-processus ni zero force
-    quality_policy: mesures ImageMagick blancs/quasi-blancs/couleur/luma/aplats ; poids niveau/heure equilibres
-      ; aucun seuil contraste95%, aucune identite ON/OFF
+    quality_policy: Blancs voulus OFF a preserver, pas objectif zero blanc. Exces brulures ET suppression
+      details lumineux/couleurs juges par regions comparables. Pas egalite pixel ni contraste95%. Statistiques
+      globales seules insuffisantes.
+    owner_regression_cases:
+    - nuages blancs presents OFF mais attenues ON
+    - eclairs des orbes eco bleue disparus ON, sequence courte comparable
+    - soleil couchant jaune/orange plat sans eclat ON
+    - petites zones au sol devant hutte Sage vert violettes ON
+    - warp gate violet ecrase ON
   harness_edit_allowlist:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py

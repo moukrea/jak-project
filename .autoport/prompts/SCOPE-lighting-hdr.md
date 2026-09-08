@@ -3,7 +3,8 @@
 La campagne a été explicitement demandée par l'owner. `proof_plan` du backlog est
 le contrat de couverture : plusieurs processus, tous niveaux/heures, vues comparables.
 Cette autorisation remplace ici la restriction générale aux seuls runs courts.
-Le manager implémente le raccordement des lots avant de répéter une preuve incomplète.
+Le raccordement des lots est livré. Le retour owner du 8 septembre refuse le rendu :
+priorité aux cinq régressions de proof_plan, avant toute nouvelle infrastructure.
 
 ## Autorisation de modification du harnais
 
@@ -54,3 +55,12 @@ Préserver les défauts d'image et de chaîne ; remplacer seulement le calcul de
 monoprocessus par celui du plan. Ne pas additionner des flags historiques pour fabriquer
 le verdict global ; chaque défaut doit dériver de mesures compatibles identifiées.
 Ne pas exiger d'identité ON/OFF des pixels ni des profils SDR/HDR.
+
+## Retour owner : préserver les blancs attendus
+
+Les cinq cas `owner_regression_cases` du backlog font partie des critères courants.
+La seule absence d'excès white/nearwhite/clipped ne suffit plus au verdict qualité.
+Démontrer que les régions lumineuses attendues ne sont pas supprimées et que les zones
+signalées ne virent pas au violet. Éco : séquence courte, comparaison statistique temporelle,
+pas synchronisation exacte des éclairs. Conserver les sources avant/après et les cas non jugés.
+Diagnostic technique avant réglage ; ne pas ajouter un effet artistique nouveau pour compenser.

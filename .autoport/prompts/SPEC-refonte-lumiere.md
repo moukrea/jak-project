@@ -862,6 +862,15 @@ Un blanc voulu dans la référence n'est pas automatiquement un défaut. Une bai
 seul ne prouve ni perte ni gain de détail. Pas de nouveau seuil arbitraire pour le remplacer ;
 les limites des mesures et les cas non jugés restent explicites.
 
+**Retour owner du 8 septembre — non-validation du rendu.** La réduction des blancs
+brûlés ne doit pas supprimer les nuages blancs, les éclairs d'éco bleue, l'éclat du soleil
+couchant ni les hautes lumières du portail. Le sol devant la hutte du Sage vert et le portail
+ne doivent pas virer au violet. Ces cinq cas sont dans `proof_plan.owner_regression_cases`.
+La porte qualité actuelle est unilatérale (excès seulement) : elle doit aussi couvrir ces
+régressions localisées. Zéro blanc ON n'est pas un objectif ; comparer les régions et les
+effets attendus OFF, sans exiger leur identité pixel. Les contrôles étendus ne valent pas
+validation owner. Ne pas ajouter bloom/particules pour masquer un défaut de traitement.
+
 Les comparaisons SDR guident la calibration actuelle ; elles ne prouvent pas à elles seules
 que le profil convient en sortie HDR. Le second chantier vérifie sur écran HDR réel.
 La sortie HDR reste après la correction SDR, sans rétablir de prérequis de rejeux exacts.
