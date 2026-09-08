@@ -1,0 +1,27 @@
+[proof_run lighting-hdr] ecran : mWakefulness=Awake
+[proof_run lighting-hdr] HDR batch: .autoport/reports/lighting-hdr/batches/essai19-current/20260908T024312-3599900 ; refset=/data/data/org.opengoal.gk.jak1/files/hdr-1788835392-3599900
+[proof_run lighting-hdr] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 180s (armed=1)
+[proof_run lighting-hdr] le processus a change ou disparu (avant=17255 apres=)
+.autoport/lib/proof_run.sh: line 422: /null: No such file or directory
+.autoport/lib/proof_run.sh: line 431: syntax error near unexpected token `fi'
+.autoport/lib/proof_run.sh: line 431: `fi'
+[teardown] eae4df44: debug.opengoal.feature etait 'lighting-hdr' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.hdr etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.level.warp etait 'swamp-cave1' -> vide
+[teardown] eae4df44: debug.opengoal.padreplay etait '/data/data/org.opengoal.gk.jak1/files/neutral.inputs' -> vide
+[teardown] eae4df44: debug.opengoal.recharged etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.refset etait 'capture' -> vide
+[teardown] eae4df44: debug.opengoal.refset.cam etait 'swamp-start:20:195:2462:63' -> vide
+[teardown] eae4df44: debug.opengoal.refset.dir etait '/data/data/org.opengoal.gk.jak1/files/hdr-1788835392-3599900' -> vide
+[teardown] eae4df44: debug.opengoal.refset.hours etait '0,3,6,9,12,15,18,21' -> vide
+[teardown] eae4df44: debug.opengoal.refset.loadsettle etait '240' -> vide
+[teardown] eae4df44: debug.opengoal.refset.orderhour etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.refset.phases etait '2,3' -> vide
+[teardown] eae4df44: debug.opengoal.refset.settle etait '12' -> vide
+[teardown] eae4df44: debug.opengoal.refset.vantages etait 'swamp-cave1,swamp-start' -> vide
+[teardown] eae4df44: debug.opengoal.refset.warpat etait '300' -> vide
+[teardown] eae4df44: debug.opengoal.rt.light etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.want.display etait 'swamp,display' -> vide
+[teardown] eae4df44: debug.opengoal.want.levels etait 'swamp' -> vide
+[teardown] eae4df44: 19 propriete(s) effacee(s), marqueurs fichier retires.

@@ -385,6 +385,15 @@ else
       if grep -qaF 'GK-DIAG A36-TREE at-crash frame=' "$RAWLOG"; then
         CRASH=1; log "HDR process emitted its crash trace; collecting the failed batch"; break
       fi
+      # pidof exits 1 for an absent process; normalize only that remote status,
+      # so an adb transport failure or timeout cannot declare a crash.
+      if [ -n "$PID0" ] && PID_NOW=$(timeout 5 "$ADB" -s "$SERIAL" shell \
+          "pidof '$PKG' || test \$? -eq 1" 2>/dev/null); then
+        PID_NOW=$(printf '%s' "$PID_NOW" | tr -d '\r' | awk '{print $1}')
+        if [ "$PID_NOW" != "$PID0" ]; then
+          CRASH=1; log "HDR process changed or disappeared (before=$PID0 after=$PID_NOW); collecting the failed batch"; break
+        fi
+      fi
       complete_captures=$(sed -nE 's/.*REFSET done steps=([1-9][0-9]*) captured=\1 .*missing=0.*/\1/p' "$RAWLOG" | tail -1)
       if [ -n "$complete_captures" ] && grep -qaE "hdr_paired=$((complete_captures / 2))$" "$RAWLOG"; then
         log "HDR captures and paired measurements published after ${elapsed}s"; break

@@ -1,0 +1,356 @@
+{
+  "20260908T023107-3582518": {
+    "crash": 1,
+    "run": {
+      "duration_s": 21,
+      "started_at": "2026-09-08T02:31:04Z"
+    },
+    "requested": [
+      [
+        "swamp-start",
+        0
+      ],
+      [
+        "swamp-start",
+        3
+      ],
+      [
+        "swamp-start",
+        6
+      ],
+      [
+        "swamp-start",
+        9
+      ],
+      [
+        "swamp-start",
+        12
+      ],
+      [
+        "swamp-start",
+        15
+      ],
+      [
+        "swamp-start",
+        18
+      ],
+      [
+        "swamp-start",
+        21
+      ]
+    ],
+    "captures": 0,
+    "gl1282_beforeprobe": 0
+  },
+  "20260908T023227-3585945": {
+    "crash": 0,
+    "run": {
+      "duration_s": 170,
+      "started_at": "2026-09-08T02:32:24Z"
+    },
+    "requested": [
+      [
+        "sunkenb-start",
+        0
+      ],
+      [
+        "sunkenb-start",
+        3
+      ],
+      [
+        "sunkenb-start",
+        6
+      ],
+      [
+        "sunkenb-start",
+        9
+      ],
+      [
+        "sunkenb-start",
+        12
+      ],
+      [
+        "sunkenb-start",
+        15
+      ],
+      [
+        "sunkenb-start",
+        18
+      ],
+      [
+        "sunkenb-start",
+        21
+      ]
+    ],
+    "captures": 16,
+    "gl1282_beforeprobe": 3
+  },
+  "20260908T023556-3590581": {
+    "crash": 1,
+    "run": {
+      "duration_s": 169,
+      "started_at": "2026-09-08T02:35:54Z"
+    },
+    "requested": [
+      [
+        "swamp-start",
+        0
+      ],
+      [
+        "swamp-start",
+        3
+      ],
+      [
+        "swamp-start",
+        6
+      ],
+      [
+        "swamp-start",
+        9
+      ],
+      [
+        "swamp-start",
+        12
+      ],
+      [
+        "swamp-start",
+        15
+      ],
+      [
+        "swamp-start",
+        18
+      ],
+      [
+        "swamp-start",
+        21
+      ]
+    ],
+    "captures": 0,
+    "gl1282_beforeprobe": 0
+  },
+  "20260908T024020-3595619": {
+    "crash": 0,
+    "run": {
+      "duration_s": 99,
+      "started_at": "2026-09-08T02:40:18Z"
+    },
+    "requested": [
+      [
+        "sunkenb-helix",
+        0
+      ],
+      [
+        "sunkenb-helix",
+        3
+      ],
+      [
+        "sunkenb-helix",
+        6
+      ],
+      [
+        "sunkenb-helix",
+        9
+      ],
+      [
+        "sunkenb-helix",
+        12
+      ],
+      [
+        "sunkenb-helix",
+        15
+      ],
+      [
+        "sunkenb-helix",
+        18
+      ],
+      [
+        "sunkenb-helix",
+        21
+      ],
+      [
+        "sunkenb-start",
+        0
+      ],
+      [
+        "sunkenb-start",
+        3
+      ],
+      [
+        "sunkenb-start",
+        6
+      ],
+      [
+        "sunkenb-start",
+        9
+      ],
+      [
+        "sunkenb-start",
+        12
+      ],
+      [
+        "sunkenb-start",
+        15
+      ],
+      [
+        "sunkenb-start",
+        18
+      ],
+      [
+        "sunkenb-start",
+        21
+      ]
+    ],
+    "captures": 32,
+    "gl1282_beforeprobe": 1
+  },
+  "20260908T024312-3599900": {
+    "crash": 1,
+    "run": {
+      "duration_s": 190,
+      "started_at": "2026-09-08T02:43:10Z"
+    },
+    "requested": [
+      [
+        "swamp-cave1",
+        0
+      ],
+      [
+        "swamp-cave1",
+        3
+      ],
+      [
+        "swamp-cave1",
+        6
+      ],
+      [
+        "swamp-cave1",
+        9
+      ],
+      [
+        "swamp-cave1",
+        12
+      ],
+      [
+        "swamp-cave1",
+        15
+      ],
+      [
+        "swamp-cave1",
+        18
+      ],
+      [
+        "swamp-cave1",
+        21
+      ],
+      [
+        "swamp-start",
+        0
+      ],
+      [
+        "swamp-start",
+        3
+      ],
+      [
+        "swamp-start",
+        6
+      ],
+      [
+        "swamp-start",
+        9
+      ],
+      [
+        "swamp-start",
+        12
+      ],
+      [
+        "swamp-start",
+        15
+      ],
+      [
+        "swamp-start",
+        18
+      ],
+      [
+        "swamp-start",
+        21
+      ]
+    ],
+    "captures": 0,
+    "gl1282_beforeprobe": 0
+  },
+  "20260908T024828-3604150": {
+    "crash": 0,
+    "run": {
+      "duration_s": 186,
+      "started_at": "2026-09-08T02:48:25Z"
+    },
+    "requested": [
+      [
+        "sunkenb-helix",
+        0
+      ],
+      [
+        "sunkenb-helix",
+        3
+      ],
+      [
+        "sunkenb-helix",
+        6
+      ],
+      [
+        "sunkenb-helix",
+        9
+      ],
+      [
+        "sunkenb-helix",
+        12
+      ],
+      [
+        "sunkenb-helix",
+        15
+      ],
+      [
+        "sunkenb-helix",
+        18
+      ],
+      [
+        "sunkenb-helix",
+        21
+      ],
+      [
+        "sunkenb-start",
+        0
+      ],
+      [
+        "sunkenb-start",
+        3
+      ],
+      [
+        "sunkenb-start",
+        6
+      ],
+      [
+        "sunkenb-start",
+        9
+      ],
+      [
+        "sunkenb-start",
+        12
+      ],
+      [
+        "sunkenb-start",
+        15
+      ],
+      [
+        "sunkenb-start",
+        18
+      ],
+      [
+        "sunkenb-start",
+        21
+      ]
+    ],
+    "captures": 32,
+    "gl1282_beforeprobe": 6
+  }
+}

@@ -1,7 +1,9 @@
 """Synthetic unit inputs ONLY: no fixture is a game proof or device validation."""
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -9,6 +11,55 @@ ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location('hdr_batches', ROOT / '.autoport/lib/hdr_batches.py')
 hdr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hdr)
+
+
+@pytest.mark.parametrize('state,pid0,hdr_batch,trace,crash,elapsed,calls', [
+    ('stable', '123', 'batch', '', 0, 23, 3),
+    ('absent', '123', 'batch', '', 1, 13, 1),
+    ('changed', '123', 'batch', '', 1, 13, 1),
+    ('transport', '123', 'batch', '', 0, 23, 3),
+    ('remote_error', '123', 'batch', '', 0, 23, 3),
+    ('absent', '', 'batch', '', 0, 23, 0),
+    ('absent', '123', '', '', 0, 23, 0),
+    ('stable', '123', 'batch', 'GK-DIAG A36-TREE at-crash frame=1', 1, 13, 0),
+])
+def test_hdr_wait_process_liveness(tmp_path, state, pid0, hdr_batch, trace, crash, elapsed, calls):
+    """Execute the production wait loop, with local fake adb and no real sleeps."""
+    source = (ROOT / '.autoport/lib/proof_run.sh').read_text()
+    loop = source.split('  elapsed=8\n', 1)[1].split('\n  PID1=', 1)[0]
+    fake_adb = tmp_path / 'adb'
+    fake_adb.write_text('''#!/usr/bin/env bash
+set -u
+[[ "$#" == 4 && "$1" == -s && "$2" == eae4df44 && "$3" == shell ]] || exit 98
+echo query >> "$CALLS"
+[[ "$STATE" != transport ]] || exit 1
+pidof() {
+  [[ "$#" == 1 && "$1" == org.opengoal.jak ]] || return 98
+  case "$STATE" in
+    stable) printf '123 456\\r\\n' ;;
+    absent) return 1 ;;
+    changed) printf '789\\r\\n' ;;
+    remote_error) return 127 ;;
+  esac
+}
+eval "$4"
+''')
+    fake_adb.chmod(0o755)
+    rawlog = tmp_path / 'engine.log'
+    rawlog.write_text(trace + '\n')
+    call_log = tmp_path / 'calls'
+    env = dict(os.environ, ADB=str(fake_adb), SERIAL='eae4df44', PKG='org.opengoal.jak',
+               PID0=pid0, HDR_BATCH=hdr_batch, RAWLOG=str(rawlog), STATE=state, CALLS=str(call_log))
+    run = subprocess.run(['bash', '-c', '''set -uo pipefail
+sleep() { :; }
+log() { echo "$*" >&2; }
+CRASH=0; TIMEOUT=23; elapsed=8
+''' + loop + '\nprintf "%s %s\\n" "$CRASH" "$elapsed"\n'], env=env,
+                         capture_output=True, text=True, timeout=10)
+    assert run.returncode == 0, run.stderr
+    assert run.stdout.strip() == f'{crash} {elapsed}'
+    assert (len(call_log.read_text().splitlines()) if call_log.exists() else 0) == calls
+    assert rawlog.read_text() == trace + '\n'
 
 
 @pytest.fixture

@@ -1,0 +1,25 @@
+[proof_run lighting-hdr] ecran : mWakefulness=Awake
+[proof_run lighting-hdr] HDR batch: .autoport/reports/lighting-hdr/batches/essai19-current/20260908T024828-3604150 ; refset=/data/data/org.opengoal.gk.jak1/files/hdr-1788835708-3604150
+[proof_run lighting-hdr] appareil eae4df44 : org.opengoal.gk.jak1/org.opengoal.gk.LoaderActivity pendant 240s (armed=1)
+[proof_run lighting-hdr] HDR captures and paired measurements published after 178s
+[proof_run lighting-hdr] ecrit .autoport/reports/lighting-hdr/proof.txt (frames=4080 crash=0 duree=189s) ; sortie moteur : .autoport/reports/lighting-hdr/proof-engine.log
+[teardown] eae4df44: debug.opengoal.feature etait 'lighting-hdr' -> vide
+[teardown] eae4df44: debug.opengoal.feature.armed etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.hdr etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.level.warp etait 'sunkenb-helix' -> vide
+[teardown] eae4df44: debug.opengoal.padreplay etait '/data/data/org.opengoal.gk.jak1/files/neutral.inputs' -> vide
+[teardown] eae4df44: debug.opengoal.recharged etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.refset etait 'capture' -> vide
+[teardown] eae4df44: debug.opengoal.refset.cam etait 'sunkenb-start:20:90:0:700' -> vide
+[teardown] eae4df44: debug.opengoal.refset.dir etait '/data/data/org.opengoal.gk.jak1/files/hdr-1788835708-3604150' -> vide
+[teardown] eae4df44: debug.opengoal.refset.hours etait '0,3,6,9,12,15,18,21' -> vide
+[teardown] eae4df44: debug.opengoal.refset.loadsettle etait '480' -> vide
+[teardown] eae4df44: debug.opengoal.refset.orderhour etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.refset.phases etait '2,3' -> vide
+[teardown] eae4df44: debug.opengoal.refset.settle etait '60' -> vide
+[teardown] eae4df44: debug.opengoal.refset.vantages etait 'sunkenb-helix,sunkenb-start' -> vide
+[teardown] eae4df44: debug.opengoal.refset.warpat etait '300' -> vide
+[teardown] eae4df44: debug.opengoal.rt.light etait '1' -> vide
+[teardown] eae4df44: debug.opengoal.want.display etait 'sunkenb,display' -> vide
+[teardown] eae4df44: debug.opengoal.want.levels etait 'sunken,sunkenb' -> vide
+[teardown] eae4df44: 19 propriete(s) effacee(s), marqueurs fichier retires.
