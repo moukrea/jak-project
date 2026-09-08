@@ -382,6 +382,9 @@ else
   while [ "$elapsed" -lt "$TIMEOUT" ]; do
     sleep 5; elapsed=$((elapsed+5))
     if [ -n "$HDR_BATCH" ]; then
+      if grep -qaF 'GK-DIAG A36-TREE at-crash frame=' "$RAWLOG"; then
+        CRASH=1; log "HDR process emitted its crash trace; collecting the failed batch"; break
+      fi
       complete_captures=$(sed -nE 's/.*REFSET done steps=([1-9][0-9]*) captured=\1 .*missing=0.*/\1/p' "$RAWLOG" | tail -1)
       if [ -n "$complete_captures" ] && grep -qaE "hdr_paired=$((complete_captures / 2))$" "$RAWLOG"; then
         log "HDR captures and paired measurements published after ${elapsed}s"; break
