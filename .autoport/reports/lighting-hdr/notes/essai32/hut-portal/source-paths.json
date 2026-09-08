@@ -1,0 +1,13 @@
+[
+  "game/graphics/opengl_renderer/DirectRenderer.cpp",
+  "game/graphics/opengl_renderer/DirectRenderer.h",
+  "game/graphics/opengl_renderer/hdr.cpp",
+  "game/graphics/opengl_renderer/hdr.h",
+  "game/graphics/opengl_renderer/shaders/sprite3_3d.frag",
+  "game/graphics/opengl_renderer/shaders/sprite3_3d_inst.frag",
+  "game/graphics/opengl_renderer/shaders/tonemap.frag",
+  "game/graphics/opengl_renderer/shaders/tonemap.vert",
+  "game/graphics/opengl_renderer/sprite/Sprite3.cpp",
+  "game/graphics/opengl_renderer/sprite/Sprite3.h",
+  "game/graphics/refset.cpp"
+]

@@ -1,27 +1,28 @@
 DIRECTIVES ve7fcbe0116
 ## ÉTABLI
-- Livré31 libbuild/APK/Redmi SHA243591e44243b0843b14d2bf70c353900936a51cdb94bc483a9bf97ec6cd2a73 ; final/build-deploy.log :1objetDirect+lien/repack15s/installOK.
-- Première livraison31 cff81791ac7773bf865da7f1c5e7d891813ecffe49067063651cc35b915ab6a0 :5objets/repack19s. Les deux anciennes livraisons sont sauvegardées avant-build.
-- Sources : DirectRenderer SKY_DRAW+tme+abe (dernière garde sépare gradient opaque8064 du roof8096) ; Sprite3 acteur0 sunset-sun,3couches/4eROI, contexte cloud séparé ; aucun réglage couleur.
-- Soleil attribué par middot/starflash2 et camera/4096+sun brut ; résidu0m dans les lots cff817, borne0.05m ; projection/query existantes. Horsborne : HDR-OWNER-SUN-ASSOCIATION, sans ROI fabriquée.
-- hdr_batches.py raccorde couches/provenance/ROI commune, soleil exige3composants distincts visibles+h18 ; nuages partiels ne passent jamais ; remplacements préservent pertes.210tests pass74.77s (hdr-batches-tests.log).
-- Dernière preuve officielle essai31-sky-final/20260908T094715-3936986 :64s/crash1/frames420/chaîne0/0captures/11sources scellées ; defects5/errors6/owner measured0missing5.
-- Crash frame431 :SIG11 fault0x7efffffffc PC_GOAL0x268920c LR0x2688e5c (final/gk_crash.txt), avant refsetstart600/cadrage500m/sondes. Cause inconnue ; nouvelle garde non activée.
-- App normale restaurée PID8102stable12s/debugvides/verrouabsent/lib243591 ; final/normal-restoration.json. Pas generic ni owner-ok.
-- Lot cff817 essai31-sky-attributed/20260908T093142-3927217 :140s/crash0/24captures/288compositions/61SHAOK/errors0 ; beach-start cam7:-35:0:30 h12/18 temporal6.
-- Nuages8096 h12 natif aprèsdraw blancON5505/OFF5667, simulationcourbeON3226.33 ; nearwhiteON9173.5/OFF9731.33. Gradient8064 séparé dans attribution/attributed-native-summary.json.
-- Région finale premierlot [0,0,320,123] mêle décor : blancs/quasi-blancs0deuxbras ; soleilh18 36associations exactes mais36passedfalse/deltaRGBA0 ; ciel82pm seulement.
-- Lot cff817 essai31-sky-visible/20260908T093902-3931924 :117s/crash0/24captures/288compositions/61SHAOK ; h12cam45:-35:0:30, h18cam7:-35:0:250 via cambyhour.
-- Secondlot soleil36témoins :9passedtrue tousOFFstarflash2, disque0deuxbras ; ONdeltaRGB0/OFFdeltaRGBmoy(.0660,.03595,0), région44663px. Nuagesh12 blancs/quasi-blancs natifs0deuxbras ; visible/native-summary.json.
+- Aucun code/build/réglage permanent32 ; lib locale/APK/Redmi243591e44243b0843b14d2bf70c353900936a51cdb94bc483a9bf97ec6cd2a73 inchangée31.
+- Preuve officielle par proof_run aggregate-only : essai32-compatible/20260908T100652-3955392 ;2lots/5paires/5cellules/errors0/missing336/defects4/ownerfailed2missing5measured0.
+- Copies octet-identiques de deux lots officiels, originaux préservés ;146sources scellées SHAOK, notes/essai32/aggregate-lineage.json. Aucun generic/owner-ok.
+- Ciel essai32-sky-before/20260908T100132-3950103 :146s/crash0/frames2160/36captures/432compositions/85SHAOK ; warpat900, h9cam7:-35:0:30 puis h12/18cam7:-35:0:5000, temporal6.
+- Ciel mesuré162pmh9 et583pmh12/18 : pas plein cadre pur. Nuages ROI[0,0,320,106]h12 blancsON92.33/OFF105.17, nearwhite270.83/262.83, luma154.36/155.54, detail3.7736/3.7920,flat.20536/.19938.
+- Soleil h18 :36/36queries=3composants sur12samples, résiduassociation0m ; ROI[142,67,178,112], W/N0deuxbras, luma192.002/193.183,detail8.2635/8.0405,flat.13669/.13139. Cas toujours nonjugé faute blancsOFF.
+- Nuages natifs h12ON pixelsmoy290400/OFF244800 : dimensions variables, sommes brutes non comparables ; finales320x180 comparées. Aucun nouveau genou.
+- IMPORTANT gardeABE31 insuffisante : gradient8064 etcloud8096 ont prim_abe=true,12/96vertices. Source sky-tng.gc721 gradientALPHA b=DEST ;776cloud b=ZERO,d=DEST,texture base+32à780 ; ne pas prétendre gradient exclu.
+- Hutte/portail essai32-hut-portal/20260908T100652-3955392 :131s/crash0/frames1740/24captures/288compositions/61SHAOK,2824témoins1395 ; harddot visible24/24samples.
+- Cam existante village1-out:-10:-108:152:33,h12/18,warp village1-hut,warpat900,loadsettle240,settle12,temporal6,want.levels=beach,village1,want.display=village1,display.
+- Capspawn163°,cam(-138.451,49.300,203.282)à6.3cm camera-start15 JSON6794 ; sage23 transJSON6975(-132.6594,46.1975,213.4677) ; sol nonattribué.
+- Disque ROI[147,42,173,79] : W/N0tousbras ; lumaON/OFFh12=85.980/106.348,h18=80.734/95.916 ; saturation.52062/.48738 et.60209/.55220.
+- Région portail entière h18 luma52.372/62.762,detail16.348/17.799,flat.02487/.01503 ; détails et couleurs dans hut-portal/image-region-summary.json.
+- Composition native avant/après1395 enfin lisible ; mais rectangles/résolution/populations variables (h12candidatesON156.67/OFF106.17), pas attribution causale au tone map.
+- Borne analytique courbe actuelle/exposure1 : max(clamp(x)-f(x))*255=3.1875àx1, contre écart final portail20.368h12/15.183h18 ; courbe seule sur même entrée insuffisante (notes/essai32/curve-bound.json).
+- Crash31 : spawn-bird PC0x268920c ; relocation BEA.DGO seagull identifie valeur symbole*default-dead-pool*=0 avant get-process, LDURtype àee_base-4. Pas un retourget-processnul. Gkernel déjàlié : cause initiale inconnue.
+- App normale restaurée PID10576stable12s/debugvides/verrouabsent/lib243591 ; hut-portal/normal-restoration.json. Notes32/diagnostic.md et deux tester-result.md.
 ## TENTÉ
-- Baseline31 village1-out50m :235s/crash0 mais24captures achromatiques, jamaisvi1VIS/A42-VISl1=0/LOADSCREENarm5jusqu’à5760 ; LS_HOLD_TARGET. level.gc1230 exige inside-boxes depuis math-camera1253.
-- Caméra haute probablement horsboîtes ; pas prédicat mesuré. Beachcam3m chargebeaVIS et atteint stance. WANT-LEVELS=village1 invalide aussi27/30 ; remplacé par beach,village1, pas cause unique revendiquée.
-- Dernier cadrage intrinsèque ciel : h9cam7:-35:0:30 pour chargerVIS puis h12/18cam7:-35:0:5000 ; crash AVANT cette transition. Ne pas le qualifier de crash à500m. Correspondances explicites conservées.
-- Ni genou/gamma/clamp/bloom retouchés ni mesure précédente réutilisée comme preuve du binaire243591. Les vues sans blancs/disque visibles ne permettent pas un réglage causal ; arrêter les cadrages aveugles.
+- Retardwarp300→900 : deux runs sans crash, ne prouve pas correction du pool nul. Aucun changementND/skip/abort ni relance supplémentaire.
+- Cadrage500m prévu31 atteint32 et soleil réellement visible ; gardes chargement intactes. Cam hutte dérivée apporte portail, pas preuve matériau/ROI du sol.
+- Aucun genou/gamma/clamp/bloom retouché : nuages quasi-blancs présents, écart portail excède capacité de la seulecourbe ; ne pas optimiser255 seul ni compenser par effet nouveau.
 ## RESTE
-- Résoudre crash GOAL ci-dessus et obtenir vue réellement lumineuse comparable via instruments existants ; démontrer gardeABE finale active. Exploiter sources31 avant nouveau réglage rendu.
-- Nuages : distinguer accumulation HDR native (bleu>1) et perte courbe simulée du rendu FINAL ; ROI actuelle mêle décor. Soleil : disque encore occulté, pas de cas complet ; critère blancsOFF absent doit rester explicitement non jugé.
-- Sol vraie hutte : sage23aid15730 JSON6975(-132.6594,46.1975,213.4677)m ; camera-start15aid10345 JSON6794(-138.4481,49.2789,203.3405)m q(0,.410689652,0,.911775172). Matériaux/ROI non attribués.
-- Portail27 disqueaid1395/harddot mode3 ROI[110,28,192,152], ancre(-123.10158,50.40380,214.22531)m ; cam village1-out:0:-115:80:44, h12/18. Halos/rayon8m non qualifiés ; pas de nouvelle preuve31 du portail.
-- Éco29/30 inchangé : perte10012h18 persisteHDR0 ;13284pairesCPU PRE/POST saines (notes30/orbits.json), mais bigpuff/starflash0sur4188témoins malgré fallback noms corrigé. Ne pas refaire clamps/quantification/nommage/ORB ; reste chaîne slot→DMA→soumission/culling/TBP.
-- non prouvé : correction5cas, bilan21niveaux×8h/ciels/intérieurs/vraie hutte et acquis, HDR natif. Aucun nouveau correctif rendu livré31 ; notes détaillées notes/essai31/diagnostic.md.
+- Isoler composition/éclairage et variations d’échantillonnage du portail avec traces32, puis corriger causalement ; sources32 constituent avant exploitable, pas correctif prouvé.
+- Nuages : attribution finale reste partielle, gradient n’est pas exclu parABE ; exploiter ALPHA source, pas autre cadrage aveugle. Soleil visible mais W/N_OFF0 : garder explicitement nonjugé, diagnostiquer éclat/détails sans inventer blancs.
+- Sol vraie hutte : caméra native maintenant disponible, attribuer matériaux/ROI signalés ; vue seule n’est pas preuve sol. Éco29/30 inchangé :13284PRE/POSTsaines mais0bigpuff/starflash sur4188témoins ; slot→DMA→soumission/culling/TBP reste nonrésolu, pas refaireORB/clamps/quantification/nommage.
+- non prouvé : correction5cas, bilan21niveaux×8h/ciels/intérieurs/vraie hutte/acquis et HDRnatif. Les cinq obligations et défauts restent rouges ; aucune validationowner.

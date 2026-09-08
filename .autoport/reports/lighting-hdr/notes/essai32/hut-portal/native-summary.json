@@ -1,0 +1,272 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "batch": ".autoport/reports/lighting-hdr/batches/essai32-hut-portal/20260908T100652-3955392",
+  "sealed_files": 61,
+  "hash_failures": [],
+  "groups": [
+    {
+      "case": null,
+      "layer": null,
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "after_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 57498,
+        "white": 8,
+        "nearwhite": 10.666666666666666,
+        "clipped": 2644.1666666666665,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 10.666666666666666,
+        "tonemap_clipped": 0,
+        "passed": 16.166666666666668,
+        "candidates": 106.16666666666667,
+        "projected": 106.16666666666667,
+        "visible_roi": 106.16666666666667
+      },
+      "mean_rgba": [
+        0.3163730179476568,
+        0.28546661436319365,
+        0.24493054441890186,
+        0.8245464316092838
+      ],
+      "delta_sum_rgba": [
+        488.2882341146469,
+        591.4385759518482,
+        981.816936282441,
+        -4851.6686328547075
+      ]
+    },
+    {
+      "case": null,
+      "layer": null,
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "before_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 57498,
+        "white": 3.6666666666666665,
+        "nearwhite": 8.5,
+        "clipped": 1172.8333333333333,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 8.5,
+        "tonemap_clipped": 0,
+        "passed": 16.166666666666668,
+        "candidates": 106.16666666666667,
+        "projected": 106.16666666666667,
+        "visible_roi": 106.16666666666667
+      },
+      "mean_rgba": [
+        0.3077110209919492,
+        0.27490825792565216,
+        0.22788154370535316,
+        0.9103474934437684
+      ]
+    },
+    {
+      "case": null,
+      "layer": null,
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "stage": "after_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 54282,
+        "white": 3,
+        "nearwhite": 4.833333333333333,
+        "clipped": 2806.3333333333335,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 4.833333333333333,
+        "tonemap_clipped": 0,
+        "passed": 18.333333333333332,
+        "candidates": 106.33333333333333,
+        "projected": 106.33333333333333,
+        "visible_roi": 106.33333333333333
+      },
+      "mean_rgba": [
+        0.2737775663791987,
+        0.24375004230647496,
+        0.24944439968179596,
+        0.8076958207522741
+      ],
+      "delta_sum_rgba": [
+        477.7045859992504,
+        599.258828899047,
+        873.2894919823544,
+        -5072.455561353515
+      ]
+    },
+    {
+      "case": null,
+      "layer": null,
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "stage": "before_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 54282,
+        "white": 1,
+        "nearwhite": 3.5,
+        "clipped": 1071.1666666666667,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 3.5,
+        "tonemap_clipped": 0,
+        "passed": 18.333333333333332,
+        "candidates": 106.33333333333333,
+        "projected": 106.33333333333333,
+        "visible_roi": 106.33333333333333
+      },
+      "mean_rgba": [
+        0.2647930054625255,
+        0.23252629915147544,
+        0.23319127413045407,
+        0.90200674035319
+      ]
+    },
+    {
+      "case": null,
+      "layer": null,
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "after_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 55162.5,
+        "white": 4.166666666666667,
+        "nearwhite": 6.166666666666667,
+        "clipped": 2017.5,
+        "tonemap_white": 3,
+        "tonemap_nearwhite": 6.166666666666667,
+        "tonemap_clipped": 1866.5,
+        "passed": 17.333333333333332,
+        "candidates": 156.66666666666666,
+        "projected": 156.66666666666666,
+        "visible_roi": 156.66666666666666
+      },
+      "mean_rgba": [
+        0.2764979216625169,
+        0.2582879442208575,
+        0.21841000229435667,
+        0.8291106209141156
+      ],
+      "delta_sum_rgba": [
+        526.9246571858724,
+        800.2578760782877,
+        1452.0760396321614,
+        -4877.260365804036
+      ]
+    },
+    {
+      "case": null,
+      "layer": null,
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "before_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 55162.5,
+        "white": 4,
+        "nearwhite": 6,
+        "clipped": 916.3333333333334,
+        "tonemap_white": 3,
+        "tonemap_nearwhite": 6,
+        "tonemap_clipped": 816.5,
+        "passed": 17.333333333333332,
+        "candidates": 156.66666666666666,
+        "projected": 156.66666666666666,
+        "visible_roi": 156.66666666666666
+      },
+      "mean_rgba": [
+        0.26724264978240686,
+        0.2441208609672144,
+        0.19276553939647742,
+        0.9176643435427309
+      ]
+    },
+    {
+      "case": null,
+      "layer": null,
+      "arm": "recharged",
+      "hour": 18,
+      "stage": "after_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 54555,
+        "white": 6.833333333333333,
+        "nearwhite": 9.666666666666666,
+        "clipped": 2055,
+        "tonemap_white": 6.5,
+        "tonemap_nearwhite": 9.666666666666666,
+        "tonemap_clipped": 1904,
+        "passed": 17.333333333333332,
+        "candidates": 101.5,
+        "projected": 101.5,
+        "visible_roi": 101.5
+      },
+      "mean_rgba": [
+        0.2317643199039474,
+        0.21315424500118993,
+        0.210152085915173,
+        0.8191188810931858
+      ],
+      "delta_sum_rgba": [
+        476.7019526163737,
+        882.5383701324463,
+        1586.3952369689941,
+        -4818.4396565755205
+      ]
+    },
+    {
+      "case": null,
+      "layer": null,
+      "arm": "recharged",
+      "hour": 18,
+      "stage": "before_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 54555,
+        "white": 6.833333333333333,
+        "nearwhite": 7.833333333333333,
+        "clipped": 829.5,
+        "tonemap_white": 6,
+        "tonemap_nearwhite": 7.833333333333333,
+        "tonemap_clipped": 732.5,
+        "passed": 17.333333333333332,
+        "candidates": 101.5,
+        "projected": 101.5,
+        "visible_roi": 101.5
+      },
+      "mean_rgba": [
+        0.22315360417264318,
+        0.19703622969475426,
+        0.1816107149146574,
+        0.9089360178484507
+      ]
+    }
+  ]
+}

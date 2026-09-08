@@ -1,0 +1,33 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "source": "game/graphics/opengl_renderer/shaders/tonemap.frag:36",
+  "kind": "analytic bound plus scalar evaluation; not a new game proof",
+  "knee": 0.95,
+  "exposure": 1,
+  "max_clamp_minus_shoulder_255": 3.1874999999999885,
+  "at_input": 1.0,
+  "analytic_bound_255": 3.1875000000000027,
+  "portal_final_measurements": [
+    {
+      "hour": 12,
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "off_minus_on_luma": 20.367810117810123
+    },
+    {
+      "hour": 18,
+      "roi": [
+        147,
+        42,
+        173,
+        79
+      ],
+      "off_minus_on_luma": 15.18277893277893
+    }
+  ],
+  "inference": "The final curve alone, on identical scene input, cannot create the observed 15-20 code-value mean luma gap. HDR accumulation, scene lighting, temporal populations and sampling remain unresolved upstream differences."
+}

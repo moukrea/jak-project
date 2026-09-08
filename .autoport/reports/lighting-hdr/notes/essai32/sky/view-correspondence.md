@@ -1,0 +1,2 @@
+DIRECTIVES ve7fcbe0116
+Original : essai31-sky-final, beach-start h9/12/18, warpat300, jamais atteint (spawn-bird pool nul pendant logo). Remplacement diagnostic : essai32-sky-before, paramètres identiques sauf warpat900. h9 caméra 7:-35:0:30 (3m) pour charger VIS ; h12/h18 7:-35:0:5000 (500m) pour isoler courbe/composition du ciel. Ne prouve ni couverture de niveau, ni correction. Aucun autre cadrage ou run autorisé.

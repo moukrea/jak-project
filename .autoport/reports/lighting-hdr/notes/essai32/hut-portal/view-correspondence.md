@@ -1,0 +1,2 @@
+DIRECTIVES ve7fcbe0116
+Deuxième et dernier run demandé : village1-out h12/h18, warp village1-hut, cam=-10:-108:152:33, warpat900. Ancienne vue50m conservée, aucun remplacement de manifeste. Géométrie transmise par manager : ancre(-126,46,212) cap163 donne C(-138.451,49.300,203.282), à6.3cm caméra native camera-start15(-138.4481,49.2789,203.3405). Look yaw55 pitch-10 vise sol sage(-132.6594,46.1975,213.4677) et portail(-123.10158,50.40380,214.22531). Couverture sol/hutte NON présumée ; attribution sol non prouvée sauf projection certaine existante.

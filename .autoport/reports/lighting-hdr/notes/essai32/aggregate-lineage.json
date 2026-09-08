@@ -1,0 +1,18 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "method": "byte-identical copies of official producer batches; original directories preserved; no replacement",
+  "batches": [
+    {
+      "original": ".autoport/reports/lighting-hdr/batches/essai32-sky-before/20260908T100132-3950103",
+      "copy": ".autoport/reports/lighting-hdr/batches/essai32-compatible/20260908T100132-3950103",
+      "manifest_sha256": "279d13a156b84636592acd95757c26a6c97a78d21c474a0b56b74325c2c519f2",
+      "sealed_files": 85
+    },
+    {
+      "original": ".autoport/reports/lighting-hdr/batches/essai32-hut-portal/20260908T100652-3955392",
+      "copy": ".autoport/reports/lighting-hdr/batches/essai32-compatible/20260908T100652-3955392",
+      "manifest_sha256": "bde365505bc3b058b9e834ba00ece7855497d27f160ac35f8a781815b690b039",
+      "sealed_files": 61
+    }
+  ]
+}

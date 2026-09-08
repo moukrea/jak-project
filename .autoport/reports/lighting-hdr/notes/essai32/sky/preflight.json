@@ -1,0 +1,60 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "lib_sha256": "243591e44243b0843b14d2bf70c353900936a51cdb94bc483a9bf97ec6cd2a73",
+  "apk_sha256": "82309530d2dab70ea4df7e7aaf0a029a916b3f3188b80120046ea890e1fbc028",
+  "busy": [],
+  "lock_absent": true,
+  "calls": [
+    {
+      "args": [
+        "/home/emeric/Android/platform-tools/adb",
+        "-s",
+        "eae4df44",
+        "get-state"
+      ],
+      "rc": 0,
+      "stdout": "device\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/home/emeric/Android/platform-tools/adb",
+        "-s",
+        "eae4df44",
+        "shell",
+        "pm",
+        "path",
+        "org.opengoal.gk.jak1"
+      ],
+      "rc": 0,
+      "stdout": "package:/data/app/~~m0EYiss0rREw7yZVoPUUbA==/org.opengoal.gk.jak1-WavMsbldclLKz7-onpHGmA==/base.apk\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/home/emeric/Android/platform-tools/adb",
+        "-s",
+        "eae4df44",
+        "shell",
+        "sha256sum",
+        "/data/app/~~m0EYiss0rREw7yZVoPUUbA==/org.opengoal.gk.jak1-WavMsbldclLKz7-onpHGmA==/base.apk"
+      ],
+      "rc": 0,
+      "stdout": "82309530d2dab70ea4df7e7aaf0a029a916b3f3188b80120046ea890e1fbc028  /data/app/~~m0EYiss0rREw7yZVoPUUbA==/org.opengoal.gk.jak1-WavMsbldclLKz7-onpHGmA==/base.apk\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "/home/emeric/Android/platform-tools/adb",
+        "-s",
+        "eae4df44",
+        "shell",
+        "sha256sum",
+        "/data/app/~~m0EYiss0rREw7yZVoPUUbA==/org.opengoal.gk.jak1-WavMsbldclLKz7-onpHGmA==/lib/arm64/libgk.so"
+      ],
+      "rc": 0,
+      "stdout": "243591e44243b0843b14d2bf70c353900936a51cdb94bc483a9bf97ec6cd2a73  /data/app/~~m0EYiss0rREw7yZVoPUUbA==/org.opengoal.gk.jak1-WavMsbldclLKz7-onpHGmA==/lib/arm64/libgk.so\n",
+      "stderr": ""
+    }
+  ]
+}
