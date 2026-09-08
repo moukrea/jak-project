@@ -549,3 +549,42 @@ def test_curve_rounding_bin_requires_exact_float_corroboration(kink, flag, expec
         values[hdr.CHAIN[0]] = flag
     defects, _ = hdr.chain_measurements(values, required=True)
     assert defects[hdr.CHAIN[0]] == expected
+
+
+def test_missing_last_effective_record_keeps_pixels_and_allows_repair(tmp_path, plan):
+    path = batch(tmp_path, plan, [('swamp-start', 0), ('swamp-start', 3)])
+    log = path / 'engine.log'
+    log.write_text('\n'.join(x for x in log.read_text().splitlines() if not
+                             x.startswith('REFSET effective case=origine-lumiere/swamp-start-h03 ')))
+    rehash(path)
+    old = hdr.read_batch(path / 'manifest.json', plan, stats)
+    assert set(old['pairs']) == {('swamp-start', 0)}
+    row = old['unqualified'][('swamp-start', 3)]
+    assert row['on']['pixels'] == row['off']['pixels'] == 10000
+    assert row['comparable'] is False
+    assert row['options'][1] is None
+    assert any('effective settings absent:' in r for r in row['reasons'])
+    assert result(tmp_path, plan)['hdr_tonemap_defects'] > 0
+    batch(tmp_path, plan, complete_requests(plan), name='002',
+          replaces=['001:swamp-start:3=swamp-dock1'])
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] == 0
+
+
+@pytest.mark.parametrize('invalid', ['malformed_json', 'wrong_config', 'non_object'])
+def test_present_invalid_effective_record_is_fatal_even_after_replacement(tmp_path, plan, invalid):
+    path = batch(tmp_path, plan, [('swamp-start', 0)])
+    log = path / 'engine.log'
+    text = log.read_text()
+    if invalid == 'wrong_config':
+        text = text.replace('"grass": true', '"grass": false', 1)
+    else:
+        prefix = 'REFSET effective case=origine-lumiere/swamp-start-h00 options='
+        text = '\n'.join(prefix + ('{broken' if invalid == 'malformed_json' else 'null')
+                         if x.startswith(prefix) else x for x in text.splitlines())
+    log.write_text(text)
+    rehash(path)
+    with pytest.raises(ValueError):
+        hdr.read_batch(path / 'manifest.json', plan, stats)
+    batch(tmp_path, plan, complete_requests(plan), name='002',
+          replaces=['001:swamp-start:0=swamp-dock1'])
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0

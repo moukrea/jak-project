@@ -396,13 +396,20 @@ else
   if timeout 20 "$ADB" -s "$SERIAL" exec-out run-as "$PKG" sh -c 'cat files/gk_crash.txt 2>/dev/null' \
      | tr -d '\r' | grep -qa .; then CRASH=1; log "files/gk_crash.txt present"; fi
 
+  if [ -n "$HDR_BATCH" ]; then
+    # Stop the producer before closing its log: otherwise captures can land
+    # after their effective-setting trace has already been disconnected.
+    if ! timeout 20 "$ADB" -s "$SERIAL" shell am force-stop "$PKG" >/dev/null 2>&1; then
+      log "HDR producer stop failed: no batch or proof emitted"; exit 3
+    fi
+    sleep 1  # Let the live logcat reader drain the stopped process's tail.
+  fi
   # Le moteur peut publier ses cle=valeur dans logcat ET dans files/<id>.txt : on lit les deux.
   timeout 30 "$ADB" -s "$SERIAL" exec-out run-as "$PKG" sh -c "cat files/$ID.txt 2>/dev/null" \
     >> "$RAWLOG" 2>/dev/null
   kill "$LPID" 2>/dev/null; wait "$LPID" 2>/dev/null; rm -f "$PIDDIR/$ID$SUF.pid"
   if [ -n "$HDR_BATCH" ]; then
-    # Stop writes before collecting immutable raw captures/configuration.
-    timeout 20 "$ADB" -s "$SERIAL" shell am force-stop "$PKG" >/dev/null 2>&1
+    # The producer and its log reader are stopped; collect immutable sources.
     cp "$RAWLOG" "$HDR_BATCH/engine.log" || exit 3
     python3 "$AP/lib/hdr_batches.py" finish --batch "$HDR_BATCH" --adb "$ADB" \
       --serial "$SERIAL" --pkg "$PKG" --binary "$BIN" --remote "$HDR_REMOTE" \

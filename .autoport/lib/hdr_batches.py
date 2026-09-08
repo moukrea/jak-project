@@ -307,10 +307,18 @@ def read_batch(path, expected, measurer):
     if any(not re.fullmatch('[0-9a-f]{16}', x) or int(x, 16) == 0 for x in fingerprints):
         raise ValueError('missing runtime render/data identity')
     effective = {}
-    for case, options in re.findall(r'^REFSET effective case=(\S+) options=(\{[^\n]+\})$', raw, re.M):
+    for line in raw.splitlines():
+        if not line.startswith('REFSET effective '):
+            continue
+        match = re.fullmatch(r'REFSET effective case=(\S+) options=(.*)', line)
+        if not match:
+            raise ValueError('malformed effective settings record')
+        case, options = match.groups()
         if case in effective:
             raise ValueError('duplicate capture effective settings')
         effective[case] = json.loads(options)
+        if not isinstance(effective[case], dict):
+            raise ValueError('malformed effective settings object')
     requested = [tuple(x) for x in m['requested']]
     if len(set(requested)) != len(requested) or not requested:
         raise ValueError('duplicate/empty requested views')
@@ -347,16 +355,18 @@ def read_batch(path, expected, measurer):
             configs.add(sidecar['config'])
             if len(configs) > 1:
                 raise ValueError('capture config changed within batch')
-            options = effective[case]
-            if not isinstance(options.get('output'), dict) or not {'profile', 'curve', 'exposure', 'pbr_exposure', 'knee'} <= options['output'].keys():
-                raise ValueError('missing effective output profile')
-            if options.get('master') is not True or options.get('lighting') is not (phase == 2):
-                raise ValueError('wrong effective ON/OFF settings')
-            if options.get('hdr') is not (phase == 2):
-                raise ValueError('ON capture did not use HDR')
-            if not isinstance(options.get('others'), dict) or not options['others']:
-                raise ValueError('missing effective non-lighting settings')
-            all_options.append(options)
+            options = effective.get(case)
+            if options is None:
+                reasons.append('effective settings absent: ' + case)
+            else:
+                if not isinstance(options.get('output'), dict) or not {'profile', 'curve', 'exposure', 'pbr_exposure', 'knee'} <= options['output'].keys():
+                    raise ValueError('missing effective output profile')
+                if options.get('master') is not True or options.get('lighting') is not (phase == 2):
+                    raise ValueError('wrong effective ON/OFF settings')
+                if options.get('hdr') is not (phase == 2):
+                    raise ValueError('ON capture did not use HDR')
+                if not isinstance(options.get('others'), dict) or not options['others']:
+                    raise ValueError('missing effective non-lighting settings')
             key = f'hdr_{view.replace("-", "_")}_h{hour}_p{phase}_'
             if sidecar.get('flavour') != 'normal' or not re.fullmatch(r'[0-9]+', sidecar.get('capture_lf', '')):
                 raise ValueError('capture frame/flavour provenance mismatch')
@@ -386,12 +396,15 @@ def read_batch(path, expected, measurer):
         if len(pair) != 2:
             unqualified[(view, hour)] = {'reasons': reasons, 'measured_arms': [{'stats': st, 'options': opt} for st, opt in pair]}
             continue
-        if pair[0][1]['others'] != pair[1][1]['others'] or pair[0][0]['width'] != pair[1][0]['width'] or pair[0][0]['height'] != pair[1][0]['height']:
-            raise ValueError('non-lighting settings or dimensions differ ON/OFF')
+        comparable = pair[0][1] is not None and pair[1][1] is not None
+        if comparable and pair[0][1]['others'] != pair[1][1]['others']:
+            raise ValueError('non-lighting settings differ ON/OFF')
+        if pair[0][0]['width'] != pair[1][0]['width'] or pair[0][0]['height'] != pair[1][0]['height']:
+            raise ValueError('dimensions differ ON/OFF')
         bgh = dict(re.findall(r'h(\d+):(\d+)', values.get('refset_bgh_' + view.replace('-', '_'), '')))
         if f'{hour:02}' not in bgh or 'refset_bg_max_pm_' + view.replace('-', '_') not in values:
             reasons.append('sky pixel measurement absent')
-            unqualified[(view, hour)] = {'reasons': reasons, 'on': pair[0][0], 'off': pair[1][0]}
+            unqualified[(view, hour)] = {'reasons': reasons, 'on': pair[0][0], 'off': pair[1][0], 'comparable': comparable, 'options': [x[1] for x in pair]}
             continue
         bg = int(bgh[f'{hour:02}'])
         if not 0 <= bg <= 1000:
@@ -399,7 +412,7 @@ def read_batch(path, expected, measurer):
         bg_max = int(values['refset_bg_max_pm_' + view.replace('-', '_')])
         if not bg <= bg_max <= 1000:
             raise ValueError('inconsistent sky min/max')
-        record = {'on': pair[0][0], 'off': pair[1][0], 'sky_pm': bg, 'sky_max_pm': bg_max, 'level': level,
+        record = {'on': pair[0][0], 'off': pair[1][0], 'comparable': comparable, 'sky_pm': bg, 'sky_max_pm': bg_max, 'level': level,
                                'options': [x[1] for x in pair]}
         if reasons:
             unqualified[(view, hour)] = {**record, 'reasons': reasons}
@@ -526,6 +539,7 @@ def aggregate(campaign, current, expected, measurer=measure):
                     raise ValueError('replacement loses interior region')
                 image_record = old_pair or previous.get('unqualified', {}).get(key, {})
                 trustworthy_image = ('on' in image_record and 'off' in image_record
+                                     and image_record.get('comparable', True)
                                      and not any('black or achromatic' in r or 'region not drawn' in r
                                                  for r in image_record.get('reasons', [])))
                 if trustworthy_image:
