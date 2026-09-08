@@ -40,4 +40,7 @@ void main() {
   }
 
   color.rgb = mix(color.rgb, fog_color.rgb, clamp(fogginess * fog_color.a, 0.0, 1.0));
+  // Alpha is a blend weight, even when RGB has floating-point HDR headroom.
+  // Keep the original alpha tests above, then match the normalized target range.
+  color.a = clamp(color.a, 0.0, 1.0);
 }

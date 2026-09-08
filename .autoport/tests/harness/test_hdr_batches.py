@@ -64,7 +64,70 @@ CRASH=0; TIMEOUT=23; elapsed=8
 
 @pytest.fixture
 def plan():
-    return hdr.contract(ROOT)
+    contract = hdr.contract(ROOT)
+    # Existing synthetic fixtures measure regional coverage, without owner cases.
+    contract['plan'].pop('owner_regression_cases', None)
+    return contract
+
+
+def run_hdr_production_block(tmp_path, values, *, item='lighting-hdr', armed='1', batch_path=''):
+    source = (ROOT / '.autoport/lib/proof_run.sh').read_text()
+    block = source.split('rm -f "$NORM"\n\n', 1)[1].split('\nTMP=', 1)[0]
+    env = dict(os.environ, AP=str(ROOT / '.autoport'), D=str(tmp_path), ID=item, ARMED=armed,
+               HDR_BATCH=batch_path, HDR_CAMPAIGN='synthetic', EXTRA='', KVLINES=values)
+    run = subprocess.run(['bash', '-c', 'set -uo pipefail\nlog() { echo "$*" >&2; }\n' +
+                          block + '\nprintf "%s\\n" "$KVLINES"\n'], cwd=ROOT, env=env,
+                         capture_output=True, text=True, timeout=20)
+    assert run.returncode == 0, run.stderr
+    keys = [line.split('=', 1)[0] for line in run.stdout.splitlines() if '=' in line]
+    assert len(keys) == len(set(keys)), run.stdout
+    return hdr.kv(run.stdout)
+
+
+@pytest.mark.parametrize('total', ['0', '6', None, 'invalid', '-1'])
+def test_normal_proof_adds_owner_guard_preserving_engine_measurements(tmp_path, total):
+    previous = {key: str(i) for i, key in enumerate((*hdr.CHAIN, 'hdr_defect_1_saturation',
+                'hdr_defect_2_hl_contrast', 'hdr_defect_4_origine_lumiere_set'), 1)}
+    previous['hdr_curve_samples'] = '8000'
+    values = {**previous, 'owner_case': '0', 'hdr_owner_regressions_required': '0',
+              'hdr_owner_regressions_measured': '5', 'hdr_owner_regressions_missing': '0',
+              'hdr_defect_7_owner_regressions': '0'}
+    if total is not None:
+        values['hdr_tonemap_defects'] = total
+    r = run_hdr_production_block(tmp_path, '\n'.join(f'{k}={v}' for k, v in values.items()))
+    assert all(r[k] == v for k, v in previous.items())
+    assert r['hdr_owner_regressions_required'] == r['hdr_owner_regressions_missing'] == '5'
+    assert r['hdr_owner_regressions_measured'] == '0'
+    assert r['hdr_defect_7_owner_regressions'] == '1'
+    if total in ('0', '6'):
+        assert r['hdr_tonemap_defects'] == str(int(total) + 1)
+    else:
+        assert 'hdr_tonemap_defects' not in r
+    cases = hdr.contract(ROOT)['plan']['owner_regression_cases']
+    diagnostics = json.loads((tmp_path / 'measurements.json').read_text())['owner_regressions']
+    assert diagnostics['missing'] == cases
+    assert diagnostics['measured'] == []
+    assert not (tmp_path / 'proof.txt').exists()
+
+
+def test_batch_proof_replaces_engine_owner_claims_without_duplicate_keys(tmp_path):
+    values = ('hdr_tonemap_defects=0\nhdr_owner_regressions_required=0\n'
+              'hdr_owner_regressions_measured=5\nhdr_owner_regressions_missing=0\n'
+              'hdr_defect_7_owner_regressions=0\nhdr_batch_errors=0\nhdr_curve_samples=8000')
+    r = run_hdr_production_block(tmp_path, values, batch_path=str(tmp_path / 'missing'))
+    assert r['hdr_tonemap_defects'] == '2'
+    assert r['hdr_defect_7_owner_regressions'] == '1'
+    assert r['hdr_owner_regressions_required'] == r['hdr_owner_regressions_missing'] == '5'
+    assert r['hdr_owner_regressions_measured'] == '0'
+    assert r['hdr_batch_errors'] == '1'
+    assert r['hdr_curve_samples'] == '8000'
+
+
+@pytest.mark.parametrize('item,armed', [('lighting-hdr', '0'), ('other-item', '1')])
+def test_normal_owner_guard_leaves_ablation_and_other_items_unchanged(tmp_path, item, armed):
+    values = 'hdr_tonemap_defects=0\nother_counter=12'
+    assert run_hdr_production_block(tmp_path, values, item=item, armed=armed) == hdr.kv(values)
+    assert not (tmp_path / 'measurements.json').exists()
 
 
 def stats(path):
@@ -179,7 +242,59 @@ def test_complete_synthetic_multiple_processes(tmp_path, plan):
     assert r['hdr_tonemap_defects'] == 0
     assert r['hdr_batch_cells'] == 21 * 8
     assert r['hdr_batch_pairs'] == 22 * 8
+    assert r['hdr_owner_regressions_required'] == 0
+    assert r['hdr_owner_regressions_measured'] == 0
+    assert r['hdr_owner_regressions_missing'] == 0
+    assert r['hdr_defect_7_owner_regressions'] == 0
     assert not (tmp_path / 'proof.txt').exists()
+
+
+@pytest.mark.parametrize('forged_engine_verdict', [False, True])
+def test_owner_cases_not_measured_by_complete_regional_set(tmp_path, forged_engine_verdict):
+    plan = hdr.contract(ROOT)
+    cases = plan['plan']['owner_regression_cases']
+    assert len(cases) == 5
+    path = batch(tmp_path, plan, complete_requests(plan))
+    if forged_engine_verdict:
+        with (path / 'engine.log').open('a') as stream:
+            stream.write('owner_case=0\nhdr_defect_7_owner_regressions=0\n'
+                         'hdr_owner_regressions_measured=5\nhdr_owner_regressions_missing=0\n')
+        rehash(path)
+    r = result(tmp_path, plan)
+    assert r['hdr_batch_quality_bad'] == 0
+    assert r['hdr_batch_missing'] == 0
+    assert r['hdr_batch_errors'] == 0
+    assert r['hdr_batch_cells'] == 21 * 8
+    assert r['hdr_batch_pairs'] == 22 * 8
+    assert r['hdr_owner_regressions_required'] == len(cases)
+    assert r['hdr_owner_regressions_measured'] == 0
+    assert r['hdr_owner_regressions_missing'] == len(cases)
+    assert r['hdr_defect_7_owner_regressions'] == 1
+    assert r['hdr_tonemap_defects'] == 1
+    diagnostics = json.loads((tmp_path / 'measurements.json').read_text())['owner_regressions']
+    assert diagnostics['required'] == diagnostics['missing'] == cases
+    assert diagnostics['measured'] == []
+    assert diagnostics['findings'] == [
+        {'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'}
+        for case in cases]
+    assert not (tmp_path / 'proof.txt').exists()
+
+
+@pytest.mark.parametrize('owner_cases', [False, True])
+def test_current_missing_reports_owner_cases(tmp_path, plan, owner_cases):
+    if owner_cases:
+        plan = hdr.contract(ROOT)
+    cases = plan['plan'].get('owner_regression_cases', [])
+    r = result(tmp_path, plan)
+    assert r['hdr_owner_regressions_required'] == len(cases)
+    assert r['hdr_owner_regressions_measured'] == 0
+    assert r['hdr_owner_regressions_missing'] == len(cases)
+    assert r['hdr_defect_7_owner_regressions'] == int(owner_cases)
+    assert r['hdr_tonemap_defects'] == 1 + int(owner_cases)
+    assert r['hdr_batch_error_detail'] == 'current_batch_missing'
+    diagnostics = json.loads((tmp_path / 'measurements.json').read_text())['owner_regressions']
+    assert diagnostics['missing'] == cases
+    assert [finding['case'] for finding in diagnostics['findings']] == cases
 
 
 def test_partial_red(tmp_path, plan):

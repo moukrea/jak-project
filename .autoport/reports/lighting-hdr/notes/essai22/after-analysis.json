@@ -1,0 +1,621 @@
+{
+  "label": "diagnostic avant/apres image entiere, ni preuve regionale ni identite de frames",
+  "sources": {
+    ".autoport/reports/lighting-hdr/batches/essai21-readback/measurements.json": "f7f6772d4157b8a7cba238a6d83a3ba2d742eb3936306d05d98eb8d5041790a3",
+    ".autoport/reports/lighting-hdr/batches/essai22-alpha/measurements.json": "be441ecb2536c8627fe34dd45afe8c9eb39f2860f08005a9162555dd48d1874e",
+    ".autoport/reports/lighting-hdr/proof-engine.log": "d5dfbe317561d4122c4d85ba6a3ecedad290adc95e6c5aa1ac25f303465f21f0"
+  },
+  "pairs": [
+    {
+      "view": "village1-out",
+      "hour": 18,
+      "before_batch": "20260908T032334-3635041",
+      "after_batch": "20260908T052020-3705704",
+      "before": {
+        "on": {
+          "black": 98,
+          "clipped": 2300,
+          "detail": 8.100663736186757,
+          "flat": 0.07234549307367646,
+          "height": 180,
+          "hue_bins": [
+            7442,
+            1592,
+            1369,
+            746,
+            655,
+            4109,
+            6230,
+            3794,
+            8053,
+            11064,
+            7244,
+            5177
+          ],
+          "luma": 98.9687326388889,
+          "luma_p99": 221.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.2979620132477981,
+          "white": 0,
+          "width": 320
+        },
+        "off": {
+          "black": 98,
+          "clipped": 5936,
+          "detail": 8.998248717185339,
+          "flat": 0.048370431340957254,
+          "height": 180,
+          "hue_bins": [
+            5853,
+            3297,
+            1719,
+            912,
+            860,
+            4532,
+            5982,
+            3481,
+            7050,
+            11299,
+            7271,
+            5234
+          ],
+          "luma": 99.69397569444445,
+          "luma_p99": 233.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.2944540465018693,
+          "white": 0,
+          "width": 320
+        }
+      },
+      "after": {
+        "on": {
+          "black": 101,
+          "clipped": 385,
+          "detail": 8.525594998336281,
+          "flat": 0.06187282184199926,
+          "height": 180,
+          "hue_bins": [
+            8128,
+            1460,
+            1353,
+            735,
+            690,
+            4120,
+            6128,
+            4003,
+            8103,
+            10469,
+            7198,
+            5083
+          ],
+          "luma": 95.518125,
+          "luma_p99": 213.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.3042700465400168,
+          "white": 0,
+          "width": 320
+        },
+        "off": {
+          "black": 100,
+          "clipped": 7429,
+          "detail": 9.1180364617082,
+          "flat": 0.0507346631407506,
+          "height": 180,
+          "hue_bins": [
+            5657,
+            3578,
+            2230,
+            891,
+            868,
+            4591,
+            5879,
+            3646,
+            7053,
+            10696,
+            7295,
+            5106
+          ],
+          "luma": 100.36166666666666,
+          "luma_p99": 243.0,
+          "nearwhite": 3,
+          "pixels": 57600,
+          "saturation": 0.29562338853072573,
+          "white": 0,
+          "width": 320
+        }
+      }
+    },
+    {
+      "view": "village1-out",
+      "hour": 12,
+      "before_batch": "20260908T032334-3635041",
+      "after_batch": "20260908T052020-3705704",
+      "before": {
+        "on": {
+          "black": 95,
+          "clipped": 9424,
+          "detail": 18.304250363391183,
+          "flat": 0.04789758498099858,
+          "height": 180,
+          "hue_bins": [
+            8449,
+            2383,
+            3462,
+            1803,
+            2985,
+            1517,
+            11761,
+            18672,
+            1291,
+            597,
+            1051,
+            3527
+          ],
+          "luma": 124.13715277777777,
+          "luma_p99": 238.0,
+          "nearwhite": 13,
+          "pixels": 57600,
+          "saturation": 0.4244230977086036,
+          "white": 0,
+          "width": 320
+        },
+        "off": {
+          "black": 96,
+          "clipped": 13810,
+          "detail": 19.30050261816781,
+          "flat": 0.04285389047477277,
+          "height": 180,
+          "hue_bins": [
+            9804,
+            2578,
+            3748,
+            1698,
+            2980,
+            1342,
+            23734,
+            5278,
+            871,
+            553,
+            716,
+            3300
+          ],
+          "luma": 133.70196180555556,
+          "luma_p99": 255.0,
+          "nearwhite": 1392,
+          "pixels": 57600,
+          "saturation": 0.4150407214550325,
+          "white": 897,
+          "width": 320
+        }
+      },
+      "after": {
+        "on": {
+          "black": 97,
+          "clipped": 0,
+          "detail": 18.898793366140698,
+          "flat": 0.03879091434475754,
+          "height": 180,
+          "hue_bins": [
+            8500,
+            2396,
+            3427,
+            1810,
+            2956,
+            1651,
+            11494,
+            18826,
+            1257,
+            570,
+            1034,
+            3575
+          ],
+          "luma": 123.47399305555555,
+          "luma_p99": 236.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.425755405296576,
+          "white": 0,
+          "width": 320
+        },
+        "off": {
+          "black": 99,
+          "clipped": 13458,
+          "detail": 19.559026987268172,
+          "flat": 0.03793278576557328,
+          "height": 180,
+          "hue_bins": [
+            9786,
+            2599,
+            3707,
+            1717,
+            2955,
+            1462,
+            23464,
+            5631,
+            869,
+            541,
+            707,
+            3275
+          ],
+          "luma": 133.19682291666666,
+          "luma_p99": 255.0,
+          "nearwhite": 1340,
+          "pixels": 57600,
+          "saturation": 0.41568564428040994,
+          "white": 768,
+          "width": 320
+        }
+      }
+    },
+    {
+      "view": "legacy",
+      "hour": 12,
+      "before_batch": "20260908T032334-3635041",
+      "after_batch": "20260908T052020-3705704",
+      "before": {
+        "on": {
+          "black": 0,
+          "clipped": 0,
+          "detail": 9.634875045971175,
+          "flat": 0.04616381499448346,
+          "height": 180,
+          "hue_bins": [
+            40123,
+            14554,
+            687,
+            32,
+            70,
+            11,
+            84,
+            46,
+            1768,
+            33,
+            71,
+            114
+          ],
+          "luma": 74.74550347222223,
+          "luma_p99": 200.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.6366197327233963,
+          "white": 0,
+          "width": 320
+        },
+        "off": {
+          "black": 0,
+          "clipped": 178,
+          "detail": 11.32509062888566,
+          "flat": 0.020735188525595,
+          "height": 180,
+          "hue_bins": [
+            40217,
+            14526,
+            688,
+            23,
+            79,
+            9,
+            52,
+            20,
+            1767,
+            21,
+            79,
+            116
+          ],
+          "luma": 90.93204861111111,
+          "luma_p99": 203.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.6396364763209651,
+          "white": 0,
+          "width": 320
+        }
+      },
+      "after": {
+        "on": {
+          "black": 0,
+          "clipped": 0,
+          "detail": 11.617589884590462,
+          "flat": 0.040402094534246334,
+          "height": 180,
+          "hue_bins": [
+            39527,
+            11670,
+            911,
+            416,
+            246,
+            39,
+            1577,
+            1090,
+            1797,
+            46,
+            92,
+            180
+          ],
+          "luma": 70.98635416666667,
+          "luma_p99": 221.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.6247812227139017,
+          "white": 0,
+          "width": 320
+        },
+        "off": {
+          "black": 0,
+          "clipped": 588,
+          "detail": 12.673613421831492,
+          "flat": 0.021137983572967197,
+          "height": 180,
+          "hue_bins": [
+            37931,
+            16597,
+            963,
+            43,
+            55,
+            18,
+            23,
+            6,
+            1761,
+            21,
+            71,
+            110
+          ],
+          "luma": 92.83286458333333,
+          "luma_p99": 214.0,
+          "nearwhite": 3,
+          "pixels": 57600,
+          "saturation": 0.653212996606987,
+          "white": 0,
+          "width": 320
+        }
+      }
+    },
+    {
+      "view": "legacy",
+      "hour": 18,
+      "before_batch": "20260908T032334-3635041",
+      "after_batch": "20260908T052020-3705704",
+      "before": {
+        "on": {
+          "black": 0,
+          "clipped": 0,
+          "detail": 9.333847042958967,
+          "flat": 0.037442426577468,
+          "height": 180,
+          "hue_bins": [
+            46100,
+            1562,
+            559,
+            89,
+            14,
+            32,
+            34,
+            2043,
+            1944,
+            1241,
+            1118,
+            2864
+          ],
+          "luma": 73.44361111111111,
+          "luma_p99": 202.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.578587183322313,
+          "white": 0,
+          "width": 320
+        },
+        "off": {
+          "black": 0,
+          "clipped": 0,
+          "detail": 10.06865028633474,
+          "flat": 0.024728113343023765,
+          "height": 180,
+          "hue_bins": [
+            45970,
+            1773,
+            558,
+            93,
+            18,
+            41,
+            30,
+            2065,
+            1581,
+            1327,
+            1220,
+            2923
+          ],
+          "luma": 80.50480902777778,
+          "luma_p99": 202.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.5731894595657114,
+          "white": 0,
+          "width": 320
+        }
+      },
+      "after": {
+        "on": {
+          "black": 0,
+          "clipped": 0,
+          "detail": 9.365352620794733,
+          "flat": 0.03733734960858829,
+          "height": 180,
+          "hue_bins": [
+            46128,
+            1545,
+            528,
+            103,
+            15,
+            24,
+            39,
+            2041,
+            1945,
+            1240,
+            1128,
+            2864
+          ],
+          "luma": 73.34131944444445,
+          "luma_p99": 196.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.5782922894784807,
+          "white": 0,
+          "width": 320
+        },
+        "off": {
+          "black": 0,
+          "clipped": 0,
+          "detail": 10.102940403845817,
+          "flat": 0.024605523545997442,
+          "height": 180,
+          "hue_bins": [
+            45987,
+            1761,
+            555,
+            95,
+            18,
+            32,
+            35,
+            2064,
+            1579,
+            1331,
+            1224,
+            2919
+          ],
+          "luma": 80.44578125,
+          "luma_p99": 199.0,
+          "nearwhite": 0,
+          "pixels": 57600,
+          "saturation": 0.5728953869539601,
+          "white": 0,
+          "width": 320
+        }
+      }
+    }
+  ],
+  "a42_float_samples": [
+    {
+      "line": 104966,
+      "rgba": [
+        0.429443359,
+        0.165771484,
+        0.0469055176,
+        1.0
+      ],
+      "trace": "09-08 07:22:13.524 I/GK_STDERR(22045): A42-TFGL err=0x0 fb=65 vp=1200x540 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.429443359,0.165771484,0.0469055176,1) px_byte@L=cdcdcdcd draw0tex=0 mode=0xf90e267d drawn=46/80"
+    },
+    {
+      "line": 106680,
+      "rgba": [
+        0.4296875,
+        0.165771484,
+        0.0458068848,
+        1.0
+      ],
+      "trace": "09-08 07:22:18.824 I/GK_STDERR(22045): A42-TFGL err=0x0 fb=67 vp=960x432 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.4296875,0.165771484,0.0458068848,1) px_byte@L=cdcdcdcd draw0tex=0 mode=0xf90e267d drawn=46/80"
+    },
+    {
+      "line": 107738,
+      "rgba": [
+        0.4296875,
+        0.165771484,
+        0.0458068848,
+        1.0
+      ],
+      "trace": "09-08 07:22:23.094 I/GK_STDERR(22045): A42-TFGL err=0x0 fb=67 vp=960x432 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.4296875,0.165771484,0.0458068848,1) px_byte@L=cdcdcdcd draw0tex=0 mode=0xf90e267d drawn=46/80"
+    },
+    {
+      "line": 108767,
+      "rgba": [
+        0.4296875,
+        0.165771484,
+        0.0458068848,
+        1.0
+      ],
+      "trace": "09-08 07:22:27.324 I/GK_STDERR(22045): A42-TFGL err=0x0 fb=67 vp=960x432 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.4296875,0.165771484,0.0458068848,1) px_byte@L=cdcdcdcd draw0tex=0 mode=0xf90e267d drawn=46/80"
+    },
+    {
+      "line": 111241,
+      "rgba": [
+        0.242797852,
+        0.553710938,
+        0.669921875,
+        0.0
+      ],
+      "trace": "09-08 07:22:31.934 I/GK_STDERR(22045): A42-TFGL err=0x0 fb=67 vp=960x432 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.242797852,0.553710938,0.669921875,0) px_byte@L=cdcdcdcd draw0tex=0 mode=0xf90e267d drawn=58/80"
+    },
+    {
+      "line": 112737,
+      "rgba": [
+        0.239013672,
+        0.53515625,
+        0.649902344,
+        0.0
+      ],
+      "trace": "09-08 07:22:36.038 I/GK_STDERR(22045): A42-TFGL err=0x0 fb=67 vp=960x432 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.239013672,0.53515625,0.649902344,0) px_byte@L=cdcdcdcd draw0tex=0 mode=0xf90e267d drawn=58/80"
+    },
+    {
+      "line": 114199,
+      "rgba": [
+        0.248291016,
+        0.580566406,
+        0.697265625,
+        0.0
+      ],
+      "trace": "09-08 07:22:40.097 I/GK_STDERR(22045): A42-TFGL err=0x0 fb=67 vp=960x432 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.248291016,0.580566406,0.697265625,0) px_byte@L=cdcdcdcd draw0tex=0 mode=0xf90e267d drawn=58/80"
+    },
+    {
+      "line": 115966,
+      "rgba": [
+        0.24621582,
+        0.571289062,
+        0.6875,
+        0.0
+      ],
+      "trace": "09-08 07:22:44.149 I/GK_STDERR(22045): A42-TFGL err=0x0 fb=67 vp=960x432 source=draw-fbo attachment=0x8ce0 component=0x1406 read=attempted type=float px_float@L=(0.24621582,0.571289062,0.6875,0) px_byte@L=cdcdcdcd draw0tex=0 mode=0xf90e267d drawn=58/80"
+    }
+  ],
+  "loadscreen_show_count": 0,
+  "shader_compile_failure_count": 0,
+  "owner_regressions": {
+    "findings": [
+      {
+        "case": "nuages blancs presents OFF mais attenues ON",
+        "reason": "no semantic ROI or comparable sequence in regional manifests"
+      },
+      {
+        "case": "eclairs des orbes eco bleue disparus ON, sequence courte comparable",
+        "reason": "no semantic ROI or comparable sequence in regional manifests"
+      },
+      {
+        "case": "soleil couchant jaune/orange plat sans eclat ON",
+        "reason": "no semantic ROI or comparable sequence in regional manifests"
+      },
+      {
+        "case": "petites zones au sol devant hutte Sage vert violettes ON",
+        "reason": "no semantic ROI or comparable sequence in regional manifests"
+      },
+      {
+        "case": "warp gate violet ecrase ON",
+        "reason": "no semantic ROI or comparable sequence in regional manifests"
+      }
+    ],
+    "measured": [],
+    "missing": [
+      "nuages blancs presents OFF mais attenues ON",
+      "eclairs des orbes eco bleue disparus ON, sequence courte comparable",
+      "soleil couchant jaune/orange plat sans eclat ON",
+      "petites zones au sol devant hutte Sage vert violettes ON",
+      "warp gate violet ecrase ON"
+    ],
+    "required": [
+      "nuages blancs presents OFF mais attenues ON",
+      "eclairs des orbes eco bleue disparus ON, sequence courte comparable",
+      "soleil couchant jaune/orange plat sans eclat ON",
+      "petites zones au sol devant hutte Sage vert violettes ON",
+      "warp gate violet ecrase ON"
+    ]
+  }
+}

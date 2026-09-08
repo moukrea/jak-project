@@ -1,0 +1,50 @@
+vendor=Mesa renderer=llvmpipe (LLVM 21.1.8, 256 bits) version=OpenGL ES 3.2 Mesa 25.3.6 EGL=1.5
+check framebuffer_complete PASS
+format=RGBA8 mode=0 before RGBA=0.2,0.298039,0.4,1 gl_error=0
+format=RGBA8 mode=0 after RGBA=0.2,0.298039,0.4,1 gl_error=0
+check normalized_before_after_same_factors PASS
+format=RGBA8 mode=1 before RGBA=0.2,0.298039,0.4,1 gl_error=0
+format=RGBA8 mode=1 after RGBA=0.2,0.298039,0.4,1 gl_error=0
+check normalized_before_after_same_factors PASS
+format=RGBA8 mode=2 before RGBA=0,0,0,0 gl_error=0
+format=RGBA8 mode=2 after RGBA=0,0,0,0 gl_error=0
+check normalized_before_after_same_factors PASS
+format=RGBA8 mode=3 before RGBA=0,0,0,0 gl_error=0
+format=RGBA8 mode=3 after RGBA=0,0,0,0 gl_error=0
+check normalized_before_after_same_factors PASS
+format=RGBA8 HDR_RGB_no_blend_after RGBA=1,1,1,1 gl_error=0
+format=RGBA8 sprite_arm=0 raw_alpha_window_1.5_to_3 RGBA=0.2,0.298039,0.4,1 gl_error=0
+check raw_alpha_pass_before_clamp PASS
+format=RGBA8 sprite_arm=0 raw_alpha_window_0_to_1 RGBA=0.8,0.6,0.101961,0.501961 gl_error=0
+check raw_alpha_discard_before_clamp PASS
+format=RGBA8 sprite_arm=1 raw_alpha_window_1.5_to_3 RGBA=0.2,0.298039,0.4,1 gl_error=0
+check raw_alpha_pass_before_clamp PASS
+format=RGBA8 sprite_arm=1 raw_alpha_window_0_to_1 RGBA=0.8,0.6,0.101961,0.501961 gl_error=0
+check raw_alpha_discard_before_clamp PASS
+check framebuffer_complete PASS
+format=RGBA16F mode=0 before RGBA=0.199951,0.299805,0.399902,2.00781 gl_error=0
+format=RGBA16F mode=0 after RGBA=0.199951,0.299805,0.399902,1 gl_error=0
+check HDR_alpha_bounded PASS
+format=RGBA16F mode=1 before RGBA=-0.404297,-0.00194931,0.702148,2.00781 gl_error=0
+format=RGBA16F mode=1 after RGBA=0.199951,0.299805,0.399902,1 gl_error=0
+check HDR_alpha_bounded PASS
+check old_source_over_negative_destination_contribution PASS
+check corrected_source_over_equals_source PASS
+format=RGBA16F mode=2 before RGBA=-1.20703,-1.20605,-0.903809,-2.00781 gl_error=0
+format=RGBA16F mode=2 after RGBA=-0.199951,-0.299805,-0.399902,-1 gl_error=0
+check HDR_alpha_bounded FAIL
+format=RGBA16F mode=3 before RGBA=-1.20703,-1.20605,-0.903809,0 gl_error=0
+format=RGBA16F mode=3 after RGBA=-0.199951,-0.299805,-0.399902,0 gl_error=0
+check HDR_alpha_bounded PASS
+check reverse_corrected_alpha_zero PASS
+format=RGBA16F HDR_RGB_no_blend_after RGBA=2.5,3,4,1 gl_error=0
+check RGB_headroom_preserved PASS
+format=RGBA16F sprite_arm=0 raw_alpha_window_1.5_to_3 RGBA=0.199951,0.299805,0.399902,2.00781 gl_error=0
+check raw_alpha_pass_before_clamp PASS
+format=RGBA16F sprite_arm=0 raw_alpha_window_0_to_1 RGBA=0.799805,0.599609,0.0999756,0.5 gl_error=0
+check raw_alpha_discard_before_clamp PASS
+format=RGBA16F sprite_arm=1 raw_alpha_window_1.5_to_3 RGBA=0.199951,0.299805,0.399902,1 gl_error=0
+check raw_alpha_pass_before_clamp PASS
+format=RGBA16F sprite_arm=1 raw_alpha_window_0_to_1 RGBA=0.799805,0.599609,0.0999756,0.5 gl_error=0
+check raw_alpha_discard_before_clamp PASS
+failures=1 EGL_error=12288

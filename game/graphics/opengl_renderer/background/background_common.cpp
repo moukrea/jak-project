@@ -215,7 +215,9 @@ DoubleDraw setup_opengl_from_draw_mode(DrawMode mode, u32 tex_unit, bool mipmap)
         glBlendColor(0.5, 0.5, 0.5, 0.5);
         break;
       case DrawMode::AlphaBlend::ZERO_SRC_SRC_DST:
-        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ZERO);
+        // Reverse subtraction previously stored clamp(-As, 0, 1) = 0 in RGBA8.
+        // Preserve that alpha result without narrowing the floating-point RGB.
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ZERO);
         glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
         break;
       case DrawMode::AlphaBlend::SRC_0_DST_DST:

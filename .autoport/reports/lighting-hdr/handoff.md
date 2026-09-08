@@ -1,22 +1,23 @@
-DIRECTIVES vb7966a3839
+DIRECTIVES va841fb32b6
 ## ÉTABLI
-- Proof officiel 2026-09-08T03:59:09Z, 360 s, Redmi eae4df44 : hdr_tonemap_defects=0, crash=0, frames=840, hits=71072.
-- Campagne essai21-readback : 25 lots conservés, 22 retenus, 200 paires, 168/168 cellules, 21 niveaux, 25 vues ; tous ciels/intérieurs/hutte couverts ; erreurs et quality_bad=0.
-- TFragment A42 corrigé : lecture float du HDR, états READ restaurés ; 225 traces/103 lectures float, zéro erreur A42 ou refus before-probe dans les lots retenus.
-- Build incrémental + repack livré ; lib SHA256 ec1726c1202f3983a2ed0d6ff06da360efdee6a70f6b5088f34a088264804721 ; MD5 build/APK/Redmi e9611463df5d877d04d428061a9e92d3.
-- Anciennes paires incompatibles avec ce nouveau binaire : sources et anciens exécutables conservés pour diagnostic ; campagne entièrement recapturée via proof_run.
-- Swamp 032102-3631467 : start caméra60:0:50:25, ciel185‰ aux8h ; Sunkenb031529-3628144 : helix puis start −8:90:0:2700, ciel303–304‰ aux8h et intérieur helix.
-- Dernier lot035912-3673185 : tonemap_sites=1, hdr_probe_max_x1000=10898 ; groupes chaîne3/5/6=0.
-- Fidélité0/exposition1/genou0,95 conservés ; luma équilibrée+4,6032/255,94 cellules plus claires/74 plus sombres. Diagnostics : notes/essai21/quality-review.md.
+- Alpha2,0078125 observé auparavant ; test Mesa shader réel source-over : RGB négatifs avant, alpha1 et contribution corrigée après (notes/essai22/alpha_gpu.log, failures=0).
+- Correctif livré :19frag clamp alpha final après discard ; DirectRenderer/DirectRenderer2/background_common reverse alpha ZERO,ZERO. Courbe/exposition intactes.
+- Build/APK SHA256 lib5e525e7ca2ca6f248b354ad9b3a50632566411ba1ff8356c7c4520a642aaee32 ; MD5 installé b5fcc76756a9d12bd1cc40875bd3b0a4.
+- Proof officiel lot essai22-alpha/20260908T052020-3705704 :157s, crash0, frames1200, hits672253, tonemap_sites1, quatre paires qualifiées, erreurs0.
+- Huit sondes A42 float alpha0..1 ; aucun LOADSCREEN-SHOW pendant ce run. Traces/hashes notes/essai22/after-analysis.json.
+- hdr_tonemap_defects=4 : groupes1/2/4=1 pour couverture incomplète ; groupe7=1 car cinq cas owner manquants ; groupes3/5/6=0.
+- Garde fail-closed ajoutée helper+proof_run normal/batches : cas requis tirés du contrat, aucune ROI/séquence admissible dans schéma actuel ; aucune assertion moteur admise en remplacement.
+- Tests test_hdr_batches.py :120 passés ; tests Mesa RGBA8 avant/après et tests alpha brut inchangés. Aucun test synthétique ne vaut preuve jeu.
 ## TENTÉ
-- Swamp : vue native inclinée remplace les arrivées dock/cave1 crashées, sans les déclarer corrigées.
-- Sunkenb première vue +160m :16paires mais ciel0‰ ; première tentative surface SIG11 frame109 avant warp, collecte20s ; reprise qualifiée remplace explicitement ces deux lots.
-- Ogre première limite160s :540frames sans paire ; ancien lot réussi359s ; limite450s reprend seulement Ogre et produit16captures en348s.
-- Tous échecs/mappings conservés dans manifestes et notes/essai21/campaign-runs.jsonl ; aucune preuve/manifeste écrite à la main.
+- AVANT village1-out seul h12/18 : quatre captures, deux paires refusées noires/achromatiques, crash0, frames6420 ; lot conservé essai22-before/20260908T051058-3695478.
+- LOADSCREEN-SHOW arm6 traverse captures h18 ; want.levels=village1,beach est appliqué APRÈS captures, donc pas cause démontrée du premier noir.
+- APRÈS reprend ancien ordre legacy,village1-out h12/18, warp village1-hut, loadsettle240/orderhour1/settle12/warpat300, want.display=village1,display ; want.levels=village1 est inopérant need-two-levels.
+- Arrivée directe extérieure non corrigée ; ancien parcours réussit. Commande complète relisible dans historique outil et réglages manifestes, log notes/essai22/after-alpha.log.
+- Correction alpha isolée : aucune attribution aux cinq régions ni calibration de la courbe ; aucune nouvelle campagne21niveaux qui ferait croire ces cas résolus.
 ## RESTE
-- Orchestrateur : lancer generic ; aucun validateur ni owner-ok produit par ce worker.
-- Owner : Options > Recharged, ciels Swamp/Sunkenb, Beach/Training/hutte à midi, Ogre/Rolling. Le zéro machine ne vaut pas satisfaction artistique.
-- Résidus : Beach h12 écrêtage ON15545 pixels/distance teinte0,360 ; Ogre h18 luma+37,630 ; aplats Ogre h12+0,11387. Aucune correction locale déterminée par ces seules mesures.
-- non prouvé : résolution SIG11/GRV des arrivées abandonnées, tous acquis, ordre/identité GPU complet, Filmique1, coût GPU, sortie HDR native, calibration locale.
-- Aucun besoin de rejouer les200paires si rendu/config/binaire inchangés ; toute modification exige compatibilité démontrée ou reprise des seules données invalidées.
-- Redmi relancé normalement, debug vide, aucun verrou ; publieur existant laissé actif. État exact : notes/essai21/device-restored.json.
+- Priorité cinq cas owner : identifier régions nuages/soleil/sol hutte/warp et séquence courte éco OFF/ON ; schema actuel ne porte aucune observation sémantique, measured0/missing5 honnêtes.
+- Courbe maxRGB conserve ratios : (2,1,2)→environ(.998,.499,.998), ancienne cible blanche. Hypothèse distincte à isoler ; blancs OFF6719→ON0 dans essai21, mesure globale insuffisante.
+- Generic2 alpha Ad-As² et autres mélanges accumulatifs peuvent encore produire hors[0,1] : ne pas appliquer ZERO,ZERO sans préserver la sémantique OFF.
+- Implémenter mesures régionales avant/après compatibles, puis équilibre21niveaux/8h par lots ; anciens lots essai21 désormais diagnostic seulement (binaire changé).
+- non prouvé : cinq corrections artistiques, tous acquis, tout alpha destination borné, HDR écran natif. Aucun owner-ok ni generic exécuté.
+- Redmi relancé normalement, propriétés debug vides/verrou absent ; notes/essai22/device-restored.json. Binaires AVANT conservés dans notes/essai22/before-build.

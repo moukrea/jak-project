@@ -264,7 +264,9 @@ void DirectRenderer2::setup_opengl_for_draw_mode(const Draw& draw,
       // (0 - Cs) * As + Cd
       // Cd - Cs * As
       // s, d
-      glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ZERO);
+      // Reverse subtraction previously stored clamp(-As, 0, 1) = 0 in RGBA8.
+      // Preserve that alpha result without narrowing the floating-point RGB.
+      glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ZERO);
       glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
     } else if (draw.mode.get_alpha_blend() == DrawMode::AlphaBlend::SRC_DST_FIX_DST) {
       // (Cs - Cd) * fix + Cd

@@ -1,34 +1,28 @@
-DIRECTIVES vb7966a3839
-Critère machine atteint : hdr_tonemap_defects=0 sur Redmi ; validation de l’orchestrateur et appréciation owner non revendiquées.
-Correction livrée : A42 lit le framebuffer HDR avec GL_FLOAT, conserve ses valeurs et restaure les états de lecture ; aucun effacement des erreurs après lecture.
-Compilation incrémentale TFragment + lien, repack réussi en 19 s ; diff --check réussi. Harnais cumulatif et validateur inchangés dans cet essai.
-Bibliothèque SHA256 ec1726c1202f3983a2ed0d6ff06da360efdee6a70f6b5088f34a088264804721 ; MD5 build/APK/Redmi e9611463df5d877d04d428061a9e92d3.
-Provenance binaire neuve : campagne essai21-readback recapturée ; anciennes données conservées pour diagnostic, jamais déclarées compatibles sans preuve.
-Huit lignes exactes du proof.txt officiel, début 2026-09-08T03:59:09Z, durée 360 s :
+DIRECTIVES va841fb32b6
+Correction alpha partielle livrée sur Redmi ; critère non atteint (hdr_tonemap_defects=4), cinq régressions owner non validées.
+Dix-neuf shaders bornent leur alpha après les tests ; trois mélanges soustractifs restaurent l’alpha zéro du chemin normalisé. RGB HDR et courbe inchangés.
+La garde du producteur officiel compte désormais les cinq cas régionaux absents, en mode ordinaire et par lots ; aucun validateur modifié.
+Build incrémental gk + repack réussi ; MD5 build/APK/Redmi b5fcc76756a9d12bd1cc40875bd3b0a4 (notes/essai22/build-deploy.log).
+Test GPU Mesa des shaders réels : alpha2,00781→1, RGB2,5/3/4 conservé, RGBA8 identique dans les cas testés, failures=0 (notes/essai22/alpha_gpu.log).
+Tests harnais : 120 passed ; bash -n et diff --check des sources réussis. Ces tests hors appareil ne prouvent pas les cinq cas jeu.
+Huit lignes exactes de proof.txt, run officiel 157 s :
 ```text
 serial=eae4df44
 crash=0
-frames=840
-FEATURE lighting-hdr armed=1 hits=71072
-hdr_batch_pairs=200
-hdr_batch_missing=0
-hdr_batch_errors=0
-hdr_tonemap_defects=0
+frames=1200
+FEATURE lighting-hdr armed=1 hits=672253
+tonemap_sites=1
+hdr_batch_pairs=4
+hdr_owner_regressions_missing=5
+hdr_tonemap_defects=4
 ```
-Couverture : 200 paires, 25 vues, 168/168 cellules, 21/21 niveaux ; tous ciels requis, intérieurs et hutte couverts (measurements.json).
-25 lots conservés, dont 22 contribuent aux paires ; remplacements explicites, zéro erreur et quality_bad=0 ; aucun flag historique additionné.
-Swamp : caméra native start 60:0:50:25, ciel 185‰ aux huit heures ; lot 20260908T032102-3631467.
-Sunkenb : amorçage helix puis start −8:90:0:2700, ciel 303–304‰ aux huit heures et intérieur helix ; lot 20260908T031529-3628144.
-Ogre : reprise ciblée après délai 160 s insuffisant ; 16 captures en 348 s, sans crash, lot 20260908T035912-3673185.
-Chaîne finale : tonemap_sites=1, hdr_probe_max_x1000=10898 ; groupes hdr_defect_3/5/6=0 dans proof.txt.
-225 traces A42 dont 103 lectures float, zéro erreur préexistante et zéro refus before-probe dans les 22 lots retenus (notes/essai21/readback-campaign-check.json).
-Courbe Fidélité 0, exposition 1, genou 0,95 conservés ; luma équilibrée +4,6032/255, 94 cellules plus claires et 74 plus sombres.
-Proportions équilibrées OFF→ON : blancs 0,03735 %→0 % ; quasi-blancs 0,06830 %→0,01459 % ; écrêtage coloré 2,27096 %→0,76752 %.
-Résidus : Beach h12 conserve 15 545 pixels écrêtés et distance de teinte 0,360 ; Ogre h18 luma +37,630/255, Ogre h12 aplats +0,11387.
-Ces mesures ne déterminent pas une correction uniforme ; aucune calibration locale supplémentaire appliquée. Détails pondérés et sources : notes/essai21/quality-review.md.
-À regarder : Options > Recharged, ciels Swamp/Sunkenb, Beach/Training et hutte à midi, Ogre/Rolling ; luminosité, couleur et détails ombres/hautes lumières.
-Un SIG11 Sunkenb avant warp reste archivé puis remplacé ; les arrivées Swamp dock/cave1 ne sont pas corrigées, leur couverture utilise la vue autorisée.
-non prouvé : résolution de ces crashs, satisfaction artistique du défaut owner, calibration locale et ensemble des acquis.
-non prouvé : ordre/identité GPU complet, Filmique 1, coût GPU et sortie écran HDR native.
-Redmi relancé normalement ; propriétés debug.opengoal vides, aucun verrou (notes/essai21/device-restored.json).
-Validateur réservé à l’orchestrateur ; aucun owner-ok/backlog modifié. Commandes, échecs et mappings : notes/essai21/campaign-runs.jsonl.
+Lot APRÈS : batches/essai22-alpha/20260908T052020-3705704 ; zéro erreur de lot, quatre paires, deux cellules niveau/heure.
+A42 : huit lectures float alpha∈[0,1], sans attribution matière ; aucun LOADSCREEN-SHOW dans le run (notes/essai22/after-analysis.json).
+Lot AVANT conservé : essai22-before/20260908T051058-3695478, captures noires/achromatiques pendant chargement ; deux paires refusées.
+L’ancien parcours legacy puis extérieur produit les captures APRÈS ; l’arrivée directe en extérieur reste non corrigée.
+Comparaison diagnostique avec les quatre paires essai21 correspondantes conservée dans notes/essai22/after-analysis.json, sans identité de frame exigée.
+À regarder dans Options > Recharged : blancs des nuages, éclairs éco bleue, éclat du soleil couchant, sol devant la hutte, couleur/blancs du warp gate.
+non prouvé : correction de ces cinq régions, blancs attendus préservés, attribution du violet, séquence éco ; aucun zéro qualité revendiqué.
+non prouvé : équilibre21niveaux/8h du nouveau binaire, tous acquis, alpha après tous les modes accumulatifs, sortie HDR native.
+Les anciens lots restent diagnostiques, incompatibles avec la nouvelle bibliothèque ; la campagne complète n’a pas été relancée avant résolution des cinq cas prioritaires.
+Redmi relancé sans propriétés debug persistantes ni verrou ; generic reste à l’orchestrateur, aucun owner-ok écrit.

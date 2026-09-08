@@ -18,4 +18,7 @@ void main() {
 
   // sample framebuffer texture
   out_color = color * texture(framebuffer_tex, texture_coords);
+  // Alpha is a blend weight, even when RGB has floating-point HDR headroom.
+  // Keep the original alpha tests above, then match the normalized target range.
+  out_color.a = clamp(out_color.a, 0.0, 1.0);
 }

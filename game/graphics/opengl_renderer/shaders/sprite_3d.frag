@@ -43,4 +43,7 @@ void main() {
     discard;
   }
   color = tex_color;
+  // Alpha is a blend weight, even when RGB has floating-point HDR headroom.
+  // Keep the original alpha tests above, then match the normalized target range.
+  color.a = clamp(color.a, 0.0, 1.0);
 }

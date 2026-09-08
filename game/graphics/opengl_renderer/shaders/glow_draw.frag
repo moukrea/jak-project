@@ -14,4 +14,7 @@ void main() {
   vec4 texture_color = texture(tex_T0, uv_texture);
   color.xyz = texture_color.xyz * fragment_color.xyz * 2.f * discard_flag / 128.f * glow_boost;
   color.w = fragment_color.w * texture_color.w;
+  // Alpha is a blend weight, even when RGB has floating-point HDR headroom.
+  // Keep the original alpha tests above, then match the normalized target range.
+  color.a = clamp(color.a, 0.0, 1.0);
 }

@@ -504,8 +504,26 @@ def chain_measurements(values, required):
     return defects, findings
 
 
+def owner_regressions(expected):
+    owner_required = list(expected['plan'].get('owner_regression_cases', []))
+    # Regional manifests contain neither semantic ROIs nor comparable sequences.
+    # Whole-image statistics and engine verdicts cannot measure these cases.
+    owner_measured = []
+    owner_missing = [case for case in owner_required if case not in owner_measured]
+    owner_metrics = {'hdr_owner_regressions_required': len(owner_required),
+                     'hdr_owner_regressions_measured': len(owner_measured),
+                     'hdr_owner_regressions_missing': len(owner_missing),
+                     'hdr_defect_7_owner_regressions': int(bool(owner_missing))}
+    owner_diagnostics = {'required': owner_required, 'measured': owner_measured,
+                         'missing': owner_missing,
+                         'findings': [{'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'}
+                                      for case in owner_missing]}
+    return owner_metrics, owner_diagnostics
+
+
 def aggregate(campaign, current, expected, measurer=measure):
     errors, batches = [], {}
+    owner_metrics, owner_diagnostics = owner_regressions(expected)
     for directory in sorted(p for p in Path(campaign).iterdir() if p.is_dir()):
         path = directory / 'manifest.json'
         try:
@@ -516,7 +534,10 @@ def aggregate(campaign, current, expected, measurer=measure):
         except Exception as exc:
             errors.append(path.parent.name + ': ' + str(exc))
     if current not in batches:
-        return {'hdr_tonemap_defects': 1, 'hdr_batch_errors': max(1, len(errors)),
+        dump(Path(campaign) / 'measurements.json', {
+            'errors': errors or ['current_batch_missing'], 'owner_regressions': owner_diagnostics})
+        return {**owner_metrics, 'hdr_tonemap_defects': 1 + owner_metrics['hdr_defect_7_owner_regressions'],
+                'hdr_batch_errors': max(1, len(errors)),
                 'hdr_batch_error_detail': '|'.join(errors).replace(' ', '_') or 'current_batch_missing'}
     active = batches[current]
     for name, m in batches.items():
@@ -634,6 +655,7 @@ def aggregate(campaign, current, expected, measurer=measure):
     means = {k: sum(sum(v[k] for v in rows) / len(rows) for rows in cells.values()) / len(cells)
              for k in ('luma', 'saturation', 'detail', 'flat')} if cells else {}
     dump(Path(campaign) / 'measurements.json', {'errors': errors, 'missing': missing, 'sky_missing': sky_missing,
+         'owner_regressions': owner_diagnostics,
          'interior_missing': interior_missing, 'hut_missing': hut_missing, 'quality_bad': quality_bad,
          'balanced_deltas': means, 'pairs': diagnostics, 'chain_evidence': chain_evidence, 'superseded_mappings': superseded_mappings,
          'unqualified': [{'batch': name, 'view': view, 'hour': hour, **record}
@@ -645,8 +667,9 @@ def aggregate(campaign, current, expected, measurer=measure):
               'hdr_defect_2_hl_contrast': int(incomplete),
               'hdr_defect_4_origine_lumiere_set': int(incomplete)}
     result.update(chain_defects)
+    result.update(owner_metrics)
     result['hdr_tonemap_defects'] = sum(result[k] for k in (*CHAIN, 'hdr_defect_1_saturation',
-                  'hdr_defect_2_hl_contrast', 'hdr_defect_4_origine_lumiere_set'))
+                  'hdr_defect_2_hl_contrast', 'hdr_defect_4_origine_lumiere_set', 'hdr_defect_7_owner_regressions'))
     return result
 
 

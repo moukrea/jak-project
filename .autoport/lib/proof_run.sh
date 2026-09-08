@@ -464,11 +464,29 @@ rm -f "$NORM"
 if [ -n "$HDR_BATCH" ]; then
   HDR_MEASURES=$(python3 "$AP/lib/hdr_batches.py" aggregate --batch "$HDR_BATCH") || {
     log "HDR aggregate failed: no proof emitted"; exit 3; }
-  # Only these three process-local coverage/image verdicts are replaced. The
-  # aggregate returns retained chain controls as well, and never writes proof.txt.
-  KVLINES=$(printf '%s\n' "$KVLINES" | sed -E '/^(hdr_tonemap_defects|hdr_defect_1_saturation|hdr_defect_2_hl_contrast|hdr_defect_3_curve|hdr_defect_4_origine_lumiere_set|hdr_defect_5_sites_three_configs|hdr_defect_6_intermediate_narrowing)=/d')
+  # The aggregate owns these verdicts and every key it emits, including owner cases.
+  KVLINES=$(awk -F= 'NR==FNR {replaced[$1]=1; next}
+    !($1 in replaced) && $1 !~ /^(hdr_tonemap_defects|hdr_defect_1_saturation|hdr_defect_2_hl_contrast|hdr_defect_3_curve|hdr_defect_4_origine_lumiere_set|hdr_defect_5_sites_three_configs|hdr_defect_6_intermediate_narrowing)$/ {print}' \
+    <(printf '%s\n' "$HDR_MEASURES") <(printf '%s\n' "$KVLINES"))
   KVLINES+=$'\n'"$HDR_MEASURES"
   EXTRA+=$'\n'"hdr_campaign=$HDR_CAMPAIGN"$'\n'"hdr_batch_manifest=$HDR_BATCH/manifest.json"
+elif [ "$ID" = lighting-hdr ] && [ "$ARMED" = 1 ]; then
+  KVLINES=$(python3 - "$AP/lib" "$D" "$KVLINES" <<'HDR_OWNER'
+import re, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import hdr_batches as hdr
+values = hdr.kv(sys.argv[3])
+metrics, diagnostics = hdr.owner_regressions(hdr.contract(Path('.')))
+total = values.pop('hdr_tonemap_defects', None)
+if total is not None and re.fullmatch(r'[0-9]+', total):
+    values['hdr_tonemap_defects'] = int(total) + metrics['hdr_defect_7_owner_regressions']
+values.update(metrics)
+hdr.dump(Path(sys.argv[2]) / 'measurements.json', {'owner_regressions': diagnostics})
+for key, value in values.items():
+    print(f'{key}={value}')
+HDR_OWNER
+  ) || { log "HDR owner measurements failed: no proof emitted"; exit 3; }
 fi
 
 TMP="$D/.proof$SUF.tmp.$$"
