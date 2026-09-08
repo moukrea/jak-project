@@ -358,16 +358,27 @@ def read_batch(path, expected, measurer):
                 raise ValueError('missing effective non-lighting settings')
             all_options.append(options)
             key = f'hdr_{view.replace("-", "_")}_h{hour}_p{phase}_'
-            if sidecar.get('flavour') != 'normal' or not sidecar.get('capture_lf', '').isdigit() or sidecar['capture_lf'] != values.get(key + 'cap_lf'):
+            if sidecar.get('flavour') != 'normal' or not re.fullmatch(r'[0-9]+', sidecar.get('capture_lf', '')):
                 raise ValueError('capture frame/flavour provenance mismatch')
-            if level not in values.get(key + 'levels', '').split(','):
+            published_frame = values.get(key + 'cap_lf')
+            if published_frame is None:
+                reasons.append('final capture frame measurement absent: ' + case)
+            elif not re.fullmatch(r'[0-9]+', published_frame) or sidecar['capture_lf'] != published_frame:
+                raise ValueError('capture frame/flavour provenance mismatch')
+            published_levels = values.get(key + 'levels')
+            if published_levels is None:
+                reasons.append('final level measurement absent: ' + case)
+            elif level not in published_levels.split(','):
                 reasons.append('expected region not drawn: ' + case)
             cache = cached_pixels.get('images', {}).get(rel)
             if measurer is measure and cached_pixels.get('helper_sha256') == sha(__file__) and cache and cache.get('sha256') == files[rel]:
                 stats = cache['stats']
             else:
                 stats = measurer(base / rel)
-            if stats['pixels'] != int(values[key + 'pixels']):
+            published_pixels = values.get(key + 'pixels')
+            if published_pixels is None:
+                reasons.append('final pixel count measurement absent: ' + case)
+            elif not re.fullmatch(r'[0-9]+', published_pixels) or stats['pixels'] != int(published_pixels):
                 raise ValueError('capture dimensions disagree with engine')
             if stats['black'] >= .99 * stats['pixels'] or stats['luma_p99'] <= 2 or sum(stats['hue_bins']) == 0:
                 reasons.append('black or achromatic capture: ' + case)
@@ -401,6 +412,68 @@ def read_batch(path, expected, measurer):
     return m
 
 
+def chain_measurements(values, required):
+    """Reproduce hdr.cpp's chain verdicts from their measured operands.
+
+    Missing evidence blocks selected runs. A replaced incomplete run contributes
+    positive observations only, never a historical flag caused by an unvisited arm.
+    """
+    defects = dict.fromkeys(CHAIN, 0)
+    findings = []
+    curve, sites, narrowing = CHAIN
+    def fail(group, detail):
+        defects[group] = 1
+        findings.append(detail)
+    def number(key, group):
+        value = values.get(key)
+        if value is None:
+            if required:
+                fail(group, key + '=absent')
+            return None
+        if not re.fullmatch(r'[0-9]+', value):
+            fail(group, key + '=malformed')
+            return None
+        return int(value)
+    samples = number('hdr_curve_samples', curve)
+    if required and samples == 0:
+        fail(curve, 'hdr_curve_samples=0')
+    for key in ('hdr_curve_monotone_bad', 'hdr_curve_unbounded_bad'):
+        count = number(key, curve)
+        if count is not None and count > 0:
+            fail(curve, key + '=' + str(count))
+    kink = number('hdr_curve_kink_max_x1000', curve)
+    if kink is not None and kink > 50:
+        fail(curve, 'hdr_curve_kink_max_x1000=' + str(kink))
+    elif kink == 50:
+        # Published rounding maps both sides of the exact <=0.05 boundary to
+        # 50. Only the engine's exact-float comparison can resolve this bin.
+        flag = values.get(curve)
+        if flag == '1' or (required and flag != '0'):
+            fail(curve, 'hdr_curve_kink_max_x1000=50,exact_curve_flag=' + str(flag))
+    for arm in ('recharged', 'origine_lumiere'):
+        frames = number('hdr_cfg_frames_' + arm, sites)
+        bad = number('hdr_cfg_bad_' + arm, sites)
+        if required and frames == 0:
+            fail(sites, 'hdr_cfg_frames_' + arm + '=0')
+        if bad is not None and bad > 0:
+            fail(sites, 'hdr_cfg_bad_' + arm + '=' + str(bad))
+    implicit = number('tonemap_sites_implicit', narrowing)
+    if implicit is not None and implicit > 0:
+        fail(narrowing, 'tonemap_sites_implicit=' + str(implicit))
+    aux_count = number('hdr_aux_clamped_reads', narrowing)
+    aux_text = values.get('hdr_aux_clamped_sites')
+    if aux_text is None:
+        if required:
+            fail(narrowing, 'hdr_aux_clamped_sites=absent')
+    else:
+        names = [] if aux_text == 'aucun' else aux_text.split(',')
+        if aux_count is not None and (len(names) != aux_count or len(set(names)) != len(names)):
+            fail(narrowing, 'hdr_aux_clamped_reads/sites=inconsistent')
+        if 'Sprite3_Distort:scene-copy' in names:
+            fail(narrowing, 'hdr_aux_clamped_sites=Sprite3_Distort:scene-copy')
+    return defects, findings
+
+
 def aggregate(campaign, current, expected, measurer=measure):
     errors, batches = [], {}
     for directory in sorted(p for p in Path(campaign).iterdir() if p.is_dir()):
@@ -420,17 +493,28 @@ def aggregate(campaign, current, expected, measurer=measure):
         if m['identity'][0] != active['identity'][0] or (m['identity'][1] is not None and m['identity'][1] != active['identity'][1]):
             errors.append(name + ': incompatible binary/APK/data/config')
     replaced = set()
-    for name, m in batches.items():
+    superseded_mappings = []
+    # Newest valid replacements are resolved first. Superseding B's target
+    # retires its A->B attempt, but deliberately does not mark A replaced.
+    for name in sorted(batches, reverse=True):
+        m = batches[name]
         for mapping in m['replacements']:
             try:
                 old, target = mapping.split('=')
                 old_batch, view, hour = old.split(':')
                 key = (view, int(hour))
                 new_key = (target, int(hour))
-                if old_batch >= name or old_batch not in batches or key not in map(tuple, batches[old_batch]['requested']) or new_key not in m['pairs']:
+                if old_batch >= name or old_batch not in batches or key not in map(tuple, batches[old_batch]['requested']) or new_key not in map(tuple, m['requested']):
                     raise ValueError('replacement source/target absent')
-                if expected['views'][view] != expected['views'][target] or (old_batch, key) in replaced:
-                    raise ValueError('replacement changes region or duplicates source')
+                if expected['views'][view] != expected['views'][target]:
+                    raise ValueError('replacement changes region')
+                if (name, new_key) in replaced:
+                    superseded_mappings.append({'batch': name, 'mapping': mapping})
+                    continue
+                if new_key not in m['pairs']:
+                    raise ValueError('replacement target unqualified')
+                if (old_batch, key) in replaced:
+                    raise ValueError('replacement duplicates source')
                 previous = batches[old_batch]
                 old_pair = previous['pairs'].get(key)
                 new_pair = m['pairs'][new_key]
@@ -454,23 +538,20 @@ def aggregate(campaign, current, expected, measurer=measure):
                 errors.append('invalid replacement ' + mapping + ': ' + str(exc))
     pairs, seen = [], set()
     hdr_above_one = False
+    chain_defects = dict.fromkeys(CHAIN, 0)
+    chain_evidence = []
     for name, m in batches.items():
         remaining = set(map(tuple, m['requested'])) - {key for b, key in replaced if b == name}
         if m['crash'] not in (0, 1) or (m['crash'] and remaining):
             errors.append(name + ': unreplaced crash')
-        for key in CHAIN:
-            if m['values'].get(key) not in ('0', None):
-                errors.append(name + ': retained measured chain defect ' + key)
+        observed, findings = chain_measurements(m['values'], required=bool(remaining))
+        for key, defect in observed.items():
+            chain_defects[key] |= defect
+        chain_evidence.append({'batch': name, 'selected': bool(remaining), 'defects': observed,
+                               'findings': findings})
+        errors.extend(name + ': chain ' + detail for detail in findings)
         if remaining:
             hdr_above_one |= int(m['values'].get('hdr_overbright_px', '0')) > 0 and int(m['values'].get('hdr_probe_max_x1000', '0')) > 1000 and int(m['values'].get('hdr_probe_px', '0')) > 0
-            # Retain chain findings on every selected run; these are directly
-            # measured chain controls, never historical coverage/quality verdicts.
-            for key in CHAIN:
-                if m['values'].get(key) != '0':
-                    errors.append(name + ': ' + key)
-            for denominator in ('hdr_curve_samples', 'hdr_cfg_frames_recharged', 'hdr_cfg_frames_origine_lumiere'):
-                if int(m['values'].get(denominator, '0')) <= 0:
-                    errors.append(name + ': absent chain denominator ' + denominator)
         for key in remaining:
             if key in seen:
                 errors.append('duplicate view/hour: ' + str(key))
@@ -523,7 +604,7 @@ def aggregate(campaign, current, expected, measurer=measure):
              for k in ('luma', 'saturation', 'detail', 'flat')} if cells else {}
     dump(Path(campaign) / 'measurements.json', {'errors': errors, 'missing': missing, 'sky_missing': sky_missing,
          'interior_missing': interior_missing, 'hut_missing': hut_missing, 'quality_bad': quality_bad,
-         'balanced_deltas': means, 'pairs': diagnostics,
+         'balanced_deltas': means, 'pairs': diagnostics, 'chain_evidence': chain_evidence, 'superseded_mappings': superseded_mappings,
          'unqualified': [{'batch': name, 'view': view, 'hour': hour, **record}
                          for name, m in batches.items() for (view, hour), record in m.get('unqualified', {}).items()]})
     result = {'hdr_batch_errors': len(errors), 'hdr_batch_pairs': len(pairs), 'hdr_batch_cells': len(coverage),
@@ -532,8 +613,7 @@ def aggregate(campaign, current, expected, measurer=measure):
               'hdr_defect_1_saturation': int(bool(quality_bad) or incomplete),
               'hdr_defect_2_hl_contrast': int(incomplete),
               'hdr_defect_4_origine_lumiere_set': int(incomplete)}
-    for key in CHAIN:
-        result[key] = int(active['values'].get(key) != '0')
+    result.update(chain_defects)
     result['hdr_tonemap_defects'] = sum(result[k] for k in (*CHAIN, 'hdr_defect_1_saturation',
                   'hdr_defect_2_hl_contrast', 'hdr_defect_4_origine_lumiere_set'))
     return result

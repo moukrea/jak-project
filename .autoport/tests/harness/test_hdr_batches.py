@@ -45,6 +45,9 @@ def batch(root, plan, requests, name='001', crash=0, replaces=(), bad=None):
                   hdr_overbright_px='1', hdr_probe_max_x1000='2000', hdr_probe_px='100',
                   hdr_curve_samples='8000', hdr_cfg_frames_recharged='10', hdr_cfg_frames_origine_lumiere='10')
     values.update({key: '0' for key in hdr.CHAIN})
+    values.update(hdr_curve_monotone_bad='0', hdr_curve_unbounded_bad='0', hdr_curve_kink_max_x1000='0',
+                  hdr_cfg_bad_recharged='0', hdr_cfg_bad_origine_lumiere='0',
+                  tonemap_sites_implicit='0', hdr_aux_clamped_reads='0', hdr_aux_clamped_sites='aucun')
     lines = ['REFSET provenance-init version=2 data=abcdef1234567890 input=1111111111111111 input_source=loaded-replay']
     (path / 'captures').mkdir()
     (path / 'captures/refset-format.txt').write_text('version=2\n')
@@ -166,7 +169,7 @@ def test_negative_inputs(tmp_path, plan, change):
     elif change == 'crash':
         edit_manifest(path, crash=1)
     elif change in ('missing_chain', 'missing_denominator', 'hdr_missing'):
-        key = {'missing_chain': hdr.CHAIN[0], 'missing_denominator': 'hdr_curve_samples',
+        key = {'missing_chain': 'hdr_curve_monotone_bad', 'missing_denominator': 'hdr_curve_samples',
                'hdr_missing': 'hdr_overbright_px'}[change]
         log.write_text('\n'.join(x for x in log.read_text().splitlines() if not x.startswith(key + '=')))
         rehash(path)
@@ -281,7 +284,7 @@ def test_replacement_cannot_erase_observed_defect(tmp_path, plan, kind):
     path = batch(tmp_path, plan, [('swamp-start', 0)], bad={'white': 1000} if kind == 'quality' else None)
     if kind == 'chain':
         log = path / 'engine.log'
-        log.write_text(log.read_text().replace(hdr.CHAIN[0] + '=0', hdr.CHAIN[0] + '=1'))
+        log.write_text(log.read_text().replace('hdr_curve_monotone_bad=0', 'hdr_curve_monotone_bad=1'))
         rehash(path)
     batch(tmp_path, plan, complete_requests(plan), '002', replaces=['001:swamp-start:0=swamp-dock1'])
     assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
@@ -413,3 +416,136 @@ def test_missing_sky_probe_does_not_erase_measured_burns(tmp_path, plan):
     rehash(path)
     batch(tmp_path, plan, complete_requests(plan), '002', replaces=['001:swamp-start:0=swamp-dock1'])
     assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
+
+
+@pytest.mark.parametrize('replace_a', [True, False])
+def test_failed_replacement_target_can_be_superseded(tmp_path, plan, replace_a):
+    a = batch(tmp_path, plan, [('swamp-start', 0)], name='001')
+    # A's requested capture never arrived; the raw request and manifest remain.
+    for image in (a / 'captures').rglob('*.png'):
+        image.with_suffix('.png.provenance.txt').unlink()
+        image.unlink()
+    rehash(a)
+    batch(tmp_path, plan, [('swamp-start', 0)], name='002',
+          bad={'black': 10000, 'luma_p99': 0}, replaces=['001:swamp-start:0=swamp-start'])
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
+    replacements = ['002:swamp-start:0=swamp-dock1']
+    if replace_a:
+        replacements.append('001:swamp-start:0=swamp-dock1')
+    batch(tmp_path, plan, complete_requests(plan), name='003', replaces=replacements)
+    r = result(tmp_path, plan, '003')
+    assert (r['hdr_tonemap_defects'] == 0) is replace_a
+    diagnostics = json.loads((tmp_path / 'measurements.json').read_text())
+    assert diagnostics['superseded_mappings'] == [{'batch': '002', 'mapping': '001:swamp-start:0=swamp-start'}]
+    if not replace_a:
+        assert any('001: unqualified/absent pair' in e for e in diagnostics['errors'])
+
+
+@pytest.mark.parametrize('defect', ['burns', 'chain', 'integrity'])
+def test_superseded_attempt_preserves_previous_defects(tmp_path, plan, defect):
+    a = batch(tmp_path, plan, [('swamp-start', 0)], name='001',
+              bad={'white': 1000} if defect == 'burns' else None)
+    if defect == 'chain':
+        log = a / 'engine.log'
+        log.write_text(log.read_text().replace('hdr_curve_monotone_bad=0', 'hdr_curve_monotone_bad=1'))
+        rehash(a)
+    elif defect == 'integrity':
+        (a / 'engine.log').write_text('changed after collection')
+    batch(tmp_path, plan, [('swamp-start', 0)], name='002', bad={'black': 10000, 'luma_p99': 0},
+          replaces=['001:swamp-start:0=swamp-start'])
+    batch(tmp_path, plan, complete_requests(plan), name='003',
+          replaces=['001:swamp-start:0=swamp-dock1', '002:swamp-start:0=swamp-dock1'])
+    assert result(tmp_path, plan, '003')['hdr_tonemap_defects'] > 0
+
+
+@pytest.mark.parametrize('missing', ['frame', 'all_final_fields'])
+def test_final_counter_absence_keeps_other_pairs_and_allows_repair(tmp_path, plan, missing):
+    path = batch(tmp_path, plan, [('swamp-start', 0), ('swamp-start', 3)])
+    log = path / 'engine.log'
+    endings = ('cap_lf=',) if missing == 'frame' else ('cap_lf=', 'pixels=', 'levels=')
+    log.write_text('\n'.join(x for x in log.read_text().splitlines()
+                             if not ('hdr_swamp_start_h3_p' in x and any(e in x for e in endings))))
+    rehash(path)
+    old = hdr.read_batch(path / 'manifest.json', plan, stats)
+    assert set(old['pairs']) == {('swamp-start', 0)}
+    assert set(old['unqualified']) == {('swamp-start', 3)}
+    assert old['unqualified'][('swamp-start', 3)]['on']['pixels'] == 10000
+    batch(tmp_path, plan, complete_requests(plan), name='002',
+          replaces=['001:swamp-start:3=swamp-dock1'])
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] == 0
+
+
+@pytest.mark.parametrize('field,value', [('cap_lf', '101'), ('cap_lf', 'bad'), ('cap_lf', '-1'),
+                                        ('pixels', '10001'), ('pixels', 'bad')])
+def test_present_final_counter_contradictions_remain_fatal(tmp_path, plan, field, value):
+    path = batch(tmp_path, plan, [('swamp-start', 0)])
+    log = path / 'engine.log'
+    key = 'hdr_swamp_start_h0_p2_' + field + '='
+    log.write_text('\n'.join(key + value if x.startswith(key) else x for x in log.read_text().splitlines()))
+    rehash(path)
+    with pytest.raises(ValueError):
+        hdr.read_batch(path / 'manifest.json', plan, stats)
+    batch(tmp_path, plan, complete_requests(plan), name='002',
+          replaces=['001:swamp-start:0=swamp-dock1'])
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
+
+
+def test_missing_final_counters_cannot_erase_measured_burns(tmp_path, plan):
+    path = batch(tmp_path, plan, [('swamp-start', 0)], bad={'white': 1000})
+    log = path / 'engine.log'
+    log.write_text('\n'.join(x for x in log.read_text().splitlines() if not
+                             ('hdr_swamp_start_h0_p' in x and any(e in x for e in ('cap_lf=', 'pixels=', 'levels=')))))
+    rehash(path)
+    batch(tmp_path, plan, complete_requests(plan), name='002',
+          replaces=['001:swamp-start:0=swamp-dock1'])
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
+
+
+def test_replaced_unvisited_arm_flag_is_not_a_permanent_chain_defect(tmp_path, plan):
+    path = batch(tmp_path, plan, [('swamp-start', 0)])
+    log = path / 'engine.log'
+    log.write_text(log.read_text().replace('hdr_cfg_frames_origine_lumiere=10', 'hdr_cfg_frames_origine_lumiere=0')
+                   .replace('hdr_defect_5_sites_three_configs=0', 'hdr_defect_5_sites_three_configs=1'))
+    rehash(path)
+    batch(tmp_path, plan, complete_requests(plan), '002', replaces=['001:swamp-start:0=swamp-dock1'])
+    assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] == 0
+
+
+@pytest.mark.parametrize('key,value,group', [
+    ('hdr_cfg_bad_recharged', '1', 1), ('hdr_curve_monotone_bad', '1', 0),
+    ('tonemap_sites_implicit', '1', 2), ('hdr_aux_clamped_sites', 'Sprite3_Distort:scene-copy', 2)])
+def test_raw_chain_defect_survives_replacement_and_clean_latest_run(tmp_path, plan, key, value, group):
+    path = batch(tmp_path, plan, [('swamp-start', 0)])
+    log = path / 'engine.log'
+    log.write_text('\n'.join(key + '=' + value if x.startswith(key + '=') else x
+                             for x in log.read_text().splitlines()))
+    if key == 'hdr_aux_clamped_sites':
+        log.write_text(log.read_text().replace('hdr_aux_clamped_reads=0', 'hdr_aux_clamped_reads=1'))
+    rehash(path)
+    batch(tmp_path, plan, complete_requests(plan), '002', replaces=['001:swamp-start:0=swamp-dock1'])
+    r = result(tmp_path, plan, '002')
+    assert r[hdr.CHAIN[group]] == 1
+    assert r['hdr_tonemap_defects'] > 0
+    diagnostics = json.loads((tmp_path / 'measurements.json').read_text())
+    assert any('001: chain ' + key in e for e in diagnostics['errors'])
+
+
+@pytest.mark.parametrize('key', ['hdr_curve_monotone_bad', 'hdr_cfg_bad_origine_lumiere',
+                                 'tonemap_sites_implicit', 'hdr_aux_clamped_reads', 'hdr_aux_clamped_sites'])
+def test_selected_batch_requires_raw_chain_operands(tmp_path, plan, key):
+    path = batch(tmp_path, plan, complete_requests(plan))
+    log = path / 'engine.log'
+    log.write_text('\n'.join(x for x in log.read_text().splitlines() if not x.startswith(key + '=')))
+    rehash(path)
+    assert result(tmp_path, plan)['hdr_tonemap_defects'] > 0
+
+
+@pytest.mark.parametrize('kink,flag,expected', [('49', '1', 0), ('50', '0', 0), ('50', '1', 1),
+                                             ('50', None, 1), ('51', '0', 1)])
+def test_curve_rounding_bin_requires_exact_float_corroboration(kink, flag, expected):
+    values = {'hdr_curve_kink_max_x1000': kink, 'hdr_curve_samples': '8000',
+              'hdr_curve_monotone_bad': '0', 'hdr_curve_unbounded_bad': '0'}
+    if flag is not None:
+        values[hdr.CHAIN[0]] = flag
+    defects, _ = hdr.chain_measurements(values, required=True)
+    assert defects[hdr.CHAIN[0]] == expected

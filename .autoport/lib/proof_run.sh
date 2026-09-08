@@ -381,8 +381,11 @@ else
   elapsed=8
   while [ "$elapsed" -lt "$TIMEOUT" ]; do
     sleep 5; elapsed=$((elapsed+5))
-    if [ -n "$HDR_BATCH" ] && grep -qaE 'REFSET done steps=([1-9][0-9]*) captured=\1 .*missing=0' "$RAWLOG"; then
-      log "HDR plan captured completely after ${elapsed}s"; break
+    if [ -n "$HDR_BATCH" ]; then
+      complete_captures=$(sed -nE 's/.*REFSET done steps=([1-9][0-9]*) captured=\1 .*missing=0.*/\1/p' "$RAWLOG" | tail -1)
+      if [ -n "$complete_captures" ] && grep -qaE "hdr_paired=$((complete_captures / 2))$" "$RAWLOG"; then
+        log "HDR captures and paired measurements published after ${elapsed}s"; break
+      fi
     fi
   done
 
