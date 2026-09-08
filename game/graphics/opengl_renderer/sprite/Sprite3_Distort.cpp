@@ -28,12 +28,15 @@ void Sprite3::opengl_setup_distort() {
 
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_distort_ogl.fbo_width, m_distort_ogl.fbo_height, 0,
                GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  m_distort_ogl.fbo_color_format = GL_RGB;
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   // Texture clamping here matches the GS init data for distort
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  // Preserve the original RGB texture's implicit alpha, including for HDR scene copies.
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_ONE);
 
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          m_distort_ogl.fbo_texture, 0);
@@ -603,10 +606,9 @@ void Sprite3::distort_draw_instanced(SharedRenderState* render_state, ScopedProf
 void Sprite3::distort_draw_common(SharedRenderState* render_state, ScopedProfilerNode& /*prof*/) {
   // The distort effect needs to read the current framebuffer, so copy what's been rendered so far
   // to a texture that we can then pass to the shader
-  // lighting-hdr : lecture de la scene par un EFFET (hors chemin d'affichage). La cible est
-  // 8 bits : quand la scene est flottante, l'effet travaille sur une image ECRETEE.
+  // lighting-hdr : lecture de la scene par un EFFET (hors chemin d'affichage).
   hdr::note_aux_scene_read("Sprite3_Distort:scene-copy", render_state->render_fb_color_format,
-                           GL_RGBA8);
+                           m_distort_ogl.fbo_color_format);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, render_state->render_fb);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_distort_ogl.fbo);
 
@@ -636,16 +638,30 @@ void Sprite3::distort_draw_common(SharedRenderState* render_state, ScopedProfile
 }
 
 void Sprite3::distort_setup_framebuffer_dims(SharedRenderState* render_state) {
-  // Distort framebuffer must be the same dimensions as the default window framebuffer
+  // Match the scene dimensions and preserve its floating-point range for HDR.
+  const bool is_float = hdr::format_is_float(render_state->render_fb_color_format);
+  const GLenum color_format = is_float ? render_state->render_fb_color_format : GL_RGB;
   if (m_distort_ogl.fbo_width != render_state->render_fb_w ||
-      m_distort_ogl.fbo_height != render_state->render_fb_h) {
+      m_distort_ogl.fbo_height != render_state->render_fb_h ||
+      m_distort_ogl.fbo_color_format != color_format) {
     m_distort_ogl.fbo_width = render_state->render_fb_w;
     m_distort_ogl.fbo_height = render_state->render_fb_h;
 
     glBindTexture(GL_TEXTURE_2D, m_distort_ogl.fbo_texture);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_distort_ogl.fbo_width, m_distort_ogl.fbo_height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    const GLenum external_format =
+        is_float && color_format != GL_R11F_G11F_B10F ? GL_RGBA : GL_RGB;
+    glTexImage2D(GL_TEXTURE_2D, 0, color_format, m_distort_ogl.fbo_width,
+                 m_distort_ogl.fbo_height, 0, external_format,
+                 is_float ? GL_FLOAT : GL_UNSIGNED_BYTE, NULL);
+
+    GLint previous_draw_fbo = 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_draw_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_distort_ogl.fbo);
+    const GLenum status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, previous_draw_fbo);
+    ASSERT(status == GL_FRAMEBUFFER_COMPLETE);
+    m_distort_ogl.fbo_color_format = color_format;
 
     glBindTexture(GL_TEXTURE_2D, 0);
   }

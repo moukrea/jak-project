@@ -730,8 +730,9 @@
         // lobe (the old sharp-Rf eval was the other half of the ground sheen).
         // PBR POLISH: same selector as before, now via the shared rt_amb_eval() the new indirect
         // relief term also uses — one definition of "the ambient irradiance in direction n", so
-        // the diffuse and the specular can never drift apart. Value here is unchanged.
-        vec3 famb_base = clamp(rt_amb_eval(Nm), 0.0, 1.0);
+        // the diffuse and the specular can never drift apart.
+        // Preserve irradiance above 1 until tone mapping.
+        vec3 famb_base = max(rt_amb_eval(Nm), vec3(0.0));
         vec3 Rf = reflect(-Vv, Nm);
         vec3 fenv_sharp;
         // (§2.4) la premiere branche lisait le cube de FollowProbe sous `u_rt_probe_on != 0`,

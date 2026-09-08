@@ -128,6 +128,7 @@ class Sprite3 : public BucketRenderer {
     GLuint index_buffer;
     GLuint fbo;
     GLuint fbo_texture;
+    GLenum fbo_color_format = GL_RGB;
     int fbo_width = 640;
     int fbo_height = 480;
   } m_distort_ogl;

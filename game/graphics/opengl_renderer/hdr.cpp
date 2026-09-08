@@ -701,12 +701,12 @@ void frame_end() {
                           (uint64_t)(Gfx::g_global_settings.recharged_hdr_knee * 1000.f + 0.5f));
 
   // ── LA GRANDEUR DE PORTE ─────────────────────────────────────────────────────────────────
-  // `hdr_tonemap_defects` est la SOMME de CINQ verdicts, chacun publie A COTE : une somme sans
+  // `hdr_tonemap_defects` est la SOMME de SIX verdicts, chacun publie A COTE : une somme sans
   // ses termes ne dit pas quoi corriger, et un zero sans son denominateur ne prouve rien.
   // Convention unique : 0 = tenu, 1 = defaut. « Pas mesurable » vaut 1 — une course qui n'irait
   // pas au bout doit etre ROUGE, jamais muette.
   // Les verdicts 1, 2 et 4 se lisent sur le jeu de references (trois configurations,
-  // ORIGINE-LUMIERE comprise) ; 3 et 5 se mesurent ici.
+  // ORIGINE-LUMIERE comprise) ; 3 et 5 se mesurent ici, 6 relit les transferts observes.
   // L'IDENTITE AU BIT MAITRE ETEINT N'EST PLUS DE CET ITEM. Elle a ete sortie le 2026-09-07 dans
   // `lighting-origin-bitexact` : calibrer une courbe et garantir une purete sont deux natures
   // differentes, et groupees elles se bloquaient l'une l'autre. La mesure ne disparait pas pour
@@ -717,12 +717,21 @@ void frame_end() {
   const int v3 = verdict_curve();
   const int v4 = refset::verdict_origine_lumiere_set();
   const int v5 = verdict_sites_three_configs();
+  // La distorsion recompose sa copie couleur dans la scene : son retrecissement est une
+  // perte prematuree, contrairement aux lectures auxiliaires de profondeur ou de masque.
+  // Reutiliser les transferts observes ; l'absence de site n'est pas un test d'identite GPU.
+  const auto distort = s_aux_sites.find("Sprite3_Distort:scene-copy");
+  const int v6 = implicit_sites > 0 ||
+                         (distort != s_aux_sites.end() && distort->second.narrowed)
+                     ? 1
+                     : 0;
   const int bitexact = refset::verdict_master_off_bitexact();
   autoport_proof::publish("hdr_defect_1_saturation", (uint64_t)v1);
   autoport_proof::publish("hdr_defect_2_hl_contrast", (uint64_t)v2);
   autoport_proof::publish("hdr_defect_3_curve", (uint64_t)v3);
   autoport_proof::publish("hdr_defect_4_origine_lumiere_set", (uint64_t)v4);
   autoport_proof::publish("hdr_defect_5_sites_three_configs", (uint64_t)v5);
+  autoport_proof::publish("hdr_defect_6_intermediate_narrowing", (uint64_t)v6);
   if (autoport_proof::feature_is(kItemId)) {
     autoport_proof::publish("hdr_defect_5_sites_two_configs", (uint64_t)v5);
   }
@@ -738,7 +747,7 @@ void frame_end() {
   // gatable et n'est PAS couverte par cette porte (voir `is_font_atlas` et `origin_ablate.h`).
   autoport_proof::publish("origin_mipmap_suppressed", direct_renderer_origin_mipmap_suppressed());
   autoport_proof::publish("origin_font_master_bypass", custom_tex::font_master_bypass_count());
-  autoport_proof::publish("hdr_tonemap_defects", (uint64_t)(v1 + v2 + v3 + v4 + v5));
+  autoport_proof::publish("hdr_tonemap_defects", (uint64_t)(v1 + v2 + v3 + v4 + v5 + v6));
   // Les denominateurs des verdicts 3 et 5, sans lesquels leur zero est une fausse constante.
   autoport_proof::publish("hdr_curve_samples", s_curve_samples);
   autoport_proof::publish("hdr_curve_kink_max_x1000", s_curve_kink_max_x1000);

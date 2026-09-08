@@ -36,8 +36,9 @@
 // PS2 est defini dans cet espace. Le retirer d'un seul chemin melangerait deux encodages dans
 // le meme tampon. Il est neanmoins recense et publie sous `hdr_oetf_progs` : rien n'est cache.
 // De meme, les lectures de la scene faites par les EFFETS (AO, glow, distorsion, capture de
-// fond de menu) ne sont pas sur le chemin d'affichage ; leur eventuel ecretage est publie sous
-// `hdr_aux_clamped_reads`, avec son denominateur.
+// fond de menu) sont publiees sous `hdr_aux_clamped_reads`, avec leur denominateur. La copie
+// couleur de distorsion, recomposee dans la scene, alimente aussi le verdict d'ecretage
+// intermediaire ; les lectures de profondeur ou les masques ne lui sont pas assimiles.
 
 #include <cstdint>
 #include <string>
