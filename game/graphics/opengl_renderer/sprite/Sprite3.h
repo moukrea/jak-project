@@ -13,6 +13,12 @@
 #include "game/graphics/opengl_renderer/sprite/GlowRenderer.h"
 #include "game/graphics/opengl_renderer/sprite/sprite_common.h"
 
+#include "third-party/json.hpp"
+
+// Bounded cloud-draw diagnostic using the existing native composition measurements.
+void hdr_owner_cloud_before();
+void hdr_owner_cloud_after(const nlohmann::json& event);
+
 class Sprite3 : public BucketRenderer {
  public:
   Sprite3(const std::string& name, int my_id);

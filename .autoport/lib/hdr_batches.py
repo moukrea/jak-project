@@ -129,6 +129,28 @@ def archive_extract(data, target):
                 dest.write_bytes(archive.extractfile(member).read())
 
 
+def sun_components_complete(witnesses):
+    """One native disc and the two differently sized rays, not duplicate witnesses."""
+    discs = [w for w in witnesses if w.get('texture') == 'effects/middot']
+    rays = [w for w in witnesses if w.get('texture') == 'effects/starflash2']
+    expected = ((2800 * 4096, 2200 * 4096), (2200 * 4096, 2800 * 4096))
+    return len(discs) == 1 and len(rays) == 2 and all(
+        sum(abs(w.get('scale_x_goal', 0) - x) <= 1 and abs(w.get('scale_y_goal', 0) - y) <= 1
+            for w in rays) == 1 for x, y in expected)
+
+
+def sky_sequence_judgment(row, temporal):
+    judgment = owner_sequence_judgment(row, temporal)
+    if row.get('layer') == 'sunset-sun' and any(
+            s.get('sun_components_complete') is not True for s in row.get('samples', [])):
+        return {'status': 'not_judged', 'reason': 'incomplete visible sun disc and two distinct rays',
+                'partial_photometry': judgment}
+    judgment['limitation'] = ('textured sky bounds mix cloud and background; cloud visibility not qualified'
+                             if row.get('layer') == 'clouds' else
+                             'sun bounds include background; photometric preservation only')
+    return judgment
+
+
 def owner_regions(batch, images, region_measurer=measure):
     """Bounded diagnostic of the two actor effects, never an artistic verdict.
 
@@ -146,11 +168,37 @@ def owner_regions(batch, images, region_measurer=measure):
             if frame in samples:
                 errors.append('duplicate capture frame: ' + frame)
             samples[frame] = (case, rel)
-        if 'HDR-OWNER-SPRITE ' in line:
+        marker = next((m for m in ('HDR-OWNER-SPRITE ', 'HDR-OWNER-SKY ') if m in line), None)
+        if marker:
             try:
-                witness = json.loads(line.split('HDR-OWNER-SPRITE ', 1)[1])
-                if type(witness.get('lf')) is not int or witness.get('actor') not in (10012, 10013, 1395):
+                witness = json.loads(line.split(marker, 1)[1])
+                if not isinstance(witness, dict):
+                    raise ValueError('witness is not an object')
+                if type(witness.get('lf')) is not int or type(witness.get('actor')) is not int or witness.get('actor') not in (0, 10012, 10013, 1395):
                     raise ValueError('unknown actor or frame')
+                if witness['actor'] == 0:
+                    layer = witness.get('layer')
+                    if witness.get('case') != layer or layer not in ('clouds', 'sunset-sun'):
+                        raise ValueError('invalid actor zero layer/case')
+                    if layer == 'clouds':
+                        if (marker != 'HDR-OWNER-SKY ' or witness.get('association') != 'sky_draw_textured_triangles'
+                                or type(witness.get('bucket')) is not int or witness['bucket'] != 3
+                                or witness.get('prim_tme') is not True
+                                or type(witness.get('vertices')) is not int or witness['vertices'] <= 0
+                                or not isinstance(witness.get('tbps'), list) or not witness['tbps']
+                                or any(type(v) is not int or v < 0 for v in witness['tbps'])):
+                            raise ValueError('invalid clouds provenance')
+                    else:
+                        error, tolerance = witness.get('association_error_m'), witness.get('association_tolerance_m')
+                        if (marker != 'HDR-OWNER-SPRITE ' or witness.get('association') != 'texture_and_sun_position'
+                                or witness.get('texture') not in ('effects/middot', 'effects/starflash2')
+                                or type(error) not in (int, float) or not math.isfinite(error) or not 0 <= error <= .05
+                                or type(tolerance) not in (int, float) or tolerance != .05
+                                or any(type(witness.get(k)) not in (int, float) or not math.isfinite(witness[k])
+                                       for k in ('scale_x_goal', 'scale_y_goal', 'rotation_z'))):
+                            raise ValueError('invalid sunset-sun provenance')
+                elif marker == 'HDR-OWNER-SKY ':
+                    raise ValueError('sky witness requires actor zero')
                 witnesses.append(witness)
             except (ValueError, TypeError) as exc:
                 errors.append('invalid sprite witness: ' + str(exc))
@@ -166,7 +214,7 @@ def owner_regions(batch, images, region_measurer=measure):
             continue
         arm, stem = case.split('/', 1)
         stem = re.sub(r'-t\d+$', '', stem)
-        group_keys = [(witness['actor'], stem, '')]
+        group_keys = [(witness['actor'], stem, witness.get('layer', '') if witness['actor'] == 0 else '')]
         if witness.get('layer') == 'portal_disc':
             if (witness['actor'] != 1395 or witness.get('texture') != 'effects/harddot'
                     or type(witness.get('render_mode')) is not int or witness['render_mode'] != 3):
@@ -211,9 +259,11 @@ def owner_regions(batch, images, region_measurer=measure):
                     raise ValueError('regional projection/capture resolution mismatch')
                 stats = region_measurer(batch / rel, rect)
                 matched = [w for w in group['witnesses'] if str(w['lf']) == frame]
+                visible = [w for w in matched if w.get('passed') is True and w.get('supported') is True]
                 row['samples'].append({'arm': arm, 'case': case, 'frame': int(frame),
                     'image': rel, 'sha256': images[rel]['sha256'], 'stats': stats,
-                    'visible_sprites': sum(w.get('passed') is True and w.get('supported') is True for w in matched)})
+                    'visible_sprites': len(visible),
+                    **({'sun_components_complete': sun_components_complete(visible)} if layer == 'sunset-sun' else {})})
             except (ValueError, OSError, subprocess.CalledProcessError) as exc:
                 errors.append(rel + ': ' + str(exc))
         row['summary'] = {}
@@ -229,7 +279,8 @@ def owner_regions(batch, images, region_measurer=measure):
         row['reason'] = 'projected sprite bounds include background; expected white/detail and local colour preservation not yet qualified'
         records.append(row)
     return {'schema': 1, 'status': 'diagnostic_only', 'engine_sha256': sha(batch / 'engine.log'),
-            'errors': errors, 'regions': records, 'unattributed_cases': ['clouds', 'sunset-sun', 'sage-hut-ground'],
+            'errors': errors, 'regions': records, 'unattributed_cases': [case for case in ('clouds', 'sunset-sun', 'sage-hut-ground')
+                                                    if not any(r.get('layer') == case for r in records)],
             'witness_count': len(witnesses)}
 
 
@@ -778,6 +829,48 @@ def owner_regressions(expected, observations=()):
     owner_required = list(expected['plan'].get('owner_regression_cases', []))
     measured, failed, passed, findings = [], [], [], []
     for case in owner_required:
+        layer = 'clouds' if case.startswith('nuages ') else 'sunset-sun' if case.startswith('soleil couchant ') else None
+        if layer:
+            rows = []
+            for observation in observations:
+                diagnostic = observation.get('diagnostic') or {}
+                if diagnostic.get('schema') != 1 or diagnostic.get('errors'):
+                    continue
+                for row in diagnostic.get('regions', []):
+                    if row.get('actor') != 0 or row.get('layer') != layer:
+                        continue
+                    match = re.fullmatch(r'(.+)-h(\d+)', row.get('view_hour', ''))
+                    if not match or (match[1], int(match[2])) not in observation.get('eligible', observation['selected']):
+                        continue
+                    rows.append({'batch': observation['batch'], 'actor': 0, 'layer': layer,
+                                 'view_hour': row['view_hour'],
+                                 **sky_sequence_judgment(row, observation['temporal'])})
+            if not rows:
+                findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
+                continue
+            views = {re.fullmatch(r'(.+)-h(\d+)', row['view_hour'])[1] for row in rows}
+            cells = {(observation['batch'], f'{view}-h{hour:02}') for observation in observations
+                     for view, hour in observation['selected'] if view in views}
+            qualified = [row for row in rows if row.get('measured')
+                         and (layer != 'sunset-sun' or row['view_hour'].endswith('-h18'))]
+            if layer == 'sunset-sun':
+                cells = {cell for cell in cells if cell[1].endswith('-h18')}
+            judged_rows = [row for row in rows if layer != 'sunset-sun' or row['view_hour'].endswith('-h18')]
+            complete = len(qualified) == len(judged_rows) and all(
+                sum((row['batch'], row['view_hour']) == cell for row in qualified) == 1 for cell in cells)
+            if any(row.get('status') == 'failed' or row.get('partial_photometry', {}).get('status') == 'failed'
+                   for row in judged_rows):
+                failed.append(case)
+            # Textured sky bounds cannot establish that the expected clouds remain visible.
+            if layer == 'sunset-sun' and any(row['view_hour'].endswith('-h18') for row in qualified) and complete:
+                measured.append(case)
+                if all(row['status'] == 'passed' for row in qualified):
+                    passed.append(case)
+            findings.append({'case': case, 'status': 'failed' if case in failed else 'passed' if case in passed else 'not_judged',
+                             'observations': rows,
+                             'reason': 'textured sky attribution remains partial' if layer == 'clouds' else
+                                       'sun requires visible disc and both distinct rays in every sample'})
+            continue
         if case.startswith('warp gate'):
             rows = []
             for observation in observations:
@@ -858,6 +951,28 @@ def owner_regressions(expected, observations=()):
 
 def check_owner_replacement(previous, key, current, new_key):
     """A replacement may repair collection, never erase a measured eco loss."""
+    def sky_regions(batch, cell):
+        return [r for r in (batch.get('owner_regions') or {}).get('regions', [])
+                if r.get('actor') == 0 and r.get('layer') in ('clouds', 'sunset-sun')
+                and r.get('view_hour') == f'{cell[0]}-h{cell[1]:02}']
+    old_sky = sky_regions(previous, key)
+    if old_sky:
+        if previous['identity'] != current['identity']:
+            raise ValueError('sky replacement binary/config incompatible')
+        old_pair = previous['pairs'].get(key) or previous.get('unqualified', {}).get(key)
+        if old_pair and old_pair.get('options') is not None and old_pair['options'] != current['pairs'][new_key]['options']:
+            raise ValueError('sky replacement effective settings incompatible')
+        diagnostic = current.get('owner_regions') or {}
+        new_sky = sky_regions(current, new_key)
+        for row in old_sky:
+            judgment = sky_sequence_judgment(row, int(previous['values'].get('refset_temporal_samples', '1')))
+            if (judgment.get('measured') and judgment['status'] == 'failed'
+                    or judgment.get('partial_photometry', {}).get('status') == 'failed'):
+                raise ValueError('replacement cannot erase measured sky defect')
+            replacements = [r for r in new_sky if r['layer'] == row['layer']]
+            if (diagnostic.get('schema') != 1 or diagnostic.get('errors') or len(replacements) != 1
+                    or not sky_sequence_judgment(replacements[0], int(current['values'].get('refset_temporal_samples', '1'))).get('measured')):
+                raise ValueError('replacement loses measurable sky layer')
     def regions(batch, cell):
         stem = f'{cell[0]}-h{cell[1]:02}'
         return [row for row in (batch.get('owner_regions') or {}).get('regions', [])

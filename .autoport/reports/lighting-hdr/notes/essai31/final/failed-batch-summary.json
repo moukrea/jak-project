@@ -1,0 +1,16 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "batch": ".autoport/reports/lighting-hdr/batches/essai31-sky-final/20260908T094715-3936986",
+  "manifest_sha256": "6e2e98b64eb66d428a5b023759d5becab288022500387453d9bee19b2a0aa4f1",
+  "sealed_files": 11,
+  "hash_failures": [],
+  "captures": 0,
+  "errors": [
+    "20260908T094715-3936986: unreplaced crash",
+    "20260908T094715-3936986: chain hdr_cfg_frames_recharged=0",
+    "20260908T094715-3936986: unqualified/absent pair ('beach-start', 9): ",
+    "20260908T094715-3936986: unqualified/absent pair ('beach-start', 12): ",
+    "20260908T094715-3936986: unqualified/absent pair ('beach-start', 18): ",
+    "no compatible measured HDR > 1"
+  ]
+}

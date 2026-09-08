@@ -1,5 +1,6 @@
 """Synthetic unit inputs ONLY: no fixture is a game proof or device validation."""
 import importlib.util
+import copy
 import json
 import os
 from pathlib import Path
@@ -1405,3 +1406,146 @@ def test_portal_no_off_whites_preserves_partial_flat_judgment_and_eco_guard(exce
     assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_failed'] == 0
     assert metrics['hdr_owner_regressions_missing'] == 1
     assert all(row['status'] == 'not_judged' for row in details['findings'][0]['observations'])
+
+
+def sky_region_sources(root, mutate=lambda w: None):
+    images = portal_region_sources(root)
+    lines = [line for line in (root / 'engine.log').read_text().splitlines() if line.startswith('REFSET')]
+    for frame in (100, 112, 200, 212):
+        cloud = dict(actor=0, lf=frame, case='clouds', layer='clouds',
+                     association='sky_draw_textured_triangles', bucket=3, prim_tme=True,
+                     vertices=18, tbps=[8096], roi=[0, 0, 320, 90], supported=True, passed=True,
+                     reason='textured triangles')
+        mutate(cloud)
+        lines.append('HDR-OWNER-SKY ' + json.dumps(cloud))
+        for texture, x, y in (('middot', 6553600, 6553600),
+                               ('starflash2', 2800 * 4096, 2200 * 4096),
+                               ('starflash2', 2200 * 4096, 2800 * 4096)):
+            sun = dict(actor=0, lf=frame, case='sunset-sun', layer='sunset-sun',
+                       association='texture_and_sun_position', association_error_m=.001,
+                       association_tolerance_m=.05, texture='effects/' + texture,
+                       scale_x_goal=x, scale_y_goal=y, rotation_z=0,
+                       roi=[10, 10, 40, 40], supported=True, passed=True)
+            mutate(sun)
+            lines.append('HDR-OWNER-SPRITE ' + json.dumps(sun))
+    (root / 'engine.log').write_text('\n'.join(lines))
+    return images
+
+
+def sky_observation(diagnostic):
+    return dict(batch='synthetic', temporal=2, selected=[('village1-warp', 18)], diagnostic=diagnostic)
+
+
+def test_sky_actor_zero_layers_never_collide(tmp_path):
+    images = sky_region_sources(tmp_path)
+    diagnostic = hdr.owner_regions(tmp_path, images, portal_fake_measure)
+    assert diagnostic['errors'] == []
+    clouds, sun = diagnostic['regions']
+    assert clouds['layer'] == 'clouds' and sun['layer'] == 'sunset-sun'
+    assert len(clouds['witnesses']) == 4 and len(sun['witnesses']) == 12
+    assert clouds['roi_exclusive'] == [0, 0, 320, 90]
+    assert sun['roi_exclusive'] == [10, 10, 40, 40]
+    assert all(s['sun_components_complete'] for s in sun['samples'])
+    metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    assert metrics['hdr_owner_regressions_passed'] == 1
+    assert details['passed'] == ['soleil couchant jaune/orange plat sans eclat ON']
+    assert any(case.startswith('nuages') for case in details['missing'])
+
+
+@pytest.mark.parametrize('fault', ['layer_absent', 'association_absent', 'residue', 'tolerance', 'nan', 'bucket', 'tme', 'vertices', 'tbps'])
+def test_sky_invalid_provenance_is_explicit(tmp_path, fault):
+    def mutate(w):
+        if fault == 'layer_absent': w.pop('layer')
+        if fault == 'association_absent': w.pop('association')
+        if w.get('layer') == 'sunset-sun':
+            if fault == 'residue': w['association_error_m'] = .051
+            if fault == 'tolerance': w['association_tolerance_m'] = .1
+            if fault == 'nan': w['scale_x_goal'] = float('nan')
+        if w.get('layer') == 'clouds':
+            if fault == 'bucket': w['bucket'] = 4
+            if fault == 'tme': w['prim_tme'] = False
+            if fault == 'vertices': w['vertices'] = None
+            if fault == 'tbps': w['tbps'] = []
+    diagnostic = hdr.owner_regions(tmp_path, sky_region_sources(tmp_path, mutate), portal_fake_measure)
+    assert diagnostic['errors']
+    metrics, _ = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    assert metrics['hdr_owner_regressions_passed'] == 0
+
+
+@pytest.mark.parametrize('fault', ['invisible', 'unsupported', 'duplicate_ray', 'wrong_size', 'missing_sidecar'])
+def test_sun_partial_sequence_cannot_pass(tmp_path, fault):
+    def mutate(w):
+        if w.get('texture') != 'effects/starflash2': return
+        if fault == 'invisible': w['passed'] = False
+        if fault == 'unsupported': w['supported'] = False
+        if fault == 'duplicate_ray': w.update(scale_x_goal=2800 * 4096, scale_y_goal=2200 * 4096)
+        if fault == 'wrong_size': w['scale_x_goal'] += 2
+    images = sky_region_sources(tmp_path, mutate)
+    if fault == 'missing_sidecar': (tmp_path / (next(iter(images)) + '.provenance.txt')).unlink()
+    diagnostic = hdr.owner_regions(tmp_path, images, portal_fake_measure)
+    metrics, _ = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    assert metrics['hdr_owner_regressions_passed'] == 0
+
+
+def test_sky_white_loss_is_failed_and_clouds_stay_partial(tmp_path):
+    images = sky_region_sources(tmp_path)
+    def measure(path, rect):
+        return {**portal_fake_measure(path, rect), 'white': 0 if '/recharged/' in str(path) else 10}
+    diagnostic = hdr.owner_regions(tmp_path, images, measure)
+    metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    assert metrics['hdr_owner_regressions_failed'] == 2
+    assert metrics['hdr_owner_regressions_passed'] == 0
+    assert any(case.startswith('nuages') for case in details['missing'])
+
+
+def test_sky_replacement_cannot_erase_loss_or_missing_layer(tmp_path):
+    diagnostic = hdr.owner_regions(tmp_path, sky_region_sources(tmp_path), portal_fake_measure)
+    key = ('village1-warp', 18)
+    old = dict(owner_regions=diagnostic, identity=('same', 'same'), pairs={key: {'options': {}}},
+               values={'refset_temporal_samples': '2'})
+    new = copy.deepcopy(old)
+    hdr.check_owner_replacement(old, key, new, key)
+    new['owner_regions']['regions'] = []
+    with pytest.raises(ValueError, match='loses measurable sky layer'):
+        hdr.check_owner_replacement(old, key, new, key)
+    new = copy.deepcopy(old)
+    for sample in old['owner_regions']['regions'][0]['samples']:
+        if sample['arm'] == 'recharged': sample['stats']['white'] = 0
+    with pytest.raises(ValueError, match='cannot erase measured sky defect'):
+        hdr.check_owner_replacement(old, key, new, key)
+
+
+@pytest.mark.parametrize('mode', ['noon_only', 'missing_sunset', 'noon_no_whites'])
+def test_sun_requires_sunset_cell_and_preserves_noon_diagnostics(tmp_path, mode):
+    diagnostic = hdr.owner_regions(tmp_path, sky_region_sources(tmp_path), portal_fake_measure)
+    sun = next(row for row in diagnostic['regions'] if row['layer'] == 'sunset-sun')
+    noon = copy.deepcopy(sun)
+    noon['view_hour'] = 'village1-warp-h12'
+    observation = sky_observation(diagnostic)
+    observation['selected'] = [('village1-warp', 12)]
+    diagnostic['regions'] = [noon]
+    if mode != 'noon_only': observation['selected'].append(('village1-warp', 18))
+    if mode == 'noon_no_whites':
+        diagnostic['regions'].append(sun)
+        for sample in noon['samples']: sample['stats']['white'] = 0
+    metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [observation])
+    assert metrics['hdr_owner_regressions_passed'] == int(mode == 'noon_no_whites')
+    finding = next(row for row in details['findings'] if row['case'].startswith('soleil'))
+    assert len(finding['observations']) == (2 if mode == 'noon_no_whites' else 1)
+
+
+def test_partial_sun_loss_survives_replacement(tmp_path):
+    diagnostic = hdr.owner_regions(tmp_path, sky_region_sources(tmp_path), portal_fake_measure)
+    sun = next(row for row in diagnostic['regions'] if row['layer'] == 'sunset-sun')
+    diagnostic['regions'] = [sun]
+    for sample in sun['samples']:
+        sample['sun_components_complete'] = False
+        if sample['arm'] == 'recharged': sample['stats']['white'] = 0
+    metrics, _ = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    assert metrics['hdr_owner_regressions_failed'] == 1
+    assert metrics['hdr_owner_regressions_passed'] == 0
+    key = ('village1-warp', 18)
+    old = dict(owner_regions=diagnostic, identity=('same', 'same'), pairs={key: {'options': {}}},
+               values={'refset_temporal_samples': '2'})
+    with pytest.raises(ValueError, match='cannot erase measured sky defect'):
+        hdr.check_owner_replacement(old, key, copy.deepcopy(old), key)

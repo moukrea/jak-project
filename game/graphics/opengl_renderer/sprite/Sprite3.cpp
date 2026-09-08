@@ -75,15 +75,17 @@ struct OwnerCompositionImage {
 };
 struct OwnerCompositionRoi {
   int actor = 0;
+  std::string case_name, layer;
+  nlohmann::json attribution;
   std::array<int, 4> bounds{320, 180, 0, 0};
   int candidates = 0, projected = 0, visible = 0, passed = 0, passed_unknown = 0;
 };
 struct OwnerComposition {
   bool collecting = false;
   int64_t lf = -1;
-  std::array<OwnerCompositionRoi, 3> rois{};
+  std::array<OwnerCompositionRoi, 4> rois{};
   OwnerCompositionImage before;
-} owner_composition;
+} owner_composition, owner_cloud_composition;
 
 float owner_half_float(uint16_t h) {
   const int exponent = (h >> 10) & 31;
@@ -225,11 +227,20 @@ OwnerCompositionImage owner_composition_read() {
   return image;
 }
 
-void owner_composition_roi(const nlohmann::json& event) {
-  if (!owner_composition.collecting || owner_composition.lf != owner_sprite_lf())
+void owner_composition_roi(OwnerComposition& composition, const nlohmann::json& event) {
+  if (!composition.collecting || composition.lf != owner_sprite_lf())
     return;
   const int actor = event.at("actor").get<int>();
-  auto& roi = owner_composition.rois[actor == 10012 ? 0 : actor == 10013 ? 1 : 2];
+  const auto case_name = event.value("case", std::string{});
+  const int index = actor == 10012             ? 0
+                    : actor == 10013           ? 1
+                    : actor == 1395            ? 2
+                    : case_name == "sunset-sun" ? 3
+                    : case_name == "clouds"     ? 0
+                                               : -1;
+  if (index < 0)
+    return;
+  auto& roi = composition.rois[index];
   roi.actor = actor;
   ++roi.candidates;
   if (event.at("passed").is_null())
@@ -288,22 +299,25 @@ void owner_composition_log(const nlohmann::json& event) {
   }
 }
 
-void owner_composition_report(const OwnerCompositionImage& after) {
+void owner_composition_report(const OwnerComposition& composition,
+                              const OwnerCompositionImage& after,
+                              const char* before_stage = "before_world_sprites",
+                              const char* after_stage = "after_world_sprites") {
   const float e = Gfx::g_global_settings.recharged_pbr_exposure;
   const float exposure =
       (e > 0.f ? std::pow(e, 1.f / 2.2f) : 1.f) * Gfx::g_global_settings.recharged_hdr_exposure;
   const float knee = Gfx::g_global_settings.recharged_hdr_knee;
   const bool shoulder = Gfx::g_global_settings.recharged_hdr_curve == 0 && std::isfinite(knee) &&
                         std::isfinite(exposure);
-  for (const auto& roi : owner_composition.rois) {
-    if (!roi.actor)
+  for (const auto& roi : composition.rois) {
+    if (!roi.actor && roi.case_name.empty())
       continue;
     for (int stage = 0; stage < 2; ++stage) {
-      const auto& image = stage ? after : owner_composition.before;
+      const auto& image = stage ? after : composition.before;
       nlohmann::json event = {
-          {"lf", owner_composition.lf},
+          {"lf", composition.lf},
           {"actor", roi.actor},
-          {"stage", stage ? "after_world_sprites" : "before_world_sprites"},
+          {"stage", stage ? after_stage : before_stage},
           {"roi_exclusive", roi.visible ? nlohmann::json(roi.bounds) : nlohmann::json(nullptr)},
           {"roi_space", "top_left_320x180"},
           {"viewport_native", image.viewport},
@@ -325,6 +339,12 @@ void owner_composition_report(const OwnerCompositionImage& after) {
            shoulder ? "not_measured" : "curve_or_parameters_not_supported"},
           {"quantization",
            "round(clamp(rgb,0,1)*255); white=all255; nearwhite=all>=245; clipped=any255"}};
+      if (!roi.case_name.empty()) {
+        event["case"] = roi.case_name;
+        event["layer"] = roi.layer;
+        if (!roi.attribution.is_null())
+          event["attribution"] = roi.attribution;
+      }
       if (image.status == "ok" && roi.visible) {
         const auto& v = image.viewport;
         const int x0 = int(std::floor(double(roi.bounds[0]) * v[2] / 320));
@@ -336,7 +356,7 @@ void owner_composition_report(const OwnerCompositionImage& after) {
         std::array<int, 4> negative{}, above_one{};
         int pixels = 0, nonfinite = 0, white = 0, nearwhite = 0, clipped = 0;
         int tone_white = 0, tone_nearwhite = 0, tone_clipped = 0, tone_nonfinite = 0;
-        const auto& before = owner_composition.before;
+        const auto& before = composition.before;
         const bool paired = stage && before.status == "ok" &&
                             before.framebuffer == image.framebuffer &&
                             before.viewport == image.viewport && before.format == image.format;
@@ -478,6 +498,34 @@ u32 process_sprite_chunk_header(DmaFollower& dma) {
 
 constexpr int SPRITE_RENDERER_MAX_SPRITES = 1920 * 12;
 }  // namespace
+
+void hdr_owner_cloud_before() {
+  owner_cloud_composition = {};
+  if (!owner_sprite_probe())
+    return;
+  owner_cloud_composition.lf = owner_sprite_lf();
+  owner_cloud_composition.rois[0].case_name = "clouds";
+  owner_cloud_composition.rois[0].layer = "clouds";
+  owner_cloud_composition.before = owner_composition_read();
+  owner_cloud_composition.collecting = true;
+}
+
+void hdr_owner_cloud_after(const nlohmann::json& event) {
+  if (!owner_cloud_composition.collecting)
+    return;
+  owner_composition_roi(owner_cloud_composition, event);
+  owner_cloud_composition.collecting = false;
+  owner_cloud_composition.rois[0].attribution = event;
+  auto after = owner_composition_read();
+  if (owner_cloud_composition.lf != owner_sprite_lf() ||
+      after.framebuffer != owner_cloud_composition.before.framebuffer ||
+      after.viewport != owner_cloud_composition.before.viewport) {
+    after.status = "frame_or_target_changed_not_comparable";
+    after.rgba.clear();
+  }
+  owner_composition_report(owner_cloud_composition, after, "before_cloud_draw", "after_cloud_draw");
+  owner_cloud_composition.before.rgba.clear();
+}
 
 Sprite3::Sprite3(const std::string& name, int my_id)
     : BucketRenderer(name, my_id), m_direct(name, my_id, 1024) {
@@ -1074,6 +1122,8 @@ void Sprite3::render_jak1(DmaFollower& dma,
     owner_composition.rois[0].actor = 10012;
     owner_composition.rois[1].actor = 10013;
     owner_composition.rois[2].actor = 1395;
+    owner_composition.rois[3].case_name = "sunset-sun";
+    owner_composition.rois[3].layer = "sunset-sun";
     owner_composition.before = owner_composition_read();
     owner_composition.collecting = true;
   }
@@ -1095,7 +1145,7 @@ void Sprite3::render_jak1(DmaFollower& dma,
       after.status = "frame_or_target_changed_not_comparable";
       after.rgba.clear();
     }
-    owner_composition_report(after);
+    owner_composition_report(owner_composition, after);
     owner_composition.before.rgba.clear();
   }
 
@@ -1409,9 +1459,18 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
       const bool portal_disc = has_texture("harddot");
       const bool portal = has_texture("bigpuff") || has_texture("middot") ||
                           has_texture("hotdot") || portal_disc;
+      const bool sun_texture = has_texture("middot") || has_texture("starflash2");
+      const auto camera_m = render_state->camera_pos / 4096.f;
+      const auto& sun_direction = Gfx::g_global_settings.recharged_pbr_sky_sun;
+      // At the 9950 m sun orbit, 0.05 m covers float rounding (about 0.001 m/ULP)
+      // and remains fixed: a temporal mismatch never widens an unmatched region.
+      constexpr double sun_tolerance_m = 0.05;
+      u32 sun_candidates = 0, sun_matches = 0;
+      float nearest_sun_error2 = INFINITY;
+      std::array<float, 3> nearest_sun_world{};
       u32 pending = bucket->instance_offset;
       const u32 end = pending + bucket->instance_count;
-      for (u32 i = pending; i < end && (eco || portal); ++i) {
+      for (u32 i = pending; i < end && (eco || portal || sun_texture); ++i) {
         const auto& v = m_instance_scratch[i];
         if (v.info[3] != 1 && v.info[3] != 3)
           continue;  // HUD has no world anchor.
@@ -1436,7 +1495,25 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
             break;
           }
         }
-        if (!actor)
+        bool sun = false;
+        if (sun_texture) {
+          ++sun_candidates;
+          float d2 = 0.f;
+          for (int k = 0; k < 3; ++k) {
+            const float delta = world[k] - (camera_m[k] + sun_direction[k]);
+            d2 += delta * delta;
+          }
+          if (std::isfinite(d2) && d2 < nearest_sun_error2) {
+            nearest_sun_error2 = d2;
+            nearest_sun_world = {world[0], world[1], world[2]};
+          }
+          sun = !actor && std::isfinite(d2) && d2 <= sun_tolerance_m * sun_tolerance_m;
+          if (sun) {
+            distance2 = d2;
+            ++sun_matches;
+          }
+        }
+        if (!actor && !sun)
           continue;
         ++candidate_count;
         nlohmann::json event = {{"lf", owner_sprite_lf()},
@@ -1452,12 +1529,24 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
                                 {"alpha_modulate_max", 4.f * v.rgba[3]},
                                 {"render_mode", v.info[3]},
                                 {"distance_m", std::sqrt(distance2)},
-                                {"group_1m", actor != 1395 && distance2 <= 1.f},
+                                {"group_1m", (actor == 10012 || actor == 10013) && distance2 <= 1.f},
                                 {"roi", nullptr},
                                 {"roi_bounds", "exclusive_top_left_320x180"},
                                 {"passed", nullptr},
                                 {"supported", false},
                                 {"reason", "unsupported_3d"}};
+        if (sun) {
+          event["case"] = "sunset-sun";
+          event["layer"] = "sunset-sun";
+          event["association"] = "texture_and_sun_position";
+          event["sun_direction"] = {sun_direction[0], sun_direction[1], sun_direction[2]};
+          event["camera_m"] = {camera_m[0], camera_m[1], camera_m[2]};
+          event["association_error_m"] = std::sqrt(distance2);
+          event["association_tolerance_m"] = sun_tolerance_m;
+          event["scale_x_goal"] = v.xyz_sx[3];
+          event["scale_y_goal"] = v.quat_sy[3];
+          event["rotation_z"] = v.quat_sy[2];
+        }
         if (actor == 1395 && portal_disc && v.info[3] == 3)
           event["layer"] = "portal_disc";
         bool projected = false;
@@ -1584,11 +1673,29 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
           event["supported"] = projected;
           pending = i + 1;
         }
-        owner_composition_roi(event);
+        owner_composition_roi(owner_composition, event);
         lg::info("HDR-OWNER-SPRITE {}", event.dump());
       }
       if (pending < end)
         draw_range(pending, end - pending);
+      if (sun_texture) {
+        const nlohmann::json association = {
+            {"lf", owner_sprite_lf()},
+            {"texture", texture},
+            {"tbp", tbp},
+            {"candidate_count", sun_candidates},
+            {"matched_count", sun_matches},
+            {"min_association_error_m", std::isfinite(nearest_sun_error2)
+                                            ? nlohmann::json(std::sqrt(nearest_sun_error2))
+                                            : nlohmann::json(nullptr)},
+            {"nearest_world_m", std::isfinite(nearest_sun_error2)
+                                    ? nlohmann::json(nearest_sun_world)
+                                    : nlohmann::json(nullptr)},
+            {"camera_m", {camera_m[0], camera_m[1], camera_m[2]}},
+            {"sun_direction", {sun_direction[0], sun_direction[1], sun_direction[2]}},
+            {"association_tolerance_m", sun_tolerance_m}};
+        lg::info("HDR-OWNER-SUN-ASSOCIATION {}", association.dump());
+      }
     }
 
     if (double_draw) {

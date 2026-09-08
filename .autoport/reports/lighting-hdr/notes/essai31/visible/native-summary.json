@@ -1,0 +1,668 @@
+{
+  "DIRECTIVES": "ve7fcbe0116",
+  "batch": ".autoport/reports/lighting-hdr/batches/essai31-sky-visible/20260908T093902-3931924",
+  "sealed_files": 61,
+  "hash_failures": [],
+  "groups": [
+    {
+      "case": "clouds",
+      "tbps": "[8064]",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "after_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 414720,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.12339168981549094,
+        0.4681782861348,
+        0.9118308838258532,
+        1.0
+      ],
+      "delta_sum_rgba": [
+        51173.001600280404,
+        194162.89882582426,
+        378154.50414025784,
+        414720.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8064]",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "before_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 414720,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8064]",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "stage": "after_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 284160,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 10687,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.7248834012189528,
+        0.5568804893232588,
+        0.6804200328560336,
+        0.9932432432432432
+      ],
+      "delta_sum_rgba": [
+        205982.86729037762,
+        158243.15984609723,
+        193348.15653637052,
+        282240.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8064]",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "stage": "before_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 284160,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8064]",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "after_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 414720,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.12334697526178243,
+        0.46816600340384024,
+        0.9113877802719305,
+        1.0
+      ],
+      "delta_sum_rgba": [
+        51154.457580566406,
+        194157.80493164062,
+        377970.740234375,
+        414720.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8064]",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "before_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 414720,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8064]",
+      "arm": "recharged",
+      "hour": 18,
+      "stage": "after_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 284160,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 10687,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.7246201472239452,
+        0.5564929515391857,
+        0.6801779815742561,
+        0.9932432432432432
+      ],
+      "delta_sum_rgba": [
+        205908.06103515625,
+        158133.037109375,
+        193279.37524414062,
+        282240.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8064]",
+      "arm": "recharged",
+      "hour": 18,
+      "stage": "before_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 284160,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "after_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 414720,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 319704.1666666667,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.2532214925290934,
+        0.5980081062156222,
+        0.9929571747697206,
+        1.0
+      ],
+      "delta_sum_rgba": [
+        53843.015781385206,
+        53843.022983918585,
+        33644.69538024068,
+        0.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "before_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 414720,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.12339168981549094,
+        0.4681782861348,
+        0.9118308838258532,
+        1.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "stage": "after_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 284160,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 117559,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.8440647123819889,
+        0.696584936700497,
+        0.8486881214582052,
+        0.9698516305385007
+      ],
+      "delta_sum_rgba": [
+        33866.56138008833,
+        39698.415766716,
+        47815.06005719304,
+        -6646.960666179657
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "stage": "before_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 284160,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 10687,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.7248834012189528,
+        0.5568804893232588,
+        0.6804200328560336,
+        0.9932432432432432
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "after_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 414720,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 322954.5,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 292863.6666666667,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.24776790451120448,
+        0.5925851731633944,
+        1.065468807769901,
+        1.0
+      ],
+      "delta_sum_rgba": [
+        51599.84777832031,
+        51599.11808268229,
+        63900.483723958336,
+        0.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "before_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 414720,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.12334697526178243,
+        0.46816600340384024,
+        0.9113877802719305,
+        1.0
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "recharged",
+      "hour": 18,
+      "stage": "after_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 284160,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 114560.5,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 69253.33333333333,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.865568557659069,
+        0.6974414289892614,
+        0.8557719260722667,
+        0.9698451480349979
+      ],
+      "delta_sum_rgba": [
+        40051.90030924479,
+        40051.91935221354,
+        49896.77526855469,
+        -6648.802734375
+      ]
+    },
+    {
+      "case": "clouds",
+      "tbps": "[8096]",
+      "arm": "recharged",
+      "hour": 18,
+      "stage": "before_cloud_draw",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 284160,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 10687,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1
+      },
+      "mean_rgba": [
+        0.7246201472239452,
+        0.5564929515391857,
+        0.6801779815742561,
+        0.9932432432432432
+      ]
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "after_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "no_visible_roi": 6
+      },
+      "mean": {
+        "pixels": 0,
+        "passed": 0
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "origine-lumiere",
+      "hour": 12,
+      "stage": "before_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "no_visible_roi": 6
+      },
+      "mean": {
+        "pixels": 0,
+        "passed": 0
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "stage": "after_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 44663,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1.5
+      },
+      "mean_rgba": [
+        0.16969505135950957,
+        0.1324722587924397,
+        0.16537225357829632,
+        0.9948685107692076
+      ],
+      "delta_sum_rgba": [
+        0.06601306796073914,
+        0.035947710275650024,
+        0.0,
+        -10.63660113296161
+      ]
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "origine-lumiere",
+      "hour": 18,
+      "stage": "before_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 44663,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 1.5
+      },
+      "mean_rgba": [
+        0.16969356696444796,
+        0.13247144584380222,
+        0.16537225357829632,
+        0.9951085321355192
+      ]
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "after_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "no_visible_roi": 6
+      },
+      "mean": {
+        "pixels": 0,
+        "passed": 0
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "recharged",
+      "hour": 12,
+      "stage": "before_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "no_visible_roi": 6
+      },
+      "mean": {
+        "pixels": 0,
+        "passed": 0
+      }
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "recharged",
+      "hour": 18,
+      "stage": "after_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 34965.5,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 0
+      },
+      "mean_rgba": [
+        0.13730022601799774,
+        0.10558363336106313,
+        0.13119717238318385,
+        0.9946828291308932
+      ],
+      "delta_sum_rgba": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "case": "sunset-sun",
+      "tbps": "None",
+      "arm": "recharged",
+      "hour": 18,
+      "stage": "before_world_sprites",
+      "samples": 6,
+      "statuses": {
+        "ok": 6
+      },
+      "mean": {
+        "pixels": 34965.5,
+        "white": 0,
+        "nearwhite": 0,
+        "clipped": 0,
+        "tonemap_white": 0,
+        "tonemap_nearwhite": 0,
+        "tonemap_clipped": 0,
+        "passed": 0
+      },
+      "mean_rgba": [
+        0.13730022601799774,
+        0.10558363336106313,
+        0.13119717238318385,
+        0.9946828291308932
+      ]
+    }
+  ]
+}

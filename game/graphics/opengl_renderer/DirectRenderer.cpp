@@ -2,6 +2,8 @@
 #include "game/graphics/origin_ablate.h"
 
 #include <atomic>
+#include <cmath>
+#include <set>
 
 #include "common/dma/gs.h"
 #include "common/log/log.h"
@@ -10,12 +12,17 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
+#include "game/graphics/opengl_renderer/buckets.h"
+#include "game/graphics/opengl_renderer/sprite/Sprite3.h"
+#include "game/graphics/refset.h"
+#include "game/system/autoport_proof.h"
 
 #include "game/graphics/pipelines/opengl.h"
 #include "game/mips2c/spart_prof.h"
 
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
+#include "third-party/json.hpp"
 
 // Compatibility counter for existing consumers. Native TEX1 mipmaps are no longer
 // suppressed by the Recharged master switch, so this counter remains zero.
@@ -292,6 +299,65 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
   int draw_count = 0;
   int num_tris = 0;
 
+  // The textured, alpha-blended SKY_DRAW primitives are the cloud roof.
+  // The opaque sky gradient, untextured horizon and offscreen sky-texture
+  // blends are separate draws. Attribute
+  // only submitted geometry, on the existing requested capture frames.
+  const bool cloud_probe = render_state->version == GameVersion::Jak1 &&
+      m_my_id == int(jak1::BucketId::SKY_DRAW) && !m_offscreen_mode &&
+      m_prim_gl_state.texture_enable && m_blend_state.alpha_blend_enable &&
+      autoport_proof::feature_is("lighting-hdr") &&
+      refset::wants_scene_probe();
+  nlohmann::json cloud_event;
+  GLuint cloud_query = 0;
+  if (cloud_probe) {
+    float x0 = INFINITY, y0 = INFINITY, x1 = -INFINITY, y1 = -INFINITY;
+    bool finite = true;
+    std::set<u32> tbps;
+    for (int i = 0; i < m_prim_buffer.vert_count; ++i) {
+      const auto& v = m_prim_buffer.vertices[i];
+      // Mirror direct_basic_textured.vert's Jak1 transform in capture space.
+      const float x = ((v.xyzf[0] - .5f) * 16.f + 1.f) * 160.f;
+      const float y = (1.f + (v.xyzf[1] - .5f) * 32.f * (512.f / 448.f)) * 90.f;
+      finite &= std::isfinite(x) && std::isfinite(y) && std::isfinite(v.xyzf[2]);
+      x0 = std::min(x0, x); y0 = std::min(y0, y);
+      x1 = std::max(x1, x); y1 = std::max(y1, y);
+      if (v.tex_unit < TEXTURE_STATE_COUNT)
+        tbps.insert(m_buffered_tex_state[v.tex_unit].texture_base_ptr);
+    }
+    cloud_event = {{"lf", refset::capture_logic_frame()}, {"actor", 0},
+        {"case", "clouds"}, {"layer", "clouds"},
+        {"association", "sky_draw_textured_triangles"}, {"bucket", m_my_id},
+        {"prim_tme", true}, {"prim_abe", true},
+        {"vertices", m_prim_buffer.vert_count}, {"tbps", tbps},
+        {"roi", nullptr}, {"supported", false}, {"passed", nullptr},
+        {"reason", "invalid_projection"}};
+    if (finite) {
+      cloud_event["roi"] = {int(std::floor(std::clamp(x0, 0.f, 320.f))),
+          int(std::floor(std::clamp(y0, 0.f, 180.f))),
+          int(std::ceil(std::clamp(x1, 0.f, 320.f))),
+          int(std::ceil(std::clamp(y1, 0.f, 180.f)))};
+    }
+    GLint busy = 0, active = 0;
+    glGetQueryiv(GL_ANY_SAMPLES_PASSED, GL_CURRENT_QUERY, &busy);
+    glGetQueryiv(GL_ANY_SAMPLES_PASSED_CONSERVATIVE, GL_CURRENT_QUERY, &active);
+    busy |= active;
+#ifndef __ANDROID__
+    glGetQueryiv(GL_SAMPLES_PASSED, GL_CURRENT_QUERY, &active);
+    busy |= active;
+#endif
+    const bool diagnostic_override = m_debug_state.disable_texture || m_debug_state.red ||
+                                     m_debug_state.always_draw || m_debug_state.wireframe;
+    cloud_event["reason"] = busy ? "query_busy" : diagnostic_override ? "debug_override" :
+                            finite ? "ok" : "invalid_projection";
+    hdr_owner_cloud_before();
+    if (!busy && !diagnostic_override) {
+      glGenQueries(1, &cloud_query);
+      glBeginQuery(GL_ANY_SAMPLES_PASSED, cloud_query);
+      cloud_event["supported"] = finite;
+    }
+  }
+
   if (m_test_state_needs_double_draw && current_shader == m_uniforms.normal_shader_id) {
     // this batch thing is a hack to make the sky in jak 2 draw correctly.
     // This is the usual atest with FB_ONLY issue.
@@ -323,6 +389,19 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
     glDrawArrays(GL_TRIANGLES, 0, m_prim_buffer.vert_count);
     num_tris += m_prim_buffer.vert_count / 3;
     draw_count++;
+  }
+
+  if (cloud_probe) {
+    if (cloud_query) {
+      GLuint passed = 0;
+      glEndQuery(GL_ANY_SAMPLES_PASSED);
+      glGetQueryObjectuiv(cloud_query, GL_QUERY_RESULT, &passed);
+      glDeleteQueries(1, &cloud_query);
+      cloud_event["passed"] = passed != 0;
+    }
+    cloud_event["draws"] = draw_count;
+    hdr_owner_cloud_after(cloud_event);
+    lg::info("HDR-OWNER-SKY {}", cloud_event.dump());
   }
 
   if (m_debug_state.wireframe) {
