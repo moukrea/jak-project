@@ -6,6 +6,7 @@
 #include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/graphics/refset.h"
 
+#include <cstdlib>
 #include <cstring>
 
 #include "common/goal_constants.h"
@@ -91,6 +92,13 @@ OpenGLRenderer::OpenGLRenderer(std::shared_ptr<TexturePool> texture_pool,
       m_collide_renderer(version),
       m_version(version) {
   rss_census::mark("renderer-ctor");
+  // Opt-in to the existing Android sprite path for shared-renderer diagnostics.
+  if (version == GameVersion::Jak1) {
+    const char* value = std::getenv("OG_SPRITE_INSTANCE");
+    if (value && std::strcmp(value, "1") == 0) {
+      m_render_state.perf_sprite_instance = true;
+    }
+  }
   // requires OpenGL 4.3
 #ifndef __APPLE__
   // setup OpenGL errors

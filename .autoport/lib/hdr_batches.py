@@ -10,6 +10,8 @@ import hashlib
 import io
 import json
 import math
+import os
+import shutil
 import re
 import subprocess
 import sys
@@ -345,7 +347,50 @@ def adb(args, *command):
     return subprocess.check_output([args.adb, '-s', args.serial, *command], timeout=180)
 
 
+def source_snapshot(root):
+    names = subprocess.check_output(['git', '-C', str(root), 'ls-files', '-z',
+                                     'game', 'common', 'goal_src', 'data/shaders'], text=True)
+    return {name: sha(root / name) for name in names.split('\0') if name
+            and Path(name).suffix in ('.cpp', '.h', '.gc', '.gd', '.glsl', '.vert', '.frag', '.tesc', '.tese', '.geom', '.comp')}
+
+
+def local_snapshot(args, suffix):
+    batch = Path(args.batch)
+    binary = Path(args.binary).resolve()
+    pointer = Path(os.environ.get('XDG_CONFIG_HOME') or str(Path.home() / '.config')) / 'OpenGOAL/asset-root.txt'
+    if pointer.exists():
+        raise ValueError('external asset-root pointer unsupported for portable HDR snapshot: ' + str(pointer))
+    config_root = binary.parent / 'OpenGOAL/jak1'
+    required = ('misc/debug-settings.json', 'settings/display-settings.json',
+                'settings/input-settings.json', 'settings/settings.ini')
+    for name in required:
+        if not (config_root / name).is_file():
+            raise ValueError('missing portable configuration: ' + name)
+    hashes = {}
+    for path in sorted(config_root.rglob('*')):
+        if path.is_file() and path.suffix in ('.json', '.ini'):
+            name = str(path.relative_to(config_root))
+            dest = batch / ('config-' + suffix) / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, dest)
+            hashes[name] = sha(dest)
+    settings = batch / ('settings-' + suffix + '.ini')
+    shutil.copyfile(config_root / 'settings/settings.ini', settings)
+    hashes['settings.ini'] = sha(settings)
+    environment = {k: v for k, v in os.environ.items()
+                   if k.startswith(('OG_', 'AUTOPORT_FEATURE', 'SDL_', 'MESA_', 'LIBGL_', '__GL_'))}
+    dump(batch / ('env-' + suffix + '.json'), environment)
+    sources = source_snapshot(Path(args.root))
+    if not sources:
+        raise ValueError('missing rendering sources')
+    dump(batch / ('sources-' + suffix + '.json'), sources)
+    return {'source': 'x86', 'binary_sha256': sha(binary),
+            'config_files': hashes, 'sources': sources}
+
+
 def snapshot(args, suffix):
+    if getattr(args, 'source', 'device') == 'x86':
+        return local_snapshot(args, suffix)
     batch = Path(args.batch)
     apk_path = adb(args, 'shell', 'pm', 'path', args.pkg).decode().strip().splitlines()
     if len(apk_path) != 1 or not apk_path[0].startswith('package:'):
@@ -393,8 +438,8 @@ def snapshot(args, suffix):
 
 
 def prepare(args):
-    if args.serial != 'eae4df44':
-        raise ValueError('HDR campaign requires authorized Redmi eae4df44')
+    if getattr(args, 'source', 'device') == 'device' and (not args.serial or ':' in args.serial):
+        raise ValueError('HDR campaign requires the USB serial selected by proof_run')
     batch = Path(args.batch)
     batch.mkdir(parents=True, exist_ok=False)
     c = contract(Path(args.root))
@@ -431,8 +476,14 @@ def finish(args):
     except Exception as exc:
         errors.append('end provenance: ' + str(exc))
     try:
-        data = adb(args, 'exec-out', 'run-as', args.pkg, 'tar', '-C', args.remote, '-cf', '-', '.')
-        archive_extract(data, batch / 'captures')
+        if getattr(args, 'source', 'device') == 'x86':
+            remote = Path(args.remote)
+            if not remote.is_dir() or remote.is_symlink() or any(p.is_symlink() for p in remote.rglob('*')):
+                raise ValueError('missing or unsafe local captures')
+            shutil.copytree(remote, batch / 'captures')
+        else:
+            data = adb(args, 'exec-out', 'run-as', args.pkg, 'tar', '-C', args.remote, '-cf', '-', '.')
+            archive_extract(data, batch / 'captures')
     except Exception as exc:
         errors.append('capture collection: ' + str(exc))
     if 'binary_fnv' not in start['provenance'] and sha(args.binary) == start['provenance']['binary_sha256']:
@@ -514,11 +565,32 @@ def read_batch(path, expected, measurer):
         p = base / name
         if Path(name).is_absolute() or '..' in Path(name).parts or p.is_symlink() or sha(p) != digest:
             raise ValueError('missing/modified/unsafe file: ' + name)
-    for snapshot_name in ('props-start.txt', 'props-end.txt'):
+    source = m['provenance'].get('source', 'device')
+    if source not in ('device', 'x86'):
+        raise ValueError('unknown execution source')
+    snapshot_names = (('env-start.json', 'env-end.json', 'sources-start.json', 'sources-end.json')
+                      if source == 'x86' else ('props-start.txt', 'props-end.txt'))
+    for snapshot_name in snapshot_names:
         if snapshot_name not in files:
             raise ValueError('missing sealed rendering property snapshot')
-    props_start = rendering_properties(base / 'props-start.txt')
-    props_end = rendering_properties(base / 'props-end.txt')
+    if source == 'x86':
+        envs = [json.loads((base / ('env-' + suffix + '.json')).read_text()) for suffix in ('start', 'end')]
+        if any(not isinstance(e, dict) or e.get('OG_REFSET') != 'capture' for e in envs):
+            raise ValueError('missing x86 capture environment')
+        if envs[0] != envs[1]:
+            raise ValueError('x86 environment changed during batch')
+        def rendering_env(e):
+            return {k: v for k, v in e.items() if not k.startswith(('OG_REFSET', 'OG_LEVEL_WARP', 'AUTOPORT_FEATURE'))
+                    and k not in ('OG_WANT_LEVELS', 'OG_WANT_DISPLAY', 'OG_PADREPLAY')}
+        props_start, props_end = map(rendering_env, envs)
+        sources = [json.loads((base / ('sources-' + suffix + '.json')).read_text()) for suffix in ('start', 'end')]
+        if (not isinstance(sources[0], dict) or not sources[0]
+                or any(not isinstance(v, str) or not re.fullmatch('[0-9a-f]{64}', v) for v in sources[0].values())
+                or sources[0] != sources[1] or sources[0] != m['provenance'].get('sources')):
+            raise ValueError('rendering sources changed or absent')
+    else:
+        props_start = rendering_properties(base / 'props-start.txt')
+        props_end = rendering_properties(base / 'props-end.txt')
     if props_start != props_end:
         raise ValueError('rendering properties changed during batch')
     raw = normalized((base / 'engine.log').read_text(errors='replace'))
@@ -531,7 +603,10 @@ def read_batch(path, expected, measurer):
         raise ValueError('raw configuration changed during batch')
     if provenance.get('config_files') != config_start:
         raise ValueError('raw configuration hashes disagree with provenance')
-    if provenance['binary_sha256'] != provenance['installed_sha256'] or any(
+    if source == 'x86':
+        if any(k in provenance for k in ('installed_sha256', 'apk_sha256', 'serial')) or not re.fullmatch('[0-9a-f]{64}', provenance.get('binary_sha256', '')):
+            raise ValueError('incomplete or false x86 binary provenance')
+    elif provenance['binary_sha256'] != provenance['installed_sha256'] or any(
             not re.fullmatch('[0-9a-f]{64}', provenance[k]) for k in
             ('binary_sha256', 'installed_sha256', 'apk_sha256')):
         raise ValueError('incomplete binary provenance')
@@ -570,8 +645,11 @@ def read_batch(path, expected, measurer):
     temporal = int(values.get('refset_temporal_samples', '1'))
     if temporal < 1 or temporal > 16:
         raise ValueError('invalid temporal sample count')
-    requested_temporal = re.findall(r'^\[debug\.opengoal\.refset\.temporal\]: \[([^\]]*)\]$',
-                                   (base / 'props-start.txt').read_text(), re.M)
+    requested_temporal = ([envs[0]['OG_REFSET_TEMPORAL_SAMPLES']]
+                          if source == 'x86' and 'OG_REFSET_TEMPORAL_SAMPLES' in envs[0] else []
+                          if source == 'x86' else re.findall(
+                              r'^\[debug\.opengoal\.refset\.temporal\]: \[([^\]]*)\]$',
+                              (base / 'props-start.txt').read_text(), re.M))
     if requested_temporal and requested_temporal != [''] and requested_temporal != [str(temporal)]:
         raise ValueError('requested/effective temporal count differs')
     temporal_failures = {}
@@ -1100,6 +1178,10 @@ def aggregate(campaign, current, expected, measurer=measure):
     for name, m in batches.items():
         if m['identity'][0] != active['identity'][0] or (m['identity'][1] is not None and m['identity'][1] != active['identity'][1]):
             errors.append(name + ': incompatible binary/APK/data/config')
+    # A platform mismatch is an error above, and never contributes coverage.
+    source = active['provenance'].get('source', 'device')
+    batches = {name: m for name, m in batches.items()
+               if m['provenance'].get('source', 'device') == source}
     replaced = set()
     superseded_mappings = []
     # Newest valid replacements are resolved first. Superseding B's target
@@ -1251,6 +1333,7 @@ def main():
     parser.add_argument('action', choices=['prepare', 'finish', 'aggregate'])
     parser.add_argument('--root', default='.')
     parser.add_argument('--batch', required=True)
+    parser.add_argument('--source', choices=['x86', 'device'], default='device')
     parser.add_argument('--adb')
     parser.add_argument('--serial')
     parser.add_argument('--pkg')

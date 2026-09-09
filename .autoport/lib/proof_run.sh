@@ -10,8 +10,8 @@
 # binaire present sur le disque, et le validateur le recalcule.
 #
 # Usage : lib/proof_run.sh <item-id> <x86|device> [--timeout N] [--off]
-#   HDR device: --hdr-campaign NOM --hdr-vantages vue[,vue] --hdr-hours 0,3,...
-#   --hdr-prop debug.opengoal.KEY=VALUE (repeatable); --hdr-replace LOT:VUE:HEURE=VUE
+#   HDR x86/device: --hdr-campaign NOM --hdr-vantages vue[,vue] --hdr-hours 0,3,...
+#   x86: --hdr-env OG_KEY=VALUE (repeatable); device: --hdr-prop debug.opengoal.KEY=VALUE (repeatable); --hdr-replace LOT:VUE:HEURE=VUE
 #   --off   meme course, feature DESARMEE, ecrit proof-off.txt (controle d'ablation).
 #
 # Sorties : 0 = une preuve a ete ecrite (VERTE OU ROUGE : c'est le validateur qui juge).
@@ -32,12 +32,12 @@ set -uo pipefail
 # ---------------------------------------------------------------------------- arguments ----
 ID=""; MODE=""; TIMEOUT=""; OFF=0
 HDR_CAMPAIGN=""; HDR_VANTAGES="legacy"; HDR_HOURS="0,3,6,9,12,15,18,21"
-HDR_AGGREGATE=""; HDR_PROPS=(); HDR_REPLACE=(); HDR_BATCH=""; HDR_REMOTE=""
+HDR_AGGREGATE=""; HDR_PROPS=(); HDR_ENVS=(); HDR_REPLACE=(); HDR_BATCH=""; HDR_REMOTE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --timeout) TIMEOUT="${2:-}"; shift 2 ;;
     --off)     OFF=1; shift ;;
-    --hdr-campaign|--hdr-vantages|--hdr-hours|--hdr-prop|--hdr-replace|--hdr-aggregate-only)
+    --hdr-campaign|--hdr-vantages|--hdr-hours|--hdr-prop|--hdr-env|--hdr-replace|--hdr-aggregate-only)
       [ $# -ge 2 ] && [ -n "$2" ] || { echo "proof_run: $1 needs a value" >&2; exit 2; }
       case "$1" in
         --hdr-campaign) HDR_CAMPAIGN=$2 ;;
@@ -45,6 +45,7 @@ while [ $# -gt 0 ]; do
         --hdr-vantages) HDR_VANTAGES=$2 ;;
         --hdr-hours) HDR_HOURS=$2 ;;
         --hdr-prop) HDR_PROPS+=("$2") ;;
+        --hdr-env) HDR_ENVS+=("$2") ;;
         --hdr-replace) HDR_REPLACE+=(--replace "$2") ;;
       esac
       shift 2 ;;
@@ -59,14 +60,25 @@ case "$ID" in *[!a-z0-9-]*|"") echo "proof_run: item-id '$ID' invalide (kebab-ca
 case "$MODE" in x86|device) ;; *) echo "proof_run: mode '$MODE' inconnu (x86|device)" >&2; exit 2 ;; esac
 
 if [ -n "$HDR_CAMPAIGN" ]; then
-  [ "$ID" = lighting-hdr ] && [ "$MODE" = device ] && [ "$OFF" = 0 ] || {
-    echo "proof_run: HDR batches require lighting-hdr device without --off" >&2; exit 2; }
+  [ "$ID" = lighting-hdr ] && [ "$OFF" = 0 ] || {
+    echo "proof_run: HDR batches require lighting-hdr without --off" >&2; exit 2; }
   case "$HDR_CAMPAIGN" in *[!a-zA-Z0-9_-]*) echo "invalid HDR campaign name" >&2; exit 2 ;; esac
 fi
 if [ -n "$HDR_AGGREGATE" ]; then
   [ -n "$HDR_CAMPAIGN" ] || { echo "aggregate-only needs --hdr-campaign" >&2; exit 2; }
   case "$HDR_AGGREGATE" in *[!a-zA-Z0-9_-]*) echo "invalid HDR batch name" >&2; exit 2 ;; esac
 fi
+if { [ "$MODE" = x86 ] && [ "${#HDR_PROPS[@]}" -gt 0 ]; } ||
+   { [ "$MODE" = device ] && [ "${#HDR_ENVS[@]}" -gt 0 ]; }; then
+  echo "proof_run: use --hdr-env for x86 and --hdr-prop for device" >&2; exit 2
+fi
+for kvp in "${HDR_ENVS[@]}"; do
+  [[ "$kvp" =~ ^OG_[A-Z0-9_]+= ]] && [[ "$kvp" != *$'\n'* ]] || {
+    echo "proof_run: invalid HDR environment" >&2; exit 2; }
+  case "${kvp%%=*}" in OG_REFSET|OG_REFSET_DIR|OG_REFSET_PHASES|OG_REFSET_VANTAGES|OG_REFSET_HOURS|OG_LIGHTING|OG_RT_LIGHT)
+    echo "proof_run: environment reserved by HDR campaign" >&2; exit 2 ;;
+  esac
+done
 for kvp in "${HDR_PROPS[@]}"; do
   [[ "$kvp" =~ ^debug\.opengoal\.[a-zA-Z0-9_.]+=[a-zA-Z0-9_.,:/+\ -]*$ ]] || {
     echo "proof_run: invalid HDR property" >&2; exit 2; }
@@ -157,7 +169,7 @@ if [ -n "$HDR_AGGREGATE" ]; then
   rm -f "$OUTFILE"
   HDR_BATCH="$D/batches/$HDR_CAMPAIGN/$HDR_AGGREGATE"
   TMP="$D/.proof$SUF.tmp.$$"
-  if ! python3 - "$HDR_BATCH" "$BIN" > "$TMP" <<'HDR_REPLAY'
+  if ! python3 - "$HDR_BATCH" "$BIN" "$MODE" > "$TMP" <<'HDR_REPLAY'
 import datetime, hashlib, json, os, re, sys
 from pathlib import Path
 sys.path.insert(0, '.autoport/lib')
@@ -166,21 +178,30 @@ batch, binary = Path(sys.argv[1]), Path(sys.argv[2])
 m = json.loads((batch / 'manifest.json').read_text())
 if hdr.sha(binary) != m['provenance']['binary_sha256']:
     raise SystemExit('HDR aggregate: current binary differs from original run')
+source = m['provenance'].get('source', 'device')
+if source != sys.argv[3]:
+    raise SystemExit('HDR aggregate: execution source mismatch')
+if source == 'x86' and hdr.source_snapshot(Path('.')) != m['provenance']['sources']:
+    raise SystemExit('HDR aggregate: current sources differ from original run')
 run = m['run']
 if not re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ', run['started_at'] or ''):
     raise SystemExit('HDR aggregate: original timestamp unavailable')
 raw = hdr.normalized((batch / 'engine.log').read_text(errors='replace'))
 values = hdr.kv(raw)
 measures = hdr.aggregate(batch.parent, batch.name, hdr.contract(Path('.')))
-print('source=device')
-print('serial=' + m['provenance']['serial'])
+print('source=' + source)
+if source == 'device':
+    print('serial=' + m['provenance']['serial'])
 print('binary=' + str(binary))
 print('sha=' + hdr.sha(binary)[:16])
 print('started_at=' + run['started_at'])
 print('duration_s=' + str(run['duration_s']))
 print('crash=' + str(m['crash']))
-frames = re.findall(r'^(?:A35-RENDER frame|PACE-SWAP n|AUTOPORT-FRAMES n)=(\d+)', raw, re.M)
-print('frames=' + str(max(map(int, frames), default=0)))
+pattern = (r'^(?:PACE-SWAP-X86|AUTOPORT-FRAMES) n=(\d+)' if source == 'x86'
+           else r'^(?:A35-RENDER frame|PACE-SWAP n|AUTOPORT-FRAMES n)=(\d+)')
+frames = re.findall(pattern, raw, re.M)
+count = max(map(int, frames), default=0)
+print('frames=' + str(count + int(source == 'x86' and count > 0)))
 feature = re.findall(r'^FEATURE lighting-hdr armed=[01] hits=\d+.*$', raw, re.M)
 if feature:
     print(feature[-1])
@@ -259,6 +280,69 @@ STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 T0=$(date +%s)
 CRASH=0; FRAMES=0; SERIAL=""; EXTRA=""
 
+# HDR x86 helpers: own only the exact child PID, including interruption cleanup.
+hdr_x86_stop(){
+  if [ -n "${HDR_XPID:-}" ] && kill -0 "$HDR_XPID" 2>/dev/null; then
+    kill -TERM "$HDR_XPID" 2>/dev/null || true
+    for ((stop_wait=0; stop_wait<5; stop_wait++)); do
+      kill -0 "$HDR_XPID" 2>/dev/null || break
+      sleep 1
+    done
+    kill -KILL "$HDR_XPID" 2>/dev/null || true
+  fi
+}
+hdr_captures_complete(){
+  local complete_captures temporal_samples published_captures published_steps published_temporal published_pairs
+      complete_captures=$(sed -nE 's/.*REFSET done steps=([1-9][0-9]*) captured=\1 .*missing=0.*/\1/p' "$RAWLOG" | tail -1)
+      temporal_samples=$(sed -nE 's/.*refset_temporal_samples=([1-9][0-9]*)$/\1/p' "$RAWLOG" | tail -1)
+      temporal_samples=${temporal_samples:-1}
+      # Pairing can be published before the final capture. Wait for the last
+      # capture's counters too, before stopping their producer.
+      published_captures=$(sed -nE 's/.*refset_captured=([0-9]+)$/\1/p' "$RAWLOG" | tail -1)
+      published_steps=$(sed -nE 's/.*refset_steps=([0-9]+)$/\1/p' "$RAWLOG" | tail -1)
+      published_temporal=$(sed -nE 's/.*refset_temporal_captured=([0-9]+)$/\1/p' "$RAWLOG" | tail -1)
+      published_pairs=$(sed -nE 's/.*hdr_paired=([^[:space:]]*)$/\1/p' "$RAWLOG" | tail -1)
+      if [ -n "$complete_captures" ] && [ "$temporal_samples" -le 16 ] && \
+          [ "$published_captures" = "$complete_captures" ] && \
+          [ "$published_steps" = "$complete_captures" ] && \
+          { [ "$temporal_samples" -eq 1 ] || [ "$published_temporal" = "$complete_captures" ]; } && \
+          [ "$((complete_captures % (2 * temporal_samples)))" -eq 0 ] && \
+          [[ "$published_pairs" =~ ^(0|[1-9][0-9]*)$ ]] && \
+          [ "${#published_pairs}" -le "${#complete_captures}" ] && \
+          [ "$published_pairs" -le "$((complete_captures / (2 * temporal_samples)))" ]; then
+        return 0
+      fi
+  return 1
+}
+hdr_x86_run(){
+  local launch_time rc
+  HDR_XPID=""; HDR_STOPPED=0
+  trap 'hdr_x86_stop' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  stdbuf -oL -eL "$@" > "$RAWLOG" 2>&1 &
+  HDR_XPID=$!
+  launch_time=$(date +%s)
+  while kill -0 "$HDR_XPID" 2>/dev/null; do
+    if hdr_captures_complete; then
+      HDR_STOPPED=1; log "HDR x86 final captures and pairing counters published; stopping pid=$HDR_XPID"
+      break
+    fi
+    if [ "$(( $(date +%s) - launch_time ))" -ge "$TIMEOUT" ]; then
+      HDR_STOPPED=1; log "HDR x86 timeout; stopping pid=$HDR_XPID"
+      break
+    fi
+    sleep 1
+  done
+  [ "$HDR_STOPPED" = 0 ] || hdr_x86_stop
+  wait "$HDR_XPID"; rc=$?
+  HDR_XPID=""
+  trap - EXIT INT TERM
+  if [ "$HDR_STOPPED" = 1 ] && { [ "$rc" = 143 ] || [ "$rc" = 137 ]; }; then return 0; fi
+  return "$rc"
+}
+# End HDR x86 helpers.
+
 # ============================================================================== x86 =========
 if [ "$MODE" = x86 ]; then
   export DISPLAY="${DISPLAY:-:0}"
@@ -270,18 +354,42 @@ if [ "$MODE" = x86 ]; then
   export AUTOPORT_FEATURE="$ID"            # emettre. Sert a compter frames=, rien d'autre.
   export AUTOPORT_FEATURE_ARMED="$ARMED"
   for kvp in ${ENVS+"${ENVS[@]}"}; do export "${kvp}"; done
+  if [ -n "$HDR_CAMPAIGN" ]; then
+    HDR_BATCH="$D/batches/$HDR_CAMPAIGN/$(date -u +%Y%m%dT%H%M%S)-$$"
+    HDR_REMOTE="$ROOT/$HDR_BATCH/local-captures"
+    for kvp in "${HDR_ENVS[@]}"; do export "$kvp"; done
+    unset OG_LIGHTING
+    export OG_RT_LIGHT=1 OG_REFSET=capture OG_REFSET_DIR="$HDR_REMOTE"
+    export OG_REFSET_PHASES=2,3 OG_REFSET_VANTAGES="$HDR_VANTAGES" OG_REFSET_HOURS="$HDR_HOURS"
+    log "HDR x86 snapshot: binary, portable settings and rendering sources"
+    python3 "$AP/lib/hdr_batches.py" prepare --source x86 --batch "$HDR_BATCH" \
+      --binary "$BIN" --vantages "$HDR_VANTAGES" --hours "$HDR_HOURS" "${HDR_REPLACE[@]}" || exit 3
+  fi
   log "x86 : $BIN pendant ${TIMEOUT}s (armed=$ARMED)"
   # stdbuf : une sortie redirigee est bufferisee par BLOCS. 70 lignes produites, 0 comptees,
   # c'est arrive. -oL force la ligne a ligne AVANT qu'on en compte une seule.
-  stdbuf -oL -eL timeout -k 5 "$TIMEOUT" "$BIN" \
-      --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso \
-      -- -boot -debug-mem > "$RAWLOG" 2>&1
-  rc=$?
-  case "$rc" in
-    0|124|137) CRASH=0 ;;   # 124/137 = c'est NOUS qui l'avons arrete au bout du temps demande
-    *)         CRASH=1; log "gk est sorti en $rc" ;;
-  esac
+  if [ -n "$HDR_BATCH" ]; then
+    hdr_x86_run "$BIN" --game jak1 --portable -fakeiso --verbose --disable-ansi \
+      -iso-data out/jak1/iso -- -boot -debug-mem
+    rc=$?
+    [ "$rc" = 0 ] || { CRASH=1; log "gk est sorti en $rc"; }
+  else
+    stdbuf -oL -eL timeout -k 5 "$TIMEOUT" "$BIN" \
+        --game jak1 --portable -fakeiso --verbose --disable-ansi -iso-data out/jak1/iso \
+        -- -boot -debug-mem > "$RAWLOG" 2>&1
+    rc=$?
+    case "$rc" in
+      0|124|137) CRASH=0 ;;   # 124/137 = arret demande par le producteur
+      *) CRASH=1; log "gk est sorti en $rc" ;;
+    esac
+  fi
   grep -qaE 'SIGSEGV|SIGILL|SIGABRT|terminate called|Segmentation fault' "$RAWLOG" && CRASH=1
+  if [ -n "$HDR_BATCH" ]; then
+    cp "$RAWLOG" "$HDR_BATCH/engine.log" || exit 3
+    python3 "$AP/lib/hdr_batches.py" finish --source x86 --batch "$HDR_BATCH" \
+      --binary "$BIN" --remote "$HDR_REMOTE" --crash "$CRASH" \
+      --started-at "$STARTED" --duration-s "$(( $(date +%s) - T0 ))" || exit 3
+  fi
 
 # =========================================================================== appareil =======
 else

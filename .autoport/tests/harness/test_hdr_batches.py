@@ -1792,3 +1792,214 @@ def test_sun_black_roi_cannot_establish_expected_brightness():
     result = hdr.sky_sequence_judgment(row, 2)
     assert result['status'] == 'not_judged' and not result.get('measured')
     assert result['reason'] == 'expected OFF sun brightness not observed'
+
+
+# Local fixtures remain synthetic: exercise the same sealed reader and accumulator.
+def x86_batch(root, plan, name='001'):
+    path = batch(root, plan, [('legacy', 0)], name=name)
+    manifest = json.loads((path / 'manifest.json').read_text())
+    provenance = manifest['provenance']
+    for key in ('serial', 'installed_sha256', 'apk_sha256'):
+        del provenance[key]
+    provenance.update(source='x86', sources={'game/graphics/refset.cpp': 'c' * 64})
+    for suffix in ('start', 'end'):
+        (path / ('props-' + suffix + '.txt')).unlink()
+        hdr.dump(path / ('env-' + suffix + '.json'),
+                 {'OG_REFSET': 'capture', 'OG_REFSET_VANTAGES': 'legacy', 'OG_HDR': '1'})
+        hdr.dump(path / ('sources-' + suffix + '.json'), provenance['sources'])
+    hdr.dump(path / 'manifest.json', manifest)
+    rehash(path)
+    return path
+
+
+def test_x86_sealed_batch_and_missing_coverage(tmp_path, plan):
+    path = x86_batch(tmp_path, plan)
+    measured = hdr.read_batch(path / 'manifest.json', plan, stats)
+    assert measured['identity'][0]['source'] == 'x86'
+    assert not {'serial', 'apk_sha256', 'installed_sha256'} & measured['identity'][0].keys()
+    out = result(tmp_path, plan)
+    assert out['hdr_batch_errors'] == 0
+    assert out['hdr_batch_pairs'] == 1
+    assert out['hdr_batch_missing'] > 0
+    assert out['hdr_tonemap_defects'] > 0
+
+
+@pytest.mark.parametrize('damage', ['missing_env', 'modified_capture', 'config', 'environment',
+                                    'sources', 'version', 'false_apk', 'binary', 'temporal'])
+def test_x86_rejects_broken_provenance(tmp_path, plan, damage):
+    path = x86_batch(tmp_path, plan)
+    if damage == 'missing_env':
+        (path / 'env-start.json').unlink()
+    elif damage == 'modified_capture':
+        next((path / 'captures').rglob('*.png')).write_text('modified')
+    elif damage == 'config':
+        (path / 'settings-end.ini').write_text('modified')
+        rehash(path)
+    elif damage == 'environment':
+        hdr.dump(path / 'env-end.json', {'OG_REFSET': 'capture', 'OG_HDR': '0'})
+        rehash(path)
+    elif damage == 'sources':
+        hdr.dump(path / 'sources-end.json', {'game/graphics/refset.cpp': 'd' * 64})
+        rehash(path)
+    elif damage == 'version':
+        (path / 'captures/refset-format.txt').write_text('version=999')
+        rehash(path)
+    elif damage == 'temporal':
+        for suffix in ('start', 'end'):
+            hdr.dump(path / ('env-' + suffix + '.json'),
+                     {'OG_REFSET': 'capture', 'OG_REFSET_TEMPORAL_SAMPLES': '6'})
+        rehash(path)
+    else:
+        manifest = json.loads((path / 'manifest.json').read_text())
+        manifest['provenance']['apk_sha256' if damage == 'false_apk' else 'binary_sha256'] = 'invalid'
+        hdr.dump(path / 'manifest.json', manifest)
+    with pytest.raises((ValueError, FileNotFoundError)):
+        hdr.read_batch(path / 'manifest.json', plan, stats)
+
+
+def test_x86_does_not_accumulate_android(tmp_path, plan):
+    x86_batch(tmp_path, plan)
+    batch(tmp_path, plan, [('legacy', 3)], name='device')
+    out = result(tmp_path, plan)
+    assert out['hdr_batch_errors'] > 0
+    assert out['hdr_batch_pairs'] == 1
+
+
+def test_local_snapshot_requires_actual_portable_config(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    binary = tmp_path / 'game/gk'
+    binary.parent.mkdir()
+    binary.write_bytes(b'synthetic executable')
+    target = tmp_path / 'lot'
+    target.mkdir()
+    args = SimpleNamespace(batch=str(target), binary=str(binary), root=str(tmp_path), source='x86')
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'config'))
+    with pytest.raises(ValueError, match='missing portable configuration'):
+        hdr.snapshot(args, 'start')
+    for name in ('misc/debug-settings.json', 'settings/display-settings.json',
+                 'settings/input-settings.json', 'settings/settings.ini'):
+        path = binary.parent / 'OpenGOAL/jak1' / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('synthetic configuration')
+    monkeypatch.setattr(hdr, 'source_snapshot', lambda root: {'game/graphics/refset.cpp': 'c' * 64})
+    monkeypatch.setenv('OG_REFSET', 'capture')
+    provenance = hdr.snapshot(args, 'start')
+    assert provenance['binary_sha256'] == hdr.sha(binary)
+    assert provenance['source'] == 'x86'
+    assert 'apk_sha256' not in provenance
+    assert json.loads((target / 'env-start.json').read_text())['OG_REFSET'] == 'capture'
+
+
+def test_local_snapshot_rejects_external_root(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    config = tmp_path / 'config'
+    pointer = config / 'OpenGOAL/asset-root.txt'
+    pointer.parent.mkdir(parents=True)
+    pointer.write_text('/synthetic/external')
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(config))
+    with pytest.raises(ValueError, match='external asset-root pointer unsupported'):
+        hdr.local_snapshot(SimpleNamespace(batch=str(tmp_path), binary=str(tmp_path / 'gk')), 'start')
+
+
+def test_source_snapshot_includes_runtime_tessellation(tmp_path, monkeypatch):
+    paths = ['game/graphics/opengl_renderer/shaders/tfrag3_tess.tesc',
+             'game/graphics/opengl_renderer/shaders/tfrag3_tess.tese']
+    for name in paths:
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('synthetic shader')
+    monkeypatch.setattr(hdr.subprocess, 'check_output', lambda *a, **k: '\0'.join(paths) + '\0')
+    assert hdr.source_snapshot(tmp_path) == {name: hdr.sha(tmp_path / name) for name in paths}
+
+
+@pytest.mark.parametrize('mode,option,value', [
+    ('x86', '--hdr-prop', 'debug.opengoal.hdr=1'),
+    ('device', '--hdr-env', 'OG_HDR=1'),
+    ('x86', '--hdr-env', 'OG_REFSET_DIR=/tmp/override'),
+    ('x86', '--hdr-env', 'NOT_OG=1'),
+])
+def test_hdr_options_reject_wrong_platform_and_reserved(mode, option, value):
+    run = subprocess.run(['bash', str(ROOT / '.autoport/lib/proof_run.sh'),
+                          'lighting-hdr', mode, '--hdr-campaign', 'synthetic-options', option, value],
+                         cwd=ROOT, capture_output=True, text=True, timeout=10)
+    assert run.returncode == 2
+
+
+def test_prepare_accepts_selected_honor_usb(tmp_path, plan, monkeypatch):
+    from types import SimpleNamespace
+    binary = tmp_path / 'gk'
+    binary.write_bytes(b'synthetic')
+    monkeypatch.setattr(hdr, 'contract', lambda root: plan)
+    monkeypatch.setattr(hdr, 'snapshot', lambda args, suffix: {'binary_sha256': hdr.sha(binary)})
+    target = tmp_path / 'lot'
+    hdr.prepare(SimpleNamespace(batch=str(target), root=str(tmp_path), source='device',
+                                serial='HONOR_USB_SYNTHETIC', binary=str(binary),
+                                vantages='legacy', hours='0', replace=[]))
+    assert (target / 'start.json').is_file()
+
+
+@pytest.mark.parametrize('scenario,expected_rc,expected_stop', [
+    ('complete', 0, 1), ('completed_rejected', 0, 1), ('missing', 0, 1), ('crash', 7, 0), ('sigkill', 137, 0),
+])
+def test_hdr_x86_child_completion_timeout_and_crash(tmp_path, scenario, expected_rc, expected_stop):
+    source = (ROOT / '.autoport/lib/proof_run.sh').read_text()
+    helpers = source.split('# HDR x86 helpers:', 1)[1].split('# End HDR x86 helpers.', 1)[0]
+    helpers = helpers.split('\n', 1)[1]
+    engine = tmp_path / 'engine.py'
+    engine.write_text('''import os, sys, time
+scenario = sys.argv[1]
+if scenario == 'crash': sys.exit(7)
+if scenario == 'sigkill': os.kill(os.getpid(), 9)
+if scenario in ('complete', 'completed_rejected'):
+    print('REFSET done steps=4 captured=4 compared=0 missing=0', flush=True)
+    print('hdr_paired=' + ('1' if scenario == 'completed_rejected' else '2'), flush=True)
+    print('refset_captured=4\\nrefset_steps=4', flush=True)
+time.sleep(30)
+''')
+    env = dict(os.environ, RAWLOG=str(tmp_path / 'engine.log'), ENGINE=str(engine), SCENARIO=scenario)
+    run = subprocess.run(['bash', '-c', 'set -uo pipefail\n' + helpers + '''
+log() { echo "$*" >&2; }
+TIMEOUT=3
+hdr_x86_run python3 "$ENGINE" "$SCENARIO"
+rc=$?
+printf '%s %s %s\\n' "$rc" "$HDR_STOPPED" "${HDR_XPID:-cleared}"
+'''], env=env, capture_output=True, text=True, timeout=15)
+    assert run.returncode == 0, run.stderr
+    assert run.stdout.strip() == f'{expected_rc} {expected_stop} cleared'
+    if scenario in ('complete', 'completed_rejected'):
+        assert 'final captures and pairing counters published' in run.stderr
+        assert 'timeout' not in run.stderr
+    if scenario == 'missing':
+        assert 'timeout' in run.stderr
+
+
+@pytest.mark.parametrize('trace,expected', [
+    (PENDING_FINAL_CAPTURE, 1),
+    (PENDING_FINAL_CAPTURE + '\nrefset_captured=4\nrefset_temporal_captured=4', 0),
+    ('REFSET done steps=24 captured=24 compared=0 missing=0\nrefset_temporal_samples=6\n'
+     'hdr_paired=2\nrefset_captured=24\nrefset_steps=24\nrefset_temporal_captured=24', 0),
+])
+def test_hdr_x86_waits_for_final_counters(tmp_path, trace, expected):
+    source = (ROOT / '.autoport/lib/proof_run.sh').read_text()
+    helpers = source.split('# HDR x86 helpers:', 1)[1].split('# End HDR x86 helpers.', 1)[0]
+    rawlog = tmp_path / 'engine.log'
+    rawlog.write_text(trace)
+    run = subprocess.run(['bash', '-c', 'set -uo pipefail\n' + helpers.split('\n', 1)[1] +
+                          '\nhdr_captures_complete'], env=dict(os.environ, RAWLOG=str(rawlog)),
+                         capture_output=True, text=True, timeout=10)
+    assert run.returncode == expected, run.stderr
+
+
+@pytest.mark.parametrize('paired,expected', [('24', 0), ('0', 0), ('40', 0), ('41', 1),
+                                           ('', 1), ('-1', 1), ('invalid', 1)])
+def test_hdr_x86_final_rejected_pairs_are_terminal(tmp_path, paired, expected):
+    source = (ROOT / '.autoport/lib/proof_run.sh').read_text()
+    helpers = source.split('# HDR x86 helpers:', 1)[1].split('# End HDR x86 helpers.', 1)[0]
+    rawlog = tmp_path / 'engine.log'
+    rawlog.write_text('REFSET done steps=160 captured=160 compared=0 missing=0\n'
+                      'refset_temporal_samples=2\nrefset_captured=160\nrefset_steps=160\n'
+                      'refset_temporal_captured=160\n' + ('hdr_paired=' + paired + '\n' if paired else ''))
+    run = subprocess.run(['bash', '-c', 'set -uo pipefail\n' + helpers.split('\n', 1)[1] +
+                          '\nhdr_captures_complete'], env=dict(os.environ, RAWLOG=str(rawlog)),
+                         capture_output=True, text=True, timeout=10)
+    assert run.returncode == expected, run.stderr

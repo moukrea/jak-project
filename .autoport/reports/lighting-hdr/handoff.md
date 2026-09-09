@@ -1,25 +1,30 @@
-# Handoff — lighting-hdr, essai50 : aucun USB disponible
+# Handoff — lighting-hdr, essai52 : x86 exécuté, HDR non validé
 DIRECTIVES v0ba5e280ac
 ## ÉTABLI
-Règle actuelle : USB choisi par pick_device, Honor autorisé ; toutes restrictions historiques Redmi-only sont obsolètes.
-2026-09-08T23:12:53Z : adb devices -l liste vide, rc0 ; pick_device rc3, « AUCUN appareil joint par USB » (notes/essai50/).
-Run officiel50 UTC23:13:07.664834→23:13:08.343100, rc3 en0,678s ; usb-proof-run.json : proof_exists_after=false.
-Aucune preuve actuelle, aucun appareil sélectionné/contacté ; absence de tout USB constatée cette fois, pas seulement du Redmi.
-Aucun changement rendu/harnais/build ; correction43 non-PBR shade.glsl et garde44 portail conservées.
-Revue researcher et vérification manager : aucune correction exacte supplémentaire justifiée sans nouvelle mesure ; notes/essai50/reprise.md.
+proof_run accepte désormais les lots x86 ; snapshots binaires/sources/config/OG_* scellés, plateformes distinctes, critères inchangés.
+Build gk incrémental réussi ; SHA256 e183b62155e2e97c165a41b32550dcf0e195f40519c7e74369a75ba6a4cea4f4.
+OG_SPRITE_INSTANCE=1 réutilise Sprite3 Android existant ; PATH instanced=true, ROI solaire/portail/éco présentes (instance-analysis.json).
+Portail acteur1395 : attente repin→sample ON≥11,081s/OFF≥10,759s, alpha/couleur variables ; luma115,68/129,52, blancs46/62.
+Éco acteurs10012/10013 :24captures,96événements composition ok ; ROI10012h12 blancs57,83/31, détail31,62/33,12, échec jugé.
+Soleil :36captures ; disque+rayons identifiés, lumaON193,14<minimumOFF193,89 ; pas disparition universelle des blancs démontrée.
+Cumul final :160/168couples,736captures,56erreurs ; hdr_tonemap_defects=4 ; snow8h/ciels16cellules/hutte8h manquent (final-coverage.json).
+Reprises isolées : village3 huit paires, snow zéro (OFF achromatique) ;32captures chacun, crash0, manifestes errors[].
+USB constaté absent le09/09à05:33:07Z : pick_device rc3 (notes/essai52/usb-availability.json), aucun Android testé52.
+313tests initiaux puis39ciblés finaux passent ; détails/traces dans notes/essai52/test-traces.md. Aucun validateur exécuté.
 ## TENTÉ
-AUTOPORT_BACKEND=codex AUTOPORT_PROOF_WAIT_MAX=0 bash .autoport/lib/proof_run.sh lighting-hdr device --timeout 30
-ANDROID_SERIAL absent ; enveloppe historique neutralisant fallback kill par motif, argv complet dans notes/essai50/usb-proof-run.json.
-Échec matériel en sélection USB ; aucun rejeu, ancienne preuve, test synthétique ou mesure HDR produit50 ; validateur réservé orchestrateur.
+Commandes et résultats exacts : notes/essai52/*-command.json, *-run-result.json ; preuves officielles et captures conservées.
+Campagnes essai52-x86-instance-{portal,sky,eco,coverage}, même binaire récent ; anciens lots non instanciés seulement diagnostic.
+Couverture3 20260909T053055-325144 :13cas expected region not drawn, snow15/18/21 seulement black or achromatic OFF.
+Reprises20260909T054517-344531 et20260909T054700-348832, mappings explicites conservés ; aucune substitution forcée.
+check_owner_replacement refuse village3 via clouds failed de scène non dessinée ; question signalée, garde intacte.
+L’attente jusqu’au timeout après paires rejetées est corrigée : arrêt sur derniers compteurs terminaux concordants, défauts inchangés.
+Premier script modifié pendant run a échoué après collecte ; agrégation officielle seule a restitué timestamp original, aucun proof manuel.
 ## RESTE
-Ne pas répéter identiquement sans changement USB. Dès disponibilité, sélection USB/Honor autorisée sans accord supplémentaire, campagne neuve.
-Sol : nouveau cadrage jouable localisant petites zones owner via refset.cam, contribution/matériau puis ROI couleur/luma/détail reliée case/frame/options/hash.
-Repère historique : notes/essai43/coverage-view-plan.md5–10 et notes/essai43-rendu/ground/command.json ; pas localisation owner, ne pas rejouer paire43.
-Aucun instrument Android existant identifié séparant terrain/TIE/décal/ombre dans la ROI ; pas de census/instrument neuf ni attribution inventée.
-Portail : notes/essai43-rendu/portal/command.json ; ≥10s animées après chaque reset par bras, délai réel et animation à tracer.
-portal/timing.py7–17 ne prouve que l'attente/extrait les témoins et écrase sortie historique ; ne pas le relancer inchangé.
-Résidu composition Sprite3 sans cause exacte établie ; pas de gain/blend/PBR inventé ni rejeu ablationB43, nuages/soleil41, éco30, portail44.
-Étendre vues exploitables aux autres niveaux ; cinqcas puis21niveaux×8h/ciels/intérieurs/vraie hutte par lots compatibles, absences restent échec.
-MenuOFF/persistance et crash0 requis avant livraison ; pas de chantier HD/cache/allocateur/menu ; aucun owner-ok.
-Préférence43 realtime-lighting?=#f restaurée historiquement, tests43 forçaientRT=1 ; état actuel inconnu.
-non prouvé : cinqcas corrigés, couverture finale, détails pleine résolution, animation portail≥10s, activation/fraîcheur et crash0 actuels.
+Pas de nouvelle correction esthétique livrée52 : cause des petites zones du sol et résidu composition portail non attribués.
+PBR x86 actuel=#t, Android43=#f ; ne pas attribuer leurs écarts à correction43. shade.glsl43 conservé, aucune préférence changée.
+Priorité sol vraie hutte/portail : cadrage exploitable et contribution exacte avant réglage ; pas rejouer global knees41 ni ablationB43.
+Lire replacement-guard-review.md en notes/essai52 ; ne pas effacer les3achromaties snow comme erreurs de chargement établies.
+HUT_VIEWS vide :8heures vraie hutte restent absentes ; captures320×180 ne prouvent pas détails pleine résolution.
+non prouvé : cinqcas corrigés, couverture finale21×8/ciels/intérieurs/hutte, menuOFF/persistance, fraîcheur/crash0 Android.
+Exécuter x86 via commandes notes52, DISPLAY=:0 et XAUTHORITY du Xwayland courant ; pas attendre USB pour diagnostic partagé.
+Dès USB disponible : proof_run lighting-hdr device ; aucun vieux binaire/preuve substitué, aucun owner-ok, generic réservé orchestrateur.
