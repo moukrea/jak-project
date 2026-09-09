@@ -148,6 +148,11 @@ SurfaceState s_surface;               // fil GL
 int s_last_want = -1;                 // fil GL : derniere demande tentee (mode)
 uint64_t s_switch_ok = 0, s_switch_fail = 0;
 float s_white_override = -1.f;        // PQ : debug.opengoal.hdr.out.white (nits), -1 = pas lu, 0 = absent
+// Verdict 10 (owner 09/09 : « celui-ci fait 480, mais quid d'un ecran a 1000 ? ») : le pic
+// annonce peut etre SIMULE par debug.opengoal.hdr.out.peak / OG_HDR_OUT_PEAK (nits), et
+// l'auto-test impose lui-meme un pic simule dans sa phase 3 par ce MEME chemin.
+float s_peak_knob = -1.f;             // -1 = pas lu, 0 = absent, sinon nits
+float s_test_peak = 0.f;              // auto-test : 0 = aucun, sinon nits imposes
 bool s_headroom_pending = false;      // fil GL : une demande de marge a transmettre au systeme
 float s_headroom_request = 1.f;
 
@@ -205,10 +210,42 @@ float desired_headroom() {
   return d;
 }
 
+// Le pic ANNONCE par l'ecran (HdrCapabilities.maxLuminance), ou le defaut du compositeur.
+float announced_peak_nits() {
+  int max_lum = 0;
+  {
+    std::lock_guard<std::mutex> lk(s_mu);
+    max_lum = s_sys.max_lum;
+  }
+  return max_lum > 0 ? (float)max_lum : kDefaultMaxNits;
+}
+
+// Le pic EFFECTIF : auto-test > propriete de debug > annonce.
+float peak_nits() {
+  if (s_test_peak > 0.f) {
+    return s_test_peak;
+  }
+  if (s_peak_knob < 0.f) {
+    const int v = read_int_knob("debug.opengoal.hdr.out.peak", "OG_HDR_OUT_PEAK", 0);
+    s_peak_knob = (v >= 80 && v <= 10000) ? (float)v : 0.f;
+    if (s_peak_knob > 0.f) {
+      lg::warn("[hdr-display-output] pic d'ecran SIMULE par le harnais : {} nits", s_peak_knob);
+    }
+  }
+  return s_peak_knob > 0.f ? s_peak_knob : announced_peak_nits();
+}
+
 float ratio_linear() {
   float r = (float)s_ratio_x1000.load() / 1000.f;
   if (!(r >= 1.f)) {
     r = 1.f;
+  }
+  // scRGB : la marge du systeme est celle du pic REEL ; un pic simule l'etire dans la meme
+  // proportion (c'est ce qu'un ecran a ce pic, au meme blanc SDR, accorderait).
+  const float ann = announced_peak_nits();
+  const float pk = peak_nits();
+  if (ann > 0.f && pk > 0.f && pk != ann) {
+    r *= pk / ann;
   }
   if (r > kHeadroomMax) {
     r = kHeadroomMax;
@@ -217,8 +254,11 @@ float ratio_linear() {
 }
 
 // ------------------------------------------------------------------------------- la preuve --
-// Trois phases, par image : 0 = etat charge, 1 = ON impose, 2 = OFF impose, 3 = termine.
+// Quatre phases, par image : 0 = etat charge, 1 = ON impose, 2 = OFF impose, 3 = ON impose avec un
+// pic d'ecran SIMULE (verdict 10), 4 = termine.
 constexpr uint64_t kPhaseFrames = 150;
+constexpr int kPhaseCount = 4;
+constexpr float kSimPeakNits = 1000.f;
 constexpr uint64_t kProbeEvery = 5;
 struct PhaseStats {
   uint64_t frames = 0;
@@ -231,6 +271,18 @@ struct PhaseStats {
   int last_red_bits = -1;
   int last_colorspace = -1;
   uint32_t last_mode = 0;
+  float last_ceiling = 1.f;
+  float last_peak = 0.f;
+};
+// Les sondes, cumulees PAR PHASE (1 = ON reel, 3 = ON pic simule).
+struct ProbeStats {
+  uint64_t ui_samples = 0;
+  double ui_white_sum = 0.0;   // PQ : nits ; scRGB : lineaire (1,0 = blanc SDR)
+  double ui_white_min = 1e30;
+  double ui_ref_sum = 0.0;     // valeur SDR du meme blanc, LINEAIRE (display^2,2)
+  uint64_t tm_samples = 0, tm_px = 0;
+  double tm_sum_off = 0.0, tm_sum_on = 0.0;
+  double hl_max = 0.0;         // plus haute valeur (canal max) ecrite par le tone map ON
 };
 uint64_t s_frames = 0;
 uint64_t s_forced_on_frames = 0;
@@ -243,7 +295,8 @@ int s_phase = 0;
 // premiere. On saute donc UNE image apres chaque transition, jamais plus.
 int s_skip_frames = 0;
 bool s_selftest_done = false;
-PhaseStats s_ph[3];
+PhaseStats s_ph[kPhaseCount];
+ProbeStats s_pr[kPhaseCount];
 int s_last_present_mode = 0;   // ce que push_present_uniforms a pousse pour cette image
 float s_last_ceiling = 1.f;    // ce que tonemap_ceiling() a rendu pour cette image
 int s_visible_reported = -1;   // GOAL : -1 jamais, 0/1
@@ -252,24 +305,18 @@ int s_loaded_source = -1;      // GOAL : 0 fichier, 1 auto-configuration
 int s_menu_parent = -1;        // GOAL : -1 jamais, 1 = sous RECHARGED LIGHTING, 0 = ailleurs
 int s_persisted = -3;          // relecture disque : -3 pas encore lue
 int s_defects = -1;
-int s_d[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int s_d[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // Sonde de blanc UI (probe_present) : ce que le quad final ECRIT pour un blanc (1,1,1) du jeu,
 // dans le mode courant, et ce qu'il ecrirait en recopie SDR (u_out_mode = 0) pour le meme blanc
 // — la reference « ce que le SDR montre » inclut donc le reglage de luminosite du joueur.
 GLuint s_pp_fbo = 0, s_pp_tex = 0, s_pp_white = 0;
 int s_pp_state = 0;  // 0 pas cree, 1 pret, -1 indisponible
-uint64_t s_ui_samples = 0;
-double s_ui_white_sum = 0.0;   // PQ : nits ; scRGB : lineaire (1,0 = blanc SDR)
-double s_ui_white_min = 1e30;
-double s_ui_ref_sum = 0.0;     // valeur SDR du meme blanc, LINEAIRE (display^2,2)
 // Sonde d'assombrissement (probe_tonemap) : luminance lineaire des tons moyens de la scene,
 // tone-mappee au plafond 1,0 (le SDR) et au plafond HDR courant, sur la MEME image.
 GLuint s_tm_fbo[2] = {0, 0}, s_tm_tex[2] = {0, 0};
 int s_tm_state = 0;
 constexpr int kTmW = 32, kTmH = 32;
-uint64_t s_tm_samples = 0, s_tm_px = 0;
-double s_tm_sum_off = 0.0, s_tm_sum_on = 0.0;
 
 bool measuring() {
   return autoport_proof::feature_is(kItemId) && autoport_proof::armed_for(kItemId);
@@ -277,8 +324,8 @@ bool measuring() {
 
 bool probe_window_open() {
   // Les sondes ne tournent qu'en phase ON, une image sur kProbeEvery, hors transition.
-  return measuring() && !s_selftest_done && s_phase == 1 && s_skip_frames == 0 &&
-         s_active.load() && (s_frames % kProbeEvery) == 0;
+  return measuring() && !s_selftest_done && (s_phase == 1 || s_phase == 3) &&
+         s_skip_frames == 0 && s_active.load() && (s_frames % kProbeEvery) == 0;
 }
 
 float half_to_float(uint16_t h) {
@@ -384,15 +431,27 @@ double lum_linear(float r, float g, float b) {
 }
 
 void publish_all() {
-  std::lock_guard<std::mutex> lk(s_mu);
-  autoport_proof::publish_text("hdr_out_display_caps", s_caps_text.c_str());
-  autoport_proof::publish("hdr_out_sys_reported", s_sys.reported ? 1 : 0);
-  autoport_proof::publish("hdr_out_sys_types_mask", s_sys.types);
-  autoport_proof::publish("hdr_out_platform_probed", s_plat.probed ? 1 : 0);
-  autoport_proof::publish("hdr_out_sdk_int", (uint64_t)(s_sys.sdk_int < 0 ? 0 : s_sys.sdk_int));
-  autoport_proof::publish("hdr_out_ratio_available", s_sys.ratio_available ? 1 : 0);
+  // Le verrou ne couvre que la COPIE des capacites : sdr_white_nits(), paper_white() et
+  // sdr_white_source() le reprennent (mutex non recursif — un publish_all qui le tenait
+  // pendant ces appels a fige gk x86 a l'image 105, smoke du 09/09).
+  std::string caps_text;
+  SysCaps sys;
+  bool plat_probed = false;
+  uint32_t modes = kModeNone;
+  {
+    std::lock_guard<std::mutex> lk(s_mu);
+    caps_text = s_caps_text;
+    sys = s_sys;
+    plat_probed = s_plat.probed;
+    modes = modes_locked();
+  }
+  autoport_proof::publish_text("hdr_out_display_caps", caps_text.c_str());
+  autoport_proof::publish("hdr_out_sys_reported", sys.reported ? 1 : 0);
+  autoport_proof::publish("hdr_out_sys_types_mask", sys.types);
+  autoport_proof::publish("hdr_out_platform_probed", plat_probed ? 1 : 0);
+  autoport_proof::publish("hdr_out_sdk_int", (uint64_t)(sys.sdk_int < 0 ? 0 : sys.sdk_int));
+  autoport_proof::publish("hdr_out_ratio_available", sys.ratio_available ? 1 : 0);
   autoport_proof::publish("hdr_out_hdr_sdr_ratio_x1000", (uint64_t)s_ratio_x1000.load());
-  const uint32_t modes = modes_locked();
   autoport_proof::publish("hdr_out_modes_available", modes);
   autoport_proof::publish_text("hdr_out_mode_retained", mode_name(modes));
   autoport_proof::publish("hdr_out_autoconfig_mode", modes ? 1 : 0);
@@ -417,29 +476,43 @@ void publish_all() {
   autoport_proof::publish("hdr_out_headroom_x100", (uint64_t)std::lround(headroom_linear() * 100.f));
   autoport_proof::publish("hdr_out_ceiling_x100", (uint64_t)std::lround(s_last_ceiling * 100.f));
   autoport_proof::publish("hdr_out_present_mode", (uint64_t)s_last_present_mode);
-  autoport_proof::publish("hdr_out_ui_white_samples", s_ui_samples);
-  const double ui_mean = s_ui_samples ? s_ui_white_sum / (double)s_ui_samples : 0.0;
-  const double ui_ref = s_ui_samples ? s_ui_ref_sum / (double)s_ui_samples : 0.0;
+  autoport_proof::publish("hdr_out_peak_nits", (uint64_t)std::lround(announced_peak_nits()));
+  autoport_proof::publish("hdr_out_peak_effective_nits", (uint64_t)std::lround(peak_nits()));
+  autoport_proof::publish("hdr_out_peak_sim_nits", (uint64_t)std::lround(s_test_peak));
   const bool pq = s_ph[1].last_mode == kModeHdr10Pq;
-  autoport_proof::publish("hdr_out_ui_white_nits", (uint64_t)std::lround(pq ? ui_mean : 0.0));
-  autoport_proof::publish("hdr_out_ui_white_min_nits",
-                          (uint64_t)std::lround(pq && s_ui_samples ? s_ui_white_min : 0.0));
-  autoport_proof::publish("hdr_out_ui_white_rel_x1000",
-                          (uint64_t)std::lround(pq ? (sdr_white > 0.f ? ui_mean / sdr_white * 1000.0 : 0.0)
-                                                   : ui_mean * 1000.0));
-  autoport_proof::publish("hdr_out_ui_white_ref_rel_x1000", (uint64_t)std::lround(ui_ref * 1000.0));
-  autoport_proof::publish("hdr_out_darkening_samples", s_tm_samples);
-  autoport_proof::publish("hdr_out_darkening_px", s_tm_px);
-  double dark_signed = 0.0;
-  if (s_tm_px && s_tm_sum_off > 0.0) {
-    dark_signed = 100.0 * (1.0 - s_tm_sum_on / s_tm_sum_off);
+  const char* pnames[2] = {"", "sim_"};
+  const int pidx[2] = {1, 3};
+  for (int k = 0; k < 2; k++) {
+    const ProbeStats& pr = s_pr[pidx[k]];
+    const std::string pre = std::string("hdr_out_") + pnames[k];
+    autoport_proof::publish((pre + "ui_white_samples").c_str(), pr.ui_samples);
+    const double ui_mean = pr.ui_samples ? pr.ui_white_sum / (double)pr.ui_samples : 0.0;
+    const double ui_ref = pr.ui_samples ? pr.ui_ref_sum / (double)pr.ui_samples : 0.0;
+    autoport_proof::publish((pre + "ui_white_nits").c_str(), (uint64_t)std::lround(pq ? ui_mean : 0.0));
+    autoport_proof::publish((pre + "ui_white_min_nits").c_str(),
+                            (uint64_t)std::lround(pq && pr.ui_samples ? pr.ui_white_min : 0.0));
+    autoport_proof::publish((pre + "ui_white_rel_x1000").c_str(),
+                            (uint64_t)std::lround(pq ? (sdr_white > 0.f ? ui_mean / sdr_white * 1000.0 : 0.0)
+                                                     : ui_mean * 1000.0));
+    autoport_proof::publish((pre + "ui_white_ref_rel_x1000").c_str(), (uint64_t)std::lround(ui_ref * 1000.0));
+    autoport_proof::publish((pre + "darkening_samples").c_str(), pr.tm_samples);
+    autoport_proof::publish((pre + "darkening_px").c_str(), pr.tm_px);
+    double dark_signed = 0.0;
+    if (pr.tm_px && pr.tm_sum_off > 0.0) {
+      dark_signed = 100.0 * (1.0 - pr.tm_sum_on / pr.tm_sum_off);
+    }
+    autoport_proof::publish((pre + "darkening_signed_x100").c_str(),
+                            (uint64_t)(dark_signed < 0.0 ? 0 : std::lround(dark_signed * 100.0)));
+    autoport_proof::publish((pre + "brightening_signed_x100").c_str(),
+                            (uint64_t)(dark_signed > 0.0 ? 0 : std::lround(-dark_signed * 100.0)));
+    autoport_proof::publish((pre + "darkening_pct").c_str(),
+                            (uint64_t)(dark_signed < 0.0 ? 0 : std::lround(dark_signed)));
+    autoport_proof::publish((pre + "hl_max_x1000").c_str(), (uint64_t)std::lround(pr.hl_max * 1000.0));
+    autoport_proof::publish((pre + "ceiling_x100").c_str(),
+                            (uint64_t)std::lround(s_ph[pidx[k]].last_ceiling * 100.f));
+    autoport_proof::publish((pre + "peak_used_nits").c_str(),
+                            (uint64_t)std::lround(s_ph[pidx[k]].last_peak));
   }
-  autoport_proof::publish("hdr_out_darkening_signed_x100",
-                          (uint64_t)(dark_signed < 0.0 ? 0 : std::lround(dark_signed * 100.0)));
-  autoport_proof::publish("hdr_out_brightening_signed_x100",
-                          (uint64_t)(dark_signed > 0.0 ? 0 : std::lround(-dark_signed * 100.0)));
-  autoport_proof::publish("hdr_out_darkening_pct",
-                          (uint64_t)(dark_signed < 0.0 ? 0 : std::lround(dark_signed)));
   autoport_proof::publish("hdr_out_option_visible", (uint64_t)(s_visible_reported < 0 ? 2 : s_visible_reported));
   autoport_proof::publish("hdr_out_setting_loaded", (uint64_t)(s_loaded_value < 0 ? 2 : s_loaded_value));
   autoport_proof::publish("hdr_out_setting_source", (uint64_t)(s_loaded_source < 0 ? 2 : s_loaded_source));
@@ -447,8 +520,8 @@ void publish_all() {
   autoport_proof::publish("hdr_out_persisted", (uint64_t)(s_persisted + 3));  // 0 pas lu, 1 fichier absent, 2 cle absente, 3 = #f, 4 = #t
   autoport_proof::publish("hdr_out_selftest_phase", (uint64_t)s_phase);
   autoport_proof::publish("hdr_out_selftest_done", s_selftest_done ? 1 : 0);
-  const char* names[3] = {"loaded", "on", "off"};
-  for (int p = 0; p < 3; p++) {
+  const char* names[kPhaseCount] = {"loaded", "on", "off", "onsim"};
+  for (int p = 0; p < kPhaseCount; p++) {
     std::string k = std::string("hdr_out_ph_") + names[p] + "_";
     autoport_proof::publish((k + "frames").c_str(), s_ph[p].frames);
     autoport_proof::publish((k + "active").c_str(), s_ph[p].active_frames);
@@ -475,9 +548,11 @@ void publish_all() {
     autoport_proof::publish("hdr_out_defect_7_menu_parent", (uint64_t)s_d[7]);
     autoport_proof::publish("hdr_out_defect_8_ui_white", (uint64_t)s_d[8]);
     autoport_proof::publish("hdr_out_defect_9_darkening", (uint64_t)s_d[9]);
+    autoport_proof::publish("hdr_out_defect_10_peak_adaptive", (uint64_t)s_d[10]);
+    autoport_proof::publish("hdr_out_peak_adaptive", (uint64_t)(s_d[10] ? 0 : 1));
     autoport_proof::publish("hdr_out_defects", (uint64_t)s_defects);
   } else {
-    autoport_proof::publish("hdr_out_defects", 9);  // auto-test pas au bout : ROUGE, jamais muet
+    autoport_proof::publish("hdr_out_defects", 10);  // auto-test pas au bout : ROUGE, jamais muet
   }
 }
 
@@ -528,35 +603,64 @@ void compute_verdicts() {
   //     (1,1,1) rejoue par le vrai quad final ; PQ : decode en nits contre sdr_white_nits x la
   //     valeur SDR lineaire du meme blanc ; scRGB : valeur lineaire contre cette meme reference
   //     (1,0 = blanc SDR par contrat). Tolerance 1 %.
+  const ProbeStats& pr = s_pr[1];
+  const ProbeStats& ps = s_pr[3];
   bool white_ok = false;
-  if (s_ui_samples > 0) {
-    const double ui_mean = s_ui_white_sum / (double)s_ui_samples;
-    const double ref = s_ui_ref_sum / (double)s_ui_samples;  // lineaire, 1,0 = blanc SDR
+  // Le blanc SDR de la phase 1 (pic REEL) : celui que sdr_white_nits() rend hors simulation.
+  const float real_sdr_white = (on.last_mode == kModeHdr10Pq) ? (s_white_override > 0.f ? s_white_override : announced_peak_nits()) : 0.f;
+  if (pr.ui_samples > 0) {
+    const double ui_mean = pr.ui_white_sum / (double)pr.ui_samples;
+    const double ref = pr.ui_ref_sum / (double)pr.ui_samples;  // lineaire, 1,0 = blanc SDR
     if (on.last_mode == kModeHdr10Pq) {
-      const double expect = ref * (double)sdr_white_nits();
-      white_ok = expect > 0.0 && ui_mean >= 0.99 * expect && s_ui_white_min >= 0.98 * expect;
+      const double expect = ref * (double)real_sdr_white;
+      white_ok = expect > 0.0 && ui_mean >= 0.99 * expect && pr.ui_white_min >= 0.98 * expect;
     } else if (on.last_mode == kModeScrgbLinear) {
-      white_ok = ref > 0.0 && ui_mean >= 0.99 * ref && s_ui_white_min >= 0.98 * ref;
+      white_ok = ref > 0.0 && ui_mean >= 0.99 * ref && pr.ui_white_min >= 0.98 * ref;
     }
   }
   s_d[8] = white_ok ? 0 : 1;
   // 9 : les tons moyens de la scene ne baissent pas par rapport a la sortie SDR (<= 5 %), sur
   //     la MEME image tone-mappee deux fois par le vrai programme.
   bool dark_ok = false;
-  if (s_tm_px > 0 && s_tm_sum_off > 0.0) {
-    const double dark = 100.0 * (1.0 - s_tm_sum_on / s_tm_sum_off);
+  if (pr.tm_px > 0 && pr.tm_sum_off > 0.0) {
+    const double dark = 100.0 * (1.0 - pr.tm_sum_on / pr.tm_sum_off);
     dark_ok = dark <= 5.0;
   }
   s_d[9] = dark_ok ? 0 : 1;
+  // 10 : la courbe s'adapte au pic ANNONCE. Phase 3 = ON avec un pic simule (1000 nits, ou le
+  //      double si l'ecran annonce deja >= 900), memes mesures que la phase 1 :
+  //      * scRGB : blanc SDR ANCRE (le blanc UI ne bouge pas, +-1 %), plafond plus haut, et les
+  //        hautes lumieres ecrites par le tone map montent plus haut ;
+  //      * PQ (API < 34, PQ recompose en SDR a l'echelle du pic) : le blanc de reference SUIT le
+  //        pic dans la meme proportion (+-3 %) et le plafond reste 1,0 — c'est la seule
+  //        adaptation qui existe sur ces ecrans, les hautes lumieres ne peuvent pas s'etendre.
+  const PhaseStats& onsim = s_ph[3];
+  bool peak_ok = false;
+  if (pr.ui_samples > 0 && ps.ui_samples > 0 && onsim.frames > 0 && onsim.active_frames == onsim.frames &&
+      onsim.last_peak > 0.f && on.last_peak > 0.f && onsim.last_peak != on.last_peak) {
+    const double w_real = pr.ui_white_sum / (double)pr.ui_samples;
+    const double w_sim = ps.ui_white_sum / (double)ps.ui_samples;
+    if (on.last_mode == kModeScrgbLinear && onsim.last_mode == kModeScrgbLinear) {
+      const bool anchored = w_real > 0.0 && std::fabs(w_sim / w_real - 1.0) <= 0.01;
+      const bool higher = onsim.last_ceiling > on.last_ceiling + 1e-3f && ps.hl_max > pr.hl_max * 1.01;
+      peak_ok = anchored && higher;
+    } else if (on.last_mode == kModeHdr10Pq && onsim.last_mode == kModeHdr10Pq) {
+      const double want = (double)onsim.last_peak / (double)on.last_peak;
+      const bool follows = w_real > 0.0 && std::fabs((w_sim / w_real) / want - 1.0) <= 0.03;
+      peak_ok = follows && std::fabs(on.last_ceiling - 1.f) < 1e-3f && std::fabs(onsim.last_ceiling - 1.f) < 1e-3f;
+    }
+  }
+  s_d[10] = peak_ok ? 0 : 1;
   s_defects = 0;
-  for (int i = 1; i <= 9; i++) {
+  for (int i = 1; i <= 10; i++) {
     s_defects += s_d[i];
   }
   lg::info(
-      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{}) persisted={} "
-      "mem={} ui_samples={} tm_px={}",
-      s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_d[7], s_d[8], s_d[9], s_persisted,
-      mem, s_ui_samples, s_tm_px);
+      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{}) persisted={} "
+      "mem={} ui_samples={}/{} tm_px={}/{} hl_max={:.3f}/{:.3f} ceiling={:.3f}/{:.3f}",
+      s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_d[7], s_d[8], s_d[9], s_d[10],
+      s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max, ps.hl_max,
+      on.last_ceiling, onsim.last_ceiling);
 }
 
 void selftest_step() {
@@ -576,7 +680,16 @@ void selftest_step() {
     lg::info("[hdr-display-output] auto-test : phase OFF imposee");
   } else if (s_frames == 3 * kPhaseFrames) {
     s_phase = 3;
+    s_skip_frames = 1;
+    s_test_force.store(1);
+    const float ann = announced_peak_nits();
+    s_test_peak = (ann >= 0.9f * kSimPeakNits) ? 2.f * ann : kSimPeakNits;
+    lg::info("[hdr-display-output] auto-test : phase ON imposee avec pic SIMULE {} nits (annonce {})",
+             s_test_peak, ann);
+  } else if (s_frames == 4 * kPhaseFrames) {
+    s_phase = 4;
     s_test_force.store(-1);  // le reglage du joueur reprend
+    s_test_peak = 0.f;
     s_selftest_done = true;
     compute_verdicts();
     publish_all();
@@ -751,12 +864,7 @@ float sdr_white_nits() {
   if (s_white_override > 0.f) {
     return s_white_override;
   }
-  int max_lum = 0;
-  {
-    std::lock_guard<std::mutex> lk(s_mu);
-    max_lum = s_sys.max_lum;
-  }
-  return max_lum > 0 ? (float)max_lum : kDefaultMaxNits;
+  return peak_nits();
 }
 
 const char* sdr_white_source() {
@@ -765,6 +873,12 @@ const char* sdr_white_source() {
   }
   if (s_white_override > 0.f) {
     return "pq:override_knob";
+  }
+  if (s_test_peak > 0.f) {
+    return "pq:selftest_simulated_peak";
+  }
+  if (s_peak_knob > 0.f) {
+    return "pq:debug_simulated_peak";
   }
   int max_lum = 0;
   {
@@ -805,16 +919,10 @@ float tonemap_ceiling() {
 
 void push_present_uniforms(Shader& shader) {
   const bool on = s_active.load();
-  int max_lum = 0;
-  {
-    std::lock_guard<std::mutex> lk(s_mu);
-    max_lum = s_sys.max_lum;
-  }
   s_last_present_mode = on ? (s_surface.mode == kModeScrgbLinear ? 2 : 1) : 0;
   glUniform1i(glGetUniformLocation(shader.id(), "u_out_mode"), s_last_present_mode);
   glUniform1f(glGetUniformLocation(shader.id(), "u_out_paper_white"), paper_white());
-  glUniform1f(glGetUniformLocation(shader.id(), "u_out_max_nits"),
-              max_lum > 0 ? (float)max_lum : kDefaultMaxNits);
+  glUniform1f(glGetUniformLocation(shader.id(), "u_out_max_nits"), peak_nits());
 }
 
 // ------------------------------------------------------------------------------- sondes --
@@ -876,15 +984,16 @@ void probe_present(Shader& shader) {
     measured = std::fmin(r1, std::fmin(g1, b1));
   }
   const double ref_lin = std::pow((double)std::fmax(0.f, std::fmin(rr, std::fmin(rg, rb))), 2.2);
-  s_ui_samples++;
-  s_ui_white_sum += measured;
-  s_ui_ref_sum += ref_lin;
-  if (measured < s_ui_white_min) {
-    s_ui_white_min = measured;
+  ProbeStats& pr = s_pr[s_phase];
+  pr.ui_samples++;
+  pr.ui_white_sum += measured;
+  pr.ui_ref_sum += ref_lin;
+  if (measured < pr.ui_white_min) {
+    pr.ui_white_min = measured;
   }
-  if (s_ui_samples == 1 || (s_ui_samples % 10) == 0) {
-    lg::info("[hdr-display-output] sonde blanc UI #{} : mode={} mesure={:.3f} ref_sdr_lin={:.3f} sdr_white={:.0f}",
-             s_ui_samples, s_surface.mode, measured, ref_lin, sdr_white_nits());
+  if (pr.ui_samples == 1 || (pr.ui_samples % 10) == 0) {
+    lg::info("[hdr-display-output] sonde blanc UI phase {} #{} : mode={} mesure={:.3f} ref_sdr_lin={:.3f} sdr_white={:.0f} pic={:.0f}",
+             s_phase, pr.ui_samples, s_surface.mode, measured, ref_lin, sdr_white_nits(), peak_nits());
   }
 }
 
@@ -921,26 +1030,34 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     return;
   }
   uint64_t px = 0;
-  double sum_off = 0.0, sum_on = 0.0;
+  double sum_off = 0.0, sum_on = 0.0, hl = 0.0;
   for (size_t i = 0; i + 3 < off.size() && i + 3 < on.size(); i += 4) {
+    if (!std::isfinite(on[i]) || !std::isfinite(on[i + 1]) || !std::isfinite(on[i + 2])) {
+      continue;
+    }
+    const float mon = std::fmax(on[i], std::fmax(on[i + 1], on[i + 2]));
+    if (mon > hl) {
+      hl = mon;  // jusqu'ou le tone map ON laisse monter les hautes lumieres
+    }
     const float mx = std::fmax(off[i], std::fmax(off[i + 1], off[i + 2]));
     if (!(mx == mx) || mx < 0.05f || mx > 0.85f) {
       continue;  // tons moyens seulement : ni le noir ni l'epaule
-    }
-    if (!std::isfinite(on[i]) || !std::isfinite(on[i + 1]) || !std::isfinite(on[i + 2])) {
-      continue;
     }
     px++;
     sum_off += lum_linear(off[i], off[i + 1], off[i + 2]);
     sum_on += lum_linear(on[i], on[i + 1], on[i + 2]);
   }
-  s_tm_samples++;
-  s_tm_px += px;
-  s_tm_sum_off += sum_off;
-  s_tm_sum_on += sum_on;
-  if (s_tm_samples == 1 || (s_tm_samples % 10) == 0) {
-    lg::info("[hdr-display-output] sonde tons moyens #{} : px={} off={:.4f} on={:.4f} plafond={:.3f}",
-             s_tm_samples, px, sum_off, sum_on, s_last_ceiling);
+  ProbeStats& pr = s_pr[s_phase];
+  pr.tm_samples++;
+  pr.tm_px += px;
+  pr.tm_sum_off += sum_off;
+  pr.tm_sum_on += sum_on;
+  if (hl > pr.hl_max) {
+    pr.hl_max = hl;
+  }
+  if (pr.tm_samples == 1 || (pr.tm_samples % 10) == 0) {
+    lg::info("[hdr-display-output] sonde tons moyens phase {} #{} : px={} off={:.4f} on={:.4f} hl={:.3f} plafond={:.3f}",
+             s_phase, pr.tm_samples, px, sum_off, sum_on, hl, s_last_ceiling);
   }
 }
 
@@ -965,7 +1082,7 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
   // Comptage de l'image courante dans sa phase (sauf l'image de transition, voir s_skip_frames).
   if (s_skip_frames > 0) {
     s_skip_frames--;
-  } else if (s_phase < 3) {
+  } else if (s_phase < kPhaseCount) {
     PhaseStats& ph = s_ph[s_phase];
     ph.frames++;
     ph.active_frames += on ? 1 : 0;
@@ -973,7 +1090,9 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
     ph.last_red_bits = s_surface.red_bits;
     ph.last_colorspace = s_surface.colorspace;
     ph.last_mode = s_surface.mode;
-    const bool expect_on = (s_phase == 1);
+    ph.last_ceiling = s_last_ceiling;
+    ph.last_peak = peak_nits();
+    const bool expect_on = (s_phase == 1 || s_phase == 3);
     const bool expect_off = (s_phase == 2);
     if (expect_on) {
       ph.sites_bad += (sites == 1) ? 0 : 1;

@@ -52,7 +52,11 @@
 // disque, et sur l'IMAGE DESSINEE : un blanc UI passe par le vrai quad final et relu
 // (`hdr_out_ui_white_*`), et la scene reelle tone-mappee deux fois par le vrai programme
 // `tonemap` (plafond 1,0 contre plafond HDR) pour la luminance des tons moyens
-// (`hdr_out_darkening_pct`). `hdr_out_defects` est la somme de NEUF verdicts publies un par un.
+// (`hdr_out_darkening_pct`), puis une quatrieme phase ON avec un pic d'ecran SIMULE (1000 nits,
+// par le meme chemin que `debug.opengoal.hdr.out.peak`) pour prouver que la courbe s'adapte au
+// pic annonce (`hdr_out_peak_adaptive`, verdict 10 : blanc SDR ancre, plafond et hautes lumieres
+// plus hauts en scRGB ; blanc de reference qui suit le pic en PQ recompose). `hdr_out_defects`
+// est la somme de DIX verdicts publies un par un.
 
 #include <cstdint>
 #include <functional>
