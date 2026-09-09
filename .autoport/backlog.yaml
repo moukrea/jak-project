@@ -5571,8 +5571,9 @@ items:
   out_of_scope: 'Aucune optimisation. Un seul module GPU : etendre lighting_census (SPEC lumiere 7.2,
     eau 8), jamais un second. Ne touche a aucune feature validee. Le module lighting_census n''est pas
     archive meme si l''item lighting-census est bloque.'
-  notes: 'SPEC lumiere 7.1/9 et eau 6 consomment gpu_ms_* et goal_busy_ms : cet item est leur instrument
-    commun. Point de vue : village1-hut.'
+  notes: 'Bloque par l''orchestrateur pour « prompt absent » : le fichier de consigne n''avait pas ete
+    genere avec l''item (insere le 09/09 20:33 par la session spec). Genere et verifie ; rien d''autre
+    ne manquait.'
   hits_means: cles d'instrument publiees
   proof_timeout: 300
   proof_env:
@@ -5586,6 +5587,8 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  block_reason: 'prompt absent : /home/emeric/code/jak-project/.autoport'
+  prompt: prompts/item-perf-instruments.md
 - id: perf-stock-baseline
   feature: La ligne de base du jeu STOCK sur le Redmi, et la courbe cadence selon l'echelle
   status: open
