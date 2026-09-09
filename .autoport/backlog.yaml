@@ -1,6 +1,3 @@
-# La seule verite du travail. Une feature = un item.
-# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
-# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: honor-boot-crash
@@ -26,13 +23,21 @@ items:
   deliverable: Le jeu survit au moins 600 images apres le demarrage du rendu, sur le Redmi ET sur l'appareil
     de l'owner. Le moteur emet `boot_crash_frames_survived`. Le correctif doit expliquer POURQUOI le mutex
     du loader etait invalide, pas seulement le rendre non nul.
-  known_cause: |-
-    MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge, InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre. Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).
-    PILE RESOLUE sur le libgk.so local :
-      TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV
-    Le verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) : c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou le rendu attaque le niveau `title`.
-    AUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default. Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.
-    CONTEXTE : l'owner venait de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120 Hz).
+  known_cause: "MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans\
+    \ reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour\
+    \ (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge,\
+    \ InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre.\
+    \ Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).\nPILE RESOLUE sur le libgk.so local\
+    \ :\n  TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV\nLe\
+    \ verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) :\
+    \ c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou\
+    \ le rendu attaque le niveau `title`.\nAUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive\
+    \ boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default.\
+    \ Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.\nCONTEXTE : l'owner venait\
+    \ de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A\
+    \ verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une\
+    \ regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120\
+    \ Hz)."
   out_of_scope: 'Ne pas se contenter d''un garde-fou contre le pointeur nul : nommer la cause.'
   notes: Cree par le superviseur 2026-09-05 apres diagnostic direct sur l'appareil de l'owner, branche
     en USB a sa demande.
@@ -114,15 +119,21 @@ items:
     porte les chiffres : 6 cycles sur la scene du maire, mayor-lod0 210 images cause=modele-absent, sidekick-lod0
     390 images cause=soumis-mais-non-dessine. | budget porte a 8 essais le 2026-09-06 : les essais brules
     l''ont ete faute d''appareil, pas faute d''idees.'
-  known_cause: |-
-    LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05 : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session de 14h44).
-    SCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en visait qu'un :
-      * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas la au moment de dessiner)
-      * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine (soumis au rendu, rien ne sort)
-      * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter
-    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.
-    Daxter recidive : 6 episodes longs a lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible. warp-gate-switch-lod0 : 4 episodes.
-    NPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT et pourquoi une soumission ne DESSINE pas.
+  known_cause: "LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05\
+    \ : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session\
+    \ de 14h44).\nSCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes\
+    \ DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en\
+    \ visait qu'un :\n  * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas\
+    \ la au moment de dessiner)\n  * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine\
+    \ (soumis au rendu, rien ne sort)\n  * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter\n\
+    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent\
+    \ 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le\
+    \ 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.\nDaxter recidive : 6 episodes longs a\
+    \ lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible.\
+    \ warp-gate-switch-lod0 : 4 episodes.\nNPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0\
+    \ enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des\
+    \ mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT\
+    \ et pourquoi une soumission ne DESSINE pas."
   deliverable: 'Sur la scene du maire, sur un appareil : zero cycle et zero episode long. Les deux causes
     dominantes doivent tomber a zero et etre EXPLIQUEES : `modele-absent` (130 occurrences) et `soumis-mais-non-dessine`
     (210). Le moteur emet `npc_flicker_episodes` = somme des episodes longs toutes causes.'
@@ -334,13 +345,15 @@ items:
     — invisible aux ratios entiers, visible a 45. | 2026-09-05, essai 7 : le residu est concentre dans
     UN canal d''animation immobile (16 606 us). La porte precedente lisait un modele C++ au lieu de la
     pose dessinee.'
-  deliverable: |-
-    Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement, sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :
-      (1) chaque cadence demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.
-      (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.
-      (3) `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.
-      (4) `anim_step_bitexact_30` = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne change pas d'un bit.
-    N est la somme des manquements ; zero.
+  deliverable: "Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement,\
+    \ sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :\n  (1) chaque cadence\
+    \ demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue\
+    \ s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent\
+    \ la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.\n\
+    \  (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.\n  (3)\
+    \ `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.\n  (4) `anim_step_bitexact_30`\
+    \ = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne\
+    \ change pas d'un bit.\nN est la somme des manquements ; zero."
   block_reason: 'max_retries (6) epuise — mais la cause de fond est la meme : EN ATTENTE DU REDMI. Le
     seul appareil branche est le Honor de l''owner (AREE026206000788), prete pour lire le plantage au
     demarrage ; le Redmi eae4df44, que tout le harnais adresse en dur, est debranche depuis. La preuve
@@ -376,11 +389,15 @@ items:
   owner_ok: null
   where: 'Options : un reglage de cadence qui monte au-dela de 60 (90, 120, illimite) et un jeu qui reste
     correct'
-  deliverable: |-
-    `uncap_defects` = 0, preuve sur appareil. Acquis a NE PAS CASSER : la logique recoit 60 pas par seconde reelle quelle que soit la cadence affichee, l'horloge des scenes ne derive pas, rien ne s'accelere. TROIS exigences de l'owner s'ajoutent :
-      (a) le reglage devient une LISTE DE CHOIX — 30, 45, 60, 75, 90, 120, 240, Illimite — pas un curseur.
-      (b) `uncap_ceiling_hz` publie le plafond REELLEMENT atteint : l'owner mesure 90 img/s constant a l'ecran d'intro avec la consigne a 240 et tout le reste eteint. Nommer ce qui plafonne (vsync, presentation, composition Android) ou prouver que 240 est atteint.
-      (c) la cible de l'echelle de rendu dynamique s'ADAPTE au plafond choisi : `uncap_dynscale_target_max` suit la cadence maximale, il ne doit plus etre possible de viser 60 quand on a choisi 240.
+  deliverable: "`uncap_defects` = 0, preuve sur appareil. Acquis a NE PAS CASSER : la logique recoit 60\
+    \ pas par seconde reelle quelle que soit la cadence affichee, l'horloge des scenes ne derive pas,\
+    \ rien ne s'accelere. TROIS exigences de l'owner s'ajoutent :\n  (a) le reglage devient une LISTE\
+    \ DE CHOIX — 30, 45, 60, 75, 90, 120, 240, Illimite — pas un curseur.\n  (b) `uncap_ceiling_hz` publie\
+    \ le plafond REELLEMENT atteint : l'owner mesure 90 img/s constant a l'ecran d'intro avec la consigne\
+    \ a 240 et tout le reste eteint. Nommer ce qui plafonne (vsync, presentation, composition Android)\
+    \ ou prouver que 240 est atteint.\n  (c) la cible de l'echelle de rendu dynamique s'ADAPTE au plafond\
+    \ choisi : `uncap_dynscale_target_max` suit la cadence maximale, il ne doit plus etre possible de\
+    \ viser 60 quand on a choisi 240."
   known_cause: 'srpc.cpp:491 : `(s32)(1024/target_fps)` — a 120 Hz l''horloge de scene tourne a 93,75
     % du reel. Trouve par cutscene-npc-flicker le 2026-09-05.'
   out_of_scope: Ne touche pas au pas de temps fixe lui-meme, valide par l'owner le 2026-09-05.
@@ -532,10 +549,15 @@ items:
     leur bases [...] ca doit varier en amplitude, distorsion, direction ». Les deux extremes sont refuses
     : ni sinusoide pure, ni basculement sec. Le critere tronc/cime ne jugeait que DEUX points d''un arbre
     entier, d''ou les verdicts 8 et 9.'
-  deliverable: |-
-    `wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07 (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par l'owner :
-      (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent pas.
-      (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee. Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second.
+  deliverable: "`wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07\
+    \ (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero\
+    \ paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient\
+    \ pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par\
+    \ l'owner :\n  (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les\
+    \ niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent\
+    \ pas.\n  (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de\
+    \ Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee.\
+    \ Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second."
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: to-test
@@ -4220,8 +4242,13 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: Arret USB leve pour travail x86 demande par owner. Essai50 ne prouve que indisponibilite
-    USB ; rien ne justifie arret du diagnostic/correction x86.
+  known_cause: 'REPRISE 2026-09-09 11:15 (workers Claude apres Codex). Point laisse par Codex, essai52
+    x86 : hdr_tonemap_defects=4, couverture 160/168 couples, 736 captures, IL MANQUE snow 8 h, 16 cellules
+    de ciel et les 8 heures de la vraie hutte (HUT_VIEWS vide) ; cause des petites zones du sol de la
+    hutte et residu de composition du portail NON attribues ; soleil luma ON 193,14 < min OFF 193,89.
+    Lire reports/lighting-hdr/handoff.md et notes/essai52/*. LE REDMI EST BRANCHE (eae4df44) : la preuve
+    device redevient possible, la lancer en premier sur le binaire courant sans substituer une vieille
+    preuve. Le mecanisme des blancs brules (composites C/E + double exposition) : SPEC §8 item 2.'
   deliverable: 'PRIORITE IMMEDIATE : poursuivre sous x86, sans attendre telephone. Utiliser proof_run.sh
     lighting-hdr x86 ; adapter lots HDR x86 dans allowlist harnais existante si necessaire. Construire
     et executer rendu partage, comparer ON/OFF et corriger cinqcas. device:true est verification finale
