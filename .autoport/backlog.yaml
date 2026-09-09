@@ -4441,7 +4441,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: in-progress
+  status: blocked
   priority: 18
   game: jak1
   gate:
@@ -4528,6 +4528,12 @@ items:
   - debug.opengoal.recharged=1
   - debug.opengoal.lighting=1
   proof_timeout: 240
+  block_reason: 'EN ATTENTE DU HONOR (le seul ecran HDR connu). Les corrections de l''owner sont livrees
+    (essai 3 : blanc UI = blanc SDR du systeme, sous-option Eclairage Recharge, verdicts 7-10) et instrumentees
+    (essai 5 : ratio HDR/SDR par image). Mais sans ecran HDR branche, les mesures de blanc UI, d''assombrissement
+    et d''adaptation au pic ont ZERO echantillon sur x86 (proof 21:40 : samples=0, defects=4). Continuer
+    brulerait le budget (3/6 deja) pour rien. Rouvrir des que le Honor est vu par adb ; pendant ce temps
+    la chaine avance sur l''occlusion ambiante.'
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
