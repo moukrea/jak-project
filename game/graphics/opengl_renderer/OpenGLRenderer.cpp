@@ -23,6 +23,7 @@
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
 #include "game/graphics/opengl_renderer/LoadingScreenTextures.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
+#include "game/graphics/opengl_renderer/PrePass.h"
 #ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
 #endif
@@ -909,7 +910,7 @@ void OpenGLRenderer::init_bucket_renderers_jak1() {
   }
   // Grecharged-ambient-occlusion: the AO pass is not a bucket renderer, so hook its
   // shader init here alongside the bucket renderers (once, after the loop).
-  m_ao_pass.init_shaders(m_render_state.shaders);
+  prepass::init_shaders(m_render_state.shaders);
   sky_cpu_blender->init_textures(*m_render_state.texture_pool, m_version);
   sky_gpu_blender->init_textures(*m_render_state.texture_pool, m_version);
 
@@ -1655,31 +1656,14 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
   ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
   m_render_state.next_bucket += 16;
 
-  // Grecharged-ambient-occlusion defect #7 (water exclusion): latch the AO mode ONCE per
-  // frame — the override cache re-reads every 250ms and can flip mid-frame, and the
-  // stencil water-tag choreography below (tag at the ocean bucket, maintain through the
-  // opaque buckets, consume + clear at the composite) must run all-or-nothing.
-  const bool ao_frame_on = AmbientOcclusionPass::effective_mode() != 0;
-
   lighting_census::roi_frame_begin();
+  prepass::frame_begin(&m_render_state);
 
   // loop over the buckets!
   for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
     auto& renderer = m_bucket_renderers[bucket_id];
     auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
     g_current_renderer = renderer->name_and_id();
-    // Grecharged-ambient-occlusion defect #7: ocean-mid/far draws BEFORE the post-opaque
-    // AO composite and writes depth (flush_mid: GL_ALWAYS + depth-write), so without a
-    // mask the composite darkens open water (owner: AO must never touch water). Tag its
-    // pixels in the stencil buffer (zeroed by the frame clear); the composite skips
-    // stencil!=0. Water buckets proper (WATER_TEX/OCEAN_NEAR, 57+) draw after the
-    // composite and were never affected.
-    if (ao_frame_on && bucket_id == (int)jak1::BucketId::OCEAN_MID_AND_FAR) {
-      glEnable(GL_STENCIL_TEST);
-      glStencilMask(0xFF);
-      glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-      glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    }
     // Grender-split: the DirectRenderer UI buckets (DEBUG/DEBUG_NO_ZBUF/SUBTITLE
     // carry all 2D text/HUD numbers/menu/subtitles) come after the 3D scene. Make
     // sure the native UI pass has begun before them — a fallback for the case where
@@ -1747,6 +1731,7 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     // trois images plus tard : aucune synchronisation, aucune image perdue.
     lighting_census::pass_begin(renderer->name_and_id().c_str());
     const auto roi = lighting_census::roi_before();
+    prepass::proof_before_bucket((int)bucket_id);
     renderer->render(dma, &m_render_state, bucket_prof);
     lighting_census::roi_after(roi, "bucket", (int)bucket_id, renderer->name_and_id().c_str());
     lighting_census::pass_end();
@@ -1762,36 +1747,11 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     vif_interrupt_callback(bucket_id);
     m_category_times[(int)m_bucket_categories[bucket_id]] += bucket_prof.get_elapsed_time();
 
-    // defect #7: after the ocean bucket, every later opaque draw that covers a tagged
-    // pixel un-tags it (depth-pass REPLACE 0), so only water that stays VISIBLE keeps
-    // the tag at composite time (terrain/characters over water get normal AO).
-    if (ao_frame_on && bucket_id == (int)jak1::BucketId::OCEAN_MID_AND_FAR) {
-      glStencilFunc(GL_ALWAYS, 0, 0xFF);
-    }
-
-    // Grecharged-ambient-occlusion: screen-space AO over the OPAQUE scene only. Runs at the
-    // same post-opaque insertion point: every alpha bucket (ALPHA_TEX/water/sprites) and the
-    // recharged grass cards draw AFTER this, so transparent surfaces neither contribute to the
-    // AO depth nor get darkened (the owner's #1 alpha-artifact risk is excluded by construction).
-    if (bucket_id == 31 - 1 && ao_frame_on) {
-      {
-        auto p = prof.make_scoped_child("ao-draw");
-        m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
-      }
-      // defect #7: water tag consumed — zero the stencil for the shadow-volume bucket
-      // (SHADOW=47 INCR/DECRs from 0 and draws where NOTEQUAL 0; a leftover tag would
-      // paint shadow on open water) and stop tag maintenance for the alpha buckets.
-      // The stencil clear honors the scissor box, so drop it for the clear.
-      const GLboolean had_scissor = glIsEnabled(GL_SCISSOR_TEST);
-      if (had_scissor) {
-        glDisable(GL_SCISSOR_TEST);
-      }
-      glStencilMask(0xFF);
-      glClear(GL_STENCIL_BUFFER_BIT);
-      glDisable(GL_STENCIL_TEST);
-      if (had_scissor) {
-        glEnable(GL_SCISSOR_TEST);
-      }
+    // lighting-ao-indirect : l'AO n'est plus composee ici — elle est estimee AVANT le premier
+    // draw ombre (PrePass.cpp, on_first_camera) et appliquee par shade(). Il ne reste que la
+    // sonde de preuve, inerte hors mesure.
+    if (bucket_id == 31 - 1) {
+      prepass::proof_post_opaque(&m_render_state);
     }
 
     // hack to draw the collision mesh in the middle the drawing

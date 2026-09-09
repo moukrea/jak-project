@@ -176,6 +176,16 @@ uniform float u_rt_green_amp;    // green-sun amplitude scale vs the day sun (de
 
 #include "pbr_helpers.glsl"
 
+// lighting-ao-indirect (SPEC-refonte-lumiere §4.7) : L'AO D'ECRAN, LUE ICI ET NULLE PART AILLEURS.
+// La texture est la sortie de l'estimateur (PrePass.cpp), calculee sur la prepasse de profondeur
+// AVANT le premier draw ombre ; elle est echantillonnee par gl_FragCoord et multipliee au SEUL
+// terme indirect, en lineaire, avant le tone map. Le composite d'image et son masque de
+// luminance n'existent plus.
+uniform sampler2D tex_screen_ao;    // R8, unite 8 (PrePass::bind_screen_ao)
+uniform int u_screen_ao_on;         // 0 = pas d'AO ; 1 = appliquee a l'indirect ; 2 = vue de debug
+uniform vec2 u_screen_ao_inv_size;  // 1 / taille du FBO de rendu (gl_FragCoord -> uv)
+uniform int u_ao_proof;             // 1 sur l'image sondee : la sortie est un jeu de DRAPEAUX
+
 // ── Surface : TOUT ce que l'hote a le droit de decider ──────────────────────────────────────
 // Rien ici n'est un choix de composite : ce sont des grandeurs geometriques et d'apparence.
 struct Surface {
@@ -196,8 +206,13 @@ struct Surface {
 
 // Rend la couleur ombree. Le brouillard, l'alpha et le discard restent a l'hote : ce n'est pas
 // de l'eclairage.
-vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 f_disp_diag2) {
+// Le corps de l'ombrage. `sao` est l'AO d'ecran de ce fragment (1 = rien d'occulte) ; c'est le
+// SEUL parametre par lequel elle entre, ce qui permet a shade() de l'evaluer deux fois.
+vec4 shade_body(in Surface s, float sao, out float f_disp_cover, out vec3 f_disp_diag, out vec3 f_disp_diag2) {
   vec4 color = s.base;
+  // L'AO en LINEAIRE sur une base encodee gamma : (base^2.2 * sao)^(1/2.2) == base * sao^(1/2.2).
+  float ao_mul = (sao >= 1.0) ? 1.0 : pow(max(sao, 0.0), 1.0 / 2.2);
+  bool ao_applied = false;
   f_disp_cover = 0.0;
   f_disp_diag = vec3(0.0);
   f_disp_diag2 = vec3(0.0);
@@ -363,6 +378,7 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
         // tessellation path, so only this one forwards a real varying.
         float tess_disp_w = s.tess_disp_w;
         #include "pbr_fused.glsl"
+        ao_applied = true;  // pbr_fused.glsl a multiplie sa part ambiante par `sao`
       // Le composite D (« BAKED AMBIENT », projection par sondes) etait garde par
       // `u_rt_probe_on != 0`. Son SEUL ecrivain etait FollowProbe::update_and_bind, qui
       // poussait la constante 0 inconditionnellement a chaque draw : la branche n'a jamais
@@ -406,7 +422,12 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
         if (rt_m1 > rt_m0 + 1e-5) {
           rt_g = min(rt_g, clamp((0.995 - rt_m0) / (rt_m1 - rt_m0), 0.0, 1.0));
         }
-        color.rgb = color.rgb + (rt_lit - color.rgb) * rt_g;
+        // lighting-ao-indirect : le supplement DIRECT (rt_lit - base) est calcule sur la base
+        // NON occultee et s'ajoute intact ; l'AO ne multiplie que la base cuite — l'indirect,
+        // jusqu'a ce que lighting-bake le separe du soleil cuit. Porte : ao_direct_leak_px.
+        vec3 rt_sup = (rt_lit - color.rgb) * rt_g;
+        color.rgb = color.rgb * ao_mul + rt_sup;
+        ao_applied = true;
         if (u_pbr_debug == 1) {
           color.rgb = vec3(ndl);
         } else if (u_pbr_debug == 2) {
@@ -690,6 +711,8 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
       vec3 indirect_baked = albedo * baked_gi * ao * u_pbr_indirect;
       vec3 indirect_rt = albedo * u_pbr_ambient * ao;
       vec3 indirect = mix(indirect_rt, indirect_baked, bakedw);
+      indirect *= sao;  // lighting-ao-indirect : AO d'ecran sur le seul indirect, en lineaire
+      ao_applied = true;
       vec3 lit = direct + indirect;
       // PLAYTEST#1 #3: LOCAL environment IBL specular — the reflection consumer, applied ONLY on
       // genuinely reflective materials (this is the Cook-Torrance PBR path with real metal/roughness).
@@ -776,6 +799,44 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
       }
     }
 #endif
+  if (!ao_applied) {
+    // Chemins sans terme direct separe (rendu d'origine sous eclairage recharge, receveurs
+    // legacy E) : toute la base est de l'indirect cuit, l'AO la multiplie entiere.
+    color.rgb *= ao_mul;
+  }
   return color;
+}
+
+// L'interface des hotes, INCHANGEE : echantillonne l'AO d'ecran, appelle le corps, et sous
+// mesure (u_ao_proof) evalue le corps une seconde fois avec AO = 1 pour sortir les drapeaux de
+// la porte a la place de la couleur :
+//   R = fuite sur le direct : |(c_ao - c_1) - (ao_mul - 1) * base| > 2e-4. `base` est une
+//       ENTREE de l'ombrage et ao_mul une fonction fixe de l'echantillon : la porte compare la
+//       sortie REELLE du programme a une grandeur qu'il ne fabrique pas lui-meme.
+//   G = l'indirect a recu l'AO (sao < 1 et la couleur a bouge).
+//   B = chemin exclu de la porte (B, C, E : leur indirect n'est pas `base`), compte a part.
+vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 f_disp_diag2) {
+  float sao = 1.0;
+  if (u_screen_ao_on != 0) {
+    sao = clamp(texture(tex_screen_ao, gl_FragCoord.xy * u_screen_ao_inv_size).r, 0.0, 1.0);
+  }
+  vec4 c = shade_body(s, sao, f_disp_cover, f_disp_diag, f_disp_diag2);
+  if (u_ao_proof != 0) {
+    float d0;
+    vec3 d1, d2;
+    vec4 c1 = shade_body(s, 1.0, d0, d1, d2);
+    float ao_mul = (sao >= 1.0) ? 1.0 : pow(max(sao, 0.0), 1.0 / 2.2);
+    vec3 delta = c.rgb - c1.rgb;
+    vec3 resid = abs(delta - (ao_mul - 1.0) * s.base.rgb);
+    float leak = max(resid.r, max(resid.g, resid.b));
+    float changed = max(abs(delta.r), max(abs(delta.g), abs(delta.b)));
+    float hit = (sao < 0.999 && changed > 1e-4) ? 1.0 : 0.0;
+    float excl = (u_pbr_mode != 0 || (u_rt_light_on == 0 && u_pbr_shadow_on != 0)) ? 1.0 : 0.0;
+    return vec4(leak > 2e-4 ? 1.0 : 0.0, hit, excl, 1.0);
+  }
+  if (u_screen_ao_on == 2) {
+    c.rgb = vec3(sao);  // vue de debug : le terme d'AO tel qu'il est lu
+  }
+  return c;
 }
 // ================= @shade-model-end =================

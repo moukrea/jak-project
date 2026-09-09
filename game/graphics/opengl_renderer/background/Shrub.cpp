@@ -49,6 +49,27 @@ void Shrub::init_shaders(ShaderLibrary& shaders) {
   m_uniforms.decal = glGetUniformLocation(shaders[ShaderId::SHRUB].id(), "decal");
 }
 
+// lighting-ao-indirect : prepasse de profondeur vue camera. Programme PREPASS_WORLD actif,
+// FBO / viewport / etat de profondeur poses par prepass::on_first_camera ; on ne fait que lier
+// et dessiner. Meme draw que la passe soleil : la liste GL_TRIANGLES assainie
+// (caster_index_buffer, slivers inter-instances retires), jamais le flux de strips brut.
+// caster_index_buffer n'est rempli que sous OG_FEAT_PBR (update_load) : hors de la, le compte
+// reste 0 et rien n'est dessine.
+uint64_t Shrub::draw_depth_prepass(SharedRenderState* /*rs*/) {
+  uint64_t total = 0;
+  for (auto& tree : m_trees) {
+    if (tree.caster_index_count == 0) {
+      continue;
+    }
+    glBindVertexArray(tree.vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
+    lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
+    glDrawElements(GL_TRIANGLES, tree.caster_index_count, GL_UNSIGNED_INT, nullptr);
+    total += (uint64_t)tree.caster_index_count;
+  }
+  return total;
+}
+
 void Shrub::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfilerNode& prof) {
   if (!m_enabled) {
     while (dma.current_tag_offset() != render_state->next_bucket) {

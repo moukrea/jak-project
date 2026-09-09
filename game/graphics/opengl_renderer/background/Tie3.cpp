@@ -1164,6 +1164,82 @@ void Tie3::push_tie_sway_uniforms(GLuint program, u64 frame_idx, const char* pas
   foliage_wind::push_uniforms(program, frame_idx, pass);
 }
 
+#ifdef OG_FEAT_PBR
+// Grecharged-pbr-materials round-5 / ROUND 2 : plages d'indices statiques COMPLETES d'une
+// categorie dans tree.index_buffer, construites une fois par arbre et par categorie. Chaque
+// StripDraw a ses vis_groups qui pavent son intervalle du buffer complet : le total d'indices
+// du draw est la somme des num_inds de ses groupes ; les draws adjacents sont coalesces.
+// Keye par categorie : NORMAL et NORMAL_ENVMAP occupent des intervalles distincts du meme
+// buffer et ont chacun leur cache (pas d'ecrasement, pas de double dessin).
+void Tie3::ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category) {
+  const int cast_cat = (int)category;
+  const bool env_cat = (category == tfrag3::TieCategory::NORMAL_ENVMAP);
+  auto& ranges = env_cat ? tree.pbr_full_ranges_env : tree.pbr_full_ranges;
+  bool& ranges_built = env_cat ? tree.pbr_full_ranges_env_built : tree.pbr_full_ranges_built;
+  if (ranges_built) {
+    return;
+  }
+  ranges.clear();
+  for (size_t di = tree.category_draw_indices[cast_cat];
+       di < tree.category_draw_indices[cast_cat + 1]; di++) {
+    const auto& draw = (*tree.draws)[di];
+    u32 count = 0;
+    for (const auto& vg : draw.vis_groups) {
+      count += vg.num_inds;
+    }
+    if (count == 0) {
+      continue;
+    }
+    u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
+    if (!ranges.empty() && ranges.back().first + ranges.back().second == first) {
+      ranges.back().second += count;  // coalesce adjacent draws
+    } else {
+      ranges.emplace_back(first, count);
+    }
+  }
+  ranges_built = true;
+}
+#endif
+
+// lighting-ao-indirect : prepasse de profondeur vue camera. Programme PREPASS_WORLD actif,
+// FBO / viewport / etat de profondeur poses par prepass::on_first_camera ; on ne fait que lier
+// et dessiner les plages statiques completes NORMAL + NORMAL_ENVMAP. Le chemin VENT
+// (render_tree_wind, wind_vertex_index_buffer, instances a matrice) est EXCLU — meme trou que
+// la passe soleil.
+uint64_t Tie3::draw_depth_prepass(SharedRenderState* /*rs*/) {
+#ifdef OG_FEAT_PBR
+  // La prepasse tourne AVANT le premier draw_matching_draws_for_tree de l'image : le restart
+  // de strip (UINT32_MAX) doit etre arme ici, comme la-bas.
+#ifdef __ANDROID__
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
+  glEnable(GL_PRIMITIVE_RESTART);
+  glPrimitiveRestartIndex(UINT32_MAX);
+#endif
+  uint64_t total = 0;
+  for (auto& tree : m_trees[lod()]) {
+    if (tree.draws == nullptr) {
+      continue;
+    }
+    ensure_tie_full_ranges(tree, tfrag3::TieCategory::NORMAL);
+    ensure_tie_full_ranges(tree, tfrag3::TieCategory::NORMAL_ENVMAP);
+    glBindVertexArray(tree.vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
+    for (const auto* ranges : {&tree.pbr_full_ranges, &tree.pbr_full_ranges_env}) {
+      for (const auto& r : *ranges) {
+        lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
+        glDrawElements(tree.draw_mode, r.second, GL_UNSIGNED_INT,
+                       (void*)((size_t)r.first * sizeof(u32)));
+        total += (uint64_t)r.second;
+      }
+    }
+  }
+  return total;
+#else
+  return 0;
+#endif
+}
+
 void Tie3::draw_matching_draws_for_tree(int idx,
                                         int geom,
                                         const TfragRenderSettings& settings,
@@ -1323,32 +1399,11 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       // total index count is the sum of its groups' num_inds. ROUND 2: keyed by category
       // so NORMAL and NORMAL_ENVMAP each get their own cached ranges (no clobber, no
       // double-cast — the two categories occupy distinct index spans in the same buffer).
-      const int cast_cat = (int)category;
       const bool env_cat = (category == tfrag3::TieCategory::NORMAL_ENVMAP);
-      auto& ranges = env_cat ? tree.pbr_full_ranges_env : tree.pbr_full_ranges;
-      bool& ranges_built = env_cat ? tree.pbr_full_ranges_env_built : tree.pbr_full_ranges_built;
-      if (!ranges_built) {
-        ranges.clear();
-        for (size_t di = tree.category_draw_indices[cast_cat];
-             di < tree.category_draw_indices[cast_cat + 1]; di++) {
-          const auto& draw = (*tree.draws)[di];
-          u32 count = 0;
-          for (const auto& vg : draw.vis_groups) {
-            count += vg.num_inds;
-          }
-          if (count == 0) {
-            continue;
-          }
-          u32 first = draw.unpacked.idx_of_first_idx_in_full_buffer;
-          if (!ranges.empty() &&
-              ranges.back().first + ranges.back().second == first) {
-            ranges.back().second += count;  // coalesce adjacent draws
-          } else {
-            ranges.emplace_back(first, count);
-          }
-        }
-        ranges_built = true;
-      }
+      // lighting-ao-indirect : le constructeur paresseux vit dans ensure_tie_full_ranges,
+      // partage avec la prepasse de profondeur d'AO.
+      ensure_tie_full_ranges(tree, category);
+      const auto& ranges = env_cat ? tree.pbr_full_ranges_env : tree.pbr_full_ranges;
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
       for (const auto& r : ranges) {
         lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);

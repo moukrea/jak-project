@@ -135,7 +135,6 @@ class OpenGLRenderer {
   FullScreenDraw m_blackout_renderer;
   CollideMeshRenderer m_collide_renderer;
   GrassRenderer m_grass_renderer;  // Grecharged-grass-poc (jak1 training)
-  AmbientOcclusionPass m_ao_pass;  // Grecharged-ambient-occlusion (SSAO/HBAO/GTAO)
 
   float m_last_pmode_alp = 1.;
   bool m_enable_fast_blackout_loads = true;

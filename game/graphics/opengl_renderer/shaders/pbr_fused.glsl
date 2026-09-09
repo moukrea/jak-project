@@ -676,6 +676,10 @@
         float fao_mul = mix(ao, 1.0, 0.55 * fdirw);
         vec3 fbase_disp = max(s.baked.rgb * T0p.rgb, vec3(0.0)) * fmod * fdetail * fao_mul;
         vec3 fbase_lin = pow(fbase_disp, vec3(2.2));
+        // lighting-ao-indirect : l'AO d'ECRAN (`sao`, parametre de shade_body) sur la seule part
+        // ambiante de la base (1 - fdirw), en lineaire ; les soleils (fdirw -> 1) ne sont pas
+        // occultes. Chemin exclu de la porte ao_direct_leak_px : son indirect n'est pas `base`.
+        fbase_lin *= mix(sao, 1.0, fdirw);
         // REOPEN ENERGY CONSERVATION + SPECULAR OCCLUSION: kd = (1-F)(1-metal) on the baked
         // diffuse so the specular never ADDS free energy on top of the full baked; and the
         // BAKED-DETAIL luminance gates the specular — a crevice the baked lighting says is
@@ -760,6 +764,8 @@
         float ka004 = min(kr.x * kr.x, exp2(-9.28 * NdV)) * kr.x + kr.y;
         vec2 kAB = vec2(-1.04, 1.04) * ka004 + vec2(kr.z, kr.w);
         vec3 famb_spec = famb_env * (F0 * kAB.x + kAB.y);
+        // SPEC §4.7 : occlusion speculaire derivee de l'AO d'ecran, sur le seul speculaire ambiant.
+        famb_spec *= clamp(pow(NdV + sao, rough * rough) - 1.0 + sao, 0.0, 1.0);
         if ((u_pbr_bisect & 4) != 0) famb_spec = vec3(0.0);  // bisect: ambient/IBL specular off
         // EMISSIVE (bit 64): unlit, added on top — glows in full shadow / at night.
         vec3 emissive = ((u_pbr_mode & 64) != 0 && (u_pbr_bisect & 32) == 0)

@@ -633,7 +633,7 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::AO_HBAO) = {"ao_hbao", version};
   at(ShaderId::AO_GTAO) = {"ao_gtao", version};
   at(ShaderId::AO_BLUR) = {"ao_blur", version};
-  at(ShaderId::AO_COMPOSITE) = {"ao_composite", version};
+  at(ShaderId::PREPASS_WORLD) = {"prepass_world", version};
 #ifdef OG_FEAT_PBR
   at(ShaderId::PBR_DEPTH) = {"pbr_depth", version};
   // REOPEN #3 TESSELLATION: only build the tess program on a tess-capable context; on a

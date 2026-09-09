@@ -6,6 +6,7 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+#include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/pipelines/opengl.h"
 
@@ -23,7 +24,7 @@ struct EtieUniforms {
   GLuint persp0, persp1, cam_no_persp, envmap_tod_tint, decal;
 };
 
-class Tie3 : public BucketRenderer {
+class Tie3 : public BucketRenderer, public prepass::DepthContributor {
  public:
   // by default, only render the specified category on the call to render.
   // to render the other categories, use the Tie3AnotherCategory renderer below.
@@ -90,7 +91,21 @@ class Tie3 : public BucketRenderer {
 
   int lod() const { return Gfx::g_global_settings.lod_tie; }
 
+  // lighting-ao-indirect : contributeur de la prepasse de profondeur (PrePass.h). Dessine les
+  // plages statiques completes NORMAL + NORMAL_ENVMAP de chaque arbre du LOD courant ; le chemin
+  // VENT (instances a matrice) est exclu, comme dans la passe soleil.
+  const char* prepass_kind() const override { return "tie"; }
+  const std::string& prepass_level_name() const override { return m_level_name; }
+  uint64_t draw_depth_prepass(SharedRenderState* rs) override;
+
  private:
+  struct Tree;
+#ifdef OG_FEAT_PBR
+  // Construit paresseusement (une fois par arbre et par categorie) les plages d'indices
+  // statiques COMPLETES de la categorie dans tree.index_buffer : pbr_full_ranges (NORMAL) ou
+  // pbr_full_ranges_env (NORMAL_ENVMAP). Partage par la passe soleil et la prepasse d'AO.
+  static void ensure_tie_full_ranges(Tree& tree, tfrag3::TieCategory category);
+#endif
   void load_from_fr3_data(const LevelData* loader_data);
   // Grecharged-foliage-wind3 (defaut D2) : pose amplitude / temps / direction du balancement du
   // TIE STATIQUE sur le programme actif. Appelee apres `first_tfrag_draw_setup`, qui vient de

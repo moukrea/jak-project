@@ -1,8 +1,6 @@
 #include "AmbientOcclusion.h"
 #include "game/graphics/origin_ablate.h"
 
-#include "game/graphics/opengl_renderer/hdr.h"
-
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -21,15 +19,13 @@
 // ============================================================================
 // Grecharged-ambient-occlusion
 // ============================================================================
-// Screen-space AO composited over the OPAQUE scene at the post-opaque bucket-31
-// insertion point (before grass / alpha buckets). Three interchangeable estimators
-// keyed off recharged_ao_mode; per-quality resolution scale off recharged_ao_quality.
-// The depth source is the render FBO's depth attachment sampled as a texture (the
-// FBO is created with a depth *texture* whenever AO is on, non-multisampled; when the
-// scene is multisampled we blit-resolve depth into an owned full-res depth texture).
+// Three interchangeable estimators keyed off recharged_ao_mode; per-quality resolution
+// scale off recharged_ao_quality.
 //
-// OFF == stock: when effective_mode()==0 this whole pass is skipped and the render FBO
-// is built with the stock renderbuffer depth attachment.
+// lighting-ao-indirect (SPEC §4.7) : la source de profondeur est la texture de la PREPASSE
+// (PrePass.cpp), jamais le FBO de rendu ; la sortie est une texture R8 pleine resolution
+// echantillonnee par shade.glsl. Rien n'est compose sur l'image ici. OFF == stock : quand
+// effective_mode()==0 rien de tout ceci ne tourne (ni la prepasse).
 
 // ---------------------------------------------------------------------------
 // Live-tunable mode/quality resolution.
@@ -188,17 +184,6 @@ AmbientOcclusionPass::~AmbientOcclusionPass() {
   // GL context is generally torn down before renderers; deleting 0 handles is a no-op
   // and the driver/context teardown reclaims anything still live. Kept minimal.
   free_targets();
-  if (m_depth_resolve_fbo) {
-    glDeleteFramebuffers(1, &m_depth_resolve_fbo);
-    glDeleteTextures(1, &m_depth_resolve_tex);
-    glDeleteTextures(1, &m_depth_resolve_color);
-  }
-  if (m_scene_fbo) {
-    glDeleteFramebuffers(1, &m_scene_fbo);
-    glDeleteTextures(1, &m_scene_tex);
-    m_scene_fbo = 0;
-    m_scene_tex = 0;
-  }
   if (m_quad_vbo) {
     glDeleteBuffers(1, &m_quad_vbo);
   }
@@ -298,77 +283,6 @@ void AmbientOcclusionPass::ensure_targets(int ao_w, int ao_h, int full_w, int fu
   }
 }
 
-void AmbientOcclusionPass::ensure_depth_resolve(int w, int h) {
-  if (m_depth_resolve_fbo && m_depth_resolve_w == w && m_depth_resolve_h == h) {
-    return;
-  }
-  if (m_depth_resolve_fbo) {
-    glFinish();  // defect #6: same Adreno deferred-delete hazard class as free_targets
-    glDeleteFramebuffers(1, &m_depth_resolve_fbo);
-    glDeleteTextures(1, &m_depth_resolve_tex);
-    glDeleteTextures(1, &m_depth_resolve_color);
-    m_depth_resolve_fbo = 0;
-  }
-  m_depth_resolve_w = w;
-  m_depth_resolve_h = h;
-  glGenFramebuffers(1, &m_depth_resolve_fbo);
-  glBindFramebuffer(GL_FRAMEBUFFER, m_depth_resolve_fbo);
-
-  glGenTextures(1, &m_depth_resolve_tex);
-  glBindTexture(GL_TEXTURE_2D, m_depth_resolve_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, w, h, 0, GL_DEPTH_STENCIL,
-               GL_UNSIGNED_INT_24_8, nullptr);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D,
-                         m_depth_resolve_tex, 0);
-
-  // A tiny R8 color attachment guarantees completeness on both GL4.1 and GLES3.2.
-  glGenTextures(1, &m_depth_resolve_color);
-  glBindTexture(GL_TEXTURE_2D, m_depth_resolve_color);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                         m_depth_resolve_color, 0);
-  GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
-  glDrawBuffers(1, bufs);
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    lg::error("AO: depth-resolve FBO incomplete ({}x{})", w, h);
-  }
-}
-
-void AmbientOcclusionPass::ensure_scene_copy(int w, int h) {
-  if (m_scene_fbo && m_scene_w == w && m_scene_h == h) {
-    return;
-  }
-  if (m_scene_fbo) {
-    glFinish();  // same Adreno deferred-delete hazard class as free_targets
-    glDeleteFramebuffers(1, &m_scene_fbo);
-    glDeleteTextures(1, &m_scene_tex);
-    m_scene_fbo = 0;
-  }
-  m_scene_w = w;
-  m_scene_h = h;
-  glGenTextures(1, &m_scene_tex);
-  glBindTexture(GL_TEXTURE_2D, m_scene_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glGenFramebuffers(1, &m_scene_fbo);
-  glBindFramebuffer(GL_FRAMEBUFFER, m_scene_fbo);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_scene_tex, 0);
-  GLenum bufs[1] = {GL_COLOR_ATTACHMENT0};
-  glDrawBuffers(1, bufs);
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    lg::error("AO: scene-copy FBO incomplete ({}x{})", w, h);
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Uniform upload helper: the shared world<->screen transform uniforms every AO/blur
 // pass needs. Uploads camera + inverse + hvdf + fog + cam_pos + sizes.
@@ -398,16 +312,16 @@ void upload_common_uniforms(GLuint id,
 
 }  // namespace
 
-void AmbientOcclusionPass::render(SharedRenderState* rs,
-                                  ScopedProfilerNode& /*prof*/,
-                                  Fbo* render_fbo,
-                                  bool estimate) {
-  if (!render_fbo || !render_fbo->valid || !m_shaders) {
-    return;
+bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
+                                    GLuint depth_tex,
+                                    int depth_w,
+                                    int depth_h) {
+  if (!m_shaders || depth_tex == 0 || depth_w <= 0 || depth_h <= 0) {
+    return false;
   }
   const int mode = effective_mode();  // 1=SSAO,2=HBAO,3=GTAO
   if (mode == 0) {
-    return;
+    return false;
   }
   int quality = effective_quality();
   if (quality < 0) {
@@ -416,12 +330,12 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   if (quality > 2) {
     quality = 2;
   }
-  const int dbg = effective_debug();  // 0=off, 1=view blurred AO term, 2=view raw estimator debug (depth bands)
+  const int dbg = effective_debug();  // 2 = raw estimator debug (depth bands), sinon 0
 
   // (1) resolution scale by quality
   const float scale = (quality == 0) ? 0.25f : (quality == 1) ? 0.5f : 1.0f;
-  const int src_w = render_fbo->width;    // scene / depth resolution (render-scale sized)
-  const int src_h = render_fbo->height;
+  const int src_w = depth_w;  // depth resolution (render-scale sized)
+  const int src_h = depth_h;
   const int out_w = (m_hint_w > 0) ? m_hint_w : src_w;  // AO/blur target sizing: keyed to the
   const int out_h = (m_hint_h > 0) ? m_hint_h : src_h;  // WINDOW so render-scale changes never
                                                         // recreate the AO chain (no churn/blink)
@@ -430,11 +344,6 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
 
   // (2a) pure-CPU early-outs FIRST — after this point the function must not return
   // without running the state-restore block at the end.
-  if (!render_fbo->multisampled &&
-      (!render_fbo->zbuf_is_texture || !render_fbo->zbuf_stencil_id)) {
-    // transition frame: depth attachment isn't a texture yet. Skip cleanly.
-    return;
-  }
   double cam[16];
   for (int c = 0; c < 4; c++) {
     for (int r = 0; r < 4; r++) {
@@ -443,18 +352,11 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   }
   double invd[16];
   if (!invert4x4(cam, invd)) {
-    return;  // singular camera -> skip AO this frame
+    return false;  // singular camera -> skip AO this frame
   }
   float invf[16];
   for (int i = 0; i < 16; i++) {
     invf[i] = (float)invd[i];
-  }
-
-  // REOPEN blink fix (defer/composite-only path): with estimate=false the depth-sampling
-  // estimator+blur are skipped and we re-composite the LAST AO term. That requires a valid
-  // previous full-res AO output — if we never produced one, there is nothing to composite.
-  if (!estimate && (m_ao_full_tex == 0 || m_ao_full_w != out_w || m_ao_full_h != out_h)) {
-    return;  // still CPU-only: no GL state touched yet, safe to bail
   }
 
   auto ao_glerr = [&](const char* stage) {
@@ -467,25 +369,15 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   };
   ao_glerr("pre");  // drain pre-existing errors so later reads are ours
 
-  // (2) full GL state snapshot (restored before returning). The pass runs mid-frame
-  // between opaque and alpha buckets: ANY state it inherits can silently break it (a
-  // leftover GL_CULL_FACE culls the CW fullscreen quad; scissor clips it) and ANY state
-  // it leaks breaks the following buckets (defect #4: the render FBO's own depth
-  // attachment left bound as a sampler is a GLES feedback-loop hazard on Adreno).
+  // (2) full GL state snapshot (restored before returning). The pass runs mid-frame, avant le
+  // premier draw ombre : ANY state it inherits can silently break it (a leftover GL_CULL_FACE
+  // culls the CW fullscreen quad; scissor clips it) and ANY state it leaks breaks the
+  // following buckets.
   GLint prev_fbo = 0;
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
   GLint prev_viewport[4];
   glGetIntegerv(GL_VIEWPORT, prev_viewport);
   const GLboolean prev_blend = glIsEnabled(GL_BLEND);
-  GLint prev_blend_src_rgb = GL_ONE, prev_blend_dst_rgb = GL_ZERO;
-  GLint prev_blend_src_a = GL_ONE, prev_blend_dst_a = GL_ZERO;
-  glGetIntegerv(GL_BLEND_SRC_RGB, &prev_blend_src_rgb);
-  glGetIntegerv(GL_BLEND_DST_RGB, &prev_blend_dst_rgb);
-  glGetIntegerv(GL_BLEND_SRC_ALPHA, &prev_blend_src_a);
-  glGetIntegerv(GL_BLEND_DST_ALPHA, &prev_blend_dst_a);
-  GLint prev_blend_eq_rgb = GL_FUNC_ADD, prev_blend_eq_a = GL_FUNC_ADD;
-  glGetIntegerv(GL_BLEND_EQUATION_RGB, &prev_blend_eq_rgb);
-  glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &prev_blend_eq_a);
   const GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
   GLboolean prev_depth_mask = GL_TRUE;
   glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
@@ -516,27 +408,8 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   glDisable(GL_SCISSOR_TEST);
   glDisable(GL_STENCIL_TEST);
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  glBlendEquation(GL_FUNC_ADD);
 
-  // (3) depth source — ONLY needed by the estimator/blur (skipped on the composite-only
-  // defer path, whose whole point is to NOT sample the just-recreated depth).
-  GLuint depth_tex = 0;
-  if (estimate) {
-    if (render_fbo->multisampled) {
-      // resolve depth into an owned src-res depth texture via a blit.
-      ensure_depth_resolve(src_w, src_h);
-      glBindFramebuffer(GL_READ_FRAMEBUFFER, render_fbo->fbo_id);
-      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_depth_resolve_fbo);
-      glBlitFramebuffer(0, 0, src_w, src_h, 0, 0, src_w, src_h, GL_DEPTH_BUFFER_BIT,
-                        GL_NEAREST);
-      ao_glerr("blit");
-      depth_tex = m_depth_resolve_tex;
-    } else {
-      depth_tex = *render_fbo->zbuf_stencil_id;  // validated in (2a)
-    }
-  }
-
-  // (5) targets + (6) quad (both paths: the composite reads m_ao_full_tex + the quad).
+  // (5) targets + (6) quad
   ensure_targets(ao_w, ao_h, out_w, out_h);
   ensure_quad();
 
@@ -567,63 +440,34 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   // (large radius), HBAO mid, GTAO sharp/physical. The defect-#5 open-area cap (<=5%) is
   // held by the estimators returning ~1.0 on flat surfaces (aligned-slice / analytic-
   // tangent / tangent-plane fixes), NOT by keeping strength low. 4096 units = 1 m.
-  // Composite strengths are calibrated for the GOLDEN-RULE blend. REOPEN 2026-07-21 (burn
-  // fix): the blend is now a hue-preserving pure MULTIPLY out = dst * (1 - k*(1-ao)*(1-lum))
-  // where the direct-lit mask is the SCALAR scene LUMINANCE (was the per-channel (1-dst),
-  // which crushed a warm pixel's dark channels 6%/22%/67% -> the burn). The magnitude
-  // profile is ~unchanged so the per-mode k values below stand: a dark crease reads
-  // (1-lum) ~0.8 (like the old per-channel average) and a sunlit floor ~0.25 (bright pixels
-  // still receive ~zero AO). Mode toggles stay unmistakable (tuning #1/#3). 4096 units = 1 m.
+  // lighting-ao-indirect : le `k` de composite (u_ao_strength) a disparu avec le composite ;
+  // l'intensite de l'ESTIMATEUR, elle, est conservee telle quelle par mode.
   float u_radius = 1434.0f;
   float u_intensity = 1.0f;
-  float u_ao_strength = 0.35f;  // k in the golden-rule blend (ambient-fraction weighted)
-  // Attempt-5 recalibration (owner tuning #3: "SSAO et HBAO à peine remarquables"):
-  // with the grazing-floor wash fixed in the estimators (uniform-slice GTAO, adaptive
-  // angle-bias HBAO, grazing tangent-threshold SSAO), open floors read ~1.0, so the
-  // per-mode strengths can rise until each toggle is unmistakable without re-creating
-  // the defect-#5/#7 wash. SSAO broad+soft, HBAO mid, GTAO sharp+strongest.
-  // Ordering (owner tuning #1): SSAO soft/broad but clearly visible, HBAO between,
-  // GTAO sharp + strongest.
   switch (mode) {
     case 1:  // SSAO
       u_radius = 5120.0f;
       u_intensity = 2.0f;
-      u_ao_strength = 0.45f;
       break;
     case 2:  // HBAO
       u_radius = 2867.0f;
       // closing round v2: the open-terrain wash is killed by the grazing-modulated occ
-      // GATE in ao_hbao.frag (runs BEFORE intensity, so this scales creases only). 2.0
-      // lands the x86 top-decile crease at ~20% vs SSAO's 21.9% reference (gated 1.8 read
-      // 18.0 — "tres muted" is the owner's repeated HBAO complaint, err hotter); open
-      // stays <=2% even at Stronger because the gate already zeroed the wash occ.
+      // GATE in ao_hbao.frag (runs BEFORE intensity, so this scales creases only).
       u_intensity = 2.0f;
-      u_ao_strength = 0.60f;
       break;
     case 3:  // GTAO
       u_radius = 3072.0f;  // 0.75 m — read large-scale concavities, not just tight creases
-      // closing round (owner: balance the three, SSAO = reference): 1.25 read ~2.3x SSAO's
-      // p95 crease darkening on the cr7 x86 A/B (15.3% vs 6.7%); 0.65 lands GTAO near the
-      // reference while its cosine-horizon character stays the sharpest of the three.
-      // v2: the open-terrain wash (dusk "sols au global") is killed by the occ smoothstep
-      // GATE in ao_gtao.frag, which passes crease occ unchanged — the 0.65 calibration
-      // stands — no compensation.
       u_intensity = 0.65f;
-      u_ao_strength = 0.70f;
       break;
     default:
       break;
   }
 
   // AO STRENGTH row (owner closing round 2026-07-16): Weaker/Default/Stronger applies a
-  // per-mode multiplier on the ESTIMATOR intensity, not the composite k — on flat open
-  // ground occ~0 so intensity*occ stays ~0 and the defect-#5 open-area cap holds
-  // structurally even at Stronger.
-  // Round G (owner 2026-07-16 22:20, final tweak): HBAO/GTAO Default was "beaucoup trop
-  // intense pour être une valeur par défaut" — their ladder shifts DOWN one notch:
-  // new Default == old Weaker EXACTLY (same 0.6f literal -> bit-identical uniforms),
-  // new Stronger == old Default (1.0), new Weaker = one proportional step below
-  // (ladder step ratio 0.6 -> 0.36). SSAO's ladder is strictly untouched.
+  // per-mode multiplier on the ESTIMATOR intensity — on flat open ground occ~0 so
+  // intensity*occ stays ~0 and the defect-#5 open-area cap holds structurally even at
+  // Stronger. Round G (owner 2026-07-16 22:20): HBAO/GTAO Default == old Weaker (0.6),
+  // Stronger == old Default (1.0), Weaker one proportional step below (0.36). SSAO untouched.
   const int ao_strength_sel = effective_strength();
   const float ao_strength_mul =
       (mode == 1) ? ((ao_strength_sel == 0) ? 0.6f : (ao_strength_sel == 2) ? 1.5f : 1.0f)
@@ -642,10 +486,6 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   glDisable(GL_DEPTH_TEST);
   glDepthMask(GL_FALSE);
 
-  // (7)+(8) estimator + blur — the depth-sampling passes. On the composite-only defer path
-  // (estimate=false) they are skipped entirely and the previous frame's m_ao_full_tex is
-  // re-composited (REOPEN blink fix: never sample the just-recreated depth).
-  if (estimate) {
   // (7) Pass 1: AO estimate -> m_ao_tex[0]
   {
     ShaderId sid = (mode == 1) ? ShaderId::AO_SSAO
@@ -673,10 +513,9 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     glUniform1i(glGetUniformLocation(id, "u_debug"), (dbg == 2) ? 2 : 0);
     // defect #6 residual (gtao-high title kill): the estimator is the one potentially
     // GPU-heavy draw (GTAO High = full-res x 6 slices x 20 samples ~ 1s+ on Adreno 618).
-    // A single mega-draw trips the KGSL GPU watchdog under level-load churn — the
-    // combo-gtao-high log shows IOCTL_KGSL_* EDEADLK then a tombstone-less process
-    // death. Split into scissored horizontal bands: the driver preempts and the
-    // watchdog resets at draw boundaries, so each submission stays bounded.
+    // A single mega-draw trips the KGSL GPU watchdog under level-load churn. Split into
+    // scissored horizontal bands: the driver preempts and the watchdog resets at draw
+    // boundaries, so each submission stays bounded.
     const int bands = std::min(8, 1 + (ao_w * ao_h) / 400000);
     if (bands > 1) {
       glEnable(GL_SCISSOR_TEST);
@@ -697,9 +536,10 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
 
   // (8) Bilateral blur: pass H at AO res (tex0 raw -> tex1), pass V at FULL res
   // (tex1 -> m_ao_full_tex). The full-res V pass doubles as a depth-aware upsample
-  // (owner tuning #2: a sub-full-res AO term composited raw is blocky at full render
-  // res; the linear-filtered low-res source + full-res depth weights kill the
-  // stair-stepping without bleeding across depth edges).
+  // (owner tuning #2: a sub-full-res AO term read raw is blocky at full render res; the
+  // linear-filtered low-res source + full-res depth weights kill the stair-stepping
+  // without bleeding across depth edges).
+  bool produced = false;
   if (dbg != 2) {
     auto& shader = (*m_shaders)[ShaderId::AO_BLUR];
     for (int p = 0; p < 2; p++) {
@@ -729,86 +569,22 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
     glActiveTexture(GL_TEXTURE0);
+    produced = true;
+  } else {
+    // vue de debug 2 : l'estimation brute, sans flou, recopiee telle quelle en pleine
+    // resolution pour que shade() la voie (u_screen_ao_on == 2 l'affiche).
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_ao_fbo[0]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_ao_full_fbo);
+    glBlitFramebuffer(0, 0, ao_w, ao_h, 0, 0, out_w, out_h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    produced = true;
   }
   ao_glerr("blur");
-  }  // if (estimate)
-
-  // (8b) Scene-color copy for the direct-lit luma mask (REOPEN burn fix). Sized to the AO
-  // output. When the render FBO is multisampled a differently-sized blit is INVALID, so the
-  // scene copy is then sized to the SRC and a full-size blit is used. (Android FBO is always
-  // single-sampled; this only matters on desktop MSAA.)
-  {
-    const int sc_w = render_fbo->multisampled ? src_w : ao_w;
-    const int sc_h = render_fbo->multisampled ? src_h : ao_h;
-    ensure_scene_copy(sc_w, sc_h);
-    // lighting-hdr : `m_scene_fbo` est RGBA8. Quand la scene est flottante, cette copie ECRETE
-    // avant le composite d'AO. L'AO cesse de composer sur l'image avec l'item
-    // `lighting-ao-indirect` (SPEC §4.7) ; ici on MESURE le fait au lieu de le supposer.
-    hdr::note_aux_scene_read("AmbientOcclusion:scenecopy", render_fbo->color_format, GL_RGBA8);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, render_fbo->fbo_id);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_scene_fbo);
-    glBlitFramebuffer(0, 0, src_w, src_h, 0, 0, sc_w, sc_h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    ao_glerr("scenecopy");
-  }
-
-  // (9) Composite: multiply scene by AO (final full-res AO in m_ao_full_tex; the raw
-  // dbg==2 estimator view stays at AO res in m_ao_tex[0]).
-  {
-    glActiveTexture(GL_TEXTURE0);
-    auto& shader = (*m_shaders)[ShaderId::AO_COMPOSITE];
-    shader.activate();
-    GLuint id = shader.id();
-    glBindFramebuffer(GL_FRAMEBUFFER, render_fbo->fbo_id);
-    glViewport(0, 0, src_w, src_h);
-    if (dbg != 0) {
-      glDisable(GL_BLEND);  // debug view replaces the scene with the AO term
-    } else {
-      // REOPEN burn fix: scalar-luminance-masked pure multiply — see ao_composite.frag.
-      glEnable(GL_BLEND);
-      glBlendEquation(GL_FUNC_ADD);
-      glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
-    }
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    // defect #7: skip water. The dispatch loop keeps stencil!=0 exactly on pixels whose
-    // final opaque content is the ocean surface (tagged at OCEAN_MID_AND_FAR, un-tagged
-    // by any later covering opaque draw). No stencil writes here (mask 0); the dispatch
-    // loop clears the buffer right after this pass returns.
-    glEnable(GL_STENCIL_TEST);
-    glStencilMask(0x00);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    glStencilFunc(GL_EQUAL, 0, 0xFF);
-    // REOPEN burn fix: bind the scene-color copy on unit 1 for the scalar-luminance mask
-    // (unit 1 is snapshotted/restored). The AO term stays on unit 0.
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, m_scene_tex);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, (dbg == 2) ? m_ao_tex[0] : m_ao_full_tex);
-    glUniform1i(glGetUniformLocation(id, "u_ao"), 0);
-    glUniform1i(glGetUniformLocation(id, "u_scene"), 1);
-    glUniform1i(glGetUniformLocation(id, "u_debug"), dbg);
-    glUniform1f(glGetUniformLocation(id, "u_strength"), u_ao_strength);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    if (dbg != 0) {
-      // water pixels are excluded from the composite, so their effective AO term is
-      // exactly 1.0 — paint them white in the debug views (u_debug==3 branch).
-      glStencilFunc(GL_NOTEQUAL, 0, 0xFF);
-      glUniform1i(glGetUniformLocation(id, "u_debug"), 3);
-      glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    }
-    glStencilMask(0xFF);
-    glDisable(GL_STENCIL_TEST);
-  }
-  ao_glerr("composite");
 
   // (10) restore EVERY piece of state the pass touched (defect #4: any leak here
-  // corrupts the following alpha/sprite/HUD buckets — most dangerously the render
-  // FBO's own depth attachment left bound as a sampler).
+  // corrupts the following buckets).
   glBindVertexArray(prev_vao);
   glBindBuffer(GL_ARRAY_BUFFER, prev_array_buffer);
   glUseProgram(prev_program);
-  // restore unit 0/1 2D bindings (this also unbinds depth_tex + the AO textures),
-  // then the previously-active unit.
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, prev_tex0);
   glActiveTexture(GL_TEXTURE1);
@@ -819,8 +595,6 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
   } else {
     glDisable(GL_BLEND);
   }
-  glBlendFuncSeparate(prev_blend_src_rgb, prev_blend_dst_rgb, prev_blend_src_a, prev_blend_dst_a);
-  glBlendEquationSeparate(prev_blend_eq_rgb, prev_blend_eq_a);
   if (prev_depth_test) {
     glEnable(GL_DEPTH_TEST);
   } else {
@@ -837,7 +611,7 @@ void AmbientOcclusionPass::render(SharedRenderState* rs,
     glEnable(GL_STENCIL_TEST);
   }
   glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
-  glBindFramebuffer(GL_FRAMEBUFFER, render_fbo->fbo_id);
+  glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
   glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
-  (void)prev_fbo;
+  return produced;
 }

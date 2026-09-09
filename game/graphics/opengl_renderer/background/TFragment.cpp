@@ -36,6 +36,11 @@ TFragment::TFragment(const std::string& name,
       m_tree_kinds(trees),
       m_level_id(level_id),
       m_anim_slot_array(anim_slot_array) {
+  m_prepass_kind = "tfrag";
+  for (auto k : m_tree_kinds) {
+    m_prepass_kind += ':';
+    m_prepass_kind += std::to_string((int)k);
+  }
   for (auto& buf : m_buffered_data) {
     for (auto& x : buf.pad) {
       x = 0xff;
@@ -593,6 +598,40 @@ bool TFragment::setup_for_level(const std::vector<tfrag3::TFragmentTreeKind>& tr
   }
 
   return m_has_level;
+}
+
+// lighting-ao-indirect : prepasse de profondeur vue camera. Le programme PREPASS_WORLD est
+// actif, FBO / viewport / etat de profondeur poses par prepass::on_first_camera ; on ne fait
+// que lier et dessiner. Meme jeu de casters que la passe soleil : NORMAL / DIRT / ICE, jamais
+// LOWRES (coque LOD lointaine jusqu'a +57 m au-dessus du sol, OWNER #4) ni TRANS / WATER.
+uint64_t TFragment::draw_depth_prepass(SharedRenderState* /*rs*/) {
+#ifdef OG_FEAT_PBR
+  // La prepasse tourne AVANT le premier render_tree de l'image : le restart de strip
+  // (UINT32_MAX) doit etre arme ici, comme dans render_tree.
+#ifdef __ANDROID__
+  glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+#else
+  glEnable(GL_PRIMITIVE_RESTART);
+  glPrimitiveRestartIndex(UINT32_MAX);
+#endif
+  uint64_t total = 0;
+  for (auto& tree : m_cached_trees[lod()]) {
+    const bool opaque_caster = tree.kind == tfrag3::TFragmentTreeKind::NORMAL ||
+                               tree.kind == tfrag3::TFragmentTreeKind::DIRT ||
+                               tree.kind == tfrag3::TFragmentTreeKind::ICE;
+    if (!opaque_caster || tree.index_count == 0) {
+      continue;
+    }
+    glBindVertexArray(tree.vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
+    lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
+    glDrawElements(tree.draw_mode, tree.index_count, GL_UNSIGNED_INT, nullptr);
+    total += (uint64_t)tree.index_count;
+  }
+  return total;
+#else
+  return 0;
+#endif
 }
 
 void TFragment::render_tree(int geom,

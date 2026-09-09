@@ -109,7 +109,7 @@ enum class ShaderId {
   AO_HBAO = 46,
   AO_GTAO = 47,
   AO_BLUR = 48,
-  AO_COMPOSITE = 49,
+  PREPASS_WORLD = 49,  // lighting-ao-indirect : prepasse de profondeur vue camera (PrePass.cpp)
   // lighting-hdr : le site UNIQUE de tone map (SPEC-refonte-lumiere §4.5, passe P9). Ce
   // programme est le seul de la chaine d'affichage autorise a compresser la plage ; le
   // recensement de hdr.cpp le reconnait par le marqueur `@tonemap-site` de son texte.

@@ -20,6 +20,7 @@
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
+#include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
@@ -754,7 +755,7 @@ void AndroidOpenGLRenderer::init_bucket_renderers_jak1() {
   }
   // Grecharged-ambient-occlusion: the AO pass is not a bucket renderer, so hook its
   // shader init here alongside the bucket renderers (once, after the loop).
-  m_ao_pass.init_shaders(m_render_state.shaders);
+  prepass::init_shaders(m_render_state.shaders);
   // The sky blenders are not bucket renderers — desktop inits their VRAM
   // textures explicitly after the bucket loop (OpenGLRenderer.cpp:883).
   // Without this, SkyBlendCPU::do_sky_blends hands a null GpuTexture to
@@ -1444,7 +1445,7 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   // Grecharged-ambient-occlusion (REOPEN blink fix): size the AO/blur chain by the WINDOW,
   // not the render-scale-sized scene FBO, so a dynamic render-scale change never recreates
   // the AO targets (which was one root of the AO clignote).
-  m_ao_pass.set_output_hint(settings.window_fb_w, settings.window_fb_h);
+  prepass::set_output_hint(settings.window_fb_w, settings.window_fb_h);
 
   // Render-scaling: the 3D scene FBO is game_res * (render_scale_pct/100),
   // keeping the GOAL 4:3 aspect. do_pcrtc_effects resample-blits it to the
@@ -1505,10 +1506,6 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
     m_fbo_state.render_buffer.clear();
     m_fbo_state.render_buffer = a35_make_scene_fbo(fbo_w, fbo_h, want_depth_tex);
     m_fbo_state.render_fbo = &m_fbo_state.render_buffer;
-    // fresh depth attachment: require 3 recreate-free frames before AO touches it. A
-    // renderscale STORM (recreate every 1-2 frames) therefore holds AO off entirely,
-    // breaking the AO-cost -> fps-sag -> resize -> AO feedback loop (defect #6 window).
-    m_ao_defer_frames = 3;
   }
 
   ASSERT_MSG(fbo_w > 0 && fbo_h > 0,
@@ -1708,6 +1705,9 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
   ASSERT(dma.current_tag_offset() == m_render_state.next_bucket);
   m_render_state.next_bucket += 16;
 
+  // lighting-ao-indirect : nouvelle image pour la prepasse (compteur de sonde, etat de preuve).
+  prepass::frame_begin(&m_render_state);
+
   for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
     auto& renderer = m_bucket_renderers[bucket_id];
     auto bucket_prof = prof.make_scoped_child(renderer->name_and_id());
@@ -1812,6 +1812,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
         }
       }
     }
+    prepass::proof_before_bucket((int)bucket_id);
     renderer->render(dma, &m_render_state, bucket_prof);
     {
       extern char gk_f1a_current_bucket[64];
@@ -1844,22 +1845,11 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     m_render_state.next_bucket += 16;
     vif_interrupt_callback(bucket_id);
 
-    // Grecharged-ambient-occlusion: screen-space AO over the OPAQUE scene only, at the
-    // same post-opaque bucket-30 insertion point as desktop and BEFORE the grass cards:
-    // every alpha bucket and the recharged grass draw AFTER the composite, so alpha-cut
-    // surfaces neither contribute to the AO depth nor get darkened (owner's #1 risk is
-    // excluded by construction).
-    if (bucket_id == 31 - 1 && AmbientOcclusionPass::effective_mode() != 0) {
-      auto p = prof.make_scoped_child("ao-draw");
-      if (m_ao_defer_frames > 0) {
-        m_ao_defer_frames--;
-        // REOPEN blink fix: the FBO was just recreated (render-scale change) — skip only the
-        // depth-sampling ESTIMATOR, keep COMPOSITING the last AO term so AO never pops off for
-        // 3 frames (the owner's "AO clignote"; our native-forced captures had masked it).
-        m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo, /*estimate=*/false);
-      } else {
-        m_ao_pass.render(&m_render_state, p, m_fbo_state.render_fbo);
-      }
+    // lighting-ao-indirect : l'AO n'est plus composee ici — elle est estimee AVANT le premier
+    // draw ombre (PrePass.cpp, on_first_camera) et appliquee par shade(). Il ne reste que la
+    // sonde de preuve, inerte hors mesure.
+    if (bucket_id == 31 - 1) {
+      prepass::proof_post_opaque(&m_render_state);
     }
 
     // Grecharged-grass-poc: draw procedural grass over the training ground at the

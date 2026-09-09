@@ -5,6 +5,7 @@
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
+#include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/graphics/opengl_renderer/background/Tie3.h"
 #ifdef OG_FEAT_PBR
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
@@ -36,7 +37,7 @@ struct TFragBufferedData {
 };
 static_assert(sizeof(TFragBufferedData) == 328 * 16);
 
-class TFragment : public BucketRenderer {
+class TFragment : public BucketRenderer, public prepass::DepthContributor {
  public:
   TFragment(const std::string& name,
             int my_id,
@@ -78,6 +79,17 @@ class TFragment : public BucketRenderer {
                    const LevelData* loader_data);
 
   int lod() const { return Gfx::g_global_settings.lod_tfrag; }
+
+  // lighting-ao-indirect : contributeur de la prepasse de profondeur (PrePass.h). Ne dessine
+  // que les arbres opaques hires (NORMAL / DIRT / ICE) du LOD courant, buffers statiques
+  // complets — le meme jeu de casters que la passe de profondeur soleil.
+  // Par INSTANCE, pas "tfrag" tout court : chaque instance ne cache que SES kinds
+  // (update_load filtre sur m_tree_kinds), donc deux instances d'un meme niveau aux kinds
+  // disjoints (NORMAL / DIRT / ICE) doivent TOUTES dessiner ; seules celles aux memes kinds
+  // sont dedoublonnees par PrePass.cpp.
+  const char* prepass_kind() const override { return m_prepass_kind.c_str(); }
+  const std::string& prepass_level_name() const override { return m_level_name; }
+  uint64_t draw_depth_prepass(SharedRenderState* rs) override;
   struct DebugVertex {
     math::Vector3f position;
     math::Vector4f rgba;
@@ -112,6 +124,7 @@ class TFragment : public BucketRenderer {
   };
 
   std::vector<tfrag3::TFragmentTreeKind> m_tree_kinds;
+  std::string m_prepass_kind;  // "tfrag:<kinds>" (lighting-ao-indirect)
   int m_level_id;
 
   static constexpr int GEOM_MAX = 3;

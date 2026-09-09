@@ -2,6 +2,8 @@
 
 #include "background_common.h"
 
+#include "game/graphics/opengl_renderer/PrePass.h"
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -2131,6 +2133,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   lighting_census::gate_no_tex(Gfx::g_global_settings.hack_no_tex);
   glUniform1i(glGetUniformLocation(id, "decal"), false);
   glUniform1i(glGetUniformLocation(id, "tex_T0"), 0);
+  // lighting-ao-indirect : la texture d'AO d'ecran (unite 8) et ses uniformes, pour chaque
+  // programme qui inclut shade.glsl (no-op documente sur les autres : location -1).
+  prepass::bind_screen_ao(id, render_state);
   // -----------------------------------------------------------------------------------------
   // Grecharged-foliage-wind3 (owner 2026-08-31, defaut D2) — LE VERROU (a) DU BALANCEMENT TIE.
   //
@@ -3828,5 +3833,9 @@ void update_render_state_from_pc_settings(SharedRenderState* state, const TfragP
     state->camera_hvdf_off = data.camera.hvdf_off;
     state->camera_fog = data.camera.fog;
     state->has_pc_data = true;
+    // lighting-ao-indirect : LA camera de l'image vient d'etre lue, aucun draw ombre n'a encore
+    // eu lieu — c'est ici, et une seule fois par image, que la prepasse de profondeur et
+    // l'estimation d'AO tournent (PrePass.cpp).
+    prepass::on_first_camera(state, data.camera);
   }
 }

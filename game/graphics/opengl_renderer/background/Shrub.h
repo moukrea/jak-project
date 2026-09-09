@@ -6,10 +6,11 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+#include "game/graphics/opengl_renderer/PrePass.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/pipelines/opengl.h"
 
-class Shrub : public BucketRenderer {
+class Shrub : public BucketRenderer, public prepass::DepthContributor {
  public:
   Shrub(const std::string& name, int my_id);
   ~Shrub();
@@ -25,6 +26,12 @@ class Shrub : public BucketRenderer {
                    ScopedProfilerNode& prof);
   void render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfilerNode& prof) override;
   void draw_debug_window() override;
+
+  // lighting-ao-indirect : contributeur de la prepasse de profondeur (PrePass.h). Dessine le
+  // caster_index_buffer (GL_TRIANGLES assainis) de chaque arbre — le draw de la passe soleil.
+  const char* prepass_kind() const override { return "shrub"; }
+  const std::string& prepass_level_name() const override { return m_level_name; }
+  uint64_t draw_depth_prepass(SharedRenderState* rs) override;
 
  private:
   void update_load(const LevelData* loader_data);
