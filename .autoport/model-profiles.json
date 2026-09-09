@@ -1,9 +1,9 @@
 {
   "_doc": "Source unique du modele et de l'effort pour tout le harnais (orchestrateur, workers, superviseur). Bascule: changer 'active', lancer ./.autoport/apply-model-profile.sh (il regenere l'effort dans .claude/agents/*.md), relancer. 2026-09-03: 5 profils morts supprimes (notes contradictoires, modeles retires); il n'en reste que l'actif et un secours.",
-  "active": "fable51-sobre",
+  "active": "fable51-high",
   "profiles": {
     "fable51-high": {
-      "_note": "RETIRE le 2026-09-05 : le [1m] fumait le quota (voir fable51-sobre). Ne pas reactiver.",
+      "_note": "Profil ACTIF (owner 2026-09-09 : « le profil sobre sans [1m] c'est con, utilise [1m] »). Manager fable-5-1[1m] effort high, workers tieres.",
       "manager_model": "claude-fable-5-1[1m]",
       "manager_effort": "high",
       "worker_model": "claude-fable-5-1[1m]",

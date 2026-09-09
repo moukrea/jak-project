@@ -91,8 +91,8 @@ def _pick_device() -> str:
 
 def _load_model_profile() -> dict:
     fallback = {
-        "manager_model": "claude-fable-5-1", "manager_effort": "high",
-        "worker_model": "claude-fable-5-1",
+        "manager_model": "claude-fable-5-1[1m]", "manager_effort": "high",
+        "worker_model": "claude-fable-5-1[1m]",
         "worker_efforts": {"autoport-researcher": "high",
                            "autoport-implementer": "medium",
                            "autoport-tester": "medium"},
