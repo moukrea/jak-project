@@ -47,7 +47,10 @@
 //
 // PREUVE (`lib/proof_run.sh hdr-display-output device`) : quand le harnais mesure cet item,
 // `frame_end` deroule un auto-test en trois phases — etat charge, ON, OFF — en passant par le
-// MEME chemin que le menu (`request`), et publie des grandeurs lues sur la SURFACE (colorspace
+// MEME chemin que le menu (`request`). La phase ON n'est lancee qu'une fois qu'une SCENE est
+// dessinee (sonde de contenu : tons moyens dans l'image tone-mappee ; x86 essai 3 : les phases
+// tournaient pendant l'intro noire, 10 s avant le titre), avec un plafond de 120 s publie.
+// Il publie des grandeurs lues sur la SURFACE (colorspace
 // rendu par eglQuerySurface, bits rouges rendus par glGetIntegerv), dans settings.ini relu du
 // disque, et sur l'IMAGE DESSINEE : un blanc UI passe par le vrai quad final et relu
 // (`hdr_out_ui_white_*`), et la scene reelle tone-mappee deux fois par le vrai programme
@@ -147,10 +150,18 @@ void install_switcher(Switcher fn);
 void note_surface_state(const SurfaceState& st);
 // Fil GL, avant de dessiner une image : applique une demande en attente (menu ou auto-test).
 void apply_pending_on_gl_thread();
-// Fil GL : la marge (ratio HDR/SDR) que le jeu DEMANDE au systeme a change — le renderer
-// Android la transmet a SurfaceControl.setExtendedRangeBrightness. Rend vrai une fois par
-// changement ; `desired` = ratio souhaite (>= 1,0). scRGB seulement.
-bool take_headroom_request(float* desired);
+// Fil GL : une demande de marge a transmettre a SurfaceControl.setExtendedRangeBrightness
+// (scRGB seulement). CONTRAT (AOSP SurfaceControl.java, OutputLayer.cpp, ViewRootImpl) :
+//   * `current` = le ratio HDR/SDR auquel CE tampon est encode (1,0 = blanc SDR ; nos valeurs
+//     montent jusqu'au ratio LU, jamais plus). SurfaceFlinger en deduit l'attenuation de la
+//     couche : declarer 4,0 quand on n'a rendu que jusqu'a 2,0 (et que l'ecran n'accorde que
+//     2,0) reporte le blanc SDR deux fois trop bas — TOUT plus sombre, le refus owner du 09/09.
+//   * `desired` = la marge souhaitee (kDesiredHeadroom) : c'est elle qui promeut la couche en
+//     HDR et borne ce que le DisplayManager accorde ; Display.getHdrSdrRatio() ne depasse 1,0
+//     qu'APRES cette promotion (attendre le ratio avant de demander = interblocage).
+// Sequence : a la bascule scRGB, (1,0 ; desired) ; a chaque changement du ratio LU, (ratio ;
+// desired) ; au retour SDR, (1,0 ; 1,0). Rend vrai une fois par changement.
+bool take_headroom_request(float* current, float* desired);
 
 // ---------------------------------------------------------------- ce que le rendu lit ----
 

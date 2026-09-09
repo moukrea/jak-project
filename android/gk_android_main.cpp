@@ -9733,11 +9733,11 @@ Java_org_opengoal_gk_NativeGk_setDisplayHdrCaps(JNIEnv* env, jclass clazz, jint 
                               wcg != JNI_FALSE);
   env->GetJavaVM(&g_hdr_out_jvm);
   g_hdr_out_nativegk_class = (jclass)env->NewGlobalRef(clazz);
-  g_hdr_out_ext_range_mid = env->GetStaticMethodID(clazz, "onHdrOutputExtendedRange", "(F)V");
+  g_hdr_out_ext_range_mid = env->GetStaticMethodID(clazz, "onHdrOutputExtendedRange", "(FF)V");
   if (!g_hdr_out_ext_range_mid) {
     env->ExceptionClear();
     __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
-                        "NativeGk.setDisplayHdrCaps: onHdrOutputExtendedRange(F)V not found; "
+                        "NativeGk.setDisplayHdrCaps: onHdrOutputExtendedRange(FF)V not found; "
                         "scRGB headroom requests will be dropped");
   }
   android_hdr_out_probe_early();  // EGL, avant que GOAL ne cree *pc-settings*
@@ -10078,7 +10078,7 @@ Java_org_opengoal_gk_NativeGk_writeTestSave(JNIEnv* env, jclass /*clazz*/,
 
 // hdr-display-output : natif -> Java. Symbole C++ (declare dans android_renderer.h), appele par
 // android_renderer.cpp sur le fil GL (deja attache a la JVM par SDL : on ne le detache pas).
-void android_hdr_out_request_extended_range(float desired_ratio) {
+void android_hdr_out_request_extended_range(float current_ratio, float desired_ratio) {
   if (!g_hdr_out_jvm || !g_hdr_out_nativegk_class || !g_hdr_out_ext_range_mid) {
     static bool s_warned = false;
     if (!s_warned) {
@@ -10097,13 +10097,14 @@ void android_hdr_out_request_extended_range(float desired_ratio) {
     attached = true;
   }
   env->CallStaticVoidMethod(g_hdr_out_nativegk_class, g_hdr_out_ext_range_mid,
-                            (jfloat)desired_ratio);
+                            (jfloat)current_ratio, (jfloat)desired_ratio);
   if (env->ExceptionCheck()) {
     env->ExceptionDescribe();
     env->ExceptionClear();
   }
-  __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "HDROUT extended range request desired=%.3f",
-                      (double)desired_ratio);
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "HDROUT extended range request current=%.3f desired=%.3f",
+                      (double)current_ratio, (double)desired_ratio);
   if (attached) {
     g_hdr_out_jvm->DetachCurrentThread();
   }

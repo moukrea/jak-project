@@ -509,18 +509,34 @@ public class MainActivity extends SDLActivity {
         super.onDestroy();
     }
 
-    /** hdr-display-output: grant HDR headroom above SDR white to the scRGB (RANGE_EXTENDED) SDL surface. API 34+: SurfaceControl.Transaction.setExtendedRangeBrightness(sc, currentBufferRatio, desiredRatio). No-op below. Never throws. */
-    static void applyExtendedRangeBrightness(final float desiredRatio) {
+    /** hdr-display-output: declare the scRGB (RANGE_EXTENDED) SDL surface's brightness to the compositor. API 34+:
+     *  SurfaceControl.Transaction.setExtendedRangeBrightness(sc, currentBufferRatio, desiredRatio) — currentBufferRatio is
+     *  the HDR/SDR ratio the buffer was RENDERED to (SurfaceFlinger dims the layer by sdrWhite*current/displayNits, so a
+     *  current above what was rendered pushes SDR white down: everything darker), desiredRatio is the headroom we ask for
+     *  (it promotes the layer to HDR; Display.getHdrSdrRatio() only rises after that). Same sequence as ViewRootImpl.
+     *  No-op below 34. Never throws. */
+    static void applyExtendedRangeBrightness(final float currentRatio, final float desiredRatio) {
         if (android.os.Build.VERSION.SDK_INT < 34) return;
         new Handler(Looper.getMainLooper()).post(() -> {
             try {
                 org.libsdl.app.SDLSurface s = mSurface;   // protected static in SDLActivity
                 android.view.SurfaceControl sc = s != null ? s.getSurfaceControl() : null;
                 if (sc == null || !sc.isValid()) { Log.w("GK", "HDROUT extended range: no valid SurfaceControl"); return; }
-                float r = Math.max(1.0f, desiredRatio);
-                new android.view.SurfaceControl.Transaction().setExtendedRangeBrightness(sc, r, r).apply();
-                Log.i("GK", "HDROUT extended range applied desired=" + r);
+                float d = Math.max(1.0f, desiredRatio);
+                float c = Math.max(1.0f, Math.min(currentRatio, d));
+                new android.view.SurfaceControl.Transaction().setExtendedRangeBrightness(sc, c, d).apply();
+                android.view.Display disp = getWindowManagerDisplay();
+                Log.i("GK", "HDROUT extended range applied current=" + c + " desired=" + d
+                        + " displayRatio=" + (disp != null ? disp.getHdrSdrRatio() : -1f));
             } catch (Throwable t) { Log.w("GK", "HDROUT extended range failed", t); }
         });
+    }
+
+    /** hdr-display-output: the default display, for logging the ratio the system reports after a request. */
+    private static android.view.Display getWindowManagerDisplay() {
+        try {
+            android.content.Context ctx = org.libsdl.app.SDLActivity.getContext();
+            return ctx != null ? ((android.view.WindowManager) ctx.getSystemService(android.content.Context.WINDOW_SERVICE)).getDefaultDisplay() : null;
+        } catch (Throwable t) { return null; }
     }
 }

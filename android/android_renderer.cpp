@@ -470,9 +470,9 @@ int android_renderer_run() {
       hdr_output::apply_pending_on_gl_thread();
       {
         // scRGB : la marge souhaitee a change -> SurfaceControl.setExtendedRangeBrightness (Java).
-        float desired = 1.f;
-        if (hdr_output::take_headroom_request(&desired)) {
-          android_hdr_out_request_extended_range(desired);
+        float current = 1.f, desired = 1.f;
+        if (hdr_output::take_headroom_request(&current, &desired)) {
+          android_hdr_out_request_extended_range(current, desired);
         }
       }
       drew_game = android_gfx::render_frame_on_gl_thread(win_w, win_h);

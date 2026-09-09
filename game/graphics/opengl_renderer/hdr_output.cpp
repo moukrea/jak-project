@@ -1,6 +1,7 @@
 #include "game/graphics/opengl_renderer/hdr_output.h"
 
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -154,7 +155,10 @@ float s_white_override = -1.f;        // PQ : debug.opengoal.hdr.out.white (nits
 float s_peak_knob = -1.f;             // -1 = pas lu, 0 = absent, sinon nits
 float s_test_peak = 0.f;              // auto-test : 0 = aucun, sinon nits imposes
 bool s_headroom_pending = false;      // fil GL : une demande de marge a transmettre au systeme
-float s_headroom_request = 1.f;
+float s_headroom_request_current = 1.f;  // ratio auquel le tampon est encode (= ratio LU)
+float s_headroom_request_desired = 1.f;  // marge souhaitee (promotion HDR de la couche)
+float s_headroom_sent_current = -1.f;    // dernier `current` transmis (-1 = jamais)
+uint64_t s_headroom_requests = 0;
 
 int read_int_knob(const char* prop, const char* env, int absent) {
 #ifdef __ANDROID__
@@ -260,6 +264,9 @@ constexpr uint64_t kPhaseFrames = 150;
 constexpr int kPhaseCount = 4;
 constexpr float kSimPeakNits = 1000.f;
 constexpr uint64_t kProbeEvery = 5;
+constexpr int kReadyHits = 3;
+constexpr uint64_t kReadyPx = 256;   // un quart de la sonde 32x32 en tons moyens
+constexpr double kReadyCapSeconds = 120.0;
 struct PhaseStats {
   uint64_t frames = 0;
   uint64_t active_frames = 0;
@@ -295,6 +302,19 @@ int s_phase = 0;
 // premiere. On saute donc UNE image apres chaque transition, jamais plus.
 int s_skip_frames = 0;
 bool s_selftest_done = false;
+// LE DEPART DE L'AUTO-TEST ATTEND UNE SCENE. Mesure x86 du 09/09 (essai 3) : phases ON/OFF
+// deroulees de 01:08 a 01:17, scene du titre affichee a 01:27 — les sondes de tons moyens et de
+// hautes lumieres (verdicts 9 et 10) mesuraient l'intro NOIRE, tm_px=0. Regle : la phase ON ne
+// commence qu'apres kReadyHits sondes consecutives ou la scene tone-mappee porte au moins
+// kReadyPx tons moyens (sur kTmW*kTmH), ou a defaut apres kReadyCapSeconds de mur (le proof
+// finit toujours ; le forcage est publie, jamais tu).
+uint64_t s_phase_start = 0;          // image ou la phase 1 a commence (0 = pas encore)
+int s_ready_hits = 0;                // sondes consecutives avec assez de tons moyens
+uint64_t s_ready_last_px = 0;        // derniere sonde de contenu : tons moyens comptes
+uint64_t s_ready_probes = 0;
+int s_ready_forced = 0;              // 1 = plafond de temps atteint sans scene
+bool s_clock_started = false;
+std::chrono::steady_clock::time_point s_clock0;
 PhaseStats s_ph[kPhaseCount];
 ProbeStats s_pr[kPhaseCount];
 int s_last_present_mode = 0;   // ce que push_present_uniforms a pousse pour cette image
@@ -474,6 +494,10 @@ void publish_all() {
   autoport_proof::publish("hdr_out_paper_white_nits",
                           (uint64_t)std::lround(s_surface.mode == kModeHdr10Pq ? paper_white() : 0.f));
   autoport_proof::publish("hdr_out_headroom_x100", (uint64_t)std::lround(headroom_linear() * 100.f));
+  autoport_proof::publish("hdr_out_erb_requests", s_headroom_requests);
+  autoport_proof::publish("hdr_out_erb_current_x1000",
+                          (uint64_t)std::lround((s_headroom_sent_current < 0.f ? 0.f : s_headroom_sent_current) * 1000.f));
+  autoport_proof::publish("hdr_out_erb_desired_x100", (uint64_t)std::lround(s_headroom_request_desired * 100.f));
   autoport_proof::publish("hdr_out_ceiling_x100", (uint64_t)std::lround(s_last_ceiling * 100.f));
   autoport_proof::publish("hdr_out_present_mode", (uint64_t)s_last_present_mode);
   autoport_proof::publish("hdr_out_peak_nits", (uint64_t)std::lround(announced_peak_nits()));
@@ -519,6 +543,10 @@ void publish_all() {
   autoport_proof::publish("hdr_out_menu_parent", (uint64_t)(s_menu_parent < 0 ? 2 : s_menu_parent));
   autoport_proof::publish("hdr_out_persisted", (uint64_t)(s_persisted + 3));  // 0 pas lu, 1 fichier absent, 2 cle absente, 3 = #f, 4 = #t
   autoport_proof::publish("hdr_out_selftest_phase", (uint64_t)s_phase);
+  autoport_proof::publish("hdr_out_scene_ready_frame", s_phase_start);
+  autoport_proof::publish("hdr_out_scene_ready_probes", s_ready_probes);
+  autoport_proof::publish("hdr_out_scene_ready_px", s_ready_last_px);
+  autoport_proof::publish("hdr_out_scene_ready_forced", (uint64_t)s_ready_forced);
   autoport_proof::publish("hdr_out_selftest_done", s_selftest_done ? 1 : 0);
   const char* names[kPhaseCount] = {"loaded", "on", "off", "onsim"};
   for (int p = 0; p < kPhaseCount; p++) {
@@ -663,22 +691,45 @@ void compute_verdicts() {
       on.last_ceiling, onsim.last_ceiling);
 }
 
+bool scene_ready() {
+  if (s_ready_hits >= kReadyHits) {
+    return true;
+  }
+  const double el = std::chrono::duration<double>(std::chrono::steady_clock::now() - s_clock0).count();
+  if (el >= kReadyCapSeconds) {
+    s_ready_forced = 1;
+    return true;
+  }
+  return false;
+}
+
 void selftest_step() {
   // Le sequenceur, une fois par image, AVANT le comptage de l'image courante.
   if (s_selftest_done) {
     return;
   }
-  if (s_frames == kPhaseFrames) {
-    s_phase = 1;
-    s_skip_frames = 1;
-    s_test_force.store(1);
-    lg::info("[hdr-display-output] auto-test : phase ON imposee");
-  } else if (s_frames == 2 * kPhaseFrames) {
+  if (!s_clock_started) {
+    s_clock_started = true;
+    s_clock0 = std::chrono::steady_clock::now();
+  }
+  if (s_phase == 0) {
+    if (s_frames >= kPhaseFrames && scene_ready()) {
+      s_phase = 1;
+      s_phase_start = s_frames;
+      s_skip_frames = 1;
+      s_test_force.store(1);
+      lg::info("[hdr-display-output] auto-test : phase ON imposee a l'image {} (scene {} : {} sondes, {} tons moyens)",
+               s_frames, s_ready_forced ? "FORCEE par le plafond de temps" : "prete", s_ready_probes,
+               s_ready_last_px);
+    }
+    return;
+  }
+  if (s_frames == s_phase_start + kPhaseFrames) {
     s_phase = 2;
     s_skip_frames = 1;
     s_test_force.store(0);
     lg::info("[hdr-display-output] auto-test : phase OFF imposee");
-  } else if (s_frames == 3 * kPhaseFrames) {
+  } else if (s_frames == s_phase_start + 2 * kPhaseFrames) {
     s_phase = 3;
     s_skip_frames = 1;
     s_test_force.store(1);
@@ -686,7 +737,7 @@ void selftest_step() {
     s_test_peak = (ann >= 0.9f * kSimPeakNits) ? 2.f * ann : kSimPeakNits;
     lg::info("[hdr-display-output] auto-test : phase ON imposee avec pic SIMULE {} nits (annonce {})",
              s_test_peak, ann);
-  } else if (s_frames == 4 * kPhaseFrames) {
+  } else if (s_frames == s_phase_start + 3 * kPhaseFrames) {
     s_phase = 4;
     s_test_force.store(-1);  // le reglage du joueur reprend
     s_test_peak = 0.f;
@@ -789,6 +840,18 @@ void note_surface_state(const SurfaceState& st) {
 }
 
 void apply_pending_on_gl_thread() {
+  // scRGB actif : le ratio LU a change (listener Java) -> le tampon de cette image sera encode
+  // a ce ratio, on le declare au compositeur (current = ratio rendu, desired inchange).
+  if (s_active.load() && s_surface.mode == kModeScrgbLinear && !s_headroom_pending) {
+    const float cur = headroom_linear();
+    if (s_headroom_sent_current >= 0.f && std::fabs(cur - s_headroom_sent_current) > 0.005f) {
+      s_headroom_request_current = cur;
+      s_headroom_request_desired = desired_headroom();
+      s_headroom_pending = true;
+      lg::info("[hdr-display-output] marge : ratio rendu {:.3f} -> re-declaration au compositeur (souhait {:.2f})",
+               cur, s_headroom_request_desired);
+    }
+  }
   const uint32_t modes = modes_available();
   const bool gate = effective_setting() && modes != 0 && autoport_proof::armed_for(kItemId) &&
                     lighting_gate();
@@ -814,7 +877,10 @@ void apply_pending_on_gl_thread() {
     s_switch_ok++;
     // scRGB : demander la marge au systeme ; retour SDR : la rendre (le SurfaceControl survit a
     // la recreation de la surface EGL, donc l'accord aussi).
-    s_headroom_request = (want == kModeScrgbLinear) ? desired_headroom() : 1.f;
+    // Premiere declaration : le tampon est encode au ratio LU (1,0 tant que le systeme n'a
+    // rien accorde), le souhait promeut la couche ; retour SDR : (1,0 ; 1,0).
+    s_headroom_request_current = (want == kModeScrgbLinear) ? headroom_linear() : 1.f;
+    s_headroom_request_desired = (want == kModeScrgbLinear) ? desired_headroom() : 1.f;
     s_headroom_pending = true;
     lg::info("[hdr-display-output] surface {} : red_bits={} colorspace=0x{:x} mode={}",
              want == kModeScrgbLinear ? "scRGB/16F" : want == kModeHdr10Pq ? "HDR10/PQ" : "SDR",
@@ -826,13 +892,18 @@ void apply_pending_on_gl_thread() {
   }
 }
 
-bool take_headroom_request(float* desired) {
+bool take_headroom_request(float* current, float* desired) {
   if (!s_headroom_pending) {
     return false;
   }
   s_headroom_pending = false;
+  s_headroom_sent_current = s_headroom_request_current;
+  s_headroom_requests++;
+  if (current) {
+    *current = s_headroom_request_current;
+  }
   if (desired) {
-    *desired = s_headroom_request;
+    *desired = s_headroom_request_desired;
   }
   return true;
 }
@@ -997,8 +1068,14 @@ void probe_present(Shader& shader) {
   }
 }
 
+static bool ready_window_open() {
+  return measuring() && !s_selftest_done && s_phase == 0 && s_frames >= kPhaseFrames / 2 &&
+         (s_frames % kProbeEvery) == 0;
+}
+
 void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
-  if (!probe_window_open() || s_tm_state < 0) {
+  const bool ready_probe = ready_window_open();
+  if ((!probe_window_open() && !ready_probe) || s_tm_state < 0) {
     return;
   }
   if (s_tm_state == 0) {
@@ -1014,6 +1091,37 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
   const GLint loc = glGetUniformLocation(shader.id(), "u_hdr_ceiling");
   std::vector<float> off, on;
   bool ok = true;
+  if (ready_probe) {
+    // Sonde de CONTENU (phase 0) : un seul dessin au plafond 1,0, on compte les tons moyens.
+    glUniform1f(loc, 1.f);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_tm_fbo[0]);
+    glViewport(0, 0, kTmW, kTmH);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ok = read_float_fbo(kTmW, kTmH, off);
+    glUniform1f(loc, s_last_ceiling);
+    glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+    glViewport(0, 0, dst_w, dst_h);
+    if (!ok) {
+      lg::error("[hdr-display-output] sonde de contenu : relecture refusee");
+      s_tm_state = -1;
+      return;
+    }
+    uint64_t px = 0;
+    for (size_t i = 0; i + 3 < off.size(); i += 4) {
+      const float mx = std::fmax(off[i], std::fmax(off[i + 1], off[i + 2]));
+      if (mx == mx && mx >= 0.05f && mx <= 0.85f) {
+        px++;
+      }
+    }
+    s_ready_probes++;
+    s_ready_last_px = px;
+    s_ready_hits = (px >= kReadyPx) ? s_ready_hits + 1 : 0;
+    if (s_ready_probes == 1 || (s_ready_probes % 20) == 0 || s_ready_hits == kReadyHits) {
+      lg::info("[hdr-display-output] sonde de contenu #{} image {} : tons moyens={}/{} hits={}",
+               s_ready_probes, s_frames, px, (uint64_t)kTmW * kTmH, s_ready_hits);
+    }
+    return;
+  }
   for (int i = 0; i < 2 && ok; i++) {
     glUniform1f(loc, i == 0 ? 1.f : s_last_ceiling);
     glBindFramebuffer(GL_FRAMEBUFFER, s_tm_fbo[i]);

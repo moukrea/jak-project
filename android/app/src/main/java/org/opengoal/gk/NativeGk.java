@@ -118,9 +118,9 @@ public final class NativeGk {
     /** hdr-display-output: current Display.getHdrSdrRatio() (1.0 = no headroom); pushed on every change. */
     public static native void setHdrSdrRatio(float ratio);
 
-    /** hdr-display-output: called FROM native (GL thread) when the game wants HDR headroom above SDR white on a scRGB surface; forwards to MainActivity on the main thread. */
-    public static void onHdrOutputExtendedRange(final float desiredRatio) {
-        MainActivity.applyExtendedRangeBrightness(desiredRatio);
+    /** hdr-display-output: called FROM native (GL thread) when the scRGB buffer's encoding ratio (currentRatio = the HDR/SDR ratio the game actually rendered to, 1.0 = SDR white) or the desired headroom changed; forwards to MainActivity on the main thread. */
+    public static void onHdrOutputExtendedRange(final float currentRatio, final float desiredRatio) {
+        MainActivity.applyExtendedRangeBrightness(currentRatio, desiredRatio);
     }
 
     /**
