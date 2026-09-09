@@ -1,14 +1,14 @@
 # Le rendu passe en HDR avec un seul tone map
 
 ## Defaut cite
-- 2026-09-09 : « Comment ça se fait, encore une fois, que j'ai pas de rapports toutes les trentes minutes ? J'ai l'impression que tu fous plus rien depuis 19h »
-- 2026-09-09 : « Justement c'est assi ton but de voir quand ça coince et corriger en conséquence, là tu vois le workers ne bougeait plus du coup ça perd du temps de fou pour rien, si tu check toutes les trentes minutes tu peux identifier et corriger, sinon t'es juste un reporteur qui peut aussi ajouter des trucs au… »
+- 2026-09-09 : « Alors tu me dis aucun progrès ni nouvel essai depuis le précèdent point et tu vois pas le problème ? »
+- 2026-09-09 : « mais si t'as pas de téléphone branché... Tu peux quand même faire sous x86 ! Putain tu me saoules ! »
 
 ## Cause connue
-Reprise49 : restriction Redmi-only obsolete corrigee dans consignes et proof_run ; disponibilite USB a constater par worker. Cinq defauts et couverture restent non valides.
+Arret USB leve pour travail x86 demande par owner. Essai50 ne prouve que indisponibilite USB ; rien ne justifie arret du diagnostic/correction x86.
 
 ## Livrable
-Reprise42 selon proof_plan.recovery_attempt_42. Owner : refonte lumiere HDR uniquement. Pas poursuite autonome HD/cache/allocateur/menu ; signaler blocages annexes et poursuivre vues exploitables sans declarer couverture absente validee. Navigation OFF ne bloque plus travail visuel : ne pas repeter taps aveugles. Priorite sol vraie hutte et assombrissement piece/portail : vues jouables, captures detaillees via proof_run, contribution responsable avant nouveau reglage global. Etendre aux autres niveaux sans attendre perfection plage. Nuages/soleil et eco restent obligatoires; reutiliser diagnostics existants sans rejouer pistes negatives. Portail:10s animees apres chaque reset, tracees. Comparaisons regionales couleur/eclat/details et ensemble image, pas compteur blancs seul. Final: cinqcas,21niveaux8h/ciels/interieurs/vraie hutte par lots compatibles, menuOFF/persistance et crash0. Pas egalite pixel/rejeu exact comme prealable. Aucun ancien binaire comme preuve sans compatibilite; aucun owner-ok.
+PRIORITE IMMEDIATE : poursuivre sous x86, sans attendre telephone. Utiliser proof_run.sh lighting-hdr x86 ; adapter lots HDR x86 dans allowlist harnais existante si necessaire. Construire et executer rendu partage, comparer ON/OFF et corriger cinqcas. device:true est verification finale Android, PAS prerequis travail x86. Reprise42 selon proof_plan.recovery_attempt_42. Owner : refonte lumiere HDR uniquement. Pas poursuite autonome HD/cache/allocateur/menu ; signaler blocages annexes et poursuivre vues exploitables sans declarer couverture absente validee. Navigation OFF ne bloque plus travail visuel : ne pas repeter taps aveugles. Priorite sol vraie hutte et assombrissement piece/portail : vues jouables, captures detaillees via proof_run, contribution responsable avant nouveau reglage global. Etendre aux autres niveaux sans attendre perfection plage. Nuages/soleil et eco restent obligatoires; reutiliser diagnostics existants sans rejouer pistes negatives. Portail:10s animees apres chaque reset, tracees. Comparaisons regionales couleur/eclat/details et ensemble image, pas compteur blancs seul. Final: cinqcas,21niveaux8h/ciels/interieurs/vraie hutte par lots compatibles, menuOFF/persistance et crash0. Pas egalite pixel/rejeu exact comme prealable. Aucun ancien binaire comme preuve sans compatibilite; aucun owner-ok.
 
 ## Preuve exigee
 `hdr_tonemap_defects == 0` dans `reports/lighting-hdr/proof.txt`.

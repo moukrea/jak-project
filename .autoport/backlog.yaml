@@ -4071,7 +4071,7 @@ items:
   owner_feedback: []
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
-  status: blocked
+  status: open
   priority: 1
   owner_feedback:
   - date: '2026-09-06'
@@ -4211,6 +4211,12 @@ items:
       le workers ne bougeait plus du coup ça perd du temps de fou pour rien, si tu check toutes les trentes
       minutes tu peux identifier et corriger, sinon t'es juste un reporteur qui peut aussi ajouter des
       trucs au backlog, alors que tu sers à bien plus que ça, tu es le superviseur !
+  - date: '2026-09-09'
+    text: Alors tu me dis aucun progrès ni nouvel essai depuis le précèdent point et tu vois pas le problème
+      ?
+  - date: '2026-09-09'
+    text: mais si t'as pas de téléphone branché... Tu peux quand même faire sous x86 ! Putain tu me saoules
+      !
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4225,18 +4231,22 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'Reprise49 : restriction Redmi-only obsolete corrigee dans consignes et proof_run ; disponibilite
-    USB a constater par worker. Cinq defauts et couverture restent non valides.'
-  deliverable: 'Reprise42 selon proof_plan.recovery_attempt_42. Owner : refonte lumiere HDR uniquement.
-    Pas poursuite autonome HD/cache/allocateur/menu ; signaler blocages annexes et poursuivre vues exploitables
-    sans declarer couverture absente validee. Navigation OFF ne bloque plus travail visuel : ne pas repeter
-    taps aveugles. Priorite sol vraie hutte et assombrissement piece/portail : vues jouables, captures
-    detaillees via proof_run, contribution responsable avant nouveau reglage global. Etendre aux autres
-    niveaux sans attendre perfection plage. Nuages/soleil et eco restent obligatoires; reutiliser diagnostics
-    existants sans rejouer pistes negatives. Portail:10s animees apres chaque reset, tracees. Comparaisons
-    regionales couleur/eclat/details et ensemble image, pas compteur blancs seul. Final: cinqcas,21niveaux8h/ciels/interieurs/vraie
-    hutte par lots compatibles, menuOFF/persistance et crash0. Pas egalite pixel/rejeu exact comme prealable.
-    Aucun ancien binaire comme preuve sans compatibilite; aucun owner-ok.'
+  known_cause: Arret USB leve pour travail x86 demande par owner. Essai50 ne prouve que indisponibilite
+    USB ; rien ne justifie arret du diagnostic/correction x86.
+  deliverable: 'PRIORITE IMMEDIATE : poursuivre sous x86, sans attendre telephone. Utiliser proof_run.sh
+    lighting-hdr x86 ; adapter lots HDR x86 dans allowlist harnais existante si necessaire. Construire
+    et executer rendu partage, comparer ON/OFF et corriger cinqcas. device:true est verification finale
+    Android, PAS prerequis travail x86. Reprise42 selon proof_plan.recovery_attempt_42. Owner : refonte
+    lumiere HDR uniquement. Pas poursuite autonome HD/cache/allocateur/menu ; signaler blocages annexes
+    et poursuivre vues exploitables sans declarer couverture absente validee. Navigation OFF ne bloque
+    plus travail visuel : ne pas repeter taps aveugles. Priorite sol vraie hutte et assombrissement piece/portail
+    : vues jouables, captures detaillees via proof_run, contribution responsable avant nouveau reglage
+    global. Etendre aux autres niveaux sans attendre perfection plage. Nuages/soleil et eco restent obligatoires;
+    reutiliser diagnostics existants sans rejouer pistes negatives. Portail:10s animees apres chaque reset,
+    tracees. Comparaisons regionales couleur/eclat/details et ensemble image, pas compteur blancs seul.
+    Final: cinqcas,21niveaux8h/ciels/interieurs/vraie hutte par lots compatibles, menuOFF/persistance
+    et crash0. Pas egalite pixel/rejeu exact comme prealable. Aucun ancien binaire comme preuve sans compatibilite;
+    aucun owner-ok.'
   out_of_scope: Pas de census, baseline historique, cinq rejeux/frame exacte. Aucun changement textures/modeles
     HD/herbe/brise/cadence. Ne pas masquer brulures par assombrissement global excessif. Pas de validation
     owner ; sortie ecran HDR native ensuite.
@@ -4262,10 +4272,8 @@ items:
   - debug.opengoal.want.display=beach,display
   - debug.opengoal.padreplay=/data/data/org.opengoal.gk.jak1/files/neutral.inputs
   proof_timeout: 720
-  block_reason: 'Aucun appareil USB disponible : selection officielle essai50 du 2026-09-08 23:13 UTC,
-    retour3 et aucune preuve. Rebrancher un telephone USB avec debogage autorise ; reprendre sous Codex
-    apres changement materiel, sans accord supplementaire. Pas de nouvel essai identique.'
-  supervisor_recovery: false
+  block_reason: ''
+  supervisor_recovery: true
   proof_plan:
     mode: multi_process_batches
     owner_authorized: true
@@ -4373,6 +4381,18 @@ items:
         USB disponible apres selection, signaler blocage materiel explicitement sans recycler preuve ni
         retenter identiquement.'
       validation: Aucun acquis ni owner-ok ; tous criteres image et couverture restent inchanges.
+    recovery_x86_2026_09_09:
+      execution: x86 maintenant, explicitement demande par owner. Absence USB ne bloque ni diagnostic
+        ni correction.
+      producer: proof_run.sh lighting-hdr x86. Adapter son support lots HDR x86 et hdr_batches.py dans
+        allowlist existante si necessaire ; pas lancer campagne appareil ni attendre USB.
+      scope: Rendu partage lumiere HDR seulement ; construire binaire x86 si necessaire, vues ciel/interieurs/vraie
+        hutte, cinq defauts ON/OFF. Portail anime au moins10s apres chaque reset.
+      provenance: Preuves et manifestes x86 identifies comme x86 ; aucune identite de binaire ni validation
+        Android deduite. device:true conserve pour verification finale Android, pas prerequis au travail
+        x86.
+      next: Partir de correction43-rendu ; utiliser execution x86 et mesures regionales pour localiser
+        sol violet et autres cas. Anciennes pistes negatives restent references, pas attente materielle.
   harness_edit_allowlist:
   - .autoport/lib/proof_run.sh
   - .autoport/lib/hdr_batches.py
