@@ -18,11 +18,8 @@ layout (location = 3) in vec3 normal_in;
 layout (location = 5) in vec4 tangent_in;
 #endif
 
-uniform vec4 hvdf_offset;
-uniform mat4 camera;
-uniform float fog_constant;
-uniform float fog_min;
-uniform float fog_max;
+#include "frame_ubo.glsl"
+uniform mat4 u_inst_camera;
 // A36: Wx1 2D LUT instead of 1D — Tie3.cpp uploads the time-of-day colors as a
 // Wx1 GL_TEXTURE_2D (shared with the TFRAG3 path). texelFetch(ivec2(i,0)) is
 // texel-exact on desktop GL and required on GLES (no sampler1D).
@@ -34,7 +31,7 @@ uniform int decal;
 // que le terme rapide, par sommet, avec les MEMES raies (1,40 et 2,13 Hz) et le MEME poids de
 // hauteur que les deux autres chemins (FoliageWindLaw.h : tiers du bas rigide, smoothstep^2).
 // position_in est LOCAL AU PROTOTYPE (Tie3::render_tree_wind fournit la matrice d'instance dans
-// `camera`) : `position_in.y / u_fw_height` est donc la hauteur relative du sommet dans SA plante,
+// `u_inst_camera`) : `position_in.y / u_fw_height` est donc la hauteur relative du sommet dans SA plante,
 // et length(position_in.xz) sa portee depuis l'axe du tronc (0 sur le tronc, max au bout des
 // palmes). STRICTEMENT HORIZONTAL : l'ancien ballant vertical en quadrature (« flottaison ») est
 // retire — c'est lui, avec la phase spatiale des buissons, qui lisait comme « sous l'eau ».
@@ -67,7 +64,6 @@ uniform vec2 u_fw_reach;
 #define FW_TIP_FLOOR 0.06
 #define FW_TIP_POW 1.6
 #ifdef OG_PBR
-uniform vec4 cam_trans;
 // Grecharged-lightprobes PLAYTEST#1 #4: the LOCAL probe SH is evaluated PER-PIXEL in the fragment
 // shader (see tie_wind.frag rt_probe_sh) from the interpolated v_world — the old per-vertex eval
 // showed the ~4 m probe-cell pattern and shimmered under tfrag/tie LOD vertex morphing.
@@ -117,10 +113,10 @@ void main() {
     lpos.x += (0.62 * lf1 + 0.38 * lf2) * u_fw_amp * w;
     lpos.z += (lf2 * 0.45) * u_fw_amp * w;
   }
-  vec4 transformed = -camera[3];
-  transformed -= camera[0] * lpos.x;
-  transformed -= camera[1] * lpos.y;
-  transformed -= camera[2] * lpos.z;
+  vec4 transformed = -u_inst_camera[3];
+  transformed -= u_inst_camera[0] * lpos.x;
+  transformed -= u_inst_camera[1] * lpos.y;
+  transformed -= u_inst_camera[2] * lpos.z;
 #ifdef OG_PBR
   v_fringe_rel = (position_in - cam_trans.xyz) * (1.0 / 4096.0);
   v_world = position_in;                 // Grecharged-lightprobes: world pos for PER-PIXEL probe lookup

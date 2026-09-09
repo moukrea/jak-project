@@ -15,6 +15,7 @@
 #include "game/graphics/opengl_renderer/buckets.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/system/autoport_proof.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 
 // Definie dans background_common.cpp (liaison externe, pas de declaration dans son .h) : LA
 // matrice que tfrag3.vert consomme sous le nom `pc_camera`. La prepasse doit projeter avec la
@@ -262,8 +263,8 @@ void on_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam)
   sh.activate();
   const GLuint id = sh.id();
   const auto newcam = make_new_cam_mat(cam.rot, cam.perspective, cam.fog.x(), cam.hvdf_off.z());
-  glUniformMatrix4fv(glGetUniformLocation(id, "pc_camera"), 1, GL_FALSE, newcam[0].data());
-  glUniform4f(glGetUniformLocation(id, "cam_trans"), cam.trans[0], cam.trans[1], cam.trans[2],
+  glUniformMatrix4fv(glu::loc(id, "pc_camera"), 1, GL_FALSE, newcam[0].data());
+  glUniform4f(glu::loc(id, "cam_trans"), cam.trans[0], cam.trans[1], cam.trans[2],
               cam.trans[3]);
 
   // Un contributeur par (renderer, niveau) : plusieurs instances d'un renderer (un bucket par
@@ -326,13 +327,13 @@ void bind_screen_ao(GLuint program, SharedRenderState* rs) {
   const int w = rs ? rs->render_fb_w : 0;
   const int h = rs ? rs->render_fb_h : 0;
   ensure_white();
-  glUniform1i(glGetUniformLocation(program, "tex_screen_ao"), 8);
+  glUniform1i(glu::loc(program, "tex_screen_ao"), 8);
   // 0 = pas d'AO, 1 = appliquee a l'indirect, 2 = vue de debug (AO_DEBUG / debug.opengoal.ao.debug)
   const int mode = !on ? 0 : (AmbientOcclusionPass::effective_debug() != 0 ? 2 : 1);
-  glUniform1i(glGetUniformLocation(program, "u_screen_ao_on"), mode);
-  glUniform2f(glGetUniformLocation(program, "u_screen_ao_inv_size"), w > 0 ? 1.0f / (float)w : 0.f,
+  glUniform1i(glu::loc(program, "u_screen_ao_on"), mode);
+  glUniform2f(glu::loc(program, "u_screen_ao_inv_size"), w > 0 ? 1.0f / (float)w : 0.f,
               h > 0 ? 1.0f / (float)h : 0.f);
-  glUniform1i(glGetUniformLocation(program, "u_ao_proof"), g_probe_frame ? 1 : 0);
+  glUniform1i(glu::loc(program, "u_ao_proof"), g_probe_frame ? 1 : 0);
   glActiveTexture(GL_TEXTURE8);
   glBindTexture(GL_TEXTURE_2D, on ? g_ao.texture() : g_white_tex);
   glActiveTexture(GL_TEXTURE0);

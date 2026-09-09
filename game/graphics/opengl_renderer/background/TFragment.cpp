@@ -10,6 +10,7 @@
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/kernel/jak2/kscheme.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -259,7 +260,7 @@ void TFragment::draw_debug_window() {
 }
 
 void TFragment::init_shaders(ShaderLibrary& shaders) {
-  m_uniforms.decal = glGetUniformLocation(shaders[ShaderId::TFRAG3].id(), "decal");
+  m_uniforms.decal = glu::loc(shaders[ShaderId::TFRAG3].id(), "decal");
 }
 
 void TFragment::handle_initialization(DmaFollower& dma) {
@@ -837,10 +838,10 @@ void TFragment::render_tree(int geom,
     const auto& depth_sh = render_state->shaders[ShaderId::PBR_DEPTH];
     depth_sh.activate();
     GLuint depth_id = depth_sh.id();
-    glUniformMatrix4fv(glGetUniformLocation(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
+    glUniformMatrix4fv(glu::loc(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
     // cam_trans = the SAME source the main pass uploads (settings.camera.trans).
     const auto& ct = settings.camera.trans;
-    glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
+    glUniform4f(glu::loc(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
 
     if (sh_st.debug) {
       while (glGetError() != GL_NO_ERROR) {
@@ -1139,7 +1140,7 @@ void TFragment::render_tree(int geom,
       return;
     }
     if (fringe_loc == -2) {
-      fringe_loc = glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3].id(), "u_fringe_fade");
+      fringe_loc = glu::loc(render_state->shaders[ShaderId::TFRAG3].id(), "u_fringe_fade");
     }
     if (fringe_loc >= 0) {
       glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m,
@@ -1185,7 +1186,7 @@ void TFragment::render_tree(int geom,
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.tess_index_buffer);
     glPatchParameteri(GL_PATCH_VERTICES, 3);
     GLint tess_decal_loc =
-        glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3_TESS].id(), "decal");
+        glu::loc(render_state->shaders[ShaderId::TFRAG3_TESS].id(), "decal");
     const auto& tess_alpha_u =
         tfrag_alpha_uniforms(render_state->shaders[ShaderId::TFRAG3_TESS].id());
     for (size_t draw_idx = 0; draw_idx < tree.draws->size(); draw_idx++) {
@@ -1792,14 +1793,14 @@ void TFragment::render_tree_cull_debug(const TfragRenderSettings& settings,
 
   render_state->shaders[ShaderId::TFRAG3_NO_TEX].activate();
   glUniformMatrix4fv(
-      glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3_NO_TEX].id(), "camera"), 1,
+      glu::loc(render_state->shaders[ShaderId::TFRAG3_NO_TEX].id(), "camera"), 1,
       GL_FALSE, settings.camera.camera[0].data());
   glUniform4f(
-      glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3_NO_TEX].id(), "hvdf_offset"),
+      glu::loc(render_state->shaders[ShaderId::TFRAG3_NO_TEX].id(), "hvdf_offset"),
       settings.camera.hvdf_off[0], settings.camera.hvdf_off[1], settings.camera.hvdf_off[2],
       settings.camera.hvdf_off[3]);
   glUniform1f(
-      glGetUniformLocation(render_state->shaders[ShaderId::TFRAG3_NO_TEX].id(), "fog_constant"),
+      glu::loc(render_state->shaders[ShaderId::TFRAG3_NO_TEX].id(), "fog_constant"),
       settings.camera.fog.x());
   // glDisable(GL_DEPTH_TEST);
   glEnable(GL_DEPTH_TEST);

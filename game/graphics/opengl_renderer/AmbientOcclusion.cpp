@@ -15,6 +15,7 @@
 #include "common/log/log.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 
 // ============================================================================
 // Grecharged-ambient-occlusion
@@ -298,16 +299,16 @@ void upload_common_uniforms(GLuint id,
                             float ao_h) {
   // u_camera: same column layout the grass renderer uploads (camera_matrix[0].data()
   // is 16 contiguous floats, column-major).
-  glUniformMatrix4fv(glGetUniformLocation(id, "u_camera"), 1, GL_FALSE,
+  glUniformMatrix4fv(glu::loc(id, "u_camera"), 1, GL_FALSE,
                      rs->camera_matrix[0].data());
-  glUniformMatrix4fv(glGetUniformLocation(id, "u_inv_camera"), 1, GL_FALSE, inv);
-  glUniform4f(glGetUniformLocation(id, "u_hvdf_offset"), rs->camera_hvdf_off[0],
+  glUniformMatrix4fv(glu::loc(id, "u_inv_camera"), 1, GL_FALSE, inv);
+  glUniform4f(glu::loc(id, "u_hvdf_offset"), rs->camera_hvdf_off[0],
               rs->camera_hvdf_off[1], rs->camera_hvdf_off[2], rs->camera_hvdf_off[3]);
-  glUniform1f(glGetUniformLocation(id, "u_fog"), rs->camera_fog.x());
-  glUniform4f(glGetUniformLocation(id, "u_cam_pos"), rs->camera_pos[0], rs->camera_pos[1],
+  glUniform1f(glu::loc(id, "u_fog"), rs->camera_fog.x());
+  glUniform4f(glu::loc(id, "u_cam_pos"), rs->camera_pos[0], rs->camera_pos[1],
               rs->camera_pos[2], rs->camera_pos[3]);
-  glUniform2f(glGetUniformLocation(id, "u_depth_size"), depth_w, depth_h);
-  glUniform2f(glGetUniformLocation(id, "u_ao_size"), ao_w, ao_h);
+  glUniform2f(glu::loc(id, "u_depth_size"), depth_w, depth_h);
+  glUniform2f(glu::loc(id, "u_ao_size"), ao_w, ao_h);
 }
 
 }  // namespace
@@ -498,19 +499,19 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     glViewport(0, 0, ao_w, ao_h);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, depth_tex);
-    glUniform1i(glGetUniformLocation(id, "u_depth"), 0);
+    glUniform1i(glu::loc(id, "u_depth"), 0);
     upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
-    glUniform1f(glGetUniformLocation(id, "u_radius"), u_radius);
-    glUniform1f(glGetUniformLocation(id, "u_intensity"), u_intensity);
+    glUniform1f(glu::loc(id, "u_radius"), u_radius);
+    glUniform1f(glu::loc(id, "u_intensity"), u_intensity);
     // round F (owner 2026-07-16 16:50): HBAO/GTAO get an SSAO-model broad soft depth
     // term at SSAO's calibrated intensity (2.0, strength-scaled like the contact term).
     // SSAO itself has no u_broad uniform (location -1, upload ignored).
-    glUniform1f(glGetUniformLocation(id, "u_broad"),
+    glUniform1f(glu::loc(id, "u_broad"),
                 (mode == 1) ? 0.0f : 2.0f * ao_strength_mul);
-    glUniform1i(glGetUniformLocation(id, "u_samples"), u_samples);
-    glUniform1i(glGetUniformLocation(id, "u_dirs"), u_dirs);
-    glUniform1i(glGetUniformLocation(id, "u_steps"), u_steps);
-    glUniform1i(glGetUniformLocation(id, "u_debug"), (dbg == 2) ? 2 : 0);
+    glUniform1i(glu::loc(id, "u_samples"), u_samples);
+    glUniform1i(glu::loc(id, "u_dirs"), u_dirs);
+    glUniform1i(glu::loc(id, "u_steps"), u_steps);
+    glUniform1i(glu::loc(id, "u_debug"), (dbg == 2) ? 2 : 0);
     // defect #6 residual (gtao-high title kill): the estimator is the one potentially
     // GPU-heavy draw (GTAO High = full-res x 6 slices x 20 samples ~ 1s+ on Adreno 618).
     // A single mega-draw trips the KGSL GPU watchdog under level-load churn. Split into
@@ -556,15 +557,15 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, m_ao_tex[1]);
       }
-      glUniform1i(glGetUniformLocation(id, "u_ao"), 0);
+      glUniform1i(glu::loc(id, "u_ao"), 0);
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_2D, depth_tex);
-      glUniform1i(glGetUniformLocation(id, "u_depth"), 1);
+      glUniform1i(glu::loc(id, "u_depth"), 1);
       upload_common_uniforms(id, rs, invf, depth_wf, depth_hf, ao_wf, ao_hf);
       if (p == 0) {
-        glUniform2f(glGetUniformLocation(id, "u_dir"), 1.0f / ao_wf, 0.0f);
+        glUniform2f(glu::loc(id, "u_dir"), 1.0f / ao_wf, 0.0f);
       } else {
-        glUniform2f(glGetUniformLocation(id, "u_dir"), 0.0f, 1.0f / ao_hf);
+        glUniform2f(glu::loc(id, "u_dir"), 0.0f, 1.0f / ao_hf);
       }
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }

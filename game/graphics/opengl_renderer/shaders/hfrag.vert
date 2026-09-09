@@ -5,12 +5,7 @@ layout (location = 1) in int time_of_day_index;
 layout (location = 2) in ivec2 uv;
 layout (location = 3) in int vi;
 
-uniform vec4 hvdf_offset;
-uniform vec4 cam_trans;
-uniform mat4 pc_camera;
-uniform float fog_constant;
-uniform float fog_min;
-uniform float fog_max;
+#include "frame_ubo.glsl"
 uniform sampler1D tex_T10; // note, sampled in the vertex shader on purpose.
 // uniform int decal;
 uniform float fog_hack_threshold;

@@ -9,7 +9,7 @@ uniform sampler2D tex_T0;
 
 uniform float alpha_min;
 uniform float alpha_max;
-uniform vec4 fog_color;
+#include "frame_ubo.glsl"
 
 uniform int gfx_hack_no_tex;
 

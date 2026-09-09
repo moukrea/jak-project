@@ -9,14 +9,8 @@ layout (location = 3) in int time_of_day_index;
 // screen-space derivatives = per-triangle flat. Bound by Shrub.cpp's VAO setup.
 layout (location = 4) in vec4 shrub_normal;
 
-uniform vec4 hvdf_offset;
-uniform mat4 camera;
-uniform float fog_constant;
-uniform float fog_min;
-uniform float fog_max;
+#include "frame_ubo.glsl"
 uniform int decal;
-uniform vec4 cam_trans;
-uniform mat4 pc_camera;
 // foliage-wind (owner 2026-09-03) : la brise des buissons est le MEME chunk, la MEME loi et le MEME
 // attribut 7 que le TIE statique (tie_sway.glsl). L'ancienne LUT par `color_index` (tex_T18) est
 // retiree : elle supposait « une entree de palette par instance » et faisait glisser un buisson

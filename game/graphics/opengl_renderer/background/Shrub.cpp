@@ -14,6 +14,7 @@
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/mips2c/spart_prof.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 
 static std::atomic<uint64_t> g_shrub_contact_uniform_batches{0};
 static std::atomic<uint64_t> g_shrub_contact_binding_failures{0};
@@ -46,7 +47,7 @@ Shrub::~Shrub() {
 }
 
 void Shrub::init_shaders(ShaderLibrary& shaders) {
-  m_uniforms.decal = glGetUniformLocation(shaders[ShaderId::SHRUB].id(), "decal");
+  m_uniforms.decal = glu::loc(shaders[ShaderId::SHRUB].id(), "decal");
 }
 
 // lighting-ao-indirect : prepasse de profondeur vue camera. Programme PREPASS_WORLD actif,
@@ -819,11 +820,11 @@ void Shrub::render_tree(int idx,
     {
       update_native_wind(tree, settings, render_state);
       const GLuint prog = render_state->shaders[ShaderId::SHRUB].id();
-      const GLint on_loc = glGetUniformLocation(prog, "u_shrub_native_on");
-      const GLint tex_loc = glGetUniformLocation(prog, "tex_T18");
+      const GLint on_loc = glu::loc(prog, "u_shrub_native_on");
+      const GLint tex_loc = glu::loc(prog, "tex_T18");
       const bool on = tree.wind_active && tree.wind_seeded;
       const bool contact_on = foliage_wind::enabled() && tree.contact_active;
-      const GLint contact_loc = glGetUniformLocation(prog, "u_shrub_contact_on");
+      const GLint contact_loc = glu::loc(prog, "u_shrub_contact_on");
       glUniform1i(contact_loc, contact_on ? 1 : 0);
       if (contact_on) {
         const bool bound = grass_occ::push_contact_uniforms(prog, true);
@@ -904,9 +905,9 @@ void Shrub::render_tree(int idx,
       const auto& depth_sh = render_state->shaders[ShaderId::PBR_DEPTH];
       depth_sh.activate();
       GLuint depth_id = depth_sh.id();
-      glUniformMatrix4fv(glGetUniformLocation(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
+      glUniformMatrix4fv(glu::loc(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
       const auto& ct = settings.camera.trans;
-      glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
+      glUniform4f(glu::loc(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
 
       // Full static shrub geometry (ignore per-frame vis: an off-screen bush must keep
       // casting its on-screen shadow). Owner #4 phantom-lines fix: draw the SANITIZED

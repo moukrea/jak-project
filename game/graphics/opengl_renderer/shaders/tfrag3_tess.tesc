@@ -12,7 +12,7 @@
 
 layout (vertices = 3) out;
 
-uniform vec4 cam_trans;
+#include "frame_ubo.glsl"
 #ifdef OG_PBR
 uniform int u_pbr_displacement;  // 0 Off, 1 Parallax, 2 Tessellation
 // PBR POLISH (owner playtest #17: "la tessellation manque de détail et ne donne pas vraiment de

@@ -25,6 +25,7 @@
 #include "game/graphics/opengl_renderer/background/Tie3.h"
 #include "game/graphics/refset.h"
 #include "game/system/autoport_proof.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 
 namespace foliage_wind {
 namespace {
@@ -518,10 +519,10 @@ bool paused() {
 float push_uniforms(GLuint program, u64 frame_idx, const char* pass) {
   const float amp = enabled() ? bend_metres() * 4096.f : 0.f;
   const float t = clock_seconds(frame_idx, g_paused);
-  const GLint amp_loc = glGetUniformLocation(program, "u_tie_sway_amp");
-  const GLint time_loc = glGetUniformLocation(program, "u_tie_sway_time");
-  const GLint dir_loc = glGetUniformLocation(program, "u_tie_sway_dir");
-  const GLint flut_loc = glGetUniformLocation(program, "u_tie_sway_flutter");
+  const GLint amp_loc = glu::loc(program, "u_tie_sway_amp");
+  const GLint time_loc = glu::loc(program, "u_tie_sway_time");
+  const GLint dir_loc = glu::loc(program, "u_tie_sway_dir");
+  const GLint flut_loc = glu::loc(program, "u_tie_sway_flutter");
   if (amp_loc >= 0) {
     glUniform1f(amp_loc, amp);
   }

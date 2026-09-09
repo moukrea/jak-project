@@ -2,6 +2,10 @@
 
 #include "common/log/log.h"
 
+#include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/system/autoport_proof.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+
 constexpr int OCEAN_TEX_TBP_JAK1 = 8160;  // todo
 constexpr int OCEAN_TEX_TBP_JAK2 = 672;
 
@@ -292,7 +296,16 @@ void CommonOceanRenderer::flush_near(SharedRenderState* render_state, ScopedProf
   glBufferData(GL_ARRAY_BUFFER, m_next_free_vertex * sizeof(Vertex), m_vertices.data(),
                GL_STREAM_DRAW);
   render_state->shaders[ShaderId::OCEAN_COMMON].activate();
-  glUniform4f(glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "fog_color"),
+  // lighting-ao-indirect : l'eau est ombree par l'AO d'ecran comme le decor (SPEC §4.7). La
+  // texture n'existe qu'apres la prepasse (bucket 6) : l'ocean lointain (bucket 4) lit
+  // u_screen_ao_on == 0 et reste tel quel ; l'ocean proche (bucket 63) est ombre. Le compteur
+  // publie les flushs qui ont effectivement lu la texture.
+  prepass::bind_screen_ao(render_state->shaders[ShaderId::OCEAN_COMMON].id(), render_state);
+  if (prepass::screen_ao_active()) {
+    static uint64_t s_water_flushes_on = 0;
+    autoport_proof::publish("ao_water_flushes_on", ++s_water_flushes_on);
+  }
+  glUniform4f(glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "fog_color"),
               render_state->fog_color[0] / 255.f, render_state->fog_color[1] / 255.f,
               render_state->fog_color[2] / 255.f, render_state->fog_intensity / 255);
 
@@ -317,9 +330,9 @@ void CommonOceanRenderer::flush_near(SharedRenderState* render_state, ScopedProf
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glUniform1i(
-            glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "tex_T0"), 0);
+            glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "tex_T0"), 0);
         glUniform1i(
-            glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 0);
+            glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
@@ -328,10 +341,10 @@ void CommonOceanRenderer::flush_near(SharedRenderState* render_state, ScopedProf
       case 1:
         glBlendFuncSeparate(GL_ZERO, GL_ONE, GL_ONE, GL_ZERO);
         glUniform1f(
-            glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "alpha_mult"),
+            glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "alpha_mult"),
             1.f);
         glUniform1i(
-            glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 1);
+            glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 1);
         break;
       case 2:
         auto tex = render_state->texture_pool->lookup(m_envmap_tex);
@@ -344,7 +357,7 @@ void CommonOceanRenderer::flush_near(SharedRenderState* render_state, ScopedProf
         glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE, GL_ONE, GL_ZERO);
         glBlendEquation(GL_FUNC_ADD);
         glUniform1i(
-            glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 2);
+            glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 2);
         break;
     }
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ogl.index_buffer[bucket]);
@@ -475,7 +488,7 @@ void CommonOceanRenderer::flush_mid(SharedRenderState* render_state, ScopedProfi
   glBufferData(GL_ARRAY_BUFFER, m_next_free_vertex * sizeof(Vertex), m_vertices.data(),
                GL_STREAM_DRAW);
   render_state->shaders[ShaderId::OCEAN_COMMON].activate();
-  glUniform4f(glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "fog_color"),
+  glUniform4f(glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "fog_color"),
               render_state->fog_color[0] / 255.f, render_state->fog_color[1] / 255.f,
               render_state->fog_color[2] / 255.f, render_state->fog_intensity / 255);
 
@@ -517,9 +530,9 @@ void CommonOceanRenderer::flush_mid(SharedRenderState* render_state, ScopedProfi
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glUniform1i(
-            glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "tex_T0"), 0);
+            glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "tex_T0"), 0);
         glUniform1i(
-            glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 3);
+            glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 3);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       }
@@ -537,7 +550,7 @@ void CommonOceanRenderer::flush_mid(SharedRenderState* render_state, ScopedProfi
         glBlendFuncSeparate(GL_DST_ALPHA, GL_ONE, GL_ONE, GL_ZERO);
         glBlendEquation(GL_FUNC_ADD);
         glUniform1i(
-            glGetUniformLocation(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 4);
+            glu::loc(render_state->shaders[ShaderId::OCEAN_COMMON].id(), "bucket"), 4);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         break;

@@ -29,7 +29,10 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+#include "game/graphics/opengl_renderer/frame_ubo.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/graphics/opengl_renderer/prop_cache.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/graphics/opengl_renderer/Shader.h"
@@ -323,8 +326,8 @@ const TfragAlphaUniforms& tfrag_alpha_uniforms(u64 program) {
   auto it = cache.find(program);
   if (it == cache.end()) {
     TfragAlphaUniforms u;
-    u.alpha_min = glGetUniformLocation(program, "alpha_min");
-    u.alpha_max = glGetUniformLocation(program, "alpha_max");
+    u.alpha_min = glu::loc(program, "alpha_min");
+    u.alpha_max = glu::loc(program, "alpha_max");
     it = cache.emplace(program, u).first;
   }
   return it->second;
@@ -831,11 +834,11 @@ static const PbrMatUniformLocs& pbr_mat_uniform_locs(GLuint program) {
   static PbrMatUniformLocs locs;
   if (program != cached_program) {
     cached_program = program;
-    locs.normal_strength = glGetUniformLocation(program, "u_pbr_normal_strength");
-    locs.height_scale = glGetUniformLocation(program, "u_pbr_height_scale");
-    locs.spec_intensity = glGetUniformLocation(program, "u_pbr_spec_intensity");
-    locs.mat = glGetUniformLocation(program, "u_pbr_mat");
-    locs.mat2 = glGetUniformLocation(program, "u_pbr_mat2");
+    locs.normal_strength = glu::loc(program, "u_pbr_normal_strength");
+    locs.height_scale = glu::loc(program, "u_pbr_height_scale");
+    locs.spec_intensity = glu::loc(program, "u_pbr_spec_intensity");
+    locs.mat = glu::loc(program, "u_pbr_mat");
+    locs.mat2 = glu::loc(program, "u_pbr_mat2");
   }
   return locs;
 }
@@ -978,7 +981,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   // it exists to stop a crash loop, and the browser must never fight it.
   if (mb_checker && !pbr_killswitch()) {
     if (m_mode_loc == -2) {
-      m_mode_loc = glGetUniformLocation(m_program, "u_pbr_mode");
+      m_mode_loc = glu::loc(m_program, "u_pbr_mode");
     }
     if (m_mode_loc >= 0) {
       const auto& sm = pbr_testpattern::shared_maps();
@@ -1011,7 +1014,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
       // square counts keep the tess amplitude at checker-feature scale instead of tile scale.
       if (m_cur_dc[0] != 0.f || m_cur_dc[1] != 0.f) {
         if (m_dc_loc == -2) {
-          m_dc_loc = glGetUniformLocation(m_program, "u_pbr_normal_dc");
+          m_dc_loc = glu::loc(m_program, "u_pbr_normal_dc");
         }
         if (m_dc_loc >= 0) {
           glUniform2f(m_dc_loc, 0.f, 0.f);
@@ -1021,7 +1024,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
       }
       if (m_cur_hstat[0] != 0.5f || m_cur_hstat[1] != 1.0f) {
         if (m_hstat_loc == -2) {
-          m_hstat_loc = glGetUniformLocation(m_program, "u_pbr_height_stat");
+          m_hstat_loc = glu::loc(m_program, "u_pbr_height_stat");
         }
         if (m_hstat_loc >= 0) {
           glUniform2f(m_hstat_loc, 0.5f, 1.0f);
@@ -1031,7 +1034,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
       }
       if (m_cur_upm != 0.5f) {
         if (m_upm_loc == -2) {
-          m_upm_loc = glGetUniformLocation(m_program, "u_pbr_uv_per_m");
+          m_upm_loc = glu::loc(m_program, "u_pbr_uv_per_m");
         }
         if (m_upm_loc >= 0) {
           glUniform1f(m_upm_loc, 0.5f);
@@ -1041,7 +1044,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
       const float clam = 2.0f / (float)std::max(1, pbr_testpattern::squares_per_tile());
       if (m_cur_lambda != clam) {
         if (m_lambda_loc == -2) {
-          m_lambda_loc = glGetUniformLocation(m_program, "u_pbr_height_lambda");
+          m_lambda_loc = glu::loc(m_program, "u_pbr_height_lambda");
         }
         if (m_lambda_loc >= 0) {
           glUniform1f(m_lambda_loc, clam);
@@ -1119,7 +1122,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
     return;
   }
   if (m_mode_loc == -2) {
-    m_mode_loc = glGetUniformLocation(m_program, "u_pbr_mode");
+    m_mode_loc = glu::loc(m_program, "u_pbr_mode");
   }
   if (m_mode_loc < 0) {
     return;
@@ -1178,7 +1181,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   const float dcy = (want & 1) ? maps->normal_dc_y : 0.f;
   if (dcx != m_cur_dc[0] || dcy != m_cur_dc[1]) {
     if (m_dc_loc == -2) {
-      m_dc_loc = glGetUniformLocation(m_program, "u_pbr_normal_dc");
+      m_dc_loc = glu::loc(m_program, "u_pbr_normal_dc");
     }
     if (m_dc_loc >= 0) {
       glUniform2f(m_dc_loc, dcx, dcy);
@@ -1193,7 +1196,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   const float hsn = (want & 16) ? maps->height_norm : 1.0f;
   if (hsm != m_cur_hstat[0] || hsn != m_cur_hstat[1]) {
     if (m_hstat_loc == -2) {
-      m_hstat_loc = glGetUniformLocation(m_program, "u_pbr_height_stat");
+      m_hstat_loc = glu::loc(m_program, "u_pbr_height_stat");
     }
     if (m_hstat_loc >= 0) {
       glUniform2f(m_hstat_loc, hsm, hsn);
@@ -1208,7 +1211,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   const float upm = maps ? ent->uv_per_m : 0.5f;
   if (upm != m_cur_upm) {
     if (m_upm_loc == -2) {
-      m_upm_loc = glGetUniformLocation(m_program, "u_pbr_uv_per_m");
+      m_upm_loc = glu::loc(m_program, "u_pbr_uv_per_m");
     }
     if (m_upm_loc >= 0) {
       glUniform1f(m_upm_loc, upm);
@@ -1228,7 +1231,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
                                 : 0.25f;
   if (lam != m_cur_lambda) {
     if (m_lambda_loc == -2) {
-      m_lambda_loc = glGetUniformLocation(m_program, "u_pbr_height_lambda");
+      m_lambda_loc = glu::loc(m_program, "u_pbr_height_lambda");
     }
     if (m_lambda_loc >= 0) {
       glUniform1f(m_lambda_loc, lam);
@@ -1279,11 +1282,11 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   custom_tex::mm_note_bind(mm_want);
   if (mm_want != m_cur_mm_flags || mm_key != m_cur_mm_maps) {
     if (m_mm_flags_loc == -2) {
-      m_mm_flags_loc = glGetUniformLocation(m_program, "u_mm_flags");
-      m_mm_sss_loc = glGetUniformLocation(m_program, "u_mm_sss");
-      m_mm_sss2_loc = glGetUniformLocation(m_program, "u_mm_sss2");
-      m_mm_coat_loc = glGetUniformLocation(m_program, "u_mm_coat");
-      m_mm_aniso_loc = glGetUniformLocation(m_program, "u_mm_aniso");
+      m_mm_flags_loc = glu::loc(m_program, "u_mm_flags");
+      m_mm_sss_loc = glu::loc(m_program, "u_mm_sss");
+      m_mm_sss2_loc = glu::loc(m_program, "u_mm_sss2");
+      m_mm_coat_loc = glu::loc(m_program, "u_mm_coat");
+      m_mm_aniso_loc = glu::loc(m_program, "u_mm_aniso");
     }
     if (m_mm_flags_loc >= 0) {
       glUniform1i(m_mm_flags_loc, mm_want);
@@ -1336,7 +1339,7 @@ void PbrDrawBinder::finish() {
   // The TFRAG3 program is shared; reset PBR mode to 0 so other users are unaffected.
   if (m_cur_mode != 0) {
     if (m_mode_loc == -2) {
-      m_mode_loc = glGetUniformLocation(m_program, "u_pbr_mode");
+      m_mode_loc = glu::loc(m_program, "u_pbr_mode");
     }
     if (m_mode_loc >= 0) {
       glUniform1i(m_mode_loc, 0);
@@ -1349,7 +1352,7 @@ void PbrDrawBinder::finish() {
   // draw enter the modern chunk carrying the last material's scattering colour.
   if (m_cur_mm_flags != 0) {
     if (m_mm_flags_loc == -2) {
-      m_mm_flags_loc = glGetUniformLocation(m_program, "u_mm_flags");
+      m_mm_flags_loc = glu::loc(m_program, "u_mm_flags");
     }
     if (m_mm_flags_loc >= 0) {
       glUniform1i(m_mm_flags_loc, 0);
@@ -1359,7 +1362,7 @@ void PbrDrawBinder::finish() {
   }
   if (m_cur_dc[0] != 0.f || m_cur_dc[1] != 0.f) {
     if (m_dc_loc == -2) {
-      m_dc_loc = glGetUniformLocation(m_program, "u_pbr_normal_dc");
+      m_dc_loc = glu::loc(m_program, "u_pbr_normal_dc");
     }
     if (m_dc_loc >= 0) {
       glUniform2f(m_dc_loc, 0.f, 0.f);
@@ -1370,7 +1373,7 @@ void PbrDrawBinder::finish() {
   // Same for the height normalisation: back to the identity (0.5, 1.0) the program defaults to.
   if (m_cur_hstat[0] != 0.5f || m_cur_hstat[1] != 1.0f) {
     if (m_hstat_loc == -2) {
-      m_hstat_loc = glGetUniformLocation(m_program, "u_pbr_height_stat");
+      m_hstat_loc = glu::loc(m_program, "u_pbr_height_stat");
     }
     if (m_hstat_loc >= 0) {
       glUniform2f(m_hstat_loc, 0.5f, 1.0f);
@@ -1382,7 +1385,7 @@ void PbrDrawBinder::finish() {
   // carries, so no later TFRAG3 user inherits this material's density.
   if (m_cur_upm != 0.5f) {
     if (m_upm_loc == -2) {
-      m_upm_loc = glGetUniformLocation(m_program, "u_pbr_uv_per_m");
+      m_upm_loc = glu::loc(m_program, "u_pbr_uv_per_m");
     }
     if (m_upm_loc >= 0) {
       glUniform1f(m_upm_loc, 0.5f);
@@ -1392,7 +1395,7 @@ void PbrDrawBinder::finish() {
   // ROUND 20 correction: and the feature wavelength back to its 0.25-tile identity.
   if (m_cur_lambda != 0.25f) {
     if (m_lambda_loc == -2) {
-      m_lambda_loc = glGetUniformLocation(m_program, "u_pbr_height_lambda");
+      m_lambda_loc = glu::loc(m_program, "u_pbr_height_lambda");
     }
     if (m_lambda_loc >= 0) {
       glUniform1f(m_lambda_loc, 0.25f);
@@ -2004,11 +2007,11 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   if (!st.valid) {
     return;
   }
-  GLint mvp_loc = glGetUniformLocation(program, "u_pbr_shadow_mvp");
-  GLint tex_loc = glGetUniformLocation(program, "tex_PBR_SHADOW");
-  GLint on_loc = glGetUniformLocation(program, "u_pbr_shadow_on");
-  GLint leg_loc = glGetUniformLocation(program, "u_pbr_legacy_shadow");
-  GLint cd_loc = glGetUniformLocation(program, "u_pbr_shadow_cam_delta");
+  GLint mvp_loc = glu::loc(program, "u_pbr_shadow_mvp");
+  GLint tex_loc = glu::loc(program, "tex_PBR_SHADOW");
+  GLint on_loc = glu::loc(program, "u_pbr_shadow_on");
+  GLint leg_loc = glu::loc(program, "u_pbr_legacy_shadow");
+  GLint cd_loc = glu::loc(program, "u_pbr_shadow_cam_delta");
   if (tex_loc >= 0) {
     glUniform1i(tex_loc, 9);
   }
@@ -2039,7 +2042,7 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   }
   // Item 1: which light (0 = yellow sun / 1 = green sun) the READ-side map was rendered from,
   // so the shader applies the cast-shadow occlusion to the MATCHING directional term.
-  GLint sl_loc = glGetUniformLocation(program, "u_rt_shadow_light");
+  GLint sl_loc = glu::loc(program, "u_rt_shadow_light");
   if (sl_loc >= 0) {
     glUniform1i(sl_loc, st.read_shadow_light);
   }
@@ -2048,11 +2051,11 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   }
   // ROUND 2: feed the shader the Shadow Distance (range) + Shadow Quality (resolution) so it
   // can do the smooth distance fade and size the PCF texel + normal-offset bias.
-  GLint rng_loc = glGetUniformLocation(program, "u_rt_shadow_range");
+  GLint rng_loc = glu::loc(program, "u_rt_shadow_range");
   if (rng_loc >= 0) {
     glUniform1f(rng_loc, st.shadow_half);
   }
-  GLint res_loc = glGetUniformLocation(program, "u_rt_shadow_res");
+  GLint res_loc = glu::loc(program, "u_rt_shadow_res");
   if (res_loc >= 0) {
     glUniform1f(res_loc, (float)st.size);
   }
@@ -2098,7 +2101,7 @@ int pbr_debug_mode() {
 // Requires `program` to be the ACTIVE program (glUseProgram) — every caller pushes it right after
 // its own .activate().
 void pbr_push_debug_tag(GLuint program) {
-  glUniform1i(glGetUniformLocation(program, "u_pbr_debug"), pbr_debug_mode());
+  glUniform1i(glu::loc(program, "u_pbr_debug"), pbr_debug_mode());
 }
 #endif
 
@@ -2126,13 +2129,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // has to be per-PROGRAM: only the program that actually runs the tessellation stages may skip
   // the POM, everything else keeps it. Every other caller (Tie3, Shrub, Hfrag) passes a non-tess
   // ShaderId and therefore gets 0 = "run the POM".
-  glUniform1i(glGetUniformLocation(id, "u_pbr_tess_active"),
+  glUniform1i(glu::loc(id, "u_pbr_tess_active"),
               shader == ShaderId::TFRAG3_TESS ? 1 : 0);
 #endif
-  glUniform1i(glGetUniformLocation(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
+  glUniform1i(glu::loc(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
   lighting_census::gate_no_tex(Gfx::g_global_settings.hack_no_tex);
-  glUniform1i(glGetUniformLocation(id, "decal"), false);
-  glUniform1i(glGetUniformLocation(id, "tex_T0"), 0);
+  glUniform1i(glu::loc(id, "decal"), false);
+  glUniform1i(glu::loc(id, "tex_T0"), 0);
   // lighting-ao-indirect : la texture d'AO d'ecran (unite 8) et ses uniformes, pour chaque
   // programme qui inclut shade.glsl (no-op documente sur les autres : location -1).
   prepass::bind_screen_ao(id, render_state);
@@ -2147,12 +2150,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // Shrub :605) — et seul Tie3 le releve, juste apres, sur ses propres passes.
   // Un programme qui ne declare pas l'uniforme rend -1, et glUniform sur -1 est un no-op
   // documente : la ligne est donc sans effet partout ailleurs.
-  glUniform1f(glGetUniformLocation(id, "u_tie_sway_amp"), 0.0f);
-  glUniform1i(glGetUniformLocation(id, "u_tie_contact_on"), 0);
+  glUniform1f(glu::loc(id, "u_tie_sway_amp"), 0.0f);
+  glUniform1i(glu::loc(id, "u_tie_contact_on"), 0);
   glVertexAttribI4ui(10, 0u, 0u, 0u, 0u);
-  glUniform1f(glGetUniformLocation(id, "u_tie_sway_time"), 0.0f);
-  glUniform2f(glGetUniformLocation(id, "u_tie_sway_dir"), 0.7071f, 0.7071f);
-  glUniform1f(glGetUniformLocation(id, "u_tie_sway_flutter"), 0.0f);
+  glUniform1f(glu::loc(id, "u_tie_sway_time"), 0.0f);
+  glUniform2f(glu::loc(id, "u_tie_sway_dir"), 0.7071f, 0.7071f);
+  glUniform1f(glu::loc(id, "u_tie_sway_flutter"), 0.0f);
   // VERROU (b), INDEPENDANT du premier. L'attribut 7 (poids + phase de balancement) n'est active
   // que par le VAO du TIE ; celui du TFRAG (TFragment.cpp:443-494) ne l'active pas. La
   // specification OpenGL dit qu'un attribut desactive rend la valeur generique courante, et cette
@@ -2165,68 +2168,35 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // sont mis a zero ici pour tout VAO qui ne les active pas.
   glVertexAttrib4f(8, 0.f, 0.f, 0.f, 1.f);
   glVertexAttribI4ui(9, 0u, 0u, 0u, 0u);
-  glUniformMatrix4fv(glGetUniformLocation(id, "camera"), 1, GL_FALSE, settings.camera[0].data());
-
-  auto newcam =
-      make_new_cam_mat(settings.rot, settings.perspective, settings.fog.x(), settings.hvdf_off.z());
-
-  /*
-  fmt::print("camera:\n{}\n{}\n{}\n{}\n", settings.camera[0].to_string_aligned(),
-             settings.camera[1].to_string_aligned(), settings.camera[2].to_string_aligned(),
-             settings.camera[3].to_string_aligned());
-
-  fmt::print("camera2:\n{}\n{}\n{}\n{}\n", newcam[0].to_string_aligned(),
-             newcam[1].to_string_aligned(), newcam[2].to_string_aligned(),
-             newcam[3].to_string_aligned());
-
-  fmt::print("persp:\n{}\n{}\n{}\n{}\n", settings.perspective[0].to_string_aligned(),
-             settings.perspective[1].to_string_aligned(),
-             settings.perspective[2].to_string_aligned(),
-             settings.perspective[3].to_string_aligned());
-  fmt::print("rot:\n{}\n{}\n{}\n{}\n", settings.rot[0].to_string_aligned(),
-             settings.rot[1].to_string_aligned(), settings.rot[2].to_string_aligned(),
-             settings.rot[3].to_string_aligned());
-  fmt::print("ctrans: {}\n", settings.trans.to_string_aligned());
-  fmt::print("hvdf: {}\n", settings.hvdf_off.to_string_aligned());
-  */
-
-  glUniformMatrix4fv(glGetUniformLocation(id, "pc_camera"), 1, GL_FALSE, newcam[0].data());
-
-  glUniform4f(glGetUniformLocation(id, "hvdf_offset"), settings.hvdf_off[0], settings.hvdf_off[1],
-              settings.hvdf_off[2], settings.hvdf_off[3]);
-  glUniform4f(glGetUniformLocation(id, "cam_trans"), settings.trans[0], settings.trans[1],
-              settings.trans[2], settings.trans[3]);
-  glUniform1f(glGetUniformLocation(id, "fog_constant"), settings.fog.x());
-  glUniform1f(glGetUniformLocation(id, "fog_min"), settings.fog.y());
-  glUniform1f(glGetUniformLocation(id, "fog_max"), settings.fog.z());
-  glUniform4f(glGetUniformLocation(id, "fog_color"), render_state->fog_color[0] / 255.f,
-              render_state->fog_color[1] / 255.f, render_state->fog_color[2] / 255.f,
-              render_state->fog_intensity / 255);
+  // lighting-ao-indirect (amendement §4.3) : camera, pc_camera, hvdf_offset, cam_trans,
+  // fog_constant/min/max et fog_color vivent dans le bloc ub_frame (frame_ubo.cpp), televerse
+  // au changement seulement et lu par les shaders des cinq hotes sous les memes noms.
+  frame_ubo::update_and_bind(settings, render_state);
 
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials: frame-constant PBR uniforms; glGetUniformLocation returns -1
   // for programs without them (glUniform on -1 is a no-op), so this is safe for every ShaderId.
-  glUniform1i(glGetUniformLocation(id, "u_pbr_mode"), 0);
+  glUniform1i(glu::loc(id, "u_pbr_mode"), 0);
   lighting_census::gate_pbr_mode(0);
   // IDENTITY height normalisation (mean 0.5, norm 1.0) — the per-draw binder overrides it with the
   // material's measured statistics and restores this default in finish().
-  glUniform2f(glGetUniformLocation(id, "u_pbr_height_stat"), 0.5f, 1.0f);
+  glUniform2f(glu::loc(id, "u_pbr_height_stat"), 0.5f, 1.0f);
   // ROUND 20: default authored UV density = the 0.5 tiles/m the shaders used to hardcode. The
   // per-draw binder overrides it with the material's measured density, and restores it in finish().
-  glUniform1f(glGetUniformLocation(id, "u_pbr_uv_per_m"), 0.5f);
+  glUniform1f(glu::loc(id, "u_pbr_uv_per_m"), 0.5f);
   // ROUND 20 correction: identity feature wavelength (0.25 tile); the per-draw binder overrides it
   // with the height map's measured spectrum and restores this in finish().
-  glUniform1f(glGetUniformLocation(id, "u_pbr_height_lambda"), 0.25f);
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_N"), 11);
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_R"), 12);
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_M"), 13);
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_AO"), 14);
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_H"), 15);
+  glUniform1f(glu::loc(id, "u_pbr_height_lambda"), 0.25f);
+  glUniform1i(glu::loc(id, "tex_PBR_N"), 11);
+  glUniform1i(glu::loc(id, "tex_PBR_R"), 12);
+  glUniform1i(glu::loc(id, "tex_PBR_M"), 13);
+  glUniform1i(glu::loc(id, "tex_PBR_AO"), 14);
+  glUniform1i(glu::loc(id, "tex_PBR_H"), 15);
   // Grecharged-pbr-realtime-fusion: specular (F0) + emissive maps on units 16/17
   // (probe samplers sit on 3-7, DirectRenderer starts at 20 — no collision; GLES 3.x
   // guarantees >=32 combined units and the fragment stage uses 14 samplers <= 16).
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_S"), 16);
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_E"), 17);
+  glUniform1i(glu::loc(id, "tex_PBR_S"), 16);
+  glUniform1i(glu::loc(id, "tex_PBR_E"), 17);
   // Grecharged-materials-modern-parity: subsurface THICKNESS on unit 19. 18 is shrub's wind-anchor
   // LUT (tex_T18), 20-29 belong to DirectRenderer, so 19 is the only free slot below the auto-bind
   // range. SAMPLER BUDGET, stated because it is now the binding constraint and not a comfortable
@@ -2234,16 +2204,16 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // + 1 samplerCube = 15, against a GL_MAX_TEXTURE_IMAGE_UNITS floor of 16 on GLES 3.2. ONE slot
   // left. The next channel that wants a map must pack into an existing one (as _orm does for
   // occlusion/roughness/metallic) rather than take a unit.
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_TH"), 19);
+  glUniform1i(glu::loc(id, "tex_PBR_TH"), 19);
   // The modern stack's gate: OFF for every program at setup. The per-draw binder raises it only for
   // a material that opted in, and lowers it again in finish().
-  glUniform1i(glGetUniformLocation(id, "u_mm_flags"), 0);
+  glUniform1i(glu::loc(id, "u_mm_flags"), 0);
   // Round-4 mandate B (shadow map): always advertise the shadow sampler on unit 9 and
   // default u_pbr_shadow_on OFF; pbr_shadow_bind_receiver upgrades it per-renderer. Parking
   // the depth texture on unit 9 here mismatch-proofs every TFRAG3-family user (magenta
   // class) even before/without a receiver bind.
-  glUniform1i(glGetUniformLocation(id, "tex_PBR_SHADOW"), 9);
-  glUniform1i(glGetUniformLocation(id, "u_pbr_shadow_on"), 0);
+  glUniform1i(glu::loc(id, "tex_PBR_SHADOW"), 9);
+  glUniform1i(glu::loc(id, "u_pbr_shadow_on"), 0);
   lighting_census::gate_shadow(0);
   if (pbr_shadow_state().valid) {
     glActiveTexture(GL_TEXTURE9);
@@ -2266,7 +2236,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     sd[2] = 0.f;
     sl = 1.f;
   }
-  glUniform3f(glGetUniformLocation(id, "u_pbr_sun_dir"), sd[0] / sl, sd[1] / sl, sd[2] / sl);
+  glUniform3f(glu::loc(id, "u_pbr_sun_dir"), sd[0] / sl, sd[1] / sl, sd[2] / sl);
   // The mood tables store sun-color / env-color as 0..255-scale floats (e.g.
   // village1 sun-color (255,128,0)); pushing them raw made lit explode ~100x and
   // clamp to saturated hues. Scale to 0..1 HERE (GL boundary) so GOAL keeps
@@ -2377,74 +2347,74 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // exposure/scale can be dialed without a rebuild. Absent props = defaults.
   {
     char v[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.pbr.sunscale", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.sunscale", v) > 0) {
       sun_scale = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.ambscale", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.ambscale", v) > 0) {
       amb_scale = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.exposure", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.exposure", v) > 0) {
       exposure = atof(v);
     }
     // (debug.opengoal.pbr.debug is read by pbr_debug_mode() at the pbr_debug initialiser above.)
-    if (__system_property_get("debug.opengoal.pbr.nstrength", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.nstrength", v) > 0) {
       normal_strength = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.height", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.height", v) > 0) {
       height_scale = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.uvtile", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.uvtile", v) > 0) {
       uv_tile = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.emissive", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.emissive", v) > 0) {
       emissive_str = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.direct", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.direct", v) > 0) {
       pbr_direct = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.indirect", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.indirect", v) > 0) {
       pbr_indirect = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.bakedw", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.bakedw", v) > 0) {
       pbr_baked_weight = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.shadowbias", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.shadowbias", v) > 0) {
       pbr_shadow_bias = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.worldrelight", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.worldrelight", v) > 0) {
       world_relight = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.wrdirect", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.wrdirect", v) > 0) {
       wr_direct = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.wrindirect", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.wrindirect", v) > 0) {
       wr_indirect = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.relief", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.relief", v) > 0) {
       relief = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.specint", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.specint", v) > 0) {
       spec_intensity = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.bisect", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.bisect", v) > 0) {
       pbr_bisect = atoi(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.bisect2", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.bisect2", v) > 0) {
       pbr_bisect2 = atoi(v);
     }
-    if (__system_property_get("debug.opengoal.mm.exposure", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.mm.exposure", v) > 0) {
       mm_exposure = atof(v);
     }
-    if (__system_property_get("debug.opengoal.mm.debug", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.mm.debug", v) > 0) {
       mm_debug = atoi(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.displacement", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.displacement", v) > 0) {
       pbr_displacement = atoi(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.tessmax", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.tessmax", v) > 0) {
       pbr_tess_max = atof(v);
     }
-    if (__system_property_get("debug.opengoal.pbr.tessseg", v) > 0) {
+    if (prop_cache::property_get("debug.opengoal.pbr.tessseg", v) > 0) {
       // A NEGATIVE value means "not set, keep the compiled default". adb cannot delete a property
       // (setprop '' is an error), so a harness that wants the default back must be able to say so
       // with a value; without this a "-1" would clamp to 0.01 and silently pick 1 cm segments.
@@ -2456,64 +2426,64 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
 #else
   // (OG_PBR_DEBUG is read by pbr_debug_mode() at the pbr_debug initialiser above.)
-  if (const char* e = getenv("OG_PBR_NSTRENGTH")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_NSTRENGTH")) {
     normal_strength = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_HEIGHT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_HEIGHT")) {
     height_scale = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_UVTILE")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_UVTILE")) {
     uv_tile = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_EMISSIVE")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_EMISSIVE")) {
     emissive_str = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_DIRECT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_DIRECT")) {
     pbr_direct = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_INDIRECT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_INDIRECT")) {
     pbr_indirect = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_BAKEDW")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_BAKEDW")) {
     pbr_baked_weight = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_SHADOWBIAS")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_SHADOWBIAS")) {
     pbr_shadow_bias = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_WORLDRELIGHT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_WORLDRELIGHT")) {
     world_relight = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_WR_DIRECT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_WR_DIRECT")) {
     wr_direct = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_WR_INDIRECT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_WR_INDIRECT")) {
     wr_indirect = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_RELIEF")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_RELIEF")) {
     relief = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_SPECINT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_SPECINT")) {
     spec_intensity = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_BISECT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_BISECT")) {
     pbr_bisect = atoi(e);
   }
-  if (const char* e = getenv("OG_PBR_BISECT2")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_BISECT2")) {
     pbr_bisect2 = atoi(e);
   }
-  if (const char* e = getenv("OG_MM_EXPOSURE")) {
+  if (const char* e = prop_cache::env_get("OG_MM_EXPOSURE")) {
     mm_exposure = atof(e);
   }
-  if (const char* e = getenv("OG_MM_DEBUG")) {
+  if (const char* e = prop_cache::env_get("OG_MM_DEBUG")) {
     mm_debug = atoi(e);
   }
-  if (const char* e = getenv("OG_PBR_DISPLACEMENT")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_DISPLACEMENT")) {
     pbr_displacement = atoi(e);
   }
-  if (const char* e = getenv("OG_PBR_TESSMAX")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_TESSMAX")) {
     pbr_tess_max = atof(e);
   }
-  if (const char* e = getenv("OG_PBR_TESSSEG")) {
+  if (const char* e = prop_cache::env_get("OG_PBR_TESSSEG")) {
     pbr_tess_seg = atof(e);
   }
 #endif
@@ -2528,9 +2498,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   Gfx::g_global_settings.mb_cur_relief_x100 = (u32)std::lround(relief * 100.0f);
   // The tess ceiling can never exceed what the driver reports as GL_MAX_TESS_GEN_LEVEL.
   pbr_tess_max = std::clamp(pbr_tess_max, 1.0f, (float)gl_max_tess_gen_level());
-  glUniform1i(glGetUniformLocation(id, "u_pbr_debug"), pbr_debug);
-  glUniform1i(glGetUniformLocation(id, "u_pbr_bisect"), pbr_bisect);
-  glUniform1i(glGetUniformLocation(id, "u_pbr_bisect2"), pbr_bisect2);
+  glUniform1i(glu::loc(id, "u_pbr_debug"), pbr_debug);
+  glUniform1i(glu::loc(id, "u_pbr_bisect"), pbr_bisect);
+  glUniform1i(glu::loc(id, "u_pbr_bisect2"), pbr_bisect2);
   pbr_displacement = std::max(0, std::min(pbr_displacement, 2));
   // Driver-defensive fallback (GL thread): tessellation (mode 2) instant-crashes drivers where
   // the tess entry points/program are unusable. Demote the EFFECTIVE mode to Parallax (1) so the
@@ -2563,13 +2533,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // against the very values the shaders were just handed. Reading gs directly there would miss all
   // three corrections. Three relaxed stores per program setup; nothing is rendered from them.
   pbr_cover_publish_gates(height_scale, pbr_bisect, pbr_debug, pbr_displacement);
-  glUniform1i(glGetUniformLocation(id, "u_pbr_displacement"), pbr_displacement);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_tess_max"), pbr_tess_max);
+  glUniform1i(glu::loc(id, "u_pbr_displacement"), pbr_displacement);
+  glUniform1f(glu::loc(id, "u_pbr_tess_max"), pbr_tess_max);
   // OWNER #18: the near-field target segment size the tesc level law solves for. Clamped to a sane
   // band (1 cm .. 2 m) so a bad prop can neither melt the GPU nor silently disable displacement.
   pbr_tess_seg = std::clamp(pbr_tess_seg, 0.01f, 2.0f);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_tess_seg"), pbr_tess_seg);
-  glUniform3f(glGetUniformLocation(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
+  glUniform1f(glu::loc(id, "u_pbr_tess_seg"), pbr_tess_seg);
+  glUniform3f(glu::loc(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
               gs.recharged_pbr_sun_color[2] * sun_scale);
 
@@ -2631,8 +2601,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       light_dir[2] = ss[2] / ssl;
     }
   }
-  glUniform3fv(glGetUniformLocation(id, "u_pbr_light_dir"), 3, light_dir);
-  glUniform3fv(glGetUniformLocation(id, "u_pbr_light_color"), 3, light_color);
+  glUniform3fv(glu::loc(id, "u_pbr_light_dir"), 3, light_dir);
+  glUniform3fv(glu::loc(id, "u_pbr_light_color"), 3, light_color);
 
   // === Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY path uniforms. ===
   // Master toggle comes from the pc-settings (recharged_rt_*), overridable per-frame by a
@@ -2651,18 +2621,18 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.light", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.light", rv) > 0 && rv[0]) {
       rt_light_on = atoi(rv);
     }
-    if (__system_property_get("debug.opengoal.rt.intensity", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.intensity", rv) > 0 && rv[0]) {
       rt_intensity = atof(rv);
     }
   }
 #else
-  if (const char* e = getenv("OG_RT_LIGHT")) {
+  if (const char* e = prop_cache::env_get("OG_RT_LIGHT")) {
     rt_light_on = atoi(e);
   }
-  if (const char* e = getenv("OG_RT_INTENSITY")) {
+  if (const char* e = prop_cache::env_get("OG_RT_INTENSITY")) {
     rt_intensity = atof(e);
   }
 #endif
@@ -2678,21 +2648,21 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.shadowstrength", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.shadowstrength", rv) > 0 && rv[0]) {
       rt_shadow_strength = atof(rv);
     }
   }
 #else
-  if (const char* e = getenv("OG_RT_SHADOWSTRENGTH")) {
+  if (const char* e = prop_cache::env_get("OG_RT_SHADOWSTRENGTH")) {
     rt_shadow_strength = atof(e);
   }
 #endif
   // residual = clamp(1 - strength, 0, 1); guard NaN / out-of-range to a sane 0..1.
   float rt_shadow_residual =
       (rt_shadow_strength >= 0.0f && rt_shadow_strength <= 1.0f) ? (1.0f - rt_shadow_strength) : 0.0f;
-  glUniform1i(glGetUniformLocation(id, "u_rt_light_on"), rt_light_on);
+  glUniform1i(glu::loc(id, "u_rt_light_on"), rt_light_on);
   lighting_census::gate_rt_light(rt_light_on);
-  glUniform3f(glGetUniformLocation(id, "u_rt_sun_dir"), light_dir[0], light_dir[1], light_dir[2]);
+  glUniform3f(glu::loc(id, "u_rt_sun_dir"), light_dir[0], light_dir[1], light_dir[2]);
   // Sun color: normalize the mood sun tint to unit max, blend 50% toward white so it
   // reads as a natural sun (not an oversaturated hue), then scale by intensity.
   {
@@ -2710,7 +2680,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     for (int i = 0; i < 3; i++) {
       rc[i] = (0.5f + 0.5f * (msc[i] / mx)) * rt_intensity;
     }
-    glUniform3f(glGetUniformLocation(id, "u_rt_sun_color"), rc[0], rc[1], rc[2]);
+    glUniform3f(glu::loc(id, "u_rt_sun_color"), rc[0], rc[1], rc[2]);
   }
   // === Grecharged-realtime-lighting ROUND 7: NIGHT SUN-FADE ===
   // Gate the direct sun by the REAL sun ELEVATION (the visible-sun dome vector's up-component
@@ -2744,12 +2714,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.sunelev", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.sunelev", rv) > 0 && rv[0]) {
       rt_sun_elev = atof(rv);  // device A/B: force the night-fade value without waiting for TOD
     }
   }
 #else
-  if (const char* e = getenv("OG_RT_SUNELEV")) {
+  if (const char* e = prop_cache::env_get("OG_RT_SUNELEV")) {
     rt_sun_elev = atof(e);
   }
 #endif
@@ -2784,22 +2754,22 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float moon_intensity = 0.40f;                        // WEAKER than the yellow sun (owner: green sun weaker)
 #ifdef __ANDROID__
   { char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.moonintensity", rv) > 0 && rv[0]) moon_intensity = atof(rv); }
+    if (prop_cache::property_get("debug.opengoal.rt.moonintensity", rv) > 0 && rv[0]) moon_intensity = atof(rv); }
 #else
-  if (const char* e = getenv("OG_RT_MOONINTENSITY")) moon_intensity = atof(e);
+  if (const char* e = prop_cache::env_get("OG_RT_MOONINTENSITY")) moon_intensity = atof(e);
 #endif
   if (!(moon_intensity >= 0.0f && moon_intensity <= 2.0f)) moon_intensity = 0.40f;
   // Device A/B: force the green-sun elevation weight (like debug.opengoal.rt.sunelev for the yellow sun)
   // so the green-sun contribution can be isolated on/off at a fixed vantage (0 = green off, 1 = full).
 #ifdef __ANDROID__
   { char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.greenelev", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.greenelev", rv) > 0 && rv[0]) {
       float g = atof(rv);
       if (g >= 0.0f) green_elev = g;  // NEGATIVE sentinel (-1) => keep the REAL green-sun elevation
     }                                  // (a prop cannot be cleared headlessly, so -1 = "release override")
   }
 #else
-  if (const char* e = getenv("OG_RT_GREENELEV")) {
+  if (const char* e = prop_cache::env_get("OG_RT_GREENELEV")) {
     float g = atof(e);
     if (g >= 0.0f) green_elev = g;
   }
@@ -2841,9 +2811,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float handoff_alpha = 0.10f;
 #ifdef __ANDROID__
   { char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.handoffsmooth", rv) > 0 && rv[0]) handoff_alpha = atof(rv); }
+    if (prop_cache::property_get("debug.opengoal.rt.handoffsmooth", rv) > 0 && rv[0]) handoff_alpha = atof(rv); }
 #else
-  if (const char* e = getenv("OG_RT_HANDOFFSMOOTH")) handoff_alpha = atof(e);
+  if (const char* e = prop_cache::env_get("OG_RT_HANDOFFSMOOTH")) handoff_alpha = atof(e);
 #endif
   if (!(handoff_alpha > 0.0f && handoff_alpha <= 1.0f)) handoff_alpha = 1.0f;  // invalid/0 => raw (no smoothing)
   // === OWNER PLAYTEST #5 (attempt-11) — AMBIENT-ORIENTATION per-sun elevation weights (the real fix) ===
@@ -2883,24 +2853,24 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     ambW_y = s_ho_ambY;
     ambW_g = s_ho_ambG;
   }
-  glUniform1f(glGetUniformLocation(id, "u_rt_sun_elev"), rt_sun_elev);  // moved: upload the SMOOTHED value
+  glUniform1f(glu::loc(id, "u_rt_sun_elev"), rt_sun_elev);  // moved: upload the SMOOTHED value
 #ifdef __ANDROID__
   // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun
   // elevation, green direction, shadow-handoff confidence, and which sun currently owns the shadow map.
   { char dv[PROP_VALUE_MAX]; static int gdbg = 0;
-    if (__system_property_get("debug.opengoal.rt.greendbg", dv) > 0 && dv[0] == '1' && (gdbg++ % 120) == 0) {
+    if (prop_cache::property_get("debug.opengoal.rt.greendbg", dv) > 0 && dv[0] == '1' && (gdbg++ % 120) == 0) {
       lg::info("GDA-GREENSUN green_elev={:.3f} sun_elev={:.3f} conf={:.3f} gdir=({:.2f},{:.2f},{:.2f}) shadow_light={}",
                green_elev, rt_sun_elev, rt_shadow_conf, moon_dir[0], moon_dir[1], moon_dir[2],
                pbr_shadow_state().shadow_light);
     }
   }
 #endif
-  glUniform3f(glGetUniformLocation(id, "u_rt_moon_dir"), moon_dir[0], moon_dir[1], moon_dir[2]);
-  glUniform3f(glGetUniformLocation(id, "u_rt_moon_color"),
+  glUniform3f(glu::loc(id, "u_rt_moon_dir"), moon_dir[0], moon_dir[1], moon_dir[2]);
+  glUniform3f(glu::loc(id, "u_rt_moon_color"),
               MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);
-  glUniform1f(glGetUniformLocation(id, "u_rt_shadow_conf"), rt_shadow_conf);  // playtest #4 stepless shadow handoff
+  glUniform1f(glu::loc(id, "u_rt_shadow_conf"), rt_shadow_conf);  // playtest #4 stepless shadow handoff
   // ROUND-5: residual brightness a fully-occluded fragment keeps (1 - Shadow Strength).
-  glUniform1f(glGetUniformLocation(id, "u_rt_shadow_residual"), rt_shadow_residual);
+  glUniform1f(glu::loc(id, "u_rt_shadow_residual"), rt_shadow_residual);
 
   // === Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). ===
   // The ambient base is directional: an up-hemisphere SKY tint and a down-hemisphere GROUND bounce,
@@ -2915,18 +2885,18 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.ambient", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.ambient", rv) > 0 && rv[0]) {
       rt_ambient_on = atoi(rv);
     }
-    if (__system_property_get("debug.opengoal.rt.ambientstrength", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.ambientstrength", rv) > 0 && rv[0]) {
       rt_ambient_strength = atof(rv);
     }
   }
 #else
-  if (const char* e = getenv("OG_RT_AMBIENT")) {
+  if (const char* e = prop_cache::env_get("OG_RT_AMBIENT")) {
     rt_ambient_on = atoi(e);
   }
-  if (const char* e = getenv("OG_RT_AMBIENTSTRENGTH")) {
+  if (const char* e = prop_cache::env_get("OG_RT_AMBIENTSTRENGTH")) {
     rt_ambient_strength = atof(e);
   }
 #endif
@@ -2945,12 +2915,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.ambientcontrast", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.ambientcontrast", rv) > 0 && rv[0]) {
       rt_ambient_contrast = atof(rv);
     }
   }
 #else
-  if (const char* e = getenv("OG_RT_AMBIENTCONTRAST")) {
+  if (const char* e = prop_cache::env_get("OG_RT_AMBIENTCONTRAST")) {
     rt_ambient_contrast = atof(e);
   }
 #endif
@@ -2960,12 +2930,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.ambientmodel", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.ambientmodel", rv) > 0 && rv[0]) {
       rt_ambient_model = atoi(rv);
     }
   }
 #else
-  if (const char* e = getenv("OG_RT_AMBIENTMODEL")) {
+  if (const char* e = prop_cache::env_get("OG_RT_AMBIENTMODEL")) {
     rt_ambient_model = atoi(e);
   }
 #endif
@@ -2980,12 +2950,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.rt.flatnormal", rv) > 0 && rv[0]) {
+    if (prop_cache::property_get("debug.opengoal.rt.flatnormal", rv) > 0 && rv[0]) {
       rt_flat_normal = atoi(rv);
     }
   }
 #else
-  if (const char* e = getenv("OG_RT_FLATNORMAL")) {
+  if (const char* e = prop_cache::env_get("OG_RT_FLATNORMAL")) {
     rt_flat_normal = atoi(e);
   }
 #endif
@@ -3138,9 +3108,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       float amb_fade = 1.0f;
 #ifdef __ANDROID__
       { char rv[PROP_VALUE_MAX];
-        if (__system_property_get("debug.opengoal.rt.ambfade", rv) > 0 && rv[0]) amb_fade = atof(rv); }
+        if (prop_cache::property_get("debug.opengoal.rt.ambfade", rv) > 0 && rv[0]) amb_fade = atof(rv); }
 #else
-      if (const char* e = getenv("OG_RT_AMBFADE")) amb_fade = atof(e);
+      if (const char* e = prop_cache::env_get("OG_RT_AMBFADE")) amb_fade = atof(e);
 #endif
       float wY = (amb_fade > 0.5f) ? ambW_y : 1.0f;   // ambfade off => OLD behaviour (yellow, full directionality)
       float wG = (amb_fade > 0.5f) ? ambW_g : 0.0f;
@@ -3164,18 +3134,18 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       float akl = std::sqrt(amb_key[0]*amb_key[0] + amb_key[1]*amb_key[1] + amb_key[2]*amb_key[2]);
       if (akl > 1.0f) { amb_key[0] /= akl; amb_key[1] /= akl; amb_key[2] /= akl; }
     }
-    glUniform1i(glGetUniformLocation(id, "u_rt_ambient_on"), rt_ambient_on);
-    glUniform1i(glGetUniformLocation(id, "u_rt_ambient_model"), rt_ambient_model);
-    glUniform3f(glGetUniformLocation(id, "u_rt_ambient_key"), amb_key[0], amb_key[1], amb_key[2]);
-    glUniform1f(glGetUniformLocation(id, "u_rt_ambient_contrast"), rt_ambient_contrast);
-    glUniform1i(glGetUniformLocation(id, "u_rt_flat_normal"), rt_flat_normal);
-    glUniform3f(glGetUniformLocation(id, "u_rt_sky_color"), sky[0], sky[1], sky[2]);
-    glUniform3f(glGetUniformLocation(id, "u_rt_ground_color"), ground[0], ground[1], ground[2]);
-    glUniform3f(glGetUniformLocation(id, "u_rt_env_zenith"), env_zenith[0], env_zenith[1], env_zenith[2]);
-    glUniform3f(glGetUniformLocation(id, "u_rt_env_horizon"), env_horizon[0], env_horizon[1], env_horizon[2]);
-    glUniform3f(glGetUniformLocation(id, "u_rt_env_ground"), env_ground[0], env_ground[1], env_ground[2]);
-    glUniform3f(glGetUniformLocation(id, "u_rt_sun_glow"), sun_glow[0], sun_glow[1], sun_glow[2]);
-    glUniform3fv(glGetUniformLocation(id, "u_rt_sh[0]"), 9, &shc[0][0]);
+    glUniform1i(glu::loc(id, "u_rt_ambient_on"), rt_ambient_on);
+    glUniform1i(glu::loc(id, "u_rt_ambient_model"), rt_ambient_model);
+    glUniform3f(glu::loc(id, "u_rt_ambient_key"), amb_key[0], amb_key[1], amb_key[2]);
+    glUniform1f(glu::loc(id, "u_rt_ambient_contrast"), rt_ambient_contrast);
+    glUniform1i(glu::loc(id, "u_rt_flat_normal"), rt_flat_normal);
+    glUniform3f(glu::loc(id, "u_rt_sky_color"), sky[0], sky[1], sky[2]);
+    glUniform3f(glu::loc(id, "u_rt_ground_color"), ground[0], ground[1], ground[2]);
+    glUniform3f(glu::loc(id, "u_rt_env_zenith"), env_zenith[0], env_zenith[1], env_zenith[2]);
+    glUniform3f(glu::loc(id, "u_rt_env_horizon"), env_horizon[0], env_horizon[1], env_horizon[2]);
+    glUniform3f(glu::loc(id, "u_rt_env_ground"), env_ground[0], env_ground[1], env_ground[2]);
+    glUniform3f(glu::loc(id, "u_rt_sun_glow"), sun_glow[0], sun_glow[1], sun_glow[2]);
+    glUniform3fv(glu::loc(id, "u_rt_sh[0]"), 9, &shc[0][0]);
 
     // === SPEC-refonte-lumiere §2.4 — FollowProbe est SUPPRIMEE, ses uniformes sont RE-HEBERGES ICI.
     // Ce que la classe faisait vraiment, mesure a l'appui :
@@ -3204,7 +3174,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       {
         char v[PROP_VALUE_MAX];
         auto rd = [&](const char* name, int& dst) {
-          if (__system_property_get(name, v) > 0 && v[0]) {
+          if (prop_cache::property_get(name, v) > 0 && v[0]) {
             dst = atoi(v);
           }
         };
@@ -3215,15 +3185,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
         rd("debug.opengoal.rt.greenamp", dbg_greenamp);
       }
 #endif
-      glUniform1f(glGetUniformLocation(id, "u_rt_lit_boost"),
+      glUniform1f(glu::loc(id, "u_rt_lit_boost"),
                   (dbg_litboost > 0) ? (float)dbg_litboost / 100.f : 1.15f);
-      glUniform1f(glGetUniformLocation(id, "u_rt_shadow_mul"),
+      glUniform1f(glu::loc(id, "u_rt_shadow_mul"),
                   (dbg_shadowmul > 0) ? (float)dbg_shadowmul / 100.f : 0.65f);
-      glUniform1f(glGetUniformLocation(id, "u_rt_tint_lit"),
+      glUniform1f(glu::loc(id, "u_rt_tint_lit"),
                   (dbg_tintlit >= 0) ? (float)dbg_tintlit / 100.f : 0.12f);
-      glUniform1f(glGetUniformLocation(id, "u_rt_tint_shadow"),
+      glUniform1f(glu::loc(id, "u_rt_tint_shadow"),
                   (dbg_tintshadow >= 0) ? (float)dbg_tintshadow / 100.f : 0.12f);
-      glUniform1f(glGetUniformLocation(id, "u_rt_green_amp"),
+      glUniform1f(glu::loc(id, "u_rt_green_amp"),
                   (dbg_greenamp >= 0) ? (float)dbg_greenamp / 100.f : 0.60f);
       lighting_census::gate_probe(0);
     }
@@ -3233,10 +3203,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // env-color). Read by the lit path only when u_pbr_baked_weight < 1 (round-4bis
   // full-realtime indirect); at the default weight 1.0 it stays viz-only.
   if (gs.recharged_pbr_lg_valid) {
-    glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_lg_ambi[0] * amb_scale,
+    glUniform3f(glu::loc(id, "u_pbr_ambient"), gs.recharged_pbr_lg_ambi[0] * amb_scale,
                 gs.recharged_pbr_lg_ambi[1] * amb_scale, gs.recharged_pbr_lg_ambi[2] * amb_scale);
   } else {
-    glUniform3f(glGetUniformLocation(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0] * amb_scale,
+    glUniform3f(glu::loc(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0] * amb_scale,
                 gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
   }
   // lighting-hdr (SPEC §8 item 2) : LES COMPOSITES C ET E CEDENT LEUR EXPOSITION AU SITE UNIQUE.
@@ -3247,7 +3217,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // resultat est identique en dessous du genou, et il n'y a plus qu'un seul reglage d'exposition
   // sur le chemin. Chaine inactive : rien ne change, le composite garde son exposition, sinon
   // eteindre le HDR assombrirait le monde.
-  glUniform1f(glGetUniformLocation(id, "u_pbr_exposure"),
+  glUniform1f(glu::loc(id, "u_pbr_exposure"),
               hdr::chain_active() ? 1.0f : exposure);
   // Gpbr-per-texture-materials: memorise the three GLOBAL material values at the exact point they
   // are handed to the program — AFTER the relief multiply and AFTER the `displacement == 0` zeroing
@@ -3256,30 +3226,30 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   g_pbr_glob_normal_strength = normal_strength;
   g_pbr_glob_height_scale = height_scale;
   g_pbr_glob_spec = spec_intensity;
-  glUniform1f(glGetUniformLocation(id, "u_pbr_normal_strength"), normal_strength);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_height_scale"), height_scale);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_uv_tile"), uv_tile);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_emissive_str"), emissive_str);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_spec_intensity"), spec_intensity);
+  glUniform1f(glu::loc(id, "u_pbr_normal_strength"), normal_strength);
+  glUniform1f(glu::loc(id, "u_pbr_height_scale"), height_scale);
+  glUniform1f(glu::loc(id, "u_pbr_uv_tile"), uv_tile);
+  glUniform1f(glu::loc(id, "u_pbr_emissive_str"), emissive_str);
+  glUniform1f(glu::loc(id, "u_pbr_spec_intensity"), spec_intensity);
   // Gpbr-per-texture-materials: the per-material vector, at its IDENTITY — (0.9, 0, 0.04, 1) and
   // (1, 1) ARE the constants the shader used to carry in-line. Pushed here so every program that
   // never sees a PbrDrawBinder (HFRAG, shrub, tie_wind, etie_base) still has a DEFINED value
   // instead of the GL default zero — a zero .w would mirror every normal map's green channel and a
   // zero reflectance would kill dielectric Fresnel.
-  glUniform4f(glGetUniformLocation(id, "u_pbr_mat"), 0.9f, 0.f, 0.04f, 1.f);
-  glUniform2f(glGetUniformLocation(id, "u_pbr_mat2"), 1.f, 1.f);
+  glUniform4f(glu::loc(id, "u_pbr_mat"), 0.9f, 0.f, 0.04f, 1.f);
+  glUniform2f(glu::loc(id, "u_pbr_mat2"), 1.f, 1.f);
   // Grecharged-materials-modern-parity: frame-constant half of the modern stack. Both are the
   // identity by default (exposure 1.0, viz off), so a program that never sees a non-zero u_mm_flags
   // is untouched by them.
-  glUniform1f(glGetUniformLocation(id, "u_mm_exposure"), mm_exposure);
-  glUniform1i(glGetUniformLocation(id, "u_mm_debug"), mm_debug);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_direct"), pbr_direct);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_indirect"), pbr_indirect);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_baked_weight"), pbr_baked_weight);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_shadow_bias"), pbr_shadow_bias);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_world_relight"), world_relight);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_wr_direct"), wr_direct);
-  glUniform1f(glGetUniformLocation(id, "u_pbr_wr_indirect"), wr_indirect);
+  glUniform1f(glu::loc(id, "u_mm_exposure"), mm_exposure);
+  glUniform1i(glu::loc(id, "u_mm_debug"), mm_debug);
+  glUniform1f(glu::loc(id, "u_pbr_direct"), pbr_direct);
+  glUniform1f(glu::loc(id, "u_pbr_indirect"), pbr_indirect);
+  glUniform1f(glu::loc(id, "u_pbr_baked_weight"), pbr_baked_weight);
+  glUniform1f(glu::loc(id, "u_pbr_shadow_bias"), pbr_shadow_bias);
+  glUniform1f(glu::loc(id, "u_pbr_world_relight"), world_relight);
+  glUniform1f(glu::loc(id, "u_pbr_wr_direct"), wr_direct);
+  glUniform1f(glu::loc(id, "u_pbr_wr_indirect"), wr_indirect);
 #endif
 }
 
@@ -3836,6 +3806,8 @@ void update_render_state_from_pc_settings(SharedRenderState* state, const TfragP
     // lighting-ao-indirect : LA camera de l'image vient d'etre lue, aucun draw ombre n'a encore
     // eu lieu — c'est ici, et une seule fois par image, que la prepasse de profondeur et
     // l'estimation d'AO tournent (PrePass.cpp).
+    // lighting-ao-indirect (amendement §4.3) : le bloc d'image est a jour avant la prepasse.
+    frame_ubo::update_and_bind(data.camera, state);
     prepass::on_first_camera(state, data.camera);
   }
 }

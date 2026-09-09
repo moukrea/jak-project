@@ -89,6 +89,9 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/GrassBakeCore.cpp
         graphics/opengl_renderer/AmbientOcclusion.cpp
         graphics/opengl_renderer/PrePass.cpp
+        graphics/opengl_renderer/gl_uniform_cache.cpp
+        graphics/opengl_renderer/prop_cache.cpp
+        graphics/opengl_renderer/frame_ubo.cpp
         graphics/opengl_renderer/opengl_utils.cpp
         graphics/opengl_renderer/OpenGLRenderer.cpp
         graphics/opengl_renderer/Profiler.cpp

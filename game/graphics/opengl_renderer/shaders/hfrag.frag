@@ -6,7 +6,7 @@ in vec4 fragment_color;
 in vec2 tex_coord;
 in float fogginess;
 uniform sampler2D tex_T0;
-uniform vec4 fog_color;
+#include "frame_ubo.glsl"
 
 uniform int gfx_hack_no_tex;
 

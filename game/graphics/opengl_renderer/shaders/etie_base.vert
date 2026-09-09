@@ -23,11 +23,7 @@ layout (location = 5) in vec4 tangent_in;
 #define TIE_CONTACT
 #include "tie_sway.glsl"
 
-uniform vec4 hvdf_offset;
-uniform mat4 camera;
-uniform float fog_constant;
-uniform float fog_min;
-uniform float fog_max;
+#include "frame_ubo.glsl"
 // A36: Wx1 2D LUT instead of 1D — Tie3.cpp uploads the time-of-day colors as a
 // Wx1 GL_TEXTURE_2D (shared with the TFRAG3 path). texelFetch(ivec2(i,0)) is
 // texel-exact on desktop GL and required on GLES (no sampler1D).
@@ -51,7 +47,6 @@ uniform vec4 persp0;
 uniform vec4 persp1;
 uniform mat4 cam_no_persp;
 #ifdef OG_PBR
-uniform vec4 cam_trans;
 // Grecharged-lightprobes PLAYTEST#1 #4: the LOCAL probe SH is evaluated PER-PIXEL in the fragment
 // shader (see etie_base.frag rt_probe_sh) from the interpolated v_world — the old per-vertex eval
 // showed the ~4 m probe-cell pattern and shimmered under tfrag/tie LOD vertex morphing.

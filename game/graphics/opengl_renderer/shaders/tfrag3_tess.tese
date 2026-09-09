@@ -16,11 +16,7 @@ in vec4 tc_tangent[];
 in float tc_seam[];
 
 // same uniforms tfrag3.vert uses for the camera transform / fog / scissor.
-uniform vec4 hvdf_offset;
-uniform vec4 cam_trans;
-uniform mat4 pc_camera;
-uniform float fog_min;
-uniform float fog_max;
+#include "frame_ubo.glsl"
 
 #ifdef OG_PBR
 uniform int u_pbr_mode;            // bit16 => a height map is bound

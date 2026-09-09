@@ -24,6 +24,9 @@
 #include "game/graphics/opengl_renderer/LoadingScreenTextures.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/frame_ubo.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+#include "game/graphics/opengl_renderer/prop_cache.h"
 #ifdef OG_FEAT_RECHARGED_HUD
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
 #endif
@@ -1658,6 +1661,9 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
 
   lighting_census::roi_frame_begin();
   prepass::frame_begin(&m_render_state);
+  glu::frame_begin();
+  prop_cache::frame_begin();
+  frame_ubo::frame_begin();
 
   // loop over the buckets!
   for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {

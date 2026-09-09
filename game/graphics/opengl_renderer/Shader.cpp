@@ -9,6 +9,8 @@
 
 #include "game/graphics/pipelines/opengl.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
+#include "game/graphics/opengl_renderer/frame_ubo.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/system/asset_manifest.h"
 
@@ -565,6 +567,11 @@ void Shader::build(const std::string& shader_name,
   if (bonesLoc != -1) {
     glUniformBlockBinding(m_program, bonesLoc, 1);
   }
+  // lighting-ao-indirect (amendement §4.3) : le bloc d'image ub_frame est au point 2, et les
+  // emplacements caches pour cet identifiant de programme sont oublies (un id GL reutilise
+  // apres suppression ne doit jamais servir un emplacement perime).
+  frame_ubo::bind_program(m_program);
+  glu::invalidate(m_program);
 
   glDeleteShader(m_vert_shader);
   glDeleteShader(m_frag_shader);

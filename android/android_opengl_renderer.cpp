@@ -21,6 +21,9 @@
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/frame_ubo.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+#include "game/graphics/opengl_renderer/prop_cache.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
 #include "game/graphics/opengl_renderer/EyeRenderer.h"
@@ -1726,6 +1729,9 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
 
   // lighting-ao-indirect : nouvelle image pour la prepasse (compteur de sonde, etat de preuve).
   prepass::frame_begin(&m_render_state);
+  glu::frame_begin();
+  prop_cache::frame_begin();
+  frame_ubo::frame_begin();
 
   for (size_t bucket_id = 0; bucket_id < m_bucket_renderers.size(); bucket_id++) {
     auto& renderer = m_bucket_renderers[bucket_id];

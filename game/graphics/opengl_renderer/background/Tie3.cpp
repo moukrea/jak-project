@@ -22,6 +22,7 @@
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/mips2c/spart_prof.h"
+#include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -270,19 +271,19 @@ Tie3::~Tie3() {
 }
 
 void Tie3::init_shaders(ShaderLibrary& shaders) {
-  m_uniforms.decal = glGetUniformLocation(shaders[ShaderId::TFRAG3].id(), "decal");
+  m_uniforms.decal = glu::loc(shaders[ShaderId::TFRAG3].id(), "decal");
 
-  m_etie_uniforms.persp0 = glGetUniformLocation(shaders[ShaderId::ETIE].id(), "persp0");
-  m_etie_uniforms.persp1 = glGetUniformLocation(shaders[ShaderId::ETIE].id(), "persp1");
-  m_etie_uniforms.cam_no_persp = glGetUniformLocation(shaders[ShaderId::ETIE].id(), "cam_no_persp");
+  m_etie_uniforms.persp0 = glu::loc(shaders[ShaderId::ETIE].id(), "persp0");
+  m_etie_uniforms.persp1 = glu::loc(shaders[ShaderId::ETIE].id(), "persp1");
+  m_etie_uniforms.cam_no_persp = glu::loc(shaders[ShaderId::ETIE].id(), "cam_no_persp");
   m_etie_uniforms.envmap_tod_tint =
-      glGetUniformLocation(shaders[ShaderId::ETIE].id(), "envmap_tod_tint");
+      glu::loc(shaders[ShaderId::ETIE].id(), "envmap_tod_tint");
 
-  m_etie_base_uniforms.decal = glGetUniformLocation(shaders[ShaderId::ETIE_BASE].id(), "decal");
-  m_etie_base_uniforms.persp0 = glGetUniformLocation(shaders[ShaderId::ETIE_BASE].id(), "persp0");
-  m_etie_base_uniforms.persp1 = glGetUniformLocation(shaders[ShaderId::ETIE_BASE].id(), "persp1");
+  m_etie_base_uniforms.decal = glu::loc(shaders[ShaderId::ETIE_BASE].id(), "decal");
+  m_etie_base_uniforms.persp0 = glu::loc(shaders[ShaderId::ETIE_BASE].id(), "persp0");
+  m_etie_base_uniforms.persp1 = glu::loc(shaders[ShaderId::ETIE_BASE].id(), "persp1");
   m_etie_base_uniforms.cam_no_persp =
-      glGetUniformLocation(shaders[ShaderId::ETIE_BASE].id(), "cam_no_persp");
+      glu::loc(shaders[ShaderId::ETIE_BASE].id(), "cam_no_persp");
 }
 
 /*!
@@ -1135,15 +1136,15 @@ void init_etie_cam_uniforms(const EtieUniforms& uniforms, const GoalBackgroundCa
 // RIEN d'autre sur le chemin statique.
 static void push_tie_contact(GLuint program, GLuint texture) {
   const bool on = texture && foliage_wind::enabled();
-  glUniform1i(glGetUniformLocation(program, "u_tie_contact_on"), on ? 1 : 0);
+  glUniform1i(glu::loc(program, "u_tie_contact_on"), on ? 1 : 0);
   if (on) {
     const bool bound = grass_occ::push_contact_uniforms(program, true);
-    const GLint sampler = glGetUniformLocation(program, "u_tie_contact_tex");
+    const GLint sampler = glu::loc(program, "u_tie_contact_tex");
     glUniform1i(sampler, 18);
     glActiveTexture(GL_TEXTURE18);
     glBindTexture(GL_TEXTURE_2D, texture);
     glActiveTexture(GL_TEXTURE0);
-    if (bound && sampler >= 0 && glGetUniformLocation(program, "u_tie_contact_on") >= 0) {
+    if (bound && sampler >= 0 && glu::loc(program, "u_tie_contact_on") >= 0) {
       const auto sources = grass_occ::contact_sources(true);
       contact_jak_samples.fetch_add(sources.jak_samples, std::memory_order_relaxed);
       contact_object_samples.fetch_add(sources.object_samples, std::memory_order_relaxed);
@@ -1342,9 +1343,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
     const auto& depth_sh = render_state->shaders[ShaderId::PBR_DEPTH];
     depth_sh.activate();
     GLuint depth_id = depth_sh.id();
-    glUniformMatrix4fv(glGetUniformLocation(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
+    glUniformMatrix4fv(glu::loc(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
     const auto& ct = settings.camera.trans;
-    glUniform4f(glGetUniformLocation(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
+    glUniform4f(glu::loc(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
 
     // Grecharged-mesh-browser V2: a HIDDEN targeted TIE mesh must not cast into the sun shadow
     // map either (unlike the TFragment caster pass, which is whole-tree-in-one-call and keeps
@@ -1506,7 +1507,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       return;
     }
     if (fringe_loc == -2) {
-      fringe_loc = glGetUniformLocation(render_state->shaders[shader_id].id(), "u_fringe_fade");
+      fringe_loc = glu::loc(render_state->shaders[shader_id].id(), "u_fringe_fade");
     }
     if (fringe_loc >= 0) {
       glUniform4f(fringe_loc, want ? 1.f : 0.f, fringe_fade.start_m, fringe_fade.end_m,
@@ -2412,12 +2413,12 @@ void Tie3::render_tree_wind(int idx,
   // untransformed and this pass supplies the instance matrix as `camera`), which is what lets the
   // shader use distance-from-the-trunk-axis as the flutter weight.
   const GLuint fw_prog = render_state->shaders[shader_id].id();
-  const GLint fw_amp_loc = glGetUniformLocation(fw_prog, "u_fw_amp");
-  const GLint fw_time_loc = glGetUniformLocation(fw_prog, "u_fw_time");
-  const GLint fw_phase_loc = glGetUniformLocation(fw_prog, "u_fw_phase");
-  const GLint fw_height_loc = glGetUniformLocation(fw_prog, "u_fw_height");
-  const GLint fw_bend_loc = glGetUniformLocation(fw_prog, "u_fw_bend");
-  const GLint fw_reach_loc = glGetUniformLocation(fw_prog, "u_fw_reach");
+  const GLint fw_amp_loc = glu::loc(fw_prog, "u_fw_amp");
+  const GLint fw_time_loc = glu::loc(fw_prog, "u_fw_time");
+  const GLint fw_phase_loc = glu::loc(fw_prog, "u_fw_phase");
+  const GLint fw_height_loc = glu::loc(fw_prog, "u_fw_height");
+  const GLint fw_bend_loc = glu::loc(fw_prog, "u_fw_bend");
+  const GLint fw_reach_loc = glu::loc(fw_prog, "u_fw_reach");
   if (fw_amp_loc >= 0) {
     glUniform1f(fw_amp_loc, 0.f);  // par instance ci-dessous ; 0 = le bloc du shader est saute
   }
@@ -2559,7 +2560,7 @@ void Tie3::render_tree_wind(int idx,
         continue;  // invisible, skip.
       }
 
-      glUniformMatrix4fv(glGetUniformLocation(render_state->shaders[shader_id].id(), "camera"), 1,
+      glUniformMatrix4fv(glu::loc(render_state->shaders[shader_id].id(), "u_inst_camera"), 1,
                          GL_FALSE, tree.wind_matrix_cache.at(grp.instance_idx)[0].data());
       // foliage-wind : le fremissement de feuille PAR INSTANCE — amplitude locale (portant le gain
       // de rafale de l'instant), phase propre (la meme que le cisaillement CPU) et hauteur locale

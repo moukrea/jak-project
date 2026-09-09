@@ -11,11 +11,7 @@ layout (location = 4) in vec4 proto_tint;
 #define TIE_CONTACT
 #include "tie_sway.glsl"
 
-uniform vec4 hvdf_offset;
-uniform mat4 camera;
-uniform float fog_constant;
-uniform float fog_min;
-uniform float fog_max;
+#include "frame_ubo.glsl"
 uniform vec4 envmap_tod_tint;
 // A36: declared sampler2D to match the Wx1 GL_TEXTURE_2D time-of-day LUT that
 // Tie3.cpp now uploads (the envmap second pass uses envmap_tod_tint and does

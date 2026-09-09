@@ -22,13 +22,7 @@ layout (location = 5) in vec4 tangent_in;
 #define TIE_CONTACT
 #include "tie_sway.glsl"
 
-uniform vec4 hvdf_offset;
-uniform vec4 cam_trans;
-uniform mat4 pc_camera;
-uniform mat4 camera;
-uniform float fog_constant;
-uniform float fog_min;
-uniform float fog_max;
+#include "frame_ubo.glsl"
 // A36: Wx1 2D LUT instead of 1D — GLES has no sampler1D/glTexImage1D (the
 // arm64 device BLR'd into the NULL glTexImage1D loader slot). texelFetch on
 // a Wx1 sampler2D is texel-exact on desktop GL too; TFragment.cpp uploads
