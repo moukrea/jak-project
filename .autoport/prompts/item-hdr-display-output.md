@@ -1,14 +1,14 @@
 # Sortir un vrai signal HDR sur les ecrans qui le supportent
 
 ## Defaut cite
-- 2026-09-07 : « Je sais pas ce que ça change pour notre plan de refonte et sa spec... Ça doit bien changer des trucs non ? Tu peux y réfléchir un peu et pas juste consigner ça dans une footnote je sais pas trop où ? »
 - 2026-09-07 : « Après on peut quand même avoir des adaptations différentes sur écran SDR et écran HDR, le fait de partager les altérations c'était de la supposition, je suis pas expert ! Je compte sur toi mais fais pas de la merde »
+- 2026-09-09 : « sur écran HDR, on doit aussi pouvoir toggle ça à off hein ? Pour ceux qui préfèreraient la sortie SDR actuelle sur leur écran HDR par example. Comme sur certains jeux actuels qui supportent le HDR, c'est pas parce que leur écran supporte le HDR qu'ils peuvent pas activer/désactiver le HDR ! Attentio… »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.
 
 ## Livrable
-SDR par defaut ; sortie HDR optionnelle si capacites reelles detectees, publiees et integrees a auto-configuration. Option visible seulement sur ecran compatible. SPEC §4.5 : base de rendu HDR, direction artistique coherente ; profils/LUT par niveau et ajustements SDR/HDR distincts autorises selon mesures. Ne jamais repartir du SDR ni reutiliser sa compression pour HDR. Adapter luminance/gamut/encodage aux capacites ecran, sans double compression. hdr_out_defects compte : detection/option incorrecte, profil incorrect pour le niveau/mode selectionne, ecretage intermediaire SDR, transformation sortie multiple, mauvaise adaptation ecran, regression SDR au retour OFF. Publier profil applique, domaine/plage avant sortie et mode sortie ; verifier valeurs >1 preservees avant adaptation. Comparaison retour SDR dans conditions equivalentes, sans campagne de frame exacte. Mesures via proof_run.sh/generic sur ecran HDR reel accessible, aucun support deduit du nom appareil. Mesurer cout GPU si disponible, sinon non mesure. Zero defaut, aucune validation visuelle inventee.
+Par DEFAUT le jeu sort du SDR bien tonemappe (lighting-hdr, valide le 09/09). Ce chantier ajoute la sortie HDR native vers l'ECRAN, sujet distinct du calcul HDR interne. `hdr_out_defects=N` : (1) capacite de l'ecran DETECTEE et publiee (`hdr_out_display_caps`, modes reellement annonces par le systeme, Android et bureau) ; (2) l'option n'apparait que si un mode est annonce — jamais un reglage qui ne fait rien ; (3) SUR UN ECRAN HDR, l'option reste un VRAI interrupteur : OFF = la sortie SDR actuelle, au choix du joueur, jamais force par la capacite de l'ecran (`hdr_out_forced_on` = 0) ; (4) activee, sortie dans l'espace annonce sans double compression (`hdr_out_tonemaps_applied` = 1) ; (5) desactivee, identique au bit a lighting-hdr ; (6) la detection entre dans l'auto-configuration du premier demarrage, mode retenu publie, et le choix persiste. Zero. Preuve sur un ecran HDR reel — le Honor de l'owner.
 
 ## Preuve exigee
 `hdr_out_defects == 0` dans `reports/hdr-display-output/proof.txt`.
