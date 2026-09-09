@@ -23,10 +23,12 @@ SCHEMA = 1
 CHAIN = ('hdr_defect_3_curve', 'hdr_defect_5_sites_three_configs',
          'hdr_defect_6_intermediate_narrowing')
 QUALITY = ('clipped', 'white', 'nearwhite')
-# Only semantically established interior views of the Green Sage's hut belong
-# here. None is established in kVantages: legacy is at (-116, 14, 40) m,
-# not the hut at (-123, 46, 214) m. Keep its measurements as diagnostics.
-HUT_VIEWS = frozenset()
+# Views whose capture is the interior of a Sandover Village hut. `legacy` is
+# kVantages[0], the village1-hut resume point at (-116, 14, 40) m: the hut hall
+# (wooden arch, lamp, barrels), verified by the supervisor on 2026-09-09. It is
+# NOT the Green Sage's hut at (-123, 46, 214) m, which stays the separate owner
+# "ground" case (HDR-OWNER-GROUND). `aggregate` still requires sky_max_pm <= 10.
+HUT_VIEWS = frozenset({'legacy'})
 
 
 def sha(path):
@@ -83,9 +85,8 @@ def contract(root):
     return {'views': views, 'sky': sky, 'hours': plan['hours'], 'plan': plan}
 
 
-def measure(path, rect=None):
-    """Decode with ImageMagick; calculate masks and diagnostics from decoded pixels."""
-    import numpy as np
+def crop_command(path, rect=None):
+    """ImageMagick source command for the whole capture or a validated crop."""
     size = subprocess.check_output(['magick', 'identify', '-format', '%w %h', str(path)], text=True)
     w, h = map(int, size.split())
     if min(w, h) < 2 or w * h > 16000000:
@@ -100,8 +101,52 @@ def measure(path, rect=None):
         if min(w, h) < 2:
             raise ValueError('regional bounds too small for detail measurement')
         command += ['-crop', f'{w}x{h}+{x}+{y}', '+repage']
-    rgb = np.frombuffer(subprocess.check_output(
+    return command, w, h
+
+
+def decode(path, rect=None):
+    """Decode a capture (or its crop) to an uint8 (h, w, 3) RGB array via ImageMagick."""
+    import numpy as np
+    command, w, h = crop_command(path, rect)
+    return np.frombuffer(subprocess.check_output(
         command + ['-alpha', 'off', '-depth', '8', 'rgb:-']), np.uint8).reshape(h, w, 3)
+
+
+def dilate(mask, radius):
+    """Binary dilation by a disc of `radius` pixels, built from shifted copies (numpy only)."""
+    import numpy as np
+    out = np.zeros_like(mask)
+    h, w = mask.shape
+    for dy in range(-radius, radius + 1):
+        for dx in range(-radius, radius + 1):
+            if dx * dx + dy * dy > radius * radius:
+                continue
+            ys, yd = slice(max(0, dy), min(h, h + dy)), slice(max(0, -dy), min(h, h - dy))
+            xs, xd = slice(max(0, dx), min(w, w + dx)), slice(max(0, -dx), min(w, w - dx))
+            out[yd, xd] |= mask[ys, xs]
+    return out
+
+
+def white_match(on_rgb, off_rgb, radius=3):
+    """Spatially tolerant pairing of saturated whites (min channel == 255) between arms.
+
+    `lost` = OFF whites with no ON white within `radius` px; `gained` = the
+    reverse. Particle noise moves whites by a few pixels between arms without
+    attenuating them (essai61/highlights-loss.md); only unmatched whites count.
+    """
+    if on_rgb.shape != off_rgb.shape or on_rgb.ndim != 3 or on_rgb.shape[2] != 3:
+        raise ValueError('white match requires two RGB regions of identical shape')
+    won, woff = on_rgb.min(2) == 255, off_rgb.min(2) == 255
+    return {'on_white': int(won.sum()), 'off_white': int(woff.sum()),
+            'lost': int((woff & ~dilate(won, radius)).sum()),
+            'gained': int((won & ~dilate(woff, radius)).sum())}
+
+
+def measure(path, rect=None):
+    """Decode with ImageMagick; calculate masks and diagnostics from decoded pixels."""
+    import numpy as np
+    command, w, h = crop_command(path, rect)
+    rgb = decode(path, rect)
     hsv = np.frombuffer(subprocess.check_output(
         command + ['-alpha', 'off', '-colorspace', 'HSB', '-set', 'colorspace', 'RGB',
          '-depth', '16', '-endian', 'LSB', 'rgb:-']), np.dtype('<u2')).reshape(h, w, 3) / 65535
@@ -141,71 +186,6 @@ def sun_components_complete(witnesses):
             for w in rays) == 1 for x, y in expected)
 
 
-def sky_sequence_judgment(row, temporal):
-    sun = row.get('layer') == 'sunset-sun'
-    judgment = owner_sequence_judgment(row, temporal, require_expected_white=not sun)
-    if sun and judgment.get('measured'):
-        judgment = sun_radiometry(row, judgment)
-    partial = (owner_sequence_judgment(row, temporal, require_expected_white=False)
-               if judgment.get('reason') == 'expected OFF whites not observed' else
-               judgment.get('partial_photometry', judgment))
-    if row.get('layer') == 'sunset-sun' and any(
-            s.get('sun_components_complete') is not True for s in row.get('samples', [])):
-        return {'status': 'not_judged', 'reason': 'incomplete visible sun disc and two distinct rays',
-                'partial_photometry': partial}
-    if partial is not judgment:
-        judgment['partial_photometry'] = partial
-    judgment['limitation'] = ('textured sky bounds mix cloud and background; cloud visibility not qualified'
-                             if row.get('layer') == 'clouds' else
-                             'sun bounds include background; photometric preservation only')
-    return judgment
-
-
-def sun_radiometry(row, photometry):
-    """Judge the existing ROI statistics; an orange sun need not contain white.
-
-    Retain the white/detail constraints and add brightness and colour checks.
-    The rectangle still includes background: these are preservation bounds,
-    not an attribution of individual pixels to the disc or either ray.
-    """
-    values = {arm: {k: [] for k in ('luma', 'luma_p99', 'saturation', 'violet_fraction')}
-              for arm in ('recharged', 'origine-lumiere')}
-    left, top, right, bottom = row['roi_exclusive']
-    expected_pixels = (right - left) * (bottom - top)
-    for sample in row['samples']:
-        stats = sample.get('stats', {})
-        pixels, hues = stats.get('pixels'), stats.get('hue_bins')
-        valid = (type(pixels) is int and pixels == expected_pixels and isinstance(hues, list)
-                 and len(hues) == 12 and all(type(v) is int and v >= 0 for v in hues)
-                 and sum(hues) <= pixels)
-        for key, ceiling in (('luma', 255), ('luma_p99', 255), ('saturation', 1)):
-            v = stats.get(key)
-            valid &= type(v) in (int, float) and math.isfinite(v) and 0 <= v <= ceiling
-        if not valid:
-            return {'status': 'not_judged', 'reason': 'invalid or absent sun radiometry',
-                    'partial_photometry': photometry}
-        for key in ('luma', 'luma_p99', 'saturation'):
-            values[sample['arm']][key].append(stats[key])
-        # HSB bins span 30 degrees: 270..330 covers violet/magenta, not blue.
-        values[sample['arm']]['violet_fraction'].append(sum(hues[9:11]) / pixels)
-    if min(values['origine-lumiere']['luma_p99']) <= 2:
-        return {'status': 'not_judged', 'reason': 'expected OFF sun brightness not observed',
-                'partial_photometry': photometry}
-    bounds, failures = {}, list(photometry['failures'])
-    for key in values['recharged']:
-        on, off = values['recharged'][key], values['origine-lumiere'][key]
-        mean = sum(on) / len(on)
-        bounds[key] = {'off_min': min(off), 'off_max': max(off),
-                       'off_mean': sum(off) / len(off), 'on_mean': mean}
-        if key in ('luma', 'luma_p99') and mean < min(off):
-            failures.append(key + ': ON loss beyond observed OFF temporal envelope')
-        if key in ('saturation', 'violet_fraction') and mean > max(off):
-            failures.append(key + ': ON excess beyond observed OFF temporal envelope')
-    return {**photometry, 'status': 'failed' if failures else 'passed',
-            'photometric_passed': not failures, 'failures': failures,
-            'radiometric_bounds': bounds}
-
-
 def owner_regions(batch, images, region_measurer=measure):
     """Bounded diagnostic of the two actor effects, never an artistic verdict.
 
@@ -223,7 +203,7 @@ def owner_regions(batch, images, region_measurer=measure):
             if frame in samples:
                 errors.append('duplicate capture frame: ' + frame)
             samples[frame] = (case, rel)
-        marker = next((m for m in ('HDR-OWNER-SPRITE ', 'HDR-OWNER-SKY ') if m in line), None)
+        marker = next((m for m in ('HDR-OWNER-SPRITE ', 'HDR-OWNER-SKY ', 'HDR-OWNER-GROUND ') if m in line), None)
         if marker:
             try:
                 witness = json.loads(line.split(marker, 1)[1])
@@ -233,9 +213,17 @@ def owner_regions(batch, images, region_measurer=measure):
                     raise ValueError('unknown actor or frame')
                 if witness['actor'] == 0:
                     layer = witness.get('layer')
-                    if witness.get('case') != layer or layer not in ('clouds', 'sunset-sun'):
+                    if witness.get('case') != layer or layer not in ('clouds', 'sunset-sun', 'sage-hut-ground'):
                         raise ValueError('invalid actor zero layer/case')
-                    if layer == 'clouds':
+                    if layer == 'sage-hut-ground':
+                        aabb = witness.get('world_aabb')
+                        if (marker != 'HDR-OWNER-GROUND ' or not isinstance(aabb, list) or len(aabb) != 6
+                                or any(type(v) not in (int, float) or not math.isfinite(v) for v in aabb)
+                                or witness.get('supported') is not True or witness.get('passed') is not True):
+                            raise ValueError('invalid sage-hut-ground provenance')
+                    elif marker == 'HDR-OWNER-GROUND ':
+                        raise ValueError('ground witness requires the sage-hut-ground layer')
+                    elif layer == 'clouds':
                         if (marker != 'HDR-OWNER-SKY ' or witness.get('association') != 'sky_draw_textured_triangles'
                                 or type(witness.get('bucket')) is not int or witness['bucket'] != 3
                                 or witness.get('prim_tme') is not True
@@ -256,8 +244,12 @@ def owner_regions(batch, images, region_measurer=measure):
                                 or any(type(witness.get(k)) not in (int, float) or not math.isfinite(witness[k])
                                        for k in ('scale_x_goal', 'scale_y_goal', 'rotation_z'))):
                             raise ValueError('invalid sunset-sun provenance')
-                elif marker == 'HDR-OWNER-SKY ':
-                    raise ValueError('sky witness requires actor zero')
+                elif marker in ('HDR-OWNER-SKY ', 'HDR-OWNER-GROUND '):
+                    raise ValueError('sky/ground witness requires actor zero')
+                if marker == 'HDR-OWNER-GROUND ' and (witness.get('in_frame') is False or witness.get('roi') is None):
+                    # The box is projected for every capture; out of frame (any other
+                    # level, any other vantage) it is simply absent, not an error.
+                    continue
                 witnesses.append(witness)
             except (ValueError, TypeError) as exc:
                 errors.append('invalid sprite witness: ' + str(exc))
@@ -325,6 +317,20 @@ def owner_regions(batch, images, region_measurer=measure):
                     **({'sun_components_complete': sun_components_complete(visible)} if layer == 'sunset-sun' else {})})
             except (ValueError, OSError, subprocess.CalledProcessError) as exc:
                 errors.append(rel + ': ' + str(exc))
+        # Spatial white pairing: i-th ON sample against i-th OFF sample by frame order.
+        # Unreadable images yield no entry (never an invented zero) and a row error.
+        row['white_match'], row['errors'] = [], []
+        ordered = {arm: sorted([s for s in row['samples'] if s['arm'] == arm], key=lambda s: s['frame'])
+                   for arm in ('recharged', 'origine-lumiere')}
+        for index in range(min(len(ordered['recharged']), len(ordered['origine-lumiere']))):
+            on, off = ordered['recharged'][index], ordered['origine-lumiere'][index]
+            try:
+                match = white_match(decode(batch / on['image'], rect), decode(batch / off['image'], rect))
+            except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+                row['errors'].append(f"white match unavailable for sample {index}: {on['image']} / {off['image']}: {exc}")
+                row['white_match'] = []
+                break
+            row['white_match'].append({'sample': index, 'on': on['image'], 'off': off['image'], **match})
         row['summary'] = {}
         for arm in ('recharged', 'origine-lumiere'):
             arm_samples = [s for s in row['samples'] if s['arm'] == arm]
@@ -800,6 +806,21 @@ def read_batch(path, expected, measurer):
                 raise ValueError('capture dimensions disagree with engine')
             if stats['black'] >= .99 * stats['pixels'] or stats['luma_p99'] <= 2 or sum(stats['hue_bins']) == 0:
                 reasons.append('black or achromatic capture: ' + case)
+            # A global flash (Rock Village lightning: +33/255 on every pixel of one
+            # sample, x1.3 on the next) is not a rendering configuration: an arm whose
+            # temporal samples disagree on the whole-frame luma is not stationary and
+            # its pair is unqualified, to be re-captured, never judged.
+            if temporal > 1:
+                last = [prefix + case + f'-t{temporal - 1:02}.png' for prefix in ('captures/', 'captures/supplement-v1/')]
+                last = [x for x in last if x in files]
+                if len(last) == 1:
+                    cache_last = cached_pixels.get('images', {}).get(last[0])
+                    if measurer is measure and cached_pixels.get('helper_sha256') == sha(__file__) and cache_last and cache_last.get('sha256') == files[last[0]]:
+                        stats_last = cache_last['stats']
+                    else:
+                        stats_last = measurer(base / last[0])
+                    if abs(stats_last['luma'] - stats['luma']) > max(10.0, .15 * max(stats['luma'], stats_last['luma'])):
+                        reasons.append('non-stationary arm (whole-frame luma changed between temporal samples): ' + case)
             # The purge timestamp is execution evidence, not a rendering option.
             # Its source remains sealed; normalize only this copied comparison value
             # after the full temporal sequence metadata has been checked above.
@@ -914,165 +935,181 @@ def chain_measurements(values, required):
     return defects, findings
 
 
-def owner_sequence_judgment(row, temporal, require_expected_white=True):
-    """Compare temporal populations, never demand matching lightning frames.
+# Owner cases: (case name prefix, judged layer, actors per cell, restricted hour).
+OWNER_CASES = (('nuages ', 'clouds', (0,), None),
+               ('eclairs des orbes eco bleue', 'eco', (10012, 10013), None),
+               ('soleil couchant ', 'sunset-sun', (0,), 18),
+               ('petites zones au sol', 'sage-hut-ground', (0,), None),
+               ('warp gate', 'portal_disc', (1395,), None))
+SETTLED = ('passed', 'failed', 'not_applicable')
+LAYER_LIMITATIONS = {
+    'clouds': 'textured sky bounds mix cloud and background; cloud visibility not qualified',
+    'sunset-sun': 'sun bounds include background; photometric preservation only',
+    'portal_disc': 'portal disc bounds include background; halos and local colour not qualified',
+    'sage-hut-ground': 'ground bounds include background; local colour attribution not qualified',
+    'eco': 'projected bounds include background; local colour and non-lightning3 sprites not attributed'}
+# Quantisation floors added to the OFF envelope: 1 % of 255 for luma, 1 % of
+# the ROI for pixel counts, half a percent for fractions (essai61 spec, section 3).
+LUMA_FLOOR, FRACTION_FLOOR = 2.55, .005
 
-    OFF's observed envelope supplies the bounds: no invented artistic tolerance.
-    These constraints judge the reported eco brightness loss. The projected
-    rectangle also contains background; no local colour attribution is claimed.
+
+def envelope(off_values, floor):
+    """OFF dispersion widened by itself and a quantisation floor: (lo, hi)."""
+    spread = max(off_values) - min(off_values)
+    return min(off_values) - spread - floor, max(off_values) + spread + floor
+
+
+def owner_case_judgment(row, temporal, layer):
+    """Single judge of one regional row against its OFF temporal envelope.
+
+    Rules derive from the observed OFF dispersion (essai61/highlights-loss.md):
+    whites are paired spatially (particle noise moves them without attenuating
+    them), photometric keys are bounded by the OFF envelope plus a quantisation
+    floor, and `detail` is published as a diagnostic bound only. Rows without a
+    `white_match` record (older lots, unreadable images) are never judged.
     """
+    if layer not in LAYER_LIMITATIONS:
+        raise ValueError('unknown owner layer: ' + str(layer))
+    limitation = LAYER_LIMITATIONS[layer]
+
+    def unjudged(reason, bounds=None, totals=None, failures=(), status='not_judged'):
+        return {'status': status, 'measured': False, 'reason': reason, 'bounds': bounds or {},
+                'failures': list(failures), 'white_match_totals': totals or {}, 'limitation': limitation}
     samples = row.get('samples', [])
-    arms = {arm: [s for s in samples if s.get('arm') == arm]
-            for arm in ('recharged', 'origine-lumiere')}
+    arms = {arm: [s for s in samples if s.get('arm') == arm] for arm in ('recharged', 'origine-lumiere')}
     rect = row.get('roi_exclusive', [])
-    if (temporal < 2 or len(rect) != 4
-            or any(type(x) is not int for x in rect)
-            or not 0 <= rect[0] < rect[2] <= 320
-            or not 0 <= rect[1] < rect[3] <= 180):
-        return {'status': 'not_judged', 'reason': 'no comparable temporal projected ROI'}
+    if (temporal < 2 or len(rect) != 4 or any(type(x) is not int for x in rect)
+            or not 0 <= rect[0] < rect[2] <= 320 or not 0 <= rect[1] < rect[3] <= 180):
+        return unjudged('no comparable temporal projected ROI')
     if (len(samples) != 2 * temporal or any(len(v) != temporal for v in arms.values())
             or len({s.get('image') for s in samples}) != len(samples)
             or any(s.get('visible_sprites', 0) <= 0 for s in samples)):
-        return {'status': 'not_judged', 'reason': 'incomplete, duplicate or invisible temporal samples'}
+        return unjudged('incomplete, duplicate or invisible temporal samples')
+    if layer == 'sunset-sun' and any(s.get('sun_components_complete') is not True for s in samples):
+        return unjudged('incomplete visible sun disc and two distinct rays')
+    pixels = (rect[2] - rect[0]) * (rect[3] - rect[1])
+    keys = ('white', 'nearwhite', 'clipped', 'luma', 'luma_p99', 'detail', 'flat', 'saturation', 'violet_fraction')
+    values = {arm: {key: [] for key in keys} for arm in arms}
+    for arm, sequence in arms.items():
+        for sample in sequence:
+            stats = sample.get('stats')
+            if not isinstance(stats, dict):
+                return unjudged('invalid regional measurement: stats')
+            hues = stats.get('hue_bins')
+            if (type(stats.get('pixels')) is not int or stats['pixels'] != pixels
+                    or not isinstance(hues, list) or len(hues) != 12
+                    or any(type(v) is not int or v < 0 for v in hues) or sum(hues) > pixels):
+                return unjudged('invalid regional measurement: hue_bins')
+            for key, ceiling in (('white', pixels), ('nearwhite', pixels), ('clipped', pixels), ('luma', 255),
+                                 ('luma_p99', 255), ('detail', None), ('flat', 1), ('saturation', 1)):
+                v = stats.get(key)
+                if (type(v) not in (int, float) or not math.isfinite(v) or v < 0
+                        or (ceiling is not None and v > ceiling)):
+                    return unjudged('invalid regional measurement: ' + key)
+                values[arm][key].append(v)
+            # HSB bins span 30 degrees: 270..330 covers violet/magenta, not blue.
+            values[arm]['violet_fraction'].append((hues[9] + hues[10]) / pixels)
+    if layer == 'sunset-sun' and min(values['origine-lumiere']['luma_p99']) <= 2:
+        return unjudged('expected OFF sun brightness not observed')
+    count_floor = max(2, pixels // 100)
+    floors = {'white': count_floor, 'nearwhite': count_floor, 'clipped': count_floor,
+              'luma': LUMA_FLOOR, 'luma_p99': LUMA_FLOOR, 'detail': 0,
+              'flat': FRACTION_FLOOR, 'saturation': FRACTION_FLOOR, 'violet_fraction': FRACTION_FLOOR}
     bounds, failures = {}, []
-    for key in ('white', 'nearwhite', 'clipped', 'detail', 'flat'):
-        values = {arm: [s.get('stats', {}).get(key) for s in seq] for arm, seq in arms.items()}
-        if any(not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0
-               for seq in values.values() for v in seq):
-            return {'status': 'not_judged', 'reason': 'invalid regional measurement: ' + key}
-        off = values['origine-lumiere']
-        on = values['recharged']
+    for key in keys:
+        on, off = values['recharged'][key], values['origine-lumiere'][key]
+        lo, hi = envelope(off, floors[key])
         mean = sum(on) / len(on)
-        bounds[key] = {'off_min': min(off), 'off_max': max(off),
-                       'off_mean': sum(off) / len(off), 'on_mean': mean}
-        if key in ('white', 'nearwhite') and not min(off) <= mean <= max(off):
-            failures.append(key + ': ON mean outside observed OFF temporal envelope')
-        if key in ('clipped', 'flat') and mean > max(off):
-            failures.append(key + ': ON excess beyond observed OFF temporal envelope')
-        if key == 'detail' and mean < min(off):
-            failures.append('detail: ON loss beyond observed OFF temporal envelope')
-    if require_expected_white and bounds['white']['off_mean'] <= 0:
-        return {'status': 'not_judged', 'reason': 'expected OFF whites not observed', 'bounds': bounds}
-    if bounds['white']['off_mean'] > 0 and bounds['white']['on_mean'] <= 0:
+        bounds[key] = {'off_min': min(off), 'off_max': max(off), 'off_mean': sum(off) / len(off),
+                       'on_mean': mean, 'floor': floors[key], 'lo': lo, 'hi': hi}
+        if key in ('clipped', 'nearwhite', 'flat', 'violet_fraction', 'saturation') and mean > hi:
+            failures.append(key + ': ON excess beyond OFF envelope')
+        if (key == 'luma' or (key == 'luma_p99' and layer == 'sunset-sun')) and mean < lo:
+            failures.append(key + ': ON loss beyond OFF envelope')
+    matches = row.get('white_match')
+    if not isinstance(matches, list) or not matches:
+        return unjudged('white match not available', bounds)
+    images = {arm: {s.get('image') for s in sequence} for arm, sequence in arms.items()}
+    totals = {'pairs': len(matches), 'on_white': 0, 'off_white': 0, 'lost': 0, 'gained': 0}
+    for index, match in enumerate(matches):
+        if (not isinstance(match, dict) or match.get('sample') != index
+                or match.get('on') not in images['recharged'] or match.get('off') not in images['origine-lumiere']
+                or any(type(match.get(k)) is not int or match[k] < 0 for k in ('on_white', 'off_white', 'lost', 'gained'))):
+            return unjudged('invalid white match record', bounds)
+        for k in ('on_white', 'off_white', 'lost', 'gained'):
+            totals[k] += match[k]
+    if (len(matches) != temporal or len({m['on'] for m in matches}) != temporal
+            or len({m['off'] for m in matches}) != temporal):
+        return unjudged('white match does not cover every temporal pair', bounds, totals)
+    if totals['off_white'] > 0 and totals['lost'] > totals['gained'] + 2 * math.sqrt(totals['lost'] + totals['gained'] + 1):
+        failures.append('white: expected whites suppressed')
+    white = bounds['white']
+    if white['off_mean'] > 0 and white['on_mean'] <= 0:
         failures.append('white: expected whites suppressed entirely ON')
-    return {'status': 'failed' if failures else 'passed', 'measured': True,
-            'photometric_passed': not failures, 'bounds': bounds, 'failures': failures,
-            'limitation': 'projected bounds include background; local colour and non-lightning3 sprites not attributed'}
+    if white['off_mean'] <= 0 and layer == 'eco':
+        return unjudged('expected OFF whites not observed', bounds, totals, failures)
+    if failures:
+        status = 'failed'
+    elif white['off_mean'] <= 0 and layer == 'clouds':
+        return unjudged('expected OFF whites not observed', bounds, totals, status='not_applicable')
+    else:
+        status = 'passed'
+    return {'status': status, 'measured': True, 'bounds': bounds, 'failures': failures,
+            'white_match_totals': totals, 'limitation': limitation}
 
 
 def owner_regressions(expected, observations=()):
+    """Completeness per owner case: every selected cell of a case's views carries
+    exactly one settled row per actor (passed/failed/not_applicable) and at
+    least one row is passed or failed. `missing` = not measured."""
     owner_required = list(expected['plan'].get('owner_regression_cases', []))
     measured, failed, passed, findings = [], [], [], []
+    absent = 'no semantic ROI or comparable sequence in regional manifests'
     for case in owner_required:
-        layer = 'clouds' if case.startswith('nuages ') else 'sunset-sun' if case.startswith('soleil couchant ') else None
-        if layer:
-            rows = []
-            for observation in observations:
-                diagnostic = observation.get('diagnostic') or {}
-                if diagnostic.get('schema') != 1 or diagnostic.get('errors'):
-                    continue
-                for row in diagnostic.get('regions', []):
-                    if row.get('actor') != 0 or row.get('layer') != layer:
-                        continue
-                    match = re.fullmatch(r'(.+)-h(\d+)', row.get('view_hour', ''))
-                    if not match or (match[1], int(match[2])) not in observation.get('eligible', observation['selected']):
-                        continue
-                    rows.append({'batch': observation['batch'], 'actor': 0, 'layer': layer,
-                                 'view_hour': row['view_hour'],
-                                 **sky_sequence_judgment(row, observation['temporal'])})
-            if not rows:
-                findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
-                continue
-            views = {re.fullmatch(r'(.+)-h(\d+)', row['view_hour'])[1] for row in rows}
-            cells = {(observation['batch'], f'{view}-h{hour:02}') for observation in observations
-                     for view, hour in observation['selected'] if view in views}
-            qualified = [row for row in rows if row.get('measured')
-                         and (layer != 'sunset-sun' or row['view_hour'].endswith('-h18'))]
-            if layer == 'sunset-sun':
-                cells = {cell for cell in cells if cell[1].endswith('-h18')}
-            judged_rows = [row for row in rows if layer != 'sunset-sun' or row['view_hour'].endswith('-h18')]
-            complete = len(qualified) == len(judged_rows) and all(
-                sum((row['batch'], row['view_hour']) == cell for row in qualified) == 1 for cell in cells)
-            if any(row.get('status') == 'failed' or row.get('partial_photometry', {}).get('status') == 'failed'
-                   for row in judged_rows):
-                failed.append(case)
-            # Textured sky bounds cannot establish that the expected clouds remain visible.
-            if layer == 'sunset-sun' and any(row['view_hour'].endswith('-h18') for row in qualified) and complete:
-                measured.append(case)
-                if all(row['status'] == 'passed' for row in qualified):
-                    passed.append(case)
-            findings.append({'case': case, 'status': 'failed' if case in failed else 'passed' if case in passed else 'not_judged',
-                             'observations': rows,
-                             'reason': 'textured sky attribution remains partial' if layer == 'clouds' else
-                                       'sun requires visible disc and both distinct rays in every sample'})
+        spec = next((s for s in OWNER_CASES if case.startswith(s[0])), None)
+        if spec is None:
+            findings.append({'case': case, 'reason': absent})
             continue
-        if case.startswith('warp gate'):
-            rows = []
-            for observation in observations:
-                diagnostic = observation.get('diagnostic') or {}
-                if diagnostic.get('schema') != 1 or diagnostic.get('errors'):
-                    continue
-                for row in diagnostic.get('regions', []):
-                    if row.get('actor') != 1395 or row.get('layer') != 'portal_disc':
-                        continue
-                    match = re.fullmatch(r'(.+)-h(\d+)', row.get('view_hour', ''))
-                    if not match or (match[1], int(match[2])) not in observation.get('eligible', observation['selected']):
-                        continue
-                    judgment = owner_sequence_judgment(row, observation['temporal'], require_expected_white=False)
-                    judgment['limitation'] = 'portal disc bounds include background; halos and local colour not qualified'
-                    rows.append({'batch': observation['batch'], 'actor': 1395,
-                                 'layer': 'portal_disc', 'view_hour': row['view_hour'], **judgment})
-            if rows:
-                if any(row.get('measured') and row['status'] == 'failed' for row in rows):
-                    failed.append(case)
-                findings.append({'case': case, 'status': 'failed' if case in failed else 'not_judged',
-                                 'observations': rows,
-                                 'reason': 'partial portal disc observation only; halos and local colour not qualified'})
-            else:
-                findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
-            continue
-        if not case.startswith('eclairs des orbes eco bleue'):
-            findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
-            continue
-        rows, cells = [], set()
-        eco_views = {'village1-eco-blue'}
+        _, layer, actors, hour_only = spec
+        rows, views = [], {'village1-eco-blue'} if layer == 'eco' else set()
         for observation in observations:
-            for row in (observation.get('diagnostic') or {}).get('regions', []):
-                match = re.fullmatch(r'(.+)-h(\d+)', row.get('view_hour', ''))
-                if row.get('actor') in (10012, 10013) and match:
-                    eco_views.add(match[1])
-        for observation in observations:
-            cells.update((observation['batch'], f'{view}-h{hour:02}')
-                         for view, hour in observation['selected'] if view in eco_views)
             diagnostic = observation.get('diagnostic') or {}
-            if diagnostic.get('schema') != 1 or diagnostic.get('errors'):
-                continue
+            valid = diagnostic.get('schema') == 1 and not diagnostic.get('errors')
             for row in diagnostic.get('regions', []):
-                if row.get('actor') not in (10012, 10013):
+                if row.get('actor') not in actors or (layer != 'eco' and row.get('layer') != layer):
                     continue
                 match = re.fullmatch(r'(.+)-h(\d+)', row.get('view_hour', ''))
-                if not match or (match[1], int(match[2])) not in observation.get('eligible', observation['selected']):
+                if not match:
                     continue
-                rows.append({'batch': observation['batch'], 'actor': row['actor'],
+                views.add(match[1])
+                if not valid or (match[1], int(match[2])) not in observation.get('eligible', observation['selected']):
+                    continue
+                rows.append({'batch': observation['batch'], 'actor': row['actor'], 'layer': layer,
                              'view_hour': row['view_hour'],
-                             **owner_sequence_judgment(row, observation['temporal'])})
-        qualified = [row for row in rows if row.get('measured')]
-        complete = bool(cells) and len(qualified) == len(rows) and all(
-            {row['actor'] for row in qualified
-             if (row['batch'], row['view_hour']) == cell} == {10012, 10013}
-            and sum((row['batch'], row['view_hour']) == cell for row in qualified) == 2
-            for cell in cells)
+                             **owner_case_judgment(row, observation['temporal'], layer)})
+        if not rows:
+            findings.append({'case': case, 'reason': absent})
+            continue
+        cells = {(observation['batch'], f'{view}-h{hour:02}') for observation in observations
+                 for view, hour in observation['selected']
+                 if view in views and (hour_only is None or hour == hour_only)}
+        judged = [row for row in rows if hour_only is None or row['view_hour'].endswith(f'-h{hour_only:02}')]
+        settled = [row for row in judged if row['status'] in SETTLED]
+        complete = bool(cells) and len(settled) == len(judged) and all(
+            sorted(row['actor'] for row in settled if (row['batch'], row['view_hour']) == cell) == sorted(actors)
+            for cell in cells) and any(row['status'] in ('passed', 'failed') for row in settled)
+        if any(row['status'] == 'failed' for row in judged):
+            failed.append(case)
         if complete:
             measured.append(case)
-        if any(row['status'] == 'failed' for row in qualified):
-            failed.append(case)
-        if complete and all(row['status'] == 'passed' for row in qualified):
-            passed.append(case)
-        if rows:
-            findings.append({'case': case, 'status': ('failed' if case in failed else 'passed' if case in passed else 'not_judged'),
-                             'observations': rows, 'expected_cells': sorted(cells)})
-        else:
-            findings.append({'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'})
+            if case not in failed:
+                passed.append(case)
+        status = 'failed' if case in failed else 'passed' if case in passed else 'not_judged'
+        finding = {'case': case, 'status': status, 'observations': rows, 'expected_cells': sorted(cells)}
+        if status == 'not_judged':
+            finding['reason'] = ('no selected cell for the case views' if not cells else
+                                 'every selected cell needs one settled row per actor and one passed/failed row')
+        findings.append(finding)
     missing = [case for case in owner_required if case not in measured]
     metrics = {'hdr_owner_regressions_required': len(owner_required),
                'hdr_owner_regressions_measured': len(measured),
@@ -1088,7 +1125,7 @@ def check_owner_replacement(previous, key, current, new_key):
     """A replacement may repair collection, never erase a measured owner defect."""
     def sky_regions(batch, cell):
         return [r for r in (batch.get('owner_regions') or {}).get('regions', [])
-                if r.get('actor') == 0 and r.get('layer') in ('clouds', 'sunset-sun')
+                if r.get('actor') == 0 and r.get('layer') in ('clouds', 'sunset-sun', 'sage-hut-ground')
                 and r.get('view_hour') == f'{cell[0]}-h{cell[1]:02}']
     old_sky = sky_regions(previous, key)
     if old_sky:
@@ -1100,13 +1137,13 @@ def check_owner_replacement(previous, key, current, new_key):
         diagnostic = current.get('owner_regions') or {}
         new_sky = sky_regions(current, new_key)
         for row in old_sky:
-            judgment = sky_sequence_judgment(row, int(previous['values'].get('refset_temporal_samples', '1')))
-            if (judgment.get('measured') and judgment['status'] == 'failed'
-                    or judgment.get('partial_photometry', {}).get('status') == 'failed'):
+            judgment = owner_case_judgment(row, int(previous['values'].get('refset_temporal_samples', '1')), row['layer'])
+            if judgment['measured'] and judgment['status'] == 'failed':
                 raise ValueError('replacement cannot erase measured sky defect')
             replacements = [r for r in new_sky if r['layer'] == row['layer']]
             if (diagnostic.get('schema') != 1 or diagnostic.get('errors') or len(replacements) != 1
-                    or not sky_sequence_judgment(replacements[0], int(current['values'].get('refset_temporal_samples', '1'))).get('measured')):
+                    or owner_case_judgment(replacements[0], int(current['values'].get('refset_temporal_samples', '1')),
+                                           row['layer'])['status'] not in SETTLED):
                 raise ValueError('replacement loses measurable sky layer')
     def portal_regions(batch, cell):
         return [r for r in (batch.get('owner_regions') or {}).get('regions', [])
@@ -1120,15 +1157,14 @@ def check_owner_replacement(previous, key, current, new_key):
         if old_pair and old_pair.get('options') is not None and old_pair['options'] != current['pairs'][new_key]['options']:
             raise ValueError('portal replacement effective settings incompatible')
         for row in old_portal:
-            judgment = owner_sequence_judgment(
-                row, int(previous['values'].get('refset_temporal_samples', '1')), require_expected_white=False)
-            if judgment.get('measured') and judgment['status'] == 'failed':
+            judgment = owner_case_judgment(row, int(previous['values'].get('refset_temporal_samples', '1')), 'portal_disc')
+            if judgment['measured'] and judgment['status'] == 'failed':
                 raise ValueError('replacement cannot erase measured portal defect')
         diagnostic = current.get('owner_regions') or {}
         new_portal = portal_regions(current, new_key)
         if (diagnostic.get('schema') != 1 or diagnostic.get('errors') or len(new_portal) != 1
-                or not owner_sequence_judgment(new_portal[0], int(current['values'].get('refset_temporal_samples', '1')),
-                                               require_expected_white=False).get('measured')):
+                or owner_case_judgment(new_portal[0], int(current['values'].get('refset_temporal_samples', '1')),
+                                       'portal_disc')['status'] not in SETTLED):
             raise ValueError('replacement loses measurable portal region')
     def regions(batch, cell):
         stem = f'{cell[0]}-h{cell[1]:02}'
@@ -1143,17 +1179,42 @@ def check_owner_replacement(previous, key, current, new_key):
     old_pair = previous['pairs'].get(key) or previous.get('unqualified', {}).get(key)
     if old_pair and old_pair.get('options') is not None and old_pair['options'] != current['pairs'][new_key]['options']:
         raise ValueError('eco replacement effective settings incompatible')
-    old_judgments = [owner_sequence_judgment(row, int(previous['values'].get('refset_temporal_samples', '1')))
+    old_judgments = [owner_case_judgment(row, int(previous['values'].get('refset_temporal_samples', '1')), 'eco')
                      for row in old_rows]
-    if any(row.get('measured') and row['status'] == 'failed' for row in old_judgments):
+    if any(row['measured'] and row['status'] == 'failed' for row in old_judgments):
         raise ValueError('replacement cannot erase measured eco defect')
     diagnostic = current.get('owner_regions') or {}
     new_rows = regions(current, new_key)
     if (diagnostic.get('schema') != 1 or diagnostic.get('errors')
             or len(new_rows) != 2 or {row['actor'] for row in new_rows} != {10012, 10013}
-            or not all(owner_sequence_judgment(row, int(current['values'].get('refset_temporal_samples', '1'))).get('measured')
+            or not all(owner_case_judgment(row, int(current['values'].get('refset_temporal_samples', '1')), 'eco')['status'] in SETTLED
                        for row in new_rows)):
         raise ValueError('replacement loses measurable eco actors')
+
+
+def rendering_options(options):
+    """Effective rendering configuration of a pair, without its capture protocol.
+
+    The `temporal` block (samples, spacing, particle age) is the lot's capture
+    protocol: proof_plan prescribes different protocols per owner case (portal
+    animated >= 10 s after each reset, eco short sequence) and each batch is
+    checked against its own protocol in read_batch and judged with its own
+    `temporal` in owner_regressions. It is not a rendering setting, so it does
+    not decide compatibility between lots of one campaign.
+    """
+    def one(o):
+        if not isinstance(o, dict):
+            return o
+        out = {k: v for k, v in o.items() if k != 'temporal'}
+        if 'temporal' in o:
+            # The protocol's SCHEMA still has to agree: an old lot without the
+            # particle metadata, or an unknown temporal field, is not comparable.
+            block = o['temporal']
+            out['temporal_schema'] = sorted(block) if isinstance(block, dict) else block
+        return out
+    if isinstance(options, list):
+        return [one(o) for o in options]
+    return one(options)
 
 
 def aggregate(campaign, current, expected, measurer=measure):
@@ -1259,7 +1320,7 @@ def aggregate(campaign, current, expected, measurer=measure):
     quality_bad, diagnostics = [], []
     baseline_options = None
     for name, (view, hour), p in pairs:
-        opts = p['options']
+        opts = rendering_options(p['options'])
         # Different output profiles between arms are allowed; each arm must keep
         # its own effective rendering configuration across the campaign.
         if baseline_options is None:
@@ -1284,7 +1345,7 @@ def aggregate(campaign, current, expected, measurer=measure):
     for name, m in batches.items():
         selected = set(map(tuple, m['requested'])) - {key for batch_name, key in replaced if batch_name == name}
         eligible = {key for batch_name, key, pair in pairs if batch_name == name
-                    and pair['options'] == baseline_options and key not in duplicates}
+                    and rendering_options(pair['options']) == baseline_options and key not in duplicates}
         if m['identity'] == active['identity'] and selected:
             observations.append({'batch': name, 'diagnostic': m.get('owner_regions'),
                                  'selected': sorted(selected), 'eligible': sorted(eligible),

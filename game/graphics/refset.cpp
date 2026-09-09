@@ -219,6 +219,23 @@ constexpr Vantage kVantages[] = {
     {"lavatube-start", "lavatube-start", "", "lavatube", kAllHours, 0, 0, 50, 25},
     {"citadel-start", "citadel-start", "", "citadel", kAllHours, 0, 0, 50, 25},
     {"finalboss-start", "finalboss-start", "", "finalboss", kAllHours, 0, 0, 50, 30},
+    // lighting-hdr essai 62 : le SOL devant la hutte du Sage vert (cas owner « petites zones
+    // au sol violettes ON », boite monde `kSageHutGround` ci-dessous, centre (-123.05, 47.3,
+    // 204.8)). Tournee de calibrage du 2026-09-09 12:51 (lot essai62-x86-ground-survey, huit
+    // placements par OG_REFSET_CAM_BY_HOUR) : a 3,5 m de haut sans recul (-25:180:0:35) la
+    // camera est contre le mur de pierre du soubassement ; a 15 m de recul et 12 m de haut,
+    // pitch -45, tournee de 180 deg (regarde vers +z), l'image montre la hutte, sa terrasse de
+    // bois devant la porte et la pente d'herbe aux taches de sable : c'est le cadrage retenu.
+    // La boite projette sur la terrasse devant la porte (ROI [131,38,173,68] a h06).
+    {"village1-sage-ground", "village1-hut", "-123 47.3 196", "village1", kAllHours, -45, 180, 150, 120},
+    // lighting-hdr essai 62 : interieur de la hutte du Sage, portail acteur 1395 cadre. C'est
+    // l'ancienne surcharge `OG_REFSET_CAM=village1-out:-10:-108:152:33` des essais 52-61,
+    // promue en vue dediee pour que les lots des cas owner ne dupliquent pas les couples
+    // (vue, heure) de la couverture.
+    {"village1-portal", "village1-hut", "-126 46 212", "village1", kAllHours, -10, -108, 152, 33},
+    // lighting-hdr essai 62 : soleil couchant a h18 sur la plage. C'est la surcharge
+    // `OG_REFSET_CAM_BY_HOUR 7:-35:0:5000` de l'essai 53 (sky-fixed), promue en vue dediee.
+    {"beach-sun", "beach-start", "", "beach", kAllHours, 7, -35, 0, 500},
     // Dedicated opt-in view. Actor aid10012 is at 9.3109 19.2490 11.2525;
     // spawn 8 m before it to avoid collecting it, camera 2 m above, looking toward +Z.
     {"village1-eco-blue", "village1-hut", "9.3109 19.2490 3.2525", "village1", kAllHours,
@@ -558,6 +575,20 @@ uint64_t g_slip_nonzero = 0;  // captures dont la chaine ne portait PAS la frame
 // GRAPHIQUE, sous le verrou) : `consume_capture` tourne sur ce meme fil et ne peut donc pas
 // appeler `current_logic_frame()`, qui lit la memoire GOAL et n'est licite que du fil GOAL.
 int64_t g_inflight_lf = -1;
+// La camera de l'image EN VOL, copiee par `note_camera` au bucket DEPTH_CUE (fil graphique,
+// sous le verrou). `g_cam_noted_lf == g_inflight_lf` = notee pour CETTE image ; sinon la ligne
+// `HDR-OWNER-GROUND` sort `supported=false`.
+float g_cam_matrix[16] = {0.f};
+float g_cam_hvdf_off[4] = {0.f};
+float g_cam_fog[4] = {0.f};
+int64_t g_cam_noted_lf = -1;
+// lighting-hdr essai 62 : boite monde (METRES) du sol devant la hutte du Sage vert, cas owner
+// « petites zones au sol violettes ON ». Source : notes/essai53/decision.md, ancre
+// `vil1-jng-leafyground`, triangles 1104-1135 : x[-127.485,-118.610] y~47.3 z[200.328,209.203].
+// Elargie (essai 62, tournee de calibrage) de 6 m en x de chaque cote et de 16 m vers la camera
+// (z >= 184), hauteur 44..50 m, pour englober la pente d'herbe et de sable devant la terrasse et
+// pas seulement la terrasse. Convertie en unites GOAL (x4096) a la projection.
+constexpr float kSageHutGround[6] = {-133.5f, 44.0f, 184.0f, -112.6f, 50.0f, 209.203f};
 
 // ── mesures ─────────────────────────────────────────────────────────────────────────────────
 uint64_t g_captured = 0;
@@ -3454,6 +3485,20 @@ int64_t capture_logic_frame() {
   return g_cap == kCapInFlight ? g_inflight_lf : -1;
 }
 
+void note_camera(const float* camera_matrix16, const float* hvdf_off4, const float* fog4) {
+  if (!enabled() || !camera_matrix16 || !hvdf_off4 || !fog4) {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (g_cap != kCapInFlight) {
+    return;
+  }
+  std::memcpy(g_cam_matrix, camera_matrix16, sizeof(g_cam_matrix));
+  std::memcpy(g_cam_hvdf_off, hvdf_off4, sizeof(g_cam_hvdf_off));
+  std::memcpy(g_cam_fog, fog4, sizeof(g_cam_fog));
+  g_cam_noted_lf = g_inflight_lf;
+}
+
 void note_scene_probe(uint64_t bg_px, uint64_t total_px) {
   if (!enabled() || !total_px) {
     return;
@@ -3652,6 +3697,75 @@ bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h)
   return true;
 }
 
+// lighting-hdr essai 62 : projette `kSageHutGround` a l'ecran avec la camera notee pour l'image
+// en vol et emet UNE ligne `HDR-OWNER-GROUND {json}`. Formule (b) de
+// notes/essai61/ground-projection.md (grass.vert:81-93, convention decor : le trio se consomme
+// NEGATIF) ; ROI en pixels top-left 320x180 comme Sprite3.cpp:1602-1618, quelle que soit la
+// taille de capture (`g_hdr_capture_scale`) : c'est l'espace de mesure du harnais. L'occlusion
+// n'est pas evaluee : le rectangle contient ses occulteurs. Appelant sous g_mutex.
+void emit_owner_ground_line() {
+  nlohmann::json j;
+  j["lf"] = g_inflight_lf;
+  j["actor"] = 0;
+  j["layer"] = "sage-hut-ground";
+  j["case"] = "sage-hut-ground";
+  j["roi"] = nullptr;
+  j["supported"] = true;
+  j["passed"] = true;
+  j["in_frame"] = false;
+  j["world_aabb"] = {kSageHutGround[0], kSageHutGround[1], kSageHutGround[2],
+                     kSageHutGround[3], kSageHutGround[4], kSageHutGround[5]};
+  j["roi_space"] = "top_left_320x180";
+  j["capture"] = g_capture_name;
+  if (g_cam_noted_lf != g_inflight_lf) {
+    j["supported"] = false;
+    j["reason"] = "camera not captured";
+    lg::info("HDR-OWNER-GROUND {}", j.dump());
+    return;
+  }
+  const float* M = g_cam_matrix;  // colonnes : M[c*4 + r]
+  float corner_w[8];
+  float lo_x = 1e30f, lo_y = 1e30f, hi_x = -1e30f, hi_y = -1e30f;
+  int projectable = 0;
+  for (int c = 0; c < 8; ++c) {
+    const float px = ((c & 1) ? kSageHutGround[3] : kSageHutGround[0]) * 4096.f;
+    const float py = ((c & 2) ? kSageHutGround[4] : kSageHutGround[1]) * 4096.f;
+    const float pz = ((c & 4) ? kSageHutGround[5] : kSageHutGround[2]) * 4096.f;
+    float t[4];
+    for (int r = 0; r < 4; ++r) {
+      t[r] = -(M[12 + r] + M[0 + r] * px + M[4 + r] * py + M[8 + r] * pz);
+    }
+    corner_w[c] = t[3];
+    if (!(t[3] > 0.f) || !std::isfinite(t[3])) {
+      continue;
+    }
+    const float Q = g_cam_fog[0] / t[3];
+    const float sx = t[0] * Q + g_cam_hvdf_off[0];
+    const float sy = t[1] * Q + g_cam_hvdf_off[1];
+    const float x = ((sx - 2048.f) / 256.f + 1.f) * 160.f;
+    const float y = (1.f + (sy - 2048.f) / 128.f * (512.f / 448.f)) * 90.f;
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+      continue;
+    }
+    ++projectable;
+    lo_x = std::min(lo_x, x);
+    lo_y = std::min(lo_y, y);
+    hi_x = std::max(hi_x, x);
+    hi_y = std::max(hi_y, y);
+  }
+  j["corner_w"] = {corner_w[0], corner_w[1], corner_w[2], corner_w[3],
+                   corner_w[4], corner_w[5], corner_w[6], corner_w[7]};
+  if (projectable > 0) {
+    const int x0 = int(std::floor(std::clamp(lo_x, 0.f, 320.f)));
+    const int y0 = int(std::floor(std::clamp(lo_y, 0.f, 180.f)));
+    const int x1 = int(std::ceil(std::clamp(hi_x, 0.f, 320.f)));
+    const int y1 = int(std::ceil(std::clamp(hi_y, 0.f, 180.f)));
+    j["roi"] = {x0, y0, x1, y1};
+    j["in_frame"] = (x1 > x0) && (y1 > y0);
+  }
+  lg::info("HDR-OWNER-GROUND {}", j.dump());
+}
+
 bool consume_capture(int w, int h, const void* rgba) {
   if (!enabled()) {
     return false;
@@ -3781,6 +3895,7 @@ bool consume_capture(int w, int h, const void* rgba) {
                 (long long)g_repin_lf, (long long)particle_age);
   }
   std::printf("\n");
+  emit_owner_ground_line();
   const int n_px = w * h;
   const uint8_t* cur = (const uint8_t*)rgba;
   // lighting-hdr : on mesure AVANT de comparer ou d'ecrire, dans les deux modes. Les

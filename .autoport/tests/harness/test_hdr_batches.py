@@ -162,6 +162,19 @@ def test_normal_owner_guard_leaves_ablation_and_other_items_unchanged(tmp_path, 
     assert not (tmp_path / 'measurements.json').exists()
 
 
+def png(path, whites=(), width=320, height=180, base=(0, 0, 0)):
+    """Real PNG through ImageMagick: `whites` are (x, y) pixels set to pure white."""
+    import numpy as np
+    rgb = np.zeros((height, width, 3), np.uint8)
+    rgb[:, :] = base
+    for x, y in whites:
+        rgb[y, x] = 255
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(['magick', '-size', f'{width}x{height}', '-depth', '8', 'rgb:-', 'png:' + str(path)],
+                   input=rgb.tobytes(), check=True)
+    return Path(path)
+
+
 def stats(path):
     value = json.loads(path.read_text())
     if value.get('invalid'):
@@ -263,10 +276,10 @@ def test_real_contract():
     plan = hdr.contract(ROOT)
     assert len(plan['sky']) == 21
     assert len(plan['hours']) == 8
-    assert len(plan['views']) == 29
+    assert len(plan['views']) == 32
     assert plan['views']['village1-eco-blue'] == 'village1'
     assert plan['sky']['sunkenb'] and plan['sky']['swamp']
-    assert hdr.HUT_VIEWS == frozenset()
+    assert hdr.HUT_VIEWS == frozenset({'legacy'})
 
 
 def test_owner_regions_use_shared_projected_bounds_and_preserve_absence(tmp_path):
@@ -300,6 +313,10 @@ def test_owner_regions_use_shared_projected_bounds_and_preserve_absence(tmp_path
     assert len(measured) == 3  # invisible temporal frame is retained, not silently discarded
     assert row['summary']['origine-lumiere']['samples'] == 2
     assert row['summary']['origine-lumiere']['visible_frames'] == 1
+    # Undecodable bytes: no invented white pairing, an explicit row error instead.
+    assert row['white_match'] == []
+    assert any('white match unavailable' in error for error in row['errors'])
+    assert hdr.owner_case_judgment(row, 1, 'eco')['status'] == 'not_judged'
     first = next(iter(images))
     (tmp_path / first).write_bytes(b'modified after provenance')
     bad = hdr.owner_regions(tmp_path, images, regional)
@@ -444,20 +461,32 @@ def test_partial_red(tmp_path, plan):
     assert result(tmp_path, plan)['hdr_tonemap_defects'] > 0
 
 
-def test_legacy_interior_cannot_cover_sage_hut(tmp_path, plan):
+@pytest.mark.parametrize('legacy_sky_max_pm', [0, 11])
+def test_legacy_hut_interior_covers_hut_hours_only_when_interior_qualified(tmp_path, plan, monkeypatch, legacy_sky_max_pm):
+    """(f) legacy = village1-hut interior: covers the 8 hut hours, unless sky_max_pm > 10."""
+    monkeypatch.setattr(hdr, 'HUT_VIEWS', frozenset({'legacy'}))
     requests = [(view, hour) for view, hour in complete_requests(plan)
                 if view != 'synthetic-sage-hut']
-    batch(tmp_path, plan, requests)
+    path = batch(tmp_path, plan, requests)
+    if legacy_sky_max_pm:
+        log = path / 'engine.log'
+        log.write_text(log.read_text().replace('refset_bg_max_pm_legacy=0', f'refset_bg_max_pm_legacy={legacy_sky_max_pm}'))
+        rehash(path)
     r = result(tmp_path, plan)
     measured = json.loads((tmp_path / 'measurements.json').read_text())
     assert measured['errors'] == []
     assert measured['missing'] == measured['sky_missing'] == measured['interior_missing'] == []
-    assert measured['hut_missing'] == sorted(plan['hours'])
     legacy = [row for row in measured['pairs'] if row['view'] == 'legacy']
     assert {row['hour'] for row in legacy} == set(plan['hours'])
     assert all(row['sky_pm'] == 0 and row['on'] == row['off'] for row in legacy)
-    assert r['hdr_batch_missing'] == len(plan['hours'])
-    assert r['hdr_tonemap_defects'] > 0
+    if legacy_sky_max_pm:
+        assert measured['hut_missing'] == sorted(plan['hours'])
+        assert r['hdr_batch_missing'] == len(plan['hours'])
+        assert r['hdr_tonemap_defects'] > 0
+    else:
+        assert measured['hut_missing'] == []
+        assert r['hdr_batch_missing'] == 0
+        assert r['hdr_tonemap_defects'] == 0
 
 
 @pytest.mark.parametrize('change', ['missing', 'modified', 'unreadable', 'schema', 'raw_missing',
@@ -981,37 +1010,60 @@ def test_replacing_empty_crash_does_not_erase_raw_config_incompatibility(tmp_pat
     assert result(tmp_path, plan, '002')['hdr_tonemap_defects'] > 0
 
 
-def temporal_owner_row(actor=10012, on_white=(9, 11)):
+def temporal_owner_row(actor=10012, on_white=(9, 11), off_white=(8, 12)):
+    """Synthetic row: whites lost ON are exactly the OFF whites of samples ON has none for."""
     row = {'actor': actor, 'view_hour': 'village1-eco-blue-h12',
-           'roi_exclusive': [10, 20, 30, 40], 'samples': []}
-    for arm, whites in (('recharged', on_white), ('origine-lumiere', (8, 12))):
+           'roi_exclusive': [10, 20, 30, 40], 'samples': [], 'white_match': []}
+    for arm, whites in (('recharged', on_white), ('origine-lumiere', off_white)):
         for i, white in enumerate(whites):
             row['samples'].append({'arm': arm, 'image': f'{arm}/{i}', 'visible_sprites': 1,
                 'stats': {'white': white, 'nearwhite': white + 20, 'clipped': 40,
                           'detail': 8, 'flat': .1, 'hue_bins': [1] * 12, 'pixels': 400,
                           'luma': 120, 'luma_p99': 200, 'saturation': .2}})
+    for i, (on, off) in enumerate(zip(on_white, off_white)):
+        row['white_match'].append({'sample': i, 'on': f'recharged/{i}', 'off': f'origine-lumiere/{i}',
+                                   'on_white': on, 'off_white': off,
+                                   'lost': off if on == 0 else 0, 'gained': on if off == 0 else 0})
     return row
 
 
 def test_owner_temporal_success_judges_reported_brightness_with_attribution_limit():
-    judgment = hdr.owner_sequence_judgment(temporal_owner_row(), 2)
-    assert judgment['measured'] and judgment['photometric_passed']
+    judgment = hdr.owner_case_judgment(temporal_owner_row(), 2, 'eco')
+    assert judgment['measured'] and judgment['failures'] == []
     assert judgment['status'] == 'passed'
     assert 'background' in judgment['limitation']
     assert judgment['bounds']['white']['on_mean'] == 10
+    assert judgment['white_match_totals'] == {'pairs': 2, 'on_white': 20, 'off_white': 20, 'lost': 0, 'gained': 0}
+    assert set(judgment) == {'status', 'measured', 'bounds', 'failures', 'white_match_totals', 'limitation'}
 
 
-@pytest.mark.parametrize('on_white', [(0, 0), (0, 9), (15, 16)])
-def test_owner_temporal_mean_detects_loss_and_excess_despite_overlap(on_white):
-    judgment = hdr.owner_sequence_judgment(temporal_owner_row(on_white=on_white), 2)
-    assert judgment['measured'] and not judgment['photometric_passed']
-    assert judgment['status'] == 'failed'
-    assert any('white' in failure for failure in judgment['failures'])
+@pytest.mark.parametrize('on_white', [(0, 0), (0, 9)])
+def test_owner_temporal_detects_white_loss_despite_overlap(on_white):
+    judgment = hdr.owner_case_judgment(temporal_owner_row(on_white=on_white), 2, 'eco')
+    assert judgment['measured'] and judgment['status'] == 'failed'
+    assert any(failure.startswith('white:') for failure in judgment['failures'])
 
 
-@pytest.mark.parametrize('fault', ['absent', 'duplicate', 'invisible', 'nan', 'no_off_white', 'no_roi'])
+def test_owner_temporal_white_gain_is_not_a_defect():
+    judgment = hdr.owner_case_judgment(temporal_owner_row(on_white=(15, 16)), 2, 'eco')
+    assert judgment['status'] == 'passed' and judgment['white_match_totals']['gained'] == 0
+
+
+@pytest.mark.parametrize('fault', ['absent', 'duplicate', 'invisible', 'nan', 'no_off_white', 'no_roi',
+                                   'no_white_match', 'empty_white_match', 'foreign_white_match',
+                                   'partial_white_match', 'negative_white_match'])
 def test_owner_temporal_unqualified_stays_unjudged(fault):
     row = temporal_owner_row()
+    if fault == 'no_white_match':
+        row.pop('white_match')
+    elif fault == 'empty_white_match':
+        row['white_match'] = []
+    elif fault == 'foreign_white_match':
+        row['white_match'][0]['on'] = 'recharged/other'
+    elif fault == 'partial_white_match':
+        row['white_match'].pop()
+    elif fault == 'negative_white_match':
+        row['white_match'][0]['lost'] = -1
     if fault == 'absent':
         row['samples'].pop()
     elif fault == 'duplicate':
@@ -1025,8 +1077,10 @@ def test_owner_temporal_unqualified_stays_unjudged(fault):
             sample['stats']['white'] = 0
     elif fault == 'no_roi':
         row.pop('roi_exclusive')
-    judgment = hdr.owner_sequence_judgment(row, 2)
-    assert judgment['status'] == 'not_judged' and not judgment.get('measured')
+    judgment = hdr.owner_case_judgment(row, 2, 'eco')
+    assert judgment['status'] == 'not_judged' and not judgment['measured']
+    if fault in ('no_white_match', 'empty_white_match'):
+        assert judgment['reason'] == 'white match not available'
 
 
 def test_owner_measured_failure_is_distinct_from_missing_and_passed():
@@ -1050,14 +1104,26 @@ def test_owner_measured_failure_is_distinct_from_missing_and_passed():
     assert metrics['hdr_owner_regressions_measured'] == 0
 
 
-@pytest.mark.parametrize('metric,value', [('clipped', 41), ('detail', 7), ('flat', .2)])
-def test_owner_temporal_preserves_detail_and_limits_excess(metric, value):
+@pytest.mark.parametrize('metric,value', [('clipped', 45), ('flat', .2), ('nearwhite', 45),
+                                          ('saturation', .21), ('luma', 117)])
+def test_owner_temporal_limits_excess_and_luma_loss_beyond_floor(metric, value):
     row = temporal_owner_row()
     for sample in row['samples'][:2]:
         sample['stats'][metric] = value
-    judgment = hdr.owner_sequence_judgment(row, 2)
+    judgment = hdr.owner_case_judgment(row, 2, 'eco')
     assert judgment['measured'] and judgment['status'] == 'failed'
-    assert any(metric in failure for failure in judgment['failures'])
+    assert any(failure.startswith(metric + ':') for failure in judgment['failures'])
+
+
+@pytest.mark.parametrize('metric,value', [('clipped', 44), ('flat', .105), ('luma', 117.5), ('detail', 7), ('detail', 1)])
+def test_owner_temporal_floor_and_detail_are_not_defects(metric, value):
+    """(d) `detail` is a published diagnostic bound; quantisation floors absorb one level."""
+    row = temporal_owner_row()
+    for sample in row['samples'][:2]:
+        sample['stats'][metric] = value
+    judgment = hdr.owner_case_judgment(row, 2, 'eco')
+    assert judgment['status'] == 'passed' and judgment['failures'] == []
+    assert judgment['bounds'][metric]['on_mean'] == value
 
 
 def test_owner_temporal_cannot_combine_partial_actor_cells():
@@ -1294,8 +1360,7 @@ def portal_region_sources(root, mutate=lambda witness: None):
             case = f'{arm}/village1-warp-h18' + (f'-t{sample:02}' if sample else '')
             rel = 'captures/' + case + '.png'
             path = root / rel
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(f'synthetic portal frame {frame}'.encode())
+            png(path, whites=[(frame % 300, 100)])
             (root / (rel + '.provenance.txt')).write_text(
                 f'case={case}\ncapture_lf={frame}\npng={hdr.fnv(path)}\n')
             images[rel] = {'sha256': hdr.sha(path), 'stats': {'width': 320, 'height': 180}}
@@ -1328,7 +1393,11 @@ def test_portal_disc_separate_common_roi_and_global_witnesses_retained(tmp_path)
     assert disc['roi_exclusive'] == [20, 30, 41, 50]
     assert len(disc['witnesses']) == len(disc['samples']) == 4
     assert {s['sha256'] for s in disc['samples']} == {i['sha256'] for i in images.values()}
-    assert hdr.owner_sequence_judgment(disc, 2)['status'] == 'passed'
+    assert disc['errors'] == []
+    assert [m['sample'] for m in disc['white_match']] == [0, 1]
+    assert all(m['on'].startswith('captures/recharged/') and m['off'].startswith('captures/origine-lumiere/')
+               for m in disc['white_match'])
+    assert hdr.owner_case_judgment(disc, 2, 'portal_disc')['status'] == 'passed'
 
 
 @pytest.mark.parametrize('change', [dict(actor=10012), dict(texture='effects/harddot3D'),
@@ -1358,13 +1427,13 @@ def test_portal_disc_missing_invalid_or_invisible_not_judged(tmp_path, change):
         sidecar.write_text(sidecar.read_text().replace('capture_lf=100', 'capture_lf=999'))
     diagnostic = hdr.owner_regions(tmp_path, images, portal_fake_measure)
     rows = [r for r in diagnostic['regions'] if r.get('layer') == 'portal_disc']
-    assert not rows or hdr.owner_sequence_judgment(rows[0], 2)['status'] == 'not_judged'
+    assert not rows or hdr.owner_case_judgment(rows[0], 2, 'portal_disc')['status'] == 'not_judged'
     if change.startswith('sidecar'):
         assert diagnostic['errors']
 
 
 @pytest.mark.parametrize('white', [(9, 11), (0, 0)])
-def test_portal_disc_photometry_is_partial_and_eco_judgment_unchanged(white):
+def test_portal_disc_is_measured_and_eco_judgment_unchanged(white):
     expected = hdr.contract(ROOT)
     eco = [temporal_owner_row(actor) for actor in (10012, 10013)]
     observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-eco-blue', 12)],
@@ -1375,53 +1444,75 @@ def test_portal_disc_photometry_is_partial_and_eco_judgment_unchanged(white):
     observation['selected'].append(('village1-warp', 18))
     observation['diagnostic']['regions'].append(disc)
     after, details = hdr.owner_regressions(expected, [observation])
-    assert after == {**before, 'hdr_owner_regressions_failed': before['hdr_owner_regressions_failed'] + int(white == (0, 0))}
+    failed = white == (0, 0)
+    assert after == {**before, 'hdr_owner_regressions_measured': before['hdr_owner_regressions_measured'] + 1,
+                     'hdr_owner_regressions_missing': before['hdr_owner_regressions_missing'] - 1,
+                     'hdr_owner_regressions_failed': before['hdr_owner_regressions_failed'] + int(failed),
+                     'hdr_owner_regressions_passed': before['hdr_owner_regressions_passed'] + int(not failed)}
     finding = next(f for f in details['findings'] if f['case'].startswith('warp gate'))
-    assert finding['status'] == ('failed' if white == (0, 0) else 'not_judged')
-    assert finding['case'] in details['missing']
-    assert finding['case'] not in details['passed']
-    assert finding['observations'][0]['status'] == ('passed' if white == (9, 11) else 'failed')
+    assert finding['status'] == ('failed' if failed else 'passed')
+    assert finding['case'] in details['measured'] and finding['case'] not in details['missing']
+    assert (finding['case'] in details['passed']) == (not failed)
+    assert finding['observations'][0]['status'] == finding['status']
 
 
-@pytest.mark.parametrize('white', [(9, 11), (0, 0)])
-def test_portal_partial_failure_stays_missing_and_preserves_defect(white):
+@pytest.mark.parametrize('defect', [None, 'white', 'luma', 'violet_fraction'])
+def test_portal_measured_passed_or_failed_on_luma_crush_and_violet_excess(defect):
+    """(c) portal measured/passed; failed on luma ON << OFF and on violet_fraction beyond the envelope."""
     case = 'warp gate violet ecrase ON'
     expected = {'plan': {'owner_regression_cases': [case]}}
-    disc = temporal_owner_row(1395, white)
+    disc = temporal_owner_row(1395, (0, 0) if defect == 'white' else (9, 11))
     disc.update(layer='portal_disc', view_hour='village1-warp-h18')
+    for sample in disc['samples']:
+        if sample['arm'] != 'recharged':
+            continue
+        if defect == 'luma':
+            sample['stats']['luma'] = 60  # OFF envelope [117.45, ...]: crushed disc
+        if defect == 'violet_fraction':
+            sample['stats']['hue_bins'][9] = 9  # ON .025 > OFF .005 + floor .005
     observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-warp', 18)],
                    'diagnostic': {'schema': 1, 'errors': [], 'regions': [disc]}}
     metrics, details = hdr.owner_regressions(expected, [observation])
-    assert metrics['hdr_owner_regressions_failed'] == int(white == (0, 0))
-    assert metrics['hdr_owner_regressions_missing'] == 1
-    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
-    assert metrics['hdr_defect_7_owner_regressions'] == 1
-    assert details['failed'] == ([case] if white == (0, 0) else [])
+    assert metrics['hdr_owner_regressions_measured'] == 1
+    assert metrics['hdr_owner_regressions_missing'] == 0
+    assert metrics['hdr_owner_regressions_failed'] == int(defect is not None)
+    assert metrics['hdr_owner_regressions_passed'] == int(defect is None)
+    assert metrics['hdr_defect_7_owner_regressions'] == int(defect is not None)
+    assert details['failed'] == ([case] if defect else [])
+    row = details['findings'][0]['observations'][0]
+    if defect:
+        assert {'white': 'white: expected whites suppressed entirely ON',
+                'luma': 'luma: ON loss beyond OFF envelope',
+                'violet_fraction': 'violet_fraction: ON excess beyond OFF envelope'}[defect] in row['failures']
+        assert all(failure.startswith(defect + ':') for failure in row['failures'])
+    else:
+        assert row['failures'] == []
 
 
 @pytest.mark.parametrize('excess_flat', [False, True])
-def test_portal_no_off_whites_preserves_partial_flat_judgment_and_eco_guard(excess_flat):
+def test_portal_no_off_whites_is_judged_on_photometry_and_eco_guard(excess_flat):
     case = 'warp gate violet ecrase ON'
     expected = {'plan': {'owner_regression_cases': [case]}}
-    disc = temporal_owner_row(1395, (0, 0))
+    disc = temporal_owner_row(1395, (0, 0), (0, 0))
     disc.update(layer='portal_disc', view_hour='village1-warp-h18')
     for sample in disc['samples']:
         sample['stats']['white'] = 0
         sample['stats']['nearwhite'] = 20
         sample['stats']['flat'] = .06 if excess_flat and sample['arm'] == 'recharged' else .05
-    assert hdr.owner_sequence_judgment(disc, 2)['status'] == 'not_judged'
-    assert hdr.owner_sequence_judgment(disc, 2)['reason'] == 'expected OFF whites not observed'
+    judgment = hdr.owner_case_judgment(disc, 2, 'portal_disc')
+    assert judgment['measured'] and judgment['status'] == ('failed' if excess_flat else 'passed')
     observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-warp', 18)],
                    'diagnostic': {'schema': 1, 'errors': [], 'regions': [disc]}}
     metrics, details = hdr.owner_regressions(expected, [observation])
     assert metrics['hdr_owner_regressions_failed'] == int(excess_flat)
-    assert metrics['hdr_owner_regressions_missing'] == 1
-    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
-    assert metrics['hdr_defect_7_owner_regressions'] == 1
+    assert metrics['hdr_owner_regressions_missing'] == 0
+    assert metrics['hdr_owner_regressions_measured'] == 1
+    assert metrics['hdr_owner_regressions_passed'] == int(not excess_flat)
+    assert metrics['hdr_defect_7_owner_regressions'] == int(excess_flat)
     partial = details['findings'][0]['observations'][0]
     assert partial['measured'] is True
     assert partial['status'] == ('failed' if excess_flat else 'passed')
-    assert partial['failures'] == (['flat: ON excess beyond observed OFF temporal envelope'] if excess_flat else [])
+    assert partial['failures'] == (['flat: ON excess beyond OFF envelope'] if excess_flat else [])
     eco = {**disc, 'actor': 10012, 'view_hour': 'village1-eco-blue-h12'}
     observation['selected'] = [('village1-eco-blue', 12)]
     observation['diagnostic']['regions'] = [eco, {**eco, 'actor': 10013}]
@@ -1429,7 +1520,8 @@ def test_portal_no_off_whites_preserves_partial_flat_judgment_and_eco_guard(exce
     metrics, details = hdr.owner_regressions(expected, [observation])
     assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_failed'] == 0
     assert metrics['hdr_owner_regressions_missing'] == 1
-    assert all(row['status'] == 'not_judged' for row in details['findings'][0]['observations'])
+    assert all(row['status'] == 'not_judged' and row['reason'] == 'expected OFF whites not observed'
+               for row in details['findings'][0]['observations'])
 
 
 def portal_replacement_batch():
@@ -1446,7 +1538,7 @@ def portal_replacement_batch():
 
 @pytest.mark.parametrize('fault', ['absent', 'actor', 'layer', 'cell', 'duplicate', 'schema',
                                   'errors', 'sample', 'measurement', 'invisible', 'temporal',
-                                  'binary', 'config', 'options'])
+                                  'binary', 'config', 'options', 'white_match'])
 def test_portal_replacement_rejects_loss_of_region_measurement_or_compatibility(fault):
     key, old = portal_replacement_batch()
     new = copy.deepcopy(old)
@@ -1462,6 +1554,7 @@ def test_portal_replacement_rejects_loss_of_region_measurement_or_compatibility(
     if fault == 'sample': row['samples'].pop()
     if fault == 'measurement': row['samples'][0]['stats'].pop('detail')
     if fault == 'invisible': row['samples'][0]['visible_sprites'] = 0
+    if fault == 'white_match': row.pop('white_match')
     if fault == 'temporal': new['values']['refset_temporal_samples'] = '1'
     if fault == 'binary': new['identity'] = ('different', 'same')
     if fault == 'config': new['identity'] = ('same', 'different')
@@ -1473,7 +1566,7 @@ def test_portal_replacement_rejects_loss_of_region_measurement_or_compatibility(
         hdr.check_owner_replacement(old, key, new, key)
 
 
-@pytest.mark.parametrize('metric,value', [('detail', 7), ('clipped', 41), ('flat', .2), ('white', 0)])
+@pytest.mark.parametrize('metric,value', [('clipped', 45), ('flat', .2), ('white', 0)])
 def test_portal_replacement_cannot_erase_partial_defect_without_off_whites(metric, value):
     key, old = portal_replacement_batch()
     if metric == 'white':
@@ -1516,14 +1609,14 @@ def test_portal_partial_defect_survives_aggregate_replacement_with_acceptable_wh
     clean = copy.deepcopy(old['owner_regions']['regions'])
     clean[0]['view_hour'] = f'{target}-h{hour}'
     for sample in old['owner_regions']['regions'][0]['samples'][:2]:
-        sample['stats']['detail'] = 7
+        sample['stats']['flat'] = .2
     inject_synthetic_owner_regions(monkeypatch, {'001': old['owner_regions']['regions'], '002': clean})
     metrics = result(tmp_path, plan, '002')
     diagnostic = json.loads((tmp_path / 'measurements.json').read_text())
     assert diagnostic['quality_bad'] == []
     assert any('cannot erase measured portal defect' in error for error in diagnostic['errors'])
     assert metrics['hdr_owner_regressions_failed'] == 1
-    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
+    assert metrics['hdr_owner_regressions_passed'] == 0
     owner = diagnostic['owner_regressions']
     finding = next(row for row in owner['findings'] if row['case'].startswith('warp gate'))
     assert any(row['batch'] == '001' and row['status'] == 'failed' for row in finding['observations'])
@@ -1568,10 +1661,13 @@ def test_sky_actor_zero_layers_never_collide(tmp_path):
     assert clouds['roi_exclusive'] == [0, 0, 320, 90]
     assert sun['roi_exclusive'] == [10, 10, 40, 40]
     assert all(s['sun_components_complete'] for s in sun['samples'])
+    assert clouds['errors'] == sun['errors'] == []
+    assert len(clouds['white_match']) == len(sun['white_match']) == 2
     metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
-    assert metrics['hdr_owner_regressions_passed'] == 1
-    assert details['passed'] == ['soleil couchant jaune/orange plat sans eclat ON']
-    assert any(case.startswith('nuages') for case in details['missing'])
+    assert metrics['hdr_owner_regressions_passed'] == 2
+    assert details['passed'] == ['nuages blancs presents OFF mais attenues ON',
+                                 'soleil couchant jaune/orange plat sans eclat ON']
+    assert not any(case.startswith(('nuages', 'soleil')) for case in details['missing'])
 
 
 @pytest.mark.parametrize('fault', ['layer_absent', 'association_absent', 'residue', 'tolerance', 'nan', 'bucket', 'tme', 'vertices', 'tbps'])
@@ -1605,19 +1701,22 @@ def test_sun_partial_sequence_cannot_pass(tmp_path, fault):
     images = sky_region_sources(tmp_path, mutate)
     if fault == 'missing_sidecar': (tmp_path / (next(iter(images)) + '.provenance.txt')).unlink()
     diagnostic = hdr.owner_regions(tmp_path, images, portal_fake_measure)
-    metrics, _ = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
-    assert metrics['hdr_owner_regressions_passed'] == 0
+    metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    assert not any(case.startswith('soleil') for case in details['passed'])
+    assert metrics['hdr_owner_regressions_passed'] == int(fault != 'missing_sidecar')  # clouds only
 
 
-def test_sky_white_loss_is_failed_and_clouds_stay_partial(tmp_path):
+def test_sky_white_loss_is_failed_for_clouds_and_sun(tmp_path):
     images = sky_region_sources(tmp_path)
     def measure(path, rect):
         return {**portal_fake_measure(path, rect), 'white': 0 if '/recharged/' in str(path) else 10}
     diagnostic = hdr.owner_regions(tmp_path, images, measure)
     metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
     assert metrics['hdr_owner_regressions_failed'] == 2
+    assert metrics['hdr_owner_regressions_measured'] == 2
     assert metrics['hdr_owner_regressions_passed'] == 0
-    assert any(case.startswith('nuages') for case in details['missing'])
+    assert sorted(details['failed']) == sorted(case for case in details['required'] if case.startswith(('nuages', 'soleil')))
+    assert not any(case.startswith('nuages') for case in details['missing'])
 
 
 def test_sky_replacement_cannot_erase_loss_or_missing_layer(tmp_path):
@@ -1663,42 +1762,51 @@ def test_partial_sun_loss_survives_replacement(tmp_path):
     for sample in sun['samples']:
         sample['sun_components_complete'] = False
         if sample['arm'] == 'recharged': sample['stats']['white'] = 0
-    metrics, _ = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
-    assert metrics['hdr_owner_regressions_failed'] == 1
-    assert metrics['hdr_owner_regressions_passed'] == 0
+    metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
+    # An incomplete sun sequence is never judged: it cannot pass, and stays missing.
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
+    assert any(case.startswith('soleil') for case in details['missing'])
+    finding = next(row for row in details['findings'] if row['case'].startswith('soleil'))
+    assert finding['observations'][0]['reason'] == 'incomplete visible sun disc and two distinct rays'
     key = ('village1-warp', 18)
     old = dict(owner_regions=diagnostic, identity=('same', 'same'), pairs={key: {'options': {}}},
                values={'refset_temporal_samples': '2'})
-    with pytest.raises(ValueError, match='cannot erase measured sky defect'):
+    with pytest.raises(ValueError, match='replacement loses measurable sky layer'):
         hdr.check_owner_replacement(old, key, copy.deepcopy(old), key)
 
 
 @pytest.mark.parametrize('layer', ['clouds', 'sunset-sun'])
 @pytest.mark.parametrize('components_complete', [False, True])
 @pytest.mark.parametrize('failure', [None, 'flat', 'detail', 'clipped'])
-def test_sky_no_off_whites_keeps_partial_failures(layer, components_complete, failure):
-    row = temporal_owner_row(0, (0, 0))
+def test_sky_no_off_whites_keeps_photometric_failures(layer, components_complete, failure):
+    """Clouds without OFF whites: not_applicable unless a photometric rule fails; sun: judged."""
+    row = temporal_owner_row(0, (0, 0), (0, 0))
     row.update(layer=layer, view_hour='village1-warp-h18')
     for sample in row['samples']:
         sample['sun_components_complete'] = components_complete
         sample['stats'].update(white=0, nearwhite=20, flat=.05, detail=10, clipped=20)
         if sample['arm'] == 'recharged' and failure:
-            sample['stats'][failure] = {'flat': .06, 'detail': 9, 'clipped': 21}[failure]
-    judgment = hdr.sky_sequence_judgment(row, 2)
-    qualified = layer == 'sunset-sun' and components_complete
-    expected_status = ('failed' if failure else 'passed') if qualified else 'not_judged'
+            sample['stats'][failure] = {'flat': .06, 'detail': 9, 'clipped': 25}[failure]
+    judgment = hdr.owner_case_judgment(row, 2, layer)
+    real_failure = failure in ('flat', 'clipped')  # detail is a diagnostic bound only
+    qualified = layer == 'clouds' or components_complete
+    if not qualified:
+        expected_status = 'not_judged'
+    elif real_failure:
+        expected_status = 'failed'
+    else:
+        expected_status = 'not_applicable' if layer == 'clouds' else 'passed'
     assert judgment['status'] == expected_status
-    assert bool(judgment.get('measured')) == qualified
-    partial = judgment if qualified else judgment['partial_photometry']
-    assert partial['status'] == ('failed' if failure else 'passed')
-    assert len(partial['failures']) == int(failure is not None)
-    if failure:
-        assert partial['failures'][0].startswith(failure + ':')
+    assert judgment['measured'] == (qualified and expected_status in ('passed', 'failed'))
+    assert len(judgment['failures']) == int(real_failure and qualified)
+    if real_failure and qualified:
+        assert judgment['failures'][0].startswith(failure + ':')
+    assert judgment['bounds'] if qualified else judgment['bounds'] == {}
     diagnostic = {'schema': 1, 'errors': [], 'regions': [row]}
     metrics, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
-    assert metrics['hdr_owner_regressions_failed'] == int(failure is not None)
-    assert metrics['hdr_owner_regressions_measured'] == int(qualified)
-    assert metrics['hdr_owner_regressions_passed'] == int(qualified and not failure)
+    assert metrics['hdr_owner_regressions_failed'] == int(real_failure and qualified)
+    assert metrics['hdr_owner_regressions_measured'] == int(judgment['measured'])
+    assert metrics['hdr_owner_regressions_passed'] == int(expected_status == 'passed')
     assert metrics['hdr_defect_7_owner_regressions'] == 1
 
 
@@ -1713,10 +1821,9 @@ def test_sky_no_off_whites_does_not_bypass_sequence_guards(fault):
     if fault == 'duplicate': row['samples'][0]['image'] = row['samples'][1]['image']
     if fault == 'invisible': row['samples'][0]['visible_sprites'] = 0
     if fault == 'invalid_measurement': row['samples'][0]['stats']['detail'] = float('nan')
-    judgment = hdr.sky_sequence_judgment(row, 2)
+    judgment = hdr.owner_case_judgment(row, 2, 'sunset-sun')
     assert judgment['status'] == 'not_judged'
-    assert not judgment.get('measured')
-    assert 'partial_photometry' not in judgment
+    assert not judgment['measured'] and judgment['failures'] == []
 
 
 @pytest.mark.parametrize('field', ['prim_abe', 'alpha_a', 'alpha_b', 'alpha_c', 'alpha_d', 'alpha_fix'])
@@ -1743,11 +1850,11 @@ def test_clouds_additive_provenance_does_not_depend_on_tbp(tmp_path):
     assert len(clouds['witnesses']) == 4
     _, details = hdr.owner_regressions(hdr.contract(ROOT), [sky_observation(diagnostic)])
     finding = next(row for row in details['findings'] if row['case'].startswith('nuages'))
-    assert finding['status'] == 'not_judged'
+    assert finding['status'] == 'passed'
 
 
-@pytest.mark.parametrize('key,value', [('luma', 119), ('luma_p99', 199),
-                                      ('saturation', .21), ('violet_fraction', 3)])
+@pytest.mark.parametrize('key,value', [('luma', 117), ('luma_p99', 197),
+                                      ('saturation', .21), ('violet_fraction', 5)])
 def test_orange_sun_brightness_and_colour_loss_cannot_pass(key, value):
     row = temporal_owner_row(0, (0, 0))
     row.update(layer='sunset-sun', view_hour='village1-warp-h18')
@@ -1757,7 +1864,7 @@ def test_orange_sun_brightness_and_colour_loss_cannot_pass(key, value):
         if sample['arm'] == 'recharged':
             if key == 'violet_fraction': sample['stats']['hue_bins'][9] = value
             else: sample['stats'][key] = value
-    result = hdr.sky_sequence_judgment(row, 2)
+    result = hdr.owner_case_judgment(row, 2, 'sunset-sun')
     assert result['status'] == 'failed' and result['measured']
     assert any(f.startswith(key + ':') for f in result['failures'])
     expected = hdr.contract(ROOT)
@@ -1772,15 +1879,15 @@ def test_orange_sun_brightness_and_colour_loss_cannot_pass(key, value):
     ('luma_p99', float('inf')), ('luma_p99', -1), ('saturation', 1.1),
     ('pixels', 0), ('pixels', True), ('pixels', 4000), ('hue_bins', [1]*11),
     ('hue_bins', [40]*12), ('hue_bins', [-1]*12), ('hue_bins', [float('nan')]*12)])
-def test_sun_absent_or_invalid_radiometry_keeps_other_failures(key, value):
+def test_sun_absent_or_invalid_radiometry_is_never_judged(key, value):
     row = temporal_owner_row(0, (0, 0))  # Suppresses expected OFF whites.
     row['layer'] = 'sunset-sun'
     for sample in row['samples']: sample['sun_components_complete'] = True
+    assert hdr.owner_case_judgment(row, 2, 'sunset-sun')['status'] == 'failed'
     row['samples'][0]['stats'][key] = value
-    result = hdr.sky_sequence_judgment(row, 2)
-    assert result['status'] == 'not_judged' and not result.get('measured')
-    assert result['partial_photometry']['status'] == 'failed'
-    assert any(f.startswith('white:') for f in result['partial_photometry']['failures'])
+    result = hdr.owner_case_judgment(row, 2, 'sunset-sun')
+    assert result['status'] == 'not_judged' and not result['measured']
+    assert result['reason'].startswith('invalid regional measurement')
 
 
 def test_sun_black_roi_cannot_establish_expected_brightness():
@@ -1789,9 +1896,224 @@ def test_sun_black_roi_cannot_establish_expected_brightness():
     for sample in row['samples']:
         sample['sun_components_complete'] = True
         sample['stats'].update(white=0, nearwhite=0, luma=0, luma_p99=0)
-    result = hdr.sky_sequence_judgment(row, 2)
-    assert result['status'] == 'not_judged' and not result.get('measured')
+    result = hdr.owner_case_judgment(row, 2, 'sunset-sun')
+    assert result['status'] == 'not_judged' and not result['measured']
     assert result['reason'] == 'expected OFF sun brightness not observed'
+
+
+# --- essai 61: spatial white pairing and the five owner cases ---
+
+def test_decode_returns_rgb_array_and_crop(tmp_path):
+    import numpy as np
+    image = png(tmp_path / 'decode.png', whites=[(5, 6)], width=12, height=9, base=(10, 20, 30))
+    whole = hdr.decode(image)
+    assert whole.shape == (9, 12, 3) and whole.dtype == np.uint8
+    assert whole[6, 5].tolist() == [255, 255, 255] and whole[0, 0].tolist() == [10, 20, 30]
+    crop = hdr.decode(image, [4, 5, 8, 8])
+    assert crop.shape == (3, 4, 3) and crop[1, 1].tolist() == [255, 255, 255]
+    assert hdr.measure(image, [4, 5, 8, 8])['white'] == 1
+    with pytest.raises(ValueError, match='bounds'):
+        hdr.decode(image, [4, 5, 13, 8])
+
+
+@pytest.mark.parametrize('shift,lost,gained', [(0, 0, 0), (2, 0, 0), (3, 0, 0), (8, 9, 9)])
+def test_white_match_tolerates_small_displacement_only(shift, lost, gained):
+    """(a) whites moved by <= radius px are matched; beyond, both sides are unmatched."""
+    import numpy as np
+    off = np.zeros((40, 60, 3), np.uint8)
+    off[10:13, 20:23] = 255
+    on = np.zeros_like(off)
+    on[10:13, 20 + shift:23 + shift] = 255
+    match = hdr.white_match(on, off)
+    assert match == {'on_white': 9, 'off_white': 9, 'lost': lost, 'gained': gained}
+    assert hdr.white_match(np.zeros_like(off), off) == {'on_white': 0, 'off_white': 9, 'lost': 9, 'gained': 0}
+    # A near-white ON pixel (254) is not a white: the mask is min channel == 255.
+    on[:] = off
+    on[10, 20] = 254
+    assert hdr.white_match(on, off)['on_white'] == 8
+    with pytest.raises(ValueError, match='identical shape'):
+        hdr.white_match(on[:, :30], off)
+
+
+@pytest.mark.parametrize('totals,failed', [((9, 0), True), ((9, 9), False), ((3, 0), False), ((50, 20), True)])
+def test_white_loss_rule_is_asymmetric_and_noise_tolerant(totals, failed):
+    lost, gained = totals
+    row = temporal_owner_row()
+    for match in row['white_match']:
+        match.update(lost=0, gained=0)
+    row['white_match'][0].update(lost=lost, gained=gained)
+    judgment = hdr.owner_case_judgment(row, 2, 'eco')
+    assert judgment['white_match_totals']['lost'] == lost
+    assert (judgment['status'] == 'failed') == failed
+    assert ('white: expected whites suppressed' in judgment['failures']) == failed
+
+
+def shifted_portal_sources(root, shift):
+    """Real PNGs: OFF whites 2 px inside the right edge of the disc ROI, ON whites moved by `shift` px."""
+    images, lines = {}, []
+    roi = [20, 30, 41, 50]
+    for arm, start in (('recharged', 100), ('origine-lumiere', 200)):
+        for sample in range(2):
+            frame = start + 12 * sample
+            case = f'{arm}/village1-warp-h18' + (f'-t{sample:02}' if sample else '')
+            rel = 'captures/' + case + '.png'
+            dx = shift if arm == 'recharged' else 0
+            path = png(root / rel, whites=[(x + dx, y) for x in range(34, 37) for y in range(38, 41)])
+            (root / (rel + '.provenance.txt')).write_text(f'case={case}\ncapture_lf={frame}\npng={hdr.fnv(path)}\n')
+            images[rel] = {'sha256': hdr.sha(path), 'stats': hdr.measure(path)}
+            lines.append(f'REFSET sample case={case} layer=historical chain_lf={frame} anchor_lf=88')
+            lines.append('HDR-OWNER-SPRITE ' + json.dumps(
+                {'actor': 1395, 'lf': frame, 'texture': 'effects/harddot', 'render_mode': 3, 'layer': 'portal_disc',
+                 'supported': True, 'passed': True, 'roi': roi}))
+    (root / 'engine.log').write_text('\n'.join(lines))
+    return images
+
+
+@pytest.mark.parametrize('shift', [2, 8])
+def test_owner_regions_pairs_real_whites_and_judges_displacement(tmp_path, shift):
+    """(a) end to end on decoded pixels: 2 px -> passed; 8 px (out of the ROI) -> whites suppressed."""
+    diagnostic = hdr.owner_regions(tmp_path, shifted_portal_sources(tmp_path, shift))
+    assert diagnostic['errors'] == []
+    disc, = [row for row in diagnostic['regions'] if row.get('layer') == 'portal_disc']
+    assert disc['errors'] == []
+    assert [m['sample'] for m in disc['white_match']] == [0, 1]
+    assert all(m['off_white'] == 9 for m in disc['white_match'])
+    judgment = hdr.owner_case_judgment(disc, 2, 'portal_disc')
+    if shift == 2:
+        assert judgment['white_match_totals'] == {'pairs': 2, 'on_white': 18, 'off_white': 18, 'lost': 0, 'gained': 0}
+        assert judgment['status'] == 'passed' and judgment['failures'] == []
+    else:
+        assert judgment['white_match_totals'] == {'pairs': 2, 'on_white': 0, 'off_white': 18, 'lost': 18, 'gained': 0}
+        assert judgment['status'] == 'failed'
+        assert 'white: expected whites suppressed' in judgment['failures']
+    expected = {'plan': {'owner_regression_cases': ['warp gate violet ecrase ON']}}
+    metrics, _ = hdr.owner_regressions(expected, [sky_observation(diagnostic)])
+    assert metrics['hdr_owner_regressions_measured'] == 1
+    assert metrics['hdr_owner_regressions_passed'] == int(shift == 2)
+    assert metrics['hdr_defect_7_owner_regressions'] == int(shift == 8)
+
+
+def clouds_row(hour, whites=True):
+    row = temporal_owner_row(0, (9, 11) if whites else (0, 0), (8, 12) if whites else (0, 0))
+    row.update(layer='clouds', view_hour=f'village1-out-h{hour:02}')
+    if not whites:
+        for sample in row['samples']:
+            sample['stats'].update(white=0, nearwhite=0)
+    return row
+
+
+def test_clouds_case_measured_with_judged_noon_and_not_applicable_sunset():
+    """(b) h12 judged + h18 without OFF whites (not_applicable) -> case measured and passed."""
+    case = 'nuages blancs presents OFF mais attenues ON'
+    expected = {'plan': {'owner_regression_cases': [case]}}
+    observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-out', 12), ('village1-out', 18)],
+                   'diagnostic': {'schema': 1, 'errors': [], 'regions': [clouds_row(12), clouds_row(18, whites=False)]}}
+    metrics, details = hdr.owner_regressions(expected, [observation])
+    assert metrics == {'hdr_owner_regressions_required': 1, 'hdr_owner_regressions_measured': 1,
+                       'hdr_owner_regressions_missing': 0, 'hdr_owner_regressions_failed': 0,
+                       'hdr_owner_regressions_passed': 1, 'hdr_defect_7_owner_regressions': 0}
+    statuses = {row['view_hour']: row['status'] for row in details['findings'][0]['observations']}
+    assert statuses == {'village1-out-h12': 'passed', 'village1-out-h18': 'not_applicable'}
+    assert details['findings'][0]['observations'][1]['reason'] == 'expected OFF whites not observed'
+    # Only not_applicable rows: nothing was judged, the case stays missing.
+    observation['diagnostic']['regions'] = [clouds_row(12, whites=False), clouds_row(18, whites=False)]
+    metrics, _ = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == 0 and metrics['hdr_owner_regressions_missing'] == 1
+    # A white loss at noon fails the case even with a not_applicable sunset.
+    observation['diagnostic']['regions'] = [clouds_row(12), clouds_row(18, whites=False)]
+    observation['diagnostic']['regions'][0]['white_match'][0].update(lost=8)
+    metrics, _ = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_failed'] == 1 and metrics['hdr_owner_regressions_passed'] == 0
+
+
+def test_clouds_case_missing_when_a_selected_cell_has_no_row():
+    """(e) selected h18 cell without a clouds row -> missing, never passed."""
+    case = 'nuages blancs presents OFF mais attenues ON'
+    expected = {'plan': {'owner_regression_cases': [case]}}
+    observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-out', 12), ('village1-out', 18)],
+                   'diagnostic': {'schema': 1, 'errors': [], 'regions': [clouds_row(12)]}}
+    metrics, details = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == 0
+    assert metrics['hdr_owner_regressions_missing'] == 1
+    assert metrics['hdr_owner_regressions_passed'] == 0
+    assert details['findings'][0]['status'] == 'not_judged'
+    assert details['findings'][0]['expected_cells'] == [('synthetic', 'village1-out-h12'), ('synthetic', 'village1-out-h18')]
+    observation['selected'] = [('village1-out', 12)]
+    metrics, _ = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_passed'] == 1
+
+
+def test_old_lot_without_white_match_is_never_judged():
+    case = 'warp gate violet ecrase ON'
+    expected = {'plan': {'owner_regression_cases': [case]}}
+    disc = temporal_owner_row(1395)
+    disc.update(layer='portal_disc', view_hour='village1-warp-h18')
+    disc.pop('white_match')
+    observation = {'batch': 'old', 'temporal': 2, 'selected': [('village1-warp', 18)],
+                   'diagnostic': {'schema': 1, 'errors': [], 'regions': [disc]}}
+    metrics, details = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 0
+    assert metrics['hdr_owner_regressions_missing'] == 1
+    row = details['findings'][0]['observations'][0]
+    assert row['status'] == 'not_judged' and row['reason'] == 'white match not available'
+    assert row['bounds']['luma']['on_mean'] == 120  # photometry still published as a diagnostic
+
+
+def ground_sources(root, mutate=lambda w: None, marker='HDR-OWNER-GROUND '):
+    images, lines = {}, []
+    for arm, start in (('recharged', 100), ('origine-lumiere', 200)):
+        for sample in range(2):
+            frame = start + 12 * sample
+            case = f'{arm}/village1-sage-h12' + (f'-t{sample:02}' if sample else '')
+            rel = 'captures/' + case + '.png'
+            path = png(root / rel, whites=[(frame % 300, 100)])
+            (root / (rel + '.provenance.txt')).write_text(f'case={case}\ncapture_lf={frame}\npng={hdr.fnv(path)}\n')
+            images[rel] = {'sha256': hdr.sha(path), 'stats': {'width': 320, 'height': 180}}
+            lines.append(f'REFSET sample case={case} layer=historical chain_lf={frame} anchor_lf=88')
+            witness = {'lf': frame, 'actor': 0, 'layer': 'sage-hut-ground', 'case': 'sage-hut-ground',
+                       'roi': [100, 120, 220, 170], 'supported': True, 'passed': True,
+                       'world_aabb': [-125.0, 45.5, 210.0, -121.0, 46.5, 218.0]}
+            mutate(witness)
+            lines.append(marker + json.dumps(witness))
+    (root / 'engine.log').write_text('\n'.join(lines))
+    return images
+
+
+def test_ground_witness_creates_the_ground_case_row(tmp_path):
+    diagnostic = hdr.owner_regions(tmp_path, ground_sources(tmp_path), portal_fake_measure)
+    assert diagnostic['errors'] == []
+    assert 'sage-hut-ground' not in diagnostic['unattributed_cases']
+    row, = diagnostic['regions']
+    assert row['actor'] == 0 and row['layer'] == 'sage-hut-ground'
+    assert row['roi_exclusive'] == [100, 120, 220, 170] and len(row['samples']) == 4
+    assert len(row['white_match']) == 2 and row['errors'] == []
+    case = 'petites zones au sol devant hutte Sage vert violettes ON'
+    expected = {'plan': {'owner_regression_cases': [case]}}
+    observation = {'batch': 'synthetic', 'temporal': 2, 'selected': [('village1-sage', 12)], 'diagnostic': diagnostic}
+    metrics, details = hdr.owner_regressions(expected, [observation])
+    assert metrics['hdr_owner_regressions_measured'] == metrics['hdr_owner_regressions_passed'] == 1
+    assert details['findings'][0]['observations'][0]['layer'] == 'sage-hut-ground'
+    # Without any ground row the case stays missing (no engine witness yet).
+    metrics, details = hdr.owner_regressions(expected, [{**observation, 'diagnostic': {'schema': 1, 'errors': [], 'regions': []}}])
+    assert metrics['hdr_owner_regressions_missing'] == 1
+    assert details['findings'] == [{'case': case, 'reason': 'no semantic ROI or comparable sequence in regional manifests'}]
+
+
+@pytest.mark.parametrize('fault', ['no_aabb', 'short_aabb', 'nan_aabb', 'sky_marker', 'sprite_marker',
+                                   'ground_marker_for_clouds', 'actor', 'case'])
+def test_ground_witness_invalid_provenance_is_explicit(tmp_path, fault):
+    marker = {'sky_marker': 'HDR-OWNER-SKY ', 'sprite_marker': 'HDR-OWNER-SPRITE '}.get(fault, 'HDR-OWNER-GROUND ')
+    def mutate(w):
+        if fault == 'no_aabb': w.pop('world_aabb')
+        if fault == 'short_aabb': w['world_aabb'] = w['world_aabb'][:5]
+        if fault == 'nan_aabb': w['world_aabb'][0] = float('nan')
+        if fault == 'ground_marker_for_clouds': w.update(layer='clouds', case='clouds')
+        if fault == 'actor': w['actor'] = 1395
+        if fault == 'case': w['case'] = 'clouds'
+    diagnostic = hdr.owner_regions(tmp_path, ground_sources(tmp_path, mutate, marker), portal_fake_measure)
+    assert len(diagnostic['errors']) == 4
+    assert all(error.startswith('invalid sprite witness') for error in diagnostic['errors'])
+    assert not any(row.get('layer') == 'sage-hut-ground' for row in diagnostic['regions'])
 
 
 # Local fixtures remain synthetic: exercise the same sealed reader and accumulator.
@@ -2003,3 +2325,51 @@ def test_hdr_x86_final_rejected_pairs_are_terminal(tmp_path, paired, expected):
                           '\nhdr_captures_complete'], env=dict(os.environ, RAWLOG=str(rawlog)),
                          capture_output=True, text=True, timeout=10)
     assert run.returncode == expected, run.stderr
+
+
+def test_rendering_options_strips_only_the_capture_protocol():
+    # Essai 62: proof_plan prescribes different capture protocols per owner case
+    # (portal >= 10 s after reset, eco short sequence); the temporal block is not a
+    # rendering setting and must not make lots of one campaign incompatible.
+    on = {'hdr': True, 'lighting': True, 'master': True, 'output': {'knee': 0.96},
+          'others': {'grass': True}, 'temporal': {'samples': 2, 'spacing_lf': 12, 'sample': 0}}
+    off = {**on, 'hdr': False, 'lighting': False, 'temporal': {'samples': 6, 'spacing_lf': 660, 'sample': 0}}
+    stripped = hdr.rendering_options([on, off])
+    assert all('temporal' not in o for o in stripped)
+    assert stripped[0]['output'] == {'knee': 0.96} and stripped[1]['hdr'] is False
+    # Same schema, different protocol values (samples, spacing): compatible.
+    assert hdr.rendering_options([on, off]) == hdr.rendering_options(
+        [{**on, 'temporal': {'samples': 6, 'spacing_lf': 660, 'sample': 1}}, off])
+    # Different schema (missing or unknown temporal field): still incompatible.
+    assert hdr.rendering_options([on]) != hdr.rendering_options([{**on, 'temporal': {'samples': 2}}])
+    assert hdr.rendering_options([on]) != hdr.rendering_options([{**on, 'temporal': {**on['temporal'], 'unknown': 1}}])
+    assert hdr.rendering_options([on, {**off, 'output': {'knee': 0.9}}]) != hdr.rendering_options([on, off])
+    assert hdr.rendering_options(None) is None and hdr.rendering_options({'a': 1}) == {'a': 1}
+
+
+def test_ground_witness_out_of_frame_is_absent_not_an_error(tmp_path):
+    # The engine projects the box for every capture; on any other level the box is
+    # behind the camera (in_frame false, roi null): no region, no error, case missing.
+    def mutate(w):
+        w['in_frame'] = False
+        w['roi'] = None
+    diagnostic = hdr.owner_regions(tmp_path, ground_sources(tmp_path, mutate), portal_fake_measure)
+    assert diagnostic['errors'] == []
+    assert diagnostic['regions'] == []
+    assert 'sage-hut-ground' in diagnostic['unattributed_cases']
+
+
+def test_non_stationary_arm_is_unqualified_not_judged(tmp_path, plan):
+    # Rock Village lightning: the second temporal sample of the ON arm is a flash
+    # (+80 luma on the whole frame). The pair is unqualified, never compared.
+    path = temporal_particle_batch(tmp_path, plan)
+    flash = path / 'captures/recharged/village1-eco-blue-h12-t01.png'
+    flash.write_text(json.dumps({**pixels(), 'luma': 200}))
+    sidecar = flash.with_suffix('.png.provenance.txt')
+    sidecar.write_text(__import__('re').sub(r'png=[0-9a-f]+', 'png=' + hdr.fnv(flash), sidecar.read_text()))
+    rehash(path)
+    m = hdr.read_batch(path / 'manifest.json', plan, stats)
+    assert ('village1-eco-blue', 12) not in m['pairs']
+    reasons = m['unqualified'][('village1-eco-blue', 12)]['reasons']
+    assert any(r.startswith('non-stationary arm') and r.endswith('recharged/village1-eco-blue-h12') for r in reasons)
+    assert ('village1-eco-blue', 18) in m['pairs']

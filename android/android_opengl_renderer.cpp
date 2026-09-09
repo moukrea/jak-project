@@ -1789,6 +1789,11 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
         }
       }
       if (g_refset_chain_capture.requested && refset::wants_scene_probe()) {
+        // lighting-hdr essai 62 : camera de l'image en vol pour `HDR-OWNER-GROUND` (copie des
+        // matrices seulement, aucune relecture GLES).
+        refset::note_camera(m_render_state.camera_matrix[0].data(),
+                            m_render_state.camera_hvdf_off.data(),
+                            m_render_state.camera_fog.data());
         const Fbo* src = m_fbo_state.render_fbo;
         uint64_t background = 0;
         if (!src) {

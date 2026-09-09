@@ -1704,6 +1704,13 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
       // une synchronisation avec le GPU, et 174 fois dans la course c'est gratuit, une fois par
       // image ce serait une taxe permanente sur un instrument cense ne rien changer.
       Fbo* src = refset::wants_scene_probe() ? m_fbo_state.render_fbo : nullptr;
+      // lighting-hdr essai 62 : la camera de l'image en vol, pour projeter les boites monde
+      // (`HDR-OWNER-GROUND`). Valide ici : remplie par le premier renderer de decor de la frame.
+      if (src) {
+        refset::note_camera(m_render_state.camera_matrix[0].data(),
+                            m_render_state.camera_hvdf_off.data(),
+                            m_render_state.camera_fog.data());
+      }
       if (src && src->valid && src->zbuf_stencil_id && src->width > 0 && src->height > 0 &&
           src->width * src->height <= 1920 * 1080) {
         const int nw = src->width, nh = src->height;

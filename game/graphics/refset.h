@@ -269,6 +269,12 @@ bool consume_capture(int w, int h, const void* rgba);
 // Returns -1 outside a capture.
 int64_t capture_logic_frame();
 
+// FIL GRAPHIQUE, au site sonde DEPTH_CUE des deux renderers (x86 et Android). Copie les
+// matrices de camera de l'image EN VOL (`SharedRenderState::camera_matrix[4]` = 16 floats
+// contigus, colonnes ; `camera_hvdf_off` ; `camera_fog`) pour que `consume_capture` puisse
+// projeter des boites monde a l'ecran (marqueur `HDR-OWNER-GROUND`). Ne fait rien hors capture.
+void note_camera(const float* camera_matrix16, const float* hvdf_off4, const float* fog4);
+
 // ── lighting-hdr : quatre des six verdicts de `hdr_tonemap_defects` ─────────────────────────
 // Convention identique pour les quatre : 0 = tenu, 1 = defaut. Il n'y a PAS de valeur « pas
 // mesurable » : une grandeur qu'on n'a pas pu mesurer est un defaut. Sinon une course

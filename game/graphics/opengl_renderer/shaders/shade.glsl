@@ -387,7 +387,26 @@ vec4 shade(in Surface s, out float f_disp_cover, out vec3 f_disp_diag, out vec3 
         vec3 mod_y = mix(shd_mul, lit_mul_y, lit_y);
         vec3 mod_g = mix(shd_mul, lit_mul_g, lit_g);
         vec3 rt_mod = mix(vec3(1.0), mod_y, w_y) * mix(vec3(1.0), mod_g, w_g);
-        color.rgb = max(color.rgb * rt_mod, vec3(0.0));
+        // lighting-hdr (essai 62) : LE SUPPLEMENT LIT NE FABRIQUE PAS DE BLANC. Mesure x86 du
+        // 2026-09-09 (lot essai62-x86-pathA-before, composite A comme sur le Redmi) : 12 vues sur
+        // 34 ecretent PLUS en ON qu'en OFF, et 85 % des pixels ecretes ON-seulement ont un canal
+        // OFF >= 222 : c'est ce facteur 1,15 qui pousse une surface deja claire au-dessus de 1,0.
+        // Aucune courbe monotone du tone map ne peut le rattraper : les blancs voulus d'origine
+        // (x = 1,0) doivent rester blancs, donc tout ce qui depasse 1,0 est ecrete. La marge se
+        // prend ICI : le supplement (lit - base) s'eteint en fondu quand la base approche du
+        // blanc (plein effet sous 0,7) et ne porte jamais le canal max au-dessus de 1,0. Sous 0,7
+        // le rendu est identique a avant ; les ombres (rt_mod = 1) ne bougent pas.
+        vec3 rt_lit = max(color.rgb * rt_mod, vec3(0.0));
+        float rt_m0 = max(color.r, max(color.g, color.b));
+        float rt_m1 = max(rt_lit.r, max(rt_lit.g, rt_lit.b));
+        // Plafond a 0,995 (254/255) et non 1,0 : a 1,0 exactement, une base a 250 gagnait
+        // encore 2 % et sortait ecretee (misty h18, lot essai62-x86-final : 551 pixels
+        // ON-seulement avec un canal OFF >= 245). Le supplement ne fabrique jamais un 255.
+        float rt_g = clamp((0.995 - rt_m0) / 0.3, 0.0, 1.0);
+        if (rt_m1 > rt_m0 + 1e-5) {
+          rt_g = min(rt_g, clamp((0.995 - rt_m0) / (rt_m1 - rt_m0), 0.0, 1.0));
+        }
+        color.rgb = color.rgb + (rt_lit - color.rgb) * rt_g;
         if (u_pbr_debug == 1) {
           color.rgb = vec3(ndl);
         } else if (u_pbr_debug == 2) {
