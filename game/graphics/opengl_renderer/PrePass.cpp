@@ -135,6 +135,7 @@ bool is_world_bucket(int id) {
   }
 }
 
+#ifndef __ANDROID__
 void publish_all() {
   autoport_proof::publish("ao_direct_leak_px", g_leak_px);
   autoport_proof::publish("ao_hit_px", g_hit_px);
@@ -147,6 +148,7 @@ void publish_all() {
   autoport_proof::publish("ao_screen_ao_active", g_ao_valid ? 1 : 0);
   autoport_proof::publish_text("ao_apply_site", "shade.glsl:shade_body");
 }
+#endif
 
 }  // namespace
 
@@ -350,6 +352,7 @@ void proof_before_bucket(int bucket_id) {
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 }
 
+#ifndef __ANDROID__
 namespace {
 
 void ensure_probe(int w, int h) {
@@ -384,6 +387,7 @@ void ensure_probe(int w, int h) {
 }
 
 }  // namespace
+#endif
 
 void proof_post_opaque(SharedRenderState* rs) {
   if (!g_probe_frame) {
