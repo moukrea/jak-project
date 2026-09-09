@@ -1,14 +1,13 @@
 # Sortir un vrai signal HDR sur les ecrans qui le supportent
 
 ## Defaut cite
-- 2026-09-07 : « Après on peut quand même avoir des adaptations différentes sur écran SDR et écran HDR, le fait de partager les altérations c'était de la supposition, je suis pas expert ! Je compte sur toi mais fais pas de la merde »
-- 2026-09-09 : « sur écran HDR, on doit aussi pouvoir toggle ça à off hein ? Pour ceux qui préfèreraient la sortie SDR actuelle sur leur écran HDR par example. Comme sur certains jeux actuels qui supportent le HDR, c'est pas parce que leur écran supporte le HDR qu'ils peuvent pas activer/désactiver le HDR ! Attentio… »
+- 2026-09-09 : « je vois bien qu'il y a un toggle HDR Output (hors des réglages rechargés alors que lui même dépend de la refonte de l'éclairage qui est un réglage rechargé, c'est à corriger)... Et oui, les zones brillantes ressortent bi… »
 
 ## Cause connue
-Aucun cycle n'a encore etabli de cause sur cet item.
+Refus owner 09/09 sur le build 15:26 : TOUT est plus sombre, les aplats blancs (UI, sous-titres, sprite de chargement) sortent gris clair, et l'interrupteur est hors des reglages Recharged. Lecture : le blanc de reference (paper white, ceiling_x100=236 => ~203 nits sur un ecran a 480) est applique AUSSI a l'UI, qui est du contenu SDR et doit sortir au blanc SDR de l'ecran, pas en dessous ; et la scene est remappee sous son niveau SDR au lieu de ne depasser 1,0 que dans les hautes lumieres.
 
 ## Livrable
-Par DEFAUT le jeu sort du SDR bien tonemappe (lighting-hdr, valide le 09/09). Ce chantier ajoute la sortie HDR native vers l'ECRAN, sujet distinct du calcul HDR interne. `hdr_out_defects=N` : (1) capacite de l'ecran DETECTEE et publiee (`hdr_out_display_caps`, modes reellement annonces par le systeme, Android et bureau) ; (2) l'option n'apparait que si un mode est annonce — jamais un reglage qui ne fait rien ; (3) SUR UN ECRAN HDR, l'option reste un VRAI interrupteur : OFF = la sortie SDR actuelle, au choix du joueur, jamais force par la capacite de l'ecran (`hdr_out_forced_on` = 0) ; (4) activee, sortie dans l'espace annonce sans double compression (`hdr_out_tonemaps_applied` = 1) ; (5) desactivee, identique au bit a lighting-hdr ; (6) la detection entre dans l'auto-configuration du premier demarrage, mode retenu publie, et le choix persiste. Zero. Preuve sur un ecran HDR reel — le Honor de l'owner.
+`hdr_out_defects` = 0 : (1) capacite DETECTEE et publiee ; (2) option visible seulement si un mode est annonce ; (3) vrai interrupteur, `hdr_out_forced_on` = 0, choix persistant ; (4) activee, sortie dans l'espace annonce, un seul tone map ; (5) desactivee, identique au bit a lighting-hdr ; (6) auto-config au premier demarrage. S'AJOUTENT (refus 09/09) : (7) `hdr_out_menu_parent` = eclairage — la ligne vit sous Options > Recharged > Eclairage Recharge ; (8) `hdr_out_ui_white_nits` >= le blanc SDR de l'ecran lu dans le systeme — UI, sous-titres, sprites, aplats blancs sont du contenu SDR et sortent BLANC, jamais gris ; (9) `hdr_out_darkening_pct` <= 5 — la luminance moyenne des tons moyens de la scene ne baisse pas par rapport a la sortie SDR : seules les hautes lumieres au-dela de 1,0 gagnent. Preuve sur le Honor.
 
 ## Preuve exigee
 `hdr_out_defects == 0` dans `reports/hdr-display-output/proof.txt`.
