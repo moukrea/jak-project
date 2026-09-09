@@ -57,6 +57,12 @@ SysCaps s_sys;
 PlatformCaps s_plat;
 std::string s_caps_text = "sys:unreported;platform:unprobed";
 std::atomic<int> s_ratio_x1000{1000};  // Display.getHdrSdrRatio x1000, 1000 = aucune marge
+// INSTANTANE PAR IMAGE du ratio, pose au debut de l'image sur le fil GL (apply_pending_on_gl_thread).
+// Le listener Java ecrit s_ratio_x1000 a tout moment ; tonemap_ceiling() (au tone map) et
+// frame_end() (au verdict 4, `ceiling_bad`) le liraient a deux instants differents : un changement
+// entre les deux comptait une image « mauvaise » qui n'etait qu'une course de lecture. Tout ce que
+// l'image lit (plafond, `current` declare au compositeur, verdict) passe par cet instantane.
+int s_frame_ratio_x1000 = 1000;
 
 void rebuild_caps_text_locked() {
   std::string t;
@@ -240,7 +246,7 @@ float peak_nits() {
 }
 
 float ratio_linear() {
-  float r = (float)s_ratio_x1000.load() / 1000.f;
+  float r = (float)s_frame_ratio_x1000 / 1000.f;  // l'instantane de l'image, jamais l'atomique
   if (!(r >= 1.f)) {
     r = 1.f;
   }
@@ -840,6 +846,7 @@ void note_surface_state(const SurfaceState& st) {
 }
 
 void apply_pending_on_gl_thread() {
+  s_frame_ratio_x1000 = s_ratio_x1000.load();  // une seule lecture du ratio par image
   // scRGB actif : le ratio LU a change (listener Java) -> le tampon de cette image sera encode
   // a ce ratio, on le declare au compositeur (current = ratio rendu, desired inchange).
   if (s_active.load() && s_surface.mode == kModeScrgbLinear && !s_headroom_pending) {
