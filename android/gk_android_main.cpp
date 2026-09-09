@@ -72,7 +72,8 @@
 #include "game/runtime.h"
 #include "game/system/boot_replay.h"
 #include "game/system/pad_replay.h"
-#include "game/system/npc_flicker.h"  // cutscene-npc-flicker (essai 11) : compteurs de plateforme par scene
+#include "game/system/npc_flicker.h"
+#include "game/system/perf_instruments.h"  // perf-instruments : recepteur du flux pc-prof (seaux GOAL, ROOT)  // cutscene-npc-flicker (essai 11) : compteurs de plateforme par scene
 
 // A11: jak1::InitHeapAndSymbol exposes a chainable hook that fires
 // between the kernel-CGO load and the kernel-version check. We chain
@@ -658,6 +659,15 @@ extern "C" u64 a17_pc_default() {
 // load-settings always took the "found" branch, read-from-file then failed on
 // the missing file and fell back to defaults WITHOUT committing, so a fresh
 // install never produced settings.ini until the first menu commit.
+// perf-instruments : `pc-prof` etait lie au stub `d` sur Android, donc AUCUN des 35 seaux
+// `with-profiler` ni l'evenement `ROOT` du dispatcher n'atteignait le recepteur : mesure du
+// 2026-09-10 00:53 sur le Honor, `goal_buckets_unseen` listait les 35 seaux et
+// actors_*/joints_evaluated manquaient. Meme forme que `pc_prof` (kmachine.cpp) : la chaine
+// GOAL et le genre (0 begin, 1 end, 2 instant). Sans item ni reglage, un test de booleen.
+extern "C" u64 a_perf_pc_prof(u32 name, u32 kind) {
+  perf_instruments::goal_prof_event(name, Ptr<String>(name).c()->data(), (int)kind);
+  return 0;
+}
 extern "C" u64 a17_pc_filepath_exists(u32 filepath) {
   const char* path = Ptr<String>(filepath).c()->data();
   struct stat st {};
@@ -1405,8 +1415,8 @@ void a17_bind_pc_helpers() {
   // Discord
   klink_mfsfc_for_game("pc-discord-rpc-set", d);
   klink_mfsfc_for_game("pc-discord-rpc-update", d);
-  // Profiler
-  klink_mfsfc_for_game("pc-prof", d);
+  // Profiler — perf-instruments : vrai recepteur (voir a_perf_pc_prof), plus le stub `d`.
+  klink_mfsfc_for_game("pc-prof", (void*)a_perf_pc_prof);
   // RNG
   klink_mfsfc_for_game("pc-rand", (void*)a35_pc_rand);
   // Ginput-replay-determinism (autoport): wire THIS backend's pc-rand generator

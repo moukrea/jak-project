@@ -5588,6 +5588,10 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
   block_reason: 'prompt absent : /home/emeric/code/jak-project/.autoport'
   prompt: prompts/item-perf-instruments.md
 - id: perf-stock-baseline

@@ -100,6 +100,12 @@ inline bool heap_ptr(uint32_t v) {
   return v >= (uint32_t)EE_MAIN_MEM_LOW_PROTECT && v < (uint32_t)EE_MAIN_MEM_SIZE - 16 &&
          (v & 3) == 0;
 }
+// Un pointeur GOAL « vide » est le symbole #f (s7), PAS zero : `brother`/`child` d'une feuille
+// valent #f. Mesure x86 du 2026-09-10 : la marche prenait #f pour un noeud, tournait en rond
+// sur le contenu du symbole et rendait actors_tree_nodes=8193 (le plafond) pour 2 process.
+inline bool goal_null(uint32_t v) {
+  return v == 0 || (s7.offset != 0 && v == s7.offset);
+}
 // Chaine GOAL (`String` : len puis octets) copiee de facon bornee.
 bool rd_goal_string(uint32_t str, char* out, size_t cap) {
   uint32_t len = 0;
@@ -182,6 +188,8 @@ uint64_t g_joints_tour = 0;
 bool g_joints_seen_tour = false;
 // Dernier tour complet.
 uint64_t g_actors_active = 0, g_actors_paused = 0, g_actors_total = 0;
+uint64_t g_actors_procs = 0, g_actors_nodes = 0;  // temoins de la marche : « 1 acteur » se lit
+                                                   // avec le nombre de process et de noeuds vus
 uint64_t g_joints_last = 0;
 uint64_t g_tours_measured = 0;
 
@@ -249,11 +257,12 @@ bool ran_contains(uint32_t name) {
 // iterate-process-tree).
 struct Walk {
   uint64_t active = 0, paused = 0, total = 0;
+  uint64_t procs = 0;  // tous les process (non process-tree) rencontres, acteurs ou non
   int nodes = 0;
 };
 
 void walk(uint32_t node, int depth, Walk& w) {
-  if (depth > 48 || w.nodes > 8192 || !heap_ptr(node)) {
+  if (depth > 48 || w.nodes > 8192 || goal_null(node) || !heap_ptr(node)) {
     return;
   }
   w.nodes++;
@@ -262,6 +271,7 @@ void walk(uint32_t node, int depth, Walk& w) {
     return;
   }
   if (!(mask & (1u << 8))) {
+    w.procs++;
     if (type_is_actor(type)) {
       uint32_t name = 0;
       rd32(node, &name);
@@ -278,9 +288,9 @@ void walk(uint32_t node, int depth, Walk& w) {
     return;
   }
   int siblings = 0;
-  while (pp && siblings++ < 4096) {
+  while (!goal_null(pp) && heap_ptr(pp) && siblings++ < 4096) {
     uint32_t child = 0;
-    if (!rd32(pp, &child) || !heap_ptr(child)) {
+    if (!rd32(pp, &child) || goal_null(child) || !heap_ptr(child)) {
       break;
     }
     uint32_t next = 0;
@@ -300,6 +310,8 @@ void end_of_tour() {
       g_actors_active = w.active;
       g_actors_paused = w.paused;
       g_actors_total = w.total;
+      g_actors_procs = w.procs;
+      g_actors_nodes = (uint64_t)w.nodes;
       g_tours_measured++;
     }
   }
@@ -322,7 +334,7 @@ void count_joints() {
   }
   uint64_t n = 0;
   int guard = 0;
-  while (heap_ptr(node) && guard++ < 4096) {
+  while (!goal_null(node) && heap_ptr(node) && guard++ < 4096) {
     uint32_t nb = 0, next = 0;
     if (!rd16(node + 2, &nb) || !rd32(node + 32, &next)) {
       break;
@@ -541,6 +553,8 @@ void publish_window() {
     autoport_proof::publish("actors_active", g_actors_active);
     autoport_proof::publish("actors_paused", g_actors_paused);
     autoport_proof::publish("actors_total", g_actors_total);
+    autoport_proof::publish("actors_procs", g_actors_procs);
+    autoport_proof::publish("actors_tree_nodes", g_actors_nodes);
   }
   if (g_seen_ever[kBucketBones] > 0) {
     autoport_proof::publish("joints_evaluated", g_joints_last);
