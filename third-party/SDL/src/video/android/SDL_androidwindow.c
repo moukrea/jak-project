@@ -174,6 +174,38 @@ void Android_SetWindowResizable(SDL_VideoDevice *_this, SDL_Window *window, bool
     Android_JNI_SetOrientation(window->w, window->h, window->flags & SDL_WINDOW_RESIZABLE, SDL_GetHint(SDL_HINT_ORIENTATIONS));
 }
 
+/* OpenGOAL hdr-display-output : destroy and recreate the EGL window surface on the SAME
+ * native window and the SAME context, re-choosing the EGLConfig from the current
+ * SDL_GL_SetAttribute() values (SDL_EGL_ChooseConfig has no cache: SDL_EGL_CreateSurface
+ * re-chooses every time). The context must have been created with EGL_NO_CONFIG_KHR
+ * (hint SDL_EGL_NO_CONFIG_CONTEXT) for a config with different bit depths to be accepted.
+ * GL thread only, between two frames. */
+SDL_DECLSPEC bool SDLCALL SDL_Android_RecreateEGLSurface(SDL_Window *window)
+{
+    SDL_VideoDevice *_this = SDL_GetVideoDevice();
+    SDL_WindowData *data = window ? window->internal : NULL;
+    bool ok = false;
+    if (!_this || !data || !data->native_window || !_this->egl_data) {
+        SDL_SetError("no EGL window to recreate");
+        return false;
+    }
+    Android_LockActivityMutex();
+    SDL_GLContext ctx = SDL_GL_GetCurrentContext();
+    /* detach the current surface (surfaceless if allowed, else detach everything) */
+    if (!SDL_EGL_MakeCurrent(_this, EGL_NO_SURFACE, ctx)) {
+        _this->egl_data->eglMakeCurrent(_this->egl_data->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    }
+    if (data->egl_surface != EGL_NO_SURFACE) {
+        SDL_EGL_DestroySurface(_this, data->egl_surface);
+        data->egl_surface = EGL_NO_SURFACE;
+    }
+    data->egl_surface = SDL_EGL_CreateSurface(_this, window, (NativeWindowType)data->native_window);
+    SDL_SetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_ANDROID_SURFACE_POINTER, data->egl_surface);
+    ok = (data->egl_surface != EGL_NO_SURFACE) && SDL_EGL_MakeCurrent(_this, data->egl_surface, ctx);
+    Android_UnlockActivityMutex();
+    return ok;
+}
+
 void Android_DestroyWindow(SDL_VideoDevice *_this, SDL_Window *window)
 {
     Android_LockActivityMutex();

@@ -117,4 +117,8 @@ void probe_scene(GLuint scene_fbo, int w, int h, GLenum fmt);
 // A appeler depuis LES DEUX renderers (bureau et Android).
 void frame_end(GLenum scene_format);
 
+// Le compte de compressions de plage de la DERNIERE image recensee par `frame_end` (le meme
+// nombre que juge le verdict 5 de lighting-hdr). Lu par hdr_output::frame_end.
+uint64_t last_frame_sites();
+
 }  // namespace hdr

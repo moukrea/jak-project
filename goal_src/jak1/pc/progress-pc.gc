@@ -7087,12 +7087,13 @@
                    (filter (lambda (e) (if (eq? (car e) 'flag-row) (eval (second e)) #t))
                            entries)))))
 ;; full (Min-Target-FPS visible) lengths of the two graphics arrays; vulkan row is flagged.
+;; +1 : rangee HDR OUTPUT (hdr-display-output) avant Back.
 (#if FLAG_VULKAN_SUPPORT
-  (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 15)
-  (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 14))
+  (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 16)
+  (defglobalconstant GFX_OPTIONS_PC_FULL_LEN 15))
 (#if FLAG_VULKAN_SUPPORT
-  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 13)
-  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 12))
+  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 14)
+  (defglobalconstant GFX_OPTIONS_ANDROID_FULL_LEN 13))
 (define-options-array *graphic-options-pc*
        game-option
        ;; 0 Aspect Ratio
@@ -7193,7 +7194,7 @@
        ;; name-override; value-to-modify = gfx-renderer-vulkan? (bound in init-game-options). on-change
        ;; maps the toggle to *pc-settings* gfx-renderer, persists it, and tells the C++ runtime, which
        ;; selects the backend at the next launch (surface recreation ⇒ restart to switch).
-       ;; row present only with --vulkan-support (Back shifts to 13 otherwise).
+       ;; row present only with --vulkan-support (HDR OUTPUT / Back shift to 13 / 14 otherwise).
        (flag-row FLAG_VULKAN_SUPPORT
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
@@ -7204,7 +7205,18 @@
               (pc-set-gfx-renderer! (-> *pc-settings* gfx-renderer))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; 14 Back
+       ;; 14 HDR OUTPUT
+       ;; HDR OUTPUT (hdr-display-output) : n'apparait que si l'ecran annonce un mode HDR
+       ;; (pc-get-hdr-output-modes > 0) — sinon la rangee est RETIREE du tableau vivant a
+       ;; l'ouverture du menu (voir init-game-options), jamais seulement grisee.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* hdr-output?) (the-as symbol val))
+              (pc-set-hdr-output! (if val 1 0))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 15 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; Android-only graphics options. Same owner order as *graphic-options-pc* but with the menu
@@ -7217,7 +7229,8 @@
 ;; Goptions-reorder order: 0 Aspect Ratio, 1 Game Resolution, 2 Dynamic Render Scale,
 ;;   3 Render Scale/Min Render Scale, 4 Min Target FPS (HIDDEN when Dynamic OFF), 5 FPS Counter,
 ;;   6 V-Sync, 7 MSAA, 8 Max Frame Rate, 9 Recharged Settings, 10 Advanced settings (renamed
-;;   "PS2 Options"), 11 Vulkan Renderer (flagged), 12 Back. Wired in init-game-options.
+;;   "PS2 Options"), 11 Vulkan Renderer (flagged), 12 HDR Output (hdr-display-output), 13 Back.
+;;   Wired in init-game-options.
 (define-options-array *graphic-options-pc-android*
        game-option
        ;; 0 Aspect Ratio
@@ -7305,7 +7318,7 @@
        ;; maps the toggle to *pc-settings* gfx-renderer, persists it, and tells the C++ runtime (which
        ;; applies the new backend on the next launch). NOTE: on Android the Vulkan runtime is deferred —
        ;; the toggle persists the preference but the build keeps rendering with GLES for now.
-       ;; row present only with --vulkan-support (Back shifts to 11 otherwise).
+       ;; row present only with --vulkan-support (HDR OUTPUT / Back shift to 11 / 12 otherwise).
        (flag-row FLAG_VULKAN_SUPPORT
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :on-change
@@ -7316,7 +7329,18 @@
               (pc-set-gfx-renderer! (-> *pc-settings* gfx-renderer))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; 12 Back
+       ;; 12 HDR OUTPUT
+       ;; HDR OUTPUT (hdr-display-output) : n'apparait que si l'ecran annonce un mode HDR
+       ;; (pc-get-hdr-output-modes > 0) — sinon la rangee est RETIREE du tableau vivant a
+       ;; l'ouverture du menu (voir init-game-options), jamais seulement grisee.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* hdr-output?) (the-as symbol val))
+              (pc-set-hdr-output! (if val 1 0))
+              (commit-to-file *pc-settings*)
+              (none)))
+       ;; 13 Back
        (new 'static 'game-option :option-type (game-option-type button) :name (text-id back) :scale #t))
 
 ;; Grecharged-hud-jak1: the "Recharged Settings" submenu (reached from Graphics Options, row before
@@ -8026,6 +8050,9 @@
 ;; Longueur : 18 caracteres, sous « DYNAMIC RENDER SCALE » (20), tampon 128.
 (define *recharged-lighting-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *recharged-lighting-label*) "Recharged Lighting")
+;; hdr-display-output : libelle de la rangee HDR OUTPUT (name-override sur un text-id valide).
+(define *hdr-output-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *hdr-output-label*) "HDR Output")
 (define *hemisphere-ambient-label* (new 'global 'string 64 (the-as string #f)))
 ;; OWNER FINAL ARCHITECTURE 2026-07-21: renamed AMBIENT -> BAKED AMBIENT (the probe
 ;; world-projection curiosity toggle, default OFF; existing valid text-id + name-override
@@ -8368,6 +8395,28 @@
        (set! (-> arr length) (+ full-len -1)))))
   (none))
 
+;; hdr-display-output : la rangee HDR OUTPUT est l'avant-derniere (juste avant Back) des deux
+;; tableaux graphiques. Sans mode annonce elle est RETIREE une fois pour toutes : Back glisse
+;; sur son emplacement et la longueur vivante baisse de 1. Les longueurs « pleines » que voit
+;; la logique Min-Target-FPS deviennent alors FULL_LEN - 1.
+;; Pointeurs STABLES vers l'objet HDR OUTPUT de chaque tableau, captures au chargement pendant que
+;; les tableaux sont a leur disposition statique pleine (meme motif que *graphic-options-mtf-pc*) :
+;; le cablage dans init-game-options passe par eux, jamais par un index — une fois la rangee
+;; retiree, l'index FULL_LEN-2 designe Back.
+(define *graphic-options-hdr-pc* (-> *graphic-options-pc* (+ GFX_OPTIONS_PC_FULL_LEN -2)))
+(define *graphic-options-hdr-android* (-> *graphic-options-pc-android* (+ GFX_OPTIONS_ANDROID_FULL_LEN -2)))
+(define *gfx-hdr-row-hidden?* #f)
+(defun gfx-full-len-pc () (if *gfx-hdr-row-hidden?* (+ GFX_OPTIONS_PC_FULL_LEN -1) GFX_OPTIONS_PC_FULL_LEN))
+(defun gfx-full-len-android () (if *gfx-hdr-row-hidden?* (+ GFX_OPTIONS_ANDROID_FULL_LEN -1) GFX_OPTIONS_ANDROID_FULL_LEN))
+(defun gfx-hdr-row-hide-once! ()
+  (when (and (not *gfx-hdr-row-hidden?*) (= (pc-get-hdr-output-modes) 0))
+    (set! (-> *graphic-options-pc* (+ GFX_OPTIONS_PC_FULL_LEN -2)) (-> *graphic-options-pc* (+ GFX_OPTIONS_PC_FULL_LEN -1)))
+    (set! (-> *graphic-options-pc* length) (+ GFX_OPTIONS_PC_FULL_LEN -1))
+    (set! (-> *graphic-options-pc-android* (+ GFX_OPTIONS_ANDROID_FULL_LEN -2)) (-> *graphic-options-pc-android* (+ GFX_OPTIONS_ANDROID_FULL_LEN -1)))
+    (set! (-> *graphic-options-pc-android* length) (+ GFX_OPTIONS_ANDROID_FULL_LEN -1))
+    (set! *gfx-hdr-row-hidden?* #t))
+  (none))
+
 ;; Re-point + relabel the RENDER SCALE slider row (physical index 3 in both arrays, above the Min Target
 ;; FPS row so it never shifts) per the Dynamic Render Scale toggle: OFF -> edits render-scale (manual %),
 ;; label "RENDER SCALE"; ON -> edits min-render-scale (auto-scaler floor), label "MIN RENDER SCALE".
@@ -8384,8 +8433,9 @@
           (if dyn? *min-render-scale-label* *render-scale-label*))
     ;; Gvulkan-option + Grecharged-hud-jak1: full lengths now 15 desktop / 12 android (VULKAN RENDERER
     ;; and RECHARGED SETTINGS rows both inserted after index 4, so the MTF stable pointers are unaffected).
-    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* GFX_OPTIONS_PC_FULL_LEN dyn?)
-    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* GFX_OPTIONS_ANDROID_FULL_LEN dyn?))
+    ;; hdr-display-output : longueur pleine VIVANTE (FULL_LEN - 1 une fois la rangee HDR retiree).
+    (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* (gfx-full-len-pc) dyn?)
+    (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* (gfx-full-len-android) dyn?))
   (none))
 
 (defun apply-frame-rate-menu-bounds! ()
@@ -10381,11 +10431,20 @@
   ;; removed), which would shift the indices below. apply-dynamic-rs-menu-mode! re-hides row 4 at the end.
   ;; Grecharged-hud-jak1: full lengths bumped to 15 desktop / 12 android for the inserted RECHARGED
   ;; SETTINGS row (see the reindexed Advanced / Vulkan / new-submenu wiring below).
-  (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* GFX_OPTIONS_PC_FULL_LEN #t)
-  (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* GFX_OPTIONS_ANDROID_FULL_LEN #t)
+  (graphic-options-set-mtf-visible! *graphic-options-pc* *graphic-options-mtf-pc* (gfx-full-len-pc) #t)
+  (graphic-options-set-mtf-visible! *graphic-options-pc-android* *graphic-options-mtf-android* (gfx-full-len-android) #t)
+  ;; hdr-display-output : rangee HDR OUTPUT = avant-derniere (index FULL_LEN-2 a pleine longueur),
+  ;; cablee par ses POINTEURS STABLES (l'index designerait Back une fois la rangee retiree, a la 2e
+  ;; ouverture du menu), puis retiree une fois pour toutes si l'ecran n'annonce aucun mode.
+  (set! (-> *graphic-options-hdr-pc* value-to-modify) (&-> *pc-settings* hdr-output?))
+  (set! (-> *graphic-options-hdr-pc* name-override) *hdr-output-label*)
+  (set! (-> *graphic-options-hdr-android* value-to-modify) (&-> *pc-settings* hdr-output?))
+  (set! (-> *graphic-options-hdr-android* name-override) *hdr-output-label*)
+  (gfx-hdr-row-hide-once!)
+  (pc-hdr-output-note! 0 (if *gfx-hdr-row-hidden?* 0 1))
   ;; desktop graphics-options (Goptions-reorder + Grecharged-hud-jak1 order): 0 Aspect, 1 GameRes,
   ;; 2 Dynamic, 3 RenderScale, 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 DisplayMode, 9 Display,
-  ;; 10 FrameRate, 11 RechargedSettings, 12 Advanced(=PS2 Options renamed), 13 Vulkan, 14 Back.
+  ;; 10 FrameRate, 11 RechargedSettings, 12 Advanced(=PS2 Options renamed), 13 Vulkan, 14 HDR Output, 15 Back.
   (set! (-> *graphic-options-pc* 2 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
   (set! (-> *graphic-options-pc* 2 name-override) *dynamic-render-scale-label*)
   ;; index 3 (RENDER SCALE / MIN RENDER SCALE slider) wired by apply-dynamic-rs-menu-mode!
@@ -10411,7 +10470,7 @@
   (set! (-> *graphic-options-pc* 13 name-override) *vulkan-renderer-label*))
   ;; android graphics-options (Goptions-reorder + Grecharged-hud-jak1 + framerate-uncap order): 0 Aspect, 1 GameRes,
   ;; 2 Dynamic, 3 RenderScale, 4 MinTargetFPS, 5 FPSCounter, 6 VSync, 7 MSAA, 8 MaxFrameRate,
-  ;; 9 RechargedSettings, 10 Advanced, 11 Vulkan, 12 Back.
+  ;; 9 RechargedSettings, 10 Advanced, 11 Vulkan, 12 HDR Output, 13 Back.
   (set! (-> *graphic-options-pc-android* 2 value-to-modify) (&-> *pc-settings* dynamic-render-scale?))
   (set! (-> *graphic-options-pc-android* 2 name-override) *dynamic-render-scale-label*)
   ;; index 3 (RENDER SCALE / MIN RENDER SCALE slider) wired by apply-dynamic-rs-menu-mode!

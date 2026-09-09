@@ -2,6 +2,7 @@
 #include "OpenGLRenderer.h"
 
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/graphics/refset.h"
@@ -1263,6 +1264,11 @@ void OpenGLRenderer::render(DmaFollower dma, const RenderOptions& settings) {
   lighting_census::frame_end();
   shade_proof::frame_end();
   hdr::frame_end(m_fbo_state.render_fbo->color_format);
+  // hdr-display-output : APRES hdr::frame_end ; `m_ui_pass_active` tient jusqu'au prochain
+  // setup_frame, donc le format publie est celui du tampon UI reellement dessine cette image.
+  hdr_output::frame_end(
+      hdr::last_frame_sites(),
+      m_ui_pass_active ? m_fbo_state.resources.ui_buffer.color_format : GL_RGBA8);
   // Gloading-screen-window : ATTRIBUER LE GEL, AU LIEU DE LE SUPPOSER.
   // Mesure x86 du 2026-08-30, transition `save-geyser` : la derniere image de l'ecran de
   // chargement dure 253 ms quand les 60 precedentes tiennent a 17,3 ms de maximum. Le premier
@@ -1520,9 +1526,13 @@ void OpenGLRenderer::setup_frame(const RenderOptions& settings) {
                               settings.game_res_h < native_ui_h) || hdr_chain) &&
                             native_ui_w > 0 && native_ui_h > 0;
   if (split_active) {
-    if (!m_fbo_state.resources.ui_buffer.matches(native_ui_w, native_ui_h, 1)) {
+    // hdr-display-output : le tampon UI suit le format demande par la sortie ecran (RGBA16F
+    // quand la surface est HDR, RGBA8 sinon) ; un changement de format recree le FBO.
+    if (!m_fbo_state.resources.ui_buffer.matches(native_ui_w, native_ui_h, 1,
+                                                 hdr_output::ui_buffer_format())) {
       m_fbo_state.resources.ui_buffer.clear();
-      m_fbo_state.resources.ui_buffer = make_fbo(native_ui_w, native_ui_h, 1, true);
+      m_fbo_state.resources.ui_buffer = make_fbo(native_ui_w, native_ui_h, 1, true, false,
+                                                 hdr_output::ui_buffer_format());
     }
     m_render_state.begin_2d_ui_pass = [this]() { begin_ui_pass(); };
     // make_fbo bound the new UI fbo; restore the scaled scene target for the 3D pass.
@@ -2147,7 +2157,7 @@ void OpenGLRenderer::do_pcrtc_effects(float alp,
   // Le quad final ecrit dans le framebuffer par defaut, qui est 8 bits. Si la source est encore
   // flottante ici, la conversion ECRETE : c'est un site de plus, et le recensement le dit.
   hdr::note_display_copy("OpenGLRenderer.cpp:pcrtc-window-quad", window_blit_src->color_format,
-                         GL_RGBA8);
+                         hdr_output::window_target_format());
 
   // Gcine-vertical-frame (owner 2026-08-30, 5e signalement) -- LE VIEWPORT REELLEMENT SOUMIS AU GPU.
   // NATURE : deux RECTANGLES en pixels de fenetre hote -- la source qu'on blitte et la region ou
@@ -2199,6 +2209,7 @@ void OpenGLRenderer::do_pcrtc_effects(float alp,
     glUniform4f(glGetUniformLocation(shader.id(), "color_mult"), 1.0f, 1.0f, 1.0f, alpha);
     glUniform4f(glGetUniformLocation(shader.id(), "color_add"), color, color, color, 0.0f);
   }
+  hdr_output::push_present_uniforms(shader);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glActiveTexture(GL_TEXTURE0);

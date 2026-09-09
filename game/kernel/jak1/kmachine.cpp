@@ -40,6 +40,7 @@
 #include "game/system/npc_flicker.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
+#include "game/graphics/opengl_renderer/hdr_output.h"
 // [pom] device diagnostic: pbr_pom_diag_section() renders the per-material parallax block appended
 // to pbr_tan_diag.txt below, and [cover] pbr_coverage_section() the per-frame displacement coverage
 // tally (which PBR-bound draws actually get displaced). Header is GL-free (PBR material registry
@@ -1134,6 +1135,25 @@ void pc_set_recharged_lighting(u32 on) {
     lg::info("[recharged-lighting] toggle -> {}", v ? "ON" : "OFF");
   }
   Gfx::g_global_settings.recharged_lighting = v;
+}
+
+// hdr-display-output : sortie HDR vers l'ECRAN (distincte du calcul HDR interne ci-dessus).
+// Masque des modes reellement disponibles (systeme ET presentation) ; 0 = rangee cachee.
+u64 pc_get_hdr_output_modes() {
+  return hdr_output::modes_available();
+}
+// Le reglage du joueur (-> *pc-settings* hdr-output?). Prend effet a l'image suivante, fil GL.
+void pc_set_hdr_output(u32 on) {
+  hdr_output::set_enabled(on != 0);
+}
+// kind 0 = visibilite de la rangee (value 0/1) ;
+// kind 1 = reglage etabli (value bit0 = valeur, bit1 = source auto-configuration).
+void pc_hdr_output_note(u32 kind, u32 value) {
+  if (kind == 0) {
+    hdr_output::note_option_visible((int)value);
+  } else {
+    hdr_output::note_setting_loaded((int)(value & 1), (int)((value >> 1) & 1));
+  }
 }
 
 // Grecharged-grass-overhang: push the "grass overhang" on/off toggle from GOAL
@@ -5234,6 +5254,10 @@ void InitMachine_PCPort() {
   // Glighting-hdr: ECLAIRAGE RECHARGE master (root of the lighting overhaul; Gfx::lighting_active
   // composes it with the project master at every lighting gate)
   make_function_symbol_from_c("pc-set-recharged-lighting!", (void*)pc_set_recharged_lighting);
+  // hdr-display-output : sortie HDR vers l'ecran (modes annonces, interrupteur, rapports)
+  make_function_symbol_from_c("pc-get-hdr-output-modes", (void*)pc_get_hdr_output_modes);
+  make_function_symbol_from_c("pc-set-hdr-output!", (void*)pc_set_hdr_output);
+  make_function_symbol_from_c("pc-hdr-output-note!", (void*)pc_hdr_output_note);
   // External-asset-root: runtime custom texture replacements toggle
   make_function_symbol_from_c("pc-set-load-custom-assets!", (void*)pc_set_load_custom_assets);
   make_function_symbol_from_c("pc-set-recharged-textures!", (void*)pc_set_recharged_textures);

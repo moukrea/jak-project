@@ -95,6 +95,24 @@ public final class NativeGk {
     public static native void setExternalFilesDir(String dir);
 
     /**
+     * hdr-display-output: push what the SYSTEM announces for the display
+     * ({@code Display.getHdrCapabilities()} / {@code Display.isWideColorGamut()})
+     * into the native HDR-output module BEFORE the renderer starts. The native
+     * side ANDs this with what EGL announces to decide whether the "HDR Output"
+     * option exists at all for this player; nothing here forces it ON.
+     *
+     * @param typesMask       Bitmask {@code 1 << type} over
+     *                        {@code HdrCapabilities.getSupportedHdrTypes()}
+     *                        (DOLBY_VISION=1, HDR10=2, HLG=3, HDR10_PLUS=4).
+     * @param maxLumNits      {@code getDesiredMaxLuminance()} in nits (0 if unknown).
+     * @param maxAvgLumNits   {@code getDesiredMaxAverageLuminance()} in nits (0 if unknown).
+     * @param minLumX10000    {@code getDesiredMinLuminance()} times 10000 (0 if unknown).
+     * @param wideColorGamut  {@code Display.isWideColorGamut()}.
+     */
+    public static native void setDisplayHdrCaps(int typesMask, int maxLumNits, int maxAvgLumNits,
+                                                int minLumX10000, boolean wideColorGamut);
+
+    /**
      * Grecharged-managed-assets: does this libgk.so have the PBR path compiled
      * in (OG_FEAT_PBR)? The downloader uses it to decide whether the material-
      * map shards are worth fetching — they are useless, and roughly three

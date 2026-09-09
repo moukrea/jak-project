@@ -469,6 +469,14 @@
      (pc-set-recharged-lighting! (if (-> obj recharged-lighting?) 1 0))
      (#when FLAG_PBR
        (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0))))
+    ;; hdr-display-output : cle lue => reglage du joueur, pousse des le chargement (la surface
+    ;; est choisie avant la premiere image). Une cle presente sans clause ferait lire sa VALEUR
+    ;; comme une CLE au tour suivant : cette clause existe pour cela aussi.
+    (("hdr-output?")
+     (set! (-> obj hdr-output?) (file-stream-read-symbol file))
+     (set! *hdr-output-key-seen?* #t)
+     (pc-set-hdr-output! (if (-> obj hdr-output?) 1 0))
+     (pc-hdr-output-note! 1 (if (-> obj hdr-output?) 1 0)))
     (("recharged-hud?") (set! (-> obj recharged-hud?) (file-stream-read-symbol file)))
     (("recharged-grass?") (set! (-> obj recharged-grass?) (file-stream-read-symbol file)))
     (("recharged-grass-near-dist") (set! (-> obj recharged-grass-near-dist) (file-stream-read-float file)))
@@ -621,6 +629,7 @@
   ;; cle ecrite SANS clause ferait lire sa VALEUR comme une CLE au tour suivant et ferait repartir
   ;; tout le reste du fichier au defaut (piege documente sur la migration recharged-grass-density).
   (format file "recharged-lighting? = ~A~%" (-> obj recharged-lighting?))
+  (format file "hdr-output? = ~A~%" (-> obj hdr-output?)) ;; hdr-display-output : clause de lecture juste sous recharged-lighting?
   (format file "recharged-hud? = ~A~%" (-> obj recharged-hud?))
   (format file "recharged-grass? = ~A~%" (-> obj recharged-grass?))
   (format file "recharged-grass-near-dist = ~f~%" (-> obj recharged-grass-near-dist))

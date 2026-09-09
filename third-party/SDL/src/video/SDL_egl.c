@@ -1102,8 +1102,20 @@ SDL_GLContext SDL_EGL_CreateContext(SDL_VideoDevice *_this, EGLSurface egl_surfa
         return NULL;
     }
 
+    /* OpenGOAL hdr-display-output : a context bound to no config accepts a surface that is
+     * 8 bits now and 10 bits after SDL_Android_RecreateEGLSurface(). Opt-in by hint, and
+     * only where EGL_KHR_no_config_context is announced. */
+    EGLConfig ctx_config = _this->egl_data->egl_config;
+    if (SDL_GetHintBoolean("SDL_EGL_NO_CONFIG_CONTEXT", false) &&
+        SDL_EGL_HasExtension(_this, SDL_EGL_DISPLAY_EXTENSION, "EGL_KHR_no_config_context")) {
+#ifndef EGL_NO_CONFIG_KHR
+#define EGL_NO_CONFIG_KHR ((EGLConfig)0)
+#endif
+        ctx_config = EGL_NO_CONFIG_KHR;
+    }
+
     egl_context = _this->egl_data->eglCreateContext(_this->egl_data->egl_display,
-                                                    _this->egl_data->egl_config,
+                                                    ctx_config,
                                                     share_context, attribs);
 
     if (egl_context == EGL_NO_CONTEXT) {

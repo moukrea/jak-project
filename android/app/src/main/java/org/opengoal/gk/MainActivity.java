@@ -137,6 +137,28 @@ public class MainActivity extends SDLActivity {
         NativeGk.setSelectedGame(gameName);
         NativeGk.setDataRoot(isoDir.getAbsolutePath());
 
+        // hdr-display-output: what the SYSTEM announces for the display, pushed before the
+        // renderer thread starts (it is read when EGL is probed). Never forces HDR ON.
+        try {
+            android.view.Display d = getWindowManager().getDefaultDisplay();
+            android.view.Display.HdrCapabilities hc = d.getHdrCapabilities();
+            int mask = 0;
+            if (hc != null) {
+                for (int t : hc.getSupportedHdrTypes()) {
+                    mask |= (1 << t);
+                }
+            }
+            NativeGk.setDisplayHdrCaps(mask,
+                    hc != null ? (int) hc.getDesiredMaxLuminance() : 0,
+                    hc != null ? (int) hc.getDesiredMaxAverageLuminance() : 0,
+                    hc != null ? (int) (hc.getDesiredMinLuminance() * 10000f) : 0,
+                    d.isWideColorGamut());
+            android.util.Log.i("GK", "HDROUT display caps mask=" + mask + " isHdr=" + d.isHdr());
+        } catch (Throwable t) {
+            android.util.Log.w("GK", "HDROUT display caps unavailable", t);
+            NativeGk.setDisplayHdrCaps(0, 0, 0, 0, false);
+        }
+
         // Grecharged-buildsys-firstboot (autoport 2026-07): the ONLY boot mode is
         // EXTERNAL — a user-picked root with the layout <root>/jak1/{assets,
         // custom_assets, saves, settings.ini}. LoaderActivity guarantees a valid

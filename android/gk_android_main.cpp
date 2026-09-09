@@ -91,6 +91,7 @@ extern "C" void (*g_jak2_post_machine_scheme_hook)(void);
 #include "game/graphics/render_pace.h"
 #include "game/graphics/uncap.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/kernel/common/kmachine.h"
 
 #include "android_gfx.h"
@@ -9710,6 +9711,25 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
                         "NativeGk.setDataRoot: %s",
                         g_data_root ? g_data_root : "(null)");
   }
+}
+
+// hdr-display-output : capacites HDR annoncees par le SYSTEME (Display.getHdrCapabilities),
+// poussees par MainActivity.onCreate avant le demarrage du rendu. Les luminances de l'ecran
+// sont aussi gardees dans deux globals (android_renderer.h) pour les metadonnees SMPTE2086
+// posees sur la surface EGL a la bascule.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setDisplayHdrCaps(JNIEnv* /*env*/, jclass /*clazz*/, jint mask,
+                                                jint maxLum, jint maxAvg, jint minX10000,
+                                                jboolean wcg) {
+  g_hdr_out_max_lum_nits = (int)maxLum;
+  g_hdr_out_min_lum_x10000 = (int)minX10000;
+  hdr_output::set_system_caps((uint32_t)mask, (int)maxLum, (int)maxAvg, (int)minX10000,
+                              wcg != JNI_FALSE);
+  android_hdr_out_probe_early();  // EGL, avant que GOAL ne cree *pc-settings*
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "NativeGk.setDisplayHdrCaps: mask=0x%x max=%d avg=%d minx10000=%d wcg=%d",
+                      (unsigned)mask, (int)maxLum, (int)maxAvg, (int)minX10000,
+                      wcg != JNI_FALSE ? 1 : 0);
 }
 
 // External-asset-root feature (autoport 2026-07): store the per-game external

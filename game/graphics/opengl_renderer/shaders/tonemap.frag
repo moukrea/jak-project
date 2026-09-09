@@ -29,6 +29,12 @@ uniform sampler2D tex_T0;
 uniform float u_hdr_exposure;
 uniform float u_hdr_knee;
 uniform int u_hdr_curve;  // 0 = Fidelite (epaule C1), 1 = Filmique (Khronos PBR Neutral)
+// hdr-display-output : LE PLAFOND. 1,0 en sortie SDR (rien ne change, division par 1,0 exacte).
+// En sortie HDR vers l'ecran, c'est la marge de l'ecran au-dessus du blanc de reference
+// (max_lum / paper_white, ~2,5 pour 500 nits) : la MEME courbe, appliquee sur [0, plafond],
+// laisse les hautes lumieres monter au lieu de les ecraser a 1,0. Toujours une seule
+// compression de plage, ici ; le quad final n'encode que (OETF PQ).
+uniform float u_hdr_ceiling;
 
 out vec4 color;
 in vec2 tex_coord;
@@ -64,8 +70,9 @@ vec3 hdr_neutral(vec3 c) {
 
 void main() {
   vec4 src = texture(tex_T0, tex_coord);
-  vec3 c = max(src.rgb * u_hdr_exposure, vec3(0.0));
+  float ceiling = max(u_hdr_ceiling, 1.0);
+  vec3 c = max(src.rgb * u_hdr_exposure, vec3(0.0)) / ceiling;
   c = (u_hdr_curve == 1) ? hdr_neutral(c) : hdr_shoulder(c, u_hdr_knee);
   // L'alpha traverse INTACT : la passe 2D qui suit melange contre le dst-alpha de ce tampon.
-  color = vec4(min(c, vec3(1.0)), src.a);
+  color = vec4(min(c, vec3(1.0)) * ceiling, src.a);
 }

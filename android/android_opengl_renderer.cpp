@@ -18,6 +18,7 @@
 #include "game/system/load_gate.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/BlitDisplays.h"
 #include "game/graphics/opengl_renderer/DirectRenderer.h"
@@ -1377,6 +1378,10 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   // rend une preuve appareil muette — c'est exactement ce qui est arrive a lighting-unify,
   // dont aucune cle ne sort sur l'appareil.
   hdr::frame_end(m_fbo_state.render_fbo->color_format);
+  // hdr-display-output : APRES hdr::frame_end ; `m_ui_pass_active` tient jusqu'au prochain
+  // setup_frame, donc le format publie est celui du tampon UI reellement dessine cette image.
+  hdr_output::frame_end(hdr::last_frame_sites(),
+                        m_ui_pass_active ? m_fbo_state.ui_buffer.color_format : GL_RGBA8);
 
   m_profiler.finish();
   m_stats.draw_calls = m_profiler.root()->stats().draw_calls;
@@ -1593,12 +1598,16 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
       ((fbo_w < native_ui_w || fbo_h < native_ui_h) || hdr_chain) && native_ui_w > 0 &&
       native_ui_h > 0;
   if (split_active) {
-    if (!m_fbo_state.ui_buffer.matches(native_ui_w, native_ui_h, 1)) {
+    // hdr-display-output : le tampon UI suit le format demande par la sortie ecran (RGBA16F
+    // quand la surface est HDR, RGBA8 sinon) ; un changement de format recree le FBO.
+    if (!m_fbo_state.ui_buffer.matches(native_ui_w, native_ui_h, 1,
+                                       hdr_output::ui_buffer_format())) {
       if (m_fbo_state.ui_buffer.valid) {
         glFinish();  // defect #6: drain before deleting a buffer the last frame's UI
       }              // composite blit may still reference (same Adreno hazard class)
       m_fbo_state.ui_buffer.clear();
-      m_fbo_state.ui_buffer = a35_make_fbo(native_ui_w, native_ui_h, false);
+      m_fbo_state.ui_buffer =
+          a35_make_fbo(native_ui_w, native_ui_h, false, hdr_output::ui_buffer_format());
     }
     m_render_state.begin_2d_ui_pass = [this]() { begin_ui_pass(); };
     // a35_make_fbo bound the new UI fbo; restore the scaled scene target for the 3D pass.
@@ -2153,7 +2162,7 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
   // Le quad final ecrit dans le framebuffer par defaut, 8 bits : une source encore flottante y
   // serait ECRETEE, donc un site de plus. Le recensement le dit au lieu de le supposer.
   hdr::note_display_copy("android_opengl_renderer.cpp:pcrtc-window-quad",
-                         window_blit_src->color_format, GL_RGBA8);
+                         window_blit_src->color_format, hdr_output::window_target_format());
 
   // Gcine-vertical-frame (owner 2026-08-30, 5e signalement) -- LE VIEWPORT REELLEMENT SOUMIS AU GPU.
   // NATURE : deux RECTANGLES en pixels de fenetre hote -- la source qu'on blitte et la region ou
@@ -2199,6 +2208,7 @@ void AndroidOpenGLRenderer::do_pcrtc_effects(float alp,
   glUniform1i(glGetUniformLocation(shader.id(), "tex_T0"), 0);
   glUniform4f(glGetUniformLocation(shader.id(), "color_mult"), 1.0f, 1.0f, 1.0f, 1.0f);
   glUniform4f(glGetUniformLocation(shader.id(), "color_add"), 0.0f, 0.0f, 0.0f, 0.0f);
+  hdr_output::push_present_uniforms(shader);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glActiveTexture(GL_TEXTURE0);

@@ -19,3 +19,11 @@
 
 int android_renderer_run();
 uint64_t android_renderer_frame_count();
+
+// hdr-display-output : luminances de l'ecran annoncees par le systeme (Java ->
+// NativeGk.setDisplayHdrCaps, gk_android_main.cpp), lues par android_renderer.cpp pour les
+// metadonnees SMPTE2086 posees sur la surface EGL apres une bascule HDR. 0 = inconnu.
+// Sonde EGL precoce (fil Java, avant GOAL) : voir android_renderer.cpp.
+void android_hdr_out_probe_early();
+extern int g_hdr_out_max_lum_nits;
+extern int g_hdr_out_min_lum_x10000;

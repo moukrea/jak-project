@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/graphics/opengl_renderer/hdr_output.h"
 
 #include <cmath>
 #include <cstring>
@@ -464,6 +465,9 @@ bool tonemap_draw(Shader& shader,
               Gfx::g_global_settings.recharged_hdr_knee);
   glUniform1i(glGetUniformLocation(shader.id(), "u_hdr_curve"),
               Gfx::g_global_settings.recharged_hdr_curve);
+  // hdr-display-output : le plafond. 1,0 tant que la surface est SDR (identite stricte avec
+  // ce qui precede) ; la marge de l'ecran quand la sortie HDR est ACTIVE.
+  glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_ceiling"), hdr_output::tonemap_ceiling());
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   glUseProgram(saved_program);
   glBindVertexArray(saved_vao);
@@ -498,9 +502,17 @@ void note_fragment_source(const std::string& name, const std::string& src) {
 void note_display_copy(const char* site, GLenum src_fmt, GLenum dst_fmt) {
   auto& e = s_display_sites[site ? site : "?"];
   e.count++;
-  if (format_is_float(src_fmt) && !format_is_float(dst_fmt)) {
+  // hdr-display-output : la SEULE cible 10 bits de ce moteur est la surface de fenetre HDR10
+  // (RGB10_A2, encodee PQ par le quad final). Y recopier un tampon flottant n'est pas une
+  // compression de plage : l'OETF PQ porte jusqu'a 10 000 nits, la marge du tone map y tient
+  // entiere. Toute autre cible non flottante ecrete, et compte.
+  if (format_is_float(src_fmt) && !format_is_float(dst_fmt) && dst_fmt != GL_RGB10_A2) {
     e.narrowed = true;
   }
+}
+
+uint64_t last_frame_sites() {
+  return s_sites_now;
 }
 
 void note_aux_scene_read(const char* site, GLenum src_fmt, GLenum dst_fmt) {

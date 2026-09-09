@@ -1225,9 +1225,21 @@
   (cond
     ((pc-filepath-exists? *pc-temp-string-1*)
      (format 0 "[PC] PC Settings found at '~S'...loading!~%" *pc-temp-string-1*)
-     (unless (read-from-file obj *pc-temp-string-1*)
-       (format 0 "[PC] PC Settings found at '~S' but could not be loaded, using defaults!~%" *pc-temp-string-1*)
-       (reset obj #t)))
+     (cond
+       ((read-from-file obj *pc-temp-string-1*)
+        (unless *hdr-output-key-seen?*
+          ;; hdr-display-output : fichier d'AVANT l'item, sans la cle. Auto-configuration de ce seul
+          ;; champ, puis persistance immediate : le choix survit au prochain demarrage.
+          (let ((hdr? (if (> (pc-get-hdr-output-modes) 0) #t #f)))
+            (set! (-> (the-as pc-settings-jak1 obj) hdr-output?) hdr?)
+            (pc-set-hdr-output! (if hdr? 1 0))
+            (pc-hdr-output-note! 1 (+ (if hdr? 1 0) 2)))
+          (commit-to-file obj))
+        ;; hdr-display-output : rapport de visibilite au chargement, cle vue ou non.
+        (pc-hdr-output-note! 0 (if (> (pc-get-hdr-output-modes) 0) 1 0)))
+       (else
+        (format 0 "[PC] PC Settings found at '~S' but could not be loaded, using defaults!~%" *pc-temp-string-1*)
+        (reset obj #t))))
     (else
      (format 0 "[PC] PC Settings not found at '~S'...initializing with defaults!~%" *pc-temp-string-1*)
      (reset obj #t)

@@ -53,6 +53,7 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/lighting_census.cpp
         graphics/opengl_renderer/shade_proof.cpp
         graphics/opengl_renderer/hdr.cpp
+        graphics/opengl_renderer/hdr_output.cpp
         graphics/refset.cpp
         graphics/opengl_renderer/debug_gui.cpp
         graphics/opengl_renderer/DepthCue.cpp

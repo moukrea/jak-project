@@ -33,6 +33,7 @@
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
 #include "game/graphics/opengl_renderer/OpenGLRenderer.h"
 #include "game/graphics/opengl_renderer/debug_gui.h"
+#include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/screenshot.h"
 #include "game/graphics/texture/TexturePool.h"
 #include "game/runtime.h"
@@ -384,6 +385,40 @@ static std::shared_ptr<GfxDisplay> gl_make_display(int width,
     const char* gl_version = (const char*)glGetString(GL_VERSION);
     lg::info("OpenGL initialized - v{}.{} | Renderer: {}", GLVersion.major, GLVersion.minor,
              gl_version);
+  }
+
+  // hdr-display-output : capacites de la couche de presentation (SDL) et etat initial de la
+  // surface. Aucun switcher sur bureau : SDL/GLX ne recree pas une surface 10 bits a chaud,
+  // donc `modes_available()` reste a 0 ici — l'option n'existe que la ou la bascule existe.
+  {
+    hdr_output::PlatformCaps caps;
+    SDL_DisplayID did = SDL_GetDisplayForWindow(window);
+    caps.sdl_display_hdr = SDL_GetBooleanProperty(SDL_GetDisplayProperties(did),
+                                                  SDL_PROP_DISPLAY_HDR_ENABLED_BOOLEAN, false);
+    SDL_PropertiesID wp = SDL_GetWindowProperties(window);
+    caps.sdl_window_hdr = SDL_GetBooleanProperty(wp, SDL_PROP_WINDOW_HDR_ENABLED_BOOLEAN, false);
+    caps.sdl_headroom_x100 =
+        (int)(SDL_GetFloatProperty(wp, SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT, 0.f) * 100.f);
+    hdr_output::set_platform_caps(caps);
+    hdr_output::set_system_caps(caps.sdl_display_hdr ? (uint32_t)hdr_output::kSysSdl : 0u, 0, 0, 0,
+                                false);
+    // Etat initial de la surface : bits rouges lus sur le framebuffer par defaut (GL_RED_BITS
+    // est retire du core profile ; l'interrogation d'attachement, elle, y est valide). Pas de
+    // colorspace interrogeable via SDL/GLX.
+    hdr_output::SurfaceState st;
+    st.hdr = false;
+    st.red_bits = 8;
+    st.colorspace = 0;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    GLint red_bits = 0;
+    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_BACK_LEFT,
+                                          GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE, &red_bits);
+    if (glGetError() == GL_NO_ERROR && red_bits > 0) {
+      st.red_bits = red_bits;
+    }
+    hdr_output::note_surface_state(st);
   }
 
   {
