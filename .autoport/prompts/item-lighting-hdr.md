@@ -1,14 +1,15 @@
 # Le rendu passe en HDR avec un seul tone map
 
 ## Defaut cite
-- 2026-09-09 : « Alors tu me dis aucun progrès ni nouvel essai depuis le précèdent point et tu vois pas le problème ? »
 - 2026-09-09 : « mais si t'as pas de téléphone branché... Tu peux quand même faire sous x86 ! Putain tu me saoules ! »
+- 2026-09-09 : « J'ai testé un peu sur le Redmi, ça a pas l'air dégueu en vrai, tu peux vérifier mais je pense qu'on est pas mal (à première vue, j'ai pas check tous les niveaux et compagnie) »
+- 2026-09-09 : « J'ai l'impression que quand il fait les captures il les fait même si c'est sur un écran de chargement... Et pas en pleine résolution parce que le jeu à le dynamic resolution scaling activé (en tout cas sous x86) du coup ça doit un peu tout casser... »
 
 ## Cause connue
-REPRISE 09/09 par les workers Claude. Codex a laisse (essai52, x86) : 4 defauts, couverture 160/168, hutte et 16 cellules de ciel manquantes, sol de la hutte non attribue. Lire reports/lighting-hdr/handoff.md. LE REDMI EST BRANCHE : preuve device en premier. Mecanisme : SPEC §8 item 2.
+REPRISE 09/09 (Claude apres Codex, essai52 x86 : 4 defauts, hutte et ciels manquants). Le REDMI EST BRANCHE : preuve device en premier. Mecanisme des blancs : SPEC §8 item 2. INSTRUMENT SUSPECT (owner 09/09) : captures prises sur ecran de chargement, et sous echelle de rendu dynamique donc pas en pleine resolution — la preuve ne publie ni l'un ni l'autre.
 
 ## Livrable
-PRIORITE IMMEDIATE : poursuivre sous x86, sans attendre telephone. Utiliser proof_run.sh lighting-hdr x86 ; adapter lots HDR x86 dans allowlist harnais existante si necessaire. Construire et executer rendu partage, comparer ON/OFF et corriger cinqcas. device:true est verification finale Android, PAS prerequis travail x86. Reprise42 selon proof_plan.recovery_attempt_42. Owner : refonte lumiere HDR uniquement. Pas poursuite autonome HD/cache/allocateur/menu ; signaler blocages annexes et poursuivre vues exploitables sans declarer couverture absente validee. Navigation OFF ne bloque plus travail visuel : ne pas repeter taps aveugles. Priorite sol vraie hutte et assombrissement piece/portail : vues jouables, captures detaillees via proof_run, contribution responsable avant nouveau reglage global. Etendre aux autres niveaux sans attendre perfection plage. Nuages/soleil et eco restent obligatoires; reutiliser diagnostics existants sans rejouer pistes negatives. Portail:10s animees apres chaque reset, tracees. Comparaisons regionales couleur/eclat/details et ensemble image, pas compteur blancs seul. Final: cinqcas,21niveaux8h/ciels/interieurs/vraie hutte par lots compatibles, menuOFF/persistance et crash0. Pas egalite pixel/rejeu exact comme prealable. Aucun ancien binaire comme preuve sans compatibilite; aucun owner-ok.
+`hdr_tonemap_defects` = 0, somme de verdicts publies un par un, sur du CIEL (>= 3 niveaux exterieurs, ciel >= 15 % de l'image, heures fixes) ET les 5 verdicts deja tenus (saturation <= origine, contraste hautes lumieres >= 95 %, courbe monotone, jeu ORIGINE-LUMIERE, un seul site de compression dans les 3 configs). S'AJOUTENT, sinon toute capture est nulle : (a) `hdr_cap_loading_frames` = 0 — aucune capture pendant un chargement, un blackout ou sans `*target*` vivant, l'etat est lu dans le moteur ; (b) `hdr_cap_dynscale_armed` = 0 et `hdr_cap_render_scale_x100` = 100 — echelle dynamique DESARMEE et pleine resolution pendant chaque capture, publiees par le moteur, pas supposees. Preuve sur le Redmi.
 
 ## Preuve exigee
 `hdr_tonemap_defects == 0` dans `reports/lighting-hdr/proof.txt`.
