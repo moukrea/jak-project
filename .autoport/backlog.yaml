@@ -4242,13 +4242,9 @@ items:
   owner_ok: null
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
-  known_cause: 'REPRISE 2026-09-09 11:15 (workers Claude apres Codex). Point laisse par Codex, essai52
-    x86 : hdr_tonemap_defects=4, couverture 160/168 couples, 736 captures, IL MANQUE snow 8 h, 16 cellules
-    de ciel et les 8 heures de la vraie hutte (HUT_VIEWS vide) ; cause des petites zones du sol de la
-    hutte et residu de composition du portail NON attribues ; soleil luma ON 193,14 < min OFF 193,89.
-    Lire reports/lighting-hdr/handoff.md et notes/essai52/*. LE REDMI EST BRANCHE (eae4df44) : la preuve
-    device redevient possible, la lancer en premier sur le binaire courant sans substituer une vieille
-    preuve. Le mecanisme des blancs brules (composites C/E + double exposition) : SPEC §8 item 2.'
+  known_cause: 'REPRISE 09/09 par les workers Claude. Codex a laisse (essai52, x86) : 4 defauts, couverture
+    160/168, hutte et 16 cellules de ciel manquantes, sol de la hutte non attribue. Lire reports/lighting-hdr/handoff.md.
+    LE REDMI EST BRANCHE : preuve device en premier. Mecanisme : SPEC §8 item 2.'
   deliverable: 'PRIORITE IMMEDIATE : poursuivre sous x86, sans attendre telephone. Utiliser proof_run.sh
     lighting-hdr x86 ; adapter lots HDR x86 dans allowlist harnais existante si necessaire. Construire
     et executer rendu partage, comparer ON/OFF et corriger cinqcas. device:true est verification finale
