@@ -4460,7 +4460,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: open
+  status: in-progress
   priority: 18
   game: jak1
   gate:
@@ -4486,7 +4486,10 @@ items:
     SDR de l''ecran lu dans le systeme — UI, sous-titres, sprites, aplats blancs sont du contenu SDR et
     sortent BLANC, jamais gris ; (9) `hdr_out_darkening_pct` <= 5 — la luminance moyenne des tons moyens
     de la scene ne baisse pas par rapport a la sortie SDR : seules les hautes lumieres au-dela de 1,0
-    gagnent. Preuve sur le Honor.'
+    gagnent. ; (10) `hdr_out_peak_nits` = le pic ANNONCE par l''ecran (mMaxLuminance, 480 sur le Honor),
+    et la courbe s''y adapte : blanc SDR ancre, hautes lumieres etendues jusqu''au pic — prouve a DEUX
+    pics au moins (480 reel, 1000 simule par propriete de debug) avec des mesures distinctes, `hdr_out_peak_adaptive`
+    = 1. Preuve sur le Honor.'
   known_cause: 'Refus owner 09/09 sur le build 15:26 : TOUT est plus sombre, les aplats blancs (UI, sous-titres,
     sprite de chargement) sortent gris clair, et l''interrupteur est hors des reglages Recharged. Lecture
     : le blanc de reference (paper white, ceiling_x100=236 => ~203 nits sur un ecran a 480) est applique
@@ -4534,6 +4537,10 @@ items:
       les sous-titres, etc. Ça devrait rester blanc ça ! Et OK la sortie HDR permet de montrer un panel
       plus large de détail (dans les ombres et lumières), faire pop un peu plus etc etc... Mais ça devrait
       pas tout assombrir
+  - date: '2026-09-09'
+    text: oui on doit certes trouver plus de détails dans les ombres (et aussi les lumières) mais pas
+      tout assombrir pour autant sinon c'est un peu un contre-sens ! et ça doit s'ajuster au nits proposés
+      par l'écran je suppose... celui-ci fait 480, mais quid d'un écran à 1000?
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
@@ -4542,7 +4549,7 @@ items:
   proof_timeout: 240
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: in-progress
+  status: open
   priority: 19
   owner_feedback:
   - date: '2026-09-03'
@@ -4587,6 +4594,17 @@ items:
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont le terme indirect a recu l'AO
   supervisor_recovery: true
+  proof_timeout: 150
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=1
+  - OG_LIGHTING=1
+  - OG_RT_LIGHT=1
+  - AO_FORCE_MODE=3
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
