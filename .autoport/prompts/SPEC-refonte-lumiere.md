@@ -642,6 +642,9 @@ Graphe RECHARGED, dans l'ordre d'exécution :
 * Le bucket `SHADOW = 47` (aplat PS2) est **conservé**. Il est sauté par draw quand la vraie
   ombre de cet acteur est dans l'atlas (décision 2, §1.2), jamais désactivé globalement.
 
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** depth et stencil de la scène sont invalidés (`glInvalidateFramebuffer`) après leur DERNIÈRE lecture, c'est-à-dire après la copie de scène W0/W2 de la refonte de l'eau, jamais avant ; le point est marqué par un commentaire nommé dans les deux renderers. P10 rend l'UI directement dans FB0 après le quad de scène : jamais deux passes plein écran pour la sortie. Item `perf-fbo-passes`.
+
 ### 4.2 `shade()` — l'interface exacte
 
 **[C]** Un chunk `shaders/lighting/shade.glsl`, inclus par `#include "lighting/shade.glsl"`.
@@ -772,6 +775,9 @@ par `texelFetch(ivec2(color_index, 0), 0)` et passées en varyings. **Aucune n'e
 budget fragment.** Le volume de sondes est lu dans le vertex shader pour merc et dans le fragment
 seulement au palier ≥ 2.
 
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** `ub_frame` est livré par l'item 1 (`lighting-ao-indirect`), avec un cache des emplacements d'uniformes par programme : `glGetUniformLocation` par image == 0 dans les cinq hôtes est une porte de cet item. Les lectures de propriété système de `first_tfrag_draw_setup` passent à une relecture toutes les 0,25 s (modèle `AoOverride`).
+
 ### 4.4 Variantes de programme et paliers
 
 **[C]** Trois paliers, un `#define LIGHT_TIER` par programme, plus des `#define` de
@@ -796,6 +802,9 @@ fonctionnalité. Ce qu'un palier **supprime**, il le supprime du texte compilé.
 l'océan 2 : **11 hôtes × 3 paliers = 33 programmes**, à comparer aux ~20 programmes monde
 d'aujourd'hui. Un palier ne compile que le sien : le coût est le temps de compilation au premier
 boot, mesuré, avec cache disque.
+
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** (a) Le graphe ORIGINE est un jeu de programmes GLSL distinct (le texte d'origine), sélectionné au bind par `recharged_lighting_active()`, jamais par un uniforme ; `LIGHT_TIER` n'existe que dans le graphe RECHARGED, il n'y a pas de « palier legacy ». (b) Précision par variable : `highp` pour position, profondeur, radiance et ombres ; `mediump` autorisé sur les termes bornés (albedo, écume, facteurs 0..1). Jamais un `precision mediump float` global. Un `#ifdef __ANDROID__` ne décide que d'un défaut de palier.
 
 ### 4.5 HDR, exposition, tone map
 
@@ -896,6 +905,9 @@ c'est le dénominateur qui prouve que la marge existe.
 * **La normale de la prépasse remplace les dérivées d'écran** partout : `cross(dFdx(v_fringe_rel),
   dFdy(v_fringe_rel))` disparaît des cinq shaders monde. C'est la source mesurée des facettes des
   rounds 8 à 14 **[M]** et du « camera-signed handedness » du round 26.
+
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** Une seule passe Z merc est partagée entre la prépasse, l'atlas d'ombres (4.8) et l'aplat 47, sur un VAO persistant par niveau (API `setup_merc_vao` conservée, item `perf-gl-state`). Le contournement F1a/F1d (`glMapBufferRange` en lecture par image, `Merc2.cpp`) est retiré par `perf-merc-defuse` AVANT `lighting-shadows`.
 
 ### 4.7 AO et occlusion spéculaire
 
@@ -1387,6 +1399,9 @@ pas à partir du texte source : ce qui compte est ce que le moteur voit.
    `bake_reconstruction_maxdelta`. C'est la porte de l'item 4, et elle juge **la donnée livrée**,
    pas ce qu'un outil a imprimé un jour.
 
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** le chargement lit les compagnons, il ne calcule pas : `level_load_ms` et `dgo_link_ms_max` sont publiés et jugés contre la ligne de base de `perf-stock-baseline`.
+
 ### 5.6 Où vivent les fichiers
 
 **[C]** La règle des deux familles d'assets est absolue **[M]** :
@@ -1497,6 +1512,9 @@ consommateur                         Gfx::recharged_active(gs.recharged_rt_light
 **[C]** `pc-set-mood-lights!` et `pc-set-sun-fade!` sont les deux plus importants : sans eux le
 moteur ne peut pas connaître le régime, et il retombe sur l'hypothèse « il y a un soleil » qui est
 la cause 3.
+
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** la table ci-dessus contredit la règle 1 : `pc-set-mood-lights!` ne pousse PAS un pointeur, il copie la table (8 × 4 vecteurs) au changement de niveau. Règle 5 : tout scalaire poussé par image est écrit dans un slot indexé par image de logique, et le fil de rendu lit le slot de l'image qu'il rend ; aucun pointeur GOAL n'est jamais lu par le fil de rendu. C'est la condition du recouvrement GOAL/GL (`perf-goal-gl-overlap`).
 
 ### 6.2 La liste complète des réglages exposés
 
@@ -1758,6 +1776,9 @@ L'armement par défaut est **VRAI** quand rien n'est posé **[M]**, et c'est dé
 correction livrée derrière un drapeau éteint par défaut n'existe pas pour l'owner ». Cette spec
 suit la même logique pour ses interrupteurs (§1.1 règle 1 point 3, §6.2).
 
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** un instrument désarmé est un no-op avec UNE lecture d'état par image, jamais par draw, et chaque instrument publie son propre `instrument_cost_us`. Un binaire témoin sans instruments sert à chiffrer ce coût, jamais à livrer : toutes les portes sont des clés `autoport_proof`. Le module `lighting_census.cpp` est le chronomètre GPU commun (`gpu_ms_<passe>`), étendu à tous les buckets par `perf-instruments` ; il n'est jamais archivé avec l'item `lighting-census`.
+
 ### 7.2 Les clés publiées, item par item
 
 **[C]** `hits` est choisi pour être un **dénominateur utile**, jamais un simple témoin.
@@ -1829,6 +1850,9 @@ validés par l'owner, tous dans le cadre.
    `goalc`. Une preuve prise dans ces conditions décrit un binaire qui n'existe pas.
 
 ---
+
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** « Kernel dispatch time » (`kboot.cpp`) chronomètre un tour du dispatcher AVEC les attentes `sync-path`/`syncv` du process display et n'est imprimé qu'au-dessus de 50 ms : ce n'est ni le fil GOAL ni une mesure. Lire `goal_busy_ms` et `goal_bucket_ms_<seau>` publiés par `perf-instruments`.
 
 ## §8 — LE PLAN D'EXÉCUTION
 
@@ -2043,6 +2067,9 @@ d'échelle de rendu existant ; le raccourci de bascule.
 | Portabilité | GLES 3.2 / GL 4.3 / GL 4.1 | inchangée | Pas de SSBO, pas de compute obligatoire, forward donc pas de MRT gras. |
 
 ---
+
+
+**[C] Amendement du 2026-09-09 (dossier « stock 60 img/s ») :** la ligne « Fil GOAL ≤ 55 ms de dispatch » est remplacée par : `goal_busy_ms` ≤ la ligne de base de `perf-stock-baseline` sur la même scène, et zéro travail nouveau par image sur le fil GOAL. Le budget GPU se donne par passe et par palier en millisecondes, au format de la spec eau §6, instrument `gpu_ms_<passe>` ; un item qui n'a pas publié le sien ne sort pas.
 
 ## §10 — COMPATIBILITÉ ET MIGRATION
 

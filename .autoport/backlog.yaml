@@ -1,3 +1,6 @@
+# La seule verite du travail. Une feature = un item.
+# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
+# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: honor-boot-crash
@@ -23,21 +26,13 @@ items:
   deliverable: Le jeu survit au moins 600 images apres le demarrage du rendu, sur le Redmi ET sur l'appareil
     de l'owner. Le moteur emet `boot_crash_frames_survived`. Le correctif doit expliquer POURQUOI le mutex
     du loader etait invalide, pas seulement le rendre non nul.
-  known_cause: "MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans\
-    \ reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour\
-    \ (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge,\
-    \ InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre.\
-    \ Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).\nPILE RESOLUE sur le libgk.so local\
-    \ :\n  TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV\nLe\
-    \ verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) :\
-    \ c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou\
-    \ le rendu attaque le niveau `title`.\nAUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive\
-    \ boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default.\
-    \ Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.\nCONTEXTE : l'owner venait\
-    \ de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A\
-    \ verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une\
-    \ regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120\
-    \ Hz)."
+  known_cause: |-
+    MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge, InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre. Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).
+    PILE RESOLUE sur le libgk.so local :
+      TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV
+    Le verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) : c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou le rendu attaque le niveau `title`.
+    AUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default. Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.
+    CONTEXTE : l'owner venait de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120 Hz).
   out_of_scope: 'Ne pas se contenter d''un garde-fou contre le pointeur nul : nommer la cause.'
   notes: Cree par le superviseur 2026-09-05 apres diagnostic direct sur l'appareil de l'owner, branche
     en USB a sa demande.
@@ -119,21 +114,15 @@ items:
     porte les chiffres : 6 cycles sur la scene du maire, mayor-lod0 210 images cause=modele-absent, sidekick-lod0
     390 images cause=soumis-mais-non-dessine. | budget porte a 8 essais le 2026-09-06 : les essais brules
     l''ont ete faute d''appareil, pas faute d''idees.'
-  known_cause: "LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05\
-    \ : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session\
-    \ de 14h44).\nSCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes\
-    \ DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en\
-    \ visait qu'un :\n  * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas\
-    \ la au moment de dessiner)\n  * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine\
-    \ (soumis au rendu, rien ne sort)\n  * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter\n\
-    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent\
-    \ 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le\
-    \ 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.\nDaxter recidive : 6 episodes longs a\
-    \ lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible.\
-    \ warp-gate-switch-lod0 : 4 episodes.\nNPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0\
-    \ enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des\
-    \ mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT\
-    \ et pourquoi une soumission ne DESSINE pas."
+  known_cause: |-
+    LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05 : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session de 14h44).
+    SCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en visait qu'un :
+      * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas la au moment de dessiner)
+      * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine (soumis au rendu, rien ne sort)
+      * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter
+    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.
+    Daxter recidive : 6 episodes longs a lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible. warp-gate-switch-lod0 : 4 episodes.
+    NPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT et pourquoi une soumission ne DESSINE pas.
   deliverable: 'Sur la scene du maire, sur un appareil : zero cycle et zero episode long. Les deux causes
     dominantes doivent tomber a zero et etre EXPLIQUEES : `modele-absent` (130 occurrences) et `soumis-mais-non-dessine`
     (210). Le moteur emet `npc_flicker_episodes` = somme des episodes longs toutes causes.'
@@ -345,15 +334,13 @@ items:
     — invisible aux ratios entiers, visible a 45. | 2026-09-05, essai 7 : le residu est concentre dans
     UN canal d''animation immobile (16 606 us). La porte precedente lisait un modele C++ au lieu de la
     pose dessinee.'
-  deliverable: "Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement,\
-    \ sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :\n  (1) chaque cadence\
-    \ demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue\
-    \ s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent\
-    \ la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.\n\
-    \  (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.\n  (3)\
-    \ `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.\n  (4) `anim_step_bitexact_30`\
-    \ = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne\
-    \ change pas d'un bit.\nN est la somme des manquements ; zero."
+  deliverable: |-
+    Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement, sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :
+      (1) chaque cadence demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.
+      (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.
+      (3) `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.
+      (4) `anim_step_bitexact_30` = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne change pas d'un bit.
+    N est la somme des manquements ; zero.
   block_reason: 'max_retries (6) epuise — mais la cause de fond est la meme : EN ATTENTE DU REDMI. Le
     seul appareil branche est le Honor de l''owner (AREE026206000788), prete pour lire le plantage au
     demarrage ; le Redmi eae4df44, que tout le harnais adresse en dur, est debranche depuis. La preuve
@@ -384,20 +371,17 @@ items:
   - anim-interp-low-fps
   - lighting-presets
   - hdr-display-output
+  - perf-stock-60
   history: []
   prompt: prompts/item-framerate-uncap.md
   owner_ok: null
   where: 'Options : un reglage de cadence qui monte au-dela de 60 (90, 120, illimite) et un jeu qui reste
     correct'
-  deliverable: "`uncap_defects` = 0, preuve sur appareil. Acquis a NE PAS CASSER : la logique recoit 60\
-    \ pas par seconde reelle quelle que soit la cadence affichee, l'horloge des scenes ne derive pas,\
-    \ rien ne s'accelere. TROIS exigences de l'owner s'ajoutent :\n  (a) le reglage devient une LISTE\
-    \ DE CHOIX — 30, 45, 60, 75, 90, 120, 240, Illimite — pas un curseur.\n  (b) `uncap_ceiling_hz` publie\
-    \ le plafond REELLEMENT atteint : l'owner mesure 90 img/s constant a l'ecran d'intro avec la consigne\
-    \ a 240 et tout le reste eteint. Nommer ce qui plafonne (vsync, presentation, composition Android)\
-    \ ou prouver que 240 est atteint.\n  (c) la cible de l'echelle de rendu dynamique s'ADAPTE au plafond\
-    \ choisi : `uncap_dynscale_target_max` suit la cadence maximale, il ne doit plus etre possible de\
-    \ viser 60 quand on a choisi 240."
+  deliverable: |-
+    `uncap_defects` = 0, preuve sur appareil. Acquis a NE PAS CASSER : la logique recoit 60 pas par seconde reelle quelle que soit la cadence affichee, l'horloge des scenes ne derive pas, rien ne s'accelere. TROIS exigences de l'owner s'ajoutent :
+      (a) le reglage devient une LISTE DE CHOIX — 30, 45, 60, 75, 90, 120, 240, Illimite — pas un curseur.
+      (b) `uncap_ceiling_hz` publie le plafond REELLEMENT atteint : l'owner mesure 90 img/s constant a l'ecran d'intro avec la consigne a 240 et tout le reste eteint. Nommer ce qui plafonne (vsync, presentation, composition Android) ou prouver que 240 est atteint.
+      (c) la cible de l'echelle de rendu dynamique s'ADAPTE au plafond choisi : `uncap_dynscale_target_max` suit la cadence maximale, il ne doit plus etre possible de viser 60 quand on a choisi 240.
   known_cause: 'srpc.cpp:491 : `(s32)(1024/target_fps)` — a 120 Hz l''horloge de scene tourne a 93,75
     % du reel. Trouve par cutscene-npc-flicker le 2026-09-05.'
   out_of_scope: Ne touche pas au pas de temps fixe lui-meme, valide par l'owner le 2026-09-05.
@@ -549,15 +533,10 @@ items:
     leur bases [...] ca doit varier en amplitude, distorsion, direction ». Les deux extremes sont refuses
     : ni sinusoide pure, ni basculement sec. Le critere tronc/cime ne jugeait que DEUX points d''un arbre
     entier, d''ou les verdicts 8 et 9.'
-  deliverable: "`wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07\
-    \ (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero\
-    \ paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient\
-    \ pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par\
-    \ l'owner :\n  (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les\
-    \ niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent\
-    \ pas.\n  (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de\
-    \ Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee.\
-    \ Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second."
+  deliverable: |-
+    `wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07 (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par l'owner :
+      (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent pas.
+      (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee. Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second.
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: to-test
@@ -2954,7 +2933,7 @@ items:
 - id: recharged-menu-overhaul
   feature: La refonte des menus
   status: open
-  priority: 31
+  priority: 47
   owner_feedback:
   - date: '2026-08-04'
     text: l'idée c'était de réorganiser pour que ce soit sensé, logique, intuitif, agréable à parcourir,
@@ -3973,7 +3952,9 @@ items:
   proof_timeout: 3600
   owner_test: false
   block_reason: 'Owner : abandon du prerequis de rejeux exacts/qualification exhaustive avant correction
-    HDR. Diagnostic pragmatique et correction poursuivis dans lighting-hdr ; aucun acquis valide.'
+    HDR. Diagnostic pragmatique et correction poursuivis dans lighting-hdr ; aucun acquis valide. | 09-09
+    (perf) : le MODULE lighting_census.cpp n''est pas archive : c''est le chronometre GPU (gpu_ms_*) des
+    deux specs, etendu par perf-instruments. Seul l''ITEM (rejeux exacts) reste bloque.'
   supervisor_recovery: false
   reference_recovery:
     superseded_by_owner: '2026-09-07 : eclairage seul ON/OFF dans le meme build ; abandon du prerequis
@@ -4416,7 +4397,7 @@ items:
 - id: lighting-origin-bitexact
   feature: Maitre eteint, l'image doit etre identique au bit au jeu d'origine
   status: validated
-  priority: 26
+  priority: 33
   game: jak1
   gate:
     key: origin_bitexact_defects
@@ -4550,7 +4531,7 @@ items:
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: open
-  priority: 19
+  priority: 26
   owner_feedback:
   - date: '2026-09-03'
     text: L'occlusion Ambiante screen... Je comprend pas ca, on l'a fait tout a la fin du rendu par dessus
@@ -4570,6 +4551,7 @@ items:
   max_retries: 6
   depends_on:
   - lighting-hdr
+  - perf-instruments
   history: []
   prompt: prompts/item-lighting-ao-indirect.md
   owner_ok: null
@@ -4585,11 +4567,17 @@ items:
     l''eau sont enfin ombrees. SPEC 4.6 et 4.7. PREUVE : `FEATURE lighting-ao-indirect armed=1 hits=<pixels
     dont le terme indirect a recu l''AO>` + la ligne `ao_direct_leak_px=` seule sur sa ligne ; `--off`
     doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
-    — appelle armed_for("lighting-ao-indirect"), jamais armed(), et n''en ecris pas un second.'
-  out_of_scope: Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et
-    recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais
+    — appelle armed_for("lighting-ao-indirect"), jamais armed(), et n''en ecris pas un second. AMENDEMENT
+    09-09 (perf) : livre `ub_frame` (SPEC 4.3) et un cache des emplacements d''uniformes par programme
+    : glGetUniformLocation par image == 0 dans les cinq hotes, glUniform camera/fog par image == 0 ; les
+    lectures de propriete systeme de first_tfrag_draw_setup (background_common.cpp:2354-2447) relues toutes
+    les 0,25 s (modele AoOverride).'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_lighting OFF — et tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
-    Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas.
+    Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas. Precision par variable dans shade() : highp
+    position/profondeur/radiance/ombres, mediump autorise sur les termes bornes, jamais un mediump global
+    (SPEC 4.4 amendee).'
   notes: 'SPEC section 6.4. Point de vue : village1-hut. L''ablation se prend a la MEME vantage.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont le terme indirect a recu l'AO
@@ -4608,7 +4596,7 @@ items:
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
-  priority: 20
+  priority: 27
   owner_feedback:
   - date: '2026-07-19'
     text: moins beau que du baked
@@ -4644,7 +4632,10 @@ items:
     PREUVE : `FEATURE lighting-bake armed=1 hits=<index de couleur reconstruits et verifies>` + la ligne
     `bake_reconstruction_maxdelta=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la
     MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-bake"),
-    jamais armed(), et n''en ecris pas un second.'
+    jamais armed(), et n''en ecris pas un second. AMENDEMENT 09-09 (perf) : les trois LUT TOD par arbre
+    : les deux statiques televersees une fois au chargement ; la dynamique reecrite seulement quand itimes
+    change et jamais dans la texture que le GPU lit encore (ping-pong avec orphaning) ; tod_uploads_per_frame
+    publie.'
   out_of_scope: Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
@@ -4657,7 +4648,7 @@ items:
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
   status: open
-  priority: 21
+  priority: 28
   owner_feedback:
   - date: '2026-09-03'
     text: Il y a aussi des niveaux et/zones ou le ciel n'est pas visible (tunels, overcast) come le lava
@@ -4708,7 +4699,7 @@ items:
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
   status: open
-  priority: 22
+  priority: 29
   owner_feedback:
   - date: '2026-09-03'
     text: quand les deux overlap... Bah ca doit etre pris en compte, ca l'est pour nous aussi quand on
@@ -4727,6 +4718,7 @@ items:
   max_retries: 8
   depends_on:
   - lighting-ao-indirect
+  - perf-merc-defuse
   history: []
   prompt: prompts/item-lighting-shadows.md
   owner_ok: null
@@ -4741,7 +4733,10 @@ items:
     L''aplat PS2 reste le repli et le mode Original. SPEC 4.8. PREUVE : `FEATURE lighting-shadows armed=1
     hits=<pixels de sol ombres par un acteur>` + la ligne `shadow_caster_classes=` seule sur sa ligne
     ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
-    — appelle armed_for("lighting-shadows"), jamais armed(), et n''en ecris pas un second.'
+    — appelle armed_for("lighting-shadows"), jamais armed(), et n''en ecris pas un second. AMENDEMENT
+    09-09 (perf) : une seule passe Z merc partagee entre prepasse (4.6), atlas (4.8) et aplat 47, VAO
+    persistant par niveau (API setup_merc_vao conservee). Menu « Ombres d''acteurs » a trois crans vraies
+    / aplat PS2 / aucune + fade-dist expose ; le cran « aucune » desactive la famille shadow-* cote GOAL.'
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_lighting OFF — et tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
@@ -4755,7 +4750,7 @@ items:
 - id: lighting-local-lights
   feature: Les lampes, torches et laves eclairent enfin
   status: open
-  priority: 23
+  priority: 30
   owner_feedback:
   - date: '2026-09-03'
     text: les sources de lumiere en sus du soleil/lune sont d'autant plus importantes a valoriser
@@ -4800,7 +4795,7 @@ items:
 - id: lighting-interiors
   feature: Les interieurs gardent leur lumiere, sans fuite par les murs
   status: open
-  priority: 24
+  priority: 31
   owner_feedback:
   - date: '2026-09-05'
     text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
@@ -4842,7 +4837,7 @@ items:
 - id: lighting-actors
   feature: Jak, les PNJ et les ennemis eclaires comme le sol sur lequel ils marchent
   status: open
-  priority: 25
+  priority: 32
   owner_feedback:
   - date: '2026-09-03'
     text: Les acteurs je sais que leur lighting est faked, faut plus que ce soit le cas !
@@ -4891,7 +4886,7 @@ items:
 - id: lighting-materials
   feature: Les matieres PBR eclairees par la lumiere temps reel, sans fusion
   status: open
-  priority: 26
+  priority: 33
   owner_feedback:
   - date: '2026-09-03'
     text: les materiaux, PBR et tesselation viendront apres car ils dependent du lightning pour etre au
@@ -4942,7 +4937,7 @@ items:
 - id: lighting-presets
   feature: 'Du Redmi au Snapdragon 8 Elite : des paliers, et chaque ajout debrayable'
   status: open
-  priority: 27
+  priority: 34
   owner_feedback:
   - date: '2026-09-05'
     text: Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais
@@ -4981,8 +4976,10 @@ items:
   out_of_scope: Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
-  notes: SPEC sections 1.1, 1.2 et 10. Le palier auto choisi sur chaque appareil de test est journalise
-    dans la preuve.
+  notes: 'SPEC sections 1.1, 1.2 et 10. Le palier auto choisi sur chaque appareil de test est journalise
+    dans la preuve. | 09-09 (perf) : SPEC 4.4 amendee — graphe ORIGINE = programmes GLSL distincts choisis
+    au bind (jamais un uniforme), LIGHT_TIER reserve a RECHARGED, tangentes non liees sous ORIGINE, temoin
+    OG_FEAT_PBR=OFF bit-identique, gpu_ms_* par palier.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: reglages effectivement poses par le prereglage
   supervisor_recovery: true
@@ -5008,7 +5005,7 @@ items:
 - id: water-census
   feature: Nommer chaque goutte d'eau du jeu avant de la refaire
   status: open
-  priority: 30
+  priority: 50
   owner_feedback:
   - &id001
     date: '2026-09-09'
@@ -5029,7 +5026,8 @@ items:
   game: jak1
   max_turns: 800
   max_retries: 6
-  depends_on: []
+  depends_on:
+  - perf-instruments
   history: []
   prompt: prompts/item-water-census.md
   owner_ok: null
@@ -5061,7 +5059,7 @@ items:
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
   status: open
-  priority: 31
+  priority: 51
   owner_feedback:
   - *id001
   - &id004
@@ -5104,14 +5102,15 @@ items:
     Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de nouveau shading, pas de rivage,
     pas de rides : c''est l''item 2 et suivants.'
   notes: 'SPEC sections 5.2, 5.3, 8 (controle causal 1 : 64 sommets compares a la hauteur de jeu). Vantage
-    : village1-out.'
+    : village1-out. | 09-09 (perf) : SPEC 5.2 amendee — perf-ocean-idle saute la houle GOAL sans carte
+    ; la couche A reste produite des qu''il y a une carte.'
   spec: prompts/SPEC-refonte-eau.md
   hits_means: sommets de clipmap deplaces
   supervisor_recovery: true
 - id: water-surface-material
   feature: Une seule matiere d'eau, eclairee par shade()
   status: open
-  priority: 32
+  priority: 52
   owner_feedback:
   - *id001
   - *id002
@@ -5135,7 +5134,9 @@ items:
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
     prompt ne repete pas. L''eau n''a aucune lumiere : env map statique environment-ocean-alphamod, aucun
     Fresnel, aucune profondeur (SPEC 2.1). SURF_WATER=8 existe deja dans le contrat de shade() (spec eclairage
-    4.2).'
+    4.2). NOTE 09-09 (perf) : perf-fbo-passes invalide depth/stencil apres la derniere lecture : W0 se
+    place AVANT ce point, marque par un commentaire nomme dans android_opengl_renderer.cpp et OpenGLRenderer.cpp.
+    Porte water_scene_copies_per_frame == 1 inchangee.'
   deliverable: 'Le chunk shaders/water/water_surface.glsl (SPEC 5.6 : normales a deux cartes, Fresnel
     plafonne, paliers de couleur par profondeur, absorption, shade() avec SURF_WATER, SSS deux couleurs,
     etincelles) inclus par la clipmap ET par un programme merc2_water pour les buckets water 58/59. W0
@@ -5157,7 +5158,7 @@ items:
 - id: water-shore
   feature: Des vagues tranquilles qui arrivent une a une et remontent le sable
   status: open
-  priority: 33
+  priority: 53
   owner_feedback:
   - *id001
   - date: '2026-09-09'
@@ -5208,7 +5209,7 @@ items:
 - id: water-interaction
   feature: 'Marcher, tomber, nager : la surface repond'
   status: open
-  priority: 34
+  priority: 54
   owner_feedback:
   - *id001
   - date: '2026-09-09'
@@ -5252,14 +5253,15 @@ items:
     Ne touche a aucune feature validee. Pas de mesure visuelle. Aucune force en retour, aucune flottabilite,
     aucun courant qui pousse : la surface reagit, elle n''agit sur rien.'
   notes: 'SPEC sections 5.4, 8 (controle causal 2 via cpad_inject). Vantages : village1-out (rizieres),
-    beach.'
+    beach. | 09-09 (perf) : un PNJ au-dela de la distance de pause (perf-actor-pause-dist, defaut ND 220
+    m) n''eclabousse plus : comportement d''origine, pas un defaut.'
   spec: prompts/SPEC-refonte-eau.md
   hits_means: impulsions injectees dans la RT de rides
   supervisor_recovery: true
 - id: water-refraction-reflection
   feature: Voir a travers l'eau, et voir le ciel dedans
   status: open
-  priority: 35
+  priority: 55
   owner_feedback:
   - *id001
   - &id003
@@ -5288,7 +5290,9 @@ items:
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
     prompt ne repete pas. DepthCue fait deja la seule copie couleur de l''ecran, au bucket 64 apres ocean-near
     (SPEC 2.5) ; sur GPU a tuiles chaque copie coute deux resolves (SPEC 10). Le cube de ciel capture
-    est la passe P3 de l''eclairage (item lighting-regimes).'
+    est la passe P3 de l''eclairage (item lighting-regimes). NOTE 09-09 (perf) : perf-fbo-passes invalide
+    depth/stencil apres la derniere lecture : W0 se place AVANT ce point, marque par un commentaire nomme
+    dans android_opengl_renderer.cpp et OpenGLRenderer.cpp. Porte water_scene_copies_per_frame == 1 inchangee.'
   deliverable: 'W0 avec couleur : UNE copie apres les alphas, partagee avec DepthCue (qui cesse de blitter
     la sienne). Refraction avec REJET des echantillons devant la surface. Reflet du cube P3 via env_specular
     de shade(). Echelle a 4 crans reglable : ciel / cube / planaire 1/4 sur les plans immobiles listes
@@ -5309,7 +5313,7 @@ items:
 - id: water-caustics
   feature: La lumiere danse sur le sable, jamais au-dessus de l'eau
   status: open
-  priority: 36
+  priority: 56
   owner_feedback:
   - *id001
   - *id002
@@ -5352,7 +5356,7 @@ items:
 - id: water-falls
   feature: Les cascades tombent quelque part
   status: open
-  priority: 37
+  priority: 57
   owner_feedback:
   - *id001
   - *id002
@@ -5397,7 +5401,7 @@ items:
 - id: water-materials-types
   feature: 'Boue, eco noir, lave, eau electrifiee : quatre matieres, pas une eau teintee'
   status: open
-  priority: 38
+  priority: 58
   owner_feedback:
   - *id001
   - *id002
@@ -5442,7 +5446,7 @@ items:
 - id: water-underwater
   feature: Sous la surface, on est sous l'eau
   status: open
-  priority: 39
+  priority: 59
   owner_feedback:
   - *id001
   - *id002
@@ -5486,7 +5490,7 @@ items:
 - id: water-presets
   feature: Chaque techno d'eau a son reglage, son echelle, et un OFF prouve
   status: open
-  priority: 40
+  priority: 60
   owner_feedback:
   - *id001
   - *id003
@@ -5530,3 +5534,711 @@ items:
   spec: prompts/SPEC-refonte-eau.md
   hits_means: reglages d'eau effectivement poses par le prereglage
   supervisor_recovery: true
+- id: perf-instruments
+  feature: Voir enfin ou passe le temps d'une image, sur l'appareil comme sur PC
+  status: open
+  priority: 19
+  game: jak1
+  gate:
+    key: perf_instruments_missing
+    op: ==
+    value: 0
+  device: true
+  owner_test: false
+  depends_on: []
+  where: 'rien a voir : instrument ; owner_test=false'
+  known_cause: '« Kernel dispatch time » (kboot.cpp:147-173) chronometre un tour du dispatcher AVEC les
+    attentes sync-path/syncv du process display, et n''est imprime qu''au-dessus de 50 ms : ce n''est
+    ni le CPU GOAL ni une mesure. Les 35 seaux with-profiler de GOAL (main.gc:1835-2126, drawable.gc:774-919)
+    emettent vers GlobalProfiler, stub vide sur Android (android_runtime_compat.cpp:433-462). lighting_census.cpp
+    pose deja des glQueryCounter par bucket (gpu_ms_*) mais seulement sous armed_for("lighting-census")
+    et jamais appele depuis android/. Aucun perf map pour symboliser le code GOAL dans simpleperf (present
+    sur l''appareil, APK debuggable).'
+  deliverable: 'Publie par le moteur, dans la ligne A35-SPART toutes les 60 images ET dans proof.txt :
+    goal_busy_ms (dispatch moins attente sync-path moins attente vsync), goal_bucket_ms_<seau> pour les
+    35 seaux (recepteur Android de GlobalProfiler = accumulateur ns par nom), gpu_ms_<bucket> pour TOUS
+    les buckets jak1 via lighting_census::pass_begin/end branches dans dispatch_buckets_jak1 et activables
+    par prop/reglage hors armement, dma_chain_bytes_copied, actors_active/actors_paused/joints_evaluated
+    par image, cpu_core_goal, et /data/local/tmp/perf-<pid>.map ecrit par klink. perf_instruments_missing
+    = nombre de ces cles absentes d''une course appareil de 600 images en village1-hut. Aucun pixel ne
+    change : refset_replay_maxdiff == 0 publie a cote.'
+  out_of_scope: 'Aucune optimisation. Un seul module GPU : etendre lighting_census (SPEC lumiere 7.2,
+    eau 8), jamais un second. Ne touche a aucune feature validee. Le module lighting_census n''est pas
+    archive meme si l''item lighting-census est bloque.'
+  notes: 'SPEC lumiere 7.1/9 et eau 6 consomment gpu_ms_* et goal_busy_ms : cet item est leur instrument
+    commun. Point de vue : village1-hut.'
+  hits_means: cles d'instrument publiees
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-stock-baseline
+  feature: La ligne de base du jeu STOCK sur le Redmi, et la courbe cadence selon l'echelle
+  status: open
+  priority: 20
+  game: jak1
+  gate:
+    key: perf_baseline_missing
+    op: ==
+    value: 0
+  device: true
+  owner_test: false
+  depends_on:
+  - perf-instruments
+  where: 'rien a voir : campagne de mesure ; owner_test=false'
+  known_cause: 'Aucune mesure n''a jamais ete prise en regime stock : settings.ini de l''appareil (lu
+    le 09-09) a recharged-master ON, lighting ON, HD ON, brise ON, fixed-tick ON (l''arbre rejoue jusqu''a
+    4x par image sous 15 img/s), aspect 4:3, auto-echelle cible 25 collee a 40 %. Les seules cadences
+    connues : 18-24 img/s en jeu (09-05/06), 37,6 ms de fil GL median dont 19,4 ms de defuse (09-07),
+    95-222 ms/img a 100 % avec features ON. Le PC n''a aucune mesure sous charge CPU.'
+  deliverable: 'Un profil de course « stock » fige dans proof_env (master OFF, fixed-tick OFF, 21:9, game-size
+    2400x1080, auto-echelle OFF, vsync OFF, cap 240) sur trois vantages nommes (village1-hut, beach, jungle)
+    et cinq echelles (25/40/60/80/100 %), publiant par regime : frame_ms_p50/p95, goal_busy_ms, gpu_ms_total,
+    gl_cpu_ms, actors_active. Meme campagne sur x86. perf_baseline_missing = nombre de (vantage x echelle)
+    sans ligne. Table deposee dans reports/perf-stock-baseline/baseline.md et referencee par les items
+    suivants comme reference « avant ». Rien ne change dans le moteur.'
+  out_of_scope: 'Aucune optimisation, aucun changement de code hors proof_env. Ne pas reecrire settings.ini
+    de l''appareil hors de la course (la garde anti-boucle le reecrit : consigner l''etat effectif dans
+    le proof).'
+  notes: 'SPEC lumiere 6.3 et eau 6 : ce sont les entrees de l''auto-detection de palier. Point de vue
+    : les trois vantages.'
+  hits_means: regimes mesures
+  proof_timeout: 1800
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+  - debug.opengoal.frame.limit=240
+- id: perf-gl-waits
+  feature: Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
+  status: open
+  priority: 21
+  game: jak1
+  gate:
+    key: gl_unarmed_driver_queries_per_frame
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-instruments
+  where: 'rien a voir : la cadence en jeu monte, l''image est identique au pixel'
+  known_cause: 'android_gfx.cpp:355-380 arme KHR_debug en mode SYNCHRONE a chaque lancement (le pilote
+    valide chaque appel sur le fil appelant). Sondes non gatees : glGetIntegerv apres chacun des 69 buckets
+    (android_opengl_renderer.cpp:1795), sonde F1e a chaque flush merc (Merc2.cpp:5038-5048 : glIsTexture,
+    2 glGetIntegerv, glCheckFramebufferStatus, glGetError), sonde A42 avec glReadPixels toutes les 300
+    images (TFragment.cpp:1062-1066, 1452-1480), __system_property_get par image dans setup_frame (:1469),
+    glFinish a chaque fin de chargement (Loader.cpp:2173). PC : glGetIntegerv(GL_MAX_SAMPLES) par image
+    (opengl.cpp:702), ImGui rendu meme invisible (:847-851, 977-981).'
+  deliverable: 'KHR_debug non synchrone et OFF par defaut (prop debug.opengoal.gldebug=1 pour rearmer)
+    ; toutes les sondes ci-dessus derriere une prop eteinte ; glFinish de chargement remplace par un glFenceSync/wait
+    ; PC : MAX_SAMPLES lu une fois, ImGui saute quand aucune fenetre n''est ouverte. Le moteur compte
+    par image les glGetError/glGetIntegerv/glReadPixels/glFinish/glMapBufferRange emis hors armement et
+    publie gl_unarmed_driver_queries_per_frame. Les sondes de spec (hdr.cpp hdr_overbright_px, capture
+    refset de lighting_census) restent, gatees sur leur armed_for. refset_replay_maxdiff == 0 sur ORIGINE.'
+  out_of_scope: Ne supprime aucun instrument de spec (SPEC lumiere 4.5, 7.3). Ne touche pas au defuse
+    Merc2 (item suivant). Ne touche a aucune feature validee.
+  notes: 'Point de vue : village1-hut. Mesure avant/apres : gl_cpu_ms de perf-instruments.'
+  hits_means: requetes pilote hors armement par image
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-merc-defuse
+  feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
+  status: open
+  priority: 22
+  game: jak1
+  gate:
+    key: merc_defuse_defects
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-instruments
+  where: la cadence en jeu ; et le jeu ne plante pas en entrant dans misty, beach, jungle depuis village1
+  known_cause: 'Merc2.cpp:4470-4527 (#ifdef __ANDROID__, contournement F1a/F1d) mappe en LECTURE 16 octets
+    de l''IBO puis du VBO merc, par niveau et par image, pour eviter un SIGSEGV dans libGLESv2_adreno
+    au premier draw d''un niveau televerse par tranches glBufferSubData (LoaderStages.cpp:1697-1726).
+    Un map READ sans UNSYNCHRONIZED est une barriere : le pilote attend que tout ce qui reference le tampon
+    soit fini, donc l''image precedente entiere. Mesure : 19,4 ms medians, 52 ms max, 0 draw (A35-PERF,
+    framerate-uncap essai 4). 5 ms en juillet. Rien ne prouve que la faute existe encore sur le build
+    actuel (les runs 16-19 precedent la refonte du loader).'
+  deliverable: 'merc_defuse_maps_per_frame == 0 en regime, ET 0 SIGSEGV sur une traversee village1 ->
+    misty -> beach -> jungle repetee 3 fois sur l''appareil (merc_defuse_defects = maps par image > 0,
+    ou plantage, ou refset_replay_maxdiff != 0). Par risque croissant, s''arreter au premier qui tient
+    : A/B par prop du bloc ; map unique par (niveau, load_id) au chargement ; glCopyBufferSubData 16 o
+    vers un scratch (commande GPU) ; televersement en un seul glBufferData ; EXT_buffer_storage. Le defuse
+    par image reste derriere une prop comme filet. Publier la cause retenue.'
+  out_of_scope: Pas de changement de shading merc (lighting-shadows et lighting-actors viennent apres
+    et reutilisent le meme VAO). Ne touche a aucune feature validee.
+  notes: 'Doit passer AVANT lighting-shadows, qui ajoute une seconde emission de draws merc et heriterait
+    du stall. Point de vue : village1-hut puis traversee.'
+  hits_means: images sans map en lecture
+  proof_timeout: 900
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-fbo-passes
+  feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
+  status: open
+  priority: 23
+  game: jak1
+  gate:
+    key: fb_extra_passes_per_frame
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - hdr-display-output
+  - perf-instruments
+  where: la cadence a 100 % d'echelle ; image identique au pixel
+  known_cause: 'android_opengl_renderer.cpp:1520-1536 : clear complet de FB0 puis de la scene (le quad
+    final recouvre FB0 entierement). Aucun glInvalidateFramebuffer dans le renderer : le depth/stencil
+    2400x1080 (10 Mo) est stocke en tuiles a chaque fin de passe puis recharge. Des que l''echelle dynamique
+    descend sous 100 % (defaut ON), une passe UI native s''ajoute (:1585-1660) : FBO plein ecran, glBlitFramebuffer
+    LINEAR de toute la scene, UI rasterisee, puis quad. PC : idem sans le cout tiler.'
+  deliverable: 'Sur Android et PC : depth/stencil de la scene invalides apres leur DERNIERE lecture (apres
+    la copie de scene W0/W2 de l''eau quand elle existera : la position est un commentaire nomme dans
+    le code), clear FB0 supprime quand le quad couvre tout, UI rendue directement dans FB0 apres le quad
+    de scene (un blit de moins). Le moteur compte les clears, blits plein ecran et fins de passe sans
+    invalidate et publie fb_extra_passes_per_frame. refset_replay_maxdiff == 0 sur ORIGINE et RECHARGED
+    (le tone map P9 de lighting-hdr et la sortie hdr-display-output inchanges).'
+  out_of_scope: Pas de changement du tone map ni de la sortie HDR (SPEC lumiere 4.1 P9/P10, 4.5). Ne touche
+    a aucune feature validee.
+  notes: 'Attend la fermeture de hdr-display-output (meme perimetre : resolve/blit vers la surface). Point
+    de vue : village1-hut.'
+  hits_means: images sans passe superflue
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-goal-gl-overlap
+  feature: GOAL construit l'image suivante pendant que le GPU rend la precedente
+  status: open
+  priority: 24
+  game: jak1
+  gate:
+    key: overlap_defects
+    op: ==
+    value: 0
+  device: true
+  max_retries: 3
+  depends_on:
+  - perf-instruments
+  - perf-merc-defuse
+  where: la cadence en jeu ; et AUCUNE geometrie qui pope (c'est la regression de juillet)
+  known_cause: 'Sur Android g_perf_overlap (android_gfx.cpp:145) est ecrase a faux au premier sondage
+    (:621-636) depuis le 2026-07-04 : GOAL attend sync-path (rendu fini) puis syncv (swap) avant de construire
+    ; sur PC gl_vsync/gl_sync_path (opengl.cpp:1089-1111) ont le meme predicat. Periode = T_goal + T_gl
+    au lieu de max. La regression de juillet : le rendu lisait hors chaine des donnees (merc-mod, texture-anim,
+    eye, pointeurs GOAL) que GOAL reecrivait pour l''image suivante. Gperf-particles mesurait goal idle
+    142 -> 0,1 ms/60 img avec l''overlap.'
+  deliverable: 'Recouvrement ON par defaut sur Android ET PC, avec la course corrigee a la source : tout
+    ce que le rendu lit hors chaine DMA est double-bufferise et estampille par image (blerc, texanim,
+    eye, merc-mod, et tout scalaire pousse par pc-set-*! ecrit dans un slot indexe par image ; aucun pointeur
+    GOAL lu par le fil de rendu). Le moteur publie overlap_defects = (empreinte de la chaine rendue !=
+    empreinte de la chaine construite) + (lectures hors chaine non estampillees) + (draws merc dont le
+    tampon a change pendant le rendu). refset_replay_maxdiff == 0 sur ORIGINE. La regle « scalaires par
+    slot, jamais de pointeur » est ecrite dans SPEC lumiere 6.1 dans le meme commit.'
+  out_of_scope: Pas de tolerance de la course (pas de « pop rare accepte »). Si la porte ne tient pas
+    en 3 essais, l'item se bloque et la refonte lumiere continue. Ne touche a aucune feature validee.
+  notes: 'budget : c''est l''item le plus rentable et le plus risque ; 3 essais puis blocage pour ne pas
+    retarder lighting-ao-indirect. Point de vue : village1-hut + traversee.'
+  hits_means: images rendues en recouvrement
+  proof_timeout: 900
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+  - debug.opengoal.perf.nooverlap=2
+- id: perf-thread-build
+  feature: Le fil GOAL tourne sur un gros coeur, dans un binaire release
+  status: open
+  priority: 25
+  game: jak1
+  gate:
+    key: sched_defects
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-instruments
+  where: la cadence en jeu, et la chauffe de l'appareil sur 10 minutes
+  known_cause: Aucun thread n'a de priorite ni d'affinite (grep vide sur android/, game/system/, game/kernel/
+    ; SystemThread.cpp:120 = std::thread nu) ; seul le fil GL recoit THREAD_PRIORITY_DISPLAY par Java
+    (SDLActivity.java:2158). Sur 2xA76 + 6xA55, EAS peut laisser opengoal-rt sur un A55. Manifeste sans
+    appCategory=game ni profileable (AndroidManifest.xml:47-59). APK variante debug seule (build.gradle.kts:177-182),
+    C++ en RelWithDebInfo -O2 -g (CMakeCache) contre -O3 sur desktop. Les traceurs codegen sont bien absents
+    des CGO livres (verifie).
+  deliverable: Affinite GOAL et GL sur les coeurs 6-7 et priorite relevee (posees dans android_goal_main.cpp:110
+    et android_renderer.cpp:59), nice negatif sur EE/GL cote PC (SystemThread), appCategory=game + profileable,
+    variante release -O3 sans -g avec un build symbolise conserve a cote pour GK-DIAG. Le moteur publie
+    cpu_core_goal_pct_big (part des images ou GOAL a tourne sur 6-7), sched_defects = (pct_big < 95) +
+    (thermal throttling detecte sur 600 s) + (refset_replay_maxdiff != 0 apres recapture declaree). Les
+    references refset sont recapturees UNE fois (le codegen flottant change avec -O3) et la cause de tout
+    ecart nommee.
+  out_of_scope: Aucun changement de flags qui casse la parite x86 (pas de -ffast-math). Jamais la config
+    systeme de l'appareil. Ne touche a aucune feature validee.
+  notes: 'Avant lighting-ao-indirect pour que les captures RECHARGED de la refonte se fassent sur le build
+    release. Point de vue : village1-hut.'
+  hits_means: images GOAL sur gros coeur
+  proof_timeout: 900
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-actor-pause-dist
+  feature: Les acteurs loin de Jak dorment comme sur PS2, et c'est un reglage
+  status: open
+  priority: 35
+  game: jak1
+  gate:
+    key: actor_pause_defects
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-instruments
+  - lighting-presets
+  where: 'Options > Recharged > Performance : « distance d''activite des PNJ » 50 / 110 / 220 m ; en jeu,
+    les PNJ lointains ne bougent plus mais restent visibles'
+  known_cause: 'drawable.gc:1306-1309 ecrit run-time a 0 sur PC (« pour se debarrasser de la compensation
+    de lag ») ; entity.gc:1056-1078 s''en servait pour ramener pause-dist de 220 m a 50 m et birth-max
+    de 25 a 1 sous charge. Un acteur pause est saute entier par le kernel (gkernel.gc:1262-1275). Sur
+    PC pause-dist = 220 m pour toujours (mesure crate-collision : birthmax=25 runtime=0 pausedist=901120)
+    et use-vis? = #f fait naitre tout ce qui est a moins de 220 m, occlus ou non. Entites a moins de 220
+    m / 50 m : village1 120/18, beach 206/21, jungle 235/26. Chaque acteur actif paie decompression d''animation
+    et cspace par joint en mips2c scalaire, visible ou non.'
+  deliverable: 'Un reglage explicite de distance de pause (50/110/220 m, defaut 220 = valeur ND), pousse
+    par pc-set-*! (scalaire, slot par image), epingle dans les proof_env refset (OG_ACTOR_PAUSE_DIST).
+    JAMAIS un frein pilote par run-time (montre murale = rejeux non deterministes, SPEC lumiere 7.3).
+    Le moteur publie actors_active, actors_paused, joints_evaluated par image et actor_pause_defects =
+    (reglage non applique) + (acteur < distance mis en pause) + (refset_replay_maxdiff != 0 a 220 m).
+    Gain publie : goal_busy_ms a 220 vs 50 m sur beach.'
+  out_of_scope: Pas de changement de birth-max ni de use-vis. Un PNJ gele qui n'eclabousse plus est le
+    comportement ND (SPEC eau 5.4). Ne touche a aucune feature validee.
+  notes: 'Point de vue : beach (206 entites a moins de 220 m).'
+  hits_means: acteurs mis en pause
+  proof_timeout: 600
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-ocean-idle
+  feature: Pas d'ocean, pas de vagues calculees
+  status: open
+  priority: 36
+  game: jak1
+  gate:
+    key: ocean_work_without_map
+    op: ==
+    value: 0
+  device: false
+  depends_on:
+  - perf-instruments
+  where: 'rien a voir : identique au pixel ; la cadence dans les niveaux sans mer (village1, jungle, misty...)'
+  known_cause: 'ocean.gc:457-468 : ocean-interp-wave et ocean-generate-verts (VU0 micro emules en mips2c
+    scalaire, 2048 sommets) tournent chaque image AVANT le test *ocean-map*. Gaspillage pur dans les 16
+    niveaux sans ocean.'
+  deliverable: 'Forme minimale seulement : sans carte d''ocean, ni interpolation ni sommets. Le moteur
+    publie ocean_work_without_map (images ou l''interp a tourne sans carte) et goal_bucket_ms_ocean avant/apres.
+    refset_replay_maxdiff == 0 en village1-hut ET sur un vantage avec ocean (beach). Verifier les autres
+    lecteurs de *ocean-verts* (transitions) avant de conditionner.'
+  out_of_scope: 'Rien de plus : water-ocean-mesh capte la houle ND au DMA near (ocean-near-add-heights
+    lit *ocean-heights*) pour sa couche A ; toute condition supplementaire lui appartient (SPEC eau 5.2).
+    Ne touche a aucune feature validee.'
+  notes: 'GOAL : rebatir GAME.CGO et ENGINE.CGO, verifier par grep -a d''un marqueur.'
+  hits_means: images sans travail d'ocean inutile
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+- id: perf-dma-chain-copies
+  feature: La chaine DMA n'est plus parcourue cinq fois par image
+  status: open
+  priority: 37
+  game: jak1
+  gate:
+    key: dma_chain_walks_per_frame
+    op: <=
+    value: 2
+  device: true
+  depends_on:
+  - perf-instruments
+  where: 'rien a voir : identique au pixel'
+  known_cause: 'Android : sonde d''envoi (android_gfx.cpp:1253-1304), copieur par tranches de 128 Ko (:1360,
+    dma_copy.cpp:89-170), sonde A37 cote GL (:500-508), count_chain_bytes (android_opengl_renderer.cpp:1193-1200),
+    puis le rendu = 5 parcours. PC : zero copie (opengl.cpp:58). Le volume copie n''est jamais journalise
+    (370-450 Ko de chaine).'
+  deliverable: 'Sonde et copie fusionnees, parcours de diagnostic derriere une prop, dma_chain_bytes_copied
+    et dma_chain_walks_per_frame publies (<= 2 : copie + rendu). refset_replay_maxdiff == 0.'
+  out_of_scope: Le zero-copie PC n'est pas transpose (les stomps arm64 exigent la copie). Ne touche a
+    aucune feature validee.
+  notes: 'Point de vue : village1-hut.'
+  hits_means: parcours evites
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-gl-state
+  feature: Moins d'appels pilote par draw, memes pixels
+  status: open
+  priority: 38
+  game: jak1
+  gate:
+    key: gl_redundant_state_calls_per_frame
+    op: <=
+    value: 50
+  device: true
+  depends_on:
+  - perf-instruments
+  - lighting-presets
+  where: 'rien a voir : identique au pixel ; gl_cpu_ms baisse'
+  known_cause: 'background_common.cpp:348-368 : 4 glTexParameteri sur l''objet texture a chaque changement
+    (revalidation pilote) au lieu d''objets sampler ; Direct/Generic/Sprite rejouent 32 appels d''etat
+    par flush (:162-318) ; Merc2 respecifie 8 attributs de VAO par bucket de niveau et par flush (:4349),
+    draw envmap = 2 draws + 3 glColorMask (:5075-5115). Le cache perf_state_cache ne couvre que la famille
+    tfrag (:376). Les 88 glGetUniformLocation par arbre sont traites dans lighting-ao-indirect (ub_frame
+    + cache).'
+  deliverable: 'Objets sampler, cache d''etat etendu a Direct/Generic/Sprite/Merc2, un VAO persistant
+    par niveau pour merc (API setup_merc_vao conservee : la passe Z de lighting-shadows la reutilise).
+    Le moteur compte les appels d''etat redondants (meme valeur que l''etat courant) et publie gl_redundant_state_calls_per_frame.
+    refset_replay_maxdiff == 0 sur les trois references.'
+  out_of_scope: Ne touche pas a first_tfrag_draw_setup (perimetre lumiere). Ne touche a aucune feature
+    validee.
+  notes: 'Apres lighting-presets : background_common.cpp est reecrit par la chaine lumiere. Point de vue
+    : village1-hut.'
+  hits_means: appels redondants evites
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-sky-distort
+  feature: Le ciel se melange sur le GPU et la distorsion ne recopie plus tout l'ecran
+  status: open
+  priority: 39
+  game: jak1
+  gate:
+    key: fullscreen_copies_per_frame
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-instruments
+  - lighting-presets
+  where: 'rien a voir : identique au pixel ; la cadence quand un effet de distorsion est a l''ecran'
+  known_cause: 'android_opengl_renderer.cpp:583 choisit SkyBlendCPU (blend CPU + glTexImage2D 32² et 64²
+    realloues chaque image, SkyBlendCPU.cpp:193) alors que SkyBlendGPU existe cote PC. Sprite3_Distort.cpp:609-660
+    : glBlitFramebuffer de TOUTE la scene 2400x1080 vers une texture GL_RGB des qu''un sprite distort
+    existe (tiler : resolve + copie + rechargement).'
+  deliverable: SkyBlend GPU sur Android (sortie bit-identique, refset), distorsion sur une copie de la
+    region utile ou a demi-resolution. Le moteur publie fullscreen_copies_per_frame et skyblend_cpu_uploads_per_frame.
+    refset_replay_maxdiff == 0.
+  out_of_scope: 'Apres lighting-regimes, qui capture le dome de ciel (SPEC 4.10 P3) : la capture lit la
+    sortie GPU. Ne touche a aucune feature validee.'
+  notes: 'Point de vue : village1-hut, et un vantage avec distorsion (feu de village2).'
+  hits_means: copies plein ecran evitees
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-mips2c-neon
+  feature: Les noyaux VU0 emules (os, joints, particules) calculent en vectoriel
+  status: open
+  priority: 40
+  game: jak1
+  gate:
+    key: mips2c_parity_defects
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-instruments
+  - perf-stock-baseline
+  where: 'rien a voir : identique au pixel et a la pose ; goal_busy_ms baisse'
+  known_cause: 'mips2c_private.h:887-896 : chaque op VU est une boucle scalaire 4 lanes avec branche de
+    masque par lane, sans SIMD ; sur arm64 chaque store fait gnd_oob_check avec un load atomique (:50-58,
+    393-440). Noyaux chauds par image (allowlist mips2c_table_jak1_arm64.cpp:696-1010) : cspace<-parented-transformq-joint!
+    (par joint, tous les acteurs vivants), bones-mtx-calc (par acteur dessine), sp-launch-particles-var,
+    familles shadow et ocean.'
+  deliverable: 'Lot 1 : gnd_oob_check compile hors du build quand la prop n''est pas armee. Lot 2 : NEON
+    (arm64) et SSE (x86) sur les trois noyaux les plus chauds selon goal_bucket_ms_*, bit-identiques (hd-mtx-check-all,
+    A/B x86, ripple.cpp intact ou bit-identique car l''eau lit ripple-find-height). mips2c_parity_defects
+    = ecarts bit a bit entre chemin scalaire et vectoriel sur 600 images + (refset_replay_maxdiff != 0).
+    Gain publie par seau.'
+  out_of_scope: Aucun changement de resultat, meme au dernier bit. Ne touche a aucune feature validee.
+  notes: 'budget : trois noyaux, deux plateformes, parite prouvee. Point de vue : village1-hut + beach.'
+  max_turns: 1200
+  hits_means: images en chemin vectoriel
+  proof_timeout: 600
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-codegen-arm64-calls
+  feature: Un appel de fonction GOAL coute deux instructions, pas huit
+  status: open
+  priority: 41
+  game: jak1
+  gate:
+    key: codegen_lot_defects
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-instruments
+  - perf-stock-baseline
+  where: 'rien a voir : identique au pixel ; goal_busy_ms baisse'
+  known_cause: 'Backend arm64 = traduction 1:1 du modele x86 (IGenARM64.cpp). Appel : ADD + 3 STP + BLR
+    + 3 LDP (:1831-1882) pour sauver X3/X5/X10/X11/X12/X23 « saved » x86 mais caller-saved en AAPCS. Symbole
+    : ADRP+ADD+LDR (IR.cpp:636-674, marqueur A5), s7/X14 inutilise. Acces memoire : ADD X16,Xaddr,X15
+    avant chaque load/store (:1198-1347), jamais [Xn,Xm]. Trampoline GOAL->C ~45 instr (kscheme.cpp jak1:856-982)
+    avec check X30 toujours actif. pc-prof appele 20-30 fois par image vers un stub (gcommon.gc:29).'
+  deliverable: 'Lot 1 : enrobage d''appel reduit aux saved vivants (ou sauvegarde en prologue callee),
+    LDR [X14,#imm12] pour les symboles a moins de 16 Ko, forme [Xn,Xm] ou base pre-ajoutee pour les acces,
+    pc-prof branche sur perf-instruments ou coupe sans recepteur. Le moteur publie codegen_lot_defects
+    = (refset_replay_maxdiff != 0) + (boot non survecu 600 images) + (instructions par appel sur 5 fonctions
+    marqueurs > cible). goalc rebati, GAME/ENGINE.CGO regeneres et verifies par grep -a, references refset
+    recapturees une fois avec cause nommee.'
+  out_of_scope: Pas de changement de convention d'appel visible du C++ (asm_funcs_arm64.s, kscheme) dans
+    ce lot. Ne touche a aucune feature validee.
+  notes: 'budget : goalc + regen CGO + refset. Lire goalc/CODEGEN_COOKBOOK.md (fichiers verrouilles).
+    Point de vue : village1-hut.'
+  max_turns: 1200
+  hits_means: sites d'appel allegees
+  proof_timeout: 600
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-codegen-arm64-scalar
+  feature: float vers int, division et swizzle en une ou deux instructions
+  status: open
+  priority: 42
+  game: jak1
+  gate:
+    key: codegen_lot_defects
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-codegen-arm64-calls
+  where: 'rien a voir : identique au pixel et a la pose'
+  known_cause: 'IGenARM64.cpp : float->int scalaire = 9 instr (:2020-2050, parite de saturation x86 par
+    2 FCMP + 2 CSEL), division entiere 9-10 (:1174-1326, spill de X8), swizzle general = ORR + 4 INS (:2596-2620)
+    au lieu de TBL/EXT/ZIP (98 sites de produit vectoriel, 2 par cross), .ftoi.vf 5, vpshuflw/hw 6. Collision
+    et physique dependent de la saturation : parite a re-prouver (Gcollision-systemic).'
+  deliverable: FCVTZS + un CSEL, SDIV 3 operandes sans spill (CBNZ+UDF conserve), TBL/EXT/ZIP pour les
+    motifs 0x09/0x12 et le cas general. codegen_lot_defects comme au lot 1, plus un test de parite exhaustif
+    float->int sur les bornes (NaN, +-inf, > INT_MAX) contre x86.
+  out_of_scope: Aucun changement de resultat numerique. Ne touche a aucune feature validee.
+  notes: 'budget : goalc + regen CGO + refset. Point de vue : village1-hut.'
+  max_turns: 1200
+  hits_means: sites reemis
+  proof_timeout: 600
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-codegen-arm64-regs
+  feature: Le compilateur GOAL utilise les 31 registres de l'arm64
+  status: open
+  priority: 43
+  game: jak1
+  gate:
+    key: codegen_lot_defects
+    op: ==
+    value: 0
+  device: true
+  depends_on:
+  - perf-codegen-arm64-scalar
+  where: 'rien a voir : identique au pixel et a la pose'
+  known_cause: 'Register.h:135-142 : mapping x86 conserve, 10 GPR et 14 V allouables (Register.cpp:60),
+    X18-X28 et V3-V15 morts. Allocator_v2.cpp:657-709 force les feeders de pointeur de fonction en saved-first
+    (A6). Trampolines C : 4 STP Q24-Q31 + check X30 (7 instr) a chaque FFI. Fichiers verrouilles par le
+    cookbook (IGenARM64.h, IR.h).'
+  deliverable: 'X18-X28 ouverts comme saved supplementaires (callee-saved AAPCS : gratuits a travers les
+    appels C), V3-V15 comme temporaires, trampoline allege quand aucun Q n''est vivant, check X30 sous
+    prop. codegen_lot_defects comme au lot 1 ; spills par fonction publies avant/apres sur 5 marqueurs.'
+  out_of_scope: Pas de changement de l'ABI GOAL<->C visible des .s sans mise a jour des deux cotes dans
+    le meme commit. Ne touche a aucune feature validee.
+  notes: 'budget : regalloc, calling convention, deux fichiers verrouilles du cookbook a deverrouiller
+    explicitement. Point de vue : village1-hut.'
+  max_turns: 1600
+  hits_means: fonctions sans spill
+  proof_timeout: 600
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-instrument-cost
+  feature: Un instrument desarme ne coute rien, et le prouve lui-meme
+  status: open
+  priority: 44
+  game: jak1
+  gate:
+    key: instrument_cost_us_per_frame
+    op: <=
+    value: 200
+  device: true
+  depends_on:
+  - perf-instruments
+  - lighting-presets
+  where: 'rien a voir : identique au pixel'
+  known_cause: 'A OFF tout tourne encore : ~120 autoport_proof::publish par image (mutex + string + map)
+    et deux vidages complets vers logcat toutes les 60 images (autoport_proof.cpp:87-158, android_gfx.cpp:791-795)
+    ; npc_flicker::note_draw par paquet merc (mutex + 2 hachages), sonde d''etirement O(os x 16) (Merc2.cpp:2722-2830),
+    TTL HD sur 256 slots x16/img ; lighting_census et shade_proof armes par defaut = 2 mutex par draw
+    ; recensement vent toutes les 300 images (copie de toutes les instances, FFT, mutex) sans regarder
+    enabled() ; maybe-spawn-jak-hd! parcourt l''arbre des process avec 4 string= par drawable avant de
+    lire le drapeau (jak-hd.gc:3391-3402) ; 32 intern_from_c par image (gk_android_main.cpp:812-843) ;
+    a36_tree_scan_per_frame a chaque syncv (:3565-3780).'
+  deliverable: 'Chaque instrument est un no-op quand armed_for() est faux, avec UNE lecture de l''etat
+    par image (jamais par draw) ; publish/flush regroupes en une emission par 60 images sans vidage double
+    ; gpu_ms_* reste compile ; chaque instrument publie son propre instrument_cost_us. instrument_cost_us_per_frame
+    = somme mesuree tous instruments desarmes. Un binaire temoin AUTOPORT_INSTRUMENTS=0 sert UNIQUEMENT
+    a chiffrer le residu (publie a cote), jamais a livrer : toutes les portes des refontes sont des cles
+    autoport_proof (SPEC lumiere 7.1).'
+  out_of_scope: Aucun instrument de spec supprime ; le vent natif shrub est une feature validee, pas un
+    instrument. Ne touche a aucune feature validee.
+  notes: 'Point de vue : village1-hut.'
+  hits_means: instruments rendus no-op
+  proof_timeout: 300
+  proof_env:
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
+  - OG_WANT_LEVELS=village1,beach
+  - OG_WANT_DISPLAY=beach,display
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+- id: perf-stock-60
+  feature: Le jeu STOCK tient 60 images par seconde sur le Redmi, en natif 21:9
+  status: open
+  priority: 46
+  game: jak1
+  gate:
+    key: stock_frame_ms_p95
+    op: <=
+    value: 1667
+  device: true
+  depends_on:
+  - perf-stock-baseline
+  - perf-gl-waits
+  - perf-merc-defuse
+  - perf-fbo-passes
+  - perf-thread-build
+  - perf-actor-pause-dist
+  - perf-ocean-idle
+  - perf-dma-chain-copies
+  - perf-gl-state
+  - perf-sky-distort
+  - perf-mips2c-neon
+  - perf-codegen-arm64-calls
+  - perf-instrument-cost
+  where: 'toutes les options Recharged OFF, 21:9, 2400x1080, compteur d''images a l''ecran : 60 stable
+    en village1, beach, jungle'
+  known_cause: 'Item de cloture : la meme campagne que perf-stock-baseline, apres tous les items perf.
+    stock_frame_ms_p95 en centiemes de ms (1667 = 16,67 ms) a l''echelle 100 %. Si la porte ne tient qu''a
+    une echelle < 100 %, l''item publie l''echelle atteinte et l''owner tranche : c''est le reglage par
+    defaut de l''auto-echelle (cible 60, plancher releve) qui devient le livrable.'
+  deliverable: stock_frame_ms_p95 <= 1667 sur les trois vantages a 100 % ; sinon stock_60_scale_pct (la
+    plus haute echelle qui tient) publie et la valeur par defaut de dyn-target-fps/min-render-scale ajustee
+    en consequence (aujourd'hui 25/40 sur l'appareil contre 60/40 par defaut). Table finale dans reports/perf-stock-60/final.md,
+    comparee ligne a ligne a baseline.md.
+  out_of_scope: 'Aucune optimisation dans cet item : il mesure. Ne touche a aucune feature validee.'
+  notes: 'Point de vue : les trois vantages.'
+  hits_means: regimes a 60
+  proof_timeout: 1800
+  proof_env:
+  - OG_RECHARGED=0
+  - OG_FIXED_TICK=0
+  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  proof_props:
+  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.buckets=1
+  - debug.opengoal.frame.limit=240
