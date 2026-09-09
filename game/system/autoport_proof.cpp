@@ -167,6 +167,14 @@ void publish_text(const char* key, const char* value) {
   g_text_keys[key] = v;
 }
 
+bool has_key(const char* key) {
+  if (!valid_key(key)) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(g_mutex);
+  return g_keys.count(key) != 0 || g_text_keys.count(key) != 0;
+}
+
 void frame_tick() {
   std::lock_guard<std::mutex> lock(g_mutex);
   g_frames++;

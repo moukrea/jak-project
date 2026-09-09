@@ -24,6 +24,7 @@
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kernel_types.h"
 #include "game/kernel/common/kprint.h"
+#include "game/system/perf_instruments.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/mips2c/mips2c_table.h"
 #include "game/runtime.h"
@@ -1274,7 +1275,12 @@ u64 pc_mkdir_filepath(u32 filepath) {
 }
 
 void pc_prof(u32 name, ProfNode::Kind kind) {
-  prof().event(Ptr<String>(name).c()->data(), kind);
+  const char* s = Ptr<String>(name).c()->data();
+  // perf-instruments : le recepteur qui accumule les ns par seau sur les DEUX plateformes
+  // (GlobalProfiler est un corps vide sur Android). No-op quand l'item n'est ni nomme ni
+  // regle : un test de booleen.
+  perf_instruments::goal_prof_event(name, s, (int)kind);
+  prof().event(s, kind);
 }
 
 std::mt19937 extra_random_generator;

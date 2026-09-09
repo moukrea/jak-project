@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -14,6 +15,11 @@
 #include "game/graphics/refset.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/perf_instruments.h"
+
+#if defined(__ANDROID__)
+#include <EGL/egl.h>
+#endif
 
 namespace lighting_census {
 namespace {
@@ -81,9 +87,31 @@ const char* const kPassNames[kPassCount] = {"hfrag", "tfrag",  "tie",   "etie",
 
 struct Sample {
   int pass;
+  int bucket;  // indice du bucket jak1 (-1 : borne d'image ou passe sans indice)
   unsigned q_start;
   unsigned q_end;
 };
+
+// perf-instruments : temps GPU PAR BUCKET (les 70 de jak1), en plus des passes ci-dessus. La cle
+// est `gpu_ms_<id>_<nom>` (`[26] l0-tfrag-tie` -> `gpu_ms_26_l0_tfrag_tie`) : un chiffre en tete
+// la separe des passes, et chaque bucket est DECLARE a perf_instruments des sa premiere vue,
+// pour qu'un timer absent se lise comme des cles manquantes et non comme un silence.
+constexpr int kMaxBuckets = 96;
+uint64_t s_bucket_ns[kMaxBuckets] = {};
+std::string s_bucket_key[kMaxBuckets];
+bool s_bucket_seen[kMaxBuckets] = {};
+
+// Points d'entree du timer. Sur GLES le pilote n'exporte que les variantes `EXT`
+// (EXT_disjoint_timer_query) et glad laisse les noms de bureau a NULL : sans ce repli, aucune
+// cle `gpu_ms_*` ne sort jamais sur l'appareil.
+typedef void (*FnQueryCounter)(unsigned, unsigned);
+typedef void (*FnGetQueryU64)(unsigned, unsigned, uint64_t*);
+typedef void (*FnGetQueryUiv)(unsigned, unsigned, unsigned*);
+typedef void (*FnGenQueries)(int, unsigned*);
+FnQueryCounter s_fn_query_counter = nullptr;
+FnGetQueryU64 s_fn_get_u64 = nullptr;
+FnGetQueryUiv s_fn_get_uiv = nullptr;
+FnGenQueries s_fn_gen = nullptr;
 
 constexpr int kRing = 4;          // profondeur du differe : on moissonne l'image N-3
 constexpr int kMaxSamplesFrame = 192;
@@ -99,11 +127,35 @@ uint64_t s_frames = 0;
 
 bool timer_ok() {
   if (s_timer_state < 0) {
-    // glad laisse le pointeur nul quand l'extension manque (GLES sans
-    // EXT_disjoint_timer_query). On ne publie alors AUCUNE cle `gpu_ms_*`.
-    s_timer_state = (glQueryCounter && glGetQueryObjectui64v && glGenQueries) ? 1 : 0;
+    s_fn_query_counter = (FnQueryCounter)glQueryCounter;
+    s_fn_get_u64 = (FnGetQueryU64)glGetQueryObjectui64v;
+    s_fn_get_uiv = (FnGetQueryUiv)glGetQueryObjectuiv;
+    s_fn_gen = (FnGenQueries)glGenQueries;
+#if defined(__ANDROID__)
+    if (!s_fn_query_counter) {
+      s_fn_query_counter = (FnQueryCounter)eglGetProcAddress("glQueryCounterEXT");
+    }
+    if (!s_fn_get_u64) {
+      s_fn_get_u64 = (FnGetQueryU64)eglGetProcAddress("glGetQueryObjectui64vEXT");
+    }
+    if (!s_fn_get_uiv) {
+      s_fn_get_uiv = (FnGetQueryUiv)eglGetProcAddress("glGetQueryObjectuivEXT");
+    }
+    if (!s_fn_gen) {
+      s_fn_gen = (FnGenQueries)eglGetProcAddress("glGenQueriesEXT");
+    }
+#endif
+    // Pointeur nul = extension absente (GLES sans EXT_disjoint_timer_query). On ne publie
+    // alors AUCUNE cle `gpu_ms_*`, et `gpu_timer_supported=0` le dit.
+    s_timer_state = (s_fn_query_counter && s_fn_get_u64 && s_fn_get_uiv && s_fn_gen) ? 1 : 0;
   }
   return s_timer_state == 1;
+}
+
+// perf-instruments : les timers tournent aussi hors recensement, sur reglage
+// (`debug.opengoal.perf.buckets=1` / `OG_PERF_BUCKETS=1`) ou sous l'item perf-instruments.
+bool timers_wanted() {
+  return active() || perf_instruments::enabled();
 }
 
 unsigned take_query() {
@@ -113,7 +165,7 @@ unsigned take_query() {
     return q;
   }
   unsigned q = 0;
-  glGenQueries(1, &q);
+  s_fn_gen(1, &q);
   return q;
 }
 
@@ -200,7 +252,7 @@ void harvest(int slot) {
   bool all_ready = true;
   for (const auto& s : v) {
     unsigned avail = 0;
-    glGetQueryObjectuiv(s.q_end, GL_QUERY_RESULT_AVAILABLE, &avail);
+    s_fn_get_uiv(s.q_end, GL_QUERY_RESULT_AVAILABLE, &avail);
     if (!avail) {
       all_ready = false;
       break;
@@ -212,10 +264,13 @@ void harvest(int slot) {
   }
   for (const auto& s : v) {
     uint64_t t0 = 0, t1 = 0;
-    glGetQueryObjectui64v(s.q_start, GL_QUERY_RESULT, &t0);
-    glGetQueryObjectui64v(s.q_end, GL_QUERY_RESULT, &t1);
+    s_fn_get_u64(s.q_start, GL_QUERY_RESULT, &t0);
+    s_fn_get_u64(s.q_end, GL_QUERY_RESULT, &t1);
     if (t1 > t0) {
       s_pass_ns[s.pass] += (t1 - t0);
+      if (s.bucket >= 0 && s.bucket < kMaxBuckets) {
+        s_bucket_ns[s.bucket] += (t1 - t0);
+      }
     }
     s_query_pool.push_back(s.q_start);
     s_query_pool.push_back(s.q_end);
@@ -224,7 +279,13 @@ void harvest(int slot) {
   s_timed_frames++;
 }
 
+void publish_gpu_locked();
+
 void publish_locked() {
+  if (!active()) {
+    publish_gpu_locked();
+    return;
+  }
   autoport_proof::publish("light_census_A", s_count[kA]);
   autoport_proof::publish("light_census_B", s_count[kB]);
   autoport_proof::publish("light_census_C", s_count[kC]);
@@ -264,7 +325,13 @@ void publish_locked() {
     autoport_proof::publish(key, s_rb_mismatch_by_gate[i]);
   }
   autoport_proof::publish("light_census_frames", s_frames);
+  publish_gpu_locked();
+}
 
+void publish_gpu_locked() {
+  if (!timers_wanted()) {
+    return;
+  }
   autoport_proof::publish("gpu_timer_supported", timer_ok() ? 1 : 0);
   if (timer_ok() && s_timed_frames > 0) {
     autoport_proof::publish("gpu_ms_frames", s_timed_frames);
@@ -276,6 +343,19 @@ void publish_locked() {
       std::snprintf(val, sizeof(val), "%.4f", ms);
       autoport_proof::publish_text(key, val);
     }
+    // perf-instruments : un bucket = une cle, denominateur commun `gpu_ms_frames`.
+    uint64_t n = 0;
+    for (int b = 0; b < kMaxBuckets; b++) {
+      if (!s_bucket_seen[b]) {
+        continue;
+      }
+      n++;
+      char val[32];
+      const double ms = (double)s_bucket_ns[b] / (double)s_timed_frames / 1.0e6;
+      std::snprintf(val, sizeof(val), "%.4f", ms);
+      autoport_proof::publish_text(s_bucket_key[b].c_str(), val);
+    }
+    autoport_proof::publish("gpu_ms_bucket_count", n);
   }
 }
 
@@ -638,8 +718,9 @@ void note_world_draw(Kind k) {
   s_draw_idx_in_frame++;
 }
 
-void pass_begin(const char* bucket_name) {
-  if (!active() || !timer_ok()) {
+namespace {
+void pass_begin_impl(const char* bucket_name, int bucket) {
+  if (!timers_wanted() || !timer_ok()) {
     return;
   }
   auto& v = s_ring[s_ring_slot];
@@ -649,15 +730,52 @@ void pass_begin(const char* bucket_name) {
   }
   Sample s;
   s.pass = pass_of(bucket_name);
+  s.bucket = bucket;
   s.q_start = take_query();
   s.q_end = take_query();
-  glQueryCounter(s.q_start, GL_TIMESTAMP);
+  s_fn_query_counter(s.q_start, GL_TIMESTAMP);
   v.push_back(s);
   s_open_stack.push_back((int)v.size() - 1);
 }
+}  // namespace
+
+void pass_begin(const char* bucket_name) {
+  pass_begin_impl(bucket_name, -1);
+}
+
+void pass_begin_bucket(int bucket_id, const char* name_and_id) {
+  if (bucket_id < 0 || bucket_id >= kMaxBuckets || !name_and_id) {
+    pass_begin_impl(name_and_id, -1);
+    return;
+  }
+  if (!s_bucket_seen[bucket_id]) {
+    // `[26] l0-tfrag-tie` -> `gpu_ms_26_l0_tfrag_tie` ; declare a perf_instruments AVANT toute
+    // mesure : une cle attendue qui ne sort jamais compte comme manquante.
+    const char* nm = name_and_id;
+    if (nm[0] == '[') {
+      const char* p = std::strchr(nm, ']');
+      if (p) {
+        nm = p + 1;
+        while (*nm == ' ') {
+          nm++;
+        }
+      }
+    }
+    std::string key = "gpu_ms_" + std::to_string(bucket_id) + "_";
+    for (const char* c = nm; *c; c++) {
+      const bool ok = (*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') ||
+                      (*c >= '0' && *c <= '9');
+      key += ok ? *c : '_';
+    }
+    s_bucket_key[bucket_id] = key;
+    s_bucket_seen[bucket_id] = true;
+    perf_instruments::expect_key(key.c_str());
+  }
+  pass_begin_impl(name_and_id, bucket_id);
+}
 
 void pass_end() {
-  if (!active() || !timer_ok() || s_open_stack.empty()) {
+  if (!timers_wanted() || !timer_ok() || s_open_stack.empty()) {
     return;
   }
   const int idx = s_open_stack.back();
@@ -667,21 +785,23 @@ void pass_end() {
   }
   auto& v = s_ring[s_ring_slot];
   if (idx < (int)v.size()) {
-    glQueryCounter(v[idx].q_end, GL_TIMESTAMP);
+    s_fn_query_counter(v[idx].q_end, GL_TIMESTAMP);
   }
 }
 
 void frame_end() {
-  if (!active()) {
+  if (!active() && !perf_instruments::enabled()) {
     return;
   }
-  s_frames++;
-  s_draw_idx_in_frame = 0;
-  // L'indice verifie balaie l'espace des draws : un pas premier evite de retomber toujours sur
-  // le meme renderer.
-  s_verify_slot = (s_verify_slot + 37) % 1024;
+  if (active()) {
+    s_frames++;
+    s_draw_idx_in_frame = 0;
+    // L'indice verifie balaie l'espace des draws : un pas premier evite de retomber toujours
+    // sur le meme renderer.
+    s_verify_slot = (s_verify_slot + 37) % 1024;
+  }
   s_open_stack.clear();
-  if (timer_ok()) {
+  if (timers_wanted() && timer_ok()) {
     s_ring_slot = (s_ring_slot + 1) % kRing;
     harvest(s_ring_slot);
     // Le creneau qu'on va reutiliser doit etre vide ; s'il ne l'est pas (requetes jamais
@@ -701,7 +821,7 @@ void frame_end() {
 }
 
 void publish() {
-  if (!active()) {
+  if (!active() && !perf_instruments::enabled()) {
     return;
   }
   publish_locked();

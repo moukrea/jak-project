@@ -24,6 +24,7 @@
 #include "game/kernel/jak1/klisten.h"
 #include "game/kernel/jak1/kmachine.h"
 #include "game/sce/libscf.h"
+#include "game/system/perf_instruments.h"
 
 using namespace ee;
 
@@ -167,6 +168,9 @@ void KernelCheckAndDispatch() {
       }
     }
 
+    // perf-instruments : le tour ENTIER, attentes comprises ; les enveloppes de `syncv` /
+    // `sync-path` (kmachine.cpp) publient les attentes a part, et goal_busy_ms est le solde.
+    perf_instruments::note_dispatch_ns((uint64_t)kernel_dispatch_timer.getNs());
     auto time_ms = kernel_dispatch_timer.getMs();
     if (time_ms > 50) {
       lg::print("Kernel dispatch time: {:.3f} ms\n", time_ms);

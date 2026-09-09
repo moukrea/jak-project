@@ -37,6 +37,7 @@
 #include "game/graphics/texture/TexturePool.h"
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/perf_instruments.h"
 
 #include "android_opengl_renderer.h"
 
@@ -1358,6 +1359,8 @@ void send_chain(const void* data, u32 offset) {
   // chaine PRECEDENTE, qui porte donc toujours sa propre frame de logique.
   const int64_t lf_of_this_chain = refset::current_logic_frame();
   const auto& chain_copy = d->dma_copier.run(data, offset);
+  // perf-instruments : les octets REELLEMENT copies par cette image (fil GOAL).
+  perf_instruments::note_dma_chain_copied((uint64_t)chain_copy.stats.num_copied_bytes, true);
   d->logic_frame_of_pending_chain = lf_of_this_chain;
   d->chain_data = chain_copy.data.data();
   d->chain_offset = chain_copy.start_offset;

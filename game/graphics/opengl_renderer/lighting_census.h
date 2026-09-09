@@ -83,6 +83,9 @@ void set_phase(int phase);
 
 // ── temps GPU par passe ─────────────────────────────────────────────────────────────────────
 void pass_begin(const char* bucket_name);
+// perf-instruments : meme chose, avec l'indice du bucket jak1 pour publier `gpu_ms_<id>_<nom>`
+// bucket par bucket (en plus des passes). Le nom est celui de `name_and_id()`.
+void pass_begin_bucket(int bucket_id, const char* name_and_id);
 void pass_end();
 
 // Fin d'image : moissonne les requetes de temps, publie periodiquement.

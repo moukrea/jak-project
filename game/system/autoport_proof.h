@@ -80,6 +80,11 @@ void publish(const char* key, uint64_t value);
 // un texte : le dernier `publish*` gagne.
 void publish_text(const char* key, const char* value);
 
+// Vrai si une valeur a deja ete publiee sous cette cle (entier ou texte). Sert a un module qui
+// doit dire ce qui MANQUE a la preuve en lisant la table qui sera moissonnee, pas ses propres
+// variables (perf-instruments).
+bool has_key(const char* key);
+
 // Une image de plus. A appeler une fois par image, du meme endroit que le reste du recensement.
 // Emet periodiquement le bloc complet (images, FEATURE, toutes les cles).
 void frame_tick();

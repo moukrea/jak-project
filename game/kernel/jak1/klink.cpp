@@ -22,6 +22,7 @@
 #include "game/kernel/jak1/kboot.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_table.h"
+#include "game/system/perf_instruments.h"
 
 #include "fmt/format.h"
 
@@ -767,6 +768,9 @@ void link_control::jak1_finish(bool jump_from_c_to_goal) {
 
   ObjectFileHeader* ofh = m_link_block_ptr.cast<ObjectFileHeader>().c();
   lg::debug("link finish: {}", m_object_name);
+  // perf-instruments : un objet de plus est lie, le perf map (/data/local/tmp/perf-<pid>.map,
+  // /tmp sur x86) sera reecrit a la frontiere d'image qui suit la rafale de liens.
+  perf_instruments::note_link_finish();
 
   // B1 — structured boot-link trace: per-object link-finish with a monotonic
   // sequence number (gated by OG_KLINK_TRACE; zero output when unset). The seq

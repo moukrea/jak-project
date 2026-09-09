@@ -46,6 +46,8 @@
 #include "game/graphics/refset.h"
 #include "game/kernel/common/kmachine.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/perf_instruments.h"
+#include "game/graphics/opengl_renderer/lighting_census.h"
 
 #include "android_gfx.h"
 
@@ -1326,11 +1328,16 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
     if (g_game_version == GameVersion::Jak1) {
       grass_occ::begin_contact_frame();
     }
+    // perf-instruments : temps GPU de la totalite des buckets (`gpu_ms_buckets`), comme le
+    // renderer bureau (OpenGLRenderer.cpp). Ce fichier est une COPIE separee : un site pose
+    // seulement cote x86 rend la preuve appareil muette.
+    lighting_census::pass_begin("__buckets");
     if (g_game_version == GameVersion::Jak2) {
       dispatch_buckets_jak2(dma, prof);
     } else {
       dispatch_buckets_jak1(dma, prof);
     }
+    lighting_census::pass_end();
     // Gjak2-vis: per-frame stale-texture sweep (mirrors desktop OpenGLRenderer).
     // If no animation requests were made this frame, assume the level unloaded
     // and reset the animated textures.
@@ -1383,6 +1390,9 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
   // setup_frame, donc le format publie est celui du tampon UI reellement dessine cette image.
   hdr_output::frame_end(hdr::last_frame_sites(),
                         m_ui_pass_active ? m_fbo_state.ui_buffer.color_format : GL_RGBA8);
+  // perf-instruments : moisson des timers GPU et publication des `gpu_ms_*` (jamais appele
+  // depuis android/ auparavant : les timers ne tournaient que sur x86).
+  lighting_census::frame_end();
 
   m_profiler.finish();
   m_stats.draw_calls = m_profiler.root()->stats().draw_calls;
@@ -1408,19 +1418,28 @@ void AndroidOpenGLRenderer::render(DmaFollower dma, const AndroidRenderOptions& 
       auto ms = [](std::atomic<uint64_t>& a) { return a.exchange(0) / 1e6; };
       auto n = [](std::atomic<uint64_t>& a) { return (unsigned long long)a.exchange(0); };
       auto& sp = g_spart_prof;
+      // perf-instruments : la derniere fenetre du fil GOAL (goal_busy_ms et ses termes,
+      // octets DMA copies, acteurs, joints, coeur CPU, perf map, cles manquantes).
+      const perf_instruments::Snapshot pi = perf_instruments::snapshot();
       fprintf(stderr,
               "A35-SPART win=60f 3d=%.2fms/%lluc/%lluit 2d=%.2fms/%lluc/%lluit "
               "launch=%.2fms/%lluc adgif=%.2fms/%lluc | sprite buckets=%llu quads=%llu "
               "directflush=%llu | glbuild=%.2fms glflush=%.2fms"
               " | goal idle=%.2f pace=%.2f n=%llu | tie i=%.2f ts=%.2f cu=%.2f ix=%.2f"
-              " | shrub ts=%.2f ix=%.2f\n",
+              " | shrub ts=%.2f ix=%.2f"
+              " | perf busy=%.2f disp=%.2f sp=%.2f vs=%.2f dma=%llu act=%llu/%llu joints=%llu "
+              "core=%d map=%llu missing=%llu gframes=%llu\n",
               ms(sp.ns_3d), n(sp.calls_3d), n(sp.iters_3d), ms(sp.ns_2d), n(sp.calls_2d),
               n(sp.iters_2d), ms(sp.ns_launch), n(sp.calls_launch), ms(sp.ns_adgif),
               n(sp.calls_adgif), n(sp.sprite_buckets), n(sp.sprite_quads),
               n(sp.direct_flushes), ms(sp.gl_spr_build), ms(sp.gl_spr_flush),
               ms(sp.goal_idle), ms(sp.goal_pace), n(sp.goal_frames), ms(sp.tie_interp),
               ms(sp.tie_texsub), ms(sp.tie_cull), ms(sp.tie_index), ms(sp.shrub_texsub),
-              ms(sp.shrub_index));
+              ms(sp.shrub_index), pi.busy_ms, pi.dispatch_ms, pi.syncpath_ms, pi.vsync_ms,
+              (unsigned long long)pi.dma_bytes, (unsigned long long)pi.actors_active,
+              (unsigned long long)pi.actors_paused, (unsigned long long)pi.joints, pi.cpu_core,
+              (unsigned long long)pi.perf_map_entries, (unsigned long long)pi.missing,
+              (unsigned long long)pi.frames);
     }
   }
 
@@ -1813,7 +1832,11 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
       }
     }
     prepass::proof_before_bucket((int)bucket_id);
+    // perf-instruments : une paire de `glQueryCounter` autour de CE bucket (moissonnee trois
+    // images plus tard, aucune synchronisation), cle `gpu_ms_<id>_<nom>`.
+    lighting_census::pass_begin_bucket((int)bucket_id, renderer->name_and_id().c_str());
     renderer->render(dma, &m_render_state, bucket_prof);
+    lighting_census::pass_end();
     {
       extern char gk_f1a_current_bucket[64];
       gk_f1a_current_bucket[0] = 0;

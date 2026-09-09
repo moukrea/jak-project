@@ -36,6 +36,7 @@
 #include "game/graphics/refset_state.h"
 #include "game/system/load_gate.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/perf_instruments.h"
 #include "game/system/settings_case_l10n.h"
 #include "game/system/npc_flicker.h"
 #include "game/graphics/opengl_renderer/loader/ManagedAssets.h"
@@ -6077,11 +6078,28 @@ void boot_replay_after_dispatch() {
   boot_replay_seal("first-dispatch-actors-not-restored");
 }
 
+// perf-instruments : les deux attentes du process display, chronometrees AUTOUR de l'appel
+// reel, sur les deux plateformes (ce fichier est compile dans libgk.so aussi). `frame_boundary`
+// a l'ENTREE de syncv : c'est la frontiere d'image du fil GOAL.
+static u32 perf_syncv(u32 mode) {
+  perf_instruments::frame_boundary();
+  Timer t;
+  const u32 r = sceGsSyncV(mode);
+  perf_instruments::note_vsync_wait_ns((uint64_t)t.getNs());
+  return r;
+}
+static u32 perf_sync_path(u32 mode, u32 timeout) {
+  Timer t;
+  const u32 r = sceGsSyncPath(mode, timeout);
+  perf_instruments::note_syncpath_wait_ns((uint64_t)t.getNs());
+  return r;
+}
+
 void InitMachineScheme() {
   boot_replay_native_rng(true);
   make_function_symbol_from_c("put-display-env", (void*)PutDisplayEnv);       // used in drawable
-  make_function_symbol_from_c("syncv", (void*)sceGsSyncV);                    // used in drawable
-  make_function_symbol_from_c("sync-path", (void*)sceGsSyncPath);             // used
+  make_function_symbol_from_c("syncv", (void*)perf_syncv);                    // used in drawable
+  make_function_symbol_from_c("sync-path", (void*)perf_sync_path);            // used
   make_function_symbol_from_c("reset-path", (void*)sceGsResetPath);           // used in dma
   make_function_symbol_from_c("reset-graph", (void*)sceGsResetGraph);         // used
   make_function_symbol_from_c("dma-sync", (void*)sceDmaSync);                 // used

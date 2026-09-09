@@ -39,6 +39,7 @@
 #include "game/runtime.h"
 #include "game/sce/libscf.h"
 #include "game/system/hid/input_manager.h"
+#include "game/system/perf_instruments.h"
 #include "game/system/hid/sdl_util.h"
 
 #include "fmt/format.h"
@@ -1178,6 +1179,12 @@ void gl_send_chain(const void* data, u32 offset) {
     // may be easy.
 
     g_gfx_data->dma_copier.set_input_data(data, offset, run_dma_copy);
+    // perf-instruments : x86 ne copie pas la chaine (`run_dma_copy = false`) — 0 octet, et le
+    // mode est publie a cote pour que ce zero se lise comme « pas de copie », pas « pas mesure ».
+    perf_instruments::note_dma_chain_copied(
+        run_dma_copy ? (uint64_t)g_gfx_data->dma_copier.get_last_result().stats.num_copied_bytes
+                     : 0,
+        run_dma_copy);
 
     g_gfx_data->has_data_to_render = true;
     g_gfx_data->dma_cv.notify_all();

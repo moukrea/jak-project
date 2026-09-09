@@ -1729,7 +1729,8 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     // lg::info("Render: {} start", g_current_renderer);
     // lighting-census : temps GPU de CE bucket. Une paire de `glQueryCounter`, moissonnee
     // trois images plus tard : aucune synchronisation, aucune image perdue.
-    lighting_census::pass_begin(renderer->name_and_id().c_str());
+    // perf-instruments : avec l'indice du bucket, pour une cle `gpu_ms_<id>_<nom>` par bucket.
+    lighting_census::pass_begin_bucket((int)bucket_id, renderer->name_and_id().c_str());
     const auto roi = lighting_census::roi_before();
     prepass::proof_before_bucket((int)bucket_id);
     renderer->render(dma, &m_render_state, bucket_prof);

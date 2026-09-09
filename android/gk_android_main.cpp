@@ -214,6 +214,13 @@ namespace {
 // Populated unconditionally now (the Java setExternalFilesDir call is unconditional);
 // in a non-capture jak1 build nothing reads it, so HEAD jak1 behavior is unchanged.
 char g_ext_files_dir[512] = {0};
+}  // namespace
+// perf-instruments : repli pour le perf map quand /data/local/tmp refuse l'application
+// (perf_instruments.cpp, hors de l'espace de noms anonyme pour etre liable).
+extern "C" const char* gk_perf_map_fallback_dir() {
+  return g_ext_files_dir;
+}
+namespace {
 
 // ===========================================================================
 // jak2 remote-diagnostic breadcrumb (autoport, supervisor-diag)
