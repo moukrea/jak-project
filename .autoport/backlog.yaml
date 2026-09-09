@@ -4441,7 +4441,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: blocked
+  status: open
   priority: 18
   game: jak1
   gate:
@@ -4478,8 +4478,9 @@ items:
     la scene est remappee sous son niveau SDR au lieu de ne depasser 1,0 que dans les hautes lumieres.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
-  notes: Rendu HDR interne et sortie ecran distincts. Direction artistique coherente, partage des reglages
-    facultatif ; profils et ajustements par sortie autorises. SDR a corriger avant sortie HDR native.
+  notes: 'Honor vu par adb le 09/09 22:40 (AREE026206000788, 4 modes HDR, 480 nits) : la preuve redevient
+    possible. Les 3 essais brules sans ecran ne comptent pas. Ordre du backlog respecte : priorite 18,
+    avant le lot perf.'
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -5542,7 +5543,7 @@ items:
   supervisor_recovery: true
 - id: perf-instruments
   feature: Voir enfin ou passe le temps d'une image, sur l'appareil comme sur PC
-  status: open
+  status: in-progress
   priority: 19
   game: jak1
   gate:
