@@ -153,10 +153,20 @@ public class MainActivity extends SDLActivity {
                     hc != null ? (int) hc.getDesiredMaxAverageLuminance() : 0,
                     hc != null ? (int) (hc.getDesiredMinLuminance() * 10000f) : 0,
                     d.isWideColorGamut());
+            final boolean ratioAvail = android.os.Build.VERSION.SDK_INT >= 34 && d.isHdrSdrRatioAvailable();
+            NativeGk.setDisplayPlatformInfo(android.os.Build.VERSION.SDK_INT, ratioAvail);
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                NativeGk.setHdrSdrRatio(d.getHdrSdrRatio());
+                if (ratioAvail) {
+                    d.registerHdrSdrRatioChangedListener(getMainExecutor(), disp -> NativeGk.setHdrSdrRatio(disp.getHdrSdrRatio()));
+                }
+            }
+            android.util.Log.i("GK", "HDROUT platform sdk=" + android.os.Build.VERSION.SDK_INT + " ratioAvail=" + ratioAvail);
             android.util.Log.i("GK", "HDROUT display caps mask=" + mask + " isHdr=" + d.isHdr());
         } catch (Throwable t) {
             android.util.Log.w("GK", "HDROUT display caps unavailable", t);
             NativeGk.setDisplayHdrCaps(0, 0, 0, 0, false);
+            NativeGk.setDisplayPlatformInfo(android.os.Build.VERSION.SDK_INT, false);
         }
 
         // Grecharged-buildsys-firstboot (autoport 2026-07): the ONLY boot mode is
@@ -497,5 +507,20 @@ public class MainActivity extends SDLActivity {
         // ("remove leftover DIAG2 exporter") deleted the field + its init but left this
         // reference, breaking the APK Java compile. The DIAG2 exporter is gone; so is its teardown.
         super.onDestroy();
+    }
+
+    /** hdr-display-output: grant HDR headroom above SDR white to the scRGB (RANGE_EXTENDED) SDL surface. API 34+: SurfaceControl.Transaction.setExtendedRangeBrightness(sc, currentBufferRatio, desiredRatio). No-op below. Never throws. */
+    static void applyExtendedRangeBrightness(final float desiredRatio) {
+        if (android.os.Build.VERSION.SDK_INT < 34) return;
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                org.libsdl.app.SDLSurface s = mSurface;   // protected static in SDLActivity
+                android.view.SurfaceControl sc = s != null ? s.getSurfaceControl() : null;
+                if (sc == null || !sc.isValid()) { Log.w("GK", "HDROUT extended range: no valid SurfaceControl"); return; }
+                float r = Math.max(1.0f, desiredRatio);
+                new android.view.SurfaceControl.Transaction().setExtendedRangeBrightness(sc, r, r).apply();
+                Log.i("GK", "HDROUT extended range applied desired=" + r);
+            } catch (Throwable t) { Log.w("GK", "HDROUT extended range failed", t); }
+        });
     }
 }

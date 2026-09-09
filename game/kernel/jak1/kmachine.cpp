@@ -1147,12 +1147,16 @@ void pc_set_hdr_output(u32 on) {
   hdr_output::set_enabled(on != 0);
 }
 // kind 0 = visibilite de la rangee (value 0/1) ;
-// kind 1 = reglage etabli (value bit0 = valeur, bit1 = source auto-configuration).
+// kind 1 = reglage etabli (value bit0 = valeur, bit1 = source auto-configuration) ;
+// kind 2 = ou vit la rangee (value 1 = sous RECHARGED > RECHARGED LIGHTING, 0 = ailleurs),
+//          trouve par GOAL en scrutant ses tableaux.
 void pc_hdr_output_note(u32 kind, u32 value) {
   if (kind == 0) {
     hdr_output::note_option_visible((int)value);
-  } else {
+  } else if (kind == 1) {
     hdr_output::note_setting_loaded((int)(value & 1), (int)((value >> 1) & 1));
+  } else {
+    hdr_output::note_menu_parent((int)value);
   }
 }
 

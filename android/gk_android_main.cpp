@@ -9717,19 +9717,51 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
 // poussees par MainActivity.onCreate avant le demarrage du rendu. Les luminances de l'ecran
 // sont aussi gardees dans deux globals (android_renderer.h) pour les metadonnees SMPTE2086
 // posees sur la surface EGL a la bascule.
+// Pont natif -> Java pour setExtendedRangeBrightness (scRGB) : JavaVM, classe NativeGk et
+// methode statique onHdrOutputExtendedRange(F)V, caches a l'appel de setDisplayHdrCaps.
+static JavaVM* g_hdr_out_jvm = nullptr;
+static jclass g_hdr_out_nativegk_class = nullptr;
+static jmethodID g_hdr_out_ext_range_mid = nullptr;
+
 JNIEXPORT void JNICALL
-Java_org_opengoal_gk_NativeGk_setDisplayHdrCaps(JNIEnv* /*env*/, jclass /*clazz*/, jint mask,
+Java_org_opengoal_gk_NativeGk_setDisplayHdrCaps(JNIEnv* env, jclass clazz, jint mask,
                                                 jint maxLum, jint maxAvg, jint minX10000,
                                                 jboolean wcg) {
   g_hdr_out_max_lum_nits = (int)maxLum;
   g_hdr_out_min_lum_x10000 = (int)minX10000;
   hdr_output::set_system_caps((uint32_t)mask, (int)maxLum, (int)maxAvg, (int)minX10000,
                               wcg != JNI_FALSE);
+  env->GetJavaVM(&g_hdr_out_jvm);
+  g_hdr_out_nativegk_class = (jclass)env->NewGlobalRef(clazz);
+  g_hdr_out_ext_range_mid = env->GetStaticMethodID(clazz, "onHdrOutputExtendedRange", "(F)V");
+  if (!g_hdr_out_ext_range_mid) {
+    env->ExceptionClear();
+    __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                        "NativeGk.setDisplayHdrCaps: onHdrOutputExtendedRange(F)V not found; "
+                        "scRGB headroom requests will be dropped");
+  }
   android_hdr_out_probe_early();  // EGL, avant que GOAL ne cree *pc-settings*
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "NativeGk.setDisplayHdrCaps: mask=0x%x max=%d avg=%d minx10000=%d wcg=%d",
                       (unsigned)mask, (int)maxLum, (int)maxAvg, (int)minX10000,
                       wcg != JNI_FALSE ? 1 : 0);
+}
+
+// hdr-display-output : niveau d'API et disponibilite du ratio HDR/SDR (Display.isHdrSdrRatioAvailable).
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setDisplayPlatformInfo(JNIEnv* /*env*/, jclass /*clazz*/,
+                                                     jint sdkInt, jboolean ratioAvailable) {
+  hdr_output::set_platform_info((int)sdkInt, ratioAvailable != JNI_FALSE);
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "NativeGk.setDisplayPlatformInfo: sdk=%d ratio_available=%d", (int)sdkInt,
+                      ratioAvailable != JNI_FALSE ? 1 : 0);
+}
+
+// hdr-display-output : ratio HDR/SDR courant lu dans le systeme (Display.getHdrSdrRatio), pousse
+// a chaque changement. Pas de log : peut arriver souvent.
+JNIEXPORT void JNICALL
+Java_org_opengoal_gk_NativeGk_setHdrSdrRatio(JNIEnv* /*env*/, jclass /*clazz*/, jfloat ratio) {
+  hdr_output::set_hdr_sdr_ratio((float)ratio);
 }
 
 // External-asset-root feature (autoport 2026-07): store the per-game external
@@ -10043,3 +10075,36 @@ Java_org_opengoal_gk_NativeGk_writeTestSave(JNIEnv* env, jclass /*clazz*/,
 }
 
 }  // extern "C"
+
+// hdr-display-output : natif -> Java. Symbole C++ (declare dans android_renderer.h), appele par
+// android_renderer.cpp sur le fil GL (deja attache a la JVM par SDL : on ne le detache pas).
+void android_hdr_out_request_extended_range(float desired_ratio) {
+  if (!g_hdr_out_jvm || !g_hdr_out_nativegk_class || !g_hdr_out_ext_range_mid) {
+    static bool s_warned = false;
+    if (!s_warned) {
+      s_warned = true;
+      __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                          "HDROUT extended range request dropped: JNI bridge not initialised");
+    }
+    return;
+  }
+  JNIEnv* env = nullptr;
+  bool attached = false;
+  if (g_hdr_out_jvm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
+    if (g_hdr_out_jvm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+      return;
+    }
+    attached = true;
+  }
+  env->CallStaticVoidMethod(g_hdr_out_nativegk_class, g_hdr_out_ext_range_mid,
+                            (jfloat)desired_ratio);
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+  }
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag, "HDROUT extended range request desired=%.3f",
+                      (double)desired_ratio);
+  if (attached) {
+    g_hdr_out_jvm->DetachCurrentThread();
+  }
+}

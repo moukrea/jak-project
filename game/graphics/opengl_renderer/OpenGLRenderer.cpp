@@ -2174,6 +2174,9 @@ void OpenGLRenderer::do_pcrtc_effects(float alp,
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glActiveTexture(GL_TEXTURE0);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  // hdr-display-output : sonde de blanc UI (preuve seulement) — rejoue CE programme, memes
+  // uniformes, sur un texel blanc hors ecran ; remet framebuffer 0 et le viewport.
+  hdr_output::probe_present(shader);
 
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);

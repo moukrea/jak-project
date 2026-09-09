@@ -78,6 +78,13 @@ uint64_t android_renderer_frame_count() {
 #ifndef EGL_GL_COLORSPACE_BT2020_PQ_EXT
 #define EGL_GL_COLORSPACE_BT2020_PQ_EXT 0x3340
 #endif
+#ifndef EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT
+#define EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT 0x3350
+#endif
+#ifndef EGL_COLOR_COMPONENT_TYPE_EXT
+#define EGL_COLOR_COMPONENT_TYPE_EXT 0x3339
+#define EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT 0x333B
+#endif
 #ifndef EGL_SMPTE2086_DISPLAY_PRIMARY_RX_EXT
 #define EGL_SMPTE2086_DISPLAY_PRIMARY_RX_EXT 0x3341
 #define EGL_SMPTE2086_DISPLAY_PRIMARY_RY_EXT 0x3342
@@ -103,7 +110,7 @@ extern "C" bool SDL_Android_RecreateEGLSurface(SDL_Window* window);
 
 namespace {
 SDL_Window* s_window = nullptr;
-bool s_want_hdr_surface = false;
+uint32_t s_want_surface_mode = hdr_output::kModeNone;
 hdr_output::PlatformCaps s_platform_caps;
 // framerate-uncap : intervalle de swap applique ; -2 = jamais/echec. Static de fichier (et
 // plus local a la boucle) pour que la bascule de surface force sa re-application.
@@ -117,7 +124,9 @@ SDL_EGLint* SDLCALL hdr_surface_attribs_cb(void*, SDL_EGLDisplay, SDL_EGLConfig)
     return nullptr;
   }
   a[0] = EGL_GL_COLORSPACE_KHR;
-  a[1] = s_want_hdr_surface ? EGL_GL_COLORSPACE_BT2020_PQ_EXT : EGL_GL_COLORSPACE_LINEAR_KHR;
+  a[1] = s_want_surface_mode == hdr_output::kModeScrgbLinear ? EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT
+         : s_want_surface_mode == hdr_output::kModeHdr10Pq   ? EGL_GL_COLORSPACE_BT2020_PQ_EXT
+                                                             : EGL_GL_COLORSPACE_LINEAR_KHR;
   a[2] = EGL_NONE;
   return a;
 }
@@ -143,9 +152,14 @@ hdr_output::SurfaceState query_surface_state() {
                         "HDROUT eglQuerySurface(EGL_GL_COLORSPACE_KHR) failed: egl error 0x%x",
                         (unsigned)eglGetError());
   }
-  st.hdr = (st.colorspace == EGL_GL_COLORSPACE_BT2020_PQ_EXT) && r == 10;
-  __android_log_print(ANDROID_LOG_INFO, kLogTag, "HDROUT surface red_bits=%d colorspace=0x%x",
-                      r, (unsigned)st.colorspace);
+  st.mode = (st.colorspace == EGL_GL_COLORSPACE_BT2020_PQ_EXT && r == 10) ? hdr_output::kModeHdr10Pq
+            : (st.colorspace == EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT && r == 16)
+                ? hdr_output::kModeScrgbLinear
+                : hdr_output::kModeNone;
+  st.hdr = st.mode != hdr_output::kModeNone;
+  __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                      "HDROUT surface red_bits=%d colorspace=0x%x mode=%u", r,
+                      (unsigned)st.colorspace, (unsigned)st.mode);
   return st;
 }
 
@@ -169,26 +183,45 @@ hdr_output::PlatformCaps probe_platform_caps(EGLDisplay dpy) {
   EGLConfig cfgs[8];
   caps.config_10bit =
       dpy != EGL_NO_DISPLAY && eglChooseConfig(dpy, attribs, cfgs, 8, &n) && n > 0;
+  // existe-t-il une config RGBA 16F (composantes flottantes) fenetre ES3 ? Sondee SEULEMENT si
+  // EGL_EXT_pixel_format_float est annoncee : sans l'extension, l'attribut peut etre refuse.
+  caps.config_fp16 = false;
+  if (caps.egl_fp16 && dpy != EGL_NO_DISPLAY) {
+    EGLint attribs16[] = {EGL_RED_SIZE,        16, EGL_GREEN_SIZE, 16, EGL_BLUE_SIZE, 16,
+                          EGL_ALPHA_SIZE,      16,
+                          EGL_COLOR_COMPONENT_TYPE_EXT, EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT,
+                          EGL_DEPTH_SIZE,      24, EGL_STENCIL_SIZE, 8,
+                          EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
+                          EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+                          EGL_NONE};
+    EGLint n16 = 0;
+    EGLConfig cfgs16[8];
+    caps.config_fp16 = eglChooseConfig(dpy, attribs16, cfgs16, 8, &n16) && n16 > 0;
+  }
   __android_log_print(ANDROID_LOG_INFO, kLogTag,
                       "HDROUT egl caps bt2020_pq=%d scrgb=%d fp16=%d no_config_ctx=%d "
-                      "smpte2086=%d config_10bit=%d",
+                      "smpte2086=%d config_10bit=%d config_fp16=%d",
                       caps.egl_bt2020_pq, caps.egl_scrgb_linear, caps.egl_fp16,
-                      caps.egl_no_config_ctx, caps.egl_smpte2086, caps.config_10bit);
+                      caps.egl_no_config_ctx, caps.egl_smpte2086, caps.config_10bit,
+                      caps.config_fp16);
   return caps;
 }
 
 // Le basculeur installe dans hdr_output : fil GL, entre deux images, aucun FBO lie.
-bool switch_surface(bool want_hdr, hdr_output::SurfaceState* out) {
-  s_want_hdr_surface = want_hdr;
-  SDL_GL_SetAttribute(SDL_GL_RED_SIZE, want_hdr ? 10 : 8);
-  SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, want_hdr ? 10 : 8);
-  SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, want_hdr ? 10 : 8);
-  SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, want_hdr ? 2 : 8);
+bool switch_surface(uint32_t want_mode, hdr_output::SurfaceState* out) {
+  s_want_surface_mode = want_mode;
+  const bool scrgb = want_mode == hdr_output::kModeScrgbLinear;
+  const bool pq = want_mode == hdr_output::kModeHdr10Pq;
+  SDL_GL_SetAttribute(SDL_GL_RED_SIZE, scrgb ? 16 : pq ? 10 : 8);
+  SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, scrgb ? 16 : pq ? 10 : 8);
+  SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, scrgb ? 16 : pq ? 10 : 8);
+  SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, scrgb ? 16 : pq ? 2 : 8);
+  SDL_GL_SetAttribute(SDL_GL_FLOATBUFFERS, scrgb ? 1 : 0);
   const bool ok = SDL_Android_RecreateEGLSurface(s_window);
   __android_log_print(ok ? ANDROID_LOG_INFO : ANDROID_LOG_ERROR, kLogTag,
-                      "HDROUT recreate surface want_hdr=%d: %s", want_hdr ? 1 : 0,
+                      "HDROUT recreate surface want_mode=%u: %s", (unsigned)want_mode,
                       ok ? "ok" : SDL_GetError());
-  if (ok && want_hdr && s_platform_caps.egl_smpte2086) {
+  if (ok && pq && s_platform_caps.egl_smpte2086) {
     // Metadonnees HDR10 : primaires BT.2020, blanc D65, luminances annoncees par l'ecran.
     EGLDisplay d = eglGetCurrentDisplay();
     EGLSurface s = eglGetCurrentSurface(EGL_DRAW);
@@ -216,6 +249,9 @@ bool switch_surface(bool want_hdr, hdr_output::SurfaceState* out) {
       }
     }
   }
+  // scRGB : la marge au-dessus du blanc SDR (setExtendedRangeBrightness) est demandee par
+  // hdr_output::take_headroom_request, transmise par la boucle a l'image suivante — ici la
+  // surface n'est pas encore comptee active, la valeur serait 1,0.
   s_applied_interval = -2;  // la surface est neuve : re-appliquer l'intervalle de swap
   *out = query_surface_state();
   return ok;
@@ -432,6 +468,13 @@ int android_renderer_run() {
       // hdr-display-output : une bascule de surface demandee (menu ou auto-test) s'applique
       // ICI, sur le fil GL, entre deux images, aucun FBO lie pour dessiner.
       hdr_output::apply_pending_on_gl_thread();
+      {
+        // scRGB : la marge souhaitee a change -> SurfaceControl.setExtendedRangeBrightness (Java).
+        float desired = 1.f;
+        if (hdr_output::take_headroom_request(&desired)) {
+          android_hdr_out_request_extended_range(desired);
+        }
+      }
       drew_game = android_gfx::render_frame_on_gl_thread(win_w, win_h);
     }
 

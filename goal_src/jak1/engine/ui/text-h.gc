@@ -1056,6 +1056,12 @@
   (pc-text-grass-density #x17da)
   ;; #x17db est RESERVE pour GRASS OVERHANG (rangee sous FLAG_GRASS_OVERHANG, absente de ce build).
   (pc-text-grass-overhang #x17db)
+  ;; --- hdr-display-output (essai 3) : MARQUEUR d'auto-localisation de la rangee HDR OUTPUT ---
+  ;; Pas un texte (rien ne l'affiche, aucune banque ne le porte) : pose dans le champ `hint` de la
+  ;; rangee HDR OUTPUT de *recharged-options-pc* pour que `init-game-options` la RETROUVE sans
+  ;; arithmetique d'index, comme PHYSICS (#x17be). #x17e4 est le premier id libre au-dessus des tags
+  ;; reserves #x17dc..#x17e3 (liste de cadence de framerate-uncap).
+  (pc-text-hint-hdr-output #x17e4)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 

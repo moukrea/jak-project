@@ -27,3 +27,8 @@ uint64_t android_renderer_frame_count();
 void android_hdr_out_probe_early();
 extern int g_hdr_out_max_lum_nits;
 extern int g_hdr_out_min_lum_x10000;
+// hdr-display-output : appel natif -> Java (NativeGk.onHdrOutputExtendedRange) qui pose
+// SurfaceControl.Transaction.setExtendedRangeBrightness(sc, ratio, ratio) sur la SDLSurface :
+// la marge (ratio HDR/SDR) que le jeu souhaite au-dessus du blanc SDR, sur une surface scRGB.
+// Sans effet sous API 34. Implemente dans gk_android_main.cpp (JNI) ; fil quelconque.
+void android_hdr_out_request_extended_range(float desired_ratio);

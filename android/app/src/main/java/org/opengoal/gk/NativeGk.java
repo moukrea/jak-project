@@ -112,6 +112,17 @@ public final class NativeGk {
     public static native void setDisplayHdrCaps(int typesMask, int maxLumNits, int maxAvgLumNits,
                                                 int minLumX10000, boolean wideColorGamut);
 
+    /** hdr-display-output: platform API level and whether Display.isHdrSdrRatioAvailable() (API 34+). */
+    public static native void setDisplayPlatformInfo(int sdkInt, boolean hdrSdrRatioAvailable);
+
+    /** hdr-display-output: current Display.getHdrSdrRatio() (1.0 = no headroom); pushed on every change. */
+    public static native void setHdrSdrRatio(float ratio);
+
+    /** hdr-display-output: called FROM native (GL thread) when the game wants HDR headroom above SDR white on a scRGB surface; forwards to MainActivity on the main thread. */
+    public static void onHdrOutputExtendedRange(final float desiredRatio) {
+        MainActivity.applyExtendedRangeBrightness(desiredRatio);
+    }
+
     /**
      * Grecharged-managed-assets: does this libgk.so have the PBR path compiled
      * in (OG_FEAT_PBR)? The downloader uses it to decide whether the material-

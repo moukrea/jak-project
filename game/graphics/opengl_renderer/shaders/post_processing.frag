@@ -3,12 +3,18 @@
 // post_processing.frag — le quad final vers la fenetre.
 //
 // u_out_mode = 0 : la recopie d'origine (brightness/contrast via color_mult/color_add), au bit.
-// u_out_mode = 1 : hdr-display-output. La surface est HDR10 (BT.2020, PQ, 10 bits). Le tampon UI
-//   porte l'encodage d'affichage du jeu (celui de la PS2, ~gamma 2,2), avec des valeurs
-//   au-dessus de 1,0 laissees par le tone map (plafond = marge de l'ecran). Ici on ENCODE, on ne
-//   comprime pas : linearisation, blanc de reference en nits (BT.2408 : 203), primaires
+// u_out_mode = 1 : hdr-display-output, HDR10 (BT.2020, PQ, 10 bits). Le tampon UI porte
+//   l'encodage d'affichage du jeu (celui de la PS2, ~gamma 2,2), avec des valeurs au-dessus de
+//   1,0 laissees par le tone map (plafond = marge de l'ecran). Ici on ENCODE, on ne comprime
+//   pas : linearisation, blanc de reference `u_out_paper_white` en nits — LE BLANC SDR DU
+//   SYSTEME (HdrCapabilities.maxLuminance sur les API < 34, qui recomposent le PQ en SDR a cette
+//   echelle), jamais 203 nits : c'est ce qui rendait l'UI grise le 09/09 — primaires
 //   BT.709 -> BT.2020, OETF PQ (SMPTE ST 2084). Aucune epaule, aucun plafond : la seule
 //   compression de plage de la chaine reste tonemap.frag.
+// u_out_mode = 2 : hdr-display-output, scRGB LINEAIRE (RGBA16F, Android 14+). Contrat du
+//   compositeur : 1,0 = le blanc SDR courant de l'ecran, au-dessus = la marge accordee
+//   (setExtendedRangeBrightness). Primaires BT.709 inchangees, pas d'OETF : seulement la
+//   linearisation gamma 2,2 du tampon. `u_out_paper_white` vaut 1,0 ici.
 
 uniform sampler2D tex_T0;
 out vec4 color;
@@ -42,6 +48,9 @@ void main() {
                              0.0433, 0.0114, 0.8956);
     vec3 nits = to2020 * (lin * u_out_paper_white);
     color = vec4(pq_oetf(nits), 1.0);
+  } else if (u_out_mode == 2) {
+    vec3 v = base + color_add.rgb;
+    color = vec4(pow(max(v, vec3(0.0)), vec3(2.2)) * u_out_paper_white, 1.0);
   } else {
     color = vec4(base, 1.0) + color_add;
   }

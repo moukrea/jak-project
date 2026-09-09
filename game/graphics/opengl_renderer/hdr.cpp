@@ -469,6 +469,9 @@ bool tonemap_draw(Shader& shader,
   // ce qui precede) ; la marge de l'ecran quand la sortie HDR est ACTIVE.
   glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_ceiling"), hdr_output::tonemap_ceiling());
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  // hdr-display-output : sonde d'assombrissement (preuve seulement) — rejoue CE programme deux
+  // fois hors ecran (plafond 1,0 / plafond HDR) sur la meme scene ; restaure dst_fbo + viewport.
+  hdr_output::probe_tonemap(shader, dst_fbo, dst_w, dst_h);
   glUseProgram(saved_program);
   glBindVertexArray(saved_vao);
   glBindBuffer(GL_ARRAY_BUFFER, saved_array_buffer);

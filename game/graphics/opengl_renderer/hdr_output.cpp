@@ -6,11 +6,13 @@
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 #include "common/versions/versions.h"
 
+#include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/system/autoport_proof.h"
 
@@ -21,16 +23,22 @@
 namespace hdr_output {
 namespace {
 
-// Valeurs EGL brutes (EGL_KHR_gl_colorspace / EGL_EXT_gl_colorspace_bt2020_pq), reprises ici
-// pour que la publication ne depende pas des en-tetes EGL sur le bureau.
+// Valeurs EGL brutes (EGL_KHR_gl_colorspace / EGL_EXT_gl_colorspace_bt2020_pq /
+// EGL_EXT_gl_colorspace_scrgb_linear), reprises ici pour que la publication ne depende pas des
+// en-tetes EGL sur le bureau.
 constexpr int kEglColorspaceSrgb = 0x3089;
 constexpr int kEglColorspaceLinear = 0x308A;
 constexpr int kEglColorspaceBt2020Pq = 0x3340;
+constexpr int kEglColorspaceScrgbLinear = 0x3350;
 
-// ITU-R BT.2408 : blanc de reference des graphismes SDR dans un signal HDR = 203 cd/m2.
-constexpr float kDefaultPaperWhiteNits = 203.f;
-// Quand l'ecran n'annonce pas sa luminance maximale : le plafond HDR10 courant.
-constexpr float kDefaultMaxNits = 1000.f;
+// Quand l'ecran n'annonce pas sa luminance maximale : la valeur par defaut du compositeur
+// Android (SurfaceFlinger, `sDefaultMaxLumiance`), pas le plafond HDR10 de 1000 nits.
+constexpr float kDefaultMaxNits = 500.f;
+// scRGB : la marge DEMANDEE au systeme (SurfaceControl.setExtendedRangeBrightness). Le
+// systeme accorde ce qu'il peut et le dit par Display.getHdrSdrRatio ; le plafond du tone map
+// suit ce qui est LU, jamais ce qui est demande.
+constexpr float kDesiredHeadroom = 4.f;
+constexpr float kHeadroomMax = 8.f;
 
 // ------------------------------------------------------------------------------ capacites --
 struct SysCaps {
@@ -40,11 +48,14 @@ struct SysCaps {
   int max_avg = 0;
   int min_lum_x10000 = 0;
   bool wide_gamut = false;
+  int sdk_int = 0;
+  bool ratio_available = false;
 };
 std::mutex s_mu;  // garde s_sys, s_plat, s_caps_text (ecrits depuis Java/EE, lus sur GL)
 SysCaps s_sys;
 PlatformCaps s_plat;
 std::string s_caps_text = "sys:unreported;platform:unprobed";
+std::atomic<int> s_ratio_x1000{1000};  // Display.getHdrSdrRatio x1000, 1000 = aucune marge
 
 void rebuild_caps_text_locked() {
   std::string t;
@@ -74,6 +85,8 @@ void rebuild_caps_text_locked() {
   t += ";maxavg=" + std::to_string(s_sys.max_avg);
   t += ";minlum_x10000=" + std::to_string(s_sys.min_lum_x10000);
   t += std::string(";wcg=") + (s_sys.wide_gamut ? "1" : "0");
+  t += ";sdk=" + std::to_string(s_sys.sdk_int);
+  t += std::string(";ratio_api=") + (s_sys.ratio_available ? "1" : "0");
   t += ";egl:";
   if (!s_plat.probed) {
     t += "unprobed";
@@ -95,6 +108,7 @@ void rebuild_caps_text_locked() {
     t += e.empty() ? "none" : e;
   }
   t += std::string(";cfg10=") + (s_plat.config_10bit ? "1" : "0");
+  t += std::string(";cfg16f=") + (s_plat.config_fp16 ? "1" : "0");
   t += std::string(";sdl_display_hdr=") + (s_plat.sdl_display_hdr ? "1" : "0");
   t += std::string(";sdl_window_hdr=") + (s_plat.sdl_window_hdr ? "1" : "0");
   t += ";sdl_headroom_x100=" + std::to_string(s_plat.sdl_headroom_x100);
@@ -106,11 +120,19 @@ uint32_t modes_locked() {
   // presentation sait creer une surface dans cet espace. Bureau : SDL peut annoncer un ecran
   // HDR, mais aucune presentation OpenGL en HDR n'existe par SDL3 — donc aucun mode, et la
   // capacite est publiee telle quelle pour que ce soit lisible, pas suppose.
+  // UN SEUL mode est retenu : scRGB des que l'API le contractualise (Android 14+, API 34 :
+  // 1,0 = blanc SDR, marge = Display.getHdrSdrRatio), sinon HDR10 PQ.
   if (!s_sys.reported || !s_plat.probed) {
     return kModeNone;
   }
   const bool sys_hdr = (s_sys.types & (kSysHdr10 | kSysHlg | kSysHdr10Plus | kSysDolbyVision)) != 0;
-  if (sys_hdr && s_plat.egl_bt2020_pq && s_plat.config_10bit) {
+  if (!sys_hdr) {
+    return kModeNone;
+  }
+  if (s_sys.sdk_int >= 34 && s_plat.egl_scrgb_linear && s_plat.egl_fp16 && s_plat.config_fp16) {
+    return kModeScrgbLinear;
+  }
+  if (s_plat.egl_bt2020_pq && s_plat.config_10bit) {
     return kModeHdr10Pq;
   }
   return kModeNone;
@@ -123,9 +145,11 @@ std::atomic<bool> s_active{false};    // la surface est HDR
 std::atomic<int> s_override{-2};      // debug.opengoal.hdr.out / OG_HDR_OUT : -2 pas lu, -1 absent
 Switcher s_switcher;
 SurfaceState s_surface;               // fil GL
-int s_last_want = -1;                 // fil GL : derniere demande tentee
+int s_last_want = -1;                 // fil GL : derniere demande tentee (mode)
 uint64_t s_switch_ok = 0, s_switch_fail = 0;
-float s_paper_white = 0.f;            // 0 = pas encore lu
+float s_white_override = -1.f;        // PQ : debug.opengoal.hdr.out.white (nits), -1 = pas lu, 0 = absent
+bool s_headroom_pending = false;      // fil GL : une demande de marge a transmettre au systeme
+float s_headroom_request = 1.f;
 
 int read_int_knob(const char* prop, const char* env, int absent) {
 #ifdef __ANDROID__
@@ -169,9 +193,33 @@ bool effective_setting() {
   return s_setting.load() != 0;
 }
 
+// La sortie HDR est une SOUS-OPTION de l'eclairage Recharged : sans lui, pas de tone map, donc
+// rien a laisser monter. Compose master + eclairage par l'unique helper de gfx.h.
+bool lighting_gate() {
+  return Gfx::recharged_lighting_active();
+}
+
+float desired_headroom() {
+  const int k = read_int_knob("debug.opengoal.hdr.out.headroom", "OG_HDR_OUT_HEADROOM", 0);
+  float d = (k >= 100 && k <= 800) ? (float)k / 100.f : kDesiredHeadroom;
+  return d;
+}
+
+float ratio_linear() {
+  float r = (float)s_ratio_x1000.load() / 1000.f;
+  if (!(r >= 1.f)) {
+    r = 1.f;
+  }
+  if (r > kHeadroomMax) {
+    r = kHeadroomMax;
+  }
+  return r;
+}
+
 // ------------------------------------------------------------------------------- la preuve --
 // Trois phases, par image : 0 = etat charge, 1 = ON impose, 2 = OFF impose, 3 = termine.
 constexpr uint64_t kPhaseFrames = 150;
+constexpr uint64_t kProbeEvery = 5;
 struct PhaseStats {
   uint64_t frames = 0;
   uint64_t active_frames = 0;
@@ -182,6 +230,7 @@ struct PhaseStats {
   uint64_t ceiling_bad = 0;    // plafond du tone map different de l'attendu
   int last_red_bits = -1;
   int last_colorspace = -1;
+  uint32_t last_mode = 0;
 };
 uint64_t s_frames = 0;
 uint64_t s_forced_on_frames = 0;
@@ -200,12 +249,138 @@ float s_last_ceiling = 1.f;    // ce que tonemap_ceiling() a rendu pour cette im
 int s_visible_reported = -1;   // GOAL : -1 jamais, 0/1
 int s_loaded_value = -1;       // GOAL : -1 jamais, 0/1
 int s_loaded_source = -1;      // GOAL : 0 fichier, 1 auto-configuration
+int s_menu_parent = -1;        // GOAL : -1 jamais, 1 = sous RECHARGED LIGHTING, 0 = ailleurs
 int s_persisted = -3;          // relecture disque : -3 pas encore lue
 int s_defects = -1;
-int s_d[7] = {0, 0, 0, 0, 0, 0, 0};
+int s_d[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// Sonde de blanc UI (probe_present) : ce que le quad final ECRIT pour un blanc (1,1,1) du jeu,
+// dans le mode courant, et ce qu'il ecrirait en recopie SDR (u_out_mode = 0) pour le meme blanc
+// — la reference « ce que le SDR montre » inclut donc le reglage de luminosite du joueur.
+GLuint s_pp_fbo = 0, s_pp_tex = 0, s_pp_white = 0;
+int s_pp_state = 0;  // 0 pas cree, 1 pret, -1 indisponible
+uint64_t s_ui_samples = 0;
+double s_ui_white_sum = 0.0;   // PQ : nits ; scRGB : lineaire (1,0 = blanc SDR)
+double s_ui_white_min = 1e30;
+double s_ui_ref_sum = 0.0;     // valeur SDR du meme blanc, LINEAIRE (display^2,2)
+// Sonde d'assombrissement (probe_tonemap) : luminance lineaire des tons moyens de la scene,
+// tone-mappee au plafond 1,0 (le SDR) et au plafond HDR courant, sur la MEME image.
+GLuint s_tm_fbo[2] = {0, 0}, s_tm_tex[2] = {0, 0};
+int s_tm_state = 0;
+constexpr int kTmW = 32, kTmH = 32;
+uint64_t s_tm_samples = 0, s_tm_px = 0;
+double s_tm_sum_off = 0.0, s_tm_sum_on = 0.0;
 
 bool measuring() {
   return autoport_proof::feature_is(kItemId) && autoport_proof::armed_for(kItemId);
+}
+
+bool probe_window_open() {
+  // Les sondes ne tournent qu'en phase ON, une image sur kProbeEvery, hors transition.
+  return measuring() && !s_selftest_done && s_phase == 1 && s_skip_frames == 0 &&
+         s_active.load() && (s_frames % kProbeEvery) == 0;
+}
+
+float half_to_float(uint16_t h) {
+  const uint32_t sign = (uint32_t)(h >> 15) << 31;
+  uint32_t exp = (h >> 10) & 0x1f;
+  uint32_t man = h & 0x3ff;
+  uint32_t bits;
+  if (exp == 0) {
+    if (man == 0) {
+      bits = sign;
+    } else {
+      exp = 127 - 15 + 1;
+      while ((man & 0x400) == 0) {
+        man <<= 1;
+        exp--;
+      }
+      man &= 0x3ff;
+      bits = sign | (exp << 23) | (man << 13);
+    }
+  } else if (exp == 0x1f) {
+    bits = sign | 0x7f800000u | (man << 13);
+  } else {
+    bits = sign | ((exp + 127 - 15) << 23) | (man << 13);
+  }
+  float f;
+  std::memcpy(&f, &bits, sizeof(f));
+  return f;
+}
+
+// Relit un FBO flottant lie en lecture. Rend faux si l'implementation refuse.
+bool read_float_fbo(int w, int h, std::vector<float>& px) {
+  GLint read_fmt = 0, read_type = 0;
+  glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &read_fmt);
+  glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &read_type);
+  px.assign((size_t)w * h * 4, 0.f);
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  if (read_fmt == GL_RGBA && read_type == GL_HALF_FLOAT) {
+    std::vector<uint16_t> raw((size_t)w * h * 4);
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_HALF_FLOAT, raw.data());
+    if (glGetError() != GL_NO_ERROR) {
+      return false;
+    }
+    for (size_t i = 0; i < raw.size(); i++) {
+      px[i] = half_to_float(raw[i]);
+    }
+    return true;
+  }
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, px.data());
+  return glGetError() == GL_NO_ERROR;
+}
+
+bool make_float_fbo(GLuint* fbo, GLuint* tex, int w, int h, const float* fill) {
+  glGenFramebuffers(1, fbo);
+  glGenTextures(1, tex);
+  glBindTexture(GL_TEXTURE_2D, *tex);
+  std::vector<float> data;
+  if (fill) {
+    data.assign((size_t)w * h * 4, 0.f);
+    for (size_t i = 0; i < data.size(); i += 4) {
+      data[i] = fill[0];
+      data[i + 1] = fill[1];
+      data[i + 2] = fill[2];
+      data[i + 3] = fill[3];
+    }
+  }
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT,
+               fill ? data.data() : nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *tex, 0);
+  const GLenum st = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (st != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("[hdr-display-output] FBO de sonde indisponible : 0x{:x}", (unsigned)st);
+    return false;
+  }
+  return true;
+}
+
+float pq_eotf_nits(float v) {
+  // SMPTE ST 2084, inverse de l'OETF de post_processing.frag.
+  const double m1 = 0.1593017578125, m2 = 78.84375, c1 = 0.8359375, c2 = 18.8515625,
+               c3 = 18.6875;
+  double e = v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
+  double ep = std::pow(e, 1.0 / m2);
+  double num = ep - c1;
+  if (num < 0.0) {
+    num = 0.0;
+  }
+  double den = c2 - c3 * ep;
+  if (den <= 0.0) {
+    return 10000.f;
+  }
+  return (float)(std::pow(num / den, 1.0 / m1) * 10000.0);
+}
+
+double lum_linear(float r, float g, float b) {
+  auto lin = [](float x) { return std::pow((double)(x < 0.f ? 0.f : x), 2.2); };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
 void publish_all() {
@@ -214,26 +389,61 @@ void publish_all() {
   autoport_proof::publish("hdr_out_sys_reported", s_sys.reported ? 1 : 0);
   autoport_proof::publish("hdr_out_sys_types_mask", s_sys.types);
   autoport_proof::publish("hdr_out_platform_probed", s_plat.probed ? 1 : 0);
+  autoport_proof::publish("hdr_out_sdk_int", (uint64_t)(s_sys.sdk_int < 0 ? 0 : s_sys.sdk_int));
+  autoport_proof::publish("hdr_out_ratio_available", s_sys.ratio_available ? 1 : 0);
+  autoport_proof::publish("hdr_out_hdr_sdr_ratio_x1000", (uint64_t)s_ratio_x1000.load());
   const uint32_t modes = modes_locked();
   autoport_proof::publish("hdr_out_modes_available", modes);
   autoport_proof::publish_text("hdr_out_mode_retained", mode_name(modes));
   autoport_proof::publish("hdr_out_autoconfig_mode", modes ? 1 : 0);
   autoport_proof::publish("hdr_out_setting", s_setting.load() != 0 ? 1 : 0);
   autoport_proof::publish("hdr_out_effective", effective_setting() ? 1 : 0);
+  autoport_proof::publish("hdr_out_lighting_gate", lighting_gate() ? 1 : 0);
   autoport_proof::publish("hdr_out_active", s_active.load() ? 1 : 0);
   autoport_proof::publish("hdr_out_surface_red_bits", (uint64_t)(s_surface.red_bits < 0 ? 0 : s_surface.red_bits));
   autoport_proof::publish("hdr_out_surface_colorspace", (uint64_t)(s_surface.colorspace < 0 ? 0 : s_surface.colorspace));
+  autoport_proof::publish("hdr_out_surface_mode", (uint64_t)s_surface.mode);
   autoport_proof::publish("hdr_out_switch_ok", s_switch_ok);
   autoport_proof::publish("hdr_out_switch_fail", s_switch_fail);
   autoport_proof::publish("hdr_out_forced_on", s_forced_on_frames);
   autoport_proof::publish("hdr_out_frames", s_frames);
   autoport_proof::publish("hdr_out_hdr_frames", s_hits);
-  autoport_proof::publish("hdr_out_paper_white_nits", (uint64_t)std::lround(paper_white_nits()));
+  // Le blanc : ce que le systeme donne, ce que le quad final ecrit, et sa reference SDR.
+  const float sdr_white = sdr_white_nits();
+  autoport_proof::publish("hdr_out_sdr_white_nits", (uint64_t)std::lround(sdr_white));
+  autoport_proof::publish_text("hdr_out_sdr_white_source", sdr_white_source());
+  autoport_proof::publish("hdr_out_paper_white_nits",
+                          (uint64_t)std::lround(s_surface.mode == kModeHdr10Pq ? paper_white() : 0.f));
+  autoport_proof::publish("hdr_out_headroom_x100", (uint64_t)std::lround(headroom_linear() * 100.f));
   autoport_proof::publish("hdr_out_ceiling_x100", (uint64_t)std::lround(s_last_ceiling * 100.f));
   autoport_proof::publish("hdr_out_present_mode", (uint64_t)s_last_present_mode);
+  autoport_proof::publish("hdr_out_ui_white_samples", s_ui_samples);
+  const double ui_mean = s_ui_samples ? s_ui_white_sum / (double)s_ui_samples : 0.0;
+  const double ui_ref = s_ui_samples ? s_ui_ref_sum / (double)s_ui_samples : 0.0;
+  const bool pq = s_ph[1].last_mode == kModeHdr10Pq;
+  autoport_proof::publish("hdr_out_ui_white_nits", (uint64_t)std::lround(pq ? ui_mean : 0.0));
+  autoport_proof::publish("hdr_out_ui_white_min_nits",
+                          (uint64_t)std::lround(pq && s_ui_samples ? s_ui_white_min : 0.0));
+  autoport_proof::publish("hdr_out_ui_white_rel_x1000",
+                          (uint64_t)std::lround(pq ? (sdr_white > 0.f ? ui_mean / sdr_white * 1000.0 : 0.0)
+                                                   : ui_mean * 1000.0));
+  autoport_proof::publish("hdr_out_ui_white_ref_rel_x1000", (uint64_t)std::lround(ui_ref * 1000.0));
+  autoport_proof::publish("hdr_out_darkening_samples", s_tm_samples);
+  autoport_proof::publish("hdr_out_darkening_px", s_tm_px);
+  double dark_signed = 0.0;
+  if (s_tm_px && s_tm_sum_off > 0.0) {
+    dark_signed = 100.0 * (1.0 - s_tm_sum_on / s_tm_sum_off);
+  }
+  autoport_proof::publish("hdr_out_darkening_signed_x100",
+                          (uint64_t)(dark_signed < 0.0 ? 0 : std::lround(dark_signed * 100.0)));
+  autoport_proof::publish("hdr_out_brightening_signed_x100",
+                          (uint64_t)(dark_signed > 0.0 ? 0 : std::lround(-dark_signed * 100.0)));
+  autoport_proof::publish("hdr_out_darkening_pct",
+                          (uint64_t)(dark_signed < 0.0 ? 0 : std::lround(dark_signed)));
   autoport_proof::publish("hdr_out_option_visible", (uint64_t)(s_visible_reported < 0 ? 2 : s_visible_reported));
   autoport_proof::publish("hdr_out_setting_loaded", (uint64_t)(s_loaded_value < 0 ? 2 : s_loaded_value));
   autoport_proof::publish("hdr_out_setting_source", (uint64_t)(s_loaded_source < 0 ? 2 : s_loaded_source));
+  autoport_proof::publish("hdr_out_menu_parent", (uint64_t)(s_menu_parent < 0 ? 2 : s_menu_parent));
   autoport_proof::publish("hdr_out_persisted", (uint64_t)(s_persisted + 3));  // 0 pas lu, 1 fichier absent, 2 cle absente, 3 = #f, 4 = #t
   autoport_proof::publish("hdr_out_selftest_phase", (uint64_t)s_phase);
   autoport_proof::publish("hdr_out_selftest_done", s_selftest_done ? 1 : 0);
@@ -249,11 +459,12 @@ void publish_all() {
     autoport_proof::publish((k + "ceiling_bad").c_str(), s_ph[p].ceiling_bad);
     autoport_proof::publish((k + "red_bits").c_str(), (uint64_t)(s_ph[p].last_red_bits < 0 ? 0 : s_ph[p].last_red_bits));
     autoport_proof::publish((k + "colorspace").c_str(), (uint64_t)(s_ph[p].last_colorspace < 0 ? 0 : s_ph[p].last_colorspace));
+    autoport_proof::publish((k + "mode").c_str(), (uint64_t)s_ph[p].last_mode);
   }
   // Les phases ON et OFF ne comptent leurs images bonnes qu'a partir de l'application effective
   // de la bascule : `tonemaps_applied` est le recensement de la DERNIERE image ON.
   autoport_proof::publish("hdr_out_tonemaps_applied", s_phase >= 2 && s_ph[1].frames ? (s_ph[1].sites_bad ? 0 : 1) : 0);
-  // La grandeur de porte : somme de six verdicts, chacun publie a cote. « Pas mesurable » = 1.
+  // La grandeur de porte : somme de neuf verdicts, chacun publie a cote. « Pas mesurable » = 1.
   if (s_defects >= 0) {
     autoport_proof::publish("hdr_out_defect_1_caps_detected", (uint64_t)s_d[1]);
     autoport_proof::publish("hdr_out_defect_2_option_visibility", (uint64_t)s_d[2]);
@@ -261,9 +472,12 @@ void publish_all() {
     autoport_proof::publish("hdr_out_defect_4_on_single_compression", (uint64_t)s_d[4]);
     autoport_proof::publish("hdr_out_defect_5_off_identical", (uint64_t)s_d[5]);
     autoport_proof::publish("hdr_out_defect_6_autoconfig_persist", (uint64_t)s_d[6]);
+    autoport_proof::publish("hdr_out_defect_7_menu_parent", (uint64_t)s_d[7]);
+    autoport_proof::publish("hdr_out_defect_8_ui_white", (uint64_t)s_d[8]);
+    autoport_proof::publish("hdr_out_defect_9_darkening", (uint64_t)s_d[9]);
     autoport_proof::publish("hdr_out_defects", (uint64_t)s_defects);
   } else {
-    autoport_proof::publish("hdr_out_defects", 6);  // auto-test pas au bout : ROUGE, jamais muet
+    autoport_proof::publish("hdr_out_defects", 9);  // auto-test pas au bout : ROUGE, jamais muet
   }
 }
 
@@ -272,6 +486,8 @@ void compute_verdicts() {
   const uint32_t modes = modes_locked();
   const bool sys_ok = s_sys.reported, plat_ok = s_plat.probed;
   lk.unlock();
+  const int want_cs = modes == kModeScrgbLinear ? kEglColorspaceScrgbLinear : kEglColorspaceBt2020Pq;
+  const int want_bits = modes == kModeScrgbLinear ? 16 : 10;
   // 1 : capacite DETECTEE et publiee, par les deux couches.
   s_d[1] = (sys_ok && plat_ok) ? 0 : 1;
   // 2 : la rangee n'apparait que si un mode est annonce — GOAL a rapporte sa decision.
@@ -286,11 +502,12 @@ void compute_verdicts() {
     sw_ok = sw_ok && on.frames > 0 && on.active_frames == on.frames;
   }
   s_d[3] = sw_ok ? 0 : 1;
-  // 4 : ON => surface dans l'espace annonce (PQ, 10 bits), UI flottant, quad final en PQ, et
-  //     UNE seule compression de plage par image. Sans ecran HDR, rien de ceci n'est mesurable.
-  const bool on_ok = modes != 0 && on.frames > 0 && on.last_colorspace == kEglColorspaceBt2020Pq &&
-                     on.last_red_bits == 10 && on.sites_bad == 0 && on.ui_bad == 0 &&
-                     on.present_bad == 0 && on.ceiling_bad == 0;
+  // 4 : ON => surface dans l'espace du mode retenu (PQ 10 bits, ou scRGB 16 bits), UI flottant,
+  //     quad final qui encode, et UNE seule compression de plage par image. Sans ecran HDR, rien
+  //     de ceci n'est mesurable.
+  const bool on_ok = modes != 0 && on.frames > 0 && on.last_colorspace == want_cs &&
+                     on.last_red_bits == want_bits && on.last_mode == modes && on.sites_bad == 0 &&
+                     on.ui_bad == 0 && on.present_bad == 0 && on.ceiling_bad == 0;
   s_d[4] = on_ok ? 0 : 1;
   // 5 : OFF => identique a lighting-hdr : UI 8 bits, plafond 1,0, quad recopie, surface 8 bits
   //     lineaire.
@@ -304,9 +521,42 @@ void compute_verdicts() {
   s_persisted = read_persisted_setting();
   const int mem = s_setting.load() != 0 ? 1 : 0;
   s_d[6] = (s_loaded_value >= 0 && s_loaded_source >= 0 && s_persisted == mem) ? 0 : 1;
-  s_defects = s_d[1] + s_d[2] + s_d[3] + s_d[4] + s_d[5] + s_d[6];
-  lg::info("[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{}) persisted={} mem={}",
-           s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_persisted, mem);
+  // 7 : la rangee vit sous Options > Recharged > Recharged Lighting (GOAL l'a trouvee la, en
+  //     scrutant ses tableaux, pas en le supposant).
+  s_d[7] = (s_menu_parent == 1) ? 0 : 1;
+  // 8 : le blanc du jeu sort AU blanc SDR du systeme, jamais en dessous. Mesure : un blanc
+  //     (1,1,1) rejoue par le vrai quad final ; PQ : decode en nits contre sdr_white_nits x la
+  //     valeur SDR lineaire du meme blanc ; scRGB : valeur lineaire contre cette meme reference
+  //     (1,0 = blanc SDR par contrat). Tolerance 1 %.
+  bool white_ok = false;
+  if (s_ui_samples > 0) {
+    const double ui_mean = s_ui_white_sum / (double)s_ui_samples;
+    const double ref = s_ui_ref_sum / (double)s_ui_samples;  // lineaire, 1,0 = blanc SDR
+    if (on.last_mode == kModeHdr10Pq) {
+      const double expect = ref * (double)sdr_white_nits();
+      white_ok = expect > 0.0 && ui_mean >= 0.99 * expect && s_ui_white_min >= 0.98 * expect;
+    } else if (on.last_mode == kModeScrgbLinear) {
+      white_ok = ref > 0.0 && ui_mean >= 0.99 * ref && s_ui_white_min >= 0.98 * ref;
+    }
+  }
+  s_d[8] = white_ok ? 0 : 1;
+  // 9 : les tons moyens de la scene ne baissent pas par rapport a la sortie SDR (<= 5 %), sur
+  //     la MEME image tone-mappee deux fois par le vrai programme.
+  bool dark_ok = false;
+  if (s_tm_px > 0 && s_tm_sum_off > 0.0) {
+    const double dark = 100.0 * (1.0 - s_tm_sum_on / s_tm_sum_off);
+    dark_ok = dark <= 5.0;
+  }
+  s_d[9] = dark_ok ? 0 : 1;
+  s_defects = 0;
+  for (int i = 1; i <= 9; i++) {
+    s_defects += s_d[i];
+  }
+  lg::info(
+      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{}) persisted={} "
+      "mem={} ui_samples={} tm_px={}",
+      s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_d[7], s_d[8], s_d[9], s_persisted,
+      mem, s_ui_samples, s_tm_px);
 }
 
 void selftest_step() {
@@ -354,6 +604,23 @@ void set_system_caps(uint32_t sys_types_mask,
   lg::info("[hdr-display-output] capacites systeme : {}", s_caps_text);
 }
 
+void set_platform_info(int sdk_int, bool hdr_sdr_ratio_available) {
+  std::lock_guard<std::mutex> lk(s_mu);
+  s_sys.sdk_int = sdk_int;
+  s_sys.ratio_available = hdr_sdr_ratio_available;
+  rebuild_caps_text_locked();
+  lg::info("[hdr-display-output] plateforme : sdk={} ratio_api={} -> modes={}", sdk_int,
+           hdr_sdr_ratio_available ? 1 : 0, modes_locked());
+}
+
+void set_hdr_sdr_ratio(float ratio) {
+  const int v = (ratio >= 1.f && ratio == ratio) ? (int)std::lround(ratio * 1000.f) : 1000;
+  const int before = s_ratio_x1000.exchange(v);
+  if (before != v) {
+    lg::info("[hdr-display-output] ratio HDR/SDR du systeme : {:.3f}", v / 1000.f);
+  }
+}
+
 void set_platform_caps(const PlatformCaps& caps) {
   std::lock_guard<std::mutex> lk(s_mu);
   s_plat = caps;
@@ -369,6 +636,9 @@ uint32_t modes_available() {
 }
 
 const char* mode_name(uint32_t mode) {
+  if (mode & kModeScrgbLinear) {
+    return "scrgb_linear";
+  }
   return (mode & kModeHdr10Pq) ? "hdr10_pq" : "none";
 }
 
@@ -407,13 +677,14 @@ void note_surface_state(const SurfaceState& st) {
 
 void apply_pending_on_gl_thread() {
   const uint32_t modes = modes_available();
-  const bool want = effective_setting() && modes != 0 && autoport_proof::armed_for(kItemId);
-  const int want_i = want ? 1 : 0;
-  if (want_i == s_last_want) {
+  const bool gate = effective_setting() && modes != 0 && autoport_proof::armed_for(kItemId) &&
+                    lighting_gate();
+  const uint32_t want = gate ? modes : kModeNone;
+  if ((int)want == s_last_want) {
     return;  // rien de nouveau : on ne re-tente pas une bascule refusee a chaque image
   }
-  s_last_want = want_i;
-  if (want == s_active.load()) {
+  s_last_want = (int)want;
+  if (want == s_surface.mode && (want != kModeNone) == s_active.load()) {
     return;
   }
   if (!s_switcher) {
@@ -426,15 +697,31 @@ void apply_pending_on_gl_thread() {
   const bool ok = s_switcher(want, &st);
   s_surface = st;
   s_active.store(st.hdr);
-  if (ok && st.hdr == want) {
+  if (ok && st.mode == want) {
     s_switch_ok++;
-    lg::info("[hdr-display-output] surface {} : red_bits={} colorspace=0x{:x}",
-             want ? "HDR10/PQ" : "SDR", st.red_bits, (unsigned)st.colorspace);
+    // scRGB : demander la marge au systeme ; retour SDR : la rendre (le SurfaceControl survit a
+    // la recreation de la surface EGL, donc l'accord aussi).
+    s_headroom_request = (want == kModeScrgbLinear) ? desired_headroom() : 1.f;
+    s_headroom_pending = true;
+    lg::info("[hdr-display-output] surface {} : red_bits={} colorspace=0x{:x} mode={}",
+             want == kModeScrgbLinear ? "scRGB/16F" : want == kModeHdr10Pq ? "HDR10/PQ" : "SDR",
+             st.red_bits, (unsigned)st.colorspace, st.mode);
   } else {
     s_switch_fail++;
-    lg::error("[hdr-display-output] bascule vers {} REFUSEE : red_bits={} colorspace=0x{:x}",
-              want ? "HDR" : "SDR", st.red_bits, (unsigned)st.colorspace);
+    lg::error("[hdr-display-output] bascule vers mode {} REFUSEE : red_bits={} colorspace=0x{:x} mode={}",
+              want, st.red_bits, (unsigned)st.colorspace, st.mode);
   }
+}
+
+bool take_headroom_request(float* desired) {
+  if (!s_headroom_pending) {
+    return false;
+  }
+  s_headroom_pending = false;
+  if (desired) {
+    *desired = s_headroom_request;
+  }
+  return true;
 }
 
 // ------------------------------------------------------------------------ ce que le rendu lit --
@@ -444,30 +731,73 @@ GLenum ui_buffer_format() {
 }
 
 GLenum window_target_format() {
-  return s_active.load() ? GL_RGB10_A2 : GL_RGBA8;
+  if (!s_active.load()) {
+    return GL_RGBA8;
+  }
+  return s_surface.mode == kModeScrgbLinear ? GL_RGBA16F : GL_RGB10_A2;
 }
 
-float paper_white_nits() {
-  if (s_paper_white <= 0.f) {
-    const int v = read_int_knob("debug.opengoal.hdr.out.white", "OG_HDR_OUT_WHITE", 0);
-    s_paper_white = (v >= 80 && v <= 1000) ? (float)v : kDefaultPaperWhiteNits;
+float sdr_white_nits() {
+  if (s_surface.mode == kModeScrgbLinear) {
+    return 0.f;  // contrat relatif : 1,0 = blanc SDR, pas un nits
   }
-  return s_paper_white;
+  if (s_white_override < 0.f) {
+    const int v = read_int_knob("debug.opengoal.hdr.out.white", "OG_HDR_OUT_WHITE", 0);
+    s_white_override = (v >= 80 && v <= 10000) ? (float)v : 0.f;
+    if (s_white_override > 0.f) {
+      lg::warn("[hdr-display-output] blanc SDR PQ force par le harnais : {} nits", s_white_override);
+    }
+  }
+  if (s_white_override > 0.f) {
+    return s_white_override;
+  }
+  int max_lum = 0;
+  {
+    std::lock_guard<std::mutex> lk(s_mu);
+    max_lum = s_sys.max_lum;
+  }
+  return max_lum > 0 ? (float)max_lum : kDefaultMaxNits;
+}
+
+const char* sdr_white_source() {
+  if (s_surface.mode == kModeScrgbLinear) {
+    return "scrgb:1.0=sdr_white(contract)";
+  }
+  if (s_white_override > 0.f) {
+    return "pq:override_knob";
+  }
+  int max_lum = 0;
+  {
+    std::lock_guard<std::mutex> lk(s_mu);
+    max_lum = s_sys.max_lum;
+  }
+  return max_lum > 0 ? "pq:HdrCapabilities.maxLuminance" : "pq:compositor_default_500";
+}
+
+float paper_white() {
+  if (s_surface.mode == kModeHdr10Pq && s_active.load()) {
+    return sdr_white_nits();
+  }
+  return 1.f;
+}
+
+float headroom_linear() {
+  if (!s_active.load()) {
+    return 1.f;
+  }
+  if (s_surface.mode == kModeScrgbLinear) {
+    return ratio_linear();
+  }
+  // PQ (API < 34) : le compositeur recompose en SDR a l'echelle de maxLuminance ; le blanc SDR
+  // EST ce maximum, il n'y a aucune marge au-dessus (mesure Redmi du 09/09, voir l'en-tete).
+  return 1.f;
 }
 
 float tonemap_ceiling() {
   float c = 1.f;
-  if (s_active.load()) {
-    int max_lum = 0;
-    {
-      std::lock_guard<std::mutex> lk(s_mu);
-      max_lum = s_sys.max_lum;
-    }
-    const float nits = max_lum > 0 ? (float)max_lum : kDefaultMaxNits;
-    c = nits / paper_white_nits();
-    if (c < 1.f) {
-      c = 1.f;
-    }
+  const float h = headroom_linear();
+  if (h > 1.f) {
+    c = std::pow(h, 1.f / 2.2f);  // marge lineaire -> espace d'affichage du tampon
   }
   s_last_ceiling = c;
   return c;
@@ -480,12 +810,141 @@ void push_present_uniforms(Shader& shader) {
     std::lock_guard<std::mutex> lk(s_mu);
     max_lum = s_sys.max_lum;
   }
-  s_last_present_mode = on ? 1 : 0;
+  s_last_present_mode = on ? (s_surface.mode == kModeScrgbLinear ? 2 : 1) : 0;
   glUniform1i(glGetUniformLocation(shader.id(), "u_out_mode"), s_last_present_mode);
-  glUniform1f(glGetUniformLocation(shader.id(), "u_out_paper_white"), paper_white_nits());
+  glUniform1f(glGetUniformLocation(shader.id(), "u_out_paper_white"), paper_white());
   glUniform1f(glGetUniformLocation(shader.id(), "u_out_max_nits"),
               max_lum > 0 ? (float)max_lum : kDefaultMaxNits);
 }
+
+// ------------------------------------------------------------------------------- sondes --
+
+void probe_present(Shader& shader) {
+  if (!probe_window_open() || s_pp_state < 0) {
+    return;
+  }
+  if (s_pp_state == 0) {
+    const float white[4] = {1.f, 1.f, 1.f, 1.f};
+    GLuint wfbo = 0;
+    const bool a = make_float_fbo(&wfbo, &s_pp_white, 1, 1, white);
+    glDeleteFramebuffers(1, &wfbo);  // le texel blanc ne sert que de SOURCE
+    const bool b = a && make_float_fbo(&s_pp_fbo, &s_pp_tex, 4, 4, nullptr);
+    s_pp_state = (a && b) ? 1 : -1;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (s_pp_state < 0) {
+      return;
+    }
+  }
+  GLint vp[4] = {0, 0, 0, 0};
+  GLint saved_tex = 0;
+  glGetIntegerv(GL_VIEWPORT, vp);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &saved_tex);
+  const GLint loc_mode = glGetUniformLocation(shader.id(), "u_out_mode");
+  glBindFramebuffer(GL_FRAMEBUFFER, s_pp_fbo);
+  glViewport(0, 0, 4, 4);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, s_pp_white);
+  std::vector<float> px;
+  // 1 : le mode courant (PQ ou scRGB), tel que pousse pour cette image.
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  const bool ok1 = read_float_fbo(4, 4, px);
+  const float r1 = px.size() >= 3 ? px[0] : 0.f, g1 = px.size() >= 3 ? px[1] : 0.f,
+              b1 = px.size() >= 3 ? px[2] : 0.f;
+  // 2 : la recopie SDR (u_out_mode = 0) du MEME blanc : la reference « ce que le SDR montre »,
+  //     luminosite du joueur comprise.
+  glUniform1i(loc_mode, 0);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  const bool ok2 = read_float_fbo(4, 4, px);
+  const float rr = px.size() >= 3 ? px[0] : 0.f, rg = px.size() >= 3 ? px[1] : 0.f,
+              rb = px.size() >= 3 ? px[2] : 0.f;
+  glUniform1i(loc_mode, s_last_present_mode);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glViewport(vp[0], vp[1], vp[2], vp[3]);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)saved_tex);
+  if (!ok1 || !ok2) {
+    lg::error("[hdr-display-output] sonde de blanc UI : relecture refusee");
+    s_pp_state = -1;
+    return;
+  }
+  double measured = 0.0;
+  if (s_surface.mode == kModeHdr10Pq) {
+    // Blanc D65 : les trois canaux PQ sont egaux (la matrice 709->2020 conserve le blanc) ; on
+    // prend le plus faible pour ne jamais flatter la mesure.
+    const float m = std::fmin(r1, std::fmin(g1, b1));
+    measured = pq_eotf_nits(m);
+  } else {
+    measured = std::fmin(r1, std::fmin(g1, b1));
+  }
+  const double ref_lin = std::pow((double)std::fmax(0.f, std::fmin(rr, std::fmin(rg, rb))), 2.2);
+  s_ui_samples++;
+  s_ui_white_sum += measured;
+  s_ui_ref_sum += ref_lin;
+  if (measured < s_ui_white_min) {
+    s_ui_white_min = measured;
+  }
+  if (s_ui_samples == 1 || (s_ui_samples % 10) == 0) {
+    lg::info("[hdr-display-output] sonde blanc UI #{} : mode={} mesure={:.3f} ref_sdr_lin={:.3f} sdr_white={:.0f}",
+             s_ui_samples, s_surface.mode, measured, ref_lin, sdr_white_nits());
+  }
+}
+
+void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
+  if (!probe_window_open() || s_tm_state < 0) {
+    return;
+  }
+  if (s_tm_state == 0) {
+    const bool a = make_float_fbo(&s_tm_fbo[0], &s_tm_tex[0], kTmW, kTmH, nullptr);
+    const bool b = a && make_float_fbo(&s_tm_fbo[1], &s_tm_tex[1], kTmW, kTmH, nullptr);
+    s_tm_state = (a && b) ? 1 : -1;
+    glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+    glViewport(0, 0, dst_w, dst_h);
+    if (s_tm_state < 0) {
+      return;
+    }
+  }
+  const GLint loc = glGetUniformLocation(shader.id(), "u_hdr_ceiling");
+  std::vector<float> off, on;
+  bool ok = true;
+  for (int i = 0; i < 2 && ok; i++) {
+    glUniform1f(loc, i == 0 ? 1.f : s_last_ceiling);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_tm_fbo[i]);
+    glViewport(0, 0, kTmW, kTmH);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ok = read_float_fbo(kTmW, kTmH, i == 0 ? off : on);
+  }
+  glUniform1f(loc, s_last_ceiling);
+  glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+  glViewport(0, 0, dst_w, dst_h);
+  if (!ok) {
+    lg::error("[hdr-display-output] sonde d'assombrissement : relecture refusee");
+    s_tm_state = -1;
+    return;
+  }
+  uint64_t px = 0;
+  double sum_off = 0.0, sum_on = 0.0;
+  for (size_t i = 0; i + 3 < off.size() && i + 3 < on.size(); i += 4) {
+    const float mx = std::fmax(off[i], std::fmax(off[i + 1], off[i + 2]));
+    if (!(mx == mx) || mx < 0.05f || mx > 0.85f) {
+      continue;  // tons moyens seulement : ni le noir ni l'epaule
+    }
+    if (!std::isfinite(on[i]) || !std::isfinite(on[i + 1]) || !std::isfinite(on[i + 2])) {
+      continue;
+    }
+    px++;
+    sum_off += lum_linear(off[i], off[i + 1], off[i + 2]);
+    sum_on += lum_linear(on[i], on[i + 1], on[i + 2]);
+  }
+  s_tm_samples++;
+  s_tm_px += px;
+  s_tm_sum_off += sum_off;
+  s_tm_sum_on += sum_on;
+  if (s_tm_samples == 1 || (s_tm_samples % 10) == 0) {
+    lg::info("[hdr-display-output] sonde tons moyens #{} : px={} off={:.4f} on={:.4f} plafond={:.3f}",
+             s_tm_samples, px, sum_off, sum_on, s_last_ceiling);
+  }
+}
+
+// ------------------------------------------------------------------------------ fin d'image --
 
 void frame_end(uint64_t sites, GLenum ui_fmt) {
   const bool on = s_active.load();
@@ -513,13 +972,16 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
     ph.surface_hdr_frames += s_surface.hdr ? 1 : 0;
     ph.last_red_bits = s_surface.red_bits;
     ph.last_colorspace = s_surface.colorspace;
+    ph.last_mode = s_surface.mode;
     const bool expect_on = (s_phase == 1);
     const bool expect_off = (s_phase == 2);
     if (expect_on) {
       ph.sites_bad += (sites == 1) ? 0 : 1;
       ph.ui_bad += (ui_fmt == GL_RGBA16F) ? 0 : 1;
-      ph.present_bad += (s_last_present_mode == 1) ? 0 : 1;
-      ph.ceiling_bad += (s_last_ceiling > 1.f) ? 0 : 1;
+      ph.present_bad += (s_last_present_mode != 0) ? 0 : 1;
+      // Le plafond : > 1,0 quand une marge existe, exactement 1,0 sinon (PQ sans marge).
+      const float want_ceiling = headroom_linear() > 1.f ? std::pow(headroom_linear(), 1.f / 2.2f) : 1.f;
+      ph.ceiling_bad += (std::fabs(s_last_ceiling - want_ceiling) < 1e-3f) ? 0 : 1;
     } else if (expect_off) {
       ph.ui_bad += (ui_fmt == GL_RGBA8) ? 0 : 1;
       ph.present_bad += (s_last_present_mode == 0) ? 0 : 1;
@@ -545,6 +1007,12 @@ void note_setting_loaded(int value, int source) {
   s_loaded_source = source ? 1 : 0;
   lg::info("[hdr-display-output] GOAL : reglage {} ({})", value ? "ON" : "OFF",
            source ? "auto-configuration" : "settings.ini");
+}
+
+void note_menu_parent(int parent) {
+  s_menu_parent = parent ? 1 : 0;
+  lg::info("[hdr-display-output] GOAL : rangee HDR Output {}",
+           parent ? "sous RECHARGED > RECHARGED LIGHTING" : "HORS du bloc RECHARGED LIGHTING");
 }
 
 int read_persisted_setting() {
