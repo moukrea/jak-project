@@ -1,3 +1,6 @@
+# La seule verite du travail. Une feature = un item.
+# Ecrit par lib/backlog.py (atomique) ; genere a l'origine par tools/migrate_backlog.py.
+# owner_feedback : les mots de l'owner, dates, jamais reformules.
 version: 1
 items:
 - id: honor-boot-crash
@@ -23,21 +26,13 @@ items:
   deliverable: Le jeu survit au moins 600 images apres le demarrage du rendu, sur le Redmi ET sur l'appareil
     de l'owner. Le moteur emet `boot_crash_frames_survived`. Le correctif doit expliquer POURQUOI le mutex
     du loader etait invalide, pas seulement le rendre non nul.
-  known_cause: "MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans\
-    \ reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour\
-    \ (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge,\
-    \ InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre.\
-    \ Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).\nPILE RESOLUE sur le libgk.so local\
-    \ :\n  TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV\nLe\
-    \ verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) :\
-    \ c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou\
-    \ le rendu attaque le niveau `title`.\nAUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive\
-    \ boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default.\
-    \ Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.\nCONTEXTE : l'owner venait\
-    \ de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A\
-    \ verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une\
-    \ regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120\
-    \ Hz)."
+  known_cause: |-
+    MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge, InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre. Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).
+    PILE RESOLUE sur le libgk.so local :
+      TFragment::setup_for_level  ->  unique_lock<mutex>  ->  std::mutex::lock()  -> SIGSEGV
+    Le verrou est celui pris dans `render_state->loader->get_tfrag3_level(level)` (TFragment.cpp:559) : c'est l'OBJET MUTEX qui est invalide, donc `render_state->loader` est nul ou detruit au moment ou le rendu attaque le niveau `title`.
+    AUTRE FAIT : la garde anti-boucle a deja tire — « 2 consecutive boots died before gameplay », elle a remis pbr-displacement a Off et pbr-test-preset a default. Le plantage PERSISTE apres ce reset : ce n'est donc pas un reglage PBR.
+    CONTEXTE : l'owner venait de supprimer ses assets pour installer ceux de la derniere release et de mettre l'APK a jour. A verifier en premier : le meme APK + les memes assets plantent-ils sur le Redmi ? Si oui c'est une regression pure ; si non, chercher ce que le Honor fait de different (Snapdragon 8 Elite, 60-120 Hz).
   out_of_scope: 'Ne pas se contenter d''un garde-fou contre le pointeur nul : nommer la cause.'
   notes: Cree par le superviseur 2026-09-05 apres diagnostic direct sur l'appareil de l'owner, branche
     en USB a sa demande.
@@ -119,21 +114,15 @@ items:
     porte les chiffres : 6 cycles sur la scene du maire, mayor-lod0 210 images cause=modele-absent, sidekick-lod0
     390 images cause=soumis-mais-non-dessine. | budget porte a 8 essais le 2026-09-06 : les essais brules
     l''ont ete faute d''appareil, pas faute d''idees.'
-  known_cause: "LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05\
-    \ : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session\
-    \ de 14h44).\nSCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes\
-    \ DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en\
-    \ visait qu'un :\n  * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas\
-    \ la au moment de dessiner)\n  * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine\
-    \ (soumis au rendu, rien ne sort)\n  * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter\n\
-    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent\
-    \ 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le\
-    \ 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.\nDaxter recidive : 6 episodes longs a\
-    \ lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible.\
-    \ warp-gate-switch-lod0 : 4 episodes.\nNPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0\
-    \ enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des\
-    \ mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT\
-    \ et pourquoi une soumission ne DESSINE pas."
+  known_cause: |-
+    LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05 : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session de 14h44).
+    SCENE DU MAIRE : NPCSCENE cycles=6 sur 3564 images, plateforme=honor. Deux mecanismes DISTINCTS, ce qui explique pourquoi quatre correctifs successifs n'ont jamais suffi — chacun n'en visait qu'un :
+      * mayor-lod0 : 210 images / 3825 ms, cause=modele-absent (le modele n'est pas la au moment de dessiner)
+      * sidekick-lod0 (Daxter) : 390 images / 6856 ms, cause=soumis-mais-non-dessine (soumis au rendu, rien ne sort)
+      * hutlamp-lod0 : 421 images / 7463 ms, meme cause que Daxter
+    TOUTES SCENES CONFONDUES, les causes comptees chez lui : soumis-mais-non-dessine 210, modele-absent 130, cull-aveugle 40, hidden 23, culled 2, clone-desynchronise 1. Le clone — la cause corrigee le 2026-09-03 — ne represente donc QU'UNE occurrence sur 406.
+    Daxter recidive : 6 episodes longs a lui seul (390, 382, 328, 324, 322, 51 images). windspinner-lod0 tient 1959 images (35 s) invisible. warp-gate-switch-lod0 : 4 episodes.
+    NPCPLAT de la scene du maire : nullfg=0 bareret=0 dblee=0 kerncode=0 enterstate=0 rftd=0 suspend=0 precopy=0 chainloop=0 malformed=0 hd_failopen=0 hd_gap=0 — AUCUN des mecanismes arm64 soupconnes n'a tire. La cause est ailleurs : chercher pourquoi un modele est ABSENT et pourquoi une soumission ne DESSINE pas.
   deliverable: 'Sur la scene du maire, sur un appareil : zero cycle et zero episode long. Les deux causes
     dominantes doivent tomber a zero et etre EXPLIQUEES : `modele-absent` (130 occurrences) et `soumis-mais-non-dessine`
     (210). Le moteur emet `npc_flicker_episodes` = somme des episodes longs toutes causes.'
@@ -345,15 +334,13 @@ items:
     — invisible aux ratios entiers, visible a 45. | 2026-09-05, essai 7 : le residu est concentre dans
     UN canal d''animation immobile (16 606 us). La porte precedente lisait un modele C++ au lieu de la
     pose dessinee.'
-  deliverable: "Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement,\
-    \ sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :\n  (1) chaque cadence\
-    \ demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue\
-    \ s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent\
-    \ la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.\n\
-    \  (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.\n  (3)\
-    \ `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.\n  (4) `anim_step_bitexact_30`\
-    \ = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne\
-    \ change pas d'un bit.\nN est la somme des manquements ; zero."
+  deliverable: |-
+    Le moteur emet `anim_sweep_defects=N`, somme de verdicts qu'il publie aussi separement, sur un balayage qui DOIT contenir 45, 50, 75 et 90 img/s en plus de 30 et 60 :
+      (1) chaque cadence demandee est REELLEMENT atteinte — `anim_sweep_rate_miss` = nombre de paliers dont la cadence obtenue s'ecarte de plus de 5 % de la consigne. Le Redmi plafonne vers 30 img/s : les paliers hauts se mesurent la ou ils sont atteignables (x86), et la preuve dit sur quelle machine chaque palier a tourne.
+      (2) `anim_sweep_missing_rates` = 0 — aucun des six paliers 30/45/50/60/75/90 ne manque.
+      (3) `anim_step_jitter_worst_us` <= 500 sur CHAQUE palier, y compris les non entiers.
+      (4) `anim_step_bitexact_30` = `anim_step_bitexact_60` = 1 — le comportement aux deux cadences que l'owner declare propres ne change pas d'un bit.
+    N est la somme des manquements ; zero.
   block_reason: 'max_retries (6) epuise — mais la cause de fond est la meme : EN ATTENTE DU REDMI. Le
     seul appareil branche est le Honor de l''owner (AREE026206000788), prete pour lire le plantage au
     demarrage ; le Redmi eae4df44, que tout le harnais adresse en dur, est debranche depuis. La preuve
@@ -389,15 +376,11 @@ items:
   owner_ok: null
   where: 'Options : un reglage de cadence qui monte au-dela de 60 (90, 120, illimite) et un jeu qui reste
     correct'
-  deliverable: "`uncap_defects` = 0, preuve sur appareil. Acquis a NE PAS CASSER : la logique recoit 60\
-    \ pas par seconde reelle quelle que soit la cadence affichee, l'horloge des scenes ne derive pas,\
-    \ rien ne s'accelere. TROIS exigences de l'owner s'ajoutent :\n  (a) le reglage devient une LISTE\
-    \ DE CHOIX — 30, 45, 60, 75, 90, 120, 240, Illimite — pas un curseur.\n  (b) `uncap_ceiling_hz` publie\
-    \ le plafond REELLEMENT atteint : l'owner mesure 90 img/s constant a l'ecran d'intro avec la consigne\
-    \ a 240 et tout le reste eteint. Nommer ce qui plafonne (vsync, presentation, composition Android)\
-    \ ou prouver que 240 est atteint.\n  (c) la cible de l'echelle de rendu dynamique s'ADAPTE au plafond\
-    \ choisi : `uncap_dynscale_target_max` suit la cadence maximale, il ne doit plus etre possible de\
-    \ viser 60 quand on a choisi 240."
+  deliverable: |-
+    `uncap_defects` = 0, preuve sur appareil. Acquis a NE PAS CASSER : la logique recoit 60 pas par seconde reelle quelle que soit la cadence affichee, l'horloge des scenes ne derive pas, rien ne s'accelere. TROIS exigences de l'owner s'ajoutent :
+      (a) le reglage devient une LISTE DE CHOIX — 30, 45, 60, 75, 90, 120, 240, Illimite — pas un curseur.
+      (b) `uncap_ceiling_hz` publie le plafond REELLEMENT atteint : l'owner mesure 90 img/s constant a l'ecran d'intro avec la consigne a 240 et tout le reste eteint. Nommer ce qui plafonne (vsync, presentation, composition Android) ou prouver que 240 est atteint.
+      (c) la cible de l'echelle de rendu dynamique s'ADAPTE au plafond choisi : `uncap_dynscale_target_max` suit la cadence maximale, il ne doit plus etre possible de viser 60 quand on a choisi 240.
   known_cause: 'srpc.cpp:491 : `(s32)(1024/target_fps)` — a 120 Hz l''horloge de scene tourne a 93,75
     % du reel. Trouve par cutscene-npc-flicker le 2026-09-05.'
   out_of_scope: Ne touche pas au pas de temps fixe lui-meme, valide par l'owner le 2026-09-05.
@@ -549,15 +532,10 @@ items:
     leur bases [...] ca doit varier en amplitude, distorsion, direction ». Les deux extremes sont refuses
     : ni sinusoide pure, ni basculement sec. Le critere tronc/cime ne jugeait que DEUX points d''un arbre
     entier, d''ou les verdicts 8 et 9.'
-  deliverable: "`wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07\
-    \ (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero\
-    \ paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient\
-    \ pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par\
-    \ l'owner :\n  (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les\
-    \ niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent\
-    \ pas.\n  (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de\
-    \ Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee.\
-    \ Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second."
+  deliverable: |-
+    `wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07 (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par l'owner :
+      (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent pas.
+      (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee. Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second.
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: to-test
@@ -4082,8 +4060,8 @@ items:
   owner_feedback: []
 - id: lighting-hdr
   feature: Le rendu passe en HDR avec un seul tone map
-  status: open
-  priority: 1
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-09-06'
     text: J'ai l'impression que même avec le Real Time lighting à off on a quand même les blancs brûlés,
@@ -4235,6 +4213,11 @@ items:
     text: J'ai l'impression que quand il fait les captures il les fait même si c'est sur un écran de chargement...
       Et pas en pleine résolution parce que le jeu à le dynamic resolution scaling activé (en tout cas
       sous x86) du coup ça doit un peu tout casser...
+  - date: '2026-09-09'
+    text: j'ai pris le dernier build sur jak-builds, activé le realtime lighting et parcouru quelques
+      niveaux... et franchement ça m'a l'air bon [...] j'ai plus de blancs brûlés, j'ai l'impression que
+      ça "pop" un peu plus que sur le rendu d'origine [...] en tout cas pour ma part c'est validé, on
+      peut peut-être arrêter de gaspiller de l'énergie là dessus et continuer sur ce qui vient après
   gate:
     key: hdr_tonemap_defects
     op: ==
@@ -4246,7 +4229,13 @@ items:
   - lighting-unify
   history: []
   prompt: prompts/item-lighting-hdr.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-09'
+    text: j'ai pris le dernier build sur jak-builds, activé le realtime lighting et parcouru quelques
+      niveaux... et franchement ça m'a l'air bon [...] j'ai plus de blancs brûlés, j'ai l'impression que
+      ça "pop" un peu plus que sur le rendu d'origine [...] en tout cas pour ma part c'est validé, on
+      peut peut-être arrêter de gaspiller de l'énergie là dessus et continuer sur ce qui vient après
+    build_sha: afbbf7d44b78adfe
   device: true
   where: 'Options > Recharged : le rendu general, et surtout les zones tres lumineuses'
   known_cause: 'REPRISE 09/09 (Claude apres Codex, essai52 x86 : 4 defauts, hutte et ciels manquants).
@@ -4955,3 +4944,528 @@ items:
   owner_ok: null
   where: 'rien a voir en jeu : c''est la fiabilite de la porte elle-meme'
   notes: 'owner 2026-09-05 : « Whaaaat ? Dégage moi ça »'
+- id: water-census
+  feature: Nommer chaque goutte d'eau du jeu avant de la refaire
+  status: open
+  priority: 30
+  owner_feedback:
+  - &id001
+    date: '2026-09-09'
+    text: faire une spec de l'enfer pour l'eau, que ce soit la mer ou les points d'eau genre marres, flaques,
+      fontaines, etc... Faudrait un truc moderne ou l'eau rend vraiment moderne, avec tous les effets
+      attendus d'un jeu moderne mais en restant dans un esprit stylisé of course. Quand on marche dans
+      l'eau ou tombe dedans, faut de la déformation (via tesselation je suppose) que ça soit impressionant,
+      des costiques, de l'écume, des vagues distinctes sur le rivage (qui épouse le rivage avec l'écume
+      et compagnie), ça c'est pour la mer mais il nous faut aussi repenser les points d'eau hors mer,
+      puis les cascades d'eau et l'intéraction de ses dernières avec l'endroit où elles se jettent
+  - &id002
+    date: '2026-09-09'
+    text: bah je valide, beau boulot !
+  gate:
+    key: water_proto_unassigned
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on: []
+  history: []
+  prompt: prompts/item-water-census.md
+  owner_ok: null
+  device: false
+  where: 'rien a voir : c''est un inventaire machine ; owner_test=false'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. La nappe des cascades est de la geometrie de niveau sans classe GOAL (SPEC 2.4)
+    ; 48 looks water-anim et 102 entites recensees (SPEC 2.2, annexe A) ; `lod-force-ocean` est un reglage
+    MORT sans consommateur (SPEC 2.5).'
+  deliverable: 'Les 48 looks recoivent une matiere (water_overrides.txt), les prototypes TIE/tfrag a texture
+    d''eau un verdict (water_falls.txt : CHUTE/JET/NAPPE/EXCLU, aucun implicite), les 10 cartes d''ocean
+    et leurs 36 spheres exportees, `gpu_ms_ocean` de reference a 4 vantages, l''outil tools/water_bake
+    cree (inventaire seul), `lod-force-ocean` retire. SPEC 5.7, 5.8, 9 item 0. PREUVE : `FEATURE water-census
+    armed=1 hits=<prototypes et looks d''eau classes>` + la ligne `water_proto_unassigned=` seule sur
+    sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("water-census"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Aucun rendu ne change : cet item ne touche
+    pas un pixel.'
+  notes: 'SPEC section 9 item 0. Aucun item d''eclairage en dependance : peut demarrer maintenant. owner_test=false
+    : sa promesse est un inventaire, l''owner n''a rien a regarder.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: prototypes et looks d'eau classes
+  supervisor_recovery: true
+  owner_test: false
+- id: water-ocean-mesh
+  feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
+  status: open
+  priority: 31
+  owner_feedback:
+  - *id001
+  - &id004
+    date: '2026-09-09'
+    text: la refonte de l'eau doit pouvoir être toggled off individuellement aussi, ou on retrouve l'eau
+      vanilla.
+  - *id002
+  gate:
+    key: water_gameplay_height_maxdelta_mm
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-census
+  history: []
+  prompt: prompts/item-water-ocean-mesh.md
+  owner_ok: null
+  device: true
+  where: 'la mer depuis le village de Sandover et la plage : meme houle qu''avant, sans trou ni fente,
+    et l''eau vanilla a l''identique quand Eau Rechargee est OFF'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. L''ocean mid ecrit la profondeur en GL_ALWAYS au bucket 4 AVANT le monde et
+    le near au 63 sans Z (SPEC 2.1) : la profondeur de scene est illisible au dessin. Les 64 frames 32x32
+    de houle sont LUES par le gameplay a 4 endroits : elles se conservent comme couche A (SPEC 5.2).'
+  deliverable: 'Sous recharged_water, les buckets 4 et 63 consomment leur DMA sans dessiner (renderers
+    ND vivants) ; un nouveau OceanRecharged dessine la clipmap 3 anneaux (SPEC 5.3) a la position W2a,
+    couche A captee au DMA near (ocean-near-add-heights) en texture R8 32x32 avec le MEME modulo 32 que
+    ocean-get-height, decoupe par les masques ND, far-color au loin. Shading provisoire = l''actuel. OFF
+    = graphe ORIGINE bit-identique (refset_replay_maxdiff=0). Publie aussi water_visual_excess_mm (<=
+    450) et gpu_ms_ocean. Nouveau .cpp dans game/ ET android/CMakeLists.txt. PREUVE : `FEATURE water-ocean-mesh
+    armed=1 hits=<sommets de clipmap deplaces>` + la ligne `water_gameplay_height_maxdelta_mm=` seule
+    sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("water-ocean-mesh"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de nouveau shading, pas de rivage,
+    pas de rides : c''est l''item 2 et suivants.'
+  notes: 'SPEC sections 5.2, 5.3, 8 (controle causal 1 : 64 sommets compares a la hauteur de jeu). Vantage
+    : village1-out.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: sommets de clipmap deplaces
+  supervisor_recovery: true
+- id: water-surface-material
+  feature: Une seule matiere d'eau, eclairee par shade()
+  status: open
+  priority: 32
+  owner_feedback:
+  - *id001
+  - *id002
+  gate:
+    key: water_shade_calls_outside_shade
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-ocean-mesh
+  - lighting-hdr
+  - lighting-ao-indirect
+  history: []
+  prompt: prompts/item-water-surface-material.md
+  owner_ok: null
+  device: true
+  where: 'la mer et la fontaine de Sandover : une lumiere, un ciel dedans, des couleurs par profondeur,
+    un soleil en eclats'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. L''eau n''a aucune lumiere : env map statique environment-ocean-alphamod, aucun
+    Fresnel, aucune profondeur (SPEC 2.1). SURF_WATER=8 existe deja dans le contrat de shade() (spec eclairage
+    4.2).'
+  deliverable: 'Le chunk shaders/water/water_surface.glsl (SPEC 5.6 : normales a deux cartes, Fresnel
+    plafonne, paliers de couleur par profondeur, absorption, shade() avec SURF_WATER, SSS deux couleurs,
+    etincelles) inclus par la clipmap ET par un programme merc2_water pour les buckets water 58/59. W0
+    en profondeur seule. Aucun dFdx pour construire N. Publie water_refract_front_reject et water_dfdx_sites=0.
+    Shaders neufs dans kChunks. PREUVE : `FEATURE water-surface-material armed=1 hits=<fragments d''eau
+    passes par shade()>` + la ligne `water_shade_calls_outside_shade=` seule sur sa ligne ; `--off` doit
+    rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("water-surface-material"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de refraction couleur ni de reflet
+    planaire (item 5), pas de rivage (item 3).'
+  notes: 'SPEC sections 5.6, 4 (les 7 invariants). Vantages : village1-out, beach.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: fragments d'eau passes par shade()
+  supervisor_recovery: true
+- id: water-shore
+  feature: Des vagues tranquilles qui arrivent une a une et remontent le sable
+  status: open
+  priority: 33
+  owner_feedback:
+  - *id001
+  - date: '2026-09-09'
+    text: pour la mer, j'attends quand même des vagues sur le rivage, on voit bien l'eau monter et descendre
+      dans le jeu, on perçois que c'est plus par contrainte technique qu'ils ont pas mi de vagues que
+      par choix. ça justifiera l'écume et ça aura un effet Waouw. bien sûr on est pas sur des vagues énormes
+      et un tempête, faut rester cohérent la mer a l'air tranquille, donc les vagues sont tranquilles
+  - *id002
+  gate:
+    key: waterbake_sdf_coverage_pct
+    op: ==
+    value: 100
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-surface-material
+  history: []
+  prompt: prompts/item-water-shore.md
+  owner_ok: null
+  device: true
+  where: 'la plage de Sandover (beach) : des vagues calmes qui arrivent, se cambrent, deferlent en ecume
+    et lechent le sable avant de se retirer'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. La houle ND monte et descend de +/-0,75 m mais aucune vague n''ARRIVE ; le rivage
+    est un masque d''alpha a 4 couleurs, aucune ecume nommee (SPEC 2.1). Une bande d''ecume constante
+    exige une DISTANCE au rivage, pas une profondeur (SPEC 1.3 d3).'
+  deliverable: 'Le compagnon <niveau>.waterbake (shore_sdf par jump flood, shore_dir, floor_depth, flow)
+    produit par tools/water_bake depuis la collision croisee avec le fr3, charge a cote du fr3, ignore
+    proprement si absent/perime (waterbake_missing). Vagues GEOMETRIQUES en vertex en 4 phases sur d (houle
+    40->12 m, cambrure 12->3 m par la raideur Q, deferlement 3->0 m, jet de rive 0->-4 m), plafond 0,30
+    m, periode ~7 s, aucune ecume au large ; trois ecumes ; sable mouille via shade(). SPEC 5.5. Publie
+    shore_wave_amp_max_mm (<=300), shore_runup_max_m (<=4), shore_wave_period_s, shore_band_width_var.
+    PREUVE : `FEATURE water-shore armed=1 hits=<vagues arrivees a d=0 (comptees au deferlement)>` + la
+    ligne `waterbake_sdf_coverage_pct=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans
+    la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-shore"),
+    jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de tempete, pas de vague au-dessus
+    de 0,30 m. La borne |visuel - jeu| <= 0,45 m reste publiee.'
+  notes: 'SPEC sections 5.5, 5.8. Premier lieu : beach. Valeurs par niveau dans water_overrides.txt.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: vagues arrivees a d=0 (comptees au deferlement)
+  supervisor_recovery: true
+- id: water-interaction
+  feature: 'Marcher, tomber, nager : la surface repond'
+  status: open
+  priority: 34
+  owner_feedback:
+  - *id001
+  - date: '2026-09-09'
+    text: ça n'a aucun rapport avec la physique de Keira, ni peut-être même la physique tout court.. avec
+      la physique peut-être mais dans le sens ou Jak interagit avec l'eau, et on y est pas encore du tout
+      ! [...] en attendant simuler "pour de faux"
+  - *id002
+  gate:
+    key: ripple_impulses_dropped
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-surface-material
+  history: []
+  prompt: prompts/item-water-interaction.md
+  owner_ok: null
+  device: true
+  where: 'patauger dans les rizieres de Sandover et tomber dans la mer : un sillage derriere Jak, une
+    gerbe et des anneaux qui s''eloignent'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. Tout existe pour les EVENEMENTS (water-control, splash-spawn, 2 groupes sparticle)
+    mais la SURFACE ne bouge pas (SPEC 2.3). Le fil GOAL du Redmi est le goulot : rien de nouveau par
+    image sur ce fil (regle 4).'
+  deliverable: 'La RT de rides W1 en espace monde centree sur Jak (equation d''onde ping-pong, re-projection
+    par texel entier, canal ecume), la file d''impulsions sur le fil de rendu, le sillage derive de la
+    position de Jak, UN appel FFI pc-water-impulse! pose au site existant de splash-spawn (water.gc:776)
+    — un appel par evenement, zero par image —, le maillage d''eclaboussure, lecture en vertex (clipmap
+    et merc) et en fragment. Les PNJ a water-control passent par le meme site. Palier Tres bas : RT statique.
+    SPEC 5.4. Publie ripple_energy avant/apres un pas force (causal), ripple_reproject_slips=0, splash_mesh_spawned.
+    GOAL neuf (pc/water-pc.gc) liste dans game.gd et engine.gd. PREUVE : `FEATURE water-interaction armed=1
+    hits=<impulsions injectees dans la RT de rides>` + la ligne `ripple_impulses_dropped=` seule sur sa
+    ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
+    — appelle armed_for("water-interaction"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Aucune force en retour, aucune flottabilite,
+    aucun courant qui pousse : la surface reagit, elle n''agit sur rien.'
+  notes: 'SPEC sections 5.4, 8 (controle causal 2 via cpad_inject). Vantages : village1-out (rizieres),
+    beach.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: impulsions injectees dans la RT de rides
+  supervisor_recovery: true
+- id: water-refraction-reflection
+  feature: Voir a travers l'eau, et voir le ciel dedans
+  status: open
+  priority: 35
+  owner_feedback:
+  - *id001
+  - &id003
+    date: '2026-09-09'
+    text: tu pense encore et toujours que la target c'est le Redmi. non ça va aller sur PC, des devices
+      hyper puissantes, des devices faibles... donc faut pas focus sur le pire, le pire sert de test et
+      on peut avoir des réglages variables avec plus ou moins de techno embarquées et qualité d'effets
+      a guise avec des options customisables !
+  - *id002
+  gate:
+    key: water_scene_copies_per_frame
+    op: ==
+    value: 1
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-surface-material
+  - lighting-regimes
+  history: []
+  prompt: prompts/item-water-refraction-reflection.md
+  owner_ok: null
+  device: true
+  where: 'la fontaine de Sandover et la mer : le fond deforme a travers l''eau, le ciel du moment reflete,
+    et un reflet net sur les bassins immobiles'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. DepthCue fait deja la seule copie couleur de l''ecran, au bucket 64 apres ocean-near
+    (SPEC 2.5) ; sur GPU a tuiles chaque copie coute deux resolves (SPEC 10). Le cube de ciel capture
+    est la passe P3 de l''eclairage (item lighting-regimes).'
+  deliverable: 'W0 avec couleur : UNE copie apres les alphas, partagee avec DepthCue (qui cesse de blitter
+    la sienne). Refraction avec REJET des echantillons devant la surface. Reflet du cube P3 via env_specular
+    de shade(). Echelle a 4 crans reglable : ciel / cube / planaire 1/4 sur les plans immobiles listes
+    / SSR sur toute l''eau avec repli cube. SPEC 5.6, 6. Publie water_fresnel_max (<= plafond) et water_env_source.
+    PREUVE : `FEATURE water-refraction-reflection armed=1 hits=<pixels d''eau refractes>` + la ligne `water_scene_copies_per_frame=`
+    seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE
+    : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-refraction-reflection"), jamais armed(),
+    et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de caustiques (item 6).'
+  notes: 'SPEC sections 5.1 (W0, W3), 6. Vantages : village1-out (fontaine), beach.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: pixels d'eau refractes
+  supervisor_recovery: true
+- id: water-caustics
+  feature: La lumiere danse sur le sable, jamais au-dessus de l'eau
+  status: open
+  priority: 36
+  owner_feedback:
+  - *id001
+  - *id002
+  gate:
+    key: caustic_above_water_px
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-shore
+  history: []
+  prompt: prompts/item-water-caustics.md
+  owner_ok: null
+  device: true
+  where: 'le fond de la mer a la plage de Sandover et les rizieres : des caustiques lentes sur le sable,
+    rien sur les rochers hors de l''eau'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. Aucune caustique n''existe : update-mood-caustics est un cycle de palette dans
+    sunken (SPEC 2.4). floor_depth du .waterbake donne la profondeur du sol sans copie de profondeur.'
+  deliverable: 'Dans shade(), bloc sous #if WATER_CAUSTICS : pour tout fragment sous le plan d''eau du
+    niveau et dans sa boite, la caustique module LE SEUL terme direct du soleil, projetee en monde, 3
+    echantillons RGB decales, attenuee par floor_depth et par la visibilite de l''ombre. Crans : simple
+    / RGB / correlees a la RT + rayons additifs sous l''eau. SPEC 5.1, 6. Publie caustic_sun_only=1 et
+    caustic_levels. PREUVE : `FEATURE water-caustics armed=1 hits=<fragments sous le plan d''eau ayant
+    recu la caustique>` + la ligne `caustic_above_water_px=` seule sur sa ligne ; `--off` doit rendre
+    `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} —
+    appelle armed_for("water-caustics"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Jamais sur l''indirect, jamais au-dessus
+    du plan.'
+  notes: 'SPEC section 9 item 6. Vantages : beach, village1-out.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: fragments sous le plan d'eau ayant recu la caustique
+  supervisor_recovery: true
+- id: water-falls
+  feature: Les cascades tombent quelque part
+  status: open
+  priority: 37
+  owner_feedback:
+  - *id001
+  - *id002
+  gate:
+    key: falls_without_impact
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-shore
+  - water-interaction
+  history: []
+  prompt: prompts/item-water-falls.md
+  owner_ok: null
+  device: true
+  where: 'les chutes de la jungle et la fontaine de Sandover : des bandes qui coulent, une base d''ecume,
+    et la riviere qui ondule la ou ca tombe'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. Les cascades sont UNIQUEMENT des sparticles devant une texture fixe ; la nappe
+    est de la geometrie de niveau nommee par water_falls.txt (item 0). La brume ND (bigpuff) reste (SPEC
+    2.4, 5.7).'
+  deliverable: 'Materiau W2c sur les prototypes CHUTE et JET : UV.y + t*vitesse, bruit etire x6, posterisation
+    5-6 bandes, flow a 2 phases decalees de 0,5, ecume basse par step, bord clair. A l''impact : anneau
+    d''ecume radial, impulsion CONTINUE dans la RT de rides a position fixe (sans GOAL), brume ND conservee
+    ; geysers/fontaines par periode. Jak sous la chute mouille via drip-wetness existant. SPEC 5.7. Publie
+    falls_total, falls_bands, ripple_energy_at_impact (>0 sans Jak). PREUVE : `FEATURE water-falls armed=1
+    hits=<chutes dessinees avec anneau d''ecume ET impulsion a l''impact>` + la ligne `falls_without_impact=`
+    seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE
+    : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-falls"), jamais armed(), et n''en
+    ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de brume volumetrique hors cran Ultra.'
+  notes: 'SPEC section 5.7. Lieux : jungle (jungle-start), fontaine de village1.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: chutes dessinees avec anneau d'ecume ET impulsion a l'impact
+  supervisor_recovery: true
+- id: water-materials-types
+  feature: 'Boue, eco noir, lave, eau electrifiee : quatre matieres, pas une eau teintee'
+  status: open
+  priority: 38
+  owner_feedback:
+  - *id001
+  - *id002
+  gate:
+    key: water_look_unmapped
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-interaction
+  - water-refraction-reflection
+  history: []
+  prompt: prompts/item-water-materials-types.md
+  owner_ok: null
+  device: true
+  where: la boue de Misty Island et son bassin d'eco noir, puis la lave d'Ogre et l'eau electrifiee de
+    Sunken
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. 48 looks water-anim en 13 sous-classes ND (mud, dark-eco-pool, *-lava, sunken-water...)
+    tous rendus par le meme chemin (SPEC 2.2, annexe A).'
+  deliverable: 'Les 7 matieres non-mer de SPEC 4 posees sur leurs looks via water_materials.txt et water_overrides.txt
+    : boue mate opaque a amortissement x4 sans reflet ni caustique ; eco noir opaque a emissif violet
+    en bord de rides ; lave emissive HDR a flow lent et croute Voronoi qui ECLAIRE (lumiere locale de
+    lighting-local-lights si validee, sinon emissif seul) ; arcs pulses par deadly-fade de ND pour sunken.
+    Branches par #define de matiere, jamais un if uniforme. Publie lava_emissive_lumens, mud_reflection_px=0,
+    eco_caustic_px=0. PREUVE : `FEATURE water-materials-types armed=1 hits=<surfaces d''eau rendues avec
+    leur matiere declaree>` + la ligne `water_look_unmapped=` seule sur sa ligne ; `--off` doit rendre
+    `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} —
+    appelle armed_for("water-materials-types"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Les sources ND des sous-classes ne se
+    reecrivent pas : la matiere se lit dans une table.'
+  notes: 'SPEC sections 4, 5.8, annexe A. Premier lieu : misty.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: surfaces d'eau rendues avec leur matiere declaree
+  supervisor_recovery: true
+- id: water-underwater
+  feature: Sous la surface, on est sous l'eau
+  status: open
+  priority: 39
+  owner_feedback:
+  - *id001
+  - *id002
+  gate:
+    key: underwater_state_mismatch
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-caustics
+  - water-falls
+  - water-materials-types
+  history: []
+  prompt: prompts/item-water-underwater.md
+  owner_ok: null
+  device: true
+  where: 'plonger dans la mer a Sandover, et Sunken City : la surface vue par-dessous, la fenetre de Snell,
+    un brouillard teinte'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. ND cache deja le maillage water-anim quand la camera passe sous surface - 2
+    m (water-anim.gc:571) ; rien d''autre n''existe (SPEC 2.2).'
+  deliverable: 'Quand la camera est sous un plan : face arriere de la surface (fenetre de Snell, reflet
+    interne total au-dela de 48 deg), brouillard teinte par la matiere applique avant le tone map (hdr.cpp),
+    caustiques renforcees, rayons au cran Haut+. L''etat moteur « sous l''eau » est derive de la camera
+    et du plan, publie et compare a la hauteur de jeu poussee. SPEC 5.1, 9. Publie snell_window_deg et
+    underwater_fog_applied. PREUVE : `FEATURE water-underwater armed=1 hits=<images rendues avec la camera
+    sous un plan d''eau>` + la ligne `underwater_state_mismatch=` seule sur sa ligne ; `--off` doit rendre
+    `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} —
+    appelle armed_for("water-underwater"), jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de simulation de plongee, pas de gameplay.'
+  notes: 'SPEC section 9 item 9. Vantages : beach (plongee), sunken.'
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: images rendues avec la camera sous un plan d'eau
+  supervisor_recovery: true
+- id: water-presets
+  feature: Chaque techno d'eau a son reglage, son echelle, et un OFF prouve
+  status: open
+  priority: 40
+  owner_feedback:
+  - *id001
+  - *id003
+  - *id004
+  - *id002
+  gate:
+    key: water_preset_apply_mismatch
+    op: ==
+    value: 0
+  game: jak1
+  max_turns: 800
+  max_retries: 6
+  depends_on:
+  - water-underwater
+  - lighting-presets
+  history: []
+  prompt: prompts/item-water-presets.md
+  owner_ok: null
+  device: true
+  where: 'Options > Recharged : la ligne Eau Rechargee, la qualite de l''eau, et chaque reglage individuel
+    (tessellation, rides, rivage, refraction, reflets, caustiques, eclaboussures, cascades, resolution)'
+  known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
+    prompt ne repete pas. Le pire appareil est un banc d''essai, pas la cible (regle 6) : un palier ne
+    pose que des defauts, chaque reglage est libre. lod-force-ocean etait un reglage mort (SPEC 2.5).'
+  deliverable: 'Les 12 reglages de SPEC 7 au menu Recharged avec leurs echelles, le palier auto-deduit
+    (= palier eclairage par defaut) qui ne verrouille rien, l''integration aux prereglages Original /
+    Recharged. Pour CHAQUE reglage : un binaire-temoin ou la couche n''est pas compilee et la preuve que
+    OFF lui est bit-identique (refset_replay_maxdiff=0), et la preuve que chaque cran intermediaire est
+    pose. Budgets SPEC 6 mesures sur les quatre classes. Libelles selon recharged-settings-case-l10n.
+    PREUVE : `FEATURE water-presets armed=1 hits=<reglages d''eau effectivement poses par le prereglage>`
+    + la ligne `water_preset_apply_mismatch=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0`
+    dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("water-presets"),
+    jamais armed(), et n''en ecris pas un second.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
+    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
+    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
+    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
+    Ne touche a aucune feature validee. Pas de mesure visuelle. Aucun reglage de menu remplace par une
+    propriete de debug dans le build livre.'
+  notes: SPEC sections 6, 7, 8. Preuve appareil obligatoire.
+  spec: prompts/SPEC-refonte-eau.md
+  hits_means: reglages d'eau effectivement poses par le prereglage
+  supervisor_recovery: true
