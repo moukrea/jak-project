@@ -322,6 +322,8 @@ int64_t g_warp_at = 600;
 
 constexpr int kShotW = 320;
 constexpr int kShotH = 180;
+int g_hdr_capture_scale = 1;
+constexpr const char* kHdrReduction = "box_integer_half_up_v1";
 
 std::mutex g_mutex;
 
@@ -2057,6 +2059,10 @@ uint64_t census_config_fingerprint() {
     add("lighting-hdr-temporal-particles-v1");
     add(std::to_string(g_temporal_samples));
   }
+  if (g_hdr_capture_scale > 1) {
+    add(std::to_string(g_hdr_capture_scale));
+    add(kHdrReduction);
+  }
   if (g_require_loaded) {
     add("require-loaded-state-restore-plus2-v2");
     for (const auto& level : g_initial_levels) add(level);
@@ -2602,6 +2608,18 @@ bool enabled() {
   } else {
     return false;
   }
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+  if (const char* scale = std::getenv("OG_HDR_CAPTURE_SCALE")) {
+    if ((std::strcmp(scale, "1") != 0 && std::strcmp(scale, "2") != 0 &&
+         std::strcmp(scale, "4") != 0) || g_mode != 1 ||
+        !autoport_proof::feature_is("lighting-hdr")) {
+      std::fprintf(stderr, "REFSET fatal: OG_HDR_CAPTURE_SCALE requires lighting-hdr capture "
+                           "and exactly 1, 2 or 4\n");
+      std::abort();
+    }
+    g_hdr_capture_scale = scale[0] - '0';
+  }
+#endif
   char temporal[128] = {};
   const char* temporal_env = std::getenv("OG_REFSET_TEMPORAL_SAMPLES");
   const bool temporal_knob = read_knob("OG_REFSET_TEMPORAL_SAMPLES",
@@ -3629,8 +3647,8 @@ bool capture_for_chain(int64_t lf, char* name_out, int name_cap, int* w, int* h)
   // deux images de plus et re-prendrait la meme demande.
   g_cap = kCapInFlight;
   std::snprintf(name_out, name_cap, "%s", g_capture_name.c_str());
-  *w = kShotW;
-  *h = kShotH;
+  *w = kShotW * g_hdr_capture_scale;
+  *h = kShotH * g_hdr_capture_scale;
   return true;
 }
 
@@ -3663,6 +3681,68 @@ bool consume_capture(int w, int h, const void* rgba) {
       std::_Exit(EXIT_FAILURE);
     }
   }
+  std::vector<uint8_t> reduced;
+  if (g_hdr_capture_scale > 1) {
+    const std::string native_path = image_path(g_steps[g_cur]) + ".native.rgba";
+    auto fatal = [&](const char* reason) {
+      std::fprintf(stderr, "REFSET fatal: native capture case=%s chain_lf=%lld path=%s: %s\n",
+                   g_capture_name.c_str(), (long long)g_inflight_lf, native_path.c_str(), reason);
+      std::fflush(nullptr);
+      std::_Exit(EXIT_FAILURE);
+    };
+    if (!rgba || w != kShotW * g_hdr_capture_scale || h != kShotH * g_hdr_capture_scale) {
+      fatal("unexpected RGBA8 dimensions or null buffer");
+    }
+    const size_t native_size = size_t(w) * h * 4;
+    try {
+      file_util::write_binary_file(native_path, rgba, native_size);
+      const uint64_t native_fnv = hash_file(native_path);
+      const auto back = file_util::read_binary_file(native_path);
+      if (!native_fnv || back.size() != native_size ||
+          std::memcmp(back.data(), rgba, native_size) != 0 ||
+          hash_file(native_path) != native_fnv) {
+        fatal("RAW size, identity or FNV roundtrip failed");
+      }
+      const QualificationJson metadata = {
+          {"width", w}, {"height", h}, {"channels", 4}, {"format", "RGBA8"},
+          {"orientation", "top-left"}, {"case", g_capture_name}, {"chain_lf", g_inflight_lf},
+          {"scale", g_hdr_capture_scale}, {"method", kHdrReduction}, {"fnv", native_fnv}};
+      const std::string metadata_path = native_path + ".json";
+      const std::string metadata_bytes = metadata.dump(2) + "\n";
+      file_util::write_binary_file(metadata_path, metadata_bytes.data(), metadata_bytes.size());
+      const auto metadata_back = file_util::read_binary_file(metadata_path);
+      if (metadata_back.size() != metadata_bytes.size() ||
+          std::memcmp(metadata_back.data(), metadata_bytes.data(), metadata_bytes.size()) != 0) {
+        fatal("JSON roundtrip failed");
+      }
+      const auto* native = static_cast<const uint8_t*>(rgba);
+      const unsigned area = g_hdr_capture_scale * g_hdr_capture_scale;
+      reduced.resize(size_t(kShotW) * kShotH * 4);
+      for (int y = 0; y < kShotH; ++y) {
+        for (int x = 0; x < kShotW; ++x) {
+          for (int channel = 0; channel < 4; ++channel) {
+            unsigned sum = 0;
+            for (int dy = 0; dy < g_hdr_capture_scale; ++dy) {
+              for (int dx = 0; dx < g_hdr_capture_scale; ++dx) {
+                sum += native[((y * g_hdr_capture_scale + dy) * w +
+                               x * g_hdr_capture_scale + dx) * 4 + channel];
+              }
+            }
+            reduced[(y * kShotW + x) * 4 + channel] = (sum + area / 2) / area;
+          }
+        }
+      }
+      std::printf("REFSET native case=%s chain_lf=%lld width=%d height=%d path=%s fnv=%llu "
+                  "method=%s\n", g_capture_name.c_str(), (long long)g_inflight_lf,
+                  w, h, native_path.c_str(), (unsigned long long)native_fnv, kHdrReduction);
+      std::fflush(stdout);
+    } catch (const std::exception& error) {
+      fatal(error.what());
+    }
+    w = kShotW;
+    h = kShotH;
+    rgba = reduced.data();
+  }
   auto effective_options = (refset_state::enabled() || autoport_proof::feature_is("lighting-hdr"))
       ? qualification_effective_options() : QualificationJson::object();
   if (autoport_proof::feature_is("lighting-hdr")) {
@@ -3672,6 +3752,11 @@ bool consume_capture(int w, int h, const void* rgba) {
         {"exposure", settings.recharged_hdr_exposure},
         {"pbr_exposure", settings.recharged_pbr_exposure},
         {"knee", settings.recharged_hdr_knee}};
+    if (g_hdr_capture_scale > 1) {
+      effective_options["native_capture"] = {
+          {"width", kShotW * g_hdr_capture_scale}, {"height", kShotH * g_hdr_capture_scale},
+          {"scale", g_hdr_capture_scale}, {"method", kHdrReduction}};
+    }
     if (g_temporal_samples > 1) {
       effective_options["temporal"] = {
           {"samples", g_temporal_samples}, {"sample", g_steps[g_cur].sample},

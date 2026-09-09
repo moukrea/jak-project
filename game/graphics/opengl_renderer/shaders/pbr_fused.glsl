@@ -556,10 +556,10 @@
         }
         vec3 fsun_ch = u_rt_sun_color / max(dot(u_rt_sun_color, vec3(0.299, 0.587, 0.114)), 1e-3);
         vec3 fmoon_ch = u_rt_moon_color / max(dot(u_rt_moon_color, vec3(0.299, 0.587, 0.114)), 1e-3);
-        const vec3 FUS_COOL = vec3(0.896, 1.001, 1.265);
         vec3 flit_mul_y = u_rt_lit_boost * mix(vec3(1.0), fsun_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
         vec3 flit_mul_g = u_rt_lit_boost * mix(vec3(1.0), fmoon_ch, clamp(u_rt_tint_lit, 0.0, 1.0));
-        vec3 fshd_mul = u_rt_shadow_mul * mix(vec3(1.0), FUS_COOL, clamp(u_rt_tint_shadow, 0.0, 1.0));
+        // Baked already includes shading: shadow removes only the lit supplement.
+        vec3 fshd_mul = vec3(1.0);
         vec3 fmod = mix(vec3(1.0), mix(fshd_mul, flit_mul_y, flit_y), fw_y) *
                     mix(vec3(1.0), mix(fshd_mul, flit_mul_g, flit_g), fw_g);
         // FUSED-CONTRAST REBALANCE (owner preset report 2026-07-23: Fusion modes read
