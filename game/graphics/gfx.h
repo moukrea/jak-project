@@ -549,13 +549,11 @@ struct GfxGlobalSettings {
   // daytime sky sun-glow lobe for shadowed-area form). Hemisphere stays available via the selector.
   int recharged_rt_ambient_model = 1;
   float recharged_rt_ambient_contrast = 1.0f;  // Grecharged-directional-ambient: azimuthal ambient spread (0..~1.5); owner-validated shipped default (playtest 2026-07-20: SH + strength 0.2 + contrast 1.0)
-  // Grecharged-pbr-realtime-fusion DYNAMIC FOLLOW-PROBE (owner 2026-07-23): the PBR env source is
-  // now ONE amortized camera-centered cubemap re-rendered from the live world (replaces the deleted
-  // baked probe grid). Tier = user setting, SAME features mobile+PC (owner: no platform gating):
-  // 0 = OFF (lowest = corrected procedural IBL, no capture), 1 = LOW (32px), 2 = MID (64px),
-  // 3 = HIGH (128px). Amortized 1 face/frame at every tier. Driven from GOAL via
-  // pc-set-follow-probe!; debug.opengoal.rt.followprobe / env OG_RT_FOLLOWPROBE force it for A/B.
-  int recharged_follow_probe = 1;
+  // dead-follow-probe (2026-09-10) : `recharged_follow_probe` est SUPPRIME. Son unique
+  // consommateur, FollowProbe.cpp, a disparu avec SPEC-refonte-lumiere §2.4 et sa rangee de menu
+  // ENV PROBE le 2026-09-02 : le champ etait ecrit par `pc_set_follow_probe` et lu par PERSONNE
+  // dans tout l'arbre. Aucun changement de comportement, personne ne le lisait. Le recensement
+  // qui le prouve vit dans kmachine.cpp (`dead_probe_census`).
 #endif
   // Grecharged-hd-models: load jak2 detailed character models (Jak/Daxter/Samos/Keira, jak1-look)
   // in place of stock low-poly meshes, by reading an enhanced FR3 variant from fr3/enhanced/. Seeded

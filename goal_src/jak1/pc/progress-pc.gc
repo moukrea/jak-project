@@ -851,9 +851,6 @@
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off / Parallax / Tessellation). Off reuses the
 ;; generic off text-id like *carousell-ambient-occlusion*; Parallax/Tessellation are new ids.
 (def-progress-carousell *carousell-pbr-displacement* (off pc-text-parallax pc-text-tessellation))
-;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell (Off / Low / Mid / High).
-;; Off reuses the generic off text-id like *carousell-pbr-displacement*; Low/Mid/High are new ids.
-(def-progress-carousell *carousell-follow-probe* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
 ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell (Off / Low / Mid /
 ;; High = 0/1/2/3 pre-subdivision ROUNDS handed to the hardware tessellator). It deliberately REUSES
 ;; the ENV PROBE text-ids — `off` plus pc-text-envprobe-low/mid/high already read Off/Low/Mid/High
@@ -1405,15 +1402,10 @@
               (set! (-> *pc-settings* realtime-lighting?) (the-as symbol val))
               (commit-to-file *pc-settings*)
               (none))))
-       ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (Off/Low/Mid/High DYNAMIC FOLLOW-PROBE tier).
-       ;; Occupies the reserved slot (fw-idx+5) vacated by the deleted BAKED AMBIENT probe toggle. Disabled
-       ;; unless PBR MATERIALS on (same lambda as DISPLACEMENT). Carousell mirrors pbr-displacement: no
-       ;; :on-change, value written via respond-common. :name is a placeholder; real label via name-override.
-       (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type follow-probe) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; dead-follow-probe (2026-09-10) : la rangee ENV PROBE est RETIREE de ce corps GELE aussi —
+       ;; le corps livre (#unless FLAG_MENU_OVERHAUL) l'avait perdue le 2026-09-02. Toutes les
+       ;; rangees PBR qui la suivaient reculent d'un cran (+6..+16 -> +5..+15 dans le cablage plus
+       ;; bas) et le terme PBR de la garde de longueur passe de 10 a 9.
        ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
        ;; disabled when Realtime Lighting off): Hemisphere = DC + vertical band, SH = full L1, IBL = + probe
        ;; cubemap env term. Carousell writes via respond-common; no on-change needed.
@@ -1727,9 +1719,9 @@
       (set! (-> dst n) *grp-materials*) (set! n (+ n 1))
       (#when FLAG_PBR
         (set! (-> dst n) (-> rch (+ 4 hud))) (set! (-> dst n hint) (text-id pc-text-hint-pbr)) (set! n (+ n 1))       ;; PBR Materials
-        (set! (-> dst n) (-> rch (+ fw 13))) (set! (-> dst n hint) (text-id pc-text-hint-relief)) (set! n (+ n 1))    ;; Relief (Off/Parallax/Tessellation)
-        (set! (-> dst n) (-> rch (+ fw 11))) (set! (-> dst n hint) (text-id pc-text-hint-texrelief)) (set! n (+ n 1)) ;; Texture Relief (strength)
-        (set! (-> dst n) (-> rch (+ fw 12))) (set! (-> dst n hint) (text-id pc-text-hint-specular)) (set! n (+ n 1))) ;; Specular Intensity
+        (set! (-> dst n) (-> rch (+ fw 12))) (set! (-> dst n hint) (text-id pc-text-hint-relief)) (set! n (+ n 1))    ;; Relief (Off/Parallax/Tessellation)
+        (set! (-> dst n) (-> rch (+ fw 10))) (set! (-> dst n hint) (text-id pc-text-hint-texrelief)) (set! n (+ n 1)) ;; Texture Relief (strength)
+        (set! (-> dst n) (-> rch (+ fw 11))) (set! (-> dst n hint) (text-id pc-text-hint-specular)) (set! n (+ n 1))) ;; Specular Intensity
       (set! (-> dst n) (-> rch (+ 3 hud))) (set! (-> dst n hint) (text-id pc-text-hint-rtextures)) (set! n (+ n 1))   ;; Recharged Textures
       (set! (-> dst n) (-> rch (+ 2 hud))) (set! (-> dst n hint) (text-id pc-text-hint-customassets)) (set! n (+ n 1));; Load Custom Assets
       ;; --- ÉCLAIRAGE ---
@@ -1739,12 +1731,11 @@
       (set! (-> dst n) (-> rch (+ fw 2))) (set! (-> dst n hint) (text-id pc-text-hint-aoquality)) (set! n (+ n 1))    ;; AO Quality
       (set! (-> dst n) (-> rch (+ fw 3))) (set! (-> dst n hint) (text-id pc-text-hint-aostrength)) (set! n (+ n 1))   ;; AO Strength
       (#when FLAG_PBR
-        (set! (-> dst n) (-> rch (+ fw 6))) (set! (-> dst n hint) (text-id pc-text-hint-ambmodel)) (set! n (+ n 1))   ;; Ambient Model
-        (set! (-> dst n) (-> rch (+ fw 7))) (set! (-> dst n hint) (text-id pc-text-hint-ambstrength)) (set! n (+ n 1));; Ambient Strength
-        (set! (-> dst n) (-> rch (+ fw 8))) (set! (-> dst n hint) (text-id pc-text-hint-ambcontrast)) (set! n (+ n 1));; Ambient Contrast
-        (set! (-> dst n) (-> rch (+ fw 5))) (set! (-> dst n hint) (text-id pc-text-hint-envprobe)) (set! n (+ n 1))   ;; Env Probe
-        (set! (-> dst n) (-> rch (+ fw 9))) (set! (-> dst n hint) (text-id pc-text-hint-shadowdist)) (set! n (+ n 1)) ;; Shadow Distance
-        (set! (-> dst n) (-> rch (+ fw 10))) (set! (-> dst n hint) (text-id pc-text-hint-shadowquality)) (set! n (+ n 1))) ;; Shadow Quality
+        (set! (-> dst n) (-> rch (+ fw 5))) (set! (-> dst n hint) (text-id pc-text-hint-ambmodel)) (set! n (+ n 1))   ;; Ambient Model
+        (set! (-> dst n) (-> rch (+ fw 6))) (set! (-> dst n hint) (text-id pc-text-hint-ambstrength)) (set! n (+ n 1));; Ambient Strength
+        (set! (-> dst n) (-> rch (+ fw 7))) (set! (-> dst n hint) (text-id pc-text-hint-ambcontrast)) (set! n (+ n 1));; Ambient Contrast
+        (set! (-> dst n) (-> rch (+ fw 8))) (set! (-> dst n hint) (text-id pc-text-hint-shadowdist)) (set! n (+ n 1)) ;; Shadow Distance
+        (set! (-> dst n) (-> rch (+ fw 9))) (set! (-> dst n hint) (text-id pc-text-hint-shadowquality)) (set! n (+ n 1))) ;; Shadow Quality
       ;; --- VÉGÉTATION (the Grass sub-submenu is DISSOLVED inline here) ---
       (set! (-> dst n) *grp-vegetation*) (set! n (+ n 1))
       (set! (-> dst n) (-> grs 0)) (set! (-> dst n hint) (text-id pc-text-hint-grass)) (set! n (+ n 1))       ;; Recharged Grass
@@ -1883,9 +1874,6 @@
 ;; DISPLACEMENT label it sits under.
 (define *mesh-subdiv-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *mesh-subdiv-label*) "MESH SUBDIVISION")
-;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell label.
-(define *envprobe-label* (new 'global 'string 64 (the-as string #f)))
-(format (clear *envprobe-label*) "ENV PROBE")
 ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell label.
 (define *pbr-test-preset-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *pbr-test-preset-label*) "PBR TEST PRESET")
@@ -4295,7 +4283,7 @@
   ;; ours to silently "fix". The shipped body (#unless FLAG_MENU_OVERHAUL) is exact.
   ;; The HD-collapse guard below needs NO change: it is deliberately kept for the NO-PBR case only
   ;; (see its own comment), and with --pbr off this row does not exist.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 10 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 11 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N (* 9 FLAG_PBR_N) (* 2 FLAG_PHYSICS_N)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N FLAG_HD_MODELS_N)
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -4315,35 +4303,34 @@
     ;; symbols; AMBIENT STRENGTH/CONTRAST + SHADOW DISTANCE bind floats; AMBIENT MODEL + SHADOW QUALITY are
     ;; carousells (int-backup scratch, mapped 1:1 to their pc-settings ints in respond-common).
     (#when FLAG_PBR
+      ;; dead-follow-probe (2026-09-10) : la rangee ENV PROBE (ex-+5) est RETIREE. Tous les bras
+      ;; qui la suivaient RECULENT d'un cran (+6..+16 -> +5..+15) et le terme PBR de la garde de
+      ;; longueur ci-dessus passe de 10 a 9. ATTENTION : les commentaires de ce bloc citent encore
+      ;; les ANCIENS numeros de rangee (+11/+12, +13, +14, +15/+16) ; le code fait foi.
       (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* realtime-lighting?))
       (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *realtime-lighting-label*)
-      ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (row +5, the slot vacated by the deleted BAKED
-      ;; AMBIENT probe toggle). int-backup scratch, mapped 1:1 to follow-probe in respond-common, mirroring
-      ;; the DISPLACEMENT / AMBIENT MODEL carousells.
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *envprobe-label*)
       ;; Grecharged-directional-ambient ROUND 2: AMBIENT MODEL carousell (int-backup scratch, mapped 1:1
       ;; to realtime-ambient-model in respond-common).
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-model-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
-      (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *ambient-strength-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *ambient-model-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-strength-label*)
       ;; Grecharged-directional-ambient: AMBIENT CONTRAST slider bound directly to the float.
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *pc-settings* realtime-ambient-contrast))
-      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *ambient-contrast-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
-      (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-distance-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *shadow-quality-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-ambient-contrast))
+      (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *ambient-contrast-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *shadow-distance-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 9) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 9) name-override) *shadow-quality-label*)
       ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF + SPECULAR INTENSITY sliders (rows +11/+12, before Back).
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* pbr-texture-relief))
-      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *texture-relief-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
-      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *specular-intensity-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *pc-settings* pbr-texture-relief))
+      (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *texture-relief-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *specular-intensity-label*)
       ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (row +13, before Back). int-backup scratch, mapped
       ;; 1:1 to pbr-displacement in respond-common, mirroring the AMBIENT MODEL / SHADOW QUALITY carousells.
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *displacement-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *displacement-label*)
       ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell, INSERTED right after DISPLACEMENT
       ;; (row +14). int-backup scratch, mapped 1:1 to mesh-subdiv in respond-common, exactly like the
       ;; DISPLACEMENT carousell above. Because this row is inserted IN THE MIDDLE of the PBR block and
@@ -4352,16 +4339,16 @@
       ;; total-static-length guards gains one row. Nothing else moves: everything after PBR ISOLATE
       ;; (MODERN MATERIALS, CRISP TITLE LOGO, the two PHYSICS rows, HD TEXTURE PACK) is either
       ;; SELF-LOCATING or addressed from the END of the array, so it is immune to this insertion.
-      (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *mesh-subdiv-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *mesh-subdiv-label*)
       ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (row +15, before Back). int-backup
       ;; scratch, mapped 1:1 to pbr-test-preset in respond-common; the write-back arm applies the whole config.
-      (set! (-> *recharged-options-pc* (+ fw-idx 15) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-test-preset-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 14) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 14) name-override) *pbr-test-preset-label*)
       ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (row +16, before Back). int-backup
       ;; scratch, mapped 1:1 to pbr-isolate in respond-common, mirroring the DISPLACEMENT carousell.
-      (set! (-> *recharged-options-pc* (+ fw-idx 16) value-to-modify) (&-> *progress-carousell* int-backup))
-      (set! (-> *recharged-options-pc* (+ fw-idx 16) name-override) *pbr-isolate-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 15) value-to-modify) (&-> *progress-carousell* int-backup))
+      (set! (-> *recharged-options-pc* (+ fw-idx 15) name-override) *pbr-isolate-label*)
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
@@ -4638,7 +4625,6 @@
                     (game-option-type pbr-displacement)
                     (game-option-type mesh-subdiv)
                     (game-option-type physics-quality)
-                    (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
@@ -4736,7 +4722,6 @@
                     (game-option-type pbr-displacement)
                     (game-option-type mesh-subdiv)
                     (game-option-type physics-quality)
-                    (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
@@ -5114,7 +5099,6 @@
                  (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* mesh-subdiv)))
                  ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, like pbr-displacement).
                  (((game-option-type physics-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* physics-quality)))
-                 (((game-option-type follow-probe)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* follow-probe)))
                  (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-isolate)))
                  (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
                  (((game-option-type lod-bg))
@@ -5174,7 +5158,6 @@
                     (((game-option-type mesh-subdiv)) (set! (-> *progress-carousell* current-carousell) *carousell-mesh-subdiv*))
                     ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell list.
                     (((game-option-type physics-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-physics-quality*))
-                    (((game-option-type follow-probe)) (set! (-> *progress-carousell* current-carousell) *carousell-follow-probe*))
                     (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-isolate*))
                     (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
@@ -5239,7 +5222,6 @@
               (((game-option-type mesh-subdiv)) (set! (-> *pc-settings* mesh-subdiv) (-> *progress-carousell* int-backup)))
               ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, like pbr-displacement).
               (((game-option-type physics-quality)) (set! (-> *pc-settings* physics-quality) (-> *progress-carousell* int-backup)))
-              (((game-option-type follow-probe)) (set! (-> *pc-settings* follow-probe) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-isolate)) (set! (-> *pc-settings* pbr-isolate) (-> *progress-carousell* int-backup)))
               ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
               ;; intended-config on confirm. Store the choice, then stamp the underlying fields; every other
@@ -5256,7 +5238,6 @@
                   (set! (-> *pc-settings* pbr-texture-relief) 2.0)
                   (set! (-> *pc-settings* pbr-specular-intensity) 0.2) ;; REOPEN #6: matte showcase (rough=matte via matte_gate; low spec only on smooth/metal)
                   (set! (-> *pc-settings* pbr-displacement) 2)
-                  (set! (-> *pc-settings* follow-probe) 3) ;; ALL-IN => HIGH follow-probe
                   (set! (-> *pc-settings* realtime-ambient-model) 2))
                  ((1) ;; FUSED (shipped config)
                   (set! (-> *pc-settings* recharged-master?) #t)
@@ -5266,8 +5247,7 @@
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 1.5)
                   (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric shipped default
-                  (set! (-> *pc-settings* pbr-displacement) 1)
-                  (set! (-> *pc-settings* follow-probe) 2)) ;; FUSED => MID follow-probe
+                  (set! (-> *pc-settings* pbr-displacement) 1))
                  ((2) ;; FUSED FLAT (FUSED but displacement OFF)
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
@@ -5276,30 +5256,26 @@
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 1.5)
                   (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric default
-                  (set! (-> *pc-settings* pbr-displacement) 0)
-                  (set! (-> *pc-settings* follow-probe) 1)) ;; FUSED FLAT/PLATE => LOW follow-probe
+                  (set! (-> *pc-settings* pbr-displacement) 0))
                  ((3) ;; PBR ONLY
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
                   (set! (-> *pc-settings* pbr-materials?) #t)
                   (set! (-> *pc-settings* realtime-lighting?) #f)
                   (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-displacement) 1)
-                  (set! (-> *pc-settings* follow-probe) 2)) ;; PBR ONLY => MID follow-probe
+                  (set! (-> *pc-settings* pbr-displacement) 1))
                  ((4) ;; RT ONLY
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
                   (set! (-> *pc-settings* pbr-materials?) #f)
                   (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* follow-probe) 0)) ;; RT ONLY => follow-probe OFF
+                  (set! (-> *pc-settings* load-custom-assets?) #t))
                  ((5) ;; STOCK
                   (set! (-> *pc-settings* recharged-master?) #f)
                   (set! (-> *pc-settings* recharged-textures?) #f)
                   (set! (-> *pc-settings* pbr-materials?) #f)
                   (set! (-> *pc-settings* realtime-lighting?) #f)
-                  (set! (-> *pc-settings* load-custom-assets?) #f)
-                  (set! (-> *pc-settings* follow-probe) 0))))
+                  (set! (-> *pc-settings* load-custom-assets?) #f))))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -5522,7 +5498,6 @@
       (((game-option-type pbr-displacement)) (set! lst *carousell-pbr-displacement*) (set! idx (-> *pc-settings* pbr-displacement)))
       (((game-option-type mesh-subdiv)) (set! lst *carousell-mesh-subdiv*) (set! idx (-> *pc-settings* mesh-subdiv)))
       (((game-option-type physics-quality)) (set! lst *carousell-physics-quality*) (set! idx (-> *pc-settings* physics-quality)))
-      (((game-option-type follow-probe)) (set! lst *carousell-follow-probe*) (set! idx (-> *pc-settings* follow-probe)))
       (((game-option-type pbr-isolate)) (set! lst *carousell-pbr-isolate*) (set! idx (-> *pc-settings* pbr-isolate)))
       (((game-option-type pbr-test-preset)) (set! lst *carousell-pbr-test-preset*) (set! idx (-> *pc-settings* pbr-test-preset)))
       (((game-option-type lod-bg)) (set! lst *carousell-lod-bg*) (set! idx (case (-> *pc-settings* lod-force-tfrag) ((0) 0) ((1 2) 1) (else 2))))
@@ -5777,7 +5752,6 @@
                       (game-option-type pbr-displacement)
                       (game-option-type mesh-subdiv)
                       (game-option-type physics-quality)
-                      (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
@@ -5871,7 +5845,6 @@
                       (game-option-type pbr-displacement)
                       (game-option-type mesh-subdiv)
                       (game-option-type physics-quality)
-                      (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
@@ -6933,9 +6906,6 @@
 ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off / Parallax / Tessellation). Off reuses the
 ;; generic off text-id like *carousell-ambient-occlusion*; Parallax/Tessellation are new ids.
 (def-progress-carousell *carousell-pbr-displacement* (off pc-text-parallax pc-text-tessellation))
-;; Grecharged-pbr-realtime-fusion: ENV PROBE (DYNAMIC FOLLOW-PROBE tier) carousell (Off / Low / Mid / High).
-;; Off reuses the generic off text-id like *carousell-pbr-displacement*; Low/Mid/High are new ids.
-(def-progress-carousell *carousell-follow-probe* (off pc-text-envprobe-low pc-text-envprobe-mid pc-text-envprobe-high))
 ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell (Off / Low / Mid /
 ;; High = 0/1/2/3 pre-subdivision ROUNDS handed to the hardware tessellator). It deliberately REUSES
 ;; the ENV PROBE text-ids — `off` plus pc-text-envprobe-low/mid/high already read Off/Low/Mid/High
@@ -7569,8 +7539,14 @@
        ;; regenerait ses mipmaps A CHAQUE IMAGE. Le reglage n'etait meme pas persiste
        ;; (zero occurrence de `follow-probe` dans pckernel.gc), donc il repartait a 1 a chaque
        ;; lancement : le joueur payait le cout sans pouvoir l'eteindre durablement.
-       ;; Le defaut de `follow-probe` passe a 0 dans pckernel-impl.gc pour que le cout s'arrete.
-       ;; A REMETTRE le jour ou une grille de sondes revient et ou `u_rt_probe_on` peut valoir 1.
+       ;; dead-follow-probe (2026-09-10) : le retrait est DESORMAIS complet. Le champ
+       ;; `follow-probe` de pc-settings, le type de menu `game-option-type follow-probe`,
+       ;; `pc-set-follow-probe!` et le champ C++ `recharged_follow_probe` sont SUPPRIMES : le
+       ;; reglage n'avait plus ni lecteur ni rangee, seulement un ecrivain. Le recensement qui
+       ;; le prouve est `dead_probe_census` (kmachine.cpp), grandeur `dead_probe_sites`.
+       ;; A REFAIRE DE ZERO le jour ou une grille de sondes revient et ou `u_rt_probe_on` peut
+       ;; valoir 1 ; les text-ids `pc-text-envprobe-low/-mid/-high` sont RESTES en place (la
+       ;; rangee MESH SUBDIVISION les reutilise pour afficher Off/Low/Mid/High).
        ;; Ambient Model carousell = the EVALUATION FIDELITY of the probe data (Grecharged-lightprobes OWNER #3;
        ;; disabled when Realtime Lighting off): Hemisphere = DC + vertical band, SH = full L1, IBL = + probe
        ;; cubemap env term. Carousell writes via respond-common; no on-change needed.
@@ -11234,7 +11210,6 @@
                     (game-option-type hd-look-keira)
                     (game-option-type hd-look-samos)
                     (game-option-type physics-quality)
-                    (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
@@ -11336,7 +11311,6 @@
                     (game-option-type hd-look-keira)
                     (game-option-type hd-look-samos)
                     (game-option-type physics-quality)
-                    (game-option-type follow-probe)
                     (game-option-type pbr-test-preset)
                     (game-option-type pbr-isolate)
                     (game-option-type lod-bg)
@@ -11686,7 +11660,6 @@
                  (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-samos)))
                  ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, like pbr-displacement).
                  (((game-option-type physics-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* physics-quality)))
-                 (((game-option-type follow-probe)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* follow-probe)))
                  (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-isolate)))
                  (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* pbr-test-preset)))
                  (((game-option-type lod-bg))
@@ -11752,7 +11725,6 @@
                     (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-samos*))
                     ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell list.
                     (((game-option-type physics-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-physics-quality*))
-                    (((game-option-type follow-probe)) (set! (-> *progress-carousell* current-carousell) *carousell-follow-probe*))
                     (((game-option-type pbr-isolate)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-isolate*))
                     (((game-option-type pbr-test-preset)) (set! (-> *progress-carousell* current-carousell) *carousell-pbr-test-preset*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
@@ -11822,7 +11794,6 @@
               (((game-option-type hd-look-samos)) (set! (-> *pc-settings* hd-look-samos) (-> *progress-carousell* int-backup)))
               ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, like pbr-displacement).
               (((game-option-type physics-quality)) (set! (-> *pc-settings* physics-quality) (-> *progress-carousell* int-backup)))
-              (((game-option-type follow-probe)) (set! (-> *pc-settings* follow-probe) (-> *progress-carousell* int-backup)))
               (((game-option-type pbr-isolate)) (set! (-> *pc-settings* pbr-isolate) (-> *progress-carousell* int-backup)))
               ;; Gpbr-fusion REOPEN #3 (DEBUG, removable later): PBR TEST PRESET write-back applies a WHOLE
               ;; intended-config on confirm. Store the choice, then stamp the underlying fields; every other
@@ -11839,7 +11810,6 @@
                   (set! (-> *pc-settings* pbr-texture-relief) 2.0)
                   (set! (-> *pc-settings* pbr-specular-intensity) 0.2) ;; REOPEN #6: matte showcase (rough=matte via matte_gate; low spec only on smooth/metal)
                   (set! (-> *pc-settings* pbr-displacement) 2)
-                  (set! (-> *pc-settings* follow-probe) 3) ;; ALL-IN => HIGH follow-probe
                   (set! (-> *pc-settings* realtime-ambient-model) 2))
                  ((1) ;; FUSED (shipped config)
                   (set! (-> *pc-settings* recharged-master?) #t)
@@ -11849,8 +11819,7 @@
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 1.5)
                   (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric shipped default
-                  (set! (-> *pc-settings* pbr-displacement) 1)
-                  (set! (-> *pc-settings* follow-probe) 2)) ;; FUSED => MID follow-probe
+                  (set! (-> *pc-settings* pbr-displacement) 1))
                  ((2) ;; FUSED FLAT (FUSED but displacement OFF)
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
@@ -11859,30 +11828,26 @@
                   (set! (-> *pc-settings* load-custom-assets?) #t)
                   (set! (-> *pc-settings* pbr-texture-relief) 1.5)
                   (set! (-> *pc-settings* pbr-specular-intensity) 0.15) ;; REOPEN #6 matte-dielectric default
-                  (set! (-> *pc-settings* pbr-displacement) 0)
-                  (set! (-> *pc-settings* follow-probe) 1)) ;; FUSED FLAT/PLATE => LOW follow-probe
+                  (set! (-> *pc-settings* pbr-displacement) 0))
                  ((3) ;; PBR ONLY
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
                   (set! (-> *pc-settings* pbr-materials?) #t)
                   (set! (-> *pc-settings* realtime-lighting?) #f)
                   (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* pbr-displacement) 1)
-                  (set! (-> *pc-settings* follow-probe) 2)) ;; PBR ONLY => MID follow-probe
+                  (set! (-> *pc-settings* pbr-displacement) 1))
                  ((4) ;; RT ONLY
                   (set! (-> *pc-settings* recharged-master?) #t)
                   (set! (-> *pc-settings* recharged-textures?) #t)
                   (set! (-> *pc-settings* pbr-materials?) #f)
                   (set! (-> *pc-settings* realtime-lighting?) #t)
-                  (set! (-> *pc-settings* load-custom-assets?) #t)
-                  (set! (-> *pc-settings* follow-probe) 0)) ;; RT ONLY => follow-probe OFF
+                  (set! (-> *pc-settings* load-custom-assets?) #t))
                  ((5) ;; STOCK
                   (set! (-> *pc-settings* recharged-master?) #f)
                   (set! (-> *pc-settings* recharged-textures?) #f)
                   (set! (-> *pc-settings* pbr-materials?) #f)
                   (set! (-> *pc-settings* realtime-lighting?) #f)
-                  (set! (-> *pc-settings* load-custom-assets?) #f)
-                  (set! (-> *pc-settings* follow-probe) 0))))
+                  (set! (-> *pc-settings* load-custom-assets?) #f))))
               (((game-option-type lod-bg))
                (case (-> *progress-carousell* int-backup)
                  ((0) (set! (-> *pc-settings* lod-force-tfrag) 0) (set! (-> *pc-settings* lod-force-tie) 0))
@@ -12304,7 +12269,6 @@
                       (game-option-type hd-look-keira)
                       (game-option-type hd-look-samos)
                       (game-option-type physics-quality)
-                      (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)
                       (game-option-type lod-bg)
@@ -12402,7 +12366,6 @@
                       (game-option-type hd-look-keira)
                       (game-option-type hd-look-samos)
                       (game-option-type physics-quality)
-                      (game-option-type follow-probe)
                       (game-option-type pbr-test-preset)
                       (game-option-type pbr-isolate)
                       (game-option-type lod-bg)

@@ -192,8 +192,6 @@
      (rt-ambient-model)
      ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off/Parallax/Tessellation), mirroring rt-ambient-model.
      (pbr-displacement)
-     ;; Grecharged-pbr-realtime-fusion: ENV PROBE carousell (Off/Low/Mid/High follow-probe tier), mirroring pbr-displacement.
-     (follow-probe)
      ;; Gpbr-fusion REOPEN #3 (DEBUG, removable): PBR TEST PRESET carousell (one-click intended-config presets).
      (pbr-test-preset)
      ;; Gpbr-fusion REOPEN #10 (DEBUG, removable): PBR ISOLATE carousell (in-menu term bisection), mirroring pbr-displacement.

@@ -18,6 +18,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <unordered_set>
 #include <vector>
 
@@ -861,6 +862,108 @@ static void refset_pump(bool from_logic) {
   refset::tick();
 }
 
+// ================== dead-follow-probe : recensement du reglage MORT « ENV PROBE » ===========
+// Le champ `recharged_follow_probe` (gfx.h) etait ecrit par `pc_set_follow_probe` et lu par
+// PERSONNE : son unique consommateur, FollowProbe.cpp, a disparu avec SPEC-refonte-lumiere §2.4,
+// et sa rangee de menu ENV PROBE a ete retiree le 2026-09-02. Ce recensement ne juge rien et ne
+// change aucun comportement : il PUBLIE combien de traces du reglage survivent.
+//
+// Deux grandeurs, parce qu'un nettoyage a moitie fait se lit a DEUX endroits differents :
+//
+//   * `dead_probe_cpp_field` — la struct C++ porte-t-elle encore le champ ? La reponse est
+//     calculee PAR LE COMPILATEUR sur la vraie declaration (idiome de detection SFINAE). Elle ne
+//     peut pas etre « verte par inaction » : re-ajouter le champ a gfx.h la remet a 1 sans qu'une
+//     seule ligne d'ici ne bouge.
+//   * `dead_probe_symbols` — combien de symboles GOAL de la famille ENV PROBE / follow-probe
+//     vivent encore dans la table du runtime. C'est une lecture de l'image REELLEMENT CHARGEE
+//     (GAME.CGO + ENGINE.CGO), pas du source : un `pc-set-follow-probe!` toujours enregistre par
+//     ce fichier, ou un `*carousell-follow-probe*` toujours defini par progress-pc.gc, s'y voit.
+//
+// Le motif est la FAMILLE de ce reglage, jamais le mot « probe » seul : jak1 porte des dizaines
+// de symboles `collide-probe*`, `*anim-probe-*`, `cutscene-*-probe` qui n'ont rien a voir et
+// rendraient la porte inatteignable.
+//
+// La table se remplit au fil des DGO charges : on repasse periodiquement et on garde le MAXIMUM
+// vu, pour qu'une apparition tardive ne puisse pas etre lavee par une passe propre. On publie
+// aussi le denominateur (symboles balayes / connus du noyau) : sans lui, `dead_probe_sites=0`
+// est aussi ce que rendrait une table vide ou non initialisee.
+namespace {
+template <typename T, typename = void>
+struct HasDeadFollowProbeField : std::false_type {};
+template <typename T>
+struct HasDeadFollowProbeField<T, std::void_t<decltype(std::declval<T&>().recharged_follow_probe)>>
+    : std::true_type {};
+
+constexpr const char* kDeadProbeNamePatterns[] = {"follow-probe", "follow_probe", "followprobe",
+                                                  "envprobe", "env-probe"};
+}  // namespace
+
+static void dead_probe_census() {
+  static u32 s_worst = 0;
+  static u32 s_passes = 0;
+  static std::string s_worst_names;
+
+  u32 live = 0;
+  u32 scanned = 0;
+  std::string names;
+  if (SymbolTable2.offset && LastSymbol.offset) {
+    // Pas de 8 octets : c'est le pas REEL de la table (find_symbol_in_area, kscheme.cpp:1305).
+    for (u32 slot = SymbolTable2.offset; slot < LastSymbol.offset; slot += 8) {
+      auto sym = Ptr<Symbol>(slot);
+      if (!info(sym)->hash) {
+        continue;  // slot jamais occupe
+      }
+      u32 stro = info(sym)->str.offset;
+      if (!stro || stro >= (u32)EE_MAIN_MEM_SIZE - 128) {
+        continue;
+      }
+      const char* nm = reinterpret_cast<const char*>(Ptr<u8>(stro + 4).c());
+      size_t nlen = strnlen(nm, 96);
+      if (!nlen || nlen >= 96) {
+        continue;
+      }
+      scanned++;
+      for (const char* pat : kDeadProbeNamePatterns) {
+        if (strstr(nm, pat)) {
+          live++;
+          if (names.size() < 180) {
+            if (!names.empty()) {
+              names += ',';
+            }
+            names += nm;
+          }
+          break;
+        }
+      }
+    }
+  }
+  s_passes++;
+  if (live >= s_worst) {
+    s_worst = live;
+    s_worst_names = names;
+  }
+
+  constexpr u32 cpp_field = HasDeadFollowProbeField<GfxGlobalSettings>::value ? 1u : 0u;
+  autoport_proof::note_hit(1);
+  autoport_proof::publish("dead_probe_cpp_field", cpp_field);
+  autoport_proof::publish("dead_probe_symbols", s_worst);
+  autoport_proof::publish("dead_probe_sites", cpp_field + s_worst);
+  autoport_proof::publish("dead_probe_symbols_scanned", scanned);
+  autoport_proof::publish("dead_probe_symbols_known", NumSymbols < 0 ? 0 : (u64)NumSymbols);
+  autoport_proof::publish("dead_probe_passes", s_passes);
+  // Une cle de TEXTE ne se vide jamais toute seule : liste vide => on publie "-", sinon la
+  // derniere liste non vide resterait a cote d'un compte a zero.
+  autoport_proof::publish_text("dead_probe_symbol_names",
+                               s_worst_names.empty() ? "-" : s_worst_names.c_str());
+  // Le regime de la feature : le champ mort vit sous OG_FEAT_PBR. Un binaire compile sans ce
+  // drapeau rendrait 0 sans avoir rien nettoye — la preuve doit dire lequel des deux elle decrit.
+#ifdef OG_FEAT_PBR
+  autoport_proof::publish("dead_probe_build_pbr", 1);
+#else
+  autoport_proof::publish("dead_probe_build_pbr", 0);
+#endif
+}
+
 void pc_autoport_frame() {
   // recharged-gating-real : LE seul point de ce fichier qui tourne une fois par image RENDUE.
   // La valeur EFFECTIVE doit etre dans le champ meme quand aucun `pc-set-*` n'a bouge : un
@@ -869,6 +972,14 @@ void pc_autoport_frame() {
   // travail de cette image ne lise un champ non compose.
   recharged_gating::tick();
   autoport_proof::frame_tick();
+  // dead-follow-probe : le recensement repasse toutes les 60 images (la table des symboles se
+  // remplit au fil des DGO ; une seule passe au demarrage ne verrait pas un symbole tardif).
+  {
+    static u32 s_dead_probe_n = 0;
+    if ((s_dead_probe_n++ % 60) == 0) {
+      dead_probe_census();
+    }
+  }
   // lighting-census : l'ancre du jeu d'images de reference est un ETAT, pas une duree. Elle se
   // pose quand *target* est vivant ET que le warp de niveau a deja lance (start 'play ...) —
   // la garde que `pad_replay` n'applique qu'au warp F1 (voir pad_replay_anchor_reached).
@@ -3962,13 +4073,6 @@ void pc_set_rt_ambient_contrast(u32 pct) {
 void pc_set_rt_ambient_model(u32 model) {
   recharged_gating::set(recharged_gating::kRtAmbientModel, (int)model);
 }
-// Grecharged-pbr-realtime-fusion DYNAMIC FOLLOW-PROBE tier (0 Off/procedural-IBL .. 3 High). The
-// PBR env source is now a camera-centered amortized cubemap (replaces the deleted probe grid).
-void pc_set_follow_probe(u32 tier) {
-  // NON route par recharged_gating : ce champ n'a AUCUN lecteur dans l'arbre (recense le
-  // 2026-09-10), lui donner une porte donnerait une porte sans consommateur.
-  Gfx::g_global_settings.recharged_follow_probe = (int)std::min(tier, 3u);
-}
 // ROUND 2: sun shadow-map Quality (resolution, texels) + Distance (range, meters). Both
 // take a plain u32 from GOAL (res e.g. 2048; dist e.g. 100) — no float-ABI concern.
 void pc_set_rt_shadow_res(u32 res) {
@@ -5427,7 +5531,6 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-pbr-isolate!", (void*)pc_set_pbr_isolate);
   make_function_symbol_from_c("pc-set-rt-ambient-contrast!", (void*)pc_set_rt_ambient_contrast);
   make_function_symbol_from_c("pc-set-rt-ambient-model!", (void*)pc_set_rt_ambient_model);
-  make_function_symbol_from_c("pc-set-follow-probe!", (void*)pc_set_follow_probe);
 #endif
   // Grecharged-foliage-wind: light-wind sway toggle (palms via TIE + shrubs)
   make_function_symbol_from_c("pc-set-foliage-wind!", (void*)pc_set_foliage_wind);
