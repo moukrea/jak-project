@@ -2258,7 +2258,7 @@ items:
   depends_on: []
   history:
   - Gperf-batching
-  prompt: null
+  prompt: prompts/item-perf-batching.md
   owner_ok: null
   where: 'Geyser Rock et Sandover : le compteur d''images'
   delivered: '2026-07-03'
@@ -2360,7 +2360,7 @@ items:
   depends_on: []
   history:
   - Gperf-particles
-  prompt: null
+  prompt: prompts/item-perf-particles.md
   owner_ok: null
   where: les feux de Rock Village de nuit
   delivered: '2026-07-04'
@@ -2377,7 +2377,7 @@ items:
   depends_on: []
   history:
   - Gperf-particles2
-  prompt: null
+  prompt: prompts/item-perf-particles2.md
   owner_ok: null
   where: 'les memes feux : la geometrie ne doit pas apparaitre/disparaitre et les textures ne doivent
     pas clignoter'
@@ -4441,7 +4441,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: open
+  status: to-test
   priority: 18
   game: jak1
   gate:
@@ -4537,7 +4537,7 @@ items:
     la chaine avance sur l''occlusion ambiante.'
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: open
+  status: to-test
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -5543,7 +5543,7 @@ items:
   supervisor_recovery: true
 - id: perf-instruments
   feature: Voir enfin ou passe le temps d'une image, sur l'appareil comme sur PC
-  status: in-progress
+  status: validated
   priority: 19
   game: jak1
   gate:
@@ -5634,6 +5634,8 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   - debug.opengoal.frame.limit=240
+  block_reason: null
+  prompt: prompts/item-perf-stock-baseline.md
 - id: perf-gl-waits
   feature: Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
   status: open
@@ -5676,6 +5678,8 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  block_reason: null
+  prompt: prompts/item-perf-gl-waits.md
 - id: perf-merc-defuse
   feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
   status: open
@@ -5715,6 +5719,8 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  block_reason: null
+  prompt: prompts/item-perf-merc-defuse.md
 - id: perf-fbo-passes
   feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
   status: open
@@ -5757,6 +5763,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-fbo-passes.md
 - id: perf-goal-gl-overlap
   feature: GOAL construit l'image suivante pendant que le GPU rend la precedente
   status: open
@@ -5799,6 +5806,7 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   - debug.opengoal.perf.nooverlap=2
+  prompt: prompts/item-perf-goal-gl-overlap.md
 - id: perf-thread-build
   feature: Le fil GOAL tourne sur un gros coeur, dans un binaire release
   status: open
@@ -5838,6 +5846,8 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  block_reason: null
+  prompt: prompts/item-perf-thread-build.md
 - id: perf-actor-pause-dist
   feature: Les acteurs loin de Jak dorment comme sur PS2, et c'est un reglage
   status: open
@@ -5878,6 +5888,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-actor-pause-dist.md
 - id: perf-ocean-idle
   feature: Pas d'ocean, pas de vagues calculees
   status: open
@@ -5912,6 +5923,8 @@ items:
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
   - OG_RECHARGED=0
   - OG_FIXED_TICK=0
+  block_reason: null
+  prompt: prompts/item-perf-ocean-idle.md
 - id: perf-dma-chain-copies
   feature: La chaine DMA n'est plus parcourue cinq fois par image
   status: open
@@ -5947,6 +5960,8 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  block_reason: null
+  prompt: prompts/item-perf-dma-chain-copies.md
 - id: perf-gl-state
   feature: Moins d'appels pilote par draw, memes pixels
   status: open
@@ -5988,6 +6003,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-gl-state.md
 - id: perf-sky-distort
   feature: Le ciel se melange sur le GPU et la distorsion ne recopie plus tout l'ecran
   status: open
@@ -6025,6 +6041,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-sky-distort.md
 - id: perf-mips2c-neon
   feature: Les noyaux VU0 emules (os, joints, particules) calculent en vectoriel
   status: open
@@ -6061,6 +6078,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-mips2c-neon.md
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
   status: open
@@ -6100,6 +6118,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-codegen-arm64-calls.md
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
   status: open
@@ -6132,6 +6151,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-codegen-arm64-scalar.md
 - id: perf-codegen-arm64-regs
   feature: Le compilateur GOAL utilise les 31 registres de l'arm64
   status: open
@@ -6166,6 +6186,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-codegen-arm64-regs.md
 - id: perf-instrument-cost
   feature: Un instrument desarme ne coute rien, et le prouve lui-meme
   status: open
@@ -6210,6 +6231,7 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
+  prompt: prompts/item-perf-instrument-cost.md
 - id: perf-stock-60
   feature: Le jeu STOCK tient 60 images par seconde sur le Redmi, en natif 21:9
   status: open
@@ -6256,3 +6278,4 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   - debug.opengoal.frame.limit=240
+  prompt: prompts/item-perf-stock-60.md
