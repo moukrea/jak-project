@@ -4441,7 +4441,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: to-test
+  status: blocked
   priority: 18
   game: jak1
   gate:
@@ -4450,7 +4450,7 @@ items:
     value: 0
   device: true
   max_turns: 300
-  max_retries: 6
+  max_retries: 9
   depends_on:
   - lighting-hdr
   history: []
@@ -4459,28 +4459,28 @@ items:
   where: 'Options : une ligne « sortie HDR » qui n''apparait QUE si l''ecran le supporte. Sur ton Honor
     elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change
     de teinte.'
-  deliverable: '`hdr_out_defects` = 0 : (1) capacite DETECTEE et publiee ; (2) option visible seulement
-    si un mode est annonce ; (3) vrai interrupteur, `hdr_out_forced_on` = 0, choix persistant ; (4) activee,
-    sortie dans l''espace annonce, un seul tone map ; (5) desactivee, identique au bit a lighting-hdr
-    ; (6) auto-config au premier demarrage. S''AJOUTENT (refus 09/09) : (7) `hdr_out_menu_parent` = eclairage
-    — la ligne vit sous Options > Recharged > Eclairage Recharge ; (8) `hdr_out_ui_white_nits` >= le blanc
-    SDR de l''ecran lu dans le systeme — UI, sous-titres, sprites, aplats blancs sont du contenu SDR et
-    sortent BLANC, jamais gris ; (9) `hdr_out_darkening_pct` <= 5 — la luminance moyenne des tons moyens
-    de la scene ne baisse pas par rapport a la sortie SDR : seules les hautes lumieres au-dela de 1,0
-    gagnent. ; (10) `hdr_out_peak_nits` = le pic ANNONCE par l''ecran (mMaxLuminance, 480 sur le Honor),
-    et la courbe s''y adapte : blanc SDR ancre, hautes lumieres etendues jusqu''au pic — prouve a DEUX
-    pics au moins (480 reel, 1000 simule par propriete de debug) avec des mesures distinctes, `hdr_out_peak_adaptive`
-    = 1. Preuve sur le Honor.'
-  known_cause: 'Refus owner 09/09 sur le build 15:26 : TOUT est plus sombre, les aplats blancs (UI, sous-titres,
-    sprite de chargement) sortent gris clair, et l''interrupteur est hors des reglages Recharged. Lecture
-    : le blanc de reference (paper white, ceiling_x100=236 => ~203 nits sur un ecran a 480) est applique
-    AUSSI a l''UI, qui est du contenu SDR et doit sortir au blanc SDR de l''ecran, pas en dessous ; et
-    la scene est remappee sous son niveau SDR au lieu de ne depasser 1,0 que dans les hautes lumieres.'
+  deliverable: '`hdr_out_defects` = 0, onze verdicts. (1) capacite detectee et publiee ; (2) option visible
+    seulement si un mode est annonce ; (3) vrai interrupteur, `hdr_out_forced_on` = 0, choix persistant
+    ; (4) ON : espace annonce, un seul tone map ; (5) OFF : identique au bit a lighting-hdr ; (6) auto-config
+    au premier demarrage ; (7) `hdr_out_menu_parent` = eclairage (Options > Recharged > Eclairage Recharge).
+    (8) `hdr_out_ui_white_nits` >= blanc SDR du systeme : UI, sous-titres, sprites sortent BLANC, jamais
+    gris. (9) `hdr_out_darkening_pct` <= 5 : les tons moyens ne baissent pas, seules les hautes lumieres
+    au-dela de 1,0 gagnent. (10) `hdr_out_peak_nits` = pic ANNONCE par l''ecran, courbe adaptative, `hdr_out_peak_adaptive`
+    = 1, prouve a deux pics (480 reel, 1000 simule). (11) NOUVEAU (refus 10/09) : ON doit DIFFERER de
+    OFF a la sortie, sur l''ecran reel — `hdr_out_hdr_sdr_ratio_x1000` > 1000 ET difference non nulle
+    sur les hautes lumieres entre les deux etats. Un ratio a 1000 est un DEFAUT, jamais un vert : il rend
+    8 et 9 vrais par INACTION. Si le mode retenu n''obtient pas la marge, essayer l''autre chemin annonce
+    dans les caps et publier CHAQUE chemin essaye. Preuve sur le Honor.'
+  known_cause: 'Essai 6 vert (defects=0) mais VACUEUX. Sur le Honor `hdr_out_hdr_sdr_ratio_x1000` = 1000
+    : getHdrSdrRatio() reste a 1,0, setExtendedRangeBrightness accepte mais le systeme n''accorde aucune
+    marge (isHighBrightnessModeEnabled=false, mSdrToHdrRatioSpline=null). ON = SDR exact, l''owner ne
+    voit AUCUNE difference on/off (10/09). Les verdicts 8 et 9 passent donc par INACTION. Seul `scrgb_linear`
+    a ete essaye ; les caps annoncent aussi `egl:bt2020_pq`, jamais teste sur cet ecran.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
-  notes: 'Honor vu par adb le 09/09 22:40 (AREE026206000788, 4 modes HDR, 480 nits) : la preuve redevient
-    possible. Les 3 essais brules sans ecran ne comptent pas. Ordre du backlog respecte : priorite 18,
-    avant le lot perf.'
+  notes: 'budget : 3 essais rendus, les 3 brules sans ecran HDR ne comptent pas. Le Honor doit etre branche
+    ET SEUL le temps de l''essai : pick_device le classe avant le Redmi, mais la campagne perf tourne
+    sur le Redmi.'
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4523,18 +4523,20 @@ items:
     text: oui on doit certes trouver plus de détails dans les ombres (et aussi les lumières) mais pas
       tout assombrir pour autant sinon c'est un peu un contre-sens ! et ça doit s'ajuster au nits proposés
       par l'écran je suppose... celui-ci fait 480, mais quid d'un écran à 1000?
+  - date: '2026-09-10'
+    text: le HDR output toggle est bien deplace dans les options rechargees, mais on/off j'ai aucun changement
+      a l'ecran, je pense que ca active meme plus le HDR en fait
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
   - debug.opengoal.recharged=1
   - debug.opengoal.lighting=1
   proof_timeout: 240
-  block_reason: 'EN ATTENTE DU HONOR (le seul ecran HDR connu). Les corrections de l''owner sont livrees
-    (essai 3 : blanc UI = blanc SDR du systeme, sous-option Eclairage Recharge, verdicts 7-10) et instrumentees
-    (essai 5 : ratio HDR/SDR par image). Mais sans ecran HDR branche, les mesures de blanc UI, d''assombrissement
-    et d''adaptation au pic ont ZERO echantillon sur x86 (proof 21:40 : samples=0, defects=4). Continuer
-    brulerait le budget (3/6 deja) pour rien. Rouvrir des que le Honor est vu par adb ; pendant ce temps
-    la chaine avance sur l''occlusion ambiante.'
+  block_reason: 'EN ATTENTE DU HONOR SUR USB. Refus owner du 10/09 : on/off ne change rien a l''ecran.
+    La mesure le confirme (ratio HDR/SDR = 1,000) : le vert de l''essai 6 etait vacueux. Verdict 11 ajoute
+    pour qu''un ratio a 1,000 sorte ROUGE. Rien a reprouver sans le Honor branche.'
+  proof_env:
+  - ANDROID_SERIAL=AREE026206000788
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: to-test
@@ -5596,7 +5598,7 @@ items:
   prompt: prompts/item-perf-instruments.md
 - id: perf-stock-baseline
   feature: La ligne de base du jeu STOCK sur le Redmi, et la courbe cadence selon l'echelle
-  status: open
+  status: in-progress
   priority: 20
   game: jak1
   gate:
@@ -5627,13 +5629,22 @@ items:
   hits_means: regimes mesures
   proof_timeout: 1800
   proof_env:
+  - ANDROID_SERIAL=eae4df44
+  - OG_PERF_BASELINE=2400x1080:25,40,60,80,100@240/60/600
+  - OG_PERF_BUCKETS=1
   - OG_RECHARGED=0
   - OG_FIXED_TICK=0
-  - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
+  - OG_FRAME_LIMIT_FPS=240
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-116 14 40
   proof_props:
-  - debug.opengoal.recharged=0
+  - debug.opengoal.perf.baseline=2400x1080:25,40,60,80,100@240/60/600
   - debug.opengoal.perf.buckets=1
+  - debug.opengoal.recharged=0
+  - debug.opengoal.fixed_tick=0
   - debug.opengoal.frame.limit=240
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
   block_reason: null
   prompt: prompts/item-perf-stock-baseline.md
 - id: perf-gl-waits
