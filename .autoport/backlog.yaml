@@ -2186,7 +2186,7 @@ items:
   build: build du 2026-07-02, remplace depuis
 - id: touch-menus
   feature: Naviguer les menus au doigt, sans la croix directionnelle
-  status: to-test
+  status: archived
   priority: 210
   owner_feedback: []
   gate: null
@@ -2201,6 +2201,8 @@ items:
   where: ouvre les options au doigt seulement, sans manette
   delivered: '2026-07-02'
   build: build du 2026-07-02, remplace depuis
+  notes: 'ARCHIVE le 2026-09-10 sur ordre de l''owner : « degage les, on s''en fiche ». Meme lot que la
+    refonte de menu, sujet repris bien plus tard si besoin.'
 - id: warp-dpad
   feature: Le stick fait office de croix directionnelle devant un teleporteur
   status: to-test
@@ -2237,7 +2239,7 @@ items:
   build: build du 2026-07-02, remplace depuis
 - id: touch-fix
   feature: Les interrupteurs et les curseurs des menus au doigt
-  status: to-test
+  status: archived
   priority: 211
   owner_feedback: []
   gate: null
@@ -2252,6 +2254,8 @@ items:
   where: 'dans les options au doigt : les interrupteurs marche/arret et les curseurs'
   delivered: '2026-07-03'
   build: build du 2026-07-03, remplace depuis
+  notes: 'ARCHIVE le 2026-09-10 sur ordre de l''owner : « degage les, on s''en fiche ». Meme lot que la
+    refonte de menu, sujet repris bien plus tard si besoin.'
 - id: perf-batching
   feature: Le gain de cadence par regroupement des appels de dessin
   status: to-test
@@ -2271,7 +2275,7 @@ items:
   build: v3 APK
 - id: orb-hud-regression
   feature: Les orbes precurseurs blanches dans le HUD et les menus
-  status: to-test
+  status: archived
   priority: 234
   owner_feedback: []
   gate: null
@@ -2286,6 +2290,8 @@ items:
   where: le compteur d'orbes dans le HUD et dans le menu
   delivered: '2026-07-03'
   build: v3 APK
+  notes: 'ARCHIVE le 2026-09-10 sur ordre de l''owner : « degage les, on s''en fiche ». Meme lot que la
+    refonte de menu, sujet repris bien plus tard si besoin.'
 - id: eco-spheres
   feature: Les spheres d'eco mal rendues sur Android
   status: to-test
