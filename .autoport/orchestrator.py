@@ -1917,7 +1917,19 @@ def main(argv: list[str] | None = None) -> int:
     # propre item y est légitimement `in-progress`.
     release_stale_in_progress(load_backlog())
 
+    pause_file = Path(__file__).resolve().parent / "PAUSE"
+
     while not HALT:
+        # Frein de l'owner : `touch .autoport/PAUSE` arrete le harnais APRES l'item en cours,
+        # jamais au milieu. Demande le 2026-09-10 (« faut faire en sorte que ca s'arrete une
+        # fois l'item en cours termine ») pour changer de telephone sans qu'un item enchaine
+        # tout seul. `rm` du fichier + relance pour repartir.
+        if pause_file.exists():
+            log("⏸ .autoport/PAUSE present : arret demande par l'owner. L'item en cours est "
+                "termine, on ne prend pas le suivant. `rm .autoport/PAUSE` puis relancer.",
+                "bold yellow")
+            break
+
         bk = load_backlog()
         promote_owner_validated(bk)
 
