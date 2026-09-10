@@ -1,4 +1,5 @@
 #include "TFragment.h"
+#include "game/system/recharged_gating.h"
 
 #include <bit>
 #include <cstdio>
@@ -702,7 +703,7 @@ void TFragment::render_tree(int geom,
   // relief). Only for opaque tfrag kinds (the tess index expansion + patch cost is pointless on
   // transparent trees).
   const bool tess_supported = gl_context_supports_tessellation();
-  const bool tess_pbr_gate = Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable);
+  const bool tess_pbr_gate = recharged_gating::on(recharged_gating::kPbr);
   // OWNER 2026-07-26 ("bah elle devrait pouvoir tourner partout !"): the kind allowlist was a
   // second source of flat chunks — TRANS/LOWRES/WATER trees could never be tessellated whatever
   // their maps. Every tfrag tree kind is eligible now; the per-draw `u_pbr_mode & 16` test in the
@@ -786,8 +787,8 @@ void TFragment::render_tree(int geom,
   // world relight apply to the whole world when the feature is on, not just levels with
   // a registered PBR material.
   const bool pbr_shadow_frame_ok =
-      (Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable) ||
-       Gfx::lighting_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
+      (recharged_gating::on(recharged_gating::kPbr) ||
+       recharged_gating::on(recharged_gating::kRtLight)) &&
       pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data());
   // cast_full: the vis-culled count being 0 (camera facing away from every caster) is
   // EXACTLY the owner's pop-on-rotation repro — the full static buffer must still cast.
@@ -905,8 +906,8 @@ void TFragment::render_tree(int geom,
   // Round-4 mandate B receiver bind: bind the shadow matrix + sampler on the TFRAG3
   // program for this tree's draws. Runs regardless of whether the depth pass ran this
   // frame (last frame's map, or the cleared-to-1.0 map, is acceptable).
-  if ((Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable) ||
-       Gfx::lighting_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
+  if ((recharged_gating::on(recharged_gating::kPbr) ||
+       recharged_gating::on(recharged_gating::kRtLight)) &&
       pbr_shadow_state().valid) {
     pbr_shadow_bind_receiver(render_state->shaders[tfrag_shader_id].id(),
                              settings.camera.trans.data());

@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/hdr.h"
+#include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/hdr_output.h"
 
 #include <cmath>
@@ -358,7 +359,10 @@ bool chain_active() {
   // garde d'eclairage pendant la course de preuve, exactement la ou elle doit mordre : la chaine
   // HDR tournerait avec `recharged_lighting` OFF. C'est la regle « epingler le regime de SA
   // feature » : on epingle SON reglage, pas les maitres qui sont au-dessus de lui.
-  const bool sub_on = has_ov ? (ov != 0) : Gfx::g_global_settings.recharged_hdr;
+  // Le compteur de la porte tire INCONDITIONNELLEMENT : un compteur qui ne s'incremente que
+  // dans la branche « pas d'override » ne prouverait rien de l'autre branche.
+  const bool sub_gate = recharged_gating::on(recharged_gating::kHdr);
+  const bool sub_on = has_ov ? (ov != 0) : sub_gate;
   if (!Gfx::lighting_active(sub_on)) {
     return false;
   }

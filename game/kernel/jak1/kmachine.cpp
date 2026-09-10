@@ -36,6 +36,7 @@
 #include "game/graphics/refset_state.h"
 #include "game/system/load_gate.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/recharged_gating.h"
 #include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 #include "game/system/settings_case_l10n.h"
@@ -861,6 +862,12 @@ static void refset_pump(bool from_logic) {
 }
 
 void pc_autoport_frame() {
+  // recharged-gating-real : LE seul point de ce fichier qui tourne une fois par image RENDUE.
+  // La valeur EFFECTIVE doit etre dans le champ meme quand aucun `pc-set-*` n'a bouge : un
+  // ancetre eteint par le harnais (surcharge de gfx.h, epinglage refset) ou un balayage de
+  // mesure ne passe par aucun setter. En premiere ligne, avant tout le reste, pour qu'aucun
+  // travail de cette image ne lise un champ non compose.
+  recharged_gating::tick();
   autoport_proof::frame_tick();
   // lighting-census : l'ancre du jeu d'images de reference est un ETAT, pas une duree. Elle se
   // pose quand *target* est vivant ET que le warp de niveau a deja lance (start 'play ...) —
@@ -873,6 +880,52 @@ void pc_autoport_frame() {
   // sur le fil GOAL, qu'elle devient un `(start 'play ...)`. Hors campagne, rien n'est en
   // attente et l'appel sort a sa premiere ligne.
   perf_baseline_warp_maybe();
+}
+
+// ── recharged-gating-real : le grisage du menu vient du C++ ──────────────────────────────────
+// La dependance entre options etait ecrite DEUX fois — une lambda `option-disabled-func` par
+// rangee cote GOAL, et ~92 portes recopiees a la main cote C++. Deux ecritures d'une meme regle
+// divergent, et elles avaient diverge : des rangees grisees a l'ecran continuaient de couter,
+// parce que rien ne comparait les deux moities. Le grisage passe donc par la MEME table que la
+// porte du moteur (game/system/recharged_gating.h), et GOAL ne porte plus sa propre copie.
+
+// 1 si un ANCETRE de cette option est eteint : c'est le predicat de grisage du menu, et c'est
+// EXACTEMENT celui que le moteur applique. GOAL ne porte plus sa propre copie de la regle.
+// Un identifiant inconnu rend 0 : une rangee mal nommee reste utilisable plutot que de se
+// griser toute seule sans que rien ne le dise — et le recensement du menu, lui, la compte.
+s32 pc_gating_disabled(u32 id_str) {
+  const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  const int opt = recharged_gating::by_name(id);
+  return (opt >= 0 && recharged_gating::disabled_by_ancestor(opt)) ? 1 : 0;
+}
+void pc_gating_menu_begin() {
+  recharged_gating::menu_begin();
+}
+void pc_gating_menu_row(u32 page_str, u32 id_str) {
+  const char* page = page_str ? Ptr<String>(page_str).c()->data() : nullptr;
+  const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  recharged_gating::menu_row(page, id);
+}
+// 1 quand le harnais mesure CET item. Le recensement des portes a besoin de `init-game-options`,
+// que le jeu n'appelle qu'a l'OUVERTURE du menu : sous mesure, GOAL le force une fois au boot
+// pour qu'une course puisse recenser sans qu'un humain ouvre le menu. Hors mesure on ne touche a
+// rien — forcer le cablage pour tout le monde changerait le jeu livre. C'est l'INSTRUMENT qui est
+// sous drapeau, jamais le correctif (meme patron que `pc_scl10n_wanted`).
+// La page ou une rangee doit vivre, deduite de la table des portes : 0 Recharged, 1 Grass,
+// 2 Recharged Lighting, -1 inconnue. C'est GOAL qui construit ses pages avec ca, au lieu de
+// porter sa propre liste — une liste ecrite a la main deriverait de la hierarchie au premier
+// ajout, et on referait sur la PLACE des options la faute qu'on corrige sur leur EXTINCTION.
+s32 pc_gating_page(u32 id_str) {
+  const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  return recharged_gating::page_of(recharged_gating::by_name(id));
+}
+
+s32 pc_gating_wanted() {
+  return recharged_gating::census_wanted() ? 1 : 0;
+}
+
+void pc_gating_menu_end() {
+  recharged_gating::menu_end();
 }
 
 void pc_npc_census_end() {
@@ -1109,13 +1162,13 @@ s32 pc_goal_slice_expired(s32 slot) {
 // Grecharged-grass-poc: push the "recharged grass" on/off toggle from GOAL
 // (-> *pc-settings* recharged-grass?) down to the renderer. 0 = off (stock).
 void pc_set_recharged_grass(u32 on) {
-  Gfx::g_global_settings.recharged_grass = (on != 0);
+  recharged_gating::set(recharged_gating::kGrass, (on != 0));
 }
 
 // External-asset-root: toggle runtime custom texture replacements (user PNGs
 // under <root>/custom_assets/texture_replacements). 0 = off (stock).
 void pc_set_load_custom_assets(u32 on) {
-  Gfx::g_global_settings.load_custom_assets = (on != 0);
+  recharged_gating::set(recharged_gating::kLoadCustomAssets, (on != 0));
 }
 
 // Grecharged-bundled-textures: 0/1 toggle for the package-bundled first-party replacement
@@ -1125,7 +1178,7 @@ void pc_set_recharged_textures(u32 on) {
   // geste (progress-pc.gc), et `update-to-os` le rappelle a CHAQUE image avec la valeur du champ.
   // C'est donc le seul point ou un stimulus de preuve peut tenir : pose plus bas, il serait
   // efface a l'image suivante. Identite hors mesure (voir hotreload_stimulus).
-  Gfx::g_global_settings.recharged_textures = custom_tex::hotreload_stimulus(on != 0);
+  recharged_gating::set(recharged_gating::kTextures, custom_tex::hotreload_stimulus(on != 0));
 }
 
 // Grecharged-managed-assets: 0/1 toggle for the DOWNLOADED texture pack. The
@@ -1133,8 +1186,11 @@ void pc_set_recharged_textures(u32 on) {
 // the pack index so the next level load picks the new state up.
 void pc_set_managed_assets(u32 on) {
   const bool v = (on != 0);
-  if (Gfx::g_global_settings.recharged_managed_assets != v) {
-    Gfx::g_global_settings.recharged_managed_assets = v;
+  // La comparaison porte sur la valeur VOULUE : le champ, lui, porte desormais la valeur
+  // effective (stock des qu'un ancetre est eteint), et le comparer declencherait l'invalidation
+  // au basculement d'un PARENT au lieu de celui de cette option.
+  if (recharged_gating::desired(recharged_gating::kManagedAssets) != (v ? 1.0 : 0.0)) {
+    recharged_gating::set(recharged_gating::kManagedAssets, v);
     managed_assets::invalidate();
     lg::info("managed assets: {} by setting", v ? "enabled" : "disabled");
   }
@@ -1147,10 +1203,12 @@ void pc_set_managed_assets(u32 on) {
 // (pushed every frame by update-to-os), so a device log proves the GOAL->C++ link.
 void pc_set_recharged_master(u32 on) {
   bool v = (on != 0);
-  if (v != Gfx::g_global_settings.recharged_master) {
+  // Valeur VOULUE et non le champ : celui-ci porte la valeur effective depuis
+  // recharged_gating, et un parent eteint y ecrit stock — le log ne doit parler que du geste.
+  if (v != (recharged_gating::desired(recharged_gating::kMaster) != 0.0)) {
     lg::info("[recharged-master] toggle -> {}", v ? "ON" : "OFF");
   }
-  Gfx::g_global_settings.recharged_master = v;
+  recharged_gating::set(recharged_gating::kMaster, v);
 }
 
 // Glighting-hdr / SPEC-refonte-lumiere §6.2: push the ECLAIRAGE RECHARGE master from GOAL
@@ -1163,10 +1221,12 @@ void pc_set_recharged_master(u32 on) {
 // Logs on CHANGE only (pushed every frame by update-to-os), so a device log proves the link.
 void pc_set_recharged_lighting(u32 on) {
   bool v = (on != 0);
-  if (v != Gfx::g_global_settings.recharged_lighting) {
+  // Valeur VOULUE et non le champ : celui-ci porte la valeur effective depuis
+  // recharged_gating, et un parent eteint y ecrit stock — le log ne doit parler que du geste.
+  if (v != (recharged_gating::desired(recharged_gating::kLighting) != 0.0)) {
     lg::info("[recharged-lighting] toggle -> {}", v ? "ON" : "OFF");
   }
-  Gfx::g_global_settings.recharged_lighting = v;
+  recharged_gating::set(recharged_gating::kLighting, v);
 }
 
 // water-ocean-mesh (SPEC-refonte-eau §1.2 regle 1, §7) : le maitre de la refonte EAU, pousse par
@@ -1174,10 +1234,12 @@ void pc_set_recharged_lighting(u32 on) {
 // lisent JAMAIS ce champ : elles passent par Gfx::water_active().
 void pc_set_recharged_water(u32 on) {
   bool v = (on != 0);
-  if (v != Gfx::g_global_settings.recharged_water) {
+  // Valeur VOULUE et non le champ : celui-ci porte la valeur effective depuis
+  // recharged_gating, et un parent eteint y ecrit stock — le log ne doit parler que du geste.
+  if (v != (recharged_gating::desired(recharged_gating::kWater) != 0.0)) {
     lg::info("[recharged-water] toggle -> {}", v ? "ON" : "OFF");
   }
-  Gfx::g_global_settings.recharged_water = v;
+  recharged_gating::set(recharged_gating::kWater, v);
 }
 
 // hdr-display-output : sortie HDR vers l'ECRAN (distincte du calcul HDR interne ci-dessus).
@@ -1188,6 +1250,9 @@ u64 pc_get_hdr_output_modes() {
 // Le reglage du joueur (-> *pc-settings* hdr-output?). Prend effet a l'image suivante, fil GL.
 void pc_set_hdr_output(u32 on) {
   hdr_output::set_enabled(on != 0);
+  // Cette option n'a pas de champ dans GfxGlobalSettings : sa porte reste dans hdr_output.cpp.
+  // recharged_gating en suit la valeur voulue, pour le grisage du menu et le recensement.
+  recharged_gating::set(recharged_gating::kHdrOutput, on != 0);
 }
 // kind 0 = visibilite de la rangee (value 0/1) ;
 // kind 1 = reglage etabli (value bit0 = valeur, bit1 = source auto-configuration) ;
@@ -1208,7 +1273,7 @@ void pc_hdr_output_note(u32 kind, u32 value) {
 // alpha overhang texture at every distance).
 #ifdef OG_FEAT_GRASS_OVERHANG
 void pc_set_grass_overhang(u32 on) {
-  Gfx::g_global_settings.recharged_grass_overhang = (on != 0);
+  recharged_gating::set(recharged_gating::kGrassOverhang, (on != 0));
 }
 #endif
 
@@ -1288,14 +1353,16 @@ void pc_set_ambient_occlusion(u32 mode, u32 quality, u32 strength) {
       s_ao_guard_armed = false;  // healthy: sentinel gone, s_ao_enable_t stays (no re-arm)
     }
   }
-  if (m != Gfx::g_global_settings.recharged_ao_mode ||
-      q != Gfx::g_global_settings.recharged_ao_quality ||
-      s != Gfx::g_global_settings.recharged_ao_strength) {
+  // Les trois "valeurs precedentes" sont les valeurs VOULUES : sous un ancetre eteint les trois
+  // champs valent stock, et les comparer ferait re-loguer a chaque image.
+  if ((double)m != recharged_gating::desired(recharged_gating::kAoMode) ||
+      (double)q != recharged_gating::desired(recharged_gating::kAoQuality) ||
+      (double)s != recharged_gating::desired(recharged_gating::kAoStrength)) {
     lg::info("[recharged-ao] mode -> {} quality -> {} strength -> {}", m, q, s);
-    Gfx::g_global_settings.recharged_ao_mode = m;
-    Gfx::g_global_settings.recharged_ao_quality = q;
-    Gfx::g_global_settings.recharged_ao_strength = s;
   }
+  recharged_gating::set(recharged_gating::kAoMode, m);
+  recharged_gating::set(recharged_gating::kAoQuality, q);
+  recharged_gating::set(recharged_gating::kAoStrength, s);
 }
 
 // Grecharged-foliage-wind: push the light-wind sway toggle from GOAL (pc-set-foliage-wind!).
@@ -1303,10 +1370,11 @@ void pc_set_ambient_occlusion(u32 mode, u32 quality, u32 strength) {
 // (update-to-os pushes this every frame), so a device log proves the GOAL->C++ link.
 void pc_set_foliage_wind(u32 on) {
   bool v = (on != 0);
-  if (v != Gfx::g_global_settings.recharged_foliage_wind) {
+  // Valeur VOULUE : le champ porte l'effective, un parent eteint y ecrit stock.
+  if (v != (recharged_gating::desired(recharged_gating::kFoliageWind) != 0.0)) {
     lg::info("[foliage-wind] toggle -> {}", v ? "ON" : "OFF");
   }
-  Gfx::g_global_settings.recharged_foliage_wind = v;
+  recharged_gating::set(recharged_gating::kFoliageWind, v);
 }
 
 // Grecharged-title-logo-fullres: push the CRISP TITLE LOGO toggle from GOAL
@@ -1315,10 +1383,11 @@ void pc_set_foliage_wind(u32 on) {
 // CHANGE only (update-to-os pushes this every frame), so a device log proves the GOAL->C++ link.
 void pc_set_crisp_title_logo(u32 on) {
   bool v = (on != 0);
-  if (v != Gfx::g_global_settings.recharged_crisp_title_logo) {
+  // Valeur VOULUE : le champ porte l'effective, un parent eteint y ecrit stock.
+  if (v != (recharged_gating::desired(recharged_gating::kCrispTitleLogo) != 0.0)) {
     lg::info("[crisp-logo] toggle -> {}", v ? "ON" : "OFF");
   }
-  Gfx::g_global_settings.recharged_crisp_title_logo = v;
+  recharged_gating::set(recharged_gating::kCrispTitleLogo, v);
 }
 
 // Gprecompute-deterministic-bake: push the MESH SUBDIVISION level from GOAL
@@ -1336,11 +1405,12 @@ void pc_set_mesh_subdiv_rounds(s32 rounds) {
   // device log could not tell "the GOAL->C++ link works and the value is 1" from "the link is dead".
   // One line at boot proves the link; after that only real changes speak.
   static bool first_push = true;
-  if (first_push || v != Gfx::g_global_settings.recharged_mesh_subdiv_rounds) {
+  // Valeur VOULUE : le champ porte l'effective (stock sous un ancetre eteint).
+  if (first_push || (double)v != recharged_gating::desired(recharged_gating::kMeshSubdiv)) {
     lg::info("[mesh-subdiv] level -> {} round(s) (applies at next level load)", v);
     first_push = false;
   }
-  Gfx::g_global_settings.recharged_mesh_subdiv_rounds = v;
+  recharged_gating::set(recharged_gating::kMeshSubdiv, v);
 }
 
 // Grecharged-hd-models: push the "enhanced models" on/off toggle from GOAL
@@ -1353,12 +1423,14 @@ void pc_set_recharged_enhanced_models(u32 on) {
   // (update-to-os), so a push of the pre-settings-load default silently flips the renderer-ctor
   // seed and later level loads read STOCK fr3. Log transitions so runs carry the flip evidence.
   bool v = (on != 0);
-  if (v != Gfx::g_global_settings.recharged_enhanced_models) {
+  // Les DEUX lectures (le test et l'ancienne valeur imprimee) sont la valeur VOULUE : le champ
+  // porte l'effective, et sous un master eteint il vaut stock a chaque image.
+  const bool prev = (recharged_gating::desired(recharged_gating::kEnhancedModels) != 0.0);
+  if (v != prev) {
     // lg (not raw stdout): on Android only lg::* routes to logcat.
-    lg::info("HD-MODELS toggle push: {} -> {}", Gfx::g_global_settings.recharged_enhanced_models,
-             v);
+    lg::info("HD-MODELS toggle push: {} -> {}", prev, v);
   }
-  Gfx::g_global_settings.recharged_enhanced_models = v;
+  recharged_gating::set(recharged_gating::kEnhancedModels, v);
 }
 
 // Grecharged-hd-models4: per-actor coverage registry (global-scope prototypes above, before
@@ -3384,13 +3456,13 @@ void pc_set_grass_dists(u32 vec) {
     return;
   }
   float* p = Ptr<float>(vec).c();
-  Gfx::g_global_settings.recharged_grass_near_dist = p[0];
-  Gfx::g_global_settings.recharged_grass_card_dist = p[1];
-  Gfx::g_global_settings.recharged_grass_density_preset =
-      grass_bake::clamp_density_preset((int)(p[2] + 0.5f));
+  recharged_gating::set(recharged_gating::kGrassNearDist, p[0]);
+  recharged_gating::set(recharged_gating::kGrassCardDist, p[1]);
+  recharged_gating::set(recharged_gating::kGrassDensity,
+                        grass_bake::clamp_density_preset((int)(p[2] + 0.5f)));
   // Grecharged-grass-precompute-mode: w channel = GRASS MODE toggle (1.0 = PRECOMPUTED baked
   // day-cycle tables / 0.0 = LIVE full at-load scan). GOAL now writes w in the scratch vector.
-  Gfx::g_global_settings.recharged_grass_precomputed = p[3] > 0.5f;
+  recharged_gating::set(recharged_gating::kGrassPrecomputed, p[3] > 0.5f);
 }
 
 // Grecharged-grass-precompute-mode verification aid: fixed time-of-day for A/B captures.
@@ -3572,8 +3644,11 @@ void pc_set_jak_ledge(u32 vec) {
 void pc_set_modern_materials(u32 sym) {
 #ifdef OG_FEAT_PBR
   const bool on = (sym != 0);
-  const bool changed = (Gfx::g_global_settings.recharged_modern_materials != on);
-  Gfx::g_global_settings.recharged_modern_materials = on;
+  // Valeur VOULUE : le champ porte l'effective, et un parent eteint y ecrit stock — comparer le
+  // champ relancerait la relecture de surfaces.json au basculement du parent.
+  const bool changed =
+      (recharged_gating::desired(recharged_gating::kModernMaterials) != (on ? 1.0 : 0.0));
+  recharged_gating::set(recharged_gating::kModernMaterials, on);
   if (changed) {
     // Same idiom as pc_set_physics: flipping the row RE-READS the tuning file, so the owner can
     // drop a surfaces.json in the external asset dir on the device and toggle the row to apply it with no
@@ -3588,7 +3663,7 @@ void pc_set_modern_materials(u32 sym) {
 #ifdef OG_FEAT_PBR
 // Grecharged-pbr-materials: runtime PBR toggle pushed from GOAL.
 void pc_set_pbr(u32 sym) {
-  Gfx::g_global_settings.recharged_pbr_enable = (sym != 0);
+  recharged_gating::set(recharged_gating::kPbr, (sym != 0));
 }
 
 // Grecharged-directional-ambient ITEM B (owner playtest #2, 2026-07-20): the mood COLOR values the
@@ -3718,17 +3793,17 @@ void pc_set_pbr_lights(u32 lg) {
 // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting toggles,
 // pushed from GOAL each frame. rt-light! = master.
 void pc_set_rt_light(u32 sym) {
-  Gfx::g_global_settings.recharged_rt_light_enable = (sym != 0);
+  recharged_gating::set(recharged_gating::kRtLight, (sym != 0));
 }
 // Grecharged-directional-ambient: hemisphere ambient enable + base strength. rt-ambient! =
 // enable (mirrors rt-light!); rt-ambient-strength! = base level (mirrors pc-set-rt-shadow-dist!:
 // takes a plain u32 from GOAL, stored as a float; the GL side clamps out-of-range back to 0.2).
 void pc_set_rt_ambient(u32 sym) {
-  Gfx::g_global_settings.recharged_rt_ambient_enable = (sym != 0);
+  recharged_gating::set(recharged_gating::kRtAmbient, (sym != 0));
 }
 void pc_set_rt_ambient_strength(u32 pct) {
   // GOAL sends an int PERCENT 0..50 (0.2 -> 20); mirror pc_set_rt_shadow_strength's *0.01 convention.
-  Gfx::g_global_settings.recharged_rt_ambient_strength = (float)pct * 0.01f;
+  recharged_gating::set(recharged_gating::kRtAmbientStrength, (float)pct * 0.01f);
 }
 // REOPEN #2 menu sliders: TEXTURE RELIEF (percent 0..300) + SPECULAR INTENSITY (percent 0..200),
 // same *0.01 int-percent convention as the ambient-strength setter above.
@@ -3740,10 +3815,10 @@ void pc_set_pbr_texture_relief(u32 pct) {
     s_last_pct = pct;
     lg::info("[mb-diag] relief push pct={}", pct);
   }
-  Gfx::g_global_settings.recharged_pbr_texture_relief = (float)pct * 0.01f;
+  recharged_gating::set(recharged_gating::kPbrRelief, (float)pct * 0.01f);
 }
 void pc_set_pbr_specular_intensity(u32 pct) {
-  Gfx::g_global_settings.recharged_pbr_spec_intensity = (float)pct * 0.01f;
+  recharged_gating::set(recharged_gating::kPbrSpecular, (float)pct * 0.01f);
 }
 // REOPEN #3 DISPLACEMENT carousel: raw mode int (0 Off / 1 Parallax / 2 Tessellation).
 void pc_set_pbr_displacement(u32 mode) {
@@ -3753,7 +3828,7 @@ void pc_set_pbr_displacement(u32 mode) {
   if (s_recharged_guard_tripped) {
     m = 0;
   }
-  Gfx::g_global_settings.recharged_pbr_displacement = m;
+  recharged_gating::set(recharged_gating::kPbrDisplacement, m);
   // Healthy clear: this is pushed every frame by GOAL update-to-os. Once we've survived 60s past
   // boot, delete the boot sentinel once so a normal session never trips the guard next launch.
   static bool did_clear = false;
@@ -3794,7 +3869,7 @@ void pc_set_pbr_isolate(u32 idx) {
       label = "BOTH";
       break;
   }
-  Gfx::g_global_settings.recharged_pbr_isolate = mask;
+  recharged_gating::set(recharged_gating::kPbrIsolate, mask);
   // REOPEN #11 (owner: the PBR-ISOLATE carousel "flip does nothing"): PROVE the menu value
   // actually reaches the fused shader's u_pbr_bisect mask by writing the ACTIVE carousel index +
   // resolved bisect mask to a device-pullable diag file EACH TIME IT CHANGES. The Honor obscures
@@ -3881,31 +3956,33 @@ void pc_set_pbr_isolate(u32 idx) {
 }
 void pc_set_rt_ambient_contrast(u32 pct) {
   // GOAL sends an int PERCENT 0..150 (0.9 -> 90); mirror the *0.01 convention above.
-  Gfx::g_global_settings.recharged_rt_ambient_contrast = (float)pct * 0.01f;
+  recharged_gating::set(recharged_gating::kRtAmbientContrast, (float)pct * 0.01f);
 }
 // Grecharged-directional-ambient ROUND 2: ambient MODEL selector (0 hemisphere / 1 SH / 2 IBL).
 void pc_set_rt_ambient_model(u32 model) {
-  Gfx::g_global_settings.recharged_rt_ambient_model = (int)model;
+  recharged_gating::set(recharged_gating::kRtAmbientModel, (int)model);
 }
 // Grecharged-pbr-realtime-fusion DYNAMIC FOLLOW-PROBE tier (0 Off/procedural-IBL .. 3 High). The
 // PBR env source is now a camera-centered amortized cubemap (replaces the deleted probe grid).
 void pc_set_follow_probe(u32 tier) {
+  // NON route par recharged_gating : ce champ n'a AUCUN lecteur dans l'arbre (recense le
+  // 2026-09-10), lui donner une porte donnerait une porte sans consommateur.
   Gfx::g_global_settings.recharged_follow_probe = (int)std::min(tier, 3u);
 }
 // ROUND 2: sun shadow-map Quality (resolution, texels) + Distance (range, meters). Both
 // take a plain u32 from GOAL (res e.g. 2048; dist e.g. 100) — no float-ABI concern.
 void pc_set_rt_shadow_res(u32 res) {
-  Gfx::g_global_settings.recharged_rt_shadow_res = (int)res;
+  recharged_gating::set(recharged_gating::kRtShadowRes, (int)res);
 }
 void pc_set_rt_shadow_dist(u32 dist_m) {
-  Gfx::g_global_settings.recharged_rt_shadow_dist = (float)dist_m;
+  recharged_gating::set(recharged_gating::kRtShadowDist, (float)dist_m);
 }
 // ROUND 5: cast-shadow Strength (how much a shadow darkens). GOAL passes call args in GPRs,
 // so a C float parameter would read an unset FP register (garbage) — every pc-set setter
 // therefore takes an integer. Strength arrives as an INT PERCENT 0..100 (0.8 -> 80); store
 // it back as a float 0..1. The shader residual is computed 1 - this.
 void pc_set_rt_shadow_strength(u32 pct) {
-  Gfx::g_global_settings.recharged_rt_shadow_strength = (float)pct * 0.01f;
+  recharged_gating::set(recharged_gating::kRtShadowStrength, (float)pct * 0.01f);
 }
 #endif
 
@@ -4171,7 +4248,7 @@ u64 pc_mesh_index_levelname(u32 str_dest_ptr) {
 
 // The real-texture <-> checker toggle (settable without adb; see gfx.h field comment).
 void pc_set_mesh_browser_checker(u32 mode) {
-  Gfx::g_global_settings.recharged_mesh_browser_checker = (int)std::min(mode, 4u);
+  recharged_gating::set(recharged_gating::kMeshBrowserChecker, (int)std::min(mode, 4u));
 }
 
 // Write the selected mesh identifier to files/mesh_select.txt so the owner can quote it back to us
@@ -5277,6 +5354,13 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-npc-clone-fail", (void*)pc_npc_clone_fail);
   make_function_symbol_from_c("__pc-npcf-clone-hold?", (void*)pc_npcf_clone_hold);
   make_function_symbol_from_c("__pc-autoport-frame", (void*)pc_autoport_frame);
+  // recharged-gating-real : le grisage du menu et son recensement, meme table que la porte.
+  make_function_symbol_from_c("__pc-gating-disabled?", (void*)pc_gating_disabled);
+  make_function_symbol_from_c("__pc-gating-menu-begin", (void*)pc_gating_menu_begin);
+  make_function_symbol_from_c("__pc-gating-menu-row", (void*)pc_gating_menu_row);
+  make_function_symbol_from_c("__pc-gating-menu-end", (void*)pc_gating_menu_end);
+  make_function_symbol_from_c("__pc-gating-wanted?", (void*)pc_gating_wanted);
+  make_function_symbol_from_c("__pc-gating-page", (void*)pc_gating_page);
   make_function_symbol_from_c("__pc-wind-note-rate!", (void*)pc_wind_note_rate);
   make_function_symbol_from_c("__pc-npcf-fix-armed?", (void*)pc_npcf_fix_armed);
   make_function_symbol_from_c("__pc-npcf-note-cover", (void*)pc_npcf_note_cover);

@@ -15,7 +15,7 @@
 // deja et la fond vers `far-color`. Les items 2 a 10 de la SPEC prennent la suite.
 //
 // L'INTERRUPTEUR. Une seule porte, `ocean_recharged_enabled()`, consultee par les trois sites.
-// Elle compose `Gfx::water_active()` (master > eau) avec l'armement du harnais : desarme, le
+// Elle compose `recharged_gating::on(kWater)` (master > eau) avec l'armement du harnais : desarme, le
 // binaire redevient celui de Naughty Dog dans la MEME scene, ce qui est exactement ce que
 // `proof_run.sh --off` doit pouvoir montrer.
 

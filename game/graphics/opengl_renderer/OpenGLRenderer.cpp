@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
+#include "game/system/recharged_gating.h"
 #include "OpenGLRenderer.h"
 
 #include "game/graphics/opengl_renderer/hdr.h"
@@ -1770,7 +1771,7 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     // Grecharged-grass-poc: draw procedural grass over the training ground at the
     // same post-opaque-background insertion point (depth buffer + camera ready).
     // Gated OFF by default -> zero grass code runs and the render is byte-identical.
-    if (bucket_id == 31 - 1 && Gfx::recharged_active(Gfx::g_global_settings.recharged_grass)) {
+    if (bucket_id == 31 - 1 && recharged_gating::on(recharged_gating::kGrass)) {
       auto p = prof.make_scoped_child("grass-draw");
       // Ggrass-crash : GARDE EXTERIEURE. MESURE, Redmi, 12 courses sur 12 : une `std::bad_alloc`
       // partie du champ d'herbe remontait jusqu'ici sans personne pour l'attraper, `libc++abi`

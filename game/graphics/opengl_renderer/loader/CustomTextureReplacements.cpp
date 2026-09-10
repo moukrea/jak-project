@@ -1,4 +1,5 @@
 #include "CustomTextureReplacements.h"
+#include "game/system/recharged_gating.h"
 #include "game/graphics/origin_ablate.h"
 
 #include <atomic>
@@ -344,7 +345,7 @@ const fs::path* find_key(const std::map<std::string, fs::path>& index,
 }
 
 void ensure_scanned() {
-  const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
+  const bool user_on = recharged_gating::on(recharged_gating::kLoadCustomAssets);
   // The bundled set serves two consumers (base swaps gated by recharged_textures, PBR maps
   // gated by the PBR path) — scan it whenever the master is up; per-lookup gates pick sources.
   const bool bundled_on = Gfx::recharged_master_active();
@@ -428,8 +429,8 @@ bool is_font_atlas(const std::string& tpage_name) {
 }
 
 std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std::string& tex_name) {
-  const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
-  const bool bundled_on = Gfx::recharged_active(Gfx::g_global_settings.recharged_textures);
+  const bool user_on = recharged_gating::on(recharged_gating::kLoadCustomAssets);
+  const bool bundled_on = recharged_gating::on(recharged_gating::kTextures);
   const bool font = is_font_atlas(tpage_name);
   if (!font && !user_on && !bundled_on) {
     return std::nullopt;
@@ -494,8 +495,8 @@ std::optional<ReplacementImage> lookup(const std::string& tpage_name, const std:
 
 // Deterministic mirror of lookup()'s winning source — no pixel load.
 BaseSource base_source(const std::string& tpage_name, const std::string& tex_name) {
-  const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
-  const bool bundled_on = Gfx::recharged_active(Gfx::g_global_settings.recharged_textures);
+  const bool user_on = recharged_gating::on(recharged_gating::kLoadCustomAssets);
+  const bool bundled_on = recharged_gating::on(recharged_gating::kTextures);
   const bool font = is_font_atlas(tpage_name);
   if (!font && !user_on && !bundled_on) {
     return BaseSource::Stock;
@@ -779,7 +780,7 @@ std::optional<managed_assets::CompressedTex> baked_load(const std::string& tpage
 std::optional<managed_assets::CompressedTex> lookup_baked_base(const std::string& tpage_name,
                                                                const std::string& tex_name) {
   // Same gate as the BUNDLED PNG base swap (lookup()): this tier replaces it.
-  if (!Gfx::recharged_active(Gfx::g_global_settings.recharged_textures)) {
+  if (!recharged_gating::on(recharged_gating::kTextures)) {
     return std::nullopt;
   }
   return baked_load(tpage_name, tex_name, "", "custom texture BAKED");
@@ -819,7 +820,7 @@ const fs::path* resolve_suffixed(const std::string& tpage_name,
                                  BaseSource base_src,
                                  const char** out_src,
                                  std::string* out_exact_key) {
-  const bool user_on = Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets);
+  const bool user_on = recharged_gating::on(recharged_gating::kLoadCustomAssets);
   // Bundled PBR maps apply whenever the PBR pipeline asks (the caller sits in the PBR path);
   // only the MASTER gates them — deliberately NOT the base-swap toggle (owner: PBR maps
   // whenever PBR is ON, base replacement only when RECHARGED TEXTURES is ON).
@@ -1052,7 +1053,7 @@ bool mm_master_active() {
   if (ov >= 0) {
     return ov != 0;
   }
-  return Gfx::recharged_active(Gfx::g_global_settings.recharged_modern_materials);
+  return recharged_gating::on(recharged_gating::kModernMaterials);
 }
 
 namespace {
@@ -2079,10 +2080,10 @@ std::string pbr_reach_section() {
 // ===== Grecharged-texture-hotreload ===========================================================
 u32 hotreload_regime() {
   u32 r = 0;
-  if (Gfx::recharged_active(Gfx::g_global_settings.load_custom_assets)) {
+  if (recharged_gating::on(recharged_gating::kLoadCustomAssets)) {
     r |= 1;
   }
-  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_textures)) {
+  if (recharged_gating::on(recharged_gating::kTextures)) {
     r |= 2;
   }
   if (Gfx::recharged_master_active()) {

@@ -1,4 +1,5 @@
 #include "ManagedAssets.h"
+#include "game/system/recharged_gating.h"
 
 #include <map>
 #include <memory>
@@ -81,7 +82,7 @@ bool gate_on() {
   // Managed packs are "recharged" content: the user toggle composed with the
   // Recharged master, exactly like every other feature gate (single-helper
   // rule). OFF falls back to bundled/stock with no re-download.
-  return Gfx::recharged_active(Gfx::g_global_settings.recharged_managed_assets);
+  return recharged_gating::on(recharged_gating::kManagedAssets);
 }
 
 void scan_locked() {

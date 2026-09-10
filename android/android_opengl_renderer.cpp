@@ -5,6 +5,7 @@
 // Android renderer is a true subset of the desktop one, not a rewrite.
 
 #include "android_opengl_renderer.h"
+#include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 
 #include <cstring>
@@ -1891,7 +1892,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     // Grecharged-grass-poc: draw procedural grass over the training ground at the
     // same post-opaque-background insertion point as desktop (bucket 30). Gated OFF
     // by default -> zero grass code runs and the device render is byte-identical.
-    if (bucket_id == 31 - 1 && Gfx::recharged_active(Gfx::g_global_settings.recharged_grass)) {
+    if (bucket_id == 31 - 1 && recharged_gating::on(recharged_gating::kGrass)) {
       auto p = prof.make_scoped_child("grass-draw");
       // Ggrass-crash : GARDE EXTERIEURE. MESURE, Redmi, 12 courses sur 12 : une `std::bad_alloc`
       // partie du champ d'herbe remontait jusqu'ici sans personne pour l'attraper, `libc++abi`

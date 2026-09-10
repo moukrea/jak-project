@@ -1,4 +1,5 @@
 #include "PbrTestPattern.h"
+#include "game/system/recharged_gating.h"
 
 #include <algorithm>
 #include <cmath>
@@ -274,7 +275,7 @@ int mode() {
   // load) so a menu flip + re-warp takes effect. When the prop/env IS set, it still wins in either
   // direction — the supervisor's headless A/B is byte-for-byte unchanged.
   if (!prop_present) {
-    return std::clamp(Gfx::g_global_settings.recharged_mesh_browser_checker, 0, 4);
+    return std::clamp(recharged_gating::mode(recharged_gating::kMeshBrowserChecker), 0, 4);
   }
   return prop_mode;
 }

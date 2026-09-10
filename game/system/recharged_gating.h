@@ -185,4 +185,24 @@ void menu_begin();
 void menu_row(const char* page, const char* opt_id);
 void menu_end();
 
+// Le harnais mesure-t-il CET item ? Le recensement du menu a besoin de `init-game-options`, que
+// le jeu n'appelle qu'a l'OUVERTURE du menu — au demarrage, aucune rangee ne porte encore son
+// libelle ni son identifiant. Sous mesure, GOAL le force une fois au boot pour que la course
+// puisse recenser sans qu'un humain ouvre le menu ; hors mesure, on ne touche a rien. C'est
+// l'INSTRUMENT qui est sous drapeau, jamais le correctif (meme patron que
+// `settings_case_l10n::pc_scl10n_wanted`).
+bool census_wanted();
+
+// LA PAGE OU CETTE OPTION DOIT VIVRE, DEDUITE DE SON PARENT : 0 = « Recharged Settings »,
+// 1 = « Grass Settings », 2 = « Recharged Lighting », -1 = option inconnue.
+//
+// POURQUOI LE MENU DEMANDE SA STRUCTURE A LA TABLE DES PORTES. L'owner veut un sous-menu
+// « Recharged Lighting » qui contienne « tout ce qui viendra en lien a la refonte de
+// l'eclairage ». Ecrire cette liste a la main dans le menu la ferait deriver de la hierarchie des
+// portes des le premier ajout — c'est-a-dire refaire, sur la PLACE des options, exactement la
+// faute qu'on vient de corriger sur leur EXTINCTION. GOAL construit donc ses pages en demandant
+// ici, et une option ajoutee sous `kLighting` atterrit dans le sous-menu sans que personne n'y
+// pense.
+int page_of(int opt);
+
 }  // namespace recharged_gating

@@ -3393,7 +3393,13 @@
   (set! *hd-scan-driver-count* 0)
   (set! *hd-scan-companion-count* 0)
   (iterate-process-tree *active-pool* hd-scan-visit *null-kernel-context*)
-  (let ((want? (-> *pc-settings* recharged-enhanced-models?)))
+  ;; recharged-gating-real (defaut owner 2026-09-10) : ce compagnon lisait le reglage BRUT. Master
+  ;; OFF, la rangee ENHANCED MODELS etait grisee et le chargeur C++ refusait le FR3 enhanced, mais
+  ;; ce site-ci continuait de faire naitre le compagnon : « eteint » ne valait pas « absent ».
+  ;; On DEMANDE la table (`recharged_gating.h`) plutot que d'ecrire ici un `(and recharged-master? ...)`
+  ;; de plus : une regle de plus ecrite a la main est une regle de plus qui peut diverger.
+  (let ((want? (and (-> *pc-settings* recharged-enhanced-models?)
+                    (zero? (__pc-gating-disabled? "enhanced-models")))))
     (cond
       ((not want?)
        ;; toggle OFF: despawn every companion, clear the asset latches (re-toggle retries the load).

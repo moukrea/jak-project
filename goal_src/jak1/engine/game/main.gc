@@ -669,6 +669,11 @@
   #t)
 
 (define-extern scl10n-census! (function none))
+;; recharged-gating-real : meme raison, meme place, meme garde — le recensement des PORTES a
+;; besoin que le menu soit cable, et `init-game-options` ne tourne qu'a son OUVERTURE. Sous
+;; mesure seulement (`__pc-gating-wanted?`), on le force une fois ; hors mesure cette ligne ne
+;; fait rien du tout et le jeu livre est inchange.
+(define-extern gating-census-boot! (function none))
 
 (defun npc-census-tick ()
   "Une image de recensement. Hors cinematique, ferme la scene en cours et ne parcourt rien."
@@ -684,6 +689,8 @@
   ;; `progress-pc.o` est charge dans le meme DGO que `main.o` (dgos/engine.gd:272 et :296) et le
   ;; lien est fait avant la premiere image : le symbole est pose quand cette ligne s'execute.
   (scl10n-census!)
+  ;; recharged-gating-real : voir le define-extern plus haut. Sous mesure uniquement.
+  (gating-census-boot!)
   (cond
     ((real-movie?)
      (__pc-npc-census-begin (cine-scene-name))

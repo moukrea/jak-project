@@ -1,4 +1,5 @@
 #include "Merc2.h"
+#include "game/system/recharged_gating.h"
 
 #include "game/graphics/opengl_renderer/lighting_census.h"
 
@@ -2598,7 +2599,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // column-major: translation = floats 12,13,14). Gated by the grass toggle so OFF is byte-identical
   // stock (zero extra work). Substring match covers all crate variants ("crate-wood-lod0" etc.) and the
   // warp-gate switch/arch. radius is the visible ground-contact footprint (kept tight to avoid a halo).
-  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_grass) && i > 0) {
+  if (recharged_gating::on(recharged_gating::kGrass) && i > 0) {
     // OWNER Q&A 2026-07-12: STATIC unbreakable actors (warp-gate button, blue eco valve) -> CULL the
     // grass; BREAKABLE actors (crates, scarecrows) -> TRAMPLE it (flatten like Jak, NOT hidden), so
     // when they break the grass at their spot returns. Substring match covers every lod/variant name.
@@ -3697,7 +3698,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   args.defer_native = render_state->version == GameVersion::Jak1 &&
                       render_state->begin_2d_ui_pass && !model_uses_pc_blerc && !model_uses_mod &&
                       merc2_is_native_overlay_model(name) &&
-                      Gfx::recharged_active(Gfx::g_global_settings.recharged_crisp_title_logo);
+                      recharged_gating::on(recharged_gating::kCrispTitleLogo);
 
   // loop over effects, creating draws for each
   int gd3_vis_tris = 0;  // Gd3-jak: tris surviving the enable/debug filter (Jak's visible count)

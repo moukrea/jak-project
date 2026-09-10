@@ -1,4 +1,5 @@
 #include "OceanRecharged.h"
+#include "game/system/recharged_gating.h"
 
 #include <algorithm>
 #include <cmath>
@@ -120,8 +121,9 @@ u32 ee_u32(u32 addr) {
 
 bool ocean_recharged_enabled() {
   // `armed_for` et non `armed()` : le bras d'ablation d'un AUTRE item ne doit pas desarmer
-  // celui-ci. `water_active` compose master > eau ; aucune porte ne lit le drapeau en direct.
-  return Gfx::water_active(true) && autoport_proof::armed_for(kItemId);
+  // celui-ci. `recharged_gating::on(kWater)` compose master > eau ; aucune porte ne lit le
+  // drapeau en direct.
+  return recharged_gating::on(recharged_gating::kWater) && autoport_proof::armed_for(kItemId);
 }
 
 OceanRecharged& OceanRecharged::get() {

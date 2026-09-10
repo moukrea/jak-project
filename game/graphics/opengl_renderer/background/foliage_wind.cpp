@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
+#include "game/system/recharged_gating.h"
 #include "game/graphics/origin_ablate.h"
 
 #include <algorithm>
@@ -364,7 +365,7 @@ bool enabled() {
   if (!autoport_proof::armed_for("foliage-wind")) {
     return false;
   }
-  return Gfx::recharged_active(Gfx::g_global_settings.recharged_foliage_wind);
+  return recharged_gating::on(recharged_gating::kFoliageWind);
 }
 
 float bend_metres() {

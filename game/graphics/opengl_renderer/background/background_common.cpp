@@ -1,6 +1,7 @@
 
 
 #include "background_common.h"
+#include "game/system/recharged_gating.h"
 
 #include "game/graphics/opengl_renderer/PrePass.h"
 
@@ -75,8 +76,8 @@ GrassFringeFade grass_fringe_fade_params() {
   // overhang-only LOD; always return the disabled default (identical to toggle-off).
   return r;
 #else
-  if (!Gfx::recharged_active(Gfx::g_global_settings.recharged_grass) ||
-      !Gfx::recharged_active(Gfx::g_global_settings.recharged_grass_overhang)) {
+  if (!recharged_gating::on(recharged_gating::kGrass) ||
+      !recharged_gating::on(recharged_gating::kGrassOverhang)) {
     return r;
   }
   // Mirror GrassRenderer's near-LOD clamp (GrassRenderer.cpp:990): the texture fades IN over the
@@ -1074,7 +1075,7 @@ void PbrDrawBinder::set(s32 tex_id, const DrawMode& mode, bool mb_checker) {
   // coverage unification; alpha still comes from the legacy fragment_color*T0 product
   // in the shader, only rgb is relit. Decal draws keep the legacy path. PBR keys on
   // the texture, resolved once per level.
-  if (Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable) && !pbr_killswitch() &&
+  if (recharged_gating::on(recharged_gating::kPbr) && !pbr_killswitch() &&
       tex_id >= 0 && !mode.get_decal() && m_draws &&
       !m_draws->empty()) {
     for (auto& e : *m_draws) {
@@ -1657,8 +1658,8 @@ bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
   // SPEC §6.2 : les ombres portees sont SOUS l'eclairage recharge. Eteindre l'eclairage passe
   // par ici, remet `read_valid` a faux, et pbr_shadow_bind_receiver pousse alors
   // u_pbr_shadow_on = 0 — le composite E de shade.glsl s'eteint avec le reste.
-  if (!(Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable) ||
-        Gfx::lighting_active(Gfx::g_global_settings.recharged_rt_light_enable)) ||
+  if (!(recharged_gating::on(recharged_gating::kPbr) ||
+        recharged_gating::on(recharged_gating::kRtLight)) ||
       !pbr_shadowmap_enabled_for_frame(frame_idx)) {
     // Feature off: also invalidate the read side so receivers stop sampling a map that
     // will no longer be refreshed (stale-matrix shadows glued to the old camera pos).
@@ -2304,7 +2305,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // resolved to the 0/128/64/192 mask in pc_set_pbr_isolate) so the owner can flip
   // Both / Normal-map-only / Parallax-only / Neither at his vantage with no adb. The debug
   // prop/env below still OVERRIDE it for headless supervisor A/B on the full term set.
-  int pbr_bisect = gs.recharged_pbr_isolate;
+  int pbr_bisect = recharged_gating::mode(recharged_gating::kPbrIsolate);
   // Gpbr-per-texture-materials: bisect BANK 2 (bank 1's 31 bits are all taken). Debug-only:
   // no menu row, no GOAL setter — 0 is the shipped/fixed behaviour.
   int pbr_bisect2 = 0;
@@ -2317,7 +2318,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   int mm_debug = 0;
   // REOPEN #3 DISPLACEMENT menu carousel (0 Off / 1 Parallax / 2 Tessellation). Menu value
   // from GOAL via pc-set-pbr-displacement!; debug prop overrides for headless A/B.
-  int pbr_displacement = gs.recharged_pbr_displacement;
+  int pbr_displacement = recharged_gating::mode(recharged_gating::kPbrDisplacement);
   // NEAR-FIELD TESSELLATION CEILING (owner playtest #17 "glorified bump"): the shipped tesc capped
   // near-field tessellation at level 12, which under-resolved the height field — the displacement
   // had nowhere near enough vertices to become real depth. This is the ceiling of the new
@@ -2610,8 +2611,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // navigation. u_rt_sun_dir reuses the visible-sun-overridden light_dir[0] (== the
   // on-screen sun sprite direction), so the sun-only shading, the shadow-map slope bias and
   // the depth-pass MVP all agree on where the sun is. u_rt_sun_color carries tint AND intensity.
-  // SPEC §6.2 : sous l'eclairage recharge (lighting_active compose les trois niveaux).
-  int rt_light_on = Gfx::lighting_active(gs.recharged_rt_light_enable) ? 1 : 0;
+  // SPEC §6.2 : sous l'eclairage recharge (recharged_gating::on compose les trois niveaux).
+  int rt_light_on = recharged_gating::on(recharged_gating::kRtLight) ? 1 : 0;
   // ITEM A (owner playtest #2): I tried raising the sun intensity 1.5->1.75 to widen the sun-lit vs
   // ambient-only separation, but a device A/B measured NO contrast change (P90/std identical) — at the
   // owner vantage the sun-lit term is already tone-mapped/vantage-limited, so intensity does not move
@@ -2880,7 +2881,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // (round-7 night-leak discipline). Golden rule: this only reshapes the ambient base; the direct-sun
   // term is untouched so sunlit surfaces are unchanged.
   // SPEC §6.2 : l'ambiante est sous l'eclairage recharge.
-  int rt_ambient_on = Gfx::lighting_active(gs.recharged_rt_ambient_enable) ? 1 : 0;
+  int rt_ambient_on = recharged_gating::on(recharged_gating::kRtAmbient) ? 1 : 0;
   float rt_ambient_strength = gs.recharged_rt_ambient_strength;  // default ~0.2 (== old floor)
 #ifdef __ANDROID__
   {

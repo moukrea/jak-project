@@ -6488,6 +6488,31 @@
 
 (defconstant PROGRESS_PC_PAGE_HEIGHT 7)
 
+;; recharged-gating-real — LE SEUL JUGE DU GRIS, POUR LES TROIS LECTEURS.
+;;
+;; Il y avait trois endroits qui decidaient qu'une rangee est grisee (`draw-options` pour la
+;; couleur, `respond-common` pour la sortie anticipee du bouton, `menu-touch-build-seq!` pour le
+;; tactile), et chacun recopiait le meme test sur `option-disabled-func`. Les voici reunis.
+;;
+;; ET SURTOUT : une rangee qui porte un `gating-id` ne decide plus elle-meme. Elle DEMANDE au
+;; C++, qui repond avec la table de `game/system/recharged_gating.cpp` — celle-la meme qui
+;; applique la porte dans le moteur. C'est ce qui ferme le defaut de l'owner du 2026-09-10 : le
+;; gris qu'il voit et l'extinction reelle ne peuvent plus etre deux regles differentes, puisque
+;; c'est la meme colonne de la meme table qui les produit toutes les deux.
+;;
+;; Les rangees SANS `gating-id` (tout le reste du menu : resolution, son, camera...) gardent leur
+;; lambda telle quelle : elles ne parlent pas de Recharged et ne sont pas le perimetre de l'item.
+(defun option-locked? ((opt game-option))
+  "#t si la rangee est grisee : inerte au confirm, dessinee en `menu-invalid`."
+  (cond
+    ((nonzero? (-> opt gating-id))
+     (nonzero? (__pc-gating-disabled? (-> opt gating-id))))
+    ((and (nonzero? (-> opt option-disabled-func))
+          (!= (-> opt option-disabled-func) #f))
+     (the-as symbol ((-> opt option-disabled-func))))
+    (else #f)))
+
+
 (defconstant PROGRESS_SCROLL_DIR_UP -1)
 
 (defconstant PROGRESS_SCROLL_DIR_DOWN 1)
@@ -6681,9 +6706,7 @@
          (hdir (if left? MT_TOK_HOLD_LEFT MT_TOK_HOLD_RIGHT)))
     (cond
       ;; disabled row: a tap does nothing (mirrors the confirm early-out)
-      ((and (nonzero? (-> options idx option-disabled-func))
-            (!= (-> options idx option-disabled-func) #f)
-            ((-> options idx option-disabled-func)))
+      ((option-locked? (-> options idx))
        (set! (-> *menu-touch* seq-len) 0))
       ;; menus / buttons / action rows: a single confirm enters/activates
       ((or (= typ (game-option-type menu))
@@ -7406,9 +7429,6 @@
        ;; (name-override); value bound to *pc-settings* load-custom-assets? in init-game-options. The
        ;; on-change pushes the 0/1 flag to the runtime and persists it immediately.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* load-custom-assets?) (the-as symbol val))
@@ -7423,9 +7443,6 @@
        ;; (name-override); value bound in init-game-options. on-change pushes 0/1 + persists;
        ;; applies on the next level load. All later indices shift +1 (see init-game-options).
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-textures?) (the-as symbol val))
@@ -7438,9 +7455,6 @@
        ;; hud-classes-pc.gc applies pc-set-pbr! + pc-set-pbr-sun!). Row present only with --pbr.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* pbr-materials?) (the-as symbol val))
@@ -7455,9 +7469,6 @@
        ;; row present only with --hd-models.
        (flag-row FLAG_HD_MODELS
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-enhanced-models?) (the-as symbol val))
@@ -7503,9 +7514,6 @@
        ;; init-game-options. OFF (default) = stock render. on-change persists + pushes live (the
        ;; per-frame update-to-os bridge also pushes it, so the effect applies without relaunch).
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-foliage-wind?) (the-as symbol val))
@@ -7515,20 +7523,14 @@
        ;; carousell like MSAA — :name is a placeholder (text-id msaa); the real label comes from
        ;; *ambient-occlusion-label* (name-override, wired in init-game-options). backup/select/write-back
        ;; mirror the msaa arms in respond-common (map 1:1 to *pc-settings* ambient-occlusion).
-       (new 'static 'game-option :option-type (game-option-type ambient-occlusion) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?))))
+       (new 'static 'game-option :option-type (game-option-type ambient-occlusion) :name (text-id msaa) :scale #t)
        ;; 6 AO QUALITY carousell row: Low/Medium/High. Disabled (greyed) while AO is Off, mirroring the
        ;; display-mode disabled predicate. Real label via *ao-quality-label* (name-override).
        (new 'static
             'game-option
             :option-type (game-option-type ao-quality)
             :name (text-id msaa)
-            :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (zero? (-> *pc-settings* ambient-occlusion)))))
+            :scale #t)
        ;; 7 AO STRENGTH carousell row (closing round): Weaker/Default/Stronger per-mode multiplier on the
        ;; estimator intensity. Disabled (greyed) while AO is Off, same conditional mechanism as AO QUALITY.
        ;; Real label via *ao-strength-label* (name-override).
@@ -7536,10 +7538,7 @@
             'game-option
             :option-type (game-option-type ao-strength)
             :name (text-id msaa)
-            :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (zero? (-> *pc-settings* ambient-occlusion)))))
+            :scale #t)
        ;; Glighting-hdr / SPEC-refonte-lumiere 6.2 : RECHARGED LIGHTING On/Off, REMPLACE SUR PLACE
        ;; l'ancienne rangee REALTIME LIGHTING. Meme position, meme index : aucun bras fw-idx ne
        ;; bouge (la renumerotation est la classe de bug Gmenu-flag-off, cf. la garde [RCH-MENU]).
@@ -7554,9 +7553,6 @@
        ;; `pc-set-rt-light!` suit desormais le maitre unique `recharged-lighting?`.
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-lighting?) (the-as symbol val))
@@ -7587,18 +7583,12 @@
        ;; vivent SOUS « ECLAIRAGE RECHARGE ». Ni le nombre de rangees ni leur ordre ne change, donc
        ;; aucun index fw-idx ne bouge et la garde [RCH-MENU] reste valable.
        (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type rt-ambient-model) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))))
+       (new 'static 'game-option :option-type (game-option-type rt-ambient-model) :name (text-id msaa) :scale #t))
        ;; Ambient Strength slider (0.0 .. 0.5; disabled when Realtime Lighting off). Bound directly to
        ;; the *pc-settings* realtime-ambient-strength float (the ambient base level).
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
             :param1 0.0 :param2 0.5 :slider-step-size 0.05 :slider-show-decimal? #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
@@ -7617,19 +7607,13 @@
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
             :param1 20.0 :param2 200.0 :slider-step-size 10.0 :slider-show-decimal? #f
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
               (none))))
        ;; Shadow Quality carousell (Low/Med/High = 1024/2048/4096)
        (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type shadow-quality) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))))
+       (new 'static 'game-option :option-type (game-option-type shadow-quality) :name (text-id msaa) :scale #t))
        ;; hdr-display-output (essai 3) : HDR OUTPUT — la sortie HDR vers l'ECRAN, sous-option de
        ;; RECHARGED LIGHTING (refus owner 09/09 : elle vivait dans Graphics, hors des reglages
        ;; Recharged dont elle depend). Derniere rangee du bloc eclairage, grisee comme lui. Ne
@@ -7640,9 +7624,6 @@
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :hint (text-id pc-text-hint-hdr-output)
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* recharged-lighting?))))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* hdr-output?) (the-as symbol val))
@@ -7656,9 +7637,6 @@
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
             :param1 0.0 :param2 3.0 :slider-step-size 0.25 :slider-show-decimal? #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
@@ -7668,9 +7646,6 @@
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type slider) :name (text-id vsync) :scale #t
             :param1 0.0 :param2 2.0 :slider-step-size 0.1 :slider-show-decimal? #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))
             :on-change
             (lambda ((val object))
               (commit-to-file *pc-settings*)
@@ -7678,10 +7653,7 @@
        ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (Off/Parallax/Tessellation; disabled unless PBR
        ;; MATERIALS on). Carousell mirrors rt-ambient-model: no :on-change, value written via respond-common.
        (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type pbr-displacement) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       (new 'static 'game-option :option-type (game-option-type pbr-displacement) :name (text-id msaa) :scale #t))
        ;; Gprecompute-deterministic-bake (owner 2026-08-26): MESH SUBDIVISION carousell — the
        ;; PRE-SUBDIVISION ROUND COUNT the loader hands the hardware tessellator (0 OFF, no refinement
        ;; at all / 1 the shipped default / 2 MID / 3 HIGH). Sits immediately after DISPLACEMENT and
@@ -7695,10 +7667,7 @@
        ;; value up into int-backup and writes it back.
        ;; row present only with --pbr, like the DISPLACEMENT row it shadows.
        (flag-row FLAG_PBR
-       (new 'static 'game-option :option-type (game-option-type mesh-subdiv) :name (text-id msaa) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       (new 'static 'game-option :option-type (game-option-type mesh-subdiv) :name (text-id msaa) :scale #t))
        ;; Gmenu-census-cleanup (owner 2026-08-31 : « PBR test preset et PBR isolate c'est quoi ? ») :
        ;; ces DEUX carrousels sont des OUTILS DE MISE AU POINT. Notre propre source les marquait
        ;; « DEBUG, removable » depuis le jour de leur pose, et personne ne les avait retires — ils
@@ -7724,9 +7693,6 @@
        ;; PHYSICS, et c'est ce qui la rend immune aux renumerotations du bloc PBR.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :hint (text-id pc-text-hint-recharged-water)
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* recharged-water?) (the-as symbol val))
@@ -7750,9 +7716,6 @@
        (flag-row FLAG_PBR
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :hint (text-id pc-text-hint-render)
-            :option-disabled-func
-            (lambda ()
-              (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* modern-materials?) (the-as symbol val))
@@ -7777,9 +7740,6 @@
        ;; Gmenu-flag-off / physics-row bug class.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
             :hint (text-id pc-text-hint-resolution)
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* crisp-title-logo?) (the-as symbol val))
@@ -7896,9 +7856,6 @@
        ;; no existing index shifts — only the total-length constants gain +1, exactly as
        ;; the tail MESH BROWSER and PHYSICS rows did before it.
        (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
-            :option-disabled-func
-            (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
             :on-change
             (lambda ((val object))
               (set! (-> *pc-settings* managed-assets?) (the-as symbol val))
@@ -8459,6 +8416,106 @@
 ;; glisse d'un cran et la longueur vivante baisse de 1 (`*rch-hdr-row-hidden?*` en tient compte
 ;; dans la garde de longueur de init-game-options).
 (define *rch-hdr-row-hidden?* #f)
+
+;; ─── recharged-gating-real — LE SOUS-MENU « RECHARGED LIGHTING » ──────────────────────────────
+;; Owner 2026-09-10 : « On devrait avoir tout un sous menu "Recharged Lighting" avec un toggle
+;; global [...] et donc dans ce sous menu le Realtime Lighting, le HDR Output, l'Occlusion
+;; Ambiante avec ses propres sous reglages et tout ce qui viendra en lien a la refonte de
+;; l'eclairage. »
+;;
+;; LA PAGE N'EST PAS ECRITE A LA MAIN. Elle est CONSTRUITE a l'execution : on demande a la table
+;; des portes, pour chaque rangee, dans quelle page elle doit vivre (`__pc-gating-page`). Ecrire
+;; la liste ici la ferait deriver de la hierarchie des portes au premier ajout — c'est-a-dire
+;; refaire, sur la PLACE des options, exactement la faute qu'on vient de corriger sur leur
+;; EXTINCTION. Une option ajoutee sous l'eclairage atterrit ici sans que personne n'y pense, et
+;; le recensement (`gating_menu_misplaced`) le verifie a chaque course.
+;;
+;; POURQUOI A L'EXECUTION ET PAS DANS LE TABLEAU STATIQUE. Retirer quinze rangees du tableau
+;; statique changerait sa LONGUEUR, et c'est cette longueur que la garde `fw-idx` compare pour
+;; decider si le bloc HD est « collapse » ; tous les bras relatifs a `fw-idx` seraient a
+;; renumeroter a la main. C'est la classe de bug Gmenu-flag-off, la plus chere de ce fichier
+;; (« on peindrait "PBR TEST PRESET" sur une autre ligne et on repointerait sa valeur »). Ici,
+;; AUCUN index statique ne bouge et AUCUNE garde de longueur ne change.
+(define *rlighting-options-pc*
+  (new 'static 'boxed-array :type game-option :length 0 :allocated-length 24))
+
+;; La rangee qui OUVRE la page, posee a la place de la premiere rangee deplacee. Allouee a part
+;; pour la meme raison : ajouter une rangee au tableau statique changerait sa longueur.
+(define *rlighting-launcher*
+  (new 'static 'game-option
+       :option-type (game-option-type menu)
+       :name (text-id ps2-options)
+       :scale #t
+       :param3 (game-option-menu lighting-settings)))
+
+;; L'ORDRE D'ORIGINE DU TABLEAU RECHARGED. `init-game-options` tourne A CHAQUE OUVERTURE du menu
+;; et son cablage se repere sur la LONGUEUR du tableau. Lui laisser un tableau deja compacte
+;; ferait cabler la DEUXIEME ouverture completement de travers — le meme accident, un cran plus
+;; loin. On rend donc l'ordre d'origine avant chaque cablage, et on recompacte apres.
+(define *rch-page-backup*
+  (new 'static 'boxed-array :type game-option :length 0 :allocated-length 48))
+(define *rch-page-backup-done?* #f)
+
+(defun gating-unrepage! ()
+  "Rend a *recharged-options-pc* l'ordre et la longueur qu'il avait avant tout deplacement.
+   Sans effet tant qu'aucune sauvegarde n'a ete prise (premiere ouverture du menu)."
+  (when *rch-page-backup-done?*
+    (dotimes (i (-> *rch-page-backup* length))
+      (set! (-> *recharged-options-pc* i) (-> *rch-page-backup* i)))
+    (set! (-> *recharged-options-pc* length) (-> *rch-page-backup* length)))
+  (none))
+
+(defun gating-repage! ()
+  "Construit la page « Recharged Lighting » a partir de la table des portes, et retire du menu
+   Recharged les rangees qui y sont parties. Appele a la FIN de `init-game-options`, donc apres
+   `rch-hdr-row-hide-once!` : la sauvegarde capture le tableau tel qu'il est reellement livre."
+  (let ((n (-> *recharged-options-pc* length)))
+    (when (not *rch-page-backup-done?*)
+      (dotimes (i n)
+        (set! (-> *rch-page-backup* i) (-> *recharged-options-pc* i)))
+      (set! (-> *rch-page-backup* length) n)
+      (set! *rch-page-backup-done?* #t))
+    ;; 1. LA PAGE. L'interrupteur global en tete — c'est le geste que l'owner decrit en premier —
+    ;;    puis les dependantes dans l'ordre ou le menu les portait deja, puis Back.
+    (let ((dst 0))
+      (dotimes (i n)
+        (let ((row (-> *recharged-options-pc* i)))
+          (when (and (nonzero? (-> row gating-id)) (string= (-> row gating-id) "lighting"))
+            (set! (-> *rlighting-options-pc* dst) row)
+            (set! dst (+ dst 1)))))
+      (dotimes (i n)
+        (let ((row (-> *recharged-options-pc* i)))
+          (when (and (nonzero? (-> row gating-id))
+                     (= 2 (__pc-gating-page (-> row gating-id)))
+                     (not (string= (-> row gating-id) "lighting")))
+            (set! (-> *rlighting-options-pc* dst) row)
+            (set! dst (+ dst 1)))))
+      ;; La rangee BACK est la MEME que celle du menu Recharged : une rangee `button` ne porte
+      ;; aucun etat, la partager entre deux pages ne peut rien decaler.
+      (when (> n 0)
+        (set! (-> *rlighting-options-pc* dst) (-> *recharged-options-pc* (+ n -1)))
+        (set! dst (+ dst 1)))
+      (set! (-> *rlighting-options-pc* length) dst))
+    ;; 2. LE MENU RECHARGED, compacte. Le lanceur prend la place de la PREMIERE rangee partie :
+    ;;    le sous-menu s'ouvre la ou le bloc eclairage commencait, l'ordre visuel est conserve.
+    (set! (-> *rlighting-launcher* name-override) *recharged-lighting-label*)
+    (let ((w 0)
+          (placed #f))
+      (dotimes (i n)
+        (let* ((row (-> *recharged-options-pc* i))
+               (pg (if (nonzero? (-> row gating-id)) (__pc-gating-page (-> row gating-id)) 0)))
+          (cond
+            ((= pg 2)
+             (when (not placed)
+               (set! placed #t)
+               (set! (-> *recharged-options-pc* w) *rlighting-launcher*)
+               (set! w (+ w 1))))
+            (else
+             (set! (-> *recharged-options-pc* w) row)
+             (set! w (+ w 1))))))
+      (set! (-> *recharged-options-pc* length) w)))
+  (none))
+
 (defun rch-hdr-row-index ()
   "Index vivant de la rangee HDR OUTPUT dans *recharged-options-pc*, -1 si absente (retiree)."
   (let ((idx -1))
@@ -10413,8 +10470,21 @@
   0
   (none))
 
+;; recharged-gating-real : declaration avancee. `init-game-options` appelle `gating-census!` a sa
+;; derniere ligne, mais les deux fonctions du recensement vivent en fin de fichier, aupres de leur
+;; modele `scl10n-census!`. Sans cette ligne l'appel porterait sur un symbole encore inconnu.
+(define-extern gating-census! (function none))
+(define-extern gating-repage! (function none))
+(define-extern gating-unrepage! (function none))
+
 (defun init-game-options ((obj progress))
   "Set the options for all of the menus."
+  ;; recharged-gating-real : rendre au tableau Recharged son ordre d'origine AVANT tout cablage.
+  ;; Cette fonction tourne a CHAQUE ouverture du menu et se repere sur la LONGUEUR du tableau ;
+  ;; lui laisser le tableau compacte par l'ouverture precedente ferait cabler la deuxieme
+  ;; ouverture cinq crans trop tot — la classe de bug Gmenu-flag-off. `gating-repage!`, a la fin,
+  ;; recompacte. Sans effet a la toute premiere ouverture.
+  (gating-unrepage!)
   ;; Glang-mixed: menu labels shown via name-override follow the TEXT language.
   (refresh-runtime-option-labels!)
   ;; start off by making them all invalid
@@ -10483,6 +10553,9 @@
   (set! (-> *options-remap* (progress-screen recharged-settings)) *recharged-options-pc*)
   ;; Grecharged-grass-poc POLISH#6: the nested "Grass Settings" page (sub-submenu of Recharged Settings)
   (set! (-> *options-remap* (progress-screen grass-settings)) *grass-options-pc*)
+  ;; recharged-gating-real : la page « Recharged Lighting », soeur de la page herbe. Son contenu
+  ;; est construit a l'execution par `gating-repage!` a partir de la table des portes.
+  (set! (-> *options-remap* (progress-screen lighting-settings)) *rlighting-options-pc*)
   (set! (-> *options-remap* (progress-screen resolution)) *temp-options*)
   (set! (-> *options-remap* (progress-screen aspect-ratio)) *aspect-ratio-options*)
   (set! (-> *options-remap* (progress-screen quit-title)) *yes-no-options*)
@@ -10585,6 +10658,7 @@
   ;; *recharged-options-pc* index below shifted +1 for it).
   (set! (-> *recharged-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-master?))
   (set! (-> *recharged-options-pc* 0 name-override) *recharged-master-label*)
+  (set! (-> *recharged-options-pc* 0 gating-id) "master")
   ;; Grecharged-hud-jak1: wire the "RECHARGED HUD" toggle (row 1) inside the Recharged submenu.
   (#when FLAG_RECHARGED_HUD
   (set! (-> *recharged-options-pc* 1 value-to-modify) (&-> *pc-settings* recharged-hud?))
@@ -10596,24 +10670,28 @@
   ;; Gload-custom-assets: wire the "LOAD CUSTOM ASSETS" on-off toggle (row 3, +1 for the master row).
   (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* load-custom-assets?))
   (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) name-override) *load-custom-assets-label*)
+  (set! (-> *recharged-options-pc* (+ 2 FLAG_RECHARGED_HUD_N) gating-id) "load-custom-assets")
   ;; Grecharged-bundled-textures: wire the "RECHARGED TEXTURES" on-off toggle right after LOAD
   ;; CUSTOM ASSETS (every later *recharged-options-pc* index below shifts +1 for this row).
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* recharged-textures?))
   (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) name-override) *recharged-textures-label*)
+  (set! (-> *recharged-options-pc* (+ 3 FLAG_RECHARGED_HUD_N) gating-id) "textures")
   ;; Grecharged-managed-assets: HD TEXTURE PACK. Addressed from the END (…, this row,
   ;; MESH BROWSER, Back) instead of the flag arithmetic every other row uses: the row was
   ;; appended at the tail precisely so it needs no index bookkeeping, and length-3 stays
   ;; right after the HD-missing collapse shrinks the array too.
   (let ((mp-idx (+ -3 (-> *recharged-options-pc* length))))
     (set! (-> *recharged-options-pc* mp-idx value-to-modify) (&-> *pc-settings* managed-assets?))
-    (set! (-> *recharged-options-pc* mp-idx name-override) *managed-assets-label*))
+    (set! (-> *recharged-options-pc* mp-idx name-override) *managed-assets-label*)
+    (set! (-> *recharged-options-pc* mp-idx gating-id) "managed-assets"))
   ;; Grecharged-pbr-materials: wire the "PBR MATERIALS" on-off toggle (row (+ 4 hud-N), +1 for the
   ;; master row) inside the Recharged submenu. Present only with --pbr; downstream rows (ENHANCED
   ;; MODELS, FOLIAGE WIND, AO, Back) are shifted up by FLAG_PBR_N in the index arithmetic below
   ;; (0 when --pbr is off).
   (#when FLAG_PBR
   (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) value-to-modify) (&-> *pc-settings* pbr-materials?))
-  (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) name-override) *pbr-materials-label*))
+  (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) name-override) *pbr-materials-label*)
+  (set! (-> *recharged-options-pc* (+ 4 FLAG_RECHARGED_HUD_N) gating-id) "pbr"))
   ;; Grecharged-foliage-wind: wire the FOLIAGE WIND toggle (+1 for the master row throughout). It sits
   ;; at index 5 while the ENHANCED MODELS row is present (static length 10) and at index 4 after that
   ;; row collapsed (length 9) — wire by live length so re-inits stay correct in both states. Must run
@@ -10668,16 +10746,20 @@
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
     (set! (-> *recharged-options-pc* fw-idx name-override) *foliage-wind-label*)
+    (set! (-> *recharged-options-pc* fw-idx gating-id) "foliage-wind")
     ;; Grecharged-ambient-occlusion: AO mode + quality + strength carousell rows follow FOLIAGE WIND. All
     ;; point value-to-modify at the shared *progress-carousell* int-backup scratch (the MSAA carousell
     ;; pattern); backup/write-back in respond-common map them 1:1 to *pc-settings* ambient-occlusion /
     ;; ao-quality / ao-strength.
     (set! (-> *recharged-options-pc* (+ fw-idx 1) value-to-modify) (&-> *progress-carousell* int-backup))
     (set! (-> *recharged-options-pc* (+ fw-idx 1) name-override) *ambient-occlusion-label*)
+    (set! (-> *recharged-options-pc* (+ fw-idx 1) gating-id) "ao-mode")
     (set! (-> *recharged-options-pc* (+ fw-idx 2) value-to-modify) (&-> *progress-carousell* int-backup))
     (set! (-> *recharged-options-pc* (+ fw-idx 2) name-override) *ao-quality-label*)
+    (set! (-> *recharged-options-pc* (+ fw-idx 2) gating-id) "ao-quality")
     (set! (-> *recharged-options-pc* (+ fw-idx 3) value-to-modify) (&-> *progress-carousell* int-backup))
     (set! (-> *recharged-options-pc* (+ fw-idx 3) name-override) *ao-strength-label*)
+    (set! (-> *recharged-options-pc* (+ fw-idx 3) gating-id) "ao-strength")
     ;; Grecharged-realtime-lighting: wire the realtime-lighting rows (always present with --pbr, so they
     ;; sit right after AO STRENGTH at fw-idx+4..+10, before Back). REALTIME/BAKED bind to the pc-settings
     ;; symbols; AMBIENT STRENGTH/CONTRAST + SHADOW DISTANCE bind floats; AMBIENT MODEL + SHADOW QUALITY are
@@ -10687,6 +10769,7 @@
       ;; place de REALTIME LIGHTING — meme slot, aucun decalage).
       (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* recharged-lighting?))
       (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *recharged-lighting-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 4) gating-id) "lighting")
       ;; Gmenu-census-cleanup (2026-09-02) : ENV PROBE (ex-+5) et AMBIENT CONTRAST (ex-+8) sont
       ;; RETIREES du tableau — elles ne changeaient RIEN a l'ecran (voir leurs pierres tombales
       ;; dans le tableau plus haut). Tous les bras qui les suivaient RECULENT donc de deux crans
@@ -10697,23 +10780,30 @@
       ;; to realtime-ambient-model in respond-common).
       (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *ambient-model-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 5) gating-id) "rt-ambient-model")
       (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *pc-settings* realtime-ambient-strength))
       (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *ambient-strength-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) gating-id) "rt-ambient-strength")
       (set! (-> *recharged-options-pc* (+ fw-idx 7) value-to-modify) (&-> *pc-settings* realtime-shadow-dist))
       (set! (-> *recharged-options-pc* (+ fw-idx 7) name-override) *shadow-distance-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 7) gating-id) "rt-shadow-dist")
       (set! (-> *recharged-options-pc* (+ fw-idx 8) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 8) name-override) *shadow-quality-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 8) gating-id) "rt-shadow-res")
       ;; hdr-display-output essai 3 : fw-idx+9 est la rangee HDR OUTPUT (cablee plus bas par son
       ;; marqueur `hint`, jamais par cet index) ; tout ce qui suit recule d'un cran.
       ;; Gpbr-fusion REOPEN #2: TEXTURE RELIEF + SPECULAR INTENSITY sliders.
       (set! (-> *recharged-options-pc* (+ fw-idx 10) value-to-modify) (&-> *pc-settings* pbr-texture-relief))
       (set! (-> *recharged-options-pc* (+ fw-idx 10) name-override) *texture-relief-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 10) gating-id) "pbr-relief")
       (set! (-> *recharged-options-pc* (+ fw-idx 11) value-to-modify) (&-> *pc-settings* pbr-specular-intensity))
       (set! (-> *recharged-options-pc* (+ fw-idx 11) name-override) *specular-intensity-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 11) gating-id) "pbr-specular")
       ;; Gpbr-fusion REOPEN #3: DISPLACEMENT carousell (row +13, before Back). int-backup scratch, mapped
       ;; 1:1 to pbr-displacement in respond-common, mirroring the AMBIENT MODEL / SHADOW QUALITY carousells.
       (set! (-> *recharged-options-pc* (+ fw-idx 12) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 12) name-override) *displacement-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 12) gating-id) "pbr-displacement")
       ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell, INSERTED right after DISPLACEMENT
       ;; (row +14). int-backup scratch, mapped 1:1 to mesh-subdiv in respond-common, exactly like the
       ;; DISPLACEMENT carousell above. Because this row is inserted IN THE MIDDLE of the PBR block and
@@ -10724,6 +10814,7 @@
       ;; SELF-LOCATING or addressed from the END of the array, so it is immune to this insertion.
       (set! (-> *recharged-options-pc* (+ fw-idx 13) value-to-modify) (&-> *progress-carousell* int-backup))
       (set! (-> *recharged-options-pc* (+ fw-idx 13) name-override) *mesh-subdiv-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 13) gating-id) "mesh-subdiv")
       ;; Gmenu-census-cleanup : les deux bras des outils de mise au point PBR sont desormais sous
       ;; FLAG_PBR_DEBUG, EXACTEMENT comme leurs rangees. Il le FAUT : sans ce gate, dans un build
       ;; livre ou les deux rangees sont absentes, fw-idx+15 et fw-idx+16 designent MODERN MATERIALS
@@ -10766,6 +10857,7 @@
           (else
            (set! (-> *recharged-options-pc* h value-to-modify) (&-> *pc-settings* hdr-output?))
            (set! (-> *recharged-options-pc* h name-override) *hdr-output-label*)
+            (set! (-> *recharged-options-pc* h gating-id) "hdr-output")
            (format 0 "[HDROUT-MENU] row wired: idx=~D after-shadow-quality=~D len=~D (self-located)~%"
                    h (rch-hdr-row-parent) (-> *recharged-options-pc* length)))))
       (rch-hdr-row-hide-once!)
@@ -10783,6 +10875,7 @@
       (else
        (set! (-> *recharged-options-pc* w value-to-modify) (&-> *pc-settings* recharged-water?))
        (set! (-> *recharged-options-pc* w name-override) *recharged-water-label*)
+        (set! (-> *recharged-options-pc* w gating-id) "water")
        (format 0 "[WATER-MENU] row wired: idx=~D len=~D (self-located)~%"
                w (-> *recharged-options-pc* length)))))
   ;; Grecharged-secondary-motion: wire the two PHYSICS rows. (The same invariant is audited at BOOT
@@ -10871,6 +10964,7 @@
         (set! (-> *recharged-options-pc* hd-idx value-to-modify)
               (&-> *pc-settings* recharged-enhanced-models?))
         (set! (-> *recharged-options-pc* hd-idx name-override) *enhanced-models-label*)
+        (set! (-> *recharged-options-pc* hd-idx gating-id) "enhanced-models")
         (set! (-> *recharged-options-pc* (+ hd-idx 1) value-to-modify) (&-> *progress-carousell* int-backup))
         (set! (-> *recharged-options-pc* (+ hd-idx 1) name-override) *hd-look-jak-label*)
         (set! (-> *recharged-options-pc* (+ hd-idx 2) value-to-modify) (&-> *progress-carousell* int-backup))
@@ -10904,6 +10998,7 @@
       (else
        (set! (-> *recharged-options-pc* ctl-idx value-to-modify) (&-> *pc-settings* crisp-title-logo?))
        (set! (-> *recharged-options-pc* ctl-idx name-override) *crisp-title-logo-label*)
+        (set! (-> *recharged-options-pc* ctl-idx gating-id) "crisp-title-logo")
        (format 0 "[CRISPLOGO-MENU] row wired: idx=~D len=~D (self-located)~%"
                ctl-idx (-> *recharged-options-pc* length)))))
   ;; Gfixed-tick-interpolation: cabler FIXED TIMESTEP. AUTO-LOCALISATION par son marqueur unique
@@ -10954,20 +11049,25 @@
       (else
        (set! (-> *recharged-options-pc* mm-idx value-to-modify) (&-> *pc-settings* modern-materials?))
        (set! (-> *recharged-options-pc* mm-idx name-override) *modern-materials-label*)
+        (set! (-> *recharged-options-pc* mm-idx gating-id) "modern-materials")
        (format 0 "[MM-MENU] row wired: idx=~D len=~D (self-located)~%"
                mm-idx (-> *recharged-options-pc* length))))))
   ;; Grecharged-grass-poc POLISH#6: wire the grass rows inside the nested *grass-options-pc* page.
   (set! (-> *grass-options-pc* 0 value-to-modify) (&-> *pc-settings* recharged-grass?))
   (set! (-> *grass-options-pc* 0 name-override) *recharged-grass-label*)
+  (set! (-> *grass-options-pc* 0 gating-id) "grass")
   (set! (-> *grass-options-pc* 1 value-to-modify) (&-> *pc-settings* recharged-grass-near-dist))
   (set! (-> *grass-options-pc* 1 name-override) *recharged-near-dist-label*)
+  (set! (-> *grass-options-pc* 1 gating-id) "grass-near-dist")
   (set! (-> *grass-options-pc* 2 value-to-modify) (&-> *pc-settings* recharged-grass-card-dist))
   (set! (-> *grass-options-pc* 2 name-override) *recharged-card-dist-label*)
+  (set! (-> *grass-options-pc* 2 gating-id) "grass-card-dist")
   ;; Ggrass-density-presets: row 3 is now a CAROUSELL (five named density presets), so it points at the
   ;; shared *progress-carousell* int-backup scratch exactly like physics-quality / shadow-quality do —
   ;; a carousell row NEVER points at the setting field itself; the write-back clause does that on confirm.
   (set! (-> *grass-options-pc* 3 value-to-modify) (&-> *progress-carousell* int-backup))
   (set! (-> *grass-options-pc* 3 name-override) *recharged-density-label*)
+  (set! (-> *grass-options-pc* 3 gating-id) "grass-density")
   ;; Grecharged-grass-overhang: row 4 GRASS OVERHANG on-off toggle (present only with --grass-overhang)
   (#when FLAG_GRASS_OVERHANG
   (set! (-> *grass-options-pc* 4 value-to-modify) (&-> *pc-settings* recharged-grass-overhang?))
@@ -11011,6 +11111,14 @@
   (set! (-> *progress-carousell* aspect-native-choice) (-> *pc-settings* use-vis?))
   ;; scroll stuff!
   (progress-scroll-reset)
+  ;; recharged-gating-real : le recensement des rangees, ICI et nulle part ailleurs. C'est le seul
+  ;; point ou les `gating-id` ci-dessus viennent d'etre poses, donc le seul ou le rapport decrit le
+  ;; menu REELLEMENT cable et pas celui de l'ouverture precedente.
+  ;; recharged-gating-real : le sous-menu « Recharged Lighting » se construit ICI, une fois tout
+  ;; le cablage fait et la rangee HDR eventuellement retiree — donc sur le tableau REELLEMENT
+  ;; livre. Puis le recensement, qui decrit les pages telles qu'elles viennent d'etre batties.
+  (gating-repage!)
+  (gating-census!)
   (none))
 
 (defmethod respond-common ((obj progress))
@@ -11310,9 +11418,7 @@
         ((or (cpad-pressed? 0 x) (cpad-pressed? 0 circle) (-> *menu-touch* confirm?))
          ;; pressed x or circle. advance! (Gtouch-menus: touch confirm too.)
          ;; first check if the option is disabled, if so leave early and do nothing
-         (when (and (nonzero? (-> options (-> obj option-index) option-disabled-func))
-                    (!= (-> options (-> obj option-index) option-disabled-func) #f)
-                    ((-> options (-> obj option-index) option-disabled-func)))
+         (when (option-locked? (-> options (-> obj option-index)))
            (sound-play "cursor-options")
            (return #f))
          (cond
@@ -12038,9 +12144,7 @@
                 (option-y y-off)
                 (locked? #f))
             ;; Check if the option should be disabled
-            (when (and (nonzero? (-> options index option-disabled-func))
-                       (!= (-> options index option-disabled-func) #f)
-                       ((-> options index option-disabled-func)))
+            (when (option-locked? (-> options index))
               (set! locked? #t))
             (case (-> options index option-type)
               (((game-option-type yes-no))
@@ -12598,7 +12702,9 @@
             (((progress-screen gfx-ps2-options)) (hide-progress-icons) (draw-options self 115 25 0.67))
             ;; Grecharged-hud-jak1 + Grecharged-grass-poc POLISH#6: the Recharged Settings submenu and its
             ;; nested Grass Settings page (few rows; same layout as game-settings).
-            (((progress-screen recharged-settings) (progress-screen grass-settings))
+            (((progress-screen recharged-settings) (progress-screen grass-settings)
+              ;; recharged-gating-real : la page « Recharged Lighting », meme mise en page.
+              (progress-screen lighting-settings))
              (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen game-settings)) (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen memcard-removed) (progress-screen memcard-auto-save-error))
@@ -12873,6 +12979,62 @@
         (scl10n-scan-carousell! *carousell-hd-look-samos*))
       (__pc-scl10n-end)))
   (none))
+
+;; ------------------------------------------------------------------------------------------------
+;; recharged-gating-real — LE RECENSEMENT DE LA PORTE.
+;;
+;; La hierarchie des options Recharged est UNE table, `kOptions` (game/system/recharged_gating.h).
+;; Le menu GOAL n'en porte plus de copie : chaque rangee Recharged porte seulement son
+;; `gating-id`, et `option-locked?` DEMANDE au C++ si elle est grisee. Ces deux fonctions
+;; ferment la boucle dans l'autre sens : GOAL rapporte les rangees qu'il DESSINE vraiment, le
+;; C++ publie le parent que la table leur donne et signale toute option a rangee qu'aucune page
+;; n'a rapportee. Les deux moities ne peuvent donc plus diverger en silence.
+
+(defun gating-scan-rows! ((page string) (arr (array game-option)))
+  "Rapporte au C++ les rangees Recharged que CETTE page dessine. Une rangee sans `gating-id`
+   n'est pas une option Recharged (lanceur de sous-menu, Back, Mesh Browser) et n'est pas
+   rapportee ; le C++ verifie de son cote qu'AUCUNE option a rangee n'a ete oubliee."
+  (dotimes (i (length arr))
+    (let ((row (-> arr i)))
+      (when (nonzero? (-> row gating-id))
+        (__pc-gating-menu-row page (-> row gating-id)))))
+  (none))
+
+(defun gating-census! ()
+  "Le recensement, une fois par cablage du menu. Appele depuis la fin de `init-game-options` :
+   c'est le seul endroit ou l'on sait que les `gating-id` viennent d'etre poses, donc le seul
+   ou le recensement decrit le menu REELLEMENT cable et pas celui d'avant."
+  (__pc-gating-menu-begin)
+  (gating-scan-rows! "recharged" *recharged-options-pc*)
+  (gating-scan-rows! "grass" *grass-options-pc*)
+  (gating-scan-rows! "lighting" *rlighting-options-pc*)
+  ;; UNE RANGEE PEUT ETRE LEGITIMEMENT ABSENTE, ET C'EST GOAL QUI LE SAIT. « HDR OUTPUT » est
+  ;; RETIREE du tableau vivant quand l'ecran n'annonce aucun mode HDR (`rch-hdr-row-hide-once!`).
+  ;; Sur un bureau sans ecran HDR elle n'existe pas : la laisser silencieuse la ferait compter
+  ;; MANQUANTE, un faux rouge d'instrument. On la DECLARE absente, ce qui n'est pas la meme chose
+  ;; que de l'oublier — une rangee qu'on oublie de declarer reste comptee manquante.
+  (when *rch-hdr-row-hidden?*
+    (__pc-gating-menu-row "hidden" "hdr-output"))
+  (__pc-gating-menu-end)
+  (none))
+
+;; DECLENCHEMENT SOUS MESURE. `init-game-options` ne tourne qu'a l'OUVERTURE du menu : une course
+;; automatique n'ouvre rien et le recensement ne partirait jamais. Meme patron que
+;; `scl10n-census!` juste au-dessus — un compteur d'images, un seuil, une seule fois.
+(define *gating-census-ticks* 0)
+(define *gating-census-done?* #f)
+
+(defun gating-census-boot! ()
+  "Sous mesure SEULEMENT : force le cablage du menu une fois au demarrage, pour que la course
+   puisse recenser sans qu'un humain ouvre le menu. Hors mesure on ne touche a rien — le menu
+   n'est cable qu'a son ouverture, et le forcer pour tout le monde changerait le jeu livre."
+  (when (and (not *gating-census-done?*) (nonzero? (__pc-gating-wanted?)))
+    (set! *gating-census-ticks* (+ *gating-census-ticks* 1))
+    (when (and (> *gating-census-ticks* 600) *common-text*)
+      (set! *gating-census-done?* #t)
+      (init-game-options (the-as progress #f))))
+  (none))
+
 ) ;; end #unless FLAG_MENU_OVERHAUL
 
 ;; ------------------------------------------------------------------------------------------------

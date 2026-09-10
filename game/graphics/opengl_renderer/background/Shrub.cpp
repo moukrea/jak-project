@@ -1,4 +1,5 @@
 #include "Shrub.h"
+#include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 
 #include <atomic>
@@ -874,8 +875,8 @@ void Shrub::render_tree(int idx,
     // buffer, mirroring the TFragment / Tie3 caster passes. pbr_shadow_begin_frame is
     // idempotent per frame (accumulates additively across tfrag/tie/shrub). SHRUB is the
     // active program on entry (first_tfrag_draw_setup above); we restore it after.
-    if ((Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable) ||
-         Gfx::lighting_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
+    if ((recharged_gating::on(recharged_gating::kPbr) ||
+         recharged_gating::on(recharged_gating::kRtLight)) &&
         tree.index_count > 0 &&
         (pbr_shadow_caster_mask(render_state->frame_idx) & 4) &&
         pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
@@ -935,8 +936,8 @@ void Shrub::render_tree(int idx,
     }
     // Shrub RECEIVER bind (defect B): sample the sun map so shrubs receive cast shadows.
     // SHRUB is the active program here, so pbr_shadow_bind_receiver's glUniform calls land on it.
-    if ((Gfx::lighting_active(Gfx::g_global_settings.recharged_pbr_enable) ||
-         Gfx::lighting_active(Gfx::g_global_settings.recharged_rt_light_enable)) &&
+    if ((recharged_gating::on(recharged_gating::kPbr) ||
+         recharged_gating::on(recharged_gating::kRtLight)) &&
         pbr_shadow_state().valid) {
       pbr_shadow_bind_receiver(render_state->shaders[ShaderId::SHRUB].id(),
                                settings.camera.trans.data());

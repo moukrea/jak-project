@@ -468,6 +468,27 @@
 ;; toute preuve APPAREIL sort avec `frames=0` et le validateur la refuse — panne d'instrument,
 ;; pas panne du jeu.
 (define-extern __pc-autoport-frame (function none))
+;; recharged-gating-real — LE GRISAGE NE VIENT PLUS DE GOAL. `__pc-gating-disabled?` rend 1 quand
+;; un ANCETRE de l'option nommee est eteint, en lisant la table de `game/system/recharged_gating.h`
+;; — la MEME que celle qui applique la porte dans le moteur. Avant, chaque rangee portait sa propre
+;; lambda `option-disabled-func` : la regle etait ecrite deux fois, elle a diverge, et l'owner
+;; (2026-09-10) voyait des rangees grisees dont la feature continuait de tourner.
+;; Un identifiant inconnu rend 0 : une rangee mal nommee reste utilisable plutot que de se griser
+;; toute seule en silence — et le recensement ci-dessous, lui, la compte comme un defaut.
+(define-extern __pc-gating-disabled? (function string int))
+;; Le recensement du menu : GOAL seul sait quelles rangees il DESSINE et dans quelle page, le C++
+;; seul connait le parent de chacune. `gating_menu_parent` est publie a partir des rangees
+;; REELLEMENT parcourues, jamais d'une liste recopiee a cote — une liste recopiee ne serait qu'un
+;; miroir de la table qu'elle pretend verifier.
+(define-extern __pc-gating-menu-begin (function none))
+(define-extern __pc-gating-menu-row (function string string none))
+(define-extern __pc-gating-menu-end (function none))
+;; La PAGE ou une rangee doit vivre, deduite de la meme table que la porte : 0 = Recharged
+;; Settings, 1 = Grass Settings, 2 = Recharged Lighting, -1 = option inconnue. Le menu construit
+;; ses pages avec ca au lieu de porter sa propre liste.
+(define-extern __pc-gating-page (function string int))
+;; 1 quand le harnais a nomme l'item recharged-gating-real : hors mesure, le recensement au boot ne part pas.
+(define-extern __pc-gating-wanted? (function int))
 ;; Grecharged-foliage-wind3 : LA CADENCE DU VENT NATIF, rapportee par le SEUL site qui la decide
 ;; (`update-wind-ticks!`). Premier argument : ce que cette image vaut en 1/60 s de temps de JEU
 ;; (`(-> *display* time-adjust-ratio)`) ; second : le nombre de pas de vent reellement executes.

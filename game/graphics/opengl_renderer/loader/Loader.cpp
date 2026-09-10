@@ -1,4 +1,5 @@
 #include "Loader.h"
+#include "game/system/recharged_gating.h"
 #include "game/graphics/origin_ablate.h"
 #include "game/system/water_census.h"
 
@@ -548,7 +549,7 @@ void release_uploaded_vertices(tfrag3::Level& lev, int systeme);
 
 static fs::path hd_fr3_path(const fs::path& base, const std::string& name) {
 #ifdef OG_FEAT_HD_MODELS
-  if (Gfx::recharged_active(Gfx::g_global_settings.recharged_enhanced_models)) {
+  if (recharged_gating::on(recharged_gating::kEnhancedModels)) {
     // EXTERNAL asset-pack path ONLY (never the APK custom pack — ND IP must stay external).
     auto enhanced = base / "enhanced" / fmt::format("{}.fr3", name);
     if (file_util::file_exists(enhanced.string())) {
@@ -756,8 +757,8 @@ void Loader::loader_thread() {
       // Gated on the PBR / realtime-lighting features that actually consume the reconstructed normal: a
       // STOCK player (recharged master off) pays zero added load cost and stays byte-identical. Runs on
       // this loader thread (not the GL/main thread) behind the load screen, so no ANR.
-      if (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
-          Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) {
+      if (recharged_gating::on(recharged_gating::kPbr) ||
+          recharged_gating::on(recharged_gating::kRtLight)) {
         auto p = scoped_prof("global-weld");
         tfrag3::reconstruct_level_global_weld(*result);
       }
@@ -773,8 +774,8 @@ void Loader::loader_thread() {
       // per-vertex seam weights that stop the tessellator from tearing at boundaries that cannot
       // displace identically. Its per-level audit numbers are appended to files/mesh_audit.txt so
       // the coverage claim is checkable off-device on a phone whose logcat is obscured.
-      if (Gfx::recharged_active(Gfx::g_global_settings.recharged_pbr_enable) ||
-          Gfx::recharged_active(Gfx::g_global_settings.recharged_rt_light_enable)) {
+      if (recharged_gating::on(recharged_gating::kPbr) ||
+          recharged_gating::on(recharged_gating::kRtLight)) {
         const auto cfg = tfrag3::mesh_consolidate_config_from_env();
         const bool do_shrub = (cfg.bits & tfrag3::kMeshBitNoShrub) == 0;
         // PRECOMPUTE FIRST (the owner's standing preference, and a hard requirement here: measured
@@ -820,7 +821,7 @@ void Loader::loader_thread() {
       {
         auto scfg = tfrag3::mesh_subdiv_config_from_env();
         const auto& gs = Gfx::g_global_settings;
-        bool want = Gfx::recharged_active(gs.recharged_pbr_enable) &&
+        bool want = recharged_gating::on(recharged_gating::kPbr) &&
                     gs.recharged_pbr_displacement == 2;
 #if !AUTOPORT_ORIGIN_ABLATE
         if (scfg.forced_max_edge_m >= 0.f) {
@@ -924,13 +925,17 @@ void Loader::loader_thread() {
 const tfrag3::Level& Loader::load_common(TexturePool& tex_pool, const std::string& name) {
   rss_census::mark("common-debut");
   // Grecharged-master-toggle: seed the GLOBAL master before the first fr3-path resolution.
-  Gfx::g_global_settings.recharged_master = read_persisted_recharged_master();
+  // recharged-gating-real : l'amorcage passe par le module de portes comme tout le reste. Ecrire
+  // le champ a la main ici ferait exactement ce que `gating_ungated_sites` compte — un ecrivain
+  // qui court-circuite la porte — et le module le SIGNALERAIT a la premiere image. C'est voulu :
+  // la seule facon de ne pas etre compte est d'entrer par la porte.
+  recharged_gating::set(recharged_gating::kMaster, read_persisted_recharged_master() ? 1 : 0);
   // Grecharged-bundled-textures: seed the base-swap toggle before the first add_texture.
-  Gfx::g_global_settings.recharged_textures = read_persisted_recharged_textures();
+  recharged_gating::set(recharged_gating::kTextures, read_persisted_recharged_textures() ? 1 : 0);
 #ifdef OG_FEAT_HD_MODELS
   // Grecharged-hd-models: seed the enhanced-models flag before the common FR3 (HD Jak+Daxter) is read,
   // since this runs in the renderer ctor before GOAL's per-frame push. Shared by desktop + Android.
-  Gfx::g_global_settings.recharged_enhanced_models = read_persisted_enhanced_models();
+  recharged_gating::set(recharged_gating::kEnhancedModels, read_persisted_enhanced_models() ? 1 : 0);
   // Grecharged-hd-models3/4: the anim-retarget HD art-groups (<char>-ag.go) are ND-derived — they
   // ship ONLY in the EXTERNAL asset pack (assets/hd/), never the APK/binary. loado resolves loose
   // .go from <jak_project_dir>/out/<game>/obj/, so stage them there from the external game root at

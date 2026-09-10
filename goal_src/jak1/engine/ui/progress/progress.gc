@@ -526,6 +526,8 @@
       (progress-screen graphic-settings)
       (progress-screen recharged-settings)
       (progress-screen grass-settings)
+      ;; recharged-gating-real : le sous-menu « Recharged Lighting », comme son frere grass.
+      (progress-screen lighting-settings)
       (progress-screen debug-options)
       (progress-screen sound-settings)
       (progress-screen resolution)
@@ -687,6 +689,13 @@
                         ;; submenu must accept the circle/triangle back shortcut like its
                         ;; sibling option screens (device finding: circle was swallowed)
                         (= v1-2 (progress-screen recharged-settings))
+                        ;; recharged-gating-real : le sous-menu « Recharged Lighting » doit accepter
+                        ;; le raccourci retour cercle/triangle. `grass-settings` est ABSENTE de
+                        ;; cette liste-ci alors qu'elle est dans celle du dessus : c'est le defaut
+                        ;; « le cercle est avale » deja constate sur appareil, et on ne le refait
+                        ;; pas pour la page neuve. (La page grass est laissee telle quelle : la
+                        ;; corriger n'est pas le perimetre de cet item.)
+                        (= v1-2 (progress-screen lighting-settings))
                         ;; Grecharged-menu-overhaul: the DEBUG category page accepts the same back shortcut.
                         (= v1-2 (progress-screen debug-options))
                         (= v1-2 (progress-screen resolution))

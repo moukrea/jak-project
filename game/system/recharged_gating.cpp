@@ -44,6 +44,12 @@ struct Row {
   int GS::*fi;
   float GS::*ff;
   double stock;
+  // `row` = cette option a une RANGEE dans le menu livre. Le recensement exige alors de la voir
+  // passer : une rangee qui perd son `gating-id` (parce que le cablage GOAL a derive d'un cran)
+  // disparait du recensement, et c'est justement la classe de bug qu'on ne veut plus laisser
+  // filer en silence. `false` = l'option existe mais n'est reglable que par settings.ini, ou sa
+  // rangee est absente du build livre (`pbr-isolate` n'apparait qu'avec --pbr --debug).
+  bool row;
 };
 
 // Les champs du bloc PBR n'existent qu'avec OG_FEAT_PBR. Sans lui l'option reste dans la table
@@ -59,6 +65,17 @@ struct Row {
 #define PF(f) (static_cast<float GS::*>(nullptr))
 #endif
 
+// Meme raison pour l'auvent d'herbe : TOUS ses sites reels sont sous `#ifdef
+// OG_FEAT_GRASS_OVERHANG` (GrassRenderer.cpp:1685 et :1797, background_common.cpp:79), et sa
+// rangee de menu est sous `FLAG_GRASS_OVERHANG`. Drapeau eteint, l'option n'est pas « sans
+// defaut » : elle n'existe pas. Le champ, lui, survit dans `gfx.h` — c'est exactement le piege
+// « TU feature-gatee » : un champ present et zero site compile.
+#ifdef OG_FEAT_GRASS_OVERHANG
+#define GOB(f) (&GS::f)
+#else
+#define GOB(f) (static_cast<bool GS::*>(nullptr))
+#endif
+
 #define NOB (static_cast<bool GS::*>(nullptr))
 #define NOI (static_cast<int GS::*>(nullptr))
 #define NOF (static_cast<float GS::*>(nullptr))
@@ -66,59 +83,65 @@ struct Row {
 // L'ordre DOIT suivre l'enum `Opt` : verifie a l'initialisation (`check_table_once`), et une
 // table qui ne se verifie pas publie une SENTINELLE au lieu d'un zero.
 const Row kOptions[kOptCount] = {
-    {"master", -1, Kind::kNode, &GS::recharged_master, NOI, NOF, 0},
+    {"master", -1, Kind::kNode, &GS::recharged_master, NOI, NOF, 0, true},
 
-    {"water", kMaster, Kind::kNode, &GS::recharged_water, NOI, NOF, 0},
-    {"lighting", kMaster, Kind::kNode, &GS::recharged_lighting, NOI, NOF, 0},
-    {"grass", kMaster, Kind::kToggle, &GS::recharged_grass, NOI, NOF, 0},
-    {"textures", kMaster, Kind::kToggle, &GS::recharged_textures, NOI, NOF, 0},
-    {"load-custom-assets", kMaster, Kind::kToggle, &GS::load_custom_assets, NOI, NOF, 0},
-    {"managed-assets", kMaster, Kind::kToggle, &GS::recharged_managed_assets, NOI, NOF, 0},
-    {"enhanced-models", kMaster, Kind::kToggle, &GS::recharged_enhanced_models, NOI, NOF, 0},
-    {"foliage-wind", kMaster, Kind::kToggle, &GS::recharged_foliage_wind, NOI, NOF, 0},
-    {"crisp-title-logo", kMaster, Kind::kToggle, &GS::recharged_crisp_title_logo, NOI, NOF, 0},
-    {"mesh-browser-checker", kMaster, Kind::kMode, NOB, &GS::recharged_mesh_browser_checker, NOF, 0},
+    {"water", kMaster, Kind::kNode, &GS::recharged_water, NOI, NOF, 0, true},
+    {"lighting", kMaster, Kind::kNode, &GS::recharged_lighting, NOI, NOF, 0, true},
+    {"grass", kMaster, Kind::kToggle, &GS::recharged_grass, NOI, NOF, 0, true},
+    {"textures", kMaster, Kind::kToggle, &GS::recharged_textures, NOI, NOF, 0, true},
+    {"load-custom-assets", kMaster, Kind::kToggle, &GS::load_custom_assets, NOI, NOF, 0, true},
+    {"managed-assets", kMaster, Kind::kToggle, &GS::recharged_managed_assets, NOI, NOF, 0, true},
+    {"enhanced-models", kMaster, Kind::kToggle, &GS::recharged_enhanced_models, NOI, NOF, 0, true},
+    {"foliage-wind", kMaster, Kind::kToggle, &GS::recharged_foliage_wind, NOI, NOF, 0, true},
+    {"crisp-title-logo", kMaster, Kind::kToggle, &GS::recharged_crisp_title_logo, NOI, NOF, 0, true},
+    {"mesh-browser-checker", kMaster, Kind::kMode, NOB, &GS::recharged_mesh_browser_checker, NOF, 0, false},
 
-    {"grass-near-dist", kGrass, Kind::kParamF, NOB, NOI, &GS::recharged_grass_near_dist, 30.0},
-    {"grass-card-dist", kGrass, Kind::kParamF, NOB, NOI, &GS::recharged_grass_card_dist, 95.0},
+    {"grass-near-dist", kGrass, Kind::kParamF, NOB, NOI, &GS::recharged_grass_near_dist, 30.0, true},
+    {"grass-card-dist", kGrass, Kind::kParamF, NOB, NOI, &GS::recharged_grass_card_dist, 95.0, true},
     {"grass-density", kGrass, Kind::kParamI, NOB, &GS::recharged_grass_density_preset, NOF,
-     (double)grass_bake::kDensityPresetDefault},
-    {"grass-precomputed", kGrass, Kind::kToggle, &GS::recharged_grass_precomputed, NOI, NOF, 0},
-    {"grass-overhang", kGrass, Kind::kToggle, &GS::recharged_grass_overhang, NOI, NOF, 0},
+     (double)grass_bake::kDensityPresetDefault, true},
+    // `grass-precomputed` choisit la SOURCE des touffes (cuisson hors ligne ou dispersion vive) :
+    // c'est un COMMENT, pas un SI. Il n'a pas d'etat « absent » — eteint, l'herbe pousse quand
+    // meme — et ses seuls lecteurs vivent DANS `GrassRenderer::render/rebuild`, donc derriere la
+    // porte de l'herbe. Il est donc classe comme un sous-parametre : son verdict est HERITE de
+    // `grass`, et publie comme tel dans `gating_inherited`. Son STOCK est le defaut de gfx.h.
+    {"grass-precomputed", kGrass, Kind::kParamI, &GS::recharged_grass_precomputed, NOI, NOF, 1, false},
+    {"grass-overhang", kGrass, Kind::kToggle, GOB(recharged_grass_overhang), NOI, NOF, 0, false},
 
-    {"ao-mode", kLighting, Kind::kMode, NOB, &GS::recharged_ao_mode, NOF, 0},
-    {"ao-quality", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_quality, NOF, 1},
-    {"ao-strength", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_strength, NOF, 1},
-    {"rt-light", kLighting, Kind::kToggle, PB(recharged_rt_light_enable), NOI, NOF, 0},
-    {"rt-shadow-res", kLighting, Kind::kParamI, NOB, PI(recharged_rt_shadow_res), NOF, 2048},
-    {"rt-shadow-dist", kLighting, Kind::kParamF, NOB, NOI, PF(recharged_rt_shadow_dist), 150.0},
+    {"ao-mode", kLighting, Kind::kMode, NOB, &GS::recharged_ao_mode, NOF, 0, true},
+    {"ao-quality", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_quality, NOF, 1, true},
+    {"ao-strength", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_strength, NOF, 1, true},
+    {"rt-light", kLighting, Kind::kToggle, PB(recharged_rt_light_enable), NOI, NOF, 0, false},
+    {"rt-shadow-res", kLighting, Kind::kParamI, NOB, PI(recharged_rt_shadow_res), NOF, 2048, true},
+    {"rt-shadow-dist", kLighting, Kind::kParamF, NOB, NOI, PF(recharged_rt_shadow_dist), 150.0, true},
     {"rt-shadow-strength", kLighting, Kind::kParamF, NOB, NOI, PF(recharged_rt_shadow_strength),
-     0.8},
-    {"rt-ambient", kLighting, Kind::kToggle, PB(recharged_rt_ambient_enable), NOI, NOF, 0},
-    {"rt-ambient-model", kRtAmbient, Kind::kParamI, NOB, PI(recharged_rt_ambient_model), NOF, 1},
+     0.8, false},
+    {"rt-ambient", kLighting, Kind::kToggle, PB(recharged_rt_ambient_enable), NOI, NOF, 0, false},
+    {"rt-ambient-model", kRtAmbient, Kind::kParamI, NOB, PI(recharged_rt_ambient_model), NOF, 1, true},
     {"rt-ambient-strength", kRtAmbient, Kind::kParamF, NOB, NOI, PF(recharged_rt_ambient_strength),
-     0.2},
+     0.2, true},
     {"rt-ambient-contrast", kRtAmbient, Kind::kParamF, NOB, NOI, PF(recharged_rt_ambient_contrast),
-     1.0},
-    {"hdr", kLighting, Kind::kToggle, &GS::recharged_hdr, NOI, NOF, 0},
-    {"hdr-knee", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_knee, 0.96},
-    {"hdr-curve", kHdr, Kind::kParamI, NOB, &GS::recharged_hdr_curve, NOF, 0},
-    {"hdr-exposure", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_exposure, 1.0},
-    {"hdr-output", kLighting, Kind::kExternal, NOB, NOI, NOF, 0},
-    {"pbr", kLighting, Kind::kToggle, PB(recharged_pbr_enable), NOI, NOF, 0},
+     1.0, false},
+    {"hdr", kLighting, Kind::kToggle, &GS::recharged_hdr, NOI, NOF, 0, false},
+    {"hdr-knee", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_knee, 0.96, false},
+    {"hdr-curve", kHdr, Kind::kParamI, NOB, &GS::recharged_hdr_curve, NOF, 0, false},
+    {"hdr-exposure", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_exposure, 1.0, false},
+    {"hdr-output", kLighting, Kind::kExternal, NOB, NOI, NOF, 0, true},
+    {"pbr", kLighting, Kind::kToggle, PB(recharged_pbr_enable), NOI, NOF, 0, true},
 
-    {"pbr-relief", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_texture_relief), 1.5},
-    {"pbr-specular", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_spec_intensity), 0.15},
-    {"pbr-displacement", kPbr, Kind::kMode, NOB, PI(recharged_pbr_displacement), NOF, 0},
-    {"pbr-exposure", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_exposure), 1.0},
-    {"pbr-isolate", kPbr, Kind::kMode, NOB, PI(recharged_pbr_isolate), NOF, 0},
-    {"mesh-subdiv", kPbr, Kind::kParamI, NOB, &GS::recharged_mesh_subdiv_rounds, NOF, 1},
-    {"modern-materials", kPbr, Kind::kToggle, PB(recharged_modern_materials), NOI, NOF, 0},
+    {"pbr-relief", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_texture_relief), 1.5, true},
+    {"pbr-specular", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_spec_intensity), 0.15, true},
+    {"pbr-displacement", kPbr, Kind::kMode, NOB, PI(recharged_pbr_displacement), NOF, 0, true},
+    {"pbr-exposure", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_exposure), 1.0, false},
+    {"pbr-isolate", kPbr, Kind::kMode, NOB, PI(recharged_pbr_isolate), NOF, 0, false},
+    {"mesh-subdiv", kPbr, Kind::kParamI, NOB, &GS::recharged_mesh_subdiv_rounds, NOF, 1, true},
+    {"modern-materials", kPbr, Kind::kToggle, PB(recharged_modern_materials), NOI, NOF, 0, true},
 };
 
 #undef PB
 #undef PI
 #undef PF
+#undef GOB
 #undef NOB
 #undef NOI
 #undef NOF
@@ -320,7 +343,13 @@ void check_table_once() {
   // La table est indexee PAR L'ENUM : si les deux derivent, chaque porte designe une autre
   // option et tous les chiffres deviennent faux sans qu'aucun ne soit absent. Quelques ancres
   // reparties dans la table suffisent a le voir.
-  // AMORCAGE DE LA VOLONTE. Plusieurs options n'ont AUCUN ecrivain (`recharged_hdr`,
+  // AMORCAGE DE LA VOLONTE. Il est appele par `set`, `desired`, `effective` et
+  // `disabled_by_ancestor` — les quatre portes d'entree — parce que le PREMIER geste du moteur
+  // est souvent une LECTURE : les setters de kmachine.cpp comparent `desired()` a la nouvelle
+  // valeur pour decider d'un effet de bord (invalidation du pack telecharge, rechargement de
+  // `surfaces.json`, ligne de log). Sans l'amorcage a la lecture, `desired` vaudrait 0 alors que
+  // le champ vaut `true`, et le tout premier push d'un `#t` se lirait comme un CHANGEMENT :
+  // un `managed_assets::invalidate()` de trop au boot, avant le moindre chargement de niveau. Plusieurs options n'ont AUCUN ecrivain (`recharged_hdr`,
   // `recharged_hdr_knee/curve/exposure`, `recharged_pbr_exposure`) : elles vivent sur le defaut
   // de `gfx.h` et aucune rangee de menu ne les touche. Sans cet amorcage leur `desired` vaudrait
   // 0, `on()` les declarerait eteintes et la chaine HDR s'arreterait — un changement de RENDU,
@@ -372,6 +401,15 @@ struct Sweep {
   uint64_t mark[kOptCount] = {0};
   double desired_before[kOptCount] = {0};
   bool desired_snapped = false;
+  // TEMOIN D'AMORCAGE. Une option qui n'agit qu'au CHARGEMENT (les textures, le pack telecharge,
+  // les modeles HD, le weld du niveau) consulte sa porte UNE fois, dans le constructeur du
+  // renderer, bien avant la premiere image. Aucune fenetre d'images ne peut la voir tirer : lui
+  // demander un `exec` par fenetre rendrait zero pour une raison qui n'a rien a voir avec la
+  // porte. On garde donc, du boot, l'etat de ses ancetres et son compteur de vie. Ce temoin-la
+  // est le PLUS proche du defaut de l'owner : il juge la configuration REELLE de son appareil
+  // (son settings.ini porte `pbr-materials? = #f`), pas une configuration fabriquee.
+  bool boot_disabled[kOptCount] = {false};
+  bool boot_snapped = false;
   int value_restored = -1;
   uint64_t windows_done = 0;
 };
@@ -403,7 +441,12 @@ struct MenuState {
   uint64_t rows = 0;
   uint64_t unknown = 0;    // une rangee que la table ne connait pas
   uint64_t misplaced = 0;  // une rangee dessinee ailleurs que dans la page de son parent
+  uint64_t missing = 0;    // une option qui DOIT avoir une rangee et qu'on n'a pas vue passer
+  uint64_t absent = 0;     // une rangee que GOAL declare RETIREE de ce build/de cet ecran
+  bool seen[kOptCount] = {false};
+  bool declared_absent[kOptCount] = {false};
   std::string parents;     // « option:parent,... », publie tel quel
+  std::string missing_names;
 };
 
 MenuState g_menu;
@@ -411,8 +454,15 @@ MenuState g_menu;
 // La page ou une option DOIT vivre, DEDUITE DE SON PARENT. C'est la meme colonne que la porte :
 // un sous-menu qui derive de la hierarchie se voit immediatement.
 const char* expected_page(int opt) {
-  if (opt == kGrass || opt == kLighting) {
-    return "recharged";  // la ligne d'ENTREE du sous-menu vit dans la page mere
+  // Le TOGGLE global d'un sous-menu vit DANS sa page, pas dans la page mere : c'est ce que
+  // l'owner demande (« un sous menu Recharged Lighting avec un toggle global »). La ligne
+  // d'ENTREE qui ouvre la page est un lanceur, pas une option : elle ne porte aucun
+  // `gating-id` et n'est donc jamais recensee ici.
+  if (opt == kGrass) {
+    return "grass";
+  }
+  if (opt == kLighting) {
+    return "lighting";
   }
   int p = kOptions[opt].parent;
   int guard = 0;
@@ -461,6 +511,13 @@ void set(int opt, double value) {
   {
     std::lock_guard<std::recursive_mutex> lock(g_mutex);
     check_table_once();
+    // RIEN A FAIRE SI RIEN N'A CHANGE. `update-to-os` (hud-classes-pc.gc:1777) repousse les ~35
+    // reglages A CHAQUE IMAGE, avec les memes valeurs : appliquer a chaque appel ferait 35
+    // balayages complets de la table par image pour zero changement. Cet item est ne du cout des
+    // options grisees ; son instrument n'a pas le droit d'en ajouter un.
+    if (g_state[opt].desired_set && g_state[opt].desired == value) {
+      return;
+    }
     g_state[opt].desired = value;
     g_state[opt].desired_set = true;
   }
@@ -472,6 +529,7 @@ double desired(int opt) {
     return 0;
   }
   std::lock_guard<std::recursive_mutex> lock(g_mutex);
+  check_table_once();
   return g_state[opt].desired;
 }
 
@@ -480,6 +538,7 @@ double effective(int opt) {
     return 0;
   }
   std::lock_guard<std::recursive_mutex> lock(g_mutex);
+  check_table_once();
   return effective_value(opt);
 }
 
@@ -488,6 +547,7 @@ bool disabled_by_ancestor(int opt) {
     return false;
   }
   std::lock_guard<std::recursive_mutex> lock(g_mutex);
+  check_table_once();
   return !ancestors_on(opt);
 }
 
@@ -550,7 +610,14 @@ void menu_begin() {
   g_menu.rows = 0;
   g_menu.unknown = 0;
   g_menu.misplaced = 0;
+  g_menu.missing = 0;
+  g_menu.absent = 0;
   g_menu.parents.clear();
+  g_menu.missing_names.clear();
+  for (int i = 0; i < kOptCount; i++) {
+    g_menu.seen[i] = false;
+    g_menu.declared_absent[i] = false;
+  }
 }
 
 void menu_row(const char* page, const char* opt_id) {
@@ -562,6 +629,17 @@ void menu_row(const char* page, const char* opt_id) {
   g_menu.rows++;
   if (opt < 0) {
     g_menu.unknown++;
+    return;
+  }
+  g_menu.seen[opt] = true;
+  // UNE RANGEE PEUT ETRE LEGITIMEMENT ABSENTE, ET C'EST GOAL QUI LE SAIT. « HDR OUTPUT » est
+  // RETIREE du tableau vivant quand l'ecran n'annonce aucun mode HDR (`*rch-hdr-row-hidden?*`) ;
+  // sur un bureau sans ecran HDR elle n'existe pas, et la compter « manquante » serait un faux
+  // rouge d'instrument. GOAL la declare avec la page `hidden` : absence DECLAREE, pas absence
+  // constatee. Une rangee qu'on oublie de declarer, elle, reste comptee manquante.
+  if (page && std::strcmp(page, "hidden") == 0) {
+    g_menu.declared_absent[opt] = true;
+    g_menu.absent++;
     return;
   }
   if (!page || std::strcmp(page, expected_page(opt)) != 0) {
@@ -576,9 +654,39 @@ void menu_row(const char* page, const char* opt_id) {
   g_menu.parents += (p >= 0 ? kOptions[p].name : "-");
 }
 
+int page_of(int opt) {
+  if (opt < 0 || opt >= kOptCount) {
+    return -1;
+  }
+  const char* p = expected_page(opt);
+  if (std::strcmp(p, "lighting") == 0) {
+    return 2;
+  }
+  if (std::strcmp(p, "grass") == 0) {
+    return 1;
+  }
+  return 0;
+}
+
+bool census_wanted() {
+  return autoport_proof::feature_is("recharged-gating-real");
+}
+
 void menu_end() {
   std::lock_guard<std::recursive_mutex> lock(g_mutex);
   g_menu.open = false;
+  // TOUTE option qui a une rangee livree doit avoir ete VUE. C'est ce terme qui transforme un
+  // `gating-id` perdu (cablage GOAL decale d'un cran — la classe de bug Gmenu-flag-off) en
+  // defaut compte, au lieu d'une rangee qui redevient silencieusement libre de tout parent.
+  for (int i = 0; i < kOptCount; i++) {
+    if (kOptions[i].row && !g_menu.seen[i]) {
+      g_menu.missing++;
+      if (!g_menu.missing_names.empty()) {
+        g_menu.missing_names += ",";
+      }
+      g_menu.missing_names += kOptions[i].name;
+    }
+  }
 }
 
 void tick() {
@@ -590,16 +698,28 @@ void tick() {
   }
 
   if (g_sweep.wanted && !g_sweep.done) {
-    if (!g_sweep.desired_snapped) {
+    if (!g_sweep.boot_snapped) {
       for (int i = 0; i < kOptCount; i++) {
-        g_sweep.desired_before[i] = g_state[i].desired;
+        g_sweep.boot_disabled[i] = !ancestors_on(i);
       }
-      g_sweep.desired_snapped = true;
+      g_sweep.boot_snapped = true;
     }
     g_sweep.frame++;
     const uint64_t f = g_sweep.frame;
     if (g_sweep.stage < 0) {
       if (f >= kWarmFrames) {
+        // LA VOLONTE SE PHOTOGRAPHIE A LA FIN DE LA CHAUFFE, PAS A LA PREMIERE IMAGE.
+        // `tick()` tourne depuis `npc-census-tick` ; `update-to-os`, qui pousse les ~35 reglages
+        // depuis `*pc-settings*`, tourne dans une AUTRE passe de la meme image. A la premiere
+        // image la table ne porte donc pas encore les reglages du joueur mais les defauts de
+        // `gfx.h`, et la comparaison de fin voyait « la valeur a change » alors que rien n'avait
+        // ete perdu : `gating_value_restored` sortait a 0 sur un aller-retour parfait (mesure
+        // x86 du 2026-09-10). 60 images de chauffe suffisent : le reglage persiste est pousse
+        // a chaque image.
+        for (int i = 0; i < kOptCount; i++) {
+          g_sweep.desired_before[i] = g_state[i].desired;
+        }
+        g_sweep.desired_snapped = true;
         g_sweep.stage = 0;
         force_all(1);
         snapshot_marks();
@@ -622,7 +742,7 @@ void tick() {
         // Fin : on RELACHE tout, et on verifie que la valeur voulue a survecu au balayage —
         // c'est la memoire que l'owner demande, mesuree apres un vrai aller-retour OFF/ON.
         force_all(-1);
-        g_sweep.value_restored = 1;
+        g_sweep.value_restored = g_sweep.desired_snapped ? 1 : 0;
         for (int i = 0; i < kOptCount; i++) {
           if (g_state[i].desired != g_sweep.desired_before[i]) {
             g_sweep.value_restored = 0;
@@ -669,21 +789,112 @@ void publish_all() {
   autoport_proof::publish("gating_menu_rows", g_menu.rows);
   autoport_proof::publish("gating_menu_unknown", g_menu.unknown);
   autoport_proof::publish("gating_menu_misplaced", g_menu.misplaced);
+  autoport_proof::publish("gating_menu_missing", g_menu.missing);
+  autoport_proof::publish("gating_menu_absent", g_menu.absent);
+  if (!g_menu.missing_names.empty()) {
+    autoport_proof::publish_text("gating_menu_missing_names", g_menu.missing_names.c_str());
+  }
   autoport_proof::publish("gating_menu_seen", g_menu.ever ? 1 : 0);
   if (!g_menu.parents.empty()) {
     autoport_proof::publish_text("gating_menu_parent", g_menu.parents.c_str());
   }
 
-  // ── le balayage ──
-  uint64_t effet = 0, uncovered = 0, covered = 0;
+  // ── le balayage ────────────────────────────────────────────────────────────────────────────
+  // QUI EST JUGE PAR SON PROPRE COMPTEUR, ET QUI HERITE.
+  //
+  // Une BASCULE / un MODE a un etat « eteint » et un site qui consulte sa porte : son verdict est
+  // son compteur d'execution, mesure fenetre par fenetre. C'est le coeur de la criterion EFFET.
+  //
+  // Un SOUS-PARAMETRE CONTINU (une distance d'ombre, une force d'ambiante, un relief) n'a PAS
+  // d'etat eteint : sa valeur « absente » est le defaut du moteur, qui est aussi sa valeur
+  // ordinaire. Le forcer d'un cote ou de l'autre ne produit AUCUNE difference observable, et lui
+  // demander un compteur d'execution fabriquerait un zero qui ne parle de rien. Son extinction
+  // est portee ENTIEREMENT par son ancetre : si le parent n'a pas execute, la valeur n'a pas ete
+  // consommee. Son verdict est donc HERITE — et publie comme tel, jamais tu.
+  //
+  // CE QUI EMPECHE CET HERITAGE D'ETRE UN SEAU D'EXCLUSION. Une option heritee dont l'ancetre est
+  // lui-meme NON COUVERT est comptee NON COUVERTE a son tour : une branche entiere que rien n'a
+  // fait tirer ne peut pas se cacher derriere « c'est le parent qui decide ». Et le champ de
+  // chaque sous-parametre reste sous la surveillance de `gating_ungated_sites` : un ecrivain qui
+  // le poserait par-dessus la porte serait compte, herite ou pas.
+  uint64_t effet = 0, uncovered = 0, covered = 0, inherited = 0;
   std::string defect_names, uncovered_names;
   if (g_sweep.done) {
+    // 1er passage : le verdict de ceux qui ont leur propre compteur.
+    bool self_covered[kOptCount] = {false};
+    bool self_judged[kOptCount] = {false};
+    for (int i = 0; i < kOptCount; i++) {
+      const Kind k = kOptions[i].kind;
+      self_judged[i] = (k == Kind::kToggle || k == Kind::kMode || k == Kind::kExternal) &&
+                       (k == Kind::kExternal || has_field(i));
+      if (self_judged[i]) {
+        self_covered[i] = g_sweep.exec_on[i] > 0 ||
+                          g_state[i].eval.load(std::memory_order_relaxed) > 0;
+      }
+    }
+    // Un MAITRE (kNode) est couvert des qu'une de ses descendantes l'est : c'est par elles qu'il
+    // agit, il n'a pas de site a lui.
+    for (int i = 0; i < kOptCount; i++) {
+      if (kOptions[i].kind != Kind::kNode) {
+        continue;
+      }
+      for (int j = 0; j < kOptCount; j++) {
+        int q = kOptions[j].parent, guard = 0;
+        while (q >= 0 && guard++ <= kOptCount) {
+          if (q == i && self_judged[j] && self_covered[j]) {
+            self_covered[i] = true;
+          }
+          q = kOptions[q].parent;
+        }
+      }
+    }
+
     for (int i = 0; i < kOptCount; i++) {
       if (i == kMaster) {
-        continue;  // la racine n'a aucun ancetre a trahir. Les DEUX autres maitres, si :
-                   // « master OFF => aucun chemin Recharged execute » se lit sur eux aussi.
+        continue;  // la racine n'a aucun ancetre a trahir.
       }
-      if (g_sweep.exec_on[i] == 0) {
+      // L'ancetre le plus proche qui possede un verdict propre : c'est de lui qu'on herite.
+      int anchor = i;
+      if (!self_judged[i]) {
+        anchor = -1;
+        int q = kOptions[i].parent, guard = 0;
+        while (q >= 0 && guard++ <= kOptCount) {
+          if (self_judged[q] || kOptions[q].kind == Kind::kNode) {
+            anchor = q;
+            break;
+          }
+          q = kOptions[q].parent;
+        }
+        inherited++;
+      }
+      if (kOptions[i].kind != Kind::kExternal && !has_field(i)) {
+        continue;  // NON COMPILEE dans ce jeu de drapeaux (`gating_not_compiled` la publie) :
+                   // elle n'existe pas, elle n'est donc ni couverte ni non couverte. Un
+                   // drapeau de build eteint ne doit ni fabriquer un defaut ni fabriquer un
+                   // zero — c'est le piege « TU feature-gatee ».
+      }
+      if (g_menu.declared_absent[i]) {
+        continue;  // GOAL a declare la rangee retiree de ce build : rien a couvrir, rien a juger.
+      }
+      // LE TEMOIN D'AMORCAGE, avant de declarer quoi que ce soit non couvert. Une option a
+      // porte propre qui n'a JAMAIS tire dans une fenetre mais qui a bien ete CONSULTEE (son
+      // `eval` de vie est non nul) est une option de CHARGEMENT : elle a rendu son verdict au
+      // boot, avec la configuration reelle de l'appareil. On le lit la.
+      if (self_judged[i] && g_sweep.exec_on[i] == 0 &&
+          g_state[i].eval.load(std::memory_order_relaxed) > 0) {
+        covered++;
+        if (g_sweep.boot_disabled[i] && g_state[i].exec.load(std::memory_order_relaxed) > 0) {
+          effet++;
+          if (!defect_names.empty()) {
+            defect_names += ",";
+          }
+          defect_names += kOptions[i].name;
+          defect_names += "<boot";
+        }
+        continue;
+      }
+      const bool cov = (anchor >= 0) && self_covered[anchor];
+      if (!cov) {
         uncovered++;
         if (uncovered_names.size() < 400) {
           if (!uncovered_names.empty()) {
@@ -692,6 +903,9 @@ void publish_all() {
           uncovered_names += kOptions[i].name;
         }
         continue;
+      }
+      if (!self_judged[i]) {
+        continue;  // couverte par son ancre, et jugee a travers elle
       }
       covered++;
       for (int p = 0; p < kParentCount; p++) {
@@ -721,9 +935,22 @@ void publish_all() {
   autoport_proof::publish("gating_sweep_windows", g_sweep.windows_done);
   autoport_proof::publish("gating_effect_defects", effet);
   autoport_proof::publish("gating_covered", covered);
+  autoport_proof::publish("gating_inherited", inherited);
+  {
+    // Combien d'options ont rendu leur verdict au CHARGEMENT plutot que dans une fenetre : la
+    // repartition doit etre lisible, sinon « couvert » melangerait deux mesures differentes.
+    uint64_t boot_judged = 0;
+    for (int i = 0; i < kOptCount; i++) {
+      const Kind k = kOptions[i].kind;
+      if ((k == Kind::kToggle || k == Kind::kMode || k == Kind::kExternal) &&
+          g_sweep.exec_on[i] == 0 && g_state[i].eval.load(std::memory_order_relaxed) > 0) {
+        boot_judged++;
+      }
+    }
+    autoport_proof::publish("gating_judged_at_load", boot_judged);
+  }
   autoport_proof::publish("gating_uncovered", uncovered);
-  autoport_proof::publish("gating_value_restored",
-                          g_sweep.value_restored == 1 ? 1 : 0);
+  autoport_proof::publish("gating_value_restored", g_sweep.value_restored == 1 ? 1 : 0);
   if (!defect_names.empty()) {
     autoport_proof::publish_text("gating_effect_defect_names", defect_names.c_str());
   }
@@ -751,7 +978,7 @@ void publish_all() {
   } else if (covered == 0) {
     defects = kVacuous + 5;
   } else {
-    defects = effet + foreign + uncovered + g_menu.unknown + g_menu.misplaced +
+    defects = effet + foreign + uncovered + g_menu.unknown + g_menu.misplaced + g_menu.missing +
               (g_sweep.value_restored == 1 ? 0 : 1);
   }
   autoport_proof::publish("gating_defects", defects);

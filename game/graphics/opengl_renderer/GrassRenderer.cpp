@@ -1,4 +1,5 @@
 #include "GrassRenderer.h"
+#include "game/system/recharged_gating.h"
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
 #include "game/system/load_gate.h"
 
@@ -877,7 +878,7 @@ bool GrassRenderer::oom_disarm(const void* lev,
   m_expand_waits = 0;
   m_cached_level = lev;
   m_cached_load_id = load_id;
-  m_cached_precomputed = Gfx::g_global_settings.recharged_grass_precomputed;
+  m_cached_precomputed = recharged_gating::on(recharged_gating::kGrassPrecomputed);
   m_cached_preset =
       grass_bake::clamp_density_preset(Gfx::g_global_settings.recharged_grass_density_preset);
   m_cached_floor_gap = floor_gap_m;
@@ -932,7 +933,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
     }
   #endif
 
-    const bool want_pre = Gfx::g_global_settings.recharged_grass_precomputed;
+    const bool want_pre = recharged_gating::on(recharged_gating::kGrassPrecomputed);
     const auto tA = clk::now();
 
     bool from_bake = false;
@@ -1077,7 +1078,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       m_expand_waits = 0;
       m_cached_level = (const void*)lev;
       m_cached_load_id = ld->load_id;
-      m_cached_precomputed = Gfx::g_global_settings.recharged_grass_precomputed;
+      m_cached_precomputed = recharged_gating::on(recharged_gating::kGrassPrecomputed);
       m_cached_preset = want_preset;
       m_cached_floor_gap = floor_gap_m;
       return true;
@@ -1180,7 +1181,7 @@ bool GrassRenderer::rebuild(SharedRenderState* rs,
       "z3_fall={} (tail [{}..{}), toggle={}) lean_tagged={} comb_tagged={}",
       (int)m_bake.droop.size(), res.z2_count, res.comb_pairs, res.lean_twins, res.z3_count,
       m_droop_start, m_instance_count,
-      Gfx::g_global_settings.recharged_grass_overhang ? "ON" : "OFF", res.lean_tagged,
+      recharged_gating::on(recharged_gating::kGrassOverhang) ? "ON" : "OFF", res.lean_tagged,
       res.comb_tagged);
 
   // Recompute `density` exactly as expand() did, for the STATIC place summary log.
@@ -1576,7 +1577,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   if (m_cached_level != (const void*)ld->level.get() || m_cached_load_id != ld->load_id ||
       m_cached_preset !=
           grass_bake::clamp_density_preset(Gfx::g_global_settings.recharged_grass_density_preset) ||
-      m_cached_precomputed != Gfx::g_global_settings.recharged_grass_precomputed) {
+      m_cached_precomputed != recharged_gating::on(recharged_gating::kGrassPrecomputed)) {
     rebuild(rs, ld, grass_level);
   }
   if (m_instance_count <= 0) {
@@ -1682,7 +1683,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // that splits the draw range (below). OFF -> u_overhang=0 -> tagged blades run the stock else-branch.
   glUniform1f(glGetUniformLocation(id, "u_overhang"),
 #ifdef OG_FEAT_GRASS_OVERHANG
-              Gfx::recharged_active(Gfx::g_global_settings.recharged_grass_overhang) ? 1.0f : 0.0f);
+              recharged_gating::on(recharged_gating::kGrassOverhang) ? 1.0f : 0.0f);
 #else
               // Grecharged-buildsys-flags: overhang compiled OUT -> shader stock else-branch.
               0.0f);
@@ -1794,7 +1795,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   const int nondroop_n = std::min(m_droop_start, m_instance_count);
   const int blade_total =
 #ifdef OG_FEAT_GRASS_OVERHANG
-      Gfx::recharged_active(Gfx::g_global_settings.recharged_grass_overhang) ? m_instance_count : nondroop_n;
+      recharged_gating::on(recharged_gating::kGrassOverhang) ? m_instance_count : nondroop_n;
 #else
       // Grecharged-buildsys-flags: overhang compiled OUT -> never draw the droop tail
       // (bit-identical to a build without the droop instances). See comment above.

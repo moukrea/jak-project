@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/hdr_output.h"
+#include "game/system/recharged_gating.h"
 
 #include <algorithm>
 #include <atomic>
@@ -1155,6 +1156,9 @@ void apply_pending_on_gl_thread() {
     }
   }
   const uint32_t modes = modes_available();
+  // La decision reste celle de `lighting_gate()` (deja correcte : master > eclairage). On ajoute
+  // le PASSAGE par la porte du module, qui compte, sans changer ce qui est decide ici.
+  (void)recharged_gating::on(recharged_gating::kHdrOutput);
   const bool gate = effective_setting() && modes != 0 && autoport_proof::armed_for(kItemId) &&
                     lighting_gate();
   const uint32_t want = gate ? modes : kModeNone;

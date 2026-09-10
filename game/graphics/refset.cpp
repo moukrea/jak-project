@@ -1,4 +1,5 @@
 #include "game/graphics/refset.h"
+#include "game/system/recharged_gating.h"
 
 #include <algorithm>
 #include <atomic>
@@ -2321,7 +2322,7 @@ void qualification_init() {
 // effective gates and clamped settings, never the phase's requested environment values.
 QualificationJson qualification_effective_options() {
   const auto& gs = Gfx::g_global_settings;
-  int rt = Gfx::lighting_active(gs.recharged_rt_light_enable) ? 1 : 0;
+  int rt = recharged_gating::on(recharged_gating::kRtLight) ? 1 : 0;
 #ifdef __ANDROID__
   char value[PROP_VALUE_MAX] = {0};
   if (__system_property_get("debug.opengoal.rt.light", value) > 0 && value[0])
@@ -2330,7 +2331,7 @@ QualificationJson qualification_effective_options() {
   if (const char* value = std::getenv("OG_RT_LIGHT")) rt = std::atoi(value);
 #endif
   auto subdiv = tfrag3::mesh_subdiv_config_from_env();
-  bool subdiv_on = Gfx::recharged_active(gs.recharged_pbr_enable) && gs.recharged_pbr_displacement == 2;
+  bool subdiv_on = recharged_gating::on(recharged_gating::kPbr) && gs.recharged_pbr_displacement == 2;
 #if !AUTOPORT_ORIGIN_ABLATE
   if (subdiv.forced_max_edge_m >= 0.f) subdiv_on = subdiv.forced_max_edge_m > 0.f;
 #endif
@@ -2341,26 +2342,26 @@ QualificationJson qualification_effective_options() {
   const float grass_card = std::min(200.f, std::max(grass_near + 5.f, gs.recharged_grass_card_dist));
   bool grass_overhang = false;
 #ifdef OG_FEAT_GRASS_OVERHANG
-  grass_overhang = Gfx::recharged_active(gs.recharged_grass_overhang);
+  grass_overhang = recharged_gating::on(recharged_gating::kGrassOverhang);
 #endif
   return {{"master", Gfx::recharged_master_active()},
       {"lighting", Gfx::recharged_lighting_active()}, {"rt_light", Gfx::lighting_active(rt != 0)},
       {"hdr", hdr::chain_active() && hdr::format_is_float(hdr::scene_color_format())},
       {"others", {
-          {"textures", Gfx::recharged_active(gs.recharged_textures)},
-          {"managed_assets", Gfx::recharged_active(gs.recharged_managed_assets)},
-          {"enhanced_models", Gfx::recharged_active(gs.recharged_enhanced_models)},
-          {"grass", Gfx::recharged_active(gs.recharged_grass)},
+          {"textures", recharged_gating::on(recharged_gating::kTextures)},
+          {"managed_assets", recharged_gating::on(recharged_gating::kManagedAssets)},
+          {"enhanced_models", recharged_gating::on(recharged_gating::kEnhancedModels)},
+          {"grass", recharged_gating::on(recharged_gating::kGrass)},
           {"grass_near_dist", grass_near}, {"grass_card_dist", grass_card},
           {"grass_density_preset", grass_bake::clamp_density_preset(gs.recharged_grass_density_preset)},
           {"grass_precomputed", gs.recharged_grass_precomputed}, {"grass_overhang", grass_overhang},
           {"foliage_wind", foliage_wind::enabled()},
-          {"modern_materials", Gfx::recharged_active(gs.recharged_modern_materials)},
+          {"modern_materials", recharged_gating::on(recharged_gating::kModernMaterials)},
           {"subdivision", subdiv_on}, {"subdivision_rounds", subdiv.max_rounds},
           {"subdivision_max_edge_m", subdiv.max_edge_m},
           {"load_custom_assets", gs.load_custom_assets},
           {"lod_tfrag", gs.lod_tfrag}, {"lod_tie", gs.lod_tie}, {"hack_no_tex", gs.hack_no_tex},
-          {"crisp_title_logo", Gfx::recharged_active(gs.recharged_crisp_title_logo)}
+          {"crisp_title_logo", recharged_gating::on(recharged_gating::kCrispTitleLogo)}
       }}};
 }
 

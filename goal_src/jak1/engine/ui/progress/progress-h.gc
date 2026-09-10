@@ -140,6 +140,15 @@
      ;; `max` (=> 70; *options-remap* allocated at 72, still fits). Reached from the hub only when
      ;; *debug-menus-visible?* (seeded from FLAG_DEBUG_MENUS / build.sh --debug).
      (debug-options)
+     ;; recharged-gating-real (owner 2026-09-10) : le sous-menu « Recharged Lighting », frere de
+     ;; `grass-settings`. Il porte l'interrupteur global de la refonte lumiere et TOUT ce qui en
+     ;; depend — Realtime Lighting, HDR Output, l'Occlusion Ambiante et ses sous-reglages, les
+     ;; matieres PBR. Ajoute AVANT `max` (auto-numerote => 70), donc aucune valeur existante ne
+     ;; bouge ; `*options-remap*` est alloue a 72 (progress-static.gc), il reste de la place.
+     ;; La page n'est PAS ecrite a la main : elle est construite a l'execution a partir de la
+     ;; table des portes (`__pc-gating-page`), pour qu'une option ajoutee sous l'eclairage
+     ;; y atterrisse sans que personne n'y pense.
+     (lighting-settings)
      ;; the last one!
      (max))
    (defenum game-option-type
@@ -271,7 +280,24 @@
    ;; Grecharged-menu-overhaul: per-row help text shown on the single hint line at the bottom of the
    ;; menu when this row is focused (0 = no hint). A group-header row may also carry a hint describing
    ;; its group. text-id so it follows the selected text language (all 6 game languages).
-   (hint                 text-id)))
+   (hint                 text-id)
+   ;; recharged-gating-real : l'identifiant de l'option Recharged que cette rangee pilote, tel que
+   ;; la table de `game/system/recharged_gating.cpp` le nomme ("pbr", "ao-mode", "hdr-output"...).
+   ;; 0 pour toute rangee qui n'est pas une option Recharged.
+   ;;
+   ;; POURQUOI CE CHAMP EXISTE. La dependance entre options etait ecrite DEUX FOIS : ici sous forme
+   ;; de lambdas `option-disabled-func`, et en C++ sous forme d'appels aux composeurs de gfx.h. Deux
+   ;; ecritures d'une meme regle divergent, et elles avaient diverge — l'owner (2026-09-10) voyait
+   ;; des rangees grisees dont la feature continuait de tourner. Avec ce champ, le grisage DEMANDE
+   ;; au C++ (`__pc-gating-disabled?`) : le gris que le joueur voit et la porte que le moteur
+   ;; applique sont la meme relation, par construction.
+   ;;
+   ;; Il est pose a l'execution dans `init-game-options`, a cote de `value-to-modify` et
+   ;; `name-override`, et JAMAIS dans le tableau statique : c'est le seul endroit ou l'on sait
+   ;; quel index porte quelle option apres les gates de build et le collapse HD. Une rangee dont
+   ;; le cablage derive perd donc son identifiant en meme temps que sa valeur, au lieu de garder
+   ;; un identifiant juste sur une valeur fausse.
+   (gating-id            string)))
 
 (deftype progress (process)
   ((current-debug-string         int32)
