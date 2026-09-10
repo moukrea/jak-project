@@ -151,6 +151,16 @@
 
 (define *ocean-verts* (the-as (inline-array vector) #f))
 
+;; og:preserve-this autoport/perf-ocean-idle — LE RECENSEMENT DU TRAVAIL D'OCEAN.
+;; Quatre cas exclusifs, comptes en images dans draw-ocean (ocean.gc), publies chaque image sous
+;; `ocean_*`. Leur somme DOIT valoir *ocean-idle-frames* : un recensement sans son denominateur
+;; ne dit pas si son zero est un effet ou une absence de mesure.
+(define *ocean-idle-frames* 0)      ;; images ou draw-ocean a tourne
+(define *ocean-idle-work-map* 0)    ;; ... vagues calculees, carte presente  (travail utile)
+(define *ocean-idle-work-nomap* 0)  ;; ... vagues calculees, AUCUNE carte    (le defaut vise)
+(define *ocean-idle-skipped* 0)     ;; ... rien calcule,     aucune carte    (l'effet du correctif)
+(define *ocean-idle-nowork-map* 0)  ;; ... rien calcule,     carte presente  (ne doit jamais arriver)
+
 (deftype ocean-vu0-work (structure)
   ((scales      vector :inline)
    (mask-hi     vector4w :inline)

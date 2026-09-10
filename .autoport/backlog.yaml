@@ -5602,7 +5602,7 @@ items:
   prompt: prompts/item-perf-instruments.md
 - id: perf-stock-baseline
   feature: La ligne de base du jeu STOCK sur le Redmi, et la courbe cadence selon l'echelle
-  status: in-progress
+  status: validated
   priority: 20
   game: jak1
   gate:
@@ -5934,7 +5934,7 @@ items:
     HDR n''attend pas son tour.'
 - id: perf-ocean-idle
   feature: Pas d'ocean, pas de vagues calculees
-  status: open
+  status: in-progress
   priority: 36
   game: jak1
   gate:
@@ -5966,6 +5966,7 @@ items:
   - OG_PAD_REPLAY_REPLAY=.autoport/refset/neutral.inputs
   - OG_RECHARGED=0
   - OG_FIXED_TICK=0
+  - OG_PERF_BUCKETS=1
   block_reason: null
   prompt: prompts/item-perf-ocean-idle.md
 - id: perf-dma-chain-copies

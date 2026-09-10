@@ -903,6 +903,30 @@ void pc_autoport_publish(u32 key_str, s64 value) {
   autoport_proof::publish(k, (u64)(value < 0 ? 0 : value));
 }
 
+// perf-ocean-idle — L'ABLATION D'UN ITEM NOMME, EN POLARITE INVERSE (0 = correctif ARME).
+// `__pc-autoport-armed-for` ci-dessus rend 1 quand l'item est arme. C'est le bon sens sur x86 et
+// le MAUVAIS sens partout ou le pont n'est pas relie : sur Android, tout helper `pc-*` absent de
+// la liste a17 tombe sur `a17_pc_default`, qui rend 0 (android/gk_android_main.cpp:644). Un
+// correctif GOAL ecrit `(when (zero? (__pc-autoport-armed-for "x")) ...)` se DESARME donc tout
+// seul sur l'appareil, sans qu'une ligne de son code change et sans qu'aucune erreur soit dite.
+// Ici le zero du stub veut dire « personne ne demande l'ablation » : un pont muet laisse le
+// correctif ARME, ce qui est le seul sens compatible avec les DIRECTIVES (un correctif derriere
+// un drapeau eteint par defaut n'existe pas pour l'owner).
+s32 pc_autoport_disarmed_for(u32 id_str) {
+  const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  return autoport_proof::armed_for(id) ? 0 : 1;
+}
+
+// perf-ocean-idle — LE COMPTEUR `hits=` DE LA LIGNE FEATURE, ALIMENTE PAR GOAL. `note_hit` ne
+// compte que feature ARMEE : c'est ce qui rend le bras `--off` lisible (`hits=0`). Sans ce pont,
+// un correctif ecrit entierement en GOAL ne peut pas prouver qu'il a tire, et le validateur le
+// refuse pour « rien ne prouve que la feature a tire ». ATTENTION : `hits` est un compteur
+// PARTAGE par tous les modules du binaire ; un correctif qui s'en sert publie A COTE son propre
+// denominateur, sinon son chiffre ne parle de rien.
+void pc_autoport_hit(s64 n) {
+  autoport_proof::note_hit((u64)(n < 0 ? 0 : n));
+}
+
 // ─── Grecharged-settings-case-l10n — LE PONT DU RECENSEMENT DU MENU ───────────────────────────
 // GOAL seul sait quelles LIGNES le menu Recharged contient et quel identifiant de banc alimente
 // le libelle de chacune ; le C++ seul sait relire les 23 bancs `<n>COMMON.TXT` livres. Ces
@@ -5360,6 +5384,8 @@ void InitMachine_PCPort() {
   // Ghd-skin-origin-stretch : l'armement PAR ITEM et le compte de la porte
   make_function_symbol_from_c("__pc-autoport-armed-for", (void*)pc_autoport_armed_for);
   make_function_symbol_from_c("__pc-autoport-publish", (void*)pc_autoport_publish);
+  make_function_symbol_from_c("__pc-autoport-disarmed-for", (void*)pc_autoport_disarmed_for);
+  make_function_symbol_from_c("__pc-autoport-hit", (void*)pc_autoport_hit);
   // Grecharged-settings-case-l10n : le recensement du menu Recharged (casse + traduction)
   make_function_symbol_from_c("__pc-scl10n-begin", (void*)pc_scl10n_begin);
   make_function_symbol_from_c("__pc-scl10n-label", (void*)pc_scl10n_label);

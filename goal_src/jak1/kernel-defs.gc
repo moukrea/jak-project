@@ -492,6 +492,16 @@
 ;; `lib/proof_run.sh` moissonne. Un chiffre noye dans un `format` a six colonnes n'atteint pas
 ;; proof.txt.
 (define-extern __pc-autoport-publish (function string int none))
+;; perf-ocean-idle : l'ablation d'un item nomme, EN POLARITE INVERSE — 0 = correctif ARME.
+;; `__pc-autoport-armed-for` ci-dessus rend 1 quand l'item est arme, donc 0 quand le pont n'est
+;; pas relie : sur Android tout helper `pc-*` hors de la liste a17 rend 0, et un correctif qui
+;; teste `(zero? (__pc-autoport-armed-for ...))` se desarme tout seul sur l'appareil. Un
+;; correctif qui doit rester ARME quand le pont est muet consulte donc CELUI-CI.
+(define-extern __pc-autoport-disarmed-for (function string int))
+;; perf-ocean-idle : le compteur `hits=` de la ligne FEATURE, alimente par GOAL. Ne compte que
+;; feature armee (c'est ce qui rend le bras `--off` lisible). `hits` est PARTAGE par tout le
+;; binaire : publier a cote son propre denominateur avec `__pc-autoport-publish`.
+(define-extern __pc-autoport-hit (function int none))
 ;; Grecharged-settings-case-l10n : LE RECENSEMENT DU MENU RECHARGED. GOAL parcourt les tableaux
 ;; d'options REELLEMENT compiles et rapporte, ligne par ligne, l'identifiant de banc qui alimente
 ;; son libelle ET la chaine que le menu DESSINE. Le C++ relit les 23 bancs livres et juge toutes

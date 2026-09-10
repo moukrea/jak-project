@@ -457,14 +457,59 @@
 (defun draw-ocean ()
   (set! *ocean-heights* #f)
   (set! *ocean-verts* (the-as (inline-array vector) #f))
-  (let ((gp-0 (-> *display* frames (-> *display* on-screen) frame global-buf)))
-    (set! *ocean-heights* (the-as ocean-wave-info (-> gp-0 base)))
-    (ocean-interp-wave *ocean-heights*
-                       (the uint (* (/ (-> *display* time-factor) 5.0) (-> *display* integral-frame-counter)))) ;; og:preserve-this changed for high fps
-    (&+! (-> gp-0 base) 4096)
-    (set! *ocean-verts* (the-as (inline-array vector) (-> gp-0 base)))
-    (ocean-generate-verts *ocean-verts* *ocean-heights*)
-    (&+! (-> gp-0 base) #x8000))
+  ;; og:preserve-this autoport/perf-ocean-idle — PAS D'OCEAN, PAS DE VAGUES CALCULEES.
+  ;; `ocean-interp-wave` (32 rangees x 109 instructions mips2c, 4096 octets de hauteurs) et
+  ;; `ocean-generate-verts` (32 rangees, 2048 sommets, 256 entrees dans le microprogramme VU0)
+  ;; tournaient a CHAQUE image, y compris quand `*ocean-map*` est #f — c'est-a-dire dans tout
+  ;; niveau dont le `level-info` ne porte pas de carte, et pendant tout l'ecran-titre. Le test
+  ;; `(when *ocean-map*)` juste dessous n'arrivait qu'APRES.
+  ;;
+  ;; Rien ne lit ce qu'elles produisent quand la carte manque, et c'est verifiable ligne a ligne :
+  ;;   * `*ocean-verts*`  : ses deux seuls lecteurs sont les `draw-ocean-texture` de ce meme
+  ;;                        `(when *ocean-map*)`.
+  ;;   * `*ocean-heights*`: `ocean-near-add-heights` (ocean-near.gc) n'est appelee que depuis
+  ;;                        `draw-ocean-near`, sous la meme garde ; `ocean-get-height` (plus haut
+  ;;                        dans ce fichier) exige DEJA `(and *ocean-heights* *ocean-map*)` et
+  ;;                        rend 0.0 sans carte, avant comme apres ce changement.
+  ;; Sans carte, les deux symboles gardent donc simplement le #f que les deux lignes ci-dessus
+  ;; viennent de leur poser. Avec une carte, le chemin est identique a l'octet pres.
+  ;;
+  ;; L'ablation passe par `__pc-autoport-disarmed-for` et NON par `__pc-autoport-armed-for` :
+  ;; ce dernier rend 0 quand le pont n'est pas relie (Android, a17_pc_default), ce qui
+  ;; desarmerait le correctif sur l'appareil sans qu'aucune ligne change.
+  (when (or *ocean-map* (nonzero? (__pc-autoport-disarmed-for "perf-ocean-idle")))
+    (let ((gp-0 (-> *display* frames (-> *display* on-screen) frame global-buf)))
+      (set! *ocean-heights* (the-as ocean-wave-info (-> gp-0 base)))
+      (ocean-interp-wave *ocean-heights*
+                         (the uint (* (/ (-> *display* time-factor) 5.0) (-> *display* integral-frame-counter)))) ;; og:preserve-this changed for high fps
+      (&+! (-> gp-0 base) 4096)
+      (set! *ocean-verts* (the-as (inline-array vector) (-> gp-0 base)))
+      (ocean-generate-verts *ocean-verts* *ocean-heights*)
+      (&+! (-> gp-0 base) #x8000)))
+  ;; og:preserve-this autoport/perf-ocean-idle — LE RECENSEMENT, LU SUR L'EFFET ET NON SUR LE
+  ;; DRAPEAU. La grandeur n'interroge pas la condition ci-dessus (ce serait un miroir, vrai par
+  ;; construction) : elle lit `*ocean-verts*`, que SEUL le bloc ci-dessus rend non-#f, et
+  ;; `*ocean-map*`, que `update-ocean` vient de recalculer dans le meme seau `with-profiler
+  ;; "ocean"`. Les quatre cas sont exclusifs et leur somme vaut `ocean_draw_frames` : c'est ce
+  ;; qui distingue un `ocean_work_without_map=0` obtenu par effet d'un zero obtenu par absence
+  ;; de mesure. `ocean_work_with_map` est le controle positif — meme detecteur, meme course.
+  (+! *ocean-idle-frames* 1)
+  (cond
+    (*ocean-verts*
+     (if *ocean-map*
+         (+! *ocean-idle-work-map* 1)
+         (+! *ocean-idle-work-nomap* 1)))
+    (*ocean-map*
+     (+! *ocean-idle-nowork-map* 1))
+    (else
+     (+! *ocean-idle-skipped* 1)
+     ;; `hits` de la ligne FEATURE : une image ou le travail inutile n'a PAS eu lieu.
+     (__pc-autoport-hit 1)))
+  (__pc-autoport-publish "ocean_draw_frames" *ocean-idle-frames*)
+  (__pc-autoport-publish "ocean_work_without_map" *ocean-idle-work-nomap*)
+  (__pc-autoport-publish "ocean_work_with_map" *ocean-idle-work-map*)
+  (__pc-autoport-publish "ocean_idle_frames_skipped" *ocean-idle-skipped*)
+  (__pc-autoport-publish "ocean_no_work_with_map" *ocean-idle-nowork-map*)
   (when *ocean-map*
     (let* ((v1-12 (camera-pos))
            (a0-6 *swamp-low-ocean-marker*)
