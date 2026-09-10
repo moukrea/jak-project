@@ -36,7 +36,11 @@ if [ -n "${ANDROID_SERIAL:-}" ]; then
     *:*|*_adb-tls-*) echo "[pick_device] ANDROID_SERIAL='$ANDROID_SERIAL' est une adresse reseau : refuse." >&2; exit 3 ;;
   esac
   if attache "$ANDROID_SERIAL"; then echo "$ANDROID_SERIAL"; exit 0; fi
-  echo "[pick_device] ANDROID_SERIAL='$ANDROID_SERIAL' ne repond pas ; on cherche autre chose." >&2
+  # Epingle et absent : on NE se rabat PAS sur un autre telephone. Une campagne de mesure
+  # epinglee (ligne de base perf sur le Redmi, sortie HDR sur le Honor) mesurée sur l'autre
+  # appareil rend des chiffres faux que rien ne signale. Mieux vaut aucune mesure.
+  echo "[pick_device] ANDROID_SERIAL='$ANDROID_SERIAL' est EPINGLE et absent : aucun repli." >&2
+  exit 3
 fi
 
 MEILLEUR=""; MEILLEUR_RANG=99

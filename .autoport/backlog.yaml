@@ -4540,6 +4540,7 @@ items:
     pour qu''un ratio a 1,000 sorte ROUGE. Rien a reprouver sans le Honor branche.'
   proof_env:
   - ANDROID_SERIAL=AREE026206000788
+  device_serial: AREE026206000788
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
   status: to-test
@@ -5650,9 +5651,10 @@ items:
   - debug.opengoal.level.warp.pos=-116 14 40
   block_reason: null
   prompt: prompts/item-perf-stock-baseline.md
+  device_serial: eae4df44
 - id: perf-gl-waits
   feature: Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
-  status: open
+  status: blocked
   priority: 21
   game: jak1
   gate:
@@ -5692,11 +5694,15 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  block_reason: null
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
   prompt: prompts/item-perf-gl-waits.md
+  device_serial: eae4df44
 - id: perf-merc-defuse
   feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
-  status: open
+  status: blocked
   priority: 22
   game: jak1
   gate:
@@ -5733,11 +5739,15 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  block_reason: null
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
   prompt: prompts/item-perf-merc-defuse.md
+  device_serial: eae4df44
 - id: perf-fbo-passes
   feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
-  status: open
+  status: blocked
   priority: 23
   game: jak1
   gate:
@@ -5778,9 +5788,14 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-fbo-passes.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-goal-gl-overlap
   feature: GOAL construit l'image suivante pendant que le GPU rend la precedente
-  status: open
+  status: blocked
   priority: 24
   game: jak1
   gate:
@@ -5821,9 +5836,14 @@ items:
   - debug.opengoal.perf.buckets=1
   - debug.opengoal.perf.nooverlap=2
   prompt: prompts/item-perf-goal-gl-overlap.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-thread-build
   feature: Le fil GOAL tourne sur un gros coeur, dans un binaire release
-  status: open
+  status: blocked
   priority: 25
   game: jak1
   gate:
@@ -5860,11 +5880,15 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  block_reason: null
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
   prompt: prompts/item-perf-thread-build.md
+  device_serial: eae4df44
 - id: perf-actor-pause-dist
   feature: Les acteurs loin de Jak dorment comme sur PS2, et c'est un reglage
-  status: open
+  status: blocked
   priority: 35
   game: jak1
   gate:
@@ -5903,6 +5927,11 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-actor-pause-dist.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-ocean-idle
   feature: Pas d'ocean, pas de vagues calculees
   status: open
@@ -5941,7 +5970,7 @@ items:
   prompt: prompts/item-perf-ocean-idle.md
 - id: perf-dma-chain-copies
   feature: La chaine DMA n'est plus parcourue cinq fois par image
-  status: open
+  status: blocked
   priority: 37
   game: jak1
   gate:
@@ -5974,11 +6003,15 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  block_reason: null
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
   prompt: prompts/item-perf-dma-chain-copies.md
+  device_serial: eae4df44
 - id: perf-gl-state
   feature: Moins d'appels pilote par draw, memes pixels
-  status: open
+  status: blocked
   priority: 38
   game: jak1
   gate:
@@ -6018,9 +6051,14 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-gl-state.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-sky-distort
   feature: Le ciel se melange sur le GPU et la distorsion ne recopie plus tout l'ecran
-  status: open
+  status: blocked
   priority: 39
   game: jak1
   gate:
@@ -6056,9 +6094,14 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-sky-distort.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-mips2c-neon
   feature: Les noyaux VU0 emules (os, joints, particules) calculent en vectoriel
-  status: open
+  status: blocked
   priority: 40
   game: jak1
   gate:
@@ -6093,9 +6136,14 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-mips2c-neon.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
-  status: open
+  status: blocked
   priority: 41
   game: jak1
   gate:
@@ -6133,9 +6181,14 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-codegen-arm64-calls.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
-  status: open
+  status: blocked
   priority: 42
   game: jak1
   gate:
@@ -6166,9 +6219,14 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-codegen-arm64-scalar.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-codegen-arm64-regs
   feature: Le compilateur GOAL utilise les 31 registres de l'arm64
-  status: open
+  status: blocked
   priority: 43
   game: jak1
   gate:
@@ -6201,9 +6259,14 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-codegen-arm64-regs.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-instrument-cost
   feature: Un instrument desarme ne coute rien, et le prouve lui-meme
-  status: open
+  status: blocked
   priority: 44
   game: jak1
   gate:
@@ -6246,9 +6309,14 @@ items:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-instrument-cost.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
 - id: perf-stock-60
   feature: Le jeu STOCK tient 60 images par seconde sur le Redmi, en natif 21:9
-  status: open
+  status: blocked
   priority: 46
   game: jak1
   gate:
@@ -6293,3 +6361,8 @@ items:
   - debug.opengoal.perf.buckets=1
   - debug.opengoal.frame.limit=240
   prompt: prompts/item-perf-stock-60.md
+  device_serial: eae4df44
+  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
+    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
+    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
+    HDR n''attend pas son tour.'
