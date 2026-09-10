@@ -1,3 +1,4 @@
+#include "game/graphics/fire_red_census.h"
 #include "GlowRenderer.h"
 
 #include "game/graphics/opengl_renderer/hdr.h"
@@ -677,6 +678,7 @@ void GlowRenderer::debug_draw_probes(SharedRenderState* render_state,
                                      ScopedProfilerNode& prof,
                                      u32 idx_start,
                                      u32 idx_end) {
+  fire_red_census::note_debug_red_draw("GlowRenderer.debug_probes");
   prof.add_draw_call();
   prof.add_tri(m_next_sprite * 4);
   glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);

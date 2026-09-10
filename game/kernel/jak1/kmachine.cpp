@@ -36,6 +36,7 @@
 #include "game/graphics/refset.h"
 #include "game/graphics/refset_state.h"
 #include "game/system/load_gate.h"
+#include "game/graphics/fire_red_census.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/recharged_gating.h"
 #include "game/system/perf_baseline.h"
@@ -971,6 +972,7 @@ void pc_autoport_frame() {
   // mesure ne passe par aucun setter. En premiere ligne, avant tout le reste, pour qu'aucun
   // travail de cette image ne lise un champ non compose.
   recharged_gating::tick();
+  fire_red_census::end_frame();
   autoport_proof::frame_tick();
   // hd-stretch-flag-in-game-logic : le recensement des consultations de l'armement, publie a
   // CHAQUE image et non toutes les 60 : `flush()` emet la derniere valeur publiee, donc une

@@ -1,3 +1,4 @@
+#include "game/graphics/fire_red_census.h"
 #include "TextureAnimator.h"
 
 #include <cstdio>
@@ -2635,6 +2636,7 @@ void TextureAnimator::run_fixed_animation_array(int idx,
       if (anim.pool_gpu_tex) {
         // if the debug checkbox is checked, replace the texture with red.
         if (m_output_debug_flags.at(anim.dest_slot).b) {
+          fire_red_census::note_debug_red_draw("TextureAnimator.red_clear");
           FramebufferTexturePairContext ctxt(*anim.fbt);
           glColorMask(true, true, true, true);
           glClearColor(1.0, 0.0, 0.0, 0.5);

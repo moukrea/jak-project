@@ -29,6 +29,7 @@ set(RUNTIME_SOURCE
         external/discord.cpp
         graphics/display.cpp
         # Gfixed-tick-interpolation : horloge a pas fixe + alpha d'interpolation de rendu.
+        graphics/fire_red_census.cpp
         graphics/fixed_tick.cpp
         # anim-interp-low-fps : horloge de cadence a reste borne + alpha d'interpolation.
         graphics/render_pace.cpp

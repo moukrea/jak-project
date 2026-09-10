@@ -18,6 +18,7 @@
 #include "game/mips2c/spart_prof.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/fire_red_census.h"
 #include "game/system/autoport_proof.h"
 #include "third-party/json.hpp"
 
@@ -1315,6 +1316,24 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
     glUniform1f(su.alpha_max, 10.f);
     glUniform1i(su.tex_T0, 0);
 
+    // fire-red-particles : LE RECENSEMENT, AU POINT DE TIRAGE. On lit les enregistrements que
+    // ce seau va REELLEMENT envoyer, avec le plancher d'alpha et le melange en vigueur pour
+    // lui — pas un predicat sur la table source, qui ne dit pas ce qui est dessine.
+    if (fire_red_census::armed()) {
+      const auto fire_tex = render_state->texture_pool->get_debug_texture_name_from_tbp(tbp);
+      const int fire_blend = (int)mode.get_alpha_blend();
+      const bool fire_dd = double_draw && settings.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE;
+      const float fire_amin = double_draw ? settings.aref_first : 0.016f;
+      // Chemin a sommets : 5 identifiants par sprite (4 coins + le redemarrage de bande) ;
+      // les 4 coins portent la meme couleur, on ne lit que le premier.
+      for (size_t k = 0; k + 4 < bucket->ids.size(); k += 5) {
+        const auto& fv = m_vertices_3d[bucket->ids[k]];
+        fire_red_census::note_sprite(fire_tex.c_str(), fv.xyz_sx[0], fv.xyz_sx[1], fv.xyz_sx[2],
+                                     fv.rgba[0], fv.rgba[1], fv.rgba[2], fv.rgba[3], fire_amin,
+                                     fire_blend, fire_dd);
+      }
+    }
+
     prof.add_draw_call();
     prof.add_tri(2 * (bucket->ids.size() / 5));
 
@@ -1432,6 +1451,25 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
     glUniform1f(su.alpha_min, double_draw ? settings.aref_first : 0.016);
     glUniform1f(su.alpha_max, 10.f);
     glUniform1i(su.tex_T0, 0);
+
+    // fire-red-particles : LE RECENSEMENT, AU POINT DE TIRAGE. On lit les enregistrements que
+    // ce seau va REELLEMENT envoyer, avec le plancher d'alpha et le melange en vigueur pour
+    // lui — pas un predicat sur la table source, qui ne dit pas ce qui est dessine.
+    if (fire_red_census::armed()) {
+      const auto fire_tex = render_state->texture_pool->get_debug_texture_name_from_tbp(tbp);
+      const int fire_blend = (int)mode.get_alpha_blend();
+      const bool fire_dd = double_draw && settings.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE;
+      const float fire_amin = double_draw ? settings.aref_first : 0.016f;
+      // Chemin instancie (jak1 Android par defaut) : un enregistrement par sprite, compacte
+      // par seau dans m_instance_scratch.
+      for (u32 k = bucket->instance_offset; k < bucket->instance_offset + bucket->instance_count;
+           ++k) {
+        const auto& fv = m_instance_scratch[k];
+        fire_red_census::note_sprite(fire_tex.c_str(), fv.xyz_sx[0], fv.xyz_sx[1], fv.xyz_sx[2],
+                                     fv.rgba[0], fv.rgba[1], fv.rgba[2], fv.rgba[3], fire_amin,
+                                     fire_blend, fire_dd);
+      }
+    }
 
     auto draw_range = [&](u32 offset, u32 count) {
       const u8* base = (const u8*)(uintptr_t)(offset * sizeof(SpriteVertex3D));

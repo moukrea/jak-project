@@ -1,3 +1,4 @@
+#include "game/graphics/fire_red_census.h"
 #include "DirectRenderer.h"
 #include "game/graphics/origin_ablate.h"
 
@@ -268,6 +269,7 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
   }
 
   if (m_debug_state.red) {
+    fire_red_census::note_debug_red_draw("DirectRenderer.red");
     render_state->shaders[ShaderId::DEBUG_RED].activate();
     glDisable(GL_BLEND);
     m_prim_gl_state_needs_gl_update = true;
@@ -412,6 +414,7 @@ void DirectRenderer::flush_pending(SharedRenderState* render_state, ScopedProfil
   }
 
   if (m_debug_state.wireframe) {
+    fire_red_census::note_debug_red_draw("DirectRenderer.wireframe");
     render_state->shaders[ShaderId::DEBUG_RED].activate();
     glDisable(GL_BLEND);
 #ifndef __ANDROID__
