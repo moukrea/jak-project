@@ -366,6 +366,13 @@ struct ProbeStats {
   uint64_t ramp_samples = 0;
   uint64_t shadow_levels = 0;
   uint64_t hl_levels = 0;
+  // Verdict 10 : la reponse du tone map a un STIMULUS FIXE (rampe 0..3 dans l'espace du
+  // tampon). `hl_max` ci-dessus est pris sur la SCENE, qui bouge entre la phase 1 et la phase
+  // 3 : mesure du 10/09, 1,877 en reel contre 1,221 en pic simule alors que le plafond, lui,
+  // montait bien de 1,88 a 2,33. Un stimulus fixe fait disparaitre la scene de la comparaison.
+  double hl_fixed_sum = 0.0;   // somme des canaux max sur la rampe, plafond COURANT
+  double hl_fixed_ref = 0.0;   // idem au plafond 1,0, meme image : la reference SDR
+  uint64_t hl_fixed_samples = 0;
 };
 uint64_t s_frames = 0;
 uint64_t s_forced_on_frames = 0;
@@ -424,6 +431,11 @@ int s_rp_read_type = 0;  // le type de relecture REELLEMENT accepte, publie
 GLuint s_tm_fbo[2] = {0, 0}, s_tm_tex[2] = {0, 0};
 int s_tm_state = 0;
 constexpr int kTmW = 32, kTmH = 32;
+// Verdict 10 : le STIMULUS FIXE du tone map. Une rampe 0..kFixedTop dans l'espace d'affichage
+// du tampon (le genou vit vers 0,96 x plafond) et une cible flottante 128x1.
+GLuint s_tf_fbo = 0, s_tf_tex = 0, s_tf_src = 0;
+int s_tf_state = 0;
+constexpr float kFixedTop = 3.f;
 
 bool measuring() {
   return autoport_proof::feature_is(kItemId) && autoport_proof::armed_for(kItemId);
@@ -721,6 +733,11 @@ void publish_all() {
     autoport_proof::publish((pre + "darkening_pct").c_str(),
                             (uint64_t)(dark_signed < 0.0 ? 0 : std::lround(dark_signed)));
     autoport_proof::publish((pre + "hl_max_x1000").c_str(), (uint64_t)std::lround(pr.hl_max * 1000.0));
+    autoport_proof::publish((pre + "hl_fixed_samples").c_str(), pr.hl_fixed_samples);
+    autoport_proof::publish((pre + "hl_fixed_sum_x100").c_str(),
+                            (uint64_t)std::lround(pr.hl_fixed_sum * 100.0));
+    autoport_proof::publish((pre + "hl_fixed_ref_x100").c_str(),
+                            (uint64_t)std::lround(pr.hl_fixed_ref * 100.0));
     autoport_proof::publish((pre + "ceiling_x100").c_str(),
                             (uint64_t)std::lround(s_ph[pidx[k]].last_ceiling * 100.f));
     autoport_proof::publish((pre + "peak_used_nits").c_str(),
@@ -901,7 +918,12 @@ void compute_verdicts() {
     const double w_sim = ps.ui_white_sum / (double)ps.ui_samples;
     if (on.last_mode == kModeScrgbLinear && onsim.last_mode == kModeScrgbLinear) {
       const bool anchored = w_real > 0.0 && std::fabs(w_sim / w_real - 1.0) <= 0.01;
-      const bool higher = onsim.last_ceiling > on.last_ceiling + 1e-3f && ps.hl_max > pr.hl_max * 1.01;
+      // La montee se lit sur le STIMULUS FIXE, jamais sur la scene : elle bouge entre les deux
+      // phases (10/09 : hl_max 1,877 en reel contre 1,221 en pic simule, plafond pourtant monte
+      // de 1,88 a 2,33 — la scene, pas la courbe). Le plafond seul serait un miroir de notre
+      // propre arithmetique ; la somme sur la rampe est LUE d'un dessin.
+      const bool higher = onsim.last_ceiling > on.last_ceiling + 1e-3f && pr.hl_fixed_sum > 0.0 &&
+                          ps.hl_fixed_samples > 0 && ps.hl_fixed_sum > pr.hl_fixed_sum * 1.01;
       peak_ok = anchored && higher;
     } else if (on.last_mode == kModeHdr10Pq && onsim.last_mode == kModeHdr10Pq) {
       const double want = (double)onsim.last_peak / (double)on.last_peak;
@@ -1524,6 +1546,65 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     px++;
     sum_off += lum_linear(off[i], off[i + 1], off[i + 2]);
     sum_on += lum_linear(on[i], on[i + 1], on[i + 2]);
+  }
+  // Verdict 10 : LE STIMULUS FIXE. Le meme programme `tonemap`, la meme paire de plafonds, mais
+  // une rampe SYNTHETIQUE a la place de la scene : ce que la courbe rend ne depend plus du
+  // moment ou la phase est tombee. On somme le canal max sur les 128 marches — le maximum seul
+  // sature a la valeur du plafond et ne dirait rien de la FORME de la courbe.
+  if (s_tf_state >= 0) {
+    bool tf_ok = true;
+    if (s_tf_state == 0) {
+      tf_ok = make_ramp_tex(&s_tf_src, 0.f, kFixedTop) &&
+              make_float_fbo(&s_tf_fbo, &s_tf_tex, kRampN, 1, nullptr);
+      s_tf_state = tf_ok ? 1 : -1;
+      glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+      glViewport(0, 0, dst_w, dst_h);
+    }
+    if (s_tf_state == 1) {
+      GLint saved_tex = 0;
+      glGetIntegerv(GL_TEXTURE_BINDING_2D, &saved_tex);
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, s_tf_src);
+      glBindFramebuffer(GL_FRAMEBUFFER, s_tf_fbo);
+      glViewport(0, 0, kRampN, 1);
+      double sums[2] = {0.0, 0.0};
+      std::vector<float> fx;
+      for (int i = 0; i < 2 && tf_ok; i++) {
+        glUniform1f(loc, i == 0 ? 1.f : s_last_ceiling);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        tf_ok = read_float_fbo(kRampN, 1, fx);
+        if (!tf_ok) {
+          break;
+        }
+        for (int t = 0; t < kRampN; t++) {
+          const float m = std::fmax(fx[(size_t)t * 4], std::fmax(fx[(size_t)t * 4 + 1], fx[(size_t)t * 4 + 2]));
+          if (std::isfinite(m)) {
+            sums[i] += (double)m;
+          }
+        }
+      }
+      glUniform1f(loc, s_last_ceiling);
+      glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+      glViewport(0, 0, dst_w, dst_h);
+      glBindTexture(GL_TEXTURE_2D, (GLuint)saved_tex);
+      if (!tf_ok) {
+        lg::error("[hdr-display-output] stimulus fixe : relecture refusee");
+        s_tf_state = -1;
+      } else {
+        ProbeStats& pf = s_pr[s_phase];
+        pf.hl_fixed_samples++;
+        if (sums[1] > pf.hl_fixed_sum) {
+          pf.hl_fixed_sum = sums[1];
+        }
+        if (sums[0] > pf.hl_fixed_ref) {
+          pf.hl_fixed_ref = sums[0];
+        }
+        if (pf.hl_fixed_samples == 1 || (pf.hl_fixed_samples % 10) == 0) {
+          lg::info("[hdr-display-output] stimulus fixe phase {} #{} : somme plafond {:.3f} = {:.2f} ; plafond 1,0 = {:.2f}",
+                   s_phase, pf.hl_fixed_samples, s_last_ceiling, sums[1], sums[0]);
+        }
+      }
+    }
   }
   ProbeStats& pr = s_pr[s_phase];
   pr.tm_samples++;
