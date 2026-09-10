@@ -70,3 +70,20 @@ L'owner travaille sur son temps libre, pas dans un studio. Il veut des réponses
 concrètes, en français, qui répondent à ce qu'il a demandé. Quand il s'énerve, il a
 généralement repéré un vrai défaut avant toi : cherche le défaut, ne te défends pas.
 Quand tu ne sais pas, dis-le. Un « pas prouvé : X » vaut mieux qu'une mesure inventée.
+
+## Un signalement de worker ne meurt jamais dans un rapport
+
+Ordre de l'owner du 2026-09-10 : « si ce que remonte le worker n'est jamais traite par qui que
+ce soit, ca sert a rien, quel gaspillage ! Et c'est exactement le genre de choses que tu devrais
+me remonter pour que je te dise si c'est pertinent ou pas ».
+
+A CHAQUE fois qu'un item rend la main, LIRE ses notes et son rapport, et en extraire tout ce que
+le worker a signale sans le corriger — « hors perimetre », « signale ici, pas corrige », « n'a
+PAS ete mesure », « defaut latent », « laisse tel quel ». Pour chacun :
+
+1. le remonter a l'owner en une ligne comprehensible, avec ce que ca coute de le laisser ;
+2. ouvrir l'item des qu'il dit oui, avec sa phrase en `owner_feedback` ;
+3. ne JAMAIS le laisser vivre uniquement dans un fichier de rapport.
+
+Un signalement sans item est une dette invisible : personne ne la relit, et elle se retrouve par
+hasard des mois plus tard.
