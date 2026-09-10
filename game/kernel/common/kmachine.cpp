@@ -24,6 +24,7 @@
 #include "game/kernel/common/Ptr.h"
 #include "game/kernel/common/kernel_types.h"
 #include "game/kernel/common/kprint.h"
+#include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/mips2c/mips2c_table.h"
@@ -1154,6 +1155,17 @@ s64 pc_get_frame_rate_cap_override() {
 }
 
 void pc_set_game_resolution(int w, int h) {
+  // perf-stock-baseline : LE SEUL ENDROIT OU LA DECISION DE L'AUTO-ECHELLE GOAL DEVIENT UNE
+  // RESOLUTION. Pendant une cellule de la campagne de ligne de base, l'echelle est imposee ici
+  // et la sortie du controleur est jetee (elle est publiee a cote, voir perf_baseline.h).
+  // Hors campagne, `resolution_override` rend faux et rien ne change.
+  {
+    int ow = w, oh = h;
+    if (perf_baseline::resolution_override(&ow, &oh)) {
+      w = ow;
+      h = oh;
+    }
+  }
   Gfx::g_global_settings.game_res_w = w;
   Gfx::g_global_settings.game_res_h = h;
 }

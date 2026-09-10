@@ -37,6 +37,7 @@
 #include "game/graphics/texture/TexturePool.h"
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 
 #include "android_opengl_renderer.h"
@@ -658,6 +659,11 @@ bool render_frame_on_gl_thread(int win_w, int win_h) {
         Gfx::g_global_settings.measured_frame_busy_ms = s_busy_ms_ema;
       }
     }
+
+    // perf-stock-baseline : UNE IMAGE DESSINEE, sur le fil GL. C'est cet appel qui fait avancer
+    // la machine a etats de la campagne (echelle, mesure, teleport). Hors campagne il sort a sa
+    // premiere ligne. `st.render_cpu_s` EXCLUT l'attente de vsync : c'est bien du temps CPU.
+    perf_baseline::note_drawn_frame((double)(st.render_cpu_s * 1000.0));
 
     // === Gcine-crash3: process::deactivate code-stomp guard (the fix, arm64) ====
     // In the new-game intro's Gol/Maia portal scene the arm64 envmap merc draw

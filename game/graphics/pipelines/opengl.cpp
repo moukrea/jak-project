@@ -39,6 +39,7 @@
 #include "game/runtime.h"
 #include "game/sce/libscf.h"
 #include "game/system/hid/input_manager.h"
+#include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 #include "game/system/hid/sdl_util.h"
 
@@ -962,6 +963,10 @@ void GLDisplay::render() {
         s_busy_ms_ema = (0.9f * s_busy_ms_ema) + (0.1f * busy_ms);
         Gfx::g_global_settings.measured_frame_busy_ms = s_busy_ms_ema;
       }
+      // perf-stock-baseline : UNE IMAGE DESSINEE, sur le fil GL (equivalent bureau du site
+      // android_gfx.cpp). Ce fichier n'est PAS dans android/CMakeLists.txt, d'ou le doublon
+      // assume : sans lui, la campagne serait muette sur x86.
+      perf_baseline::note_drawn_frame((double)busy_ms);
     }
     // If we took a screenshot, stop taking them now!
     if (m_take_screenshot_next_frame) {

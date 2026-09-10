@@ -827,4 +827,17 @@ void publish() {
   publish_locked();
 }
 
+bool gpu_frame_totals(uint64_t* ns, uint64_t* frames) {
+  if (!timer_ok()) {
+    return false;
+  }
+  if (ns) {
+    *ns = s_pass_ns[kPassBuckets];
+  }
+  if (frames) {
+    *frames = s_timed_frames;
+  }
+  return true;
+}
+
 }  // namespace lighting_census

@@ -73,6 +73,7 @@
 #include "game/system/boot_replay.h"
 #include "game/system/pad_replay.h"
 #include "game/system/npc_flicker.h"
+#include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"  // perf-instruments : recepteur du flux pc-prof (seaux GOAL, ROOT)  // cutscene-npc-flicker (essai 11) : compteurs de plateforme par scene
 
 // A11: jak1::InitHeapAndSymbol exposes a chainable hook that fires
@@ -1262,6 +1263,16 @@ s64 a35_pc_get_frame_rate_cap_override() {
 }
 
 void a35_pc_set_game_resolution(s64 w, s64 h) {
+  // perf-stock-baseline : meme geste qu'au bureau (game/kernel/common/kmachine.cpp). Les deux
+  // plateformes ont leur propre corps pour ce symbole : la plateforme oubliee laisserait
+  // l'auto-echelle GOAL courir sous l'instrument et les cinq cellules seraient incomparables.
+  {
+    int ow = (int)w, oh = (int)h;
+    if (perf_baseline::resolution_override(&ow, &oh)) {
+      w = (s64)ow;
+      h = (s64)oh;
+    }
+  }
   Gfx::g_global_settings.game_res_w = (int)w;
   Gfx::g_global_settings.game_res_h = (int)h;
 }

@@ -117,6 +117,13 @@ void roi_after(const RoiSnapshot& before, const char* type, int id, const char* 
                uint64_t hash = 0, uint32_t first_index = 0, int texture = -1);
 void roi_model(uint64_t hash, const char* name);
 
+// perf-stock-baseline : LE CUMUL DU BRACKET PLEINE-IMAGE, celui publie sous `gpu_ms_buckets`,
+// et le nombre d'images chronometrees. SANS EFFET DE BORD : rien n'est remis a zero (d'autres
+// modules lisent le meme cumul) et aucun verrou n'est pris. La campagne de ligne de base lit
+// donc PAR DELTA entre deux instants. Faux — et rien n'est ecrit — quand le timer GPU n'est
+// pas supporte (GLES sans EXT_disjoint_timer_query).
+bool gpu_frame_totals(uint64_t* ns, uint64_t* frames);
+
 // Publie tout de suite (fin de course).
 void publish();
 

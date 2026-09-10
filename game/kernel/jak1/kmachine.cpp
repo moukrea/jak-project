@@ -36,6 +36,7 @@
 #include "game/graphics/refset_state.h"
 #include "game/system/load_gate.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/perf_baseline.h"
 #include "game/system/perf_instruments.h"
 #include "game/system/settings_case_l10n.h"
 #include "game/system/npc_flicker.h"
@@ -839,6 +840,8 @@ void pc_wind_note_rate(u32 ratio_bits, u32 steps) {
 // point que le recensement (post-sync-draw), c'est-a-dire une fois par image RENDUE.
 // Defini plus bas, apres `level_warp_run` dont il reutilise le trampoline.
 static void refset_rewarp_maybe();
+// perf-stock-baseline : defini plus bas, apres `level_warp_run` dont il reutilise le tremplin.
+static void perf_baseline_warp_maybe();
 
 // lighting-hdr essai 4 — LE PLAN DU JEU DE REFERENCES SE CADENCE SUR LA FRAME DE LOGIQUE.
 // `pc_autoport_frame` tourne une fois par image RENDUE. Le piege est deja nomme plus bas pour
@@ -866,6 +869,10 @@ void pc_autoport_frame() {
   // titre et le niveau il se consomme un nombre variable de tirages, et sans ce second forcage
   // l'etat du jeu au moment de la mesure differerait d'une course a l'autre.
   refset_pump(false);
+  // perf-stock-baseline : la campagne pose sa demande de teleport depuis le fil GL ; c'est ici,
+  // sur le fil GOAL, qu'elle devient un `(start 'play ...)`. Hors campagne, rien n'est en
+  // attente et l'appel sort a sa premiere ligne.
+  perf_baseline_warp_maybe();
 }
 
 void pc_npc_census_end() {
@@ -6493,8 +6500,17 @@ static u64 level_warp_run() {
   // camera-trans @48; C++ addr = basic ptr + deftype offset - 4).
   {
     char posbuf[128] = {0};
-    if (const char* e = std::getenv("OG_LEVEL_WARP_POS")) {
-      std::strncpy(posbuf, e, sizeof(posbuf) - 1);
+    // perf-stock-baseline : TROISIEME SOURCE, ET LA PREMIERE CONSULTEE. La campagne teleporte
+    // entre deux vantages sans passer par l'environnement (aucune variable ne peut etre posee
+    // en cours de course sur l'appareil) : sa position, quand elle en a une, prime. Vide = on
+    // laisse la position du continue-point, on ne pousse jamais « 0 0 0 ».
+    if (const char* o = perf_baseline::warp_pos_override(); o && o[0]) {
+      std::strncpy(posbuf, o, sizeof(posbuf) - 1);
+    }
+    if (!posbuf[0]) {
+      if (const char* e = std::getenv("OG_LEVEL_WARP_POS")) {
+        std::strncpy(posbuf, e, sizeof(posbuf) - 1);
+      }
     }
 #if defined(__ANDROID__)
     if (!posbuf[0]) {
@@ -6746,6 +6762,26 @@ static void refset_rewarp_maybe() {
   ListenerFunction->value = warp_fn.offset;
   lg::info("[LEVEL-WARP] second warp arme pour le jeu d'images de reference");
   printf("REFSET rewarp armed\n");
+  fflush(stdout);
+}
+
+// perf-stock-baseline : LE TELEPORT DE LA CAMPAGNE DE LIGNE DE BASE. Meme geste exact que le
+// re-teleport du jeu de references ci-dessus — `level_warp_run` relit `s_level_warp_name` a
+// CHAQUE execution, il suffit donc de remplir ce tampon puis d'armer `*listener-function*`.
+// La demande est posee par le fil GL (machine a etats de perf_baseline) et consommee ICI, sur
+// le fil GOAL, une seule fois par demande. La campagne ne demande que DEUX teleports (les
+// vantages 1 et 2, le 0 etant celui ou le harnais a deja depose le jeu) : chaque
+// `(start 'play ...)` supplementaire rapproche la course du SIGILL du 4e teleport.
+static void perf_baseline_warp_maybe() {
+  char nm[64] = {0}, ps[64] = {0};
+  if (!perf_baseline::take_warp_request(nm, sizeof(nm), ps, sizeof(ps))) {
+    return;
+  }
+  std::strncpy(s_level_warp_name, nm, sizeof(s_level_warp_name) - 1);
+  s_level_warp_name[sizeof(s_level_warp_name) - 1] = 0;
+  Ptr<Function> f = make_function_from_c((void*)level_warp_run, false);
+  ListenerFunction->value = f.offset;
+  printf("PERF-BASELINE warp armed name=%s pos=%s\n", nm, ps);
   fflush(stdout);
 }
 
