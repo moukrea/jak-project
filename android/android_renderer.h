@@ -33,3 +33,8 @@ extern int g_hdr_out_min_lum_x10000;
 // souhaitee au-dessus du blanc SDR, sur une surface scRGB (contrat dans hdr_output.h).
 // Sans effet sous API 34. Implemente dans gk_android_main.cpp (JNI) ; fil quelconque.
 void android_hdr_out_request_extended_range(float current_ratio, float desired_ratio);
+// hdr-display-output : appel natif -> Java (NativeGk.onHdrOutputWindowLevers) qui pose les DEUX
+// autres leviers du systeme sur la fenetre : Window.setColorMode(COLOR_MODE_HDR) et, sous API 35+,
+// Window.setDesiredHdrHeadroom(desired_headroom). `on` = la surface de sortie HDR est active
+// (a #f, mode couleur par defaut et marge rendue au systeme). Implemente dans gk_android_main.cpp.
+void android_hdr_out_request_window_levers(bool on, float desired_headroom);

@@ -58,8 +58,10 @@
 // (`hdr_out_darkening_pct`), puis une quatrieme phase ON avec un pic d'ecran SIMULE (1000 nits,
 // par le meme chemin que `debug.opengoal.hdr.out.peak`) pour prouver que la courbe s'adapte au
 // pic annonce (`hdr_out_peak_adaptive`, verdict 10 : blanc SDR ancre, plafond et hautes lumieres
-// plus hauts en scRGB ; blanc de reference qui suit le pic en PQ recompose). `hdr_out_defects`
-// est la somme de DIX verdicts publies un par un.
+// plus hauts en scRGB ; blanc de reference qui suit le pic en PQ recompose), puis une CINQUIEME
+// phase qui rebascule sur l'AUTRE chemin annonce par les caps (PQ quand scRGB a ete retenu, et
+// inversement) pour que la preuve porte CHAQUE chemin, jamais un seul. `hdr_out_defects` est la
+// somme de ONZE verdicts publies un par un ; le onzieme est l'EFFET MESURE.
 
 #include <cstdint>
 #include <functional>
@@ -162,6 +164,14 @@ void apply_pending_on_gl_thread();
 // Sequence : a la bascule scRGB, (1,0 ; desired) ; a chaque changement du ratio LU, (ratio ;
 // desired) ; au retour SDR, (1,0 ; 1,0). Rend vrai une fois par changement.
 bool take_headroom_request(float* current, float* desired);
+// Fil GL : les DEUX AUTRES leviers du systeme, a poser quand la surface devient (in)active.
+// Essai 6 (Honor, 10/09) : `setExtendedRangeBrightness` seul laisse `Display.getHdrSdrRatio()`
+// a 1,0 — le systeme n'accorde aucune marge et l'owner ne voit aucune difference on/off. Ces
+// deux-la n'avaient jamais ete tentes : `Window.setColorMode(COLOR_MODE_HDR)` (API 26+, dit au
+// WindowManager que la fenetre veut le mode HDR de l'ecran) et `Window.setDesiredHdrHeadroom`
+// (API 35+, la demande de marge moderne, cote fenetre et non cote SurfaceControl). Rend vrai
+// une fois par changement d'etat.
+bool take_window_lever_request(bool* on, float* desired);
 
 // ---------------------------------------------------------------- ce que le rendu lit ----
 
@@ -193,6 +203,13 @@ void push_present_uniforms(Shader& shader);
 // 4x4 flottant et relit le resultat. PQ : decode -> nits (`hdr_out_ui_white_nits`) ; scRGB :
 // valeur lineaire x1000 (`hdr_out_ui_white_rel_x1000`). Remet framebuffer 0 et le viewport.
 void probe_present(Shader& shader);
+// La MEME sonde porte aussi les RAMPES du verdict 11 (refus owner du 10/09 : « on/off j'ai
+// aucun changement a l'ecran »). Deux rampes de 128 marches, l'une dans les ombres
+// ([0 ; 1/16] de l'espace d'affichage du jeu), l'autre dans les hautes lumieres ([15/16 ; 1]),
+// passees par le VRAI quad final vers un FBO au FORMAT REEL DE LA FENETRE (RGBA8 en SDR,
+// RGB10_A2 en PQ, RGBA16F en scRGB) : on compte les NIVEAUX DISTINCTS que la sortie sait
+// encore separer. C'est la seule facon de mesurer « plus de detail aux deux bouts » sans
+// regarder une image. Elles tournent AUSSI en phase OFF, sinon il n'y a rien a comparer.
 // Sonde d'ASSOMBRISSEMENT : appelee dans hdr::tonemap_draw apres le vrai dessin (programme,
 // texture source et VAO encore lies) ; rejoue `tonemap` deux fois dans deux FBO 32x32 flottants
 // (u_hdr_ceiling = 1,0 puis le plafond HDR courant) sur la MEME scene et cumule la luminance

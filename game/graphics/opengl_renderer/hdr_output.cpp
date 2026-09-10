@@ -1,5 +1,6 @@
 #include "game/graphics/opengl_renderer/hdr_output.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -122,7 +123,10 @@ void rebuild_caps_text_locked() {
   s_caps_text = t;
 }
 
-uint32_t modes_locked() {
+// Les modes que les DEUX couches savent tenir, en MASQUE (plusieurs bits possibles). Separe de
+// `modes_locked()`, qui n'en retient qu'un : l'auto-test a besoin de savoir qu'il en existe un
+// SECOND pour aller le mesurer (spec de l'item : « publier CHAQUE chemin »).
+uint32_t modes_supported() {
   // Un mode n'est « annonce » que si le SYSTEME dit que l'ecran est HDR ET que la couche de
   // presentation sait creer une surface dans cet espace. Bureau : SDL peut annoncer un ecran
   // HDR, mais aucune presentation OpenGL en HDR n'existe par SDL3 — donc aucun mode, et la
@@ -136,13 +140,43 @@ uint32_t modes_locked() {
   if (!sys_hdr) {
     return kModeNone;
   }
+  uint32_t m = kModeNone;
   if (s_sys.sdk_int >= 34 && s_plat.egl_scrgb_linear && s_plat.egl_fp16 && s_plat.config_fp16) {
-    return kModeScrgbLinear;
+    m |= kModeScrgbLinear;
   }
   if (s_plat.egl_bt2020_pq && s_plat.config_10bit) {
-    return kModeHdr10Pq;
+    m |= kModeHdr10Pq;
   }
-  return kModeNone;
+  return m;
+}
+
+// Le mode PREFERE quand personne ne force : scRGB des que l'API le contractualise, sinon PQ.
+uint32_t auto_mode(uint32_t supported) {
+  if (supported & kModeScrgbLinear) {
+    return kModeScrgbLinear;
+  }
+  return supported & kModeHdr10Pq;
+}
+
+// L'AUTRE chemin annonce, celui que l'auto-test ira mesurer en phase 4. 0 = il n'y en a qu'un.
+uint32_t alt_mode(uint32_t supported) {
+  return supported & ~auto_mode(supported);
+}
+
+// Le mode IMPOSE : auto-test (phase 4) > knob du harnais > aucun. Defini plus bas, apres
+// `read_int_knob` ; declare ici parce que `modes_locked()` en depend.
+uint32_t forced_mode();
+
+uint32_t modes_locked() {
+  const uint32_t sup = modes_supported();
+  if (!sup) {
+    return kModeNone;
+  }
+  const uint32_t forced = forced_mode();
+  if (forced && (sup & forced)) {
+    return forced;
+  }
+  return auto_mode(sup);
 }
 
 // ---------------------------------------------------------------------------- interrupteur --
@@ -160,6 +194,15 @@ float s_white_override = -1.f;        // PQ : debug.opengoal.hdr.out.white (nits
 // l'auto-test impose lui-meme un pic simule dans sa phase 3 par ce MEME chemin.
 float s_peak_knob = -1.f;             // -1 = pas lu, 0 = absent, sinon nits
 float s_test_peak = 0.f;              // auto-test : 0 = aucun, sinon nits imposes
+// Verdict 11 : le chemin de sortie peut etre IMPOSE, pour aller mesurer l'autre que celui que
+// `auto_mode` retiendrait. 1 = HDR10 PQ, 2 = scRGB lineaire, 0 = aucun.
+int s_mode_knob = -1;                 // -1 = pas lu, 0 = absent, sinon kMode*
+uint32_t s_test_mode = kModeNone;     // auto-test phase 4 : 0 = aucun, sinon le mode impose
+// Les deux autres leviers du systeme (mode couleur HDR de la fenetre, setDesiredHdrHeadroom).
+bool s_lever_pending = false;
+bool s_lever_on = false;
+float s_lever_desired = 1.f;
+uint64_t s_lever_requests = 0;
 bool s_headroom_pending = false;      // fil GL : une demande de marge a transmettre au systeme
 float s_headroom_request_current = 1.f;  // ratio auquel le tampon est encode (= ratio LU)
 float s_headroom_request_desired = 1.f;  // marge souhaitee (promotion HDR de la couche)
@@ -214,6 +257,21 @@ bool lighting_gate() {
   return Gfx::recharged_lighting_active();
 }
 
+uint32_t forced_mode() {
+  if (s_test_mode != kModeNone) {
+    return s_test_mode;  // l'auto-test, phase 4 : l'AUTRE chemin
+  }
+  if (s_mode_knob < 0) {
+    const int v = read_int_knob("debug.opengoal.hdr.out.mode", "OG_HDR_OUT_MODE", 0);
+    s_mode_knob = (v == (int)kModeHdr10Pq || v == (int)kModeScrgbLinear) ? v : 0;
+    if (s_mode_knob) {
+      lg::warn("[hdr-display-output] chemin de sortie IMPOSE par le harnais : {}",
+               s_mode_knob == (int)kModeHdr10Pq ? "HDR10/PQ" : "scRGB/16F");
+    }
+  }
+  return (uint32_t)s_mode_knob;
+}
+
 float desired_headroom() {
   const int k = read_int_knob("debug.opengoal.hdr.out.headroom", "OG_HDR_OUT_HEADROOM", 0);
   float d = (k >= 100 && k <= 800) ? (float)k / 100.f : kDesiredHeadroom;
@@ -264,10 +322,15 @@ float ratio_linear() {
 }
 
 // ------------------------------------------------------------------------------- la preuve --
-// Quatre phases, par image : 0 = etat charge, 1 = ON impose, 2 = OFF impose, 3 = ON impose avec un
-// pic d'ecran SIMULE (verdict 10), 4 = termine.
+// Cinq phases, par image : 0 = etat charge, 1 = ON impose (chemin retenu), 2 = OFF impose,
+// 3 = ON impose avec un pic d'ecran SIMULE (verdict 10), 4 = ON impose sur l'AUTRE chemin
+// annonce par les caps (verdict 11 : « publier CHAQUE chemin »), 5 = termine. La phase 4 est
+// sautee, et sa colonne reste a zero, quand un seul chemin est annonce.
 constexpr uint64_t kPhaseFrames = 150;
-constexpr int kPhaseCount = 4;
+constexpr int kPhaseCount = 5;
+// Verdict 11 : les rampes. 128 marches, deux fenetres de 1/16 de l'espace d'affichage du jeu.
+constexpr int kRampN = 128;
+constexpr float kRampWindow = 1.f / 16.f;
 constexpr float kSimPeakNits = 1000.f;
 constexpr uint64_t kProbeEvery = 5;
 constexpr int kReadyHits = 3;
@@ -286,6 +349,7 @@ struct PhaseStats {
   uint32_t last_mode = 0;
   float last_ceiling = 1.f;
   float last_peak = 0.f;
+  int ratio_max_x1000 = 1000;  // la plus grande marge que le SYSTEME ait accordee dans la phase
 };
 // Les sondes, cumulees PAR PHASE (1 = ON reel, 3 = ON pic simule).
 struct ProbeStats {
@@ -296,6 +360,12 @@ struct ProbeStats {
   uint64_t tm_samples = 0, tm_px = 0;
   double tm_sum_off = 0.0, tm_sum_on = 0.0;
   double hl_max = 0.0;         // plus haute valeur (canal max) ecrite par le tone map ON
+  // Verdict 11 : niveaux DISTINCTS que la sortie sait encore separer sur chaque rampe, au
+  // format REEL de la fenetre. On garde le meilleur echantillon de la phase : une rampe est un
+  // stimulus fixe, une valeur plus basse ne peut venir que d'une image ratee.
+  uint64_t ramp_samples = 0;
+  uint64_t shadow_levels = 0;
+  uint64_t hl_levels = 0;
 };
 uint64_t s_frames = 0;
 uint64_t s_forced_on_frames = 0;
@@ -331,13 +401,24 @@ int s_loaded_source = -1;      // GOAL : 0 fichier, 1 auto-configuration
 int s_menu_parent = -1;        // GOAL : -1 jamais, 1 = sous RECHARGED LIGHTING, 0 = ailleurs
 int s_persisted = -3;          // relecture disque : -3 pas encore lue
 int s_defects = -1;
-int s_d[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int s_d[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// La plus grande marge que le systeme ait accordee pendant une phase ON REELLE (pas la phase a
+// pic simule) : la grandeur du verdict 11 qui dit si l'ecran laisse depasser son blanc SDR.
+int s_ratio_max_x1000 = 1000;
+uint32_t s_alt_mode = kModeNone;  // le chemin mesure en phase 4 (0 = il n'y en avait qu'un)
 
 // Sonde de blanc UI (probe_present) : ce que le quad final ECRIT pour un blanc (1,1,1) du jeu,
 // dans le mode courant, et ce qu'il ecrirait en recopie SDR (u_out_mode = 0) pour le meme blanc
 // — la reference « ce que le SDR montre » inclut donc le reglage de luminosite du joueur.
 GLuint s_pp_fbo = 0, s_pp_tex = 0, s_pp_white = 0;
 int s_pp_state = 0;  // 0 pas cree, 1 pret, -1 indisponible
+// Sonde de RAMPES (verdict 11) : deux sources 128x1 en tons du jeu (ombres, hautes lumieres) et
+// une cible au FORMAT REEL DE LA FENETRE — c'est la quantification de la sortie qu'on mesure,
+// pas celle d'un FBO flottant de confort. La cible est refaite des que le format change.
+GLuint s_rp_fbo = 0, s_rp_tex = 0, s_rp_src[2] = {0, 0};
+GLenum s_rp_fmt = 0;
+int s_rp_state = 0;  // 0 pas cree, 1 pret, -1 indisponible
+int s_rp_read_type = 0;  // le type de relecture REELLEMENT accepte, publie
 // Sonde d'assombrissement (probe_tonemap) : luminance lineaire des tons moyens de la scene,
 // tone-mappee au plafond 1,0 (le SDR) et au plafond HDR courant, sur la MEME image.
 GLuint s_tm_fbo[2] = {0, 0}, s_tm_tex[2] = {0, 0};
@@ -350,8 +431,15 @@ bool measuring() {
 
 bool probe_window_open() {
   // Les sondes ne tournent qu'en phase ON, une image sur kProbeEvery, hors transition.
-  return measuring() && !s_selftest_done && (s_phase == 1 || s_phase == 3) &&
+  return measuring() && !s_selftest_done && (s_phase == 1 || s_phase == 3 || s_phase == 4) &&
          s_skip_frames == 0 && s_active.load() && (s_frames % kProbeEvery) == 0;
+}
+
+// Les rampes du verdict 11 tournent AUSSI en phase OFF : sans le bras OFF il n'y a rien a
+// comparer, et « autant de niveaux qu'en SDR » est precisement le defaut qu'on cherche.
+bool ramp_window_open() {
+  return measuring() && !s_selftest_done && s_phase >= 1 && s_phase <= 4 && s_skip_frames == 0 &&
+         (s_frames % kProbeEvery) == 0;
 }
 
 float half_to_float(uint16_t h) {
@@ -431,6 +519,101 @@ bool make_float_fbo(GLuint* fbo, GLuint* tex, int w, int h, const float* fill) {
     lg::error("[hdr-display-output] FBO de sonde indisponible : 0x{:x}", (unsigned)st);
     return false;
   }
+  return true;
+}
+
+// --------------------------------------------------------- verdict 11 : les rampes ----
+// Une source 128x1 flottante, une marche par texel, dans l'espace d'AFFICHAGE du jeu (celui du
+// tampon UI). NEAREST des deux cotes : le texel i de la cible lit le texel i de la source.
+bool make_ramp_tex(GLuint* tex, float lo, float hi) {
+  std::vector<float> data((size_t)kRampN * 4, 1.f);
+  for (int i = 0; i < kRampN; i++) {
+    const float v = lo + (hi - lo) * ((float)i / (float)(kRampN - 1));
+    data[(size_t)i * 4 + 0] = v;
+    data[(size_t)i * 4 + 1] = v;
+    data[(size_t)i * 4 + 2] = v;
+    data[(size_t)i * 4 + 3] = 1.f;
+  }
+  glGenTextures(1, tex);
+  glBindTexture(GL_TEXTURE_2D, *tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, kRampN, 1, 0, GL_RGBA, GL_FLOAT, data.data());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  return glGetError() == GL_NO_ERROR;
+}
+
+// La cible de la sonde porte le format REEL de la fenetre : c'est SA quantification qu'on
+// compte, pas celle d'un tampon de confort.
+bool make_target_fbo(GLuint* fbo, GLuint* tex, int w, int h, GLenum internal_fmt) {
+  GLenum fmt = GL_RGBA, type = GL_UNSIGNED_BYTE;
+  if (internal_fmt == GL_RGBA16F) {
+    type = GL_FLOAT;
+  } else if (internal_fmt == GL_RGB10_A2) {
+    type = GL_UNSIGNED_INT_2_10_10_10_REV;
+  }
+  glGenFramebuffers(1, fbo);
+  glGenTextures(1, tex);
+  glBindTexture(GL_TEXTURE_2D, *tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, (GLint)internal_fmt, w, h, 0, fmt, type, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *tex, 0);
+  const GLenum st = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (st != GL_FRAMEBUFFER_COMPLETE) {
+    lg::error("[hdr-display-output] cible de rampe indisponible pour 0x{:x} : 0x{:x}",
+              (unsigned)internal_fmt, (unsigned)st);
+    return false;
+  }
+  return true;
+}
+
+// Combien de valeurs DISTINCTES la sortie a-t-elle su ecrire pour les 128 marches ? On compare
+// des CODES bruts (octet, mot 10 bits, motif de bits du demi-flottant) : aucune tolerance
+// flottante ne peut fusionner ou separer deux niveaux par accident.
+bool read_levels(int n, GLenum fmt, uint64_t* out_levels) {
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  std::vector<uint32_t> codes((size_t)n, 0u);
+  if (fmt == GL_RGBA16F) {
+    std::vector<float> px;
+    if (!read_float_fbo(n, 1, px) || px.size() < (size_t)n * 4) {
+      return false;
+    }
+    for (int i = 0; i < n; i++) {
+      uint32_t b = 0;
+      const float v = px[(size_t)i * 4];
+      std::memcpy(&b, &v, sizeof(b));
+      codes[(size_t)i] = b;
+    }
+    s_rp_read_type = 16;
+  } else if (fmt == GL_RGB10_A2) {
+    std::vector<uint32_t> raw((size_t)n, 0u);
+    glReadPixels(0, 0, n, 1, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV, raw.data());
+    if (glGetError() != GL_NO_ERROR) {
+      return false;
+    }
+    for (int i = 0; i < n; i++) {
+      codes[(size_t)i] = raw[(size_t)i] & 0x3ffu;
+    }
+    s_rp_read_type = 10;
+  } else {
+    std::vector<uint8_t> raw((size_t)n * 4, 0u);
+    glReadPixels(0, 0, n, 1, GL_RGBA, GL_UNSIGNED_BYTE, raw.data());
+    if (glGetError() != GL_NO_ERROR) {
+      return false;
+    }
+    for (int i = 0; i < n; i++) {
+      codes[(size_t)i] = raw[(size_t)i * 4];
+    }
+    s_rp_read_type = 8;
+  }
+  std::sort(codes.begin(), codes.end());
+  *out_levels = (uint64_t)(std::unique(codes.begin(), codes.end()) - codes.begin());
   return true;
 }
 
@@ -554,7 +737,7 @@ void publish_all() {
   autoport_proof::publish("hdr_out_scene_ready_px", s_ready_last_px);
   autoport_proof::publish("hdr_out_scene_ready_forced", (uint64_t)s_ready_forced);
   autoport_proof::publish("hdr_out_selftest_done", s_selftest_done ? 1 : 0);
-  const char* names[kPhaseCount] = {"loaded", "on", "off", "onsim"};
+  const char* names[kPhaseCount] = {"loaded", "on", "off", "onsim", "alt"};
   for (int p = 0; p < kPhaseCount; p++) {
     std::string k = std::string("hdr_out_ph_") + names[p] + "_";
     autoport_proof::publish((k + "frames").c_str(), s_ph[p].frames);
@@ -567,7 +750,48 @@ void publish_all() {
     autoport_proof::publish((k + "red_bits").c_str(), (uint64_t)(s_ph[p].last_red_bits < 0 ? 0 : s_ph[p].last_red_bits));
     autoport_proof::publish((k + "colorspace").c_str(), (uint64_t)(s_ph[p].last_colorspace < 0 ? 0 : s_ph[p].last_colorspace));
     autoport_proof::publish((k + "mode").c_str(), (uint64_t)s_ph[p].last_mode);
+    autoport_proof::publish((k + "ratio_max_x1000").c_str(), (uint64_t)s_ph[p].ratio_max_x1000);
+    autoport_proof::publish((k + "shadow_levels").c_str(), s_pr[p].shadow_levels);
+    autoport_proof::publish((k + "hl_levels").c_str(), s_pr[p].hl_levels);
+    autoport_proof::publish((k + "ramp_samples").c_str(), s_pr[p].ramp_samples);
   }
+  // CHAQUE CHEMIN annonce, nomme par son mode et non par son numero de phase : c'est ce que
+  // l'item demande de publier quand le chemin retenu n'obtient pas la marge. La phase 1 porte
+  // le chemin retenu, la phase 4 l'autre ; une colonne a zero = ce chemin n'existe pas ici.
+  {
+    std::lock_guard<std::mutex> lk(s_mu);
+    autoport_proof::publish("hdr_out_modes_supported", modes_supported());
+  }
+  autoport_proof::publish("hdr_out_alt_mode", (uint64_t)s_alt_mode);
+  autoport_proof::publish_text("hdr_out_alt_mode_name", mode_name(s_alt_mode));
+  for (int p : {1, 4}) {
+    if (s_ph[p].last_mode == kModeNone) {
+      continue;
+    }
+    const std::string k = std::string("hdr_out_path_") + mode_name(s_ph[p].last_mode) + "_";
+    autoport_proof::publish((k + "frames").c_str(), s_ph[p].frames);
+    autoport_proof::publish((k + "active").c_str(), s_ph[p].active_frames);
+    autoport_proof::publish((k + "red_bits").c_str(),
+                            (uint64_t)(s_ph[p].last_red_bits < 0 ? 0 : s_ph[p].last_red_bits));
+    autoport_proof::publish((k + "colorspace").c_str(),
+                            (uint64_t)(s_ph[p].last_colorspace < 0 ? 0 : s_ph[p].last_colorspace));
+    autoport_proof::publish((k + "ratio_max_x1000").c_str(), (uint64_t)s_ph[p].ratio_max_x1000);
+    autoport_proof::publish((k + "shadow_levels").c_str(), s_pr[p].shadow_levels);
+    autoport_proof::publish((k + "hl_levels").c_str(), s_pr[p].hl_levels);
+    autoport_proof::publish((k + "ceiling_x100").c_str(),
+                            (uint64_t)std::lround(s_ph[p].last_ceiling * 100.f));
+    autoport_proof::publish((k + "hl_max_x1000").c_str(),
+                            (uint64_t)std::lround(s_pr[p].hl_max * 1000.0));
+  }
+  // Verdict 11 : ses trois grandeurs, lisibles sans decoder un verdict.
+  autoport_proof::publish("hdr_out_ramp_steps", (uint64_t)kRampN);
+  autoport_proof::publish("hdr_out_ramp_read_bits", (uint64_t)s_rp_read_type);
+  autoport_proof::publish("hdr_out_shadow_levels_on", s_pr[1].shadow_levels);
+  autoport_proof::publish("hdr_out_shadow_levels_off", s_pr[2].shadow_levels);
+  autoport_proof::publish("hdr_out_hl_levels_on", s_pr[1].hl_levels);
+  autoport_proof::publish("hdr_out_hl_levels_off", s_pr[2].hl_levels);
+  autoport_proof::publish("hdr_out_ratio_max_x1000", (uint64_t)s_ratio_max_x1000);
+  autoport_proof::publish("hdr_out_window_lever_requests", s_lever_requests);
   // Les phases ON et OFF ne comptent leurs images bonnes qu'a partir de l'application effective
   // de la bascule : `tonemaps_applied` est le recensement de la DERNIERE image ON.
   autoport_proof::publish("hdr_out_tonemaps_applied", s_phase >= 2 && s_ph[1].frames ? (s_ph[1].sites_bad ? 0 : 1) : 0);
@@ -584,9 +808,10 @@ void publish_all() {
     autoport_proof::publish("hdr_out_defect_9_darkening", (uint64_t)s_d[9]);
     autoport_proof::publish("hdr_out_defect_10_peak_adaptive", (uint64_t)s_d[10]);
     autoport_proof::publish("hdr_out_peak_adaptive", (uint64_t)(s_d[10] ? 0 : 1));
+    autoport_proof::publish("hdr_out_defect_11_effect", (uint64_t)s_d[11]);
     autoport_proof::publish("hdr_out_defects", (uint64_t)s_defects);
   } else {
-    autoport_proof::publish("hdr_out_defects", 10);  // auto-test pas au bout : ROUGE, jamais muet
+    autoport_proof::publish("hdr_out_defects", 11);  // auto-test pas au bout : ROUGE, jamais muet
   }
 }
 
@@ -685,16 +910,32 @@ void compute_verdicts() {
     }
   }
   s_d[10] = peak_ok ? 0 : 1;
+  // 11 : L'EFFET, MESURE (refus owner du 10/09 : « on/off j'ai aucun changement a l'ecran ...
+  //      l'image doit gagner en richesse dans les ombres et lumieres »). Trois planchers, tous
+  //      les trois exiges — « identique a OFF » est un defaut au meme titre qu'« assombri »,
+  //      sinon les verdicts 8 et 9 sont vrais par INACTION :
+  //      * les ombres separent au moins DEUX FOIS plus de niveaux qu'en SDR ;
+  //      * les hautes lumieres aussi ;
+  //      * le systeme accorde une marge AU-DESSUS de son blanc SDR (ratio > 1,000), sans quoi
+  //        aucune haute lumiere ne peut depasser le blanc, quel que soit l'encodage.
+  const ProbeStats& pon = s_pr[1];
+  const ProbeStats& poff = s_pr[2];
+  const bool shadows_richer = poff.shadow_levels > 0 && pon.shadow_levels >= 2 * poff.shadow_levels;
+  const bool hl_richer = poff.hl_levels > 0 && pon.hl_levels >= 2 * poff.hl_levels;
+  const bool over_sdr_white = s_ratio_max_x1000 > 1000;
+  s_d[11] = (shadows_richer && hl_richer && over_sdr_white) ? 0 : 1;
   s_defects = 0;
-  for (int i = 1; i <= 10; i++) {
+  for (int i = 1; i <= 11; i++) {
     s_defects += s_d[i];
   }
   lg::info(
-      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{}) persisted={} "
-      "mem={} ui_samples={}/{} tm_px={}/{} hl_max={:.3f}/{:.3f} ceiling={:.3f}/{:.3f}",
+      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{},{}) persisted={} "
+      "mem={} ui_samples={}/{} tm_px={}/{} hl_max={:.3f}/{:.3f} ceiling={:.3f}/{:.3f} "
+      "niveaux ombres={}/{} hautes={}/{} ratio_max={} alt={}",
       s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_d[7], s_d[8], s_d[9], s_d[10],
-      s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max, ps.hl_max,
-      on.last_ceiling, onsim.last_ceiling);
+      s_d[11], s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max,
+      ps.hl_max, on.last_ceiling, onsim.last_ceiling, pon.shadow_levels, poff.shadow_levels,
+      pon.hl_levels, poff.hl_levels, s_ratio_max_x1000, mode_name(s_alt_mode));
 }
 
 bool scene_ready() {
@@ -707,6 +948,17 @@ bool scene_ready() {
     return true;
   }
   return false;
+}
+
+void finish_selftest() {
+  s_phase = kPhaseCount;   // hors tableau : plus aucune phase ne compte
+  s_test_force.store(-1);  // le reglage du joueur reprend
+  s_test_mode = kModeNone;
+  s_test_peak = 0.f;
+  s_selftest_done = true;
+  compute_verdicts();
+  publish_all();
+  autoport_proof::flush();
 }
 
 void selftest_step() {
@@ -744,13 +996,34 @@ void selftest_step() {
     lg::info("[hdr-display-output] auto-test : phase ON imposee avec pic SIMULE {} nits (annonce {})",
              s_test_peak, ann);
   } else if (s_frames == s_phase_start + 3 * kPhaseFrames) {
-    s_phase = 4;
-    s_test_force.store(-1);  // le reglage du joueur reprend
+    // L'AUTRE chemin annonce par les caps. Le Honor ne rend aucune marge en scRGB (essai 6) et
+    // le PQ n'y avait jamais ete essaye : la preuve doit porter les DEUX, pas le seul retenu.
+    uint32_t alt = kModeNone;
+    {
+      std::lock_guard<std::mutex> lk(s_mu);
+      alt = alt_mode(modes_supported());
+    }
+    s_alt_mode = alt;
     s_test_peak = 0.f;
-    s_selftest_done = true;
-    compute_verdicts();
-    publish_all();
-    autoport_proof::flush();
+    if (alt != kModeNone) {
+      // Les onze verdicts sont deja tous calculables ici (phases 0-3 faites) : on les POSE sur
+      // le disque AVANT de rebasculer la surface. Une bascule PQ qui tuerait la course
+      // emporterait sinon la preuve entiere pour un chemin qui n'est qu'un complement.
+      compute_verdicts();
+      publish_all();
+      autoport_proof::flush();
+      s_phase = 4;
+      s_skip_frames = 1;
+      s_test_mode = alt;
+      s_test_force.store(1);
+      lg::info("[hdr-display-output] auto-test : phase ON imposee sur l'AUTRE chemin ({})",
+               mode_name(alt));
+      return;
+    }
+    lg::info("[hdr-display-output] auto-test : un seul chemin annonce, phase 4 sautee");
+    finish_selftest();
+  } else if (s_phase == 4 && s_frames == s_phase_start + 4 * kPhaseFrames) {
+    finish_selftest();
   }
 }
 
@@ -889,6 +1162,11 @@ void apply_pending_on_gl_thread() {
     s_headroom_request_current = (want == kModeScrgbLinear) ? headroom_linear() : 1.f;
     s_headroom_request_desired = (want == kModeScrgbLinear) ? desired_headroom() : 1.f;
     s_headroom_pending = true;
+    // Les deux AUTRES leviers, quel que soit le chemin : le mode couleur HDR de la fenetre et
+    // Window.setDesiredHdrHeadroom. `setExtendedRangeBrightness` seul a laisse le Honor a 1,0.
+    s_lever_on = (want != kModeNone);
+    s_lever_desired = desired_headroom();
+    s_lever_pending = true;
     lg::info("[hdr-display-output] surface {} : red_bits={} colorspace=0x{:x} mode={}",
              want == kModeScrgbLinear ? "scRGB/16F" : want == kModeHdr10Pq ? "HDR10/PQ" : "SDR",
              st.red_bits, (unsigned)st.colorspace, st.mode);
@@ -897,6 +1175,21 @@ void apply_pending_on_gl_thread() {
     lg::error("[hdr-display-output] bascule vers mode {} REFUSEE : red_bits={} colorspace=0x{:x} mode={}",
               want, st.red_bits, (unsigned)st.colorspace, st.mode);
   }
+}
+
+bool take_window_lever_request(bool* on, float* desired) {
+  if (!s_lever_pending) {
+    return false;
+  }
+  s_lever_pending = false;
+  s_lever_requests++;
+  if (on) {
+    *on = s_lever_on;
+  }
+  if (desired) {
+    *desired = s_lever_desired;
+  }
+  return true;
 }
 
 bool take_headroom_request(float* current, float* desired) {
@@ -1005,7 +1298,77 @@ void push_present_uniforms(Shader& shader) {
 
 // ------------------------------------------------------------------------------- sondes --
 
+// Verdict 11 : les deux rampes, par le VRAI quad final, vers le format REEL de la fenetre.
+// Tourne aussi en phase OFF (le bras de comparaison), d'ou sa propre fenetre.
+static void probe_ramps(Shader& /*shader*/) {
+  if (!ramp_window_open() || s_rp_state < 0) {
+    return;
+  }
+  const GLenum fmt = window_target_format();
+  if (s_rp_state == 0 || s_rp_fmt != fmt) {
+    if (s_rp_fbo) {
+      glDeleteFramebuffers(1, &s_rp_fbo);
+      s_rp_fbo = 0;
+    }
+    if (s_rp_tex) {
+      glDeleteTextures(1, &s_rp_tex);
+      s_rp_tex = 0;
+    }
+    bool ok = true;
+    if (!s_rp_src[0]) {
+      ok = make_ramp_tex(&s_rp_src[0], 0.f, kRampWindow) &&
+           make_ramp_tex(&s_rp_src[1], 1.f - kRampWindow, 1.f);
+    }
+    ok = ok && make_target_fbo(&s_rp_fbo, &s_rp_tex, kRampN, 1, fmt);
+    s_rp_fmt = fmt;
+    s_rp_state = ok ? 1 : -1;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (!ok) {
+      return;
+    }
+    lg::info("[hdr-display-output] sonde de rampes : cible au format 0x{:x} (phase {})",
+             (unsigned)fmt, s_phase);
+  }
+  GLint vp[4] = {0, 0, 0, 0};
+  GLint saved_tex = 0;
+  glGetIntegerv(GL_VIEWPORT, vp);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &saved_tex);
+  glBindFramebuffer(GL_FRAMEBUFFER, s_rp_fbo);
+  glViewport(0, 0, kRampN, 1);
+  glActiveTexture(GL_TEXTURE0);
+  uint64_t lv[2] = {0, 0};
+  bool ok = true;
+  for (int r = 0; r < 2 && ok; r++) {
+    glBindTexture(GL_TEXTURE_2D, s_rp_src[r]);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ok = read_levels(kRampN, fmt, &lv[r]);
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glViewport(vp[0], vp[1], vp[2], vp[3]);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)saved_tex);
+  if (!ok) {
+    lg::error("[hdr-display-output] sonde de rampes : relecture refusee (format 0x{:x})",
+              (unsigned)fmt);
+    s_rp_state = -1;
+    return;
+  }
+  ProbeStats& pr = s_pr[s_phase];
+  pr.ramp_samples++;
+  if (lv[0] > pr.shadow_levels) {
+    pr.shadow_levels = lv[0];
+  }
+  if (lv[1] > pr.hl_levels) {
+    pr.hl_levels = lv[1];
+  }
+  if (pr.ramp_samples == 1 || (pr.ramp_samples % 10) == 0) {
+    lg::info("[hdr-display-output] rampes phase {} #{} : ombres={}/{} hautes={}/{} format=0x{:x} relecture={} bits",
+             s_phase, pr.ramp_samples, lv[0], (uint64_t)kRampN, lv[1], (uint64_t)kRampN,
+             (unsigned)fmt, s_rp_read_type);
+  }
+}
+
 void probe_present(Shader& shader) {
+  probe_ramps(shader);
   if (!probe_window_open() || s_pp_state < 0) {
     return;
   }
@@ -1207,7 +1570,15 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
     ph.last_mode = s_surface.mode;
     ph.last_ceiling = s_last_ceiling;
     ph.last_peak = peak_nits();
-    const bool expect_on = (s_phase == 1 || s_phase == 3);
+    if (s_frame_ratio_x1000 > ph.ratio_max_x1000) {
+      ph.ratio_max_x1000 = s_frame_ratio_x1000;
+    }
+    // Verdict 11 : la marge accordee par le SYSTEME, sur une phase ON REELLE (jamais celle a
+    // pic simule, qui n'est qu'un etirement arithmetique de notre cote).
+    if (on && (s_phase == 1 || s_phase == 4) && s_frame_ratio_x1000 > s_ratio_max_x1000) {
+      s_ratio_max_x1000 = s_frame_ratio_x1000;
+    }
+    const bool expect_on = (s_phase == 1 || s_phase == 3 || s_phase == 4);
     const bool expect_off = (s_phase == 2);
     if (expect_on) {
       ph.sites_bad += (sites == 1) ? 0 : 1;

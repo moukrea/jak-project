@@ -123,6 +123,11 @@ public final class NativeGk {
         MainActivity.applyExtendedRangeBrightness(currentRatio, desiredRatio);
     }
 
+    /** hdr-display-output: called FROM native (GL thread) when the HDR output surface becomes active/inactive; asks the WINDOW for HDR color mode and HDR headroom (the two levers beside setExtendedRangeBrightness). */
+    public static void onHdrOutputWindowLevers(final boolean on, final float desiredHeadroom) {
+        MainActivity.applyHdrOutputWindowLevers(on, desiredHeadroom);
+    }
+
     /**
      * Grecharged-managed-assets: does this libgk.so have the PBR path compiled
      * in (OG_FEAT_PBR)? The downloader uses it to decide whether the material-

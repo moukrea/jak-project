@@ -532,6 +532,51 @@ public class MainActivity extends SDLActivity {
         });
     }
 
+    /** hdr-display-output: the two window-level HDR levers next to setExtendedRangeBrightness, which alone leaves
+     *  the Honor at getHdrSdrRatio()==1.0 (try 6, 09/10). (a) Window.setColorMode(COLOR_MODE_HDR) asks the compositor
+     *  for an HDR color mode on this window (API 26+); (b) Window.setDesiredHdrHeadroom(float) (API 35+, called by
+     *  REFLECTION so compileSdk stays at 34) asks the display for that much headroom above SDR white; 0 means
+     *  "system default". Each lever has its own try/catch so one failing does not skip the other. Never throws. */
+    static void applyHdrOutputWindowLevers(final boolean on, final float desiredHeadroom) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            int colorModeOk = 0;
+            int colorModeValue = -1;
+            int headroomOk = 0;
+            try {
+                org.libsdl.app.SDLActivity act = mSingleton;   // protected static in SDLActivity
+                android.view.Window w = act != null ? act.getWindow() : null;
+                if (w == null) {
+                    Log.w("GK", "HDROUT window levers: no window");
+                } else {
+                    try {
+                        colorModeValue = on ? android.content.pm.ActivityInfo.COLOR_MODE_HDR
+                                            : android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT;
+                        w.setColorMode(colorModeValue);
+                        colorModeOk = 1;
+                    } catch (Throwable t) { Log.w("GK", "HDROUT window levers: setColorMode failed", t); }
+                    if (android.os.Build.VERSION.SDK_INT >= 35) {
+                        try {
+                            float h = on ? Math.max(1.0f, desiredHeadroom) : 0.0f;
+                            w.getClass().getMethod("setDesiredHdrHeadroom", float.class).invoke(w, h);
+                            headroomOk = 1;
+                        } catch (Throwable t) { Log.w("GK", "HDROUT window levers: setDesiredHdrHeadroom failed", t); }
+                    }
+                }
+                android.view.Display disp = getWindowManagerDisplay();
+                float ratioAfter = -1f;
+                if (disp != null && android.os.Build.VERSION.SDK_INT >= 34) {
+                    try { ratioAfter = disp.getHdrSdrRatio(); } catch (Throwable ignored) { ratioAfter = -1f; }
+                }
+                Log.i("GK", "HDROUT window levers on=" + (on ? 1 : 0)
+                        + " color_mode_ok=" + colorModeOk
+                        + " color_mode_value=" + colorModeValue
+                        + " hdr_headroom_ok=" + headroomOk
+                        + " sdk=" + android.os.Build.VERSION.SDK_INT
+                        + " display_ratio_after=" + ratioAfter);
+            } catch (Throwable t) { Log.w("GK", "HDROUT window levers failed", t); }
+        });
+    }
+
     /** hdr-display-output: the default display, for logging the ratio the system reports after a request. */
     private static android.view.Display getWindowManagerDisplay() {
         try {

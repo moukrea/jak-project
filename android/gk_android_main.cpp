@@ -9750,6 +9750,8 @@ Java_org_opengoal_gk_NativeGk_setDataRoot(JNIEnv* env, jclass /*clazz*/,
 static JavaVM* g_hdr_out_jvm = nullptr;
 static jclass g_hdr_out_nativegk_class = nullptr;
 static jmethodID g_hdr_out_ext_range_mid = nullptr;
+// Idem pour les deux autres leviers de fenetre : onHdrOutputWindowLevers(boolean,float) -> "(ZF)V".
+static jmethodID g_hdr_out_window_levers_mid = nullptr;
 
 JNIEXPORT void JNICALL
 Java_org_opengoal_gk_NativeGk_setDisplayHdrCaps(JNIEnv* env, jclass clazz, jint mask,
@@ -9767,6 +9769,13 @@ Java_org_opengoal_gk_NativeGk_setDisplayHdrCaps(JNIEnv* env, jclass clazz, jint 
     __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
                         "NativeGk.setDisplayHdrCaps: onHdrOutputExtendedRange(FF)V not found; "
                         "scRGB headroom requests will be dropped");
+  }
+  g_hdr_out_window_levers_mid = env->GetStaticMethodID(clazz, "onHdrOutputWindowLevers", "(ZF)V");
+  if (!g_hdr_out_window_levers_mid) {
+    env->ExceptionClear();
+    __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                        "NativeGk.setDisplayHdrCaps: onHdrOutputWindowLevers(ZF)V not found; "
+                        "window HDR lever requests will be dropped");
   }
   android_hdr_out_probe_early();  // EGL, avant que GOAL ne cree *pc-settings*
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
@@ -10133,6 +10142,41 @@ void android_hdr_out_request_extended_range(float current_ratio, float desired_r
   __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
                       "HDROUT extended range request current=%.3f desired=%.3f",
                       (double)current_ratio, (double)desired_ratio);
+  if (attached) {
+    g_hdr_out_jvm->DetachCurrentThread();
+  }
+}
+
+// hdr-display-output : natif -> Java, les deux autres leviers du systeme (mode couleur HDR de la
+// fenetre et Window.setDesiredHdrHeadroom, API 35+). Meme pont et meme attachement de fil que
+// android_hdr_out_request_extended_range ; declare dans android_renderer.h.
+void android_hdr_out_request_window_levers(bool on, float desired_headroom) {
+  if (!g_hdr_out_jvm || !g_hdr_out_nativegk_class || !g_hdr_out_window_levers_mid) {
+    static bool s_warned = false;
+    if (!s_warned) {
+      s_warned = true;
+      __android_log_print(ANDROID_LOG_WARN, kGkLogTag,
+                          "HDROUT window levers request dropped: JNI bridge not initialised");
+    }
+    return;
+  }
+  JNIEnv* env = nullptr;
+  bool attached = false;
+  if (g_hdr_out_jvm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
+    if (g_hdr_out_jvm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+      return;
+    }
+    attached = true;
+  }
+  env->CallStaticVoidMethod(g_hdr_out_nativegk_class, g_hdr_out_window_levers_mid,
+                            on ? JNI_TRUE : JNI_FALSE, (jfloat)desired_headroom);
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+  }
+  __android_log_print(ANDROID_LOG_INFO, kGkLogTag,
+                      "HDROUT window levers request on=%d desired=%.3f",
+                      on ? 1 : 0, (double)desired_headroom);
   if (attached) {
     g_hdr_out_jvm->DetachCurrentThread();
   }
