@@ -4459,18 +4459,17 @@ items:
   where: 'Options : une ligne « sortie HDR » qui n''apparait QUE si l''ecran le supporte. Sur ton Honor
     elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change
     de teinte.'
-  deliverable: '`hdr_out_defects` = 0, onze verdicts. (1) capacite detectee et publiee ; (2) option visible
-    seulement si un mode est annonce ; (3) vrai interrupteur, `hdr_out_forced_on` = 0, choix persistant
-    ; (4) ON : espace annonce, un seul tone map ; (5) OFF : identique au bit a lighting-hdr ; (6) auto-config
-    au premier demarrage ; (7) `hdr_out_menu_parent` = eclairage (Options > Recharged > Eclairage Recharge).
-    (8) `hdr_out_ui_white_nits` >= blanc SDR du systeme : UI, sous-titres, sprites sortent BLANC, jamais
-    gris. (9) `hdr_out_darkening_pct` <= 5 : les tons moyens ne baissent pas, seules les hautes lumieres
-    au-dela de 1,0 gagnent. (10) `hdr_out_peak_nits` = pic ANNONCE par l''ecran, courbe adaptative, `hdr_out_peak_adaptive`
-    = 1, prouve a deux pics (480 reel, 1000 simule). (11) NOUVEAU (refus 10/09) : ON doit DIFFERER de
-    OFF a la sortie, sur l''ecran reel — `hdr_out_hdr_sdr_ratio_x1000` > 1000 ET difference non nulle
-    sur les hautes lumieres entre les deux etats. Un ratio a 1000 est un DEFAUT, jamais un vert : il rend
-    8 et 9 vrais par INACTION. Si le mode retenu n''obtient pas la marge, essayer l''autre chemin annonce
-    dans les caps et publier CHAQUE chemin essaye. Preuve sur le Honor.'
+  deliverable: '`hdr_out_defects` = 0. Verdicts 1-7 (detection, visibilite conditionnelle, vrai interrupteur
+    `hdr_out_forced_on`=0 persistant, un seul tone map, OFF identique au bit a lighting-hdr, auto-config,
+    `hdr_out_menu_parent`=eclairage) : voir SPEC 4.5. (8) `hdr_out_ui_white_nits` >= blanc SDR du systeme
+    : UI, sous-titres, sprites BLANCS. (9) `hdr_out_darkening_pct` <= 5 : la luminance moyenne globale
+    ne baisse pas. (10) `hdr_out_peak_nits` = pic ANNONCE, courbe adaptative prouvee a deux pics, `hdr_out_peak_adaptive`=1.
+    (11) EFFET MESURE, refus 10/09 : l''image ON doit GAGNER EN DETAIL aux deux bouts par rapport a OFF,
+    sur l''ecran reel. Trois grandeurs, chacune un plancher strict : niveaux distincts dans les ombres,
+    niveaux distincts dans les hautes lumieres, et luminance qui DEPASSE le blanc SDR sur les hautes lumieres
+    (`hdr_out_hdr_sdr_ratio_x1000` > 1000). Identique a OFF = DEFAUT au meme titre qu''assombri : 8 et
+    9 sont vrais par INACTION. Si le mode retenu n''obtient pas la marge, essayer l''autre chemin annonce
+    dans les caps et publier CHAQUE chemin. Preuve sur le Honor.'
   known_cause: 'Essai 6 vert (defects=0) mais VACUEUX. Sur le Honor `hdr_out_hdr_sdr_ratio_x1000` = 1000
     : getHdrSdrRatio() reste a 1,0, setExtendedRangeBrightness accepte mais le systeme n''accorde aucune
     marge (isHighBrightnessModeEnabled=false, mSdrToHdrRatioSpline=null). ON = SDR exact, l''owner ne
@@ -4526,6 +4525,10 @@ items:
   - date: '2026-09-10'
     text: le HDR output toggle est bien deplace dans les options rechargees, mais on/off j'ai aucun changement
       a l'ecran, je pense que ca active meme plus le HDR en fait
+  - date: '2026-09-10'
+    text: oui l'image doit pas etre plus sombre au global (ce qui etait mon retour) mais gagner en richesse
+      dans les ombres et lumieres, car l'ecran le supporte c'est litteralement le but du HDR d'avoir plus
+      de detail dans les ombres et lumieres, pas d'assombrir l'ecran ou etre totalement identique !
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
