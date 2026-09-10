@@ -17,6 +17,10 @@
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
+#include "game/system/autoport_proof.h"
+
+#include <type_traits>
+#include <utility>
 
 // ============================================================================
 // Grecharged-ambient-occlusion
@@ -91,6 +95,34 @@ struct AoOverride {
     return cached;
   }
 };
+
+// ─── LES DEUX CHEMINS, COMPTES (refus owner du 2026-09-10) ─────────────────────────────────────
+// « J'ai l'impression que l'option sert toujours l'ancien chemin d'avant la refonte. » Deux
+// temoins repondent, et aucun des deux n'est un zero par inaction.
+//
+// 1. LE COMPTE DES CIBLES DE DESSIN. Chaque dessin de la passe declare la cible qu'il vient de
+//    lier. L'ANCIEN chemin composait sur l'image de scene : il aurait dessine dans le FBO que la
+//    passe trouve en entrant (`prev_fbo`). Le NOUVEAU ecrit dans ses propres textures R8. Les deux
+//    compteurs montent au MEME endroit, dans le MEME code : `ao_draws_on_scene` vaut zero parce
+//    que la comparaison a lieu et echoue, pas parce qu'aucun site n'existe. `ao_draws_total` est
+//    son denominateur, et il n'est jamais nul quand la passe tourne.
+//
+// 2. LE TEMOIN DE COMPILATION. Un compteur ne peut pas prouver l'absence d'un code supprime : il
+//    n'a plus de site ou vivre. `ao_has_composite` demande au COMPILATEUR si la classe porte
+//    encore une methode de composite sur la scene, et `ao_legacy_witness_selftest` prouve que le
+//    detecteur sait rendre 1 sur un type de controle qui, lui, la porte. Sans ce controle, un zero
+//    du detecteur serait indiscernable d'un detecteur casse.
+template <class T, class = void>
+struct ao_has_composite : std::false_type {};
+template <class T>
+struct ao_has_composite<T, std::void_t<decltype(std::declval<T&>().composite_on_scene())>>
+    : std::true_type {};
+struct AoLegacyWitnessControl {
+  void composite_on_scene() {}
+};
+
+uint64_t s_ao_draws_total = 0;
+uint64_t s_ao_draws_on_scene = 0;
 
 }  // namespace
 
@@ -415,6 +447,16 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   ensure_targets(ao_w, ao_h, out_w, out_h);
   ensure_quad();
 
+  // Chaque dessin de la passe declare sa cible ici. `prev_fbo` est le FBO de SCENE tel que la
+  // passe l'a trouve en entrant : un dessin qui y atterrirait serait, par definition, le composite
+  // d'image de l'ancien chemin.
+  auto note_target = [&](GLuint target) {
+    s_ao_draws_total++;
+    if ((GLint)target == prev_fbo) {
+      s_ao_draws_on_scene++;
+    }
+  };
+
   const float depth_wf = (float)src_w;  // depth texture size (render-scale sized)
   const float depth_hf = (float)src_h;
   const float ao_wf = (float)ao_w;
@@ -533,6 +575,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     if (bands > 1) {
       glDisable(GL_SCISSOR_TEST);  // pass invariant: scissor off (restored at the end)
     }
+    note_target(m_ao_fbo[0]);
   }
   ao_glerr("estimate");
 
@@ -569,6 +612,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
         glUniform2f(glu::loc(id, "u_dir"), 0.0f, 1.0f / ao_hf);
       }
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+      note_target((p == 0) ? m_ao_fbo[1] : m_ao_full_fbo);
     }
     glActiveTexture(GL_TEXTURE0);
     produced = true;
@@ -578,6 +622,7 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_ao_fbo[0]);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_ao_full_fbo);
     glBlitFramebuffer(0, 0, ao_w, ao_h, 0, 0, out_w, out_h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    note_target(m_ao_full_fbo);
     produced = true;
   }
   ao_glerr("blur");
@@ -615,5 +660,12 @@ bool AmbientOcclusionPass::estimate(SharedRenderState* rs,
   glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
   glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
   glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
+
+  autoport_proof::publish("ao_draws_total", s_ao_draws_total);
+  autoport_proof::publish("ao_draws_on_scene", s_ao_draws_on_scene);
+  autoport_proof::publish("ao_legacy_composite_compiled",
+                          ao_has_composite<AmbientOcclusionPass>::value ? 1 : 0);
+  autoport_proof::publish("ao_legacy_witness_selftest",
+                          ao_has_composite<AoLegacyWitnessControl>::value ? 1 : 0);
   return produced;
 }

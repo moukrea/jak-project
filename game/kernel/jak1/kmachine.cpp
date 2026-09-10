@@ -1416,25 +1416,27 @@ void pc_set_grass_overhang(u32 on) {
 }
 #endif
 
-// Grecharged-ambient-occlusion defect #6 resilience (safe-boot fallback): a crashy
-// persisted AO mode must never brick boot. A sentinel file is armed next to pc-settings
-// when AO becomes active and cleared after 60s of healthy pushes (or on a clean AO-off).
-// If a session dies inside that window the sentinel survives, and the NEXT boot pins AO
-// off (one boot only, loudly logged). The latch clears the moment the user picks a
-// DIFFERENT mode in the menu, so the setting stays user-controllable.
+// lighting-ao-indirect — L'ANCIENNE AO EST SUPPRIMEE, PAS DEBRANCHEE (refus owner 2026-09-10 :
+// « l'ancienne faut la degager complet j'ai peur que ca se colisionne »).
+//
+// CE QUI VIVAIT ICI. Un verrou « safe-boot » de l'ere du composite d'image (defect #6) : une
+// sentinelle posee sur le disque des que l'AO s'allumait, et si la session mourait dans les 60 s
+// qui suivaient, le boot SUIVANT epinglait l'AO a 0 pour la course entiere. Il gardait un
+// estimateur qui n'existe plus tel quel — le mega-draw GTAO High qui declenchait le chien de
+// garde KGSL est decoupe en bandes depuis (AmbientOcclusion.cpp) — et il avait un effet de bord
+// que l'owner ne pouvait pas distinguer d'une panne : sa ligne de menu affichait HBAO et le
+// moteur restait a zero, en silence. Un correctif d'hier devenu le defaut d'aujourd'hui.
+//
+// CE QUI LE REMPLACE : trois compteurs qui rendent son absence FALSIFIABLE. `ao_push_frames` est
+// le denominateur (GOAL pousse le reglage a chaque image) ; `ao_push_open_frames` est la
+// precondition comptee A PART, sans quoi un zero obtenu parce que l'eclairage est eteint serait
+// indiscernable d'un zero obtenu parce que rien n'altere le reglage ; `ao_push_altered_frames`
+// est le defaut lui-meme : une image ou la valeur envoyee par GOAL n'est pas celle que la porte
+// du moteur porte. Avec le verrou, il montait. Sans lui, il reste a zero et on peut le dire.
 namespace {
-constexpr double kAoGuardHealthySecs = 60.0;
-fs::path ao_boot_guard_path() {
-  return file_util::get_user_settings_dir(g_game_version) / "ao-boot-guard";
-}
-double ao_now_s() {
-  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
-      .count();
-}
-bool s_ao_safeboot_latched = false;  // this boot runs with AO pinned off
-int s_ao_safeboot_mode = -1;         // the refused persisted mode (a different pick clears)
-double s_ao_enable_t = -1.0;         // when AO became active this session (-1 = inactive)
-bool s_ao_guard_armed = false;       // sentinel currently on disk for this session
+uint64_t s_ao_push_frames = 0;       // pushes GOAL vus (denominateur)
+uint64_t s_ao_push_open_frames = 0;  // ... dont les ancetres etaient allumes (precondition)
+uint64_t s_ao_push_altered = 0;      // ... ou la porte ne portait PAS la valeur poussee
 }  // namespace
 
 // Grecharged-ambient-occlusion: push the AO algorithm selector + quality + strength from GOAL
@@ -1454,44 +1456,6 @@ void pc_set_ambient_occlusion(u32 mode, u32 quality, u32 strength) {
   if (s < 0 || s > 2) {
     s = 1;
   }
-  if (s_ao_safeboot_latched) {
-    if (m == 0 || m == s_ao_safeboot_mode) {
-      m = 0;  // pinned off for this boot
-    } else {
-      lg::info("[recharged-ao] SAFE-BOOT latch cleared by user mode change -> {}", m);
-      s_ao_safeboot_latched = false;
-    }
-  }
-  if (m > 0 && s_ao_enable_t < 0.0 && !s_ao_safeboot_latched) {
-    const auto guard = ao_boot_guard_path();
-    if (file_util::file_exists(guard.string())) {
-      lg::warn(
-          "[recharged-ao] SAFE-BOOT: previous session died within {}s of AO enable — "
-          "forcing AO OFF for this boot (persisted mode {} quality {})",
-          (int)kAoGuardHealthySecs, m, q);
-      std::error_code ec;
-      fs::remove(guard, ec);  // one forced-off boot per incident
-      s_ao_safeboot_latched = true;
-      s_ao_safeboot_mode = m;
-      m = 0;
-    } else {
-      file_util::write_text_file(guard, "ao-enable\n");
-      s_ao_guard_armed = true;
-      s_ao_enable_t = ao_now_s();
-    }
-  }
-  if (s_ao_guard_armed) {
-    if (m == 0) {  // clean disable: disarm and allow a later re-enable to re-arm
-      std::error_code ec;
-      fs::remove(ao_boot_guard_path(), ec);
-      s_ao_guard_armed = false;
-      s_ao_enable_t = -1.0;
-    } else if (ao_now_s() - s_ao_enable_t > kAoGuardHealthySecs) {
-      std::error_code ec;
-      fs::remove(ao_boot_guard_path(), ec);
-      s_ao_guard_armed = false;  // healthy: sentinel gone, s_ao_enable_t stays (no re-arm)
-    }
-  }
   // Les trois "valeurs precedentes" sont les valeurs VOULUES : sous un ancetre eteint les trois
   // champs valent stock, et les comparer ferait re-loguer a chaque image.
   if ((double)m != recharged_gating::desired(recharged_gating::kAoMode) ||
@@ -1502,6 +1466,25 @@ void pc_set_ambient_occlusion(u32 mode, u32 quality, u32 strength) {
   recharged_gating::set(recharged_gating::kAoMode, m);
   recharged_gating::set(recharged_gating::kAoQuality, q);
   recharged_gating::set(recharged_gating::kAoStrength, s);
+
+  // L'OPTION PILOTE-T-ELLE LE MOTEUR ? On compare la valeur que GOAL vient d'envoyer a celle que
+  // la porte porte reellement, relue par l'autre bout de la chaine. Ce n'est pas un miroir : a
+  // gauche l'argument BRUT du pont, a droite la valeur composee de la table des portes
+  // (master > eclairage > ao-mode). On passe par `effective`/`disabled_by_ancestor` et non par
+  // `mode()`, qui incrementerait les compteurs eval/exec que le balayage de `recharged-gating-real`
+  // lit — un instrument n'a pas le droit d'en fausser un autre.
+  const bool ao_ancestors_on = !recharged_gating::disabled_by_ancestor(recharged_gating::kAoMode);
+  const int ao_gate_mode = (int)std::lround(recharged_gating::effective(recharged_gating::kAoMode));
+  s_ao_push_frames++;
+  if (ao_ancestors_on) {
+    s_ao_push_open_frames++;
+    if (ao_gate_mode != (int)mode) {
+      s_ao_push_altered++;
+    }
+  }
+  autoport_proof::publish("ao_push_frames", s_ao_push_frames);
+  autoport_proof::publish("ao_push_open_frames", s_ao_push_open_frames);
+  autoport_proof::publish("ao_push_altered_frames", s_ao_push_altered);
 }
 
 // Grecharged-foliage-wind: push the light-wind sway toggle from GOAL (pc-set-foliage-wind!).

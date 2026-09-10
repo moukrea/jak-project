@@ -104,7 +104,8 @@ enum class ShaderId {
   SLOW_TIME = 42,
   SPRITE3_INSTANCED = 43,
   GRASS = 44,  // Grecharged-grass-poc: procedural 3D grass (jak1 training)
-  // Grecharged-ambient-occlusion: screen-space AO passes (estimator + blur + composite)
+  // L'occlusion ambiante : estimateur + flou bilateral. PAS de composite — le programme
+  // `ao_composite` de l'ancien chemin est supprime (lighting-ao-indirect, SPEC §4.7).
   AO_SSAO = 45,
   AO_HBAO = 46,
   AO_GTAO = 47,

@@ -635,7 +635,8 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::SLOW_TIME) = {"slow_time", version};
   at(ShaderId::SPRITE3_INSTANCED) = {"sprite3_3d_inst", version};
   at(ShaderId::GRASS) = {"grass", version};  // Grecharged-grass-poc
-  // Grecharged-ambient-occlusion: SSAO/HBAO/GTAO estimators + bilateral blur + composite.
+  // L'occlusion ambiante : estimateurs SSAO/HBAO/GTAO + flou bilateral. Le programme de
+  // composite sur l'image finale est supprime (lighting-ao-indirect, SPEC §4.7).
   at(ShaderId::AO_SSAO) = {"ao_ssao", version};
   at(ShaderId::AO_HBAO) = {"ao_hbao", version};
   at(ShaderId::AO_GTAO) = {"ao_gtao", version};

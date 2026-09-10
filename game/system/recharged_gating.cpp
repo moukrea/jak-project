@@ -447,6 +447,12 @@ struct MenuState {
   bool declared_absent[kOptCount] = {false};
   std::string parents;     // « option:parent,... », publie tel quel
   std::string missing_names;
+  // lighting-ao-indirect : les trois rangees d'AO, comptees PAR PAGE. L'owner exige le 2026-09-10
+  // qu'« Ambient Occlusion vive dans le sous-menu Recharged Lighting avec ses propres sous
+  // reglages ». `misplaced` melange toutes les options ; ces deux compteurs repondent sur SES
+  // rangees, et le second est ce qui rend le premier falsifiable.
+  uint64_t ao_rows_lighting = 0;
+  uint64_t ao_rows_elsewhere = 0;
 };
 
 MenuState g_menu;
@@ -614,6 +620,8 @@ void menu_begin() {
   g_menu.absent = 0;
   g_menu.parents.clear();
   g_menu.missing_names.clear();
+  g_menu.ao_rows_lighting = 0;
+  g_menu.ao_rows_elsewhere = 0;
   for (int i = 0; i < kOptCount; i++) {
     g_menu.seen[i] = false;
     g_menu.declared_absent[i] = false;
@@ -642,6 +650,13 @@ void menu_row(const char* page, const char* opt_id) {
     g_menu.absent++;
     return;
   }
+  if (opt == kAoMode || opt == kAoQuality || opt == kAoStrength) {
+    if (page && std::strcmp(page, "lighting") == 0) {
+      g_menu.ao_rows_lighting++;
+    } else {
+      g_menu.ao_rows_elsewhere++;
+    }
+  }
   if (!page || std::strcmp(page, expected_page(opt)) != 0) {
     g_menu.misplaced++;
   }
@@ -669,7 +684,15 @@ int page_of(int opt) {
 }
 
 bool census_wanted() {
-  return autoport_proof::feature_is("recharged-gating-real");
+  // Le recensement du menu est un INSTRUMENT, jamais un correctif : il force le cablage du menu au
+  // boot pour qu'une course automatique puisse le lire. `lighting-ao-indirect` en a besoin pour la
+  // meme raison que `recharged-gating-real` — l'owner exige (2026-09-10) que la rangee « Ambient
+  // Occlusion » vive dans le sous-menu Recharged Lighting, et une course qui n'ouvre aucun menu ne
+  // peut pas le dire. Il n'arme PAS le balayage de forçage, qui reste au seul item qui l'a livre
+  // (`g_sweep.wanted`) : un balayage qui eteint chaque parent a tour de role pendant neuf fenetres
+  // detruirait la mesure d'AO de la course.
+  return autoport_proof::feature_is("recharged-gating-real") ||
+         autoport_proof::feature_is("lighting-ao-indirect");
 }
 
 void menu_end() {
@@ -799,6 +822,8 @@ void publish_all() {
   autoport_proof::publish_text("gating_menu_missing_names",
                                g_menu.missing_names.empty() ? "-" : g_menu.missing_names.c_str());
   autoport_proof::publish("gating_menu_seen", g_menu.ever ? 1 : 0);
+  autoport_proof::publish("ao_menu_rows_lighting", g_menu.ao_rows_lighting);
+  autoport_proof::publish("ao_menu_rows_elsewhere", g_menu.ao_rows_elsewhere);
   autoport_proof::publish_text("gating_menu_parent",
                                g_menu.parents.empty() ? "-" : g_menu.parents.c_str());
 

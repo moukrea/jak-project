@@ -560,11 +560,17 @@ struct GfxGlobalSettings {
   // in C++ from persisted pc-settings before the common FR3 loads, then kept live by the GOAL push.
   // false = stock (byte-identical). Only meaningful when the build ships the enhanced FR3 set.
   bool recharged_enhanced_models = false;
-  // Grecharged-ambient-occlusion: screen-space AO post-pass over the OPAQUE scene only
-  // (sampled/composited at the bucket-30 hook, before any alpha bucket — alpha-cut foliage
-  // and grass cards never enter the AO depth nor get darkened). Set from GOAL via
-  // pc-set-ambient-occlusion!. mode 0 = OFF => byte-identical stock (renderbuffer depth,
-  // zero AO GL calls). 1 = SSAO, 2 = HBAO, 3 = GTAO.
+  // L'occlusion ambiante. Posee depuis GOAL par `pc-set-ambient-occlusion!`, SOUS l'eclairage
+  // recharge (`kAoMode` a pour parent `kLighting`, recharged_gating.cpp) : sa rangee de menu vit
+  // dans le sous-menu « Recharged Lighting » avec sa qualite et son intensite.
+  // mode 0 = OFF => stock octet pour octet (aucune prepasse, aucun appel GL d'AO).
+  // 1 = SSAO, 2 = HBAO, 3 = GTAO.
+  //
+  // CE N'EST PLUS UN POST-TRAITEMENT SUR L'IMAGE (lighting-ao-indirect, SPEC §4.7). L'ancien
+  // chemin composait sur l'image opaque FINALE au crochet du bucket 30, apres l'encodage gamma,
+  // et assombrissait donc aussi la lumiere directe — d'ou son masque de luminance. Il est
+  // SUPPRIME. Aujourd'hui l'estimateur ecrit une texture R8 (AmbientOcclusion.cpp) que `shade()`
+  // applique au SEUL terme indirect, en lineaire, avant le tone map.
   int recharged_ao_mode = 0;
   // AO quality: 0 = low (quarter-res, few samples), 1 = medium (half-res), 2 = high
   // (full-res, full samples). Only read when recharged_ao_mode != 0.
