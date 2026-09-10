@@ -4472,7 +4472,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: open
+  status: blocked
   priority: 18
   game: jak1
   gate:
@@ -4591,7 +4591,9 @@ items:
   - debug.opengoal.level.warp=village2-dock
   - debug.opengoal.tod.fast=1
   proof_timeout: 240
-  block_reason: null
+  block_reason: 'EN ATTENTE DU HONOR. Rouvert le 10/09 (« PAS VALIDE DU TOUT ») avec quatre verdicts neufs,
+    dont la source AVANT compression SDR. Le Redmi est branche a la place et l''item est epingle sur le
+    Honor : sans lui, zero echantillon.'
   proof_env:
   - ANDROID_SERIAL=AREE026206000788
   device_serial: AREE026206000788
@@ -5129,7 +5131,7 @@ items:
   owner_test: false
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: to-test
+  status: open
   priority: 51
   owner_feedback:
   - date: '2026-09-09'
@@ -5150,6 +5152,9 @@ items:
       avec les nouvelles vagues... Je sais pas ce qui est attendu mais je peux te dire qu'en l'etat elle
       est opaque (donc on voit pas les orbes sous l'eau par example), les vagues suivent une seule direction
       au lieu d'epouser la cote (c'est peut-etre tout voulu ou attendu en l'etat, mais je te fais le feedback)
+  - date: '2026-09-10'
+    text: la riviere de forbidden jungle sort litteralement de son lit avec les vagues, bizarre ! Je parle
+      de la partie qui prolonge la mer, c'est la ou il y a le mini jeu avec le pecheur
   gate:
     key: water_gameplay_height_maxdelta_mm
     op: ==
@@ -5169,34 +5174,31 @@ items:
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.water=1
-  where: 'la mer depuis le village de Sandover et la plage : meme houle qu''avant, sans trou ni fente,
-    et l''eau vanilla a l''identique quand Eau Rechargee est OFF'
+  where: 'Forbidden Jungle, la riviere qui prolonge la mer (mini-jeu du pecheur) : la houle ne deborde
+    plus du lit. Puis la mer depuis Sandover.'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
     prompt ne repete pas. L''ocean mid ecrit la profondeur en GL_ALWAYS au bucket 4 AVANT le monde et
     le near au 63 sans Z (SPEC 2.1) : la profondeur de scene est illisible au dessin. Les 64 frames 32x32
     de houle sont LUES par le gameplay a 4 endroits : elles se conservent comme couche A (SPEC 5.2).'
-  deliverable: 'Sous recharged_water, les buckets 4 et 63 consomment leur DMA sans dessiner (renderers
-    ND vivants) ; un nouveau OceanRecharged dessine la clipmap 3 anneaux (SPEC 5.3) a la position W2a,
-    couche A captee au DMA near (ocean-near-add-heights) en texture R8 32x32 avec le MEME modulo 32 que
-    ocean-get-height, decoupe par les masques ND, far-color au loin. Shading provisoire = l''actuel. OFF
-    = graphe ORIGINE bit-identique (refset_replay_maxdiff=0). Publie aussi water_visual_excess_mm (<=
-    450) et gpu_ms_ocean. Nouveau .cpp dans game/ ET android/CMakeLists.txt. PREUVE : `FEATURE water-ocean-mesh
-    armed=1 hits=<sommets de clipmap deplaces>` + la ligne `water_gameplay_height_maxdelta_mm=` seule
-    sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
-    — appelle armed_for("water-ocean-mesh"), jamais armed(), et n''en ecris pas un second.'
-  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
-    recharged_water OFF — et tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master
-    seul (SPEC 1.2 regle 1, 7). La hauteur de JEU (ocean-get-height, ripple-find-height) ne change pas
-    d''un millimetre (regle 2). Aucune physique : l''interaction est simulee pour de faux (SPEC 1.4).
-    Ne touche a aucune feature validee. Pas de mesure visuelle. Pas de nouveau shading, pas de rivage,
-    pas de rides : c''est l''item 2 et suivants.'
+  deliverable: 'Sous recharged_water : buckets 4 et 63 consomment leur DMA sans dessiner ; OceanRecharged
+    dessine la clipmap 3 anneaux (SPEC 5.3) en W2a, couche A captee au DMA near, MEME modulo 32 que ocean-get-height,
+    decoupe par les masques ND. Shading provisoire = l''actuel. OFF = graphe ORIGINE bit-identique. Publie
+    water_visual_excess_mm (<= 450) et gpu_ms_ocean. PREUVE : `FEATURE water-ocean-mesh armed=1 hits=<sommets
+    deplaces>` + `water_gameplay_height_maxdelta_mm=` seule sur sa ligne. S''AJOUTE (refus 10/09) : L''EAU
+    NE SORT PAS DE SON LIT — Forbidden Jungle, la riviere qui prolonge la mer (mini-jeu du pecheur), la
+    houle deborde. Mesurer par niveau et par cellule l''emprise de l''eau DESSINEE contre celle de l''origine
+    : aucun pixel d''eau la ou l''origine n''en dessine pas, excedent publie et nul. Verifier nommement
+    les jonctions mer/riviere.'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF et recharged_water
+    OFF ; tout sous-reglage d''eau se garde sur recharged_water, jamais sur le master seul (SPEC 1.2).
+    La hauteur de JEU ne bouge pas.'
   notes: 'SPEC sections 5.2, 5.3, 8 (controle causal 1 : 64 sommets compares a la hauteur de jeu). Vantage
     : village1-out. | 09-09 (perf) : SPEC 5.2 amendee — perf-ocean-idle saute la houle GOAL sans carte
     ; la couche A reste produite des qu''il y a une carte.'
   spec: prompts/SPEC-refonte-eau.md
   hits_means: sommets de clipmap deplaces
   supervisor_recovery: true
-  delivered: '2026-09-10'
+  delivered: null
 - id: water-surface-material
   feature: Une seule matiere d'eau, eclairee par shade()
   status: open
@@ -5733,7 +5735,7 @@ items:
   device_serial: eae4df44
 - id: perf-gl-waits
   feature: Le pilote GL ne valide plus chaque appel et ne fait plus de sondes en production
-  status: blocked
+  status: open
   priority: 21
   game: jak1
   gate:
@@ -5773,15 +5775,12 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
   prompt: prompts/item-perf-gl-waits.md
   device_serial: eae4df44
 - id: perf-merc-defuse
   feature: Le fil de rendu n'attend plus le GPU au milieu de chaque image
-  status: blocked
+  status: open
   priority: 22
   game: jak1
   gate:
@@ -5818,15 +5817,12 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
   prompt: prompts/item-perf-merc-defuse.md
   device_serial: eae4df44
 - id: perf-fbo-passes
   feature: Une seule passe plein ecran par image, et le depth n'est plus stocke pour rien
-  status: blocked
+  status: open
   priority: 23
   game: jak1
   gate:
@@ -5868,13 +5864,10 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-fbo-passes.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-goal-gl-overlap
   feature: GOAL construit l'image suivante pendant que le GPU rend la precedente
-  status: blocked
+  status: open
   priority: 24
   game: jak1
   gate:
@@ -5916,13 +5909,10 @@ items:
   - debug.opengoal.perf.nooverlap=2
   prompt: prompts/item-perf-goal-gl-overlap.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-thread-build
   feature: Le fil GOAL tourne sur un gros coeur, dans un binaire release
-  status: blocked
+  status: open
   priority: 25
   game: jak1
   gate:
@@ -5959,15 +5949,12 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
   prompt: prompts/item-perf-thread-build.md
   device_serial: eae4df44
 - id: perf-actor-pause-dist
   feature: Les acteurs loin de Jak dorment comme sur PS2, et c'est un reglage
-  status: blocked
+  status: open
   priority: 35
   game: jak1
   gate:
@@ -6007,10 +5994,7 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-actor-pause-dist.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-ocean-idle
   feature: Pas d'ocean, pas de vagues calculees
   status: to-test
@@ -6052,7 +6036,7 @@ items:
   owner_test: false
 - id: perf-dma-chain-copies
   feature: La chaine DMA n'est plus parcourue cinq fois par image
-  status: blocked
+  status: open
   priority: 37
   game: jak1
   gate:
@@ -6085,15 +6069,12 @@ items:
   proof_props:
   - debug.opengoal.recharged=0
   - debug.opengoal.perf.buckets=1
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
   prompt: prompts/item-perf-dma-chain-copies.md
   device_serial: eae4df44
 - id: perf-gl-state
   feature: Moins d'appels pilote par draw, memes pixels
-  status: blocked
+  status: open
   priority: 38
   game: jak1
   gate:
@@ -6134,13 +6115,10 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-gl-state.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-sky-distort
   feature: Le ciel se melange sur le GPU et la distorsion ne recopie plus tout l'ecran
-  status: blocked
+  status: open
   priority: 39
   game: jak1
   gate:
@@ -6177,13 +6155,10 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-sky-distort.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-mips2c-neon
   feature: Les noyaux VU0 emules (os, joints, particules) calculent en vectoriel
-  status: blocked
+  status: open
   priority: 40
   game: jak1
   gate:
@@ -6219,13 +6194,10 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-mips2c-neon.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-codegen-arm64-calls
   feature: Un appel de fonction GOAL coute deux instructions, pas huit
-  status: blocked
+  status: open
   priority: 41
   game: jak1
   gate:
@@ -6264,13 +6236,10 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-codegen-arm64-calls.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
-  status: blocked
+  status: open
   priority: 42
   game: jak1
   gate:
@@ -6302,13 +6271,10 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-codegen-arm64-scalar.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-codegen-arm64-regs
   feature: Le compilateur GOAL utilise les 31 registres de l'arm64
-  status: blocked
+  status: open
   priority: 43
   game: jak1
   gate:
@@ -6342,13 +6308,10 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-codegen-arm64-regs.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-instrument-cost
   feature: Un instrument desarme ne coute rien, et le prouve lui-meme
-  status: blocked
+  status: open
   priority: 44
   game: jak1
   gate:
@@ -6392,13 +6355,10 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-instrument-cost.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: perf-stock-60
   feature: Le jeu STOCK tient 60 images par seconde sur le Redmi, en natif 21:9
-  status: blocked
+  status: open
   priority: 46
   game: jak1
   gate:
@@ -6444,10 +6404,7 @@ items:
   - debug.opengoal.frame.limit=240
   prompt: prompts/item-perf-stock-60.md
   device_serial: eae4df44
-  block_reason: 'ATTEND LE SWITCH D''APPAREIL. L''owner ne peut brancher qu''un telephone a la fois (10/09).
-    Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
-    rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
-    HDR n''attend pas son tour.'
+  block_reason: null
 - id: recharged-gating-real
   feature: Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
   status: open
@@ -6850,7 +6807,7 @@ items:
       fait des particules rouges bizarres, probablement un des tests/debugs qui est reste la et qui maintenant
       reste... Faut degager ca c'est horrible
 - id: lighting-legacy-purge
-  priority: 33
+  priority: 17
   device: true
   feature: Les reglages d'eclairage de l'ancien monde ne cohabitent plus avec la refonte
   gate:
@@ -6878,7 +6835,8 @@ items:
   max_retries: 6
   proof_timeout: 300
   prompt: prompts/item-lighting-legacy-purge.md
-  notes: Insere le 11/09 sur retour owner du 10/09 au soir.
+  notes: 'Owner 10/09 au soir : « vire les dessuite avant qu''ils nous embetent, on en veut pas de toute
+    facons ». Prio 17, avant la sortie HDR.'
   owner_feedback:
   - date: '2026-09-10'
     text: Modele d'ambiance, Materiaux PBR, Force de l'ambiance, Distance des ombres, Qualite des ombres,
@@ -6886,3 +6844,6 @@ items:
       avances... C'est des trucs anciens qui n'ont aucun rapport avec la refonte de l'eclairage actuel
       non ? Pourquoi on les garde ? C'est une question mais j'ai peur que ca rentre en collision avec
       notre nouvelle approche et notre nouveau code
+  - date: '2026-09-10'
+    text: les anciens reglages d'eclairage, vire les dessuite avant qu'ils nous embetent, on en veut pas
+      de toute facons

@@ -2,6 +2,7 @@
 
 ## Defaut cite
 - 2026-09-10 : « Modele d'ambiance, Materiaux PBR, Force de l'ambiance, Distance des ombres, Qualite des ombres, Relief des textures, Intensite des reflets, Profondeur de surface, Subdivision du maillage, Materiaux avances... C'est des trucs anciens qui n'ont aucun rapport avec la refonte de l'eclairage actuel non ? Pourquoi on les garde ? C'est une question mais j'ai peur que ca rentre en collision avec notre nou… »
+- 2026-09-10 : « les anciens reglages d'eclairage, vire les dessuite avant qu'ils nous embetent, on en veut pas de toute facons »
 
 ## Cause connue
 Owner 10/09 : « Modele d'ambiance, Materiaux PBR, Force de l'ambiance, Distance des ombres [...] c'est des trucs anciens [...] j'ai peur que ca rentre en collision avec notre nouvelle approche ». Sa crainte est fondee : lighting-ao-indirect a trouve un verrou safe-boot herite qui epinglait l'AO a zero en silence, ligne de menu sur HBAO et moteur a zero.
