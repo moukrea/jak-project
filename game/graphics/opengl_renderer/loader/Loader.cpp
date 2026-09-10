@@ -1,5 +1,6 @@
 #include "Loader.h"
 #include "game/graphics/origin_ablate.h"
+#include "game/system/water_census.h"
 
 #include <algorithm>
 #include <chrono>
@@ -2015,6 +2016,11 @@ void Loader::refresh_recharged_textures(TexturePool& texture_pool) {
 }
 
 void Loader::update(TexturePool& texture_pool) {
+  // water-census : le recensement de l'eau, une seule fois. Ici parce que c'est le premier site
+  // par image ou les chemins d'assets sont resolus sur les DEUX plateformes ; il ne lit que des
+  // fichiers texte et ne touche a aucun etat de rendu.
+  water_census::run_once();
+
   Timer loader_timer;
 
   // Gmemory-ceiling-and-crash : la purge DIFFEREE. Celle de `niveau-pret` tombe avant la

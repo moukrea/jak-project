@@ -434,6 +434,7 @@ add_library(android_kernel STATIC
     # meurt au lien arm64.
     "${JAK_ROOT}/game/system/perf_instruments.cpp"
     "${JAK_ROOT}/game/system/perf_baseline.cpp"
+    "${JAK_ROOT}/game/system/water_census.cpp"
     "${JAK_ROOT}/game/system/settings_case_l10n.cpp"
     "${JAK_ROOT}/game/system/npc_flicker.cpp"
     "${JAK_ROOT}/game/system/Deci2Server.cpp"

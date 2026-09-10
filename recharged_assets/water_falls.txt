@@ -1,0 +1,233 @@
+# water_falls.txt — LE VERDICT DE CHAQUE PROTOTYPE TIE/TFRAG QUI PORTE UNE TEXTURE DE LIQUIDE.
+# Item `water-census` (SPEC-refonte-eau.md §5.7, §5.8). Genere depuis les 26 .fr3 par
+# `tools/water_bake`, puis TRANCHE A LA MAIN, une ligne par nom. Format de la SPEC §5.7 :
+#
+#   CHUTE  <proto>  dir=<x,y,z> vitesse=<m/s> bandes=<n> impact=<x,y,z> r=<m> force=<0..1> brume=<groupe>
+#   JET    <proto>  impact=<x,y,z> r=<m> periode=<s>
+#   NAPPE  <proto>  matiere=<mer|riviere|mare|boue|eco|lave|electrique>
+#   EXCLU  <proto>  <raison>
+#
+# Les champs numeriques des lignes CHUTE et JET valent `?` : ils sont la charge utile de l'item
+# `water-falls` (SPEC §9 item 7), pas de celui-ci. Un `?` est un inconnu DECLARE, pas un implicite.
+#
+# AUCUN IMPLICITE. Les 196 noms recenses par water_bake ont chacun leur ligne. Un nom absent de
+# ce fichier est compte dans `water_proto_unassigned`, la porte de l'item.
+#
+# COMMENT LES CANDIDATS SONT TROUVES, ET POURQUOI IL Y A 165 `EXCLU`.
+# ------------------------------------------------------------------
+# `TFragmentTreeKind::WATER` existe dans le format fr3, et il est VIDE sur les 26 niveaux de
+# jak 1 : `tfrag_water_trees=0` partout (water_inventory.txt). Le signal de donnee que ND aurait
+# pu nous donner n'existe pas ici. Il ne reste que le NOM, et water_bake le cherche LARGEMENT.
+#
+# Or les prefixes de niveau `lava-` (lavatube) et `swp-` (swamp) sont eux-memes des mots du
+# lexique : 243 des 268 textures de lavatube « matchent ». L'asymetrie est assumee — un candidat
+# de trop coute une ligne `EXCLU` a ecrire, un candidat manquant sort du denominateur SANS QUE
+# RIEN NE LE DISE et rend la porte verte par inaction. D'ou 165 `EXCLU`, chacun avec sa raison.
+#
+# CE QUE LA TABLE DES TEXTURES NE SUFFIT PAS A TRANCHER. « Toutes ses textures sont liquides »
+# est un critere SEDUISANT ET FAUX : `lava-stalactite-02.mb` n'habille que `lava-ground` et reste
+# de la roche ; `vil3-metal-pins.mb` n'habille que `vil3-sulfurpool-center` et reste du metal.
+# Le nom tranche, la table de textures sert de PREUVE, et chaque cas limite porte sa raison.
+#
+# TROUVAILLE A REMONTER A L'ITEM `water-falls` : sur les 196 noms, DEUX seulement sont des
+# chutes, et les deux sont de la LAVE. Aucune nappe de cascade d'EAU n'existe dans la geometrie
+# de niveau de jungle, village2, training ni beach — ce que la SPEC §2.4 annonce (« la nappe est
+# de la geometrie de niveau ») est vrai pour la lave et FAUX pour l'eau : les chutes d'eau de
+# jak 1 sont des groupes sparticle devant une paroi, et rien d'autre.
+#
+EXCLU  lava-lilrocks.mb                           prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  swp-small-leaf.mb                          prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  vil3-metal-pins.mb                         pieces metalliques : REUTILISENT vil3-sulfurpool-center comme habillage
+NAPPE  bch-water                                  matiere=mer
+EXCLU  cmn-precursor-eco-valve-inside             prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  cmn-precursor-ecovalve-grate               prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  cmn-precursor-ecovalve-top                 prop d'eco (valve/event) : aucune surface de liquide
+NAPPE  cv-darkecofringe                           matiere=eco
+NAPPE  cv-darkecofringe-02                        matiere=eco
+NAPPE  cv-darkecofringe-03                        matiere=eco
+EXCLU  cv-prestatue-deco-01                       decor sec ; 'deco' a matche le motif 'eco'
+EXCLU  cv-prestatue-deco-02                       decor sec ; 'deco' a matche le motif 'eco'
+EXCLU  cv-prestatue-deco-03                       decor sec ; 'deco' a matche le motif 'eco'
+EXCLU  cv-prestatue-deco-04                       decor sec ; 'deco' a matche le motif 'eco'
+EXCLU  cv-prestatue-deco-05                       decor sec ; 'deco' a matche le motif 'eco'
+EXCLU  cv-prestatue-deco-06                       decor sec ; 'deco' a matche le motif 'eco'
+EXCLU  cv-prestatue-deco-07                       decor sec ; 'deco' a matche le motif 'eco'
+EXCLU  cv-wall-wave-01                            texture de MUR ; 'wave' a matche un nom de paroi
+EXCLU  cv-wall-wave-02                            texture de MUR ; 'wave' a matche un nom de paroi
+NAPPE  lava-black                                 matiere=lave
+EXCLU  lava-energyrail-side                       prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-energyrail-top                        prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+NAPPE  lava-floor                                 matiere=lave
+NAPPE  lava-floor-deadly                          matiere=lave
+NAPPE  lava-ground                                matiere=lave
+NAPPE  lava-ground-floor-blend                    matiere=lave
+NAPPE  lava-ground-hi                             matiere=lave
+NAPPE  lava-ground-hot                            matiere=lave
+NAPPE  lava-ground-hot-trim                       matiere=lave
+EXCLU  lava-lrkr-metal-06                         prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-metal-planks                          prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-metal-plate-01                        prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-metalplates-03                        prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-plates-blend                          prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-rockwall                              prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-yellowsage-tarp                       prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  sun-ecovalve-top                           prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  swp-bark                                   prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-bark-bottom                            prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-bark-roots                             prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-barreltop-01                           prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-beachrock                              prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-cannon-metal-01                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-hose                                   prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-hut-wood-01                            prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-hut-wood-01endcap                      prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-leafyground                            prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-leafyground-hang-2x1                   prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-metalstrip-bolt                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-moss-hang                              prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+NAPPE  swp-mud-floor                              matiere=boue
+NAPPE  swp-mud-floor-tar                          matiere=boue
+NAPPE  swp-mud-top                                matiere=boue
+NAPPE  swp-mud-trans                              matiere=boue
+EXCLU  swp-nubarrel-01                            prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-plainmetal                             prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-plankwood                              prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-rathole                                prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-roof-tile-top                          prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-stand-rock                             prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-stonewall                              prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+NAPPE  swp-tar                                    matiere=boue
+EXCLU  swp-tree-split                             prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-tree-split-cap                         prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+NAPPE  swp-water                                  matiere=mare
+JET    trn-geyser                                 impact=? r=? periode=?    ; geyser de training (4 emetteurs sparticle) — champs remplis par l'item water-falls
+NAPPE  vil3-lava-bottom                           matiere=lave
+NAPPE  vil3-lava-bottom-blend-to-top              matiere=lave
+NAPPE  vil3-lava-top                              matiere=lave
+NAPPE  ya-water                                   matiere=mare
+EXCLU  barrel.mb                                  prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  bch-ecovalve-outside.mb                    prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  cit-ecovent.mb                             prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  cv-ecovalve-outside.mb                     prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  eco-vents.mb                               prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  ecovalve-geo.mb                            prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  entrance.mb                                prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  fcn-ecovalve-outside.mb                    prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  fin-ecovalve-outside.mb                    prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  jng-ecovalve-outside.mb                    prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  launcher.mb                                prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  lava-coping-rocks.mb                       prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-curved-wall-01.mb                     prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-curved-wall-02.mb                     prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-energyroom-bigplates-01.mb            prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-energyroom-floorpanels-01.mb          prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-energyroom-floorpanels-02.mb          prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-energyroom-groundcoils.mb             prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+CHUTE  lava-lavafall-rocks.mb                     dir=? vitesse=? bandes=? impact=? r=? force=? brume=? matiere=lave   ; nom 'lavafall' + 4 textures sur 4 sont de la lave en ecoulement, 105 184 tris : la NAPPE de la chute de lavatube
+EXCLU  lava-metalplank-bent.mb                    prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-metalplank-long.mb                    prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-metalplank.mb                         prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-planktie-large.mb                     prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-rockchunks-large.mb                   prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigpipe-spine-90.mb             prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigpipe-spine-ring.mb           prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigpipe-spine.mb                prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigsection-curved-banked.mb     prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigsection-curved-dropped.mb    prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigsection-dropped.mb           prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigsection-holes.mb             prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigsection-joint-banked.mb      prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-bigsection-joint-dropped.mb     prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-ceiling-vent-bent.mb            prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-ceiling-vent.mb                 prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-chainloop.mb                    prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-floor-plates.mb                 prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-large-plain-plate.mb            prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-lilpipe-elbow-45.mb             prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-lilpipe-elbow-90.mb             prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-lilpipe.mb                      prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-narrow-plain-plate.mb           prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-pipe-platform-platesmall.mb     prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-pipe-platform-stripes.mb        prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-pipe-platform-support-01.mb     prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-pipe-platform.mb                prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sewer-vents-curved.mb                 prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sidewall-bottom.mb                    prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-sidewall-upper.mb                     paroi : REUTILISE lava-ground comme habillage
+EXCLU  lava-stalactite-01.mb                      prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-stalactite-02.mb                      roche : REUTILISE lava-ground comme habillage, ce n'est pas une nappe
+EXCLU  lava-stalactite-03.mb                      roche : REUTILISE lava-ground comme habillage, ce n'est pas une nappe
+EXCLU  lava-structure-rocks-01.mb                 prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-structure-rocks-02.mb                 prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-structure-rocks-03.mb                 prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-structure-rocks-base.mb               prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-wall-bottom-01.mb                     prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-wall-bottom-pieces-01.mb              prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-walltall-02.mb                        prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-woodplank-dirty.mb                    prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-woodplank-metalbase.mb                prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-woodplank-metalbracket.mb             prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  lava-woodplank.mb                          prefixe de niveau lavatube ; geometrie seche (metal/roche/passerelle/bois)
+EXCLU  ogr-ecovalve-outside-geo.mb                prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  portal.mb                                  prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  root-01.mb                                 prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  root-02.mb                                 prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  root-03.mb                                 prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  root-04.mb                                 prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  root-05.mb                                 prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  smallwall-ref-01.mb                        prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  snow-dark-eco-barrel.mb                    tonneau d'eco noir : un prop, pas une nappe
+EXCLU  snow-ecovent.mb                            prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  swampswing.mb                              prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  swp-backpost.mb                            prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+NAPPE  swp-bigmud-01.mb                           matiere=boue   ; n'habille que swp-mud-top : nappe de boue de swamp
+EXCLU  swp-boulder-01.mb                          prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-boulder-02.mb                          prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-boulder-04.mb                          prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-ecovalve-outside.mb                    prop d'eco (valve/event) : aucune surface de liquide
+EXCLU  swp-face-04.mb                             prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-face-06.mb                             prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-face-07a.mb                            prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-ledge-01mb.mb                          prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-ledge-02mb.mb                          prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-longpost-01.mb                         prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-longpost-02.mb                         prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-longpost-03.mb                         prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-longpost-04.mb                         prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-peak-01.mb                             piton rocheux : REUTILISE swp-mud-top comme habillage
+EXCLU  swp-plank1.mb                              prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-plank2.mb                              prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-plankgroup-01.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-plankgroup-02.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-plankgroup-03.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-plankgroup-04.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-rooftile.mb                            prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-shortpost-01.mb                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-shortpost-02.mb                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-shortpost-03.mb                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-shortpost-04.mb                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-05.mb                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-06.mb                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-07.mb                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-07a.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-08.mb                        prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-08a.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-08c.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-09a.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-09b.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-thornbush-09c.mb                       prefixe de niveau swamp ; geometrie seche (bois/roche/plante)
+EXCLU  swp-tunnel-01.mb                           tunnel : REUTILISE swp-mud-top comme habillage
+EXCLU  teleport-portal.mb                         prop ou geometrie seche portant une texture voisine d'un liquide
+NAPPE  tie-wind:lava-cracked-floor-top            matiere=lave   ; sol de lave craquele (croute), texture dediee
+NAPPE  tie-wind:lava-craked-floor-side            matiere=lave   ; sol de lave craquele (croute), texture dediee
+EXCLU  tree-01.mb                                 prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  trunk-02.mb                                prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  trunk-03.mb                                prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  trunktop-02ex.mb                           prop ou geometrie seche portant une texture voisine d'un liquide
+NAPPE  vil3-lava-cracked-edge-01.mb               matiere=lave   ; bord de la coulee de village3, n'habille que vil3-lava-bottom
+NAPPE  vil3-lava-cracked-edge-02.mb               matiere=lave   ; bord de la coulee de village3, n'habille que vil3-lava-bottom
+CHUTE  vil3-lava-funnel-small.mb                  dir=? vitesse=? bandes=? impact=? r=? force=? brume=? matiere=lave   ; entonnoir n'habillant que vil3-lava-top/bottom : la lave y tombe
+NAPPE  vil3-sulfur-pool.mb                        matiere=mare   ; n'habille que les 3 textures de vil3-sulfurpool : c'est le bassin
+EXCLU  wallspike-02.mb                            prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  wallspike-04.mb                            prop ou geometrie seche portant une texture voisine d'un liquide
+EXCLU  window-pane.mb                             48 tris, nom de vitre : la texture bch-water y sert d'habillage translucide

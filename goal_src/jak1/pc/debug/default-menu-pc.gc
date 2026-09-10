@@ -316,12 +316,10 @@
     (case (/ arg0 8)
       ((0) (set! (-> *pc-settings* lod-force-tfrag) arg2))
       ((1) (set! (-> *pc-settings* lod-force-tie) arg2))
-      ((2) (set! (-> *pc-settings* lod-force-ocean) arg2))
       ((3) (set! (-> *pc-settings* lod-force-actor) arg2))))
   (case (/ arg0 8)
     ((0) (-> *pc-settings* lod-force-tfrag))
     ((1) (-> *pc-settings* lod-force-tie))
-    ((2) (-> *pc-settings* lod-force-ocean))
     ((3) (-> *pc-settings* lod-force-actor))
     (else arg3)))
 
@@ -637,14 +635,12 @@
                                                                                ,(lambda ()
                                                                                  (set! (-> *pc-settings* lod-force-tfrag) 0)
                                                                                  (set! (-> *pc-settings* lod-force-tie) 0)
-                                                                                 ;(set! (-> *pc-settings* lod-force-ocean) 0)
                                                                                  (set! (-> *pc-settings* lod-force-actor) 0)))
                                                                      (function "Worst quality"
                                                                                #f
                                                                                ,(lambda ()
                                                                                  (set! (-> *pc-settings* lod-force-tfrag) 2)
                                                                                  (set! (-> *pc-settings* lod-force-tie) 3)
-                                                                                 ;(set! (-> *pc-settings* lod-force-ocean) 2)
                                                                                  (set! (-> *pc-settings* lod-force-actor) 3))))
                                                                (menu "Framerate"
                                                                      (flag "60" 60 dm-frame-rate-pick-func)

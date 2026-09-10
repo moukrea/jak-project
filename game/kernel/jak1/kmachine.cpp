@@ -5992,7 +5992,8 @@ static void postload_pc_settings_trace(void (*sink)(const char*, const void*, si
   boot_replay_symbol_checkpoint("pc-settings-letterbox?", boot_replay_read<u32>(settings + 124),
                                 sink);
   scalar("pc-settings-lod-dist-mod", boot_replay_read<float>(settings + 332));
-  scalar("pc-settings-lod-force-actor", boot_replay_read<int8_t>(settings + 339));
+  // offset 338 (et non 339) : lod-force-ocean a ete retire du type pc-settings (item water-census)
+  scalar("pc-settings-lod-force-actor", boot_replay_read<int8_t>(settings + 338));
   boot_replay_symbol_checkpoint("pc-settings-ps2-actor-vis?", boot_replay_read<u32>(settings + 340),
                                 sink);
   boot_replay_symbol_checkpoint("pc-settings-use-vis?", boot_replay_read<u32>(settings + 344),

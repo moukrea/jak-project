@@ -510,6 +510,19 @@ fs::path get_bundled_mesh_index_dir(GameVersion game_version) {
   return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] / "mesh_index";
 }
 
+// water-census (SPEC-refonte-eau.md §5.8) : meme chemin d'embarquement que le mesh_index
+// ci-dessus, un sous-dossier a cote. Porte `water_inventory.txt` et `water_ocean_maps.txt`,
+// produits hors ligne par tools/water_bake depuis les fr3 et les tables GOAL de l'ocean.
+// C'est la famille « derivee des ISO », distincte des `recharged_assets` (les notres) : les
+// verdicts, eux, vivent la-bas.
+fs::path get_water_census_dir(GameVersion game_version) {
+  if (g_custom_assets_root) {
+    return *g_custom_assets_root / "water_census";
+  }
+  return get_jak_project_dir() / "custom_assets" / game_version_names[game_version] /
+         "water_census";
+}
+
 std::string get_file_path(const std::vector<std::string>& input) {
   // TODO - clean this behaviour up, it causes unexpected behaviour when working with files
   // the project path should be explicitly provided by whatever if needed

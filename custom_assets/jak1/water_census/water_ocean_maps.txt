@@ -1,0 +1,101 @@
+# water_ocean_maps.txt — LES CARTES D'OCEAN ET LEURS 36 SPHERES DE DECOUPE.
+# Item `water-census` (SPEC-refonte-eau.md §2.1, §5.8). EXPORT, pas une decision : tout vient
+# en clair de goal_src/jak1/engine/gfx/ocean/ocean-tables.gc et de engine/level/level-info.gc.
+#
+# CORRECTION A LA SPEC. §2.2 parle de « 10 cartes d'ocean » : il y a 10 NIVEAUX a ocean et
+# seulement 3 CARTES. *ocean-map-sunken* n'a meme pas de spheres propres — il reutilise celles
+# de village2 (ocean-tables.gc:11256), et ses tables mid/trans/near sont VIDES. Il n'existe donc
+# que DEUX jeux de 36 spheres dans tout le jeu, pas dix.
+#
+# `test-zone` est NOTRE niveau (level-info.gc:2471, « CUSTOM LEVELS ») : le compte Naughty Dog
+# est de 9 niveaux a ocean, 10 avec le notre.
+#
+# Format : niveau <nom> carte=<carte> | carte <nom> spheres=<source> | sphere <carte> <i> x y z r
+
+niveau training     carte=*ocean-map-village1*   ; level-info.gc:25
+niveau village1     carte=*ocean-map-village1*   ; level-info.gc:145
+niveau beach        carte=*ocean-map-village1*   ; level-info.gc:289
+niveau jungle       carte=*ocean-map-village1*   ; level-info.gc:342
+niveau misty        carte=*ocean-map-village1*   ; level-info.gc:446
+niveau village2     carte=*ocean-map-village2*   ; level-info.gc:701
+niveau sunken       carte=*ocean-map-sunken*   ; level-info.gc:792
+niveau sunkenb      carte=*ocean-map-sunken*   ; level-info.gc:902
+niveau swamp        carte=*ocean-map-village2*   ; level-info.gc:973
+niveau test-zone    carte=*ocean-map-village1*   ; level-info.gc:2490
+
+carte *ocean-map-village1* spheres=*ocean-spheres-village1*  ; ocean-tables.gc:20-64
+carte *ocean-map-village2* spheres=*ocean-spheres-village2*  ; ocean-tables.gc:5950-5994
+carte *ocean-map-sunken*   spheres=*ocean-spheres-village2*  ; ALIAS, ocean-tables.gc:11256
+
+sphere village1 0  x=-7864320.0 y=0.0 z=-7864320.0 r=2224365.5
+sphere village1 1  x=-4718592.0 y=0.0 z=-7864320.0 r=2224365.5
+sphere village1 2  x=-1572864.0 y=0.0 z=-7864320.0 r=2224365.5
+sphere village1 3  x=1572864.0 y=0.0 z=-7864320.0 r=2224365.5
+sphere village1 4  x=4718592.0 y=0.0 z=-7864320.0 r=2224365.5
+sphere village1 5  x=7864320.0 y=0.0 z=-7864320.0 r=2224365.5
+sphere village1 6  x=-7864320.0 y=0.0 z=-4718592.0 r=2224365.5
+sphere village1 7  x=-4718592.0 y=0.0 z=-4718592.0 r=2224365.5
+sphere village1 8  x=-1572864.0 y=0.0 z=-4718592.0 r=2224365.5
+sphere village1 9  x=1572864.0 y=0.0 z=-4718592.0 r=2224365.5
+sphere village1 10 x=4718592.0 y=0.0 z=-4718592.0 r=2224365.5
+sphere village1 11 x=7864320.0 y=0.0 z=-4718592.0 r=2224365.5
+sphere village1 12 x=-7864320.0 y=0.0 z=-1572864.0 r=2224365.5
+sphere village1 13 x=-4718592.0 y=0.0 z=-1572864.0 r=2224365.5
+sphere village1 14 x=-1572864.0 y=0.0 z=-1572864.0 r=2224365.5
+sphere village1 15 x=1572864.0 y=0.0 z=-1572864.0 r=2224365.5
+sphere village1 16 x=4718592.0 y=0.0 z=-1572864.0 r=2224365.5
+sphere village1 17 x=7864320.0 y=0.0 z=-1572864.0 r=2224365.5
+sphere village1 18 x=-7864320.0 y=0.0 z=1572864.0 r=2224365.5
+sphere village1 19 x=-4718592.0 y=0.0 z=1572864.0 r=2224365.5
+sphere village1 20 x=-1572864.0 y=0.0 z=1572864.0 r=2224365.5
+sphere village1 21 x=1572864.0 y=0.0 z=1572864.0 r=2224365.5
+sphere village1 22 x=4718592.0 y=0.0 z=1572864.0 r=2224365.5
+sphere village1 23 x=7864320.0 y=0.0 z=1572864.0 r=2224365.5
+sphere village1 24 x=-7864320.0 y=0.0 z=4718592.0 r=2224365.5
+sphere village1 25 x=-4718592.0 y=0.0 z=4718592.0 r=2224365.5
+sphere village1 26 x=-1572864.0 y=0.0 z=4718592.0 r=2224365.5
+sphere village1 27 x=1572864.0 y=0.0 z=4718592.0 r=2224365.5
+sphere village1 28 x=4718592.0 y=0.0 z=4718592.0 r=2224365.5
+sphere village1 29 x=7864320.0 y=0.0 z=4718592.0 r=2224365.5
+sphere village1 30 x=-7864320.0 y=0.0 z=7864320.0 r=2224365.5
+sphere village1 31 x=-4718592.0 y=0.0 z=7864320.0 r=2224365.5
+sphere village1 32 x=-1572864.0 y=0.0 z=7864320.0 r=2224365.5
+sphere village1 33 x=1572864.0 y=0.0 z=7864320.0 r=2224365.5
+sphere village1 34 x=4718592.0 y=0.0 z=7864320.0 r=2224365.5
+sphere village1 35 x=7864320.0 y=0.0 z=7864320.0 r=2224365.5
+sphere village2 0  x=-6320128.0 y=0.0 z=-14385152.0 r=2224365.5
+sphere village2 1  x=-3174400.0 y=0.0 z=-14385152.0 r=2224365.5
+sphere village2 2  x=-28672.0 y=0.0 z=-14385152.0 r=2224365.5
+sphere village2 3  x=3117056.0 y=0.0 z=-14385152.0 r=2224365.5
+sphere village2 4  x=6262784.0 y=0.0 z=-14385152.0 r=2224365.5
+sphere village2 5  x=9408512.0 y=0.0 z=-14385152.0 r=2224365.5
+sphere village2 6  x=-6320128.0 y=0.0 z=-11239424.0 r=2224365.5
+sphere village2 7  x=-3174400.0 y=0.0 z=-11239424.0 r=2224365.5
+sphere village2 8  x=-28672.0 y=0.0 z=-11239424.0 r=2224365.5
+sphere village2 9  x=3117056.0 y=0.0 z=-11239424.0 r=2224365.5
+sphere village2 10 x=6262784.0 y=0.0 z=-11239424.0 r=2224365.5
+sphere village2 11 x=9408512.0 y=0.0 z=-11239424.0 r=2224365.5
+sphere village2 12 x=-6320128.0 y=0.0 z=-8093696.0 r=2224365.5
+sphere village2 13 x=-3174400.0 y=0.0 z=-8093696.0 r=2224365.5
+sphere village2 14 x=-28672.0 y=0.0 z=-8093696.0 r=2224365.5
+sphere village2 15 x=3117056.0 y=0.0 z=-8093696.0 r=2224365.5
+sphere village2 16 x=6262784.0 y=0.0 z=-8093696.0 r=2224365.5
+sphere village2 17 x=9408512.0 y=0.0 z=-8093696.0 r=2224365.5
+sphere village2 18 x=-6320128.0 y=0.0 z=-4947968.0 r=2224365.5
+sphere village2 19 x=-3174400.0 y=0.0 z=-4947968.0 r=2224365.5
+sphere village2 20 x=-28672.0 y=0.0 z=-4947968.0 r=2224365.5
+sphere village2 21 x=3117056.0 y=0.0 z=-4947968.0 r=2224365.5
+sphere village2 22 x=6262784.0 y=0.0 z=-4947968.0 r=2224365.5
+sphere village2 23 x=9408512.0 y=0.0 z=-4947968.0 r=2224365.5
+sphere village2 24 x=-6320128.0 y=0.0 z=-1802240.0 r=2224365.5
+sphere village2 25 x=-3174400.0 y=0.0 z=-1802240.0 r=2224365.5
+sphere village2 26 x=-28672.0 y=0.0 z=-1802240.0 r=2224365.5
+sphere village2 27 x=3117056.0 y=0.0 z=-1802240.0 r=2224365.5
+sphere village2 28 x=6262784.0 y=0.0 z=-1802240.0 r=2224365.5
+sphere village2 29 x=9408512.0 y=0.0 z=-1802240.0 r=2224365.5
+sphere village2 30 x=-6320128.0 y=0.0 z=1343488.0 r=2224365.5
+sphere village2 31 x=-3174400.0 y=0.0 z=1343488.0 r=2224365.5
+sphere village2 32 x=-28672.0 y=0.0 z=1343488.0 r=2224365.5
+sphere village2 33 x=3117056.0 y=0.0 z=1343488.0 r=2224365.5
+sphere village2 34 x=6262784.0 y=0.0 z=1343488.0 r=2224365.5
+sphere village2 35 x=9408512.0 y=0.0 z=1343488.0 r=2224365.5

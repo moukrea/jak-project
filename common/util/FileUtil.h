@@ -102,6 +102,7 @@ fs::path get_bundled_recharged_textures_baked_dir(GameVersion game_version, cons
 // the game package next to the bundled recharged textures (same custom-pack root on Android, same
 // checked-out tree on desktop). Read on demand by the debug mesh browser.
 fs::path get_bundled_mesh_index_dir(GameVersion game_version);
+fs::path get_water_census_dir(GameVersion game_version);
 
 bool create_dir_if_needed(const fs::path& path);
 bool create_dir_if_needed_for_file(const std::string& path);

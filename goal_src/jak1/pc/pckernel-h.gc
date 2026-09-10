@@ -233,7 +233,6 @@
    (lod-dist-mod                     float) ;; non-shrub lod distance modifier
    (lod-force-tfrag                  int8) ;; tfrag lod tier override. 0 = highest detail
    (lod-force-tie                    int8) ;; tie lod tier override
-   (lod-force-ocean                  int8) ;; ocean lod tier override
    (lod-force-actor                  int8) ;; merc lod tier override
    ;; misc settings
    (ps2-actor-vis?                   symbol) ;; skips vis check for actor entity if disabled
@@ -464,7 +463,6 @@
   (set! (-> obj lod-dist-mod) 1.0)
   (set! (-> obj lod-force-tfrag) 0)
   (set! (-> obj lod-force-tie) 0)
-  (set! (-> obj lod-force-ocean) 0)
   (set! (-> obj lod-force-actor) 0)
   0)
 

@@ -1,0 +1,229 @@
+# water_inventory.txt — GENERE par tools/water_bake. NE PAS EDITER A LA MAIN.
+# L'enumeration vient des .fr3 (donnee produite par l'utilisateur, famille ISO) ;
+# les verdicts vivent a cote, dans recharged_assets/water_falls.txt. Le moteur JOINT
+# les deux et publie le residu : c'est la porte `water_proto_unassigned`.
+version 1
+entities loaded=1 files=24 water_anim=49 water_vol=43 total=92 looks_posed=48 looks_dup=1
+level GAME fr3_bytes=1039218 textures=346 water_textures=16 tfrag_water_trees=0 anim_slot_draws=0
+level beach fr3_bytes=13059195 textures=670 water_textures=5 tfrag_water_trees=0 anim_slot_draws=0
+level citadel fr3_bytes=18574108 textures=1216 water_textures=8 tfrag_water_trees=0 anim_slot_draws=0
+level darkcave fr3_bytes=6858426 textures=220 water_textures=13 tfrag_water_trees=0 anim_slot_draws=0
+level demo fr3_bytes=1827057 textures=46 water_textures=0 tfrag_water_trees=0 anim_slot_draws=0
+level finalboss fr3_bytes=7552345 textures=344 water_textures=27 tfrag_water_trees=0 anim_slot_draws=0
+level firecanyon fr3_bytes=11080218 textures=229 water_textures=3 tfrag_water_trees=0 anim_slot_draws=0
+level intro fr3_bytes=1101510 textures=102 water_textures=0 tfrag_water_trees=0 anim_slot_draws=0
+level jungle fr3_bytes=13237051 textures=640 water_textures=30 tfrag_water_trees=0 anim_slot_draws=0
+level jungleb fr3_bytes=2697527 textures=143 water_textures=22 tfrag_water_trees=0 anim_slot_draws=0
+level lavatube fr3_bytes=17948960 textures=268 water_textures=243 tfrag_water_trees=0 anim_slot_draws=0
+level maincave fr3_bytes=9584565 textures=381 water_textures=24 tfrag_water_trees=0 anim_slot_draws=0
+level misty fr3_bytes=15383265 textures=627 water_textures=9 tfrag_water_trees=0 anim_slot_draws=0
+level ogre fr3_bytes=18084344 textures=404 water_textures=8 tfrag_water_trees=0 anim_slot_draws=0
+level robocave fr3_bytes=11135368 textures=417 water_textures=13 tfrag_water_trees=0 anim_slot_draws=0
+level rolling fr3_bytes=14956092 textures=333 water_textures=9 tfrag_water_trees=0 anim_slot_draws=0
+level snow fr3_bytes=15360276 textures=552 water_textures=5 tfrag_water_trees=0 anim_slot_draws=0
+level sunken fr3_bytes=10841197 textures=544 water_textures=38 tfrag_water_trees=0 anim_slot_draws=0
+level sunkenb fr3_bytes=5369028 textures=237 water_textures=40 tfrag_water_trees=0 anim_slot_draws=0
+level swamp fr3_bytes=12168904 textures=413 water_textures=388 tfrag_water_trees=0 anim_slot_draws=0
+level test-zone fr3_bytes=897740 textures=14 water_textures=1 tfrag_water_trees=0 anim_slot_draws=0
+level title fr3_bytes=497030 textures=49 water_textures=4 tfrag_water_trees=0 anim_slot_draws=0
+level training fr3_bytes=9417494 textures=334 water_textures=13 tfrag_water_trees=0 anim_slot_draws=0
+level village1 fr3_bytes=13912721 textures=667 water_textures=18 tfrag_water_trees=0 anim_slot_draws=0
+level village2 fr3_bytes=13115595 textures=737 water_textures=4 tfrag_water_trees=0 anim_slot_draws=0
+level village3 fr3_bytes=11189540 textures=497 water_textures=16 tfrag_water_trees=0 anim_slot_draws=0
+proto lava-lilrocks.mb kind=shrub hard=0 draws=6 tris=61350 levels=lavatube tex=lava-ground,lava-ground-floor-blend,lava-hinge,lava-metal-corner-side,lava-metal-planks-08,lava-sewers-bolt-top
+proto swp-small-leaf.mb kind=shrub hard=0 draws=15 tris=227430 levels=swamp tex=swp-bark,swp-bark-roots,swp-blackout,swp-fanplant-cathead-01,swp-fanplant-leaves-01,swp-fanplant-stem-01,swp-grassclump-02,swp-lilly,swp-moss-hang,swp-mud-floor,swp-plant-leaf,swp-rope-01,swp-scum,swp-thorns,swp-tree-growth
+proto vil3-metal-pins.mb kind=shrub hard=0 draws=1 tris=4240 levels=village3 tex=vil3-sulfurpool-center
+proto bch-water kind=tfrag hard=0 draws=3 tris=168 levels=beach tex=bch-water
+proto cmn-precursor-eco-valve-inside kind=tfrag hard=0 draws=3 tris=480 levels=lavatube tex=cmn-precursor-eco-valve-inside
+proto cmn-precursor-ecovalve-grate kind=tfrag hard=0 draws=3 tris=90 levels=lavatube tex=cmn-precursor-ecovalve-grate
+proto cmn-precursor-ecovalve-top kind=tfrag hard=0 draws=3 tris=520 levels=lavatube tex=cmn-precursor-ecovalve-top
+proto cv-darkecofringe kind=tfrag hard=0 draws=6 tris=3501 levels=maincave tex=cv-darkecofringe
+proto cv-darkecofringe-02 kind=tfrag hard=0 draws=6 tris=6796 levels=maincave tex=cv-darkecofringe-02
+proto cv-darkecofringe-03 kind=tfrag hard=0 draws=3 tris=126 levels=maincave tex=cv-darkecofringe-03
+proto cv-prestatue-deco-01 kind=tfrag hard=0 draws=6 tris=1872 levels=darkcave tex=cv-prestatue-deco-01
+proto cv-prestatue-deco-02 kind=tfrag hard=0 draws=3 tris=558 levels=darkcave tex=cv-prestatue-deco-02
+proto cv-prestatue-deco-03 kind=tfrag hard=0 draws=3 tris=558 levels=darkcave tex=cv-prestatue-deco-03
+proto cv-prestatue-deco-04 kind=tfrag hard=0 draws=6 tris=486 levels=darkcave tex=cv-prestatue-deco-04
+proto cv-prestatue-deco-05 kind=tfrag hard=0 draws=3 tris=288 levels=darkcave tex=cv-prestatue-deco-05
+proto cv-prestatue-deco-06 kind=tfrag hard=0 draws=6 tris=990 levels=darkcave tex=cv-prestatue-deco-06
+proto cv-prestatue-deco-07 kind=tfrag hard=0 draws=3 tris=882 levels=darkcave tex=cv-prestatue-deco-07
+proto cv-wall-wave-01 kind=tfrag hard=0 draws=24 tris=13842 levels=darkcave,maincave,robocave tex=cv-wall-wave-01
+proto cv-wall-wave-02 kind=tfrag hard=0 draws=15 tris=8901 levels=darkcave,maincave tex=cv-wall-wave-02
+proto lava-black kind=tfrag hard=0 draws=6 tris=162 levels=lavatube tex=lava-black
+proto lava-energyrail-side kind=tfrag hard=0 draws=6 tris=474 levels=lavatube tex=lava-energyrail-side
+proto lava-energyrail-top kind=tfrag hard=0 draws=3 tris=748 levels=lavatube tex=lava-energyrail-top
+proto lava-floor kind=tfrag hard=0 draws=3 tris=5622 levels=lavatube tex=lava-floor
+proto lava-floor-deadly kind=tfrag hard=0 draws=9 tris=6630 levels=lavatube tex=lava-floor-deadly
+proto lava-ground kind=tfrag hard=0 draws=12 tris=1902 levels=lavatube tex=lava-ground
+proto lava-ground-floor-blend kind=tfrag hard=0 draws=3 tris=372 levels=lavatube tex=lava-ground-floor-blend
+proto lava-ground-hi kind=tfrag hard=0 draws=12 tris=3066 levels=lavatube tex=lava-ground-hi
+proto lava-ground-hot kind=tfrag hard=0 draws=9 tris=3268 levels=lavatube tex=lava-ground-hot
+proto lava-ground-hot-trim kind=tfrag hard=0 draws=3 tris=210 levels=lavatube tex=lava-ground-hot-trim
+proto lava-lrkr-metal-06 kind=tfrag hard=0 draws=3 tris=276 levels=lavatube tex=lava-lrkr-metal-06
+proto lava-metal-planks kind=tfrag hard=0 draws=6 tris=102 levels=lavatube tex=lava-metal-planks
+proto lava-metal-plate-01 kind=tfrag hard=0 draws=6 tris=720 levels=lavatube tex=lava-metal-plate-01
+proto lava-metalplates-03 kind=tfrag hard=0 draws=9 tris=396 levels=lavatube tex=lava-metalplates-03
+proto lava-plates-blend kind=tfrag hard=0 draws=3 tris=112 levels=lavatube tex=lava-plates-blend
+proto lava-rockwall kind=tfrag hard=0 draws=3 tris=30 levels=lavatube tex=lava-rockwall
+proto lava-yellowsage-tarp kind=tfrag hard=0 draws=3 tris=84 levels=lavatube tex=lava-yellowsage-tarp
+proto sun-ecovalve-top kind=tfrag hard=0 draws=6 tris=276 levels=sunken,sunkenb tex=sun-ecovalve-top
+proto swp-bark kind=tfrag hard=0 draws=6 tris=419 levels=swamp tex=swp-bark
+proto swp-bark-bottom kind=tfrag hard=0 draws=3 tris=104 levels=swamp tex=swp-bark-bottom
+proto swp-bark-roots kind=tfrag hard=0 draws=3 tris=96 levels=swamp tex=swp-bark-roots
+proto swp-barreltop-01 kind=tfrag hard=0 draws=3 tris=36 levels=swamp tex=swp-barreltop-01
+proto swp-beachrock kind=tfrag hard=0 draws=6 tris=708 levels=swamp tex=swp-beachrock
+proto swp-cannon-metal-01 kind=tfrag hard=0 draws=3 tris=120 levels=swamp tex=swp-cannon-metal-01
+proto swp-hose kind=tfrag hard=0 draws=6 tris=576 levels=swamp tex=swp-hose
+proto swp-hut-wood-01 kind=tfrag hard=0 draws=12 tris=4100 levels=swamp tex=swp-hut-wood-01
+proto swp-hut-wood-01endcap kind=tfrag hard=0 draws=6 tris=1386 levels=swamp tex=swp-hut-wood-01endcap
+proto swp-leafyground kind=tfrag hard=0 draws=9 tris=3522 levels=swamp tex=swp-leafyground
+proto swp-leafyground-hang-2x1 kind=tfrag hard=0 draws=3 tris=530 levels=swamp tex=swp-leafyground-hang-2x1
+proto swp-metalstrip-bolt kind=tfrag hard=0 draws=3 tris=507 levels=swamp tex=swp-metalstrip-bolt
+proto swp-moss-hang kind=tfrag hard=0 draws=3 tris=84 levels=swamp tex=swp-moss-hang
+proto swp-mud-floor kind=tfrag hard=0 draws=12 tris=17764 levels=swamp tex=swp-mud-floor
+proto swp-mud-floor-tar kind=tfrag hard=0 draws=3 tris=2504 levels=swamp tex=swp-mud-floor-tar
+proto swp-mud-top kind=tfrag hard=0 draws=12 tris=11550 levels=swamp tex=swp-mud-top
+proto swp-mud-trans kind=tfrag hard=0 draws=12 tris=2394 levels=swamp tex=swp-mud-trans
+proto swp-nubarrel-01 kind=tfrag hard=0 draws=3 tris=108 levels=swamp tex=swp-nubarrel-01
+proto swp-plainmetal kind=tfrag hard=0 draws=6 tris=294 levels=swamp tex=swp-plainmetal
+proto swp-plankwood kind=tfrag hard=0 draws=3 tris=866 levels=swamp tex=swp-plankwood
+proto swp-rathole kind=tfrag hard=0 draws=3 tris=46 levels=swamp tex=swp-rathole
+proto swp-roof-tile-top kind=tfrag hard=0 draws=6 tris=282 levels=swamp tex=swp-roof-tile-top
+proto swp-stand-rock kind=tfrag hard=0 draws=6 tris=546 levels=swamp tex=swp-stand-rock
+proto swp-stonewall kind=tfrag hard=0 draws=3 tris=80 levels=swamp tex=swp-stonewall
+proto swp-tar kind=tfrag hard=0 draws=9 tris=4266 levels=swamp tex=swp-tar
+proto swp-tree-split kind=tfrag hard=0 draws=3 tris=104 levels=swamp tex=swp-tree-split
+proto swp-tree-split-cap kind=tfrag hard=0 draws=3 tris=52 levels=swamp tex=swp-tree-split-cap
+proto swp-water kind=tfrag hard=0 draws=9 tris=8496 levels=swamp tex=swp-water
+proto trn-geyser kind=tfrag hard=0 draws=9 tris=10098 levels=training tex=trn-geyser
+proto vil3-lava-bottom kind=tfrag hard=0 draws=3 tris=2092 levels=village3 tex=vil3-lava-bottom
+proto vil3-lava-bottom-blend-to-top kind=tfrag hard=0 draws=3 tris=576 levels=village3 tex=vil3-lava-bottom-blend-to-top
+proto vil3-lava-top kind=tfrag hard=0 draws=9 tris=1716 levels=village3 tex=vil3-lava-top
+proto ya-water kind=tfrag hard=0 draws=9 tris=186 levels=village2 tex=ya-water
+proto barrel.mb kind=tie hard=0 draws=8 tris=1800 levels=swamp tex=swp-barreltop-01,swp-nubarrel-01
+proto bch-ecovalve-outside.mb kind=tie hard=0 draws=16 tris=2366 levels=beach tex=bch-eco-valve-inside,bch-ecovalve-grate,bch-ecovalve-top
+proto cit-ecovent.mb kind=tie hard=0 draws=16 tris=1352 levels=citadel tex=cit-precursor-ecovalve-top,cmn-precursor-eco-valve-inside,cmn-precursor-ecovalve-grate
+proto cv-ecovalve-outside.mb kind=tie hard=0 draws=32 tris=1352 levels=maincave,robocave tex=cmn-precursor-ecovalve-grate,cmn-precursor-ecovalve-top,cv-eco-valve-inside
+proto eco-vents.mb kind=tie hard=0 draws=20 tris=1864 levels=sunkenb tex=sun-eco-valve-inside,sun-ecovalve-grate,sun-ecovalve-top,sun-precursor-blueeco-flash
+proto ecovalve-geo.mb kind=tie hard=0 draws=40 tris=932 levels=rolling,training tex=jngb-eco-valve-inside,jngb-ecovalve-grate,jngb-ecovalve-top,jngb-precursor-blueeco-flash,sun-eco-valve-inside,sun-ecovalve-grate,sun-ecovalve-top,sun-precursor-blueeco-flash
+proto entrance.mb kind=tie hard=0 draws=4 tris=168 levels=jungle tex=cmn-precursor-ecovalve-top-hitweak
+proto fcn-ecovalve-outside.mb kind=tie hard=0 draws=16 tris=1352 levels=firecanyon tex=fcn-eco-valve-inside,fcn-ecovalve-grate,fcn-ecovalve-top
+proto fin-ecovalve-outside.mb kind=tie hard=0 draws=16 tris=506 levels=finalboss tex=fin-eco-valve-inside,fin-ecovalve-grate,fin-ecovalve-top-clean
+proto jng-ecovalve-outside.mb kind=tie hard=0 draws=40 tris=2330 levels=jungle,jungleb tex=cmn-precursor-blueeco-flash,cmn-precursor-eco-valve-inside,cmn-precursor-ecovalve-grate,cmn-precursor-ecovalve-top,jngb-eco-valve-inside,jngb-ecovalve-grate,jngb-ecovalve-top,jngb-precursor-blueeco-flash
+proto launcher.mb kind=tie hard=0 draws=19 tris=19044 levels=swamp tex=swp-blue,swp-launch-light,swp-precursor-metal-plain-01,swp-stonehengetop
+proto lava-coping-rocks.mb kind=tie hard=0 draws=7 tris=170456 levels=lavatube tex=lava-coping
+proto lava-curved-wall-01.mb kind=tie hard=0 draws=8 tris=284290 levels=lavatube tex=lava-rockwall
+proto lava-curved-wall-02.mb kind=tie hard=0 draws=14 tris=419272 levels=lavatube tex=lava-rockwall
+proto lava-energyroom-bigplates-01.mb kind=tie hard=0 draws=32 tris=43724 levels=lavatube tex=lava-energyrail-side,lava-metal-planks,lava-metal-plate-01,lava-metalplates-03
+proto lava-energyroom-floorpanels-01.mb kind=tie hard=0 draws=7 tris=163212 levels=lavatube tex=lava-metal-plate-01
+proto lava-energyroom-floorpanels-02.mb kind=tie hard=0 draws=4 tris=140308 levels=lavatube tex=lava-metal-plate-01
+proto lava-energyroom-groundcoils.mb kind=tie hard=0 draws=8 tris=7360 levels=lavatube tex=lava-energycoil,lava-energyrail-top
+proto lava-lavafall-rocks.mb kind=tie hard=0 draws=26 tris=105184 levels=lavatube tex=lava-floor,lava-ground,lava-ground-hot-blend,lava-ground-hot-corner
+proto lava-metalplank-bent.mb kind=tie hard=0 draws=7 tris=146396 levels=lavatube tex=lava-metal-planks
+proto lava-metalplank-long.mb kind=tie hard=0 draws=4 tris=40352 levels=lavatube tex=lava-energyrail-top
+proto lava-metalplank.mb kind=tie hard=0 draws=6 tris=175368 levels=lavatube tex=lava-metal-planks
+proto lava-planktie-large.mb kind=tie hard=0 draws=4 tris=56000 levels=lavatube tex=lava-rope-01
+proto lava-rockchunks-large.mb kind=tie hard=0 draws=8 tris=133620 levels=lavatube tex=lava-bottom-structure-blend,lava-ground
+proto lava-sewer-bigpipe-spine-90.mb kind=tie hard=0 draws=8 tris=262464 levels=lavatube tex=lava-metal-plate-02,lava-metalplates-02
+proto lava-sewer-bigpipe-spine-ring.mb kind=tie hard=0 draws=6 tris=410832 levels=lavatube tex=lava-metal-planks-07
+proto lava-sewer-bigpipe-spine.mb kind=tie hard=0 draws=8 tris=263424 levels=lavatube tex=lava-metal-plate-02,lava-metalplates-02
+proto lava-sewer-bigsection-curved-banked.mb kind=tie hard=0 draws=23 tris=34280 levels=lavatube tex=lava-metal-planks-hi,lava-metalplates-03
+proto lava-sewer-bigsection-curved-dropped.mb kind=tie hard=0 draws=13 tris=39432 levels=lavatube tex=lava-energyrail-side,lava-metal-planks-hi
+proto lava-sewer-bigsection-dropped.mb kind=tie hard=0 draws=22 tris=52224 levels=lavatube tex=lava-energyrail-side,lava-metal-planks-hi
+proto lava-sewer-bigsection-holes.mb kind=tie hard=0 draws=24 tris=64556 levels=lavatube tex=lava-black,lava-energyrail-side,lava-metal-planks-hi,lava-plates-blend
+proto lava-sewer-bigsection-joint-banked.mb kind=tie hard=0 draws=27 tris=109488 levels=lavatube tex=lava-energyrail-side,lava-hinge,lava-metal-pipeside-01,lava-metal-planks-02,lava-metal-plate-01,lava-metalcap
+proto lava-sewer-bigsection-joint-dropped.mb kind=tie hard=0 draws=27 tris=109488 levels=lavatube tex=lava-energyrail-side,lava-hinge,lava-metal-pipeside-01,lava-metal-planks-02,lava-metal-plate-01,lava-metalcap
+proto lava-sewer-ceiling-vent-bent.mb kind=tie hard=0 draws=20 tris=143418 levels=lavatube tex=lava-green,lava-metal-corner-side,lava-metal-planks-07,lava-metalplates-02,lava-metalplates-03
+proto lava-sewer-ceiling-vent.mb kind=tie hard=0 draws=12 tris=11252 levels=lavatube tex=lava-green,lava-metal-plate-side-01,lava-metalplates-03
+proto lava-sewer-chainloop.mb kind=tie hard=0 draws=4 tris=68118 levels=lavatube tex=lava-metal-corner-side
+proto lava-sewer-floor-plates.mb kind=tie hard=0 draws=16 tris=158450 levels=lavatube tex=lava-metal-corner-side,lava-metal-planks,lava-metal-planks-07,lava-plates-blend
+proto lava-sewer-large-plain-plate.mb kind=tie hard=0 draws=4 tris=47034 levels=lavatube tex=lava-lrkr-metal-06
+proto lava-sewer-lilpipe-elbow-45.mb kind=tie hard=0 draws=8 tris=79800 levels=lavatube tex=lava-metal-pipeside-02,lava-metalcap
+proto lava-sewer-lilpipe-elbow-90.mb kind=tie hard=0 draws=8 tris=82200 levels=lavatube tex=lava-metal-pipeside-02,lava-metalcap
+proto lava-sewer-lilpipe.mb kind=tie hard=0 draws=4 tris=40326 levels=lavatube tex=lava-metal-pipeside-01
+proto lava-sewer-narrow-plain-plate.mb kind=tie hard=0 draws=6 tris=11424 levels=lavatube tex=lava-lrkr-metal-06
+proto lava-sewer-pipe-platform-platesmall.mb kind=tie hard=0 draws=8 tris=56592 levels=lavatube tex=lava-metalcap,lava-metalplank-rusted
+proto lava-sewer-pipe-platform-stripes.mb kind=tie hard=0 draws=9 tris=19002 levels=lavatube tex=lava-metal-planks-07,lava-metal-planks-stripe
+proto lava-sewer-pipe-platform-support-01.mb kind=tie hard=0 draws=11 tris=156120 levels=lavatube tex=lava-energyrail-side,lava-wallsupport-04
+proto lava-sewer-pipe-platform.mb kind=tie hard=0 draws=8 tris=56160 levels=lavatube tex=lava-metalplates-03-small
+proto lava-sewer-vents-curved.mb kind=tie hard=0 draws=16 tris=116160 levels=lavatube tex=lava-metal-corner-side,lava-metal-corner-top,lava-metal-planks-07,lava-vent-fire
+proto lava-sidewall-bottom.mb kind=tie hard=0 draws=12 tris=126098 levels=lavatube tex=lava-bottom-structure-blend,lava-ground
+proto lava-sidewall-upper.mb kind=tie hard=0 draws=9 tris=66378 levels=lavatube tex=lava-ground
+proto lava-stalactite-01.mb kind=tie hard=0 draws=30 tris=232386 levels=lavatube tex=lava-bottom-structure-blend,lava-ground,lava-ground-floor-blend,lava-structure-02
+proto lava-stalactite-02.mb kind=tie hard=0 draws=15 tris=103344 levels=lavatube tex=lava-ground
+proto lava-stalactite-03.mb kind=tie hard=0 draws=11 tris=89026 levels=lavatube tex=lava-ground
+proto lava-structure-rocks-01.mb kind=tie hard=0 draws=11 tris=162640 levels=lavatube tex=lava-structure-02
+proto lava-structure-rocks-02.mb kind=tie hard=0 draws=9 tris=151948 levels=lavatube tex=lava-structure-02
+proto lava-structure-rocks-03.mb kind=tie hard=0 draws=7 tris=40256 levels=lavatube tex=lava-structure-02
+proto lava-structure-rocks-base.mb kind=tie hard=0 draws=11 tris=144146 levels=lavatube tex=lava-bottom-structure-blend,lava-structure-02
+proto lava-wall-bottom-01.mb kind=tie hard=0 draws=25 tris=283028 levels=lavatube tex=lava-bottom-structure-blend,lava-structure-01,lava-structure-02
+proto lava-wall-bottom-pieces-01.mb kind=tie hard=0 draws=8 tris=111356 levels=lavatube tex=lava-bottom-structure-blend,lava-structure-01
+proto lava-walltall-02.mb kind=tie hard=0 draws=11 tris=353890 levels=lavatube tex=lava-rockwall
+proto lava-woodplank-dirty.mb kind=tie hard=0 draws=4 tris=17280 levels=lavatube tex=lava-woodplank-dirty
+proto lava-woodplank-metalbase.mb kind=tie hard=0 draws=8 tris=3854 levels=lavatube tex=lava-metal-armhole,lava-plates-blend
+proto lava-woodplank-metalbracket.mb kind=tie hard=0 draws=8 tris=5400 levels=lavatube tex=lava-metal-corner-top,lava-metal-planks-07
+proto lava-woodplank.mb kind=tie hard=0 draws=4 tris=12792 levels=lavatube tex=lava-lrkrm-plank
+proto ogr-ecovalve-outside-geo.mb kind=tie hard=0 draws=16 tris=2704 levels=ogre tex=cmn-precursor-ecovalve-grate,cmn-precursor-ecovalve-top,ogr-eco-valve-inside
+proto portal.mb kind=tie hard=0 draws=18 tris=1144 levels=swamp tex=swp-painstripe-ground,swp-precursor-bluelight,swp-precursor-metal-edging-01
+proto root-01.mb kind=tie hard=0 draws=7 tris=12374 levels=swamp tex=swp-bark-roots
+proto root-02.mb kind=tie hard=0 draws=7 tris=168196 levels=swamp tex=swp-bark-roots
+proto root-03.mb kind=tie hard=0 draws=4 tris=9528 levels=swamp tex=swp-bark-roots
+proto root-04.mb kind=tie hard=0 draws=4 tris=17172 levels=swamp tex=swp-bark-roots
+proto root-05.mb kind=tie hard=0 draws=4 tris=9528 levels=swamp tex=swp-bark-roots
+proto smallwall-ref-01.mb kind=tie hard=0 draws=10 tris=150278 levels=swamp tex=swp-beachrock
+proto snow-dark-eco-barrel.mb kind=tie hard=0 draws=8 tris=22200 levels=snow tex=dark-eco-barrel-side,dark-eco-barrel-top
+proto snow-ecovent.mb kind=tie hard=0 draws=16 tris=1690 levels=snow tex=snow-eco-valve-inside,snow-ecovalve-grate,snow-ecovalve-top
+proto swampswing.mb kind=tie hard=0 draws=8 tris=13838 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-backpost.mb kind=tie hard=0 draws=10 tris=34598 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-bigmud-01.mb kind=tie hard=0 draws=7 tris=20036 levels=swamp tex=swp-mud-top
+proto swp-boulder-01.mb kind=tie hard=0 draws=8 tris=183250 levels=swamp tex=swp-beachrock
+proto swp-boulder-02.mb kind=tie hard=0 draws=14 tris=207562 levels=swamp tex=swp-beachrock
+proto swp-boulder-04.mb kind=tie hard=0 draws=7 tris=181046 levels=swamp tex=swp-beachrock
+proto swp-ecovalve-outside.mb kind=tie hard=0 draws=16 tris=5060 levels=swamp tex=swp-eco-valve-inside,swp-ecovalve-grate,swp-ecovalve-top-clean
+proto swp-face-04.mb kind=tie hard=0 draws=12 tris=97240 levels=swamp tex=swp-leafyground,swp-leafyground-hang-2x1,swp-mud-top
+proto swp-face-06.mb kind=tie hard=0 draws=19 tris=183116 levels=swamp tex=swp-leafyground,swp-leafyground-hang-2x1,swp-mud-bot,swp-mud-top
+proto swp-face-07a.mb kind=tie hard=0 draws=23 tris=209020 levels=swamp tex=swp-leafyground,swp-leafyground-hang-2x1,swp-mud-bot,swp-mud-top
+proto swp-ledge-01mb.mb kind=tie hard=0 draws=19 tris=31354 levels=swamp tex=swp-beachrock,swp-leafyground,swp-leafyground-hang-2x1,swp-mud-top
+proto swp-ledge-02mb.mb kind=tie hard=0 draws=27 tris=224344 levels=swamp tex=swp-beachrock,swp-leafyground,swp-leafyground-hang-2x1,swp-mud-top
+proto swp-longpost-01.mb kind=tie hard=0 draws=8 tris=30918 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-longpost-02.mb kind=tie hard=0 draws=11 tris=35734 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-longpost-03.mb kind=tie hard=0 draws=8 tris=16342 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-longpost-04.mb kind=tie hard=0 draws=8 tris=30918 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-peak-01.mb kind=tie hard=0 draws=8 tris=45234 levels=swamp tex=swp-mud-top
+proto swp-plank1.mb kind=tie hard=0 draws=4 tris=45576 levels=swamp tex=swp-plankwood
+proto swp-plank2.mb kind=tie hard=0 draws=4 tris=45576 levels=swamp tex=swp-plankwood
+proto swp-plankgroup-01.mb kind=tie hard=0 draws=4 tris=45576 levels=swamp tex=swp-plankwood
+proto swp-plankgroup-02.mb kind=tie hard=0 draws=4 tris=45576 levels=swamp tex=swp-plankwood
+proto swp-plankgroup-03.mb kind=tie hard=0 draws=4 tris=45576 levels=swamp tex=swp-plankwood
+proto swp-plankgroup-04.mb kind=tie hard=0 draws=4 tris=45576 levels=swamp tex=swp-plankwood
+proto swp-rooftile.mb kind=tie hard=0 draws=4 tris=2220 levels=swamp tex=swp-roof-tile-01
+proto swp-shortpost-01.mb kind=tie hard=0 draws=8 tris=16342 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-shortpost-02.mb kind=tie hard=0 draws=8 tris=7936 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-shortpost-03.mb kind=tie hard=0 draws=8 tris=7936 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-shortpost-04.mb kind=tie hard=0 draws=8 tris=9902 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap
+proto swp-thornbush-05.mb kind=tie hard=0 draws=4 tris=116520 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-06.mb kind=tie hard=0 draws=4 tris=122736 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-07.mb kind=tie hard=0 draws=4 tris=36552 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-07a.mb kind=tie hard=0 draws=4 tris=36552 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-08.mb kind=tie hard=0 draws=7 tris=149736 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-08a.mb kind=tie hard=0 draws=4 tris=116520 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-08c.mb kind=tie hard=0 draws=7 tris=149736 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-09a.mb kind=tie hard=0 draws=4 tris=122736 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-09b.mb kind=tie hard=0 draws=4 tris=122736 levels=swamp tex=swp-tempthorn
+proto swp-thornbush-09c.mb kind=tie hard=0 draws=4 tris=122736 levels=swamp tex=swp-tempthorn
+proto swp-tunnel-01.mb kind=tie hard=0 draws=7 tris=20788 levels=swamp tex=swp-mud-top
+proto teleport-portal.mb kind=tie hard=0 draws=18 tris=2496 levels=lavatube tex=cmn-precursor-metal-edging-01,cmn-precursor-plainstripe,lava-precursor-bluelight
+proto tie-wind:lava-cracked-floor-top kind=tie hard=0 draws=4 tris=37250 levels=lavatube tex=lava-cracked-floor-top
+proto tie-wind:lava-craked-floor-side kind=tie hard=0 draws=4 tris=55960 levels=lavatube tex=lava-craked-floor-side
+proto tree-01.mb kind=tie hard=0 draws=18 tris=285860 levels=swamp tex=swp-bark,swp-bark-bottom,swp-bark-roots-bottom
+proto trunk-02.mb kind=tie hard=0 draws=20 tris=424753 levels=swamp tex=swp-bark,swp-bark-bottom,swp-bark-roots,swp-bark-roots-bottom,swp-bark-top
+proto trunk-03.mb kind=tie hard=0 draws=34 tris=451436 levels=swamp tex=swp-bark,swp-bark-bottom,swp-bark-roots,swp-bark-roots-bottom,swp-blackout,swp-tree-split-cap
+proto trunktop-02ex.mb kind=tie hard=0 draws=8 tris=72307 levels=swamp tex=swp-bark,swp-bark-top
+proto vil3-lava-cracked-edge-01.mb kind=tie hard=0 draws=4 tris=22288 levels=village3 tex=vil3-lava-bottom
+proto vil3-lava-cracked-edge-02.mb kind=tie hard=0 draws=4 tris=22288 levels=village3 tex=vil3-lava-bottom
+proto vil3-lava-funnel-small.mb kind=tie hard=0 draws=8 tris=27488 levels=village3 tex=vil3-lava-bottom,vil3-lava-top
+proto vil3-sulfur-pool.mb kind=tie hard=0 draws=18 tris=4580 levels=village3 tex=vil3-sulfurpool-blend,vil3-sulfurpool-center,vil3-sulfurpool-outer
+proto wallspike-02.mb kind=tie hard=0 draws=16 tris=81128 levels=swamp tex=swp-hut-wood-01,swp-hut-wood-01endcap,swp-wood-spike-end
+proto wallspike-04.mb kind=tie hard=0 draws=11 tris=76680 levels=swamp tex=swp-hut-wood-01,swp-wood-spike-end
+proto window-pane.mb kind=tie hard=0 draws=4 tris=48 levels=beach tex=bch-water
+

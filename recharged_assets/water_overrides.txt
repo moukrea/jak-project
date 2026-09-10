@@ -1,0 +1,77 @@
+# water_overrides.txt — LA MATIERE DE CHACUN DES 48 LOOKS `water-anim`, ET LES REGLAGES PAR NIVEAU.
+# Item `water-census` (SPEC-refonte-eau.md §5.8). Aucun look sans matiere : c'est la moitie
+# « plans d'eau » du recensement, l'autre etant `water_falls.txt` (geometrie de niveau).
+#
+# D'OU VIENNENT LES 48. `defenum water-look`, goal_src/jak1/engine/common-obs/water-anim.gc:7-56,
+# 48 entrees 0..47 sans trou. Le look POSE n'est pas dans le source : c'est un entier du res-lump
+# de l'entite (`water-anim.gc:606`, `res-lump-value ... 'look`), donc il vit dans le bsp du niveau.
+# Les 48 sont tous poses. Deux singularites verifiees, a ne pas perdre :
+#   - le look 11 est pose DEUX fois (sunken-water-5 dans sunken, sunken-water-15 dans sunkenb) :
+#     49 entites `water-anim` pour 48 looks ;
+#   - le look 40 n'est pas porte par un `water-anim` mais par `helix-water`, un `process-drawable`
+#     qui RELAIE son entite a un enfant `helix-dark-eco` (levels/sunken/helix-water.gc:448). Un
+#     recensement qui filtre sur les sous-types de `water-anim` le MANQUE.
+#
+# LES MATIERES sont les 8 de la SPEC §4, declarees dans `water_materials.txt`. Aucun look ne
+# recoit `mer` : l'ocean n'est pas un `water-anim`, il a son propre renderer (SPEC §2.1).
+#
+# Format :
+#   look   <n> <matiere> <niveau> <nom du look>
+#   niveau <nom> lambda_shore=<m> T_shore=<s> teinte_lagon=<r,g,b>
+# Les champs `?` des lignes `niveau` sont la charge utile de l'item `water-shore` (SPEC §9 item 3) :
+# un inconnu DECLARE, pas un implicite.
+
+look   0   electrique  sunken          water-anim-sunken-big-room
+look   1   electrique  sunken          water-anim-sunken-first-room-from-entrance
+look   2   electrique  sunken          water-anim-sunken-qbert-room
+look   3   electrique  sunken          water-anim-sunken-first-right-branch
+look   4   electrique  sunken          water-anim-sunken-circular-with-bullys
+look   5   electrique  sunken          water-anim-sunken-hall-with-one-whirlpool
+look   6   electrique  sunken          water-anim-sunken-hall-with-three-whirlpools
+look   7   electrique  sunkenb         water-anim-sunken-start-of-helix-slide
+look   8   electrique  sunken          water-anim-sunken-room-above-exit-chamber
+look   9   electrique  sunken          water-anim-sunken-hall-before-big-room
+look   10  eco         sunken          water-anim-sunken-dark-eco-qbert
+look   11  electrique  sunken+sunkenb  water-anim-sunken-short-piece
+look   12  electrique  sunken          water-anim-sunken-big-room-upper-water
+look   13  eco         sunken          water-anim-sunken-dark-eco-platform-room
+look   14  mare        maincave        water-anim-maincave-water-with-crystal
+look   15  eco         maincave        water-anim-maincave-center-pool
+look   16  eco         maincave        water-anim-maincave-lower-right-pool
+look   17  eco         maincave        water-anim-maincave-mid-right-pool
+look   18  eco         maincave        water-anim-maincave-lower-left-pool
+look   19  eco         maincave        water-anim-maincave-mid-left-pool
+look   20  eco         robocave        water-anim-robocave-main-pool
+look   21  boue        misty           water-anim-misty-mud-by-arena
+look   22  boue        misty           water-anim-misty-mud-above-skeleton
+look   23  boue        misty           water-anim-misty-mud-behind-skeleton
+look   24  boue        misty           water-anim-misty-mud-above-skull-back
+look   25  boue        misty           water-anim-misty-mud-above-skull-front
+look   26  boue        misty           water-anim-misty-mud-other-near-skull
+look   27  boue        misty           water-anim-misty-mud-near-skull
+look   28  boue        misty           water-anim-misty-mud-under-spine
+look   29  boue        misty           water-anim-misty-mud-by-dock
+look   30  boue        misty           water-anim-misty-mud-island-near-dock
+look   31  boue        misty           water-anim-misty-mud-lonely-island
+look   32  eco         misty           water-anim-misty-dark-eco-pool
+look   33  lave        ogre            water-anim-ogre-lava
+look   34  riviere     jungle          water-anim-jungle-river
+look   35  lave        village3        water-anim-village3-lava
+look   36  mare        training        water-anim-training-lake
+look   37  mare        darkcave        water-anim-darkcave-water-with-crystal
+look   38  mare        rolling         water-anim-rolling-water-back
+look   39  mare        rolling         water-anim-rolling-water-front
+look   40  eco         sunkenb         water-anim-sunken-dark-eco-helix-room
+look   41  eco         finalboss       water-anim-finalboss-dark-eco-pool
+look   42  lave        lavatube        water-anim-lavatube-energy-lava
+look   43  mare        village1        water-anim-village1-rice-paddy
+look   44  fontaine    village1        water-anim-village1-fountain
+look   45  mare        village1        water-anim-village1-rice-paddy-mid
+look   46  mare        village1        water-anim-village1-rice-paddy-top
+look   47  mare        village2        water-anim-village2-bucket
+
+# --- reglages par niveau (remplis par l'item water-shore) ---
+niveau beach     lambda_shore=? T_shore=? teinte_lagon=?
+niveau village1  lambda_shore=? T_shore=? teinte_lagon=?
+niveau jungle    lambda_shore=? T_shore=? teinte_lagon=?
+niveau misty     lambda_shore=? T_shore=? teinte_lagon=?

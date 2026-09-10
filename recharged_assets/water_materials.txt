@@ -1,0 +1,21 @@
+# water_materials.txt — LE REGISTRE DES HUIT MATIERES D'EAU (SPEC-refonte-eau.md §4, §5.8).
+# Item `water-census` : ce fichier DECLARE les huit noms et le schema de leurs parametres. Les
+# VALEURS sont la charge utile de l'item `water-surface-material` (SPEC §9 item 2) ; ici elles
+# valent `?`, un inconnu declare. Ce registre existe des maintenant parce que `water_falls.txt`
+# et `water_overrides.txt` NOMMENT ces matieres : sans lui, leurs verdicts pointeraient dans le
+# vide.
+#
+# Format : matiere <nom> paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=?
+#                        amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?
+#
+# La colonne « ou » recopie la SPEC §4 ; elle dit quels looks et quels prototypes s'y rattachent,
+# et c'est ce qui permet de verifier qu'aucune matiere n'est declaree pour personne.
+
+matiere mer         paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=? amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?   ; 10 niveaux cotiers (renderer ocean) + tfrag bch-water
+matiere riviere     paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=? amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?   ; look 34 (jungle)
+matiere mare        paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=? amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?   ; looks 14/36/37/38/39/43/45/46/47 + swp-water, ya-water, vil3-sulfur-pool
+matiere fontaine    paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=? amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?   ; look 44 (village1) + JET trn-geyser
+matiere boue        paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=? amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?   ; looks 21..31 (misty) + swp-mud-*, swp-tar, swp-bigmud-01.mb
+matiere eco         paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=? amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?   ; looks 10/13/15..20/32/40/41 + cv-darkecofringe*
+matiere lave        paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=? amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?   ; looks 33/35/42 + lava-*, vil3-lava-* (dont les 2 seules CHUTE du jeu)
+matiere electrique  paliers=? k_abs=? roughness=? f0=? fresnel_ceiling=? sss_color=? amortissement=? normal_scale_a=? normal_scale_b=? ecume=? emissif=?   ; looks 0..9/11/12 (sunken, sunkenb)

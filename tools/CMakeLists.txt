@@ -26,3 +26,4 @@ add_executable(formatter
         formatter/main.cpp)
 target_link_libraries(formatter common tree-sitter)
 add_subdirectory(hd_merc_swap)
+add_subdirectory(water_bake)

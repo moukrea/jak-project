@@ -1074,7 +1074,7 @@
     (("lod-dist-mod") (set! (-> obj lod-dist-mod) (file-stream-read-float file)))
     (("lod-force-tfrag") (set! (-> obj lod-force-tfrag) (file-stream-read-int file)))
     (("lod-force-tie") (set! (-> obj lod-force-tie) (file-stream-read-int file)))
-    (("lod-force-ocean") (set! (-> obj lod-force-ocean) (file-stream-read-int file)))
+    (("lod-force-ocean") (file-stream-read-int file)) ;; reglage retire (water-census) ; la clause reste : un settings.ini livre porte encore la cle, et une cle sans clause fait exploser doini-keys
     (("lod-force-actor") (set! (-> obj lod-force-actor) (file-stream-read-int file)))
     (("game-language") (set-game-language! obj (the-as language-enum (file-stream-read-int file))))
     (("subtitle-speaker") (set! (-> obj subtitle-speaker?) (file-stream-read-symbol file)))
@@ -1164,7 +1164,6 @@
   ;(format file "lod-dist-mod = ~f~%" (-> obj lod-dist-mod))
   (format file "lod-force-tfrag = ~D~%" (-> obj lod-force-tfrag))
   (format file "lod-force-tie = ~D~%" (-> obj lod-force-tie))
-  (format file "lod-force-ocean = ~D~%" (-> obj lod-force-ocean))
   (format file "lod-force-actor = ~D~%" (-> obj lod-force-actor))
   (format file "ignore-controller-win-unfocused? = ~A~%" (-> obj ignore-controller-win-unfocused?))
   (format file "controller-hp-led? = ~A~%" (-> obj controller-led-hp?))
