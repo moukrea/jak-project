@@ -2932,7 +2932,7 @@ items:
   build: build du 2026-07-31, remplace depuis
 - id: recharged-menu-overhaul
   feature: La refonte des menus
-  status: open
+  status: archived
   priority: 47
   owner_feedback:
   - date: '2026-08-04'
@@ -2957,6 +2957,11 @@ items:
   known_cause: 'La refonte a deja ete livree une fois puis SORTIE des builds par menu-flag-off (owner
     2026-08-04 : parametres inventes, displacement disparu). Elle ne redemarre qu''apres le recensement
     du menu et la fermeture du navigateur de mesh (memes fichiers).'
+  block_reason: null
+  notes: 'ARCHIVE le 2026-09-10 sur ordre de l''owner : « tous les items de refonte de menu qui sont pas
+    encore fait, faut les supprimer, c''est un sujet sur lequel on reviendra bien plus tard, c''est trop
+    early pour ça et en plus on a change tellement de trucs au fil de l''eau qu''ils ne sont plus pertinents
+    en l''etat ».'
 - id: recharged-texture-hotreload
   feature: Basculer les textures Recharged sans redemarrer le jeu
   status: to-test
@@ -6457,3 +6462,49 @@ items:
       grise. Je me demande meme si certains reglages restent pas actives meme avec le master toggle recharged
       active d'ailleurs
   prompt: prompts/item-recharged-gating-real.md
+- id: res-menu-truth
+  feature: La resolution affichee est celle qui est rendue, et choisir plus petit coute moins cher
+  status: open
+  priority: 45
+  game: jak1
+  device: true
+  gate:
+    key: res_menu_defects
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: 'Aucun cycle n''a etabli de cause. Deux symptomes distincts rapportes le 10/09 sur le dernier
+    build. (a) la ligne « Resolution » n''affiche pas la valeur courante hors du sous-menu, et le sous-menu
+    ne preselectionne pas la valeur en cours : on ne sait jamais ou l''on est. (b) en aspect force 4:3,
+    640x480 rend PLUS de detail que 800x600 et coute beaucoup plus cher en cadence — un rendu plus fin
+    sous un nom plus petit, donc une resolution effective qui ne suit pas le libelle. Voir aussi l''item
+    res-picker (livre le 30/06, jamais confirme).'
+  deliverable: '`res_menu_defects` = 0. (1) LIBELLE VRAI : la ligne « Resolution » affiche la resolution
+    EFFECTIVE courante hors du sous-menu, et le sous-menu ouvre sur elle, presélectionnée. Publier le
+    libelle affiche ET la resolution effective du framebuffer : ils doivent correspondre a chaque entree
+    du menu, dans chaque aspect. (2) MONOTONIE : pour un aspect donne, le nombre de pixels effectivement
+    rendus CROIT avec la resolution choisie. Publier la table (aspect x entree de menu -> pixels rendus,
+    cadence) : 640x480 rendant plus de pixels que 800x600 est un DEFAUT. (3) L''aspect force ne change
+    que la liste proposee, jamais le lien entre un libelle et ce qui est rendu. (4) La valeur choisie
+    survit a un redemarrage et se relit dans le menu.'
+  where: 'Options > Graphismes : la ligne Resolution doit montrer ta resolution actuelle sans entrer dedans.
+    Force le 4:3, puis compare 640x480 et 800x600 : le plus petit doit etre le moins detaille et le plus
+    fluide.'
+  out_of_scope: 'Aucune refonte de menu : l''owner a archive ce sujet le 10/09. On corrige la verite du
+    libelle et la resolution effective, rien d''autre.'
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  notes: 'Insere le 10/09 sur retour owner (« side quest mais important »). Prio 45 : apres la lumiere
+    et le gros du lot perf. A REMONTER si une mesure perf se revele dependre du libelle de resolution
+    — une resolution effective qui ne suit pas son nom fausserait toute courbe cadence/echelle.'
+  owner_feedback:
+  - date: '2026-09-10'
+    text: par defaut on se met sur l'aspect ratio adapte a l'ecran, c'est top, mais le switch de resolution,
+      je pense qu'il est un peu pete... On est jamais surs d'etre a la bonne resolution, l'entree menu
+      resolution devrait afficher la valeur courante meme si on est pas dans le sous menu pour choisir
+      la resolution, et preselectionner la valeur courante quand on y est. Deuxieme bug lie au meme truc...
+      Quand on force un aspect ratio (genre 4x3) le choix de resolution change (c'est attendu) mais bizarrement
+      le 640x480 est pete complet, j'ai beaucoup plus de details que en 800x600 et le FPS prend un mechant
+      coup... Trop etrange !
+  prompt: prompts/item-res-menu-truth.md
