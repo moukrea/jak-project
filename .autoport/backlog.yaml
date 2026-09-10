@@ -4441,7 +4441,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: open
+  status: in-progress
   priority: 18
   game: jak1
   gate:
@@ -4529,6 +4529,9 @@ items:
     text: oui l'image doit pas etre plus sombre au global (ce qui etait mon retour) mais gagner en richesse
       dans les ombres et lumieres, car l'ecran le supporte c'est litteralement le but du HDR d'avoir plus
       de detail dans les ombres et lumieres, pas d'assombrir l'ecran ou etre totalement identique !
+  - date: '2026-09-10'
+    text: le HDR Output apparait et peut etre toggled on/off sur le Redmi alors que je pense pas que ce
+      device supporte le HDR
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
@@ -4541,7 +4544,7 @@ items:
   device_serial: AREE026206000788
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: to-test
+  status: open
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -4553,6 +4556,11 @@ items:
       un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting
       histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe
       sur l'intégralité du realtime lighting !
+  - date: '2026-09-10'
+    text: l'occlusion ambiante... J'ai l'impression que l'option sert toujours l'ancien chemin d'avant
+      la refonte, et l'ancienne faut la degager complet j'ai peur que ca se colisionne. Elle doit vivre
+      dans le sous-menu Recharged Lighting avec ses propres sous reglages (qualite, techno SSAO/HBAO/GTAO,
+      strength et whatnot si pertinent)
   gate:
     key: ao_direct_leak_px
     op: ==
@@ -4575,20 +4583,17 @@ items:
     SPEC 4.7.'
   deliverable: 'Prepasse profondeur+normale+rugosite. L''AO ecrit une texture ; shade() l''applique au
     SEUL terme indirect, en lineaire, avant le tone map. Le masque de luminance disparait, l''alpha et
-    l''eau sont enfin ombrees. SPEC 4.6 et 4.7. PREUVE : `FEATURE lighting-ao-indirect armed=1 hits=<pixels
-    dont le terme indirect a recu l''AO>` + la ligne `ao_direct_leak_px=` seule sur sa ligne ; `--off`
-    doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp}
-    — appelle armed_for("lighting-ao-indirect"), jamais armed(), et n''en ecris pas un second. AMENDEMENT
-    09-09 (perf) : livre `ub_frame` (SPEC 4.3) et un cache des emplacements d''uniformes par programme
-    : glGetUniformLocation par image == 0 dans les cinq hotes, glUniform camera/fog par image == 0 ; les
-    lectures de propriete systeme de first_tfrag_draw_setup (background_common.cpp:2354-2447) relues toutes
-    les 0,25 s (modele AoOverride).'
-  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
-    recharged_lighting OFF — et tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais
-    sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
-    Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas. Precision par variable dans shade() : highp
-    position/profondeur/radiance/ombres, mediump autorise sur les termes bornes, jamais un mediump global
-    (SPEC 4.4 amendee).'
+    l''eau sont ombrees. SPEC 4.6, 4.7. PREUVE : `FEATURE lighting-ao-indirect armed=1 hits=<px dont l''indirect
+    a recu l''AO>` + `ao_direct_leak_px=` seule sur sa ligne ; `--off` rend `armed=0 hits=0` dans la MEME
+    scene. Publicateur : armed_for(), jamais armed(). AMENDEMENT 09-09 : `ub_frame` + cache des emplacements
+    d''uniformes (SPEC 4.3). S''AJOUTE (refus 10/09) : (a) l''option « Ambient Occlusion » pilote le chemin
+    de CETTE refonte, pas l''ancien : compteur des deux chemins publie, l''ancien a 0. (b) l''ancienne
+    AO est SUPPRIMEE du code, pas debranchee. (c) la ligne vit dans le sous-menu « Recharged Lighting
+    » avec ses sous-reglages (qualite, technique, intensite).'
+  out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines bit-identiques : master OFF, et recharged_lighting
+    OFF ; tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC
+    1.1, 6.2, 7.3). Pas de mesure visuelle. Les estimateurs SSAO/HBAO/GTAO eux-memes ne changent pas.
+    Precision par variable dans shade() : SPEC 4.4 amendee.'
   notes: 'SPEC section 6.4. Point de vue : village1-hut. L''ablation se prend a la MEME vantage.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels dont le terme indirect a recu l'AO
@@ -4604,6 +4609,7 @@ items:
   - OG_LIGHTING=1
   - OG_RT_LIGHT=1
   - AO_FORCE_MODE=3
+  delivered: null
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -5072,12 +5078,24 @@ items:
   status: to-test
   priority: 51
   owner_feedback:
-  - *id001
-  - &id004
-    date: '2026-09-09'
+  - date: '2026-09-09'
+    text: faire une spec de l'enfer pour l'eau, que ce soit la mer ou les points d'eau genre marres, flaques,
+      fontaines, etc... Faudrait un truc moderne ou l'eau rend vraiment moderne, avec tous les effets
+      attendus d'un jeu moderne mais en restant dans un esprit stylisé of course. Quand on marche dans
+      l'eau ou tombe dedans, faut de la déformation (via tesselation je suppose) que ça soit impressionant,
+      des costiques, de l'écume, des vagues distinctes sur le rivage (qui épouse le rivage avec l'écume
+      et compagnie), ça c'est pour la mer mais il nous faut aussi repenser les points d'eau hors mer,
+      puis les cascades d'eau et l'intéraction de ses dernières avec l'endroit où elles se jettent
+  - date: '2026-09-09'
     text: la refonte de l'eau doit pouvoir être toggled off individuellement aussi, ou on retrouve l'eau
       vanilla.
-  - *id002
+  - date: '2026-09-09'
+    text: bah je valide, beau boulot !
+  - date: '2026-09-10'
+    text: pour la refonte de l'eau, si j'ai bien compris la t'as remplace l'eau Vanilla par la nouvelle
+      avec les nouvelles vagues... Je sais pas ce qui est attendu mais je peux te dire qu'en l'etat elle
+      est opaque (donc on voit pas les orbes sous l'eau par example), les vagues suivent une seule direction
+      au lieu d'epouser la cote (c'est peut-etre tout voulu ou attendu en l'etat, mais je te fais le feedback)
   gate:
     key: water_gameplay_height_maxdelta_mm
     op: ==
@@ -5512,7 +5530,9 @@ items:
   owner_feedback:
   - *id001
   - *id003
-  - *id004
+  - date: '2026-09-09'
+    text: la refonte de l'eau doit pouvoir être toggled off individuellement aussi, ou on retrouve l'eau
+      vanilla.
   - *id002
   gate:
     key: water_preset_apply_mismatch
@@ -6373,3 +6393,55 @@ items:
     Toute la campagne perf se compare a la ligne de base mesuree sur le Redmi : la lancer sur le Honor
     rendrait des chiffres faux que rien ne signalerait. Rouvrir quand le Redmi est branche et que la sortie
     HDR n''attend pas son tour.'
+- id: recharged-gating-real
+  feature: Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
+  status: open
+  priority: 19
+  game: jak1
+  device: true
+  gate:
+    key: gating_defects
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: 'Owner 10/09 sur le Redmi : « passer a off une option dans les reglages recharges qui desactive
+    d''autres options qui en dependent... Ne desactive pas les options qui en dependent reellement, elles
+    restent actives dans l''etat ou elles etaient quand elles ont ete grisees ». Il soupconne aussi des
+    reglages actifs sous le master Recharged, et relie explicitement les mauvaises perfs du Redmi a ce
+    defaut. Un grisage qui n''eteint rien rend FAUSSE toute preuve ON/OFF du harnais : OFF doit egaler
+    l''ABSENCE.'
+  deliverable: '`gating_defects` = 0. (1) RECENSEMENT : chaque option Recharged publie ses sites d''execution
+    ; `gating_ungated_sites` = 0, aucun site n''agit sans lire sa porte. (2) EFFET : parent OFF, le compteur
+    d''execution de CHAQUE dependante = 0 sur une course reelle — grisee ne suffit pas, il faut que le
+    code ne tourne plus. (3) MASTER : master Recharged OFF, aucun chemin Recharged execute, tous compteurs
+    a 0. (4) MEMOIRE : une option grisee affiche la valeur qu''elle avait a l''instant du OFF et la retrouve
+    telle quelle au re-ON (`gating_value_restored` = 1). (5) MENU : un sous-menu « Recharged Lighting
+    » avec interrupteur global, contenant Realtime Lighting, HDR Output, Ambient Occlusion et ses sous-reglages,
+    ouvert a la suite de la refonte ; `gating_menu_parent` publie le parent de chaque ligne. (6) COUT
+    : la cadence master OFF ne depend pas de l''etat des options grisees (`gating_off_cost_delta_pct`
+    <= 2).'
+  where: 'Options > Recharged : eteins une option dont d''autres dependent — les lignes grisees doivent
+    vraiment cesser d''agir, garder la valeur qu''elles avaient, et l''eclairage doit avoir son sous-menu
+    Recharged Lighting.'
+  out_of_scope: Aucune optimisation, aucun changement de rendu. On ne touche pas au contenu des features,
+    seulement a leur porte et a leur place dans le menu.
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  notes: 'Insere le 10/09 sur retour owner. Place AVANT le lot perf (prio 19) parce que l''owner lie lui-meme
+    les mauvaises perfs du Redmi a ce defaut : mesurer la perf sous des portes qui ne ferment pas donnerait
+    des chiffres faux.'
+  owner_feedback:
+  - date: '2026-09-10'
+    text: j'ai l'impression que passer a off une option dans les reglages recharges qui desactive d'autres
+      options qui en dependent... Ne desactive pas les options qui en dependent reellement, elles restent
+      actives dans l'etat ou elles etaient quand elles ont ete grisees. On devrait avoir tout un sous
+      menu « Recharged Lighting » avec un toggle global (qui passe vraiment tous les elements a OFF derriere
+      le rideau, et grise les options liees avec en valeur la valeur qu'elles avaient au moment du switch
+      off de la feature complete, mais vraiment desactive) et donc dans ce sous menu le Realtime Lighting,
+      le HDR Output, l'Occlusion Ambiante avec ses propres sous reglages et tout ce qui viendra en lien
+      a la refonte de l'eclairage. Et les perfs sur le Redmi, c'est vraiment mauvais, c'est d'ailleurs
+      ce qui me fait penser que desactiver une option ne desactive pas vraiment ce qui en depend et devient
+      grise. Je me demande meme si certains reglages restent pas actives meme avec le master toggle recharged
+      active d'ailleurs
+  prompt: prompts/item-recharged-gating-real.md
