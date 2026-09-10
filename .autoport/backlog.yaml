@@ -4441,7 +4441,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: blocked
+  status: open
   priority: 18
   game: jak1
   gate:
@@ -4477,9 +4477,9 @@ items:
     a ete essaye ; les caps annoncent aussi `egl:bt2020_pq`, jamais teste sur cet ecran.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
-  notes: 'budget : 3 essais rendus, les 3 brules sans ecran HDR ne comptent pas. Le Honor doit etre branche
-    ET SEUL le temps de l''essai : pick_device le classe avant le Redmi, mais la campagne perf tourne
-    sur le Redmi.'
+  notes: 'budget : 3 essais rendus, les 3 brules sans ecran HDR ne comptent pas. Honor rouvert le 10/09
+    13h30, vu par adb (AREE026206000788), epingle par device_serial. Le lot perf reste gele : il attend
+    le retour du Redmi.'
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4535,9 +4535,7 @@ items:
   - debug.opengoal.recharged=1
   - debug.opengoal.lighting=1
   proof_timeout: 240
-  block_reason: 'EN ATTENTE DU HONOR SUR USB. Refus owner du 10/09 : on/off ne change rien a l''ecran.
-    La mesure le confirme (ratio HDR/SDR = 1,000) : le vert de l''essai 6 etait vacueux. Verdict 11 ajoute
-    pour qu''un ratio a 1,000 sorte ROUGE. Rien a reprouver sans le Honor branche.'
+  block_reason: null
   proof_env:
   - ANDROID_SERIAL=AREE026206000788
   device_serial: AREE026206000788
