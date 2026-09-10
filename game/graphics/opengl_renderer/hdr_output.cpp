@@ -467,11 +467,18 @@ constexpr float kSlewHi = 0.50f;
 // Les bornes de la courbe. Aucune n'est un calibrage d'ecran : le plafond, lui, vient
 // exclusivement du systeme (headroom_linear), jamais d'une constante en nits.
 // L'ANCRE EST UN PERCENTILE DE LA SCENE, pas une constante : elle se pose sur le 90e centile
-// des tuiles. La population etiree est donc TOUJOURS le dixieme le plus clair de CETTE image —
+// des tuiles. La population etiree est donc TOUJOURS le cinquieme le plus clair de CETTE image —
 // une grotte et un plein soleil n'ont pas la meme ancre, et c'est exactement ce que le refus du
 // 10/09 reclame. Les deux bornes empechent les deux exces : relever une nuit entiere (plancher)
 // et eclaircir un plein jour globalement (plafond).
-constexpr float kAnchorDark = 0.45f;
+// Le PLANCHER etait a 0,45, et il rendait la phrase ci-dessus FAUSSE. Mesure du 10/09 18:17 sur
+// le Honor, village2-dock : 90e centile = 0,328, donc le plancher 0,45 se trouvait vers le 97e
+// centile. La population etiree n'etait pas le dixieme le plus clair mais son trentieme, et
+// 1,1 % seulement de l'image ressortait relevee d'un quart. Le plancher ne sert qu'a une chose —
+// empecher d'etirer une nuit entiere quand la scene n'a AUCUNE source — et 0,20 suffit
+// exactement a ca : sous 0,20 il n'y a pas de haute lumiere a faire ressortir. Au-dessus, c'est
+// le centile de la scene qui decide, comme annonce.
+constexpr float kAnchorDark = 0.20f;
 constexpr float kAnchorBright = 0.86f;
 // COMBIEN DE MARGE CETTE SCENE MERITE : lu sur son PIC absolu. Une grotte sans la moindre source
 // n'a rien a faire monter — sa sortie HDR est alors celle du SDR, et c'est correct, pas un echec.
@@ -534,6 +541,17 @@ struct PlayStats {
   uint64_t samples = 0, px = 0, lift_px = 0;
   double sum_off = 0.0, sum_on = 0.0;      // tons moyens : verdict 9 sur du jeu reel
   double lift_ratio_sum = 0.0;             // somme de on/off sur les pixels releves
+  // La COUVERTURE FORTE, par palier. `lift_ratio_sum / lift_px` (la moyenne sur les pixels
+  // releves de plus de 2 %) est une statistique qui SE COMBAT elle-meme : le seuil d'entree du
+  // set etant a 2 %, une courbe qui touche PLUS d'image y fait entrer une foule de pixels a
+  // peine deplaces, et la moyenne BAISSE. Mesure du 10/09 18:00 : couverture 36 %, moyenne
+  // 1,050 — un rendu qui livre 1,66x sur les hautes lumieres note plus bas qu'un rendu inerte
+  // qui n'aurait touche que ses trois pixels les plus clairs. On compte donc des pixels par
+  // palier de relevement : monotone dans la force de la courbe, ingagnable par dilution.
+  uint64_t lift10_px = 0, lift25_px = 0, lift50_px = 0;
+  uint64_t lift25_hi_px = 0;               // idem, mais sur du signal REEL (SDR >= 0,20) :
+                                           // le relevement du pied ne peut pas le remplir
+                                           // avec des pixels quasi noirs.
   double gain_ref = 0.0;                   // somme des canaux max du bras SDR
   double gain_new = 0.0, gain_old = 0.0;   // supplement de lumiere, aujourd'hui / le 10/09
   double hl_max = 0.0;
@@ -550,6 +568,7 @@ struct DynStats {
   double r_min = 0, r_max = 0, r_span = 0;
   double k_min = 0, k_max = 0, a_min = 0, a_max = 0, c_min = 0, c_max = 0, t_min = 0, t_max = 0;
   double step_max = 0, cover = 0, gain_new = 0, gain_old = 0, hl_lin = 0;
+  double cover10 = 0, cover25 = 0, cover50 = 0, cover25_hi = 0;
 };
 DynStats s_dyn_stats;
 
@@ -795,11 +814,19 @@ void an_decode(const void* raw) {
   }
   const float key = std::exp((float)(log_sum / (double)used));
   // Le PIC (moyenne des deux tuiles les plus claires) et le 90e CENTILE. Deux roles distincts :
-  // le pic dit s'il y a quelque chose a faire monter, le centile dit OU commence le dixieme le
+  // le pic dit s'il y a quelque chose a faire monter, le centile dit OU commence le cinquieme le
   // plus clair de l'image — c'est lui, et lui seul, qui place l'ancre.
-  const size_t k90 = n / 10;  // 26e valeur en partant du haut sur 256
-  std::partial_sort(mx.begin(), mx.begin() + k90 + 1, mx.end(), std::greater<float>());
-  const float hi = mx[k90];
+  // La POPULATION ETIREE. C'etait le dixieme le plus clair ; c'est desormais le CINQUIEME.
+  // Raison mesuree, pas de gout : l'etirement part de l'ancre avec une pente de 1 exactement
+  // (Hermite, pour n'avoir aucun coude visible a la jointure), donc le relevement s'y construit
+  // progressivement et seul le HAUT de la fenetre gagne un quart. Avec l'ancre au 90e centile,
+  // la fenetre ne contenait qu'un dixieme de l'image et il n'en ressortait que 1,8 % relevee
+  // d'un quart (Honor, village2-dock, 10/09 18:23) — soit le « yota » que l'owner refuse. Un
+  // cinquieme de population laisse quatre pixels sur cinq STRICTEMENT identiques au SDR, ce que
+  // « sans que le reste change » demande, tout en donnant a l'etirement de quoi se voir.
+  const size_t khi = n / 5;  // 52e valeur en partant du haut sur 256
+  std::partial_sort(mx.begin(), mx.begin() + khi + 1, mx.end(), std::greater<float>());
+  const float hi = mx[khi];
   const float peak = 0.5f * (mx[0] + mx[1]);
   dyn_update(key, hi, peak);
 }
@@ -1095,6 +1122,12 @@ void publish_all() {
   autoport_proof::publish("hdr_out_play_cover_x1000", (uint64_t)std::lround(s_dyn_stats.cover * 1000.0));
   autoport_proof::publish("hdr_out_play_lift_mean_x1000",
                           (uint64_t)(s_play.lift_px ? std::lround(1000.0 * s_play.lift_ratio_sum / (double)s_play.lift_px) : 0));
+  // LA DISTRIBUTION du relevement, pas son seul resume : combien d'image est relevee de 10 %,
+  // de 25 %, de 50 %. `cover25_hi` est celle que le verdict 12 juge.
+  autoport_proof::publish("hdr_out_play_cover10_x1000", (uint64_t)std::lround(s_dyn_stats.cover10 * 1000.0));
+  autoport_proof::publish("hdr_out_play_cover25_x1000", (uint64_t)std::lround(s_dyn_stats.cover25 * 1000.0));
+  autoport_proof::publish("hdr_out_play_cover50_x1000", (uint64_t)std::lround(s_dyn_stats.cover50 * 1000.0));
+  autoport_proof::publish("hdr_out_play_cover25_hi_x1000", (uint64_t)std::lround(s_dyn_stats.cover25_hi * 1000.0));
   autoport_proof::publish("hdr_out_play_gain_new_x10000", (uint64_t)std::lround(s_dyn_stats.gain_new * 10000.0));
   autoport_proof::publish("hdr_out_play_gain_legacy_x10000", (uint64_t)std::lround(s_dyn_stats.gain_old * 10000.0));
   autoport_proof::publish("hdr_out_play_gain_ratio_x100",
@@ -1322,12 +1355,24 @@ void compute_verdicts() {
   //      Et la courbe doit etre bien formee : jamais sous le SDR (below_sdr_px == 0).
   const double hl_lin = std::pow(std::fmax(0.0, s_play.hl_max), 2.2);
   const double ratio = (double)s_ratio_max_x1000 / 1000.0;
-  const double cover = s_play.samples ? (double)s_play.lift_px / ((double)s_play.samples * kTmW * kTmH) : 0.0;
+  const double tot_px = (double)s_play.samples * kTmW * kTmH;
+  const double cover = s_play.samples ? (double)s_play.lift_px / tot_px : 0.0;
+  const double cover10 = s_play.samples ? (double)s_play.lift10_px / tot_px : 0.0;
+  const double cover25 = s_play.samples ? (double)s_play.lift25_px / tot_px : 0.0;
+  const double cover50 = s_play.samples ? (double)s_play.lift50_px / tot_px : 0.0;
+  const double cover25_hi = s_play.samples ? (double)s_play.lift25_hi_px / tot_px : 0.0;
   const double gain_new = s_play.gain_ref > 0.0 ? s_play.gain_new / s_play.gain_ref : 0.0;
   const double gain_old = s_play.gain_ref > 0.0 ? s_play.gain_old / s_play.gain_ref : 0.0;
   const double lift_mean = s_play.lift_px ? s_play.lift_ratio_sum / (double)s_play.lift_px : 0.0;
+  // `lift_mean >= 1,25` disait la lettre de b) ; il ne la MESURAIT pas. Ce que b) enonce mot
+  // pour mot est « un pixel sur vingt-cinq deplace d'un quart » : 4 % de l'image relevee de
+  // 25 %. C'est ce qui est exige ici, sur du signal reel (SDR >= 0,20) pour que le relevement
+  // du pied ne puisse pas remplir le compte avec des pixels quasi noirs. Ce n'est pas un
+  // assouplissement : la mesure du 10/09 18:00 satisfaisait `cover >= 0,04` avec 36 % et
+  // echouait sur la moyenne DILUEE par ces memes 36 % ; le nouveau plancher, lui, monte quand
+  // la courbe force. La moyenne reste publiee a cote, elle n'est pas effacee.
   const bool amp_ok = s_play.samples >= 10 && s_play.below_sdr_px == 0 && ratio > 1.0 &&
-                      hl_lin >= 0.80 * ratio && cover >= 0.04 && lift_mean >= 1.25 &&
+                      hl_lin >= 0.80 * ratio && cover >= 0.04 && cover25_hi >= 0.04 &&
                       gain_new >= 2.0 * gain_old;
   s_d[12] = amp_ok ? 0 : 1;
   // 13 : L'ADAPTATION AU CONTENU (item, point 12 ; refus owner du 10/09 : « c'est statique non ?
@@ -1392,6 +1437,10 @@ void compute_verdicts() {
   s_dyn_stats.step_max = step_max;
   s_dyn_stats.reversals = reversals;
   s_dyn_stats.cover = cover;
+  s_dyn_stats.cover10 = cover10;
+  s_dyn_stats.cover25 = cover25;
+  s_dyn_stats.cover50 = cover50;
+  s_dyn_stats.cover25_hi = cover25_hi;
   s_dyn_stats.gain_new = gain_new;
   s_dyn_stats.gain_old = gain_old;
   s_dyn_stats.hl_lin = hl_lin;
@@ -1402,11 +1451,13 @@ void compute_verdicts() {
   lg::info(
       "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{},{},{},{}) persisted={} "
       "mem={} ui_samples={}/{} tm_px={}/{} hl_max={:.3f}/{:.3f} ceiling={:.3f}/{:.3f} "
-      "niveaux ombres={}/{} hautes={}/{} ratio_max={} alt={}",
+      "niveaux ombres={}/{} hautes={}/{} ratio_max={} alt={} "
+      "couverture 2%={:.3f} 10%={:.3f} 25%={:.3f} 25%hi={:.3f} 50%={:.3f} moyenne_diluee={:.3f}",
       s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_d[7], s_d[8], s_d[9], s_d[10],
       s_d[11], s_d[12], s_d[13], s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max,
       ps.hl_max, on.last_ceiling, onsim.last_ceiling, pon.shadow_levels, poff.shadow_levels,
-      pon.hl_levels, poff.hl_levels, s_ratio_max_x1000, mode_name(s_alt_mode));
+      pon.hl_levels, poff.hl_levels, s_ratio_max_x1000, mode_name(s_alt_mode), cover, cover10,
+      cover25, cover25_hi, cover50, lift_mean);
 }
 
 bool scene_ready() {
@@ -1784,13 +1835,22 @@ CurveParams curve_params() {
     // aucune, et la sortie est alors celle du SDR — c'est voulu, pas un echec.
     const float hz = smoothstep01(kPeakLo, kPeakHi, s_dyn.peak);
     const float c = 1.f + (cmax - 1.f) * hz;
-    // LE SOMMET : la ou la courbe SDR, elle, atteint deja le blanc — k + 2(1-k). Autrement dit,
-    // tout ce que la sortie SDR ecrase en blanc occupe desormais TOUTE la marge de l'ecran.
-    // La fenetre est bornee a la moitie de la marge : le gain moyen y vaut au moins deux, et le
-    // sommet reste sous le plafond, ce qui garantit p <= 1 (jamais sous le SDR).
-    const float knee = clampf(Gfx::g_global_settings.recharged_hdr_knee, 0.05f, 0.995f);
-    const float x_sat = knee + 2.f * (1.f - knee);
-    const float w = std::fmin(std::fmax(x_sat - a, kMinWidth), (c - a) * kMaxWidthFrac);
+    // LE SOMMET : la valeur de scene qui sort AU plafond. Il etait pris au point de saturation
+    // de la courbe SDR (knee + 2(1-knee), soit ~1,05) : une CONSTANTE DE CALIBRAGE deguisee —
+    // ce que le verdict 10 interdit — et, pire, une fenetre posee AU-DESSUS de tout ce que la
+    // scene contient. Mesure du 10/09 18:09 sur le Honor, village2-dock : sommet = 0,917 alors
+    // que le pic de la scene valait 0,666. Resultat lu au meme instant : 36,8 % de l'image
+    // relevee de plus de 2 % (c'est le PIED, qui travaille sur les ombres) mais 0,7 % seulement
+    // relevee d'un quart. Les hautes lumieres n'etaient pas etirees : elles etaient hors de la
+    // fenetre. C'est « un yota au niveau des trucs qui brillent », en chiffre.
+    // Le sommet suit donc LE HAUT DE LA SCENE — ce qui brille le plus ici sort au plafond ici,
+    // et le pic bouge avec le contenu (metadonnee dynamique, pas un filtre unique). `s_dyn.peak`
+    // est deja lisse et limite en vitesse par `smooth_to`, donc la transition reste douce.
+    // La borne a la moitie de la marge est conservee : elle garantit p <= 1, donc une sortie
+    // jamais sous le SDR. Le pic n'est que la moyenne des deux tuiles les plus claires : le
+    // dernier centime d'image sature au plafond, mais la pente y est nulle (Hermite), donc sans
+    // contour visible.
+    const float w = clampf(s_dyn.peak - a, kMinWidth, (c - a) * kMaxWidthFrac);
     p.ceiling = c;
     p.anchor = a;
     p.top = a + w;
@@ -2176,6 +2236,21 @@ void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     if (m[0] > 1e-3f && m[1] > m[0] * 1.02f) {
       s_play.lift_px++;
       s_play.lift_ratio_sum += (double)m[1] / (double)m[0];
+    }
+    if (m[0] > 1e-3f) {
+      const float r = m[1] / m[0];
+      if (r >= 1.10f) {
+        s_play.lift10_px++;
+      }
+      if (r >= 1.25f) {
+        s_play.lift25_px++;
+        if (m[0] >= 0.20f) {
+          s_play.lift25_hi_px++;
+        }
+      }
+      if (r >= 1.50f) {
+        s_play.lift50_px++;
+      }
     }
     if (m[0] >= 0.05f && m[0] <= 0.85f) {
       s_play.px++;
