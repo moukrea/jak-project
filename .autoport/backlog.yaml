@@ -433,7 +433,7 @@ items:
 - id: foliage-wind
   feature: La brise dans les arbres et les buissons
   status: open
-  priority: 990
+  priority: 34
   owner_feedback:
   - date: '2026-08-06'
     text: le vent d'origine tournait au quart de sa vitesse
@@ -491,6 +491,12 @@ items:
     text: demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé
       être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte
       du lighting, commençant par reprendre le HDR/blancs brûlés !
+  - date: '2026-09-10'
+    text: je suis alle dans forbidden jungle... les plateformes sur des troncs oscillent au vent c'est
+      debile, c'est pas des troncs fins et febriles qui sont senses bouger au vent, ce sont des arbres
+      epais ! et les arbres du niveau pareil, tout leur tronc bouge, a la limite les petites branches
+      OK, mais les troncs c'est debile ! Les feuilles OK, les lianes qui grimpent dessus OK (attention
+      au clipping) la les troncs serieux quoi !
   gate:
     key: wind_owner_defects_open
     op: ==
@@ -519,7 +525,8 @@ items:
   - debug.opengoal.level.warp=village1-warp
   - debug.opengoal.want.levels=village1,beach
   - debug.opengoal.recharged=1
-  where: les palmiers et les buissons de Sandover, option de brise eteinte PUIS allumee
+  where: 'Forbidden Jungle : les troncs epais et les plateformes posees dessus ne bougent pas ; feuilles,
+    petites branches et lianes oui. Puis les palmiers de Sandover, brise eteinte PUIS allumee.'
   notes: 'owner 2026-09-04, deuxieme refus complet (voir owner_feedback). Deux verdicts de plus : tronc
     immobile/cime mobile (ratio <= 0,15) et enveloppe qui varie (CV >= 0,30) — ni ondulation sous-marine
     ni tilt binaire. Le natif est toujours soupconne bugge : comparaison au stock OBLIGATOIRE en premier.
@@ -533,10 +540,14 @@ items:
     leur bases [...] ca doit varier en amplitude, distorsion, direction ». Les deux extremes sont refuses
     : ni sinusoide pure, ni basculement sec. Le critere tronc/cime ne jugeait que DEUX points d''un arbre
     entier, d''ou les verdicts 8 et 9.'
-  deliverable: |-
-    `wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07 (natif conforme au stock, pivot des buissons a leur base, zero instance dessinee immobile, zero paire identique divergente, pic spectral <= 40 %, tronc/cime <= 0,15, enveloppe CV >= 0,30, gradient pointe/attache >= 3, direction variant >= 20 deg) — NE PAS LES CASSER. DEUX de plus, demandes par l'owner :
-      (10) `wind_levels_uncovered` = 0 — TOUT LE JEU, pas seulement Sandover. Recenser les niveaux qui portent de la vegetation et prouver que chacun est couvert ; nommer ceux qui n'en portent pas.
-      (11) `wind_contact_defects` = 0 — buissons, arbustes et FLEURS reagissent au PASSAGE de Jak et sont ECRASES par les caisses, les ennemis et les objets, exactement comme l'herbe rechargee. Reutiliser le mecanisme de l'herbe, ne pas en ecrire un second.
+  deliverable: '`wind_owner_defects_open` = 0, preuve sur appareil. NEUF verdicts deja tenus le 2026-09-07
+    (natif conforme au stock, pivot des buissons a leur base, zero instance immobile, zero paire identique
+    divergente, pic spectral, rapport tronc/cime, etc.) : voir l''historique de l''item et son rapport
+    d''essai 11, ils restent exiges. S''AJOUTE (refus 10/09, Forbidden Jungle) : le TRONC d''un arbre
+    epais NE BOUGE PAS. Publier, par instance, le deplacement du tronc et celui du feuillage : le tronc
+    reste sous un plafond declare et proche de zero pour les troncs epais ; seuls feuillage, petites branches
+    et lianes bougent. Une plateforme posee sur un tronc suit le tronc, donc n''oscille pas. Les lianes
+    qui grimpent ne traversent pas le tronc.'
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
   status: to-test
@@ -4470,7 +4481,7 @@ items:
     value: 0
   device: true
   max_turns: 300
-  max_retries: 13
+  max_retries: 18
   depends_on:
   - lighting-hdr
   history: []
@@ -4478,28 +4489,24 @@ items:
   owner_ok: null
   where: 'Options > Recharged > Eclairage Recharge : la ligne « sortie HDR ». Activee sur ton Honor, les
     zones brillantes doivent vraiment ressortir, sans que le reste change.'
-  deliverable: '`hdr_out_defects` = 0. Verdicts 1-8 : voir SPEC 4.5. (9) Pas d''assombrissement mesure
-    sur du JEU REEL, plusieurs niveaux et ambiances, nombre d''images publie. (10) ADAPTATION A L''ECRAN
-    : la SEULE reference de sortie est le pic ANNONCE, quel qu''il soit (480, 600, 1000...) ; aucune constante
-    de calibrage dans le chemin. Prouve par l''EFFET, pas par un nombre publie : a deux pics annonces,
-    la meme radiance sort a des valeurs differentes, et a 480 l''image n''est pas plus sombre qu''a 1000.
-    (11) AMPLITUDE, PAS COMPTAGE : `hdr_out_hl_max_x1000` atteint une fraction majoritaire de la marge
-    REELLEMENT accordee (`hdr_out_ratio_max_x1000`) sur du jeu reel — 1445 pour 2251 accordes est un DEFAUT.
-    Un compteur de niveaux distincts ne vaut plus verdict. (12) ADAPTATION AU CONTENU, distincte de (10)
-    : la courbe suit la scene dans le TEMPS, facon Dolby Vision / HDR10+, jamais un filtre unique applique
-    partout facon HDR10 statique. Publier la SERIE des parametres effectifs sur un parcours plein jour
-    / interieur sombre / grotte : ils doivent CHANGER, transition lissee, aucun pompage. Courbe constante
-    = DEFAUT. Preuve sur le Honor.'
-  known_cause: 'Refus 10/09. L''owner voit une MINI difference ON/OFF — « quasi 0 diff », « un yota au
-    niveau des trucs qui brillent » : l''interrupteur agit, l''effet est trop faible. Marge accordee `hdr_out_ratio_max_x1000`
-    = 2251, hautes lumieres livrees `hdr_out_hl_max_x1000` = 1445 : on n''utilise pas la marge obtenue.
-    Les compteurs de NIVEAUX (17->128) montaient quand meme — compter des paliers n''est pas mesurer une
-    amplitude.'
+  deliverable: '`hdr_out_defects` = 0. Verdicts 1-10 : voir SPEC 4.5 et l''historique de l''item. (11)
+    SOURCE AVANT COMPRESSION (refus 10/09) : la sortie HDR consomme la scene HDR AVANT le tone map SDR.
+    Publier l''identite du tampon lu et le nombre de compressions SDR subies par ce chemin : il doit valoir
+    0. Lire l''image deja compressee = DEFAUT, quel que soit le reste. (12) RICHESSE DANS LES OMBRES,
+    mesuree sur du jeu reel : le detail distinguable sous le blanc SDR augmente franchement par rapport
+    a OFF ; inchange = DEFAUT. (13) PAS DE CONTRASTE CRAME : publier l''excursion de saturation et de
+    contraste par rapport a la sortie SDR sur les memes images ; un ecart au-dela du plafond declare est
+    un DEFAUT, et les teintes restent celles attendues. (14) AMPLITUDE PILOTEE PAR LA SCENE : la marge
+    accordee est exploitee AU MAXIMUM de ce que la scene contient — une scene lumineuse doit approcher
+    la marge, une scene nocturne ne doit pas y etre forcee. Publier, par scene, la marge accordee, la
+    marge utilisee et le pic de la scene. Un plafond fixe et prudent = DEFAUT. Preuve sur le Honor.'
+  known_cause: 'Refus 10/09 apres test sur le Honor. L''owner decrit un filtre pose APRES le tone map
+    SDR : pas de gain dans les ombres (la richesse n''y est plus quand on traite l''image) et des contrastes
+    crames facon curseur photoshop pousse a fond. C''est la lecture a retenir tant qu''une mesure ne la
+    contredit pas : la sortie HDR doit partir de la scene HDR AVANT compression SDR, pas de son resultat.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
-  notes: 'budget : porte a 13 le 10/09. Les 3 essais brules sans ecran HDR ne comptent pas, et les verdicts
-    9 et 10 ont ete DURCIS apres l''essai 8 : on ne peut pas reprocher au worker un budget consomme sous
-    l''ancien critere.'
+  notes: 'budget : porte a 18 le 11/09, les verdicts changent a chaque refus de l''owner.'
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4563,11 +4570,26 @@ items:
       c'est statique non ? le HDR s'ajuste pas constamment, facon dolby vision ou HDR10+ dans les films,
       la j'ai l'impression qu'on a un truc HDR et fini, c'est applique partout pareil. Truc bidon quasi
       inutile donc
+  - date: '2026-09-10'
+    text: PAS VALIDE DU TOUT. oui j'ai bien l'impression que le HDR s'ajuste automatiquement, mais c'est
+      pas pour autant qu'il le fait bien [...] ca donne aussi lieu a des endroits avec des contrastes
+      completement crames comme si on poussait la teinte/saturation/contraste au max sur un filtre photoshop
+      [...] Pour moi le HDR output, il devrait prendre le calcul HDR brut sans tonemapping vers SDR pour
+      beneficier de toute la richesse que ca a de calculer direct en HDR sans aucun tonemapping, avec
+      potentiellement des corrections pour rester dans les tons de couleurs attendus. La j'ai l'impression
+      que HDR output est un filtre qui vient APRES le tonemapping SDR, comme si on appliquait un filtre
+      HDR sur une image SDR sans avoir les info HDR [...] on gagne pas de richesse dans les zones sombres
+      parce que cette richesse n'est deja plus la dans l'image qu'on traite [...] et le boost de luminosite
+      dans la lumiere est faked ce qui donne ces contrastes completement debiles. [...] Bah je suis pas
+      d'accord ! dans le noir on va pas aller chercher a couvrir du 0 a 2,54x [...] mais c'est un panel
+      bien plus large que 0 a 1, et on peut en tirer un maximum partie du coup !
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
   - debug.opengoal.recharged=1
   - debug.opengoal.lighting=1
+  - debug.opengoal.level.warp=village2-dock
+  - debug.opengoal.tod.fast=1
   proof_timeout: 240
   block_reason: null
   proof_env:
@@ -4576,7 +4598,7 @@ items:
   delivered: null
 - id: lighting-ao-indirect
   feature: L'occlusion ambiante multiplie l'indirect, plus l'image finale
-  status: open
+  status: to-test
   priority: 26
   owner_feedback:
   - date: '2026-09-03'
@@ -4641,7 +4663,7 @@ items:
   - OG_LIGHTING=1
   - OG_RT_LIGHT=1
   - AO_FORCE_MODE=3
-  delivered: null
+  delivered: '2026-09-10'
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
   status: open
@@ -6027,6 +6049,7 @@ items:
   block_reason: null
   prompt: prompts/item-perf-ocean-idle.md
   delivered: '2026-09-10'
+  owner_test: false
 - id: perf-dma-chain-copies
   feature: La chaine DMA n'est plus parcourue cinq fois par image
   status: blocked
@@ -6427,7 +6450,7 @@ items:
     HDR n''attend pas son tour.'
 - id: recharged-gating-real
   feature: Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
-  status: in-progress
+  status: open
   priority: 19
   game: jak1
   device: true
@@ -6442,16 +6465,16 @@ items:
     reglages actifs sous le master Recharged, et relie explicitement les mauvaises perfs du Redmi a ce
     defaut. Un grisage qui n''eteint rien rend FAUSSE toute preuve ON/OFF du harnais : OFF doit egaler
     l''ABSENCE.'
-  deliverable: '`gating_defects` = 0. (1) RECENSEMENT : chaque option Recharged publie ses sites d''execution
-    ; `gating_ungated_sites` = 0, aucun site n''agit sans lire sa porte. (2) EFFET : parent OFF, le compteur
-    d''execution de CHAQUE dependante = 0 sur une course reelle — grisee ne suffit pas, il faut que le
-    code ne tourne plus. (3) MASTER : master Recharged OFF, aucun chemin Recharged execute, tous compteurs
-    a 0. (4) MEMOIRE : une option grisee affiche la valeur qu''elle avait a l''instant du OFF et la retrouve
-    telle quelle au re-ON (`gating_value_restored` = 1). (5) MENU : un sous-menu « Recharged Lighting
-    » avec interrupteur global, contenant Realtime Lighting, HDR Output, Ambient Occlusion et ses sous-reglages,
-    ouvert a la suite de la refonte ; `gating_menu_parent` publie le parent de chaque ligne. (6) COUT
-    : la cadence master OFF ne depend pas de l''etat des options grisees (`gating_off_cost_delta_pct`
-    <= 2).'
+  deliverable: '`gating_defects` = 0. (1) Aucun site n''agit sans lire sa porte (`gating_ungated_sites`=0).
+    (2) Parent OFF : le compteur d''execution de CHAQUE dependante = 0 sur une course reelle. (3) Master
+    OFF : aucun chemin Recharged execute. (4) Une option masquee garde sa valeur et la retrouve au re-ON
+    (`gating_value_restored`=1). (5) Sous-menu « Recharged Lighting », `gating_menu_parent` publie le
+    parent de chaque ligne. (6) La cadence master OFF ne depend pas de l''etat des options desarmees.
+    S''AJOUTE (refus 10/09) : (7) MASQUER, PAS GRISER : une option dont le parent est eteint DISPARAIT
+    de la page — regle generale, pas seulement l''AO. (8) LIBELLE PORTEUR : chaque ligne affiche sa valeur
+    courante (« Occlusion ambiante : HBAO », « Qualite : Moyen », « Force AO : Defaut ») et ouvrir la
+    ligne PRESELECTIONNE la valeur en cours. (9) VRAI SOUS-MENU : les sous-reglages vivent dans une page
+    a eux, pas en petits choix sous la ligne parente.'
   where: 'Options > Recharged : eteins une option dont d''autres dependent — les lignes grisees doivent
     vraiment cesser d''agir, garder la valeur qu''elles avaient, et l''eclairage doit avoir son sous-menu
     Recharged Lighting.'
@@ -6476,7 +6499,17 @@ items:
       ce qui me fait penser que desactiver une option ne desactive pas vraiment ce qui en depend et devient
       grise. Je me demande meme si certains reglages restent pas actives meme avec le master toggle recharged
       active d'ailleurs
+  - date: '2026-09-10'
+    text: 'ca serait top que ses entrees menu genre soient « Occlusion ambiante: Non/SSAO/HBAO/GTAO »
+      et pas « Occlusion ambiante » sans savoir l''option courante (et selection auto de l''item courant
+      quand on tape dans l''option), pareil pour la Qualite: Faible/Moyen/Eleve et Force AO: Plus faible/Defaut/Plus
+      fort. Et d''ailleurs un vrai sous menu pour ces options plutot que les choix en plus petit en dessous
+      (et les options de qualite et force de l''occlusion ambiante devraient tout simplement etre masquees
+      quand l''occlusion ambiante est off plutot que grise, c''est plus simple a comprendre [...] ca devrait
+      d''ailleurs etre comme ca que ca se comporte pour les autres options qui dependent d''une autre
+      option)'
   prompt: prompts/item-recharged-gating-real.md
+  delivered: null
 - id: res-menu-truth
   feature: La resolution affichee est celle qui est rendue, et choisir plus petit coute moins cher
   status: open
@@ -6495,13 +6528,14 @@ items:
     sous un nom plus petit, donc une resolution effective qui ne suit pas le libelle. Voir aussi l''item
     res-picker (livre le 30/06, jamais confirme).'
   deliverable: '`res_menu_defects` = 0. (1) LIBELLE VRAI : la ligne « Resolution » affiche la resolution
-    EFFECTIVE courante hors du sous-menu, et le sous-menu ouvre sur elle, presélectionnée. Publier le
-    libelle affiche ET la resolution effective du framebuffer : ils doivent correspondre a chaque entree
-    du menu, dans chaque aspect. (2) MONOTONIE : pour un aspect donne, le nombre de pixels effectivement
-    rendus CROIT avec la resolution choisie. Publier la table (aspect x entree de menu -> pixels rendus,
-    cadence) : 640x480 rendant plus de pixels que 800x600 est un DEFAUT. (3) L''aspect force ne change
-    que la liste proposee, jamais le lien entre un libelle et ce qui est rendu. (4) La valeur choisie
-    survit a un redemarrage et se relit dans le menu.'
+    EFFECTIVE hors du sous-menu, qui s''ouvre presélectionné dessus ; publier libelle ET framebuffer effectif,
+    ils correspondent. (2) MONOTONIE : a aspect donne, les pixels rendus CROISSENT avec la resolution
+    choisie. (3) L''aspect force ne change que la liste proposee. (4) Le choix survit au redemarrage.
+    S''AJOUTE (refus 10/09) : (5) TOUTE LA MATRICE : chaque combinaison aspect x resolution x echelle
+    dynamique (marche/arret) ET chaque bascule de l''une a l''autre ; publier pour chacune le libelle
+    et les pixels rendus. (6) Changer d''aspect ajuste la resolution en accord au lieu de laisser une
+    valeur qui n''appartient plus a la liste. (7) Aucune combinaison inerte : une resolution proposee
+    et choisie DOIT changer ce qui est rendu.'
   where: 'Options > Graphismes : la ligne Resolution doit montrer ta resolution actuelle sans entrer dedans.
     Force le 4:3, puis compare 640x480 et 800x600 : le plus petit doit etre le moins detaille et le plus
     fluide.'
@@ -6522,10 +6556,19 @@ items:
       Quand on force un aspect ratio (genre 4x3) le choix de resolution change (c'est attendu) mais bizarrement
       le 640x480 est pete complet, j'ai beaucoup plus de details que en 800x600 et le FPS prend un mechant
       coup... Trop etrange !
+  - date: '2026-09-10'
+    text: la partie aspect ratio, resolution, dynamic resolution scaling on/off, bascule entre toutes
+      ces options... C'est finiky, je sais pas comment expliquer mais j'ai l'impression que certaines
+      resolutions marchent pas vraiment, quand on bascule de ratio la resolution s'ajuste pas toute seule
+      en accord, etc etc.. Faut vraiment que tu testes tout la dessus, c'est pas bon en l'etat
   prompt: prompts/item-res-menu-truth.md
+  delivered: null
 - id: gl-uniforms-off-cost
   priority: 20
   device: false
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LIGHTING=0
   feature: Eclairage eteint, le processeur arrete de pousser des parametres pour rien
   gate:
     key: uniform_off_pushes
@@ -6544,7 +6587,7 @@ items:
   out_of_scope: 'Ne pas toucher au contenu des shaders ni au rendu allume. Ne pas elargir aux autres familles
     d''uniformes : seul l''eclairage est vise ici.'
   owner_test: false
-  status: open
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -6581,7 +6624,7 @@ items:
   where: 'rien a voir : nettoyage ; owner_test=false'
   out_of_scope: Ne supprimer que ce champ. Tout autre champ suspect se signale, ne se supprime pas ici.
   owner_test: false
-  status: open
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -6619,7 +6662,7 @@ items:
   where: 'rien a voir : recensement ; owner_test=false'
   out_of_scope: Ne pas changer le rendu HD lui-meme. On retire la dependance au drapeau, rien d'autre.
   owner_test: false
-  status: open
+  status: validated
   game: jak1
   depends_on: []
   max_turns: 800
@@ -6638,3 +6681,208 @@ items:
       ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que
       je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
       juste apres meme !
+- id: gl-uniforms-dead-seven
+  feature: Sept parametres d'eclairage partent a chaque image et aucun shader ne les lit
+  priority: 20
+  device: false
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LIGHTING=1
+  gate:
+    key: dead_uniform_pushes
+    op: ==
+    value: 0
+  known_cause: 'Recense par le worker de gl-uniforms-off-cost (essai 2, notes/recensement-70-uniformes.csv)
+    et LAISSE EN L''ETAT : sept uniformes de la famille eclairage sont pousses par `first_tfrag_draw_setup`
+    a chaque appel — donc ~16 fois par image, ALLUME COMME ETEINT — et n''ont AUCUN site de lecture dans
+    aucun shader de l''arbre. `u_pbr_sun_dir` (declare pbr_uniforms.glsl:14), `u_pbr_sun_color` (pbr_uniforms.glsl:15),
+    `u_rt_ambient_key` (shade.glsl:76), `u_rt_ambient_contrast` (shade.glsl:77), `u_rt_shadow_mul` (shade.glsl:170),
+    `u_rt_tint_shadow` (shade.glsl:172), et `u_pbr_uv_tile` qui n''est meme DECLARE nulle part — `glu::loc`
+    rend -1 en permanence pour lui. Jamais mesure, jamais corrige.'
+  deliverable: '`dead_uniform_pushes` = 0 : plus aucune poussee vers un uniforme sans lecteur. Recenser
+    les sept par un temoin machine (le nom, sa declaration, ses sites de lecture = 0) AVANT de retirer
+    quoi que ce soit — un recensement a zero avant correction rendrait la porte verte par inaction. Publier
+    aussi le compte AVANT, non nul, dans le meme proof. Si l''un des sept doit VIVRE parce qu''un shader
+    le lira bientot, le dire et le garder.'
+  where: 'rien a voir : recensement ; owner_test=false'
+  out_of_scope: Ne pas toucher au rendu ni aux uniformes qui ont un lecteur. Seuls les sept sont vises.
+  owner_test: false
+  status: blocked
+  game: jak1
+  depends_on:
+  - gl-uniforms-off-cost
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-gl-uniforms-dead-seven.md
+  notes: 'Insere le 10/09 par le worker de gl-uniforms-off-cost : l''owner refuse qu''un signalement de
+    worker reste sans suite (« si ce que remonte le worker n''est jamais traite, ca sert a rien »). Mesure
+    a l''appui dans reports/gl-uniforms-off-cost/proof.txt.'
+  owner_feedback:
+  - date: '2026-09-10'
+    text: bah c'est debile, c'est des choses a traiter ! OK pas par lui, mais s'il fait que les mentionner
+      et on en fait jamais rien, ca va rester la, et on va potentiellement se trainer cette merde pendant
+      des mois pour rien, pour qu'un jour quelqu'un retrouve l'erreur par hasard et la corrige... DEBILE
+      !!! Si ce que remonte le worker n'est jamais traite par qui que ce soit, ca sert a rien, quel gaspillage
+      ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que
+      je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
+      juste apres meme !
+  block_reason: 'prompt absent : /home/emeric/code/jak-project/.autoport/prompts/item-gl-uniforms-dead-seven.md'
+- id: lighting-off-math-still-runs
+  feature: Eclairage eteint, le processeur calcule encore l'eclairage entier a chaque image
+  priority: 20
+  device: false
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LIGHTING=0
+  gate:
+    key: lighting_off_math_blocks
+    op: ==
+    value: 0
+  known_cause: 'MESURE par gl-uniforms-off-cost (essai 2, proof.txt du 10/09) : ce correctif a coupe les
+    POUSSEES, pas les CALCULS. Eclairage eteint et poussees toutes sautees (`uniform_off_pushes=0`, `uniform_off_skipped_per_setup=52`),
+    `first_tfrag_draw_setup` coute ENCORE `uniform_setup_ns_per_frame_off=341068` ns par image sur x86,
+    soit 0,34 ms — sur 16 appels par image. Les ~1000 lignes qui calculent position du soleil, harmoniques
+    spheriques, lissage temporel et couleurs de mood tournent toujours. Elles portent des effets de bord
+    consommes AILLEURS (`pbr_cover_publish_gates`, `Gfx::g_global_settings.mb_cur_relief_x100`, les trois
+    `lighting_census::gate_*`, les statiques de lissage de background_common.cpp:2835-2838) : les sauter
+    demande de savoir ce que chaque effet de bord alimente. C''est le chantier, pas un detail.'
+  deliverable: '`lighting_off_math_blocks` = 0 : eclairage eteint, aucun bloc de calcul d''eclairage ne
+    s''execute. Recenser les blocs et leurs effets de bord AVANT : chaque effet de bord consomme ailleurs
+    est soit re-heberge, soit documente comme raison de garder son bloc. Publier le compte AVANT (non
+    nul) et le cout CPU par image des deux cotes, avec la meme grandeur `uniform_setup_ns_per_frame_off`
+    que gl-uniforms-off-cost, pour que les deux mesures se comparent.'
+  where: 'rien a voir : la cadence eclairage eteint ; owner_test=false'
+  out_of_scope: Ne pas toucher au rendu allume ni aux poussees (gl-uniforms-off-cost les a deja coupees).
+    On vise le CALCUL, pas l'envoi.
+  owner_test: false
+  status: blocked
+  game: jak1
+  depends_on:
+  - gl-uniforms-off-cost
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-lighting-off-math-still-runs.md
+  notes: 'Insere le 10/09 par le worker de gl-uniforms-off-cost, qui a MESURE le reliquat au lieu de le
+    supposer. L''owner lie ses mauvaises perfs Redmi a ce genre de porte qui ne ferme pas : ici la porte
+    ferme l''envoi mais pas le calcul.'
+  owner_feedback:
+  - date: '2026-09-10'
+    text: bah c'est debile, c'est des choses a traiter ! OK pas par lui, mais s'il fait que les mentionner
+      et on en fait jamais rien, ca va rester la, et on va potentiellement se trainer cette merde pendant
+      des mois pour rien, pour qu'un jour quelqu'un retrouve l'erreur par hasard et la corrige... DEBILE
+      !!! Si ce que remonte le worker n'est jamais traite par qui que ce soit, ca sert a rien, quel gaspillage
+      ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que
+      je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais
+      juste apres meme !
+  block_reason: 'prompt absent : /home/emeric/code/jak-project/.autoport/prompts/item-lighting-off-math-still-runs.md'
+- id: android-text-overrides-dropped
+  priority: 21
+  device: true
+  feature: Les libelles ecrits POUR le tactile repartent dans l'APK
+  gate:
+    key: android_text_touch_variant_ids
+    op: '>='
+    value: 1
+  known_cause: 'Trouve par le worker de hd-stretch-flag-in-game-logic le 2026-09-10, en bâtissant l''APK
+    de sa propre preuve. `android/build_cgo_pack.sh` compare le md5 des surcharges figees `out/jak1-android-text/{0,1}COMMON.TXT`
+    (datees du 31/08) au banc bureau FRAIS ; elles ne correspondent plus, la regeneration (`.autoport/gtt_build_android_text.sh`)
+    ne s''est pas declenchee, et le packeur les ABANDONNE : `android-overrides: 0`. Son propre message
+    le dit — « android-only wording for that bank is lost this build ». L''APK part donc avec le banc
+    bureau : l''ecran-titre affiche « Press Start » / « Appuie sur start » au lieu de « Press Start or
+    Tap Screen » / « Appuie sur start ou touche l''ecran » (id #x16e), sur un appareil ou il n''y a pas
+    de bouton start. Ce n''est pas une regression d''un jour : ca se reproduit a CHAQUE build ou le banc
+    bureau a bouge, en silence, depuis le 31/08.'
+  deliverable: 'La surcharge tactile est PRODUITE a partir du banc courant au moment de l''empaquetage,
+    jamais relue d''une copie figee : une perte qui se repete se rend impossible au point de PRODUCTION,
+    pas detectable au point de controle. Si elle ne peut pas etre produite, l''empaquetage ECHOUE au lieu
+    de livrer un texte degrade en silence. Le moteur publie, sur l''appareil, `android_text_touch_variant_ids`
+    = le nombre d''identifiants du banc CHARGE dont le texte est la variante tactile et non celle du bureau
+    (aujourd''hui : 0).'
+  where: 'ecran-titre, avant d''appuyer : le libelle doit parler de toucher l''ecran, pas d''un bouton
+    start'
+  out_of_scope: Ne pas retraduire le jeu ni toucher aux 23 bancs livres. On repare la CHAINE de la surcharge
+    tactile.
+  owner_test: true
+  status: todo
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-android-text-overrides-dropped.md
+  notes: 'Insere le 10/09 par le worker de hd-stretch-flag-in-game-logic. L''owner du 10/09 : « si ce
+    que remonte le worker n''est jamais traite par qui que ce soit, ca sert a rien, quel gaspillage !
+    Donc si, a traiter ! » — ce signalement devient donc un item au lieu de rester une ligne de rapport.
+    Prio 21 : juste apres, comme il l''a demande.'
+- id: fire-red-particles
+  priority: 17
+  device: true
+  feature: Les particules rouges au-dessus des feux, allumees ou eteintes
+  gate:
+    key: fire_debug_particles
+    op: ==
+    value: 0
+  known_cause: 'Aucun cycle n''a etabli de cause. Owner 10/09 sur le Honor : des particules rouges bizarres
+    au-dessus des feux, PRESENTES que la sortie HDR soit allumee ou eteinte — donc sans rapport avec elle.
+    Il soupconne un reste de test ou de debug laisse dans le code.'
+  deliverable: '`fire_debug_particles` = 0 : recenser TOUT ce qui dessine en rouge sur ou au-dessus des
+    feux et qui n''appartient pas au jeu d''origine — sonde, temoin, marqueur de debug, couleur de secours
+    quand une texture manque. Publier la liste et le compte de dessins par image ; il doit tomber a 0.
+    Nommer la cause trouvee : un reste de debug se SUPPRIME, une couleur de secours se corrige a sa source.
+    L''aspect des feux redevient celui d''origine.'
+  where: 'les feux du jeu, par exemple a Sandover : plus aucune particule rouge etrange au-dessus des
+    flammes, sortie HDR allumee comme eteinte'
+  out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
+    a faire la, on ne redessine pas le feu.'
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-fire-red-particles.md
+  notes: Insere le 11/09 sur retour owner du 10/09 au soir.
+  owner_feedback:
+  - date: '2026-09-10'
+    text: je sais pas pourquoi, mais que ce soit on ou off, on a un truc louche au dessus des feux, ca
+      fait des particules rouges bizarres, probablement un des tests/debugs qui est reste la et qui maintenant
+      reste... Faut degager ca c'est horrible
+- id: lighting-legacy-purge
+  priority: 33
+  device: true
+  feature: Les reglages d'eclairage de l'ancien monde ne cohabitent plus avec la refonte
+  gate:
+    key: lighting_legacy_sites
+    op: ==
+    value: 0
+  known_cause: 'Owner 10/09 : « Modele d''ambiance, Materiaux PBR, Force de l''ambiance, Distance des
+    ombres [...] c''est des trucs anciens [...] j''ai peur que ca rentre en collision avec notre nouvelle
+    approche ». Sa crainte est fondee : lighting-ao-indirect a trouve un verrou safe-boot herite qui epinglait
+    l''AO a zero en silence, ligne de menu sur HBAO et moteur a zero.'
+  deliverable: '`lighting_legacy_sites` = 0. Recenser CHAQUE reglage d''eclairage anterieur a la refonte,
+    avec pour chacun : le chemin de code qu''il pilote, s''il s''execute encore, et l''item de la refonte
+    qui le remplace. Puis, pour chacun, soit il est SUPPRIME du code (pas debranche), soit il est explicitement
+    rattache au chemin unique de la refonte. Publier la table avant/apres et le compte d''execution de
+    chaque chemin herite : tous a 0. Un binaire ou l''ancien chemin n''est PAS COMPILE vaut mieux qu''un
+    drapeau a zero.'
+  where: 'Options > Recharged > Recharged Lighting : plus aucune ligne qui pilote l''ancien monde, et
+    ce qui reste agit vraiment'
+  out_of_scope: 'Ne pas livrer les features de la refonte elles-memes : chacune a son item. Ici on retire
+    l''ancien et on dit ce qui le remplace.'
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-lighting-legacy-purge.md
+  notes: Insere le 11/09 sur retour owner du 10/09 au soir.
+  owner_feedback:
+  - date: '2026-09-10'
+    text: Modele d'ambiance, Materiaux PBR, Force de l'ambiance, Distance des ombres, Qualite des ombres,
+      Relief des textures, Intensite des reflets, Profondeur de surface, Subdivision du maillage, Materiaux
+      avances... C'est des trucs anciens qui n'ont aucun rapport avec la refonte de l'eclairage actuel
+      non ? Pourquoi on les garde ? C'est une question mais j'ai peur que ca rentre en collision avec
+      notre nouvelle approche et notre nouveau code
