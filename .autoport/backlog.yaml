@@ -4450,7 +4450,7 @@ items:
     value: 0
   device: true
   max_turns: 300
-  max_retries: 9
+  max_retries: 13
   depends_on:
   - lighting-hdr
   history: []
@@ -4459,27 +4459,28 @@ items:
   where: 'Options : une ligne « sortie HDR » qui n''apparait QUE si l''ecran le supporte. Sur ton Honor
     elle doit etre la ; activee, les hautes lumieres doivent gagner en eclat sans que le reste change
     de teinte.'
-  deliverable: '`hdr_out_defects` = 0. Verdicts 1-7 (detection, visibilite conditionnelle, vrai interrupteur
-    `hdr_out_forced_on`=0 persistant, un seul tone map, OFF identique au bit a lighting-hdr, auto-config,
-    `hdr_out_menu_parent`=eclairage) : voir SPEC 4.5. (8) `hdr_out_ui_white_nits` >= blanc SDR du systeme
-    : UI, sous-titres, sprites BLANCS. (9) `hdr_out_darkening_pct` <= 5 : la luminance moyenne globale
-    ne baisse pas. (10) `hdr_out_peak_nits` = pic ANNONCE, courbe adaptative prouvee a deux pics, `hdr_out_peak_adaptive`=1.
-    (11) EFFET MESURE, refus 10/09 : l''image ON doit GAGNER EN DETAIL aux deux bouts par rapport a OFF,
-    sur l''ecran reel. Trois grandeurs, chacune un plancher strict : niveaux distincts dans les ombres,
-    niveaux distincts dans les hautes lumieres, et luminance qui DEPASSE le blanc SDR sur les hautes lumieres
-    (`hdr_out_hdr_sdr_ratio_x1000` > 1000). Identique a OFF = DEFAUT au meme titre qu''assombri : 8 et
-    9 sont vrais par INACTION. Si le mode retenu n''obtient pas la marge, essayer l''autre chemin annonce
-    dans les caps et publier CHAQUE chemin. Preuve sur le Honor.'
-  known_cause: 'Essai 6 vert (defects=0) mais VACUEUX. Sur le Honor `hdr_out_hdr_sdr_ratio_x1000` = 1000
-    : getHdrSdrRatio() reste a 1,0, setExtendedRangeBrightness accepte mais le systeme n''accorde aucune
-    marge (isHighBrightnessModeEnabled=false, mSdrToHdrRatioSpline=null). ON = SDR exact, l''owner ne
-    voit AUCUNE difference on/off (10/09). Les verdicts 8 et 9 passent donc par INACTION. Seul `scrgb_linear`
-    a ete essaye ; les caps annoncent aussi `egl:bt2020_pq`, jamais teste sur cet ecran.'
+  deliverable: '`hdr_out_defects` = 0. Verdicts 1-7 : voir SPEC 4.5. (8) `hdr_out_ui_white_nits` >= blanc
+    SDR du systeme : UI, sous-titres, sprites BLANCS. (9) PAS D''ASSOMBRISSEMENT LA OU L''OWNER JOUE :
+    `hdr_out_darkening_pct` <= 5 mesure sur du JEU REEL, plusieurs niveaux et plusieurs ambiances, pas
+    seulement pendant l''auto-test ; publier le nombre d''images de jeu echantillonnees. (10) ALIGNEMENT
+    AUTOMATIQUE AU PIC DE L''ECRAN (refus 10/09) : la courbe prend pour reference le pic ANNONCE par l''ecran,
+    jamais une constante. Preuve par l''EFFET, pas par un nombre publie : a deux pics annonces differents
+    (480 reel, 1000 simule), la MEME radiance d''entree doit sortir a des valeurs differentes, et a 480
+    l''image ne doit pas etre plus sombre qu''a 1000. `hdr_out_peak_adaptive` = 1. (11) EFFET AUX DEUX
+    BOUTS : plus de niveaux distincts dans les ombres ET dans les hautes lumieres qu''a OFF, et luminance
+    qui DEPASSE le blanc SDR (`hdr_out_hdr_sdr_ratio_x1000` > 1000). Identique a OFF = DEFAUT. Preuve
+    sur le Honor.'
+  known_cause: 'Essai 8 : la marge est enfin accordee (ratio 3,998), ombres 17->127 et hautes lumieres
+    17->128. MAIS l''owner joue et trouve l''image TROP SOMBRE (10/09), alors que `hdr_out_darkening_pct`
+    = 0. Contradiction expliquee : l''assombrissement n''est mesure que pendant l''auto-test (phases 1-4,
+    kPhaseFrames images), pas sur le jeu qu''il parcourt. Et `hdr_out_peak_adaptive` = 0 : rien ne prouve
+    que la COURBE prend le pic annonce (480) pour reference — `u_out_max_nits` le recoit, mais la porte
+    ne lit qu''un nombre publie.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
-  notes: 'budget : 3 essais rendus, les 3 brules sans ecran HDR ne comptent pas. Honor rouvert le 10/09
-    13h30, vu par adb (AREE026206000788), epingle par device_serial. Le lot perf reste gele : il attend
-    le retour du Redmi.'
+  notes: 'budget : porte a 13 le 10/09. Les 3 essais brules sans ecran HDR ne comptent pas, et les verdicts
+    9 et 10 ont ete DURCIS apres l''essai 8 : on ne peut pas reprocher au worker un budget consomme sous
+    l''ancien critere.'
   owner_feedback:
   - date: '2026-09-06'
     text: Mhhhh ça change effectivement l'image, les blancs sont brûlés ! Mon Honor supporte le HDR, ça
@@ -4532,6 +4533,11 @@ items:
   - date: '2026-09-10'
     text: le HDR Output apparait et peut etre toggled on/off sur le Redmi alors que je pense pas que ce
       device supporte le HDR
+  - date: '2026-09-10'
+    text: faut aligner aux capacites device ! Voila pourquoi je trouve ca trop sombre, t'as calibre pour
+      1000 nits alors que le Honor expose 480 ! Faut que ca s'aligne automatiquement ! C'est debile de
+      caler a 1000 nits pour tout ecran HDR ! La on dirait que je joue en plein soleil avec la luminosite
+      basse alors que je suis en interieur en luminosite max !
   supervisor_recovery: true
   proof_props:
   - debug.opengoal.hdr=1
