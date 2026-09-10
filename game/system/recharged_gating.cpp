@@ -781,9 +781,14 @@ void publish_all() {
   autoport_proof::publish("gating_options", (uint64_t)kOptCount);
   autoport_proof::publish("gating_not_compiled", not_compiled);
   autoport_proof::publish("gating_table_ok", g_table_ok ? 1 : 0);
-  if (!foreign_names.empty()) {
-    autoport_proof::publish_text("gating_ungated_names", foreign_names.c_str());
-  }
+  // UNE CLE DE TEXTE NE SE VIDE JAMAIS TOUTE SEULE. `publish_text` garde la DERNIERE valeur
+  // posee, et `publish_all` tourne a chaque image : une liste publiee a l'image 200 survit dans
+  // proof.txt meme quand elle est devenue vide a l'image 900. Mesure du 2026-09-10 sur le Honor :
+  // `gating_uncovered=0` et, deux lignes plus bas, sept noms d'options « non couvertes ». Les
+  // deux ne peuvent pas etre vrais, et c'est le TEXTE qui mentait. On publie donc TOUJOURS, avec
+  // « - » pour dire « aucun » : une preuve ne doit pas porter une ligne qui contredit son compteur.
+  autoport_proof::publish_text("gating_ungated_names",
+                               foreign_names.empty() ? "-" : foreign_names.c_str());
 
   // ── le menu ──
   autoport_proof::publish("gating_menu_rows", g_menu.rows);
@@ -791,13 +796,11 @@ void publish_all() {
   autoport_proof::publish("gating_menu_misplaced", g_menu.misplaced);
   autoport_proof::publish("gating_menu_missing", g_menu.missing);
   autoport_proof::publish("gating_menu_absent", g_menu.absent);
-  if (!g_menu.missing_names.empty()) {
-    autoport_proof::publish_text("gating_menu_missing_names", g_menu.missing_names.c_str());
-  }
+  autoport_proof::publish_text("gating_menu_missing_names",
+                               g_menu.missing_names.empty() ? "-" : g_menu.missing_names.c_str());
   autoport_proof::publish("gating_menu_seen", g_menu.ever ? 1 : 0);
-  if (!g_menu.parents.empty()) {
-    autoport_proof::publish_text("gating_menu_parent", g_menu.parents.c_str());
-  }
+  autoport_proof::publish_text("gating_menu_parent",
+                               g_menu.parents.empty() ? "-" : g_menu.parents.c_str());
 
   // ── le balayage ────────────────────────────────────────────────────────────────────────────
   // QUI EST JUGE PAR SON PROPRE COMPTEUR, ET QUI HERITE.
@@ -951,12 +954,10 @@ void publish_all() {
   }
   autoport_proof::publish("gating_uncovered", uncovered);
   autoport_proof::publish("gating_value_restored", g_sweep.value_restored == 1 ? 1 : 0);
-  if (!defect_names.empty()) {
-    autoport_proof::publish_text("gating_effect_defect_names", defect_names.c_str());
-  }
-  if (!uncovered_names.empty()) {
-    autoport_proof::publish_text("gating_uncovered_names", uncovered_names.c_str());
-  }
+  autoport_proof::publish_text("gating_effect_defect_names",
+                               defect_names.empty() ? "-" : defect_names.c_str());
+  autoport_proof::publish_text("gating_uncovered_names",
+                               uncovered_names.empty() ? "-" : uncovered_names.c_str());
 
   // ── LE VERDICT ────────────────────────────────────────────────────────────────────────────
   // LA VACUITE EST UN ECHEC, PAS UN ZERO. Table incoherente, balayage non termine, menu jamais
