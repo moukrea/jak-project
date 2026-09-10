@@ -175,6 +175,29 @@ bool take_window_lever_request(bool* on, float* desired);
 
 // ---------------------------------------------------------------- ce que le rendu lit ----
 
+// LES PARAMETRES EFFECTIFS DE LA COURBE pour l'image en cours. Trois d'entre eux sont pilotes
+// par le CONTENU de la scene (analyse par `analyze_scene`, lissee dans le temps) : c'est
+// l'adaptation « facon Dolby Vision » que le refus owner du 10/09 reclame (« c'est statique non ?
+// le HDR s'ajuste pas constamment »). En sortie SDR, ou pendant l'auto-test, ils prennent un
+// point de fonctionnement FIGE : les verdicts de phase comparent des etats, ils ne peuvent pas
+// le faire si la courbe bouge sous eux.
+struct CurveParams {
+  float ceiling = 1.f;  // u_hdr_ceiling — plafond, dans l'espace d'affichage du tampon
+  float anchor = 2.f;   // u_hdr_anchor  — >= 1 : aucune expansion, chemin SDR strict
+  float top = 2.f;      // u_hdr_top     — la valeur de scene qui sort AU plafond ; <= ceiling
+  float toe = 0.f;      // u_hdr_toe     — relevement du pied
+};
+CurveParams curve_params();
+// Fil GL : pousse les quatre uniformes de la courbe sur le programme `tonemap`.
+void push_tonemap_uniforms(Shader& shader);
+// Fil GL, dans hdr::tonemap_draw APRES le vrai dessin (programme, texture de scene et VAO encore
+// lies) : rejoue `tonemap` dans une cible 16x16 avec un plafond assez haut pour ne rien
+// comprimer — donc une image de la SCENE, pas de sa version tone-mappee — et lit le resultat
+// par un anneau de PBO (lecture ASYNCHRONE : le tampon consomme a ete rempli huit images plus
+// tot, la carte ne bloque pas). En sort la luminance log-moyenne et le haut de scene, lisses
+// dans le temps. Tourne en PRODUCTION des que la sortie HDR est active, une image sur huit.
+void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h);
+
 GLenum ui_buffer_format();      // GL_RGBA16F quand active(), sinon GL_RGBA8
 GLenum window_target_format();  // GL_RGB10_A2 (PQ) / GL_RGBA16F (scRGB) quand active(), sinon GL_RGBA8
 // Le blanc SDR de l'ecran tel que le SYSTEME le donne, en nits : PQ = HdrCapabilities.maxLuminance

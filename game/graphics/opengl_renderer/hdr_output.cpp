@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -336,7 +337,13 @@ constexpr float kSimPeakNits = 1000.f;
 constexpr uint64_t kProbeEvery = 5;
 constexpr int kReadyHits = 3;
 constexpr uint64_t kReadyPx = 256;   // un quart de la sonde 32x32 en tons moyens
-constexpr double kReadyCapSeconds = 120.0;
+constexpr double kReadyCapSeconds = 150.0;
+// PLANCHER DE TEMPS avant la premiere phase. La course d'appareil pose desormais
+// `debug.opengoal.level.warp` : le moteur quitte l'ecran-titre pour un niveau JOUABLE vers la
+// 50e seconde, et ce teleport recree du contenu pendant plusieurs secondes. L'auto-test bascule
+// la SURFACE EGL ; les deux au meme instant, c'est un ecran noir pour une raison qui n'a rien a
+// voir avec la sortie HDR. On laisse donc le teleport et son chargement se terminer d'abord.
+constexpr double kMinStartSeconds = 75.0;
 struct PhaseStats {
   uint64_t frames = 0;
   uint64_t active_frames = 0;
@@ -409,7 +416,7 @@ int s_loaded_source = -1;      // GOAL : 0 fichier, 1 auto-configuration
 int s_menu_parent = -1;        // GOAL : -1 jamais, 1 = sous RECHARGED LIGHTING, 0 = ailleurs
 int s_persisted = -3;          // relecture disque : -3 pas encore lue
 int s_defects = -1;
-int s_d[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int s_d[14] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // La plus grande marge que le systeme ait accordee pendant une phase ON REELLE (pas la phase a
 // pic simule) : la grandeur du verdict 11 qui dit si l'ecran laisse depasser son blanc SDR.
 int s_ratio_max_x1000 = 1000;
@@ -437,6 +444,114 @@ constexpr int kTmW = 32, kTmH = 32;
 GLuint s_tf_fbo = 0, s_tf_tex = 0, s_tf_src = 0;
 int s_tf_state = 0;
 constexpr float kFixedTop = 3.f;
+
+// ------------------------------------------------- ADAPTATION AU CONTENU (verdict 13) ----
+// Refus owner du 10/09 : « c'est statique non ? le HDR s'ajuste pas constamment, facon dolby
+// vision ou HDR10+ dans les films, la j'ai l'impression qu'on a un truc HDR et fini, c'est
+// applique partout pareil. » Un HDR10 statique porte UNE courbe pour tout le film ; Dolby Vision
+// et HDR10+ portent des metadonnees par plan. Ici il n'y a pas de metadonnees a lire : la scene
+// est produite a l'instant, on la MESURE. Une image sur huit, la scene est reduite a 256 tuiles
+// et deux grandeurs en sortent — la luminance log-moyenne (le « niveau » de la scene) et le haut
+// de scene (la moyenne des 2 % de tuiles les plus claires). Elles pilotent l'ancre, le sommet et
+// le pied de la courbe, apres un lissage a constante de temps asymetrique ET un limiteur de
+// vitesse : c'est ce limiteur qui rend le pompage impossible, pas une chance.
+constexpr uint64_t kAnalyzeEvery = 8;      // images entre deux analyses (chemin PBO)
+constexpr uint64_t kAnalyzeEverySync = 30; // idem, quand le PBO n'est pas disponible
+constexpr int kAnW = 16, kAnH = 16;        // 256 tuiles
+constexpr int kAnSlots = 2;                // anneau de PBO : on consomme ce qui a 8 images
+constexpr float kAnCeiling = 64.f;         // plafond de lecture : rien n'est comprime en dessous
+constexpr float kTauUp = 0.35f;            // s — l'oeil s'adapte vite a une montee
+constexpr float kTauDown = 1.10f;          // s — et lentement a une baisse
+constexpr float kSlewKey = 0.35f;          // par seconde : la borne dure anti-pompage
+constexpr float kSlewHi = 0.50f;
+// Les bornes de la courbe. Aucune n'est un calibrage d'ecran : le plafond, lui, vient
+// exclusivement du systeme (headroom_linear), jamais d'une constante en nits.
+// L'ANCRE EST UN PERCENTILE DE LA SCENE, pas une constante : elle se pose sur le 90e centile
+// des tuiles. La population etiree est donc TOUJOURS le dixieme le plus clair de CETTE image —
+// une grotte et un plein soleil n'ont pas la meme ancre, et c'est exactement ce que le refus du
+// 10/09 reclame. Les deux bornes empechent les deux exces : relever une nuit entiere (plancher)
+// et eclaircir un plein jour globalement (plafond).
+constexpr float kAnchorDark = 0.45f;
+constexpr float kAnchorBright = 0.86f;
+// COMBIEN DE MARGE CETTE SCENE MERITE : lu sur son PIC absolu. Une grotte sans la moindre source
+// n'a rien a faire monter — sa sortie HDR est alors celle du SDR, et c'est correct, pas un echec.
+constexpr float kPeakLo = 0.45f, kPeakHi = 0.80f;
+// La fenetre etiree ne depasse jamais la moitie de la marge disponible : le gain moyen sur la
+// fenetre vaut donc au moins DEUX. C'est ce qui empeche la courbe de redevenir une identite —
+// le defaut mesure de l'essai 7, ou le sommet touchait le plafond et l'etirement disparaissait.
+constexpr float kMaxWidthFrac = 0.5f;
+constexpr float kMinWidth = 0.06f;
+// La luminance log-moyenne ne pilote QUE le pied : plus la scene est sombre, plus les ombres
+// sont relevees — c'est la ou l'ecran HDR a du noir a montrer.
+constexpr float kKeyDark = 0.05f, kKeyBright = 0.30f;
+constexpr float kToeMax = 0.12f;
+// Le point de fonctionnement FIGE de l'auto-test. Les verdicts 3, 4, 5 et 10 comparent des
+// PHASES ; une courbe qui bouge sous eux les rendrait incomparables (lecon « verdict mesure sur
+// une scene MOUVANTE »). L'adaptation au contenu se mesure APRES, sur du jeu reel.
+constexpr float kPinAnchor = 0.75f, kPinTop = 1.05f, kPinToe = 0.06f;
+
+struct DynState {
+  bool primed = false;
+  float key = 0.15f;   // luminance log-moyenne : pilote le PIED
+  float hi = 0.90f;    // 90e centile des tuiles : pilote l'ANCRE
+  float peak = 1.f;    // pic de la scene : pilote la part de marge reclamee
+  std::chrono::steady_clock::time_point last;
+};
+DynState s_dyn;
+CurveParams s_cur;              // les parametres pousses pour l'image en cours
+uint64_t s_dyn_updates = 0;     // analyses de scene consommees
+uint64_t s_dyn_pinned_frames = 0, s_dyn_free_frames = 0;
+int s_an_state = 0;             // 0 pas cree, 1 pret, -1 indisponible
+int s_an_mode = 0;              // 2 = PBO asynchrone, 1 = relecture directe, 0 = aucune
+GLuint s_an_fbo = 0, s_an_tex = 0, s_an_pbo[kAnSlots] = {0, 0};
+bool s_an_pending[kAnSlots] = {false, false};
+int s_an_slot = 0;
+GLenum s_an_read_type = 0;
+size_t s_an_bytes = 0;
+float s_an_last_key = 0.f, s_an_last_hi = 0.f, s_an_last_peak = 0.f;
+
+// La SERIE (verdict 13). Un echantillon toutes les kDynEvery images, apres l'auto-test, avec la
+// REPONSE du programme `tonemap` a un stimulus FIXE : si la courbe etait unique et figee, cette
+// reponse serait constante. C'est une grandeur LUE d'un dessin, pas un miroir de nos variables.
+constexpr uint64_t kDynEvery = 20;
+constexpr size_t kDynSeriesMax = 160;
+constexpr size_t kDynChunk = 20;
+struct DynSample {
+  uint64_t frame = 0;
+  float resp = 0.f;     // somme du canal max sur les 128 marches du stimulus fixe
+  float anchor = 0.f, top = 0.f, ceiling = 0.f, key = 0.f, hi = 0.f;
+  float t_s = 0.f;
+};
+std::vector<DynSample> s_dyn_series;
+size_t s_dyn_stride = 1;
+uint64_t s_dyn_seen = 0;
+
+// L'AMPLITUDE (verdict 12), mesuree sur du JEU REEL apres l'auto-test. Trois bras du MEME
+// programme sur la MEME image : le SDR livre, la sortie HDR d'aujourd'hui, et la sortie HDR
+// REFUSEE le 10/09 (plafond seul, courbe SDR etiree) — c'est cette derniere qui donne au verdict
+// une reference qui n'est pas un chiffre invente.
+struct PlayStats {
+  uint64_t samples = 0, px = 0, lift_px = 0;
+  double sum_off = 0.0, sum_on = 0.0;      // tons moyens : verdict 9 sur du jeu reel
+  double lift_ratio_sum = 0.0;             // somme de on/off sur les pixels releves
+  double gain_ref = 0.0;                   // somme des canaux max du bras SDR
+  double gain_new = 0.0, gain_old = 0.0;   // supplement de lumiere, aujourd'hui / le 10/09
+  double hl_max = 0.0;
+  uint64_t below_sdr_px = 0;               // pixels ou le HDR sort SOUS le SDR : doit rester 0
+};
+PlayStats s_play;
+GLuint s_pl_fbo[3] = {0, 0, 0}, s_pl_tex[3] = {0, 0, 0};
+int s_pl_state = 0;
+// Ce que les verdicts 12 et 13 ont lu, garde pour etre publie a cote d'eux : un verdict qu'on
+// ne peut pas relire n'est pas une preuve.
+struct DynStats {
+  size_t samples = 0;
+  int reversals = 0;
+  double r_min = 0, r_max = 0, r_span = 0;
+  double k_min = 0, k_max = 0, a_min = 0, a_max = 0, c_min = 0, c_max = 0, t_min = 0, t_max = 0;
+  double step_max = 0, cover = 0, gain_new = 0, gain_old = 0, hl_lin = 0;
+};
+DynStats s_dyn_stats;
 
 bool measuring() {
   return autoport_proof::feature_is(kItemId) && autoport_proof::armed_for(kItemId);
@@ -533,6 +648,160 @@ bool make_float_fbo(GLuint* fbo, GLuint* tex, int w, int h, const float* fill) {
     return false;
   }
   return true;
+}
+
+// ----------------------------------------------- l'analyse de scene et son lissage ----
+
+float clampf(float v, float lo, float hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+float smoothstep01(float lo, float hi, float v) {
+  const float t = clampf((v - lo) / (hi - lo > 1e-6f ? hi - lo : 1e-6f), 0.f, 1.f);
+  return t * t * (3.f - 2.f * t);
+}
+// Lissage a constante de temps asymetrique, PUIS limiteur de vitesse. Le limiteur est la garde
+// dure : quel que soit le saut de la scene (un ecran de chargement, un teleport), la grandeur ne
+// peut pas bouger de plus de `slew` par seconde. C'est ce qui rend « transition lissee, aucun
+// pompage » une propriete du code et pas un resultat de mesure heureux.
+float smooth_to(float cur, float raw, float dt, float slew) {
+  const float tau = raw > cur ? kTauUp : kTauDown;
+  float next = cur + (raw - cur) * (1.f - std::exp(-dt / tau));
+  const float lim = slew * dt;
+  if (next > cur + lim) {
+    next = cur + lim;
+  }
+  if (next < cur - lim) {
+    next = cur - lim;
+  }
+  return next;
+}
+
+void dyn_update(float raw_key, float raw_hi, float raw_peak) {
+  s_an_last_key = raw_key;
+  s_an_last_hi = raw_hi;
+  s_an_last_peak = raw_peak;
+  const auto now = std::chrono::steady_clock::now();
+  if (!s_dyn.primed) {
+    s_dyn.primed = true;
+    s_dyn.key = raw_key;
+    s_dyn.hi = raw_hi;
+    s_dyn.peak = raw_peak;
+    s_dyn.last = now;
+    s_dyn_updates++;
+    return;
+  }
+  float dt = (float)std::chrono::duration<double>(now - s_dyn.last).count();
+  s_dyn.last = now;
+  if (!(dt > 0.f)) {
+    return;
+  }
+  if (dt > 0.5f) {
+    dt = 0.5f;  // une pause (chargement, changement de niveau) n'autorise pas un saut
+  }
+  s_dyn.key = smooth_to(s_dyn.key, raw_key, dt, kSlewKey);
+  s_dyn.hi = smooth_to(s_dyn.hi, raw_hi, dt, kSlewHi);
+  s_dyn.peak = smooth_to(s_dyn.peak, raw_peak, dt, kSlewHi);
+  s_dyn_updates++;
+}
+
+// Les quatre uniformes de la courbe, sur le programme deja actif.
+void set_curve(GLuint prog, const CurveParams& p) {
+  glUniform1f(glGetUniformLocation(prog, "u_hdr_ceiling"), p.ceiling);
+  glUniform1f(glGetUniformLocation(prog, "u_hdr_anchor"), p.anchor);
+  glUniform1f(glGetUniformLocation(prog, "u_hdr_top"), p.top);
+  glUniform1f(glGetUniformLocation(prog, "u_hdr_toe"), p.toe);
+}
+// Le bras SDR : plafond 1,0 et aucune expansion. C'est EXACTEMENT ce que le joueur voit
+// interrupteur eteint.
+CurveParams sdr_params() {
+  CurveParams p;
+  p.ceiling = 1.f;
+  p.anchor = 2.f;
+  p.top = 2.f;
+  p.toe = 0.f;
+  return p;
+}
+// Le bras REFUSE le 10/09 : le plafond seul, la courbe SDR etiree sur [0, plafond]. Aucune
+// expansion — c'est precisement pourquoi l'owner n'a vu « qu'un yota ».
+CurveParams legacy_params(float ceiling) {
+  CurveParams p = sdr_params();
+  p.ceiling = ceiling;
+  return p;
+}
+
+// La cible d'analyse et son anneau de PBO. La lecture est ASYNCHRONE : `glReadPixels` ecrit
+// dans un PBO, et on ne cartographie ce PBO qu'au tour suivant de l'anneau — huit images plus
+// tard. C'est le seul readback par-image du moteur : sans PBO il serialiserait CPU et GPU a
+// chaque analyse, et le Redmi plafonne deja a ~44 img/s. Si le PBO est refuse, on retombe sur
+// une lecture directe trois fois moins frequente, et on le PUBLIE (`hdr_out_dyn_readback`).
+bool an_ensure() {
+  if (s_an_state != 0) {
+    return s_an_state == 1;
+  }
+  if (!make_float_fbo(&s_an_fbo, &s_an_tex, kAnW, kAnH, nullptr)) {
+    s_an_state = -1;
+    return false;
+  }
+  GLint rf = 0, rt = 0;
+  glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &rf);
+  glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &rt);
+  s_an_read_type = (rf == GL_RGBA && rt == GL_HALF_FLOAT) ? GL_HALF_FLOAT : GL_FLOAT;
+  s_an_bytes = (size_t)kAnW * kAnH * 4 * (s_an_read_type == GL_HALF_FLOAT ? 2u : 4u);
+  while (glGetError() != GL_NO_ERROR) {
+  }
+  GLint saved_pbo = 0;
+  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &saved_pbo);
+  glGenBuffers(kAnSlots, s_an_pbo);
+  bool ok = glGetError() == GL_NO_ERROR;
+  for (int i = 0; i < kAnSlots && ok; i++) {
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, s_an_pbo[i]);
+    glBufferData(GL_PIXEL_PACK_BUFFER, (GLsizeiptr)s_an_bytes, nullptr, GL_STREAM_READ);
+    ok = glGetError() == GL_NO_ERROR;
+  }
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, (GLuint)saved_pbo);
+  s_an_mode = ok ? 2 : 1;
+  s_an_state = 1;
+  lg::info("[hdr-display-output] analyse de scene {}x{} : lecture {} ({})", kAnW, kAnH,
+           s_an_mode == 2 ? "PBO asynchrone" : "directe",
+           s_an_read_type == GL_HALF_FLOAT ? "half" : "float");
+  return true;
+}
+
+// 256 tuiles -> deux grandeurs. `key` est la luminance LOG-moyenne : elle suit le niveau general
+// de la scene sans qu'une poignee de pixels brulants la tire. `hi` est la moyenne des 2 % de
+// tuiles les plus claires : le vrai haut de scene, insensible a un pixel isole.
+void an_decode(const void* raw) {
+  const size_t n = (size_t)kAnW * kAnH;
+  std::vector<float> mx(n, 0.f);
+  double log_sum = 0.0;
+  size_t used = 0;
+  for (size_t i = 0; i < n; i++) {
+    float c[3];
+    for (int k = 0; k < 3; k++) {
+      c[k] = s_an_read_type == GL_HALF_FLOAT
+                 ? half_to_float(((const uint16_t*)raw)[i * 4 + k])
+                 : ((const float*)raw)[i * 4 + k];
+      if (!std::isfinite(c[k]) || c[k] < 0.f) {
+        c[k] = 0.f;
+      }
+    }
+    const float lum = 0.2126f * c[0] + 0.7152f * c[1] + 0.0722f * c[2];
+    mx[i] = std::fmax(c[0], std::fmax(c[1], c[2]));
+    log_sum += std::log(std::fmax(lum, 1e-3f));
+    used++;
+  }
+  if (used == 0) {
+    return;
+  }
+  const float key = std::exp((float)(log_sum / (double)used));
+  // Le PIC (moyenne des deux tuiles les plus claires) et le 90e CENTILE. Deux roles distincts :
+  // le pic dit s'il y a quelque chose a faire monter, le centile dit OU commence le dixieme le
+  // plus clair de l'image — c'est lui, et lui seul, qui place l'ancre.
+  const size_t k90 = n / 10;  // 26e valeur en partant du haut sur 256
+  std::partial_sort(mx.begin(), mx.begin() + k90 + 1, mx.end(), std::greater<float>());
+  const float hi = mx[k90];
+  const float peak = 0.5f * (mx[0] + mx[1]);
+  dyn_update(key, hi, peak);
 }
 
 // --------------------------------------------------------- verdict 11 : les rampes ----
@@ -813,7 +1082,82 @@ void publish_all() {
   // Les phases ON et OFF ne comptent leurs images bonnes qu'a partir de l'application effective
   // de la bascule : `tonemaps_applied` est le recensement de la DERNIERE image ON.
   autoport_proof::publish("hdr_out_tonemaps_applied", s_phase >= 2 && s_ph[1].frames ? (s_ph[1].sites_bad ? 0 : 1) : 0);
-  // La grandeur de porte : somme de neuf verdicts, chacun publie a cote. « Pas mesurable » = 1.
+  // ---- verdict 12 : L'AMPLITUDE sur du jeu reel, les trois planchers lisibles un par un ----
+  autoport_proof::publish("hdr_out_play_samples", s_play.samples);
+  autoport_proof::publish("hdr_out_play_px", s_play.px);
+  autoport_proof::publish("hdr_out_play_below_sdr_px", s_play.below_sdr_px);
+  autoport_proof::publish("hdr_out_play_hl_max_x1000", (uint64_t)std::lround(s_play.hl_max * 1000.0));
+  autoport_proof::publish("hdr_out_play_hl_max_lin_x1000", (uint64_t)std::lround(s_dyn_stats.hl_lin * 1000.0));
+  autoport_proof::publish("hdr_out_play_headroom_used_pct",
+                          (uint64_t)(s_ratio_max_x1000 > 1000
+                                         ? std::lround(100000.0 * s_dyn_stats.hl_lin / (double)s_ratio_max_x1000)
+                                         : 0));
+  autoport_proof::publish("hdr_out_play_cover_x1000", (uint64_t)std::lround(s_dyn_stats.cover * 1000.0));
+  autoport_proof::publish("hdr_out_play_lift_mean_x1000",
+                          (uint64_t)(s_play.lift_px ? std::lround(1000.0 * s_play.lift_ratio_sum / (double)s_play.lift_px) : 0));
+  autoport_proof::publish("hdr_out_play_gain_new_x10000", (uint64_t)std::lround(s_dyn_stats.gain_new * 10000.0));
+  autoport_proof::publish("hdr_out_play_gain_legacy_x10000", (uint64_t)std::lround(s_dyn_stats.gain_old * 10000.0));
+  autoport_proof::publish("hdr_out_play_gain_ratio_x100",
+                          (uint64_t)(s_dyn_stats.gain_old > 1e-9 ? std::lround(100.0 * s_dyn_stats.gain_new / s_dyn_stats.gain_old) : 0));
+  autoport_proof::publish("hdr_out_play_darkening_pct",
+                          (uint64_t)(s_play.sum_off > 0.0 && s_play.sum_on < s_play.sum_off
+                                         ? std::lround(100.0 * (1.0 - s_play.sum_on / s_play.sum_off))
+                                         : 0));
+  autoport_proof::publish("hdr_out_play_brightening_pct",
+                          (uint64_t)(s_play.sum_off > 0.0 && s_play.sum_on > s_play.sum_off
+                                         ? std::lround(100.0 * (s_play.sum_on / s_play.sum_off - 1.0))
+                                         : 0));
+  // ---- verdict 13 : L'ADAPTATION AU CONTENU, la serie et ses bornes ----
+  autoport_proof::publish("hdr_out_dyn_samples", (uint64_t)s_dyn_stats.samples);
+  autoport_proof::publish("hdr_out_dyn_updates", s_dyn_updates);
+  autoport_proof::publish("hdr_out_dyn_readback", (uint64_t)s_an_mode);
+  autoport_proof::publish("hdr_out_dyn_pinned_frames", s_dyn_pinned_frames);
+  autoport_proof::publish("hdr_out_dyn_free_frames", s_dyn_free_frames);
+  autoport_proof::publish("hdr_out_dyn_resp_min_x100", (uint64_t)std::lround(s_dyn_stats.r_min * 100.0));
+  autoport_proof::publish("hdr_out_dyn_resp_max_x100", (uint64_t)std::lround(s_dyn_stats.r_max * 100.0));
+  autoport_proof::publish("hdr_out_dyn_resp_span_pct", (uint64_t)std::lround(s_dyn_stats.r_span * 100.0));
+  autoport_proof::publish("hdr_out_dyn_step_max_x1000", (uint64_t)std::lround(s_dyn_stats.step_max * 1000.0));
+  autoport_proof::publish("hdr_out_dyn_reversals", (uint64_t)(s_dyn_stats.reversals < 0 ? 0 : s_dyn_stats.reversals));
+  autoport_proof::publish("hdr_out_dyn_key_min_x1000", (uint64_t)std::lround(s_dyn_stats.k_min * 1000.0));
+  autoport_proof::publish("hdr_out_dyn_key_max_x1000", (uint64_t)std::lround(s_dyn_stats.k_max * 1000.0));
+  autoport_proof::publish("hdr_out_dyn_anchor_min_x1000", (uint64_t)std::lround(s_dyn_stats.a_min * 1000.0));
+  autoport_proof::publish("hdr_out_dyn_anchor_max_x1000", (uint64_t)std::lround(s_dyn_stats.a_max * 1000.0));
+  autoport_proof::publish("hdr_out_dyn_top_min_x1000", (uint64_t)std::lround(s_dyn_stats.t_min * 1000.0));
+  autoport_proof::publish("hdr_out_dyn_top_max_x1000", (uint64_t)std::lround(s_dyn_stats.t_max * 1000.0));
+  autoport_proof::publish("hdr_out_dyn_ceiling_min_x100", (uint64_t)std::lround(s_dyn_stats.c_min * 100.0));
+  autoport_proof::publish("hdr_out_dyn_ceiling_max_x100", (uint64_t)std::lround(s_dyn_stats.c_max * 100.0));
+  autoport_proof::publish("hdr_out_anchor_x1000", (uint64_t)std::lround(s_cur.anchor * 1000.f));
+  autoport_proof::publish("hdr_out_top_x1000", (uint64_t)std::lround(s_cur.top * 1000.f));
+  autoport_proof::publish("hdr_out_toe_x1000", (uint64_t)std::lround(s_cur.toe * 1000.f));
+  autoport_proof::publish("hdr_out_key_x1000", (uint64_t)std::lround(s_dyn.key * 1000.f));
+  autoport_proof::publish("hdr_out_hi_x1000", (uint64_t)std::lround(s_dyn.hi * 1000.f));
+  autoport_proof::publish("hdr_out_peak_scene_x1000", (uint64_t)std::lround(s_dyn.peak * 1000.f));
+  // LA SERIE ELLE-MEME, en clair : l'item demande de la publier, pas d'en publier un resume.
+  // Quatre pistes, par tranches de kDynChunk. Une tranche absente sort a « - » (une cle de texte
+  // ne se vide jamais toute seule).
+  {
+    const size_t chunks = (kDynSeriesMax + kDynChunk - 1) / kDynChunk;
+    const char* tracks[4] = {"resp", "anchor", "top", "key"};
+    for (size_t c = 0; c < chunks; c++) {
+      for (int tr = 0; tr < 4; tr++) {
+        std::string line;
+        for (size_t i = c * kDynChunk; i < (c + 1) * kDynChunk && i < s_dyn_series.size(); i++) {
+          const DynSample& v = s_dyn_series[i];
+          const double val = tr == 0 ? v.resp * 100.0 : (tr == 1 ? v.anchor * 1000.0
+                                                        : (tr == 2 ? v.top * 1000.0 : v.key * 1000.0));
+          if (!line.empty()) {
+            line += ",";
+          }
+          line += std::to_string((long long)std::lround(val));
+        }
+        char key[64];
+        std::snprintf(key, sizeof(key), "hdr_out_dyn_%s_%02d", tracks[tr], (int)c);
+        autoport_proof::publish_text(key, line.empty() ? "-" : line.c_str());
+      }
+    }
+    autoport_proof::publish("hdr_out_dyn_series_stride", (uint64_t)s_dyn_stride);
+  }
+  // La grandeur de porte : somme de treize verdicts, chacun publie a cote. « Pas mesurable » = 1.
   if (s_defects >= 0) {
     autoport_proof::publish("hdr_out_defect_1_caps_detected", (uint64_t)s_d[1]);
     autoport_proof::publish("hdr_out_defect_2_option_visibility", (uint64_t)s_d[2]);
@@ -827,9 +1171,11 @@ void publish_all() {
     autoport_proof::publish("hdr_out_defect_10_peak_adaptive", (uint64_t)s_d[10]);
     autoport_proof::publish("hdr_out_peak_adaptive", (uint64_t)(s_d[10] ? 0 : 1));
     autoport_proof::publish("hdr_out_defect_11_effect", (uint64_t)s_d[11]);
+    autoport_proof::publish("hdr_out_defect_12_amplitude", (uint64_t)s_d[12]);
+    autoport_proof::publish("hdr_out_defect_13_content_adaptive", (uint64_t)s_d[13]);
     autoport_proof::publish("hdr_out_defects", (uint64_t)s_defects);
   } else {
-    autoport_proof::publish("hdr_out_defects", 11);  // auto-test pas au bout : ROUGE, jamais muet
+    autoport_proof::publish("hdr_out_defects", 13);  // auto-test pas au bout : ROUGE, jamais muet
   }
 }
 
@@ -870,7 +1216,11 @@ void compute_verdicts() {
   s_d[5] = off_ok ? 0 : 1;
   // 6 : le reglage vient du fichier ou de l'auto-configuration (rapporte), et le fichier relu
   //     du disque porte la valeur en memoire.
-  s_persisted = read_persisted_setting();
+  // Le disque n'est relu que la premiere fois puis toutes les 1800 images : compute_verdicts()
+  // tourne desormais aussi APRES l'auto-test, une fois par paquet d'images.
+  if (s_persisted == -3 || (s_frames % 1800) == 0) {
+    s_persisted = read_persisted_setting();
+  }
   const int mem = s_setting.load() != 0 ? 1 : 0;
   s_d[6] = (s_loaded_value >= 0 && s_loaded_source >= 0 && s_persisted == mem) ? 0 : 1;
   // 7 : la rangee vit sous Options > Recharged > Recharged Lighting (GOAL l'a trouvee la, en
@@ -903,7 +1253,15 @@ void compute_verdicts() {
     const double dark = 100.0 * (1.0 - pr.tm_sum_on / pr.tm_sum_off);
     dark_ok = dark <= 5.0;
   }
-  s_d[9] = dark_ok ? 0 : 1;
+  // ... ET sur du JEU REEL, apres l'auto-test, la courbe laissee libre (item, point 9 : « sur du
+  // JEU REEL, plusieurs niveaux et ambiances »). Un bras qui n'a jamais tourne ne dispense pas :
+  // sans echantillon de jeu, le verdict est ROUGE.
+  bool play_dark_ok = false;
+  if (s_play.px > 0 && s_play.sum_off > 0.0) {
+    const double d = 100.0 * (1.0 - s_play.sum_on / s_play.sum_off);
+    play_dark_ok = d <= 5.0 && s_play.below_sdr_px == 0;
+  }
+  s_d[9] = (dark_ok && play_dark_ok) ? 0 : 1;
   // 10 : la courbe s'adapte au pic ANNONCE. Phase 3 = ON avec un pic simule (1000 nits, ou le
   //      double si l'ecran annonce deja >= 900), memes mesures que la phase 1 :
   //      * scRGB : blanc SDR ANCRE (le blanc UI ne bouge pas, +-1 %), plafond plus haut, et les
@@ -947,25 +1305,118 @@ void compute_verdicts() {
   const bool hl_richer = poff.hl_levels > 0 && pon.hl_levels >= 2 * poff.hl_levels;
   const bool over_sdr_white = s_ratio_max_x1000 > 1000;
   s_d[11] = (shadows_richer && hl_richer && over_sdr_white) ? 0 : 1;
+  // 12 : L'AMPLITUDE, PAS LE COMPTAGE (item, point 11 ; refus owner du 10/09 : « quasi 0 diff
+  //      entre off vs on ... vraiment juste un yota au niveau des trucs qui brillent »). Trois
+  //      planchers, mesures sur du JEU REEL, et AUCUN n'est un nombre invente :
+  //      a) la marge REELLEMENT accordee doit etre REELLEMENT utilisee. La comparaison de l'item
+  //         (`hl_max` contre `ratio_max`) melange deux espaces : `hl_max` est dans l'espace
+  //         d'affichage du tampon (gamma ~2,2), `ratio_max` est LINEAIRE. On la fait donc dans
+  //         UN seul espace — hl_max^2,2 contre ratio_max — et on exige 80 % ;
+  //      b) la COUVERTURE : au moins 4 % de l'image est relevee de plus de 2 %, et les pixels
+  //         releves le sont de +25 % en moyenne. « Un yota », c'est une poignee de pixels a
+  //         peine deplacee ; un pixel sur vingt-cinq deplace d'un quart n'en est plus une ;
+  //      c) le rapport a l'ETAT REFUSE : le supplement de lumiere livre doit valoir au moins le
+  //         DOUBLE de celui du 10/09, mesure sur la meme image, par le meme programme, au meme
+  //         instant. Un facteur deux est le minimum au-dessous duquel c'est encore le meme
+  //         rendu ; sa reference n'est pas un chiffre invente, c'est l'image que l'owner a vue.
+  //      Et la courbe doit etre bien formee : jamais sous le SDR (below_sdr_px == 0).
+  const double hl_lin = std::pow(std::fmax(0.0, s_play.hl_max), 2.2);
+  const double ratio = (double)s_ratio_max_x1000 / 1000.0;
+  const double cover = s_play.samples ? (double)s_play.lift_px / ((double)s_play.samples * kTmW * kTmH) : 0.0;
+  const double gain_new = s_play.gain_ref > 0.0 ? s_play.gain_new / s_play.gain_ref : 0.0;
+  const double gain_old = s_play.gain_ref > 0.0 ? s_play.gain_old / s_play.gain_ref : 0.0;
+  const double lift_mean = s_play.lift_px ? s_play.lift_ratio_sum / (double)s_play.lift_px : 0.0;
+  const bool amp_ok = s_play.samples >= 10 && s_play.below_sdr_px == 0 && ratio > 1.0 &&
+                      hl_lin >= 0.80 * ratio && cover >= 0.04 && lift_mean >= 1.25 &&
+                      gain_new >= 2.0 * gain_old;
+  s_d[12] = amp_ok ? 0 : 1;
+  // 13 : L'ADAPTATION AU CONTENU (item, point 12 ; refus owner du 10/09 : « c'est statique non ?
+  //      le HDR s'ajuste pas constamment, facon dolby vision ou HDR10+ »). La grandeur jugee est
+  //      la REPONSE du programme `tonemap` a un stimulus FIXE, relevee tout au long de la course :
+  //      une courbe unique appliquee partout pareil rendrait la MEME somme a chaque fois.
+  //        * elle doit VARIER (>= 10 % d'ecart relatif) — sinon la courbe est figee ;
+  //        * la scene doit avoir varie elle aussi, sinon on n'a rien teste ;
+  //        * la transition doit etre LISSEE : aucune marche de plus de 0,60 par seconde en
+  //          relatif entre deux echantillons ;
+  //        * aucun POMPAGE : moins d'un renversement de sens pour quatre echantillons, hors
+  //          bande morte de 2 %.
+  double r_min = 1e30, r_max = -1e30, k_min = 1e30, k_max = -1e30;
+  double a_min = 1e30, a_max = -1e30, c_min = 1e30, c_max = -1e30, t_min = 1e30, t_max = -1e30;
+  double step_max = 0.0;
+  int reversals = 0, dir = 0;
+  double extremum = 0.0;
+  for (size_t i = 0; i < s_dyn_series.size(); i++) {
+    const DynSample& v = s_dyn_series[i];
+    r_min = std::fmin(r_min, v.resp); r_max = std::fmax(r_max, v.resp);
+    k_min = std::fmin(k_min, v.key);  k_max = std::fmax(k_max, v.key);
+    a_min = std::fmin(a_min, v.anchor); a_max = std::fmax(a_max, v.anchor);
+    c_min = std::fmin(c_min, v.ceiling); c_max = std::fmax(c_max, v.ceiling);
+    t_min = std::fmin(t_min, v.top); t_max = std::fmax(t_max, v.top);
+    if (i == 0) {
+      extremum = v.resp;
+      continue;
+    }
+    const DynSample& q = s_dyn_series[i - 1];
+    const double dt = std::fmax(1e-3, (double)(v.t_s - q.t_s));
+    if (q.resp > 1e-6) {
+      const double rate = std::fabs((double)v.resp - (double)q.resp) / (double)q.resp / dt;
+      step_max = std::fmax(step_max, rate);
+    }
+    // Renversement : uniquement hors bande morte, sinon on compterait le bruit de la mesure.
+    if (extremum > 1e-6 && std::fabs((double)v.resp - extremum) / extremum > 0.02) {
+      const int d = v.resp > extremum ? 1 : -1;
+      if (dir != 0 && d != dir) {
+        reversals++;
+      }
+      dir = d;
+      extremum = v.resp;
+    }
+  }
+  const size_t ns = s_dyn_series.size();
+  const double r_span = (ns && r_min > 1e-6) ? (r_max - r_min) / r_min : 0.0;
+  const bool dyn_ok = ns >= 30 && r_span >= 0.10 && (k_max - k_min) >= 0.02 &&
+                      step_max <= 0.60 && reversals * 4 <= (int)ns;
+  s_d[13] = dyn_ok ? 0 : 1;
+  s_dyn_stats.samples = ns;
+  s_dyn_stats.r_min = ns ? r_min : 0.0;
+  s_dyn_stats.r_max = ns ? r_max : 0.0;
+  s_dyn_stats.r_span = r_span;
+  s_dyn_stats.k_min = ns ? k_min : 0.0;
+  s_dyn_stats.k_max = ns ? k_max : 0.0;
+  s_dyn_stats.a_min = ns ? a_min : 0.0;
+  s_dyn_stats.a_max = ns ? a_max : 0.0;
+  s_dyn_stats.c_min = ns ? c_min : 0.0;
+  s_dyn_stats.c_max = ns ? c_max : 0.0;
+  s_dyn_stats.t_min = ns ? t_min : 0.0;
+  s_dyn_stats.t_max = ns ? t_max : 0.0;
+  s_dyn_stats.step_max = step_max;
+  s_dyn_stats.reversals = reversals;
+  s_dyn_stats.cover = cover;
+  s_dyn_stats.gain_new = gain_new;
+  s_dyn_stats.gain_old = gain_old;
+  s_dyn_stats.hl_lin = hl_lin;
   s_defects = 0;
-  for (int i = 1; i <= 11; i++) {
+  for (int i = 1; i <= 13; i++) {
     s_defects += s_d[i];
   }
   lg::info(
-      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{},{}) persisted={} "
+      "[hdr-display-output] auto-test termine : defauts={} ({},{},{},{},{},{},{},{},{},{},{},{},{}) persisted={} "
       "mem={} ui_samples={}/{} tm_px={}/{} hl_max={:.3f}/{:.3f} ceiling={:.3f}/{:.3f} "
       "niveaux ombres={}/{} hautes={}/{} ratio_max={} alt={}",
       s_defects, s_d[1], s_d[2], s_d[3], s_d[4], s_d[5], s_d[6], s_d[7], s_d[8], s_d[9], s_d[10],
-      s_d[11], s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max,
+      s_d[11], s_d[12], s_d[13], s_persisted, mem, pr.ui_samples, ps.ui_samples, pr.tm_px, ps.tm_px, pr.hl_max,
       ps.hl_max, on.last_ceiling, onsim.last_ceiling, pon.shadow_levels, poff.shadow_levels,
       pon.hl_levels, poff.hl_levels, s_ratio_max_x1000, mode_name(s_alt_mode));
 }
 
 bool scene_ready() {
+  const double el = std::chrono::duration<double>(std::chrono::steady_clock::now() - s_clock0).count();
+  if (el < kMinStartSeconds) {
+    return false;  // le teleport de la course n'a pas fini de charger son niveau
+  }
   if (s_ready_hits >= kReadyHits) {
     return true;
   }
-  const double el = std::chrono::duration<double>(std::chrono::steady_clock::now() - s_clock0).count();
   if (el >= kReadyCapSeconds) {
     s_ready_forced = 1;
     return true;
@@ -1305,13 +1756,137 @@ float headroom_linear() {
 }
 
 float tonemap_ceiling() {
-  float c = 1.f;
+  // Le plafond PERMIS par l'ecran — la borne, pas la valeur de l'image. Ce que la courbe utilise
+  // vraiment est `curve_params().ceiling`, qui depend en plus du CONTENU de la scene.
   const float h = headroom_linear();
-  if (h > 1.f) {
-    c = std::pow(h, 1.f / 2.2f);  // marge lineaire -> espace d'affichage du tampon
+  return h > 1.f ? std::pow(h, 1.f / 2.2f) : 1.f;  // marge lineaire -> espace d'affichage
+}
+
+CurveParams curve_params() {
+  CurveParams p;
+  const float cmax = tonemap_ceiling();
+  const bool pin = measuring() && !s_selftest_done;
+  if (!s_active.load() || !(cmax > 1.f)) {
+    p = sdr_params();  // sortie SDR : identite stricte avec ce qui precede l'item
+  } else if (pin) {
+    // Auto-test : point de fonctionnement FIGE, pour que les phases restent comparables.
+    p.ceiling = cmax;
+    p.anchor = kPinAnchor;
+    p.top = std::fmin(kPinTop, cmax);
+    p.toe = kPinToe;
+    s_dyn_pinned_frames++;
+  } else {
+    // LIBRE : la courbe suit la scene. Rien ici n'est un nombre d'ecran — `cmax` est la seule
+    // reference de sortie et il vient du systeme.
+    const float kh = smoothstep01(kKeyDark, kKeyBright, s_dyn.key);
+    const float a = clampf(s_dyn.hi, kAnchorDark, kAnchorBright);
+    // De combien de la marge cette scene a besoin : une scene sans haute lumiere n'en reclame
+    // aucune, et la sortie est alors celle du SDR — c'est voulu, pas un echec.
+    const float hz = smoothstep01(kPeakLo, kPeakHi, s_dyn.peak);
+    const float c = 1.f + (cmax - 1.f) * hz;
+    // LE SOMMET : la ou la courbe SDR, elle, atteint deja le blanc — k + 2(1-k). Autrement dit,
+    // tout ce que la sortie SDR ecrase en blanc occupe desormais TOUTE la marge de l'ecran.
+    // La fenetre est bornee a la moitie de la marge : le gain moyen y vaut au moins deux, et le
+    // sommet reste sous le plafond, ce qui garantit p <= 1 (jamais sous le SDR).
+    const float knee = clampf(Gfx::g_global_settings.recharged_hdr_knee, 0.05f, 0.995f);
+    const float x_sat = knee + 2.f * (1.f - knee);
+    const float w = std::fmin(std::fmax(x_sat - a, kMinWidth), (c - a) * kMaxWidthFrac);
+    p.ceiling = c;
+    p.anchor = a;
+    p.top = a + w;
+    p.toe = kToeMax * (1.f - kh);
+    const float t = p.top;
+    if (!(t > a)) {
+      p = sdr_params();  // degenere : on ne pousse jamais une fenetre vide au shader
+      p.ceiling = 1.f;
+    }
+    s_dyn_free_frames++;
   }
-  s_last_ceiling = c;
-  return c;
+  s_cur = p;
+  s_last_ceiling = p.ceiling;
+  return p;
+}
+
+void push_tonemap_uniforms(Shader& shader) {
+  set_curve(shader.id(), curve_params());
+}
+
+void analyze_scene(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
+  if (!s_active.load() || s_an_state < 0) {
+    return;
+  }
+  const uint64_t every = (s_an_mode == 1) ? kAnalyzeEverySync : kAnalyzeEvery;
+  if ((s_frames % every) != 0) {
+    return;
+  }
+  if (!an_ensure()) {
+    // make_float_fbo laisse SA cible liee : sans cette restauration, l'image suivante se
+    // dessinerait dans un FBO 16x16 (et l'echec serait invisible jusqu'a l'ecran noir).
+    glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+    glViewport(0, 0, dst_w, dst_h);
+    return;
+  }
+  const GLuint prog = shader.id();
+  // Un plafond de lecture tres haut : la courbe SDR ne comprime rien sous 0,96 x 64, donc ce
+  // qui atterrit dans la cible est la SCENE elle-meme (exposition comprise), pas son tone map.
+  set_curve(prog, legacy_params(kAnCeiling));
+  glBindFramebuffer(GL_FRAMEBUFFER, s_an_fbo);
+  glViewport(0, 0, kAnW, kAnH);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  bool ok = true;
+  if (s_an_mode == 2) {
+    GLint saved_pbo = 0;
+    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &saved_pbo);
+    const int slot = s_an_slot;
+    s_an_slot = (s_an_slot + 1) % kAnSlots;
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, s_an_pbo[slot]);
+    if (s_an_pending[slot]) {
+      // Ce tampon a ete rempli kAnSlots x kAnalyzeEvery images plus tot : la carte ne bloque pas.
+      const void* m = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, (GLsizeiptr)s_an_bytes, GL_MAP_READ_BIT);
+      if (m) {
+        an_decode(m);
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+      } else {
+        ok = false;
+      }
+      s_an_pending[slot] = false;
+    }
+    if (ok) {
+      while (glGetError() != GL_NO_ERROR) {
+      }
+      glReadPixels(0, 0, kAnW, kAnH, GL_RGBA, s_an_read_type, nullptr);
+      if (glGetError() == GL_NO_ERROR) {
+        s_an_pending[slot] = true;
+      } else {
+        ok = false;
+      }
+    }
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, (GLuint)saved_pbo);
+    if (!ok) {
+      lg::warn("[hdr-display-output] analyse de scene : PBO refuse, repli sur la lecture directe");
+      s_an_mode = 1;
+      for (int i = 0; i < kAnSlots; i++) {
+        s_an_pending[i] = false;
+      }
+    }
+  }
+  if (s_an_mode == 1) {
+    std::vector<float> px;
+    if (read_float_fbo(kAnW, kAnH, px)) {
+      // read_float_fbo rend toujours des float : on force le decodage dans ce type.
+      const GLenum saved = s_an_read_type;
+      s_an_read_type = GL_FLOAT;
+      an_decode(px.data());
+      s_an_read_type = saved;
+    } else {
+      lg::error("[hdr-display-output] analyse de scene : relecture refusee");
+      s_an_state = -1;
+      s_an_mode = 0;
+    }
+  }
+  set_curve(prog, s_cur);
+  glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+  glViewport(0, 0, dst_w, dst_h);
 }
 
 void push_present_uniforms(Shader& shader) {
@@ -1469,7 +2044,178 @@ static bool ready_window_open() {
          (s_frames % kProbeEvery) == 0;
 }
 
+// ------------------------------------- verdicts 12 et 13 : LE JEU REEL, APRES l'auto-test ----
+// L'auto-test compare des ETATS (interrupteur, surface, blanc, pic annonce) sur un point de
+// fonctionnement fige. Ce qui suit mesure ce que l'owner refuse depuis le 10/09 : l'AMPLITUDE de
+// la difference on/off, et le fait que la courbe SUIVE la scene dans le temps. Les deux se
+// mesurent sur du jeu reel, apres l'auto-test, la courbe laissee LIBRE.
+constexpr uint64_t kPlayEvery = 20;
+
+bool play_window_open() {
+  return measuring() && s_selftest_done && s_active.load() && (s_frames % kPlayEvery) == 0;
+}
+
+// La reponse du programme `tonemap` a un STIMULUS FIXE (rampe 0..kFixedTop). Une courbe unique
+// et figee rendrait toujours la meme somme ; c'est une grandeur LUE d'un dessin, pas le reflet
+// de nos propres variables. L'appelant restaure FBO, viewport et parametres courants.
+bool ramp_response(GLuint prog, const CurveParams& p, double* out) {
+  if (s_tf_state < 0) {
+    return false;
+  }
+  if (s_tf_state == 0) {
+    const bool ok = make_ramp_tex(&s_tf_src, 0.f, kFixedTop) &&
+                    make_float_fbo(&s_tf_fbo, &s_tf_tex, kRampN, 1, nullptr);
+    s_tf_state = ok ? 1 : -1;
+    if (!ok) {
+      return false;
+    }
+  }
+  GLint saved_tex = 0;
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &saved_tex);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, s_tf_src);
+  glBindFramebuffer(GL_FRAMEBUFFER, s_tf_fbo);
+  glViewport(0, 0, kRampN, 1);
+  set_curve(prog, p);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  std::vector<float> fx;
+  const bool ok = read_float_fbo(kRampN, 1, fx);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)saved_tex);
+  if (!ok) {
+    s_tf_state = -1;
+    return false;
+  }
+  double sum = 0.0;
+  for (int t = 0; t < kRampN; t++) {
+    const float m = std::fmax(fx[(size_t)t * 4], std::fmax(fx[(size_t)t * 4 + 1], fx[(size_t)t * 4 + 2]));
+    if (std::isfinite(m)) {
+      sum += (double)m;
+    }
+  }
+  *out = sum;
+  return true;
+}
+
+// La serie couvre TOUTE la course, pas ses premieres secondes : quand l'anneau est plein on en
+// retire une valeur sur deux et on double le pas. Rien n'est jete au hasard.
+void dyn_series_push(const DynSample& v) {
+  s_dyn_seen++;
+  if ((s_dyn_seen % (uint64_t)s_dyn_stride) != 0) {
+    return;
+  }
+  s_dyn_series.push_back(v);
+  if (s_dyn_series.size() >= kDynSeriesMax) {
+    std::vector<DynSample> keep;
+    keep.reserve(kDynSeriesMax / 2 + 1);
+    for (size_t i = 0; i < s_dyn_series.size(); i += 2) {
+      keep.push_back(s_dyn_series[i]);
+    }
+    s_dyn_series.swap(keep);
+    s_dyn_stride *= 2;
+  }
+}
+
+void probe_gameplay(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
+  if (s_pl_state < 0) {
+    return;
+  }
+  const GLuint prog = shader.id();
+  if (s_pl_state == 0) {
+    bool ok = true;
+    for (int i = 0; i < 3 && ok; i++) {
+      ok = make_float_fbo(&s_pl_fbo[i], &s_pl_tex[i], kTmW, kTmH, nullptr);
+    }
+    s_pl_state = ok ? 1 : -1;
+    glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+    glViewport(0, 0, dst_w, dst_h);
+    if (!ok) {
+      lg::error("[hdr-display-output] sonde de jeu reel : FBO indisponible");
+      return;
+    }
+  }
+  // TROIS BRAS DU MEME PROGRAMME SUR LA MEME IMAGE : le SDR livre, la sortie HDR d'aujourd'hui,
+  // et celle REFUSEE le 10/09 (plafond seul, aucune expansion). La scene ne bouge pas entre eux.
+  const CurveParams legs[3] = {sdr_params(), s_cur, legacy_params(tonemap_ceiling())};
+  std::vector<float> img[3];
+  bool ok = true;
+  for (int i = 0; i < 3 && ok; i++) {
+    set_curve(prog, legs[i]);
+    glBindFramebuffer(GL_FRAMEBUFFER, s_pl_fbo[i]);
+    glViewport(0, 0, kTmW, kTmH);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ok = read_float_fbo(kTmW, kTmH, img[i]);
+  }
+  set_curve(prog, s_cur);
+  glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+  glViewport(0, 0, dst_w, dst_h);
+  if (!ok) {
+    lg::error("[hdr-display-output] sonde de jeu reel : relecture refusee");
+    s_pl_state = -1;
+    return;
+  }
+  s_play.samples++;
+  for (size_t i = 0; i + 3 < img[0].size(); i += 4) {
+    float m[3];
+    bool fine = true;
+    for (int k = 0; k < 3; k++) {
+      m[k] = std::fmax(img[k][i], std::fmax(img[k][i + 1], img[k][i + 2]));
+      fine = fine && std::isfinite(m[k]);
+    }
+    if (!fine) {
+      continue;
+    }
+    s_play.gain_ref += (double)m[0];
+    s_play.gain_new += (double)std::fmax(0.f, m[1] - m[0]);
+    s_play.gain_old += (double)std::fmax(0.f, m[2] - m[0]);
+    if (m[1] < m[0] - 1e-4f) {
+      s_play.below_sdr_px++;  // doit rester a ZERO : la courbe est >= SDR par construction
+    }
+    if ((double)m[1] > s_play.hl_max) {
+      s_play.hl_max = m[1];
+    }
+    if (m[0] > 1e-3f && m[1] > m[0] * 1.02f) {
+      s_play.lift_px++;
+      s_play.lift_ratio_sum += (double)m[1] / (double)m[0];
+    }
+    if (m[0] >= 0.05f && m[0] <= 0.85f) {
+      s_play.px++;
+      s_play.sum_off += lum_linear(img[0][i], img[0][i + 1], img[0][i + 2]);
+      s_play.sum_on += lum_linear(img[1][i], img[1][i + 1], img[1][i + 2]);
+    }
+  }
+  // LA SERIE. La reponse au stimulus fixe, et les parametres effectifs a cet instant.
+  double resp = 0.0;
+  if (ramp_response(prog, s_cur, &resp)) {
+    DynSample v;
+    v.frame = s_frames;
+    v.resp = (float)resp;
+    v.anchor = s_cur.anchor;
+    v.top = s_cur.top;
+    v.ceiling = s_cur.ceiling;
+    v.key = s_dyn.key;
+    v.hi = s_dyn.hi;
+    v.t_s = (float)std::chrono::duration<double>(std::chrono::steady_clock::now() - s_clock0).count();
+    dyn_series_push(v);
+  }
+  set_curve(prog, s_cur);
+  glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
+  glViewport(0, 0, dst_w, dst_h);
+  if (s_play.samples == 1 || (s_play.samples % 20) == 0) {
+    lg::info(
+        "[hdr-display-output] jeu reel #{} : ancre={:.3f} sommet={:.3f} plafond={:.3f} pied={:.3f}"
+        " key={:.3f} hi={:.3f} releve={}/{} gain_neuf={:.4f} gain_10-09={:.4f} reponse={:.2f}",
+        s_play.samples, s_cur.anchor, s_cur.top, s_cur.ceiling, s_cur.toe, s_dyn.key, s_dyn.hi,
+        s_play.lift_px, s_play.samples * (uint64_t)kTmW * kTmH,
+        s_play.gain_ref > 0.0 ? s_play.gain_new / s_play.gain_ref : 0.0,
+        s_play.gain_ref > 0.0 ? s_play.gain_old / s_play.gain_ref : 0.0, resp);
+  }
+}
+
 void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
+  if (play_window_open()) {
+    probe_gameplay(shader, dst_fbo, dst_w, dst_h);
+    return;
+  }
   const bool ready_probe = ready_window_open();
   if ((!probe_window_open() && !ready_probe) || s_tm_state < 0) {
     return;
@@ -1484,17 +2230,17 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
       return;
     }
   }
-  const GLint loc = glGetUniformLocation(shader.id(), "u_hdr_ceiling");
+  const GLuint prog = shader.id();
   std::vector<float> off, on;
   bool ok = true;
   if (ready_probe) {
     // Sonde de CONTENU (phase 0) : un seul dessin au plafond 1,0, on compte les tons moyens.
-    glUniform1f(loc, 1.f);
+    set_curve(prog, sdr_params());
     glBindFramebuffer(GL_FRAMEBUFFER, s_tm_fbo[0]);
     glViewport(0, 0, kTmW, kTmH);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     ok = read_float_fbo(kTmW, kTmH, off);
-    glUniform1f(loc, s_last_ceiling);
+    set_curve(prog, s_cur);
     glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
     glViewport(0, 0, dst_w, dst_h);
     if (!ok) {
@@ -1519,13 +2265,13 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
     return;
   }
   for (int i = 0; i < 2 && ok; i++) {
-    glUniform1f(loc, i == 0 ? 1.f : s_last_ceiling);
+    set_curve(prog, i == 0 ? sdr_params() : s_cur);
     glBindFramebuffer(GL_FRAMEBUFFER, s_tm_fbo[i]);
     glViewport(0, 0, kTmW, kTmH);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     ok = read_float_fbo(kTmW, kTmH, i == 0 ? off : on);
   }
-  glUniform1f(loc, s_last_ceiling);
+  set_curve(prog, s_cur);
   glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
   glViewport(0, 0, dst_w, dst_h);
   if (!ok) {
@@ -1574,7 +2320,7 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
       double sums[2] = {0.0, 0.0};
       std::vector<float> fx;
       for (int i = 0; i < 2 && tf_ok; i++) {
-        glUniform1f(loc, i == 0 ? 1.f : s_last_ceiling);
+        set_curve(prog, i == 0 ? sdr_params() : s_cur);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         tf_ok = read_float_fbo(kRampN, 1, fx);
         if (!tf_ok) {
@@ -1587,7 +2333,7 @@ void probe_tonemap(Shader& shader, GLuint dst_fbo, int dst_w, int dst_h) {
           }
         }
       }
-      glUniform1f(loc, s_last_ceiling);
+      set_curve(prog, s_cur);
       glBindFramebuffer(GL_FRAMEBUFFER, dst_fbo);
       glViewport(0, 0, dst_w, dst_h);
       glBindTexture(GL_TEXTURE_2D, (GLuint)saved_tex);
@@ -1669,9 +2415,16 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
       ph.sites_bad += (sites == 1) ? 0 : 1;
       ph.ui_bad += (ui_fmt == GL_RGBA16F) ? 0 : 1;
       ph.present_bad += (s_last_present_mode != 0) ? 0 : 1;
-      // Le plafond : > 1,0 quand une marge existe, exactement 1,0 sinon (PQ sans marge).
-      const float want_ceiling = headroom_linear() > 1.f ? std::pow(headroom_linear(), 1.f / 2.2f) : 1.f;
-      ph.ceiling_bad += (std::fabs(s_last_ceiling - want_ceiling) < 1e-3f) ? 0 : 1;
+      // Le plafond. Pendant l'auto-test la courbe est FIGEE : le plafond doit valoir exactement
+      // celui que l'ecran permet. Hors auto-test il suit la scene, et l'invariant devient un
+      // encadrement — jamais sous 1,0 (le SDR), jamais au-dessus de ce que l'ecran accorde.
+      const float want_ceiling = tonemap_ceiling();
+      const bool pinned_now = measuring() && !s_selftest_done;
+      ph.ceiling_bad += (pinned_now ? (std::fabs(s_last_ceiling - want_ceiling) < 1e-3f)
+                                    : (s_last_ceiling >= 1.f - 1e-3f &&
+                                       s_last_ceiling <= want_ceiling + 1e-3f))
+                            ? 0
+                            : 1;
     } else if (expect_off) {
       ph.ui_bad += (ui_fmt == GL_RGBA8) ? 0 : 1;
       ph.present_bad += (s_last_present_mode == 0) ? 0 : 1;
@@ -1679,6 +2432,13 @@ void frame_end(uint64_t sites, GLenum ui_fmt) {
     }
   }
   s_frames++;
+  // APRES l'auto-test, les verdicts 9, 12 et 13 continuent de se remplir sur du jeu reel : ils
+  // doivent donc etre RECALCULES, sinon le proof porterait le verdict d'un instant ou la sonde
+  // de jeu n'avait pas encore un seul echantillon. Les verdicts 1 a 11 sont idempotents : ils ne
+  // lisent que des statistiques de phase, gelees depuis finish_selftest().
+  if (s_selftest_done && measuring() && (s_frames % 300) == 0) {
+    compute_verdicts();
+  }
   if ((s_frames % 30) == 0) {
     publish_all();
   }

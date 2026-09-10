@@ -469,12 +469,16 @@ bool tonemap_draw(Shader& shader,
               Gfx::g_global_settings.recharged_hdr_knee);
   glUniform1i(glGetUniformLocation(shader.id(), "u_hdr_curve"),
               Gfx::g_global_settings.recharged_hdr_curve);
-  // hdr-display-output : le plafond. 1,0 tant que la surface est SDR (identite stricte avec
-  // ce qui precede) ; la marge de l'ecran quand la sortie HDR est ACTIVE.
-  glUniform1f(glGetUniformLocation(shader.id(), "u_hdr_ceiling"), hdr_output::tonemap_ceiling());
+  // hdr-display-output : les QUATRE parametres de la courbe. Plafond 1,0 et aucune expansion
+  // tant que la surface est SDR (identite stricte avec ce qui precede) ; quand la sortie HDR est
+  // ACTIVE, le plafond vient de la marge de l'ecran et les trois autres du CONTENU de la scene.
+  hdr_output::push_tonemap_uniforms(shader);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  // hdr-display-output : sonde d'assombrissement (preuve seulement) — rejoue CE programme deux
-  // fois hors ecran (plafond 1,0 / plafond HDR) sur la meme scene ; restaure dst_fbo + viewport.
+  // hdr-display-output : l'analyse de scene (PRODUCTION, une image sur huit, lecture asynchrone)
+  // — c'est elle qui fait suivre la courbe a la scene. Restaure dst_fbo + viewport.
+  hdr_output::analyze_scene(shader, dst_fbo, dst_w, dst_h);
+  // hdr-display-output : sondes de preuve seulement — rejouent CE programme hors ecran (bras SDR
+  // / bras HDR, et sur du jeu reel le bras REFUSE du 10/09) ; restaurent dst_fbo + viewport.
   hdr_output::probe_tonemap(shader, dst_fbo, dst_w, dst_h);
   glUseProgram(saved_program);
   glBindVertexArray(saved_vao);
