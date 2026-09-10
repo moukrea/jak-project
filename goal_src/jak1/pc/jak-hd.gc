@@ -2845,9 +2845,17 @@
            ;; que le garde de reciblage, quinze cents lignes plus haut : « Aucun compagnon n'est
            ;; masque : masquer creerait le TROU que Gcutscene-npc-flicker a paye deux fois. »
            ;;
-           ;; ABLATION : `__pc-npcf-fix-armed?` rend 0 quand le harnais pose `armed=0` sur cet
-           ;; item, et l'ancien comportement revient — MEME BINAIRE, meme instrument. Par defaut
-           ;; il rend 1 : le correctif est dans le jeu de l'owner, pas derriere un drapeau.
+           ;; ABLATION : `__pc-autoport-disarmed-for "cutscene-npc-flicker"` rend 1 quand le
+           ;; harnais pose `armed=0` sur CET item, et l'ancien comportement revient — MEME
+           ;; BINAIRE, meme instrument. Par defaut il rend 0 : le correctif est dans le jeu de
+           ;; l'owner, pas derriere un drapeau.
+           ;; hd-stretch-flag-in-game-logic (2026-09-10) : ce site lisait
+           ;; `(zero? (__pc-npcf-fix-armed?))`, deux defauts en une ligne. (a) POLARITE
+           ;; DANGEREUSE — un pont GOAL->C non relie rend 0, `(zero? 0)` est vrai, et le
+           ;; comportement d'AVANT serait revenu tout seul sur l'appareil. (b) ARMEMENT GLOBAL —
+           ;; `__pc-npcf-fix-armed?` ne sait pas de quel item il parle : mesurer n'importe quel
+           ;; AUTRE item avec `--off` desarmait ce correctif-ci du meme coup. La forme nommee
+           ;; corrige les deux et ne change rien sur le binaire livre (0 des deux cotes).
            (when (and (>= (-> self noanim-run) deb) (not dhid))
              (__pc-npcf-note-cover))
            ;; cycle 9 : ET UN COMPAGNON JAMAIS RECIBLE N'EST PAS DESSINE. `st-warm` ne vaut 1
@@ -2872,7 +2880,7 @@
                                   (nonzero? (-> drv draw))
                                   (logtest? (-> drv draw status)
                                             (draw-status hidden no-anim no-skeleton-update)))
-                             (and (zero? (__pc-npcf-fix-armed?))
+                             (and (nonzero? (__pc-autoport-disarmed-for "cutscene-npc-flicker"))
                                   (>= (-> self noanim-run) deb)))
                        1 0))
                  (wh (if (logtest? (-> self draw status) (draw-status hidden)) 1 0)))
@@ -3378,14 +3386,19 @@
                        *hd-guard-warm*
                        (+ *hd-w-occ* *hd-guard-warm*)))))
   ;; cycle 7 : le correctif a la production (joint.gc) suit le meme levier que le consommateur
-  ;; cycle 9 — L'ABLATION DE CET ITEM, ET D'AUCUN AUTRE. `__pc-autoport-armed-for` rend 1 tant
-  ;; que le harnais n'a pas nomme `hd-skin-origin-stretch` avec `armed=0` : le binaire de l'owner
-  ;; porte donc les deux correctifs ARMES, sans qu'aucune propriete soit posee. Desarme, les deux
-  ;; comportements d'avant reviennent dans LE MEME binaire. Consulter l'armement GLOBAL a la
-  ;; place aurait desarme ce correctif chaque fois que le harnais mesure un AUTRE item.
-  (when (zero? (__pc-autoport-armed-for "hd-skin-origin-stretch"))
-    (set! *hd-affine-arm* 0)
-    (set! *hd-tpose-arm* 0))
+  ;; hd-stretch-flag-in-game-logic (2026-09-10) — UN DRAPEAU DE PREUVE NE DECIDE PLUS D'ICI.
+  ;; Ce site testait `(zero? (__pc-autoport-armed-for "hd-skin-origin-stretch"))` et remettait
+  ;; `*hd-affine-arm*` et `*hd-tpose-arm*` a zero : un reglage du HARNAIS choisissait donc ce que
+  ;; le jeu fait de ses os. Deux raisons de le retirer plutot que de le retourner.
+  ;;   1. La polarite etait la DANGEREUSE : le pont GOAL->C rend zero quand il n'est pas relie,
+  ;;      et `(zero? 0)` est VRAI — le correctif se serait desarme tout seul, sans qu'une ligne
+  ;;      de code change et sans qu'aucune erreur soit dite.
+  ;;   2. `hd-skin-origin-stretch` est un acquis VALIDE : il n'a plus de bras d'ablation a
+  ;;      offrir. Un lever qui ne sert plus qu'a faire diverger deux binaires est une dette.
+  ;; LE COMPORTEMENT GARDE est celui du drapeau ARME, c'est-a-dire exactement celui que l'owner
+  ;; a sur l'appareil aujourd'hui : sans propriete posee, `armed_for` rend 1, `(zero? 1)` est
+  ;; FAUX et ce bloc ne tournait deja pas. Retirer le bloc ne change donc aucune valeur ; il
+  ;; retire le SEUL chemin par lequel elles pouvaient changer sous l'instrument.
   (set! *anim-mtx-norm-arm* (if (>= *hd-affine-arm* 2) 1 0))
   ;; cycle 6 : sondage des entrees d'etat du joueur, une fois par image, sans cap.
   (hd-moves-poll!)

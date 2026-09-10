@@ -477,7 +477,14 @@
   ;; L'ablation passe par `__pc-autoport-disarmed-for` et NON par `__pc-autoport-armed-for` :
   ;; ce dernier rend 0 quand le pont n'est pas relie (Android, a17_pc_default), ce qui
   ;; desarmerait le correctif sur l'appareil sans qu'aucune ligne change.
-  (when (or *ocean-map* (nonzero? (__pc-autoport-disarmed-for "perf-ocean-idle")))
+  ;; hd-stretch-flag-in-game-logic (2026-09-10) : les deux membres du `or` sont INTERVERTIS, et
+  ;; c'est tout ce qui change ici — les deux sont sans effet de bord et le `or` ne sert que de
+  ;; booleen, donc `*ocean-map*` decide exactement comme avant. Ce que ca achete : le levier
+  ;; d'ablation est desormais consulte a CHAQUE image et plus seulement dans les niveaux sans
+  ;; carte. C'est le TEMOIN de la porte `proof_flag_game_sites` — il prouve, sur la course meme,
+  ;; que le pont GOAL->C de la famille `__pc-autoport-*` est relie sur cette machine, donc qu'un
+  ;; zero cote polarite dangereuse dit « aucun site » et non « aucun pont ».
+  (when (or (nonzero? (__pc-autoport-disarmed-for "perf-ocean-idle")) *ocean-map*)
     (let ((gp-0 (-> *display* frames (-> *display* on-screen) frame global-buf)))
       (set! *ocean-heights* (the-as ocean-wave-info (-> gp-0 base)))
       (ocean-interp-wave *ocean-heights*

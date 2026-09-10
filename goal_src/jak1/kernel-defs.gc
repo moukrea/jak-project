@@ -508,6 +508,16 @@
 ;; Ghd-skin-origin-stretch : l'armement d'UN item nomme (1 par defaut ; 0 seulement quand le
 ;; harnais a nomme CET item avec `armed=0`). `__pc-npcf-fix-armed?` ci-dessus lit l'armement
 ;; GLOBAL : mesurer un item desarme du meme coup les correctifs de tous les autres.
+;;
+;; hd-stretch-flag-in-game-logic (2026-09-10) — CES DEUX-LA NE DOIVENT GARDER AUCUN COMPORTEMENT
+;; DE JEU. Leur polarite est la DANGEREUSE : un pont GOAL->C non relie laisse son emplacement de
+;; valeur a zero, et tout site ecrit `(zero? (__pc-autoport-armed-for ...))` ou
+;; `(zero? (__pc-npcf-fix-armed?))` bascule alors tout seul sur le comportement d'AVANT, sans
+;; qu'une ligne change et sans qu'aucune erreur soit dite. Un correctif qui a besoin d'un bras
+;; d'ablation consulte `__pc-autoport-disarmed-for` (juste dessous, 0 = ARME).
+;; Les deux ponts RECENSENT desormais leurs appelants : le nombre d'identifiants distincts qu'ils
+;; voient sort dans `proof_flag_game_sites`, et la porte de cet item exige zero. Un site
+;; reintroduit ici fait rougir la prochaine preuve au lieu de dormir des mois.
 (define-extern __pc-autoport-armed-for (function string int))
 ;; Une grandeur mesuree, publiee sous son nom sur SA PROPRE LIGNE — la seule forme que
 ;; `lib/proof_run.sh` moissonne. Un chiffre noye dans un `format` a six colonnes n'atteint pas
@@ -515,9 +525,14 @@
 (define-extern __pc-autoport-publish (function string int none))
 ;; perf-ocean-idle : l'ablation d'un item nomme, EN POLARITE INVERSE — 0 = correctif ARME.
 ;; `__pc-autoport-armed-for` ci-dessus rend 1 quand l'item est arme, donc 0 quand le pont n'est
-;; pas relie : sur Android tout helper `pc-*` hors de la liste a17 rend 0, et un correctif qui
-;; teste `(zero? (__pc-autoport-armed-for ...))` se desarme tout seul sur l'appareil. Un
-;; correctif qui doit rester ARME quand le pont est muet consulte donc CELUI-CI.
+;; pas relie, et un correctif qui teste `(zero? (__pc-autoport-armed-for ...))` se desarme tout
+;; seul. Un correctif qui doit rester ARME quand le pont est muet consulte donc CELUI-CI.
+;; hd-stretch-flag-in-game-logic (2026-09-10) : la version precedente de ces lignes accusait
+;; Android (« tout helper `pc-*` hors de la liste a17 rend 0 »). C'est FAUX pour cette famille —
+;; la liste a17 ne rebranche que la surface COMMUNE, et les `__pc-autoport-*` sont enregistres par
+;; `InitMachine_PCPort`, qui tourne bien sur l'appareil (c'est `__pc-autoport-frame`, du meme
+;; bloc, qui remplit `frames=` de toutes les preuves appareil du backlog). La regle de polarite
+;; tient toujours ; ce n'est simplement pas Android qui la motive.
 (define-extern __pc-autoport-disarmed-for (function string int))
 ;; perf-ocean-idle : le compteur `hits=` de la ligne FEATURE, alimente par GOAL. Ne compte que
 ;; feature armee (c'est ce qui rend le bras `--off` lisible). `hits` est PARTAGE par tout le

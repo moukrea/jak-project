@@ -85,6 +85,31 @@ void publish_text(const char* key, const char* value);
 // variables (perf-instruments).
 bool has_key(const char* key);
 
+// LE RECENSEMENT DES CONSULTATIONS DE L'ARMEMENT PAR DU CODE DE JEU (hd-stretch-flag-in-game-logic).
+// -----------------------------------------------------------------------------------------------
+// Un drapeau du HARNAIS ne doit pas decider de ce que le jeu FAIT. Le seul geste legitime est
+// l'ablation que les DIRECTIVES reclament, et elle a une polarite obligatoire : quand le pont
+// GOAL->C est muet, le comportement LIVRE doit rester. `armed_for()` rend 1 arme et le pont muet
+// rend 0 : un site GOAL ecrit `(zero? (__pc-autoport-armed-for "x"))` se DESARME donc tout seul
+// des que le pont manque. `disarmed_for` (0 = arme) est la polarite sure.
+//
+// Ces deux compteurs distinguent les deux familles. La porte lit la DANGEREUSE ; la SURE est le
+// temoin qui rend le zero falsifiable : sans elle, un zero obtenu parce que le pont n'est pas
+// relie sur l'appareil serait indistinguable d'un zero obtenu parce qu'aucun site n'existe.
+enum FlagPolarity {
+  kFlagDangerous = 0,  // le pont muet rend « desarme » : le jeu change tout seul
+  kFlagSafe = 1,       // le pont muet rend « arme » : le comportement livre tient
+};
+
+// Un site de code de JEU vient de consulter l'armement du harnais, sous `id`. Appele depuis les
+// ponts kmachine, jamais depuis le code de la feature.
+void note_flag_consult(int polarity, const char* id);
+
+// Publie le recensement (`proof_flag_*`). `hit_item_id` : l'item dont le `hits=` doit compter
+// cette prise. `hits` est PARTAGE par tout le binaire — un `note_hit` inconditionnel remplirait
+// le compteur de TOUS les items et rendrait « rien ne prouve que la feature a tire » indeclenchable.
+void publish_flag_census(const char* hit_item_id);
+
 // Une image de plus. A appeler une fois par image, du meme endroit que le reste du recensement.
 // Emet periodiquement le bloc complet (images, FEATURE, toutes les cles).
 void frame_tick();

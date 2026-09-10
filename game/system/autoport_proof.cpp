@@ -55,6 +55,14 @@ const std::string& feature_str() {
 
 uint64_t g_hits = 0;
 uint64_t g_frames = 0;
+
+// hd-stretch-flag-in-game-logic : le recensement des consultations de l'armement par du code de
+// JEU, une table d'identifiants par polarite (voir l'en-tete). On garde les IDENTIFIANTS et pas
+// un simple compte : `proof_flag_game_sites` doit nommer ce qu'il compte, sinon un 1 n'apprend
+// rien sur QUEL site est revenu.
+std::map<std::string, uint64_t> g_flag_ids[2];
+uint64_t g_flag_calls[2] = {0, 0};
+uint64_t g_flag_census_passes = 0;
 std::map<std::string, uint64_t> g_keys;
 std::map<std::string, std::string> g_text_keys;
 
@@ -173,6 +181,59 @@ bool has_key(const char* key) {
   }
   std::lock_guard<std::mutex> lock(g_mutex);
   return g_keys.count(key) != 0 || g_text_keys.count(key) != 0;
+}
+
+void note_flag_consult(int polarity, const char* id) {
+  const int p = (polarity == kFlagSafe) ? 1 : 0;
+  const char* key = (id && id[0]) ? id : "__unnamed";
+  {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_flag_calls[p]++;
+    g_flag_ids[p][key]++;
+  }
+}
+
+void publish_flag_census(const char* hit_item_id) {
+  uint64_t sites[2];
+  uint64_t calls[2];
+  uint64_t passes;
+  std::string list[2];
+  {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    passes = ++g_flag_census_passes;
+    for (int p = 0; p < 2; p++) {
+      sites[p] = (uint64_t)g_flag_ids[p].size();
+      calls[p] = g_flag_calls[p];
+      for (const auto& kv : g_flag_ids[p]) {
+        if (list[p].size() >= 160) {
+          break;
+        }
+        if (!list[p].empty()) {
+          list[p] += ',';
+        }
+        list[p] += kv.first;
+      }
+    }
+  }
+  // LA PORTE. Le nombre d'identifiants distincts consultes en polarite DANGEREUSE par du code de
+  // jeu pendant CETTE course. Zero = aucun site ; un site reintroduit demain le fait remonter.
+  publish("proof_flag_game_sites", sites[kFlagDangerous]);
+  publish("proof_flag_game_calls", calls[kFlagDangerous]);
+  // LE TEMOIN. La polarite SURE passe par les ponts voisins, enregistres dans le MEME bloc
+  // `InitMachine_PCPort` que le pont dangereux. Non nul = le pont GOAL->C de cette famille est
+  // bien relie sur CETTE machine, donc le zero ci-dessus vient d'une absence de SITE et non
+  // d'une absence de pont. Un zero ici rendrait la porte muette, pas verte.
+  publish("proof_flag_ablation_sites", sites[kFlagSafe]);
+  publish("proof_flag_ablation_calls", calls[kFlagSafe]);
+  // Le denominateur de ce recensement a lui : `hits` est partage par tout le binaire.
+  publish("proof_flag_census_passes", passes);
+  // Une cle de TEXTE ne se vide jamais toute seule : liste vide => "-", sinon la derniere liste
+  // non vide resterait a cote d'un compte a zero.
+  publish_text("proof_flag_game_list", list[kFlagDangerous].empty() ? "-" : list[kFlagDangerous].c_str());
+  publish_text("proof_flag_ablation_list", list[kFlagSafe].empty() ? "-" : list[kFlagSafe].c_str());
+  if (feature_is(hit_item_id)) {
+    note_hit(1);
+  }
 }
 
 void frame_tick() {

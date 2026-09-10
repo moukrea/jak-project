@@ -972,6 +972,10 @@ void pc_autoport_frame() {
   // travail de cette image ne lise un champ non compose.
   recharged_gating::tick();
   autoport_proof::frame_tick();
+  // hd-stretch-flag-in-game-logic : le recensement des consultations de l'armement, publie a
+  // CHAQUE image et non toutes les 60 : `flush()` emet la derniere valeur publiee, donc une
+  // consultation survenue dans les dernieres images d'une course en sortirait effacee.
+  autoport_proof::publish_flag_census("hd-stretch-flag-in-game-logic");
   // dead-follow-probe : le recensement repasse toutes les 60 images (la table des symboles se
   // remplit au fil des DGO ; une seule passe au demarrage ne verrait pas un symbole tardif).
   {
@@ -1047,6 +1051,11 @@ void pc_npc_census_end() {
 // EST corrige. Il ne rend 0 que si le harnais a nomme cet item et pose `armed=0` : c'est le
 // bras d'ablation, et rien d'autre ne peut y tomber. Voir game/system/autoport_proof.h.
 s32 pc_npcf_fix_armed() {
+  // hd-stretch-flag-in-game-logic : recense la consultation. Polarite DANGEREUSE — un site GOAL
+  // qui teste `(zero? ...)` prend la branche « comportement d'avant » des que ce pont est muet.
+  // L'identifiant est l'armement GLOBAL : ce pont ne sait pas de quel item il parle, ce qui est
+  // le defaut que `armed_for` corrige.
+  autoport_proof::note_flag_consult(autoport_proof::kFlagDangerous, "__global-armed");
   return autoport_proof::armed() ? 1 : 0;
 }
 
@@ -1055,6 +1064,11 @@ s32 pc_npcf_fix_armed() {
 // GLOBAL : mesurer l'item A desarme du meme coup le correctif de l'item B. Voir armed_for().
 s32 pc_autoport_armed_for(u32 id_str) {
   const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  // hd-stretch-flag-in-game-logic : LE PONT RECENSE SES APPELANTS. La porte de cet item lit
+  // `proof_flag_game_sites` — le nombre d'identifiants distincts consultes ici pendant la course.
+  // Le pont reste appelable exprès : un compteur qu'aucun code ne peut incrementer publierait
+  // zero pour toujours et ne detecterait jamais la reintroduction du defaut.
+  autoport_proof::note_flag_consult(autoport_proof::kFlagDangerous, id);
   return autoport_proof::armed_for(id) ? 1 : 0;
 }
 
@@ -1068,16 +1082,30 @@ void pc_autoport_publish(u32 key_str, s64 value) {
 }
 
 // perf-ocean-idle — L'ABLATION D'UN ITEM NOMME, EN POLARITE INVERSE (0 = correctif ARME).
-// `__pc-autoport-armed-for` ci-dessus rend 1 quand l'item est arme. C'est le bon sens sur x86 et
-// le MAUVAIS sens partout ou le pont n'est pas relie : sur Android, tout helper `pc-*` absent de
-// la liste a17 tombe sur `a17_pc_default`, qui rend 0 (android/gk_android_main.cpp:644). Un
-// correctif GOAL ecrit `(when (zero? (__pc-autoport-armed-for "x")) ...)` se DESARME donc tout
-// seul sur l'appareil, sans qu'une ligne de son code change et sans qu'aucune erreur soit dite.
-// Ici le zero du stub veut dire « personne ne demande l'ablation » : un pont muet laisse le
-// correctif ARME, ce qui est le seul sens compatible avec les DIRECTIVES (un correctif derriere
-// un drapeau eteint par defaut n'existe pas pour l'owner).
+// `__pc-autoport-armed-for` ci-dessus rend 1 quand l'item est arme. C'est le bon sens tant que le
+// pont est relie et le MAUVAIS sens des qu'il ne l'est pas : un helper `pc-*` non relie laisse
+// son emplacement de valeur a zero, et un correctif GOAL ecrit
+// `(when (zero? (__pc-autoport-armed-for "x")) ...)` se desarmerait tout seul.
+// Ici le zero veut dire « personne ne demande l'ablation » : un pont muet laisse le correctif
+// ARME, seul sens compatible avec les DIRECTIVES (un correctif derriere un drapeau eteint par
+// defaut n'existe pas pour l'owner).
+//
+// hd-stretch-flag-in-game-logic (2026-09-10) — CE QUE LA VERSION PRECEDENTE DE CE COMMENTAIRE
+// DISAIT ET QUI EST FAUX : « sur Android tout helper `pc-*` absent de la liste a17 tombe sur
+// `a17_pc_default` ». La liste a17 (android/gk_android_main.cpp:1323-1520) ne rebranche que la
+// surface COMMUNE de `init_common_pc_port_functions`, la seule que l'override Android saute.
+// Les `__pc-autoport-*` sont enregistres par `InitMachine_PCPort` (ce fichier), appelee par
+// `jak1::InitMachineScheme` qui est la VRAIE depuis la phase D4 — et `__pc-autoport-frame`, 126
+// lignes plus haut dans la meme fonction, est ce qui remplit `frames=` de toutes les preuves
+// appareil du backlog. Le pont est donc relie sur l'appareil. La polarite sure reste la bonne
+// regle, mais ce n'est plus Android qui la motive.
 s32 pc_autoport_disarmed_for(u32 id_str) {
   const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  // hd-stretch-flag-in-game-logic : LE TEMOIN de la porte. Ce pont-ci est enregistre deux lignes
+  // apres `__pc-autoport-armed-for` dans le meme `InitMachine_PCPort` ; s'il compte des appels
+  // venus de GOAL, la famille est bien reliee sur cette machine et un `proof_flag_game_sites=0`
+  // dit « aucun site », pas « aucun pont ».
+  autoport_proof::note_flag_consult(autoport_proof::kFlagSafe, id);
   return autoport_proof::armed_for(id) ? 0 : 1;
 }
 
