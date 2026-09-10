@@ -1784,6 +1784,8 @@
   ;; le master du projet. Les deux se composent cote C++ (Gfx::lighting_active = flag &&
   ;; recharged_lighting && recharged_master) ; on pousse donc les deux valeurs telles quelles.
   (pc-set-recharged-lighting! (if (-> obj recharged-lighting?) 1 0))
+  ;; water-ocean-mesh : le maitre de la refonte EAU, pousse par image comme son jumeau lumiere.
+  (pc-set-recharged-water! (if (-> obj recharged-water?) 1 0))
   ;; Grecharged-bundled-textures: push the bundled-textures toggle every frame (level texture
   ;; uploads consult it).
   ;; Grecharged-texture-hotreload : la bascule s'applique DESORMAIS SANS REDEMARRER ni recharger

@@ -2,6 +2,7 @@
 
 #include "common/log/log.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/ocean/OceanRecharged.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -44,6 +45,12 @@ void OceanNear::render(DmaFollower& dma,
     return;
   }
 
+  // water-ocean-mesh (SPEC-refonte-eau §5.1) : sous `recharged_water`, le bucket 63 consomme son
+  // DMA sans dessiner, et la clipmap prend sa place — c'est la position W2a, apres tous les
+  // opaques et tous les alphas, la seule ou la profondeur de scene est lisible.
+  const bool water_on = render_state->version == GameVersion::Jak1 && ocean_recharged_enabled();
+  m_common_ocean_renderer.set_suppress_draw(water_on);
+
   switch (render_state->version) {
     case GameVersion::Jak1:
       render_jak1(dma, render_state, prof);
@@ -53,6 +60,14 @@ void OceanNear::render(DmaFollower& dma,
     case GameVersion::JakX:
       render_jak2(dma, render_state, prof);
       break;
+  }
+
+  // Hors du `switch` A DESSEIN : `render_jak1` sort tot quand le bucket est vide, ce qui arrive
+  // des que la camera passe 48 m d'altitude (`ocean.gc:543`). La clipmap doit quand meme etre
+  // dessinee ces images-la, sur la derniere houle captee.
+  if (water_on) {
+    auto p = prof.make_scoped_child("clipmap");
+    OceanRecharged::get().draw(render_state, p);
   }
 }
 
@@ -139,6 +154,14 @@ void OceanNear::render_jak1(DmaFollower& dma,
   while (dma.current_tag_offset() != render_state->next_bucket) {
     dma.read_and_advance();
   }
+
+  // water-ocean-mesh : LA CAPTURE DE LA COUCHE A. `ocean-near-add-heights` (ocean-near.gc:297)
+  // pousse `*ocean-heights*` en DEUX tags `ref` de 128 qwc vers les qw VU 32 et 160 : 2 x 2048
+  // octets contigus, soit les 1024 flottants 32x32 que `ocean-get-height` lit LUI-MEME. On ne
+  // recalcule donc rien — on prend les octets du gameplay, ce qui est la seule facon de tenir
+  // `water_gameplay_height_maxdelta_mm == 0` autrement que par une coincidence.
+  static_assert(sizeof(m_vu_data[0]) == 16, "le tampon VU doit etre contigu en qwords");
+  OceanRecharged::get().note_layer_a(&m_vu_data[32]);
 
   m_common_ocean_renderer.flush_near(render_state, prof);
 }

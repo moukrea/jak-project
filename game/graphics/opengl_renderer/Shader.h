@@ -114,14 +114,19 @@ enum class ShaderId {
   // programme est le seul de la chaine d'affichage autorise a compresser la plage ; le
   // recensement de hdr.cpp le reconnait par le marqueur `@tonemap-site` de son texte.
   TONEMAP = 50,
+  // water-ocean-mesh (SPEC-refonte-eau §5.3, §8) : la clipmap d'ocean et sa sonde de controle.
+  // Les deux partagent le chunk `ocean_layer_a.glsl` — une seule transcription de
+  // `ocean-get-height`, sinon la porte comparerait deux copies qui derivent.
+  OCEAN_RECHARGED = 51,
+  OCEAN_PROBE = 52,
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials round-4 mandate B: depth-only sun shadow-map pass.
-  PBR_DEPTH = 51,
+  PBR_DEPTH = 53,
   // REOPEN #3 TESSELLATION displacement: TFRAG3 with a tess control+eval stage that
   // displaces the surface by the PBR height map (u_pbr_displacement == 2). vert =
   // tfrag3_tess.vert (pass-through), tesc = tfrag3.tesc, tese = tfrag3.tese, frag =
   // tfrag3.frag (reused unchanged). Only compiled/selected on a tess-capable context.
-  TFRAG3_TESS = 52,
+  TFRAG3_TESS = 54,
 #endif
   MAX_SHADERS
 };

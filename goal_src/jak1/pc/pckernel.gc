@@ -469,6 +469,10 @@
      (pc-set-recharged-lighting! (if (-> obj recharged-lighting?) 1 0))
      (#when FLAG_PBR
        (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0))))
+    ;; water-ocean-mesh / SPEC-refonte-eau 1.2 regle 1 : maitre de la refonte EAU.
+    (("recharged-water?")
+     (set! (-> obj recharged-water?) (file-stream-read-symbol file))
+     (pc-set-recharged-water! (if (-> obj recharged-water?) 1 0)))
     ;; hdr-display-output : cle lue => reglage du joueur, pousse des le chargement (la surface
     ;; est choisie avant la premiere image). Une cle presente sans clause ferait lire sa VALEUR
     ;; comme une CLE au tour suivant : cette clause existe pour cela aussi.
@@ -629,6 +633,7 @@
   ;; cle ecrite SANS clause ferait lire sa VALEUR comme une CLE au tour suivant et ferait repartir
   ;; tout le reste du fichier au defaut (piege documente sur la migration recharged-grass-density).
   (format file "recharged-lighting? = ~A~%" (-> obj recharged-lighting?))
+  (format file "recharged-water? = ~A~%" (-> obj recharged-water?)) ;; water-ocean-mesh : clause de lecture juste sous recharged-lighting?
   (format file "hdr-output? = ~A~%" (-> obj hdr-output?)) ;; hdr-display-output : clause de lecture juste sous recharged-lighting?
   (format file "recharged-hud? = ~A~%" (-> obj recharged-hud?))
   (format file "recharged-grass? = ~A~%" (-> obj recharged-grass?))

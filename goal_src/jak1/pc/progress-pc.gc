@@ -1526,6 +1526,19 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; water-ocean-mesh (SPEC-refonte-eau 1.2 regle 1) : EAU RECHARGEE. Rangee AUTO-LOCALISEE
+       ;; par son marqueur `hint`, jamais par un index : c'est le contrat des rangees HDR OUTPUT et
+       ;; PHYSICS, et c'est ce qui la rend immune aux renumerotations du bloc PBR.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :hint (text-id pc-text-hint-recharged-water)
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* recharged-water?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none)))
        ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT rows
        ;; (on/off, reflections, quality) were FOLDED into the unified AMBIENT group above — the
        ;; probe data now FEEDS the Ambient Model fidelity tiers (Hemisphere/SH/IBL), reflections
@@ -1803,6 +1816,9 @@
 ;; for the menu font; shown via name-override — English-only, not re-formatted).
 (define *recharged-master-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-master-label*) "RECHARGED MASTER")
+;; water-ocean-mesh : miroir mort du libelle EAU RECHARGEE (copie FLAG_MENU_OVERHAUL).
+(define *recharged-water-label* (new 'global 'string 64 (the-as string #f)))
+(format (clear *recharged-water-label*) "Recharged Water")
 (#when FLAG_RECHARGED_HUD
 (define *recharged-hud-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *recharged-hud-label*) "RECHARGED HUD"))
@@ -4030,6 +4046,16 @@
   0
   (none))
 
+(defun rch-water-row-index ()
+  "Index vivant de la rangee EAU RECHARGEE dans *recharged-options-pc*, -1 si absente."
+  (let ((idx -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (when (and (< idx 0)
+                 (= (the int (-> *recharged-options-pc* i hint))
+                    (the int (text-id pc-text-hint-recharged-water))))
+        (set! idx i)))
+    idx))
+
 (defun init-game-options ((obj progress))
   "Set the options for all of the menus."
   ;; Glang-mixed: menu labels shown via name-override follow the TEXT language.
@@ -4339,6 +4365,19 @@
       ;; Grecharged-lightprobes OWNER #3 UNIFICATION (2026-07-21): the three BAKED AMBIENT wiring arms
       ;; (+11..+13) were removed with their rows; the probe grid now feeds the unified AMBIENT tiers.
       ))
+  ;; water-ocean-mesh : la rangee EAU RECHARGEE, AUTO-LOCALISEE par son `hint` (meme contrat que
+  ;; HDR OUTPUT et PHYSICS). La ligne est publiee a CHAQUE ouverture du menu : idx<0 = rangee
+  ;; absente du CGO, et personne ne peut le croire cable sans le lire.
+  (let ((w (rch-water-row-index)))
+    (cond
+      ((< w 0)
+       (format 0 "[WATER-MENU] FATAL: row not found — Eau Rechargee left UNWIRED (len=~D)~%"
+               (-> *recharged-options-pc* length)))
+      (else
+       (set! (-> *recharged-options-pc* w value-to-modify) (&-> *pc-settings* recharged-water?))
+       (set! (-> *recharged-options-pc* w name-override) *recharged-water-label*)
+       (format 0 "[WATER-MENU] row wired: idx=~D len=~D (self-located)~%"
+               w (-> *recharged-options-pc* length)))))
   ;; Grecharged-secondary-motion: wire the two PHYSICS rows. (The same invariant is audited at BOOT
   ;; by physics-menu-static-audit! — init-game-options only runs when the menu is actually opened,
   ;; so a boot-only proof leg would never see this line.)
@@ -7680,6 +7719,19 @@
             :option-disabled-func
             (lambda ()
               (or (not (-> *pc-settings* recharged-master?)) (not (-> *pc-settings* pbr-materials?))))))
+       ;; water-ocean-mesh (SPEC-refonte-eau 1.2 regle 1) : EAU RECHARGEE. Rangee AUTO-LOCALISEE
+       ;; par son marqueur `hint`, jamais par un index : c'est le contrat des rangees HDR OUTPUT et
+       ;; PHYSICS, et c'est ce qui la rend immune aux renumerotations du bloc PBR.
+       (new 'static 'game-option :option-type (game-option-type on-off) :name (text-id vsync) :scale #t
+            :hint (text-id pc-text-hint-recharged-water)
+            :option-disabled-func
+            (lambda ()
+              (not (-> *pc-settings* recharged-master?)))
+            :on-change
+            (lambda ((val object))
+              (set! (-> *pc-settings* recharged-water?) (the-as symbol val))
+              (commit-to-file *pc-settings*)
+              (none)))
        ;; Grecharged-materials-modern-parity: MODERN MATERIALS on-off toggle. Master for the modern
        ;; material stack (subsurface scattering, clearcoat, anisotropy, energy compensation, ORM
        ;; packing) layered on top of the accepted PBR path. Default OFF => the shading stays
@@ -8047,6 +8099,10 @@
 ;; Longueur : 18 caracteres, sous « DYNAMIC RENDER SCALE » (20), tampon 128.
 (define *recharged-lighting-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *recharged-lighting-label*) "Recharged Lighting")
+;; water-ocean-mesh (SPEC-refonte-eau 1.2 regle 1) : libelle de la rangee EAU RECHARGEE. Tampon de
+;; 128 comme son jumeau lumiere : le libelle traduit peut porter des accents multi-octets.
+(define *recharged-water-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *recharged-water-label*) "Recharged Water")
 ;; hdr-display-output : libelle de la rangee HDR OUTPUT (name-override sur un text-id valide).
 (define *hdr-output-label* (new 'global 'string 64 (the-as string #f)))
 (format (clear *hdr-output-label*) "HDR Output")
@@ -8305,6 +8361,10 @@
       (scl10n-add-label! #x17d2 *displacement-label*)
       (scl10n-add-label! #x17d3 *mesh-subdiv-label*)
       (scl10n-add-label! #x17d4 *modern-materials-label*))
+    ;; water-ocean-mesh : rangee INCONDITIONNELLE (le drapeau eau ne depend d'aucun FLAG_*), donc
+    ;; son enregistrement l10n vit HORS du (#when FLAG_PBR ...) ci-dessus. Id #x17e5 : #x17db etait
+    ;; pris (GRASS OVERHANG) et #x17dc..#x17e3 sont reserves (framerate-uncap).
+    (scl10n-add-label! #x17e5 *recharged-water-label*)
     (scl10n-add-label! #x17d5 *crisp-title-logo-label*)
     (scl10n-add-label! #x17d6 *fixed-tick-label*)
     (#when FLAG_PHYSICS (scl10n-add-label! #x17b7 *physics-label*))
@@ -8406,6 +8466,15 @@
       (when (and (< idx 0)
                  (= (the int (-> *recharged-options-pc* i hint))
                     (the int (text-id pc-text-hint-hdr-output))))
+        (set! idx i)))
+    idx))
+(defun rch-water-row-index ()
+  "Index vivant de la rangee EAU RECHARGEE dans *recharged-options-pc*, -1 si absente."
+  (let ((idx -1))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (when (and (< idx 0)
+                 (= (the int (-> *recharged-options-pc* i hint))
+                    (the int (text-id pc-text-hint-recharged-water))))
         (set! idx i)))
     idx))
 (defun rch-hdr-row-parent ()
@@ -10594,7 +10663,7 @@
   ;; `*rch-hdr-row-hidden?*` retranche alors 1 a la longueur pleine attendue. Sans ce terme, un
   ;; tableau plein prive de sa rangee HDR se lirait comme « collapse » et le cablage partirait cinq
   ;; crans trop tot — la classe de bug Gmenu-flag-off.
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 13 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 11 FLAG_PBR_N) (* 2 FLAG_PBR_DEBUG_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 14 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 11 FLAG_PBR_N) (* 2 FLAG_PBR_DEBUG_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N))
                     (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N))))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -10703,6 +10772,19 @@
       (pc-hdr-output-note! 0 (if *rch-hdr-row-hidden?* 0 1))
       (pc-hdr-output-note! 2 (if *rch-hdr-row-hidden?* 1 (rch-hdr-row-parent)))
       ))
+  ;; water-ocean-mesh : la rangee EAU RECHARGEE, AUTO-LOCALISEE par son `hint` (meme contrat que
+  ;; HDR OUTPUT et PHYSICS). La ligne est publiee a CHAQUE ouverture du menu : idx<0 = rangee
+  ;; absente du CGO, et personne ne peut le croire cable sans le lire.
+  (let ((w (rch-water-row-index)))
+    (cond
+      ((< w 0)
+       (format 0 "[WATER-MENU] FATAL: row not found — Eau Rechargee left UNWIRED (len=~D)~%"
+               (-> *recharged-options-pc* length)))
+      (else
+       (set! (-> *recharged-options-pc* w value-to-modify) (&-> *pc-settings* recharged-water?))
+       (set! (-> *recharged-options-pc* w name-override) *recharged-water-label*)
+       (format 0 "[WATER-MENU] row wired: idx=~D len=~D (self-located)~%"
+               w (-> *recharged-options-pc* length)))))
   ;; Grecharged-secondary-motion: wire the two PHYSICS rows. (The same invariant is audited at BOOT
   ;; by physics-menu-static-audit! — init-game-options only runs when the menu is actually opened,
   ;; so a boot-only proof leg would never see this line.)
@@ -10779,7 +10861,7 @@
       ;; Gfixed-tick-interpolation: 12 -> 13, MEME terme et MEME raison que la garde fw-idx
       ;; ci-dessus (un 13 perime ici desactiverait silencieusement le collapse HD).
       (when (= (-> *recharged-options-pc* length)
-               (+ 13 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 10 FLAG_PBR_N) (* 2 FLAG_PBR_DEBUG_N) FLAG_PHYSICS_N))
+               (+ 14 FLAG_RECHARGED_HUD_N FLAG_PBR_N (* 5 FLAG_HD_MODELS_N) (* 10 FLAG_PBR_N) (* 2 FLAG_PBR_DEBUG_N) FLAG_PHYSICS_N))
         (let ((i (+ 4 FLAG_RECHARGED_HUD_N FLAG_PBR_N)))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))

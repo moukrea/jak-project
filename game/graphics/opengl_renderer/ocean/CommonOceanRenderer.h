@@ -14,6 +14,14 @@ class CommonOceanRenderer {
   void kick_from_mid(const u8* data);
   void flush_mid(SharedRenderState* render_state, ScopedProfilerNode& prof);
 
+  // water-ocean-mesh (SPEC-refonte-eau §5.1) : « le DMA est consomme, rien n'est dessine ; les
+  // renderers ND restent vivants pour avancer le DMA ». Ce drapeau ne coupe QUE les deux
+  // `glDrawElements` : tous les `glBlendFunc`, `glDepthFunc`, `glDepthMask`, `glTexParameteri` et
+  // `glBufferData` de Naughty Dog s'executent a l'identique. Aucun de ces etats n'est restaure
+  // par le chemin d'origine — les sauter changerait ce que le bucket SUIVANT trouve, et l'ecart
+  // ne ressemblerait pas a sa cause.
+  void set_suppress_draw(bool suppress) { m_suppress_draw = suppress; }
+
  private:
   void handle_near_vertex_gif_data_fan(const u8* data, u32 offset, u32 loop);
   void handle_near_vertex_gif_data_strip(const u8* data, u32 offset, u32 loop);
@@ -47,6 +55,7 @@ class CommonOceanRenderer {
   u32 m_next_free_index[NUM_BUCKETS] = {0};
 
   u32 m_envmap_tex = 0;
+  bool m_suppress_draw = false;
 
   struct {
     GLuint vertex_buffer, index_buffer[NUM_BUCKETS], vao;

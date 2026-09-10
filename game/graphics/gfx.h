@@ -174,6 +174,19 @@ struct GfxGlobalSettings {
   // passent tous par Gfx::lighting_active(), qui compose les TROIS niveaux en un seul endroit.
   bool recharged_lighting = true;
 
+  // water-ocean-mesh (SPEC-refonte-eau §1.2 regle 1, §7) : LE MAITRE DE LA REFONTE EAU, a cote
+  // de `recharged_lighting` et sous le master. Meme contrat, meme hierarchie a trois niveaux :
+  //   recharged_master OFF => tout le projet Recharged s'eteint (ORIGINE-TOTAL).
+  //   recharged_water OFF  => toute la refonte eau s'eteint, et RIEN d'autre : on garde
+  //                           l'eclairage Rechargé et on retrouve l'eau de Naughty Dog, bit
+  //                           pour bit. C'est le mot de l'owner du 2026-09-09 : « la refonte de
+  //                           l'eau doit pouvoir être toggled off individuellement aussi, ou on
+  //                           retrouve l'eau vanilla. »
+  //   un sous-reglage OFF  => cette couche d'eau seule (items 2 a 10 de la SPEC).
+  // Defaut ON. AUCUN consommateur d'eau ne lit ce drapeau directement : ils passent tous par
+  // Gfx::water_active(), qui compose les trois niveaux en un seul endroit.
+  bool recharged_water = true;
+
   // lighting-hdr (SPEC-refonte-lumiere §4.5) : la chaine HDR. ON => le tampon de scene est
   // RGBA16F (repli R11F_G11F_B10F puis RGBA8) et la compression de plage est appliquee UNE
   // seule fois, au resolve, par le programme `tonemap`. OFF => la chaine d'origine, RGBA8 et
@@ -646,6 +659,7 @@ struct RechargedFrameState {
   bool active = false;
   bool master = false;
   bool lighting = false;
+  bool water = false;
 };
 inline thread_local RechargedFrameState recharged_frame_state;
 }  // namespace detail
@@ -735,13 +749,50 @@ inline bool recharged_lighting_active() {
 #endif
 }
 
+// water-ocean-mesh (SPEC-refonte-eau §1.2 regle 1, §7) : le NIVEAU INTERMEDIAIRE de l'eau, jumeau
+// exact de `read_recharged_lighting_active()`. Meme patron d'override (propriete
+// `debug.opengoal.water` puis env `OG_WATER`), meme bypass de cache sous OG_REFSET, meme veto du
+// master au-dessus. Une preuve d'eau EPINGLE son regime avec ces deux boutons : un drapeau non
+// epingle, c'est le reglage laisse par un autre item qui decide.
+inline bool read_recharged_water_active() {
+#if AUTOPORT_ORIGIN_ABLATE
+  return false;  // voir recharged_master_active() ci-dessus
+#else
+  static int s_override = -1;  // -1 = pas d'override ; 0 = force l'eau d'origine ; 1 = force la refonte
+  static double s_last_read_s = -1.0;
+  const double now =
+      std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  if (s_last_read_s < 0.0 || refset_pins_master() || now - s_last_read_s >= 0.25) {
+    s_last_read_s = now;
+    const int ov = read_override("debug.opengoal.water", "OG_WATER");
+    if (ov != s_override) {
+      lg::info("[recharged-water] override -> {} (setting {})", ov,
+               g_global_settings.recharged_water ? "ON" : "OFF");
+      s_override = ov;
+    }
+  }
+  const bool on = (s_override >= 0) ? (s_override != 0) : g_global_settings.recharged_water;
+  return on && recharged_master_active();
+#endif
+}
+
+inline bool recharged_water_active() {
+#if AUTOPORT_ORIGIN_ABLATE
+  return false;
+#else
+  return detail::recharged_frame_state.active ? detail::recharged_frame_state.water
+                                              : read_recharged_water_active();
+#endif
+}
+
 // Chaque render conserve les memes maitres jusqu'a son retour, y compris au recensement HDR.
 class RechargedFrameScope {
  public:
   RechargedFrameScope() : m_previous(detail::recharged_frame_state) {
     const bool master = read_recharged_master_active();
-    detail::recharged_frame_state = {true, master, false};
+    detail::recharged_frame_state = {true, master, false, false};
     detail::recharged_frame_state.lighting = read_recharged_lighting_active();
+    detail::recharged_frame_state.water = read_recharged_water_active();
   }
   ~RechargedFrameScope() { detail::recharged_frame_state = m_previous; }
 
@@ -762,6 +813,18 @@ inline bool lighting_active(bool feature_flag) {
 
 inline int lighting_active_mode(int feature_mode) {
   return recharged_lighting_active() ? feature_mode : 0;
+}
+
+// water-ocean-mesh : LE seul composeur des trois niveaux pour l'EAU (master > eau > sous-reglage).
+// Tout consommateur d'une couche d'eau passe par ici, jamais par `g_global_settings.recharged_water`
+// ni par `recharged_active()` : ce dernier laisserait la refonte d'eau tourner alors que le joueur
+// vient de l'eteindre. Tant qu'un item n'a pas de sous-reglage, il appelle `water_active(true)`.
+inline bool water_active(bool feature_flag) {
+  return feature_flag && recharged_water_active();
+}
+
+inline int water_active_mode(int feature_mode) {
+  return recharged_water_active() ? feature_mode : 0;
 }
 
 u32 Init(GameVersion version);

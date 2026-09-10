@@ -91,6 +91,7 @@
    ;; revue par l'owner — c'est sa decision, pas un effet de bord de nettoyage de menu.
    (recharged-master?   symbol) ;; Grecharged-master-toggle (owner 2026-07-21): GLOBAL Recharged ON/OFF. #f force l'etat stock cote C++ (Gfx::recharged_active compose a chaque porte) SANS reinitialiser les interrupteurs individuels — ils reviennent tels quels quand il repasse #t.
    (recharged-lighting? symbol) ;; Glighting-hdr / SPEC-refonte-lumiere 6.2: ECLAIRAGE RECHARGE — LE maitre de la refonte lumiere (et pas le master du projet). #f = l'eclairage de Naughty Dog, TOUT le reste du Recharged conserve (modeles HD, herbe, textures, HUD). Compose cote C++ par Gfx::lighting_active(), qui l'ANDe avec le master.
+   (recharged-water? symbol) ;; water-ocean-mesh / SPEC-refonte-eau 1.2 regle 1 : maitre de la refonte EAU. #f = l'eau de Naughty Dog, tout le reste du Recharged conserve. Compose cote C++ par Gfx::water_active().
    (recharged-hud?      symbol) ;; Grecharged-hud-jak1: optional "Recharged" HUD (heart/gauge/model). OFF = stock HUD.
    (recharged-grass?    symbol) ;; Grecharged-grass-poc: optional 3D grass on the training level. OFF = stock render.
    (recharged-grass-near-dist float) ;; Grecharged-grass-poc POLISH#4: near-blade view distance (m), slider-adjustable
@@ -171,6 +172,7 @@
 ;; Glighting-hdr: pousse le maitre ECLAIRAGE RECHARGE (0/1) au runtime — le C++ le compose
 ;; avec chaque porte d'eclairage via l'unique helper Gfx::lighting_active.
 (define-extern pc-set-recharged-lighting! (function int none))
+(define-extern pc-set-recharged-water! (function int none))
 ;; hdr-display-output : sortie HDR ecran. modes annonces (0 = rien), reglage du joueur, rapports de preuve.
 (define-extern pc-get-hdr-output-modes (function int))
 (define-extern pc-set-hdr-output! (function int none))
@@ -365,6 +367,7 @@
   (set! (-> obj extra-hud?) #f)
   (set! (-> obj recharged-master?) #t) ;; Grecharged-master-toggle: default ON (all shipped recharged defaults apply; OFF == pure vanilla)
   (set! (-> obj recharged-lighting?) #t) ;; Glighting-hdr / SPEC 6.2: defaut ON (RECHARGED). #f == ORIGINE-LUMIERE : l'eclairage d'origine, le reste du Recharged intact.
+  (set! (-> obj recharged-water?) #t) ;; water-ocean-mesh : defaut ON (RECHARGED)
   ;; hdr-display-output : AUTO-CONFIGURATION. Un ecran qui annonce un mode HDR retient la sortie
   ;; HDR ; sinon #f. Le joueur peut toujours l'eteindre : c'est un defaut, pas une contrainte.
   (set! (-> obj hdr-output?) (if (> (pc-get-hdr-output-modes) 0) #t #f))

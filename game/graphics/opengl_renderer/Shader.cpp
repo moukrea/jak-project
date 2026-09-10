@@ -641,6 +641,9 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   at(ShaderId::AO_GTAO) = {"ao_gtao", version};
   at(ShaderId::AO_BLUR) = {"ao_blur", version};
   at(ShaderId::PREPASS_WORLD) = {"prepass_world", version};
+  // water-ocean-mesh : clipmap d'ocean + sonde de controle de la couche A.
+  at(ShaderId::OCEAN_RECHARGED) = {"ocean_recharged", version};
+  at(ShaderId::OCEAN_PROBE) = {"ocean_probe", version};
 #ifdef OG_FEAT_PBR
   at(ShaderId::PBR_DEPTH) = {"pbr_depth", version};
   // REOPEN #3 TESSELLATION: only build the tess program on a tess-capable context; on a

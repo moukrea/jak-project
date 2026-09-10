@@ -36,6 +36,8 @@ class OceanMidAndFar : public BucketRenderer {
                             SharedRenderState* render_state,
                             ScopedProfilerNode& prof);
 
+  // water-ocean-mesh : vrai quand la clipmap remplace l'ocean d'origine sur cette image.
+  bool m_suppress_draw = false;
   DirectRenderer m_direct;
   OceanTexture m_texture_renderer;
   OceanMid m_mid_renderer;

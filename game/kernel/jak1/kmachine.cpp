@@ -1169,6 +1169,17 @@ void pc_set_recharged_lighting(u32 on) {
   Gfx::g_global_settings.recharged_lighting = v;
 }
 
+// water-ocean-mesh (SPEC-refonte-eau §1.2 regle 1, §7) : le maitre de la refonte EAU, pousse par
+// image depuis `update-to-os` (hud-classes-pc.gc) comme son jumeau lumiere. Les portes d'eau ne
+// lisent JAMAIS ce champ : elles passent par Gfx::water_active().
+void pc_set_recharged_water(u32 on) {
+  bool v = (on != 0);
+  if (v != Gfx::g_global_settings.recharged_water) {
+    lg::info("[recharged-water] toggle -> {}", v ? "ON" : "OFF");
+  }
+  Gfx::g_global_settings.recharged_water = v;
+}
+
 // hdr-display-output : sortie HDR vers l'ECRAN (distincte du calcul HDR interne ci-dessus).
 // Masque des modes reellement disponibles (systeme ET presentation) ; 0 = rangee cachee.
 u64 pc_get_hdr_output_modes() {
@@ -5290,6 +5301,9 @@ void InitMachine_PCPort() {
   // Glighting-hdr: ECLAIRAGE RECHARGE master (root of the lighting overhaul; Gfx::lighting_active
   // composes it with the project master at every lighting gate)
   make_function_symbol_from_c("pc-set-recharged-lighting!", (void*)pc_set_recharged_lighting);
+  // water-ocean-mesh : EAU RECHARGEE master (racine de la refonte eau ; Gfx::water_active le
+  // compose avec le master projet a chaque porte d'eau)
+  make_function_symbol_from_c("pc-set-recharged-water!", (void*)pc_set_recharged_water);
   // hdr-display-output : sortie HDR vers l'ecran (modes annonces, interrupteur, rapports)
   make_function_symbol_from_c("pc-get-hdr-output-modes", (void*)pc_get_hdr_output_modes);
   make_function_symbol_from_c("pc-set-hdr-output!", (void*)pc_set_hdr_output);

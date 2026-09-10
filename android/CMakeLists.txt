@@ -819,6 +819,7 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanMid.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanMid_PS2.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanNear.cpp"
+    "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanRecharged.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanNear_PS2.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanTexture.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/ocean/OceanTexture_PC.cpp"

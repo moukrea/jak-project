@@ -1,6 +1,7 @@
 #include "OceanMidAndFar.h"
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/ocean/OceanRecharged.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -68,6 +69,13 @@ void OceanMidAndFar::render_jak1(DmaFollower& dma,
     return;
   }
   m_direct.reset_state();
+
+  // water-ocean-mesh (SPEC-refonte-eau §5.1) : sous `recharged_water`, ce bucket CONSOMME son DMA
+  // et n'emet plus un draw. La texture d'ocean, elle, continue d'etre produite : c'est elle que la
+  // clipmap echantillonne ("shading provisoire = l'actuel"), et la sauter laisserait le TBP 8160
+  // du pool sur son contenu de l'image precedente, ce qu'un tout autre consommateur verrait.
+  m_suppress_draw = ocean_recharged_enabled();
+  m_mid_renderer.set_suppress_draw(m_suppress_draw);
 
   {
     auto p = prof.make_scoped_child("texture");
@@ -163,7 +171,9 @@ void OceanMidAndFar::handle_ocean_far(DmaFollower& dma,
   // TODO figure out if we actually have do something here.
   u8 val = 0;
   memcpy(init_data_buffer + 80, &val, 1);
-  m_direct.render_gif(init_data_buffer, 160, render_state, prof);
+  if (!m_suppress_draw) {
+    m_direct.render_gif(init_data_buffer, 160, render_state, prof);
+  }
 
   while (dma.current_tag().kind == DmaTag::Kind::CNT &&
          dma.current_tag_vifcode0().kind == VifCode::Kind::NOP) {
@@ -171,7 +181,11 @@ void OceanMidAndFar::handle_ocean_far(DmaFollower& dma,
     ASSERT(data.vifcode0().kind == VifCode::Kind::NOP);
     ASSERT(data.vifcode1().kind == VifCode::Kind::DIRECT);
     ASSERT(data.size_bytes / 16 == data.vifcode1().immediate);
-    m_direct.render_gif(data.data, data.size_bytes, render_state, prof);
+    // water-ocean-mesh : le quad plat `far-color` est LU (le DMA doit avancer) et non rendu ;
+    // l'anneau 2 de la clipmap porte cette couleur au loin.
+    if (!m_suppress_draw) {
+      m_direct.render_gif(data.data, data.size_bytes, render_state, prof);
+    }
   }
 }
 

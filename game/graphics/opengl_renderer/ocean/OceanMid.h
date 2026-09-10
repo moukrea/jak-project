@@ -7,6 +7,8 @@
 
 class OceanMid {
  public:
+  // water-ocean-mesh : voir CommonOceanRenderer::set_suppress_draw.
+  void set_suppress_draw(bool s) { m_common_ocean_renderer.set_suppress_draw(s); }
   OceanMid();
   void run(DmaFollower& dma, SharedRenderState* render_state, ScopedProfilerNode& prof);
   void run_jak2(DmaFollower& dma, SharedRenderState* render_state, ScopedProfilerNode& prof);

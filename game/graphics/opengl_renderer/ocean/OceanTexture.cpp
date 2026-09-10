@@ -1,4 +1,5 @@
 #include "OceanTexture.h"
+#include "game/graphics/opengl_renderer/ocean/OceanRecharged.h"
 
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
 
@@ -237,6 +238,12 @@ void OceanTexture::handle_ocean_texture_jak1(DmaFollower& dma,
 
   // give to gpu!
   render_state->texture_pool->move_existing_to_vram(m_tex0_gpu, OCEAN_TEX_TBP_JAK1);
+
+  // water-ocean-mesh : « shading provisoire = l'actuel ». La clipmap echantillonne CETTE texture,
+  // celle que Naughty Dog vient de produire pour cette image, et pas une texture a nous. Les deux
+  // instances d'OceanTexture (bucket 4 et bucket 63) la publient ; la derniere gagne, ce qui est
+  // exactement l'ordre du GOAL.
+  OceanRecharged::get().note_ocean_texture(m_result_texture.texture());
 }
 
 void OceanTexture::handle_ocean_texture_jak2(DmaFollower& dma,

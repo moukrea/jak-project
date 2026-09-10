@@ -363,9 +363,11 @@ void CommonOceanRenderer::flush_near(SharedRenderState* render_state, ScopedProf
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ogl.index_buffer[bucket]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_next_free_index[bucket] * sizeof(u32),
                  m_indices[bucket].data(), GL_STREAM_DRAW);
-    glDrawElements(GL_TRIANGLE_STRIP, m_next_free_index[bucket], GL_UNSIGNED_INT, nullptr);
-    prof.add_draw_call();
-    prof.add_tri(m_next_free_index[bucket]);
+    if (!m_suppress_draw) {  // water-ocean-mesh : consommer sans dessiner
+      glDrawElements(GL_TRIANGLE_STRIP, m_next_free_index[bucket], GL_UNSIGNED_INT, nullptr);
+      prof.add_draw_call();
+      prof.add_tri(m_next_free_index[bucket]);
+    }
   }
 }
 
@@ -558,8 +560,10 @@ void CommonOceanRenderer::flush_mid(SharedRenderState* render_state, ScopedProfi
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ogl.index_buffer[bucket]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_next_free_index[bucket] * sizeof(u32),
                  m_indices[bucket].data(), GL_STREAM_DRAW);
-    glDrawElements(GL_TRIANGLE_STRIP, m_next_free_index[bucket], GL_UNSIGNED_INT, nullptr);
-    prof.add_draw_call();
-    prof.add_tri(m_next_free_index[bucket]);
+    if (!m_suppress_draw) {  // water-ocean-mesh : consommer sans dessiner
+      glDrawElements(GL_TRIANGLE_STRIP, m_next_free_index[bucket], GL_UNSIGNED_INT, nullptr);
+      prof.add_draw_call();
+      prof.add_tri(m_next_free_index[bucket]);
+    }
   }
 }

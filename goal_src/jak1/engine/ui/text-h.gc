@@ -1062,6 +1062,11 @@
   ;; arithmetique d'index, comme PHYSICS (#x17be). #x17e4 est le premier id libre au-dessus des tags
   ;; reserves #x17dc..#x17e3 (liste de cadence de framerate-uncap).
   (pc-text-hint-hdr-output #x17e4)
+  ;; water-ocean-mesh (SPEC-refonte-eau 1.2 regle 1) : libelle de la rangee EAU RECHARGEE (porte par
+  ;; les 26 bancs) et son MARQUEUR d'auto-localisation. #x17db etait deja pris (GRASS OVERHANG) et
+  ;; #x17dc..#x17e3 sont reserves (framerate-uncap) : on prend les deux premiers libres au-dessus.
+  (pc-text-recharged-water #x17e5)
+  (pc-text-hint-recharged-water #x17e6)
   ;; GAME-TEXT-ID ENUM ENDS
   )
 
