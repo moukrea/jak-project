@@ -550,8 +550,8 @@ items:
     qui grimpent ne traversent pas le tronc.'
 - id: hd-models
   feature: Les modeles HD de Jak, Daxter, Samos et Keira
-  status: to-test
-  priority: 203
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-03'
     text: Ça serait vraiment top ! Des bonus sympa en plus des meilleurs modèles (accurate) existants
@@ -601,6 +601,8 @@ items:
     text: on est pas mal, moving on!
   - date: '2026-08-05'
     text: vraiment beaucoup, beaucoup mieux
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -613,7 +615,10 @@ items:
   - Grecharged-hd-models4
   - Grecharged-hd-models5
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: Options > Recharged > Enhanced Models, puis regarde Jak, Daxter, Samos et Keira en cinematique
   delivered: '2026-08-05'
   build: build du 2026-08-05, remplace depuis
@@ -1097,11 +1102,13 @@ items:
     arm64
 - id: recharged-buildsys
   feature: Le systeme de build unifie, le packaging et l'installation
-  status: to-test
-  priority: 207
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-07-17'
     text: je pense 217 en premier … en autonomie
+  - date: '2026-09-11'
+    text: TERMINÉ, À IGNORER
   gate: null
   game: jak1
   max_turns: 800
@@ -1113,7 +1120,10 @@ items:
   - Grecharged-buildsys-firstboot
   - Grecharged-buildsys-cidocs
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ, À IGNORER
+    build_sha: aedcbb2ac5412296
   where: 'l''installation elle-meme : telecharge l''APK et l''archive d''assets, installe par-dessus,
     verifie que tes sauvegardes sont la'
   delivered: '2026-07-17'
@@ -2034,9 +2044,11 @@ items:
   owner_ok: null
 - id: framerate-variable
   feature: Le jeu tourne a la cadence de l'ecran, sans verrou 30/60
-  status: to-test
-  priority: 243
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2045,7 +2057,10 @@ items:
   history:
   - Gframerate-variable
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'n''importe ou en jeu : la cadence doit flotter librement et la vitesse du jeu ne doit pas changer'
   delivered: '2026-06-30'
   build: build du 2026-06-30, remplace depuis
@@ -2074,9 +2089,11 @@ items:
     le 10/09 sur le meme sujet.'
 - id: render-split
   feature: L'interface reste nette quand on baisse l'echelle de rendu
-  status: to-test
-  priority: 214
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2085,15 +2102,20 @@ items:
   history:
   - Grender-split
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'baisse Render Scale a 50 % : le HUD et les menus doivent rester nets'
   delivered: '2026-06-30'
   build: build du 2026-06-30, remplace depuis
 - id: dynamic-renderscale
   feature: L'echelle de rendu qui s'adapte toute seule pour tenir la cadence
-  status: to-test
-  priority: 246
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2102,15 +2124,20 @@ items:
   history:
   - Gdynamic-renderscale
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: Options > Graphismes > Dynamic Render Scale, puis une zone chargee
   delivered: '2026-07-01'
   build: build du 2026-07-01, remplace depuis
 - id: camera-smooth
   feature: La camera qui saccade quand on tourne autour de Jak
-  status: to-test
-  priority: 250
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2119,15 +2146,20 @@ items:
   history:
   - Gcamera-smooth
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: tourne la camera autour de Jak, a l'arret, dans Sandover
   delivered: '2026-07-01'
   build: build du 2026-07-01, remplace depuis
 - id: dynamic-fix
   feature: L'echelle de rendu dynamique qui ne repondait pas aux reglages
-  status: to-test
-  priority: 247
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2136,16 +2168,21 @@ items:
   history:
   - Gdynamic-fix
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'Options > Graphismes : change Min Render Scale en pleine partie, il doit s''appliquer tout de
     suite'
   delivered: '2026-07-01'
   build: build du 2026-07-01, remplace depuis
 - id: camera-interp
   feature: La camera qui saute encore par petits pas
-  status: to-test
-  priority: 251
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2154,7 +2191,10 @@ items:
   history:
   - Gcamera-interp
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'tourne la camera autour de Jak : elle ne doit plus avancer par paliers'
   delivered: '2026-07-01'
   build: build du 2026-07-01, remplace depuis
@@ -2180,9 +2220,11 @@ items:
     fait partie de la refonte.'
 - id: launcher-collection
   feature: Un APK par jeu, avec son nom et son icone
-  status: to-test
-  priority: 237
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2191,7 +2233,10 @@ items:
   history:
   - Glauncher-collection
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'l''ecran d''accueil Android : le nom et l''icone de l''application'
   delivered: '2026-07-02'
   build: build du 2026-07-02, remplace depuis
@@ -2216,9 +2261,11 @@ items:
     refonte de menu, sujet repris bien plus tard si besoin.'
 - id: warp-dpad
   feature: Le stick fait office de croix directionnelle devant un teleporteur
-  status: to-test
-  priority: 209
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2227,15 +2274,20 @@ items:
   history:
   - Gwarp-dpad
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: devant un teleporteur, choisis la destination au stick
   delivered: '2026-07-02'
   build: build du 2026-07-02, remplace depuis
 - id: crash-blueeco
   feature: Plantage a la source d'eco bleue de la Jungle Interdite
-  status: to-test
-  priority: 248
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2244,7 +2296,10 @@ items:
   history:
   - Gcrash-blueeco
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: Jungle Interdite, la source d'eco bleue
   delivered: '2026-07-02'
   build: build du 2026-07-02, remplace depuis
@@ -2269,9 +2324,11 @@ items:
     refonte de menu, sujet repris bien plus tard si besoin.'
 - id: perf-batching
   feature: Le gain de cadence par regroupement des appels de dessin
-  status: to-test
-  priority: 233
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2280,7 +2337,10 @@ items:
   history:
   - Gperf-batching
   prompt: prompts/item-perf-batching.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'Geyser Rock et Sandover : le compteur d''images'
   delivered: '2026-07-03'
   build: v3 APK
@@ -2305,9 +2365,11 @@ items:
     refonte de menu, sujet repris bien plus tard si besoin.'
 - id: eco-spheres
   feature: Les spheres d'eco mal rendues sur Android
-  status: to-test
-  priority: 244
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2316,15 +2378,20 @@ items:
   history:
   - Geco-spheres
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'ramasse de l''eco vert, bleu et rouge : la bulle lumineuse'
   delivered: '2026-07-03'
   build: v3 APK
 - id: lang-mixed
   feature: Des invites restent en anglais quand le texte est en francais
-  status: to-test
-  priority: 238
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2333,15 +2400,20 @@ items:
   history:
   - Glang-mixed
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'texte en francais, audio en anglais : les invites devant les objets et les PNJ'
   delivered: '2026-07-03'
   build: v4 APK
 - id: ndskip
   feature: Passer le logo Naughty Dog avec Start
-  status: to-test
-  priority: 236
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2350,15 +2422,21 @@ items:
   history:
   - Gndskip
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: appuie sur Start pendant le logo Naughty Dog
   delivered: '2026-07-03'
   build: v4 APK
 - id: title-tap
   feature: « Appuie sur start ou touche l'ecran » et le tap au titre
-  status: to-test
-  priority: 212
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ, MAIS RÉGRESSÉ! SUR ANDROID (AVEC TACTILE, SUR SHIELD ON DEVRAIT AVOIR « Appuie sur
+      start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran »
   gate: null
   game: jak1
   max_turns: 800
@@ -2367,15 +2445,21 @@ items:
   history:
   - Gtitle-tap
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ, MAIS RÉGRESSÉ! SUR ANDROID (AVEC TACTILE, SUR SHIELD ON DEVRAIT AVOIR « Appuie sur
+      start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran »
+    build_sha: aedcbb2ac5412296
   where: 'l''ecran titre : le texte et un tap sur l''ecran'
   delivered: '2026-07-03'
   build: v4 APK
 - id: perf-particles
   feature: La cadence dans les zones a particules (les feux)
-  status: to-test
-  priority: 232
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2384,15 +2468,20 @@ items:
   history:
   - Gperf-particles
   prompt: prompts/item-perf-particles.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: les feux de Rock Village de nuit
   delivered: '2026-07-04'
   build: v5 APK
 - id: perf-particles2
   feature: 'Les particules : image qui pope et textures qui clignotent'
-  status: to-test
-  priority: 231
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2401,7 +2490,10 @@ items:
   history:
   - Gperf-particles2
   prompt: prompts/item-perf-particles2.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'les memes feux : la geometrie ne doit pas apparaitre/disparaitre et les textures ne doivent
     pas clignoter'
   delivered: '2026-07-05'
@@ -2424,9 +2516,11 @@ items:
     l''increment partiel ; l''echafaudage est conserve'
 - id: jak2-boot
   feature: Jak II demarre sur Android
-  status: to-test
-  priority: 242
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak2
   max_turns: 800
@@ -2435,15 +2529,20 @@ items:
   history:
   - Gjak2-boot
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: lance Jak II
   delivered: '2026-07-06'
   build: build du 2026-07-06, remplace depuis
 - id: jak2-render
   feature: Jak II affiche Haven City sur le telephone
-  status: to-test
-  priority: 240
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak2
   max_turns: 800
@@ -2452,15 +2551,20 @@ items:
   history:
   - Gjak2-render
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'Jak II : l''ecran titre et le survol de Haven City'
   delivered: '2026-07-07'
   build: build du 2026-07-07, remplace depuis
 - id: jak2-visuals
   feature: La qualite d'image de Jak II au titre et dans l'intro
-  status: to-test
-  priority: 239
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak2
   max_turns: 800
@@ -2469,7 +2573,10 @@ items:
   history:
   - Gjak2-visuals
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'Jak II : le titre et la cinematique d''intro'
   delivered: '2026-07-08'
   build: build du 2026-07-08, remplace depuis
@@ -2605,11 +2712,13 @@ items:
   owner_ok: null
 - id: jak1-intermittent-events
   feature: Des mini-cinematiques et des plateformes qui ne se declenchent pas
-  status: to-test
-  priority: 208
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-07-07'
     text: corrigé tout simplement
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2618,16 +2727,21 @@ items:
   history:
   - Gjak1-intermittent-events
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'joue normalement : les mini-cinematiques, les plateformes mobiles et les ennemis doivent partir
     a chaque fois'
   delivered: '2026-07-13'
   build: build du 2026-07-13, remplace depuis
 - id: recharged-grass-object-clip
   feature: L'herbe qui traverse les objets poses au sol
-  status: to-test
-  priority: 226
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2636,7 +2750,10 @@ items:
   history:
   - Grecharged-grass-object-clip
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: le bouton du portail de l'ile de depart, et les decors poses au sol
   delivered: '2026-07-13'
   build: build du 2026-07-13, remplace depuis
@@ -2681,9 +2798,11 @@ items:
     source: owner-ok/Gjak1-shadow-cast
 - id: recharged-external-assets
   feature: Les assets hors de l'APK, telecharges a part
-  status: to-test
-  priority: 227
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2692,7 +2811,10 @@ items:
   history:
   - Grecharged-external-assets
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'la premiere installation : l''APK est petit et les assets se telechargent a part'
   delivered: '2026-07-14'
   build: jak2-alpha1
@@ -2807,9 +2929,11 @@ items:
     ». Cet item est livre PAR la refonte, il ne se rouvre pas seul.'
 - id: recharged-master-toggle
   feature: Un interrupteur global Recharged marche/arret
-  status: to-test
-  priority: 221
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -2818,15 +2942,20 @@ items:
   history:
   - Grecharged-master-toggle
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'Options > Recharged : l''interrupteur global doit tout rendre au jeu d''origine'
   delivered: '2026-07-22'
   build: build du 2026-07-22, remplace depuis
 - id: recharged-bundled-textures
   feature: Les textures PBR maison livrees dans l'APK
-  status: to-test
-  priority: 229
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ, SUPERSEEDED
   gate: null
   game: jak1
   max_turns: 800
@@ -2835,15 +2964,21 @@ items:
   history:
   - Grecharged-bundled-textures
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ, SUPERSEEDED
+    build_sha: aedcbb2ac5412296
   where: les sept textures de Sandover que tu as faites
   delivered: '2026-07-22'
   build: build du 2026-07-22, remplace depuis
 - id: recharged-naming
   feature: Le nom des jeux et de la collection Recharged
-  status: to-test
-  priority: 218
-  owner_feedback: []
+  status: open
+  priority: 21
+  owner_feedback:
+  - date: '2026-09-11'
+    text: 'JE SAIS PAS DE QUOI IL S''AGIT VRAIMENT... « Jak and Daxter: The Precursor Legacy » doit etre
+      nomme « Jak and Daxter: Recharged » (sans mention d''OpenGOAL)'
   gate: null
   game: jak1
   max_turns: 800
@@ -2853,14 +2988,26 @@ items:
   - Grecharged-naming
   prompt: null
   owner_ok: null
-  where: le nom des jeux dans le lanceur et dans les menus
-  delivered: '2026-07-23'
+  where: 'le nom du jeu partout ou il apparait : icone du lanceur, ecran-titre, menus. « Jak and Daxter:
+    Recharged », jamais « The Precursor Legacy » ni « OpenGOAL ».'
+  delivered: null
   build: build du 2026-07-23, remplace depuis
+  known_cause: 'L''owner ne reconnait pas l''item ; il pose l''exigence en clair le 11/09 : « Jak and
+    Daxter: The Precursor Legacy » doit s''appeler « Jak and Daxter: Recharged », sans aucune mention
+    d''OpenGOAL.'
+  deliverable: '`naming_wrong_sites` = 0 : recenser CHAQUE endroit ou le jeu se nomme — nom de l''application
+    au lanceur, titre de la fenetre, ecran-titre, menus, ecrans de credits, description du paquet, notification.
+    Aucun n''affiche « The Precursor Legacy » ni « OpenGOAL » ; tous affichent « Jak and Daxter: Recharged
+    ». Publier la liste des sites avec la chaine effectivement affichee, dans CHAQUE langue installee
+    — une chaine traduite oubliee compte comme un site faux.'
+  out_of_scope: Ne pas renommer le paquet Android ni casser les sauvegardes existantes.
 - id: recharged-mesh-consolidation
   feature: Les coutures visibles sur les meshes du jeu
-  status: to-test
-  priority: 219
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: JE SAIS PAS DE QUOI IL S'AGIT MAIS ON S'EN COGNE
   gate: null
   game: jak1
   max_turns: 800
@@ -2869,7 +3016,10 @@ items:
   history:
   - Grecharged-mesh-consolidation
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: JE SAIS PAS DE QUOI IL S'AGIT MAIS ON S'EN COGNE
+    build_sha: aedcbb2ac5412296
   where: les coutures sur les personnages et les decors
   delivered: '2026-07-25'
   build: build du 2026-07-25, remplace depuis
@@ -2919,8 +3069,8 @@ items:
     rouvre pas seul.'
 - id: recharged-mesh-browser
   feature: Le navigateur de mesh de debug
-  status: to-test
-  priority: 206
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-07-30'
     text: on vise un objet clairement visible et pouf on a en fait sélectionné autre chose à proximité
@@ -2941,6 +3091,9 @@ items:
     text: le device est avec l'owner / indisponible
   - date: '2026-07-31'
     text: triangle sous le réticule
+  - date: '2026-09-11'
+    text: TERMINÉ, MAIS IL FAUT SUPPRIMER CETTE FEATURE ELLE SERT A RIEN, Y COMPRIS SES ENTRÉES MENU ET
+      BOUTON SUR OVERLAY TACTILE, ET RACCOURCI MANETTE IL ME SEMBLE
   gate: null
   game: jak1
   max_turns: 800
@@ -2949,7 +3102,11 @@ items:
   history:
   - Grecharged-mesh-browser
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ, MAIS IL FAUT SUPPRIMER CETTE FEATURE ELLE SERT A RIEN, Y COMPRIS SES ENTRÉES MENU ET
+      BOUTON SUR OVERLAY TACTILE, ET RACCOURCI MANETTE IL ME SEMBLE
+    build_sha: aedcbb2ac5412296
   where: le navigateur de mesh de debug
   delivered: '2026-07-31'
   build: build du 2026-07-31, remplace depuis
@@ -2987,9 +3144,12 @@ items:
     en l''etat ».'
 - id: recharged-texture-hotreload
   feature: Basculer les textures Recharged sans redemarrer le jeu
-  status: to-test
-  priority: 32
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ, MAIS ÇA MARCHE PAS, FAUT REDÉMARRER LE JEU SI ON VEUT REPASSER SUR LES TEXTURES D'ORIGINE,
+      N'OUVRE PAS D'ITEM POUR ÇA, ON Y REVIENDRA UN JOUR, MET CELUI-CI EN TERMINÉ
   gate:
     key: hotreload_pixels_changed
     op: '>='
@@ -3010,18 +3170,24 @@ items:
   history:
   - Grecharged-texture-hotreload
   prompt: prompts/item-recharged-texture-hotreload.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ, MAIS ÇA MARCHE PAS, FAUT REDÉMARRER LE JEU SI ON VEUT REPASSER SUR LES TEXTURES D'ORIGINE,
+      N'OUVRE PAS D'ITEM POUR ÇA, ON Y REVIENDRA UN JOUR, MET CELUI-CI EN TERMINÉ
+    build_sha: aedcbb2ac5412296
   device: true
   where: bascule les textures Recharged en pleine partie, sans redemarrer
   known_cause: Aucun cycle n'a tourne sur cet item.
 - id: touch-longjump-regression
   feature: Le long jump au tactile qui ne part plus
-  status: to-test
-  priority: 204
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-08-04'
     text: Pour le long jump j'ai pas de manette, mais faut faire en sorte qu'avec le tactile ça fonctionne
       aussi ! **Ça fonctionnait avant** donc il n'y a pas de raisons que ça fonctionne plus !
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -3030,7 +3196,10 @@ items:
   history:
   - Gtouch-longjump-regression
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'au tactile : avance + R1/R2 + saut, tu dois partir en long jump'
   delivered: '2026-08-04'
   build: build du 2026-08-04, remplace depuis
@@ -3694,9 +3863,11 @@ items:
     source: owner-ok/Grecharged-hd-eye-scale
 - id: recharged-title-logo-fullres
   feature: Le logo du titre pixelise a basse resolution de rendu
-  status: to-test
-  priority: 215
-  owner_feedback: []
+  status: validated
+  priority: null
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ
   gate: null
   game: jak1
   max_turns: 800
@@ -3705,7 +3876,10 @@ items:
   history:
   - Grecharged-title-logo-fullres
   prompt: null
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: TERMINÉ
+    build_sha: aedcbb2ac5412296
   where: 'l''ecran titre a faible echelle de rendu : le logo Jak and Daxter'
   delivered: '2026-08-08'
   build: build du 2026-08-08, remplace depuis
@@ -6859,3 +7033,66 @@ items:
   - date: '2026-09-10'
     text: les anciens reglages d'eclairage, vire les dessuite avant qu'ils nous embetent, on en veut pas
       de toute facons
+- id: mesh-browser-removal
+  priority: 20
+  device: true
+  feature: Le navigateur de mesh de debug disparait du jeu, entrees et raccourcis compris
+  gate:
+    key: mesh_browser_sites
+    op: ==
+    value: 0
+  known_cause: 'Owner 11/09, en validant l''item qui l''a livre : « TERMINÉ, MAIS IL FAUT SUPPRIMER CETTE
+    FEATURE ELLE SERT A RIEN, Y COMPRIS SES ENTRÉES MENU ET BOUTON SUR OVERLAY TACTILE, ET RACCOURCI MANETTE
+    IL ME SEMBLE ».'
+  deliverable: '`mesh_browser_sites` = 0 : la fonction est SUPPRIMEE du code, pas debranchee. Recenser
+    et retirer TOUS ses points d''entree — rangee(s) de menu, bouton de l''overlay tactile, raccourci
+    manette, commande console, ressources et shaders qui ne servent qu''a elle. Publier le recensement
+    avant/apres et prouver que rien du navigateur n''est plus compile dans le binaire livre. Aucune renumerotation
+    de menu qui deplacerait d''autres lignes.'
+  where: 'Options et overlay tactile : plus aucune trace du navigateur de mesh, et aucune autre ligne
+    de menu deplacee au passage'
+  out_of_scope: Ne pas toucher aux autres outils de debug. On retire celui-la, entierement.
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-mesh-browser-removal.md
+  notes: 'Insere le 11/09 en tranchant la pile des 32 : l''owner valide l''item d''origine ET demande
+    la suite.'
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ, MAIS IL FAUT SUPPRIMER CETTE FEATURE ELLE SERT A RIEN, Y COMPRIS SES ENTRÉES MENU ET
+      BOUTON SUR OVERLAY TACTILE, ET RACCOURCI MANETTE IL ME SEMBLE
+- id: title-tap-prompt-regression
+  priority: 21
+  device: true
+  feature: Au titre, l'invite dit « touche l'ecran » quand il y a un ecran tactile
+  gate:
+    key: title_prompt_wrong
+    op: ==
+    value: 0
+  known_cause: 'Owner 11/09, en validant title-tap : « TERMINÉ, MAIS RÉGRESSÉ ! SUR ANDROID (AVEC TACTILE,
+    SUR SHIELD ON DEVRAIT AVOIR « Appuie sur start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur
+    start ou touche l''écran » ». L''invite est donc choisie sans lire la presence d''un ecran tactile.'
+  deliverable: '`title_prompt_wrong` = 0 : l''invite de l''ecran-titre est choisie sur la PRESENCE d''un
+    ecran tactile, pas sur la plateforme. Tactile present : « Appuie sur start ou touche l''écran ». Absent
+    (SHIELD, PC a la manette) : « Appuie sur start ». Publier, pour la course, le fait tactile lu par
+    le moteur ET l''identifiant de la chaine affichee : ils doivent concorder. Verifier dans chaque langue
+    installee.'
+  where: 'l''ecran-titre sur ton telephone : « Appuie sur start ou touche l''écran »'
+  out_of_scope: Ne pas retoucher le comportement du tap lui-meme, seulement le texte affiche.
+  status: open
+  game: jak1
+  depends_on: []
+  max_turns: 800
+  max_retries: 6
+  proof_timeout: 300
+  prompt: prompts/item-title-tap-prompt-regression.md
+  notes: 'Insere le 11/09 en tranchant la pile des 32 : l''owner valide l''item d''origine ET demande
+    la suite.'
+  owner_feedback:
+  - date: '2026-09-11'
+    text: TERMINÉ, MAIS RÉGRESSÉ! SUR ANDROID (AVEC TACTILE, SUR SHIELD ON DEVRAIT AVOIR « Appuie sur
+      start ») ON A « Appuie sur start » AU LIEU DE « Appuie sur start ou touche l'écran »
