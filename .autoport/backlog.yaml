@@ -4470,13 +4470,12 @@ items:
     Publier la SERIE des parametres effectifs sur un parcours traversant plein jour, interieur sombre
     et grotte : ils doivent CHANGER, et la transition etre lissee (aucun pompage visible). Une courbe
     constante = DEFAUT. Preuve sur le Honor.'
-  known_cause: 'Refus 10/09 sur l''essai vert. L''owner voit une MINI difference ON/OFF — « quasi 0 diff
-    », « juste un yota au niveau des trucs qui brillent » : l''interrupteur agit, l''effet est trop faible.
-    Les chiffres le confirment : marge accordee `hdr_out_ratio_max_x1000` = 2251, mais `hdr_out_hl_max_x1000`
-    = 1445 — les hautes lumieres ne montent qu''a 1,44x le blanc SDR, on n''utilise pas la marge obtenue.
-    Les compteurs de NIVEAUX (17->128) qui faisaient passer le verdict montaient quand meme : compter
-    des paliers distincts n''est pas mesurer une amplitude, c''est un miroir. Second grief : la courbe
-    est STATIQUE, la meme partout, alors que le HDR moderne (Dolby Vision, HDR10+) suit le contenu.'
+  known_cause: 'Refus 10/09. L''owner voit une MINI difference ON/OFF — « quasi 0 diff », « juste un yota
+    au niveau des trucs qui brillent » : l''interrupteur agit, l''effet est trop faible. Chiffres : marge
+    accordee `hdr_out_ratio_max_x1000` = 2251, hautes lumieres livrees `hdr_out_hl_max_x1000` = 1445 —
+    on n''utilise pas la marge obtenue. Les compteurs de NIVEAUX (17->128) montaient quand meme : compter
+    des paliers n''est pas mesurer une amplitude, c''est un miroir. Second grief : courbe STATIQUE, la
+    meme partout, quand le HDR moderne (Dolby Vision, HDR10+) suit le contenu.'
   out_of_scope: Ne pas regresser le SDR livre. Profils HDR distincts autorises, aucune egalite numerique
     SDR/HDR exigee. Pas de nouveau chemin LDR demande.
   notes: 'budget : porte a 13 le 10/09. Les 3 essais brules sans ecran HDR ne comptent pas, et les verdicts
