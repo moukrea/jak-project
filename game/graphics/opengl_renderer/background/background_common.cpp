@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <map>
@@ -38,6 +39,7 @@
 #include "game/graphics/opengl_renderer/loader/PbrTestPattern.h"
 #include "game/graphics/opengl_renderer/Shader.h"
 #include "game/graphics/pipelines/opengl.h"
+#include "game/system/autoport_proof.h"
 
 #ifdef OG_FEAT_GRASS_OVERHANG
 // ROUND 10 forensics switch (see GrassFringeFade::dbg). Cached + throttled like grass_droop_len():
@@ -2104,11 +2106,226 @@ int pbr_debug_mode() {
 void pbr_push_debug_tag(GLuint program) {
   glUniform1i(glu::loc(program, "u_pbr_debug"), pbr_debug_mode());
 }
+
+// ── gl-uniforms-off-cost ─────────────────────────────────────────────────────────────────────
+// LE DEFAUT MESURE. `first_tfrag_draw_setup` poussait ses 70 uniformes de la famille ECLAIRAGE
+// SANS AUCUNE CONDITION, y compris quand l'ECLAIRAGE RECHARGE est ETEINT. Dans cet etat les
+// quatre portes que les shaders consultent valent toutes zero et rien ne peut les relever :
+//   u_pbr_mode      PbrDrawBinder::set sort avant d'ecrire quoi que ce soit (l.1067 : « les
+//                   matieres PBR sont SOUS l'eclairage recharge »), l'option `pbr` ayant pour
+//                   parent `kLighting` (recharged_gating.cpp:128).
+//   u_rt_light_on   `Gfx::lighting_active(...)` le met a 0 (l.2644) ; `rt-light` a le meme parent.
+//   u_rt_ambient_on idem (l.2908).
+//   u_pbr_shadow_on le receveur n'est meme pas APPELE : ses trois appelants le gardent derriere
+//                   `recharged_gating::on(kPbr) || on(kRtLight)` (TFragment.cpp:909, Tie3.cpp,
+//                   Shrub.cpp).
+// Aucune des valeurs poussees n'est donc lue par un chemin actif du shader, et le processeur
+// payait 54 recherches de nom + 54 appels de pilote PAR HOTE ET PAR IMAGE pour rien.
+//
+// CE QUI CONTINUE D'ETRE POUSSE, ETEINT (`lgt_keep_1i`) — et pourquoi :
+//   * les PORTES elles-memes (u_pbr_mode, u_mm_flags, u_pbr_shadow_on, u_rt_light_on,
+//     u_rt_ambient_on) : ne PAS les pousser laisserait le programme sur la valeur ALLUMEE de
+//     l'image precedente et rallumerait l'eclairage. Un uniforme est un etat de programme.
+//   * les NEUF unites de texture `tex_PBR_*` : une unite non posee retombe a 0, deux
+//     echantillonneurs sur la meme unite est le piege de completude connu de cet arbre.
+//   * u_pbr_debug et u_pbr_tess_active : tfrag3.frag:150-151 les lit HORS de toute porte
+//     d'eclairage (les modes de recensement de couverture 30/31).
+//
+// LE COMPTEUR N'EST PAS UN MIROIR DE LA GARDE. Il est incremente DANS le wrapper qui fait
+// l'appel GL, pas au point de decision : un site d'eclairage qui echapperait a la garde serait
+// COMPTE et ferait ECHOUER `uniform_off_pushes == 0`. Temoin INDEPENDANT, produit par un module
+// que cet item ne touche pas : `uniform_lookup_hits_per_frame` (gl_uniform_cache.cpp) — toute
+// poussee passe par `glu::loc`, donc sa chute mesure la meme chose par un autre chemin.
+namespace lgt {
+struct Census {
+  bool measured = false;  // le harnais mesure CET item (les DEUX bras de l'ablation)
+  bool armed = false;     // notre correctif est-il arme ? (`armed_for`, jamais `armed`)
+  bool lit = false;       // regime de l'appel en cours
+  uint64_t pushes_off = 0, pushes_on = 0, skipped_off = 0;
+  uint64_t kept_off = 0, kept_on = 0;
+  uint64_t setups_off = 0, setups_on = 0;
+  uint64_t ns_off = 0, ns_on = 0;
+  // Le livrable demande le compte PAR IMAGE, pas par appel : `first_tfrag_draw_setup` tourne
+  // une fois par arbre / categorie / niveau, donc plusieurs fois par image et un nombre de fois
+  // qui depend du point de vue. On regroupe donc sur `render_state->frame_idx`, l'indice
+  // d'image du renderer, jamais sur un compte d'appels suppose.
+  uint64_t frames_off = 0, frames_on = 0;
+  uint64_t last_frame = ~0ull;
+};
+inline Census g_c;  // fil GL uniquement
+
+// Compte l'appel GL qui SUIT, dans le regime courant. Les sites SAUTABLES et les sites
+// DELIBEREMENT CONSERVES sont comptes SEPAREMENT : melanger les deux rendrait la porte
+// `uniform_off_pushes == 0` inatteignable et, surtout, cacherait ce qui reste pousse.
+inline void count_push(bool kept) {
+  if (!g_c.measured) {
+    return;
+  }
+  if (g_c.lit) {
+    (kept ? g_c.kept_on : g_c.pushes_on)++;
+  } else {
+    (kept ? g_c.kept_off : g_c.pushes_off)++;
+  }
+}
+
+// Faux = ce site est saute (eclairage eteint ET correctif arme).
+inline bool site() {
+  if (g_c.lit || !g_c.armed) {
+    count_push(false);
+    return true;
+  }
+  if (g_c.measured) {
+    g_c.skipped_off++;
+  }
+  return false;
+}
+}  // namespace lgt
+
+// Sites SAUTABLES : eclairage eteint, la valeur n'est lue par aucun chemin actif.
+inline void lgt_1i(GLuint id, const char* n, GLint a) {
+  if (lgt::site()) {
+    glUniform1i(glu::loc(id, n), a);
+  }
+}
+inline void lgt_1f(GLuint id, const char* n, GLfloat a) {
+  if (lgt::site()) {
+    glUniform1f(glu::loc(id, n), a);
+  }
+}
+inline void lgt_2f(GLuint id, const char* n, GLfloat a, GLfloat b) {
+  if (lgt::site()) {
+    glUniform2f(glu::loc(id, n), a, b);
+  }
+}
+inline void lgt_3f(GLuint id, const char* n, GLfloat a, GLfloat b, GLfloat c) {
+  if (lgt::site()) {
+    glUniform3f(glu::loc(id, n), a, b, c);
+  }
+}
+inline void lgt_4f(GLuint id, const char* n, GLfloat a, GLfloat b, GLfloat c, GLfloat d) {
+  if (lgt::site()) {
+    glUniform4f(glu::loc(id, n), a, b, c, d);
+  }
+}
+inline void lgt_3fv(GLuint id, const char* n, GLsizei cnt, const GLfloat* v) {
+  if (lgt::site()) {
+    glUniform3fv(glu::loc(id, n), cnt, v);
+  }
+}
+// Sites TOUJOURS pousses (portes, unites de texture, lecteurs hors porte) : comptes, jamais sautes.
+inline void lgt_keep_1i(GLuint id, const char* n, GLint a) {
+  lgt::count_push(true);
+  glUniform1i(glu::loc(id, n), a);
+}
+// Idem, pour le SEUL vecteur conserve : `u_rt_sun_dir`. Les cinq programmes monde le passent a
+// `normalize()` SANS AUCUNE GARDE quand ils remplissent `Surface` (etie_base.frag:84,
+// tie_wind.frag:83, shrub.frag:77). Ne pas le pousser le laisserait a (0,0,0) au premier
+// programme d'une session eclairage-eteint, et `normalize(vec3(0))` rend NaN. Ce NaN n'atteint
+// pas l'image — `s.shadow_ndl` n'est lu que sous `u_pbr_shadow_on != 0`, porte tenue a 0 — mais
+// fabriquer une classe de valeur qui n'existait pas, sur un pilote Adreno, pour economiser UNE
+// poussee sur soixante-dix, est un mauvais marche. C'est la seule exception de ce genre : aucun
+// autre uniforme saute n'est divise ni normalise hors garde par un hote.
+inline void lgt_keep_3f(GLuint id, const char* n, GLfloat a, GLfloat b, GLfloat c) {
+  lgt::count_push(true);
+  glUniform3f(glu::loc(id, n), a, b, c);
+}
+
+// Ouvre et ferme le recensement d'UN appel de `first_tfrag_draw_setup`. `lit` est lu UNE fois :
+// sous `Gfx::RechargedFrameScope` (OpenGLRenderer.cpp:1089) la valeur est deja figee pour toute
+// l'image, tous les sites d'un meme appel s'accordent donc. Le chronometre ne tourne QUE sous
+// mesure : le binaire de l'owner ne paie pas l'instrument.
+struct LgtSetupScope {
+  std::chrono::steady_clock::time_point t0;
+  explicit LgtSetupScope(uint64_t frame_idx) {
+    static const bool s_measured = autoport_proof::feature_is("gl-uniforms-off-cost");
+    static const bool s_armed = autoport_proof::armed_for("gl-uniforms-off-cost");
+    auto& c = lgt::g_c;
+    c.measured = s_measured;
+    c.armed = s_armed;
+    c.lit = Gfx::recharged_lighting_active();
+    if (s_measured) {
+      if (frame_idx != c.last_frame) {
+        c.last_frame = frame_idx;
+        (c.lit ? c.frames_on : c.frames_off)++;
+      }
+      t0 = std::chrono::steady_clock::now();
+    }
+  }
+  ~LgtSetupScope() {
+    auto& c = lgt::g_c;
+    if (!c.measured) {
+      return;
+    }
+    const uint64_t ns = (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now() - t0)
+                            .count();
+    if (c.lit) {
+      c.setups_on++;
+      c.ns_on += ns;
+    } else {
+      c.setups_off++;
+      c.ns_off += ns;
+      if (c.armed) {
+        // `hits` est un compteur PARTAGE : son denominateur propre est `uniform_off_setups`.
+        autoport_proof::note_hit();
+      }
+    }
+    // LA PORTE : poussees de la famille SAUTABLE faites alors que l'eclairage est ETEINT.
+    autoport_proof::publish("uniform_off_pushes", c.pushes_off);
+    autoport_proof::publish("uniform_on_pushes", c.pushes_on);
+    autoport_proof::publish("uniform_off_skipped", c.skipped_off);
+    // CE QUI RESTE POUSSE, ETEINT, ET QUI N'EST PAS CACHE : les 17 portes / unites de texture /
+    // lecteurs hors garde. Une porte a zero qui tairait ce chiffre serait un demi-verdict.
+    autoport_proof::publish("uniform_off_kept_pushes", c.kept_off);
+    autoport_proof::publish("uniform_on_kept_pushes", c.kept_on);
+    autoport_proof::publish("uniform_off_setups", c.setups_off);
+    autoport_proof::publish("uniform_on_setups", c.setups_on);
+    // LE COMPTE PAR IMAGE que le livrable demande, et le TEMOIN DE COUVERTURE de la porte :
+    // `uniform_off_frames` a zero voudrait dire que la course n'est jamais passee par l'etat
+    // eteint — `uniform_off_pushes == 0` serait alors vert par INACTION, pas par correction.
+    autoport_proof::publish("uniform_off_frames", c.frames_off);
+    autoport_proof::publish("uniform_on_frames", c.frames_on);
+    autoport_proof::publish("uniform_off_pushes_per_frame",
+                            c.frames_off ? c.pushes_off / c.frames_off : 0);
+    autoport_proof::publish("uniform_off_skipped_per_frame",
+                            c.frames_off ? c.skipped_off / c.frames_off : 0);
+    autoport_proof::publish("uniform_off_kept_per_frame",
+                            c.frames_off ? c.kept_off / c.frames_off : 0);
+    autoport_proof::publish("uniform_on_pushes_per_frame",
+                            c.frames_on ? (c.pushes_on + c.kept_on) / c.frames_on : 0);
+    autoport_proof::publish("uniform_off_setups_per_frame",
+                            c.frames_off ? c.setups_off / c.frames_off : 0);
+    // Cout CPU par IMAGE des appels de `first_tfrag_draw_setup`, les deux regimes cote a cote.
+    autoport_proof::publish("uniform_setup_ns_per_frame_off",
+                            c.frames_off ? c.ns_off / c.frames_off : 0);
+    autoport_proof::publish("uniform_setup_ns_per_frame_on",
+                            c.frames_on ? c.ns_on / c.frames_on : 0);
+    autoport_proof::publish("uniform_off_skipped_per_setup",
+                            c.setups_off ? c.skipped_off / c.setups_off : 0);
+    autoport_proof::publish("uniform_off_kept_per_setup",
+                            c.setups_off ? c.kept_off / c.setups_off : 0);
+    autoport_proof::publish("uniform_on_pushes_per_setup",
+                            c.setups_on ? (c.pushes_on + c.kept_on) / c.setups_on : 0);
+    autoport_proof::publish("uniform_off_pushes_per_setup",
+                            c.setups_off ? c.pushes_off / c.setups_off : 0);
+    autoport_proof::publish("uniform_setup_ns_off", c.setups_off ? c.ns_off / c.setups_off : 0);
+    autoport_proof::publish("uniform_setup_ns_on", c.setups_on ? c.ns_on / c.setups_on : 0);
+    // Le regime, publie A COTE de la valeur : un drapeau non epingle, c'est le reglage laisse
+    // par un autre item qui decide.
+    autoport_proof::publish("uniform_off_gate_armed", c.armed ? 1u : 0u);
+    autoport_proof::publish("uniform_regime_lighting", c.lit ? 1u : 0u);
+    autoport_proof::publish("uniform_regime_master", Gfx::recharged_master_active() ? 1u : 0u);
+  }
+};
 #endif
 
 void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                             SharedRenderState* render_state,
                             ShaderId shader) {
+#ifdef OG_FEAT_PBR
+  // gl-uniforms-off-cost : ouvre le recensement pour CET appel (voir le bloc `lgt` ci-dessus).
+  LgtSetupScope lgt_scope(render_state->frame_idx);
+#endif
   const auto& sh = render_state->shaders[shader];
   sh.activate();
   auto id = sh.id();
@@ -2130,7 +2347,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // has to be per-PROGRAM: only the program that actually runs the tessellation stages may skip
   // the POM, everything else keeps it. Every other caller (Tie3, Shrub, Hfrag) passes a non-tess
   // ShaderId and therefore gets 0 = "run the POM".
-  glUniform1i(glu::loc(id, "u_pbr_tess_active"),
+  lgt_keep_1i(id, "u_pbr_tess_active",
               shader == ShaderId::TFRAG3_TESS ? 1 : 0);
 #endif
   glUniform1i(glu::loc(id, "gfx_hack_no_tex"), Gfx::g_global_settings.hack_no_tex);
@@ -2177,27 +2394,27 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #ifdef OG_FEAT_PBR
   // Grecharged-pbr-materials: frame-constant PBR uniforms; glGetUniformLocation returns -1
   // for programs without them (glUniform on -1 is a no-op), so this is safe for every ShaderId.
-  glUniform1i(glu::loc(id, "u_pbr_mode"), 0);
+  lgt_keep_1i(id, "u_pbr_mode", 0);
   lighting_census::gate_pbr_mode(0);
   // IDENTITY height normalisation (mean 0.5, norm 1.0) — the per-draw binder overrides it with the
   // material's measured statistics and restores this default in finish().
-  glUniform2f(glu::loc(id, "u_pbr_height_stat"), 0.5f, 1.0f);
+  lgt_2f(id, "u_pbr_height_stat", 0.5f, 1.0f);
   // ROUND 20: default authored UV density = the 0.5 tiles/m the shaders used to hardcode. The
   // per-draw binder overrides it with the material's measured density, and restores it in finish().
-  glUniform1f(glu::loc(id, "u_pbr_uv_per_m"), 0.5f);
+  lgt_1f(id, "u_pbr_uv_per_m", 0.5f);
   // ROUND 20 correction: identity feature wavelength (0.25 tile); the per-draw binder overrides it
   // with the height map's measured spectrum and restores this in finish().
-  glUniform1f(glu::loc(id, "u_pbr_height_lambda"), 0.25f);
-  glUniform1i(glu::loc(id, "tex_PBR_N"), 11);
-  glUniform1i(glu::loc(id, "tex_PBR_R"), 12);
-  glUniform1i(glu::loc(id, "tex_PBR_M"), 13);
-  glUniform1i(glu::loc(id, "tex_PBR_AO"), 14);
-  glUniform1i(glu::loc(id, "tex_PBR_H"), 15);
+  lgt_1f(id, "u_pbr_height_lambda", 0.25f);
+  lgt_keep_1i(id, "tex_PBR_N", 11);
+  lgt_keep_1i(id, "tex_PBR_R", 12);
+  lgt_keep_1i(id, "tex_PBR_M", 13);
+  lgt_keep_1i(id, "tex_PBR_AO", 14);
+  lgt_keep_1i(id, "tex_PBR_H", 15);
   // Grecharged-pbr-realtime-fusion: specular (F0) + emissive maps on units 16/17
   // (probe samplers sit on 3-7, DirectRenderer starts at 20 — no collision; GLES 3.x
   // guarantees >=32 combined units and the fragment stage uses 14 samplers <= 16).
-  glUniform1i(glu::loc(id, "tex_PBR_S"), 16);
-  glUniform1i(glu::loc(id, "tex_PBR_E"), 17);
+  lgt_keep_1i(id, "tex_PBR_S", 16);
+  lgt_keep_1i(id, "tex_PBR_E", 17);
   // Grecharged-materials-modern-parity: subsurface THICKNESS on unit 19. 18 is shrub's wind-anchor
   // LUT (tex_T18), 20-29 belong to DirectRenderer, so 19 is the only free slot below the auto-bind
   // range. SAMPLER BUDGET, stated because it is now the binding constraint and not a comfortable
@@ -2205,16 +2422,16 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // + 1 samplerCube = 15, against a GL_MAX_TEXTURE_IMAGE_UNITS floor of 16 on GLES 3.2. ONE slot
   // left. The next channel that wants a map must pack into an existing one (as _orm does for
   // occlusion/roughness/metallic) rather than take a unit.
-  glUniform1i(glu::loc(id, "tex_PBR_TH"), 19);
+  lgt_keep_1i(id, "tex_PBR_TH", 19);
   // The modern stack's gate: OFF for every program at setup. The per-draw binder raises it only for
   // a material that opted in, and lowers it again in finish().
-  glUniform1i(glu::loc(id, "u_mm_flags"), 0);
+  lgt_keep_1i(id, "u_mm_flags", 0);
   // Round-4 mandate B (shadow map): always advertise the shadow sampler on unit 9 and
   // default u_pbr_shadow_on OFF; pbr_shadow_bind_receiver upgrades it per-renderer. Parking
   // the depth texture on unit 9 here mismatch-proofs every TFRAG3-family user (magenta
   // class) even before/without a receiver bind.
-  glUniform1i(glu::loc(id, "tex_PBR_SHADOW"), 9);
-  glUniform1i(glu::loc(id, "u_pbr_shadow_on"), 0);
+  lgt_keep_1i(id, "tex_PBR_SHADOW", 9);
+  lgt_keep_1i(id, "u_pbr_shadow_on", 0);
   lighting_census::gate_shadow(0);
   if (pbr_shadow_state().valid) {
     glActiveTexture(GL_TEXTURE9);
@@ -2237,7 +2454,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     sd[2] = 0.f;
     sl = 1.f;
   }
-  glUniform3f(glu::loc(id, "u_pbr_sun_dir"), sd[0] / sl, sd[1] / sl, sd[2] / sl);
+  lgt_3f(id, "u_pbr_sun_dir", sd[0] / sl, sd[1] / sl, sd[2] / sl);
   // The mood tables store sun-color / env-color as 0..255-scale floats (e.g.
   // village1 sun-color (255,128,0)); pushing them raw made lit explode ~100x and
   // clamp to saturated hues. Scale to 0..1 HERE (GL boundary) so GOAL keeps
@@ -2499,9 +2716,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   Gfx::g_global_settings.mb_cur_relief_x100 = (u32)std::lround(relief * 100.0f);
   // The tess ceiling can never exceed what the driver reports as GL_MAX_TESS_GEN_LEVEL.
   pbr_tess_max = std::clamp(pbr_tess_max, 1.0f, (float)gl_max_tess_gen_level());
-  glUniform1i(glu::loc(id, "u_pbr_debug"), pbr_debug);
-  glUniform1i(glu::loc(id, "u_pbr_bisect"), pbr_bisect);
-  glUniform1i(glu::loc(id, "u_pbr_bisect2"), pbr_bisect2);
+  lgt_keep_1i(id, "u_pbr_debug", pbr_debug);
+  lgt_1i(id, "u_pbr_bisect", pbr_bisect);
+  lgt_1i(id, "u_pbr_bisect2", pbr_bisect2);
   pbr_displacement = std::max(0, std::min(pbr_displacement, 2));
   // Driver-defensive fallback (GL thread): tessellation (mode 2) instant-crashes drivers where
   // the tess entry points/program are unusable. Demote the EFFECTIVE mode to Parallax (1) so the
@@ -2534,13 +2751,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // against the very values the shaders were just handed. Reading gs directly there would miss all
   // three corrections. Three relaxed stores per program setup; nothing is rendered from them.
   pbr_cover_publish_gates(height_scale, pbr_bisect, pbr_debug, pbr_displacement);
-  glUniform1i(glu::loc(id, "u_pbr_displacement"), pbr_displacement);
-  glUniform1f(glu::loc(id, "u_pbr_tess_max"), pbr_tess_max);
+  lgt_1i(id, "u_pbr_displacement", pbr_displacement);
+  lgt_1f(id, "u_pbr_tess_max", pbr_tess_max);
   // OWNER #18: the near-field target segment size the tesc level law solves for. Clamped to a sane
   // band (1 cm .. 2 m) so a bad prop can neither melt the GPU nor silently disable displacement.
   pbr_tess_seg = std::clamp(pbr_tess_seg, 0.01f, 2.0f);
-  glUniform1f(glu::loc(id, "u_pbr_tess_seg"), pbr_tess_seg);
-  glUniform3f(glu::loc(id, "u_pbr_sun_color"), gs.recharged_pbr_sun_color[0] * sun_scale,
+  lgt_1f(id, "u_pbr_tess_seg", pbr_tess_seg);
+  lgt_3f(id, "u_pbr_sun_color", gs.recharged_pbr_sun_color[0] * sun_scale,
               gs.recharged_pbr_sun_color[1] * sun_scale,
               gs.recharged_pbr_sun_color[2] * sun_scale);
 
@@ -2602,8 +2819,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       light_dir[2] = ss[2] / ssl;
     }
   }
-  glUniform3fv(glu::loc(id, "u_pbr_light_dir"), 3, light_dir);
-  glUniform3fv(glu::loc(id, "u_pbr_light_color"), 3, light_color);
+  lgt_3fv(id, "u_pbr_light_dir", 3, light_dir);
+  lgt_3fv(id, "u_pbr_light_color", 3, light_color);
 
   // === Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY path uniforms. ===
   // Master toggle comes from the pc-settings (recharged_rt_*), overridable per-frame by a
@@ -2661,9 +2878,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // residual = clamp(1 - strength, 0, 1); guard NaN / out-of-range to a sane 0..1.
   float rt_shadow_residual =
       (rt_shadow_strength >= 0.0f && rt_shadow_strength <= 1.0f) ? (1.0f - rt_shadow_strength) : 0.0f;
-  glUniform1i(glu::loc(id, "u_rt_light_on"), rt_light_on);
+  lgt_keep_1i(id, "u_rt_light_on", rt_light_on);
   lighting_census::gate_rt_light(rt_light_on);
-  glUniform3f(glu::loc(id, "u_rt_sun_dir"), light_dir[0], light_dir[1], light_dir[2]);
+  lgt_keep_3f(id, "u_rt_sun_dir", light_dir[0], light_dir[1], light_dir[2]);
   // Sun color: normalize the mood sun tint to unit max, blend 50% toward white so it
   // reads as a natural sun (not an oversaturated hue), then scale by intensity.
   {
@@ -2681,7 +2898,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     for (int i = 0; i < 3; i++) {
       rc[i] = (0.5f + 0.5f * (msc[i] / mx)) * rt_intensity;
     }
-    glUniform3f(glu::loc(id, "u_rt_sun_color"), rc[0], rc[1], rc[2]);
+    lgt_3f(id, "u_rt_sun_color", rc[0], rc[1], rc[2]);
   }
   // === Grecharged-realtime-lighting ROUND 7: NIGHT SUN-FADE ===
   // Gate the direct sun by the REAL sun ELEVATION (the visible-sun dome vector's up-component
@@ -2854,7 +3071,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     ambW_y = s_ho_ambY;
     ambW_g = s_ho_ambG;
   }
-  glUniform1f(glu::loc(id, "u_rt_sun_elev"), rt_sun_elev);  // moved: upload the SMOOTHED value
+  lgt_1f(id, "u_rt_sun_elev", rt_sun_elev);  // moved: upload the SMOOTHED value
 #ifdef __ANDROID__
   // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun
   // elevation, green direction, shadow-handoff confidence, and which sun currently owns the shadow map.
@@ -2866,12 +3083,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     }
   }
 #endif
-  glUniform3f(glu::loc(id, "u_rt_moon_dir"), moon_dir[0], moon_dir[1], moon_dir[2]);
-  glUniform3f(glu::loc(id, "u_rt_moon_color"),
+  lgt_3f(id, "u_rt_moon_dir", moon_dir[0], moon_dir[1], moon_dir[2]);
+  lgt_3f(id, "u_rt_moon_color",
               MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);
-  glUniform1f(glu::loc(id, "u_rt_shadow_conf"), rt_shadow_conf);  // playtest #4 stepless shadow handoff
+  lgt_1f(id, "u_rt_shadow_conf", rt_shadow_conf);  // playtest #4 stepless shadow handoff
   // ROUND-5: residual brightness a fully-occluded fragment keeps (1 - Shadow Strength).
-  glUniform1f(glu::loc(id, "u_rt_shadow_residual"), rt_shadow_residual);
+  lgt_1f(id, "u_rt_shadow_residual", rt_shadow_residual);
 
   // === Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). ===
   // The ambient base is directional: an up-hemisphere SKY tint and a down-hemisphere GROUND bounce,
@@ -3135,18 +3352,18 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       float akl = std::sqrt(amb_key[0]*amb_key[0] + amb_key[1]*amb_key[1] + amb_key[2]*amb_key[2]);
       if (akl > 1.0f) { amb_key[0] /= akl; amb_key[1] /= akl; amb_key[2] /= akl; }
     }
-    glUniform1i(glu::loc(id, "u_rt_ambient_on"), rt_ambient_on);
-    glUniform1i(glu::loc(id, "u_rt_ambient_model"), rt_ambient_model);
-    glUniform3f(glu::loc(id, "u_rt_ambient_key"), amb_key[0], amb_key[1], amb_key[2]);
-    glUniform1f(glu::loc(id, "u_rt_ambient_contrast"), rt_ambient_contrast);
-    glUniform1i(glu::loc(id, "u_rt_flat_normal"), rt_flat_normal);
-    glUniform3f(glu::loc(id, "u_rt_sky_color"), sky[0], sky[1], sky[2]);
-    glUniform3f(glu::loc(id, "u_rt_ground_color"), ground[0], ground[1], ground[2]);
-    glUniform3f(glu::loc(id, "u_rt_env_zenith"), env_zenith[0], env_zenith[1], env_zenith[2]);
-    glUniform3f(glu::loc(id, "u_rt_env_horizon"), env_horizon[0], env_horizon[1], env_horizon[2]);
-    glUniform3f(glu::loc(id, "u_rt_env_ground"), env_ground[0], env_ground[1], env_ground[2]);
-    glUniform3f(glu::loc(id, "u_rt_sun_glow"), sun_glow[0], sun_glow[1], sun_glow[2]);
-    glUniform3fv(glu::loc(id, "u_rt_sh[0]"), 9, &shc[0][0]);
+    lgt_keep_1i(id, "u_rt_ambient_on", rt_ambient_on);
+    lgt_1i(id, "u_rt_ambient_model", rt_ambient_model);
+    lgt_3f(id, "u_rt_ambient_key", amb_key[0], amb_key[1], amb_key[2]);
+    lgt_1f(id, "u_rt_ambient_contrast", rt_ambient_contrast);
+    lgt_1i(id, "u_rt_flat_normal", rt_flat_normal);
+    lgt_3f(id, "u_rt_sky_color", sky[0], sky[1], sky[2]);
+    lgt_3f(id, "u_rt_ground_color", ground[0], ground[1], ground[2]);
+    lgt_3f(id, "u_rt_env_zenith", env_zenith[0], env_zenith[1], env_zenith[2]);
+    lgt_3f(id, "u_rt_env_horizon", env_horizon[0], env_horizon[1], env_horizon[2]);
+    lgt_3f(id, "u_rt_env_ground", env_ground[0], env_ground[1], env_ground[2]);
+    lgt_3f(id, "u_rt_sun_glow", sun_glow[0], sun_glow[1], sun_glow[2]);
+    lgt_3fv(id, "u_rt_sh[0]", 9, &shc[0][0]);
 
     // === SPEC-refonte-lumiere §2.4 — FollowProbe est SUPPRIMEE, ses uniformes sont RE-HEBERGES ICI.
     // Ce que la classe faisait vraiment, mesure a l'appui :
@@ -3186,15 +3403,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
         rd("debug.opengoal.rt.greenamp", dbg_greenamp);
       }
 #endif
-      glUniform1f(glu::loc(id, "u_rt_lit_boost"),
+      lgt_1f(id, "u_rt_lit_boost",
                   (dbg_litboost > 0) ? (float)dbg_litboost / 100.f : 1.15f);
-      glUniform1f(glu::loc(id, "u_rt_shadow_mul"),
+      lgt_1f(id, "u_rt_shadow_mul",
                   (dbg_shadowmul > 0) ? (float)dbg_shadowmul / 100.f : 0.65f);
-      glUniform1f(glu::loc(id, "u_rt_tint_lit"),
+      lgt_1f(id, "u_rt_tint_lit",
                   (dbg_tintlit >= 0) ? (float)dbg_tintlit / 100.f : 0.12f);
-      glUniform1f(glu::loc(id, "u_rt_tint_shadow"),
+      lgt_1f(id, "u_rt_tint_shadow",
                   (dbg_tintshadow >= 0) ? (float)dbg_tintshadow / 100.f : 0.12f);
-      glUniform1f(glu::loc(id, "u_rt_green_amp"),
+      lgt_1f(id, "u_rt_green_amp",
                   (dbg_greenamp >= 0) ? (float)dbg_greenamp / 100.f : 0.60f);
       lighting_census::gate_probe(0);
     }
@@ -3204,10 +3421,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // env-color). Read by the lit path only when u_pbr_baked_weight < 1 (round-4bis
   // full-realtime indirect); at the default weight 1.0 it stays viz-only.
   if (gs.recharged_pbr_lg_valid) {
-    glUniform3f(glu::loc(id, "u_pbr_ambient"), gs.recharged_pbr_lg_ambi[0] * amb_scale,
+    lgt_3f(id, "u_pbr_ambient", gs.recharged_pbr_lg_ambi[0] * amb_scale,
                 gs.recharged_pbr_lg_ambi[1] * amb_scale, gs.recharged_pbr_lg_ambi[2] * amb_scale);
   } else {
-    glUniform3f(glu::loc(id, "u_pbr_ambient"), gs.recharged_pbr_ambient[0] * amb_scale,
+    lgt_3f(id, "u_pbr_ambient", gs.recharged_pbr_ambient[0] * amb_scale,
                 gs.recharged_pbr_ambient[1] * amb_scale, gs.recharged_pbr_ambient[2] * amb_scale);
   }
   // lighting-hdr (SPEC §8 item 2) : LES COMPOSITES C ET E CEDENT LEUR EXPOSITION AU SITE UNIQUE.
@@ -3218,7 +3435,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // resultat est identique en dessous du genou, et il n'y a plus qu'un seul reglage d'exposition
   // sur le chemin. Chaine inactive : rien ne change, le composite garde son exposition, sinon
   // eteindre le HDR assombrirait le monde.
-  glUniform1f(glu::loc(id, "u_pbr_exposure"),
+  lgt_1f(id, "u_pbr_exposure",
               hdr::chain_active() ? 1.0f : exposure);
   // Gpbr-per-texture-materials: memorise the three GLOBAL material values at the exact point they
   // are handed to the program — AFTER the relief multiply and AFTER the `displacement == 0` zeroing
@@ -3227,30 +3444,30 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   g_pbr_glob_normal_strength = normal_strength;
   g_pbr_glob_height_scale = height_scale;
   g_pbr_glob_spec = spec_intensity;
-  glUniform1f(glu::loc(id, "u_pbr_normal_strength"), normal_strength);
-  glUniform1f(glu::loc(id, "u_pbr_height_scale"), height_scale);
-  glUniform1f(glu::loc(id, "u_pbr_uv_tile"), uv_tile);
-  glUniform1f(glu::loc(id, "u_pbr_emissive_str"), emissive_str);
-  glUniform1f(glu::loc(id, "u_pbr_spec_intensity"), spec_intensity);
+  lgt_1f(id, "u_pbr_normal_strength", normal_strength);
+  lgt_1f(id, "u_pbr_height_scale", height_scale);
+  lgt_1f(id, "u_pbr_uv_tile", uv_tile);
+  lgt_1f(id, "u_pbr_emissive_str", emissive_str);
+  lgt_1f(id, "u_pbr_spec_intensity", spec_intensity);
   // Gpbr-per-texture-materials: the per-material vector, at its IDENTITY — (0.9, 0, 0.04, 1) and
   // (1, 1) ARE the constants the shader used to carry in-line. Pushed here so every program that
   // never sees a PbrDrawBinder (HFRAG, shrub, tie_wind, etie_base) still has a DEFINED value
   // instead of the GL default zero — a zero .w would mirror every normal map's green channel and a
   // zero reflectance would kill dielectric Fresnel.
-  glUniform4f(glu::loc(id, "u_pbr_mat"), 0.9f, 0.f, 0.04f, 1.f);
-  glUniform2f(glu::loc(id, "u_pbr_mat2"), 1.f, 1.f);
+  lgt_4f(id, "u_pbr_mat", 0.9f, 0.f, 0.04f, 1.f);
+  lgt_2f(id, "u_pbr_mat2", 1.f, 1.f);
   // Grecharged-materials-modern-parity: frame-constant half of the modern stack. Both are the
   // identity by default (exposure 1.0, viz off), so a program that never sees a non-zero u_mm_flags
   // is untouched by them.
-  glUniform1f(glu::loc(id, "u_mm_exposure"), mm_exposure);
-  glUniform1i(glu::loc(id, "u_mm_debug"), mm_debug);
-  glUniform1f(glu::loc(id, "u_pbr_direct"), pbr_direct);
-  glUniform1f(glu::loc(id, "u_pbr_indirect"), pbr_indirect);
-  glUniform1f(glu::loc(id, "u_pbr_baked_weight"), pbr_baked_weight);
-  glUniform1f(glu::loc(id, "u_pbr_shadow_bias"), pbr_shadow_bias);
-  glUniform1f(glu::loc(id, "u_pbr_world_relight"), world_relight);
-  glUniform1f(glu::loc(id, "u_pbr_wr_direct"), wr_direct);
-  glUniform1f(glu::loc(id, "u_pbr_wr_indirect"), wr_indirect);
+  lgt_1f(id, "u_mm_exposure", mm_exposure);
+  lgt_1i(id, "u_mm_debug", mm_debug);
+  lgt_1f(id, "u_pbr_direct", pbr_direct);
+  lgt_1f(id, "u_pbr_indirect", pbr_indirect);
+  lgt_1f(id, "u_pbr_baked_weight", pbr_baked_weight);
+  lgt_1f(id, "u_pbr_shadow_bias", pbr_shadow_bias);
+  lgt_1f(id, "u_pbr_world_relight", world_relight);
+  lgt_1f(id, "u_pbr_wr_direct", wr_direct);
+  lgt_1f(id, "u_pbr_wr_indirect", wr_indirect);
 #endif
 }
 
