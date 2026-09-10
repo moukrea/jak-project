@@ -81,7 +81,26 @@ STAMP=.autoport/.last_apk_build_sha
 #     livraison, un correctif du superviseur).
 # La liste WATCH de fichiers Keira a disparu avec le perimetre qu'elle servait.
 REQ=".autoport/.build-request"
-head_is_wip(){ git log -1 --format=%s 2>/dev/null | grep -qiE 'WIP checkpoint|checkpoint automatique'; }
+head_is_wip(){ git log -1 --format=%s 2>/dev/null | grep -qiE 'WIP checkpoint|checkpoint automatique|^\[[^]]*\] *WIP |validateur .CHOU|PAS une r.ussite'; }
+
+# 2026-09-11 — PORTE DE CONTENU. Un commit qui ne touche que `.autoport/` (backlog, consignes,
+# rapports) ne peut PAS changer une image a l'ecran : le batir et publier 641 Mo est du pur
+# gaspillage. Mesure du 11/09 : 14 des 25 derniers builds venaient de tels commits, 13 etaient
+# ceux du superviseur. On compare le DERNIER COMMIT BATI a HEAD — pas HEAD tout seul, sinon un
+# commit superviseur pose juste apres un commit worker ferait sauter le build du worker.
+# Sans repere (premiere course, repere efface), on BATIT : un build de trop est benin, un build
+# manquant ferait tester une version qui n'existe pas.
+COMMIT_STAMP=.autoport/.last_apk_build_commit
+range_touches_game(){
+  local base cur
+  cur=$(git rev-parse HEAD 2>/dev/null) || return 0
+  base=$(cat "$COMMIT_STAMP" 2>/dev/null) || return 0
+  [ -n "$base" ] || return 0
+  git cat-file -e "$base^{commit}" 2>/dev/null || return 0      # repere perime : on batit
+  [ "$base" = "$cur" ] && return 1                               # rien de neuf
+  git diff --name-only "$base" "$cur" -- . ':(exclude).autoport/**' 2>/dev/null | grep -q . 
+}
+mark_built(){ printf '%s\n' "$1" > "$STAMP"; git rev-parse HEAD > "$COMMIT_STAMP" 2>/dev/null || true; }
 
 say(){ echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
 # VERROU D'INSTANCE UNIQUE. Le 2026-08-11 trois instances tournaient en meme temps apres un
@@ -278,6 +297,14 @@ while true; do
   fi
   [ "$h" = "$(cat "$STAMP" 2>/dev/null)" ] && continue
 
+  # PORTE DE CONTENU : rien hors `.autoport/` depuis le dernier build ⇒ ni build ni publication.
+  # Une demande explicite du worker passe outre : lui sait que son code est final.
+  if [ ! -f "$REQ" ] && ! range_touches_game; then
+    say "build IGNORE — aucun fichier de jeu depuis le dernier build ($(git log -1 --format=%h))"
+    mark_built "$h"
+    continue
+  fi
+
   # ne jamais démarrer par-dessus un build en cours (goalc, cmake, gradle) ni pendant qu'un
   # gk tourne : le worker mesure peut-être en ce moment.
   # grep -c, JAMAIS grep -q (piege maison, deja documente dans lib/deploy_verify.sh) : `-q`
@@ -392,7 +419,7 @@ while true; do
   say "build declenche — $reason"
   if ! timeout 3600 bash .autoport/build_arm64_full_consistent.sh >> "$LOG" 2>&1; then
     say "build arm64 ÉCHOUÉ — rien à publier, on retentera au prochain changement"
-    echo "$h" > "$STAMP"   # ne pas boucler sur un état cassé
+    mark_built "$h"   # ne pas boucler sur un état cassé
     fin_de_passe
     continue
   fi
@@ -415,7 +442,7 @@ while true; do
   if ! ( cd android && timeout 2400 ./gradlew assembleJak1Debug >> "../$LOG" 2>&1 ); then
     ( cd android && timeout 120 ./gradlew --stop >/dev/null 2>&1 )
     say "gradle ÉCHOUÉ"
-    echo "$h" > "$STAMP"
+    mark_built "$h"
     fin_de_passe
     continue
   fi
@@ -442,7 +469,7 @@ while true; do
   # (qui compare des md5) ne le renvoie pas. Ca ne coute rien et ca ne peut plus etre oublie.
   if ! timeout 900 bash scripts/package_hd_assets.sh jak1 >> "$LOG" 2>&1; then
     say "pack HD ÉCHOUÉ — l'APK partirait avec un mesh perime, on ne publie pas"
-    echo "$h" > "$STAMP"
+    mark_built "$h"
     continue
   fi
   # ----------------------------------------------------------------------------------------------
@@ -489,7 +516,7 @@ while true; do
   fi
   if [ "$_sz" -gt 700000000 ]; then
     say "APK toujours anormalement gros ($_sz octets) apres nettoyage — NON publie"
-    echo "$h" > "$STAMP"
+    mark_built "$h"
     fin_de_passe
     continue
   fi
@@ -530,7 +557,7 @@ while true; do
     echo "Ce fichier est ecrit AUTOMATIQUEMENT a chaque build, il decrit donc toujours l'APK"
     echo "qui est a cote de lui. Si les deux dates divergent, dis-le moi."
   } > out/artifacts/BUILD-INFO.txt
-  echo "$h" > "$STAMP"
+  mark_built "$h"
   say "APK + BUILD-INFO prets pour le commit $sha — le publieur prendra le relais"
 
   # On installe TOUT DE SUITE ce qu'on vient de produire, sans attendre le tour suivant.
