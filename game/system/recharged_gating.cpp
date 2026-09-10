@@ -1,11 +1,11 @@
 #include "game/system/recharged_gating.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <mutex>
 #include <string>
-#include <vector>
 
 #include "game/graphics/gfx.h"
 #include "game/system/autoport_proof.h"
@@ -17,11 +17,11 @@ namespace {
 // Une ligne par option, et le PARENT est ici — nulle part ailleurs. Le grisage du menu, la porte
 // du moteur et le recensement de preuve lisent tous les trois CETTE colonne.
 //
-// `kNode` = un maitre (master / eclairage / eau). Son champ garde la valeur VOULUE et le module
-// ne l'ecrit jamais : son etat effectif vient des helpers de gfx.h, qui composent en plus les
-// surcharges du harnais (`debug.opengoal.recharged`, `OG_LIGHTING`, l'epinglage refset, le
-// binaire-temoin AUTOPORT_ORIGIN_ABLATE). Les detourner ici casserait le jeu de references et la
-// campagne HDR, qui epinglent ces trois drapeaux ; ce n'est pas le perimetre de cet item.
+// `kNode` = un maitre (master / eclairage / eau). Son champ recoit la valeur VOULUE telle quelle,
+// SANS composition : ce sont les helpers de gfx.h qui composent, et eux seuls, parce qu'ils
+// ajoutent les surcharges du harnais (`debug.opengoal.recharged`, `OG_LIGHTING`, l'epinglage
+// refset, le binaire-temoin AUTOPORT_ORIGIN_ABLATE). Les court-circuiter ici casserait le jeu de
+// references et la campagne HDR, qui epinglent ces trois drapeaux ; ce n'est pas le perimetre.
 //
 // `kToggle` / `kMode` = ce que le joueur allume et eteint. STOCK = 0 : eteint doit valoir ABSENT.
 // `kParamI` / `kParamF` = un sous-parametre continu (distance, force, exposition). Son STOCK est
@@ -29,8 +29,9 @@ namespace {
 //   configure l'option — la definition honnete de « comme si l'option n'existait pas ». Le mettre
 //   a zero fabriquerait un etat que le jeu n'a jamais connu (une distance d'ombre nulle n'est pas
 //   « absent », c'est « configure a zero »).
-// `kExternal` = l'option ne vit pas dans `GfxGlobalSettings`. Le module suit sa valeur voulue et
-//   publie son parent ; sa porte est appliquee chez elle et comptee par `on()` a son site.
+// `kExternal` = l'option ne vit pas dans `GfxGlobalSettings` (la sortie HDR a son propre
+//   `std::atomic` dans hdr_output.cpp). Le module suit sa valeur voulue et publie son parent ; sa
+//   porte est appliquee chez elle (hdr_output.cpp:257) et comptee par `on()` a son site.
 enum class Kind { kNode, kToggle, kMode, kParamI, kParamF, kExternal };
 
 using GS = GfxGlobalSettings;
@@ -47,7 +48,7 @@ struct Row {
 
 // Les champs du bloc PBR n'existent qu'avec OG_FEAT_PBR. Sans lui l'option reste dans la table
 // (elle garde son parent et sa place au menu) mais n'a pas de champ : elle est publiee comme NON
-// COMPILEE, jamais comme « sans defaut ».
+// COMPILEE (`gating_not_compiled`), jamais comme « sans defaut ».
 #ifdef OG_FEAT_PBR
 #define PB(f) (&GS::f)
 #define PI(f) (&GS::f)
@@ -58,108 +59,118 @@ struct Row {
 #define PF(f) (static_cast<float GS::*>(nullptr))
 #endif
 
-constexpr bool GS::*kNoB = nullptr;
-constexpr int GS::*kNoI = nullptr;
-constexpr float GS::*kNoF = nullptr;
+#define NOB (static_cast<bool GS::*>(nullptr))
+#define NOI (static_cast<int GS::*>(nullptr))
+#define NOF (static_cast<float GS::*>(nullptr))
 
-// L'ordre DOIT suivre l'enum `Opt` : verifie a l'initialisation, sentinelle si faux.
+// L'ordre DOIT suivre l'enum `Opt` : verifie a l'initialisation (`check_table_once`), et une
+// table qui ne se verifie pas publie une SENTINELLE au lieu d'un zero.
 const Row kOptions[kOptCount] = {
-    // nom                     parent              genre           bool                 int                       float                        stock
-    {"master", -1, Kind::kNode, &GS::recharged_master, kNoI, kNoF, 0},
+    {"master", -1, Kind::kNode, &GS::recharged_master, NOI, NOF, 0},
 
-    {"water", kMaster, Kind::kNode, &GS::recharged_water, kNoI, kNoF, 0},
-    {"lighting", kMaster, Kind::kNode, &GS::recharged_lighting, kNoI, kNoF, 0},
-    {"grass", kMaster, Kind::kToggle, &GS::recharged_grass, kNoI, kNoF, 0},
-    {"textures", kMaster, Kind::kToggle, &GS::recharged_textures, kNoI, kNoF, 0},
-    {"load-custom-assets", kMaster, Kind::kToggle, &GS::load_custom_assets, kNoI, kNoF, 0},
-    {"managed-assets", kMaster, Kind::kToggle, &GS::recharged_managed_assets, kNoI, kNoF, 0},
-    {"enhanced-models", kMaster, Kind::kToggle, &GS::recharged_enhanced_models, kNoI, kNoF, 0},
-    {"foliage-wind", kMaster, Kind::kToggle, &GS::recharged_foliage_wind, kNoI, kNoF, 0},
-    {"crisp-title-logo", kMaster, Kind::kToggle, &GS::recharged_crisp_title_logo, kNoI, kNoF, 0},
-    {"mesh-browser-checker", kMaster, Kind::kMode, kNoB, &GS::recharged_mesh_browser_checker, kNoF,
-     0},
+    {"water", kMaster, Kind::kNode, &GS::recharged_water, NOI, NOF, 0},
+    {"lighting", kMaster, Kind::kNode, &GS::recharged_lighting, NOI, NOF, 0},
+    {"grass", kMaster, Kind::kToggle, &GS::recharged_grass, NOI, NOF, 0},
+    {"textures", kMaster, Kind::kToggle, &GS::recharged_textures, NOI, NOF, 0},
+    {"load-custom-assets", kMaster, Kind::kToggle, &GS::load_custom_assets, NOI, NOF, 0},
+    {"managed-assets", kMaster, Kind::kToggle, &GS::recharged_managed_assets, NOI, NOF, 0},
+    {"enhanced-models", kMaster, Kind::kToggle, &GS::recharged_enhanced_models, NOI, NOF, 0},
+    {"foliage-wind", kMaster, Kind::kToggle, &GS::recharged_foliage_wind, NOI, NOF, 0},
+    {"crisp-title-logo", kMaster, Kind::kToggle, &GS::recharged_crisp_title_logo, NOI, NOF, 0},
+    {"mesh-browser-checker", kMaster, Kind::kMode, NOB, &GS::recharged_mesh_browser_checker, NOF, 0},
 
-    {"grass-near-dist", kGrass, Kind::kParamF, kNoB, kNoI, &GS::recharged_grass_near_dist, 30.0},
-    {"grass-card-dist", kGrass, Kind::kParamF, kNoB, kNoI, &GS::recharged_grass_card_dist, 95.0},
-    {"grass-density", kGrass, Kind::kParamI, kNoB, &GS::recharged_grass_density_preset, kNoF,
+    {"grass-near-dist", kGrass, Kind::kParamF, NOB, NOI, &GS::recharged_grass_near_dist, 30.0},
+    {"grass-card-dist", kGrass, Kind::kParamF, NOB, NOI, &GS::recharged_grass_card_dist, 95.0},
+    {"grass-density", kGrass, Kind::kParamI, NOB, &GS::recharged_grass_density_preset, NOF,
      (double)grass_bake::kDensityPresetDefault},
-    {"grass-precomputed", kGrass, Kind::kToggle, &GS::recharged_grass_precomputed, kNoI, kNoF, 0},
-    {"grass-overhang", kGrass, Kind::kToggle, &GS::recharged_grass_overhang, kNoI, kNoF, 0},
+    {"grass-precomputed", kGrass, Kind::kToggle, &GS::recharged_grass_precomputed, NOI, NOF, 0},
+    {"grass-overhang", kGrass, Kind::kToggle, &GS::recharged_grass_overhang, NOI, NOF, 0},
 
-    {"ao-mode", kLighting, Kind::kMode, kNoB, &GS::recharged_ao_mode, kNoF, 0},
-    {"ao-quality", kAoMode, Kind::kParamI, kNoB, &GS::recharged_ao_quality, kNoF, 1},
-    {"ao-strength", kAoMode, Kind::kParamI, kNoB, &GS::recharged_ao_strength, kNoF, 1},
-    {"rt-light", kLighting, Kind::kToggle, PB(recharged_rt_light_enable), kNoI, kNoF, 0},
-    {"rt-shadow-res", kLighting, Kind::kParamI, kNoB, PI(recharged_rt_shadow_res), kNoF, 2048},
-    {"rt-shadow-dist", kLighting, Kind::kParamF, kNoB, kNoI, PF(recharged_rt_shadow_dist), 150.0},
-    {"rt-shadow-strength", kLighting, Kind::kParamF, kNoB, kNoI, PF(recharged_rt_shadow_strength),
+    {"ao-mode", kLighting, Kind::kMode, NOB, &GS::recharged_ao_mode, NOF, 0},
+    {"ao-quality", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_quality, NOF, 1},
+    {"ao-strength", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_strength, NOF, 1},
+    {"rt-light", kLighting, Kind::kToggle, PB(recharged_rt_light_enable), NOI, NOF, 0},
+    {"rt-shadow-res", kLighting, Kind::kParamI, NOB, PI(recharged_rt_shadow_res), NOF, 2048},
+    {"rt-shadow-dist", kLighting, Kind::kParamF, NOB, NOI, PF(recharged_rt_shadow_dist), 150.0},
+    {"rt-shadow-strength", kLighting, Kind::kParamF, NOB, NOI, PF(recharged_rt_shadow_strength),
      0.8},
-    {"rt-ambient", kLighting, Kind::kToggle, PB(recharged_rt_ambient_enable), kNoI, kNoF, 0},
-    {"rt-ambient-model", kRtAmbient, Kind::kParamI, kNoB, PI(recharged_rt_ambient_model), kNoF, 1},
-    {"rt-ambient-strength", kRtAmbient, Kind::kParamF, kNoB, kNoI, PF(recharged_rt_ambient_strength),
+    {"rt-ambient", kLighting, Kind::kToggle, PB(recharged_rt_ambient_enable), NOI, NOF, 0},
+    {"rt-ambient-model", kRtAmbient, Kind::kParamI, NOB, PI(recharged_rt_ambient_model), NOF, 1},
+    {"rt-ambient-strength", kRtAmbient, Kind::kParamF, NOB, NOI, PF(recharged_rt_ambient_strength),
      0.2},
-    {"rt-ambient-contrast", kRtAmbient, Kind::kParamF, kNoB, kNoI, PF(recharged_rt_ambient_contrast),
+    {"rt-ambient-contrast", kRtAmbient, Kind::kParamF, NOB, NOI, PF(recharged_rt_ambient_contrast),
      1.0},
-    {"hdr", kLighting, Kind::kToggle, &GS::recharged_hdr, kNoI, kNoF, 0},
-    {"hdr-knee", kHdr, Kind::kParamF, kNoB, kNoI, &GS::recharged_hdr_knee, 0.96},
-    {"hdr-curve", kHdr, Kind::kParamI, kNoB, &GS::recharged_hdr_curve, kNoF, 0},
-    {"hdr-exposure", kHdr, Kind::kParamF, kNoB, kNoI, &GS::recharged_hdr_exposure, 1.0},
-    {"hdr-output", kLighting, Kind::kExternal, kNoB, kNoI, kNoF, 0},
-    {"pbr", kLighting, Kind::kToggle, PB(recharged_pbr_enable), kNoI, kNoF, 0},
+    {"hdr", kLighting, Kind::kToggle, &GS::recharged_hdr, NOI, NOF, 0},
+    {"hdr-knee", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_knee, 0.96},
+    {"hdr-curve", kHdr, Kind::kParamI, NOB, &GS::recharged_hdr_curve, NOF, 0},
+    {"hdr-exposure", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_exposure, 1.0},
+    {"hdr-output", kLighting, Kind::kExternal, NOB, NOI, NOF, 0},
+    {"pbr", kLighting, Kind::kToggle, PB(recharged_pbr_enable), NOI, NOF, 0},
 
-    {"pbr-relief", kPbr, Kind::kParamF, kNoB, kNoI, PF(recharged_pbr_texture_relief), 1.5},
-    {"pbr-specular", kPbr, Kind::kParamF, kNoB, kNoI, PF(recharged_pbr_spec_intensity), 0.15},
-    {"pbr-displacement", kPbr, Kind::kMode, kNoB, PI(recharged_pbr_displacement), kNoF, 0},
-    {"pbr-exposure", kPbr, Kind::kParamF, kNoB, kNoI, PF(recharged_pbr_exposure), 1.0},
-    {"pbr-isolate", kPbr, Kind::kMode, kNoB, PI(recharged_pbr_isolate), kNoF, 0},
-    {"mesh-subdiv", kPbr, Kind::kParamI, kNoB, &GS::recharged_mesh_subdiv_rounds, kNoF, 1},
-    {"modern-materials", kPbr, Kind::kToggle, PB(recharged_modern_materials), kNoI, kNoF, 0},
+    {"pbr-relief", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_texture_relief), 1.5},
+    {"pbr-specular", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_spec_intensity), 0.15},
+    {"pbr-displacement", kPbr, Kind::kMode, NOB, PI(recharged_pbr_displacement), NOF, 0},
+    {"pbr-exposure", kPbr, Kind::kParamF, NOB, NOI, PF(recharged_pbr_exposure), 1.0},
+    {"pbr-isolate", kPbr, Kind::kMode, NOB, PI(recharged_pbr_isolate), NOF, 0},
+    {"mesh-subdiv", kPbr, Kind::kParamI, NOB, &GS::recharged_mesh_subdiv_rounds, NOF, 1},
+    {"modern-materials", kPbr, Kind::kToggle, PB(recharged_modern_materials), NOI, NOF, 0},
 };
 
 #undef PB
 #undef PI
 #undef PF
+#undef NOB
+#undef NOI
+#undef NOF
 
 // ─── ETAT ────────────────────────────────────────────────────────────────────────────────────
-std::mutex g_mutex;
+std::recursive_mutex g_mutex;
 
 struct State {
-  double desired = 0;       // ce que le joueur veut. JAMAIS ecrase par une porte.
-  bool desired_set = false; // une valeur a-t-elle deja ete posee ? (avant, on n'ecrit rien)
-  double last_written = 0;  // ce que `apply()` a mis dans le champ la derniere fois
+  double desired = 0;        // ce que le joueur veut. JAMAIS ecrase par une porte.
+  bool desired_set = false;  // avant la premiere volonte, on ne touche pas au defaut du moteur
+  double last_written = 0;   // ce que `apply()` a mis dans le champ la derniere fois
   bool written = false;
-  uint64_t eval = 0;        // le site a consulte la porte
-  uint64_t exec = 0;        // ... et elle etait OUVERTE : le travail a eu lieu
-  uint64_t suppressed = 0;  // ... et elle etait FERMEE
-  int force = -1;           // balayage de mesure : -1 aucun, 0 force eteint, 1 force au maximum
-  uint64_t foreign_writes = 0;
+  // Les compteurs sont ATOMIQUES et `on()` / `mode()` ne prennent AUCUN verrou : ces deux
+  // fonctions sont appelees par DESSIN sur le fil GL (background_common.cpp:1077 et ses
+  // voisines). Un mutex a cet endroit ferait payer a chaque dessin le prix d'un instrument —
+  // dans un item dont le motif est justement le cout des options grisees. La lecture non
+  // verrouillee de `desired` / `force` est la meme course benigne que le cache de 0,25 s des
+  // maitres (gfx.h) : deux lecteurs de la meme image peuvent voir deux valeurs pendant la
+  // fenetre d'un basculement, et le balayage laisse expres 90 images par fenetre.
+  std::atomic<uint64_t> eval{0};        // le site a consulte la porte
+  std::atomic<uint64_t> exec{0};        // ... et elle etait OUVERTE : le travail a eu lieu
+  std::atomic<uint64_t> suppressed{0};  // ... et elle etait FERMEE
+  std::atomic<int> force{-1};           // balayage : -1 aucun, 0 force eteint, 1 force au maximum
+  std::atomic<uint64_t> foreign_writes{0};
 };
 
 State g_state[kOptCount];
 bool g_table_ok = false;
 bool g_checked = false;
 
-// La valeur « au maximum » d'une option, celle que le controle positif impose pour que chaque
-// site ait une chance de tirer. Pour un parametre continu c'est son defaut (il n'a pas d'etat
-// « allume »), pour une bascule c'est 1, pour un mode c'est 1 (le premier mode non nul).
-double max_value(int opt) {
-  switch (kOptions[opt].kind) {
-    case Kind::kToggle:
-    case Kind::kNode:
-    case Kind::kExternal:
-      return 1;
-    case Kind::kMode:
-      return 1;
-    case Kind::kParamI:
-    case Kind::kParamF:
-      return kOptions[opt].stock;
-  }
-  return kOptions[opt].stock;
+bool is_node(int opt) {
+  return kOptions[opt].kind == Kind::kNode;
 }
 
 bool has_field(int opt) {
   const Row& r = kOptions[opt];
   return r.fb != nullptr || r.fi != nullptr || r.ff != nullptr;
+}
+
+// La valeur « au maximum » : celle que le controle positif impose pour que chaque site ait une
+// chance de tirer. Une bascule ou un mode montent a 1 ; un parametre continu n'a pas d'etat
+// « allume », il garde son defaut.
+double max_value(int opt) {
+  switch (kOptions[opt].kind) {
+    case Kind::kNode:
+    case Kind::kToggle:
+    case Kind::kMode:
+    case Kind::kExternal:
+      return 1;
+    default:
+      return kOptions[opt].stock;
+  }
 }
 
 double read_field(int opt) {
@@ -189,9 +200,9 @@ void write_field(int opt, double v) {
   }
 }
 
-// La valeur telle qu'elle sera REELLEMENT ecrite, apres l'arrondi du champ : c'est elle qu'il
-// faut memoriser pour detecter un ecrivain etranger, sinon un `float` compare a un `double`
-// signalerait une ecriture etrangere a chaque image.
+// La valeur telle qu'elle sera REELLEMENT dans le champ apres conversion : c'est elle qu'il faut
+// memoriser, sinon un `float` compare a un `double` signalerait une ecriture etrangere a chaque
+// image et `gating_ungated_sites` serait un faux rouge permanent.
 double quantize(int opt, double v) {
   const Row& r = kOptions[opt];
   if (r.fb) {
@@ -206,8 +217,22 @@ double quantize(int opt, double v) {
   return v;
 }
 
-// L'etat effectif d'un MAITRE. Il passe par les helpers de gfx.h et pas par le champ, pour que
-// les surcharges du harnais et le binaire-temoin gardent leur droit de veto (voir la table).
+// La valeur que le champ d'un MAITRE doit porter : la volonte du joueur, telle quelle. La
+// composition (master > eclairage > eau, plus les surcharges du harnais) reste chez gfx.h.
+double node_field_value(int opt) {
+  const State& s = g_state[opt];
+  const int f = s.force.load(std::memory_order_relaxed);
+  if (f == 0) {
+    return 0;
+  }
+  if (f == 1) {
+    return 1;
+  }
+  return s.desired;
+}
+
+// L'etat effectif d'un MAITRE, lu par les helpers de gfx.h — donc surcharges du harnais et
+// binaire-temoin compris. Le forçage du balayage est deja dans le champ (voir `apply`).
 bool node_active(int opt) {
   switch (opt) {
     case kMaster:
@@ -221,16 +246,17 @@ bool node_active(int opt) {
   }
 }
 
-// Vrai si l'option elle-meme est allumee (sans regarder ses ancetres).
-bool self_on_unlocked(int opt) {
-  if (kOptions[opt].kind == Kind::kNode) {
+// L'option elle-meme est-elle allumee, sans regarder ses ancetres ?
+bool self_on(int opt) {
+  if (is_node(opt)) {
     return node_active(opt);
   }
   const State& s = g_state[opt];
-  if (s.force == 0) {
+  const int f = s.force.load(std::memory_order_relaxed);
+  if (f == 0) {
     return false;
   }
-  const double v = (s.force == 1) ? max_value(opt) : s.desired;
+  const double v = (f == 1) ? max_value(opt) : s.desired;
   switch (kOptions[opt].kind) {
     case Kind::kToggle:
     case Kind::kMode:
@@ -243,11 +269,11 @@ bool self_on_unlocked(int opt) {
   }
 }
 
-bool ancestors_on_unlocked(int opt) {
+bool ancestors_on(int opt) {
   int p = kOptions[opt].parent;
   int guard = 0;
-  while (p >= 0 && guard++ < kOptCount) {
-    if (!self_on_unlocked(p) || !ancestors_on_unlocked_step(p)) {
+  while (p >= 0 && guard++ <= kOptCount) {
+    if (!self_on(p)) {
       return false;
     }
     p = kOptions[p].parent;
@@ -255,18 +281,19 @@ bool ancestors_on_unlocked(int opt) {
   return true;
 }
 
-// (declaration utilitaire : la boucle ci-dessus n'a pas besoin de recursion ; conservee simple)
-bool ancestors_on_unlocked_step(int) {
-  return true;
-}
-
-double effective_unlocked(int opt) {
-  const State& s = g_state[opt];
-  const double want = (s.force == 1) ? max_value(opt) : (s.force == 0 ? kOptions[opt].stock : s.desired);
-  if (!ancestors_on_unlocked(opt)) {
+double effective_value(int opt) {
+  if (!ancestors_on(opt)) {
     return kOptions[opt].stock;
   }
-  return want;
+  const State& s = g_state[opt];
+  const int f = s.force.load(std::memory_order_relaxed);
+  if (f == 0) {
+    return kOptions[opt].stock;
+  }
+  if (f == 1) {
+    return max_value(opt);
+  }
+  return s.desired;
 }
 
 void check_table_once() {
@@ -274,37 +301,61 @@ void check_table_once() {
     return;
   }
   g_checked = true;
-  g_table_ok = true;
+  g_table_ok = kOptions[kMaster].parent == -1;
   for (int i = 0; i < kOptCount; i++) {
     const int p = kOptions[i].parent;
     if (p < -1 || p >= kOptCount || p == i) {
       g_table_ok = false;
+      continue;
     }
-    // aucun cycle : en remontant on doit atteindre -1 en moins de kOptCount pas
     int q = p, guard = 0;
-    while (q >= 0 && guard++ <= kOptCount) {
+    while (q >= 0 && guard <= kOptCount) {
       q = kOptions[q].parent;
+      guard++;
     }
     if (guard > kOptCount) {
       g_table_ok = false;
     }
   }
-  if (kOptions[kMaster].parent != -1) {
-    g_table_ok = false;
+  // La table est indexee PAR L'ENUM : si les deux derivent, chaque porte designe une autre
+  // option et tous les chiffres deviennent faux sans qu'aucun ne soit absent. Quelques ancres
+  // reparties dans la table suffisent a le voir.
+  // AMORCAGE DE LA VOLONTE. Plusieurs options n'ont AUCUN ecrivain (`recharged_hdr`,
+  // `recharged_hdr_knee/curve/exposure`, `recharged_pbr_exposure`) : elles vivent sur le defaut
+  // de `gfx.h` et aucune rangee de menu ne les touche. Sans cet amorcage leur `desired` vaudrait
+  // 0, `on()` les declarerait eteintes et la chaine HDR s'arreterait — un changement de RENDU,
+  // que cet item n'a pas le droit de faire. On part donc de ce que le champ porte deja.
+  for (int i = 0; i < kOptCount; i++) {
+    if (has_field(i)) {
+      g_state[i].desired = read_field(i);
+      g_state[i].desired_set = true;
+    }
+  }
+  const struct {
+    int opt;
+    const char* name;
+  } anchors[] = {{kMaster, "master"},   {kLighting, "lighting"}, {kGrassOverhang, "grass-overhang"},
+                 {kAoMode, "ao-mode"},  {kHdrOutput, "hdr-output"}, {kPbr, "pbr"},
+                 {kModernMaterials, "modern-materials"}};
+  for (const auto& a : anchors) {
+    if (std::strcmp(kOptions[a.opt].name, a.name) != 0) {
+      g_table_ok = false;
+    }
   }
 }
 
 // ─── LE BALAYAGE DE MESURE ───────────────────────────────────────────────────────────────────
-// Il ne tourne QUE quand le harnais nomme cet item. C'est l'INSTRUMENT qui est sous drapeau,
-// jamais le correctif : hors mesure, le module applique les portes et ne force rien.
+// Il ne tourne QUE quand le harnais nomme cet item : c'est l'INSTRUMENT qui est sous drapeau,
+// jamais le correctif. Hors mesure, le module applique les portes et ne force rien.
 //
 // POURQUOI UN CONTROLE POSITIF DANS LA MEME COURSE. Une fenetre « parent eteint » ou la
 // dependante rend exec=0 ne prouve rien si elle rendait DEJA zero parent allume — c'est la porte
-// verte par inaction. Chaque fenetre eteinte est donc precedee d'une fenetre ou TOUTES les
-// options sont forcees au maximum : `exec_on` est le temoin de couverture, et une option dont
-// `exec_on` vaut zero est declaree NON COUVERTE, jamais « sans defaut ».
-const int kParents[] = {kMaster, kLighting, kWater,   kGrass,
-                        kAoMode, kPbr,      kRtAmbient, kEnhancedModels};
+// verte par inaction, et sur l'appareil de l'owner c'est le cas par defaut (son settings.ini
+// porte `pbr-materials? = #f`). Chaque fenetre eteinte est donc precedee d'une fenetre ou TOUTES
+// les options sont forcees au maximum : `exec_on` est le temoin de couverture, et une option dont
+// `exec_on` vaut zero est comptee NON COUVERTE — un defaut, jamais un silence.
+const int kParents[] = {kLighting, kPbr,      kAoMode,        kRtAmbient,
+                        kGrass,    kWater,    kEnhancedModels, kMaster};
 constexpr int kParentCount = (int)(sizeof(kParents) / sizeof(kParents[0]));
 
 constexpr uint64_t kWarmFrames = 60;
@@ -315,7 +366,7 @@ struct Sweep {
   bool started = false;
   bool done = false;
   uint64_t frame = 0;
-  int stage = -1;  // -1 chauffe, 0 = tout allume, 1..kParentCount = un parent eteint, puis fin
+  int stage = -1;  // -1 chauffe, 0 temoin (tout au max), 1..kParentCount un parent eteint
   uint64_t exec_on[kOptCount] = {0};
   uint64_t exec_off[kParentCount][kOptCount] = {{0}};
   uint64_t mark[kOptCount] = {0};
@@ -327,24 +378,21 @@ struct Sweep {
 
 Sweep g_sweep;
 
-void sweep_force_all(int f) {
+void force_all(int f) {
   for (int i = 0; i < kOptCount; i++) {
-    if (kOptions[i].kind == Kind::kNode && i != kMaster && i != kLighting && i != kWater) {
-      continue;
-    }
-    g_state[i].force = f;
+    g_state[i].force.store(f, std::memory_order_relaxed);
   }
 }
 
-void sweep_snapshot_marks() {
+void snapshot_marks() {
   for (int i = 0; i < kOptCount; i++) {
-    g_sweep.mark[i] = g_state[i].exec;
+    g_sweep.mark[i] = g_state[i].exec.load(std::memory_order_relaxed);
   }
 }
 
-void sweep_collect(uint64_t* into) {
+void collect(uint64_t* into) {
   for (int i = 0; i < kOptCount; i++) {
-    into[i] = g_state[i].exec - g_sweep.mark[i];
+    into[i] = g_state[i].exec.load(std::memory_order_relaxed) - g_sweep.mark[i];
   }
 }
 
@@ -353,24 +401,22 @@ struct MenuState {
   bool open = false;
   bool ever = false;
   uint64_t rows = 0;
-  uint64_t unknown = 0;      // une rangee que la table ne connait pas
-  uint64_t misplaced = 0;    // une rangee dessinee dans une page qui n'est pas celle de son parent
-  std::string parents;       // « opt:parent,opt:parent,... » — publie tel quel
+  uint64_t unknown = 0;    // une rangee que la table ne connait pas
+  uint64_t misplaced = 0;  // une rangee dessinee ailleurs que dans la page de son parent
+  std::string parents;     // « option:parent,... », publie tel quel
 };
 
 MenuState g_menu;
 
-// La page ou une option DOIT vivre, deduite de son parent. C'est la meme colonne que la porte :
-// un sous-menu qui derive de la hierarchie se voit tout de suite.
+// La page ou une option DOIT vivre, DEDUITE DE SON PARENT. C'est la meme colonne que la porte :
+// un sous-menu qui derive de la hierarchie se voit immediatement.
 const char* expected_page(int opt) {
+  if (opt == kGrass || opt == kLighting) {
+    return "recharged";  // la ligne d'ENTREE du sous-menu vit dans la page mere
+  }
   int p = kOptions[opt].parent;
-  if (p == kGrass || opt == kGrass) {
-    return "grass";
-  }
-  if (opt == kLighting) {
-    return "lighting";
-  }
-  while (p >= 0) {
+  int guard = 0;
+  while (p >= 0 && guard++ <= kOptCount) {
     if (p == kLighting) {
       return "lighting";
     }
@@ -382,7 +428,7 @@ const char* expected_page(int opt) {
   return "recharged";
 }
 
-void publish_all_unlocked();
+void publish_all();
 
 }  // namespace
 
@@ -413,7 +459,7 @@ void set(int opt, double value) {
     return;
   }
   {
-    std::lock_guard<std::mutex> lock(g_mutex);
+    std::lock_guard<std::recursive_mutex> lock(g_mutex);
     check_table_once();
     g_state[opt].desired = value;
     g_state[opt].desired_set = true;
@@ -425,7 +471,7 @@ double desired(int opt) {
   if (opt < 0 || opt >= kOptCount) {
     return 0;
   }
-  std::lock_guard<std::mutex> lock(g_mutex);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
   return g_state[opt].desired;
 }
 
@@ -433,30 +479,25 @@ double effective(int opt) {
   if (opt < 0 || opt >= kOptCount) {
     return 0;
   }
-  std::lock_guard<std::mutex> lock(g_mutex);
-  return effective_unlocked(opt);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
+  return effective_value(opt);
 }
 
 bool disabled_by_ancestor(int opt) {
   if (opt < 0 || opt >= kOptCount) {
     return false;
   }
-  std::lock_guard<std::mutex> lock(g_mutex);
-  return !ancestors_on_unlocked(opt);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
+  return !ancestors_on(opt);
 }
 
 bool on(int opt) {
   if (opt < 0 || opt >= kOptCount) {
     return false;
   }
-  std::lock_guard<std::mutex> lock(g_mutex);
-  const bool open = effective_unlocked(opt) != 0 && ancestors_on_unlocked(opt);
-  g_state[opt].eval++;
-  if (open) {
-    g_state[opt].exec++;
-  } else {
-    g_state[opt].suppressed++;
-  }
+  const bool open = ancestors_on(opt) && self_on(opt);
+  g_state[opt].eval.fetch_add(1, std::memory_order_relaxed);
+  (open ? g_state[opt].exec : g_state[opt].suppressed).fetch_add(1, std::memory_order_relaxed);
   return open;
 }
 
@@ -464,44 +505,46 @@ int mode(int opt) {
   if (opt < 0 || opt >= kOptCount) {
     return 0;
   }
-  std::lock_guard<std::mutex> lock(g_mutex);
-  const double v = ancestors_on_unlocked(opt) ? effective_unlocked(opt) : kOptions[opt].stock;
-  g_state[opt].eval++;
-  if (v != 0) {
-    g_state[opt].exec++;
-  } else {
-    g_state[opt].suppressed++;
-  }
-  return (int)std::lround(v);
+  const int v = ancestors_on(opt) ? (int)std::lround(effective_value(opt)) : 0;
+  g_state[opt].eval.fetch_add(1, std::memory_order_relaxed);
+  (v != 0 ? g_state[opt].exec : g_state[opt].suppressed).fetch_add(1, std::memory_order_relaxed);
+  return v;
 }
 
 void apply() {
-  std::lock_guard<std::mutex> lock(g_mutex);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
   check_table_once();
-  for (int i = 0; i < kOptCount; i++) {
-    const Row& r = kOptions[i];
-    if (r.kind == Kind::kNode || r.kind == Kind::kExternal || !has_field(i)) {
-      continue;
+  // Les MAITRES d'abord : tout le reste depend de leur champ, que gfx.h relit.
+  for (int pass = 0; pass < 2; pass++) {
+    for (int i = 0; i < kOptCount; i++) {
+      const Row& r = kOptions[i];
+      const bool node = is_node(i);
+      if ((pass == 0) != node) {
+        continue;
+      }
+      if (r.kind == Kind::kExternal || !has_field(i)) {
+        continue;
+      }
+      State& s = g_state[i];
+      if (!s.desired_set && s.force.load(std::memory_order_relaxed) < 0) {
+        continue;  // personne n'a encore rien voulu : le defaut du moteur reste
+      }
+      // AVANT d'ecrire : le champ porte-t-il encore ce que NOUS y avons mis ? Sinon quelqu'un
+      // d'autre l'a pose, donc il court-circuite la porte. C'est l'unique entree de
+      // `gating_ungated_sites`, et elle monte a la moindre affectation directe du champ.
+      if (s.written && read_field(i) != s.last_written) {
+        s.foreign_writes.fetch_add(1, std::memory_order_relaxed);
+      }
+      const double v = quantize(i, node ? node_field_value(i) : effective_value(i));
+      write_field(i, v);
+      s.last_written = v;
+      s.written = true;
     }
-    State& s = g_state[i];
-    if (!s.desired_set) {
-      continue;  // personne n'a encore rien voulu : on ne touche pas au defaut du moteur
-    }
-    // AVANT d'ecrire : le champ porte-t-il encore ce que NOUS y avons mis ? Sinon quelqu'un
-    // d'autre l'a pose, donc il court-circuite la porte. C'est l'unique entree de
-    // `gating_ungated_sites`, et elle monte a la moindre affectation directe.
-    if (s.written && read_field(i) != s.last_written) {
-      s.foreign_writes++;
-    }
-    const double v = quantize(i, effective_unlocked(i));
-    write_field(i, v);
-    s.last_written = v;
-    s.written = true;
   }
 }
 
 void menu_begin() {
-  std::lock_guard<std::mutex> lock(g_mutex);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
   g_menu.open = true;
   g_menu.ever = true;
   g_menu.rows = 0;
@@ -512,7 +555,7 @@ void menu_begin() {
 
 void menu_row(const char* page, const char* opt_id) {
   const int opt = by_name(opt_id);
-  std::lock_guard<std::mutex> lock(g_mutex);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
   if (!g_menu.open) {
     return;
   }
@@ -521,8 +564,7 @@ void menu_row(const char* page, const char* opt_id) {
     g_menu.unknown++;
     return;
   }
-  const char* want = expected_page(opt);
-  if (!page || std::strcmp(page, want) != 0) {
+  if (!page || std::strcmp(page, expected_page(opt)) != 0) {
     g_menu.misplaced++;
   }
   if (!g_menu.parents.empty()) {
@@ -535,13 +577,12 @@ void menu_row(const char* page, const char* opt_id) {
 }
 
 void menu_end() {
-  std::lock_guard<std::mutex> lock(g_mutex);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
   g_menu.open = false;
 }
 
 void tick() {
-  apply();
-  std::lock_guard<std::mutex> lock(g_mutex);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
 
   if (!g_sweep.started) {
     g_sweep.started = true;
@@ -549,40 +590,38 @@ void tick() {
   }
 
   if (g_sweep.wanted && !g_sweep.done) {
-    g_sweep.frame++;
     if (!g_sweep.desired_snapped) {
       for (int i = 0; i < kOptCount; i++) {
         g_sweep.desired_before[i] = g_state[i].desired;
       }
       g_sweep.desired_snapped = true;
     }
+    g_sweep.frame++;
     const uint64_t f = g_sweep.frame;
-    if (g_sweep.stage < 0 && f >= kWarmFrames) {
-      // fenetre TEMOIN : tout au maximum. Sans elle, un zero plus bas ne parlerait de rien.
-      g_sweep.stage = 0;
-      sweep_force_all(1);
-      sweep_snapshot_marks();
-      g_sweep.frame = 0;
-    } else if (g_sweep.stage == 0 && f >= kWindowFrames) {
-      sweep_collect(g_sweep.exec_on);
-      g_sweep.windows_done++;
-      g_sweep.stage = 1;
-      sweep_force_all(1);
-      g_state[kParents[0]].force = 0;
-      sweep_snapshot_marks();
-      g_sweep.frame = 0;
-    } else if (g_sweep.stage >= 1 && g_sweep.stage <= kParentCount && f >= kWindowFrames) {
-      sweep_collect(g_sweep.exec_off[g_sweep.stage - 1]);
+    if (g_sweep.stage < 0) {
+      if (f >= kWarmFrames) {
+        g_sweep.stage = 0;
+        force_all(1);
+        snapshot_marks();
+        g_sweep.frame = 0;
+      }
+    } else if (f >= kWindowFrames) {
+      if (g_sweep.stage == 0) {
+        collect(g_sweep.exec_on);
+      } else {
+        collect(g_sweep.exec_off[g_sweep.stage - 1]);
+      }
       g_sweep.windows_done++;
       g_sweep.stage++;
       if (g_sweep.stage <= kParentCount) {
-        sweep_force_all(1);
-        g_state[kParents[g_sweep.stage - 1]].force = 0;
-        sweep_snapshot_marks();
+        force_all(1);
+        g_state[kParents[g_sweep.stage - 1]].force.store(0, std::memory_order_relaxed);
+        snapshot_marks();
         g_sweep.frame = 0;
       } else {
-        // fin : on RELACHE tout et on verifie que la valeur voulue a survecu au balayage.
-        sweep_force_all(-1);
+        // Fin : on RELACHE tout, et on verifie que la valeur voulue a survecu au balayage —
+        // c'est la memoire que l'owner demande, mesuree apres un vrai aller-retour OFF/ON.
+        force_all(-1);
         g_sweep.value_restored = 1;
         for (int i = 0; i < kOptCount; i++) {
           if (g_state[i].desired != g_sweep.desired_before[i]) {
@@ -594,23 +633,23 @@ void tick() {
     }
   }
 
-  publish_all_unlocked();
+  apply();
+  publish_all();
 }
 
 namespace {
 
-void publish_all_unlocked() {
-  // ── la partie qui est vraie de TOUTE course, mesuree ou non ──
-  uint64_t foreign = 0;
-  uint64_t not_compiled = 0;
+void publish_all() {
+  // ── vrai de TOUTE course, mesuree ou non ──
+  uint64_t foreign = 0, not_compiled = 0;
   std::string foreign_names;
   for (int i = 0; i < kOptCount; i++) {
     const Row& r = kOptions[i];
-    if (r.kind != Kind::kNode && r.kind != Kind::kExternal && !has_field(i)) {
+    if (r.kind != Kind::kExternal && !has_field(i)) {
       not_compiled++;
       continue;
     }
-    if (g_state[i].foreign_writes) {
+    if (g_state[i].foreign_writes.load(std::memory_order_relaxed)) {
       foreign++;
       if (!foreign_names.empty()) {
         foreign_names += ",";
@@ -626,7 +665,7 @@ void publish_all_unlocked() {
     autoport_proof::publish_text("gating_ungated_names", foreign_names.c_str());
   }
 
-  // ── le recensement du menu ──
+  // ── le menu ──
   autoport_proof::publish("gating_menu_rows", g_menu.rows);
   autoport_proof::publish("gating_menu_unknown", g_menu.unknown);
   autoport_proof::publish("gating_menu_misplaced", g_menu.misplaced);
@@ -637,32 +676,35 @@ void publish_all_unlocked() {
 
   // ── le balayage ──
   uint64_t effet = 0, uncovered = 0, covered = 0;
-  std::string defect_names;
+  std::string defect_names, uncovered_names;
   if (g_sweep.done) {
     for (int i = 0; i < kOptCount; i++) {
-      if (kOptions[i].kind == Kind::kNode) {
-        continue;
+      if (i == kMaster) {
+        continue;  // la racine n'a aucun ancetre a trahir. Les DEUX autres maitres, si :
+                   // « master OFF => aucun chemin Recharged execute » se lit sur eux aussi.
       }
       if (g_sweep.exec_on[i] == 0) {
         uncovered++;
+        if (uncovered_names.size() < 400) {
+          if (!uncovered_names.empty()) {
+            uncovered_names += ",";
+          }
+          uncovered_names += kOptions[i].name;
+        }
         continue;
       }
       covered++;
       for (int p = 0; p < kParentCount; p++) {
-        // l'option est-elle sous CE parent ?
         int q = kOptions[i].parent, guard = 0;
         bool under = false;
-        while (q >= 0 && guard++ < kOptCount) {
+        while (q >= 0 && guard++ <= kOptCount) {
           if (q == kParents[p]) {
             under = true;
             break;
           }
           q = kOptions[q].parent;
         }
-        if (!under) {
-          continue;
-        }
-        if (g_sweep.exec_off[p][i] > 0) {
+        if (under && g_sweep.exec_off[p][i] > 0) {
           effet++;
           if (!defect_names.empty()) {
             defect_names += ",";
@@ -681,23 +723,26 @@ void publish_all_unlocked() {
   autoport_proof::publish("gating_covered", covered);
   autoport_proof::publish("gating_uncovered", uncovered);
   autoport_proof::publish("gating_value_restored",
-                          g_sweep.value_restored < 0 ? 0 : (uint64_t)g_sweep.value_restored);
+                          g_sweep.value_restored == 1 ? 1 : 0);
   if (!defect_names.empty()) {
     autoport_proof::publish_text("gating_effect_defect_names", defect_names.c_str());
+  }
+  if (!uncovered_names.empty()) {
+    autoport_proof::publish_text("gating_uncovered_names", uncovered_names.c_str());
   }
 
   // ── LE VERDICT ────────────────────────────────────────────────────────────────────────────
   // LA VACUITE EST UN ECHEC, PAS UN ZERO. Table incoherente, balayage non termine, menu jamais
-  // recense, ou pas une seule option couverte par le temoin positif : le module publie une
-  // SENTINELLE hors de portee de la porte. Un compteur qui n'a rien regarde ne doit jamais dire
-  // « zero defaut » — c'est la lecon de `settings_case_l10n`.
+  // recense, ou pas une seule option couverte par le temoin positif : on publie une SENTINELLE
+  // hors de portee de la porte. Un compteur qui n'a rien regarde ne doit jamais dire « zero
+  // defaut » — c'est la lecon de `settings_case_l10n`.
   constexpr uint64_t kVacuous = 9000;
-  uint64_t defects = 0;
+  uint64_t defects;
   if (!g_table_ok) {
     defects = kVacuous + 1;
   } else if (!g_sweep.wanted) {
     // Course ordinaire du joueur : le module applique les portes, il ne mesure pas. On ne publie
-    // PAS un zero qui passerait une porte, on publie la sentinelle « pas mesure ».
+    // pas un zero qui passerait une porte, on publie « pas mesure ».
     defects = kVacuous + 2;
   } else if (!g_sweep.done) {
     defects = kVacuous + 3;

@@ -379,6 +379,7 @@ set(RUNTIME_SOURCE
         system/water_census.cpp
         system/settings_case_l10n.cpp
         system/npc_flicker.cpp
+        system/recharged_gating.cpp
         system/SystemThread.cpp
         tools/filter_menu/filter_menu.cpp
         tools/subtitle_editor/subtitle_editor_db.cpp

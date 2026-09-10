@@ -437,6 +437,7 @@ add_library(android_kernel STATIC
     "${JAK_ROOT}/game/system/water_census.cpp"
     "${JAK_ROOT}/game/system/settings_case_l10n.cpp"
     "${JAK_ROOT}/game/system/npc_flicker.cpp"
+    "${JAK_ROOT}/game/system/recharged_gating.cpp"
     "${JAK_ROOT}/game/system/Deci2Server.cpp"
     # Phase Ginput-replay (autoport): host-side input record/replay harness,
     # tapped from android_runtime_compat.cpp::CPadGetData (backend-agnostic core,
