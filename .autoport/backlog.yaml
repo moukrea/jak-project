@@ -5017,7 +5017,7 @@ items:
   notes: 'owner 2026-09-05 : « Whaaaat ? Dégage moi ça »'
 - id: water-census
   feature: Nommer chaque goutte d'eau du jeu avant de la refaire
-  status: in-progress
+  status: validated
   priority: 50
   owner_feedback:
   - &id001
@@ -5071,7 +5071,7 @@ items:
   owner_test: false
 - id: water-ocean-mesh
   feature: La clipmap remplace le microcode VU1, la houle reste celle de Naughty Dog
-  status: open
+  status: to-test
   priority: 51
   owner_feedback:
   - *id001
@@ -5093,6 +5093,12 @@ items:
   prompt: prompts/item-water-ocean-mesh.md
   owner_ok: null
   device: true
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_WATER=1
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.water=1
   where: 'la mer depuis le village de Sandover et la plage : meme houle qu''avant, sans trou ni fente,
     et l''eau vanilla a l''identique quand Eau Rechargee est OFF'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-eau.md : c''est le contrat, il porte le detail que ce
@@ -5120,6 +5126,7 @@ items:
   spec: prompts/SPEC-refonte-eau.md
   hits_means: sommets de clipmap deplaces
   supervisor_recovery: true
+  delivered: '2026-09-10'
 - id: water-surface-material
   feature: Une seule matiere d'eau, eclairee par shade()
   status: open
