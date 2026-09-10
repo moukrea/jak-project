@@ -2043,7 +2043,7 @@ items:
     longtemps sur un ecran 120 Hz. A traiter ici.'
 - id: res-picker
   feature: Le choix de la resolution de jeu dans les options
-  status: to-test
+  status: archived
   priority: 213
   owner_feedback: []
   gate: null
@@ -2058,6 +2058,9 @@ items:
   where: Options > Graphismes > Game Resolution
   delivered: '2026-06-30'
   build: build du 2026-06-30, remplace depuis
+  notes: 'ARCHIVE le 2026-09-10 sur ordre de l''owner : « degage les items historique de refonte du menu
+    du coup, on s''en cogne ». Sujet repris bien plus tard, de zero. Supplante par res-menu-truth, ouvert
+    le 10/09 sur le meme sujet.'
 - id: render-split
   feature: L'interface reste nette quand on baisse l'echelle de rendu
   status: to-test
@@ -2146,7 +2149,7 @@ items:
   build: build du 2026-07-01, remplace depuis
 - id: options-reorder
   feature: L'ordre des lignes du menu Graphismes
-  status: to-test
+  status: archived
   priority: 235
   owner_feedback: []
   gate: null
@@ -2161,6 +2164,9 @@ items:
   where: 'Options > Graphismes : l''ordre des lignes'
   delivered: '2026-07-02'
   build: build du 2026-07-02, remplace depuis
+  notes: 'ARCHIVE le 2026-09-10 sur ordre de l''owner : « degage les items historique de refonte du menu
+    du coup, on s''en cogne ». Sujet repris bien plus tard, de zero. L''ordre des lignes du menu Graphismes
+    fait partie de la refonte.'
 - id: launcher-collection
   feature: Un APK par jeu, avec son nom et son icone
   status: to-test
@@ -3013,7 +3019,7 @@ items:
   build: build du 2026-08-04, remplace depuis
 - id: menu-flag-off
   feature: Sortir la refonte de menu cassee des builds
-  status: to-test
+  status: archived
   priority: 100
   owner_feedback: []
   gate: null
@@ -3028,6 +3034,9 @@ items:
   where: le menu doit etre l'ancien, complet, sans parametre fantome
   delivered: '2026-08-05'
   build: build du 2026-08-05, remplace depuis
+  notes: 'ARCHIVE le 2026-09-10 sur ordre de l''owner : « degage les items historique de refonte du menu
+    du coup, on s''en cogne ». Sujet repris bien plus tard, de zero. Il ne portait plus qu''un drapeau
+    : la refonte est archivee, il n''a plus d''objet.'
 - id: recharged-managed-assets-merge
   feature: Le gestionnaire d'assets avec installation reprenable
   status: archived
