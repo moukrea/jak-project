@@ -103,8 +103,10 @@ class OceanRecharged {
   u64 m_verts_moved = 0;
   u64 m_probe_runs = 0;
   u64 m_probe_alpha_missing = 0;
-  s64 m_maxdelta_q1024 = -1;
-  s64 m_probe_span_q1024 = 0;
+  s64 m_maxdelta_q256 = -1;
+  s64 m_probe_span_q256 = 0;
+  s64 m_layer_a_absmax_q256 = 0;
+  u32 m_layer_a_nonzero = 0;
   u32 m_mask_skip_cells = 0;
   u32 m_mask_draw_cells = 0;
   u32 m_mask_valid_off0 = 0;

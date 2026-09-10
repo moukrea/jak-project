@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include "common/goal_constants.h"
 #include "common/log/log.h"
+#include "fmt/core.h"
 
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/Shader.h"
@@ -58,27 +60,51 @@ float layer_a_cpu(const float* h, float origin_x, float origin_z, float wx, floa
 u32 read_ocean_map_ptr() {
   static bool s_tried = false;
   static u32 s_symbol = 0;
+  static u32 s_type = 0;
   if (!s_tried) {
     s_tried = true;
     // Ne rien interner tant que le tas GOAL n'est pas la : `intern_from_c` CREE le symbole s'il
     // manque, et fabriquer un symbole depuis le fil de rendu serait un effet de bord.
     if (g_ee_main_mem) {
       s_symbol = jak1::intern_from_c("*ocean-map*").offset;
+      s_type = jak1::intern_from_c("ocean-map").offset;
     }
   }
-  if (!s_symbol || !g_ee_main_mem) {
+  if (!s_symbol || !s_type || !g_ee_main_mem) {
     return 0;
   }
   u32 v = 0;
   std::memcpy(&v, g_ee_main_mem + s_symbol, sizeof(v));
-  // `#f` est le symbole s7, pas 0 : une carte absente ne se lit pas comme un pointeur nul. On
-  // borne donc sur la plage de la memoire EE plutot que sur zero, et on rejette tout ce qui n'est
-  // pas assez loin pour porter les 72 octets d'une `ocean-map`.
   if (v < 0x10000 || (u64)v + 128 >= EE_MAIN_MEM_SIZE) {
+    return 0;
+  }
+  // `#f` EST LE SYMBOLE s7, PAS ZERO. Une carte absente rend donc une valeur qui RESSEMBLE a un
+  // pointeur et passe n'importe quel test de plage : la course du 2026-09-10 a lu, une image sur
+  // deux, un `start-corner` de denormaux a 2.2e-39. On valide donc par le TAG DE TYPE, qui est
+  // l'invariant reel d'un `basic` : les quatre octets qui precedent l'objet portent l'adresse de
+  // son type. Un mot exact, pas une heuristique de plage.
+  u32 tag = 0;
+  std::memcpy(&tag, g_ee_main_mem + v - 4, sizeof(tag));
+  u32 type_value = 0;
+  std::memcpy(&type_value, g_ee_main_mem + s_type, sizeof(type_value));
+  if (!type_value || tag != type_value) {
     return 0;
   }
   return v;
 }
+
+// LES OFFSETS DE `ocean-map`, MESURES ET NON DEDUITS. `decompiler/config/jak1/all-types.gc`
+// annonce start-corner a 16, far-color a 32, les six pointeurs de 48 a 68 — en comptant le mot de
+// type comme l'offset 0. En memoire, le pointeur d'un `basic` designe le PREMIER CHAMP et le type
+// vit a -4 : tous les offsets valent donc `declare - 4`. La course du 2026-09-10 l'a montre sans
+// ambiguite — lu a +16/+20/+24, `start-corner` rendait (0, -9437184, 1), c'est-a-dire y, z, w.
+// C'est aussi ce qui explique `draw-ocean-mid` (ocean-mid.gc:846), qui lit les index a
+// `objet + tuile * 2` : le champ `data`, declare a 4, est bien a 0.
+constexpr u32 kOffStartCorner = 12;   // declare 16
+constexpr u32 kOffFarColor = 28;      // declare 32
+constexpr u32 kOffMidIndices = 52;    // declare 56
+constexpr u32 kOffMidMasks = 64;      // declare 68
+constexpr u32 kOffBasicData = 0;      // le champ `data` d'un basic, declare a 4
 
 const u8* ee(u32 addr) {
   return g_ee_main_mem + addr;
@@ -242,8 +268,18 @@ bool OceanRecharged::refresh_ocean_map() {
   if (!m_map_ptr) {
     return false;
   }
-  std::memcpy(m_start_corner, ee(m_map_ptr + 16), sizeof(m_start_corner));
-  std::memcpy(m_far_color, ee(m_map_ptr + 32), sizeof(m_far_color));
+  std::memcpy(m_start_corner, ee(m_map_ptr + kOffStartCorner), sizeof(m_start_corner));
+  std::memcpy(m_far_color, ee(m_map_ptr + kOffFarColor), sizeof(m_far_color));
+  // UNE fois par carte : ce qu'on a VRAIMENT lu. `start-corner` doit valoir (-9437184, *, -9437184)
+  // pour les trois cartes de jak1 (ocean-tables.gc:11211) ; si ce n'est pas le cas, la lecture du
+  // symbole est fausse et tout ce qui suit l'est aussi. On l'ecrit plutot que de le supposer.
+  static u32 s_logged = 0;
+  if (s_logged != m_map_ptr) {
+    s_logged = m_map_ptr;
+    lg::info("[water-ocean-mesh] ocean-map @0x{:x} start-corner=({}, {}, {}) far-color=({}, {}, {})",
+             m_map_ptr, m_start_corner[0], m_start_corner[1], m_start_corner[2], m_far_color[0],
+             m_far_color[1], m_far_color[2]);
+  }
   return true;
 }
 
@@ -260,15 +296,15 @@ void OceanRecharged::rebuild_mask_texture() {
   m_mask_draw_cells = 0;
   m_mask_fallback = 0;
 
-  const u32 indices_obj = ee_u32(m_map_ptr + 56);
-  const u32 masks_obj = ee_u32(m_map_ptr + 68);
+  const u32 indices_obj = ee_u32(m_map_ptr + kOffMidIndices);
+  const u32 masks_obj = ee_u32(m_map_ptr + kOffMidMasks);
   if (!indices_obj || !masks_obj) {
     m_mask_fallback = 1;
   }
 
   u32 masks_data = 0;
   if (!m_mask_fallback) {
-    masks_data = ee_u32(masks_obj + 4);  // champ `data`, un (inline-array ocean-mid-mask)
+    masks_data = ee_u32(masks_obj + kOffBasicData);  // champ `data`, un (inline-array ocean-mid-mask)
     if (!masks_data || (u64)masks_data + 8 >= EE_MAIN_MEM_SIZE) {
       m_mask_fallback = 1;
     }
@@ -293,6 +329,18 @@ void OceanRecharged::rebuild_mask_texture() {
   if (!m_mask_fallback) {
     m_mask_valid_off0 = count_valid(0);
     m_mask_valid_off4 = count_valid(4);
+    {
+      std::string dump0, dump4;
+      for (int t = 0; t < 36; t++) {
+        s16 a = 0, b = 0;
+        std::memcpy(&a, ee(indices_obj + t * 2), sizeof(a));
+        std::memcpy(&b, ee(indices_obj + 4 + t * 2), sizeof(b));
+        dump0 += fmt::format("{} ", a);
+        dump4 += fmt::format("{} ", b);
+      }
+      lg::info("[water-ocean-mesh] mid-indices off0: {}", dump0);
+      lg::info("[water-ocean-mesh] mid-indices off4: {}", dump4);
+    }
     m_mask_index_offset = (m_mask_valid_off4 > m_mask_valid_off0) ? 4 : 0;
     if (std::max(m_mask_valid_off0, m_mask_valid_off4) < 36) {
       m_mask_fallback = 1;
@@ -407,6 +455,13 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
   glBindFramebuffer(GL_FRAMEBUFFER, render_state->render_fb);
   glViewport(render_state->render_fb_x, render_state->render_fb_y, render_state->render_fb_w,
              render_state->render_fb_h);
+  // La sonde a eteint le test et l'ecriture de profondeur pour son quad de 8x8. Rien ne les
+  // repose entre ici et le bucket suivant : une image sur trente sortirait avec un etat de
+  // profondeur different des vingt-neuf autres, et l'ecart ne ressemblerait pas a sa cause. On
+  // rend exactement l'etat que la clipmap venait de poser.
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_GEQUAL);
+  glDepthMask(GL_TRUE);
 
   m_probe_runs++;
   s64 span_min = 0, span_max = 0;
@@ -422,10 +477,10 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
                       ((s64)pixels[k * 4 + 2] << 16) - 8388608;
     const float cpu_a = layer_a_cpu(m_layer_a.data(), m_start_corner[0], m_start_corner[2],
                                     m_probe_xz[k][0], m_probe_xz[k][1]);
-    const s64 cpu_q = (s64)std::llround(cpu_a * 1024.0);
+    const s64 cpu_q = (s64)std::llround(cpu_a * 256.0);
     const s64 d = std::llabs(gpu_q - cpu_q);
-    if (d > m_maxdelta_q1024) {
-      m_maxdelta_q1024 = d;
+    if (d > m_maxdelta_q256) {
+      m_maxdelta_q256 = d;
     }
     if (first || cpu_q < span_min) {
       span_min = cpu_q;
@@ -435,8 +490,8 @@ void OceanRecharged::run_probe(SharedRenderState* render_state) {
     }
     first = false;
   }
-  if (!first && (span_max - span_min) > m_probe_span_q1024) {
-    m_probe_span_q1024 = span_max - span_min;
+  if (!first && (span_max - span_min) > m_probe_span_q256) {
+    m_probe_span_q256 = span_max - span_min;
   }
 }
 
@@ -446,10 +501,10 @@ void OceanRecharged::publish() {
   // dire « au millimetre pres », l'unite meme de la regle 2. Le chiffre BRUT est publie a cote —
   // un seuil qui censure fabrique une fausse constante, et personne ne pourrait distinguer un
   // vrai zero d'un ecart de 0,4 mm.
-  if (m_maxdelta_q1024 >= 0) {
-    const double mm = (double)m_maxdelta_q1024 / 4194.304;
+  if (m_maxdelta_q256 >= 0) {
+    const double mm = (double)m_maxdelta_q256 / 1048.576;  // 256 * 4096 / 1000
     publish("water_gameplay_height_maxdelta_mm", (u64)std::llround(mm));
-    publish("water_gameplay_height_maxdelta_q1024", (u64)m_maxdelta_q1024);
+    publish("water_gameplay_height_maxdelta_q256", (u64)m_maxdelta_q256);
     // Les couches B et C n'existent pas encore (items 2 et 4) : la hauteur VISUELLE vaut
     // exactement la couche A, donc l'excedent visuel est la MEME grandeur. C'est un zero par
     // absence de couche, pas par bornage, et le rapport le dit.
@@ -457,7 +512,9 @@ void OceanRecharged::publish() {
   }
   publish("water_probe_runs", m_probe_runs);
   publish("water_probe_alpha_missing", m_probe_alpha_missing);
-  publish("water_probe_span_q1024", (u64)m_probe_span_q1024);
+  publish("water_probe_span_q256", (u64)m_probe_span_q256);
+  publish("water_layerA_absmax_q256", (u64)m_layer_a_absmax_q256);
+  publish("water_layerA_nonzero_texels", (u64)m_layer_a_nonzero);
   publish("water_clipmap_frames", m_frames_drawn);
   publish("water_clipmap_verts_moved", m_verts_moved);
   publish("water_layerA_fresh_frames", m_frames_layer_a_fresh);
@@ -573,10 +630,15 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
   // plate : on ne compte donc que les images ou la houle captee porte au moins un texel non nul.
   // Un compteur qui monterait meme sur une mer d'huile ne separerait rien.
   bool any_wave = false;
+  m_layer_a_nonzero = 0;
   for (float h : m_layer_a) {
     if (h != 0.f) {
       any_wave = true;
-      break;
+      m_layer_a_nonzero++;
+      const s64 q = (s64)std::llround(std::fabs((double)h) * 256.0);
+      if (q > m_layer_a_absmax_q256) {
+        m_layer_a_absmax_q256 = q;
+      }
     }
   }
   if (any_wave) {
