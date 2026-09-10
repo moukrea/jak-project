@@ -346,6 +346,11 @@ void publish_witnesses() {
   // reste a zero pour toujours et la campagne ne quitterait jamais `kBoot` en silence.
   autoport_proof::publish("base_boot_timeout", g_boot_timeout ? 1 : 0);
   autoport_proof::publish("base_boot_actors_last", perf_instruments::snapshot().actors_active);
+  // ET LE MEME AVEU POUR LE SETTLE. `base_settle_blocked_frames` compte les images ou le settle
+  // a refuse de demarrer son chronometre (ecran de chargement, ou aucun acteur) : c'est le
+  // denominateur qui dit si un vantage a mis trois secondes ou trois minutes a devenir mesurable.
+  autoport_proof::publish("base_settle_timeout", g_settle_timeout ? 1 : 0);
+  autoport_proof::publish("base_settle_blocked_frames", g_settle_blocked_frames);
 }
 
 // LE COMPTE DE CE QUI MANQUE SE LIT DANS LA TABLE QUI SERA MOISSONNEE, jamais dans une variable
