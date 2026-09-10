@@ -6500,26 +6500,33 @@ static u64 level_warp_run() {
   // camera-trans @48; C++ addr = basic ptr + deftype offset - 4).
   {
     char posbuf[128] = {0};
-    // perf-stock-baseline : TROISIEME SOURCE, ET LA PREMIERE CONSULTEE. La campagne teleporte
-    // entre deux vantages sans passer par l'environnement (aucune variable ne peut etre posee
-    // en cours de course sur l'appareil) : sa position, quand elle en a une, prime. Vide = on
-    // laisse la position du continue-point, on ne pousse jamais « 0 0 0 ».
-    if (const char* o = perf_baseline::warp_pos_override(); o && o[0]) {
-      std::strncpy(posbuf, o, sizeof(posbuf) - 1);
-    }
-    if (!posbuf[0]) {
+    // perf-stock-baseline : LA CAMPAGNE PREND LE TELEPORT EN ENTIER, OU N'Y TOUCHE PAS.
+    // Elle teleporte entre vantages sans passer par l'environnement (aucune variable ne peut
+    // etre posee en cours de course sur l'appareil). Quand c'est SON teleport, sa position est
+    // la seule consultee — et quand elle est VIDE, le continue-point garde la sienne. Le
+    // reglage `OG_LEVEL_WARP_POS` / `debug.opengoal.level.warp.pos` est pose par le harnais
+    // pour le PREMIER teleport seulement ; le laisser en repli ici l'a RE-APPLIQUE aux
+    // vantages suivants (course x86 du 2026-09-10 : `pos override (-116 14 40)m` aux trois
+    // teleports, dont `beach-start` et `jungle-start` qui n'ont aucune position — les trois
+    // vantages mesures aux memes coordonnees monde).
+    char campaign_pos[64] = {0};
+    if (perf_baseline::warp_position(campaign_pos, sizeof(campaign_pos))) {
+      if (campaign_pos[0]) {
+        std::strncpy(posbuf, campaign_pos, sizeof(posbuf) - 1);
+      }
+    } else {
       if (const char* e = std::getenv("OG_LEVEL_WARP_POS")) {
         std::strncpy(posbuf, e, sizeof(posbuf) - 1);
       }
-    }
 #if defined(__ANDROID__)
-    if (!posbuf[0]) {
-      char pbuf[PROP_VALUE_MAX] = {0};
-      if (__system_property_get("debug.opengoal.level.warp.pos", pbuf) > 0 && pbuf[0]) {
-        std::strncpy(posbuf, pbuf, sizeof(posbuf) - 1);
+      if (!posbuf[0]) {
+        char pbuf[PROP_VALUE_MAX] = {0};
+        if (__system_property_get("debug.opengoal.level.warp.pos", pbuf) > 0 && pbuf[0]) {
+          std::strncpy(posbuf, pbuf, sizeof(posbuf) - 1);
+        }
       }
-    }
 #endif
+    }
     float mx, my, mz;
     if (posbuf[0] && std::sscanf(posbuf, "%f %f %f", &mx, &my, &mz) == 3) {
       float* trans = (float*)(g_ee_main_mem + (u32)cont + 16 - 4);

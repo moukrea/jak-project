@@ -19,6 +19,7 @@
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/render_pace.h"
 #include "game/system/autoport_proof.h"
+#include "game/system/load_gate.h"
 #include "game/system/perf_instruments.h"
 
 namespace perf_baseline {
@@ -70,6 +71,13 @@ constexpr uint64_t kBootMaxFrames = 6000;
 constexpr double kMeasureMaxSeconds = 20.0;
 constexpr double kWarmupMaxSeconds = 5.0;
 constexpr double kSettleMaxSeconds = 45.0;
+
+// PLAFOND DE L'ATTENTE DE FIN DE CHARGEMENT, ET IL N'OUVRE AUCUNE CELLULE NON PLUS. Le settle
+// ne commence a compter que quand le monde est REELLEMENT rendu (voir `settle_is_blocked`).
+// Si l'ecran de chargement ne se leve jamais — teleport qui n'aboutit pas, niveau qui ne se
+// charge pas — on publie le motif et on RESTE bloque : une cellule mesuree sous un ecran opaque
+// serait 15 lignes vertes sur une image que le jeu ne montre pas.
+constexpr double kSettleBlockedMaxSeconds = 180.0;
 
 enum State {
   kBoot = 0,
@@ -216,6 +224,15 @@ uint64_t g_metrics_missing = 0;
 bool g_witness_done = false;
 bool g_boot_timeout = false;
 bool g_done_published = false;
+bool g_settle_timeout = false;
+int64_t g_settle_blocked_t0 = 0;
+uint64_t g_settle_blocked_frames = 0;
+uint64_t g_cell_loadcover_frames = 0;
+uint64_t g_cell_ui_split_frames = 0;
+std::atomic<bool> g_ui_split{false};
+std::atomic<bool> g_ui_split_reported{false};
+std::atomic<int> g_ui_native_w{0};
+std::atomic<int> g_ui_native_h{0};
 
 int64_t g_last_frame_ns = 0;
 std::vector<float> g_samples;
@@ -227,6 +244,21 @@ bool g_gpu_ok_at_entry = false;
 
 inline double state_seconds() {
   return (double)(now_ns() - g_state_t0) / 1.0e9;
+}
+
+// LE SETTLE NE COMPTE QUE QUAND LE MONDE EST DESSINE. Deux signaux, tous deux produits par le
+// moteur, lus sur le fil de rendu :
+//   - `load_gate::loading_screen_is_covering()` : GOAL a peint l'ecran de chargement PAR-DESSUS
+//     le monde depuis la derniere image rendue (load_gate.cpp, compteur et pas drapeau retenu) ;
+//   - `actors_active == 0` : aucun process-drawable n'a couru au dernier tour du dispatcher.
+// Le settle vaut 600 images OU 45 s, la premiere atteinte. Sous un ecran de chargement la
+// cadence MONTE (il n'y a presque rien a dessiner) : 600 images peuvent passer en dix secondes
+// et la premiere cellule d'un vantage s'ouvrirait sur l'ecran opaque. Sur l'appareil, ou le
+// chargement d'un niveau dure des dizaines de secondes, c'est le cas NORMAL, pas le cas rare.
+// On ne raccourcit donc pas : on refuse de demarrer le chronometre.
+inline bool settle_is_blocked() {
+  return load_gate::loading_screen_is_covering() ||
+         perf_instruments::snapshot().actors_active == 0;
 }
 
 void enter_state(int s) {
@@ -302,6 +334,11 @@ void publish_witnesses() {
   std::snprintf(v, sizeof(v), "%.1f", render_pace::stimulus_segment_fps());
   autoport_proof::publish_text("base_frame_cap_stimulus", v);
   autoport_proof::publish("base_render_scale_pct_host", (uint64_t)host_render_scale_pct());
+  autoport_proof::publish("base_ui_split_reported",
+                          g_ui_split_reported.load(std::memory_order_relaxed) ? 1 : 0);
+  std::snprintf(v, sizeof(v), "%dx%d", g_ui_native_w.load(std::memory_order_relaxed),
+                g_ui_native_h.load(std::memory_order_relaxed));
+  autoport_proof::publish_text("base_ui_native", v);
   autoport_proof::publish("base_perf_instruments_enabled", perf_instruments::enabled() ? 1 : 0);
   autoport_proof::publish("base_warps_requested", g_warp_requested.load(std::memory_order_relaxed));
   // Les deux temoins de l'amorcage. `base_perf_instruments_enabled=0` avec
@@ -400,10 +437,20 @@ void close_cell() {
                 g_res_h.load(std::memory_order_relaxed));
   autoport_proof::publish_text(key, val);
 
+  // LE REGIME DE LA CELLULE, pas seulement sa cadence. Deux grandeurs qui disent si la ligne
+  // decrit le jeu : combien de ses images ont ete peintes sous l'ecran de chargement, et
+  // combien ont paye la passe UI separee (voir perf_baseline.h).
+  cell_key(key, sizeof(key), v, s, "loadcover_frames");
+  autoport_proof::publish(key, g_cell_loadcover_frames);
+  cell_key(key, sizeof(key), v, s, "ui_split_frames");
+  autoport_proof::publish(key, g_cell_ui_split_frames);
+
   // Les cles de metrique ABSENTES de cette cellule, comptees dans la table de publication.
-  static const char* const kMetrics[] = {"frame_ms_p50", "frame_ms_p95", "goal_busy_ms",
-                                         "gl_cpu_ms",    "actors_active", "frames",
-                                         "res"};
+  static const char* const kMetrics[] = {"frame_ms_p50",     "frame_ms_p95",
+                                         "goal_busy_ms",     "gl_cpu_ms",
+                                         "actors_active",    "frames",
+                                         "res",              "loadcover_frames",
+                                         "ui_split_frames"};
   for (const char* m : kMetrics) {
     cell_key(key, sizeof(key), v, s, m);
     if (!autoport_proof::has_key(key)) {
@@ -457,6 +504,8 @@ void begin_measure() {
   g_samples.reserve(kMaxSamples);
   g_gl_cpu_sum = 0;
   g_gl_cpu_n = 0;
+  g_cell_loadcover_frames = 0;
+  g_cell_ui_split_frames = 0;
   g_gpu_ns_at_entry = 0;
   g_gpu_frames_at_entry = 0;
   g_gpu_ok_at_entry = lighting_census::gpu_frame_totals(&g_gpu_ns_at_entry, &g_gpu_frames_at_entry);
@@ -536,12 +585,33 @@ bool take_warp_request(char* name, size_t ncap, char* pos, size_t pcap) {
   return true;
 }
 
-const char* warp_pos_override() {
+bool warp_position(char* pos, size_t cap) {
+  if (!pos || cap == 0) {
+    return false;
+  }
+  pos[0] = 0;
   if (!enabled()) {
-    return "";
+    return false;
+  }
+  // Un teleport de la campagne a-t-il DEJA ete consomme ? Si oui, celui qui s'execute est le
+  // sien : sa position — meme vide — est la seule qui vaille, et l'environnement pose pour le
+  // premier teleport ne doit plus se reappliquer. Voir perf_baseline.h pour la mesure qui a
+  // impose ce drapeau.
+  if (g_warp_taken.load(std::memory_order_relaxed) == 0) {
+    return false;
   }
   std::lock_guard<std::mutex> lock(g_warp_mutex);
-  return g_warp_pos_current;
+  std::snprintf(pos, cap, "%s", g_warp_pos_current);
+  return true;
+}
+
+void note_ui_split(bool split, int native_ui_w, int native_ui_h) {
+  // Sans garde d'armement : c'est un simple report, et `base_ui_split_reported` doit valoir 1
+  // sur la plateforme qui l'appelle meme quand la campagne n'a pas encore lu son reglage.
+  g_ui_split_reported.store(true, std::memory_order_relaxed);
+  g_ui_split.store(split, std::memory_order_relaxed);
+  g_ui_native_w.store(native_ui_w, std::memory_order_relaxed);
+  g_ui_native_h.store(native_ui_h, std::memory_order_relaxed);
 }
 
 void note_drawn_frame(double gl_cpu_ms) {
@@ -594,6 +664,28 @@ void note_drawn_frame(double gl_cpu_ms) {
       return;
     }
     case kSettle: {
+      if (settle_is_blocked()) {
+        // Le chronometre du settle REDEMARRE tant que le monde n'est pas dessine.
+        if (g_settle_blocked_t0 == 0) {
+          g_settle_blocked_t0 = t;
+        }
+        g_settle_blocked_frames++;
+        g_state_frames = 0;
+        g_state_t0 = t;
+        if (!g_settle_timeout &&
+            (double)(t - g_settle_blocked_t0) / 1.0e9 >= kSettleBlockedMaxSeconds) {
+          g_settle_timeout = true;
+          publish_witnesses();
+          publish_totals();
+          printf("PERF-BASELINE settle blocked vantage=%s frames=%llu cover=%d actors=%llu\n",
+                 kVantages[g_vantage].key, (unsigned long long)g_settle_blocked_frames,
+                 load_gate::loading_screen_is_covering() ? 1 : 0,
+                 (unsigned long long)perf_instruments::snapshot().actors_active);
+          fflush(stdout);
+        }
+        return;
+      }
+      g_settle_blocked_t0 = 0;
       if (g_state_frames >= (uint64_t)g_settle_frames || state_seconds() >= kSettleMaxSeconds) {
         begin_cell_scale();
       }
@@ -612,6 +704,15 @@ void note_drawn_frame(double gl_cpu_ms) {
       if (gl_cpu_ms > 0.0) {
         g_gl_cpu_sum += gl_cpu_ms;
         g_gl_cpu_n++;
+      }
+      // Un chargement en flux peut recouvrir l'ecran EN PLEINE fenetre de mesure. On ne jette
+      // pas la cellule — on publie combien de ses images ont ete peintes sous l'ecran, pour que
+      // le lecteur de la table sache si elle decrit le jeu ou un chargement.
+      if (load_gate::loading_screen_is_covering()) {
+        g_cell_loadcover_frames++;
+      }
+      if (g_ui_split.load(std::memory_order_relaxed)) {
+        g_cell_ui_split_frames++;
       }
       if (g_state_frames >= (uint64_t)g_measure_frames || state_seconds() >= kMeasureMaxSeconds) {
         close_cell();

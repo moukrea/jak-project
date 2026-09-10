@@ -15,6 +15,7 @@
 #include "common/goal_constants.h"
 #include "common/log/log.h"
 
+#include "game/system/perf_baseline.h"
 #include "game/system/load_gate.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/hdr.h"
@@ -1616,6 +1617,12 @@ void AndroidOpenGLRenderer::setup_frame(const AndroidRenderOptions& settings) {
   const bool split_active =
       ((fbo_w < native_ui_w || fbo_h < native_ui_h) || hdr_chain) && native_ui_w > 0 &&
       native_ui_h > 0;
+  // perf-stock-baseline : la passe UI separee est une MARCHE entre cellules d'echelle (elle
+  // s'ouvre quand le tampon de scene est plus petit que la resolution native, donc pas a la
+  // meme echelle sur toutes les cellules). La campagne la compte par cellule au lieu de la
+  // laisser passer pour du remplissage. Hors campagne, ce report ne fait qu'ecrire trois
+  // atomiques. Rien ici ne LIT perf_baseline : aucun comportement de rendu n'en depend.
+  perf_baseline::note_ui_split(split_active, native_ui_w, native_ui_h);
   if (split_active) {
     // hdr-display-output : le tampon UI suit le format demande par la sortie ecran (RGBA16F
     // quand la surface est HDR, RGBA8 sinon) ; un changement de format recree le FBO.

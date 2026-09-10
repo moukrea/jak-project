@@ -40,7 +40,7 @@
 // `take_warp_request` rend faux : le binaire de l'owner ne change pas de comportement.
 //
 // FILS. `note_drawn_frame` tourne sur le fil GL (c'est lui qui fait avancer la machine a
-// etats), `resolution_override` / `take_warp_request` / `warp_pos_override` sur le fil GOAL.
+// etats), `resolution_override` / `take_warp_request` / `warp_position` sur le fil GOAL.
 // Tout ce qui traverse est atomique, sauf la demande de teleport (nom + position) qui est un
 // couple de chaines et vit sous `std::mutex`.
 
@@ -62,12 +62,36 @@ bool resolution_override(int* w, int* h);
 // `pos`.
 bool take_warp_request(char* name, size_t ncap, char* pos, size_t pcap);
 
-// La position du DERNIER teleport consomme, "" si aucune. Lue par `level_warp_run`.
-const char* warp_pos_override();
+// LA CAMPAGNE EST-ELLE PROPRIETAIRE DU TELEPORT EN COURS ? Vrai des qu'un teleport de la
+// campagne a ete consomme : `level_warp_run` doit alors prendre SA position — copiee dans
+// `pos`, EVENTUELLEMENT VIDE — et ne consulter NI `OG_LEVEL_WARP_POS` NI
+// `debug.opengoal.level.warp.pos`.
+//
+// POURQUOI CE BOOLEEN, ET PAS UNE CHAINE VIDE. Le reglage d'environnement est pose par le
+// harnais pour le PREMIER teleport seulement (celui qui depose le jeu sur le vantage 0). Tant
+// que « pas de position » se disait par une chaine vide, `level_warp_run` retombait dessus et
+// RE-APPLIQUAIT la position du vantage 0 aux vantages suivants. Mesure de la course x86 du
+// 2026-09-10 : `pos override (-116 14 40)m` apparait aux trois teleports, y compris
+// `beach-start` et `jungle-start` dont la table ne porte aucune position. Les trois vantages
+// ont donc ete mesures aux MEMES coordonnees monde, dans trois niveaux — 15 cellules vertes
+// decrivant un lieu que le jeu ne montre pas. Le drapeau separe « la campagne n'a rien a dire »
+// de « la campagne dit : laisse le continue-point tranquille ».
+bool warp_position(char* pos, size_t cap);
 
 // ── fil GL ──────────────────────────────────────────────────────────────────────────────────
 // Une image vient d'etre DESSINEE ; `gl_cpu_ms` est le temps CPU du fil graphique pour cette
 // image (hors attente de vsync). Fait avancer la machine a etats de la campagne.
 void note_drawn_frame(double gl_cpu_ms);
+
+// LA PASSE UI SEPAREE EST UNE DISCONTINUITE ENTRE CELLULES, PAS UNE PENTE. Le renderer Android
+// ouvre un tampon UI a la resolution NATIVE et un blit de composition des que le tampon de
+// scene est plus petit qu'elle (android_opengl_renderer.cpp, `split_active`). Les cellules a
+// 25/40/60/80 % le paient donc, et la cellule a 100 % — dont le tampon de scene atteint la
+// taille native — peut ne pas le payer du tout. Lue comme une pente, la marche s'attribuerait
+// au remplissage. On la PUBLIE par cellule (`base_<v>_s<s>_ui_split_frames`) et on publie la
+// taille native une fois (`base_ui_native`). Sur une plateforme ou personne n'appelle cette
+// fonction, `base_ui_split_reported=0` le dit — un zero sans son pourquoi serait une fausse
+// constante.
+void note_ui_split(bool split, int native_ui_w, int native_ui_h);
 
 }  // namespace perf_baseline
