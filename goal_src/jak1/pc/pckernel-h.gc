@@ -255,7 +255,13 @@
    (memcard-volume-sfx               float)
    (memcard-volume-music             float)
    (memcard-volume-dialog            float)
-   (memcard-vibration?               symbol))
+   (memcard-vibration?               symbol)
+   ;; res-menu-truth (owner 2026-09-10) : #t des que la taille de jeu vient d'un CHOIX
+   ;; (rangee Resolution du menu, ou menu debug). Le repli « 640x480 = defaut legacy » de
+   ;; `resolve-game-base-size` ne doit jamais ecraser un choix reel : en 4:3 FORCE, l'echelle
+   ;; propose exactement 640x480, et le repli le gonflait au panneau entier (2400x1080 sur le
+   ;; Redmi) — d'ou « le 640x480 est pete complet, j'ai beaucoup plus de details que en 800x600 ».
+   (game-size-picked?                symbol))
   (:methods
    (new (symbol type) _type_)
    (initialize (_type_) _type_)
@@ -413,6 +419,11 @@
   (set! (-> obj min-render-scale) 40.0) ;; Gdynamic-renderscale: auto-scaler floor default 40%
   (set! (-> obj dynamic-render-scale?) #t) ;; Goptions-reorder: ON by default (owner 2026-07-01)
   (set! (-> obj dyn-target-fps) 60.0) ;; Goptions-reorder: minimum target framerate default 60 (owner 2026-07-01)
+  ;; res-menu-truth : la taille ci-dessus est un DEFAUT, pas un choix. `set-window-size!` plus
+  ;; haut a leve le drapeau (640x480), on le rabaisse ici, apres que la taille native l'ait
+  ;; remplace. Tant qu'il est #f, `resolve-game-base-size` a le droit de remplacer un
+  ;; 640x480 herite d'un settings.ini d'avant l'echelle de resolutions.
+  (set! (-> obj game-size-picked?) #f)
   0)
 
 (defmethod reset-audio ((obj pc-settings) (call-handlers symbol))

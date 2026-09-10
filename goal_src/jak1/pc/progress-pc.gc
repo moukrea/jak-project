@@ -9617,6 +9617,267 @@
         (add-message-option (text-id progress-no-other-resolution-options))))
     (add-back-option)))
 
+
+;; ============================================================================================
+;; res-menu-truth (owner 2026-09-10) — « On est jamais surs d'etre a la bonne resolution »
+;; --------------------------------------------------------------------------------------------
+;; Trois gestes, UNE source de verite (`resolve-game-base-size`, pckernel-common.gc) :
+;;   1. la rangee « Resolution » du menu Graphismes porte la resolution EFFECTIVE, sans entrer
+;;      dans le sous-menu ;
+;;   2. le sous-menu s'ouvre SUR elle, curseur pose dessus ;
+;;   3. l'audit ci-dessous verifie que chaque libelle de l'echelle rend bien ce qu'il annonce,
+;;      dans CHAQUE aspect propose par le menu.
+;; ============================================================================================
+
+;; Tampon du libelle de la rangee « Resolution ». Reformate a chaque image passee sur l'ecran
+;; Graphismes : la valeur suit un changement d'aspect ou de resolution sans rouvrir le menu.
+(define *resolution-row-label* (new 'global 'string 96 (the-as string #f)))
+
+(defun current-game-base-size ((w-out (pointer int64)) (h-out (pointer int64)))
+  "La taille de base REELLEMENT rendue pour l'etat courant de *pc-settings*."
+  (resolve-game-base-size *pc-settings*
+                          (the int (-> *pc-settings* width))
+                          (the int (-> *pc-settings* height))
+                          (-> *pc-settings* game-size-picked?)
+                          w-out
+                          h-out)
+  (none))
+
+(defun graphic-options-array ()
+  "Le tableau de rangees REELLEMENT cable sur l'ecran Graphismes de cette cible."
+  (#if PLATFORM_ANDROID *graphic-options-pc-android* *graphic-options-pc*))
+
+(defun refresh-resolution-row-label! ()
+  "Ecrit « <libelle traduit> W X H » dans la rangee « Resolution » de l'ecran Graphismes.
+   La rangee est RETROUVEE par son text-id, jamais par un index en dur : l'ecran Graphismes
+   ajoute et retire des rangees a l'execution (MINIMUM TARGET FRAMERATE)."
+  (let ((options (graphic-options-array))
+        (w 0)
+        (h 0))
+    (current-game-base-size (& w) (& h))
+    (format (clear *resolution-row-label*)
+            "~S ~D X ~D"
+            (lookup-text! *common-text* (text-id game-resolution) #f)
+            w
+            h)
+    (dotimes (i (length options))
+      (when (and (= (-> options i option-type) (game-option-type menu))
+                 (= (-> options i name) (text-id game-resolution)))
+        (set! (-> options i name-override) *resolution-row-label*))))
+  (none))
+
+(defun resolution-menu-initial-index ()
+  "L'index de la rangee du sous-menu Resolution qui porte la resolution EFFECTIVE courante,
+   -1 si aucune ne la porte. Reconstruit la liste d'abord : elle depend de l'aspect courant."
+  (build-resolution-options)
+  (let ((w 0)
+        (h 0)
+        (found -1))
+    (current-game-base-size (& w) (& h))
+    (dotimes (i (length *temp-options*))
+      (when (and (< found 0)
+                 (= (-> *temp-options* i option-type) (game-option-type resolution))
+                 (= (the int (-> *temp-options* i param1)) w)
+                 (= (the int (-> *temp-options* i param2)) h))
+        (set! found i)))
+    found))
+
+;; --------------------------------------------------------------------------- l'audit -------
+;; Il ne juge pas ses propres variables : pour CHAQUE rangee de CHAQUE aspect propose par
+;; `*aspect-ratio-options*`, il passe par le chemin REEL (`set-window-size!` puis
+;; `resolve-game-base-size`) et compare a ce que la rangee ANNONCE.
+;;
+;; LE TEMOIN QUI REND LE ZERO FALSIFIABLE. `legacy-game-base-size` est la regle telle qu'elle
+;; etait AVANT cet item. `res_legacy_label_defects` compte les rangees qu'elle faisait mentir :
+;; s'il vaut zero, l'audit ne regarde rien et `res_menu_defects = 0` ne vaut rien non plus.
+(define *res-menu-audit-done* #f)
+;; L'AUDIT ATTEND UNE SURFACE STABLE, PAS UN NUMERO D'IMAGE. Essai 1 : l'audit partait a la
+;; 181e image, soit 22:49:56.671 sur le Honor — QUINZE MILLISECONDES avant la premiere creation
+;; de FBO (`A35-RENDER FBO setup: ... window 2414x1080`). `pc-get-active-display-size` rendait
+;; encore 2297x906, une taille transitoire d'avant l'application des encoches. L'echelle etait
+;; donc batie sur un panneau qui n'a jamais rien dessine : les defauts comptes etaient bons,
+;; mais ils ne parlaient pas de l'ecran de l'owner. Un compte d'images ne dit pas qu'une
+;; surface a fini de bouger — seule son IMMOBILITE le dit.
+(define *res-audit-last-panel-w* -1)
+(define *res-audit-last-panel-h* -1)
+(define *res-audit-stable-frames* 0)
+(define *res-audit-eff-px* (new 'static 'boxed-array :type int32 :length 48 :allocated-length 48))
+(define *res-audit-lbl-px* (new 'static 'boxed-array :type int32 :length 48 :allocated-length 48))
+(define *res-audit-leg-px* (new 'static 'boxed-array :type int32 :length 48 :allocated-length 48))
+
+(defun res-audit-aspect-of ((opt game-option) (panel-aspect float))
+  "L'aspect que la rangee `opt` du menu Aspect Ratio installe REELLEMENT (-1.0 = pas une
+   rangee d'aspect). Recopie du geste de respond-common, pas du libelle."
+  (cond
+    ((!= (-> opt option-type) (game-option-type aspect-new)) -1.0)
+    ((= (-> opt name) (text-id fit-to-screen)) panel-aspect) ;; auto -> l'aspect du panneau
+    ((= (-> opt param1) -1.0) ASPECT_4X3)                    ;; 4x3 PS2
+    ((= (-> opt param1) -2.0) ASPECT_4X3)                    ;; 16x9 PS2 (rendu en 4x3)
+    ((and (> (-> opt param1) 0.0) (> (-> opt param2) 0.0)) (/ (-> opt param1) (-> opt param2)))
+    (else -1.0)))
+
+(defun res-audit-store! ((w int) (h int))
+  "Enregistre un choix de resolution comme le bouton du menu le fait.
+   PLEIN ECRAN (le seul mode d'Android, et le seul ou le choix pilote la base) : la methode
+   REELLE. FENETRE (x86 de bureau) : les deux memes champs, ecrits directement — passer par la
+   methode y appellerait `pc-set-window-size!` cent trente fois et redimensionnerait une vraie
+   fenetre SDL a chaque rangee auditee. Le mode fenetre ne fait de toute facon pas venir la
+   base du choix (elle vient de framebuffer-scissor)."
+  (cond
+    ((= (pc-get-display-mode) 'windowed)
+     (set! (-> *pc-settings* width) w)
+     (set! (-> *pc-settings* height) h)
+     (true! (-> *pc-settings* game-size-picked?)))
+    (else (set-window-size! *pc-settings* w h)))
+  (none))
+
+(defun res-menu-audit! ()
+  "Une fois par demarrage : verifie que chaque libelle de l'echelle de resolution rend ce
+   qu'il annonce, dans chaque aspect, et que la rangee + la preselection disent la verite."
+  (when (not *res-menu-audit-done*)
+    (let ((poll-w 0)
+          (poll-h 0))
+      (pc-get-active-display-size (& poll-w) (& poll-h))
+      (cond
+        ((or (<= poll-w 0) (<= poll-h 0)) (set! *res-audit-stable-frames* 0))
+        ((and (= poll-w *res-audit-last-panel-w*) (= poll-h *res-audit-last-panel-h*))
+         (1+! *res-audit-stable-frames*))
+        (else
+         (set! *res-audit-last-panel-w* (the int poll-w))
+         (set! *res-audit-last-panel-h* (the int poll-h))
+         (set! *res-audit-stable-frames* 0)))))
+  (when (and (not *res-menu-audit-done*)
+             (>= *res-audit-stable-frames* 300)
+             (> (the int (-> *display* real-frame-counter)) 600))
+    (true! *res-menu-audit-done*)
+    (let ((saved-w (-> *pc-settings* width))
+          (saved-h (-> *pc-settings* height))
+          (saved-ww (-> *pc-settings* window-width))
+          (saved-wh (-> *pc-settings* window-height))
+          (saved-pick (-> *pc-settings* game-size-picked?))
+          (saved-aspect (-> *pc-settings* aspect-ratio))
+          (panel-w 0)
+          (panel-h 0)
+          (aspects 0)
+          (entries 0)
+          (d-label 0)
+          (d-mono 0)
+          (d-presel 0)
+          (d-row 0)
+          (leg-label 0)
+          (leg-mono 0)
+          (px-640x480 0)
+          (px-800x600 0)
+          (leg-px-640x480 0))
+      (pc-get-active-display-size (& panel-w) (& panel-h))
+      (when (or (<= panel-w 0) (<= panel-h 0))
+        (set! panel-w 640)
+        (set! panel-h 480))
+      ;; --- 1. la rangee « Resolution » PORTE-T-ELLE une valeur, et SUIT-ELLE la valeur ? ---
+      ;; Deux etats distincts, deux libelles : un libelle qui ne bouge pas ne porte pas la
+      ;; resolution, il porte un texte. C'est exactement le defaut rapporte.
+      (res-audit-store! 800 600)
+      (refresh-resolution-row-label!)
+      (let ((label-a (new 'global 'string 96 (the-as string #f))))
+        (copy-string<-string label-a *resolution-row-label*)
+        (res-audit-store! 1024 768)
+        (refresh-resolution-row-label!)
+        (when (or (zero? (length *resolution-row-label*))
+                  (string= label-a *resolution-row-label*))
+          (set! d-row 1)))
+      ;; --- 2. chaque aspect propose x chaque rangee de l'echelle ---------------------------
+      (dotimes (ai (length *aspect-ratio-options*))
+        (let ((asp (res-audit-aspect-of (-> *aspect-ratio-options* ai)
+                                        (/ (the float panel-w) (the float panel-h)))))
+          (when (> asp 0.0)
+            (1+! aspects)
+            (set! (-> *pc-settings* aspect-ratio) asp)
+            (build-resolution-options)
+            (let ((n (min 48 (length *temp-options*)))
+                  (kept 0))
+              (dotimes (i n)
+                (when (= (-> *temp-options* i option-type) (game-option-type resolution))
+                  (let ((lw (the int (-> *temp-options* i param1)))
+                        (lh (the int (-> *temp-options* i param2)))
+                        (ew 0)
+                        (eh 0)
+                        (gw 0)
+                        (gh 0))
+                    ;; le chemin REEL : ce que le bouton fait, puis ce que le moteur rend.
+                    (res-audit-store! lw lh)
+                    (current-game-base-size (& ew) (& eh))
+                    (legacy-game-base-size *pc-settings* lw lh (& gw) (& gh))
+                    (set! (-> *res-audit-lbl-px* i) (* lw lh))
+                    (set! (-> *res-audit-eff-px* i) (* ew eh))
+                    (set! (-> *res-audit-leg-px* i) (* gw gh))
+                    (set! kept (+ kept 1))
+                    (1+! entries)
+                    (when (or (!= ew lw) (!= eh lh)) (1+! d-label))
+                    (when (or (!= gw lw) (!= gh lh)) (1+! leg-label))
+                    ;; la preselection doit retomber sur CETTE rangee.
+                    (when (!= (resolution-menu-initial-index) i) (1+! d-presel))
+                    ;; les deux chiffres que l'owner a nommes, en 4:3.
+                    (when (< (fabs (- asp ASPECT_4X3)) 0.01)
+                      (when (and (= lw 640) (= lh 480))
+                        (set! px-640x480 (* ew eh))
+                        (set! leg-px-640x480 (* gw gh)))
+                      (when (and (= lw 800) (= lh 600))
+                        (set! px-800x600 (* ew eh)))))))
+              ;; MONOTONIE : un libelle plus grand doit rendre plus de pixels. Compte les
+              ;; paires en ordre inverse, pour la regle livree et pour la regle d'avant.
+              (when (> kept 0)
+                (dotimes (i n)
+                  (when (= (-> *temp-options* i option-type) (game-option-type resolution))
+                    (dotimes (j n)
+                      (when (and (= (-> *temp-options* j option-type) (game-option-type resolution))
+                                 (< (-> *res-audit-lbl-px* i) (-> *res-audit-lbl-px* j)))
+                        (when (>= (-> *res-audit-eff-px* i) (-> *res-audit-eff-px* j)) (1+! d-mono))
+                        (when (>= (-> *res-audit-leg-px* i) (-> *res-audit-leg-px* j)) (1+! leg-mono)))))))))))
+      ;; --- 3. remise en etat EXACTE ---------------------------------------------------------
+      (set! (-> *pc-settings* aspect-ratio) saved-aspect)
+      (set! (-> *pc-settings* width) saved-w)
+      (set! (-> *pc-settings* height) saved-h)
+      (set! (-> *pc-settings* window-width) saved-ww)
+      (set! (-> *pc-settings* window-height) saved-wh)
+      (set! (-> *pc-settings* game-size-picked?) saved-pick)
+      (build-resolution-options)
+      (refresh-resolution-row-label!)
+      ;; --- 4. publication -------------------------------------------------------------------
+      ;; Un audit qui n'a rien parcouru est un DEFAUT, pas un succes : sans cette ligne,
+      ;; `res_menu_defects = 0` serait tenu par l'inaction.
+      (when (zero? entries) (1+! d-label))
+      (let ((base-w 0)
+            (base-h 0))
+        (current-game-base-size (& base-w) (& base-h))
+        (__pc-autoport-publish "res_base_w" base-w)
+        (__pc-autoport-publish "res_base_h" base-h))
+      (__pc-autoport-publish "res_native_w" panel-w)
+      (__pc-autoport-publish "res_native_h" panel-h)
+      (__pc-autoport-publish "res_picked" (if saved-pick 1 0))
+      (__pc-autoport-publish "res_aspects_audited" aspects)
+      (__pc-autoport-publish "res_entries_audited" entries)
+      (__pc-autoport-publish "res_defect_label" d-label)
+      (__pc-autoport-publish "res_defect_mono" d-mono)
+      (__pc-autoport-publish "res_defect_presel" d-presel)
+      (__pc-autoport-publish "res_defect_row" d-row)
+      (__pc-autoport-publish "res_legacy_label_defects" leg-label)
+      (__pc-autoport-publish "res_legacy_mono_defects" leg-mono)
+      (__pc-autoport-publish "res_4x3_640x480_px" px-640x480)
+      (__pc-autoport-publish "res_4x3_800x600_px" px-800x600)
+      (__pc-autoport-publish "res_4x3_legacy_640x480_px" leg-px-640x480)
+      ;; Temoins de settle : l'image ou l'audit est parti et depuis combien d'images la
+      ;; surface ne bougeait plus. Un audit parti tot ne se lit pas comme un audit parti tard.
+      (__pc-autoport-publish "res_audit_frame" (the int (-> *display* real-frame-counter)))
+      (__pc-autoport-publish "res_panel_stable_frames" *res-audit-stable-frames*)
+      ;; La rangee sur laquelle le sous-menu s'ouvrirait POUR L'ETAT RESTAURE. -1 = la taille
+      ;; enregistree n'est proposee par aucune rangee de l'aspect courant (curseur sur NATIVE).
+      ;; Temoin publie, PAS un defaut : un settings.ini peut legitimement porter une taille
+      ;; choisie sous un autre aspect, et rendre cette porte rouge serait juger l'owner.
+      (__pc-autoport-publish "res_current_index" (+ 1 (resolution-menu-initial-index)))
+      (__pc-autoport-publish "res_menu_defects" (+ d-label d-mono d-presel d-row))
+      (__pc-autoport-hit 1)))
+  (none))
+
 (defun build-flava-player-options ((mus-idx int))
   (set! (-> *temp-options* length) 0)
   (dotimes (i (-> *music-flava-name-list* mus-idx length))
@@ -11108,6 +11369,10 @@
     (((progress-screen resolution))
      ;; TODO infinite scrolling
      (build-resolution-options))
+    ;; res-menu-truth : la rangee « Resolution » porte la resolution EFFECTIVE, ici, a chaque
+    ;; image passee sur l'ecran Graphismes — donc sans entrer dans le sous-menu, et a jour
+    ;; des le retour d'un changement d'aspect. `init-game-options` ne tourne qu'a l'ouverture.
+    (((progress-screen graphic-settings)) (refresh-resolution-row-label!))
     (((progress-screen flava-player)) (build-flava-player-options *progress-music*))
     (((progress-screen secrets))
      (if (= (-> obj display-state-stack 0) (progress-screen title))
@@ -12783,7 +13048,16 @@
                                   (!= (-> self next-display-state) 2))
                            512
                            256)))
-            (if (>= (the-as int (-> self next-display-state)) 0) (enter! self (-> self next-display-state) 0) (pop! self))
+            ;; res-menu-truth : le sous-menu Resolution s'ouvre SUR la resolution courante.
+            ;; `enter!` posait 0, donc toujours la rangee NATIVE : « on est jamais surs d'etre
+            ;; a la bonne resolution ». -1 (aucune rangee ne la porte) retombe sur 0.
+            (if (>= (the-as int (-> self next-display-state)) 0)
+              (enter! self
+                      (-> self next-display-state)
+                      (if (= (-> self next-display-state) (progress-screen resolution))
+                        (max 0 (resolution-menu-initial-index))
+                        0))
+              (pop! self))
             (set! (-> self display-level-index) (-> self next-level-index))
             (when (nonzero? (-> self level-transition))
               (set! (-> self task-index) (get-next-task-up -1 (-> self display-level-index)))

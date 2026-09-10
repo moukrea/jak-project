@@ -674,6 +674,11 @@
 ;; mesure seulement (`__pc-gating-wanted?`), on le force une fois ; hors mesure cette ligne ne
 ;; fait rien du tout et le jeu livre est inchange.
 (define-extern gating-census-boot! (function none))
+;; res-menu-truth : l'audit « le libelle dit ce qui est rendu ». Meme raison, meme place que
+;; les deux recensements ci-dessus — il a besoin des tableaux du menu, que `init-game-options`
+;; ne cable qu'a l'ouverture. Il ne tourne qu'UNE fois, apres la 180e image (le panneau est
+;; mesure), et remet `*pc-settings*` dans l'etat exact ou il l'a trouve.
+(define-extern res-menu-audit! (function none))
 
 (defun npc-census-tick ()
   "Une image de recensement. Hors cinematique, ferme la scene en cours et ne parcourt rien."
@@ -691,6 +696,8 @@
   (scl10n-census!)
   ;; recharged-gating-real : voir le define-extern plus haut. Sous mesure uniquement.
   (gating-census-boot!)
+  ;; res-menu-truth : voir le define-extern plus haut. Une seule passe par demarrage.
+  (res-menu-audit!)
   (cond
     ((real-movie?)
      (__pc-npc-census-begin (cine-scene-name))

@@ -117,6 +117,11 @@
 
 (defmethod set-window-size! ((obj pc-settings) (width int) (height int))
   "sets the size of the display window"
+  ;; res-menu-truth : TOUT passage ici est un CHOIX (rangee Resolution du menu, menu debug).
+  ;; `reset-gfx` rabaisse le drapeau juste apres son propre appel : lui seul pose un DEFAUT.
+  ;; C'est ce drapeau, et rien d'autre, qui autorise `resolve-game-base-size` a remplacer un
+  ;; 640x480 herite d'un settings.ini d'avant l'echelle de resolutions.
+  (true! (-> obj game-size-picked?))
   (let ((display-mode (pc-get-display-mode)))
     (cond
       ((= display-mode 'windowed)
@@ -128,6 +133,52 @@
        (format 0 "Setting borderless/fullscreen size to ~D x ~D~%" width height)
        (set! (-> obj width) width)
        (set! (-> obj height) height))))
+  (none))
+
+;; ============================================================================================
+;; res-menu-truth (owner 2026-09-10) — LA SEULE TRADUCTION « taille CHOISIE -> taille RENDUE ».
+;;
+;; Le defaut de l'owner : « quand on force un aspect ratio (genre 4x3) [...] le 640x480 est pete
+;; complet, j'ai beaucoup plus de details que en 800x600 et le FPS prend un mechant coup ».
+;; La cause, mesuree dans le code : le repli Glightprobes ecrit ici en 2026-07-21 remplacait
+;; TOUTE base valant exactement 640x480 par le panneau physique, sur Android, au moment de
+;; l'usage. Sa premisse est ecrite dans son propre commentaire — « the auto-aspect Game
+;; Resolution ladder cannot produce 640x480 on the panel » — et elle est FAUSSE des que l'aspect
+;; est force : `build-resolution-options` demarre son echelle a 640 de large, donc en 4:3 elle
+;; propose exactement 640 x 480. Choisir cette rangee donnait 2400x1080 (2 592 000 px) la ou
+;; 800x600 en donne 480 000 : 5,4 fois plus de pixels sous le nom le plus petit.
+;;
+;; Le repli garde sa raison d'etre (un settings.ini d'avant l'echelle porte `game-size = 640 480`
+;; et epinglerait un telephone a 640x480), mais il ne peut plus atteindre un CHOIX : le drapeau
+;; `game-size-picked?` separe le defaut herite du geste de l'utilisateur.
+;;
+;; UN SEUL ECRIVAIN DE LA REGLE. `update-to-os` (ce qui est rendu), la rangee « Resolution » du
+;; menu (ce qui est affiche) et la preselection du sous-menu appellent TOUS cette fonction. Une
+;; regle recopiee a trois endroits est exactement ce qui fait mentir un libelle.
+(defun resolve-game-base-size ((obj pc-settings) (in-w int) (in-h int) (picked? symbol)
+                               (out-w (pointer int64)) (out-h (pointer int64)))
+  "Traduit une taille de jeu CHOISIE (in-w x in-h) en taille de base REELLEMENT rendue."
+  (let ((w in-w)
+        (h in-h))
+    (when (and (= (-> obj os) 'android) (not picked?) (= w 640) (= h 480))
+      (let ((native-w 0)
+            (native-h 0))
+        (pc-get-active-display-size (& native-w) (& native-h))
+        (when (and (> native-w 0) (> native-h 0))
+          (set! w native-w)
+          (set! h native-h))))
+    (set! (-> out-w) w)
+    (set! (-> out-h) h))
+  (none))
+
+;; res-menu-truth — LA REGLE D'AVANT, gardee UNIQUEMENT comme temoin de l'audit. Elle dit ce que
+;; le binaire livre AURAIT rendu pour une taille choisie. Sans elle, `res_menu_defects = 0` ne
+;; serait pas falsifiable : on ne saurait pas distinguer « le defaut est corrige » de « l'audit
+;; ne regarde rien ». Aucun chemin de jeu ne l'appelle.
+(defun legacy-game-base-size ((obj pc-settings) (in-w int) (in-h int)
+                              (out-w (pointer int64)) (out-h (pointer int64)))
+  "La traduction telle qu'elle etait AVANT res-menu-truth (repli non garde)."
+  (resolve-game-base-size obj in-w in-h #f out-w out-h)
   (none))
 
 (defmethod set-aspect! ((obj pc-settings) (aw int) (ah int))
@@ -584,21 +635,16 @@
          (rs-frac (/ rs 100.0))
          (base-w (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-width) (-> obj width)))
          (base-h (if (= (pc-get-display-mode) 'windowed) (-> obj framebuffer-scissor-height) (-> obj height))))
-    ;; Glightprobes render-scale-honors-settings (owner 2026-07-21): on Android a
-    ;; 640x480 BASE is the legacy pre-picker boot default, not a real user pick (the
-    ;; auto-aspect Game Resolution ladder cannot produce 640x480 on the panel), and it
-    ;; silently broke the menu promise "Dynamic OFF + RENDER SCALE 100% = native":
-    ;; 100% of the stale 640x480 base is still 640x480, never the panel. Substitute the
-    ;; native display size at USE time — robust to both stale settings.ini files and
-    ;; fresh defaults; a real picker choice (never 640x480 under the panel aspect)
-    ;; still rules. The stored game-size is left untouched.
-    (when (and (= (-> obj os) 'android) (= base-w 640) (= base-h 480))
-      (let ((native-w 0)
-            (native-h 0))
-        (pc-get-active-display-size (& native-w) (& native-h))
-        (when (and (> native-w 0) (> native-h 0))
-          (set! base-w native-w)
-          (set! base-h native-h))))
+    ;; res-menu-truth : le repli « 640x480 herite » vit desormais dans `resolve-game-base-size`,
+    ;; seul ecrivain de la regle, et ne peut plus atteindre un choix de l'utilisateur. Voir le
+    ;; pave devant cette fonction : c'est ce repli, non garde, qui rendait le 640x480 du menu
+    ;; 4:3 a la taille du panneau.
+    (let ((rb-w 0)
+          (rb-h 0))
+      (resolve-game-base-size obj (the int base-w) (the int base-h) (-> obj game-size-picked?)
+                              (& rb-w) (& rb-h))
+      (set! base-w rb-w)
+      (set! base-h rb-h))
     (let ((rw (max 1 (the int (* (the float base-w) rs-frac))))
           (rh (max 1 (the int (* (the float base-h) rs-frac)))))
       (pc-set-game-resolution rw rh)))
@@ -1052,6 +1098,10 @@
     ;; unexpected keys
     (("monitor") (file-stream-read-int file))
     (("letterbox") (set! (-> obj letterbox?) (file-stream-read-symbol file)))
+    ;; res-menu-truth : ABSENT d'un settings.ini d'avant cet item -> reste #f (pose par
+    ;; reset-gfx), donc un `game-size = 640 480` herite reste rattrapable. Present -> il
+    ;; dit si la taille lue est un CHOIX, et un choix ne se fait plus ecraser.
+    (("game-size-picked?") (set! (-> obj game-size-picked?) (file-stream-read-symbol file)))
     (("vsync") (set! (-> obj vsync?) (file-stream-read-symbol file)))
     (("font-scale") (set! (-> obj font-scale) (file-stream-read-float file)))
     (("audio-latency-ms") (set! (-> obj audio-latency-ms) (file-stream-read-int file)))
@@ -1145,6 +1195,7 @@
           (-> obj aspect-ratio-auto?))
   (format file "window-size = ~D ~D~%" (-> obj window-width) (-> obj window-height))
   (format file "game-size = ~D ~D~%" (-> obj width) (-> obj height))
+  (format file "game-size-picked? = ~A~%" (-> obj game-size-picked?))
   (format file "letterbox = ~A~%" (-> obj letterbox?))
   (format file "vsync = ~A~%" (-> obj vsync?))
   ;(format file "font-scale = ~f~%" (-> obj font-scale))
