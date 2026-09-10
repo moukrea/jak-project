@@ -5017,7 +5017,7 @@ items:
   notes: 'owner 2026-09-05 : « Whaaaat ? Dégage moi ça »'
 - id: water-census
   feature: Nommer chaque goutte d'eau du jeu avant de la refaire
-  status: open
+  status: in-progress
   priority: 50
   owner_feedback:
   - &id001
@@ -5934,7 +5934,7 @@ items:
     HDR n''attend pas son tour.'
 - id: perf-ocean-idle
   feature: Pas d'ocean, pas de vagues calculees
-  status: in-progress
+  status: to-test
   priority: 36
   game: jak1
   gate:
@@ -5969,6 +5969,7 @@ items:
   - OG_PERF_BUCKETS=1
   block_reason: null
   prompt: prompts/item-perf-ocean-idle.md
+  delivered: '2026-09-10'
 - id: perf-dma-chain-copies
   feature: La chaine DMA n'est plus parcourue cinq fois par image
   status: blocked

@@ -1944,7 +1944,12 @@ def main(argv: list[str] | None = None) -> int:
             no_start_streak = 0
 
         elif out.kind == "awaiting-owner":
-            bk.set_status(iid, "to-test")
+            # `delivered` DOIT etre pose ici : sans lui, _testable_now() range l'item dans
+            # « Dette a trier » avec les orphelins de juillet au lieu de « A tester », et
+            # l'owner ne voit jamais qu'on vient de lui livrer quelque chose (perf-ocean-idle,
+            # 10/09 : livre a 09h55, invisible dans son digest de 10h18).
+            bk.set_status(iid, "to-test",
+                          delivered=datetime.now().date().isoformat())
             console.print(Panel.fit(
                 f"[bold yellow]⏸ {iid} — À TESTER PAR L'OWNER[/bold yellow]\n\n"
                 f"{item.get('feature', '')}\n\n"
