@@ -1303,6 +1303,8 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
     std::optional<u64> tex;
     tex = render_state->texture_pool->lookup(tbp);
 
+    // fire-red-particles : l'etat de l'echantillonneur de CE dessin, au point de tirage.
+    fire_red_census::note_sprite_sampler(tex.has_value());
     if (!tex) {
       lg::warn("Failed to find texture at {}, using random (sprite)", tbp);
       tex = render_state->texture_pool->get_placeholder_texture();
@@ -1333,6 +1335,8 @@ void Sprite3::flush_sprites(SharedRenderState* render_state,
         fire_red_census::note_sprite(fire_tex.c_str(), fv.xyz_sx[0], fv.xyz_sx[1], fv.xyz_sx[2],
                                      fv.rgba[0], fv.rgba[1], fv.rgba[2], fv.rgba[3], fire_amin,
                                      fire_blend, fire_dd);
+        // La TAILLE du quad, telle qu'elle part au tampon : rien ne la borne par le haut.
+        fire_red_census::note_sprite_size(fire_tex.c_str(), fv.xyz_sx[3], fv.quat_sy[3]);
       }
     }
 
@@ -1439,6 +1443,8 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
     std::optional<u64> tex;
     tex = render_state->texture_pool->lookup(tbp);
 
+    // fire-red-particles : l'etat de l'echantillonneur de CE dessin, au point de tirage.
+    fire_red_census::note_sprite_sampler(tex.has_value());
     if (!tex) {
       lg::warn("Failed to find texture at {}, using random (sprite)", tbp);
       tex = render_state->texture_pool->get_placeholder_texture();
@@ -1470,6 +1476,8 @@ void Sprite3::flush_sprites_instanced(SharedRenderState* render_state,
         fire_red_census::note_sprite(fire_tex.c_str(), fv.xyz_sx[0], fv.xyz_sx[1], fv.xyz_sx[2],
                                      fv.rgba[0], fv.rgba[1], fv.rgba[2], fv.rgba[3], fire_amin,
                                      fire_blend, fire_dd);
+        // La TAILLE du quad, telle qu'elle part au tampon : rien ne la borne par le haut.
+        fire_red_census::note_sprite_size(fire_tex.c_str(), fv.xyz_sx[3], fv.quat_sy[3]);
       }
     }
 

@@ -408,6 +408,298 @@ void note_debug_red_draw(const char* site) {
   note_site_name(site);
 }
 
+// ============================== LE CHEMIN DISTORTEUR ========================================
+// Voir l'en-tete pour le POURQUOI. Ici, seulement des compteurs : l'etat que le pilote rend,
+// et la geometrie que la table sinus decrit. Aucune lecture de reglage.
+namespace {
+
+std::atomic<uint64_t> g_dz_sprites{0};  // eventails soumis dans l'image
+uint64_t g_dz_frames = 0;               // images ou le distorteur a dessine
+uint64_t g_dz_sprites_total = 0;
+uint64_t g_dz_sprites_max = 0;
+uint64_t g_dz_draws_total = 0;
+uint64_t g_dz_res_oor = 0;      // `res` hors [3,11] : index de table lu hors bornes
+int g_dz_res_lo = 99, g_dz_res_hi = -1;
+uint64_t g_dz_area_max_q = 0;   // plus grande fraction d'ecran couverte, x10000
+uint64_t g_dz_big = 0;          // eventails couvrant plus de 5 % de l'ecran
+uint64_t g_dz_st_oob = 0;       // eventails echantillonnant hors [0,1] : bord etale = aplat
+uint64_t g_dz_mismatch_max_q = 0;  // ecart CENTRE echantillonne / CENTRE dessine, x1000
+uint64_t g_dz_mismatch_off = 0;    // eventails ou cet ecart depasse un pixel de 512
+uint64_t g_dz_scale_max_q = 0;     // plus grande echelle vue (le producteur la borne a 128)
+uint64_t g_dz_scale_over = 0;      // eventails d'echelle > 128 : la borne du producteur a cede
+int64_t g_dz_st_lo_q = 0, g_dz_st_hi_q = 0;  // l'intervalle reel, x1000
+// L'ETAT DE L'ECHANTILLONNEUR.
+uint64_t g_dz_fbo_bad = 0;      // images ou la cible de recopie n'etait pas complete
+uint64_t g_dz_blit_err = 0;     // images ou la recopie a rendu une erreur GL
+unsigned g_dz_fbo_last = 0, g_dz_blit_last = 0;
+int g_dz_samples_max = 0;
+uint64_t g_dz_probe_frames = 0;   // images sondees
+uint64_t g_dz_probe_bad = 0;      // ... dont la copie ne rendait PAS la scene
+uint64_t g_dz_probe_px = 0, g_dz_probe_diff = 0;
+int g_dz_probe_maxdelta = 0;
+char g_dz_probe_sample[96] = {0};
+char g_dz_worst[160] = {0};
+double g_dz_worst_area = -1.0;
+// LE CHEMIN SPRITE ORDINAIRE : combien de dessins, combien sur le damier de secours.
+uint64_t g_spr_draws = 0, g_spr_fallback = 0;
+// LA TAILLE DES QUADS. `scale-x`/`scale-y` sont en unites GOAL : 4096 = 1 metre.
+uint64_t g_spr_size_seen = 0;       // quads mesures (denominateur)
+uint64_t g_spr_size_max_cm = 0;     // la plus grande demi-taille vue, en centimetres
+uint64_t g_spr_over_10m = 0;        // quads de plus de 10 m de demi-taille
+uint64_t g_spr_over_100m = 0;       // ... et de plus de 100 m : hors de toute donnee de niveau
+char g_spr_size_worst[96] = {0};
+float g_spr_size_worst_v = -1.f;
+
+void publish_overdraw() {
+  // LA GRANDEUR DE LA PORTE : le nombre de DESSINS du chemin des particules et des sprites
+  // dont l'echantillonneur n'etait pas une texture resolue. Pour le distorteur, « resolue »
+  // veut dire : cible de recopie complete, recopie sans erreur, et — quand la sonde a tourne —
+  // une copie qui rend REELLEMENT la scene. Pour les seaux sprite : une texture du pool, pas
+  // le damier de secours.
+  // Un echantillonneur peut etre PARFAITEMENT sain et rendre quand meme un aplat : il suffit
+  // qu'on l'interroge au mauvais endroit. La porte compte donc les DEUX familles, et pas
+  // seulement la panne de recopie — sans quoi un `0` reviendrait sur un defaut intact, ce qui
+  // s'est deja produit deux fois sur cet item.
+  //   * la recopie de scene : cible incomplete, erreur GL, ou copie qui ne rend pas la scene ;
+  //   * l'interrogation : le centre de l'eventail lit ailleurs qu'a sa propre place
+  //     (`center_off`), son echelle depasse la borne du producteur (`scale_over`), ou son
+  //     nombre de cotes sort de [3,11] (`res_oor`) ;
+  //   * le chemin sprite ordinaire : un seau dessine avec le damier de secours.
+  // `st_oob` n'y est PAS : la console d'origine borne elle aussi la region (region-clamp,
+  // sprite-distort.gc:110-114), donc un rim qui sort de [0,1] au bord de l'ecran est le
+  // comportement voulu. Il reste publie comme temoin.
+  autoport_proof::publish("fire_foreign_overdraw",
+                          g_dz_probe_bad + g_dz_fbo_bad + g_dz_blit_err + g_spr_fallback +
+                              g_dz_mismatch_off + g_dz_scale_over + g_dz_res_oor);
+  // LES DENOMINATEURS. Sans eux, un zero peut n'etre qu'une condition absente : un
+  // `fire_distort_frames=0` veut dire « aucun feu, aucun portail a l'ecran », pas « rien a
+  // signaler ».
+  autoport_proof::publish("fire_distort_frames", g_dz_frames);
+  autoport_proof::publish("fire_distort_draws", g_dz_draws_total);
+  autoport_proof::publish("fire_distort_sprites_seen", g_dz_sprites_total);
+  autoport_proof::publish("fire_distort_sprites_max", g_dz_sprites_max);
+  autoport_proof::publish("fire_sprite_draws", g_spr_draws);
+  autoport_proof::publish("fire_sprite_fallback", g_spr_fallback);
+  // LA TAILLE DES QUADS DESSINES. Le denominateur d'abord : un maximum a zero sur zero quad
+  // mesure ne dit rien.
+  autoport_proof::publish("fire_sprite_size_seen", g_spr_size_seen);
+  autoport_proof::publish("fire_sprite_size_max_cm", g_spr_size_max_cm);
+  autoport_proof::publish("fire_sprite_over_10m", g_spr_over_10m);
+  autoport_proof::publish("fire_sprite_over_100m", g_spr_over_100m);
+  autoport_proof::publish_text("fire_sprite_size_worst",
+                               g_spr_size_worst[0] ? g_spr_size_worst : "-");
+  // L'ETAT DE L'ECHANTILLONNEUR, detaille.
+  autoport_proof::publish("fire_distort_fbo_bad", g_dz_fbo_bad);
+  autoport_proof::publish("fire_distort_blit_err", g_dz_blit_err);
+  autoport_proof::publish("fire_distort_fbo_status", g_dz_fbo_last);
+  autoport_proof::publish("fire_distort_blit_last", g_dz_blit_last);
+  autoport_proof::publish("fire_distort_fb_samples", (uint64_t)(g_dz_samples_max < 0 ? 0 : g_dz_samples_max));
+  autoport_proof::publish("fire_distort_probe_frames", g_dz_probe_frames);
+  autoport_proof::publish("fire_distort_probe_bad", g_dz_probe_bad);
+  autoport_proof::publish("fire_distort_probe_px", g_dz_probe_px);
+  autoport_proof::publish("fire_distort_probe_diff", g_dz_probe_diff);
+  autoport_proof::publish("fire_distort_probe_maxdelta",
+                          (uint64_t)(g_dz_probe_maxdelta < 0 ? 0 : g_dz_probe_maxdelta));
+  autoport_proof::publish_text("fire_distort_probe_sample",
+                               g_dz_probe_sample[0] ? g_dz_probe_sample : "-");
+  // LA GEOMETRIE : « GRANDE FORME POLYGONALE » chiffree.
+  autoport_proof::publish("fire_distort_area_max_q", g_dz_area_max_q);
+  autoport_proof::publish("fire_distort_big", g_dz_big);
+  autoport_proof::publish("fire_distort_res_oor", g_dz_res_oor);
+  autoport_proof::publish("fire_distort_res_lo", (uint64_t)(g_dz_res_hi < 0 ? 0 : g_dz_res_lo));
+  autoport_proof::publish("fire_distort_res_hi", (uint64_t)(g_dz_res_hi < 0 ? 0 : g_dz_res_hi));
+  autoport_proof::publish("fire_distort_st_oob", g_dz_st_oob);
+  // L'ORACLE ANALYTIQUE : l'ecart entre ce que le sommet central ECHANTILLONNE et l'endroit ou
+  // il est DESSINE. Zero est la seule valeur que la construction de l'effet autorise.
+  autoport_proof::publish("fire_distort_center_mismatch_q", g_dz_mismatch_max_q);
+  autoport_proof::publish("fire_distort_center_off", g_dz_mismatch_off);
+  autoport_proof::publish("fire_distort_scale_max_q", g_dz_scale_max_q);
+  autoport_proof::publish("fire_distort_scale_over", g_dz_scale_over);
+  autoport_proof::publish_text("fire_distort_st_range", [] {
+    static char b[48];
+    std::snprintf(b, sizeof(b), "%lld..%lld/1000", (long long)g_dz_st_lo_q, (long long)g_dz_st_hi_q);
+    return b;
+  }());
+  autoport_proof::publish_text("fire_distort_worst", g_dz_worst[0] ? g_dz_worst : "-");
+}
+
+}  // namespace
+
+bool probe_enabled() {
+  return autoport_proof::feature_is("fire-red-particles") && armed();
+}
+
+void note_distort_sprite(int res,
+                         float area,
+                         float st_lo,
+                         float st_hi,
+                         float mismatch,
+                         const float* pos,
+                         const float* scale,
+                         const float* st) {
+  if (!armed()) {
+    return;
+  }
+  g_dz_sprites.fetch_add(1, std::memory_order_relaxed);
+  if (res < 3 || res > 11) {
+    g_dz_res_oor++;
+  }
+  if (res < g_dz_res_lo) {
+    g_dz_res_lo = res;
+  }
+  if (res > g_dz_res_hi) {
+    g_dz_res_hi = res;
+  }
+  if (!std::isfinite(area)) {
+    area = 1.f;  // une aire non finie couvre, par construction, tout ce qu'on peut voir
+  }
+  const uint64_t q = (uint64_t)(area * 10000.f);
+  if (q > g_dz_area_max_q) {
+    g_dz_area_max_q = q;
+  }
+  if (area > 0.05f) {
+    g_dz_big++;
+  }
+  if (std::isfinite(st_lo) && std::isfinite(st_hi)) {
+    if (st_lo < -0.001f || st_hi > 1.001f) {
+      g_dz_st_oob++;
+    }
+    const int64_t lo = (int64_t)(st_lo * 1000.f), hi = (int64_t)(st_hi * 1000.f);
+    if (lo < g_dz_st_lo_q) {
+      g_dz_st_lo_q = lo;
+    }
+    if (hi > g_dz_st_hi_q) {
+      g_dz_st_hi_q = hi;
+    }
+  } else {
+    g_dz_st_oob++;
+  }
+  if (std::isfinite(mismatch)) {
+    const uint64_t mq = (uint64_t)(mismatch * 1000.f + 0.5f);
+    if (mq > g_dz_mismatch_max_q) {
+      g_dz_mismatch_max_q = mq;
+    }
+    // Un pixel sur 512 : en dessous, c'est l'arrondi du flottant, pas un decalage.
+    if (mismatch > 1.f / 512.f) {
+      g_dz_mismatch_off++;
+    }
+  } else {
+    g_dz_mismatch_off++;
+  }
+  {
+    const float sx = std::fabs(scale[0]), sy = std::fabs(scale[1]);
+    const float smax = sx > sy ? sx : sy;
+    if (std::isfinite(smax)) {
+      const uint64_t sq = (uint64_t)smax;
+      if (sq > g_dz_scale_max_q) {
+        g_dz_scale_max_q = sq;
+      }
+      if (smax > 128.f) {
+        g_dz_scale_over++;
+      }
+    } else {
+      g_dz_scale_over++;
+    }
+  }
+  if (area > g_dz_worst_area) {
+    g_dz_worst_area = area;
+    std::snprintf(g_dz_worst, sizeof(g_dz_worst),
+                  "res=%d|aire=%.4f|uv=%.3f,%.3f|plage=%.2f..%.2f|ecart=%.4f|p=%.0f,%.0f|e=%.1f,%.1f,%.1f",
+                  res, (double)area, (double)st[0], (double)st[1], (double)st_lo, (double)st_hi,
+                  (double)mismatch, (double)pos[0], (double)pos[1], (double)scale[0],
+                  (double)scale[1], (double)scale[2]);
+  }
+}
+
+void note_distort_frame(unsigned fbo_status,
+                        unsigned blit_err,
+                        int samples,
+                        int sprites,
+                        int draws,
+                        int probe_px,
+                        int probe_diff,
+                        int probe_maxdelta,
+                        const char* sample) {
+  if (!armed()) {
+    return;
+  }
+  g_dz_frames++;
+  g_dz_sprites.store(0, std::memory_order_relaxed);
+  g_dz_sprites_total += (uint64_t)(sprites < 0 ? 0 : sprites);
+  if ((uint64_t)sprites > g_dz_sprites_max) {
+    g_dz_sprites_max = (uint64_t)sprites;
+  }
+  g_dz_draws_total += (uint64_t)(draws < 0 ? 0 : draws);
+  g_dz_fbo_last = fbo_status;
+  g_dz_blit_last = blit_err;
+  if (fbo_status != 0x8CD5u) {  // GL_FRAMEBUFFER_COMPLETE
+    g_dz_fbo_bad++;
+  }
+  if (blit_err != 0) {
+    g_dz_blit_err++;
+  }
+  if (samples > g_dz_samples_max) {
+    g_dz_samples_max = samples;
+  }
+  if (probe_px > 0) {
+    g_dz_probe_frames++;
+    g_dz_probe_px += (uint64_t)probe_px;
+    g_dz_probe_diff += (uint64_t)(probe_diff < 0 ? 0 : probe_diff);
+    if (probe_maxdelta > g_dz_probe_maxdelta) {
+      g_dz_probe_maxdelta = probe_maxdelta;
+    }
+    // UNE TOLERANCE, ET ELLE EST DITE. La recopie est un `glBlitFramebuffer` NEAREST entre
+    // deux tampons de MEMES dimensions : elle est censee etre exacte. On laisse 2/255 de jeu
+    // pour un format de copie plus court (RGB8 contre RGBA8), et rien de plus.
+    if (probe_diff > 0 && probe_maxdelta > 2) {
+      g_dz_probe_bad++;
+    }
+    if (sample && sample[0]) {
+      std::snprintf(g_dz_probe_sample, sizeof(g_dz_probe_sample), "%s", sample);
+    }
+  }
+}
+
+void note_sprite_size(const char* texture_name, float sx, float sy) {
+  if (!armed()) {
+    return;
+  }
+  g_spr_size_seen++;
+  const float ax = std::fabs(sx), ay = std::fabs(sy);
+  const float m = ax > ay ? ax : ay;
+  if (!std::isfinite(m)) {
+    g_spr_over_100m++;
+    g_spr_over_10m++;
+    return;
+  }
+  const uint64_t cm = (uint64_t)(m * (100.f / 4096.f));
+  if (cm > g_spr_size_max_cm) {
+    g_spr_size_max_cm = cm;
+  }
+  if (m > 10.f * 4096.f) {
+    g_spr_over_10m++;
+  }
+  if (m > 100.f * 4096.f) {
+    g_spr_over_100m++;
+  }
+  if (m > g_spr_size_worst_v) {
+    g_spr_size_worst_v = m;
+    std::snprintf(g_spr_size_worst, sizeof(g_spr_size_worst), "%s|sx=%.2fm|sy=%.2fm",
+                  texture_name ? texture_name : "?", (double)(sx / 4096.f),
+                  (double)(sy / 4096.f));
+  }
+}
+
+void note_sprite_sampler(bool resolved) {
+  if (!armed()) {
+    return;
+  }
+  g_spr_draws++;
+  if (!resolved) {
+    g_spr_fallback++;
+  }
+}
+
 void end_frame() {
   if (!armed()) {
     return;
@@ -552,6 +844,10 @@ void end_frame() {
     autoport_proof::publish_text("fire_src255_emitters", buf);
   }
   autoport_proof::publish("fire_src255_seen", g_clamp255_total);
+  // Le distorteur publie a CHAQUE image, meme quand il n'a rien dessine : sinon la porte
+  // n'aurait aucune valeur a lire dans une course ou aucun feu n'est passe a l'ecran, et un
+  // champ absent ne se distingue pas d'un zero.
+  publish_overdraw();
   if (sprites > 0) {
     // Le chemin de la feature a tourne SUR des sprites de feu : c'est ce que `hits` doit dire.
     autoport_proof::note_hit(1);

@@ -105,6 +105,94 @@ void note_pack(const char* texture_name,
                int pb,
                int pa);
 
+// LE CHEMIN DISTORTEUR — L'ECHANTILLONNEUR, ET CE QU'IL DESSINE.
+// ---------------------------------------------------------------
+// POURQUOI LUI. L'owner decrit de GRANDES FORMES POLYGONALES qui RECOUVRENT le feu ET le
+// portail, avec l'effet correct DESSOUS. Dans tout le chemin sprite, un seul dessinateur
+// produit des EVENTAILS de 3 a 11 cotes au lieu de quads : `Sprite3_Distort`. Et un seul
+// remplace ses pixels au lieu de s'y ajouter : lui encore. Sa cible est
+// `2 * u_color * texture(copie-de-scene)` et son alpha vaut 1 — la copie de scene n'a PAS de
+// canal alpha (`GL_RGB`), donc `texture().a` rend 1,0 et le melange `(Cs-Cd)*As+Cd` ecrase le
+// fond. Une copie de scene qui n'a pas eu lieu donne donc, exactement, un APLAT OPAQUE de la
+// forme du polygone. C'est la seule construction du moteur qui produise la signature decrite,
+// et elle est PARTAGEE par le feu et le portail : tous deux emettent des particules `aux-list`,
+// et `sprite-draw-distorters` est leur unique consommateur.
+//
+// CE QUE CET INSTRUMENT MESURE, ET CE QU'IL NE MESURE PAS. Il ne lit aucun reglage et aucun
+// drapeau : il lit l'etat REEL de l'echantillonneur au point de dessin (statut du framebuffer
+// de copie, erreur GL de la recopie, et une comparaison pixel a pixel entre la scene et sa
+// copie), et la geometrie REELLE de chaque eventail, recalculee sur les MEMES entrees que le
+// nuanceur (table sinus + donnees d'instance). Un « tout va bien » deduit d'un booleen serait
+// un miroir ; ici la grandeur vient du pilote et de la table.
+
+// Un sprite de distorsion tel que le nuanceur va le dessiner.
+//   `res`    : son nombre de cotes. Hors [3,11], l'index de table est lu HORS BORNES.
+//   `area`   : la fraction de l'ecran couverte par son eventail, dans [0,1].
+//   `st_lo`, `st_hi` : l'intervalle des coordonnees de texture qu'il echantillonne. Hors
+//              [0,1] l'echantillonneur rend la couleur du BORD, etalee — donc un aplat.
+//   `mismatch` : L'ORACLE ANALYTIQUE, et il n'a besoin d'AUCUNE seconde plateforme.
+//              L'effet consiste a redessiner ce qui est DERRIERE l'eventail, deplace. Le sommet
+//              CENTRAL, lui, n'est pas deplace : il doit donc echantillonner la copie de scene
+//              EXACTEMENT a sa propre position ecran. L'algebre le confirme sur la donnee
+//              d'origine : le nuanceur pose u = st.x et le producteur GOAL pose
+//              st.x = (x - 1792) / 512, qui est precisement (ndc_x + 1) / 2 avec
+//              ndc_x = (x - 2048) / 256 ; de meme v = (1 - st.y) - (1 - 448/512)/2 vaut
+//              (2176 - y) / 256, qui est (ndc_y + 1) / 2 avec ndc_y = -(y - 2048)/128 — mais
+//              SEULEMENT si `screen-hy` vaut 112 (NTSC) et `SCISSOR_HEIGHT` 448. En PAL
+//              (`screen-hy` = 128) l'accord se rompt de 1/16 d'ecran, l'echantillonnage sort de
+//              [0,1], et `GL_CLAMP_TO_EDGE` etale la couleur du BORD : un APLAT.
+//              `mismatch` est cet ecart, mesure sur l'appareil seul.
+//   `pos`, `scale`, `st` : la donnee BRUTE que `sprite-draw-distorters` a produite pour cet
+//              eventail. `scale` est bornee a 128 par le producteur (sprite-distort.gc:215-218) :
+//              au-dela, c'est que la borne n'a pas tenu.
+void note_distort_sprite(int res,
+                         float area,
+                         float st_lo,
+                         float st_hi,
+                         float mismatch,
+                         const float* pos,
+                         const float* scale,
+                         const float* st);
+
+// L'ETAT DE L'ECHANTILLONNEUR, une fois par image ou le distorteur dessine.
+//   `fbo_status`  : `glCheckFramebufferStatus` de la cible de la recopie (0x8CD5 = complet).
+//   `blit_err`    : `glGetError` APRES `glBlitFramebuffer` (0 = la recopie a eu lieu).
+//   `samples`     : le nombre d'echantillons du framebuffer de scene. > 1 avec des formats
+//                   differents, la recopie est INTERDITE par OpenGL ES et ne fait rien.
+//   `probe_px`    : pixels compares entre la scene et sa copie (0 = pas de sonde cette image).
+//   `probe_diff`  : ceux qui different. C'est ce qui separe « texture resolue » de « repli ».
+//   `sample`      : un couple scene/copie recopie tel quel, pour que le chiffre soit lisible.
+void note_distort_frame(unsigned fbo_status,
+                        unsigned blit_err,
+                        int samples,
+                        int sprites,
+                        int draws,
+                        int probe_px,
+                        int probe_diff,
+                        int probe_maxdelta,
+                        const char* sample);
+
+// Vrai quand le HARNAIS mesure CET item. La sonde de recopie de scene coute deux lectures de
+// pixels (donc deux arrets du pipeline) : elle ne doit pas tourner dans le binaire que l'owner
+// joue. Les compteurs qui ne coutent rien, eux, restent toujours actifs.
+bool probe_enabled();
+
+// LA TAILLE DU QUAD DESSINE — la seconde lecture de « GRANDE FORME ».
+// ------------------------------------------------------------------
+// Le distorteur ecarte, il reste une facon d'obtenir une grande forme coloree : un QUAD de
+// sprite dont l'echelle a enfle. `scale-x` et `scale-y` sont VIEILLIS a chaque image, et sur
+// arm64 ce vieillissement passe par un chemin NEON (`sparticle.cpp:683-742`) qui n'existe pas
+// sur x86 — ou la reference scalaire (`:744-765`) tourne a sa place. Ce chemin ne borne la
+// taille QUE PAR LE BAS (`vmaxx ... vf0`, :732-733) : rien, nulle part, ne la borne par le haut.
+// Un sprite qui grandit sans fin finit par couvrir l'ecran, et il porte la couleur du feu
+// (rouge) ou son repliement a 256 (noir). L'instrument publie donc la taille REELLEMENT
+// envoyee au tampon, et nomme l'emetteur des plus grandes.
+void note_sprite_size(const char* texture_name, float sx, float sy);
+
+// Un dessin du chemin sprite et l'etat de SON echantillonneur. `resolved` faux = la texture
+// demandee n'existait pas et le seau dessine avec le damier de secours.
+void note_sprite_sampler(bool resolved);
+
 // Un tirage issu d'un site de dessin ROUGE de debug. `site` est son nom, publie tel quel.
 void note_debug_red_draw(const char* site);
 
