@@ -7,6 +7,7 @@
 
 #include "Sprite3.h"
 
+#include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/dma_helpers.h"
 
@@ -578,6 +579,59 @@ void Sprite3::distort_setup_instanced(ScopedProfilerNode& /*prof*/) {
   }
 }
 
+namespace {
+
+// fire-red-particles — L'ETAT DE L'ECHANTILLONNEUR DU DISTORTEUR, LU LA OU IL COMPTE.
+// Les deux sondes ne font que des requetes d'ETAT LIE (`GL_ACTIVE_TEXTURE`,
+// `GL_TEXTURE_BINDING_2D`) : pas de synchronisation du pipeline, et elles RESTITUENT l'unite
+// active, donc elles ne changent rien a ce qui est dessine. Elles ne tournent que quand le
+// harnais mesure CET item (`probe_enabled`), jamais dans le binaire que l'owner joue.
+
+// AU POINT DE LIAISON. Ce que `glBindTexture` va trouver comme unite active, et ce que
+// l'unite 0 — la seule que le fragment lira — porte a cet instant.
+void fire_distort_note_bind(unsigned scene_copy_tex) {
+  if (!fire_red_census::probe_enabled()) {
+    return;
+  }
+  gl_query_census::Armed _q("fire-distort-sampler");
+  GLint active = GL_TEXTURE0;
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+  GLint bound0 = 0;
+  glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound0);
+  glActiveTexture((GLenum)active);
+  fire_red_census::note_distort_bind((int)(active - GL_TEXTURE0), (unsigned)bound0,
+                                     scene_copy_tex);
+}
+
+// AU POINT DE TIRAGE, programme lie : l'unite que le sampler `framebuffer_tex` designe
+// REELLEMENT, et ce qu'elle porte. `loc` a -1 = uniforme inactif ; le fragment lit alors
+// quand meme l'unite 0, et c'est ce que la sonde suppose. On publie `loc` pour que le zero
+// soit falsifiable.
+void fire_distort_note_sampler(unsigned prog, unsigned scene_copy_tex) {
+  if (!fire_red_census::probe_enabled()) {
+    return;
+  }
+  gl_query_census::Armed _q("fire-distort-sampler");
+  GLint active = GL_TEXTURE0;
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+  const GLint loc = glGetUniformLocation((GLuint)prog, "framebuffer_tex");
+  GLint unit = 0;
+  if (loc >= 0) {
+    glGetUniformiv((GLuint)prog, loc, &unit);
+  }
+  if (unit < 0 || unit > 31) {
+    unit = 0;
+  }
+  GLint bound = 0;
+  glActiveTexture(GL_TEXTURE0 + unit);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+  glActiveTexture((GLenum)active);
+  fire_red_census::note_distort_sampler((int)loc, (int)unit, (unsigned)bound, scene_copy_tex);
+}
+
+}  // namespace
+
 /*!
  * Draws each distort sprite.
  */
@@ -630,6 +684,7 @@ void Sprite3::distort_draw(SharedRenderState* render_state, ScopedProfilerNode& 
   prof.add_draw_call();
   prof.add_tri(m_distort_stats.total_tris);
 
+  fire_distort_note_sampler((unsigned)shader->id(), (unsigned)m_distort_ogl.fbo_texture);
   glDrawElements(GL_TRIANGLE_STRIP, m_sprite_distorter_indices.size(), GL_UNSIGNED_INT, (void*)0);
 
   fire_red_census::note_distort_frame(g_fire_dz.fbo_status, g_fire_dz.blit_err, g_fire_dz.samples,
@@ -699,6 +754,7 @@ void Sprite3::distort_draw_instanced(SharedRenderState* render_state, ScopedProf
       // Draw
       prof.add_draw_call();
 
+      fire_distort_note_sampler((unsigned)shader->id(), (unsigned)m_distort_ogl.fbo_texture);
       glDrawArraysInstanced(GL_TRIANGLE_STRIP, vert_offset, num_verts, instances.size());
       fire_draws++;
     }
@@ -793,6 +849,17 @@ void Sprite3::distort_draw_common(SharedRenderState* render_state, ScopedProfile
 
   // Set up OpenGL state
   m_current_mode.set_depth_write_enable(!m_sprite_distorter_setup.zbuf.zmsk());  // zbuf
+  // fire-red-particles : ON MESURE L'ETAT HERITE, PUIS ON LE CORRIGE — dans cet ordre.
+  // Ce `glBindTexture` etait NU : il atterrissait sur l'unite de texture laissee active par le
+  // renderer precedent (`render_direct` juste au-dessus, `DirectRenderer2` choisit une unite
+  // dans [0,9]), alors que `setup_opengl_from_draw_mode` ci-dessous ne bascule sur l'unite 0
+  // qu'APRES, et que le sampler `framebuffer_tex` n'est assigne nulle part — il vaut 0 et le
+  // fragment lit TOUJOURS l'unite 0. Unite heritee != 0 => la copie de scene partait sur
+  // l'unite N et l'eventail, rendu OPAQUE par `GL_TEXTURE_SWIZZLE_A = GL_ONE`, etalait la
+  // texture d'un autre renderer. C'est le site que PARTAGENT tous les feux et tous les
+  // portails (`aux-list` -> `sprite-draw-distorters`), donc une seule ligne les couvre tous.
+  fire_distort_note_bind((unsigned)m_distort_ogl.fbo_texture);
+  glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_distort_ogl.fbo_texture);                       // tex0
   m_current_mode.set_filt_enable(m_sprite_distorter_setup.tex1.mmag());          // tex1
   update_mode_from_alpha1(m_sprite_distorter_setup.alpha.data, m_current_mode);  // alpha1

@@ -189,6 +189,30 @@ bool probe_enabled();
 // envoyee au tampon, et nomme l'emetteur des plus grandes.
 void note_sprite_size(const char* texture_name, float sx, float sy);
 
+// L'ECHANTILLONNEUR DU DISTORTEUR, LU AU POINT DE LECTURE.
+// -------------------------------------------------------
+// `distort_draw_common` lie la copie de scene par un `glBindTexture` NU
+// (`Sprite3_Distort.cpp`) : il atterrit sur l'unite de texture HERITEE du renderer precedent,
+// alors que `setup_opengl_from_draw_mode` ne bascule sur l'unite 0 qu'APRES, et que le sampler
+// `framebuffer_tex` n'est assigne nulle part (`Shader.cpp` ne traite que `tex_T1..tex_T29`,
+// la boucle part a i=1) — il vaut donc 0 et le fragment lit TOUJOURS l'unite 0. Quand l'unite
+// heritee n'est pas 0, la copie de scene part sur l'unite N et l'eventail — opaque, parce que
+// `GL_TEXTURE_SWIZZLE_A = GL_ONE` force son alpha a 1 — etale la texture qu'un AUTRE renderer
+// a laissee sur l'unite 0. C'est le site PARTAGE par tous les feux et tous les portails
+// (`aux-list` -> `sprite-draw-distorters`), et la signature est exactement celle decrite : un
+// aplat polygonal opaque par-dessus un effet correct dessous.
+//
+// Deux mesures, pas une :
+//  * `note_distort_bind` — AU POINT DE LIAISON, l'unite heritee et ce que l'unite 0 portait
+//    alors. C'est la REPRODUCTION : elle compte les dessins qui auraient echantillonne une
+//    texture etrangere.
+//  * `note_distort_sampler` — AU POINT DE TIRAGE, programme lie, ce que l'unite REELLEMENT
+//    lue par le sampler porte, compare a la copie de scene. C'est la grandeur de la PORTE.
+// `loc` est publie tel quel : un uniforme inactif rend -1 et lit quand meme l'unite 0 ; sans
+// ce chiffre, un « 0 mismatch » ne se distingue pas d'une localisation jamais trouvee.
+void note_distort_bind(int inherited_unit, unsigned bound_on_unit0, unsigned scene_copy_tex);
+void note_distort_sampler(int loc, int sampler_unit, unsigned bound, unsigned scene_copy_tex);
+
 // Un dessin du chemin sprite et l'etat de SON echantillonneur. `resolved` faux = la texture
 // demandee n'existait pas et le seau dessine avec le damier de secours.
 void note_sprite_sampler(bool resolved);

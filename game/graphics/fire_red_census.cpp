@@ -440,6 +440,17 @@ int g_dz_probe_maxdelta = 0;
 char g_dz_probe_sample[96] = {0};
 char g_dz_worst[160] = {0};
 double g_dz_worst_area = -1.0;
+// L'ECHANTILLONNEUR DU DISTORTEUR, AUX DEUX POINTS. Voir l'en-tete pour le POURQUOI.
+uint64_t g_dz_bind_seen = 0;        // liaisons observees (denominateur de la reproduction)
+uint64_t g_dz_bind_unit_bad = 0;    // ... dont l'unite HERITEE n'etait pas GL_TEXTURE0
+uint64_t g_dz_bind_foreign = 0;     // ... et ou l'unite 0 portait une texture ETRANGERE
+int g_dz_bind_unit_last = -1;       // la derniere unite heritee vue
+unsigned g_dz_bind_foreign_tex = 0; // le nom GL de la derniere texture etrangere vue
+uint64_t g_dz_smp_draws = 0;        // tirages observes, programme lie (denominateur de la porte)
+uint64_t g_dz_smp_bad = 0;          // ... dont l'unite LUE ne portait pas la copie de scene
+int g_dz_smp_loc = -2;              // localisation de `framebuffer_tex` (-1 = uniforme inactif)
+int g_dz_smp_unit = -1;             // l'unite que le sampler designe
+unsigned g_dz_smp_bound = 0, g_dz_smp_want = 0;  // ce qu'elle portait / ce qu'elle devait porter
 // LE CHEMIN SPRITE ORDINAIRE : combien de dessins, combien sur le damier de secours.
 uint64_t g_spr_draws = 0, g_spr_fallback = 0;
 // LA TAILLE DES QUADS. `scale-x`/`scale-y` sont en unites GOAL : 4096 = 1 metre.
@@ -468,9 +479,34 @@ void publish_overdraw() {
   // `st_oob` n'y est PAS : la console d'origine borne elle aussi la region (region-clamp,
   // sprite-distort.gc:110-114), donc un rim qui sort de [0,1] au bord de l'ecran est le
   // comportement voulu. Il reste publie comme temoin.
+  //   * L'ECHANTILLONNEUR DU DISTORTEUR LU AU POINT DE TIRAGE (`g_dz_smp_bad`) : le seul
+  //     terme qui lise ce que le nuanceur echantillonne VRAIMENT. Les six autres termes
+  //     peuvent tous valoir zero pendant que l'eventail etale la texture d'un autre renderer
+  //     — c'est exactement ce qui a rendu cette porte verte deux fois sur un defaut intact.
   autoport_proof::publish("fire_foreign_overdraw",
                           g_dz_probe_bad + g_dz_fbo_bad + g_dz_blit_err + g_spr_fallback +
-                              g_dz_mismatch_off + g_dz_scale_over + g_dz_res_oor);
+                              g_dz_mismatch_off + g_dz_scale_over + g_dz_res_oor + g_dz_smp_bad);
+  // LA REPRODUCTION, ET SON DENOMINATEUR. `bind_unit_bad` compte les liaisons faites sur une
+  // unite heritee autre que 0 : sans la correction, ces dessins-la echantillonnaient l'unite 0,
+  // c'est-a-dire la texture laissee par le renderer precedent. `bind_foreign` est le
+  // sous-ensemble ou cette texture existait reellement (ni 0, ni la copie de scene).
+  autoport_proof::publish("fire_distort_bind_seen", g_dz_bind_seen);
+  autoport_proof::publish("fire_distort_bind_unit_bad", g_dz_bind_unit_bad);
+  autoport_proof::publish("fire_distort_bind_foreign", g_dz_bind_foreign);
+  autoport_proof::publish("fire_distort_bind_unit_last",
+                          (uint64_t)(g_dz_bind_unit_last < 0 ? 0 : g_dz_bind_unit_last));
+  autoport_proof::publish("fire_distort_bind_foreign_tex", (uint64_t)g_dz_bind_foreign_tex);
+  // LA PORTE, ET DE QUOI LA FALSIFIER. `smp_loc` a -1 veut dire que `framebuffer_tex` est un
+  // uniforme INACTIF : il rend quand meme l'unite 0, mais un zero de `smp_bad` obtenu sans
+  // jamais avoir trouve la localisation ne prouverait rien. `smp_draws` est le denominateur.
+  autoport_proof::publish("fire_distort_sampler_draws", g_dz_smp_draws);
+  autoport_proof::publish("fire_distort_sampler_bad", g_dz_smp_bad);
+  autoport_proof::publish("fire_distort_sampler_loc",
+                          (uint64_t)(g_dz_smp_loc < 0 ? 999999 : g_dz_smp_loc));
+  autoport_proof::publish("fire_distort_sampler_unit",
+                          (uint64_t)(g_dz_smp_unit < 0 ? 999999 : g_dz_smp_unit));
+  autoport_proof::publish("fire_distort_sampler_bound", (uint64_t)g_dz_smp_bound);
+  autoport_proof::publish("fire_distort_sampler_want", (uint64_t)g_dz_smp_want);
   // LES DENOMINATEURS. Sans eux, un zero peut n'etre qu'une condition absente : un
   // `fire_distort_frames=0` veut dire « aucun feu, aucun portail a l'ecran », pas « rien a
   // signaler ».
@@ -657,6 +693,37 @@ void note_distort_frame(unsigned fbo_status,
     if (sample && sample[0]) {
       std::snprintf(g_dz_probe_sample, sizeof(g_dz_probe_sample), "%s", sample);
     }
+  }
+}
+
+void note_distort_bind(int inherited_unit, unsigned bound_on_unit0, unsigned scene_copy_tex) {
+  if (!armed()) {
+    return;
+  }
+  g_dz_bind_seen++;
+  g_dz_bind_unit_last = inherited_unit;
+  if (inherited_unit != 0) {
+    g_dz_bind_unit_bad++;
+    // L'unite 0 est celle que le fragment lira. Si elle porte autre chose que la copie de
+    // scene et qu'elle n'est pas vide, l'eventail aurait etale CETTE texture-la.
+    if (bound_on_unit0 != 0 && bound_on_unit0 != scene_copy_tex) {
+      g_dz_bind_foreign++;
+      g_dz_bind_foreign_tex = bound_on_unit0;
+    }
+  }
+}
+
+void note_distort_sampler(int loc, int sampler_unit, unsigned bound, unsigned scene_copy_tex) {
+  if (!armed()) {
+    return;
+  }
+  g_dz_smp_draws++;
+  g_dz_smp_loc = loc;
+  g_dz_smp_unit = sampler_unit;
+  g_dz_smp_bound = bound;
+  g_dz_smp_want = scene_copy_tex;
+  if (bound != scene_copy_tex) {
+    g_dz_smp_bad++;
   }
 }
 
