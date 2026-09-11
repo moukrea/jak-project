@@ -2973,8 +2973,8 @@ items:
   build: build du 2026-07-22, remplace depuis
 - id: recharged-naming
   feature: Le nom des jeux et de la collection Recharged
-  status: to-test
-  priority: 21
+  status: validated
+  priority: null
   owner_feedback:
   - date: '2026-09-11'
     text: 'JE SAIS PAS DE QUOI IL S''AGIT VRAIMENT... « Jak and Daxter: The Precursor Legacy » doit etre
@@ -2984,6 +2984,8 @@ items:
       « Jak et Daxter: Recharges » en francais par exemple, non, pour toutes les langues c''est « Jak
       and Daxter: Recharged », la fenetre de jeu sur PC doit etre titree « Jak and Daxter: Recharged »,
       l''APK Android pareil, etc etc. Pas de mention de OpenGoal dans les titres ou autres.'
+  - date: '2026-09-11'
+    text: Le nom du jeu c'est validé aussi
   gate:
     key: naming_wrong_sites
     op: ==
@@ -2995,7 +2997,10 @@ items:
   history:
   - Grecharged-naming
   prompt: prompts/item-recharged-naming.md
-  owner_ok: null
+  owner_ok:
+    date: '2026-09-11'
+    text: Le nom du jeu c'est validé aussi
+    build_sha: 3a2358f8f13c4397
   where: 'partout ou le jeu se nomme — icone du lanceur, titre de la fenetre PC, ecran-titre, menus, credits
     : « Jak and Daxter: Recharged », le MEME texte dans toutes les langues.'
   delivered: '2026-09-11'
