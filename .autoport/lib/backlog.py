@@ -200,9 +200,29 @@ class Backlog:
 
     # ---------------------------------------------------------------- ecriture
     def set_status(self, item_id, status, **fields):
-        """Ecriture atomique : verrou, relecture du disque, modification, rename."""
+        """Ecriture atomique : verrou, relecture du disque, modification, rename.
+
+        2026-09-11 — UN VERDICT NE SE PERD PLUS. Le superviseur a supprime deux verdicts centraux
+        de hdr-display-output en raccourcissant une consigne ; l'item est ensuite passe 15/15
+        QUATRE FOIS sans que la plainte de fond de l'owner soit mesuree. Owner : « faut plus que ca
+        se produise ce genre de perte ». Le lint le SIGNALAIT — encore fallait-il le lire. Le refus
+        est donc ici, au point d'ecriture : un livrable qui perd des verdicts n'est pas ecrit.
+        Retrait volontaire : passer `allow_verdict_drop=True`, qui refige le releve.
+        """
         if status not in STATUSES:
             raise BacklogError("statut inconnu : %s (attendu %s)" % (status, "|".join(STATUSES)))
+        autorise = bool(fields.pop("allow_verdict_drop", False))
+        if "deliverable" in fields and not autorise:
+            ancien = self.get(item_id)
+            ref = self._verdict_ref().get(item_id)
+            if ancien is not None and ref is not None:
+                neuf = self.verdict_count({"deliverable": fields.get("deliverable")})
+                if neuf < ref:
+                    raise BacklogError(
+                        "REFUS : le livrable de %s passerait de %d a %d verdicts. Un verdict "
+                        "supprime est un defaut que plus rien ne mesure. Si le retrait est "
+                        "VOULU, repasse avec allow_verdict_drop=True et dis pourquoi dans le "
+                        "commit." % (item_id, ref, neuf))
         with _Lock(self.path):
             fresh = _read(self.path)
             target = None
@@ -220,7 +240,29 @@ class Backlog:
             _atomic_write(self.path, _dump(fresh))
         self.items = fresh["items"]
         self.version = fresh.get("version", 1)
+        if "deliverable" in fields:
+            self._verdict_bump(item_id, self.verdict_count(self.get(item_id) or {}), autorise)
         return self.get(item_id)
+
+    # ---- releve des verdicts : le nombre ne descend jamais tout seul -------------------------
+    def _verdict_ref_path(self):
+        return os.path.join(os.path.dirname(self.path), ".verdict_counts.json")
+
+    def _verdict_ref(self):
+        try:
+            with open(self._verdict_ref_path(), encoding="utf-8") as fh:
+                return json.load(fh)
+        except Exception:  # noqa: BLE001 — pas de releve : rien a comparer, on laisse passer
+            return {}
+
+    def _verdict_bump(self, item_id, n, force):
+        try:
+            d = self._verdict_ref()
+            if force or n > d.get(item_id, -1):
+                d[item_id] = n
+                _atomic_write(self._verdict_ref_path(), json.dumps(d, indent=0, sort_keys=True))
+        except Exception:  # noqa: BLE001
+            pass
 
     def add_owner_feedback(self, item_id, date, text):
         it = self.get(item_id)

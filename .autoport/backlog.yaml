@@ -4658,7 +4658,7 @@ items:
   supervisor_recovery: true
 - id: hdr-display-output
   feature: Sortir un vrai signal HDR sur les ecrans qui le supportent
-  status: open
+  status: in-progress
   priority: 18
   game: jak1
   gate:
@@ -7062,7 +7062,7 @@ items:
     quel autre feu ou portail — l''effet est partout.'
   out_of_scope: 'Ne pas retoucher les particules d''origine ni leur cadence : on retire ce qui n''a rien
     a faire la, on ne redessine pas le feu.'
-  status: in-progress
+  status: to-test
   game: jak1
   depends_on: []
   max_turns: 800
@@ -7091,7 +7091,7 @@ items:
     text: tu as le Redmi a disposition, pas le Honor, ne l'oublies pas !
   - date: '2026-09-11'
     text: si le defaut se reproduit pas sur Redmi, passe a autre chose plutot que bloquer
-  delivered: null
+  delivered: '2026-09-11'
   device_serial: eae4df44
 - id: lighting-legacy-purge
   priority: 17
