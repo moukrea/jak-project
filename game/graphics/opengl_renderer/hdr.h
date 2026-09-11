@@ -155,6 +155,73 @@ bool input_source_seen(const char* name);
 // "nom=format:octets" separes par des virgules, dans l'ordre alphabetique. Vide -> "-".
 const char* input_census_list();
 
+// =========================== CHANTIER A — `hdr-source-range` ==================================
+// LE CHANTIER A du plan HDR (PLAN.md §7.1) : le ciel et le halo cessent d'ecreter a 1,0.
+//
+// CE QU'EST UN « ETAGE DE SOURCE », ET POURQUOI CE N'EST PAS TOUTE ENTREE RECENSEE.
+// --------------------------------------------------------------------------------
+// Le recensement ci-dessus compte TOUTES les cibles que nous creons. La porte de ce chantier,
+// elle, ne peut compter que les etages qui ECRETENT REELLEMENT UNE COULEUR FLOTTANTE : une
+// cible dont le contenu est COMPOSE par le moteur (addition de couches, filtrage, rasterisation)
+// et dont le format decide si cette composition a le droit de depasser 1,0.
+//
+// Deux familles d'entrees n'entrent donc pas dans ce compte, et elles sont publiees a part,
+// COMPTEES ET NOMMEES (`hdr_src_excluded`, `hdr_src_excluded_list`) — un seau « exclu » muet
+// serait indistinguable d'un oubli :
+//   * les palettes de cycle jour/nuit (`tod-palette-*`) ne sont pas des cibles de rendu : ce
+//     sont des TELEVERSEMENTS de u32 RGBA8 lus du BSP. Elargir le conteneur ne creerait aucune
+//     information ; ce qui merite de l'etre, c'est l'accumulateur d'interpolation, et il
+//     appartient a `lighting-bake` (PLAN.md §2.1).
+//   * l'occlusion ambiante (`ao-*`) est un FACTEUR borne a [0,1] par sa definition meme : il n'y
+//     a rien au-dessus de 1,0 a y perdre. Sa cible appartient a `lighting-ao-indirect`, qui la
+//     recree de toute facon.
+//
+// LE REGIME, EPINGLE ET PUBLIE. La conversion n'a lieu que sous le maitre Recharged ALLUME.
+// Sous maitre eteint, le rendu doit rester identique AU BIT au jeu d'origine (acquis
+// `lighting-origin-bitexact`) : elargir un tampon intermediaire la-bas serait une regression
+// qu'aucune porte de CE chantier ne verrait. `hdr_src_master_on` publie le regime observe.
+struct StageFormat {
+  GLenum internal_fmt = 0;  // ce qu'il faut passer en `internalformat`
+  GLenum ext_fmt = 0;       // ... en `format`
+  GLenum type = 0;          // ... en `type`
+  bool is_float = false;
+};
+
+// Le format a DEMANDER pour un etage de source. Rend le flottant quand le chantier est actif
+// (maitre Recharged allume ET bras arme), le format historique sinon — c'est ce dernier cas que
+// `proof_run.sh --off` mesure, et c'est lui qui donne le AVANT du cout en cadence.
+StageFormat source_stage_format(GLenum legacy_internal, GLenum legacy_ext, GLenum legacy_type);
+bool source_range_active();
+
+// Meme contrat que `note_input_source`, mais l'entree est marquee ETAGE : c'est elle que la
+// porte `hdr_src_clamped_stages` compte. Le format passe doit etre celui que le pilote a
+// REELLEMENT accepte, pas celui qu'on a demande.
+void note_scene_stage(const char* name, GLenum internal_fmt, int w, int h, int count);
+void note_scene_stage_indexed(const char* name, int index, GLenum internal_fmt, int w, int h);
+
+// Le pilote a refuse le flottant pour cet etage et l'appelant est retombe sur le 8 bits. On
+// compte les replis : un `hdr_src_clamped_stages` non nul doit pouvoir se lire « le pilote a
+// dit non » et pas seulement « le code ne l'a pas demande ».
+void note_stage_fallback(const char* name);
+
+// LE CIEL, MESURE LA OU L'ECRETAGE ETAIT. Le chemin CPU (celui de l'appareil : `use_sky_cpu`
+// vaut vrai par defaut) compose ses couches en entier ; il saturait a 255 avec `_mm_adds_epu8`
+// et tronquait chaque couche avec `>> 7`. Au moment de l'addition on compte DEUX choses, et il
+// en faut deux : `over_px`, les composantes dont la somme NON BORNEE depasse 1,0 (la PLAGE que
+// le 8 bits detruisait), et `differs_px`, celles que le u8 ne pouvait pas representer (la
+// PRECISION qu'il detruisait). Un `over_px` nul avec un `differs_px` nul dirait « le changement
+// ne fait rien » ; un `over_px` nul avec un `differs_px` non nul dit « il fait autre chose que
+// ce que le plan supposait », et c'est une mesure, pas une excuse.
+void note_sky_wide(uint64_t over_px,
+                   uint64_t differs_px,
+                   uint64_t seen_px,
+                   uint64_t max_x1000,
+                   uint64_t max_diff_x1000);
+
+// LE HALO. Relit le dernier etage de reduction (40x40) une image sur trente et publie ce qu'il
+// contient : pixels vus, pixels au-dessus de 1,0, maximum. Aucun blit, aucune passe ajoutee.
+void probe_glow(GLuint fbo, int w, int h, GLenum fmt);
+
 // ------------------------------ l'etat du recensement de chaine, relu par un autre module -----
 // Les memes grandeurs que `frame_end` publie deja sous `hdr_*` / `tonemap_*`. Un module qui doit
 // DECIDER sur elles (et pas seulement les publier) les lit ici, au lieu de relire un proof.txt.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/hdr.h"
 #include "game/graphics/opengl_renderer/sprite/sprite_common.h"
 
 class GlowRenderer {
@@ -123,6 +124,9 @@ class GlowRenderer {
     GLuint depth_texture;
 
     DsFbo downsample_fbos[kDownsampleIterations];
+    // hdr-source-range : le format RETENU pour la sonde et les cinq reductions. Retenu, pas
+    // demande : le pilote a le dernier mot et le redimensionnement doit reprendre le MEME.
+    hdr::StageFormat stage_fmt;
   } m_ogl;
 
   struct {

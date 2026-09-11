@@ -7,6 +7,8 @@
 #include "game/graphics/opengl_renderer/AdgifHandler.h"
 #include "game/graphics/opengl_renderer/hdr.h"
 
+#include "fmt/format.h"
+
 SkyBlendGPU::SkyBlendGPU() {
   // generate textures for sky blending
   glGenFramebuffers(2, m_framebuffers);
@@ -24,22 +26,41 @@ SkyBlendGPU::SkyBlendGPU() {
     // storage and the status check below fails ("SkyTextureHandler setup
     // failed.", every A35-A40 boot log). Byte-identical on little-endian —
     // see LoaderStages.cpp (A41).
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                 0);
+    const GLenum legacy_type = GL_UNSIGNED_BYTE;
 #else
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA,
-                 GL_UNSIGNED_INT_8_8_8_8_REV, 0);
+    const GLenum legacy_type = GL_UNSIGNED_INT_8_8_8_8_REV;
 #endif
-    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
-    hdr::note_input_source_indexed("sky-blend-gpu", i, GL_RGBA8, m_sizes[i], m_sizes[i]);
+    // hdr-source-range (chantier A) : le ciel est ACCUMULE (`glBlendFunc(GL_ONE, GL_ONE)` plus
+    // bas) ; sur une cible normalisee la somme de ses couches sature a 1,0 et la richesse que
+    // l'owner reclame n'existe jamais. On demande le flottant, on RELIT ce que le pilote a
+    // accepte, et c'est ce format-la — pas celui qu'on voulait — qui entre au recensement.
+    hdr::StageFormat sf = hdr::source_stage_format(GL_RGBA8, GL_RGBA, legacy_type);
+    glTexImage2D(GL_TEXTURE_2D, 0, sf.internal_fmt, m_sizes[i], m_sizes[i], 0, sf.ext_fmt, sf.type,
+                 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_textures[i], 0);
     GLenum draw_buffers[1] = {GL_COLOR_ATTACHMENT0};
     glDrawBuffers(1, draw_buffers);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-      lg::error("SkyTextureHandler setup failed.");
+      if (sf.is_float) {
+        // Le pilote a REFUSE le flottant : on retombe sur le format historique au lieu de
+        // laisser une cible incomplete, et le repli est COMPTE. Un ecran noir se lirait comme
+        // un defaut du chantier ; un repli compte se lit pour ce qu'il est.
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_sizes[i], m_sizes[i], 0, GL_RGBA, legacy_type,
+                     0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_textures[i], 0);
+        sf.internal_fmt = GL_RGBA8;
+        sf.is_float = false;
+        hdr::note_stage_fallback(fmt::format("sky-blend-gpu-{}", i).c_str());
+      }
+      if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        lg::error("SkyTextureHandler setup failed.");
+      }
     }
+    // hdr-plan/hdr-source-range : recensement pris au SITE DE CREATION, avec le format
+    // EFFECTIF. Une liste ecrite a la main mentirait des le premier repli.
+    hdr::note_scene_stage_indexed("sky-blend-gpu", i, sf.internal_fmt, m_sizes[i], m_sizes[i]);
   }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -172,6 +193,13 @@ SkyBlendStats SkyBlendGPU::do_sky_blends(DmaFollower& dma,
     glEnable(GL_BLEND);
 
     // will add.
+    // hdr-source-range : l'accumulation reste `GL_ONE, GL_ONE`. Sur la cible flottante le RGB
+    // n'est plus borne a 1,0 — c'est le chantier — mais l'ALPHA non plus, alors qu'il est un
+    // POIDS DE MELANGE. Le melange a fonction fixe n'offre aucun facteur qui le bornerait sans
+    // changer sa valeur la ou il ne saturait pas (`GL_SRC_ALPHA_SATURATE` rend 1 sur le canal
+    // alpha : il ne bornerait rien). Ce chemin n'est PAS celui de l'appareil — `use_sky_cpu`
+    // vaut vrai par defaut (BucketRenderer.h:43) et seul un interrupteur ImGui le bascule — et
+    // le chemin CPU, lui, borne son alpha explicitement. Consigne dans FINDINGS.
     glBlendFunc(GL_ONE, GL_ONE);
 
     // setup draw data

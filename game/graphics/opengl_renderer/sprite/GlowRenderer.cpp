@@ -188,10 +188,13 @@ GlowRenderer::GlowRenderer() {
   glGenTextures(1, &m_ogl.probe_fbo_depth_tex);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_ogl.probe_fbo_rgba_tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 0, GL_RGBA,
-               GL_UNSIGNED_BYTE, nullptr);
-  // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
-  hdr::note_input_source("glow-probe", GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 1);
+  // hdr-source-range (chantier A) : la sonde et les cinq reductions passent en flottant. Ce que
+  // le halo y perdait n'est pas de la PLAGE mais de la PRECISION — `glow_draw.vert:95` lit
+  // `discard_flag` dans l'alpha du dernier etage, quantifie a 1/255. Le format effectif est
+  // relu, jamais suppose : `m_ogl.stage_fmt` porte ce que le pilote a accepte.
+  m_ogl.stage_fmt = hdr::source_stage_format(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+  glTexImage2D(GL_TEXTURE_2D, 0, m_ogl.stage_fmt.internal_fmt, m_ogl.probe_fbo_w,
+               m_ogl.probe_fbo_h, 0, m_ogl.stage_fmt.ext_fmt, m_ogl.stage_fmt.type, nullptr);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          m_ogl.probe_fbo_rgba_tex, 0);
 
@@ -218,6 +221,24 @@ GlowRenderer::GlowRenderer() {
   GLenum render_targets[1] = {GL_COLOR_ATTACHMENT0};
   glDrawBuffers(1, render_targets);
   auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status != GL_FRAMEBUFFER_COMPLETE && m_ogl.stage_fmt.is_float) {
+    // Le pilote a REFUSE le flottant. Un `ASSERT` ici tuerait le processus sur l'appareil et le
+    // symptome ne ressemblerait pas a sa cause : on retombe sur le format historique, on COMPTE
+    // le repli, et la porte lira un etage ecretant au lieu d'un journal vide.
+    m_ogl.stage_fmt = hdr::source_stage_format(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+    m_ogl.stage_fmt.internal_fmt = GL_RGBA8;
+    m_ogl.stage_fmt.ext_fmt = GL_RGBA;
+    m_ogl.stage_fmt.type = GL_UNSIGNED_BYTE;
+    m_ogl.stage_fmt.is_float = false;
+    hdr::note_stage_fallback("glow-probe");
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                           m_ogl.probe_fbo_rgba_tex, 0);
+    status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  }
+  hdr::note_scene_stage("glow-probe", m_ogl.stage_fmt.internal_fmt, m_ogl.probe_fbo_w,
+                        m_ogl.probe_fbo_h, 1);
   ASSERT(status == GL_FRAMEBUFFER_COMPLETE);
 
   // downsample fbo setup: each will hold a grid of probes.
@@ -230,11 +251,11 @@ GlowRenderer::GlowRenderer() {
     glGenTextures(1, &m_ogl.downsample_fbos[i].tex);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_ogl.downsample_fbos[i].tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ds_size * kDownsampleBatchWidth,
-                 ds_size * kDownsampleBatchWidth, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
-    hdr::note_input_source_indexed("glow-downsample", i, GL_RGBA8,
-                                   ds_size * kDownsampleBatchWidth, ds_size * kDownsampleBatchWidth);
+    const int ds_px = ds_size * kDownsampleBatchWidth;
+    glTexImage2D(GL_TEXTURE_2D, 0, m_ogl.stage_fmt.internal_fmt, ds_px, ds_px, 0,
+                 m_ogl.stage_fmt.ext_fmt, m_ogl.stage_fmt.type, nullptr);
+    hdr::note_scene_stage_indexed("glow-downsample", i, m_ogl.stage_fmt.internal_fmt, ds_px,
+                                  ds_px);
 
     if (i == 0) {
       glGenRenderbuffers(1, &m_ogl.first_ds_depth_rb);
@@ -547,10 +568,13 @@ void GlowRenderer::blit_depth(SharedRenderState* render_state) {
     m_ogl.probe_fbo_h = render_state->render_fb_h;
 
     glBindTexture(GL_TEXTURE_2D, m_ogl.probe_fbo_rgba_tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, NULL);
-    // hdr-plan : recensement des entrees 8 bits du chemin de scene. N'a aucun effet sur le rendu.
-    hdr::note_input_source("glow-probe", GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 1);
+    // Le redimensionnement REFORMATE la sonde : il doit reprendre le format RETENU a la
+    // construction, sinon un simple changement de resolution la ferait retomber en 8 bits sans
+    // que rien ne le dise.
+    glTexImage2D(GL_TEXTURE_2D, 0, m_ogl.stage_fmt.internal_fmt, m_ogl.probe_fbo_w,
+                 m_ogl.probe_fbo_h, 0, m_ogl.stage_fmt.ext_fmt, m_ogl.stage_fmt.type, NULL);
+    hdr::note_scene_stage("glow-probe", m_ogl.stage_fmt.internal_fmt, m_ogl.probe_fbo_w,
+                          m_ogl.probe_fbo_h, 1);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glBindTexture(GL_TEXTURE_2D, m_ogl.probe_fbo_depth_tex);
@@ -569,10 +593,13 @@ void GlowRenderer::blit_depth(SharedRenderState* render_state) {
     glBindTexture(GL_TEXTURE_2D, 0);
   }
 
-  // lighting-hdr : lecture de la scene par un EFFET (hors chemin d'affichage). La cible est
-  // 8 bits : quand la scene est flottante, l'effet travaille sur une image ECRETEE.
-  hdr::note_aux_scene_read("GlowRenderer:probe-copy", render_state->render_fb_color_format,
-                           GL_RGBA8);
+  // hdr-source-range : ce site declarait une lecture de la COULEUR de scene. Le blit ci-dessous
+  // ne copie que `GL_DEPTH_BUFFER_BIT` — le halo ne lit JAMAIS la couleur de la scene. On
+  // declare donc la profondeur, qui est ce qui traverse reellement, et la cible est celle que le
+  // pilote a retenue. Le recensement de `lighting-hdr` comptait ici une compression qui
+  // n'existe pas.
+  hdr::note_aux_scene_read("GlowRenderer:probe-depth-copy", GL_DEPTH24_STENCIL8,
+                           GL_DEPTH24_STENCIL8);
   glBindFramebuffer(GL_READ_FRAMEBUFFER, render_state->render_fb);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_ogl.probe_fbo);
 
@@ -632,6 +659,12 @@ void GlowRenderer::downsample_chain(SharedRenderState* render_state,
     // the grid fill order is the same as the downsample order, so we don't need to do all cells
     // if we aren't using all sprites.
     glDrawElements(GL_TRIANGLE_STRIP, num_sprites * 5, GL_UNSIGNED_INT, nullptr);
+  }
+  // hdr-source-range : le DERNIER etage (40x40 par defaut) porte ce que le halo transporte
+  // vraiment. On le relit une image sur trente, sans passe ajoutee ni blit.
+  {
+    const auto& last = m_ogl.downsample_fbos[kDownsampleIterations - 1];
+    hdr::probe_glow(last.fbo, last.size, last.size, m_ogl.stage_fmt.internal_fmt);
   }
   glViewport(old_viewport[0], old_viewport[1], old_viewport[2], old_viewport[3]);
 }

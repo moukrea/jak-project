@@ -44,9 +44,21 @@ constexpr const char* kStudyId = "hdr-study";
 // de la seule mesure qui etablit que le tampon de calcul contient vraiment de la marge.
 constexpr const char* kPlanId = "hdr-plan";
 
+// LE CHANTIER A (`hdr-source-range`). Contrairement aux trois ci-dessus, celui-ci CHANGE le
+// rendu : il eleve le ciel et le halo en flottant. Son regime est donc epingle deux fois — le
+// maitre Recharged allume (sous maitre eteint le rendu d'origine doit rester identique au bit)
+// et le bras arme (c'est lui que `proof_run.sh --off` renverse pour donner le AVANT).
+constexpr const char* kSourceRangeId = "hdr-source-range";
+
 bool instrumented() {
   return autoport_proof::feature_is(kItemId) || autoport_proof::feature_is(kStudyId) ||
          autoport_proof::feature_is(kPlanId);
+}
+
+// Le harnais mesure-t-il le chantier A ? Ne decide QUE de la publication du bloc `hdr_src_*`
+// et du `hits=` de cet item — jamais de ce que le jeu dessine (ca, c'est `source_range_active`).
+bool source_range_measuring() {
+  return autoport_proof::feature_is(kSourceRangeId);
 }
 
 thread_local bool s_frame_active = false;
@@ -122,6 +134,9 @@ struct InputSource {
   int w = 0, h = 0, count = 0;
   int bits = 0;             // bits par canal, 0 = format hors table (defaut d'instrument)
   uint64_t bytes = 0;
+  // chantier A : cette entree est-elle un ETAGE (une cible dont le CONTENU est compose par le
+  // moteur, et dont le format decide si la composition a le droit de depasser 1,0) ?
+  bool stage = false;
 };
 std::map<std::string, InputSource> s_inputs;
 std::string s_input_list_cache;
@@ -663,6 +678,256 @@ const char* input_census_list() {
   return s_input_list_cache.c_str();
 }
 
+// ============================ CHANTIER A — `hdr-source-range` ================================
+// Le ciel et le halo cessent d'ecreter a 1,0. Tout ce qui suit est de ce chantier.
+
+namespace {
+// Le halo, relu au dernier etage de reduction. Ce sont des compteurs, pas des verdicts.
+uint64_t s_glow_px = 0, s_glow_overbright = 0, s_glow_max_x1000 = 0, s_glow_frames = 0;
+// Publie decale de +2 sous `hdr_src_glow_state` : 0 = cible 8 bits (rien a compter),
+// 1 = relecture refusee par le pilote, 2 = jamais tente, 3 = a tourne.
+int s_glow_state = 0;
+// Le ciel CPU, compte AU SITE DE L'ADDITION — la ou `_mm_adds_epu8` saturait.
+uint64_t s_sky_px = 0, s_sky_overbright = 0, s_sky_max_x1000 = 0;
+uint64_t s_sky_differs = 0, s_sky_max_diff_x1000 = 0;
+uint64_t s_stage_fallbacks = 0;
+std::string s_stage_list_cache, s_clamped_list_cache, s_excluded_list_cache;
+uint64_t s_src_frames = 0;
+}  // namespace
+
+bool source_range_active() {
+  // DEUX termes, MEME branche : le regime (maitre Recharged) et le bras (ablation). Le second
+  // seul laisserait le bras desarme indistinguable d'une course a maitre eteint.
+  return Gfx::recharged_master_active() && autoport_proof::armed_for(kSourceRangeId);
+}
+
+StageFormat source_stage_format(GLenum legacy_internal, GLenum legacy_ext, GLenum legacy_type) {
+  StageFormat f;
+  if (source_range_active()) {
+    // RGBA16F est le SEUL candidat sur GLES 3.2 : il y est color-renderable de droit, alors que
+    // RGBA32F exige EXT_color_buffer_float et que R11F_G11F_B10F n'a pas d'alpha (six sites du
+    // moteur utilisent GL_DST_ALPHA — voir l'echelle de repli du tampon de scene plus haut).
+    // Un format DIMENSIONNE est obligatoire : GLES refuse un flottant non dimensionne.
+    f.internal_fmt = GL_RGBA16F;
+    f.ext_fmt = GL_RGBA;
+    f.type = GL_HALF_FLOAT;
+    f.is_float = true;
+    return f;
+  }
+  f.internal_fmt = legacy_internal;
+  f.ext_fmt = legacy_ext;
+  f.type = legacy_type;
+  f.is_float = false;
+  return f;
+}
+
+void note_scene_stage(const char* name, GLenum internal_fmt, int w, int h, int count) {
+  note_input_source(name, internal_fmt, w, h, count);
+  auto it = s_inputs.find(name ? name : "");
+  if (it != s_inputs.end()) {
+    it->second.stage = true;
+  }
+}
+
+void note_scene_stage_indexed(const char* name, int index, GLenum internal_fmt, int w, int h) {
+  if (!name || !name[0]) {
+    return;
+  }
+  const std::string key = std::string(name) + "-" + std::to_string(index);
+  note_scene_stage(key.c_str(), internal_fmt, w, h, 1);
+}
+
+void note_stage_fallback(const char* name) {
+  // Le nom sert au journal : l'appelant replie AVANT de recenser, donc l'entree n'existe pas
+  // encore. C'est le COMPTE qui est publie, et le format effectif recense juste apres le dira.
+  lg::warn("[hdr-source-range] flottant refuse par le pilote pour {}", name ? name : "?");
+  s_stage_fallbacks++;
+}
+
+void note_sky_wide(uint64_t over_px,
+                   uint64_t differs_px,
+                   uint64_t seen_px,
+                   uint64_t max_x1000,
+                   uint64_t max_diff_x1000) {
+  s_sky_px += seen_px;
+  s_sky_overbright += over_px;
+  s_sky_differs += differs_px;
+  if (max_x1000 > s_sky_max_x1000) {
+    s_sky_max_x1000 = max_x1000;
+  }
+  if (max_diff_x1000 > s_sky_max_diff_x1000) {
+    s_sky_max_diff_x1000 = max_diff_x1000;
+  }
+}
+
+void probe_glow(GLuint fbo, int w, int h, GLenum fmt) {
+  // Relecture DIRECTE du dernier etage (40x40 par defaut) : pas de blit, pas de passe ajoutee.
+  // Hors flottant il n'y a rien a mesurer — la cible ne peut pas porter plus de 1,0 — et on le
+  // dit par `hdr_src_glow_state`, jamais par un zero muet.
+  if (!source_range_measuring() || w <= 0 || h <= 0 || (size_t)w * h > 65536u) {
+    return;
+  }
+  if (!format_is_float(fmt)) {
+    s_glow_state = -2;  // cible 8 bits : l'instrument a tourne, il n'y avait rien a compter
+    return;
+  }
+  if ((s_frames % kProbeEvery) != 0) {
+    return;
+  }
+  gl_query_census::Armed _ap("hdr-src-glow-probe");
+  // On RESTAURE la liaison : cette sonde s'insere au milieu d'une passe de rendu, et une cible
+  // laissee liee rend une image noire dont la cause ne ressemble pas a sa cause.
+  GLint old_read = 0, old_draw = 0;
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &old_read);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &old_draw);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+  GLint read_fmt = 0, read_type = 0;
+  glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &read_fmt);
+  glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &read_type);
+  const size_t n = (size_t)w * (size_t)h * 4;
+  std::vector<float> px;
+  bool ok = false;
+  if (read_fmt == GL_RGBA && read_type == GL_HALF_FLOAT) {
+    std::vector<uint16_t> raw(n);
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_HALF_FLOAT, raw.data());
+    ok = (glGetError() == GL_NO_ERROR);
+    px.resize(n);
+    for (size_t i = 0; i < n; i++) {
+      px[i] = half_to_float(raw[i]);
+    }
+  } else {
+    px.resize(n);
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, px.data());
+    ok = (glGetError() == GL_NO_ERROR);
+  }
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)old_read);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)old_draw);
+  if (!ok) {
+    s_glow_state = -1;
+    return;
+  }
+  s_glow_state = 1;
+  s_glow_frames++;
+  for (size_t i = 0; i + 3 < px.size(); i += 4) {
+    s_glow_px++;
+    float mx = 0.f;
+    for (int c = 0; c < 3; c++) {
+      const float v = px[i + c];
+      if (std::isfinite(v) && v > mx) {
+        mx = v;
+      }
+    }
+    if (mx > 1.f) {
+      s_glow_overbright++;
+    }
+    const uint64_t mx1000 = (uint64_t)(mx * 1000.f + 0.5f);
+    if (mx1000 > s_glow_max_x1000) {
+      s_glow_max_x1000 = mx1000;
+    }
+  }
+}
+
+namespace {
+// LA PORTE. Elle compte les ETAGES qui ecretent, et publie DANS LE MEME SOUFFLE le denominateur
+// (`hdr_src_stages_seen`), la liste des etages, celle des coupables, et le seau EXCLU nomme.
+// Un zero sur un denominateur nul n'est pas « aucun ecretage » : c'est « rien inspecte », et
+// c'est la faute que cette publication rend impossible a commettre en silence.
+void publish_source_range() {
+  if (!source_range_measuring()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  s_src_frames++;
+  if ((s_src_frames % 30) != 1) {
+    return;
+  }
+  uint64_t stages_seen = 0, stages_clamped = 0, stages_float = 0, excluded = 0;
+  uint64_t stage_bytes = 0;
+  s_stage_list_cache.clear();
+  s_clamped_list_cache.clear();
+  s_excluded_list_cache.clear();
+  for (const auto& [name, e] : s_inputs) {
+    std::string entry = name + "=" + format_name(e.fmt);
+    if (!e.stage) {
+      excluded++;
+      if (!s_excluded_list_cache.empty()) {
+        s_excluded_list_cache += ",";
+      }
+      s_excluded_list_cache += entry;
+      continue;
+    }
+    stages_seen++;
+    stage_bytes += e.bytes;
+    if (!s_stage_list_cache.empty()) {
+      s_stage_list_cache += ",";
+    }
+    s_stage_list_cache += entry;
+    if (format_is_float(e.fmt)) {
+      stages_float++;
+    } else {
+      stages_clamped++;
+      if (!s_clamped_list_cache.empty()) {
+        s_clamped_list_cache += ",";
+      }
+      s_clamped_list_cache += entry;
+    }
+  }
+  // LE GESTE DE CE CHANTIER : `note_hit` ne compte que sous le bras ARME, c'est ce qui rend
+  // l'ablation lisible (`armed=0 hits=0`). `hits` est partage par tout le binaire : on ne
+  // l'incremente que sous notre propre item.
+  autoport_proof::note_hit();
+
+  autoport_proof::publish("hdr_src_clamped_stages", stages_clamped);
+  autoport_proof::publish("hdr_src_stages_seen", stages_seen);
+  autoport_proof::publish("hdr_src_stages_float", stages_float);
+  autoport_proof::publish("hdr_src_stage_bytes", stage_bytes);
+  autoport_proof::publish("hdr_src_stage_fallbacks", s_stage_fallbacks);
+  autoport_proof::publish_text("hdr_src_stages_list",
+                               s_stage_list_cache.empty() ? "-" : s_stage_list_cache.c_str());
+  autoport_proof::publish_text("hdr_src_clamped_list",
+                               s_clamped_list_cache.empty() ? "-" : s_clamped_list_cache.c_str());
+  autoport_proof::publish("hdr_src_excluded", excluded);
+  autoport_proof::publish_text("hdr_src_excluded_list",
+                               s_excluded_list_cache.empty() ? "-" : s_excluded_list_cache.c_str());
+
+  // LE REGIME, PUBLIE A COTE DU VERDICT. Un `clamped_stages=0` obtenu maitre ETEINT serait
+  // obtenu par INACTION (rien n'est converti, mais rien n'est recense non plus).
+  autoport_proof::publish("hdr_src_master_on", Gfx::recharged_master_active() ? 1 : 0);
+  autoport_proof::publish("hdr_src_armed", autoport_proof::armed_for(kSourceRangeId) ? 1 : 0);
+  autoport_proof::publish("hdr_src_active", source_range_active() ? 1 : 0);
+  autoport_proof::publish_text("hdr_src_scene_fmt", format_name(scene_color_format()));
+
+  // LE DENOMINATEUR QUE L'ITEM EXIGE. Sous cet item `planning()` est faux, donc hdr_output ne
+  // publie AUCUNE cle `hdr_plan_*` : ce bloc est le seul ecrivain, il n'y a pas de course.
+  const InputCensus ic = input_census();
+  autoport_proof::publish("hdr_plan_s2_sources_seen", ic.sources_seen);
+  autoport_proof::publish("hdr_plan_s2_sources_8bit", ic.sources_8bit);
+  autoport_proof::publish("hdr_plan_s2_sources_unknown", ic.sources_unknown);
+  autoport_proof::publish("hdr_plan_s2_bytes_total", ic.bytes_total);
+  autoport_proof::publish("hdr_plan_s2_bytes_8bit", ic.bytes_8bit);
+  autoport_proof::publish_text("hdr_plan_s2_list", input_census_list());
+
+  // LA PLAGE REELLEMENT GAGNEE, mesuree des DEUX cotes du chantier, publiee separement. Le ciel
+  // est compte au site de l'addition CPU ; le halo est relu sur son dernier etage.
+  autoport_proof::publish("hdr_src_sky_px", s_sky_px);
+  autoport_proof::publish("hdr_src_sky_overbright_px", s_sky_overbright);
+  autoport_proof::publish("hdr_src_sky_max_x1000", s_sky_max_x1000);
+  // LE TEMOIN D'EFFET. `overbright` peut valoir zero parce que la scene n'a rien au-dessus du
+  // blanc ; `differs` ne peut valoir zero que si le conteneur ne change RIEN. Les deux sont
+  // publies avec le meme denominateur `hdr_src_sky_px`.
+  autoport_proof::publish("hdr_src_sky_differs_px", s_sky_differs);
+  autoport_proof::publish("hdr_src_sky_max_diff_x1000", s_sky_max_diff_x1000);
+  autoport_proof::publish("hdr_src_glow_px", s_glow_px);
+  autoport_proof::publish("hdr_src_glow_overbright_px", s_glow_overbright);
+  autoport_proof::publish("hdr_src_glow_max_x1000", s_glow_max_x1000);
+  autoport_proof::publish("hdr_src_glow_frames", s_glow_frames);
+  autoport_proof::publish("hdr_src_glow_state", (uint64_t)(s_glow_state + 2));
+  // `hdr_overbright_px` que l'item reclame : le HALO, et rien d'autre. Sous cet item la sonde de
+  // scene de `lighting-hdr` ne tourne pas (`instrumented()` ne nomme pas cet item), donc la
+  // valeur qu'elle publierait plus bas serait un zero d'INACTION. Un seul ecrivain par cle.
+  autoport_proof::publish("hdr_overbright_px", s_glow_overbright);
+}
+}  // namespace
+
 ChainCensus chain_census() {
   ChainCensus c;
   c.progs_scanned = s_progs.size();
@@ -776,6 +1041,9 @@ void frame_end(GLenum scene_format) {
   if (on) {
     s_chain_frames++;
   }
+  // AVANT le repli de `lighting-hdr` : ce bloc-ci a son propre item, son propre bras, et il doit
+  // publier meme quand l'autre est desarme.
+  publish_source_range();
   if (!autoport_proof::armed_for(kItemId)) {
     s_drew_this_frame = false;
     return;  // bras desarme : AUCUNE cle `hdr_*` / `tonemap_*`, comme lighting-unify
@@ -889,7 +1157,12 @@ void frame_end(GLenum scene_format) {
   autoport_proof::publish("hdr_chain_frames", s_chain_frames);
   autoport_proof::publish("hdr_frames", s_frames);
   autoport_proof::publish("hdr_master_on", Gfx::recharged_master_active() ? 1 : 0);
-  autoport_proof::publish("hdr_overbright_px", s_probe_overbright);
+  // UN SEUL ECRIVAIN PAR CLE. Sous `hdr-source-range`, cette sonde-ci ne tourne pas
+  // (`instrumented()` ne nomme pas cet item) : elle publierait un zero d'INACTION a la place de
+  // la mesure du halo. C'est le bloc du chantier A qui ecrit la cle dans ce regime-la.
+  if (!source_range_measuring()) {
+    autoport_proof::publish("hdr_overbright_px", s_probe_overbright);
+  }
   autoport_proof::publish("hdr_probe_px", s_probe_px);
   autoport_proof::publish("hdr_probe_frames", s_probe_frames);
   autoport_proof::publish("hdr_probe_max_x1000", s_probe_max_x1000);
