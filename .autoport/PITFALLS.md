@@ -845,3 +845,16 @@ Verrou : une porte qui mesure apres une bascule en jeu lit des etages 8 bits sur
 correct. Toute preuve d'un item de format publie le format EFFECTIF qu'elle a observe
 (`hdr_src_scene_fmt` et les etages), epingle au LANCEUR le reglage dont elle depend, et ne conclut
 jamais d'une bascule de menu.
+
+GUARD the-glow-renderer-is-jak2-only-on-this-port game/graphics/opengl_renderer/sprite/Sprite3_Glow.cpp corriger le halo dans GlowRenderer
+**`GlowRenderer` et `Sprite3_Glow.cpp` sont du code JAK2 : sur ce portage jak1 ils ne s'executent
+JAMAIS.** Mesure du 2026-09-11 sur eae4df44 : 9 091 images de sprites rendues, `hdr_glow_flush_calls`
+= 0, `hdr_glow_dma_enters` = 0, `hdr_glow_sprites_submitted` = 0. L'unique appelant de
+`glow_dma_and_draw` est `render_jak2` (Sprite3.cpp:1084) ; `grep -rn sprite-glow goal_src/jak1/`
+rend 0 contre 178 en jak2. TROIS correctifs de halo y ont deja ete tentes pour un defaut jak1 que
+l'owner voyait.
+Verrou : le halo que l'owner voit sur les feux et les portails de Sandover passe par
+`render_2d_group0` (parts 411/412 du feu, 1971/1968 du portail) et par le distorteur d'aux-list
+(village1-part.gc:691, village1-part2.gc:1826), qui ont compte 16 385 088 et 204 397 sprites sur la
+meme course. Avant de toucher un fichier nomme « glow », compter au POINT D'APPEL : un fichier qui
+porte le bon nom n'est pas un chemin qui tourne.

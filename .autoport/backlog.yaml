@@ -7664,7 +7664,7 @@ items:
   prompt: prompts/item-hdr-source-range.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
 - id: hdr-curve-input
-  status: in-progress
+  status: validated
   priority: 18
   game: jak1
   device: true
@@ -7706,7 +7706,7 @@ items:
   prompt: prompts/item-hdr-curve-input.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
 - id: hdr-output-regime
-  status: open
+  status: in-progress
   priority: 19
   game: jak1
   device: true
@@ -7743,7 +7743,7 @@ items:
   prompt: prompts/item-hdr-output-regime.md
   notes: 'budget : 8 essais, chantier issu du plan hdr-plan valide le 11/09 par l''owner.'
 - id: hdr-glow-range
-  status: open
+  status: validated
   priority: 18
   game: jak1
   device: true
@@ -7775,7 +7775,14 @@ items:
   max_turns: 600
   max_retries: 4
   proof_timeout: 300
-  notes: 'issu du releve du 11/09 : le chantier A a tenu sa porte sans mesurer sa moitie halo.'
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  notes: 'issu du releve du 11/09 : le chantier A a tenu sa porte sans mesurer sa moitie halo. proof_props
+    ajoute a l''essai 1 : le maitre Recharged EPINGLE (sans lui les etages de halo latchent en 8 bits
+    et la course ne mesure pas le binaire livre) et le teleport vers la hutte du Sage vert — le lieu meme
+    ou l''owner regarde le halo des feux et des portails.'
   prompt: prompts/item-hdr-glow-range.md
 - id: hdr-sky-gpu-alpha
   status: open
@@ -7813,3 +7820,69 @@ items:
   prompt: prompts/item-hdr-sky-gpu-alpha.md
   notes: 'issu des signalements du chantier A, 11/09 : defaut ouvert PAR le chantier A sur un chemin sans
     preuve.'
+- id: harness-proof-props-pin
+  status: open
+  priority: 16
+  game: jak1
+  device: false
+  owner_test: false
+  feature: Un worker doit pouvoir epingler le regime de SA course, et le verifier
+  gate:
+    key: pin_props_defects
+    op: ==
+    value: 0
+  depends_on: []
+  known_cause: |-
+    SIGNALEMENT DU 11/09 23:33 (reports/hdr-glow-range/FINDINGS.txt, dernier point). Le worker a ecrit `proof_props: debug.opengoal.recharged=0` sur son item et `proof_run.sh` a relu 1 dans la MEME minute. Il a contourne en posant la propriete depuis l'hote pendant l'amorcage et en VERIFIANT par une cle du proof (`hdr_glow_fmt_latched_float`).
+    ATTENTION — LE MECANISME QU'IL NOMME N'EST PAS ETABLI. Il accuse l'orchestrateur de reecrire `backlog.yaml` depuis sa copie memoire. La lecture du code ne le soutient PAS : `set_status` (lib/backlog.py:202) prend le verrou, RELIT le disque, ne pose que les champs passes, et reecrit ce document frais ; `load_backlog()` (orchestrator.py:438) relit a chaque tour. Aucun commit n'a touche backlog.yaml entre 23:00 et 23:35. Le premier travail est donc de REPRODUIRE la perte et de NOMMER l'ecrivain, pas de reparer le coupable suppose.
+    Constat annexe verifie : `machine_proved_to_validated` (lib/backlog.py:165) n'a AUCUN appelant, ni dans le harnais ni dans les tests — l'orchestrateur pose `validated` par `set_status` (orchestrator.py:1857 et 2026). C'est du code mort qui mute `self.items` sans ecrire ; s'il etait rebranche tel quel il ferait exactement la perte decrite.
+  deliverable: |-
+    `pin_props_defects` = 0, somme de termes publies SEPAREMENT.
+    1. LA PERTE EST REPRODUITE ET SON ECRIVAIN EST NOMME. Un test ecrit un champ sur un item pendant qu'un tour d'orchestrateur passe, et publie qui l'a efface — ou publie que RIEN ne l'efface, auquel cas la cause est ailleurs et l'item la nomme. Un zero de perte se lit « pas reproduit », jamais « repare ».
+    2. Le chemin de lecture de `proof_props` est trace de bout en bout : ce que le fichier porte, ce que `proof_run.sh` extrait, ce que l'appareil rend a `getprop`. Publier les trois. L'ecart entre le premier et le troisieme est la grandeur qui compte.
+    3. Une course publie DESORMAIS le regime OBSERVE, pas le regime demande : au moins une cle par propriete epinglee, relue apres l'amorcage. C'est ce qui rend l'epinglage verifiable sans relire le backlog.
+    4. `machine_proved_to_validated` : soit elle est rebranchee et ecrit par `set_status`, soit elle est SUPPRIMEE. Une fonction morte qui muterait l'etat en memoire est un piege arme.
+  where: 'Le harnais : lib/backlog.py, orchestrator.py, lib/proof_run.sh.'
+  out_of_scope: Ne touche a aucun code du jeu. Ne change aucun statut d'item existant.
+  max_turns: 500
+  max_retries: 4
+  proof_timeout: 240
+  prompt: prompts/item-harness-proof-props-pin.md
+  notes: 'issu du signalement de hdr-glow-range, 11/09 : un epinglage silencieusement perdu fait mesurer
+    l''autre regime.'
+- id: glow-targets-not-built-on-jak1
+  status: open
+  priority: 21
+  game: jak1
+  device: true
+  owner_test: false
+  feature: Le jeu cesse de payer 6,8 Mo de VRAM pour un chemin de halo qui ne tourne jamais
+  gate:
+    key: glow_targets_waste_bytes
+    op: ==
+    value: 0
+  depends_on:
+  - hdr-glow-range
+  known_cause: 'MESURE DU 11/09 (reports/hdr-glow-range/proof.txt, appareil eae4df44). `GlowRenderer`
+    est construit en membre de `Sprite3` sur jak1 (Sprite3.h:82) et alloue ses SIX cibles — sonde plus
+    cinq reductions — alors que `render_jak1` ne l''appelle JAMAIS : sur 9 091 images de sprites, `hdr_glow_flush_calls`
+    = 0, `hdr_glow_dma_enters` = 0, `hdr_glow_sprites_submitted` = 0, pendant que 16 385 088 sprites 2D
+    et 204 397 distorteurs passaient par les deux autres chemins. Son unique appelant est `render_jak2`
+    (Sprite3.cpp:1084), et `grep sprite-glow goal_src/jak1/` rend 0 contre 178 en jak2. Cout mesure :
+    `hdr_glow_stage_bytes` = 6 822 400 o quand le maitre Recharged est ON, 3 411 200 o quand il est OFF.
+    Sur un appareil qui plafonne a ~44 img/s et que le tueur de memoire visite, c''est de la VRAM payee
+    pour rien.'
+  deliverable: |-
+    `glow_targets_waste_bytes` = 0 : sur jak1, aucun octet n'est alloue pour les cibles du halo.
+    1. La construction est conditionnee au JEU, pas supprimee : jak2 garde son chemin intact. Publier le jeu observe a cote du compte d'octets.
+    2. Publier `glow_targets_bytes_before` et `glow_targets_bytes_after` sur la MEME course : un zero apres sans un non-zero avant ne prouve rien.
+    3. Le chemin jak2 reste constructible : publier un temoin qui dit que la construction A LIEU quand le jeu est jak2, sinon l'item a seulement debranche du code sans preuve de reversibilite.
+    4. Rien d'autre ne change de comportement : `hdr_glow_sprite_render_calls` reste non nul et les deux chemins vivants (`hdr_glow_other_2d_sprites`, `hdr_glow_other_aux_sprites`) gardent des comptes du meme ordre qu'avant.
+  where: Invisible. C'est de la VRAM rendue, aucun pixel ne bouge.
+  out_of_scope: 'Ne touche pas au halo que l''owner VOIT : il vient de `render_2d_group0` (parts 411/412
+    du feu, 1971/1968 du portail) et du distorteur d''aux-list. Ne supprime aucun fichier jak2.'
+  max_turns: 500
+  max_retries: 4
+  proof_timeout: 300
+  prompt: prompts/item-glow-targets-not-built-on-jak1.md
+  notes: 'issu de la mesure de hdr-glow-range, 11/09 : chemin inatteignable, cibles allouees quand meme.'
