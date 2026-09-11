@@ -1218,6 +1218,29 @@ void pc_gating_menu_end() {
   recharged_gating::menu_end();
 }
 
+// LE LIBELLE PORTEUR D'UNE RANGEE : l'indice affiche, celui que l'ouverture preselectionne, le
+// nombre de lignes de la page de choix, et le texte lui-meme. Le module confronte `shown` a la
+// valeur VOULUE de sa table — GOAL n'est donc pas juge sur sa propre arithmetique.
+void pc_gating_row_value(u32 id_str, s32 shown, s32 presel, s32 rows, u32 value_str) {
+  const char* id = id_str ? Ptr<String>(id_str).c()->data() : nullptr;
+  const char* value = value_str ? Ptr<String>(value_str).c()->data() : nullptr;
+  recharged_gating::menu_value(id, shown, presel, rows, value);
+}
+
+// Ce que GOAL compte sur la page qu'il vient de dessiner : des rangees verrouillees ENCORE
+// presentes (doit rester zero) et le total de rangees masquees, temoin a confronter au compte du
+// C++. Deux comptes tenus depuis les deux bouts de la chaine ne peuvent pas deriver en silence.
+void pc_gating_mask_counts(s32 shown_locked, s32 masked) {
+  recharged_gating::menu_mask_counts(shown_locked, masked);
+}
+
+// 1 quand le module RECLAME un recensement. Le balayage eteint un parent different a chaque
+// fenetre : un recensement unique ne verrait qu'un seul regime, et le masquage ne serait jamais
+// exerce. La lecture CONSOMME la demande.
+s32 pc_gating_census_due() {
+  return recharged_gating::census_due() ? 1 : 0;
+}
+
 void pc_npc_census_end() {
   npc_flicker::end_census();
 }
@@ -5459,6 +5482,9 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("__pc-gating-menu-end", (void*)pc_gating_menu_end);
   make_function_symbol_from_c("__pc-gating-wanted?", (void*)pc_gating_wanted);
   make_function_symbol_from_c("__pc-gating-page", (void*)pc_gating_page);
+  make_function_symbol_from_c("__pc-gating-row-value", (void*)pc_gating_row_value);
+  make_function_symbol_from_c("__pc-gating-mask-counts", (void*)pc_gating_mask_counts);
+  make_function_symbol_from_c("__pc-gating-census-due?", (void*)pc_gating_census_due);
   make_function_symbol_from_c("__pc-wind-note-rate!", (void*)pc_wind_note_rate);
   make_function_symbol_from_c("__pc-npcf-fix-armed?", (void*)pc_npcf_fix_armed);
   make_function_symbol_from_c("__pc-npcf-note-cover", (void*)pc_npcf_note_cover);

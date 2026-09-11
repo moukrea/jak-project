@@ -531,6 +531,9 @@
       (progress-screen debug-options)
       (progress-screen sound-settings)
       (progress-screen resolution)
+      ;; recharged-gating-real essai 2 : la page de choix generique d'une option Recharged est un
+      ;; ecran d'options comme le sous-menu Resolution dont elle copie la forme.
+      (progress-screen option-choice)
       (progress-screen aspect-ratio)
       (progress-screen monitor)
       (progress-screen gfx-ps2-options)
@@ -699,6 +702,9 @@
                         ;; Grecharged-menu-overhaul: the DEBUG category page accepts the same back shortcut.
                         (= v1-2 (progress-screen debug-options))
                         (= v1-2 (progress-screen resolution))
+                        ;; recharged-gating-real essai 2 : sans cette ligne le cercle est avale et
+                        ;; on ne sort plus de la page de choix qu'en validant une valeur.
+                        (= v1-2 (progress-screen option-choice))
                         (= v1-2 (progress-screen aspect-ratio))
                         (= v1-2 (progress-screen secrets))
                         (= v1-2 (progress-screen cheats))

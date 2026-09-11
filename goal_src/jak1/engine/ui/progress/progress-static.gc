@@ -260,8 +260,12 @@
 ;; heap object (a corrupted type-tag -> SIGILL on the next method dispatch, far from the write).
 ;; Grecharged-grass-poc POLISH#6: the PC enum grew (recharged-settings=67, grass-settings=68, max=69),
 ;; so the PC allocation is bumped 68 -> 72 (a little headroom for future PC screens).
+;; recharged-gating-real essai 2 : `option-choice` porte `max` a 72, donc la boucle d'effacement de
+;; `init-game-options` ecrit les indices 0..71 — exactement la taille allouee, sans une case de marge.
+;; On passe a 80 : le prochain ecran ajoute n'ecrira pas un cran au-dela du tableau, ce qui
+;; ecraserait l'objet voisin du tas (tag de type corrompu -> SIGILL loin du site d'ecriture).
 (define *options-remap*
-  (new 'static 'boxed-array :type (array game-option) :length 0 :allocated-length (#if (not PC_PORT) 35 72)))
+  (new 'static 'boxed-array :type (array game-option) :length 0 :allocated-length (#if (not PC_PORT) 35 80)))
 
 ;; added in PC port
 (defenum level-task-data-index

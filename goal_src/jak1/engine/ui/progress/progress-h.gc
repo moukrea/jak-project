@@ -149,6 +149,13 @@
      ;; table des portes (`__pc-gating-page`), pour qu'une option ajoutee sous l'eclairage
      ;; y atterrisse sans que personne n'y pense.
      (lighting-settings)
+     ;; recharged-gating-real essai 2 (owner 2026-09-10) : la page de choix GENERIQUE d'une option
+     ;; Recharged. L'owner veut un VRAI sous-menu — les valeurs d'une option (« AMBIENT OCCLUSION »
+     ;; -> Off / SSAO / HBAO / GTAO) vivent dans une page a elles, pas en petits choix serres sous
+     ;; la rangee parente. UNE seule page sert toutes les options a valeurs : son contenu est
+     ;; reconstruit dans `*temp-options*` a chaque ouverture, depuis le carrousel de la rangee d'ou
+     ;; l'on vient. Ajoutee AVANT `max` (auto-numerotee => 71), donc aucune valeur existante ne bouge.
+     (option-choice)
      ;; the last one!
      (max))
    (defenum game-option-type
@@ -212,7 +219,13 @@
      ;; Ggrass-density-presets (owner 2026-08-30): GRASS DENSITY carousell (Very Low / Low / Medium /
      ;; High / Very High = 0..4 pre-baked density presets), mirroring shadow-quality (same five labels).
      ;; APPENDED AT THE VERY END of the enumeration so not one existing value is renumbered.
-     (grass-density))) ;; end of PC_PORT = #t branch for enum initialization
+     (grass-density)
+     ;; recharged-gating-real essai 2 : UNE rangee de la page de choix generique ci-dessus
+     ;; (`progress-screen option-choice`). Elle ne porte aucun reglage : `param1` porte l'INDICE de
+     ;; la valeur dans le carrousel de l'option parente, `name-override` le libelle de cette valeur.
+     ;; La confirmation d'une telle rangee ecrit l'indice via `rch-choice-apply!`, l'ecrivain UNIQUE.
+     ;; APPENDUE TOUT A LA FIN de l'enumeration : pas une valeur existante n'est renumerotee.
+     (choice-value))) ;; end of PC_PORT = #t branch for enum initialization
   ) ;; end of PC_PORT cond
 
 (defenum game-option-menu

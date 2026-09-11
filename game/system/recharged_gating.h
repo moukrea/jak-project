@@ -169,8 +169,38 @@ void tick();
 // une rangee dont la page ne correspond pas au parent, est un defaut : c'est ce qui empeche le
 // sous-menu « Recharged Lighting » d'etre une decoration.
 void menu_begin();
+// `page` vaut la page reelle de la rangee, ou l'une des deux ABSENCES DECLAREES : `"hidden"` pour
+// une rangee que ce build ne livre pas (HDR OUTPUT sans ecran HDR), `"masked"` pour une rangee que
+// la page connait mais qui a QUITTE la liste dessinee parce qu'un ancetre est eteint. Les deux ne
+// se confondent pas : `hidden` sort l'option du jugement de couverture, `masked` l'y laisse — une
+// option masquee reste une option que la course doit avoir exercee.
 void menu_row(const char* page, const char* opt_id);
 void menu_end();
+
+// ─── LE LIBELLE PORTEUR ET SA PRESELECTION (l'exigence 8 de l'owner) ─────────────────────────
+// Une rangee doit AFFICHER sa valeur courante, et l'ouvrir doit PRESELECTIONNER cette valeur. Ni
+// l'un ni l'autre ne se verifie en regardant le menu : ce qu'on mesure ici est l'indice que GOAL
+// a effectivement calcule (`shown`), celui sur lequel il a pose le curseur (`presel`), le nombre
+// de lignes de la page de choix (`rows`, < 2 = ce n'est pas un sous-menu) et le texte non vide.
+// `shown` est compare a la valeur VOULUE que porte la table : c'est ce qui empeche la mesure
+// d'etre un miroir de GOAL.
+void menu_value(const char* opt_id,
+                int shown_index,
+                int presel_index,
+                int page_rows,
+                const char* value_text);
+
+// Ce que GOAL a compte sur la page qu'il vient de dessiner : des rangees encore PRESENTES alors
+// qu'un ancetre les verrouille (doit rester zero — c'est le defaut « grise au lieu de masque »),
+// et le total de rangees masquees (temoin informatif, a comparer au compte du C++).
+void menu_mask_counts(int shown_locked, int masked_total);
+
+// LE C++ RECLAME-T-IL UN RECENSEMENT MAINTENANT ? Le balayage eteint un parent different a chaque
+// fenetre ; un recensement unique ne verrait donc qu'UN SEUL regime, et le masquage ne serait
+// jamais exerce. Le module pose ce drapeau a l'interieur de chaque fenetre, GOAL le consomme
+// quand il peut (menu ouvrable) et recense. La lecture CONSOMME le drapeau : deux lecteurs ne
+// peuvent pas se declencher sur la meme demande.
+bool census_due();
 
 // Le harnais mesure-t-il CET item ? Le recensement du menu a besoin de `init-game-options`, que
 // le jeu n'appelle qu'a l'OUVERTURE du menu — au demarrage, aucune rangee ne porte encore son

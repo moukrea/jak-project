@@ -7014,10 +7014,13 @@
        ;; so they reliably appear on device — owner: "les réglages n'apparaissent toujours pas ... ça
        ;; devrait être un sous-menu de ce sous-menu avec tous les settings pour l'herbe". A menu-type row:
        ;; :param3 opens the grass-settings screen; real label via *grass-settings-label* (name-override).
+       ;; recharged-gating-real essai 2 : le lanceur pose la MEME question a la MEME table que les
+       ;; rangees qu'il ouvre (« un ANCETRE est-il eteint ? »), au lieu de recopier la regle a la
+       ;; main sur `recharged-master?` — une regle recopiee finit par diverger de celle qui agit.
        (new 'static 'game-option :option-type (game-option-type menu) :name (text-id ps2-options) :scale #t
             :option-disabled-func
             (lambda ()
-              (not (-> *pc-settings* recharged-master?)))
+              (nonzero? (__pc-gating-disabled? "grass")))
             :param3 (game-option-menu grass-settings))
        ;; 2 LOAD CUSTOM ASSETS on-off toggle (Gload-custom-assets). Real label via *load-custom-assets-label*
        ;; (name-override); value bound to *pc-settings* load-custom-assets? in init-game-options. The
@@ -7892,6 +7895,15 @@
        :option-type (game-option-type menu)
        :name (text-id ps2-options)
        :scale #t
+       ;; recharged-gating-real essai 2 : le lanceur disparait quand un ANCETRE de « lighting » est
+       ;; eteint (le master), sinon il ouvrirait une page vide ; il RESTE quand c'est « Recharged
+       ;; Lighting » elle-meme qui est eteinte — sans quoi on ne pourrait plus jamais la rallumer.
+       ;; Une lambda et pas un `gating-id` : un `gating-id` ferait rapporter ce lanceur au
+       ;; recensement comme une rangee de « lighting » dessinee dans la page « recharged », donc
+       ;; `gating_menu_misplaced` monterait. La question posee est la MEME, et a la meme table.
+       :option-disabled-func
+       (lambda ()
+         (nonzero? (__pc-gating-disabled? "lighting")))
        :param3 (game-option-menu lighting-settings)))
 
 ;; L'ORDRE D'ORIGINE DU TABLEAU RECHARGED. `init-game-options` tourne A CHAQUE OUVERTURE du menu
@@ -7902,6 +7914,87 @@
   (new 'static 'boxed-array :type game-option :length 0 :allocated-length 48))
 (define *rch-page-backup-done?* #f)
 
+;; ================================================================================================
+;; recharged-gating-real essai 2 — MASQUER, PAS GRISER (refus de l'owner du 2026-09-10).
+;;
+;; L'owner ne veut pas d'une rangee grise dont il faut deviner pourquoi elle ne repond pas : une
+;; option dont le PARENT est eteint DISPARAIT de la page. « C'est plus simple a comprendre. » Et la
+;; regle est GENERALE, pas taillee pour l'Occlusion Ambiante : TOUTE rangee qui depend d'une autre
+;; s'en va avec elle, y compris celles que la table C++ ne connait pas (les quatre LOOK, les deux
+;; lanceurs de sous-menu, PHYSIQUE, PAS FIXE) — leur dependance vit dans leur propre
+;; `option-disabled-func`, et `option-locked?` est le seul juge des deux familles.
+;;
+;; Comment : la page dessinee est RECONSTRUITE, a chaque image passee dessus, depuis une PHOTO de
+;; son contenu complet, sans les rangees verrouillees. La photo est prise juste apres
+;; `gating-repage!`, c'est-a-dire sur le tableau tel qu'il est REELLEMENT livre — apres le cablage,
+;; apres le retrait eventuel de HDR OUTPUT, apres la sortie du bloc eclairage vers sa page. Repartir
+;; du tableau vivant ferait fondre la page : ce qui sort une fois ne reviendrait jamais quand le
+;; parent se rallume.
+;; ================================================================================================
+(define *rch-mask-src-rch* (new 'static 'boxed-array :type game-option :length 0 :allocated-length 48))
+(define *rch-mask-src-lgt* (new 'static 'boxed-array :type game-option :length 0 :allocated-length 24))
+(define *rch-mask-src-grs* (new 'static 'boxed-array :type game-option :length 0 :allocated-length 16))
+;; Tant que la photo n'a pas ete prise, on ne masque RIEN : masquer depuis une photo vide viderait
+;; les trois pages a la premiere image passee sur le menu.
+(define *rch-mask-snapped?* #f)
+;; Combien de rangees la derniere reconstruction a retirees. C'est le temoin de NON-VACUITE du
+;; compte de rangees verrouillees encore visibles : zero visible et zero retiree se lit aussi bien
+;; sur un menu ou rien n'est eteint, ce qui ne prouverait rien.
+(define *rch-mask-masked-n* 0)
+
+(defun rch-mask-snapshot-one! ((src (array game-option)) (arr (array game-option)))
+  "Photographie une page telle qu'elle vient d'etre livree."
+  (dotimes (i (-> arr length))
+    (set! (-> src i) (-> arr i)))
+  (set! (-> src length) (-> arr length))
+  (none))
+
+(defun rch-mask-snapshot! ()
+  "Les trois pages Recharged, photographiees a la fin de `gating-repage!`."
+  (rch-mask-snapshot-one! *rch-mask-src-rch* *recharged-options-pc*)
+  (rch-mask-snapshot-one! *rch-mask-src-lgt* *rlighting-options-pc*)
+  (rch-mask-snapshot-one! *rch-mask-src-grs* *grass-options-pc*)
+  (set! *rch-mask-snapped?* #t)
+  (none))
+
+(defun rch-mask-one! ((src (array game-option)) (arr (array game-option)))
+  "Reconstruit `arr` depuis sa photo en sautant toute rangee verrouillee."
+  (let ((w 0))
+    (dotimes (i (-> src length))
+      (let ((row (-> src i)))
+        (cond
+          ((option-locked? row) (set! *rch-mask-masked-n* (+ *rch-mask-masked-n* 1)))
+          (else
+           (set! (-> arr w) row)
+           (set! w (+ w 1))))))
+    (set! (-> arr length) w))
+  (none))
+
+(defun rch-page-mask! ()
+  "Le geste, appele a chaque image passee sur une des trois pages Recharged : ce qui depend d'un
+   parent eteint n'est pas dessine en gris, il n'est pas dessine du tout."
+  (when *rch-mask-snapped?*
+    (set! *rch-mask-masked-n* 0)
+    (rch-mask-one! *rch-mask-src-rch* *recharged-options-pc*)
+    (rch-mask-one! *rch-mask-src-lgt* *rlighting-options-pc*)
+    (rch-mask-one! *rch-mask-src-grs* *grass-options-pc*))
+  (none))
+
+(defun rch-mask-count-shown-locked! ()
+  "Combien de rangees VERROUILLEES sont encore presentes dans les trois tableaux VIVANTS. Doit
+   valoir 0 : c'est la mesure de la regle generale, et elle ne regarde pas le `gating-id` — une
+   rangee sans identifiant de porte (les quatre LOOK, les lanceurs, PHYSIQUE, PAS FIXE) est jugee
+   par la MEME question que les autres, `option-locked?`. Interroger la table C++ a la place ne
+   verrait aucune de celles-la."
+  (let ((n 0))
+    (dotimes (i (-> *recharged-options-pc* length))
+      (if (option-locked? (-> *recharged-options-pc* i)) (set! n (+ n 1))))
+    (dotimes (i (-> *rlighting-options-pc* length))
+      (if (option-locked? (-> *rlighting-options-pc* i)) (set! n (+ n 1))))
+    (dotimes (i (-> *grass-options-pc* length))
+      (if (option-locked? (-> *grass-options-pc* i)) (set! n (+ n 1))))
+    n))
+
 (defun gating-unrepage! ()
   "Rend a *recharged-options-pc* l'ordre et la longueur qu'il avait avant tout deplacement.
    Sans effet tant qu'aucune sauvegarde n'a ete prise (premiere ouverture du menu)."
@@ -7909,6 +8002,15 @@
     (dotimes (i (-> *rch-page-backup* length))
       (set! (-> *recharged-options-pc* i) (-> *rch-page-backup* i)))
     (set! (-> *recharged-options-pc* length) (-> *rch-page-backup* length)))
+  ;; recharged-gating-real essai 2 : LA PAGE HERBE AUSSI. `init-game-options` la cable PAR INDEX
+  ;; (rangees 0..4). Si `rch-page-mask!` l'a raccourcie a l'image precedente, le cablage de la
+  ;; prochaine ouverture poserait `value-to-modify` et `gating-id` sur les MAUVAISES rangees —
+  ;; exactement la classe de bug que cette fonction existe pour eviter cote Recharged.
+  ;; `*rlighting-options-pc*` n'en a pas besoin : `gating-repage!` le reconstruit integralement.
+  (when *rch-mask-snapped?*
+    (dotimes (i (-> *rch-mask-src-grs* length))
+      (set! (-> *grass-options-pc* i) (-> *rch-mask-src-grs* i)))
+    (set! (-> *grass-options-pc* length) (-> *rch-mask-src-grs* length)))
   (none))
 
 (defun gating-repage! ()
@@ -7960,6 +8062,10 @@
              (set! (-> *recharged-options-pc* w) row)
              (set! w (+ w 1))))))
       (set! (-> *recharged-options-pc* length) w)))
+  ;; recharged-gating-real essai 2 : LA PHOTO, ici et nulle part ailleurs. Les trois pages sont
+  ;; desormais dans l'etat ou elles sont livrees au joueur ; c'est cet etat-la que le masquage
+  ;; reconstruit, image apres image, prive de ce qui est verrouille.
+  (rch-mask-snapshot!)
   (none))
 
 (defun rch-hdr-row-index ()
@@ -8964,6 +9070,8 @@
   "add a music player w/ flava button to *temp-options* with specified size"
   `(let ((option (-> *temp-options* (length *temp-options*))))
     (set! (-> option option-type) (game-option-type button-flava))
+    ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
+    (set! (-> option option-disabled-func) #f)
     (set! (-> option name) ,text-id)
     (set! (-> option param1) (the float ,flava))
     (set! (-> option scale) #t)
@@ -8973,6 +9081,12 @@
   "add *back-button* to *temp-options*"
   `(let ((option (-> *temp-options* (length *temp-options*))))
     (set! (-> option option-type) (game-option-type button))
+    ;; recharged-gating-real essai 2 : les emplacements de `*temp-options*` sont REUTILISES d'un
+    ;; ecran dynamique a l'autre — un champ qu'un constructeur ne pose pas reste celui de
+    ;; l'occupant precedent. Une rangee posee ici doit donc l'etre COMPLETEMENT : sans cette
+    ;; ligne, une rangee heritant de la lambda « grisee » d'un ecran precedent serait inerte
+    ;; sans que rien ne dise pourquoi — la faute meme que cet item existe pour supprimer.
+    (set! (-> option option-disabled-func) #f)
     (set! (-> option name) (text-id back))
     (set! (-> option scale) #t)
     (1+! (-> *temp-options* length))))
@@ -9364,6 +9478,8 @@
   `(let ((option (-> *temp-options* (length *temp-options*)))
         (name (pc-get-display-name ,display-id *pc-cpp-temp-string*)))
     (set! (-> option option-type) (game-option-type monitor))
+    ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
+    (set! (-> option option-disabled-func) #f)
     ;; Use the name of the display if it's available
     (if name (copy-string<-string (-> option name-override) *pc-cpp-temp-string*) (set! (-> option name) ,text-id))
     (set! (-> option param1) (the float ,display-id))
@@ -9382,6 +9498,8 @@
   `(let ((option (-> *temp-options* (length *temp-options*)))
         (name (pc-get-controller-name ,controller-id *pc-cpp-temp-string*)))
     (set! (-> option option-type) (game-option-type controller))
+    ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
+    (set! (-> option option-disabled-func) #f)
     ;; Use the name of the controller if it's available
     (if name (copy-string<-string (-> option name-override) *pc-cpp-temp-string*) (set! (-> option name) ,text-id))
     (set! (-> option param1) (the float ,controller-id))
@@ -9452,6 +9570,8 @@
         (set! (-> option bind-info input-idx) i)
         (set! (-> option bind-info analog-min-range?) #t)
         (set! (-> option option-type) (game-option-type binding-assignment))
+        ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
+        (set! (-> option option-disabled-func) #f)
         (set! (-> option name-override) (copy-string<-string (-> option name-override) (-> *analog-bind-names* (* i 2))))
         (set! (-> option scale) #t)
         (1+! (-> *temp-options* length)))
@@ -9463,6 +9583,8 @@
         (set! (-> option bind-info input-idx) i)
         (set! (-> option bind-info analog-min-range?) #f)
         (set! (-> option option-type) (game-option-type binding-assignment))
+        ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
+        (set! (-> option option-disabled-func) #f)
         (set! (-> option name-override) (copy-string<-string (-> option name-override) (-> *analog-bind-names* (+ 1 (* i 2)))))
         (set! (-> option scale) #t)
         (1+! (-> *temp-options* length)))))
@@ -9478,12 +9600,16 @@
       (set! (-> option bind-info input-idx) i)
       (set! (-> option bind-info analog-min-range?) #f)
       (set! (-> option option-type) (game-option-type binding-assignment))
+      ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
+      (set! (-> option option-disabled-func) #f)
       (set! (-> option name-override) (copy-string<-string (-> option name-override) (-> *button-bind-names* i)))
       (set! (-> option scale) #t)
       (1+! (-> *temp-options* length))))
   ;; We add a restore defaults button at the bottom of each binding menu
   (let ((option (-> *temp-options* (length *temp-options*))))
     (set! (-> option option-type) (game-option-type confirmation))
+    ;; voir `add-back-option` : un emplacement de *temp-options* est reutilise, on pose TOUT.
+    (set! (-> option option-disabled-func) #f)
     (set! (-> option name) (text-id restore-defaults))
     (set! (-> option scale) #t)
     ;; No closures :(
@@ -9541,6 +9667,137 @@
     ((= id (the-as text-id #x17e2)) *fps-choice-240-label*)
     ((= id (the-as text-id #x17e3)) *fps-choice-unlimited-label*)
     (else (lookup-text! *common-text* id #f))))
+
+
+;; ================================================================================================
+;; recharged-gating-real essai 2 — LE REGISTRE DES RANGEES A VALEURS (defauts 8 et 9 de l'owner).
+;;
+;; UNE seule liste de types decide de tout : quelles rangees portent leur valeur dans leur libelle
+;; (« AMBIENT OCCLUSION: HBAO »), lesquelles ouvrent une PAGE de choix au lieu d'un carrousel serre
+;; sous la ligne, quelle valeur y est preselectionnee, et ou la confirmation ecrit. Trois regles
+;; ecrites a trois endroits finiraient par diverger — c'est exactement le defaut que l'owner a
+;; refuse le 2026-09-10 sur le grisage.
+;;
+;; Ces fonctions sont posees ICI, apres `carousell-option-string` dont elles dependent, et non a
+;; cote de `build-resolution-options` : GOAL ne connait pas une fonction avant sa definition.
+;; ================================================================================================
+
+(defun rch-choice-carousell-for ((ty game-option-type))
+  "La liste de choix d'un type de rangee, #f si ce type n'en a pas. C'est ELLE qui route le bouton
+   de confirmation vers la page de choix : un type absent d'ici garde le carrousel inline d'avant
+   (MSAA, cadence, aspect, LOD, haut-parleur, langues...) et n'est touche par rien de cet item."
+  (let ((lst (the (array text-id) #f)))
+    (case ty
+      (((game-option-type ambient-occlusion)) (set! lst *carousell-ambient-occlusion*))
+      (((game-option-type ao-quality)) (set! lst *carousell-ao-quality*))
+      (((game-option-type ao-strength)) (set! lst *carousell-ao-strength*))
+      (((game-option-type grass-density)) (set! lst *carousell-grass-density*))
+      (((game-option-type hd-look-jak)) (set! lst *carousell-hd-look-jak*))
+      (((game-option-type hd-look-daxter)) (set! lst *carousell-hd-look-daxter*))
+      (((game-option-type hd-look-keira)) (set! lst *carousell-hd-look-keira*))
+      (((game-option-type hd-look-samos)) (set! lst *carousell-hd-look-samos*)))
+    lst))
+
+(defun rch-choice-current-index ((ty game-option-type))
+  "L'indice de la valeur EN COURS, lu dans `*pc-settings*` — jamais dans `int-backup`, qui n'a de
+   sens que pendant l'edition d'une rangee. Bras recopies du `case` de sauvegarde de
+   `respond-common` : les huit types sont 1:1, aucune traduction de valeur."
+  (let ((idx 0))
+    (case ty
+      (((game-option-type ambient-occlusion)) (set! idx (the int (-> *pc-settings* ambient-occlusion))))
+      (((game-option-type ao-quality)) (set! idx (the int (-> *pc-settings* ao-quality))))
+      (((game-option-type ao-strength)) (set! idx (the int (-> *pc-settings* ao-strength))))
+      (((game-option-type grass-density)) (set! idx (the int (-> *pc-settings* recharged-grass-density-preset))))
+      (((game-option-type hd-look-jak)) (set! idx (the int (-> *pc-settings* hd-look-jak))))
+      (((game-option-type hd-look-daxter)) (set! idx (the int (-> *pc-settings* hd-look-daxter))))
+      (((game-option-type hd-look-keira)) (set! idx (the int (-> *pc-settings* hd-look-keira))))
+      (((game-option-type hd-look-samos)) (set! idx (the int (-> *pc-settings* hd-look-samos)))))
+    idx))
+
+(defun rch-choice-apply! ((ty game-option-type) (idx int))
+  "L'ECRIVAIN UNIQUE des huit reglages a valeurs. Bras recopies du `case` d'ecriture arriere de
+   `respond-common`, qui ne les porte plus : un seul ecrivain, sinon la valeur ecrite et la valeur
+   affichee peuvent differer. Le `commit-to-file` final est celui que faisait l'ancien chemin."
+  (case ty
+    (((game-option-type ambient-occlusion)) (set! (-> *pc-settings* ambient-occlusion) idx))
+    (((game-option-type ao-quality)) (set! (-> *pc-settings* ao-quality) idx))
+    (((game-option-type ao-strength)) (set! (-> *pc-settings* ao-strength) idx))
+    (((game-option-type grass-density)) (set! (-> *pc-settings* recharged-grass-density-preset) idx))
+    (((game-option-type hd-look-jak)) (set! (-> *pc-settings* hd-look-jak) idx))
+    (((game-option-type hd-look-daxter)) (set! (-> *pc-settings* hd-look-daxter) idx))
+    (((game-option-type hd-look-keira)) (set! (-> *pc-settings* hd-look-keira) idx))
+    (((game-option-type hd-look-samos)) (set! (-> *pc-settings* hd-look-samos) idx)))
+  (commit-to-file *pc-settings*)
+  (none))
+
+(defun rch-row-value-string ((row game-option))
+  "Le libelle de la valeur COURANTE d'une rangee, #f si la rangee ne porte pas de liste de choix.
+   L'indice est BORNE : un `*pc-settings*` hors plage (fichier de reglages d'une autre version)
+   ne doit pas faire lire hors du tableau de libelles."
+  (let ((lst (rch-choice-carousell-for (-> row option-type))))
+    (cond
+      (lst
+       (let ((idx (rch-choice-current-index (-> row option-type))))
+         (when (or (< idx 0) (>= idx (length lst)))
+           (set! idx (max 0 (min idx (+ (length lst) -1)))))
+         (carousell-option-string (-> lst idx))))
+      (else (the string #f)))))
+
+;; ------------------------------------------------------------------------------------------------
+;; LA PAGE DE CHOIX (defaut 9). Une seule page, `progress-screen option-choice`, reconstruite dans
+;; `*temp-options*` a chaque image passee dessus, depuis la rangee d'ou l'on vient. Le type de cette
+;; rangee est retenu ici : c'est lui qui dit quelle liste afficher et ou ecrire.
+(define *rch-choice-type* (game-option-type on-off))
+;; Le titre de la page : le libelle de la rangee parente, recopie au moment ou l'on entre (la rangee
+;; peut disparaitre du tableau vivant pendant qu'on est dans la page — c'est tout l'objet du (7)).
+(define *rch-choice-label* (new 'global 'string 128 (the-as string #f)))
+
+(defun build-option-choice-options! ()
+  "Batit la page de choix de `*rch-choice-type*` : un en-tete non selectionnable portant le nom de
+   l'option, une rangee par valeur possible, puis Back."
+  (set! (-> *temp-options* length) 0)
+  ;; l'en-tete : meme motif que `add-message-option` (une rangee `button` que `option-locked?`
+  ;; declare grisee, donc inerte au confirm).
+  (let ((option (-> *temp-options* (length *temp-options*))))
+    (set! (-> option option-type) (game-option-type button))
+    (set! (-> option option-disabled-func) (lambda () #t))
+    ;; `on-confirm` remis a zero pour la meme raison : l'ecran des binds laisse une lambda
+    ;; « restaurer les defauts » sur l'emplacement qu'il a occupe, et personne ne l'efface.
+    (set! (-> option on-confirm) (the-as (function none) 0))
+    (set! (-> option gating-id) (the string #f))
+    (set! (-> option name) (text-id zero))
+    (set! (-> option scale) #t)
+    (format (clear (-> option name-override)) "~S" *rch-choice-label*)
+    (1+! (-> *temp-options* length)))
+  (let ((lst (rch-choice-carousell-for *rch-choice-type*)))
+    (when lst
+      (dotimes (i (length lst))
+        (let ((option (-> *temp-options* (length *temp-options*))))
+          (set! (-> option option-type) (game-option-type choice-value))
+          (set! (-> option option-disabled-func) #f)
+          (set! (-> option on-confirm) (the-as (function none) 0))
+          (set! (-> option gating-id) (the string #f))
+          (set! (-> option name) (-> lst i))
+          (set! (-> option scale) #t)
+          (set! (-> option param1) (the float i))
+          (format (clear (-> option name-override)) "~S" (carousell-option-string (-> lst i)))
+          (1+! (-> *temp-options* length))))))
+  (add-back-option)
+  *temp-options*)
+
+(defun rch-choice-initial-index ()
+  "La rangee sur laquelle la page de choix s'OUVRE : celle de la valeur en cours. Pendant exact de
+   `resolution-menu-initial-index` (res-menu-truth) — batir la liste d'abord, puis y retrouver la
+   valeur effective. L'en-tete occupe la rangee 0, d'ou le +1. 0 si le type n'a pas de liste."
+  (build-option-choice-options!)
+  (let ((lst (rch-choice-carousell-for *rch-choice-type*)))
+    (cond
+      (lst
+       (let ((idx (rch-choice-current-index *rch-choice-type*)))
+         (when (or (< idx 0) (>= idx (length lst)))
+           (set! idx (max 0 (min idx (+ (length lst) -1)))))
+         (+ idx 1)))
+      (else 0))))
 
 (defun print-string-in-carousell ((arg0 text-id) (arg1 font-context) (arg2 int) (arg3 symbol))
   (let ((s5-0 (if arg3 arg2 (- arg2))))
@@ -10264,6 +10521,9 @@
   ;; est construit a l'execution par `gating-repage!` a partir de la table des portes.
   (set! (-> *options-remap* (progress-screen lighting-settings)) *rlighting-options-pc*)
   (set! (-> *options-remap* (progress-screen resolution)) *temp-options*)
+  ;; recharged-gating-real essai 2 : la page de choix generique partage `*temp-options*` avec les
+  ;; autres pages construites a l'execution — elle est rebattie a chaque image passee dessus.
+  (set! (-> *options-remap* (progress-screen option-choice)) *temp-options*)
   (set! (-> *options-remap* (progress-screen aspect-ratio)) *aspect-ratio-options*)
   (set! (-> *options-remap* (progress-screen quit-title)) *yes-no-options*)
   (set! (-> *options-remap* (progress-screen secrets)) *secrets-title*)
@@ -10781,9 +11041,32 @@
     (((progress-screen monitor)) (build-monitor-options))
     (((progress-screen select-controller)) (build-controller-options))
     (((progress-screen controller-binds) (progress-screen keyboard-binds) (progress-screen mouse-binds))
-     (build-binding-reassignment-options (-> obj display-state))))
+     (build-binding-reassignment-options (-> obj display-state)))
+    ;; recharged-gating-real essai 2, defaut (7) MASQUER : les trois pages Recharged sont
+    ;; RECONSTRUITES a chaque image passee dessus, sans les rangees verrouillees. A chaque image, et
+    ;; pas seulement a l'ouverture : le geste de l'owner est d'eteindre le master DEPUIS la page,
+    ;; et ce qui en depend doit partir sous ses yeux — et revenir quand il le rallume.
+    (((progress-screen recharged-settings) (progress-screen lighting-settings) (progress-screen grass-settings))
+     (rch-page-mask!))
+    ;; recharged-gating-real essai 2, defaut (9) VRAI SOUS-MENU : la page de choix generique.
+    (((progress-screen option-choice)) (build-option-choice-options!)))
   ;; run nav code
   (let ((options (-> *options-remap* (-> obj display-state))))
+    ;; recharged-gating-real essai 2 — LA GARDE DE BORNAGE, ET IL N'EN EXISTAIT AUCUNE.
+    ;; Masquer des rangees RACCOURCIT une page pendant qu'on est dedans : c'est precisement le
+    ;; geste de l'owner (eteindre le master depuis la page Recharged, cinq rangees s'en vont).
+    ;; L'index du curseur et le debut de la fenetre de defilement pointaient alors au-dela de la
+    ;; fin du tableau — et `pop!` (progress.gc) restaure en plus un index EMPILE sans le borner,
+    ;; donc revenir d'un sous-menu ramene un index d'avant le masquage. On borne ici, au seul
+    ;; endroit traverse par TOUS les chemins (navigation, confirmation, retour).
+    (when options
+      (let ((last (+ (length options) -1)))
+        (if (> (-> obj option-index) last) (set! (-> obj option-index) (max 0 last)))
+        (if (< (-> obj option-index) 0) (set! (-> obj option-index) 0))
+        (let ((max-start (max 0 (- (length options) PROGRESS_PC_PAGE_HEIGHT))))
+          (if (> (-> *progress-scroll* start-index) max-start)
+            (set! (-> *progress-scroll* start-index) max-start))
+          (if (< (-> *progress-scroll* start-index) 0) (set! (-> *progress-scroll* start-index) 0)))))
     ;; snap scroll if oob
     (when (> (length options) PROGRESS_PC_PAGE_HEIGHT)
       (set! (-> *progress-scroll* start-index)
@@ -11190,6 +11473,15 @@
                  (set! *progress-flava* (the int (-> options (-> obj option-index) param1)))
                  (sound-group-continue (sound-group music))
                  (sound-play "select-option")))
+              ;; recharged-gating-real essai 2 : la confirmation d'une valeur dans la page de choix.
+              ;; `param1` porte l'indice de la valeur ; `rch-choice-apply!` est l'ecrivain UNIQUE.
+              ;; On revient a la page parente par le meme `invalid` que le bras resolution voisin.
+              ((= (-> options (-> obj option-index) option-type) (game-option-type choice-value))
+               (rch-choice-apply! *rch-choice-type* (the int (-> options (-> obj option-index) param1)))
+               (cpad-clear! 0 x)
+               (cpad-clear! 0 circle)
+               (sound-play "cursor-options")
+               (set! (-> obj next-display-state) (progress-screen invalid)))
               ((= (-> options (-> obj option-index) option-type) (game-option-type resolution))
                ;; resolution button. change resolution!
                (let ((newx (the int (-> options (-> obj option-index) param1)))
@@ -11252,6 +11544,22 @@
                (sound-play "cursor-options")
                (if (and (= *cheat-mode* 'debug) (cpad-hold? 0 l1) (cpad-hold? 0 r1))
                  (logior! (-> *pc-settings* cheats-known) (ash 1 (the int (-> options (-> obj option-index) param1))))))
+              ;; recharged-gating-real essai 2, defaut (9) : une rangee a LISTE DE CHOIX n'ouvre
+              ;; plus un carrousel serre sous sa ligne — elle ouvre une PAGE a elle. Ce bras est
+              ;; place APRES la garde « rangee grisee = inerte » ci-dessus et AVANT le carrousel
+              ;; inline, qui garde tous les autres types.
+              ((rch-choice-carousell-for (-> options (-> obj option-index) option-type))
+               ;; le libelle de la page vient de la rangee d'ou l'on vient
+               (let ((r (-> options (-> obj option-index))))
+                 (if (nonzero? (-> r name-override))
+                   (format (clear *rch-choice-label*) "~S" (-> r name-override))
+                   (format (clear *rch-choice-label*) "~S" (lookup-text! *common-text* (-> r name) #f))))
+               (set! *rch-choice-type* (-> options (-> obj option-index) option-type))
+               (cpad-clear! 0 x)
+               (cpad-clear! 0 circle)
+               (push! obj)
+               (sound-play "select-option")
+               (set! (-> obj next-display-state) (progress-screen option-choice)))
               ((!= (-> options (-> obj option-index) option-type) (game-option-type yes-no))
                ;; not yes-no
                ;; set backups! we're entering some toggle or whatever
@@ -11291,20 +11599,11 @@
                     ((8) (set! (-> *progress-carousell* int-backup) 3))
                     ((16) (set! (-> *progress-carousell* int-backup) 4))
                     (else (set! (-> *progress-carousell* int-backup) 0))))
-                 ;; Grecharged-ambient-occlusion: AO mode + quality + strength carousells map 1:1 (no value translation).
-                 (((game-option-type ambient-occlusion))
-                  (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ambient-occlusion)))
-                 (((game-option-type ao-quality))
-                  (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-quality)))
-                 (((game-option-type ao-strength))
-                  (set! (-> *progress-carousell* int-backup) (-> *pc-settings* ao-strength)))
-                 ;; Ggrass-density-presets: GRASS DENSITY preset backup (1:1, meme motif de carrousel).
-                 (((game-option-type grass-density)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* recharged-grass-density-preset)))
-                 ;; Grecharged-hd-models5: per-character HD LOOK backups (1:1, meme motif de carrousel).
-                 (((game-option-type hd-look-jak)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-jak)))
-                 (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-daxter)))
-                 (((game-option-type hd-look-keira)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-keira)))
-                 (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* hd-look-samos)))
+                 ;; recharged-gating-real essai 2 : les huit types a LISTE DE CHOIX (AO, qualite AO,
+                 ;; force AO, densite d'herbe, les quatre LOOK) ont QUITTE ce carrousel inline. Ils
+                 ;; passent par `progress-screen option-choice` et par l'ecrivain unique
+                 ;; `rch-choice-apply!` — deux ecrivains pour une meme valeur, c'est la divergence
+                 ;; que cet item existe pour supprimer.
                  ;; Grecharged-secondary-motion: PHYSICS DETAIL backup (1:1, meme motif de carrousel).
                  (((game-option-type physics-quality)) (set! (-> *progress-carousell* int-backup) (-> *pc-settings* physics-quality)))
                  (((game-option-type lod-bg))
@@ -11353,17 +11652,8 @@
                   (case (-> options (-> obj option-index) option-type)
                     (((game-option-type display-mode)) (set! (-> *progress-carousell* current-carousell) *carousell-display-mode*))
                     (((game-option-type msaa)) (set! (-> *progress-carousell* current-carousell) *carousell-msaa*))
-                    (((game-option-type ambient-occlusion)) (set! (-> *progress-carousell* current-carousell) *carousell-ambient-occlusion*))
-                    (((game-option-type ao-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-quality*))
-                    (((game-option-type ao-strength)) (set! (-> *progress-carousell* current-carousell) *carousell-ao-strength*))
-                    ;; Ggrass-density-presets: GRASS DENSITY carousell list.
-                    (((game-option-type grass-density)) (set! (-> *progress-carousell* current-carousell) *carousell-grass-density*))
-                    ;; Gprecompute-deterministic-bake: MESH SUBDIVISION carousell list.
-                    ;; Grecharged-hd-models5: per-character HD LOOK carousell lists.
-                    (((game-option-type hd-look-jak)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-jak*))
-                    (((game-option-type hd-look-daxter)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-daxter*))
-                    (((game-option-type hd-look-keira)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-keira*))
-                    (((game-option-type hd-look-samos)) (set! (-> *progress-carousell* current-carousell) *carousell-hd-look-samos*))
+                    ;; recharged-gating-real essai 2 : les huit types a liste de choix ne sont plus
+                    ;; atteignables ici — ce bras est place APRES celui qui les route vers leur page.
                     ;; Grecharged-secondary-motion: PHYSICS DETAIL carousell list.
                     (((game-option-type physics-quality)) (set! (-> *progress-carousell* current-carousell) *carousell-physics-quality*))
                     (((game-option-type lod-bg)) (set! (-> *progress-carousell* current-carousell) *carousell-lod-bg*))
@@ -11410,21 +11700,9 @@
                  ((2) (set! (-> *pc-settings* gfx-msaa) 4))
                  ((3) (set! (-> *pc-settings* gfx-msaa) 8))
                  ((4) (set! (-> *pc-settings* gfx-msaa) 16))))
-              ;; Grecharged-ambient-occlusion: write the selected carousell index straight back (1:1). The
-              ;; shared (commit-to-file *pc-settings*) at the end of this else-branch persists it.
-              (((game-option-type ambient-occlusion))
-               (set! (-> *pc-settings* ambient-occlusion) (-> *progress-carousell* int-backup)))
-              (((game-option-type ao-quality))
-               (set! (-> *pc-settings* ao-quality) (-> *progress-carousell* int-backup)))
-              (((game-option-type ao-strength))
-               (set! (-> *pc-settings* ao-strength) (-> *progress-carousell* int-backup)))
-              ;; Ggrass-density-presets: GRASS DENSITY preset write-back (1:1, meme motif de carrousel).
-              (((game-option-type grass-density)) (set! (-> *pc-settings* recharged-grass-density-preset) (-> *progress-carousell* int-backup)))
-              ;; Grecharged-hd-models5: per-character HD LOOK write-backs (1:1, meme motif de carrousel).
-              (((game-option-type hd-look-jak)) (set! (-> *pc-settings* hd-look-jak) (-> *progress-carousell* int-backup)))
-              (((game-option-type hd-look-daxter)) (set! (-> *pc-settings* hd-look-daxter) (-> *progress-carousell* int-backup)))
-              (((game-option-type hd-look-keira)) (set! (-> *pc-settings* hd-look-keira) (-> *progress-carousell* int-backup)))
-              (((game-option-type hd-look-samos)) (set! (-> *pc-settings* hd-look-samos) (-> *progress-carousell* int-backup)))
+              ;; recharged-gating-real essai 2 : l'ecriture arriere des huit types a liste de choix
+              ;; vit desormais dans `rch-choice-apply!`, l'ecrivain UNIQUE, appele depuis la page
+              ;; `option-choice`. Elle n'est plus ici : deux ecrivains finissent par diverger.
               ;; Grecharged-secondary-motion: PHYSICS DETAIL write-back (1:1, meme motif de carrousel).
               (((game-option-type physics-quality)) (set! (-> *pc-settings* physics-quality) (-> *progress-carousell* int-backup)))
               (((game-option-type lod-bg))
@@ -11703,7 +11981,11 @@
                                       (lookup-text! *common-text* (text-id yes) #f)
                                       (lookup-text! *common-text* (text-id no) #f)))))
               ;; menu option or simple button. just draw its text!
-              (((game-option-type menu) (game-option-type button))
+              ;; recharged-gating-real essai 2 : une rangee de la page de choix (`choice-value`) se
+              ;; dessine comme un bouton — son `name-override` porte le libelle de la valeur. Sans
+              ;; ce bras elle tomberait dans le `else` generique, qui ne connait pas son type et
+              ;; laisserait `option-str` a #f : la page s'afficherait VIDE.
+              (((game-option-type menu) (game-option-type button) (game-option-type choice-value))
                ;; Goptions-reorder: prefer a runtime name-override when set (e.g. "ADVANCED SETTINGS"
                ;; for the renamed PS2 Options menu row); otherwise fall back to the localized name.
                (cond
@@ -11941,11 +12223,20 @@
                       (game-option-type frame-rate)
                       (game-option-type normal-inverted)
                       (game-option-type confirmation))
-                     ;; these options just show their text
-                     ;; prefer a runtime name-override label when one was set
-                     (if (nonzero? (-> options index name-override))
-                       (set! option-str (-> options index name-override))
-                       (set! option-str (lookup-text! *common-text* (-> options index name) #f))))
+                     ;; recharged-gating-real essai 2, defaut (8) LIBELLE PORTEUR : une rangee a
+                     ;; valeurs AFFICHE sa valeur courante — « AMBIENT OCCLUSION: HBAO » — au lieu
+                     ;; de son seul nom. Meme forme exacte que la rangee `on-off` juste en dessous,
+                     ;; qui fait deja « LABEL: ON » : meme `format`, meme preference name-override.
+                     ;; `rch-row-value-string` rend #f pour tout type sans liste de choix (MSAA,
+                     ;; cadence, aspect, LOD, haut-parleur, confirmation...) : ces rangees-la
+                     ;; gardent leur libelle au caractere pres.
+                     (let ((label (if (nonzero? (-> options index name-override))
+                                    (-> options index name-override)
+                                    (lookup-text! *common-text* (-> options index name) #f)))
+                           (val (rch-row-value-string (-> options index))))
+                       (if val
+                         (set! option-str (string-format "~S: ~S" label val))
+                         (set! option-str label))))
                     (((game-option-type on-off) (game-option-type aspect-native))
                      ;; on-off options show their text + on or off
                      ;; prefer a runtime name-override label when one was set (e.g. FPS-counter toggle)
@@ -12234,7 +12525,9 @@
             ;; nested Grass Settings page (few rows; same layout as game-settings).
             (((progress-screen recharged-settings) (progress-screen grass-settings)
               ;; recharged-gating-real : la page « Recharged Lighting », meme mise en page.
-              (progress-screen lighting-settings))
+              (progress-screen lighting-settings)
+              ;; recharged-gating-real essai 2 : la page de choix generique d'une option Recharged.
+              (progress-screen option-choice))
              (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen game-settings)) (hide-progress-icons) (draw-options self 115 25 0.70))
             (((progress-screen memcard-removed) (progress-screen memcard-auto-save-error))
@@ -12353,12 +12646,17 @@
             ;; res-menu-truth : le sous-menu Resolution s'ouvre SUR la resolution courante.
             ;; `enter!` posait 0, donc toujours la rangee NATIVE : « on est jamais surs d'etre
             ;; a la bonne resolution ». -1 (aucune rangee ne la porte) retombe sur 0.
+            ;; recharged-gating-real essai 2, defaut (8) : ouvrir une option PRESELECTIONNE sa valeur
+            ;; en cours. Meme geste que le sous-menu Resolution ci-dessus, avec sa propre fonction.
             (if (>= (the-as int (-> self next-display-state)) 0)
               (enter! self
                       (-> self next-display-state)
-                      (if (= (-> self next-display-state) (progress-screen resolution))
-                        (max 0 (resolution-menu-initial-index))
-                        0))
+                      (cond
+                        ((= (-> self next-display-state) (progress-screen resolution))
+                         (max 0 (resolution-menu-initial-index)))
+                        ((= (-> self next-display-state) (progress-screen option-choice))
+                         (max 0 (rch-choice-initial-index)))
+                        (else 0)))
               (pop! self))
             (set! (-> self display-level-index) (-> self next-level-index))
             (when (nonzero? (-> self level-transition))
@@ -12535,14 +12833,64 @@
         (__pc-gating-menu-row page (-> row gating-id)))))
   (none))
 
+(defun gating-scan-masked! ((page string) (src (array game-option)) (arr (array game-option)))
+  "Rapporte les rangees Recharged que cette page NE dessine PLUS. L'absence est CONSTATEE sur la
+   liste reellement dessinee : pour chaque rangee de la PHOTO qui porte un `gating-id`, on cherche
+   l'OBJET dans le tableau vivant. Re-poser la question a `option-locked?` serait un miroir de la
+   table C++ — on mesurerait la table au lieu de mesurer le masquage.
+
+   LA PAGE VOYAGE AVEC LA RANGEE (`masked-<page>`). Une rangee masquee garde son appartenance : le
+   C++ la juge exactement comme une rangee dessinee — meme page attendue, meme ligne de parent —
+   et seul le sens du verdict de masquage s'inverse. Sans ce nom, chaque fenetre ou un ancetre est
+   eteint viderait `ao_menu_rows_lighting` et `gating_menu_parent` sans qu'aucune regle ait ete
+   violee : un faux rouge pour l'instrument d'un AUTRE item."
+  (dotimes (i (-> src length))
+    (let ((row (-> src i)))
+      (when (nonzero? (-> row gating-id))
+        (let ((seen #f))
+          (dotimes (j (-> arr length))
+            (if (= (-> arr j) row) (set! seen #t)))
+          (when (not seen)
+            (__pc-gating-menu-row page (-> row gating-id)))))))
+  (none))
+
+(defun gating-scan-values! ((arr (array game-option)))
+  "Pour chaque rangee VIVANTE qui porte une liste de choix ET un `gating-id` : ce que le joueur LIT
+   sur la ligne, et ce que la page de choix lui PRESELECTIONNERAIT. Le second passe par la VRAIE
+   fonction d'ouverture (`rch-choice-initial-index`, celle que `enter!` appelle), pas par une copie
+   de son calcul — sinon le verdict (8) ne serait qu'un miroir de lui-meme."
+  (let ((saved *rch-choice-type*))
+    (dotimes (i (-> arr length))
+      (let ((row (-> arr i)))
+        (when (and (nonzero? (-> row gating-id)) (rch-choice-carousell-for (-> row option-type)))
+          (let* ((shown (rch-choice-current-index (-> row option-type)))
+                 (val (rch-row-value-string row)))
+            (set! *rch-choice-type* (-> row option-type))
+            (let* ((pre (+ (rch-choice-initial-index) -1))
+                   (rows (length *temp-options*)))
+              (__pc-gating-row-value (-> row gating-id) shown pre rows (if val val "")))))))
+    ;; on rend `*rch-choice-type*` tel qu'on l'a trouve : le recensement ne doit pas laisser la
+    ;; page de choix pointee sur une option que le joueur n'a pas ouverte.
+    (set! *rch-choice-type* saved))
+  (none))
+
 (defun gating-census! ()
   "Le recensement, une fois par cablage du menu. Appele depuis la fin de `init-game-options` :
    c'est le seul endroit ou l'on sait que les `gating-id` viennent d'etre poses, donc le seul
    ou le recensement decrit le menu REELLEMENT cable et pas celui d'avant."
+  ;; recharged-gating-real essai 2 : le recensement decrit ce qui est DESSINE, donc il masque
+  ;; d'abord — exactement le meme geste, la meme fonction, que l'image passee sur la page.
+  (rch-page-mask!)
   (__pc-gating-menu-begin)
   (gating-scan-rows! "recharged" *recharged-options-pc*)
   (gating-scan-rows! "grass" *grass-options-pc*)
   (gating-scan-rows! "lighting" *rlighting-options-pc*)
+  (gating-scan-masked! "masked-recharged" *rch-mask-src-rch* *recharged-options-pc*)
+  (gating-scan-masked! "masked-grass" *rch-mask-src-grs* *grass-options-pc*)
+  (gating-scan-masked! "masked-lighting" *rch-mask-src-lgt* *rlighting-options-pc*)
+  (gating-scan-values! *recharged-options-pc*)
+  (gating-scan-values! *grass-options-pc*)
+  (gating-scan-values! *rlighting-options-pc*)
   ;; UNE RANGEE PEUT ETRE LEGITIMEMENT ABSENTE, ET C'EST GOAL QUI LE SAIT. « HDR OUTPUT » est
   ;; RETIREE du tableau vivant quand l'ecran n'annonce aucun mode HDR (`rch-hdr-row-hide-once!`).
   ;; Sur un bureau sans ecran HDR elle n'existe pas : la laisser silencieuse la ferait compter
@@ -12550,23 +12898,29 @@
   ;; que de l'oublier — une rangee qu'on oublie de declarer reste comptee manquante.
   (when *rch-hdr-row-hidden?*
     (__pc-gating-menu-row "hidden" "hdr-output"))
+  ;; Ce que le MASQUAGE a fait, mesure sur les tableaux vivants : combien de rangees verrouillees
+  ;; sont encore dessinees (doit valoir 0) et combien ont ete retirees. Le second rend le premier
+  ;; falsifiable — zero visible sur un menu ou rien n'est eteint ne prouverait rien.
+  (__pc-gating-mask-counts (rch-mask-count-shown-locked!) *rch-mask-masked-n*)
   (__pc-gating-menu-end)
   (none))
 
 ;; DECLENCHEMENT SOUS MESURE. `init-game-options` ne tourne qu'a l'OUVERTURE du menu : une course
-;; automatique n'ouvre rien et le recensement ne partirait jamais. Meme patron que
-;; `scl10n-census!` juste au-dessus — un compteur d'images, un seuil, une seule fois.
-(define *gating-census-ticks* 0)
-(define *gating-census-done?* #f)
-
+;; automatique n'ouvre rien et le recensement ne partirait jamais.
+;;
+;; recharged-gating-real essai 2 : le seuil de 600 images et le verrou « une seule fois » ont
+;; DISPARU. C'est le C++ qui reclame un recensement, une fois par fenetre de son balayage : la
+;; course doit observer le regime « tous les parents allumes » ET chacun des six regimes « un parent
+;; eteint » — les deux moities de la regle (7) — dans la MEME course, donc plusieurs fois. On
+;; n'interroge le C++ que lorsque `*common-text*` est pret (sans banc de texte, les libelles
+;; rapportes ne voudraient rien dire), et son drapeau se consomme a la lecture : un tour saute
+;; n'est pas perdu, il sera repris a l'image suivante.
 (defun gating-census-boot! ()
-  "Sous mesure SEULEMENT : force le cablage du menu une fois au demarrage, pour que la course
-   puisse recenser sans qu'un humain ouvre le menu. Hors mesure on ne touche a rien — le menu
-   n'est cable qu'a son ouverture, et le forcer pour tout le monde changerait le jeu livre."
-  (when (and (not *gating-census-done?*) (nonzero? (__pc-gating-wanted?)))
-    (set! *gating-census-ticks* (+ *gating-census-ticks* 1))
-    (when (and (> *gating-census-ticks* 600) *common-text*)
-      (set! *gating-census-done?* #t)
+  "Sous mesure SEULEMENT : force le cablage du menu quand le C++ reclame un recensement, pour que
+   la course puisse recenser sans qu'un humain ouvre le menu. Hors mesure on ne touche a rien — le
+   menu n'est cable qu'a son ouverture, et le forcer pour tout le monde changerait le jeu livre."
+  (when (and (nonzero? (__pc-gating-wanted?)) *common-text*)
+    (when (nonzero? (__pc-gating-census-due?))
       (init-game-options (the-as progress #f))))
   (none))
 

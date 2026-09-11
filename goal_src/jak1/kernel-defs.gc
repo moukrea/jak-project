@@ -489,6 +489,21 @@
 (define-extern __pc-gating-page (function string int))
 ;; 1 quand le harnais a nomme l'item recharged-gating-real : hors mesure, le recensement au boot ne part pas.
 (define-extern __pc-gating-wanted? (function int))
+;; recharged-gating-real essai 2 — LES TROIS PONTS DE LA REGLE « MASQUER, PAS GRISER ».
+;; `__pc-gating-row-value` : pour une rangee a valeurs REELLEMENT dessinee, ce que le joueur lit et
+;; ce que la page de choix lui PRESELECTIONNE. Arguments : gating-id, indice affiche, indice
+;; preselectionne, nombre de rangees de la page de choix, libelle de la valeur courante. Les deux
+;; indices viennent de DEUX chemins differents (le libelle de la rangee et la vraie fonction
+;; d'ouverture) : les comparer est ce qui rend le defaut (8) falsifiable.
+(define-extern __pc-gating-row-value (function string int int int string none))
+;; Le compte du masquage : combien de rangees VERROUILLEES sont encore dessinees (doit valoir 0) et
+;; combien ont ete retirees. Le second est le temoin de non-vacuite du premier — zero masquees et
+;; zero verrouillees visibles se lit aussi bien sur un menu ou rien n'est eteint.
+(define-extern __pc-gating-mask-counts (function int int none))
+;; 1 quand le C++ reclame un recensement pour la fenetre courante de son balayage. Le drapeau se
+;; consomme a la lecture : un tour saute n'est pas perdu, et la course peut observer le regime
+;; « tous les parents allumes » ET chacun des regimes « un parent eteint » dans la MEME course.
+(define-extern __pc-gating-census-due? (function int))
 ;; Grecharged-foliage-wind3 : LA CADENCE DU VENT NATIF, rapportee par le SEUL site qui la decide
 ;; (`update-wind-ticks!`). Premier argument : ce que cette image vaut en 1/60 s de temps de JEU
 ;; (`(-> *display* time-adjust-ratio)`) ; second : le nombre de pas de vent reellement executes.

@@ -443,6 +443,54 @@ struct MenuState {
 
 MenuState g_menu;
 
+// ─── CE QUI SURVIT A UN RECENSEMENT ──────────────────────────────────────────────────────────
+// Le recensement tourne desormais PLUSIEURS fois par course, une fois par fenetre de balayage,
+// parce que c'est la seule facon d'observer les deux regimes dans la MEME course : la fenetre
+// temoin allume tout (aucune rangee masquee), chaque fenetre suivante eteint un parent (des
+// rangees masquees). Ne juger que le DERNIER tour laisserait donc passer tout defaut vu dans une
+// fenetre anterieure — c'est pourquoi le verdict lit ces cumuls, et non les compteurs du tour.
+struct Cum {
+  uint64_t runs = 0;
+  uint64_t unknown = 0;
+  uint64_t misplaced = 0;
+  uint64_t missing = 0;
+  uint64_t masked = 0;       // rangees que GOAL a vu QUITTER la liste dessinee
+  uint64_t shown = 0;        // rangees reellement presentes dans la liste dessinee
+  uint64_t value_rows = 0;   // rangees qui ont rapporte leur libelle porteur
+  uint64_t shown_locked = 0; // rangee verrouillee ENCORE dessinee : le defaut « grise, pas masque »
+  uint64_t masked_goal = 0;  // le compte que GOAL fait de son cote, temoin informatif
+  uint64_t mask_defects = 0;
+  uint64_t value_defects = 0;
+  uint64_t presel_defects = 0;
+  uint64_t page_defects = 0;
+  std::string mask_defect_names;
+  std::string value_defect_names;
+};
+
+Cum g_cum;
+
+// LA CADENCE DU RECENSEMENT. `g_abs_frame` court sur toute la course mesuree (il ne repart pas a
+// zero avec les fenetres), `g_census_at` est l'image ou le module reclamera un recensement, et
+// `g_census_due` est le drapeau que GOAL consomme. On demande le recensement AU MILIEU d'une
+// fenetre, pas a son ouverture : le forcage vient d'etre pose, il faut que le menu le lise apres
+// que `update-to-os` ait fait un tour.
+uint64_t g_abs_frame = 0;
+uint64_t g_census_at = 0;
+bool g_census_due = false;
+
+// Un nom de defaut coute des octets sur une ligne logcat qui n'en a pas d'infini : `publish_text`
+// n'a AUCUNE borne, et une liste qui deborde tronque la ligne — donc la preuve. Meme plafond que
+// `uncovered_names`.
+void append_capped(std::string& into, const std::string& what) {
+  if (into.size() >= 400) {
+    return;
+  }
+  if (!into.empty()) {
+    into += ",";
+  }
+  into += what;
+}
+
 // La page ou une option DOIT vivre, DEDUITE DE SON PARENT. C'est la meme colonne que la porte :
 // un sous-menu qui derive de la hierarchie se voit immediatement.
 const char* expected_page(int opt) {
@@ -623,6 +671,7 @@ void menu_row(const char* page, const char* opt_id) {
   g_menu.rows++;
   if (opt < 0) {
     g_menu.unknown++;
+    g_cum.unknown++;
     return;
   }
   g_menu.seen[opt] = true;
@@ -636,6 +685,50 @@ void menu_row(const char* page, const char* opt_id) {
     g_menu.absent++;
     return;
   }
+  // MASQUEE : la page connait cette rangee, et elle a QUITTE le tableau vivant parce qu'un ancetre
+  // est eteint. C'est l'exigence 7 de l'owner — une option dont le parent est eteint DISPARAIT au
+  // lieu de rester grisee. Ce n'est pas un miroir de la regle C++ : GOAL rapporte ici ce qu'il ne
+  // trouve PLUS dans la liste qu'il dessine, et le module le confronte a sa propre table. Une
+  // rangee masquee que la table ne verrouille pas est donc un defaut, dans ce sens-la.
+  //
+  // Elle reste `seen` (sinon `menu_end()` la compterait manquante) mais surtout PAS
+  // `declared_absent` : masquee un tour, elle redevient visible au tour suivant, et la course doit
+  // toujours l'avoir exercee. La sortir du jugement de couverture fabriquerait un seau d'exclusion.
+  //
+  // LA PAGE VOYAGE AVEC LA RANGEE MASQUEE, et ce n'est pas un detail de confort. GOAL envoie
+  // `masked-<page>` : le nom de la page vient du tableau qu'il vient de parcourir, pas de la
+  // table. Sans lui, une rangee masquee n'aurait plus AUCUNE page, et deux recensements voisins
+  // perdraient leur objet — `ao_menu_rows_lighting` (l'instrument de lighting-ao-indirect) et
+  // `gating_menu_parent` tomberaient a zero pendant chaque fenetre ou un ancetre de l'AO est
+  // eteint, alors qu'aucune regle n'aurait ete violee. Une rangee masquee est jugee exactement
+  // comme une rangee dessinee — meme page attendue, meme ligne de parent : seul le sens du
+  // verdict de masquage s'inverse.
+  //
+  // La comparaison se fait sur la CLE ENTIERE apres le prefixe, jamais sur « ca commence par » :
+  // une page qui commencerait par `masked` sans en etre une se lirait a l'envers.
+  bool masked = false;
+  if (page && std::strncmp(page, "masked-", 7) == 0) {
+    masked = true;
+    page = page + 7;
+  } else if (page && std::strcmp(page, "masked") == 0) {
+    masked = true;
+    page = nullptr;
+  }
+  if (masked) {
+    g_cum.masked++;
+    if (!disabled_by_ancestor(opt)) {
+      g_cum.mask_defects++;
+      append_capped(g_cum.mask_defect_names, std::string(kOptions[opt].name) + ">masked");
+    }
+  } else {
+    // Presente dans la liste dessinee : le symetrique exact. Une rangee que la table verrouille et
+    // que la page dessine encore est le defaut d'origine (« grisee au lieu de masquee »).
+    g_cum.shown++;
+    if (disabled_by_ancestor(opt)) {
+      g_cum.mask_defects++;
+      append_capped(g_cum.mask_defect_names, std::string(kOptions[opt].name) + ">shown");
+    }
+  }
   if (opt == kAoMode || opt == kAoQuality || opt == kAoStrength) {
     if (page && std::strcmp(page, "lighting") == 0) {
       g_menu.ao_rows_lighting++;
@@ -645,6 +738,7 @@ void menu_row(const char* page, const char* opt_id) {
   }
   if (!page || std::strcmp(page, expected_page(opt)) != 0) {
     g_menu.misplaced++;
+    g_cum.misplaced++;
   }
   if (!g_menu.parents.empty()) {
     g_menu.parents += ",";
@@ -696,6 +790,80 @@ void menu_end() {
       g_menu.missing_names += kOptions[i].name;
     }
   }
+  g_cum.missing += g_menu.missing;
+  g_cum.runs++;
+}
+
+// ─── LE LIBELLE PORTEUR, MESURE ET PAS REGARDE ───────────────────────────────────────────────
+// `shown` est l'indice que la rangee AFFICHE ; on le confronte a la valeur voulue que porte la
+// table, pas a ce que GOAL a lu ailleurs — c'est ce qui empeche la mesure d'etre un miroir. Un
+// texte vide veut dire une rangee sans sa valeur (le defaut que l'owner decrit). `presel` est
+// l'indice sur lequel le curseur se pose a l'ouverture : different de `shown`, la page de choix
+// ne PRESELECTIONNE pas la valeur en cours. `rows < 2` veut dire qu'il n'y a pas de vraie page
+// de choix derriere la ligne — l'exigence 9.
+void menu_value(const char* opt_id,
+                int shown_index,
+                int presel_index,
+                int page_rows,
+                const char* value_text) {
+  const int opt = by_name(opt_id);
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
+  if (opt < 0) {
+    g_cum.unknown++;
+    return;
+  }
+  g_cum.value_rows++;
+  const int want = (int)std::llround(desired(opt));
+  if (shown_index != want) {
+    g_cum.value_defects++;
+    append_capped(g_cum.value_defect_names, std::string(kOptions[opt].name) + ":shown" +
+                                                std::to_string(shown_index) + "!=" +
+                                                std::to_string(want));
+  }
+  if (value_text == nullptr || value_text[0] == 0) {
+    g_cum.value_defects++;
+    append_capped(g_cum.value_defect_names, std::string(kOptions[opt].name) + ":novalue");
+  }
+  if (presel_index != shown_index) {
+    g_cum.presel_defects++;
+    append_capped(g_cum.value_defect_names, std::string(kOptions[opt].name) + ":presel" +
+                                                std::to_string(presel_index) + "!=" +
+                                                std::to_string(shown_index));
+  }
+  if (page_rows < 2) {
+    g_cum.page_defects++;
+    append_capped(g_cum.value_defect_names,
+                  std::string(kOptions[opt].name) + ":rows" + std::to_string(page_rows));
+  }
+}
+
+// Ce que GOAL compte sur la page qu'il vient de dessiner. `shown_locked` doit rester a zero : il
+// vaut ce que le module compte de son cote par `menu_row`, mais depuis l'AUTRE bout de la chaine
+// — GOAL le derive de sa liste vivante, pas de la table. Deux comptes qui divergent se voient.
+void menu_mask_counts(int shown_locked, int masked_total) {
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
+  g_cum.shown_locked += (shown_locked > 0) ? (uint64_t)shown_locked : 0;
+  g_cum.masked_goal += (masked_total > 0) ? (uint64_t)masked_total : 0;
+}
+
+// LA LECTURE CONSOMME. Sans ca, un menu qui interroge a chaque image recenserait en boucle a
+// partir du premier declenchement, et le compte de recensements ne dirait plus rien.
+bool census_due() {
+  std::lock_guard<std::recursive_mutex> lock(g_mutex);
+  if (!census_wanted()) {
+    return false;  // course ordinaire du joueur : on ne force aucun recensement.
+  }
+  if (!g_sweep.wanted) {
+    // UN AUTRE ITEM MESURE (lighting-ao-indirect lit `ao_menu_rows_lighting`). Son balayage n'est
+    // pas arme, donc aucune fenetre ne viendra reclamer de recensement : brancher GOAL uniquement
+    // sur la cadence du balayage lui retirerait le seul recensement qu'il avait, et sa preuve
+    // tomberait sur une vacuite sans qu'aucune regle soit violee. On lui rend exactement ce que le
+    // seuil d'images lui donnait avant : UN recensement, tant que le menu n'a jamais ete vu.
+    return !g_menu.ever;
+  }
+  const bool due = g_census_due;
+  g_census_due = false;
+  return due;
 }
 
 void tick() {
@@ -704,6 +872,23 @@ void tick() {
   if (!g_sweep.started) {
     g_sweep.started = true;
     g_sweep.wanted = autoport_proof::feature_is("recharged-gating-real");
+  }
+
+  // L'HORLOGE ABSOLUE DE LA COURSE MESUREE, et elle continue APRES la fin du balayage : c'est
+  // elle qui date les echeances de recensement, y compris la derniere, celle qui lit le menu une
+  // fois tout relache. `g_sweep.frame` repart a zero a chaque fenetre et ne peut pas servir a ca.
+  if (g_sweep.wanted) {
+    g_abs_frame++;
+    // TANT QUE LE MENU N'A JAMAIS ETE RECENSE, ON RECLAME EN PERMANENCE. Un menu ne se recense
+    // qu'une fois `*common-text*` charge et le cablage fait ; sur une course ou ca arrive tard, un
+    // drapeau pose une seule fois serait manque et la preuve tomberait sur une sentinelle de
+    // vacuite — un faux rouge d'INSTRUMENT, pas un defaut du jeu.
+    if (!g_menu.ever) {
+      g_census_due = true;
+    }
+    if (g_abs_frame == g_census_at) {
+      g_census_due = true;
+    }
   }
 
   if (g_sweep.wanted && !g_sweep.done) {
@@ -716,7 +901,11 @@ void tick() {
     g_sweep.frame++;
     const uint64_t f = g_sweep.frame;
     if (g_sweep.stage < 0) {
-      if (f >= kWarmFrames) {
+      // LE BALAYAGE NE DEMARRE PAS TANT QUE LE MENU N'A PAS ETE RECENSE UNE FOIS. Sinon les
+      // fenetres defilent pendant que GOAL n'est pas encore capable d'ouvrir son menu, et la
+      // course perd TOUS ses recensements : `cum_masked` et `cum_shown` sortent a zero pour une
+      // raison qui n'a rien a voir avec le masquage.
+      if (f >= kWarmFrames && g_menu.ever) {
         // LA VOLONTE SE PHOTOGRAPHIE A LA FIN DE LA CHAUFFE, PAS A LA PREMIERE IMAGE.
         // `tick()` tourne depuis `npc-census-tick` ; `update-to-os`, qui pousse les ~35 reglages
         // depuis `*pc-settings*`, tourne dans une AUTRE passe de la meme image. A la premiere
@@ -733,6 +922,7 @@ void tick() {
         force_all(1);
         snapshot_marks();
         g_sweep.frame = 0;
+        g_census_at = g_abs_frame + 45;
       }
     } else if (f >= kWindowFrames) {
       if (g_sweep.stage == 0) {
@@ -747,6 +937,9 @@ void tick() {
         g_state[kParents[g_sweep.stage - 1]].force.store(0, std::memory_order_relaxed);
         snapshot_marks();
         g_sweep.frame = 0;
+        // Un recensement AU MILIEU de la fenetre : le forcage vient d'etre pose, il faut laisser
+        // `update-to-os` et le cablage du menu faire un tour avant de lire la page.
+        g_census_at = g_abs_frame + 45;
       } else {
         // Fin : on RELACHE tout, et on verifie que la valeur voulue a survecu au balayage —
         // c'est la memoire que l'owner demande, mesuree apres un vrai aller-retour OFF/ON.
@@ -758,6 +951,9 @@ void tick() {
           }
         }
         g_sweep.done = true;
+        // Un dernier recensement APRES le relachement : c'est le seul qui voit le menu revenu a
+        // l'etat du joueur, donc celui qui juge la valeur RESTITUEE dans le libelle porteur.
+        g_census_at = g_abs_frame + 60;
       }
     }
   }
@@ -812,6 +1008,29 @@ void publish_all() {
   autoport_proof::publish("ao_menu_rows_elsewhere", g_menu.ao_rows_elsewhere);
   autoport_proof::publish_text("gating_menu_parent",
                                g_menu.parents.empty() ? "-" : g_menu.parents.c_str());
+
+  // ── LE MASQUAGE, LE LIBELLE PORTEUR, LE SOUS-MENU (exigences 7, 8, 9 de l'owner) ───────────
+  // Tous CUMULES sur la course : un recensement par fenetre, et chaque fenetre eteint un parent
+  // different. Les cles du tour, juste au-dessus, ne decrivent que le DERNIER menu lu.
+  autoport_proof::publish("gating_census_runs", g_cum.runs);
+  autoport_proof::publish("gating_mask_defects", g_cum.mask_defects);
+  autoport_proof::publish("gating_masked_rows", g_cum.masked);
+  autoport_proof::publish("gating_shown_rows", g_cum.shown);
+  autoport_proof::publish("gating_shown_locked", g_cum.shown_locked);
+  autoport_proof::publish("gating_masked_goal", g_cum.masked_goal);
+  autoport_proof::publish("gating_value_rows", g_cum.value_rows);
+  autoport_proof::publish("gating_value_defects", g_cum.value_defects);
+  autoport_proof::publish("gating_presel_defects", g_cum.presel_defects);
+  autoport_proof::publish("gating_page_defects", g_cum.page_defects);
+  autoport_proof::publish("gating_cum_unknown", g_cum.unknown);
+  autoport_proof::publish("gating_cum_misplaced", g_cum.misplaced);
+  autoport_proof::publish("gating_cum_missing", g_cum.missing);
+  autoport_proof::publish_text(
+      "gating_mask_defect_names",
+      g_cum.mask_defect_names.empty() ? "-" : g_cum.mask_defect_names.c_str());
+  autoport_proof::publish_text(
+      "gating_value_defect_names",
+      g_cum.value_defect_names.empty() ? "-" : g_cum.value_defect_names.c_str());
 
   // ── le balayage ────────────────────────────────────────────────────────────────────────────
   // QUI EST JUGE PAR SON PROPRE COMPTEUR, ET QUI HERITE.
@@ -989,9 +1208,20 @@ void publish_all() {
     defects = kVacuous + 4;
   } else if (covered == 0) {
     defects = kVacuous + 5;
+  } else if (g_cum.value_rows == 0) {
+    defects = kVacuous + 6;  // aucune ligne a valeurs n'a ete mesuree
+  } else if (g_cum.masked == 0) {
+    defects = kVacuous + 7;  // le masquage n'a JAMAIS ete exerce : rien a juger sur l'exigence 7
+  } else if (g_cum.shown == 0) {
+    defects = kVacuous + 8;  // aucune rangee n'a jamais ete dessinee
+  } else if (g_cum.runs < 2) {
+    defects = kVacuous + 9;  // un seul regime observe : masquage et non-masquage ne se comparent pas
   } else {
-    defects = effet + foreign + uncovered + g_menu.unknown + g_menu.misplaced + g_menu.missing +
-              (g_sweep.value_restored == 1 ? 0 : 1);
+    // Les termes du menu sont CUMULES, jamais ceux du dernier tour : avec un recensement par
+    // fenetre, ne juger que le dernier laisserait passer tout defaut vu plus tot dans la course.
+    defects = effet + foreign + uncovered + g_cum.unknown + g_cum.misplaced + g_cum.missing +
+              (g_sweep.value_restored == 1 ? 0 : 1) + g_cum.mask_defects + g_cum.shown_locked +
+              g_cum.value_defects + g_cum.presel_defects + g_cum.page_defects;
   }
   autoport_proof::publish("gating_defects", defects);
 }
