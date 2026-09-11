@@ -228,6 +228,36 @@ void note_sky_wide(uint64_t over_px,
 // contient : pixels vus, pixels au-dessus de 1,0, maximum. Aucun blit, aucune passe ajoutee.
 void probe_glow(GLuint fbo, int w, int h, GLenum fmt);
 
+// ============ CHANTIER `hdr-glow-range` — LA COUVERTURE DU CHEMIN DE HALO, D'ABORD ============
+// Le chantier A a elargi la sonde de halo et ses cinq reductions sans jamais les voir tourner :
+// `hdr_src_glow_state=2` sur 10 560 images d'appareil. Ce zero ne disait pas « pas de
+// depassement », il disait « pas de mesure ». Ce bloc-ci compte le CHEMIN, jamais la grandeur :
+// combien de fois le producteur DMA est entre, combien de sprites ont ete soumis, combien de fois
+// `flush` a tourne — et SURTOUT le denominateur qui rend ces zeros falsifiables : les images de
+// `Sprite3::render`, le dispatch qui les a prises, et les sprites que les AUTRES chemins ont
+// dessines pendant le meme temps. Un `flush_calls=0` a cote d'un `sprite_render_calls=0` ne
+// prouve rien ; a cote d'un `sprite_render_calls=10000` il prouve que le chemin est inatteignable.
+void note_glow_ctor(bool latched_float,
+                    uint64_t ds_bytes,
+                    uint64_t probe_bytes,
+                    int stages_created,
+                    int stages_complete,
+                    int fallbacks);
+
+// Un redimensionnement a REPRIS le format latche a la construction au lieu de reconsulter le
+// regime. C'est ce compteur qui etablit, sans bascule vecue, que la bascule Recharged en jeu ne
+// peut pas atteindre ces cibles : le format n'est resolu qu'UNE fois par vie du renderer.
+void note_glow_fmt_reuse(uint64_t probe_bytes);
+
+void note_glow_dma_enter();              // `Sprite3::glow_dma_and_draw` est entre
+void note_glow_alloc(bool cancelled);    // un sprite a ete alloue (et peut-etre annule)
+void note_glow_flush(uint64_t pending);  // `GlowRenderer::flush`, AVANT son retour anticipe
+
+// Une image de `Sprite3::render`. `jak1_path` distingue les deux dispatchs (seul `render_jak2`
+// lit le bucket glow) ; `sprites_2d` et `aux_sprites` sont les CHEMINS CONCURRENTS — c'est par
+// eux que passe le halo que l'owner voit sur les feux et les portails.
+void note_sprite_frame(bool jak1_path, uint64_t sprites_2d, uint64_t aux_sprites);
+
 // ------------------------------ l'etat du recensement de chaine, relu par un autre module -----
 // Les memes grandeurs que `frame_end` publie deja sous `hdr_*` / `tonemap_*`. Un module qui doit
 // DECIDER sur elles (et pas seulement les publier) les lit ici, au lieu de relire un proof.txt.

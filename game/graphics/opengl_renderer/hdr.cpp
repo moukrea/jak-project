@@ -67,6 +67,16 @@ bool source_range_measuring() {
   return autoport_proof::feature_is(kSourceRangeId);
 }
 
+// LE CHANTIER `hdr-glow-range`. Il ne change RIEN a ce que le jeu dessine : il rend le chemin du
+// halo COMPTABLE. Le chantier A avait elargi la sonde et ses cinq reductions sans jamais les voir
+// tourner, et publiait un zero qui se lisait « pas de depassement » alors qu'il disait « pas de
+// mesure ». Sous cet item la sonde de halo a le droit de tourner (elle est gardee par le meme
+// `||` plus bas) et le bloc `hdr_glow_*` est publie.
+constexpr const char* kGlowRangeId = "hdr-glow-range";
+bool glow_range_measuring() {
+  return autoport_proof::feature_is(kGlowRangeId);
+}
+
 thread_local bool s_frame_active = false;
 thread_local bool s_frame_chain = false;
 
@@ -768,18 +778,145 @@ void note_sky_wide(uint64_t over_px,
   }
 }
 
+// ===================== CHANTIER `hdr-glow-range` — LES COMPTEURS DU CHEMIN =====================
+// Tout ce bloc est un INSTRUMENT : il ne decide de rien, il compte. Les compteurs tournent sous
+// TOUS les items (le cout est un `++` par image) ; seule la PUBLICATION est gardee par l'item,
+// pour qu'aucune cle `hdr_glow_*` n'apparaisse dans le proof d'un voisin.
+namespace {
+// Les raisons du retour anticipe de `probe_glow`, DISTINCTES. Le contrat en exige quatre ; il y
+// en a huit, et les huit sont comptees separement : un zero ne peut plus se lire comme un verdict.
+enum GlowProbeReason {
+  kGlowProbeNever = 0,   // jamais appelee — `flush` n'a pas tourne
+  kGlowProbeOff = 1,     // mesure eteinte (aucun des deux items ne mesure)
+  kGlowProbeW0 = 2,      // largeur nulle
+  kGlowProbeH0 = 3,      // hauteur nulle
+  kGlowProbeTooBig = 4,  // cible trop grande pour une relecture synchrone
+  kGlowProbe8Bit = 5,    // cible 8 bits : l'instrument a tourne, il n'y avait rien a compter
+  kGlowProbeSkip = 6,    // image hors echantillon (une sur trente)
+  kGlowProbeRefus = 7,   // relecture refusee par le pilote
+  kGlowProbeRan = 8,     // A TOURNE
+};
+const char* glow_reason_name(int r) {
+  switch (r) {
+    case kGlowProbeNever: return "jamais-appelee";
+    case kGlowProbeOff: return "mesure-eteinte";
+    case kGlowProbeW0: return "largeur-nulle";
+    case kGlowProbeH0: return "hauteur-nulle";
+    case kGlowProbeTooBig: return "cible-trop-grande";
+    case kGlowProbe8Bit: return "cible-8-bits";
+    case kGlowProbeSkip: return "hors-echantillon";
+    case kGlowProbeRefus: return "relecture-refusee";
+    case kGlowProbeRan: return "a-tourne";
+    default: return "inconnu";
+  }
+}
+uint64_t s_glow_reason_n[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+int s_glow_reason_max = kGlowProbeNever;
+
+// Le chemin, du producteur DMA au flush.
+uint64_t s_glow_dma_enters = 0, s_glow_allocs = 0, s_glow_cancels = 0;
+uint64_t s_glow_flush_calls = 0, s_glow_flush_empty = 0, s_glow_sprites_submitted = 0;
+// Le DENOMINATEUR, et les chemins CONCURRENTS.
+uint64_t s_sprite_render_calls = 0, s_sprite_jak1_calls = 0, s_sprite_jak2_calls = 0;
+uint64_t s_sprite_2d = 0, s_sprite_aux = 0;
+// Les cibles : ce que la construction a latche, et ce qu'elle a coute.
+uint64_t s_glow_ctors = 0, s_glow_ds_bytes = 0, s_glow_probe_bytes = 0, s_glow_fmt_reuses = 0;
+int s_glow_stages_created = 0, s_glow_stages_complete = 0, s_glow_stage_fallbacks = 0;
+int s_glow_latched_float = -1;  // -1 = aucun renderer construit
+uint64_t s_glow_drift_frames = 0, s_glow_master_changes = 0;
+int s_glow_master_prev = -1;
+uint64_t s_glow_range_frames = 0;
+
+void note_glow_probe_reason(int reason) {
+  s_glow_reason_n[reason]++;
+  if (reason > s_glow_reason_max) {
+    s_glow_reason_max = reason;
+  }
+}
+}  // namespace
+
+void note_glow_ctor(bool latched_float,
+                    uint64_t ds_bytes,
+                    uint64_t probe_bytes,
+                    int stages_created,
+                    int stages_complete,
+                    int fallbacks) {
+  s_glow_ctors++;
+  s_glow_ds_bytes += ds_bytes;
+  s_glow_probe_bytes = probe_bytes;
+  s_glow_stages_created += stages_created;
+  s_glow_stages_complete += stages_complete;
+  s_glow_stage_fallbacks += fallbacks;
+  s_glow_latched_float = latched_float ? 1 : 0;
+}
+
+void note_glow_fmt_reuse(uint64_t probe_bytes) {
+  s_glow_fmt_reuses++;
+  s_glow_probe_bytes = probe_bytes;
+}
+
+void note_glow_dma_enter() {
+  s_glow_dma_enters++;
+}
+
+void note_glow_alloc(bool cancelled) {
+  if (cancelled) {
+    s_glow_cancels++;
+  } else {
+    s_glow_allocs++;
+  }
+}
+
+void note_glow_flush(uint64_t pending) {
+  s_glow_flush_calls++;
+  if (pending == 0) {
+    s_glow_flush_empty++;
+  } else {
+    s_glow_sprites_submitted += pending;
+  }
+}
+
+void note_sprite_frame(bool jak1_path, uint64_t sprites_2d, uint64_t aux_sprites) {
+  s_sprite_render_calls++;
+  if (jak1_path) {
+    s_sprite_jak1_calls++;
+  } else {
+    s_sprite_jak2_calls++;
+  }
+  s_sprite_2d += sprites_2d;
+  s_sprite_aux += aux_sprites;
+}
+
 void probe_glow(GLuint fbo, int w, int h, GLenum fmt) {
   // Relecture DIRECTE du dernier etage (40x40 par defaut) : pas de blit, pas de passe ajoutee.
   // Hors flottant il n'y a rien a mesurer — la cible ne peut pas porter plus de 1,0 — et on le
   // dit par `hdr_src_glow_state`, jamais par un zero muet.
-  if (!source_range_measuring() || w <= 0 || h <= 0 || (size_t)w * h > 65536u) {
+  // `hdr-glow-range` : les QUATRE raisons que le contrat nomme — et les quatre autres qui
+  // existaient aussi — sont desormais des valeurs DISTINCTES, comptees separement. Aucune
+  // d'elles ne peut plus se confondre avec « la sonde a tourne et n'a rien trouve ».
+  if (!source_range_measuring() && !glow_range_measuring()) {
+    note_glow_probe_reason(kGlowProbeOff);
+    return;
+  }
+  if (w <= 0) {
+    note_glow_probe_reason(kGlowProbeW0);
+    return;
+  }
+  if (h <= 0) {
+    note_glow_probe_reason(kGlowProbeH0);
+    return;
+  }
+  if ((size_t)w * h > 65536u) {
+    note_glow_probe_reason(kGlowProbeTooBig);
     return;
   }
   if (!format_is_float(fmt)) {
     s_glow_state = -2;  // cible 8 bits : l'instrument a tourne, il n'y avait rien a compter
+    note_glow_probe_reason(kGlowProbe8Bit);
     return;
   }
   if ((s_frames % kProbeEvery) != 0) {
+    note_glow_probe_reason(kGlowProbeSkip);
     return;
   }
   gl_query_census::Armed _ap("hdr-src-glow-probe");
@@ -812,9 +949,11 @@ void probe_glow(GLuint fbo, int w, int h, GLenum fmt) {
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)old_draw);
   if (!ok) {
     s_glow_state = -1;
+    note_glow_probe_reason(kGlowProbeRefus);
     return;
   }
   s_glow_state = 1;
+  note_glow_probe_reason(kGlowProbeRan);
   s_glow_frames++;
   for (size_t i = 0; i + 3 < px.size(); i += 4) {
     s_glow_px++;
@@ -934,6 +1073,117 @@ void publish_source_range() {
   // valeur qu'elle publierait plus bas serait un zero d'INACTION. Un seul ecrivain par cle.
   autoport_proof::publish("hdr_overbright_px", s_glow_overbright);
 }
+
+// ============ CHANTIER `hdr-glow-range` — LA PORTE, ET LA COUVERTURE QUI LA PORTE ============
+// L'ORDRE EST CELUI DU CONTRAT : la couverture D'ABORD, le depassement seulement si la sonde a
+// tourne. Un `hdr_glow_overbright_px=0` publie sans `hdr_glow_flush_calls` a cote ne vaut rien.
+void publish_glow_range() {
+  if (!glow_range_measuring()) {
+    return;  // instrument : muet hors de la mesure de CET item
+  }
+  // LE LATCH, VERIFIE A CHAQUE IMAGE. Le format des etages est fige a la construction du
+  // renderer ; le regime, lui, est relu toutes les 250 ms. On compare les deux a chaque image :
+  // `drift` compte les images ou le regime a change d'avis SANS que les cibles suivent.
+  const bool master_now = Gfx::recharged_master_active();
+  if (s_glow_master_prev >= 0 && (master_now ? 1 : 0) != s_glow_master_prev) {
+    s_glow_master_changes++;
+  }
+  s_glow_master_prev = master_now ? 1 : 0;
+  const bool now_float = source_stage_format(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE).is_float;
+  if (s_glow_latched_float >= 0 && (now_float ? 1 : 0) != s_glow_latched_float) {
+    s_glow_drift_frames++;
+  }
+
+  s_glow_range_frames++;
+  if ((s_glow_range_frames % 30) != 1) {
+    return;
+  }
+  autoport_proof::note_hit();
+
+  // ── 1. LA COUVERTURE. Le chemin, du producteur DMA au flush, avec son denominateur. ────────
+  autoport_proof::publish("hdr_glow_flush_calls", s_glow_flush_calls);
+  autoport_proof::publish("hdr_glow_flush_empty", s_glow_flush_empty);
+  autoport_proof::publish("hdr_glow_sprites_submitted", s_glow_sprites_submitted);
+  autoport_proof::publish("hdr_glow_dma_enters", s_glow_dma_enters);
+  autoport_proof::publish("hdr_glow_allocs", s_glow_allocs);
+  autoport_proof::publish("hdr_glow_cancels", s_glow_cancels);
+  // LE DENOMINATEUR. Sans lui, les six zeros ci-dessus se lisent « l'instrument n'a pas tourne ».
+  autoport_proof::publish("hdr_glow_sprite_render_calls", s_sprite_render_calls);
+  autoport_proof::publish("hdr_glow_sprite_jak1_calls", s_sprite_jak1_calls);
+  autoport_proof::publish("hdr_glow_sprite_jak2_calls", s_sprite_jak2_calls);
+  // LES CHEMINS CONCURRENTS. Le halo que l'owner voit sur les feux et les portails de Sandover
+  // ne passe pas par `GlowRenderer` : les lobes lumineux sont des sprites 2D ordinaires
+  // (`render_2d_group0`) et la chaleur est un distorteur d'aux-list (`render_distorter`). Ces
+  // deux compteurs le montrent DANS LA MEME COURSE ou le glow reste a zero.
+  autoport_proof::publish("hdr_glow_other_2d_sprites", s_sprite_2d);
+  autoport_proof::publish("hdr_glow_other_aux_sprites", s_sprite_aux);
+
+  // ── 2. L'ETAT DE LA SONDE, ET POURQUOI. Huit raisons, huit compteurs. ─────────────────────
+  autoport_proof::publish("hdr_glow_state", (uint64_t)s_glow_reason_max);
+  autoport_proof::publish_text("hdr_glow_state_name", glow_reason_name(s_glow_reason_max));
+  autoport_proof::publish("hdr_glow_r_never", s_glow_reason_n[kGlowProbeNever]);
+  autoport_proof::publish("hdr_glow_r_off", s_glow_reason_n[kGlowProbeOff]);
+  autoport_proof::publish("hdr_glow_r_w0", s_glow_reason_n[kGlowProbeW0]);
+  autoport_proof::publish("hdr_glow_r_h0", s_glow_reason_n[kGlowProbeH0]);
+  autoport_proof::publish("hdr_glow_r_toobig", s_glow_reason_n[kGlowProbeTooBig]);
+  autoport_proof::publish("hdr_glow_r_8bit", s_glow_reason_n[kGlowProbe8Bit]);
+  autoport_proof::publish("hdr_glow_r_skip", s_glow_reason_n[kGlowProbeSkip]);
+  autoport_proof::publish("hdr_glow_r_refus", s_glow_reason_n[kGlowProbeRefus]);
+  autoport_proof::publish("hdr_glow_r_ran", s_glow_reason_n[kGlowProbeRan]);
+
+  // ── 3. LE DEPASSEMENT, et son denominateur — n'a de sens que si la sonde a tourne. ────────
+  autoport_proof::publish("hdr_glow_px", s_glow_px);
+  autoport_proof::publish("hdr_glow_overbright_px", s_glow_overbright);
+  autoport_proof::publish("hdr_glow_max_x1000", s_glow_max_x1000);
+  autoport_proof::publish("hdr_glow_probe_frames", s_glow_frames);
+
+  // ── 4. LES CIBLES : completude mesuree, replis comptes, octets. ───────────────────────────
+  autoport_proof::publish("hdr_glow_ctors", s_glow_ctors);
+  autoport_proof::publish("hdr_glow_stages_created", (uint64_t)s_glow_stages_created);
+  autoport_proof::publish("hdr_glow_stages_complete", (uint64_t)s_glow_stages_complete);
+  autoport_proof::publish("hdr_glow_stage_fallbacks", (uint64_t)s_glow_stage_fallbacks);
+  autoport_proof::publish("hdr_glow_stage_bytes", s_glow_ds_bytes + s_glow_probe_bytes);
+
+  // ── 5. LE LATCH. `fmt_resolved` = 1 sur toute la course dit que la bascule en jeu ne peut
+  //      PAS atteindre ces cibles : elle exige un redemarrage. `fmt_reuses` compte les
+  //      redimensionnements qui ont REPRIS le format latche au lieu de reconsulter le regime.
+  autoport_proof::publish("hdr_glow_fmt_resolved", s_glow_ctors);
+  autoport_proof::publish("hdr_glow_fmt_reuses", s_glow_fmt_reuses);
+  autoport_proof::publish("hdr_glow_fmt_latched_float",
+                          (uint64_t)(s_glow_latched_float > 0 ? 1 : 0));
+  autoport_proof::publish("hdr_glow_fmt_now_float", (uint64_t)(now_float ? 1 : 0));
+  autoport_proof::publish("hdr_glow_fmt_drift_frames", s_glow_drift_frames);
+  autoport_proof::publish("hdr_glow_master_changes", s_glow_master_changes);
+  autoport_proof::publish("hdr_glow_master_on", master_now ? 1 : 0);
+  autoport_proof::publish("hdr_glow_armed", autoport_proof::armed_for(kGlowRangeId) ? 1 : 0);
+  autoport_proof::publish("hdr_glow_frames", s_glow_range_frames);
+
+  // ── LA PORTE. Somme de termes publies SEPAREMENT. Deux d'entre eux sont des TEMOINS
+  //    D'EFFET : ils exigent une mesure POSITIVE pour valoir zero, de sorte qu'une course ou
+  //    rien n'aurait tourne ne peut pas passer par inaction.
+  const uint64_t d_no_witness = (s_sprite_render_calls == 0) ? 1 : 0;
+  const uint64_t d_ctor_missing = (s_glow_ctors == 0) ? 1 : 0;
+  const uint64_t d_stage_incomplete =
+      (uint64_t)(s_glow_stages_created > s_glow_stages_complete
+                     ? s_glow_stages_created - s_glow_stages_complete
+                     : 0);
+  const uint64_t d_probe_refus = s_glow_reason_n[kGlowProbeRefus] ? 1 : 0;
+  const uint64_t d_state_mute =
+      (s_glow_flush_calls > 0 && s_glow_reason_max == kGlowProbeNever) ? 1 : 0;
+  const uint64_t d_unexplained = (s_glow_flush_calls == 0 && s_sprite_jak2_calls > 0) ? 1 : 0;
+  const uint64_t d_no_denominator =
+      (s_glow_reason_n[kGlowProbeRan] > 0 && s_glow_px == 0) ? 1 : 0;
+  autoport_proof::publish("hdr_glow_d_no_witness", d_no_witness);
+  autoport_proof::publish("hdr_glow_d_ctor_missing", d_ctor_missing);
+  autoport_proof::publish("hdr_glow_d_stage_incomplete", d_stage_incomplete);
+  autoport_proof::publish("hdr_glow_d_probe_refus", d_probe_refus);
+  autoport_proof::publish("hdr_glow_d_state_mute", d_state_mute);
+  autoport_proof::publish("hdr_glow_d_unexplained", d_unexplained);
+  autoport_proof::publish("hdr_glow_d_no_denominator", d_no_denominator);
+  autoport_proof::publish("hdr_glow_range_defects",
+                          d_no_witness + d_ctor_missing + d_stage_incomplete + d_probe_refus +
+                              d_state_mute + d_unexplained + d_no_denominator);
+}
 }  // namespace
 
 ChainCensus chain_census() {
@@ -1052,6 +1302,7 @@ void frame_end(GLenum scene_format) {
   // AVANT le repli de `lighting-hdr` : ce bloc-ci a son propre item, son propre bras, et il doit
   // publier meme quand l'autre est desarme.
   publish_source_range();
+  publish_glow_range();
   if (!autoport_proof::armed_for(kItemId)) {
     s_drew_this_frame = false;
     return;  // bras desarme : AUCUNE cle `hdr_*` / `tonemap_*`, comme lighting-unify

@@ -263,6 +263,10 @@ bool glow_math(const SpriteGlowConsts* consts,
 void Sprite3::glow_dma_and_draw(DmaFollower& dma,
                                 SharedRenderState* render_state,
                                 ScopedProfilerNode& prof) {
+  // hdr-glow-range : LE PRODUCTEUR. Ce site n'est appele que depuis `render_jak2`
+  // (Sprite3.cpp:1084) ; `render_jak1` ne le nomme pas. Le compteur le dit au lieu de le
+  // supposer — c'est lui qui separe « le bucket etait vide » de « personne n'a lu de bucket ».
+  hdr::note_glow_dma_enter();
   auto maybe_consts_setup = dma.read_and_advance();
   if (maybe_consts_setup.size_bytes != sizeof(SpriteGlowConsts)) {
     return;

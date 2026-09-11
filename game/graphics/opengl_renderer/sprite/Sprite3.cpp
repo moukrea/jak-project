@@ -1019,6 +1019,16 @@ void Sprite3::render(DmaFollower& dma, SharedRenderState* render_state, ScopedPr
     default:
       ASSERT_NOT_REACHED();
   }
+  // hdr-glow-range : LE DENOMINATEUR de tout le bloc `hdr_glow_*`, plus les deux chemins
+  // CONCURRENTS. Sans cette ligne, un `hdr_glow_flush_calls=0` ne se distingue pas d'un
+  // instrument qui n'a jamais tourne ; avec elle, il se lit « N images de sprites ont ete
+  // rendues, aucune n'a atteint le halo ». Les sprites 2D et les distorteurs d'aux-list sont
+  // publies a cote : c'est par la que passe le halo que l'owner voit sur les feux et les
+  // portails de Sandover.
+  hdr::note_sprite_frame(
+      render_state->version == GameVersion::Jak1,
+      (uint64_t)(m_debug_stats.count_2d_grp0 + m_debug_stats.count_2d_grp1),
+      (uint64_t)(m_distort_stats.total_sprites < 0 ? 0 : m_distort_stats.total_sprites));
 }
 
 void Sprite3::render_jak2(DmaFollower& dma,

@@ -47,6 +47,11 @@
  */
 
 GlowRenderer::GlowRenderer() {
+  // hdr-glow-range : la construction se COMPTE. `stages_created` / `stages_complete` sont lus
+  // de `glCheckFramebufferStatus`, pas supposes ; `fallbacks` compte les etages que le pilote a
+  // refuses en flottant. C'est ce triplet qui remplace l'`ASSERT` nu de la boucle ci-dessous :
+  // sur un pilote qui refuserait un etage, le processus ne meurt plus, la porte devient rouge.
+  int stages_created = 0, stages_complete = 0, stage_fallbacks = 0;
   m_vertex_buffer.resize(kMaxVertices);
   m_sprite_data_buffer.resize(kMaxSprites);
   m_index_buffer.resize(kMaxIndices);
@@ -231,6 +236,7 @@ GlowRenderer::GlowRenderer() {
     m_ogl.stage_fmt.type = GL_UNSIGNED_BYTE;
     m_ogl.stage_fmt.is_float = false;
     hdr::note_stage_fallback("glow-probe");
+    stage_fallbacks++;
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_ogl.probe_fbo_w, m_ogl.probe_fbo_h, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, nullptr);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
@@ -239,10 +245,19 @@ GlowRenderer::GlowRenderer() {
   }
   hdr::note_scene_stage("glow-probe", m_ogl.stage_fmt.internal_fmt, m_ogl.probe_fbo_w,
                         m_ogl.probe_fbo_h, 1);
-  ASSERT(status == GL_FRAMEBUFFER_COMPLETE);
+  stages_created++;
+  if (status == GL_FRAMEBUFFER_COMPLETE) {
+    stages_complete++;
+  } else {
+    lg::error("[hdr-glow-range] sonde de halo INCOMPLETE (status=0x{:x}) meme apres repli 8 bits",
+              (unsigned)status);
+  }
 
   // downsample fbo setup: each will hold a grid of probes.
   // there's one fbo for each size.
+  // hdr-glow-range : les octets sont comptes SUR LE FORMAT RETENU, jamais sur celui demande.
+  const uint64_t texel_bytes = m_ogl.stage_fmt.is_float ? 8u : 4u;
+  uint64_t ds_bytes = 0;
   int ds_size = kFirstDownsampleSize;
   for (int i = 0; i < kDownsampleIterations; i++) {
     m_ogl.downsample_fbos[i].size = ds_size * kDownsampleBatchWidth;
@@ -269,7 +284,28 @@ GlowRenderer::GlowRenderer() {
                            m_ogl.downsample_fbos[i].tex, 0);
     glDrawBuffers(1, render_targets);
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    ASSERT(status == GL_FRAMEBUFFER_COMPLETE);
+    // hdr-glow-range, livrable 4. Cet `ASSERT` etait NU : sur un pilote qui accepterait la sonde
+    // et refuserait un etage, le processus mourait a l'init du renderer et le symptome ne
+    // ressemblait pas a sa cause. On replie sur le format historique, on COMPTE le repli, et
+    // s'il refuse encore on le compte aussi — la porte le lit, personne ne meurt.
+    if (status != GL_FRAMEBUFFER_COMPLETE && m_ogl.stage_fmt.is_float) {
+      hdr::note_stage_fallback(fmt::format("glow-downsample-{}", i).c_str());
+      stage_fallbacks++;
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ds_px, ds_px, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                   nullptr);
+      hdr::note_scene_stage_indexed("glow-downsample", i, GL_RGBA8, ds_px, ds_px);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                             m_ogl.downsample_fbos[i].tex, 0);
+      status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    }
+    stages_created++;
+    if (status == GL_FRAMEBUFFER_COMPLETE) {
+      stages_complete++;
+    } else {
+      lg::error("[hdr-glow-range] etage de reduction {} INCOMPLET (status=0x{:x})", i,
+                (unsigned)status);
+    }
+    ds_bytes += (uint64_t)ds_px * (uint64_t)ds_px * texel_bytes;
     ds_size /= 2;
   }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -291,6 +327,12 @@ GlowRenderer::GlowRenderer() {
   m_default_draw_mode.disable_depth_write();
 
   glGenTextures(1, &m_ogl.depth_texture);
+
+  // hdr-glow-range : ce que la construction a LATCHE et ce qu'elle COUTE, mesures ici et nulle
+  // part ailleurs — le format des etages n'est plus jamais reconsulte apres ce point.
+  hdr::note_glow_ctor(m_ogl.stage_fmt.is_float, ds_bytes,
+                      (uint64_t)m_ogl.probe_fbo_w * (uint64_t)m_ogl.probe_fbo_h * texel_bytes,
+                      stages_created, stages_complete, stage_fallbacks);
 }
 
 namespace {
@@ -310,11 +352,13 @@ bool GlowRenderer::at_max_capacity() {
 
 SpriteGlowOutput* GlowRenderer::alloc_sprite() {
   ASSERT(m_next_sprite < m_sprite_data_buffer.size());
+  hdr::note_glow_alloc(false);
   return &m_sprite_data_buffer[m_next_sprite++];
 }
 
 void GlowRenderer::cancel_sprite() {
   ASSERT(m_next_sprite);
+  hdr::note_glow_alloc(true);
   m_next_sprite--;
 }
 
@@ -575,6 +619,11 @@ void GlowRenderer::blit_depth(SharedRenderState* render_state) {
                  m_ogl.probe_fbo_h, 0, m_ogl.stage_fmt.ext_fmt, m_ogl.stage_fmt.type, NULL);
     hdr::note_scene_stage("glow-probe", m_ogl.stage_fmt.internal_fmt, m_ogl.probe_fbo_w,
                           m_ogl.probe_fbo_h, 1);
+    // hdr-glow-range, livrable 5 : ce site REPREND `m_ogl.stage_fmt`, il ne reconsulte pas le
+    // regime. C'est ce compteur, a cote de `hdr_glow_fmt_resolved=1`, qui etablit que la bascule
+    // du maitre Recharged en jeu n'atteint pas ces cibles sans un redemarrage.
+    hdr::note_glow_fmt_reuse((uint64_t)m_ogl.probe_fbo_w * (uint64_t)m_ogl.probe_fbo_h *
+                             (m_ogl.stage_fmt.is_float ? 8u : 4u));
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glBindTexture(GL_TEXTURE_2D, m_ogl.probe_fbo_depth_tex);
@@ -854,6 +903,10 @@ void GlowRenderer::probe_and_copy_new(SharedRenderState* render_state, ScopedPro
  */
 void GlowRenderer::flush(SharedRenderState* render_state, ScopedProfilerNode& prof) {
   m_debug.num_sprites = m_next_sprite;
+  // hdr-glow-range : le compteur est AVANT le retour anticipe. C'est tout l'objet de l'item —
+  // le chantier A concluait « aucun sprite soumis » depuis un `hdr_src_glow_state=2` qui, lui,
+  // ne distinguait pas « flush est sorti a vide » de « flush n'a jamais ete appele ».
+  hdr::note_glow_flush((uint64_t)m_next_sprite);
   if (!m_next_sprite) {
     // no sprites submitted.
     return;
